@@ -53,8 +53,8 @@ import {
   type PostFinishingTaskView,
 } from './post-finishing-domain.ts'
 import {
-  getCuttingMergeBatchTaskPrintSourceById,
-  getCuttingOriginalOrderTaskPrintSourceById,
+  getCuttingMarkerPlanRefTaskPrintSourceById,
+  getCuttingCutOrderTaskPrintSourceById,
 } from './cutting-task-print-source.ts'
 import { getQuantityLabel } from './process-quantity-labels.ts'
 
@@ -68,8 +68,8 @@ export type TaskRouteCardSourceType =
   | 'SPECIAL_CRAFT_TASK_ORDER'
   | 'POST_FINISHING_TASK'
   | 'POST_FINISHING_WORK_ORDER'
-  | 'CUTTING_ORIGINAL_ORDER'
-  | 'CUTTING_MERGE_BATCH'
+  | 'CUTTING_ORDER'
+  | 'CUTTING_MARKER_PLAN'
 
 export interface TaskPrintImage {
   title: string
@@ -1215,34 +1215,34 @@ function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCa
   }
 }
 
-function buildRouteCardFromCuttingOriginalOrder(sourceId: string): TaskRouteCardBuildResult {
-  const source = getCuttingOriginalOrderTaskPrintSourceById(sourceId)
-  if (!source) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到原始裁片单：${sourceId}` }
+function buildRouteCardFromCuttingCutOrder(sourceId: string): TaskRouteCardBuildResult {
+  const source = getCuttingCutOrderTaskPrintSourceById(sourceId)
+  if (!source) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到裁片单：${sourceId}` }
 
   return {
     ok: true,
     card: {
       cardName: TASK_ROUTE_CARD_NAME,
-      sourceType: 'CUTTING_ORIGINAL_ORDER',
+      sourceType: 'CUTTING_ORDER',
       sourceId,
-      sourceLabel: '原始裁片单',
-      taskId: source.originalCutOrderId,
-      taskNo: source.originalCutOrderNo,
+      sourceLabel: '裁片单',
+      taskId: source.cutOrderId,
+      taskNo: source.cutOrderNo,
       productionOrderId: source.productionOrderId,
       productionOrderNo: source.productionOrderNo,
       processName: '裁床',
-      craftName: '原始裁片单',
+      craftName: '裁片单',
       factoryName: '裁床',
       statusLabel: source.currentStageLabel,
       plannedQty: source.plannedQty,
       qtyUnit: '片',
       dueAt: source.plannedShipDate,
-      qrValue: buildTaskQrValue(source.originalCutOrderId),
-      image: resolvePrintImage({ productionOrderId: source.productionOrderId, processName: '裁床', craftName: '原始裁片单' }),
+      qrValue: buildTaskQrValue(source.cutOrderId),
+      image: resolvePrintImage({ productionOrderId: source.productionOrderId, processName: '裁床', craftName: '裁片单' }),
       summaryRemark: source.latestActionText,
-      titleOverride: '原始裁片单任务流转卡',
+      titleOverride: '裁片单任务流转卡',
       summaryRowsOverride: [
-        { label: '原始裁片单号', value: source.originalCutOrderNo },
+        { label: '裁片单号', value: source.cutOrderNo },
         { label: '生产单号', value: source.productionOrderNo },
         { label: '款号 / SPU', value: `${source.styleCode || '—'} / ${source.spuCode || '—'}` },
         { label: '面料 SKU', value: source.materialSku },
@@ -1252,10 +1252,10 @@ function buildRouteCardFromCuttingOriginalOrder(sourceId: string): TaskRouteCard
         { label: '计划裁片数量', value: formatQtyText(source.plannedQty, '片') },
         { label: '发货日期', value: source.plannedShipDate || '—' },
         { label: '紧急程度', value: source.urgencyLabel },
-        { label: '配料状态', value: source.prepStatusLabel },
-        { label: '领料状态', value: source.claimStatusLabel },
-        { label: '当前阶段', value: source.currentStageLabel },
-        { label: '最新裁片批次号', value: source.latestMergeBatchNo },
+        { label: '中转仓已配', value: source.prepStatusLabel },
+        { label: '裁床已领', value: source.claimStatusLabel },
+        { label: '裁片单状态', value: source.currentStageLabel },
+        { label: '最新唛架方案号', value: source.latestMarkerPlanNo },
       ],
       supplementalItems: [
         { label: '状态摘要', value: source.statusSummary },
@@ -1267,39 +1267,39 @@ function buildRouteCardFromCuttingOriginalOrder(sourceId: string): TaskRouteCard
   }
 }
 
-function buildRouteCardFromCuttingMergeBatch(sourceId: string): TaskRouteCardBuildResult {
-  const source = getCuttingMergeBatchTaskPrintSourceById(sourceId)
-  if (!source) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到裁片批次：${sourceId}` }
+function buildRouteCardFromCuttingMarkerPlanRef(sourceId: string): TaskRouteCardBuildResult {
+  const source = getCuttingMarkerPlanRefTaskPrintSourceById(sourceId)
+  if (!source) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到唛架方案：${sourceId}` }
 
   return {
     ok: true,
     card: {
       cardName: TASK_ROUTE_CARD_NAME,
-      sourceType: 'CUTTING_MERGE_BATCH',
+      sourceType: 'CUTTING_MARKER_PLAN',
       sourceId,
-      sourceLabel: '裁片批次',
-      taskId: source.mergeBatchId,
-      taskNo: source.mergeBatchNo,
+      sourceLabel: '唛架方案',
+      taskId: source.markerPlanId,
+      taskNo: source.markerPlanNo,
       productionOrderId: source.firstProductionOrderId,
       productionOrderNo: source.firstProductionOrderNo || `${source.sourceProductionOrderCount} 个生产单`,
       processName: '裁床',
-      craftName: '裁片批次',
+      craftName: '唛架方案',
       factoryName: source.plannedCuttingGroup || '裁床',
       statusLabel: source.statusLabel,
-      plannedQty: source.sourceOriginalCutOrderCount,
+      plannedQty: source.sourceCutOrderCount,
       qtyUnit: '单',
       dueAt: source.plannedCuttingDate || source.updatedAt || '—',
-      qrValue: buildTaskQrValue(source.mergeBatchId),
-      image: resolvePrintImage({ productionOrderId: source.firstProductionOrderId, processName: '裁床', craftName: '裁片批次' }),
-      summaryRemark: source.note || '按裁片批次当前台账生成',
-      titleOverride: '裁片批次任务流转卡',
+      qrValue: buildTaskQrValue(source.markerPlanId),
+      image: resolvePrintImage({ productionOrderId: source.firstProductionOrderId, processName: '裁床', craftName: '唛架方案' }),
+      summaryRemark: source.note || '按唛架方案当前台账生成',
+      titleOverride: '唛架方案任务流转卡',
       summaryRowsOverride: [
-        { label: '裁片批次号', value: source.mergeBatchNo },
+        { label: '唛架方案号', value: source.markerPlanNo },
         { label: '当前状态', value: source.statusLabel },
         { label: '款号 / SPU', value: `${source.styleCode || '—'} / ${source.spuCode || '—'}` },
         { label: '面料 SKU 摘要', value: source.materialSkuSummary || '—' },
         { label: '来源生产单数', value: `${source.sourceProductionOrderCount} 个` },
-        { label: '来源原始裁片单数', value: `${source.sourceOriginalCutOrderCount} 个` },
+        { label: '来源裁片单数', value: `${source.sourceCutOrderCount} 个` },
         { label: '计划裁床组', value: source.plannedCuttingGroup || '—' },
         { label: '计划裁剪日期', value: source.plannedCuttingDate || '—' },
         { label: '备注', value: source.note || '—' },
@@ -1307,10 +1307,10 @@ function buildRouteCardFromCuttingMergeBatch(sourceId: string): TaskRouteCardBui
       supplementalItems: [
         { label: '创建时间', value: source.createdAt || '—' },
         { label: '更新时间', value: source.updatedAt || '—' },
-        { label: '来源类型', value: '裁片批次' },
-        { label: '菲票归属说明', value: '菲票归属仍回落原始裁片单，合并裁剪批次仅作为执行上下文' },
+        { label: '来源单据', value: '唛架方案' },
+        { label: '菲票归属说明', value: '菲票归属仍回落裁片单，唛架方案仅作为执行上下文' },
       ],
-      routeRecords: ensureRouteRecordNodes(source.nodeRows, ['合并批次生成', '铺布计划', '裁剪执行', '菲票生成', '裁片入仓', '交出']),
+      routeRecords: ensureRouteRecordNodes(source.nodeRows, ['唛架方案生成', '铺布计划', '裁剪执行', '菲票生成', '裁片入仓', '交出']),
     },
   }
 }
@@ -1332,10 +1332,10 @@ export function buildTaskRouteCardBySource(
       return buildRouteCardFromPostFinishingTask(sourceId)
     case 'POST_FINISHING_WORK_ORDER':
       return buildRouteCardFromPostFinishingWorkOrder(sourceId)
-    case 'CUTTING_ORIGINAL_ORDER':
-      return buildRouteCardFromCuttingOriginalOrder(sourceId)
-    case 'CUTTING_MERGE_BATCH':
-      return buildRouteCardFromCuttingMergeBatch(sourceId)
+    case 'CUTTING_ORDER':
+      return buildRouteCardFromCuttingCutOrder(sourceId)
+    case 'CUTTING_MARKER_PLAN':
+      return buildRouteCardFromCuttingMarkerPlanRef(sourceId)
     default: {
       const _exhaustive: never = sourceType
       return _exhaustive
@@ -1351,8 +1351,8 @@ export function isTaskRouteCardSourceType(value: string): value is TaskRouteCard
     || value === 'SPECIAL_CRAFT_TASK_ORDER'
     || value === 'POST_FINISHING_TASK'
     || value === 'POST_FINISHING_WORK_ORDER'
-    || value === 'CUTTING_ORIGINAL_ORDER'
-    || value === 'CUTTING_MERGE_BATCH'
+    || value === 'CUTTING_ORDER'
+    || value === 'CUTTING_MARKER_PLAN'
   )
 }
 

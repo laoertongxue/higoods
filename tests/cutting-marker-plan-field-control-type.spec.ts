@@ -6,9 +6,9 @@ async function clickMarkerPlanTab(page: import('@playwright/test').Page, tabKey:
   await page.locator(`[data-marker-plan-tab-trigger="${tabKey}"]`).evaluate((node: HTMLElement) => node.click())
 }
 
-async function openCreateFromOriginalContext(page: import('@playwright/test').Page): Promise<void> {
+async function openCreateFromCutOrderContext(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/fcs/craft/cutting/marker-list')
-  await page.getByRole('button', { name: '从原始裁片单新建' }).click()
+  await page.getByRole('button', { name: '从裁片单新建' }).click()
   const drawer = page.getByTestId('marker-plan-context-drawer')
   await expect(drawer).toBeVisible()
   await drawer.locator('tbody input[type="radio"]').first().check()
@@ -19,7 +19,7 @@ async function openCreateFromOriginalContext(page: import('@playwright/test').Pa
 test('唛架新增页字段控件类型准确，详情页保持只读呈现', async ({ page }) => {
   const errors = collectPageErrors(page)
 
-  await openCreateFromOriginalContext(page)
+  await openCreateFromCutOrderContext(page)
   const createPage = page.getByTestId('cutting-marker-plan-create-page')
   const basicTab = page.getByTestId('marker-plan-basic-tab')
   await expect(basicTab.locator('label:has-text("唛架编号") input[type="text"]')).toBeVisible()

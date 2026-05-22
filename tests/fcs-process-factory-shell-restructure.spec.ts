@@ -81,9 +81,9 @@ test('PFOS 关键菜单点击有效且高亮归属正确', async ({ page }) => {
     },
     {
       parentKey: 'pfos-cutting-prep',
-      childKey: 'pfos-cutting-original-orders',
-      href: /\/fcs\/craft\/cutting\/original-orders$/,
-      heading: '原始裁片单',
+      childKey: 'pfos-cutting-cut-orders',
+      href: /\/fcs\/craft\/cutting\/cut-orders$/,
+      heading: '裁片单',
     },
     {
       parentKey: 'pfos-cutting-prep',

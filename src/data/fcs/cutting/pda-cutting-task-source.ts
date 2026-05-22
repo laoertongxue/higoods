@@ -12,11 +12,13 @@ export interface PdaCuttingExecutionSourceRecord {
   executionOrderNo: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
   bindingState: PdaExecutionBindingState
 }
 

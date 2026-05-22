@@ -36,7 +36,7 @@ export function buildCuttingPickupSlip(
     sourceTaskNo: seed.task.taskNo,
     productionOrderNo: seed.detail.productionOrderNo,
     boundObjectType: 'CUT_PIECE_ORDER',
-    boundObjectNo: seed.detail.originalCutOrderNo,
+    boundObjectNo: seed.detail.cutOrderNo,
     factoryType: seed.task.factoryType,
     factoryName: seed.detail.assigneeFactoryName,
     materialSku: seed.detail.materialSku,
@@ -65,7 +65,7 @@ export function buildCuttingQrBinding(seed: CuttingPickupSeed, generatedBy: stri
   return {
     qrCodeValue: seed.detail.qrCodeValue,
     boundObjectType: 'CUT_PIECE_ORDER',
-    boundObjectNo: seed.detail.originalCutOrderNo,
+    boundObjectNo: seed.detail.cutOrderNo,
     scenarioType: 'CUTTING',
     reusePolicy: 'REUSE_BY_BOUND_OBJECT',
     generatedAt: seed.createdAt,

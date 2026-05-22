@@ -1,9 +1,9 @@
 import { buildFcsCuttingDomainSnapshot, type CuttingDomainSnapshot } from '../../domain/fcs-cutting-runtime/index.ts'
 import {
-  getGeneratedOriginalCutOrderSourceRecordById,
-  listGeneratedOriginalCutOrderSourceRecords,
-  type GeneratedOriginalCutOrderSourceRecord,
-} from './cutting/generated-original-cut-orders.ts'
+  getGeneratedCutOrderSourceRecordById,
+  listGeneratedCutOrderSourceRecords,
+  type GeneratedCutOrderSourceRecord,
+} from './cutting/generated-cut-orders.ts'
 import { buildMarkerPlanProjection } from '../../pages/process-factory/cutting/marker-plan-projection.ts'
 import {
   getPdaCuttingExecutionSourceRecord,
@@ -29,7 +29,7 @@ import type {
   PdaReplenishmentFeedbackWritebackRecord,
 } from './cutting/pda-execution-writeback-ledger.ts'
 import type { MarkerSpreadingStore, SpreadingOperatorRecord, SpreadingRollRecord, SpreadingSession } from './cutting/marker-spreading-ledger.ts'
-import { getLatestClaimDisputeByOriginalCutOrderNo } from '../../state/fcs-claim-dispute-store.ts'
+import { getLatestClaimDisputeByCutOrderNo } from '../../state/fcs-claim-dispute-store.ts'
 import {
   buildSpreadingPlanUnitsFromMarker,
   type MarkerSpreadingContext,
@@ -63,10 +63,10 @@ export interface PdaTaskFlowProjectedTask extends ProcessTask {
   supportsCuttingSpecialActions: boolean
   entryMode: PdaTaskEntryMode
   productionOrderNo?: string
-  originalCutOrderIds?: string[]
-  originalCutOrderNos?: string[]
-  mergeBatchIds?: string[]
-  mergeBatchNos?: string[]
+  cutOrderIds?: string[]
+  cutOrderNos?: string[]
+  markerPlanIds?: string[]
+  markerPlanNos?: string[]
   executionOrderIds?: string[]
   executionOrderNos?: string[]
   defaultExecutionOrderId?: string
@@ -90,11 +90,13 @@ export interface PdaCuttingTaskOrderLine {
   executionOrderNo: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
   bindingState: 'BOUND' | 'UNBOUND'
   materialTypeLabel: string
   colorLabel?: string
@@ -164,10 +166,12 @@ export interface PdaCuttingSpreadingTarget {
   title: string
   contextLabel: string
   statusLabel: string
-  originalCutOrderNo: string
-  mergeBatchNo: string
+  cutOrderNo: string
+  markerPlanNo: string
   productionOrderNo: string
   materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
   colorSummary: string
   importedFromMarker: boolean
   planUnits: PdaCuttingSpreadingPlanUnitOption[]
@@ -180,6 +184,8 @@ export interface PdaCuttingSpreadingPlanUnitOption {
   label: string
   color: string
   materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
   garmentQtyPerUnit: number
   plannedRepeatCount: number
   lengthPerUnitM: number
@@ -230,14 +236,14 @@ export interface PdaCuttingTaskDetailData {
   taskNo: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
-  mergeBatchIds: string[]
-  mergeBatchNos: string[]
+  cutOrderId: string
+  cutOrderNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
+  markerPlanIds: string[]
+  markerPlanNos: string[]
   executionOrderId: string
   executionOrderNo: string
   cutPieceOrders: PdaCuttingTaskOrderLine[]
@@ -258,6 +264,8 @@ export interface PdaCuttingTaskDetailData {
   taskStatusLabel: string
   currentOwnerName: string
   materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
   materialTypeLabel: string
   pickupSlipNo: string
   pickupSlipPrintStatusLabel: string
@@ -322,10 +330,10 @@ export interface PdaCuttingTaskDetailData {
 export interface PdaCuttingRouteOptions {
   executionOrderId?: string
   executionOrderNo?: string
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   materialSku?: string
   returnTo?: string
 }
@@ -345,10 +353,10 @@ function matchPdaExecutionRecord(record: PdaCuttingExecutionSourceRecord, execut
   return [
     record.executionOrderId,
     record.executionOrderNo,
-    record.originalCutOrderId,
-    record.originalCutOrderNo,
-    record.mergeBatchId,
-    record.mergeBatchNo,
+    record.cutOrderId,
+    record.cutOrderNo,
+    record.markerPlanId,
+    record.markerPlanNo,
     record.materialSku,
   ].some((value) => value === key)
 }
@@ -361,7 +369,7 @@ function mapTaskStatusLabel(status: ProcessTask['status']): string {
   return '待开始'
 }
 
-function mapMaterialTypeLabel(record: GeneratedOriginalCutOrderSourceRecord | null): string {
+function mapMaterialTypeLabel(record: GeneratedCutOrderSourceRecord | null): string {
   if (!record) return '待补面料类型'
   if (record.materialCategory) return record.materialCategory
   if (record.materialType === 'PRINT' || record.materialType === 'DYE' || record.materialType === 'SOLID') return '面料主料'
@@ -370,13 +378,13 @@ function mapMaterialTypeLabel(record: GeneratedOriginalCutOrderSourceRecord | nu
 }
 
 function mapReceiveStatusLabel(status: string | undefined): string {
-  if (status === 'RECEIVED') return '来料已入仓'
-  if (status === 'PARTIAL') return '部分来料'
-  return '待 WMS 来料确认'
+  if (status === 'RECEIVED') return '已领料入仓'
+  if (status === 'PARTIAL') return '领料数量不足'
+  return '待裁床领料确认'
 }
 
-function buildPickupSlipNo(originalCutOrderNo: string): string {
-  return `LLD-${originalCutOrderNo.replace(/^CUT-/, '')}`
+function buildPickupSlipNo(cutOrderNo: string): string {
+  return `LLD-${cutOrderNo.replace(/^CUT-/, '')}`
 }
 
 function mapSpreadingModeLabel(
@@ -405,11 +413,11 @@ function mapSpreadingModeKey(
   return 'NORMAL'
 }
 
-function buildQrCodeValue(originalCutOrderNo: string): string {
-  return `QR-${originalCutOrderNo}`
+function buildQrCodeValue(cutOrderNo: string): string {
+  return `QR-${cutOrderNo}`
 }
 
-function buildConfiguredQtyText(record: GeneratedOriginalCutOrderSourceRecord, configuredLength = 0, configuredRollCount = 0): string {
+function buildConfiguredQtyText(record: GeneratedCutOrderSourceRecord, configuredLength = 0, configuredRollCount = 0): string {
   if (configuredRollCount > 0 || configuredLength > 0) {
     return `卷数 ${configuredRollCount || 0} 卷 / 长度 ${configuredLength || 0} 米`
   }
@@ -450,6 +458,8 @@ function toSpreadingPlanUnitOption(unit: SpreadingPlanUnit): PdaCuttingSpreading
     label: buildSpreadingPlanUnitLabel(unit),
     color: unit.color,
     materialSku: unit.materialSku,
+    materialAlias: unit.materialAlias || '',
+    materialImageUrl: unit.materialImageUrl || '',
     garmentQtyPerUnit: unit.garmentQtyPerUnit,
     plannedRepeatCount: unit.plannedRepeatCount,
     lengthPerUnitM: unit.lengthPerUnitM,
@@ -467,8 +477,10 @@ function buildFallbackPlanUnitsFromSession(session: SpreadingSession, execution:
     planUnitId: `plan-unit-fallback-${session.markerId || session.spreadingSessionId}`,
     sourceType: 'exception',
     sourceLineId: session.markerId || session.spreadingSessionId,
-    color: session.colorSummary?.split(' / ')[0] || execution.colorLabel || '',
+    color: session.colorSummary?.split(' / ')[0] || '',
     materialSku: session.materialSkuSummary?.split(' / ')[0] || execution.materialSku || '',
+    materialAlias: execution.materialAlias || '',
+    materialImageUrl: execution.materialImageUrl || '',
     garmentQtyPerUnit,
     plannedRepeatCount: Math.max(Number(session.plannedLayers || 0), 1),
     lengthPerUnitM: Math.max(Number(session.theoreticalSpreadTotalLength || 0), 0) > 0 && Math.max(Number(session.plannedLayers || 0), 0) > 0
@@ -490,17 +502,19 @@ function buildExecutionMarkerSpreadingContext(
   } = {},
 ): MarkerSpreadingContext {
   return {
-    contextType: execution.mergeBatchId ? 'merge-batch' : 'original-order',
-    originalCutOrderIds: execution.originalCutOrderId ? [execution.originalCutOrderId] : [],
-    originalCutOrderNos: execution.originalCutOrderNo ? [execution.originalCutOrderNo] : [],
-    mergeBatchId: execution.mergeBatchId || '',
-    mergeBatchNo: execution.mergeBatchNo || '',
+    contextType: execution.markerPlanId ? 'marker-plan-ref' : 'cut-order',
+    cutOrderIds: execution.cutOrderId ? [execution.cutOrderId] : [],
+    cutOrderNos: execution.cutOrderNo ? [execution.cutOrderNo] : [],
+    markerPlanId: execution.markerPlanId || '',
+    markerPlanNo: execution.markerPlanNo || '',
     productionOrderNos: execution.productionOrderNo ? [execution.productionOrderNo] : [],
     styleCode: input.styleCode || '',
     spuCode: input.spuCode || '',
     techPackSpuCode: input.spuCode || '',
     styleName: input.styleName || '',
     materialSkuSummary: input.markerMaterialSku || execution.materialSku || '',
+    materialAliasSummary: execution.materialAlias || '',
+    materialImageUrl: execution.materialImageUrl || '',
     materialPrepRows: [],
   }
 }
@@ -510,7 +524,9 @@ function buildPlanUnitsFromCanonicalPlan(
   execution: PdaCuttingExecutionSourceRecord,
 ): PdaCuttingSpreadingPlanUnitOption[] {
   const materialSku = (plan.materialSkuSummary || execution.materialSku || '').split(' / ')[0] || execution.materialSku || ''
-  const fallbackColor = (plan.colorSummary || execution.colorLabel || '').split(' / ')[0] || execution.colorLabel || ''
+  const materialAlias = plan.materialAliasSummary || execution.materialAlias || ''
+  const materialImageUrl = plan.materialImageUrl || execution.materialImageUrl || ''
+  const fallbackColor = (plan.colorSummary || '').split(' / ')[0] || ''
 
   const bedUnits = Array.isArray(plan.beds)
     ? plan.beds
@@ -522,6 +538,8 @@ function buildPlanUnitsFromCanonicalPlan(
             sourceLineId: bed.bedId || `${index + 1}`,
             color: bed.colorName || bed.colorCode || fallbackColor,
             materialSku: bed.materialSku || materialSku,
+            materialAlias,
+            materialImageUrl,
             garmentQtyPerUnit: Number(bed.markerPieceQtyPerLayer || 0),
             plannedRepeatCount: Number(bed.plannedLayerCount || 0),
             lengthPerUnitM: Number(bed.markerLength || 0),
@@ -548,6 +566,8 @@ function buildPlanUnitsFromCanonicalPlan(
           sourceLineId: line.id || `${index + 1}`,
           color: line.colorCode || fallbackColor,
           materialSku,
+          materialAlias,
+          materialImageUrl,
           garmentQtyPerUnit: Number(line.markerPieceQty || 0),
           plannedRepeatCount: Number(line.repeatCount || 0),
           lengthPerUnitM: Number(line.markerLength || 0),
@@ -556,6 +576,8 @@ function buildPlanUnitsFromCanonicalPlan(
         }),
         color: line.colorCode || fallbackColor,
         materialSku,
+        materialAlias,
+        materialImageUrl,
         garmentQtyPerUnit: Number(line.markerPieceQty || 0),
         plannedRepeatCount: Number(line.repeatCount || 0),
         lengthPerUnitM: Number(line.markerLength || 0),
@@ -577,6 +599,8 @@ function buildPlanUnitsFromCanonicalPlan(
           sourceLineId: line.id || `${index + 1}`,
           color: line.colorCode || fallbackColor,
           materialSku,
+          materialAlias,
+          materialImageUrl,
           garmentQtyPerUnit: Number(line.markerPieceQty || 0),
           plannedRepeatCount: Number(line.repeatCount || 0),
           lengthPerUnitM: Number(line.markerLength || 0),
@@ -585,6 +609,8 @@ function buildPlanUnitsFromCanonicalPlan(
         }),
         color: line.colorCode || fallbackColor,
         materialSku,
+        materialAlias,
+        materialImageUrl,
         garmentQtyPerUnit: Number(line.markerPieceQty || 0),
         plannedRepeatCount: Number(line.repeatCount || 0),
         lengthPerUnitM: Number(line.markerLength || 0),
@@ -603,6 +629,8 @@ function buildPlanUnitsFromCanonicalPlan(
       label: `${fallbackColor || '待补颜色'} / ${materialSku || '待补面料'} / ${Number(plan.totalPieces || 0)} 件`,
       color: fallbackColor,
       materialSku,
+      materialAlias,
+      materialImageUrl,
       garmentQtyPerUnit: Number(plan.totalPieces || 0),
       plannedRepeatCount: 1,
       lengthPerUnitM: Number(plan.netLength || 0),
@@ -629,8 +657,8 @@ function mapScenarioAssignmentMode(origin: string): ProcessTask['assignmentMode'
 function buildFallbackCuttingTaskFact(record: PdaCuttingTaskSourceRecord): ProcessTask {
   const scenario = getPdaCuttingTaskScenarioByTaskId(record.taskId)
   const firstExecution = getSourceExecutionsByTaskId(record.taskId)[0] ?? null
-  const originalRecord = firstExecution?.originalCutOrderId
-    ? getGeneratedOriginalCutOrderSourceRecordById(firstExecution.originalCutOrderId)
+  const originalRecord = firstExecution?.cutOrderId
+    ? getGeneratedCutOrderSourceRecordById(firstExecution.cutOrderId)
     : null
   const baseAt = scenario?.notifiedAt || scenario?.quotedAt || scenario?.biddingDeadline || scenario?.dispatchedAt || '2026-03-22 08:00:00'
   const qty = scenario?.qty || originalRecord?.requiredQty || 0
@@ -722,10 +750,10 @@ function listTaskFacts(): ProcessTask[] {
   const existingAfterGenericIds = new Set([...runtimeTaskIds, ...genericTasks.map((task) => task.taskId)])
   const woolTasks = listWoolMobileProcessTasks().filter((task) => !existingAfterGenericIds.has(task.taskId))
   const genericTaskIds = new Set([...genericTasks.map((task) => task.taskId), ...woolTasks.map((task) => task.taskId)])
-  const validCuttingOriginalOrderIds = new Set(listGeneratedOriginalCutOrderSourceRecords().map((record) => record.originalCutOrderId))
+  const validCuttingCutOrderIds = new Set(listGeneratedCutOrderSourceRecords().map((record) => record.cutOrderId))
   const executableFallbackTaskIds = new Set(
     listPdaCuttingExecutionSourceRecords()
-      .filter((record) => validCuttingOriginalOrderIds.has(record.originalCutOrderId))
+      .filter((record) => validCuttingCutOrderIds.has(record.cutOrderId))
       .map((record) => record.taskId),
   )
   const fallbackCuttingTasks = listPdaCuttingTaskSourceRecords()
@@ -748,48 +776,48 @@ function getSourceExecutionsByTaskId(taskId: string): PdaCuttingExecutionSourceR
 
 function getProgressLine(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord) {
   for (const record of snapshot.progressRecords) {
-    const line = record.materialLines.find((item) => item.originalCutOrderId === execution.originalCutOrderId || item.originalCutOrderNo === execution.originalCutOrderNo)
+    const line = record.materialLines.find((item) => item.cutOrderId === execution.cutOrderId || item.cutOrderNo === execution.cutOrderNo)
     if (line) return line
   }
   return null
 }
 
-function getOriginalCutOrderRecord(execution: PdaCuttingExecutionSourceRecord) {
-  if (!execution.originalCutOrderId) return null
-  return getGeneratedOriginalCutOrderSourceRecordById(execution.originalCutOrderId)
+function getCutOrderRecord(execution: PdaCuttingExecutionSourceRecord) {
+  if (!execution.cutOrderId) return null
+  return getGeneratedCutOrderSourceRecordById(execution.cutOrderId)
 }
 
 function getLatestPickup(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaPickupWritebackRecord | null {
   const rows = snapshot.pdaExecutionState.pickupWritebacks as unknown as PdaPickupWritebackRecord[]
-  return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.originalCutOrderId === execution.originalCutOrderId) ?? null
+  return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.cutOrderId === execution.cutOrderId) ?? null
 }
 
 function getLatestInbound(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCutPieceInboundWritebackRecord | null {
   const rows = snapshot.pdaExecutionState.inboundWritebacks as unknown as PdaCutPieceInboundWritebackRecord[]
-  return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.originalCutOrderId === execution.originalCutOrderId) ?? null
+  return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.cutOrderId === execution.cutOrderId) ?? null
 }
 
 function getLatestHandover(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCutPieceHandoverWritebackRecord | null {
   const rows = snapshot.pdaExecutionState.handoverWritebacks as unknown as PdaCutPieceHandoverWritebackRecord[]
-  return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.originalCutOrderId === execution.originalCutOrderId) ?? null
+  return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.cutOrderId === execution.cutOrderId) ?? null
 }
 
 function getLatestReplenishment(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaReplenishmentFeedbackWritebackRecord | null {
   const rows = snapshot.pdaExecutionState.replenishmentFeedbackWritebacks as unknown as PdaReplenishmentFeedbackWritebackRecord[]
-  return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.originalCutOrderId === execution.originalCutOrderId) ?? null
+  return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.cutOrderId === execution.cutOrderId) ?? null
 }
 
 function listSessionsForExecution(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): SpreadingSession[] {
   const store = getMarkerStore(snapshot)
   return (store.sessions || [])
-    .filter((session) => session.originalCutOrderIds.includes(execution.originalCutOrderId) || (execution.mergeBatchId && session.mergeBatchId === execution.mergeBatchId))
+    .filter((session) => (session.cutOrderIds || []).includes(execution.cutOrderId) || (execution.markerPlanId && session.markerPlanId === execution.markerPlanId))
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))
 }
 
 function listMarkersForExecution(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord) {
   const store = getMarkerStore(snapshot)
   return (store.markers || [])
-    .filter((marker) => marker.originalCutOrderIds.includes(execution.originalCutOrderId) || (execution.mergeBatchId && marker.mergeBatchId === execution.mergeBatchId))
+    .filter((marker) => (marker.cutOrderIds || []).includes(execution.cutOrderId) || (execution.markerPlanId && marker.markerPlanId === execution.markerPlanId))
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))
 }
 
@@ -798,8 +826,8 @@ function listCanonicalMarkerPlansForExecution(snapshot: CuttingDomainSnapshot, e
   return projection.viewModel.plans
     .filter(
       (plan) =>
-        plan.originalCutOrderIds.includes(execution.originalCutOrderId)
-        || (execution.mergeBatchId && plan.mergeBatchId === execution.mergeBatchId),
+        plan.cutOrderIds.includes(execution.cutOrderId)
+        || (execution.markerPlanId && plan.markerPlanId === execution.markerPlanId),
     )
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))
 }
@@ -827,10 +855,12 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
     title: session.sessionNo || `铺布对象 ${session.spreadingSessionId.slice(-6)}`,
     contextLabel: '继续当前铺布',
     statusLabel: session.status === 'DONE' ? '已完成' : session.status === 'IN_PROGRESS' ? '进行中' : session.status === 'TO_FILL' ? '待补录' : '草稿',
-    originalCutOrderNo: execution.originalCutOrderNo || '',
-    mergeBatchNo: execution.mergeBatchNo || '',
+    cutOrderNo: execution.cutOrderNo || '',
+    markerPlanNo: execution.markerPlanNo || '',
     productionOrderNo: execution.productionOrderNo || '',
     materialSku: execution.materialSku || '',
+    materialAlias: execution.materialAlias || '',
+    materialImageUrl: execution.materialImageUrl || '',
     colorSummary: session.colorSummary || '',
     importedFromMarker: Boolean(session.importedFromMarker),
     planUnits: (session.planUnits?.length ? session.planUnits : undefined)?.map(toSpreadingPlanUnitOption) || buildFallbackPlanUnitsFromSession(session, execution),
@@ -959,8 +989,8 @@ function resolveCurrentState(line: {
   if (line.taskStatus === 'NOT_STARTED') return '待开工'
   if (line.taskStatus === 'CANCELLED') return '已中止'
   if (line.taskStatus === 'BLOCKED' && line.currentExecutionStatus.includes('暂停')) return '执行暂停'
-  if (line.hasException && !line.pickupSuccess) return '来料差异待处理'
-  if (!line.pickupSuccess) return '待 WMS 来料'
+  if (line.hasException && !line.pickupSuccess) return '领料差异待处理'
+  if (!line.pickupSuccess) return '待裁床领料'
   if (!line.hasSpreading || line.currentExecutionStatus.includes('待铺布')) return '待铺布'
   if (!line.hasInbound) return '待入仓'
   if (!line.hasHandover) return '待交接'
@@ -1009,14 +1039,14 @@ function buildTaskOrderLine(
 ): PdaCuttingTaskOrderLine {
   const scenario = getPdaCuttingTaskScenarioByTaskId(execution.taskId)
   const progressLine = getProgressLine(snapshot, execution)
-  const originalRecord = getOriginalCutOrderRecord(execution)
+  const originalRecord = getCutOrderRecord(execution)
   const latestPickup = getLatestPickup(snapshot, execution)
   const latestInbound = getLatestInbound(snapshot, execution)
   const latestHandover = getLatestHandover(snapshot, execution)
   const latestReplenishment = getLatestReplenishment(snapshot, execution)
   const sessions = listSessionsForExecution(snapshot, execution)
   const preset = getScenarioSpreadingPreset(execution)
-  const pickupDispute = execution.originalCutOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(execution.originalCutOrderNo) : null
+  const pickupDispute = execution.cutOrderNo ? getLatestClaimDisputeByCutOrderNo(execution.cutOrderNo) : null
   const hasInbound = Boolean(latestInbound)
   const hasHandover = Boolean(latestHandover)
   const hasDownstreamWarehouseSignal = hasInbound || hasHandover
@@ -1031,7 +1061,7 @@ function buildTaskOrderLine(
   const hasSpreading = sessions.length > 0 || Boolean(preset)
   const currentExecutionStatus =
     execution.bindingState === 'UNBOUND'
-      ? '待绑定原始裁片单'
+      ? '待绑定裁片单'
       : scenario?.taskStatus === 'NOT_STARTED'
         ? '待开工'
         : scenario?.taskStatus === 'CANCELLED'
@@ -1086,11 +1116,13 @@ function buildTaskOrderLine(
     executionOrderNo: execution.executionOrderNo,
     productionOrderId: execution.productionOrderId,
     productionOrderNo: execution.productionOrderNo,
-    originalCutOrderId: execution.originalCutOrderId,
-    originalCutOrderNo: execution.originalCutOrderNo,
-    mergeBatchId: execution.mergeBatchId,
-    mergeBatchNo: execution.mergeBatchNo,
+    cutOrderId: execution.cutOrderId,
+    cutOrderNo: execution.cutOrderNo,
+    markerPlanId: execution.markerPlanId,
+    markerPlanNo: execution.markerPlanNo,
     materialSku: execution.materialSku,
+    materialAlias: execution.materialAlias || originalRecord?.materialAlias || '',
+    materialImageUrl: execution.materialImageUrl || originalRecord?.materialImageUrl || '',
     bindingState: execution.bindingState,
     materialTypeLabel: mapMaterialTypeLabel(originalRecord),
     colorLabel: originalRecord?.colorScope.join(' / ') || progressLine?.color || (execution.bindingState === 'UNBOUND' ? '待绑定' : ''),
@@ -1109,8 +1141,8 @@ function buildTaskOrderLine(
       taskStatus: scenario?.taskStatus || 'NOT_STARTED',
       hasException,
     }),
-    qrCodeValue: buildQrCodeValue(execution.originalCutOrderNo || execution.executionOrderNo),
-    pickupSlipNo: buildPickupSlipNo(execution.originalCutOrderNo || execution.executionOrderNo),
+    qrCodeValue: buildQrCodeValue(execution.cutOrderNo || execution.executionOrderNo),
+    pickupSlipNo: buildPickupSlipNo(execution.cutOrderNo || execution.executionOrderNo),
     isDone:
       scenario?.taskStatus === 'DONE'
       || (hasPickupSuccess
@@ -1222,10 +1254,10 @@ export interface PdaCuttingSpreadingTraceMatrixRow {
   taskId: string
   executionOrderId: string
   executionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   spreadingSessionId: string
   markerId: string
   markerNo: string
@@ -1246,10 +1278,10 @@ export function buildPdaCuttingSpreadingTraceMatrix(
           taskId: execution.taskId,
           executionOrderId: execution.executionOrderId,
           executionOrderNo: execution.executionOrderNo,
-          originalCutOrderId: execution.originalCutOrderId,
-          originalCutOrderNo: execution.originalCutOrderNo,
-          mergeBatchId: execution.mergeBatchId,
-          mergeBatchNo: execution.mergeBatchNo,
+          cutOrderId: execution.cutOrderId,
+          cutOrderNo: execution.cutOrderNo,
+          markerPlanId: execution.markerPlanId,
+          markerPlanNo: execution.markerPlanNo,
           spreadingSessionId: record.spreadingSessionId,
           markerId: record.markerId,
           markerNo: record.markerNo,
@@ -1459,10 +1491,10 @@ function buildProjectedTask(task: ProcessTask, snapshot: CuttingDomainSnapshot):
     supportsCuttingSpecialActions: true,
     entryMode: 'CUTTING_SPECIAL' as const,
     productionOrderNo: executionRecords[0]?.productionOrderNo || task.productionOrderId,
-    originalCutOrderIds: unique(executionRecords.map((item) => item.originalCutOrderId).filter(Boolean)),
-    originalCutOrderNos: unique(executionRecords.map((item) => item.originalCutOrderNo).filter(Boolean)),
-    mergeBatchIds: unique(executionRecords.map((item) => item.mergeBatchId).filter(Boolean)),
-    mergeBatchNos: unique(executionRecords.map((item) => item.mergeBatchNo).filter(Boolean)),
+    cutOrderIds: unique(executionRecords.map((item) => item.cutOrderId).filter(Boolean)),
+    cutOrderNos: unique(executionRecords.map((item) => item.cutOrderNo).filter(Boolean)),
+    markerPlanIds: unique(executionRecords.map((item) => item.markerPlanId).filter(Boolean)),
+    markerPlanNos: unique(executionRecords.map((item) => item.markerPlanNo).filter(Boolean)),
     executionOrderIds: executionRows.map((item) => item.executionOrderId),
     executionOrderNos: executionRows.map((item) => item.executionOrderNo),
     defaultExecutionOrderId: defaultExecution?.executionOrderId || '',
@@ -1553,7 +1585,7 @@ export function getPdaCuttingTaskSnapshot(
   const selectedLine = executionRows.find((line) => line.executionOrderId === selectedExecutionRecord.executionOrderId) ?? executionRows[0]
   if (!selectedLine) return null
 
-  const originalRecord = getOriginalCutOrderRecord(selectedExecutionRecord)
+  const originalRecord = getCutOrderRecord(selectedExecutionRecord)
   const progressLine = getProgressLine(currentSnapshot, selectedExecutionRecord)
   const pickupLogs = buildPickupLogs(currentSnapshot, selectedExecutionRecord)
   const spreadingTargets = buildSpreadingTargets(currentSnapshot, selectedExecutionRecord)
@@ -1567,8 +1599,8 @@ export function getPdaCuttingTaskSnapshot(
   const latestHandover = handoverRecords[0]
   const latestReplenishment = replenishmentFeedbacks[0]
   const operators = listOperatorsForExecution(currentSnapshot, selectedExecutionRecord)
-  const pickupDispute = selectedExecutionRecord.originalCutOrderNo
-    ? getLatestClaimDisputeByOriginalCutOrderNo(selectedExecutionRecord.originalCutOrderNo)
+  const pickupDispute = selectedExecutionRecord.cutOrderNo
+    ? getLatestClaimDisputeByCutOrderNo(selectedExecutionRecord.cutOrderNo)
     : null
   const riskTips = listRiskTips({
     disputeSummary: pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
@@ -1583,23 +1615,23 @@ export function getPdaCuttingTaskSnapshot(
   const handoverSummary = handoverRecords.length > 0 ? '交接扫码已完成' : '待交接扫码'
   const configuredQtyText = buildConfiguredQtyText(
     originalRecord ?? {
-      originalCutOrderId: selectedExecutionRecord.originalCutOrderId,
-      originalCutOrderNo: selectedExecutionRecord.originalCutOrderNo,
+      cutOrderId: selectedExecutionRecord.cutOrderId,
+      cutOrderNo: selectedExecutionRecord.cutOrderNo,
       productionOrderId: selectedExecutionRecord.productionOrderId,
       productionOrderNo: selectedExecutionRecord.productionOrderNo,
       materialSku: selectedExecutionRecord.materialSku,
       materialType: 'SOLID',
       materialLabel: selectedExecutionRecord.materialSku,
       materialCategory: '',
-      mergeBatchId: selectedExecutionRecord.mergeBatchId,
-      mergeBatchNo: selectedExecutionRecord.mergeBatchNo,
+      markerPlanId: selectedExecutionRecord.markerPlanId,
+      markerPlanNo: selectedExecutionRecord.markerPlanNo,
       requiredQty: 0,
       techPackVersionLabel: '',
       sourceTechPackSpuCode: '',
       colorScope: [],
       skuScopeLines: [],
       pieceRows: [],
-      pieceSummary: '待补裁片信息',
+      pieceSummary: '裁片信息待补',
     },
     progressLine?.configuredLength,
     progressLine?.configuredRollCount,
@@ -1618,14 +1650,14 @@ export function getPdaCuttingTaskSnapshot(
     taskNo: task.taskNo || task.taskId,
     productionOrderId: selectedExecutionRecord.productionOrderId,
     productionOrderNo: selectedExecutionRecord.productionOrderNo,
-    originalCutOrderId: selectedExecutionRecord.originalCutOrderId,
-    originalCutOrderNo: selectedExecutionRecord.originalCutOrderNo,
-    originalCutOrderIds: unique(executionRecords.map((record) => record.originalCutOrderId).filter(Boolean)),
-    originalCutOrderNos: unique(executionRecords.map((record) => record.originalCutOrderNo).filter(Boolean)),
-    mergeBatchId: selectedExecutionRecord.mergeBatchId,
-    mergeBatchNo: selectedExecutionRecord.mergeBatchNo,
-    mergeBatchIds: unique(executionRecords.map((record) => record.mergeBatchId).filter(Boolean)),
-    mergeBatchNos: unique(executionRecords.map((record) => record.mergeBatchNo).filter(Boolean)),
+    cutOrderId: selectedExecutionRecord.cutOrderId,
+    cutOrderNo: selectedExecutionRecord.cutOrderNo,
+    cutOrderIds: unique(executionRecords.map((record) => record.cutOrderId).filter(Boolean)),
+    cutOrderNos: unique(executionRecords.map((record) => record.cutOrderNo).filter(Boolean)),
+    markerPlanId: selectedExecutionRecord.markerPlanId,
+    markerPlanNo: selectedExecutionRecord.markerPlanNo,
+    markerPlanIds: unique(executionRecords.map((record) => record.markerPlanId).filter(Boolean)),
+    markerPlanNos: unique(executionRecords.map((record) => record.markerPlanNo).filter(Boolean)),
     executionOrderId: selectedExecutionRecord.executionOrderId,
     executionOrderNo: selectedExecutionRecord.executionOrderNo,
     cutPieceOrders: executionRows,
@@ -1646,19 +1678,21 @@ export function getPdaCuttingTaskSnapshot(
     taskStatusLabel: task.taskStateLabel || mapTaskStatusLabel(task.status),
     currentOwnerName,
     materialSku: selectedExecutionRecord.materialSku,
+    materialAlias: selectedLine.materialAlias || selectedExecutionRecord.materialAlias || originalRecord?.materialAlias || '',
+    materialImageUrl: selectedLine.materialImageUrl || selectedExecutionRecord.materialImageUrl || originalRecord?.materialImageUrl || '',
     materialTypeLabel: selectedLine.materialTypeLabel,
     pickupSlipNo: selectedLine.pickupSlipNo,
     pickupSlipPrintStatusLabel: progressLine?.printSlipStatus === 'PRINTED' ? '已打印' : '待打印',
-    qrObjectLabel: '原始裁片单主码',
+    qrObjectLabel: '裁片单主码',
     discrepancyAllowed: true,
     hasQrCode: true,
     qrCodeValue: selectedLine.qrCodeValue,
-    qrVersionNote: '二维码主码已绑定原始裁片单',
+    qrVersionNote: '二维码主码已绑定裁片单',
     currentStage: selectedLine.currentStateLabel,
     currentActionHint:
       selectedLine.bindingState === 'UNBOUND'
-        ? `当前执行对象 ${selectedLine.executionOrderNo} 尚未绑定原始裁片单，请先处理绑定异常。`
-        : `当前执行对象 ${selectedLine.executionOrderNo} 绑定原始裁片单 ${selectedLine.originalCutOrderNo}。`,
+        ? `当前执行对象 ${selectedLine.executionOrderNo} 尚未绑定裁片单，请先处理绑定异常。`
+        : `当前执行对象 ${selectedLine.executionOrderNo} 绑定裁片单 ${selectedLine.cutOrderNo}。`,
     nextRecommendedAction: selectedLine.nextActionLabel,
     riskFlags: unique([
       ...(selectedLine.hasException ? ['执行风险'] : []),
@@ -1744,10 +1778,10 @@ export function buildPdaCuttingRoute(taskId: string, routeKey: PdaCuttingRouteKe
   if (options.returnTo?.trim()) params.set('returnTo', options.returnTo.trim())
   if (options.executionOrderId?.trim()) params.set('executionOrderId', options.executionOrderId.trim())
   if (options.executionOrderNo?.trim()) params.set('executionOrderNo', options.executionOrderNo.trim())
-  if (options.originalCutOrderId?.trim()) params.set('originalCutOrderId', options.originalCutOrderId.trim())
-  if (options.originalCutOrderNo?.trim()) params.set('originalCutOrderNo', options.originalCutOrderNo.trim())
-  if (options.mergeBatchId?.trim()) params.set('mergeBatchId', options.mergeBatchId.trim())
-  if (options.mergeBatchNo?.trim()) params.set('mergeBatchNo', options.mergeBatchNo.trim())
+  if (options.cutOrderId?.trim()) params.set('cutOrderId', options.cutOrderId.trim())
+  if (options.cutOrderNo?.trim()) params.set('cutOrderNo', options.cutOrderNo.trim())
+  if (options.markerPlanId?.trim()) params.set('markerPlanId', options.markerPlanId.trim())
+  if (options.markerPlanNo?.trim()) params.set('markerPlanNo', options.markerPlanNo.trim())
   if (options.materialSku?.trim()) params.set('materialSku', options.materialSku.trim())
   const query = params.toString()
   return query ? `${basePath}?${query}` : basePath
@@ -1783,10 +1817,10 @@ export function resolvePdaTaskExecPath(taskId: string, returnTo?: string): strin
   return buildPdaCuttingRoute(taskId, line.primaryExecutionRouteKey, {
     executionOrderId: line.executionOrderId,
     executionOrderNo: line.executionOrderNo,
-    originalCutOrderId: line.originalCutOrderId,
-    originalCutOrderNo: line.originalCutOrderNo,
-    mergeBatchId: line.mergeBatchId,
-    mergeBatchNo: line.mergeBatchNo,
+    cutOrderId: line.cutOrderId,
+    cutOrderNo: line.cutOrderNo,
+    markerPlanId: line.markerPlanId,
+    markerPlanNo: line.markerPlanNo,
     materialSku: line.materialSku,
     returnTo,
   })

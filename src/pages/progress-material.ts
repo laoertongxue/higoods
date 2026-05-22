@@ -63,15 +63,13 @@ interface OrderExecutionRow {
 
 interface CuttingMaterialProgressRow {
   productionOrderNo: string
-  originalCutOrderNo: string
+  cutOrderNo: string
   materialSku: string
   materialTypeLabel: string
   configuredRollCount: number
   configuredLength: number
   receivedRollCount: number
   receivedLength: number
-  configStatusLabel: string
-  pickupStatusLabel: string
   replenishmentStatusLabel: string
   cutOrderQrValue: string
   differenceText: string
@@ -149,20 +147,6 @@ const hasShortageOptions: Array<{ value: HasShortageFilter; label: string }> = [
   { value: 'YES', label: '是' },
   { value: 'NO', label: '否' },
 ]
-
-const CUTTING_CONFIG_STATUS_LABEL: Record<string, string> = {
-  NOT_CONFIGURED: '未配置',
-  PARTIAL: '部分配置',
-  CONFIGURED: '已配置',
-}
-
-const CUTTING_PICKUP_STATUS_LABEL: Record<string, string> = {
-  NOT_RECEIVED: '待领料',
-  PARTIAL: '部分领取',
-  RECEIVED: '已领料',
-  REJECTED: '已驳回',
-  EXCEPTION: '异常提交',
-}
 
 const CUTTING_MATERIAL_TYPE_LABEL: Record<string, string> = {
   PRINT: '印花面料',
@@ -344,8 +328,8 @@ function getAggregatedSummary(rows: OrderExecutionRow[]): {
 function buildCuttingMaterialProgressRows(poId?: string | null): CuttingMaterialProgressRow[] {
   const replenishmentRows = buildReplenishmentProjection().viewModel.rows
   const replenishmentMap = replenishmentRows.reduce<Record<string, string>>((accumulator, row) => {
-    row.originalCutOrderNos.forEach((originalCutOrderNo) => {
-      accumulator[originalCutOrderNo] = accumulator[originalCutOrderNo] || row.statusMeta.label
+    row.cutOrderNos.forEach((cutOrderNo) => {
+      accumulator[cutOrderNo] = accumulator[cutOrderNo] || row.statusMeta.label
     })
     return accumulator
   }, {})
@@ -354,15 +338,13 @@ function buildCuttingMaterialProgressRows(poId?: string | null): CuttingMaterial
     .flatMap((group) =>
       group.materialLines.map((line) => ({
         productionOrderNo: line.productionOrderNo,
-        originalCutOrderNo: line.cutPieceOrderNo,
+        cutOrderNo: line.cutPieceOrderNo,
         materialSku: line.materialSku,
         materialTypeLabel: CUTTING_MATERIAL_TYPE_LABEL[line.materialType] || '暂无数据',
         configuredRollCount: line.configuredRollCount,
         configuredLength: line.configuredLength,
         receivedRollCount: line.receivedRollCount,
         receivedLength: line.receivedLength,
-        configStatusLabel: CUTTING_CONFIG_STATUS_LABEL[line.configStatus] || '暂无数据',
-        pickupStatusLabel: CUTTING_PICKUP_STATUS_LABEL[line.receiveStatus] || '暂无数据',
         replenishmentStatusLabel: replenishmentMap[line.cutPieceOrderNo] || '暂无数据',
         cutOrderQrValue: line.cutOrderQrValue || line.qrCodeValue,
         differenceText:
@@ -376,9 +358,10 @@ function buildCuttingMaterialProgressRows(poId?: string | null): CuttingMaterial
 
 function renderCuttingMaterialProgressSection(poId?: string | null): string {
   const rows = buildCuttingMaterialProgressRows(poId)
-  const configuredCount = rows.filter((row) => row.configStatusLabel === '已配置').length
-  const partialConfigCount = rows.filter((row) => row.configStatusLabel === '部分配置').length
-  const claimedCount = rows.filter((row) => row.pickupStatusLabel === '已领料').length
+  const configuredLineCount = rows.filter((row) => row.configuredLength > 0 || row.configuredRollCount > 0).length
+  const claimedLineCount = rows.filter((row) => row.receivedLength > 0 || row.receivedRollCount > 0).length
+  const configuredLengthTotal = rows.reduce((sum, row) => sum + row.configuredLength, 0)
+  const claimedLengthTotal = rows.reduce((sum, row) => sum + row.receivedLength, 0)
   const diffCount = rows.filter((row) => row.differenceText !== '—').length
   const replenishmentCount = rows.filter((row) => row.replenishmentStatusLabel !== '暂无数据').length
 
@@ -387,30 +370,30 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold">配料进度</h2>
-          <p class="text-xs text-muted-foreground">按原始裁片单汇总配置状态、领料状态、差异和补料</p>
+          <p class="text-xs text-muted-foreground">按裁片单汇总中转仓配料数量、裁床领料数量、差异和补料</p>
         </div>
         <span class="text-xs text-muted-foreground">共 ${rows.length} 条</span>
       </div>
       <div class="grid gap-3 md:grid-cols-5">
         <article class="rounded-lg border bg-muted/20 px-3 py-3">
-          <p class="text-xs text-muted-foreground">已配置</p>
-          <p class="mt-2 text-xl font-semibold">${configuredCount}</p>
+          <p class="text-xs text-muted-foreground">有配料数量</p>
+          <p class="mt-2 text-xl font-semibold">${configuredLineCount}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 px-3 py-3">
-          <p class="text-xs text-muted-foreground">部分配置</p>
-          <p class="mt-2 text-xl font-semibold">${partialConfigCount}</p>
+          <p class="text-xs text-muted-foreground">中转仓已配长度</p>
+          <p class="mt-2 text-xl font-semibold">${configuredLengthTotal}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 px-3 py-3">
-          <p class="text-xs text-muted-foreground">已领料</p>
-          <p class="mt-2 text-xl font-semibold">${claimedCount}</p>
+          <p class="text-xs text-muted-foreground">有领料数量</p>
+          <p class="mt-2 text-xl font-semibold">${claimedLineCount}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 px-3 py-3">
-          <p class="text-xs text-muted-foreground">差异</p>
-          <p class="mt-2 text-xl font-semibold ${diffCount > 0 ? 'text-red-600' : ''}">${diffCount}</p>
+          <p class="text-xs text-muted-foreground">裁床已领长度</p>
+          <p class="mt-2 text-xl font-semibold">${claimedLengthTotal}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 px-3 py-3">
-          <p class="text-xs text-muted-foreground">补料</p>
-          <p class="mt-2 text-xl font-semibold">${replenishmentCount}</p>
+          <p class="text-xs text-muted-foreground">差异 / 补料</p>
+          <p class="mt-2 text-xl font-semibold ${diffCount > 0 ? 'text-red-600' : ''}">${diffCount} / ${replenishmentCount}</p>
         </article>
       </div>
       <div class="overflow-x-auto">
@@ -418,17 +401,15 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
           <thead>
             <tr class="border-b bg-muted/40 text-left">
               <th class="px-3 py-2 font-medium">生产单</th>
-              <th class="px-3 py-2 font-medium">原始裁片单</th>
+              <th class="px-3 py-2 font-medium">裁片单</th>
               <th class="px-3 py-2 font-medium">面料 SKU</th>
               <th class="px-3 py-2 font-medium">面料类型</th>
-              <th class="px-3 py-2 font-medium">配置状态</th>
-              <th class="px-3 py-2 font-medium">配置卷数</th>
-              <th class="px-3 py-2 font-medium">配置长度</th>
-              <th class="px-3 py-2 font-medium">领料状态</th>
-              <th class="px-3 py-2 font-medium">实领卷数</th>
-              <th class="px-3 py-2 font-medium">实领长度</th>
+              <th class="px-3 py-2 font-medium">中转仓配料卷数</th>
+              <th class="px-3 py-2 font-medium">中转仓配料长度</th>
+              <th class="px-3 py-2 font-medium">裁床领料卷数</th>
+              <th class="px-3 py-2 font-medium">裁床领料长度</th>
               <th class="px-3 py-2 font-medium">差异</th>
-              <th class="px-3 py-2 font-medium">补料状态</th>
+              <th class="px-3 py-2 font-medium">补料处理</th>
               <th class="px-3 py-2 font-medium">裁片单二维码</th>
               <th class="px-3 py-2 text-right font-medium">操作</th>
             </tr>
@@ -438,7 +419,7 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
               rows.length === 0
                 ? `
                     <tr>
-                      <td colspan="14" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td>
+                      <td colspan="12" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td>
                     </tr>
                   `
                 : rows
@@ -446,13 +427,11 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
                       (row) => `
                         <tr class="border-b last:border-b-0">
                           <td class="px-3 py-2 font-medium text-primary">${escapeHtml(row.productionOrderNo)}</td>
-                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.originalCutOrderNo)}</td>
+                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.cutOrderNo)}</td>
                           <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.materialSku)}</td>
                           <td class="px-3 py-2">${escapeHtml(row.materialTypeLabel)}</td>
-                          <td class="px-3 py-2">${escapeHtml(row.configStatusLabel)}</td>
                           <td class="px-3 py-2">${row.configuredRollCount}</td>
                           <td class="px-3 py-2">${row.configuredLength}</td>
-                          <td class="px-3 py-2">${escapeHtml(row.pickupStatusLabel)}</td>
                           <td class="px-3 py-2">${row.receivedRollCount}</td>
                           <td class="px-3 py-2">${row.receivedLength}</td>
                           <td class="px-3 py-2">${escapeHtml(row.differenceText)}</td>
@@ -461,9 +440,9 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
                           <td class="px-3 py-2">
                             <div class="flex justify-end gap-2">
                               <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildProductionOrderLink(row.productionOrderNo))}">生产单</button>
-                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildCutOrderLink(row.originalCutOrderNo))}">裁片单</button>
-                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildMaterialPrepLink(row.originalCutOrderNo))}">配料</button>
-                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildReplenishmentLink(row.originalCutOrderNo))}">补料</button>
+                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildCutOrderLink(row.cutOrderNo))}">裁片单</button>
+                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildMaterialPrepLink(row.cutOrderNo))}">配料</button>
+                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildReplenishmentLink(row.cutOrderNo))}">补料</button>
                             </div>
                           </td>
                         </tr>

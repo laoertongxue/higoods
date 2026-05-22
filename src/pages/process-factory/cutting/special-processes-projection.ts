@@ -27,14 +27,14 @@ export function buildSpecialProcessesProjection(options: {
 } = {}): SpecialProcessesProjection {
   const context = buildExecutionPrepProjectionContext(options.snapshot)
   const seedLedger = buildSystemSeedSpecialProcessLedger(
-    context.sources.originalRows,
-    context.sources.mergeBatches,
+    context.sources.cutOrderRows,
+    context.sources.markerPlanRefs,
   )
   return {
     snapshot: context.snapshot,
     viewModel: buildSpecialProcessViewModel({
-      originalRows: context.sources.originalRows,
-      mergeBatches: context.sources.mergeBatches,
+      cutOrderRows: context.sources.cutOrderRows,
+      markerPlanRefs: context.sources.markerPlanRefs,
       orders:
         options.orders ??
         (context.snapshot.specialProcessState.orders as unknown as SpecialProcessOrder[]),

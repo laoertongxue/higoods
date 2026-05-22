@@ -20,7 +20,7 @@ const fileChecks: Array<{
     forbidden: ['面料审核', 'materialAuditStatus', 'auditStatus'],
   },
   {
-    file: 'src/pages/process-factory/cutting/original-orders-model.ts',
+    file: 'src/pages/process-factory/cutting/cut-orders-model.ts',
     forbidden: ['materialAuditStatus', 'WAITING_REVIEW'],
   },
   {

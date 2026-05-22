@@ -428,10 +428,6 @@ export const renderCraftCuttingCuttablePoolPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cuttable-pool'),
   'renderCraftCuttingCuttablePoolPage',
 )
-export const renderCraftCuttingMergeBatchesPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/merge-batches'),
-  'renderCraftCuttingMergeBatchesPage',
-)
 export const renderCraftCuttingMarkerListPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/marker-plan'),
   'renderCraftCuttingMarkerListPage',
@@ -496,9 +492,9 @@ export const renderCraftCuttingFeiTicketVoidPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/fei-tickets'),
   'renderCraftCuttingFeiTicketVoidPage',
 )
-export const renderCraftCuttingOriginalOrdersPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/original-orders'),
-  'renderCraftCuttingOriginalOrdersPage',
+export const renderCraftCuttingCutOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/cut-orders'),
+  'renderCraftCuttingCutOrdersPage',
 )
 export const renderCraftCuttingSampleWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/sample-warehouse'),

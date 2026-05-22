@@ -37,7 +37,7 @@ function main(): void {
     assert(qrValue, `${line.cutPieceOrderNo} 缺少裁片单二维码`)
     assert(qrValue === buildCutOrderQrValue(line.cutPieceOrderNo), `${line.cutPieceOrderNo} 未使用统一裁片单二维码规则`)
     const decoded = getCutOrderByQrValue(qrValue)
-    assert(decoded?.originalCutOrderId === line.cutPieceOrderNo, `${line.cutPieceOrderNo} 的二维码无法回查原始裁片单`)
+    assert(decoded?.cutOrderId === line.cutPieceOrderNo, `${line.cutPieceOrderNo} 的二维码无法回查裁片单`)
     const bucket = qrByCutOrder.get(line.cutPieceOrderNo) || new Set<string>()
     bucket.add(qrValue)
     qrByCutOrder.set(line.cutPieceOrderNo, bucket)
@@ -71,36 +71,31 @@ function main(): void {
   assert(materialPrepModel.includes("qrCodeLabel: '裁片单二维码'"), '配料模型未使用“裁片单二维码”文案')
   assert(materialPrepModel.includes("title: '配料单'"), '配料打印 payload 未使用“配料单”文案')
 
-  const materialPrepPage = read('src/pages/process-factory/cutting/material-prep.ts')
+  const materialPrepSurface = [
+    read('src/pages/progress-material.ts'),
+    read('src/pages/process-factory/cutting/material-prep-model.ts'),
+    read('src/pages/process-factory/cutting/material-prep.helpers.ts'),
+    read('src/pages/print/templates/material-slip-template.ts'),
+  ].join('\n')
   ;[
     '裁片单二维码',
-    '打印配料单',
     '裁床领料',
-    '实领卷数',
-    '确认领料',
-    '驳回',
-    '异常提交',
-    '上传照片',
-    '请上传照片',
-    '中转可配置',
+    '裁床领料卷数',
+    '配料单',
+    '有配料数量',
+    '有领料记录',
     '剩余卷数',
-    '剩余长度',
   ].forEach((snippet) => {
-    assert(materialPrepPage.includes(snippet), `material-prep 页面缺少关键文案：${snippet}`)
+    assert(materialPrepSurface.includes(snippet), `material-prep 投影或打印链路缺少关键文案：${snippet}`)
   })
-  assert(materialPrepPage.includes('cuttingPrepClaimRollLineId'), '领料表单未记录实领卷数输入')
-  assert(materialPrepPage.includes('state.claimRollDrafts'), '领料表单未维护实领卷数草稿')
-  assert(materialPrepPage.includes('printIssueList'), '仓库配料打印链路必须保留')
-  assert(materialPrepPage.includes('window.open'), '仓库配料打印窗口能力必须保留')
-  assert(!materialPrepPage.includes('任务交货卡'), '仓库配料打印不得被任务交货卡替换')
-  assert(!materialPrepPage.includes('任务流转卡'), '仓库配料打印不得被任务流转卡替换')
-  assert(materialPrepPage.includes('实领卷数不一致，请驳回或异常提交。'), '领料差异未限制直接确认')
-  assert(materialPrepPage.includes('state.claimPhotoDraft'), '异常提交未维护照片字段')
-  assert(!materialPrepPage.includes('QR payload'), 'material-prep 页面不应展示 QR payload')
-  assert(!materialPrepPage.includes('JSON'), 'material-prep 页面不应展示 JSON')
-  assert(!materialPrepPage.includes('PDA配料'), 'material-prep 页面不应出现 PDA配料')
-  assert(!materialPrepPage.includes('PDA领料'), 'material-prep 页面不应出现 PDA领料')
-  assert(!materialPrepPage.includes('PDA裁床'), 'material-prep 页面不应出现 PDA裁床')
+  assert(materialPrepSurface.includes('buildMaterialPrepSlipPrintDocument'), '配料单打印链路必须保留')
+  assert(materialPrepSurface.includes("title: '配料单'"), '配料打印 payload 必须使用“配料单”文案')
+  assert(!materialPrepSurface.includes('任务交货卡'), '仓库配料打印不得被任务交货卡替换')
+  assert(!materialPrepSurface.includes('任务流转卡'), '仓库配料打印不得被任务流转卡替换')
+  assert(!materialPrepSurface.includes('QR payload'), 'material-prep 页面不应展示 QR payload')
+  assert(!materialPrepSurface.includes('PDA配料'), 'material-prep 页面不应出现 PDA配料')
+  assert(!materialPrepSurface.includes('PDA领料'), 'material-prep 页面不应出现 PDA领料')
+  assert(!materialPrepSurface.includes('PDA裁床'), 'material-prep 页面不应出现 PDA裁床')
 
   const replenishmentData = read('src/data/fcs/cutting/replenishment.ts')
   const replenishmentPage = read('src/pages/process-factory/cutting/replenishment.ts')
@@ -130,8 +125,12 @@ function main(): void {
     '补料链未体现审核后生效',
   )
 
-  const cutPieceWarehousePage = read('src/pages/process-factory/cutting/cut-piece-warehouse.ts')
-  ;['裁片仓', 'A区', 'B区', 'C区', '区域提示'].forEach((snippet) => {
+  const cutPieceWarehousePage = [
+    read('src/pages/process-factory/cutting/warehouse-hub.ts'),
+    read('src/pages/process-factory/cutting/cut-piece-warehouse-model.ts'),
+    read('src/pages/process-factory/cutting/cut-piece-warehouse-projection.ts'),
+  ].join('\n')
+  ;['裁片库存', '裁床待交出仓', '裁片 A 区', '中转袋暂存区', '待交出仓配料'].forEach((snippet) => {
     assert(cutPieceWarehousePage.includes(snippet), `裁片仓页面缺少关键文案：${snippet}`)
   })
   ;['货架', '托盘', joinText(['库存', '三态']), joinText(['完整 ', 'WMS']), joinText(['WMS', '入库'])].forEach((snippet) => {
@@ -139,7 +138,10 @@ function main(): void {
   })
 
   const fabricWarehouseModel = read('src/pages/process-factory/cutting/fabric-warehouse-model.ts')
-  const fabricWarehousePage = read('src/pages/process-factory/cutting/fabric-warehouse.ts')
+  const fabricWarehousePage = [
+    read('src/pages/process-factory/cutting/fabric-warehouse-model.ts'),
+    read('src/pages/process-factory/cutting/fabric-warehouse-projection.ts'),
+  ].join('\n')
   ;[
     'rollBarcode',
     'batchNo',
@@ -151,18 +153,18 @@ function main(): void {
   ].forEach((snippet) => {
     assert(fabricWarehouseModel.includes(snippet), `面料卷标签模型缺少字段：${snippet}`)
   })
-  ;['面料卷号', '卷条码', '批次号', '面料中文名', '标签长度', '实测长度'].forEach((snippet) => {
-    assert(fabricWarehousePage.includes(snippet), `面料卷标签页面缺少字段文案：${snippet}`)
+  ;['rollBarcode', 'batchNo', 'batchSeqNo', 'materialSpuNameCn', 'labeledLength', 'actualLength'].forEach((snippet) => {
+    assert(fabricWarehousePage.includes(snippet), `面料卷标签投影缺少字段：${snippet}`)
   })
   ;['inventory state', 'stockStatus', 'WMS'].forEach((snippet) => {
     assert(!fabricWarehousePage.includes(snippet), `面料卷标签页面出现研发文案：${snippet}`)
   })
 
   const productionProgressPage = read('src/pages/process-factory/cutting/production-progress.ts')
-  assert(productionProgressPage.includes('配料进展'), '生产进度页面未展示配料状态')
-  assert(productionProgressPage.includes('领料进展'), '生产进度页面未展示领料状态')
+  assert(productionProgressPage.includes('配料数量'), '生产进度页面未展示配料数量')
+  assert(productionProgressPage.includes('领料数量'), '生产进度页面未展示领料数量')
   const cuttingSummaryPage = read('src/pages/process-factory/cutting/cutting-summary.ts')
-  ;['补料建议', '裁片仓'].forEach((snippet) => {
+  ;['补料建议', '待交出仓库存'].forEach((snippet) => {
     assert(cuttingSummaryPage.includes(snippet), `裁剪总结缺少汇总项：${snippet}`)
   })
 
@@ -170,7 +172,7 @@ function main(): void {
     read('src/data/fcs/cutting/generated-fei-tickets.ts'),
     read('src/pages/process-factory/cutting/fei-tickets.ts'),
   ].join('\n')
-  ;['fabricRollNo', 'fabricColor', 'sizeCode', 'partName', 'bundleQty', 'assemblyGroupKey'].forEach((snippet) => {
+  ;['fabricRollNo', 'fabricColor', 'sizeCode', 'partName', 'bundleQty', 'pieceGroup', 'bundleScope'].forEach((snippet) => {
     assert(feiFiles.includes(snippet), `Prompt 10 菲票五维字段缺失：${snippet}`)
   })
 

@@ -1,14 +1,14 @@
-import type { OriginalCutOrderRow, OriginalCutOrderNavigationPayload } from './original-orders-model.ts'
+import type { CutOrderRow, CutOrderNavigationPayload } from './cut-orders-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
-import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
 import {
   buildCuttingTraceabilityId,
 } from '../../../data/fcs/cutting/qr-codes.ts'
 import {
-  getGeneratedFeiTicketMapByOriginalCutOrderId,
+  getGeneratedFeiTicketMapByCutOrderId,
   getFeiTicketById as getGeneratedFeiTicketById,
-  listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId,
+  listSpreadingResultGeneratedFeiTicketsByCutOrderId,
   type GeneratedFeiTicketSourceRecord,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import {
@@ -34,10 +34,10 @@ export const FEI_TICKET_DEMO_CASE_IDS = {
     printableUnitNo: 'CUT-260302-004-01',
   },
   CASE_B: {
-    printableUnitId: 'batch:MB-260302-004-MAIN',
-    printableUnitNo: 'MB-260302-004-MAIN',
-    batchId: 'MB-260302-004-MAIN',
-    batchNo: 'MB-260302-004-MAIN',
+    printableUnitId: 'marker-plan:MKP-260302-004-MAIN',
+    printableUnitNo: 'MKP-260302-004-MAIN',
+    batchId: 'MKP-260302-004-MAIN',
+    batchNo: 'MKP-260302-004-MAIN',
     sourceCutOrderIds: ['CUT-260302-004-01', 'CUT-260301-005-01', 'CUT-260301-005-01'],
   },
   CASE_C: {
@@ -62,7 +62,7 @@ export const FEI_TICKET_DEMO_CASE_IDS = {
   },
 } as const
 
-export type FeiTicketsContextType = 'original-order' | 'merge-batch'
+export type FeiTicketsContextType = 'cut-order' | 'marker-plan-ref'
 export type FeiTicketStatusKey =
   | 'NOT_GENERATED'
   | 'DRAFT'
@@ -76,10 +76,10 @@ export type FeiTicketOperationType = 'FIRST_PRINT' | 'REPRINT' | 'VOID'
 
 export interface FeiTicketsContext {
   contextType: FeiTicketsContextType
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   productionOrderIds: string[]
   productionOrderNos: string[]
   styleCode: string
@@ -95,19 +95,19 @@ export interface FeiQrReservedPayload {
 }
 
 export interface FeiNavigationPayload {
-  originalOrders: Record<string, string | undefined>
-  mergeBatches: Record<string, string | undefined>
+  cutOrders: Record<string, string | undefined>
+  markerPlanRefs: Record<string, string | undefined>
   markerSpreading: Record<string, string | undefined>
   replenishment: Record<string, string | undefined>
   summary: Record<string, string | undefined>
   transferBags: Record<string, string | undefined>
 }
 
-export interface OriginalCutOrderTicketOwner {
-  ownerType: 'original-cut-order'
+export interface CutOrderTicketOwner {
+  ownerType: 'cut-order'
   id: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   styleCode: string
@@ -115,14 +115,16 @@ export interface OriginalCutOrderTicketOwner {
   styleName: string
   color: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   plannedTicketQty: number
   printedTicketQty: number
   latestPrintJobNo: string
   ticketStatus: FeiTicketStatusKey
   sameCodeValue: string
   qrBaseValue: string
-  relatedMergeBatchIds: string[]
-  relatedMergeBatchNos: string[]
+  relatedMarkerPlanIds: string[]
+  relatedMarkerPlanNos: string[]
   sourceContextLabel: string
   ticketCountBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
   ticketCountBasisLabel: string
@@ -144,12 +146,14 @@ export interface FeiTicketLabelRecord {
   sourceSpreadingSessionNo?: string
   sourceMarkerId?: string
   sourceMarkerNo?: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderNo: string
   styleCode: string
   spuCode: string
   materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
   fabricRollId?: string
   fabricRollNo?: string
   fabricColor?: string
@@ -165,8 +169,8 @@ export interface FeiTicketLabelRecord {
   reprintCount: number
   sourcePrintJobId: string
   sourceContextType: FeiTicketsContextType
-  sourceMergeBatchId: string
-  sourceMergeBatchNo: string
+  sourceMarkerPlanId: string
+  sourceMarkerPlanNo: string
   printableUnitId?: string
   printableUnitNo?: string
   printableUnitType?: PrintableUnitType
@@ -207,12 +211,12 @@ export interface FeiTicketLabelRecord {
 export interface FeiTicketPrintJob {
   printJobId: string
   printJobNo: string
-  ownerType: 'original-cut-order'
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
+  ownerType: 'cut-order'
+  cutOrderIds: string[]
+  cutOrderNos: string[]
   sourceContextType: FeiTicketsContextType
-  sourceMergeBatchId: string
-  sourceMergeBatchNo: string
+  sourceMarkerPlanId: string
+  sourceMarkerPlanNo: string
   totalTicketCount: number
   status: FeiTicketPrintJobStatus
   printedBy: string
@@ -233,10 +237,10 @@ export interface FeiTicketPrintJob {
 
 export interface FeiTicketDraft {
   draftId: string
-  originalCutOrderId: string
+  cutOrderId: string
   sourceContextType: FeiTicketsContextType
-  sourceMergeBatchId: string
-  sourceMergeBatchNo: string
+  sourceMarkerPlanId: string
+  sourceMarkerPlanNo: string
   ticketCount: number
   previewLabelRecords: FeiTicketLabelRecord[]
   note: string
@@ -246,10 +250,10 @@ export interface FeiTicketDraft {
 }
 
 export interface FeiTicketsPrefilter {
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   productionOrderNo?: string
   spreadingSessionId?: string
   spreadingSessionNo?: string
@@ -280,8 +284,8 @@ export interface FeiTicketsStats {
 
 export interface FeiTicketsViewModel {
   context: FeiTicketsContext | null
-  owners: OriginalCutOrderTicketOwner[]
-  ownersById: Record<string, OriginalCutOrderTicketOwner>
+  owners: CutOrderTicketOwner[]
+  ownersById: Record<string, CutOrderTicketOwner>
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
   stats: FeiTicketsStats
@@ -306,7 +310,7 @@ export interface TicketCountBasisResult {
 }
 
 export interface CreateFeiTicketDraftOptions {
-  owner: OriginalCutOrderTicketOwner
+  owner: CutOrderTicketOwner
   context: FeiTicketsContext | null
   ticketCount: number
   note: string
@@ -318,38 +322,38 @@ export interface CreateFeiTicketPrintJobResult {
   nextRecords: FeiTicketLabelRecord[]
 }
 
-type MergeBatchRefLike = {
-  relatedMergeBatchIds?: string[]
-  relatedMergeBatchNos?: string[]
-  mergeBatchIds?: string[]
-  mergeBatchNos?: string[]
+type MarkerPlanRefRefLike = {
+  relatedMarkerPlanIds?: string[]
+  relatedMarkerPlanNos?: string[]
+  markerPlanIds?: string[]
+  markerPlanNos?: string[]
 }
 
 const feiTicketStatusMetaMap: Record<FeiTicketStatusKey, FeiTicketStatusMeta> = {
   NOT_GENERATED: {
     label: '未生成',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: '当前原始裁片单尚未生成菲票草稿。',
+    detailText: '当前裁片单尚未生成菲票草稿。',
   },
   DRAFT: {
     label: '草稿中',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    detailText: '当前原始裁片单已生成打印草稿，尚未执行打印。',
+    detailText: '当前裁片单已生成打印草稿，尚未执行打印。',
   },
   PARTIAL_PRINTED: {
     label: '需补打',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '当前原始裁片单存在菲票缺口，需要补打。',
+    detailText: '当前裁片单存在菲票缺口，需要补打。',
   },
   PRINTED: {
     label: '已打印',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前原始裁片单已完成首轮菲票打印。',
+    detailText: '当前裁片单已完成首轮菲票打印。',
   },
   REPRINTED: {
     label: '已重打',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    detailText: '当前原始裁片单已发生重打，需按打印作业台账追溯。',
+    detailText: '当前裁片单已发生重打，需按打印作业台账追溯。',
   },
   PENDING_SUPPLEMENT: {
     label: '待补录',
@@ -358,15 +362,15 @@ const feiTicketStatusMetaMap: Record<FeiTicketStatusKey, FeiTicketStatusMeta> = 
   },
 }
 
-function getMergeBatchIds(source: MergeBatchRefLike): string[] {
-  if (Array.isArray(source.relatedMergeBatchIds)) return source.relatedMergeBatchIds
-  if (Array.isArray(source.mergeBatchIds)) return source.mergeBatchIds
+function getMarkerPlanRefIds(source: MarkerPlanRefRefLike): string[] {
+  if (Array.isArray(source.relatedMarkerPlanIds)) return source.relatedMarkerPlanIds
+  if (Array.isArray(source.markerPlanIds)) return source.markerPlanIds
   return []
 }
 
-function getMergeBatchNos(source: MergeBatchRefLike): string[] {
-  if (Array.isArray(source.relatedMergeBatchNos)) return source.relatedMergeBatchNos
-  if (Array.isArray(source.mergeBatchNos)) return source.mergeBatchNos
+function getMarkerPlanRefNos(source: MarkerPlanRefRefLike): string[] {
+  if (Array.isArray(source.relatedMarkerPlanNos)) return source.relatedMarkerPlanNos
+  if (Array.isArray(source.markerPlanNos)) return source.markerPlanNos
   return []
 }
 
@@ -374,19 +378,19 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
-function getGeneratedFeiRecordsByOriginalCutOrderId(originalCutOrderId: string): GeneratedFeiTicketSourceRecord[] {
-  return listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId)
+function getGeneratedFeiRecordsByCutOrderId(cutOrderId: string): GeneratedFeiTicketSourceRecord[] {
+  return listSpreadingResultGeneratedFeiTicketsByCutOrderId(cutOrderId)
 }
 
 function getGeneratedFeiRecordBySequence(
-  originalCutOrderId: string,
+  cutOrderId: string,
   sequenceNo: number,
 ): GeneratedFeiTicketSourceRecord | null {
-  return getGeneratedFeiRecordsByOriginalCutOrderId(originalCutOrderId)[sequenceNo - 1] || null
+  return getGeneratedFeiRecordsByCutOrderId(cutOrderId)[sequenceNo - 1] || null
 }
 
-function buildFeiPrintJobId(nowText: string, originalCutOrderId: string, actionType: string): string {
-  return buildCuttingTraceabilityId('print-job', nowText, originalCutOrderId, actionType)
+function buildFeiPrintJobId(nowText: string, cutOrderId: string, actionType: string): string {
+  return buildCuttingTraceabilityId('print-job', nowText, cutOrderId, actionType)
 }
 
 function formatQty(value: number): string {
@@ -416,27 +420,29 @@ export function buildFeiTicketFiveDimTitle(record: Pick<
 }
 
 function createEmptyPreviewRecord(
-  owner: OriginalCutOrderTicketOwner,
+  owner: CutOrderTicketOwner,
   sequenceNo: number,
   sourceContextType: FeiTicketsContextType,
-  sourceMergeBatchId: string,
-  sourceMergeBatchNo: string,
+  sourceMarkerPlanId: string,
+  sourceMarkerPlanNo: string,
 ): FeiTicketLabelRecord {
-  const generated = getGeneratedFeiRecordBySequence(owner.originalCutOrderId, sequenceNo)
+  const generated = getGeneratedFeiRecordBySequence(owner.cutOrderId, sequenceNo)
   return {
-    ticketRecordId: generated?.feiTicketId || `${owner.originalCutOrderId}-${sequenceNo}`,
-    ticketNo: generated?.feiTicketNo || buildFeiTicketNo(owner.originalCutOrderNo, sequenceNo),
+    ticketRecordId: generated?.feiTicketId || `${owner.cutOrderId}-${sequenceNo}`,
+    ticketNo: generated?.feiTicketNo || buildFeiTicketNo(owner.cutOrderNo, sequenceNo),
     sourceOutputLineId: generated?.sourceOutputLineId || '',
     sourceSpreadingSessionId: generated?.sourceSpreadingSessionId || '',
     sourceSpreadingSessionNo: generated?.sourceSpreadingSessionNo || '',
     sourceMarkerId: generated?.sourceMarkerId || '',
     sourceMarkerNo: generated?.sourceMarkerNo || '',
-    originalCutOrderId: owner.originalCutOrderId,
-    originalCutOrderNo: owner.originalCutOrderNo,
+    cutOrderId: owner.cutOrderId,
+    cutOrderNo: owner.cutOrderNo,
     productionOrderNo: owner.productionOrderNo,
     styleCode: owner.styleCode,
     spuCode: owner.spuCode,
     materialSku: owner.materialSku,
+    materialAlias: owner.materialAlias || '',
+    materialImageUrl: owner.materialImageUrl || '',
     fabricRollId: generated?.fabricRollId || '',
     fabricRollNo: generated?.fabricRollNo || '',
     fabricColor: generated?.fabricColor || generated?.skuColor || owner.color,
@@ -452,8 +458,8 @@ function createEmptyPreviewRecord(
     reprintCount: 0,
     sourcePrintJobId: '',
     sourceContextType,
-    sourceMergeBatchId,
-    sourceMergeBatchNo,
+    sourceMarkerPlanId,
+    sourceMarkerPlanNo,
     partCode: generated?.partCode || '',
     partName: generated?.partName || '',
     size: generated?.skuSize || '',
@@ -470,18 +476,18 @@ function createEmptyPreviewRecord(
 }
 
 function createSeedOwnerFromRow(options: {
-  row: OriginalCutOrderRow
+  row: CutOrderRow
   materialRow: MaterialPrepRow | undefined
   plannedTicketQty: number
-}): OriginalCutOrderTicketOwner {
-  const mergeBatchIds = Array.isArray(options.row.mergeBatchIds) ? options.row.mergeBatchIds : []
-  const mergeBatchNos = Array.isArray(options.row.mergeBatchNos) ? options.row.mergeBatchNos : []
+}): CutOrderTicketOwner {
+  const markerPlanIds = Array.isArray(options.row.markerPlanIds) ? options.row.markerPlanIds : []
+  const markerPlanNos = Array.isArray(options.row.markerPlanNos) ? options.row.markerPlanNos : []
 
   return {
-    ownerType: 'original-cut-order',
+    ownerType: 'cut-order',
     id: options.row.id,
-    originalCutOrderId: options.row.originalCutOrderId,
-    originalCutOrderNo: options.row.originalCutOrderNo,
+    cutOrderId: options.row.cutOrderId,
+    cutOrderNo: options.row.cutOrderNo,
     productionOrderId: options.row.productionOrderId,
     productionOrderNo: options.row.productionOrderNo,
     styleCode: options.row.styleCode,
@@ -489,15 +495,17 @@ function createSeedOwnerFromRow(options: {
     styleName: options.row.styleName,
     color: options.row.color,
     materialSku: options.row.materialSku,
+    materialAlias: options.row.materialAlias || '',
+    materialImageUrl: options.row.materialImageUrl || '',
     plannedTicketQty: options.plannedTicketQty,
     printedTicketQty: 0,
     latestPrintJobNo: '',
     ticketStatus: 'NOT_GENERATED',
-    sameCodeValue: options.materialRow?.sameCodeValue || options.row.originalCutOrderNo,
-    qrBaseValue: options.materialRow?.qrCodeValue || `QR-${options.row.originalCutOrderNo}`,
-    relatedMergeBatchIds: mergeBatchIds,
-    relatedMergeBatchNos: mergeBatchNos,
-    sourceContextLabel: mergeBatchNos[0] ? `来自批次 ${mergeBatchNos[0]}` : '原始单上下文',
+    sameCodeValue: options.materialRow?.sameCodeValue || options.row.cutOrderNo,
+    qrBaseValue: options.materialRow?.qrCodeValue || `QR-${options.row.cutOrderNo}`,
+    relatedMarkerPlanIds: markerPlanIds,
+    relatedMarkerPlanNos: markerPlanNos,
+    sourceContextLabel: markerPlanNos[0] ? `来自唛架方案 ${markerPlanNos[0]}` : '裁片单上下文',
     ticketCountBasisType: 'WAITING_SPREADING_RESULT',
     ticketCountBasisLabel: '待铺布完成',
     ticketCountBasisDetail: '当前尚未形成正式铺布完成结果，不能生成菲票。',
@@ -506,35 +514,35 @@ function createSeedOwnerFromRow(options: {
     riskLabels: options.row.riskTags.map((tag) => tag.label),
     latestActionText: options.row.latestActionText,
     qrReservedPayload: {
-      qrBaseValue: options.materialRow?.qrCodeValue || `QR-${options.row.originalCutOrderNo}`,
+      qrBaseValue: options.materialRow?.qrCodeValue || `QR-${options.row.cutOrderNo}`,
       reservedProcessFields: {},
       reservedVersion: 'v-next',
     },
     navigationPayload: buildFeiNavigationPayload(
       {
-        originalCutOrderId: options.row.originalCutOrderId,
-        originalCutOrderNo: options.row.originalCutOrderNo,
+        cutOrderId: options.row.cutOrderId,
+        cutOrderNo: options.row.cutOrderNo,
         productionOrderNo: options.row.productionOrderNo,
-        mergeBatchIds,
-        mergeBatchNos,
+        markerPlanIds,
+        markerPlanNos,
       },
       null,
     ),
     keywordIndex: buildKeywordIndex([
-      options.row.originalCutOrderNo,
+      options.row.cutOrderNo,
       options.row.productionOrderNo,
       options.row.styleCode,
       options.row.spuCode,
       options.row.styleName,
       options.row.materialSku,
       options.materialRow?.sameCodeValue,
-      ...mergeBatchNos,
+      ...markerPlanNos,
     ]),
   }
 }
 
 function createSeedTicketRecord(options: {
-  owner: OriginalCutOrderTicketOwner
+  owner: CutOrderTicketOwner
   sequenceNo: number
   version: number
   printedAt: string
@@ -544,36 +552,36 @@ function createSeedTicketRecord(options: {
   printableUnitNo: string
   printableUnitType: PrintableUnitType
   sourceContextType: FeiTicketsContextType
-  sourceMergeBatchId: string
-  sourceMergeBatchNo: string
+  sourceMarkerPlanId: string
+  sourceMarkerPlanNo: string
   quantity?: number
   partName?: string
   size?: string
   processTags?: string[]
 }): FeiTicketLabelRecord {
-  const generated = getGeneratedFeiRecordBySequence(options.owner.originalCutOrderId, options.sequenceNo)
+  const generated = getGeneratedFeiRecordBySequence(options.owner.cutOrderId, options.sequenceNo)
   return attachQrSnapshotToRecord(
     {
       ...createEmptyPreviewRecord(
         options.owner,
         options.sequenceNo,
         options.sourceContextType,
-        options.sourceMergeBatchId,
-        options.sourceMergeBatchNo,
+        options.sourceMarkerPlanId,
+        options.sourceMarkerPlanNo,
       ),
       ticketRecordId:
         options.version <= 1
-          ? generated?.feiTicketId || buildTicketRecordId(options.owner.originalCutOrderId, options.sequenceNo, options.version)
-          : buildTicketRecordId(options.owner.originalCutOrderId, options.sequenceNo, options.version),
+          ? generated?.feiTicketId || buildTicketRecordId(options.owner.cutOrderId, options.sequenceNo, options.version)
+          : buildTicketRecordId(options.owner.cutOrderId, options.sequenceNo, options.version),
       ticketNo:
         options.version <= 1
-          ? generated?.feiTicketNo || buildVersionedTicketNo(options.owner.originalCutOrderNo, options.sequenceNo, options.version)
-          : buildVersionedTicketNo(options.owner.originalCutOrderNo, options.sequenceNo, options.version),
+          ? generated?.feiTicketNo || buildVersionedTicketNo(options.owner.cutOrderNo, options.sequenceNo, options.version)
+          : buildVersionedTicketNo(options.owner.cutOrderNo, options.sequenceNo, options.version),
       printableUnitId: options.printableUnitId,
       printableUnitNo: options.printableUnitNo,
       printableUnitType: options.printableUnitType,
       sourceProductionOrderId: options.owner.productionOrderId,
-      splitDetailId: `${options.owner.originalCutOrderId}-${options.sequenceNo}`,
+      splitDetailId: `${options.owner.cutOrderId}-${options.sequenceNo}`,
       createdAt: options.printedAt,
       printedAt: options.printedAt,
       printedBy: options.printedBy,
@@ -605,13 +613,13 @@ function createSeedTicketRecord(options: {
 function createSeedPrintJob(options: {
   printJobId: string
   printJobNo: string
-  owner: OriginalCutOrderTicketOwner
+  owner: CutOrderTicketOwner
   printableUnitId: string
   printableUnitNo: string
   printableUnitType: PrintableUnitType
   sourceContextType: FeiTicketsContextType
-  sourceMergeBatchId: string
-  sourceMergeBatchNo: string
+  sourceMarkerPlanId: string
+  sourceMarkerPlanNo: string
   operationType: FeiTicketOperationType
   status: FeiTicketPrintJobStatus
   printedBy: string
@@ -625,12 +633,12 @@ function createSeedPrintJob(options: {
   return {
     printJobId: options.printJobId,
     printJobNo: options.printJobNo,
-    ownerType: 'original-cut-order',
-    originalCutOrderIds: [options.owner.originalCutOrderId],
-    originalCutOrderNos: [options.owner.originalCutOrderNo],
+    ownerType: 'cut-order',
+    cutOrderIds: [options.owner.cutOrderId],
+    cutOrderNos: [options.owner.cutOrderNo],
     sourceContextType: options.sourceContextType,
-    sourceMergeBatchId: options.sourceMergeBatchId,
-    sourceMergeBatchNo: options.sourceMergeBatchNo,
+    sourceMarkerPlanId: options.sourceMarkerPlanId,
+    sourceMarkerPlanNo: options.sourceMarkerPlanNo,
     totalTicketCount: options.ticketRecordIds.length,
     status: options.status,
     printedBy: options.printedBy,
@@ -653,9 +661,9 @@ function createSeedPrintJob(options: {
 function attachQrSnapshotToRecord(
   record: FeiTicketLabelRecord,
   owner: Pick<
-    OriginalCutOrderTicketOwner,
-    | 'originalCutOrderId'
-    | 'originalCutOrderNo'
+    CutOrderTicketOwner,
+    | 'cutOrderId'
+    | 'cutOrderNo'
     | 'productionOrderId'
     | 'productionOrderNo'
     | 'styleCode'
@@ -702,19 +710,19 @@ function normalizeRecordPrintableUnit(record: FeiTicketLabelRecord): FeiTicketLa
 
   if (normalizedRecord.printableUnitId && normalizedRecord.printableUnitNo && normalizedRecord.printableUnitType) return normalizedRecord
 
-  if (normalizedRecord.sourceContextType === 'merge-batch' && normalizedRecord.sourceMergeBatchId) {
+  if (normalizedRecord.sourceContextType === 'marker-plan-ref' && normalizedRecord.sourceMarkerPlanId) {
     return {
       ...normalizedRecord,
-      printableUnitId: normalizedRecord.printableUnitId || `batch:${normalizedRecord.sourceMergeBatchId}`,
-      printableUnitNo: normalizedRecord.printableUnitNo || normalizedRecord.sourceMergeBatchNo,
-      printableUnitType: normalizedRecord.printableUnitType || 'BATCH',
+      printableUnitId: normalizedRecord.printableUnitId || `marker-plan:${normalizedRecord.sourceMarkerPlanId}`,
+      printableUnitNo: normalizedRecord.printableUnitNo || normalizedRecord.sourceMarkerPlanNo,
+      printableUnitType: normalizedRecord.printableUnitType || 'MARKER_PLAN',
     }
   }
 
   return {
     ...normalizedRecord,
-    printableUnitId: normalizedRecord.printableUnitId || `cut-order:${normalizedRecord.originalCutOrderId}`,
-    printableUnitNo: normalizedRecord.printableUnitNo || normalizedRecord.originalCutOrderNo,
+    printableUnitId: normalizedRecord.printableUnitId || `cut-order:${normalizedRecord.cutOrderId}`,
+    printableUnitNo: normalizedRecord.printableUnitNo || normalizedRecord.cutOrderNo,
     printableUnitType: normalizedRecord.printableUnitType || 'CUT_ORDER',
   }
 }
@@ -722,17 +730,17 @@ function normalizeRecordPrintableUnit(record: FeiTicketLabelRecord): FeiTicketLa
 function normalizePrintJobPrintableUnit(printJob: FeiTicketPrintJob): FeiTicketPrintJob {
   if (printJob.printableUnitId && printJob.printableUnitNo && printJob.printableUnitType) return printJob
 
-  if (printJob.sourceContextType === 'merge-batch' && printJob.sourceMergeBatchId) {
+  if (printJob.sourceContextType === 'marker-plan-ref' && printJob.sourceMarkerPlanId) {
     return {
       ...printJob,
-      printableUnitId: printJob.printableUnitId || `batch:${printJob.sourceMergeBatchId}`,
-      printableUnitNo: printJob.printableUnitNo || printJob.sourceMergeBatchNo,
-      printableUnitType: printJob.printableUnitType || 'BATCH',
+      printableUnitId: printJob.printableUnitId || `marker-plan:${printJob.sourceMarkerPlanId}`,
+      printableUnitNo: printJob.printableUnitNo || printJob.sourceMarkerPlanNo,
+      printableUnitType: printJob.printableUnitType || 'MARKER_PLAN',
     }
   }
 
-  const sourceCutOrderId = printJob.originalCutOrderIds[0] || ''
-  const sourceCutOrderNo = printJob.originalCutOrderNos[0] || ''
+  const sourceCutOrderId = printJob.cutOrderIds[0] || ''
+  const sourceCutOrderNo = printJob.cutOrderNos[0] || ''
   return {
     ...printJob,
     printableUnitId: printJob.printableUnitId || (sourceCutOrderId ? `cut-order:${sourceCutOrderId}` : ''),
@@ -744,50 +752,50 @@ function normalizePrintJobPrintableUnit(printJob: FeiTicketPrintJob): FeiTicketP
 function matchesPrintableUnitRecord(scope: PrintableUnitScope, record: FeiTicketLabelRecord): boolean {
   if (record.printableUnitId) return record.printableUnitId === scope.printableUnitId
 
-  if (scope.printableUnitType === 'BATCH') {
-    return Boolean(scope.batchId) && record.sourceContextType === 'merge-batch' && record.sourceMergeBatchId === scope.batchId
+  if (scope.printableUnitType === 'MARKER_PLAN') {
+    return Boolean(scope.batchId) && record.sourceContextType === 'marker-plan-ref' && record.sourceMarkerPlanId === scope.batchId
   }
 
-  return record.originalCutOrderId === scope.cutOrderId
+  return record.cutOrderId === scope.cutOrderId
 }
 
 function matchesPrintableUnitPrintJob(scope: PrintableUnitScope, printJob: FeiTicketPrintJob): boolean {
   if (printJob.printableUnitId) return printJob.printableUnitId === scope.printableUnitId
 
-  if (scope.printableUnitType === 'BATCH') {
-    return Boolean(scope.batchId) && printJob.sourceContextType === 'merge-batch' && printJob.sourceMergeBatchId === scope.batchId
+  if (scope.printableUnitType === 'MARKER_PLAN') {
+    return Boolean(scope.batchId) && printJob.sourceContextType === 'marker-plan-ref' && printJob.sourceMarkerPlanId === scope.batchId
   }
 
-  return Boolean(scope.cutOrderId) && printJob.originalCutOrderIds.includes(scope.cutOrderId)
+  return Boolean(scope.cutOrderId) && printJob.cutOrderIds.includes(scope.cutOrderId)
 }
 
-function findMatchingMergeBatch(
-  mergeBatches: MergeBatchRecord[],
+function findMatchingMarkerPlanRef(
+  markerPlanRefs: MarkerPlanRefRecord[],
   prefilter: FeiTicketsPrefilter | null,
-): MergeBatchRecord | null {
+): MarkerPlanRefRecord | null {
   if (!prefilter) return null
   return (
-    (prefilter.mergeBatchId && mergeBatches.find((batch) => batch.mergeBatchId === prefilter.mergeBatchId)) ||
-    (prefilter.mergeBatchNo && mergeBatches.find((batch) => batch.mergeBatchNo === prefilter.mergeBatchNo)) ||
+    (prefilter.markerPlanId && markerPlanRefs.find((batch) => batch.markerPlanId === prefilter.markerPlanId)) ||
+    (prefilter.markerPlanNo && markerPlanRefs.find((batch) => batch.markerPlanNo === prefilter.markerPlanNo)) ||
     null
   )
 }
 
 function buildContext(
-  owners: OriginalCutOrderTicketOwner[],
-  mergeBatches: MergeBatchRecord[],
+  owners: CutOrderTicketOwner[],
+  markerPlanRefs: MarkerPlanRefRecord[],
   prefilter: FeiTicketsPrefilter | null,
 ): FeiTicketsContext | null {
-  const batch = findMatchingMergeBatch(mergeBatches, prefilter)
+  const batch = findMatchingMarkerPlanRef(markerPlanRefs, prefilter)
   if (batch) {
-    const batchOwners = owners.filter((owner) => batch.items.some((item) => item.originalCutOrderId === owner.originalCutOrderId))
+    const batchOwners = owners.filter((owner) => batch.items.some((item) => item.cutOrderId === owner.cutOrderId))
     if (!batchOwners.length) return null
     return {
-      contextType: 'merge-batch',
-      originalCutOrderIds: batchOwners.map((owner) => owner.originalCutOrderId),
-      originalCutOrderNos: batchOwners.map((owner) => owner.originalCutOrderNo),
-      mergeBatchId: batch.mergeBatchId,
-      mergeBatchNo: batch.mergeBatchNo,
+      contextType: 'marker-plan-ref',
+      cutOrderIds: batchOwners.map((owner) => owner.cutOrderId),
+      cutOrderNos: batchOwners.map((owner) => owner.cutOrderNo),
+      markerPlanId: batch.markerPlanId,
+      markerPlanNo: batch.markerPlanNo,
       productionOrderIds: uniqueStrings(batchOwners.map((owner) => owner.productionOrderId)),
       productionOrderNos: uniqueStrings(batchOwners.map((owner) => owner.productionOrderNo)),
       styleCode: batch.styleCode || batchOwners[0]?.styleCode || '',
@@ -799,19 +807,19 @@ function buildContext(
 
   if (!prefilter) return null
   const owner =
-    (prefilter.originalCutOrderId && owners.find((item) => item.originalCutOrderId === prefilter.originalCutOrderId)) ||
-    (prefilter.originalCutOrderNo && owners.find((item) => item.originalCutOrderNo === prefilter.originalCutOrderNo)) ||
+    (prefilter.cutOrderId && owners.find((item) => item.cutOrderId === prefilter.cutOrderId)) ||
+    (prefilter.cutOrderNo && owners.find((item) => item.cutOrderNo === prefilter.cutOrderNo)) ||
     null
 
   if (!owner) return null
-  const mergeBatchIds = getMergeBatchIds(owner)
-  const mergeBatchNos = getMergeBatchNos(owner)
+  const markerPlanIds = getMarkerPlanRefIds(owner)
+  const markerPlanNos = getMarkerPlanRefNos(owner)
   return {
-    contextType: 'original-order',
-    originalCutOrderIds: [owner.originalCutOrderId],
-    originalCutOrderNos: [owner.originalCutOrderNo],
-    mergeBatchId: mergeBatchIds[0] || '',
-    mergeBatchNo: mergeBatchNos[0] || '',
+    contextType: 'cut-order',
+    cutOrderIds: [owner.cutOrderId],
+    cutOrderNos: [owner.cutOrderNo],
+    markerPlanId: markerPlanIds[0] || '',
+    markerPlanNo: markerPlanNos[0] || '',
     productionOrderIds: [owner.productionOrderId],
     productionOrderNos: [owner.productionOrderNo],
     styleCode: owner.styleCode,
@@ -822,28 +830,28 @@ function buildContext(
 }
 
 function findRelevantMarkerPieceCount(
-  owner: Pick<OriginalCutOrderTicketOwner, 'originalCutOrderId' | 'relatedMergeBatchIds' | 'relatedMergeBatchNos'>,
+  owner: Pick<CutOrderTicketOwner, 'cutOrderId' | 'relatedMarkerPlanIds' | 'relatedMarkerPlanNos'>,
   markerStore: MarkerSpreadingStore,
   context: FeiTicketsContext | null,
 ): number | null {
   const originalMarker = markerStore.markers.find(
-    (marker) => marker.contextType === 'original-order' && marker.originalCutOrderIds.includes(owner.originalCutOrderId),
+    (marker) => marker.contextType === 'cut-order' && marker.cutOrderIds.includes(owner.cutOrderId),
   )
   if (originalMarker?.totalPieces) return originalMarker.totalPieces
 
-  const ownerMergeBatchIds = getMergeBatchIds(owner)
-  const ownerMergeBatchNos = getMergeBatchNos(owner)
-  const targetBatchId = context?.contextType === 'merge-batch' ? context.mergeBatchId : ownerMergeBatchIds[0]
-  const targetBatchNo = context?.contextType === 'merge-batch' ? context.mergeBatchNo : ownerMergeBatchNos[0]
+  const ownerMarkerPlanRefIds = getMarkerPlanRefIds(owner)
+  const ownerMarkerPlanRefNos = getMarkerPlanRefNos(owner)
+  const targetBatchId = context?.contextType === 'marker-plan-ref' ? context.markerPlanId : ownerMarkerPlanRefIds[0]
+  const targetBatchNo = context?.contextType === 'marker-plan-ref' ? context.markerPlanNo : ownerMarkerPlanRefNos[0]
   const mergeMarker = markerStore.markers.find((marker) => {
-    if (marker.contextType !== 'merge-batch') return false
-    return (targetBatchId && marker.mergeBatchId === targetBatchId) || (targetBatchNo && marker.mergeBatchNo === targetBatchNo)
+    if (marker.contextType !== 'marker-plan-ref') return false
+    return (targetBatchId && marker.markerPlanId === targetBatchId) || (targetBatchNo && marker.markerPlanNo === targetBatchNo)
   })
   return mergeMarker?.totalPieces ?? null
 }
 
 export function resolveTicketCountBasis(
-  owner: Pick<OriginalCutOrderTicketOwner, 'originalCutOrderId' | 'relatedMergeBatchIds' | 'relatedMergeBatchNos'> & { orderQtyHint: number },
+  owner: Pick<CutOrderTicketOwner, 'cutOrderId' | 'relatedMarkerPlanIds' | 'relatedMarkerPlanNos'> & { orderQtyHint: number },
   markerStore: MarkerSpreadingStore,
   context: FeiTicketsContext | null,
   spreadingResultTicketCount = 0,
@@ -907,15 +915,15 @@ export function deriveFeiTicketStatus(options: {
   return { key: 'PRINTED', ...feiTicketStatusMetaMap.PRINTED }
 }
 
-export function buildFeiTicketNo(originalCutOrderNo: string, sequenceNo: number): string {
-  return `FT-${originalCutOrderNo}-${String(sequenceNo).padStart(3, '0')}`
+export function buildFeiTicketNo(cutOrderNo: string, sequenceNo: number): string {
+  return `FT-${cutOrderNo}-${String(sequenceNo).padStart(3, '0')}`
 }
 
 export function buildFeiTicketPreview(
-  owner: OriginalCutOrderTicketOwner,
+  owner: CutOrderTicketOwner,
   sourceContextType: FeiTicketsContextType,
-  sourceMergeBatchId: string,
-  sourceMergeBatchNo: string,
+  sourceMarkerPlanId: string,
+  sourceMarkerPlanNo: string,
   ticketCount: number,
   sequenceNos?: number[],
 ): FeiTicketLabelRecord[] {
@@ -924,25 +932,25 @@ export function buildFeiTicketPreview(
     : Array.from({ length: Math.max(ticketCount, 0) }, (_, index) => index + 1)
 
   return sequences.map((sequenceNo) =>
-    createEmptyPreviewRecord(owner, sequenceNo, sourceContextType, sourceMergeBatchId, sourceMergeBatchNo),
+    createEmptyPreviewRecord(owner, sequenceNo, sourceContextType, sourceMarkerPlanId, sourceMarkerPlanNo),
   )
 }
 
 export function createFeiTicketDraft(options: CreateFeiTicketDraftOptions): FeiTicketDraft {
   const previewLabelRecords = buildFeiTicketPreview(
     options.owner,
-    options.context?.contextType || 'original-order',
-    options.context?.mergeBatchId || '',
-    options.context?.mergeBatchNo || '',
+    options.context?.contextType || 'cut-order',
+    options.context?.markerPlanId || '',
+    options.context?.markerPlanNo || '',
     options.ticketCount,
   )
 
   return {
-    draftId: `draft-${options.owner.originalCutOrderId}`,
-    originalCutOrderId: options.owner.originalCutOrderId,
-    sourceContextType: options.context?.contextType || 'original-order',
-    sourceMergeBatchId: options.context?.mergeBatchId || '',
-    sourceMergeBatchNo: options.context?.mergeBatchNo || '',
+    draftId: `draft-${options.owner.cutOrderId}`,
+    cutOrderId: options.owner.cutOrderId,
+    sourceContextType: options.context?.contextType || 'cut-order',
+    sourceMarkerPlanId: options.context?.markerPlanId || '',
+    sourceMarkerPlanNo: options.context?.markerPlanNo || '',
     ticketCount: options.ticketCount,
     previewLabelRecords,
     note: options.note,
@@ -953,22 +961,22 @@ export function createFeiTicketDraft(options: CreateFeiTicketDraftOptions): FeiT
 }
 
 export function buildReprintDraft(
-  owner: OriginalCutOrderTicketOwner,
+  owner: CutOrderTicketOwner,
   ticketRecords: FeiTicketLabelRecord[],
   context: FeiTicketsContext | null,
   nowText: string,
 ): FeiTicketDraft | null {
   const ownedRecords = ticketRecords
-    .filter((record) => record.originalCutOrderId === owner.originalCutOrderId)
+    .filter((record) => record.cutOrderId === owner.cutOrderId)
     .sort((left, right) => left.sequenceNo - right.sequenceNo)
 
   if (!ownedRecords.length) return null
 
   const previewLabelRecords = buildFeiTicketPreview(
     owner,
-    context?.contextType || ownedRecords[0].sourceContextType || 'original-order',
-    context?.mergeBatchId || ownedRecords[0].sourceMergeBatchId || '',
-    context?.mergeBatchNo || ownedRecords[0].sourceMergeBatchNo || '',
+    context?.contextType || ownedRecords[0].sourceContextType || 'cut-order',
+    context?.markerPlanId || ownedRecords[0].sourceMarkerPlanId || '',
+    context?.markerPlanNo || ownedRecords[0].sourceMarkerPlanNo || '',
     ownedRecords.length,
     ownedRecords.map((record) => record.sequenceNo),
   )
@@ -983,11 +991,11 @@ export function buildReprintDraft(
   })
 
   return {
-    draftId: `draft-${owner.originalCutOrderId}`,
-    originalCutOrderId: owner.originalCutOrderId,
-    sourceContextType: context?.contextType || ownedRecords[0].sourceContextType || 'original-order',
-    sourceMergeBatchId: context?.mergeBatchId || ownedRecords[0].sourceMergeBatchId || '',
-    sourceMergeBatchNo: context?.mergeBatchNo || ownedRecords[0].sourceMergeBatchNo || '',
+    draftId: `draft-${owner.cutOrderId}`,
+    cutOrderId: owner.cutOrderId,
+    sourceContextType: context?.contextType || ownedRecords[0].sourceContextType || 'cut-order',
+    sourceMarkerPlanId: context?.markerPlanId || ownedRecords[0].sourceMarkerPlanId || '',
+    sourceMarkerPlanNo: context?.markerPlanNo || ownedRecords[0].sourceMarkerPlanNo || '',
     ticketCount: ownedRecords.length,
     previewLabelRecords,
     note: `重打 ${ownedRecords.length} 张菲票。`,
@@ -1005,7 +1013,7 @@ function buildPrintJobNo(existingJobs: FeiTicketPrintJob[], nowText: string): st
 
 export function createFeiTicketPrintJob(options: {
   draft: FeiTicketDraft
-  owner: OriginalCutOrderTicketOwner
+  owner: CutOrderTicketOwner
   existingRecords: FeiTicketLabelRecord[]
   existingJobs: FeiTicketPrintJob[]
   printedBy: string
@@ -1013,28 +1021,28 @@ export function createFeiTicketPrintJob(options: {
 }): CreateFeiTicketPrintJobResult {
   const existingBySequence = new Map(
     options.existingRecords
-      .filter((record) => record.originalCutOrderId === options.owner.originalCutOrderId)
+      .filter((record) => record.cutOrderId === options.owner.cutOrderId)
       .map((record) => [record.sequenceNo, record] as const),
   )
   const hasReprint = options.draft.previewLabelRecords.some((preview) => existingBySequence.has(preview.sequenceNo))
-  const printJobId = buildFeiPrintJobId(options.nowText, options.owner.originalCutOrderId, hasReprint ? 'reprint' : 'first')
+  const printJobId = buildFeiPrintJobId(options.nowText, options.owner.cutOrderId, hasReprint ? 'reprint' : 'first')
   const printJobNo = buildPrintJobNo(options.existingJobs, options.nowText)
   const printJob: FeiTicketPrintJob = {
     printJobId,
     printJobNo,
-    ownerType: 'original-cut-order',
-    originalCutOrderIds: [options.owner.originalCutOrderId],
-    originalCutOrderNos: [options.owner.originalCutOrderNo],
+    ownerType: 'cut-order',
+    cutOrderIds: [options.owner.cutOrderId],
+    cutOrderNos: [options.owner.cutOrderNo],
     sourceContextType: options.draft.sourceContextType,
-    sourceMergeBatchId: options.draft.sourceMergeBatchId,
-    sourceMergeBatchNo: options.draft.sourceMergeBatchNo,
+    sourceMarkerPlanId: options.draft.sourceMarkerPlanId,
+    sourceMarkerPlanNo: options.draft.sourceMarkerPlanNo,
     totalTicketCount: options.draft.previewLabelRecords.length,
     status: hasReprint ? 'REPRINTED' : 'PRINTED',
     printedBy: options.printedBy,
     printedAt: options.nowText,
     note: options.draft.note,
-    printableUnitId: `cut-order:${options.owner.originalCutOrderId}`,
-    printableUnitNo: options.owner.originalCutOrderNo,
+    printableUnitId: `cut-order:${options.owner.cutOrderId}`,
+    printableUnitNo: options.owner.cutOrderNo,
     printableUnitType: 'CUT_ORDER',
   }
 
@@ -1051,8 +1059,8 @@ export function createFeiTicketPrintJob(options: {
           reprintCount: existing.reprintCount + 1,
           sourcePrintJobId: printJobId,
           sourceContextType: options.draft.sourceContextType,
-          sourceMergeBatchId: options.draft.sourceMergeBatchId,
-          sourceMergeBatchNo: options.draft.sourceMergeBatchNo,
+          sourceMarkerPlanId: options.draft.sourceMarkerPlanId,
+          sourceMarkerPlanNo: options.draft.sourceMarkerPlanNo,
           printableUnitId: printJob.printableUnitId,
           printableUnitNo: printJob.printableUnitNo,
           printableUnitType: printJob.printableUnitType,
@@ -1064,7 +1072,7 @@ export function createFeiTicketPrintJob(options: {
       return
     }
 
-    const ticketRecordId = `ticket-${options.owner.originalCutOrderId}-${String(preview.sequenceNo).padStart(3, '0')}`
+    const ticketRecordId = `ticket-${options.owner.cutOrderId}-${String(preview.sequenceNo).padStart(3, '0')}`
     nextRecordsMap.set(
       ticketRecordId,
       attachQrSnapshotToRecord(
@@ -1089,90 +1097,90 @@ export function createFeiTicketPrintJob(options: {
   return {
     printJob,
     nextRecords: Array.from(nextRecordsMap.values()).sort((left, right) =>
-      left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN') || left.sequenceNo - right.sequenceNo,
+      left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN') || left.sequenceNo - right.sequenceNo,
     ),
   }
 }
 
 export function buildFeiNavigationPayload(
-  owner: Pick<OriginalCutOrderTicketOwner, 'originalCutOrderId' | 'originalCutOrderNo' | 'productionOrderNo'> &
-    MergeBatchRefLike,
+  owner: Pick<CutOrderTicketOwner, 'cutOrderId' | 'cutOrderNo' | 'productionOrderNo'> &
+    MarkerPlanRefRefLike,
   context: FeiTicketsContext | null,
 ): FeiNavigationPayload {
-  const mergeBatchNos = getMergeBatchNos(owner)
-  const mergeBatchNo = context?.contextType === 'merge-batch' ? context.mergeBatchNo || undefined : mergeBatchNos[0] || undefined
+  const markerPlanNos = getMarkerPlanRefNos(owner)
+  const markerPlanNo = context?.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : markerPlanNos[0] || undefined
 
   return {
-    originalOrders: {
-      originalCutOrderId: owner.originalCutOrderId,
-      originalCutOrderNo: owner.originalCutOrderNo,
+    cutOrders: {
+      cutOrderId: owner.cutOrderId,
+      cutOrderNo: owner.cutOrderNo,
       productionOrderNo: owner.productionOrderNo,
     },
-    mergeBatches: {
-      mergeBatchNo,
-      originalCutOrderNo: owner.originalCutOrderNo,
+    markerPlanRefs: {
+      markerPlanNo,
+      cutOrderNo: owner.cutOrderNo,
     },
     markerSpreading: {
-      mergeBatchNo,
-      originalCutOrderNo: owner.originalCutOrderNo,
-      originalCutOrderId: owner.originalCutOrderId,
+      markerPlanNo,
+      cutOrderNo: owner.cutOrderNo,
+      cutOrderId: owner.cutOrderId,
     },
     replenishment: {
-      mergeBatchNo,
-      originalCutOrderNo: owner.originalCutOrderNo,
+      markerPlanNo,
+      cutOrderNo: owner.cutOrderNo,
       productionOrderNo: owner.productionOrderNo,
     },
     summary: {
-      mergeBatchNo,
-      originalCutOrderNo: owner.originalCutOrderNo,
+      markerPlanNo,
+      cutOrderNo: owner.cutOrderNo,
       productionOrderNo: owner.productionOrderNo,
     },
     transferBags: {
-      mergeBatchNo,
-      originalCutOrderNo: owner.originalCutOrderNo,
+      markerPlanNo,
+      cutOrderNo: owner.cutOrderNo,
     },
   }
 }
 
 export function buildTicketOwnerGroupsFromContext(
   context: FeiTicketsContext | null,
-  owners: OriginalCutOrderTicketOwner[],
-): OriginalCutOrderTicketOwner[] {
+  owners: CutOrderTicketOwner[],
+): CutOrderTicketOwner[] {
   if (!context) return owners
-  if (context.contextType === 'merge-batch') {
-    const allowedIds = new Set(context.originalCutOrderIds)
-    return owners.filter((owner) => allowedIds.has(owner.originalCutOrderId))
+  if (context.contextType === 'marker-plan-ref') {
+    const allowedIds = new Set(context.cutOrderIds)
+    return owners.filter((owner) => allowedIds.has(owner.cutOrderId))
   }
-  return owners.filter((owner) => owner.originalCutOrderId === context.originalCutOrderIds[0])
+  return owners.filter((owner) => owner.cutOrderId === context.cutOrderIds[0])
 }
 
 export function buildFeiTicketsViewModel(options: {
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
   drafts: Record<string, FeiTicketDraft>
   prefilter: FeiTicketsPrefilter | null
 }): FeiTicketsViewModel {
-  const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.originalCutOrderId, row]))
-  const generatedTicketMap = getGeneratedFeiTicketMapByOriginalCutOrderId()
-  const printableOriginalIds = new Set(options.originalRows.filter(isPrintableSourceRow).map((row) => row.originalCutOrderId))
+  const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.cutOrderId, row]))
+  const generatedTicketMap = getGeneratedFeiTicketMapByCutOrderId()
+  const printableCutOrderIds = new Set(options.cutOrderRows.filter(isPrintableSourceRow).map((row) => row.cutOrderId))
 
-  const owners = options.originalRows.map((row) => {
+  const owners = options.cutOrderRows.map((row) => {
     const printable = isPrintableSourceRow(row)
-    const mergeBatchIds = Array.isArray(row.mergeBatchIds) ? row.mergeBatchIds : []
-    const mergeBatchNos = Array.isArray(row.mergeBatchNos) ? row.mergeBatchNos : []
-    const materialRow = materialRowsById[row.originalCutOrderId]
-    const generatedTickets = printable ? generatedTicketMap[row.originalCutOrderId] || [] : []
+    const markerPlanIds = Array.isArray(row.markerPlanIds) ? row.markerPlanIds : []
+    const markerPlanNos = Array.isArray(row.markerPlanNos) ? row.markerPlanNos : []
+    const materialRow = materialRowsById[row.cutOrderId]
+    const generatedTickets = printable ? generatedTicketMap[row.cutOrderId] || [] : []
     const spreadingResultTicketCount = generatedTickets.filter((ticket) => ticket.sourceBasisType === 'SPREADING_RESULT').length
     const ticketCountBasis = printable
       ? resolveTicketCountBasis(
           {
-            originalCutOrderId: row.originalCutOrderId,
-            relatedMergeBatchIds: mergeBatchIds,
-            relatedMergeBatchNos: mergeBatchNos,
+            cutOrderId: row.cutOrderId,
+            relatedMarkerPlanIds: markerPlanIds,
+            relatedMarkerPlanNos: markerPlanNos,
             orderQtyHint: row.orderQty,
           },
           options.markerStore,
@@ -1183,18 +1191,18 @@ export function buildFeiTicketsViewModel(options: {
           basisType: 'WAITING_SPREADING_RESULT' as const,
           ticketCount: 0,
           basisLabel: '未进入打印环节',
-          detailText: '当前仍未完成 WMS 来料或铺布结果，不能生成菲票。',
+          detailText: '当前仍未完成领料或铺布结果，不能生成菲票。',
         }
     const plannedTicketQty = ticketCountBasis.ticketCount
-    const ownerRecords = printable ? options.ticketRecords.filter((record) => record.originalCutOrderId === row.originalCutOrderId) : []
+    const ownerRecords = printable ? options.ticketRecords.filter((record) => record.cutOrderId === row.cutOrderId) : []
     const latestPrintJob = printable
       ? options.printJobs
-          .filter((job) => job.originalCutOrderIds.includes(row.originalCutOrderId))
+          .filter((job) => job.cutOrderIds.includes(row.cutOrderId))
           .sort((left, right) => right.printedAt.localeCompare(left.printedAt, 'zh-CN'))[0]
       : undefined
     const printedTicketQty = ownerRecords.length
     const reprintCount = ownerRecords.reduce((sum, record) => sum + record.reprintCount, 0)
-    const hasDraft = printable && Boolean(options.drafts[row.originalCutOrderId])
+    const hasDraft = printable && Boolean(options.drafts[row.cutOrderId])
     const statusMeta = deriveFeiTicketStatus({
       plannedTicketQty,
       printedTicketQty,
@@ -1204,10 +1212,10 @@ export function buildFeiTicketsViewModel(options: {
     })
 
     return {
-      ownerType: 'original-cut-order' as const,
+      ownerType: 'cut-order' as const,
       id: row.id,
-      originalCutOrderId: row.originalCutOrderId,
-      originalCutOrderNo: row.originalCutOrderNo,
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
       productionOrderId: row.productionOrderId,
       productionOrderNo: row.productionOrderNo,
       styleCode: row.styleCode,
@@ -1215,15 +1223,17 @@ export function buildFeiTicketsViewModel(options: {
       styleName: row.styleName,
       color: row.color,
       materialSku: row.materialSku,
+      materialAlias: row.materialAlias || '',
+      materialImageUrl: row.materialImageUrl || '',
       plannedTicketQty,
       printedTicketQty,
       latestPrintJobNo: latestPrintJob?.printJobNo || '',
       ticketStatus: statusMeta.key,
-      sameCodeValue: materialRow?.sameCodeValue || row.originalCutOrderNo,
-      qrBaseValue: materialRow?.qrCodeValue || `QR-${row.originalCutOrderNo}`,
-      relatedMergeBatchIds: mergeBatchIds,
-      relatedMergeBatchNos: mergeBatchNos,
-      sourceContextLabel: '原始裁片单上下文',
+      sameCodeValue: materialRow?.sameCodeValue || row.cutOrderNo,
+      qrBaseValue: materialRow?.qrCodeValue || `QR-${row.cutOrderNo}`,
+      relatedMarkerPlanIds: markerPlanIds,
+      relatedMarkerPlanNos: markerPlanNos,
+      sourceContextLabel: '裁片单上下文',
       ticketCountBasisType: ticketCountBasis.basisType,
       ticketCountBasisLabel: ticketCountBasis.basisLabel,
       ticketCountBasisDetail: ticketCountBasis.detailText,
@@ -1232,13 +1242,13 @@ export function buildFeiTicketsViewModel(options: {
       riskLabels: row.riskTags.map((tag) => tag.label),
       latestActionText: row.latestActionText,
       qrReservedPayload: {
-        qrBaseValue: materialRow?.qrCodeValue || `QR-${row.originalCutOrderNo}`,
+        qrBaseValue: materialRow?.qrCodeValue || `QR-${row.cutOrderNo}`,
         reservedProcessFields: {},
         reservedVersion: 'v-next',
       },
       navigationPayload: buildFeiNavigationPayload(row, null),
       keywordIndex: buildKeywordIndex([
-        row.originalCutOrderNo,
+        row.cutOrderNo,
         row.productionOrderNo,
         row.styleCode,
         row.spuCode,
@@ -1246,31 +1256,31 @@ export function buildFeiTicketsViewModel(options: {
         row.materialSku,
         materialRow?.sameCodeValue,
         latestPrintJob?.printJobNo,
-        ...row.mergeBatchNos,
+        ...row.markerPlanNos,
       ]),
     }
   })
 
-  const context = buildContext(owners, options.mergeBatches, options.prefilter)
+  const context = buildContext(owners, options.markerPlanRefs, options.prefilter)
   const contextualOwners = buildTicketOwnerGroupsFromContext(context, owners).map((owner) => ({
     ...owner,
-    sourceContextLabel: context?.contextType === 'merge-batch' ? `来源合并裁剪批次 ${context.mergeBatchNo || '待补合并裁剪批次号'}` : '原始单上下文',
+    sourceContextLabel: context?.contextType === 'marker-plan-ref' ? `来源唛架方案 ${context.markerPlanNo || '待补唛架方案号'}` : '裁片单上下文',
     navigationPayload: buildFeiNavigationPayload(owner, context),
   }))
 
-  const contextualIds = new Set(contextualOwners.map((owner) => owner.originalCutOrderId))
+  const contextualIds = new Set(contextualOwners.map((owner) => owner.cutOrderId))
   const ticketRecords = options.ticketRecords
-    .filter((record) => printableOriginalIds.has(record.originalCutOrderId))
-    .filter((record) => (contextualIds.size ? contextualIds.has(record.originalCutOrderId) : true))
+    .filter((record) => printableCutOrderIds.has(record.cutOrderId))
+    .filter((record) => (contextualIds.size ? contextualIds.has(record.cutOrderId) : true))
     .sort(
       (left, right) =>
         right.printedAt.localeCompare(left.printedAt, 'zh-CN') ||
-        left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN') ||
+        left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN') ||
         left.sequenceNo - right.sequenceNo,
     )
   const printJobs = options.printJobs
-    .filter((job) => job.originalCutOrderIds.some((id) => printableOriginalIds.has(id)))
-    .filter((job) => (contextualIds.size ? job.originalCutOrderIds.some((id) => contextualIds.has(id)) : true))
+    .filter((job) => job.cutOrderIds.some((id) => printableCutOrderIds.has(id)))
+    .filter((job) => (contextualIds.size ? job.cutOrderIds.some((id) => contextualIds.has(id)) : true))
     .sort((left, right) => right.printedAt.localeCompare(left.printedAt, 'zh-CN'))
 
   return {
@@ -1284,10 +1294,10 @@ export function buildFeiTicketsViewModel(options: {
 }
 
 export function filterFeiTicketOwners(
-  owners: OriginalCutOrderTicketOwner[],
+  owners: CutOrderTicketOwner[],
   filters: FeiTicketOwnerFilters,
   prefilter: FeiTicketsPrefilter | null,
-): OriginalCutOrderTicketOwner[] {
+): CutOrderTicketOwner[] {
   const keyword = filters.keyword.trim().toLowerCase()
 
   return owners.filter((owner) => {
@@ -1314,10 +1324,10 @@ export function filterFeiPrintJobs(
 
     const keywordValues = [
       job.printJobNo,
-      job.originalCutOrderNos.join(' / '),
+      job.cutOrderNos.join(' / '),
       job.printedBy,
       job.note,
-      job.sourceMergeBatchNo,
+      job.sourceMarkerPlanNo,
     ]
       .filter(Boolean)
       .map((value) => value.toLowerCase())
@@ -1326,13 +1336,13 @@ export function filterFeiPrintJobs(
 }
 
 export function buildFeiTicketStats(
-  owners: OriginalCutOrderTicketOwner[],
+  owners: CutOrderTicketOwner[],
   ticketRecords: FeiTicketLabelRecord[],
   printJobs: FeiTicketPrintJob[],
   drafts: Record<string, FeiTicketDraft>,
 ): FeiTicketsStats {
-  const contextualIds = new Set(owners.map((owner) => owner.originalCutOrderId))
-  const contextualDraftCount = Object.values(drafts).filter((draft) => contextualIds.has(draft.originalCutOrderId)).length
+  const contextualIds = new Set(owners.map((owner) => owner.cutOrderId))
+  const contextualDraftCount = Object.values(drafts).filter((draft) => contextualIds.has(draft.cutOrderId)).length
 
   return {
     ownerCount: owners.length,
@@ -1391,43 +1401,43 @@ export function getFeiTicketStatusMeta(status: FeiTicketStatusKey): FeiTicketSta
 }
 
 export function buildSystemSeedFeiTicketLedger(options: {
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
 }): FeiTicketSeedLedger {
   void options.markerStore
-  void options.mergeBatches
-  const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.originalCutOrderId, row]))
-  const generatedTicketMap = getGeneratedFeiTicketMapByOriginalCutOrderId()
-  const owners = options.originalRows
+  void options.markerPlanRefs
+  const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.cutOrderId, row]))
+  const generatedTicketMap = getGeneratedFeiTicketMapByCutOrderId()
+  const owners = options.cutOrderRows
     .filter(isPrintableSourceRow)
     .map((row) => {
-      const generated = generatedTicketMap[row.originalCutOrderId] || []
+      const generated = generatedTicketMap[row.cutOrderId] || []
       if (!generated.length) return null
       return createSeedOwnerFromRow({
         row,
-        materialRow: materialRowsById[row.originalCutOrderId],
+        materialRow: materialRowsById[row.cutOrderId],
         plannedTicketQty: generated.length,
       })
     })
-    .filter((owner): owner is OriginalCutOrderTicketOwner => Boolean(owner))
-    .sort((left, right) => left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN'))
+    .filter((owner): owner is CutOrderTicketOwner => Boolean(owner))
+    .sort((left, right) => left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN'))
 
   const ticketRecords: FeiTicketLabelRecord[] = []
   const printJobs: FeiTicketPrintJob[] = []
 
-  const resolveScope = (owner: OriginalCutOrderTicketOwner) => {
-    const mergeBatchId = owner.relatedMergeBatchIds[0] || ''
-    const mergeBatchNo = owner.relatedMergeBatchNos[0] || ''
-    const sourceContextType: FeiTicketsContextType = mergeBatchId || mergeBatchNo ? 'merge-batch' : 'original-order'
+  const resolveScope = (owner: CutOrderTicketOwner) => {
+    const markerPlanId = owner.relatedMarkerPlanIds[0] || ''
+    const markerPlanNo = owner.relatedMarkerPlanNos[0] || ''
+    const sourceContextType: FeiTicketsContextType = markerPlanId || markerPlanNo ? 'marker-plan-ref' : 'cut-order'
     return {
       sourceContextType,
-      sourceMergeBatchId: sourceContextType === 'merge-batch' ? mergeBatchId : '',
-      sourceMergeBatchNo: sourceContextType === 'merge-batch' ? mergeBatchNo : '',
-      printableUnitId: sourceContextType === 'merge-batch' ? `batch:${mergeBatchId}` : `cut-order:${owner.originalCutOrderId}`,
-      printableUnitNo: sourceContextType === 'merge-batch' ? mergeBatchNo : owner.originalCutOrderNo,
-      printableUnitType: sourceContextType === 'merge-batch' ? 'BATCH' as const : 'CUT_ORDER' as const,
+      sourceMarkerPlanId: sourceContextType === 'marker-plan-ref' ? markerPlanId : '',
+      sourceMarkerPlanNo: sourceContextType === 'marker-plan-ref' ? markerPlanNo : '',
+      printableUnitId: sourceContextType === 'marker-plan-ref' ? `marker-plan:${markerPlanId}` : `cut-order:${owner.cutOrderId}`,
+      printableUnitNo: sourceContextType === 'marker-plan-ref' ? markerPlanNo : owner.cutOrderNo,
+      printableUnitType: sourceContextType === 'marker-plan-ref' ? 'MARKER_PLAN' as const : 'CUT_ORDER' as const,
     }
   }
 
@@ -1439,9 +1449,9 @@ export function buildSystemSeedFeiTicketLedger(options: {
   if (firstOwner) {
     const scope = resolveScope(firstOwner)
     const printedAt = '2026-03-23 10:15'
-    const ticketSeeds = getGeneratedFeiRecordsByOriginalCutOrderId(firstOwner.originalCutOrderId).slice(0, 2)
+    const ticketSeeds = getGeneratedFeiRecordsByCutOrderId(firstOwner.cutOrderId).slice(0, 2)
     const printJob = createSeedPrintJob({
-      printJobId: buildFeiPrintJobId(printedAt, firstOwner.originalCutOrderId, 'first'),
+      printJobId: buildFeiPrintJobId(printedAt, firstOwner.cutOrderId, 'first'),
       printJobNo: 'FEI-PJ-DEMO-A-001',
       owner: firstOwner,
       ...scope,
@@ -1475,10 +1485,10 @@ export function buildSystemSeedFeiTicketLedger(options: {
   if (secondOwner) {
     const scope = resolveScope(secondOwner)
     const printedAt = '2026-03-23 11:20'
-    const seed = getGeneratedFeiRecordBySequence(secondOwner.originalCutOrderId, 1)
+    const seed = getGeneratedFeiRecordBySequence(secondOwner.cutOrderId, 1)
     if (seed) {
       const printJob = createSeedPrintJob({
-      printJobId: buildFeiPrintJobId(printedAt, secondOwner.originalCutOrderId, 'reprint-gap'),
+      printJobId: buildFeiPrintJobId(printedAt, secondOwner.cutOrderId, 'reprint-gap'),
         printJobNo: 'FEI-PJ-DEMO-B-001',
         owner: secondOwner,
         ...scope,
@@ -1511,10 +1521,10 @@ export function buildSystemSeedFeiTicketLedger(options: {
   if (thirdOwner) {
     const scope = resolveScope(thirdOwner)
     const printedAt = '2026-03-23 14:10'
-    const seedRecords = getGeneratedFeiRecordsByOriginalCutOrderId(thirdOwner.originalCutOrderId).slice(0, 2)
+    const seedRecords = getGeneratedFeiRecordsByCutOrderId(thirdOwner.cutOrderId).slice(0, 2)
     if (seedRecords.length) {
       const printJob = createSeedPrintJob({
-        printJobId: buildFeiPrintJobId(printedAt, thirdOwner.originalCutOrderId, 'void-base'),
+        printJobId: buildFeiPrintJobId(printedAt, thirdOwner.cutOrderId, 'void-base'),
         printJobNo: 'FEI-PJ-DEMO-C-001',
         owner: thirdOwner,
         ...scope,
@@ -1565,7 +1575,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
       printJobs.push(
         printJob,
         createSeedPrintJob({
-          printJobId: buildFeiPrintJobId('2026-03-24 08:45', thirdOwner.originalCutOrderId, 'void'),
+          printJobId: buildFeiPrintJobId('2026-03-24 08:45', thirdOwner.cutOrderId, 'void'),
           printJobNo: 'FEI-PJ-DEMO-C-002',
           owner: thirdOwner,
           ...scope,
@@ -1586,10 +1596,10 @@ export function buildSystemSeedFeiTicketLedger(options: {
     const scope = resolveScope(fourthOwner)
     const firstPrintedAt = '2026-03-24 09:10'
     const replacementAt = '2026-03-24 09:25'
-    const seedRecords = getGeneratedFeiRecordsByOriginalCutOrderId(fourthOwner.originalCutOrderId).slice(0, 2)
+    const seedRecords = getGeneratedFeiRecordsByCutOrderId(fourthOwner.cutOrderId).slice(0, 2)
     if (seedRecords.length) {
       const firstPrintJob = createSeedPrintJob({
-        printJobId: buildFeiPrintJobId(firstPrintedAt, fourthOwner.originalCutOrderId, 'replace-base'),
+        printJobId: buildFeiPrintJobId(firstPrintedAt, fourthOwner.cutOrderId, 'replace-base'),
         printJobNo: 'FEI-PJ-DEMO-D-001',
         owner: fourthOwner,
         ...scope,
@@ -1619,7 +1629,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
         version: 2,
         printedAt: replacementAt,
         printedBy: '打票员-刘芸',
-        printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.originalCutOrderId, 'replace'),
+        printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.cutOrderId, 'replace'),
         ...scope,
         quantity: seedRecords[0].qty,
         partName: seedRecords[0].partName,
@@ -1656,7 +1666,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
       printJobs.push(
         firstPrintJob,
         createSeedPrintJob({
-          printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.originalCutOrderId, 'replace-void'),
+          printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.cutOrderId, 'replace-void'),
           printJobNo: 'FEI-PJ-DEMO-D-002',
           owner: fourthOwner,
           ...scope,
@@ -1670,7 +1680,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
           note: '正式菲票对象作废动作。',
         }),
         createSeedPrintJob({
-          printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.originalCutOrderId, 'replace-reprint'),
+          printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.cutOrderId, 'replace-reprint'),
           printJobNo: 'FEI-PJ-DEMO-D-003',
           owner: fourthOwner,
           ...scope,
@@ -1701,7 +1711,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
   }
 }
 
-export type PrintableUnitType = 'BATCH' | 'CUT_ORDER'
+export type PrintableUnitType = 'MARKER_PLAN' | 'CUT_ORDER'
 export type PrintableUnitStatus = 'WAITING_PRINT' | 'PRINTED' | 'NEED_REPRINT'
 
 export interface PrintableUnitNavigationPayload {
@@ -1727,6 +1737,8 @@ export interface PrintableUnit {
   cutOrderNo: string
   styleCode: string
   fabricSku: string
+  materialAlias: string
+  materialImageUrl: string
   sourceProductionOrderIds: string[]
   sourceProductionOrderNos: string[]
   sourceCutOrderIds: string[]
@@ -1893,15 +1905,15 @@ export interface VoidTicketCardResult {
 }
 
 interface PrintableUnitSourceOwner {
-  owner: OriginalCutOrderTicketOwner
-  row: OriginalCutOrderRow
+  owner: CutOrderTicketOwner
+  row: CutOrderRow
 }
 
 const printableUnitStatusMetaMap: Record<PrintableUnitStatus, PrintableUnitStatusMeta> = {
   WAITING_PRINT: {
     label: '待打印',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: '已完成裁片，但当前还没有有效菲票。',
+    detailText: '铺布裁剪已完成，但当前还没有有效菲票。',
   },
   PRINTED: {
     label: '已打印',
@@ -1919,12 +1931,8 @@ function isFeiTicketRecordVoided(record: FeiTicketLabelRecord): boolean {
   return record.status === 'VOIDED'
 }
 
-export function isPrintableSourceRow(row: OriginalCutOrderRow): boolean {
-  if (getGeneratedFeiRecordsByOriginalCutOrderId(row.originalCutOrderId).some((record) => record.sourceBasisType === 'SPREADING_RESULT')) {
-    return true
-  }
-  if (row.currentStage.key === 'WAITING_INBOUND' || row.currentStage.key === 'DONE') return true
-  return /待入仓|已完成|已入仓/.test(row.currentStage.label)
+export function isPrintableSourceRow(row: CutOrderRow): boolean {
+  return getGeneratedFeiRecordsByCutOrderId(row.cutOrderId).some((record) => record.sourceBasisType === 'SPREADING_RESULT')
 }
 
 function comparePrintedAtDesc(left: string, right: string): number {
@@ -2026,21 +2034,21 @@ function collectGeneratedRecordTrace(records: GeneratedFeiTicketSourceRecord[]):
 }
 
 function buildPrintableUnitFromCutOrder(options: {
-  owner: OriginalCutOrderTicketOwner
-  row: OriginalCutOrderRow
+  owner: CutOrderTicketOwner
+  row: CutOrderRow
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
 }): PrintableUnit {
-  const generatedRecords = getGeneratedFeiRecordsByOriginalCutOrderId(options.owner.originalCutOrderId)
+  const generatedRecords = getGeneratedFeiRecordsByCutOrderId(options.owner.cutOrderId)
   const traceMeta = collectGeneratedRecordTrace(generatedRecords)
   const scope: PrintableUnitScope = {
-    printableUnitId: `cut-order:${options.owner.originalCutOrderId}`,
-    printableUnitNo: options.owner.originalCutOrderNo,
+    printableUnitId: `cut-order:${options.owner.cutOrderId}`,
+    printableUnitNo: options.owner.cutOrderNo,
     printableUnitType: 'CUT_ORDER',
     batchId: '',
     batchNo: '',
-    cutOrderId: options.owner.originalCutOrderId,
-    sourceCutOrderIds: [options.owner.originalCutOrderId],
+    cutOrderId: options.owner.cutOrderId,
+    sourceCutOrderIds: [options.owner.cutOrderId],
   }
   const stats = collectTicketStats(scope, options.ticketRecords, options.printJobs)
   const requiredTicketCount = Math.max(options.owner.plannedTicketQty, generatedRecords.length, 0)
@@ -2053,19 +2061,21 @@ function buildPrintableUnitFromCutOrder(options: {
   })
 
   const unit: PrintableUnit = {
-    printableUnitId: `cut-order:${options.owner.originalCutOrderId}`,
-    printableUnitNo: options.owner.originalCutOrderNo,
+    printableUnitId: `cut-order:${options.owner.cutOrderId}`,
+    printableUnitNo: options.owner.cutOrderNo,
     printableUnitType: 'CUT_ORDER',
     batchId: '',
     batchNo: '',
-    cutOrderId: options.owner.originalCutOrderId,
-    cutOrderNo: options.owner.originalCutOrderNo,
+    cutOrderId: options.owner.cutOrderId,
+    cutOrderNo: options.owner.cutOrderNo,
     styleCode: options.owner.styleCode || options.owner.spuCode || '',
     fabricSku: options.owner.materialSku,
+    materialAlias: options.owner.materialAlias || '',
+    materialImageUrl: options.owner.materialImageUrl || '',
     sourceProductionOrderIds: [options.owner.productionOrderId],
     sourceProductionOrderNos: [options.owner.productionOrderNo],
-    sourceCutOrderIds: [options.owner.originalCutOrderId],
-    sourceCutOrderNos: [options.owner.originalCutOrderNo],
+    sourceCutOrderIds: [options.owner.cutOrderId],
+    sourceCutOrderNos: [options.owner.cutOrderNo],
     sourceSpreadingSessionIds: traceMeta.sourceSpreadingSessionIds,
     sourceSpreadingSessionNos: traceMeta.sourceSpreadingSessionNos,
     sourceMarkerIds: traceMeta.sourceMarkerIds,
@@ -2084,12 +2094,12 @@ function buildPrintableUnitFromCutOrder(options: {
     lastPrintedAt: stats.lastPrintedAt,
     lastPrintedBy: stats.lastPrintedBy,
     keywordIndex: buildKeywordIndex([
-      options.owner.originalCutOrderNo,
+      options.owner.cutOrderNo,
       options.owner.productionOrderNo,
       options.owner.styleCode,
       options.owner.spuCode,
       options.owner.materialSku,
-      options.row.latestMergeBatchNo,
+      options.row.latestMarkerPlanNo,
       ...traceMeta.sourceSpreadingSessionNos,
       ...traceMeta.sourceMarkerNos,
     ]),
@@ -2104,24 +2114,24 @@ function buildPrintableUnitFromCutOrder(options: {
   return unit
 }
 
-function buildPrintableUnitFromBatch(options: {
-  batch: MergeBatchRecord
-  owners: OriginalCutOrderTicketOwner[]
+function buildPrintableUnitFromMarkerPlanRef(options: {
+  markerPlanRef: MarkerPlanRefRecord
+  owners: CutOrderTicketOwner[]
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
 }): PrintableUnit {
-  const generatedRecords = options.owners.flatMap((owner) => getGeneratedFeiRecordsByOriginalCutOrderId(owner.originalCutOrderId))
+  const generatedRecords = options.owners.flatMap((owner) => getGeneratedFeiRecordsByCutOrderId(owner.cutOrderId))
   const traceMeta = collectGeneratedRecordTrace(generatedRecords)
-  const sourceProductionOrderIds = uniqueStrings(options.batch.items.map((item) => item.productionOrderId))
-  const sourceProductionOrderNos = uniqueStrings(options.batch.items.map((item) => item.productionOrderNo))
-  const sourceCutOrderIds = uniqueStrings(options.owners.map((owner) => owner.originalCutOrderId))
-  const sourceCutOrderNos = uniqueStrings(options.owners.map((owner) => owner.originalCutOrderNo))
+  const sourceProductionOrderIds = uniqueStrings(options.markerPlanRef.items.map((item) => item.productionOrderId))
+  const sourceProductionOrderNos = uniqueStrings(options.markerPlanRef.items.map((item) => item.productionOrderNo))
+  const sourceCutOrderIds = uniqueStrings(options.owners.map((owner) => owner.cutOrderId))
+  const sourceCutOrderNos = uniqueStrings(options.owners.map((owner) => owner.cutOrderNo))
   const scope: PrintableUnitScope = {
-    printableUnitId: `batch:${options.batch.mergeBatchId}`,
-    printableUnitNo: options.batch.mergeBatchNo,
-    printableUnitType: 'BATCH',
-    batchId: options.batch.mergeBatchId,
-    batchNo: options.batch.mergeBatchNo,
+    printableUnitId: `marker-plan:${options.markerPlanRef.markerPlanId}`,
+    printableUnitNo: options.markerPlanRef.markerPlanNo,
+    printableUnitType: 'MARKER_PLAN',
+    batchId: options.markerPlanRef.markerPlanId,
+    batchNo: options.markerPlanRef.markerPlanNo,
     cutOrderId: '',
     sourceCutOrderIds,
   }
@@ -2149,15 +2159,17 @@ function buildPrintableUnitFromBatch(options: {
   })
 
   const unit: PrintableUnit = {
-    printableUnitId: `batch:${options.batch.mergeBatchId}`,
-    printableUnitNo: options.batch.mergeBatchNo,
-    printableUnitType: 'BATCH',
-    batchId: options.batch.mergeBatchId,
-    batchNo: options.batch.mergeBatchNo,
+    printableUnitId: `marker-plan:${options.markerPlanRef.markerPlanId}`,
+    printableUnitNo: options.markerPlanRef.markerPlanNo,
+    printableUnitType: 'MARKER_PLAN',
+    batchId: options.markerPlanRef.markerPlanId,
+    batchNo: options.markerPlanRef.markerPlanNo,
     cutOrderId: '',
     cutOrderNo: '',
-    styleCode: options.batch.styleCode || options.owners[0]?.styleCode || options.batch.spuCode || '',
-    fabricSku: options.batch.materialSkuSummary || uniqueStrings(options.owners.map((owner) => owner.materialSku)).join(' / '),
+    styleCode: options.markerPlanRef.styleCode || options.owners[0]?.styleCode || options.markerPlanRef.spuCode || '',
+    fabricSku: options.markerPlanRef.materialSkuSummary || uniqueStrings(options.owners.map((owner) => owner.materialSku)).join(' / '),
+    materialAlias: uniqueStrings(options.owners.map((owner) => owner.materialAlias)).join(' / '),
+    materialImageUrl: options.owners.find((owner) => owner.materialImageUrl)?.materialImageUrl || '',
     sourceProductionOrderIds,
     sourceProductionOrderNos,
     sourceCutOrderIds,
@@ -2180,10 +2192,10 @@ function buildPrintableUnitFromBatch(options: {
     lastPrintedAt: stats.lastPrintedAt,
     lastPrintedBy: stats.lastPrintedBy,
     keywordIndex: buildKeywordIndex([
-      options.batch.mergeBatchNo,
-      options.batch.styleCode,
-      options.batch.spuCode,
-      options.batch.materialSkuSummary,
+      options.markerPlanRef.markerPlanNo,
+      options.markerPlanRef.styleCode,
+      options.markerPlanRef.spuCode,
+      options.markerPlanRef.materialSkuSummary,
       ...sourceProductionOrderNos,
       ...sourceCutOrderNos,
       ...traceMeta.sourceSpreadingSessionNos,
@@ -2192,7 +2204,7 @@ function buildPrintableUnitFromBatch(options: {
     navigationPayload: {
       printableUnitId: '',
       printableUnitNo: '',
-      printableUnitType: 'BATCH',
+      printableUnitType: 'MARKER_PLAN',
     },
   }
 
@@ -2210,10 +2222,10 @@ function filterUnitsByContext(
     if (prefilter.spreadingSessionId && !unit.sourceSpreadingSessionIds.includes(prefilter.spreadingSessionId)) return false
     if (prefilter.spreadingSessionNo && !unit.sourceSpreadingSessionNos.includes(prefilter.spreadingSessionNo)) return false
     if (hasSpreadingSessionAnchor) return true
-    if (prefilter.mergeBatchId && unit.batchId !== prefilter.mergeBatchId) return false
-    if (prefilter.mergeBatchNo && unit.batchNo !== prefilter.mergeBatchNo) return false
-    if (prefilter.originalCutOrderId && !unit.sourceCutOrderIds.includes(prefilter.originalCutOrderId)) return false
-    if (prefilter.originalCutOrderNo && !unit.sourceCutOrderNos.includes(prefilter.originalCutOrderNo)) return false
+    if (prefilter.markerPlanId && unit.batchId !== prefilter.markerPlanId) return false
+    if (prefilter.markerPlanNo && unit.batchNo !== prefilter.markerPlanNo) return false
+    if (prefilter.cutOrderId && !unit.sourceCutOrderIds.includes(prefilter.cutOrderId)) return false
+    if (prefilter.cutOrderNo && !unit.sourceCutOrderNos.includes(prefilter.cutOrderNo)) return false
     if (prefilter.productionOrderNo && !unit.sourceProductionOrderNos.includes(prefilter.productionOrderNo)) return false
     return true
   })
@@ -2229,7 +2241,10 @@ export function filterPrintableUnits(units: PrintableUnit[], filters: PrintableU
     if (filters.printableUnitType !== 'ALL' && unit.printableUnitType !== filters.printableUnitType) return false
     if (filters.printableUnitStatus !== 'ALL' && unit.printableUnitStatus !== filters.printableUnitStatus) return false
     if (styleCode && !unit.styleCode.toLowerCase().includes(styleCode)) return false
-    if (fabricSku && !unit.fabricSku.toLowerCase().includes(fabricSku)) return false
+    if (
+      fabricSku &&
+      ![unit.fabricSku, unit.materialAlias].some((value) => value.toLowerCase().includes(fabricSku))
+    ) return false
     if (productionOrderNo && !unit.sourceProductionOrderNos.some((value) => value.toLowerCase().includes(productionOrderNo))) {
       return false
     }
@@ -2241,18 +2256,18 @@ export function filterPrintableUnits(units: PrintableUnit[], filters: PrintableU
 }
 
 export function buildPrintableUnitViewModel(options: {
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
   prefilter: FeiTicketsPrefilter | null
 }): PrintableUnitViewModel {
   const ownerView = buildFeiTicketsViewModel({
-    originalRows: options.originalRows,
+    cutOrderRows: options.cutOrderRows,
     materialPrepRows: options.materialPrepRows,
-    mergeBatches: options.mergeBatches,
+    markerPlanRefs: options.markerPlanRefs,
     markerStore: options.markerStore,
     ticketRecords: options.ticketRecords,
     printJobs: options.printJobs,
@@ -2260,26 +2275,26 @@ export function buildPrintableUnitViewModel(options: {
     prefilter: null,
   })
 
-  const ownersByCutOrderId = Object.fromEntries(ownerView.owners.map((owner) => [owner.originalCutOrderId, owner]))
-  const rowsByCutOrderId = Object.fromEntries(options.originalRows.map((row) => [row.originalCutOrderId, row]))
+  const ownersByCutOrderId = Object.fromEntries(ownerView.owners.map((owner) => [owner.cutOrderId, owner]))
+  const rowsByCutOrderId = Object.fromEntries(options.cutOrderRows.map((row) => [row.cutOrderId, row]))
   const units: PrintableUnit[] = []
   const coveredCutOrderIds = new Set<string>()
 
-  options.mergeBatches.forEach((batch) => {
+  options.markerPlanRefs.forEach((batch) => {
     const memberOwners = batch.items
-      .map((item) => ownersByCutOrderId[item.originalCutOrderId])
-      .filter((owner): owner is OriginalCutOrderTicketOwner => Boolean(owner))
+      .map((item) => ownersByCutOrderId[item.cutOrderId])
+      .filter((owner): owner is CutOrderTicketOwner => Boolean(owner))
     if (!memberOwners.length) return
 
     const memberRows = memberOwners
-      .map((owner) => rowsByCutOrderId[owner.originalCutOrderId])
-      .filter((row): row is OriginalCutOrderRow => Boolean(row))
+      .map((owner) => rowsByCutOrderId[owner.cutOrderId])
+      .filter((row): row is CutOrderRow => Boolean(row))
     if (!memberRows.length || !memberRows.every(isPrintableSourceRow)) return
 
-    memberRows.forEach((row) => coveredCutOrderIds.add(row.originalCutOrderId))
+    memberRows.forEach((row) => coveredCutOrderIds.add(row.cutOrderId))
     units.push(
-      buildPrintableUnitFromBatch({
-        batch,
+      buildPrintableUnitFromMarkerPlanRef({
+        markerPlanRef: batch,
         owners: memberOwners,
         ticketRecords: options.ticketRecords,
         printJobs: options.printJobs,
@@ -2288,9 +2303,9 @@ export function buildPrintableUnitViewModel(options: {
   })
 
   ownerView.owners.forEach((owner) => {
-    const row = rowsByCutOrderId[owner.originalCutOrderId]
+    const row = rowsByCutOrderId[owner.cutOrderId]
     if (!row || !isPrintableSourceRow(row)) return
-    if (coveredCutOrderIds.has(owner.originalCutOrderId)) return
+    if (coveredCutOrderIds.has(owner.cutOrderId)) return
     units.push(
       buildPrintableUnitFromCutOrder({
         owner,
@@ -2326,20 +2341,20 @@ const printablePartCycle = ['左前片', '右前片', '左袖', '右袖', '后�
 const printableSizeCycle = ['M', 'L', 'XL', 'S', '2XL', '均码']
 
 function buildOwnerMaps(options: {
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
 }): {
-  ownersByCutOrderId: Record<string, OriginalCutOrderTicketOwner>
-  rowsByCutOrderId: Record<string, OriginalCutOrderRow>
+  ownersByCutOrderId: Record<string, CutOrderTicketOwner>
+  rowsByCutOrderId: Record<string, CutOrderRow>
 } {
   const ownerView = buildFeiTicketsViewModel({
-    originalRows: options.originalRows,
+    cutOrderRows: options.cutOrderRows,
     materialPrepRows: options.materialPrepRows,
-    mergeBatches: options.mergeBatches,
+    markerPlanRefs: options.markerPlanRefs,
     markerStore: options.markerStore,
     ticketRecords: options.ticketRecords,
     printJobs: options.printJobs,
@@ -2348,15 +2363,15 @@ function buildOwnerMaps(options: {
   })
 
   return {
-    ownersByCutOrderId: Object.fromEntries(ownerView.owners.map((owner) => [owner.originalCutOrderId, owner])),
-    rowsByCutOrderId: Object.fromEntries(options.originalRows.map((row) => [row.originalCutOrderId, row])),
+    ownersByCutOrderId: Object.fromEntries(ownerView.owners.map((owner) => [owner.cutOrderId, owner])),
+    rowsByCutOrderId: Object.fromEntries(options.cutOrderRows.map((row) => [row.cutOrderId, row])),
   }
 }
 
 function collectPrintableUnitOwners(
   unit: PrintableUnit,
-  ownersByCutOrderId: Record<string, OriginalCutOrderTicketOwner>,
-  rowsByCutOrderId: Record<string, OriginalCutOrderRow>,
+  ownersByCutOrderId: Record<string, CutOrderTicketOwner>,
+  rowsByCutOrderId: Record<string, CutOrderRow>,
 ): PrintableUnitSourceOwner[] {
   return unit.sourceCutOrderIds
     .map((cutOrderId) => {
@@ -2376,7 +2391,7 @@ function findDetailSourceRecord(
     .filter(
       (record) =>
         record.printableUnitId === detail.printableUnitId &&
-        record.originalCutOrderId === detail.sourceCutOrderId &&
+        record.cutOrderId === detail.sourceCutOrderId &&
         record.sequenceNo === detail.sequenceNo,
     )
     .sort((left, right) => {
@@ -2392,11 +2407,11 @@ function buildSplitDetailsFromOwner(
   source: PrintableUnitSourceOwner,
   ticketRecords: FeiTicketLabelRecord[],
 ): TicketSplitDetail[] {
-  const generatedFeiRecords = getGeneratedFeiRecordsByOriginalCutOrderId(source.owner.originalCutOrderId)
+  const generatedFeiRecords = getGeneratedFeiRecordsByCutOrderId(source.owner.cutOrderId)
   const detailSeeds = generatedFeiRecords.length
     ? generatedFeiRecords.map((record, index) => ({
         sequenceNo: index + 1,
-        detailId: record.sourceOutputLineId || `${source.owner.originalCutOrderId}-${index + 1}`,
+        detailId: record.sourceOutputLineId || `${source.owner.cutOrderId}-${index + 1}`,
         sourceOutputLineId: record.sourceOutputLineId || '',
         fabricRollNo: record.fabricRollNo || '',
         fabricColor: record.fabricColor || record.skuColor || source.owner.color,
@@ -2415,7 +2430,7 @@ function buildSplitDetailsFromOwner(
       }))
     : Array.from({ length: Math.max(source.owner.plannedTicketQty, 0) }, (_, index) => ({
         sequenceNo: index + 1,
-        detailId: `${source.owner.originalCutOrderId}-${index + 1}`,
+        detailId: `${source.owner.cutOrderId}-${index + 1}`,
         sourceOutputLineId: '',
         fabricRollNo: '',
         fabricColor: source.owner.color,
@@ -2439,11 +2454,11 @@ function buildSplitDetailsFromOwner(
         detailId: seed.detailId,
         sourceOutputLineId: seed.sourceOutputLineId,
         printableUnitId: unit.printableUnitId,
-        sourceCutOrderId: source.owner.originalCutOrderId,
-        sourceCutOrderNo: source.owner.originalCutOrderNo,
+        sourceCutOrderId: source.owner.cutOrderId,
+        sourceCutOrderNo: source.owner.cutOrderNo,
         sourceProductionOrderId: source.owner.productionOrderId,
         sourceProductionOrderNo: source.owner.productionOrderNo,
-        batchNo: unit.batchNo || source.owner.relatedMergeBatchNos[0] || '',
+        batchNo: unit.batchNo || source.owner.relatedMarkerPlanNos[0] || '',
         styleCode: source.owner.styleCode,
         fabricRollNo: seed.fabricRollNo,
         fabricColor: seed.fabricColor,
@@ -2473,11 +2488,11 @@ function buildSplitDetailsFromOwner(
         relatedRecords[0]?.sourceSpreadingSessionId || generatedFeiRecords[seed.sequenceNo - 1]?.sourceSpreadingSessionId || '',
       sourceSpreadingSessionNo:
         relatedRecords[0]?.sourceSpreadingSessionNo || generatedFeiRecords[seed.sequenceNo - 1]?.sourceSpreadingSessionNo || '',
-      sourceCutOrderId: source.owner.originalCutOrderId,
-      sourceCutOrderNo: source.owner.originalCutOrderNo,
+      sourceCutOrderId: source.owner.cutOrderId,
+      sourceCutOrderNo: source.owner.cutOrderNo,
       sourceProductionOrderId: source.owner.productionOrderId,
       sourceProductionOrderNo: source.owner.productionOrderNo,
-      batchNo: unit.batchNo || source.owner.relatedMergeBatchNos[0] || '',
+      batchNo: unit.batchNo || source.owner.relatedMarkerPlanNos[0] || '',
       styleCode: source.owner.styleCode,
       sourceOutputLineId: seed.sourceOutputLineId,
       fabricRollNo: seed.fabricRollNo,
@@ -2504,9 +2519,9 @@ function buildSplitDetailsFromOwner(
 
 export function buildTicketSplitDetails(options: {
   unit: PrintableUnit
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -2527,7 +2542,7 @@ export function buildTicketCards(options: {
     .filter((record) => matchesPrintableUnitRecord(options.unit, record))
     .map((record) => {
       const detail =
-        detailMap.get(`${record.originalCutOrderId}:${record.sequenceNo}`) ||
+        detailMap.get(`${record.cutOrderId}:${record.sequenceNo}`) ||
         options.splitDetails.find((item) => item.detailId === record.splitDetailId) ||
         null
       return {
@@ -2537,9 +2552,9 @@ export function buildTicketCards(options: {
         printableUnitId: options.unit.printableUnitId,
         printableUnitNo: options.unit.printableUnitNo,
         printableUnitType: options.unit.printableUnitType,
-        batchNo: record.sourceMergeBatchNo || options.unit.batchNo,
-        sourceCutOrderId: record.originalCutOrderId,
-        sourceCutOrderNo: record.originalCutOrderNo,
+        batchNo: record.sourceMarkerPlanNo || options.unit.batchNo,
+        sourceCutOrderId: record.cutOrderId,
+        sourceCutOrderNo: record.cutOrderNo,
         sourceProductionOrderId: record.sourceProductionOrderId || '',
         sourceProductionOrderNo: record.productionOrderNo,
         styleCode: record.styleCode,
@@ -2609,9 +2624,9 @@ export function buildTicketPrintRecords(options: {
 
 export function buildPrintableUnitDetailViewModel(options: {
   unit: PrintableUnit
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -2637,12 +2652,12 @@ export function buildPrintableUnitDetailViewModel(options: {
   }
 }
 
-function buildTicketRecordId(originalCutOrderId: string, sequenceNo: number, version: number): string {
-  return `ticket-${originalCutOrderId}-${String(sequenceNo).padStart(3, '0')}-v${version}`
+function buildTicketRecordId(cutOrderId: string, sequenceNo: number, version: number): string {
+  return `ticket-${cutOrderId}-${String(sequenceNo).padStart(3, '0')}-v${version}`
 }
 
-function buildVersionedTicketNo(originalCutOrderNo: string, sequenceNo: number, version: number): string {
-  const baseNo = buildFeiTicketNo(originalCutOrderNo, sequenceNo)
+function buildVersionedTicketNo(cutOrderNo: string, sequenceNo: number, version: number): string {
+  const baseNo = buildFeiTicketNo(cutOrderNo, sequenceNo)
   return version <= 1 ? baseNo : `${baseNo}-V${version}`
 }
 
@@ -2660,7 +2675,7 @@ function selectVoidSourceRecord(
       ticketRecords.find(
         (record) =>
           record.ticketRecordId === explicitFromTicketId &&
-          record.originalCutOrderId === detail.sourceCutOrderId,
+          record.cutOrderId === detail.sourceCutOrderId,
       ) || null
     )
   }
@@ -2681,9 +2696,9 @@ function operationTypeToStatus(operationType: FeiTicketOperationType): FeiTicket
 export function executePrintableUnitPrint(options: {
   unit: PrintableUnit
   splitDetails: TicketSplitDetail[]
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -2724,7 +2739,7 @@ export function executePrintableUnitPrint(options: {
         ...createEmptyPreviewRecord(
           owner,
           detail.sequenceNo,
-          options.unit.printableUnitType === 'BATCH' ? 'merge-batch' : 'original-order',
+          options.unit.printableUnitType === 'MARKER_PLAN' ? 'marker-plan-ref' : 'cut-order',
           options.unit.batchId,
           options.unit.batchNo,
         ),
@@ -2774,12 +2789,12 @@ export function executePrintableUnitPrint(options: {
   const printJob: FeiTicketPrintJob = {
     printJobId,
     printJobNo,
-    ownerType: 'original-cut-order',
-    originalCutOrderIds: uniqueStrings(targetDetails.map((detail) => detail.sourceCutOrderId)),
-    originalCutOrderNos: uniqueStrings(targetDetails.map((detail) => detail.sourceCutOrderNo)),
-    sourceContextType: options.unit.printableUnitType === 'BATCH' ? 'merge-batch' : 'original-order',
-    sourceMergeBatchId: options.unit.batchId,
-    sourceMergeBatchNo: options.unit.batchNo,
+    ownerType: 'cut-order',
+    cutOrderIds: uniqueStrings(targetDetails.map((detail) => detail.sourceCutOrderId)),
+    cutOrderNos: uniqueStrings(targetDetails.map((detail) => detail.sourceCutOrderNo)),
+    sourceContextType: options.unit.printableUnitType === 'MARKER_PLAN' ? 'marker-plan-ref' : 'cut-order',
+    sourceMarkerPlanId: options.unit.batchId,
+    sourceMarkerPlanNo: options.unit.batchNo,
     totalTicketCount: createdRecords.length,
     status: operationTypeToStatus(options.operationType),
     printedBy: options.operator,
@@ -2806,7 +2821,7 @@ export function executePrintableUnitPrint(options: {
           ...record,
           sourcePrintJobId: printJob.printJobId,
         },
-        ownersByCutOrderId[record.originalCutOrderId],
+        ownersByCutOrderId[record.cutOrderId],
         printJob,
       ),
     )
@@ -2815,7 +2830,7 @@ export function executePrintableUnitPrint(options: {
   return {
     printJob,
     nextRecords: Array.from(nextRecordsMap.values()).sort((left, right) => {
-      const byOrder = left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+      const byOrder = left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
       if (byOrder !== 0) return byOrder
       if (left.sequenceNo !== right.sequenceNo) return left.sequenceNo - right.sequenceNo
       const leftVersion = left.version ?? left.reprintCount + 1
@@ -2863,14 +2878,14 @@ export function voidTicketCard(options: {
   )
 
   const voidJob: FeiTicketPrintJob = {
-    printJobId: buildFeiPrintJobId(options.operatedAt, target.originalCutOrderId, 'void'),
+    printJobId: buildFeiPrintJobId(options.operatedAt, target.cutOrderId, 'void'),
     printJobNo: nextPrintJobNo(options.printJobs, options.operatedAt),
-    ownerType: 'original-cut-order',
-    originalCutOrderIds: [target.originalCutOrderId],
-    originalCutOrderNos: [target.originalCutOrderNo],
+    ownerType: 'cut-order',
+    cutOrderIds: [target.cutOrderId],
+    cutOrderNos: [target.cutOrderNo],
     sourceContextType: target.sourceContextType,
-    sourceMergeBatchId: target.sourceMergeBatchId,
-    sourceMergeBatchNo: target.sourceMergeBatchNo,
+    sourceMarkerPlanId: target.sourceMarkerPlanId,
+    sourceMarkerPlanNo: target.sourceMarkerPlanNo,
     totalTicketCount: 1,
     status: 'CANCELLED',
     printedBy: options.operator,

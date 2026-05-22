@@ -22,8 +22,8 @@ const TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE: Record<TaskRouteCardSourceType, s
   SPECIAL_CRAFT_TASK_ORDER: 'SPECIAL_CRAFT_TASK_ORDER_ROUTE_CARD',
   POST_FINISHING_TASK: 'POST_FINISHING_TASK_ROUTE_CARD',
   POST_FINISHING_WORK_ORDER: 'POST_FINISHING_ROUTE_CARD',
-  CUTTING_ORIGINAL_ORDER: 'CUTTING_ORIGINAL_ORDER_ROUTE_CARD',
-  CUTTING_MERGE_BATCH: 'CUTTING_MERGE_BATCH_ROUTE_CARD',
+  CUTTING_ORDER: 'CUTTING_ORDER_ROUTE_CARD',
+  CUTTING_MARKER_PLAN: 'CUTTING_MARKER_PLAN_ROUTE_CARD',
 }
 
 function emptyToDash(value: string | undefined): string {
@@ -45,8 +45,8 @@ function getSourceTypeLabel(sourceType: string): string {
     DYEING_WORK_ORDER: '染色加工单',
     SPECIAL_CRAFT_TASK_ORDER: '特殊工艺单',
     POST_FINISHING_TASK: '后道任务',
-    CUTTING_ORIGINAL_ORDER: '原始裁片单',
-    CUTTING_MERGE_BATCH: '合并裁剪批次',
+    CUTTING_ORDER: '裁片单',
+    CUTTING_MARKER_PLAN: '唛架方案',
     POST_FINISHING_WORK_ORDER: '后道单',
   }
   return labels[sourceType] || sourceType
@@ -73,10 +73,10 @@ function resolveTaskRouteTargetRoute(sourceType: PrintSourceType, sourceId: stri
       return `/fcs/craft/post-finishing/tasks?taskId=${encodeURIComponent(sourceId)}`
     case 'POST_FINISHING_WORK_ORDER':
       return `/fcs/craft/post-finishing/work-orders/${encodeURIComponent(sourceId)}`
-    case 'CUTTING_ORIGINAL_ORDER':
-      return `/fcs/craft/cutting/original-orders?originalCutOrderId=${encodeURIComponent(sourceId)}`
-    case 'CUTTING_MERGE_BATCH':
-      return `/fcs/craft/cutting/merge-batches?mergeBatchId=${encodeURIComponent(sourceId)}`
+    case 'CUTTING_ORDER':
+      return `/fcs/craft/cutting/cut-orders?cutOrderId=${encodeURIComponent(sourceId)}`
+    case 'CUTTING_MARKER_PLAN':
+      return `/fcs/craft/cutting/marker-list?markerPlanId=${encodeURIComponent(sourceId)}`
     default:
       return `/fcs/print/preview?documentType=TASK_ROUTE_CARD&sourceType=${encodeURIComponent(String(sourceType))}&sourceId=${encodeURIComponent(sourceId)}`
   }
@@ -217,14 +217,14 @@ export function buildPostFinishingTaskRouteCardPrintDocument(input: TaskRouteCar
   return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.POST_FINISHING_TASK)
 }
 
-export function buildCuttingOriginalOrderRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
-  const resolvedInput = resolveTaskRouteCardInput(input, 'CUTTING_ORIGINAL_ORDER')
-  return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.CUTTING_ORIGINAL_ORDER)
+export function buildCuttingCutOrderRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
+  const resolvedInput = resolveTaskRouteCardInput(input, 'CUTTING_ORDER')
+  return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.CUTTING_ORDER)
 }
 
-export function buildCuttingMergeBatchRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
-  const resolvedInput = resolveTaskRouteCardInput(input, 'CUTTING_MERGE_BATCH')
-  return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.CUTTING_MERGE_BATCH)
+export function buildCuttingMarkerPlanRefRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
+  const resolvedInput = resolveTaskRouteCardInput(input, 'CUTTING_MARKER_PLAN')
+  return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.CUTTING_MARKER_PLAN)
 }
 
 function renderFieldGrid(fields: PrintField[]): string {

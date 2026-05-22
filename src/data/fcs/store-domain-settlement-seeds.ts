@@ -1378,11 +1378,11 @@ export function listFactoryConfirmedStatementsEligibleForPrepayment(): Statement
 
 export function getSettlementVersionUsageStats(factoryId: string): {
   openStatementCount: number
-  activeBatchCount: number
+  activeStatementCount: number
 } {
   const effectiveFactoryId = resolveSettlementEffectiveFactoryId(factoryId) ?? factoryId
   const effective = getSettlementEffectiveInfoByFactory(effectiveFactoryId)
-  if (!effective) return { openStatementCount: 0, activeBatchCount: 0 }
+  if (!effective) return { openStatementCount: 0, activeStatementCount: 0 }
 
   const relatedStatements = initialStatementDrafts.filter(
     (item) =>
@@ -1391,13 +1391,13 @@ export function getSettlementVersionUsageStats(factoryId: string): {
       item.status !== 'CLOSED',
   )
   const relatedStatementIds = new Set(relatedStatements.map((item) => item.statementId))
-  const activeBatchCount = initialSettlementBatches.filter(
+  const activeStatementCount = initialSettlementBatches.filter(
     (item) => item.status !== 'CLOSED' && item.statementIds.some((statementId) => relatedStatementIds.has(statementId)),
   ).length
 
   return {
     openStatementCount: relatedStatements.length,
-    activeBatchCount,
+    activeStatementCount,
   }
 }
 

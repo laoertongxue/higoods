@@ -15,9 +15,9 @@ export function buildFeiTicketsProjection(
   const context = buildCuttingTraceabilityProjectionContext(snapshot)
   return {
     snapshot,
-    originalRows: context.originalRows,
+    cutOrderRows: context.cutOrderRows,
     materialPrepRows: context.materialPrepRows,
-    mergeBatches: context.mergeBatches,
+    markerPlanRefs: context.markerPlanRefs,
     markerStore: context.markerStore,
     ticketRecords: context.ticketRecords,
     printJobs: context.printJobs,

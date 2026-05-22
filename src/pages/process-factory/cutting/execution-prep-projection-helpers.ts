@@ -52,15 +52,15 @@ export function buildExecutionPrepProjectionContext(
   return context
 }
 
-export function buildProgressRecordMapByOriginalCutOrder(
+export function buildProgressRecordMapByCutOrder(
   records: CuttingOrderProgressRecord[],
 ): Record<string, CuttingOrderProgressRecord> {
   const entries = records.flatMap((record) =>
     record.materialLines.flatMap((line) => {
       const keys = Array.from(
         new Set([
-          line.originalCutOrderId,
-          line.originalCutOrderNo,
+          line.cutOrderId,
+          line.cutOrderNo,
           line.cutPieceOrderNo,
         ].filter(Boolean)),
       )

@@ -26,11 +26,11 @@ export interface PdaCuttingSpreadingPresetMatrixItem {
 export interface PdaCuttingExecutionMatrixItem {
   executionOrderId: string
   executionOrderNo: string
-  originalCutOrderNo?: string
+  cutOrderNo?: string
   productionOrderNo?: string
   materialSku?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   bindingState?: PdaCuttingExecutionBindingState
   spreadingPreset?: PdaCuttingSpreadingPresetMatrixItem | null
 }
@@ -77,13 +77,13 @@ export interface PdaCuttingTaskMockMatrixItem {
 
 function execution(
   executionOrderNo: string,
-  originalCutOrderNo: string,
+  cutOrderNo: string,
   overrides: Partial<PdaCuttingExecutionMatrixItem> = {},
 ): PdaCuttingExecutionMatrixItem {
   return {
     executionOrderId: executionOrderNo,
     executionOrderNo,
-    originalCutOrderNo,
+    cutOrderNo,
     bindingState: 'BOUND',
     spreadingPreset: null,
     ...overrides,
@@ -91,6 +91,31 @@ function execution(
 }
 
 export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
+  {
+    taskId: 'TASK-CUT-MARKER-READY-0101',
+    taskNo: 'TASK-CUT-MARKER-READY-0101',
+    origin: 'DIRECT',
+    acceptanceStatus: 'ACCEPTED',
+    taskStatus: 'IN_PROGRESS',
+    assignedFactoryId: TEST_FACTORY_ID,
+    qty: 9200,
+    qtyUnit: '件',
+    standardPrice: 6,
+    currency: 'CNY',
+    unit: '件',
+    acceptDeadline: '2026-03-18 09:30:00',
+    taskDeadline: '2026-03-20 18:00:00',
+    taskSummaryNote: '裁床已领料入待加工仓，裁床任务已开工，等待创建唛架方案。',
+    acceptedAt: '2026-03-18 08:35:00',
+    acceptedBy: '裁床组长',
+    startedAt: '2026-03-18 09:05:00',
+    dispatchedAt: '2026-03-18 08:10:00',
+    dispatchedBy: '裁床计划员',
+    executions: [
+      execution('CPO-20260318-MR1', 'CUT-260306-101-01'),
+      execution('CPO-20260318-MR2', 'CUT-260306-101-02'),
+    ],
+  },
   {
     taskId: 'TASK-CUT-000201',
     taskNo: 'TASK-CUT-000201',
@@ -105,7 +130,7 @@ export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
     unit: '件',
     acceptDeadline: '2026-03-18 09:00:00',
     taskDeadline: '2026-03-19 18:00:00',
-    taskSummaryNote: 'WMS 来料已入待加工仓，等待按排唛架方案铺布。',
+    taskSummaryNote: '裁床已领料入待加工仓，等待按排唛架方案铺布。',
     acceptedAt: '2026-03-18 08:20:00',
     acceptedBy: '裁床组长',
     dispatchedAt: '2026-03-18 08:00:00',
@@ -154,7 +179,7 @@ export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
     taskNo: 'TASK-CUT-000203',
     origin: 'DIRECT',
     acceptanceStatus: 'ACCEPTED',
-    taskStatus: 'COMPLETED',
+    taskStatus: 'DONE',
     assignedFactoryId: TEST_FACTORY_ID,
     qty: 7300,
     qtyUnit: '件',
@@ -206,7 +231,7 @@ export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
     acceptedBy: '裁床组长',
     blockedAt: '2026-03-18 14:00:00',
     blockReason: 'MATERIAL',
-    blockRemark: 'WMS 来料长度与布卷标签不一致。',
+    blockRemark: '裁床领料长度与布卷标签不一致。',
     dispatchedAt: '2026-03-18 09:40:00',
     dispatchedBy: '裁床计划员',
     executions: [execution('CPO-20260318-D1', 'CUT-260303-007-01')],

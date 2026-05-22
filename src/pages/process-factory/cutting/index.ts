@@ -1,9 +1,8 @@
 export { renderCraftCuttingProductionProgressPage } from './production-progress.ts'
-export { renderCraftCuttingOriginalOrdersPage } from './original-orders.ts'
+export { renderCraftCuttingCutOrdersPage } from './cut-orders.ts'
 export { renderCraftCuttingReplenishmentPage } from './replenishment.ts'
 export { renderCraftCuttingSummaryPage } from './cutting-summary.ts'
 export { renderCraftCuttingCuttablePoolPage } from './cuttable-pool.ts'
-export { renderCraftCuttingMergeBatchesPage } from './merge-batches.ts'
 export {
   renderCraftCuttingMarkerListPage,
   renderCraftCuttingMarkerCreatePage,

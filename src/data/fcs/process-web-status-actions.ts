@@ -33,7 +33,7 @@ import { getQuantityLabel } from './process-quantity-labels.ts'
 export type ProcessWebSourceType =
   | 'PRINT_WORK_ORDER'
   | 'DYE_WORK_ORDER'
-  | 'CUTTING_ORIGINAL_ORDER'
+  | 'CUTTING_ORDER'
   | 'SPECIAL_CRAFT_WORK_ORDER'
   | 'POST_FINISHING_WORK_ORDER'
 
@@ -709,7 +709,7 @@ function getDyeStatus(dyeOrderId: string): { status: string; label: string; qty:
 function getCuttingStatus(cuttingOrderId: string): { status: string; label: string; qty: number; unit: string; taskId: string } {
   const binding = validateCuttingOrderMobileTaskBinding(cuttingOrderId)
   const record = cutPieceOrderRecords.find(
-    (item) => item.originalCutOrderId === cuttingOrderId || item.originalCutOrderNo === cuttingOrderId || item.id === cuttingOrderId,
+    (item) => item.cutOrderId === cuttingOrderId || item.cutOrderNo === cuttingOrderId || item.id === cuttingOrderId,
   )
   const latestRecord = listProcessActionOperationRecords({ sourceType: 'CUTTING', sourceId: cuttingOrderId })[0]
   const status = normalizeCuttingStatus(latestRecord?.nextStatus || record?.currentStage || '待铺布')
@@ -755,7 +755,7 @@ function isMobileBindingValid(sourceType: ProcessWebSourceType, sourceId: string
       ? validatePrintWorkOrderMobileTaskBinding(sourceId)
       : sourceType === 'DYE_WORK_ORDER'
         ? validateDyeWorkOrderMobileTaskBinding(sourceId)
-        : sourceType === 'CUTTING_ORIGINAL_ORDER'
+        : sourceType === 'CUTTING_ORDER'
           ? validateCuttingOrderMobileTaskBinding(sourceId)
           : sourceType === 'SPECIAL_CRAFT_WORK_ORDER'
             ? validateSpecialCraftMobileTaskBinding(sourceId)
@@ -784,7 +784,7 @@ export function getAvailableDyeWebActions(dyeOrderId: string): ProcessWebAction[
 }
 
 export function getAvailableCuttingWebActions(cuttingOrderId: string): ProcessWebAction[] {
-  const binding = isMobileBindingValid('CUTTING_ORIGINAL_ORDER', cuttingOrderId)
+  const binding = isMobileBindingValid('CUTTING_ORDER', cuttingOrderId)
   const status = getCuttingStatus(cuttingOrderId)
   if (!binding.ok) return [toAction(CUTTING_ACTIONS[0], status.label, binding.reason)]
   return listMatchingActions(CUTTING_ACTIONS, status.status)
@@ -812,7 +812,7 @@ export function getAvailablePostFinishingWebActions(postOrderId: string): Proces
 export function listAvailableWebActions(sourceType: ProcessWebSourceType, sourceId: string): ProcessWebAction[] {
   if (sourceType === 'PRINT_WORK_ORDER') return getAvailablePrintWebActions(sourceId)
   if (sourceType === 'DYE_WORK_ORDER') return getAvailableDyeWebActions(sourceId)
-  if (sourceType === 'CUTTING_ORIGINAL_ORDER') return getAvailableCuttingWebActions(sourceId)
+  if (sourceType === 'CUTTING_ORDER') return getAvailableCuttingWebActions(sourceId)
   if (sourceType === 'SPECIAL_CRAFT_WORK_ORDER') return getAvailableSpecialCraftWebActions(sourceId)
   return getAvailablePostFinishingWebActions(sourceId)
 }
@@ -836,7 +836,7 @@ function getStatusSnapshot(sourceType: ProcessWebSourceType, sourceId: string): 
       ? getPrintStatus(sourceId)
       : sourceType === 'DYE_WORK_ORDER'
         ? getDyeStatus(sourceId)
-        : sourceType === 'CUTTING_ORIGINAL_ORDER'
+        : sourceType === 'CUTTING_ORDER'
           ? getCuttingStatus(sourceId)
           : sourceType === 'SPECIAL_CRAFT_WORK_ORDER'
             ? getSpecialCraftStatus(sourceId)
@@ -848,7 +848,7 @@ function getStatusSnapshot(sourceType: ProcessWebSourceType, sourceId: string): 
 function toProcessActionSourceType(sourceType: ProcessWebSourceType): ProcessActionSourceType {
   if (sourceType === 'PRINT_WORK_ORDER') return 'PRINT'
   if (sourceType === 'DYE_WORK_ORDER') return 'DYE'
-  if (sourceType === 'CUTTING_ORIGINAL_ORDER') return 'CUTTING'
+  if (sourceType === 'CUTTING_ORDER') return 'CUTTING'
   if (sourceType === 'SPECIAL_CRAFT_WORK_ORDER') return 'SPECIAL_CRAFT'
   return 'POST_FINISHING'
 }
@@ -856,7 +856,7 @@ function toProcessActionSourceType(sourceType: ProcessWebSourceType): ProcessAct
 function toProcessWebSourceType(sourceType: ProcessActionSourceType): ProcessWebSourceType {
   if (sourceType === 'PRINT') return 'PRINT_WORK_ORDER'
   if (sourceType === 'DYE') return 'DYE_WORK_ORDER'
-  if (sourceType === 'CUTTING') return 'CUTTING_ORIGINAL_ORDER'
+  if (sourceType === 'CUTTING') return 'CUTTING_ORDER'
   if (sourceType === 'SPECIAL_CRAFT') return 'SPECIAL_CRAFT_WORK_ORDER'
   return 'POST_FINISHING_WORK_ORDER'
 }

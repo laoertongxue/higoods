@@ -97,7 +97,7 @@ function getCuttingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo |
       summaryLabel: '暂无裁片执行单',
       statusLabel: '暂无裁片执行单，暂不可开工',
       blocker: '暂无裁片执行单，暂不可开工',
-      hint: '请先检查裁片执行单是否已生成，并确认已绑定原始裁片单',
+      hint: '请先检查裁片执行单是否已生成，并确认已绑定裁片单',
     }
   }
 
@@ -106,11 +106,11 @@ function getCuttingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo |
     return {
       met: false,
       type: 'PICKUP',
-      conditionLabel: '裁片执行单已绑定原始裁片单',
-      summaryLabel: '待绑定原始裁片单',
+      conditionLabel: '裁片执行单已绑定裁片单',
+      summaryLabel: '待绑定裁片单',
       statusLabel: '存在未绑定裁片执行单，暂不可开工',
       blocker: '存在未绑定裁片执行单，暂不可开工',
-      hint: `${unboundRow.executionOrderNo} 需要先绑定原始裁片单，再判断来料和开工前置`,
+      hint: `${unboundRow.executionOrderNo} 需要先绑定裁片单，再判断来料和开工前置`,
     }
   }
 
@@ -119,11 +119,11 @@ function getCuttingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo |
     return {
       met: false,
       type: 'PICKUP',
-      conditionLabel: '来料已入裁床待加工仓',
-      summaryLabel: waitingReceiveRow.currentReceiveStatus || '待 WMS 来料',
-      statusLabel: 'WMS 来料未完成，暂不可开工',
-      blocker: 'WMS 来料未完成，暂不可开工',
-      hint: `${waitingReceiveRow.executionOrderNo} 需要先在交接模块完成来料入仓确认`,
+      conditionLabel: '裁床已领料入待加工仓',
+      summaryLabel: waitingReceiveRow.currentReceiveStatus || '待裁床领料',
+      statusLabel: '裁床领料未完成，暂不可开工',
+      blocker: '裁床领料未完成，暂不可开工',
+      hint: `${waitingReceiveRow.executionOrderNo} 需要先在交接模块完成领料入仓确认`,
     }
   }
 
@@ -217,7 +217,7 @@ function getSpecialCraftStartPrerequisite(task: ProcessTask): StartPrerequisiteI
       met: false,
       type: 'PICKUP',
       conditionLabel: '特殊工艺领料已入仓',
-      summaryLabel: '待领料',
+      summaryLabel: '领料记录待补',
       statusLabel: '特殊工艺领料未完成，暂不可开工',
       blocker: '特殊工艺领料未完成，暂不可开工',
       hint: '请先在交接模块完成领料入仓，再开始特殊工艺加工',
@@ -470,7 +470,7 @@ function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): { code: Runtim
     return records.some((record) => record.status === 'RECEIVED')
   })
 
-  return hasReadyPickup ? { code: 'READY', label: '领料记录已满足' } : { code: 'WAIT_PICKUP', label: '待领料' }
+  return hasReadyPickup ? { code: 'READY', label: '领料记录已满足' } : { code: 'WAIT_PICKUP', label: '领料记录待补' }
 }
 
 export function getStartDueBase(task: ProcessTask): { baseAt?: string; source?: StartDueSource } {

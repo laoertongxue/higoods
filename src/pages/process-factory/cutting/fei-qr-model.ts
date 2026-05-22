@@ -12,7 +12,7 @@ import { validateFeiCraftSequence } from '../../../data/fcs/cutting/qr-codes.ts'
 import type {
   FeiTicketLabelRecord,
   FeiTicketPrintJob,
-  OriginalCutOrderTicketOwner,
+  CutOrderTicketOwner,
 } from './fei-tickets-model.ts'
 
 export const FEI_QR_SCHEMA_NAME = 'FEI_TICKET'
@@ -53,11 +53,11 @@ export interface FeiQrReservedTrace {
 export interface FeiQrPayload extends CanonicalFeiTicketQrPayload {
   schemaName: string
   schemaVersion: string
-  ownerType: 'original-cut-order'
+  ownerType: 'cut-order'
   ownerId: string
-  sourceContextType: 'original-order' | 'merge-batch'
-  sourceMergeBatchId: string
-  sourceMergeBatchNo: string
+  sourceContextType: 'cut-order' | 'marker-plan-ref'
+  sourceMarkerPlanId: string
+  sourceMarkerPlanNo: string
   sourcePrintJobId: string
   sourcePrintJobNo: string
   styleCode: string
@@ -71,13 +71,13 @@ export interface FeiQrPayload extends CanonicalFeiTicketQrPayload {
 export interface FeiQrPayloadSummary {
   qrBaseValue: string
   schemaVersion: string
-  ownerType: 'original-cut-order'
-  originalCutOrderNo: string
+  ownerType: 'cut-order'
+  cutOrderNo: string
   productionOrderNo: string
   styleCode: string
   spuCode: string
   materialSku: string
-  sourceContextType: 'original-order' | 'merge-batch'
+  sourceContextType: 'cut-order' | 'marker-plan-ref'
   hasReservedProcess: boolean
   hasReservedTrace: boolean
 }
@@ -120,8 +120,8 @@ export interface FeiQrReservedProcessBadge {
 
 export interface TransferBagReservedBridge {
   ticketNo: string
-  originalCutOrderNo: string
-  ownerType: 'original-cut-order'
+  cutOrderNo: string
+  ownerType: 'cut-order'
   qrSchemaVersion: string
   qrBaseValue: string
 }
@@ -215,9 +215,9 @@ function inferReservedProcess(payload: CanonicalFeiTicketQrPayload): Record<FeiQ
 function normalizeBasePayload(input: {
   ticketRecord: FeiTicketLabelRecord
   owner: Pick<
-    OriginalCutOrderTicketOwner,
-    | 'originalCutOrderId'
-    | 'originalCutOrderNo'
+    CutOrderTicketOwner,
+    | 'cutOrderId'
+    | 'cutOrderNo'
     | 'productionOrderId'
     | 'productionOrderNo'
     | 'styleCode'
@@ -235,8 +235,8 @@ function normalizeBasePayload(input: {
     issuedAt: input.ticketRecord.createdAt || input.ticketRecord.printedAt || generated?.issuedAt || '',
     feiTicketId: generated?.feiTicketId || input.ticketRecord.ticketRecordId,
     feiTicketNo: generated?.feiTicketNo || input.ticketRecord.ticketNo,
-    originalCutOrderId: input.owner.originalCutOrderId,
-    originalCutOrderNo: input.owner.originalCutOrderNo,
+    cutOrderId: input.owner.cutOrderId,
+    cutOrderNo: input.owner.cutOrderNo,
     productionOrderId: input.owner.productionOrderId,
     productionOrderNo: input.owner.productionOrderNo,
     materialSku: input.owner.materialSku,
@@ -273,9 +273,9 @@ function normalizeBasePayload(input: {
 export function buildFeiQrPayload(options: {
   ticketRecord: FeiTicketLabelRecord
   owner: Pick<
-    OriginalCutOrderTicketOwner,
-    | 'originalCutOrderId'
-    | 'originalCutOrderNo'
+    CutOrderTicketOwner,
+    | 'cutOrderId'
+    | 'cutOrderNo'
     | 'productionOrderId'
     | 'productionOrderNo'
     | 'styleCode'
@@ -292,17 +292,17 @@ export function buildFeiQrPayload(options: {
     ...payload,
     schemaName: FEI_QR_SCHEMA_NAME,
     schemaVersion: payload.version,
-    ownerType: 'original-cut-order',
-    ownerId: options.owner.originalCutOrderId,
+    ownerType: 'cut-order',
+    ownerId: options.owner.cutOrderId,
     sourceContextType: options.ticketRecord.sourceContextType,
-    sourceMergeBatchId: options.ticketRecord.sourceMergeBatchId || '',
-    sourceMergeBatchNo: options.ticketRecord.sourceMergeBatchNo || '',
+    sourceMarkerPlanId: options.ticketRecord.sourceMarkerPlanId || '',
+    sourceMarkerPlanNo: options.ticketRecord.sourceMarkerPlanNo || '',
     sourcePrintJobId: options.ticketRecord.sourcePrintJobId || options.printJob?.printJobId || '',
     sourcePrintJobNo: options.printJob?.printJobNo || '',
     styleCode: options.owner.styleCode,
     spuCode: options.owner.spuCode,
     sameCodeValue: options.owner.sameCodeValue,
-    qrBaseValue: options.owner.qrBaseValue || options.owner.originalCutOrderNo,
+    qrBaseValue: options.owner.qrBaseValue || options.owner.cutOrderNo,
     reservedProcess: getDefaultReservedProcessPayload(
       (options.ticketRecord.reservedProcess as Partial<Record<FeiQrProcessKey, Partial<FeiQrReservedProcessSlot> | null>> | null)
       || inferReservedProcess(payload),
@@ -316,7 +316,7 @@ export function buildFeiQrPayloadSummary(payload: FeiQrPayload): FeiQrPayloadSum
     qrBaseValue: payload.qrBaseValue,
     schemaVersion: payload.schemaVersion,
     ownerType: payload.ownerType,
-    originalCutOrderNo: payload.originalCutOrderNo,
+    cutOrderNo: payload.cutOrderNo,
     productionOrderNo: payload.productionOrderNo,
     styleCode: payload.styleCode,
     spuCode: payload.spuCode,
@@ -329,7 +329,7 @@ export function buildFeiQrPayloadSummary(payload: FeiQrPayload): FeiQrPayloadSum
 
 export function validateFeiQrPayload(payload: FeiQrPayload): FeiQrValidationResult {
   const warnings: string[] = []
-  if (!payload.originalCutOrderId || !payload.originalCutOrderNo) warnings.push('当前菲票缺少原始裁片单主码引用。')
+  if (!payload.cutOrderId || !payload.cutOrderNo) warnings.push('当前菲票缺少裁片单主码引用。')
   if (!payload.productionOrderNo) warnings.push('当前菲票缺少生产单号。')
   if (!payload.materialSku) warnings.push('当前菲票缺少面料 SKU。')
   if (!payload.fabricRollNo) warnings.push('当前菲票缺少面料卷号。')
@@ -342,7 +342,7 @@ export function validateFeiQrPayload(payload: FeiQrPayload): FeiQrValidationResu
     : null
   if (craftValidation && !craftValidation.allowed) warnings.push(craftValidation.reason)
   return {
-    isValid: payload.codeType === 'FEI_TICKET' && Boolean(payload.feiTicketId && payload.originalCutOrderId && payload.materialSku),
+    isValid: payload.codeType === 'FEI_TICKET' && Boolean(payload.feiTicketId && payload.cutOrderId && payload.materialSku),
     schemaName: payload.schemaName,
     schemaVersion: payload.schemaVersion,
     hasOwner: Boolean(payload.ownerId),
@@ -360,8 +360,8 @@ function toCanonicalPayload(payload: FeiQrPayload): CanonicalFeiTicketQrPayload 
     issuedAt: payload.issuedAt,
     feiTicketId: payload.feiTicketId,
     feiTicketNo: payload.feiTicketNo,
-    originalCutOrderId: payload.originalCutOrderId,
-    originalCutOrderNo: payload.originalCutOrderNo,
+    cutOrderId: payload.cutOrderId,
+    cutOrderNo: payload.cutOrderNo,
     productionOrderId: payload.productionOrderId,
     productionOrderNo: payload.productionOrderNo,
     sourceOutputLineId: payload.sourceOutputLineId,
@@ -403,17 +403,17 @@ export function deserializeFeiQrPayload(value: string): FeiQrPayload | null {
     ...payload,
     schemaName: FEI_QR_SCHEMA_NAME,
     schemaVersion: payload.version,
-    ownerType: 'original-cut-order',
-    ownerId: payload.originalCutOrderId,
-    sourceContextType: 'original-order',
-    sourceMergeBatchId: '',
-    sourceMergeBatchNo: '',
+    ownerType: 'cut-order',
+    ownerId: payload.cutOrderId,
+    sourceContextType: 'cut-order',
+    sourceMarkerPlanId: '',
+    sourceMarkerPlanNo: '',
     sourcePrintJobId: '',
     sourcePrintJobNo: '',
     styleCode: '',
     spuCode: '',
-    sameCodeValue: payload.originalCutOrderNo,
-    qrBaseValue: payload.originalCutOrderNo,
+    sameCodeValue: payload.cutOrderNo,
+    qrBaseValue: payload.cutOrderNo,
     reservedProcess: inferReservedProcess(payload),
     reservedTrace: getDefaultReservedTracePayload(),
   }
@@ -451,7 +451,7 @@ export function buildFeiQrSchemaMeta(record: Partial<FeiTicketLabelRecord>): Fei
 export function buildTransferBagReservedBridge(payload: FeiQrPayload): TransferBagReservedBridge {
   return {
     ticketNo: payload.feiTicketNo,
-    originalCutOrderNo: payload.originalCutOrderNo,
+    cutOrderNo: payload.cutOrderNo,
     ownerType: payload.ownerType,
     qrSchemaVersion: payload.schemaVersion,
     qrBaseValue: payload.qrBaseValue,
@@ -460,10 +460,10 @@ export function buildTransferBagReservedBridge(payload: FeiQrPayload): TransferB
 
 export function buildQrNavigationPayload(payload: FeiQrPayload): Record<string, string | undefined> {
   return {
-    originalCutOrderId: payload.originalCutOrderId,
-    originalCutOrderNo: payload.originalCutOrderNo,
-    mergeBatchId: payload.sourceMergeBatchId || undefined,
-    mergeBatchNo: payload.sourceMergeBatchNo || undefined,
+    cutOrderId: payload.cutOrderId,
+    cutOrderNo: payload.cutOrderNo,
+    markerPlanId: payload.sourceMarkerPlanId || undefined,
+    markerPlanNo: payload.sourceMarkerPlanNo || undefined,
     productionOrderNo: payload.productionOrderNo || undefined,
     ticketNo: payload.feiTicketNo || undefined,
     materialSku: payload.materialSku || undefined,

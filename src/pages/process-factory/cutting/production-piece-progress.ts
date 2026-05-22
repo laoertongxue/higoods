@@ -68,7 +68,7 @@ export interface ProductionSkuSummaryRow {
   completionLabel: string
 }
 
-export interface ProductionIncompleteOriginalOrderRow {
+export interface ProductionIncompleteCutOrderRow {
   sourceCutOrderNo: string
   materialSkuSummary: string
   skuSummaryText: string
@@ -85,7 +85,7 @@ export interface ProductionPieceProgressTotals {
   gapQtyTotal: number
   inboundGapQtyTotal: number
   incompleteSkuCount: number
-  incompleteOriginalOrderCount: number
+  incompleteCutOrderCount: number
 }
 
 export interface ProductionPieceProgressViewModel {
@@ -94,7 +94,7 @@ export interface ProductionPieceProgressViewModel {
   pieceDetailRows: ProductionPieceGapRow[]
   gapRows: ProductionPieceGapRow[]
   incompleteSkuRows: ProductionSkuSummaryRow[]
-  incompleteOriginalOrderRows: ProductionIncompleteOriginalOrderRow[]
+  incompleteCutOrderRows: ProductionIncompleteCutOrderRow[]
   mappingWarnings: string[]
   totals: ProductionPieceProgressTotals
 }
@@ -107,7 +107,7 @@ function toGapRow(row: PieceGapRow): ProductionPieceGapRow {
   return {
     productionOrderId: row.productionOrderId,
     productionOrderNo: row.productionOrderNo,
-    sourceCutOrderNo: row.originalCutOrderNo,
+    sourceCutOrderNo: row.cutOrderNo,
     materialSku: row.materialSku,
     skuCode: row.skuCode,
     color: row.color,
@@ -143,7 +143,7 @@ export function buildProductionPieceProgressViewModelFromTruth(
     inboundQty: row.inboundQty,
     gapQty: row.gapCutQty,
     inboundGapQty: row.gapInboundQty,
-    sourceCutOrderCount: row.originalCutOrderCount,
+    sourceCutOrderCount: row.cutOrderCount,
     mappingStatus: row.mappingStatus,
     mappingStatusLabel: row.mappingStatusLabel,
     completionLabel: row.currentStateLabel,
@@ -151,15 +151,15 @@ export function buildProductionPieceProgressViewModelFromTruth(
   const incompleteSkuRows = skuSummaryRows.filter(
     (row) => row.mappingStatus !== 'MATCHED' || row.gapQty > 0 || row.inboundGapQty > 0,
   )
-  const incompleteOriginalOrderRows = truth.originalCutOrderRows
-    .filter((row) => row.gapPartCount > 0 || row.currentStateLabel !== '已齐套')
+  const incompleteCutOrderRows = truth.cutOrderRows
+    .filter((row) => row.gapPartCount > 0 || row.currentStateLabel !== '无缺口')
     .map((row) => ({
-      sourceCutOrderNo: row.originalCutOrderNo,
+      sourceCutOrderNo: row.cutOrderNo,
       materialSkuSummary: row.materialSku,
       skuSummaryText: '',
       gapPartCount: row.gapPartCount,
       gapPieceQty: Math.max(row.gapCutQty, row.gapInboundQty),
-      mappingWarningCount: truth.mappingIssues.filter((issue) => issue.originalCutOrderNo === row.originalCutOrderNo).length,
+      mappingWarningCount: truth.mappingIssues.filter((issue) => issue.cutOrderNo === row.cutOrderNo).length,
     }))
 
   return {
@@ -168,7 +168,7 @@ export function buildProductionPieceProgressViewModelFromTruth(
     pieceDetailRows,
     gapRows: pieceDetailRows.filter((row) => row.gapQty > 0 || row.inboundGapQty > 0 || row.mappingStatus !== 'MATCHED'),
     incompleteSkuRows,
-    incompleteOriginalOrderRows,
+    incompleteCutOrderRows,
     mappingWarnings: uniqueStrings([
       ...truth.mappingIssues.map((issue) => issue.message),
       ...truth.dataIssues.map((issue) => issue.message),
@@ -181,7 +181,7 @@ export function buildProductionPieceProgressViewModelFromTruth(
       gapQtyTotal: truth.counts.gapCutQtyTotal,
       inboundGapQtyTotal: truth.counts.gapInboundQtyTotal,
       incompleteSkuCount: truth.counts.pendingSkuCount,
-      incompleteOriginalOrderCount: truth.originalCutOrderRows.filter((row) => row.gapPartCount > 0 || row.currentStateLabel !== '已齐套').length,
+      incompleteCutOrderCount: truth.cutOrderRows.filter((row) => row.gapPartCount > 0 || row.currentStateLabel !== '无缺口').length,
     },
   }
 }

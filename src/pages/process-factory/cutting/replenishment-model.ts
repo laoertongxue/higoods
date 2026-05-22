@@ -1,7 +1,7 @@
-import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
 import { buildReplenishmentPreview } from './marker-spreading-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 import {
   buildReplenishmentContextRecords,
   type ReplenishmentContextRecord,
@@ -46,17 +46,23 @@ export type ReplenishmentAuditAction =
 export type ReplenishmentFollowupActionType = 'CREATE_PENDING_PREP'
 
 export type ReplenishmentFollowupActionStatus = 'PENDING' | 'CONFIRMED' | 'SKIPPED' | 'DONE'
-export type ReplenishmentFollowupTargetPageKey = 'materialPrep'
+export type ReplenishmentFollowupTargetPageKey = 'materialPrep' | 'cuttablePool' | 'cutOrders'
+export type ReplenishmentNextOptionKey =
+  | 'WAIT_NEXT_PICKUP'
+  | 'REPLAN_MARKER'
+  | 'CLOSE_CUT_ORDER'
+  | 'CHECK_DATA'
+  | 'NO_GAP'
 
 export interface ReplenishmentSuggestion {
   suggestionId: string
   suggestionNo: string
   contextId: string
   sourceType: ReplenishmentSourceType
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   productionOrderIds: string[]
   productionOrderNos: string[]
   styleCode: string
@@ -66,6 +72,8 @@ export interface ReplenishmentSuggestion {
   materialSkus: string[]
   materialCategory: string
   materialAttr: string
+  materialAlias: string
+  materialImageUrl: string
   requiredGarmentQty: number
   theoreticalCutGarmentQty: number
   actualCutGarmentQty: number
@@ -90,9 +98,11 @@ export interface ReplenishmentSuggestion {
 
 export interface ReplenishmentSuggestionLine {
   lineId: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   color: string
   requiredGarmentQty: number
   actualCutGarmentQty: number
@@ -184,6 +194,14 @@ export interface ReplenishmentFollowupActionTypeMeta {
   className: string
 }
 
+export interface ReplenishmentNextOption {
+  key: ReplenishmentNextOptionKey
+  label: string
+  detailText: string
+  target: keyof ReplenishmentNavigationPayload
+  className: string
+}
+
 export interface ReplenishmentSuggestionRow extends ReplenishmentSuggestion {
   context: ReplenishmentContextRecord
   sourceLabel: string
@@ -206,6 +224,10 @@ export interface ReplenishmentSuggestionRow extends ReplenishmentSuggestion {
   pendingPdaFeedbackCount: number
   latestPdaFeedback: PdaReplenishmentFeedbackWritebackRecord | null
   latestPdaFeedbackSummary: string
+  claimedBalanceLength: number
+  materialGapLength: number
+  nextOptions: ReplenishmentNextOption[]
+  nextActionSummary: string
   blockingSummary: string
   statusMeta: ReplenishmentStatusMeta
   riskMeta: ReplenishmentRiskMeta
@@ -228,6 +250,9 @@ export interface ReplenishmentStats {
   rejectedCount: number
   completedCount: number
   highRiskCount: number
+  waitNextPickupCount: number
+  replanReadyCount: number
+  closeCandidateCount: number
 }
 
 export interface ReplenishmentFilters {
@@ -240,10 +265,10 @@ export interface ReplenishmentFilters {
 }
 
 export interface ReplenishmentPrefilter {
-  originalCutOrderNo?: string
-  originalCutOrderId?: string
-  mergeBatchNo?: string
-  mergeBatchId?: string
+  cutOrderNo?: string
+  cutOrderId?: string
+  markerPlanNo?: string
+  markerPlanId?: string
   productionOrderNo?: string
   materialSku?: string
   color?: string
@@ -256,14 +281,15 @@ export interface ReplenishmentPrefilter {
 export interface ReplenishmentNavigationPayload {
   markerSpreading: Record<string, string | undefined>
   materialPrep: Record<string, string | undefined>
-  originalOrders: Record<string, string | undefined>
-  mergeBatches: Record<string, string | undefined>
+  cuttablePool: Record<string, string | undefined>
+  cutOrders: Record<string, string | undefined>
+  markerPlanRefs: Record<string, string | undefined>
   summary: Record<string, string | undefined>
 }
 
 export const replenishmentSourceMeta: Record<ReplenishmentSourceType, { label: string; className: string }> = {
-  'original-order': { label: '原始裁片单', className: 'bg-slate-100 text-slate-700' },
-  'merge-batch': { label: '合并裁剪批次', className: 'bg-violet-100 text-violet-700' },
+  'cut-order': { label: '裁片单', className: 'bg-slate-100 text-slate-700' },
+  'marker-plan-ref': { label: '唛架方案', className: 'bg-violet-100 text-violet-700' },
   'spreading-session': { label: '铺布记录', className: 'bg-sky-100 text-sky-700' },
   'pda-feedback': { label: '现场补料反馈', className: 'bg-amber-100 text-amber-700' },
 }
@@ -318,7 +344,7 @@ export const replenishmentRiskMetaMap: Record<ReplenishmentRiskLevel, Replenishm
     key: 'HIGH',
     label: '高风险',
     className: 'bg-rose-100 text-rose-700',
-    detailText: '当前缺口较大或直接阻塞后续工艺，需优先处理。',
+    detailText: '当前缺口较大或会影响后续工艺，需优先处理。',
   },
   MEDIUM: {
     key: 'MEDIUM',
@@ -350,8 +376,8 @@ export const replenishmentFollowupActionTypeMetaMap: Record<
 > = {
   CREATE_PENDING_PREP: {
     key: 'CREATE_PENDING_PREP',
-    label: '生成补料WMS 待处理',
-    shortLabel: 'WMS 待处理',
+    label: '等待再次领料',
+    shortLabel: '再次领料',
     className: 'bg-blue-100 text-blue-700',
   },
 }
@@ -401,14 +427,34 @@ function collectContextMaterialAttrs(context: ReplenishmentContextRecord): strin
   return uniqueStrings(context.materialRows.flatMap((row) => row.materialLineItems.map((item) => item.materialAttr)))
 }
 
+function collectContextMaterialAliases(context: ReplenishmentContextRecord): string[] {
+  return uniqueStrings(context.materialRows.flatMap((row) => row.materialLineItems.map((item) => item.materialAlias)))
+}
+
+function collectContextMaterialImageUrl(context: ReplenishmentContextRecord): string {
+  return context.materialRows.flatMap((row) => row.materialLineItems).find((item) => item.materialImageUrl)?.materialImageUrl || ''
+}
+
+function findContextMaterialLine(context: ReplenishmentContextRecord, cutOrderId: string, materialSku: string) {
+  const row =
+    context.materialRows.find((item) => item.cutOrderId === cutOrderId) ||
+    context.materialRows.find((item) => item.cutOrderNo === cutOrderId) ||
+    null
+  return (
+    row?.materialLineItems.find((item) => item.materialSku === materialSku) ||
+    context.materialRows.flatMap((item) => item.materialLineItems).find((item) => item.materialSku === materialSku) ||
+    null
+  )
+}
+
 function buildSuggestionNo(createdAt: string, index: number): string {
   return `BL-${formatDateToken(createdAt)}-${String(index + 1).padStart(3, '0')}`
 }
 
 function buildStableSuggestionId(context: ReplenishmentContextRecord): string {
   if (context.session?.spreadingSessionId) return `rep-session-${context.session.spreadingSessionId}`
-  if (context.baseSourceType === 'merge-batch' && context.mergeBatchId) return `rep-merge-${context.mergeBatchId}`
-  return `rep-original-${context.originalCutOrderIds[0] || context.contextId}`
+  if (context.baseSourceType === 'marker-plan-ref' && context.markerPlanId) return `rep-merge-${context.markerPlanId}`
+  return `rep-cut-order-${context.cutOrderIds[0] || context.contextId}`
 }
 
 function deriveEstimatedCapacityQty(options: {
@@ -451,7 +497,7 @@ function buildSuggestedAction(options: {
   if (options.missingData) {
     return {
       status: 'PENDING_SUPPLEMENT',
-      text: '补录铺布、WMS 来料差异后审核。',
+      text: '补录铺布、领料差异后审核。',
     }
   }
 
@@ -471,7 +517,7 @@ function buildSuggestedAction(options: {
 export function buildReplenishmentSuggestionFromContext(options: {
   index: number
   context: ReplenishmentContextRecord
-  originalRowsById: Record<string, OriginalCutOrderRow>
+  cutOrderRowsById: Record<string, CutOrderRow>
 }): ReplenishmentSuggestion {
   const requiredQty = options.context.varianceSummary?.plannedCutGarmentQty || options.context.marker?.totalPieces || options.context.totalRequiredQty
   const estimatedCapacityQty = options.context.varianceSummary?.theoreticalCutGarmentQty
@@ -509,16 +555,17 @@ export function buildReplenishmentSuggestionFromContext(options: {
   const materialSkus = collectContextMaterialSkus(options.context)
   const materialCategories = collectContextMaterialCategories(options.context)
   const materialAttrs = collectContextMaterialAttrs(options.context)
+  const materialAliases = collectContextMaterialAliases(options.context)
 
   return {
     suggestionId: buildStableSuggestionId(options.context),
     suggestionNo: buildSuggestionNo(createdAt, options.index),
     contextId: options.context.contextId,
     sourceType: options.context.sourceType,
-    originalCutOrderIds: options.context.originalCutOrderIds,
-    originalCutOrderNos: options.context.originalCutOrderNos,
-    mergeBatchId: options.context.mergeBatchId,
-    mergeBatchNo: options.context.mergeBatchNo,
+    cutOrderIds: options.context.cutOrderIds,
+    cutOrderNos: options.context.cutOrderNos,
+    markerPlanId: options.context.markerPlanId,
+    markerPlanNo: options.context.markerPlanNo,
     productionOrderIds: uniqueStrings(options.context.materialRows.map((row) => row.productionOrderId)),
     productionOrderNos: options.context.productionOrderNos,
     styleCode: options.context.styleCode,
@@ -528,6 +575,8 @@ export function buildReplenishmentSuggestionFromContext(options: {
     materialSkus,
     materialCategory: materialCategories.join(' / ') || '待补',
     materialAttr: materialAttrs.join(' / ') || '待补',
+    materialAlias: materialAliases.join(' / '),
+    materialImageUrl: collectContextMaterialImageUrl(options.context),
     requiredGarmentQty: requiredQty,
     theoreticalCutGarmentQty: estimatedCapacityQty,
     actualCutGarmentQty,
@@ -547,22 +596,27 @@ export function buildReplenishmentSuggestionFromContext(options: {
     createdAt,
     status: suggested.status,
     note: preview.detailText,
-    lines: options.context.varianceSummary?.replenishmentLines.map((line) => ({
-      lineId: line.lineId,
-      originalCutOrderId: line.originalCutOrderId,
-      originalCutOrderNo: line.originalCutOrderNo,
-      materialSku: line.materialSku,
-      color: line.color,
-      requiredGarmentQty: line.requiredGarmentQty,
-      actualCutGarmentQty: line.actualCutGarmentQty,
-      claimedLengthTotal: line.claimedLengthTotal,
-      actualLengthTotal: line.actualLengthTotal,
-      shortageGarmentQty: line.shortageGarmentQty,
-      suggestedAction: line.suggestedAction,
-      actualCutGarmentQtyFormula: line.actualCutGarmentQtyFormula,
-      shortageGarmentQtyFormula: line.shortageGarmentQtyFormula,
-      suggestedActionRuleText: line.suggestedActionRuleText,
-    })) || [],
+    lines: options.context.varianceSummary?.replenishmentLines.map((line) => {
+      const materialLine = findContextMaterialLine(options.context, line.cutOrderId, line.materialSku)
+      return {
+        lineId: line.lineId,
+        cutOrderId: line.cutOrderId,
+        cutOrderNo: line.cutOrderNo,
+        materialSku: line.materialSku,
+        materialAlias: materialLine?.materialAlias || '',
+        materialImageUrl: materialLine?.materialImageUrl || '',
+        color: line.color,
+        requiredGarmentQty: line.requiredGarmentQty,
+        actualCutGarmentQty: line.actualCutGarmentQty,
+        claimedLengthTotal: line.claimedLengthTotal,
+        actualLengthTotal: line.actualLengthTotal,
+        shortageGarmentQty: line.shortageGarmentQty,
+        suggestedAction: line.suggestedAction,
+        actualCutGarmentQtyFormula: line.actualCutGarmentQtyFormula,
+        shortageGarmentQtyFormula: line.shortageGarmentQtyFormula,
+        suggestedActionRuleText: line.suggestedActionRuleText,
+      }
+    }) || [],
   }
 }
 
@@ -584,34 +638,37 @@ export function validateReplenishmentReviewAction(options: {
 function buildReplenishmentNavigationPayload(
   suggestion: Pick<
     ReplenishmentSuggestion,
-    | 'originalCutOrderIds'
-    | 'originalCutOrderNos'
-    | 'mergeBatchId'
-    | 'mergeBatchNo'
+    | 'cutOrderIds'
+    | 'cutOrderNos'
+    | 'markerPlanId'
+    | 'markerPlanNo'
     | 'productionOrderIds'
     | 'productionOrderNos'
     | 'materialSku'
   >,
 ): ReplenishmentNavigationPayload {
-  const originalCutOrderId = suggestion.originalCutOrderIds[0] || undefined
-  const originalCutOrderNo = suggestion.originalCutOrderNos[0] || undefined
+  const cutOrderId = suggestion.cutOrderIds[0] || undefined
+  const cutOrderNo = suggestion.cutOrderNos[0] || undefined
   const productionOrderId = suggestion.productionOrderIds[0] || undefined
   const productionOrderNo = suggestion.productionOrderNos[0] || undefined
-  const mergeBatchId = suggestion.mergeBatchId || undefined
-  const mergeBatchNo = suggestion.mergeBatchNo || undefined
+  const markerPlanId = suggestion.markerPlanId || undefined
+  const markerPlanNo = suggestion.markerPlanNo || undefined
   const materialSku = suggestion.materialSku.split(' / ')[0] || undefined
 
   return {
-    markerSpreading: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, productionOrderId, productionOrderNo, materialSku },
-    materialPrep: { originalCutOrderId, originalCutOrderNo, productionOrderId, productionOrderNo, materialSku },
-    originalOrders: { originalCutOrderId, originalCutOrderNo, productionOrderId, productionOrderNo, mergeBatchId, mergeBatchNo, materialSku },
-    mergeBatches: { mergeBatchId, mergeBatchNo, originalCutOrderId, originalCutOrderNo, productionOrderId, productionOrderNo, materialSku },
-    summary: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, productionOrderId, productionOrderNo, materialSku },
+    markerSpreading: { cutOrderId, cutOrderNo, markerPlanId, markerPlanNo, productionOrderId, productionOrderNo, materialSku },
+    materialPrep: { cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, materialSku },
+    cuttablePool: { cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, markerPlanId, markerPlanNo, materialSku },
+    cutOrders: { cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, markerPlanId, markerPlanNo, materialSku },
+    markerPlanRefs: { markerPlanId, markerPlanNo, cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, materialSku },
+    summary: { cutOrderId, cutOrderNo, markerPlanId, markerPlanNo, productionOrderId, productionOrderNo, materialSku },
   }
 }
 
 function buildActionTargetPath(targetPageKey: ReplenishmentFollowupTargetPageKey): string {
   if (targetPageKey === 'materialPrep') return '/fcs/craft/cutting/warehouse-management/wait-process'
+  if (targetPageKey === 'cuttablePool') return '/fcs/craft/cutting/cuttable-pool'
+  if (targetPageKey === 'cutOrders') return '/fcs/craft/cutting/cut-orders'
   return '/fcs/craft/cutting/replenishment'
 }
 
@@ -655,9 +712,9 @@ function buildDefaultFollowupActions(
       suggestion,
       navigationPayload,
       actionType: 'CREATE_PENDING_PREP',
-      title: '生成补料WMS 待处理',
+      title: '等待再次领料',
       targetPageKey: 'materialPrep',
-      note: '审核通过后进入待加工仓。',
+      note: '确认需要继续补裁后，等待裁床再次领料；有领料余额后再去补排唛架。',
     }),
   ]
 }
@@ -753,10 +810,10 @@ function deriveStatusMeta(options: {
 }
 
 function buildSourceSummary(context: ReplenishmentContextRecord): string {
-  if (context.baseSourceType === 'merge-batch') {
-    return `合并裁剪批次 ${context.mergeBatchNo || '待补合并裁剪批次号'} · ${context.originalCutOrderNos.length} 个原始裁片单`
+  if (context.baseSourceType === 'marker-plan-ref') {
+    return `唛架方案 ${context.markerPlanNo || '待补唛架方案号'} · ${context.cutOrderNos.length} 个裁片单`
   }
-  return `原始裁片单 ${context.originalCutOrderNos[0] || '待补'}`
+  return `裁片单 ${context.cutOrderNos[0] || '待补'}`
 }
 
 function buildDifferenceSummary(suggestion: ReplenishmentSuggestion): string {
@@ -778,6 +835,83 @@ function buildMajorGapSummary(suggestion: ReplenishmentSuggestion): string {
   return '当前无明显缺口'
 }
 
+function buildClaimedBalanceLength(suggestion: ReplenishmentSuggestion): number {
+  return Number(Math.max(Number(suggestion.claimedLengthTotal || 0) - Number(suggestion.actualLengthTotal || 0), 0).toFixed(2))
+}
+
+function buildMaterialGapLength(suggestion: ReplenishmentSuggestion): number {
+  return Number(
+    Math.max(
+      Number(suggestion.shortageLengthTotal || 0),
+      Number(suggestion.actualLengthTotal || 0) - Number(suggestion.claimedLengthTotal || 0),
+      0,
+    ).toFixed(2),
+  )
+}
+
+function buildReplenishmentNextOptions(suggestion: ReplenishmentSuggestion): ReplenishmentNextOption[] {
+  const claimedBalanceLength = buildClaimedBalanceLength(suggestion)
+  const hasGap = suggestion.shortageGarmentQty > 0 || buildMaterialGapLength(suggestion) > 0 || suggestion.varianceLength < 0
+  const missingData = suggestion.status === 'PENDING_SUPPLEMENT' || suggestion.lines.length === 0
+
+  if (!hasGap && !missingData) {
+    return [
+      {
+        key: 'NO_GAP',
+        label: '无需补排',
+        detailText: '当前没有形成面料缺口，不需要再次排唛架。',
+        target: 'cutOrders',
+        className: 'bg-emerald-100 text-emerald-700',
+      },
+    ]
+  }
+
+  if (missingData) {
+    return [
+      {
+        key: 'CHECK_DATA',
+        label: '补齐数据',
+        detailText: '先补齐铺布、裁剪或领料数量，再判断是否补排。',
+        target: 'markerSpreading',
+        className: 'bg-orange-100 text-orange-700',
+      },
+    ]
+  }
+
+  const options: ReplenishmentNextOption[] = []
+  if (claimedBalanceLength > 0) {
+    options.push({
+      key: 'REPLAN_MARKER',
+      label: '去补排唛架',
+      detailText: '已领面料仍有可用余额，可回到可排唛架裁片单继续补排。',
+      target: 'cuttablePool',
+      className: 'bg-blue-100 text-blue-700',
+    })
+  } else {
+    options.push({
+      key: 'WAIT_NEXT_PICKUP',
+      label: '等待再次领料',
+      detailText: '当前已领面料已消耗完，需要再次领料后才能继续补排。',
+      target: 'materialPrep',
+      className: 'bg-amber-100 text-amber-700',
+    })
+  }
+
+  options.push({
+    key: 'CLOSE_CUT_ORDER',
+    label: '关闭裁片单',
+    detailText: '如果确认后续不再来料，可关闭裁片单并填写关闭原因。',
+    target: 'cutOrders',
+    className: 'bg-zinc-100 text-zinc-700',
+  })
+
+  return options
+}
+
+function buildNextActionSummary(options: ReplenishmentNextOption[]): string {
+  return options.map((item) => item.label).join(' / ') || '暂无后续动作'
+}
+
 function buildReviewSummary(review: ReplenishmentReview | null): string {
   if (!review) return '未审核'
   if (review.reviewStatus === 'APPROVED') return '审核通过'
@@ -791,11 +925,11 @@ function buildBlockingSummary(row: {
   latestPdaFeedbackSummary?: string
 }): string {
   if (row.latestPdaFeedbackSummary) return row.latestPdaFeedbackSummary
-  if (row.statusMeta.key === 'NO_ACTION') return '当前不阻塞后续'
+  if (row.statusMeta.key === 'NO_ACTION') return '当前不影响后续'
   if (row.statusMeta.key === 'REJECTED') return '已驳回，不进入后续动作'
   if (row.statusMeta.key === 'COMPLETED') return '纠偏动作已闭环'
-  if (row.statusMeta.key === 'PENDING_SUPPLEMENT') return '待补录，仍阻塞下游'
-  if (row.statusMeta.key === 'PENDING_REVIEW') return '待审核，仍阻塞下游'
+  if (row.statusMeta.key === 'PENDING_SUPPLEMENT') return '待补录，仍影响下游'
+  if (row.statusMeta.key === 'PENDING_REVIEW') return '待审核，仍影响下游'
   if (row.pendingActionCount > 0) return `仍有 ${row.pendingActionCount} 项动作未完成`
   return '待继续处理'
 }
@@ -809,13 +943,13 @@ function matchesPdaFeedbackWithSuggestion(
   feedback: PdaReplenishmentFeedbackWritebackRecord,
   suggestion: Pick<
     ReplenishmentSuggestion,
-    'originalCutOrderIds' | 'originalCutOrderNos' | 'productionOrderIds' | 'productionOrderNos' | 'materialSkus' | 'mergeBatchId' | 'mergeBatchNo'
+    'cutOrderIds' | 'cutOrderNos' | 'productionOrderIds' | 'productionOrderNos' | 'materialSkus' | 'markerPlanId' | 'markerPlanNo'
   >,
 ): boolean {
-  const matchesOriginal =
-    suggestion.originalCutOrderIds.includes(feedback.originalCutOrderId) ||
-    suggestion.originalCutOrderNos.includes(feedback.originalCutOrderNo)
-  if (!matchesOriginal) return false
+  const matchesCutOrder =
+    suggestion.cutOrderIds.includes(feedback.cutOrderId) ||
+    suggestion.cutOrderNos.includes(feedback.cutOrderNo)
+  if (!matchesCutOrder) return false
 
   const matchesProduction =
     suggestion.productionOrderIds.includes(feedback.productionOrderId) ||
@@ -824,30 +958,30 @@ function matchesPdaFeedbackWithSuggestion(
 
   if (!suggestion.materialSkus.includes(feedback.materialSku)) return false
 
-  if (feedback.mergeBatchId || feedback.mergeBatchNo) {
-    return suggestion.mergeBatchId === feedback.mergeBatchId || suggestion.mergeBatchNo === feedback.mergeBatchNo
+  if (feedback.markerPlanId || feedback.markerPlanNo) {
+    return suggestion.markerPlanId === feedback.markerPlanId || suggestion.markerPlanNo === feedback.markerPlanNo
   }
 
-  return !suggestion.mergeBatchId && !suggestion.mergeBatchNo
+  return !suggestion.markerPlanId && !suggestion.markerPlanNo
 }
 
 function buildPdaFeedbackNavigationPayload(
   feedback: Pick<
     PdaReplenishmentFeedbackWritebackRecord,
-    | 'originalCutOrderId'
-    | 'originalCutOrderNo'
-    | 'mergeBatchId'
-    | 'mergeBatchNo'
+    | 'cutOrderId'
+    | 'cutOrderNo'
+    | 'markerPlanId'
+    | 'markerPlanNo'
     | 'productionOrderId'
     | 'productionOrderNo'
     | 'materialSku'
   >,
 ): ReplenishmentNavigationPayload {
   return buildReplenishmentNavigationPayload({
-    originalCutOrderIds: [feedback.originalCutOrderId],
-    originalCutOrderNos: [feedback.originalCutOrderNo],
-    mergeBatchId: feedback.mergeBatchId,
-    mergeBatchNo: feedback.mergeBatchNo,
+    cutOrderIds: [feedback.cutOrderId],
+    cutOrderNos: [feedback.cutOrderNo],
+    markerPlanId: feedback.markerPlanId,
+    markerPlanNo: feedback.markerPlanNo,
     productionOrderIds: [feedback.productionOrderId],
     productionOrderNos: [feedback.productionOrderNo],
     materialSku: feedback.materialSku,
@@ -857,12 +991,12 @@ function buildPdaFeedbackNavigationPayload(
 function buildSyntheticFeedbackContext(feedback: PdaReplenishmentFeedbackWritebackRecord): ReplenishmentContextRecord {
   return {
     contextId: `ctx-${feedback.writebackId}`,
-    sourceType: 'original-order',
-    baseSourceType: 'original-order',
-    mergeBatchId: feedback.mergeBatchId,
-    mergeBatchNo: feedback.mergeBatchNo,
-    originalCutOrderIds: [feedback.originalCutOrderId],
-    originalCutOrderNos: [feedback.originalCutOrderNo],
+    sourceType: 'cut-order',
+    baseSourceType: 'cut-order',
+    markerPlanId: feedback.markerPlanId,
+    markerPlanNo: feedback.markerPlanNo,
+    cutOrderIds: [feedback.cutOrderId],
+    cutOrderNos: [feedback.cutOrderNo],
     productionOrderNos: [feedback.productionOrderNo],
     styleCode: '',
     spuCode: '',
@@ -886,13 +1020,13 @@ function buildSyntheticFeedbackRow(
   const statusMeta = replenishmentStatusMetaMap.PENDING_REVIEW
   const row = {
     suggestionId: `rep-pda-feedback-${feedback.writebackId}`,
-    suggestionNo: `BL-${formatDateToken(feedback.submittedAt)}-${feedback.originalCutOrderNo.slice(-2) || '01'}`,
+    suggestionNo: `BL-${formatDateToken(feedback.submittedAt)}-${feedback.cutOrderNo.slice(-2) || '01'}`,
     contextId: `ctx-${feedback.writebackId}`,
     sourceType: 'pda-feedback' as const,
-    originalCutOrderIds: [feedback.originalCutOrderId],
-    originalCutOrderNos: [feedback.originalCutOrderNo],
-    mergeBatchId: feedback.mergeBatchId,
-    mergeBatchNo: feedback.mergeBatchNo,
+    cutOrderIds: [feedback.cutOrderId],
+    cutOrderNos: [feedback.cutOrderNo],
+    markerPlanId: feedback.markerPlanId,
+    markerPlanNo: feedback.markerPlanNo,
     productionOrderIds: [feedback.productionOrderId],
     productionOrderNos: [feedback.productionOrderNo],
     styleCode: '',
@@ -902,6 +1036,8 @@ function buildSyntheticFeedbackRow(
     materialSkus: [feedback.materialSku],
     materialCategory: '待跟进',
     materialAttr: '待跟进',
+    materialAlias: '',
+    materialImageUrl: '',
     requiredGarmentQty: 0,
     theoreticalCutGarmentQty: 0,
     actualCutGarmentQty: 0,
@@ -924,9 +1060,9 @@ function buildSyntheticFeedbackRow(
     lines: [],
     context: buildSyntheticFeedbackContext(feedback),
     sourceLabel: replenishmentSourceMeta['pda-feedback'].label,
-    sourceSummary: `现场反馈 · ${feedback.originalCutOrderNo}`,
+    sourceSummary: `现场反馈 · ${feedback.cutOrderNo}`,
     sourceProductionSummary: feedback.productionOrderNo,
-    sourceOrderSummary: feedback.originalCutOrderNo,
+    sourceOrderSummary: feedback.cutOrderNo,
     differenceSummary: `原因 ${feedback.reasonLabel} / 凭证 ${feedback.photoProofCount} 个`,
     majorGapSummary: '待人工确认补料影响',
     review: null,
@@ -957,6 +1093,18 @@ function buildSyntheticFeedbackRow(
     pendingPdaFeedbackCount: 1,
     latestPdaFeedback: feedback,
     latestPdaFeedbackSummary: buildPdaFeedbackSummary(feedback),
+    claimedBalanceLength: 0,
+    materialGapLength: 0,
+    nextOptions: [
+      {
+        key: 'CHECK_DATA' as const,
+        label: '补齐数据',
+        detailText: '先确认现场反馈，再补齐正式铺布、裁剪或领料数量。',
+        target: 'markerSpreading' as const,
+        className: 'bg-orange-100 text-orange-700',
+      },
+    ],
+    nextActionSummary: '补齐数据',
     blockingSummary: '',
     statusMeta,
     riskMeta: replenishmentRiskMetaMap.MEDIUM,
@@ -965,8 +1113,8 @@ function buildSyntheticFeedbackRow(
       feedback.writebackId,
       feedback.taskNo,
       feedback.productionOrderNo,
-      feedback.originalCutOrderNo,
-      feedback.mergeBatchNo,
+      feedback.cutOrderNo,
+      feedback.markerPlanNo,
       feedback.materialSku,
       feedback.reasonLabel,
       feedback.note,
@@ -1072,7 +1220,7 @@ export function deserializeReplenishmentActionsStorage(raw: string | null): Repl
           actionId: String(item.actionId || `${suggestionId}-CREATE_PENDING_PREP`).trim() || `${suggestionId}-CREATE_PENDING_PREP`,
           suggestionId,
           actionType: 'CREATE_PENDING_PREP' as const,
-          title: String(item.title || '生成补料WMS 待处理').trim() || '生成补料WMS 待处理',
+          title: String(item.title || '等待再次领料').trim() || '等待再次领料',
           status: ['PENDING', 'CONFIRMED', 'SKIPPED', 'DONE'].includes(String(item.status || ''))
             ? (item.status as ReplenishmentFollowupActionStatus)
             : 'PENDING',
@@ -1084,7 +1232,7 @@ export function deserializeReplenishmentActionsStorage(raw: string | null): Repl
               : {},
           note:
             String(item.note || '').trim() ||
-            '审核通过后进入待加工仓。',
+            '确认需要继续补裁后，等待裁床再次领料；有领料余额后再去补排唛架。',
           decidedAt: String(item.decidedAt || '').trim(),
           decidedBy: String(item.decidedBy || '').trim(),
           completedAt: String(item.completedAt || '').trim(),
@@ -1114,15 +1262,15 @@ export function deserializeReplenishmentActionsStorage(raw: string | null): Repl
 
 export function buildReplenishmentViewModel(options: {
   materialPrepRows: MaterialPrepRow[]
-  originalRows: OriginalCutOrderRow[]
-  mergeBatches: MergeBatchRecord[]
+  cutOrderRows: CutOrderRow[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
   reviews: ReplenishmentReview[]
   impactPlans: ReplenishmentImpactPlan[]
   actions: ReplenishmentFollowupAction[]
   pdaFeedbackWritebacks?: PdaReplenishmentFeedbackWritebackRecord[]
 }): ReplenishmentViewModel {
-  const originalRowsById = Object.fromEntries(options.originalRows.map((row) => [row.originalCutOrderId, row]))
+  const cutOrderRowsById = Object.fromEntries(options.cutOrderRows.map((row) => [row.cutOrderId, row]))
   const reviewsBySuggestionId = Object.fromEntries(options.reviews.map((review) => [review.suggestionId, review]))
   const impactsBySuggestionId = Object.fromEntries(options.impactPlans.map((plan) => [plan.suggestionId, plan]))
   const actionsBySuggestionId = options.actions.reduce<Record<string, ReplenishmentFollowupAction[]>>((accumulator, action) => {
@@ -1134,8 +1282,8 @@ export function buildReplenishmentViewModel(options: {
     options.pdaFeedbackWritebacks ?? listPdaReplenishmentFeedbackWritebacks(getBrowserLocalStorage() || undefined)
   const contexts = buildReplenishmentContextRecords({
     materialPrepRows: options.materialPrepRows,
-    originalRows: options.originalRows,
-    mergeBatches: options.mergeBatches,
+    cutOrderRows: options.cutOrderRows,
+    markerPlanRefs: options.markerPlanRefs,
     markerStore: options.markerStore,
   })
 
@@ -1143,7 +1291,7 @@ export function buildReplenishmentViewModel(options: {
     const suggestion = buildReplenishmentSuggestionFromContext({
       index,
       context,
-      originalRowsById,
+      cutOrderRowsById,
     })
     const navigationPayload = buildReplenishmentNavigationPayload(suggestion)
     const review = reviewsBySuggestionId[suggestion.suggestionId] || null
@@ -1172,6 +1320,9 @@ export function buildReplenishmentViewModel(options: {
     const matchedPdaFeedbacks = pdaFeedbackWritebacks.filter((feedback) => matchesPdaFeedbackWithSuggestion(feedback, suggestion))
     const latestPdaFeedback = matchedPdaFeedbacks[0] ?? null
     const latestPdaFeedbackSummary = buildPdaFeedbackSummary(latestPdaFeedback)
+    const claimedBalanceLength = buildClaimedBalanceLength(suggestion)
+    const materialGapLength = buildMaterialGapLength(suggestion)
+    const nextOptions = buildReplenishmentNextOptions(suggestion)
     const effectiveStatusMeta =
       latestPdaFeedback &&
       ['NO_ACTION', 'COMPLETED', 'REJECTED'].includes(statusMeta.key)
@@ -1184,9 +1335,9 @@ export function buildReplenishmentViewModel(options: {
       sourceSummary: buildSourceSummary(context),
       sourceProductionSummary: context.productionOrderNos.join(' / ') || '待补',
       sourceOrderSummary:
-        context.baseSourceType === 'merge-batch'
-          ? `${context.mergeBatchNo || '待补合并裁剪批次号'} · ${context.originalCutOrderNos.join(' / ')}`
-          : context.originalCutOrderNos.join(' / ') || '待补',
+        context.baseSourceType === 'marker-plan-ref'
+          ? `${context.markerPlanNo || '待补唛架方案号'} · ${context.cutOrderNos.join(' / ')}`
+          : context.cutOrderNos.join(' / ') || '待补',
       differenceSummary: buildDifferenceSummary(suggestion),
       majorGapSummary: buildMajorGapSummary(suggestion),
       review,
@@ -1203,18 +1354,25 @@ export function buildReplenishmentViewModel(options: {
       pendingPdaFeedbackCount: matchedPdaFeedbacks.length,
       latestPdaFeedback,
       latestPdaFeedbackSummary,
+      claimedBalanceLength,
+      materialGapLength,
+      nextOptions,
+      nextActionSummary: buildNextActionSummary(nextOptions),
       statusMeta: effectiveStatusMeta,
       riskMeta,
       navigationPayload,
       blockingSummary: '',
       keywordIndex: lowerKeywordIndex([
         suggestion.suggestionNo,
-        ...suggestion.originalCutOrderNos,
-        suggestion.mergeBatchNo,
+        ...suggestion.cutOrderNos,
+        suggestion.markerPlanNo,
         ...suggestion.productionOrderNos,
         ...suggestion.materialSkus,
+        suggestion.materialAlias,
         suggestion.styleCode,
         suggestion.spuCode,
+        buildNextActionSummary(nextOptions),
+        ...context.materialRows.flatMap((item) => item.materialLineItems.map((line) => line.materialAlias)),
         ...context.materialRows.flatMap((item) => item.materialLineItems.map((line) => line.materialAttr)),
       ]),
     }
@@ -1248,6 +1406,9 @@ export function buildReplenishmentViewModel(options: {
       rejectedCount: allRows.filter((row) => row.statusMeta.key === 'REJECTED').length,
       completedCount: allRows.filter((row) => row.statusMeta.key === 'COMPLETED').length,
       highRiskCount: allRows.filter((row) => row.riskLevel === 'HIGH').length,
+      waitNextPickupCount: allRows.filter((row) => row.nextOptions.some((item) => item.key === 'WAIT_NEXT_PICKUP')).length,
+      replanReadyCount: allRows.filter((row) => row.nextOptions.some((item) => item.key === 'REPLAN_MARKER')).length,
+      closeCandidateCount: allRows.filter((row) => row.nextOptions.some((item) => item.key === 'CLOSE_CUT_ORDER')).length,
     },
   }
 }
@@ -1262,10 +1423,10 @@ export function filterReplenishmentRows(
   return rows.filter((row) => {
     if (prefilter?.suggestionId && row.suggestionId !== prefilter.suggestionId) return false
     if (prefilter?.suggestionNo && row.suggestionNo !== prefilter.suggestionNo) return false
-    if (prefilter?.originalCutOrderNo && !row.originalCutOrderNos.includes(prefilter.originalCutOrderNo)) return false
-    if (prefilter?.originalCutOrderId && !row.originalCutOrderIds.includes(prefilter.originalCutOrderId)) return false
-    if (prefilter?.mergeBatchNo && row.mergeBatchNo !== prefilter.mergeBatchNo) return false
-    if (prefilter?.mergeBatchId && row.mergeBatchId !== prefilter.mergeBatchId) return false
+    if (prefilter?.cutOrderNo && !row.cutOrderNos.includes(prefilter.cutOrderNo)) return false
+    if (prefilter?.cutOrderId && !row.cutOrderIds.includes(prefilter.cutOrderId)) return false
+    if (prefilter?.markerPlanNo && row.markerPlanNo !== prefilter.markerPlanNo) return false
+    if (prefilter?.markerPlanId && row.markerPlanId !== prefilter.markerPlanId) return false
     if (prefilter?.productionOrderNo && !row.productionOrderNos.includes(prefilter.productionOrderNo)) return false
     if (prefilter?.materialSku && !row.materialSkus.includes(prefilter.materialSku)) return false
     if (prefilter?.color && !row.lines.some((line) => line.color === prefilter.color)) return false
@@ -1296,10 +1457,10 @@ export function findReplenishmentByPrefilter(
     rows.find((row) => {
       if (prefilter.suggestionId && row.suggestionId === prefilter.suggestionId) return true
       if (prefilter.suggestionNo && row.suggestionNo === prefilter.suggestionNo) return true
-      if (prefilter.originalCutOrderNo && row.originalCutOrderNos.includes(prefilter.originalCutOrderNo)) return true
-      if (prefilter.originalCutOrderId && row.originalCutOrderIds.includes(prefilter.originalCutOrderId)) return true
-      if (prefilter.mergeBatchNo && row.mergeBatchNo === prefilter.mergeBatchNo) return true
-      if (prefilter.mergeBatchId && row.mergeBatchId === prefilter.mergeBatchId) return true
+      if (prefilter.cutOrderNo && row.cutOrderNos.includes(prefilter.cutOrderNo)) return true
+      if (prefilter.cutOrderId && row.cutOrderIds.includes(prefilter.cutOrderId)) return true
+      if (prefilter.markerPlanNo && row.markerPlanNo === prefilter.markerPlanNo) return true
+      if (prefilter.markerPlanId && row.markerPlanId === prefilter.markerPlanId) return true
       if (prefilter.productionOrderNo && row.productionOrderNos.includes(prefilter.productionOrderNo)) return true
       if (prefilter.materialSku && row.materialSkus.includes(prefilter.materialSku)) return true
       if (prefilter.color && row.lines.some((line) => line.color === prefilter.color)) return true

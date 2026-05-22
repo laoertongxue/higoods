@@ -8,7 +8,7 @@ import type {
   CuttingOrderProgressRecord,
   CuttingReceiveStatus,
 } from './cutting/types.ts'
-import type { GeneratedOriginalCutOrderSourceRecord } from './cutting/generated-original-cut-orders.ts'
+import type { GeneratedCutOrderSourceRecord } from './cutting/generated-cut-orders.ts'
 
 export type CuttingTaskPrintNodeRow = {
   rowId: string
@@ -22,9 +22,9 @@ export type CuttingTaskPrintNodeRow = {
   remark: string
 }
 
-export interface CuttingOriginalOrderTaskPrintSource {
-  originalCutOrderId: string
-  originalCutOrderNo: string
+export interface CuttingCutOrderTaskPrintSource {
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   styleCode: string
@@ -39,23 +39,23 @@ export interface CuttingOriginalOrderTaskPrintSource {
   prepStatusLabel: string
   claimStatusLabel: string
   currentStageLabel: string
-  latestMergeBatchNo: string
+  latestMarkerPlanNo: string
   statusSummary: string
   relationSummary: string
   latestActionText: string
   nodeRows: CuttingTaskPrintNodeRow[]
 }
 
-export interface CuttingMergeBatchTaskPrintSource {
-  mergeBatchId: string
-  mergeBatchNo: string
+export interface CuttingMarkerPlanRefTaskPrintSource {
+  markerPlanId: string
+  markerPlanNo: string
   status: 'DRAFT' | 'READY' | 'CUTTING' | 'DONE' | 'CANCELLED'
   statusLabel: string
   styleCode: string
   spuCode: string
   materialSkuSummary: string
   sourceProductionOrderCount: number
-  sourceOriginalCutOrderCount: number
+  sourceCutOrderCount: number
   plannedCuttingGroup: string
   plannedCuttingDate: string
   note: string
@@ -95,45 +95,43 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
-function findOriginalSource(
+function findCutOrderSource(
   snapshot: CuttingDomainSnapshot,
   sourceId: string,
-): GeneratedOriginalCutOrderSourceRecord | undefined {
-  return snapshot.originalCutOrders.find(
-    (record) => record.originalCutOrderId === sourceId || record.originalCutOrderNo === sourceId,
+): GeneratedCutOrderSourceRecord | undefined {
+  return snapshot.cutOrders.find(
+    (record) => record.cutOrderId === sourceId || record.cutOrderNo === sourceId,
   )
 }
 
 function findProgressRecord(
   snapshot: CuttingDomainSnapshot,
-  source: Pick<GeneratedOriginalCutOrderSourceRecord, 'productionOrderId'>,
+  source: Pick<GeneratedCutOrderSourceRecord, 'productionOrderId'>,
 ): CuttingOrderProgressRecord | undefined {
   return snapshot.progressRecords.find((record) => record.productionOrderId === source.productionOrderId)
 }
 
 function findMaterialLine(
   progressRecord: CuttingOrderProgressRecord | undefined,
-  source: Pick<GeneratedOriginalCutOrderSourceRecord, 'originalCutOrderId' | 'originalCutOrderNo' | 'materialSku'>,
+  source: Pick<GeneratedCutOrderSourceRecord, 'cutOrderId' | 'cutOrderNo' | 'materialSku'>,
 ): CuttingMaterialLine | undefined {
   return progressRecord?.materialLines.find(
     (line) =>
-      line.originalCutOrderId === source.originalCutOrderId
-      || line.originalCutOrderNo === source.originalCutOrderNo
-      || line.cutPieceOrderNo === source.originalCutOrderNo
+      line.cutOrderId === source.cutOrderId
+      || line.cutOrderNo === source.cutOrderNo
+      || line.cutPieceOrderNo === source.cutOrderNo
       || line.materialSku === source.materialSku,
   )
 }
 
 function getCurrentStage(progressRecord: CuttingOrderProgressRecord | undefined, line: CuttingMaterialLine | undefined): string {
-  if (progressRecord?.cuttingStage) return progressRecord.cuttingStage
-  if (line?.receiveStatus === 'RECEIVED') return '待裁'
-  if (line?.configStatus === 'CONFIGURED') return '待领料'
-  if (line?.configStatus === 'PARTIAL') return '配料中'
-  return '待配料'
+  if (progressRecord?.closeReason || progressRecord?.closedAt || /已关闭|不再补裁/.test(progressRecord?.cuttingStage || '')) return '已关闭'
+  if (line?.receiveStatus === 'RECEIVED') return '已开工'
+  return '未开工'
 }
 
-function buildOriginalOrderNodeRows(input: {
-  source: GeneratedOriginalCutOrderSourceRecord
+function buildCutOrderNodeRows(input: {
+  source: GeneratedCutOrderSourceRecord
   progressRecord?: CuttingOrderProgressRecord
   line?: CuttingMaterialLine
   statusSummary: string
@@ -146,7 +144,7 @@ function buildOriginalOrderNodeRows(input: {
 
   return [
     {
-      rowId: `${source.originalCutOrderId}-prep`,
+      rowId: `${source.cutOrderId}-prep`,
       node: '配料',
       startedAt: '—',
       finishedAt: '—',
@@ -157,7 +155,7 @@ function buildOriginalOrderNodeRows(input: {
       remark: statusSummary,
     },
     {
-      rowId: `${source.originalCutOrderId}-claim`,
+      rowId: `${source.cutOrderId}-claim`,
       node: '领料',
       startedAt: '—',
       finishedAt: '—',
@@ -168,8 +166,8 @@ function buildOriginalOrderNodeRows(input: {
       remark: latestActionText,
     },
     {
-      rowId: `${source.originalCutOrderId}-merge`,
-      node: '合批',
+      rowId: `${source.cutOrderId}-marker-plan`,
+      node: '唛架方案',
       startedAt: '—',
       finishedAt: '—',
       completedQty: numberText(source.requiredQty, '件'),
@@ -179,8 +177,8 @@ function buildOriginalOrderNodeRows(input: {
       remark: relationSummary,
     },
     {
-      rowId: `${source.originalCutOrderId}-current`,
-      node: '当前阶段',
+      rowId: `${source.cutOrderId}-current`,
+      node: '裁片单状态',
       startedAt: '—',
       finishedAt: '—',
       completedQty: numberText(source.requiredQty, '件'),
@@ -192,11 +190,11 @@ function buildOriginalOrderNodeRows(input: {
   ]
 }
 
-export function getCuttingOriginalOrderTaskPrintSourceById(
+export function getCuttingCutOrderTaskPrintSourceById(
   sourceId: string,
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
-): CuttingOriginalOrderTaskPrintSource | null {
-  const source = findOriginalSource(snapshot, sourceId)
+): CuttingCutOrderTaskPrintSource | null {
+  const source = findCutOrderSource(snapshot, sourceId)
   if (!source) return null
 
   const progressRecord = findProgressRecord(snapshot, source)
@@ -204,16 +202,16 @@ export function getCuttingOriginalOrderTaskPrintSourceById(
   const prepStatusLabel = CONFIG_STATUS_LABEL[line?.configStatus || 'NOT_CONFIGURED']
   const claimStatusLabel = RECEIVE_STATUS_LABEL[line?.receiveStatus || 'NOT_RECEIVED']
   const currentStageLabel = getCurrentStage(progressRecord, line)
-  const latestMergeBatchNo = source.mergeBatchNo || line?.mergeBatchNo || ''
-  const statusSummary = `${prepStatusLabel} / ${claimStatusLabel} / ${currentStageLabel}`
-  const relationSummary = latestMergeBatchNo ? `最新裁片批次号：${latestMergeBatchNo}` : '当前未关联合并裁剪批次'
+  const latestMarkerPlanNo = source.markerPlanNo || line?.markerPlanNo || ''
+  const statusSummary = `${currentStageLabel} / ${prepStatusLabel} / ${claimStatusLabel}${progressRecord?.closeReason ? ` / 关闭原因：${progressRecord.closeReason}` : ''}`
+  const relationSummary = latestMarkerPlanNo ? `最新唛架方案号：${latestMarkerPlanNo}` : '当前未关联唛架方案'
   const latestActionText =
     line?.latestActionText
     || (progressRecord?.lastFieldUpdateAt ? `最近更新：${progressRecord.lastFieldUpdateAt}` : '当前暂无独立执行日志')
 
   return {
-    originalCutOrderId: source.originalCutOrderId,
-    originalCutOrderNo: source.originalCutOrderNo,
+    cutOrderId: source.cutOrderId,
+    cutOrderNo: source.cutOrderNo,
     productionOrderId: source.productionOrderId,
     productionOrderNo: source.productionOrderNo,
     styleCode: progressRecord?.styleCode || source.sourceTechPackSpuCode,
@@ -228,11 +226,11 @@ export function getCuttingOriginalOrderTaskPrintSourceById(
     prepStatusLabel,
     claimStatusLabel,
     currentStageLabel,
-    latestMergeBatchNo: latestMergeBatchNo || '—',
+    latestMarkerPlanNo: latestMarkerPlanNo || '—',
     statusSummary,
     relationSummary,
     latestActionText,
-    nodeRows: buildOriginalOrderNodeRows({
+    nodeRows: buildCutOrderNodeRows({
       source,
       progressRecord,
       line,
@@ -243,47 +241,47 @@ export function getCuttingOriginalOrderTaskPrintSourceById(
   }
 }
 
-function normalizeMergeBatchStatus(value: string | undefined): CuttingMergeBatchTaskPrintSource['status'] {
+function normalizeMarkerPlanRefStatus(value: string | undefined): CuttingMarkerPlanRefTaskPrintSource['status'] {
   if (value === 'CUTTING' || value === 'DONE' || value === 'CANCELLED' || value === 'DRAFT' || value === 'READY') return value
   return 'READY'
 }
 
-function getMergeBatchStatusLabel(status: CuttingMergeBatchTaskPrintSource['status']): string {
-  if (status === 'CUTTING') return '裁剪中'
-  if (status === 'DONE') return '已完成'
+function getMarkerPlanRefStatusLabel(status: CuttingMarkerPlanRefTaskPrintSource['status']): string {
+  if (status === 'CUTTING') return '铺布裁剪中'
+  if (status === 'DONE') return '铺布裁剪完成'
   if (status === 'CANCELLED') return '已取消'
-  return '待裁'
+  return '待铺布裁剪'
 }
 
-function parseBatchDateFromNo(mergeBatchNo: string): string {
-  const match = mergeBatchNo.match(/(\d{2})(\d{2})(\d{2})/)
+function parseBatchDateFromNo(markerPlanNo: string): string {
+  const match = markerPlanNo.match(/(\d{2})(\d{2})(\d{2})/)
   if (!match) return ''
   return `20${match[1]}-${match[2]}-${match[3]}`
 }
 
-function inferMergeBatchStatus(rows: CuttingOriginalOrderTaskPrintSource[]): CuttingMergeBatchTaskPrintSource['status'] {
+function inferMarkerPlanRefStatus(rows: CuttingCutOrderTaskPrintSource[]): CuttingMarkerPlanRefTaskPrintSource['status'] {
   if (rows.some((row) => /已完成|已入仓/.test(row.currentStageLabel))) return 'DONE'
   if (rows.some((row) => /裁片中|裁剪中|待入仓/.test(row.currentStageLabel))) return 'CUTTING'
   return 'READY'
 }
 
-function buildMergeBatchNodeRows(batch: CuttingMergeBatchTaskPrintSource): CuttingTaskPrintNodeRow[] {
+function buildMarkerPlanRefNodeRows(batch: CuttingMarkerPlanRefTaskPrintSource): CuttingTaskPrintNodeRow[] {
   const visibleStatus = batch.status === 'DRAFT' ? 'READY' : batch.status
   const rows: CuttingTaskPrintNodeRow[] = [
     {
-      rowId: `${batch.mergeBatchId}-created`,
-      node: '创建批次',
+      rowId: `${batch.markerPlanId}-created`,
+      node: '创建唛架方案',
       startedAt: batch.createdAt || '—',
       finishedAt: '—',
-      completedQty: `${batch.sourceOriginalCutOrderCount} 单`,
+      completedQty: `${batch.sourceCutOrderCount} 单`,
       exceptionQty: '—',
       station: batch.plannedCuttingGroup || '—',
       operator: '—',
       remark: batch.plannedCuttingDate ? `计划裁剪日期：${batch.plannedCuttingDate}` : batch.note || '—',
     },
     {
-      rowId: `${batch.mergeBatchId}-ready`,
-      node: '待裁',
+      rowId: `${batch.markerPlanId}-ready`,
+      node: '待铺布裁剪',
       startedAt: '—',
       finishedAt: '—',
       completedQty: '—',
@@ -296,11 +294,11 @@ function buildMergeBatchNodeRows(batch: CuttingMergeBatchTaskPrintSource): Cutti
 
   if (visibleStatus === 'CUTTING' || visibleStatus === 'DONE') {
     rows.push({
-      rowId: `${batch.mergeBatchId}-cutting`,
-      node: '裁剪中',
+      rowId: `${batch.markerPlanId}-cutting`,
+      node: '铺布裁剪中',
       startedAt: '—',
       finishedAt: '—',
-      completedQty: visibleStatus === 'DONE' ? `${batch.sourceOriginalCutOrderCount} 单` : '—',
+      completedQty: visibleStatus === 'DONE' ? `${batch.sourceCutOrderCount} 单` : '—',
       exceptionQty: '—',
       station: batch.plannedCuttingGroup || '—',
       operator: '—',
@@ -310,11 +308,11 @@ function buildMergeBatchNodeRows(batch: CuttingMergeBatchTaskPrintSource): Cutti
 
   if (visibleStatus === 'DONE' || visibleStatus === 'CANCELLED') {
     rows.push({
-      rowId: `${batch.mergeBatchId}-${visibleStatus.toLowerCase()}`,
-      node: visibleStatus === 'DONE' ? '已完成' : '已取消',
+      rowId: `${batch.markerPlanId}-${visibleStatus.toLowerCase()}`,
+      node: visibleStatus === 'DONE' ? '铺布裁剪完成' : '已取消',
       startedAt: '—',
       finishedAt: '—',
-      completedQty: visibleStatus === 'DONE' ? `${batch.sourceOriginalCutOrderCount} 单` : '—',
+      completedQty: visibleStatus === 'DONE' ? `${batch.sourceCutOrderCount} 单` : '—',
       exceptionQty: '—',
       station: batch.plannedCuttingGroup || '—',
       operator: '—',
@@ -325,25 +323,25 @@ function buildMergeBatchNodeRows(batch: CuttingMergeBatchTaskPrintSource): Cutti
   return rows
 }
 
-function buildStoredMergeBatchSource(raw: Record<string, unknown>): CuttingMergeBatchTaskPrintSource | null {
-  const mergeBatchId = typeof raw.mergeBatchId === 'string' ? raw.mergeBatchId : ''
-  const mergeBatchNo = typeof raw.mergeBatchNo === 'string' ? raw.mergeBatchNo : ''
-  if (!mergeBatchId || !mergeBatchNo) return null
-  const status = normalizeMergeBatchStatus(typeof raw.status === 'string' ? raw.status : undefined)
+function buildStoredMarkerPlanRefSource(raw: Record<string, unknown>): CuttingMarkerPlanRefTaskPrintSource | null {
+  const markerPlanId = typeof raw.markerPlanId === 'string' ? raw.markerPlanId : ''
+  const markerPlanNo = typeof raw.markerPlanNo === 'string' ? raw.markerPlanNo : ''
+  if (!markerPlanId || !markerPlanNo) return null
+  const status = normalizeMarkerPlanRefStatus(typeof raw.status === 'string' ? raw.status : undefined)
   const items = Array.isArray(raw.items) ? raw.items.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object')) : []
-  const originalNos = unique(items.map((item) => (typeof item.originalCutOrderNo === 'string' ? item.originalCutOrderNo : '')))
+  const cutOrderNos = unique(items.map((item) => (typeof item.cutOrderNo === 'string' ? item.cutOrderNo : '')))
   const productionNos = unique(items.map((item) => (typeof item.productionOrderNo === 'string' ? item.productionOrderNo : '')))
   const materialSkus = unique(items.map((item) => (typeof item.materialSku === 'string' ? item.materialSku : '')))
-  const batch: CuttingMergeBatchTaskPrintSource = {
-    mergeBatchId,
-    mergeBatchNo,
+  const batch: CuttingMarkerPlanRefTaskPrintSource = {
+    markerPlanId,
+    markerPlanNo,
     status,
-    statusLabel: getMergeBatchStatusLabel(status),
+    statusLabel: getMarkerPlanRefStatusLabel(status),
     styleCode: typeof raw.styleCode === 'string' ? raw.styleCode : '',
     spuCode: typeof raw.spuCode === 'string' ? raw.spuCode : '',
     materialSkuSummary: typeof raw.materialSkuSummary === 'string' ? raw.materialSkuSummary : materialSkus.join(' / '),
     sourceProductionOrderCount: Number(raw.sourceProductionOrderCount || productionNos.length || 0),
-    sourceOriginalCutOrderCount: Number(raw.sourceOriginalCutOrderCount || originalNos.length || 0),
+    sourceCutOrderCount: Number(raw.sourceCutOrderCount || cutOrderNos.length || 0),
     plannedCuttingGroup: typeof raw.plannedCuttingGroup === 'string' ? raw.plannedCuttingGroup : '',
     plannedCuttingDate: typeof raw.plannedCuttingDate === 'string' ? raw.plannedCuttingDate : '',
     note: typeof raw.note === 'string' ? raw.note : '',
@@ -353,36 +351,36 @@ function buildStoredMergeBatchSource(raw: Record<string, unknown>): CuttingMerge
     firstProductionOrderNo: productionNos[0] || '',
     nodeRows: [],
   }
-  batch.nodeRows = buildMergeBatchNodeRows(batch)
+  batch.nodeRows = buildMarkerPlanRefNodeRows(batch)
   return batch
 }
 
-export function listCuttingMergeBatchTaskPrintSources(
+export function listCuttingMarkerPlanRefTaskPrintSources(
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
-): CuttingMergeBatchTaskPrintSource[] {
-  const originalRows = snapshot.originalCutOrders
-    .map((source) => getCuttingOriginalOrderTaskPrintSourceById(source.originalCutOrderId, snapshot))
-    .filter((source): source is CuttingOriginalOrderTaskPrintSource => Boolean(source))
-  const originalsById = new Map(originalRows.map((row) => [row.originalCutOrderId, row]))
-  const byId = new Map<string, CuttingMergeBatchTaskPrintSource>()
+): CuttingMarkerPlanRefTaskPrintSource[] {
+  const cutOrderRows = snapshot.cutOrders
+    .map((source) => getCuttingCutOrderTaskPrintSourceById(source.cutOrderId, snapshot))
+    .filter((source): source is CuttingCutOrderTaskPrintSource => Boolean(source))
+  const cutOrdersById = new Map(cutOrderRows.map((row) => [row.cutOrderId, row]))
+  const byId = new Map<string, CuttingMarkerPlanRefTaskPrintSource>()
 
-  snapshot.mergeBatchState.sourceRecords.forEach((record) => {
-    const rows = record.sourceOriginalCutOrderIds
-      .map((id) => originalsById.get(id))
-      .filter((row): row is CuttingOriginalOrderTaskPrintSource => Boolean(row))
+  snapshot.markerPlanRefState.sourceRecords.forEach((record) => {
+    const rows = record.sourceCutOrderIds
+      .map((id) => cutOrdersById.get(id))
+      .filter((row): row is CuttingCutOrderTaskPrintSource => Boolean(row))
     if (!rows.length) return
-    const status = inferMergeBatchStatus(rows)
-    const plannedDate = parseBatchDateFromNo(record.mergeBatchNo)
-    const batch: CuttingMergeBatchTaskPrintSource = {
-      mergeBatchId: record.mergeBatchId,
-      mergeBatchNo: record.mergeBatchNo,
+    const status = inferMarkerPlanRefStatus(rows)
+    const plannedDate = parseBatchDateFromNo(record.markerPlanNo)
+    const batch: CuttingMarkerPlanRefTaskPrintSource = {
+      markerPlanId: record.markerPlanId,
+      markerPlanNo: record.markerPlanNo,
       status,
-      statusLabel: getMergeBatchStatusLabel(status),
+      statusLabel: getMarkerPlanRefStatusLabel(status),
       styleCode: rows[0]?.styleCode || '',
       spuCode: rows[0]?.spuCode || '',
       materialSkuSummary: unique(rows.map((row) => row.materialSku)).join(' / '),
       sourceProductionOrderCount: unique(rows.map((row) => row.productionOrderId)).length,
-      sourceOriginalCutOrderCount: rows.length,
+      sourceCutOrderCount: rows.length,
       plannedCuttingGroup: '',
       plannedCuttingDate: plannedDate,
       note: '来源于裁片 runtime 主源聚合。',
@@ -392,23 +390,23 @@ export function listCuttingMergeBatchTaskPrintSources(
       firstProductionOrderNo: rows[0]?.productionOrderNo || '',
       nodeRows: [],
     }
-    batch.nodeRows = buildMergeBatchNodeRows(batch)
-    byId.set(batch.mergeBatchId, batch)
+    batch.nodeRows = buildMarkerPlanRefNodeRows(batch)
+    byId.set(batch.markerPlanId, batch)
   })
 
-  snapshot.mergeBatchState.storedRecords
-    .map((record) => buildStoredMergeBatchSource(record))
-    .filter((record): record is CuttingMergeBatchTaskPrintSource => Boolean(record))
-    .forEach((record) => byId.set(record.mergeBatchId, record))
+  snapshot.markerPlanRefState.storedRecords
+    .map((record) => buildStoredMarkerPlanRefSource(record))
+    .filter((record): record is CuttingMarkerPlanRefTaskPrintSource => Boolean(record))
+    .forEach((record) => byId.set(record.markerPlanId, record))
 
   return Array.from(byId.values())
 }
 
-export function getCuttingMergeBatchTaskPrintSourceById(
+export function getCuttingMarkerPlanRefTaskPrintSourceById(
   sourceId: string,
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
-): CuttingMergeBatchTaskPrintSource | null {
-  return listCuttingMergeBatchTaskPrintSources(snapshot).find(
-    (record) => record.mergeBatchId === sourceId || record.mergeBatchNo === sourceId,
+): CuttingMarkerPlanRefTaskPrintSource | null {
+  return listCuttingMarkerPlanRefTaskPrintSources(snapshot).find(
+    (record) => record.markerPlanId === sourceId || record.markerPlanNo === sourceId,
   ) || null
 }

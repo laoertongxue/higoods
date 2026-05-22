@@ -274,12 +274,12 @@ export function buildPostFinishingWaitHandoverWarehouseLink(postOrderId?: string
   return postOrderId ? `${base}?postOrderId=${encodeSegment(postOrderId)}` : base
 }
 
-export function buildCutOrderLink(originalCutOrderId: string): string {
-  return `/fcs/craft/cutting/original-orders?originalCutOrderId=${encodeSegment(originalCutOrderId)}`
+export function buildCutOrderLink(cutOrderId: string): string {
+  return `/fcs/craft/cutting/cut-orders?cutOrderId=${encodeSegment(cutOrderId)}`
 }
 
-export function buildMaterialPrepLink(originalCutOrderId: string): string {
-  return `/fcs/craft/cutting/warehouse-management/wait-process?originalCutOrderId=${encodeSegment(originalCutOrderId)}`
+export function buildMaterialPrepLink(cutOrderId: string): string {
+  return `/fcs/craft/cutting/warehouse-management/wait-process?cutOrderId=${encodeSegment(cutOrderId)}`
 }
 
 export function buildFeiTicketLink(feiTicketId: string): string {

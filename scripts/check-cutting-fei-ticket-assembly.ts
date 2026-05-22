@@ -53,8 +53,8 @@ function main(): void {
 
   ;[
     'sourceOutputLineId',
-    'originalCutOrderId',
-    'originalCutOrderNo',
+    'cutOrderId',
+    'cutOrderNo',
     'fabricRollNo',
     'fabricColor',
     'bundleNo',
@@ -110,7 +110,7 @@ function main(): void {
     '中转袋号',
     '袋内状态',
     '所属交出记录',
-    '发车缝状态',
+    '交出状态',
     '是否已装袋',
     '是否已交出',
     '车缝回写状态',
@@ -173,8 +173,8 @@ function main(): void {
   ;['待绑定', '待发料', '已发料', '已接收', '待回仓', '已回仓', '差异', '异议中', '待确认顺序'].forEach((token) => {
     assertIncludes(specialCraftFlowSource, token, `菲票特殊工艺流转缺少状态：${token}`)
   })
-  ;['CuttingSewingDispatchOrder', 'CuttingSewingTransferBag', '齐套校验', '中转单号', '中转袋号'].forEach((token) => {
-    assertIncludes(sewingDispatchSource + feiPage + transferBagsPage, token, `菲票发车缝与中转袋齐套缺少：${token}`)
+  ;['CuttingSewingDispatchOrder', 'CuttingSewingTransferBag', '缺口核对', '中转单号', '中转袋号'].forEach((token) => {
+    assertIncludes(sewingDispatchSource + feiPage + transferBagsPage, token, `菲票交出与中转袋齐套缺少：${token}`)
   })
 
   console.log(

@@ -17,7 +17,7 @@ export const urgencyMeta: Record<CuttingUrgencyLevel, { label: string; className
 }
 
 export const summaryStatusMeta: Record<CuttingSummaryStatus, { label: string; className: string }> = {
-  PENDING_PREP_CLOSURE: { label: '待 WMS 来料入仓', className: 'bg-slate-100 text-slate-700' },
+  PENDING_PREP_CLOSURE: { label: '领料入仓待确认', className: 'bg-slate-100 text-slate-700' },
   PENDING_EXECUTION_CLOSURE: { label: '待执行确认', className: 'bg-sky-50 text-sky-700' },
   PENDING_REPLENISHMENT: { label: '待补料处理', className: 'bg-rose-50 text-rose-700' },
   PENDING_WAREHOUSE_HANDOVER: { label: '待入仓交接', className: 'bg-violet-50 text-violet-700' },
@@ -40,7 +40,7 @@ export const updatedSourceMeta: Record<CuttingSummaryUpdatedSource, string> = {
 
 export const issueSourceMeta: Record<CuttingSummaryIssue['sourcePage'], { label: string; shortLabel: string }> = {
   MATERIAL_PREP: { label: '待加工仓', shortLabel: '待加工' },
-  CUT_PIECE_ORDER: { label: '原始裁片单', shortLabel: '原始单' },
+  CUT_PIECE_ORDER: { label: '裁片单', shortLabel: '裁片单' },
   REPLENISHMENT: { label: '补料管理', shortLabel: '补料' },
   WAREHOUSE: { label: '裁床仓库管理', shortLabel: '仓管' },
   SAMPLE: { label: '样衣仓', shortLabel: '样衣仓' },
@@ -135,7 +135,7 @@ export function hasSummaryFilters(filters: CuttingSummaryFilters): boolean {
 }
 
 export function buildMaterialReceiveText(record: CuttingSummaryRecord): string {
-  return `已配置 ${record.materialSummary.fullyConfiguredCount} / ${record.cutPieceOrderCount} · 来料成功 ${record.receiveSummary.receivedSuccessCount}`
+  return `有配料数量 ${record.materialSummary.fullyConfiguredCount} / ${record.cutPieceOrderCount} · 有领料记录 ${record.receiveSummary.receivedSuccessCount}`
 }
 
 export function buildExecutionText(record: CuttingSummaryRecord): string {

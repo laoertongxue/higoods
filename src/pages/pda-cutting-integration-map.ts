@@ -18,7 +18,7 @@ export const PDA_CUTTING_INTEGRATION_MAP = [
   {
     from: 'cutting-task-detail',
     to: 'spreading',
-    carry: ['taskId', 'executionOrderId', 'executionOrderNo', 'originalCutOrderId', 'originalCutOrderNo', 'mergeBatchId', 'mergeBatchNo', 'materialSku', 'returnTo', 'sourcePageKey', 'focusTaskId', 'focusExecutionOrderId', 'focusExecutionOrderNo', 'focusActionKey'],
+    carry: ['taskId', 'executionOrderId', 'executionOrderNo', 'cutOrderId', 'cutOrderNo', 'markerPlanId', 'markerPlanNo', 'materialSku', 'returnTo', 'sourcePageKey', 'focusTaskId', 'focusExecutionOrderId', 'focusExecutionOrderNo', 'focusActionKey'],
     returnsTo: 'cutting-task-detail',
     focusTarget: 'execution-order-card',
     refreshTargets: ['cutting-task-detail', 'task-receive-detail', 'task-list'],
@@ -26,7 +26,7 @@ export const PDA_CUTTING_INTEGRATION_MAP = [
   {
     from: 'cutting-task-detail',
     to: 'inbound',
-    carry: ['taskId', 'executionOrderId', 'executionOrderNo', 'originalCutOrderId', 'originalCutOrderNo', 'mergeBatchId', 'mergeBatchNo', 'materialSku', 'returnTo', 'sourcePageKey', 'focusTaskId', 'focusExecutionOrderId', 'focusExecutionOrderNo', 'focusActionKey'],
+    carry: ['taskId', 'executionOrderId', 'executionOrderNo', 'cutOrderId', 'cutOrderNo', 'markerPlanId', 'markerPlanNo', 'materialSku', 'returnTo', 'sourcePageKey', 'focusTaskId', 'focusExecutionOrderId', 'focusExecutionOrderNo', 'focusActionKey'],
     returnsTo: 'cutting-task-detail',
     focusTarget: 'execution-order-card',
     refreshTargets: ['cutting-task-detail', 'task-receive-detail', 'task-list'],
@@ -34,7 +34,7 @@ export const PDA_CUTTING_INTEGRATION_MAP = [
   {
     from: 'cutting-task-detail',
     to: 'handover',
-    carry: ['taskId', 'executionOrderId', 'executionOrderNo', 'originalCutOrderId', 'originalCutOrderNo', 'mergeBatchId', 'mergeBatchNo', 'materialSku', 'returnTo', 'sourcePageKey', 'focusTaskId', 'focusExecutionOrderId', 'focusExecutionOrderNo', 'focusActionKey'],
+    carry: ['taskId', 'executionOrderId', 'executionOrderNo', 'cutOrderId', 'cutOrderNo', 'markerPlanId', 'markerPlanNo', 'materialSku', 'returnTo', 'sourcePageKey', 'focusTaskId', 'focusExecutionOrderId', 'focusExecutionOrderNo', 'focusActionKey'],
     returnsTo: 'cutting-task-detail',
     focusTarget: 'execution-order-card',
     refreshTargets: ['cutting-task-detail', 'task-receive-detail', 'task-list'],
@@ -42,7 +42,7 @@ export const PDA_CUTTING_INTEGRATION_MAP = [
   {
     from: 'cutting-task-detail',
     to: 'replenishment-feedback',
-    carry: ['taskId', 'executionOrderId', 'executionOrderNo', 'originalCutOrderId', 'originalCutOrderNo', 'mergeBatchId', 'mergeBatchNo', 'materialSku', 'returnTo', 'sourcePageKey', 'focusTaskId', 'focusExecutionOrderId', 'focusExecutionOrderNo', 'focusActionKey'],
+    carry: ['taskId', 'executionOrderId', 'executionOrderNo', 'cutOrderId', 'cutOrderNo', 'markerPlanId', 'markerPlanNo', 'materialSku', 'returnTo', 'sourcePageKey', 'focusTaskId', 'focusExecutionOrderId', 'focusExecutionOrderNo', 'focusActionKey'],
     returnsTo: 'cutting-task-detail',
     focusTarget: 'execution-order-card',
     refreshTargets: ['cutting-task-detail', 'task-receive-detail', 'task-list'],

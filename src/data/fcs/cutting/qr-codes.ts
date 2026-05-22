@@ -2,27 +2,27 @@ import {
   CUTTING_QR_VERSION,
   buildCarrierQrPayload,
   buildFeiTicketQrPayload,
-  buildOriginalCutOrderQrPayload,
+  buildCutOrderQrPayload,
   deserializeCuttingQrPayload,
   serializeCuttingQrPayload,
   type CarrierQrPayload,
   type CuttingTraceabilityQrPayload,
   type FeiTicketQrPayload,
-  type OriginalCutOrderQrPayload,
+  type CutOrderQrPayload,
 } from './qr-payload.ts'
 
 function sanitizeFragment(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'na'
 }
 
-export function buildCutOrderQrValue(originalCutOrderId: string): string {
-  return `FCS:CUT_ORDER:v1:${sanitizeFragment(originalCutOrderId)}`
+export function buildCutOrderQrValue(cutOrderId: string): string {
+  return `FCS:CUT_ORDER:v1:${sanitizeFragment(cutOrderId)}`
 }
 
-export function getCutOrderByQrValue(qrValue: string): { originalCutOrderId: string } | null {
+export function getCutOrderByQrValue(qrValue: string): { cutOrderId: string } | null {
   if (!qrValue.startsWith('FCS:CUT_ORDER:v1:')) return null
-  const originalCutOrderId = qrValue.slice('FCS:CUT_ORDER:v1:'.length).trim()
-  return originalCutOrderId ? { originalCutOrderId } : null
+  const cutOrderId = qrValue.slice('FCS:CUT_ORDER:v1:'.length).trim()
+  return cutOrderId ? { cutOrderId } : null
 }
 
 export function buildCuttingTraceabilityId(prefix: string, issuedAt: string, ...parts: Array<string | number | undefined>): string {
@@ -31,11 +31,11 @@ export function buildCuttingTraceabilityId(prefix: string, issuedAt: string, ...
   return `${prefix}-${dateKey}-${fragment}`
 }
 
-export function encodeOriginalCutOrderQr(input: Parameters<typeof buildOriginalCutOrderQrPayload>[0]): {
-  payload: OriginalCutOrderQrPayload
+export function encodeCutOrderQr(input: Parameters<typeof buildCutOrderQrPayload>[0]): {
+  payload: CutOrderQrPayload
   qrValue: string
 } {
-  const payload = buildOriginalCutOrderQrPayload(input)
+  const payload = buildCutOrderQrPayload(input)
   return { payload, qrValue: serializeCuttingQrPayload(payload) }
 }
 
@@ -118,10 +118,10 @@ export function summarizeTraceabilityPayload(payload: CuttingTraceabilityQrPaylo
   relationSummary: string
   schemaVersion: string
 } {
-  if (payload.codeType === 'ORIGINAL_CUT_ORDER') {
+  if (payload.codeType === 'CUT_ORDER') {
     return {
       codeTypeLabel: '裁片单二维码',
-      primaryNo: payload.originalCutOrderNo,
+      primaryNo: payload.cutOrderNo,
       relationSummary: `${payload.productionOrderNo} / ${payload.materialSku}`,
       schemaVersion: payload.version,
     }
@@ -137,7 +137,7 @@ export function summarizeTraceabilityPayload(payload: CuttingTraceabilityQrPaylo
   return {
     codeTypeLabel: '菲票子码',
     primaryNo: payload.feiTicketNo,
-    relationSummary: `${payload.originalCutOrderNo} / ${payload.materialSku} / ${payload.partName}`,
+    relationSummary: `${payload.cutOrderNo} / ${payload.materialSku} / ${payload.partName}`,
     schemaVersion: payload.version,
   }
 }

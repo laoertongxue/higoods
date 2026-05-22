@@ -26,7 +26,7 @@ import { escapeHtml, formatDateTime } from '../utils'
 
 const productionProgressPath = getCanonicalCuttingPath('production-progress')
 const materialPrepPath = getCanonicalCuttingPath('warehouse-management-wait-process')
-const originalOrdersPath = getCanonicalCuttingPath('original-orders')
+const cutOrdersPath = getCanonicalCuttingPath('cut-orders')
 const replenishmentPath = getCanonicalCuttingPath('replenishment')
 const fabricWarehousePath = getCanonicalCuttingPath('fabric-warehouse')
 
@@ -38,7 +38,7 @@ function getCuttingRouteActionLabel(route: string): string {
   const normalizedRoute = normalizeRoute(route)
   if (normalizedRoute === materialPrepPath) return '去待加工仓'
   if (normalizedRoute === replenishmentPath) return '去补料管理'
-  if (normalizedRoute === originalOrdersPath) return '去原始裁片单'
+  if (normalizedRoute === cutOrdersPath) return '去裁片单'
   if (normalizedRoute === fabricWarehousePath) return '去裁床仓'
   if (normalizedRoute === productionProgressPath) return '去生产单进度'
   return '打开关联页面'
@@ -177,7 +177,7 @@ function getQuickRoutes(row: CuttingException) {
   return [
     { label: '去生产单进度', route: productionProgressPath },
     { label: '去待加工仓', route: materialPrepPath },
-    { label: '去原始裁片单', route: originalOrdersPath },
+    { label: '去裁片单', route: cutOrdersPath },
     { label: '去补料管理', route: replenishmentPath },
     { label: '去裁床仓', route: fabricWarehousePath },
     { label: getCuttingRouteActionLabel(row.suggestedRoute), route: row.suggestedRoute },
@@ -530,7 +530,7 @@ function renderMainTable(): string {
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="open-process" data-target-status="CLOSED" data-exception-no="${row.exceptionNo}">关闭异常</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-production-progress">去生产单进度</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-material-prep">去待加工仓</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-original-orders">去原始裁片单</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-cut-orders">去裁片单</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-replenishment">去补料管理</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-fabric-warehouse">去裁床仓</button>
                             </div>
@@ -866,8 +866,8 @@ export function handleProgressCuttingExceptionCenterEvent(target: Element): bool
     return true
   }
 
-  if (action === 'go-original-orders') {
-    appStore.navigate(originalOrdersPath)
+  if (action === 'go-cut-orders') {
+    appStore.navigate(cutOrdersPath)
     return true
   }
 

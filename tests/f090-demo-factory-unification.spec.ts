@@ -51,8 +51,8 @@ test('印花和染色加工单列表与详情展示全能力测试工厂编号',
 })
 
 test('裁片和特殊工艺列表展示全能力测试工厂编号', async ({ page }) => {
-  await page.goto('/fcs/craft/cutting/original-orders?originalCutOrderNo=CUT-260314-087-02')
-  await expect(page.getByTestId('cutting-original-orders-page')).toBeVisible({ timeout: 30_000 })
+  await page.goto('/fcs/craft/cutting/cut-orders?cutOrderNo=CUT-260314-087-02')
+  await expect(page.getByTestId('cutting-cut-orders-page')).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('body')).toContainText(DEMO_FACTORY_LABEL, { timeout: 30_000 })
 
   await page.goto('/fcs/process-factory/special-craft/sc-op-008/tasks')

@@ -1,7 +1,7 @@
 import {
-  listOriginalCutOrderSourceRecords,
-} from '../../data/fcs/cutting/original-cut-order-source.ts'
-import { listMergeBatchSourceRecords } from '../../data/fcs/cutting/merge-batch-source.ts'
+  listCutOrderSourceRecords,
+} from '../../data/fcs/cutting/cut-order-source.ts'
+import { listMarkerPlanRefSourceRecords } from '../../data/fcs/cutting/marker-plan-ref-source.ts'
 import {
   listPdaCuttingExecutionSourceRecords,
   listPdaCuttingTaskSourceRecords,
@@ -9,8 +9,8 @@ import {
 import { productionOrders } from '../../data/fcs/production-orders.ts'
 import type {
   CuttingTaskRef,
-  MergeBatchRef,
-  OriginalCutOrderRef,
+  MarkerPlanRefRef,
+  CutOrderRef,
   PdaCutPieceExecutionRef,
   ProductionOrderRef,
 } from './types.ts'
@@ -26,44 +26,44 @@ export function listProductionOrderRefs(): ProductionOrderRef[] {
   }))
 }
 
-export function listMergeBatchRefs(): MergeBatchRef[] {
-  return listMergeBatchSourceRecords().map((record) => ({
-    mergeBatchId: record.mergeBatchId,
-    mergeBatchNo: record.mergeBatchNo,
-    sourceOriginalCutOrderIds: [...record.sourceOriginalCutOrderIds],
-    sourceOriginalCutOrderNos: [...record.sourceOriginalCutOrderNos],
+export function listMarkerPlanRefRefs(): MarkerPlanRefRef[] {
+  return listMarkerPlanRefSourceRecords().map((record) => ({
+    markerPlanId: record.markerPlanId,
+    markerPlanNo: record.markerPlanNo,
+    sourceCutOrderIds: [...record.sourceCutOrderIds],
+    sourceCutOrderNos: [...record.sourceCutOrderNos],
     sourceProductionOrderIds: [...record.sourceProductionOrderIds],
     sourceProductionOrderNos: [...record.sourceProductionOrderNos],
   }))
 }
 
-export function listOriginalCutOrderRefs(): OriginalCutOrderRef[] {
-  const mergeBatchRefs = listMergeBatchRefs()
-  const mergeBatchNosByOriginalId = new Map<string, string[]>()
-  const mergeBatchIdsByOriginalId = new Map<string, string[]>()
+export function listCutOrderRefs(): CutOrderRef[] {
+  const markerPlanRefRefs = listMarkerPlanRefRefs()
+  const markerPlanNosByCutOrderId = new Map<string, string[]>()
+  const markerPlanIdsByCutOrderId = new Map<string, string[]>()
 
-  mergeBatchRefs.forEach((batch) => {
-    batch.sourceOriginalCutOrderIds.forEach((originalCutOrderId) => {
-      mergeBatchNosByOriginalId.set(originalCutOrderId, unique([...(mergeBatchNosByOriginalId.get(originalCutOrderId) ?? []), batch.mergeBatchNo]))
-      mergeBatchIdsByOriginalId.set(originalCutOrderId, unique([...(mergeBatchIdsByOriginalId.get(originalCutOrderId) ?? []), batch.mergeBatchId]))
+  markerPlanRefRefs.forEach((batch) => {
+    batch.sourceCutOrderIds.forEach((cutOrderId) => {
+      markerPlanNosByCutOrderId.set(cutOrderId, unique([...(markerPlanNosByCutOrderId.get(cutOrderId) ?? []), batch.markerPlanNo]))
+      markerPlanIdsByCutOrderId.set(cutOrderId, unique([...(markerPlanIdsByCutOrderId.get(cutOrderId) ?? []), batch.markerPlanId]))
     })
   })
 
-  return listOriginalCutOrderSourceRecords().map((record) => {
-    const mergeBatchIds = unique([record.mergeBatchId, ...(mergeBatchIdsByOriginalId.get(record.originalCutOrderId) ?? [])])
-    const mergeBatchNos = unique([record.mergeBatchNo, ...(mergeBatchNosByOriginalId.get(record.originalCutOrderId) ?? [])])
+  return listCutOrderSourceRecords().map((record) => {
+    const markerPlanIds = unique([record.markerPlanId, ...(markerPlanIdsByCutOrderId.get(record.cutOrderId) ?? [])])
+    const markerPlanNos = unique([record.markerPlanNo, ...(markerPlanNosByCutOrderId.get(record.cutOrderId) ?? [])])
 
     return {
-      originalCutOrderId: record.originalCutOrderId,
-      originalCutOrderNo: record.originalCutOrderNo,
+      cutOrderId: record.cutOrderId,
+      cutOrderNo: record.cutOrderNo,
       productionOrderId: record.productionOrderId,
       productionOrderNo: record.productionOrderNo,
       materialSku: record.materialSku,
-      activeMergeBatchId: mergeBatchIds[0] ?? '',
-      activeMergeBatchNo: mergeBatchNos[0] ?? '',
-      mergeBatchIds,
-      mergeBatchNos,
-    } satisfies OriginalCutOrderRef
+      activeMarkerPlanRefId: markerPlanIds[0] ?? '',
+      activeMarkerPlanRefNo: markerPlanNos[0] ?? '',
+      markerPlanIds,
+      markerPlanNos,
+    } satisfies CutOrderRef
   })
 }
 
@@ -78,10 +78,10 @@ export function listPdaExecutionRefs(): PdaCutPieceExecutionRef[] {
       legacyCutPieceOrderNo: record.legacyCutPieceOrderNo,
       productionOrderId: record.productionOrderId,
       productionOrderNo: record.productionOrderNo,
-      originalCutOrderId: record.originalCutOrderId,
-      originalCutOrderNo: record.originalCutOrderNo,
-      mergeBatchId: record.mergeBatchId,
-      mergeBatchNo: record.mergeBatchNo,
+      cutOrderId: record.cutOrderId,
+      cutOrderNo: record.cutOrderNo,
+      markerPlanId: record.markerPlanId,
+      markerPlanNo: record.markerPlanNo,
     }))
 }
 
@@ -100,10 +100,10 @@ export function listCuttingTaskRefs(): CuttingTaskRef[] {
       taskNo: task.taskNo,
       productionOrderId: task.productionOrderId,
       productionOrderNo: task.productionOrderNo,
-      originalCutOrderIds: unique(boundExecutions.map((item) => item.originalCutOrderId)),
-      originalCutOrderNos: unique(boundExecutions.map((item) => item.originalCutOrderNo)),
-      mergeBatchIds: unique(boundExecutions.map((item) => item.mergeBatchId)),
-      mergeBatchNos: unique(boundExecutions.map((item) => item.mergeBatchNo)),
+      cutOrderIds: unique(boundExecutions.map((item) => item.cutOrderId)),
+      cutOrderNos: unique(boundExecutions.map((item) => item.cutOrderNo)),
+      markerPlanIds: unique(boundExecutions.map((item) => item.markerPlanId)),
+      markerPlanNos: unique(boundExecutions.map((item) => item.markerPlanNo)),
     }
   })
 }

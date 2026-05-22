@@ -622,7 +622,7 @@ const SPECIFIC_HINTS: Record<string, Partial<Record<PlatformProcessStatusCode, P
     },
     EXCEPTION: {
       riskLabel: '裁片数量差异待处理',
-      actionHint: '平台核对菲票、原始裁片单和差异记录',
+      actionHint: '平台核对菲票、裁片单和差异记录',
       ownerHint: '平台',
     },
   },

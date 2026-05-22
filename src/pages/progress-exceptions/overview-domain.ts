@@ -480,7 +480,7 @@ export function renderTable(cases: ExceptionCase[]): string {
                               ${
                                 claimDispute
                                   ? `
-                                    <div class="text-xs text-muted-foreground">原始裁片单：${escapeHtml(claimDispute.originalCutOrderNo)}</div>
+                                    <div class="text-xs text-muted-foreground">裁片单：${escapeHtml(claimDispute.cutOrderNo)}</div>
                                     <div class="text-xs text-muted-foreground">面料编码：${escapeHtml(claimDispute.materialSku)}</div>
                                     <div class="text-xs text-muted-foreground">配置 / 实领 / 差异：${escapeHtml(`${claimDispute.configuredQty} / ${claimDispute.actualClaimQty} / ${claimDispute.discrepancyQty} 米`)}</div>
                                     <div class="text-xs text-muted-foreground">提交人 / 状态：${escapeHtml(`${claimDispute.submittedBy} / ${getClaimDisputeStatusLabel(claimDispute.status)}`)}</div>

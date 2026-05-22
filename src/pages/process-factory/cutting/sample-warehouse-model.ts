@@ -10,7 +10,7 @@ import {
   type SampleWarehouseWritebackLocationType,
   type SampleWarehouseWritebackRecord,
 } from '../../../data/fcs/cutting/warehouse-writeback-ledger.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 import { buildWarehouseQueryPayload, type WarehouseNavigationPayload } from './warehouse-shared.ts'
 import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 
@@ -43,6 +43,8 @@ export interface SampleWarehouseItem {
   styleCode: string
   spuCode: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   color: string
   size: string
   currentLocationType: SampleLocationType
@@ -54,8 +56,8 @@ export interface SampleWarehouseItem {
   note: string
   relatedProductionOrderId: string
   relatedProductionOrderNo: string
-  relatedOriginalCutOrderId: string
-  relatedOriginalCutOrderNo: string
+  relatedCutOrderId: string
+  relatedCutOrderNo: string
   sampleName: string
   flowRecords: SampleFlowRecord[]
   navigationPayload: WarehouseNavigationPayload
@@ -78,7 +80,7 @@ export interface SampleWarehouseFilters {
 }
 
 export interface SampleWarehousePrefilter {
-  originalCutOrderId?: string
+  cutOrderId?: string
   productionOrderId?: string
   materialSku?: string
   styleCode?: string
@@ -142,15 +144,15 @@ function buildOverlaySampleRecord(writeback: SampleWarehouseWritebackRecord): Sa
   return {
     id: writeback.sampleRecordId,
     warehouseType: 'SAMPLE',
-    bindingState: writeback.originalCutOrderId ? 'BOUND_FORMAL_SAMPLE_RECORD' : 'UNBOUND_FORMAL_SAMPLE_RECORD',
-    originalCutOrderId: writeback.originalCutOrderId,
-    originalCutOrderNo: writeback.originalCutOrderNo,
+    bindingState: writeback.cutOrderId ? 'BOUND_FORMAL_SAMPLE_RECORD' : 'UNBOUND_FORMAL_SAMPLE_RECORD',
+    cutOrderId: writeback.cutOrderId,
+    cutOrderNo: writeback.cutOrderNo,
     productionOrderId: writeback.productionOrderId,
     productionOrderNo: writeback.productionOrderNo,
     sampleNo: writeback.sampleRecordId,
     sampleName: '待补样衣',
     relatedProductionOrderNo: writeback.productionOrderNo,
-    relatedCutPieceOrderNo: writeback.originalCutOrderNo,
+    relatedCutPieceOrderNo: writeback.cutOrderNo,
     currentLocationStage: deriveStageFromWriteback(writeback.locationType, writeback.actionType),
     currentHolder: writeback.holder || 'PMC 样衣仓',
     currentStatus: 'AVAILABLE',
@@ -219,13 +221,13 @@ function applySampleWarehouseWritebackOverlay(
     const next: SampleWarehouseRecord = {
       ...current,
       id: writeback.sampleRecordId,
-      bindingState: writeback.originalCutOrderId ? 'BOUND_FORMAL_SAMPLE_RECORD' : 'UNBOUND_FORMAL_SAMPLE_RECORD',
-      originalCutOrderId: writeback.originalCutOrderId,
-      originalCutOrderNo: writeback.originalCutOrderNo,
+      bindingState: writeback.cutOrderId ? 'BOUND_FORMAL_SAMPLE_RECORD' : 'UNBOUND_FORMAL_SAMPLE_RECORD',
+      cutOrderId: writeback.cutOrderId,
+      cutOrderNo: writeback.cutOrderNo,
       productionOrderId: writeback.productionOrderId,
       productionOrderNo: writeback.productionOrderNo,
       relatedProductionOrderNo: writeback.productionOrderNo,
-      relatedCutPieceOrderNo: writeback.originalCutOrderNo,
+      relatedCutPieceOrderNo: writeback.cutOrderNo,
       latestActionAt: writeback.submittedAt,
       latestActionBy: writeback.operatorName,
       flowHistory: current.flowHistory.map((item) => ({ ...item })),
@@ -277,8 +279,8 @@ function applySampleWarehouseWritebackOverlay(
 export function buildSampleWarehouseNavigationPayload(
   item: Pick<
     SampleWarehouseItem,
-    | 'relatedOriginalCutOrderId'
-    | 'relatedOriginalCutOrderNo'
+    | 'relatedCutOrderId'
+    | 'relatedCutOrderNo'
     | 'relatedProductionOrderId'
     | 'relatedProductionOrderNo'
     | 'materialSku'
@@ -289,8 +291,8 @@ export function buildSampleWarehouseNavigationPayload(
   >,
 ): WarehouseNavigationPayload {
   return buildWarehouseQueryPayload({
-    originalCutOrderId: item.relatedOriginalCutOrderId,
-    originalCutOrderNo: item.relatedOriginalCutOrderNo,
+    cutOrderId: item.relatedCutOrderId,
+    cutOrderNo: item.relatedCutOrderNo,
     productionOrderId: item.relatedProductionOrderId,
     productionOrderNo: item.relatedProductionOrderNo,
     materialSku: item.materialSku || undefined,
@@ -302,21 +304,21 @@ export function buildSampleWarehouseNavigationPayload(
 }
 
 export function buildSampleWarehouseViewModel(
-  originalRows: OriginalCutOrderRow[],
+  cutOrderRows: CutOrderRow[],
   records = listFormalSampleWarehouseRecords(),
   options: {
     sampleWritebacks?: SampleWarehouseWritebackRecord[]
   } = {},
 ): SampleWarehouseViewModel {
   const runtimeRecords = applySampleWarehouseWritebackOverlay(records, options)
-  const rowById = Object.fromEntries(originalRows.map((row) => [row.originalCutOrderId, row]))
-  const rowByOrderNo = Object.fromEntries(originalRows.map((row) => [row.originalCutOrderNo, row]))
-  const findBoundOriginalRow = (record: SampleWarehouseRecord): OriginalCutOrderRow | undefined =>
-    rowById[record.originalCutOrderId] ||
-    rowByOrderNo[record.originalCutOrderNo]
+  const rowById = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderId, row]))
+  const rowByOrderNo = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderNo, row]))
+  const findBoundCutOrderRow = (record: SampleWarehouseRecord): CutOrderRow | undefined =>
+    rowById[record.cutOrderId] ||
+    rowByOrderNo[record.cutOrderNo]
   const items = runtimeRecords
     .map((record) => {
-      const row = findBoundOriginalRow(record)
+      const row = findBoundCutOrderRow(record)
       const status = deriveSampleWarehouseStatus(record)
       const item: SampleWarehouseItem = {
         sampleItemId: record.id,
@@ -324,6 +326,8 @@ export function buildSampleWarehouseViewModel(
         styleCode: row?.styleCode || '',
         spuCode: row?.spuCode || '',
         materialSku: row?.materialSku || '',
+        materialAlias: row?.materialAlias || '',
+        materialImageUrl: row?.materialImageUrl || '',
         color: row?.color || '待补颜色',
         size: '均码',
         currentLocationType: deriveLocationType(record.currentLocationStage),
@@ -335,13 +339,13 @@ export function buildSampleWarehouseViewModel(
         note: record.nextSuggestedAction,
         relatedProductionOrderId: record.productionOrderId,
         relatedProductionOrderNo: record.productionOrderNo,
-        relatedOriginalCutOrderId: record.originalCutOrderId,
-        relatedOriginalCutOrderNo: record.originalCutOrderNo,
+        relatedCutOrderId: record.cutOrderId,
+        relatedCutOrderNo: record.cutOrderNo,
         sampleName: record.sampleName,
         flowRecords: buildSampleFlowTimeline(record),
         navigationPayload: buildSampleWarehouseNavigationPayload({
-          relatedOriginalCutOrderId: record.originalCutOrderId,
-          relatedOriginalCutOrderNo: record.originalCutOrderNo,
+          relatedCutOrderId: record.cutOrderId,
+          relatedCutOrderNo: record.cutOrderNo,
           relatedProductionOrderId: record.productionOrderId,
           relatedProductionOrderNo: record.productionOrderNo,
           materialSku: row?.materialSku || '',
@@ -355,8 +359,9 @@ export function buildSampleWarehouseViewModel(
           row?.styleCode,
           row?.spuCode,
           row?.materialSku,
-          row?.originalCutOrderId,
-          row?.originalCutOrderNo,
+          row?.materialAlias,
+          row?.cutOrderId,
+          row?.cutOrderNo,
           row?.productionOrderId || record.productionOrderId,
           row?.productionOrderNo || record.productionOrderNo,
           record.currentHolder,
@@ -389,7 +394,7 @@ export function filterSampleWarehouseItems(
 ): SampleWarehouseItem[] {
   const keyword = filters.keyword.trim().toLowerCase()
   return items.filter((item) => {
-    if (prefilter?.originalCutOrderId && item.relatedOriginalCutOrderId !== prefilter.originalCutOrderId) return false
+    if (prefilter?.cutOrderId && item.relatedCutOrderId !== prefilter.cutOrderId) return false
     if (prefilter?.productionOrderId && item.relatedProductionOrderId !== prefilter.productionOrderId) return false
     if (prefilter?.materialSku && item.materialSku !== prefilter.materialSku) return false
     if (prefilter?.styleCode && item.styleCode !== prefilter.styleCode) return false
@@ -407,7 +412,7 @@ export function filterSampleWarehouseItems(
 export function findSampleWarehouseByPrefilter(items: SampleWarehouseItem[], prefilter: SampleWarehousePrefilter | null): SampleWarehouseItem | null {
   if (!prefilter) return null
   return (
-    (prefilter.originalCutOrderId && items.find((item) => item.relatedOriginalCutOrderId === prefilter.originalCutOrderId)) ||
+    (prefilter.cutOrderId && items.find((item) => item.relatedCutOrderId === prefilter.cutOrderId)) ||
     (prefilter.productionOrderId && items.find((item) => item.relatedProductionOrderId === prefilter.productionOrderId)) ||
     (prefilter.materialSku && items.find((item) => item.materialSku === prefilter.materialSku)) ||
     (prefilter.sampleNo && items.find((item) => item.sampleNo === prefilter.sampleNo)) ||

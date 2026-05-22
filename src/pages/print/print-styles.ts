@@ -322,19 +322,29 @@ export function renderUnifiedPrintStyles(): string {
         min-height: 60mm;
       }
 
+      .label-paper-label-100-100 {
+        width: 100mm;
+        min-height: 100mm;
+      }
+
+      .label-paper-label-150-100 {
+        width: 150mm;
+        min-height: 100mm;
+      }
+
       .label-paper-label-60-40 {
         width: 60mm;
         min-height: 40mm;
       }
 
       .print-label-grid-a4 {
-        padding: 8mm;
+        padding: 4mm;
       }
 
       .print-label-grid-sheet {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 4mm;
+        grid-template-columns: repeat(2, 100mm);
+        gap: 2mm;
         font-family: Arial, "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
       }
 
@@ -348,7 +358,7 @@ export function renderUnifiedPrintStyles(): string {
       }
 
       .print-label-card.label-paper-a4-label-grid {
-        min-height: 50mm;
+        min-height: 100mm;
       }
 
       .print-label-card-void {
@@ -397,6 +407,15 @@ export function renderUnifiedPrintStyles(): string {
 
       .label-paper-label-100-60 .print-label-body {
         grid-template-columns: 1fr 31mm;
+      }
+
+      .label-paper-label-100-100 .print-label-body,
+      .label-paper-a4-label-grid .print-label-body {
+        grid-template-columns: 1fr 30mm;
+      }
+
+      .label-paper-label-150-100 .print-label-body {
+        grid-template-columns: 1fr 34mm;
       }
 
       .print-label-fields {
@@ -450,6 +469,17 @@ export function renderUnifiedPrintStyles(): string {
       .label-paper-label-100-60 .print-label-qr svg {
         height: 30mm;
         width: 30mm;
+      }
+
+      .label-paper-label-100-100 .print-label-qr svg,
+      .label-paper-a4-label-grid .print-label-qr svg {
+        height: 30mm;
+        width: 30mm;
+      }
+
+      .label-paper-label-150-100 .print-label-qr svg {
+        height: 34mm;
+        width: 34mm;
       }
 
       .print-label-qr-desc {

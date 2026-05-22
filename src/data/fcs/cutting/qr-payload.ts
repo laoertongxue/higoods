@@ -1,7 +1,7 @@
 export const CUTTING_QR_PREFIX = 'FCSQR'
 export const CUTTING_QR_VERSION = '2.0.0'
 
-export type CuttingQrCodeType = 'ORIGINAL_CUT_ORDER' | 'FEI_TICKET' | 'CARRIER'
+export type CuttingQrCodeType = 'CUT_ORDER' | 'FEI_TICKET' | 'CARRIER'
 
 export interface CuttingQrOperatorLike {
   operatorAccountId?: string
@@ -14,9 +14,9 @@ interface CuttingQrPayloadBase<Type extends CuttingQrCodeType> {
   issuedAt: string
 }
 
-export interface OriginalCutOrderQrPayload extends CuttingQrPayloadBase<'ORIGINAL_CUT_ORDER'> {
-  originalCutOrderId: string
-  originalCutOrderNo: string
+export interface CutOrderQrPayload extends CuttingQrPayloadBase<'CUT_ORDER'> {
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   materialSku: string
@@ -25,8 +25,8 @@ export interface OriginalCutOrderQrPayload extends CuttingQrPayloadBase<'ORIGINA
 export interface FeiTicketQrPayload extends CuttingQrPayloadBase<'FEI_TICKET'> {
   feiTicketId: string
   feiTicketNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   sourceOutputLineId: string
@@ -63,7 +63,7 @@ export interface CarrierQrPayload extends CuttingQrPayloadBase<'CARRIER'> {
   cycleId: string
 }
 
-export type CuttingTraceabilityQrPayload = OriginalCutOrderQrPayload | FeiTicketQrPayload | CarrierQrPayload
+export type CuttingTraceabilityQrPayload = CutOrderQrPayload | FeiTicketQrPayload | CarrierQrPayload
 
 function encodePayload(payload: CuttingTraceabilityQrPayload): string {
   return `${CUTTING_QR_PREFIX}:${encodeURIComponent(JSON.stringify(payload))}`
@@ -80,12 +80,12 @@ export function deserializeCuttingQrPayload(value: string): CuttingTraceabilityQ
     const parsed = JSON.parse(raw) as Partial<CuttingTraceabilityQrPayload>
     if (!parsed || typeof parsed !== 'object' || typeof parsed.codeType !== 'string') return null
     if (!parsed.version || !parsed.issuedAt) return null
-    if (parsed.codeType === 'ORIGINAL_CUT_ORDER') {
-      if (!parsed.originalCutOrderId || !parsed.originalCutOrderNo) return null
-      return parsed as OriginalCutOrderQrPayload
+    if (parsed.codeType === 'CUT_ORDER') {
+      if (!parsed.cutOrderId || !parsed.cutOrderNo) return null
+      return parsed as CutOrderQrPayload
     }
     if (parsed.codeType === 'FEI_TICKET') {
-      if (!parsed.feiTicketId || !parsed.feiTicketNo || !parsed.originalCutOrderId) return null
+      if (!parsed.feiTicketId || !parsed.feiTicketNo || !parsed.cutOrderId) return null
       return parsed as FeiTicketQrPayload
     }
     if (parsed.codeType === 'CARRIER') {
@@ -98,20 +98,20 @@ export function deserializeCuttingQrPayload(value: string): CuttingTraceabilityQ
   }
 }
 
-export function buildOriginalCutOrderQrPayload(input: {
-  originalCutOrderId: string
-  originalCutOrderNo: string
+export function buildCutOrderQrPayload(input: {
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   materialSku: string
   issuedAt: string
-}): OriginalCutOrderQrPayload {
+}): CutOrderQrPayload {
   return {
-    codeType: 'ORIGINAL_CUT_ORDER',
+    codeType: 'CUT_ORDER',
     version: CUTTING_QR_VERSION,
     issuedAt: input.issuedAt,
-    originalCutOrderId: input.originalCutOrderId,
-    originalCutOrderNo: input.originalCutOrderNo,
+    cutOrderId: input.cutOrderId,
+    cutOrderNo: input.cutOrderNo,
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
     materialSku: input.materialSku,
@@ -121,8 +121,8 @@ export function buildOriginalCutOrderQrPayload(input: {
 export function buildFeiTicketQrPayload(input: {
   feiTicketId: string
   feiTicketNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   sourceOutputLineId: string
@@ -158,8 +158,8 @@ export function buildFeiTicketQrPayload(input: {
     issuedAt: input.issuedAt,
     feiTicketId: input.feiTicketId,
     feiTicketNo: input.feiTicketNo,
-    originalCutOrderId: input.originalCutOrderId,
-    originalCutOrderNo: input.originalCutOrderNo,
+    cutOrderId: input.cutOrderId,
+    cutOrderNo: input.cutOrderNo,
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
     sourceOutputLineId: input.sourceOutputLineId,

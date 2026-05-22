@@ -29,10 +29,10 @@ export interface CuttingPdaWritebackIdentityInput {
   taskNo: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   executionOrderId: string
   executionOrderNo: string
   cutPieceOrderNo: string
@@ -59,10 +59,10 @@ export interface CuttingPdaWritebackSourceInput {
 export interface PdaCuttingWritebackSelection {
   executionOrderId?: string
   executionOrderNo?: string
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   materialSku?: string
   cutPieceOrderNo?: string
 }
@@ -181,11 +181,11 @@ function matchExecutionLine(
   if (selection.executionOrderNo) {
     return detail.cutPieceOrders.find((item) => item.executionOrderNo === selection.executionOrderNo) ?? null
   }
-  if (selection.originalCutOrderId) {
-    return detail.cutPieceOrders.find((item) => item.originalCutOrderId === selection.originalCutOrderId) ?? null
+  if (selection.cutOrderId) {
+    return detail.cutPieceOrders.find((item) => item.cutOrderId === selection.cutOrderId) ?? null
   }
-  if (selection.originalCutOrderNo) {
-    return detail.cutPieceOrders.find((item) => item.originalCutOrderNo === selection.originalCutOrderNo) ?? null
+  if (selection.cutOrderNo) {
+    return detail.cutPieceOrders.find((item) => item.cutOrderNo === selection.cutOrderNo) ?? null
   }
   if (selection.cutPieceOrderNo) {
     const executionKey = selection.cutPieceOrderNo || ''
@@ -206,8 +206,8 @@ export function resolvePdaCuttingExecutionContext(
   const executionKey =
     selection.executionOrderId
     || selection.executionOrderNo
-    || selection.originalCutOrderId
-    || selection.originalCutOrderNo
+    || selection.cutOrderId
+    || selection.cutOrderNo
     || selection.cutPieceOrderNo
     || ''
   const detail = getPdaCuttingTaskSnapshot(taskId, executionKey || undefined)
@@ -229,10 +229,10 @@ export function resolvePdaCuttingWritebackIdentity(
     taskNo: detail.taskNo,
     productionOrderId: line.productionOrderId,
     productionOrderNo: line.productionOrderNo,
-    originalCutOrderId: line.originalCutOrderId,
-    originalCutOrderNo: line.originalCutOrderNo,
-    mergeBatchId: line.mergeBatchId || '',
-    mergeBatchNo: line.mergeBatchNo || '',
+    cutOrderId: line.cutOrderId,
+    cutOrderNo: line.cutOrderNo,
+    markerPlanId: line.markerPlanId || '',
+    markerPlanNo: line.markerPlanNo || '',
     executionOrderId: line.executionOrderId,
     executionOrderNo: line.executionOrderNo,
     cutPieceOrderNo: line.executionOrderNo,
@@ -261,11 +261,11 @@ export function buildPdaCuttingWritebackSource(
 
 export function buildPdaCuttingWritebackId(
   actionType: CuttingPdaActionType,
-  identity: Pick<CuttingPdaWritebackIdentityInput, 'taskId' | 'executionOrderId' | 'originalCutOrderId'>,
+  identity: Pick<CuttingPdaWritebackIdentityInput, 'taskId' | 'executionOrderId' | 'cutOrderId'>,
   actionAt = nowText(),
 ): string {
   const compact = compactTimestamp(actionAt)
-  const base = `${actionType}:${identity.taskId}:${identity.executionOrderId}:${identity.originalCutOrderId}`
+  const base = `${actionType}:${identity.taskId}:${identity.executionOrderId}:${identity.cutOrderId}`
   const hash = normalizeNameKey(base).slice(0, 8) || '00000000'
   return `pda-${actionType.toLowerCase()}-${identity.taskId}-${identity.executionOrderId}-${compact}-${hash}`
 }

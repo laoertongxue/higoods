@@ -65,10 +65,12 @@ function getStoredTabs(): AllSystemTabs {
       }
     }
 
-    const migrated = migrateCraftTabsToPfos(
-      migratePcsTabs(
-        pruneRemovedFcsTabs(
-          migrateFcsTabTitles(migrateCuttingTabs(migrateLegacyDispatchExceptionsTabs(parsed))),
+    const migrated = pruneRemovedPfosTabs(
+      migrateCraftTabsToPfos(
+        migratePcsTabs(
+          pruneRemovedFcsTabs(
+            migrateFcsTabTitles(migrateCuttingTabs(migrateLegacyDispatchExceptionsTabs(parsed))),
+          ),
         ),
       ),
     )
@@ -135,7 +137,10 @@ function pruneRemovedFcsTabs(allTabs: AllSystemTabs): AllSystemTabs {
   if (!fcsTabs) return allTabs
 
   const nextTabs = fcsTabs.tabs.filter(
-    (tab) => !REMOVED_FCS_TAB_KEYS.has(tab.key) && !REMOVED_FCS_TAB_PATHS.has(tab.href),
+    (tab) =>
+      !REMOVED_FCS_TAB_KEYS.has(tab.key) &&
+      !REMOVED_FCS_TAB_PATHS.has(tab.href) &&
+      !isRemovedCuttingGroupTab(tab),
   )
   const nextActiveKey = nextTabs.some((tab) => tab.key === fcsTabs.activeKey) ? fcsTabs.activeKey : ''
 
@@ -151,6 +156,41 @@ function pruneRemovedFcsTabs(allTabs: AllSystemTabs): AllSystemTabs {
       activeKey: nextActiveKey,
     },
   }
+}
+
+function pruneRemovedPfosTabs(allTabs: AllSystemTabs): AllSystemTabs {
+  const pfosTabs = allTabs.pfos
+  if (!pfosTabs) return allTabs
+
+  const nextTabs = pfosTabs.tabs.filter((tab) => !isRemovedCuttingGroupTab(tab))
+  const nextActiveKey = nextTabs.some((tab) => tab.key === pfosTabs.activeKey)
+    ? pfosTabs.activeKey
+    : (nextTabs[0]?.key ?? '')
+
+  if (nextTabs.length === pfosTabs.tabs.length && nextActiveKey === pfosTabs.activeKey) {
+    return allTabs
+  }
+
+  return {
+    ...allTabs,
+    pfos: {
+      ...pfosTabs,
+      tabs: nextTabs,
+      activeKey: nextActiveKey,
+    },
+  }
+}
+
+function isRemovedCuttingGroupTab(tab: Tab): boolean {
+  const normalizedHref = normalizePathname(tab.href)
+  return isUnknownCuttingTabPath(normalizedHref)
+}
+
+function isUnknownCuttingTabPath(pathname: string): boolean {
+  return (
+    pathname.startsWith('/fcs/craft/cutting/') &&
+    !findMenuItemByPath(pathname)
+  )
 }
 
 function migrateLegacyDispatchExceptionsTabs(allTabs: AllSystemTabs): AllSystemTabs {

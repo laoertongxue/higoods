@@ -26,7 +26,7 @@ import {
 } from './dyeing-task-domain.ts'
 import { cutPieceOrderRecords, updateCutPieceOrderWebStage } from './cutting/cut-piece-orders.ts'
 import { updateCuttingOrderProgressWebStage } from './cutting/order-progress.ts'
-import { listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId } from './cutting/generated-fei-tickets.ts'
+import { listSpreadingResultGeneratedFeiTicketsByCutOrderId } from './cutting/generated-fei-tickets.ts'
 import {
   getSpecialCraftTaskWorkOrderById,
   updateSpecialCraftTaskWorkOrderWebStatus,
@@ -697,7 +697,7 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
   if (sourceType === 'CUTTING') {
     const binding = validateCuttingOrderMobileTaskBinding(sourceId)
     const record = cutPieceOrderRecords.find(
-      (item) => item.originalCutOrderId === sourceId || item.originalCutOrderNo === sourceId || item.id === sourceId,
+      (item) => item.cutOrderId === sourceId || item.cutOrderNo === sourceId || item.id === sourceId,
     )
     const latestRecord = getLatestRecord('CUTTING', sourceId)
     const status = normalizeCuttingStatus(latestRecord?.nextStatus || record?.currentStage || '待铺布')
@@ -1001,7 +1001,7 @@ export function executeCuttingAction(payload: ProcessActionPayload): Partial<Pro
   const binding = validateCuttingOrderMobileTaskBinding(payload.sourceId)
   const qty = Number(payload.objectQty || getProcessActionStatusSnapshot('CUTTING', payload.sourceId).qty || 0)
   if (definition.actionCode === 'CUTTING_SUBMIT_HANDOVER') {
-    const relatedFeiTicketIds = listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(payload.sourceId).map((ticket) => ticket.feiTicketNo)
+    const relatedFeiTicketIds = listSpreadingResultGeneratedFeiTicketsByCutOrderId(payload.sourceId).map((ticket) => ticket.feiTicketNo)
     const handover = createProcessHandoverRecord({
       craftType: 'CUTTING',
       craftName: '裁片',

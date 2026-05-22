@@ -54,11 +54,11 @@ export interface CutPieceOrderRecord {
   id: string
   productionOrderId: string
   cutPieceOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   bindingState: 'BOUND' | 'UNBOUND'
-  boundOriginalCutOrderId: string
-  boundOriginalCutOrderNo: string
+  boundCutOrderId: string
+  boundCutOrderNo: string
   productionOrderNo: string
   purchaseDate: string
   orderQty: number
@@ -88,10 +88,10 @@ export interface CutPieceOrderRecord {
   markerInfo: CutPieceMarkerInfo
   spreadingRecords: CutPieceSpreadingRecord[]
   linkedDocuments: CutPieceLinkedDocument[]
-  mergeBatchId: string
-  mergeBatchNo: string
-  boundMergeBatchId: string
-  boundMergeBatchNo: string
+  markerPlanId: string
+  markerPlanNo: string
+  boundMarkerPlanRefId: string
+  boundMarkerPlanRefNo: string
 }
 
 export interface CutPieceOrderFilters {
@@ -105,33 +105,33 @@ export interface CutPieceOrderFilters {
 
 type CutPieceOrderSeed = Omit<
   CutPieceOrderRecord,
-  'productionOrderId' | 'originalCutOrderId' | 'originalCutOrderNo' | 'mergeBatchId' | 'mergeBatchNo'
+  'productionOrderId' | 'cutOrderId' | 'cutOrderNo' | 'markerPlanId' | 'markerPlanNo'
 >
 
 function normalizeCutPieceOrderRecord(record: CutPieceOrderSeed): CutPieceOrderRecord {
   const productionRef = resolveProductionOrderRef({ productionOrderNo: record.productionOrderNo })
   const cuttingCoreRegistry = buildCuttingCoreRegistry()
-  const matchedOriginalCutOrders = Object.values(cuttingCoreRegistry.originalCutOrdersById).filter(
+  const matchedCutOrders = Object.values(cuttingCoreRegistry.cutOrdersById).filter(
     (item) =>
       item.productionOrderNo === (productionRef?.productionOrderNo || record.productionOrderNo)
       && item.materialSku === record.materialSku,
   )
-  const boundOriginalCutOrder = matchedOriginalCutOrders.length === 1 ? matchedOriginalCutOrders[0] : null
-  const bindingState = boundOriginalCutOrder ? 'BOUND' : 'UNBOUND'
+  const boundCutOrder = matchedCutOrders.length === 1 ? matchedCutOrders[0] : null
+  const bindingState = boundCutOrder ? 'BOUND' : 'UNBOUND'
 
   return {
     ...record,
     productionOrderId: productionRef?.productionOrderId || '',
     productionOrderNo: productionRef?.productionOrderNo || record.productionOrderNo,
-    originalCutOrderId: boundOriginalCutOrder?.originalCutOrderId || '',
-    originalCutOrderNo: boundOriginalCutOrder?.originalCutOrderNo || '',
+    cutOrderId: boundCutOrder?.cutOrderId || '',
+    cutOrderNo: boundCutOrder?.cutOrderNo || '',
     bindingState,
-    boundOriginalCutOrderId: boundOriginalCutOrder?.originalCutOrderId || '',
-    boundOriginalCutOrderNo: boundOriginalCutOrder?.originalCutOrderNo || '',
-    mergeBatchId: boundOriginalCutOrder?.activeMergeBatchId || '',
-    mergeBatchNo: boundOriginalCutOrder?.activeMergeBatchNo || '',
-    boundMergeBatchId: boundOriginalCutOrder?.activeMergeBatchId || '',
-    boundMergeBatchNo: boundOriginalCutOrder?.activeMergeBatchNo || '',
+    boundCutOrderId: boundCutOrder?.cutOrderId || '',
+    boundCutOrderNo: boundCutOrder?.cutOrderNo || '',
+    markerPlanId: boundCutOrder?.activeMarkerPlanRefId || '',
+    markerPlanNo: boundCutOrder?.activeMarkerPlanRefNo || '',
+    boundMarkerPlanRefId: boundCutOrder?.activeMarkerPlanRefId || '',
+    boundMarkerPlanRefNo: boundCutOrder?.activeMarkerPlanRefNo || '',
   }
 }
 
@@ -164,7 +164,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     hasInboundRecord: false,
     hasReplenishmentRisk: true,
     currentStage: '裁片执行中',
-    notes: '花位局部补配后已进入裁床，仍需跟进剩余 2 卷来料差异。',
+    notes: '部分领料后先按现有面料铺布裁剪，仍需跟进剩余 2 卷来料差异。',
     markerInfo: {
       sizeMix: [
         { size: 'S', qty: 30 },
@@ -214,10 +214,10 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
       },
     ],
     linkedDocuments: [
-      { docType: 'PICKUP_SLIP', docNo: 'PK-202603-018-01', status: '已打印', createdAt: '2026-03-20 09:30', summaryText: '来料单含批次 CFG-018-03 和裁片单二维码。' },
+      { docType: 'PICKUP_SLIP', docNo: 'PK-202603-018-01', status: '已打印', createdAt: '2026-03-20 09:30', summaryText: '领料单含批次 CFG-018-03 和裁片单二维码。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-018-03', status: '待补齐', createdAt: '2026-03-20 08:45', summaryText: '本次补配 4 卷 / 220 米。' },
-      { docType: 'PICKUP_RECORD', docNo: 'RCV-018-01', status: '驳回核对', createdAt: '2026-03-20 14:12', summaryText: '少领 2 卷，等待仓库复核。' },
-      { docType: 'REPLENISHMENT', docNo: '—', status: '预留', createdAt: '-', summaryText: '待根据铺布与实裁差异判断是否触发补料。' },
+      { docType: 'PICKUP_RECORD', docNo: 'RCV-018-01', status: '驳回核对', createdAt: '2026-03-20 14:12', summaryText: '部分领料少 2 卷，等待仓库复核。' },
+      { docType: 'REPLENISHMENT', docNo: '—', status: '预留', createdAt: '-', summaryText: '待根据铺布与实裁差异判断是否二次领料后补排唛架。' },
       { docType: 'INBOUND', docNo: '—', status: '未入仓', createdAt: '-', summaryText: '裁片执行中，尚未形成入仓记录。' },
     ],
   },
@@ -271,7 +271,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     spreadingRecords: [],
     linkedDocuments: [
       { docType: 'PICKUP_SLIP', docNo: '—', status: '未生成', createdAt: '-', summaryText: '尚未进入待加工仓。' },
-      { docType: 'CONFIG_BATCH', docNo: '—', status: '未配置', createdAt: '-', summaryText: '等待 WMS 来料入待加工仓。' },
+      { docType: 'CONFIG_BATCH', docNo: '—', status: '未配置', createdAt: '-', summaryText: '等待中转仓配料与裁床领料入待加工仓。' },
       { docType: 'PICKUP_RECORD', docNo: '—', status: '暂无', createdAt: '-', summaryText: '尚无扫码领取回写。' },
       { docType: 'REPLENISHMENT', docNo: '—', status: '预留', createdAt: '-', summaryText: '待进入铺布后再评估补料风险。' },
       { docType: 'INBOUND', docNo: '—', status: '未入仓', createdAt: '-', summaryText: '尚未形成裁片入仓。' },
@@ -341,9 +341,9 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
       },
     ],
     linkedDocuments: [
-      { docType: 'PICKUP_SLIP', docNo: 'PK-202603-024-01', status: '已打印', createdAt: '2026-03-21 15:40', summaryText: '来料单已完成第二次打印。' },
+      { docType: 'PICKUP_SLIP', docNo: 'PK-202603-024-01', status: '已打印', createdAt: '2026-03-21 15:40', summaryText: '领料单已完成第二次打印。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-024-02', status: '已完成', createdAt: '2026-03-21 14:40', summaryText: '补齐剩余 6 卷 / 320 米。' },
-      { docType: 'PICKUP_RECORD', docNo: 'RCV-024-01', status: '匹配', createdAt: '2026-03-21 18:10', summaryText: 'WMS 来料接收与待加工仓一致。' },
+      { docType: 'PICKUP_RECORD', docNo: 'RCV-024-01', status: '匹配', createdAt: '2026-03-21 18:10', summaryText: '裁床领料与待加工仓一致。' },
       { docType: 'REPLENISHMENT', docNo: '—', status: '暂无', createdAt: '-', summaryText: '当前无需补料。' },
       { docType: 'INBOUND', docNo: 'INB-CP-024-01', status: '待确认', createdAt: '2026-03-22 11:05', summaryText: '已提交裁片入仓预登记。' },
     ],
@@ -376,7 +376,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     hasInboundRecord: false,
     hasReplenishmentRisk: true,
     currentStage: '待维护排唛架方案',
-    notes: '里布待 WMS 来料后再WMS 来料，先维护排唛架方案和样衣参考。',
+    notes: '里布待中转仓配料、裁床领料后再铺布，先维护排唛架方案和样衣参考。',
     markerInfo: {
       sizeMix: [
         { size: 'S', qty: 12 },
@@ -397,9 +397,9 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     },
     spreadingRecords: [],
     linkedDocuments: [
-      { docType: 'PICKUP_SLIP', docNo: '—', status: '未生成', createdAt: '-', summaryText: '里布尚未完成配置，来料单尚未生成。' },
-      { docType: 'CONFIG_BATCH', docNo: '—', status: 'WMS 待处理', createdAt: '-', summaryText: '等待仓库补齐里布配置卷数。' },
-      { docType: 'PICKUP_RECORD', docNo: '—', status: '暂无', createdAt: '-', summaryText: '尚无 WMS 来料接收记录。' },
+      { docType: 'PICKUP_SLIP', docNo: '—', status: '未生成', createdAt: '-', summaryText: '里布尚未完成配置，领料单尚未生成。' },
+      { docType: 'CONFIG_BATCH', docNo: '—', status: '待中转仓配料', createdAt: '-', summaryText: '等待仓库补齐里布配置卷数。' },
+      { docType: 'PICKUP_RECORD', docNo: '—', status: '暂无', createdAt: '-', summaryText: '尚无裁床领料记录。' },
       { docType: 'REPLENISHMENT', docNo: 'RP-CP-024-02', status: '建议中', createdAt: '2026-03-22 10:30', summaryText: '根据尺码配比和样衣参考，预判需要补里布 1 卷。' },
       { docType: 'INBOUND', docNo: '—', status: '未入仓', createdAt: '-', summaryText: '尚未形成入仓动作。' },
     ],
@@ -555,7 +555,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     linkedDocuments: [
       { docType: 'PICKUP_SLIP', docNo: 'PK-202603-031-02', status: '已打印', createdAt: '2026-03-22 09:25', summaryText: '整单发齐，二维码已回写。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-031-03', status: '已完成', createdAt: '2026-03-22 09:00', summaryText: '整单一次发齐。' },
-      { docType: 'PICKUP_RECORD', docNo: 'RCV-031-02', status: '匹配', createdAt: '2026-03-22 13:10', summaryText: 'WMS 来料接收无差异。' },
+      { docType: 'PICKUP_RECORD', docNo: 'RCV-031-02', status: '匹配', createdAt: '2026-03-22 13:10', summaryText: '裁床领料无差异。' },
       { docType: 'REPLENISHMENT', docNo: '—', status: '暂无', createdAt: '-', summaryText: '当前无补料风险。' },
       { docType: 'INBOUND', docNo: 'INB-CP-031-02', status: '已入仓', createdAt: '2026-03-22 15:20', summaryText: '裁片已入裁片仓，待后续汇总。' },
     ],
@@ -577,11 +577,11 @@ export function cloneCutPieceOrderRecords(): CutPieceOrderRecord[] {
 }
 
 export function updateCutPieceOrderWebStage(
-  originalCutOrderId: string,
+  cutOrderId: string,
   payload: { currentStage: string; operatorName?: string; operatedAt?: string; notes?: string },
 ): CutPieceOrderRecord | undefined {
   const record = cutPieceOrderRecords.find(
-    (item) => item.originalCutOrderId === originalCutOrderId || item.originalCutOrderNo === originalCutOrderId || item.id === originalCutOrderId,
+    (item) => item.cutOrderId === cutOrderId || item.cutOrderNo === cutOrderId || item.id === cutOrderId,
   )
   if (!record) return undefined
   record.currentStage = payload.currentStage

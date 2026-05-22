@@ -55,6 +55,7 @@ import {
   type MarkerSchemeBed,
   type MarkerSchemeDemandRow,
 } from './marker-plan-domain.ts'
+import { renderMaterialIdentityBlock } from './material-identity.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   renderCompactKpiCard,
@@ -120,7 +121,6 @@ interface MarkerPlanPageState {
   activeTab: MarkerPlanTabKey
   draftPlan: MarkerPlan | null
   contextDrawerOpen: boolean
-  contextDrawerType: 'ALL' | MarkerPlanContextType
   contextKeyword: string
   selectedContextKeys: string[]
   mappingDrawerOpen: boolean
@@ -145,7 +145,6 @@ const state: MarkerPlanPageState = {
   activeTab: 'basic',
   draftPlan: null,
   contextDrawerOpen: false,
-  contextDrawerType: 'ALL',
   contextKeyword: '',
   selectedContextKeys: [],
   mappingDrawerOpen: false,
@@ -167,6 +166,7 @@ function validateSchemeSourceCandidates(contexts: MarkerPlanContextCandidate[]):
   const result = validateMarkerSchemeSourceCandidates(
     contexts.map((context) => ({
       contextNo: context.contextNo,
+      markerPlanGroupKey: context.markerPlanGroupKey,
       spuCode: context.spuCode,
       productionOrderIds: context.productionOrderIds,
       productionOrderNos: context.productionOrderNos,
@@ -319,15 +319,11 @@ function formatSignedCount(value: number): string {
 }
 
 function getPlanSourceTypeText(row: MarkerPlan | MarkerPlanViewRow): string {
-  const hasOriginal = row.originalCutOrderNos.length > 0
-  const hasMerge = Boolean(row.mergeBatchNo)
-  if (hasOriginal && hasMerge) return '多来源'
-  if (hasMerge) return '合并裁剪批次'
-  return '原始裁片单'
+  return row.cutOrderNos.length > 1 ? '组合裁片单' : '裁片单'
 }
 
 function getPlanSourceNoText(row: MarkerPlan | MarkerPlanViewRow): string {
-  const sourceNos = [...row.originalCutOrderNos, row.mergeBatchNo].filter(Boolean)
+  const sourceNos = row.cutOrderNos.filter(Boolean)
   if (!sourceNos.length) return '—'
   if (sourceNos.length > 2) return `${sourceNos.slice(0, 2).join(' / ')} 等 ${sourceNos.length} 个`
   return sourceNos.join(' / ')
@@ -423,7 +419,7 @@ function buildMarkerPlanListTabOptions(viewModel = getViewModel()): Array<{ valu
 }
 
 function buildExportFilename(tabLabel: string): string {
-  return `唛架方案列表-${tabLabel}-${buildExportTimestamp()}.csv`
+  return `唛架方案-${tabLabel}-${buildExportTimestamp()}.csv`
 }
 
 function safeNumber(value: string | number | null | undefined): number {
@@ -472,20 +468,56 @@ function getContextMap(viewModel = getViewModel()): Record<string, MarkerPlanCon
 
 function getSelectedDrawerContexts(viewModel = getViewModel()): MarkerPlanContextCandidate[] {
   const contextMap = getContextMap(viewModel)
+  const selectableContextKeys = new Set(getSelectableMarkerSourceContexts(viewModel).map((context) => context.contextKey))
   return state.selectedContextKeys
     .map((contextKey) => contextMap[contextKey] || null)
     .filter((context): context is MarkerPlanContextCandidate => Boolean(context))
+    .filter((context) => selectableContextKeys.has(context.contextKey))
 }
 
 function getContextSpuCodes(contexts: MarkerPlanContextCandidate[]): string[] {
   return Array.from(new Set(contexts.map((context) => String(context.spuCode || '').trim()).filter(Boolean)))
 }
 
+function isSelectableMarkerSourceContext(context: MarkerPlanContextCandidate): boolean {
+  return (
+    context.contextType === 'cut-order' &&
+    context.sourceCutOrderRows.length > 0 &&
+    context.sourceCutOrderRows.every((row) => row.cuttableState.key === 'CUTTABLE')
+  )
+}
+
+function getSelectableMarkerSourceContexts(viewModel = getViewModel()): MarkerPlanContextCandidate[] {
+  return viewModel.pendingContexts.filter(isSelectableMarkerSourceContext)
+}
+
+function filterMarkerSourceContextsByKeyword(contexts: MarkerPlanContextCandidate[]): MarkerPlanContextCandidate[] {
+  const keyword = state.contextKeyword.trim().toLowerCase()
+  if (!keyword) return contexts
+  return contexts.filter((context) => {
+    const keywords = [
+      context.contextNo,
+      context.styleCode,
+      context.spuCode,
+      context.styleName,
+      context.materialSkuSummary,
+      context.colorSummary,
+      ...context.productionOrderNos,
+    ]
+      .filter(Boolean)
+      .map((item) => item.toLowerCase())
+    return keywords.some((item) => item.includes(keyword))
+  })
+}
+
 function validateMarkerPlanSourceSelection(contexts: MarkerPlanContextCandidate[]): { ok: boolean; message: string } {
-  if (!contexts.length) return { ok: false, message: '请先选择原始裁片单或合并裁剪批次。' }
+  if (!contexts.length) return { ok: false, message: '请先选择可排唛架裁片单。' }
+  if (contexts.some((context) => !isSelectableMarkerSourceContext(context))) {
+    return { ok: false, message: '只能选择可排唛架裁片单进入唛架方案。' }
+  }
   const spuCodes = getContextSpuCodes(contexts)
   if (spuCodes.length > 1) {
-    return { ok: false, message: `所选来源属于多个 SPU：${spuCodes.join(' / ')}，不能进入下一步。` }
+    return { ok: false, message: `所选可排唛架裁片单属于多个 SPU：${spuCodes.join(' / ')}，不能进入下一步。` }
   }
   const schemeValidation = validateSchemeSourceCandidates(contexts)
   if (!schemeValidation.ok) return schemeValidation
@@ -498,8 +530,8 @@ function syncContextDrawerSelectionDom(viewModel = getViewModel()): void {
   const selectedSpuCodes = getContextSpuCodes(selectedContexts)
   const selectionValidation = validateMarkerPlanSourceSelection(selectedContexts)
   const selectedSummary = selectedContexts.length
-    ? `已选 ${selectedContexts.length} 个来源${selectedSpuCodes.length === 1 ? `，SPU：${selectedSpuCodes[0]}` : ''}`
-    : '请先选择来源'
+    ? `已选 ${selectedContexts.length} 个可排唛架裁片单${selectedSpuCodes.length === 1 ? `，SPU：${selectedSpuCodes[0]}` : ''}`
+    : '请先选择可排唛架裁片单'
   const summaryNode = document.querySelector<HTMLElement>('[data-marker-plan-selection-summary]')
   const messageNode = document.querySelector<HTMLElement>('[data-marker-plan-selection-message]')
   const confirmButton = document.querySelector<HTMLButtonElement>('[data-marker-plan-action="confirm-context-create"]')
@@ -821,7 +853,7 @@ function validateMarkerMatrixRows(
     if (mode === 'normal' || mode === 'fold_normal') {
       const firstValue = values[filledIndexes[0]]
       if (filledIndexes.some((index) => values[index] !== firstValue)) {
-        errors.push(`${row.colorName} 普通唛架同一行各尺码层数必须一致`)
+        errors.push(`${row.colorName} 普通模式同一行各尺码层数必须一致`)
       }
     }
     filledIndexes.forEach((index) => {
@@ -834,7 +866,7 @@ function validateMarkerMatrixRows(
       }
     })
     if (highLowMode && Math.max(safeNumber(row.markerLength), 0) <= 0) {
-      errors.push(`${row.colorName} 高低层唛架必须填写唛架净长度`)
+      errors.push(`${row.colorName} 高低层模式必须填写唛架净长度`)
     }
     if (!highLowMode) {
       return
@@ -843,7 +875,7 @@ function validateMarkerMatrixRows(
     const maxIndex = Math.max(...filledIndexes)
     for (let index = minIndex; index <= maxIndex; index += 1) {
       if (values[index] <= 0) {
-        errors.push(`${row.colorName} 高低层唛架同一行不能中间断尺码`)
+        errors.push(`${row.colorName} 高低层模式同一行不能中间断尺码`)
         break
       }
     }
@@ -1059,10 +1091,10 @@ function getContextForPlan(plan: MarkerPlan | MarkerPlanViewRow | null, viewMode
 function buildGoProductionProgressPath(options: {
   productionOrderId?: string
   productionOrderNo?: string
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   styleCode?: string
   spuCode?: string
   materialSku?: string
@@ -1070,10 +1102,10 @@ function buildGoProductionProgressPath(options: {
   return buildRouteWithQuery(getCanonicalCuttingPath('production-progress'), {
     productionOrderId: options.productionOrderId,
     productionOrderNo: options.productionOrderNo,
-    originalCutOrderId: options.originalCutOrderId,
-    originalCutOrderNo: options.originalCutOrderNo,
-    mergeBatchId: options.mergeBatchId,
-    mergeBatchNo: options.mergeBatchNo,
+    cutOrderId: options.cutOrderId,
+    cutOrderNo: options.cutOrderNo,
+    markerPlanId: options.markerPlanId,
+    markerPlanNo: options.markerPlanNo,
     styleCode: options.styleCode,
     spuCode: options.spuCode,
     materialSku: options.materialSku,
@@ -1125,8 +1157,8 @@ function buildCurrentListExportRows(viewModel = getViewModel()): { filename: str
     rows: [
       [
         '方案编号',
-        '来源类型',
-        '来源单号',
+        '裁片单范围',
+        '裁片单号',
         '生产单号',
         '款号 / SPU',
         '面料 / 颜色',
@@ -1159,8 +1191,7 @@ function buildCurrentListExportRows(viewModel = getViewModel()): { filename: str
 
 function navigateToCreateWithContext(context: MarkerPlanContextCandidate): void {
   const params = new URLSearchParams({
-    contextType: context.contextType,
-    contextId: context.id,
+    contextKey: context.contextKey,
     tab: 'layout',
   })
   appStore.navigate(`${CREATE_PATH}?${params.toString()}`)
@@ -1254,8 +1285,6 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
   if (route.kind === 'CREATE') {
     const copyFrom = params.get('copyFrom') || ''
     const contextKeys = params.getAll('contextKey').filter(Boolean)
-    const contextType = params.get('contextType') as MarkerPlanContextType | null
-    const contextId = params.get('contextId') || ''
     if (copyFrom) {
       if (!state.draftPlan) {
         const sourcePlan = viewModel.plansById[copyFrom]
@@ -1269,7 +1298,9 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
       return
     }
     if (contextKeys.length) {
-      const contextMap = getContextMap(viewModel)
+      const contextMap = Object.fromEntries(
+        getSelectableMarkerSourceContexts(viewModel).map((context) => [context.contextKey, context]),
+      )
       const contexts = contextKeys
         .map((contextKey) => contextMap[contextKey] || null)
         .filter((context): context is MarkerPlanContextCandidate => Boolean(context))
@@ -1279,32 +1310,11 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
       state.draftPlan = combinedContext ? createMarkerPlanFromContext({ context: combinedContext, existingPlans: viewModel.plans }) : null
       state.activeTab = resolvedTab || 'basic'
       state.contextDrawerOpen = !Boolean(state.draftPlan)
-      state.contextDrawerType = 'ALL'
       state.selectedContextKeys = contexts.map((context) => context.contextKey)
       state.mappingDrawerOpen = false
       state.mappingTargetRowId = ''
       state.referencedStructureEditConfirmed = false
       if (!schemeValidation.ok) setFeedback('warning', schemeValidation.message)
-      return
-    }
-    if (contextType && contextId) {
-      const currentContext = state.draftPlan ? findMarkerPlanContextForPlan(viewModel.contexts, state.draftPlan) : null
-      const sameContext =
-        Boolean(currentContext) && currentContext?.contextType === contextType && currentContext?.id === contextId
-      const context = findMarkerPlanContextById(viewModel.contexts, contextType, contextId)
-      if (!sameContext) {
-        const schemeValidation = context ? validateSchemeSourceCandidates([context]) : { ok: false, message: '请选择来源单据' }
-        state.draftPlan =
-          context && schemeValidation.ok ? createMarkerPlanFromContext({ context, existingPlans: viewModel.plans }) : null
-        if (!schemeValidation.ok) setFeedback('warning', schemeValidation.message)
-        state.activeTab = resolvedTab || 'basic'
-      }
-      state.selectedContextKeys = context ? [context.contextKey] : []
-      state.contextDrawerOpen = !Boolean(state.draftPlan)
-      state.contextDrawerType = contextType
-      state.mappingDrawerOpen = false
-      state.mappingTargetRowId = ''
-      state.referencedStructureEditConfirmed = false
       return
     }
     state.draftPlan = null
@@ -1493,35 +1503,35 @@ function renderPlanHeaderActions(route: MarkerPlanRouteKind, plan: MarkerPlan | 
     <div class="flex flex-wrap items-center gap-2">
       ${renderActionButton('返回列表', 'data-marker-plan-action="go-list"')}
       ${renderActionButton('交给铺布', `data-marker-plan-action="go-spreading"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'primary', !plan || !plan.readyForSpreading)}
-      ${renderActionButton('去原始裁片单', `data-marker-plan-action="go-original-orders"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'secondary', !plan || !plan.originalCutOrderIds.length)}
-      ${plan?.mergeBatchId ? renderActionButton('去合并裁剪批次', `data-marker-plan-action="go-merge-batch" data-plan-id="${escapeHtml(plan.id)}"`, 'secondary') : ''}
+      ${renderActionButton('去裁片单', `data-marker-plan-action="go-cut-orders"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'secondary', !plan || !plan.cutOrderIds.length)}
+      ${plan?.markerPlanId ? renderActionButton('去唛架方案', `data-marker-plan-action="go-marker-plan-ref" data-plan-id="${escapeHtml(plan.id)}"`, 'secondary') : ''}
       ${renderActionButton('去生产单进度', `data-marker-plan-action="go-production-progress"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'secondary', !plan)}
     </div>
   `
 }
 
-function buildGoOriginalOrdersPath(plan: MarkerPlan | MarkerPlanViewRow): string {
-  return buildRouteWithQuery(getCanonicalCuttingPath('original-orders'), {
-    originalCutOrderId: plan.originalCutOrderIds[0],
-    originalCutOrderNo: plan.originalCutOrderNos[0],
+function buildGoCutOrdersPath(plan: MarkerPlan | MarkerPlanViewRow): string {
+  return buildRouteWithQuery(getCanonicalCuttingPath('cut-orders'), {
+    cutOrderId: plan.cutOrderIds[0],
+    cutOrderNo: plan.cutOrderNos[0],
     productionOrderId: plan.productionOrderIds[0],
     productionOrderNo: plan.productionOrderNos[0],
-    mergeBatchId: plan.mergeBatchId || undefined,
-    mergeBatchNo: plan.mergeBatchNo || undefined,
+    markerPlanId: plan.markerPlanId || undefined,
+    markerPlanNo: plan.markerPlanNo || undefined,
     styleCode: plan.styleCode || undefined,
     spuCode: plan.spuCode || undefined,
     materialSku: plan.sourceMaterialSku || undefined,
   })
 }
 
-function buildGoOriginalOrdersPathFromContext(context: MarkerPlanContextCandidate): string {
-  return buildRouteWithQuery(getCanonicalCuttingPath('original-orders'), {
-    originalCutOrderId: context.originalCutOrderIds[0],
-    originalCutOrderNo: context.originalCutOrderNos[0],
+function buildGoCutOrdersPathFromContext(context: MarkerPlanContextCandidate): string {
+  return buildRouteWithQuery(getCanonicalCuttingPath('cut-orders'), {
+    cutOrderId: context.cutOrderIds[0],
+    cutOrderNo: context.cutOrderNos[0],
     productionOrderId: context.productionOrderIds[0],
     productionOrderNo: context.productionOrderNos[0],
-    mergeBatchId: context.mergeBatchId || undefined,
-    mergeBatchNo: context.mergeBatchNo || undefined,
+    markerPlanId: context.markerPlanId || undefined,
+    markerPlanNo: context.markerPlanNo || undefined,
     styleCode: context.styleCode || undefined,
     spuCode: context.spuCode || undefined,
     materialSku: context.materialSkuSummary.split(' / ')[0] || undefined,
@@ -1530,8 +1540,8 @@ function buildGoOriginalOrdersPathFromContext(context: MarkerPlanContextCandidat
 
 function buildGoMaterialPrepPath(plan: MarkerPlan | MarkerPlanViewRow): string {
   return buildRouteWithQuery(getCanonicalCuttingPath('warehouse-management-wait-process'), {
-    originalCutOrderId: plan.originalCutOrderIds[0],
-    originalCutOrderNo: plan.originalCutOrderNos[0],
+    cutOrderId: plan.cutOrderIds[0],
+    cutOrderNo: plan.cutOrderNos[0],
     productionOrderId: plan.productionOrderIds[0],
     productionOrderNo: plan.productionOrderNos[0],
     styleCode: plan.styleCode || undefined,
@@ -1540,15 +1550,15 @@ function buildGoMaterialPrepPath(plan: MarkerPlan | MarkerPlanViewRow): string {
   })
 }
 
-function buildGoMergeBatchPath(plan: MarkerPlan | MarkerPlanViewRow): string {
-  return buildRouteWithQuery(getCanonicalCuttingPath('merge-batches'), {
-    focusBatchId: plan.mergeBatchId || undefined,
+function buildGoMarkerPlanRefPath(plan: MarkerPlan | MarkerPlanViewRow): string {
+  return buildRouteWithQuery(getCanonicalCuttingPath('marker-list'), {
+    focusBatchId: plan.markerPlanId || undefined,
   })
 }
 
-function buildGoMergeBatchPathFromContext(context: MarkerPlanContextCandidate): string {
-  return buildRouteWithQuery(getCanonicalCuttingPath('merge-batches'), {
-    focusBatchId: context.mergeBatchId || undefined,
+function buildGoMarkerPlanRefPathFromContext(context: MarkerPlanContextCandidate): string {
+  return buildRouteWithQuery(getCanonicalCuttingPath('marker-list'), {
+    focusBatchId: context.markerPlanId || undefined,
   })
 }
 
@@ -1562,7 +1572,7 @@ function resolveCurrentPlan(viewModel = getViewModel(), planId = ''): MarkerPlan
 function validateDraftForCompletion(): { ok: true } | { ok: false; tab: MarkerPlanTabKey; message: string } {
   const plan = state.draftPlan
   if (!plan) {
-    return { ok: false, tab: 'basic', message: '请先选择排唛架来源，再完成计划。' }
+    return { ok: false, tab: 'basic', message: '请先选择可排唛架裁片单，再完成计划。' }
   }
   if (plan.totalPieces <= 0) {
     return { ok: false, tab: 'basic', message: '请先补齐尺码成衣件数（件），确保方案成衣件数（件）大于 0。' }
@@ -1655,20 +1665,20 @@ function renderPlanTopInfo(
   const demandMatchMeta = getDemandMatchStatusMeta(demandMatchSummary.status)
   const confirmationMeta = getConfirmationStatusMeta(plan.confirmationStatus)
   const productionSummary = plan.productionOrderNos.join(' / ') || '—'
-  const originalChips = plan.originalCutOrderNos.length
-    ? plan.originalCutOrderNos
-        .map((originalCutOrderNo, index) =>
+  const cutOrderChips = plan.cutOrderNos.length
+    ? plan.cutOrderNos
+        .map((cutOrderNo, index) =>
           renderTopInfoChip(
-            originalCutOrderNo,
-            `data-marker-plan-action="go-original-orders" data-original-cut-order-id="${escapeHtml(plan.originalCutOrderIds[index] || '')}" data-original-cut-order-no="${escapeHtml(originalCutOrderNo)}" data-production-order-id="${escapeHtml(plan.productionOrderIds[index] || plan.productionOrderIds[0] || '')}" data-production-order-no="${escapeHtml(plan.productionOrderNos[index] || plan.productionOrderNos[0] || '')}"`,
+            cutOrderNo,
+            `data-marker-plan-action="go-cut-orders" data-cut-order-id="${escapeHtml(plan.cutOrderIds[index] || '')}" data-cut-order-no="${escapeHtml(cutOrderNo)}" data-production-order-id="${escapeHtml(plan.productionOrderIds[index] || plan.productionOrderIds[0] || '')}" data-production-order-no="${escapeHtml(plan.productionOrderNos[index] || plan.productionOrderNos[0] || '')}"`,
           ),
         )
         .join('')
     : '<span class="text-xs text-muted-foreground">—</span>'
-  const mergeChip = plan.mergeBatchNo
+  const mergeChip = plan.markerPlanNo
     ? renderTopInfoChip(
-        plan.mergeBatchNo,
-        `data-marker-plan-action="go-merge-batch" data-merge-batch-id="${escapeHtml(plan.mergeBatchId)}" data-merge-batch-no="${escapeHtml(plan.mergeBatchNo)}"`,
+        plan.markerPlanNo,
+        `data-marker-plan-action="go-marker-plan-ref" data-marker-plan-ref-id="${escapeHtml(plan.markerPlanId)}" data-marker-plan-ref-no="${escapeHtml(plan.markerPlanNo)}"`,
         'amber',
       )
     : '<span class="text-xs text-muted-foreground">—</span>'
@@ -1677,7 +1687,7 @@ function renderPlanTopInfo(
         .map((productionOrderNo, index) =>
           renderTopInfoChip(
             productionOrderNo,
-            `data-marker-plan-action="go-production-progress" data-production-order-id="${escapeHtml(plan.productionOrderIds[index] || '')}" data-production-order-no="${escapeHtml(productionOrderNo)}" data-style-code="${escapeHtml(plan.styleCode || '')}" data-spu-code="${escapeHtml(plan.spuCode || '')}" data-material-sku="${escapeHtml(plan.sourceMaterialSku || '')}" data-original-cut-order-id="${escapeHtml(plan.originalCutOrderIds[index] || '')}" data-original-cut-order-no="${escapeHtml(plan.originalCutOrderNos[index] || '')}" data-merge-batch-id="${escapeHtml(plan.mergeBatchId || '')}" data-merge-batch-no="${escapeHtml(plan.mergeBatchNo || '')}"`,
+            `data-marker-plan-action="go-production-progress" data-production-order-id="${escapeHtml(plan.productionOrderIds[index] || '')}" data-production-order-no="${escapeHtml(productionOrderNo)}" data-style-code="${escapeHtml(plan.styleCode || '')}" data-spu-code="${escapeHtml(plan.spuCode || '')}" data-material-sku="${escapeHtml(plan.sourceMaterialSku || '')}" data-cut-order-id="${escapeHtml(plan.cutOrderIds[index] || '')}" data-cut-order-no="${escapeHtml(plan.cutOrderNos[index] || '')}" data-marker-plan-ref-id="${escapeHtml(plan.markerPlanId || '')}" data-marker-plan-ref-no="${escapeHtml(plan.markerPlanNo || '')}"`,
             'emerald',
           ),
         )
@@ -1711,8 +1721,8 @@ function renderPlanTopInfo(
               <div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(plan.markerNo)}</div>
             </div>
             <div>
-              <div class="text-[11px] text-muted-foreground">来源类型</div>
-              <div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(context ? context.contextLabel : '待选择')}</div>
+              <div class="text-[11px] text-muted-foreground">裁片单范围</div>
+              <div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(plan.cutOrderNos.length > 1 ? '组合裁片单' : '裁片单')}</div>
             </div>
             <div>
               <div class="text-[11px] text-muted-foreground">款号 / SPU</div>
@@ -1720,7 +1730,13 @@ function renderPlanTopInfo(
             </div>
             <div>
               <div class="text-[11px] text-muted-foreground">面料 / 颜色</div>
-              <div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(`${plan.materialSkuSummary || '—'} / ${plan.colorSummary || '—'}`)}</div>
+              <div class="mt-1">${renderMaterialIdentityBlock({
+                materialSku: plan.materialSkuSummary || '—',
+                materialLabel: plan.materialSkuSummary || '—',
+                materialAlias: plan.materialAliasSummary || context?.materialAliasSummary || '',
+                materialImageUrl: plan.materialImageUrl || context?.materialImageUrl || '',
+              }, { compact: true })}</div>
+              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(plan.colorSummary || '—')}</div>
             </div>
           </div>
           <div class="pointer-events-auto flex flex-wrap gap-2">
@@ -1730,12 +1746,12 @@ function renderPlanTopInfo(
           <div class="grid gap-3 xl:grid-cols-[1.5fr_1fr]">
           <div class="space-y-3">
             <div class="rounded-md border bg-background px-3 py-3">
-              <div class="text-[11px] text-muted-foreground">原始裁片单号</div>
-              <div class="pointer-events-auto mt-0.5 flex flex-wrap gap-1.5">${originalChips}</div>
+              <div class="text-[11px] text-muted-foreground">裁片单号</div>
+              <div class="pointer-events-auto mt-0.5 flex flex-wrap gap-1.5">${cutOrderChips}</div>
             </div>
             <div class="grid gap-3 md:grid-cols-2">
               <div class="rounded-md border bg-background px-3 py-3">
-                <div class="text-[11px] text-muted-foreground">合并裁剪批次号</div>
+                <div class="text-[11px] text-muted-foreground">唛架方案号</div>
                 <div class="pointer-events-auto mt-0.5 flex flex-wrap gap-1.5">${mergeChip}</div>
               </div>
               <div class="rounded-md border bg-background px-3 py-3">
@@ -1761,9 +1777,9 @@ function renderPlanTopInfo(
           showActionRow
             ? `
               <div class="pointer-events-auto flex flex-wrap items-center gap-2 border-t pt-3">
-                ${renderActionButton('去原始裁片单', `data-marker-plan-action="go-original-orders"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
+                ${renderActionButton('去裁片单', `data-marker-plan-action="go-cut-orders"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
                 ${renderActionButton('去待加工仓', `data-marker-plan-action="go-material-prep"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
-                ${plan.mergeBatchId ? renderActionButton('去合并裁剪批次', `data-marker-plan-action="go-merge-batch"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`) : ''}
+                ${plan.markerPlanId ? renderActionButton('去唛架方案', `data-marker-plan-action="go-marker-plan-ref"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`) : ''}
                 ${renderActionButton('去生产单进度', `data-marker-plan-action="go-production-progress"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
               </div>
             `
@@ -1842,7 +1858,7 @@ function getCreateStepStatus(plan: MarkerPlan | null, step: MarkerPlanCreateStep
 function renderCreateStepNav(plan: MarkerPlan | null): string {
   const activeStep = state.contextDrawerOpen ? 'source' : plan ? getCreateStepFromActiveTab(state.activeTab) : 'source'
   const steps: Array<{ key: MarkerPlanCreateStepKey; title: string; hint: string }> = [
-    { key: 'source', title: '排唛架来源', hint: '方案编号 / 原始裁片单 / 合并裁剪批次' },
+    { key: 'source', title: '排唛架来源', hint: '可排唛架裁片单' },
     { key: 'layout', title: '编辑唛架', hint: '唛架模式、层数、长度' },
     { key: 'match', title: '需求匹配与确认', hint: '来源需求 / 唛架产出 / 业务确认' },
   ]
@@ -2097,7 +2113,7 @@ function renderExplosionTab(plan: MarkerPlan | MarkerPlanViewRow, context: Marke
                 <th class="px-3 py-3 font-medium">颜色</th>
                 <th class="px-3 py-3 font-medium">尺码</th>
                 <th class="px-3 py-3 font-medium">SKU</th>
-                <th class="px-3 py-3 font-medium">面料 SKU</th>
+                <th class="px-3 py-3 font-medium">面料</th>
                 <th class="px-3 py-3 font-medium">纸样</th>
                 <th class="px-3 py-3 font-medium">部位</th>
                 <th class="px-3 py-3 font-medium">部位（印尼语）</th>
@@ -2117,7 +2133,12 @@ function renderExplosionTab(plan: MarkerPlan | MarkerPlanViewRow, context: Marke
                           <td class="px-3 py-3">${escapeHtml(row.colorCode || '—')}</td>
                           <td class="px-3 py-3">${escapeHtml(row.sizeCode || '—')}</td>
                           <td class="px-3 py-3">${escapeHtml(row.skuCode || '待补 SKU')}</td>
-                          <td class="px-3 py-3">${escapeHtml(row.materialSku || '—')}</td>
+                          <td class="px-3 py-3">${renderMaterialIdentityBlock({
+                            materialSku: row.materialSku || '—',
+                            materialLabel: row.materialSku || '—',
+                            materialAlias: row.materialAlias || '',
+                            materialImageUrl: row.materialImageUrl || '',
+                          }, { compact: true })}</td>
                           <td class="px-3 py-3">${escapeHtml(row.patternCode || '—')}</td>
                           <td class="px-3 py-3">${escapeHtml(row.partNameCn || row.partCode || '—')}</td>
                           <td class="px-3 py-3">${escapeHtml(row.partNameId || '—')}</td>
@@ -2604,10 +2625,10 @@ function renderSchemeBedEditor(plan: MarkerPlan, context: MarkerPlanContextCandi
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h3 class="text-sm font-semibold">唛架编号</h3>
         <div class="flex flex-wrap gap-2">
-          ${renderActionButton('新增普通唛架', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="normal"')}
-          ${renderActionButton('新增高低层唛架', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="high_low"')}
-          ${renderActionButton('新增对折普通唛架', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="fold_normal"')}
-          ${renderActionButton('新增对折高低层唛架', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="fold_high_low"')}
+          ${renderActionButton('新增普通模式', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="normal"')}
+          ${renderActionButton('新增高低层模式', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="high_low"')}
+          ${renderActionButton('新增对折普通模式', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="fold_normal"')}
+          ${renderActionButton('新增对折高低层模式', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="fold_high_low"')}
         </div>
       </div>
       <div class="space-y-4">
@@ -2616,7 +2637,7 @@ function renderSchemeBedEditor(plan: MarkerPlan, context: MarkerPlanContextCandi
             <article class="space-y-3 rounded-lg border bg-background p-3">
               <div class="grid gap-3 ${isHighLowMatrixMode(bed.bedMode) ? 'lg:grid-cols-[160px_180px_minmax(0,1fr)_120px]' : 'lg:grid-cols-[160px_180px_minmax(0,1fr)_120px_120px]'}">
                 <label class="space-y-2">
-                  <span class="text-xs font-medium text-muted-foreground">唛架号</span>
+                  <span class="text-xs font-medium text-muted-foreground">唛架编号</span>
                   <input type="text" value="${escapeHtml(bed.bedNo)}" data-marker-plan-bed-field="bedNo" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-full rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" />
                 </label>
                 <label class="space-y-2">
@@ -2716,11 +2737,11 @@ function renderListTabs(listTab: MarkerPlanListTab, viewModel = getViewModel()):
 function getListFilterLabels(): string[] {
   const labels: string[] = [`视图：${getListTabMeta(state.listTab).label}`]
   if (state.filters.keyword) labels.push(`关键词：${state.filters.keyword}`)
-  if (state.filters.contextNo) labels.push(`来源单号：${state.filters.contextNo}`)
+  if (state.filters.contextNo) labels.push(`裁片单号：${state.filters.contextNo}`)
   if (state.filters.markerNo) labels.push(`方案编号：${state.filters.markerNo}`)
   if (state.filters.contextType !== 'ALL') {
     const option = buildMarkerPlanContextTypeOptions().find((item) => item.value === state.filters.contextType)
-    if (option) labels.push(`来源类型：${option.label}`)
+    if (option) labels.push(`裁片单范围：${option.label}`)
   }
   if (state.filters.mode !== 'ALL') labels.push(`唛架模式：${markerPlanModeMeta[state.filters.mode].label}`)
   if (state.filters.status !== 'ALL') labels.push(`主状态：${markerPlanStatusMeta[state.filters.status].label}`)
@@ -2763,7 +2784,7 @@ function filterPlans(rows: MarkerPlanViewRow[], tab: MarkerPlanListTab): MarkerP
     if (tab === 'READY_FOR_SPREADING' && !row.readyForSpreading) return false
     if (tab === 'EXCEPTIONS' && !hasPlanExceptionIssue(row)) return false
     if (contextNo) {
-      const contextKeywords = [row.contextNo, row.mergeBatchNo, ...row.originalCutOrderNos]
+      const contextKeywords = [row.contextNo, row.markerPlanNo, ...row.cutOrderNos]
         .filter(Boolean)
         .map((item) => item.toLowerCase())
       if (!contextKeywords.some((item) => item.includes(contextNo))) return false
@@ -2784,8 +2805,8 @@ function filterPlans(rows: MarkerPlanViewRow[], tab: MarkerPlanListTab): MarkerP
       row.styleName,
       row.materialSkuSummary,
       row.colorSummary,
-      row.mergeBatchNo,
-      ...row.originalCutOrderNos,
+      row.markerPlanNo,
+      ...row.cutOrderNos,
     ]
       .filter(Boolean)
       .map((item) => item.toLowerCase())
@@ -2816,7 +2837,7 @@ function renderListFilters(): string {
           </select>
         </label>
         <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">来源单号</span>
+          <span class="text-sm font-medium text-foreground">裁片单号</span>
           <input
             type="text"
             value="${escapeHtml(state.filters.contextNo)}"
@@ -2840,7 +2861,7 @@ function renderListFilters(): string {
         <div class="border-t p-3">
           <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <label class="space-y-2">
-              <span class="text-sm font-medium text-foreground">来源类型</span>
+              <span class="text-sm font-medium text-foreground">裁片单范围</span>
               <select data-marker-plan-filter-field="contextType" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="ALL">全部</option>
                 ${buildMarkerPlanContextTypeOptions().map((option) => `<option value="${option.value}" ${option.value === state.filters.contextType ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
@@ -2899,8 +2920,8 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="px-2 py-1 font-medium">方案编号</th>
-              <th class="px-2 py-1 font-medium">来源类型</th>
-              <th class="px-2 py-1 font-medium">来源单号</th>
+              <th class="px-2 py-1 font-medium">裁片单范围</th>
+              <th class="px-2 py-1 font-medium">裁片单号</th>
               <th class="px-2 py-1 font-medium">生产单号</th>
               <th class="px-2 py-1 font-medium">款号 / SPU</th>
               <th class="px-2 py-1 font-medium">面料 / 颜色</th>
@@ -2940,7 +2961,15 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                         <td class="px-2 py-1">${escapeHtml(getPlanSourceNoText(row))}</td>
                         <td class="px-2 py-1">${escapeHtml(row.productionOrderSummary || '—')}</td>
                         <td class="px-2 py-1 font-medium">${escapeHtml(`${row.styleCode || '-'} / ${row.spuCode || '-'}`)}</td>
-                        <td class="px-2 py-1">${escapeHtml(`${row.materialSkuSummary || '—'} / ${row.colorSummary || '—'}`)}</td>
+                        <td class="px-2 py-1">
+                          ${renderMaterialIdentityBlock({
+                            materialSku: row.materialSkuSummary || '—',
+                            materialLabel: row.materialSkuSummary || '—',
+                            materialAlias: row.materialAliasSummary,
+                            materialImageUrl: row.materialImageUrl,
+                          }, { compact: true })}
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.colorSummary || '—')}</div>
+                        </td>
                         <td class="px-2 py-1">${escapeHtml(getPlanTechPackText(row))}</td>
                         <td class="px-2 py-1">${escapeHtml(getPlanBedCountText(row))}</td>
                         <td class="px-2 py-1">${escapeHtml(getPlanBedModeText(row))}</td>
@@ -2990,52 +3019,17 @@ function renderFeedbackBar(): string {
 
 function renderContextDrawer(viewModel = getViewModel()): string {
   if (!state.contextDrawerOpen) return ''
-  const baseContexts =
-    state.contextDrawerType === 'ALL'
-      ? (viewModel.pendingContexts.length ? viewModel.pendingContexts : viewModel.contexts)
-      : (() => {
-          const typedPending = viewModel.pendingContexts.filter((context) => context.contextType === state.contextDrawerType)
-          return typedPending.length ? typedPending : viewModel.contexts.filter((context) => context.contextType === state.contextDrawerType)
-        })()
-  const candidates = baseContexts.filter((context) => {
-    if (state.contextDrawerType !== 'ALL' && context.contextType !== state.contextDrawerType) return false
-    const keyword = state.contextKeyword.trim().toLowerCase()
-    if (!keyword) return true
-    const keywords = [
-      context.contextNo,
-      context.styleCode,
-      context.spuCode,
-      context.styleName,
-      context.materialSkuSummary,
-      context.colorSummary,
-      ...context.productionOrderNos,
-    ]
-      .filter(Boolean)
-      .map((item) => item.toLowerCase())
-    return keywords.some((item) => item.includes(keyword))
-  })
+  const candidates = filterMarkerSourceContextsByKeyword(getSelectableMarkerSourceContexts(viewModel))
   const selectedContexts = getSelectedDrawerContexts(viewModel)
   const selectedSpuCodes = getContextSpuCodes(selectedContexts)
   const selectionValidation = validateMarkerPlanSourceSelection(selectedContexts)
   const selectedSummary = selectedContexts.length
-    ? `已选 ${selectedContexts.length} 个来源${selectedSpuCodes.length === 1 ? `，SPU：${selectedSpuCodes[0]}` : ''}`
-    : '请先选择来源'
+    ? `已选 ${selectedContexts.length} 个可排唛架裁片单${selectedSpuCodes.length === 1 ? `，SPU：${selectedSpuCodes[0]}` : ''}`
+    : '请先选择可排唛架裁片单'
 
   const content = `
     <div class="space-y-4" data-testid="marker-plan-context-drawer">
-      <div class="grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">来源类型</span>
-          <select data-marker-plan-action="change-context-drawer-type" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="ALL" ${state.contextDrawerType === 'ALL' ? 'selected' : ''}>全部</option>
-            ${buildMarkerPlanContextTypeOptions()
-              .map(
-                (option) =>
-                  `<option value="${option.value}" ${state.contextDrawerType === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`,
-              )
-              .join('')}
-          </select>
-        </label>
+      <div class="grid gap-3">
         <label class="space-y-2">
           <span class="text-sm font-medium text-foreground">搜索</span>
           <input type="text" value="${escapeHtml(state.contextKeyword)}" data-marker-plan-context-field="contextKeyword" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
@@ -3050,11 +3044,10 @@ function renderContextDrawer(viewModel = getViewModel()): string {
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-3 font-medium">选择</th>
-              <th class="px-3 py-3 font-medium">来源类型</th>
-              <th class="px-3 py-3 font-medium">原始裁片单号 / 合并裁剪批次号</th>
+              <th class="px-3 py-3 font-medium">可排唛架裁片单号</th>
               <th class="px-3 py-3 font-medium">生产单号</th>
               <th class="px-3 py-3 font-medium">款号 / SPU</th>
-              <th class="px-3 py-3 font-medium">面料 SKU</th>
+              <th class="px-3 py-3 font-medium">面料</th>
               <th class="px-3 py-3 font-medium">颜色</th>
               <th class="px-3 py-3 font-medium">技术包状态</th>
               <th class="px-3 py-3 font-medium">待加工仓状态</th>
@@ -3067,23 +3060,27 @@ function renderContextDrawer(viewModel = getViewModel()): string {
                     .map((context) => `
                       <tr class="border-t ${state.selectedContextKeys.includes(context.contextKey) ? 'bg-blue-50/40' : ''}" data-marker-plan-context-row data-context-key="${escapeHtml(context.contextKey)}">
                         <td class="px-3 py-3">
-                          <input type="checkbox" value="${escapeHtml(context.contextKey)}" data-marker-plan-action="select-context" data-context-type="${escapeHtml(context.contextType)}" data-context-id="${escapeHtml(context.id)}" data-context-key="${escapeHtml(context.contextKey)}" ${state.selectedContextKeys.includes(context.contextKey) ? 'checked' : ''} />
+                          <input type="checkbox" value="${escapeHtml(context.contextKey)}" data-marker-plan-action="select-context" data-context-key="${escapeHtml(context.contextKey)}" ${state.selectedContextKeys.includes(context.contextKey) ? 'checked' : ''} />
                         </td>
-                        <td class="px-3 py-3">${escapeHtml(context.contextLabel)}</td>
                         <td class="px-3 py-3 font-medium">${escapeHtml(context.contextNo)}</td>
                         <td class="px-3 py-3">${escapeHtml(context.productionOrderNos.join(' / '))}</td>
                         <td class="px-3 py-3">
                           <div class="font-medium">${escapeHtml(context.styleCode || context.spuCode)}</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(context.styleName || '—')}</div>
                         </td>
-                        <td class="px-3 py-3">${escapeHtml(context.materialSkuSummary || '—')}</td>
+                        <td class="px-3 py-3">${renderMaterialIdentityBlock({
+                          materialSku: context.materialSkuSummary || '—',
+                          materialLabel: context.materialSkuSummary || '—',
+                          materialAlias: context.materialAliasSummary,
+                          materialImageUrl: context.materialImageUrl,
+                        }, { compact: true })}</td>
                         <td class="px-3 py-3">${escapeHtml(context.colorSummary || '—')}</td>
                         <td class="px-3 py-3">${escapeHtml(context.techPackStatusLabel)}</td>
                         <td class="px-3 py-3">${escapeHtml(context.prepStatusLabel)}</td>
                       </tr>
                     `)
                     .join('')
-                : `<tr><td colspan="9" class="px-3 py-8 text-center text-xs text-muted-foreground">当前筛选范围内没有可选来源。</td></tr>`
+                : `<tr><td colspan="8" class="px-3 py-8 text-center text-xs text-muted-foreground">当前筛选范围内没有可排唛架裁片单。</td></tr>`
             }
           </tbody>
         </table>
@@ -3093,7 +3090,7 @@ function renderContextDrawer(viewModel = getViewModel()): string {
 
   const drawerHtml = uiDrawer(
     {
-      title: '新建排唛架方案：选择排唛架来源',
+      title: '新建排唛架方案：选择可排唛架裁片单',
       subtitle: '',
       closeAction: { prefix: 'marker-plan', action: 'close-context-drawer' },
       width: 'xl',
@@ -3151,7 +3148,7 @@ function renderCreateSourceSummary(
   context: MarkerPlanContextCandidate | null,
   options: { title?: string; showCurrentStep?: boolean } = {},
 ): string {
-  const sourceNo = context?.contextNo || plan.originalCutOrderNos.join(' / ') || plan.mergeBatchNo || '待选择'
+  const sourceNo = context?.contextNo || plan.cutOrderNos.join(' / ') || plan.markerPlanNo || '待选择'
   const productionNo = plan.productionOrderNos.join(' / ') || '—'
   const title = options.title || '当前来源'
   return `
@@ -3160,11 +3157,19 @@ function renderCreateSourceSummary(
         <h3 class="text-sm font-semibold">${escapeHtml(title)}</h3>
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${renderReadonlyField('来源类型', context?.contextLabel || '待选择')}
-        ${renderReadonlyField('来源单号', sourceNo)}
+        ${renderReadonlyField('可排唛架裁片单', sourceNo)}
         ${renderReadonlyField('款号 / SPU', `${plan.styleCode || '-'} / ${plan.spuCode || '-'}`)}
         ${renderReadonlyField('来源生产单号', productionNo)}
-        ${renderReadonlyField('面料 / 颜色', `${plan.materialSkuSummary || '—'} / ${plan.colorSummary || '—'}`)}
+        <article class="rounded-lg border bg-muted/10 px-3 py-3">
+          <p class="text-xs text-muted-foreground">面料 / 颜色</p>
+          <div class="mt-2">${renderMaterialIdentityBlock({
+            materialSku: plan.materialSkuSummary || '—',
+            materialLabel: plan.materialSkuSummary || '—',
+            materialAlias: plan.materialAliasSummary || context?.materialAliasSummary || '',
+            materialImageUrl: plan.materialImageUrl || context?.materialImageUrl || '',
+          }, { compact: true })}</div>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(plan.colorSummary || '—')}</p>
+        </article>
         ${renderReadonlyField('技术包', context?.techPackStatusLabel || '待选择')}
         ${renderReadonlyField('需求总件数', `${formatCount(plan.totalPieces)} 件`)}
       </div>
@@ -3180,7 +3185,7 @@ function renderSelectedSourcePanel(
     <section class="rounded-xl border bg-background p-4" data-testid="marker-plan-selected-source-panel">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 class="text-sm font-semibold">已选来源</h4>
+          <h4 class="text-sm font-semibold">已选可排唛架裁片单</h4>
           <div class="mt-0.5 text-xs text-muted-foreground">已选 ${selectedContexts.length} 个</div>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -3198,7 +3203,7 @@ function renderSelectedSourcePanel(
                     <article class="rounded-lg border bg-card p-3">
                       <div class="flex items-start justify-between gap-2">
                         <div>
-                          <div class="text-xs text-muted-foreground">${escapeHtml(context.contextLabel)}</div>
+                          <div class="text-xs text-muted-foreground">可排唛架裁片单</div>
                           <div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(context.contextNo)}</div>
                         </div>
                         <button
@@ -3213,7 +3218,15 @@ function renderSelectedSourcePanel(
                       <div class="mt-2 grid gap-1 text-xs text-muted-foreground">
                         <div>生产单：${escapeHtml(context.productionOrderNos.join(' / ') || '—')}</div>
                         <div>款号 / SPU：${escapeHtml(`${context.styleCode || '-'} / ${context.spuCode || '-'}`)}</div>
-                        <div>面料 / 颜色：${escapeHtml(`${context.materialSkuSummary || '—'} / ${context.colorSummary || '—'}`)}</div>
+                        <div class="rounded-md border bg-muted/10 p-2">
+                          ${renderMaterialIdentityBlock({
+                            materialSku: context.materialSkuSummary || '—',
+                            materialLabel: context.materialSkuSummary || '—',
+                            materialAlias: context.materialAliasSummary,
+                            materialImageUrl: context.materialImageUrl,
+                          }, { compact: true })}
+                          <div class="mt-1 text-xs text-muted-foreground">颜色：${escapeHtml(context.colorSummary || '—')}</div>
+                        </div>
                         <div>技术包：${escapeHtml(context.techPackStatusLabel)}</div>
                       </div>
                     </article>
@@ -3227,58 +3240,23 @@ function renderSelectedSourcePanel(
                 : `<div class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-700">${escapeHtml(selectionValidation.message)}</div>`
             }
           `
-          : '<div class="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">暂无已选来源</div>'
+          : '<div class="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">暂无已选可排唛架裁片单</div>'
       }
     </section>
   `
 }
 
 function renderCreateSourceStep(viewModel = getViewModel()): string {
-  const baseContexts =
-    state.contextDrawerType === 'ALL'
-      ? (viewModel.pendingContexts.length ? viewModel.pendingContexts : viewModel.contexts)
-      : (() => {
-          const typedPending = viewModel.pendingContexts.filter((context) => context.contextType === state.contextDrawerType)
-          return typedPending.length ? typedPending : viewModel.contexts.filter((context) => context.contextType === state.contextDrawerType)
-        })()
-  const candidates = baseContexts.filter((context) => {
-    if (state.contextDrawerType !== 'ALL' && context.contextType !== state.contextDrawerType) return false
-    const keyword = state.contextKeyword.trim().toLowerCase()
-    if (!keyword) return true
-    const keywords = [
-      context.contextNo,
-      context.styleCode,
-      context.spuCode,
-      context.styleName,
-      context.materialSkuSummary,
-      context.colorSummary,
-      ...context.productionOrderNos,
-    ]
-      .filter(Boolean)
-      .map((item) => item.toLowerCase())
-    return keywords.some((item) => item.includes(keyword))
-  })
+  const candidates = filterMarkerSourceContextsByKeyword(getSelectableMarkerSourceContexts(viewModel))
   const selectedContexts = getSelectedDrawerContexts(viewModel)
   const selectionValidation = validateMarkerPlanSourceSelection(selectedContexts)
 
   return `
     <section class="rounded-xl border bg-card p-4" data-testid="marker-plan-create-source-step">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h3 class="text-sm font-semibold">选择排唛架来源</h3>
+        <h3 class="text-sm font-semibold">选择可排唛架裁片单</h3>
       </div>
-      <div class="grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">来源类型</span>
-          <select data-marker-plan-action="change-context-drawer-type" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="ALL" ${state.contextDrawerType === 'ALL' ? 'selected' : ''}>全部来源</option>
-            ${buildMarkerPlanContextTypeOptions()
-              .map(
-                (option) =>
-                  `<option value="${option.value}" ${state.contextDrawerType === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`,
-              )
-              .join('')}
-          </select>
-        </label>
+      <div class="grid gap-3">
         <label class="space-y-2">
           <span class="text-sm font-medium text-foreground">搜索</span>
           <input type="text" value="${escapeHtml(state.contextKeyword)}" data-marker-plan-context-field="contextKeyword" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
@@ -3286,16 +3264,15 @@ function renderCreateSourceStep(viewModel = getViewModel()): string {
       </div>
       <div class="mt-4">${renderSelectedSourcePanel(selectedContexts, selectionValidation)}</div>
       <div class="mt-4 overflow-hidden rounded-lg border bg-background">
-        <div class="border-b px-4 py-3 text-sm font-semibold">可选来源</div>
+        <div class="border-b px-4 py-3 text-sm font-semibold">可排唛架裁片单</div>
         <table class="min-w-full text-left text-sm">
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-3 font-medium">选择</th>
-              <th class="px-3 py-3 font-medium">来源类型</th>
-              <th class="px-3 py-3 font-medium">原始裁片单号 / 合并裁剪批次号</th>
+              <th class="px-3 py-3 font-medium">可排唛架裁片单号</th>
               <th class="px-3 py-3 font-medium">生产单号</th>
               <th class="px-3 py-3 font-medium">款号 / SPU</th>
-              <th class="px-3 py-3 font-medium">面料 SKU</th>
+              <th class="px-3 py-3 font-medium">面料</th>
               <th class="px-3 py-3 font-medium">颜色</th>
               <th class="px-3 py-3 font-medium">技术包状态</th>
               <th class="px-3 py-3 font-medium">待加工仓状态</th>
@@ -3308,23 +3285,27 @@ function renderCreateSourceStep(viewModel = getViewModel()): string {
                     .map((context) => `
                       <tr class="border-t ${state.selectedContextKeys.includes(context.contextKey) ? 'bg-blue-50/40' : ''}" data-marker-plan-context-row data-context-key="${escapeHtml(context.contextKey)}">
                         <td class="px-3 py-3">
-                          <input type="checkbox" value="${escapeHtml(context.contextKey)}" data-marker-plan-action="select-context" data-context-type="${escapeHtml(context.contextType)}" data-context-id="${escapeHtml(context.id)}" data-context-key="${escapeHtml(context.contextKey)}" ${state.selectedContextKeys.includes(context.contextKey) ? 'checked' : ''} />
+                          <input type="checkbox" value="${escapeHtml(context.contextKey)}" data-marker-plan-action="select-context" data-context-key="${escapeHtml(context.contextKey)}" ${state.selectedContextKeys.includes(context.contextKey) ? 'checked' : ''} />
                         </td>
-                        <td class="px-3 py-3">${escapeHtml(context.contextLabel)}</td>
                         <td class="px-3 py-3 font-medium">${escapeHtml(context.contextNo)}</td>
                         <td class="px-3 py-3">${escapeHtml(context.productionOrderNos.join(' / '))}</td>
                         <td class="px-3 py-3">
                           <div class="font-medium">${escapeHtml(context.styleCode || context.spuCode)}</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(context.styleName || '—')}</div>
                         </td>
-                        <td class="px-3 py-3">${escapeHtml(context.materialSkuSummary || '—')}</td>
+                        <td class="px-3 py-3">${renderMaterialIdentityBlock({
+                          materialSku: context.materialSkuSummary || '—',
+                          materialLabel: context.materialSkuSummary || '—',
+                          materialAlias: context.materialAliasSummary,
+                          materialImageUrl: context.materialImageUrl,
+                        }, { compact: true })}</td>
                         <td class="px-3 py-3">${escapeHtml(context.colorSummary || '—')}</td>
                         <td class="px-3 py-3">${escapeHtml(context.techPackStatusLabel)}</td>
                         <td class="px-3 py-3">${escapeHtml(context.prepStatusLabel)}</td>
                       </tr>
                     `)
                     .join('')
-                : `<tr><td colspan="9" class="px-3 py-8 text-center text-xs text-muted-foreground">当前筛选范围内没有可选来源。</td></tr>`
+                : `<tr><td colspan="8" class="px-3 py-8 text-center text-xs text-muted-foreground">当前筛选范围内没有可排唛架裁片单。</td></tr>`
             }
           </tbody>
         </table>
@@ -3344,7 +3325,7 @@ function renderCreateDemandStep(plan: MarkerPlan, context: MarkerPlanContextCand
       </div>
       <div class="grid gap-3 lg:grid-cols-3">
         ${renderInputField('方案编号', plan.markerNo, 'markerNo')}
-        ${renderReadonlyField('来源类型', context?.contextLabel || '待选择')}
+        ${renderReadonlyField('可排唛架裁片单', plan.cutOrderNos.join(' / ') || context?.contextNo || '待选择')}
         ${renderReadonlyField('来源生产单', plan.productionOrderNos.join(' / ') || '—')}
         ${renderReadonlyField('正式技术包', context?.techPackStatusLabel || plan.techPackVersion || '正式版')}
       </div>
@@ -3484,7 +3465,7 @@ function renderEditorBody(route: MarkerPlanRouteKind, plan: MarkerPlan | MarkerP
   if (!plan) {
     return `
       <section class="rounded-lg border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
-        当前还没选定排唛架来源，请先选择原始裁片单或合并裁剪批次。
+        当前还没选定可排唛架裁片单，请先选择后再编辑唛架方案。
       </section>
     `
   }
@@ -3590,7 +3571,7 @@ export function renderCraftCuttingMarkerPlanDetailPage(id?: string): string {
 function persistDraftPlan(): MarkerPlan | null {
   const context = getDraftContext(getViewModel())
   if (!state.draftPlan || !context) {
-    setFeedback('warning', '请先选择来源，再保存排唛架方案。')
+    setFeedback('warning', '请先选择可排唛架裁片单，再保存排唛架方案。')
     return null
   }
   const nextPlan = hydrateDraft(state.draftPlan, context)
@@ -3679,7 +3660,6 @@ function handleAction(action: string, node: HTMLElement): boolean {
   if (action === 'go-create') {
     state.draftPlan = null
     state.contextDrawerOpen = true
-    state.contextDrawerType = 'ALL'
     state.contextKeyword = ''
     state.selectedContextKeys = []
     appStore.navigate(CREATE_PATH)
@@ -3718,21 +3698,21 @@ function handleAction(action: string, node: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'go-original-orders') {
+  if (action === 'go-cut-orders') {
     const planId = node.dataset.planId || route.id
     const plan = resolveCurrentPlan(viewModel, planId)
     if (!plan) return false
-    appStore.navigate(buildGoOriginalOrdersPath(plan))
+    appStore.navigate(buildGoCutOrdersPath(plan))
     return true
   }
 
-  if (action === 'go-original-context') {
+  if (action === 'go-cut-order-context') {
     const contextType = node.dataset.contextType as MarkerPlanContextType | undefined
     const contextId = node.dataset.contextId || ''
     if (!contextType || !contextId) return false
     const context = findMarkerPlanContextById(viewModel.contexts, contextType, contextId)
     if (!context) return false
-    appStore.navigate(buildGoOriginalOrdersPathFromContext(context))
+    appStore.navigate(buildGoCutOrdersPathFromContext(context))
     return true
   }
 
@@ -3744,11 +3724,11 @@ function handleAction(action: string, node: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'go-merge-batch') {
+  if (action === 'go-marker-plan-ref') {
     const planId = node.dataset.planId || route.id
     const plan = resolveCurrentPlan(viewModel, planId)
-    if (!plan || !plan.mergeBatchId) return false
-    appStore.navigate(buildGoMergeBatchPath(plan))
+    if (!plan || !plan.markerPlanId) return false
+    appStore.navigate(buildGoMarkerPlanRefPath(plan))
     return true
   }
 
@@ -3760,10 +3740,10 @@ function handleAction(action: string, node: HTMLElement): boolean {
       buildGoProductionProgressPath({
         productionOrderId: node.dataset.productionOrderId || plan.productionOrderIds[0],
         productionOrderNo: node.dataset.productionOrderNo || plan.productionOrderNos[0],
-        originalCutOrderId: node.dataset.originalCutOrderId || plan.originalCutOrderIds[0],
-        originalCutOrderNo: node.dataset.originalCutOrderNo || plan.originalCutOrderNos[0],
-        mergeBatchId: node.dataset.mergeBatchId || plan.mergeBatchId || undefined,
-        mergeBatchNo: node.dataset.mergeBatchNo || plan.mergeBatchNo || undefined,
+        cutOrderId: node.dataset.cutOrderId || plan.cutOrderIds[0],
+        cutOrderNo: node.dataset.cutOrderNo || plan.cutOrderNos[0],
+        markerPlanId: node.dataset.markerPlanId || plan.markerPlanId || undefined,
+        markerPlanNo: node.dataset.markerPlanNo || plan.markerPlanNo || undefined,
         styleCode: node.dataset.styleCode || plan.styleCode,
         spuCode: node.dataset.spuCode || plan.spuCode,
         materialSku: node.dataset.materialSku || plan.sourceMaterialSku,
@@ -3777,8 +3757,8 @@ function handleAction(action: string, node: HTMLElement): boolean {
     const contextId = node.dataset.contextId || ''
     if (!contextType || !contextId) return false
     const context = findMarkerPlanContextById(viewModel.contexts, contextType, contextId)
-    if (!context || !context.mergeBatchId) return false
-    appStore.navigate(buildGoMergeBatchPathFromContext(context))
+    if (!context || !context.markerPlanId) return false
+    appStore.navigate(buildGoMarkerPlanRefPathFromContext(context))
     return true
   }
 
@@ -3791,7 +3771,6 @@ function handleAction(action: string, node: HTMLElement): boolean {
 
   if (action === 'open-context-drawer') {
     state.contextDrawerOpen = true
-    state.contextDrawerType = (node.dataset.contextType as 'ALL' | MarkerPlanContextType | undefined) || 'ALL'
     state.selectedContextKeys = []
     state.contextKeyword = ''
     mountContextDrawerDom(viewModel)
@@ -3803,13 +3782,6 @@ function handleAction(action: string, node: HTMLElement): boolean {
     state.selectedContextKeys = []
     removeContextDrawerDom()
     return false
-  }
-
-  if (action === 'change-context-drawer-type') {
-    const select = node as HTMLSelectElement
-    state.contextDrawerType = (select.value as 'ALL' | MarkerPlanContextType) || 'ALL'
-    state.selectedContextKeys = []
-    return true
   }
 
   if (action === 'select-context') {
@@ -3838,16 +3810,6 @@ function handleAction(action: string, node: HTMLElement): boolean {
     return createFromSelectedContext(viewModel)
   }
 
-  if (action === 'create-from-context') {
-    const contextType = node.dataset.contextType as MarkerPlanContextType | undefined
-    const contextId = node.dataset.contextId || ''
-    if (!contextType || !contextId) return false
-    const context = findMarkerPlanContextById(viewModel.contexts, contextType, contextId)
-    if (!context) return false
-    navigateToCreateWithContext(context)
-    return true
-  }
-
   if (action === 'reset-filters') {
     state.filters = { keyword: '', contextNo: '', markerNo: '', contextType: 'ALL', mode: 'ALL', status: 'ALL', ready: 'ALL' }
     return true
@@ -3868,7 +3830,6 @@ function handleAction(action: string, node: HTMLElement): boolean {
     const createStep = (node.dataset.createStep as MarkerPlanCreateStepKey | undefined) || 'source'
     if (createStep === 'source') {
       state.contextDrawerOpen = true
-      state.contextDrawerType = 'ALL'
       return true
     }
     state.contextDrawerOpen = false

@@ -27,10 +27,10 @@ export interface CutPieceWarehouseWritebackIdentityInput {
   warehouseRecordId: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId?: string
+  markerPlanNo?: string
   materialSku: string
 }
 
@@ -38,8 +38,8 @@ export interface SampleWarehouseWritebackIdentityInput {
   sampleRecordId: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   materialSku: string
 }
 
@@ -123,10 +123,10 @@ export function normalizeCutPieceWarehouseWritebackInput(
     warehouseRecordId: input.identity.warehouseRecordId,
     productionOrderId: input.identity.productionOrderId,
     productionOrderNo: input.identity.productionOrderNo,
-    originalCutOrderId: input.identity.originalCutOrderId,
-    originalCutOrderNo: input.identity.originalCutOrderNo,
-    mergeBatchId: input.identity.mergeBatchId || '',
-    mergeBatchNo: input.identity.mergeBatchNo || '',
+    cutOrderId: input.identity.cutOrderId,
+    cutOrderNo: input.identity.cutOrderNo,
+    markerPlanId: input.identity.markerPlanId || '',
+    markerPlanNo: input.identity.markerPlanNo || '',
     materialSku: input.identity.materialSku,
     zoneCode: input.zoneCode || 'UNASSIGNED',
     locationCode: input.locationCode?.trim() || '待补区域',
@@ -159,10 +159,10 @@ export function normalizeSampleWarehouseWritebackInput(
     sampleRecordId: input.identity.sampleRecordId,
     productionOrderId: input.identity.productionOrderId,
     productionOrderNo: input.identity.productionOrderNo,
-    originalCutOrderId: input.identity.originalCutOrderId,
-    originalCutOrderNo: input.identity.originalCutOrderNo,
-    mergeBatchId: '',
-    mergeBatchNo: '',
+    cutOrderId: input.identity.cutOrderId,
+    cutOrderNo: input.identity.cutOrderNo,
+    markerPlanId: '',
+    markerPlanNo: '',
     materialSku: input.identity.materialSku,
     locationType: input.locationType || 'production-center',
     holder: input.holder?.trim() || 'PMC 样衣仓',

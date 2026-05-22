@@ -44,7 +44,7 @@ export function buildPdaCuttingTaskEntryAction(
 export function getPdaCuttingTaskStateBadgeClass(taskStateLabel?: string): string {
   if (taskStateLabel === '已完成') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
   if (taskStateLabel === '有异常') return 'border-destructive/20 bg-destructive text-destructive-foreground'
-  if (taskStateLabel === '部分完成') return 'border-amber-200 bg-amber-50 text-amber-700'
+  if (taskStateLabel?.includes('部分')) return 'border-amber-200 bg-amber-50 text-amber-700'
   if (taskStateLabel === '进行中') return 'border-blue-200 bg-blue-50 text-blue-700'
   return 'border-border bg-background text-muted-foreground'
 }

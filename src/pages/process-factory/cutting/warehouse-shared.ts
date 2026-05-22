@@ -1,20 +1,20 @@
 import { appStore } from '../../../state/store.ts'
 
 export interface WarehouseNavigationPayload {
-  originalOrders: Record<string, string | undefined>
+  cutOrders: Record<string, string | undefined>
   materialPrep: Record<string, string | undefined>
   summary: Record<string, string | undefined>
   transferBags: Record<string, string | undefined>
 }
 
 export function buildWarehouseQueryPayload(options: {
-  originalCutOrderNo?: string
-  originalCutOrderId?: string
+  cutOrderNo?: string
+  cutOrderId?: string
   productionOrderNo?: string
   productionOrderId?: string
   materialSku?: string
-  mergeBatchNo?: string
-  mergeBatchId?: string
+  markerPlanNo?: string
+  markerPlanId?: string
   ticketId?: string
   ticketNo?: string
   bagId?: string
@@ -30,43 +30,43 @@ export function buildWarehouseQueryPayload(options: {
   autoOpenDetail?: boolean
 }): WarehouseNavigationPayload {
   return {
-    originalOrders: {
-      originalCutOrderNo: options.originalCutOrderNo,
-      originalCutOrderId: options.originalCutOrderId,
+    cutOrders: {
+      cutOrderNo: options.cutOrderNo,
+      cutOrderId: options.cutOrderId,
       productionOrderNo: options.productionOrderNo,
       productionOrderId: options.productionOrderId,
-      mergeBatchNo: options.mergeBatchNo,
-      mergeBatchId: options.mergeBatchId,
+      markerPlanNo: options.markerPlanNo,
+      markerPlanId: options.markerPlanId,
       styleCode: options.styleCode,
       materialSku: options.materialSku,
     },
     materialPrep: {
-      originalCutOrderNo: options.originalCutOrderNo,
-      originalCutOrderId: options.originalCutOrderId,
+      cutOrderNo: options.cutOrderNo,
+      cutOrderId: options.cutOrderId,
       productionOrderNo: options.productionOrderNo,
       productionOrderId: options.productionOrderId,
       materialSku: options.materialSku,
-      mergeBatchNo: options.mergeBatchNo,
-      mergeBatchId: options.mergeBatchId,
+      markerPlanNo: options.markerPlanNo,
+      markerPlanId: options.markerPlanId,
     },
     summary: {
-      originalCutOrderNo: options.originalCutOrderNo,
-      originalCutOrderId: options.originalCutOrderId,
+      cutOrderNo: options.cutOrderNo,
+      cutOrderId: options.cutOrderId,
       productionOrderNo: options.productionOrderNo,
       productionOrderId: options.productionOrderId,
-      mergeBatchNo: options.mergeBatchNo,
-      mergeBatchId: options.mergeBatchId,
+      markerPlanNo: options.markerPlanNo,
+      markerPlanId: options.markerPlanId,
       materialSku: options.materialSku,
       styleCode: options.styleCode,
       sampleNo: options.sampleNo,
     },
     transferBags: {
-      originalCutOrderNo: options.originalCutOrderNo,
-      originalCutOrderId: options.originalCutOrderId,
+      cutOrderNo: options.cutOrderNo,
+      cutOrderId: options.cutOrderId,
       productionOrderNo: options.productionOrderNo,
       productionOrderId: options.productionOrderId,
-      mergeBatchNo: options.mergeBatchNo,
-      mergeBatchId: options.mergeBatchId,
+      markerPlanNo: options.markerPlanNo,
+      markerPlanId: options.markerPlanId,
       materialSku: options.materialSku,
       ticketId: options.ticketId,
       ticketNo: options.ticketNo,

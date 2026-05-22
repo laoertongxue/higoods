@@ -144,7 +144,6 @@ import {
   isCraftCuttingProductionProgressDialogOpen,
 } from '../pages/process-factory/cutting/production-progress'
 import { handleCraftCuttingCuttablePoolEvent } from '../pages/process-factory/cutting/cuttable-pool'
-import { handleCraftCuttingMergeBatchesEvent } from '../pages/process-factory/cutting/merge-batches'
 import {
   handleCraftCuttingMarkerPlanEvent,
   isCraftCuttingMarkerPlanDialogOpen,
@@ -155,9 +154,9 @@ import {
 } from '../pages/process-factory/cutting/marker-spreading'
 import { handleCraftCuttingFeiTicketsEvent } from '../pages/process-factory/cutting/fei-tickets'
 import {
-  handleCraftCuttingOriginalOrdersEvent,
-  isCraftCuttingOriginalOrdersDialogOpen,
-} from '../pages/process-factory/cutting/original-orders'
+  handleCraftCuttingCutOrdersEvent,
+  isCraftCuttingCutOrdersDialogOpen,
+} from '../pages/process-factory/cutting/cut-orders'
 import {
   handleCraftCuttingReplenishmentEvent,
   isCraftCuttingReplenishmentDialogOpen,
@@ -237,7 +236,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     handleSpecialCraftTaskOrdersEvent(target) ||
     handleSpecialCraftWarehouseEvent(target) ||
     await handleSpecialCraftWorkOrderDetailEvent(target) ||
-    await handleCraftCuttingOriginalOrdersEvent(target) ||
+    await handleCraftCuttingCutOrdersEvent(target) ||
     await handleFactoryOnboardingEvent(target) ||
     await handleFactoryPageEvent(target) ||
     await handleFactoryCapacityProfileEvent(target) ||
@@ -277,7 +276,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleCuttingSettlementInputEvent(target) ||
     await handleCraftCuttingProductionProgressEvent(target) ||
     await handleCraftCuttingCuttablePoolEvent(target) ||
-    await handleCraftCuttingMergeBatchesEvent(target) ||
     await handleCraftCuttingMarkerPlanEvent(target) ||
     await handleCraftCuttingMarkerSpreadingEvent(target) ||
     await handleCraftCuttingFeiTicketsEvent(target) ||
@@ -561,10 +559,10 @@ export function closeFcsDialogsOnEscape(): boolean {
     return true
   }
 
-  if (isCraftCuttingOriginalOrdersDialogOpen()) {
+  if (isCraftCuttingCutOrdersDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.cuttingPieceAction = 'close-overlay'
-    handleCraftCuttingOriginalOrdersEvent(fakeButton)
+    handleCraftCuttingCutOrdersEvent(fakeButton)
     return true
   }
 

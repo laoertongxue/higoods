@@ -38,7 +38,7 @@ export const POST_EXECUTION_MODE_LABEL: Record<PostExecutionMode, string> = {
 }
 
 export const POST_ROUTE_NODE_LABEL: Record<PostRouteCurrentNode, string> = {
-  WAIT_SEW_HANDOVER: '待车缝交出',
+  WAIT_SEW_HANDOVER: '待交出',
   WAIT_RECEIVER_WRITEBACK: '待接收方回写',
   WAIT_RECEIVING_QC: '待回货质检',
   WAIT_POST_EXECUTION: '待后道',

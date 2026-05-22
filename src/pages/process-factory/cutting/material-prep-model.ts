@@ -11,7 +11,7 @@ import {
   parseLengthQtyFromText,
 } from '../../../helpers/fcs-claim-dispute.ts'
 import type { ClaimDisputeRecord } from '../../../models/fcs-claim-dispute.ts'
-import { getLatestClaimDisputeByOriginalCutOrderNo, listClaimDisputesByOriginalCutOrderNo } from '../../../state/fcs-claim-dispute-store.ts'
+import { getLatestClaimDisputeByCutOrderNo, listClaimDisputesByCutOrderNo } from '../../../state/fcs-claim-dispute-store.ts'
 import {
   buildCutOrderQrValue,
 } from '../../../data/fcs/cutting/qr-codes.ts'
@@ -33,8 +33,8 @@ import {
   shouldDisplayQrLabelByPrepStatus,
   shouldPrintPrepQr,
 } from './material-prep.helpers.ts'
-import { summarizeMergeBatchParticipation } from './original-orders-model.ts'
-import type { MergeBatchRecord } from './merge-batches-model.ts'
+import { summarizeMarkerPlanRefParticipation } from './cut-orders-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
 import { buildProductionProgressRows, type ProductionProgressUrgencyKey, urgencyMeta } from './production-progress-model.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
@@ -72,7 +72,7 @@ export interface MaterialPrepRiskTag {
 
 export interface MaterialClaimRecord {
   claimRecordId: string
-  originalCutOrderId: string
+  cutOrderId: string
   claimedAt: string
   claimedBy: string
   result: 'SUCCESS' | 'PARTIAL' | 'EXCEPTION'
@@ -86,6 +86,8 @@ export interface MaterialPrepLineItem {
   materialName: string
   materialCategory: string
   materialAttr: string
+  materialAlias: string
+  materialImageUrl: string
   materialTypeName: '印花面料' | '染色面料' | '纯色面料' | '里布'
   requiredQty: number
   configuredQty: number
@@ -106,17 +108,17 @@ export interface MaterialPrepLineItem {
 }
 
 export interface MaterialPrepNavigationPayload {
-  originalOrders: Record<string, string | undefined>
+  cutOrders: Record<string, string | undefined>
   markerSpreading: Record<string, string | undefined>
   summary: Record<string, string | undefined>
   productionProgress: Record<string, string | undefined>
-  mergeBatches: Record<string, string | undefined>
+  markerPlanRefs: Record<string, string | undefined>
 }
 
 export interface MaterialPrepRow {
   id: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   styleCode: string
@@ -160,10 +162,10 @@ export interface MaterialPrepRow {
   claimDisputeHandleSummary: string
   printedAt: string
   printedBy: string
-  latestMergeBatchId: string
-  latestMergeBatchNo: string
-  mergeBatchNos: string[]
-  mergeBatchIds: string[]
+  latestMarkerPlanId: string
+  latestMarkerPlanNo: string
+  markerPlanNos: string[]
+  markerPlanIds: string[]
   currentStageText: string
   replenishmentPendingPrepItems: ReplenishmentPendingPrepFollowupRecord[]
   replenishmentPendingPrepCount: number
@@ -195,8 +197,8 @@ export interface MaterialPrepFilters {
 export interface MaterialPrepPrefilter {
   productionOrderId?: string
   productionOrderNo?: string
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
   styleCode?: string
   spuCode?: string
   materialSku?: string
@@ -219,7 +221,7 @@ export interface MaterialPrepStats {
 export interface IssueListPrintPayload {
   title: string
   printTime: string
-  originalCutOrderNo: string
+  cutOrderNo: string
   sameCodeValue: string
   cutOrderQrValue: string
   qrCodeValue: string
@@ -244,16 +246,16 @@ export interface IssueListPrintPayload {
 }
 
 export const materialPrepMeta: Record<CuttingConfigStatus, { label: string; className: string }> = {
-  NOT_CONFIGURED: { label: '未配置', className: 'bg-slate-100 text-slate-700' },
-  PARTIAL: { label: '部分配置', className: 'bg-orange-100 text-orange-700' },
-  CONFIGURED: { label: '已配置', className: 'bg-emerald-100 text-emerald-700' },
+  NOT_CONFIGURED: { label: '无配料数量', className: 'bg-slate-100 text-slate-700' },
+  PARTIAL: { label: '配料数量不足', className: 'bg-orange-100 text-orange-700' },
+  CONFIGURED: { label: '有配料数量', className: 'bg-emerald-100 text-emerald-700' },
 }
 
 export const materialClaimMeta: Record<MaterialPrepClaimAggregateKey, { label: string; className: string }> = {
-  NOT_RECEIVED: { label: '待来料', className: 'bg-slate-100 text-slate-700' },
-  PARTIAL: { label: '部分来料', className: 'bg-orange-100 text-orange-700' },
-  RECEIVED: { label: '已入待加工仓', className: 'bg-emerald-100 text-emerald-700' },
-  EXCEPTION: { label: '异常提交', className: 'bg-rose-100 text-rose-700' },
+  NOT_RECEIVED: { label: '无领料记录', className: 'bg-slate-100 text-slate-700' },
+  PARTIAL: { label: '领料数量不足', className: 'bg-orange-100 text-orange-700' },
+  RECEIVED: { label: '有领料记录', className: 'bg-emerald-100 text-emerald-700' },
+  EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700' },
 }
 
 export const materialSchedulingMeta: Record<MaterialPrepSchedulingKey, { label: string; className: string }> = {
@@ -262,21 +264,21 @@ export const materialSchedulingMeta: Record<MaterialPrepSchedulingKey, { label: 
 }
 
 export const materialPrepStageMeta: Record<MaterialPrepStageKey, { label: string; className: string }> = {
-  WAITING_PREP: { label: 'WMS 待处理', className: 'bg-slate-100 text-slate-700' },
-  WAITING_CLAIM: { label: '待来料', className: 'bg-blue-100 text-blue-700' },
+  WAITING_PREP: { label: '未开工', className: 'bg-slate-100 text-slate-700' },
+  WAITING_CLAIM: { label: '未开工', className: 'bg-slate-100 text-slate-700' },
   WAITING_SCHEDULING: { label: '待排单', className: 'bg-sky-100 text-sky-700' },
   ASSIGNED: { label: '已排单', className: 'bg-cyan-100 text-cyan-700' },
-  CUTTING: { label: '裁剪中', className: 'bg-violet-100 text-violet-700' },
-  WAITING_INBOUND: { label: '待入仓', className: 'bg-indigo-100 text-indigo-700' },
-  DONE: { label: '已完成', className: 'bg-emerald-100 text-emerald-700' },
+  CUTTING: { label: '已开工', className: 'bg-violet-100 text-violet-700' },
+  WAITING_INBOUND: { label: '已开工', className: 'bg-violet-100 text-violet-700' },
+  DONE: { label: '已开工', className: 'bg-violet-100 text-violet-700' },
 }
 
 export const materialPrepRiskMeta: Record<MaterialPrepRiskKey, { label: string; className: string }> = {
-  PREP_DELAY: { label: 'WMS滞后', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
-  CLAIM_EXCEPTION: { label: '来料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
+  PREP_DELAY: { label: '中转仓滞后', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
+  CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
   DATE_MISSING: { label: '日期缺失', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
-  STATUS_CONFLICT: { label: '状态不一致', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
+  STATUS_CONFLICT: { label: '数量差异', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
   UNASSIGNED: { label: '待排单', className: 'bg-sky-100 text-sky-700 border border-sky-200' },
 }
 
@@ -322,7 +324,7 @@ function inferAssignedCuttingGroup(record: CuttingOrderProgressRecord, line: Cut
   if (record.hasSpreadingRecord || /裁片中|裁剪中|待入仓|已完成/.test(record.cuttingStage)) {
     return `${formatFactoryDisplayName(record.assignedFactoryName)} / 裁床一组`
   }
-  if (line.batchOccupancyStatus === 'IN_BATCH') {
+  if (line.markerPlanOccupancyStatus === 'IN_MARKER_PLAN') {
     return `${formatFactoryDisplayName(record.assignedFactoryName)} / 待排床`
   }
   return ''
@@ -340,11 +342,11 @@ export function deriveMaterialPrepStatus(lineItems: MaterialPrepLineItem[]): Mat
   const partialCount = lineItems.filter((item) => item.configuredQty > 0 && item.configuredQty < item.requiredQty).length
 
   if (configuredCount === total && total > 0) {
-    return buildSummaryMeta('CONFIGURED', materialPrepMeta.CONFIGURED.label, materialPrepMeta.CONFIGURED.className, `已完成 ${configuredCount}/${total} 项配置。`)
+    return buildSummaryMeta('CONFIGURED', materialPrepMeta.CONFIGURED.label, materialPrepMeta.CONFIGURED.className, `中转仓已配 ${configuredCount}/${total} 项。`)
   }
 
   if (configuredCount > 0 || partialCount > 0) {
-    return buildSummaryMeta('PARTIAL', materialPrepMeta.PARTIAL.label, materialPrepMeta.PARTIAL.className, `已配置 ${configuredCount + partialCount}/${total} 项，仍有剩余待补齐。`)
+    return buildSummaryMeta('PARTIAL', materialPrepMeta.PARTIAL.label, materialPrepMeta.PARTIAL.className, `中转仓已配 ${configuredCount + partialCount}/${total} 项，仍有剩余待补齐。`)
   }
 
   return buildSummaryMeta('NOT_CONFIGURED', materialPrepMeta.NOT_CONFIGURED.label, materialPrepMeta.NOT_CONFIGURED.className, `当前共 ${total} 项面料待进入待加工仓。`)
@@ -352,7 +354,7 @@ export function deriveMaterialPrepStatus(lineItems: MaterialPrepLineItem[]): Mat
 
 export function deriveMaterialClaimStatus(lineItems: MaterialPrepLineItem[]): MaterialPrepSummaryMeta<MaterialPrepClaimAggregateKey> {
   if (lineItems.some((item) => item.hasClaimException)) {
-    return buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '当前存在来料差异，待仓库复核。')
+    return buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '当前存在领料差异，待仓库复核。')
   }
 
   const total = lineItems.length
@@ -360,14 +362,14 @@ export function deriveMaterialClaimStatus(lineItems: MaterialPrepLineItem[]): Ma
   const partialCount = lineItems.filter((item) => item.claimedQty > 0 && item.claimedQty < item.requiredQty).length
 
   if (receivedCount === total && total > 0) {
-    return buildSummaryMeta('RECEIVED', materialClaimMeta.RECEIVED.label, materialClaimMeta.RECEIVED.className, `已完成 ${receivedCount}/${total} 项WMS 来料。`)
+    return buildSummaryMeta('RECEIVED', materialClaimMeta.RECEIVED.label, materialClaimMeta.RECEIVED.className, `裁床已领 ${receivedCount}/${total} 项。`)
   }
 
   if (receivedCount > 0 || partialCount > 0) {
-    return buildSummaryMeta('PARTIAL', materialClaimMeta.PARTIAL.label, materialClaimMeta.PARTIAL.className, `已领取 ${receivedCount + partialCount}/${total} 项，仍有余量待补齐。`)
+    return buildSummaryMeta('PARTIAL', materialClaimMeta.PARTIAL.label, materialClaimMeta.PARTIAL.className, `裁床已领 ${receivedCount + partialCount}/${total} 项，仍有余量待补齐。`)
   }
 
-  return buildSummaryMeta('NOT_RECEIVED', materialClaimMeta.NOT_RECEIVED.label, materialClaimMeta.NOT_RECEIVED.className, `当前共 ${total} 项面料待来料。`)
+  return buildSummaryMeta('NOT_RECEIVED', materialClaimMeta.NOT_RECEIVED.label, materialClaimMeta.NOT_RECEIVED.className, `当前共 ${total} 项面料未形成领料记录。`)
 }
 
 export function deriveSchedulingStatus(assignedCuttingGroup: string): MaterialPrepSummaryMeta<MaterialPrepSchedulingKey> {
@@ -377,12 +379,12 @@ export function deriveSchedulingStatus(assignedCuttingGroup: string): MaterialPr
   return buildSummaryMeta('UNASSIGNED', materialSchedulingMeta.UNASSIGNED.label, materialSchedulingMeta.UNASSIGNED.className, '当前尚未分配裁床组。')
 }
 
-export function buildSameCodeValue(originalCutOrderNo: string): string {
-  return originalCutOrderNo
+export function buildSameCodeValue(cutOrderNo: string): string {
+  return cutOrderNo
 }
 
-function buildQrCodeValue(originalCutOrderNo: string): string {
-  return buildCutOrderQrValue(originalCutOrderNo)
+function buildQrCodeValue(cutOrderNo: string): string {
+  return buildCutOrderQrValue(cutOrderNo)
 }
 
 function deriveCurrentStage(
@@ -390,22 +392,22 @@ function deriveCurrentStage(
   row: Pick<MaterialPrepRow, 'materialPrepStatus' | 'materialClaimStatus' | 'schedulingStatus'>,
 ): MaterialPrepSummaryMeta<MaterialPrepStageKey> {
   if (record.hasInboundRecord || /已完成|已入仓/.test(record.cuttingStage)) {
-    return buildSummaryMeta('DONE', materialPrepStageMeta.DONE.label, materialPrepStageMeta.DONE.className, '当前原始裁片单已进入入仓 / 完成后续。')
+    return buildSummaryMeta('DONE', materialPrepStageMeta.DONE.label, materialPrepStageMeta.DONE.className, '当前裁片单已产生裁剪后续记录。')
   }
   if (/待入仓/.test(record.cuttingStage)) {
-    return buildSummaryMeta('WAITING_INBOUND', materialPrepStageMeta.WAITING_INBOUND.label, materialPrepStageMeta.WAITING_INBOUND.className, '裁片已完成当前执行，等待入仓确认。')
+    return buildSummaryMeta('WAITING_INBOUND', materialPrepStageMeta.WAITING_INBOUND.label, materialPrepStageMeta.WAITING_INBOUND.className, '当前裁片单已进入铺布裁剪后续。')
   }
   if (record.hasSpreadingRecord || /裁片中|裁剪中/.test(record.cuttingStage)) {
-    return buildSummaryMeta('CUTTING', materialPrepStageMeta.CUTTING.label, materialPrepStageMeta.CUTTING.className, '当前已进入裁剪执行上下文。')
+    return buildSummaryMeta('CUTTING', materialPrepStageMeta.CUTTING.label, materialPrepStageMeta.CUTTING.className, '当前已进入铺布裁剪执行上下文。')
   }
   if (row.materialPrepStatus.key === 'NOT_CONFIGURED' || row.materialPrepStatus.key === 'PARTIAL') {
-    return buildSummaryMeta('WAITING_PREP', materialPrepStageMeta.WAITING_PREP.label, materialPrepStageMeta.WAITING_PREP.className, '当前仍处于待加工仓接收阶段。')
+    return buildSummaryMeta('WAITING_PREP', materialPrepStageMeta.WAITING_PREP.label, materialPrepStageMeta.WAITING_PREP.className, '当前仍未形成完整中转仓配料数量。')
   }
   if (row.materialClaimStatus.key === 'NOT_RECEIVED' || row.materialClaimStatus.key === 'PARTIAL' || row.materialClaimStatus.key === 'EXCEPTION') {
-    return buildSummaryMeta('WAITING_CLAIM', materialPrepStageMeta.WAITING_CLAIM.label, materialPrepStageMeta.WAITING_CLAIM.className, '当前仍待来料回写完成。')
+    return buildSummaryMeta('WAITING_CLAIM', materialPrepStageMeta.WAITING_CLAIM.label, materialPrepStageMeta.WAITING_CLAIM.className, '当前仍未形成完整裁床领料数量。')
   }
   if (row.schedulingStatus.key === 'UNASSIGNED') {
-    return buildSummaryMeta('WAITING_SCHEDULING', materialPrepStageMeta.WAITING_SCHEDULING.label, materialPrepStageMeta.WAITING_SCHEDULING.className, 'WMS 来料已到位，等待分配裁床组。')
+    return buildSummaryMeta('WAITING_SCHEDULING', materialPrepStageMeta.WAITING_SCHEDULING.label, materialPrepStageMeta.WAITING_SCHEDULING.className, '领料已到位，等待分配裁床组。')
   }
   return buildSummaryMeta('ASSIGNED', materialPrepStageMeta.ASSIGNED.label, materialPrepStageMeta.ASSIGNED.className, '当前已具备进入唛架铺布的执行准备。')
 }
@@ -413,7 +415,7 @@ function deriveCurrentStage(
 function buildInitialClaimRecords(
   record: CuttingOrderProgressRecord,
   lineItem: MaterialPrepLineItem,
-  originalCutOrderId: string,
+  cutOrderId: string,
 ): MaterialClaimRecord[] {
   if (lineItem.claimedQty <= 0 && !lineItem.hasClaimException) return []
 
@@ -422,17 +424,17 @@ function buildInitialClaimRecords(
 
   return [
     {
-      claimRecordId: `${originalCutOrderId}-claim-seed`,
-      originalCutOrderId,
+      claimRecordId: `${cutOrderId}-claim-seed`,
+      cutOrderId,
       claimedAt: record.lastPickupScanAt || record.lastFieldUpdateAt || '',
-      claimedBy: record.lastOperatorName || '仓库WMS 来料员',
+      claimedBy: record.lastOperatorName || '仓库领料员',
       result,
       summary:
         result === 'SUCCESS'
           ? `已回写 ${formatQty(lineItem.claimedQty)} 米。`
           : result === 'PARTIAL'
-            ? `已回写部分来料 ${formatQty(lineItem.claimedQty)} 米。`
-            : 'WMS 来料存在差异，待仓库复核。',
+            ? `已回写领料数量 ${formatQty(lineItem.claimedQty)} 米。`
+            : '领料存在差异，待仓库复核。',
       note: lineItem.latestActionText,
     },
   ].filter((item) => item.claimedAt)
@@ -451,7 +453,7 @@ function buildPdaPickupClaimSummary(record: PdaPickupWritebackRecord): string {
   if (!isPickupWritebackSuccess(record.resultLabel)) {
     return `${record.resultLabel}：${record.discrepancyNote || '待仓库复核'}`
   }
-  return `已回写 ${record.actualReceivedQtyText || 'WMS 来料结果'}。`
+  return `已回写 ${record.actualReceivedQtyText || '领料结果'}。`
 }
 
 function applyPdaPickupWritebacksToRow(
@@ -482,7 +484,7 @@ function applyPdaPickupWritebacksToRow(
 
   const overlayClaimRecords = pickupWritebacks.map<MaterialClaimRecord>((record) => ({
     claimRecordId: record.writebackId,
-    originalCutOrderId: row.originalCutOrderId,
+    cutOrderId: row.cutOrderId,
     claimedAt: record.submittedAt,
     claimedBy: record.operatorName,
     result: mapPickupWritebackResult(record.resultLabel),
@@ -496,8 +498,8 @@ function applyPdaPickupWritebacksToRow(
 }
 
 function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterialLine): MaterialPrepLineItem {
-  const originalCutOrderId = line.originalCutOrderId || line.originalCutOrderNo || line.cutPieceOrderNo
-  const materialLineId = `${originalCutOrderId}::${line.materialSku || line.materialLabel || 'material'}`
+  const cutOrderId = line.cutOrderId || line.cutOrderNo || line.cutPieceOrderNo
+  const materialLineId = `${cutOrderId}::${line.materialSku || line.materialLabel || 'material'}`
   const requiredQty = inferRequiredQty(line)
   const configuredQty = line.configuredLength
   const claimedQty = line.receivedLength
@@ -510,6 +512,8 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
       materialName: line.materialLabel,
       materialCategory: materialCategoryLabel(line),
       materialAttr: line.color || '待补',
+      materialAlias: line.materialAlias || '',
+      materialImageUrl: line.materialImageUrl || '',
       materialTypeName: materialTypeName(line),
       requiredQty,
       configuredQty,
@@ -538,6 +542,8 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
       materialName: line.materialLabel,
       materialCategory: materialCategoryLabel(line),
       materialAttr: line.color || '待补',
+      materialAlias: line.materialAlias || '',
+      materialImageUrl: line.materialImageUrl || '',
       materialTypeName: materialTypeName(line),
       requiredQty,
       configuredQty,
@@ -565,6 +571,8 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
     materialName: line.materialLabel,
     materialCategory: materialCategoryLabel(line),
     materialAttr: line.color || '待补',
+    materialAlias: line.materialAlias || '',
+    materialImageUrl: line.materialImageUrl || '',
     materialTypeName: materialTypeName(line),
     requiredQty,
     configuredQty,
@@ -597,32 +605,32 @@ export function summarizeMaterialLineItems(lineItems: MaterialPrepLineItem[]): s
   const configured = lineItems.reduce((sum, item) => sum + item.configuredQty, 0)
   const claimed = lineItems.reduce((sum, item) => sum + item.claimedQty, 0)
   const shortage = lineItems.reduce((sum, item) => sum + item.shortageQty, 0)
-  return `需求 ${formatQty(required)} 米 / 已配置 ${formatQty(configured)} 米 / 已领取 ${formatQty(claimed)} 米 / 缺口 ${formatQty(shortage)} 米`
+  return `需求 ${formatQty(required)} 米 / 中转仓已配 ${formatQty(configured)} 米 / 裁床已领 ${formatQty(claimed)} 米 / 缺口 ${formatQty(shortage)} 米`
 }
 
 export function buildMaterialPrepNavigationPayload(row: Pick<
   MaterialPrepRow,
-  | 'originalCutOrderId'
-  | 'originalCutOrderNo'
+  | 'cutOrderId'
+  | 'cutOrderNo'
   | 'productionOrderId'
   | 'productionOrderNo'
   | 'styleCode'
   | 'spuCode'
   | 'materialSkuSummary'
-  | 'latestMergeBatchId'
-  | 'latestMergeBatchNo'
+  | 'latestMarkerPlanId'
+  | 'latestMarkerPlanNo'
 >): MaterialPrepNavigationPayload {
   return {
-    originalOrders: {
-      originalCutOrderId: row.originalCutOrderId,
-      originalCutOrderNo: row.originalCutOrderNo,
+    cutOrders: {
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
       productionOrderNo: row.productionOrderNo,
     },
     markerSpreading: {
-      originalCutOrderId: row.originalCutOrderId,
-      originalCutOrderNo: row.originalCutOrderNo,
-      mergeBatchId: row.latestMergeBatchId || undefined,
-      mergeBatchNo: row.latestMergeBatchNo || undefined,
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+      markerPlanId: row.latestMarkerPlanId || undefined,
+      markerPlanNo: row.latestMarkerPlanNo || undefined,
       productionOrderNo: row.productionOrderNo,
       materialSku: row.materialSkuSummary || undefined,
       tab: 'spreadings',
@@ -630,21 +638,21 @@ export function buildMaterialPrepNavigationPayload(row: Pick<
     summary: {
       productionOrderId: row.productionOrderId,
       productionOrderNo: row.productionOrderNo,
-      originalCutOrderId: row.originalCutOrderId,
-      originalCutOrderNo: row.originalCutOrderNo,
-      mergeBatchId: row.latestMergeBatchId || undefined,
-      mergeBatchNo: row.latestMergeBatchNo || undefined,
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+      markerPlanId: row.latestMarkerPlanId || undefined,
+      markerPlanNo: row.latestMarkerPlanNo || undefined,
       materialSku: row.materialSkuSummary || undefined,
     },
     productionProgress: {
       productionOrderId: row.productionOrderId,
       productionOrderNo: row.productionOrderNo,
     },
-    mergeBatches: {
-      mergeBatchId: row.latestMergeBatchId || undefined,
-      mergeBatchNo: row.latestMergeBatchNo || undefined,
-      originalCutOrderNo: row.originalCutOrderNo,
-      originalCutOrderId: row.originalCutOrderId,
+    markerPlanRefs: {
+      markerPlanId: row.latestMarkerPlanId || undefined,
+      markerPlanNo: row.latestMarkerPlanNo || undefined,
+      cutOrderNo: row.cutOrderNo,
+      cutOrderId: row.cutOrderId,
     },
   }
 }
@@ -672,24 +680,24 @@ function buildRiskTags(
 function createRow(
   record: CuttingOrderProgressRecord,
   line: CuttingMaterialLine,
-  ledger: MergeBatchRecord[],
+  ledger: MarkerPlanRefRecord[],
 ): MaterialPrepRow {
-  const originalCutOrderId = line.originalCutOrderId || line.originalCutOrderNo || line.cutPieceOrderNo
-  const originalCutOrderNo = line.originalCutOrderNo || line.originalCutOrderId || line.cutPieceOrderNo
+  const cutOrderId = line.cutOrderId || line.cutOrderNo || line.cutPieceOrderNo
+  const cutOrderNo = line.cutOrderNo || line.cutOrderId || line.cutPieceOrderNo
   const progressRows = buildProductionProgressRows([record])
   const urgency = urgencyMeta[progressRows[0]?.urgency.key ?? 'UNKNOWN']
   const lineItems = [buildLineItem(record, line)]
-  const batchSummary = summarizeMergeBatchParticipation(originalCutOrderId, ledger)
-  const claimRecords = buildInitialClaimRecords(record, lineItems[0], originalCutOrderId)
+  const batchSummary = summarizeMarkerPlanRefParticipation(cutOrderId, ledger)
+  const claimRecords = buildInitialClaimRecords(record, lineItems[0], cutOrderId)
   const materialPrepStatus = deriveMaterialPrepStatus(lineItems)
   const materialClaimStatus = deriveMaterialClaimStatus(lineItems)
   const assignedCuttingGroup = inferAssignedCuttingGroup(record, line)
   const schedulingStatus = deriveSchedulingStatus(assignedCuttingGroup)
 
   const baseRow: MaterialPrepRow = {
-    id: originalCutOrderId,
-    originalCutOrderId,
-    originalCutOrderNo,
+    id: cutOrderId,
+    cutOrderId,
+    cutOrderNo,
     productionOrderId: record.productionOrderId,
     productionOrderNo: record.productionOrderNo,
     styleCode: record.styleCode,
@@ -702,9 +710,9 @@ function createRow(
     urgencyKey: progressRows[0]?.urgency.key ?? 'UNKNOWN',
     urgencyLabel: urgency.label,
     urgencyClassName: urgency.className,
-    sameCodeValue: buildSameCodeValue(originalCutOrderNo),
-    cutOrderQrValue: buildQrCodeValue(originalCutOrderNo),
-    qrCodeValue: buildQrCodeValue(originalCutOrderNo),
+    sameCodeValue: buildSameCodeValue(cutOrderNo),
+    cutOrderQrValue: buildQrCodeValue(cutOrderNo),
+    qrCodeValue: buildQrCodeValue(cutOrderNo),
     qrCodeLabel: '裁片单二维码',
     shouldDisplayQr: false,
     shouldDisplayQrLabel: false,
@@ -727,34 +735,34 @@ function createRow(
     latestClaimDispute: null,
     hasClaimDispute: false,
     claimDisputeStatusLabel: '暂无异议',
-    claimDisputeSummary: '当前暂无WMS 来料长度异议。',
+    claimDisputeSummary: '当前暂无领料长度异议。',
     claimDisputeDiscrepancyText: '差异 0 米',
     claimDisputeEvidenceCount: 0,
     claimDisputeHandleSummary: '待平台处理结果',
     printedAt: line.printSlipStatus === 'PRINTED' ? record.lastFieldUpdateAt || record.lastPickupScanAt || '' : '',
     printedBy: line.printSlipStatus === 'PRINTED' ? `${record.lastOperatorName || '系统'} / 打印回写` : '',
-    latestMergeBatchId: batchSummary.activeBatchId || '',
-    latestMergeBatchNo: batchSummary.latestMergeBatchNo || line.mergeBatchNo || '',
-    mergeBatchNos: batchSummary.mergeBatchNos,
-    mergeBatchIds: batchSummary.mergeBatchIds,
+    latestMarkerPlanId: batchSummary.activeMarkerPlanId || '',
+    latestMarkerPlanNo: batchSummary.latestMarkerPlanNo || line.markerPlanNo || '',
+    markerPlanNos: batchSummary.markerPlanNos,
+    markerPlanIds: batchSummary.markerPlanIds,
     currentStageText: record.cuttingStage || '待补',
     replenishmentPendingPrepItems: [],
     replenishmentPendingPrepCount: 0,
-    replenishmentPendingPrepSummary: '当前无补料WMS 待处理',
+    replenishmentPendingPrepSummary: '当前无补料配料待处理',
     hasReplenishmentPendingPrep: false,
     navigationPayload: buildMaterialPrepNavigationPayload({
-      originalCutOrderId,
-      originalCutOrderNo,
+      cutOrderId,
+      cutOrderNo,
       productionOrderId: record.productionOrderId,
       productionOrderNo: record.productionOrderNo,
       styleCode: record.styleCode,
       spuCode: record.spuCode,
       materialSkuSummary: line.materialSku,
-      latestMergeBatchNo: batchSummary.latestMergeBatchNo || line.mergeBatchNo || '',
+      latestMarkerPlanNo: batchSummary.latestMarkerPlanNo || line.markerPlanNo || '',
     }),
     keywordIndex: buildKeywordIndex([
-      originalCutOrderId,
-      originalCutOrderNo,
+      cutOrderId,
+      cutOrderNo,
       record.productionOrderId,
       record.productionOrderNo,
       record.styleCode,
@@ -777,13 +785,13 @@ function applyPendingPrepFollowupsToRow(
 ): MaterialPrepRow {
   const matched = followups.filter(
     (item) =>
-      item.originalCutOrderId === row.originalCutOrderId ||
-      item.originalCutOrderNo === row.originalCutOrderNo,
+      item.cutOrderId === row.cutOrderId ||
+      item.cutOrderNo === row.cutOrderNo,
   )
   if (!matched.length) {
     row.replenishmentPendingPrepItems = []
     row.replenishmentPendingPrepCount = 0
-    row.replenishmentPendingPrepSummary = '当前无补料WMS 待处理'
+    row.replenishmentPendingPrepSummary = '当前无补料配料待处理'
     row.hasReplenishmentPendingPrep = false
     row.materialLineItems = row.materialLineItems.map((item) => ({
         ...item,
@@ -844,7 +852,7 @@ function applyPendingPrepFollowupsToRow(
     return {
       ...item,
       sourceType: 'REPLENISHMENT_PENDING_PREP',
-      sourceLabel: '补料WMS 待处理',
+      sourceLabel: '补料配料待处理',
       replenishmentPendingPrepQty: pendingItem.shortageGarmentQty,
       sourceReplenishmentRequestId: pendingItem.sourceReplenishmentRequestId,
       sourceSpreadingSessionId: pendingItem.sourceSpreadingSessionId,
@@ -862,17 +870,17 @@ export function recalculateMaterialPrepRow(
     const shortageQty = Math.max(item.requiredQty - item.claimedQty, 0)
     const nextPrepStatus =
       item.configuredQty >= item.requiredQty
-        ? buildSummaryMeta('CONFIGURED', materialPrepMeta.CONFIGURED.label, materialPrepMeta.CONFIGURED.className, `已配置 ${formatQty(item.configuredQty)} 米。`)
+        ? buildSummaryMeta('CONFIGURED', materialPrepMeta.CONFIGURED.label, materialPrepMeta.CONFIGURED.className, `中转仓已配 ${formatQty(item.configuredQty)} 米。`)
         : item.configuredQty > 0
-          ? buildSummaryMeta('PARTIAL', materialPrepMeta.PARTIAL.label, materialPrepMeta.PARTIAL.className, `已配置 ${formatQty(item.configuredQty)} 米，仍需补齐。`)
-          : buildSummaryMeta('NOT_CONFIGURED', materialPrepMeta.NOT_CONFIGURED.label, materialPrepMeta.NOT_CONFIGURED.className, '当前尚未配置。')
+          ? buildSummaryMeta('PARTIAL', materialPrepMeta.PARTIAL.label, materialPrepMeta.PARTIAL.className, `中转仓已配 ${formatQty(item.configuredQty)} 米，仍需补齐。`)
+          : buildSummaryMeta('NOT_CONFIGURED', materialPrepMeta.NOT_CONFIGURED.label, materialPrepMeta.NOT_CONFIGURED.className, '当前尚未形成配料数量。')
 
     const nextClaimStatus = item.hasClaimException
-      ? buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, 'WMS 来料存在差异，需复核。')
+      ? buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '领料存在差异，需复核。')
       : item.claimedQty >= item.requiredQty
-        ? buildSummaryMeta('RECEIVED', materialClaimMeta.RECEIVED.label, materialClaimMeta.RECEIVED.className, `已领取 ${formatQty(item.claimedQty)} 米。`)
+        ? buildSummaryMeta('RECEIVED', materialClaimMeta.RECEIVED.label, materialClaimMeta.RECEIVED.className, `裁床已领 ${formatQty(item.claimedQty)} 米。`)
         : item.claimedQty > 0
-          ? buildSummaryMeta('PARTIAL', materialClaimMeta.PARTIAL.label, materialClaimMeta.PARTIAL.className, `已领取 ${formatQty(item.claimedQty)} 米，仍有余量待补齐。`)
+          ? buildSummaryMeta('PARTIAL', materialClaimMeta.PARTIAL.label, materialClaimMeta.PARTIAL.className, `裁床已领 ${formatQty(item.claimedQty)} 米，仍有余量待补齐。`)
           : buildSummaryMeta('NOT_RECEIVED', materialClaimMeta.NOT_RECEIVED.label, materialClaimMeta.NOT_RECEIVED.className, '当前尚未完成来料。')
 
     return {
@@ -895,12 +903,12 @@ export function recalculateMaterialPrepRow(
   row.claimRecordCount = row.claimRecords.length
   row.latestClaimRecordAt = row.claimRecords[0]?.claimedAt || ''
   row.latestClaimRecordSummary = row.claimRecords[0]?.summary || '暂无来料记录'
-  row.claimDisputes = listClaimDisputesByOriginalCutOrderNo(row.originalCutOrderNo)
+  row.claimDisputes = listClaimDisputesByCutOrderNo(row.cutOrderNo)
   row.claimDisputeCount = row.claimDisputes.length
-  row.latestClaimDispute = getLatestClaimDisputeByOriginalCutOrderNo(row.originalCutOrderNo)
+  row.latestClaimDispute = getLatestClaimDisputeByCutOrderNo(row.cutOrderNo)
   row.hasClaimDispute = Boolean(row.latestClaimDispute)
   row.claimDisputeStatusLabel = row.latestClaimDispute ? getClaimDisputeStatusLabel(row.latestClaimDispute.status) : '暂无异议'
-  row.claimDisputeSummary = row.latestClaimDispute ? buildCraftClaimDisputeSummary(row.latestClaimDispute) : '当前暂无WMS 来料长度异议。'
+  row.claimDisputeSummary = row.latestClaimDispute ? buildCraftClaimDisputeSummary(row.latestClaimDispute) : '当前暂无领料长度异议。'
   row.claimDisputeDiscrepancyText = row.latestClaimDispute ? `差异 ${formatDisputeQty(row.latestClaimDispute.discrepancyQty)}` : '差异 0 米'
   row.claimDisputeEvidenceCount = row.latestClaimDispute?.evidenceCount ?? 0
   row.claimDisputeHandleSummary = row.latestClaimDispute
@@ -939,7 +947,7 @@ export function recalculateMaterialPrepRow(
 
 export function buildMaterialPrepViewModel(
   records: CuttingOrderProgressRecord[],
-  ledger: MergeBatchRecord[] = [],
+  ledger: MarkerPlanRefRecord[] = [],
   options: {
     pickupWritebacks?: PdaPickupWritebackRecord[]
     pendingPrepFollowups?: ReplenishmentPendingPrepFollowupRecord[]
@@ -951,16 +959,16 @@ export function buildMaterialPrepViewModel(
     deserializeReplenishmentPendingPrepStorage(
       getBrowserLocalStorage()?.getItem(CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY) || null,
     )
-  const pickupWritebacksByOriginalCutOrderNo = pickupWritebacks.reduce<Record<string, PdaPickupWritebackRecord[]>>((accumulator, item) => {
-    accumulator[item.originalCutOrderNo] = accumulator[item.originalCutOrderNo] || []
-    accumulator[item.originalCutOrderNo].push(item)
+  const pickupWritebacksByCutOrderNo = pickupWritebacks.reduce<Record<string, PdaPickupWritebackRecord[]>>((accumulator, item) => {
+    accumulator[item.cutOrderNo] = accumulator[item.cutOrderNo] || []
+    accumulator[item.cutOrderNo].push(item)
     return accumulator
   }, {})
   const rows = records
     .flatMap((record) =>
       record.materialLines.map((line) => {
         const row = createRow(record, line, ledger)
-        const hydratedRow = applyPdaPickupWritebacksToRow(row, pickupWritebacksByOriginalCutOrderNo[row.originalCutOrderNo] || [], record)
+        const hydratedRow = applyPdaPickupWritebacksToRow(row, pickupWritebacksByCutOrderNo[row.cutOrderNo] || [], record)
         return applyPendingPrepFollowupsToRow(hydratedRow, pendingPrepFollowups)
       }),
     )
@@ -971,7 +979,7 @@ export function buildMaterialPrepViewModel(
         rightWeight - leftWeight ||
         left.plannedShipDate.localeCompare(right.plannedShipDate, 'zh-CN') ||
         left.productionOrderNo.localeCompare(right.productionOrderNo, 'zh-CN') ||
-        left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+        left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
       )
     })
 
@@ -991,8 +999,8 @@ function applyPrefilter(rows: MaterialPrepRow[], prefilter: MaterialPrepPrefilte
   return rows.filter((row) => {
     if (prefilter.productionOrderId && row.productionOrderId !== prefilter.productionOrderId) return false
     if (prefilter.productionOrderNo && row.productionOrderNo !== prefilter.productionOrderNo) return false
-    if (prefilter.originalCutOrderId && row.originalCutOrderId !== prefilter.originalCutOrderId) return false
-    if (prefilter.originalCutOrderNo && row.originalCutOrderNo !== prefilter.originalCutOrderNo) return false
+    if (prefilter.cutOrderId && row.cutOrderId !== prefilter.cutOrderId) return false
+    if (prefilter.cutOrderNo && row.cutOrderNo !== prefilter.cutOrderNo) return false
     if (prefilter.styleCode && row.styleCode !== prefilter.styleCode) return false
     if (prefilter.spuCode && row.spuCode !== prefilter.spuCode) return false
     if (prefilter.materialSku && !row.materialLineItems.some((item) => item.materialSku === prefilter.materialSku)) return false
@@ -1018,7 +1026,7 @@ export function filterMaterialPrepRows(
     if (filters.materialSku) {
       const keyword = filters.materialSku.trim().toLowerCase()
       const matched = row.materialLineItems.some((item) =>
-        [item.materialSku, item.materialCategory, item.materialName, item.materialAttr].some((value) =>
+        [item.materialSku, item.materialCategory, item.materialName, item.materialAttr, item.materialAlias].some((value) =>
           value.toLowerCase().includes(keyword),
         ),
       )
@@ -1055,8 +1063,8 @@ export function findMaterialPrepRowByPrefilter(
   if (!prefilter) return null
   return (
     rows.find((row) => {
-      if (prefilter.originalCutOrderId) return row.originalCutOrderId === prefilter.originalCutOrderId
-      if (prefilter.originalCutOrderNo) return row.originalCutOrderNo === prefilter.originalCutOrderNo
+      if (prefilter.cutOrderId) return row.cutOrderId === prefilter.cutOrderId
+      if (prefilter.cutOrderNo) return row.cutOrderNo === prefilter.cutOrderNo
       return false
     }) ?? null
   )
@@ -1064,9 +1072,9 @@ export function findMaterialPrepRowByPrefilter(
 
 export function buildIssueListPrintPayload(row: MaterialPrepRow): IssueListPrintPayload {
   return {
-    title: '来料单',
+    title: '配料单',
     printTime: new Date().toLocaleString('zh-CN', { hour12: false }),
-    originalCutOrderNo: row.originalCutOrderNo,
+    cutOrderNo: row.cutOrderNo,
     sameCodeValue: row.sameCodeValue,
     cutOrderQrValue: row.cutOrderQrValue,
     qrCodeValue: row.qrCodeValue,

@@ -20,7 +20,7 @@ export function buildPdaCuttingTaskPickupView(taskId: string, executionKey?: str
     ? {
         qrCodeValue: detail.qrCodeValue,
         boundObjectType: 'CUT_PIECE_ORDER',
-        boundObjectNo: detail.originalCutOrderNo,
+        boundObjectNo: detail.cutOrderNo,
         scenarioType: 'CUTTING',
         reusePolicy: 'REUSE_BY_BOUND_OBJECT',
         generatedAt: latestPrintVersion?.printedAt || detail.latestReceiveAt || '',

@@ -6,7 +6,7 @@ import {
   type PdaCuttingTaskDetailData,
   type PdaCuttingTaskOrderLine,
 } from '../data/fcs/pda-cutting-execution-source.ts'
-import { listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId } from '../data/fcs/cutting/generated-fei-tickets.ts'
+import { listSpreadingResultGeneratedFeiTicketsByCutOrderId } from '../data/fcs/cutting/generated-fei-tickets.ts'
 import {
   readSelectedExecutionOrderIdFromLocation,
   readSelectedExecutionOrderNoFromLocation,
@@ -16,6 +16,7 @@ import {
   renderPdaCuttingEmptyState,
   renderPdaCuttingStatusChip,
 } from './pda-cutting-shared'
+import { renderMaterialIdentityBlock } from './process-factory/cutting/material-identity'
 import { renderPdaFrame } from './pda-shell'
 
 interface PdaCuttingTaskDetailOptions {
@@ -42,10 +43,10 @@ function buildActionHref(taskId: string, line: PdaCuttingTaskOrderLine, backHref
   return buildPdaCuttingRoute(taskId, routeKey, {
     executionOrderId: line.executionOrderId,
     executionOrderNo: line.executionOrderNo,
-    originalCutOrderId: line.originalCutOrderId,
-    originalCutOrderNo: line.originalCutOrderNo,
-    mergeBatchId: line.mergeBatchId,
-    mergeBatchNo: line.mergeBatchNo,
+    cutOrderId: line.cutOrderId,
+    cutOrderNo: line.cutOrderNo,
+    markerPlanId: line.markerPlanId,
+    markerPlanNo: line.markerPlanNo,
     materialSku: line.materialSku,
     returnTo: backHref,
   })
@@ -56,6 +57,23 @@ function renderMiniField(label: string, value: string): string {
     <div class="rounded-xl bg-muted/30 px-2.5 py-2">
       <div class="text-[11px] text-muted-foreground">${escapeHtml(label)}</div>
       <div class="mt-1 break-words text-sm font-medium text-foreground">${escapeHtml(value || '-')}</div>
+    </div>
+  `
+}
+
+function renderMiniMaterialField(line: PdaCuttingTaskOrderLine): string {
+  return `
+    <div class="col-span-2 rounded-xl bg-muted/30 px-2.5 py-2">
+      <div class="mb-1 text-[11px] text-muted-foreground">面料信息</div>
+      ${renderMaterialIdentityBlock(
+        {
+          materialSku: line.materialSku,
+          materialLabel: line.materialTypeLabel,
+          materialAlias: line.materialAlias,
+          materialImageUrl: line.materialImageUrl,
+        },
+        { compact: true, showCategory: false },
+      )}
     </div>
   `
 }
@@ -77,8 +95,8 @@ function renderMetric(label: string, value: string, tone: 'default' | 'green' | 
   `
 }
 
-function renderFeiTicketIds(originalCutOrderId: string): string {
-  const tickets = originalCutOrderId ? listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId) : []
+function renderFeiTicketIds(cutOrderId: string): string {
+  const tickets = cutOrderId ? listSpreadingResultGeneratedFeiTicketsByCutOrderId(cutOrderId) : []
   if (!tickets.length) return '待生成菲票'
   const firstNos = tickets.slice(0, 3).map((ticket) => ticket.feiTicketNo).join(' / ')
   return tickets.length > 3 ? `${firstNos} 等 ${tickets.length} 张` : firstNos
@@ -92,11 +110,11 @@ function renderTraceIdentity(detail: PdaCuttingTaskDetailData): string {
         <span class="text-[11px] text-muted-foreground">任务 / 裁片单 / 菲票 / 交出共用</span>
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-        ${renderMiniField('原始裁片单号', detail.originalCutOrderNo)}
-        ${renderMiniField('原始裁片单 ID', detail.originalCutOrderId)}
+        ${renderMiniField('裁片单号', detail.cutOrderNo)}
+        ${renderMiniField('裁片单 ID', detail.cutOrderId)}
         ${renderMiniField('PDA 执行单号', detail.executionOrderNo)}
         ${renderMiniField('PDA 执行单 ID', detail.executionOrderId)}
-        ${renderMiniField('菲票', renderFeiTicketIds(detail.originalCutOrderId))}
+        ${renderMiniField('菲票', renderFeiTicketIds(detail.cutOrderId))}
         ${renderMiniField('交出记录', detail.latestHandoverRecordNo || '待发起交出')}
       </div>
     </section>
@@ -108,15 +126,15 @@ function renderCurrentReceiveBlock(detail: PdaCuttingTaskDetailData, backHref: s
     <section class="rounded-2xl border bg-card p-3 shadow-sm">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h2 class="text-sm font-semibold text-foreground">来料状态</h2>
+          <h2 class="text-sm font-semibold text-foreground">裁床领料</h2>
           <div class="mt-1 text-xs text-muted-foreground">领料确认统一在交接模块处理，任务详情只展示状态和入口。</div>
         </div>
         ${renderPdaCuttingStatusChip(detail.currentReceiveStatus, detail.currentReceiveStatus.includes('异议') ? 'red' : detail.currentReceiveStatus.includes('已') ? 'green' : 'amber')}
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
         ${renderMiniField('领料单', detail.pickupSlipNo)}
-        ${renderMiniField('计划来料', detail.configuredQtyText)}
-        ${renderMiniField('实收数量', detail.actualReceivedQtyText)}
+        ${renderMiniField('计划领料', detail.configuredQtyText)}
+        ${renderMiniField('实领数量', detail.actualReceivedQtyText)}
         ${renderMiniField('差异说明', detail.discrepancyNote)}
       </div>
       <button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700" data-nav="${escapeHtml(buildPickupHref(detail.taskId, backHref))}">
@@ -135,13 +153,13 @@ function renderOrderLine(taskId: string, line: PdaCuttingTaskOrderLine, backHref
         <div class="min-w-0">
           <div class="text-[11px] text-muted-foreground">执行对象</div>
           <div class="mt-0.5 break-words text-base font-semibold text-foreground">${escapeHtml(line.executionOrderNo)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">原始裁片单 ${escapeHtml(line.originalCutOrderNo || '-')}</div>
+          <div class="mt-1 text-xs text-muted-foreground">裁片单 ${escapeHtml(line.cutOrderNo || '-')}</div>
         </div>
         ${renderPdaCuttingStatusChip(line.currentStepLabel, tone)}
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
         ${renderMiniField('生产单', line.productionOrderNo)}
-        ${renderMiniField('面料 SKU', line.materialSku)}
+        ${renderMiniMaterialField(line)}
         ${renderMiniField('计划数量', `${line.plannedQty.toLocaleString('zh-CN')} 件`)}
         ${renderMiniField('当前状态', line.currentStateLabel)}
         ${renderMiniField('入仓状态', line.currentInboundStatus)}
@@ -227,7 +245,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
         <section class="space-y-2">
           <div class="flex items-center justify-between">
             <h2 class="text-sm font-semibold text-foreground">执行对象</h2>
-            <span class="text-xs text-muted-foreground">按原始裁片单追踪</span>
+            <span class="text-xs text-muted-foreground">按裁片单追踪</span>
           </div>
           ${detail.cutPieceOrders.map((line) => renderOrderLine(decodedTaskId, line, backHref, selectedLine?.executionOrderId === line.executionOrderId)).join('')}
         </section>

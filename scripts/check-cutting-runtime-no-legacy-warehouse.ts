@@ -52,8 +52,8 @@ function main(): void {
 
   assertNoPattern(
     'src/pages/process-factory/cutting/fabric-warehouse-model.ts',
-    'sourceOriginalCutOrderNo: record.cutPieceOrderNo',
-    'fabric warehouse 仍用 cutPieceOrderNo 绑定正式原始裁片单',
+    'sourceCutOrderNo: record.cutPieceOrderNo',
+    'fabric warehouse 仍用 cutPieceOrderNo 绑定正式裁片单',
   )
   assertNoPattern(
     'src/pages/process-factory/cutting/fabric-warehouse-model.ts',
@@ -67,8 +67,8 @@ function main(): void {
   )
   assertNoPattern(
     'src/pages/process-factory/cutting/cut-piece-warehouse-model.ts',
-    'row?.originalCutOrderNo || record.cutPieceOrderNo',
-    'cut-piece warehouse 仍用 cutPieceOrderNo fallback 原始裁片单',
+    'row?.cutOrderNo || record.cutPieceOrderNo',
+    'cut-piece warehouse 仍用 cutPieceOrderNo fallback 裁片单',
   )
   assertNoPattern(
     'src/pages/process-factory/cutting/cut-piece-warehouse-model.ts',
@@ -87,8 +87,8 @@ function main(): void {
   )
   assertNoPattern(
     'src/pages/process-factory/cutting/sample-warehouse-model.ts',
-    'row?.originalCutOrderNo || record.relatedCutPieceOrderNo',
-    'sample warehouse 仍用 relatedCutPieceOrderNo fallback 原始裁片单',
+    'row?.cutOrderNo || record.relatedCutPieceOrderNo',
+    'sample warehouse 仍用 relatedCutPieceOrderNo fallback 裁片单',
   )
 
   ;[

@@ -21,7 +21,7 @@ import {
   listSpreadingResultGeneratedFeiTickets,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import { listWoolFeiTicketPrintRecords } from '../../../data/fcs/wool-task-domain.ts'
-import { getCuttingOriginalOrderTaskPrintSourceById } from '../../../data/fcs/cutting-task-print-source.ts'
+import { getCuttingCutOrderTaskPrintSourceById } from '../../../data/fcs/cutting-task-print-source.ts'
 import { buildTransferBagsProjection } from '../../process-factory/cutting/transfer-bags-projection.ts'
 import {
   getProcessHandoverRecordById,
@@ -111,15 +111,15 @@ function listFeiRecordsForSource(sourceId: string, documentType?: PrintDocumentT
   if (exact) return [exact]
 
   const printableUnitKey = sourceId.startsWith('cut-order:') ? sourceId.replace(/^cut-order:/, '') : sourceId
-  const byOriginal = records.filter((item) =>
+  const byCutOrder = records.filter((item) =>
     item.printableUnitId === sourceId
-    || item.originalCutOrderId === printableUnitKey
-    || item.originalCutOrderNo === printableUnitKey
-    || item.sourceMergeBatchId === sourceId.replace(/^batch:/, '')
-    || item.sourceMergeBatchNo === sourceId.replace(/^batch:/, '')
+    || item.cutOrderId === printableUnitKey
+    || item.cutOrderNo === printableUnitKey
+    || item.sourceMarkerPlanId === sourceId.replace(/^batch:/, '')
+    || item.sourceMarkerPlanNo === sourceId.replace(/^batch:/, '')
     || item.printableUnitNo === printableUnitKey,
   )
-  if (byOriginal.length) return byOriginal
+  if (byCutOrder.length) return byCutOrder
 
   return []
 }
@@ -127,7 +127,7 @@ function listFeiRecordsForSource(sourceId: string, documentType?: PrintDocumentT
 function resolveFeiTicketTargetRoute(record: AnyFeiTicket): string {
   const id = toText(record.ticketRecordId || record.feiTicketId || record.ticketNo)
   if (record.ticketSourceType === 'WOOL_PART_PANEL') {
-    return `/fcs/craft/wool/work-orders/${encodeURIComponent(toText(record.originalCutOrderId || id))}?tab=fei`
+    return `/fcs/craft/wool/work-orders/${encodeURIComponent(toText(record.cutOrderId || id))}?tab=fei`
   }
   return `/fcs/craft/cutting/fei-tickets?feiTicketId=${encodeURIComponent(id)}`
 }
@@ -145,8 +145,8 @@ function feiQr(record: AnyFeiTicket, documentType: PrintDocumentType, mode: Prin
     isReprint: mode === '补打',
     isVoid,
     extra: {
-      originalCutOrderId: record.originalCutOrderId,
-      originalCutOrderNo: record.originalCutOrderNo,
+      cutOrderId: record.cutOrderId,
+      cutOrderNo: record.cutOrderNo,
       sourcePieceInstanceId: record.sourcePieceInstanceId,
       qrCodePayload: record.qrCodePayload,
       reprintVersionNo: mode === '补打' ? `R${Math.max(Number(record.reprintCount || 0), 1)}` : '',
@@ -155,14 +155,32 @@ function feiQr(record: AnyFeiTicket, documentType: PrintDocumentType, mode: Prin
   return { title: '菲票二维码', value, description: isVoid ? '扫码查看作废记录' : '扫码查看菲票', sizeMm: 30 }
 }
 
-function feiBarcode(record: AnyFeiTicket, documentType: PrintDocumentType): PrintBarcode {
-  const sourceId = toText(record.ticketRecordId || record.feiTicketId || record.ticketNo)
-  const businessNo = toText(record.ticketNo || record.feiTicketNo)
-  return {
-    title: '菲票条码',
-    value: buildPrintBarcodePayload({ documentType, sourceType: 'FEI_TICKET_RECORD', sourceId, businessNo, printVersionNo: toText(record.version || 'V1') }),
-    description: businessNo,
-  }
+function resolveFeiPrintVersion(record: AnyFeiTicket, mode: PrintMode): string {
+  const numericVersion = Number(record.version || 0)
+  if (Number.isFinite(numericVersion) && numericVersion > 0) return `V${numericVersion}`
+  if (mode === '补打') return `R${Math.max(Number(record.reprintCount || 0), 1)}`
+  return toText(record.printVersionNo, 'V1')
+}
+
+function resolveFeiMarkerPlanNo(record: AnyFeiTicket): string {
+  return toText(
+    record.sourceMarkerPlanNo ||
+    record.markerPlanNo ||
+    record.batchNo,
+  )
+}
+
+function resolveFeiSpreadingSessionNo(record: AnyFeiTicket): string {
+  return toText(
+    record.sourceSpreadingSessionNo ||
+    record.spreadingSessionNo ||
+    record.sourceSpreadingNo ||
+    record.spreadingNo,
+  )
+}
+
+function needsWideFeiLabel(item: PrintLabelItem): boolean {
+  return item.labelFields.some((field) => String(field.value || '').length > 34)
 }
 
 function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput, mode: PrintMode): PrintLabelItem {
@@ -170,87 +188,33 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
   const isWoolTicket = record.ticketSourceType === 'WOOL_PART_PANEL'
   const isVoid = documentType === 'FEI_TICKET_VOID_LABEL' || record.status === 'VOIDED'
   const isReprint = documentType === 'FEI_TICKET_REPRINT_LABEL'
-  const reprintCount = Math.max(Number(record.reprintCount || 1), 1)
   const ticketNo = toText(record.ticketNo || record.feiTicketNo)
   const title = isVoid ? '菲票作废标识' : isReprint ? '菲票补打标签' : isWoolTicket ? '毛织菲票' : '菲票'
-  const subtitle = isVoid
-    ? '已作废 · 不可流转'
-    : isReprint
-      ? `补打 · 第 ${reprintCount} 次补打`
-      : isWoolTicket
-        ? '部位毛织菲票，完成后交裁床待交出仓'
-        : '菲票归属原始裁片单'
-  const specialCraftText = record.specialCraftSummary
-    || (Array.isArray(record.processTags) ? record.processTags.join('、') : toText(record.currentCraftStage || '无特殊工艺'))
-  const craftPositionText = Array.isArray(record.specialCrafts) && record.specialCrafts.length
-    ? record.specialCrafts.map((craft: AnyFeiTicket) => craft.craftPositionName).filter(Boolean).join('、')
-    : isWoolTicket ? '毛织部位' : '无'
-  const pieceSetText = record.pieceSetNoRange
-    || (record.pieceSetNoStart && record.pieceSetNoEnd ? `${record.pieceSetNoStart}-${record.pieceSetNoEnd}` : '')
-  const warnings = isVoid
-    ? ['已作废', '不可流转', '作废二维码只进入作废记录或菲票详情']
-    : isReprint
-      ? ['补打', `第 ${reprintCount} 次补打`, '补打不改变菲票归属']
-      : isWoolTicket
-        ? ['部位毛织', '交裁床待交出仓', '不进缝盘、熨烫、包装']
-        : ['菲票归属原始裁片单']
+  const version = resolveFeiPrintVersion(record, mode)
 
   const baseFields = fields([
-    { label: isWoolTicket ? '毛织菲票号' : '菲票号', value: ticketNo, emphasis: true },
-    { label: isWoolTicket ? '毛织单' : '原始裁片单', value: record.originalCutOrderNo || record.originalCutOrderId, emphasis: true },
+    { label: '菲票号', value: ticketNo, emphasis: true },
     { label: '生产单', value: record.productionOrderNo || record.sourceProductionOrderNo },
-    { label: '款号', value: record.styleCode || record.spuCode },
-    { label: isWoolTicket ? '纱线 / 颜色 / 尺码' : 'SKU / 颜色 / 尺码', value: `${toText(record.materialSku)} / ${toText(record.color || record.fabricColor || record.garmentColor)} / ${toText(record.size || record.skuSize)}` },
-    { label: isWoolTicket ? '毛织部位' : '裁片部位', value: record.partName || record.pieceGroup },
-    { label: isWoolTicket ? '部位批次' : '裁片实例', value: record.sourcePieceInstanceId || record.pieceDisplayName },
-    { label: isWoolTicket ? '尺码片数' : '片序号', value: isWoolTicket ? `${toText(record.size || record.skuSize)} / ${formatPrintQty(record.quantity ?? record.actualCutPieceQty ?? record.qty, '片')}` : record.sequenceNo ? `第${record.sequenceNo}片` : '待补片序号' },
-    { label: isWoolTicket ? '毛织片数' : '裁片数量', value: formatPrintQty(record.quantity ?? record.actualCutPieceQty ?? record.qty, '片'), emphasis: true },
-    { label: isWoolTicket ? '毛织单号' : '扎号', value: isWoolTicket ? record.originalCutOrderNo || record.originalCutOrderId : record.bundleNo || record.bundleScope },
-    ...(!isWoolTicket ? [
-      { label: '配套编号', value: pieceSetText || '待补配套编号', emphasis: true },
-      { label: '菲票类型', value: record.bundleTicketType || '扎束菲票' },
-    ] : []),
-    { label: isWoolTicket ? '纱线 SKU' : '面料 SKU', value: record.materialSku },
-    { label: isWoolTicket ? '纱线颜色' : '面料颜色', value: record.fabricColor || record.color || record.garmentColor },
-    { label: '当前所在位置', value: isWoolTicket ? '周哥毛织厂待交出' : record.boundPocketNo ? `中转袋 ${record.boundPocketNo}` : '裁片仓待流转' },
-    { label: '当前状态', value: isVoid ? '已作废' : '有效流转' },
-    { label: isWoolTicket ? '后续去向' : '是否已绑定中转袋', value: isWoolTicket ? record.boundPocketNo || '裁床待交出仓' : record.boundPocketNo ? '是' : '否' },
-    { label: isWoolTicket ? '流转规则' : '中转袋号', value: isWoolTicket ? '部位毛织不进缝盘、熨烫、包装' : record.boundPocketNo || '未绑定' },
-    { label: isWoolTicket ? '裁床承接' : '车缝任务号', value: isWoolTicket ? '裁床待交出仓' : record.boundUsageNo || '未分配' },
-    { label: isWoolTicket ? '毛织类型' : '特殊工艺', value: specialCraftText },
-    { label: isWoolTicket ? '毛织位置' : '工艺位置', value: craftPositionText },
-    { label: '二维码追溯', value: record.sourcePieceInstanceId || (isWoolTicket ? '待补毛织部位批次' : '待补裁片实例') },
-    { label: '菲票归属', value: isWoolTicket ? '部位毛织菲票' : '菲票归属原始裁片单', emphasis: true },
+    { label: isWoolTicket ? '毛织单' : '裁片单', value: record.cutOrderNo || record.sourceCutOrderNo || record.cutOrderId, emphasis: true },
+    { label: 'SPU', value: record.sourceTechPackSpuCode || record.spuCode || record.styleCode },
+    { label: '颜色', value: record.color || record.fabricColor || record.garmentColor },
+    { label: '尺码', value: record.size || record.skuSize },
+    { label: '部位', value: record.partName || record.pieceGroup },
+    { label: '数量', value: formatPrintQty(record.quantity ?? record.actualCutPieceQty ?? record.qty, '片'), emphasis: true },
+    { label: '唛架方案', value: resolveFeiMarkerPlanNo(record) },
+    { label: '铺布单', value: resolveFeiSpreadingSessionNo(record) },
+    { label: '版本', value: version },
   ])
-
-  const extraFields = isVoid
-    ? fields([
-      { label: '作废标识', value: '已作废 / 不可流转', emphasis: true },
-      { label: '作废原因', value: record.voidReason || '二维码污损或现场作废' },
-      { label: '作废人', value: record.voidedBy || '打票员' },
-      { label: '作废时间', value: record.voidedAt || now() },
-    ])
-    : isReprint
-      ? fields([
-        { label: '补打标识', value: `补打 / 第 ${reprintCount} 次补打`, emphasis: true },
-        { label: '补打版本', value: `R${reprintCount}` },
-        { label: '补打原因', value: record.voidReason || '二维码污损，现场补打' },
-        { label: '补打人', value: record.printedBy || '打票员' },
-        { label: '补打时间', value: now() },
-        { label: '原菲票号', value: ticketNo, emphasis: true },
-      ])
-      : []
 
   return {
     labelTitle: title,
-    labelSubtitle: subtitle,
-    labelFields: [...baseFields, ...extraFields],
-    labelWarnings: warnings,
+    labelSubtitle: '',
+    labelFields: baseFields,
+    labelWarnings: [],
     qrCode: feiQr(record, documentType, mode, isVoid),
-    barcode: feiBarcode(record, documentType),
     isVoid,
     isReprint,
-    printMode: mode,
+    printMode: undefined,
   }
 }
 
@@ -325,17 +289,21 @@ export function buildFeiTicketLabelPrintDocument(input: PrintDocumentBuildInput)
   const mode = resolveFeiMode(input.documentType)
   const records = listFeiRecordsForSource(input.sourceId, input.documentType)
   const items = records.map((record) => buildFeiLabelItem(record, input, mode))
-  const paperType: PrintPaperType = items.length > 1 ? 'A4_LABEL_GRID' : 'LABEL_80_50'
+  const paperType: PrintPaperType = items.length > 1
+    ? 'A4_LABEL_GRID'
+    : items.some(needsWideFeiLabel)
+      ? 'LABEL_150_100'
+      : 'LABEL_100_100'
   const isWoolTicket = records.some((record) => record.ticketSourceType === 'WOOL_PART_PANEL')
   return buildBaseLabelDocument(input, {
     title: isWoolTicket && mode === '首次打印' ? '毛织菲票标签' : mode === '补打' ? '菲票补打标签' : mode === '作废' ? '菲票作废标识' : '菲票标签',
     subtitle: mode === '作废'
       ? '已作废 · 不可流转'
       : mode === '补打'
-        ? '补打不改变菲票归属'
+      ? '补打标签'
         : isWoolTicket
-          ? '部位毛织按部位、颜色、尺码打印菲票，后续交裁床待交出仓。'
-          : '菲票归属原始裁片单，合并裁剪批次仅作为执行上下文。',
+          ? '毛织菲票。'
+          : '菲票。',
     templateCode: TEMPLATE_BY_DOCUMENT[input.documentType] || 'FEI_TICKET_LABEL',
     sourceType: 'FEI_TICKET_RECORD',
     paperType,
@@ -407,39 +375,39 @@ export function buildTransferBagLabelPrintDocument(input: PrintDocumentBuildInpu
 }
 
 export function buildCuttingOrderQrLabelPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
-  const source = getCuttingOriginalOrderTaskPrintSourceById(input.sourceId)
-    || getCuttingOriginalOrderTaskPrintSourceById(input.sourceId.replace(/^cut-order:/, ''))
-  const sourceId = source?.originalCutOrderId || input.sourceId.replace(/^cut-order:/, '')
-  const businessNo = source?.originalCutOrderNo || sourceId
+  const source = getCuttingCutOrderTaskPrintSourceById(input.sourceId)
+    || getCuttingCutOrderTaskPrintSourceById(input.sourceId.replace(/^cut-order:/, ''))
+  const sourceId = source?.cutOrderId || input.sourceId.replace(/^cut-order:/, '')
+  const businessNo = source?.cutOrderNo || sourceId
   const qrValue = buildPrintQrPayload({
     documentType: 'CUTTING_ORDER_QR_LABEL',
     sourceType: 'CUTTING_ORDER_RECORD',
     sourceId,
     businessNo,
-    targetRoute: `/fcs/craft/cutting/original-orders?originalCutOrderId=${encodeURIComponent(sourceId)}`,
+    targetRoute: `/fcs/craft/cutting/cut-orders?cutOrderId=${encodeURIComponent(sourceId)}`,
     printVersionNo: 'V1',
     extra: {
-      originalCuttingOrderId: sourceId,
-      originalCutOrderNo: businessNo,
+      cutOrderId: sourceId,
+      cutOrderNo: businessNo,
     },
   })
   const item: PrintLabelItem = {
     labelTitle: '裁片单二维码',
-    labelSubtitle: '裁片单二维码对应原始裁片单',
+    labelSubtitle: '裁片单二维码对应裁片单',
     labelFields: fields([
-      { label: '原始裁片单号', value: businessNo, emphasis: true },
+      { label: '裁片单号', value: businessNo, emphasis: true },
       { label: '生产单', value: source?.productionOrderNo },
       { label: '款号', value: source?.styleCode || source?.spuCode },
       { label: '面料 SKU', value: source?.materialSku },
       { label: '面料颜色', value: source?.materialLabel },
       { label: '计划裁片数量', value: formatPrintQty(source?.plannedQty, '片'), emphasis: true },
-      { label: '配料状态', value: source?.prepStatusLabel },
-      { label: '领料状态', value: source?.claimStatusLabel },
-      { label: '当前裁剪状态', value: source?.currentStageLabel },
-      { label: '裁片单二维码对应', value: '原始裁片单', emphasis: true },
-      { label: '当前执行批次', value: source?.latestMergeBatchNo || '未合批' },
+      { label: '中转仓已配', value: source?.prepStatusLabel },
+      { label: '裁床已领', value: source?.claimStatusLabel },
+      { label: '裁片单状态', value: source?.currentStageLabel },
+      { label: '裁片单二维码对应', value: '裁片单', emphasis: true },
+      { label: '当前唛架方案', value: source?.latestMarkerPlanNo || '未进入唛架方案' },
     ]),
-    labelWarnings: ['菲票永远回落原始裁片单，合并裁剪批次只作为执行上下文。'],
+    labelWarnings: ['菲票永远回落裁片单，唛架方案只作为执行上下文。'],
     qrCode: { title: '裁片单二维码', value: qrValue, description: '扫码查看裁片单配料与领料信息', sizeMm: 32 },
     barcode: { title: '裁片单条码', value: buildPrintBarcodePayload({ documentType: 'CUTTING_ORDER_QR_LABEL', sourceType: 'CUTTING_ORDER_RECORD', sourceId, businessNo }), description: businessNo },
     printMode: '普通打印',
@@ -452,7 +420,7 @@ export function buildCuttingOrderQrLabelPrintDocument(input: PrintDocumentBuildI
     paperType: 'LABEL_100_60',
     mode: '普通打印',
     labelItems: [item],
-    returnHref: '/fcs/craft/cutting/original-orders',
+    returnHref: '/fcs/craft/cutting/cut-orders',
   })
 }
 

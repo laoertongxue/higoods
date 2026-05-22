@@ -8,12 +8,12 @@ export type CuttingPageContextKey =
   | 'spreading-list'
   | 'marker-spreading'
   | 'fei-tickets'
-  | 'original-orders'
+  | 'cut-orders'
   | 'production-progress'
   | 'transfer-bags'
   | 'cut-piece-warehouse'
   | 'fabric-warehouse'
-  | 'merge-batches'
+  |  'marker-list'
   | 'cuttable-pool'
 
 export type CuttingNavigationTarget =
@@ -25,12 +25,12 @@ export type CuttingNavigationTarget =
   | 'spreadingList'
   | 'markerSpreading'
   | 'feiTickets'
-  | 'originalOrders'
+  | 'cutOrders'
   | 'productionProgress'
   | 'transferBags'
   | 'cutPieceWarehouse'
   | 'fabricWarehouse'
-  | 'mergeBatches'
+  | 'markerPlanRefs'
   | 'cuttablePool'
 
 export interface CuttingDrillContext {
@@ -40,10 +40,10 @@ export interface CuttingDrillContext {
   issueType?: string
   productionOrderId?: string
   productionOrderNo?: string
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   materialSku?: string
   cuttingGroup?: string
   warehouseStatus?: string
@@ -82,13 +82,13 @@ const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
   'spreading-list': '铺布列表',
   'marker-spreading': '铺布列表',
   'fei-tickets': '打印菲票',
-  'original-orders': '原始裁片单',
+  'cut-orders': '裁片单',
   'production-progress': '生产单进度',
   'transfer-bags': '中转袋流转',
   'cut-piece-warehouse': '裁片仓',
   'fabric-warehouse': '裁床仓',
-  'merge-batches': '合并裁剪批次',
-  'cuttable-pool': '可裁排产',
+   'marker-list': '唛架方案',
+  'cuttable-pool': '可排唛架裁片单',
 }
 
 const actionLabelMap: Record<CuttingNavigationTarget, string> = {
@@ -100,17 +100,17 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
   spreadingList: '去铺布',
   markerSpreading: '去铺布',
   feiTickets: '去打印菲票',
-  originalOrders: '去原始裁片单',
+  cutOrders: '去裁片单',
   productionProgress: '去生产单进度',
   transferBags: '去中转袋流转',
   cutPieceWarehouse: '去裁片仓',
   fabricWarehouse: '去裁床仓',
-  mergeBatches: '去合并裁剪批次',
-  cuttablePool: '去可裁排产',
+  markerPlanRefs: '去唛架方案',
+  cuttablePool: '去可排唛架裁片单',
 }
 
 const blockerSectionLabelMap: Record<string, string> = {
-  MATERIAL_PREP: 'WMS 来料入仓',
+  MATERIAL_PREP: '配料/领料入仓',
   SPREADING: '铺布',
   REPLENISHMENT: '补料',
   FEI_TICKETS: '打印菲票',
@@ -119,7 +119,7 @@ const blockerSectionLabelMap: Record<string, string> = {
 }
 
 const issueTypeLabelMap: Record<string, string> = {
-  MATERIAL_PREP: 'WMS 来料入仓',
+  MATERIAL_PREP: '配料/领料入仓',
   SPREADING_REPLENISH: '唛架补料',
   TICKET_QR: '打印菲票',
   WAREHOUSE_HANDOFF: '仓务交接',
@@ -161,10 +161,10 @@ export function serializeCuttingDrillContext(context: CuttingDrillContext | null
     issueType: context.issueType,
     productionOrderId: context.productionOrderId,
     productionOrderNo: context.productionOrderNo,
-    originalCutOrderId: context.originalCutOrderId,
-    originalCutOrderNo: context.originalCutOrderNo,
-    mergeBatchId: context.mergeBatchId,
-    mergeBatchNo: context.mergeBatchNo,
+    cutOrderId: context.cutOrderId,
+    cutOrderNo: context.cutOrderNo,
+    markerPlanId: context.markerPlanId,
+    markerPlanNo: context.markerPlanNo,
     materialSku: context.materialSku,
     cuttingGroup: context.cuttingGroup,
     warehouseStatus: context.warehouseStatus,
@@ -207,10 +207,10 @@ export function readCuttingDrillContextFromLocation(
     issueType: pickString(params, 'issueType'),
     productionOrderId: pickString(params, 'productionOrderId'),
     productionOrderNo: pickString(params, 'productionOrderNo'),
-    originalCutOrderId: pickString(params, 'originalCutOrderId'),
-    originalCutOrderNo: pickString(params, 'originalCutOrderNo'),
-    mergeBatchId: pickString(params, 'mergeBatchId'),
-    mergeBatchNo: pickString(params, 'mergeBatchNo'),
+    cutOrderId: pickString(params, 'cutOrderId'),
+    cutOrderNo: pickString(params, 'cutOrderNo'),
+    markerPlanId: pickString(params, 'markerPlanId'),
+    markerPlanNo: pickString(params, 'markerPlanNo'),
     materialSku: pickString(params, 'materialSku'),
     cuttingGroup: pickString(params, 'cuttingGroup'),
     warehouseStatus: pickString(params, 'warehouseStatus'),
@@ -252,10 +252,10 @@ export function buildCuttingDrillContext(
     sourcePageKey,
     productionOrderId: payload?.productionOrderId,
     productionOrderNo: payload?.productionOrderNo,
-    originalCutOrderId: payload?.originalCutOrderId,
-    originalCutOrderNo: payload?.originalCutOrderNo,
-    mergeBatchId: payload?.mergeBatchId,
-    mergeBatchNo: payload?.mergeBatchNo,
+    cutOrderId: payload?.cutOrderId,
+    cutOrderNo: payload?.cutOrderNo,
+    markerPlanId: payload?.markerPlanId,
+    markerPlanNo: payload?.markerPlanNo,
     materialSku: payload?.materialSku,
     cuttingGroup: payload?.cuttingGroup,
     warehouseStatus: payload?.warehouseStatus,
@@ -313,7 +313,7 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   if (target === 'spreadingList') {
     return getCanonicalCuttingPath('spreading-list')
   }
-  if (target === 'originalOrders') return getCanonicalCuttingPath('original-orders')
+  if (target === 'cutOrders') return getCanonicalCuttingPath('cut-orders')
   if (target === 'productionProgress') return getCanonicalCuttingPath('production-progress')
   if (target === 'transferBags') {
     if (context.bagId || context.bagCode || context.usageId || context.usageNo) {
@@ -323,7 +323,7 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   }
   if (target === 'cutPieceWarehouse') return getCanonicalCuttingPath('cut-piece-warehouse')
   if (target === 'fabricWarehouse') return getCanonicalCuttingPath('fabric-warehouse')
-  if (target === 'mergeBatches') return getCanonicalCuttingPath('merge-batches')
+  if (target === 'markerPlanRefs') return getCanonicalCuttingPath('marker-list')
   if (target === 'cuttablePool') return getCanonicalCuttingPath('cuttable-pool')
 
   if (target === 'markerSpreading') {
@@ -359,8 +359,8 @@ export function buildCuttingDrillChipLabels(context: CuttingDrillContext | null)
   if (!context) return []
   const labels = [
     context.productionOrderNo ? `生产单：${context.productionOrderNo}` : '',
-    context.originalCutOrderNo ? `来源原始裁片单：${context.originalCutOrderNo}` : '',
-    context.mergeBatchNo ? `来源合并裁剪批次：${context.mergeBatchNo}` : '',
+    context.cutOrderNo ? `来源裁片单：${context.cutOrderNo}` : '',
+    context.markerPlanNo ? `来源唛架方案：${context.markerPlanNo}` : '',
     context.materialSku ? `面料 SKU：${context.materialSku}` : '',
     context.cuttingGroup ? `裁床组：${context.cuttingGroup}` : '',
     context.warehouseStatus ? `仓状态：${warehouseStatusLabelMap[context.warehouseStatus] || context.warehouseStatus}` : '',
@@ -373,7 +373,7 @@ export function buildCuttingDrillChipLabels(context: CuttingDrillContext | null)
     context.processOrderNo ? `工艺单：${context.processOrderNo}` : context.processOrderId ? `工艺单：${context.processOrderId}` : '',
     context.bagCode ? `中转袋码：${context.bagCode}` : '',
     context.usageNo ? `使用周期：${context.usageNo}` : '',
-    context.blockerSection ? `阻塞链路：${blockerSectionLabelMap[context.blockerSection] || context.blockerSection}` : '',
+    context.blockerSection ? `风险链路：${blockerSectionLabelMap[context.blockerSection] || context.blockerSection}` : '',
     context.issueType ? `问题分类：${issueTypeLabelMap[context.issueType] || context.issueType}` : '',
     context.focusTab ? `焦点页签：${focusTabLabelMap[context.focusTab] || context.focusTab}` : '',
   ]
@@ -399,10 +399,10 @@ export function buildReturnToSummaryContext(context: CuttingDrillContext | null)
     issueType: context?.issueType,
     productionOrderId: context?.productionOrderId,
     productionOrderNo: context?.productionOrderNo,
-    originalCutOrderId: context?.originalCutOrderId,
-    originalCutOrderNo: context?.originalCutOrderNo,
-    mergeBatchId: context?.mergeBatchId,
-    mergeBatchNo: context?.mergeBatchNo,
+    cutOrderId: context?.cutOrderId,
+    cutOrderNo: context?.cutOrderNo,
+    markerPlanId: context?.markerPlanId,
+    markerPlanNo: context?.markerPlanNo,
     materialSku: context?.materialSku,
     cuttingGroup: context?.cuttingGroup,
     warehouseStatus: context?.warehouseStatus,

@@ -29,7 +29,7 @@ test('唛架页面关键按钮与交互完整可用', async ({ page, context }) 
   const download = await downloadPromise
   expect(download.suggestedFilename()).toContain('唛架')
 
-  await page.getByRole('button', { name: '从原始裁片单新建' }).click()
+  await page.getByRole('button', { name: '从裁片单新建' }).click()
   const drawer = page.getByTestId('marker-plan-context-drawer')
   await expect(drawer).toBeVisible()
   const firstContextNo = (await drawer.locator('tbody tr').first().locator('td').nth(2).textContent())?.trim() || ''

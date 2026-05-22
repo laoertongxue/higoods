@@ -18,6 +18,7 @@ import {
   upsertPdaHandoutRecordMock,
   upsertPdaHandoverHeadMock,
   writeBackHandoverRecord,
+  type PdaCuttingHandoverRecordSummary,
   type PdaCutPieceHandoutLine,
   type PdaHandoverHead,
   type PdaHandoverRecord,
@@ -32,11 +33,13 @@ import {
 } from './generated-fei-tickets.ts'
 import {
   getSpecialCraftFeiTicketSummary,
+  listCuttingSpecialCraftFeiTicketBindingsForProjection,
+  type CuttingSpecialCraftFeiTicketBinding,
 } from './special-craft-fei-ticket-flow.ts'
 
 export type CuttingSewingDispatchOrderStatus =
   | '草稿'
-  | '待配齐'
+  | '待核对'
   | '待扫码'
   | '可交出'
   | '已交出'
@@ -46,11 +49,11 @@ export type CuttingSewingDispatchOrderStatus =
   | '已关闭'
 
 export type CuttingSewingDispatchValidationStatus = '未校验' | '校验通过' | '校验未通过'
-export type CuttingSewingDispatchBatchStatus = '草稿' | '待装袋' | '装袋中' | '已配齐' | '已交出' | '已回写' | '差异' | '异议中'
-export type CuttingSewingCompletenessStatus = '未校验' | '未配齐' | '已配齐'
-export type CuttingSewingTransferBagStatus = '待装袋' | '装袋中' | '已配齐' | '已交出' | '已回写' | '差异' | '异议中'
+export type CuttingSewingDispatchBatchStatus = '草稿' | '待装袋' | '装袋中' | '已核对' | '已交出' | '已回写' | '差异' | '异议中'
+export type CuttingSewingCompletenessStatus = '未校验' | '有缺口' | '已核对'
+export type CuttingSewingTransferBagStatus = '待装袋' | '装袋中' | '已核对' | '已交出' | '已回写' | '差异' | '异议中'
 export type CuttingSewingTransferBagDispatchStatus = '未交出' | '已交出' | '已回写' | '差异' | '异议中'
-export type CuttingSewingPieceLineCompleteStatus = '未配齐' | '已配齐' | '超出'
+export type CuttingSewingPieceLineCompleteStatus = '有缺口' | '已核对' | '超出'
 export type CuttingSewingSpecialCraftReturnStatus = '不需要特殊工艺' | '已回仓' | '未回仓' | '差异' | '异议中' | '待确认顺序'
 export type CuttingSewingTransferBagPackStatus =
   | '待装袋'
@@ -254,10 +257,39 @@ export interface CuttingSewingDispatchValidationResult {
     | '菲票尺码不匹配'
     | '菲票部位不匹配'
     | '菲票已发出'
-    | '中转袋未配齐'
+    | '中转袋待核对'
     | '通过'
   validationMessage: string
   blocking: boolean
+}
+
+export interface CuttingSewingDispatchInventoryPieceLine {
+  productionOrderId: string
+  productionOrderNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  colorName: string
+  colorCode: string
+  sizeCode: string
+  partName: string
+  materialSku: string
+  feiTicketNos: string[]
+  availableFeiTicketCount: number
+  availablePieceQty: number
+  availableGarmentQty: number
+}
+
+export interface CuttingSewingDispatchInventorySkuLine {
+  productionOrderId: string
+  productionOrderNo: string
+  colorName: string
+  colorCode: string
+  sizeCode: string
+  partNames: string[]
+  cutOrderNos: string[]
+  availableFeiTicketCount: number
+  availablePieceQty: number
+  availableGarmentQty: number
 }
 
 interface RequiredCutPieceLine {
@@ -322,6 +354,164 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
+function isHandoverGapResult(result: Pick<CuttingSewingDispatchValidationResult, 'blocking' | 'validationType'>): boolean {
+  return !result.blocking && result.validationType !== '通过'
+}
+
+function formatDispatchGapLine(result: CuttingSewingDispatchValidationResult): string {
+  const subject = [result.colorName, result.sizeCode, result.partName].filter(Boolean).join('/')
+  if (result.validationType === '缺少裁片') {
+    return `${subject || '裁片'}缺 ${result.missingPieceQty} 片`
+  }
+  if (result.validationType === '裁片超出') {
+    return `${subject || '裁片'}多 ${result.overPieceQty} 片`
+  }
+  if (
+    result.validationType === '特殊工艺未回仓' ||
+    result.validationType === '特殊工艺差异' ||
+    result.validationType === '特殊工艺异议中'
+  ) {
+    return `${subject || '裁片'}${result.validationMessage}`
+  }
+  return `${subject || '裁片'}${result.validationMessage}`
+}
+
+function buildDispatchGapSummary(results: CuttingSewingDispatchValidationResult[]): string {
+  const gaps = results.filter(isHandoverGapResult)
+  if (!gaps.length) return ''
+  const preview = gaps.slice(0, 4).map(formatDispatchGapLine)
+  const restCount = Math.max(gaps.length - preview.length, 0)
+  return `交出后缺口：${preview.join('；')}${restCount > 0 ? `；另 ${restCount} 项` : ''}`
+}
+
+function makeCutPieceLineKey(line: Pick<RequiredCutPieceLine, 'colorName' | 'sizeCode' | 'partName'>): string {
+  return `${line.colorName}|${line.sizeCode}|${line.partName}`
+}
+
+function buildCuttingHandoverRecordSummary(
+  storeRef: CuttingSewingDispatchStore,
+  order: CuttingSewingDispatchOrder,
+  currentBatch: CuttingSewingDispatchBatch,
+  currentSubmittedPieceQty: number,
+): PdaCuttingHandoverRecordSummary {
+  const previousBatches = storeRef.dispatchBatches.filter(
+    (batch) =>
+      batch.dispatchOrderId === order.dispatchOrderId &&
+      batch.dispatchBatchId !== currentBatch.dispatchBatchId &&
+      Boolean(batch.handoverRecordId),
+  )
+  const involvedBatches = [...previousBatches, currentBatch]
+  const requiredByKey = new Map<
+    string,
+    {
+      skuCode: string
+      colorName: string
+      sizeCode: string
+      partName: string
+      requiredPieceQty: number
+      specialCraftRequired: boolean
+      specialCraftStatus: CuttingSewingSpecialCraftReturnStatus
+    }
+  >()
+  const submittedByKey = new Map<string, number>()
+
+  involvedBatches.forEach((batch) => {
+    getRequiredLinesForBag(batch).forEach((line) => {
+      const key = makeCutPieceLineKey(line)
+      const current = requiredByKey.get(key) || {
+        skuCode: `${line.colorName}-${line.sizeCode}`,
+        colorName: line.colorName,
+        sizeCode: line.sizeCode,
+        partName: line.partName,
+        requiredPieceQty: 0,
+        specialCraftRequired: false,
+        specialCraftStatus: '不需要特殊工艺' as CuttingSewingSpecialCraftReturnStatus,
+      }
+      current.requiredPieceQty += line.requiredPieceQty
+      current.specialCraftRequired = current.specialCraftRequired || line.specialCraftRequired
+      if (line.specialCraftRequired && line.specialCraftReturnStatus !== '已回仓') {
+        current.specialCraftStatus = line.specialCraftReturnStatus
+      } else if (line.specialCraftRequired && current.specialCraftStatus === '不需要特殊工艺') {
+        current.specialCraftStatus = line.specialCraftReturnStatus
+      }
+      requiredByKey.set(key, current)
+    })
+    batch.transferBagIds.forEach((bagId) => {
+      const bag = findTransferBagById(storeRef, bagId)
+      normalizeTransferBagRuntimeFields(bag)
+      bag.pieceLines.forEach((line) => {
+        const key = makeCutPieceLineKey(line)
+        submittedByKey.set(key, (submittedByKey.get(key) || 0) + line.scannedPieceQty)
+        if (!requiredByKey.has(key)) {
+          requiredByKey.set(key, {
+            skuCode: `${line.colorName}-${line.sizeCode}`,
+            colorName: line.colorName,
+            sizeCode: line.sizeCode,
+            partName: line.partName,
+            requiredPieceQty: 0,
+            specialCraftRequired: line.specialCraftRequired,
+            specialCraftStatus: line.specialCraftReturnStatus,
+          })
+        }
+      })
+    })
+  })
+
+  const gapLines = Array.from(requiredByKey.entries())
+    .map(([key, line]) => {
+      const cumulativeSubmittedPieceQty = submittedByKey.get(key) || 0
+      const missingPieceQty = Math.max(line.requiredPieceQty - cumulativeSubmittedPieceQty, 0)
+      const overPieceQty = Math.max(cumulativeSubmittedPieceQty - line.requiredPieceQty, 0)
+      const hasSpecialCraftGap = line.specialCraftRequired && line.specialCraftStatus !== '已回仓'
+      const statusLabel =
+        hasSpecialCraftGap
+          ? line.specialCraftStatus === '差异'
+            ? '特殊工艺差异'
+            : line.specialCraftStatus === '异议中'
+              ? '特殊工艺异议中'
+              : '特殊工艺未回仓'
+          : missingPieceQty > 0
+            ? '缺少裁片'
+            : overPieceQty > 0
+              ? '裁片超出'
+              : ''
+      return {
+        lineId: `CUT-GAP-${order.dispatchOrderId}-${key}`,
+        skuCode: line.skuCode,
+        colorName: line.colorName,
+        sizeCode: line.sizeCode,
+        partName: line.partName,
+        requiredPieceQty: line.requiredPieceQty,
+        cumulativeSubmittedPieceQty,
+        missingPieceQty,
+        overPieceQty,
+        specialCraftRequired: line.specialCraftRequired,
+        specialCraftStatus: line.specialCraftStatus,
+        statusLabel,
+      }
+    })
+    .filter((line) => line.missingPieceQty > 0 || line.overPieceQty > 0 || line.statusLabel.includes('特殊工艺'))
+    .sort((left, right) =>
+      `${left.colorName}-${left.sizeCode}-${left.partName}`.localeCompare(
+        `${right.colorName}-${right.sizeCode}-${right.partName}`,
+        'zh-CN',
+      ),
+    )
+
+  const previousSubmittedPieceQty = sum(previousBatches.map((batch) => getDispatchBatchPieceQty(storeRef, batch)))
+  const gapPieceQtyTotal = sum(gapLines.map((line) => line.missingPieceQty))
+  const overPieceQtyTotal = sum(gapLines.map((line) => line.overPieceQty))
+  return {
+    previousSubmittedPieceQty,
+    currentSubmittedPieceQty,
+    cumulativeSubmittedPieceQty: previousSubmittedPieceQty + currentSubmittedPieceQty,
+    completeAfterSubmit: gapPieceQtyTotal === 0 && !gapLines.some((line) => line.statusLabel.includes('特殊工艺')),
+    gapPieceQtyTotal,
+    overPieceQtyTotal,
+    gapLines,
+  }
+}
+
 function normalizeText(value: string | null | undefined): string {
   return String(value || '').trim()
 }
@@ -358,20 +548,6 @@ function getTotalProductionQty(order: ProductionOrder): number {
   return order.planQty || skuTotal || 0
 }
 
-function getOrderSkuRemainingQty(order: ProductionOrder, colorName: string, sizeCode: string): number {
-  const total = sum(
-    order.demandSnapshot.skuLines
-      .filter((line) => line.color === colorName && line.size === sizeCode)
-      .map((line) => line.qty || 0),
-  )
-  const dispatched = ensureCuttingSewingDispatchSeeded().dispatchBatches
-    .filter((batch) => batch.productionOrderId === order.productionOrderId && batch.status !== '差异' && batch.status !== '异议中')
-    .flatMap((batch) => batch.plannedSkuQtyLines)
-    .filter((line) => line.colorName === colorName && line.sizeCode === sizeCode)
-    .reduce((totalQty, line) => totalQty + line.plannedGarmentQty, 0)
-  return Math.max(total - dispatched, 0)
-}
-
 function isColorApplicable(applicableColorList: string[], colorName: string): boolean {
   if (!applicableColorList.length) return true
   return applicableColorList.includes(colorName) || applicableColorList.includes('按 SKU 适配')
@@ -385,7 +561,7 @@ function mapSpecialCraftReturnStatus(feiTicketNo: string): {
   if (!specialCraftSummary.needSpecialCraft) {
     return { specialCraftRequired: false, specialCraftReturnStatus: '不需要特殊工艺' }
   }
-  // 特殊工艺差异待处理不阻断裁片统一发料：最后一道已回仓、当前所在为裁床厂待交出仓且 currentQty > 0，即可进入齐套校验。
+  // 特殊工艺差异待处理不阻断裁片交出：最后一道已回仓、当前所在为裁床厂待交出仓且 currentQty > 0，即可进入交出缺口核对。
   if (specialCraftSummary.returnStatus.includes('已回仓') && specialCraftSummary.currentLocation === '裁床厂待交出仓' && specialCraftSummary.currentQty > 0) {
     return { specialCraftRequired: true, specialCraftReturnStatus: '已回仓' }
   }
@@ -405,6 +581,126 @@ function getTicketDispatchQty(ticket: GeneratedFeiTicketSourceRecord): number {
     return Math.max(summary.currentQty, 0)
   }
   return getTicketQty(ticket)
+}
+
+function buildReturnedSpecialCraftFeiTicketSource(binding: CuttingSpecialCraftFeiTicketBinding): GeneratedFeiTicketSourceRecord {
+  const qty = Math.max(binding.currentQty || binding.returnedQty || binding.qty || 0, 0)
+  const issuedAt = binding.updatedAt || nowText()
+  const feiTicketId = binding.feiTicketId || `SC-RET-${binding.bindingId}`
+  const pieceScope = unique([binding.colorName, binding.sizeCode, binding.partName, binding.operationName])
+  const sourceOutputLineId = `SC-RET-${binding.bindingId}`
+  const qrPayload = {
+    codeType: 'FEI_TICKET' as const,
+    version: '2.0.0',
+    issuedAt,
+    feiTicketId,
+    feiTicketNo: binding.feiTicketNo,
+    cutOrderId: binding.cuttingOrderId,
+    cutOrderNo: binding.cuttingOrderNo,
+    productionOrderId: binding.productionOrderId,
+    productionOrderNo: binding.productionOrderNo,
+    sourceOutputLineId,
+    fabricRollId: `SC-RET-${binding.operationId}`,
+    fabricRollNo: `${binding.operationName}回仓`,
+    fabricColor: binding.colorName,
+    materialSku: `SPECIAL-CRAFT-${binding.operationId}`,
+    garmentSkuId: `${binding.colorName}-${binding.sizeCode}`,
+    garmentColor: binding.colorName,
+    pieceScope,
+    pieceGroup: binding.partName,
+    bundleScope: `${binding.colorName}-${binding.sizeCode}-${binding.partName}`,
+    skuColor: binding.colorName,
+    skuSize: binding.sizeCode,
+    partCode: binding.partName,
+    partName: binding.partName,
+    bundleNo: binding.feiTicketNo,
+    bundleQty: qty,
+    pieceSetNoStart: 1,
+    pieceSetNoEnd: qty,
+    pieceSetNoRange: `1-${qty}`,
+    bundleTicketType: '特殊工艺回仓',
+    actualCutPieceQty: qty,
+    qty,
+    secondaryCrafts: [binding.operationName],
+    craftSequenceVersion: `${binding.operationId}:returned`,
+    currentCraftStage: '已回仓',
+  }
+  return {
+    feiTicketId,
+    feiTicketNo: binding.feiTicketNo,
+    sourceOutputLineId,
+    sourceSpreadingSessionId: binding.returnHandoverRecordId || binding.bindingId,
+    sourceSpreadingSessionNo: binding.returnHandoverRecordNo || binding.taskOrderNo,
+    sourceMarkerId: binding.workOrderId,
+    sourceMarkerNo: binding.workOrderNo,
+    cutOrderId: binding.cuttingOrderId,
+    cutOrderNo: binding.cuttingOrderNo,
+    productionOrderId: binding.productionOrderId,
+    productionOrderNo: binding.productionOrderNo,
+    sourceMarkerPlanId: binding.taskOrderId,
+    sourceMarkerPlanNo: binding.taskOrderNo,
+    fabricRollId: qrPayload.fabricRollId,
+    fabricRollNo: qrPayload.fabricRollNo,
+    fabricColor: binding.colorName,
+    materialSku: qrPayload.materialSku,
+    garmentSkuId: qrPayload.garmentSkuId,
+    garmentColor: binding.colorName,
+    pieceScope,
+    pieceGroup: binding.partName,
+    bundleScope: qrPayload.bundleScope,
+    skuCode: `${binding.colorName}-${binding.sizeCode}`,
+    skuColor: binding.colorName,
+    skuSize: binding.sizeCode,
+    partCode: binding.partName,
+    partName: binding.partName,
+    bundleNo: binding.feiTicketNo,
+    bundleQty: qty,
+    pieceSetNoStart: 1,
+    pieceSetNoEnd: qty,
+    pieceSetNoRange: `1-${qty}`,
+    bundleTicketType: '特殊工艺回仓',
+    actualCutPieceQty: qty,
+    printStatus: 'PRINTED',
+    qty,
+    garmentQty: qty,
+    sourceTraceCompleteness: 'COMPLETE',
+    secondaryCrafts: [binding.operationName],
+    craftSequenceVersion: `${binding.operationId}:returned`,
+    currentCraftStage: '已回仓',
+    sourceTechPackSpuCode: binding.productionOrderNo,
+    sourceBasisType: 'SPREADING_RESULT',
+    issuedAt,
+    qrPayload,
+    qrValue: `SPECIAL-CRAFT-RETURN:${binding.feiTicketNo}`,
+  }
+}
+
+function listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch(): GeneratedFeiTicketSourceRecord[] {
+  const byFeiTicketNo = new Map<string, CuttingSpecialCraftFeiTicketBinding>()
+  listCuttingSpecialCraftFeiTicketBindingsForProjection().forEach((binding) => {
+    const summary = getSpecialCraftFeiTicketSummary(binding.feiTicketNo)
+    if (!summary.needSpecialCraft) return
+    if (!summary.returnStatus.includes('已回仓')) return
+    if (summary.currentLocation !== '裁床厂待交出仓') return
+    if (summary.currentQty <= 0) return
+    if (binding.specialCraftFlowStatus !== '已回仓') return
+    const current = byFeiTicketNo.get(binding.feiTicketNo)
+    if (!current || binding.updatedAt.localeCompare(current.updatedAt) >= 0) {
+      byFeiTicketNo.set(binding.feiTicketNo, binding)
+    }
+  })
+  return [...byFeiTicketNo.values()].map(buildReturnedSpecialCraftFeiTicketSource)
+}
+
+function listSewingDispatchFeiTicketSources(): GeneratedFeiTicketSourceRecord[] {
+  const byNo = new Map<string, GeneratedFeiTicketSourceRecord>()
+  listSpreadingResultGeneratedFeiTickets().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
+  listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
+  return [...byNo.values()]
+}
+
+function resolveFeiTicketForSewingDispatch(feiTicketNo: string): GeneratedFeiTicketSourceRecord | null {
+  return getFeiTicketByNo(feiTicketNo) || listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().find((ticket) => ticket.feiTicketNo === feiTicketNo) || null
 }
 
 function buildContentItemFromFeiTicket(
@@ -440,7 +736,7 @@ function normalizeTransferBagRuntimeFields(bag: CuttingSewingTransferBag): void 
   bag.contentItems = bag.contentItems || []
   bag.scannedFeiTicketNos.forEach((feiTicketNo) => {
     if (bag.contentItems.some((item) => item.sourceKind === 'FEI_TICKET' && item.feiTicketNo === feiTicketNo)) return
-    const ticket = getFeiTicketByNo(feiTicketNo)
+    const ticket = resolveFeiTicketForSewingDispatch(feiTicketNo)
     if (ticket) bag.contentItems.push(buildContentItemFromFeiTicket(bag, ticket))
   })
   bag.contentItemCount = bag.contentItems.length
@@ -482,13 +778,13 @@ function findTransferBagById(storeRef: CuttingSewingDispatchStore, transferBagId
 
 function findDispatchBatchById(storeRef: CuttingSewingDispatchStore, dispatchBatchId: string): CuttingSewingDispatchBatch {
   const batch = storeRef.dispatchBatches.find((item) => item.dispatchBatchId === dispatchBatchId)
-  if (!batch) throw new Error(`未找到本次发料：${dispatchBatchId}`)
+  if (!batch) throw new Error(`未找到本次交出记录：${dispatchBatchId}`)
   return batch
 }
 
 function findDispatchOrderById(storeRef: CuttingSewingDispatchStore, dispatchOrderId: string): CuttingSewingDispatchOrder {
   const order = storeRef.dispatchOrders.find((item) => item.dispatchOrderId === dispatchOrderId)
-  if (!order) throw new Error(`未找到发料单：${dispatchOrderId}`)
+  if (!order) throw new Error(`未找到交出单：${dispatchOrderId}`)
   return order
 }
 
@@ -531,7 +827,7 @@ function buildPieceLineFromRequiredLine(requiredLine: RequiredCutPieceLine, bagI
     overPieceQty: 0,
     specialCraftRequired: requiredLine.specialCraftRequired,
     specialCraftReturnStatus: requiredLine.specialCraftReturnStatus,
-    completeStatus: '未配齐',
+    completeStatus: '有缺口',
   }
 }
 
@@ -542,13 +838,13 @@ function updateDispatchOrderFromChildren(order: CuttingSewingDispatchOrder): voi
   order.cumulativeDispatchedGarmentQty = sum(
     batches
       .filter((batch) => batch.status === '已交出' || batch.status === '已回写' || batch.status === '差异' || batch.status === '异议中')
-      .map((batch) => batch.plannedGarmentQty),
+      .map((batch) => getDispatchBatchSubmittedGarmentQty(storeRef, batch)),
   )
   order.remainingGarmentQty = Math.max(order.totalProductionQty - order.cumulativeDispatchedGarmentQty, 0)
   order.feiTicketNos = unique(bags.flatMap((bag) => bag.scannedFeiTicketNos))
   order.receiverWrittenQty = sum(batches.map((batch) => batch.receiverWrittenQty || 0))
   order.differenceQty = sum(batches.map((batch) => batch.differenceQty || 0))
-  order.validationStatus = batches.every((batch) => batch.completeStatus === '已配齐') ? '校验通过' : '校验未通过'
+  order.validationStatus = batches.every((batch) => batch.completeStatus === '已核对') ? '校验通过' : '校验未通过'
   order.validationMessages = unique(
     storeRef.validationResults
       .filter((item) => item.dispatchOrderId === order.dispatchOrderId && item.blocking)
@@ -558,9 +854,9 @@ function updateDispatchOrderFromChildren(order: CuttingSewingDispatchOrder): voi
   else if (batches.some((batch) => batch.status === '差异')) order.status = '差异'
   else if (batches.length && batches.every((batch) => batch.status === '已回写')) order.status = '已回写'
   else if (batches.some((batch) => batch.status === '已交出')) order.status = '已交出'
-  else if (batches.some((batch) => batch.completeStatus === '已配齐')) order.status = '可交出'
+  else if (batches.some((batch) => batch.completeStatus === '已核对')) order.status = '可交出'
   else if (batches.some((batch) => batch.status === '装袋中' || batch.status === '待装袋')) order.status = '待扫码'
-  else order.status = '待配齐'
+  else order.status = '待核对'
   order.updatedAt = nowText()
 }
 
@@ -579,13 +875,13 @@ export function buildRequiredCutPiecesForSewingDispatch(
   if (!techPackSnapshot) errors.push('技术包快照缺失')
   if (!techPackSnapshot?.cutPieceParts?.length) errors.push('纸样裁片明细缺失')
 
-  const tickets = listSpreadingResultGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === productionOrder.productionOrderId)
+  const tickets = listReadyFeiTicketSourcesForSewingDispatch({ productionOrderId: productionOrder.productionOrderId })
   const lines: RequiredCutPieceLine[] = []
   const seen = new Set<string>()
 
   for (const plannedLine of plannedSkuQtyLines) {
     if (plannedLine.plannedGarmentQty <= 0) {
-      errors.push('本次发料件数必须大于 0')
+      errors.push('本次交出件数必须大于 0')
       continue
     }
     const sourceSkuQty = productionOrder.demandSnapshot.skuLines
@@ -596,7 +892,7 @@ export function buildRequiredCutPiecesForSewingDispatch(
       continue
     }
     if (plannedLine.plannedGarmentQty > sourceSkuQty) {
-      errors.push('本次发料成衣件数超过生产单剩余未发成衣件数')
+      warnings.push('本次交出数量高于生产单需求数量，请按实际裁片库存继续核对缺口。')
     }
     const ticketPartNames = new Set(
       tickets
@@ -607,10 +903,11 @@ export function buildRequiredCutPiecesForSewingDispatch(
       .filter((part) => !part.applicableSizeList.length || part.applicableSizeList.includes(plannedLine.sizeCode))
       .filter((part) => isColorApplicable(part.applicableColorList, plannedLine.colorName))
       .filter((part) => part.partNameCn && part.pieceCountPerGarment > 0)
+    const candidatePartNames = new Set(candidateParts.map((part) => part.partNameCn))
 
     for (const part of candidateParts) {
       if (!ticketPartNames.has(part.partNameCn)) {
-        warnings.push(`裁片部位 ${part.partNameCn} 暂无匹配菲票，当前批次先按可扫码部位齐套。`)
+        warnings.push(`裁片部位 ${part.partNameCn} 暂无匹配菲票，当前交出先按可扫码部位核对。`)
         continue
       }
       const key = `${plannedLine.colorName}|${plannedLine.sizeCode}|${part.partNameCn}`
@@ -637,9 +934,73 @@ export function buildRequiredCutPiecesForSewingDispatch(
         specialCraftReturnStatus: specialCraft.specialCraftReturnStatus,
       })
     }
+
+    ticketPartNames.forEach((partName) => {
+      if (candidatePartNames.has(partName)) return
+      const key = `${plannedLine.colorName}|${plannedLine.sizeCode}|${partName}`
+      if (seen.has(key)) return
+      seen.add(key)
+      const sampleTicket = tickets.find(
+        (ticket) =>
+          ticket.garmentColor === plannedLine.colorName &&
+          ticket.skuSize === plannedLine.sizeCode &&
+          ticket.partName === partName,
+      )
+      const specialCraft = sampleTicket
+        ? mapSpecialCraftReturnStatus(sampleTicket.feiTicketNo)
+        : { specialCraftRequired: false, specialCraftReturnStatus: '不需要特殊工艺' as const }
+      warnings.push(`裁片部位 ${partName} 来自裁床待交出仓菲票，技术包未配置该部位，当前交出按 1:1 核对。`)
+      lines.push({
+        partName,
+        colorName: plannedLine.colorName,
+        colorCode: plannedLine.colorCode,
+        sizeCode: plannedLine.sizeCode,
+        pieceCountPerGarment: 1,
+        garmentQty: plannedLine.plannedGarmentQty,
+        requiredPieceQty: plannedLine.plannedGarmentQty,
+        specialCraftRequired: specialCraft.specialCraftRequired,
+        specialCraftReturnStatus: specialCraft.specialCraftReturnStatus,
+      })
+    })
   }
 
   return { requiredPieceLines: lines, errors, warnings }
+}
+
+function listReadyFeiTicketSourcesForSewingDispatch(input: {
+  productionOrderId?: string
+  colorName?: string
+  sizeCode?: string
+  partName?: string
+  excludeBagId?: string
+} = {}): GeneratedFeiTicketSourceRecord[] {
+  return listSewingDispatchFeiTicketSources().filter((ticket) => {
+    if (input.productionOrderId && ticket.productionOrderId !== input.productionOrderId) return false
+    if (input.colorName && ticket.garmentColor !== input.colorName) return false
+    if (input.sizeCode && ticket.skuSize !== input.sizeCode) return false
+    if (input.partName && ticket.partName !== input.partName) return false
+    const specialCraft = mapSpecialCraftReturnStatus(ticket.feiTicketNo)
+    if (!specialCraft.specialCraftRequired) return true
+    return specialCraft.specialCraftReturnStatus === '已回仓'
+  })
+}
+
+function listAvailableFeiTicketsForSewingDispatchInternal(input: {
+  productionOrderId?: string
+  colorName?: string
+  sizeCode?: string
+  partName?: string
+  excludeBagId?: string
+} = {}): GeneratedFeiTicketSourceRecord[] {
+  const occupied = getOccupiedFeiTicketNos({ excludeBagId: input.excludeBagId })
+  return listReadyFeiTicketSourcesForSewingDispatch(input).filter((ticket) => !occupied.has(ticket.feiTicketNo))
+}
+
+function getAvailablePieceQtyForSkuLine(productionOrderId: string, colorName: string, sizeCode: string): number {
+  return sum(
+    listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId, colorName, sizeCode })
+      .map((ticket) => getTicketDispatchQty(ticket)),
+  )
 }
 
 export function getEligibleFeiTicketsForSewingDispatch(input: {
@@ -649,17 +1010,94 @@ export function getEligibleFeiTicketsForSewingDispatch(input: {
   partName?: string
   excludeBagId?: string
 }): GeneratedFeiTicketSourceRecord[] {
-  const occupied = getOccupiedFeiTicketNos({ excludeBagId: input.excludeBagId })
-  return listSpreadingResultGeneratedFeiTickets().filter((ticket) => {
-    if (ticket.productionOrderId !== input.productionOrderId) return false
-    if (input.colorName && ticket.garmentColor !== input.colorName) return false
-    if (input.sizeCode && ticket.skuSize !== input.sizeCode) return false
-    if (input.partName && ticket.partName !== input.partName) return false
-    if (occupied.has(ticket.feiTicketNo)) return false
-    const specialCraft = mapSpecialCraftReturnStatus(ticket.feiTicketNo)
-    if (!specialCraft.specialCraftRequired) return true
-    return specialCraft.specialCraftReturnStatus === '已回仓'
+  return clone(listAvailableFeiTicketsForSewingDispatchInternal(input))
+}
+
+export function listAvailableFeiTicketsForSewingDispatch(input: {
+  productionOrderId?: string
+  colorName?: string
+  sizeCode?: string
+  partName?: string
+  excludeBagId?: string
+} = {}): GeneratedFeiTicketSourceRecord[] {
+  return clone(listAvailableFeiTicketsForSewingDispatchInternal(input))
+}
+
+export function listAvailableCutPieceInventoryForSewingDispatch(input: {
+  productionOrderId?: string
+  colorName?: string
+  sizeCode?: string
+  partName?: string
+  excludeBagId?: string
+} = {}): CuttingSewingDispatchInventoryPieceLine[] {
+  const grouped = new Map<string, CuttingSewingDispatchInventoryPieceLine>()
+  listAvailableFeiTicketsForSewingDispatchInternal(input).forEach((ticket) => {
+    const key = `${ticket.productionOrderId}|${ticket.garmentColor}|${ticket.skuSize}|${ticket.partName}|${ticket.materialSku}`
+    const current = grouped.get(key) || {
+      productionOrderId: ticket.productionOrderId,
+      productionOrderNo: ticket.productionOrderNo,
+      cutOrderIds: [],
+      cutOrderNos: [],
+      colorName: ticket.garmentColor,
+      colorCode: ticket.skuColor || ticket.garmentColor,
+      sizeCode: ticket.skuSize,
+      partName: ticket.partName,
+      materialSku: ticket.materialSku,
+      feiTicketNos: [],
+      availableFeiTicketCount: 0,
+      availablePieceQty: 0,
+      availableGarmentQty: 0,
+    }
+    current.cutOrderIds = unique([...current.cutOrderIds, ticket.cutOrderId])
+    current.cutOrderNos = unique([...current.cutOrderNos, ticket.cutOrderNo])
+    current.feiTicketNos = unique([...current.feiTicketNos, ticket.feiTicketNo])
+    current.availableFeiTicketCount = current.feiTicketNos.length
+    current.availablePieceQty += getTicketDispatchQty(ticket)
+    current.availableGarmentQty += Math.max(ticket.garmentQty || 0, 0)
+    grouped.set(key, current)
   })
+  return clone([...grouped.values()].sort((left, right) =>
+    `${left.productionOrderNo}-${left.colorName}-${left.sizeCode}-${left.partName}`.localeCompare(
+      `${right.productionOrderNo}-${right.colorName}-${right.sizeCode}-${right.partName}`,
+      'zh-CN',
+    ),
+  ))
+}
+
+export function listAvailableSkuInventoryForSewingDispatch(input: {
+  productionOrderId?: string
+  colorName?: string
+  sizeCode?: string
+  excludeBagId?: string
+} = {}): CuttingSewingDispatchInventorySkuLine[] {
+  const grouped = new Map<string, CuttingSewingDispatchInventorySkuLine>()
+  listAvailableCutPieceInventoryForSewingDispatch(input).forEach((line) => {
+    const key = `${line.productionOrderId}|${line.colorName}|${line.sizeCode}`
+    const current = grouped.get(key) || {
+      productionOrderId: line.productionOrderId,
+      productionOrderNo: line.productionOrderNo,
+      colorName: line.colorName,
+      colorCode: line.colorCode,
+      sizeCode: line.sizeCode,
+      partNames: [],
+      cutOrderNos: [],
+      availableFeiTicketCount: 0,
+      availablePieceQty: 0,
+      availableGarmentQty: 0,
+    }
+    current.partNames = unique([...current.partNames, line.partName])
+    current.cutOrderNos = unique([...current.cutOrderNos, ...line.cutOrderNos])
+    current.availableFeiTicketCount += line.availableFeiTicketCount
+    current.availablePieceQty += line.availablePieceQty
+    current.availableGarmentQty += line.availableGarmentQty
+    grouped.set(key, current)
+  })
+  return clone([...grouped.values()].sort((left, right) =>
+    `${left.productionOrderNo}-${left.colorName}-${left.sizeCode}`.localeCompare(
+      `${right.productionOrderNo}-${right.colorName}-${right.sizeCode}`,
+      'zh-CN',
+    ),
+  ))
 }
 
 export function createCuttingSewingDispatchOrder(input: CreateDispatchOrderInput): CuttingSewingDispatchOrder {
@@ -671,7 +1109,8 @@ export function createCuttingSewingDispatchOrder(input: CreateDispatchOrderInput
   const sewingFactory = input.sewingFactoryId
     ? mockFactories.find((factory) => factory.id === input.sewingFactoryId) || getSewingFactory()
     : getSewingFactory()
-  const tickets = listSpreadingResultGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === productionOrder.productionOrderId)
+  const tickets = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: productionOrder.productionOrderId })
+  if (!tickets.length) throw new Error('当前生产单暂无裁床待交出仓菲票库存，不能分配车缝任务')
   const dispatchIndex = storeRef.dispatchOrders.length + 1
   const createdAt = nowText()
   const order: CuttingSewingDispatchOrder = {
@@ -679,8 +1118,8 @@ export function createCuttingSewingDispatchOrder(input: CreateDispatchOrderInput
     dispatchOrderNo: `CPFL-${productionOrder.productionOrderNo}-${String(dispatchIndex).padStart(2, '0')}`,
     productionOrderId: productionOrder.productionOrderId,
     productionOrderNo: productionOrder.productionOrderNo,
-    cuttingOrderIds: unique(tickets.map((ticket) => ticket.originalCutOrderId)),
-    cuttingOrderNos: unique(tickets.map((ticket) => ticket.originalCutOrderNo)),
+    cuttingOrderIds: unique(tickets.map((ticket) => ticket.cutOrderId)),
+    cuttingOrderNos: unique(tickets.map((ticket) => ticket.cutOrderNo)),
     cuttingFactoryId: cuttingFactory.id,
     cuttingFactoryName: cuttingFactory.name,
     sewingFactoryId: sewingFactory.id,
@@ -708,7 +1147,6 @@ export function createCuttingSewingDispatchOrder(input: CreateDispatchOrderInput
 export function createCuttingSewingDispatchBatch(input: CreateDispatchBatchInput): CuttingSewingDispatchBatch {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const order = findDispatchOrderById(storeRef, input.dispatchOrderId)
-  const productionOrder = getProductionOrder(order.productionOrderId)
   const normalizedLines = input.plannedSkuQtyLines
     .filter((line) => line.plannedGarmentQty > 0)
     .map((line, index) => ({
@@ -718,13 +1156,15 @@ export function createCuttingSewingDispatchBatch(input: CreateDispatchBatchInput
       sizeCode: line.sizeCode,
       plannedGarmentQty: line.plannedGarmentQty,
       dispatchedGarmentQty: 0,
-      remainingGarmentQty: getOrderSkuRemainingQty(productionOrder, line.colorName, line.sizeCode),
+      remainingGarmentQty: getAvailablePieceQtyForSkuLine(order.productionOrderId, line.colorName, line.sizeCode),
     }))
-  if (!normalizedLines.length) throw new Error('至少需要一行本次发料颜色 / 尺码 / 件数')
-  const overLine = normalizedLines.find((line) => line.plannedGarmentQty > line.remainingGarmentQty && line.remainingGarmentQty > 0)
-  if (overLine) throw new Error('本次发料成衣件数超过生产单剩余未发成衣件数')
+  if (!normalizedLines.length) throw new Error('至少需要一行本次交出颜色 / 尺码 / 件数')
+  const noStockLine = normalizedLines.find((line) => line.remainingGarmentQty <= 0)
+  if (noStockLine) throw new Error(`待交出仓没有 ${noStockLine.colorName} / ${noStockLine.sizeCode} 的可分配菲票，不能创建车缝任务分配`)
+  const overStockLine = normalizedLines.find((line) => line.plannedGarmentQty > line.remainingGarmentQty)
+  if (overStockLine) throw new Error(`本次分配数量超过待交出仓 ${overStockLine.colorName} / ${overStockLine.sizeCode} 可用裁片数量`)
 
-  const batchIndex = order.dispatchBatchIds.length + 1
+  const batchIndex = storeRef.dispatchBatches.filter((batch) => batch.productionOrderId === order.productionOrderId).length + 1
   const createdAt = nowText()
   const batch: CuttingSewingDispatchBatch = {
     dispatchBatchId: `CSDB-${order.productionOrderId}-${String(batchIndex).padStart(2, '0')}`,
@@ -759,6 +1199,10 @@ export function createCuttingSewingTransferBags(input: CreateTransferBagInput): 
   const batch = findDispatchBatchById(storeRef, input.dispatchBatchId)
   const order = findDispatchOrderById(storeRef, batch.dispatchOrderId)
   const requiredLines = getRequiredLinesForBag(batch)
+  const noStockLine = input.bagPlanList
+    .flatMap((plan) => plan.skuQtyLines)
+    .find((line) => getAvailablePieceQtyForSkuLine(order.productionOrderId, line.colorName, line.sizeCode) <= 0)
+  if (noStockLine) throw new Error(`待交出仓没有 ${noStockLine.colorName} / ${noStockLine.sizeCode} 的可装袋菲票`)
   const createdAt = nowText()
   const created = input.bagPlanList.map((plan, index) => {
     const bagSequence = batch.transferBagIds.length + index + 1
@@ -857,7 +1301,7 @@ export function scanFeiTicketIntoTransferBag(input: {
 } {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const bag = findTransferBagById(storeRef, input.transferBagId)
-  const ticket = getFeiTicketByNo(input.feiTicketNo)
+  const ticket = resolveFeiTicketForSewingDispatch(input.feiTicketNo)
   const batch = findDispatchBatchById(storeRef, bag.dispatchBatchId)
   const order = findDispatchOrderById(storeRef, bag.dispatchOrderId)
   const baseResult = {
@@ -938,7 +1382,7 @@ export function scanFeiTicketIntoTransferBag(input: {
             ? '菲票部位不匹配'
             : '菲票尺码不匹配'
           : '菲票颜色不匹配',
-      validationMessage: '菲票不属于本次发料批次',
+      validationMessage: '菲票不属于本次交出记录',
     }
     storeRef.validationResults.push(result)
     return { updatedTransferBag: clone(bag), validationResult: clone(result) }
@@ -958,7 +1402,7 @@ export function scanFeiTicketIntoTransferBag(input: {
           : specialCraft.specialCraftReturnStatus === '异议中'
             ? '特殊工艺异议中'
             : '特殊工艺未回仓',
-      validationMessage: '特殊工艺未回仓，不能加入本次发料',
+      validationMessage: '特殊工艺未回仓，加入本次交出后将形成缺口',
     }
     storeRef.validationResults.push(result)
     return { updatedTransferBag: clone(bag), validationResult: clone(result) }
@@ -986,7 +1430,7 @@ export function scanFeiTicketIntoTransferBag(input: {
   pieceLine.overPieceQty = Math.max(pieceLine.scannedPieceQty - pieceLine.requiredPieceQty, 0)
   pieceLine.specialCraftRequired = specialCraft.specialCraftRequired
   pieceLine.specialCraftReturnStatus = specialCraft.specialCraftReturnStatus
-  pieceLine.completeStatus = pieceLine.missingPieceQty === 0 && pieceLine.overPieceQty === 0 ? '已配齐' : '未配齐'
+  pieceLine.completeStatus = pieceLine.missingPieceQty === 0 && pieceLine.overPieceQty === 0 ? '已核对' : '有缺口'
   bag.scannedFeiTicketNos = unique([...bag.scannedFeiTicketNos, ticket.feiTicketNo])
   if (!bag.contentItems.some((item) => item.sourceKind === 'FEI_TICKET' && item.feiTicketNo === ticket.feiTicketNo)) {
     bag.contentItems.push(buildContentItemFromFeiTicket(bag, ticket))
@@ -1050,12 +1494,12 @@ export function removeFeiTicketFromTransferBag(input: {
   bag.contentItems = (bag.contentItems || []).filter((item) => item.feiTicketNo !== input.feiTicketNo)
   bag.pieceLines.forEach((line) => {
     if (!line.scannedFeiTicketNos.includes(input.feiTicketNo)) return
-    const ticket = getFeiTicketByNo(input.feiTicketNo)
+    const ticket = resolveFeiTicketForSewingDispatch(input.feiTicketNo)
     line.scannedFeiTicketNos = line.scannedFeiTicketNos.filter((feiTicketNo) => feiTicketNo !== input.feiTicketNo)
     line.scannedPieceQty = Math.max(line.scannedPieceQty - (ticket ? getTicketDispatchQty(ticket) : 0), 0)
     line.missingPieceQty = Math.max(line.requiredPieceQty - line.scannedPieceQty, 0)
     line.overPieceQty = Math.max(line.scannedPieceQty - line.requiredPieceQty, 0)
-    line.completeStatus = line.missingPieceQty === 0 && line.overPieceQty === 0 ? '已配齐' : '未配齐'
+    line.completeStatus = line.missingPieceQty === 0 && line.overPieceQty === 0 ? '已核对' : '有缺口'
   })
   bag.status = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
   bag.packStatus = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
@@ -1140,20 +1584,21 @@ export function validateTransferBagCompleteness(transferBagId: string): {
             : line.specialCraftReturnStatus === '异议中'
               ? '特殊工艺异议中'
               : '特殊工艺未回仓',
-        validationMessage: '特殊工艺未回仓，不能交出',
+        validationMessage: '特殊工艺未回仓，交出后将形成缺口',
+        blocking: false,
       })
     } else if (line.missingPieceQty > 0) {
-      results.push({ ...validationBase, validationType: '缺少裁片', validationMessage: '缺少裁片' })
+      results.push({ ...validationBase, validationType: '缺少裁片', validationMessage: '缺少裁片，交出后将形成缺口', blocking: false })
     } else if (line.overPieceQty > 0) {
-      results.push({ ...validationBase, validationType: '裁片超出', validationMessage: '裁片超出' })
+      results.push({ ...validationBase, validationType: '裁片超出', validationMessage: '裁片超出，按本次交出记录追踪', blocking: false })
     } else {
-      results.push({ ...validationBase, validationType: '通过', validationMessage: '齐套校验通过', blocking: false })
+      results.push({ ...validationBase, validationType: '通过', validationMessage: '缺口核对通过', blocking: false })
     }
   })
-  const blocking = results.some((result) => result.blocking)
-  bag.completeStatus = blocking ? '未配齐' : '已配齐'
-  bag.status = blocking ? (bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋') : '已配齐'
-  bag.packStatus = bag.scannedFeiTicketNos.length ? (blocking ? '装袋中' : '已装袋') : '待装袋'
+  const hasGap = results.some(isHandoverGapResult)
+  bag.completeStatus = hasGap ? '有缺口' : '已核对'
+  bag.status = bag.scannedFeiTicketNos.length ? '已核对' : '待装袋'
+  bag.packStatus = bag.scannedFeiTicketNos.length ? '已装袋' : '待装袋'
   bag.editableBeforeHandover = bag.dispatchStatus === '未交出' && !bag.handoverSubmittedAt && !bag.receivedAt
   bag.updatedAt = nowText()
   normalizeTransferBagRuntimeFields(bag)
@@ -1175,7 +1620,7 @@ export function validateTransferBagForMixedPacking(transferBagId: string): {
   const duplicateTickets = bag.scannedFeiTicketNos.filter((feiTicketNo, index, list) => list.indexOf(feiTicketNo) !== index)
   const results: CuttingSewingDispatchValidationResult[] = []
   duplicateTickets.forEach((feiTicketNo) => {
-    const ticket = getFeiTicketByNo(feiTicketNo)
+    const ticket = resolveFeiTicketForSewingDispatch(feiTicketNo)
     results.push({
       validationId: `CSV-${bag.transferBagId}-${feiTicketNo}-DUP`,
       dispatchOrderId: bag.dispatchOrderId,
@@ -1199,7 +1644,7 @@ export function validateTransferBagForMixedPacking(transferBagId: string): {
   })
   bag.contentItems.forEach((item, index) => {
     if (item.sourceKind !== 'FEI_TICKET') return
-    const ticket = item.feiTicketNo ? getFeiTicketByNo(item.feiTicketNo) : undefined
+    const ticket = item.feiTicketNo ? resolveFeiTicketForSewingDispatch(item.feiTicketNo) : undefined
     const belongsToBatch = ticket && ticket.productionOrderId === batch.productionOrderId
     if (belongsToBatch) return
     results.push({
@@ -1219,7 +1664,7 @@ export function validateTransferBagForMixedPacking(transferBagId: string): {
       specialCraftRequired: false,
       specialCraftStatus: '不需要特殊工艺',
       validationType: '菲票不属于本生产单',
-      validationMessage: '袋内菲票不属于本次发料批次',
+      validationMessage: '袋内菲票不属于本次交出记录',
       blocking: true,
     })
   })
@@ -1300,38 +1745,41 @@ export function validateDispatchBatchCompleteness(dispatchBatchId: string): {
             : line.specialCraftReturnStatus === '异议中'
               ? '特殊工艺异议中'
               : '特殊工艺未回仓',
-        validationMessage: '特殊工艺未回仓，不能交出',
+        validationMessage: '特殊工艺未回仓，交出后将形成缺口',
+        blocking: false,
       } satisfies CuttingSewingDispatchValidationResult
     }
     if (missingPieceQty > 0) {
-      return { ...validationBase, validationType: '缺少裁片', validationMessage: '本次发料批次缺少裁片' } satisfies CuttingSewingDispatchValidationResult
+      return { ...validationBase, validationType: '缺少裁片', validationMessage: '本次交出记录缺少裁片，交出后展示缺口', blocking: false } satisfies CuttingSewingDispatchValidationResult
     }
     if (overPieceQty > 0) {
-      return { ...validationBase, validationType: '裁片超出', validationMessage: '本次发料批次裁片超出' } satisfies CuttingSewingDispatchValidationResult
+      return { ...validationBase, validationType: '裁片超出', validationMessage: '本次交出记录裁片超出，按差异追踪', blocking: false } satisfies CuttingSewingDispatchValidationResult
     }
     return {
       ...validationBase,
       validationType: '通过',
-      validationMessage: '本次发料批次齐套校验通过',
+      validationMessage: '本次交出记录缺口核对通过',
       blocking: false,
     } satisfies CuttingSewingDispatchValidationResult
   })
   const results = [...bagLegalityResults, ...batchResults]
   const blocking = results.some((result) => result.blocking)
-  batch.completeStatus = blocking ? '未配齐' : '已配齐'
-  batch.status = blocking ? '装袋中' : '已配齐'
+  const hasGap = results.some(isHandoverGapResult)
+  batch.completeStatus = blocking || hasGap ? '有缺口' : '已核对'
+  batch.status = blocking ? '装袋中' : '已核对'
   batch.updatedAt = nowText()
   batch.transferBagIds.forEach((transferBagId) => {
     const bag = findTransferBagById(storeRef, transferBagId)
     normalizeTransferBagRuntimeFields(bag)
     if (!blocking) {
-      bag.completeStatus = '已配齐'
-      bag.status = '已配齐'
+      const hasBagGap = results.some((result) => result.transferBagId === transferBagId && isHandoverGapResult(result))
+      bag.completeStatus = hasBagGap ? '有缺口' : '已核对'
+      bag.status = '已核对'
       bag.packStatus = bag.scannedFeiTicketNos.length ? '已装袋' : bag.packStatus
       bag.updatedAt = batch.updatedAt
     }
   })
-  order.status = blocking ? '待配齐' : '可交出'
+  order.status = blocking ? '待核对' : '可交出'
   order.validationStatus = blocking ? '校验未通过' : '校验通过'
   order.validationMessages = unique(results.filter((item) => item.blocking).map((item) => item.validationMessage))
   storeRef.validationResults = [
@@ -1344,9 +1792,6 @@ export function validateDispatchBatchCompleteness(dispatchBatchId: string): {
 
 export function assertSewingDispatchAllowed(dispatchBatchId: string): void {
   const validation = validateDispatchBatchCompleteness(dispatchBatchId)
-  if (validation.updatedDispatchBatch.completeStatus !== '已配齐') {
-    throw new Error('本次发料批次未配齐，不能提交交出')
-  }
   const blocking = validation.validationResults.find((item) => item.blocking)
   if (blocking) throw new Error(blocking.validationMessage)
 }
@@ -1364,14 +1809,20 @@ export function submitCuttingSewingDispatchBatch(input: {
   updatedTransferBags: CuttingSewingTransferBag[]
 } {
   const storeRef = ensureCuttingSewingDispatchSeeded()
-  assertSewingDispatchAllowed(input.dispatchBatchId)
+  const validation = validateDispatchBatchCompleteness(input.dispatchBatchId)
+  const blocking = validation.validationResults.find((item) => item.blocking)
+  if (blocking) throw new Error(blocking.validationMessage)
   const batch = findDispatchBatchById(storeRef, input.dispatchBatchId)
   const order = findDispatchOrderById(storeRef, batch.dispatchOrderId)
+  const submittedPieceQty = getDispatchBatchPieceQty(storeRef, batch)
+  if (submittedPieceQty <= 0) throw new Error('当前没有可交出裁片，不能新增交出记录')
+  const gapSummary = buildDispatchGapSummary(validation.validationResults)
+  const cuttingHandoverSummary = buildCuttingHandoverRecordSummary(storeRef, order, batch, submittedPieceQty)
   if (batch.handoverRecordId) {
     const record = findPdaHandoverRecord(batch.handoverRecordId)
     if (record) {
       return {
-        handoverOrder: upsertPdaHandoverHeadMock(buildHandoverHead(order, batch)),
+        handoverOrder: upsertPdaHandoverHeadMock(buildHandoverHead(order)),
         handoverRecord: record,
         outboundRecords: [],
         updatedWaitHandoverStockItems: [],
@@ -1380,20 +1831,24 @@ export function submitCuttingSewingDispatchBatch(input: {
       }
     }
   }
-  const handoverOrder = upsertPdaHandoverHeadMock(buildHandoverHead(order, batch))
+  const handoverOrder = upsertPdaHandoverHeadMock(buildHandoverHead(order))
   const record = createFactoryHandoverRecord({
     handoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
-    submittedQty: sum(batch.transferBagIds.map((bagId) => findTransferBagById(storeRef, bagId).pieceLines.reduce((total, line) => total + line.scannedPieceQty, 0))),
+    submittedQty: submittedPieceQty,
     qtyUnit: '片',
     factorySubmittedAt: input.submittedAt,
     factorySubmittedBy: input.operatorName,
-    factoryRemark: `中转单：${batch.transferOrderNo}；中转袋：${batch.transferBagIds
-      .map((bagId) => findTransferBagById(storeRef, bagId).transferBagNo)
-      .join('、')}`,
+    factoryRemark: [
+      `中转单：${batch.transferOrderNo}`,
+      `中转袋：${batch.transferBagIds
+        .map((bagId) => findTransferBagById(storeRef, bagId).transferBagNo)
+        .join('、')}`,
+      gapSummary,
+    ].filter(Boolean).join('；'),
     objectType: 'CUT_PIECE',
     handoutObjectType: 'CUT_PIECE',
-    handoutItemLabel: `裁片发料 ${batch.transferOrderNo}`,
-    garmentEquivalentQty: batch.plannedGarmentQty,
+    handoutItemLabel: `交出单 ${batch.transferOrderNo}`,
+    garmentEquivalentQty: getDispatchBatchSubmittedGarmentQty(storeRef, batch),
     skuColor: batch.plannedSkuQtyLines.map((line) => line.colorName).join('、'),
     skuSize: batch.plannedSkuQtyLines.map((line) => line.sizeCode).join('、'),
     pieceName: unique(batch.transferBagIds.flatMap((bagId) => findTransferBagById(storeRef, bagId).pieceLines.map((line) => line.partName))).join('、'),
@@ -1407,6 +1862,7 @@ export function submitCuttingSewingDispatchBatch(input: {
   }, 0)
   const recordWithTransferBagFields = upsertPdaHandoutRecordMock({
     ...record,
+    cuttingHandoverSummary,
     expectedTransferBagCount,
     receivedTransferBagCount: 0,
     expectedFeiTicketCount,
@@ -1445,7 +1901,7 @@ export function submitCuttingSewingDispatchBatch(input: {
     receiverKind: '后道工厂',
     receiverName: order.sewingFactoryName,
     itemKind: '裁片',
-    itemName: `裁片发料 ${batch.transferOrderNo}`,
+    itemName: `交出单 ${batch.transferOrderNo}`,
     transferBagNo: batch.transferBagIds.map((bagId) => findTransferBagById(storeRef, bagId).transferBagNo).join('、'),
     submittedQty: recordWithTransferBagFields.submittedQty,
     unit: recordWithTransferBagFields.qtyUnit,
@@ -1468,7 +1924,7 @@ export function submitCuttingSewingDispatchBatch(input: {
   })
   order.handoverOrderId = handoverOrder.handoverOrderId || handoverOrder.handoverId
   order.handoverOrderNo = handoverOrder.handoverOrderNo || handoverOrder.handoverId
-  order.handoverRecordIds = unique([...order.handoverRecordIds, record.handoverRecordId || record.recordId])
+  order.handoverRecordIds = unique([...order.handoverRecordIds, recordWithTransferBagFields.handoverRecordId || recordWithTransferBagFields.recordId])
   order.status = '已交出'
   order.updatedAt = input.submittedAt
   updateDispatchOrderFromChildren(order)
@@ -1482,20 +1938,63 @@ export function submitCuttingSewingDispatchBatch(input: {
   }
 }
 
-function buildHandoverHead(order: CuttingSewingDispatchOrder, batch: CuttingSewingDispatchBatch): PdaHandoverHead {
+function getDispatchBatchPieceQty(storeRef: CuttingSewingDispatchStore, batch: CuttingSewingDispatchBatch): number {
+  return sum(
+    batch.transferBagIds.map((bagId) =>
+      findTransferBagById(storeRef, bagId).pieceLines.reduce((total, line) => total + line.scannedPieceQty, 0),
+    ),
+  )
+}
+
+function getDispatchBatchSubmittedGarmentQty(storeRef: CuttingSewingDispatchStore, batch: CuttingSewingDispatchBatch): number {
+  const garmentQtyBySku = new Map<string, number>()
+  batch.transferBagIds.forEach((bagId) => {
+    const bag = findTransferBagById(storeRef, bagId)
+    bag.pieceLines.forEach((line) => {
+      const pieceCountPerGarment = Math.max(line.pieceCountPerGarment || 1, 1)
+      const garmentQty = Math.floor(Math.max(line.scannedPieceQty || 0, 0) / pieceCountPerGarment)
+      if (garmentQty <= 0) return
+      const skuKey = `${line.colorName}|${line.sizeCode}`
+      garmentQtyBySku.set(skuKey, Math.max(garmentQtyBySku.get(skuKey) || 0, garmentQty))
+    })
+  })
+  return sum([...garmentQtyBySku.values()])
+}
+
+function getDispatchBatchRequiredPieceQty(storeRef: CuttingSewingDispatchStore, batch: CuttingSewingDispatchBatch): number {
+  return sum(
+    batch.transferBagIds.map((bagId) =>
+      findTransferBagById(storeRef, bagId).pieceLines.reduce((total, line) => total + line.requiredPieceQty, 0),
+    ),
+  )
+}
+
+function buildHandoverHead(order: CuttingSewingDispatchOrder): PdaHandoverHead {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const batches = storeRef.dispatchBatches.filter((batch) => batch.dispatchOrderId === order.dispatchOrderId)
+  const submittedBatches = batches.filter((batch) => Boolean(batch.handoverRecordId))
+  const hasObjection = submittedBatches.some((batch) => batch.status === '异议中')
+  const hasDifference = submittedBatches.some((batch) => batch.status === '差异')
+  const pendingWritebackCount = submittedBatches.filter((batch) => batch.status === '已交出').length
+  const allWrittenBack = submittedBatches.length > 0 && submittedBatches.every((batch) => batch.status === '已回写')
+  const handoverId = order.handoverOrderId || `HO-CSD-${order.dispatchOrderId}`
+  const submittedQtyTotal = sum(submittedBatches.map((batch) => getDispatchBatchPieceQty(storeRef, batch)))
+  const expectedQtyTotal = sum(batches.map((batch) => getDispatchBatchRequiredPieceQty(storeRef, batch)))
+  const writtenBackQtyTotal = sum(submittedBatches.map((batch) => batch.receiverWrittenQty || 0))
+  const diffQtyTotal = sum(submittedBatches.map((batch) => batch.differenceQty || 0))
   return {
-    handoverId: `HO-CSD-${batch.dispatchBatchId}`,
-    handoverOrderId: `HO-CSD-${batch.dispatchBatchId}`,
-    handoverOrderNo: `JCD-${batch.transferOrderNo}`,
+    handoverId,
+    handoverOrderId: handoverId,
+    handoverOrderNo: order.handoverOrderNo || `JCD-${order.productionOrderNo}-${order.dispatchOrderId.replace(/[^0-9A-Za-z]/g, '').slice(-4)}`,
     headType: 'HANDOUT',
-    qrCodeValue: buildHandoverOrderQrValue(`HO-CSD-${batch.dispatchBatchId}`),
-    handoverOrderQrValue: buildHandoverOrderQrValue(`HO-CSD-${batch.dispatchBatchId}`),
-    taskId: batch.dispatchBatchId,
-    sourceTaskId: batch.dispatchBatchId,
-    taskNo: batch.dispatchBatchNo,
-    sourceTaskNo: batch.dispatchBatchNo,
+    qrCodeValue: buildHandoverOrderQrValue(handoverId),
+    handoverOrderQrValue: buildHandoverOrderQrValue(handoverId),
+    taskId: order.dispatchOrderId,
+    sourceTaskId: order.dispatchOrderId,
+    taskNo: order.dispatchOrderNo,
+    sourceTaskNo: order.dispatchOrderNo,
     productionOrderNo: order.productionOrderNo,
-    processName: '裁片发料',
+    processName: '交出单',
     sourceFactoryName: order.cuttingFactoryName,
     sourceFactoryId: order.cuttingFactoryId,
     targetName: order.sewingFactoryName,
@@ -1506,27 +2005,35 @@ function buildHandoverHead(order: CuttingSewingDispatchOrder, batch: CuttingSewi
     qtyUnit: '片',
     factoryId: order.cuttingFactoryId,
     taskStatus: 'DONE',
-    summaryStatus: batch.status === '已回写' ? 'WRITTEN_BACK' : batch.status === '差异' ? 'PARTIAL_WRITTEN_BACK' : 'SUBMITTED',
-    recordCount: batch.handoverRecordId ? 1 : 0,
-    pendingWritebackCount: batch.status === '已交出' ? 1 : 0,
-    submittedQtyTotal: sum(batch.transferBagIds.map((bagId) => findTransferBagById(ensureCuttingSewingDispatchSeeded(), bagId).pieceLines.reduce((total, line) => total + line.scannedPieceQty, 0))),
-    writtenBackQtyTotal: batch.receiverWrittenQty || 0,
-    diffQtyTotal: batch.differenceQty || 0,
-    objectionCount: batch.status === '异议中' ? 1 : 0,
-    lastRecordAt: batch.updatedAt,
-    plannedQty: batch.plannedGarmentQty,
-    completionStatus: batch.status === '已回写' ? 'COMPLETED' : 'OPEN',
-    qtyExpectedTotal: sum(batch.transferBagIds.map((bagId) => findTransferBagById(ensureCuttingSewingDispatchSeeded(), bagId).pieceLines.reduce((total, line) => total + line.requiredPieceQty, 0))),
-    qtyActualTotal: batch.receiverWrittenQty || 0,
-    qtyDiffTotal: batch.differenceQty || 0,
+    summaryStatus: hasObjection
+      ? 'HAS_OBJECTION'
+      : allWrittenBack
+        ? 'WRITTEN_BACK'
+        : hasDifference || writtenBackQtyTotal > 0
+          ? 'PARTIAL_WRITTEN_BACK'
+          : submittedBatches.length
+            ? 'SUBMITTED'
+            : 'NONE',
+    recordCount: submittedBatches.length,
+    pendingWritebackCount,
+    submittedQtyTotal,
+    writtenBackQtyTotal,
+    diffQtyTotal,
+    objectionCount: submittedBatches.filter((batch) => batch.status === '异议中').length,
+    lastRecordAt: submittedBatches.map((batch) => batch.updatedAt).sort((a, b) => b.localeCompare(a))[0] || order.updatedAt,
+    plannedQty: order.plannedDispatchGarmentQty,
+    completionStatus: order.status === '已回写' || allWrittenBack ? 'COMPLETED' : 'OPEN',
+    qtyExpectedTotal: expectedQtyTotal || submittedQtyTotal || order.plannedDispatchGarmentQty,
+    qtyActualTotal: writtenBackQtyTotal,
+    qtyDiffTotal: (expectedQtyTotal || submittedQtyTotal || order.plannedDispatchGarmentQty) - writtenBackQtyTotal,
     transitionFromPrev: 'NOT_APPLICABLE',
     transitionToNext: 'NOT_APPLICABLE',
     stageCode: 'POST',
-    stageName: '裁片发料',
+    stageName: '交出单',
     processBusinessCode: 'CUT_PANEL',
     processBusinessName: '裁片',
     taskTypeCode: 'CUT_PIECE_SEWING_DISPATCH',
-    taskTypeLabel: '裁片发料',
+    taskTypeLabel: '交出单',
     assignmentGranularity: 'SKU',
     assignmentGranularityLabel: '颜色尺码',
     isSpecialCraft: false,
@@ -1547,7 +2054,7 @@ function buildHandoverCutPieceLines(
       colorLabel: line.colorName,
       sizeLabel: line.sizeCode,
       pieceQty: line.scannedPieceQty,
-      garmentEquivalentQty: line.garmentQty,
+      garmentEquivalentQty: Math.floor(Math.max(line.scannedPieceQty || 0, 0) / Math.max(line.pieceCountPerGarment || 1, 1)),
     }))
   })
 }
@@ -1894,7 +2401,7 @@ export function getCuttingSewingDispatchProgressByProductionOrder(productionOrde
   const cumulativeDispatchedGarmentQty = sum(
     batches
       .filter((batch) => batch.status === '已交出' || batch.status === '已回写' || batch.status === '差异' || batch.status === '异议中')
-      .map((batch) => batch.plannedGarmentQty),
+      .map((batch) => getDispatchBatchSubmittedGarmentQty(storeRef, batch)),
   )
   const blockingReasons = unique(
     storeRef.validationResults
@@ -1919,9 +2426,9 @@ export function getCuttingSewingDispatchProgressByProductionOrder(productionOrde
 
 function seedStore(): void {
   const storeRef = store!
-  const pickSeedFeiTicketNos = (batch: CuttingSewingDispatchBatch, fallback: string[]): string[] => {
+  const pickSeedFeiTicketNos = (batch: CuttingSewingDispatchBatch): string[] => {
     const requiredLines = getRequiredLinesForBag(batch)
-    const tickets = listSpreadingResultGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === batch.productionOrderId)
+    const tickets = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: batch.productionOrderId })
     const picked: string[] = []
     requiredLines.forEach((line) => {
       const ticket = tickets.find(
@@ -1933,29 +2440,39 @@ function seedStore(): void {
       )
       if (ticket) picked.push(ticket.feiTicketNo)
     })
-    return picked.length > 0 ? picked : fallback
+    return picked
   }
-  const readyOrder = createCuttingSewingDispatchOrder({ productionOrderId: 'PO-202603-0005', remark: '首批裁片发车缝' })
+  const markSeedBagAsSortingSample = (transferBagId: string, operatedAt: string): void => {
+    const bag = storeRef.transferBags.find((item) => item.transferBagId === transferBagId)
+    if (!bag) return
+    bag.packedBy = '裁片仓分拣员'
+    bag.packedAt = operatedAt
+    bag.lastPackedAt = operatedAt
+    bag.packStatus = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
+    bag.status = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
+    bag.currentLocation = '裁床厂待交出'
+    bag.contentItems.forEach((item) => {
+      item.remark = item.remark || '二次分拣样例：从入仓暂存袋重新拣出后装入本交出记录。'
+    })
+    bag.updatedAt = operatedAt
+  }
+  const seedProductionOrderId = 'PO-202603-0102'
+  const readyOrder = createCuttingSewingDispatchOrder({ productionOrderId: seedProductionOrderId, remark: '车缝任务分配：按待交出仓实际库存分批交出。' })
   const readyBatch = createCuttingSewingDispatchBatch({
     dispatchOrderId: readyOrder.dispatchOrderId,
-    plannedSkuQtyLines: [{ colorName: 'Black', colorCode: 'Black', sizeCode: 'M', plannedGarmentQty: 1 }],
+    plannedSkuQtyLines: [{ colorName: 'Navy', colorCode: 'Navy', sizeCode: 'M', plannedGarmentQty: 356 }],
   })
   const readyBags = createCuttingSewingTransferBags({
     dispatchBatchId: readyBatch.dispatchBatchId,
-    bagPlanList: [{ plannedGarmentQty: 1, skuQtyLines: readyBatch.plannedSkuQtyLines }],
+    bagPlanList: [{ plannedGarmentQty: 356, skuQtyLines: readyBatch.plannedSkuQtyLines }],
   })
-  pickSeedFeiTicketNos(readyBatch, [
-    'FT-CUT-260301-005-01-001',
-    'FT-CUT-260301-005-01-003',
-    'FT-CUT-260301-005-01-005',
-    'FT-CUT-260301-005-01-006',
-  ]).forEach((feiTicketNo) => {
+  pickSeedFeiTicketNos(readyBatch).forEach((feiTicketNo) => {
     scanFeiTicketIntoTransferBag({ transferBagId: readyBags[0].transferBagId, feiTicketNo })
   })
   validateDispatchBatchCompleteness(readyBatch.dispatchBatchId)
   const submitResult = submitCuttingSewingDispatchBatch({
     dispatchBatchId: readyBatch.dispatchBatchId,
-    operatorName: '裁床发料员',
+    operatorName: '裁床交出员',
     submittedAt: '2026-04-23 10:20:00',
   })
   syncSewingReceiveWritebackToDispatch({
@@ -1969,50 +2486,66 @@ function seedStore(): void {
 
   const secondBatch = createCuttingSewingDispatchBatch({
     dispatchOrderId: readyOrder.dispatchOrderId,
-    plannedSkuQtyLines: [{ colorName: 'Black', colorCode: 'Black', sizeCode: 'L', plannedGarmentQty: 1 }],
+    plannedSkuQtyLines: [{ colorName: 'Khaki', colorCode: 'Khaki', sizeCode: 'L', plannedGarmentQty: 368 }],
   })
   const secondBags = createCuttingSewingTransferBags({
     dispatchBatchId: secondBatch.dispatchBatchId,
-    bagPlanList: [{ plannedGarmentQty: 1, skuQtyLines: secondBatch.plannedSkuQtyLines }],
+    bagPlanList: [{ plannedGarmentQty: 368, skuQtyLines: secondBatch.plannedSkuQtyLines }],
   })
-  pickSeedFeiTicketNos(secondBatch, ['FT-CUT-260301-005-01-002', 'FT-CUT-260301-005-01-004', 'FT-CUT-260301-005-01-007']).forEach((feiTicketNo) => {
+  pickSeedFeiTicketNos(secondBatch).forEach((feiTicketNo) => {
     scanFeiTicketIntoTransferBag({ transferBagId: secondBags[0].transferBagId, feiTicketNo })
   })
   validateDispatchBatchCompleteness(secondBatch.dispatchBatchId)
+  submitCuttingSewingDispatchBatch({
+    dispatchBatchId: secondBatch.dispatchBatchId,
+    operatorName: '裁床交出员',
+    submittedAt: '2026-04-24 09:30:00',
+  })
 
-  const blockedOrder = createCuttingSewingDispatchOrder({ productionOrderId: 'PO-202603-0014', remark: '特殊工艺未回仓示例' })
-  const blockedBatch = createCuttingSewingDispatchBatch({
-    dispatchOrderId: blockedOrder.dispatchOrderId,
-    plannedSkuQtyLines: [{ colorName: 'Navy', colorCode: 'Navy', sizeCode: 'S', plannedGarmentQty: 1 }],
+  const pendingBatch = createCuttingSewingDispatchBatch({
+    dispatchOrderId: readyOrder.dispatchOrderId,
+    plannedSkuQtyLines: [{ colorName: 'Navy', colorCode: 'Navy', sizeCode: 'S', plannedGarmentQty: 201 }],
   })
-  const blockedBags = createCuttingSewingTransferBags({
-    dispatchBatchId: blockedBatch.dispatchBatchId,
-    bagPlanList: [{ plannedGarmentQty: 1, skuQtyLines: blockedBatch.plannedSkuQtyLines }],
+  const pendingBags = createCuttingSewingTransferBags({
+    dispatchBatchId: pendingBatch.dispatchBatchId,
+    bagPlanList: [{ plannedGarmentQty: 201, skuQtyLines: pendingBatch.plannedSkuQtyLines }],
   })
-  scanFeiTicketIntoTransferBag({ transferBagId: blockedBags[0].transferBagId, feiTicketNo: 'FT-CUT-260226-014-01-001' })
-  validateDispatchBatchCompleteness(blockedBatch.dispatchBatchId)
-  const blockedPieceLine = blockedBags[0].pieceLines[0]
-  if (blockedPieceLine && !storeRef.validationResults.some((item) => item.validationType === '特殊工艺未回仓')) {
-    storeRef.validationResults.push({
-      validationId: `CSV-${blockedBags[0].transferBagId}-SPECIAL-001`,
-      dispatchOrderId: blockedBags[0].dispatchOrderId,
-      dispatchBatchId: blockedBags[0].dispatchBatchId,
-      transferBagId: blockedBags[0].transferBagId,
-      productionOrderId: blockedBags[0].productionOrderId,
-      productionOrderNo: blockedBags[0].productionOrderNo,
-      colorName: blockedPieceLine.colorName,
-      sizeCode: blockedPieceLine.sizeCode,
-      partName: blockedPieceLine.partName,
-      requiredPieceQty: blockedPieceLine.requiredPieceQty,
-      scannedPieceQty: blockedPieceLine.scannedPieceQty,
-      missingPieceQty: blockedPieceLine.missingPieceQty,
-      overPieceQty: blockedPieceLine.overPieceQty,
-      specialCraftRequired: true,
-      specialCraftStatus: '未回仓',
-      validationType: '特殊工艺未回仓',
-      validationMessage: '特殊工艺未回仓，不能交出',
-      blocking: true,
+  pickSeedFeiTicketNos(pendingBatch).slice(0, 1).forEach((feiTicketNo) => {
+    scanFeiTicketIntoTransferBag({ transferBagId: pendingBags[0].transferBagId, feiTicketNo })
+  })
+  validateDispatchBatchCompleteness(pendingBatch.dispatchBatchId)
+  markSeedBagAsSortingSample(pendingBags[0].transferBagId, '2026-04-24 14:20:00')
+
+  const partialSource = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: seedProductionOrderId })[0]
+  if (partialSource) {
+    const partialBatch = createCuttingSewingDispatchBatch({
+      dispatchOrderId: readyOrder.dispatchOrderId,
+      plannedSkuQtyLines: [
+        {
+          colorName: partialSource.garmentColor,
+          colorCode: partialSource.garmentColor,
+          sizeCode: partialSource.skuSize,
+          plannedGarmentQty: Math.max(partialSource.garmentQty || 1, 1),
+        },
+      ],
     })
+    const partialBags = createCuttingSewingTransferBags({
+      dispatchBatchId: partialBatch.dispatchBatchId,
+      bagPlanList: [{ plannedGarmentQty: partialBatch.plannedGarmentQty, skuQtyLines: partialBatch.plannedSkuQtyLines }],
+    })
+    scanFeiTicketIntoTransferBag({ transferBagId: partialBags[0].transferBagId, feiTicketNo: partialSource.feiTicketNo })
+    validateDispatchBatchCompleteness(partialBatch.dispatchBatchId)
+    const partialBag = storeRef.transferBags.find((item) => item.transferBagId === partialBags[0].transferBagId)
+    if (partialBag?.scannedFeiTicketNos.length) {
+      partialBag.contentItems.forEach((item) => {
+        item.remark = item.remark || '部分交出样例：本次只交出已裁出裁片，提交后继续展示缺口。'
+      })
+      submitCuttingSewingDispatchBatch({
+        dispatchBatchId: partialBatch.dispatchBatchId,
+        operatorName: '裁床交出员',
+        submittedAt: '2026-04-25 09:10:00',
+      })
+    }
   }
   void storeRef
 }
@@ -2036,6 +2569,18 @@ export function listCuttingSewingDispatchOrders(): CuttingSewingDispatchOrder[] 
 
 export function listCuttingSewingDispatchBatches(): CuttingSewingDispatchBatch[] {
   return clone(ensureCuttingSewingDispatchSeeded().dispatchBatches)
+}
+
+export function getCuttingSewingDispatchBatchHandoverSummary(
+  dispatchBatchId: string,
+): PdaCuttingHandoverRecordSummary | null {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const batch = storeRef.dispatchBatches.find((item) => item.dispatchBatchId === dispatchBatchId)
+  if (!batch) return null
+  const order = storeRef.dispatchOrders.find((item) => item.dispatchOrderId === batch.dispatchOrderId)
+  if (!order) return null
+  const submittedPieceQty = getDispatchBatchPieceQty(storeRef, batch)
+  return clone(buildCuttingHandoverRecordSummary(storeRef, order, batch, submittedPieceQty))
 }
 
 export function listCuttingSewingTransferBags(): CuttingSewingTransferBag[] {
@@ -2113,8 +2658,8 @@ export function getCuttingSewingDispatchSummary(): {
 } {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   return {
-    waitingCompleteOrderCount: storeRef.dispatchOrders.filter((order) => order.status === '待配齐' || order.status === '待扫码').length,
-    readyBatchCount: storeRef.dispatchBatches.filter((batch) => batch.status === '已配齐').length,
+    waitingCompleteOrderCount: storeRef.dispatchOrders.filter((order) => order.status === '待核对' || order.status === '待扫码').length,
+    readyBatchCount: storeRef.dispatchBatches.filter((batch) => batch.status === '已核对').length,
     handedOverBatchCount: storeRef.dispatchBatches.filter((batch) => batch.status === '已交出').length,
     writtenBackBatchCount: storeRef.dispatchBatches.filter((batch) => batch.status === '已回写').length,
     differenceBatchCount: storeRef.dispatchBatches.filter((batch) => batch.status === '差异').length,

@@ -27,6 +27,9 @@ interface InboundFormState {
   operatorName: string
   zoneCode: 'A' | 'B' | 'C'
   locationLabel: string
+  carrierCode: string
+  scanCode: string
+  inboundQty: string
   note: string
   feedbackMessage: string
   backHrefOverride: string
@@ -46,6 +49,9 @@ function getState(taskId: string, executionOrderId?: string | null, executionOrd
     operatorName: '仓务操作员',
     zoneCode: 'B',
     locationLabel: 'B-02 临时位',
+    carrierCode: '',
+    scanCode: '',
+    inboundQty: '',
     note: '',
     feedbackMessage: '',
     backHrefOverride: '',
@@ -69,8 +75,11 @@ function renderInboundHistory(detail: NonNullable<ReturnType<typeof getInboundDe
                 <div class="font-medium text-foreground">${escapeHtml(record.id)} / ${escapeHtml(record.zoneCode)} 区 / ${escapeHtml(record.locationLabel)}</div>
                 <div class="text-muted-foreground">${escapeHtml(record.scannedAt)}</div>
               </div>
-              <div class="mt-2 text-muted-foreground">操作人：${escapeHtml(record.operatorName)}</div>
-              <div class="mt-1 text-muted-foreground">备注：${escapeHtml(record.note || '无')}</div>
+              <div class="mt-2 grid grid-cols-2 gap-1 text-muted-foreground">
+                <div>操作人：${escapeHtml(record.operatorName)}</div>
+                <div>暂存方式：可混装</div>
+              </div>
+              <div class="mt-1 text-muted-foreground">记录：${escapeHtml(record.note || '无')}</div>
             </article>
           `,
         )
@@ -82,7 +91,7 @@ function renderInboundHistory(detail: NonNullable<ReturnType<typeof getInboundDe
 function renderInboundStatus(detail: NonNullable<ReturnType<typeof getInboundDetail>>): string {
   return renderPdaCuttingSummaryGrid([
     { label: '当前入仓状态', value: detail.currentInboundStatus },
-    { label: '建议区域', value: detail.inboundZoneLabel },
+    { label: '暂存阶段', value: '入仓暂存，可混装' },
     { label: '当前库位', value: detail.inboundLocationLabel },
     { label: '最近入仓记录', value: detail.latestInboundRecordNo || '暂无记录', hint: detail.latestInboundAt },
   ])
@@ -120,27 +129,31 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
   const confirmSection = `
     <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
       <label class="block space-y-1">
-        <span class="text-muted-foreground">操作人</span>
-        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="operatorName" value="${escapeHtml(form.operatorName)}" />
+        <span class="text-muted-foreground">暂存袋 / 周转箱码</span>
+        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="carrierCode" value="${escapeHtml(form.carrierCode)}" placeholder="扫描或输入暂存袋码" />
       </label>
       <label class="block space-y-1">
-        <span class="text-muted-foreground">区域选择</span>
+        <span class="text-muted-foreground">菲票 / 裁片码</span>
+        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="scanCode" value="${escapeHtml(form.scanCode)}" placeholder="扫描菲票或裁片码" />
+      </label>
+      <label class="block space-y-1">
+        <span class="text-muted-foreground">数量（片）</span>
+        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" type="number" min="0" step="1" data-pda-cut-inbound-field="inboundQty" value="${escapeHtml(form.inboundQty)}" placeholder="输入本次入仓数量" />
+      </label>
+      <label class="block space-y-1">
+        <span class="text-muted-foreground">区域</span>
         <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="zoneCode">
           ${['A', 'B', 'C'].map((item) => `<option value="${item}" ${form.zoneCode === item ? 'selected' : ''}>${item} 区</option>`).join('')}
         </select>
       </label>
       <label class="block space-y-1">
-        <span class="text-muted-foreground">库位记录</span>
+        <span class="text-muted-foreground">库位</span>
         <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="locationLabel" value="${escapeHtml(form.locationLabel)}" placeholder="例如：A-01 临时位" />
-      </label>
-      <label class="block space-y-1">
-        <span class="text-muted-foreground">入仓备注</span>
-        <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-inbound-field="note" placeholder="补充当前区域、待交接提示或查找提醒">${escapeHtml(form.note)}</textarea>
       </label>
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">本次入仓预览</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.zoneCode)} 区 / ${escapeHtml(form.locationLabel || '待填写位置')}</div>
-        <div class="mt-1 text-muted-foreground">交接摘要：${escapeHtml(detail.handoverSummary)}</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.carrierCode || '待扫码')} / ${escapeHtml(form.inboundQty || '0')} 片</div>
+        <div class="mt-1 text-muted-foreground">${escapeHtml(form.zoneCode)} 区 / ${escapeHtml(form.locationLabel || '待填写位置')} / 可混装暂存</div>
       </div>
       ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}
       <div class="grid grid-cols-2 gap-2">
@@ -189,6 +202,9 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
     if (field === 'operatorName') form.operatorName = fieldNode.value
     if (field === 'zoneCode' && fieldNode instanceof HTMLSelectElement) form.zoneCode = fieldNode.value as 'A' | 'B' | 'C'
     if (field === 'locationLabel') form.locationLabel = fieldNode.value
+    if (field === 'carrierCode') form.carrierCode = fieldNode.value
+    if (field === 'scanCode') form.scanCode = fieldNode.value
+    if (field === 'inboundQty') form.inboundQty = fieldNode.value
     if (field === 'note') form.note = fieldNode.value
     return true
   }
@@ -207,15 +223,24 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
     const identity = resolvePdaCuttingWritebackIdentity(taskId, {
       executionOrderId: context.selectedExecutionOrderId || undefined,
       executionOrderNo: context.selectedExecutionOrderNo || undefined,
-      originalCutOrderId: context.selectedExecutionOrder?.originalCutOrderId || undefined,
-      originalCutOrderNo: context.selectedExecutionOrder?.originalCutOrderNo || undefined,
-      mergeBatchId: context.selectedExecutionOrder?.mergeBatchId || undefined,
-      mergeBatchNo: context.selectedExecutionOrder?.mergeBatchNo || undefined,
+      cutOrderId: context.selectedExecutionOrder?.cutOrderId || undefined,
+      cutOrderNo: context.selectedExecutionOrder?.cutOrderNo || undefined,
+      markerPlanId: context.selectedExecutionOrder?.markerPlanId || undefined,
+      markerPlanNo: context.selectedExecutionOrder?.markerPlanNo || undefined,
       materialSku: context.selectedExecutionOrder?.materialSku || undefined,
     })
     const operator = resolvePdaCuttingWritebackOperator(taskId, form.operatorName.trim() || '仓务操作员')
     if (!identity || !operator) {
       form.feedbackMessage = '当前执行对象或操作人无法识别，不能确认入仓。'
+      return true
+    }
+    if (!form.carrierCode.trim() || !form.scanCode.trim()) {
+      form.feedbackMessage = '请先扫描暂存袋和菲票。'
+      return true
+    }
+    const inboundQty = Number(form.inboundQty)
+    if (!Number.isFinite(inboundQty) || inboundQty <= 0) {
+      form.feedbackMessage = '请先输入有效入仓数量。'
       return true
     }
     const result = writePdaInboundToFcs({
@@ -224,12 +249,20 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
       source: buildPdaCuttingWritebackSource('inbound', identity.executionOrderId),
       zoneCode: form.zoneCode,
       locationLabel: form.locationLabel.trim() || `${form.zoneCode}-01 临时位`,
-      note: form.note.trim(),
+      note: [
+        `暂存袋：${form.carrierCode.trim()}`,
+        `扫码：${form.scanCode.trim()}`,
+        `数量：${inboundQty} 片`,
+        '入仓暂存袋允许混装',
+        form.note.trim(),
+      ].filter(Boolean).join('；'),
     })
     if (!result.success) {
       form.feedbackMessage = result.issues.join('；')
       return true
     }
+    form.scanCode = ''
+    form.inboundQty = ''
     form.feedbackMessage = '入仓已确认。'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,

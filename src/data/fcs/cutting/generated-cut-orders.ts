@@ -4,10 +4,10 @@ import {
   type ProductionOrder,
 } from '../production-orders.ts'
 import type { TechnicalBomItem, TechnicalColorMaterialMappingLine } from '../../pcs-technical-data-version-types.ts'
-import type { ProductionOrderTechPackSnapshot } from '../production-tech-pack-snapshot-types.ts'
+import type { ProductionOrderTechPackSnapshot, TechPackBomItemSnapshot } from '../production-tech-pack-snapshot-types.ts'
 import type { CuttingMaterialType } from './types.ts'
 
-export interface GeneratedOriginalCutOrderPieceRow {
+export interface GeneratedCutOrderPieceRow {
   partCode: string
   partName: string
   pieceCountPerUnit: number
@@ -16,30 +16,32 @@ export interface GeneratedOriginalCutOrderPieceRow {
   applicableSkuCodes: string[]
 }
 
-export interface GeneratedOriginalCutOrderSkuScopeLine {
+export interface GeneratedCutOrderSkuScopeLine {
   skuCode: string
   color: string
   size: string
   plannedQty: number
 }
 
-export interface GeneratedOriginalCutOrderSourceRecord {
-  originalCutOrderId: string
-  originalCutOrderNo: string
+export interface GeneratedCutOrderSourceRecord {
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   materialSku: string
   materialType: CuttingMaterialType
   materialLabel: string
   materialCategory: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  materialAlias: string
+  materialImageUrl: string
+  markerPlanId: string
+  markerPlanNo: string
   requiredQty: number
   techPackVersionLabel: string
   sourceTechPackSpuCode: string
   colorScope: string[]
-  skuScopeLines: GeneratedOriginalCutOrderSkuScopeLine[]
-  pieceRows: GeneratedOriginalCutOrderPieceRow[]
+  skuScopeLines: GeneratedCutOrderSkuScopeLine[]
+  pieceRows: GeneratedCutOrderPieceRow[]
   pieceSummary: string
 }
 
@@ -69,7 +71,7 @@ function toMaterialCategory(materialType: CuttingMaterialType): string {
   return '主料'
 }
 
-function findBomItem(techPack: ProductionOrderTechPackSnapshot, line: TechnicalColorMaterialMappingLine): TechnicalBomItem | null {
+function findBomItem(techPack: ProductionOrderTechPackSnapshot, line: TechnicalColorMaterialMappingLine): TechPackBomItemSnapshot | null {
   if (line.bomItemId) {
     const byId = techPack.bomItems.find((item) => item.id === line.bomItemId)
     if (byId) return byId
@@ -85,11 +87,60 @@ function resolveMaterialSku(techPack: ProductionOrderTechPackSnapshot, line: Tec
   return normalizeText(line.materialCode) || normalizeText(bomItem?.id) || normalizeText(line.materialName)
 }
 
+function findLinkedPatternFiles(
+  techPack: ProductionOrderTechPackSnapshot,
+  line: TechnicalColorMaterialMappingLine,
+  bomItem: TechPackBomItemSnapshot | null,
+  materialSku: string,
+) {
+  const normalizedSku = normalizeText(materialSku).toLowerCase()
+  const normalizedName = normalizeText(line.materialName || bomItem?.name).toLowerCase()
+  return techPack.patternFiles.filter((pattern) => {
+    const linkedSku = normalizeText(pattern.linkedMaterialSku).toLowerCase()
+    const linkedName = normalizeText(pattern.linkedMaterialName).toLowerCase()
+    return (
+      pattern.linkedBomItemId === bomItem?.id
+      || pattern.linkedMaterialId === bomItem?.id
+      || pattern.id === line.patternId
+      || (Boolean(normalizedSku) && linkedSku === normalizedSku)
+      || (Boolean(normalizedName) && linkedName === normalizedName)
+    )
+  })
+}
+
+function resolveMaterialAlias(
+  techPack: ProductionOrderTechPackSnapshot,
+  line: TechnicalColorMaterialMappingLine,
+  bomItem: TechPackBomItemSnapshot | null,
+  materialSku: string,
+): string {
+  return unique([
+    normalizeText(bomItem?.materialAlias),
+    ...findLinkedPatternFiles(techPack, line, bomItem, materialSku).map((pattern) => normalizeText(pattern.linkedMaterialAlias)),
+  ].filter(Boolean)).join(' / ')
+}
+
+function resolveMaterialImageUrl(
+  techPack: ProductionOrderTechPackSnapshot,
+  line: TechnicalColorMaterialMappingLine,
+  bomItem: TechPackBomItemSnapshot | null,
+  materialSku: string,
+): string {
+  return (
+    normalizeText(bomItem?.materialImageUrl)
+    || findLinkedPatternFiles(techPack, line, bomItem, materialSku)
+      .map((pattern) => normalizeText(pattern.imageUrl))
+      .find(Boolean)
+    || techPack.imageSnapshot.materialImages[0]
+    || ''
+  )
+}
+
 function resolvePieceRows(
   techPack: ProductionOrderTechPackSnapshot,
   line: TechnicalColorMaterialMappingLine,
   skuCode: string,
-): GeneratedOriginalCutOrderPieceRow[] {
+): GeneratedCutOrderPieceRow[] {
   const partName = normalizeText(line.pieceName)
   const partCode = normalizeText(line.pieceId) || partName
   const pieceCountPerUnit = Number(line.pieceCountPerUnit || 0)
@@ -124,7 +175,7 @@ function resolvePieceRows(
     .filter((pieceRow) => pieceRow.partName && pieceRow.pieceCountPerUnit > 0)
 }
 
-function makeOriginalCutOrderNo(order: ProductionOrder, index: number): string {
+function makeCutOrderNo(order: ProductionOrder, index: number): string {
   const normalizedDate = order.createdAt.slice(2, 10).replace(/-/g, '')
   const orderSuffix = order.productionOrderId.replace(/\D/g, '').slice(-3).padStart(3, '0')
   return `CUT-${normalizedDate}-${orderSuffix}-${String(index + 1).padStart(2, '0')}`
@@ -150,7 +201,7 @@ export function listCuttingProductionOrdersWithFormalTechPack(): ProductionOrder
   return [...joggerOrders, ...otherOrders].slice(0, 16)
 }
 
-function buildSkuScopeLines(order: ProductionOrder): GeneratedOriginalCutOrderSkuScopeLine[] {
+function buildSkuScopeLines(order: ProductionOrder): GeneratedCutOrderSkuScopeLine[] {
   return order.demandSnapshot.skuLines.map((line) => ({
     skuCode: normalizeText(line.skuCode),
     color: normalizeText(line.color),
@@ -159,7 +210,7 @@ function buildSkuScopeLines(order: ProductionOrder): GeneratedOriginalCutOrderSk
   }))
 }
 
-function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrderSourceRecord[] {
+function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRecord[] {
   const techPack = getProductionOrderTechPackSnapshot(order.productionOrderId)
   if (!techPack) return []
 
@@ -169,8 +220,10 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
       materialSku: string
       materialType: CuttingMaterialType
       materialLabel: string
-      scopeBySkuKey: Map<string, GeneratedOriginalCutOrderSkuScopeLine>
-      pieceRows: GeneratedOriginalCutOrderPieceRow[]
+      materialAlias: string
+      materialImageUrl: string
+      scopeBySkuKey: Map<string, GeneratedCutOrderSkuScopeLine>
+      pieceRows: GeneratedCutOrderPieceRow[]
       colors: Set<string>
     }
   >()
@@ -191,6 +244,8 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
         const bomItem = findBomItem(techPack, mappingLine)
         const materialSku = resolveMaterialSku(techPack, mappingLine, bomItem)
         if (!materialSku) continue
+        const materialAlias = resolveMaterialAlias(techPack, mappingLine, bomItem, materialSku)
+        const materialImageUrl = resolveMaterialImageUrl(techPack, mappingLine, bomItem, materialSku)
 
         const materialKey = `${materialSku.toLowerCase()}::${normalizeText(skuLine.color).toLowerCase()}`
         if (!scopeByMaterialKey.has(materialKey)) {
@@ -199,6 +254,8 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
             materialSku,
             materialType: toCuttingMaterialType(mappingLine.materialType),
             materialLabel: normalizeText(mappingLine.materialName) || materialSku,
+            materialAlias,
+            materialImageUrl,
             scopeBySkuKey: new Map(),
             pieceRows: [],
             colors: new Set<string>(),
@@ -251,16 +308,18 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
       }))
     const requiredQty = skuScopeLines.reduce((sum, item) => sum + item.plannedQty, 0)
     return {
-      originalCutOrderId: makeOriginalCutOrderNo(order, index),
-      originalCutOrderNo: makeOriginalCutOrderNo(order, index),
+      cutOrderId: makeCutOrderNo(order, index),
+      cutOrderNo: makeCutOrderNo(order, index),
       productionOrderId: order.productionOrderId,
       productionOrderNo: resolveProductionOrderNo(order),
       materialSku: bucket.materialSku,
       materialType: bucket.materialType,
       materialLabel: bucket.materialLabel,
       materialCategory: toMaterialCategory(bucket.materialType),
-      mergeBatchId: '',
-      mergeBatchNo: '',
+      materialAlias: bucket.materialAlias,
+      materialImageUrl: bucket.materialImageUrl,
+      markerPlanId: '',
+      markerPlanNo: '',
       requiredQty,
       techPackVersionLabel: order.techPackSnapshot?.sourceTechPackVersionLabel || '-',
       sourceTechPackSpuCode: order.techPackSnapshot?.styleCode || order.demandSnapshot.spuCode,
@@ -272,12 +331,12 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
           ? resolvedPieceRows.map((item) => `${item.partName}×${item.pieceCountPerUnit}`).join('、')
           : '待补纸样裁片映射',
     }
-  }).filter((item): item is GeneratedOriginalCutOrderSourceRecord => Boolean(item))
+  }).filter((item): item is GeneratedCutOrderSourceRecord => Boolean(item))
 }
 
-let cachedRecords: GeneratedOriginalCutOrderSourceRecord[] | null = null
+let cachedRecords: GeneratedCutOrderSourceRecord[] | null = null
 
-export function listGeneratedOriginalCutOrderSourceRecords(): GeneratedOriginalCutOrderSourceRecord[] {
+export function listGeneratedCutOrderSourceRecords(): GeneratedCutOrderSourceRecord[] {
   if (!cachedRecords) {
     cachedRecords = listCuttingProductionOrdersWithFormalTechPack().flatMap((order) => buildRecordsForOrder(order))
   }
@@ -290,10 +349,10 @@ export function listGeneratedOriginalCutOrderSourceRecords(): GeneratedOriginalC
   }))
 }
 
-export function getGeneratedOriginalCutOrderSourceRecordById(originalCutOrderId: string): GeneratedOriginalCutOrderSourceRecord | null {
-  return listGeneratedOriginalCutOrderSourceRecords().find((record) => record.originalCutOrderId === originalCutOrderId) ?? null
+export function getGeneratedCutOrderSourceRecordById(cutOrderId: string): GeneratedCutOrderSourceRecord | null {
+  return listGeneratedCutOrderSourceRecords().find((record) => record.cutOrderId === cutOrderId) ?? null
 }
 
-export function resetGeneratedOriginalCutOrderSourceCache(): void {
+export function resetGeneratedCutOrderSourceCache(): void {
   cachedRecords = null
 }

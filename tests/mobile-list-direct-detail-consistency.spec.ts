@@ -70,7 +70,7 @@ test('染色 Web 直达与执行列表定位一致', async ({ page }) => {
 
 test('裁片 Web 直达与执行列表定位一致', async ({ page }) => {
   await setPdaSession(page)
-  await page.goto('/fcs/craft/cutting/original-orders?originalCutOrderNo=CUT-260314-087-02')
+  await page.goto('/fcs/craft/cutting/cut-orders?cutOrderNo=CUT-260314-087-02')
   await expect(page.locator('body')).toContainText('CUT-260314-087-02')
   await expect(page.locator('body')).toContainText('TASK-CUT-000097')
 

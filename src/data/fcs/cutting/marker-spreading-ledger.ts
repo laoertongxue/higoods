@@ -5,7 +5,7 @@ import {
   type SpreadingSourceChannel,
 } from '../../../pages/process-factory/cutting/marker-spreading-model.ts'
 import { readMarkerSpreadingPrototypeData } from '../../../pages/process-factory/cutting/marker-spreading-utils.ts'
-import { listGeneratedOriginalCutOrderSourceRecords } from './generated-original-cut-orders.ts'
+import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
 import { buildSpreadingDrivenFeiTicketTraceMatrix, listSpreadingResultGeneratedFeiTickets } from './generated-fei-tickets.ts'
 import { buildReplenishmentFlowTraceMatrix } from './replenishment.ts'
 import {
@@ -36,7 +36,7 @@ export { readMarkerSpreadingPrototypeData } from '../../../pages/process-factory
 export interface CuttingSpreadingFlowMatrixRow {
   spreadingSessionId: string
   sessionNo: string
-  contextType: 'original-order' | 'merge-batch'
+  contextType: 'cut-order' | 'marker-plan-ref'
   stageKey:
     | 'WAITING_START'
     | 'IN_PROGRESS'
@@ -51,10 +51,10 @@ export interface CuttingSpreadingFlowMatrixRow {
   sourceWritebackId: string
   sourceMarkerId: string
   sourceMarkerNo: string
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   replenishmentRequestId: string
   pendingPrepFollowupId: string
   feiTicketId: string
@@ -78,14 +78,14 @@ function uniqueStrings(values: Array<string | undefined | null>): string[] {
 }
 
 function buildSeedTransferBagStore() {
-  const originalRows = listGeneratedOriginalCutOrderSourceRecords()
+  const cutOrderRows = listGeneratedCutOrderSourceRecords()
   const feiTraceRows = buildSpreadingDrivenFeiTicketTraceMatrix()
   const feiTraceById = new Map(feiTraceRows.map((row) => [row.feiTicketId, row] as const))
 
   return buildSystemSeedTransferBagRuntime({
-    originalRows: originalRows.map((record) => ({
-      originalCutOrderId: record.originalCutOrderId,
-      originalCutOrderNo: record.originalCutOrderNo,
+    cutOrderRows: cutOrderRows.map((record) => ({
+      cutOrderId: record.cutOrderId,
+      cutOrderNo: record.cutOrderNo,
       productionOrderNo: record.productionOrderNo,
       styleCode: '',
       spuCode: record.sourceTechPackSpuCode || '',
@@ -104,10 +104,10 @@ function buildSeedTransferBagStore() {
           sourceMarkerId: record.sourceMarkerId,
           sourceMarkerNo: record.sourceMarkerNo,
           sourceWritebackId: trace?.sourceWritebackId || '',
-          originalCutOrderId: record.originalCutOrderId,
-          originalCutOrderNo: record.originalCutOrderNo,
+          cutOrderId: record.cutOrderId,
+          cutOrderNo: record.cutOrderNo,
           productionOrderNo: record.productionOrderNo,
-          mergeBatchNo: record.sourceMergeBatchNo,
+          markerPlanNo: record.sourceMarkerPlanNo,
           styleCode: '',
           spuCode: record.sourceTechPackSpuCode || '',
           color: record.skuColor,
@@ -115,7 +115,7 @@ function buildSeedTransferBagStore() {
           partName: record.partName,
           qty: record.garmentQty,
           materialSku: record.materialSku,
-          sourceContextType: record.sourceMergeBatchId ? 'merge-batch' : 'original-order',
+          sourceContextType: record.sourceMarkerPlanId ? 'marker-plan-ref' : 'cut-order',
           status: 'PRINTED' as const,
         }
       }),
@@ -242,8 +242,8 @@ export function buildCuttingSpreadingFlowMatrix(): CuttingSpreadingFlowMatrixRow
           ? warehouseRowsBySessionId[session.spreadingSessionId] || []
           : warehouseRows.filter(
               (item) =>
-                session.originalCutOrderIds.includes(item.originalCutOrderId)
-                || Boolean(session.mergeBatchId && item.mergeBatchId && item.mergeBatchId === session.mergeBatchId),
+                session.cutOrderIds.includes(item.cutOrderId)
+                || Boolean(session.markerPlanId && item.markerPlanId && item.markerPlanId === session.markerPlanId),
             )
       const stageKey = resolveSessionStageKey(session, {
         hasFeiTicket: fei.length > 0,
@@ -300,22 +300,22 @@ export function buildCuttingSpreadingFlowMatrix(): CuttingSpreadingFlowMatrixRow
           || warehouse[0]?.sourceMarkerNo
           || fei[0]?.sourceMarkerNo
           || '',
-        originalCutOrderIds: uniqueStrings([
-          ...session.originalCutOrderIds,
-          ...replenishment.map((item) => item.originalCutOrderId),
-          ...fei.map((item) => item.originalCutOrderId),
-          ...transfer.map((item) => item.originalCutOrderId),
-          ...warehouse.map((item) => item.originalCutOrderId),
+        cutOrderIds: uniqueStrings([
+          ...session.cutOrderIds,
+          ...replenishment.map((item) => item.cutOrderId),
+          ...fei.map((item) => item.cutOrderId),
+          ...transfer.map((item) => item.cutOrderId),
+          ...warehouse.map((item) => item.cutOrderId),
         ]),
-        originalCutOrderNos: uniqueStrings([
-          ...(anchor?.originalCutOrderNos || []),
-          ...replenishment.map((item) => item.originalCutOrderNo),
-          ...fei.map((item) => item.originalCutOrderNo),
-          ...transfer.map((item) => item.originalCutOrderNo),
-          ...warehouse.map((item) => item.originalCutOrderNo),
+        cutOrderNos: uniqueStrings([
+          ...(anchor?.cutOrderNos || []),
+          ...replenishment.map((item) => item.cutOrderNo),
+          ...fei.map((item) => item.cutOrderNo),
+          ...transfer.map((item) => item.cutOrderNo),
+          ...warehouse.map((item) => item.cutOrderNo),
         ]),
-        mergeBatchId: session.mergeBatchId || replenishment[0]?.mergeBatchId || '',
-        mergeBatchNo: session.mergeBatchNo || replenishment[0]?.mergeBatchNo || '',
+        markerPlanId: session.markerPlanId || replenishment[0]?.markerPlanId || '',
+        markerPlanNo: session.markerPlanNo || replenishment[0]?.markerPlanNo || '',
         replenishmentRequestId:
           (stageKey === 'WAITING_REPLENISHMENT' ? pendingRows[0] : pendingRows[0] || approvedRows[0])?.replenishmentRequestId
           || fallbackReplenishmentRequestId,

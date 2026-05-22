@@ -26,7 +26,7 @@ import { escapeHtml, formatDateTime } from '../utils'
 
 const productionProgressPath = getCanonicalCuttingPath('production-progress')
 const materialPrepPath = getCanonicalCuttingPath('warehouse-management-wait-process')
-const originalOrdersPath = getCanonicalCuttingPath('original-orders')
+const cutOrdersPath = getCanonicalCuttingPath('cut-orders')
 const replenishmentPath = getCanonicalCuttingPath('replenishment')
 const fabricWarehousePath = getCanonicalCuttingPath('fabric-warehouse')
 
@@ -38,7 +38,7 @@ function getCuttingRouteActionLabel(route: string): string {
   const normalizedRoute = normalizeRoute(route)
   if (normalizedRoute === materialPrepPath) return '去待加工仓'
   if (normalizedRoute === replenishmentPath) return '去补料管理'
-  if (normalizedRoute === originalOrdersPath) return '去原始裁片单'
+  if (normalizedRoute === cutOrdersPath) return '去裁片单'
   if (normalizedRoute === fabricWarehousePath) return '去裁床仓'
   if (normalizedRoute === productionProgressPath) return '去生产单进度'
   return '打开关联页面'
@@ -378,7 +378,7 @@ function renderMainTable(): string {
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="open-summary" data-record-id="${row.id}">查看跟进摘要</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-production-progress">去生产单进度</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-material-prep">去待加工仓</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-original-orders">去原始裁片单</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-cut-orders">去裁片单</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-replenishment">去补料管理</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-fabric-warehouse">去裁床仓</button>
                             </div>
@@ -510,7 +510,7 @@ function renderSummaryDrawer(): string {
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-detail" data-record-id="${row.id}">去详情页</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-production-progress">去生产单进度</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-material-prep">去待加工仓</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-original-orders">去原始裁片单</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-cut-orders">去裁片单</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-replenishment">去补料管理</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-fabric-warehouse">去裁床仓</button>
           </div>
@@ -587,8 +587,8 @@ export function handleProgressCuttingOverviewEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'go-original-orders') {
-    navigateTo(originalOrdersPath)
+  if (action === 'go-cut-orders') {
+    navigateTo(cutOrdersPath)
     return true
   }
 

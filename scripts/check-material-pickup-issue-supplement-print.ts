@@ -50,7 +50,7 @@ const template = read('src/pages/print/templates/material-slip-template.ts')
 const routeLinks = read('src/data/fcs/fcs-route-links.ts')
 const materialPrepPage = read('src/pages/process-factory/cutting/material-prep.ts')
 const pickupPage = read('src/pages/pda-cutting-pickup.ts')
-const sewingDispatchPage = read('src/pages/process-factory/cutting/sewing-dispatch.ts')
+const sewingDispatchPage = read('src/pages/process-factory/cutting/warehouse-hub.ts')
 const replenishmentPage = read('src/pages/process-factory/cutting/replenishment.ts')
 
 ;[
@@ -153,7 +153,7 @@ const pickupDoc = docText('PICKUP_SLIP', 'PICKUP_SLIP_RECORD', pickup.pickupSlip
 const issueDoc = docText('ISSUE_SLIP', 'ISSUE_SLIP_RECORD', issue.dispatchOrderId)
 const supplementDoc = docText('SUPPLEMENT_MATERIAL_SLIP', 'SUPPLEMENT_MATERIAL_RECORD', supplement.id)
 
-;['配料单', '来源生产单', '原始裁片单', '裁片单二维码', '应配面料米数', '已配面料米数', '缺口面料米数', '配置卷数', '扫码查看裁片单配料与领料信息', '签字区'].forEach((token) => assertIncludes(materialDoc, token, `配料单缺少 ${token}`))
+;['配料单', '来源生产单', '裁片单', '裁片单二维码', '应配面料米数', '已配面料米数', '缺口面料米数', '配置卷数', '扫码查看裁片单配料与领料信息', '签字区'].forEach((token) => assertIncludes(materialDoc, token, `配料单缺少 ${token}`))
 ;['领料单', '领料工厂', '发料仓库', '打印版本', '应领对象数量', '实领对象数量', '差异对象数量', '扫码确认领料', '签字区'].forEach((token) => assertIncludes(pickupDoc, token, `领料单缺少 ${token}`))
 ;['发料单', '发料仓库', '接收工厂', '应发对象数量', '实发对象数量', '差异对象数量', '扫码查看发料记录', '签字区'].forEach((token) => assertIncludes(issueDoc, token, `发料单缺少 ${token}`))
 ;['补料单', '补料原因', '原需求对象数量', '缺口对象数量', '申请补料对象数量', '审核通过对象数量', '实发补料对象数量', '扫码查看补料申请与发料记录', '签字区'].forEach((token) => assertIncludes(supplementDoc, token, `补料单缺少 ${token}`))

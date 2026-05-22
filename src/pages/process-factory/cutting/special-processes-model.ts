@@ -1,6 +1,6 @@
-import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
 import { getCanonicalCuttingPath } from './meta.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 import {
   buildDefaultSpecialProcessFollowupActions,
   buildDefaultSpecialProcessScopeLines,
@@ -23,7 +23,7 @@ export const CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY = 'cuttingSpecia
 export const CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY = 'cuttingSpecialProcessFollowupActions'
 
 export type SpecialProcessType = 'BINDING_STRIP' | 'WASH'
-export type SpecialProcessSourceType = 'original-order' | 'merge-batch'
+export type SpecialProcessSourceType = 'cut-order' | 'marker-plan-ref'
 export type SpecialProcessStatusKey = 'DRAFT' | 'PENDING_EXECUTION' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED'
 export type SpecialProcessAuditAction =
   | 'CREATED'
@@ -32,13 +32,13 @@ export type SpecialProcessAuditAction =
   | 'CANCELLED'
   | 'EXECUTION_LOGGED'
   | 'FOLLOWUP_UPDATED'
-export type SpecialProcessScopeSourceType = 'ORIGINAL_CUT_ORDER' | 'MERGE_BATCH'
+export type SpecialProcessScopeSourceType = 'CUT_ORDER' | 'MARKER_PLAN'
 export type SpecialProcessScopeUnitType = 'PIECE' | 'GARMENT' | 'METER' | 'BUNDLE'
 export type SpecialProcessExecutionLogActionType = 'CREATE' | 'UPDATE' | 'START' | 'PAUSE' | 'RESUME' | 'COMPLETE' | 'CANCEL' | 'NOTE'
 export type SpecialProcessFollowupActionType =
   | 'GO_TRANSFER_BAG'
   | 'GO_CUT_PIECE_WAREHOUSE'
-  | 'GO_ORIGINAL_CUT_ORDER'
+  | 'GO_CUT_ORDER'
   | 'GO_CUTTING_DASHBOARD'
   | 'GO_CUTTING_TOTAL_TABLE'
 export type SpecialProcessFollowupActionStatus = 'PENDING' | 'DONE' | 'SKIPPED'
@@ -59,10 +59,10 @@ export interface SpecialProcessOrder {
   processOrderNo: string
   processType: SpecialProcessType
   sourceType: SpecialProcessSourceType
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   productionOrderIds: string[]
   productionOrderNos: string[]
   styleCode: string
@@ -99,8 +99,8 @@ export interface SpecialProcessScopeLine {
   sourceType: SpecialProcessScopeSourceType
   sourceCutOrderId: string
   sourceCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  markerPlanId: string
+  markerPlanNo: string
   sourceProductionOrderNo: string
   styleCode: string
   spuCode: string
@@ -129,7 +129,7 @@ export interface SpecialProcessFollowupAction {
   actionType: SpecialProcessFollowupActionType
   title: string
   status: SpecialProcessFollowupActionStatus
-  targetPageKey: 'transfer-bags' | 'cut-piece-warehouse' | 'original-orders' | 'production-progress' | 'summary'
+  targetPageKey: 'transfer-bags' | 'cut-piece-warehouse' | 'cut-orders' | 'production-progress' | 'summary'
   targetPath: string
   targetQuery: Record<string, string | undefined>
   note: string
@@ -159,10 +159,10 @@ export interface SpecialProcessStatusMeta {
 export interface SpecialProcessPrefilter {
   productionOrderId?: string
   productionOrderNo?: string
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   processOrderId?: string
   processOrderNo?: string
   processType?: SpecialProcessType
@@ -178,8 +178,8 @@ export interface SpecialProcessFilters {
 }
 
 export interface SpecialProcessNavigationPayload {
-  originalOrders: Record<string, string | undefined>
-  mergeBatches: Record<string, string | undefined>
+  cutOrders: Record<string, string | undefined>
+  markerPlanRefs: Record<string, string | undefined>
   replenishment: Record<string, string | undefined>
   summary: Record<string, string | undefined>
   productionProgress: Record<string, string | undefined>
@@ -277,7 +277,7 @@ function normalizeSpecialProcessOrder(record: unknown): SpecialProcessOrder | nu
   const raw = record as Record<string, unknown>
   if (typeof raw.processOrderId !== 'string' || typeof raw.processOrderNo !== 'string') return null
   const processType = raw.processType === 'WASH' ? 'WASH' : 'BINDING_STRIP'
-  const sourceType = raw.sourceType === 'merge-batch' ? 'merge-batch' : 'original-order'
+  const sourceType = raw.sourceType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order'
   const status = ['DRAFT', 'PENDING_EXECUTION', 'IN_PROGRESS', 'DONE', 'CANCELLED'].includes(String(raw.status))
     ? (raw.status as SpecialProcessStatusKey)
     : 'DRAFT'
@@ -286,10 +286,10 @@ function normalizeSpecialProcessOrder(record: unknown): SpecialProcessOrder | nu
     processOrderNo: raw.processOrderNo,
     processType,
     sourceType,
-    originalCutOrderIds: normalizeStringArray(raw.originalCutOrderIds),
-    originalCutOrderNos: normalizeStringArray(raw.originalCutOrderNos),
-    mergeBatchId: typeof raw.mergeBatchId === 'string' ? raw.mergeBatchId : '',
-    mergeBatchNo: typeof raw.mergeBatchNo === 'string' ? raw.mergeBatchNo : '',
+    cutOrderIds: normalizeStringArray(raw.cutOrderIds),
+    cutOrderNos: normalizeStringArray(raw.cutOrderNos),
+    markerPlanId: typeof raw.markerPlanId === 'string' ? raw.markerPlanId : '',
+    markerPlanNo: typeof raw.markerPlanNo === 'string' ? raw.markerPlanNo : '',
     productionOrderIds: normalizeStringArray(raw.productionOrderIds),
     productionOrderNos: normalizeStringArray(raw.productionOrderNos),
     styleCode: typeof raw.styleCode === 'string' ? raw.styleCode : '',
@@ -325,11 +325,11 @@ function normalizeSpecialProcessScopeLine(record: unknown): SpecialProcessScopeL
   return {
     scopeId: raw.scopeId,
     processOrderId: raw.processOrderId,
-    sourceType: raw.sourceType === 'MERGE_BATCH' ? 'MERGE_BATCH' : 'ORIGINAL_CUT_ORDER',
+    sourceType: raw.sourceType === 'MARKER_PLAN' ? 'MARKER_PLAN' : 'CUT_ORDER',
     sourceCutOrderId: typeof raw.sourceCutOrderId === 'string' ? raw.sourceCutOrderId : '',
     sourceCutOrderNo: typeof raw.sourceCutOrderNo === 'string' ? raw.sourceCutOrderNo : '',
-    mergeBatchId: typeof raw.mergeBatchId === 'string' ? raw.mergeBatchId : '',
-    mergeBatchNo: typeof raw.mergeBatchNo === 'string' ? raw.mergeBatchNo : '',
+    markerPlanId: typeof raw.markerPlanId === 'string' ? raw.markerPlanId : '',
+    markerPlanNo: typeof raw.markerPlanNo === 'string' ? raw.markerPlanNo : '',
     sourceProductionOrderNo: typeof raw.sourceProductionOrderNo === 'string' ? raw.sourceProductionOrderNo : '',
     styleCode: typeof raw.styleCode === 'string' ? raw.styleCode : '',
     spuCode: typeof raw.spuCode === 'string' ? raw.spuCode : '',
@@ -364,13 +364,13 @@ function normalizeSpecialProcessFollowupAction(record: unknown): SpecialProcessF
   if (!record || typeof record !== 'object') return null
   const raw = record as Record<string, unknown>
   if (typeof raw.actionId !== 'string' || typeof raw.processOrderId !== 'string') return null
-  const targetPageKey = ['transfer-bags', 'cut-piece-warehouse', 'original-orders', 'production-progress', 'summary'].includes(String(raw.targetPageKey))
+  const targetPageKey = ['transfer-bags', 'cut-piece-warehouse', 'cut-orders', 'production-progress', 'summary'].includes(String(raw.targetPageKey))
     ? (raw.targetPageKey as SpecialProcessFollowupAction['targetPageKey'])
     : 'summary'
   return {
     actionId: raw.actionId,
     processOrderId: raw.processOrderId,
-    actionType: ['GO_TRANSFER_BAG', 'GO_CUT_PIECE_WAREHOUSE', 'GO_ORIGINAL_CUT_ORDER', 'GO_CUTTING_DASHBOARD', 'GO_CUTTING_TOTAL_TABLE'].includes(String(raw.actionType))
+    actionType: ['GO_TRANSFER_BAG', 'GO_CUT_PIECE_WAREHOUSE', 'GO_CUT_ORDER', 'GO_CUTTING_DASHBOARD', 'GO_CUTTING_TOTAL_TABLE'].includes(String(raw.actionType))
       ? (raw.actionType as SpecialProcessFollowupActionType)
       : 'GO_CUTTING_TOTAL_TABLE',
     title: typeof raw.title === 'string' ? raw.title : '去裁剪总结',
@@ -405,8 +405,8 @@ function normalizeSpecialProcessAudit(record: unknown): SpecialProcessAuditTrail
 }
 
 export function createBindingStripProcessDraft(options: {
-  originalRows: OriginalCutOrderRow[]
-  mergeBatches: MergeBatchRecord[]
+  cutOrderRows: CutOrderRow[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   prefilter: SpecialProcessPrefilter | null
   existingCount: number
 }): {
@@ -416,28 +416,28 @@ export function createBindingStripProcessDraft(options: {
   followupActions: SpecialProcessFollowupAction[]
   audit: SpecialProcessAuditTrail
 } {
-  const mergeBatch =
-    (options.prefilter?.mergeBatchNo && options.mergeBatches.find((item) => item.mergeBatchNo === options.prefilter?.mergeBatchNo)) || null
-  const matchedOriginals = options.prefilter?.originalCutOrderNo
-    ? options.originalRows.filter((row) => row.originalCutOrderNo === options.prefilter?.originalCutOrderNo)
-    : mergeBatch
-      ? options.originalRows.filter((row) => mergeBatch.items.some((item) => item.originalCutOrderId === row.originalCutOrderId))
-      : [options.originalRows[0]].filter(Boolean)
+  const markerPlanRef =
+    (options.prefilter?.markerPlanNo && options.markerPlanRefs.find((item) => item.markerPlanNo === options.prefilter?.markerPlanNo)) || null
+  const matchedCutOrders = options.prefilter?.cutOrderNo
+    ? options.cutOrderRows.filter((row) => row.cutOrderNo === options.prefilter?.cutOrderNo)
+    : markerPlanRef
+      ? options.cutOrderRows.filter((row) => markerPlanRef.items.some((item) => item.cutOrderId === row.cutOrderId))
+      : [options.cutOrderRows[0]].filter(Boolean)
 
-  const seed = matchedOriginals[0]
+  const seed = matchedCutOrders[0]
   const orderId = `sp-order-${Date.now()}`
   const orderNo = buildProcessOrderNo(options.existingCount)
   const order: SpecialProcessOrder = {
     processOrderId: orderId,
     processOrderNo: orderNo,
     processType: 'BINDING_STRIP',
-    sourceType: mergeBatch ? 'merge-batch' : 'original-order',
-    originalCutOrderIds: matchedOriginals.map((row) => row.originalCutOrderId),
-    originalCutOrderNos: matchedOriginals.map((row) => row.originalCutOrderNo),
-    mergeBatchId: mergeBatch?.mergeBatchId || '',
-    mergeBatchNo: mergeBatch?.mergeBatchNo || '',
-    productionOrderIds: uniqueStrings(matchedOriginals.map((row) => row.productionOrderId)),
-    productionOrderNos: uniqueStrings(matchedOriginals.map((row) => row.productionOrderNo)),
+    sourceType: markerPlanRef ? 'marker-plan-ref' : 'cut-order',
+    cutOrderIds: matchedCutOrders.map((row) => row.cutOrderId),
+    cutOrderNos: matchedCutOrders.map((row) => row.cutOrderNo),
+    markerPlanId: markerPlanRef?.markerPlanId || '',
+    markerPlanNo: markerPlanRef?.markerPlanNo || '',
+    productionOrderIds: uniqueStrings(matchedCutOrders.map((row) => row.productionOrderId)),
+    productionOrderNos: uniqueStrings(matchedCutOrders.map((row) => row.productionOrderNo)),
     styleCode: seed?.styleCode || options.prefilter?.styleCode || '',
     spuCode: seed?.spuCode || '',
     styleName: seed?.styleName || '',
@@ -445,7 +445,7 @@ export function createBindingStripProcessDraft(options: {
     status: 'DRAFT',
     createdAt: nowText(),
     createdBy: '工艺专员 叶晓青',
-    note: mergeBatch ? '来源于合并裁剪批次预填。' : '来源于原始裁片单预填。',
+    note: markerPlanRef ? '来源于唛架方案预填。' : '来源于裁片单预填。',
   }
   const payload: BindingStripProcessPayload = {
     processOrderId: orderId,
@@ -460,8 +460,8 @@ export function createBindingStripProcessDraft(options: {
   const typeMeta = deriveSpecialProcessTypeExecutionMeta(order.processType)
   const scopeLines = buildDefaultSpecialProcessScopeLines({
     order,
-    originalRows: options.originalRows,
-    mergeBatches: options.mergeBatches,
+    cutOrderRows: options.cutOrderRows,
+    markerPlanRefs: options.markerPlanRefs,
   })
   const followupActions = buildDefaultSpecialProcessFollowupActions({
     order,
@@ -517,49 +517,49 @@ export function buildReservedSpecialProcessPayload(processOrderId: string, proce
 export function buildSpecialProcessNavigationPayload(
   order: Pick<
     SpecialProcessOrder,
-    | 'originalCutOrderIds'
-    | 'originalCutOrderNos'
-    | 'mergeBatchId'
-    | 'mergeBatchNo'
+    | 'cutOrderIds'
+    | 'cutOrderNos'
+    | 'markerPlanId'
+    | 'markerPlanNo'
     | 'productionOrderIds'
     | 'productionOrderNos'
     | 'styleCode'
     | 'materialSku'
   >,
 ): SpecialProcessNavigationPayload {
-  const originalCutOrderId = order.originalCutOrderIds[0] || undefined
+  const cutOrderId = order.cutOrderIds[0] || undefined
   const productionOrderId = order.productionOrderIds[0] || undefined
   return {
-    originalOrders: {
-      originalCutOrderId,
-      originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
+    cutOrders: {
+      cutOrderId,
+      cutOrderNo: order.cutOrderNos[0] || undefined,
       productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
-      mergeBatchId: order.mergeBatchId || undefined,
-      mergeBatchNo: order.mergeBatchNo || undefined,
+      markerPlanId: order.markerPlanId || undefined,
+      markerPlanNo: order.markerPlanNo || undefined,
       styleCode: order.styleCode || undefined,
       materialSku: order.materialSku || undefined,
     },
-    mergeBatches: {
-      mergeBatchId: order.mergeBatchId || undefined,
-      mergeBatchNo: order.mergeBatchNo || undefined,
-      originalCutOrderId,
-      originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
+    markerPlanRefs: {
+      markerPlanId: order.markerPlanId || undefined,
+      markerPlanNo: order.markerPlanNo || undefined,
+      cutOrderId,
+      cutOrderNo: order.cutOrderNos[0] || undefined,
     },
     replenishment: {
-      originalCutOrderId,
-      originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
+      cutOrderId,
+      cutOrderNo: order.cutOrderNos[0] || undefined,
       productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
-      mergeBatchId: order.mergeBatchId || undefined,
-      mergeBatchNo: order.mergeBatchNo || undefined,
+      markerPlanId: order.markerPlanId || undefined,
+      markerPlanNo: order.markerPlanNo || undefined,
       materialSku: order.materialSku || undefined,
     },
     summary: {
-      mergeBatchId: order.mergeBatchId || undefined,
-      mergeBatchNo: order.mergeBatchNo || undefined,
-      originalCutOrderId,
-      originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
+      markerPlanId: order.markerPlanId || undefined,
+      markerPlanNo: order.markerPlanNo || undefined,
+      cutOrderId,
+      cutOrderNo: order.cutOrderNos[0] || undefined,
       productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
       styleCode: order.styleCode || undefined,
@@ -573,19 +573,19 @@ export function buildSpecialProcessNavigationPayload(
     cutPieceWarehouse: {
       productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
-      originalCutOrderId,
-      originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
-      mergeBatchId: order.mergeBatchId || undefined,
-      mergeBatchNo: order.mergeBatchNo || undefined,
+      cutOrderId,
+      cutOrderNo: order.cutOrderNos[0] || undefined,
+      markerPlanId: order.markerPlanId || undefined,
+      markerPlanNo: order.markerPlanNo || undefined,
       materialSku: order.materialSku || undefined,
     },
     transferBags: {
       productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
-      originalCutOrderId,
-      originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
-      mergeBatchId: order.mergeBatchId || undefined,
-      mergeBatchNo: order.mergeBatchNo || undefined,
+      cutOrderId,
+      cutOrderNo: order.cutOrderNos[0] || undefined,
+      markerPlanId: order.markerPlanId || undefined,
+      markerPlanNo: order.markerPlanNo || undefined,
       materialSku: order.materialSku || undefined,
     },
   }
@@ -610,7 +610,7 @@ export function buildSpecialProcessAuditTrail(options: {
   }
 }
 
-function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches: MergeBatchRecord[]): {
+function buildSystemSeedOrders(cutOrderRows: CutOrderRow[], markerPlanRefs: MarkerPlanRefRecord[]): {
   orders: SpecialProcessOrder[]
   payloads: BindingStripProcessPayload[]
   scopeLines: SpecialProcessScopeLine[]
@@ -618,7 +618,7 @@ function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches
   followupActions: SpecialProcessFollowupAction[]
   audits: SpecialProcessAuditTrail[]
 } {
-  const original = originalRows[0]
+  const seedCutOrder = cutOrderRows[0]
   const orders: SpecialProcessOrder[] = []
   const payloads: BindingStripProcessPayload[] = []
   const scopeLines: SpecialProcessScopeLine[] = []
@@ -626,22 +626,22 @@ function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches
   const followupActions: SpecialProcessFollowupAction[] = []
   const audits: SpecialProcessAuditTrail[] = []
 
-  if (original) {
+  if (seedCutOrder) {
     const order: SpecialProcessOrder = {
       processOrderId: 'sp-seed-binding-strip',
       processOrderNo: 'SP-20260324-001',
       processType: 'BINDING_STRIP',
-      sourceType: 'original-order',
-      originalCutOrderIds: [original.originalCutOrderId],
-      originalCutOrderNos: [original.originalCutOrderNo],
-      mergeBatchId: '',
-      mergeBatchNo: original.latestMergeBatchNo || '',
-      productionOrderIds: [original.productionOrderId],
-      productionOrderNos: [original.productionOrderNo],
-      styleCode: original.styleCode,
-      spuCode: original.spuCode,
-      styleName: original.styleName,
-      materialSku: original.materialSku,
+      sourceType: 'cut-order',
+      cutOrderIds: [seedCutOrder.cutOrderId],
+      cutOrderNos: [seedCutOrder.cutOrderNo],
+      markerPlanId: '',
+      markerPlanNo: seedCutOrder.latestMarkerPlanNo || '',
+      productionOrderIds: [seedCutOrder.productionOrderId],
+      productionOrderNos: [seedCutOrder.productionOrderNo],
+      styleCode: seedCutOrder.styleCode,
+      spuCode: seedCutOrder.spuCode,
+      styleName: seedCutOrder.styleName,
+      materialSku: seedCutOrder.materialSku,
       status: 'IN_PROGRESS',
       createdAt: '2026-03-24 09:20',
       createdBy: '工艺专员 叶晓青',
@@ -651,14 +651,14 @@ function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches
       processOrderId: order.processOrderId,
       materialLength: 28,
       cutWidth: 3.2,
-      expectedQty: Math.max(original.plannedQty, 20),
-      actualQty: Math.max(original.plannedQty - 4, 0),
+      expectedQty: Math.max(seedCutOrder.plannedQty, 20),
+      actualQty: Math.max(seedCutOrder.plannedQty - 4, 0),
       operatorName: '陈工',
       note: '首轮捆条已完成，待复核余量。',
     }
     const navigationPayload = buildSpecialProcessNavigationPayload(order)
     const typeMeta = deriveSpecialProcessTypeExecutionMeta(order.processType)
-    const seedScopes = buildDefaultSpecialProcessScopeLines({ order, originalRows, mergeBatches })
+    const seedScopes = buildDefaultSpecialProcessScopeLines({ order, cutOrderRows, markerPlanRefs })
     const seedActions = buildDefaultSpecialProcessFollowupActions({ order, navigationPayload, typeMeta }).map((item, index) =>
       index === 2
         ? {
@@ -668,7 +668,7 @@ function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches
             decidedBy: '工艺专员 叶晓青',
             completedAt: '2026-03-24 10:20',
             completedBy: '工艺专员 叶晓青',
-            note: '已同步原始裁片单。',
+            note: '已同步裁片单。',
           }
         : item,
     )
@@ -685,7 +685,7 @@ function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches
         processOrderId: order.processOrderId,
         actionType: 'START',
         operatorName: '陈工',
-        actualQty: Math.max(original.plannedQty - 8, 0),
+        actualQty: Math.max(seedCutOrder.plannedQty - 8, 0),
         actualLength: 24,
         actualWidth: 3.2,
         remark: '已开工，先做首轮捆条。',
@@ -732,8 +732,8 @@ function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches
 }
 
 export function buildSystemSeedSpecialProcessLedger(
-  originalRows: OriginalCutOrderRow[],
-  mergeBatches: MergeBatchRecord[],
+  cutOrderRows: CutOrderRow[],
+  markerPlanRefs: MarkerPlanRefRecord[],
 ): {
   orders: SpecialProcessOrder[]
   payloads: BindingStripProcessPayload[]
@@ -742,7 +742,7 @@ export function buildSystemSeedSpecialProcessLedger(
   followupActions: SpecialProcessFollowupAction[]
   audits: SpecialProcessAuditTrail[]
 } {
-  return buildSystemSeedOrders(originalRows, mergeBatches)
+  return buildSystemSeedOrders(cutOrderRows, markerPlanRefs)
 }
 
 export function serializeSpecialProcessOrdersStorage(records: SpecialProcessOrder[]): string {
@@ -832,16 +832,16 @@ export function deserializeSpecialProcessAuditTrailStorage(raw: string | null): 
 function getEffectiveScopeLines(options: {
   order: SpecialProcessOrder
   storedScopeLines: SpecialProcessScopeLine[]
-  originalRows: OriginalCutOrderRow[]
-  mergeBatches: MergeBatchRecord[]
+  cutOrderRows: CutOrderRow[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   sourceOptions: SpecialProcessSourceOption[]
 }): SpecialProcessScopeLine[] {
   const matched = options.storedScopeLines.filter((item) => item.processOrderId === options.order.processOrderId)
   if (!matched.length) {
     return buildDefaultSpecialProcessScopeLines({
       order: options.order,
-      originalRows: options.originalRows,
-      mergeBatches: options.mergeBatches,
+      cutOrderRows: options.cutOrderRows,
+      markerPlanRefs: options.markerPlanRefs,
     })
   }
   return matched.map((item) => hydrateScopeLineFromSource(item, options.sourceOptions))
@@ -876,17 +876,17 @@ function getEffectiveFollowupActions(options: {
 
 function buildSourceSummary(order: SpecialProcessOrder, scopeLines: SpecialProcessScopeLine[]): string {
   const scopeCutOrders = uniqueStrings(scopeLines.map((item) => item.sourceCutOrderNo))
-  if (order.sourceType === 'merge-batch') {
-    return `来源合并裁剪批次 ${order.mergeBatchNo || '待补合并裁剪批次号'}，当前覆盖 ${scopeCutOrders.length || order.originalCutOrderNos.length} 个原始裁片单。`
+  if (order.sourceType === 'marker-plan-ref') {
+    return `来源唛架方案 ${order.markerPlanNo || '待补唛架方案号'}，当前覆盖 ${scopeCutOrders.length || order.cutOrderNos.length} 个裁片单。`
   }
-  return `来源原始裁片单 ${scopeCutOrders[0] || order.originalCutOrderNos[0] || '待补'}。`
+  return `来源裁片单 ${scopeCutOrders[0] || order.cutOrderNos[0] || '待补'}。`
 }
 
 function buildKeywordIndex(order: SpecialProcessOrder, scopeLines: SpecialProcessScopeLine[]): string[] {
   return [
     order.processOrderNo,
-    order.originalCutOrderNos.join(' '),
-    order.mergeBatchNo,
+    order.cutOrderNos.join(' '),
+    order.markerPlanNo,
     order.styleCode,
     order.spuCode,
     order.materialSku,
@@ -906,15 +906,15 @@ function mergeByKey<T extends Record<string, unknown>>(seed: T[], stored: T[], k
 }
 
 export function buildSpecialProcessViewModel(options: {
-  originalRows: OriginalCutOrderRow[]
-  mergeBatches: MergeBatchRecord[]
+  cutOrderRows: CutOrderRow[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   orders: SpecialProcessOrder[]
   bindingPayloads: BindingStripProcessPayload[]
   scopeLines?: SpecialProcessScopeLine[]
   executionLogs?: SpecialProcessExecutionLog[]
   followupActions?: SpecialProcessFollowupAction[]
 }): SpecialProcessViewModel {
-  const seed = buildSystemSeedOrders(options.originalRows, options.mergeBatches)
+  const seed = buildSystemSeedOrders(options.cutOrderRows, options.markerPlanRefs)
   const orderMap = new Map<string, SpecialProcessOrder>()
   mergeByKey(seed.orders, options.orders, 'processOrderId').forEach((order) => orderMap.set(order.processOrderId, order))
 
@@ -935,14 +935,14 @@ export function buildSpecialProcessViewModel(options: {
       const typeExecutionMeta = deriveSpecialProcessTypeExecutionMeta(order.processType)
       const sourceOptions = buildSpecialProcessSourceOptions({
         order,
-        originalRows: options.originalRows,
-        mergeBatches: options.mergeBatches,
+        cutOrderRows: options.cutOrderRows,
+        markerPlanRefs: options.markerPlanRefs,
       })
       const scopeLines = getEffectiveScopeLines({
         order,
         storedScopeLines: allStoredScopeLines,
-        originalRows: options.originalRows,
-        mergeBatches: options.mergeBatches,
+        cutOrderRows: options.cutOrderRows,
+        markerPlanRefs: options.markerPlanRefs,
         sourceOptions,
       })
       const executionLogs = allStoredExecutionLogs
@@ -965,7 +965,7 @@ export function buildSpecialProcessViewModel(options: {
       return {
         ...order,
         processTypeLabel: specialProcessTypeMeta[order.processType].label,
-        sourceLabel: order.sourceType === 'merge-batch' ? '合并裁剪批次' : '原始裁片单',
+        sourceLabel: order.sourceType === 'marker-plan-ref' ? '唛架方案' : '裁片单',
         sourceSummary: buildSourceSummary(order, scopeLines),
         statusMeta,
         bindingPayload,
@@ -1017,10 +1017,10 @@ export function filterSpecialProcessRows(
   return rows.filter((row) => {
     if (prefilter?.productionOrderId && !row.productionOrderIds.includes(prefilter.productionOrderId)) return false
     if (prefilter?.productionOrderNo && !row.productionOrderNos.includes(prefilter.productionOrderNo)) return false
-    if (prefilter?.originalCutOrderId && !row.originalCutOrderIds.includes(prefilter.originalCutOrderId)) return false
-    if (prefilter?.originalCutOrderNo && !row.originalCutOrderNos.includes(prefilter.originalCutOrderNo)) return false
-    if (prefilter?.mergeBatchId && row.mergeBatchId !== prefilter.mergeBatchId) return false
-    if (prefilter?.mergeBatchNo && row.mergeBatchNo !== prefilter.mergeBatchNo) return false
+    if (prefilter?.cutOrderId && !row.cutOrderIds.includes(prefilter.cutOrderId)) return false
+    if (prefilter?.cutOrderNo && !row.cutOrderNos.includes(prefilter.cutOrderNo)) return false
+    if (prefilter?.markerPlanId && row.markerPlanId !== prefilter.markerPlanId) return false
+    if (prefilter?.markerPlanNo && row.markerPlanNo !== prefilter.markerPlanNo) return false
     if (prefilter?.processOrderId && row.processOrderId !== prefilter.processOrderId) return false
     if (prefilter?.processOrderNo && row.processOrderNo !== prefilter.processOrderNo) return false
     if (prefilter?.processType && row.processType !== prefilter.processType) return false
@@ -1046,10 +1046,10 @@ export function findSpecialProcessByPrefilter(
       if (prefilter.processOrderNo && row.processOrderNo === prefilter.processOrderNo) return true
       if (prefilter.productionOrderId && row.productionOrderIds.includes(prefilter.productionOrderId)) return true
       if (prefilter.productionOrderNo && row.productionOrderNos.includes(prefilter.productionOrderNo)) return true
-      if (prefilter.originalCutOrderId && row.originalCutOrderIds.includes(prefilter.originalCutOrderId)) return true
-      if (prefilter.originalCutOrderNo && row.originalCutOrderNos.includes(prefilter.originalCutOrderNo)) return true
-      if (prefilter.mergeBatchId && row.mergeBatchId === prefilter.mergeBatchId) return true
-      if (prefilter.mergeBatchNo && row.mergeBatchNo === prefilter.mergeBatchNo) return true
+      if (prefilter.cutOrderId && row.cutOrderIds.includes(prefilter.cutOrderId)) return true
+      if (prefilter.cutOrderNo && row.cutOrderNos.includes(prefilter.cutOrderNo)) return true
+      if (prefilter.markerPlanId && row.markerPlanId === prefilter.markerPlanId) return true
+      if (prefilter.markerPlanNo && row.markerPlanNo === prefilter.markerPlanNo) return true
       if (prefilter.processType && row.processType === prefilter.processType) return true
       return false
     }) || null

@@ -14,7 +14,7 @@ import { escapeHtml, formatDateTime } from '../utils'
 
 const productionProgressPath = getCanonicalCuttingPath('production-progress')
 const materialPrepPath = getCanonicalCuttingPath('warehouse-management-wait-process')
-const originalOrdersPath = getCanonicalCuttingPath('original-orders')
+const cutOrdersPath = getCanonicalCuttingPath('cut-orders')
 const replenishmentPath = getCanonicalCuttingPath('replenishment')
 const fabricWarehousePath = getCanonicalCuttingPath('fabric-warehouse')
 
@@ -26,7 +26,7 @@ function getCuttingRouteActionLabel(route: string): string {
   const normalizedRoute = normalizeRoute(route)
   if (normalizedRoute === materialPrepPath) return '去待加工仓'
   if (normalizedRoute === replenishmentPath) return '去补料管理'
-  if (normalizedRoute === originalOrdersPath) return '去原始裁片单'
+  if (normalizedRoute === cutOrdersPath) return '去裁片单'
   if (normalizedRoute === fabricWarehousePath) return '去裁床仓'
   if (normalizedRoute === productionProgressPath) return '去生产单进度'
   return '打开关联页面'
@@ -371,7 +371,7 @@ function renderQuickLinks(): string {
       <div class="mt-4 flex flex-wrap gap-2">
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-production-progress">去生产单进度</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-material-prep">去待加工仓</button>
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-original-orders">去原始裁片单</button>
+        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-cut-orders">去裁片单</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-replenishment">去补料管理</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-fabric-warehouse">去裁床仓</button>
       </div>
@@ -426,8 +426,8 @@ export function handleProgressCuttingDetailEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'go-original-orders') {
-    appStore.navigate(originalOrdersPath)
+  if (action === 'go-cut-orders') {
+    appStore.navigate(cutOrdersPath)
     return true
   }
 

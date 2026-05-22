@@ -33,6 +33,8 @@ export interface MarkerAllocationSourceRow {
   techPackSpuCode: string
   color: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   allocationSummaryText: string
   allocationTotalQty: number
 }
@@ -52,6 +54,8 @@ export interface MarkerExplosionAllocationRow {
   color: string
   sizeLabel: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   plannedGarmentQty: number
   techPackSpuCode: string
   skuCode: string
@@ -80,6 +84,8 @@ export interface MarkerExplosionPieceDetailRow {
   sizeLabel: string
   skuCode: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   patternName: string
   pieceName: string
   pieceCountPerUnit: number
@@ -94,6 +100,8 @@ export interface MarkerExplosionMissingMappingRow {
   color: string
   sizeLabel: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   reason: string
   mappingStatus: MarkerPieceMappingStatus
   mappingStatusLabel: string
@@ -121,8 +129,8 @@ export interface MarkerPieceExplosionViewModel {
 
 type MarkerPieceExplosionSourceRow = Pick<
   MaterialPrepRow,
-  | 'originalCutOrderId'
-  | 'originalCutOrderNo'
+  | 'cutOrderId'
+  | 'cutOrderNo'
   | 'productionOrderId'
   | 'productionOrderNo'
   | 'styleCode'
@@ -130,6 +138,7 @@ type MarkerPieceExplosionSourceRow = Pick<
   | 'techPackSpuCode'
   | 'color'
   | 'materialSkuSummary'
+  | 'materialLineItems'
 >
 
 function normalizeText(value: string | undefined | null): string {
@@ -165,6 +174,19 @@ function buildAllocationSummaryText(lines: MarkerPlanAllocationLike[]): string {
     .filter((line) => line.plannedGarmentQty > 0)
     .map((line) => `${line.sizeLabel}×${line.plannedGarmentQty}`)
     .join(' / ') || '待补分配'
+}
+
+function getMaterialIdentityFromSourceRow(
+  row: MarkerPieceExplosionSourceRow | null | undefined,
+  materialSku?: string,
+): { materialAlias: string; materialImageUrl: string } {
+  const lines = row?.materialLineItems || []
+  const matchedLines = materialSku ? lines.filter((line) => line.materialSku === materialSku) : lines
+  const candidates = matchedLines.length ? matchedLines : lines
+  return {
+    materialAlias: uniqueStrings(candidates.map((line) => line.materialAlias)).join(' / '),
+    materialImageUrl: candidates.find((line) => line.materialImageUrl)?.materialImageUrl || '',
+  }
 }
 
 export function resolveMarkerTechPackLink(options: {
@@ -210,10 +232,10 @@ export function resolveMarkerTechPackLink(options: {
 }
 
 export function buildMarkerAllocationSourceRows(
-  marker: Pick<MarkerPlanLike, 'originalCutOrderIds' | 'allocationLines'>,
+  marker: Pick<MarkerPlanLike, 'cutOrderIds' | 'allocationLines'>,
   rowsById: Record<string, MarkerPieceExplosionSourceRow>,
 ): MarkerPieceExplosionSourceRow[] {
-  return marker.originalCutOrderIds
+  return marker.cutOrderIds
     .map((id) => rowsById[id])
     .filter((row): row is MarkerPieceExplosionSourceRow => Boolean(row))
 }
@@ -269,14 +291,14 @@ export function buildMarkerPieceExplosionViewModel(
     sourceRows: MarkerPieceExplosionSourceRow[]
   },
 ): MarkerPieceExplosionViewModel {
-  const sourceRowsById = Object.fromEntries(options.sourceRows.map((row) => [row.originalCutOrderId, row]))
+  const sourceRowsById = Object.fromEntries(options.sourceRows.map((row) => [row.cutOrderId, row]))
   const allocationLines = options.marker.allocationLines || []
   const allocationSizeMap = new Map<string, number>()
   const sourceOrderRows = options.sourceRows.map((row) => {
-    const linkedLines = allocationLines.filter((line) => line.sourceCutOrderId === row.originalCutOrderId)
+    const linkedLines = allocationLines.filter((line) => line.sourceCutOrderId === row.cutOrderId)
     return {
-      sourceCutOrderId: row.originalCutOrderId,
-      sourceCutOrderNo: row.originalCutOrderNo,
+      sourceCutOrderId: row.cutOrderId,
+      sourceCutOrderNo: row.cutOrderNo,
       sourceProductionOrderId: row.productionOrderId,
       sourceProductionOrderNo: row.productionOrderNo,
       styleCode: row.styleCode,
@@ -284,6 +306,7 @@ export function buildMarkerPieceExplosionViewModel(
       techPackSpuCode: row.techPackSpuCode || '',
       color: row.color,
       materialSku: row.materialSkuSummary,
+      ...getMaterialIdentityFromSourceRow(row),
       allocationSummaryText: buildAllocationSummaryText(linkedLines),
       allocationTotalQty: linkedLines.reduce((sum, line) => sum + Math.max(line.plannedGarmentQty || 0, 0), 0),
     }
@@ -316,6 +339,7 @@ export function buildMarkerPieceExplosionViewModel(
       color: allocationLine.color,
       sizeLabel: allocationLine.sizeLabel,
       materialSku: allocationLine.materialSku,
+      ...getMaterialIdentityFromSourceRow(sourceRow, allocationLine.materialSku),
       plannedGarmentQty,
       techPackSpuCode: techPackLink.resolvedSpuCode,
       skuCode: '',
@@ -349,6 +373,7 @@ export function buildMarkerPieceExplosionViewModel(
         color: allocationLine.color,
         sizeLabel: allocationLine.sizeLabel,
         materialSku: allocationLine.materialSku,
+        ...getMaterialIdentityFromSourceRow(sourceRow, allocationLine.materialSku),
         reason,
         mappingStatus: 'MISSING_TECH_PACK',
         mappingStatusLabel: getMappingStatusLabel('MISSING_TECH_PACK'),
@@ -383,6 +408,7 @@ export function buildMarkerPieceExplosionViewModel(
         color: allocationLine.color,
         sizeLabel: allocationLine.sizeLabel,
         materialSku: allocationLine.materialSku,
+        ...getMaterialIdentityFromSourceRow(sourceRow, allocationLine.materialSku),
         reason,
         mappingStatus: 'MISSING_SKU',
         mappingStatusLabel: getMappingStatusLabel('MISSING_SKU'),
@@ -418,6 +444,7 @@ export function buildMarkerPieceExplosionViewModel(
         color: allocationLine.color,
         sizeLabel: allocationLine.sizeLabel,
         materialSku: allocationLine.materialSku,
+        ...getMaterialIdentityFromSourceRow(sourceRow, allocationLine.materialSku),
         reason,
         mappingStatus: 'MISSING_COLOR_MAPPING',
         mappingStatusLabel: getMappingStatusLabel('MISSING_COLOR_MAPPING'),
@@ -468,6 +495,7 @@ export function buildMarkerPieceExplosionViewModel(
         color: allocationLine.color,
         sizeLabel: allocationLine.sizeLabel,
         materialSku: allocationLine.materialSku,
+        ...getMaterialIdentityFromSourceRow(sourceRow, allocationLine.materialSku),
         reason,
         mappingStatus: 'MISSING_PIECE_MAPPING',
         mappingStatusLabel: getMappingStatusLabel('MISSING_PIECE_MAPPING'),
@@ -512,6 +540,7 @@ export function buildMarkerPieceExplosionViewModel(
         sizeLabel: allocationLine.sizeLabel,
         skuCode,
         materialSku: allocationLine.materialSku,
+        ...getMaterialIdentityFromSourceRow(sourceRow, allocationLine.materialSku),
         patternName: pieceRow.patternName,
         pieceName: pieceRow.pieceName,
         pieceCountPerUnit: pieceRow.pieceCountPerUnit,
@@ -528,6 +557,7 @@ export function buildMarkerPieceExplosionViewModel(
         color: allocationLine.color,
         sizeLabel: allocationLine.sizeLabel,
         materialSku: allocationLine.materialSku,
+        ...getMaterialIdentityFromSourceRow(sourceRow, allocationLine.materialSku),
         reason: exceptionText,
         mappingStatus,
         mappingStatusLabel: getMappingStatusLabel(mappingStatus),

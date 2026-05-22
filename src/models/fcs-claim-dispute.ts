@@ -26,8 +26,8 @@ export interface ClaimDisputeRecord {
   isCutPieceTask: boolean
   sourceTaskId: string
   sourceTaskNo: string
-  originalCutOrderNo: string
-  originalCutOrderNos: string[]
+  cutOrderNo: string
+  cutOrderNos: string[]
   productionOrderNo: string
   productionOrderNos: string[]
   relatedClaimRecordNo: string
@@ -63,8 +63,8 @@ export interface ClaimDisputeRecord {
 export interface ClaimDisputeCreateInput {
   sourceTaskId: string
   sourceTaskNo: string
-  originalCutOrderNo: string
-  originalCutOrderNos?: string[]
+  cutOrderNo: string
+  cutOrderNos?: string[]
   productionOrderNo: string
   productionOrderNos?: string[]
   relatedClaimRecordNo: string

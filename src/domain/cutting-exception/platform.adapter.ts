@@ -65,7 +65,7 @@ function deriveSource(type: CuttingExceptionType): { layer: CuttingExceptionSour
 
 function deriveSuggestedRoute(type: CuttingExceptionType, row: PlatformCuttingOverviewRow): string {
   if (type === 'RECEIVE_DISCREPANCY' || type === 'MISSING_EVIDENCE') return row.routes.materialPrep
-  if (type === 'MARKER_NOT_MAINTAINED' || type === 'SPREADING_DATA_INSUFFICIENT') return row.routes.originalOrders
+  if (type === 'MARKER_NOT_MAINTAINED' || type === 'SPREADING_DATA_INSUFFICIENT') return row.routes.cutOrders
   if (type === 'REPLENISHMENT_PENDING') return row.routes.replenishment
   return row.routes.fabricWarehouse
 }

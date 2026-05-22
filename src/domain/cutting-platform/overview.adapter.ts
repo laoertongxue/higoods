@@ -21,8 +21,8 @@ import {
 } from '../fcs-cutting-runtime/index.ts'
 import type {
   CuttingTaskRef,
-  MergeBatchRef,
-  OriginalCutOrderRef,
+  MarkerPlanRefRef,
+  CutOrderRef,
   ProductionOrderRef,
 } from '../cutting-core/index.ts'
 import {
@@ -42,7 +42,7 @@ export type PlatformCuttingOverviewStage =
 export interface PlatformCuttingOverviewRoutes {
   productionProgress: string
   materialPrep: string
-  originalOrders: string
+  cutOrders: string
   replenishment: string
   fabricWarehouse: string
 }
@@ -65,13 +65,13 @@ export interface PlatformCuttingOverviewRow {
   sourceRowId: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchIds: string[]
-  mergeBatchNos: string[]
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanIds: string[]
+  markerPlanNos: string[]
   productionOrderRef: ProductionOrderRef | null
-  originalCutOrderRefs: OriginalCutOrderRef[]
-  mergeBatchRefs: MergeBatchRef[]
+  cutOrderRefs: CutOrderRef[]
+  markerPlanRefRefs: MarkerPlanRefRef[]
   cuttingTaskRef: CuttingTaskRef | null
   purchaseDate: string
   orderQty: number
@@ -124,8 +124,8 @@ export interface PlatformCuttingRuntimeOverviewData {
 }
 
 interface RuntimeMarkerRecord {
-  originalCutOrderIds?: string[]
-  mergeBatchId?: string
+  cutOrderIds?: string[]
+  markerPlanId?: string
   markerImageUrl?: string
 }
 
@@ -138,8 +138,8 @@ interface RuntimeSpreadingRoll {
 }
 
 interface RuntimeSpreadingSession {
-  originalCutOrderIds?: string[]
-  mergeBatchId?: string
+  cutOrderIds?: string[]
+  markerPlanId?: string
   totalActualLength?: number
   updatedAt?: string
   updatedFromPdaAt?: string
@@ -155,10 +155,10 @@ interface RuntimeMarkerStore {
 interface RuntimeExecutionWriteback {
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   cutPieceOrderNo: string
   materialSku: string
   submittedAt: string
@@ -183,7 +183,7 @@ interface RuntimeReplenishmentFeedbackWriteback extends RuntimeExecutionWritebac
 const defaultRoutes: PlatformCuttingOverviewRoutes = {
   productionProgress: '/fcs/craft/cutting/production-progress',
   materialPrep: '/fcs/craft/cutting/warehouse-management/wait-process',
-  originalOrders: '/fcs/craft/cutting/original-orders',
+  cutOrders: '/fcs/craft/cutting/cut-orders',
   replenishment: '/fcs/craft/cutting/replenishment',
   fabricWarehouse: '/fcs/craft/cutting/warehouse-management/wait-process?tab=fabric-warehouse',
 }
@@ -219,20 +219,20 @@ function getProductionOrderRef(snapshot: CuttingDomainSnapshot, record: CuttingO
     || null
 }
 
-function getOriginalCutOrderRefs(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord): OriginalCutOrderRef[] {
-  const rows = snapshot.originalCutOrders.filter((item) => item.productionOrderId === record.productionOrderId)
+function getCutOrderRefs(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord): CutOrderRef[] {
+  const rows = snapshot.cutOrders.filter((item) => item.productionOrderId === record.productionOrderId)
   return rows
-    .map((row) => snapshot.registry.originalCutOrdersById[row.originalCutOrderId] || snapshot.registry.originalCutOrdersByNo[row.originalCutOrderNo])
-    .filter((row): row is OriginalCutOrderRef => Boolean(row))
+    .map((row) => snapshot.registry.cutOrdersById[row.cutOrderId] || snapshot.registry.cutOrdersByNo[row.cutOrderNo])
+    .filter((row): row is CutOrderRef => Boolean(row))
 }
 
-function getMergeBatchRefs(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord): MergeBatchRef[] {
-  const refs = snapshot.mergeBatchState.sourceRecords
+function getMarkerPlanRefRefs(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord): MarkerPlanRefRef[] {
+  const refs = snapshot.markerPlanRefState.sourceRecords
     .filter((item) => item.sourceProductionOrderIds.includes(record.productionOrderId) || item.sourceProductionOrderNos.includes(record.productionOrderNo))
-    .map((item) => snapshot.registry.mergeBatchesById[item.mergeBatchId] || snapshot.registry.mergeBatchesByNo[item.mergeBatchNo])
-    .filter((item): item is MergeBatchRef => Boolean(item))
+    .map((item) => snapshot.registry.markerPlanRefsById[item.markerPlanId] || snapshot.registry.markerPlanRefsByNo[item.markerPlanNo])
+    .filter((item): item is MarkerPlanRefRef => Boolean(item))
 
-  return unique(refs.map((item) => item.mergeBatchId)).map((mergeBatchId) => refs.find((item) => item.mergeBatchId === mergeBatchId)!).filter(Boolean)
+  return unique(refs.map((item) => item.markerPlanId)).map((markerPlanId) => refs.find((item) => item.markerPlanId === markerPlanId)!).filter(Boolean)
 }
 
 function getCuttingTaskRef(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord): CuttingTaskRef | null {
@@ -254,10 +254,10 @@ function buildOverlaySignals(snapshot: CuttingDomainSnapshot, record: CuttingOrd
     sourceType,
     productionOrderId: item.productionOrderId,
     productionOrderNo: item.productionOrderNo,
-    originalCutOrderId: item.originalCutOrderId,
-    originalCutOrderNo: item.originalCutOrderNo,
-    mergeBatchId: item.mergeBatchId,
-    mergeBatchNo: item.mergeBatchNo,
+    cutOrderId: item.cutOrderId,
+    cutOrderNo: item.cutOrderNo,
+    markerPlanId: item.markerPlanId,
+    markerPlanNo: item.markerPlanNo,
     cutPieceOrderNo: item.cutPieceOrderNo,
     materialSku: item.materialSku,
     latestUpdatedAt: item.submittedAt,
@@ -278,15 +278,15 @@ function buildOverlaySignals(snapshot: CuttingDomainSnapshot, record: CuttingOrd
   ]
 }
 
-function buildMarkerAndSpreadingSummary(snapshot: CuttingDomainSnapshot, originalRefs: OriginalCutOrderRef[], mergeBatchRefs: MergeBatchRef[]) {
-  const originalIdSet = new Set(originalRefs.map((item) => item.originalCutOrderId))
-  const mergeBatchIdSet = new Set(mergeBatchRefs.map((item) => item.mergeBatchId))
+function buildMarkerAndSpreadingSummary(snapshot: CuttingDomainSnapshot, cutOrderRefs: CutOrderRef[], markerPlanRefRefs: MarkerPlanRefRef[]) {
+  const cutOrderIdSet = new Set(cutOrderRefs.map((item) => item.cutOrderId))
+  const markerPlanIdSet = new Set(markerPlanRefRefs.map((item) => item.markerPlanId))
   const store = snapshot.markerSpreadingState.store as unknown as RuntimeMarkerStore
   const markers = (store.markers || []).filter(
-    (item) => (item.originalCutOrderIds || []).some((id) => originalIdSet.has(id)) || (item.mergeBatchId && mergeBatchIdSet.has(item.mergeBatchId)),
+    (item) => (item.cutOrderIds || []).some((id) => cutOrderIdSet.has(id)) || (item.markerPlanId && markerPlanIdSet.has(item.markerPlanId)),
   )
   const sessions = (store.sessions || []).filter(
-    (item) => (item.originalCutOrderIds || []).some((id) => originalIdSet.has(id)) || (item.mergeBatchId && mergeBatchIdSet.has(item.mergeBatchId)),
+    (item) => (item.cutOrderIds || []).some((id) => cutOrderIdSet.has(id)) || (item.markerPlanId && markerPlanIdSet.has(item.markerPlanId)),
   )
   const latestSession = [...sessions].sort((left, right) => compareDateTime(right.updatedAt || right.updatedFromPdaAt || '', left.updatedAt || left.updatedFromPdaAt || ''))[0] || null
   const latestSpreadingBy = latestSession?.operators?.find((item) => item.operatorName)?.operatorName
@@ -297,14 +297,14 @@ function buildMarkerAndSpreadingSummary(snapshot: CuttingDomainSnapshot, origina
     markerSummary: {
       markerMaintainedCount: markers.length,
       markerImageUploadedCount: markers.filter((item) => Boolean(item.markerImageUrl)).length,
-      pendingMarkerCount: Math.max(originalRefs.length - markers.length, 0),
+      pendingMarkerCount: Math.max(cutOrderRefs.length - markers.length, 0),
     },
     spreadingSummary: {
       spreadingRecordCount: sessions.length,
       totalSpreadLength: sessions.reduce((sum, item) => sum + Number(item.totalActualLength || 0), 0),
       latestSpreadingAt: latestSession?.updatedAt || latestSession?.updatedFromPdaAt || '',
       latestSpreadingBy,
-      pendingSpreadingCount: Math.max(originalRefs.length - sessions.length, 0),
+      pendingSpreadingCount: Math.max(cutOrderRefs.length - sessions.length, 0),
     },
   }
 }
@@ -320,16 +320,16 @@ function buildWarehouseRecordsWithOverlay(
   const byKey = new Map(base.map((item) => [`${item.productionOrderNo}::${item.cutPieceOrderNo}::${item.materialSku}`, item] as const))
 
   const ensureRecord = (item: RuntimeExecutionWriteback): CutPieceWarehouseRecord => {
-    const key = `${item.productionOrderNo}::${item.originalCutOrderNo}::${item.materialSku}`
+    const key = `${item.productionOrderNo}::${item.cutOrderNo}::${item.materialSku}`
     const current = byKey.get(key)
     if (current) return current
     const created: CutPieceWarehouseRecord = {
-      id: `runtime-${item.productionOrderNo}-${item.originalCutOrderNo}-${item.materialSku}`,
+      id: `runtime-${item.productionOrderNo}-${item.cutOrderNo}-${item.materialSku}`,
       warehouseType: 'CUT_PIECE',
       productionOrderNo: item.productionOrderNo,
-      cutPieceOrderNo: item.originalCutOrderNo,
+      cutPieceOrderNo: item.cutOrderNo,
       materialSku: item.materialSku,
-      groupNo: item.mergeBatchNo || '',
+      groupNo: item.markerPlanNo || '',
       zoneCode: 'UNASSIGNED',
       locationLabel: '',
       inboundStatus: 'PENDING_INBOUND',
@@ -348,9 +348,9 @@ function buildWarehouseRecordsWithOverlay(
     .filter((item) => item.productionOrderId === record.productionOrderId || item.productionOrderNo === productionOrderNo)
     .forEach((item) => {
       const current = ensureRecord(item)
-      current.cutPieceOrderNo = item.originalCutOrderNo || current.cutPieceOrderNo
+      current.cutPieceOrderNo = item.cutOrderNo || current.cutPieceOrderNo
       current.materialSku = item.materialSku || current.materialSku
-      current.groupNo = item.mergeBatchNo || current.groupNo
+      current.groupNo = item.markerPlanNo || current.groupNo
       current.zoneCode = (item.zoneCode as CutPieceWarehouseRecord['zoneCode']) || current.zoneCode
       current.locationLabel = item.locationLabel || current.locationLabel
       current.inboundStatus = 'INBOUNDED'
@@ -363,9 +363,9 @@ function buildWarehouseRecordsWithOverlay(
     .filter((item) => item.productionOrderId === record.productionOrderId || item.productionOrderNo === productionOrderNo)
     .forEach((item) => {
       const current = ensureRecord(item)
-      current.cutPieceOrderNo = item.originalCutOrderNo || current.cutPieceOrderNo
+      current.cutPieceOrderNo = item.cutOrderNo || current.cutPieceOrderNo
       current.materialSku = item.materialSku || current.materialSku
-      current.groupNo = item.mergeBatchNo || current.groupNo
+      current.groupNo = item.markerPlanNo || current.groupNo
       current.handoverStatus = 'HANDED_OVER'
       current.handoverTarget = item.targetLabel || current.handoverTarget
       current.note = item.note || current.note
@@ -498,10 +498,10 @@ function buildIssues(options: {
       issueType: 'MARKER_NOT_READY',
       level: 'MEDIUM',
       title: '唛架待维护',
-      description: `仍有 ${options.markerSummary.pendingMarkerCount} 张原始裁片单缺少唛架维护。`,
+      description: `仍有 ${options.markerSummary.pendingMarkerCount} 张裁片单缺少唛架维护。`,
       sourcePage: 'CUT_PIECE_ORDER',
-      suggestedAction: '回原始裁片单页补齐唛架配比、净长度和方案图和唛架明细图。',
-      suggestedRoute: defaultRoutes.originalOrders,
+      suggestedAction: '回裁片单页补齐唛架配比、净长度和方案图和唛架明细图。',
+      suggestedRoute: defaultRoutes.cutOrders,
     })
   }
 
@@ -510,10 +510,10 @@ function buildIssues(options: {
       issueType: 'SPREADING_PENDING',
       level: 'MEDIUM',
       title: '铺布记录待补',
-      description: `仍有 ${options.spreadingSummary.pendingSpreadingCount} 张原始裁片单缺少铺布记录。`,
+      description: `仍有 ${options.spreadingSummary.pendingSpreadingCount} 张裁片单缺少铺布记录。`,
       sourcePage: 'CUT_PIECE_ORDER',
-      suggestedAction: '回原始裁片单页补录铺布记录，补齐卷号、层数和总长度。',
-      suggestedRoute: defaultRoutes.originalOrders,
+      suggestedAction: '回裁片单页补录铺布记录，补齐卷号、层数和总长度。',
+      suggestedRoute: defaultRoutes.cutOrders,
     })
   }
 
@@ -572,7 +572,7 @@ function buildIssues(options: {
       title: '数据待补',
       description: options.truth.completionDetailText,
       sourcePage: 'CUT_PIECE_ORDER',
-      suggestedAction: '先补齐原始裁片单映射和执行进度，再继续判断收口状态。',
+      suggestedAction: '先补齐裁片单映射和执行进度，再继续判断收口状态。',
       suggestedRoute: defaultRoutes.productionProgress,
     })
   }
@@ -609,8 +609,8 @@ function buildLinkedPages(row: PlatformCuttingOverviewRow): CuttingSummaryLinked
     },
     {
       pageKey: 'CUT_PIECE_ORDER',
-      pageLabel: '原始裁片单',
-      route: row.routes.originalOrders,
+      pageLabel: '裁片单',
+      route: row.routes.cutOrders,
       summaryText: row.executionSummaryText,
     },
     {
@@ -630,15 +630,15 @@ function buildLinkedPages(row: PlatformCuttingOverviewRow): CuttingSummaryLinked
 
 function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord): PlatformCuttingOverviewRow {
   const productionOrderRef = getProductionOrderRef(snapshot, record)
-  const originalCutOrderRefs = getOriginalCutOrderRefs(snapshot, record)
-  const mergeBatchRefs = getMergeBatchRefs(snapshot, record)
+  const cutOrderRefs = getCutOrderRefs(snapshot, record)
+  const markerPlanRefRefs = getMarkerPlanRefRefs(snapshot, record)
   const cuttingTaskRef = getCuttingTaskRef(snapshot, record)
   const overlaySignals = buildOverlaySignals(snapshot, record)
   const truth = buildProductionPieceTruth(record, { overlaySignals })
-  const pickupPrepProjection = buildPlatformCuttingPrepProjection(snapshot, record, originalCutOrderRefs)
+  const pickupPrepProjection = buildPlatformCuttingPrepProjection(snapshot, record, cutOrderRefs)
   const pickupAggregate = pickupPrepProjection.aggregate
   const pickupSummary = pickupPrepProjection.summary
-  const { markerSummary, spreadingSummary } = buildMarkerAndSpreadingSummary(snapshot, originalCutOrderRefs, mergeBatchRefs)
+  const { markerSummary, spreadingSummary } = buildMarkerAndSpreadingSummary(snapshot, cutOrderRefs, markerPlanRefRefs)
   const replenishmentSummary = buildReplenishmentSummary(snapshot, record)
   const warehouseSummary = buildWarehouseSummary(snapshot, record)
   const sampleSummary = buildSampleSummary(snapshot, record)
@@ -673,7 +673,7 @@ function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderP
               : 'EXECUTING'
   const latestFactoryAction = buildLatestFactoryAction(pickupSummary, markerSummary, spreadingSummary, warehouseSummary, sampleSummary)
   const recordSnapshot: PlatformCuttingRuntimeRecordSnapshot = {
-    cutPieceOrderCount: originalCutOrderRefs.length,
+    cutPieceOrderCount: cutOrderRefs.length,
     markerSummary,
     spreadingSummary,
     replenishmentSummary,
@@ -686,12 +686,12 @@ function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderP
       record.styleCode,
       record.spuCode,
       record.styleName,
-      ...originalCutOrderRefs.map((item) => item.originalCutOrderNo),
-      ...originalCutOrderRefs.map((item) => item.materialSku),
+      ...cutOrderRefs.map((item) => item.cutOrderNo),
+      ...cutOrderRefs.map((item) => item.materialSku),
       ...issues.map((item) => item.title),
     ]).map((item) => item.toLowerCase()),
   }
-  const executionSummaryText = `唛架已维护 ${markerSummary.markerMaintainedCount} / ${originalCutOrderRefs.length}，铺布 ${spreadingSummary.spreadingRecordCount} 条。`
+  const executionSummaryText = `唛架已维护 ${markerSummary.markerMaintainedCount} / ${cutOrderRefs.length}，铺布 ${spreadingSummary.spreadingRecordCount} 条。`
   const replenishmentSummaryText = hasPendingReplenishment
     ? `待跟进 ${replenishmentSummary.pendingReviewCount || replenishmentSummary.suggestionCount} 条。`
     : '当前无待跟进补料。'
@@ -706,13 +706,13 @@ function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderP
     sourceRowId: record.productionOrderId,
     productionOrderId: record.productionOrderId,
     productionOrderNo: record.productionOrderNo,
-    originalCutOrderIds: originalCutOrderRefs.map((item) => item.originalCutOrderId),
-    originalCutOrderNos: originalCutOrderRefs.map((item) => item.originalCutOrderNo),
-    mergeBatchIds: mergeBatchRefs.map((item) => item.mergeBatchId),
-    mergeBatchNos: mergeBatchRefs.map((item) => item.mergeBatchNo),
+    cutOrderIds: cutOrderRefs.map((item) => item.cutOrderId),
+    cutOrderNos: cutOrderRefs.map((item) => item.cutOrderNo),
+    markerPlanIds: markerPlanRefRefs.map((item) => item.markerPlanId),
+    markerPlanNos: markerPlanRefRefs.map((item) => item.markerPlanNo),
     productionOrderRef,
-    originalCutOrderRefs,
-    mergeBatchRefs,
+    cutOrderRefs,
+    markerPlanRefRefs,
     cuttingTaskRef,
     purchaseDate: record.purchaseDate,
     orderQty: record.orderQty,

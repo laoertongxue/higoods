@@ -26,11 +26,11 @@ function renderProductionProgressLinkage(): string {
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold text-foreground">生产进度</h2>
-          <p class="mt-1 text-xs text-muted-foreground">进度总览联动生产单、裁床、特殊工艺回仓、裁片发料、车缝回写、交接差异与工厂仓库数据。</p>
+          <p class="mt-1 text-xs text-muted-foreground">进度总览联动生产单、裁床、特殊工艺回仓、交出单、车缝回写、交接差异与工厂仓库数据。</p>
         </div>
         <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
-          <span class="rounded-full border px-2 py-1">阻塞原因</span>
-          <span class="rounded-full border px-2 py-1">是否可发车缝</span>
+          <span class="rounded-full border px-2 py-1">风险原因</span>
+          <span class="rounded-full border px-2 py-1">是否可交出</span>
           <span class="rounded-full border px-2 py-1">紧急程度</span>
         </div>
       </div>
@@ -38,10 +38,10 @@ function renderProductionProgressLinkage(): string {
         ${[
           ['生产单总数', kpiSummary.totalProductionOrders],
           ['生产中', kpiSummary.inProgressOrders],
-          ['阻塞中', kpiSummary.blockedOrders],
-          ['可发车缝', kpiSummary.readyForSewingDispatchOrders],
-          ['部分发料', kpiSummary.partiallyDispatchedOrders],
-          ['已全部发料', kpiSummary.fullyDispatchedOrders],
+          ['有风险', kpiSummary.blockedOrders],
+          ['可交出', kpiSummary.readyForSewingDispatchOrders],
+          ['部分交出', kpiSummary.partiallyDispatchedOrders],
+          ['已全部交出', kpiSummary.fullyDispatchedOrders],
           ['差异', kpiSummary.differenceOrders],
           ['异议中', kpiSummary.objectionOrders],
           ['紧急', kpiSummary.urgentOrders],
@@ -58,7 +58,7 @@ function renderProductionProgressLinkage(): string {
         <table class="w-full min-w-[1480px] text-sm">
           <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              ${['生产单', '款式', '生产数量', '交期', '紧急程度', '面料配置', '裁床领料', '裁剪', '菲票', '特殊工艺回仓', '裁片发料', '车缝回写', '当前阻塞', '下一步', '操作']
+              ${['生产单', '款式', '生产数量', '交期', '紧急程度', '面料配置', '裁床领料', '裁剪', '菲票', '特殊工艺回仓', '交出单', '车缝回写', '风险与差异', '下一步', '操作']
                 .map((item) => `<th class="px-3 py-2 font-medium">${item}</th>`)
                 .join('')}
             </tr>
@@ -85,13 +85,13 @@ function renderProductionProgressLinkage(): string {
                     <td class="px-3 py-3">${row.specialCraftReturnStatus}</td>
                     <td class="px-3 py-3">${row.sewingDispatchStatus}</td>
                     <td class="px-3 py-3">${row.sewingReceiveStatus}</td>
-                    <td class="px-3 py-3">${row.blockingReasons.length ? row.blockingReasons.slice(0, 2).map((item) => item.blockingLabel).join('、') : '暂无阻塞'}</td>
+                    <td class="px-3 py-3">${row.blockingReasons.length ? row.blockingReasons.slice(0, 2).map((item) => item.blockingLabel).join('、') : '暂无风险'}</td>
                     <td class="px-3 py-3">${row.nextActionLabel}</td>
                     <td class="px-3 py-3">
                       <div class="flex flex-wrap gap-2">
                         <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-route="/fcs/production/orders/${encodeURIComponent(row.productionOrderId)}">查看生产单</button>
                         <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-route="/fcs/craft/cutting/production-progress">查看裁床进度</button>
-                        <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-route="/fcs/craft/cutting/warehouse-management/wait-handover?tab=sewing-dispatch">查看裁片发料</button>
+                        <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-route="/fcs/craft/cutting/warehouse-management/wait-handover?tab=handoverOrders">查看交出单</button>
                         <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-route="/fcs/progress/handover">查看交接记录</button>
                       </div>
                     </td>

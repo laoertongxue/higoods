@@ -44,8 +44,8 @@ export const reasonTypeMeta = {
 
 export const impactFlagMeta: Record<ReplenishmentImpactFlag, { label: string; className: string }> = {
   RECONFIG_REQUIRED: { label: '需重新来料', className: 'bg-blue-100 text-blue-700' },
-  RERECEIVE_REQUIRED: { label: '需重新WMS 来料', className: 'bg-indigo-100 text-indigo-700' },
-  PENDING_PREP_REQUIRED: { label: '需回仓库WMS 待处理', className: 'bg-amber-100 text-amber-700' },
+  RERECEIVE_REQUIRED: { label: '需重新领料', className: 'bg-indigo-100 text-indigo-700' },
+  PENDING_PREP_REQUIRED: { label: '需回中转仓配料', className: 'bg-amber-100 text-amber-700' },
 }
 
 export const riskTagMeta = {
@@ -150,6 +150,6 @@ export function buildGapSummary(record: ReplenishmentSuggestionRecord): string {
 export function buildEmptyStateText(filters: ReplenishmentFilters): string {
   if (filters.reviewStatus === 'PENDING') return '当前筛选条件下暂无待审核补料建议。'
   if (filters.riskLevel === 'HIGH') return '当前筛选条件下暂无高风险补料建议。'
-  if (filters.impactFilter === 'PENDING_PREP_REQUIRED') return '当前筛选条件下暂无需回仓库WMS 待处理的补料建议。'
+  if (filters.impactFilter === 'PENDING_PREP_REQUIRED') return '当前筛选条件下暂无需回中转仓配料的补料建议。'
   return '当前筛选条件下暂无匹配的补料建议。'
 }

@@ -19,28 +19,56 @@ import {
   type SewingTaskRefRecord,
   type TransferBagDispatchManifestRecord,
   type TransferBagRuntimeStore,
-  type TransferBagSeedMergeBatchLike,
-  type TransferBagSeedOriginalRowLike,
+  type TransferBagSeedMarkerPlanRefLike,
+  type TransferBagSeedCutOrderRowLike,
   type TransferBagSeedTicketLike,
+  type TransferBagUsageStage,
   type TransferCarrierCycleRecord,
   type TransferCarrierRecord,
 } from '../../../data/fcs/cutting/transfer-bag-runtime.ts'
+import {
+  listCuttingSewingDispatchBatches,
+  listCuttingSewingDispatchOrders,
+  listCuttingSewingTransferBags,
+} from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import {
   getFactoryMasterRecordById,
 } from '../../../data/fcs/factory-master-store.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../../../data/fcs/factory-mock-data.ts'
 import { FEI_TICKET_DEMO_CASE_IDS, type FeiTicketLabelRecord } from './fei-tickets-model.ts'
-import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
 import {
   buildSpreadingTraceAnchors,
   findSpreadingTraceAnchor,
   type MarkerSpreadingStore,
   type SpreadingTraceAnchor,
 } from './marker-spreading-model.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
+
+export type { TransferBagUsageStage }
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 const TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const
+const INBOUND_TEMP_BAG_RULE_LABEL = '入仓暂存袋可混装不同生产单、SKU、部位的菲票；车缝任务分配后再二次分拣。'
+const HANDOVER_PACKING_BAG_RULE_LABEL = '交出装袋需先扫中转袋，再扫菲票子码；本阶段才按交出单关系核对。'
+
+function normalizeTransferBagUsageStage(stage: string | undefined): TransferBagUsageStage {
+  return stage === 'INBOUND_TEMP' ? 'INBOUND_TEMP' : 'HANDOVER_PACKING'
+}
+
+export function getTransferBagUsageStageLabel(stage: string | undefined): string {
+  return normalizeTransferBagUsageStage(stage) === 'INBOUND_TEMP' ? '入仓暂存' : '交出装袋'
+}
+
+export function getTransferBagRuleLabel(stage: string | undefined): string {
+  return normalizeTransferBagUsageStage(stage) === 'INBOUND_TEMP'
+    ? INBOUND_TEMP_BAG_RULE_LABEL
+    : HANDOVER_PACKING_BAG_RULE_LABEL
+}
+
+export function isInboundTempTransferBagUsage(usage: Pick<TransferBagUsage, 'usageStage'> | null | undefined): boolean {
+  return normalizeTransferBagUsageStage(usage?.usageStage) === 'INBOUND_TEMP'
+}
 
 function readTransferQrMeta(master: TransferBagMaster): ReturnType<typeof encodeCarrierQr>['payload'] | null {
   const pageMaster = master as unknown as Record<string, unknown>
@@ -140,7 +168,7 @@ export interface TransferBagCycleContextResolution {
   ok: boolean
   reason: string
   sewingTask: SewingTaskRef | null
-  source: 'merge-batch' | 'original-order' | 'style-spu' | 'usage-locked' | null
+  source: 'marker-plan-ref' | 'cut-order' | 'style-spu' | 'usage-locked' | null
 }
 
 export interface TransferBagMaster {
@@ -187,7 +215,7 @@ export interface TransferBagUsage {
   sizeSummary: string
   usageStatus: TransferBagUsageStatusKey
   packedTicketCount: number
-  packedOriginalCutOrderCount: number
+  packedCutOrderCount: number
   startedAt?: string
   finishedPackingAt?: string
   dispatchAt: string
@@ -196,6 +224,8 @@ export interface TransferBagUsage {
   signedAt?: string
   returnedAt?: string
   status?: string
+  usageStage?: TransferBagUsageStage
+  usageStageLabel?: string
   note: string
 }
 
@@ -218,17 +248,17 @@ export interface TransferBagItemBinding {
   bagCode: string
   ticketRecordId: string
   ticketNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderNo: string
-  mergeBatchNo: string
+  markerPlanNo: string
   fabricRollNo?: string
   fabricColor?: string
   size?: string
   partName?: string
   bundleNo?: string
   actualCutPieceQty?: number
-  裁剪批次No?: string
+  唛架方案No?: string
   qty: number
   garmentQty: number
   boundAt: string
@@ -266,7 +296,7 @@ export interface TransferBagDispatchManifest {
   sewingTaskNo: string
   sewingFactoryName: string
   ticketCount: number
-  originalCutOrderCount: number
+  cutOrderCount: number
   createdAt: string
   createdBy: string
   printStatus: 'PRINTED'
@@ -301,7 +331,7 @@ export interface TransferBagReturnReceipt {
   receivedBy: string
   returnedFinishedQty: number
   returnedTicketCountSummary: number
-  returnedOriginalCutOrderCount: number
+  returnedCutOrderCount: number
   discrepancyType: TransferBagDiscrepancyType
   discrepancyNote: string
   note: string
@@ -386,11 +416,11 @@ export interface TransferBagStore {
 }
 
 export interface TransferBagPrefilter {
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
-  裁剪批次No?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
+  唛架方案No?: string
   productionOrderId?: string
   productionOrderNo?: string
   materialSku?: string
@@ -412,15 +442,15 @@ export interface TransferBagPrefilter {
 export interface TransferBagNavigationPayload {
   cutPieceWarehouse: Record<string, string | undefined>
   feiTickets: Record<string, string | undefined>
-  originalOrders: Record<string, string | undefined>
+  cutOrders: Record<string, string | undefined>
   summary: Record<string, string | undefined>
 }
 
 export interface TransferBagParentChildSummary {
   ticketCount: number
-  originalCutOrderCount: number
+  cutOrderCount: number
   productionOrderCount: number
-  mergeBatchCount: number
+  markerPlanRefCount: number
   quantityTotal: number
   garmentQtyTotal: number
 }
@@ -433,12 +463,12 @@ export interface TransferBagTicketCandidate {
   sourceSpreadingSessionNo: string
   sourceMarkerId: string
   sourceMarkerNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  markerPlanId: string
+  markerPlanNo: string
   styleCode: string
   spuCode: string
   fabricRollNo: string
@@ -452,6 +482,8 @@ export interface TransferBagTicketCandidate {
   actualCutPieceQty: number
   garmentQty: number
   materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
   sourceContextType: string
   ticketStatus: FeiTicketLabelRecord['status']
 }
@@ -462,7 +494,7 @@ export interface TransferBagMasterItem extends TransferBagMaster {
   visibleStatusMeta: TransferBagSummaryMeta<TransferBagVisibleStatusKey>
   latestUsageStatusMeta: TransferBagSummaryMeta<TransferBagUsageStatusKey> | null
   packedTicketCount: number
-  packedOriginalCutOrderCount: number
+  packedCutOrderCount: number
   pocketStatusKey: PocketCarrierStatusKey
   pocketStatusMeta: TransferBagSummaryMeta<PocketCarrierStatusKey>
   currentUsage: TransferBagUsageItem | null
@@ -471,7 +503,7 @@ export interface TransferBagMasterItem extends TransferBagMaster {
   currentGarmentQtyTotal: number
   currentSourceProductionOrderCount: number
   currentSourceCutOrderCount: number
-  currentSourceBatchCount: number
+  currentSourceMarkerPlanCount: number
   currentDispatchedAt: string
   currentSignedAt: string
   currentReturnedAt: string
@@ -489,10 +521,10 @@ export interface TransferBagUsageItem extends TransferBagUsage {
   bindingItems: TransferBagBindingItem[]
   boundTicketIds: string[]
   ticketNos: string[]
-  originalCutOrderNos: string[]
+  cutOrderNos: string[]
   productionOrderNos: string[]
   sourceMarkerNos: string[]
-  mergeBatchNos: string[]
+  markerPlanNos: string[]
   latestManifest: TransferBagDispatchManifest | null
   spreadingSessionId: string
   spreadingSessionNo: string
@@ -519,6 +551,62 @@ export interface TransferBagBindingItem extends TransferBagItemBinding {
   spreadingSourceWritebackId: string
   bagFirstRuleLabel: string
   navigationPayload: TransferBagNavigationPayload
+}
+
+export interface TransferBagStageLedgerItem {
+  stage: TransferBagUsageStage
+  stageLabel: string
+  sourceKind: 'INBOUND_USAGE' | 'HANDOVER_BAG'
+  carrierCode: string
+  cycleNo: string
+  productionOrderNos: string[]
+  cutOrderNos: string[]
+  ticketCount: number
+  statusLabel: string
+  relationLabel: string
+  relationOk: boolean
+  handoverOrderNo: string
+  handoverRecordNo: string
+  dispatchBatchNo: string
+  ruleLabel: string
+}
+
+export interface TransferBagStageSummary {
+  inboundTempCount: number
+  handoverPackingCount: number
+  handoverRelationOkCount: number
+  handoverRelationMissingCount: number
+}
+
+export type CutPieceSortingTaskStatus = '待分拣' | '分拣中' | '已装袋' | '已交出' | '已回写' | '差异'
+
+export interface CutPieceSortingTask {
+  sortingTaskId: string
+  sortingTaskNo: string
+  dispatchOrderNo: string
+  dispatchBatchId: string
+  dispatchBatchNo: string
+  productionOrderNo: string
+  targetFactoryName: string
+  skuSummary: string
+  plannedGarmentQty: number
+  sourceTempBagNos: string[]
+  sourceTempUsageNos: string[]
+  sourceTempTicketCount: number
+  targetTransferBagNos: string[]
+  expectedTicketCount: number
+  pickedTicketCount: number
+  status: CutPieceSortingTaskStatus
+}
+
+export interface CutPieceSortingTaskSummary {
+  taskCount: number
+  pendingCount: number
+  sortingCount: number
+  packedCount: number
+  handedOverCount: number
+  sourceTempBagCount: number
+  targetTransferBagCount: number
 }
 
 export interface ActiveTicketPocketBinding {
@@ -556,6 +644,10 @@ export interface TransferBagViewModel {
   ticketCandidates: TransferBagTicketCandidate[]
   ticketCandidatesById: Record<string, TransferBagTicketCandidate>
   ticketCandidatesByNo: Record<string, TransferBagTicketCandidate>
+  stageSummary: TransferBagStageSummary
+  stageLedgerItems: TransferBagStageLedgerItem[]
+  sortingTaskSummary: CutPieceSortingTaskSummary
+  sortingTasks: CutPieceSortingTask[]
 }
 
 export interface TransferBagValidationResult {
@@ -870,7 +962,7 @@ function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
     cycleStatus: normalized.cycleStatus as TransferBagUsageStatusKey,
     status: String(usage.status || ''),
     packedTicketCount: usage.packedTicketCount,
-    packedOriginalCutOrderCount: usage.packedOriginalCutOrderCount,
+    packedCutOrderCount: usage.packedCutOrderCount,
     startedAt: usage.startedAt || '',
     finishedPackingAt: usage.finishedPackingAt || '',
     dispatchAt: usage.dispatchAt,
@@ -878,11 +970,14 @@ function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
     signoffStatus: usage.signoffStatus,
     signedAt: usage.signedAt || '',
     returnedAt: usage.returnedAt || '',
+    usageStage: normalizeTransferBagUsageStage(usage.usageStage),
+    usageStageLabel: usage.usageStageLabel || getTransferBagUsageStageLabel(usage.usageStage),
     note: usage.note,
   }
 }
 
 function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
+  const usageStage = normalizeTransferBagUsageStage(usage.usageStage)
   return {
     cycleId: usage.cycleId,
     cycleNo: usage.cycleNo,
@@ -905,7 +1000,7 @@ function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
     cycleStatus: toPageUsageStatus(usage.cycleStatus),
     usageStatus: toPageUsageStatus(usage.cycleStatus),
     packedTicketCount: usage.packedTicketCount || 0,
-    packedOriginalCutOrderCount: usage.packedOriginalCutOrderCount || 0,
+    packedCutOrderCount: usage.packedCutOrderCount || 0,
     startedAt: usage.startedAt || '',
     finishedPackingAt: usage.finishedPackingAt || '',
     dispatchAt: usage.dispatchAt || '',
@@ -914,6 +1009,8 @@ function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
     signedAt: usage.signedAt || '',
     returnedAt: usage.returnedAt || '',
     status: usage.status,
+    usageStage,
+    usageStageLabel: usage.usageStageLabel || getTransferBagUsageStageLabel(usageStage),
     note: usage.note,
   }
 }
@@ -931,10 +1028,10 @@ function toRuntimeBinding(binding: TransferBagItemBinding): CarrierCycleItemBind
     carrierCode: normalized.carrierCode,
     feiTicketId: normalized.feiTicketId,
     feiTicketNo: normalized.feiTicketNo,
-    originalCutOrderId: binding.originalCutOrderId,
-    originalCutOrderNo: binding.originalCutOrderNo,
+    cutOrderId: binding.cutOrderId,
+    cutOrderNo: binding.cutOrderNo,
     productionOrderNo: binding.productionOrderNo,
-    mergeBatchNo: binding.mergeBatchNo,
+    markerPlanNo: binding.markerPlanNo,
     fabricRollNo: binding.fabricRollNo || '',
     fabricColor: binding.fabricColor || '',
     size: binding.size || '',
@@ -967,11 +1064,11 @@ function toPageBinding(binding: CarrierCycleItemBinding): TransferBagItemBinding
     bagCode: binding.carrierCode,
     ticketRecordId: binding.feiTicketId,
     ticketNo: binding.feiTicketNo,
-    originalCutOrderId: binding.originalCutOrderId,
-    originalCutOrderNo: binding.originalCutOrderNo,
+    cutOrderId: binding.cutOrderId,
+    cutOrderNo: binding.cutOrderNo,
     productionOrderNo: binding.productionOrderNo,
-    mergeBatchNo: binding.mergeBatchNo,
-    裁剪批次No: binding.mergeBatchNo,
+    markerPlanNo: binding.markerPlanNo,
+    唛架方案No: binding.markerPlanNo,
     fabricRollNo: binding.fabricRollNo || '',
     fabricColor: binding.fabricColor || '',
     size: binding.size || '',
@@ -997,7 +1094,7 @@ function toRuntimeManifest(manifest: TransferBagDispatchManifest): TransferBagDi
     sewingTaskNo: manifest.sewingTaskNo,
     sewingFactoryName: manifest.sewingFactoryName,
     ticketCount: manifest.ticketCount,
-    originalCutOrderCount: manifest.originalCutOrderCount,
+    cutOrderCount: manifest.cutOrderCount,
     createdAt: manifest.createdAt,
     createdBy: manifest.createdBy,
     printStatus: manifest.printStatus,
@@ -1015,7 +1112,7 @@ function toPageManifest(manifest: TransferBagDispatchManifestRecord): TransferBa
     sewingTaskNo: manifest.sewingTaskNo,
     sewingFactoryName: manifest.sewingFactoryName,
     ticketCount: manifest.ticketCount,
-    originalCutOrderCount: manifest.originalCutOrderCount,
+    cutOrderCount: manifest.cutOrderCount,
     createdAt: manifest.createdAt,
     createdBy: manifest.createdBy,
     printStatus: manifest.printStatus,
@@ -1055,10 +1152,10 @@ function toPageStore(store: TransferBagRuntimeStore): TransferBagStore {
   }
 }
 
-function toRuntimeSeedOriginalRows(rows: OriginalCutOrderRow[]): TransferBagSeedOriginalRowLike[] {
+function toRuntimeSeedCutOrderRows(rows: CutOrderRow[]): TransferBagSeedCutOrderRowLike[] {
   return rows.map((row) => ({
-    originalCutOrderId: row.originalCutOrderId,
-    originalCutOrderNo: row.originalCutOrderNo,
+    cutOrderId: row.cutOrderId,
+    cutOrderNo: row.cutOrderNo,
     productionOrderNo: row.productionOrderNo,
     styleCode: row.styleCode,
     spuCode: row.spuCode,
@@ -1069,15 +1166,15 @@ function toRuntimeSeedOriginalRows(rows: OriginalCutOrderRow[]): TransferBagSeed
   }))
 }
 
-function toRuntimeSeedMergeBatches(batches: MergeBatchRecord[]): TransferBagSeedMergeBatchLike[] {
+function toRuntimeSeedMarkerPlanRefs(batches: MarkerPlanRefRecord[]): TransferBagSeedMarkerPlanRefLike[] {
   return batches.map((batch) => ({
-    mergeBatchId: batch.mergeBatchId,
-    mergeBatchNo: batch.mergeBatchNo,
+    markerPlanId: batch.markerPlanId,
+    markerPlanNo: batch.markerPlanNo,
     styleCode: batch.styleCode,
     spuCode: batch.spuCode,
     materialSkuSummary: batch.materialSkuSummary,
     items: batch.items.map((item) => ({
-      originalCutOrderId: item.originalCutOrderId,
+      cutOrderId: item.cutOrderId,
     })),
   }))
 }
@@ -1091,10 +1188,10 @@ function toRuntimeSeedTickets(ticketRecords: FeiTicketLabelRecord[]): TransferBa
     sourceMarkerId: record.sourceMarkerId || '',
     sourceMarkerNo: record.sourceMarkerNo || '',
     sourceWritebackId: '',
-    originalCutOrderId: record.originalCutOrderId,
-    originalCutOrderNo: record.originalCutOrderNo,
+    cutOrderId: record.cutOrderId,
+    cutOrderNo: record.cutOrderNo,
     productionOrderNo: record.productionOrderNo,
-    mergeBatchNo: record.sourceMergeBatchNo,
+    markerPlanNo: record.sourceMarkerPlanNo,
     styleCode: record.styleCode,
     spuCode: record.spuCode,
     fabricRollNo: record.fabricRollNo,
@@ -1155,26 +1252,26 @@ export function resolveTransferBagCycleContextFromTicket(options: {
     return { ok: false, reason: '当前票号不存在，请先确认菲票记录。', sewingTask: null, source: null }
   }
 
-  if (options.ticket.mergeBatchNo) {
-    const matches = options.sewingTasks.filter((task) => task.sewingTaskId === `sewing-task-${sanitizeId(options.ticket!.mergeBatchNo)}`)
+  if (options.ticket.markerPlanNo) {
+    const matches = options.sewingTasks.filter((task) => task.sewingTaskId === `sewing-task-${sanitizeId(options.ticket!.markerPlanNo)}`)
     const result = buildTaskResolutionResult(
-      'merge-batch',
+      'marker-plan-ref',
       matches,
       '',
-      `${options.ticket.mergeBatchNo} 对应了多个车缝任务，暂不能自动装袋。`,
+      `${options.ticket.markerPlanNo} 对应了多个车缝任务，暂不能自动装袋。`,
     )
     if (result.ok || matches.length > 1) return result
   }
 
-  if (options.ticket.originalCutOrderId) {
+  if (options.ticket.cutOrderId) {
     const matches = options.sewingTasks.filter(
-      (task) => task.sewingTaskId === `sewing-task-fallback-${sanitizeId(options.ticket!.originalCutOrderId)}`,
+      (task) => task.sewingTaskId === `sewing-task-fallback-${sanitizeId(options.ticket!.cutOrderId)}`,
     )
     const result = buildTaskResolutionResult(
-      'original-order',
+      'cut-order',
       matches,
       '',
-      `${options.ticket.originalCutOrderNo} 对应了多个车缝任务，暂不能自动装袋。`,
+      `${options.ticket.cutOrderNo} 对应了多个车缝任务，暂不能自动装袋。`,
     )
     if (result.ok || matches.length > 1) return result
   }
@@ -1226,7 +1323,7 @@ export function ensureUsageContextLockedByTicket(options: {
       if (resolved.ok && resolved.sewingTask && resolved.sewingTask.sewingTaskId !== lockedTask.sewingTaskId) {
         return {
           ok: false,
-          reason: `当前袋已锁定到 ${lockedTask.sewingFactoryName} / ${lockedTask.styleCode || lockedTask.spuCode}，请确认同属本次发料批次。`,
+          reason: `当前袋已锁定到 ${lockedTask.sewingFactoryName} / ${lockedTask.styleCode || lockedTask.spuCode}，请确认同属本次交出记录。`,
           sewingTask: null,
           source: 'usage-locked',
         }
@@ -1239,7 +1336,7 @@ export function ensureUsageContextLockedByTicket(options: {
     ) {
       return {
         ok: false,
-        reason: `当前袋已锁定到 ${lockedTask.sewingFactoryName} / ${lockedTask.styleCode || lockedTask.spuCode}，请确认同属本次发料批次。`,
+        reason: `当前袋已锁定到 ${lockedTask.sewingFactoryName} / ${lockedTask.styleCode || lockedTask.spuCode}，请确认同属本次交出记录。`,
         sewingTask: null,
         source: 'usage-locked',
       }
@@ -1331,12 +1428,12 @@ export function mapUsageStatusToPocketCarrierStatus(options: {
 }
 
 export function buildWarehouseQueryPayload(options: {
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
   productionOrderId?: string
   productionOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   materialSku?: string
   spreadingSessionId?: string
   sourceWritebackId?: string
@@ -1350,45 +1447,45 @@ export function buildWarehouseQueryPayload(options: {
 }): TransferBagNavigationPayload {
   return {
     cutPieceWarehouse: {
-      originalCutOrderId: options.originalCutOrderId,
-      originalCutOrderNo: options.originalCutOrderNo,
+      cutOrderId: options.cutOrderId,
+      cutOrderNo: options.cutOrderNo,
       productionOrderId: options.productionOrderId,
       productionOrderNo: options.productionOrderNo,
-      mergeBatchId: options.mergeBatchId,
-      mergeBatchNo: options.mergeBatchNo,
+      markerPlanId: options.markerPlanId,
+      markerPlanNo: options.markerPlanNo,
       materialSku: options.materialSku,
       spreadingSessionId: options.spreadingSessionId,
       sourceWritebackId: options.sourceWritebackId,
     },
     feiTickets: {
-      originalCutOrderId: options.originalCutOrderId,
-      originalCutOrderNo: options.originalCutOrderNo,
+      cutOrderId: options.cutOrderId,
+      cutOrderNo: options.cutOrderNo,
       productionOrderId: options.productionOrderId,
       ticketId: options.ticketId,
       ticketNo: options.ticketNo,
       materialSku: options.materialSku,
-      mergeBatchId: options.mergeBatchId,
-      mergeBatchNo: options.mergeBatchNo,
+      markerPlanId: options.markerPlanId,
+      markerPlanNo: options.markerPlanNo,
     },
-    originalOrders: {
-      originalCutOrderId: options.originalCutOrderId,
-      originalCutOrderNo: options.originalCutOrderNo,
+    cutOrders: {
+      cutOrderId: options.cutOrderId,
+      cutOrderNo: options.cutOrderNo,
       productionOrderId: options.productionOrderId,
       productionOrderNo: options.productionOrderNo,
-      mergeBatchId: options.mergeBatchId,
-      mergeBatchNo: options.mergeBatchNo,
+      markerPlanId: options.markerPlanId,
+      markerPlanNo: options.markerPlanNo,
       materialSku: options.materialSku,
     },
     summary: {
-      originalCutOrderId: options.originalCutOrderId,
-      originalCutOrderNo: options.originalCutOrderNo,
+      cutOrderId: options.cutOrderId,
+      cutOrderNo: options.cutOrderNo,
       productionOrderId: options.productionOrderId,
       productionOrderNo: options.productionOrderNo,
-      mergeBatchId: options.mergeBatchId,
+      markerPlanId: options.markerPlanId,
       bagCode: options.bagCode,
       bagId: options.bagId,
       sewingTaskNo: options.sewingTaskNo,
-      mergeBatchNo: options.mergeBatchNo,
+      markerPlanNo: options.markerPlanNo,
       materialSku: options.materialSku,
       ticketId: options.ticketId,
       ticketNo: options.ticketNo,
@@ -1399,12 +1496,12 @@ export function buildWarehouseQueryPayload(options: {
 }
 
 export function buildTransferBagNavigationPayload(options: {
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
   productionOrderId?: string
   productionOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   materialSku?: string
   spreadingSessionId?: string
   sourceWritebackId?: string
@@ -1422,9 +1519,9 @@ export function buildTransferBagNavigationPayload(options: {
 export function buildTransferBagParentChildSummary(bindings: TransferBagItemBinding[]): TransferBagParentChildSummary {
   return {
     ticketCount: bindings.length,
-    originalCutOrderCount: uniqueStrings(bindings.map((item) => item.originalCutOrderNo)).length,
+    cutOrderCount: uniqueStrings(bindings.map((item) => item.cutOrderNo)).length,
     productionOrderCount: uniqueStrings(bindings.map((item) => item.productionOrderNo)).length,
-    mergeBatchCount: uniqueStrings(bindings.map((item) => item.mergeBatchNo)).length,
+    markerPlanRefCount: uniqueStrings(bindings.map((item) => item.markerPlanNo)).length,
     quantityTotal: bindings.reduce((sum, item) => sum + Math.max(item.qty, 0), 0),
     garmentQtyTotal: bindings.reduce((sum, item) => sum + Math.max(item.garmentQty ?? item.qty, 0), 0),
   }
@@ -1466,9 +1563,10 @@ export function createTransferBagUsageDraft(options: {
 
 export function validateBagToSewingTaskBinding(usage: TransferBagUsage | null, sewingTaskId: string): TransferBagValidationResult {
   if (!usage) return { ok: false, reason: '当前没有可绑定的使用周期，请先创建使用周期草稿。' }
+  if (isInboundTempTransferBagUsage(usage)) return { ok: true, reason: '' }
   if (!sewingTaskId) return { ok: false, reason: '当前使用周期尚未绑定车缝任务。' }
   if (usage.sewingTaskId && usage.sewingTaskId !== sewingTaskId) {
-    return { ok: false, reason: '同一次使用周期只能归属一个车缝任务，请确认同属本次发料批次。' }
+    return { ok: false, reason: '同一次使用周期只能归属一个车缝任务，请确认同属本次交出记录。' }
   }
   return { ok: true, reason: '' }
 }
@@ -1482,12 +1580,13 @@ export function validateTicketBindingEligibility(options: {
 }): TransferBagValidationResult {
   if (!options.ticket) return { ok: false, reason: '当前票号不存在，请先确认菲票记录。' }
   if (!options.usage) return { ok: false, reason: '请先创建或选择一个使用周期，再进行装袋。' }
-  if (!options.sewingTask) return { ok: false, reason: '当前使用周期尚未绑定车缝任务。' }
+  const isInboundTempUsage = isInboundTempTransferBagUsage(options.usage)
+  if (!options.sewingTask && !isInboundTempUsage) return { ok: false, reason: '当前使用周期尚未绑定车缝任务。' }
   if (options.ticket.ticketStatus === 'VOIDED') {
     return { ok: false, reason: `${options.ticket.ticketNo} 已作废，禁止继续装袋。` }
   }
-  if (!options.ticket.originalCutOrderId || !options.ticket.originalCutOrderNo) {
-    return { ok: false, reason: '当前菲票缺少原始裁片单 owner，不能进入中转袋。' }
+  if (!options.ticket.cutOrderId || !options.ticket.cutOrderNo) {
+    return { ok: false, reason: '当前菲票缺少裁片单 owner，不能进入中转袋。' }
   }
 
   const sameUsageBinding = options.bindings.find(
@@ -1505,11 +1604,11 @@ export function validateTicketBindingEligibility(options: {
     }
   }
 
-  if (options.sewingTask.styleCode && options.ticket.styleCode && options.sewingTask.styleCode !== options.ticket.styleCode) {
+  if (!isInboundTempUsage && options.sewingTask?.styleCode && options.ticket.styleCode && options.sewingTask.styleCode !== options.ticket.styleCode) {
     return { ok: false, reason: `${options.ticket.ticketNo} 的款号与当前车缝任务不一致，不能装入同一使用周期。` }
   }
 
-  if (options.sewingTask.spuCode && options.ticket.spuCode && options.sewingTask.spuCode !== options.ticket.spuCode) {
+  if (!isInboundTempUsage && options.sewingTask?.spuCode && options.ticket.spuCode && options.sewingTask.spuCode !== options.ticket.spuCode) {
     return { ok: false, reason: `${options.ticket.ticketNo} 的 SPU 与当前车缝任务不一致，不能装入同一使用周期。` }
   }
 
@@ -1533,35 +1632,35 @@ export function createTransferBagDispatchManifest(options: {
   return {
     ...toPageManifest(runtimeManifest),
     ticketCount: options.summary.ticketCount,
-    originalCutOrderCount: options.summary.originalCutOrderCount,
+    cutOrderCount: options.summary.cutOrderCount,
   }
 }
 
 function buildSewingTaskSeeds(
-  originalRows: OriginalCutOrderRow[] = [],
-  mergeBatches: MergeBatchRecord[] = [],
+  cutOrderRows: CutOrderRow[] = [],
+  markerPlanRefs: MarkerPlanRefRecord[] = [],
 ): SewingTaskRef[] {
-  const mergeTaskSeeds = mergeBatches.slice(0, 3).map((batch, index) => {
+  const markerPlanTaskSeeds = markerPlanRefs.slice(0, 3).map((batch, index) => {
     const factory = pickTransferBagSewingFactory(index)
     return {
-    sewingTaskId: `sewing-task-${sanitizeId(batch.mergeBatchNo)}`,
+    sewingTaskId: `sewing-task-${sanitizeId(batch.markerPlanNo)}`,
     sewingTaskNo: `CF-${String(index + 1).padStart(3, '0')}`,
     sewingFactoryId: factory.factoryId,
     sewingFactoryName: factory.factoryName,
     styleCode: batch.styleCode,
     spuCode: batch.spuCode,
     skuSummary: batch.materialSkuSummary,
-    colorSummary: uniqueStrings(batch.items.map((item) => originalRows.find((row) => row.originalCutOrderId === item.originalCutOrderId)?.color)).join(' / ') || '混色',
+    colorSummary: uniqueStrings(batch.items.map((item) => cutOrderRows.find((row) => row.cutOrderId === item.cutOrderId)?.color)).join(' / ') || '混色',
     sizeSummary: 'S / M / L',
     plannedQty: batch.items.length * 24,
     status: index === 0 ? '待接料' : index === 1 ? '排单中' : '待交接',
-    note: `来源于 ${batch.mergeBatchNo} 的后道交接任务预留。`,
+    note: `来源于 ${batch.markerPlanNo} 的后道交接任务预留。`,
   }})
 
-  const fallbackRows = originalRows.map((row, index) => {
-    const factory = pickTransferBagSewingFactory(index + mergeTaskSeeds.length)
+  const fallbackRows = cutOrderRows.map((row, index) => {
+    const factory = pickTransferBagSewingFactory(index + markerPlanTaskSeeds.length)
     return {
-    sewingTaskId: `sewing-task-fallback-${sanitizeId(row.originalCutOrderId)}`,
+    sewingTaskId: `sewing-task-fallback-${sanitizeId(row.cutOrderId)}`,
     sewingTaskNo: `CF-FB-${String(index + 1).padStart(3, '0')}`,
     sewingFactoryId: factory.factoryId,
     sewingFactoryName: factory.factoryName,
@@ -1575,7 +1674,7 @@ function buildSewingTaskSeeds(
     note: '用于无批次场景下的交接任务预留。',
   }})
 
-  return [...mergeTaskSeeds, ...fallbackRows]
+  return [...markerPlanTaskSeeds, ...fallbackRows]
 }
 
 function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferBagTicketCandidate[] {
@@ -1588,12 +1687,12 @@ function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferB
       sourceSpreadingSessionNo: record.sourceSpreadingSessionNo || '',
       sourceMarkerId: record.sourceMarkerId || '',
       sourceMarkerNo: record.sourceMarkerNo || '',
-      originalCutOrderId: record.originalCutOrderId,
-      originalCutOrderNo: record.originalCutOrderNo,
+      cutOrderId: record.cutOrderId,
+      cutOrderNo: record.cutOrderNo,
       productionOrderId: record.sourceProductionOrderId || '',
       productionOrderNo: record.productionOrderNo,
-      mergeBatchId: record.sourceMergeBatchId || '',
-      mergeBatchNo: record.sourceMergeBatchNo,
+      markerPlanId: record.sourceMarkerPlanId || '',
+      markerPlanNo: record.sourceMarkerPlanNo,
       styleCode: record.styleCode,
       spuCode: record.spuCode,
       fabricRollNo: record.fabricRollNo || '',
@@ -1607,6 +1706,8 @@ function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferB
       actualCutPieceQty: Math.max(record.actualCutPieceQty ?? record.quantity ?? 1, 1),
       garmentQty: Math.max(record.quantity ?? 1, 1),
       materialSku: record.materialSku,
+      materialAlias: record.materialAlias || '',
+      materialImageUrl: record.materialImageUrl || '',
       sourceContextType: record.sourceContextType,
       ticketStatus: record.status,
     }))
@@ -1661,17 +1762,16 @@ export function applyPocketBindingLocksToTicketRecords(
 }
 
 export function buildSystemSeedTransferBagStore(options: {
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   ticketRecords: FeiTicketLabelRecord[]
-  mergeBatches?: MergeBatchRecord[]
-  裁剪批次es?: MergeBatchRecord[]
+  markerPlanRefs?: MarkerPlanRefRecord[]
 }): TransferBagStore {
-  const mergeBatches = options.mergeBatches ?? options.裁剪批次es ?? []
+  const markerPlanRefs = options.markerPlanRefs ?? []
   return toPageStore(
     buildSystemSeedTransferBagRuntime({
-      originalRows: toRuntimeSeedOriginalRows(options.originalRows),
+      cutOrderRows: toRuntimeSeedCutOrderRows(options.cutOrderRows),
       ticketRecords: toRuntimeSeedTickets(options.ticketRecords),
-      mergeBatches: toRuntimeSeedMergeBatches(mergeBatches),
+      markerPlanRefs: toRuntimeSeedMarkerPlanRefs(markerPlanRefs),
     }),
   )
 }
@@ -1704,14 +1804,123 @@ export function mergeTransferBagStores(seed: TransferBagStore, stored: TransferB
   )
 }
 
+function buildTransferBagStageLedgerItems(usageItems: TransferBagUsageItem[]): TransferBagStageLedgerItem[] {
+  const dispatchOrders = listCuttingSewingDispatchOrders()
+  const dispatchBatches = listCuttingSewingDispatchBatches()
+  const handoverBags = listCuttingSewingTransferBags()
+  const ordersById = Object.fromEntries(dispatchOrders.map((item) => [item.dispatchOrderId, item]))
+  const batchesById = Object.fromEntries(dispatchBatches.map((item) => [item.dispatchBatchId, item]))
+  const inboundRows: TransferBagStageLedgerItem[] = usageItems
+    .filter((usage) => usage.usageStage === 'INBOUND_TEMP')
+    .map((usage) => ({
+      stage: 'INBOUND_TEMP',
+      stageLabel: '入仓暂存',
+      sourceKind: 'INBOUND_USAGE',
+      carrierCode: usage.bagCode,
+      cycleNo: usage.usageNo,
+      productionOrderNos: usage.productionOrderNos,
+      cutOrderNos: usage.cutOrderNos,
+      ticketCount: usage.summary.ticketCount,
+      statusLabel: usage.visibleStatusMeta.label,
+      relationLabel: '未绑定交出单，待车缝任务分配后二次分拣',
+      relationOk: true,
+      handoverOrderNo: '',
+      handoverRecordNo: '',
+      dispatchBatchNo: '',
+      ruleLabel: getTransferBagRuleLabel('INBOUND_TEMP'),
+    }))
+
+  const handoverRows: TransferBagStageLedgerItem[] = handoverBags.map((bag) => {
+    const order = ordersById[bag.dispatchOrderId] || null
+    const batch = batchesById[bag.dispatchBatchId] || null
+    const handoverOrderNo = order?.handoverOrderNo || order?.dispatchOrderNo || ''
+    const handoverRecordNo = batch?.handoverRecordNo || ''
+    const relationOk = Boolean(handoverOrderNo || handoverRecordNo)
+    const relationLabel = handoverRecordNo
+      ? `交出单 ${handoverOrderNo || '待补'} / 交出记录 ${handoverRecordNo}`
+      : `交出单 ${handoverOrderNo || '待补'} / 交出记录待新增`
+    return {
+      stage: 'HANDOVER_PACKING',
+      stageLabel: '交出装袋',
+      sourceKind: 'HANDOVER_BAG',
+      carrierCode: bag.transferBagNo,
+      cycleNo: bag.transferOrderNo,
+      productionOrderNos: [bag.productionOrderNo],
+      cutOrderNos: bag.cuttingOrderNos,
+      ticketCount: bag.scannedFeiTicketNos.length || bag.contentFeiTicketCount || bag.expectedFeiTicketCount || 0,
+      statusLabel: bag.status,
+      relationLabel,
+      relationOk,
+      handoverOrderNo,
+      handoverRecordNo,
+      dispatchBatchNo: batch?.dispatchBatchNo || bag.dispatchBatchId,
+      ruleLabel: getTransferBagRuleLabel('HANDOVER_PACKING'),
+    }
+  })
+
+  return [...inboundRows, ...handoverRows]
+}
+
+function deriveCutPieceSortingTaskStatus(
+  batchStatus: string,
+  targetBags: ReturnType<typeof listCuttingSewingTransferBags>,
+  pickedTicketCount: number,
+): CutPieceSortingTaskStatus {
+  if (batchStatus === '差异' || batchStatus === '异议中' || targetBags.some((bag) => bag.status === '差异' || bag.status === '异议中')) return '差异'
+  if (batchStatus === '已回写' || targetBags.some((bag) => bag.status === '已回写')) return '已回写'
+  if (batchStatus === '已交出' || targetBags.some((bag) => bag.status === '已交出' || bag.handoverSubmittedAt)) return '已交出'
+  if (batchStatus === '已核对' || targetBags.some((bag) => bag.status === '已核对')) return '已装袋'
+  if (pickedTicketCount > 0 || targetBags.some((bag) => bag.status === '装袋中')) return '分拣中'
+  return '待分拣'
+}
+
+function buildCutPieceSortingTasks(usageItems: TransferBagUsageItem[]): CutPieceSortingTask[] {
+  const dispatchOrders = listCuttingSewingDispatchOrders()
+  const dispatchBatches = listCuttingSewingDispatchBatches()
+  const handoverBags = listCuttingSewingTransferBags()
+  const ordersById = Object.fromEntries(dispatchOrders.map((item) => [item.dispatchOrderId, item]))
+  const inboundTempUsages = usageItems.filter((usage) => usage.usageStage === 'INBOUND_TEMP')
+
+  return dispatchBatches
+    .map((batch) => {
+      const order = ordersById[batch.dispatchOrderId] || null
+      const sourceTempUsages = inboundTempUsages.filter((usage) => usage.productionOrderNos.includes(batch.productionOrderNo))
+      const targetBags = handoverBags.filter((bag) => batch.transferBagIds.includes(bag.transferBagId))
+      const pickedTicketCount = targetBags.reduce((total, bag) => total + (bag.scannedFeiTicketNos.length || bag.contentFeiTicketCount || 0), 0)
+      const expectedTicketCount = targetBags.reduce(
+        (total, bag) => total + (bag.expectedFeiTicketCount || bag.pieceLines.length || bag.skuQtyLines.length || 0),
+        0,
+      )
+      return {
+        sortingTaskId: `CPST-${batch.dispatchBatchId}`,
+        sortingTaskNo: `CPT-${batch.dispatchBatchNo}`,
+        dispatchOrderNo: order?.dispatchOrderNo || batch.transferOrderNo,
+        dispatchBatchId: batch.dispatchBatchId,
+        dispatchBatchNo: batch.dispatchBatchNo,
+        productionOrderNo: batch.productionOrderNo,
+        targetFactoryName: order?.sewingFactoryName || '接收对象待补',
+        skuSummary: batch.plannedSkuQtyLines.map((line) => `${line.colorName}/${line.sizeCode}`).join('、'),
+        plannedGarmentQty: batch.plannedGarmentQty,
+        sourceTempBagNos: uniqueStrings(sourceTempUsages.map((usage) => usage.bagCode)),
+        sourceTempUsageNos: uniqueStrings(sourceTempUsages.map((usage) => usage.usageNo)),
+        sourceTempTicketCount: sourceTempUsages.reduce((total, usage) => total + usage.summary.ticketCount, 0),
+        targetTransferBagNos: uniqueStrings(targetBags.map((bag) => bag.transferBagNo)),
+        expectedTicketCount,
+        pickedTicketCount,
+        status: deriveCutPieceSortingTaskStatus(batch.status, targetBags, pickedTicketCount),
+      } satisfies CutPieceSortingTask
+    })
+    .sort((left, right) => right.sortingTaskNo.localeCompare(left.sortingTaskNo, 'zh-CN'))
+}
+
 export function buildTransferBagViewModel(options: {
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   ticketRecords: FeiTicketLabelRecord[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   store: TransferBagStore
   spreadingStore?: MarkerSpreadingStore
 }): TransferBagViewModel {
-  void options.mergeBatches
+  void options.markerPlanRefs
   const spreadingTraceAnchors = options.spreadingStore ? buildSpreadingTraceAnchors(options.spreadingStore) : []
   const ticketCandidates = buildTicketCandidates(options.ticketRecords)
   const ticketCandidatesById = Object.fromEntries(ticketCandidates.map((item) => [item.ticketRecordId, item]))
@@ -1749,8 +1958,8 @@ export function buildTransferBagViewModel(options: {
       if (exactAnchor) return exactAnchor
     }
     return findSpreadingTraceAnchor(spreadingTraceAnchors, {
-      originalCutOrderIds: binding.originalCutOrderId ? [binding.originalCutOrderId] : [],
-      mergeBatchId: ticket?.mergeBatchId || '',
+      cutOrderIds: binding.cutOrderId ? [binding.cutOrderId] : [],
+      markerPlanId: ticket?.markerPlanId || '',
       materialSku: ticket?.materialSku || '',
       color: ticket?.color || '',
     })
@@ -1764,9 +1973,9 @@ export function buildTransferBagViewModel(options: {
       const exactAnchor = spreadingTraceAnchors.find((item) => item.spreadingSessionId === explicitSessionIds[0]) || null
       if (exactAnchor) return exactAnchor
     }
-    const originalCutOrderIds = uniqueStrings(bindings.map((item) => item.originalCutOrderId))
-    const mergeBatchIds = uniqueStrings(
-      bindings.map((item) => ticketCandidatesById[item.ticketRecordId]?.mergeBatchId).filter(Boolean),
+    const cutOrderIds = uniqueStrings(bindings.map((item) => item.cutOrderId))
+    const markerPlanIds = uniqueStrings(
+      bindings.map((item) => ticketCandidatesById[item.ticketRecordId]?.markerPlanId).filter(Boolean),
     )
     const materialSkus = uniqueStrings(
       bindings.map((item) => ticketCandidatesById[item.ticketRecordId]?.materialSku).filter(Boolean),
@@ -1776,8 +1985,8 @@ export function buildTransferBagViewModel(options: {
     )
 
     return findSpreadingTraceAnchor(spreadingTraceAnchors, {
-      originalCutOrderIds,
-      mergeBatchId: mergeBatchIds[0] || '',
+      cutOrderIds,
+      markerPlanId: markerPlanIds[0] || '',
       materialSku: materialSkus[0] || usage.skuSummary || '',
       color: colors[0] || usage.colorSummary || '',
     })
@@ -1791,16 +2000,22 @@ export function buildTransferBagViewModel(options: {
       const manifests = (manifestsByUsageId[usage.usageId] || []).slice().sort((left, right) => right.createdAt.localeCompare(left.createdAt, 'zh-CN'))
       const bagMaster = options.store.masters.find((item) => item.bagId === usage.bagId) ?? null
       const sewingTask = sewingTasksById[usage.sewingTaskId] ?? null
-      const sewingFactoryName = resolveTransferBagFactoryName(
-        usage.sewingFactoryId || sewingTask?.sewingFactoryId,
-        usage.sewingFactoryName || sewingTask?.sewingFactoryName,
-      )
+      const usageStage = normalizeTransferBagUsageStage(usage.usageStage)
+      const sewingFactoryName =
+        usageStage === 'INBOUND_TEMP'
+          ? '待车缝任务分配'
+          : resolveTransferBagFactoryName(
+              usage.sewingFactoryId || sewingTask?.sewingFactoryId,
+              usage.sewingFactoryName || sewingTask?.sewingFactoryName,
+            )
       const pocketStatusKey = mapUsageStatusToPocketCarrierStatus({
         usage,
         masterStatus: bagMaster?.currentStatus || 'IDLE',
       })
       return {
         ...usage,
+        usageStage,
+        usageStageLabel: usage.usageStageLabel || getTransferBagUsageStageLabel(usageStage),
         sewingFactoryName,
         statusMeta: deriveTransferBagUsageStatus(usage.usageStatus),
         visibleStatusKey: deriveTransferBagVisibleStatusFromUsage({
@@ -1826,10 +2041,10 @@ export function buildTransferBagViewModel(options: {
         bindingItems: [],
         boundTicketIds: bindings.map((item) => item.ticketRecordId),
         ticketNos: bindings.map((item) => item.ticketNo),
-        originalCutOrderNos: uniqueStrings(bindings.map((item) => item.originalCutOrderNo)),
+        cutOrderNos: uniqueStrings(bindings.map((item) => item.cutOrderNo)),
         productionOrderNos: uniqueStrings(bindings.map((item) => item.productionOrderNo)),
         sourceMarkerNos: uniqueStrings(bindings.map((item) => item.sourceMarkerNo)),
-        mergeBatchNos: uniqueStrings(bindings.map((item) => item.mergeBatchNo)),
+        markerPlanNos: uniqueStrings(bindings.map((item) => item.markerPlanNo)),
         latestManifest: manifests[0] ?? null,
         spreadingSessionId: traceAnchor?.spreadingSessionId || '',
         spreadingSessionNo: traceAnchor?.spreadingSessionNo || '',
@@ -1837,14 +2052,14 @@ export function buildTransferBagViewModel(options: {
         spreadingUpdatedFromPdaAt: traceAnchor?.updatedFromPdaAt || '',
         spreadingColorSummary: traceAnchor?.colorSummary || '',
         bagFirstSatisfied: bindings.length > 0,
-        bagFirstRuleLabel: bindings.length ? '必须先扫口袋码，再扫菲票子码' : '必须先扫口袋码，再扫菲票子码',
+        bagFirstRuleLabel: getTransferBagRuleLabel(usageStage),
         navigationPayload: buildTransferBagNavigationPayload({
-          originalCutOrderId: bindings[0]?.originalCutOrderId,
-          originalCutOrderNo: bindings[0]?.originalCutOrderNo,
+          cutOrderId: bindings[0]?.cutOrderId,
+          cutOrderNo: bindings[0]?.cutOrderNo,
           productionOrderId: bindings[0]?.ticket?.productionOrderId || '',
           productionOrderNo: bindings[0]?.productionOrderNo,
-          mergeBatchId: bindings[0]?.ticket?.mergeBatchId || '',
-          mergeBatchNo: bindings[0]?.mergeBatchNo || undefined,
+          markerPlanId: bindings[0]?.ticket?.markerPlanId || '',
+          markerPlanNo: bindings[0]?.markerPlanNo || undefined,
           materialSku: bindings[0]?.ticket?.materialSku || '',
           spreadingSessionId: traceAnchor?.spreadingSessionId || undefined,
           sourceWritebackId: traceAnchor?.sourceWritebackId || undefined,
@@ -1888,7 +2103,7 @@ export function buildTransferBagViewModel(options: {
         ),
         latestUsageStatusMeta: latestUsage ? latestUsage.statusMeta : null,
         packedTicketCount: summary.ticketCount,
-        packedOriginalCutOrderCount: summary.originalCutOrderCount,
+        packedCutOrderCount: summary.cutOrderCount,
         pocketStatusKey,
         pocketStatusMeta: derivePocketCarrierStatus(pocketStatusKey),
         currentUsage: usage,
@@ -1896,8 +2111,8 @@ export function buildTransferBagViewModel(options: {
         currentTotalPieceCount: summary.quantityTotal,
         currentGarmentQtyTotal: summary.garmentQtyTotal,
         currentSourceProductionOrderCount: summary.productionOrderCount,
-        currentSourceCutOrderCount: summary.originalCutOrderCount,
-        currentSourceBatchCount: summary.mergeBatchCount,
+        currentSourceCutOrderCount: summary.cutOrderCount,
+        currentSourceMarkerPlanCount: summary.markerPlanRefCount,
         currentDispatchedAt: usage?.dispatchAt || latestUsage?.dispatchAt || '',
         currentSignedAt: usage?.signedAt || latestUsage?.signedAt || '',
         currentReturnedAt: usage?.returnedAt || latestUsage?.returnedAt || '',
@@ -1927,14 +2142,14 @@ export function buildTransferBagViewModel(options: {
         spreadingSessionId: traceAnchor?.spreadingSessionId || '',
         spreadingSessionNo: traceAnchor?.spreadingSessionNo || '',
         spreadingSourceWritebackId: traceAnchor?.sourceWritebackId || '',
-        bagFirstRuleLabel: '必须先扫口袋码，再扫菲票子码',
+        bagFirstRuleLabel: getTransferBagRuleLabel(usageItem?.usageStage),
         navigationPayload: buildTransferBagNavigationPayload({
-          originalCutOrderId: binding.originalCutOrderId,
-          originalCutOrderNo: binding.originalCutOrderNo,
+          cutOrderId: binding.cutOrderId,
+          cutOrderNo: binding.cutOrderNo,
           productionOrderId: ticketCandidatesById[binding.ticketRecordId]?.productionOrderId || '',
           productionOrderNo: binding.productionOrderNo,
-          mergeBatchId: ticketCandidatesById[binding.ticketRecordId]?.mergeBatchId || '',
-          mergeBatchNo: binding.mergeBatchNo || undefined,
+          markerPlanId: ticketCandidatesById[binding.ticketRecordId]?.markerPlanId || '',
+          markerPlanNo: binding.markerPlanNo || undefined,
           materialSku: ticketCandidatesById[binding.ticketRecordId]?.materialSku || '',
           spreadingSessionId: traceAnchor?.spreadingSessionId || undefined,
           sourceWritebackId: traceAnchor?.sourceWritebackId || undefined,
@@ -1963,6 +2178,25 @@ export function buildTransferBagViewModel(options: {
     usageItem.bindingItems = bindingsByUsageId[usageItem.usageId] || []
   })
 
+  const stageLedgerItems = buildTransferBagStageLedgerItems(usageItems)
+  const handoverStageItems = stageLedgerItems.filter((item) => item.stage === 'HANDOVER_PACKING')
+  const stageSummary: TransferBagStageSummary = {
+    inboundTempCount: stageLedgerItems.filter((item) => item.stage === 'INBOUND_TEMP').length,
+    handoverPackingCount: handoverStageItems.length,
+    handoverRelationOkCount: handoverStageItems.filter((item) => item.relationOk).length,
+    handoverRelationMissingCount: handoverStageItems.filter((item) => !item.relationOk).length,
+  }
+  const sortingTasks = buildCutPieceSortingTasks(usageItems)
+  const sortingTaskSummary: CutPieceSortingTaskSummary = {
+    taskCount: sortingTasks.length,
+    pendingCount: sortingTasks.filter((task) => task.status === '待分拣').length,
+    sortingCount: sortingTasks.filter((task) => task.status === '分拣中').length,
+    packedCount: sortingTasks.filter((task) => task.status === '已装袋').length,
+    handedOverCount: sortingTasks.filter((task) => task.status === '已交出' || task.status === '已回写').length,
+    sourceTempBagCount: uniqueStrings(sortingTasks.flatMap((task) => task.sourceTempBagNos)).length,
+    targetTransferBagCount: uniqueStrings(sortingTasks.flatMap((task) => task.targetTransferBagNos)).length,
+  }
+
   return {
     summary: {
       bagCount: masterItems.filter((item) => item.visibleStatusKey !== 'ARCHIVED').length,
@@ -1985,5 +2219,9 @@ export function buildTransferBagViewModel(options: {
     ticketCandidates,
     ticketCandidatesById,
     ticketCandidatesByNo,
+    stageSummary,
+    stageLedgerItems,
+    sortingTaskSummary,
+    sortingTasks,
   }
 }

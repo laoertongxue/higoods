@@ -2,12 +2,12 @@ import type { CutPieceWarehouseItem } from './cut-piece-warehouse-model.ts'
 import type {
   FeiTicketLabelRecord,
   FeiTicketPrintJob,
-  OriginalCutOrderTicketOwner,
+  CutOrderTicketOwner,
 } from './fei-tickets-model.ts'
 import type { MarkerSpreadingStore, SpreadingSession } from './marker-spreading-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MergeBatchRecord } from './merge-batches-model.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 import type {
   ProductionProgressRow,
   ProductionProgressStageKey,
@@ -39,8 +39,8 @@ export type CuttingCheckSectionStateKey =
 export type CuttingCheckBlockerLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 export type CuttingCheckCompletionKey = 'COMPLETED' | 'BLOCKED' | 'IN_PROGRESS' | 'DATA_PENDING'
 export type CuttingCheckSourceObjectType =
-  | 'ORIGINAL_CUT_ORDER'
-  | 'MERGE_BATCH'
+  | 'CUT_ORDER'
+  | 'MARKER_PLAN'
   | 'REPLENISHMENT'
   | 'FEI_OWNER'
   | 'FEI_PRINT_JOB'
@@ -50,8 +50,8 @@ export type CuttingCheckSourceObjectType =
 export type CuttingCheckActionTarget =
   | 'productionProgress'
   | 'cuttablePool'
-  | 'mergeBatches'
-  | 'originalOrders'
+  | 'markerPlanRefs'
+  | 'cutOrders'
   | 'materialPrep'
   | 'markerSpreading'
   | 'feiTickets'
@@ -123,12 +123,12 @@ export interface CuttingCheckNextAction {
 
 export interface CuttingCheckBuildOptions {
   productionRow: ProductionProgressRow
-  originalRows: OriginalCutOrderRow[]
-  mergeBatches: MergeBatchRecord[]
+  cutOrderRows: CutOrderRow[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   materialPrepRows: MaterialPrepRow[]
   spreadingSessions: SpreadingSession[]
   markerStore: MarkerSpreadingStore
-  ticketOwners: OriginalCutOrderTicketOwner[]
+  ticketOwners: CutOrderTicketOwner[]
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
   cutPieceItems: CutPieceWarehouseItem[]
@@ -169,15 +169,15 @@ export const cuttingCheckCompletionMetaMap: Record<CuttingCheckCompletionKey, Cu
   },
   BLOCKED: {
     key: 'BLOCKED',
-    label: '阻塞中',
+    label: '有风险',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前存在明确阻塞项，需要去专业页面处理。',
+    detailText: '当前存在明确风险项，需要去专业页面处理。',
   },
   IN_PROGRESS: {
     key: 'IN_PROGRESS',
     label: '处理中',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    detailText: '当前链路仍在推进，但暂无明确阻塞。',
+    detailText: '当前链路仍在推进，但暂无明确风险。',
   },
   DATA_PENDING: {
     key: 'DATA_PENDING',
@@ -204,7 +204,7 @@ const sectionStateMetaMap: Record<
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
   },
   BLOCKED: {
-    label: '阻塞',
+    label: '有风险',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
   },
   DONE: {
@@ -348,11 +348,11 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'MATERIAL_PREP',
           severity: 'HIGH',
-          title: `${row.originalCutOrderNo} WMS 来料未齐`,
-          sourceType: 'ORIGINAL_CUT_ORDER',
-          sourceId: row.originalCutOrderId,
-          sourceNo: row.originalCutOrderNo,
-          sourceLabel: '原始裁片单',
+          title: `${row.cutOrderNo} 领料数量不足`,
+          sourceType: 'CUT_ORDER',
+          sourceId: row.cutOrderId,
+          sourceNo: row.cutOrderNo,
+          sourceLabel: '裁片单',
           materialSku: row.materialSkuSummary,
           currentStateLabel: row.materialPrepStatus.label,
           blockerReason: row.materialPrepStatus.detailText,
@@ -369,11 +369,11 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'MATERIAL_PREP',
           severity: row.materialClaimStatus.key === 'EXCEPTION' ? 'HIGH' : 'MEDIUM',
-          title: `${row.originalCutOrderNo} WMS 来料未闭环`,
-          sourceType: 'ORIGINAL_CUT_ORDER',
-          sourceId: row.originalCutOrderId,
-          sourceNo: row.originalCutOrderNo,
-          sourceLabel: '原始裁片单',
+          title: `${row.cutOrderNo} 领料记录未闭环`,
+          sourceType: 'CUT_ORDER',
+          sourceId: row.cutOrderId,
+          sourceNo: row.cutOrderNo,
+          sourceLabel: '裁片单',
           materialSku: row.materialSkuSummary,
           currentStateLabel: row.materialClaimStatus.label,
           blockerReason: row.materialClaimStatus.detailText,
@@ -390,11 +390,11 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'MATERIAL_PREP',
           severity: 'MEDIUM',
-          title: `${row.originalCutOrderNo} 待排单`,
-          sourceType: 'ORIGINAL_CUT_ORDER',
-          sourceId: row.originalCutOrderId,
-          sourceNo: row.originalCutOrderNo,
-          sourceLabel: '原始裁片单',
+          title: `${row.cutOrderNo} 待排单`,
+          sourceType: 'CUT_ORDER',
+          sourceId: row.cutOrderId,
+          sourceNo: row.cutOrderNo,
+          sourceLabel: '裁片单',
           materialSku: row.materialSkuSummary,
           currentStateLabel: row.schedulingStatus.label,
           blockerReason: row.schedulingStatus.detailText,
@@ -422,10 +422,10 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
       doneCount: Math.max(doneCount, 0),
       totalCount: options.materialPrepRows.length,
       detailText: !options.materialPrepRows.length
-        ? '当前缺少WMS 来料对象，无法核查。'
+        ? '当前缺少领料对象，无法核查。'
         : blockers.length
-          ? `当前有 ${blockers.length} 个WMS 来料对象未闭环。`
-          : '当前WMS 来料链路已通过。',
+          ? `当前有 ${blockers.length} 个领料对象未闭环。`
+          : '当前领料链路已通过。',
       navigationTarget: 'materialPrep',
       navigationPayload: options.navigationPayload.materialPrep,
       defaultActionLabel: '去待加工仓',
@@ -443,8 +443,8 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
 
   if (!options.spreadingSessions.length) {
     if (requiresSpreading) {
-      const sourceOriginal = options.originalRows[0]
-      const sourceBatch = options.mergeBatches[0]
+      const sourceCutOrder = options.cutOrderRows[0]
+      const sourceMarkerPlan = options.markerPlanRefs[0]
       blockers.push(
         buildBlocker({
           productionOrderId: options.productionRow.productionOrderId,
@@ -452,11 +452,11 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
           sectionKey: 'SPREADING',
           severity: 'HIGH',
           title: '缺少铺布记录',
-          sourceType: sourceBatch ? 'MERGE_BATCH' : 'ORIGINAL_CUT_ORDER',
-          sourceId: sourceBatch?.mergeBatchId || sourceOriginal?.originalCutOrderId || options.productionRow.productionOrderId,
-          sourceNo: sourceBatch?.mergeBatchNo || sourceOriginal?.originalCutOrderNo || options.productionRow.productionOrderNo,
-          sourceLabel: sourceBatch ? '合并裁剪批次' : '原始裁片单',
-          materialSku: sourceOriginal?.materialSku || '',
+          sourceType: sourceMarkerPlan ? 'MARKER_PLAN' : 'CUT_ORDER',
+          sourceId: sourceMarkerPlan?.markerPlanId || sourceCutOrder?.cutOrderId || options.productionRow.productionOrderId,
+          sourceNo: sourceMarkerPlan?.markerPlanNo || sourceCutOrder?.cutOrderNo || options.productionRow.productionOrderNo,
+          sourceLabel: sourceMarkerPlan ? '唛架方案' : '裁片单',
+          materialSku: sourceCutOrder?.materialSku || '',
           currentStateLabel: '待补记录',
           blockerReason: '当前生产单已进入裁剪链路，但未找到对应铺布记录。',
           navigationTarget: 'markerSpreading',
@@ -475,12 +475,12 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
             sectionKey: 'SPREADING',
             severity: 'HIGH',
             title: `${session.spreadingSessionNo} 未完成`,
-            sourceType: session.contextType === 'merge-batch' ? 'MERGE_BATCH' : 'ORIGINAL_CUT_ORDER',
-            sourceId: session.contextType === 'merge-batch' ? session.mergeBatchId : session.originalCutOrderIds[0] || session.spreadingSessionId,
-            sourceNo: session.contextType === 'merge-batch'
-              ? session.mergeBatchNo || session.spreadingSessionNo
-              : session.originalCutOrderNos?.[0] || session.spreadingSessionNo,
-            sourceLabel: session.contextType === 'merge-batch' ? '合并裁剪批次' : '原始裁片单',
+            sourceType: session.contextType === 'marker-plan-ref' ? 'MARKER_PLAN' : 'CUT_ORDER',
+            sourceId: session.contextType === 'marker-plan-ref' ? session.markerPlanId : session.cutOrderIds[0] || session.spreadingSessionId,
+            sourceNo: session.contextType === 'marker-plan-ref'
+              ? session.markerPlanNo || session.spreadingSessionNo
+              : session.cutOrderNos?.[0] || session.spreadingSessionNo,
+            sourceLabel: session.contextType === 'marker-plan-ref' ? '唛架方案' : '裁片单',
             materialSku: session.materialSku || '',
             currentStateLabel: session.status === 'IN_PROGRESS' ? '铺布中' : '待补录',
             blockerReason: session.status === 'IN_PROGRESS' ? '当前铺布记录仍在执行中。' : '当前铺布记录待补录。',
@@ -499,12 +499,12 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
             sectionKey: 'SPREADING',
             severity: 'MEDIUM',
             title: `${session.spreadingSessionNo} 存在差异`,
-            sourceType: session.contextType === 'merge-batch' ? 'MERGE_BATCH' : 'ORIGINAL_CUT_ORDER',
-            sourceId: session.contextType === 'merge-batch' ? session.mergeBatchId : session.originalCutOrderIds[0] || session.spreadingSessionId,
-            sourceNo: session.contextType === 'merge-batch'
-              ? session.mergeBatchNo || session.spreadingSessionNo
-              : session.originalCutOrderNos?.[0] || session.spreadingSessionNo,
-            sourceLabel: session.contextType === 'merge-batch' ? '合并裁剪批次' : '原始裁片单',
+            sourceType: session.contextType === 'marker-plan-ref' ? 'MARKER_PLAN' : 'CUT_ORDER',
+            sourceId: session.contextType === 'marker-plan-ref' ? session.markerPlanId : session.cutOrderIds[0] || session.spreadingSessionId,
+            sourceNo: session.contextType === 'marker-plan-ref'
+              ? session.markerPlanNo || session.spreadingSessionNo
+              : session.cutOrderNos?.[0] || session.spreadingSessionNo,
+            sourceLabel: session.contextType === 'marker-plan-ref' ? '唛架方案' : '裁片单',
             materialSku: session.materialSku || '',
             currentStateLabel: '差异待核',
             blockerReason: session.warningMessages[0] || '当前铺布存在差异，需继续核查。',
@@ -538,7 +538,7 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
       stateKey,
       blockerCount: blockers.length,
       doneCount,
-      totalCount: options.spreadingSessions.length || options.originalRows.length,
+      totalCount: options.spreadingSessions.length || options.cutOrderRows.length,
       detailText,
       navigationTarget: 'markerSpreading',
       navigationPayload: options.navigationPayload.markerSpreading,
@@ -643,10 +643,10 @@ function buildFeiTicketSection(options: CuttingCheckBuildOptions): {
             productionOrderNo: options.productionRow.productionOrderNo,
             sectionKey: 'FEI_TICKETS',
             severity: owner.ticketStatus === 'PENDING_SUPPLEMENT' ? 'HIGH' : 'MEDIUM',
-            title: `${owner.originalCutOrderNo} 待打印菲票`,
+            title: `${owner.cutOrderNo} 待打印菲票`,
             sourceType: 'FEI_OWNER',
-            sourceId: owner.originalCutOrderId,
-            sourceNo: owner.originalCutOrderNo,
+            sourceId: owner.cutOrderId,
+            sourceNo: owner.cutOrderNo,
             sourceLabel: '打票主体',
             materialSku: owner.materialSku,
             currentStateLabel: ownerStatusLabelMap[owner.ticketStatus] || owner.ticketStatus,
@@ -730,11 +730,11 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'WAREHOUSE_HANDOFF',
           severity: 'HIGH',
-          title: `${item.originalCutOrderNo} 待入仓`,
-          sourceType: 'ORIGINAL_CUT_ORDER',
-          sourceId: item.originalCutOrderId,
-          sourceNo: item.originalCutOrderNo,
-          sourceLabel: '原始裁片单',
+          title: `${item.cutOrderNo} 待入仓`,
+          sourceType: 'CUT_ORDER',
+          sourceId: item.cutOrderId,
+          sourceNo: item.cutOrderNo,
+          sourceLabel: '裁片单',
           materialSku: '',
           currentStateLabel: item.warehouseStatus.label,
           blockerReason: item.warehouseStatus.detailText,
@@ -752,11 +752,11 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'WAREHOUSE_HANDOFF',
           severity: 'MEDIUM',
-          title: `${item.originalCutOrderNo} 待交接`,
-          sourceType: 'ORIGINAL_CUT_ORDER',
-          sourceId: item.originalCutOrderId,
-          sourceNo: item.originalCutOrderNo,
-          sourceLabel: '原始裁片单',
+          title: `${item.cutOrderNo} 待交接`,
+          sourceType: 'CUT_ORDER',
+          sourceId: item.cutOrderId,
+          sourceNo: item.cutOrderNo,
+          sourceLabel: '裁片单',
           materialSku: '',
           currentStateLabel: item.handoffStatus.label,
           blockerReason: item.handoffStatus.detailText,

@@ -23,7 +23,7 @@ import {
   serializeMarkerSpreadingStorage,
 } from '../../data/fcs/cutting/marker-spreading-ledger.ts'
 import {
-  getLatestClaimDisputeByOriginalCutOrderNo,
+  getLatestClaimDisputeByCutOrderNo,
   markClaimDisputeCraftWrittenBack,
 } from '../../state/fcs-claim-dispute-store'
 import {
@@ -35,8 +35,8 @@ import {
   buildPdaCuttingWritebackId,
 } from '../../data/fcs/pda-cutting-writeback-inputs.ts'
 import {
-  resolveMergeBatchRef,
-  resolveOriginalCutOrderRef,
+  resolveMarkerPlanRefRef,
+  resolveCutOrderRef,
   resolvePdaExecutionRef,
   resolveProductionOrderRef,
 } from '../cutting-core/index.ts'
@@ -61,7 +61,7 @@ function buildWritebackId(actionType: CuttingPdaActionType, identity: CuttingPda
   return buildPdaCuttingWritebackId(actionType, {
     taskId: identity.taskId,
     executionOrderId: identity.executionOrderId,
-    originalCutOrderId: identity.originalCutOrderId,
+    cutOrderId: identity.cutOrderId,
   }, actionAt)
 }
 
@@ -91,8 +91,8 @@ function validateIdentity(identity: CuttingPdaWritebackIdentity): string[] {
   if (!identity.productionOrderId.trim() || !identity.productionOrderNo.trim()) {
     issues.push('缺少生产单标识。')
   }
-  if (!identity.originalCutOrderId.trim() || !identity.originalCutOrderNo.trim()) {
-    issues.push('缺少原始裁片单标识。')
+  if (!identity.cutOrderId.trim() || !identity.cutOrderNo.trim()) {
+    issues.push('缺少裁片单标识。')
   }
   if (!identity.executionOrderId.trim() || !identity.executionOrderNo.trim()) {
     issues.push('缺少 PDA 执行对象标识。')
@@ -107,15 +107,15 @@ function validateIdentity(identity: CuttingPdaWritebackIdentity): string[] {
     issues.push('当前生产单未能对齐到工艺工厂主来源。')
   }
 
-  const originalRef = resolveOriginalCutOrderRef({
-    originalCutOrderId: identity.originalCutOrderId,
-    originalCutOrderNo: identity.originalCutOrderNo,
+  const cutOrderRef = resolveCutOrderRef({
+    cutOrderId: identity.cutOrderId,
+    cutOrderNo: identity.cutOrderNo,
   })
-  if (!originalRef) {
-    issues.push('当前原始裁片单未能对齐到工艺工厂主来源。')
+  if (!cutOrderRef) {
+    issues.push('当前裁片单未能对齐到工艺工厂主来源。')
   } else {
-    if (productionRef && originalRef.productionOrderId !== productionRef.productionOrderId) {
-      issues.push('原始裁片单与生产单引用不一致。')
+    if (productionRef && cutOrderRef.productionOrderId !== productionRef.productionOrderId) {
+      issues.push('裁片单与生产单引用不一致。')
     }
   }
 
@@ -130,24 +130,24 @@ function validateIdentity(identity: CuttingPdaWritebackIdentity): string[] {
   if (!executionRef) {
     issues.push('当前 PDA 执行对象未能对齐到工艺工厂主来源。')
   } else {
-    if (executionRef.originalCutOrderId !== identity.originalCutOrderId) {
-      issues.push('执行对象与原始裁片单引用不一致。')
+    if (executionRef.cutOrderId !== identity.cutOrderId) {
+      issues.push('执行对象与裁片单引用不一致。')
     }
     if (executionRef.productionOrderId !== identity.productionOrderId) {
       issues.push('执行对象与生产单引用不一致。')
     }
-    if ((identity.mergeBatchId || executionRef.mergeBatchId) && executionRef.mergeBatchId !== (identity.mergeBatchId || '')) {
-      issues.push('执行对象与合并批次引用不一致。')
+    if ((identity.markerPlanId || executionRef.markerPlanId) && executionRef.markerPlanId !== (identity.markerPlanId || '')) {
+      issues.push('执行对象与唛架方案引用不一致。')
     }
   }
 
-  if (identity.mergeBatchId || identity.mergeBatchNo) {
-    const mergeBatchRef = resolveMergeBatchRef({
-      mergeBatchId: identity.mergeBatchId,
-      mergeBatchNo: identity.mergeBatchNo,
+  if (identity.markerPlanId || identity.markerPlanNo) {
+    const markerPlanRefRef = resolveMarkerPlanRefRef({
+      markerPlanId: identity.markerPlanId,
+      markerPlanNo: identity.markerPlanNo,
     })
-    if (!mergeBatchRef) {
-      issues.push('当前合并批次未能对齐到工艺工厂主来源。')
+    if (!markerPlanRefRef) {
+      issues.push('当前唛架方案未能对齐到工艺工厂主来源。')
     }
   }
 
@@ -195,7 +195,7 @@ export function writePdaPickupToFcs(options: {
   if (needsDispute) {
     const latestDispute = options.claimDisputeId
       ? markClaimDisputeCraftWrittenBack(options.claimDisputeId)
-      : getLatestClaimDisputeByOriginalCutOrderNo(options.identity.originalCutOrderNo)
+      : getLatestClaimDisputeByCutOrderNo(options.identity.cutOrderNo)
     if (!latestDispute) {
       return buildFailure(['当前领料差异尚未建立异议记录，不能写入工艺工厂领料结果。'], writebackId)
     }
@@ -212,10 +212,10 @@ export function writePdaPickupToFcs(options: {
     taskNo: options.identity.taskNo,
     productionOrderId: options.identity.productionOrderId,
     productionOrderNo: options.identity.productionOrderNo,
-    originalCutOrderId: options.identity.originalCutOrderId,
-    originalCutOrderNo: options.identity.originalCutOrderNo,
-    mergeBatchId: options.identity.mergeBatchId || '',
-    mergeBatchNo: options.identity.mergeBatchNo || '',
+    cutOrderId: options.identity.cutOrderId,
+    cutOrderNo: options.identity.cutOrderNo,
+    markerPlanId: options.identity.markerPlanId || '',
+    markerPlanNo: options.identity.markerPlanNo || '',
     actionType: options.resultLabel.includes('异议') ? 'PICKUP_DISPUTE' : 'PICKUP_CONFIRM',
     actionAt,
     executionOrderId: options.identity.executionOrderId,
@@ -302,16 +302,16 @@ export function writePdaSpreadingToFcs(options: {
     sourceDeviceId: options.source.sourceDeviceId,
     submittedAt,
     occurredAt: submittedAt,
-    contextType: options.identity.mergeBatchId || options.identity.mergeBatchNo ? 'merge-batch' : 'original-order',
+    contextType: options.identity.markerPlanId || options.identity.markerPlanNo ? 'marker-plan-ref' : 'cut-order',
     spreadingSessionId: options.spreadingSessionId || '',
     markerId: options.markerId || '',
     markerNo: options.markerNo || '',
     spreadingMode: options.spreadingMode,
     recordType: options.recordType,
-    originalCutOrderIds: [options.identity.originalCutOrderId],
-    originalCutOrderNos: [options.identity.originalCutOrderNo],
-    mergeBatchId: options.identity.mergeBatchId || '',
-    mergeBatchNo: options.identity.mergeBatchNo || '',
+    cutOrderIds: [options.identity.cutOrderId],
+    cutOrderNos: [options.identity.cutOrderNo],
+    markerPlanId: options.identity.markerPlanId || '',
+    markerPlanNo: options.identity.markerPlanNo || '',
     productionOrderNos: [options.identity.productionOrderNo],
     styleCode: options.identity.styleCode || '',
     spuCode: options.identity.spuCode || '',
@@ -419,10 +419,10 @@ export function writePdaInboundToFcs(options: {
     legacyCutPieceOrderNo: options.identity.legacyCutPieceOrderNo,
     productionOrderId: options.identity.productionOrderId,
     productionOrderNo: options.identity.productionOrderNo,
-    originalCutOrderId: options.identity.originalCutOrderId,
-    originalCutOrderNo: options.identity.originalCutOrderNo,
-    mergeBatchId: options.identity.mergeBatchId || '',
-    mergeBatchNo: options.identity.mergeBatchNo || '',
+    cutOrderId: options.identity.cutOrderId,
+    cutOrderNo: options.identity.cutOrderNo,
+    markerPlanId: options.identity.markerPlanId || '',
+    markerPlanNo: options.identity.markerPlanNo || '',
     cutPieceOrderNo: options.identity.cutPieceOrderNo,
     materialSku: options.identity.materialSku,
     zoneCode: options.zoneCode,
@@ -470,10 +470,10 @@ export function writePdaHandoverToFcs(options: {
     legacyCutPieceOrderNo: options.identity.legacyCutPieceOrderNo,
     productionOrderId: options.identity.productionOrderId,
     productionOrderNo: options.identity.productionOrderNo,
-    originalCutOrderId: options.identity.originalCutOrderId,
-    originalCutOrderNo: options.identity.originalCutOrderNo,
-    mergeBatchId: options.identity.mergeBatchId || '',
-    mergeBatchNo: options.identity.mergeBatchNo || '',
+    cutOrderId: options.identity.cutOrderId,
+    cutOrderNo: options.identity.cutOrderNo,
+    markerPlanId: options.identity.markerPlanId || '',
+    markerPlanNo: options.identity.markerPlanNo || '',
     cutPieceOrderNo: options.identity.cutPieceOrderNo,
     materialSku: options.identity.materialSku,
     targetLabel: options.targetLabel,
@@ -521,10 +521,10 @@ export function writePdaReplenishmentFeedbackToFcs(options: {
     legacyCutPieceOrderNo: options.identity.legacyCutPieceOrderNo,
     productionOrderId: options.identity.productionOrderId,
     productionOrderNo: options.identity.productionOrderNo,
-    originalCutOrderId: options.identity.originalCutOrderId,
-    originalCutOrderNo: options.identity.originalCutOrderNo,
-    mergeBatchId: options.identity.mergeBatchId || '',
-    mergeBatchNo: options.identity.mergeBatchNo || '',
+    cutOrderId: options.identity.cutOrderId,
+    cutOrderNo: options.identity.cutOrderNo,
+    markerPlanId: options.identity.markerPlanId || '',
+    markerPlanNo: options.identity.markerPlanNo || '',
     cutPieceOrderNo: options.identity.cutPieceOrderNo,
     materialSku: options.identity.materialSku,
     reasonLabel: options.reasonLabel,

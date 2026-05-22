@@ -4,7 +4,7 @@ import {
   type CuttingFabricStockRecord,
   type CuttingFabricStockStatus,
 } from '../../../data/fcs/cutting/warehouse-runtime.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 import { buildWarehouseQueryPayload, type WarehouseNavigationPayload } from './warehouse-shared.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
@@ -40,29 +40,31 @@ export interface FabricWarehouseRollItem {
   status: 'IN_STOCK' | 'USED'
   locationHint: string
   note: string
-  sourceOriginalCutOrderNo: string
+  sourceCutOrderNo: string
   sourceProductionOrderNo: string
 }
 
 export interface FabricWarehouseStockItem {
   stockItemId: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   materialName: string
   materialCategory: string
   materialAttr: string
+  materialAlias: string
+  materialImageUrl: string
   status: CuttingFabricStockStatus
   rollCount: number
   configuredLengthTotal: number
   remainingLengthTotal: number
   widthSummary: string
-  sourceOriginalCutOrderIds: string[]
-  sourceOriginalCutOrderNos: string[]
+  sourceCutOrderIds: string[]
+  sourceCutOrderNos: string[]
   sourceProductionOrderNos: string[]
   lastUpdatedAt: string
   riskTags: FabricWarehouseRiskTag[]
@@ -90,8 +92,8 @@ export interface FabricWarehouseFilters {
 
 export interface FabricWarehousePrefilter {
   materialSku?: string
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
   productionOrderId?: string
   productionOrderNo?: string
   rollNo?: string
@@ -149,7 +151,7 @@ function buildRolls(record: CuttingFabricStockRecord): FabricWarehouseRollItem[]
       fabricRollNo: `${record.materialSku}-R${String(sequence).padStart(2, '0')}`,
       rollNo: `${record.materialSku}-R${String(sequence).padStart(2, '0')}`,
       rollBarcode: `RB-${record.materialSku}-${String(sequence).padStart(3, '0')}`,
-      batchNo: record.mergeBatchNo || record.originalCutOrderNo,
+      batchNo: record.markerPlanNo || record.cutOrderNo,
       batchSeqNo: String(sequence).padStart(2, '0'),
       materialSku: record.materialSku,
       materialSpuNameCn,
@@ -160,12 +162,12 @@ function buildRolls(record: CuttingFabricStockRecord): FabricWarehouseRollItem[]
       lengthUnit: '米',
       remainingLength: inStock ? avgRemaining : 0,
       sourceProcessType,
-      sourceProcessOrderNo: sourceProcessType === 'RAW' ? record.originalCutOrderNo : record.originalCutOrderNo,
+      sourceProcessOrderNo: sourceProcessType === 'RAW' ? record.cutOrderNo : record.cutOrderNo,
       currentAreaName: inStock ? 'A区' : '已入待加工仓',
       status: inStock ? 'IN_STOCK' : 'USED',
       locationHint: inStock ? 'A区' : '已入待加工仓',
       note: record.note,
-      sourceOriginalCutOrderNo: record.originalCutOrderNo,
+      sourceCutOrderNo: record.cutOrderNo,
       sourceProductionOrderNo: record.productionOrderNo,
     }
   })
@@ -189,13 +191,13 @@ function buildStockStatus(record: CuttingFabricStockRecord): CuttingFabricStockS
   return record.fabricState
 }
 
-function findBoundOriginalRow(
+function findBoundCutOrderRow(
   record: CuttingFabricStockRecord,
-  originalRows: OriginalCutOrderRow[],
-): OriginalCutOrderRow | null {
+  cutOrderRows: CutOrderRow[],
+): CutOrderRow | null {
   return (
-    originalRows.find((row) => row.originalCutOrderId === record.originalCutOrderId) ||
-    originalRows.find((row) => row.originalCutOrderNo === record.originalCutOrderNo) ||
+    cutOrderRows.find((row) => row.cutOrderId === record.cutOrderId) ||
+    cutOrderRows.find((row) => row.cutOrderNo === record.cutOrderNo) ||
     null
   )
 }
@@ -204,73 +206,76 @@ export function buildFabricWarehouseNavigationPayload(
   item: Pick<
     FabricWarehouseStockItem,
     | 'materialSku'
-    | 'originalCutOrderId'
-    | 'originalCutOrderNo'
+    | 'cutOrderId'
+    | 'cutOrderNo'
     | 'productionOrderId'
     | 'productionOrderNo'
-    | 'mergeBatchId'
-    | 'mergeBatchNo'
+    | 'markerPlanId'
+    | 'markerPlanNo'
   >,
 ): WarehouseNavigationPayload {
   return buildWarehouseQueryPayload({
     materialSku: item.materialSku,
-    originalCutOrderId: item.originalCutOrderId || undefined,
-    originalCutOrderNo: item.originalCutOrderNo || undefined,
+    cutOrderId: item.cutOrderId || undefined,
+    cutOrderNo: item.cutOrderNo || undefined,
     productionOrderId: item.productionOrderId || undefined,
     productionOrderNo: item.productionOrderNo || undefined,
-    mergeBatchId: item.mergeBatchId || undefined,
-    mergeBatchNo: item.mergeBatchNo || undefined,
+    markerPlanId: item.markerPlanId || undefined,
+    markerPlanNo: item.markerPlanNo || undefined,
   })
 }
 
 export function buildFabricWarehouseViewModel(
-  originalRows: OriginalCutOrderRow[],
+  cutOrderRows: CutOrderRow[],
   records = listFormalFabricWarehouseRecords(),
 ): FabricWarehouseViewModel {
   const items = records
     .map((record) => {
-      const row = findBoundOriginalRow(record, originalRows)
+      const row = findBoundCutOrderRow(record, cutOrderRows)
       const rolls = buildRolls(record)
-      const sourceOriginalCutOrderIds = [record.originalCutOrderId].filter(Boolean)
-      const sourceOriginalCutOrderNos = [record.originalCutOrderNo].filter(Boolean)
+      const sourceCutOrderIds = [record.cutOrderId].filter(Boolean)
+      const sourceCutOrderNos = [record.cutOrderNo].filter(Boolean)
       const sourceProductionOrderNos = [record.productionOrderNo].filter(Boolean)
       const item: FabricWarehouseStockItem = {
         stockItemId: record.id,
-        originalCutOrderId: record.originalCutOrderId,
-        originalCutOrderNo: record.originalCutOrderNo,
+        cutOrderId: record.cutOrderId,
+        cutOrderNo: record.cutOrderNo,
         productionOrderId: record.productionOrderId,
         productionOrderNo: record.productionOrderNo,
-        mergeBatchId: row?.activeBatchId || record.mergeBatchId,
-        mergeBatchNo: row?.activeBatchNo || record.mergeBatchNo,
+        markerPlanId: row?.activeMarkerPlanId || record.markerPlanId,
+        markerPlanNo: row?.activeMarkerPlanNo || record.markerPlanNo,
         materialSku: record.materialSku,
         materialName: materialNameFromLabel(record.materialLabel),
         materialCategory: record.materialType,
         materialAttr: fabricWarehouseMaterialMeta[record.materialType].label,
+        materialAlias: record.materialAlias || row?.materialAlias || '',
+        materialImageUrl: record.materialImageUrl || row?.materialImageUrl || '',
         status: buildStockStatus(record),
         rollCount: rolls.length,
         configuredLengthTotal: record.configuredLength,
         remainingLengthTotal: record.remainingLength,
         widthSummary: buildWidthSummary([record]),
-        sourceOriginalCutOrderIds,
-        sourceOriginalCutOrderNos,
+        sourceCutOrderIds,
+        sourceCutOrderNos,
         sourceProductionOrderNos,
         lastUpdatedAt: record.latestReceiveAt || record.latestConfigAt,
         riskTags: deriveFabricWarehouseRiskTags([record]),
         rolls,
         navigationPayload: buildFabricWarehouseNavigationPayload({
           materialSku: record.materialSku,
-          originalCutOrderId: record.originalCutOrderId,
-          originalCutOrderNo: record.originalCutOrderNo,
+          cutOrderId: record.cutOrderId,
+          cutOrderNo: record.cutOrderNo,
           productionOrderId: record.productionOrderId,
           productionOrderNo: record.productionOrderNo,
-          mergeBatchId: row?.activeBatchId || record.mergeBatchId,
-          mergeBatchNo: row?.activeBatchNo || record.mergeBatchNo,
+          markerPlanId: row?.activeMarkerPlanId || record.markerPlanId,
+          markerPlanNo: row?.activeMarkerPlanNo || record.markerPlanNo,
         }),
         keywordIndex: [
           record.materialSku,
           record.materialLabel,
-          record.originalCutOrderId,
-          record.originalCutOrderNo,
+          record.materialAlias,
+          record.cutOrderId,
+          record.cutOrderNo,
           record.productionOrderId,
           record.productionOrderNo,
           ...rolls.map((roll) => roll.rollNo),
@@ -284,7 +289,7 @@ export function buildFabricWarehouseViewModel(
       (left, right) =>
         right.remainingLengthTotal - left.remainingLengthTotal ||
         left.materialSku.localeCompare(right.materialSku, 'zh-CN') ||
-        left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN'),
+        left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN'),
     )
 
   return {
@@ -314,8 +319,8 @@ export function filterFabricWarehouseItems(
 
   return items.filter((item) => {
     if (prefilter?.materialSku && item.materialSku !== prefilter.materialSku) return false
-    if (prefilter?.originalCutOrderId && item.originalCutOrderId !== prefilter.originalCutOrderId) return false
-    if (prefilter?.originalCutOrderNo && item.originalCutOrderNo !== prefilter.originalCutOrderNo) return false
+    if (prefilter?.cutOrderId && item.cutOrderId !== prefilter.cutOrderId) return false
+    if (prefilter?.cutOrderNo && item.cutOrderNo !== prefilter.cutOrderNo) return false
     if (prefilter?.productionOrderId && item.productionOrderId !== prefilter.productionOrderId) return false
     if (prefilter?.productionOrderNo && item.productionOrderNo !== prefilter.productionOrderNo) return false
     if (prefilter?.rollNo && !item.rolls.some((roll) => roll.rollNo === prefilter.rollNo)) return false
@@ -335,8 +340,8 @@ export function findFabricWarehouseByPrefilter(
   if (!prefilter) return null
   return (
     (prefilter.materialSku && items.find((item) => item.materialSku === prefilter.materialSku)) ||
-    (prefilter.originalCutOrderId && items.find((item) => item.originalCutOrderId === prefilter.originalCutOrderId)) ||
-    (prefilter.originalCutOrderNo && items.find((item) => item.originalCutOrderNo === prefilter.originalCutOrderNo)) ||
+    (prefilter.cutOrderId && items.find((item) => item.cutOrderId === prefilter.cutOrderId)) ||
+    (prefilter.cutOrderNo && items.find((item) => item.cutOrderNo === prefilter.cutOrderNo)) ||
     (prefilter.productionOrderId && items.find((item) => item.productionOrderId === prefilter.productionOrderId)) ||
     (prefilter.productionOrderNo && items.find((item) => item.productionOrderNo === prefilter.productionOrderNo)) ||
     (prefilter.rollNo && items.find((item) => item.rolls.some((roll) => roll.rollNo === prefilter.rollNo))) ||

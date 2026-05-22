@@ -94,11 +94,11 @@ const dyeValidCount = dyeOrders
   .length
 assert(dyeValidCount >= 3, `染色加工单有效移动端绑定不足 3 条，当前 ${dyeValidCount}`)
 
-const cuttingValidCount = cuttingSnapshot.originalCutOrders
-  .map((order) => validateCuttingOrderMobileTaskBinding(order.originalCutOrderId))
+const cuttingValidCount = cuttingSnapshot.cutOrders
+  .map((order) => validateCuttingOrderMobileTaskBinding(order.cutOrderId))
   .filter((result) => result.reasonCode === 'OK')
   .length
-assert(cuttingValidCount >= 3, `裁片原始裁片单有效移动端绑定不足 3 条，当前 ${cuttingValidCount}`)
+assert(cuttingValidCount >= 3, `裁片单有效移动端绑定不足 3 条，当前 ${cuttingValidCount}`)
 
 const specialCraftValidCount = specialCraftWorkOrders
   .filter((workOrder) => ['打揽', '打条', '捆条'].includes(workOrder.operationName))
@@ -151,7 +151,7 @@ assertIncludes('src/pages/process-factory/dyeing/work-order-detail.ts', [
   '不可执行原因',
   '打开移动端执行页',
 ])
-assertIncludes('src/pages/process-factory/cutting/original-orders.ts', [
+assertIncludes('src/pages/process-factory/cutting/cut-orders.ts', [
   'validateCuttingOrderMobileTaskBinding',
   '绑定状态',
   '打开移动端执行页',

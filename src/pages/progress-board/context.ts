@@ -668,7 +668,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   if (waitingConfirmCount > 0 || (finalReceivedCount > 0 && finalReceivedCount < pickupRecords.length)) {
     const summary = {
       statusKey: 'WAIT_PICKUP',
-      statusLabel: '待领料',
+      statusLabel: '领料记录待补',
       tone: 'blue',
       hintText: `${Math.max(waitingConfirmCount, pickupHeads.length || pickupRecords.length)} 张发料单 / 待工厂确认`,
       latestOccurredAt,

@@ -27,10 +27,10 @@ export interface PdaCuttingNavContext {
   productionOrderNo?: string
   executionOrderId?: string
   executionOrderNo?: string
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   materialSku?: string
   focusTaskId?: string
   focusExecutionOrderId?: string
@@ -90,10 +90,10 @@ export function readPdaCuttingNavContext(pathname?: string): PdaCuttingNavContex
     productionOrderNo: params.get('productionOrderNo') ?? undefined,
     executionOrderId: params.get('executionOrderId') ?? undefined,
     executionOrderNo: params.get('executionOrderNo') ?? undefined,
-    originalCutOrderId: params.get('originalCutOrderId') ?? undefined,
-    originalCutOrderNo: params.get('originalCutOrderNo') ?? undefined,
-    mergeBatchId: params.get('mergeBatchId') ?? undefined,
-    mergeBatchNo: params.get('mergeBatchNo') ?? undefined,
+    cutOrderId: params.get('cutOrderId') ?? undefined,
+    cutOrderNo: params.get('cutOrderNo') ?? undefined,
+    markerPlanId: params.get('markerPlanId') ?? undefined,
+    markerPlanNo: params.get('markerPlanNo') ?? undefined,
     materialSku: params.get('materialSku') ?? undefined,
     focusTaskId: params.get('focusTaskId') ?? undefined,
     focusExecutionOrderId: params.get('focusExecutionOrderId') ?? undefined,
@@ -119,10 +119,10 @@ export function appendPdaCuttingNavContext(href: string, context: PdaCuttingNavC
     if (context.productionOrderNo) params.set('productionOrderNo', context.productionOrderNo)
     if (context.executionOrderId) params.set('executionOrderId', context.executionOrderId)
     if (context.executionOrderNo) params.set('executionOrderNo', context.executionOrderNo)
-    if (context.originalCutOrderId) params.set('originalCutOrderId', context.originalCutOrderId)
-    if (context.originalCutOrderNo) params.set('originalCutOrderNo', context.originalCutOrderNo)
-    if (context.mergeBatchId) params.set('mergeBatchId', context.mergeBatchId)
-    if (context.mergeBatchNo) params.set('mergeBatchNo', context.mergeBatchNo)
+    if (context.cutOrderId) params.set('cutOrderId', context.cutOrderId)
+    if (context.cutOrderNo) params.set('cutOrderNo', context.cutOrderNo)
+    if (context.markerPlanId) params.set('markerPlanId', context.markerPlanId)
+    if (context.markerPlanNo) params.set('markerPlanNo', context.markerPlanNo)
     if (context.materialSku) params.set('materialSku', context.materialSku)
     if (context.focusTaskId) params.set('focusTaskId', context.focusTaskId)
     if (context.focusExecutionOrderId) params.set('focusExecutionOrderId', context.focusExecutionOrderId)
@@ -189,10 +189,10 @@ export function buildPdaCuttingTaskDetailNavHref(
   const baseHref = buildPdaCuttingRoute(taskId, 'task', {
     executionOrderId: context.executionOrderId,
     executionOrderNo: context.executionOrderNo,
-    originalCutOrderId: context.originalCutOrderId,
-    originalCutOrderNo: context.originalCutOrderNo,
-    mergeBatchId: context.mergeBatchId,
-    mergeBatchNo: context.mergeBatchNo,
+    cutOrderId: context.cutOrderId,
+    cutOrderNo: context.cutOrderNo,
+    markerPlanId: context.markerPlanId,
+    markerPlanNo: context.markerPlanNo,
     materialSku: context.materialSku,
     returnTo: context.returnTo,
   })
@@ -213,10 +213,10 @@ export function buildPdaCuttingExecutionNavHref(
   const baseHref = buildPdaCuttingRoute(taskId, routeKey, {
     executionOrderId: context.executionOrderId,
     executionOrderNo: context.executionOrderNo,
-    originalCutOrderId: context.originalCutOrderId,
-    originalCutOrderNo: context.originalCutOrderNo,
-    mergeBatchId: context.mergeBatchId,
-    mergeBatchNo: context.mergeBatchNo,
+    cutOrderId: context.cutOrderId,
+    cutOrderNo: context.cutOrderNo,
+    markerPlanId: context.markerPlanId,
+    markerPlanNo: context.markerPlanNo,
     materialSku: context.materialSku,
     returnTo: context.returnTo,
   })
@@ -240,10 +240,10 @@ export function buildPdaCuttingExecutionUnitNavHref(
   const baseHref = buildPdaCuttingRoute(taskId, 'unit', {
     executionOrderId,
     executionOrderNo: context.executionOrderNo,
-    originalCutOrderId: context.originalCutOrderId,
-    originalCutOrderNo: context.originalCutOrderNo,
-    mergeBatchId: context.mergeBatchId,
-    mergeBatchNo: context.mergeBatchNo,
+    cutOrderId: context.cutOrderId,
+    cutOrderNo: context.cutOrderNo,
+    markerPlanId: context.markerPlanId,
+    markerPlanNo: context.markerPlanNo,
     materialSku: context.materialSku,
     returnTo: context.returnTo,
   })
@@ -283,10 +283,10 @@ export function buildPdaCuttingTaskDetailFocusHref(
       : buildPdaCuttingRoute(taskId, 'task', {
           executionOrderId: context.executionOrderId,
           executionOrderNo: context.executionOrderNo,
-          originalCutOrderId: context.originalCutOrderId,
-          originalCutOrderNo: context.originalCutOrderNo,
-          mergeBatchId: context.mergeBatchId,
-          mergeBatchNo: context.mergeBatchNo,
+          cutOrderId: context.cutOrderId,
+          cutOrderNo: context.cutOrderNo,
+          markerPlanId: context.markerPlanId,
+          markerPlanNo: context.markerPlanNo,
           materialSku: context.materialSku,
           returnTo: context.returnTo,
         })
@@ -321,10 +321,10 @@ export function buildPdaCuttingCompletedReturnHref(
       : buildPdaCuttingRoute(taskId, 'unit', {
           executionOrderId,
           executionOrderNo: executionOrderNo ?? undefined,
-          originalCutOrderId: context.originalCutOrderId,
-          originalCutOrderNo: context.originalCutOrderNo,
-          mergeBatchId: context.mergeBatchId,
-          mergeBatchNo: context.mergeBatchNo,
+          cutOrderId: context.cutOrderId,
+          cutOrderNo: context.cutOrderNo,
+          markerPlanId: context.markerPlanId,
+          markerPlanNo: context.markerPlanNo,
           materialSku: context.materialSku,
           returnTo: context.returnTo,
         })

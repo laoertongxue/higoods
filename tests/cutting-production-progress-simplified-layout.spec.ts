@@ -13,7 +13,7 @@ test('生产单进度页按简化布局展示主表和筛选', async ({ page }) 
   await expect(page.getByText('颜色', { exact: true })).toHaveCount(0)
   await expect(page.getByText('尺码', { exact: true })).toHaveCount(0)
   await expect(page.getByText('部位关键词', { exact: true })).toHaveCount(0)
-  await expect(page.getByText('原始裁片单号', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('裁片单号', { exact: true })).toHaveCount(0)
   await expect(page.getByText('面料 SKU', { exact: true })).toHaveCount(0)
   await expect(page.getByText('面料审核', { exact: true })).toHaveCount(0)
 

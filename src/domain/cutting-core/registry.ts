@@ -1,15 +1,15 @@
 import {
   listCuttingTaskRefs,
-  listMergeBatchRefs,
-  listOriginalCutOrderRefs,
+  listMarkerPlanRefRefs,
+  listCutOrderRefs,
   listPdaExecutionRefs,
   listProductionOrderRefs,
 } from './repository.ts'
 import type {
   CuttingCoreRegistry,
   CuttingTaskRef,
-  MergeBatchRef,
-  OriginalCutOrderRef,
+  MarkerPlanRefRef,
+  CutOrderRef,
   PdaCutPieceExecutionRef,
   ProductionOrderRef,
 } from './types.ts'
@@ -28,29 +28,29 @@ export function buildCuttingCoreRegistry(): CuttingCoreRegistry {
   if (cachedRegistry) return cachedRegistry
 
   const productionOrders = listProductionOrderRefs()
-  const originalCutOrders = listOriginalCutOrderRefs()
-  const mergeBatches = listMergeBatchRefs()
+  const cutOrders = listCutOrderRefs()
+  const markerPlanRefs = listMarkerPlanRefRefs()
   const cuttingTasks = listCuttingTaskRefs()
   const pdaExecutions = listPdaExecutionRefs()
 
-  const pdaExecutionsByOriginalCutOrderId: Record<string, PdaCutPieceExecutionRef[]> = {}
+  const pdaExecutionsByCutOrderId: Record<string, PdaCutPieceExecutionRef[]> = {}
   pdaExecutions.forEach((record) => {
-    const bucket = pdaExecutionsByOriginalCutOrderId[record.originalCutOrderId] ?? []
+    const bucket = pdaExecutionsByCutOrderId[record.cutOrderId] ?? []
     bucket.push(record)
-    pdaExecutionsByOriginalCutOrderId[record.originalCutOrderId] = bucket
+    pdaExecutionsByCutOrderId[record.cutOrderId] = bucket
   })
 
   cachedRegistry = {
     productionOrdersById: indexById(productionOrders, 'productionOrderId'),
     productionOrdersByNo: indexById(productionOrders, 'productionOrderNo'),
-    originalCutOrdersById: indexById(originalCutOrders, 'originalCutOrderId'),
-    originalCutOrdersByNo: indexById(originalCutOrders, 'originalCutOrderNo'),
-    mergeBatchesById: indexById(mergeBatches, 'mergeBatchId'),
-    mergeBatchesByNo: indexById(mergeBatches, 'mergeBatchNo'),
+    cutOrdersById: indexById(cutOrders, 'cutOrderId'),
+    cutOrdersByNo: indexById(cutOrders, 'cutOrderNo'),
+    markerPlanRefsById: indexById(markerPlanRefs, 'markerPlanId'),
+    markerPlanRefsByNo: indexById(markerPlanRefs, 'markerPlanNo'),
     cuttingTasksById: indexById(cuttingTasks, 'taskId'),
     cuttingTasksByNo: indexById(cuttingTasks, 'taskNo'),
     pdaExecutionsByTaskAndOrder: Object.fromEntries(pdaExecutions.map((record) => [buildExecutionKey(record.taskId, record.executionOrderNo), record])),
-    pdaExecutionsByOriginalCutOrderId,
+    pdaExecutionsByCutOrderId,
   }
 
   return cachedRegistry
@@ -67,17 +67,17 @@ export function resolveProductionOrderRef(input: { productionOrderId?: string; p
   return null
 }
 
-export function resolveOriginalCutOrderRef(input: { originalCutOrderId?: string; originalCutOrderNo?: string }): OriginalCutOrderRef | null {
+export function resolveCutOrderRef(input: { cutOrderId?: string; cutOrderNo?: string }): CutOrderRef | null {
   const registry = buildCuttingCoreRegistry()
-  if (input.originalCutOrderId && registry.originalCutOrdersById[input.originalCutOrderId]) return registry.originalCutOrdersById[input.originalCutOrderId]
-  if (input.originalCutOrderNo && registry.originalCutOrdersByNo[input.originalCutOrderNo]) return registry.originalCutOrdersByNo[input.originalCutOrderNo]
+  if (input.cutOrderId && registry.cutOrdersById[input.cutOrderId]) return registry.cutOrdersById[input.cutOrderId]
+  if (input.cutOrderNo && registry.cutOrdersByNo[input.cutOrderNo]) return registry.cutOrdersByNo[input.cutOrderNo]
   return null
 }
 
-export function resolveMergeBatchRef(input: { mergeBatchId?: string; mergeBatchNo?: string }): MergeBatchRef | null {
+export function resolveMarkerPlanRefRef(input: { markerPlanId?: string; markerPlanNo?: string }): MarkerPlanRefRef | null {
   const registry = buildCuttingCoreRegistry()
-  if (input.mergeBatchId && registry.mergeBatchesById[input.mergeBatchId]) return registry.mergeBatchesById[input.mergeBatchId]
-  if (input.mergeBatchNo && registry.mergeBatchesByNo[input.mergeBatchNo]) return registry.mergeBatchesByNo[input.mergeBatchNo]
+  if (input.markerPlanId && registry.markerPlanRefsById[input.markerPlanId]) return registry.markerPlanRefsById[input.markerPlanId]
+  if (input.markerPlanNo && registry.markerPlanRefsByNo[input.markerPlanNo]) return registry.markerPlanRefsByNo[input.markerPlanNo]
   return null
 }
 
@@ -112,6 +112,6 @@ export function listPdaExecutionsByTaskId(taskId: string): PdaCutPieceExecutionR
   return Object.values(registry.pdaExecutionsByTaskAndOrder).filter((item) => item.taskId === taskId)
 }
 
-export function listPdaExecutionsByOriginalCutOrderId(originalCutOrderId: string): PdaCutPieceExecutionRef[] {
-  return [...(buildCuttingCoreRegistry().pdaExecutionsByOriginalCutOrderId[originalCutOrderId] ?? [])]
+export function listPdaExecutionsByCutOrderId(cutOrderId: string): PdaCutPieceExecutionRef[] {
+  return [...(buildCuttingCoreRegistry().pdaExecutionsByCutOrderId[cutOrderId] ?? [])]
 }

@@ -46,7 +46,7 @@ export function buildCraftClaimDisputeSummary(record: ClaimDisputeRecord): strin
 }
 
 export function buildPlatformClaimDisputeSummary(record: ClaimDisputeRecord): string {
-  return `裁片领料长度异议｜${record.originalCutOrderNo}｜${record.materialSku}｜差异 ${formatClaimQty(record.discrepancyQty)}`
+  return `裁片领料长度异议｜${record.cutOrderNo}｜${record.materialSku}｜差异 ${formatClaimQty(record.discrepancyQty)}`
 }
 
 export function buildClaimDisputeWritebackSummary(record: ClaimDisputeRecord): string {
@@ -81,7 +81,7 @@ export function buildClaimDisputeEvidenceFiles(
 export function validateClaimDisputeInput(input: ClaimDisputeCreateInput): string[] {
   const issues: string[] = []
   if (!input.sourceTaskId.trim()) issues.push('缺少来源任务')
-  if (!input.originalCutOrderNo.trim()) issues.push('缺少原始裁片单号')
+  if (!input.cutOrderNo.trim()) issues.push('缺少裁片单号')
   if (!input.productionOrderNo.trim()) issues.push('缺少生产单号')
   if (!Number.isFinite(input.actualClaimQty)) issues.push('请填写实际领取长度')
   const defaultQty = input.defaultClaimQty ?? input.configuredQty
@@ -115,8 +115,8 @@ export function buildClaimDisputeRecord(
     isCutPieceTask: true,
     sourceTaskId: input.sourceTaskId,
     sourceTaskNo: input.sourceTaskNo,
-    originalCutOrderNo: input.originalCutOrderNo,
-    originalCutOrderNos: input.originalCutOrderNos?.length ? input.originalCutOrderNos : [input.originalCutOrderNo],
+    cutOrderNo: input.cutOrderNo,
+    cutOrderNos: input.cutOrderNos?.length ? input.cutOrderNos : [input.cutOrderNo],
     productionOrderNo: input.productionOrderNo,
     productionOrderNos: input.productionOrderNos?.length ? input.productionOrderNos : [input.productionOrderNo],
     relatedClaimRecordNo: input.relatedClaimRecordNo,

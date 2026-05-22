@@ -57,8 +57,8 @@ export const SUB_CATEGORY_LABEL: Record<SubCategoryKey, string> = {
   TECH_PACK_NOT_RELEASED: '技术包未发布',
   TECH_PACK_MISSING: '技术包缺失',
   TECH_PACK_PENDING_CONFIRM: '技术资料待确认',
-  MATERIAL_NOT_READY: '领料未齐套',
-  MATERIAL_PREP_PENDING: '配料未完成',
+  MATERIAL_NOT_READY: '领料记录不足',
+  MATERIAL_PREP_PENDING: '配料数量待补',
   MATERIAL_QTY_SHORT: '配料数量不足',
   MATERIAL_PICKUP_QTY_DIFF: '领料对象数量差异',
   MATERIAL_MULTI_OPEN: '多次领料未闭合',
@@ -95,8 +95,8 @@ export const SUB_CATEGORY_OPTIONS: Record<UnifiedCategory, Array<{ key: SubCateg
     { key: 'TECH_PACK_PENDING_CONFIRM', label: '技术资料待确认' },
   ],
   MATERIAL: [
-    { key: 'MATERIAL_NOT_READY', label: '领料未齐套' },
-    { key: 'MATERIAL_PREP_PENDING', label: '配料未完成' },
+    { key: 'MATERIAL_NOT_READY', label: '领料记录不足' },
+    { key: 'MATERIAL_PREP_PENDING', label: '配料数量待补' },
     { key: 'MATERIAL_QTY_SHORT', label: '配料数量不足' },
     { key: 'MATERIAL_PICKUP_QTY_DIFF', label: '领料对象数量差异' },
     { key: 'MATERIAL_MULTI_OPEN', label: '多次领料未闭合' },
@@ -192,7 +192,7 @@ export function inferLegacySubCategoryKey(reasonCode: string, summary: string, d
   }
 
   if (reasonCode === 'MATERIAL_NOT_READY') {
-    if (/(配料未完成|待配料)/.test(text)) return 'MATERIAL_PREP_PENDING'
+    if (/(配料数量待补|配料不足|配料数量不足)/.test(text)) return 'MATERIAL_PREP_PENDING'
     if (/(不足|缺口|不够)/.test(text)) return 'MATERIAL_QTY_SHORT'
     if (/(多次|分批)/.test(text)) return 'MATERIAL_MULTI_OPEN'
     return 'MATERIAL_NOT_READY'

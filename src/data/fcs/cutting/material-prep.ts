@@ -170,14 +170,14 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
         discrepancyNote: '实领 8 卷，少于本次打印 10 卷，仓库已发起核对。',
         photoProofCount: 0,
         issueFlags: ['待核对', '待补料'],
-        latestActionText: '第 3 批来料已入待加工仓，8 卷待核对。',
+        latestActionText: '部分领料：第 3 批来料已入待加工仓，8 卷待核对。',
         configBatches: [
           {
             batchNo: 'CFG-018-01',
             cutPieceOrderNo: 'CP-202603-018-01',
             configuredRollCount: 5,
             configuredLength: 270,
-            configuredBy: 'WMS 来料员 林佩琪',
+            configuredBy: '中转仓配料员 林佩琪',
             configuredAt: '2026-03-18 09:15',
             printIncluded: true,
             remarks: '首批按主花位先配。',
@@ -187,7 +187,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
             cutPieceOrderNo: 'CP-202603-018-01',
             configuredRollCount: 3,
             configuredLength: 160,
-            configuredBy: 'WMS 来料员 林佩琪',
+            configuredBy: '中转仓配料员 林佩琪',
             configuredAt: '2026-03-19 11:20',
             printIncluded: true,
             remarks: '补充侧片位用料。',
@@ -213,7 +213,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
             receivedAt: '2026-03-20 14:12',
             resultStatus: 'RECHECK',
             photoProofCount: 0,
-            note: '现场扫码后发现少 2 卷，已驳回仓库复核。',
+            note: '部分领料：现场扫码后发现少 2 卷，已驳回仓库复核。',
           },
         ],
       },
@@ -255,7 +255,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
             cutPieceOrderNo: 'CP-202603-018-01',
             configuredRollCount: 4,
             configuredLength: 210,
-            configuredBy: 'WMS 来料员 林佩琪',
+            configuredBy: '中转仓配料员 林佩琪',
             configuredAt: '2026-03-18 09:15',
             printIncluded: true,
             remarks: '首批主面料同步发出。',
@@ -265,7 +265,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
             cutPieceOrderNo: 'CP-202603-018-01',
             configuredRollCount: 2,
             configuredLength: 110,
-            configuredBy: 'WMS 来料员 林佩琪',
+            configuredBy: '中转仓配料员 林佩琪',
             configuredAt: '2026-03-19 11:20',
             printIncluded: false,
             remarks: '补充前片里布。',
@@ -313,10 +313,10 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
         latestReceiveScanAt: '',
         latestReceiverName: '',
         discrepancyStatus: 'NONE',
-        discrepancyNote: '尚未进入WMS 来料。',
+        discrepancyNote: '尚未形成中转仓配料数量。',
         photoProofCount: 0,
         issueFlags: ['待配置'],
-        latestActionText: '等待 WMS 来料入待加工仓。',
+        latestActionText: '等待中转仓配料与裁床领料入待加工仓。',
         configBatches: [],
         receiveRecords: [],
       },
@@ -331,9 +331,9 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
     cuttingTaskNo: 'CP-TASK-202603-024',
     assignedFactoryName: TEST_FACTORY_NAME,
     cutPieceOrderCount: 2,
-    configSummary: '主面料已完成，里布仍WMS 待处理。',
+    configSummary: '主面料已完成，里布仍待中转仓配料。',
     receiveSummary: '主料已入待加工仓成功，里布待仓库补配。',
-    riskFlags: ['WMS 待处理', '待来料'],
+    riskFlags: ['待中转仓配料', '待来料'],
     materialLines: [
       {
         id: 'cmpl-004',
@@ -431,9 +431,9 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
         latestReceiveScanAt: '',
         latestReceiverName: '',
         discrepancyStatus: 'NONE',
-        discrepancyNote: '当前尚未进入WMS 来料，待仓库补齐里布配置。',
+        discrepancyNote: '当前尚未形成中转仓配料数量，待仓库补齐里布配置。',
         photoProofCount: 0,
-        issueFlags: ['WMS 待处理', '待来料'],
+        issueFlags: ['待中转仓配料', '待来料'],
         latestActionText: '仓库待补齐里布配置卷数。',
         configBatches: [],
         receiveRecords: [],
@@ -491,7 +491,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
             cutPieceOrderNo: 'CP-202603-031-01',
             configuredRollCount: 7,
             configuredLength: 400,
-            configuredBy: 'WMS 来料员 曾巧云',
+            configuredBy: '中转仓配料员 曾巧云',
             configuredAt: '2026-03-21 10:35',
             printIncluded: true,
             remarks: '首批花位先发。',
@@ -501,7 +501,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
             cutPieceOrderNo: 'CP-202603-031-01',
             configuredRollCount: 5,
             configuredLength: 290,
-            configuredBy: 'WMS 来料员 曾巧云',
+            configuredBy: '中转仓配料员 曾巧云',
             configuredAt: '2026-03-22 08:40',
             printIncluded: false,
             remarks: '补齐剩余 5 卷。',
@@ -559,7 +559,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
             cutPieceOrderNo: 'CP-202603-031-02',
             configuredRollCount: 8,
             configuredLength: 460,
-            configuredBy: 'WMS 来料员 曾巧云',
+            configuredBy: '中转仓配料员 曾巧云',
             configuredAt: '2026-03-22 09:00',
             printIncluded: true,
             remarks: '整单一次发齐。',
@@ -602,10 +602,23 @@ function normalizeMaterialPrepLine(line: CuttingMaterialPrepLine): CuttingMateri
   }
 }
 
+function normalizeTransferReviewStatus(status: string | undefined): TransferMaterialAvailableLot['reviewStatus'] | null {
+  if (status === 'PASS' || status === 'FULL_HANDOVER') return 'PASS'
+  if (status === 'PARTIAL_PASS' || status === 'PARTIAL_HANDOVER') return 'PARTIAL_PASS'
+  return null
+}
+
+function isTransferReviewCandidate<T>(
+  item: { record: T; reviewStatus: TransferMaterialAvailableLot['reviewStatus'] | null },
+): item is { record: T; reviewStatus: TransferMaterialAvailableLot['reviewStatus'] } {
+  return Boolean(item.reviewStatus)
+}
+
 function buildTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
   const printLots = listPrintReviewRecords()
-    .filter((record) => record.reviewStatus === 'PASS' || record.reviewStatus === 'PARTIAL_PASS')
-    .map((record) => {
+    .map((record) => ({ record, reviewStatus: normalizeTransferReviewStatus(record.reviewStatus) }))
+    .filter(isTransferReviewCandidate)
+    .map(({ record, reviewStatus }) => {
       const order = getPrintWorkOrderById(record.printOrderId)
       const availableRollCount = Math.max(record.receivedRollCount || 0, 1)
       const availableLength = Math.max(record.receivedLength || 0, record.receivedQty || 0)
@@ -622,7 +635,7 @@ function buildTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
         lengthUnit: record.lengthUnit || '米',
         availableQty: record.receivedQty,
         qtyUnit: '米',
-        reviewStatus: record.reviewStatus,
+        reviewStatus,
         configuredRollCount: 0,
         configuredLength: 0,
         remainingRollCount: availableRollCount,
@@ -632,9 +645,42 @@ function buildTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
       }
     })
 
+  const printLineLots = cuttingMaterialPrepGroups
+    .flatMap((group) =>
+      group.materialLines
+        .map((line) => normalizeMaterialPrepLine(line))
+        .filter((line) => line.sourceType === 'PRINT_REVIEW' && line.reviewStatus === 'APPROVED')
+        .map((line) => {
+          const availableRollCount = Math.max(line.reviewedRollCount || line.demandRollCount || line.configuredRollCount, 1)
+          const availableLength = Math.max(line.reviewedLength || line.demandLength || line.configuredLength, 1)
+          return {
+            transferLotId: `PRINT-LINE-${line.id}`,
+            sourceProcessType: 'PRINT' as const,
+            sourceOrderId: line.sourceOrderId || line.cutPieceOrderNo,
+            sourceOrderNo: line.sourceOrderNo || line.cutPieceOrderNo,
+            sourceReviewId: line.sourceReviewId,
+            materialSku: line.materialSku,
+            materialColor: line.materialLabel,
+            availableRollCount,
+            availableLength,
+            lengthUnit: '米',
+            availableQty: availableLength,
+            qtyUnit: '米',
+            reviewStatus: 'PASS' as const,
+            configuredRollCount: 0,
+            configuredLength: 0,
+            remainingRollCount: Math.max(availableRollCount - line.configuredRollCount, 0),
+            remainingLength: Math.max(availableLength - line.configuredLength, 0),
+            targetTransferWarehouseName: group.assignedFactoryName || '中转区域',
+            createdAt: group.purchaseDate || '',
+          }
+        }),
+    )
+
   const dyeLots = listDyeReviewRecords()
-    .filter((record) => record.reviewStatus === 'PASS' || record.reviewStatus === 'PARTIAL_PASS')
-    .map((record) => {
+    .map((record) => ({ record, reviewStatus: normalizeTransferReviewStatus(record.reviewStatus) }))
+    .filter(isTransferReviewCandidate)
+    .map(({ record, reviewStatus }) => {
       const order = getDyeWorkOrderById(record.dyeOrderId)
       const availableRollCount = Math.max(record.receivedRollCount || 0, 1)
       const availableLength = Math.max(record.receivedLength || 0, record.receivedQty || 0)
@@ -651,7 +697,7 @@ function buildTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
         lengthUnit: record.lengthUnit || '米',
         availableQty: record.receivedQty,
         qtyUnit: '米',
-        reviewStatus: record.reviewStatus,
+        reviewStatus,
         configuredRollCount: 0,
         configuredLength: 0,
         remainingRollCount: availableRollCount,
@@ -692,7 +738,7 @@ function buildTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
         }),
     )
 
-  return [...printLots, ...dyeLots, ...manualLots]
+  return [...printLots, ...printLineLots, ...dyeLots, ...manualLots]
 }
 
 let transferMaterialAvailableLotsCache: TransferMaterialAvailableLot[] | null = null

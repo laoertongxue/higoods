@@ -1,7 +1,7 @@
 import type { CuttingDomainSnapshot } from '../../../domain/fcs-cutting-runtime/index.ts'
 import {
   buildExecutionPrepProjectionContext,
-  buildProgressRecordMapByOriginalCutOrder,
+  buildProgressRecordMapByCutOrder,
 } from './execution-prep-projection-helpers.ts'
 import { buildMaterialPrepStats } from './material-prep-model.ts'
 
@@ -10,7 +10,7 @@ export interface MaterialPrepProjection {
   rows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows']
   rowsById: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows'][number]>
   stats: ReturnType<typeof buildMaterialPrepStats>
-  progressRecordMapByOriginalCutOrder: Record<string, import('../../../data/fcs/cutting/types.ts').CuttingOrderProgressRecord>
+  progressRecordMapByCutOrder: Record<string, import('../../../data/fcs/cutting/types.ts').CuttingOrderProgressRecord>
 }
 
 export function buildMaterialPrepProjection(
@@ -23,7 +23,7 @@ export function buildMaterialPrepProjection(
     rows,
     rowsById: Object.fromEntries(rows.map((row) => [row.id, row])),
     stats: buildMaterialPrepStats(rows),
-    progressRecordMapByOriginalCutOrder: buildProgressRecordMapByOriginalCutOrder(context.snapshot.progressRecords),
+    progressRecordMapByCutOrder: buildProgressRecordMapByCutOrder(context.snapshot.progressRecords),
   }
 }
 

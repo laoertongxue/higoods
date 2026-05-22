@@ -7,6 +7,7 @@ import {
 
 export interface MarkerSchemeSourceValidationInput {
   contextNo: string
+  markerPlanGroupKey?: string
   spuCode: string
   productionOrderIds?: string[]
   productionOrderNos?: string[]
@@ -37,16 +38,10 @@ export function validateMarkerSchemeSourceCandidates(
 ): MarkerSchemeSourceValidationResult {
   const messages: string[] = []
   const spuCodes = Array.from(new Set(candidates.map((candidate) => candidate.spuCode).filter(Boolean)))
-  const productionOrderKeys = Array.from(
-    new Set(
-      candidates
-        .flatMap((candidate) => candidate.productionOrderIds?.length ? candidate.productionOrderIds : candidate.productionOrderNos || [])
-        .filter(Boolean),
-    ),
-  )
+  const markerPlanGroupKeys = Array.from(new Set(candidates.map((candidate) => candidate.markerPlanGroupKey).filter(Boolean)))
   if (!candidates.length) messages.push('请选择来源单据')
-  if (spuCodes.length > 1) messages.push('已选单据不属于同一款式')
-  if (productionOrderKeys.length > 1) messages.push('已选单据不属于同一生产单')
+  if (spuCodes.length > 1) messages.push('已选单据不属于同一 SPU')
+  if (markerPlanGroupKeys.length > 1) messages.push('已选单据不满足同 SPU、同纸样文件、同有效幅宽、同历史组合组')
   if (candidates.some((candidate) => !String(candidate.techPackStatusLabel || '').includes('正式'))) {
     messages.push('当前款式没有正式版技术包')
   }
@@ -79,11 +74,11 @@ export function buildMarkerSchemeFromPlan(plan: MarkerPlan): MarkerScheme {
     schemeId: plan.schemeId || plan.id,
     schemeNo: plan.schemeNo || plan.markerNo,
     schemeName: plan.schemeName || plan.markerNo,
-    sourceType: plan.contextType === 'merge-batch' ? 'merge-batch' : 'original-cut-order',
-    sourceOriginalCutOrderIds: [...plan.originalCutOrderIds],
-    sourceOriginalCutOrderNos: [...plan.originalCutOrderNos],
-    sourceMergeBatchIds: plan.mergeBatchId ? [plan.mergeBatchId] : [],
-    sourceMergeBatchNos: plan.mergeBatchNo ? [plan.mergeBatchNo] : [],
+    sourceType: plan.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
+    sourceCutOrderIds: [...plan.cutOrderIds],
+    sourceCutOrderNos: [...plan.cutOrderNos],
+    sourceMarkerPlanIds: plan.markerPlanId ? [plan.markerPlanId] : [],
+    sourceMarkerPlanNos: plan.markerPlanNo ? [plan.markerPlanNo] : [],
     productionOrderIds: [...plan.productionOrderIds],
     productionOrderNos: [...plan.productionOrderNos],
     spuCode: plan.spuCode,

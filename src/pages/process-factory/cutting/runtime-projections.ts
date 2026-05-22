@@ -13,7 +13,7 @@ import {
 } from './fei-tickets-model.ts'
 import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
 import { buildMaterialPrepViewModel } from './material-prep-model.ts'
-import { buildOriginalCutOrderViewModel, type OriginalCutOrderRow } from './original-orders-model.ts'
+import { buildCutOrderViewModel, type CutOrderRow } from './cut-orders-model.ts'
 import { buildProductionProgressRows } from './production-progress-model.ts'
 import {
   buildReplenishmentViewModel,
@@ -44,7 +44,8 @@ import {
   type TransferBagStore,
 } from './transfer-bags-model.ts'
 import { buildTransferBagReturnViewModel } from './transfer-bag-return-model.ts'
-import type { MergeBatchItem, MergeBatchRecord, MergeBatchStatus } from './merge-batches-model.ts'
+import type { MarkerPlanRefItem, MarkerPlanRefRecord, MarkerPlanRefStatus } from './marker-plan-ref-model.ts'
+import { readStoredMarkerPlanOccupancyLookup } from './marker-plan-occupancy.ts'
 
 export interface FcsCuttingSummaryProjection {
   snapshot: CuttingDomainSnapshot
@@ -63,26 +64,26 @@ function mergeByKey<T extends Record<string, unknown>>(seed: T[], stored: T[], k
   return Array.from(merged.values())
 }
 
-function parseMergeBatchDate(mergeBatchNo: string): string {
-  const match = mergeBatchNo.match(/(\d{2})(\d{2})(\d{2})/)
+function parseMarkerPlanRefDate(markerPlanNo: string): string {
+  const match = markerPlanNo.match(/(\d{2})(\d{2})(\d{2})/)
   if (!match) return ''
   return `20${match[1]}-${match[2]}-${match[3]}`
 }
 
-function inferSourceMergeBatchStatus(rows: OriginalCutOrderRow[]): MergeBatchStatus {
+function inferSourceMarkerPlanRefStatus(rows: CutOrderRow[]): MarkerPlanRefStatus {
   if (rows.some((row) => row.currentStage.key === 'INBOUND')) return 'DONE'
-  if (rows.some((row) => ['CUTTING', 'IN_BATCH'].includes(row.currentStage.key))) return 'CUTTING'
+  if (rows.some((row) => ['CUTTING', 'IN_MARKER_PLAN'].includes(row.currentStage.key))) return 'CUTTING'
   return 'READY'
 }
 
-function buildSourceMergeBatchItems(source: {
-  mergeBatchId: string
-  originalRows: OriginalCutOrderRow[]
-}): MergeBatchItem[] {
-  return source.originalRows.map((row) => ({
-    mergeBatchId: source.mergeBatchId,
-    originalCutOrderId: row.originalCutOrderId,
-    originalCutOrderNo: row.originalCutOrderNo,
+function buildSourceMarkerPlanRefItems(source: {
+  markerPlanId: string
+  cutOrderRows: CutOrderRow[]
+}): MarkerPlanRefItem[] {
+  return source.cutOrderRows.map((row) => ({
+    markerPlanId: source.markerPlanId,
+    cutOrderId: row.cutOrderId,
+    cutOrderNo: row.cutOrderNo,
     productionOrderId: row.productionOrderId,
     productionOrderNo: row.productionOrderNo,
     styleCode: row.styleCode,
@@ -96,73 +97,76 @@ function buildSourceMergeBatchItems(source: {
     materialLabel: row.materialLabel,
     currentStage: row.currentStage.label,
     cuttableStateLabel: row.cuttableState.label,
-    sourceBatchingKey: `${row.styleCode}::${row.materialSku}`,
+    sourceMarkerPlaningKey: `${row.styleCode}::${row.materialSku}`,
   }))
 }
 
-function buildRuntimeMergeBatchRecords(
+function buildRuntimeMarkerPlanRefRecords(
   snapshot: CuttingDomainSnapshot,
-  originalRows: OriginalCutOrderRow[],
-): MergeBatchRecord[] {
-  const originalRowsById = Object.fromEntries(originalRows.map((row) => [row.originalCutOrderId, row]))
-  const sourceRecords = snapshot.mergeBatchState.sourceRecords
+  cutOrderRows: CutOrderRow[],
+): MarkerPlanRefRecord[] {
+  const cutOrderRowsById = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderId, row]))
+  const sourceRecords = snapshot.markerPlanRefState.sourceRecords
     .map((record) => {
-      const rows = record.sourceOriginalCutOrderIds
-        .map((id) => originalRowsById[id])
-        .filter((row): row is OriginalCutOrderRow => Boolean(row))
+      const rows = record.sourceCutOrderIds
+        .map((id) => cutOrderRowsById[id])
+        .filter((row): row is CutOrderRow => Boolean(row))
       if (!rows.length) return null
       const materialSkuSummary = unique(rows.map((row) => row.materialSku)).join(' / ')
       return {
-        mergeBatchId: record.mergeBatchId,
-        mergeBatchNo: record.mergeBatchNo,
-        status: inferSourceMergeBatchStatus(rows),
-        batchingKey: `${rows[0]?.styleCode || ''}::${materialSkuSummary}`,
+        markerPlanId: record.markerPlanId,
+        markerPlanNo: record.markerPlanNo,
+        status: inferSourceMarkerPlanRefStatus(rows),
+        markerPlanGroupKey: `${rows[0]?.styleCode || ''}::${materialSkuSummary}`,
         styleCode: rows[0]?.styleCode || '',
         spuCode: rows[0]?.spuCode || '',
         styleName: rows[0]?.styleName || '',
         materialSkuSummary,
         sourceProductionOrderCount: unique(rows.map((row) => row.productionOrderId)).length,
-        sourceOriginalCutOrderCount: rows.length,
+        sourceCutOrderCount: rows.length,
         plannedCuttingGroup: '',
-        plannedCuttingDate: parseMergeBatchDate(record.mergeBatchNo),
+        plannedCuttingDate: parseMarkerPlanRefDate(record.markerPlanNo),
         note: '来源于裁片 runtime 主源聚合。',
         createdFrom: 'system-seed' as const,
-        createdAt: parseMergeBatchDate(record.mergeBatchNo) ? `${parseMergeBatchDate(record.mergeBatchNo)} 09:00` : '',
-        updatedAt: parseMergeBatchDate(record.mergeBatchNo) ? `${parseMergeBatchDate(record.mergeBatchNo)} 09:00` : '',
-        items: buildSourceMergeBatchItems({
-          mergeBatchId: record.mergeBatchId,
-          originalRows: rows,
+        createdAt: parseMarkerPlanRefDate(record.markerPlanNo) ? `${parseMarkerPlanRefDate(record.markerPlanNo)} 09:00` : '',
+        updatedAt: parseMarkerPlanRefDate(record.markerPlanNo) ? `${parseMarkerPlanRefDate(record.markerPlanNo)} 09:00` : '',
+        items: buildSourceMarkerPlanRefItems({
+          markerPlanId: record.markerPlanId,
+          cutOrderRows: rows,
         }),
       }
     })
-    .filter((record): record is MergeBatchRecord => record !== null)
+    .filter((record): record is MarkerPlanRefRecord => record !== null)
 
   return mergeByKey(
     sourceRecords,
-    snapshot.mergeBatchState.storedRecords as unknown as MergeBatchRecord[],
-    'mergeBatchId',
+    snapshot.markerPlanRefState.storedRecords as unknown as MarkerPlanRefRecord[],
+    'markerPlanId',
   )
 }
 
-function buildOriginalRows(
+function buildCutOrderRows(
   snapshot: CuttingDomainSnapshot,
-  mergeBatches: MergeBatchRecord[],
+  markerPlanRefs: MarkerPlanRefRecord[],
   progressRows: ReturnType<typeof buildProductionProgressRows>,
-): OriginalCutOrderRow[] {
-  return buildOriginalCutOrderViewModel(snapshot.progressRecords, mergeBatches, { progressRows }).rows
+): CutOrderRow[] {
+  return buildCutOrderViewModel(snapshot.progressRecords, markerPlanRefs, {
+    progressRows,
+    markerPlanOccupancy: readStoredMarkerPlanOccupancyLookup(),
+  }).rows
 }
 
 function buildFeiLedger(options: {
   snapshot: CuttingDomainSnapshot
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   materialPrepRows: ReturnType<typeof buildMaterialPrepViewModel>['rows']
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
 }) {
   const systemFeiLedger = buildSystemSeedFeiTicketLedger({
-    originalRows: options.originalRows,
+    cutOrderRows: options.cutOrderRows,
     materialPrepRows: options.materialPrepRows,
-    mergeBatches: options.mergeBatches,
+    markerPlanRefs: options.markerPlanRefs,
     markerStore: options.markerStore,
   })
 
@@ -183,14 +187,14 @@ function buildFeiLedger(options: {
 
 function buildTransferBagStore(
   snapshot: CuttingDomainSnapshot,
-  originalRows: OriginalCutOrderRow[],
+  cutOrderRows: CutOrderRow[],
   ticketRecords: FeiTicketLabelRecord[],
-  mergeBatches: MergeBatchRecord[],
+  markerPlanRefs: MarkerPlanRefRecord[],
 ): TransferBagStore {
   const seed = buildSystemSeedTransferBagStore({
-    originalRows,
+    cutOrderRows,
     ticketRecords,
-    mergeBatches,
+    markerPlanRefs,
   })
   return mergeTransferBagStores(seed, snapshot.transferBagState.store as unknown as TransferBagStore)
 }
@@ -204,25 +208,25 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     handoverWritebacks: snapshot.pdaExecutionState.handoverWritebacks as never[],
     replenishmentFeedbackWritebacks: snapshot.pdaExecutionState.replenishmentFeedbackWritebacks as never[],
   })
-  const seedOriginalRows = buildOriginalRows(snapshot, [], progressRows)
-  const mergeBatches = buildRuntimeMergeBatchRecords(snapshot, seedOriginalRows)
-  const originalRows = buildOriginalRows(snapshot, mergeBatches, progressRows)
-  const materialPrepRows = buildMaterialPrepViewModel(snapshot.progressRecords, mergeBatches, {
+  const seedCutOrderRows = buildCutOrderRows(snapshot, [], progressRows)
+  const markerPlanRefs = buildRuntimeMarkerPlanRefRecords(snapshot, seedCutOrderRows)
+  const cutOrderRows = buildCutOrderRows(snapshot, markerPlanRefs, progressRows)
+  const materialPrepRows = buildMaterialPrepViewModel(snapshot.progressRecords, markerPlanRefs, {
     pickupWritebacks: snapshot.pdaExecutionState.pickupWritebacks as never[],
   }).rows
   const markerStore = snapshot.markerSpreadingState.store as unknown as MarkerSpreadingStore
   const feiLedger = buildFeiLedger({
     snapshot,
-    originalRows,
+    cutOrderRows,
     materialPrepRows,
-    mergeBatches,
+    markerPlanRefs,
     markerStore,
   })
 
   const feiViewModel = buildFeiTicketsViewModel({
-    originalRows,
+    cutOrderRows,
     materialPrepRows,
-    mergeBatches,
+    markerPlanRefs,
     markerStore,
     ticketRecords: feiLedger.ticketRecords,
     printJobs: feiLedger.printJobs,
@@ -231,11 +235,11 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
   })
 
   const fabricWarehouseView = buildFabricWarehouseViewModel(
-    originalRows,
+    cutOrderRows,
     snapshot.warehouseState.fabricStocks,
   )
   const cutPieceWarehouseView = buildCutPieceWarehouseViewModel(
-    originalRows,
+    cutOrderRows,
     snapshot.warehouseState.cutPieceRecords,
     {
       inboundWritebacks: snapshot.pdaExecutionState.inboundWritebacks as never[],
@@ -244,18 +248,18 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     },
   )
   const sampleWarehouseView = buildSampleWarehouseViewModel(
-    originalRows,
+    cutOrderRows,
     snapshot.warehouseState.sampleRecords,
     {
       sampleWritebacks: snapshot.warehouseState.sampleWritebacks,
     },
   )
 
-  const transferStore = buildTransferBagStore(snapshot, originalRows, feiLedger.ticketRecords, mergeBatches)
+  const transferStore = buildTransferBagStore(snapshot, cutOrderRows, feiLedger.ticketRecords, markerPlanRefs)
   const transferBagView = buildTransferBagViewModel({
-    originalRows,
+    cutOrderRows,
     ticketRecords: feiLedger.ticketRecords,
-    mergeBatches,
+    markerPlanRefs,
     store: transferStore,
   })
   const transferBagReturnView = buildTransferBagReturnViewModel({
@@ -265,8 +269,8 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
 
   const replenishmentView = buildReplenishmentViewModel({
     materialPrepRows,
-    originalRows,
-    mergeBatches,
+    cutOrderRows,
+    markerPlanRefs,
     markerStore,
     reviews: snapshot.replenishmentState.reviews as unknown as ReplenishmentReview[],
     impactPlans: snapshot.replenishmentState.impactPlans as unknown as ReplenishmentImpactPlan[],
@@ -275,8 +279,8 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
   })
 
   const specialProcessView = buildSpecialProcessViewModel({
-    originalRows,
-    mergeBatches,
+    cutOrderRows,
+    markerPlanRefs,
     orders: snapshot.specialProcessState.orders as unknown as SpecialProcessOrder[],
     bindingPayloads: snapshot.specialProcessState.bindingPayloads as unknown as BindingStripProcessPayload[],
     scopeLines: snapshot.specialProcessState.scopeLines as unknown as SpecialProcessScopeLine[],
@@ -286,9 +290,9 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
 
   return {
     productionRows: progressRows,
-    originalRows,
+    cutOrderRows,
     materialPrepRows,
-    mergeBatches,
+    markerPlanRefs,
     markerStore,
     feiViewModel,
     fabricWarehouseView,

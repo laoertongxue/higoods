@@ -140,6 +140,31 @@ export interface PdaCutPieceHandoutLine {
   garmentEquivalentQty: number
 }
 
+export interface PdaCuttingHandoverGapLine {
+  lineId: string
+  skuCode: string
+  colorName: string
+  sizeCode: string
+  partName: string
+  requiredPieceQty: number
+  cumulativeSubmittedPieceQty: number
+  missingPieceQty: number
+  overPieceQty: number
+  specialCraftRequired?: boolean
+  specialCraftStatus?: string
+  statusLabel: string
+}
+
+export interface PdaCuttingHandoverRecordSummary {
+  previousSubmittedPieceQty: number
+  currentSubmittedPieceQty: number
+  cumulativeSubmittedPieceQty: number
+  completeAfterSubmit: boolean
+  gapPieceQtyTotal: number
+  overPieceQtyTotal: number
+  gapLines: PdaCuttingHandoverGapLine[]
+}
+
 export interface PdaCutPiecePartGroup {
   partLabel: string
   partCode?: string
@@ -372,6 +397,7 @@ export interface PdaHandoverRecord {
   pieceName?: string
   garmentEquivalentQty?: number
   cutPieceLines?: PdaCutPieceHandoutLine[]
+  cuttingHandoverSummary?: PdaCuttingHandoverRecordSummary
   recordLines?: HandoverRecordLine[]
   plannedQty?: number
   submittedQty?: number
@@ -1968,6 +1994,16 @@ function cloneCutPieceLines(lines: PdaCutPieceHandoutLine[] | undefined): PdaCut
   return lines?.map((line) => ({ ...line }))
 }
 
+function cloneCuttingHandoverSummary(
+  summary: PdaCuttingHandoverRecordSummary | undefined,
+): PdaCuttingHandoverRecordSummary | undefined {
+  if (!summary) return undefined
+  return {
+    ...summary,
+    gapLines: summary.gapLines.map((line) => ({ ...line })),
+  }
+}
+
 function cloneHead(head: PdaHandoverHead): PdaHandoverHead {
   return { ...head }
 }
@@ -1983,6 +2019,7 @@ function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
   return {
     ...record,
     cutPieceLines: cloneCutPieceLines(record.cutPieceLines),
+    cuttingHandoverSummary: cloneCuttingHandoverSummary(record.cuttingHandoverSummary),
     recordLines: record.recordLines?.map((line) => ({ ...line })),
     factoryProofFiles: cloneProofFiles(record.factoryProofFiles),
     receiverProofFiles: cloneProofFiles(record.receiverProofFiles ?? []),

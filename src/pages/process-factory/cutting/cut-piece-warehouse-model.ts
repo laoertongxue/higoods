@@ -5,7 +5,7 @@ import {
   type CutPieceWarehouseRecord,
   type CutPieceZoneCode,
 } from '../../../data/fcs/cutting/warehouse-runtime.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 import {
   listPdaHandoverWritebacks,
   listPdaInboundWritebacks,
@@ -18,7 +18,12 @@ import {
 } from '../../../data/fcs/cutting/warehouse-writeback-ledger.ts'
 import { buildWarehouseQueryPayload, type WarehouseNavigationPayload } from './warehouse-shared.ts'
 import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
-import type { TransferBagViewModel } from './transfer-bags-model.ts'
+import {
+  getTransferBagRuleLabel,
+  getTransferBagUsageStageLabel,
+  type TransferBagViewModel,
+  type TransferBagUsageStage,
+} from './transfer-bags-model.ts'
 import {
   buildSpreadingTraceAnchors,
   findSpreadingTraceAnchor,
@@ -44,15 +49,17 @@ export interface CutPieceWarehouseStatusMeta<Key extends string> {
 
 export interface CutPieceWarehouseItem {
   warehouseItemId: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  markerPlanId: string
+  markerPlanNo: string
   sourceMarkerId: string
   sourceMarkerNo: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   styleCode: string
   spuCode: string
   cuttingGroup: string
@@ -71,6 +78,8 @@ export interface CutPieceWarehouseItem {
   bagUsageId: string
   bagUsageNo: string
   bagCode: string
+  bagUsageStage: TransferBagUsageStage | ''
+  bagUsageStageLabel: string
   bagFirstSatisfied: boolean
   bagFirstRuleLabel: string
   note: string
@@ -108,12 +117,12 @@ export interface CutPieceWarehouseFilters {
 }
 
 export interface CutPieceWarehousePrefilter {
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
   productionOrderId?: string
   productionOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   materialSku?: string
   spreadingSessionId?: string
   sourceWritebackId?: string
@@ -177,23 +186,23 @@ function deriveCutPieceRiskTags(record: CutPieceWarehouseRecord): CutPieceWareho
 
 function buildWarehouseOverlayRecord(options: {
   baseRecord?: CutPieceWarehouseRecord
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   materialSku: string
 }): CutPieceWarehouseRecord {
   return options.baseRecord || {
-    id: `cpw-pda-${options.originalCutOrderId || options.originalCutOrderNo}`,
+    id: `cpw-pda-${options.cutOrderId || options.cutOrderNo}`,
     warehouseType: 'CUT_PIECE',
-    bindingState: options.originalCutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
-    originalCutOrderId: options.originalCutOrderId,
-    originalCutOrderNo: options.originalCutOrderNo,
+    bindingState: options.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
+    cutOrderId: options.cutOrderId,
+    cutOrderNo: options.cutOrderNo,
     productionOrderId: options.productionOrderId,
     productionOrderNo: options.productionOrderNo,
-    mergeBatchId: '',
-    mergeBatchNo: '',
-    cutPieceOrderNo: options.originalCutOrderNo,
+    markerPlanId: '',
+    markerPlanNo: '',
+    cutPieceOrderNo: options.cutOrderNo,
     materialSku: options.materialSku,
     groupNo: '工厂端回写',
     zoneCode: 'UNASSIGNED',
@@ -219,32 +228,32 @@ function applyExecutionWritebackOverlay(
   const inboundWritebacks = options.inboundWritebacks ?? listPdaInboundWritebacks(storage)
   const handoverWritebacks = options.handoverWritebacks ?? listPdaHandoverWritebacks(storage)
   const runtimeMap = new Map<string, CutPieceWarehouseRecord>(
-    records.map((record) => [record.originalCutOrderId || record.originalCutOrderNo, { ...record }]),
+    records.map((record) => [record.cutOrderId || record.cutOrderNo, { ...record }]),
   )
 
   inboundWritebacks.forEach((writeback) => {
-    const key = writeback.originalCutOrderId || writeback.originalCutOrderNo
+    const key = writeback.cutOrderId || writeback.cutOrderNo
     const current = runtimeMap.get(key)
     const next = buildWarehouseOverlayRecord({
       baseRecord: current,
-      originalCutOrderId: writeback.originalCutOrderId,
-      originalCutOrderNo: writeback.originalCutOrderNo,
+      cutOrderId: writeback.cutOrderId,
+      cutOrderNo: writeback.cutOrderNo,
       productionOrderId: writeback.productionOrderId,
       productionOrderNo: writeback.productionOrderNo,
       materialSku: writeback.materialSku,
     })
     runtimeMap.set(key, {
       ...next,
-      id: current?.id || `cpw-pda-${writeback.originalCutOrderId || writeback.originalCutOrderNo}`,
-      bindingState: writeback.originalCutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
-      originalCutOrderId: writeback.originalCutOrderId,
-      originalCutOrderNo: writeback.originalCutOrderNo,
+      id: current?.id || `cpw-pda-${writeback.cutOrderId || writeback.cutOrderNo}`,
+      bindingState: writeback.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
+      cutOrderId: writeback.cutOrderId,
+      cutOrderNo: writeback.cutOrderNo,
       productionOrderId: writeback.productionOrderId,
       productionOrderNo: writeback.productionOrderNo,
-      cutPieceOrderNo: writeback.originalCutOrderNo,
+      cutPieceOrderNo: writeback.cutOrderNo,
       materialSku: writeback.materialSku,
-      mergeBatchId: writeback.mergeBatchId,
-      mergeBatchNo: writeback.mergeBatchNo,
+      markerPlanId: writeback.markerPlanId,
+      markerPlanNo: writeback.markerPlanNo,
       zoneCode: writeback.zoneCode,
       locationLabel: writeback.locationLabel,
       inboundStatus: 'WAITING_HANDOVER',
@@ -256,28 +265,28 @@ function applyExecutionWritebackOverlay(
   })
 
   handoverWritebacks.forEach((writeback) => {
-    const key = writeback.originalCutOrderId || writeback.originalCutOrderNo
+    const key = writeback.cutOrderId || writeback.cutOrderNo
     const current = runtimeMap.get(key)
     const next = buildWarehouseOverlayRecord({
       baseRecord: current,
-      originalCutOrderId: writeback.originalCutOrderId,
-      originalCutOrderNo: writeback.originalCutOrderNo,
+      cutOrderId: writeback.cutOrderId,
+      cutOrderNo: writeback.cutOrderNo,
       productionOrderId: writeback.productionOrderId,
       productionOrderNo: writeback.productionOrderNo,
       materialSku: writeback.materialSku,
     })
     runtimeMap.set(key, {
       ...next,
-      id: current?.id || `cpw-pda-${writeback.originalCutOrderId || writeback.originalCutOrderNo}`,
-      bindingState: writeback.originalCutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
-      originalCutOrderId: writeback.originalCutOrderId,
-      originalCutOrderNo: writeback.originalCutOrderNo,
+      id: current?.id || `cpw-pda-${writeback.cutOrderId || writeback.cutOrderNo}`,
+      bindingState: writeback.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
+      cutOrderId: writeback.cutOrderId,
+      cutOrderNo: writeback.cutOrderNo,
       productionOrderId: writeback.productionOrderId,
       productionOrderNo: writeback.productionOrderNo,
-      cutPieceOrderNo: writeback.originalCutOrderNo,
+      cutPieceOrderNo: writeback.cutOrderNo,
       materialSku: writeback.materialSku,
-      mergeBatchId: writeback.mergeBatchId,
-      mergeBatchNo: writeback.mergeBatchNo,
+      markerPlanId: writeback.markerPlanId,
+      markerPlanNo: writeback.markerPlanNo,
       inboundStatus: 'HANDED_OVER',
       inboundAt: current?.inboundAt || writeback.submittedAt,
       inboundBy: current?.inboundBy || writeback.operatorName,
@@ -307,8 +316,8 @@ function applyWarehouseWritebackOverlay(
     const current = runtimeMap.get(writeback.warehouseRecordId)
     const next = buildWarehouseOverlayRecord({
       baseRecord: current,
-      originalCutOrderId: writeback.originalCutOrderId,
-      originalCutOrderNo: writeback.originalCutOrderNo,
+      cutOrderId: writeback.cutOrderId,
+      cutOrderNo: writeback.cutOrderNo,
       productionOrderId: writeback.productionOrderId,
       productionOrderNo: writeback.productionOrderNo,
       materialSku: writeback.materialSku,
@@ -317,15 +326,15 @@ function applyWarehouseWritebackOverlay(
     const overlayBase: CutPieceWarehouseRecord = {
       ...next,
       id: writeback.warehouseRecordId,
-      bindingState: writeback.originalCutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
-      originalCutOrderId: writeback.originalCutOrderId,
-      originalCutOrderNo: writeback.originalCutOrderNo,
+      bindingState: writeback.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
+      cutOrderId: writeback.cutOrderId,
+      cutOrderNo: writeback.cutOrderNo,
       productionOrderId: writeback.productionOrderId,
       productionOrderNo: writeback.productionOrderNo,
-      cutPieceOrderNo: writeback.originalCutOrderNo,
+      cutPieceOrderNo: writeback.cutOrderNo,
       materialSku: writeback.materialSku,
-      mergeBatchId: writeback.mergeBatchId,
-      mergeBatchNo: writeback.mergeBatchNo,
+      markerPlanId: writeback.markerPlanId,
+      markerPlanNo: writeback.markerPlanNo,
       zoneCode: (writeback.zoneCode || next.zoneCode) as CutPieceZoneCode,
       locationLabel: writeback.locationCode || next.locationLabel,
       note: writeback.note || next.note,
@@ -374,12 +383,12 @@ function applyWarehouseWritebackOverlay(
 export function buildCutPieceWarehouseNavigationPayload(
   item: Pick<
     CutPieceWarehouseItem,
-    | 'originalCutOrderId'
-    | 'originalCutOrderNo'
+    | 'cutOrderId'
+    | 'cutOrderNo'
     | 'productionOrderId'
     | 'productionOrderNo'
-    | 'mergeBatchId'
-    | 'mergeBatchNo'
+    | 'markerPlanId'
+    | 'markerPlanNo'
     | 'materialSku'
     | 'cuttingGroup'
     | 'zoneCode'
@@ -392,12 +401,12 @@ export function buildCutPieceWarehouseNavigationPayload(
   >,
 ): WarehouseNavigationPayload {
   return buildWarehouseQueryPayload({
-    originalCutOrderId: item.originalCutOrderId,
-    originalCutOrderNo: item.originalCutOrderNo,
+    cutOrderId: item.cutOrderId,
+    cutOrderNo: item.cutOrderNo,
     productionOrderId: item.productionOrderId,
     productionOrderNo: item.productionOrderNo,
-    mergeBatchId: item.mergeBatchId || undefined,
-    mergeBatchNo: item.mergeBatchNo || undefined,
+    markerPlanId: item.markerPlanId || undefined,
+    markerPlanNo: item.markerPlanNo || undefined,
     materialSku: item.materialSku || undefined,
     cuttingGroup: item.cuttingGroup,
     zoneCode: item.zoneCode,
@@ -412,7 +421,7 @@ export function buildCutPieceWarehouseNavigationPayload(
 }
 
 export function buildCutPieceWarehouseViewModel(
-  originalRows: OriginalCutOrderRow[],
+  cutOrderRows: CutOrderRow[],
   records = listFormalCutPieceWarehouseRecords(),
   options: {
     inboundWritebacks?: PdaCutPieceInboundWritebackRecord[]
@@ -426,48 +435,48 @@ export function buildCutPieceWarehouseViewModel(
     applyExecutionWritebackOverlay(records, options),
     options,
   )
-  const rowById = Object.fromEntries(originalRows.map((row) => [row.originalCutOrderId, row]))
-  const rowByOrderNo = Object.fromEntries(originalRows.map((row) => [row.originalCutOrderNo, row]))
-  const findBoundOriginalRow = (record: CutPieceWarehouseRecord): OriginalCutOrderRow | undefined =>
-    rowById[record.originalCutOrderId] ||
-    rowByOrderNo[record.originalCutOrderNo]
+  const rowById = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderId, row]))
+  const rowByOrderNo = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderNo, row]))
+  const findBoundCutOrderRow = (record: CutPieceWarehouseRecord): CutOrderRow | undefined =>
+    rowById[record.cutOrderId] ||
+    rowByOrderNo[record.cutOrderNo]
   const transferBagBindings = options.transferBagViewModel?.bindings || []
   const spreadingTraceAnchors = options.spreadingStore ? buildSpreadingTraceAnchors(options.spreadingStore) : []
   const spreadingSessionById = new Map((options.spreadingStore?.sessions || []).map((session) => [session.spreadingSessionId, session] as const))
   const items = runtimeRecords
     .map((record) => {
-      const row = findBoundOriginalRow(record)
+      const row = findBoundCutOrderRow(record)
       const baseTraceAnchor = findSpreadingTraceAnchor(spreadingTraceAnchors, {
-        originalCutOrderIds: record.originalCutOrderId ? [record.originalCutOrderId] : [],
-        mergeBatchId: row?.latestMergeBatchId || record.mergeBatchId,
+        cutOrderIds: record.cutOrderId ? [record.cutOrderId] : [],
+        markerPlanId: row?.latestMarkerPlanId || record.markerPlanId,
         materialSku: record.materialSku || '',
         color: '',
       })
       const matchedBinding =
         transferBagBindings.find(
           (binding) =>
-            binding.originalCutOrderId === record.originalCutOrderId &&
+            binding.cutOrderId === record.cutOrderId &&
             (!binding.ticket?.materialSku || binding.ticket.materialSku === record.materialSku) &&
             (!baseTraceAnchor?.spreadingSessionId || binding.usage?.spreadingSessionId === baseTraceAnchor.spreadingSessionId),
         ) ||
         transferBagBindings.find(
           (binding) =>
-            binding.originalCutOrderId === record.originalCutOrderId &&
+            binding.cutOrderId === record.cutOrderId &&
             (!baseTraceAnchor?.spreadingSessionId || binding.usage?.spreadingSessionId === baseTraceAnchor.spreadingSessionId),
         ) ||
         transferBagBindings.find(
           (binding) =>
-            binding.originalCutOrderId === record.originalCutOrderId &&
+            binding.cutOrderId === record.cutOrderId &&
             (!binding.ticket?.materialSku || binding.ticket.materialSku === record.materialSku),
         ) ||
-        transferBagBindings.find((binding) => binding.originalCutOrderId === record.originalCutOrderId) ||
+        transferBagBindings.find((binding) => binding.cutOrderId === record.cutOrderId) ||
         null
       const usageSession = matchedBinding?.usage?.spreadingSessionId
         ? spreadingSessionById.get(matchedBinding.usage.spreadingSessionId) || null
         : null
       const usageSessionMatchesRecord = usageSession
-        ? usageSession.originalCutOrderIds.includes(record.originalCutOrderId) ||
-          Boolean((row?.latestMergeBatchId || record.mergeBatchId) && usageSession.mergeBatchId === (row?.latestMergeBatchId || record.mergeBatchId))
+        ? usageSession.cutOrderIds.includes(record.cutOrderId) ||
+          Boolean((row?.latestMarkerPlanId || record.markerPlanId) && usageSession.markerPlanId === (row?.latestMarkerPlanId || record.markerPlanId))
         : false
       const inheritedUsageTrace =
         matchedBinding?.usage?.spreadingSessionId && usageSessionMatchesRecord
@@ -481,22 +490,26 @@ export function buildCutPieceWarehouseViewModel(
         inheritedUsageTrace ||
         baseTraceAnchor ||
         findSpreadingTraceAnchor(spreadingTraceAnchors, {
-        originalCutOrderIds: record.originalCutOrderId ? [record.originalCutOrderId] : [],
-        mergeBatchId: row?.latestMergeBatchId || record.mergeBatchId,
+        cutOrderIds: record.cutOrderId ? [record.cutOrderId] : [],
+        markerPlanId: row?.latestMarkerPlanId || record.markerPlanId,
         materialSku: record.materialSku || '',
         color: matchedBinding?.ticket?.color || '',
         })
+      const bagUsageStage = matchedBinding?.usage?.usageStage || ''
+      const bagUsageStageLabel = bagUsageStage ? getTransferBagUsageStageLabel(bagUsageStage) : ''
       const item: CutPieceWarehouseItem = {
         warehouseItemId: record.id,
-        originalCutOrderId: record.originalCutOrderId,
-        originalCutOrderNo: record.originalCutOrderNo,
+        cutOrderId: record.cutOrderId,
+        cutOrderNo: record.cutOrderNo,
         productionOrderId: record.productionOrderId,
         productionOrderNo: record.productionOrderNo,
-        mergeBatchId: row?.latestMergeBatchId || record.mergeBatchId,
-        mergeBatchNo: row?.latestMergeBatchNo || record.mergeBatchNo,
+        markerPlanId: row?.latestMarkerPlanId || record.markerPlanId,
+        markerPlanNo: row?.latestMarkerPlanNo || record.markerPlanNo,
         sourceMarkerId: traceAnchor?.sourceMarkerId || '',
         sourceMarkerNo: traceAnchor?.sourceMarkerNo || '',
         materialSku: record.materialSku,
+        materialAlias: row?.materialAlias || '',
+        materialImageUrl: row?.materialImageUrl || '',
         styleCode: row?.styleCode || '',
         spuCode: row?.spuCode || '',
         cuttingGroup: record.groupNo,
@@ -515,19 +528,21 @@ export function buildCutPieceWarehouseViewModel(
         bagUsageId: matchedBinding?.usageId || '',
         bagUsageNo: matchedBinding?.usage?.usageNo || '',
         bagCode: matchedBinding?.bagCode || '',
+        bagUsageStage,
+        bagUsageStageLabel,
         bagFirstSatisfied: Boolean(matchedBinding?.bindingId),
         bagFirstRuleLabel: matchedBinding?.bindingId
-          ? '先装袋，再入裁片仓；当前已找到正式中转袋装袋绑定。'
-          : '先装袋，再入裁片仓；当前未找到正式中转袋装袋绑定，仅作为待补链路展示。',
+          ? getTransferBagRuleLabel(bagUsageStage)
+          : '入仓后可先放入暂存袋；当前未找到暂存袋绑定，仅作为待补链路展示。',
         note: record.note,
         riskTags: deriveCutPieceRiskTags(record),
         navigationPayload: buildCutPieceWarehouseNavigationPayload({
-          originalCutOrderId: record.originalCutOrderId,
-          originalCutOrderNo: record.originalCutOrderNo,
+          cutOrderId: record.cutOrderId,
+          cutOrderNo: record.cutOrderNo,
           productionOrderId: record.productionOrderId,
           productionOrderNo: record.productionOrderNo,
-          mergeBatchId: row?.latestMergeBatchId || record.mergeBatchId,
-          mergeBatchNo: row?.latestMergeBatchNo || record.mergeBatchNo,
+          markerPlanId: row?.latestMarkerPlanId || record.markerPlanId,
+          markerPlanNo: row?.latestMarkerPlanNo || record.markerPlanNo,
           materialSku: record.materialSku,
           cuttingGroup: record.groupNo,
           zoneCode: record.zoneCode,
@@ -539,28 +554,30 @@ export function buildCutPieceWarehouseViewModel(
           bagCode: matchedBinding?.bagCode || '',
         }),
         keywordIndex: [
-          record.originalCutOrderId,
-          record.originalCutOrderNo,
+          record.cutOrderId,
+          record.cutOrderNo,
           record.productionOrderId,
           record.productionOrderNo,
           record.materialSku,
+          row?.materialAlias,
           row?.styleCode,
           row?.spuCode,
           record.groupNo,
           record.locationLabel,
-          row?.latestMergeBatchId,
-          row?.latestMergeBatchNo,
+          row?.latestMarkerPlanId,
+          row?.latestMarkerPlanNo,
           traceAnchor?.spreadingSessionId,
           traceAnchor?.sourceWritebackId,
           matchedBinding?.bagCode,
           matchedBinding?.usage?.usageNo,
+          bagUsageStageLabel,
         ]
           .filter(Boolean)
           .map((value) => String(value).toLowerCase()),
       }
       return item
     })
-    .sort((left, right) => left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN'))
+    .sort((left, right) => left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN'))
 
   return {
     items,
@@ -601,12 +618,12 @@ export function filterCutPieceWarehouseItems(
 ): CutPieceWarehouseItem[] {
   const keyword = filters.keyword.trim().toLowerCase()
   return items.filter((item) => {
-    if (prefilter?.originalCutOrderId && item.originalCutOrderId !== prefilter.originalCutOrderId) return false
-    if (prefilter?.originalCutOrderNo && item.originalCutOrderNo !== prefilter.originalCutOrderNo) return false
+    if (prefilter?.cutOrderId && item.cutOrderId !== prefilter.cutOrderId) return false
+    if (prefilter?.cutOrderNo && item.cutOrderNo !== prefilter.cutOrderNo) return false
     if (prefilter?.productionOrderId && item.productionOrderId !== prefilter.productionOrderId) return false
     if (prefilter?.productionOrderNo && item.productionOrderNo !== prefilter.productionOrderNo) return false
-    if (prefilter?.mergeBatchId && item.mergeBatchId !== prefilter.mergeBatchId) return false
-    if (prefilter?.mergeBatchNo && item.mergeBatchNo !== prefilter.mergeBatchNo) return false
+    if (prefilter?.markerPlanId && item.markerPlanId !== prefilter.markerPlanId) return false
+    if (prefilter?.markerPlanNo && item.markerPlanNo !== prefilter.markerPlanNo) return false
     if (prefilter?.materialSku && item.materialSku !== prefilter.materialSku) return false
     if (prefilter?.spreadingSessionId && item.spreadingSessionId !== prefilter.spreadingSessionId) return false
     if (prefilter?.sourceWritebackId && item.sourceWritebackId !== prefilter.sourceWritebackId) return false
@@ -626,10 +643,10 @@ export function filterCutPieceWarehouseItems(
 export function findCutPieceWarehouseByPrefilter(items: CutPieceWarehouseItem[], prefilter: CutPieceWarehousePrefilter | null): CutPieceWarehouseItem | null {
   if (!prefilter) return null
   return (
-    (prefilter.originalCutOrderId && items.find((item) => item.originalCutOrderId === prefilter.originalCutOrderId)) ||
-    (prefilter.originalCutOrderNo && items.find((item) => item.originalCutOrderNo === prefilter.originalCutOrderNo)) ||
-    (prefilter.mergeBatchId && items.find((item) => item.mergeBatchId === prefilter.mergeBatchId)) ||
-    (prefilter.mergeBatchNo && items.find((item) => item.mergeBatchNo === prefilter.mergeBatchNo)) ||
+    (prefilter.cutOrderId && items.find((item) => item.cutOrderId === prefilter.cutOrderId)) ||
+    (prefilter.cutOrderNo && items.find((item) => item.cutOrderNo === prefilter.cutOrderNo)) ||
+    (prefilter.markerPlanId && items.find((item) => item.markerPlanId === prefilter.markerPlanId)) ||
+    (prefilter.markerPlanNo && items.find((item) => item.markerPlanNo === prefilter.markerPlanNo)) ||
     (prefilter.productionOrderId && items.find((item) => item.productionOrderId === prefilter.productionOrderId)) ||
     (prefilter.productionOrderNo && items.find((item) => item.productionOrderNo === prefilter.productionOrderNo)) ||
     (prefilter.materialSku && items.find((item) => item.materialSku === prefilter.materialSku)) ||

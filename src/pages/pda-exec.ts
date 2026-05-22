@@ -537,7 +537,7 @@ function renderNotStartedCard(task: ProcessTask): string {
             <span class="text-muted-foreground">当前状态</span>
             <span class="font-medium ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.statusLabel)}</span>
             <span class="text-muted-foreground">来源方</span>
-            <span class="font-medium">WMS 来料</span>
+            <span class="font-medium">裁床领料</span>
           </div>
           <p class="mt-1 ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.hint)}</p>
         </div>

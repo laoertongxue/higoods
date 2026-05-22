@@ -444,7 +444,7 @@ const seedProductionDemands: ProductionDemand[] = [
     demandId: 'DEM-202603-0088', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '26031588', sourceSystem: 'NEW',
     spuCode: 'SPU-TSHIRT-081', spuName: '春季休闲印花短袖 T 恤', imageUrl: '/placeholder.svg?height=80&width=80',
     category: 'Mens T-Shirt', marketScopes: ['ID'], priority: 'HIGH', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v2.0',
-    requiredDeliveryDate: '2026-04-02', constraintsNote: '同款补单，允许与既有原始裁片单做执行层合批。',
+    requiredDeliveryDate: '2026-04-02', constraintsNote: '同款补单，允许与既有裁片单进入同一唛架方案。',
     skuLines: [
       { skuCode: 'SKU-081-M-RSE-2', size: 'M', color: '玫瑰红', qty: 900 },
       { skuCode: 'SKU-081-L-RSE-2', size: 'L', color: '玫瑰红', qty: 900 },

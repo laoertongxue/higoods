@@ -244,24 +244,16 @@ function main(): void {
 
   assert(
     deriveMarkerReadyForSpreading({
-      totalPieces: 12,
-      netLength: 8.4,
-      allocationStatus: 'balanced',
-      mappingStatus: 'passed',
-      layoutStatus: 'done',
+      confirmationStatus: '已确认',
     }) === true,
     '可交接铺布判定错误',
   )
 
   assert(
-    deriveMarkerPlanStatus({
-      allocationStatus: 'balanced',
-      mappingStatus: 'passed',
-      layoutStatus: 'done',
-      imageStatus: 'pending',
-      readyForSpreading: true,
-    }) === 'WAITING_IMAGE',
-    '缺图状态下的唛架主状态派生错误',
+    deriveMarkerReadyForSpreading({
+      confirmationStatus: '待确认',
+    }) === false,
+    '未确认唛架方案不得交接铺布',
   )
 
   assert(
@@ -269,20 +261,27 @@ function main(): void {
       allocationStatus: 'balanced',
       mappingStatus: 'passed',
       layoutStatus: 'done',
-      imageStatus: 'done',
-      readyForSpreading: true,
+      confirmationStatus: '待确认',
+    }) === 'WAITING_LAYOUT',
+    '待确认唛架主状态派生错误',
+  )
+
+  assert(
+    deriveMarkerPlanStatus({
+      allocationStatus: 'balanced',
+      mappingStatus: 'passed',
+      layoutStatus: 'done',
+      confirmationStatus: '已确认',
     }) === 'READY_FOR_SPREADING',
     '唛架状态派生错误',
   )
 
   assert(
     deriveMarkerPlanDefaultTab({
-      allocationStatus: 'unbalanced',
       mappingStatus: 'pending',
       layoutStatus: 'pending',
-      imageStatus: 'pending',
       lastVisitedTab: 'basic',
-    }) === 'allocation',
+    }) === 'basic',
     '默认编辑页签优先级错误',
   )
 

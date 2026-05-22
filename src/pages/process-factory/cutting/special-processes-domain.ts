@@ -1,6 +1,6 @@
 import { getCanonicalCuttingPath } from './meta.ts'
-import type { MergeBatchRecord } from './merge-batches-model.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 import type {
   BindingStripProcessPayload,
   SpecialProcessExecutionLog,
@@ -26,11 +26,11 @@ function nowText(date = new Date()): string {
 }
 
 export interface SpecialProcessSourceOption {
-  sourceType: 'ORIGINAL_CUT_ORDER' | 'MERGE_BATCH'
+  sourceType: 'CUT_ORDER' | 'MARKER_PLAN'
   sourceCutOrderId: string
   sourceCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  markerPlanId: string
+  markerPlanNo: string
   sourceProductionOrderNo: string
   styleCode: string
   spuCode: string
@@ -65,7 +65,7 @@ export interface SpecialProcessStatusValidationResult {
 const FOLLOWUP_ACTION_LABELS: Record<SpecialProcessFollowupActionType, string> = {
   GO_TRANSFER_BAG: '去中转袋流转',
   GO_CUT_PIECE_WAREHOUSE: '去裁片仓',
-  GO_ORIGINAL_CUT_ORDER: '去原始裁片单',
+  GO_CUT_ORDER: '去裁片单',
   GO_CUTTING_DASHBOARD: '去生产单进度',
   GO_CUTTING_TOTAL_TABLE: '去裁剪总结',
 }
@@ -119,23 +119,23 @@ export function deriveSpecialProcessTypeExecutionMeta(processType: SpecialProces
 }
 
 export function buildSpecialProcessSourceOptions(options: {
-  order: Pick<SpecialProcessOrder, 'sourceType' | 'originalCutOrderIds' | 'mergeBatchId' | 'mergeBatchNo'>
-  originalRows: OriginalCutOrderRow[]
-  mergeBatches: MergeBatchRecord[]
+  order: Pick<SpecialProcessOrder, 'sourceType' | 'cutOrderIds' | 'markerPlanId' | 'markerPlanNo'>
+  cutOrderRows: CutOrderRow[]
+  markerPlanRefs: MarkerPlanRefRecord[]
 }): SpecialProcessSourceOption[] {
-  const rowsById = new Map(options.originalRows.map((row) => [row.originalCutOrderId, row]))
-  if (options.order.sourceType === 'merge-batch') {
-    const batch = options.mergeBatches.find((item) => item.mergeBatchId === options.order.mergeBatchId || item.mergeBatchNo === options.order.mergeBatchNo)
+  const rowsById = new Map(options.cutOrderRows.map((row) => [row.cutOrderId, row]))
+  if (options.order.sourceType === 'marker-plan-ref') {
+    const batch = options.markerPlanRefs.find((item) => item.markerPlanId === options.order.markerPlanId || item.markerPlanNo === options.order.markerPlanNo)
     if (!batch) return []
     return batch.items
       .map((item) => {
-        const row = rowsById.get(item.originalCutOrderId)
+        const row = rowsById.get(item.cutOrderId)
         return {
-          sourceType: 'MERGE_BATCH' as const,
-          sourceCutOrderId: item.originalCutOrderId,
-          sourceCutOrderNo: item.originalCutOrderNo,
-          mergeBatchId: batch.mergeBatchId,
-          mergeBatchNo: batch.mergeBatchNo,
+          sourceType: 'MARKER_PLAN' as const,
+          sourceCutOrderId: item.cutOrderId,
+          sourceCutOrderNo: item.cutOrderNo,
+          markerPlanId: batch.markerPlanId,
+          markerPlanNo: batch.markerPlanNo,
           sourceProductionOrderNo: item.productionOrderNo,
           styleCode: item.styleCode,
           spuCode: item.spuCode,
@@ -147,15 +147,15 @@ export function buildSpecialProcessSourceOptions(options: {
       .filter((item) => item.sourceCutOrderId)
   }
 
-  return options.order.originalCutOrderIds
-    .map((originalCutOrderId) => rowsById.get(originalCutOrderId))
-    .filter((row): row is OriginalCutOrderRow => Boolean(row))
+  return options.order.cutOrderIds
+    .map((cutOrderId) => rowsById.get(cutOrderId))
+    .filter((row): row is CutOrderRow => Boolean(row))
     .map((row) => ({
-      sourceType: 'ORIGINAL_CUT_ORDER' as const,
-      sourceCutOrderId: row.originalCutOrderId,
-      sourceCutOrderNo: row.originalCutOrderNo,
-      mergeBatchId: row.activeBatchId || '',
-      mergeBatchNo: row.activeBatchNo || row.latestMergeBatchNo || '',
+      sourceType: 'CUT_ORDER' as const,
+      sourceCutOrderId: row.cutOrderId,
+      sourceCutOrderNo: row.cutOrderNo,
+      markerPlanId: row.activeMarkerPlanId || '',
+      markerPlanNo: row.activeMarkerPlanNo || row.latestMarkerPlanNo || '',
       sourceProductionOrderNo: row.productionOrderNo,
       styleCode: row.styleCode,
       spuCode: row.spuCode,
@@ -167,8 +167,8 @@ export function buildSpecialProcessSourceOptions(options: {
 
 export function buildDefaultSpecialProcessScopeLines(options: {
   order: SpecialProcessOrder
-  originalRows: OriginalCutOrderRow[]
-  mergeBatches: MergeBatchRecord[]
+  cutOrderRows: CutOrderRow[]
+  markerPlanRefs: MarkerPlanRefRecord[]
 }): SpecialProcessScopeLine[] {
   return buildSpecialProcessSourceOptions(options).map((item, index) => ({
     scopeId: `scope-${options.order.processOrderId}-${index + 1}`,
@@ -176,8 +176,8 @@ export function buildDefaultSpecialProcessScopeLines(options: {
     sourceType: item.sourceType,
     sourceCutOrderId: item.sourceCutOrderId,
     sourceCutOrderNo: item.sourceCutOrderNo,
-    mergeBatchId: item.mergeBatchId,
-    mergeBatchNo: item.mergeBatchNo,
+    markerPlanId: item.markerPlanId,
+    markerPlanNo: item.markerPlanNo,
     sourceProductionOrderNo: item.sourceProductionOrderNo,
     styleCode: item.styleCode,
     spuCode: item.spuCode,
@@ -202,8 +202,8 @@ export function hydrateScopeLineFromSource(
     sourceType: matched.sourceType,
     sourceCutOrderId: matched.sourceCutOrderId,
     sourceCutOrderNo: matched.sourceCutOrderNo,
-    mergeBatchId: matched.mergeBatchId,
-    mergeBatchNo: matched.mergeBatchNo,
+    markerPlanId: matched.markerPlanId,
+    markerPlanNo: matched.markerPlanNo,
     sourceProductionOrderNo: matched.sourceProductionOrderNo,
     styleCode: matched.styleCode,
     spuCode: matched.spuCode,
@@ -239,10 +239,10 @@ export function buildDefaultSpecialProcessFollowupActions(options: {
       targetQuery: options.navigationPayload.cutPieceWarehouse,
     },
     {
-      actionType: 'GO_ORIGINAL_CUT_ORDER',
-      targetPageKey: 'original-orders',
-      targetPath: getCanonicalCuttingPath('original-orders'),
-      targetQuery: options.navigationPayload.originalOrders,
+      actionType: 'GO_CUT_ORDER',
+      targetPageKey: 'cut-orders',
+      targetPath: getCanonicalCuttingPath('cut-orders'),
+      targetQuery: options.navigationPayload.cutOrders,
     },
     {
       actionType: 'GO_CUTTING_DASHBOARD',

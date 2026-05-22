@@ -11,13 +11,11 @@ import {
   applyPocketBindingLocksToTicketRecords,
   buildSystemSeedTransferBagStore,
   buildTransferBagViewModel,
-  createTransferBagDispatchManifest,
   mergeTransferBagStores,
   type TransferBagStore,
   type TransferBagViewModel,
   type TransferBagItemBinding,
   type TransferBagUsage,
-  type SewingTaskRef,
 } from './transfer-bags-model.ts'
 import {
   buildSpreadingTraceAnchors,
@@ -49,9 +47,9 @@ import { getCuttingRuntimeStorageSignature } from '../../../data/fcs/cutting/run
 
 export interface CuttingTraceabilityProjectionContext {
   snapshot: CuttingDomainSnapshot
-  originalRows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['originalRows']
+  cutOrderRows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['cutOrderRows']
   materialPrepRows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows']
-  mergeBatches: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['mergeBatches']
+  markerPlanRefs: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanRefs']
   markerStore: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerStore']
   spreadingStore: MarkerSpreadingStore
   spreadingTraceAnchors: SpreadingTraceAnchor[]
@@ -86,8 +84,8 @@ function mergeTicketRecords(seed: FeiTicketLabelRecord[], stored: FeiTicketLabel
   const merged = new Map(seed.map((record) => [record.ticketRecordId, record]))
   stored.forEach((record) => merged.set(record.ticketRecordId, record))
   return Array.from(merged.values()).sort((left, right) => {
-    if (left.originalCutOrderNo !== right.originalCutOrderNo) {
-      return left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+    if (left.cutOrderNo !== right.cutOrderNo) {
+      return left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
     }
     if (left.sequenceNo !== right.sequenceNo) return left.sequenceNo - right.sequenceNo
     const leftVersion = left.version ?? left.reprintCount + 1
@@ -114,7 +112,7 @@ function resolveTraceabilitySessionColors(session: MarkerSpreadingStore['session
   const rollColors = session.rolls.map((item) => item.color).filter(Boolean)
   if (rollColors.length) return uniqueStrings(rollColors)
   const contextColors = materialPrepRows
-    .filter((row) => session.originalCutOrderIds.includes(row.originalCutOrderId))
+    .filter((row) => session.cutOrderIds.includes(row.cutOrderId))
     .map((row) => row.color)
   return uniqueStrings(contextColors)
 }
@@ -122,21 +120,21 @@ function resolveTraceabilitySessionColors(session: MarkerSpreadingStore['session
 function buildTraceabilitySpreadingContext(
   session: MarkerSpreadingStore['sessions'][number],
   materialPrepRows: CuttingTraceabilityProjectionContext['materialPrepRows'],
-  mergeBatches: CuttingTraceabilityProjectionContext['mergeBatches'],
+  markerPlanRefs: CuttingTraceabilityProjectionContext['markerPlanRefs'],
 ) {
-  const relatedRows = materialPrepRows.filter((row) => session.originalCutOrderIds.includes(row.originalCutOrderId))
+  const relatedRows = materialPrepRows.filter((row) => session.cutOrderIds.includes(row.cutOrderId))
   const batch =
-    (session.mergeBatchId
-      ? mergeBatches.find((item) => item.mergeBatchId === session.mergeBatchId)
-      : mergeBatches.find((item) => item.mergeBatchNo === session.mergeBatchNo)) || null
+    (session.markerPlanId
+      ? markerPlanRefs.find((item) => item.markerPlanId === session.markerPlanId)
+      : markerPlanRefs.find((item) => item.markerPlanNo === session.markerPlanNo)) || null
   if (!relatedRows.length && !batch) return null
 
   return {
     contextType: session.contextType,
-    originalCutOrderIds: [...session.originalCutOrderIds],
-    originalCutOrderNos: relatedRows.map((row) => row.originalCutOrderNo),
-    mergeBatchId: session.mergeBatchId || batch?.mergeBatchId || '',
-    mergeBatchNo: session.mergeBatchNo || batch?.mergeBatchNo || '',
+    cutOrderIds: [...session.cutOrderIds],
+    cutOrderNos: relatedRows.map((row) => row.cutOrderNo),
+    markerPlanId: session.markerPlanId || batch?.markerPlanId || '',
+    markerPlanNo: session.markerPlanNo || batch?.markerPlanNo || '',
     productionOrderNos: uniqueStrings(relatedRows.map((row) => row.productionOrderNo)),
     styleCode: session.styleCode || relatedRows[0]?.styleCode || batch?.styleCode || '',
     spuCode: session.spuCode || relatedRows[0]?.spuCode || batch?.spuCode || '',
@@ -156,7 +154,7 @@ function buildTraceabilitySpreadingContext(
 function ensureTraceabilityTicketRecords(options: {
   ticketRecords: FeiTicketLabelRecord[]
   materialPrepRows: CuttingTraceabilityProjectionContext['materialPrepRows']
-  mergeBatches: CuttingTraceabilityProjectionContext['mergeBatches']
+  markerPlanRefs: CuttingTraceabilityProjectionContext['markerPlanRefs']
   spreadingStore: MarkerSpreadingStore
 }) {
   const tickets = [...options.ticketRecords]
@@ -165,29 +163,29 @@ function ensureTraceabilityTicketRecords(options: {
   options.spreadingStore.sessions
     .filter((item) => item.status === 'DONE')
     .forEach((session, sessionIndex) => {
-      const existingTickets = tickets.filter((item) => session.originalCutOrderIds.includes(item.originalCutOrderId))
+      const existingTickets = tickets.filter((item) => session.cutOrderIds.includes(item.cutOrderId))
       if (existingTickets.length) return
 
-      const relatedRows = options.materialPrepRows.filter((row) => session.originalCutOrderIds.includes(row.originalCutOrderId))
+      const relatedRows = options.materialPrepRows.filter((row) => session.cutOrderIds.includes(row.cutOrderId))
       if (!relatedRows.length) return
 
       relatedRows.forEach((row, rowIndex) => {
         const ticketRecordId = `trace-ticket-${sanitizeTraceabilityId(session.spreadingSessionId)}-${rowIndex + 1}`
         if (ticketIds.has(ticketRecordId)) return
-        const ticketNo = `FT-${row.originalCutOrderNo}-TRACE-${String(rowIndex + 1).padStart(3, '0')}`
+        const ticketNo = `FT-${row.cutOrderNo}-TRACE-${String(rowIndex + 1).padStart(3, '0')}`
         const size = '均码'
         const partName = '前后片'
         const materialSku = row.materialLineItems[0]?.materialSku || row.materialSkuSummary
-        const mergeBatch =
-          (session.mergeBatchId
-            ? options.mergeBatches.find((item) => item.mergeBatchId === session.mergeBatchId)
-            : options.mergeBatches.find((item) => item.mergeBatchNo === session.mergeBatchNo || item.items.some((detail) => detail.originalCutOrderId === row.originalCutOrderId))) ||
+        const markerPlanRef =
+          (session.markerPlanId
+            ? options.markerPlanRefs.find((item) => item.markerPlanId === session.markerPlanId)
+            : options.markerPlanRefs.find((item) => item.markerPlanNo === session.markerPlanNo || item.items.some((detail) => detail.cutOrderId === row.cutOrderId))) ||
           null
         const traceTicket: FeiTicketLabelRecord = {
           ticketRecordId,
           ticketNo,
-          originalCutOrderId: row.originalCutOrderId,
-          originalCutOrderNo: row.originalCutOrderNo,
+          cutOrderId: row.cutOrderId,
+          cutOrderNo: row.cutOrderNo,
           productionOrderNo: row.productionOrderNo,
           styleCode: row.styleCode,
           spuCode: row.spuCode,
@@ -201,12 +199,12 @@ function ensureTraceabilityTicketRecords(options: {
           printedBy: session.completedBy || session.updatedBy || '系统示例',
           reprintCount: 0,
           sourcePrintJobId: `trace-print-job-${sanitizeTraceabilityId(session.spreadingSessionId)}-${rowIndex + 1}`,
-          sourceContextType: session.contextType === 'merge-batch' ? 'merge-batch' : 'original-order',
-          sourceMergeBatchId: session.mergeBatchId || mergeBatch?.mergeBatchId || '',
-          sourceMergeBatchNo: session.mergeBatchNo || mergeBatch?.mergeBatchNo || '',
-          printableUnitId: session.contextType === 'merge-batch' ? `batch:${session.mergeBatchId || session.mergeBatchNo}` : `cut-order:${row.originalCutOrderId}`,
-          printableUnitNo: session.contextType === 'merge-batch' ? session.mergeBatchNo || mergeBatch?.mergeBatchNo || '' : row.originalCutOrderNo,
-          printableUnitType: session.contextType === 'merge-batch' ? 'merge-batch' : 'original-cut-order',
+          sourceContextType: session.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
+          sourceMarkerPlanId: session.markerPlanId || markerPlanRef?.markerPlanId || '',
+          sourceMarkerPlanNo: session.markerPlanNo || markerPlanRef?.markerPlanNo || '',
+          printableUnitId: session.contextType === 'marker-plan-ref' ? `marker-plan:${session.markerPlanId || session.markerPlanNo}` : `cut-order:${row.cutOrderId}`,
+          printableUnitNo: session.contextType === 'marker-plan-ref' ? session.markerPlanNo || markerPlanRef?.markerPlanNo || '' : row.cutOrderNo,
+          printableUnitType: session.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
           sourceProductionOrderId: row.productionOrderId,
           partName,
           size,
@@ -229,23 +227,23 @@ function ensureTraceabilityTicketRecords(options: {
 function hydrateTraceabilitySpreadingStore(options: {
   store: MarkerSpreadingStore
   materialPrepRows: CuttingTraceabilityProjectionContext['materialPrepRows']
-  mergeBatches: CuttingTraceabilityProjectionContext['mergeBatches']
+  markerPlanRefs: CuttingTraceabilityProjectionContext['markerPlanRefs']
   markerStore: CuttingTraceabilityProjectionContext['markerStore']
 }) {
   let nextStore = options.store
   const targetSessions = [
-    nextStore.sessions.find((item) => item.contextType === 'original-order' && item.status === 'DONE') ||
-      nextStore.sessions.find((item) => item.contextType === 'original-order') ||
+    nextStore.sessions.find((item) => item.contextType === 'cut-order' && item.status === 'DONE') ||
+      nextStore.sessions.find((item) => item.contextType === 'cut-order') ||
       null,
-    nextStore.sessions.find((item) => item.contextType === 'merge-batch' && item.status === 'DONE') ||
-      nextStore.sessions.find((item) => item.contextType === 'merge-batch') ||
+    nextStore.sessions.find((item) => item.contextType === 'marker-plan-ref' && item.status === 'DONE') ||
+      nextStore.sessions.find((item) => item.contextType === 'marker-plan-ref') ||
       null,
   ].filter(Boolean)
 
   targetSessions.forEach((targetSession, index) => {
     const session = nextStore.sessions.find((item) => item.spreadingSessionId === targetSession!.spreadingSessionId)
     if (!session) return
-    const context = buildTraceabilitySpreadingContext(session, options.materialPrepRows, options.mergeBatches)
+    const context = buildTraceabilitySpreadingContext(session, options.materialPrepRows, options.markerPlanRefs)
     if (!context) return
     const writebackDraft =
       buildMockPdaWritebacks({ context, sessions: [session] }).find(
@@ -280,13 +278,13 @@ function hydrateTraceabilitySpreadingStore(options: {
 
     const latestSession = nextStore.sessions.find((item) => item.spreadingSessionId === (applyResult.updatedSessionId || applyResult.createdSessionId || session.spreadingSessionId))
     if (!latestSession) return
-    if (latestSession.contextType === 'merge-batch' && latestSession.status !== 'DONE') {
+    if (latestSession.contextType === 'marker-plan-ref' && latestSession.status !== 'DONE') {
       const markerRecord = (options.markerStore as MarkerSpreadingStore | null)?.markers?.find((item) => item.markerId === latestSession.markerId) || null
       const finalized = finalizeSpreadingCompletion({
         session: latestSession,
         context,
-        linkedOriginalCutOrderIds: [...context.originalCutOrderIds],
-        linkedOriginalCutOrderNos: [...context.originalCutOrderNos],
+        linkedCutOrderIds: [...context.cutOrderIds],
+        linkedCutOrderNos: [...context.cutOrderNos],
         productionOrderNos: [...context.productionOrderNos],
         markerTotalPieces: markerRecord?.totalPieces || latestSession.actualCutPieceQty || 0,
         materialAttr: context.materialPrepRows[0]?.materialLabel || context.materialPrepRows[0]?.materialCategory || '',
@@ -304,7 +302,7 @@ function ensureTraceabilityBagFirstSeed(options: {
   store: TransferBagStore
   ticketRecords: FeiTicketLabelRecord[]
   materialPrepRows: CuttingTraceabilityProjectionContext['materialPrepRows']
-  mergeBatches: CuttingTraceabilityProjectionContext['mergeBatches']
+  markerPlanRefs: CuttingTraceabilityProjectionContext['markerPlanRefs']
   spreadingStore: MarkerSpreadingStore
 }) {
   let nextStore = options.store
@@ -320,8 +318,8 @@ function ensureTraceabilityBagFirstSeed(options: {
     )
     .slice()
     .sort((left, right) => {
-      const leftScore = (left.sourceWritebackId ? 8 : 0) + (left.contextType === 'merge-batch' ? 4 : 0)
-      const rightScore = (right.sourceWritebackId ? 8 : 0) + (right.contextType === 'merge-batch' ? 4 : 0)
+      const leftScore = (left.sourceWritebackId ? 8 : 0) + (left.contextType === 'marker-plan-ref' ? 4 : 0)
+      const rightScore = (right.sourceWritebackId ? 8 : 0) + (right.contextType === 'marker-plan-ref' ? 4 : 0)
       if (leftScore !== rightScore) return rightScore - leftScore
       return right.updatedAt.localeCompare(left.updatedAt, 'zh-CN')
     })
@@ -341,33 +339,33 @@ function ensureTraceabilityBagFirstSeed(options: {
   targetSessions.forEach((session, index) => {
     const sessionId = session!.spreadingSessionId
     const sessionNo = session!.sessionNo || session!.spreadingSessionId
-    const relatedRows = options.materialPrepRows.filter((row) => session!.originalCutOrderIds.includes(row.originalCutOrderId))
+    const relatedRows = options.materialPrepRows.filter((row) => session!.cutOrderIds.includes(row.cutOrderId))
     const colors = resolveTraceabilitySessionColors(session!, options.materialPrepRows)
     const traceAnchor =
       traceAnchors.find((item) => item.spreadingSessionId === sessionId) ||
       findSpreadingTraceAnchor(traceAnchors, {
-        originalCutOrderIds: session!.originalCutOrderIds,
-        mergeBatchId: session!.mergeBatchId,
+        cutOrderIds: session!.cutOrderIds,
+        markerPlanId: session!.markerPlanId,
         materialSku: session!.materialSkuSummary || relatedRows[0]?.materialSkuSummary || '',
         color: colors[0] || '',
       })
     const candidateTickets = options.ticketRecords.filter((ticket) =>
-      session!.originalCutOrderIds.includes(ticket.originalCutOrderId),
+      session!.cutOrderIds.includes(ticket.cutOrderId),
     )
     const existingBindings = nextStore.bindings.filter((binding) =>
-      session!.originalCutOrderIds.includes(binding.originalCutOrderId),
+      session!.cutOrderIds.includes(binding.cutOrderId),
     )
     const existingUsageIds = uniqueStrings(existingBindings.map((binding) => binding.usageId))
     const existingUsageMatches = existingUsageIds.some((usageId) => {
       const bindings = nextStore.bindings.filter((binding) => binding.usageId === usageId)
-      const originalIds = uniqueStrings(bindings.map((binding) => binding.originalCutOrderId))
-      const mergeBatchId =
+      const cutOrderIds = uniqueStrings(bindings.map((binding) => binding.cutOrderId))
+      const markerPlanId =
         uniqueStrings(
           bindings.map((binding) => {
             const ticket = options.ticketRecords.find((item) => item.ticketRecordId === binding.ticketRecordId)
-            return ticket?.sourceMergeBatchId || ''
+            return ticket?.sourceMarkerPlanId || ''
           }),
-        )[0] || session!.mergeBatchId || ''
+        )[0] || session!.markerPlanId || ''
       const materialSku =
         uniqueStrings(
           bindings.map((binding) => {
@@ -383,8 +381,8 @@ function ensureTraceabilityBagFirstSeed(options: {
           }),
         )[0] || ''
       const matchedAnchor = findSpreadingTraceAnchor(traceAnchors, {
-        originalCutOrderIds: originalIds,
-        mergeBatchId,
+        cutOrderIds,
+        markerPlanId,
         materialSku,
         color,
       })
@@ -407,14 +405,14 @@ function ensureTraceabilityBagFirstSeed(options: {
       nextStore.masters[0] ||
       null
     const sewingTask =
-      (session!.mergeBatchNo
-        ? nextStore.sewingTasks.find((item) => item.sewingTaskId === `sewing-task-${sanitizeTraceabilityId(session!.mergeBatchNo || '')}`)
+      (session!.markerPlanNo
+        ? nextStore.sewingTasks.find((item) => item.sewingTaskId === `sewing-task-${sanitizeTraceabilityId(session!.markerPlanNo || '')}`)
         : null) ||
       nextStore.sewingTasks.find((item) => item.styleCode === session!.styleCode && item.spuCode === session!.spuCode) ||
       nextStore.sewingTasks.find((item) => item.styleCode === session!.styleCode) ||
       nextStore.sewingTasks[0] ||
       null
-    if (!bag || !sewingTask) return
+    if (!bag) return
 
     const nowText = session!.completedAt || session!.updatedFromPdaAt || session!.updatedAt || '2026-04-03 09:00'
     const usageId = `traceability-usage-${sanitizeTraceabilityId(sessionId)}`
@@ -426,31 +424,33 @@ function ensureTraceabilityBagFirstSeed(options: {
       carrierId: bag.carrierId,
       carrierCode: bag.carrierCode,
       carrierType: bag.carrierType,
-      cycleStatus: 'READY_TO_DISPATCH',
+      cycleStatus: 'PACKING',
       usageId,
       usageNo,
       bagId: bag.bagId,
       bagCode: bag.bagCode,
-      sewingTaskId: sewingTask.sewingTaskId,
-      sewingTaskNo: sewingTask.sewingTaskNo,
-      sewingFactoryId: sewingTask.sewingFactoryId,
-      sewingFactoryName: sewingTask.sewingFactoryName,
-      styleCode: session!.styleCode || sewingTask.styleCode,
-      spuCode: session!.spuCode || sewingTask.spuCode,
-      skuSummary: uniqueStrings(tickets.map((item) => item.materialSku)).join(' / ') || session!.materialSkuSummary || sewingTask.skuSummary,
-      colorSummary: colors.join(' / ') || sewingTask.colorSummary,
-      sizeSummary: uniqueStrings(tickets.map((item) => item.size || '')).join(' / ') || sewingTask.sizeSummary,
-      usageStatus: 'READY_TO_DISPATCH',
+      sewingTaskId: '',
+      sewingTaskNo: '',
+      sewingFactoryId: '',
+      sewingFactoryName: '',
+      styleCode: session!.styleCode || sewingTask?.styleCode || '混款',
+      spuCode: session!.spuCode || sewingTask?.spuCode || '多 SKU',
+      skuSummary: uniqueStrings(tickets.map((item) => item.materialSku)).join(' / ') || session!.materialSkuSummary || sewingTask?.skuSummary || '混装菲票',
+      colorSummary: colors.join(' / ') || sewingTask?.colorSummary || '多色',
+      sizeSummary: uniqueStrings(tickets.map((item) => item.size || '')).join(' / ') || sewingTask?.sizeSummary || '多尺码',
+      usageStatus: 'PACKING',
       packedTicketCount: tickets.length,
-      packedOriginalCutOrderCount: uniqueStrings(tickets.map((item) => item.originalCutOrderNo)).length,
+      packedCutOrderCount: uniqueStrings(tickets.map((item) => item.cutOrderNo)).length,
       startedAt: nowText,
       finishedPackingAt: nowText,
-      dispatchAt: nowText,
-      dispatchBy: operatorName,
+      dispatchAt: '',
+      dispatchBy: '',
       signoffStatus: 'PENDING',
+      usageStage: 'INBOUND_TEMP',
+      usageStageLabel: '入仓暂存',
       note: session!.sourceWritebackId
-        ? `由 ${sessionNo}（工厂端回写 ${session!.sourceWritebackId}）完成后自动补齐正式装袋链路。`
-        : `由 ${sessionNo} 完成后自动补齐正式装袋链路。`,
+        ? `由 ${sessionNo}（工厂端回写 ${session!.sourceWritebackId}）完成后自动补齐入仓暂存袋链路。`
+        : `由 ${sessionNo} 完成后自动补齐入仓暂存袋链路。`,
     }
 
     const bindings: TransferBagItemBinding[] = tickets.map((ticket, ticketIndex) => ({
@@ -472,11 +472,11 @@ function ensureTraceabilityBagFirstSeed(options: {
       bagCode: usage.bagCode,
       ticketRecordId: ticket.ticketRecordId,
       ticketNo: ticket.ticketNo,
-      originalCutOrderId: ticket.originalCutOrderId,
-      originalCutOrderNo: ticket.originalCutOrderNo,
+      cutOrderId: ticket.cutOrderId,
+      cutOrderNo: ticket.cutOrderNo,
       productionOrderNo: ticket.productionOrderNo,
-      mergeBatchNo: ticket.mergeBatchNo || session!.mergeBatchNo || '',
-      裁剪批次No: ticket.mergeBatchNo || session!.mergeBatchNo || '',
+      markerPlanNo: ticket.markerPlanNo || session!.markerPlanNo || '',
+      唛架方案No: ticket.markerPlanNo || session!.markerPlanNo || '',
       qty: Math.max(ticket.qty || 0, 1),
       garmentQty: Math.max(ticket.qty || 0, 1),
       boundAt: nowText,
@@ -484,30 +484,15 @@ function ensureTraceabilityBagFirstSeed(options: {
       operator: operatorName,
       status: 'BOUND',
       note: traceAnchor?.sourceWritebackId
-        ? `由 ${sessionNo}（工厂端回写 ${traceAnchor.sourceWritebackId}）形成正式装袋绑定。`
-        : `由 ${sessionNo} 形成正式装袋绑定。`,
+        ? `由 ${sessionNo}（工厂端回写 ${traceAnchor.sourceWritebackId}）形成入仓暂存袋绑定。`
+        : `由 ${sessionNo} 形成入仓暂存袋绑定。`,
     }))
-    const summary = {
-      ticketCount: bindings.length,
-      originalCutOrderCount: uniqueStrings(bindings.map((item) => item.originalCutOrderNo)).length,
-      productionOrderCount: uniqueStrings(bindings.map((item) => item.productionOrderNo)).length,
-      mergeBatchCount: uniqueStrings(bindings.map((item) => item.mergeBatchNo)).length,
-      quantityTotal: bindings.reduce((sum, item) => sum + Math.max(item.qty, 0), 0),
-    }
-
-    const manifest = createTransferBagDispatchManifest({
-      usage,
-      summary,
-      nowText,
-      createdBy: operatorName,
-      note: '由铺布完成链路自动生成的中转袋交接清单。',
-    })
     const audit = buildBagUsageAuditTrail({
       usageId: usage.usageId,
       action: 'TRACEABILITY_AUTOLINK',
       actionAt: nowText,
       actionBy: operatorName,
-      note: '自动补齐先装袋后入仓主链，确保后续裁片仓与追溯统一基于正式装袋映射。',
+      note: '自动补齐入仓暂存袋映射，裁片交出前仍需按车缝任务二次分拣。',
     })
 
     const nextUsages = nextStore.usages.filter((item) => item.usageId !== usage.usageId)
@@ -526,15 +511,15 @@ function ensureTraceabilityBagFirstSeed(options: {
               latestCycleId: usage.usageId,
               latestCycleNo: usage.usageNo,
               currentCycleId: usage.usageId,
-              currentOwnerTaskId: usage.sewingTaskId,
+              currentOwnerTaskId: '',
               currentStatus: 'IN_USE',
-              note: item.note || '当前口袋用于铺布完成后的正式装袋追溯链。',
+              note: item.note || '当前口袋用于铺布完成后的入仓暂存追溯链。',
             }
           : item,
       ),
       usages: [...nextUsages, usage],
       bindings: nextBindings,
-      manifests: [...nextStore.manifests.filter((item) => item.manifestId !== manifest.manifestId), manifest],
+      manifests: nextStore.manifests,
       auditTrail: [...nextStore.auditTrail.filter((item) => item.auditTrailId !== audit.auditTrailId), audit],
     }
     usedBagIds.add(bag.bagId)
@@ -564,26 +549,26 @@ export function buildCuttingTraceabilityProjectionContext(
 
   const context = buildExecutionPrepProjectionContext(snapshot)
   const effectiveSnapshot = context.snapshot
-  const originalRows = context.sources.originalRows
+  const cutOrderRows = context.sources.cutOrderRows
   const materialPrepRows = context.sources.materialPrepRows
-  const mergeBatches = context.sources.mergeBatches
+  const markerPlanRefs = context.sources.markerPlanRefs
   const markerStore = context.sources.markerStore
   const prototypeSpreadingStore = buildMarkerSpreadingPrototypeStore({
     rows: materialPrepRows,
-    mergeBatches,
+    markerPlanRefs,
     stored: markerStore as unknown as MarkerSpreadingStore,
   })
   const spreadingStore = hydrateTraceabilitySpreadingStore({
     store: prototypeSpreadingStore,
     materialPrepRows,
-    mergeBatches,
+    markerPlanRefs,
     markerStore,
   })
   const spreadingTraceAnchors = buildSpreadingTraceAnchors(spreadingStore)
   const seedLedger = buildSystemSeedFeiTicketLedger({
-    originalRows,
+    cutOrderRows,
     materialPrepRows,
-    mergeBatches,
+    markerPlanRefs,
     markerStore,
   })
   const mergedRawTicketRecords = mergeTicketRecords(
@@ -593,14 +578,14 @@ export function buildCuttingTraceabilityProjectionContext(
   const rawTicketRecords = ensureTraceabilityTicketRecords({
     ticketRecords: mergedRawTicketRecords,
     materialPrepRows,
-    mergeBatches,
+    markerPlanRefs,
     spreadingStore,
   })
   const printJobs = mergePrintJobs(seedLedger.printJobs, castPrintJobs(effectiveSnapshot.feiTicketState.printJobs))
   const seedTransferBagStore = buildSystemSeedTransferBagStore({
-    originalRows,
+    cutOrderRows,
     ticketRecords: rawTicketRecords,
-    mergeBatches,
+    markerPlanRefs,
   })
   const mergedTransferBagStore = storeOverride
     ? mergeTransferBagStores(seedTransferBagStore, storeOverride)
@@ -609,23 +594,23 @@ export function buildCuttingTraceabilityProjectionContext(
     store: mergedTransferBagStore,
     ticketRecords: rawTicketRecords,
     materialPrepRows,
-    mergeBatches,
+    markerPlanRefs,
     spreadingStore,
   })
   const ticketRecords = applyPocketBindingLocksToTicketRecords(rawTicketRecords, transferBagStore)
   const printableViewModel = buildPrintableUnitViewModel({
-    originalRows,
+    cutOrderRows,
     materialPrepRows,
-    mergeBatches,
+    markerPlanRefs,
     markerStore,
     ticketRecords,
     printJobs,
     prefilter: null,
   })
   const transferBagViewModel = buildTransferBagViewModel({
-    originalRows,
+    cutOrderRows,
     ticketRecords,
-    mergeBatches,
+    markerPlanRefs,
     store: transferBagStore,
     spreadingStore,
   })
@@ -636,9 +621,9 @@ export function buildCuttingTraceabilityProjectionContext(
 
   const nextContext = {
     snapshot: context.snapshot,
-    originalRows,
+    cutOrderRows,
     materialPrepRows,
-    mergeBatches,
+    markerPlanRefs,
     markerStore,
     spreadingStore,
     spreadingTraceAnchors,
@@ -699,10 +684,10 @@ export function resolveFeiTicketScanInput(input: string, ticketRecords: FeiTicke
 
 export interface SpreadingBagWarehouseTraceItemLike {
   warehouseItemId: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   spreadingSessionId: string
   spreadingSessionNo: string
@@ -716,10 +701,10 @@ export interface SpreadingBagWarehouseTraceItemLike {
 
 export interface SpreadingBagWarehouseTraceProjectionRow {
   warehouseItemId: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   spreadingSessionId: string
   spreadingSessionNo: string
@@ -744,10 +729,10 @@ export function buildSpreadingBagWarehouseTraceProjection(options: {
       const usage = usageMap[item.bagUsageId] || null
       return {
         warehouseItemId: item.warehouseItemId,
-        originalCutOrderId: item.originalCutOrderId,
-        originalCutOrderNo: item.originalCutOrderNo,
-        mergeBatchId: item.mergeBatchId,
-        mergeBatchNo: item.mergeBatchNo,
+        cutOrderId: item.cutOrderId,
+        cutOrderNo: item.cutOrderNo,
+        markerPlanId: item.markerPlanId,
+        markerPlanNo: item.markerPlanNo,
         materialSku: item.materialSku,
         spreadingSessionId: item.spreadingSessionId || usage?.spreadingSessionId || '',
         spreadingSessionNo: item.spreadingSessionNo || usage?.spreadingSessionNo || '',
@@ -771,6 +756,6 @@ export function buildSpreadingBagWarehouseTraceProjection(options: {
         (right.sourceWritebackId ? 2 : 0) +
         (right.bagFirstSatisfied ? 1 : 0)
       if (leftScore !== rightScore) return rightScore - leftScore
-      return left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+      return left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
     })
 }

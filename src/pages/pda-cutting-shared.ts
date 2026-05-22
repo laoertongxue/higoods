@@ -10,6 +10,7 @@ import {
   readSelectedExecutionOrderIdFromLocation,
   readSelectedExecutionOrderNoFromLocation,
 } from './pda-cutting-context'
+import { renderMaterialIdentityBlock } from './process-factory/cutting/material-identity'
 import { renderPdaFrame, type PdaTabKey } from './pda-shell'
 
 interface CuttingSummaryItem {
@@ -137,10 +138,17 @@ export function renderPdaCuttingTaskHero(detail: PdaCuttingTaskDetailData): stri
         ${renderChip(detail.currentStage, 'border-blue-200 bg-blue-50 text-blue-700')}
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <div class="rounded-xl bg-muted/40 px-2.5 py-2">
-          <div class="text-muted-foreground">面料信息</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.materialSku)}</div>
-          <div class="mt-1 text-muted-foreground">${escapeHtml(detail.materialTypeLabel)}</div>
+        <div class="col-span-2 rounded-xl bg-muted/40 px-2.5 py-2">
+          <div class="mb-1 text-muted-foreground">面料信息</div>
+          ${renderMaterialIdentityBlock(
+            {
+              materialSku: detail.materialSku,
+              materialLabel: detail.materialTypeLabel,
+              materialAlias: detail.materialAlias,
+              materialImageUrl: detail.materialImageUrl,
+            },
+            { compact: true, showCategory: false },
+          )}
         </div>
         <div class="rounded-xl bg-muted/40 px-2.5 py-2">
           <div class="text-muted-foreground">裁片单二维码摘要</div>
@@ -171,11 +179,19 @@ export function renderPdaCuttingExecutionHero(stepTitle: string, detail: PdaCutt
         <article class="rounded-xl border bg-muted/20 px-2.5 py-2">
           <div class="text-muted-foreground">执行对象</div>
           <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div>
-          <div class="mt-1 text-[11px] text-muted-foreground">绑定原始裁片单 ${escapeHtml(detail.originalCutOrderNo)}</div>
+          <div class="mt-1 text-[11px] text-muted-foreground">绑定裁片单 ${escapeHtml(detail.cutOrderNo)}</div>
         </article>
-        <article class="rounded-xl border bg-muted/20 px-2.5 py-2">
-          <div class="text-muted-foreground">面料 SKU</div>
-          <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div>
+        <article class="col-span-2 rounded-xl border bg-muted/20 px-2.5 py-2">
+          <div class="mb-1 text-muted-foreground">面料信息</div>
+          ${renderMaterialIdentityBlock(
+            {
+              materialSku: detail.materialSku,
+              materialLabel: detail.materialTypeLabel,
+              materialAlias: detail.materialAlias,
+              materialImageUrl: detail.materialImageUrl,
+            },
+            { compact: true, showCategory: false },
+          )}
         </article>
         <article class="rounded-xl border bg-muted/20 px-2.5 py-2">
           <div class="text-muted-foreground">面料类型</div>
@@ -292,10 +308,10 @@ export function renderPdaCuttingQuickLinks(
     includeTaskDetail?: boolean
     executionOrderId?: string
     executionOrderNo?: string
-    originalCutOrderId?: string
-    originalCutOrderNo?: string
-    mergeBatchId?: string
-    mergeBatchNo?: string
+    cutOrderId?: string
+    cutOrderNo?: string
+    markerPlanId?: string
+    markerPlanNo?: string
     materialSku?: string
     returnTo?: string
   },
@@ -307,10 +323,10 @@ export function renderPdaCuttingQuickLinks(
           href: buildPdaCuttingRoute(taskId, 'task', {
             executionOrderId: options?.executionOrderId,
             executionOrderNo: options?.executionOrderNo,
-            originalCutOrderId: options?.originalCutOrderId,
-            originalCutOrderNo: options?.originalCutOrderNo,
-            mergeBatchId: options?.mergeBatchId,
-            mergeBatchNo: options?.mergeBatchNo,
+            cutOrderId: options?.cutOrderId,
+            cutOrderNo: options?.cutOrderNo,
+            markerPlanId: options?.markerPlanId,
+            markerPlanNo: options?.markerPlanNo,
             materialSku: options?.materialSku,
             returnTo: options?.returnTo,
           }),

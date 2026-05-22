@@ -9,9 +9,9 @@ import {
 } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
 import { generateProductionArtifactsForOrder } from '../src/data/fcs/production-artifact-generation.ts'
 import {
-  listGeneratedOriginalCutOrderSourceRecords,
-  resetGeneratedOriginalCutOrderSourceCache,
-} from '../src/data/fcs/cutting/generated-original-cut-orders.ts'
+  listGeneratedCutOrderSourceRecords,
+  resetGeneratedCutOrderSourceCache,
+} from '../src/data/fcs/cutting/generated-cut-orders.ts'
 import { listMaterialRequestDraftsByOrder } from '../src/data/fcs/material-request-drafts.ts'
 
 function read(relativePath: string): string {
@@ -36,14 +36,14 @@ assert.ok(
   '任务拆解产物必须记录来源技术包版本主键',
 )
 
-resetGeneratedOriginalCutOrderSourceCache()
-const cutOrders = listGeneratedOriginalCutOrderSourceRecords().filter(
+resetGeneratedCutOrderSourceCache()
+const cutOrders = listGeneratedCutOrderSourceRecords().filter(
   (item) => item.productionOrderId === order!.productionOrderId,
 )
-assert.ok(cutOrders.length > 0, '原始裁片单生成必须仍能从生产单快照纸样与款色映射生成')
+assert.ok(cutOrders.length > 0, '裁片单生成必须仍能从生产单快照纸样与款色映射生成')
 assert.ok(
   cutOrders.every((item) => item.techPackVersionLabel === snapshot!.sourceTechPackVersionLabel),
-  '原始裁片单必须带出快照来源版本标签',
+  '裁片单必须带出快照来源版本标签',
 )
 
 const materialDrafts = listMaterialRequestDraftsByOrder(order!.productionOrderId)
@@ -57,7 +57,7 @@ assert.ok(
   'src/data/fcs/material-request-drafts.ts',
   'src/data/fcs/task-detail-rows.ts',
   'src/data/fcs/production-artifact-generation.ts',
-  'src/data/fcs/cutting/generated-original-cut-orders.ts',
+  'src/data/fcs/cutting/generated-cut-orders.ts',
   'src/data/fcs/cutting/generated-fei-tickets.ts',
   'src/domain/fcs-cutting-piece-truth/index.ts',
   'src/pages/process-factory/cutting/marker-piece-explosion.ts',

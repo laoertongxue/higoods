@@ -14,10 +14,11 @@ export const CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY = 'cuttingTran
 
 export type TransferCarrierType = 'bag' | 'box'
 export type TransferCarrierStatus = 'idle' | 'loaded' | 'handed_over' | 'received' | 'returned' | 'recycled' | 'disabled'
+export type TransferBagUsageStage = 'INBOUND_TEMP' | 'HANDOVER_PACKING'
 
-export interface TransferBagSeedOriginalRowLike {
-  originalCutOrderId: string
-  originalCutOrderNo: string
+export interface TransferBagSeedCutOrderRowLike {
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderNo: string
   styleCode: string
   spuCode: string
@@ -27,14 +28,14 @@ export interface TransferBagSeedOriginalRowLike {
   orderQty?: number
 }
 
-export interface TransferBagSeedMergeBatchLike {
-  mergeBatchId: string
-  mergeBatchNo: string
+export interface TransferBagSeedMarkerPlanRefLike {
+  markerPlanId: string
+  markerPlanNo: string
   styleCode: string
   spuCode: string
   materialSkuSummary: string
   items: Array<{
-    originalCutOrderId: string
+    cutOrderId: string
   }>
 }
 
@@ -46,10 +47,10 @@ export interface TransferBagSeedTicketLike {
   sourceMarkerId?: string
   sourceMarkerNo?: string
   sourceWritebackId?: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderNo: string
-  mergeBatchNo: string
+  markerPlanNo: string
   styleCode: string
   spuCode: string
   fabricRollNo?: string
@@ -103,7 +104,7 @@ export interface TransferCarrierCycleRecord {
   cycleStatus: string
   status: TransferCarrierStatus
   packedTicketCount: number
-  packedOriginalCutOrderCount: number
+  packedCutOrderCount: number
   startedAt?: string
   finishedPackingAt?: string
   dispatchAt: string
@@ -111,6 +112,8 @@ export interface TransferCarrierCycleRecord {
   signoffStatus: 'PENDING' | 'WAITING' | 'SIGNED'
   signedAt?: string
   returnedAt?: string
+  usageStage?: TransferBagUsageStage
+  usageStageLabel?: string
   note: string
 }
 
@@ -134,10 +137,10 @@ export interface CarrierCycleItemBinding {
   sourceMarkerId?: string
   sourceMarkerNo?: string
   sourceWritebackId?: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderNo: string
-  mergeBatchNo: string
+  markerPlanNo: string
   fabricRollNo?: string
   fabricColor?: string
   size?: string
@@ -161,7 +164,7 @@ export interface TransferBagDispatchManifestRecord {
   sewingTaskNo: string
   sewingFactoryName: string
   ticketCount: number
-  originalCutOrderCount: number
+  cutOrderCount: number
   createdAt: string
   createdBy: string
   printStatus: 'PRINTED'
@@ -325,13 +328,13 @@ function buildCarrierRecord(input: {
 }
 
 function buildSewingTaskSeeds(
-  originalRows: TransferBagSeedOriginalRowLike[] = [],
-  mergeBatches: TransferBagSeedMergeBatchLike[] = [],
+  cutOrderRows: TransferBagSeedCutOrderRowLike[] = [],
+  markerPlanRefs: TransferBagSeedMarkerPlanRefLike[] = [],
 ): SewingTaskRefRecord[] {
-  const mergeSeeds = mergeBatches.slice(0, 3).map((batch, index) => {
+  const markerPlanSeeds = markerPlanRefs.slice(0, 3).map((batch, index) => {
     const factory = pickTransferBagSewingFactory(index)
     return {
-    sewingTaskId: `sewing-task-${sanitizeId(batch.mergeBatchId || batch.mergeBatchNo)}`,
+    sewingTaskId: `sewing-task-${sanitizeId(batch.markerPlanId || batch.markerPlanNo)}`,
     sewingTaskNo: `CF-${String(index + 1).padStart(3, '0')}`,
     sewingFactoryId: factory.factoryId,
     sewingFactoryName: factory.factoryName,
@@ -342,13 +345,13 @@ function buildSewingTaskSeeds(
     sizeSummary: 'S / M / L',
     plannedQty: batch.items.length * 24,
     status: index === 0 ? '待接料' : index === 1 ? '排单中' : '待交接',
-    note: `来源于 ${batch.mergeBatchNo} 的正式载具任务引用。`,
+    note: `来源于 ${batch.markerPlanNo} 的正式载具任务引用。`,
   }})
 
-  const fallbackSeeds = originalRows.map((row, index) => {
-    const factory = pickTransferBagSewingFactory(index + mergeSeeds.length)
+  const fallbackSeeds = cutOrderRows.map((row, index) => {
+    const factory = pickTransferBagSewingFactory(index + markerPlanSeeds.length)
     return {
-    sewingTaskId: `sewing-task-fallback-${sanitizeId(row.originalCutOrderId)}`,
+    sewingTaskId: `sewing-task-fallback-${sanitizeId(row.cutOrderId)}`,
     sewingTaskNo: `CF-FB-${String(index + 1).padStart(3, '0')}`,
     sewingFactoryId: factory.factoryId,
     sewingFactoryName: factory.factoryName,
@@ -362,7 +365,7 @@ function buildSewingTaskSeeds(
     note: '无批次场景下的正式交接任务引用。',
   }})
 
-  return [...mergeSeeds, ...fallbackSeeds]
+  return [...markerPlanSeeds, ...fallbackSeeds]
 }
 
 function buildCarrierCycleId(carrierId: string, sewingTaskId: string, startedAt: string): string {
@@ -411,7 +414,7 @@ export function createCarrierCycleRecord(options: {
     cycleStatus: 'DRAFT',
     status: 'idle',
     packedTicketCount: 0,
-    packedOriginalCutOrderCount: 0,
+    packedCutOrderCount: 0,
     startedAt: options.nowText,
     finishedPackingAt: '',
     dispatchAt: '',
@@ -419,6 +422,8 @@ export function createCarrierCycleRecord(options: {
     signoffStatus: 'PENDING',
     signedAt: '',
     returnedAt: '',
+    usageStage: 'HANDOVER_PACKING',
+    usageStageLabel: '交出装袋',
     note: options.note?.trim() || '载具周期草稿已创建，等待先扫口袋码再扫菲票子码。',
   }
 }
@@ -437,7 +442,7 @@ export function createCarrierDispatchManifest(options: {
     sewingTaskNo: options.cycle.sewingTaskNo,
     sewingFactoryName: options.cycle.sewingFactoryName,
     ticketCount: options.bindings.length,
-    originalCutOrderCount: unique(options.bindings.map((item) => item.originalCutOrderNo)).length,
+    cutOrderCount: unique(options.bindings.map((item) => item.cutOrderNo)).length,
     createdAt: options.nowText,
     createdBy: options.createdBy,
     printStatus: 'PRINTED',
@@ -467,10 +472,10 @@ export function createCarrierCycleBinding(options: {
     sourceMarkerId: options.ticket.sourceMarkerId || '',
     sourceMarkerNo: options.ticket.sourceMarkerNo || '',
     sourceWritebackId: options.ticket.sourceWritebackId || '',
-    originalCutOrderId: options.ticket.originalCutOrderId,
-    originalCutOrderNo: options.ticket.originalCutOrderNo,
+    cutOrderId: options.ticket.cutOrderId,
+    cutOrderNo: options.ticket.cutOrderNo,
     productionOrderNo: options.ticket.productionOrderNo,
-    mergeBatchNo: options.ticket.mergeBatchNo,
+    markerPlanNo: options.ticket.markerPlanNo,
     fabricRollNo: options.ticket.fabricRollNo || '',
     fabricColor: options.ticket.fabricColor || '',
     size: options.ticket.size || '',
@@ -489,12 +494,12 @@ export function createCarrierCycleBinding(options: {
 }
 
 export function buildSystemSeedTransferBagRuntime(options: {
-  originalRows: TransferBagSeedOriginalRowLike[]
+  cutOrderRows: TransferBagSeedCutOrderRowLike[]
   ticketRecords: TransferBagSeedTicketLike[]
-  mergeBatches?: TransferBagSeedMergeBatchLike[]
+  markerPlanRefs?: TransferBagSeedMarkerPlanRefLike[]
 }): TransferBagRuntimeStore {
-  const mergeBatches = options.mergeBatches || []
-  const sewingTasks = buildSewingTaskSeeds(options.originalRows, mergeBatches)
+  const markerPlanRefs = options.markerPlanRefs || []
+  const sewingTasks = buildSewingTaskSeeds(options.cutOrderRows, markerPlanRefs)
   if (!sewingTasks.length) {
     const fallbackFactory = pickTransferBagSewingFactory(0)
     sewingTasks.push({
@@ -675,6 +680,15 @@ export function buildSystemSeedTransferBagRuntime(options: {
       currentLocation: '裁片仓 E 区待命位',
       note: '大容量中转袋，可容纳更多菲票。',
     }),
+    buildCarrierRecord({
+      carrierId: 'carrier-bag-016',
+      carrierCode: 'BAG-D-001',
+      carrierType: 'bag',
+      capacity: 30,
+      currentStatus: 'IDLE',
+      currentLocation: '裁床待交出仓入仓暂存位',
+      note: '入仓暂存袋样例，允许不同生产单、SKU、部位菲票临时混装。',
+    }),
   ]
 
   const usages: TransferCarrierCycleRecord[] = []
@@ -694,6 +708,26 @@ export function buildSystemSeedTransferBagRuntime(options: {
     const nextTickets = printedTickets.slice(ticketCursor, ticketCursor + count)
     ticketCursor += nextTickets.length
     return nextTickets
+  }
+
+  function pickInboundTempTickets(count: number): TransferBagSeedTicketLike[] {
+    const picked: TransferBagSeedTicketLike[] = []
+    printedTickets.forEach((ticket) => {
+      if (picked.length >= count) return
+      const duplicatedContext = picked.some(
+        (item) =>
+          item.productionOrderNo === ticket.productionOrderNo &&
+          item.cutOrderNo === ticket.cutOrderNo &&
+          item.materialSku === ticket.materialSku &&
+          item.partName === ticket.partName,
+      )
+      if (!duplicatedContext) picked.push(ticket)
+    })
+    printedTickets.forEach((ticket) => {
+      if (picked.length >= count) return
+      if (!picked.some((item) => item.feiTicketId === ticket.feiTicketId)) picked.push(ticket)
+    })
+    return picked
   }
 
   function pushUsageAudit(cycle: TransferCarrierCycleRecord, actionAt: string, action: string, actionBy: string, note: string): void {
@@ -760,6 +794,8 @@ export function buildSystemSeedTransferBagRuntime(options: {
     masterStatus: string
     currentLocation: string
     ticketCount: number
+    tickets?: TransferBagSeedTicketLike[]
+    usageStage?: TransferBagUsageStage
     note: string
     active?: boolean
     finishedPackingAt?: string
@@ -802,7 +838,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       existingUsages: usages,
       note: options.note,
     })
-    const selectedTickets = pickTickets(options.ticketCount)
+    const selectedTickets = options.tickets?.length ? options.tickets : pickTickets(options.ticketCount)
     const cycleBindings = selectedTickets.map((ticket) =>
       createCarrierCycleBinding({
         cycle,
@@ -812,11 +848,28 @@ export function buildSystemSeedTransferBagRuntime(options: {
         operator: options.operator,
       }),
     )
+    const usageStage = options.usageStage || 'HANDOVER_PACKING'
 
     cycle.cycleStatus = options.cycleStatus
     cycle.status = buildCycleStatus(cycle.cycleStatus)
+    cycle.usageStage = usageStage
+    cycle.usageStageLabel = usageStage === 'INBOUND_TEMP' ? '入仓暂存' : '交出装袋'
+    if (usageStage === 'INBOUND_TEMP') {
+      cycle.sewingTaskId = ''
+      cycle.sewingTaskNo = ''
+      cycle.sewingFactoryId = ''
+      cycle.sewingFactoryName = ''
+      cycle.styleCode = unique(selectedTickets.map((ticket) => ticket.styleCode)).join(' / ') || '混款'
+      cycle.spuCode = unique(selectedTickets.map((ticket) => ticket.spuCode)).join(' / ') || '多 SKU'
+      cycle.skuSummary = unique(selectedTickets.map((ticket) => ticket.materialSku)).join(' / ') || '混装菲票'
+      cycle.colorSummary = unique(selectedTickets.map((ticket) => ticket.fabricColor || ticket.color)).join(' / ') || '多色'
+      cycle.sizeSummary = unique(selectedTickets.map((ticket) => ticket.size || '')).join(' / ') || '多尺码'
+      cycleBindings.forEach((binding) => {
+        binding.note = '入仓暂存袋绑定：允许不同生产单、SKU、部位菲票临时混装。'
+      })
+    }
     cycle.packedTicketCount = cycleBindings.length
-    cycle.packedOriginalCutOrderCount = unique(cycleBindings.map((item) => item.originalCutOrderNo)).length
+    cycle.packedCutOrderCount = unique(cycleBindings.map((item) => item.cutOrderNo)).length
     cycle.finishedPackingAt = options.finishedPackingAt || ''
     cycle.dispatchAt = options.dispatchAt || ''
     cycle.dispatchBy = options.dispatchBy || ''
@@ -852,7 +905,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       pushUsageAudit(cycle, options.dispatchAt, '交出', options.dispatchBy || options.operator, '已由裁片仓交给车缝厂领走。')
     }
     if (options.signedAt) {
-      pushUsageAudit(cycle, options.signedAt, 'WMS 来料确认', options.operator, '车缝厂已完成来料确认。')
+      pushUsageAudit(cycle, options.signedAt, '接收确认', options.operator, '接收方已完成裁片接收确认。')
     }
 
     if (options.returnAt) {
@@ -874,7 +927,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
         receivedBy: options.receivedBy || '回收验收员',
         returnedFinishedQty: cycleBindings.reduce((sum, item) => sum + item.qty, 0),
         returnedTicketCountSummary: cycleBindings.length,
-        returnedOriginalCutOrderCount: unique(cycleBindings.map((item) => item.originalCutOrderNo)).length,
+        returnedCutOrderCount: unique(cycleBindings.map((item) => item.cutOrderNo)).length,
         discrepancyType: options.discrepancyType || 'NONE',
         discrepancyNote: options.discrepancyNote || '',
         note: options.returnNote || '已完成中转袋回收登记。',
@@ -1376,6 +1429,21 @@ export function buildSystemSeedTransferBagRuntime(options: {
     manifestAt: '2026-03-24 13:36',
   })
 
+  const inboundTempTickets = pickInboundTempTickets(4)
+  addSeedCycle({
+    masterIndex: 16,
+    taskIndex: 0,
+    startedAt: '2026-03-24 14:20',
+    operator: '裁片仓入仓员-林洁',
+    cycleStatus: 'PACKING',
+    masterStatus: 'IN_USE',
+    currentLocation: '裁床待交出仓入仓暂存位',
+    ticketCount: inboundTempTickets.length,
+    tickets: inboundTempTickets,
+    usageStage: 'INBOUND_TEMP',
+    note: '入仓暂存袋：允许不同生产单、SKU、部位菲票临时混装，车缝任务分配后再二次分拣。',
+  })
+
   return {
     masters,
     usages,
@@ -1524,9 +1592,9 @@ export interface TransferBagRuntimeTraceMatrixRow {
   sourceMarkerId: string
   sourceMarkerNo: string
   sourceWritebackId: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanNo: string
 }
 
 export function buildTransferBagRuntimeTraceMatrix(store: TransferBagRuntimeStore): TransferBagRuntimeTraceMatrixRow[] {
@@ -1543,9 +1611,9 @@ export function buildTransferBagRuntimeTraceMatrix(store: TransferBagRuntimeStor
       sourceMarkerId: String(binding.sourceMarkerId || ''),
       sourceMarkerNo: String(binding.sourceMarkerNo || ''),
       sourceWritebackId: String(binding.sourceWritebackId || ''),
-      originalCutOrderId: binding.originalCutOrderId,
-      originalCutOrderNo: binding.originalCutOrderNo,
-      mergeBatchNo: binding.mergeBatchNo,
+      cutOrderId: binding.cutOrderId,
+      cutOrderNo: binding.cutOrderNo,
+      markerPlanNo: binding.markerPlanNo,
     }))
     .sort(
       (left, right) =>

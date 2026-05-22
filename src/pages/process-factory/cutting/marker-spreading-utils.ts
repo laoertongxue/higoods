@@ -1,5 +1,5 @@
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
 import { DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES } from './cutting-table-resource.ts'
 import {
   buildMarkerSeedDraft,
@@ -116,14 +116,16 @@ export {
 export interface MarkerListRow {
   markerId: string
   markerNo: string
-  contextType: 'original-order' | 'merge-batch'
+  contextType: 'cut-order' | 'marker-plan-ref'
   contextLabel: string
-  originalCutOrderCount: number
-  originalCutOrderNos: string[]
-  mergeBatchNo: string
+  cutOrderCount: number
+  cutOrderNos: string[]
+  markerPlanNo: string
   styleCode: string
   spuCode: string
   materialSkuSummary: string
+  materialAliasSummary: string
+  materialImageUrl: string
   colorSummary: string
   markerMode: MarkerRecord['markerMode']
   markerModeLabel: string
@@ -167,11 +169,11 @@ export interface MarkerDetailViewModel {
 export interface SpreadingListRow {
   spreadingSessionId: string
   sessionNo: string
-  contextType: 'original-order' | 'merge-batch'
+  contextType: 'cut-order' | 'marker-plan-ref'
   contextLabel: string
-  originalCutOrderCount: number
-  originalCutOrderNos: string[]
-  mergeBatchNo: string
+  cutOrderCount: number
+  cutOrderNos: string[]
+  markerPlanNo: string
   styleCode: string
   spuCode: string
   materialSkuSummary: string
@@ -199,7 +201,7 @@ export interface SpreadingListRow {
   hasVariance: boolean
   differenceStatusLabel: string
   differenceStatusTone: 'normal' | 'warning'
-  completedOriginalOrderCount: number
+  completedCutOrderCount: number
   hasHandover: boolean
   hasHandoverWarnings: boolean
   handoverStatusLabel: string
@@ -232,7 +234,7 @@ export interface SpreadingDetailViewModel {
   replenishmentWarning: SpreadingReplenishmentWarning | null
   navigationPayload: ReturnType<typeof buildMarkerSpreadingNavigationPayload>
   linkedRollNos: Record<string, string>
-  linkedOriginalCutOrderNos: string[]
+  linkedCutOrderNos: string[]
   sortedOperators: SpreadingOperatorRecord[]
   operatorsByRollId: Record<string, SpreadingOperatorRecord[]>
   handoverSummaryByRollId: Record<string, SpreadingRollHandoverSummary>
@@ -252,36 +254,38 @@ export interface MarkerLineItemSummary {
 export interface MarkerSpreadingPrototypeData {
   rows: MaterialPrepRow[]
   rowsById: Record<string, MaterialPrepRow>
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   store: MarkerSpreadingStore
 }
 
 function buildSessionContext(
   session: SpreadingSession,
-  originalRows: MaterialPrepRow[],
-  batch: MergeBatchRecord | null,
+  cutOrderRows: MaterialPrepRow[],
+  batch: MarkerPlanRefRecord | null,
 ): MarkerSpreadingContext | null {
-  if (!originalRows.length && !session.mergeBatchId && !session.originalCutOrderIds.length) return null
+  if (!cutOrderRows.length && !session.markerPlanId && !session.cutOrderIds.length) return null
 
   return {
     contextType: session.contextType,
-    originalCutOrderIds: [...session.originalCutOrderIds],
-    originalCutOrderNos: originalRows.map((row) => row.originalCutOrderNo),
-    mergeBatchId: session.mergeBatchId || batch?.mergeBatchId || '',
-    mergeBatchNo: session.mergeBatchNo || batch?.mergeBatchNo || '',
-    productionOrderNos: uniqueStrings(originalRows.map((row) => row.productionOrderNo)),
-    styleCode: session.styleCode || originalRows[0]?.styleCode || batch?.styleCode || '',
-    spuCode: session.spuCode || originalRows[0]?.spuCode || batch?.spuCode || '',
+    cutOrderIds: [...session.cutOrderIds],
+    cutOrderNos: cutOrderRows.map((row) => row.cutOrderNo),
+    markerPlanId: session.markerPlanId || batch?.markerPlanId || '',
+    markerPlanNo: session.markerPlanNo || batch?.markerPlanNo || '',
+    productionOrderNos: uniqueStrings(cutOrderRows.map((row) => row.productionOrderNo)),
+    styleCode: session.styleCode || cutOrderRows[0]?.styleCode || batch?.styleCode || '',
+    spuCode: session.spuCode || cutOrderRows[0]?.spuCode || batch?.spuCode || '',
     techPackSpuCode:
-      uniqueStrings(originalRows.map((row) => row.techPackSpuCode)).length === 1
-        ? uniqueStrings(originalRows.map((row) => row.techPackSpuCode))[0]
+      uniqueStrings(cutOrderRows.map((row) => row.techPackSpuCode)).length === 1
+        ? uniqueStrings(cutOrderRows.map((row) => row.techPackSpuCode))[0]
         : '',
-    styleName: batch?.styleName || originalRows[0]?.styleName || '',
+    styleName: batch?.styleName || cutOrderRows[0]?.styleName || '',
     materialSkuSummary:
       session.materialSkuSummary ||
       batch?.materialSkuSummary ||
-      uniqueStrings(originalRows.map((row) => row.materialSkuSummary)).join(' / '),
-    materialPrepRows: originalRows,
+      uniqueStrings(cutOrderRows.map((row) => row.materialSkuSummary)).join(' / '),
+    materialAliasSummary: uniqueStrings(cutOrderRows.flatMap((row) => row.materialLineItems.map((line) => line.materialAlias))).join(' / '),
+    materialImageUrl: cutOrderRows.flatMap((row) => row.materialLineItems).find((line) => line.materialImageUrl)?.materialImageUrl || '',
+    materialPrepRows: cutOrderRows,
   }
 }
 
@@ -289,12 +293,12 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
-function getCompletedLinkedOriginalCutOrderIds(session: SpreadingSession): string[] {
-  if (session.completionLinkage?.linkedOriginalCutOrderIds?.length) {
-    return session.completionLinkage.linkedOriginalCutOrderIds
+function getCompletedLinkedCutOrderIds(session: SpreadingSession): string[] {
+  if (session.completionLinkage?.linkedCutOrderIds?.length) {
+    return session.completionLinkage.linkedCutOrderIds
   }
-  if (session.status === 'DONE' && session.contextType === 'original-order') {
-    return [...session.originalCutOrderIds]
+  if (session.status === 'DONE' && session.contextType === 'cut-order') {
+    return [...session.cutOrderIds]
   }
   return []
 }
@@ -308,36 +312,38 @@ function nowText(input = new Date()): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
-function buildOriginalContext(row: MaterialPrepRow): MarkerSpreadingContext {
+function buildCutOrderContext(row: MaterialPrepRow): MarkerSpreadingContext {
   return {
-    contextType: 'original-order',
-    originalCutOrderIds: [row.originalCutOrderId],
-    originalCutOrderNos: [row.originalCutOrderNo],
-    mergeBatchId: row.mergeBatchIds[0] || '',
-    mergeBatchNo: row.latestMergeBatchNo || row.mergeBatchNos[0] || '',
+    contextType: 'cut-order',
+    cutOrderIds: [row.cutOrderId],
+    cutOrderNos: [row.cutOrderNo],
+    markerPlanId: row.markerPlanIds[0] || '',
+    markerPlanNo: row.latestMarkerPlanNo || row.markerPlanNos[0] || '',
     productionOrderNos: [row.productionOrderNo],
     styleCode: row.styleCode,
     spuCode: row.spuCode,
     techPackSpuCode: row.techPackSpuCode || '',
     styleName: row.styleName,
     materialSkuSummary: row.materialSkuSummary,
+    materialAliasSummary: uniqueStrings(row.materialLineItems.map((line) => line.materialAlias)).join(' / '),
+    materialImageUrl: row.materialLineItems.find((line) => line.materialImageUrl)?.materialImageUrl || '',
     materialPrepRows: [row],
   }
 }
 
-function buildMergeBatchContext(batch: MergeBatchRecord, rowsById: Record<string, MaterialPrepRow>): MarkerSpreadingContext | null {
+function buildMarkerPlanRefContext(batch: MarkerPlanRefRecord, rowsById: Record<string, MaterialPrepRow>): MarkerSpreadingContext | null {
   const materialPrepRows = batch.items
-    .map((item) => rowsById[item.originalCutOrderId])
+    .map((item) => rowsById[item.cutOrderId])
     .filter((row): row is MaterialPrepRow => Boolean(row))
 
   if (!materialPrepRows.length) return null
 
   return {
-    contextType: 'merge-batch',
-    originalCutOrderIds: materialPrepRows.map((row) => row.originalCutOrderId),
-    originalCutOrderNos: materialPrepRows.map((row) => row.originalCutOrderNo),
-    mergeBatchId: batch.mergeBatchId,
-    mergeBatchNo: batch.mergeBatchNo,
+    contextType: 'marker-plan-ref',
+    cutOrderIds: materialPrepRows.map((row) => row.cutOrderId),
+    cutOrderNos: materialPrepRows.map((row) => row.cutOrderNo),
+    markerPlanId: batch.markerPlanId,
+    markerPlanNo: batch.markerPlanNo,
     productionOrderNos: uniqueStrings(materialPrepRows.map((row) => row.productionOrderNo)),
     styleCode: batch.styleCode || materialPrepRows[0]?.styleCode || '',
     spuCode: batch.spuCode || materialPrepRows[0]?.spuCode || '',
@@ -347,6 +353,8 @@ function buildMergeBatchContext(batch: MergeBatchRecord, rowsById: Record<string
         : '',
     styleName: batch.styleName || materialPrepRows[0]?.styleName || '',
     materialSkuSummary: batch.materialSkuSummary || uniqueStrings(materialPrepRows.map((row) => row.materialSkuSummary)).join(' / '),
+    materialAliasSummary: uniqueStrings(materialPrepRows.flatMap((row) => row.materialLineItems.map((line) => line.materialAlias))).join(' / '),
+    materialImageUrl: materialPrepRows.flatMap((row) => row.materialLineItems).find((line) => line.materialImageUrl)?.materialImageUrl || '',
     materialPrepRows,
   }
 }
@@ -357,6 +365,9 @@ interface SeedSessionProfile {
   cuttingStatus?: SpreadingCuttingStatusKey
   sourceChannel?: SpreadingSourceChannel
   sourceWritebackId?: string
+  plannedLayerCount?: number
+  actualLayerCounts?: number[]
+  scenarioNote?: string
 }
 
 const SEED_SESSION_MATRIX: SeedSessionProfile[][] = [
@@ -373,10 +384,22 @@ const SEED_SESSION_MATRIX: SeedSessionProfile[][] = [
     { code: 'cutting-b', status: 'DONE', cuttingStatus: 'CUTTING' },
   ],
   [
-    { code: 'cutting-done-c', status: 'DONE', cuttingStatus: 'CUTTING_DONE' },
-  ],
-  [
-    { code: 'cutting-done-d', status: 'DONE', cuttingStatus: 'CUTTING_DONE' },
+    {
+      code: 'planned-100-actual-80-c',
+      status: 'DONE',
+      cuttingStatus: 'CUTTING_DONE',
+      plannedLayerCount: 100,
+      actualLayerCounts: [50, 30],
+      scenarioNote: '计划铺 100 层，现场按已领面料先实铺 80 层并完成裁剪。',
+    },
+    {
+      code: 'second-replan-after-pickup-c',
+      status: 'DONE',
+      cuttingStatus: 'CUTTING_DONE',
+      plannedLayerCount: 40,
+      actualLayerCounts: [24, 16],
+      scenarioNote: '第二次领料后补排唛架，继续按可用领料余额铺布裁剪。',
+    },
   ],
 ]
 
@@ -435,7 +458,7 @@ function ensureSpreadingScheduleDefaults(session: SpreadingSession, index: numbe
     plannedStartAt: isUnstartedDraft ? '' : session.plannedStartAt || formatSeedDateTimeLocal(baseDate),
     plannedEndAt: isUnstartedDraft ? '' : session.plannedEndAt || formatSeedDateTimeLocal(endDate),
     estimatedDurationMinutes: session.estimatedDurationMinutes || DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
-    tableScheduleStatus: isUnstartedDraft ? session.tableScheduleStatus || '待开始' : session.tableScheduleStatus || '已排程',
+    tableScheduleStatus: isUnstartedDraft ? session.tableScheduleStatus || '未排程' : session.tableScheduleStatus || '已排程',
     ownerAccountId: isUnstartedDraft ? session.ownerAccountId || '' : session.ownerAccountId || owner.ownerAccountId,
     ownerName: isUnstartedDraft ? session.ownerName || '' : session.ownerName || owner.ownerName,
     actualStartAt: session.actualStartAt || (session.status !== 'DRAFT' ? operatorStartTimes[0] || session.updatedFromPdaAt || '' : ''),
@@ -463,7 +486,7 @@ function createSeedSession(
   seedEndDate.setMinutes(seedEndDate.getMinutes() + DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
   const owner = SEED_SESSION_OWNERS[(contextIndex + profileIndex) % SEED_SESSION_OWNERS.length]
   const sessionKeyBase =
-    context.contextType === 'merge-batch' ? context.mergeBatchId || context.mergeBatchNo : context.originalCutOrderIds[0] || context.originalCutOrderNos[0]
+    context.contextType === 'marker-plan-ref' ? context.markerPlanId || context.markerPlanNo : context.cutOrderIds[0] || context.cutOrderNos[0]
   const sessionId = `spreading-session-${context.contextType}-${sanitizeSeedKey(sessionKeyBase)}-${profile.code}`
   const session = createSpreadingDraftFromMarker(marker, context, seedDate, {
     baseSession: {
@@ -483,6 +506,30 @@ function createSeedSession(
   })
   const primaryMaterial = context.materialPrepRows[0]?.materialLineItems[0]
   const colors = uniqueStrings(context.materialPrepRows.map((row) => row.color))
+
+  if (profile.plannedLayerCount && profile.plannedLayerCount > 0) {
+    session.plannedLayers = profile.plannedLayerCount
+    session.planUnits = (session.planUnits || []).map((unit) => {
+      const plannedRepeatCount = profile.plannedLayerCount || unit.plannedRepeatCount
+      const lengthPerUnitM = Number(unit.lengthPerUnitM || marker.markerLength || marker.netLength || 0)
+      const plannedSpreadLengthM = Number(((lengthPerUnitM + 0.06) * plannedRepeatCount).toFixed(2))
+      return {
+        ...unit,
+        plannedRepeatCount,
+        plannedCutGarmentQty: Math.max(Number(unit.garmentQtyPerUnit || 0), 0) * plannedRepeatCount,
+        plannedSpreadLengthM,
+      }
+    })
+    session.theoreticalActualCutPieceQty = session.planUnits.reduce(
+      (sum, unit) => sum + Math.max(Number(unit.plannedCutGarmentQty || 0), 0),
+      0,
+    )
+    session.theoreticalSpreadTotalLength = session.planUnits.reduce(
+      (sum, unit) => sum + Math.max(Number(unit.plannedSpreadLengthM || 0), 0),
+      0,
+    )
+  }
+
   const primaryPlanUnit = session.planUnits?.[0] || null
   const secondaryPlanUnit = session.planUnits?.[1] || primaryPlanUnit
 
@@ -497,7 +544,7 @@ function createSeedSession(
   rollA.actualLength = 27 + contextIndex * 2 + profileIndex
   rollA.headLength = 0.6
   rollA.tailLength = 0.4
-  rollA.layerCount = 10 + contextIndex + profileIndex
+  rollA.layerCount = profile.actualLayerCounts?.[0] ?? 10 + contextIndex + profileIndex
   rollA.totalLength = Number((rollA.actualLength + rollA.headLength + rollA.tailLength).toFixed(2))
   rollA.remainingLength = Number(Math.max(rollA.labeledLength - rollA.actualLength, 0).toFixed(2))
   rollA.actualCutPieceQty = computeRollActualCutGarmentQty(rollA.layerCount, primaryPlanUnit?.garmentQtyPerUnit || marker.totalPieces || 0)
@@ -519,7 +566,7 @@ function createSeedSession(
   rollB.actualLength = 15 + contextIndex + profileIndex
   rollB.headLength = 0.5
   rollB.tailLength = 0.3
-  rollB.layerCount = 6 + contextIndex + profileIndex
+  rollB.layerCount = profile.actualLayerCounts?.[1] ?? 6 + contextIndex + profileIndex
   rollB.totalLength = Number((rollB.actualLength + rollB.headLength + rollB.tailLength).toFixed(2))
   rollB.remainingLength = Number(Math.max(rollB.labeledLength - rollB.actualLength, 0).toFixed(2))
   rollB.actualCutPieceQty = computeRollActualCutGarmentQty(rollB.layerCount, secondaryPlanUnit?.garmentQtyPerUnit || marker.totalPieces || 0)
@@ -598,11 +645,12 @@ function createSeedSession(
   session.actualLayers = session.rolls.reduce((sum, roll) => sum + Math.max(roll.layerCount || 0, 0), 0)
   session.unitPrice = 0.46 + contextIndex * 0.04 + profileIndex * 0.01
   session.note =
-    profile.status === 'DRAFT'
-      ? '当前待开始，已完成铺布创建但尚未录入卷记录。'
+    profile.scenarioNote ||
+    (profile.status === 'DRAFT'
+      ? '当前待铺布，已完成铺布创建但尚未录入卷记录。'
       : profile.status === 'IN_PROGRESS'
         ? '当前仍可继续补录剩余卷与人员交接。'
-        : '当前铺布记录已完成。'
+        : '当前铺布记录已完成。')
   session.updatedAt = nowText(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T18:${String(profileIndex).padStart(2, '0')}:00`))
   if (profile.status === 'DONE') {
     session.cuttingStatusUpdatedAt = session.updatedAt
@@ -610,7 +658,7 @@ function createSeedSession(
       context,
       session,
       markerTotalPieces: marker.totalPieces,
-      originalCutOrderNos: context.originalCutOrderNos,
+      cutOrderNos: context.cutOrderNos,
       productionOrderNos: context.productionOrderNos,
       materialAttr: context.materialPrepRows[0]?.materialLabel || '',
       createdAt: session.updatedAt,
@@ -628,8 +676,8 @@ function createSeedSession(
     session.completionLinkage = {
       completedAt: session.updatedAt,
       completedBy: profile.sourceChannel === 'PDA_WRITEBACK' ? '工厂端回写' : '现场主管',
-      linkedOriginalCutOrderIds: [...context.originalCutOrderIds],
-      linkedOriginalCutOrderNos: [...context.originalCutOrderNos],
+      linkedCutOrderIds: [...context.cutOrderIds],
+      linkedCutOrderNos: [...context.cutOrderNos],
       generatedWarningId: session.replenishmentWarning?.warningId || `warning-${session.spreadingSessionId}`,
       generatedWarning: false,
       note: '当前铺布已完成。',
@@ -639,11 +687,11 @@ function createSeedSession(
 }
 
 function hasMarkerForContext(store: MarkerSpreadingStore, context: MarkerSpreadingContext): boolean {
-  if (context.contextType === 'merge-batch') {
-    return store.markers.some((item) => item.contextType === 'merge-batch' && item.mergeBatchId === context.mergeBatchId)
+  if (context.contextType === 'marker-plan-ref') {
+    return store.markers.some((item) => item.contextType === 'marker-plan-ref' && item.markerPlanId === context.markerPlanId)
   }
   return store.markers.some(
-    (item) => item.contextType === 'original-order' && item.originalCutOrderIds[0] === context.originalCutOrderIds[0],
+    (item) => item.contextType === 'cut-order' && item.cutOrderIds[0] === context.cutOrderIds[0],
   )
 }
 
@@ -668,15 +716,15 @@ export function summarizeMarkerLineItems(lineItems: MarkerLineItem[] = []): Mark
 
 export function buildMarkerSpreadingPrototypeStore(options: {
   rows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   stored?: MarkerSpreadingStore
 }): MarkerSpreadingStore {
   let nextStore = options.stored ? deserializeMarkerSpreadingStorage(JSON['stringify'](options.stored)) : createEmptyStore()
   const executableRows = options.rows.filter(isMaterialPrepRowReadyForSpreadingSeed)
-  const executableRowIds = new Set(executableRows.map((row) => row.originalCutOrderId))
-  const rowsById = Object.fromEntries(executableRows.map((row) => [row.originalCutOrderId, row]))
-  const isLinkedToExecutableRows = (originalCutOrderIds: string[]) =>
-    originalCutOrderIds.length > 0 && originalCutOrderIds.every((id) => executableRowIds.has(id))
+  const executableRowIds = new Set(executableRows.map((row) => row.cutOrderId))
+  const rowsById = Object.fromEntries(executableRows.map((row) => [row.cutOrderId, row]))
+  const isLinkedToExecutableRows = (cutOrderIds: string[] = []) =>
+    cutOrderIds.length > 0 && cutOrderIds.every((id) => executableRowIds.has(id))
   const isLinkedToMarkerPlan = (session: SpreadingSession) =>
     Boolean(
       session.sourceSchemeId &&
@@ -689,39 +737,39 @@ export function buildMarkerSpreadingPrototypeStore(options: {
     )
   nextStore = {
     ...nextStore,
-    markers: nextStore.markers.filter((marker) => isLinkedToExecutableRows(marker.originalCutOrderIds)),
+    markers: nextStore.markers.filter((marker) => isLinkedToExecutableRows(marker.cutOrderIds || [])),
     sessions: nextStore.sessions.filter((session) =>
-      isLinkedToExecutableRows(session.originalCutOrderIds) &&
+      isLinkedToExecutableRows(session.cutOrderIds || []) &&
       isLinkedToMarkerPlan(session),
     ).map((session, index) => ensureSpreadingScheduleDefaults(session, index)),
   }
 
-  const originalContexts = executableRows
-    .map((row) => buildOriginalContext(row))
-    .filter((context, index, all) => all.findIndex((item) => item.originalCutOrderIds[0] === context.originalCutOrderIds[0]) === index)
+  const cutOrderContexts = executableRows
+    .map((row) => buildCutOrderContext(row))
+    .filter((context, index, all) => all.findIndex((item) => item.cutOrderIds[0] === context.cutOrderIds[0]) === index)
     .slice(0, 3)
-  const mergeBatchContexts = options.mergeBatches
-    .map((batch) => buildMergeBatchContext(batch, rowsById))
+  const markerPlanRefContexts = options.markerPlanRefs
+    .map((batch) => buildMarkerPlanRefContext(batch, rowsById))
     .filter((context): context is MarkerSpreadingContext => Boolean(context))
-    .filter((context) => context.originalCutOrderIds.every((id) => executableRowIds.has(id)))
-    .filter((context, index, all) => all.findIndex((item) => item.mergeBatchId === context.mergeBatchId) === index)
+    .filter((context) => context.cutOrderIds.every((id) => executableRowIds.has(id)))
+    .filter((context, index, all) => all.findIndex((item) => item.markerPlanId === context.markerPlanId) === index)
     .slice(0, 3)
 
-  const seedContexts: MarkerSpreadingContext[] = [...originalContexts, ...mergeBatchContexts].slice(0, 5)
+  const seedContexts: MarkerSpreadingContext[] = [...cutOrderContexts, ...markerPlanRefContexts].slice(0, 5)
 
   const preferredSeedModes = new Map<string, MarkerModeKey>()
-  if (originalContexts[0]) preferredSeedModes.set(`original-order:${originalContexts[0].originalCutOrderIds[0]}`, 'normal')
-  if (originalContexts[1]) preferredSeedModes.set(`original-order:${originalContexts[1].originalCutOrderIds[0]}`, 'fold_normal')
-  if (originalContexts[2]) preferredSeedModes.set(`original-order:${originalContexts[2].originalCutOrderIds[0]}`, 'high_low')
-  if (mergeBatchContexts[0]) preferredSeedModes.set(`merge-batch:${mergeBatchContexts[0].mergeBatchId}`, 'fold_high_low')
-  if (mergeBatchContexts[1]) preferredSeedModes.set(`merge-batch:${mergeBatchContexts[1].mergeBatchId}`, 'normal')
-  if (mergeBatchContexts[2]) preferredSeedModes.set(`merge-batch:${mergeBatchContexts[2].mergeBatchId}`, 'high_low')
+  if (cutOrderContexts[0]) preferredSeedModes.set(`cut-order:${cutOrderContexts[0].cutOrderIds[0]}`, 'normal')
+  if (cutOrderContexts[1]) preferredSeedModes.set(`cut-order:${cutOrderContexts[1].cutOrderIds[0]}`, 'fold_normal')
+  if (cutOrderContexts[2]) preferredSeedModes.set(`cut-order:${cutOrderContexts[2].cutOrderIds[0]}`, 'high_low')
+  if (markerPlanRefContexts[0]) preferredSeedModes.set(`marker-plan-ref:${markerPlanRefContexts[0].markerPlanId}`, 'fold_high_low')
+  if (markerPlanRefContexts[1]) preferredSeedModes.set(`marker-plan-ref:${markerPlanRefContexts[1].markerPlanId}`, 'normal')
+  if (markerPlanRefContexts[2]) preferredSeedModes.set(`marker-plan-ref:${markerPlanRefContexts[2].markerPlanId}`, 'high_low')
 
   seedContexts.forEach((context, index) => {
     const contextKey =
-      context.contextType === 'merge-batch'
-        ? `merge-batch:${context.mergeBatchId}`
-        : `original-order:${context.originalCutOrderIds[0]}`
+      context.contextType === 'marker-plan-ref'
+        ? `marker-plan-ref:${context.markerPlanId}`
+        : `cut-order:${context.cutOrderIds[0]}`
     if (!hasMarkerForContext(nextStore, context)) {
       const markerDraft = buildMarkerSeedDraft(context, null)
       if (!markerDraft) return
@@ -736,9 +784,9 @@ export function buildMarkerSpreadingPrototypeStore(options: {
 
     const marker =
       nextStore.markers.find((item) =>
-        context.contextType === 'merge-batch'
-          ? item.contextType === 'merge-batch' && item.mergeBatchId === context.mergeBatchId
-          : item.contextType === 'original-order' && item.originalCutOrderIds[0] === context.originalCutOrderIds[0],
+        context.contextType === 'marker-plan-ref'
+          ? item.contextType === 'marker-plan-ref' && item.markerPlanId === context.markerPlanId
+          : item.contextType === 'cut-order' && item.cutOrderIds[0] === context.cutOrderIds[0],
       ) || null
 
     if (!marker) return
@@ -746,7 +794,7 @@ export function buildMarkerSpreadingPrototypeStore(options: {
     const profiles = SEED_SESSION_MATRIX[index] || SEED_SESSION_MATRIX[SEED_SESSION_MATRIX.length - 1]
     profiles.forEach((profile, profileIndex) => {
       const sessionKeyBase =
-        context.contextType === 'merge-batch' ? context.mergeBatchId || context.mergeBatchNo : context.originalCutOrderIds[0] || context.originalCutOrderNos[0]
+        context.contextType === 'marker-plan-ref' ? context.markerPlanId || context.markerPlanNo : context.cutOrderIds[0] || context.cutOrderNos[0]
       const sessionId = `spreading-session-${context.contextType}-${sanitizeSeedKey(sessionKeyBase)}-${profile.code}`
       if (hasSessionById(nextStore, sessionId)) return
       nextStore = {
@@ -766,14 +814,14 @@ export function readMarkerSpreadingPrototypeData(): MarkerSpreadingPrototypeData
   const projection = buildMarkerSpreadingProjection()
   const store = buildMarkerSpreadingPrototypeStore({
     rows: projection.rows,
-    mergeBatches: projection.mergeBatches,
+    markerPlanRefs: projection.markerPlanRefs,
     stored: projection.store,
   })
 
   return {
     rows: projection.rows,
     rowsById: projection.rowsById,
-    mergeBatches: projection.mergeBatches,
+    markerPlanRefs: projection.markerPlanRefs,
     store,
   }
 }
@@ -781,16 +829,16 @@ export function readMarkerSpreadingPrototypeData(): MarkerSpreadingPrototypeData
 export function buildMarkerListViewModel(options: {
   markerRecords: MarkerRecord[]
   rowsById: Record<string, MaterialPrepRow>
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
 }): MarkerListRow[] {
-  const batchById = Object.fromEntries(options.mergeBatches.map((batch) => [batch.mergeBatchId, batch]))
+  const batchById = Object.fromEntries(options.markerPlanRefs.map((batch) => [batch.markerPlanId, batch]))
 
   return options.markerRecords
     .map((record) => {
-      const originalRows = record.originalCutOrderIds.map((id) => options.rowsById[id]).filter((row): row is MaterialPrepRow => Boolean(row))
-      const originalCutOrderNos = originalRows.map((row) => row.originalCutOrderNo)
+      const cutOrderRows = record.cutOrderIds.map((id) => options.rowsById[id]).filter((row): row is MaterialPrepRow => Boolean(row))
+      const cutOrderNos = cutOrderRows.map((row) => row.cutOrderNo)
       const lineSummary = summarizeMarkerLineItems(record.lineItems)
-      const batch = record.mergeBatchId ? batchById[record.mergeBatchId] : null
+      const batch = record.markerPlanId ? batchById[record.markerPlanId] : null
       const modeMeta = deriveMarkerModeMeta(record.markerMode)
       const templateType = deriveMarkerTemplateByMode(record.markerMode)
       const highLowCuttingTotal = computeHighLowCuttingTotals(record.highLowCuttingRows || []).cuttingTotal
@@ -799,16 +847,18 @@ export function buildMarkerListViewModel(options: {
         markerId: record.markerId,
         markerNo: record.markerNo || record.markerId,
         contextType: record.contextType,
-        contextLabel: record.contextType === 'merge-batch' ? '合并裁剪批次上下文' : '原始裁片单上下文',
-        originalCutOrderCount: record.originalCutOrderIds.length,
-        originalCutOrderNos,
-        mergeBatchNo: record.mergeBatchNo || batch?.mergeBatchNo || '',
-        styleCode: record.styleCode || originalRows[0]?.styleCode || '',
-        spuCode: record.spuCode || originalRows[0]?.spuCode || '',
+        contextLabel: record.contextType === 'marker-plan-ref' ? '唛架方案上下文' : '裁片单上下文',
+        cutOrderCount: record.cutOrderIds.length,
+        cutOrderNos,
+        markerPlanNo: record.markerPlanNo || batch?.markerPlanNo || '',
+        styleCode: record.styleCode || cutOrderRows[0]?.styleCode || '',
+        spuCode: record.spuCode || cutOrderRows[0]?.spuCode || '',
         materialSkuSummary:
           record.materialSkuSummary ||
-          uniqueStrings(originalRows.map((row) => row.materialSkuSummary)).join(' / '),
-        colorSummary: record.colorSummary || lineSummary.colorSummary || uniqueStrings(originalRows.map((row) => row.color)).join(' / '),
+          uniqueStrings(cutOrderRows.map((row) => row.materialSkuSummary)).join(' / '),
+        materialAliasSummary: record.materialAliasSummary || uniqueStrings(cutOrderRows.flatMap((row) => row.materialLineItems.map((line) => line.materialAlias))).join(' / '),
+        materialImageUrl: record.materialImageUrl || cutOrderRows.flatMap((row) => row.materialLineItems).find((line) => line.materialImageUrl)?.materialImageUrl || '',
+        colorSummary: record.colorSummary || lineSummary.colorSummary || uniqueStrings(cutOrderRows.map((row) => row.color)).join(' / '),
         markerMode: record.markerMode,
         markerModeLabel: modeMeta.label,
         totalPieces: record.totalPieces || computeMarkerTotalPieces(record.sizeDistribution),
@@ -831,8 +881,8 @@ export function buildMarkerListViewModel(options: {
         record,
         keywordIndex: uniqueStrings([
           record.markerNo,
-          record.mergeBatchNo,
-          ...originalCutOrderNos,
+          record.markerPlanNo,
+          ...cutOrderNos,
           record.styleCode,
           record.spuCode,
           record.materialSkuSummary,
@@ -849,26 +899,26 @@ export function buildMarkerListViewModel(options: {
 export function buildSpreadingListViewModel(options: {
   spreadingSessions: SpreadingSession[]
   rowsById: Record<string, MaterialPrepRow>
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerRecords?: MarkerRecord[]
 }): SpreadingListRow[] {
-  const batchById = Object.fromEntries(options.mergeBatches.map((batch) => [batch.mergeBatchId, batch]))
+  const batchById = Object.fromEntries(options.markerPlanRefs.map((batch) => [batch.markerPlanId, batch]))
   const markerById = Object.fromEntries((options.markerRecords || []).map((marker) => [marker.markerId, marker]))
 
   return options.spreadingSessions
     .map((session) => {
-      const originalRows = session.originalCutOrderIds.map((id) => options.rowsById[id]).filter((row): row is MaterialPrepRow => Boolean(row))
+      const cutOrderRows = session.cutOrderIds.map((id) => options.rowsById[id]).filter((row): row is MaterialPrepRow => Boolean(row))
       const rollSummary = summarizeSpreadingRolls(session.rolls)
       const operatorSummary = summarizeSpreadingOperators(session.operators)
-      const originalCutOrderNos = originalRows.map((row) => row.originalCutOrderNo)
+      const cutOrderNos = cutOrderRows.map((row) => row.cutOrderNo)
       const modeMeta = deriveSpreadingModeMeta(session.spreadingMode)
-      const batch = session.mergeBatchId ? batchById[session.mergeBatchId] : null
+      const batch = session.markerPlanId ? batchById[session.markerPlanId] : null
       const markerRecord = session.markerId ? markerById[session.markerId] || null : null
-      const context = buildSessionContext(session, originalRows, batch)
+      const context = buildSessionContext(session, cutOrderRows, batch)
       const colorSummary = deriveSpreadingColorSummary({
         rolls: session.rolls,
         importSourceColorSummary: session.importSource?.sourceColorSummary,
-        contextColors: originalRows.map((row) => row.color),
+        contextColors: cutOrderRows.map((row) => row.color),
         fallbackSummary: session.colorSummary,
       }).value
       const varianceSummary = buildSpreadingVarianceSummary(context, markerRecord, session)
@@ -888,26 +938,28 @@ export function buildSpreadingListViewModel(options: {
           context,
           session,
           markerTotalPieces: markerRecord?.totalPieces || 0,
-          originalCutOrderNos,
-          productionOrderNos: context?.productionOrderNos || uniqueStrings(originalRows.map((row) => row.productionOrderNo)),
-          materialAttr: originalRows[0]?.materialLabel || originalRows[0]?.materialCategory || '',
+          cutOrderNos,
+          productionOrderNos: context?.productionOrderNos || uniqueStrings(cutOrderRows.map((row) => row.productionOrderNo)),
+          materialAttr: cutOrderRows[0]?.materialLabel || cutOrderRows[0]?.materialCategory || '',
           warningMessages,
         })
       const navigationPayload = buildMarkerSpreadingNavigationPayload(context, varianceSummary, replenishmentWarning)
-      const completedOriginalOrderCount = getCompletedLinkedOriginalCutOrderIds(session).length
+      const completedCutOrderCount = getCompletedLinkedCutOrderIds(session).length
 
       return {
         spreadingSessionId: session.spreadingSessionId,
         sessionNo: session.sessionNo || session.spreadingSessionId,
         contextType: session.contextType,
-        contextLabel: session.contextType === 'merge-batch' ? '合并裁剪批次上下文' : '原始裁片单上下文',
-        originalCutOrderCount: session.originalCutOrderIds.length,
-        originalCutOrderNos,
-        mergeBatchNo: session.mergeBatchNo || batch?.mergeBatchNo || '',
-        styleCode: session.styleCode || originalRows[0]?.styleCode || '',
-        spuCode: session.spuCode || originalRows[0]?.spuCode || '',
+        contextLabel: session.contextType === 'marker-plan-ref' ? '唛架方案上下文' : '裁片单上下文',
+        cutOrderCount: session.cutOrderIds.length,
+        cutOrderNos,
+        markerPlanNo: session.markerPlanNo || batch?.markerPlanNo || '',
+        styleCode: session.styleCode || cutOrderRows[0]?.styleCode || '',
+        spuCode: session.spuCode || cutOrderRows[0]?.spuCode || '',
         materialSkuSummary:
-          session.materialSkuSummary || uniqueStrings(originalRows.map((row) => row.materialSkuSummary)).join(' / '),
+          session.materialSkuSummary || uniqueStrings(cutOrderRows.map((row) => row.materialSkuSummary)).join(' / '),
+        materialAliasSummary: session.materialAliasSummary || context.materialAliasSummary || '',
+        materialImageUrl: session.materialImageUrl || context.materialImageUrl || '',
         colorSummary: colorSummary === '待补' ? '' : colorSummary,
         spreadingMode: session.spreadingMode,
         spreadingModeLabel: modeMeta.label,
@@ -936,7 +988,7 @@ export function buildSpreadingListViewModel(options: {
             : '无明显差异',
         differenceStatusTone:
           Math.abs(varianceSummary?.varianceLength || session.varianceLength || 0) > 0.01 ? 'warning' : 'normal',
-        completedOriginalOrderCount,
+        completedCutOrderCount,
         hasHandover: handoverSummary.hasHandover,
         hasHandoverWarnings: handoverSummary.hasAbnormalHandover,
         handoverStatusLabel: handoverSummary.statusLabel,
@@ -964,16 +1016,16 @@ export function buildSpreadingListViewModel(options: {
         warningMessages,
         replenishmentWarning,
         replenishmentPayload: navigationPayload.replenishment,
-        productionOrderNos: context?.productionOrderNos || uniqueStrings(originalRows.map((row) => row.productionOrderNo)),
-        statusLabel: session.status === 'DRAFT' ? '待开始' : session.status === 'IN_PROGRESS' ? '铺布中' : session.status === 'DONE' ? '铺布完成' : '待补录',
+        productionOrderNos: context?.productionOrderNos || uniqueStrings(cutOrderRows.map((row) => row.productionOrderNo)),
+        statusLabel: session.status === 'DRAFT' ? '待铺布' : session.status === 'IN_PROGRESS' ? '铺布中' : session.status === 'DONE' ? '已铺布' : '待补录',
         statusKey: session.status,
         updatedAt: session.updatedAt,
         session,
         keywordIndex: uniqueStrings([
           session.sessionNo,
           session.markerNo,
-          session.mergeBatchNo,
-          ...originalCutOrderNos,
+          session.markerPlanNo,
+          ...cutOrderNos,
           ...(context?.productionOrderNos || []),
           session.styleCode,
           session.spuCode,
@@ -990,16 +1042,16 @@ export function buildSpreadingListViewModel(options: {
 export function buildSpreadingDetailViewModel(options: {
   row: SpreadingListRow
   rowsById: Record<string, MaterialPrepRow>
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerRecords: MarkerRecord[]
 }): SpreadingDetailViewModel {
-  const batchById = Object.fromEntries(options.mergeBatches.map((batch) => [batch.mergeBatchId, batch]))
+  const batchById = Object.fromEntries(options.markerPlanRefs.map((batch) => [batch.markerPlanId, batch]))
   const markerById = Object.fromEntries(options.markerRecords.map((marker) => [marker.markerId, marker]))
   const session = options.row.session
-  const batch = session.mergeBatchId ? batchById[session.mergeBatchId] || null : null
-  const originalRows = session.originalCutOrderIds.map((id) => options.rowsById[id]).filter((row): row is MaterialPrepRow => Boolean(row))
+  const batch = session.markerPlanId ? batchById[session.markerPlanId] || null : null
+  const cutOrderRows = session.cutOrderIds.map((id) => options.rowsById[id]).filter((row): row is MaterialPrepRow => Boolean(row))
   const markerRecord = session.markerId ? markerById[session.markerId] || null : null
-  const context = buildSessionContext(session, originalRows, batch)
+  const context = buildSessionContext(session, cutOrderRows, batch)
   const varianceSummary = buildSpreadingVarianceSummary(context, markerRecord, session)
   const warningMessages = buildSpreadingWarningMessages({
     session,
@@ -1020,9 +1072,9 @@ export function buildSpreadingDetailViewModel(options: {
       context,
       session,
       markerTotalPieces: markerRecord?.totalPieces || 0,
-      originalCutOrderNos: originalRows.map((item) => item.originalCutOrderNo),
-      productionOrderNos: context?.productionOrderNos || uniqueStrings(originalRows.map((row) => row.productionOrderNo)),
-      materialAttr: originalRows[0]?.materialLabel || originalRows[0]?.materialCategory || '',
+      cutOrderNos: cutOrderRows.map((item) => item.cutOrderNo),
+      productionOrderNos: context?.productionOrderNos || uniqueStrings(cutOrderRows.map((row) => row.productionOrderNo)),
+      materialAttr: cutOrderRows[0]?.materialLabel || cutOrderRows[0]?.materialCategory || '',
       warningMessages,
     })
   return {
@@ -1033,7 +1085,7 @@ export function buildSpreadingDetailViewModel(options: {
     replenishmentWarning,
     navigationPayload: buildMarkerSpreadingNavigationPayload(context, varianceSummary, replenishmentWarning),
     linkedRollNos: Object.fromEntries(session.rolls.map((roll) => [roll.rollRecordId, roll.rollNo])),
-    linkedOriginalCutOrderNos: originalRows.map((item) => item.originalCutOrderNo),
+    linkedCutOrderNos: cutOrderRows.map((item) => item.cutOrderNo),
     sortedOperators: operatorSummary.sortedOperators,
     operatorsByRollId: operatorSummary.operatorsByRollId,
     handoverSummaryByRollId,
@@ -1091,10 +1143,10 @@ export function buildMarkerDetailViewModel(row: MarkerListRow): MarkerDetailView
 export function buildMarkerNavigationPayload(row: MarkerListRow): Record<string, string | undefined> {
   return {
     markerId: row.markerId,
-    originalCutOrderId: row.contextType === 'original-order' ? row.record.originalCutOrderIds[0] : undefined,
-    originalCutOrderNo: row.contextType === 'original-order' ? row.originalCutOrderNos[0] : undefined,
-    mergeBatchId: row.contextType === 'merge-batch' ? row.record.mergeBatchId || undefined : undefined,
-    mergeBatchNo: row.contextType === 'merge-batch' ? row.mergeBatchNo || undefined : undefined,
+    cutOrderId: row.contextType === 'cut-order' ? row.record.cutOrderIds[0] : undefined,
+    cutOrderNo: row.contextType === 'cut-order' ? row.cutOrderNos[0] : undefined,
+    markerPlanId: row.contextType === 'marker-plan-ref' ? row.record.markerPlanId || undefined : undefined,
+    markerPlanNo: row.contextType === 'marker-plan-ref' ? row.markerPlanNo || undefined : undefined,
     styleCode: row.styleCode || undefined,
     materialSku: row.materialSkuSummary?.split(' / ')[0] || undefined,
   }
@@ -1102,31 +1154,31 @@ export function buildMarkerNavigationPayload(row: MarkerListRow): Record<string,
 
 export function getDefaultMarkerSpreadingContext(
   rows: MaterialPrepRow[],
-  mergeBatches: MergeBatchRecord[],
+  markerPlanRefs: MarkerPlanRefRecord[],
   prefilter: MarkerSpreadingPrefilter | null,
 ): MarkerSpreadingContext | null {
-  if (prefilter?.mergeBatchId || prefilter?.mergeBatchNo) {
-    const rowsById = Object.fromEntries(rows.map((row) => [row.originalCutOrderId, row]))
+  if (prefilter?.markerPlanId || prefilter?.markerPlanNo) {
+    const rowsById = Object.fromEntries(rows.map((row) => [row.cutOrderId, row]))
     const batch =
-      (prefilter.mergeBatchId && mergeBatches.find((item) => item.mergeBatchId === prefilter.mergeBatchId)) ||
-      (prefilter.mergeBatchNo && mergeBatches.find((item) => item.mergeBatchNo === prefilter.mergeBatchNo)) ||
+      (prefilter.markerPlanId && markerPlanRefs.find((item) => item.markerPlanId === prefilter.markerPlanId)) ||
+      (prefilter.markerPlanNo && markerPlanRefs.find((item) => item.markerPlanNo === prefilter.markerPlanNo)) ||
       null
-    if (batch) return buildMergeBatchContext(batch, rowsById)
+    if (batch) return buildMarkerPlanRefContext(batch, rowsById)
   }
 
-  if (prefilter?.originalCutOrderId || prefilter?.originalCutOrderNo) {
+  if (prefilter?.cutOrderId || prefilter?.cutOrderNo) {
     const row =
       rows.find(
         (item) =>
-          item.originalCutOrderId === prefilter.originalCutOrderId || item.originalCutOrderNo === prefilter.originalCutOrderNo,
+          item.cutOrderId === prefilter.cutOrderId || item.cutOrderNo === prefilter.cutOrderNo,
       ) || null
-    if (row) return buildOriginalContext(row)
+    if (row) return buildCutOrderContext(row)
   }
 
-  return rows[0] ? buildOriginalContext(rows[0]) : null
+  return rows[0] ? buildCutOrderContext(rows[0]) : null
 }
 
-export function buildMarkerSpreadingCountsByOriginalOrder(originalCutOrderId: string): {
+export function buildMarkerSpreadingCountsByCutOrder(cutOrderId: string): {
   markerCount: number
   sessionCount: number
   rollCount: number
@@ -1142,13 +1194,14 @@ export function buildMarkerSpreadingCountsByOriginalOrder(originalCutOrderId: st
   hasManualAdjustedAmount: boolean
 } {
   const prototypeData = readMarkerSpreadingPrototypeData()
-  const sourceRow = prototypeData.rowsById[originalCutOrderId]
+  const sourceRow = prototypeData.rowsById[cutOrderId]
   if (!sourceRow || !isMaterialPrepRowReadyForSpreadingSeed(sourceRow)) {
     return createEmptyMarkerSpreadingCounts(sourceRow)
   }
   const { store } = prototypeData
-  const linkedSessions = store.sessions.filter((item) => item.originalCutOrderIds.includes(originalCutOrderId))
+  const linkedSessions = store.sessions.filter((item) => item.cutOrderIds.includes(cutOrderId))
   const markersById = Object.fromEntries(store.markers.map((marker) => [marker.markerId, marker]))
+  const draftCount = linkedSessions.filter((item) => item.status === 'DRAFT' || item.status === 'TO_FILL').length
   const doneCount = linkedSessions.filter((item) => item.status === 'DONE').length
   const inProgressCount = linkedSessions.filter((item) => item.status === 'IN_PROGRESS').length
   const latestSession = [...linkedSessions].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))[0] || null
@@ -1156,28 +1209,24 @@ export function buildMarkerSpreadingCountsByOriginalOrder(originalCutOrderId: st
   const latestAmountSummary = latestSession
     ? summarizeSpreadingOperatorAmounts(latestSession.operators, latestMarkerTotalPieces, latestSession.unitPrice)
     : null
-  const completedForCurrentOrder = linkedSessions.some((item) => getCompletedLinkedOriginalCutOrderIds(item).includes(originalCutOrderId))
+  const completedForCurrentOrder = linkedSessions.some((item) => getCompletedLinkedCutOrderIds(item).includes(cutOrderId))
   const spreadingStatusLabel = completedForCurrentOrder
-    ? '完成铺布'
+    ? '已铺布'
     : inProgressCount > 0
       ? '铺布中'
       : doneCount > 0
-        ? '完成铺布'
-        : '待开始'
+        ? '已铺布'
+        : '待铺布'
 
   return {
-    markerCount: store.markers.filter((item) => item.originalCutOrderIds.includes(originalCutOrderId)).length,
+    markerCount: store.markers.filter((item) => item.cutOrderIds.includes(cutOrderId)).length,
     sessionCount: linkedSessions.length,
     rollCount: linkedSessions.reduce((sum, item) => sum + item.rolls.length, 0),
     operatorCount: linkedSessions.reduce((sum, item) => sum + item.operators.length, 0),
     statusSummary:
-      doneCount > 0
-        ? `已完成 ${doneCount} 条`
-        : inProgressCount > 0
-          ? `进行中 ${inProgressCount} 条`
-          : linkedSessions.length > 0
-            ? '以草稿为主'
-            : '暂无铺布记录',
+      linkedSessions.length > 0
+        ? `已铺布 ${doneCount} 张 / 铺布中 ${inProgressCount} 张 / 待铺布 ${draftCount} 张`
+        : '暂无铺布记录',
     spreadingStatusLabel,
     latestSessionNo: latestSession?.sessionNo || '暂无',
     hasReplenishmentWarning: Boolean(latestWarning && latestWarning.suggestedAction !== '无需补料'),
@@ -1194,8 +1243,8 @@ function isMaterialPrepRowReadyForSpreadingSeed(row: MaterialPrepRow): boolean {
 }
 
 function createEmptyMarkerSpreadingCounts(row?: MaterialPrepRow) {
-  const stageLabel = row?.currentStage.label || 'WMS 待处理'
-  const suggestedAction = row?.currentStage.key === 'WAITING_CLAIM' ? '等待 WMS 来料' : '等待 WMS 来料'
+  const stageLabel = row?.currentStage.label || '配料数量待补'
+  const suggestedAction = row?.currentStage.key === 'WAITING_CLAIM' ? '等待裁床领料' : '等待裁床领料'
   return {
     markerCount: 0,
     sessionCount: 0,

@@ -270,6 +270,70 @@ function cloneImageSnapshot(snapshot: TechPackImageSnapshot): TechPackImageSnaps
   }
 }
 
+function getBomDisplayCode(item: TechPackBomItemSnapshot, index: number): string {
+  return (
+    normalizeText((item as { materialCode?: string }).materialCode)
+    || normalizeText(item.id)
+    || `MAT-${String(index + 1).padStart(3, '0')}`
+  )
+}
+
+function buildMaterialSwatchImageUrl(item: TechPackBomItemSnapshot, index: number): string {
+  const palettes = [
+    ['#dbeafe', '#1d4ed8', '#eff6ff'],
+    ['#dcfce7', '#047857', '#f0fdf4'],
+    ['#fef3c7', '#b45309', '#fffbeb'],
+    ['#fce7f3', '#be185d', '#fff1f2'],
+    ['#e0e7ff', '#4338ca', '#eef2ff'],
+  ] as const
+  const [base, accent, soft] = palettes[index % palettes.length]
+  const code = getBomDisplayCode(item, index)
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90" viewBox="0 0 120 90">',
+    `<rect width="120" height="90" rx="10" fill="${soft}"/>`,
+    `<rect x="10" y="10" width="100" height="70" rx="8" fill="${base}"/>`,
+    `<path d="M10 28h100M10 48h100M10 68h100" stroke="${accent}" stroke-width="1.2" opacity=".32"/>`,
+    `<path d="M28 10v70M58 10v70M88 10v70" stroke="${accent}" stroke-width="1.2" opacity=".22"/>`,
+    `<text x="60" y="48" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="${accent}">${code}</text>`,
+    '</svg>',
+  ].join('')
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
+function enrichBomItemsWithMaterialAssets(
+  bomItems: TechPackBomItemSnapshot[],
+  patternFiles: TechPackPatternFileSnapshot[],
+): TechPackBomItemSnapshot[] {
+  return bomItems.map((item, index) => {
+    const itemCode = getBomDisplayCode(item, index).toLowerCase()
+    const itemName = normalizeText(item.name).toLowerCase()
+    const linkedPatterns = patternFiles.filter((pattern) => {
+      const linkedSku = normalizeText(pattern.linkedMaterialSku).toLowerCase()
+      const linkedName = normalizeText(pattern.linkedMaterialName).toLowerCase()
+      return (
+        pattern.linkedBomItemId === item.id
+        || pattern.linkedMaterialId === item.id
+        || linkedSku === itemCode
+        || (Boolean(itemName) && linkedName === itemName)
+      )
+    })
+    const aliases = uniqueStrings([
+      normalizeText((item as { materialAlias?: string }).materialAlias),
+      ...linkedPatterns.map((pattern) => pattern.linkedMaterialAlias),
+    ])
+    const linkedImage = linkedPatterns.map((pattern) => normalizeText(pattern.imageUrl)).find(isAllowedSnapshotImage)
+    const materialImageUrl = isAllowedSnapshotImage(item.materialImageUrl)
+      ? normalizeText(item.materialImageUrl)
+      : linkedImage || buildMaterialSwatchImageUrl(item, index)
+
+    return {
+      ...item,
+      materialAlias: aliases.join(' / '),
+      materialImageUrl,
+    }
+  })
+}
+
 function normalizePatternFiles(
   patternFiles: TechnicalDataVersionContent['patternFiles'],
   options: {
@@ -515,12 +579,13 @@ function buildSnapshotFromSource(input: {
   snapshotBy: string
 }): ProductionOrderTechPackSnapshot {
   const { productionOrderId, productionOrderNo, style, record, content, snapshotAt, snapshotBy } = input
-  const bomItems = cloneBomItems(content.bomItems as TechPackBomItemSnapshot[])
+  const baseBomItems = cloneBomItems(content.bomItems as TechPackBomItemSnapshot[])
   const patternFiles = normalizePatternFiles(content.patternFiles, {
-    bomItems,
+    bomItems: baseBomItems,
     sizeTable: content.sizeTable,
     versionLabel: record.versionLabel,
   })
+  const bomItems = enrichBomItemsWithMaterialAssets(baseBomItems, patternFiles)
   const patternDesigns = clonePatternDesigns(content.patternDesigns)
   const imageSnapshot = buildImageSnapshot({
     bomItems,

@@ -16,10 +16,10 @@ interface PdaExecutionWritebackBase {
   cutPieceOrderNo: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   operatorAccountId: string
   operatorName: string
@@ -109,10 +109,10 @@ function normalizeBaseRecord(raw: Record<string, unknown>) {
     cutPieceOrderNo: toString(raw.cutPieceOrderNo) || executionOrderNo,
     productionOrderId: toString(raw.productionOrderId),
     productionOrderNo: toString(raw.productionOrderNo),
-    originalCutOrderId: toString(raw.originalCutOrderId),
-    originalCutOrderNo: toString(raw.originalCutOrderNo),
-    mergeBatchId: toString(raw.mergeBatchId),
-    mergeBatchNo: toString(raw.mergeBatchNo),
+    cutOrderId: toString(raw.cutOrderId),
+    cutOrderNo: toString(raw.cutOrderNo),
+    markerPlanId: toString(raw.markerPlanId),
+    markerPlanNo: toString(raw.markerPlanNo),
     materialSku: toString(raw.materialSku),
     operatorAccountId: toString(raw.operatorAccountId),
     operatorName: toString(raw.operatorName),
@@ -212,10 +212,10 @@ function createSeedBase(input: {
     cutPieceOrderNo: execution.executionOrderNo,
     productionOrderId: execution.productionOrderId,
     productionOrderNo: execution.productionOrderNo,
-    originalCutOrderId: execution.originalCutOrderId,
-    originalCutOrderNo: execution.originalCutOrderNo,
-    mergeBatchId: execution.mergeBatchId,
-    mergeBatchNo: execution.mergeBatchNo,
+    cutOrderId: execution.cutOrderId,
+    cutOrderNo: execution.cutOrderNo,
+    markerPlanId: execution.markerPlanId,
+    markerPlanNo: execution.markerPlanNo,
     materialSku: execution.materialSku,
     operatorAccountId: `seed-${input.operatorName.toLowerCase().replace(/\s+/g, '-')}`,
     operatorName: input.operatorName,
@@ -278,7 +278,7 @@ function createSeededPdaExecutionWritebackStore(): PdaExecutionWritebackStore {
         sourceRecordId: 'replenishment-seed-000204',
       }),
       reasonLabel: '布卷长度差异',
-      note: '铺布前发现 WMS 来料长度与布卷标签不一致。',
+    note: '铺布前发现裁床领料长度与布卷标签不一致。',
       photoProofCount: 2,
       lifecycleStatus: 'PENDING',
       lifecycleStatusLabel: '待处理',
@@ -421,18 +421,18 @@ export function listPdaPickupWritebacks(storage?: Pick<Storage, 'getItem'>): Pda
   return hydratePdaExecutionWritebackStore(storage).pickupWritebacks
 }
 
-export function listPdaPickupWritebacksByOriginalCutOrderNo(
-  originalCutOrderNo: string,
+export function listPdaPickupWritebacksByCutOrderNo(
+  cutOrderNo: string,
   storage?: Pick<Storage, 'getItem'>,
 ): PdaPickupWritebackRecord[] {
-  return listPdaPickupWritebacks(storage).filter((item) => item.originalCutOrderNo === originalCutOrderNo)
+  return listPdaPickupWritebacks(storage).filter((item) => item.cutOrderNo === cutOrderNo)
 }
 
-export function getLatestPdaPickupWritebackByOriginalCutOrderNo(
-  originalCutOrderNo: string,
+export function getLatestPdaPickupWritebackByCutOrderNo(
+  cutOrderNo: string,
   storage?: Pick<Storage, 'getItem'>,
 ): PdaPickupWritebackRecord | null {
-  return listPdaPickupWritebacksByOriginalCutOrderNo(originalCutOrderNo, storage)[0] ?? null
+  return listPdaPickupWritebacksByCutOrderNo(cutOrderNo, storage)[0] ?? null
 }
 
 export function listPdaInboundWritebacks(storage?: Pick<Storage, 'getItem'>): PdaCutPieceInboundWritebackRecord[] {

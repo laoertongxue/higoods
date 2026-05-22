@@ -1,5 +1,5 @@
-import type { GeneratedOriginalCutOrderSourceRecord } from '../../data/fcs/cutting/generated-original-cut-orders.ts'
-import type { MergeBatchSourceRecord } from '../../data/fcs/cutting/merge-batch-source.ts'
+import type { GeneratedCutOrderSourceRecord } from '../../data/fcs/cutting/generated-cut-orders.ts'
+import type { MarkerPlanRefSourceRecord } from '../../data/fcs/cutting/marker-plan-ref-source.ts'
 import type {
   CutPieceWarehouseRecord,
   CuttingFabricStockRecord,
@@ -48,8 +48,8 @@ export interface CuttingPdaExecutionRuntimeInput {
   replenishmentFeedbackWritebacks: Array<Record<string, unknown>>
 }
 
-export interface CuttingMergeBatchRuntimeInput {
-  sourceRecords: MergeBatchSourceRecord[]
+export interface CuttingMarkerPlanRefRuntimeInput {
+  sourceRecords: MarkerPlanRefSourceRecord[]
   storedRecords: Array<Record<string, unknown>>
 }
 
@@ -63,8 +63,8 @@ export interface CuttingWarehouseRuntimeInput {
 
 export interface CuttingRuntimeInputs {
   productionOrders: ProductionOrder[]
-  originalCutOrders: GeneratedOriginalCutOrderSourceRecord[]
-  mergeBatchState: CuttingMergeBatchRuntimeInput
+  cutOrders: GeneratedCutOrderSourceRecord[]
+  markerPlanRefState: CuttingMarkerPlanRefRuntimeInput
   progressRecords: CuttingOrderProgressRecord[]
   warehouseState: CuttingWarehouseRuntimeInput
   markerSpreadingState: CuttingMarkerStoreInput

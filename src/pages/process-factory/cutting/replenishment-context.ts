@@ -1,4 +1,4 @@
-import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
 import {
   buildSpreadingVarianceSummary,
   type MarkerRecord,
@@ -8,9 +8,9 @@ import {
   type SpreadingVarianceSummary,
 } from './marker-spreading-model.ts'
 import type { MaterialPrepLineItem, MaterialPrepRow } from './material-prep-model.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 
-export type ReplenishmentContextBaseSourceType = 'original-order' | 'merge-batch'
+export type ReplenishmentContextBaseSourceType = 'cut-order' | 'marker-plan-ref'
 export type ReplenishmentContextSourceType = ReplenishmentContextBaseSourceType | 'spreading-session'
 export type ReplenishmentPendingPrepDecisionKey = 'YES' | 'NO' | 'UNKNOWN'
 
@@ -18,10 +18,10 @@ export interface ReplenishmentContextRecord {
   contextId: string
   sourceType: ReplenishmentContextSourceType
   baseSourceType: ReplenishmentContextBaseSourceType
-  mergeBatchId: string
-  mergeBatchNo: string
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
@@ -52,45 +52,45 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
 
 function buildRowsById(rows: MaterialPrepRow[]): Record<string, MaterialPrepRow> {
   return rows.reduce<Record<string, MaterialPrepRow>>((accumulator, row) => {
-    accumulator[row.originalCutOrderId] = row
-    accumulator[row.originalCutOrderNo] = row
+    accumulator[row.cutOrderId] = row
+    accumulator[row.cutOrderNo] = row
     return accumulator
   }, {})
 }
 
-function buildOriginalRowsById(rows: OriginalCutOrderRow[]): Record<string, OriginalCutOrderRow> {
-  return rows.reduce<Record<string, OriginalCutOrderRow>>((accumulator, row) => {
-    accumulator[row.originalCutOrderId] = row
-    accumulator[row.originalCutOrderNo] = row
+function buildCutOrderRowsById(rows: CutOrderRow[]): Record<string, CutOrderRow> {
+  return rows.reduce<Record<string, CutOrderRow>>((accumulator, row) => {
+    accumulator[row.cutOrderId] = row
+    accumulator[row.cutOrderNo] = row
     return accumulator
   }, {})
 }
 
-function getContextRowsByMergeBatch(batch: MergeBatchRecord, rowsById: Record<string, MaterialPrepRow>): MaterialPrepRow[] {
+function getContextRowsByMarkerPlanRef(batch: MarkerPlanRefRecord, rowsById: Record<string, MaterialPrepRow>): MaterialPrepRow[] {
   return batch.items
-    .map((item) => rowsById[item.originalCutOrderId] || rowsById[item.originalCutOrderNo])
+    .map((item) => rowsById[item.cutOrderId] || rowsById[item.cutOrderNo])
     .filter((row): row is MaterialPrepRow => Boolean(row))
 }
 
-function findMergeBatchForRow(row: MaterialPrepRow, mergeBatches: MergeBatchRecord[]): MergeBatchRecord | null {
+function findMarkerPlanRefForRow(row: MaterialPrepRow, markerPlanRefs: MarkerPlanRefRecord[]): MarkerPlanRefRecord | null {
   return (
-    (row.mergeBatchIds[0] && mergeBatches.find((batch) => batch.mergeBatchId === row.mergeBatchIds[0])) ||
-    (row.latestMergeBatchNo && mergeBatches.find((batch) => batch.mergeBatchNo === row.latestMergeBatchNo)) ||
+    (row.markerPlanIds[0] && markerPlanRefs.find((batch) => batch.markerPlanId === row.markerPlanIds[0])) ||
+    (row.latestMarkerPlanNo && markerPlanRefs.find((batch) => batch.markerPlanNo === row.latestMarkerPlanNo)) ||
     null
   )
 }
 
 function findRelevantSession(context: {
   baseSourceType: ReplenishmentContextBaseSourceType
-  mergeBatchId: string
-  originalCutOrderIds: string[]
+  markerPlanId: string
+  cutOrderIds: string[]
 }, store: MarkerSpreadingStore): SpreadingSession | null {
   const matched = store.sessions
     .filter((session) => {
-      if (context.baseSourceType === 'merge-batch' && context.mergeBatchId) {
-        return session.contextType === 'merge-batch' && session.mergeBatchId === context.mergeBatchId
+      if (context.baseSourceType === 'marker-plan-ref' && context.markerPlanId) {
+        return session.contextType === 'marker-plan-ref' && session.markerPlanId === context.markerPlanId
       }
-      return session.contextType === 'original-order' && session.originalCutOrderIds[0] === context.originalCutOrderIds[0]
+      return session.contextType === 'cut-order' && session.cutOrderIds[0] === context.cutOrderIds[0]
     })
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))
 
@@ -99,15 +99,15 @@ function findRelevantSession(context: {
 
 function findRelevantMarker(context: {
   baseSourceType: ReplenishmentContextBaseSourceType
-  mergeBatchId: string
-  originalCutOrderIds: string[]
+  markerPlanId: string
+  cutOrderIds: string[]
 }, store: MarkerSpreadingStore): MarkerRecord | null {
   const matched = store.markers
     .filter((marker) => {
-      if (context.baseSourceType === 'merge-batch' && context.mergeBatchId) {
-        return marker.contextType === 'merge-batch' && marker.mergeBatchId === context.mergeBatchId
+      if (context.baseSourceType === 'marker-plan-ref' && context.markerPlanId) {
+        return marker.contextType === 'marker-plan-ref' && marker.markerPlanId === context.markerPlanId
       }
-      return marker.contextType === 'original-order' && marker.originalCutOrderIds[0] === context.originalCutOrderIds[0]
+      return marker.contextType === 'cut-order' && marker.cutOrderIds[0] === context.cutOrderIds[0]
     })
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))
 
@@ -116,10 +116,10 @@ function findRelevantMarker(context: {
 
 function buildMarkerContext(options: {
   baseSourceType: ReplenishmentContextBaseSourceType
-  mergeBatchId: string
-  mergeBatchNo: string
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
@@ -128,10 +128,10 @@ function buildMarkerContext(options: {
 }): MarkerSpreadingContext {
   return {
     contextType: options.baseSourceType,
-    originalCutOrderIds: options.originalCutOrderIds,
-    originalCutOrderNos: options.originalCutOrderNos,
-    mergeBatchId: options.mergeBatchId,
-    mergeBatchNo: options.mergeBatchNo,
+    cutOrderIds: options.cutOrderIds,
+    cutOrderNos: options.cutOrderNos,
+    markerPlanId: options.markerPlanId,
+    markerPlanNo: options.markerPlanNo,
     productionOrderNos: options.productionOrderNos,
     styleCode: options.styleCode,
     spuCode: options.spuCode,
@@ -144,24 +144,24 @@ function buildMarkerContext(options: {
 function buildContextRecord(options: {
   contextId: string
   baseSourceType: ReplenishmentContextBaseSourceType
-  mergeBatchId: string
-  mergeBatchNo: string
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
   styleName: string
   materialRows: MaterialPrepRow[]
-  originalRowsById: Record<string, OriginalCutOrderRow>
+  cutOrderRowsById: Record<string, CutOrderRow>
   markerStore: MarkerSpreadingStore
 }): ReplenishmentContextRecord {
   const marker = findRelevantMarker(options, options.markerStore)
   const session = findRelevantSession(options, options.markerStore)
   const markerContext = buildMarkerContext(options)
   const varianceSummary = buildSpreadingVarianceSummary(markerContext, marker, session)
-  const totalRequiredQty = options.originalCutOrderIds.reduce((sum, originalCutOrderId) => {
-    const row = options.originalRowsById[originalCutOrderId]
+  const totalRequiredQty = options.cutOrderIds.reduce((sum, cutOrderId) => {
+    const row = options.cutOrderRowsById[cutOrderId]
     return sum + (row?.plannedQty || row?.orderQty || 0)
   }, 0)
   const totalConfiguredLength = Number(
@@ -187,10 +187,10 @@ function buildContextRecord(options: {
     contextId: options.contextId,
     sourceType: session ? 'spreading-session' : options.baseSourceType,
     baseSourceType: options.baseSourceType,
-    mergeBatchId: options.mergeBatchId,
-    mergeBatchNo: options.mergeBatchNo,
-    originalCutOrderIds: options.originalCutOrderIds,
-    originalCutOrderNos: options.originalCutOrderNos,
+    markerPlanId: options.markerPlanId,
+    markerPlanNo: options.markerPlanNo,
+    cutOrderIds: options.cutOrderIds,
+    cutOrderNos: options.cutOrderNos,
     productionOrderNos: options.productionOrderNos,
     styleCode: options.styleCode,
     spuCode: options.spuCode,
@@ -209,39 +209,39 @@ function buildContextRecord(options: {
 
 export function buildReplenishmentContextRecords(options: {
   materialPrepRows: MaterialPrepRow[]
-  originalRows: OriginalCutOrderRow[]
-  mergeBatches: MergeBatchRecord[]
+  cutOrderRows: CutOrderRow[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
 }): ReplenishmentContextRecord[] {
   const rowsById = buildRowsById(options.materialPrepRows)
-  const originalRowsById = buildOriginalRowsById(options.originalRows)
+  const cutOrderRowsById = buildCutOrderRowsById(options.cutOrderRows)
   const contexts: ReplenishmentContextRecord[] = []
-  const consumedOriginalCutOrderIds = new Set<string>()
-  const createdMergeBatchIds = new Set<string>()
+  const consumedCutOrderIds = new Set<string>()
+  const createdMarkerPlanRefIds = new Set<string>()
 
   for (const row of options.materialPrepRows) {
-    if (consumedOriginalCutOrderIds.has(row.originalCutOrderId)) continue
+    if (consumedCutOrderIds.has(row.cutOrderId)) continue
 
-    const mergeBatch = findMergeBatchForRow(row, options.mergeBatches)
-    if (mergeBatch && !createdMergeBatchIds.has(mergeBatch.mergeBatchId)) {
-      const batchRows = getContextRowsByMergeBatch(mergeBatch, rowsById)
+    const markerPlanRef = findMarkerPlanRefForRow(row, options.markerPlanRefs)
+    if (markerPlanRef && !createdMarkerPlanRefIds.has(markerPlanRef.markerPlanId)) {
+      const batchRows = getContextRowsByMarkerPlanRef(markerPlanRef, rowsById)
       if (batchRows.length) {
-        batchRows.forEach((item) => consumedOriginalCutOrderIds.add(item.originalCutOrderId))
-        createdMergeBatchIds.add(mergeBatch.mergeBatchId)
+        batchRows.forEach((item) => consumedCutOrderIds.add(item.cutOrderId))
+        createdMarkerPlanRefIds.add(markerPlanRef.markerPlanId)
         contexts.push(
           buildContextRecord({
-            contextId: `merge-${mergeBatch.mergeBatchId}`,
-            baseSourceType: 'merge-batch',
-            mergeBatchId: mergeBatch.mergeBatchId,
-            mergeBatchNo: mergeBatch.mergeBatchNo,
-            originalCutOrderIds: batchRows.map((item) => item.originalCutOrderId),
-            originalCutOrderNos: batchRows.map((item) => item.originalCutOrderNo),
+            contextId: `merge-${markerPlanRef.markerPlanId}`,
+            baseSourceType: 'marker-plan-ref',
+            markerPlanId: markerPlanRef.markerPlanId,
+            markerPlanNo: markerPlanRef.markerPlanNo,
+            cutOrderIds: batchRows.map((item) => item.cutOrderId),
+            cutOrderNos: batchRows.map((item) => item.cutOrderNo),
             productionOrderNos: uniqueStrings(batchRows.map((item) => item.productionOrderNo)),
-            styleCode: mergeBatch.styleCode || row.styleCode,
-            spuCode: mergeBatch.spuCode || row.spuCode,
-            styleName: mergeBatch.styleName || row.styleName,
+            styleCode: markerPlanRef.styleCode || row.styleCode,
+            spuCode: markerPlanRef.spuCode || row.spuCode,
+            styleName: markerPlanRef.styleName || row.styleName,
             materialRows: batchRows,
-            originalRowsById,
+            cutOrderRowsById,
             markerStore: options.markerStore,
           }),
         )
@@ -249,21 +249,21 @@ export function buildReplenishmentContextRecords(options: {
       }
     }
 
-    consumedOriginalCutOrderIds.add(row.originalCutOrderId)
+    consumedCutOrderIds.add(row.cutOrderId)
     contexts.push(
       buildContextRecord({
-        contextId: `original-${row.originalCutOrderId}`,
-        baseSourceType: 'original-order',
-        mergeBatchId: '',
-        mergeBatchNo: row.latestMergeBatchNo || '',
-        originalCutOrderIds: [row.originalCutOrderId],
-        originalCutOrderNos: [row.originalCutOrderNo],
+        contextId: `cut-order-${row.cutOrderId}`,
+        baseSourceType: 'cut-order',
+        markerPlanId: '',
+        markerPlanNo: row.latestMarkerPlanNo || '',
+        cutOrderIds: [row.cutOrderId],
+        cutOrderNos: [row.cutOrderNo],
         productionOrderNos: [row.productionOrderNo],
         styleCode: row.styleCode,
         spuCode: row.spuCode,
         styleName: row.styleName,
         materialRows: [row],
-        originalRowsById,
+        cutOrderRowsById,
         markerStore: options.markerStore,
       }),
     )
@@ -318,9 +318,9 @@ export function inferReplenishmentPendingPrepDecision(context: ReplenishmentCont
     lineItems,
     positiveKeywords: ['主料', '面料主料'],
     negativeKeywords: ['里辅料', '辅料'],
-    positiveNote: '当前面料行已命中主料信号，需同步关注仓库WMS 待处理。',
-    negativeNote: '当前面料行未命中主料信号，可不必追加仓库WMS 待处理。',
-    unknownNote: '当前无法明确判断是否需要回仓库WMS 待处理，建议人工确认。',
+    positiveNote: '当前面料行已命中主料信号，需同步关注中转仓配料。',
+    negativeNote: '当前面料行未命中主料信号，可不必追加中转仓配料。',
+    unknownNote: '当前无法明确判断是否需要回中转仓配料，建议人工确认。',
   })
 
   return {

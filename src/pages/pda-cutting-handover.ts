@@ -199,10 +199,10 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
     const identity = resolvePdaCuttingWritebackIdentity(taskId, {
       executionOrderId: context.selectedExecutionOrderId || undefined,
       executionOrderNo: context.selectedExecutionOrderNo || undefined,
-      originalCutOrderId: context.selectedExecutionOrder?.originalCutOrderId || undefined,
-      originalCutOrderNo: context.selectedExecutionOrder?.originalCutOrderNo || undefined,
-      mergeBatchId: context.selectedExecutionOrder?.mergeBatchId || undefined,
-      mergeBatchNo: context.selectedExecutionOrder?.mergeBatchNo || undefined,
+      cutOrderId: context.selectedExecutionOrder?.cutOrderId || undefined,
+      cutOrderNo: context.selectedExecutionOrder?.cutOrderNo || undefined,
+      markerPlanId: context.selectedExecutionOrder?.markerPlanId || undefined,
+      markerPlanNo: context.selectedExecutionOrder?.markerPlanNo || undefined,
       materialSku: context.selectedExecutionOrder?.materialSku || undefined,
     })
     const operator = resolvePdaCuttingWritebackOperator(taskId, form.operatorName.trim() || '交接操作员')

@@ -104,12 +104,12 @@ function getCuttingReportConfig(): CuttingMainlineReportConfigView {
 
 function mapStageToTab(stageLabel: string): CuttingMainlineStatusTab {
   if (stageLabel.includes('铺布中')) return 'IN_PROGRESS'
-  if (stageLabel.includes('待开始')) return 'NOT_STARTED'
+  if (stageLabel.includes('待铺布') || stageLabel.includes('待开始')) return 'NOT_STARTED'
   return 'DONE'
 }
 
 function getActionLabel(stageLabel: string): string {
-  if (stageLabel.includes('待开始')) return '开始铺布'
+  if (stageLabel.includes('待铺布') || stageLabel.includes('待开始')) return '开始铺布'
   if (stageLabel.includes('铺布中')) return '继续铺布'
   return '查看现场记录'
 }
@@ -119,17 +119,17 @@ function getRows(): SpreadingListRow[] {
   return buildSpreadingListViewModel({
     spreadingSessions: data.store.sessions,
     rowsById: data.rowsById,
-    mergeBatches: data.mergeBatches,
+    markerPlanRefs: data.markerPlanRefs,
     markerRecords: data.store.markers,
   })
 }
 
 function mapRowToSession(taskId: string, row: SpreadingListRow, reportConfig = getCuttingReportConfig()): CuttingMainlineSessionView {
   const stage = deriveSpreadingListStatus(row.session.status)
-  const sourceTypeLabel = row.contextType === 'merge-batch' ? '合并裁剪批次' : '原始裁片单'
-  const sourceOrderLabel = row.contextType === 'merge-batch'
-    ? row.mergeBatchNo || row.originalCutOrderNos.join(' / ')
-    : row.originalCutOrderNos.join(' / ')
+  const sourceTypeLabel = row.contextType === 'marker-plan-ref' ? '唛架方案' : '裁片单'
+  const sourceOrderLabel = row.contextType === 'marker-plan-ref'
+    ? row.markerPlanNo || row.cutOrderNos.join(' / ')
+    : row.cutOrderNos.join(' / ')
   const productionOrderNo = row.productionOrderNos[0] || ''
   const stageLabel = stage.label
   const cuttingStageLabel = row.session.cuttingStatus
@@ -163,7 +163,7 @@ function mapRowToSession(taskId: string, row: SpreadingListRow, reportConfig = g
     mainStageLabel: stageLabel,
     cuttingStageLabel,
     statusTab: mapStageToTab(stageLabel),
-    wmsReceiveStatus: row.configuredLengthTotal > 0 || row.claimedLengthTotal > 0 ? '待加工仓已接收' : '待 WMS 来料入待加工仓',
+    wmsReceiveStatus: row.configuredLengthTotal > 0 || row.claimedLengthTotal > 0 ? '待加工仓已接收' : '待中转仓配料入待加工仓',
     warehouseFlowStatus: row.session.prototypeLifecycleOverrides?.warehouseStatusLabel || '待交出仓未接收',
     feiTicketStatus: row.session.prototypeLifecycleOverrides?.feiTicketStatusLabel || '待打印菲票',
     actionLabel: getActionLabel(stageLabel),

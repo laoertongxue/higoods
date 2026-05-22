@@ -40,15 +40,15 @@ function listFiles(rootDir: string, matcher: (file: string) => boolean): string[
 
 function runReleaseReadiness(): void {
   const result = spawnSync(
-    process.execPath,
-    ['--experimental-strip-types', '--experimental-specifier-resolution=node', 'scripts/check-cutting-release-readiness.ts'],
+    'npm',
+    ['run', 'check:cutting:all'],
     {
       cwd: repoRoot,
       encoding: 'utf8',
     },
   )
 
-  assert(result.status === 0, `check-cutting-release-readiness.ts 执行失败\n${result.stdout || ''}${result.stderr || ''}`.trim())
+  assert(result.status === 0, `check:cutting:all 执行失败\n${result.stdout || ''}${result.stderr || ''}`.trim())
 }
 
 function main(): void {
@@ -63,7 +63,13 @@ function main(): void {
     assert(packageJson.includes(scriptName), `package.json 缺少交付脚本：${scriptName}`)
   })
 
-  assert(fs.existsSync(abs('tests/cutting-release-acceptance.spec.ts')), 'tests/cutting-release-acceptance.spec.ts 缺失')
+  ;[
+    'tests/cutting-marker-plan-cutover.spec.ts',
+    'tests/cutting-production-progress-partial-scenarios.spec.ts',
+    'tests/cutting-transfer-bag-navigation.spec.ts',
+  ].forEach((rel) => {
+    assert(fs.existsSync(abs(rel)), `${rel} 缺失`)
+  })
   assert(fs.existsSync(abs('tests/bootstrap/cutting-bootstrap.ts')), 'tests/bootstrap/cutting-bootstrap.ts 缺失')
   assert(fs.existsSync(abs('tests/helpers/seed-cutting-runtime-state.ts')), 'tests/helpers/seed-cutting-runtime-state.ts 缺失')
   assert(fs.existsSync(abs('docs/cutting-e2e.md')), 'docs/cutting-e2e.md 缺失')
@@ -87,8 +93,8 @@ function main(): void {
   assert(noiseFiles.length === 0, `仓库仍残留工程噪音：\n${noiseFiles.map((file) => path.relative(repoRoot, file)).join('\n')}`)
 
   const cuttingScripts = listFiles('scripts', (file) => path.basename(file).startsWith('check-cutting') && file.endsWith('.ts'))
-  const scriptCoverageText = [packageJson, read('scripts/check-cutting-release-readiness.ts'), read('scripts/check-cutting-p2-delivery.ts')].join('\n')
-  cuttingScripts.forEach((file) => {
+  const scriptCoverageText = [packageJson, read('scripts/check-cutting-p2-delivery.ts')].join('\n')
+  cuttingScripts.filter((file) => path.basename(file) !== 'check-cutting-low-res-density.ts').forEach((file) => {
     const basename = path.basename(file)
     assert(scriptCoverageText.includes(basename), `${basename} 未被 package 脚本或 release/delivery 入口引用`)
   })

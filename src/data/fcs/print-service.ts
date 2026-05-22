@@ -39,7 +39,7 @@ export type PrintSourceType =
   | 'QUALITY_DISPUTE_RECORD'
   | 'MASTER_DATA_CHANGE_REQUEST_RECORD'
 
-export type PrintPaperType = 'A4' | 'LABEL_80_50' | 'LABEL_100_60' | 'LABEL_60_40' | 'A4_LABEL_GRID'
+export type PrintPaperType = 'A4' | 'LABEL_80_50' | 'LABEL_100_60' | 'LABEL_100_100' | 'LABEL_150_100' | 'LABEL_60_40' | 'A4_LABEL_GRID'
 export type PrintOrientation = 'portrait'
 
 export interface PrintField {

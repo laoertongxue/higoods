@@ -38,9 +38,9 @@ export interface ProductionSkuRequirementRef {
   techPackSpuCode: string
 }
 
-export interface OriginalCutOrderSkuScopeRef {
-  originalCutOrderId: string
-  originalCutOrderNo: string
+export interface CutOrderSkuScopeRef {
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   materialSku: string
@@ -48,17 +48,17 @@ export interface OriginalCutOrderSkuScopeRef {
   color: string
   size: string
   plannedQty: number
-  mergeBatchId: string
-  mergeBatchNo: string
+  markerPlanId: string
+  markerPlanNo: string
 }
 
 export interface PieceRequirementRow {
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   skuCode: string
   color: string
@@ -78,10 +78,10 @@ export interface PieceRequirementRow {
 export interface PieceActualRow {
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   skuCode: string
   color: string
@@ -98,10 +98,10 @@ export interface PieceActualRow {
 export interface PieceGapRow {
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   skuCode: string
   color: string
@@ -133,10 +133,10 @@ export interface ProductionPieceTruthIssue {
   message: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   skuCode: string
   color: string
@@ -155,7 +155,7 @@ export interface ProductionPieceTruthSkuRow {
   inboundQty: number
   gapCutQty: number
   gapInboundQty: number
-  originalCutOrderCount: number
+  cutOrderCount: number
   materialCount: number
   mappingStatus: PieceTruthMappingStatus
   mappingStatusLabel: string
@@ -163,11 +163,11 @@ export interface ProductionPieceTruthSkuRow {
   nextActionLabel: string
 }
 
-export interface ProductionPieceTruthOriginalCutOrderRow {
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+export interface ProductionPieceTruthCutOrderRow {
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   skuCount: number
   gapPartCount: number
@@ -179,7 +179,7 @@ export interface ProductionPieceTruthOriginalCutOrderRow {
 
 export interface ProductionPieceTruthMaterialRow {
   materialSku: string
-  originalCutOrderCount: number
+  cutOrderCount: number
   skuCount: number
   gapPartCount: number
   gapCutQty: number
@@ -194,7 +194,7 @@ export interface ProductionPieceTruthCounts {
   pendingSkuCount: number
   incompletePartCount: number
   affectedMaterialCount: number
-  originalCutOrderCount: number
+  cutOrderCount: number
   mappingIssueCount: number
   dataIssueCount: number
   requiredPieceQtyTotal: number
@@ -218,7 +218,7 @@ export interface ProductionPieceTruthResult {
   actualRows: PieceActualRow[]
   gapRows: PieceGapRow[]
   skuRows: ProductionPieceTruthSkuRow[]
-  originalCutOrderRows: ProductionPieceTruthOriginalCutOrderRow[]
+  cutOrderRows: ProductionPieceTruthCutOrderRow[]
   materialRows: ProductionPieceTruthMaterialRow[]
   mappingIssues: ProductionPieceTruthIssue[]
   dataIssues: ProductionPieceTruthIssue[]
@@ -235,10 +235,10 @@ export interface PieceTruthOverlaySignal {
   sourceType: PieceTruthOverlaySourceType
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   cutPieceOrderNo: string
   materialSku: string
   latestUpdatedAt: string
@@ -300,7 +300,7 @@ function makeSkuKey(line: Pick<ProductionSkuRequirementRef, 'skuCode' | 'color' 
 }
 
 function makePieceKey(line: {
-  originalCutOrderNo: string
+  cutOrderNo: string
   materialSku: string
   skuCode: string
   color: string
@@ -309,7 +309,7 @@ function makePieceKey(line: {
   partName: string
 }): string {
   return [
-    normalizeKey(line.originalCutOrderNo),
+    normalizeKey(line.cutOrderNo),
     normalizeKey(line.materialSku),
     normalizeKey(line.skuCode),
     normalizeKey(line.color),
@@ -318,15 +318,15 @@ function makePieceKey(line: {
   ].join('::')
 }
 
-function makeOriginalMaterialKey(line: {
-  originalCutOrderNo: string
+function makeCutOrderMaterialKey(line: {
+  cutOrderNo: string
   materialSku: string
   skuCode?: string
   color?: string
   size?: string
 }): string {
   return [
-    normalizeKey(line.originalCutOrderNo),
+    normalizeKey(line.cutOrderNo),
     normalizeKey(line.materialSku),
     normalizeKey(line.skuCode),
     normalizeKey(line.color),
@@ -334,23 +334,23 @@ function makeOriginalMaterialKey(line: {
   ].join('::')
 }
 
-function getOriginalCutOrderIdentity(materialLine: CuttingMaterialLine): {
-  originalCutOrderId: string
-  originalCutOrderNo: string
+function getCutOrderIdentity(materialLine: CuttingMaterialLine): {
+  cutOrderId: string
+  cutOrderNo: string
 } {
   return {
-    originalCutOrderId: normalizeText(materialLine.originalCutOrderId),
-    originalCutOrderNo: normalizeText(materialLine.originalCutOrderNo),
+    cutOrderId: normalizeText(materialLine.cutOrderId),
+    cutOrderNo: normalizeText(materialLine.cutOrderNo),
   }
 }
 
-function getMergeBatchIdentity(materialLine: CuttingMaterialLine): {
-  mergeBatchId: string
-  mergeBatchNo: string
+function getMarkerPlanRefIdentity(materialLine: CuttingMaterialLine): {
+  markerPlanId: string
+  markerPlanNo: string
 } {
   return {
-    mergeBatchId: normalizeText(materialLine.mergeBatchId),
-    mergeBatchNo: normalizeText(materialLine.mergeBatchNo),
+    markerPlanId: normalizeText(materialLine.markerPlanId),
+    markerPlanNo: normalizeText(materialLine.markerPlanNo),
   }
 }
 
@@ -409,10 +409,10 @@ function pushIssue(
     message: string
     productionOrderId: string
     productionOrderNo: string
-    originalCutOrderId?: string
-    originalCutOrderNo?: string
-    mergeBatchId?: string
-    mergeBatchNo?: string
+    cutOrderId?: string
+    cutOrderNo?: string
+    markerPlanId?: string
+    markerPlanNo?: string
     materialSku?: string
     skuCode?: string
     color?: string
@@ -424,7 +424,7 @@ function pushIssue(
   const issueId = [
     options.issueType,
     options.productionOrderNo,
-    options.originalCutOrderNo,
+    options.cutOrderNo,
     options.materialSku,
     options.skuCode,
     options.color,
@@ -443,10 +443,10 @@ function pushIssue(
     message: options.message,
     productionOrderId: options.productionOrderId,
     productionOrderNo: options.productionOrderNo,
-    originalCutOrderId: options.originalCutOrderId || '',
-    originalCutOrderNo: options.originalCutOrderNo || '',
-    mergeBatchId: options.mergeBatchId || '',
-    mergeBatchNo: options.mergeBatchNo || '',
+    cutOrderId: options.cutOrderId || '',
+    cutOrderNo: options.cutOrderNo || '',
+    markerPlanId: options.markerPlanId || '',
+    markerPlanNo: options.markerPlanNo || '',
     materialSku: options.materialSku || '',
     skuCode: options.skuCode || '',
     color: options.color || '',
@@ -493,21 +493,21 @@ export function buildProductionSkuRequirements(
     }))
 }
 
-export function buildOriginalCutOrderSkuScopes(
+export function buildCutOrderSkuScopes(
   record: CuttingOrderProgressRecord,
-): OriginalCutOrderSkuScopeRef[] {
-  const rows: OriginalCutOrderSkuScopeRef[] = []
+): CutOrderSkuScopeRef[] {
+  const rows: CutOrderSkuScopeRef[] = []
 
   record.materialLines.forEach((materialLine) => {
-    const originalIdentity = getOriginalCutOrderIdentity(materialLine)
-    const mergeIdentity = getMergeBatchIdentity(materialLine)
+    const cutOrderIdentity = getCutOrderIdentity(materialLine)
+    const mergeIdentity = getMarkerPlanRefIdentity(materialLine)
 
     ;(materialLine.skuScopeLines || [])
       .filter((scopeLine) => Number(scopeLine.plannedQty || 0) > 0)
       .forEach((scopeLine) => {
         rows.push({
-          originalCutOrderId: originalIdentity.originalCutOrderId,
-          originalCutOrderNo: originalIdentity.originalCutOrderNo,
+          cutOrderId: cutOrderIdentity.cutOrderId,
+          cutOrderNo: cutOrderIdentity.cutOrderNo,
           productionOrderId: record.productionOrderId,
           productionOrderNo: record.productionOrderNo,
           materialSku: normalizeText(materialLine.materialSku),
@@ -515,8 +515,8 @@ export function buildOriginalCutOrderSkuScopes(
           color: normalizeText(scopeLine.color),
           size: normalizeText(scopeLine.size),
           plannedQty: Number(scopeLine.plannedQty || 0),
-          mergeBatchId: mergeIdentity.mergeBatchId,
-          mergeBatchNo: mergeIdentity.mergeBatchNo,
+          markerPlanId: mergeIdentity.markerPlanId,
+          markerPlanNo: mergeIdentity.markerPlanNo,
         })
       })
   })
@@ -527,13 +527,13 @@ export function buildOriginalCutOrderSkuScopes(
 export function buildPieceRequirementRows(
   record: CuttingOrderProgressRecord,
   requirements: ProductionSkuRequirementRef[],
-  scopes: OriginalCutOrderSkuScopeRef[],
+  scopes: CutOrderSkuScopeRef[],
   techPackLink: ProductionResolvedTechPackLink,
 ): PieceRequirementRow[] {
   const rows: PieceRequirementRow[] = []
   const materialLineByKey = new Map(
-    record.materialLines.map((materialLine) => [makeOriginalMaterialKey({
-      originalCutOrderNo: getOriginalCutOrderIdentity(materialLine).originalCutOrderNo,
+    record.materialLines.map((materialLine) => [makeCutOrderMaterialKey({
+      cutOrderNo: getCutOrderIdentity(materialLine).cutOrderNo,
       materialSku: materialLine.materialSku,
     }), materialLine]),
   )
@@ -541,8 +541,8 @@ export function buildPieceRequirementRows(
   scopes.forEach((scope) => {
     const requiredGarmentQty = Number(scope.plannedQty || 0)
     const materialLine =
-      materialLineByKey.get(makeOriginalMaterialKey({
-        originalCutOrderNo: scope.originalCutOrderNo,
+      materialLineByKey.get(makeCutOrderMaterialKey({
+        cutOrderNo: scope.cutOrderNo,
         materialSku: scope.materialSku,
       })) || null
 
@@ -554,10 +554,10 @@ export function buildPieceRequirementRows(
       rows.push({
         productionOrderId: record.productionOrderId,
         productionOrderNo: record.productionOrderNo,
-        originalCutOrderId: scope.originalCutOrderId,
-        originalCutOrderNo: scope.originalCutOrderNo,
-        mergeBatchId: scope.mergeBatchId,
-        mergeBatchNo: scope.mergeBatchNo,
+        cutOrderId: scope.cutOrderId,
+        cutOrderNo: scope.cutOrderNo,
+        markerPlanId: scope.markerPlanId,
+        markerPlanNo: scope.markerPlanNo,
         materialSku: scope.materialSku,
         skuCode: options?.skuCode || scope.skuCode,
         color: scope.color,
@@ -642,10 +642,10 @@ export function buildPieceRequirementRows(
         rows.push({
           productionOrderId: record.productionOrderId,
           productionOrderNo: record.productionOrderNo,
-          originalCutOrderId: scope.originalCutOrderId,
-          originalCutOrderNo: scope.originalCutOrderNo,
-          mergeBatchId: scope.mergeBatchId,
-          mergeBatchNo: scope.mergeBatchNo,
+          cutOrderId: scope.cutOrderId,
+          cutOrderNo: scope.cutOrderNo,
+          markerPlanId: scope.markerPlanId,
+          markerPlanNo: scope.markerPlanNo,
           materialSku: scope.materialSku,
           skuCode,
           color: scope.color,
@@ -673,10 +673,10 @@ export function buildPieceRequirementRows(
       rows.push({
         productionOrderId: requirement.productionOrderId,
         productionOrderNo: requirement.productionOrderNo,
-        originalCutOrderId: '',
-        originalCutOrderNo: '',
-        mergeBatchId: '',
-        mergeBatchNo: '',
+        cutOrderId: '',
+        cutOrderNo: '',
+        markerPlanId: '',
+        markerPlanNo: '',
         materialSku: '',
         skuCode: requirement.skuCode,
         color: requirement.color,
@@ -706,11 +706,11 @@ export function buildPieceActualRows(
   const grouped = new Map<string, PieceActualRow>()
 
   record.materialLines.forEach((materialLine) => {
-    const originalIdentity = getOriginalCutOrderIdentity(materialLine)
-    const mergeIdentity = getMergeBatchIdentity(materialLine)
+    const cutOrderIdentity = getCutOrderIdentity(materialLine)
+    const mergeIdentity = getMarkerPlanRefIdentity(materialLine)
     ;(materialLine.pieceProgressLines || []).forEach((pieceLine) => {
       const key = makePieceKey({
-        originalCutOrderNo: originalIdentity.originalCutOrderNo,
+        cutOrderNo: cutOrderIdentity.cutOrderNo,
         materialSku: materialLine.materialSku,
         skuCode: pieceLine.skuCode,
         color: pieceLine.color,
@@ -722,10 +722,10 @@ export function buildPieceActualRows(
       grouped.set(key, {
         productionOrderId: record.productionOrderId,
         productionOrderNo: record.productionOrderNo,
-        originalCutOrderId: originalIdentity.originalCutOrderId,
-        originalCutOrderNo: originalIdentity.originalCutOrderNo,
-        mergeBatchId: mergeIdentity.mergeBatchId,
-        mergeBatchNo: mergeIdentity.mergeBatchNo,
+        cutOrderId: cutOrderIdentity.cutOrderId,
+        cutOrderNo: cutOrderIdentity.cutOrderNo,
+        markerPlanId: mergeIdentity.markerPlanId,
+        markerPlanNo: mergeIdentity.markerPlanNo,
         materialSku: normalizeText(materialLine.materialSku),
         skuCode: normalizeText(pieceLine.skuCode),
         color: normalizeText(pieceLine.color),
@@ -742,9 +742,9 @@ export function buildPieceActualRows(
     })
   })
 
-  const overlayByOriginalMaterialSku = overlaySignals.reduce<Record<string, PieceTruthOverlaySignal[]>>((result, signal) => {
-    const key = makeOriginalMaterialKey({
-      originalCutOrderNo: signal.originalCutOrderNo,
+  const overlayByCutOrderMaterialSku = overlaySignals.reduce<Record<string, PieceTruthOverlaySignal[]>>((result, signal) => {
+    const key = makeCutOrderMaterialKey({
+      cutOrderNo: signal.cutOrderNo,
       materialSku: signal.materialSku,
       skuCode: '',
       color: '',
@@ -755,10 +755,10 @@ export function buildPieceActualRows(
   }, {})
 
   requirementRows
-    .filter((row) => row.originalCutOrderNo && row.materialSku)
+    .filter((row) => row.cutOrderNo && row.materialSku)
     .forEach((row) => {
       const pieceKey = makePieceKey({
-        originalCutOrderNo: row.originalCutOrderNo,
+        cutOrderNo: row.cutOrderNo,
         materialSku: row.materialSku,
         skuCode: row.skuCode,
         color: row.color,
@@ -768,11 +768,11 @@ export function buildPieceActualRows(
       })
       if (grouped.has(pieceKey)) return
 
-      const overlayKey = makeOriginalMaterialKey({
-        originalCutOrderNo: row.originalCutOrderNo,
+      const overlayKey = makeCutOrderMaterialKey({
+        cutOrderNo: row.cutOrderNo,
         materialSku: row.materialSku,
       })
-      const overlay = (overlayByOriginalMaterialSku[overlayKey] || [])
+      const overlay = (overlayByCutOrderMaterialSku[overlayKey] || [])
         .slice()
         .sort((left, right) => right.latestUpdatedAt.localeCompare(left.latestUpdatedAt, 'zh-CN'))[0]
 
@@ -781,10 +781,10 @@ export function buildPieceActualRows(
       grouped.set(pieceKey, {
         productionOrderId: row.productionOrderId,
         productionOrderNo: row.productionOrderNo,
-        originalCutOrderId: row.originalCutOrderId,
-        originalCutOrderNo: row.originalCutOrderNo,
-        mergeBatchId: row.mergeBatchId,
-        mergeBatchNo: row.mergeBatchNo,
+        cutOrderId: row.cutOrderId,
+        cutOrderNo: row.cutOrderNo,
+        markerPlanId: row.markerPlanId,
+        markerPlanNo: row.markerPlanNo,
         materialSku: row.materialSku,
         skuCode: row.skuCode,
         color: row.color,
@@ -812,18 +812,18 @@ function buildGapStateRow(
   if (row.mappingStatus !== 'MATCHED') {
     return {
       currentStateLabel: row.mappingStatusLabel,
-      nextActionLabel: row.mappingStatus === 'SKU_SCOPE_PENDING' ? '去原始裁片单补承接范围' : '去原始裁片单补映射',
+      nextActionLabel: row.mappingStatus === 'SKU_SCOPE_PENDING' ? '去裁片单补承接范围' : '去裁片单补映射',
     }
   }
 
-  const overlayKey = makeOriginalMaterialKey({
-    originalCutOrderNo: row.originalCutOrderNo,
+  const overlayKey = makeCutOrderMaterialKey({
+    cutOrderNo: row.cutOrderNo,
     materialSku: row.materialSku,
   })
   const relatedSignals = overlaySignals.filter(
     (signal) =>
-      makeOriginalMaterialKey({
-        originalCutOrderNo: signal.originalCutOrderNo,
+      makeCutOrderMaterialKey({
+        cutOrderNo: signal.cutOrderNo,
         materialSku: signal.materialSku,
       }) === overlayKey,
   )
@@ -868,7 +868,7 @@ export function buildPieceGapRows(
   const actualRowMap = new Map(
     actualRows.map((row) => [
       makePieceKey({
-        originalCutOrderNo: row.originalCutOrderNo,
+        cutOrderNo: row.cutOrderNo,
         materialSku: row.materialSku,
         skuCode: row.skuCode,
         color: row.color,
@@ -881,8 +881,8 @@ export function buildPieceGapRows(
   )
   const materialLineMap = new Map(
     record.materialLines.map((materialLine) => [
-      makeOriginalMaterialKey({
-        originalCutOrderNo: getOriginalCutOrderIdentity(materialLine).originalCutOrderNo,
+      makeCutOrderMaterialKey({
+        cutOrderNo: getCutOrderIdentity(materialLine).cutOrderNo,
         materialSku: materialLine.materialSku,
       }),
       materialLine,
@@ -892,7 +892,7 @@ export function buildPieceGapRows(
   return requirementRows.map((row) => {
     const actual = actualRowMap.get(
       makePieceKey({
-        originalCutOrderNo: row.originalCutOrderNo,
+        cutOrderNo: row.cutOrderNo,
         materialSku: row.materialSku,
         skuCode: row.skuCode,
         color: row.color,
@@ -903,8 +903,8 @@ export function buildPieceGapRows(
     )
     const materialLine =
       materialLineMap.get(
-        makeOriginalMaterialKey({
-          originalCutOrderNo: row.originalCutOrderNo,
+        makeCutOrderMaterialKey({
+          cutOrderNo: row.cutOrderNo,
           materialSku: row.materialSku,
         }),
       ) || undefined
@@ -917,10 +917,10 @@ export function buildPieceGapRows(
     return {
       productionOrderId: row.productionOrderId,
       productionOrderNo: row.productionOrderNo,
-      originalCutOrderId: row.originalCutOrderId,
-      originalCutOrderNo: row.originalCutOrderNo,
-      mergeBatchId: row.mergeBatchId,
-      mergeBatchNo: row.mergeBatchNo,
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+      markerPlanId: row.markerPlanId,
+      markerPlanNo: row.markerPlanNo,
       materialSku: row.materialSku,
       skuCode: row.skuCode,
       color: row.color,
@@ -950,13 +950,13 @@ export function buildPieceGapRows(
 function buildSkuRows(gapRows: PieceGapRow[]): ProductionPieceTruthSkuRow[] {
   const grouped = new Map<
     string,
-    ProductionPieceTruthSkuRow & { originalCutOrderNos: Set<string>; materialSkus: Set<string> }
+    ProductionPieceTruthSkuRow & { cutOrderNos: Set<string>; materialSkus: Set<string> }
   >()
 
   gapRows.forEach((row) => {
     const key = makeSkuKey(row)
     const current = grouped.get(key)
-    const nextOriginalCutOrderNos = new Set([...(current?.originalCutOrderNos || []), row.originalCutOrderNo].filter(Boolean))
+    const nextCutOrderNos = new Set([...(current?.cutOrderNos || []), row.cutOrderNo].filter(Boolean))
     const nextMaterialSkus = new Set([...(current?.materialSkus || []), row.materialSku].filter(Boolean))
     const mappingStatus =
       current?.mappingStatus && current.mappingStatus !== 'MATCHED' ? current.mappingStatus : row.mappingStatus
@@ -972,7 +972,7 @@ function buildSkuRows(gapRows: PieceGapRow[]): ProductionPieceTruthSkuRow[] {
             : '已齐套'
     const nextActionLabel =
       mappingStatus !== 'MATCHED'
-        ? '去原始裁片单补映射'
+        ? '去裁片单补映射'
         : gapCutQty > 0
           ? row.nextActionLabel
           : gapInboundQty > 0
@@ -989,26 +989,26 @@ function buildSkuRows(gapRows: PieceGapRow[]): ProductionPieceTruthSkuRow[] {
       inboundQty: (current?.inboundQty || 0) + row.inboundQty,
       gapCutQty,
       gapInboundQty,
-      originalCutOrderCount: nextOriginalCutOrderNos.size,
+      cutOrderCount: nextCutOrderNos.size,
       materialCount: nextMaterialSkus.size,
       mappingStatus,
       mappingStatusLabel: mappingStatusLabelMap[mappingStatus],
       currentStateLabel,
       nextActionLabel,
-      originalCutOrderNos: nextOriginalCutOrderNos,
+      cutOrderNos: nextCutOrderNos,
       materialSkus: nextMaterialSkus,
     })
   })
 
-  return Array.from(grouped.values()).map(({ originalCutOrderNos, materialSkus, ...row }) => row)
+  return Array.from(grouped.values()).map(({ cutOrderNos, materialSkus, ...row }) => row)
 }
 
-function buildOriginalCutOrderRows(gapRows: PieceGapRow[]): ProductionPieceTruthOriginalCutOrderRow[] {
-  const grouped = new Map<string, ProductionPieceTruthOriginalCutOrderRow & { skuKeys: Set<string> }>()
+function buildCutOrderRows(gapRows: PieceGapRow[]): ProductionPieceTruthCutOrderRow[] {
+  const grouped = new Map<string, ProductionPieceTruthCutOrderRow & { skuKeys: Set<string> }>()
 
   gapRows.forEach((row) => {
-    if (!row.originalCutOrderNo) return
-    const key = `${row.originalCutOrderNo}::${row.materialSku}`
+    if (!row.cutOrderNo) return
+    const key = `${row.cutOrderNo}::${row.materialSku}`
     const current = grouped.get(key)
     const gapPartCount = (current?.gapPartCount || 0) + (row.gapCutQty > 0 || row.gapInboundQty > 0 || row.mappingStatus !== 'MATCHED' ? 1 : 0)
     const gapCutQty = (current?.gapCutQty || 0) + row.gapCutQty
@@ -1023,7 +1023,7 @@ function buildOriginalCutOrderRows(gapRows: PieceGapRow[]): ProductionPieceTruth
             : '已齐套'
     const nextActionLabel =
       row.mappingStatus !== 'MATCHED'
-        ? '去原始裁片单补映射'
+        ? '去裁片单补映射'
         : gapCutQty > 0
           ? row.nextActionLabel
           : gapInboundQty > 0
@@ -1033,10 +1033,10 @@ function buildOriginalCutOrderRows(gapRows: PieceGapRow[]): ProductionPieceTruth
     const nextSkuKeys = new Set([...(current?.skuKeys || []), row.skuCode || `${row.color}/${row.size}`].filter(Boolean))
 
     grouped.set(key, {
-      originalCutOrderId: row.originalCutOrderId,
-      originalCutOrderNo: row.originalCutOrderNo,
-      mergeBatchId: row.mergeBatchId,
-      mergeBatchNo: row.mergeBatchNo,
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+      markerPlanId: row.markerPlanId,
+      markerPlanNo: row.markerPlanNo,
       materialSku: row.materialSku,
       skuCount: nextSkuKeys.size,
       gapPartCount,
@@ -1050,17 +1050,17 @@ function buildOriginalCutOrderRows(gapRows: PieceGapRow[]): ProductionPieceTruth
 
   return Array.from(grouped.values())
     .map(({ skuKeys, ...row }) => row)
-    .sort((left, right) => left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN'))
+    .sort((left, right) => left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN'))
 }
 
 function buildMaterialRows(gapRows: PieceGapRow[]): ProductionPieceTruthMaterialRow[] {
   const grouped = new Map<
     string,
-    ProductionPieceTruthMaterialRow & { originalCutOrderNos: Set<string>; skuKeys: Set<string> }
+    ProductionPieceTruthMaterialRow & { cutOrderNos: Set<string>; skuKeys: Set<string> }
   >()
 
   gapRows.forEach((row) => {
-    const key = row.materialSku || `${row.originalCutOrderNo}-unknown-material`
+    const key = row.materialSku || `${row.cutOrderNo}-unknown-material`
     const current = grouped.get(key)
     const gapPartCount = (current?.gapPartCount || 0) + (row.gapCutQty > 0 || row.gapInboundQty > 0 || row.mappingStatus !== 'MATCHED' ? 1 : 0)
     const gapCutQty = (current?.gapCutQty || 0) + row.gapCutQty
@@ -1075,32 +1075,32 @@ function buildMaterialRows(gapRows: PieceGapRow[]): ProductionPieceTruthMaterial
             : '已齐套'
     const nextActionLabel =
       row.mappingStatus !== 'MATCHED'
-        ? '去原始裁片单补映射'
+        ? '去裁片单补映射'
         : gapCutQty > 0
           ? row.nextActionLabel
           : gapInboundQty > 0
             ? '去裁片仓'
             : '当前已齐套'
 
-    const nextOriginalCutOrderNos = new Set([...(current?.originalCutOrderNos || []), row.originalCutOrderNo].filter(Boolean))
+    const nextCutOrderNos = new Set([...(current?.cutOrderNos || []), row.cutOrderNo].filter(Boolean))
     const nextSkuKeys = new Set([...(current?.skuKeys || []), row.skuCode || `${row.color}/${row.size}`].filter(Boolean))
 
     grouped.set(key, {
       materialSku: row.materialSku || '待补面料 SKU',
-      originalCutOrderCount: nextOriginalCutOrderNos.size,
+      cutOrderCount: nextCutOrderNos.size,
       skuCount: nextSkuKeys.size,
       gapPartCount,
       gapCutQty,
       gapInboundQty,
       currentStateLabel,
       nextActionLabel,
-      originalCutOrderNos: nextOriginalCutOrderNos,
+      cutOrderNos: nextCutOrderNos,
       skuKeys: nextSkuKeys,
     })
   })
 
   return Array.from(grouped.values())
-    .map(({ originalCutOrderNos, skuKeys, ...row }) => row)
+    .map(({ cutOrderNos, skuKeys, ...row }) => row)
     .sort((left, right) => left.materialSku.localeCompare(right.materialSku, 'zh-CN'))
 }
 
@@ -1178,7 +1178,7 @@ function buildNextActionLabel(result: {
   gapRows: PieceGapRow[]
   counts: ProductionPieceTruthCounts
 }): string {
-  if (result.mappingIssues.length > 0) return '去原始裁片单补映射'
+  if (result.mappingIssues.length > 0) return '去裁片单补映射'
   if (result.dataIssues.length > 0) return '去生产单进度补数据'
 
   const priorityRow =
@@ -1202,7 +1202,7 @@ export function buildProductionPieceTruth(
   const overlaySignals = options.overlaySignals || []
   const techPackLink = resolveTechPackForProduction(record)
   const requirements = buildProductionSkuRequirements(record)
-  const scopes = buildOriginalCutOrderSkuScopes(record)
+  const scopes = buildCutOrderSkuScopes(record)
   const requirementRows = buildPieceRequirementRows(record, requirements, scopes, techPackLink)
   const actualRows = buildPieceActualRows(record, requirementRows, overlaySignals)
   const gapRows = buildPieceGapRows(record, requirementRows, actualRows, overlaySignals)
@@ -1248,13 +1248,13 @@ export function buildProductionPieceTruth(
     .forEach((row) => {
       pushIssue(mappingIssues, {
         issueType: 'MAPPING_MISSING',
-        message: `${row.originalCutOrderNo || '未定位裁片单'} · ${row.color}/${row.size} · ${row.partName}：${row.mappingStatusLabel}`,
+        message: `${row.cutOrderNo || '未定位裁片单'} · ${row.color}/${row.size} · ${row.partName}：${row.mappingStatusLabel}`,
         productionOrderId: row.productionOrderId,
         productionOrderNo: row.productionOrderNo,
-        originalCutOrderId: row.originalCutOrderId,
-        originalCutOrderNo: row.originalCutOrderNo,
-        mergeBatchId: row.mergeBatchId,
-        mergeBatchNo: row.mergeBatchNo,
+        cutOrderId: row.cutOrderId,
+        cutOrderNo: row.cutOrderNo,
+        markerPlanId: row.markerPlanId,
+        markerPlanNo: row.markerPlanNo,
         materialSku: row.materialSku,
         skuCode: row.skuCode,
         color: row.color,
@@ -1267,7 +1267,7 @@ export function buildProductionPieceTruth(
   const actualRowKeys = new Set(
     actualRows.map((row) =>
       makePieceKey({
-        originalCutOrderNo: row.originalCutOrderNo,
+        cutOrderNo: row.cutOrderNo,
         materialSku: row.materialSku,
         skuCode: row.skuCode,
         color: row.color,
@@ -1280,7 +1280,7 @@ export function buildProductionPieceTruth(
 
   gapRows.forEach((row) => {
     const actualKey = makePieceKey({
-      originalCutOrderNo: row.originalCutOrderNo,
+      cutOrderNo: row.cutOrderNo,
       materialSku: row.materialSku,
       skuCode: row.skuCode,
       color: row.color,
@@ -1290,19 +1290,19 @@ export function buildProductionPieceTruth(
     })
     const overlayExists = overlaySignals.some(
       (signal) =>
-        signal.originalCutOrderNo === row.originalCutOrderNo &&
+        signal.cutOrderNo === row.cutOrderNo &&
         signal.materialSku === row.materialSku,
     )
     if (!actualRowKeys.has(actualKey) && (record.hasSpreadingRecord || record.hasInboundRecord || overlayExists)) {
       pushIssue(dataIssues, {
         issueType: 'DATA_PENDING',
-        message: `${row.originalCutOrderNo} · ${row.partName} 缺少部位进度，当前无法判断真实产出。`,
+        message: `${row.cutOrderNo} · ${row.partName} 缺少部位进度，当前无法判断真实产出。`,
         productionOrderId: row.productionOrderId,
         productionOrderNo: row.productionOrderNo,
-        originalCutOrderId: row.originalCutOrderId,
-        originalCutOrderNo: row.originalCutOrderNo,
-        mergeBatchId: row.mergeBatchId,
-        mergeBatchNo: row.mergeBatchNo,
+        cutOrderId: row.cutOrderId,
+        cutOrderNo: row.cutOrderNo,
+        markerPlanId: row.markerPlanId,
+        markerPlanNo: row.markerPlanNo,
         materialSku: row.materialSku,
         skuCode: row.skuCode,
         color: row.color,
@@ -1314,24 +1314,24 @@ export function buildProductionPieceTruth(
   })
 
   record.materialLines.forEach((materialLine) => {
-    const originalIdentity = getOriginalCutOrderIdentity(materialLine)
-    const mergeIdentity = getMergeBatchIdentity(materialLine)
-    if (mergeIdentity.mergeBatchNo && !mergeIdentity.mergeBatchId) {
+    const cutOrderIdentity = getCutOrderIdentity(materialLine)
+    const mergeIdentity = getMarkerPlanRefIdentity(materialLine)
+    if (mergeIdentity.markerPlanNo && !mergeIdentity.markerPlanId) {
       pushIssue(dataIssues, {
         issueType: 'DATA_PENDING',
-        message: `${originalIdentity.originalCutOrderNo} 已挂合并批次号 ${mergeIdentity.mergeBatchNo}，但缺少 mergeBatchId。`,
+        message: `${cutOrderIdentity.cutOrderNo} 已挂唛架方案号 ${mergeIdentity.markerPlanNo}，但缺少 markerPlanId。`,
         productionOrderId: record.productionOrderId,
         productionOrderNo: record.productionOrderNo,
-        originalCutOrderId: originalIdentity.originalCutOrderId,
-        originalCutOrderNo: originalIdentity.originalCutOrderNo,
-        mergeBatchNo: mergeIdentity.mergeBatchNo,
+        cutOrderId: cutOrderIdentity.cutOrderId,
+        cutOrderNo: cutOrderIdentity.cutOrderNo,
+        markerPlanNo: mergeIdentity.markerPlanNo,
         materialSku: materialLine.materialSku,
       })
     }
   })
 
   const skuRows = buildSkuRows(gapRows)
-  const originalCutOrderRows = buildOriginalCutOrderRows(gapRows)
+  const cutOrderRows = buildCutOrderRows(gapRows)
   const materialRows = buildMaterialRows(gapRows)
   const counts: ProductionPieceTruthCounts = {
     skuTotalCount: skuRows.length,
@@ -1339,7 +1339,7 @@ export function buildProductionPieceTruth(
     pendingSkuCount: skuRows.filter((row) => row.mappingStatus !== 'MATCHED' || row.gapCutQty > 0 || row.gapInboundQty > 0).length,
     incompletePartCount: gapRows.filter((row) => row.mappingStatus !== 'MATCHED' || row.gapCutQty > 0 || row.gapInboundQty > 0).length,
     affectedMaterialCount: materialRows.filter((row) => row.gapPartCount > 0).length,
-    originalCutOrderCount: originalCutOrderRows.length,
+    cutOrderCount: cutOrderRows.length,
     mappingIssueCount: mappingIssues.length,
     dataIssueCount: dataIssues.length,
     requiredPieceQtyTotal: gapRows.reduce((sum, row) => sum + row.requiredPieceQty, 0),
@@ -1356,7 +1356,7 @@ export function buildProductionPieceTruth(
     actualRows,
     gapRows,
     skuRows,
-    originalCutOrderRows,
+    cutOrderRows,
     materialRows,
     mappingIssues,
     dataIssues,

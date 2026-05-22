@@ -20,6 +20,6 @@ export function buildFabricWarehouseProjection(options: {
   return {
     snapshot: context.snapshot,
     records,
-    viewModel: buildFabricWarehouseViewModel(context.sources.originalRows, records),
+    viewModel: buildFabricWarehouseViewModel(context.sources.cutOrderRows, records),
   }
 }

@@ -185,12 +185,12 @@ function buildBaseDocument(input: {
 export function buildMaterialPrepSlipPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
   const projection = buildMaterialPrepProjection()
   const row = projection.rowsById[input.sourceId]
-    || projection.rows.find((item) => item.originalCutOrderId === input.sourceId || item.originalCutOrderNo === input.sourceId)
+    || projection.rows.find((item) => item.cutOrderId === input.sourceId || item.cutOrderNo === input.sourceId)
     || projection.rows[0]
   if (!row) throw new Error('缺少配料单来源数据')
 
-  const slipNo = `PL-${row.originalCutOrderNo}`
-  const targetRoute = `/fcs/craft/cutting/warehouse-management/wait-process?originalCutOrderId=${encodeURIComponent(row.originalCutOrderId)}`
+  const slipNo = `PL-${row.cutOrderNo}`
+  const targetRoute = `/fcs/craft/cutting/warehouse-management/wait-process?cutOrderId=${encodeURIComponent(row.cutOrderId)}`
   const generatedAt = now()
 
   return buildBaseDocument({
@@ -198,13 +198,13 @@ export function buildMaterialPrepSlipPrintDocument(input: PrintDocumentBuildInpu
     kind: 'prep',
     sourceId: row.id,
     title: '配料单',
-    subtitle: '用于仓库按原始裁片单准备面料、复核配料缺口并衔接裁床领料。',
+    subtitle: '用于仓库按裁片单准备面料、复核配料缺口并衔接裁床领料。',
     headerFields: mapFields([
       { label: '配料单号', value: slipNo, emphasis: true },
       { label: '来源生产单', value: row.productionOrderNo },
-      { label: '原始裁片单', value: row.originalCutOrderNo },
+      { label: '裁片单', value: row.cutOrderNo },
       { label: '裁片单二维码', value: row.shouldPrintQr ? '已生成' : row.qrHiddenHint || '待生成' },
-      { label: '配料状态', value: row.materialPrepStatus.label },
+      { label: '中转仓配料', value: row.materialPrepStatus.label },
       { label: '打印时间', value: generatedAt },
       { label: '打印人', value: row.printedBy || '仓库配料员' },
     ]),
@@ -220,7 +220,7 @@ export function buildMaterialPrepSlipPrintDocument(input: PrintDocumentBuildInpu
           { label: '面料类型', value: row.materialLineItems.map((item) => item.materialTypeName).join('、') || '待确认' },
           { label: '面料颜色', value: row.color || '按裁片单颜色' },
           { label: '布料属性', value: row.materialLineItems.map((item) => item.materialAttr || item.materialCategory).join('、') || '待确认' },
-          { label: '需求来源', value: '原始裁片单配料' },
+          { label: '需求来源', value: '裁片单配料' },
           { label: '交期', value: row.plannedShipDate || '待确认' },
           { label: '目标裁床 / 裁床组', value: row.assignedCuttingGroup || '待排单' },
         ]),
@@ -237,8 +237,8 @@ export function buildMaterialPrepSlipPrintDocument(input: PrintDocumentBuildInpu
             line.materialSku,
             line.materialName,
             row.color || '按裁片单颜色',
-            `${row.originalCutOrderNo}-B${index + 1}`,
-            `${row.originalCutOrderNo}-R${index + 1}`,
+            `${row.cutOrderNo}-B${index + 1}`,
+            `${row.cutOrderNo}-R${index + 1}`,
             materialQty(line.requiredQty),
             materialQty(line.configuredQty),
             materialQty(line.shortageQty),
@@ -254,7 +254,7 @@ export function buildMaterialPrepSlipPrintDocument(input: PrintDocumentBuildInpu
         tableId: 'cut-order-qr',
         title: '裁片单二维码区',
         headers: ['二维码对象', '二维码说明', '二维码值'],
-        rows: [['原始裁片单二维码', '扫码查看裁片单配料与领料信息', row.qrCodeValue || row.cutOrderQrValue]],
+        rows: [['裁片单二维码', '扫码查看裁片单配料与领料信息', row.qrCodeValue || row.cutOrderQrValue]],
         minRows: 1,
       },
     ],
@@ -274,7 +274,7 @@ export function buildMaterialPrepSlipPrintDocument(input: PrintDocumentBuildInpu
     ],
     footerFields: [
       { label: '配料单号', value: slipNo },
-      { label: '原始裁片单', value: row.originalCutOrderNo },
+      { label: '裁片单', value: row.cutOrderNo },
     ],
     returnHref: targetRoute,
   })
@@ -311,7 +311,7 @@ export function buildPickupSlipPrintDocument(input: PrintDocumentBuildInput): Pr
       { label: '来源任务', value: slip.sourceTaskNo },
       { label: '领料工厂', value: slip.factoryName },
       { label: '发料仓库', value: '仓库发料区' },
-      { label: '领料状态', value: slip.currentStatus === 'READY_TO_PICKUP' ? '待领料' : slip.currentStatus === 'RECEIVED' ? '已领料' : '待复核' },
+      { label: '裁床领料', value: slip.currentStatus === 'READY_TO_PICKUP' ? '待领料' : slip.currentStatus === 'RECEIVED' ? '已领料' : '待复核' },
       { label: '打印版本', value: printVersion?.printVersionNo || slip.latestPrintVersionNo },
       { label: '打印时间', value: printVersion?.printedAt || now() },
       { label: '打印人', value: printVersion?.printedBy || '仓库管理员' },
@@ -385,22 +385,22 @@ export function buildIssueSlipPrintDocument(input: PrintDocumentBuildInput): Pri
   if (!order) throw new Error('缺少发料单来源数据')
 
   const batches = listCuttingSewingDispatchBatches().filter((batch) => batch.dispatchOrderId === order.dispatchOrderId)
-  const targetRoute = `/fcs/craft/cutting/warehouse-management/wait-handover?tab=sewing-dispatch&dispatchOrderId=${encodeURIComponent(order.dispatchOrderId)}`
+  const targetRoute = `/fcs/craft/cutting/warehouse-management/wait-handover?tab=handoverOrders&dispatchOrderId=${encodeURIComponent(order.dispatchOrderId)}`
   const diffQty = order.differenceQty || order.remainingGarmentQty || 0
 
   return buildBaseDocument({
     buildInput: input,
     kind: 'issue',
     sourceId: order.dispatchOrderId,
-    title: '发料单',
-    subtitle: '用于仓库或裁床向工厂、工序或生产任务发出物料并完成签收。',
+    title: '交出单',
+    subtitle: '用于裁床向接收对象交出裁片并完成签收。',
     headerFields: mapFields([
-      { label: '发料单号', value: order.dispatchOrderNo, emphasis: true },
+      { label: '交出单号', value: order.dispatchOrderNo, emphasis: true },
       { label: '来源生产单', value: order.productionOrderNo },
-      { label: '来源任务', value: order.cuttingOrderNos.join('、') || '裁片发料任务' },
-      { label: '发料仓库', value: order.cuttingFactoryName },
-      { label: '接收工厂', value: order.sewingFactoryName },
-      { label: '发料状态', value: order.status },
+      { label: '来源任务', value: order.cuttingOrderNos.join('、') || '裁片交出任务' },
+      { label: '交出仓库', value: order.cuttingFactoryName },
+      { label: '接收对象', value: order.sewingFactoryName },
+      { label: '交出状态', value: order.status },
       { label: '打印时间', value: now() },
       { label: '打印人', value: '仓库发料员' },
     ]),
@@ -410,11 +410,11 @@ export function buildIssueSlipPrintDocument(input: PrintDocumentBuildInput): Pri
         title: '基础信息区',
         fields: mapFields([
           { label: '款号', value: '随生产单' },
-          { label: '商品名称', value: '裁片发车缝' },
-          { label: '工序 / 工艺', value: '裁片发料 / 车缝接收' },
-          { label: '发料对象类型', value: '成衣' },
-          { label: '计划发料对象数量', value: garmentQty(order.plannedDispatchGarmentQty) },
-          { label: '已发对象数量', value: garmentQty(order.cumulativeDispatchedGarmentQty) },
+          { label: '商品名称', value: '裁片交出' },
+          { label: '工序 / 工艺', value: '裁片交出 / 接收对象签收' },
+          { label: '交出对象类型', value: '成衣' },
+          { label: '计划交出对象数量', value: garmentQty(order.plannedDispatchGarmentQty) },
+          { label: '已交出对象数量', value: garmentQty(order.cumulativeDispatchedGarmentQty) },
           { label: '差异对象数量', value: garmentQty(diffQty) },
           { label: '应发成衣件数', value: garmentQty(order.plannedDispatchGarmentQty) },
           { label: '实发成衣件数', value: garmentQty(order.cumulativeDispatchedGarmentQty) },
@@ -447,7 +447,7 @@ export function buildIssueSlipPrintDocument(input: PrintDocumentBuildInput): Pri
         minRows: 5,
       },
     ],
-    qrDescription: '扫码查看发料记录',
+    qrDescription: '扫码查看交出记录',
     qrValue: makeQrValue({
       documentType: 'ISSUE_SLIP',
       sourceId: order.dispatchOrderId,
@@ -456,13 +456,13 @@ export function buildIssueSlipPrintDocument(input: PrintDocumentBuildInput): Pri
       targetRoute,
     }),
     signatureBlocks: [
-      { label: '发料人签字', signerRole: '发料人' },
+      { label: '交出人签字', signerRole: '交出人' },
       { label: '接收人签字', signerRole: '接收人' },
       { label: '复核人签字', signerRole: '复核人' },
       { label: '备注', signerRole: '现场备注' },
     ],
     footerFields: [
-      { label: '发料单号', value: order.dispatchOrderNo },
+      { label: '交出单号', value: order.dispatchOrderNo },
       { label: '生产单', value: order.productionOrderNo },
     ],
     returnHref: targetRoute,

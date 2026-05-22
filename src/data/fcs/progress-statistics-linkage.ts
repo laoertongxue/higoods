@@ -45,7 +45,7 @@ export interface ProgressBlockingReason {
   reasonId: string
   productionOrderId: string
   productionOrderNo: string
-  sourceModule: '生产单' | '配料' | '领料' | '裁床' | '菲票' | '特殊工艺' | '裁片发料' | '交接' | '工厂仓库'
+  sourceModule: '生产单' | '配料' | '领料' | '裁床' | '菲票' | '特殊工艺' | '交出单' | '交接' | '工厂仓库'
   sourceRecordNo: string
   blockingType: string
   blockingLabel: string
@@ -65,12 +65,12 @@ export interface ProductionProgressSnapshot {
   totalQty: number
   dueDate: string
   urgencyLevel: string
-  materialPrepStatus: '未配置' | '部分配置' | '已配置'
-  cuttingPickupStatus: '待领料' | '已领料' | '差异待处理'
+  materialPrepStatus: '无配料数量' | '配料数量不足' | '有配料数量'
+  cuttingPickupStatus: '无领料记录' | '有领料记录' | '差异待处理'
   cuttingStatus: '待裁剪' | '裁剪中' | '已裁剪' | '异常'
   feiTicketStatus: '未生成' | '部分生成' | '已生成'
   cuttingWaitHandoverStatus: '未入仓' | '部分入仓' | '已入裁床厂待交出仓'
-  specialCraftStatus: '无特殊工艺' | '待发料' | '加工中' | '待回仓' | '已回仓' | '差异' | '异议中'
+  specialCraftStatus: '无特殊工艺' | '待交出' | '加工中' | '待回仓' | '已回仓' | '差异' | '异议中'
   specialCraftReturnStatus: '不需要回仓' | '未回仓' | '部分回仓' | '已回仓' | '差异' | '异议中'
   specialCraftTargetObjectSummary: string[]
   specialCraftWorkOrderCount: number
@@ -78,7 +78,7 @@ export interface ProductionProgressSnapshot {
   specialCraftScrapQty: number
   specialCraftDamageQty: number
   specialCraftDifferenceWarning: boolean
-  sewingDispatchStatus: '未发料' | '部分发料' | '已全部发料' | '差异' | '异议中'
+  sewingDispatchStatus: '未交出' | '部分交出' | '已全部交出' | '差异' | '异议中'
   sewingReceiveStatus: '未回写' | '部分回写' | '已回写' | '差异' | '异议中'
   pickupOrderCompleted: boolean
   handoutOrderCompleted: boolean
@@ -740,18 +740,18 @@ function getMaterialPrepRows(order: ProductionOrder) {
 
 function resolveMaterialPrepStatus(order: ProductionOrder): ProductionProgressSnapshot['materialPrepStatus'] {
   const lines = getMaterialPrepRows(order)
-  if (!lines.length) return order.techPackSnapshot ? '已配置' : '未配置'
-  if (lines.every((line) => line.configStatus === 'CONFIGURED')) return '已配置'
-  if (lines.some((line) => line.configuredLength > 0 || line.configuredRollCount > 0)) return '部分配置'
-  return '未配置'
+  if (!lines.length) return order.techPackSnapshot ? '有配料数量' : '无配料数量'
+  if (lines.every((line) => line.configStatus === 'CONFIGURED')) return '有配料数量'
+  if (lines.some((line) => line.configuredLength > 0 || line.configuredRollCount > 0)) return '配料数量不足'
+  return '无配料数量'
 }
 
 function resolveCuttingPickupStatus(order: ProductionOrder): ProductionProgressSnapshot['cuttingPickupStatus'] {
   const lines = getMaterialPrepRows(order)
   if (lines.some((line) => line.receiveStatus === 'RECHECK' || line.discrepancyStatus !== 'NONE')) return '差异待处理'
-  if (!lines.length) return order.status === 'EXECUTING' || order.status === 'COMPLETED' ? '已领料' : '待领料'
-  if (lines.some((line) => line.receivedLength > 0 || line.receivedRollCount > 0)) return '已领料'
-  return '待领料'
+  if (!lines.length) return order.status === 'EXECUTING' || order.status === 'COMPLETED' ? '有领料记录' : '无领料记录'
+  if (lines.some((line) => line.receivedLength > 0 || line.receivedRollCount > 0)) return '有领料记录'
+  return '无领料记录'
 }
 
 function resolveFeiTicketStatus(order: ProductionOrder): ProductionProgressSnapshot['feiTicketStatus'] {
@@ -786,7 +786,7 @@ function resolveSpecialCraftStatus(order: ProductionOrder): ProductionProgressSn
   if (returnStatus.differenceCount > 0) return '差异'
   if (returnStatus.waitReturnCount > 0) return '待回仓'
   if (returnStatus.receivedBySpecialFactoryCount > 0 || tasks.some((task) => task.status === '加工中')) return '加工中'
-  return '待发料'
+  return '待交出'
 }
 
 function resolveSpecialCraftReturnStatus(order: ProductionOrder): ProductionProgressSnapshot['specialCraftReturnStatus'] {
@@ -807,14 +807,11 @@ export function buildSewingDispatchProgressSnapshot(order: ProductionOrder): Sew
   const tickets = listSpreadingResultGeneratedFeiTicketsByProductionOrderId(order.productionOrderId)
   const ticketQty = sum(tickets.map((ticket) => ticket.garmentQty || ticket.qty || 0))
   const specialReturn = getCuttingSpecialCraftReturnStatusByProductionOrder(order.productionOrderId)
-  const blockedBySpecialCraft =
-    specialReturn.totalNeedSpecialCraftFeiTickets > 0
-    && !specialReturn.allReturned
   const hasDifference = specialReturn.differenceCount > 0
   const hasObjection = specialReturn.objectionCount > 0
   const orderIndex = Math.max(productionOrders.findIndex((item) => item.productionOrderId === order.productionOrderId), 0)
   const dispatchRatio =
-    blockedBySpecialCraft || tickets.length === 0
+    tickets.length === 0
       ? 0
       : order.status === 'COMPLETED'
         ? 1
@@ -844,7 +841,6 @@ export function buildSewingDispatchProgressSnapshot(order: ProductionOrder): Sew
   const objectionTransferBagCount = hasObjection ? 1 : 0
   const receivedTransferBagCount = Math.max(writtenBackTransferBagCount, Math.floor(transferBagCount * 0.6))
   const blockingReasons = [
-    blockedBySpecialCraft ? '特殊工艺未回仓' : '',
     hasDifference ? '存在特殊工艺差异' : '',
     hasObjection ? '存在数量异议' : '',
     tickets.length === 0 ? '菲票未生成' : '',
@@ -880,7 +876,7 @@ export function buildSewingDispatchProgressSnapshot(order: ProductionOrder): Sew
     bagDifferenceCount: differenceTransferBagCount,
     feiTicketDifferenceCount: differenceTransferBagCount ? 1 : 0,
     objectionTransferBagCount,
-    canCreateNextBatch: !blockingReasons.length && remainingGarmentQty > 0,
+    canCreateNextBatch: !hasDifference && !hasObjection && tickets.length > 0 && remainingGarmentQty > 0,
     blockingReasons,
     updatedAt: DEMO_TODAY,
   }
@@ -933,9 +929,9 @@ export function getCuttingSewingDispatchProgressByProductionOrder(
 function resolveSewingDispatchStatus(snapshot: SewingDispatchProgressSnapshot): ProductionProgressSnapshot['sewingDispatchStatus'] {
   if (snapshot.differenceTransferBagCount > 0) return '差异'
   if (snapshot.objectionTransferBagCount > 0) return '异议中'
-  if (snapshot.cumulativeDispatchedGarmentQty <= 0) return '未发料'
-  if (snapshot.remainingGarmentQty > 0) return '部分发料'
-  return '已全部发料'
+  if (snapshot.cumulativeDispatchedGarmentQty <= 0) return '未交出'
+  if (snapshot.remainingGarmentQty > 0) return '部分交出'
+  return '已全部交出'
 }
 
 function resolveSewingReceiveStatus(snapshot: SewingDispatchProgressSnapshot): ProductionProgressSnapshot['sewingReceiveStatus'] {
@@ -1052,18 +1048,17 @@ export function buildProgressBlockingReasons(order: ProductionOrder): ProgressBl
     })
   }
 
-  if (materialPrepStatus === '未配置') add('待加工入仓', order.productionOrderNo, '面料未完成 WMS 领料入仓', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '加急')
-  if (materialPrepStatus === '部分配置') add('待加工入仓', order.productionOrderNo, '面料部分完成 WMS 领料入仓', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '普通')
-  if (pickupStatus === '待领料') add('待加工入仓', order.productionOrderNo, '面料未完成 WMS 领料入仓', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process')
+  if (materialPrepStatus === '无配料数量') add('待加工入仓', order.productionOrderNo, '面料未完成中转仓配料', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '加急')
+  if (materialPrepStatus === '配料数量不足') add('待加工入仓', order.productionOrderNo, '面料部分完成中转仓配料', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '普通')
+  if (pickupStatus === '无领料记录') add('待加工入仓', order.productionOrderNo, '面料未形成裁床领料记录', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process')
   if (pickupStatus === '差异待处理') add('领料', order.productionOrderNo, '领料差异待处理', '处理差异', '/fcs/progress/handover', '紧急')
   if (cuttingStatus !== '已裁剪') add('裁床', order.productionOrderNo, cuttingStatus === '裁剪中' ? '裁剪未完成' : '唛架未完成', '裁剪', '/fcs/craft/cutting/production-progress')
   if (feiStatus !== '已生成') add('菲票', order.productionOrderNo, '菲票未生成', '打印菲票', '/fcs/craft/cutting/fei-tickets')
   if (waitHandoverStatus !== '已入裁床厂待交出仓') add('裁床', order.productionOrderNo, '裁片未入裁床厂待交出仓', '裁片入仓', '/fcs/craft/cutting/production-progress')
-  if (specialReturnStatus === '未回仓' || specialReturnStatus === '部分回仓') add('特殊工艺', order.productionOrderNo, '特殊工艺未回仓', '等待特殊工艺回仓', '/fcs/craft/cutting/warehouse-management/wait-handover?tab=special-craft-return', '加急')
   if (specialReturnStatus === '差异') add('特殊工艺', order.productionOrderNo, '特殊工艺差异', '处理差异', '/fcs/craft/cutting/warehouse-management/wait-handover?tab=special-craft-return', '紧急')
   if (specialReturnStatus === '异议中') add('特殊工艺', order.productionOrderNo, '特殊工艺异议中', '处理异议', '/fcs/craft/cutting/warehouse-management/wait-handover?tab=special-craft-return', '紧急')
   sewingSnapshot.blockingReasons.forEach((reason) => {
-    add('裁片发料', order.productionOrderNo, reason || '裁片未配齐', '裁片发料', '/fcs/craft/cutting/warehouse-management/wait-handover?tab=sewing-dispatch', '加急')
+    add('交出单', order.productionOrderNo, reason || '本次交出后存在缺口', '新增交出记录', '/fcs/craft/cutting/warehouse-management/wait-handover?tab=handoverOrders', '加急')
   })
   if (handoverSnapshot.differenceCount > 0) add('交接', order.productionOrderNo, '交接差异', '处理差异', '/fcs/progress/handover', '紧急')
   if (handoverSnapshot.objectionCount > 0) add('交接', order.productionOrderNo, '数量异议中', '处理异议', '/fcs/progress/handover', '紧急')
@@ -1084,7 +1079,7 @@ export function buildProgressBlockingReasons(order: ProductionOrder): ProgressBl
 
 function resolveNextAction(snapshot: Omit<ProductionProgressSnapshot, 'nextActionLabel'> & { blockingReasons: ProgressBlockingReason[] }): string {
   if (snapshot.blockingReasons.length > 0) return snapshot.blockingReasons[0].nextActionLabel
-  if (snapshot.sewingDispatchStatus === '未发料' || snapshot.sewingDispatchStatus === '部分发料') return '裁片发料'
+  if (snapshot.sewingDispatchStatus === '未交出' || snapshot.sewingDispatchStatus === '部分交出') return '新增交出记录'
   if (snapshot.sewingReceiveStatus !== '已回写') return '等待车缝回写'
   return '已完成当前节点'
 }
@@ -1153,9 +1148,7 @@ export function buildProductionProgressSnapshot(order: ProductionOrder): Product
     differenceStatus: handoverSnapshot.differenceCount > 0 || sewingSnapshot.differenceTransferBagCount > 0 || specialCraftReturnStatus === '差异' ? '差异' : '无差异',
     objectionStatus: handoverSnapshot.objectionCount > 0 || sewingSnapshot.objectionTransferBagCount > 0 || specialCraftReturnStatus === '异议中' ? '异议中' : '无异议',
     canProceedToSewingDispatch:
-      specialCraftReturnStatus !== '未回仓'
-      && specialCraftReturnStatus !== '部分回仓'
-      && specialCraftReturnStatus !== '差异'
+      specialCraftReturnStatus !== '差异'
       && specialCraftReturnStatus !== '异议中'
       && sewingSnapshot.canCreateNextBatch,
     blockingReasons,
@@ -1197,7 +1190,7 @@ export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingPro
     relatedWorkOrderIds.has(line.workOrderId),
   )
   const techPackSpecialCraftSource = getTechPackSpecialCraftSourceSummary(order)
-  const cuttingOrderNos = unique(prepRows.map((line) => line.cutPieceOrderNo).concat(tickets.map((ticket) => ticket.originalCutOrderNo)))
+  const cuttingOrderNos = unique(prepRows.map((line) => line.cutPieceOrderNo).concat(tickets.map((ticket) => ticket.cutOrderNo)))
   const snapshot = {
     snapshotId: `CPS-${order.productionOrderId}`,
     productionOrderId: order.productionOrderId,
@@ -1212,7 +1205,7 @@ export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingPro
     replenishmentProgress: metric(prepRows.some((line) => line.issueFlags.includes('待补料')) ? '待补料' : '正常', prepRows.length, prepRows.filter((line) => !line.issueFlags.includes('待补料')).length, 0, prepRows.filter((line) => line.issueFlags.includes('待补料')).length),
     feiTicketProgress: metric(resolveFeiTicketStatus(order), prepRows.length || tickets.length, tickets.length, 0, 0),
     cutPieceWarehouseProgress: metric(resolveCuttingWaitHandoverStatus(order), tickets.length, listFactoryWaitHandoverStockItems().filter((item) => item.productionOrderId === order.productionOrderId).length, 0, 0),
-    specialCraftDispatchProgress: metric(specialReturn.waitDispatchCount > 0 ? '待发料' : '已发料', specialReturn.totalNeedSpecialCraftFeiTickets, specialReturn.dispatchedCount, specialReturn.differenceCount, specialReturn.objectionCount),
+    specialCraftDispatchProgress: metric(specialReturn.waitDispatchCount > 0 ? '待交出' : '已交出', specialReturn.totalNeedSpecialCraftFeiTickets, specialReturn.dispatchedCount, specialReturn.differenceCount, specialReturn.objectionCount),
     specialCraftReturnProgress: metric(resolveSpecialCraftReturnStatus(order), specialReturn.totalNeedSpecialCraftFeiTickets, specialReturn.returnedCount, specialReturn.differenceCount, specialReturn.objectionCount),
     sewingDispatchProgress: metric(resolveSewingDispatchStatus(sewing), sewing.totalProductionQty, sewing.cumulativeDispatchedGarmentQty, sewing.differenceTransferBagCount, sewing.objectionTransferBagCount),
     specialCraftCurrentQty: Math.round(sum(specialCraftBindings.map((binding) => binding.currentQty)) * 100) / 100,
@@ -1455,11 +1448,11 @@ export function buildFactoryWarehouseProgressSnapshots(options: ProgressStatisti
 export function buildProductionProgressKpiSummary(snapshots = getProductionProgressSnapshots()): ProductionProgressKpiSummary {
   return {
     totalProductionOrders: snapshots.length,
-    inProgressOrders: snapshots.filter((item) => item.sewingDispatchStatus !== '已全部发料' || item.sewingReceiveStatus !== '已回写').length,
+    inProgressOrders: snapshots.filter((item) => item.sewingDispatchStatus !== '已全部交出' || item.sewingReceiveStatus !== '已回写').length,
     blockedOrders: snapshots.filter((item) => item.blockingReasons.length > 0).length,
     readyForSewingDispatchOrders: snapshots.filter((item) => item.canProceedToSewingDispatch).length,
-    partiallyDispatchedOrders: snapshots.filter((item) => item.sewingDispatchStatus === '部分发料').length,
-    fullyDispatchedOrders: snapshots.filter((item) => item.sewingDispatchStatus === '已全部发料').length,
+    partiallyDispatchedOrders: snapshots.filter((item) => item.sewingDispatchStatus === '部分交出').length,
+    fullyDispatchedOrders: snapshots.filter((item) => item.sewingDispatchStatus === '已全部交出').length,
     differenceOrders: snapshots.filter((item) => item.differenceStatus === '差异').length,
     objectionOrders: snapshots.filter((item) => item.objectionStatus === '异议中').length,
     urgentOrders: snapshots.filter((item) => item.urgencyLevel === '十万火急' || item.urgencyLevel === '紧急 A' || item.urgencyLevel === '紧急 B').length,
@@ -1542,25 +1535,22 @@ export function getProgressStatisticsDashboard(options: ProgressStatisticsBuildO
 export function assertProgressStatisticsConsistency(): void {
   const snapshots = getProductionProgressSnapshots()
   snapshots.forEach((snapshot) => {
-    if (snapshot.sewingDispatchStatus === '已全部发料' && snapshot.totalQty > 0) {
+    if (snapshot.sewingDispatchStatus === '已全部交出' && snapshot.totalQty > 0) {
       const sewing = buildSewingDispatchProgressSnapshot(productionOrders.find((item) => item.productionOrderId === snapshot.productionOrderId)!)
-      if (sewing.cumulativeDispatchedGarmentQty > snapshot.totalQty) throw new Error(`${snapshot.productionOrderNo} 累计已发件数超过生产总数`)
-      if (sewing.remainingGarmentQty < 0) throw new Error(`${snapshot.productionOrderNo} 剩余未发件数小于 0`)
-    }
-    if ((snapshot.specialCraftReturnStatus === '未回仓' || snapshot.specialCraftReturnStatus === '部分回仓') && snapshot.canProceedToSewingDispatch) {
-      throw new Error(`${snapshot.productionOrderNo} 特殊工艺未回仓时不可标记为可发车缝`)
+      if (sewing.cumulativeDispatchedGarmentQty > snapshot.totalQty) throw new Error(`${snapshot.productionOrderNo} 累计已交出件数超过生产总数`)
+      if (sewing.remainingGarmentQty < 0) throw new Error(`${snapshot.productionOrderNo} 剩余未交出件数小于 0`)
     }
   })
 
-  const sewingFactoryWarehouse = getFactoryWarehouseProgressSnapshots().find((item) => item.factoryName.includes('车缝'))
+  const sewingFactoryWarehouse = getFactoryWarehouseProgressSnapshots().find((item) => item.factoryName.includes('车缝厂'))
   if (sewingFactoryWarehouse) throw new Error('车缝厂不应进入工厂内部仓统计')
 
   getCuttingProgressSnapshots().forEach((snapshot) => {
     if (snapshot.sewingDispatchProgress.completedQty > snapshot.sewingDispatchProgress.plannedQty) {
-      throw new Error(`${snapshot.productionOrderNo} 裁片发料完成数不得超过计划数`)
+      throw new Error(`${snapshot.productionOrderNo} 裁片交出完成数不得超过计划数`)
     }
     if (snapshot.sewingDispatchProgress.differenceQty < 0) {
-      throw new Error(`${snapshot.productionOrderNo} 裁片发料差异数不得小于 0`)
+      throw new Error(`${snapshot.productionOrderNo} 裁片交出差异数不得小于 0`)
     }
   })
 }

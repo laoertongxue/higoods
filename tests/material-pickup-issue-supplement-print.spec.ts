@@ -16,7 +16,7 @@ test('裁床配料单从页面入口进入统一打印预览', async ({ page }) 
   await page.getByRole('button', { name: '打印配料单' }).first().click()
 
   await expectStandalonePrintPage(page, '配料单')
-  for (const token of ['来源生产单', '原始裁片单', '面料 SKU', '应配面料米数', '已配面料米数', '缺口面料米数', '配置卷数', '裁片单二维码']) {
+  for (const token of ['来源生产单', '裁片单', '面料 SKU', '应配面料米数', '已配面料米数', '缺口面料米数', '配置卷数', '裁片单二维码']) {
     await expect(page.getByText(token).first()).toBeVisible()
   }
   await expect(page.getByText('扫码查看裁片单配料与领料信息').first()).toBeVisible()
@@ -34,8 +34,8 @@ test('工厂领料单从 PDA 领料页面进入统一打印预览', async ({ pag
   await expect(page.getByText('扫码确认领料').first()).toBeVisible()
 })
 
-test('仓库发料单从裁片发料页面进入统一打印预览', async ({ page }) => {
-  await page.goto('/fcs/craft/cutting/sewing-dispatch')
+test('仓库发料单从裁片交出页面进入统一打印预览', async ({ page }) => {
+  await page.goto('/fcs/craft/cutting/warehouse-management/wait-handover?tab=handoverOrders')
   await page.getByRole('button', { name: '打印发料单' }).first().click()
 
   await expect(page).toHaveURL(/\/fcs\/print\/preview/)

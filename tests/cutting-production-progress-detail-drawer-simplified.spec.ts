@@ -43,7 +43,7 @@ test('生产单进度详情抽屉按简化结构展示', async ({ page }) => {
   const sourceButtonLabels = await sourceOrderSection.getByRole('button').evaluateAll((buttons) =>
     buttons.map((button) => button.textContent?.trim() ?? '').filter(Boolean),
   )
-  expect(new Set(sourceButtonLabels)).toEqual(new Set(sourceButtonLabels.length ? ['查看原始裁片单'] : []))
+  expect(new Set(sourceButtonLabels)).toEqual(new Set(sourceButtonLabels.length ? ['查看裁片单'] : []))
   await expect(sourceOrderSection.getByText('去配料 / 领料', { exact: true })).toHaveCount(0)
   await expect(sourceOrderSection.getByText('去唛架铺布', { exact: true })).toHaveCount(0)
   await expect(sourceOrderSection.getByText('去打印菲票', { exact: true })).toHaveCount(0)

@@ -110,6 +110,7 @@ interface PdaHandoverDetailState {
   objectionProofFiles: ProofFile[]
   newRecordOpen: boolean
   newRecordObjectType: 'FABRIC' | 'CUT_PIECE' | 'SEMI_FINISHED_GARMENT' | 'FINISHED_GARMENT'
+  newRecordScanCode: string
   newRecordQty: string
   newRecordUnit: string
   newRecordRemark: string
@@ -136,6 +137,7 @@ const detailState: PdaHandoverDetailState = {
   objectionProofFiles: [],
   newRecordOpen: false,
   newRecordObjectType: 'FINISHED_GARMENT',
+  newRecordScanCode: '',
   newRecordQty: '',
   newRecordUnit: '件',
   newRecordRemark: '',
@@ -219,6 +221,7 @@ function syncHandoutState(handoverId: string): void {
   detailState.objectionProofFiles = []
   detailState.newRecordOpen = false
   detailState.newRecordObjectType = 'FINISHED_GARMENT'
+  detailState.newRecordScanCode = ''
   detailState.newRecordQty = ''
   detailState.newRecordUnit = '件'
   detailState.newRecordRemark = ''
@@ -255,6 +258,7 @@ function syncPickupState(head: PdaHandoverHead): void {
   detailState.objectionProofFiles = []
   detailState.newRecordOpen = false
   detailState.newRecordObjectType = 'FINISHED_GARMENT'
+  detailState.newRecordScanCode = ''
   detailState.newRecordQty = ''
   detailState.newRecordUnit = head.qtyUnit || '件'
   detailState.newRecordRemark = ''
@@ -312,6 +316,58 @@ function renderFieldRow(label: string, value: string, highlight = false): string
   `
 }
 
+function renderCuttingHandoverSummaryPanel(record: PdaHandoverRecord): string {
+  const summary = record.cuttingHandoverSummary
+  if (!summary) return ''
+  const gapPreview = summary.gapLines.slice(0, 5)
+  const restCount = Math.max(summary.gapLines.length - gapPreview.length, 0)
+  const resultLabel =
+    summary.completeAfterSubmit
+      ? summary.overPieceQtyTotal > 0
+        ? '已齐套，有超出'
+        : '已齐套'
+      : '仍有缺口'
+  const panelTone = summary.completeAfterSubmit ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'
+  return `
+    <div class="rounded-md border p-2 text-xs ${panelTone}">
+      <div class="mb-1 font-medium">裁床交出缺口</div>
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+        ${renderFieldRow('之前已交', `${summary.previousSubmittedPieceQty} 片`, summary.previousSubmittedPieceQty > 0)}
+        ${renderFieldRow('本次交出', `${summary.currentSubmittedPieceQty} 片`, true)}
+        ${renderFieldRow('累计交出', `${summary.cumulativeSubmittedPieceQty} 片`, true)}
+        ${renderFieldRow('交出后结果', resultLabel, !summary.completeAfterSubmit)}
+      </div>
+      ${
+        gapPreview.length
+          ? `
+            <div class="mt-2 space-y-1">
+              <div class="font-medium">还差</div>
+              ${gapPreview
+                .map((line) => {
+                  const qtyText =
+                    line.missingPieceQty > 0
+                      ? `缺 ${line.missingPieceQty} 片`
+                      : line.overPieceQty > 0
+                        ? `多 ${line.overPieceQty} 片`
+                        : `已交 ${line.cumulativeSubmittedPieceQty}/${line.requiredPieceQty} 片`
+                  return `
+                    <div class="rounded border border-current/20 bg-white/70 px-2 py-1">
+                      <span class="font-medium">${escapeHtml(`${line.skuCode} / ${line.partName}`)}</span>
+                      <span class="ml-1">${escapeHtml(qtyText)}</span>
+                      <span class="ml-1 text-muted-foreground">${escapeHtml(line.statusLabel)}</span>
+                    </div>
+                  `
+                })
+                .join('')}
+              ${restCount > 0 ? `<div class="text-[11px]">另 ${restCount} 项缺口</div>` : ''}
+            </div>
+          `
+          : '<div class="mt-2 rounded border border-current/20 bg-white/70 px-2 py-1">还差：无</div>'
+      }
+    </div>
+  `
+}
+
 function renderTransferBagMobilePanel(record: PdaHandoverRecord): string {
   const sewingDispatch = getCuttingSewingDispatchByHandoverRecordId(record.handoverRecordId || record.recordId)
   if (!sewingDispatch.dispatchBatch || !sewingDispatch.transferBags.length) return ''
@@ -356,9 +412,7 @@ function renderTransferBagMobilePanel(record: PdaHandoverRecord): string {
                   ${
                     bag.editableBeforeHandover
                       ? `
-                        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">扫码装袋</button>
-                        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">移除菲票</button>
-                        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">完成装袋</button>
+                        <span class="rounded border bg-white px-2 py-1 text-[11px] text-muted-foreground">交出前可扫码装袋</span>
                       `
                       : '<span class="rounded border bg-muted px-2 py-1 text-[11px] text-muted-foreground">已交出后锁定</span>'
                   }
@@ -368,13 +422,7 @@ function renderTransferBagMobilePanel(record: PdaHandoverRecord): string {
           })
           .join('')}
       </div>
-      <div class="mt-2 flex flex-wrap gap-2">
-        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">新建中转袋</button>
-        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">扫描中转袋</button>
-        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">${isReceiverSide ? '按袋确认' : '标记已收袋'}</button>
-        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">按菲票确认</button>
-        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">提交收货确认</button>
-      </div>
+      <div class="mt-2 rounded border bg-white px-2 py-1 text-[11px] text-muted-foreground">${escapeHtml(isReceiverSide ? '接收方已确认收货' : '等待交出记录确认')}</div>
     </div>
   `
 }
@@ -1315,24 +1363,26 @@ function renderNewHandoutRecordForm(head: PdaHandoverHead): string {
   return `
     <div class="space-y-3 rounded-md border bg-muted/20 p-3" data-testid="handout-new-record-form">
       <div class="grid gap-3 md:grid-cols-2">
-        <label class="space-y-1">
+        <div class="space-y-1">
           <span class="text-xs font-medium">交出对象</span>
-          <select
+          <div class="flex h-8 items-center rounded-md border bg-background px-2.5 text-xs font-medium">${escapeHtml(getHandoverObjectTypeLabel(detailState.newRecordObjectType))}</div>
+        </div>
+        <label class="space-y-1">
+          <span class="text-xs font-medium">扫码内容</span>
+          <input
             class="h-8 w-full rounded-md border bg-background px-2.5 text-xs"
-            data-pda-handoverd-field="newRecordObjectType"
-          >
-            ${(['FABRIC', 'CUT_PIECE', 'SEMI_FINISHED_GARMENT', 'FINISHED_GARMENT'] as const)
-              .map((value) => `<option value="${value}" ${detailState.newRecordObjectType === value ? 'selected' : ''}>${escapeHtml(getHandoverObjectTypeLabel(value))}</option>`)
-              .join('')}
-          </select>
+            value="${escapeAttr(detailState.newRecordScanCode)}"
+            placeholder="扫描中转袋 / 菲票 / 交出物码"
+            data-pda-handoverd-field="newRecordScanCode"
+          />
         </label>
         <label class="space-y-1">
-          <span class="text-xs font-medium">交出对象数量</span>
+          <span class="text-xs font-medium">本次交出数量</span>
           <input
             class="h-8 w-full rounded-md border bg-background px-2.5 text-xs"
             type="number"
             value="${escapeAttr(detailState.newRecordQty)}"
-            placeholder="请输入交出对象数量"
+            placeholder="输入数量"
             data-pda-handoverd-field="newRecordQty"
           />
         </label>
@@ -1345,19 +1395,7 @@ function renderNewHandoutRecordForm(head: PdaHandoverHead): string {
             data-pda-handoverd-field="newRecordUnit"
           />
         </label>
-        <label class="space-y-1">
-          <span class="text-xs font-medium">凭证</span>
-          <div class="flex h-8 items-center rounded-md border bg-background px-2.5 text-xs text-muted-foreground">可选，当前原型不限制上传</div>
-        </label>
       </div>
-      <label class="space-y-1">
-        <span class="text-xs font-medium">备注</span>
-        <textarea
-          class="min-h-[64px] w-full rounded-md border bg-background px-2.5 py-1.5 text-xs"
-          placeholder="补充交出说明"
-          data-pda-handoverd-field="newRecordRemark"
-        >${escapeHtml(detailState.newRecordRemark)}</textarea>
-      </label>
       <div class="flex justify-end gap-2">
         <button
           class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
@@ -1367,7 +1405,7 @@ function renderNewHandoutRecordForm(head: PdaHandoverHead): string {
           class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
           data-pda-handoverd-action="submit-new-handout-record"
           data-handover-id="${escapeHtml(head.handoverId)}"
-        >确认新增</button>
+        >确认交出</button>
       </div>
     </div>
   `
@@ -1503,21 +1541,23 @@ function renderHandoutRecordItem(
         ${renderFieldRow('备注', record.receiverRemark || record.factoryRemark || '—')}
       </div>
 
+      ${renderCuttingHandoverSummaryPanel(record)}
+
       ${
         sewingBatch
           ? `
             <div class="rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-800">
-              <div class="mb-1 font-medium">裁片发料</div>
+              <div class="mb-1 font-medium">交出单</div>
               <div class="grid grid-cols-2 gap-x-4 gap-y-1">
                 ${renderFieldRow('中转单', sewingBatch.transferOrderNo, true)}
                 ${renderFieldRow('中转袋', sewingBags.map((bag) => bag.transferBagNo).join('、') || '—', true)}
                 ${renderFieldRow('菲票数', `${sewingBatch.feiTicketNos.length} 张`)}
-                ${renderFieldRow('本次发料件数', `${sewingBatch.plannedGarmentQty} 件`)}
+                ${renderFieldRow('本次交出件数', `${sewingBatch.plannedGarmentQty} 件`)}
                 ${renderFieldRow('裁片数量', `${sewingPieceQty} 片`)}
                 ${renderFieldRow('车缝厂实收', typeof sewingBatch.receiverWrittenQty === 'number' ? `${sewingBatch.receiverWrittenQty} 件` : '待收货确认')}
               </div>
               <div class="mt-2 flex flex-wrap gap-2">
-                <button type="button" class="rounded border bg-white px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover?tab=sewing-dispatch">查看裁片发料</button>
+                <button type="button" class="rounded border bg-white px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover?tab=handoverOrders">查看交出单</button>
                 <button type="button" class="rounded border bg-white px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100" data-nav="/fcs/craft/cutting/transfer-bags">查看中转袋</button>
               </div>
             </div>
@@ -1803,6 +1843,7 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
       detailState.newRecordOpen = true
       detailState.newRecordObjectType =
         profile.objectType === 'GARMENT' ? 'FINISHED_GARMENT' : profile.objectType
+      detailState.newRecordScanCode = ''
       detailState.newRecordUnit = profile.displayUnit || head.qtyUnit || '件'
     }
   }
@@ -1832,7 +1873,7 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
           <i data-lucide="${head.targetKind === 'WAREHOUSE' ? 'warehouse' : 'factory'}" class="h-3.5 w-3.5 text-primary"></i>
           <span class="font-medium text-primary">${escapeHtml(getReceiverDisplayName(head))}</span>
         </span>
-        <div class="ml-auto text-xs text-muted-foreground">一个任务一个${head.headType === 'PICKUP' ? '领料单' : '交出单'}</div>
+        <div class="ml-auto text-xs text-muted-foreground">${head.headType === 'PICKUP' ? '一个任务一个领料单' : '一个交出单可包含多条交出记录'}</div>
       </div>
 
       ${head.headType === 'PICKUP' ? renderPickupHeadDetail(head) : renderHandoutHeadDetail(head)}
@@ -1898,6 +1939,11 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
 
     if (field === 'newRecordQty') {
       detailState.newRecordQty = fieldNode.value
+      return true
+    }
+
+    if (field === 'newRecordScanCode') {
+      detailState.newRecordScanCode = fieldNode.value
       return true
     }
 
@@ -2018,6 +2064,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       profile.objectType === 'GARMENT'
         ? 'FINISHED_GARMENT'
         : profile.objectType
+    detailState.newRecordScanCode = ''
     detailState.newRecordQty = ''
     detailState.newRecordUnit = profile.displayUnit || head.qtyUnit || '件'
     detailState.newRecordRemark = ''
@@ -2027,6 +2074,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   if (action === 'cancel-new-handout-record') {
     detailState.newRecordOpen = false
     detailState.newRecordObjectType = 'FINISHED_GARMENT'
+    detailState.newRecordScanCode = ''
     detailState.newRecordQty = ''
     detailState.newRecordUnit = '件'
     detailState.newRecordRemark = ''
@@ -2050,8 +2098,13 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     }
 
     const submittedQty = Number(detailState.newRecordQty)
+    const scanCode = detailState.newRecordScanCode.trim()
+    if (!scanCode) {
+      showPdaHandoverDetailToast('请先扫码')
+      return true
+    }
     if (!Number.isFinite(submittedQty) || submittedQty <= 0) {
-      showPdaHandoverDetailToast('请先填写有效交出对象数量')
+      showPdaHandoverDetailToast('请先填写有效交出数量')
       return true
     }
     const qtyUnit = detailState.newRecordUnit.trim() || head.qtyUnit || '件'
@@ -2063,7 +2116,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
         qtyUnit,
         factorySubmittedAt: nowTimestamp(),
         factorySubmittedBy: '工厂操作员',
-        factoryRemark: detailState.newRecordRemark.trim() || undefined,
+        factoryRemark: [`扫码：${scanCode}`, detailState.newRecordRemark.trim()].filter(Boolean).join('；') || undefined,
         factoryProofFiles: [],
         objectType: detailState.newRecordObjectType,
       })
@@ -2077,6 +2130,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
 
       detailState.newRecordOpen = false
       detailState.newRecordObjectType = 'FINISHED_GARMENT'
+      detailState.newRecordScanCode = ''
       detailState.newRecordQty = ''
       detailState.newRecordUnit = qtyUnit
       detailState.newRecordRemark = ''

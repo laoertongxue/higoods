@@ -690,7 +690,7 @@ function renderMainTable(): string {
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-platform-exception" data-route="${row.routes.platformExceptionCenter}">去异常中心</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-production-progress" data-route="${row.routes.productionProgress}">去生产单进度</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-material-prep" data-route="${row.routes.materialPrep}">查看待加工仓</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-original-orders" data-route="${row.routes.originalOrders}">去原始裁片单</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-cut-orders" data-route="${row.routes.cutOrders}">去裁片单</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-replenishment" data-route="${row.routes.replenishment}">去补料管理</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-fabric-warehouse" data-route="${row.routes.fabricWarehouse}">去裁床仓</button>
                             </div>
@@ -862,7 +862,7 @@ function renderDetailDrawer(): string {
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-platform-exception" data-route="${row.routes.platformExceptionCenter}">去裁片专项异常中心</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-production-progress" data-route="${row.routes.productionProgress}">去生产单进度</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-material-prep" data-route="${row.routes.materialPrep}">查看待加工仓</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-original-orders" data-route="${row.routes.originalOrders}">去原始裁片单</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-cut-orders" data-route="${row.routes.cutOrders}">去裁片单</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-replenishment" data-route="${row.routes.replenishment}">去补料管理</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-fabric-warehouse" data-route="${row.routes.fabricWarehouse}">去裁床仓</button>
           </div>
@@ -1057,7 +1057,7 @@ export function handleCuttingSettlementInputEvent(target: Element): boolean {
       action === 'go-platform-exception' ||
       action === 'go-production-progress' ||
       action === 'go-material-prep' ||
-      action === 'go-original-orders' ||
+      action === 'go-cut-orders' ||
       action === 'go-replenishment' ||
       action === 'go-fabric-warehouse'
     ) &&

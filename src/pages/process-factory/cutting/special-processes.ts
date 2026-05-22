@@ -1,6 +1,7 @@
 import { productionOrders } from '../../../data/fcs/production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { renderMaterialIdentityBlock } from './material-identity.ts'
 
 type BindingProcessOrderRow = {
   id: string
@@ -9,6 +10,8 @@ type BindingProcessOrderRow = {
   spuCode: string
   spuName: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   color: string
   partName: string
   stripSpec: string
@@ -67,6 +70,32 @@ const buildStripSpec = (part: Record<string, any>) => {
   return pieces.join(' / ') || '按正式技术包捆条要求'
 }
 
+const resolveMaterialIdentity = (snapshot: Record<string, any>, materialSku: string) => {
+  const bomItems = Array.isArray(snapshot.bomItems) ? snapshot.bomItems : []
+  const normalizedSku = materialSku.trim().toLowerCase()
+  const matchedBom = bomItems.find((item: Record<string, any>) => {
+    const candidates = [
+      item.materialSku,
+      item.materialCode,
+      item.materialName,
+      item.materialLabel,
+      item.name,
+      item.sku,
+    ]
+    return candidates.some((value) => String(value || '').trim().toLowerCase() === normalizedSku)
+  }) || null
+  const patternFiles = Array.isArray(snapshot.patternFiles) ? snapshot.patternFiles : []
+  const matchedPattern = patternFiles.find((file: Record<string, any>) => {
+    const candidates = [file.linkedMaterialSku, file.materialSku, file.linkedMaterialAlias]
+    return candidates.some((value) => String(value || '').trim().toLowerCase() === normalizedSku)
+  }) || null
+
+  return {
+    materialAlias: pickText(matchedBom?.materialAlias, matchedPattern?.linkedMaterialAlias),
+    materialImageUrl: pickText(matchedBom?.materialImageUrl, matchedPattern?.imageUrl),
+  }
+}
+
 const collectBindingParts = (snapshot: Record<string, any>) => {
   const parts: Array<Record<string, any>> = []
   const cutPieceParts = Array.isArray(snapshot.cutPieceParts) ? snapshot.cutPieceParts : []
@@ -99,13 +128,17 @@ const buildBindingProcessOrders = (): BindingProcessOrderRow[] => {
     const baseQty = collectOrderDemandQty(order) || 1
     bindingParts.forEach((part, index) => {
       const plannedQty = baseQty * Math.max(1, pickNumber(part.stripCount, part.bindingStripCount, 1))
+      const materialSku = pickText(part.materialSku, part.materialName, snapshot.mainMaterialSku, '主面料')
+      const materialIdentity = resolveMaterialIdentity(snapshot as Record<string, any>, materialSku)
       rows.push({
         id: `${order.productionOrderId}-BIND-${index + 1}`,
         orderNo: `BT-${String(order.productionOrderNo ?? order.productionOrderId).replace(/^PO-/, '')}-${String(index + 1).padStart(2, '0')}`,
         productionOrderNo: pickText(order.productionOrderNo, order.productionOrderId),
         spuCode: pickText(snapshot.spuCode, order.spuCode),
         spuName: pickText(snapshot.spuName, order.spuName),
-        materialSku: pickText(part.materialSku, part.materialName, snapshot.mainMaterialSku, '主面料'),
+        materialSku,
+        materialAlias: materialIdentity.materialAlias,
+        materialImageUrl: materialIdentity.materialImageUrl,
         color: pickText(part.color, part.colorName, snapshot.colors?.[0], '按技术包'),
         partName: pickText(part.partName, part.name, part.pieceName, '捆条部位'),
         stripSpec: buildStripSpec(part),
@@ -219,7 +252,7 @@ export function renderCraftCuttingSpecialProcessesPage() {
                               <div class="text-xs text-slate-500">${escapeHtml(row.spuName)}</div>
                             </td>
                             <td class="px-4 py-3">
-                              <div>${escapeHtml(row.materialSku)}</div>
+                              ${renderMaterialIdentityBlock(row, { compact: true })}
                               <div class="text-xs text-slate-500">${escapeHtml(row.color)}</div>
                             </td>
                             <td class="px-4 py-3">${escapeHtml(row.partName)}</td>

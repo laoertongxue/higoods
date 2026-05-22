@@ -94,7 +94,7 @@ const stepFieldConsumptionSource = [
   cuttingProgressSource,
   specialCraftStatisticsSource,
   read('src/data/fcs/cutting/sewing-dispatch.ts'),
-  read('src/pages/process-factory/cutting/sewing-dispatch.ts'),
+  read('src/pages/process-factory/cutting/warehouse-hub.ts'),
   read('src/pages/pda-handover-detail.ts'),
   read('src/pages/pda-transfer-bag-detail.ts'),
   read('src/pages/pda-warehouse-shared.ts'),
@@ -183,7 +183,7 @@ assertContains(cuttingProgressModelSource, "'CUT_ORDER' | 'PRODUCTION_ORDER'", '
 assertContains(cuttingProgressSource, "viewDimension: 'CUT_ORDER'", '裁床进度默认维度必须为 CUT_ORDER')
 assertContains(cuttingProgressSource, '裁片单维度', '裁床进度缺少裁片单维度切换')
 assertContains(cuttingProgressSource, '生产单维度', '裁床进度缺少生产单维度切换')
-assertContains(cuttingProgressSource, 'originalCutOrderNo', '裁床进度裁片单维度缺少原始裁片单号来源')
+assertContains(cuttingProgressSource, 'cutOrderNo', '裁床进度裁片单维度缺少裁片单号来源')
 
 ;[
   'selectedTargetObject',

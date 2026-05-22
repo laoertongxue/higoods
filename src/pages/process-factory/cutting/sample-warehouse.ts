@@ -27,6 +27,7 @@ import {
   buildWarehouseRouteWithQuery,
   getWarehouseSearchParams,
 } from './warehouse-shared.ts'
+import { renderMaterialIdentityBlock } from './material-identity.ts'
 
 type FilterField = 'keyword' | 'status' | 'locationType' | 'holder'
 type DetailField = 'locationType' | 'holder' | 'note'
@@ -145,7 +146,7 @@ function renderTabSection(items: SampleWarehouseItem[]): string {
 function getPrefilterFromQuery(): SampleWarehousePrefilter | null {
   const params = getWarehouseSearchParams()
   const prefilter: SampleWarehousePrefilter = {
-    originalCutOrderId: params.get('originalCutOrderId') || undefined,
+    cutOrderId: params.get('cutOrderId') || undefined,
     productionOrderId: params.get('productionOrderId') || undefined,
     materialSku: params.get('materialSku') || undefined,
     styleCode: params.get('styleCode') || undefined,
@@ -189,7 +190,7 @@ function renderTag(label: string, className: string): string {
 function renderHeaderActions(): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-original-orders-index">查看相关裁片单 / 款号</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-cut-orders-index">查看相关裁片单 / 款号</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-summary-index">查看裁剪总结</button>
     </div>
   `
@@ -320,7 +321,7 @@ function renderTable(items: SampleWarehouseItem[]): string {
       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
         <tr>
           <th class="px-4 py-3 text-left">样衣编号</th>
-          <th class="px-4 py-3 text-left">面料 SKU / 款号</th>
+          <th class="px-4 py-3 text-left">面料 / 款号</th>
           <th class="px-4 py-3 text-left">颜色 / 尺码</th>
           <th class="px-4 py-3 text-left">当前状态</th>
           <th class="px-4 py-3 text-left">当前位置</th>
@@ -339,7 +340,7 @@ function renderTable(items: SampleWarehouseItem[]): string {
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.sampleName)}</div>
                 </td>
                 <td class="px-4 py-3">
-                  <div class="font-medium text-foreground">${escapeHtml(item.materialSku || '待补面料')}</div>
+                  ${renderMaterialIdentityBlock(item, { compact: true })}
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.styleCode || item.spuCode || '待补款号')}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.relatedProductionOrderNo)}</div>
                 </td>
@@ -379,12 +380,12 @@ function renderDetailDrawer(): string {
       <div class="space-y-6 text-sm">
         <section class="grid gap-3 md:grid-cols-2">
           <div class="rounded-lg border bg-muted/20 p-3">
-            <div class="text-xs text-muted-foreground">相关原始裁片单</div>
-            <div class="mt-1 font-medium text-foreground">${escapeHtml(item.relatedOriginalCutOrderNo)}</div>
+            <div class="text-xs text-muted-foreground">相关裁片单</div>
+            <div class="mt-1 font-medium text-foreground">${escapeHtml(item.relatedCutOrderNo)}</div>
           </div>
           <div class="rounded-lg border bg-muted/20 p-3">
-            <div class="text-xs text-muted-foreground">面料 SKU</div>
-            <div class="mt-1 font-medium text-foreground">${escapeHtml(item.materialSku || '待补面料')}</div>
+            <div class="text-xs text-muted-foreground">面料</div>
+            <div class="mt-2">${renderMaterialIdentityBlock(item)}</div>
           </div>
           <div class="rounded-lg border bg-muted/20 p-3">
             <div class="text-xs text-muted-foreground">来源生产单号</div>
@@ -482,7 +483,7 @@ function renderDetailDrawer(): string {
             </div>
           </div>
           <div class="mt-4 flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-original-orders" data-item-id="${escapeHtml(item.sampleItemId)}">查看相关裁片单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-cut-orders" data-item-id="${escapeHtml(item.sampleItemId)}">查看相关裁片单</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-summary" data-item-id="${escapeHtml(item.sampleItemId)}">去裁剪总结</button>
           </div>
         </section>
@@ -520,7 +521,7 @@ function navigateByPayload(itemId: string | undefined, target: keyof SampleWareh
   if (!item) return false
 
   const pathMap: Record<keyof SampleWarehouseItem['navigationPayload'], string> = {
-    originalOrders: getCanonicalCuttingPath('original-orders'),
+    cutOrders: getCanonicalCuttingPath('cut-orders'),
     materialPrep: getCanonicalCuttingPath('warehouse-management-wait-process'),
     summary: getCanonicalCuttingPath('summary'),
     transferBags: getCanonicalCuttingPath('transfer-bags'),
@@ -546,8 +547,8 @@ function submitWarehouseAction(
     actionType,
     identity: {
       sampleRecordId: item.sampleItemId,
-      originalCutOrderId: item.relatedOriginalCutOrderId,
-      originalCutOrderNo: item.relatedOriginalCutOrderNo,
+      cutOrderId: item.relatedCutOrderId,
+      cutOrderNo: item.relatedCutOrderNo,
       productionOrderId: item.relatedProductionOrderId,
       productionOrderNo: item.relatedProductionOrderNo,
       materialSku: item.materialSku,
@@ -629,11 +630,11 @@ export function handleCraftCuttingSampleWarehouseEvent(target: Element): boolean
   if (action === 'transfer') return submitWarehouseAction(actionNode.dataset.itemId || state.activeItemId || undefined, 'SAMPLE_WAREHOUSE_TRANSFER')
   if (action === 'mark-inspection') return submitWarehouseAction(actionNode.dataset.itemId || state.activeItemId || undefined, 'SAMPLE_WAREHOUSE_MARK_INSPECTION')
 
-  if (action === 'go-original-orders') return navigateByPayload(actionNode.dataset.itemId || state.activeItemId || undefined, 'originalOrders')
+  if (action === 'go-cut-orders') return navigateByPayload(actionNode.dataset.itemId || state.activeItemId || undefined, 'cutOrders')
   if (action === 'go-summary') return navigateByPayload(actionNode.dataset.itemId || state.activeItemId || undefined, 'summary')
 
-  if (action === 'go-original-orders-index') {
-    appStore.navigate(getCanonicalCuttingPath('original-orders'))
+  if (action === 'go-cut-orders-index') {
+    appStore.navigate(getCanonicalCuttingPath('cut-orders'))
     return true
   }
 

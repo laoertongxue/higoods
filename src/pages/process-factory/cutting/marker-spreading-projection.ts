@@ -36,12 +36,12 @@ export interface SpreadingCreateSourceRow {
   sourceBedNo: string
   sourceBedMode: MarkerModeKey
   bedSizeSummaryText: string
-  contextType: 'original-order' | 'merge-batch'
+  contextType: 'cut-order' | 'marker-plan-ref'
   contextSummary: string
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
@@ -63,8 +63,8 @@ export interface MarkerSpreadingProjection {
   rows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows']
   rowsById: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows'][number]>
   rowsByProductionOrderNo: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows'][]>
-  mergeBatches: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['mergeBatches']
-  mergeBatchesById: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['mergeBatches'][number]>
+  markerPlanRefs: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanRefs']
+  markerPlanRefsById: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanRefs'][number]>
   store: MarkerSpreadingStore
   viewModel: ReturnType<typeof buildMarkerSpreadingViewModel>
   createSources: SpreadingCreateSourceRow[]
@@ -122,12 +122,12 @@ function buildMarkerRecordFromPlanBed(
   const bedPieceQtyPerLayer = Math.max(Number(bed.markerPieceQtyPerLayer || 0), 0)
   const distributedQty = distributeBedPlannedQtyByCoverage(bed)
   const bedSpreadLength = Math.max(Number(bed.spreadTotalLength || 0), 0)
-  const sourceOrder = context.sourceOriginalRows[0] || null
+  const sourceOrder = context.sourceCutOrderRows[0] || null
   const allocationLines: MarkerAllocationLine[] = bed.coverageRows.map((row, index) => ({
     allocationId: `${bed.bedId}-allocation-${index + 1}`,
     markerId: bed.bedId,
-    sourceCutOrderId: row.rowId.split('-coverage-')[0] || context.originalCutOrderIds[0] || '',
-    sourceCutOrderNo: sourceOrder?.originalCutOrderNo || context.originalCutOrderNos[0] || '',
+    sourceCutOrderId: row.rowId.split('-coverage-')[0] || context.cutOrderIds[0] || '',
+    sourceCutOrderNo: sourceOrder?.cutOrderNo || context.cutOrderNos[0] || '',
     sourceProductionOrderId: sourceOrder?.productionOrderId || context.productionOrderIds[0] || '',
     sourceProductionOrderNo: sourceOrder?.productionOrderNo || context.productionOrderNos[0] || '',
     styleCode: plan.styleCode,
@@ -211,11 +211,11 @@ function buildMarkerRecordFromPlanBed(
     bedId: bed.bedId,
     bedNo: bed.bedNo,
     bedMode: bed.bedMode,
-    contextType: context.contextType === 'merge-batch' ? 'merge-batch' : 'original-order',
-    originalCutOrderIds: [...plan.originalCutOrderIds],
-    originalCutOrderNos: [...plan.originalCutOrderNos],
-    mergeBatchId: plan.mergeBatchId,
-    mergeBatchNo: plan.mergeBatchNo,
+    contextType: context.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
+    cutOrderIds: [...plan.cutOrderIds],
+    cutOrderNos: [...plan.cutOrderNos],
+    markerPlanId: plan.markerPlanId,
+    markerPlanNo: plan.markerPlanNo,
     styleCode: plan.styleCode,
     spuCode: plan.spuCode,
     techPackSpuCode: plan.techPackSpu,
@@ -258,11 +258,11 @@ function buildMarkerRecordFromPlanBed(
 
 function buildSpreadingContextFromPlanContext(context: MarkerPlanContextCandidate): MarkerSpreadingContext {
   return {
-    contextType: context.contextType === 'merge-batch' ? 'merge-batch' : 'original-order',
-    originalCutOrderIds: [...context.originalCutOrderIds],
-    originalCutOrderNos: [...context.originalCutOrderNos],
-    mergeBatchId: context.mergeBatchId,
-    mergeBatchNo: context.mergeBatchNo,
+    contextType: context.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
+    cutOrderIds: [...context.cutOrderIds],
+    cutOrderNos: [...context.cutOrderNos],
+    markerPlanId: context.markerPlanId,
+    markerPlanNo: context.markerPlanNo,
     productionOrderNos: [...context.productionOrderNos],
     styleCode: context.styleCode,
     spuCode: context.spuCode,
@@ -281,9 +281,9 @@ function buildCreateSourceRowsFromPlan(
   const scheme = buildMarkerSchemeFromPlan(plan)
   const spreadingContext = buildSpreadingContextFromPlanContext(context)
   const contextSummary =
-    spreadingContext.contextType === 'merge-batch'
-      ? `合并裁剪批次 ${context.mergeBatchNo || '待补'} / 原始裁片单 ${context.originalCutOrderNos.length} 张 / 生产单 ${context.productionOrderNos.join(' / ') || '待补'}`
-      : `原始裁片单 ${context.originalCutOrderNos.join(' / ') || '待补'} / 生产单 ${context.productionOrderNos.join(' / ') || '待补'}`
+    spreadingContext.contextType === 'marker-plan-ref'
+      ? `唛架方案 ${context.markerPlanNo || '待补'} / 裁片单 ${context.cutOrderNos.length} 张 / 生产单 ${context.productionOrderNos.join(' / ') || '待补'}`
+      : `裁片单 ${context.cutOrderNos.join(' / ') || '待补'} / 生产单 ${context.productionOrderNos.join(' / ') || '待补'}`
 
   return scheme.beds
     .filter((bed) => bed.readyForSpreading && !bed.lockedBySpreading)
@@ -301,10 +301,10 @@ function buildCreateSourceRowsFromPlan(
         bedSizeSummaryText: bed.sizeSummaryText,
         contextType: spreadingContext.contextType,
         contextSummary,
-        originalCutOrderIds: [...plan.originalCutOrderIds],
-        originalCutOrderNos: [...plan.originalCutOrderNos],
-        mergeBatchId: plan.mergeBatchId,
-        mergeBatchNo: plan.mergeBatchNo,
+        cutOrderIds: [...plan.cutOrderIds],
+        cutOrderNos: [...plan.cutOrderNos],
+        markerPlanId: plan.markerPlanId,
+        markerPlanNo: plan.markerPlanNo,
         productionOrderNos: [...plan.productionOrderNos],
         styleCode: plan.styleCode,
         spuCode: plan.spuCode,
@@ -341,7 +341,7 @@ export function buildMarkerSpreadingProjection(options: {
     (context.snapshot.markerSpreadingState.store as unknown as MarkerSpreadingStore)
   const viewModel = buildMarkerSpreadingViewModel({
     rows: context.sources.materialPrepRows,
-    mergeBatches: context.sources.mergeBatches,
+    markerPlanRefs: context.sources.markerPlanRefs,
     store,
     prefilter: options.prefilter ?? null,
   })
@@ -350,7 +350,7 @@ export function buildMarkerSpreadingProjection(options: {
     snapshot: context.snapshot,
     rows: context.sources.materialPrepRows,
     rowsById: Object.fromEntries(
-      context.sources.materialPrepRows.map((row) => [row.originalCutOrderId, row]),
+      context.sources.materialPrepRows.map((row) => [row.cutOrderId, row]),
     ),
     rowsByProductionOrderNo: context.sources.materialPrepRows.reduce<
       Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows']>
@@ -361,8 +361,8 @@ export function buildMarkerSpreadingProjection(options: {
       accumulator[key].push(row)
       return accumulator
     }, {}),
-    mergeBatches: context.sources.mergeBatches,
-    mergeBatchesById: Object.fromEntries(context.sources.mergeBatches.map((batch) => [batch.mergeBatchId, batch])),
+    markerPlanRefs: context.sources.markerPlanRefs,
+    markerPlanRefsById: Object.fromEntries(context.sources.markerPlanRefs.map((batch) => [batch.markerPlanId, batch])),
     store,
     viewModel,
     createSources: buildSpreadingCreateSourceRows(),

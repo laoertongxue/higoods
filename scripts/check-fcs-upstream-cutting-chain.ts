@@ -8,7 +8,7 @@ import {
   resolveReleasedTechPackForProductionOrder,
   validateDemandTechPackOrderLink,
 } from '../src/data/fcs/production-upstream-chain.ts'
-import { listGeneratedOriginalCutOrderSourceRecords } from '../src/data/fcs/cutting/generated-original-cut-orders.ts'
+import { listGeneratedCutOrderSourceRecords } from '../src/data/fcs/cutting/generated-cut-orders.ts'
 
 const repoRoot = process.cwd()
 
@@ -69,28 +69,28 @@ function ensureProductionOrderSeedsDoNotInlineSnapshots(): void {
   assert(!seedSection.includes('techPackSnapshot:'), 'production-orders.ts 仍在 seed 段手写 techPackSnapshot')
 }
 
-function ensureGeneratedOriginalCutOrdersTraceable(): void {
-  const generated = listGeneratedOriginalCutOrderSourceRecords()
-  assert(generated.length > 0, 'generated original cut orders 为空')
+function ensureGeneratedCutOrdersTraceable(): void {
+  const generated = listGeneratedCutOrderSourceRecords()
+  assert(generated.length > 0, 'generated cut orders 为空')
 
   generated.forEach((record) => {
-    assert(record.productionOrderId, `原始裁片单 ${record.originalCutOrderNo} 缺少 productionOrderId`)
-    assert(record.originalCutOrderId, `原始裁片单 ${record.originalCutOrderNo} 缺少 originalCutOrderId`)
-    assert(record.materialSku, `原始裁片单 ${record.originalCutOrderNo} 缺少 materialSku`)
-    assert(record.sourceTechPackSpuCode, `原始裁片单 ${record.originalCutOrderNo} 缺少 sourceTechPackSpuCode`)
-    assert(record.techPackVersionLabel, `原始裁片单 ${record.originalCutOrderNo} 缺少 tech pack 版本`)
+    assert(record.productionOrderId, `裁片单 ${record.cutOrderNo} 缺少 productionOrderId`)
+    assert(record.cutOrderId, `裁片单 ${record.cutOrderNo} 缺少 cutOrderId`)
+    assert(record.materialSku, `裁片单 ${record.cutOrderNo} 缺少 materialSku`)
+    assert(record.sourceTechPackSpuCode, `裁片单 ${record.cutOrderNo} 缺少 sourceTechPackSpuCode`)
+    assert(record.techPackVersionLabel, `裁片单 ${record.cutOrderNo} 缺少 tech pack 版本`)
 
     const order = productionOrders.find((item) => item.productionOrderId === record.productionOrderId)
-    assert(order, `原始裁片单 ${record.originalCutOrderNo} 无法回溯到 production order ${record.productionOrderId}`)
-    assert(order.demandSnapshot.spuCode === record.sourceTechPackSpuCode, `原始裁片单 ${record.originalCutOrderNo} tech pack spu 不一致`)
+    assert(order, `裁片单 ${record.cutOrderNo} 无法回溯到 production order ${record.productionOrderId}`)
+    assert(order.demandSnapshot.spuCode === record.sourceTechPackSpuCode, `裁片单 ${record.cutOrderNo} tech pack spu 不一致`)
 
     const scopedSkuKeys = new Set(
       order.demandSnapshot.skuLines.map((line) => `${line.skuCode}::${line.color}::${line.size}`),
     )
-    assert(record.skuScopeLines.length > 0, `原始裁片单 ${record.originalCutOrderNo} 没有 sku scope`)
+    assert(record.skuScopeLines.length > 0, `裁片单 ${record.cutOrderNo} 没有 sku scope`)
     record.skuScopeLines.forEach((line) => {
       const key = `${line.skuCode}::${line.color}::${line.size}`
-      assert(scopedSkuKeys.has(key), `原始裁片单 ${record.originalCutOrderNo} 的 sku scope ${key} 不属于 production order ${record.productionOrderId}`)
+      assert(scopedSkuKeys.has(key), `裁片单 ${record.cutOrderNo} 的 sku scope ${key} 不属于 production order ${record.productionOrderId}`)
     })
   })
 }
@@ -98,22 +98,22 @@ function ensureGeneratedOriginalCutOrdersTraceable(): void {
 function ensureOrderProgressIsProjectionOnly(): void {
   const orderProgressContent = readRepoFile('src/data/fcs/cutting/order-progress.ts')
   assert(orderProgressContent.includes("import { productionOrders } from '../production-orders.ts'"), 'order-progress.ts 没有基于 productionOrders 构建投影')
-  assert(orderProgressContent.includes('listGeneratedOriginalCutOrderSourceRecords'), 'order-progress.ts 没有消费 generated original cut order source')
-  assert(!orderProgressContent.includes('originalCutOrderId: line.cutPieceOrderNo'), 'order-progress.ts 仍然把 cutPieceOrderNo 当原始裁片单 id')
-  assert(!orderProgressContent.includes('originalCutOrderNo: line.cutPieceOrderNo'), 'order-progress.ts 仍然把 cutPieceOrderNo 当原始裁片单号')
+  assert(orderProgressContent.includes('listGeneratedCutOrderSourceRecords'), 'order-progress.ts 没有消费 generated cut order source')
+  assert(!orderProgressContent.includes('cutOrderId: line.cutPieceOrderNo'), 'order-progress.ts 仍然把 cutPieceOrderNo 当裁片单 id')
+  assert(!orderProgressContent.includes('cutOrderNo: line.cutPieceOrderNo'), 'order-progress.ts 仍然把 cutPieceOrderNo 当裁片单号')
 
-  const originalSourceContent = readRepoFile('src/data/fcs/cutting/original-cut-order-source.ts')
-  assert(originalSourceContent.includes('return listGeneratedOriginalCutOrderSourceRecords()'), 'canonical original cut order source 仍未切到 generated source')
+  const cutOrderSourceContent = readRepoFile('src/data/fcs/cutting/cut-order-source.ts')
+  assert(cutOrderSourceContent.includes('return listGeneratedCutOrderSourceRecords()'), 'canonical cut order source 仍未切到 generated source')
 }
 
-function ensureConsumersUseGeneratedOriginalSource(): void {
-  const originalOrdersModel = readRepoFile('src/pages/process-factory/cutting/original-orders-model.ts')
+function ensureConsumersUseGeneratedCutOrderSource(): void {
+  const cutOrdersModel = readRepoFile('src/pages/process-factory/cutting/cut-orders-model.ts')
   const cuttablePoolModel = readRepoFile('src/pages/process-factory/cutting/cuttable-pool-model.ts')
   const pieceTruth = readRepoFile('src/domain/fcs-cutting-piece-truth/index.ts')
 
-  assert(originalOrdersModel.includes('listGeneratedOriginalCutOrderSourceRecords'), 'original-orders-model.ts 仍未改成消费 generated original cut orders')
-  assert(cuttablePoolModel.includes('listGeneratedOriginalCutOrderSourceRecords'), 'cuttable-pool-model.ts 仍未改成消费 generated original cut orders')
-  assert(!pieceTruth.includes('|| materialLine.cutPieceOrderNo'), 'piece-truth 仍在把 cutPieceOrderNo 当原始裁片单 fallback')
+  assert(cutOrdersModel.includes('listGeneratedCutOrderSourceRecords'), 'cut-orders-model.ts 仍未改成消费 generated cut orders')
+  assert(cuttablePoolModel.includes('listGeneratedCutOrderSourceRecords'), 'cuttable-pool-model.ts 仍未改成消费 generated cut orders')
+  assert(!pieceTruth.includes('|| materialLine.cutPieceOrderNo'), 'piece-truth 仍在把 cutPieceOrderNo 当裁片单 fallback')
 }
 
 function ensureDirtySeedsDoNotStayAlive(): void {
@@ -132,9 +132,9 @@ function main(): void {
   ensureNoForceReleased()
   ensureProductionOrdersHaveReleasedUpstream()
   ensureProductionOrderSeedsDoNotInlineSnapshots()
-  ensureGeneratedOriginalCutOrdersTraceable()
+  ensureGeneratedCutOrdersTraceable()
   ensureOrderProgressIsProjectionOnly()
-  ensureConsumersUseGeneratedOriginalSource()
+  ensureConsumersUseGeneratedCutOrderSource()
   ensureDirtySeedsDoNotStayAlive()
   console.log('check-fcs-upstream-cutting-chain: ok')
 }

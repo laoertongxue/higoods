@@ -22,7 +22,7 @@ export function buildSampleWarehouseProjection(options: {
   return {
     snapshot: context.snapshot,
     records,
-    viewModel: buildSampleWarehouseViewModel(context.sources.originalRows, records, {
+    viewModel: buildSampleWarehouseViewModel(context.sources.cutOrderRows, records, {
       sampleWritebacks: options.sampleWritebacks ?? context.snapshot.warehouseState.sampleWritebacks,
     }),
   }

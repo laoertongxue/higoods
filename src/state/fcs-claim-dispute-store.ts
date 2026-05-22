@@ -99,7 +99,7 @@ function buildExceptionCase(record: ClaimDisputeRecord): ExceptionCase {
     ownerUserName: existing?.ownerUserName || '运营A',
     summary: buildPlatformClaimDisputeSummary(record),
     detail: [
-      `原始裁片单：${record.originalCutOrderNo}`,
+      `裁片单：${record.cutOrderNo}`,
       `生产单：${record.productionOrderNo}`,
       `面料编码：${record.materialSku}`,
       `仓库配置长度：${record.configuredQty} 米`,
@@ -155,7 +155,7 @@ function getSeedDisputes(): ClaimDisputeRecord[] {
     {
       sourceTaskId: 'TASK-CUT-000095',
       sourceTaskNo: 'TASK-CUT-000095',
-      originalCutOrderNo: 'CPO-20260319-I',
+      cutOrderNo: 'CPO-20260319-I',
       productionOrderNo: 'PO-20260319-019',
       relatedClaimRecordNo: 'PK-CPO-20260319-I-002',
       materialSku: 'FAB-SKU-PRINT-021',
@@ -202,12 +202,12 @@ export function getClaimDisputeByCaseId(caseId: string): ClaimDisputeRecord | nu
   return listClaimDisputes().find((item) => item.platformCaseId === caseId) ?? null
 }
 
-export function listClaimDisputesByOriginalCutOrderNo(originalCutOrderNo: string): ClaimDisputeRecord[] {
-  return listClaimDisputes().filter((item) => item.originalCutOrderNos.includes(originalCutOrderNo) || item.originalCutOrderNo === originalCutOrderNo)
+export function listClaimDisputesByCutOrderNo(cutOrderNo: string): ClaimDisputeRecord[] {
+  return listClaimDisputes().filter((item) => item.cutOrderNos?.includes(cutOrderNo) || item.cutOrderNo === cutOrderNo)
 }
 
-export function getLatestClaimDisputeByOriginalCutOrderNo(originalCutOrderNo: string): ClaimDisputeRecord | null {
-  return listClaimDisputesByOriginalCutOrderNo(originalCutOrderNo)[0] ?? null
+export function getLatestClaimDisputeByCutOrderNo(cutOrderNo: string): ClaimDisputeRecord | null {
+  return listClaimDisputesByCutOrderNo(cutOrderNo)[0] ?? null
 }
 
 export function listClaimDisputesByTaskId(taskId: string): ClaimDisputeRecord[] {
@@ -283,7 +283,7 @@ export function updateClaimDisputePlatformHandling(
 
 export function buildClaimDisputePrefillPayload(record: ClaimDisputeRecord): Record<string, string> {
   return {
-    originalCutOrderNo: record.originalCutOrderNo,
+    cutOrderNo: record.cutOrderNo,
     productionOrderNo: record.productionOrderNo,
     materialSku: record.materialSku,
     riskLevel: record.status === 'CONFIRMED' || record.status === 'PENDING' ? 'high' : 'medium',

@@ -132,7 +132,7 @@ export function deriveReturnEligibility(options: {
 export function createReturnReceiptDraft(options: {
   usage: TransferBagUsage
   bindingsCount: number
-  originalCutOrderCount: number
+  cutOrderCount: number
   nowText: string
 }): TransferBagReturnReceipt {
   return {
@@ -153,7 +153,7 @@ export function createReturnReceiptDraft(options: {
     receivedBy: '',
     returnedFinishedQty: options.bindingsCount,
     returnedTicketCountSummary: options.bindingsCount,
-    returnedOriginalCutOrderCount: options.originalCutOrderCount,
+    returnedCutOrderCount: options.cutOrderCount,
     discrepancyType: 'NONE',
     discrepancyNote: '',
     note: '回货验收草稿已创建，等待补充返仓信息。',
@@ -283,18 +283,18 @@ export function buildReturnExceptionMeta(discrepancyType: TransferBagDiscrepancy
 }
 
 export function buildReturnNavigationPayload(options: {
-  originalCutOrderNo?: string
+  cutOrderNo?: string
   productionOrderNo?: string
-  mergeBatchNo?: string
+  markerPlanNo?: string
   bagCode?: string
   usageNo?: string
   sewingTaskNo?: string
   ticketNo?: string
 }): TransferBagNavigationPayload {
   return buildTransferBagNavigationPayload({
-    originalCutOrderNo: options.originalCutOrderNo,
+    cutOrderNo: options.cutOrderNo,
     productionOrderNo: options.productionOrderNo,
-    mergeBatchNo: options.mergeBatchNo,
+    markerPlanNo: options.markerPlanNo,
     bagCode: options.bagCode,
     usageNo: options.usageNo,
     sewingTaskNo: options.sewingTaskNo,

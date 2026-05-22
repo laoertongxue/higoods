@@ -58,8 +58,8 @@ export interface MobileExecutionTaskSourceInfo {
   rawMaterialSku: string
   targetColor: string
   colorNo: string
-  mergeBatchNo: string
-  mergeBatchNos: string[]
+  markerPlanNo: string
+  markerPlanNos: string[]
   partName: string
   operationName: string
   feiTicketNos: string[]
@@ -83,14 +83,14 @@ type TaskWithSearchFields = ProcessTask & {
   taskOrderNo?: string
   workOrderId?: string
   workOrderNo?: string
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
-  originalCutOrderIds?: string[]
-  originalCutOrderNos?: string[]
-  mergeBatchId?: string
-  mergeBatchNo?: string
-  mergeBatchIds?: string[]
-  mergeBatchNos?: string[]
+  cutOrderId?: string
+  cutOrderNo?: string
+  cutOrderIds?: string[]
+  cutOrderNos?: string[]
+  markerPlanId?: string
+  markerPlanNo?: string
+  markerPlanIds?: string[]
+  markerPlanNos?: string[]
   materialSku?: string
   rawMaterialSku?: string
   targetColor?: string
@@ -216,25 +216,25 @@ function getWoolSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSource
 function getCuttingSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceInfo> {
   const taskLike = task as TaskWithSearchFields
   const detail = getPdaCuttingTaskSnapshot(task.taskId)
-  const originalCutOrderId = normalizeString(detail?.originalCutOrderId || taskLike.originalCutOrderId || taskLike.originalCutOrderIds?.[0])
-  const originalCutOrderNo = normalizeString(detail?.originalCutOrderNo || taskLike.originalCutOrderNo || taskLike.originalCutOrderNos?.[0])
-  const mergeBatchNo = normalizeString(detail?.mergeBatchNo || taskLike.mergeBatchNo || taskLike.mergeBatchNos?.[0])
+  const cutOrderId = normalizeString(detail?.cutOrderId || taskLike.cutOrderId || taskLike.cutOrderIds?.[0])
+  const cutOrderNo = normalizeString(detail?.cutOrderNo || taskLike.cutOrderNo || taskLike.cutOrderNos?.[0])
+  const markerPlanNo = normalizeString(detail?.markerPlanNo || taskLike.markerPlanNo || taskLike.markerPlanNos?.[0])
   const productionOrderNo = normalizeString(detail?.productionOrderNo || taskLike.productionOrderNo || task.productionOrderId)
-  const mergeBatchNos = uniqueStrings([mergeBatchNo, ...(detail?.mergeBatchNos || []), ...(taskLike.mergeBatchNos || [])])
+  const markerPlanNos = uniqueStrings([markerPlanNo, ...(detail?.markerPlanNos || []), ...(taskLike.markerPlanNos || [])])
 
   return {
-    sourceType: 'CUTTING_ORIGINAL_ORDER',
-    sourceId: originalCutOrderId || originalCutOrderNo,
-    sourceWorkOrderId: originalCutOrderId,
-    sourceWorkOrderNo: originalCutOrderNo,
-    workOrderNo: originalCutOrderNo,
-    cuttingOrderNo: originalCutOrderNo,
-    sourceIds: uniqueStrings([originalCutOrderId, ...(taskLike.originalCutOrderIds || [])]),
-    sourceNos: uniqueStrings([originalCutOrderNo, ...(taskLike.originalCutOrderNos || [])]),
+    sourceType: 'CUTTING_ORDER',
+    sourceId: cutOrderId || cutOrderNo,
+    sourceWorkOrderId: cutOrderId,
+    sourceWorkOrderNo: cutOrderNo,
+    workOrderNo: cutOrderNo,
+    cuttingOrderNo: cutOrderNo,
+    sourceIds: uniqueStrings([cutOrderId, ...(taskLike.cutOrderIds || [])]),
+    sourceNos: uniqueStrings([cutOrderNo, ...(taskLike.cutOrderNos || [])]),
     productionOrderNo,
     materialSku: normalizeString(detail?.materialSku || taskLike.materialSku),
-    mergeBatchNo,
-    mergeBatchNos,
+    markerPlanNo,
+    markerPlanNos,
     partName: normalizeString(taskLike.partName || taskLike.pieceName),
   }
 }
@@ -372,8 +372,8 @@ function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
     rawMaterialSku: normalizeString(taskLike.rawMaterialSku),
     targetColor: normalizeString(taskLike.targetColor),
     colorNo: normalizeString(taskLike.colorNo),
-    mergeBatchNo: normalizeString(taskLike.mergeBatchNo),
-    mergeBatchNos: uniqueStrings(taskLike.mergeBatchNos || []),
+    markerPlanNo: normalizeString(taskLike.markerPlanNo),
+    markerPlanNos: uniqueStrings(taskLike.markerPlanNos || []),
     partName: normalizeString(taskLike.partName || taskLike.pieceName),
     operationName: normalizeString(task.processNameZh || taskLike.craftName || taskLike.processBusinessName),
     feiTicketNos: uniqueStrings([taskLike.feiTicketNo, ...(taskLike.feiTicketNos || [])]),
@@ -401,7 +401,7 @@ function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
     sourceNos: uniqueStrings([...(baseInfo.sourceNos || []), ...(processInfo.sourceNos || []), processInfo.sourceWorkOrderNo, processInfo.workOrderNo]),
     workOrderIds: uniqueStrings([...(baseInfo.workOrderIds || []), ...(processInfo.workOrderIds || [])]),
     workOrderNos: uniqueStrings([...(baseInfo.workOrderNos || []), ...(processInfo.workOrderNos || [])]),
-    mergeBatchNos: uniqueStrings([...(baseInfo.mergeBatchNos || []), ...(processInfo.mergeBatchNos || []), processInfo.mergeBatchNo]),
+    markerPlanNos: uniqueStrings([...(baseInfo.markerPlanNos || []), ...(processInfo.markerPlanNos || []), processInfo.markerPlanNo]),
     feiTicketNos: uniqueStrings([...(baseInfo.feiTicketNos || []), ...(processInfo.feiTicketNos || [])]),
   }
 }
@@ -439,7 +439,7 @@ function matchSourceType(task: ProcessTask, sourceType: string | undefined, sour
   if (['WOOL_WORK_ORDER', 'WOOL_ORDER', 'WOOL_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'WOOL'
   }
-  if (['CUTTING_ORIGINAL_ORDER', 'CUTTING_ORDER', 'ORIGINAL_CUT_ORDER', 'CUT_PIECE_ORDER'].includes(normalizedSourceType)) {
+  if (['CUTTING_ORDER', 'CUTTING_ORDER', 'CUT_ORDER', 'CUT_PIECE_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'CUTTING'
   }
   if (['SPECIAL_CRAFT_WORK_ORDER', 'SPECIAL_CRAFT_TASK_ORDER', 'SPECIAL_CRAFT_ORDER'].includes(normalizedSourceType)) {
@@ -513,8 +513,8 @@ export function getMobileExecutionTaskSourceInfo(task: ProcessTask | null | unde
       rawMaterialSku: '',
       targetColor: '',
       colorNo: '',
-      mergeBatchNo: '',
-      mergeBatchNos: [],
+      markerPlanNo: '',
+      markerPlanNos: [],
       partName: '',
       operationName: '',
       feiTicketNos: [],
@@ -561,8 +561,8 @@ export function matchMobileTaskKeyword(task: ProcessTask | null | undefined, key
     info.rawMaterialSku,
     info.targetColor,
     info.colorNo,
-    info.mergeBatchNo,
-    ...info.mergeBatchNos,
+    info.markerPlanNo,
+    ...info.markerPlanNos,
     info.partName,
     info.operationName,
     ...info.feiTicketNos,
@@ -573,12 +573,12 @@ export function matchMobileTaskKeyword(task: ProcessTask | null | undefined, key
     taskLike.rawMaterialSku,
     taskLike.targetColor,
     taskLike.colorNo,
-    taskLike.originalCutOrderNo,
-    taskLike.originalCutOrderId,
-    ...(taskLike.originalCutOrderNos || []),
-    ...(taskLike.originalCutOrderIds || []),
-    taskLike.mergeBatchNo,
-    ...(taskLike.mergeBatchNos || []),
+    taskLike.cutOrderNo,
+    taskLike.cutOrderId,
+    ...(taskLike.cutOrderNos || []),
+    ...(taskLike.cutOrderIds || []),
+    taskLike.markerPlanNo,
+    ...(taskLike.markerPlanNos || []),
     taskLike.feiTicketNo,
     ...(taskLike.feiTicketNos || []),
     taskLike.spuCode,

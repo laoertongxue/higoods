@@ -65,9 +65,9 @@ export interface PdaSpreadingOperatorWritebackItem {
 
 export interface PdaWritebackValidationResult {
   isValid: boolean
-  matchedContextType: 'original-order' | 'merge-batch' | ''
-  matchedOriginalCutOrderIds: string[]
-  matchedMergeBatchId: string
+  matchedContextType: 'cut-order' | 'marker-plan-ref' | ''
+  matchedCutOrderIds: string[]
+  matchedMarkerPlanRefId: string
   hasConflict: boolean
   hasMissingField: boolean
   hasOccupancyConflict: boolean
@@ -101,10 +101,10 @@ export interface PdaSupplementDraft {
   writebackId: string
   sourceAccountId: string
   sourceAccountName: string
-  originalCutOrderIdsText: string
-  originalCutOrderNosText: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderIdsText: string
+  cutOrderNosText: string
+  markerPlanId: string
+  markerPlanNo: string
   note: string
 }
 
@@ -136,16 +136,16 @@ export interface PdaSpreadingWriteback {
   submittedAt: string
   occurredAt: string
   payloadVersion: string
-  contextType: 'original-order' | 'merge-batch'
+  contextType: 'cut-order' | 'marker-plan-ref'
   spreadingSessionId: string
   markerId: string
   markerNo: string
   spreadingMode: PdaSpreadingMode
   recordType: PdaSpreadingRecordType
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
@@ -175,7 +175,7 @@ export interface PdaWritebackStats {
   todayCount: number
   accountCount: number
   rollCount: number
-  originalCutOrderCount: number
+  cutOrderCount: number
 }
 
 export interface PdaWritebackTraceMatrixRow {
@@ -183,9 +183,9 @@ export interface PdaWritebackTraceMatrixRow {
   spreadingSessionId: string
   markerId: string
   markerNo: string
-  originalCutOrderIds: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderIds: string[]
+  markerPlanId: string
+  markerPlanNo: string
   sourceWritebackId: string
   planUnitId: string
   rollRecordId: string
@@ -377,16 +377,16 @@ export function normalizePdaWritebackPayload(rawPayload: unknown): PdaSpreadingW
     submittedAt: String(raw.submittedAt || nowText()),
     occurredAt: String(raw.occurredAt || raw.submittedAt || nowText()),
     payloadVersion: String(raw.payloadVersion || 'v1'),
-    contextType: raw.contextType === 'merge-batch' ? 'merge-batch' : 'original-order',
+    contextType: raw.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
     spreadingSessionId: String(raw.spreadingSessionId || ''),
     markerId: String(raw.markerId || ''),
     markerNo: String(raw.markerNo || ''),
     spreadingMode: normalizeSpreadingMode(raw.spreadingMode),
     recordType: (raw.recordType as PdaSpreadingRecordType) || '开始铺布',
-    originalCutOrderIds: uniqueStrings(toArray<string>(raw.originalCutOrderIds)),
-    originalCutOrderNos: uniqueStrings(toArray<string>(raw.originalCutOrderNos)),
-    mergeBatchId: String(raw.mergeBatchId || ''),
-    mergeBatchNo: String(raw.mergeBatchNo || ''),
+    cutOrderIds: uniqueStrings(toArray<string>(raw.cutOrderIds)),
+    cutOrderNos: uniqueStrings(toArray<string>(raw.cutOrderNos)),
+    markerPlanId: String(raw.markerPlanId || ''),
+    markerPlanNo: String(raw.markerPlanNo || ''),
     productionOrderNos: uniqueStrings(toArray<string>(raw.productionOrderNos)),
     styleCode: String(raw.styleCode || ''),
     spuCode: String(raw.spuCode || ''),
@@ -417,11 +417,11 @@ export function validatePdaWritebackPayload(writeback: PdaSpreadingWriteback): P
   if (!writeback.sourceAccountId || !writeback.sourceAccountName) {
     issues.push('来源账号缺失，需要先补录账号后再应用。')
   }
-  if (!writeback.originalCutOrderIds.length || !writeback.originalCutOrderNos.length) {
-    issues.push('缺少原始裁片单追溯信息，不能直接应用。')
+  if (!writeback.cutOrderIds.length || !writeback.cutOrderNos.length) {
+    issues.push('缺少裁片单追溯信息，不能直接应用。')
   }
-  if (writeback.contextType === 'merge-batch' && !writeback.mergeBatchId && !writeback.mergeBatchNo) {
-    issues.push('批次上下文缺少 mergeBatchId / mergeBatchNo。')
+  if (writeback.contextType === 'marker-plan-ref' && !writeback.markerPlanId && !writeback.markerPlanNo) {
+    issues.push('唛架方案上下文缺少 markerPlanId / markerPlanNo。')
   }
   if (!writeback.rollItems.length) {
     issues.push('当前回写未携带卷记录，无法形成有效铺布回写。')
@@ -448,8 +448,8 @@ export function validatePdaWritebackPayload(writeback: PdaSpreadingWriteback): P
   return {
     isValid: issues.length === 0,
     matchedContextType: writeback.contextType,
-    matchedOriginalCutOrderIds: [...writeback.originalCutOrderIds],
-    matchedMergeBatchId: writeback.mergeBatchId,
+    matchedCutOrderIds: [...writeback.cutOrderIds],
+    matchedMarkerPlanRefId: writeback.markerPlanId,
     hasConflict: false,
     hasMissingField: issues.length > 0,
     hasOccupancyConflict: false,
@@ -469,22 +469,22 @@ export function matchWritebackToSpreadingContext(
 
   if (context.contextType !== writeback.contextType) {
     hasConflict = true
-    issues.push('回写上下文类型与当前页面上下文不一致。')
+    issues.push('回写唛架关联信息与当前页面不一致。')
   }
 
-  if (writeback.contextType === 'merge-batch') {
-    const currentBatchKey = context.mergeBatchId || context.mergeBatchNo
-    const incomingBatchKey = writeback.mergeBatchId || writeback.mergeBatchNo
+  if (writeback.contextType === 'marker-plan-ref') {
+    const currentBatchKey = context.markerPlanId || context.markerPlanNo
+    const incomingBatchKey = writeback.markerPlanId || writeback.markerPlanNo
     if (currentBatchKey && incomingBatchKey && currentBatchKey !== incomingBatchKey) {
       hasConflict = true
-      issues.push('回写批次与当前页面批次不一致。')
+      issues.push('回写唛架方案与当前页面批次不一致。')
     }
   }
 
-  const unmatchedOriginalIds = writeback.originalCutOrderIds.filter((id) => !context.originalCutOrderIds.includes(id))
-  if (unmatchedOriginalIds.length) {
+  const unmatchedCutOrderIds = writeback.cutOrderIds.filter((id) => !context.cutOrderIds.includes(id))
+  if (unmatchedCutOrderIds.length) {
     hasConflict = true
-    issues.push('回写中的原始裁片单与当前页面上下文不匹配。')
+    issues.push('回写中的裁片单与当前页面上下文不匹配。')
   }
 
   return {
@@ -499,10 +499,10 @@ export function compareWritebackWithExistingSession(
   sessions: SpreadingSession[],
 ): PdaWritebackSessionComparison {
   const matchedSessions = sessions.filter((session) => {
-    if (writeback.contextType === 'merge-batch') {
-      return Boolean(writeback.mergeBatchId) && session.mergeBatchId === writeback.mergeBatchId
+    if (writeback.contextType === 'marker-plan-ref') {
+      return Boolean(writeback.markerPlanId) && session.markerPlanId === writeback.markerPlanId
     }
-    return writeback.originalCutOrderIds.some((id) => session.originalCutOrderIds.includes(id))
+    return writeback.cutOrderIds.some((id) => session.cutOrderIds.includes(id))
   })
 
   const targetSession = matchedSessions[0] ?? null
@@ -580,12 +580,12 @@ function toSpreadingSourceChannel(session: SpreadingSession | null): SpreadingSo
 }
 
 function sessionMatchesWritebackContext(session: SpreadingSession, writeback: PdaSpreadingWriteback): boolean {
-  if (writeback.contextType === 'merge-batch') {
-    if (writeback.mergeBatchId && session.mergeBatchId === writeback.mergeBatchId) return true
-    if (writeback.mergeBatchNo && session.mergeBatchNo === writeback.mergeBatchNo) return true
+  if (writeback.contextType === 'marker-plan-ref') {
+    if (writeback.markerPlanId && session.markerPlanId === writeback.markerPlanId) return true
+    if (writeback.markerPlanNo && session.markerPlanNo === writeback.markerPlanNo) return true
     return false
   }
-  return writeback.originalCutOrderIds.some((id) => session.originalCutOrderIds.includes(id))
+  return writeback.cutOrderIds.some((id) => session.cutOrderIds.includes(id))
 }
 
 function findWritebackCandidateSessions(store: MarkerSpreadingStore, writeback: PdaSpreadingWriteback): SpreadingSession[] {
@@ -620,9 +620,9 @@ function createSessionFromWriteback(writeback: PdaSpreadingWriteback, now = new 
   return {
     spreadingSessionId: writeback.spreadingSessionId || `spreading-session-pda-${now.getTime()}`,
     contextType: writeback.contextType,
-    originalCutOrderIds: [...writeback.originalCutOrderIds],
-    mergeBatchId: writeback.mergeBatchId,
-    mergeBatchNo: writeback.mergeBatchNo,
+    cutOrderIds: [...writeback.cutOrderIds],
+    markerPlanId: writeback.markerPlanId,
+    markerPlanNo: writeback.markerPlanNo,
     markerId: writeback.markerId || '',
     markerNo: writeback.markerNo || '',
     styleCode: writeback.styleCode || '',
@@ -888,10 +888,10 @@ export function buildPdaSupplementDraft(writeback: PdaSpreadingWriteback): PdaSu
     writebackId: writeback.writebackId,
     sourceAccountId: writeback.sourceAccountId,
     sourceAccountName: writeback.sourceAccountName,
-    originalCutOrderIdsText: writeback.originalCutOrderIds.join('，'),
-    originalCutOrderNosText: writeback.originalCutOrderNos.join('，'),
-    mergeBatchId: writeback.mergeBatchId,
-    mergeBatchNo: writeback.mergeBatchNo,
+    cutOrderIdsText: writeback.cutOrderIds.join('，'),
+    cutOrderNosText: writeback.cutOrderNos.join('，'),
+    markerPlanId: writeback.markerPlanId,
+    markerPlanNo: writeback.markerPlanNo,
     note: writeback.note,
   }
 }
@@ -935,7 +935,7 @@ export function buildPdaWritebackStats(writebacks: PdaSpreadingWriteback[]): Pda
     todayCount: writebacks.filter((item) => item.submittedAt.startsWith(today)).length,
     accountCount: uniqueStrings(writebacks.map((item) => item.sourceAccountId)).length,
     rollCount: writebacks.reduce((sum, item) => sum + item.rollItems.length, 0),
-    originalCutOrderCount: uniqueStrings(writebacks.flatMap((item) => item.originalCutOrderIds)).length,
+    cutOrderCount: uniqueStrings(writebacks.flatMap((item) => item.cutOrderIds)).length,
   }
 }
 
@@ -946,8 +946,8 @@ export function buildMockPdaWritebacks(options: {
   const context = options.context
   if (!context) return []
 
-  const baseOriginalId = context.originalCutOrderIds[0] || ''
-  const baseOriginalNo = context.originalCutOrderNos[0] || ''
+  const baseCutOrderId = context.cutOrderIds[0] || ''
+  const baseCutOrderNo = context.cutOrderNos[0] || ''
   const baseProductionNo = context.productionOrderNos[0] || ''
   const baseMaterialSku = context.materialPrepRows[0]?.materialLineItems[0]?.materialSku || ''
   const existingRollNo = options.sessions[0]?.rolls[0]?.rollNo || 'ROLL-PDA-001'
@@ -966,10 +966,10 @@ export function buildMockPdaWritebacks(options: {
     markerId: options.sessions[0]?.markerId || '',
     markerNo: options.sessions[0]?.markerNo || '',
     spreadingMode: mapSessionModeToWritebackMode(options.sessions[0]?.spreadingMode),
-    originalCutOrderIds: context.originalCutOrderIds,
-    originalCutOrderNos: context.originalCutOrderNos,
-    mergeBatchId: context.mergeBatchId,
-    mergeBatchNo: context.mergeBatchNo,
+    cutOrderIds: context.cutOrderIds,
+    cutOrderNos: context.cutOrderNos,
+    markerPlanId: context.markerPlanId,
+    markerPlanNo: context.markerPlanNo,
     productionOrderNos: context.productionOrderNos,
     styleCode: context.styleCode,
     spuCode: context.spuCode,
@@ -1015,10 +1015,10 @@ export function buildMockPdaWritebacks(options: {
     markerNo: options.sessions[0]?.markerNo || '',
     spreadingMode: mapSessionModeToWritebackMode(options.sessions[0]?.spreadingMode),
     recordType: '接手继续',
-    originalCutOrderIds: context.originalCutOrderIds,
-    originalCutOrderNos: context.originalCutOrderNos,
-    mergeBatchId: context.mergeBatchId,
-    mergeBatchNo: context.mergeBatchNo,
+    cutOrderIds: context.cutOrderIds,
+    cutOrderNos: context.cutOrderNos,
+    markerPlanId: context.markerPlanId,
+    markerPlanNo: context.markerPlanNo,
     productionOrderNos: context.productionOrderNos,
     styleCode: context.styleCode,
     spuCode: context.spuCode,
@@ -1057,10 +1057,10 @@ export function buildMockPdaWritebacks(options: {
     sourceAccountName: '',
     submittedAt: nowText(new Date(now.getTime() - 30 * 60 * 1000)),
     occurredAt: nowText(new Date(now.getTime() - 30 * 60 * 1000)),
-    contextType: 'original-order',
+    contextType: 'cut-order',
     spreadingMode: 'NORMAL',
-    originalCutOrderIds: [baseOriginalId],
-    originalCutOrderNos: [baseOriginalNo],
+    cutOrderIds: [baseCutOrderId],
+    cutOrderNos: [baseCutOrderNo],
     productionOrderNos: [baseProductionNo],
     styleCode: context.styleCode,
     spuCode: context.spuCode,
@@ -1091,10 +1091,10 @@ export function buildMockPdaWritebacks(options: {
     markerId: options.sessions[0]?.markerId || '',
     markerNo: options.sessions[0]?.markerNo || '',
     spreadingMode: mapSessionModeToWritebackMode(options.sessions[0]?.spreadingMode),
-    originalCutOrderIds: context.originalCutOrderIds,
-    originalCutOrderNos: context.originalCutOrderNos,
-    mergeBatchId: context.mergeBatchId,
-    mergeBatchNo: context.mergeBatchNo,
+    cutOrderIds: context.cutOrderIds,
+    cutOrderNos: context.cutOrderNos,
+    markerPlanId: context.markerPlanId,
+    markerPlanNo: context.markerPlanNo,
     productionOrderNos: context.productionOrderNos,
     styleCode: context.styleCode,
     spuCode: context.spuCode,
@@ -1126,23 +1126,23 @@ export function buildMockPdaWritebacks(options: {
     ],
   })
 
-  const mergeBatchContext = normalizePdaWritebackPayload({
+  const markerPlanRefContext = normalizePdaWritebackPayload({
     writebackId: 'pda-writeback-seed-06',
     writebackNo: `PDA-WB-${now.getFullYear()}${`${now.getMonth() + 1}`.padStart(2, '0')}${`${now.getDate()}`.padStart(2, '0')}-104`,
     sourceAccountId: 'pda-operator-009',
     sourceAccountName: '赵楠',
     submittedAt: nowText(new Date(now.getTime() - 10 * 60 * 1000)),
     occurredAt: nowText(new Date(now.getTime() - 10 * 60 * 1000)),
-    contextType: 'merge-batch',
+    contextType: 'marker-plan-ref',
     spreadingMode: 'HIGH_LOW',
-    originalCutOrderIds: context.originalCutOrderIds,
-    originalCutOrderNos: context.originalCutOrderNos,
-    mergeBatchId: context.mergeBatchId || 'mock-merge-batch',
-    mergeBatchNo: context.mergeBatchNo || 'CUT-MB-MOCK',
+    cutOrderIds: context.cutOrderIds,
+    cutOrderNos: context.cutOrderNos,
+    markerPlanId: context.markerPlanId || 'mock-marker-plan-ref',
+    markerPlanNo: context.markerPlanNo || 'MKP-MOCK',
     productionOrderNos: context.productionOrderNos,
     styleCode: context.styleCode,
     spuCode: context.spuCode,
-    note: '批次上下文回写，用于演示批次执行上下文下的回写接入。',
+    note: '唛架方案上下文回写，用于演示唛架方案执行上下文下的回写接入。',
     rollItems: [
       {
         rollNo: buildWritebackTimestampId('PDA-BATCH'),
@@ -1157,7 +1157,7 @@ export function buildMockPdaWritebacks(options: {
     ],
     operatorItems: [
       {
-        rollWritebackItemId: 'merge-batch-roll-1',
+        rollWritebackItemId: 'marker-plan-ref-roll-1',
         operatorAccountId: 'pda-operator-009',
         operatorName: '赵楠',
         startAt: nowText(new Date(now.getTime() - 15 * 60 * 1000)),
@@ -1170,7 +1170,7 @@ export function buildMockPdaWritebacks(options: {
     ],
   })
 
-  return [normal, handoverFollowup, mergeBatchContext, missing, conflict]
+  return [normal, handoverFollowup, markerPlanRefContext, missing, conflict]
 }
 
 export function buildPdaWritebackTraceMatrix(options: {
@@ -1218,9 +1218,9 @@ export function buildPdaWritebackTraceMatrix(options: {
           spreadingSessionId: matchedSession?.spreadingSessionId || writeback.spreadingSessionId || '',
           markerId: matchedSession?.markerId || writeback.markerId || '',
           markerNo: matchedSession?.markerNo || writeback.markerNo || '',
-          originalCutOrderIds: [...writeback.originalCutOrderIds],
-          mergeBatchId: writeback.mergeBatchId || matchedSession?.mergeBatchId || '',
-          mergeBatchNo: writeback.mergeBatchNo || matchedSession?.mergeBatchNo || '',
+          cutOrderIds: [...writeback.cutOrderIds],
+          markerPlanId: writeback.markerPlanId || matchedSession?.markerPlanId || '',
+          markerPlanNo: writeback.markerPlanNo || matchedSession?.markerPlanNo || '',
           sourceWritebackId: writeback.writebackId,
           planUnitId: rollItem.planUnitId || matchedRoll?.planUnitId || '',
           rollRecordId: matchedRoll?.rollRecordId || '',

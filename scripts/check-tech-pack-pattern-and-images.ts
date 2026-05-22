@@ -33,7 +33,7 @@ const snapshotPageSource = read('src/pages/fcs-production-tech-pack-snapshot.ts'
 const confirmationSource = read('src/data/fcs/production-confirmation.ts')
 const confirmationPageSource = read('src/pages/production/confirmation-print.ts')
 const generatedFeiSource = read('src/data/fcs/cutting/generated-fei-tickets.ts')
-const generatedOriginalCutOrdersSource = read('src/data/fcs/cutting/generated-original-cut-orders.ts')
+const generatedCutOrdersSource = read('src/data/fcs/cutting/generated-cut-orders.ts')
 const patternDomainSource = read('src/pages/tech-pack/pattern-domain.ts')
 
 ;[
@@ -137,7 +137,7 @@ assertNotIncludes(confirmationHtml, 'imageSnapshot', '生产确认单不得显�
   assertIncludes(generatedFeiSource, token, `裁床菲票主源必须引用技术包部位：${token}`)
 })
 
-assertIncludes(generatedOriginalCutOrdersSource, 'getProductionOrderCutPieceParts', '原始裁片单生成必须可引用技术包部位')
+assertIncludes(generatedCutOrdersSource, 'getProductionOrderCutPieceParts', '裁片单生成必须可引用技术包部位')
 
 ;[
   'dummyimage',

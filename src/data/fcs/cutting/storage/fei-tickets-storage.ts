@@ -13,8 +13,8 @@ function normalizePrintableUnitRecord<T extends Record<string, unknown>>(record:
     sourceSpreadingSessionNo: typeof record.sourceSpreadingSessionNo === 'string' ? record.sourceSpreadingSessionNo : '',
     sourceMarkerId: typeof record.sourceMarkerId === 'string' ? record.sourceMarkerId : '',
     sourceMarkerNo: typeof record.sourceMarkerNo === 'string' ? record.sourceMarkerNo : '',
-    sourceMergeBatchId: typeof record.sourceMergeBatchId === 'string' ? record.sourceMergeBatchId : '',
-    sourceMergeBatchNo: typeof record.sourceMergeBatchNo === 'string' ? record.sourceMergeBatchNo : '',
+    sourceMarkerPlanId: typeof record.sourceMarkerPlanId === 'string' ? record.sourceMarkerPlanId : '',
+    sourceMarkerPlanNo: typeof record.sourceMarkerPlanNo === 'string' ? record.sourceMarkerPlanNo : '',
   } as T
 
   if (
@@ -26,27 +26,27 @@ function normalizePrintableUnitRecord<T extends Record<string, unknown>>(record:
   }
 
   if (
-    normalizedTraceRecord.sourceContextType === 'merge-batch' &&
-    typeof normalizedTraceRecord.sourceMergeBatchId === 'string' &&
-    normalizedTraceRecord.sourceMergeBatchId
+    normalizedTraceRecord.sourceContextType === 'marker-plan-ref' &&
+    typeof normalizedTraceRecord.sourceMarkerPlanId === 'string' &&
+    normalizedTraceRecord.sourceMarkerPlanId
   ) {
     return {
       ...normalizedTraceRecord,
-      printableUnitId: normalizedTraceRecord.printableUnitId || `batch:${normalizedTraceRecord.sourceMergeBatchId}`,
-      printableUnitNo: normalizedTraceRecord.printableUnitNo || normalizedTraceRecord.sourceMergeBatchNo || '',
-      printableUnitType: normalizedTraceRecord.printableUnitType || 'BATCH',
+      printableUnitId: normalizedTraceRecord.printableUnitId || `marker-plan:${normalizedTraceRecord.sourceMarkerPlanId}`,
+      printableUnitNo: normalizedTraceRecord.printableUnitNo || normalizedTraceRecord.sourceMarkerPlanNo || '',
+      printableUnitType: normalizedTraceRecord.printableUnitType || 'MARKER_PLAN',
     }
   }
 
-  const fallbackCutOrderId = typeof normalizedTraceRecord.originalCutOrderId === 'string'
-    ? normalizedTraceRecord.originalCutOrderId
-    : Array.isArray(normalizedTraceRecord.originalCutOrderIds)
-      ? String(normalizedTraceRecord.originalCutOrderIds[0] || '')
+  const fallbackCutOrderId = typeof normalizedTraceRecord.cutOrderId === 'string'
+    ? normalizedTraceRecord.cutOrderId
+    : Array.isArray(normalizedTraceRecord.cutOrderIds)
+      ? String(normalizedTraceRecord.cutOrderIds[0] || '')
       : ''
-  const fallbackCutOrderNo = typeof normalizedTraceRecord.originalCutOrderNo === 'string'
-    ? normalizedTraceRecord.originalCutOrderNo
-    : Array.isArray(normalizedTraceRecord.originalCutOrderNos)
-      ? String(normalizedTraceRecord.originalCutOrderNos[0] || '')
+  const fallbackCutOrderNo = typeof normalizedTraceRecord.cutOrderNo === 'string'
+    ? normalizedTraceRecord.cutOrderNo
+    : Array.isArray(normalizedTraceRecord.cutOrderNos)
+      ? String(normalizedTraceRecord.cutOrderNos[0] || '')
       : ''
 
   return {
@@ -98,9 +98,9 @@ export function buildStoredFeiTicketTraceMatrix(records: Array<Record<string, un
       sourceSpreadingSessionNo: String(record.sourceSpreadingSessionNo || ''),
       sourceMarkerId: String(record.sourceMarkerId || ''),
       sourceMarkerNo: String(record.sourceMarkerNo || ''),
-      originalCutOrderId: String(record.originalCutOrderId || ''),
-      originalCutOrderNo: String(record.originalCutOrderNo || ''),
-      sourceMergeBatchId: String(record.sourceMergeBatchId || ''),
+      cutOrderId: String(record.cutOrderId || ''),
+      cutOrderNo: String(record.cutOrderNo || ''),
+      sourceMarkerPlanId: String(record.sourceMarkerPlanId || ''),
       sourceWritebackId: String(record.sourceWritebackId || ''),
       color: String(record.color || record.skuColor || ''),
       size: String(record.size || record.skuSize || ''),

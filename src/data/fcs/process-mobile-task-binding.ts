@@ -111,8 +111,8 @@ interface MobileTaskAccessResult {
 
 type GenericMobileTask = ProcessTask & {
   mockOrigin?: string
-  originalCutOrderIds?: string[]
-  originalCutOrderNos?: string[]
+  cutOrderIds?: string[]
+  cutOrderNos?: string[]
   processBusinessName?: string
   craftName?: string
   productionOrderNo?: string
@@ -540,7 +540,7 @@ function selectBestCuttingTask(orderId: string): ProcessTask | null {
     .filter((task) => getMobileTaskProcessType(task) === 'CUTTING')
     .filter((task) => {
       const taskLike = task as GenericMobileTask
-      return taskLike.originalCutOrderIds?.includes(orderId) || taskLike.originalCutOrderNos?.includes(orderId)
+      return taskLike.cutOrderIds?.includes(orderId) || taskLike.cutOrderNos?.includes(orderId)
     })
   const sorted = cuttingTasks.sort((left, right) => {
     const leftVisible = isTaskVisibleInMobileExecutionList(left, TEST_FACTORY_ID) ? 0 : 1
@@ -616,13 +616,13 @@ export function validateWoolWorkOrderMobileTaskBinding(woolOrderId: string): Pro
 
 export function validateCuttingOrderMobileTaskBinding(cuttingOrderId: string): ProcessMobileTaskBindingResult {
   const snapshot = buildFcsCuttingDomainSnapshot()
-  const order = snapshot.originalCutOrders.find(
-    (item) => item.originalCutOrderId === cuttingOrderId || item.originalCutOrderNo === cuttingOrderId,
+  const order = snapshot.cutOrders.find(
+    (item) => item.cutOrderId === cuttingOrderId || item.cutOrderNo === cuttingOrderId,
   )
   const actualTask = selectBestCuttingTask(cuttingOrderId)
   return validateBinding({
-    workOrderId: order?.originalCutOrderId || cuttingOrderId,
-    workOrderNo: order?.originalCutOrderNo || cuttingOrderId,
+    workOrderId: order?.cutOrderId || cuttingOrderId,
+    workOrderNo: order?.cutOrderNo || cuttingOrderId,
     processType: 'CUTTING',
     sourceType: 'CUTTING_ORDER',
     sourceId: cuttingOrderId,
@@ -715,10 +715,10 @@ export function validateProcessMobileTaskBinding(params: { processType: MobileTa
 function listKnownCuttingOrderIds(): string[] {
   const ids = new Set<string>()
   const snapshot = buildFcsCuttingDomainSnapshot()
-  const originalCutOrders = Array.isArray(snapshot.originalCutOrders)
-    ? snapshot.originalCutOrders
-    : Object.values((snapshot as { originalCutOrdersById?: Record<string, { originalCutOrderId: string }> }).originalCutOrdersById || {})
-  originalCutOrders.forEach((order) => ids.add(order.originalCutOrderId))
+  const cutOrders = Array.isArray(snapshot.cutOrders)
+    ? snapshot.cutOrders
+    : Object.values((snapshot as { cutOrdersById?: Record<string, { cutOrderId: string }> }).cutOrdersById || {})
+  cutOrders.forEach((order) => ids.add(order.cutOrderId))
   return [...ids]
 }
 

@@ -10,18 +10,18 @@ import {
   buildProductionPieceTruthCompletion,
   productionPieceTruthCompletionMetaMap,
 } from '../../../domain/fcs-cutting-piece-truth/index.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MarkerSpreadingStore, SpreadingSession } from './marker-spreading-model.ts'
 import {
-  getMergeBatchStatusMeta,
-  type MergeBatchRecord,
-} from './merge-batches-model.ts'
+  getMarkerPlanRefStatusMeta,
+  type MarkerPlanRefRecord,
+} from './marker-plan-ref-model.ts'
 import type {
   FeiTicketsViewModel,
   FeiTicketLabelRecord,
   FeiTicketPrintJob,
-  OriginalCutOrderTicketOwner,
+  CutOrderTicketOwner,
 } from './fei-tickets-model.ts'
 import { getFeiTicketStatusMeta } from './fei-tickets-model.ts'
 import type {
@@ -93,8 +93,8 @@ export interface CuttingSummaryIssueMeta {
 export interface CuttingSummaryNavigationPayload {
   productionProgress: Record<string, string | undefined>
   cuttablePool: Record<string, string | undefined>
-  mergeBatches: Record<string, string | undefined>
-  originalOrders: Record<string, string | undefined>
+  markerPlanRefs: Record<string, string | undefined>
+  cutOrders: Record<string, string | undefined>
   materialPrep: Record<string, string | undefined>
   markerSpreading: Record<string, string | undefined>
   feiTickets: Record<string, string | undefined>
@@ -116,8 +116,8 @@ export interface CuttingSummaryRow {
   styleName: string
   currentStageKey: ProductionProgressStageKey | 'UNKNOWN'
   currentStageLabel: string
-  originalCutOrderCount: number
-  mergeBatchCount: number
+  cutOrderCount: number
+  markerPlanRefCount: number
   progressSummary: string
   materialPrepSummary: string
   spreadingSummary: string
@@ -153,10 +153,10 @@ export interface CuttingSummaryRow {
   overallRiskLevel: CuttingSummaryRiskLevel
   riskTags: string[]
   issueTypes: CuttingSummaryIssueType[]
-  relatedOriginalCutOrderIds: string[]
-  relatedOriginalCutOrderNos: string[]
-  relatedMergeBatchIds: string[]
-  relatedMergeBatchNos: string[]
+  relatedCutOrderIds: string[]
+  relatedCutOrderNos: string[]
+  relatedMarkerPlanIds: string[]
+  relatedMarkerPlanNos: string[]
   relatedTicketNos: string[]
   relatedBagCodes: string[]
   relatedUsageNos: string[]
@@ -181,8 +181,8 @@ export interface CuttingSummaryIssue {
   highestRiskLevel: CuttingSummaryRiskLevel
   relatedRowIds: string[]
   relatedProductionOrderNos: string[]
-  relatedOriginalCutOrderNos: string[]
-  relatedMergeBatchNos: string[]
+  relatedCutOrderNos: string[]
+  relatedMarkerPlanNos: string[]
   relatedUsageNos: string[]
   relatedProcessOrderNos: string[]
   blockerIds: string[]
@@ -200,6 +200,8 @@ export interface CuttingSummarySourceObjectItem {
   sourceNo: string
   statusLabel: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   blockerCount: number
   navigationTarget: keyof CuttingSummaryNavigationPayload
   navigationPayload: Record<string, string | undefined>
@@ -209,8 +211,8 @@ export interface CuttingSummaryTraceNode {
   nodeId: string
   nodeType:
     | 'production-order'
-    | 'original-cut-order'
-    | 'merge-batch'
+    | 'cut-order'
+    | 'marker-plan-ref'
     | 'ticket'
     | 'bag-usage'
     | 'replenishment'
@@ -223,8 +225,8 @@ export interface CuttingSummaryTraceNode {
 
 export interface CuttingSummaryDashboardSummary {
   productionOrderCount: number
-  originalCutOrderCount: number
-  mergeBatchCount: number
+  cutOrderCount: number
+  markerPlanRefCount: number
   openReplenishmentCount: number
   openSpecialProcessCount: number
   ticketPrintedCount: number
@@ -260,11 +262,11 @@ export interface CuttingSummaryDetailPanelData {
   sourceObjects: CuttingSummarySourceObjectItem[]
   pieceTruth: ProductionPieceTruthResult
   productionRow: ProductionProgressRow | null
-  originalRows: OriginalCutOrderRow[]
-  mergeBatches: MergeBatchRecord[]
+  cutOrderRows: CutOrderRow[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   materialPrepRows: MaterialPrepRow[]
   spreadingSessions: SpreadingSession[]
-  ticketOwners: OriginalCutOrderTicketOwner[]
+  ticketOwners: CutOrderTicketOwner[]
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
   fabricStocks: FabricWarehouseStockItem[]
@@ -298,9 +300,9 @@ export interface CuttingSummaryViewModel {
 
 export interface CuttingSummaryBuildOptions {
   productionRows: ProductionProgressRow[]
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
   feiViewModel: FeiTicketsViewModel
   fabricWarehouseView: FabricWarehouseViewModel
@@ -336,9 +338,9 @@ export const cuttingSummaryRiskMetaMap: Record<CuttingSummaryRiskLevel, CuttingS
 export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, CuttingSummaryIssueMeta> = {
   MATERIAL_PREP: {
     key: 'MATERIAL_PREP',
-    label: 'WMS 来料问题',
+    label: '领料问题',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: 'WMS 来料未齐或WMS 来料不齐。',
+    detailText: '领料数量不足或领料差异。',
     actionHint: '去待加工仓',
   },
   SPREADING_REPLENISH: {
@@ -383,7 +385,7 @@ function formatCount(value: number): string {
   return numberFormatter.format(Math.max(value, 0))
 }
 
-function summarizeTicketStatus(owners: OriginalCutOrderTicketOwner[], records: FeiTicketLabelRecord[]): string {
+function summarizeTicketStatus(owners: CutOrderTicketOwner[], records: FeiTicketLabelRecord[]): string {
   if (!owners.length) return '待建立票据主体'
   const planned = owners.reduce((sum, owner) => sum + owner.plannedTicketQty, 0)
   const printed = records.length
@@ -397,7 +399,7 @@ function summarizeWarehouseStatus(options: {
   cutPieceItems: CutPieceWarehouseItem[]
   sampleItems: SampleWarehouseItem[]
 }): string {
-  const lowRemaining = options.fabricStocks.filter((item) => item.riskTags.some((tag) => tag.key === 'LOW_REMAINING')).length
+  const lowRemaining = options.fabricStocks.filter((item) => (item.riskTags || []).some((tag) => tag.key === 'LOW_REMAINING')).length
   const waitingInbound = options.cutPieceItems.filter((item) => item.warehouseStatus.key === 'PENDING_INBOUND').length
   const waitingHandoff = options.cutPieceItems.filter((item) => item.handoffStatus.key === 'WAITING_HANDOVER').length
   const sampleFlowing = options.sampleItems.filter((item) => item.status.key !== 'AVAILABLE').length
@@ -427,14 +429,14 @@ function summarizeBagUsageStatus(usages: TransferBagUsageItem[], returnUsages: T
 }
 
 function summarizeMaterialPrep(rows: MaterialPrepRow[]): string {
-  if (!rows.length) return '未进入WMS 来料'
+  if (!rows.length) return '未进入配料/领料'
   const configured = rows.filter((row) => row.materialPrepStatus.key === 'CONFIGURED').length
   const partial = rows.filter((row) => row.materialPrepStatus.key === 'PARTIAL').length
   const claimException = rows.filter((row) => row.materialClaimStatus.key === 'EXCEPTION').length
   return [
-    `已配置 ${configured}/${rows.length}`,
-    partial ? `部分配置 ${partial}` : '',
-    claimException ? `来料异常 ${claimException}` : '',
+    `有配料数量 ${configured}/${rows.length}`,
+    partial ? `配料数量不足 ${partial}` : '',
+    claimException ? `领料异常 ${claimException}` : '',
   ]
     .filter(Boolean)
     .join(' / ')
@@ -539,9 +541,9 @@ function deriveOverallRiskLevel(options: {
 
 function buildSummarySourceObjects(options: {
   row: CuttingSummaryRow
-  originalRows: OriginalCutOrderRow[]
-  mergeBatches: MergeBatchRecord[]
-  ticketOwners: OriginalCutOrderTicketOwner[]
+  cutOrderRows: CutOrderRow[]
+  markerPlanRefs: MarkerPlanRefRecord[]
+  ticketOwners: CutOrderTicketOwner[]
   printJobs: FeiTicketPrintJob[]
   bagUsages: TransferBagUsageItem[]
   replenishments: ReplenishmentSuggestionRow[]
@@ -551,39 +553,55 @@ function buildSummarySourceObjects(options: {
     result[item.sourceNo] = (result[item.sourceNo] || 0) + 1
     return result
   }, {})
+  const resolveMaterialIdentity = (materialSku: string, cutOrderNo?: string) => {
+    const matched =
+      options.cutOrderRows.find((row) => row.cutOrderNo === cutOrderNo && row.materialSku === materialSku)
+      || options.cutOrderRows.find((row) => row.materialSku === materialSku)
+      || null
+    return {
+      materialAlias: matched?.materialAlias || '',
+      materialImageUrl: matched?.materialImageUrl || '',
+    }
+  }
 
-  const originalObjects = options.originalRows.map<CuttingSummarySourceObjectItem>((item) => ({
-    sourceType: 'ORIGINAL_CUT_ORDER',
-    sourceLabel: '原始裁片单',
-    sourceId: item.originalCutOrderId,
-    sourceNo: item.originalCutOrderNo,
+  const cutOrderObjects = options.cutOrderRows.map<CuttingSummarySourceObjectItem>((item) => ({
+    sourceType: 'CUT_ORDER',
+    sourceLabel: '裁片单',
+    sourceId: item.cutOrderId,
+    sourceNo: item.cutOrderNo,
     statusLabel: `${item.currentStage.label} / ${item.cuttableState.label}`,
     materialSku: item.materialSku,
-    blockerCount: blockerCountBySourceNo[item.originalCutOrderNo] || 0,
-    navigationTarget: 'originalOrders',
-    navigationPayload: item.navigationPayload.originalOrders,
+    materialAlias: item.materialAlias || '',
+    materialImageUrl: item.materialImageUrl || '',
+    blockerCount: blockerCountBySourceNo[item.cutOrderNo] || 0,
+    navigationTarget: 'cutOrders',
+    navigationPayload: item.navigationPayload.cutOrders,
   }))
 
-  const mergeBatchObjects = options.mergeBatches.map<CuttingSummarySourceObjectItem>((item) => ({
-    sourceType: 'MERGE_BATCH',
-    sourceLabel: '合并裁剪批次',
-    sourceId: item.mergeBatchId,
-    sourceNo: item.mergeBatchNo,
-    statusLabel: getMergeBatchStatusMeta(item.status).label,
+  const markerPlanRefObjects = options.markerPlanRefs.map<CuttingSummarySourceObjectItem>((item) => ({
+    sourceType: 'MARKER_PLAN',
+    sourceLabel: '唛架方案',
+    sourceId: item.markerPlanId,
+    sourceNo: item.markerPlanNo,
+    statusLabel: getMarkerPlanRefStatusMeta(item.status).label,
     materialSku: uniqueStrings(item.items.map((row) => row.materialSku)).join(' / '),
-    blockerCount: blockerCountBySourceNo[item.mergeBatchNo] || 0,
-    navigationTarget: 'mergeBatches',
-    navigationPayload: options.row.navigationPayload.mergeBatches,
+    materialAlias: uniqueStrings(item.items.map((row) => resolveMaterialIdentity(row.materialSku, row.cutOrderNo).materialAlias)).join(' / '),
+    materialImageUrl: item.items.map((row) => resolveMaterialIdentity(row.materialSku, row.cutOrderNo).materialImageUrl).find(Boolean) || '',
+    blockerCount: blockerCountBySourceNo[item.markerPlanNo] || 0,
+    navigationTarget: 'markerPlanRefs',
+    navigationPayload: options.row.navigationPayload.markerPlanRefs,
   }))
 
   const ticketOwners = options.ticketOwners.map<CuttingSummarySourceObjectItem>((item) => ({
     sourceType: 'FEI_OWNER',
     sourceLabel: '打票主体',
-    sourceId: item.originalCutOrderId,
-    sourceNo: item.originalCutOrderNo,
+    sourceId: item.cutOrderId,
+    sourceNo: item.cutOrderNo,
     statusLabel: getFeiTicketStatusMeta(item.ticketStatus).label,
     materialSku: item.materialSku,
-    blockerCount: blockerCountBySourceNo[item.originalCutOrderNo] || 0,
+    materialAlias: item.materialAlias || '',
+    materialImageUrl: item.materialImageUrl || '',
+    blockerCount: blockerCountBySourceNo[item.cutOrderNo] || 0,
     navigationTarget: 'feiTickets',
     navigationPayload: item.navigationPayload.feiTickets,
   }))
@@ -595,6 +613,8 @@ function buildSummarySourceObjects(options: {
     sourceNo: item.printJobNo,
     statusLabel: feiPrintJobStatusLabelMap[item.status],
     materialSku: '',
+    materialAlias: '',
+    materialImageUrl: '',
     blockerCount: blockerCountBySourceNo[item.printJobNo] || 0,
     navigationTarget: 'feiTickets',
     navigationPayload: options.row.navigationPayload.feiTickets,
@@ -607,6 +627,8 @@ function buildSummarySourceObjects(options: {
     sourceNo: item.usageNo,
     statusLabel: item.pocketStatusMeta.label,
     materialSku: '',
+    materialAlias: '',
+    materialImageUrl: '',
     blockerCount: blockerCountBySourceNo[item.usageNo] || 0,
     navigationTarget: 'transferBags',
     navigationPayload: item.navigationPayload,
@@ -619,6 +641,8 @@ function buildSummarySourceObjects(options: {
     sourceNo: item.suggestionNo,
     statusLabel: item.statusMeta.label,
     materialSku: item.materialSku,
+    materialAlias: item.materialAlias || resolveMaterialIdentity(item.materialSku).materialAlias,
+    materialImageUrl: item.materialImageUrl || resolveMaterialIdentity(item.materialSku).materialImageUrl,
     blockerCount: blockerCountBySourceNo[item.suggestionNo] || 0,
     navigationTarget: 'replenishment',
     navigationPayload: item.navigationPayload.replenishment,
@@ -631,14 +655,16 @@ function buildSummarySourceObjects(options: {
     sourceNo: item.processOrderNo,
     statusLabel: item.statusMeta.label,
     materialSku: item.materialSku,
+    materialAlias: resolveMaterialIdentity(item.materialSku).materialAlias,
+    materialImageUrl: resolveMaterialIdentity(item.materialSku).materialImageUrl,
     blockerCount: blockerCountBySourceNo[item.processOrderNo] || 0,
     navigationTarget: 'specialProcesses',
     navigationPayload: item.navigationPayload.specialProcesses,
   }))
 
   return [
-    ...originalObjects,
-    ...mergeBatchObjects,
+    ...cutOrderObjects,
+    ...markerPlanRefObjects,
     ...ticketOwners,
     ...printJobs,
     ...bagUsages,
@@ -649,8 +675,8 @@ function buildSummarySourceObjects(options: {
 
 export function buildSummaryNavigationPayload(options: {
   productionOrderNo: string
-  originalCutOrderNos: string[]
-  mergeBatchNos: string[]
+  cutOrderNos: string[]
+  markerPlanNos: string[]
   materialSkus: string[]
   styleCode: string
   ticketNos: string[]
@@ -659,8 +685,8 @@ export function buildSummaryNavigationPayload(options: {
   processOrderNos: string[]
   suggestionIds: string[]
 }): CuttingSummaryNavigationPayload {
-  const firstOriginalCutOrderNo = options.originalCutOrderNos[0]
-  const firstMergeBatchNo = options.mergeBatchNos[0]
+  const firstCutOrderNo = options.cutOrderNos[0]
+  const firstMarkerPlanRefNo = options.markerPlanNos[0]
   const firstMaterialSku = options.materialSkus[0]
   const firstTicketNo = options.ticketNos[0]
   const firstBagCode = options.bagCodes[0]
@@ -676,75 +702,75 @@ export function buildSummaryNavigationPayload(options: {
       productionOrderNo: options.productionOrderNo,
       styleCode: options.styleCode || undefined,
     },
-    mergeBatches: {
-      mergeBatchNo: firstMergeBatchNo,
+    markerPlanRefs: {
+      markerPlanNo: firstMarkerPlanRefNo,
       productionOrderNo: options.productionOrderNo,
-      originalCutOrderNo: firstOriginalCutOrderNo,
+      cutOrderNo: firstCutOrderNo,
     },
-    originalOrders: {
+    cutOrders: {
       productionOrderNo: options.productionOrderNo,
-      originalCutOrderNo: firstOriginalCutOrderNo,
-      mergeBatchNo: firstMergeBatchNo,
+      cutOrderNo: firstCutOrderNo,
+      markerPlanNo: firstMarkerPlanRefNo,
       styleCode: options.styleCode || undefined,
       materialSku: firstMaterialSku,
     },
     materialPrep: {
       productionOrderNo: options.productionOrderNo,
-      originalCutOrderNo: firstOriginalCutOrderNo,
+      cutOrderNo: firstCutOrderNo,
       materialSku: firstMaterialSku,
     },
     markerSpreading: {
-      mergeBatchNo: firstMergeBatchNo,
-      originalCutOrderNo: firstOriginalCutOrderNo,
+      markerPlanNo: firstMarkerPlanRefNo,
+      cutOrderNo: firstCutOrderNo,
       productionOrderNo: options.productionOrderNo,
       materialSku: firstMaterialSku,
     },
     feiTickets: {
-      mergeBatchNo: firstMergeBatchNo,
-      originalCutOrderNo: firstOriginalCutOrderNo,
+      markerPlanNo: firstMarkerPlanRefNo,
+      cutOrderNo: firstCutOrderNo,
       productionOrderNo: options.productionOrderNo,
       printJobNo: '',
       ticketNo: firstTicketNo,
     },
     fabricWarehouse: {
       productionOrderNo: options.productionOrderNo,
-      originalCutOrderNo: firstOriginalCutOrderNo,
+      cutOrderNo: firstCutOrderNo,
       materialSku: firstMaterialSku,
     },
     cutPieceWarehouse: {
       productionOrderNo: options.productionOrderNo,
-      originalCutOrderNo: firstOriginalCutOrderNo,
-      mergeBatchNo: firstMergeBatchNo,
+      cutOrderNo: firstCutOrderNo,
+      markerPlanNo: firstMarkerPlanRefNo,
     },
     sampleWarehouse: {
       styleCode: options.styleCode || undefined,
     },
     transferBags: {
       productionOrderNo: options.productionOrderNo,
-      originalCutOrderNo: firstOriginalCutOrderNo,
-      mergeBatchNo: firstMergeBatchNo,
+      cutOrderNo: firstCutOrderNo,
+      markerPlanNo: firstMarkerPlanRefNo,
       ticketNo: firstTicketNo,
       bagCode: firstBagCode,
       usageNo: firstUsageNo,
     },
     replenishment: {
       productionOrderNo: options.productionOrderNo,
-      originalCutOrderNo: firstOriginalCutOrderNo,
-      mergeBatchNo: firstMergeBatchNo,
+      cutOrderNo: firstCutOrderNo,
+      markerPlanNo: firstMarkerPlanRefNo,
       materialSku: firstMaterialSku,
       suggestionId: firstSuggestionId,
     },
     specialProcesses: {
-      originalCutOrderNo: firstOriginalCutOrderNo,
-      mergeBatchNo: firstMergeBatchNo,
+      cutOrderNo: firstCutOrderNo,
+      markerPlanNo: firstMarkerPlanRefNo,
       processOrderNo: firstProcessOrderNo,
       styleCode: options.styleCode || undefined,
       materialSku: firstMaterialSku,
     },
     summary: {
       productionOrderNo: options.productionOrderNo,
-      originalCutOrderNo: firstOriginalCutOrderNo,
-      mergeBatchNo: firstMergeBatchNo,
+      cutOrderNo: firstCutOrderNo,
+      markerPlanNo: firstMarkerPlanRefNo,
       ticketNo: firstTicketNo,
       bagCode: firstBagCode,
       usageNo: firstUsageNo,
@@ -755,28 +781,28 @@ export function buildSummaryNavigationPayload(options: {
 }
 
 export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): CuttingSummaryRow[] {
-  const originalRowsByProduction = options.productionRows.reduce<Record<string, OriginalCutOrderRow[]>>((result, productionRow) => {
-    result[productionRow.productionOrderNo] = options.originalRows.filter((row) => row.productionOrderNo === productionRow.productionOrderNo)
+  const cutOrderRowsByProduction = options.productionRows.reduce<Record<string, CutOrderRow[]>>((result, productionRow) => {
+    result[productionRow.productionOrderNo] = options.cutOrderRows.filter((row) => row.productionOrderNo === productionRow.productionOrderNo)
     return result
   }, {})
 
   return options.productionRows.map((productionRow) => {
-    const originalRows = originalRowsByProduction[productionRow.productionOrderNo] || []
-    const originalCutOrderIdSet = new Set(originalRows.map((row) => row.originalCutOrderId))
-    const originalCutOrderNoSet = new Set(originalRows.map((row) => row.originalCutOrderNo))
-    const mergeBatches = options.mergeBatches.filter((batch) =>
-      batch.items.some((item) => originalCutOrderIdSet.has(item.originalCutOrderId) || item.productionOrderNo === productionRow.productionOrderNo),
+    const cutOrderRows = cutOrderRowsByProduction[productionRow.productionOrderNo] || []
+    const cutOrderIdSet = new Set(cutOrderRows.map((row) => row.cutOrderId))
+    const cutOrderNoSet = new Set(cutOrderRows.map((row) => row.cutOrderNo))
+    const markerPlanRefs = options.markerPlanRefs.filter((batch) =>
+      batch.items.some((item) => cutOrderIdSet.has(item.cutOrderId) || item.productionOrderNo === productionRow.productionOrderNo),
     )
-    const mergeBatchNoSet = new Set(mergeBatches.map((batch) => batch.mergeBatchNo))
+    const markerPlanNoSet = new Set(markerPlanRefs.map((batch) => batch.markerPlanNo))
     const materialPrepRows = options.materialPrepRows.filter((row) => row.productionOrderNo === productionRow.productionOrderNo)
     const spreadingSessions = options.markerStore.sessions.filter((session) =>
-      session.originalCutOrderIds.some((originalCutOrderId) => originalCutOrderIdSet.has(originalCutOrderId)),
+      (session.cutOrderIds || []).some((cutOrderId) => cutOrderIdSet.has(cutOrderId)),
     )
     const ticketOwners = options.feiViewModel.owners.filter((owner) => owner.productionOrderNo === productionRow.productionOrderNo)
-    const ownerIdSet = new Set(ticketOwners.map((owner) => owner.originalCutOrderId))
-    const ticketRecords = options.feiViewModel.ticketRecords.filter((record) => ownerIdSet.has(record.originalCutOrderId))
+    const ownerIdSet = new Set(ticketOwners.map((owner) => owner.cutOrderId))
+    const ticketRecords = options.feiViewModel.ticketRecords.filter((record) => ownerIdSet.has(record.cutOrderId))
     const ticketNoSet = new Set(ticketRecords.map((record) => record.ticketNo))
-    const printJobs = options.feiViewModel.printJobs.filter((job) => job.originalCutOrderIds.some((id) => ownerIdSet.has(id)))
+    const printJobs = options.feiViewModel.printJobs.filter((job) => (job.cutOrderIds || []).some((id) => ownerIdSet.has(id)))
     const fabricStocks = options.fabricWarehouseView.items.filter((item) => item.sourceProductionOrderNos.includes(productionRow.productionOrderNo))
     const cutPieceItems = options.cutPieceWarehouseView.items.filter((item) => item.productionOrderNo === productionRow.productionOrderNo)
     const sampleItems = options.sampleWarehouseView.items.filter(
@@ -791,22 +817,22 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
     const replenishments = options.replenishmentView.rows.filter((item) => item.productionOrderNos.includes(productionRow.productionOrderNo))
     const specialProcesses = options.specialProcessView.rows.filter((item) => item.productionOrderNos.includes(productionRow.productionOrderNo))
 
-    const relatedOriginalCutOrderNos = uniqueStrings(originalRows.map((row) => row.originalCutOrderNo))
-    const relatedOriginalCutOrderIds = uniqueStrings(originalRows.map((row) => row.originalCutOrderId))
-    const relatedMergeBatchIds = uniqueStrings([
-      ...mergeBatches.map((batch) => batch.mergeBatchId),
-      ...originalRows.flatMap((row) => row.mergeBatchIds),
-      ...bagBindings.map((binding) => binding.mergeBatchId),
+    const relatedCutOrderNos = uniqueStrings(cutOrderRows.map((row) => row.cutOrderNo))
+    const relatedCutOrderIds = uniqueStrings(cutOrderRows.map((row) => row.cutOrderId))
+    const relatedMarkerPlanIds = uniqueStrings([
+      ...markerPlanRefs.map((batch) => batch.markerPlanId),
+      ...cutOrderRows.flatMap((row) => row.markerPlanIds),
+      ...bagBindings.map((binding) => binding.markerPlanId),
     ])
-    const relatedMergeBatchNos = uniqueStrings([
-      ...Array.from(mergeBatchNoSet),
-      ...originalRows.flatMap((row) => row.mergeBatchNos),
-      ...bagBindings.map((binding) => binding.mergeBatchNo),
+    const relatedMarkerPlanNos = uniqueStrings([
+      ...Array.from(markerPlanNoSet),
+      ...cutOrderRows.flatMap((row) => row.markerPlanNos),
+      ...bagBindings.map((binding) => binding.markerPlanNo),
     ])
     const relatedBagCodes = uniqueStrings([...bagUsages.map((usage) => usage.bagCode), ...reuseCycles.map((cycle) => cycle.bagCode)])
     const relatedUsageNos = uniqueStrings(bagUsages.map((usage) => usage.usageNo))
     const relatedMaterialSkus = uniqueStrings([
-      ...originalRows.map((row) => row.materialSku),
+      ...cutOrderRows.map((row) => row.materialSku),
       ...materialPrepRows.flatMap((row) => row.materialLineItems.map((item) => item.materialSku)),
       ...fabricStocks.map((item) => item.materialSku),
     ])
@@ -816,8 +842,8 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
 
     const navigationPayload = buildSummaryNavigationPayload({
       productionOrderNo: productionRow.productionOrderNo,
-      originalCutOrderNos: relatedOriginalCutOrderNos,
-      mergeBatchNos: relatedMergeBatchNos,
+      cutOrderNos: relatedCutOrderNos,
+      markerPlanNos: relatedMarkerPlanNos,
       materialSkus: relatedMaterialSkus,
       styleCode: productionRow.styleCode,
       ticketNos: uniqueStrings(ticketRecords.map((record) => record.ticketNo)),
@@ -829,8 +855,8 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
 
     const checkResult = buildCuttingCheckResult({
       productionRow,
-      originalRows,
-      mergeBatches,
+      cutOrderRows,
+      markerPlanRefs,
       materialPrepRows,
       spreadingSessions,
       markerStore: options.markerStore,
@@ -878,8 +904,8 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       styleName: productionRow.styleName,
       currentStageKey: productionRow.currentStage.key,
       currentStageLabel: productionRow.currentStage.label,
-      originalCutOrderCount: relatedOriginalCutOrderNos.length,
-      mergeBatchCount: relatedMergeBatchNos.length,
+      cutOrderCount: relatedCutOrderNos.length,
+      markerPlanRefCount: relatedMarkerPlanNos.length,
       progressSummary: `${productionRow.currentStage.label} · ${productionRow.cuttingCompletionSummary.label}`,
       skuProgressSummary: `已完成 ${productionRow.completedSkuCount} / ${productionRow.skuTotalCount}`,
       materialPrepSummary: summarizeMaterialPrep(materialPrepRows),
@@ -919,10 +945,10 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       overallRiskLevel,
       riskTags,
       issueTypes,
-      relatedOriginalCutOrderIds,
-      relatedOriginalCutOrderNos,
-      relatedMergeBatchIds,
-      relatedMergeBatchNos,
+      relatedCutOrderIds,
+      relatedCutOrderNos,
+      relatedMarkerPlanIds,
+      relatedMarkerPlanNos,
       relatedTicketNos: uniqueStrings(ticketRecords.map((record) => record.ticketNo)),
       relatedBagCodes,
       relatedUsageNos,
@@ -945,8 +971,8 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
         productionRow.styleCode,
         productionRow.spuCode,
         productionRow.styleName,
-        ...relatedOriginalCutOrderNos,
-        ...relatedMergeBatchNos,
+        ...relatedCutOrderNos,
+        ...relatedMarkerPlanNos,
         ...ticketRecords.map((record) => record.ticketNo),
         ...relatedBagCodes,
         ...relatedUsageNos,
@@ -997,15 +1023,15 @@ export function buildCuttingSummaryIssues(rows: CuttingSummaryRow[]): CuttingSum
         highestRiskLevel: severity,
         relatedRowIds: relatedRows.map((row) => row.rowId),
         relatedProductionOrderNos: uniqueStrings(relatedRows.map((row) => row.productionOrderNo)),
-        relatedOriginalCutOrderNos: uniqueStrings(relatedRows.flatMap((row) => row.relatedOriginalCutOrderNos)),
-        relatedMergeBatchNos: uniqueStrings(relatedRows.flatMap((row) => row.relatedMergeBatchNos)),
+        relatedCutOrderNos: uniqueStrings(relatedRows.flatMap((row) => row.relatedCutOrderNos)),
+        relatedMarkerPlanNos: uniqueStrings(relatedRows.flatMap((row) => row.relatedMarkerPlanNos)),
         relatedUsageNos: uniqueStrings(relatedRows.flatMap((row) => row.relatedUsageNos)),
         relatedProcessOrderNos: uniqueStrings(relatedRows.flatMap((row) => row.relatedProcessOrderNos)),
         blockerIds: uniqueStrings(relatedBlockers.map((item) => item.blockerId)),
         blockingProductionOrderCount: uniqueStrings(relatedRows.map((row) => row.productionOrderNo)).length,
         blockingObjectCount: uniqueStrings(relatedBlockers.map((item) => `${item.sourceType}:${item.sourceId}`)).length,
         primaryActionLabel,
-        summary: `当前阻塞生产单 ${formatCount(uniqueStrings(relatedRows.map((row) => row.productionOrderNo)).length)} 个 / 阻塞对象 ${formatCount(uniqueStrings(relatedBlockers.map((item) => `${item.sourceType}:${item.sourceId}`)).length)} 个。`,
+        summary: `当前风险生产单 ${formatCount(uniqueStrings(relatedRows.map((row) => row.productionOrderNo)).length)} 个 / 风险对象 ${formatCount(uniqueStrings(relatedBlockers.map((item) => `${item.sourceType}:${item.sourceId}`)).length)} 个。`,
         actionHint: primaryActionLabel,
       }
     })
@@ -1021,20 +1047,20 @@ export function filterSummaryByIssueType(
 }
 
 export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData, 'traceTree'>): CuttingSummaryTraceNode[] {
-  const originalNodes = detail.originalRows.map((row) => {
-    const mergeBatchNodes = detail.mergeBatches
-      .filter((batch) => batch.items.some((item) => item.originalCutOrderId === row.originalCutOrderId))
+  const cutOrderNodes = detail.cutOrderRows.map((row) => {
+    const markerPlanNodes = detail.markerPlanRefs
+      .filter((batch) => batch.items.some((item) => item.cutOrderId === row.cutOrderId))
       .map<CuttingSummaryTraceNode>((batch) => ({
-        nodeId: `trace-batch-${batch.mergeBatchId}`,
-        nodeType: 'merge-batch',
-        nodeLabel: batch.mergeBatchNo,
-        relatedIds: [batch.mergeBatchId, batch.mergeBatchNo],
-        status: getMergeBatchStatusMeta(batch.status).label,
+        nodeId: `trace-batch-${batch.markerPlanId}`,
+        nodeType: 'marker-plan-ref',
+        nodeLabel: batch.markerPlanNo,
+        relatedIds: [batch.markerPlanId, batch.markerPlanNo],
+        status: getMarkerPlanRefStatusMeta(batch.status).label,
         children: [],
       }))
 
     const ticketNodes = detail.ticketRecords
-      .filter((record) => record.originalCutOrderId === row.originalCutOrderId)
+      .filter((record) => record.cutOrderId === row.cutOrderId)
       .slice(0, 6)
       .map<CuttingSummaryTraceNode>((record) => ({
         nodeId: `trace-ticket-${record.ticketRecordId}`,
@@ -1046,7 +1072,7 @@ export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData
       }))
 
     const bagNodes = detail.bagUsages
-      .filter((usage) => usage.originalCutOrderNos.includes(row.originalCutOrderNo))
+      .filter((usage) => usage.cutOrderNos.includes(row.cutOrderNo))
       .map<CuttingSummaryTraceNode>((usage) => ({
         nodeId: `trace-usage-${usage.usageId}`,
         nodeType: 'bag-usage',
@@ -1057,12 +1083,12 @@ export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData
       }))
 
     return {
-      nodeId: `trace-original-${row.originalCutOrderId}`,
-      nodeType: 'original-cut-order',
-      nodeLabel: row.originalCutOrderNo,
-      relatedIds: [row.originalCutOrderId, row.originalCutOrderNo],
+      nodeId: `trace-cut-order-${row.cutOrderId}`,
+      nodeType: 'cut-order',
+      nodeLabel: row.cutOrderNo,
+      relatedIds: [row.cutOrderId, row.cutOrderNo],
       status: `${row.currentStage.label} / ${row.cuttableState.label}`,
-      children: [...mergeBatchNodes, ...ticketNodes, ...bagNodes],
+      children: [...markerPlanNodes, ...ticketNodes, ...bagNodes],
     }
   })
 
@@ -1091,7 +1117,7 @@ export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData
       nodeLabel: detail.row.productionOrderNo,
       relatedIds: [detail.row.productionOrderId, detail.row.productionOrderNo],
       status: `${detail.completionMeta.label} / ${detail.row.currentStageLabel}`,
-      children: [...originalNodes, ...replenishmentNodes, ...specialProcessNodes],
+      children: [...cutOrderNodes, ...replenishmentNodes, ...specialProcessNodes],
     },
   ]
 }
@@ -1104,19 +1130,19 @@ export function buildSummaryDetailPanelData(
   if (!row) return null
 
   const productionRow = options.productionRows.find((item) => item.productionOrderId === row.productionOrderId) || null
-  const originalRows = options.originalRows.filter((item) => item.productionOrderNo === row.productionOrderNo)
-  const originalCutOrderIdSet = new Set(originalRows.map((item) => item.originalCutOrderId))
-  const mergeBatches = options.mergeBatches.filter((batch) =>
-    batch.items.some((item) => originalCutOrderIdSet.has(item.originalCutOrderId) || item.productionOrderNo === row.productionOrderNo),
+  const cutOrderRows = options.cutOrderRows.filter((item) => item.productionOrderNo === row.productionOrderNo)
+  const cutOrderIdSet = new Set(cutOrderRows.map((item) => item.cutOrderId))
+  const markerPlanRefs = options.markerPlanRefs.filter((batch) =>
+    batch.items.some((item) => cutOrderIdSet.has(item.cutOrderId) || item.productionOrderNo === row.productionOrderNo),
   )
   const materialPrepRows = options.materialPrepRows.filter((item) => item.productionOrderNo === row.productionOrderNo)
   const spreadingSessions = options.markerStore.sessions.filter((session) =>
-    session.originalCutOrderIds.some((originalCutOrderId) => originalCutOrderIdSet.has(originalCutOrderId)),
+    (session.cutOrderIds || []).some((cutOrderId) => cutOrderIdSet.has(cutOrderId)),
   )
   const ticketOwners = options.feiViewModel.owners.filter((item) => item.productionOrderNo === row.productionOrderNo)
-  const ownerIdSet = new Set(ticketOwners.map((item) => item.originalCutOrderId))
-  const ticketRecords = options.feiViewModel.ticketRecords.filter((item) => ownerIdSet.has(item.originalCutOrderId))
-  const printJobs = options.feiViewModel.printJobs.filter((job) => job.originalCutOrderIds.some((item) => ownerIdSet.has(item)))
+  const ownerIdSet = new Set(ticketOwners.map((item) => item.cutOrderId))
+  const ticketRecords = options.feiViewModel.ticketRecords.filter((item) => ownerIdSet.has(item.cutOrderId))
+  const printJobs = options.feiViewModel.printJobs.filter((job) => (job.cutOrderIds || []).some((item) => ownerIdSet.has(item)))
   const fabricStocks = options.fabricWarehouseView.items.filter((item) => item.sourceProductionOrderNos.includes(row.productionOrderNo))
   const cutPieceItems = options.cutPieceWarehouseView.items.filter((item) => item.productionOrderNo === row.productionOrderNo)
   const sampleItems = options.sampleWarehouseView.items.filter(
@@ -1132,8 +1158,8 @@ export function buildSummaryDetailPanelData(
   const specialProcesses = options.specialProcessView.rows.filter((item) => item.productionOrderNos.includes(row.productionOrderNo))
   const sourceObjects = buildSummarySourceObjects({
     row,
-    originalRows,
-    mergeBatches,
+    cutOrderRows,
+    markerPlanRefs,
     ticketOwners,
     printJobs,
     bagUsages,
@@ -1161,8 +1187,8 @@ export function buildSummaryDetailPanelData(
     sourceObjects,
     pieceTruth: row.pieceTruth,
     productionRow,
-    originalRows,
-    mergeBatches,
+    cutOrderRows,
+    markerPlanRefs,
     materialPrepRows,
     spreadingSessions,
     ticketOwners,
@@ -1199,17 +1225,17 @@ export function buildSummaryDashboardCards(
       accentClass: 'text-slate-900',
     },
     {
-      key: 'original-orders',
-      label: '原始裁片单总数',
-      value: dashboard.originalCutOrderCount,
-      hint: '回落主体仍为原始裁片单',
+      key: 'cut-orders',
+      label: '裁片单总数',
+      value: dashboard.cutOrderCount,
+      hint: '回落主体仍为裁片单',
       accentClass: 'text-blue-600',
     },
     {
-      key: 'merge-batches',
-      label: '合并裁剪批次数',
-      value: dashboard.mergeBatchCount,
-      hint: '执行层批次台账',
+      key:  'marker-list',
+      label: '唛架方案数',
+      value: dashboard.markerPlanRefCount,
+      hint: '执行层唛架方案台账',
       accentClass: 'text-violet-600',
     },
     {
@@ -1288,8 +1314,8 @@ export function buildCuttingSummaryViewModel(options: CuttingSummaryBuildOptions
   const issues = buildCuttingSummaryIssues(rows)
   const dashboard: CuttingSummaryDashboardSummary = {
     productionOrderCount: rows.length,
-    originalCutOrderCount: rows.reduce((sum, row) => sum + row.originalCutOrderCount, 0),
-    mergeBatchCount: options.mergeBatches.length,
+    cutOrderCount: rows.reduce((sum, row) => sum + row.cutOrderCount, 0),
+    markerPlanRefCount: options.markerPlanRefs.length,
     openReplenishmentCount: options.replenishmentView.rows.filter((item) => !['NO_ACTION', 'REJECTED', 'COMPLETED'].includes(item.statusMeta.key)).length,
     openSpecialProcessCount: options.specialProcessView.rows.filter((item) => isOpenSpecialProcess(item)).length,
     ticketPrintedCount: options.feiViewModel.ticketRecords.length,

@@ -1,6 +1,6 @@
 import { buildCuttingCoreRegistry } from '../../../domain/cutting-core/index.ts'
 import { productionOrders, type ProductionOrder } from '../production-orders.ts'
-import { listGeneratedOriginalCutOrderSourceRecords } from './generated-original-cut-orders.ts'
+import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
 import { cuttingOrderProgressRecords, type CuttingOrderProgressRecord } from './order-progress.ts'
 import type { CuttingUrgencyLevel } from './types'
 import {
@@ -109,10 +109,10 @@ export interface CuttingSummaryRecord {
   id: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchIds: string[]
-  mergeBatchNos: string[]
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanIds: string[]
+  markerPlanNos: string[]
   purchaseDate: string
   orderQty: number
   plannedShipDate: string
@@ -154,7 +154,7 @@ export interface CuttingSummaryFilters {
 
 const cuttingIdentityRegistry = buildCuttingCoreRegistry()
 const progressRecordMap = new Map(cuttingOrderProgressRecords.map((record) => [record.productionOrderId, record] as const))
-const originalSourceRecords = listGeneratedOriginalCutOrderSourceRecords()
+const cutOrderSourceRecords = listGeneratedCutOrderSourceRecords()
 const formalFabricWarehouseRecords = listFormalFabricWarehouseRecords()
 const formalCutPieceWarehouseRecords = listFormalCutPieceWarehouseRecords()
 const formalSampleWarehouseRecords = listFormalSampleWarehouseRecords()
@@ -197,8 +197,8 @@ function issueSourceMatches(
   return issue.sourcePage === 'SAMPLE'
 }
 
-function getProductionOriginalSources(productionOrderId: string) {
-  return originalSourceRecords.filter((item) => item.productionOrderId === productionOrderId)
+function getProductionCutOrderSources(productionOrderId: string) {
+  return cutOrderSourceRecords.filter((item) => item.productionOrderId === productionOrderId)
 }
 
 function getProductionFabricWarehouseRecords(productionOrderId: string): CuttingFabricStockRecord[] {
@@ -309,7 +309,7 @@ function buildPlatformStageSummary(args: {
   if (args.replenishmentSummary.pendingReviewCount > 0) return '补料建议待审核，需先收口执行缺口。'
   if (args.warehouseSummary.cutPiecePendingInboundCount > 0 || args.warehouseSummary.unassignedZoneCount > 0) return '裁片仓入仓 / 分区仍待收口。'
   if (args.sampleSummary.sampleWaitingReturnCount > 0) return '样衣流转尚未收口，需继续回仓。'
-  if (args.receiveSummary.receivedPartialCount > 0 || args.receiveSummary.notReceivedCount > 0) return 'WMS 来料入仓仍在执行中。'
+  if (args.receiveSummary.receivedPartialCount > 0 || args.receiveSummary.notReceivedCount > 0) return '裁床领料入待加工仓仍在执行中。'
   if (args.spreadingSummary.pendingSpreadingCount > 0) return '铺布执行记录尚未完全回流。'
   return '正式裁片主链已进入稳定执行或收口阶段。'
 }
@@ -342,10 +342,10 @@ function buildIssues(args: {
     issues.push({
       issueType: 'PREP_PENDING',
       level: args.productionOrderNo.endsWith('081') ? 'HIGH' : 'MEDIUM',
-      title: 'WMS 来料仍待收口',
-      description: '当前仍有WMS 来料未齐套或WMS 来料未完成的原始裁片单。',
+      title: '中转仓配料或裁床领料仍待收口',
+      description: '当前仍有中转仓配料数量不足或裁床领料记录未完成的裁片单。',
       sourcePage: 'MATERIAL_PREP',
-      suggestedAction: '优先补齐WMS 来料记录。',
+      suggestedAction: '优先核对中转仓配料数量与裁床领料记录。',
       suggestedRoute: '/fcs/craft/cutting/warehouse-management/wait-process',
     })
   }
@@ -355,10 +355,10 @@ function buildIssues(args: {
       issueType: 'MARKER_PENDING',
       level: 'MEDIUM',
       title: '唛架信息待补齐',
-      description: `当前仍有 ${args.markerSummary.pendingMarkerCount} 张原始裁片单缺少唛架或部位进度信息。`,
+      description: `当前仍有 ${args.markerSummary.pendingMarkerCount} 张裁片单缺少唛架或部位进度信息。`,
       sourcePage: 'CUT_PIECE_ORDER',
-      suggestedAction: '返回原始裁片单页补齐唛架与部位进度。',
-      suggestedRoute: '/fcs/craft/cutting/original-orders',
+      suggestedAction: '返回裁片单页补齐唛架与部位进度。',
+      suggestedRoute: '/fcs/craft/cutting/cut-orders',
     })
   }
 
@@ -367,10 +367,10 @@ function buildIssues(args: {
       issueType: 'SPREAD_PENDING',
       level: 'MEDIUM',
       title: '铺布回写仍待补齐',
-      description: `当前仍有 ${args.spreadingSummary.pendingSpreadingCount} 个原始裁片单未形成正式铺布回写。`,
+      description: `当前仍有 ${args.spreadingSummary.pendingSpreadingCount} 个裁片单未形成正式铺布回写。`,
       sourcePage: 'CUT_PIECE_ORDER',
-      suggestedAction: '回原始裁片单或铺布页核查正式回写。',
-      suggestedRoute: '/fcs/craft/cutting/original-orders',
+      suggestedAction: '回裁片单或铺布页核查正式回写。',
+      suggestedRoute: '/fcs/craft/cutting/cut-orders',
     })
   }
 
@@ -460,14 +460,14 @@ function buildLinkedPageSummary(args: {
     },
     {
       pageKey: 'MATERIAL_PREP',
-      pageLabel: 'WMS 来料',
+      pageLabel: '中转仓配料 / 裁床领料',
       route: '/fcs/craft/cutting/warehouse-management/wait-process',
-      summaryText: `已配置 ${args.materialSummary.fullyConfiguredCount}，来料完成 ${args.receiveSummary.receivedSuccessCount}`,
+      summaryText: `有配料数量 ${args.materialSummary.fullyConfiguredCount}，有领料记录 ${args.receiveSummary.receivedSuccessCount}`,
     },
     {
       pageKey: 'CUT_PIECE_ORDER',
-      pageLabel: '原始裁片单',
-      route: '/fcs/craft/cutting/original-orders',
+      pageLabel: '裁片单',
+      route: '/fcs/craft/cutting/cut-orders',
       summaryText: `唛架已维护 ${args.markerSummary.markerMaintainedCount}，铺布回写 ${args.spreadingSummary.spreadingRecordCount} 条`,
     },
     {
@@ -487,14 +487,14 @@ function buildLinkedPageSummary(args: {
 
 function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
   const progressRecord = progressRecordMap.get(order.productionOrderId) || null
-  const originalSources = getProductionOriginalSources(order.productionOrderId)
-  if (!progressRecord && originalSources.length === 0) return null
+  const cutOrderSources = getProductionCutOrderSources(order.productionOrderId)
+  if (!progressRecord && cutOrderSources.length === 0) return null
 
-  const originalRefs = unique(originalSources.map((item) => item.originalCutOrderId))
-    .map((originalCutOrderId) => cuttingIdentityRegistry.originalCutOrdersById[originalCutOrderId])
+  const cutOrderRefs = unique(cutOrderSources.map((item) => item.cutOrderId))
+    .map((cutOrderId) => cuttingIdentityRegistry.cutOrdersById[cutOrderId])
     .filter(Boolean)
-  const mergeBatchIds = unique(originalRefs.flatMap((ref) => [ref.activeMergeBatchId, ...ref.mergeBatchIds]).filter(Boolean))
-  const mergeBatchNos = unique(originalRefs.flatMap((ref) => [ref.activeMergeBatchNo, ...ref.mergeBatchNos]).filter(Boolean))
+  const markerPlanIds = unique(cutOrderRefs.flatMap((ref) => [ref.activeMarkerPlanRefId, ...ref.markerPlanIds]).filter(Boolean))
+  const markerPlanNos = unique(cutOrderRefs.flatMap((ref) => [ref.activeMarkerPlanRefNo, ...ref.markerPlanNos]).filter(Boolean))
   const fabricWarehouseRecords = getProductionFabricWarehouseRecords(order.productionOrderId)
   const cutPieceWarehouseRecords = getProductionCutPieceWarehouseRecords(order.productionOrderId)
   const sampleWarehouseRecords = getProductionSampleWarehouseRecords(order.productionOrderId)
@@ -522,9 +522,9 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
   const markerSummary = progressRecord
     ? buildMarkerSummary(progressRecord)
     : {
-        markerMaintainedCount: originalSources.filter((item) => item.pieceRows.length > 0).length,
+        markerMaintainedCount: cutOrderSources.filter((item) => item.pieceRows.length > 0).length,
         markerImageUploadedCount: 0,
-        pendingMarkerCount: originalSources.filter((item) => item.pieceRows.length === 0).length,
+        pendingMarkerCount: cutOrderSources.filter((item) => item.pieceRows.length === 0).length,
       }
   const spreadingSummary = progressRecord
     ? buildSpreadingSummary(progressRecord)
@@ -533,7 +533,7 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
         totalSpreadLength: 0,
         latestSpreadingAt: '',
         latestSpreadingBy: '',
-        pendingSpreadingCount: originalSources.length,
+        pendingSpreadingCount: cutOrderSources.length,
       }
   const replenishmentSummary = progressRecord
     ? buildReplenishmentSummary(progressRecord)
@@ -601,10 +601,10 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
     id: `cutting-summary-${order.productionOrderId}`,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
-    originalCutOrderIds: originalRefs.map((ref) => ref.originalCutOrderId),
-    originalCutOrderNos: originalRefs.map((ref) => ref.originalCutOrderNo),
-    mergeBatchIds,
-    mergeBatchNos,
+    cutOrderIds: cutOrderRefs.map((ref) => ref.cutOrderId),
+    cutOrderNos: cutOrderRefs.map((ref) => ref.cutOrderNo),
+    markerPlanIds,
+    markerPlanNos,
     purchaseDate: (progressRecord?.purchaseDate || order.createdAt).slice(0, 10),
     orderQty: progressRecord?.orderQty || sumSkuQty(order),
     plannedShipDate: progressRecord?.plannedShipDate || order.demandSnapshot.requiredDeliveryDate || '',
@@ -618,8 +618,8 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
       sampleSummary,
       spreadingSummary,
     }),
-    cutPieceOrderCount: originalSources.length,
-    materialTypeCount: unique(originalSources.map((item) => item.materialType)).length || 1,
+    cutPieceOrderCount: cutOrderSources.length,
+    materialTypeCount: unique(cutOrderSources.map((item) => item.materialType)).length || 1,
     overallSummaryStatus,
     overallRiskLevel,
     pendingIssueCount: issues.length,
@@ -640,10 +640,10 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
       order.productionOrderId,
       order.productionOrderNo,
       progressRecord?.cuttingTaskNo || '',
-      ...originalSources.map((item) => item.originalCutOrderId),
-      ...originalSources.map((item) => item.originalCutOrderNo),
-      ...originalSources.map((item) => item.materialSku),
-      ...mergeBatchNos,
+      ...cutOrderSources.map((item) => item.cutOrderId),
+      ...cutOrderSources.map((item) => item.cutOrderNo),
+      ...cutOrderSources.map((item) => item.materialSku),
+      ...markerPlanNos,
       order.demandSnapshot.spuCode,
       order.demandSnapshot.spuName,
     ]),
@@ -659,10 +659,10 @@ export const cuttingSummaryRecords: CuttingSummaryRecord[] = productionOrders
 export function cloneCuttingSummaryRecords(): CuttingSummaryRecord[] {
   return cuttingSummaryRecords.map((record) => ({
     ...record,
-    originalCutOrderIds: [...record.originalCutOrderIds],
-    originalCutOrderNos: [...record.originalCutOrderNos],
-    mergeBatchIds: [...record.mergeBatchIds],
-    mergeBatchNos: [...record.mergeBatchNos],
+    cutOrderIds: [...record.cutOrderIds],
+    cutOrderNos: [...record.cutOrderNos],
+    markerPlanIds: [...record.markerPlanIds],
+    markerPlanNos: [...record.markerPlanNos],
     materialSummary: { ...record.materialSummary },
     receiveSummary: { ...record.receiveSummary },
     markerSummary: { ...record.markerSummary },

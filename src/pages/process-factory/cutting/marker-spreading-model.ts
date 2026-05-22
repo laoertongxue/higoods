@@ -1,5 +1,5 @@
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
 import {
   DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
   getDefaultCuttingTable,
@@ -117,10 +117,10 @@ export interface HighLowSummary {
 }
 
 export interface MarkerSpreadingPrefilter {
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
   productionOrderNo?: string
   styleCode?: string
   spuCode?: string
@@ -128,17 +128,19 @@ export interface MarkerSpreadingPrefilter {
 }
 
 export interface MarkerSpreadingContext {
-  contextType: 'original-order' | 'merge-batch'
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  contextType: 'cut-order' | 'marker-plan-ref'
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
   techPackSpuCode?: string
   styleName: string
   materialSkuSummary: string
+  materialAliasSummary?: string
+  materialImageUrl?: string
   materialPrepRows: MaterialPrepRow[]
 }
 
@@ -150,15 +152,17 @@ export interface MarkerRecord {
   bedId?: string
   bedNo?: string
   bedMode?: MarkerModeKey
-  contextType: 'original-order' | 'merge-batch'
-  originalCutOrderIds: string[]
-  originalCutOrderNos?: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  contextType: 'cut-order' | 'marker-plan-ref'
+  cutOrderIds: string[]
+  cutOrderNos?: string[]
+  markerPlanId: string
+  markerPlanNo: string
   styleCode?: string
   spuCode?: string
   techPackSpuCode?: string
   materialSkuSummary?: string
+  materialAliasSummary?: string
+  materialImageUrl?: string
   colorSummary?: string
   markerMode: MarkerModeKey
   sizeDistribution: MarkerSizeDistributionItem[]
@@ -324,11 +328,11 @@ export interface SpreadingImportSource {
   sourceMarkerId: string
   sourceMarkerNo: string
   sourceMarkerMode: MarkerModeKey
-  sourceContextType: 'original-order' | 'merge-batch'
-  sourceOriginalCutOrderIds: string[]
-  sourceOriginalCutOrderNos: string[]
-  sourceMergeBatchId: string
-  sourceMergeBatchNo: string
+  sourceContextType: 'cut-order' | 'marker-plan-ref'
+  sourceCutOrderIds: string[]
+  sourceCutOrderNos: string[]
+  sourceMarkerPlanId: string
+  sourceMarkerPlanNo: string
   sourceStyleCode: string
   sourceSpuCode: string
   sourceMaterialSkuSummary: string
@@ -368,6 +372,8 @@ export interface SpreadingPlanUnit {
   sourceLineId: string
   color: string
   materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
   garmentQtyPerUnit: number
   plannedRepeatCount: number
   lengthPerUnitM: number
@@ -377,14 +383,14 @@ export interface SpreadingPlanUnit {
 
 export interface SpreadingReplenishmentWarning {
   warningId: string
-  sourceType: 'original-order' | 'merge-batch' | 'spreading-session'
-  sourceContextType: 'original-order' | 'merge-batch'
+  sourceType: 'cut-order' | 'marker-plan-ref' | 'spreading-session'
+  sourceContextType: 'cut-order' | 'marker-plan-ref'
   spreadingSessionId: string
   spreadingSessionNo: string
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
@@ -424,9 +430,11 @@ export interface SpreadingReplenishmentWarning {
 
 export interface SpreadingReplenishmentWarningLine {
   lineId: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
   color: string
   requiredGarmentQty: number
   actualCutGarmentQty: number
@@ -442,8 +450,8 @@ export interface SpreadingReplenishmentWarningLine {
 export interface SpreadingCompletionLinkage {
   completedAt: string
   completedBy: string
-  linkedOriginalCutOrderIds: string[]
-  linkedOriginalCutOrderNos: string[]
+  linkedCutOrderIds: string[]
+  linkedCutOrderNos: string[]
   generatedWarningId: string
   generatedWarning: boolean
   note: string
@@ -457,11 +465,11 @@ export interface SpreadingCompletionValidationResult {
 export interface SpreadingTraceAnchor {
   spreadingSessionId: string
   spreadingSessionNo: string
-  contextType: 'original-order' | 'merge-batch'
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  contextType: 'cut-order' | 'marker-plan-ref'
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   materialSkuSummary: string
   colorSummary: string
   sourceChannel: SpreadingSourceChannel
@@ -474,10 +482,10 @@ export interface SpreadingTraceAnchor {
 export interface SpreadingSession {
   spreadingSessionId: string
   sessionNo?: string
-  contextType: 'original-order' | 'merge-batch'
-  originalCutOrderIds: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  contextType: 'cut-order' | 'marker-plan-ref'
+  cutOrderIds: string[]
+  markerPlanId: string
+  markerPlanNo: string
   markerId?: string
   markerNo?: string
   sourceSchemeId?: string
@@ -503,6 +511,8 @@ export interface SpreadingSession {
   styleCode?: string
   spuCode?: string
   materialSkuSummary?: string
+  materialAliasSummary?: string
+  materialImageUrl?: string
   colorSummary?: string
   spreadingMode: MarkerModeKey
   status: SpreadingStatusKey
@@ -560,6 +570,54 @@ export interface SpreadingSession {
   operators: SpreadingOperatorRecord[]
 }
 
+export interface SpreadingMarkerBedIdentitySource {
+  markerId?: string
+  markerNo?: string
+  markerPlanId?: string
+  markerPlanNo?: string
+  sourceSchemeId?: string
+  sourceSchemeNo?: string
+  sourceBedId?: string
+  sourceBedNo?: string
+}
+
+function normalizeSpreadingIdentityToken(value: string | undefined, fallback: string): string {
+  const normalized = String(value || '')
+    .trim()
+    .replace(/[\\/\s]+/g, '-')
+    .replace(/[^A-Za-z0-9\u4e00-\u9fa5_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+  return normalized || fallback
+}
+
+export function buildSpreadingSessionIdentityForMarkerBed(
+  source: SpreadingMarkerBedIdentitySource,
+  index = 0,
+): { spreadingSessionId: string; sessionNo: string } {
+  const fallbackIndex = String(index + 1).padStart(2, '0')
+  const schemeIdToken = normalizeSpreadingIdentityToken(
+    source.sourceSchemeId || source.markerPlanId || source.sourceSchemeNo || source.markerPlanNo,
+    `scheme-${fallbackIndex}`,
+  )
+  const bedIdToken = normalizeSpreadingIdentityToken(
+    source.sourceBedId || source.markerId || source.sourceBedNo || source.markerNo,
+    `bed-${fallbackIndex}`,
+  )
+  const schemeNoToken = normalizeSpreadingIdentityToken(
+    source.sourceSchemeNo || source.markerPlanNo || source.sourceSchemeId || source.markerPlanId,
+    `MK-${fallbackIndex}`,
+  )
+  const bedNoToken = normalizeSpreadingIdentityToken(
+    source.sourceBedNo || source.markerNo || source.sourceBedId || source.markerId,
+    `BED-${fallbackIndex}`,
+  )
+  return {
+    spreadingSessionId: `spreading-session-${schemeIdToken}-${bedIdToken}`,
+    sessionNo: `PB-${schemeNoToken}-${bedNoToken}`,
+  }
+}
+
 export interface SpreadingVarianceSummary {
   configuredLengthTotal: number
   claimedLengthTotal: number
@@ -596,8 +654,8 @@ export interface SpreadingVarianceSummary {
 }
 
 export interface SpreadingTraceAnchorMatchOptions {
-  originalCutOrderIds?: string[]
-  mergeBatchId?: string
+  cutOrderIds?: string[]
+  markerPlanId?: string
   materialSku?: string
   color?: string
 }
@@ -620,8 +678,8 @@ export interface ReplenishmentPreview {
 export interface MarkerSpreadingNavigationPayload {
   replenishment: Record<string, string | undefined>
   feiTickets: Record<string, string | undefined>
-  originalOrders: Record<string, string | undefined>
-  mergeBatches: Record<string, string | undefined>
+  cutOrders: Record<string, string | undefined>
+  markerPlanRefs: Record<string, string | undefined>
   summary: Record<string, string | undefined>
 }
 
@@ -636,9 +694,9 @@ export interface MarkerSpreadingStore {
 }
 
 export interface MarkerSpreadingSessionReferenceSummary {
-  originalCutOrderIds?: string[]
+  cutOrderIds?: string[]
   completionLinkage?: {
-    linkedOriginalCutOrderIds?: string[]
+    linkedCutOrderIds?: string[]
   } | null
 }
 
@@ -653,7 +711,7 @@ export interface MarkerSpreadingStats {
   doneCount: number
   rollCount: number
   warningCount: number
-  contextOriginalOrderCount: number
+  contextCutOrderCount: number
   contextProductionOrderCount: number
 }
 
@@ -690,7 +748,7 @@ const markerModeMeta: Record<MarkerModeKey, { label: string; className: string; 
 
 const spreadingStatusMeta: Record<SpreadingStatusKey, { label: string; className: string; detailText: string }> = {
   DRAFT: {
-    label: '待开始',
+    label: '待铺布',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
     detailText: '铺布单已创建，尚未开始铺布。',
   },
@@ -700,12 +758,12 @@ const spreadingStatusMeta: Record<SpreadingStatusKey, { label: string; className
     detailText: '当前正在铺布。',
   },
   DONE: {
-    label: '完成铺布',
+    label: '已铺布',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
     detailText: '铺布已完成，等待裁剪。',
   },
   TO_FILL: {
-    label: '待开始',
+    label: '待铺布',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
     detailText: '铺布单已创建，尚未开始铺布。',
   },
@@ -713,7 +771,7 @@ const spreadingStatusMeta: Record<SpreadingStatusKey, { label: string; className
 
 const spreadingListStatusMeta: Record<SpreadingListStatusKey, { label: string; className: string; detailText: string }> = {
   WAITING_START: {
-    label: '待开始',
+    label: '待铺布',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
     detailText: '铺布单已创建，尚未开始铺布。',
   },
@@ -723,7 +781,7 @@ const spreadingListStatusMeta: Record<SpreadingListStatusKey, { label: string; c
     detailText: '当前正在铺布。',
   },
   DONE: {
-    label: '完成铺布',
+    label: '已铺布',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
     detailText: '铺布已完成，等待裁剪。',
   },
@@ -741,7 +799,7 @@ const spreadingCuttingStatusMeta: Record<SpreadingCuttingStatusKey, { label: str
     detailText: '当前正在裁剪。',
   },
   CUTTING_DONE: {
-    label: '裁剪完成',
+    label: '已裁剪',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
     detailText: '裁剪已完成。',
   },
@@ -752,7 +810,7 @@ const spreadingSupervisorStageMeta: Record<
   { label: string; className: string; detailText: string }
 > = {
   WAITING_START: {
-    label: '待开始',
+    label: '待铺布',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
     detailText: '当前铺布还未进入正式执行阶段，需先继续铺布或补录执行记录。',
   },
@@ -764,7 +822,7 @@ const spreadingSupervisorStageMeta: Record<
   WAITING_REPLENISHMENT: {
     label: '待补料确认',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前铺布已完成，但补料差异仍待进入补料管理确认，审核通过后将回仓库WMS 待处理。',
+    detailText: '当前铺布已完成，但补料差异仍待进入补料管理确认，审核通过后将回中转仓配料。',
   },
   WAITING_FEI_TICKET: {
     label: '待打印菲票',
@@ -772,19 +830,19 @@ const spreadingSupervisorStageMeta: Record<
     detailText: '当前铺布执行已完成，下一步需打印正式菲票。',
   },
   WAITING_BAGGING: {
-    label: '待装袋',
+    label: '待入仓暂存',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    detailText: '当前菲票已具备，但尚未形成正式中转袋装袋记录。',
+    detailText: '当前菲票已具备，但尚未形成入仓暂存袋记录。',
   },
   WAITING_WAREHOUSE: {
     label: '待入仓',
     className: 'bg-cyan-100 text-cyan-700 border border-cyan-200',
-    detailText: '当前已完成装袋，但尚未形成正式裁片仓入仓记录。',
+    detailText: '当前已放入暂存袋，但尚未形成正式裁片仓入仓记录。',
   },
   DONE: {
-    label: '已完成',
+    label: '已入仓',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前铺布已完成并进入后续闭环链路。',
+    detailText: '当前铺布单的裁片产出已进入待交出仓。',
   },
 }
 
@@ -1134,7 +1192,7 @@ function normalizeMarkerRecord(marker: MarkerRecord): MarkerRecord {
   const warningMessages = uniqueStrings([...(marker.warningMessages || []), ...derivedWarningMessages])
   return {
     ...marker,
-    originalCutOrderNos: marker.originalCutOrderNos || [],
+    cutOrderNos: marker.cutOrderNos || [],
     techPackSpuCode: marker.techPackSpuCode || '',
     markerMode: normalizedMode,
     totalPieces,
@@ -1464,9 +1522,9 @@ export function buildShortageQtyFormula(shortageQty: number, requiredQty: number
 }
 
 function buildWarningRuleText(shortageGarmentQty: number, varianceLength: number, missingData: boolean): string {
-  if (missingData) return '待补录 = 需求成衣件数、已领取长度、总实际铺布长度未补齐'
-  if (shortageGarmentQty > 0 || varianceLength < 0) return '建议补料 = 存在缺口成衣件数，或实际铺布长度超出已领取长度'
-  return '无需补料 = 缺口成衣件数为 0，且实际铺布长度未超已领取长度'
+  if (missingData) return '待补录 = 需求成衣件数、裁床已领长度、总实际铺布长度未补齐'
+  if (shortageGarmentQty > 0 || varianceLength < 0) return '建议补料 = 存在缺口成衣件数，或实际铺布长度超出裁床已领长度'
+  return '无需补料 = 缺口成衣件数为 0，且实际铺布长度未超裁床已领长度'
 }
 
 function buildRoundedDistribution(total: number, weights: number[], digits = 0): number[] {
@@ -1492,6 +1550,32 @@ function buildRoundedDistribution(total: number, weights: number[], digits = 0):
   return base.map((value) => Number((value / scale).toFixed(digits)))
 }
 
+function findContextMaterialLine(
+  context: MarkerSpreadingContext,
+  color: string,
+  materialSku?: string,
+) {
+  const matchedRows = context.materialPrepRows.filter((row) => !color || row.color === color)
+  const searchRows = matchedRows.length ? matchedRows : context.materialPrepRows
+  return (
+    searchRows.flatMap((row) => row.materialLineItems).find((line) => !materialSku || line.materialSku === materialSku) ||
+    context.materialPrepRows.flatMap((row) => row.materialLineItems).find((line) => !materialSku || line.materialSku === materialSku) ||
+    null
+  )
+}
+
+function buildPlanUnitMaterialIdentity(
+  context: MarkerSpreadingContext,
+  color: string,
+  materialSku: string,
+): Pick<SpreadingPlanUnit, 'materialAlias' | 'materialImageUrl'> {
+  const line = findContextMaterialLine(context, color, materialSku)
+  return {
+    materialAlias: line?.materialAlias || '',
+    materialImageUrl: line?.materialImageUrl || '',
+  }
+}
+
 function buildSpreadingReplenishmentLines(options: {
   context: MarkerSpreadingContext | null
   plannedCutGarmentQty: number
@@ -1503,9 +1587,11 @@ function buildSpreadingReplenishmentLines(options: {
   const grouped = new Map<
     string,
     {
-      originalCutOrderId: string
-      originalCutOrderNo: string
+      cutOrderId: string
+      cutOrderNo: string
       materialSku: string
+      materialAlias: string
+      materialImageUrl: string
       color: string
       claimedLengthTotal: number
       weight: number
@@ -1514,11 +1600,13 @@ function buildSpreadingReplenishmentLines(options: {
 
   options.context.materialPrepRows.forEach((row) => {
     row.materialLineItems.forEach((line) => {
-      const key = [row.originalCutOrderId, line.materialSku || row.materialSkuSummary, row.color || '待补'].join('::')
+      const key = [row.cutOrderId, line.materialSku || row.materialSkuSummary, row.color || '待补'].join('::')
       const current = grouped.get(key) || {
-        originalCutOrderId: row.originalCutOrderId,
-        originalCutOrderNo: row.originalCutOrderNo,
+        cutOrderId: row.cutOrderId,
+        cutOrderNo: row.cutOrderNo,
         materialSku: line.materialSku || row.materialSkuSummary || '待补',
+        materialAlias: line.materialAlias || '',
+        materialImageUrl: line.materialImageUrl || '',
         color: row.color || '待补',
         claimedLengthTotal: 0,
         weight: 0,
@@ -1550,10 +1638,12 @@ function buildSpreadingReplenishmentLines(options: {
       shortageGarmentQty > 0 || actualLengthTotal > row.claimedLengthTotal ? '建议补料' : '无需补料'
 
     return {
-      lineId: `spread-warning-line-${row.originalCutOrderId}-${index + 1}`,
-      originalCutOrderId: row.originalCutOrderId,
-      originalCutOrderNo: row.originalCutOrderNo,
+      lineId: `spread-warning-line-${row.cutOrderId}-${index + 1}`,
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
       materialSku: row.materialSku,
+      materialAlias: row.materialAlias,
+      materialImageUrl: row.materialImageUrl,
       color: row.color,
       requiredGarmentQty,
       actualCutGarmentQty,
@@ -1565,8 +1655,8 @@ function buildSpreadingReplenishmentLines(options: {
       shortageGarmentQtyFormula: buildShortageQtyFormula(shortageGarmentQty, requiredGarmentQty, actualCutGarmentQty),
       suggestedActionRuleText:
         suggestedAction === '建议补料'
-          ? '建议补料 = 存在缺口成衣件数，或实际铺布长度超出已领取长度'
-          : '无需补料 = 缺口成衣件数为 0，且实际铺布长度未超已领取长度',
+          ? '建议补料 = 存在缺口成衣件数，或实际铺布长度超出裁床已领长度'
+          : '无需补料 = 缺口成衣件数为 0，且实际铺布长度未超裁床已领长度',
     }
   })
 }
@@ -1766,57 +1856,57 @@ function summarizeTechPackSpuCode(rows: MaterialPrepRow[]): string {
   return techPackSpuCodes.length === 1 ? techPackSpuCodes[0] : ''
 }
 
-function getContextRowsByMergeBatch(batch: MergeBatchRecord, rowsById: Record<string, MaterialPrepRow>): MaterialPrepRow[] {
+function getContextRowsByMarkerPlanRef(batch: MarkerPlanRefRecord, rowsById: Record<string, MaterialPrepRow>): MaterialPrepRow[] {
   return batch.items
-    .map((item) => rowsById[item.originalCutOrderId] || rowsById[item.originalCutOrderNo])
+    .map((item) => rowsById[item.cutOrderId] || rowsById[item.cutOrderNo])
     .filter((row): row is MaterialPrepRow => Boolean(row))
 }
 
 function buildContext(
   rows: MaterialPrepRow[],
   rowsById: Record<string, MaterialPrepRow>,
-  mergeBatches: MergeBatchRecord[],
+  markerPlanRefs: MarkerPlanRefRecord[],
   prefilter: MarkerSpreadingPrefilter | null,
 ): MarkerSpreadingContext | null {
   if (!prefilter) return null
 
-  const mergeBatch =
-    (prefilter.mergeBatchId && mergeBatches.find((batch) => batch.mergeBatchId === prefilter.mergeBatchId)) ||
-    (prefilter.mergeBatchNo && mergeBatches.find((batch) => batch.mergeBatchNo === prefilter.mergeBatchNo))
+  const markerPlanRef =
+    (prefilter.markerPlanId && markerPlanRefs.find((batch) => batch.markerPlanId === prefilter.markerPlanId)) ||
+    (prefilter.markerPlanNo && markerPlanRefs.find((batch) => batch.markerPlanNo === prefilter.markerPlanNo))
 
-  if (mergeBatch) {
-    const batchRows = getContextRowsByMergeBatch(mergeBatch, rowsById)
+  if (markerPlanRef) {
+    const batchRows = getContextRowsByMarkerPlanRef(markerPlanRef, rowsById)
     if (!batchRows.length) return null
 
     return {
-      contextType: 'merge-batch',
-      originalCutOrderIds: batchRows.map((row) => row.originalCutOrderId),
-      originalCutOrderNos: batchRows.map((row) => row.originalCutOrderNo),
-      mergeBatchId: mergeBatch.mergeBatchId,
-      mergeBatchNo: mergeBatch.mergeBatchNo,
+      contextType: 'marker-plan-ref',
+      cutOrderIds: batchRows.map((row) => row.cutOrderId),
+      cutOrderNos: batchRows.map((row) => row.cutOrderNo),
+      markerPlanId: markerPlanRef.markerPlanId,
+      markerPlanNo: markerPlanRef.markerPlanNo,
       productionOrderNos: uniqueStrings(batchRows.map((row) => row.productionOrderNo)),
-      styleCode: mergeBatch.styleCode || batchRows[0]?.styleCode || '',
-      spuCode: mergeBatch.spuCode || batchRows[0]?.spuCode || '',
+      styleCode: markerPlanRef.styleCode || batchRows[0]?.styleCode || '',
+      spuCode: markerPlanRef.spuCode || batchRows[0]?.spuCode || '',
       techPackSpuCode: summarizeTechPackSpuCode(batchRows),
-      styleName: mergeBatch.styleName || batchRows[0]?.styleName || '',
-      materialSkuSummary: mergeBatch.materialSkuSummary || summarizeMaterialSku(batchRows),
+      styleName: markerPlanRef.styleName || batchRows[0]?.styleName || '',
+      materialSkuSummary: markerPlanRef.materialSkuSummary || summarizeMaterialSku(batchRows),
       materialPrepRows: batchRows,
     }
   }
 
   const matchedRow =
-    (prefilter.originalCutOrderId && rowsById[prefilter.originalCutOrderId]) ||
-    (prefilter.originalCutOrderNo && rows.find((row) => row.originalCutOrderNo === prefilter.originalCutOrderNo)) ||
+    (prefilter.cutOrderId && rowsById[prefilter.cutOrderId]) ||
+    (prefilter.cutOrderNo && rows.find((row) => row.cutOrderNo === prefilter.cutOrderNo)) ||
     null
 
   if (!matchedRow) return null
 
   return {
-    contextType: 'original-order',
-    originalCutOrderIds: [matchedRow.originalCutOrderId],
-    originalCutOrderNos: [matchedRow.originalCutOrderNo],
-    mergeBatchId: matchedRow.mergeBatchIds[0] || '',
-    mergeBatchNo: matchedRow.latestMergeBatchNo || '',
+    contextType: 'cut-order',
+    cutOrderIds: [matchedRow.cutOrderId],
+    cutOrderNos: [matchedRow.cutOrderNo],
+    markerPlanId: matchedRow.markerPlanIds[0] || '',
+    markerPlanNo: matchedRow.latestMarkerPlanNo || '',
     productionOrderNos: [matchedRow.productionOrderNo],
     styleCode: matchedRow.styleCode,
     spuCode: matchedRow.spuCode,
@@ -1827,15 +1917,15 @@ function buildContext(
   }
 }
 
-function matchesContext<T extends { contextType: 'original-order' | 'merge-batch'; originalCutOrderIds: string[]; mergeBatchId: string }>(
+function matchesContext<T extends { contextType: 'cut-order' | 'marker-plan-ref'; cutOrderIds: string[]; markerPlanId: string }>(
   record: T,
   context: MarkerSpreadingContext | null,
 ): boolean {
   if (!context) return false
-  if (context.contextType === 'merge-batch') {
-    return record.contextType === 'merge-batch' && record.mergeBatchId === context.mergeBatchId
+  if (context.contextType === 'marker-plan-ref') {
+    return record.contextType === 'marker-plan-ref' && record.markerPlanId === context.markerPlanId
   }
-  return record.contextType === 'original-order' && record.originalCutOrderIds[0] === context.originalCutOrderIds[0]
+  return record.contextType === 'cut-order' && record.cutOrderIds[0] === context.cutOrderIds[0]
 }
 
 function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
@@ -1847,8 +1937,8 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
   )
   const netLength = Number((configuredLengthTotal > 0 ? configuredLengthTotal : totalPieces * 1.2).toFixed(2))
   const singlePieceUsage = totalPieces > 0 ? Number((netLength / totalPieces).toFixed(3)) : 0
-  const markerId = `seed-marker-${context.contextType}-${context.mergeBatchId || context.originalCutOrderIds[0]}`
-  const markerMode: MarkerModeKey = context.contextType === 'merge-batch' ? 'high_low' : 'normal'
+  const markerId = `seed-marker-${context.contextType}-${context.markerPlanId || context.cutOrderIds[0]}`
+  const markerMode: MarkerModeKey = context.contextType === 'marker-plan-ref' ? 'high_low' : 'normal'
   const highLowPatternKeys = [...DEFAULT_HIGH_LOW_PATTERN_KEYS]
   const colors = uniqueStrings(context.materialPrepRows.map((row) => row.color))
   const plannedLayerCount = Math.max(Math.ceil(totalPieces / 20), 1)
@@ -1861,14 +1951,14 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
       ? Number((netLength * 1.1).toFixed(2))
       : Number((spreadLengthPerLine * lineItemCount).toFixed(2))
   const allocationLines: MarkerAllocationLine[] =
-    context.contextType === 'original-order' && context.materialPrepRows.length === 1
+    context.contextType === 'cut-order' && context.materialPrepRows.length === 1
       ? sizeDistribution
           .filter((item) => item.quantity > 0)
           .map((item, index) => ({
             allocationId: `seed-allocation-${markerId}-${index + 1}`,
             markerId,
-            sourceCutOrderId: context.materialPrepRows[0].originalCutOrderId,
-            sourceCutOrderNo: context.materialPrepRows[0].originalCutOrderNo,
+            sourceCutOrderId: context.materialPrepRows[0].cutOrderId,
+            sourceCutOrderNo: context.materialPrepRows[0].cutOrderNo,
             sourceProductionOrderId: context.materialPrepRows[0].productionOrderId,
             sourceProductionOrderNo: context.materialPrepRows[0].productionOrderNo,
             styleCode: context.materialPrepRows[0].styleCode,
@@ -1885,7 +1975,7 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
     isHighLowMarkerMode(markerMode)
       ? []
       : context.materialPrepRows.map((row, index) => ({
-          lineItemId: `seed-line-${context.contextType}-${context.mergeBatchId || row.originalCutOrderId}-${index}`,
+          lineItemId: `seed-line-${context.contextType}-${context.markerPlanId || row.cutOrderId}-${index}`,
           markerId,
           lineNo: index + 1,
           layoutCode: `A-${index + 1}`,
@@ -1907,21 +1997,23 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
 
   return {
     markerId,
-    markerNo: `MKP-${context.contextType === 'merge-batch' ? 'B' : 'O'}-${(context.mergeBatchNo || context.originalCutOrderNos[0] || '001').slice(-6)}`,
+    markerNo: `MKP-${context.contextType === 'marker-plan-ref' ? 'B' : 'O'}-${(context.markerPlanNo || context.cutOrderNos[0] || '001').slice(-6)}`,
     schemeId: markerId,
-    schemeNo: `MKP-${context.contextType === 'merge-batch' ? 'B' : 'O'}-${(context.mergeBatchNo || context.originalCutOrderNos[0] || '001').slice(-6)}`,
+    schemeNo: `MKP-${context.contextType === 'marker-plan-ref' ? 'B' : 'O'}-${(context.markerPlanNo || context.cutOrderNos[0] || '001').slice(-6)}`,
     bedId: `${markerId}-bed-A-1`,
     bedNo: 'A-1',
     bedMode: markerMode,
     contextType: context.contextType,
-    originalCutOrderIds: [...context.originalCutOrderIds],
-    originalCutOrderNos: [...context.originalCutOrderNos],
-    mergeBatchId: context.mergeBatchId,
-    mergeBatchNo: context.mergeBatchNo,
+    cutOrderIds: [...context.cutOrderIds],
+    cutOrderNos: [...context.cutOrderNos],
+    markerPlanId: context.markerPlanId,
+    markerPlanNo: context.markerPlanNo,
     styleCode: context.styleCode,
     spuCode: context.spuCode,
     techPackSpuCode: context.techPackSpuCode || '',
     materialSkuSummary: context.materialSkuSummary,
+    materialAliasSummary: context.materialAliasSummary || '',
+    materialImageUrl: context.materialImageUrl || '',
     colorSummary: uniqueStrings(context.materialPrepRows.map((row) => row.color)).join(' / '),
     markerMode,
     sizeDistribution,
@@ -2005,9 +2097,9 @@ export function createSpreadingDraftFromMarker(
     spreadingSessionId: baseSession?.spreadingSessionId || `spreading-session-${timestamp}`,
     sessionNo: baseSession?.sessionNo || `PB-${String(timestamp).slice(-6)}`,
     contextType: context.contextType,
-    originalCutOrderIds: [...context.originalCutOrderIds],
-    mergeBatchId: context.mergeBatchId,
-    mergeBatchNo: context.mergeBatchNo,
+    cutOrderIds: [...context.cutOrderIds],
+    markerPlanId: context.markerPlanId,
+    markerPlanNo: context.markerPlanNo,
     markerId: marker.markerId,
     markerNo: marker.markerNo || '',
     sourceSchemeId: marker.schemeId || marker.markerId,
@@ -2027,6 +2119,8 @@ export function createSpreadingDraftFromMarker(
     styleCode: context.styleCode,
     spuCode: context.spuCode,
     materialSkuSummary: context.materialSkuSummary,
+    materialAliasSummary: context.materialAliasSummary || '',
+    materialImageUrl: context.materialImageUrl || '',
     colorSummary: colorSummary === '待补' ? '' : colorSummary,
     spreadingMode: normalizeMarkerMode(marker.markerMode as string | undefined),
     status: (baseSession?.status as SpreadingStatusKey) || 'DRAFT',
@@ -2089,6 +2183,8 @@ export function buildSpreadingPlanUnitsFromMarker(
       const garmentQtyPerUnit = Math.max(Number(item.markerPieceCount ?? item.pieceCount ?? 0), 0)
       const plannedRepeatCount = Math.max(Number(item.spreadRepeatCount || 0), 0)
       const lengthPerUnitM = Number(item.markerLength || 0)
+      const color = item.color || context.materialPrepRows[0]?.color || ''
+      const materialSku = resolveMaterialSku(color)
       const plannedSpreadLengthM =
         Number(item.spreadTotalLength || item.spreadingTotalLength || 0) ||
         Number((((lengthPerUnitM + 0.06) * plannedRepeatCount).toFixed(2)))
@@ -2096,8 +2192,9 @@ export function buildSpreadingPlanUnitsFromMarker(
         planUnitId: `plan-unit-${marker.markerId}-${index + 1}`,
         sourceType: 'marker-line',
         sourceLineId: item.lineItemId || item.markerLineItemId || `line-${index + 1}`,
-        color: item.color || context.materialPrepRows[0]?.color || '',
-        materialSku: resolveMaterialSku(item.color || ''),
+        color,
+        materialSku,
+        ...buildPlanUnitMaterialIdentity(context, color, materialSku),
         garmentQtyPerUnit,
         plannedRepeatCount,
         lengthPerUnitM,
@@ -2114,12 +2211,15 @@ export function buildSpreadingPlanUnitsFromMarker(
     const plannedRepeatCount = Math.max(Number(marker.plannedLayerCount || 0), 1)
     return highLowRows.map((row, index) => {
       const plannedCutGarmentQty = Math.max(Number(row.total || 0), 0)
+      const color = row.color || context.materialPrepRows[0]?.color || ''
+      const materialSku = resolveMaterialSku(color)
       return {
         planUnitId: `plan-unit-${marker.markerId}-${index + 1}`,
         sourceType: 'high-low-row',
         sourceLineId: row.rowId || `high-low-${index + 1}`,
-        color: row.color || context.materialPrepRows[0]?.color || '',
-        materialSku: resolveMaterialSku(row.color || ''),
+        color,
+        materialSku,
+        ...buildPlanUnitMaterialIdentity(context, color, materialSku),
         garmentQtyPerUnit: plannedRepeatCount > 0 ? Math.max(Math.ceil(plannedCutGarmentQty / plannedRepeatCount), 0) : plannedCutGarmentQty,
         plannedRepeatCount,
         lengthPerUnitM: Number(marker.markerLength || marker.netLength || 0),
@@ -2136,6 +2236,7 @@ export function buildSpreadingPlanUnitsFromMarker(
       sourceLineId: marker.markerId,
       color: context.materialPrepRows[0]?.color || '',
       materialSku: fallbackMaterialSku,
+      ...buildPlanUnitMaterialIdentity(context, context.materialPrepRows[0]?.color || '', fallbackMaterialSku),
       garmentQtyPerUnit: Math.max(Number(marker.totalPieces || 0), 0),
       plannedRepeatCount: 1,
       lengthPerUnitM: Number(marker.netLength || 0),
@@ -2151,9 +2252,9 @@ export function validateMarkerForSpreadingImport(marker: Partial<MarkerRecord>):
   const templateType = mode ? deriveMarkerTemplateByMode(mode) : null
 
   if (!mode) messages.push('床次模式不能为空，不能发起铺布导入。')
-  if (!marker.contextType) messages.push('上下文类型不能为空，不能发起铺布导入。')
-  if (!(marker.originalCutOrderIds || []).length && !marker.mergeBatchId && !marker.mergeBatchNo) {
-    messages.push('唛架必须至少关联原始裁片单或合并裁剪批次，才能导入铺布。')
+  if (!marker.contextType) messages.push('唛架关联信息不能为空，不能发起铺布导入。')
+  if (!(marker.cutOrderIds || []).length && !marker.markerPlanId && !marker.markerPlanNo) {
+    messages.push('唛架必须至少关联裁片单或唛架方案，才能导入铺布。')
   }
   if (Number(marker.totalPieces || 0) <= 0) messages.push('床次成衣件数必须大于 0，才能导入铺布。')
   if (Number(marker.netLength || 0) <= 0) messages.push('床次净长度不能为空，才能导入铺布。')
@@ -2225,10 +2326,10 @@ export function buildSpreadingImportSource(
     sourceMarkerNo: marker.markerNo || marker.markerId,
     sourceMarkerMode: normalizeMarkerMode(marker.markerMode as string | undefined),
     sourceContextType: context.contextType,
-    sourceOriginalCutOrderIds: [...context.originalCutOrderIds],
-    sourceOriginalCutOrderNos: [...context.originalCutOrderNos],
-    sourceMergeBatchId: context.mergeBatchId,
-    sourceMergeBatchNo: context.mergeBatchNo,
+    sourceCutOrderIds: [...context.cutOrderIds],
+    sourceCutOrderNos: [...context.cutOrderNos],
+    sourceMarkerPlanId: context.markerPlanId,
+    sourceMarkerPlanNo: context.markerPlanNo,
     sourceStyleCode: marker.styleCode || context.styleCode,
     sourceSpuCode: marker.spuCode || context.spuCode,
     sourceMaterialSkuSummary: marker.materialSkuSummary || context.materialSkuSummary,
@@ -2244,7 +2345,7 @@ export function buildSpreadingReplenishmentWarning(options: {
   context?: MarkerSpreadingContext | null
   session: Partial<SpreadingSession>
   markerTotalPieces: number
-  originalCutOrderNos: string[]
+  cutOrderNos: string[]
   productionOrderNos: string[]
   materialAttr?: string
   createdAt?: string
@@ -2282,13 +2383,13 @@ export function buildSpreadingReplenishmentWarning(options: {
   return {
     warningId: `spread-warning-${session.spreadingSessionId || Date.now()}`,
     sourceType: 'spreading-session',
-    sourceContextType: session.contextType || 'original-order',
+    sourceContextType: session.contextType || 'cut-order',
     spreadingSessionId: session.spreadingSessionId || '',
     spreadingSessionNo: session.sessionNo || session.spreadingSessionId || '',
-    originalCutOrderIds: [...(session.originalCutOrderIds || [])],
-    originalCutOrderNos: [...options.originalCutOrderNos],
-    mergeBatchId: session.mergeBatchId || '',
-    mergeBatchNo: session.mergeBatchNo || '',
+    cutOrderIds: [...(session.cutOrderIds || [])],
+    cutOrderNos: [...options.cutOrderNos],
+    markerPlanId: session.markerPlanId || '',
+    markerPlanNo: session.markerPlanNo || '',
     productionOrderNos: [...options.productionOrderNos],
     styleCode: session.styleCode || '',
     spuCode: session.spuCode || '',
@@ -2330,9 +2431,9 @@ export function buildSpreadingReplenishmentWarning(options: {
 export function validateSpreadingCompletion(options: {
   session: Partial<SpreadingSession>
   markerTotalPieces: number
-  selectedOriginalCutOrderIds: string[]
+  selectedCutOrderIds: string[]
 }): SpreadingCompletionValidationResult {
-  const { session, markerTotalPieces, selectedOriginalCutOrderIds } = options
+  const { session, markerTotalPieces, selectedCutOrderIds } = options
   const messages: string[] = []
   const rolls = session.rolls || []
 
@@ -2352,12 +2453,12 @@ export function validateSpreadingCompletion(options: {
     messages.push('当前缺少单层成衣件数，无法准确推导裁剪成衣件数，不能完成铺布。')
   }
 
-  if (session.contextType === 'merge-batch' && !selectedOriginalCutOrderIds.length) {
-    messages.push('批次上下文下必须勾选至少一个原始裁片单，才能联动完成铺布。')
+  if (session.contextType === 'marker-plan-ref' && !selectedCutOrderIds.length) {
+    messages.push('唛架方案上下文下必须勾选至少一个裁片单，才能联动完成铺布。')
   }
 
-  if (session.contextType === 'original-order' && !(session.originalCutOrderIds || []).length) {
-    messages.push('当前缺少原始裁片单上下文，不能完成铺布。')
+  if (session.contextType === 'cut-order' && !(session.cutOrderIds || []).length) {
+    messages.push('当前缺少裁片单上下文，不能完成铺布。')
   }
 
   return {
@@ -2369,8 +2470,8 @@ export function validateSpreadingCompletion(options: {
 export function finalizeSpreadingCompletion(options: {
   session: SpreadingSession
   context?: MarkerSpreadingContext | null
-  linkedOriginalCutOrderIds: string[]
-  linkedOriginalCutOrderNos: string[]
+  linkedCutOrderIds: string[]
+  linkedCutOrderNos: string[]
   productionOrderNos: string[]
   markerTotalPieces: number
   materialAttr?: string
@@ -2383,7 +2484,7 @@ export function finalizeSpreadingCompletion(options: {
     context: options.context || null,
     session: options.session,
     markerTotalPieces: options.markerTotalPieces,
-    originalCutOrderNos: options.linkedOriginalCutOrderNos,
+    cutOrderNos: options.linkedCutOrderNos,
     productionOrderNos: options.productionOrderNos,
     materialAttr: options.materialAttr,
     createdAt: completedAt,
@@ -2400,14 +2501,14 @@ export function finalizeSpreadingCompletion(options: {
     completionLinkage: {
       completedAt,
       completedBy: options.completedBy || '铺布编辑页',
-      linkedOriginalCutOrderIds: [...options.linkedOriginalCutOrderIds],
-      linkedOriginalCutOrderNos: [...options.linkedOriginalCutOrderNos],
+      linkedCutOrderIds: [...options.linkedCutOrderIds],
+      linkedCutOrderNos: [...options.linkedCutOrderNos],
       generatedWarningId: replenishmentWarning.warningId,
       generatedWarning: true,
       note:
         replenishmentWarning.suggestedAction === '无需补料'
           ? '当前铺布已完成，未触发明显补料预警。'
-          : `当前铺布已完成，并生成补料预警：${replenishmentWarning.suggestedAction}，建议进入补料管理确认后回仓库WMS 待处理。`,
+          : `当前铺布已完成，并生成补料预警：${replenishmentWarning.suggestedAction}，建议进入补料管理确认后回中转仓配料。`,
     },
     varianceLength: replenishmentWarning.varianceLength,
     varianceNote:
@@ -3034,13 +3135,13 @@ export function buildSpreadingVarianceSummary(
   })
   const shortageIndicator = coreMetrics.shortageGarmentQty > 0
 
-  let replenishmentHint = '当前铺布数据与WMS 来料数据基本匹配。'
+  let replenishmentHint = '当前铺布数据与领料数据基本匹配。'
   if (!session || !session.rolls.length) {
     replenishmentHint = '当前尚未录入铺布卷数据，补料判断仍需补录后确认。'
   } else if (shortageIndicator) {
-    replenishmentHint = '预计承载成衣件数低于计划裁剪成衣件数，建议进入补料管理确认后回仓库WMS 待处理。'
+    replenishmentHint = '预计承载成衣件数低于计划裁剪成衣件数，建议进入补料管理确认后回中转仓配料。'
   } else if (coreMetrics.varianceLength < 0) {
-    replenishmentHint = '总实际铺布长度超过已领取长度，建议复核差异并按需进入补料管理回仓库WMS 待处理。'
+    replenishmentHint = '总实际铺布长度超过裁床已领长度，建议复核差异并按需进入补料管理回中转仓配料。'
   }
 
   return {
@@ -3088,10 +3189,10 @@ export function buildSpreadingTraceAnchor(session: SpreadingSession): SpreadingT
     spreadingSessionId: session.spreadingSessionId,
     spreadingSessionNo: session.sessionNo || session.spreadingSessionId,
     contextType: session.contextType,
-    originalCutOrderIds: [...(session.originalCutOrderIds || [])],
-    originalCutOrderNos: [...(session.completionLinkage?.linkedOriginalCutOrderNos || [])],
-    mergeBatchId: session.mergeBatchId || '',
-    mergeBatchNo: session.mergeBatchNo || '',
+    cutOrderIds: [...(session.cutOrderIds || [])],
+    cutOrderNos: [...(session.completionLinkage?.linkedCutOrderNos || [])],
+    markerPlanId: session.markerPlanId || '',
+    markerPlanNo: session.markerPlanNo || '',
     materialSkuSummary: session.materialSkuSummary || '',
     colorSummary: session.colorSummary || '',
     sourceChannel: session.sourceChannel || 'MANUAL',
@@ -3117,16 +3218,16 @@ export function findSpreadingTraceAnchor(
   anchors: SpreadingTraceAnchor[],
   options: SpreadingTraceAnchorMatchOptions,
 ): SpreadingTraceAnchor | null {
-  const originalCutOrderIds = Array.from(new Set((options.originalCutOrderIds || []).filter(Boolean)))
-  const mergeBatchId = options.mergeBatchId?.trim() || ''
+  const cutOrderIds = Array.from(new Set((options.cutOrderIds || []).filter(Boolean)))
+  const markerPlanId = options.markerPlanId?.trim() || ''
   const materialSku = options.materialSku?.trim() || ''
   const color = options.color?.trim() || ''
 
   const matches = anchors.filter((anchor) => {
-    if (originalCutOrderIds.length && !anchor.originalCutOrderIds.some((item) => originalCutOrderIds.includes(item))) {
+    if (cutOrderIds.length && !anchor.cutOrderIds.some((item) => cutOrderIds.includes(item))) {
       return false
     }
-    if (mergeBatchId && anchor.mergeBatchId && anchor.mergeBatchId !== mergeBatchId) {
+    if (markerPlanId && anchor.markerPlanId && anchor.markerPlanId !== markerPlanId) {
       return false
     }
     if (materialSku && anchor.materialSkuSummary && !anchor.materialSkuSummary.includes(materialSku)) {
@@ -3173,7 +3274,7 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
     return {
       level: 'WATCH',
       label: '建议继续观察',
-      detailText: '当前可用长度与仓库WMS 来料长度接近，建议在进入补料前复核后续损耗。',
+      detailText: '当前可用长度与仓库领料长度接近，建议在进入补料前复核后续损耗。',
       shortageIndicator: false,
     }
   }
@@ -3235,7 +3336,7 @@ export function buildSpreadingWarningMessages(options: {
   })
 
   if (options.claimedLengthTotal > 0 && rollSummary.totalActualLength > options.claimedLengthTotal) {
-    warnings.push('总实际铺布长度超过已领取总长度，可能需要补料。')
+    warnings.push('总实际铺布长度超过裁床已领总长度，可能需要补料。')
   }
 
   if (!operators.length) {
@@ -3269,13 +3370,13 @@ export function buildMarkerSpreadingNavigationPayload(
     return {
       replenishment: {},
       feiTickets: {},
-      originalOrders: {},
-      mergeBatches: {},
+      cutOrders: {},
+      markerPlanRefs: {},
       summary: {},
     }
   }
 
-  const baseOriginal = context.originalCutOrderNos[0]
+  const baseCutOrderNo = context.cutOrderNos[0]
   const baseProduction = context.productionOrderNos[0]
   const varianceHint = warning ? String(warning.varianceLength) : varianceSummary ? String(varianceSummary.varianceLength) : undefined
   const shortageHint =
@@ -3287,8 +3388,8 @@ export function buildMarkerSpreadingNavigationPayload(
     replenishment: {
       spreadingSessionId: warning?.spreadingSessionId,
       warningId: warning?.warningId,
-      mergeBatchNo: context.contextType === 'merge-batch' ? context.mergeBatchNo || undefined : undefined,
-      originalCutOrderNo: context.contextType === 'original-order' ? baseOriginal || undefined : undefined,
+      markerPlanNo: context.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : undefined,
+      cutOrderNo: context.contextType === 'cut-order' ? baseCutOrderNo || undefined : undefined,
       productionOrderNo: baseProduction || undefined,
       materialSku: context.materialSkuSummary?.split(' / ')[0] || undefined,
       riskLevel,
@@ -3296,22 +3397,22 @@ export function buildMarkerSpreadingNavigationPayload(
       shortageHint,
     },
     feiTickets: {
-      mergeBatchNo: context.contextType === 'merge-batch' ? context.mergeBatchNo || undefined : undefined,
-      originalCutOrderNo: baseOriginal || undefined,
+      markerPlanNo: context.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : undefined,
+      cutOrderNo: baseCutOrderNo || undefined,
     },
-    originalOrders: {
-      mergeBatchNo: context.contextType === 'merge-batch' ? context.mergeBatchNo || undefined : undefined,
-      originalCutOrderNo: baseOriginal || undefined,
+    cutOrders: {
+      markerPlanNo: context.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : undefined,
+      cutOrderNo: baseCutOrderNo || undefined,
       productionOrderNo: baseProduction || undefined,
     },
-    mergeBatches: {
-      mergeBatchId: context.mergeBatchId || undefined,
-      mergeBatchNo: context.mergeBatchNo || undefined,
-      originalCutOrderNo: context.contextType === 'original-order' ? baseOriginal || undefined : undefined,
+    markerPlanRefs: {
+      markerPlanId: context.markerPlanId || undefined,
+      markerPlanNo: context.markerPlanNo || undefined,
+      cutOrderNo: context.contextType === 'cut-order' ? baseCutOrderNo || undefined : undefined,
     },
     summary: {
-      mergeBatchNo: context.contextType === 'merge-batch' ? context.mergeBatchNo || undefined : undefined,
-      originalCutOrderNo: context.contextType === 'original-order' ? baseOriginal || undefined : undefined,
+      markerPlanNo: context.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : undefined,
+      cutOrderNo: context.contextType === 'cut-order' ? baseCutOrderNo || undefined : undefined,
       productionOrderNo: baseProduction || undefined,
     },
   }
@@ -3475,12 +3576,12 @@ export function updateSpreadingReplenishmentHandled(
 
 export function buildMarkerSpreadingViewModel(options: {
   rows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   store: MarkerSpreadingStore
   prefilter: MarkerSpreadingPrefilter | null
 }): MarkerSpreadingViewModel {
-  const rowsById = Object.fromEntries(options.rows.map((row) => [row.originalCutOrderId, row]))
-  const context = buildContext(options.rows, rowsById, options.mergeBatches, options.prefilter)
+  const rowsById = Object.fromEntries(options.rows.map((row) => [row.cutOrderId, row]))
+  const context = buildContext(options.rows, rowsById, options.markerPlanRefs, options.prefilter)
   const markerRecords = context ? options.store.markers.filter((record) => matchesContext(record, context)) : options.store.markers
   const spreadingSessions = context ? options.store.sessions.filter((record) => matchesContext(record, context)) : options.store.sessions
 
@@ -3501,7 +3602,7 @@ export function buildMarkerSpreadingViewModel(options: {
       doneCount: spreadingSessions.filter((session) => session.status === 'DONE').length,
       rollCount: spreadingSessions.reduce((sum, session) => sum + session.rolls.length, 0),
       warningCount,
-      contextOriginalOrderCount: context?.originalCutOrderIds.length ?? 0,
+      contextCutOrderCount: context?.cutOrderIds.length ?? 0,
       contextProductionOrderCount: context?.productionOrderNos.length ?? 0,
     },
   }
@@ -3517,11 +3618,11 @@ export function formatSpreadingLength(value: number): string {
 }
 
 export function summarizeContextHint(context: MarkerSpreadingContext | null): string {
-  if (!context) return '当前尚未收到原始裁片单或合并裁剪批次上下文，请从上游页面进入。'
-  if (context.contextType === 'merge-batch') {
-    return `当前以合并裁剪批次 ${context.mergeBatchNo || '待补合并裁剪批次号'} 作为执行上下文，底层追溯仍回落 ${context.originalCutOrderNos.length} 个原始裁片单。`
+  if (!context) return '当前尚未收到裁片单或唛架方案上下文，请从上游页面进入。'
+  if (context.contextType === 'marker-plan-ref') {
+    return `当前以唛架方案 ${context.markerPlanNo || '待补唛架方案号'} 作为执行上下文，底层追溯仍回落 ${context.cutOrderNos.length} 个裁片单。`
   }
-  return `当前以原始裁片单 ${context.originalCutOrderNos[0]} 作为上下文，后续若进入打印菲票，归属仍回落该原始裁片单。`
+  return `当前以裁片单 ${context.cutOrderNos[0]} 作为上下文，后续若进入打印菲票，归属仍回落该裁片单。`
 }
 
 export function createEmptyStore(): MarkerSpreadingStore {

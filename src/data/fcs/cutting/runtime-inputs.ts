@@ -5,11 +5,11 @@ import {
 } from '../../browser-storage.ts'
 import {
   listCuttingProductionOrdersWithFormalTechPack,
-  listGeneratedOriginalCutOrderSourceRecords,
-} from './generated-original-cut-orders.ts'
+  listGeneratedCutOrderSourceRecords,
+} from './generated-cut-orders.ts'
 import {
-  listMergeBatchSourceRecords,
-} from './merge-batch-source.ts'
+  listMarkerPlanRefSourceRecords,
+} from './marker-plan-ref-source.ts'
 import { cuttingOrderProgressRecords } from './order-progress.ts'
 import {
   listFormalCutPieceWarehouseRecords,
@@ -58,9 +58,9 @@ import {
   deserializePdaExecutionWritebackStorage,
 } from './pda-execution-writeback-ledger.ts'
 import {
-  CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
-  deserializeMergeBatchStorage,
-} from './storage/merge-batches-storage.ts'
+  CUTTING_MARKER_PLAN_REF_LEDGER_STORAGE_KEY,
+  deserializeMarkerPlanRefStorage,
+} from './storage/marker-plan-ref-storage.ts'
 import {
   CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
   deserializeCuttingWarehouseWritebackStorage,
@@ -80,7 +80,7 @@ const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
   CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY,
   CUTTING_PDA_EXECUTION_WRITEBACK_STORAGE_KEY,
-  CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
+  CUTTING_MARKER_PLAN_REF_LEDGER_STORAGE_KEY,
   CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
 ]
 
@@ -175,9 +175,9 @@ export function readCuttingPdaExecutionRuntimeState() {
   }
 }
 
-export function readCuttingStoredMergeBatchLedger() {
-  return deserializeMergeBatchStorage(
-    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY),
+export function readCuttingStoredMarkerPlanRefLedger() {
+  return deserializeMarkerPlanRefStorage(
+    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MARKER_PLAN_REF_LEDGER_STORAGE_KEY),
   )
 }
 
@@ -200,10 +200,10 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
 
   return {
     productionOrders: listCuttingProductionOrdersWithFormalTechPack().map((order) => ({ ...order })),
-    originalCutOrders: listGeneratedOriginalCutOrderSourceRecords(),
-    mergeBatchState: {
-      sourceRecords: listMergeBatchSourceRecords(),
-      storedRecords: readCuttingStoredMergeBatchLedger().map((record) => ({ ...record })),
+    cutOrders: listGeneratedCutOrderSourceRecords(),
+    markerPlanRefState: {
+      sourceRecords: listMarkerPlanRefSourceRecords(),
+      storedRecords: readCuttingStoredMarkerPlanRefLedger().map((record) => ({ ...record })),
     },
     progressRecords: cuttingOrderProgressRecords.map((record) => ({
       ...record,

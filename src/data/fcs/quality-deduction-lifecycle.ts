@@ -454,7 +454,7 @@ export function adjudicateDisputeCase(
   }
   const disputeCase = caseFact.disputeCase
   if (!disputeCase) {
-    return { ok: false, message: '当前记录不存在可裁决异议单' }
+    return { ok: false, message: '当前记录不存在待平台处理的异议单' }
   }
   if (!(disputeCase.status === 'PENDING_REVIEW' || disputeCase.status === 'IN_REVIEW')) {
     return { ok: false, message: '当前异议单已完成裁决，不能重复处理' }

@@ -45,9 +45,6 @@ import {
   resolveFeiTicketScanInput,
 } from './traceability-projection-helpers.ts'
 import {
-  listCuttingSewingTransferBags,
-} from '../../../data/fcs/cutting/sewing-dispatch.ts'
-import {
   buildBagUsageAuditTrail,
   buildTransferBagParentChildSummary,
   createTransferBagDispatchManifest,
@@ -90,6 +87,7 @@ import {
   type TransferBagReusableDecision,
   type TransferBagReturnReceipt,
 } from './transfer-bag-return-model.ts'
+import { renderMaterialIdentityBlock } from './material-identity.ts'
 
 type MasterStatusFilter = 'ALL' | TransferBagVisibleStatusKey
 
@@ -218,13 +216,13 @@ function hasExplicitBagContext(prefilter: TransferBagPrefilter | null): boolean 
 
 function hasSourceContext(prefilter: TransferBagPrefilter | null): boolean {
   return Boolean(
-    prefilter?.originalCutOrderId ||
-      prefilter?.originalCutOrderNo ||
+    prefilter?.cutOrderId ||
+      prefilter?.cutOrderNo ||
       prefilter?.productionOrderId ||
       prefilter?.productionOrderNo ||
-      prefilter?.mergeBatchId ||
-      prefilter?.mergeBatchNo ||
-      prefilter?.裁剪批次No ||
+      prefilter?.markerPlanId ||
+      prefilter?.markerPlanNo ||
+      prefilter?.唛架方案No ||
       prefilter?.materialSku ||
       prefilter?.spreadingSessionId ||
       prefilter?.sourceWritebackId ||
@@ -237,13 +235,13 @@ function hasSourceContext(prefilter: TransferBagPrefilter | null): boolean {
 function buildSourceOnlyPrefilter(prefilter: TransferBagPrefilter | null): TransferBagPrefilter | null {
   if (!prefilter) return null
   return {
-    originalCutOrderId: prefilter.originalCutOrderId,
-    originalCutOrderNo: prefilter.originalCutOrderNo,
+    cutOrderId: prefilter.cutOrderId,
+    cutOrderNo: prefilter.cutOrderNo,
     productionOrderId: prefilter.productionOrderId,
     productionOrderNo: prefilter.productionOrderNo,
-    mergeBatchId: prefilter.mergeBatchId,
-    mergeBatchNo: prefilter.mergeBatchNo,
-    裁剪批次No: prefilter.裁剪批次No,
+    markerPlanId: prefilter.markerPlanId,
+    markerPlanNo: prefilter.markerPlanNo,
+    唛架方案No: prefilter.唛架方案No,
     materialSku: prefilter.materialSku,
     spreadingSessionId: prefilter.spreadingSessionId,
     sourceWritebackId: prefilter.sourceWritebackId,
@@ -262,13 +260,13 @@ function hasResolverLookupContext(prefilter: TransferBagPrefilter | null): boole
       prefilter?.ticketId ||
       prefilter?.ticketNo ||
       prefilter?.sewingTaskNo ||
-      prefilter?.originalCutOrderId ||
-      prefilter?.originalCutOrderNo ||
+      prefilter?.cutOrderId ||
+      prefilter?.cutOrderNo ||
       prefilter?.productionOrderId ||
       prefilter?.productionOrderNo ||
-      prefilter?.mergeBatchId ||
-      prefilter?.mergeBatchNo ||
-      prefilter?.裁剪批次No ||
+      prefilter?.markerPlanId ||
+      prefilter?.markerPlanNo ||
+      prefilter?.唛架方案No ||
       prefilter?.materialSku ||
       prefilter?.spreadingSessionId ||
       prefilter?.sourceWritebackId ||
@@ -384,17 +382,17 @@ function matchPrefilter(itemValues: Array<string | undefined>, search?: string):
 function matchesUsagePrefilter(item: TransferBagUsageItem, prefilter: TransferBagPrefilter | null = state.prefilter): boolean {
   if (!prefilter) return true
   const bindingItems = item.bindingItems || []
-  const originalCutOrderIds = uniqueStrings([
-    ...bindingItems.map((binding) => binding.originalCutOrderId),
-    item.navigationPayload.originalOrders.originalCutOrderId,
+  const cutOrderIds = uniqueStrings([
+    ...bindingItems.map((binding) => binding.cutOrderId),
+    item.navigationPayload.cutOrders.cutOrderId,
   ])
   const productionOrderIds = uniqueStrings([
     ...bindingItems.map((binding) => binding.ticket?.productionOrderId),
-    item.navigationPayload.originalOrders.productionOrderId,
+    item.navigationPayload.cutOrders.productionOrderId,
   ])
-  const mergeBatchIds = uniqueStrings([
-    ...bindingItems.map((binding) => binding.ticket?.mergeBatchId),
-    item.navigationPayload.originalOrders.mergeBatchId,
+  const markerPlanIds = uniqueStrings([
+    ...bindingItems.map((binding) => binding.ticket?.markerPlanId),
+    item.navigationPayload.cutOrders.markerPlanId,
   ])
   const materialSkus = uniqueStrings(bindingItems.map((binding) => binding.ticket?.materialSku))
   const styleCodes = uniqueStrings([item.styleCode, ...bindingItems.map((binding) => binding.ticket?.styleCode)])
@@ -404,12 +402,12 @@ function matchesUsagePrefilter(item: TransferBagUsageItem, prefilter: TransferBa
     matchPrefilter([item.usageNo], prefilter.usageNo) &&
     matchPrefilter([item.bagId], prefilter.bagId) &&
     matchPrefilter([item.bagCode], prefilter.bagCode) &&
-    matchPrefilter(originalCutOrderIds, prefilter.originalCutOrderId) &&
-    matchPrefilter(item.originalCutOrderNos, prefilter.originalCutOrderNo) &&
+    matchPrefilter(cutOrderIds, prefilter.cutOrderId) &&
+    matchPrefilter(item.cutOrderNos, prefilter.cutOrderNo) &&
     matchPrefilter(productionOrderIds, prefilter.productionOrderId) &&
     matchPrefilter(item.productionOrderNos, prefilter.productionOrderNo) &&
-    matchPrefilter(mergeBatchIds, prefilter.mergeBatchId) &&
-    matchPrefilter(item.mergeBatchNos, prefilter.mergeBatchNo || prefilter.裁剪批次No) &&
+    matchPrefilter(markerPlanIds, prefilter.markerPlanId) &&
+    matchPrefilter(item.markerPlanNos, prefilter.markerPlanNo || prefilter.唛架方案No) &&
     matchPrefilter(materialSkus, prefilter.materialSku) &&
     matchPrefilter([item.spreadingSessionId], prefilter.spreadingSessionId) &&
     matchPrefilter([item.spreadingSourceWritebackId], prefilter.sourceWritebackId) &&
@@ -425,12 +423,12 @@ function matchesBindingPrefilter(item: TransferBagBindingItem, prefilter: Transf
   return (
     matchPrefilter([item.ticket?.feiTicketId || item.ticketRecordId], prefilter.ticketId) &&
     matchPrefilter([item.ticketNo], prefilter.ticketNo) &&
-    matchPrefilter([item.originalCutOrderId], prefilter.originalCutOrderId) &&
-    matchPrefilter([item.originalCutOrderNo], prefilter.originalCutOrderNo) &&
-    matchPrefilter([item.ticket?.productionOrderId || item.navigationPayload.originalOrders.productionOrderId], prefilter.productionOrderId) &&
+    matchPrefilter([item.cutOrderId], prefilter.cutOrderId) &&
+    matchPrefilter([item.cutOrderNo], prefilter.cutOrderNo) &&
+    matchPrefilter([item.ticket?.productionOrderId || item.navigationPayload.cutOrders.productionOrderId], prefilter.productionOrderId) &&
     matchPrefilter([item.productionOrderNo], prefilter.productionOrderNo) &&
-    matchPrefilter([item.ticket?.mergeBatchId || item.navigationPayload.originalOrders.mergeBatchId], prefilter.mergeBatchId) &&
-    matchPrefilter([item.mergeBatchNo || item.裁剪批次No], prefilter.mergeBatchNo || prefilter.裁剪批次No) &&
+    matchPrefilter([item.ticket?.markerPlanId || item.navigationPayload.cutOrders.markerPlanId], prefilter.markerPlanId) &&
+    matchPrefilter([item.markerPlanNo || item.唛架方案No], prefilter.markerPlanNo || prefilter.唛架方案No) &&
     matchPrefilter([item.ticket?.materialSku], prefilter.materialSku) &&
     matchPrefilter([item.spreadingSessionId], prefilter.spreadingSessionId) &&
     matchPrefilter([item.spreadingSourceWritebackId], prefilter.sourceWritebackId) &&
@@ -547,12 +545,13 @@ function getFilteredUsages() {
       const haystack = [
         item.usageNo,
         item.bagCode,
+        item.usageStageLabel,
         item.sewingTaskNo,
         item.sewingFactoryName,
         item.styleCode,
         item.spuCode,
         item.ticketNos.join(' '),
-        item.originalCutOrderNos.join(' '),
+        item.cutOrderNos.join(' '),
       ]
         .join(' ')
         .toLowerCase()
@@ -570,9 +569,9 @@ function getFilteredBindings() {
       const haystack = [
         item.bagCode,
         item.ticketNo,
-        item.originalCutOrderNo,
+        item.cutOrderNo,
         item.productionOrderNo,
-        item.mergeBatchNo || item.裁剪批次No,
+        item.markerPlanNo || item.唛架方案No,
         item.usage?.usageNo,
       ]
         .join(' ')
@@ -587,11 +586,11 @@ function getPrefilterFromQuery(): TransferBagPrefilter | null {
   const params = getWarehouseSearchParams()
   const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: TransferBagPrefilter = {
-    originalCutOrderId: drillContext?.originalCutOrderId || params.get('originalCutOrderId') || undefined,
-    originalCutOrderNo: drillContext?.originalCutOrderNo || params.get('originalCutOrderNo') || undefined,
-    mergeBatchId: drillContext?.mergeBatchId || params.get('mergeBatchId') || undefined,
-    裁剪批次No: drillContext?.mergeBatchNo || params.get('裁剪批次No') || undefined,
-    mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
+    cutOrderId: drillContext?.cutOrderId || params.get('cutOrderId') || undefined,
+    cutOrderNo: drillContext?.cutOrderNo || params.get('cutOrderNo') || undefined,
+    markerPlanId: drillContext?.markerPlanId || params.get('markerPlanId') || undefined,
+    唛架方案No: drillContext?.markerPlanNo || params.get('唛架方案No') || undefined,
+    markerPlanNo: drillContext?.markerPlanNo || params.get('markerPlanNo') || undefined,
     materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
     spreadingSessionId: drillContext?.spreadingSessionId || params.get('spreadingSessionId') || params.get('sessionId') || undefined,
     sourceWritebackId: params.get('sourceWritebackId') || params.get('holder') || undefined,
@@ -651,13 +650,13 @@ function getCandidateTickets(): TransferBagTicketCandidate[] {
 
   return viewModel.ticketCandidates.filter((ticket) => {
     if (state.prefilter.ticketId && ticket.feiTicketId !== state.prefilter.ticketId) return false
-    if (state.prefilter.originalCutOrderId && ticket.originalCutOrderId !== state.prefilter.originalCutOrderId) return false
+    if (state.prefilter.cutOrderId && ticket.cutOrderId !== state.prefilter.cutOrderId) return false
     if (state.prefilter.ticketNo && ticket.ticketNo !== state.prefilter.ticketNo) return false
-    if (state.prefilter.originalCutOrderNo && ticket.originalCutOrderNo !== state.prefilter.originalCutOrderNo) return false
+    if (state.prefilter.cutOrderNo && ticket.cutOrderNo !== state.prefilter.cutOrderNo) return false
     if (state.prefilter.productionOrderId && ticket.productionOrderId !== state.prefilter.productionOrderId) return false
     if (state.prefilter.productionOrderNo && ticket.productionOrderNo !== state.prefilter.productionOrderNo) return false
-    if (state.prefilter.mergeBatchId && ticket.mergeBatchId !== state.prefilter.mergeBatchId) return false
-    if (state.prefilter.裁剪批次No && ticket.mergeBatchNo !== state.prefilter.裁剪批次No) return false
+    if (state.prefilter.markerPlanId && ticket.markerPlanId !== state.prefilter.markerPlanId) return false
+    if (state.prefilter.唛架方案No && ticket.markerPlanNo !== state.prefilter.唛架方案No) return false
     if (state.prefilter.materialSku && ticket.materialSku !== state.prefilter.materialSku) return false
     if (state.prefilter.spreadingSessionId && ticket.sourceSpreadingSessionId !== state.prefilter.spreadingSessionId) return false
     if (state.prefilter.styleCode && ticket.styleCode !== state.prefilter.styleCode) return false
@@ -864,13 +863,13 @@ function buildTransferBagLandingBanner(
     ...matchedUsages.flatMap((item) => item.sourceMarkerNos),
     ...matchedBindings.map((item) => item.sourceMarkerNo),
   ])
-  const sourceMergeBatchNos = uniqueStrings([
-    ...matchedUsages.flatMap((item) => item.mergeBatchNos),
-    ...matchedBindings.map((item) => item.mergeBatchNo || item.裁剪批次No),
+  const sourceMarkerPlanNos = uniqueStrings([
+    ...matchedUsages.flatMap((item) => item.markerPlanNos),
+    ...matchedBindings.map((item) => item.markerPlanNo || item.唛架方案No),
   ])
-  const sourceOriginalCutOrderNos = uniqueStrings([
-    ...matchedUsages.flatMap((item) => item.originalCutOrderNos),
-    ...matchedBindings.map((item) => item.originalCutOrderNo),
+  const sourceCutOrderNos = uniqueStrings([
+    ...matchedUsages.flatMap((item) => item.cutOrderNos),
+    ...matchedBindings.map((item) => item.cutOrderNo),
   ])
   const sourceSpreadingNos = uniqueStrings([
     ...matchedUsages.map((item) => item.spreadingSessionNo || item.spreadingSessionId),
@@ -880,12 +879,12 @@ function buildTransferBagLandingBanner(
     ...buildCuttingDrillChipLabels(drillContext).filter(
       (label) => !label.startsWith('中转袋码：') && !label.startsWith('使用周期：'),
     ),
-    !drillContext?.originalCutOrderNo && sourceOriginalCutOrderNos.length
-      ? `来源原始裁片单：${sourceOriginalCutOrderNos.join(' / ')}`
+    !drillContext?.cutOrderNo && sourceCutOrderNos.length
+      ? `来源裁片单：${sourceCutOrderNos.join(' / ')}`
       : '',
     !drillContext?.markerNo && sourceMarkerNos.length ? `来源唛架：${sourceMarkerNos.join(' / ')}` : '',
-    !drillContext?.mergeBatchNo && sourceMergeBatchNos.length
-      ? `来源合并裁剪批次：${sourceMergeBatchNos.join(' / ')}`
+    !drillContext?.markerPlanNo && sourceMarkerPlanNos.length
+      ? `来源唛架方案：${sourceMarkerPlanNos.join(' / ')}`
       : '',
     !drillContext?.spreadingSessionNo && sourceSpreadingNos.length
       ? `来源铺布：${sourceSpreadingNos.join(' / ')}`
@@ -921,7 +920,7 @@ function refreshDerivedState(): void {
   state.store.usages.forEach((usage) => {
     const bindings = usageMap.get(usage.usageId) || []
     usage.packedTicketCount = bindings.length
-    usage.packedOriginalCutOrderCount = uniqueStrings(bindings.map((item) => item.originalCutOrderNo)).length
+    usage.packedCutOrderCount = uniqueStrings(bindings.map((item) => item.cutOrderNo)).length
     if (usage.usageStatus === 'DRAFT' || usage.usageStatus === 'PACKING' || usage.usageStatus === 'READY_TO_DISPATCH') {
       if (!bindings.length) {
       usage.usageStatus = 'DRAFT'
@@ -1104,7 +1103,7 @@ function resetReturnDraft(usageId?: string | null): void {
     const draft = createReturnReceiptDraft({
       usage: getSourceUsage(usage.usageId) || usage,
       bindingsCount: bindings.length,
-      originalCutOrderCount: uniqueStrings(bindings.map((item) => item.originalCutOrderNo)).length,
+      cutOrderCount: uniqueStrings(bindings.map((item) => item.cutOrderNo)).length,
       nowText: nowText(),
     })
     state.returnDraft = {
@@ -1208,11 +1207,11 @@ function resolveSourceReturnAction(): { label: string; href: string } | null {
     'material-prep': 'materialPrep',
     'marker-spreading': 'markerSpreading',
     'fei-tickets': 'feiTickets',
-    'original-orders': 'originalOrders',
+    'cut-orders': 'cutOrders',
     'production-progress': 'productionProgress',
     'cut-piece-warehouse': 'cutPieceWarehouse',
     'fabric-warehouse': 'fabricWarehouse',
-    'merge-batches': 'mergeBatches',
+     'marker-list': 'markerPlanRefs',
     'cuttable-pool': 'cuttablePool',
   }
 
@@ -1326,29 +1325,30 @@ function renderDetailMetric(label: string, value: string, valueClassName = 'text
 function renderTransferBagTraceabilityBlock(focusedUsage: TransferBagUsageItem | null): string {
   if (!focusedUsage) return ''
   const sourceMarkerSummary = focusedUsage.sourceMarkerNos.join(' / ') || '当前尚未绑定正式来源唛架'
-  const sourceOrderSummary = focusedUsage.originalCutOrderNos.join(' / ') || '暂无'
-  const sourceMergeBatchSummary = focusedUsage.mergeBatchNos.join(' / ') || '暂无'
+  const sourceOrderSummary = focusedUsage.cutOrderNos.join(' / ') || '暂无'
+  const sourceMarkerPlanSummary = focusedUsage.markerPlanNos.join(' / ') || '暂无'
+  const isInboundTempUsage = focusedUsage.usageStage === 'INBOUND_TEMP'
   return `
     <section class="rounded-lg border ${focusedUsage.bagFirstSatisfied ? 'border-emerald-200 bg-emerald-50/30' : 'border-rose-200 bg-rose-50/40'} p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 class="text-sm font-semibold text-foreground">铺布 / 装袋追溯</h3>
-          <p class="mt-1 text-xs text-muted-foreground">必须先扫口袋码，再扫菲票子码</p>
+          <h3 class="text-sm font-semibold text-foreground">${isInboundTempUsage ? '铺布 / 入仓暂存追溯' : '铺布 / 装袋追溯'}</h3>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(focusedUsage.bagFirstRuleLabel)}</p>
         </div>
-        ${renderTag(focusedUsage.bagFirstSatisfied ? '先装袋后入仓已满足' : '先装袋后入仓待补', focusedUsage.bagFirstSatisfied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200')}
+        ${renderTag(isInboundTempUsage ? '入仓暂存已记录' : focusedUsage.bagFirstSatisfied ? '交出装袋已记录' : '交出装袋待补', focusedUsage.bagFirstSatisfied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200')}
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         ${renderDetailMetric('来源铺布', focusedUsage.spreadingSessionNo || focusedUsage.spreadingSessionId || '当前尚未绑定正式铺布')}
         ${renderDetailMetric('来源唛架', sourceMarkerSummary)}
-        ${renderDetailMetric('来源原始裁片单', sourceOrderSummary)}
-        ${renderDetailMetric('来源合并裁剪批次', sourceMergeBatchSummary)}
+        ${renderDetailMetric('来源裁片单', sourceOrderSummary)}
+        ${renderDetailMetric('来源唛架方案', sourceMarkerPlanSummary)}
       </div>
       <details class="mt-3 rounded-lg border bg-background/70 p-3" data-testid="transfer-bags-traceability-fold" data-default-open="collapsed">
         <summary class="cursor-pointer text-sm font-medium text-foreground">追溯信息</summary>
         <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           ${renderDetailMetric('工厂端回写流水', focusedUsage.spreadingSourceWritebackId || '当前尚无工厂端回写流水')}
           ${renderDetailMetric('铺布颜色摘要', focusedUsage.spreadingColorSummary || focusedUsage.colorSummary || '待补')}
-          ${renderDetailMetric('先装袋后入仓规则', focusedUsage.bagFirstRuleLabel, focusedUsage.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700')}
+          ${renderDetailMetric(isInboundTempUsage ? '入仓暂存规则' : '交出装袋规则', focusedUsage.bagFirstRuleLabel, focusedUsage.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700')}
         </div>
       </details>
     </section>
@@ -1522,50 +1522,135 @@ function renderDemoFixturePanel(): string {
   return ''
 }
 
-function renderSewingDispatchTransferBagPanel(): string {
-  const sewingBags = listCuttingSewingTransferBags()
-  if (!sewingBags.length) return ''
+function renderTransferBagStageLedgerPanel(): string {
+  const viewModel = getViewModel()
+  const stageItems = viewModel.stageLedgerItems
+  if (!stageItems.length) return ''
+  const stageSummary = viewModel.stageSummary
 
   return `
     <section class="rounded-lg border bg-card">
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
-          <h2 class="text-sm font-semibold text-foreground">裁片发料中转袋</h2>
-          <p class="mt-1 text-xs text-muted-foreground">中转袋归属中转单，展示发料批次、袋内明细、齐套状态、发料状态、回写状态和差异。</p>
+          <h2 class="text-sm font-semibold text-foreground">中转袋业务阶段</h2>
         </div>
-        <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('sewing-dispatch'))}">查看裁片发料</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('sewing-dispatch'))}">查看交出单</button>
+      </div>
+      <div class="grid gap-3 border-b p-4 md:grid-cols-4">
+        ${renderCompactKpiCard('入仓暂存', stageSummary.inboundTempCount, '允许混装', 'text-blue-600')}
+        ${renderCompactKpiCard('交出装袋', stageSummary.handoverPackingCount, '绑定交出关系', 'text-emerald-600')}
+        ${renderCompactKpiCard('已绑定交出关系', stageSummary.handoverRelationOkCount, '交出单或交出记录', 'text-emerald-600')}
+        ${renderCompactKpiCard('关系待补', stageSummary.handoverRelationMissingCount, '交出装袋阶段', 'text-amber-600')}
       </div>
       ${renderStickyTableScroller(`
         <table class="min-w-[1080px] w-full text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              <th class="px-4 py-3 text-left">中转袋号</th>
-              <th class="px-4 py-3 text-left">中转单号</th>
-              <th class="px-4 py-3 text-left">发料批次</th>
+              <th class="px-4 py-3 text-left">阶段</th>
+              <th class="px-4 py-3 text-left">中转袋</th>
+              <th class="px-4 py-3 text-left">业务关系</th>
               <th class="px-4 py-3 text-left">生产单</th>
-              <th class="px-4 py-3 text-left">车缝厂</th>
-              <th class="px-4 py-3 text-left">袋内菲票</th>
-              <th class="px-4 py-3 text-left">齐套状态</th>
-              <th class="px-4 py-3 text-left">发料状态</th>
-              <th class="px-4 py-3 text-left">回写状态</th>
-              <th class="px-4 py-3 text-left">差异裁片数量</th>
+              <th class="px-4 py-3 text-left">裁片单</th>
+              <th class="px-4 py-3 text-left">菲票</th>
+              <th class="px-4 py-3 text-left">状态</th>
+              <th class="px-4 py-3 text-left">规则</th>
             </tr>
           </thead>
           <tbody>
-            ${sewingBags
+            ${stageItems
               .map(
-                (bag) => `
+                (item) => `
                   <tr class="border-t">
-                    <td class="px-4 py-3 font-medium text-blue-700">${escapeHtml(bag.transferBagNo)}</td>
-                    <td class="px-4 py-3">${escapeHtml(bag.transferOrderNo)}</td>
-                    <td class="px-4 py-3">${escapeHtml(bag.dispatchBatchId)}</td>
-                    <td class="px-4 py-3">${escapeHtml(bag.productionOrderNo)}</td>
-                    <td class="px-4 py-3">${escapeHtml(formatFactoryDisplayName(bag.sewingFactoryName))}</td>
-                    <td class="px-4 py-3">${escapeHtml(`${bag.scannedFeiTicketNos.length} 张`)}</td>
-                    <td class="px-4 py-3">${escapeHtml(bag.completeStatus)}</td>
-                    <td class="px-4 py-3">${escapeHtml(bag.dispatchStatus)}</td>
-                    <td class="px-4 py-3">${escapeHtml(bag.receiverWrittenQty === undefined ? '待回写' : bag.differenceQty ? '差异' : '已回写')}</td>
-                    <td class="px-4 py-3">${escapeHtml(String(bag.differenceQty || 0))}</td>
+                    <td class="px-4 py-3">${renderTag(item.stageLabel, item.stage === 'INBOUND_TEMP' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200')}</td>
+                    <td class="px-4 py-3">
+                      <div class="font-medium text-blue-700">${escapeHtml(item.carrierCode)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.cycleNo || '暂无周期')}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="${item.relationOk ? 'text-foreground' : 'text-amber-700'}">${escapeHtml(item.relationLabel)}</div>
+                      ${item.stage === 'HANDOVER_PACKING' ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.dispatchBatchNo || '交出记录待新增')}</div>` : ''}
+                    </td>
+                    <td class="px-4 py-3">${escapeHtml(item.productionOrderNos.join(' / ') || '暂无')}</td>
+                    <td class="px-4 py-3">${escapeHtml(item.cutOrderNos.join(' / ') || '暂无')}</td>
+                    <td class="px-4 py-3">${escapeHtml(`${item.ticketCount} 张`)}</td>
+                    <td class="px-4 py-3">${escapeHtml(item.statusLabel)}</td>
+                    <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.ruleLabel)}</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      `)}
+    </section>
+  `
+}
+
+function renderSortingTaskStatusTag(status: string): string {
+  const className =
+    status === '待分拣'
+      ? 'bg-amber-100 text-amber-700 border border-amber-200'
+      : status === '分拣中'
+        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+        : status === '已装袋'
+          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+          : status === '已交出' || status === '已回写'
+            ? 'bg-slate-900 text-white border border-slate-900'
+            : 'bg-rose-100 text-rose-700 border border-rose-200'
+  return renderTag(status, className)
+}
+
+function renderCutPieceSortingTaskPanel(): string {
+  const viewModel = getViewModel()
+  const tasks = viewModel.sortingTasks
+  if (!tasks.length) return ''
+  const summary = viewModel.sortingTaskSummary
+
+  return `
+    <section class="rounded-lg border bg-card">
+      <div class="flex items-center justify-between border-b px-4 py-3">
+        <div>
+          <h2 class="text-sm font-semibold text-foreground">裁片配料任务</h2>
+        </div>
+        <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('sewing-dispatch'))}">查看交出单</button>
+      </div>
+      <div class="grid gap-3 border-b p-4 md:grid-cols-5">
+        ${renderCompactKpiCard('任务数', summary.taskCount, '按交出记录生成', 'text-blue-600')}
+        ${renderCompactKpiCard('待分拣', summary.pendingCount, '裁片配料', 'text-amber-600')}
+        ${renderCompactKpiCard('分拣中', summary.sortingCount, '裁片配料', 'text-blue-600')}
+        ${renderCompactKpiCard('已装袋', summary.packedCount, '生成交出中转袋', 'text-emerald-600')}
+        ${renderCompactKpiCard('目标中转袋', summary.targetTransferBagCount, '交出装袋阶段', 'text-slate-700')}
+      </div>
+      ${renderStickyTableScroller(`
+        <table class="min-w-[1080px] w-full text-sm">
+          <thead class="bg-muted/60 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-4 py-3 text-left">配料任务</th>
+              <th class="px-4 py-3 text-left">交出记录</th>
+              <th class="px-4 py-3 text-left">来源暂存袋</th>
+              <th class="px-4 py-3 text-left">目标中转袋</th>
+              <th class="px-4 py-3 text-left">颜色 / 尺码</th>
+              <th class="px-4 py-3 text-right">菲票</th>
+              <th class="px-4 py-3 text-left">接收对象</th>
+              <th class="px-4 py-3 text-left">状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tasks
+              .map(
+                (task) => `
+                  <tr class="border-t">
+                    <td class="px-4 py-3">
+                      <div class="font-medium text-blue-700">${escapeHtml(task.sortingTaskNo)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.productionOrderNo)}</div>
+                    </td>
+                    <td class="px-4 py-3">${escapeHtml(task.dispatchBatchNo)}</td>
+                    <td class="px-4 py-3">${escapeHtml(task.sourceTempBagNos.join(' / ') || '待从暂存袋拣货')}</td>
+                    <td class="px-4 py-3">${escapeHtml(task.targetTransferBagNos.join(' / ') || '待生成')}</td>
+                    <td class="px-4 py-3">${escapeHtml(task.skuSummary || '未汇总')}</td>
+                    <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(`${task.pickedTicketCount}/${task.expectedTicketCount}`)}</td>
+                    <td class="px-4 py-3">${escapeHtml(formatFactoryDisplayName(task.targetFactoryName))}</td>
+                    <td class="px-4 py-3">${renderSortingTaskStatusTag(task.status)}</td>
                   </tr>
                 `,
               )
@@ -1723,8 +1808,8 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
             <div><span class="text-muted-foreground">来源铺布：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.spreadingSessionNo || currentUsage?.spreadingSessionId || '暂无')}</span></div>
             <div><span class="text-muted-foreground">来源唛架：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.sourceMarkerNos.join(' / ') || '暂无')}</span></div>
             <div><span class="text-muted-foreground">来源生产单集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.productionOrderNos.join(' / ') || '暂无')}</span></div>
-            <div><span class="text-muted-foreground">来源原始裁片单：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.originalCutOrderNos.join(' / ') || '暂无')}</span></div>
-            <div><span class="text-muted-foreground">来源合并裁剪批次：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.mergeBatchNos.join(' / ') || '暂无')}</span></div>
+            <div><span class="text-muted-foreground">来源裁片单：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.cutOrderNos.join(' / ') || '暂无')}</span></div>
+            <div><span class="text-muted-foreground">来源唛架方案：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.markerPlanNos.join(' / ') || '暂无')}</span></div>
           </div>
           <div class="rounded-lg border bg-card p-4">
             <div class="text-sm font-semibold text-foreground">正式二维码</div>
@@ -1770,12 +1855,12 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                         <tr>
                           <th class="px-3 py-2 text-left">菲票码</th>
                           <th class="px-3 py-2 text-left">款号</th>
-                          <th class="px-3 py-2 text-left">面料 SKU</th>
+                          <th class="px-3 py-2 text-left">面料</th>
                           <th class="px-3 py-2 text-left">部位</th>
                           <th class="px-3 py-2 text-right">菲票件数（件）</th>
                           <th class="px-3 py-2 text-left">来源生产单号</th>
                           <th class="px-3 py-2 text-left">来源裁片单号</th>
-                          <th class="px-3 py-2 text-left">所属合并裁剪批次号</th>
+                          <th class="px-3 py-2 text-left">所属唛架方案号</th>
                           <th class="px-3 py-2 text-left">菲票状态</th>
                           <th class="px-3 py-2 text-left">是否允许移除</th>
                         </tr>
@@ -1788,14 +1873,19 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                                 <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(binding.ticketNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || currentUsage?.styleCode || '待补')}</td>
                                 <td class="px-3 py-2">
-                                  <div class="font-medium text-foreground">${escapeHtml(binding.ticket?.materialSku || '待补')}</div>
+                                  ${renderMaterialIdentityBlock({
+                                    materialSku: binding.ticket?.materialSku || '待补',
+                                    materialLabel: binding.ticket?.materialSku || '待补',
+                                    materialAlias: binding.ticket?.materialAlias || '',
+                                    materialImageUrl: binding.ticket?.materialImageUrl || '',
+                                  }, { compact: true })}
                                   <div class="text-xs text-muted-foreground">${escapeHtml(binding.ticket ? `${binding.ticket.color || '待补颜色'} / ${binding.ticket.size || '待补尺码'}` : '待补')}</div>
                                 </td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.partName || '待补部位')}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.productionOrderNo)}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.originalCutOrderNo)}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.mergeBatchNo || binding.裁剪批次No || '—')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.cutOrderNo)}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.markerPlanNo || binding.唛架方案No || '—')}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
                                 <td class="px-3 py-2">
                                   ${
@@ -1962,9 +2052,9 @@ function renderWorkbenchSection(): string {
               <div class="space-y-2 rounded-lg border bg-muted/15 p-3 text-sm">
                 <div><span class="text-muted-foreground">已绑定菲票数量：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.ticketCount || 0))}</span></div>
                 <div><span class="text-muted-foreground">当前袋内成衣件数（件）：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.quantityTotal || 0))}</span></div>
-                <div><span class="text-muted-foreground">原始裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.originalCutOrderCount || 0))}</span></div>
+                <div><span class="text-muted-foreground">裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.cutOrderCount || 0))}</span></div>
                 <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.productionOrderCount || 0))}</span></div>
-                <div><span class="text-muted-foreground">合并裁剪批次汇总：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.mergeBatchNos.join(' / ') || '无')}</span></div>
+                <div><span class="text-muted-foreground">唛架方案汇总：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.markerPlanNos.join(' / ') || '无')}</span></div>
                 <div><span class="text-muted-foreground">容量状态：</span><span class="font-medium ${capacityExceeded ? 'text-amber-700' : 'text-foreground'}">${capacityExceeded ? '已超容量' : '未超容量'}</span></div>
               </div>
             </div>
@@ -1988,9 +2078,9 @@ function renderWorkbenchSection(): string {
                           <th class="px-3 py-2 text-left">部位</th>
                           <th class="px-3 py-2 text-right">数量</th>
                           <th class="px-3 py-2 text-left">扎号</th>
-                          <th class="px-3 py-2 text-left">原始裁片单</th>
+                          <th class="px-3 py-2 text-left">裁片单</th>
                           <th class="px-3 py-2 text-left">生产单</th>
-                          <th class="px-3 py-2 text-left">合并裁剪批次</th>
+                          <th class="px-3 py-2 text-left">唛架方案</th>
                           <th class="px-3 py-2 text-left">菲票状态</th>
                           <th class="px-3 py-2 text-left">操作</th>
                         </tr>
@@ -2007,9 +2097,9 @@ function renderWorkbenchSection(): string {
                                 <td class="px-3 py-2">${escapeHtml(binding.partName || binding.ticket?.partName || '待补部位')}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.bundleNo || binding.ticket?.bundleNo || '暂无数据')}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.originalCutOrderNo)}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.cutOrderNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.productionOrderNo)}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.mergeBatchNo || binding.裁剪批次No || '无')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.markerPlanNo || binding.唛架方案No || '无')}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
                                 <td class="px-3 py-2">
                                   ${
@@ -2044,7 +2134,7 @@ function renderCandidatePanel(candidates: TransferBagTicketCandidate[]): string 
     body: `
       <div class="flex flex-wrap gap-2">
         ${candidates
-          .map((item) => renderWorkbenchFilterChip(`${item.ticketNo} / ${item.originalCutOrderNo}`, 'data-transfer-bags-action="set-ticket-input" data-ticket-no="' + escapeHtml(item.ticketNo) + '"', 'blue'))
+          .map((item) => renderWorkbenchFilterChip(`${item.ticketNo} / ${item.cutOrderNo}`, 'data-transfer-bags-action="set-ticket-input" data-ticket-no="' + escapeHtml(item.ticketNo) + '"', 'blue'))
           .join('')}
       </div>
     `,
@@ -2068,7 +2158,7 @@ function renderUsageLedgerSection(): string {
             <input
               type="text"
               value="${escapeHtml(state.usageKeyword)}"
-              placeholder="支持使用周期号 / 中转袋码 / 车缝任务号 / 原始裁片单"
+              placeholder="支持使用周期号 / 中转袋码 / 车缝任务号 / 裁片单"
               class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
               data-transfer-bags-usage-field="keyword"
             />
@@ -2109,10 +2199,10 @@ function renderUsageLedgerSection(): string {
                 <tr>
                   <th class="px-4 py-3 text-left">使用周期号</th>
                   <th class="px-4 py-3 text-left">中转袋码</th>
-                  <th class="px-4 py-3 text-left">车缝任务号</th>
+                  <th class="px-4 py-3 text-left">阶段 / 车缝任务</th>
                   <th class="px-4 py-3 text-left">车缝工厂</th>
                   <th class="px-4 py-3 text-right">菲票数量</th>
-                  <th class="px-4 py-3 text-right">原始裁片单数</th>
+                  <th class="px-4 py-3 text-right">裁片单数</th>
                   <th class="px-4 py-3 text-left">使用周期状态</th>
                   <th class="px-4 py-3 text-left">发出时间</th>
                   <th class="px-4 py-3 text-left">操作</th>
@@ -2128,10 +2218,13 @@ function renderUsageLedgerSection(): string {
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.note || '无备注')}</div>
                         </td>
                         <td class="px-4 py-3">${escapeHtml(item.bagCode)}</td>
-                        <td class="px-4 py-3">${escapeHtml(item.sewingTaskNo)}</td>
+                        <td class="px-4 py-3">
+                          <div class="font-medium text-foreground">${escapeHtml(item.usageStageLabel || '交出装袋')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.sewingTaskNo || (item.usageStage === 'INBOUND_TEMP' ? '待分配' : '未绑定'))}</div>
+                        </td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatFactoryDisplayName(item.sewingFactoryName))}</td>
                         <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.summary.ticketCount))}</td>
-                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.summary.originalCutOrderCount))}</td>
+                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.summary.cutOrderCount))}</td>
                         <td class="px-4 py-3">${renderTag(item.statusMeta.label, item.statusMeta.className)}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.dispatchAt || '待发出')}</td>
                         <td class="px-4 py-3">
@@ -2159,7 +2252,7 @@ function renderUsageDetail(item: TransferBagUsageItem | null): string {
   return renderWorkbenchSecondaryPanel({
     title: `使用周期详情：${item.usageNo}`,
     hint: '',
-    countText: `${item.summary.ticketCount} 张票 / ${item.summary.originalCutOrderCount} 个原始裁片单`,
+    countText: `${item.summary.ticketCount} 张票 / ${item.summary.cutOrderCount} 个裁片单`,
     defaultOpen: true,
     body: `
       <div class="grid gap-3 xl:grid-cols-[0.9fr,1.1fr]">
@@ -2171,7 +2264,7 @@ function renderUsageDetail(item: TransferBagUsageItem | null): string {
           <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.summary.productionOrderCount))}</span></div>
           <div><span class="text-muted-foreground">最新清单：</span><span class="font-medium text-foreground">${escapeHtml(item.latestManifest?.manifestId || '尚未打印')}</span></div>
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="go-original-orders" data-usage-id="${escapeHtml(item.usageId)}">去来源原始裁片单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="go-cut-orders" data-usage-id="${escapeHtml(item.usageId)}">去来源裁片单</button>
             <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="go-summary" data-usage-id="${escapeHtml(item.usageId)}">去裁剪总结</button>
           </div>
         </div>
@@ -2215,7 +2308,7 @@ function renderReturnLedgerSection(): string {
             <input
               type="text"
               value="${escapeHtml(state.returnKeyword)}"
-              placeholder="支持使用周期号 / 中转袋码 / 车缝任务号 / 原始裁片单号"
+              placeholder="支持使用周期号 / 中转袋码 / 车缝任务号 / 裁片单号"
               class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
               data-transfer-bags-return-field="keyword"
             />
@@ -2308,7 +2401,7 @@ function renderReturnWorkbenchSection(): string {
               </div>
               <div class="space-y-2 rounded-lg border bg-muted/15 p-3 text-sm">
                 <div><span class="text-muted-foreground">菲票数量：</span><span class="font-medium text-foreground">${escapeHtml(String(activeUsage.summary.ticketCount))}</span></div>
-                <div><span class="text-muted-foreground">原始裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(activeUsage.summary.originalCutOrderCount))}</span></div>
+                <div><span class="text-muted-foreground">裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(activeUsage.summary.cutOrderCount))}</span></div>
                 <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(activeUsage.summary.productionOrderCount))}</span></div>
                 <div><span class="text-muted-foreground">回货资格：</span><span class="font-medium ${activeUsage.returnEligibility.ok ? 'text-emerald-700' : 'text-amber-700'}">${escapeHtml(activeUsage.returnEligibility.ok ? '可进入回货流程' : activeUsage.returnEligibility.reason)}</span></div>
               </div>
@@ -2556,7 +2649,7 @@ function renderBindingSection(): string {
           <input
             type="text"
             value="${escapeHtml(state.bindingKeyword)}"
-            placeholder="支持中转袋码 / 菲票码 / 原始裁片单号 / 合并裁剪批次号"
+            placeholder="支持中转袋码 / 菲票码 / 裁片单号 / 唛架方案号"
             class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             data-transfer-bags-binding-field="keyword"
           />
@@ -2577,9 +2670,9 @@ function renderBindingSection(): string {
                   <th class="px-4 py-3 text-left">裁片部位</th>
                   <th class="px-4 py-3 text-left">数量</th>
                   <th class="px-4 py-3 text-left">扎号</th>
-                  <th class="px-4 py-3 text-left">原始裁片单号</th>
+                  <th class="px-4 py-3 text-left">裁片单号</th>
                   <th class="px-4 py-3 text-left">生产单号</th>
-                  <th class="px-4 py-3 text-left">合并裁剪批次号</th>
+                  <th class="px-4 py-3 text-left">唛架方案号</th>
                   <th class="px-4 py-3 text-left">绑定时间</th>
                   <th class="px-4 py-3 text-left">绑定人</th>
                   <th class="px-4 py-3 text-left">备注</th>
@@ -2599,9 +2692,9 @@ function renderBindingSection(): string {
                         <td class="px-4 py-3">${escapeHtml(item.partName || item.ticket?.partName || '暂无数据')}</td>
                         <td class="px-4 py-3">${escapeHtml(String(item.garmentQty || item.qty || 0))}</td>
                         <td class="px-4 py-3">${escapeHtml(item.bundleNo || item.ticket?.bundleNo || '暂无数据')}</td>
-                        <td class="px-4 py-3">${escapeHtml(item.originalCutOrderNo)}</td>
+                        <td class="px-4 py-3">${escapeHtml(item.cutOrderNo)}</td>
                         <td class="px-4 py-3">${escapeHtml(item.productionOrderNo)}</td>
-                        <td class="px-4 py-3">${escapeHtml(item.mergeBatchNo || item.裁剪批次No || '无')}</td>
+                        <td class="px-4 py-3">${escapeHtml(item.markerPlanNo || item.唛架方案No || '无')}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatDateTime(item.boundAt))}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.boundBy)}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.note || '无')}</td>
@@ -2628,7 +2721,8 @@ function renderListPage(): string {
       ${renderPrefilterBar()}
       ${renderLandingBanner()}
       ${renderFeedbackBar()}
-      ${renderSewingDispatchTransferBagPanel()}
+      ${renderTransferBagStageLedgerPanel()}
+      ${renderCutPieceSortingTaskPanel()}
       ${renderMasterSection()}
     </div>
   `
@@ -2791,27 +2885,30 @@ function buildBaggingStepSummary(
   currentSummary: ReturnType<typeof buildTransferBagParentChildSummary> | null,
   capacityExceeded: boolean,
 ): string {
+  const isInboundTempUsage = focusedUsage?.usageStage === 'INBOUND_TEMP'
   if (stepId === 'scan') {
     if (!focusedUsage) return `扫描首张菲票后，自动开始 ${activeMaster.bagCode} 本次周转`
-    return `已装 ${currentSummary?.ticketCount || 0} 张菲票`
+    return isInboundTempUsage ? `已暂存 ${currentSummary?.ticketCount || 0} 张菲票` : `已装 ${currentSummary?.ticketCount || 0} 张菲票`
   }
   if (stepId === 'review') {
     if (!focusedUsage) return '装袋后再核对袋内内容'
     if (!currentSummary?.ticketCount) return '当前还没有菲票，请先扫码装袋'
+    if (isInboundTempUsage) return '入仓暂存袋内容可混装，交出前再按交出单二次分拣'
     return capacityExceeded ? '当前容量已超出，请先核对后再完成装袋' : '袋内内容待核对，可打印清单后完成装袋'
   }
   if (!focusedUsage) return '完成装袋后才可交出'
+  if (isInboundTempUsage) return '车缝任务分配后进入交出装袋阶段'
   return focusedUsage.dispatchAt ? `已于 ${focusedUsage.dispatchAt} 交出` : '完成核对后即可交出'
 }
 
 function buildBaggingStepHelperText(step: TransferBagBaggingStepView): string {
   if (step.id === 'scan') {
-    return step.state === 'locked' ? '本次周转完成后才能再次扫码装袋' : '支持一个中转袋混装，仍按发料批次齐套校验'
+    return step.state === 'locked' ? '本次周转完成后才能再次扫码装袋' : '入仓暂存可混装；交出装袋按交出单或交出记录核对'
   }
   if (step.id === 'review') {
     return step.state === 'locked' ? '请先扫码装袋，再核对袋内内容' : '核对袋内内容，确认后完成装袋'
   }
-  return step.state === 'locked' ? '完成装袋后才能交出' : '交出后，本次周转在裁片仓侧视为完成'
+  return step.state === 'locked' ? '完成装袋后才能进入下一阶段' : '交出装袋阶段必须绑定交出单或交出记录'
 }
 
 function getBaggingStepViews(
@@ -2953,7 +3050,7 @@ function renderBaggedTicketCompactList(
             <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th class="px-3 py-2 text-left">菲票码</th>
-                <th class="px-3 py-2 text-left">原始裁片单</th>
+                <th class="px-3 py-2 text-left">裁片单</th>
                 <th class="px-3 py-2 text-left">款号</th>
                 <th class="px-3 py-2 text-left">车缝工厂</th>
                 <th class="px-3 py-2 text-left">任务单号</th>
@@ -2965,7 +3062,7 @@ function renderBaggedTicketCompactList(
                   (binding) => `
                     <tr class="border-b bg-card">
                       <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(binding.ticketNo)}</td>
-                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(binding.originalCutOrderNo || '—')}</td>
+                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(binding.cutOrderNo || '—')}</td>
                       <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || focusedUsage.styleCode || '待补')}</td>
                       <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(formatFactoryDisplayName(focusedUsage.sewingFactoryName) || '待锁定')}</td>
                       <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(focusedUsage.sewingTaskNo || '待锁定')}</td>
@@ -3040,7 +3137,7 @@ function renderBaggingScanStepCard(
                   ${candidateTickets
                     .map((item) =>
                       renderWorkbenchFilterChip(
-                        `${item.ticketNo} / ${item.originalCutOrderNo}`,
+                        `${item.ticketNo} / ${item.cutOrderNo}`,
                         `data-transfer-bags-action="set-ticket-input" data-ticket-no="${escapeHtml(item.ticketNo)}"`,
                         'blue',
                       ),
@@ -3074,7 +3171,7 @@ function renderBaggingReviewStepCard(
         <div class="space-y-3">
           <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             ${renderDetailMetric('已绑菲票数量', String(currentSummary.ticketCount))}
-            ${renderDetailMetric('来源原始裁片单数', String(currentSummary.originalCutOrderCount))}
+            ${renderDetailMetric('来源裁片单数', String(currentSummary.cutOrderCount))}
             ${renderDetailMetric('来源生产单数', String(currentSummary.productionOrderCount))}
             ${renderDetailMetric('当前款号', focusedUsage.styleCode || '待锁定')}
             ${renderDetailMetric('容量状态', capacityExceeded ? '已超容量' : '容量正常', capacityExceeded ? 'text-amber-700' : 'text-foreground')}
@@ -3093,7 +3190,7 @@ function renderBaggingReviewStepCard(
                           <th class="px-3 py-2 text-left">部位</th>
                           <th class="px-3 py-2 text-right">数量</th>
                           <th class="px-3 py-2 text-left">扎号</th>
-                          <th class="px-3 py-2 text-left">原始裁片单</th>
+                          <th class="px-3 py-2 text-left">裁片单</th>
                           <th class="px-3 py-2 text-left">状态</th>
                           <th class="px-3 py-2 text-left">操作</th>
                         </tr>
@@ -3110,7 +3207,7 @@ function renderBaggingReviewStepCard(
                                 <td class="px-3 py-2">${escapeHtml(binding.partName || binding.ticket?.partName || '暂无数据')}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.bundleNo || binding.ticket?.bundleNo || '暂无数据')}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.originalCutOrderNo || '—')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.cutOrderNo || '—')}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
                                 <td class="px-3 py-2">
                                   ${
@@ -3137,14 +3234,14 @@ function renderBaggingReviewStepCard(
           ${currentBindings.length
             ? ''
             : '<div class="text-sm text-muted-foreground">当前还没有装入菲票，暂不能完成装袋。</div>'}
-          ${(focusedUsage.productionOrderNos.length || focusedUsage.originalCutOrderNos.length || focusedUsage.mergeBatchNos.length)
+          ${(focusedUsage.productionOrderNos.length || focusedUsage.cutOrderNos.length || focusedUsage.markerPlanNos.length)
             ? `
               <details class="rounded-lg border bg-muted/10 p-3" data-testid="transfer-bags-source-trace-fold" data-default-open="collapsed">
                 <summary class="cursor-pointer text-sm font-medium text-foreground">追溯信息</summary>
                 <div class="mt-3 grid gap-3 md:grid-cols-3 text-sm">
                   <div><span class="text-muted-foreground">来源生产单：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.productionOrderNos.join(' / ') || '暂无')}</span></div>
-                  <div><span class="text-muted-foreground">来源原始裁片单：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.originalCutOrderNos.join(' / ') || '暂无')}</span></div>
-                  <div><span class="text-muted-foreground">来源合并裁剪批次：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.mergeBatchNos.join(' / ') || '暂无')}</span></div>
+                  <div><span class="text-muted-foreground">来源裁片单：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.cutOrderNos.join(' / ') || '暂无')}</span></div>
+                  <div><span class="text-muted-foreground">来源唛架方案：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.markerPlanNos.join(' / ') || '暂无')}</span></div>
                 </div>
               </details>
             `
@@ -3547,7 +3644,7 @@ function buildReturnReceiptFromState(usage: TransferBagUsage, bag: TransferBagMa
     receivedBy: state.returnDraft.receivedBy.trim(),
     returnedFinishedQty: summary.quantityTotal,
     returnedTicketCountSummary: bindings.length,
-    returnedOriginalCutOrderCount: uniqueStrings(bindings.map((item) => item.originalCutOrderNo)).length,
+    returnedCutOrderCount: uniqueStrings(bindings.map((item) => item.cutOrderNo)).length,
     discrepancyType: 'NONE',
     discrepancyNote: '',
     note: state.returnDraft.note.trim(),
@@ -3583,7 +3680,7 @@ function getFilteredReturnUsages() {
         item.bagCode,
         item.sewingTaskNo,
         item.sewingFactoryName,
-        item.originalCutOrderNos.join(' '),
+        item.cutOrderNos.join(' '),
         item.ticketNos.join(' '),
       ]
         .join(' ')
@@ -3810,7 +3907,7 @@ function bindTicketByInput(): boolean {
   }
   const context = resolveLockedUsageContext(usage, ticket)
   if (!context.ok || !context.sewingTask) {
-    setFeedback('warning', context.reason || '请确认袋内菲票属于本次发料批次。')
+    setFeedback('warning', context.reason || '请确认袋内菲票属于本次交出记录。')
     return true
   }
   const validation = validateTicketBindingEligibility({
@@ -3837,11 +3934,11 @@ function bindTicketByInput(): boolean {
     feiTicketId: ticket.feiTicketId || ticket.ticketRecordId,
     ticketRecordId: ticket.ticketRecordId,
     ticketNo: ticket.ticketNo,
-    originalCutOrderId: ticket.originalCutOrderId,
-    originalCutOrderNo: ticket.originalCutOrderNo,
-    mergeBatchNo: ticket.mergeBatchNo,
+    cutOrderId: ticket.cutOrderId,
+    cutOrderNo: ticket.cutOrderNo,
+    markerPlanNo: ticket.markerPlanNo,
     productionOrderNo: ticket.productionOrderNo,
-    裁剪批次No: ticket.mergeBatchNo,
+    唛架方案No: ticket.markerPlanNo,
     qty: ticket.qty,
     garmentQty: ticket.qty,
     boundAt: nowText(),
@@ -3921,11 +4018,11 @@ function importCandidateTickets(targetUsageId?: string): boolean {
       feiTicketId: ticket.feiTicketId || ticket.ticketRecordId,
       ticketRecordId: ticket.ticketRecordId,
       ticketNo: ticket.ticketNo,
-      originalCutOrderId: ticket.originalCutOrderId,
-      originalCutOrderNo: ticket.originalCutOrderNo,
-      mergeBatchNo: ticket.mergeBatchNo,
+      cutOrderId: ticket.cutOrderId,
+      cutOrderNo: ticket.cutOrderNo,
+      markerPlanNo: ticket.markerPlanNo,
       productionOrderNo: ticket.productionOrderNo,
-      裁剪批次No: ticket.mergeBatchNo,
+      唛架方案No: ticket.markerPlanNo,
       qty: ticket.qty,
       garmentQty: ticket.qty,
       boundAt: nowText(),
@@ -4112,7 +4209,7 @@ function clearPrefill(): boolean {
 
 function navigateByPayload(payload: Record<string, string | undefined>, path: string): boolean {
   const targetMap: Record<string, CuttingNavigationTarget> = {
-    [getCanonicalCuttingPath('original-orders')]: 'originalOrders',
+    [getCanonicalCuttingPath('cut-orders')]: 'cutOrders',
     [getCanonicalCuttingPath('summary')]: 'summary',
     [getCanonicalCuttingPath('fei-tickets')]: 'feiTickets',
     [getCanonicalCuttingPath('cut-piece-warehouse')]: 'cutPieceWarehouse',
@@ -4123,8 +4220,8 @@ function navigateByPayload(payload: Record<string, string | undefined>, path: st
       autoOpenDetail: true,
       bagCode: payload.bagCode,
       usageNo: payload.usageNo,
-      originalCutOrderNo: payload.originalCutOrderNo,
-      mergeBatchNo: payload.mergeBatchNo || payload['裁剪批次No'],
+      cutOrderNo: payload.cutOrderNo,
+      markerPlanNo: payload.markerPlanNo || payload['唛架方案No'],
       ticketNo: payload.ticketNo,
       productionOrderNo: payload.productionOrderNo,
     })
@@ -4335,10 +4432,10 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     appStore.navigate(buildCuttingRouteWithContext('summary', context))
     return true
   }
-  if (action === 'go-original-orders') {
+  if (action === 'go-cut-orders') {
     const usage = getViewModel().usagesById[actionNode.dataset.usageId || state.activeUsageId || '']
     if (!usage) return false
-    return navigateByPayload(usage.navigationPayload.originalOrders, getCanonicalCuttingPath('original-orders'))
+    return navigateByPayload(usage.navigationPayload.cutOrders, getCanonicalCuttingPath('cut-orders'))
   }
   if (action === 'go-summary') {
     const usage = getViewModel().usagesById[actionNode.dataset.usageId || state.activeUsageId || '']

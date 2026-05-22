@@ -1,22 +1,22 @@
-import type { CuttableOriginalOrderItem } from './cuttable-pool-model.ts'
+import type { CuttableCutOrderItem } from './cuttable-pool-model.ts'
 
-export const CUTTING_SELECTED_IDS_STORAGE_KEY = 'cuttingSelectedOriginalOrderIds'
-export const CUTTING_SELECTED_BATCHING_KEY_STORAGE_KEY = 'cuttingSelectedBatchingKey'
-export const CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY = 'cuttingMergeBatchLedger'
+export const CUTTING_SELECTED_IDS_STORAGE_KEY = 'cuttingSelectedCutOrderIds'
+export const CUTTING_SELECTED_MARKER_PLAN_GROUP_KEY_STORAGE_KEY = 'cuttingSelectedMarkerPlanKey'
+export const CUTTING_MARKER_PLAN_REF_LEDGER_STORAGE_KEY = 'cuttingMarkerPlanRefLedger'
 
-export type MergeBatchStatus = 'DRAFT' | 'READY' | 'CUTTING' | 'DONE' | 'CANCELLED'
-export type MergeBatchVisibleStatus = 'READY' | 'CUTTING' | 'DONE' | 'CANCELLED'
+export type MarkerPlanRefStatus = 'DRAFT' | 'READY' | 'CUTTING' | 'DONE' | 'CANCELLED'
+export type MarkerPlanRefVisibleStatus = 'READY' | 'CUTTING' | 'DONE' | 'CANCELLED'
 
-export interface MergeBatchDraftForm {
+export interface MarkerPlanRefDraftForm {
   plannedCuttingGroup: string
   plannedCuttingDate: string
   note: string
 }
 
-export interface MergeBatchItem {
-  mergeBatchId: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+export interface MarkerPlanRefItem {
+  markerPlanId: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   styleCode: string
@@ -30,45 +30,45 @@ export interface MergeBatchItem {
   materialLabel: string
   currentStage: string
   cuttableStateLabel: string
-  sourceBatchingKey: string
+  sourceMarkerPlaningKey: string
 }
 
-export interface MergeBatchRecord {
-  mergeBatchId: string
-  mergeBatchNo: string
-  status: MergeBatchStatus
-  batchingKey: string
+export interface MarkerPlanRefRecord {
+  markerPlanId: string
+  markerPlanNo: string
+  status: MarkerPlanRefStatus
+  markerPlanGroupKey: string
   styleCode: string
   spuCode: string
   styleName: string
   materialSkuSummary: string
   sourceProductionOrderCount: number
-  sourceOriginalCutOrderCount: number
+  sourceCutOrderCount: number
   plannedCuttingGroup: string
   plannedCuttingDate: string
   note: string
   createdFrom: 'cuttable-pool' | 'system-seed'
   createdAt: string
   updatedAt: string
-  items: MergeBatchItem[]
+  items: MarkerPlanRefItem[]
 }
 
-export interface MergeBatchSummary {
+export interface MarkerPlanRefSummary {
   sourceProductionOrderCount: number
-  sourceOriginalCutOrderCount: number
+  sourceCutOrderCount: number
   styleCode: string
   spuCode: string
   styleName: string
-  batchingKey: string
+  markerPlanGroupKey: string
   materialSkuSummary: string
   urgencySummary: string
   riskSummary: string
 }
 
-export interface MergeBatchSourceOriginalOrderItem {
+export interface MarkerPlanRefSourceCutOrderItem {
   id: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   styleCode: string
@@ -81,31 +81,31 @@ export interface MergeBatchSourceOriginalOrderItem {
   materialCategory: string
   materialLabel: string
   currentStage: string
-  batchOccupancyStatus: string
+  markerPlanOccupancyStatus: string
   cuttableState: {
     label: string
     selectable: boolean
     key?: string
   }
-  batchingKey: string
-  mergeBatchNo: string
+  markerPlanGroupKey: string
+  markerPlanNo: string
 }
 
-export interface HydratedIncomingBatchSelection {
-  items: MergeBatchSourceOriginalOrderItem[]
+export interface HydratedIncomingMarkerPlanSelection {
+  items: MarkerPlanRefSourceCutOrderItem[]
   requestedIds: string[]
   missingIds: string[]
-  batchingKey: string | null
+  markerPlanGroupKey: string | null
 }
 
-export interface MergeBatchValidationResult {
+export interface MarkerPlanRefValidationResult {
   ok: boolean
   reasons: string[]
-  batchingKey: string | null
-  occupiedBatchNo?: string
+  markerPlanGroupKey: string | null
+  occupiedMarkerPlanNo?: string
 }
 
-export interface MergeBatchProductionOrderGroup {
+export interface MarkerPlanRefProductionOrderGroup {
   productionOrderId: string
   productionOrderNo: string
   styleCode: string
@@ -113,7 +113,7 @@ export interface MergeBatchProductionOrderGroup {
   urgencyLabel: string
   plannedShipDateDisplay: string
   itemCount: number
-  items: MergeBatchItem[]
+  items: MarkerPlanRefItem[]
 }
 
 function toDateTimeString(input: Date | string): string {
@@ -146,25 +146,29 @@ function buildMaterialSkuSummary(materialSkus: string[]): string {
   return uniqueStrings(materialSkus).join(' / ')
 }
 
-function batchRecordFromItems(options: {
-  mergeBatchId: string
-  mergeBatchNo: string
-  status: MergeBatchStatus
-  batchingKey: string
-  items: MergeBatchSourceOriginalOrderItem[]
+function isActiveMarkerPlanRefStatus(status: MarkerPlanRefStatus): boolean {
+  return status !== 'DONE' && status !== 'CANCELLED'
+}
+
+function markerPlanRecordFromItems(options: {
+  markerPlanId: string
+  markerPlanNo: string
+  status: MarkerPlanRefStatus
+  markerPlanGroupKey: string
+  items: MarkerPlanRefSourceCutOrderItem[]
   plannedCuttingGroup: string
   plannedCuttingDate: string
   note: string
   createdFrom: 'cuttable-pool' | 'system-seed'
   createdAt: string
   updatedAt: string
-}): MergeBatchRecord {
+}): MarkerPlanRefRecord {
   const seed = options.items[0]
   const productionOrderIds = uniqueStrings(options.items.map((item) => item.productionOrderId))
-  const batchItems: MergeBatchItem[] = options.items.map((item) => ({
-    mergeBatchId: options.mergeBatchId,
-    originalCutOrderId: item.originalCutOrderId,
-    originalCutOrderNo: item.originalCutOrderNo,
+  const markerPlanItems: MarkerPlanRefItem[] = options.items.map((item) => ({
+    markerPlanId: options.markerPlanId,
+    cutOrderId: item.cutOrderId,
+    cutOrderNo: item.cutOrderNo,
     productionOrderId: item.productionOrderId,
     productionOrderNo: item.productionOrderNo,
     styleCode: item.styleCode,
@@ -178,81 +182,81 @@ function batchRecordFromItems(options: {
     materialLabel: item.materialLabel,
     currentStage: item.currentStage,
     cuttableStateLabel: item.cuttableState.label,
-    sourceBatchingKey: item.batchingKey,
+    sourceMarkerPlaningKey: item.markerPlanGroupKey,
   }))
 
   return {
-    mergeBatchId: options.mergeBatchId,
-    mergeBatchNo: options.mergeBatchNo,
+    markerPlanId: options.markerPlanId,
+    markerPlanNo: options.markerPlanNo,
     status: options.status,
-    batchingKey: options.batchingKey,
+    markerPlanGroupKey: options.markerPlanGroupKey,
     styleCode: seed?.styleCode ?? '',
     spuCode: seed?.spuCode ?? '',
     styleName: seed?.styleName ?? '',
     materialSkuSummary: buildMaterialSkuSummary(options.items.map((item) => item.materialSku)),
     sourceProductionOrderCount: productionOrderIds.length,
-    sourceOriginalCutOrderCount: options.items.length,
+    sourceCutOrderCount: options.items.length,
     plannedCuttingGroup: options.plannedCuttingGroup,
     plannedCuttingDate: options.plannedCuttingDate,
     note: options.note,
     createdFrom: options.createdFrom,
     createdAt: options.createdAt,
     updatedAt: options.updatedAt,
-    items: batchItems,
+    items: markerPlanItems,
   }
 }
 
-function inferSystemBatchStatus(items: MergeBatchSourceOriginalOrderItem[]): MergeBatchStatus {
+function inferSystemMarkerPlanStatus(items: MarkerPlanRefSourceCutOrderItem[]): MarkerPlanRefStatus {
   if (items.some((item) => /已完成/.test(item.currentStage))) return 'DONE'
   if (items.some((item) => /裁片中|裁剪中|待入仓/.test(item.currentStage))) return 'CUTTING'
   return 'READY'
 }
 
-function parseBatchDateFromNo(mergeBatchNo: string): string {
-  const match = mergeBatchNo.match(/(\d{2})(\d{2})(\d{2})/)
+function parseMarkerPlanDateFromNo(markerPlanNo: string): string {
+  const match = markerPlanNo.match(/(\d{2})(\d{2})(\d{2})/)
   if (!match) return ''
   return `20${match[1]}-${match[2]}-${match[3]}`
 }
 
-export function buildSystemSeedMergeBatches(items: MergeBatchSourceOriginalOrderItem[]): MergeBatchRecord[] {
-  const bucket = new Map<string, MergeBatchSourceOriginalOrderItem[]>()
+export function buildSystemSeedMarkerPlanRefs(items: MarkerPlanRefSourceCutOrderItem[]): MarkerPlanRefRecord[] {
+  const bucket = new Map<string, MarkerPlanRefSourceCutOrderItem[]>()
 
   for (const item of items) {
-    if (!item.mergeBatchNo) continue
-    const group = bucket.get(item.mergeBatchNo)
+    if (!item.markerPlanNo) continue
+    const group = bucket.get(item.markerPlanNo)
     if (group) {
       group.push(item)
     } else {
-      bucket.set(item.mergeBatchNo, [item])
+      bucket.set(item.markerPlanNo, [item])
     }
   }
 
   return Array.from(bucket.entries())
-    .map(([mergeBatchNo, groupItems]) =>
-      batchRecordFromItems({
-        mergeBatchId: `seed-${mergeBatchNo}`,
-        mergeBatchNo,
-        status: inferSystemBatchStatus(groupItems),
-        batchingKey: groupItems[0]?.batchingKey ?? '',
+    .map(([markerPlanNo, groupItems]) =>
+      markerPlanRecordFromItems({
+        markerPlanId: `seed-${markerPlanNo}`,
+        markerPlanNo,
+        status: inferSystemMarkerPlanStatus(groupItems),
+        markerPlanGroupKey: groupItems[0]?.markerPlanGroupKey ?? '',
         items: groupItems,
         plannedCuttingGroup: '',
-        plannedCuttingDate: parseBatchDateFromNo(mergeBatchNo),
-        note: '来源于当前原型中已有的批次占用记录。',
+        plannedCuttingDate: parseMarkerPlanDateFromNo(markerPlanNo),
+        note: '来源于当前原型中已有的唛架方案占用记录。',
         createdFrom: 'system-seed',
-        createdAt: `${parseBatchDateFromNo(mergeBatchNo)} 09:00`,
-        updatedAt: `${parseBatchDateFromNo(mergeBatchNo)} 09:00`,
+        createdAt: `${parseMarkerPlanDateFromNo(markerPlanNo)} 09:00`,
+        updatedAt: `${parseMarkerPlanDateFromNo(markerPlanNo)} 09:00`,
       }),
     )
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt, 'zh-CN'))
 }
 
-export function hydrateIncomingSelectedOriginalCutOrders(
-  itemsById: Record<string, MergeBatchSourceOriginalOrderItem>,
+export function hydrateIncomingSelectedCutOrders(
+  itemsById: Record<string, MarkerPlanRefSourceCutOrderItem>,
   storage: Pick<Storage, 'getItem'>,
-): HydratedIncomingBatchSelection {
+): HydratedIncomingMarkerPlanSelection {
   let requestedIds: string[] = []
   const rawIds = storage.getItem(CUTTING_SELECTED_IDS_STORAGE_KEY)
-  const batchingKey = storage.getItem(CUTTING_SELECTED_BATCHING_KEY_STORAGE_KEY)
+  const markerPlanGroupKey = storage.getItem(CUTTING_SELECTED_MARKER_PLAN_GROUP_KEY_STORAGE_KEY)
 
   if (rawIds) {
     try {
@@ -265,7 +269,7 @@ export function hydrateIncomingSelectedOriginalCutOrders(
     }
   }
 
-  const items: MergeBatchSourceOriginalOrderItem[] = []
+  const items: MarkerPlanRefSourceCutOrderItem[] = []
   const missingIds: string[] = []
 
   for (const id of requestedIds) {
@@ -281,100 +285,96 @@ export function hydrateIncomingSelectedOriginalCutOrders(
     items,
     requestedIds,
     missingIds,
-    batchingKey: batchingKey || null,
+    markerPlanGroupKey: markerPlanGroupKey || null,
   }
 }
 
-export function validateIncomingBatchSelection(
-  incoming: HydratedIncomingBatchSelection,
-  ledger: MergeBatchRecord[],
-): MergeBatchValidationResult {
+export function validateIncomingMarkerPlanSelection(
+  incoming: HydratedIncomingMarkerPlanSelection,
+  ledger: MarkerPlanRefRecord[],
+): MarkerPlanRefValidationResult {
   const reasons: string[] = []
 
   if (!incoming.requestedIds.length) {
-    reasons.push('当前没有收到来自可裁排产页的原始裁片单选择结果。')
+    reasons.push('当前没有收到来自可排唛架裁片单页的裁片单选择结果。')
   }
 
   if (incoming.missingIds.length) {
-    reasons.push('部分原始裁片单在当前页面无法恢复，请返回可裁排产重新选择。')
+    reasons.push('部分裁片单在当前页面无法恢复，请返回可排唛架裁片单重新选择。')
   }
 
   if (!incoming.items.length) {
     return {
       ok: false,
       reasons,
-      batchingKey: incoming.batchingKey,
+      markerPlanGroupKey: incoming.markerPlanGroupKey,
     }
   }
 
-  const batchingKeys = uniqueStrings(incoming.items.map((item) => item.batchingKey))
-  if (incoming.batchingKey && batchingKeys.length === 1 && batchingKeys[0] !== incoming.batchingKey) {
-    reasons.push('当前输入的同款同生产单范围与原始裁片单实际范围不一致。')
+  const markerPlanGroupKeys = uniqueStrings(incoming.items.map((item) => item.markerPlanGroupKey))
+  if (incoming.markerPlanGroupKey && markerPlanGroupKeys.length === 1 && markerPlanGroupKeys[0] !== incoming.markerPlanGroupKey) {
+    reasons.push('当前输入的唛架组合范围与裁片单实际组合范围不一致。')
   }
 
-  if (batchingKeys.length !== 1) {
-    reasons.push('当前待建批次仅支持同款同生产单的原始裁片单。')
+  if (markerPlanGroupKeys.length !== 1) {
+    reasons.push('当前待建唛架方案仅支持同 SPU、同纸样文件、同有效幅宽、同历史组合组的裁片单。')
   }
 
   const blockedItem = incoming.items.find((item) => item.cuttableState.key !== 'CUTTABLE')
   if (blockedItem) {
-    reasons.push(`${blockedItem.originalCutOrderNo} 当前状态为“${blockedItem.cuttableState.label}”，不能创建合并裁剪批次。`)
+    reasons.push(`${blockedItem.cutOrderNo} 当前状态为“${blockedItem.cuttableState.label}”，不能创建唛架方案。`)
   }
 
   const occupiedLookup = new Map<string, string>()
-  for (const batch of ledger) {
-    for (const item of batch.items) {
-      occupiedLookup.set(item.originalCutOrderId, batch.mergeBatchNo)
+  for (const markerPlan of ledger) {
+    if (!isActiveMarkerPlanRefStatus(markerPlan.status)) continue
+    for (const item of markerPlan.items) {
+      occupiedLookup.set(item.cutOrderId, markerPlan.markerPlanNo)
     }
   }
-  const occupiedItem = incoming.items.find((item) => occupiedLookup.has(item.originalCutOrderId))
+  const occupiedItem = incoming.items.find((item) => occupiedLookup.has(item.cutOrderId))
   if (occupiedItem) {
-    reasons.push(`${occupiedItem.originalCutOrderNo} 已进入批次 ${occupiedLookup.get(occupiedItem.originalCutOrderId)}，不能重复创建。`)
+    reasons.push(`${occupiedItem.cutOrderNo} 当前可用余额已被唛架方案 ${occupiedLookup.get(occupiedItem.cutOrderId)} 锁定，不能重复锁定。`)
   }
 
-  const styleKeys = uniqueStrings(incoming.items.map((item) => item.styleCode || item.spuCode))
-  if (styleKeys.length !== 1) {
-    reasons.push('当前待建批次只允许同款原始裁片单进入同一执行批次。')
-  }
-
-  const productionOrderKeys = uniqueStrings(incoming.items.map((item) => item.productionOrderId || item.productionOrderNo))
-  if (productionOrderKeys.length !== 1) {
-    reasons.push('当前待建批次只允许同一生产单的原始裁片单进入同一执行批次。')
+  const spuKeys = uniqueStrings(incoming.items.map((item) => item.spuCode || item.styleCode))
+  if (spuKeys.length !== 1) {
+    reasons.push('当前待建唛架方案只允许同 SPU 裁片单进入同一唛架方案。')
   }
 
   return {
     ok: reasons.length === 0,
     reasons,
-    batchingKey: batchingKeys[0] ?? incoming.batchingKey,
-    occupiedBatchNo: occupiedItem ? occupiedLookup.get(occupiedItem.originalCutOrderId) : undefined,
+    markerPlanGroupKey: markerPlanGroupKeys[0] ?? incoming.markerPlanGroupKey,
+    occupiedMarkerPlanNo: occupiedItem ? occupiedLookup.get(occupiedItem.cutOrderId) : undefined,
   }
 }
 
-export function summarizeIncomingBatchSelection(items: MergeBatchSourceOriginalOrderItem[]): MergeBatchSummary {
+export function summarizeIncomingMarkerPlanSelection(items: MarkerPlanRefSourceCutOrderItem[]): MarkerPlanRefSummary {
   const productionOrderIds = uniqueStrings(items.map((item) => item.productionOrderId))
   const styleCodes = uniqueStrings(items.map((item) => item.styleCode))
   const spuCodes = uniqueStrings(items.map((item) => item.spuCode))
   const urgencies = uniqueStrings(items.map((item) => item.urgencyLabel))
-  const riskTokens = uniqueStrings(items.flatMap((item) => (item.batchOccupancyStatus === 'IN_BATCH' ? ['已入合并裁剪批次'] : [])))
+  const riskTokens = uniqueStrings(items.flatMap((item) => (item.markerPlanOccupancyStatus === 'IN_MARKER_PLAN' ? ['已入唛架方案'] : [])))
 
   return {
     sourceProductionOrderCount: productionOrderIds.length,
-    sourceOriginalCutOrderCount: items.length,
+    sourceCutOrderCount: items.length,
     styleCode: styleCodes[0] ?? '',
     spuCode: spuCodes[0] ?? '',
     styleName: items[0]?.styleName ?? '',
-    batchingKey: items[0]?.batchingKey ?? '',
+    markerPlanGroupKey: items[0]?.markerPlanGroupKey ?? '',
     materialSkuSummary: buildMaterialSkuSummary(items.map((item) => item.materialSku)),
     urgencySummary: urgencies.join(' / ') || '常规',
-    riskSummary: riskTokens.join(' / ') || '合并条件校验通过',
+    riskSummary: riskTokens.join(' / ') || '唛架方案条件校验通过',
   }
 }
 
-export function buildMergeBatchNo(existingBatches: MergeBatchRecord[], now = new Date()): string {
+export function buildMarkerPlanRefNo(existingMarkerPlans: MarkerPlanRefRecord[], now = new Date()): string {
   const dateKey = toDateString(now).replaceAll('-', '')
-  const sameDayNumbers = existingBatches
-    .map((batch) => batch.mergeBatchNo)
-    .filter((batchNo) => batchNo.startsWith(`CUT-MB-${dateKey}`))
+  const sameDayNumbers = existingMarkerPlans
+    .map((markerPlan) => markerPlan.markerPlanNo)
+    .filter((batchNo) => batchNo.startsWith(`MKP-${dateKey}`))
     .map((batchNo) => {
       const suffix = batchNo.split('-').pop() || '0'
       return Number.parseInt(suffix, 10)
@@ -382,27 +382,27 @@ export function buildMergeBatchNo(existingBatches: MergeBatchRecord[], now = new
     .filter((value) => Number.isFinite(value))
 
   const nextSerial = Math.max(0, ...sameDayNumbers) + 1
-  return `CUT-MB-${dateKey}-${String(nextSerial).padStart(3, '0')}`
+  return `MKP-${dateKey}-${String(nextSerial).padStart(3, '0')}`
 }
 
-export function createMergeBatchDraft(options: {
-  items: MergeBatchSourceOriginalOrderItem[]
-  form: MergeBatchDraftForm
-  status: MergeBatchStatus
-  existingBatches: MergeBatchRecord[]
+export function createMarkerPlanRefDraft(options: {
+  items: MarkerPlanRefSourceCutOrderItem[]
+  form: MarkerPlanRefDraftForm
+  status: MarkerPlanRefStatus
+  existingMarkerPlans: MarkerPlanRefRecord[]
   createdFrom?: 'cuttable-pool' | 'system-seed'
   now?: Date
-}): MergeBatchRecord {
+}): MarkerPlanRefRecord {
   const now = options.now ?? new Date()
-  const mergeBatchId = `merge-batch-${now.getTime()}`
-  const mergeBatchNo = buildMergeBatchNo(options.existingBatches, now)
-  const summary = summarizeIncomingBatchSelection(options.items)
+  const markerPlanId = `marker-plan-ref-${now.getTime()}`
+  const markerPlanNo = buildMarkerPlanRefNo(options.existingMarkerPlans, now)
+  const summary = summarizeIncomingMarkerPlanSelection(options.items)
 
-  return batchRecordFromItems({
-    mergeBatchId,
-    mergeBatchNo,
+  return markerPlanRecordFromItems({
+    markerPlanId,
+    markerPlanNo,
     status: options.status,
-    batchingKey: summary.batchingKey,
+    markerPlanGroupKey: summary.markerPlanGroupKey,
     items: options.items,
     plannedCuttingGroup: options.form.plannedCuttingGroup.trim(),
     plannedCuttingDate: options.form.plannedCuttingDate,
@@ -413,13 +413,13 @@ export function createMergeBatchDraft(options: {
   })
 }
 
-export function mapCuttableItemsToMergeBatchSourceItems(
-  items: CuttableOriginalOrderItem[],
-): MergeBatchSourceOriginalOrderItem[] {
+export function mapCuttableItemsToMarkerPlanRefSourceItems(
+  items: CuttableCutOrderItem[],
+): MarkerPlanRefSourceCutOrderItem[] {
   return items.map((item) => ({
     id: item.id,
-    originalCutOrderId: item.originalCutOrderId,
-    originalCutOrderNo: item.originalCutOrderNo,
+    cutOrderId: item.cutOrderId,
+    cutOrderNo: item.cutOrderNo,
     productionOrderId: item.productionOrderId,
     productionOrderNo: item.productionOrderNo,
     styleCode: item.styleCode,
@@ -432,63 +432,63 @@ export function mapCuttableItemsToMergeBatchSourceItems(
     materialCategory: item.materialCategory,
     materialLabel: item.materialLabel,
     currentStage: item.currentStage.label,
-    batchOccupancyStatus: item.batchOccupancyStatus,
+    markerPlanOccupancyStatus: item.markerPlanOccupancyStatus,
     cuttableState: {
       key: item.cuttableState.key,
       label: item.cuttableState.label,
       selectable: item.cuttableState.selectable,
     },
-    batchingKey: item.batchingKey,
-    mergeBatchNo: item.mergeBatchNo,
+    markerPlanGroupKey: item.markerPlanGroupKey,
+    markerPlanNo: item.markerPlanNo,
   }))
 }
 
-export function createReadyMergeBatchFromCuttableSelection(options: {
-  items: CuttableOriginalOrderItem[]
-  existingBatches: MergeBatchRecord[]
+export function createReadyMarkerPlanRefFromCuttableSelection(options: {
+  items: CuttableCutOrderItem[]
+  existingMarkerPlans: MarkerPlanRefRecord[]
   now?: Date
-}): MergeBatchRecord {
-  return createMergeBatchDraft({
-    items: mapCuttableItemsToMergeBatchSourceItems(options.items),
+}): MarkerPlanRefRecord {
+  return createMarkerPlanRefDraft({
+    items: mapCuttableItemsToMarkerPlanRefSourceItems(options.items),
     form: {
       plannedCuttingGroup: '',
       plannedCuttingDate: '',
       note: '',
     },
     status: 'READY',
-    existingBatches: options.existingBatches,
+    existingMarkerPlans: options.existingMarkerPlans,
     createdFrom: 'cuttable-pool',
     now: options.now,
   })
 }
 
-export function normalizeMergeBatchStatus(status: MergeBatchStatus): MergeBatchVisibleStatus {
+export function normalizeMarkerPlanRefStatus(status: MarkerPlanRefStatus): MarkerPlanRefVisibleStatus {
   if (status === 'DRAFT') {
     return 'READY'
   }
   return status
 }
 
-export function serializeMergeBatchStorage(records: MergeBatchRecord[]): string {
+export function serializeMarkerPlanRefStorage(records: MarkerPlanRefRecord[]): string {
   return JSON['stringify'](records)
 }
 
-export function deserializeMergeBatchStorage(raw: string | null): MergeBatchRecord[] {
+export function deserializeMarkerPlanRefStorage(raw: string | null): MarkerPlanRefRecord[] {
   if (!raw) return []
 
   try {
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed.filter((record): record is MergeBatchRecord => {
-      return Boolean(record && typeof record === 'object' && typeof record.mergeBatchId === 'string' && typeof record.mergeBatchNo === 'string')
+    return parsed.filter((record): record is MarkerPlanRefRecord => {
+      return Boolean(record && typeof record === 'object' && typeof record.markerPlanId === 'string' && typeof record.markerPlanNo === 'string')
     })
   } catch {
     return []
   }
 }
 
-export function groupMergeBatchItemsByProductionOrder(items: MergeBatchItem[]): MergeBatchProductionOrderGroup[] {
-  const groupMap = new Map<string, MergeBatchProductionOrderGroup>()
+export function groupMarkerPlanRefItemsByProductionOrder(items: MarkerPlanRefItem[]): MarkerPlanRefProductionOrderGroup[] {
+  const groupMap = new Map<string, MarkerPlanRefProductionOrderGroup>()
 
   for (const item of items) {
     const existing = groupMap.get(item.productionOrderId)
@@ -513,18 +513,18 @@ export function groupMergeBatchItemsByProductionOrder(items: MergeBatchItem[]): 
   return Array.from(groupMap.values()).sort((left, right) => left.productionOrderNo.localeCompare(right.productionOrderNo, 'zh-CN'))
 }
 
-export function getMergeBatchStatusMeta(status: MergeBatchStatus): {
+export function getMarkerPlanRefStatusMeta(status: MarkerPlanRefStatus): {
   label: string
   className: string
   helperText: string
 } {
-  const visibleStatus = normalizeMergeBatchStatus(status)
+  const visibleStatus = normalizeMarkerPlanRefStatus(status)
 
   if (visibleStatus === 'READY') {
     return {
       label: '待裁',
       className: 'bg-blue-100 text-blue-700 border border-blue-200',
-      helperText: '已完成批次建档，等待裁床正式执行。',
+      helperText: '已完成唛架方案建档，等待裁床正式执行。',
     }
   }
 
@@ -532,7 +532,7 @@ export function getMergeBatchStatusMeta(status: MergeBatchStatus): {
     return {
       label: '裁剪中',
       className: 'bg-amber-100 text-amber-700 border border-amber-200',
-      helperText: '批次已进入裁床执行上下文，但不改变原始裁片单归属。',
+      helperText: '唛架方案已进入裁床执行上下文，但不改变裁片单归属。',
     }
   }
 
@@ -540,7 +540,7 @@ export function getMergeBatchStatusMeta(status: MergeBatchStatus): {
     return {
       label: '已完成',
       className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-      helperText: '批次执行已完成，后续打印菲票与追溯仍回落原始裁片单。',
+      helperText: '唛架方案执行已完成，后续打印菲票与追溯仍回落裁片单。',
     }
   }
 
@@ -548,13 +548,13 @@ export function getMergeBatchStatusMeta(status: MergeBatchStatus): {
     return {
       label: '已取消',
       className: 'bg-rose-100 text-rose-700 border border-rose-200',
-      helperText: '当前批次已作废，不再作为有效执行上下文。',
+      helperText: '当前唛架方案已作废，不再作为有效执行上下文。',
     }
   }
 
   return {
     label: '待裁',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    helperText: '已完成批次建档，等待裁床正式执行。',
+    helperText: '已完成唛架方案建档，等待裁床正式执行。',
   }
 }

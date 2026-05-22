@@ -74,6 +74,7 @@ import {
   resolveFcsDemoRole,
 } from '../../../data/fcs/action-permissions.ts'
 import { buildSupplementMaterialSlipPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import { renderMaterialIdentityBlock } from './material-identity.ts'
 
 type FilterField = 'keyword' | 'sourceType' | 'status' | 'riskLevel'
 type ReviewField = 'status' | 'reason' | 'note'
@@ -225,15 +226,15 @@ function buildPendingPrepFollowupRecords(row: ReplenishmentSuggestionRow, review
     sourceSpreadingSessionId,
     sourceMarkerId,
     sourceMarkerNo,
-    originalCutOrderId: line.originalCutOrderId,
-    originalCutOrderNo: line.originalCutOrderNo || line.originalCutOrderId,
+    cutOrderId: line.cutOrderId,
+    cutOrderNo: line.cutOrderNo || line.cutOrderId,
     materialSku: line.materialSku,
     color: line.color,
     shortageGarmentQty: line.shortageGarmentQty,
     status: 'PENDING_PREP',
     createdAt: review.reviewedAt,
     createdBy: review.reviewedBy,
-    note: `补料审批通过后生成WMS 待处理，缺口成衣件数 ${formatQty(line.shortageGarmentQty)} 件。`,
+    note: `补料确认后记录为待再次领料项，缺口成衣件数 ${formatQty(line.shortageGarmentQty)} 件。`,
   }))
 }
 
@@ -275,10 +276,10 @@ function getPrefilterFromQuery(): ReplenishmentPrefilter | null {
   const params = getWarehouseSearchParams()
   const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: ReplenishmentPrefilter = {
-    originalCutOrderNo: drillContext?.originalCutOrderNo || params.get('originalCutOrderNo') || undefined,
-    originalCutOrderId: drillContext?.originalCutOrderId || params.get('originalCutOrderId') || undefined,
-    mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
-    mergeBatchId: drillContext?.mergeBatchId || params.get('mergeBatchId') || undefined,
+    cutOrderNo: drillContext?.cutOrderNo || params.get('cutOrderNo') || undefined,
+    cutOrderId: drillContext?.cutOrderId || params.get('cutOrderId') || undefined,
+    markerPlanNo: drillContext?.markerPlanNo || params.get('markerPlanNo') || undefined,
+    markerPlanId: drillContext?.markerPlanId || params.get('markerPlanId') || undefined,
     productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || undefined,
     materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
     color: drillContext?.color || params.get('color') || undefined,
@@ -391,7 +392,7 @@ function renderHeaderActions(): string {
   return `
     <div class="flex flex-wrap gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker-index">返回铺布列表</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-original-index">查看原始裁片单</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-cut-order-index">查看裁片单</button>
       ${returnToSummary}
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-summary-index">查看裁剪总结</button>
     </div>
@@ -401,14 +402,13 @@ function renderHeaderActions(): string {
 function renderStats(): string {
   const { stats } = buildViewModel()
   return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
-      ${renderCompactKpiCard('补料上下文数', stats.totalCount, '按原始裁片单 / 合并裁剪批次汇总', 'text-slate-900')}
-      ${renderCompactKpiCard('待审核', stats.pendingReviewCount, '尚未给出审核结论', 'text-amber-600')}
-      ${renderCompactKpiCard('待补录', stats.pendingSupplementCount, '差异依据仍需补齐', 'text-orange-600')}
-      ${renderCompactKpiCard('待动作', stats.approvedPendingActionCount, '审核已通过但未开始', 'text-blue-600')}
-      ${renderCompactKpiCard('处理中', stats.inActionCount, '后续动作未全部闭环', 'text-violet-600')}
-      ${renderCompactKpiCard('已完成', stats.completedCount, '审核与动作均已完成', 'text-fuchsia-600')}
-      ${renderCompactKpiCard('高风险', stats.highRiskCount, '需优先纠偏', 'text-rose-600')}
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      ${renderCompactKpiCard('补料建议项', stats.totalCount, '按裁片单 / 唛架方案汇总', 'text-slate-900')}
+      ${renderCompactKpiCard('等待再次领料', stats.waitNextPickupCount, '已领面料不足以继续补排', 'text-amber-600')}
+      ${renderCompactKpiCard('可补排唛架', stats.replanReadyCount, '仍有已领面料余额', 'text-blue-600')}
+      ${renderCompactKpiCard('可关闭裁片单', stats.closeCandidateCount, '确认不再来料时关闭', 'text-zinc-700')}
+      ${renderCompactKpiCard('待补齐数据', stats.pendingSupplementCount, '铺布 / 裁剪 / 领料数量待补齐', 'text-orange-600')}
+      ${renderCompactKpiCard('高风险', stats.highRiskCount, '需优先处理', 'text-rose-600')}
     </section>
   `
 }
@@ -449,7 +449,7 @@ function renderFilterBar(): string {
           state.filters.pendingReviewOnly ? 'amber' : 'blue',
         )}
         ${renderWorkbenchFilterChip(
-          state.filters.pendingActionOnly ? '仅看待处理动作：已开启' : '仅看待处理动作',
+          state.filters.pendingActionOnly ? '仅看需后续处理：已开启' : '仅看需后续处理',
           'data-cutting-replenish-action="toggle-pending-action"',
           state.filters.pendingActionOnly ? 'amber' : 'blue',
         )}
@@ -458,15 +458,15 @@ function renderFilterBar(): string {
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词</span>
-          <input type="text" value="${escapeHtml(state.filters.keyword)}" placeholder="支持裁片单号 / 合并裁剪批次号 / 生产单号 / 面料 SKU" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-field="keyword" />
+          <input type="text" value="${escapeHtml(state.filters.keyword)}" placeholder="支持裁片单号 / 唛架方案号 / 生产单号 / 面料 SKU" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-field="keyword" />
         </label>
-        ${renderFilterSelect('来源类型', 'sourceType', state.filters.sourceType, [
+        ${renderFilterSelect('业务对象', 'sourceType', state.filters.sourceType, [
           { value: 'ALL', label: '全部' },
-          { value: 'original-order', label: '原始裁片单' },
-          { value: 'merge-batch', label: '合并裁剪批次' },
+          { value: 'cut-order', label: '裁片单' },
+          { value: 'marker-plan-ref', label: '唛架方案' },
           { value: 'spreading-session', label: '铺布记录' },
         ])}
-        ${renderFilterSelect('状态筛选', 'status', state.filters.status, [
+        ${renderFilterSelect('处理状态', 'status', state.filters.status, [
           { value: 'ALL', label: '全部' },
           { value: 'NO_ACTION', label: '无需补料' },
           { value: 'PENDING_REVIEW', label: '待审核' },
@@ -495,6 +495,28 @@ function renderSupplementPrintButton(suggestionId: string): string {
   return `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildSupplementMaterialSlipPrintLink(suggestionId))}">打印补料单</button>`
 }
 
+function renderNextOptionTags(row: ReplenishmentSuggestionRow): string {
+  return row.nextOptions
+    .map((option) => `<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${option.className}">${escapeHtml(option.label)}</span>`)
+    .join('')
+}
+
+function getNextOptionButtonLabel(option: ReplenishmentSuggestionRow['nextOptions'][number]): string {
+  if (option.key === 'WAIT_NEXT_PICKUP') return '去待加工仓'
+  if (option.key === 'REPLAN_MARKER') return '去可排唛架裁片单'
+  if (option.key === 'CLOSE_CUT_ORDER') return '去裁片单'
+  return option.label
+}
+
+function renderNextOptionButtons(row: ReplenishmentSuggestionRow): string {
+  return row.nextOptions
+    .map((option) => {
+      const label = getNextOptionButtonLabel(option)
+      return renderActionButton(label, 'go-related', row.suggestionId, `data-target-key="${escapeHtml(option.target)}"`)
+    })
+    .join('')
+}
+
 function resolvePrimaryFollowupTarget(row: ReplenishmentSuggestionRow): keyof ReplenishmentSuggestionRow['navigationPayload'] {
   const firstAction = row.followupActions.find((item) => item.status !== 'SKIPPED') || row.followupActions[0]
   if (firstAction) return firstAction.targetPageKey
@@ -505,43 +527,11 @@ function resolvePrimaryFollowupTarget(row: ReplenishmentSuggestionRow): keyof Re
 }
 
 function renderRowActions(row: ReplenishmentSuggestionRow): string {
-  if (row.statusMeta.key === 'PENDING_REVIEW') {
-    return `
-      <div class="flex flex-wrap gap-2">
-        ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
-        ${renderActionButton('去审核', 'open-review', row.suggestionId)}
-        ${renderSupplementPrintButton(row.suggestionId)}
-      </div>
-    `
-  }
-
-  if (row.statusMeta.key === 'PENDING_SUPPLEMENT') {
-    const action = row.sourceType === 'spreading-session' ? 'go-marker' : 'go-material-prep'
-    const label = row.sourceType === 'spreading-session' ? '去铺布' : '去待加工仓'
-    return `
-      <div class="flex flex-wrap gap-2">
-        ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
-        ${renderActionButton(label, action, row.suggestionId)}
-        ${renderSupplementPrintButton(row.suggestionId)}
-      </div>
-    `
-  }
-
-  if (['APPROVED_PENDING_ACTION', 'IN_ACTION'].includes(row.statusMeta.key)) {
-    return `
-      <div class="flex flex-wrap gap-2">
-        ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
-        ${renderActionButton('处理动作', 'open-actions', row.suggestionId)}
-        ${renderSupplementPrintButton(row.suggestionId)}
-      </div>
-    `
-  }
-
   return `
     <div class="flex flex-wrap gap-2">
       ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
       ${renderSupplementPrintButton(row.suggestionId)}
-      ${renderActionButton(getCuttingNavigationActionLabel(resolvePrimaryFollowupTarget(row) as CuttingNavigationTarget), 'go-related', row.suggestionId, `data-target-key="${escapeHtml(resolvePrimaryFollowupTarget(row))}"`)}
+      ${renderNextOptionButtons(row)}
     </div>
   `
 }
@@ -555,13 +545,13 @@ function renderTable(rows: ReplenishmentSuggestionRow[]): string {
     <table class="min-w-full text-sm">
       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
         <tr>
-          <th class="px-4 py-3 text-left">建议编号</th>
-          <th class="px-4 py-3 text-left">来源上下文</th>
+          <th class="px-4 py-3 text-left">缺口编号</th>
+          <th class="px-4 py-3 text-left">裁片单 / 唛架</th>
           <th class="px-4 py-3 text-left">来源生产单</th>
           <th class="px-4 py-3 text-left">当前主要缺口</th>
-          <th class="px-4 py-3 text-left">审核结果</th>
-          <th class="px-4 py-3 text-left">后续动作</th>
-          <th class="px-4 py-3 text-left">状态</th>
+          <th class="px-4 py-3 text-left">面料数量账</th>
+          <th class="px-4 py-3 text-left">后续方向</th>
+          <th class="px-4 py-3 text-left">处理状态</th>
           <th class="px-4 py-3 text-left">操作</th>
         </tr>
       </thead>
@@ -579,7 +569,19 @@ function renderTable(rows: ReplenishmentSuggestionRow[]): string {
                   ${renderTag(row.riskMeta.label, row.riskMeta.className)}
                 </div>
                 <div class="mt-1 text-xs text-foreground">${escapeHtml(row.sourceSummary)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${row.materialSku} · ${row.materialCategory}`)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.markerPlanNo ? `唛架方案：${row.markerPlanNo}` : '未关联唛架方案')}</div>
+                <div class="mt-2">
+                  ${renderMaterialIdentityBlock(
+                    {
+                      materialSku: row.materialSku,
+                      materialLabel: row.materialSku,
+                      materialCategory: row.materialCategory,
+                      materialAlias: row.materialAlias,
+                      materialImageUrl: row.materialImageUrl,
+                    },
+                    { compact: true, imageSizeClass: 'h-9 w-9' },
+                  )}
+                </div>
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`颜色：${Array.from(new Set(row.lines.map((line) => line.color).filter(Boolean))).join(' / ') || '待补'}`)}</div>
               </td>
               <td class="px-4 py-3">
@@ -591,14 +593,14 @@ function renderTable(rows: ReplenishmentSuggestionRow[]): string {
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.differenceSummary)}</div>
               </td>
               <td class="px-4 py-3">
-                <div class="flex flex-wrap gap-2">
-                  ${row.review ? renderTag(row.reviewSummary, row.review?.reviewStatus === 'APPROVED' ? 'bg-blue-100 text-blue-700' : row.review?.reviewStatus === 'REJECTED' ? 'bg-slate-200 text-slate-700' : 'bg-orange-100 text-orange-700') : '<span class="text-xs text-muted-foreground">未审核</span>'}
-                </div>
-                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.review?.decisionReason || row.suggestedAction)}</div>
+                <div class="text-xs text-muted-foreground">中转仓已配 ${escapeHtml(formatLength(row.configuredLengthTotal))}</div>
+                <div class="mt-1 text-xs text-muted-foreground">裁床已领 ${escapeHtml(formatLength(row.claimedLengthTotal))}</div>
+                <div class="mt-1 text-xs text-muted-foreground">实际消耗 ${escapeHtml(formatLength(row.actualLengthTotal))}</div>
+                <div class="mt-1 text-xs font-medium ${row.claimedBalanceLength > 0 ? 'text-blue-700' : 'text-amber-700'}">已领余额 ${escapeHtml(formatLength(row.claimedBalanceLength))}</div>
               </td>
               <td class="px-4 py-3">
-                <div class="text-xs font-medium text-foreground">${escapeHtml(row.followupProgressText)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.impactPlan.impactSummary)}</div>
+                <div class="flex flex-wrap gap-2">${renderNextOptionTags(row)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.nextOptions.map((item) => item.detailText).join(' / '))}</div>
               </td>
               <td class="px-4 py-3">
                 <div class="flex flex-wrap gap-2">
@@ -623,16 +625,16 @@ function renderEvidenceSection(row: ReplenishmentSuggestionRow): string {
       <h3 class="text-sm font-semibold text-foreground">补料依据</h3>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">来源类型</div>
+          <div class="text-xs text-muted-foreground">业务对象</div>
           <div class="mt-1 font-medium text-foreground">${escapeHtml(row.sourceLabel)}</div>
         </article>
         <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">来源原始裁片单</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.originalCutOrderNos.join(' / ') || '待补')}</div>
+          <div class="text-xs text-muted-foreground">来源裁片单</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.cutOrderNos.join(' / ') || '待补')}</div>
         </article>
         <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">来源合并裁剪批次</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.mergeBatchNo || '无')}</div>
+          <div class="text-xs text-muted-foreground">来源唛架方案</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.markerPlanNo || '无')}</div>
         </article>
         <article class="rounded-lg border bg-muted/20 p-3">
           <div class="text-xs text-muted-foreground">来源生产单</div>
@@ -647,8 +649,14 @@ function renderEvidenceSection(row: ReplenishmentSuggestionRow): string {
           <div class="mt-1 font-medium text-foreground">${escapeHtml(row.context.session?.sessionNo || '未关联')}</div>
         </article>
         <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">面料 SKU</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.materialSku)}</div>
+          <div class="text-xs text-muted-foreground">面料</div>
+          <div class="mt-2">${renderMaterialIdentityBlock({
+            materialSku: row.materialSku,
+            materialLabel: row.materialSku,
+            materialCategory: row.materialCategory,
+            materialAlias: row.materialAlias,
+            materialImageUrl: row.materialImageUrl,
+          })}</div>
         </article>
         <article class="rounded-lg border bg-muted/20 p-3">
           <div class="text-xs text-muted-foreground">面料类别</div>
@@ -675,7 +683,7 @@ function renderDifferenceSection(row: ReplenishmentSuggestionRow): string {
 
   return `
     <section class="rounded-lg border bg-card p-4">
-      <h3 class="text-sm font-semibold text-foreground">差异计算</h3>
+      <h3 class="text-sm font-semibold text-foreground">面料缺口与数量账</h3>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         ${renderMetricCard('计划裁剪成衣件数（件）', `${formatQty(row.requiredGarmentQty)} 件`, {
           formula: buildQtySumFormula(row.requiredGarmentQty, lineRequiredValues),
@@ -690,14 +698,22 @@ function renderDifferenceSection(row: ReplenishmentSuggestionRow): string {
           formula: `max(${formatQty(row.requiredGarmentQty)} - ${formatQty(row.actualCutGarmentQty)}, 0) = ${formatQty(row.shortageGarmentQty)}`,
           valueClassName: row.shortageGarmentQty > 0 ? 'font-medium text-rose-600' : 'font-medium text-foreground',
         })}
-        ${renderMetricCard('已配置总长度（m）', formatLength(row.configuredLengthTotal))}
-        ${renderMetricCard('已领取总长度（m）', formatLength(row.claimedLengthTotal), {
+        ${renderMetricCard('中转仓已配数量（m）', formatLength(row.configuredLengthTotal))}
+        ${renderMetricCard('裁床已领数量（m）', formatLength(row.claimedLengthTotal), {
           formula: buildLengthSumFormula(row.claimedLengthTotal, lineClaimedValues),
         })}
-        ${renderMetricCard('总实际铺布长度（m）', formatLength(row.actualLengthTotal), {
+        ${renderMetricCard('实际消耗数量（m）', formatLength(row.actualLengthTotal), {
           formula: buildLengthSumFormula(row.actualLengthTotal, lineActualLengthValues),
         })}
-        ${renderMetricCard('差异长度（m）', formatLength(row.varianceLength), {
+        ${renderMetricCard('已领余额（m）', formatLength(row.claimedBalanceLength), {
+          formula: `max(${Number(row.claimedLengthTotal || 0).toFixed(2)} - ${Number(row.actualLengthTotal || 0).toFixed(2)}, 0) = ${Number(row.claimedBalanceLength || 0).toFixed(2)}`,
+          valueClassName: row.claimedBalanceLength > 0 ? 'font-medium text-blue-700' : 'font-medium text-foreground',
+        })}
+        ${renderMetricCard('面料缺口长度（m）', formatLength(row.materialGapLength), {
+          formula: `max(${Number(row.shortageLengthTotal || 0).toFixed(2)}, ${Number(row.actualLengthTotal || 0).toFixed(2)} - ${Number(row.claimedLengthTotal || 0).toFixed(2)}, 0) = ${Number(row.materialGapLength || 0).toFixed(2)}`,
+          valueClassName: row.materialGapLength > 0 ? 'font-medium text-rose-600' : 'font-medium text-foreground',
+        })}
+        ${renderMetricCard('账面差异长度（m）', formatLength(row.varianceLength), {
           formula: buildLengthDifferenceFormula(row.varianceLength, row.claimedLengthTotal, row.actualLengthTotal),
           valueClassName: row.varianceLength < 0 ? 'font-medium text-rose-600' : 'font-medium text-foreground',
         })}
@@ -715,8 +731,8 @@ function renderSuggestionLineSection(row: ReplenishmentSuggestionRow): string {
   if (!row.lines.length) {
     return `
       <section class="rounded-lg border bg-card p-4">
-        <h3 class="text-sm font-semibold text-foreground">补料明细建议</h3>
-        <div class="mt-3 rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">当前上下文尚未拆到原始裁片单 × 面料 SKU × 颜色维度。</div>
+        <h3 class="text-sm font-semibold text-foreground">缺口明细</h3>
+        <div class="mt-3 rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">当前上下文尚未拆到裁片单 × 面料 × 颜色维度。</div>
       </section>
     `
   }
@@ -724,22 +740,22 @@ function renderSuggestionLineSection(row: ReplenishmentSuggestionRow): string {
   return `
     <section class="rounded-lg border bg-card p-4">
       <div class="flex items-center justify-between gap-3">
-        <h3 class="text-sm font-semibold text-foreground">补料明细建议</h3>
-        <span class="text-xs text-muted-foreground">${escapeHtml(`${formatQty(row.lines.length)} 条建议 = 原始裁片单 × 面料 SKU × 颜色`)}</span>
+        <h3 class="text-sm font-semibold text-foreground">缺口明细</h3>
+        <span class="text-xs text-muted-foreground">${escapeHtml(`${formatQty(row.lines.length)} 条建议 = 裁片单 × 面料 × 颜色`)}</span>
       </div>
       <div class="mt-3 overflow-x-auto">
         <table class="min-w-[1280px] text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              <th class="px-3 py-2 text-left">原始裁片单</th>
-              <th class="px-3 py-2 text-left">面料 SKU</th>
+              <th class="px-3 py-2 text-left">裁片单</th>
+              <th class="px-3 py-2 text-left">面料</th>
               <th class="px-3 py-2 text-left">颜色</th>
               <th class="px-3 py-2 text-left">计划裁剪成衣件数（件）</th>
               <th class="px-3 py-2 text-left">实际裁剪成衣件数（件）</th>
-              <th class="px-3 py-2 text-left">已领取长度（m）</th>
-              <th class="px-3 py-2 text-left">总实际铺布长度（m）</th>
+              <th class="px-3 py-2 text-left">裁床已领数量（m）</th>
+              <th class="px-3 py-2 text-left">实际消耗数量（m）</th>
               <th class="px-3 py-2 text-left">缺口成衣件数（件）</th>
-              <th class="px-3 py-2 text-left">建议动作</th>
+              <th class="px-3 py-2 text-left">建议处理</th>
             </tr>
           </thead>
           <tbody>
@@ -748,10 +764,15 @@ function renderSuggestionLineSection(row: ReplenishmentSuggestionRow): string {
                 (line) => `
                   <tr class="border-b align-top">
                     <td class="px-3 py-3">
-                      <div class="font-medium text-foreground">${escapeHtml(line.originalCutOrderNo || line.originalCutOrderId)}</div>
-                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.originalCutOrderId)}</div>
+                      <div class="font-medium text-foreground">${escapeHtml(line.cutOrderNo || line.cutOrderId)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.cutOrderId)}</div>
                     </td>
-                    <td class="px-3 py-3">${escapeHtml(line.materialSku)}</td>
+                    <td class="px-3 py-3">${renderMaterialIdentityBlock({
+                      materialSku: line.materialSku,
+                      materialLabel: line.materialSku,
+                      materialAlias: line.materialAlias,
+                      materialImageUrl: line.materialImageUrl,
+                    }, { compact: true })}</td>
                     <td class="px-3 py-3">${escapeHtml(line.color || '待补')}</td>
                     <td class="px-3 py-3">
                       <div class="font-medium text-foreground">${escapeHtml(`${formatQty(line.requiredGarmentQty)} 件`)}</div>
@@ -763,11 +784,11 @@ function renderSuggestionLineSection(row: ReplenishmentSuggestionRow): string {
                     </td>
                     <td class="px-3 py-3">
                       <div class="font-medium text-foreground">${escapeHtml(formatLength(line.claimedLengthTotal))}</div>
-                      ${renderFormulaLine(`${Number(line.claimedLengthTotal || 0).toFixed(2)} = 当前补料明细已领取长度`)}
+                      ${renderFormulaLine(`${Number(line.claimedLengthTotal || 0).toFixed(2)} = 当前缺口明细裁床已领数量`)}
                     </td>
                     <td class="px-3 py-3">
                       <div class="font-medium text-foreground">${escapeHtml(formatLength(line.actualLengthTotal))}</div>
-                      ${renderFormulaLine(`${Number(line.actualLengthTotal || 0).toFixed(2)} = 当前补料明细总实际铺布长度`)}
+                      ${renderFormulaLine(`${Number(line.actualLengthTotal || 0).toFixed(2)} = 当前缺口明细实际消耗数量`)}
                     </td>
                     <td class="px-3 py-3">
                       <div class="${line.shortageGarmentQty > 0 ? 'font-medium text-rose-600' : 'font-medium text-foreground'}">${escapeHtml(`${formatQty(line.shortageGarmentQty)} 件`)}</div>
@@ -791,10 +812,10 @@ function renderSuggestionLineSection(row: ReplenishmentSuggestionRow): string {
 function renderReviewSection(row: ReplenishmentSuggestionRow): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <h3 class="text-sm font-semibold text-foreground">审核判断</h3>
+      <h3 class="text-sm font-semibold text-foreground">处理判断</h3>
       <div class="mt-3 grid gap-3 md:grid-cols-2">
         <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">当前审核结果</div>
+          <div class="text-xs text-muted-foreground">当前处理结果</div>
           <div class="mt-1 flex flex-wrap gap-2">
             ${row.review ? renderTag(row.reviewSummary, row.review.reviewStatus === 'APPROVED' ? 'bg-blue-100 text-blue-700' : row.review.reviewStatus === 'REJECTED' ? 'bg-slate-200 text-slate-700' : 'bg-orange-100 text-orange-700') : '<span class="text-xs text-muted-foreground">未审核</span>'}
             ${renderTag(row.statusMeta.label, row.statusMeta.className)}
@@ -802,14 +823,14 @@ function renderReviewSection(row: ReplenishmentSuggestionRow): string {
           <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.review?.decisionReason || row.suggestedAction)}</div>
         </article>
         <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">当前阻塞判断</div>
+          <div class="text-xs text-muted-foreground">当前后续方向</div>
           <div class="mt-1 font-medium text-foreground">${escapeHtml(row.blockingSummary)}</div>
-          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.followupProgressText)}</div>
+          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.nextActionSummary)}</div>
         </article>
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2">
         <label class="space-y-2">
-          <span class="text-xs text-muted-foreground">审核动作</span>
+          <span class="text-xs text-muted-foreground">处理结论</span>
           <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-review-field="status">
             <option value="APPROVED" ${state.reviewDraft.status === 'APPROVED' ? 'selected' : ''}>审核通过</option>
             <option value="REJECTED" ${state.reviewDraft.status === 'REJECTED' ? 'selected' : ''}>审核驳回</option>
@@ -823,7 +844,7 @@ function renderReviewSection(row: ReplenishmentSuggestionRow): string {
       </div>
       <label class="mt-3 block space-y-2">
         <span class="text-xs text-muted-foreground">补充备注</span>
-        <textarea rows="3" class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="补充审核依据或纠偏说明" data-cutting-replenish-review-field="note">${escapeHtml(state.reviewDraft.note)}</textarea>
+        <textarea rows="3" class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="补充处理依据或纠偏说明" data-cutting-replenish-review-field="note">${escapeHtml(state.reviewDraft.note)}</textarea>
       </label>
     </section>
   `
@@ -842,8 +863,8 @@ function renderActionRows(row: ReplenishmentSuggestionRow): string {
             <th class="px-3 py-2 text-left">动作类型</th>
             <th class="px-3 py-2 text-left">状态</th>
             <th class="px-3 py-2 text-left">说明</th>
-            <th class="px-3 py-2 text-left">处理动作</th>
-            <th class="px-3 py-2 text-left">处理</th>
+            <th class="px-3 py-2 text-left">跳转方向</th>
+            <th class="px-3 py-2 text-left">状态维护</th>
           </tr>
         </thead>
         <tbody>
@@ -899,12 +920,26 @@ function renderActionsSection(row: ReplenishmentSuggestionRow): string {
     <section class="rounded-lg border bg-card p-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 class="text-sm font-semibold text-foreground">后续动作</h3>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.followupProgressText)} · ${escapeHtml(row.impactPlan.impactSummary)}</p>
+          <h3 class="text-sm font-semibold text-foreground">补排 / 关闭方向</h3>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.nextActionSummary)}</p>
         </div>
       </div>
-      <div class="mt-3">
-        ${renderActionRows(row)}
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        ${row.nextOptions
+          .map(
+            (option) => `
+              <article class="rounded-lg border bg-muted/20 p-3">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${option.className}">${escapeHtml(option.label)}</span>
+                </div>
+                <p class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(option.detailText)}</p>
+                <div class="mt-3">
+                  ${renderActionButton(getNextOptionButtonLabel(option), 'go-related', row.suggestionId, `data-target-key="${escapeHtml(option.target)}"`)}
+                </div>
+              </article>
+            `,
+          )
+          .join('')}
       </div>
     </section>
   `
@@ -958,7 +993,7 @@ function renderDetailDrawer(): string {
 
   return uiDetailDrawer(
     {
-      title: `补料详情 · ${row.suggestionNo}`,
+      title: `面料缺口详情 · ${row.suggestionNo}`,
       subtitle: '',
       closeAction: { prefix: 'cuttingReplenish', action: 'close-overlay' },
       width: 'xl',
@@ -977,7 +1012,8 @@ function renderDetailDrawer(): string {
       <div class="flex flex-wrap gap-2">
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-cutting-replenish-action="submit-review" ${canReviewReplenishment(resolveFcsDemoRole('CUTTING_LEAD')) ? '' : `title="${ACTION_PERMISSION_DENIED_TEXT}" disabled`}>提交审核</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">去待加工仓</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker" data-suggestion-id="${escapeHtml(row.suggestionId)}">去铺布</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-related" data-target-key="cuttablePool" data-suggestion-id="${escapeHtml(row.suggestionId)}">去可排唛架裁片单</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-cut-orders" data-suggestion-id="${escapeHtml(row.suggestionId)}">去裁片单</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-summary" data-suggestion-id="${escapeHtml(row.suggestionId)}">去裁剪总结</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildSupplementMaterialSlipPrintLink(row.suggestionId))}">打印补料单</button>
       </div>
@@ -1013,8 +1049,8 @@ function navigateBySuggestion(
   const payload = target === 'spreadingList' ? row.navigationPayload.markerSpreading : row.navigationPayload[target]
   const context = buildCuttingDrillContext(payload, 'replenishment', {
     productionOrderNo: row.productionOrderNos[0] || undefined,
-    originalCutOrderNo: row.originalCutOrderNos[0] || undefined,
-    mergeBatchNo: row.mergeBatchNo || undefined,
+    cutOrderNo: row.cutOrderNos[0] || undefined,
+    markerPlanNo: row.markerPlanNo || undefined,
     materialSku: row.materialSku,
     suggestionId: row.suggestionId,
     suggestionNo: row.suggestionNo,
@@ -1031,8 +1067,8 @@ function navigateByAction(actionId: string | undefined): boolean {
   if (!matched) return false
   const context = buildCuttingDrillContext(matched.action.targetQuery, 'replenishment', {
     productionOrderNo: matched.row.productionOrderNos[0] || undefined,
-    originalCutOrderNo: matched.row.originalCutOrderNos[0] || undefined,
-    mergeBatchNo: matched.row.mergeBatchNo || undefined,
+    cutOrderNo: matched.row.cutOrderNos[0] || undefined,
+    markerPlanNo: matched.row.markerPlanNo || undefined,
     materialSku: matched.row.materialSku,
     suggestionId: matched.row.suggestionId,
     suggestionNo: matched.row.suggestionNo,
@@ -1210,7 +1246,7 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
     setFeedback(
       'success',
       approved
-        ? '已生成补料待处理，请等待 WMS 来料后进入待加工仓。'
+        ? '已记录为等待再次领料；有领料余额后可回到可排唛架裁片单补排。'
         : `已更新 ${row.suggestionNo} 的审核结果。`,
     )
     return true
@@ -1257,8 +1293,8 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
 
   if (action === 'go-marker') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'spreadingList')
   if (action === 'go-material-prep') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'materialPrep')
-  if (action === 'go-original-orders') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'originalOrders')
-  if (action === 'go-merge-batches') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'mergeBatches')
+  if (action === 'go-cut-orders') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'cutOrders')
+  if (action === 'go-marker-plan') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'markerPlanRefs')
   if (action === 'go-summary') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'summary')
 
   if (action === 'go-marker-index') {
@@ -1266,8 +1302,8 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'go-original-index') {
-    appStore.navigate(getCanonicalCuttingPath('original-orders'))
+  if (action === 'go-cut-order-index') {
+    appStore.navigate(getCanonicalCuttingPath('cut-orders'))
     return true
   }
 

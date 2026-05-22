@@ -7,6 +7,7 @@ import {
   buildCuttablePoolViewModel,
   type CuttablePoolViewModel,
 } from './cuttable-pool-model.ts'
+import { readStoredMarkerPlanOccupancyLookup } from './marker-plan-occupancy.ts'
 import { buildProductionProgressProjection } from './production-progress-projection.ts'
 
 export interface CuttablePoolProjection {
@@ -24,6 +25,7 @@ export function buildCuttablePoolProjection(
     progressRows: progressProjection.rows,
     viewModel: buildCuttablePoolViewModel(snapshot.progressRecords, {
       progressRows: progressProjection.rows,
+      markerPlanOccupancy: readStoredMarkerPlanOccupancyLookup(),
     }),
   }
 }

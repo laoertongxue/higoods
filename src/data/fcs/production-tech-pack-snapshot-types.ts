@@ -46,6 +46,7 @@ export interface TechPackPatternFileSnapshot extends TechnicalPatternFile {
 }
 
 export interface TechPackBomItemSnapshot extends TechnicalBomItem {
+  materialAlias?: string
   materialImageUrl?: string
 }
 

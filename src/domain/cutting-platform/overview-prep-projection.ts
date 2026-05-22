@@ -1,6 +1,6 @@
 import type { CuttingOrderProgressRecord, CuttingMaterialLine } from '../../data/fcs/cutting/types'
 import type { PdaPickupWritebackRecord } from '../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
-import type { OriginalCutOrderRef } from '../cutting-core/index.ts'
+import type { CutOrderRef } from '../cutting-core/index.ts'
 import type { CuttingDomainSnapshot } from '../fcs-cutting-runtime/index.ts'
 
 export type PlatformPickupResultStatus = 'MATCHED' | 'RECHECK_REQUIRED' | 'PHOTO_SUBMITTED' | 'NOT_SCANNED'
@@ -47,8 +47,8 @@ export interface PlatformCuttingPrepProjection {
 }
 
 interface PrepGroupProjection {
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   materialSkus: string[]
   lines: CuttingMaterialLine[]
   latestWriteback: PdaPickupWritebackRecord | null
@@ -122,8 +122,8 @@ function deriveStatusFromLines(lines: CuttingMaterialLine[]): PlatformPickupResu
   return 'NOT_SCANNED'
 }
 
-function buildPickupSlipNo(originalCutOrderNo: string, productionOrderNo: string): string {
-  const base = originalCutOrderNo || productionOrderNo || 'UNKNOWN'
+function buildPickupSlipNo(cutOrderNo: string, productionOrderNo: string): string {
+  const base = cutOrderNo || productionOrderNo || 'UNKNOWN'
   return `LL-${base}`
 }
 
@@ -132,9 +132,9 @@ function buildPrintVersionNo(pickupSlipNo: string, printCopyCount: number): stri
   return `${pickupSlipNo}-V${String(printCopyCount).padStart(2, '0')}`
 }
 
-function buildQrCodeValue(originalCutOrderId: string, originalCutOrderNo: string): string {
-  const key = originalCutOrderId || originalCutOrderNo || '-'
-  return key === '-' ? '-' : `ORIGINAL_CUT_ORDER:${key}`
+function buildQrCodeValue(cutOrderId: string, cutOrderNo: string): string {
+  const key = cutOrderId || cutOrderNo || '-'
+  return key === '-' ? '-' : `CUT_ORDER:${key}`
 }
 
 function buildResultSummaryText(group: PrepGroupProjection): string {
@@ -159,17 +159,17 @@ function buildEvidenceSummaryText(group: PrepGroupProjection): string {
   return `当前已提交 ${group.photoProofCount} 张照片凭证`
 }
 
-function groupLinesByOriginalCutOrder(
+function groupLinesByCutOrder(
   record: CuttingOrderProgressRecord,
-  originalCutOrderRefs: OriginalCutOrderRef[],
-): Array<{ originalCutOrderId: string; originalCutOrderNo: string; lines: CuttingMaterialLine[] }> {
-  const groups = originalCutOrderRefs.map((ref) => ({
-    originalCutOrderId: ref.originalCutOrderId,
-    originalCutOrderNo: ref.originalCutOrderNo,
+  cutOrderRefs: CutOrderRef[],
+): Array<{ cutOrderId: string; cutOrderNo: string; lines: CuttingMaterialLine[] }> {
+  const groups = cutOrderRefs.map((ref) => ({
+    cutOrderId: ref.cutOrderId,
+    cutOrderNo: ref.cutOrderNo,
     lines: record.materialLines.filter(
       (line) =>
-        (line.originalCutOrderId && line.originalCutOrderId === ref.originalCutOrderId)
-        || (line.originalCutOrderNo && line.originalCutOrderNo === ref.originalCutOrderNo),
+        (line.cutOrderId && line.cutOrderId === ref.cutOrderId)
+        || (line.cutOrderNo && line.cutOrderNo === ref.cutOrderNo),
     ),
   }))
 
@@ -177,8 +177,8 @@ function groupLinesByOriginalCutOrder(
 
   return [
     {
-      originalCutOrderId: '',
-      originalCutOrderNo: '',
+      cutOrderId: '',
+      cutOrderNo: '',
       lines: record.materialLines.slice(),
     },
   ]
@@ -186,8 +186,8 @@ function groupLinesByOriginalCutOrder(
 
 function buildGroupProjection(options: {
   record: CuttingOrderProgressRecord
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   lines: CuttingMaterialLine[]
   writebacks: PdaPickupWritebackRecord[]
 }): PrepGroupProjection {
@@ -204,9 +204,9 @@ function buildGroupProjection(options: {
   const printed = options.lines.some((line) => line.printSlipStatus === 'PRINTED')
   const qrGenerated = options.lines.some((line) => line.qrStatus === 'GENERATED')
   const printCopyCount = printed ? Math.max(options.lines.filter((line) => line.printSlipStatus === 'PRINTED').length, 1) : 0
-  const pickupSlipNo = buildPickupSlipNo(options.originalCutOrderNo, options.record.productionOrderNo)
+  const pickupSlipNo = buildPickupSlipNo(options.cutOrderNo, options.record.productionOrderNo)
   const latestPrintVersionNo = buildPrintVersionNo(pickupSlipNo, printCopyCount)
-  const qrCodeValue = qrGenerated ? buildQrCodeValue(options.originalCutOrderId, options.originalCutOrderNo) : '-'
+  const qrCodeValue = qrGenerated ? buildQrCodeValue(options.cutOrderId, options.cutOrderNo) : '-'
   const materialSkus = unique(options.lines.map((line) => line.materialSku))
   const hasPhotoEvidence = sortedWritebacks.some((item) => item.photoProofCount > 0)
   const photoProofCount = sortedWritebacks.reduce((sum, item) => sum + Number(item.photoProofCount || 0), 0)
@@ -215,12 +215,12 @@ function buildGroupProjection(options: {
   const latestScannedBy = latestWriteback?.operatorName || options.record.lastOperatorName || '-'
   const printSlipStatusLabel = printed ? '已打印' : '未打印'
   const qrBindingSummaryText = qrGenerated
-    ? `主码已按原始裁片单生成，覆盖 ${materialSkus.length || options.lines.length || 1} 个面料项`
+    ? `主码已按裁片单生成，覆盖 ${materialSkus.length || options.lines.length || 1} 个面料项`
     : '当前尚未生成主码'
 
   const group: PrepGroupProjection = {
-    originalCutOrderId: options.originalCutOrderId,
-    originalCutOrderNo: options.originalCutOrderNo,
+    cutOrderId: options.cutOrderId,
+    cutOrderNo: options.cutOrderNo,
     materialSkus,
     lines: options.lines,
     latestWriteback,
@@ -339,22 +339,22 @@ function buildSummary(groups: PrepGroupProjection[], aggregate: PlatformCuttingP
 export function buildPlatformCuttingPrepProjection(
   snapshot: CuttingDomainSnapshot,
   record: CuttingOrderProgressRecord,
-  originalCutOrderRefs: OriginalCutOrderRef[],
+  cutOrderRefs: CutOrderRef[],
 ): PlatformCuttingPrepProjection {
-  const groupedLines = groupLinesByOriginalCutOrder(record, originalCutOrderRefs)
+  const groupedLines = groupLinesByCutOrder(record, cutOrderRefs)
   const pickupWritebacks = snapshot.pdaExecutionState.pickupWritebacks as unknown as PdaPickupWritebackRecord[]
   const groups = groupedLines.map((group) => {
     const writebacks = pickupWritebacks.filter(
       (item) => {
-        if (group.originalCutOrderId) return item.originalCutOrderId === group.originalCutOrderId
-        if (group.originalCutOrderNo) return item.originalCutOrderNo === group.originalCutOrderNo
+        if (group.cutOrderId) return item.cutOrderId === group.cutOrderId
+        if (group.cutOrderNo) return item.cutOrderNo === group.cutOrderNo
         return item.productionOrderId === record.productionOrderId || item.productionOrderNo === record.productionOrderNo
       },
     )
     return buildGroupProjection({
       record,
-      originalCutOrderId: group.originalCutOrderId,
-      originalCutOrderNo: group.originalCutOrderNo,
+      cutOrderId: group.cutOrderId,
+      cutOrderNo: group.cutOrderNo,
       lines: group.lines,
       writebacks,
     })
@@ -373,10 +373,10 @@ export function listPlatformCuttingPrepRowsByProductionOrder(
     prep: buildPlatformCuttingPrepProjection(
       snapshot,
       record,
-      snapshot.originalCutOrders
+      snapshot.cutOrders
         .filter((item) => item.productionOrderId === record.productionOrderId)
-        .map((item) => snapshot.registry.originalCutOrdersById[item.originalCutOrderId] || snapshot.registry.originalCutOrdersByNo[item.originalCutOrderNo])
-        .filter((item): item is OriginalCutOrderRef => Boolean(item)),
+        .map((item) => snapshot.registry.cutOrdersById[item.cutOrderId] || snapshot.registry.cutOrdersByNo[item.cutOrderNo])
+        .filter((item): item is CutOrderRef => Boolean(item)),
     ),
   }))
 }
@@ -387,9 +387,9 @@ export function getPlatformCuttingPrepStatusByProductionOrder(
 ): PlatformCuttingPrepProjection | null {
   const record = snapshot.progressRecords.find((item) => item.productionOrderId === productionOrderId)
   if (!record) return null
-  const originalCutOrderRefs = snapshot.originalCutOrders
+  const cutOrderRefs = snapshot.cutOrders
     .filter((item) => item.productionOrderId === productionOrderId)
-    .map((item) => snapshot.registry.originalCutOrdersById[item.originalCutOrderId] || snapshot.registry.originalCutOrdersByNo[item.originalCutOrderNo])
-    .filter((item): item is OriginalCutOrderRef => Boolean(item))
-  return buildPlatformCuttingPrepProjection(snapshot, record, originalCutOrderRefs)
+    .map((item) => snapshot.registry.cutOrdersById[item.cutOrderId] || snapshot.registry.cutOrdersByNo[item.cutOrderNo])
+    .filter((item): item is CutOrderRef => Boolean(item))
+  return buildPlatformCuttingPrepProjection(snapshot, record, cutOrderRefs)
 }

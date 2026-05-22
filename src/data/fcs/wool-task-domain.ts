@@ -123,8 +123,8 @@ export interface WoolFeiTicketPrintRecord {
   ticketNo: string
   feiTicketId: string
   feiTicketNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   sourceCutOrderNo: string
   productionOrderNo: string
   sourceProductionOrderNo: string
@@ -2735,8 +2735,8 @@ export function listWoolFeiTicketPrintRecords(): WoolFeiTicketPrintRecord[] {
           ticketNo,
           feiTicketId: ticketNo,
           feiTicketNo: ticketNo,
-          originalCutOrderId: order.woolOrderId,
-          originalCutOrderNo: order.woolOrderNo,
+          cutOrderId: order.woolOrderId,
+          cutOrderNo: order.woolOrderNo,
           sourceCutOrderNo: order.woolOrderNo,
           productionOrderNo: order.productionOrderNo,
           sourceProductionOrderNo: order.productionOrderNo,

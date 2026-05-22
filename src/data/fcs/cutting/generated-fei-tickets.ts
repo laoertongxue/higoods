@@ -2,11 +2,11 @@ import {
   getProductionOrderTechPackSnapshot,
 } from '../production-orders.ts'
 import {
-  listGeneratedOriginalCutOrderSourceRecords,
-  type GeneratedOriginalCutOrderPieceRow,
-  type GeneratedOriginalCutOrderSkuScopeLine,
-  type GeneratedOriginalCutOrderSourceRecord,
-} from './generated-original-cut-orders.ts'
+  listGeneratedCutOrderSourceRecords,
+  type GeneratedCutOrderPieceRow,
+  type GeneratedCutOrderSkuScopeLine,
+  type GeneratedCutOrderSourceRecord,
+} from './generated-cut-orders.ts'
 import { encodeFeiTicketQr } from './qr-codes.ts'
 import type { FeiTicketQrPayload } from './qr-payload.ts'
 import {
@@ -24,10 +24,10 @@ export interface SpreadingPieceOutputLine {
   sourceMarkerId: string
   sourceMarkerNo: string
   sourceMarkerLineItemId: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId?: string
+  markerPlanNo?: string
   productionOrderId: string
   productionOrderNo: string
   fabricRollId: string
@@ -49,7 +49,7 @@ export interface SpreadingPieceOutputLine {
   layerCount: number
   actualCutPieceQty: number
   actualCutGarmentQty: number
-  sourceBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
+  sourceBasisType: 'SPREADING_RESULT'
   createdBy: string
   createdAt: string
 }
@@ -62,12 +62,12 @@ export interface GeneratedFeiTicketSourceRecord {
   sourceSpreadingSessionNo: string
   sourceMarkerId: string
   sourceMarkerNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
-  sourceMergeBatchId: string
-  sourceMergeBatchNo: string
+  sourceMarkerPlanId: string
+  sourceMarkerPlanNo: string
   fabricRollId: string
   fabricRollNo: string
   fabricColor: string
@@ -92,12 +92,12 @@ export interface GeneratedFeiTicketSourceRecord {
   printStatus: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   qty: number
   garmentQty: number
-  sourceTraceCompleteness: 'COMPLETE' | 'WAITING_SPREADING_RESULT'
+  sourceTraceCompleteness: 'COMPLETE'
   secondaryCrafts: string[]
   craftSequenceVersion: string
   currentCraftStage: string
   sourceTechPackSpuCode: string
-  sourceBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
+  sourceBasisType: 'SPREADING_RESULT'
   issuedAt: string
   qrPayload: FeiTicketQrPayload
   qrValue: string
@@ -111,10 +111,10 @@ export interface GeneratedFeiTicketTraceMatrixRow {
   sourceSpreadingSessionNo: string
   sourceMarkerId: string
   sourceMarkerNo: string
-  sourceMergeBatchId: string
-  sourceMergeBatchNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  sourceMarkerPlanId: string
+  sourceMarkerPlanNo: string
+  cutOrderId: string
+  cutOrderNo: string
   fabricRollNo: string
   fabricColor: string
   materialSku: string
@@ -128,8 +128,8 @@ export interface GeneratedFeiTicketTraceMatrixRow {
   pieceSetNoRange: string
   bundleTicketType: string
   garmentQty: number
-  sourceBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
-  sourceTraceCompleteness: 'COMPLETE' | 'WAITING_SPREADING_RESULT'
+  sourceBasisType: 'SPREADING_RESULT'
+  sourceTraceCompleteness: 'COMPLETE'
   sourceWritebackId: string
 }
 
@@ -152,7 +152,7 @@ function formatPieceSetRange(start: number, end: number): string {
 }
 
 function compareFeiRecords(left: GeneratedFeiTicketSourceRecord, right: GeneratedFeiTicketSourceRecord): number {
-  const orderCompare = left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+  const orderCompare = left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
   if (orderCompare !== 0) return orderCompare
   const sessionCompare = left.sourceSpreadingSessionNo.localeCompare(right.sourceSpreadingSessionNo, 'zh-CN')
   if (sessionCompare !== 0) return sessionCompare
@@ -161,7 +161,7 @@ function compareFeiRecords(left: GeneratedFeiTicketSourceRecord, right: Generate
 
 function compareOutputLines(left: SpreadingPieceOutputLine, right: SpreadingPieceOutputLine): number {
   return (
-    left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+    left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
     || left.fabricRollNo.localeCompare(right.fabricRollNo, 'zh-CN')
     || left.fabricColor.localeCompare(right.fabricColor, 'zh-CN')
     || left.sizeCode.localeCompare(right.sizeCode, 'zh-CN')
@@ -189,15 +189,11 @@ function resolveSecondaryCrafts(productionOrderId: string): {
   }
 }
 
-function makeBundleScope(index: number): string {
-  return `BUNDLE-${String(index + 1).padStart(3, '0')}`
-}
-
-function buildFallbackSkuScope(record: GeneratedOriginalCutOrderSourceRecord): GeneratedOriginalCutOrderSkuScopeLine[] {
+function buildFallbackSkuScope(record: GeneratedCutOrderSourceRecord): GeneratedCutOrderSkuScopeLine[] {
   if (record.skuScopeLines.length) return record.skuScopeLines
   return [
     {
-      skuCode: record.originalCutOrderNo,
+      skuCode: record.cutOrderNo,
       color: record.colorScope[0] || '待补颜色',
       size: '均码',
       plannedQty: Math.max(record.requiredQty, 1),
@@ -205,7 +201,7 @@ function buildFallbackSkuScope(record: GeneratedOriginalCutOrderSourceRecord): G
   ]
 }
 
-function buildFallbackPieceRows(record: GeneratedOriginalCutOrderSourceRecord): GeneratedOriginalCutOrderPieceRow[] {
+function buildFallbackPieceRows(record: GeneratedCutOrderSourceRecord): GeneratedCutOrderPieceRow[] {
   if (record.pieceRows.length) return record.pieceRows
   return [
     {
@@ -219,80 +215,8 @@ function buildFallbackPieceRows(record: GeneratedOriginalCutOrderSourceRecord): 
   ]
 }
 
-function selectApplicableSkuLines(
-  skuScopeLines: GeneratedOriginalCutOrderSkuScopeLine[],
-  pieceRow: GeneratedOriginalCutOrderPieceRow,
-): GeneratedOriginalCutOrderSkuScopeLine[] {
-  if (!pieceRow.applicableSkuCodes.length) return skuScopeLines
-  const matched = skuScopeLines.filter((line) => pieceRow.applicableSkuCodes.includes(line.skuCode))
-  return matched.length ? matched : skuScopeLines
-}
-
-function buildFeiTicketNo(originalCutOrderNo: string, sequenceNo: number): string {
-  return `FT-${originalCutOrderNo}-${String(sequenceNo).padStart(3, '0')}`
-}
-
-function toIssuedAt(record: GeneratedOriginalCutOrderSourceRecord): string {
-  return `${record.originalCutOrderNo.slice(4, 10).replace(/(\d{2})(\d{2})(\d{2})/, '20$1-$2-$3')} 08:00`
-}
-
-function buildSourceRecordKey(record: Pick<GeneratedOriginalCutOrderSourceRecord, 'originalCutOrderId' | 'materialSku'>): string {
-  return `${record.originalCutOrderId}::${record.materialSku}`
-}
-
-function buildFallbackSkuCoverageKey(options: {
-  originalCutOrderId: string
-  materialSku: string
-  color: string
-  size: string
-}): string {
-  return [
-    options.originalCutOrderId,
-    normalizeText(options.materialSku),
-    normalizeText(options.color) || '待补颜色',
-    normalizeText(options.size) || '均码',
-  ].join('::')
-}
-
-function buildCoveredFallbackSkuKeySet(spreadingDrivenFeiTickets: GeneratedFeiTicketSourceRecord[]): Set<string> {
-  return new Set(
-    spreadingDrivenFeiTickets
-      .filter((record) => record.sourceBasisType === 'SPREADING_RESULT')
-      .map((record) =>
-        buildFallbackSkuCoverageKey({
-          originalCutOrderId: record.originalCutOrderId,
-          materialSku: record.materialSku,
-          color: record.skuColor,
-          size: record.skuSize,
-        }),
-      ),
-  )
-}
-
-function resolveUncoveredFallbackSkuKeys(
-  record: GeneratedOriginalCutOrderSourceRecord,
-  coveredSkuKeys: Set<string>,
-): Set<string> {
-  return new Set(
-    buildFallbackSkuScope(record)
-      .map((line) =>
-        buildFallbackSkuCoverageKey({
-          originalCutOrderId: record.originalCutOrderId,
-          materialSku: record.materialSku,
-          color: line.color,
-          size: line.size,
-        }),
-      )
-      .filter((key) => !coveredSkuKeys.has(key)),
-  )
-}
-
-function filterFallbackSourceRecordsBySpreadingCoverage(
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
-  spreadingDrivenFeiTickets: GeneratedFeiTicketSourceRecord[],
-): GeneratedOriginalCutOrderSourceRecord[] {
-  const coveredSourceKeys = new Set(spreadingDrivenFeiTickets.map((record) => buildSourceRecordKey(record)))
-  return sourceRecords.filter((record) => !coveredSourceKeys.has(buildSourceRecordKey(record)))
+function buildFeiTicketNo(cutOrderNo: string, sequenceNo: number): string {
+  return `FT-${cutOrderNo}-${String(sequenceNo).padStart(3, '0')}`
 }
 
 function normalizePositiveInteger(value: number): number {
@@ -300,8 +224,19 @@ function normalizePositiveInteger(value: number): number {
   return Math.max(Math.round(value), 0)
 }
 
+function hasActualCutOutput(session: SpreadingSession): boolean {
+  const sessionActual = normalizePositiveInteger((session.actualCutGarmentQty ?? session.actualCutPieceQty) || 0)
+  if (sessionActual > 0) return true
+  return (session.rolls || []).some((roll) =>
+    normalizePositiveInteger((roll.actualCutGarmentQty ?? roll.actualCutPieceQty) || 0) > 0 ||
+    normalizePositiveInteger(roll.layerCount || 0) > 0,
+  )
+}
+
 function isReadyForFeiGeneration(session: SpreadingSession): boolean {
   if (session.status !== 'DONE') return false
+  if (session.cuttingStatus !== 'CUTTING_DONE') return false
+  if (!hasActualCutOutput(session)) return false
   const warning = session.replenishmentWarning
   if (!warning) return true
   if (warning.suggestedAction === '无需补料') return true
@@ -309,41 +244,41 @@ function isReadyForFeiGeneration(session: SpreadingSession): boolean {
 }
 
 function resolveSourceRecordForLine(
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+  sourceRecords: GeneratedCutOrderSourceRecord[],
   line: {
-    originalCutOrderId: string
+    cutOrderId: string
     materialSku: string
   },
-): GeneratedOriginalCutOrderSourceRecord | null {
+): GeneratedCutOrderSourceRecord | null {
   return (
     sourceRecords.find(
       (record) =>
-        record.originalCutOrderId === line.originalCutOrderId &&
+        record.cutOrderId === line.cutOrderId &&
         normalizeText(record.materialSku) === normalizeText(line.materialSku),
     ) ||
-    sourceRecords.find((record) => record.originalCutOrderId === line.originalCutOrderId) ||
+    sourceRecords.find((record) => record.cutOrderId === line.cutOrderId) ||
     null
   )
 }
 
 function resolveColorScopedSkuLines(
-  sourceRecord: GeneratedOriginalCutOrderSourceRecord,
+  sourceRecord: GeneratedCutOrderSourceRecord,
   color: string,
-): GeneratedOriginalCutOrderSkuScopeLine[] {
+): GeneratedCutOrderSkuScopeLine[] {
   const scoped = buildFallbackSkuScope(sourceRecord).filter((line) => normalizeText(line.color) === normalizeText(color))
   return scoped.length ? scoped : buildFallbackSkuScope(sourceRecord)
 }
 
 function splitGarmentQtyBySize(
-  skuScopeLines: GeneratedOriginalCutOrderSkuScopeLine[],
+  skuScopeLines: GeneratedCutOrderSkuScopeLine[],
   targetGarmentQty: number,
 ): Array<{ skuCode: string; color: string; size: string; garmentQty: number }> {
   const normalizedTarget = normalizePositiveInteger(targetGarmentQty)
   if (!normalizedTarget) return []
 
   const normalizedLines = (skuScopeLines.length ? skuScopeLines : buildFallbackSkuScope({
-    originalCutOrderId: '',
-    originalCutOrderNo: '',
+    cutOrderId: '',
+    cutOrderNo: '',
     productionOrderId: '',
     productionOrderNo: '',
     materialSku: '',
@@ -353,7 +288,7 @@ function splitGarmentQtyBySize(
     requiredQty: normalizedTarget,
     pieceSummary: '',
     sourceTechPackSpuCode: '',
-  } as GeneratedOriginalCutOrderSourceRecord)).map((line, index) => ({
+  } as GeneratedCutOrderSourceRecord)).map((line, index) => ({
     skuCode: normalizeText(line.skuCode) || `SKU-${index + 1}`,
     color: normalizeText(line.color) || '待补颜色',
     size: normalizeText(line.size) || '均码',
@@ -426,73 +361,126 @@ function readStoredMarkerSpreadingStore(): MarkerSpreadingStore {
   }
 }
 
-function buildDemoSpreadingSessionsFromSourceRecords(
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
-): SpreadingSession[] {
-  return sourceRecords.slice(0, 8).map((record, index) => {
-    const skuScopeLines = buildFallbackSkuScope(record)
-    const firstSku = skuScopeLines[0]
-    const color = firstSku?.color || record.colorScope[0] || '待补颜色'
-    const garmentQty = normalizePositiveInteger(
-      skuScopeLines.reduce((total, line) => total + Number(line.plannedQty || 0), 0) || record.requiredQty || 1,
-    )
-    const planUnitId = `plan-unit-${record.originalCutOrderId}`
-    const rollRecordId = `roll-${record.originalCutOrderId}`
+function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSourceRecord[]): MarkerSpreadingStore {
+  const seedRecords = ['CUT-260307-102-01', 'CUT-260307-102-02']
+    .map((cutOrderId) => sourceRecords.find((record) => record.cutOrderId === cutOrderId))
+    .filter((record): record is GeneratedCutOrderSourceRecord => Boolean(record))
+  if (!seedRecords.length) return createEmptyStore()
+
+  const sessionId = 'spreading-session-marker-plan-ref-marker-plan-ref-mb-030102-02-planned-100-actual-80-c'
+  const sessionNo = 'PB-2440'
+  const markerPlanId = seedRecords[0]?.markerPlanId || 'marker-plan-ref:MB-030102-02'
+  const markerPlanNo = seedRecords[0]?.markerPlanNo || 'MB-030102-02'
+  const completedAt = '2026-03-14 20:00'
+  const actualCutQuantities = [557, 613]
+  const rolls = seedRecords.map((record, index) => {
+    const color = record.colorScope[0] || (index === 0 ? 'Navy' : 'Khaki')
+    const layerCount = index === 0 ? 50 : 30
     return {
-      spreadingSessionId: `spreading-session-seed-${record.originalCutOrderId}`,
-      sessionNo: `SP-${record.originalCutOrderNo}`,
-      status: 'DONE',
-      originalCutOrderIds: [record.originalCutOrderId],
-      originalCutOrderNos: [record.originalCutOrderNo],
-      mergeBatchId: record.mergeBatchId || '',
-      mergeBatchNo: record.mergeBatchNo || '',
-      sourceMarkerId: `marker-${record.originalCutOrderId}`,
-      sourceMarkerNo: `MKP-${String(index + 1).padStart(4, '0')}`,
-      markerId: `marker-${record.originalCutOrderId}`,
-      markerNo: `MKP-${String(index + 1).padStart(4, '0')}`,
-      planUnits: [{
-        planUnitId,
-        materialSku: record.materialSku,
-        color,
-        garmentQtyPerUnit: Math.max(garmentQty, 1),
-      }],
-      rolls: [{
-        rollRecordId,
-        rollNo: `ROLL-${record.originalCutOrderNo}`,
-        materialSku: record.materialSku,
-        color,
-        planUnitId,
-        layerCount: Math.max(garmentQty, 1),
-        actualCutGarmentQty: Math.max(garmentQty, 1),
-        actualCutPieceQty: Math.max(garmentQty, 1),
-      }],
-      completionLinkage: {
-        linkedOriginalCutOrderIds: [record.originalCutOrderId],
-        linkedOriginalCutOrderNos: [record.originalCutOrderNo],
-        completedAt: toIssuedAt(record),
-      },
-      completedAt: toIssuedAt(record),
-      completedBy: '裁床组长',
-      updatedAt: toIssuedAt(record),
-      updatedBy: '裁床组长',
-    } as unknown as SpreadingSession
+      rollRecordId: `roll-step12-${record.cutOrderId}`,
+      rollNo: `ROLL-STEP12-${index + 1}`,
+      materialSku: record.materialSku,
+      color,
+      planUnitId: `plan-unit-step12-${record.cutOrderId}`,
+      layerCount,
+      actualCutGarmentQty: actualCutQuantities[index] || 0,
+      actualCutPieceQty: actualCutQuantities[index] || 0,
+      actualLength: index === 0 ? 35 : 31,
+    }
   })
+  const session = {
+    spreadingSessionId: sessionId,
+    sessionNo,
+    status: 'DONE',
+    cuttingStatus: 'CUTTING_DONE',
+    cutOrderIds: seedRecords.map((record) => record.cutOrderId),
+    cutOrderNos: seedRecords.map((record) => record.cutOrderNo),
+    contextType: 'marker-plan-ref',
+    markerPlanId,
+    markerPlanNo,
+    sourceMarkerId: 'seed-marker-marker-plan-ref-marker-plan-ref:MB-030102-02',
+    sourceMarkerNo: 'A-1',
+    markerId: 'seed-marker-marker-plan-ref-marker-plan-ref:MB-030102-02',
+    markerNo: 'A-1',
+    plannedLayers: 100,
+    actualLayers: 80,
+    actualCutPieceQty: actualCutQuantities.reduce((sum, value) => sum + value, 0),
+    actualCutGarmentQty: actualCutQuantities.reduce((sum, value) => sum + value, 0),
+    planUnits: seedRecords.map((record, index) => ({
+      planUnitId: `plan-unit-step12-${record.cutOrderId}`,
+      materialSku: record.materialSku,
+      color: record.colorScope[0] || '',
+      garmentQtyPerUnit: index === 0 ? 18 : 9,
+      plannedRepeatCount: 100,
+      plannedCutGarmentQty: index === 0 ? 1800 : 900,
+    })),
+    rolls,
+    completionLinkage: {
+      linkedCutOrderIds: seedRecords.map((record) => record.cutOrderId),
+      linkedCutOrderNos: seedRecords.map((record) => record.cutOrderNo),
+      completedAt,
+      completedBy: '现场主管',
+      generatedWarning: false,
+    },
+    replenishmentWarning: {
+      warningId: `warning-${sessionId}`,
+      spreadingSessionId: sessionId,
+      sessionNo,
+      cutOrderNos: seedRecords.map((record) => record.cutOrderNo),
+      productionOrderNos: unique(seedRecords.map((record) => record.productionOrderNo)),
+      materialSku: seedRecords.map((record) => record.materialSku).join(' / '),
+      materialAttr: '',
+      requiredQty: 0,
+      actualCutQty: actualCutQuantities.reduce((sum, value) => sum + value, 0),
+      actualCutGarmentQty: actualCutQuantities.reduce((sum, value) => sum + value, 0),
+      shortageQty: 0,
+      varianceLength: 0,
+      warningLevel: '低',
+      suggestedAction: '无需补料',
+      handled: true,
+      lines: seedRecords.map((record, index) => ({
+        lineId: `spread-warning-line-step12-${index + 1}`,
+        cutOrderId: record.cutOrderId,
+        cutOrderNo: record.cutOrderNo,
+        materialSku: record.materialSku,
+        color: record.colorScope[0] || '',
+        actualCutGarmentQty: actualCutQuantities[index] || 0,
+      })),
+      createdAt: completedAt,
+      note: 'prototype：计划 100 层，按实际实铺 80 层完成裁剪。',
+    },
+    completedAt,
+    completedBy: '现场主管',
+    updatedAt: completedAt,
+    updatedBy: '现场主管',
+  } as unknown as SpreadingSession
+
+  return {
+    markers: [],
+    sessions: [session],
+  }
 }
 
-function readMarkerSpreadingStoreForFeiTickets(
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
-): MarkerSpreadingStore {
+function readMarkerSpreadingStoreForFeiTickets(sourceRecords: GeneratedCutOrderSourceRecord[]): MarkerSpreadingStore {
   const store = readStoredMarkerSpreadingStore()
-  if (store.sessions.some(isReadyForFeiGeneration)) return store
+  const prototypeStore = buildCompletedSpreadingSeedStore(sourceRecords)
+  const markersById = new Map<string, MarkerSpreadingStore['markers'][number]>()
+  prototypeStore.markers.forEach((marker) => markersById.set(marker.markerId, marker))
+  store.markers.forEach((marker) => markersById.set(marker.markerId, marker))
+
+  const sessionsById = new Map<string, SpreadingSession>()
+  prototypeStore.sessions.forEach((session) => sessionsById.set(session.spreadingSessionId, session))
+  store.sessions.forEach((session) => sessionsById.set(session.spreadingSessionId, session))
+
   return {
-    ...store,
-    sessions: buildDemoSpreadingSessionsFromSourceRecords(sourceRecords),
+    markers: Array.from(markersById.values()),
+    sessions: Array.from(sessionsById.values()),
   }
 }
 
 type SpreadingOutputSourceLine = {
-  originalCutOrderId: string
-  originalCutOrderNo?: string
+  cutOrderId: string
+  cutOrderNo?: string
   materialSku: string
   color: string
   actualCutGarmentQty: number
@@ -500,9 +488,9 @@ type SpreadingOutputSourceLine = {
 }
 
 function findPieceRowsForSku(
-  sourceRecord: GeneratedOriginalCutOrderSourceRecord,
+  sourceRecord: GeneratedCutOrderSourceRecord,
   skuCode: string,
-): GeneratedOriginalCutOrderPieceRow[] {
+): GeneratedCutOrderPieceRow[] {
   const pieceRows = buildFallbackPieceRows(sourceRecord)
   const matched = pieceRows.filter((pieceRow) => {
     if (!pieceRow.applicableSkuCodes.length) return true
@@ -513,17 +501,17 @@ function findPieceRowsForSku(
 
 function listSessionSourceRecords(
   session: SpreadingSession,
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
-): GeneratedOriginalCutOrderSourceRecord[] {
-  const originalCutOrderIds = new Set([
-    ...(session.originalCutOrderIds || []),
-    ...(session.completionLinkage?.linkedOriginalCutOrderIds || []),
+  sourceRecords: GeneratedCutOrderSourceRecord[],
+): GeneratedCutOrderSourceRecord[] {
+  const cutOrderIds = new Set([
+    ...(session.cutOrderIds || []),
+    ...(session.completionLinkage?.linkedCutOrderIds || []),
   ].map(normalizeText).filter(Boolean))
-  const originalCutOrderNos = new Set((session.completionLinkage?.linkedOriginalCutOrderNos || []).map(normalizeText).filter(Boolean))
+  const cutOrderNos = new Set((session.completionLinkage?.linkedCutOrderNos || []).map(normalizeText).filter(Boolean))
 
   const matched = sourceRecords.filter((record) =>
-    originalCutOrderIds.has(record.originalCutOrderId) ||
-    originalCutOrderNos.has(record.originalCutOrderNo),
+    cutOrderIds.has(record.cutOrderId) ||
+    cutOrderNos.has(record.cutOrderNo),
   )
   if (matched.length) return matched
 
@@ -547,9 +535,9 @@ function listSessionSourceRecords(
 
 function findSourceRecordForRoll(
   session: SpreadingSession,
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+  sourceRecords: GeneratedCutOrderSourceRecord[],
   roll: SpreadingSession['rolls'][number],
-): GeneratedOriginalCutOrderSourceRecord | null {
+): GeneratedCutOrderSourceRecord | null {
   const candidates = listSessionSourceRecords(session, sourceRecords)
   if (!candidates.length) return null
 
@@ -577,7 +565,7 @@ function deriveRollActualGarmentQty(session: SpreadingSession, roll: SpreadingSe
 
 function buildFallbackOutputSourceLines(
   session: SpreadingSession,
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+  sourceRecords: GeneratedCutOrderSourceRecord[],
 ): SpreadingOutputSourceLine[] {
   return (session.rolls || [])
     .map((roll) => {
@@ -585,8 +573,8 @@ function buildFallbackOutputSourceLines(
       const actualCutGarmentQty = deriveRollActualGarmentQty(session, roll)
       if (!sourceRecord || !actualCutGarmentQty) return null
       return {
-        originalCutOrderId: sourceRecord.originalCutOrderId,
-        originalCutOrderNo: sourceRecord.originalCutOrderNo,
+        cutOrderId: sourceRecord.cutOrderId,
+        cutOrderNo: sourceRecord.cutOrderNo,
         materialSku: normalizeText(roll.materialSku) || sourceRecord.materialSku,
         color: normalizeText(roll.color || '') || sourceRecord.colorScope[0] || '待补颜色',
         actualCutGarmentQty,
@@ -598,12 +586,12 @@ function buildFallbackOutputSourceLines(
 
 function listOutputSourceLinesForSession(
   session: SpreadingSession,
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+  sourceRecords: GeneratedCutOrderSourceRecord[],
 ): SpreadingOutputSourceLine[] {
   const warningLines = (session.replenishmentWarning?.lines || [])
     .map((line) => ({
-      originalCutOrderId: line.originalCutOrderId,
-      originalCutOrderNo: line.originalCutOrderNo,
+      cutOrderId: line.cutOrderId,
+      cutOrderNo: line.cutOrderNo,
       materialSku: line.materialSku,
       color: line.color,
       actualCutGarmentQty: normalizePositiveInteger(line.actualCutGarmentQty || 0),
@@ -613,7 +601,7 @@ function listOutputSourceLinesForSession(
 }
 
 function buildSpreadingPieceOutputLinesFromSessions(
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+  sourceRecords: GeneratedCutOrderSourceRecord[],
 ): SpreadingPieceOutputLine[] {
   const store = readMarkerSpreadingStoreForFeiTickets(sourceRecords)
   const outputLines: SpreadingPieceOutputLine[] = []
@@ -653,17 +641,17 @@ function buildSpreadingPieceOutputLinesFromSessions(
               sourceMarkerId: session.sourceMarkerId || session.markerId || '',
               sourceMarkerNo: session.sourceMarkerNo || session.markerNo || session.sourceBedNo || session.sourceSchemeNo || session.markerId || '',
               sourceMarkerLineItemId: `${session.spreadingSessionId}-${lineIndex + 1}`,
-              originalCutOrderId: sourceRecord.originalCutOrderId,
-              originalCutOrderNo: sourceRecord.originalCutOrderNo,
-              mergeBatchId: session.mergeBatchId || sourceRecord.mergeBatchId || '',
-              mergeBatchNo: session.mergeBatchNo || sourceRecord.mergeBatchNo || '',
+              cutOrderId: sourceRecord.cutOrderId,
+              cutOrderNo: sourceRecord.cutOrderNo,
+              markerPlanId: session.markerPlanId || sourceRecord.markerPlanId || '',
+              markerPlanNo: session.markerPlanNo || sourceRecord.markerPlanNo || '',
               productionOrderId: sourceRecord.productionOrderId,
               productionOrderNo: sourceRecord.productionOrderNo,
               fabricRollId: roll.rollRecordId,
               fabricRollNo: normalizeBusinessText(roll.rollNo, '待补卷号'),
               fabricColor: normalizeBusinessText(line.color || roll.color, '待补颜色'),
               materialSku: normalizeBusinessText(line.materialSku, sourceRecord.materialSku),
-              garmentSkuId: normalizeBusinessText(sizeRow.skuCode, sourceRecord.originalCutOrderNo),
+              garmentSkuId: normalizeBusinessText(sizeRow.skuCode, sourceRecord.cutOrderNo),
               garmentColor: normalizeBusinessText(sizeRow.color, line.color || roll.color || '待补颜色'),
               sizeCode: normalizeBusinessText(sizeRow.size, '均码'),
               partCode: normalizeBusinessText(pieceRow.partCode, pieceRow.partName),
@@ -690,90 +678,16 @@ function buildSpreadingPieceOutputLinesFromSessions(
   return outputLines
 }
 
-interface SpreadingFeiSeed {
-  sourceRecordKey: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  productionOrderId: string
-  productionOrderNo: string
-  sourceSpreadingSessionId: string
-  sourceSpreadingSessionNo: string
-  sourceMarkerId: string
-  sourceMarkerNo: string
-  sourceMergeBatchId: string
-  sourceMergeBatchNo: string
-  materialSku: string
-  skuCode: string
-  skuColor: string
-  skuSize: string
-  garmentQty: number
-  secondaryCrafts: string[]
-  craftSequenceVersion: string
-  currentCraftStage: string
-  sourceTechPackSpuCode: string
-  issuedAt: string
-}
-
-function buildSpreadingFeiSeeds(
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
-): SpreadingFeiSeed[] {
-  const store = readMarkerSpreadingStoreForFeiTickets(sourceRecords)
-  const seeds: SpreadingFeiSeed[] = []
-
-  store.sessions
-    .filter(isReadyForFeiGeneration)
-    .forEach((session) => {
-      const warningLines = session.replenishmentWarning?.lines || []
-      const issuedAt = session.completionLinkage?.completedAt || session.updatedAt || ''
-
-      warningLines.forEach((line) => {
-        const actualCutGarmentQty = normalizePositiveInteger(line.actualCutGarmentQty)
-        if (!actualCutGarmentQty) return
-        const sourceRecord = resolveSourceRecordForLine(sourceRecords, line)
-        if (!sourceRecord) return
-
-        const { secondaryCrafts, craftSequenceVersion } = resolveSecondaryCrafts(sourceRecord.productionOrderId)
-        splitGarmentQtyBySize(resolveColorScopedSkuLines(sourceRecord, line.color), actualCutGarmentQty).forEach((sizeLine) => {
-          seeds.push({
-            sourceRecordKey: buildSourceRecordKey(sourceRecord),
-            originalCutOrderId: sourceRecord.originalCutOrderId,
-            originalCutOrderNo: sourceRecord.originalCutOrderNo,
-            productionOrderId: sourceRecord.productionOrderId,
-            productionOrderNo: sourceRecord.productionOrderNo,
-            sourceSpreadingSessionId: session.spreadingSessionId,
-            sourceSpreadingSessionNo: session.sessionNo || session.spreadingSessionId,
-            sourceMarkerId: session.sourceMarkerId || session.markerId || '',
-            sourceMarkerNo: session.sourceMarkerNo || session.markerNo || '',
-            sourceMergeBatchId: session.mergeBatchId || '',
-            sourceMergeBatchNo: session.mergeBatchNo || '',
-            materialSku: normalizeText(line.materialSku) || sourceRecord.materialSku,
-            skuCode: sizeLine.skuCode,
-            skuColor: sizeLine.color,
-            skuSize: sizeLine.size,
-            garmentQty: sizeLine.garmentQty,
-            secondaryCrafts,
-            craftSequenceVersion,
-            currentCraftStage: secondaryCrafts[0] || '',
-            sourceTechPackSpuCode: sourceRecord.sourceTechPackSpuCode,
-            issuedAt,
-          })
-        })
-      })
-    })
-
-  return seeds
-}
-
 function buildFeiRecordsFromSpreadingSessions(
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+  sourceRecords: GeneratedCutOrderSourceRecord[],
 ): GeneratedFeiTicketSourceRecord[] {
   const outputLines = listSpreadingPieceOutputLines(sourceRecords)
   const secondaryCraftMetaByProductionOrderId = new Map<string, ReturnType<typeof resolveSecondaryCrafts>>()
 
   const records = outputLines.map((line, index) => {
     const sourceRecord =
-      sourceRecords.find((item) => item.originalCutOrderId === line.originalCutOrderId && item.productionOrderId === line.productionOrderId)
-      || sourceRecords.find((item) => item.originalCutOrderId === line.originalCutOrderId)
+      sourceRecords.find((item) => item.cutOrderId === line.cutOrderId && item.productionOrderId === line.productionOrderId)
+      || sourceRecords.find((item) => item.cutOrderId === line.cutOrderId)
       || null
     const sourceTechPackSpuCode = sourceRecord?.sourceTechPackSpuCode || ''
     const secondaryCraftMeta =
@@ -783,7 +697,7 @@ function buildFeiRecordsFromSpreadingSessions(
 
     const sequenceNo = index + 1
     const feiTicketId = line.outputLineId
-    const feiTicketNo = buildFeiTicketNo(line.originalCutOrderNo, sequenceNo)
+    const feiTicketNo = buildFeiTicketNo(line.cutOrderNo, sequenceNo)
     const pieceScope = unique([line.fabricRollNo, line.fabricColor, line.sizeCode, line.partName])
     const pieceGroup = normalizeText(line.partName) || normalizeText(line.partCode) || '整单裁片'
     const bundleScope = `${line.fabricRollNo}-${line.fabricColor}-${line.sizeCode}-${line.bundleNo}`
@@ -791,8 +705,8 @@ function buildFeiRecordsFromSpreadingSessions(
     const encoded = encodeFeiTicketQr({
       feiTicketId,
       feiTicketNo,
-      originalCutOrderId: line.originalCutOrderId,
-      originalCutOrderNo: line.originalCutOrderNo,
+      cutOrderId: line.cutOrderId,
+      cutOrderNo: line.cutOrderNo,
       productionOrderId: line.productionOrderId,
       productionOrderNo: line.productionOrderNo,
       sourceOutputLineId: line.outputLineId,
@@ -831,12 +745,12 @@ function buildFeiRecordsFromSpreadingSessions(
       sourceSpreadingSessionNo: line.sourceSpreadingSessionNo,
       sourceMarkerId: line.sourceMarkerId,
       sourceMarkerNo: line.sourceMarkerNo,
-      originalCutOrderId: line.originalCutOrderId,
-      originalCutOrderNo: line.originalCutOrderNo,
+      cutOrderId: line.cutOrderId,
+      cutOrderNo: line.cutOrderNo,
       productionOrderId: line.productionOrderId,
       productionOrderNo: line.productionOrderNo,
-      sourceMergeBatchId: line.mergeBatchId || '',
-      sourceMergeBatchNo: line.mergeBatchNo || '',
+      sourceMarkerPlanId: line.markerPlanId || '',
+      sourceMarkerPlanNo: line.markerPlanNo || '',
       fabricRollId: line.fabricRollId,
       fabricRollNo: line.fabricRollNo,
       fabricColor: line.fabricColor,
@@ -876,137 +790,13 @@ function buildFeiRecordsFromSpreadingSessions(
   return records
 }
 
-function buildFeiRecordsForOriginalOrder(
-  record: GeneratedOriginalCutOrderSourceRecord,
-  uncoveredFallbackSkuKeys?: Set<string>,
-): GeneratedFeiTicketSourceRecord[] {
-  const skuScopeLines = buildFallbackSkuScope(record)
-  const pieceRows = buildFallbackPieceRows(record)
-  const { secondaryCrafts, craftSequenceVersion } = resolveSecondaryCrafts(record.productionOrderId)
-  const issuedAt = toIssuedAt(record)
-  const results: GeneratedFeiTicketSourceRecord[] = []
-  let sequenceNo = 1
-  const restrictToUncoveredSkuKeys = Boolean(uncoveredFallbackSkuKeys && uncoveredFallbackSkuKeys.size > 0)
-
-  pieceRows.forEach((pieceRow) => {
-    const applicableSkuLines = selectApplicableSkuLines(skuScopeLines, pieceRow).filter((skuLine) => {
-      if (!restrictToUncoveredSkuKeys) return true
-      return uncoveredFallbackSkuKeys!.has(
-        buildFallbackSkuCoverageKey({
-          originalCutOrderId: record.originalCutOrderId,
-          materialSku: record.materialSku,
-          color: skuLine.color,
-          size: skuLine.size,
-        }),
-      )
-    })
-    applicableSkuLines.forEach((skuLine) => {
-      const feiTicketId = `${record.originalCutOrderId}::${String(sequenceNo).padStart(3, '0')}`
-      const feiTicketNo = buildFeiTicketNo(record.originalCutOrderNo, sequenceNo)
-      const pieceScope = unique([pieceRow.partCode, pieceRow.partName].filter(Boolean))
-      const pieceGroup = normalizeText(pieceRow.partName) || normalizeText(pieceRow.partCode) || '整单裁片'
-      const bundleScope = makeBundleScope(sequenceNo - 1)
-      const qty = Math.max(Number(pieceRow.pieceCountPerUnit || 0), 1)
-      const pieceSetNoStart = 1
-      const pieceSetNoEnd = Math.max(qty, 1)
-      const pieceSetNoRange = formatPieceSetRange(pieceSetNoStart, pieceSetNoEnd)
-      const encoded = encodeFeiTicketQr({
-        feiTicketId,
-        feiTicketNo,
-        originalCutOrderId: record.originalCutOrderId,
-        originalCutOrderNo: record.originalCutOrderNo,
-        productionOrderId: record.productionOrderId,
-        productionOrderNo: record.productionOrderNo,
-        sourceOutputLineId: '',
-        fabricRollId: '',
-        fabricRollNo: '',
-        fabricColor: normalizeText(skuLine.color) || '待补颜色',
-        materialSku: record.materialSku,
-        garmentSkuId: normalizeText(skuLine.skuCode),
-        garmentColor: normalizeText(skuLine.color) || '待补颜色',
-        pieceScope,
-        pieceGroup,
-        bundleScope,
-        skuColor: normalizeText(skuLine.color) || '待补颜色',
-        skuSize: normalizeText(skuLine.size) || '均码',
-        partCode: normalizeText(pieceRow.partCode) || normalizeText(pieceRow.partName),
-        partName: normalizeText(pieceRow.partName) || '整单裁片',
-        bundleNo: bundleScope,
-        bundleQty: qty,
-        pieceSetNoStart,
-        pieceSetNoEnd,
-        pieceSetNoRange,
-        bundleTicketType: '扎束菲票',
-        actualCutPieceQty: qty,
-        qty,
-        secondaryCrafts,
-        craftSequenceVersion,
-        currentCraftStage: secondaryCrafts[0] || '',
-        issuedAt,
-      })
-
-      results.push({
-        feiTicketId,
-        feiTicketNo,
-        sourceSpreadingSessionId: '',
-        sourceSpreadingSessionNo: '',
-        sourceMarkerId: '',
-        sourceMarkerNo: '',
-        originalCutOrderId: record.originalCutOrderId,
-        originalCutOrderNo: record.originalCutOrderNo,
-        productionOrderId: record.productionOrderId,
-        productionOrderNo: record.productionOrderNo,
-        sourceMergeBatchId: record.mergeBatchId || '',
-        sourceMergeBatchNo: record.mergeBatchNo || '',
-        sourceOutputLineId: '',
-        fabricRollId: '',
-        fabricRollNo: '',
-        fabricColor: normalizeText(skuLine.color) || '待补颜色',
-        materialSku: record.materialSku,
-        garmentSkuId: normalizeText(skuLine.skuCode),
-        garmentColor: normalizeText(skuLine.color) || '待补颜色',
-        pieceScope,
-        pieceGroup,
-        bundleScope,
-        skuCode: normalizeText(skuLine.skuCode),
-        skuColor: normalizeText(skuLine.color) || '待补颜色',
-        skuSize: normalizeText(skuLine.size) || '均码',
-        partCode: normalizeText(pieceRow.partCode) || normalizeText(pieceRow.partName),
-        partName: normalizeText(pieceRow.partName) || '整单裁片',
-        bundleNo: bundleScope,
-        bundleQty: qty,
-        pieceSetNoStart,
-        pieceSetNoEnd,
-        pieceSetNoRange,
-        bundleTicketType: '扎束菲票',
-        actualCutPieceQty: qty,
-        printStatus: 'WAIT_PRINT',
-        qty,
-        garmentQty: qty,
-        sourceTraceCompleteness: 'WAITING_SPREADING_RESULT',
-        secondaryCrafts,
-        craftSequenceVersion,
-        currentCraftStage: secondaryCrafts[0] || '',
-        sourceTechPackSpuCode: record.sourceTechPackSpuCode,
-        sourceBasisType: 'WAITING_SPREADING_RESULT',
-        issuedAt,
-        qrPayload: encoded.payload,
-        qrValue: encoded.qrValue,
-      })
-      sequenceNo += 1
-    })
-  })
-
-  return results
-}
-
 interface GeneratedFeiTicketDataset {
   generatedFeiTickets: GeneratedFeiTicketSourceRecord[]
   feiTicketsById: Record<string, GeneratedFeiTicketSourceRecord>
   feiTicketsByNo: Record<string, GeneratedFeiTicketSourceRecord>
   feiTicketsByProductionOrderId: Record<string, GeneratedFeiTicketSourceRecord[]>
   spreadingResultFeiTicketsByProductionOrderId: Record<string, GeneratedFeiTicketSourceRecord[]>
-  feiTicketsByOriginalCutOrderId: Record<string, GeneratedFeiTicketSourceRecord[]>
+  feiTicketsByCutOrderId: Record<string, GeneratedFeiTicketSourceRecord[]>
   feiTicketsBySpreadingSessionId: Record<string, GeneratedFeiTicketSourceRecord[]>
 }
 
@@ -1027,9 +817,9 @@ function buildGeneratedFeiTicketDataset(records: GeneratedFeiTicketSourceRecord[
       acc[record.productionOrderId].push(record)
       return acc
     }, {}),
-    feiTicketsByOriginalCutOrderId: generatedFeiTickets.reduce<Record<string, GeneratedFeiTicketSourceRecord[]>>((acc, record) => {
-      if (!acc[record.originalCutOrderId]) acc[record.originalCutOrderId] = []
-      acc[record.originalCutOrderId].push(record)
+    feiTicketsByCutOrderId: generatedFeiTickets.reduce<Record<string, GeneratedFeiTicketSourceRecord[]>>((acc, record) => {
+      if (!acc[record.cutOrderId]) acc[record.cutOrderId] = []
+      acc[record.cutOrderId].push(record)
       return acc
     }, {}),
     feiTicketsBySpreadingSessionId: generatedFeiTickets.reduce<Record<string, GeneratedFeiTicketSourceRecord[]>>((acc, record) => {
@@ -1042,7 +832,7 @@ function buildGeneratedFeiTicketDataset(records: GeneratedFeiTicketSourceRecord[
 }
 
 export function listSpreadingPieceOutputLines(
-  sourceRecords: GeneratedOriginalCutOrderSourceRecord[] = listGeneratedOriginalCutOrderSourceRecords(),
+  sourceRecords: GeneratedCutOrderSourceRecord[] = listGeneratedCutOrderSourceRecords(),
 ): SpreadingPieceOutputLine[] {
   const generatedLines = buildSpreadingPieceOutputLinesFromSessions(sourceRecords)
   const lineMap = new Map<string, SpreadingPieceOutputLine>()
@@ -1068,17 +858,17 @@ function getGeneratedFeiTicketRuntimeSignature(): string {
   if (!storage) return ''
   return [
     'cuttingMarkerSpreadingLedger',
-    'cuttingMergeBatchLedger',
+    'cuttingMarkerPlanRefLedger',
   ]
     .map((key) => `${key}:${storage.getItem(key) || ''}`)
     .join('\n')
 }
 
-function buildGeneratedFeiTicketDatasetSignature(sourceRecords: GeneratedOriginalCutOrderSourceRecord[]): string {
+function buildGeneratedFeiTicketDatasetSignature(sourceRecords: GeneratedCutOrderSourceRecord[]): string {
   const sourceSignature = sourceRecords
     .map((record) => [
-      record.originalCutOrderId,
-      record.originalCutOrderNo,
+      record.cutOrderId,
+      record.cutOrderNo,
       record.productionOrderNo,
       record.materialSku,
       record.requiredQty,
@@ -1089,7 +879,7 @@ function buildGeneratedFeiTicketDatasetSignature(sourceRecords: GeneratedOrigina
 }
 
 function getGeneratedFeiTicketDataset(): GeneratedFeiTicketDataset {
-  const sourceRecords = listGeneratedOriginalCutOrderSourceRecords()
+  const sourceRecords = listGeneratedCutOrderSourceRecords()
   if (computingGeneratedFeiTicketDataset) return EMPTY_GENERATED_FEI_TICKET_DATASET
 
   const signature = buildGeneratedFeiTicketDatasetSignature(sourceRecords)
@@ -1100,12 +890,7 @@ function getGeneratedFeiTicketDataset(): GeneratedFeiTicketDataset {
   computingGeneratedFeiTicketDataset = true
   try {
     const spreadingDrivenFeiTickets = buildFeiRecordsFromSpreadingSessions(sourceRecords)
-    const fallbackRecords = filterFallbackSourceRecordsBySpreadingCoverage(sourceRecords, spreadingDrivenFeiTickets)
-      .flatMap((record) => buildFeiRecordsForOriginalOrder(record))
-    const dataset = buildGeneratedFeiTicketDataset([
-      ...spreadingDrivenFeiTickets,
-      ...fallbackRecords,
-    ])
+    const dataset = buildGeneratedFeiTicketDataset(spreadingDrivenFeiTickets)
     generatedFeiTicketDatasetCache = { signature, dataset }
     return dataset
   } finally {
@@ -1134,12 +919,12 @@ export function listSpreadingResultGeneratedFeiTickets(): GeneratedFeiTicketSour
   return listGeneratedFeiTickets().filter((record) => record.sourceBasisType === 'SPREADING_RESULT')
 }
 
-export function listGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId: string): GeneratedFeiTicketSourceRecord[] {
-  return (getGeneratedFeiTicketDataset().feiTicketsByOriginalCutOrderId[originalCutOrderId] || []).map((record) => cloneGeneratedFeiRecord(record))
+export function listGeneratedFeiTicketsByCutOrderId(cutOrderId: string): GeneratedFeiTicketSourceRecord[] {
+  return (getGeneratedFeiTicketDataset().feiTicketsByCutOrderId[cutOrderId] || []).map((record) => cloneGeneratedFeiRecord(record))
 }
 
-export function listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId: string): GeneratedFeiTicketSourceRecord[] {
-  return listGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId).filter((record) => record.sourceBasisType === 'SPREADING_RESULT')
+export function listSpreadingResultGeneratedFeiTicketsByCutOrderId(cutOrderId: string): GeneratedFeiTicketSourceRecord[] {
+  return listGeneratedFeiTicketsByCutOrderId(cutOrderId).filter((record) => record.sourceBasisType === 'SPREADING_RESULT')
 }
 
 export function listGeneratedFeiTicketsBySpreadingSessionId(spreadingSessionId: string): GeneratedFeiTicketSourceRecord[] {
@@ -1156,9 +941,9 @@ export function getFeiTicketByNo(feiTicketNo: string): GeneratedFeiTicketSourceR
   return record ? cloneGeneratedFeiRecord(record) : null
 }
 
-export function getGeneratedFeiTicketMapByOriginalCutOrderId(): Record<string, GeneratedFeiTicketSourceRecord[]> {
+export function getGeneratedFeiTicketMapByCutOrderId(): Record<string, GeneratedFeiTicketSourceRecord[]> {
   return Object.fromEntries(
-    Object.entries(getGeneratedFeiTicketDataset().feiTicketsByOriginalCutOrderId).map(([key, records]) => [
+    Object.entries(getGeneratedFeiTicketDataset().feiTicketsByCutOrderId).map(([key, records]) => [
       key,
       records.map((record) => cloneGeneratedFeiRecord(record)),
     ]),
@@ -1178,7 +963,7 @@ export function listSpreadingResultGeneratedFeiTicketsByProductionOrderId(produc
 export function buildGeneratedFeiTicketTraceMatrix(
   records: GeneratedFeiTicketSourceRecord[] = listGeneratedFeiTickets(),
 ): GeneratedFeiTicketTraceMatrixRow[] {
-  const store = readMarkerSpreadingStoreForFeiTickets(listGeneratedOriginalCutOrderSourceRecords())
+  const store = readMarkerSpreadingStoreForFeiTickets(listGeneratedCutOrderSourceRecords())
   const sessionById = Object.fromEntries(store.sessions.map((session) => [session.spreadingSessionId, session]))
   return records
     .map((record) => {
@@ -1191,10 +976,10 @@ export function buildGeneratedFeiTicketTraceMatrix(
         sourceSpreadingSessionNo: record.sourceSpreadingSessionNo,
         sourceMarkerId: record.sourceMarkerId,
         sourceMarkerNo: record.sourceMarkerNo,
-        sourceMergeBatchId: record.sourceMergeBatchId,
-        sourceMergeBatchNo: record.sourceMergeBatchNo,
-        originalCutOrderId: record.originalCutOrderId,
-        originalCutOrderNo: record.originalCutOrderNo,
+        sourceMarkerPlanId: record.sourceMarkerPlanId,
+        sourceMarkerPlanNo: record.sourceMarkerPlanNo,
+        cutOrderId: record.cutOrderId,
+        cutOrderNo: record.cutOrderNo,
         fabricRollNo: record.fabricRollNo,
         fabricColor: record.fabricColor,
         materialSku: record.materialSku,
@@ -1216,7 +1001,7 @@ export function buildGeneratedFeiTicketTraceMatrix(
     .sort(
       (left, right) =>
         left.sourceSpreadingSessionNo.localeCompare(right.sourceSpreadingSessionNo, 'zh-CN')
-        || left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+        || left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
         || left.color.localeCompare(right.color, 'zh-CN')
         || left.size.localeCompare(right.size, 'zh-CN'),
     )

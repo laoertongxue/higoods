@@ -1,10 +1,10 @@
 import type { MarkerScheme, MarkerSchemeImage } from './marker-plan-domain.ts'
 
 const markerBedModeLabel: Record<string, string> = {
-  normal: '普通',
-  high_low: '高低层',
-  fold_normal: '对折普通',
-  fold_high_low: '对折高低层',
+  normal: '普通模式',
+  high_low: '高低层模式',
+  fold_normal: '对折普通模式',
+  fold_high_low: '对折高低层模式',
 }
 
 function nowText(date = new Date()): string {

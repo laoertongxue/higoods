@@ -46,7 +46,7 @@ import {
   type ProcessActionSourceType,
 } from './process-action-writeback-service.ts'
 import { cloneCutPieceOrderRecords, type CutPieceOrderRecord } from './cutting/cut-piece-orders.ts'
-import { listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId } from './cutting/generated-fei-tickets.ts'
+import { listSpreadingResultGeneratedFeiTicketsByCutOrderId } from './cutting/generated-fei-tickets.ts'
 import {
   buildSpecialCraftOperationSlug,
   getSpecialCraftOperationById,
@@ -554,7 +554,7 @@ function buildPrintOrDyeView(order: ProcessWorkOrder): PlatformProcessResultView
 }
 
 function buildCuttingView(record: CutPieceOrderRecord): PlatformProcessResultView {
-  const sourceId = record.originalCutOrderId || record.id
+  const sourceId = record.cutOrderId || record.id
   const facts = resolveFacts('CUTTING', sourceId, record.cuttingTaskNo)
   const mapped = mapCraftStatusToPlatformStatus({
     sourceType: 'CUTTING_ORDER',
@@ -563,12 +563,12 @@ function buildCuttingView(record: CutPieceOrderRecord): PlatformProcessResultVie
     craftStatusLabel: record.currentStage,
     status: record.currentStage,
   })
-  const feiTickets = listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(sourceId)
+  const feiTickets = listSpreadingResultGeneratedFeiTicketsByCutOrderId(sourceId)
   const view = buildCommonResult({
     sourceType: 'CUTTING',
     sourceId,
     processName: '裁片',
-    workOrderNo: record.originalCutOrderNo || record.cutPieceOrderNo,
+    workOrderNo: record.cutOrderNo || record.cutPieceOrderNo,
     productionOrderNo: record.productionOrderNo,
     factoryId: TEST_FACTORY_ID,
     factoryName: TEST_FACTORY_NAME,
@@ -579,7 +579,7 @@ function buildCuttingView(record: CutPieceOrderRecord): PlatformProcessResultVie
     plannedObjectQty: record.markerInfo.totalPieces || record.orderQty,
     completedObjectQty: record.hasInboundRecord ? record.markerInfo.totalPieces : 0,
     detailLink: `/fcs/progress/board?sourceId=${encodeURIComponent(sourceId)}`,
-    craftDetailLink: `/fcs/process-factory/cutting/original-orders?originalCutOrderId=${encodeURIComponent(sourceId)}`,
+    craftDetailLink: `/fcs/process-factory/cutting/cut-orders?cutOrderId=${encodeURIComponent(sourceId)}`,
     mobileTaskLink: buildTaskDetailLink(record.cuttingTaskNo, {
       currentFactoryId: TEST_FACTORY_ID,
       sourceType: 'CUTTING',
@@ -644,7 +644,7 @@ function buildCuttingWarehouseResultView(sourceId: string): PlatformProcessResul
     plannedObjectQty: plannedQty,
     completedObjectQty: plannedQty,
     detailLink: `/fcs/progress/board?sourceId=${encodeURIComponent(sourceId)}`,
-    craftDetailLink: `/fcs/process-factory/cutting/original-orders?originalCutOrderId=${encodeURIComponent(sourceId)}`,
+    craftDetailLink: `/fcs/process-factory/cutting/cut-orders?cutOrderId=${encodeURIComponent(sourceId)}`,
     facts,
   })
   view.quantityDisplayFields.push({

@@ -75,7 +75,7 @@ function renderClaimDisputeSourcePanel(detailCase: ExceptionCase): string {
       <div class="grid grid-cols-2 gap-2">
         ${renderKv('异议编号', dispute.disputeNo)}
         ${renderKv('来源端', '移动端')}
-        ${renderKv('原始裁片单号', dispute.originalCutOrderNo)}
+        ${renderKv('裁片单号', dispute.cutOrderNo)}
         ${renderKv('生产单号', dispute.productionOrderNo)}
         ${renderKv('面料编码', dispute.materialSku)}
         ${renderKv('面料属性 / 类别', `${dispute.materialCategory} / ${dispute.materialAttr}`)}
@@ -156,7 +156,7 @@ function renderClaimDisputeActionPanel(detailCase: ExceptionCase): string {
       </div>
       <div class="mt-3 flex flex-wrap gap-2">
         <button class="inline-flex h-9 items-center rounded-md border bg-primary px-4 text-sm text-primary-foreground hover:opacity-90" data-pe-action="submit-claim-dispute-handle" data-case-id="${escapeAttr(detailCase.caseId)}">保存处理结果</button>
-        <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-pe-action="drawer-go-craft-dispute" data-original-cut-order-no="${escapeAttr(dispute.originalCutOrderNo)}">去工艺端查看</button>
+        <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-pe-action="drawer-go-craft-dispute" data-cut-order-no="${escapeAttr(dispute.cutOrderNo)}">去工艺端查看</button>
         <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-pe-action="drawer-go-pda-dispute" data-task-id="${escapeAttr(dispute.sourceTaskId)}">去移动端查看</button>
       </div>
     </div>

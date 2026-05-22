@@ -78,7 +78,7 @@ function main(): void {
   ;[
     'warehouseRecordId',
     'sampleRecordId',
-    'originalCutOrderId',
+    'cutOrderId',
     'productionOrderId',
     'materialSku',
     'operatorAccountId',

@@ -1,15 +1,15 @@
 import {
-  listGeneratedOriginalCutOrderSourceRecords,
-  type GeneratedOriginalCutOrderSourceRecord,
-} from '../../../data/fcs/cutting/generated-original-cut-orders.ts'
+  listGeneratedCutOrderSourceRecords,
+  type GeneratedCutOrderSourceRecord,
+} from '../../../data/fcs/cutting/generated-cut-orders.ts'
 import { findStyleArchiveByCode } from '../../../data/pcs-style-archive-repository.ts'
 import {
   getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionContentById,
 } from '../../../data/pcs-technical-data-version-repository.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MergeBatchItem, MergeBatchRecord } from './merge-batches-model.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { MarkerPlanRefItem, MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 import type { ProductionProgressRow } from './production-progress-model.ts'
 import type { CuttingSummaryBuildOptions } from './summary-model.ts'
 import {
@@ -49,6 +49,7 @@ import {
   type MarkerSizeRatioRow,
   buildMarkerAllocationDiffFormula,
   buildMarkerAllocationSumFormula,
+  buildMarkerPlanCombinationGroupKey,
   buildMarkerExplodedPieceQtyFormula,
   buildMarkerFinalUnitUsageFormula,
   buildMarkerPlanSystemUnitUsageFormula,
@@ -126,7 +127,7 @@ function sanitizeKey(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-function listReferencedOriginalCutOrderIdsFromSpreadingStorage(
+function listReferencedCutOrderIdsFromSpreadingStorage(
   storage: Pick<Storage, 'getItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): string[] {
   if (!storage) return []
@@ -136,8 +137,8 @@ function listReferencedOriginalCutOrderIdsFromSpreadingStorage(
     ) as MarkerSpreadingLedgerSummary
     return uniqueStrings(
       store.sessions.flatMap((session) => [
-        ...(session.originalCutOrderIds || []),
-        ...(session.completionLinkage?.linkedOriginalCutOrderIds || []),
+        ...(session.cutOrderIds || []),
+        ...(session.completionLinkage?.linkedCutOrderIds || []),
       ]),
     )
   } catch {
@@ -145,14 +146,14 @@ function listReferencedOriginalCutOrderIdsFromSpreadingStorage(
   }
 }
 
-function listReferencedOriginalCutOrderIdsFromMarkerStore(
+function listReferencedCutOrderIdsFromMarkerStore(
   store: MarkerSpreadingLedgerSummary | null | undefined,
 ): string[] {
   if (!store?.sessions?.length) return []
   return uniqueStrings(
     store.sessions.flatMap((session) => [
-      ...(session.originalCutOrderIds || []),
-      ...(session.completionLinkage?.linkedOriginalCutOrderIds || []),
+      ...(session.cutOrderIds || []),
+      ...(session.completionLinkage?.linkedCutOrderIds || []),
     ]),
   )
 }
@@ -178,10 +179,11 @@ export interface MarkerPlanContextCandidate {
   contextKey: string
   contextNo: string
   contextLabel: string
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  markerPlanGroupKey: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   productionOrderIds: string[]
   productionOrderNos: string[]
   styleCode: string
@@ -192,13 +194,15 @@ export interface MarkerPlanContextCandidate {
   sourceShipDate: string
   sourceUrgencyLabel: string
   materialSkuSummary: string
+  materialAliasSummary: string
+  materialImageUrl: string
   colorSummary: string
   techPackStatusLabel: string
   prepStatusLabel: string
   prepClaimSummaryText: string
-  sourceOriginalRows: OriginalCutOrderRow[]
+  sourceCutOrderRows: CutOrderRow[]
   sourceMaterialPrepRows: MaterialPrepRow[]
-  sourceGeneratedRows: GeneratedOriginalCutOrderSourceRecord[]
+  sourceGeneratedRows: GeneratedCutOrderSourceRecord[]
   defaultSizeRatioRows: MarkerSizeRatioRow[]
 }
 
@@ -264,7 +268,7 @@ export interface MarkerPlanViewRow extends MarkerPlan {
   netLengthText: string
   plannedSpreadLengthText: string
   plannedSpreadLengthFormula: string
-  sourceOriginalOrderCountText: string
+  sourceCutOrderCountText: string
   sourceProductionOrderCountText: string
   referenceWarningText: string
   isReferencedBySpreading: boolean
@@ -285,8 +289,8 @@ export interface MarkerPlanViewModel {
 export interface MarkerPlanMockCoverageReport {
   totalContextCount: number
   pendingContextCount: number
-  pendingOriginalContextCount: number
-  pendingMergeBatchContextCount: number
+  pendingCutOrderContextCount: number
+  pendingMarkerPlanRefContextCount: number
   builtPlanCount: number
   referencedPlanCount: number
   mappingIssueCount: number
@@ -304,9 +308,8 @@ export function getMarkerPlanStorageKey(): string {
 
 export function buildMarkerPlanContextTypeOptions(): Array<{ value: 'ALL' | MarkerPlanContextType; label: string }> {
   return [
-    { value: 'ALL', label: '全部来源' },
-    { value: 'original-cut-order', label: '原始裁片单' },
-    { value: 'merge-batch', label: '合并裁剪批次' },
+    { value: 'ALL', label: '全部裁片单' },
+    { value: 'cut-order', label: '裁片单' },
   ]
 }
 
@@ -350,7 +353,7 @@ export function deserializeMarkerPlanStorage(raw: string | null): MarkerPlan[] {
   }
 }
 
-function buildSizeRatioRowsFromSourceRecords(sourceRows: GeneratedOriginalCutOrderSourceRecord[]): MarkerSizeRatioRow[] {
+function buildSizeRatioRowsFromSourceRecords(sourceRows: GeneratedCutOrderSourceRecord[]): MarkerSizeRatioRow[] {
   const qtyMap = Object.fromEntries(MARKER_SIZE_CODES.map((sizeCode) => [sizeCode, 0])) as Record<MarkerSizeCode, number>
   sourceRows.forEach((row) => {
     row.skuScopeLines.forEach((line) => {
@@ -367,19 +370,38 @@ function buildSizeRatioRowsFromSourceRecords(sourceRows: GeneratedOriginalCutOrd
 }
 
 function buildMaterialPrepRowMap(rows: MaterialPrepRow[]): Record<string, MaterialPrepRow> {
-  return Object.fromEntries(rows.map((row) => [row.originalCutOrderId, row]))
+  return Object.fromEntries(rows.map((row) => [row.cutOrderId, row]))
 }
 
-function buildOriginalRowMap(rows: OriginalCutOrderRow[]): Record<string, OriginalCutOrderRow> {
-  return Object.fromEntries(rows.map((row) => [row.originalCutOrderId, row]))
+function buildCutOrderRowMap(rows: CutOrderRow[]): Record<string, CutOrderRow> {
+  return Object.fromEntries(rows.map((row) => [row.cutOrderId, row]))
 }
 
 function buildProductionRowMap(rows: ProductionProgressRow[]): Record<string, ProductionProgressRow> {
   return Object.fromEntries(rows.map((row) => [row.productionOrderId, row]))
 }
 
-function buildGeneratedRowMap(): Record<string, GeneratedOriginalCutOrderSourceRecord> {
-  return Object.fromEntries(listGeneratedOriginalCutOrderSourceRecords().map((row) => [row.originalCutOrderId, row]))
+function buildGeneratedRowMap(): Record<string, GeneratedCutOrderSourceRecord> {
+  return Object.fromEntries(listGeneratedCutOrderSourceRecords().map((row) => [row.cutOrderId, row]))
+}
+
+function resolveMarkerPlanEffectiveWidthByMaterialType(materialType: string): number {
+  if (materialType === 'LINING') return 92
+  return 120
+}
+
+function resolveMarkerPlanEffectiveWidthFromGeneratedRows(rows: GeneratedCutOrderSourceRecord[]): number | null {
+  const widths = uniqueStrings(rows.map((row) => String(resolveMarkerPlanEffectiveWidthByMaterialType(row.materialType))))
+  if (widths.length !== 1) return null
+  return Number(widths[0])
+}
+
+function buildMarkerPlanPatternKeyFromGeneratedRows(rows: GeneratedCutOrderSourceRecord[]): string {
+  return uniqueStrings(
+    rows.flatMap((row) =>
+      row.pieceRows.map((piece) => piece.patternId || piece.patternName),
+    ),
+  ).join('/')
 }
 
 function uniqueByKey<T>(rows: T[], getKey: (row: T) => string): T[] {
@@ -421,7 +443,7 @@ function getContextUrgencyLabel(rows: ProductionProgressRow[]): string {
   return sorted[0]?.urgency.label || '常规'
 }
 
-function getFormalTechPackSnapshotForOriginalRow(row: Pick<OriginalCutOrderRow, 'productionOrderId' | 'spuCode'>) {
+function getFormalTechPackSnapshotForCutOrderRow(row: Pick<CutOrderRow, 'productionOrderId' | 'spuCode'>) {
   const style = findStyleArchiveByCode(row.spuCode)
   if (!style?.currentTechPackVersionId) return null
   const record = getCurrentTechPackVersionByStyleId(style.styleId)
@@ -438,7 +460,7 @@ function getFormalTechPackSnapshotForOriginalRow(row: Pick<OriginalCutOrderRow, 
 }
 
 function buildFormalTechPackStatusLabel(
-  snapshots: Array<NonNullable<ReturnType<typeof getFormalTechPackSnapshotForOriginalRow>>>,
+  snapshots: Array<NonNullable<ReturnType<typeof getFormalTechPackSnapshotForCutOrderRow>>>,
 ): string {
   const versionLabels = uniqueStrings(snapshots.map((snapshot) => snapshot.versionLabel))
   if (!versionLabels.length) return '待补正式版'
@@ -447,42 +469,42 @@ function buildFormalTechPackStatusLabel(
 }
 
 function buildContextPrepStatusLabel(
-  originalRows: Array<Pick<OriginalCutOrderRow, 'materialPrepStatus'>>,
+  cutOrderRows: Array<Pick<CutOrderRow, 'materialPrepStatus'>>,
 ): string {
-  const prepKeys = uniqueStrings(originalRows.map((row) => row.materialPrepStatus.key))
-  if (!prepKeys.length) return 'WMS 待处理'
-  if (prepKeys.length === 1) return originalRows[0]?.materialPrepStatus.label || 'WMS 待处理'
-  if (prepKeys.includes('NOT_CONFIGURED')) return 'WMS 待处理'
-  if (prepKeys.includes('PARTIAL')) return 'WMS处理中'
-  return '已配置'
+  const prepKeys = uniqueStrings(cutOrderRows.map((row) => row.materialPrepStatus.key))
+  if (!prepKeys.length) return '无配料数量'
+  if (prepKeys.length === 1) return cutOrderRows[0]?.materialPrepStatus.label || '无配料数量'
+  if (prepKeys.includes('NOT_CONFIGURED')) return '无配料数量'
+  if (prepKeys.includes('PARTIAL')) return '配料数量不足'
+  return '有配料数量'
 }
 
 function buildContextClaimStatusLabel(
-  originalRows: Array<Pick<OriginalCutOrderRow, 'materialClaimStatus'>>,
+  cutOrderRows: Array<Pick<CutOrderRow, 'materialClaimStatus'>>,
 ): string {
-  const claimKeys = uniqueStrings(originalRows.map((row) => row.materialClaimStatus.key))
-  if (!claimKeys.length) return '待来料'
-  if (claimKeys.length === 1) return originalRows[0]?.materialClaimStatus.label || '待来料'
-  if (claimKeys.includes('NOT_RECEIVED')) return '待来料'
-  if (claimKeys.includes('PARTIAL')) return '部分来料'
-  return 'WMS 来料不齐'
+  const claimKeys = uniqueStrings(cutOrderRows.map((row) => row.materialClaimStatus.key))
+  if (!claimKeys.length) return '无领料记录'
+  if (claimKeys.length === 1) return cutOrderRows[0]?.materialClaimStatus.label || '无领料记录'
+  if (claimKeys.includes('NOT_RECEIVED')) return '无领料记录'
+  if (claimKeys.includes('PARTIAL')) return '领料数量不足'
+  return '有领料记录'
 }
 
 function buildContextPrepClaimSummaryText(
-  originalRows: Array<Pick<OriginalCutOrderRow, 'materialPrepStatus' | 'materialClaimStatus'>>,
+  cutOrderRows: Array<Pick<CutOrderRow, 'materialPrepStatus' | 'materialClaimStatus'>>,
 ): string {
-  const prepLabel = buildContextPrepStatusLabel(originalRows)
-  const claimLabel = buildContextClaimStatusLabel(originalRows)
-  return `WMS 来料：${prepLabel} / 入仓：${claimLabel}`
+  const prepLabel = buildContextPrepStatusLabel(cutOrderRows)
+  const claimLabel = buildContextClaimStatusLabel(cutOrderRows)
+  return `配料：${prepLabel} / 领料：${claimLabel}`
 }
 
-function buildOriginalContextCandidate(input: {
-  row: OriginalCutOrderRow
+function buildCutOrderContextCandidate(input: {
+  row: CutOrderRow
   materialPrepRow: MaterialPrepRow | null
   productionRow: ProductionProgressRow | null
-  sourceRecord: GeneratedOriginalCutOrderSourceRecord | null
+  sourceRecord: GeneratedCutOrderSourceRecord | null
 }): MarkerPlanContextCandidate | null {
-  const formalTechPackSnapshot = getFormalTechPackSnapshotForOriginalRow(input.row)
+  const formalTechPackSnapshot = getFormalTechPackSnapshotForCutOrderRow(input.row)
   if (!formalTechPackSnapshot) return null
 
   const sourceGeneratedRows = input.sourceRecord ? [input.sourceRecord] : []
@@ -500,17 +522,28 @@ function buildOriginalContextCandidate(input: {
   const techPackStatusLabel = buildFormalTechPackStatusLabel([formalTechPackSnapshot])
   const prepStatusLabel = buildContextPrepStatusLabel([input.row])
   const prepClaimSummaryText = buildContextPrepClaimSummaryText([input.row])
+  const markerPlanGroupKey = buildMarkerPlanCombinationGroupKey({
+    styleCode: input.row.styleCode,
+    spuCode: input.row.spuCode,
+    materialSku: input.row.materialSku,
+    patternKey: buildMarkerPlanPatternKeyFromGeneratedRows(sourceGeneratedRows),
+    effectiveWidth: input.sourceRecord
+      ? resolveMarkerPlanEffectiveWidthByMaterialType(input.sourceRecord.materialType)
+      : null,
+    historicalGroupKey: input.row.latestMarkerPlanNo || input.sourceRecord?.markerPlanNo || '',
+  })
 
   return {
-    id: input.row.originalCutOrderId,
-    contextType: 'original-cut-order',
-    contextKey: buildContextKey('original-cut-order', input.row.originalCutOrderId),
-    contextNo: input.row.originalCutOrderNo,
-    contextLabel: '原始裁片单',
-    originalCutOrderIds: [input.row.originalCutOrderId],
-    originalCutOrderNos: [input.row.originalCutOrderNo],
-    mergeBatchId: '',
-    mergeBatchNo: '',
+    id: input.row.cutOrderId,
+    contextType: 'cut-order',
+    contextKey: buildContextKey('cut-order', input.row.cutOrderId),
+    contextNo: input.row.cutOrderNo,
+    contextLabel: '裁片单',
+    markerPlanGroupKey,
+    cutOrderIds: [input.row.cutOrderId],
+    cutOrderNos: [input.row.cutOrderNo],
+    markerPlanId: '',
+    markerPlanNo: '',
     productionOrderIds: [input.row.productionOrderId],
     productionOrderNos: [input.row.productionOrderNo],
     styleCode: input.row.styleCode,
@@ -521,75 +554,88 @@ function buildOriginalContextCandidate(input: {
     sourceShipDate,
     sourceUrgencyLabel,
     materialSkuSummary: input.row.materialSku,
+    materialAliasSummary: input.row.materialAlias,
+    materialImageUrl: input.row.materialImageUrl,
     colorSummary,
     techPackStatusLabel,
     prepStatusLabel,
     prepClaimSummaryText,
-    sourceOriginalRows: [input.row],
+    sourceCutOrderRows: [input.row],
     sourceMaterialPrepRows: input.materialPrepRow ? [input.materialPrepRow] : [],
     sourceGeneratedRows,
     defaultSizeRatioRows,
   }
 }
 
-function buildMergeBatchContextCandidate(input: {
-  batch: MergeBatchRecord
-  originalRowsById: Record<string, OriginalCutOrderRow>
+function buildMarkerPlanRefContextCandidate(input: {
+  batch: MarkerPlanRefRecord
+  cutOrderRowsById: Record<string, CutOrderRow>
   materialPrepRowsById: Record<string, MaterialPrepRow>
   productionRowsById: Record<string, ProductionProgressRow>
-  generatedRowsById: Record<string, GeneratedOriginalCutOrderSourceRecord>
+  generatedRowsById: Record<string, GeneratedCutOrderSourceRecord>
 }): MarkerPlanContextCandidate | null {
-  const sourceOriginalRows = input.batch.items
-    .map((item) => input.originalRowsById[item.originalCutOrderId])
-    .filter((row): row is OriginalCutOrderRow => Boolean(row))
-  if (!sourceOriginalRows.length) return null
+  const sourceCutOrderRows = input.batch.items
+    .map((item) => input.cutOrderRowsById[item.cutOrderId])
+    .filter((row): row is CutOrderRow => Boolean(row))
+  if (!sourceCutOrderRows.length) return null
 
-  const formalTechPackSnapshots = sourceOriginalRows
-    .map((row) => getFormalTechPackSnapshotForOriginalRow(row))
-    .filter((snapshot): snapshot is NonNullable<ReturnType<typeof getFormalTechPackSnapshotForOriginalRow>> => Boolean(snapshot))
-  if (formalTechPackSnapshots.length !== sourceOriginalRows.length) return null
+  const formalTechPackSnapshots = sourceCutOrderRows
+    .map((row) => getFormalTechPackSnapshotForCutOrderRow(row))
+    .filter((snapshot): snapshot is NonNullable<ReturnType<typeof getFormalTechPackSnapshotForCutOrderRow>> => Boolean(snapshot))
+  if (formalTechPackSnapshots.length !== sourceCutOrderRows.length) return null
 
-  const sourceMaterialPrepRows = sourceOriginalRows
-    .map((row) => input.materialPrepRowsById[row.originalCutOrderId])
+  const sourceMaterialPrepRows = sourceCutOrderRows
+    .map((row) => input.materialPrepRowsById[row.cutOrderId])
     .filter((row): row is MaterialPrepRow => Boolean(row))
-  const productionRows = uniqueStrings(sourceOriginalRows.map((row) => row.productionOrderId))
+  const productionRows = uniqueStrings(sourceCutOrderRows.map((row) => row.productionOrderId))
     .map((id) => input.productionRowsById[id])
     .filter((row): row is ProductionProgressRow => Boolean(row))
-  const sourceGeneratedRows = sourceOriginalRows
-    .map((row) => input.generatedRowsById[row.originalCutOrderId])
-    .filter((row): row is GeneratedOriginalCutOrderSourceRecord => Boolean(row))
+  const sourceGeneratedRows = sourceCutOrderRows
+    .map((row) => input.generatedRowsById[row.cutOrderId])
+    .filter((row): row is GeneratedCutOrderSourceRecord => Boolean(row))
   const defaultSizeRatioRows = sourceGeneratedRows.length
     ? buildSizeRatioRowsFromSourceRecords(sourceGeneratedRows)
     : createEmptySizeRatioRows()
   const techPackStatusLabel = buildFormalTechPackStatusLabel(formalTechPackSnapshots)
-  const prepStatusLabel = buildContextPrepStatusLabel(sourceOriginalRows)
-  const prepClaimSummaryText = buildContextPrepClaimSummaryText(sourceOriginalRows)
+  const prepStatusLabel = buildContextPrepStatusLabel(sourceCutOrderRows)
+  const prepClaimSummaryText = buildContextPrepClaimSummaryText(sourceCutOrderRows)
+  const markerPlanGroupKey = input.batch.markerPlanGroupKey || buildMarkerPlanCombinationGroupKey({
+    styleCode: input.batch.styleCode || sourceCutOrderRows[0]?.styleCode || '',
+    spuCode: input.batch.spuCode || sourceCutOrderRows[0]?.spuCode || '',
+    materialSku: input.batch.materialSkuSummary || sourceCutOrderRows[0]?.materialSku || '',
+    patternKey: buildMarkerPlanPatternKeyFromGeneratedRows(sourceGeneratedRows),
+    effectiveWidth: resolveMarkerPlanEffectiveWidthFromGeneratedRows(sourceGeneratedRows),
+    historicalGroupKey: input.batch.markerPlanNo,
+  })
 
   return {
-    id: input.batch.mergeBatchId,
-    contextType: 'merge-batch',
-    contextKey: buildContextKey('merge-batch', input.batch.mergeBatchId),
-    contextNo: input.batch.mergeBatchNo,
-    contextLabel: '合并裁剪批次',
-    originalCutOrderIds: sourceOriginalRows.map((row) => row.originalCutOrderId),
-    originalCutOrderNos: sourceOriginalRows.map((row) => row.originalCutOrderNo),
-    mergeBatchId: input.batch.mergeBatchId,
-    mergeBatchNo: input.batch.mergeBatchNo,
-    productionOrderIds: uniqueStrings(sourceOriginalRows.map((row) => row.productionOrderId)),
-    productionOrderNos: uniqueStrings(sourceOriginalRows.map((row) => row.productionOrderNo)),
-    styleCode: input.batch.styleCode || sourceOriginalRows[0]?.styleCode || '',
-    spuCode: input.batch.spuCode || sourceOriginalRows[0]?.spuCode || '',
-    styleName: input.batch.styleName || sourceOriginalRows[0]?.styleName || '',
-    techPackSpu: uniqueStrings(formalTechPackSnapshots.map((snapshot) => snapshot.styleCode))[0] || sourceOriginalRows[0]?.spuCode || '',
+    id: input.batch.markerPlanId,
+    contextType: 'marker-plan-ref',
+    contextKey: buildContextKey('marker-plan-ref', input.batch.markerPlanId),
+    contextNo: input.batch.markerPlanNo,
+    contextLabel: '唛架方案',
+    markerPlanGroupKey,
+    cutOrderIds: sourceCutOrderRows.map((row) => row.cutOrderId),
+    cutOrderNos: sourceCutOrderRows.map((row) => row.cutOrderNo),
+    markerPlanId: input.batch.markerPlanId,
+    markerPlanNo: input.batch.markerPlanNo,
+    productionOrderIds: uniqueStrings(sourceCutOrderRows.map((row) => row.productionOrderId)),
+    productionOrderNos: uniqueStrings(sourceCutOrderRows.map((row) => row.productionOrderNo)),
+    styleCode: input.batch.styleCode || sourceCutOrderRows[0]?.styleCode || '',
+    spuCode: input.batch.spuCode || sourceCutOrderRows[0]?.spuCode || '',
+    styleName: input.batch.styleName || sourceCutOrderRows[0]?.styleName || '',
+    techPackSpu: uniqueStrings(formalTechPackSnapshots.map((snapshot) => snapshot.styleCode))[0] || sourceCutOrderRows[0]?.spuCode || '',
     sourceFactoryName: getContextFactoryName(productionRows),
     sourceShipDate: getContextShipDate(productionRows),
     sourceUrgencyLabel: getContextUrgencyLabel(productionRows),
-    materialSkuSummary: input.batch.materialSkuSummary || uniqueStrings(sourceOriginalRows.map((row) => row.materialSku)).join(' / '),
-    colorSummary: uniqueStrings([...sourceGeneratedRows.flatMap((row) => row.colorScope), ...sourceOriginalRows.map((row) => row.color)]).join(' / '),
+    materialSkuSummary: input.batch.materialSkuSummary || uniqueStrings(sourceCutOrderRows.map((row) => row.materialSku)).join(' / '),
+    materialAliasSummary: uniqueStrings(sourceCutOrderRows.map((row) => row.materialAlias)).join(' / '),
+    materialImageUrl: sourceCutOrderRows.find((row) => row.materialImageUrl)?.materialImageUrl || '',
+    colorSummary: uniqueStrings([...sourceGeneratedRows.flatMap((row) => row.colorScope), ...sourceCutOrderRows.map((row) => row.color)]).join(' / '),
     techPackStatusLabel,
     prepStatusLabel,
     prepClaimSummaryText,
-    sourceOriginalRows,
+    sourceCutOrderRows,
     sourceMaterialPrepRows,
     sourceGeneratedRows,
     defaultSizeRatioRows,
@@ -598,34 +644,22 @@ function buildMergeBatchContextCandidate(input: {
 
 export function buildMarkerPlanContextCandidates(sources: CuttingSummaryBuildOptions): MarkerPlanContextCandidate[] {
   const materialPrepRowsById = buildMaterialPrepRowMap(sources.materialPrepRows)
-  const originalRowsById = buildOriginalRowMap(sources.originalRows)
+  const cutOrderRowsById = buildCutOrderRowMap(sources.cutOrderRows)
   const productionRowsById = buildProductionRowMap(sources.productionRows)
   const generatedRowsById = buildGeneratedRowMap()
 
-  const originalContexts = sources.originalRows
+  const cutOrderContexts = sources.cutOrderRows
     .map((row) =>
-      buildOriginalContextCandidate({
+      buildCutOrderContextCandidate({
         row,
-        materialPrepRow: materialPrepRowsById[row.originalCutOrderId] || null,
+        materialPrepRow: materialPrepRowsById[row.cutOrderId] || null,
         productionRow: productionRowsById[row.productionOrderId] || null,
-        sourceRecord: generatedRowsById[row.originalCutOrderId] || null,
+        sourceRecord: generatedRowsById[row.cutOrderId] || null,
       }),
     )
     .filter((item): item is MarkerPlanContextCandidate => Boolean(item))
 
-  const mergeBatchContexts = sources.mergeBatches
-    .map((batch) =>
-      buildMergeBatchContextCandidate({
-        batch,
-        originalRowsById,
-        materialPrepRowsById,
-        productionRowsById,
-        generatedRowsById,
-      }),
-    )
-    .filter((item): item is MarkerPlanContextCandidate => Boolean(item))
-
-  return [...originalContexts, ...mergeBatchContexts].sort((left, right) =>
+  return cutOrderContexts.sort((left, right) =>
     `${left.styleCode}-${left.contextNo}`.localeCompare(`${right.styleCode}-${right.contextNo}`, 'zh-CN'),
   )
 }
@@ -636,20 +670,22 @@ export function buildCombinedMarkerPlanContextCandidate(
   const selectedContexts = uniqueByKey(contexts, (context) => context.contextKey)
   if (!selectedContexts.length) return null
   if (selectedContexts.length === 1) return selectedContexts[0]
+  const markerPlanGroupKeys = uniqueStrings(selectedContexts.map((context) => context.markerPlanGroupKey))
+  if (markerPlanGroupKeys.length !== 1) return null
 
-  const sourceOriginalRows = uniqueByKey(
-    selectedContexts.flatMap((context) => context.sourceOriginalRows),
-    (row) => row.originalCutOrderId,
+  const sourceCutOrderRows = uniqueByKey(
+    selectedContexts.flatMap((context) => context.sourceCutOrderRows),
+    (row) => row.cutOrderId,
   )
-  if (!sourceOriginalRows.length) return null
+  if (!sourceCutOrderRows.length) return null
 
   const sourceMaterialPrepRows = uniqueByKey(
     selectedContexts.flatMap((context) => context.sourceMaterialPrepRows),
-    (row) => row.originalCutOrderId,
+    (row) => row.cutOrderId,
   )
   const sourceGeneratedRows = uniqueByKey(
     selectedContexts.flatMap((context) => context.sourceGeneratedRows),
-    (row) => row.originalCutOrderId,
+    (row) => row.cutOrderId,
   )
   const productionOrderIds = uniqueStrings(selectedContexts.flatMap((context) => context.productionOrderIds))
   const productionOrderNos = uniqueStrings(selectedContexts.flatMap((context) => context.productionOrderNos))
@@ -657,22 +693,25 @@ export function buildCombinedMarkerPlanContextCandidate(
   const styleCodes = uniqueStrings(selectedContexts.map((context) => context.styleCode))
   const styleNames = uniqueStrings(selectedContexts.map((context) => context.styleName))
   const materialSkuSummary = splitContextSummary(selectedContexts.map((context) => context.materialSkuSummary)).join(' / ')
+  const materialAliasSummary = splitContextSummary(selectedContexts.map((context) => context.materialAliasSummary)).join(' / ')
+  const materialImageUrl = selectedContexts.find((context) => context.materialImageUrl)?.materialImageUrl || ''
   const colorSummary = splitContextSummary(selectedContexts.map((context) => context.colorSummary)).join(' / ')
-  const mergeBatchContexts = selectedContexts.filter((context) => context.contextType === 'merge-batch')
+  const markerPlanRefContexts = selectedContexts.filter((context) => context.contextType === 'marker-plan-ref')
   const contextNos = selectedContexts.map((context) => context.contextNo).filter(Boolean)
   const techPackStatusLabels = uniqueStrings(selectedContexts.map((context) => context.techPackStatusLabel))
   const prepStatusLabels = uniqueStrings(selectedContexts.map((context) => context.prepStatusLabel))
 
   return {
     id: `combined-${selectedContexts.map((context) => context.id).join('-')}`,
-    contextType: 'original-cut-order',
-    contextKey: buildContextKey('original-cut-order', sourceOriginalRows[0]?.originalCutOrderId || selectedContexts[0].id),
+    contextType: 'cut-order',
+    contextKey: buildContextKey('cut-order', sourceCutOrderRows[0]?.cutOrderId || selectedContexts[0].id),
     contextNo: contextNos.join(' / '),
     contextLabel: '组合来源',
-    originalCutOrderIds: sourceOriginalRows.map((row) => row.originalCutOrderId),
-    originalCutOrderNos: sourceOriginalRows.map((row) => row.originalCutOrderNo),
-    mergeBatchId: mergeBatchContexts.length === 1 ? mergeBatchContexts[0].mergeBatchId : '',
-    mergeBatchNo: uniqueStrings(mergeBatchContexts.map((context) => context.mergeBatchNo)).join(' / '),
+    markerPlanGroupKey: markerPlanGroupKeys[0],
+    cutOrderIds: sourceCutOrderRows.map((row) => row.cutOrderId),
+    cutOrderNos: sourceCutOrderRows.map((row) => row.cutOrderNo),
+    markerPlanId: markerPlanRefContexts.length === 1 ? markerPlanRefContexts[0].markerPlanId : '',
+    markerPlanNo: uniqueStrings(markerPlanRefContexts.map((context) => context.markerPlanNo)).join(' / '),
     productionOrderIds,
     productionOrderNos,
     styleCode: styleCodes[0] || '',
@@ -692,11 +731,13 @@ export function buildCombinedMarkerPlanContextCandidate(
     sourceShipDate: getContextShipDate(selectedContexts.map((context) => ({ plannedShipDateDisplay: context.sourceShipDate }))),
     sourceUrgencyLabel: uniqueStrings(selectedContexts.map((context) => context.sourceUrgencyLabel))[0] || '常规',
     materialSkuSummary,
+    materialAliasSummary,
+    materialImageUrl,
     colorSummary,
     techPackStatusLabel: techPackStatusLabels.length === 1 ? techPackStatusLabels[0] : '需人工确认',
     prepStatusLabel: prepStatusLabels.length === 1 ? prepStatusLabels[0] : '多状态',
     prepClaimSummaryText: uniqueStrings(selectedContexts.map((context) => context.prepClaimSummaryText)).join(' / '),
-    sourceOriginalRows,
+    sourceCutOrderRows,
     sourceMaterialPrepRows,
     sourceGeneratedRows,
     defaultSizeRatioRows: sourceGeneratedRows.length
@@ -743,8 +784,8 @@ function buildAutoAllocationRows(context: MarkerPlanContextCandidate, sizeRatioR
       if (takeQty <= 0) return
       remaining[sizeCode] -= takeQty
       rows.push({
-        id: `${context.id}-${sourceRow.originalCutOrderId}-${sizeCode}-${rows.length + 1}`,
-        sourceCutOrderId: sourceRow.originalCutOrderId,
+        id: `${context.id}-${sourceRow.cutOrderId}-${sizeCode}-${rows.length + 1}`,
+        sourceCutOrderId: sourceRow.cutOrderId,
         sourceProductionOrderId: sourceRow.productionOrderId,
         colorCode: skuLine.color || sourceRow.colorScope[0] || '',
         materialSku: sourceRow.materialSku,
@@ -767,9 +808,9 @@ function buildSchemeDemandRowsFromContext(context: MarkerPlanContextCandidate): 
       const sizeCode = normalizeMarkerSizeCode(skuLine.size) || 'M'
       const qty = Math.max(safeNumber(skuLine.plannedQty), 0)
       return {
-        rowId: `${sourceRow.originalCutOrderId}-${sourceRow.materialSku}-${skuLine.skuCode || index + 1}`,
-        sourceOrderId: sourceRow.originalCutOrderId,
-        sourceOrderNo: sourceRow.originalCutOrderNo,
+        rowId: `${sourceRow.cutOrderId}-${sourceRow.materialSku}-${skuLine.skuCode || index + 1}`,
+        sourceOrderId: sourceRow.cutOrderId,
+        sourceOrderNo: sourceRow.cutOrderNo,
         productionOrderNo: sourceRow.productionOrderNo,
         spuCode: context.spuCode,
         colorCode: skuLine.color,
@@ -1034,9 +1075,9 @@ function adaptPlanToMarkerExplosionInput(plan: MarkerPlan): MarkerPlanLike {
   const allocationLines: MarkerPlanAllocationLike[] = plan.allocationRows.map((row) => ({
     allocationId: row.id,
     sourceCutOrderId: row.sourceCutOrderId,
-    sourceCutOrderNo: row.sourceCutOrderId,
+    sourceCutOrderNo: row.sourceCutOrderNo,
     sourceProductionOrderId: row.sourceProductionOrderId,
-    sourceProductionOrderNo: row.sourceProductionOrderId,
+    sourceProductionOrderNo: row.sourceProductionOrderNo,
     styleCode: row.styleCode,
     spuCode: row.spuCode,
     techPackSpuCode: row.techPackSpu,
@@ -1048,7 +1089,7 @@ function adaptPlanToMarkerExplosionInput(plan: MarkerPlan): MarkerPlanLike {
   }))
 
   return {
-    originalCutOrderIds: plan.originalCutOrderIds,
+    cutOrderIds: plan.cutOrderIds,
     techPackSpuCode: plan.techPackSpu,
     spuCode: plan.spuCode,
     sizeDistribution: (Array.isArray(plan.sizeRatioRows) ? plan.sizeRatioRows : []).map((row) => ({
@@ -1060,11 +1101,11 @@ function adaptPlanToMarkerExplosionInput(plan: MarkerPlan): MarkerPlanLike {
 }
 
 function buildPieceExplosionRows(plan: MarkerPlan, context: MarkerPlanContextCandidate): MarkerPieceExplosionRow[] {
-  const rowsById = Object.fromEntries(context.sourceMaterialPrepRows.map((row) => [row.originalCutOrderId, row]))
+  const rowsById = Object.fromEntries(context.sourceMaterialPrepRows.map((row) => [row.cutOrderId, row]))
   const markerExplosionInput = adaptPlanToMarkerExplosionInput(plan)
   const sourceRows = buildMarkerAllocationSourceRows(markerExplosionInput, rowsById)
   const explosion = buildMarkerPieceExplosionViewModel({ marker: markerExplosionInput, sourceRows })
-  const sourceRowMap = Object.fromEntries(context.sourceGeneratedRows.map((row) => [row.originalCutOrderNo, row]))
+  const sourceRowMap = Object.fromEntries(context.sourceGeneratedRows.map((row) => [row.cutOrderNo, row]))
   const previousOverrides = Object.fromEntries(
     (plan.pieceExplosionRows || [])
       .filter((row) => row.manualOverride)
@@ -1073,8 +1114,8 @@ function buildPieceExplosionRows(plan: MarkerPlan, context: MarkerPlanContextCan
 
   return explosion.pieceDetailRows.map((row) => {
     const sourceGeneratedRow = sourceRowMap[row.sourceCutOrderNo] || null
-    const sourceCutOrderId = sourceGeneratedRow?.originalCutOrderId || row.sourceCutOrderNo
-    const sourceCutOrderNo = sourceGeneratedRow?.originalCutOrderNo || row.sourceCutOrderNo
+    const sourceCutOrderId = sourceGeneratedRow?.cutOrderId || row.sourceCutOrderNo
+    const sourceCutOrderNo = sourceGeneratedRow?.cutOrderNo || row.sourceCutOrderNo
     const sourceProductionOrderId = sourceGeneratedRow?.productionOrderId || ''
     const sourceProductionOrderNo = sourceGeneratedRow?.productionOrderNo || ''
     const baseId = [
@@ -1099,6 +1140,8 @@ function buildPieceExplosionRows(plan: MarkerPlan, context: MarkerPlanContextCan
       sizeCode: row.sizeLabel,
       skuCode: row.skuCode,
       materialSku: row.materialSku,
+      materialAlias: row.materialAlias,
+      materialImageUrl: row.materialImageUrl,
       patternCode: row.patternName,
       partCode: row.pieceName,
       partNameCn: row.pieceName,
@@ -1490,6 +1533,8 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     modeDetailLines,
     foldConfig,
     pieceExplosionRows,
+    materialAliasSummary: plan.materialAliasSummary || context.materialAliasSummary || '',
+    materialImageUrl: plan.materialImageUrl || context.materialImageUrl || '',
     imageCount: plan.imageRecords.length,
     schemeImageStatus,
     allocationStatus,
@@ -1581,14 +1626,14 @@ function buildExplosionSummary(plan: MarkerPlan): MarkerPlanExplosionSummary {
 function buildPlanViewRow(
   plan: MarkerPlan,
   context: MarkerPlanContextCandidate,
-  referencedOriginalCutOrderIds: Set<string>,
+  referencedCutOrderIds: Set<string>,
 ): MarkerPlanViewRow {
   const hydrated = hydrateMarkerPlan(plan, context)
   const explosionSummary = buildExplosionSummary(hydrated)
   const demandMatchSummary = buildMarkerDemandMatchSummary(hydrated)
   const sourceProductionOrderCount = uniqueStrings(hydrated.productionOrderIds).length
-  const sourceOriginalOrderCount = uniqueStrings(hydrated.originalCutOrderIds).length
-  const isReferencedBySpreading = hydrated.originalCutOrderIds.some((id) => referencedOriginalCutOrderIds.has(id))
+  const sourceCutOrderCount = uniqueStrings(hydrated.cutOrderIds).length
+  const isReferencedBySpreading = hydrated.cutOrderIds.some((id) => referencedCutOrderIds.has(id))
   return {
     ...hydrated,
     modeMeta: markerPlanModeMeta[hydrated.markerMode],
@@ -1610,7 +1655,7 @@ function buildPlanViewRow(
     netLengthText: `${formatNumber(hydrated.netLength, 2)} m`,
     plannedSpreadLengthText: `${formatNumber(hydrated.plannedSpreadLength, 2)} m`,
     plannedSpreadLengthFormula: buildMarkerPlannedSpreadLengthFormula(hydrated),
-    sourceOriginalOrderCountText: `${sourceOriginalOrderCount} 张`,
+    sourceCutOrderCountText: `${sourceCutOrderCount} 张`,
     sourceProductionOrderCountText: `${sourceProductionOrderCount} 单`,
     referenceWarningText: isReferencedBySpreading
       ? '当前方案唛架已被铺布引用。若修改配比、分配、唛架结构，建议复制为新方案。'
@@ -1659,6 +1704,7 @@ function createPlanFromContext(options: {
   const plan: MarkerPlan = {
     id: planId,
     markerNo,
+    markerPlanGroupKey: options.context.markerPlanGroupKey,
     schemeId: planId,
     schemeNo: markerNo,
     schemeName: markerNo,
@@ -1674,10 +1720,10 @@ function createPlanFromContext(options: {
     status: 'WAITING_LAYOUT',
     markerMode,
     contextType: options.context.contextType,
-    originalCutOrderIds: [...options.context.originalCutOrderIds],
-    originalCutOrderNos: [...options.context.originalCutOrderNos],
-    mergeBatchId: options.context.mergeBatchId,
-    mergeBatchNo: options.context.mergeBatchNo,
+    cutOrderIds: [...options.context.cutOrderIds],
+    cutOrderNos: [...options.context.cutOrderNos],
+    markerPlanId: options.context.markerPlanId,
+    markerPlanNo: options.context.markerPlanNo,
     productionOrderIds: [...options.context.productionOrderIds],
     productionOrderNos: [...options.context.productionOrderNos],
     styleCode: options.context.styleCode,
@@ -1688,6 +1734,8 @@ function createPlanFromContext(options: {
     sourceShipDate: options.context.sourceShipDate,
     sourceUrgencyLabel: options.context.sourceUrgencyLabel,
     materialSkuSummary: options.context.materialSkuSummary,
+    materialAliasSummary: options.context.materialAliasSummary,
+    materialImageUrl: options.context.materialImageUrl,
     sourceMaterialSku: options.context.materialSkuSummary.split(' / ')[0] || '',
     colorSummary: options.context.colorSummary,
     totalPieces,
@@ -1777,10 +1825,7 @@ type SeedVariantKey = 'ready' | 'unbalanced' | 'mapping' | 'layout' | 'image' | 
 function buildSeedVariants(contexts: MarkerPlanContextCandidate[]): Array<{ context: MarkerPlanContextCandidate; mode: MarkerPlanModeKey; variant: SeedVariantKey }> {
   const modes: MarkerPlanModeKey[] = ['normal', 'high_low', 'fold_normal', 'fold_high_low']
   const variants: SeedVariantKey[] = ['ready', 'layout', 'ready', 'image', 'ready', 'manual']
-  const preferredContexts = [
-    ...contexts.filter((context) => context.contextType === 'original-cut-order' && context.spuCode !== 'SPU-2024-010'),
-    ...contexts.filter((context) => context.contextType === 'merge-batch' && context.spuCode !== 'SPU-2024-010'),
-  ]
+  const preferredContexts = contexts.filter((context) => context.contextType === 'cut-order' && context.spuCode !== 'SPU-2024-010')
   const uniqueContexts = preferredContexts.filter(
     (context, index, all) => all.findIndex((item) => item.contextKey === context.contextKey) === index,
   )
@@ -1990,16 +2035,16 @@ export function buildMarkerPlanViewModel(sources: CuttingSummaryBuildOptions, st
   const contexts = buildMarkerPlanContextCandidates(sources)
   const seedPlans = buildSystemSeedMarkerPlans(contexts)
   const mergedPlans = mergePlans(seedPlans, storedPlans)
-  const referencedOriginalCutOrderIds = new Set(
+  const referencedCutOrderIds = new Set(
     uniqueStrings([
-      ...listReferencedOriginalCutOrderIdsFromSpreadingStorage(),
-      ...listReferencedOriginalCutOrderIdsFromMarkerStore(sources.markerStore),
+      ...listReferencedCutOrderIdsFromSpreadingStorage(),
+      ...listReferencedCutOrderIdsFromMarkerStore(sources.markerStore),
     ]),
   )
   const plans = mergedPlans
     .map((plan) => {
       const context = findMarkerPlanContextForPlan(contexts, plan)
-      return context ? buildPlanViewRow(plan, context, referencedOriginalCutOrderIds) : null
+      return context ? buildPlanViewRow(plan, context, referencedCutOrderIds) : null
     })
     .filter((plan): plan is MarkerPlanViewRow => Boolean(plan))
   const plansById = Object.fromEntries(plans.map((plan) => [plan.id, plan]))
@@ -2027,29 +2072,29 @@ export function buildMarkerPlanMockCoverageReport(
   sources: CuttingSummaryBuildOptions,
   storedPlans: MarkerPlan[] = [],
   options: {
-    referencedOriginalCutOrderIds?: string[]
+    referencedCutOrderIds?: string[]
   } = {},
 ): MarkerPlanMockCoverageReport {
   const contexts = buildMarkerPlanContextCandidates(sources)
   const contextMap = Object.fromEntries(contexts.map((context) => [context.contextKey, context]))
   const seedPlans = buildSystemSeedMarkerPlans(contexts)
   const mergedPlans = mergePlans(seedPlans, storedPlans)
-  const referencedOriginalCutOrderIds = new Set(
+  const referencedCutOrderIds = new Set(
     uniqueStrings([
-      ...(options.referencedOriginalCutOrderIds || []),
-      ...listReferencedOriginalCutOrderIdsFromMarkerStore(sources.markerStore),
+      ...(options.referencedCutOrderIds || []),
+      ...listReferencedCutOrderIdsFromMarkerStore(sources.markerStore),
     ]),
   )
   const hydratedPlans = mergedPlans
     .map((plan) => {
-      const contextId = plan.contextType === 'merge-batch' ? plan.mergeBatchId : plan.originalCutOrderIds[0]
+      const contextId = plan.contextType === 'marker-plan-ref' ? plan.markerPlanId : plan.cutOrderIds[0]
       const context = contextMap[buildContextKey(plan.contextType, contextId)]
       return context ? hydrateMarkerPlan(plan, context) : null
     })
     .filter((plan): plan is MarkerPlan => Boolean(plan))
   const usedContextKeys = new Set(
     hydratedPlans.map((plan) =>
-      buildContextKey(plan.contextType, plan.contextType === 'merge-batch' ? plan.mergeBatchId : plan.originalCutOrderIds[0]),
+      buildContextKey(plan.contextType, plan.contextType === 'marker-plan-ref' ? plan.markerPlanId : plan.cutOrderIds[0]),
     ),
   )
   const pendingContexts = contexts.filter((context) => !usedContextKeys.has(context.contextKey))
@@ -2068,10 +2113,10 @@ export function buildMarkerPlanMockCoverageReport(
   return {
     totalContextCount: contexts.length,
     pendingContextCount: pendingContexts.length,
-    pendingOriginalContextCount: pendingContexts.filter((context) => context.contextType === 'original-cut-order').length,
-    pendingMergeBatchContextCount: pendingContexts.filter((context) => context.contextType === 'merge-batch').length,
+    pendingCutOrderContextCount: pendingContexts.filter((context) => context.contextType === 'cut-order').length,
+    pendingMarkerPlanRefContextCount: pendingContexts.filter((context) => context.contextType === 'marker-plan-ref').length,
     builtPlanCount: hydratedPlans.length,
-    referencedPlanCount: hydratedPlans.filter((plan) => plan.originalCutOrderIds.some((id) => referencedOriginalCutOrderIds.has(id))).length,
+    referencedPlanCount: hydratedPlans.filter((plan) => plan.cutOrderIds.some((id) => referencedCutOrderIds.has(id))).length,
     mappingIssueCount: hydratedPlans.filter((plan) => plan.mappingStatus !== 'passed').length,
     modeCounts,
     statusCounts,
@@ -2102,34 +2147,34 @@ export function findMarkerPlanContextById(
 
 export function findMarkerPlanContextForPlan(
   contexts: MarkerPlanContextCandidate[],
-  plan: Pick<MarkerPlan, 'contextType' | 'mergeBatchId' | 'mergeBatchNo' | 'originalCutOrderIds'>,
+  plan: Pick<MarkerPlan, 'contextType' | 'markerPlanId' | 'markerPlanNo' | 'cutOrderIds'>,
 ): MarkerPlanContextCandidate | null {
-  if (plan.contextType !== 'merge-batch' && (plan.originalCutOrderIds.length > 1 || plan.mergeBatchNo)) {
-    const mergeBatchNos = new Set(String(plan.mergeBatchNo || '').split('/').map((item) => item.trim()).filter(Boolean))
-    const mergeContexts = contexts.filter(
-      (context) => context.contextType === 'merge-batch' && mergeBatchNos.has(context.mergeBatchNo),
+  if (plan.contextType !== 'marker-plan-ref' && (plan.cutOrderIds.length > 1 || plan.markerPlanNo)) {
+    const markerPlanNos = new Set(String(plan.markerPlanNo || '').split('/').map((item) => item.trim()).filter(Boolean))
+    const markerPlanContexts = contexts.filter(
+      (context) => context.contextType === 'marker-plan-ref' && markerPlanNos.has(context.markerPlanNo),
     )
-    const coveredByMerge = new Set(mergeContexts.flatMap((context) => context.originalCutOrderIds))
-    const originalContexts = plan.originalCutOrderIds
-      .filter((originalCutOrderId) => !coveredByMerge.has(originalCutOrderId))
-        .map((originalCutOrderId) =>
+    const coveredByMarkerPlans = new Set(markerPlanContexts.flatMap((context) => context.cutOrderIds))
+    const cutOrderContexts = plan.cutOrderIds
+      .filter((cutOrderId) => !coveredByMarkerPlans.has(cutOrderId))
+        .map((cutOrderId) =>
           contexts.find(
             (context) =>
-              context.contextType === 'original-cut-order' &&
-              context.originalCutOrderIds.includes(originalCutOrderId),
+              context.contextType === 'cut-order' &&
+              context.cutOrderIds.includes(cutOrderId),
           ) || null,
         )
         .filter((context): context is MarkerPlanContextCandidate => Boolean(context))
     const sourceContexts = uniqueByKey(
-      [...mergeContexts, ...originalContexts],
+      [...markerPlanContexts, ...cutOrderContexts],
       (context) => context.contextKey,
     )
-    const coveredOriginalIds = new Set(sourceContexts.flatMap((context) => context.originalCutOrderIds))
-    if (plan.originalCutOrderIds.every((originalCutOrderId) => coveredOriginalIds.has(originalCutOrderId))) {
+    const coveredCutOrderIds = new Set(sourceContexts.flatMap((context) => context.cutOrderIds))
+    if (plan.cutOrderIds.every((cutOrderId) => coveredCutOrderIds.has(cutOrderId))) {
       return buildCombinedMarkerPlanContextCandidate(sourceContexts)
     }
   }
-  const contextId = plan.contextType === 'merge-batch' ? plan.mergeBatchId : plan.originalCutOrderIds[0]
+  const contextId = plan.contextType === 'marker-plan-ref' ? plan.markerPlanId : plan.cutOrderIds[0]
   if (!contextId) return null
   return findMarkerPlanContextById(contexts, plan.contextType, contextId)
 }
@@ -2142,19 +2187,19 @@ export function getMarkerPlanReferencedWarning(
 
 function listUsedContextKeysForPlan(
   contexts: MarkerPlanContextCandidate[],
-  plan: Pick<MarkerPlan, 'contextType' | 'mergeBatchId' | 'mergeBatchNo' | 'originalCutOrderIds'>,
+  plan: Pick<MarkerPlan, 'contextType' | 'markerPlanId' | 'markerPlanNo' | 'cutOrderIds'>,
 ): string[] {
-  if (plan.contextType === 'merge-batch' && plan.mergeBatchId) {
-    return [buildContextKey('merge-batch', plan.mergeBatchId)]
+  if (plan.contextType === 'marker-plan-ref' && plan.markerPlanId) {
+    return [buildContextKey('marker-plan-ref', plan.markerPlanId)]
   }
-  const originalIdSet = new Set(plan.originalCutOrderIds)
-  const mergeBatchNos = new Set(String(plan.mergeBatchNo || '').split('/').map((item) => item.trim()).filter(Boolean))
+  const cutOrderIdSet = new Set(plan.cutOrderIds)
+  const markerPlanNos = new Set(String(plan.markerPlanNo || '').split('/').map((item) => item.trim()).filter(Boolean))
   return contexts
     .filter((context) => {
-      if (context.contextType === 'original-cut-order') {
-        return context.originalCutOrderIds.some((originalCutOrderId) => originalIdSet.has(originalCutOrderId))
+      if (context.contextType === 'cut-order') {
+        return context.cutOrderIds.some((cutOrderId) => cutOrderIdSet.has(cutOrderId))
       }
-      return mergeBatchNos.has(context.mergeBatchNo)
+      return markerPlanNos.has(context.markerPlanNo)
     })
     .map((context) => context.contextKey)
 }

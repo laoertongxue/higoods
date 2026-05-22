@@ -263,7 +263,7 @@ export function updatePdaPickupDisputePlatformHandling(
     resolvedRemark: payload.handleNote,
   })
   if (!resolvedRecord) {
-    return { record: null, exceptionCase: null, issues: ['当前记录暂不可裁定最终数量'] }
+    return { record: null, exceptionCase: null, issues: ['当前记录暂不能确认最终数量'] }
   }
 
   const resolvedCase = markCaseResolved(

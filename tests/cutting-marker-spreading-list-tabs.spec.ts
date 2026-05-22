@@ -29,10 +29,10 @@ test('canonical 铺布列表可打开、状态 tabs 固定、旧 marker-spreadin
   await expect(page.getByText('视图：全部')).toBeVisible()
   await expect(page.getByRole('button', { name: '唛架记录' })).toHaveCount(0)
 
-  await page.goto('/fcs/craft/cutting/marker-spreading?originalCutOrderId=OC-TEST-01&originalCutOrderNo=CUT-TEST-01')
+  await page.goto('/fcs/craft/cutting/marker-spreading?cutOrderId=OC-TEST-01&cutOrderNo=CUT-TEST-01')
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/spreading-list\?/)
-  await expect(page).toHaveURL(/originalCutOrderId=OC-TEST-01/)
-  await expect(page).toHaveURL(/originalCutOrderNo=CUT-TEST-01/)
+  await expect(page).toHaveURL(/cutOrderId=OC-TEST-01/)
+  await expect(page).toHaveURL(/cutOrderNo=CUT-TEST-01/)
   await expect(page.getByRole('heading', { level: 1, name: '铺布列表' })).toBeVisible()
 
   await expectNoPageErrors(errors)

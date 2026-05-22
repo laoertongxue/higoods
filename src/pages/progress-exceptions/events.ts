@@ -360,10 +360,10 @@ function handleDrawerAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'drawer-go-craft-dispute') {
-    const originalCutOrderNo = actionNode.dataset.originalCutOrderNo || ''
+    const cutOrderNo = actionNode.dataset.cutOrderNo || ''
     openLinkedPage(
       '待加工仓',
-      `/fcs/craft/cutting/warehouse-management/wait-process${originalCutOrderNo ? `?originalCutOrderNo=${encodeURIComponent(originalCutOrderNo)}` : ''}`,
+      `/fcs/craft/cutting/warehouse-management/wait-process${cutOrderNo ? `?cutOrderNo=${encodeURIComponent(cutOrderNo)}` : ''}`,
     )
     return true
   }

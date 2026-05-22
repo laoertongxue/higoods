@@ -235,7 +235,7 @@ function buildPatternTable(snapshot: ProductionConfirmationSnapshot): PrintDocum
           formatPrintQty(piece.count, '片 / 件'),
           piece.colorAllocations.map((item) => `${item.colorName} ${formatPrintQty(item.pieceCount, '片')}`).join('；') || '按颜色矩阵',
           piece.specialCrafts.map((item) => item.displayName || item.craftName).join('、') || '无',
-          '菲票归属原始裁片单，合并裁剪批次只作为执行上下文',
+          '菲票归属裁片单，唛架方案只作为执行上下文',
         ])
       : [[
           pattern.patternVersion || '暂无数据',
@@ -245,7 +245,7 @@ function buildPatternTable(snapshot: ProductionConfirmationSnapshot): PrintDocum
           '暂无数据',
           '暂无数据',
           '无',
-          '菲票归属原始裁片单，合并裁剪批次只作为执行上下文',
+          '菲票归属裁片单，唛架方案只作为执行上下文',
         ]],
   )
 

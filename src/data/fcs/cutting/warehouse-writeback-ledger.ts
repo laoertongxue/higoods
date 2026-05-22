@@ -20,10 +20,10 @@ interface CuttingWarehouseWritebackBase {
   submittedAt: string
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   operatorAccountId: string
   operatorName: string
@@ -90,10 +90,10 @@ function normalizeBaseRecord(raw: Record<string, unknown>) {
     submittedAt: submittedAt || actionAt,
     productionOrderId: toString(raw.productionOrderId),
     productionOrderNo: toString(raw.productionOrderNo),
-    originalCutOrderId: toString(raw.originalCutOrderId),
-    originalCutOrderNo: toString(raw.originalCutOrderNo),
-    mergeBatchId: toString(raw.mergeBatchId),
-    mergeBatchNo: toString(raw.mergeBatchNo),
+    cutOrderId: toString(raw.cutOrderId),
+    cutOrderNo: toString(raw.cutOrderNo),
+    markerPlanId: toString(raw.markerPlanId),
+    markerPlanNo: toString(raw.markerPlanNo),
     materialSku: toString(raw.materialSku),
     operatorAccountId: toString(raw.operatorAccountId),
     operatorName: toString(raw.operatorName),

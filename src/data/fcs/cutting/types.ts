@@ -7,7 +7,7 @@ export type CuttingConfigStatus = 'NOT_CONFIGURED' | 'PARTIAL' | 'CONFIGURED'
 export type CuttingReceiveStatus = 'NOT_RECEIVED' | 'PARTIAL' | 'RECEIVED'
 export type CuttingPrintSlipStatus = 'NOT_PRINTED' | 'PRINTED'
 export type CuttingQrStatus = 'NOT_GENERATED' | 'GENERATED'
-export type CuttingBatchOccupancyStatus = 'AVAILABLE' | 'IN_BATCH'
+export type CuttingMarkerPlanOccupancyStatus = 'AVAILABLE' | 'IN_MARKER_PLAN'
 
 export type CuttingRiskFlag =
   | 'PENDING_REVIEW'
@@ -45,13 +45,15 @@ export interface CuttingPieceProgressLine {
 }
 
 export interface CuttingMaterialLine {
-  originalCutOrderId?: string
-  originalCutOrderNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
   cutPieceOrderNo: string
-  mergeBatchId?: string
+  markerPlanId?: string
   materialSku: string
   materialType: CuttingMaterialType
   materialLabel: string
+  materialAlias?: string
+  materialImageUrl?: string
   color?: string
   materialCategory?: string
   reviewStatus: CuttingReviewStatus
@@ -63,8 +65,8 @@ export interface CuttingMaterialLine {
   receivedLength: number
   printSlipStatus: CuttingPrintSlipStatus
   qrStatus: CuttingQrStatus
-  batchOccupancyStatus?: CuttingBatchOccupancyStatus
-  mergeBatchNo?: string
+  markerPlanOccupancyStatus?: CuttingMarkerPlanOccupancyStatus
+  markerPlanNo?: string
   skuScopeLines?: CuttingCutOrderSkuScopeLine[]
   pieceProgressLines?: CuttingPieceProgressLine[]
   issueFlags: CuttingRiskFlag[]
@@ -88,6 +90,8 @@ export interface CuttingOrderProgressRecord {
   cuttingTaskNo: string
   assignedFactoryName: string
   cuttingStage: string
+  closedAt?: string
+  closeReason?: string
   riskFlags: CuttingRiskFlag[]
   lastPickupScanAt: string
   lastFieldUpdateAt: string

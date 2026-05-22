@@ -105,11 +105,11 @@ assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: 'D
 assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: dyeBinding.actualTaskNo }).some((task) => task.taskId === dyeBinding.actualTaskId), '搜索染色任务号无法返回对应任务')
 
 const cuttingSnapshot = buildFcsCuttingDomainSnapshot()
-const cuttingOrder = cuttingSnapshot.originalCutOrders.find((order) => order.originalCutOrderNo === 'CUT-260314-087-02')
+const cuttingOrder = cuttingSnapshot.cutOrders.find((order) => order.cutOrderNo === 'CUT-260314-087-02')
 assert(cuttingOrder, '缺少 CUT-260314-087-02')
-const cuttingBinding = validateCuttingOrderMobileTaskBinding(cuttingOrder.originalCutOrderId)
+const cuttingBinding = validateCuttingOrderMobileTaskBinding(cuttingOrder.cutOrderId)
 assert(cuttingBinding.reasonCode === 'OK', `CUT-260314-087-02 绑定异常：${cuttingBinding.reasonLabel}`)
-assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: 'CUT-260314-087-02' }).some((task) => task.taskId === cuttingBinding.actualTaskId), '搜索原始裁片单号无法返回对应任务')
+assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: 'CUT-260314-087-02' }).some((task) => task.taskId === cuttingBinding.actualTaskId), '搜索裁片单号无法返回对应任务')
 assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: cuttingBinding.actualTaskNo }).some((task) => task.taskId === cuttingBinding.actualTaskId), '搜索裁片任务号无法返回对应任务')
 
 const specialWorkOrder = listSpecialCraftTaskWorkOrders().find((workOrder) => workOrder.operationName === '打揽')

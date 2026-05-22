@@ -61,8 +61,8 @@ test('移动端任务详情展示对象和单位', async ({ page }) => {
 })
 
 test('裁片和特殊工艺展示裁片数量与菲票数量', async ({ page }) => {
-  await page.goto('/fcs/craft/cutting/original-orders?originalCutOrderNo=CUT-260314-087-02')
-  await expect(page.getByTestId('cutting-original-orders-page')).toBeVisible()
+  await page.goto('/fcs/craft/cutting/cut-orders?cutOrderNo=CUT-260314-087-02')
+  await expect(page.getByTestId('cutting-cut-orders-page')).toBeVisible()
   await expect(page.locator('body')).toContainText('裁片数量')
   await expect(page.locator('body')).not.toContainText('执行数量')
 

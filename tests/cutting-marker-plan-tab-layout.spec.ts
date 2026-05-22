@@ -2,11 +2,11 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
-const EDIT_PLAN_ID = 'seed-marker-plan-original-cut-order-cut-260302-001-01-fold_normal-unbalanced-9'
+const EDIT_PLAN_ID = 'seed-marker-plan-cut-order-cut-260302-001-01-fold_normal-unbalanced-9'
 
 async function openCreatePage(page: Page): Promise<void> {
   await page.goto('/fcs/craft/cutting/marker-list')
-  await page.getByRole('button', { name: '从原始裁片单新建' }).click()
+  await page.getByRole('button', { name: '从裁片单新建' }).click()
   const drawer = page.getByTestId('marker-plan-context-drawer')
   await expect(drawer).toBeVisible()
   await drawer.locator('tbody input[type="radio"]').first().check()

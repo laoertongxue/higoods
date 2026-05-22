@@ -21,15 +21,15 @@ export const materialTypeMeta: Record<CuttingMaterialType, { label: string; clas
 }
 
 export const configMeta: Record<CuttingConfigStatus, { label: string; className: string }> = {
-  NOT_CONFIGURED: { label: '未配置', className: 'bg-slate-100 text-slate-700' },
-  PARTIAL: { label: '部分配置', className: 'bg-orange-100 text-orange-700' },
-  CONFIGURED: { label: '已配置', className: 'bg-emerald-100 text-emerald-700' },
+  NOT_CONFIGURED: { label: '无配料数量', className: 'bg-slate-100 text-slate-700' },
+  PARTIAL: { label: '配料数量不足', className: 'bg-orange-100 text-orange-700' },
+  CONFIGURED: { label: '有配料数量', className: 'bg-emerald-100 text-emerald-700' },
 }
 
 export const receiveMeta: Record<CuttingReceiveStatus, { label: string; className: string }> = {
-  NOT_RECEIVED: { label: '未入待加工仓', className: 'bg-slate-100 text-slate-700' },
-  PARTIAL: { label: '部分来料', className: 'bg-orange-100 text-orange-700' },
-  RECEIVED: { label: '来料成功', className: 'bg-emerald-100 text-emerald-700' },
+  NOT_RECEIVED: { label: '无领料记录', className: 'bg-slate-100 text-slate-700' },
+  PARTIAL: { label: '领料数量不足', className: 'bg-orange-100 text-orange-700' },
+  RECEIVED: { label: '有领料记录', className: 'bg-emerald-100 text-emerald-700' },
 }
 
 export const printMeta: Record<CuttingPrintSlipStatus, { label: string; className: string }> = {
@@ -93,7 +93,7 @@ export function formatLength(value: number): string {
 }
 
 export function buildConfigSummary(line: CuttingMaterialPrepLine): string {
-  return `已配 ${line.configuredRollCount}/${line.demandRollCount} 卷 · 剩余 ${Math.max(line.demandRollCount - line.configuredRollCount, 0)} 卷`
+  return `已配 ${line.configuredRollCount}/${line.demandRollCount} 卷 · 剩余卷数 ${Math.max(line.demandRollCount - line.configuredRollCount, 0)} 卷`
 }
 
 export function buildReceiveSummary(line: CuttingMaterialPrepLine): string {
@@ -219,20 +219,20 @@ export function deriveCutPieceReceiveStatus(lines: CuttingMaterialPrepLine[]): C
 export function buildGroupConfigSummary(group: CuttingMaterialPrepGroup): string {
   const configured = group.materialLines.filter((line) => line.configStatus === 'CONFIGURED').length
   const partial = group.materialLines.filter((line) => line.configStatus === 'PARTIAL').length
-  return `已配置 ${configured} 条 · 部分配置 ${partial} 条`
+  return `有配料数量 ${configured} 条 · 配料数量不足 ${partial} 条`
 }
 
 export function buildGroupReceiveSummary(group: CuttingMaterialPrepGroup): string {
   const received = group.materialLines.filter((line) => line.receiveStatus === 'RECEIVED').length
   const partial = group.materialLines.filter((line) => line.receiveStatus === 'PARTIAL').length
-  return `来料成功 ${received} 条 · 部分来料 ${partial} 条`
+  return `有领料记录 ${received} 条 · 领料数量不足 ${partial} 条`
 }
 
 export function buildGroupRiskFlags(group: CuttingMaterialPrepGroup): string[] {
   const flags = new Set<string>()
   group.materialLines.forEach((line) => {
-    if (line.configStatus === 'PARTIAL') flags.add('部分配置')
-    if (line.receiveStatus !== 'RECEIVED') flags.add('待来料')
+    if (line.configStatus === 'PARTIAL') flags.add('配料数量不足')
+    if (line.receiveStatus !== 'RECEIVED') flags.add('领料记录待补')
     if (line.discrepancyStatus === 'RECHECK_REQUIRED') flags.add('待核对')
     if (line.discrepancyStatus === 'PHOTO_SUBMITTED') flags.add('已提交照片')
     if (line.issueFlags.includes('待补料')) flags.add('待补料')

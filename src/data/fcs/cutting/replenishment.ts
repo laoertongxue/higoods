@@ -1,6 +1,6 @@
 import { readMarkerSpreadingPrototypeData } from '../../../pages/process-factory/cutting/marker-spreading-utils.ts'
 import type { SpreadingSession } from '../../../pages/process-factory/cutting/marker-spreading-model.ts'
-import { listGeneratedOriginalCutOrderSourceRecords } from './generated-original-cut-orders.ts'
+import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
 import type { ReplenishmentPendingPrepFollowupRecord } from './storage/replenishment-storage.ts'
 import type { CuttingConfigStatus, CuttingMaterialType, CuttingReceiveStatus } from './types'
 
@@ -129,8 +129,8 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       requiresReconfig: true,
       requiresRereceive: true,
       requiresPendingPrep: true,
-      impactDescription: '当前来料差异与铺布长度缺口叠加，若补料通过，需要仓库重新补配并补打来料单。',
-      nextSuggestedActionText: '优先由 WMS 补齐 2 卷，WMS 来料后进入待加工仓。',
+      impactDescription: '当前领料差异与铺布长度缺口叠加，若补料通过，需要中转仓重新补配并补打领料单。',
+      nextSuggestedActionText: '优先由中转仓补齐 2 卷，裁床领料后进入待加工仓。',
     },
     linkedDocumentSummaries: [
       { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-018-01', status: '裁片执行中', createdAt: '2026-03-18 09:10', summaryText: '已维护排唛架方案并有 2 条铺布记录。' },
@@ -186,16 +186,16 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       requiresReconfig: true,
       requiresRereceive: false,
       requiresPendingPrep: true,
-      impactDescription: '当前建议主要用于补充里布准备，若审核通过，需要重新回到WMS 来料页完成配置。',
+      impactDescription: '当前建议主要用于补充里布准备，若审核通过，需要重新回到中转仓配料页完成配置。',
       nextSuggestedActionText: '先补齐审核卷数，再决定是否补里布 1 卷。',
     },
     linkedDocumentSummaries: [
       { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-024-02', status: '待维护排唛架方案', createdAt: '2026-03-21 09:50', summaryText: '里布裁片单已维护尺码配比，但方案图或唛架明细图未生成。' },
-      { docType: 'CONFIG_BATCH', docNo: '—', status: '未配置', createdAt: '-', summaryText: '当前尚未产生WMS 来料批次。' },
+      { docType: 'CONFIG_BATCH', docNo: '—', status: '未配置', createdAt: '-', summaryText: '当前尚未产生中转仓配料数量。' },
       { docType: 'PICKUP_RECORD', docNo: '—', status: '暂无', createdAt: '-', summaryText: '尚未有来料扫码记录。' },
       { docType: 'REPLENISHMENT_REVIEW', docNo: 'RV-202603-024-02', status: '待补充说明', createdAt: '2026-03-22 11:10', summaryText: '等待补充里布审核依据后再决定。' },
     ],
-    note: '当前不单独创建补料配置流，只在审核后提示返回WMS 来料页处理。',
+    note: '当前不单独创建补料配置流，只在审核后提示返回中转仓配料页处理。',
   },
   {
     id: 'rep-003',
@@ -212,7 +212,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     reviewStatus: 'APPROVED',
     reviewerName: '陆嘉敏',
     reviewedAt: '2026-03-22 13:20',
-    reviewComment: '同意补 1 卷，审批通过后统一由 WMS 来料入待加工仓。',
+    reviewComment: '同意补 1 卷，审批通过后统一由中转仓配料、裁床领料入待加工仓。',
     requiredQty: 96,
     theoreticalYieldQty: 96,
     predictedActualQty: 88,
@@ -243,16 +243,16 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       requiresReconfig: true,
       requiresRereceive: true,
       requiresPendingPrep: true,
-      impactDescription: '该补料建议已通过，后续需由 WMS 补配并重新WMS 来料后进入待加工仓。',
-      nextSuggestedActionText: '回到WMS 来料页新增补配批次，并继续仓库WMS 待处理处理。',
+      impactDescription: '该补料建议已通过，后续需由中转仓补配并重新领料后进入待加工仓。',
+      nextSuggestedActionText: '回到中转仓配料页新增补配数量，并继续裁床领料。',
     },
     linkedDocumentSummaries: [
       { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-031-01', status: '裁片执行中', createdAt: '2026-03-22 08:35', summaryText: '方案图和唛架明细图已生成，现场已有 1 条铺布记录。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-031-02', status: '已完成', createdAt: '2026-03-22 08:40', summaryText: '本批次补齐剩余 5 卷 / 290 米。' },
       { docType: 'PICKUP_RECORD', docNo: 'RCV-031-01', status: '已提交照片', createdAt: '2026-03-22 11:18', summaryText: '现场少领 1 卷，已提交 3 张差异照片。' },
-      { docType: 'REPLENISHMENT_REVIEW', docNo: 'RV-202603-031-01', status: '已通过', createdAt: '2026-03-22 13:20', summaryText: '已生效，待回到WMS 来料继续处理。' },
+      { docType: 'REPLENISHMENT_REVIEW', docNo: 'RV-202603-031-01', status: '已通过', createdAt: '2026-03-22 13:20', summaryText: '已生效，待回到中转仓配料继续处理。' },
     ],
-    note: '该建议已生效，唯一 follow-up 是在原裁片任务下生成补料WMS 待处理。',
+    note: '该建议已生效，唯一 follow-up 是在原裁片任务下生成补料配料数量。',
   },
   {
     id: 'rep-004',
@@ -300,13 +300,13 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       requiresReconfig: false,
       requiresRereceive: false,
       requiresPendingPrep: false,
-      impactDescription: '该建议已驳回，不需要补料，也不会触发后续WMS 来料调整。',
+      impactDescription: '该建议已驳回，不需要补料，也不会触发后续中转仓配料调整。',
       nextSuggestedActionText: '维持当前入仓与汇总节奏，记录审核意见即可。',
     },
     linkedDocumentSummaries: [
       { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-031-02', status: '已入仓', createdAt: '2026-03-22 15:20', summaryText: '该裁片单已完成入裁片仓。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-031-03', status: '已完成', createdAt: '2026-03-22 09:00', summaryText: '整单一次发齐。' },
-      { docType: 'PICKUP_RECORD', docNo: 'RCV-031-02', status: '匹配', createdAt: '2026-03-22 13:10', summaryText: 'WMS 来料接收与待加工仓一致。' },
+      { docType: 'PICKUP_RECORD', docNo: 'RCV-031-02', status: '匹配', createdAt: '2026-03-22 13:10', summaryText: '裁床领料与待加工仓一致。' },
       { docType: 'REPLENISHMENT_REVIEW', docNo: 'RV-202603-031-03', status: '已驳回', createdAt: '2026-03-22 15:45', summaryText: '复核确认无需补料。' },
     ],
     note: '该单仅保留审核痕迹，用于总结页汇总补料驳回次数。',
@@ -357,16 +357,16 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       requiresReconfig: true,
       requiresRereceive: false,
       requiresPendingPrep: true,
-      impactDescription: '若补料建议通过，进入 WMS 来料待处理。',
-      nextSuggestedActionText: '先审核是否补 1 卷，再回到WMS 来料页继续处理。',
+      impactDescription: '若确认仍需补裁，等待裁床再次领料；有领料余额后再补排唛架。',
+      nextSuggestedActionText: '先确认是否继续补裁，再根据已领余额补排唛架或关闭裁片单。',
     },
     linkedDocumentSummaries: [
       { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-044-01', status: '待铺布', createdAt: '2026-03-22 09:30', summaryText: '当前只有唛架摘要，尚无铺布记录。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-044-01', status: '部分配置', createdAt: '2026-03-22 10:20', summaryText: '当前仅配置 180 米，低于理论需求。' },
       { docType: 'PICKUP_RECORD', docNo: '—', status: '未入待加工仓', createdAt: '-', summaryText: '尚无扫码领取记录。' },
-      { docType: 'REPLENISHMENT_REVIEW', docNo: '—', status: '待审核', createdAt: '-', summaryText: '待确认是否生成补料WMS 待处理。' },
+      { docType: 'REPLENISHMENT_REVIEW', docNo: '—', status: '待审核', createdAt: '-', summaryText: '待确认是否生成补料配料数量。' },
     ],
-    note: '该建议重点在于提醒补料后需回仓库WMS 待处理，不在本步分流其它工艺页面。',
+    note: '该建议重点在于提醒补料后需回中转仓配料，不在本步分流其它工艺页面。',
   },
 ]
 
@@ -385,8 +385,8 @@ export interface ReplenishmentFlowTraceMatrixRow {
   replenishmentRequestId: string
   replenishmentNo: string
   reviewStatus: ReplenishmentReviewStatus
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   materialSku: string
   color: string
   shortageGarmentQty: number
@@ -394,19 +394,19 @@ export interface ReplenishmentFlowTraceMatrixRow {
   sourceSpreadingSessionNo: string
   sourceMarkerId: string
   sourceMarkerNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  markerPlanId: string
+  markerPlanNo: string
   sourceWritebackId: string
   pendingPrepFollowupId: string
 }
 
-function resolveReplenishmentSourceOriginal(
+function resolveReplenishmentSourceCutOrder(
   suggestion: ReplenishmentSuggestionRecord,
-  sourceRecords: ReturnType<typeof listGeneratedOriginalCutOrderSourceRecords>,
+  sourceRecords: ReturnType<typeof listGeneratedCutOrderSourceRecords>,
 ) {
   const byExactNo =
-    sourceRecords.find((record) => record.originalCutOrderNo === suggestion.cutPieceOrderNo)
-    || sourceRecords.find((record) => record.originalCutOrderNo === suggestion.cutPieceOrderNo.replace(/^CP-/, 'CUT-'))
+    sourceRecords.find((record) => record.cutOrderNo === suggestion.cutPieceOrderNo)
+    || sourceRecords.find((record) => record.cutOrderNo === suggestion.cutPieceOrderNo.replace(/^CP-/, 'CUT-'))
   if (byExactNo) return byExactNo
 
   const sameProductionOrder = sourceRecords.filter((record) => record.productionOrderNo === suggestion.productionOrderNo)
@@ -422,24 +422,24 @@ function resolveReplenishmentSourceOriginal(
           if (record.materialType === suggestion.materialType) value += 20
           if (record.materialLabel === suggestion.materialLabel) value += 12
           if (record.requiredQty === suggestion.requiredQty) value += 8
-          if (record.mergeBatchId) value += 2
+          if (record.markerPlanId) value += 2
           return value
         }
-        return score(right) - score(left) || right.originalCutOrderNo.localeCompare(left.originalCutOrderNo, 'zh-CN')
+        return score(right) - score(left) || right.cutOrderNo.localeCompare(left.cutOrderNo, 'zh-CN')
       })[0] || null
   )
 }
 
 function pickReplenishmentSourceSession(
   suggestion: ReplenishmentSuggestionRecord,
-  sourceOriginalCutOrderId: string,
+  sourceCutOrderId: string,
   sessions: SpreadingSession[],
 ): SpreadingSession | null {
   const scoreSession = (session: SpreadingSession) => {
     let value = 0
-    if (sourceOriginalCutOrderId && session.originalCutOrderIds.includes(sourceOriginalCutOrderId)) value += 40
-    if ((session.completionLinkage?.linkedOriginalCutOrderNos || []).includes(suggestion.cutPieceOrderNo)) value += 20
-    if ((session.completionLinkage?.linkedOriginalCutOrderNos || []).includes(suggestion.cutPieceOrderNo.replace(/^CP-/, 'CUT-'))) value += 18
+    if (sourceCutOrderId && session.cutOrderIds.includes(sourceCutOrderId)) value += 40
+    if ((session.completionLinkage?.linkedCutOrderNos || []).includes(suggestion.cutPieceOrderNo)) value += 20
+    if ((session.completionLinkage?.linkedCutOrderNos || []).includes(suggestion.cutPieceOrderNo.replace(/^CP-/, 'CUT-'))) value += 18
     if (session.materialSkuSummary?.includes(suggestion.materialSku)) value += 12
     if (suggestion.reviewStatus === 'PENDING' && session.prototypeLifecycleOverrides?.replenishmentStatusLabel === '待补料确认') value += 24
     if (suggestion.reviewStatus === 'APPROVED' && session.replenishmentWarning?.handled) value += 18
@@ -450,9 +450,9 @@ function pickReplenishmentSourceSession(
 
   const directMatchedSessions = sessions.filter(
     (session) =>
-      session.originalCutOrderIds.includes(sourceOriginalCutOrderId)
-      || (session.completionLinkage?.linkedOriginalCutOrderNos || []).includes(suggestion.cutPieceOrderNo)
-      || (session.completionLinkage?.linkedOriginalCutOrderNos || []).includes(suggestion.cutPieceOrderNo.replace(/^CP-/, 'CUT-')),
+      session.cutOrderIds.includes(sourceCutOrderId)
+      || (session.completionLinkage?.linkedCutOrderNos || []).includes(suggestion.cutPieceOrderNo)
+      || (session.completionLinkage?.linkedCutOrderNos || []).includes(suggestion.cutPieceOrderNo.replace(/^CP-/, 'CUT-')),
   )
   const rankedSessions = (directMatchedSessions.length ? directMatchedSessions : sessions)
     .slice()
@@ -478,15 +478,15 @@ function buildReplenishmentSourceSessionMap(
   records: ReplenishmentSuggestionRecord[],
   sessions: SpreadingSession[],
 ): Map<string, SpreadingSession> {
-  const originalSourceRecords = listGeneratedOriginalCutOrderSourceRecords()
+  const cutOrderSourceRecords = listGeneratedCutOrderSourceRecords()
   const usedSessionIds = new Set<string>()
   const sessionBySuggestionId = new Map<string, SpreadingSession>()
   const pendingPool = sessions.filter(isPendingReplenishmentSession)
   const handledPool = sessions.filter(isHandledReplenishmentSession)
 
   records.forEach((record) => {
-    const sourceOriginal = resolveReplenishmentSourceOriginal(record, originalSourceRecords)
-    const directSession = pickReplenishmentSourceSession(record, sourceOriginal?.originalCutOrderId || '', sessions)
+    const sourceCutOrder = resolveReplenishmentSourceCutOrder(record, cutOrderSourceRecords)
+    const directSession = pickReplenishmentSourceSession(record, sourceCutOrder?.cutOrderId || '', sessions)
     if (directSession && !usedSessionIds.has(directSession.spreadingSessionId)) {
       sessionBySuggestionId.set(record.id, directSession)
       usedSessionIds.add(directSession.spreadingSessionId)
@@ -509,18 +509,18 @@ function buildReplenishmentSourceSessionMap(
 export function buildSeedReplenishmentPendingPrepFollowups(
   records: ReplenishmentSuggestionRecord[] = cloneReplenishmentSuggestionRecords(),
 ): ReplenishmentPendingPrepFollowupRecord[] {
-  const originalSourceRecords = listGeneratedOriginalCutOrderSourceRecords()
+  const cutOrderSourceRecords = listGeneratedCutOrderSourceRecords()
   const { store } = readMarkerSpreadingPrototypeData()
   const sessionBySuggestionId = buildReplenishmentSourceSessionMap(records, store.sessions)
 
   return records
     .filter((record) => record.reviewStatus === 'APPROVED')
     .map((record, index) => {
-      const sourceOriginal = resolveReplenishmentSourceOriginal(record, originalSourceRecords)
+      const sourceCutOrder = resolveReplenishmentSourceCutOrder(record, cutOrderSourceRecords)
       const sourceSession =
         sessionBySuggestionId.get(record.id)
-        || pickReplenishmentSourceSession(record, sourceOriginal?.originalCutOrderId || '', store.sessions)
-      const sourceColor = sourceOriginal?.colorScope[0] || sourceSession?.colorSummary?.split(' / ')[0] || ''
+        || pickReplenishmentSourceSession(record, sourceCutOrder?.cutOrderId || '', store.sessions)
+      const sourceColor = sourceCutOrder?.colorScope[0] || sourceSession?.colorSummary?.split(' / ')[0] || ''
       return {
         followupId: `pending-prep-${record.id}`,
         suggestionId: record.id,
@@ -528,13 +528,13 @@ export function buildSeedReplenishmentPendingPrepFollowups(
         sourceSpreadingSessionId: sourceSession?.spreadingSessionId || '',
         sourceMarkerId: sourceSession?.sourceMarkerId || sourceSession?.markerId || '',
         sourceMarkerNo: sourceSession?.sourceMarkerNo || sourceSession?.markerNo || '',
-        originalCutOrderId:
-          sourceOriginal?.originalCutOrderId
-          || sourceSession?.originalCutOrderIds?.[0]
-          || `original-${index + 1}`,
-        originalCutOrderNo:
-          sourceOriginal?.originalCutOrderNo
-          || sourceSession?.originalCutOrderNos?.[0]
+        cutOrderId:
+          sourceCutOrder?.cutOrderId
+          || sourceSession?.cutOrderIds?.[0]
+          || `cut-order-${index + 1}`,
+        cutOrderNo:
+          sourceCutOrder?.cutOrderNo
+          || sourceSession?.cutOrderNos?.[0]
           || record.cutPieceOrderNo,
         materialSku: record.materialSku,
         color: sourceColor,
@@ -547,7 +547,7 @@ export function buildSeedReplenishmentPendingPrepFollowups(
     })
     .sort(
       (left, right) =>
-        left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+        left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
         || left.materialSku.localeCompare(right.materialSku, 'zh-CN'),
     )
 }
@@ -556,20 +556,20 @@ export function buildReplenishmentFlowTraceMatrix(
   records: ReplenishmentSuggestionRecord[] = cloneReplenishmentSuggestionRecords(),
   pendingPrepFollowups: ReplenishmentPendingPrepFollowupRecord[] = buildSeedReplenishmentPendingPrepFollowups(records),
 ): ReplenishmentFlowTraceMatrixRow[] {
-  const originalSourceRecords = listGeneratedOriginalCutOrderSourceRecords()
+  const cutOrderSourceRecords = listGeneratedCutOrderSourceRecords()
   const pendingPrepBySuggestionId = new Map(pendingPrepFollowups.map((record) => [record.suggestionId, record] as const))
   const { store } = readMarkerSpreadingPrototypeData()
   const sessionBySuggestionId = buildReplenishmentSourceSessionMap(records, store.sessions)
 
   return records
     .map((record) => {
-      const sourceOriginal = resolveReplenishmentSourceOriginal(record, originalSourceRecords)
+      const sourceCutOrder = resolveReplenishmentSourceCutOrder(record, cutOrderSourceRecords)
       const sourceSession =
         sessionBySuggestionId.get(record.id)
-        || pickReplenishmentSourceSession(record, sourceOriginal?.originalCutOrderId || '', store.sessions)
+        || pickReplenishmentSourceSession(record, sourceCutOrder?.cutOrderId || '', store.sessions)
       const pendingPrep = pendingPrepBySuggestionId.get(record.id) || null
       const sourceColor =
-        sourceOriginal?.colorScope[0]
+        sourceCutOrder?.colorScope[0]
         || pendingPrep?.color
         || sourceSession?.colorSummary?.split(' / ')[0]
         || ''
@@ -578,15 +578,15 @@ export function buildReplenishmentFlowTraceMatrix(
         replenishmentRequestId: record.id,
         replenishmentNo: record.replenishmentNo,
         reviewStatus: record.reviewStatus,
-        originalCutOrderId:
-          sourceOriginal?.originalCutOrderId
-          || pendingPrep?.originalCutOrderId
-          || sourceSession?.originalCutOrderIds?.[0]
+        cutOrderId:
+          sourceCutOrder?.cutOrderId
+          || pendingPrep?.cutOrderId
+          || sourceSession?.cutOrderIds?.[0]
           || '',
-        originalCutOrderNo:
-          sourceOriginal?.originalCutOrderNo
-          || pendingPrep?.originalCutOrderNo
-          || sourceSession?.originalCutOrderNos?.[0]
+        cutOrderNo:
+          sourceCutOrder?.cutOrderNo
+          || pendingPrep?.cutOrderNo
+          || sourceSession?.cutOrderNos?.[0]
           || record.cutPieceOrderNo,
         materialSku: record.materialSku,
         color: sourceColor,
@@ -595,15 +595,15 @@ export function buildReplenishmentFlowTraceMatrix(
         sourceSpreadingSessionNo: sourceSession?.sessionNo || sourceSession?.spreadingSessionId || '',
         sourceMarkerId: sourceSession?.sourceMarkerId || sourceSession?.markerId || pendingPrep?.sourceMarkerId || '',
         sourceMarkerNo: sourceSession?.sourceMarkerNo || sourceSession?.markerNo || pendingPrep?.sourceMarkerNo || '',
-        mergeBatchId: sourceSession?.mergeBatchId || sourceOriginal?.mergeBatchId || '',
-        mergeBatchNo: sourceSession?.mergeBatchNo || sourceOriginal?.mergeBatchNo || '',
+        markerPlanId: sourceSession?.markerPlanId || sourceCutOrder?.markerPlanId || '',
+        markerPlanNo: sourceSession?.markerPlanNo || sourceCutOrder?.markerPlanNo || '',
         sourceWritebackId: sourceSession?.sourceWritebackId || '',
         pendingPrepFollowupId: pendingPrep?.followupId || '',
       }
     })
     .sort(
       (left, right) =>
-        left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+        left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
         || left.materialSku.localeCompare(right.materialSku, 'zh-CN')
         || left.color.localeCompare(right.color, 'zh-CN')
         || left.replenishmentNo.localeCompare(right.replenishmentNo, 'zh-CN'),

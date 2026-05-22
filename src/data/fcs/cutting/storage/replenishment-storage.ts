@@ -11,8 +11,8 @@ export interface ReplenishmentPendingPrepFollowupRecord {
   sourceSpreadingSessionId: string
   sourceMarkerId: string
   sourceMarkerNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   materialSku: string
   color: string
   shortageGarmentQty: number
@@ -39,9 +39,9 @@ export const deserializeReplenishmentActionsStorage = parseArray
 
 function normalizePendingPrepRecord(record: Record<string, unknown>): ReplenishmentPendingPrepFollowupRecord | null {
   const followupId = String(record.followupId || '').trim()
-  const originalCutOrderId = String(record.originalCutOrderId || '').trim()
+  const cutOrderId = String(record.cutOrderId || '').trim()
   const materialSku = String(record.materialSku || '').trim()
-  if (!followupId || !originalCutOrderId || !materialSku) return null
+  if (!followupId || !cutOrderId || !materialSku) return null
 
   return {
     followupId,
@@ -50,8 +50,8 @@ function normalizePendingPrepRecord(record: Record<string, unknown>): Replenishm
     sourceSpreadingSessionId: String(record.sourceSpreadingSessionId || '').trim(),
     sourceMarkerId: String(record.sourceMarkerId || '').trim(),
     sourceMarkerNo: String(record.sourceMarkerNo || '').trim(),
-    originalCutOrderId,
-    originalCutOrderNo: String(record.originalCutOrderNo || originalCutOrderId).trim(),
+    cutOrderId,
+    cutOrderNo: String(record.cutOrderNo || cutOrderId).trim(),
     materialSku,
     color: String(record.color || '').trim(),
     shortageGarmentQty: Number(record.shortageGarmentQty || 0),
@@ -86,8 +86,8 @@ export function buildReplenishmentPendingPrepTraceMatrix(
       sourceSpreadingSessionId: record.sourceSpreadingSessionId,
       sourceMarkerId: record.sourceMarkerId,
       sourceMarkerNo: record.sourceMarkerNo,
-      originalCutOrderId: record.originalCutOrderId,
-      originalCutOrderNo: record.originalCutOrderNo,
+      cutOrderId: record.cutOrderId,
+      cutOrderNo: record.cutOrderNo,
       materialSku: record.materialSku,
       color: record.color,
       shortageGarmentQty: record.shortageGarmentQty,
@@ -95,7 +95,7 @@ export function buildReplenishmentPendingPrepTraceMatrix(
     }))
     .sort(
       (left, right) =>
-        left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+        left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
         || left.materialSku.localeCompare(right.materialSku, 'zh-CN')
         || left.color.localeCompare(right.color, 'zh-CN'),
     )

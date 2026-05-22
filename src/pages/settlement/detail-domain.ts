@@ -656,7 +656,7 @@ function renderDetailProfileTab(
           </div>
           <div class="rounded-md border bg-muted/20 px-4 py-3">
             <p class="text-xs text-muted-foreground">当前版本正在使用的未完成预付款批次</p>
-            <p class="mt-1 text-lg font-semibold">${usageStats.activeBatchCount}</p>
+            <p class="mt-1 text-lg font-semibold">${usageStats.activeStatementCount}</p>
           </div>
         </div>
         <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">

@@ -35,6 +35,7 @@ import {
   renderWorkbenchPagination,
   renderWorkbenchStateBar,
 } from './layout.helpers.ts'
+import { renderMaterialIdentityBlock } from './material-identity.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -49,10 +50,16 @@ import {
 import { buildProductionProgressProjection } from './production-progress-projection.ts'
 import {
   getCuttingProgressSnapshots,
-  getCuttingSewingDispatchProgressByProductionOrder,
   getCuttingSpecialCraftReturnStatusByProductionOrders,
   type CuttingSpecialCraftReturnStatusSummary,
 } from '../../../data/fcs/progress-statistics-linkage.ts'
+import {
+  getCuttingSewingDispatchProgressByProductionOrder as getRuntimeSewingDispatchProgressByProductionOrder,
+  listAvailableCutPieceInventoryForSewingDispatch,
+  listCuttingSewingDispatchBatches,
+  listCuttingSewingDispatchOrders,
+  listCuttingSewingTransferBags,
+} from '../../../data/fcs/cutting/sewing-dispatch.ts'
 
 type ProductionProgressQuickFilter = 'URGENT_ONLY' | 'PREP_DELAY' | 'CLAIM_EXCEPTION' | 'CUTTING_ACTIVE'
 type ProductionProgressQuickFilterExtended =
@@ -113,14 +120,17 @@ interface ProductionProgressPageState {
 interface CutOrderDimensionRow {
   rowId: string
   parentRowId: string
-  originalCutOrderNo: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   styleLabel: string
   styleName: string
   materialSku: string
+  materialAlias: string
+  materialImageUrl: string
   factoryName: string
   relatedQty: number
+  quantityLedger: MaterialQuantityLedgerLine
   plannedShipDateDisplay: string
   urgencyLabel: string
   urgencyClassName: string
@@ -140,6 +150,35 @@ interface CutOrderDimensionRow {
   parentRecordId: string
 }
 
+interface MaterialQuantityLedgerLine {
+  materialLabel: string
+  materialSku: string
+  materialAlias: string
+  materialImageUrl: string
+  requiredQty: number
+  configuredQty: number
+  claimedQty: number
+  lockedQty: number
+  consumedQty: number
+  availableQty: number
+  unit: string
+}
+
+interface ProductionPartFlowLine {
+  lineId: string
+  skuLabel: string
+  color: string
+  size: string
+  partName: string
+  requiredPieceQty: number
+  actualCutQty: number
+  waitHandoverStockQty: number
+  assignedPieceQty: number
+  handedOverPieceQty: number
+  gapPieceQty: number
+  sourceCutOrderNo: string
+}
+
 const state: ProductionProgressPageState = {
   filters: { ...initialFilters },
   viewDimension: 'CUT_ORDER',
@@ -156,7 +195,7 @@ function getAllRows(): ProductionProgressRow[] {
 }
 
 function buildStateBadgeClass(label: string): string {
-  if (label.includes('已') || label.includes('齐套') || label.includes('可发')) {
+  if (label.includes('已') || label.includes('核对') || label.includes('可发')) {
     return 'bg-emerald-100 text-emerald-700'
   }
   if (label.includes('差异') || label.includes('异议') || label.includes('异常')) {
@@ -168,6 +207,115 @@ function buildStateBadgeClass(label: string): string {
   return 'bg-amber-100 text-amber-700'
 }
 
+function getCuttingSnapshotForRow(row: ProductionProgressRow) {
+  return getCuttingProgressSnapshots().find((item) => item.productionOrderId === row.productionOrderId)
+}
+
+function makePartFlowKey(input: { color?: string; size?: string; sizeCode?: string; partName?: string }): string {
+  return [input.color || '', input.size || input.sizeCode || '', input.partName || '']
+    .map((item) => String(item || '').trim().toLowerCase())
+    .join('::')
+}
+
+function createEmptyPartFlowLine(row: ProductionProgressRow, input: {
+  color?: string
+  size?: string
+  sizeCode?: string
+  partName?: string
+  skuLabel?: string
+  sourceCutOrderNo?: string
+}): ProductionPartFlowLine {
+  const color = input.color || ''
+  const size = input.size || input.sizeCode || ''
+  const partName = input.partName || '裁片'
+  return {
+    lineId: `${row.productionOrderId}::${makePartFlowKey({ color, size, partName })}`,
+    skuLabel: input.skuLabel || [color, size].filter(Boolean).join(' / ') || '未命名 SKU',
+    color,
+    size,
+    partName,
+    requiredPieceQty: 0,
+    actualCutQty: 0,
+    waitHandoverStockQty: 0,
+    assignedPieceQty: 0,
+    handedOverPieceQty: 0,
+    gapPieceQty: 0,
+    sourceCutOrderNo: input.sourceCutOrderNo || '',
+  }
+}
+
+function buildProductionPartFlowLines(row: ProductionProgressRow): ProductionPartFlowLine[] {
+  const grouped = new Map<string, ProductionPartFlowLine>()
+  const upsert = (input: {
+    color?: string
+    size?: string
+    sizeCode?: string
+    partName?: string
+    skuLabel?: string
+    sourceCutOrderNo?: string
+  }): ProductionPartFlowLine => {
+    const key = makePartFlowKey(input)
+    const current = grouped.get(key) || createEmptyPartFlowLine(row, input)
+    grouped.set(key, current)
+    return current
+  }
+
+  row.pieceTruth.gapRows.forEach((item) => {
+    const current = upsert({
+      color: item.color,
+      size: item.size,
+      partName: item.partName,
+      skuLabel: item.skuCode || [item.color, item.size].filter(Boolean).join(' / '),
+      sourceCutOrderNo: resolveGapRowCutOrderNo(row, item),
+    })
+    current.requiredPieceQty += Number(item.requiredPieceQty || 0)
+    current.actualCutQty += Number(item.actualCutQty || 0)
+    current.sourceCutOrderNo = current.sourceCutOrderNo || resolveGapRowCutOrderNo(row, item)
+  })
+
+  listAvailableCutPieceInventoryForSewingDispatch({ productionOrderId: row.productionOrderId }).forEach((item) => {
+    const current = upsert({
+      color: item.colorName,
+      size: item.sizeCode,
+      partName: item.partName,
+      skuLabel: [item.colorName, item.sizeCode].filter(Boolean).join(' / '),
+      sourceCutOrderNo: item.cutOrderNos.join('、'),
+    })
+    current.waitHandoverStockQty += Number(item.availablePieceQty || 0)
+    current.sourceCutOrderNo = current.sourceCutOrderNo || item.cutOrderNos.join('、')
+  })
+
+  const handoverBagStatuses = new Set(['已交出', '已回写', '差异', '异议中'])
+  listCuttingSewingTransferBags()
+    .filter((bag) => bag.productionOrderId === row.productionOrderId)
+    .forEach((bag) => {
+      const isHandedOver = handoverBagStatuses.has(bag.status)
+      bag.pieceLines.forEach((line) => {
+        const current = upsert({
+          color: line.colorName,
+          size: line.sizeCode,
+          partName: line.partName,
+          skuLabel: [line.colorName, line.sizeCode].filter(Boolean).join(' / '),
+          sourceCutOrderNo: bag.cuttingOrderNos.join('、'),
+        })
+        current.assignedPieceQty += Number(line.scannedPieceQty || 0)
+        if (isHandedOver) current.handedOverPieceQty += Number(line.scannedPieceQty || 0)
+      })
+    })
+
+  return Array.from(grouped.values())
+    .map((item) => {
+      const availableAfterCut = Math.max(item.actualCutQty, item.waitHandoverStockQty + item.assignedPieceQty)
+      return {
+        ...item,
+        gapPieceQty: item.requiredPieceQty > 0 ? Math.max(item.requiredPieceQty - availableAfterCut, 0) : 0,
+      }
+    })
+    .sort((left, right) =>
+      `${left.skuLabel}-${left.partName}`.localeCompare(`${right.skuLabel}-${right.partName}`, 'zh-CN'),
+    )
+}
+
 function formatBundleSummary(lengthValues: number[], widthValues: number[]): string {
   if (!lengthValues.length && !widthValues.length) return ''
   const lengthText = lengthValues.length ? `长 ${lengthValues.join(' / ')} 厘米` : ''
@@ -175,16 +323,92 @@ function formatBundleSummary(lengthValues: number[], widthValues: number[]): str
   return [lengthText, widthText].filter(Boolean).join(' · ')
 }
 
-function getCutOrderRelatedQty(row: ProductionProgressRow, originalCutOrderNo: string, materialSku: string): number {
+function getCutOrderRelatedQty(row: ProductionProgressRow, cutOrderNo: string, materialSku: string): number {
   const skuQtyMap = new Map<string, number>()
   row.pieceTruth.requirementRows
-    .filter((item) => item.originalCutOrderNo === originalCutOrderNo && item.materialSku === materialSku)
+    .filter((item) => item.cutOrderNo === cutOrderNo && item.materialSku === materialSku)
     .forEach((item) => {
       const skuKey = [item.skuCode, item.color, item.size].join('::')
       const current = skuQtyMap.get(skuKey) || 0
       skuQtyMap.set(skuKey, Math.max(current, item.requiredGarmentQty))
     })
   return Array.from(skuQtyMap.values()).reduce((sum, value) => sum + value, 0)
+}
+
+function findProgressMaterialIdentity(row: ProductionProgressRow, materialSku: string) {
+  return (
+    row.materialPrepLines.find((line) => line.materialSku === materialSku)
+    || row.materialClaimLines.find((line) => line.materialSku === materialSku)
+    || row.sourceOrderProgressLines.find((line) => line.materialSku === materialSku)
+    || null
+  )
+}
+
+function buildMaterialQuantityLedgerLines(
+  row: ProductionProgressRow,
+  cutOrderNo?: string,
+  materialSku?: string,
+): MaterialQuantityLedgerLine[] {
+  const requiredByMaterialSku = new Map(
+    row.materialPrepLines.map((line) => [line.materialSku.toLowerCase(), Number(line.totalQty || 0)] as const),
+  )
+  const grouped = new Map<string, MaterialQuantityLedgerLine>()
+  row.materialLines
+    .filter((line) => !cutOrderNo || line.cutOrderNo === cutOrderNo || line.cutPieceOrderNo === cutOrderNo)
+    .filter((line) => !materialSku || line.materialSku === materialSku)
+    .forEach((line) => {
+      const key = line.materialSku.toLowerCase()
+      const current = grouped.get(key) || {
+        materialLabel: line.materialLabel || line.materialSku,
+        materialSku: line.materialSku,
+        materialAlias: line.materialAlias || '',
+        materialImageUrl: line.materialImageUrl || '',
+        requiredQty: cutOrderNo ? 0 : Number(requiredByMaterialSku.get(key) || 0),
+        configuredQty: 0,
+        claimedQty: 0,
+        lockedQty: 0,
+        consumedQty: 0,
+        availableQty: 0,
+        unit: 'm',
+      }
+      const configuredQty = Number(line.configuredLength || 0)
+      const claimedQty = Number(line.receivedLength || 0)
+      const lockedQty = line.markerPlanOccupancyStatus === 'IN_MARKER_PLAN' || line.markerPlanNo ? claimedQty : 0
+      const hasConsumedSignal =
+        row.hasInboundRecord ||
+        Boolean(line.pieceProgressLines?.some((pieceLine) => Number(pieceLine.actualCutQty || 0) > 0))
+      const consumedQty = hasConsumedSignal ? Math.max(claimedQty - lockedQty, 0) : 0
+
+      current.configuredQty += configuredQty
+      current.claimedQty += claimedQty
+      current.lockedQty += lockedQty
+      current.consumedQty += consumedQty
+      if (cutOrderNo) current.requiredQty += Math.max(configuredQty, claimedQty)
+      grouped.set(key, current)
+    })
+
+  return Array.from(grouped.values())
+    .map((line) => ({
+      ...line,
+      availableQty: Math.max(line.claimedQty - line.lockedQty - line.consumedQty, 0),
+    }))
+    .sort((left, right) => left.materialSku.localeCompare(right.materialSku, 'zh-CN'))
+}
+
+function buildEmptyMaterialQuantityLedger(materialSku: string): MaterialQuantityLedgerLine {
+  return {
+    materialLabel: '裁片单面料',
+    materialSku,
+    materialAlias: '',
+    materialImageUrl: '',
+    requiredQty: 0,
+    configuredQty: 0,
+    claimedQty: 0,
+    lockedQty: 0,
+    consumedQty: 0,
+    availableQty: 0,
+    unit: 'm',
+  }
 }
 
 function buildCutOrderDimensionRows(rows: ProductionProgressRow[]): CutOrderDimensionRow[] {
@@ -207,18 +431,24 @@ function buildCutOrderDimensionRows(rows: ProductionProgressRow[]): CutOrderDime
         snapshot?.transferBagBagDifferenceCount ? `袋差异 ${snapshot.transferBagBagDifferenceCount}` : '',
         snapshot?.transferBagFeiTicketDifferenceCount ? `菲票差异 ${snapshot.transferBagFeiTicketDifferenceCount}` : '',
       ].filter(Boolean)
+      const quantityLedger =
+        buildMaterialQuantityLedgerLines(row, sourceLine.cutOrderNo, sourceLine.materialSku)[0] ||
+        buildEmptyMaterialQuantityLedger(sourceLine.materialSku)
 
       return {
-        rowId: `${row.id}::${sourceLine.originalCutOrderNo}::${sourceLine.materialSku}`,
+        rowId: `${row.id}::${sourceLine.cutOrderNo}::${sourceLine.materialSku}`,
         parentRowId: row.id,
-        originalCutOrderNo: sourceLine.originalCutOrderNo,
+        cutOrderNo: sourceLine.cutOrderNo,
         productionOrderId: row.productionOrderId,
         productionOrderNo: row.productionOrderNo,
         styleLabel: row.styleCode || row.spuCode || '-',
         styleName: row.styleName || row.spuCode || '-',
         materialSku: sourceLine.materialSku || '待补面料 SKU',
+        materialAlias: sourceLine.materialAlias || '',
+        materialImageUrl: sourceLine.materialImageUrl || '',
         factoryName: row.assignedFactoryName || '-',
-        relatedQty: getCutOrderRelatedQty(row, sourceLine.originalCutOrderNo, sourceLine.materialSku),
+        relatedQty: getCutOrderRelatedQty(row, sourceLine.cutOrderNo, sourceLine.materialSku),
+        quantityLedger,
         plannedShipDateDisplay: row.plannedShipDateDisplay,
         urgencyLabel: row.urgency.label,
         urgencyClassName: row.urgency.className,
@@ -232,12 +462,12 @@ function buildCutOrderDimensionRows(rows: ProductionProgressRow[]): CutOrderDime
         feiTicketClassName: buildStateBadgeClass(snapshot?.feiTicketProgress.status || '待生成'),
         specialCraftReturnLabel: snapshot?.specialCraftReturnProgress.status || '待确认',
         specialCraftReturnDetail: specialCraftDetailParts.join(' · '),
-        sewingDispatchLabel: snapshot?.sewingDispatchProgress.status || '待发料',
+        sewingDispatchLabel: snapshot?.sewingDispatchProgress.status || '待交出',
         sewingDispatchDetail: sewingDispatchDetailParts.join(' · '),
         blockingText:
           snapshot?.blockingReasons.length
             ? snapshot.blockingReasons.map((item) => item.blockingLabel).join('、')
-            : row.riskTags.map((item) => item.label).join('、') || '暂无阻塞',
+            : row.riskTags.map((item) => item.label).join('、') || '暂无风险',
         parentRecordId: row.id,
       }
     })
@@ -259,27 +489,27 @@ function readPendingPrepFollowups(): ReplenishmentPendingPrepFollowupRecord[] {
 }
 
 function getPendingPrepFollowupsForRow(row: ProductionProgressRow): ReplenishmentPendingPrepFollowupRecord[] {
-  const originalOrderIdSet = new Set(
+  const cutOrderIdSet = new Set(
     row.sourceOrderProgressLines
-      .map((item) => item.originalCutOrderId)
+      .map((item) => item.cutOrderId)
       .filter((value): value is string => Boolean(value)),
   )
-  const originalOrderNoSet = new Set(
+  const cutOrderNoSet = new Set(
     row.sourceOrderProgressLines
-      .map((item) => item.originalCutOrderNo)
+      .map((item) => item.cutOrderNo)
       .filter((value): value is string => Boolean(value)),
   )
 
   return readPendingPrepFollowups().filter(
-    (item) => originalOrderIdSet.has(item.originalCutOrderId) || originalOrderNoSet.has(item.originalCutOrderNo),
+    (item) => cutOrderIdSet.has(item.cutOrderId) || cutOrderNoSet.has(item.cutOrderNo),
   )
 }
 
 function buildPendingPrepSummaryText(row: ProductionProgressRow): string {
   const followups = getPendingPrepFollowupsForRow(row)
-  if (!followups.length) return '当前无补料WMS 待处理'
+  if (!followups.length) return '当前无补料配料待处理'
   const latest = followups[0]
-  return `补料WMS 待处理 ${followups.length} 条（来源铺布 ${latest?.sourceSpreadingSessionId || '待补'} / 来源补料单 ${latest?.sourceReplenishmentRequestId || '待补'}）`
+  return `补料配料待处理 ${followups.length} 条（来源铺布 ${latest?.sourceSpreadingSessionId || '待补'} / 来源补料单 ${latest?.sourceReplenishmentRequestId || '待补'}）`
 }
 
 function buildRouteWithQuery(key: CuttingCanonicalPageKey, payload?: Record<string, string | undefined>): string {
@@ -333,7 +563,7 @@ function applyQuickFilter(rows: ProductionProgressRow[]): ProductionProgressRow[
     case 'CLAIM_EXCEPTION':
       return rows.filter((row) => row.materialClaimSummary.key === 'EXCEPTION' || row.materialClaimSummary.key === 'NOT_RECEIVED')
     case 'CUTTING_ACTIVE':
-      return rows.filter((row) => row.currentStage.key === 'CUTTING' || row.currentStage.key === 'WAITING_INBOUND')
+      return rows.filter((row) => row.currentStage.key === 'CUTTING' || row.currentStage.key === 'WAITING_INBOUND' || row.currentStage.key === 'DONE')
     case 'INCOMPLETE_ONLY':
       return rows.filter((row) => row.incompleteSkuCount > 0 || row.incompletePartCount > 0)
     case 'GAP_ONLY':
@@ -355,9 +585,9 @@ function getDisplayRows(): ProductionProgressRow[] {
 
 function getQuickFilterLabel(filter: ProductionProgressQuickFilterExtended | null): string | null {
   if (filter === 'URGENT_ONLY') return '快捷筛选：只看临近发货'
-  if (filter === 'PREP_DELAY') return '快捷筛选：只看WMS 来料异常'
-  if (filter === 'CLAIM_EXCEPTION') return '快捷筛选：只看来料异常'
-  if (filter === 'CUTTING_ACTIVE') return '快捷筛选：只看裁剪中'
+  if (filter === 'PREP_DELAY') return '快捷筛选：只看配料异常'
+  if (filter === 'CLAIM_EXCEPTION') return '快捷筛选：只看领料异常'
+  if (filter === 'CUTTING_ACTIVE') return '快捷筛选：只看已开工'
   if (filter === 'INCOMPLETE_ONLY') return '快捷筛选：只看未完成生产单'
   if (filter === 'GAP_ONLY') return '快捷筛选：只看有部位缺口'
   if (filter === 'MAPPING_MISSING') return '快捷筛选：只看映射缺失'
@@ -380,10 +610,18 @@ function getFilterLabels(): string[] {
   if (state.filters.productionOrderNo) labels.push(`生产单：${state.filters.productionOrderNo}`)
   if (state.filters.urgencyLevel !== 'ALL') labels.push(`紧急程度：${urgencyMeta[state.filters.urgencyLevel].label}`)
   if (state.filters.shipDeltaRange !== 'ALL') labels.push(`与计划发货相比：${shipDeltaRangeMeta[state.filters.shipDeltaRange].label}`)
-  if (state.filters.currentStage !== 'ALL') labels.push(`当前阶段：${stageMeta[state.filters.currentStage].label}`)
+  if (state.filters.currentStage !== 'ALL') {
+    const stageLabel =
+      state.filters.currentStage === 'NOT_STARTED'
+        ? '未开工'
+        : state.filters.currentStage === 'STARTED'
+          ? '已开工'
+          : stageMeta[state.filters.currentStage].label
+    labels.push(`裁床主状态：${stageLabel}`)
+  }
   if (state.filters.completionState !== 'ALL') labels.push(`完成状态：${completionLabelMap[state.filters.completionState]}`)
-  if (state.filters.configStatus !== 'ALL') labels.push(`WMS 来料进展：${configMeta[state.filters.configStatus].label}`)
-  if (state.filters.receiveStatus !== 'ALL') labels.push(`WMS 来料进展：${receiveMeta[state.filters.receiveStatus].label}`)
+  if (state.filters.configStatus !== 'ALL') labels.push(`中转仓配料：${configMeta[state.filters.configStatus].label}`)
+  if (state.filters.receiveStatus !== 'ALL') labels.push(`裁床领料：${receiveMeta[state.filters.receiveStatus].label}`)
   if (state.filters.riskFilter !== 'ALL') {
     labels.push(state.filters.riskFilter === 'ANY' ? '风险：只看有风险' : `风险：${riskMeta[state.filters.riskFilter].label}`)
   }
@@ -407,10 +645,43 @@ function renderStatsCards(rows: ProductionProgressRow[]): string {
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       ${renderCompactKpiCard('生产单总数', summary.totalCount, '当前筛选范围', 'text-slate-900')}
       ${renderCompactKpiCard('临近发货生产单', summary.urgentCount, '需优先跟进交付', 'text-rose-600')}
-      ${renderCompactKpiCard('WMS 来料异常单', summary.prepExceptionCount, 'WMS 来料未齐', 'text-amber-600')}
-      ${renderCompactKpiCard('来料异常单', summary.claimExceptionCount, '待领取或现场差异', 'text-orange-600')}
-      ${renderCompactKpiCard('裁剪中单数', summary.cuttingCount, '含待入仓', 'text-violet-600')}
-      ${renderCompactKpiCard('已完成单数', summary.doneCount, '已完成', 'text-emerald-600')}
+      ${renderCompactKpiCard('配料异常单', summary.prepExceptionCount, '配料数量不足', 'text-amber-600')}
+      ${renderCompactKpiCard('领料异常单', summary.claimExceptionCount, '无领料记录或现场差异', 'text-orange-600')}
+      ${renderCompactKpiCard('已开工生产单', summary.cuttingCount + summary.doneCount, '含铺布、裁剪、入仓后续', 'text-violet-600')}
+      ${renderCompactKpiCard('已进入后续单', summary.doneCount, '含菲票、入仓或交出后续', 'text-emerald-600')}
+    </section>
+  `
+}
+
+function renderFullChainOverviewCards(rows: ProductionProgressRow[]): string {
+  const rowIds = new Set(rows.map((row) => row.productionOrderId))
+  const snapshots = getCuttingProgressSnapshots().filter((item) => rowIds.has(item.productionOrderId))
+  const total = rows.length || 1
+  const countBy = (getter: (row: ProductionProgressRow) => boolean): number => rows.filter(getter).length
+  const snapshotCountBy = (getter: (snapshot: (typeof snapshots)[number]) => boolean): number => snapshots.filter(getter).length
+  const runtimeSummaries = rows.map((row) => getRuntimeSewingDispatchProgressByProductionOrder(row.productionOrderId))
+  const dispatchOrders = listCuttingSewingDispatchOrders().filter((order) => rowIds.has(order.productionOrderId))
+  const dispatchBatches = listCuttingSewingDispatchBatches().filter((batch) => rowIds.has(batch.productionOrderId))
+  const handoverRecordCount = dispatchBatches.filter((batch) => Boolean(batch.handoverRecordId)).length
+  const blockingReasonCount =
+    snapshots.reduce((sum, snapshot) => sum + snapshot.blockingReasons.length, 0) +
+    runtimeSummaries.reduce((sum, item) => sum + item.blockingReasons.length, 0) +
+    rows.filter((row) => row.pieceGapQty > 0 || row.inboundGapQty > 0).length
+
+  return `
+    <section class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      ${renderCompactKpiCard('中转仓配料', `${countBy((row) => row.materialPrepSummary.key === 'CONFIGURED')}/${total}`, '有配料数量生产单', 'text-slate-900')}
+      ${renderCompactKpiCard('裁床领料', `${countBy((row) => row.materialClaimSummary.key === 'RECEIVED')}/${total}`, '有领料记录生产单', 'text-blue-600')}
+      ${renderCompactKpiCard('裁片单', rows.reduce((sum, row) => sum + row.cutOrderCount, 0), '当前筛选范围', 'text-slate-900')}
+      ${renderCompactKpiCard('唛架', `${snapshotCountBy((item) => item.markerProgress.status.includes('已'))}/${total}`, '已排唛生产单', 'text-violet-600')}
+      ${renderCompactKpiCard('铺布', `${snapshotCountBy((item) => item.spreadingProgress.status.includes('已'))}/${total}`, '已铺布生产单', 'text-violet-600')}
+      ${renderCompactKpiCard('菲票', snapshots.reduce((sum, item) => sum + item.feiTicketProgress.completedQty, 0), '已生成菲票数', 'text-cyan-600')}
+      ${renderCompactKpiCard('待交出仓', snapshots.reduce((sum, item) => sum + item.cutPieceWarehouseProgress.completedQty, 0), '裁片库存记录', 'text-emerald-600')}
+      ${renderCompactKpiCard('车缝任务分配', runtimeSummaries.reduce((sum, item) => sum + item.dispatchBatchCount, 0), '分配批次', 'text-blue-600')}
+      ${renderCompactKpiCard('交出单', dispatchOrders.filter((order) => order.handoverOrderId).length || dispatchOrders.length, '已生成 / 已创建', 'text-blue-600')}
+      ${renderCompactKpiCard('交出记录', handoverRecordCount, '已提交记录', 'text-blue-600')}
+      ${renderCompactKpiCard('缺口', blockingReasonCount, '裁床链路风险与缺口', blockingReasonCount ? 'text-amber-600' : 'text-emerald-600')}
+      ${renderCompactKpiCard('交出回写', runtimeSummaries.reduce((sum, item) => sum + item.writtenBackTransferBagCount, 0), '已回写中转袋', 'text-emerald-600')}
     </section>
   `
 }
@@ -455,18 +726,18 @@ function renderSpecialCraftReturnCards(rows: ProductionProgressRow[]): string {
       <div class="flex items-center justify-between gap-3">
         <div>
           <div class="text-sm font-semibold text-foreground">特殊工艺回仓汇总</div>
-          <div class="mt-1 text-xs text-muted-foreground">只统计需要特殊工艺的菲票，用于后续裁床统一发料前校验。</div>
+          <div class="mt-1 text-xs text-muted-foreground">只统计需要特殊工艺的菲票，用于后续裁床交出前核对。</div>
         </div>
         <div class="text-sm font-medium ${allReturned ? 'text-emerald-600' : 'text-amber-600'}">是否全部回仓：${allReturned ? '是' : '否'}</div>
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         ${renderCompactKpiCard('需要特殊工艺菲票数', aggregated.totalNeed, '需经过特殊工艺流转', 'text-slate-900')}
-        ${renderCompactKpiCard('待发料菲票数', aggregated.waitDispatch, '裁床厂待交出仓待发料', 'text-amber-600')}
-        ${renderCompactKpiCard('已发料菲票数', aggregated.dispatched, '裁床厂已创建交出记录', 'text-blue-600')}
+        ${renderCompactKpiCard('待交出菲票数', aggregated.waitDispatch, '裁床厂待交出仓待处理', 'text-amber-600')}
+        ${renderCompactKpiCard('已交出菲票数', aggregated.dispatched, '裁床厂已创建交出记录', 'text-blue-600')}
         ${renderCompactKpiCard('已接收菲票数', aggregated.received, '特殊工艺厂已入待加工仓', 'text-cyan-600')}
         ${renderCompactKpiCard('待回仓菲票数', aggregated.waitReturn, '特殊工艺厂待交出仓待回仓', 'text-amber-600')}
         ${renderCompactKpiCard('已回仓菲票数', aggregated.returned, '已回裁床厂待交出仓', 'text-emerald-600')}
-        ${renderCompactKpiCard('差异菲票数', aggregated.difference, '发料或回仓存在差异', 'text-rose-600')}
+        ${renderCompactKpiCard('差异菲票数', aggregated.difference, '交出或回仓存在差异', 'text-rose-600')}
         ${renderCompactKpiCard('异议中菲票数', aggregated.objection, '数量异议处理中', 'text-rose-600')}
       </div>
     </section>
@@ -474,7 +745,7 @@ function renderSpecialCraftReturnCards(rows: ProductionProgressRow[]): string {
 }
 
 function renderSewingDispatchProgressCards(rows: ProductionProgressRow[]): string {
-  const summaries = rows.map((row) => getCuttingSewingDispatchProgressByProductionOrder(row.productionOrderId))
+  const summaries = rows.map((row) => getRuntimeSewingDispatchProgressByProductionOrder(row.productionOrderId))
   const aggregated = summaries.reduce(
     (result, item) => {
       result.totalProductionQty += item.totalProductionQty
@@ -506,21 +777,21 @@ function renderSewingDispatchProgressCards(rows: ProductionProgressRow[]): strin
     <section class="rounded-lg border bg-white p-4 shadow-sm">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <div class="text-sm font-semibold text-foreground">裁片发料汇总</div>
-          <div class="mt-1 text-xs text-muted-foreground">统计裁床厂统一发给车缝厂的中转单、中转袋和回写结果。</div>
+          <div class="text-sm font-semibold text-foreground">交出单汇总</div>
+          <div class="mt-1 text-xs text-muted-foreground">统计裁床厂交出单、交出记录、中转袋和回写结果。</div>
         </div>
-        <div class="text-sm font-medium ${reasons.length ? 'text-amber-600' : 'text-emerald-600'}">是否可继续发料：${reasons.length ? '否' : '是'}</div>
+        <div class="text-sm font-medium ${reasons.length ? 'text-amber-600' : 'text-emerald-600'}">是否可新增交出记录：${reasons.length ? '否' : '是'}</div>
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         ${renderCompactKpiCard('生产总数', aggregated.totalProductionQty, '', 'text-slate-900')}
-        ${renderCompactKpiCard('累计已发车缝件数', aggregated.cumulativeDispatchedGarmentQty, '', 'text-blue-600')}
-        ${renderCompactKpiCard('剩余未发件数', aggregated.remainingGarmentQty, '', 'text-amber-600')}
-        ${renderCompactKpiCard('发料批次数', aggregated.dispatchBatchCount, '', 'text-slate-700')}
+        ${renderCompactKpiCard('累计已交出件数', aggregated.cumulativeDispatchedGarmentQty, '', 'text-blue-600')}
+        ${renderCompactKpiCard('剩余未交出件数', aggregated.remainingGarmentQty, '', 'text-amber-600')}
+        ${renderCompactKpiCard('交出记录数', aggregated.dispatchBatchCount, '', 'text-slate-700')}
         ${renderCompactKpiCard('中转袋数', aggregated.transferBagCount, '', 'text-slate-700')}
         ${renderCompactKpiCard('已回写袋数', aggregated.writtenBackTransferBagCount, '', 'text-emerald-600')}
         ${renderCompactKpiCard('差异袋数', aggregated.differenceTransferBagCount, '', 'text-rose-600')}
         ${renderCompactKpiCard('异议中袋数', aggregated.objectionTransferBagCount, '', 'text-rose-600')}
-        ${renderCompactKpiCard('阻塞原因', reasons.length ? reasons.join('、') : '无', '裁片未配齐 / 特殊工艺未回仓 / 存在差异 / 存在异议 / 菲票被占用 / 数量超过剩余未发', 'text-amber-600')}
+        ${renderCompactKpiCard('缺口结果', reasons.length ? reasons.join('、') : '无', '裁片缺口 / 特殊工艺未回仓 / 存在差异 / 存在异议 / 菲票被占用 / 数量超过剩余未交', 'text-amber-600')}
       </div>
     </section>
   `
@@ -541,24 +812,24 @@ function renderProgressStatisticsLinkageCards(rows: ProductionProgressRow[]): st
       <div class="flex items-center justify-between gap-3">
         <div>
           <div class="text-sm font-semibold text-foreground">裁床进度联动</div>
-          <div class="mt-1 text-xs text-muted-foreground">按生产单汇总WMS 来料、裁剪、菲票、特殊工艺回仓、裁片发车缝和阻塞原因。</div>
+          <div class="mt-1 text-xs text-muted-foreground">按生产单汇总配料数量、领料数量、裁剪、菲票、特殊工艺回仓、裁片交出和差异风险。</div>
         </div>
-        <div class="text-sm font-medium ${snapshots.every((item) => item.canCreateSewingDispatchBatch) ? 'text-emerald-600' : 'text-amber-600'}">是否可继续发料：${snapshots.every((item) => item.canCreateSewingDispatchBatch) ? '是' : '否'}</div>
+        <div class="text-sm font-medium ${snapshots.every((item) => item.canCreateSewingDispatchBatch) ? 'text-emerald-600' : 'text-amber-600'}">是否可新增交出记录：${snapshots.every((item) => item.canCreateSewingDispatchBatch) ? '是' : '否'}</div>
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${renderCompactKpiCard('WMS 来料进度', countBy((item) => item.materialPrepProgress.status === '已配置'), `共 ${snapshots.length} 单`, 'text-slate-900')}
-        ${renderCompactKpiCard('WMS 来料进度', countBy((item) => item.pickupProgress.status === '已入待加工仓'), `差异 ${countBy((item) => item.pickupProgress.status === '差异待处理')} 单`, 'text-blue-600')}
+        ${renderCompactKpiCard('配料数量', countBy((item) => item.materialPrepProgress.status === '已配置'), `共 ${snapshots.length} 单`, 'text-slate-900')}
+        ${renderCompactKpiCard('领料数量', countBy((item) => item.pickupProgress.status === '已入待加工仓'), `差异 ${countBy((item) => item.pickupProgress.status === '差异待处理')} 单`, 'text-blue-600')}
         ${renderCompactKpiCard('裁剪进度', countBy((item) => item.cuttingProgress.status === '已裁剪'), `共 ${snapshots.length} 单`, 'text-violet-600')}
         ${renderCompactKpiCard('菲票进度', countBy((item) => item.feiTicketProgress.status === '已生成'), `部分 / 未生成 ${countBy((item) => item.feiTicketProgress.status !== '已生成')} 单`, 'text-cyan-600')}
         ${renderCompactKpiCard('特殊工艺回仓', countBy((item) => item.specialCraftReturnProgress.status === '已回仓' || item.specialCraftReturnProgress.status === '不需要回仓'), `未回仓 ${countBy((item) => item.specialCraftReturnProgress.status.includes('未回仓'))} 单`, 'text-emerald-600')}
-        ${renderCompactKpiCard('裁片发车缝', snapshots.reduce((sum, item) => sum + item.sewingDispatchProgress.completedQty, 0), '累计已发件数', 'text-blue-600')}
+        ${renderCompactKpiCard('裁片交出', snapshots.reduce((sum, item) => sum + item.sewingDispatchProgress.completedQty, 0), '累计已交出件数', 'text-blue-600')}
         ${renderCompactKpiCard('特殊工艺当前数量', formatQty(snapshots.reduce((sum, item) => sum + item.specialCraftCurrentQty, 0)), '已回仓后当前可用数量', 'text-blue-600')}
         ${renderCompactKpiCard('特殊工艺报废 / 货损', `${formatQty(snapshots.reduce((sum, item) => sum + item.specialCraftScrapQty, 0))} / ${formatQty(snapshots.reduce((sum, item) => sum + item.specialCraftDamageQty, 0))}`, '报废 / 货损', 'text-rose-600')}
-        ${renderCompactKpiCard('来料单已完成', countBy((item) => item.pickupOrderCompleted), '工厂侧完成来料单', 'text-emerald-600')}
+        ${renderCompactKpiCard('领料单已完成', countBy((item) => item.pickupOrderCompleted), '工厂侧完成裁床领料', 'text-emerald-600')}
         ${renderCompactKpiCard('交出单已完成', countBy((item) => item.handoutOrderCompleted), '工厂侧完成交出单', 'text-emerald-600')}
         ${renderCompactKpiCard('装袋 / 回写', countBy((item) => item.transferBagPackStatus === '已装袋' || item.transferBagPackStatus === '已交出'), `部分回写 ${countBy((item) => item.transferBagCombinedWritebackStatus === '部分回写')}`, 'text-blue-600')}
         ${renderCompactKpiCard('袋级 / 菲票级差异', `${snapshots.reduce((sum, item) => sum + item.transferBagBagDifferenceCount, 0)} / ${snapshots.reduce((sum, item) => sum + item.transferBagFeiTicketDifferenceCount, 0)}`, '中转袋差异 / 菲票差异', 'text-rose-600')}
-        ${renderCompactKpiCard('差异 / 异议', countBy((item) => item.blockingReasons.some((reason) => reason.blockingLabel.includes('差异') || reason.blockingLabel.includes('异议'))), '阻塞生产单', 'text-rose-600')}
+        ${renderCompactKpiCard('差异 / 异议', countBy((item) => item.blockingReasons.some((reason) => reason.blockingLabel.includes('差异') || reason.blockingLabel.includes('异议'))), '涉及生产单', 'text-rose-600')}
         ${
           bundleLengthValues.length || bundleWidthValues.length
             ? renderCompactKpiCard(
@@ -569,7 +840,7 @@ function renderProgressStatisticsLinkageCards(rows: ProductionProgressRow[]): st
               )
             : ''
         }
-        ${renderCompactKpiCard('阻塞原因', blockingReasons.length ? blockingReasons.slice(0, 3).join('、') : '无', '可按阻塞原因筛选', 'text-amber-600')}
+        ${renderCompactKpiCard('风险与差异', blockingReasons.length ? blockingReasons.slice(0, 3).join('、') : '无', '可按风险与差异筛选', 'text-amber-600')}
       </div>
     </section>
   `
@@ -599,9 +870,9 @@ function renderFilterSelect(
 function renderQuickFilterRow(): string {
   const options: Array<{ key: ProductionProgressQuickFilterExtended; label: string; tone: 'blue' | 'amber' | 'rose' }> = [
     { key: 'URGENT_ONLY', label: '只看临近发货', tone: 'rose' },
-    { key: 'PREP_DELAY', label: '只看WMS 来料未齐', tone: 'amber' },
-    { key: 'CLAIM_EXCEPTION', label: '只看来料异常', tone: 'rose' },
-    { key: 'CUTTING_ACTIVE', label: '只看裁剪中', tone: 'blue' },
+    { key: 'PREP_DELAY', label: '只看配料不足', tone: 'amber' },
+    { key: 'CLAIM_EXCEPTION', label: '只看领料异常', tone: 'rose' },
+    { key: 'CUTTING_ACTIVE', label: '只看已开工', tone: 'blue' },
     { key: 'INCOMPLETE_ONLY', label: '只看未完成', tone: 'blue' },
     { key: 'GAP_ONLY', label: '只看部位缺口', tone: 'amber' },
     { key: 'MAPPING_MISSING', label: '只看映射缺失', tone: 'amber' },
@@ -650,6 +921,29 @@ function renderMetricChip(label: string, value: string, toneClass = 'text-slate-
   `
 }
 
+function formatMaterialLedgerQty(value: number, unit = 'm'): string {
+  return `${formatQty(Math.round(value * 10) / 10)} ${unit}`
+}
+
+function renderMaterialLedgerLine(
+  line: MaterialQuantityLedgerLine,
+  fields: Array<[string, keyof MaterialQuantityLedgerLine]>,
+): string {
+  return `
+    <div class="space-y-1.5 rounded-md border bg-background px-2.5 py-2">
+      ${renderMaterialIdentityBlock(line, { compact: true, imageSizeClass: 'h-9 w-9' })}
+      <div class="grid gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        ${fields
+          .map(([label, field]) => {
+            const value = typeof line[field] === 'number' ? Number(line[field]) : 0
+            return `<div class="flex justify-between gap-3"><span>${escapeHtml(label)}</span><span class="font-medium tabular-nums text-foreground">${escapeHtml(formatMaterialLedgerQty(value, line.unit))}</span></div>`
+          })
+          .join('')}
+      </div>
+    </div>
+  `
+}
+
 function renderStackedLines(
   lines: string[],
   emptyText: string,
@@ -674,19 +968,31 @@ function renderStackedLines(
 }
 
 function renderPrepProgressCell(row: ProductionProgressRow): string {
-  const lines = row.materialPrepLines.map(
-    (line) =>
-      `<div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">${escapeHtml(`${line.materialLabel} / ${line.materialSku}`)}</span><span class="font-medium tabular-nums text-foreground">${escapeHtml(`${formatQty(line.preparedQty)}/${formatQty(line.totalQty)}`)}</span></div>`,
+  const lines = buildMaterialQuantityLedgerLines(row).map((line) =>
+    renderMaterialLedgerLine(
+      line,
+      [
+        ['需求用量', 'requiredQty'],
+        ['中转仓已配', 'configuredQty'],
+        ['已锁定', 'lockedQty'],
+      ],
+    ),
   )
-  return renderStackedLines(lines, '暂无面料进展')
+  return renderStackedLines(lines, '暂无面料数量账')
 }
 
 function renderClaimProgressCell(row: ProductionProgressRow): string {
-  const lines = row.materialClaimLines.map(
-    (line) =>
-      `<div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">${escapeHtml(`${line.materialLabel} / ${line.materialSku}`)}</span><span class="font-medium tabular-nums text-foreground">${escapeHtml(`${formatQty(line.claimedQty)}/${formatQty(line.preparedQty)}`)}</span></div>`,
+  const lines = buildMaterialQuantityLedgerLines(row).map((line) =>
+    renderMaterialLedgerLine(
+      line,
+      [
+        ['裁床已领', 'claimedQty'],
+        ['已消耗', 'consumedQty'],
+        ['可用余额', 'availableQty'],
+      ],
+    ),
   )
-  return renderStackedLines(lines, '暂无WMS 来料进展')
+  return renderStackedLines(lines, '暂无面料数量账')
 }
 
 function renderSkuProgressCell(row: ProductionProgressRow): string {
@@ -712,17 +1018,17 @@ function renderPartDifferenceCell(row: ProductionProgressRow): string {
   `
 }
 
-function resolveGapRowOriginalCutOrderNo(
+function resolveGapRowCutOrderNo(
   row: ProductionProgressRow,
   item: ProductionProgressRow['pieceTruth']['gapRows'][number],
 ): string {
-  if (item.originalCutOrderNo) return item.originalCutOrderNo
-  const fallback = row.pieceTruth.originalCutOrderRows.find(
+  if (item.cutOrderNo) return item.cutOrderNo
+  const fallback = row.pieceTruth.cutOrderRows.find(
     (sourceRow) =>
       sourceRow.materialSku === item.materialSku &&
       (sourceRow.gapCutQty > 0 || sourceRow.gapInboundQty > 0),
   )
-  return fallback?.originalCutOrderNo || '-'
+  return fallback?.cutOrderNo || '-'
 }
 
 function renderRiskCell(row: ProductionProgressRow): string {
@@ -734,7 +1040,7 @@ function renderRiskCell(row: ProductionProgressRow): string {
   return `
     <div class="flex flex-wrap gap-1">
       ${row.riskTags.map((riskTag) => renderBadge(riskTag.label, riskTag.className)).join('')}
-      ${pendingPrepFollowups.length ? renderBadge(`补料WMS 待处理 ${pendingPrepFollowups.length} 条`, 'bg-amber-100 text-amber-700') : ''}
+      ${pendingPrepFollowups.length ? renderBadge(`补料配料待处理 ${pendingPrepFollowups.length} 条`, 'bg-amber-100 text-amber-700') : ''}
     </div>
   `
 }
@@ -764,31 +1070,229 @@ function renderDetailMaterialLines(
 }
 
 function renderMaterialProgressSection(row: ProductionProgressRow): string {
-  const prepLines = row.materialPrepLines.map(
-    (line) =>
-      `<div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">${escapeHtml(`${line.materialLabel} / ${line.materialSku}`)}</span><span class="font-medium tabular-nums text-foreground">${escapeHtml(`${formatQty(line.preparedQty)}/${formatQty(line.totalQty)}`)}</span></div>`,
-  )
-  const claimLines = row.materialClaimLines.map(
-    (line) =>
-      `<div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">${escapeHtml(`${line.materialLabel} / ${line.materialSku}`)}</span><span class="font-medium tabular-nums text-foreground">${escapeHtml(`${formatQty(line.claimedQty)}/${formatQty(line.preparedQty)}`)}</span></div>`,
+  const ledgerLines = buildMaterialQuantityLedgerLines(row)
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="text-sm font-semibold">面料数量账</h3>
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full min-w-[980px] text-sm">
+          <thead class="border-b bg-muted/30 text-muted-foreground">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium">面料</th>
+              <th class="px-4 py-3 text-left font-medium">需求用量</th>
+              <th class="px-4 py-3 text-left font-medium">中转仓已配</th>
+              <th class="px-4 py-3 text-left font-medium">裁床已领</th>
+              <th class="px-4 py-3 text-left font-medium">已锁定</th>
+              <th class="px-4 py-3 text-left font-medium">已消耗</th>
+              <th class="px-4 py-3 text-left font-medium">可用余额</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              ledgerLines.length
+                ? ledgerLines
+                    .map(
+                      (line) => `
+                        <tr class="border-b last:border-b-0 align-top">
+                          <td class="px-4 py-3">${renderMaterialIdentityBlock(line, { compact: true, imageSizeClass: 'h-9 w-9' })}</td>
+                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.requiredQty, line.unit))}</td>
+                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.configuredQty, line.unit))}</td>
+                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.claimedQty, line.unit))}</td>
+                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.lockedQty, line.unit))}</td>
+                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.consumedQty, line.unit))}</td>
+                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.availableQty, line.unit))}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+                : '<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-muted-foreground">暂无面料数量账。</td></tr>'
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function renderFullChainDetailSection(row: ProductionProgressRow): string {
+  const snapshot = getCuttingSnapshotForRow(row)
+  const runtimeSewing = getRuntimeSewingDispatchProgressByProductionOrder(row.productionOrderId)
+  const dispatchOrders = listCuttingSewingDispatchOrders().filter((order) => order.productionOrderId === row.productionOrderId)
+  const dispatchBatches = listCuttingSewingDispatchBatches().filter((batch) => batch.productionOrderId === row.productionOrderId)
+  const transferBags = listCuttingSewingTransferBags().filter((bag) => bag.productionOrderId === row.productionOrderId)
+  const handoverRecordCount = dispatchBatches.filter((batch) => Boolean(batch.handoverRecordId)).length
+  const blockingReasons = [
+    ...(snapshot?.blockingReasons.map((item) => item.blockingLabel) || []),
+    ...runtimeSewing.blockingReasons,
+    row.pieceGapQty > 0 ? `裁片仍缺 ${formatQty(row.pieceGapQty)} 片` : '',
+    row.inboundGapQty > 0 ? `入仓仍缺 ${formatQty(row.inboundGapQty)} 片` : '',
+  ].filter(Boolean)
+  const chainItems = [
+    {
+      label: '中转仓配料',
+      value: row.materialPrepSummary.label,
+      detail: row.materialPrepSummary.detailText,
+      tone: row.materialPrepSummary.className,
+    },
+    {
+      label: '裁床领料',
+      value: row.materialClaimSummary.label,
+      detail: row.materialClaimSummary.detailText,
+      tone: row.materialClaimSummary.className,
+    },
+    {
+      label: '裁片单',
+      value: `${row.cutOrderCount} 张`,
+      detail: row.cutOrderNos.join('、') || '暂无裁片单',
+      tone: 'bg-slate-100 text-slate-700',
+    },
+    {
+      label: '唛架',
+      value: snapshot?.markerProgress.status || '待确认',
+      detail: `${formatQty(snapshot?.markerProgress.completedQty || 0)}/${formatQty(snapshot?.markerProgress.plannedQty || 0)}`,
+      tone: buildStateBadgeClass(snapshot?.markerProgress.status || '待确认'),
+    },
+    {
+      label: '铺布',
+      value: snapshot?.spreadingProgress.status || '待确认',
+      detail: `${formatQty(snapshot?.spreadingProgress.completedQty || 0)}/${formatQty(snapshot?.spreadingProgress.plannedQty || 0)}`,
+      tone: buildStateBadgeClass(snapshot?.spreadingProgress.status || '待确认'),
+    },
+    {
+      label: '菲票',
+      value: snapshot?.feiTicketProgress.status || '待生成',
+      detail: `已生成 ${formatQty(snapshot?.feiTicketProgress.completedQty || 0)} 张`,
+      tone: buildStateBadgeClass(snapshot?.feiTicketProgress.status || '待生成'),
+    },
+    {
+      label: '待交出仓',
+      value: snapshot?.cutPieceWarehouseProgress.status || '未入仓',
+      detail: `库存记录 ${formatQty(snapshot?.cutPieceWarehouseProgress.completedQty || 0)} 条`,
+      tone: buildStateBadgeClass(snapshot?.cutPieceWarehouseProgress.status || '未入仓'),
+    },
+    {
+      label: '车缝任务分配',
+      value: `${runtimeSewing.dispatchBatchCount} 批`,
+      detail: `中转袋 ${runtimeSewing.transferBagCount} 个 / 已交出袋 ${runtimeSewing.dispatchedTransferBagCount} 个`,
+      tone: runtimeSewing.dispatchBatchCount ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700',
+    },
+    {
+      label: '交出单',
+      value: `${dispatchOrders.filter((order) => order.handoverOrderId).length || dispatchOrders.length} 个`,
+      detail: dispatchOrders.map((order) => order.handoverOrderNo || order.dispatchOrderNo).join('、') || '暂无交出单',
+      tone: dispatchOrders.length ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700',
+    },
+    {
+      label: '交出记录',
+      value: `${handoverRecordCount} 条`,
+      detail: dispatchBatches.map((batch) => batch.handoverRecordNo || batch.dispatchBatchNo).join('、') || '暂无交出记录',
+      tone: handoverRecordCount ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700',
+    },
+    {
+      label: '缺口',
+      value: blockingReasons.length ? `${blockingReasons.length} 项` : '无',
+      detail: blockingReasons.slice(0, 4).join('、') || '当前无裁床链路缺口',
+      tone: blockingReasons.length ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700',
+    },
+  ]
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="flex items-center justify-between gap-4">
+        <h3 class="text-sm font-semibold">全链路总览</h3>
+        <div class="flex flex-wrap gap-2">
+          ${renderMetricChip('车缝任务', `${runtimeSewing.dispatchBatchCount} 批`, runtimeSewing.dispatchBatchCount ? 'text-blue-600' : 'text-slate-700')}
+          ${renderMetricChip('中转袋', `${transferBags.length} 个`, transferBags.length ? 'text-blue-600' : 'text-slate-700')}
+          ${renderMetricChip('已交出件数', formatQty(runtimeSewing.cumulativeDispatchedGarmentQty), 'text-blue-600')}
+        </div>
+      </div>
+      <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        ${chainItems
+          .map(
+            (item) => `
+              <div class="rounded-md border bg-background px-3 py-2">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-xs text-muted-foreground">${escapeHtml(item.label)}</span>
+                  ${renderBadge(item.value, item.tone)}
+                </div>
+                <div class="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">${escapeHtml(item.detail)}</div>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderProductionPartFlowSection(row: ProductionProgressRow): string {
+  const rows = buildProductionPartFlowLines(row)
+  const totals = rows.reduce(
+    (result, item) => {
+      result.required += item.requiredPieceQty
+      result.cut += item.actualCutQty
+      result.stock += item.waitHandoverStockQty
+      result.assigned += item.assignedPieceQty
+      result.handedOver += item.handedOverPieceQty
+      result.gap += item.gapPieceQty
+      return result
+    },
+    { required: 0, cut: 0, stock: 0, assigned: 0, handedOver: 0, gap: 0 },
   )
 
   return `
     <section class="rounded-lg border bg-card p-4">
-      <h3 class="text-sm font-semibold">面料进度</h3>
-      <div class="mt-4 grid gap-4 lg:grid-cols-2">
-        <article class="rounded-lg border bg-muted/10 p-4">
-          <div class="text-sm font-medium text-foreground">WMS 来料进展</div>
-          <div class="mt-3">
-            ${renderDetailMaterialLines(prepLines, '暂无WMS 来料进展')}
-          </div>
-        </article>
-        <article class="rounded-lg border bg-muted/10 p-4">
-          <div class="text-sm font-medium text-foreground">WMS 来料进展</div>
-          <div class="mt-3">
-            ${renderDetailMaterialLines(claimLines, '暂无WMS 来料进展')}
-          </div>
-        </article>
+      <div class="flex items-center justify-between gap-4">
+        <h3 class="text-sm font-semibold">SKU / 部位流转明细</h3>
+        <div class="flex flex-wrap gap-2">
+          ${renderMetricChip('已裁', formatQty(totals.cut), 'text-violet-700')}
+          ${renderMetricChip('库存', formatQty(totals.stock), 'text-emerald-700')}
+          ${renderMetricChip('已分配', formatQty(totals.assigned), 'text-blue-700')}
+          ${renderMetricChip('已交出', formatQty(totals.handedOver), 'text-blue-700')}
+          ${renderMetricChip('仍缺', formatQty(totals.gap), totals.gap > 0 ? 'text-amber-700' : 'text-emerald-700')}
+        </div>
+      </div>
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full min-w-[1120px] text-sm">
+          <thead class="border-b bg-muted/30 text-muted-foreground">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium">SKU / 部位</th>
+              <th class="px-4 py-3 text-left font-medium">来源裁片单</th>
+              <th class="px-4 py-3 text-left font-medium">理论片数</th>
+              <th class="px-4 py-3 text-left font-medium">实际裁剪</th>
+              <th class="px-4 py-3 text-left font-medium">待交出仓库存</th>
+              <th class="px-4 py-3 text-left font-medium">已分配</th>
+              <th class="px-4 py-3 text-left font-medium">已交出</th>
+              <th class="px-4 py-3 text-left font-medium">仍缺</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              rows.length
+                ? rows
+                    .map(
+                      (item) => `
+                        <tr class="border-b last:border-b-0 align-top">
+                          <td class="px-4 py-3">
+                            <div class="font-medium">${escapeHtml(item.skuLabel)}</div>
+                            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.partName)}</div>
+                          </td>
+                          <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.sourceCutOrderNo || '—')}</td>
+                          <td class="px-4 py-3 font-medium tabular-nums">${formatQty(item.requiredPieceQty)}</td>
+                          <td class="px-4 py-3 tabular-nums">${formatQty(item.actualCutQty)}</td>
+                          <td class="px-4 py-3 tabular-nums">${formatQty(item.waitHandoverStockQty)}</td>
+                          <td class="px-4 py-3 tabular-nums">${formatQty(item.assignedPieceQty)}</td>
+                          <td class="px-4 py-3 tabular-nums">${formatQty(item.handedOverPieceQty)}</td>
+                          <td class="px-4 py-3 font-medium tabular-nums ${item.gapPieceQty > 0 ? 'text-amber-700' : 'text-emerald-700'}">${formatQty(item.gapPieceQty)}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+                : '<tr><td colspan="8" class="px-4 py-10 text-center text-sm text-muted-foreground">暂无 SKU / 部位流转明细。</td></tr>'
+            }
+          </tbody>
+        </table>
       </div>
     </section>
   `
@@ -813,15 +1317,15 @@ function renderStageOverview(rows: ProductionProgressRow[]): string {
   const total = rows.length || 1
   const configuredCount = rows.filter((row) => row.materialPrepSummary.key === 'CONFIGURED').length
   const claimedCount = rows.filter((row) => row.materialClaimSummary.key === 'RECEIVED').length
-  const markerCount = rows.filter((row) => row.originalCutOrderCount > 0).length
+  const markerCount = rows.filter((row) => row.cutOrderCount > 0).length
   const spreadingCount = rows.filter((row) => row.hasSpreadingRecord).length
   const ticketCount = rows.filter((row) => row.pieceCompletionSummary.key !== 'NOT_STARTED').length
   const replenishmentCount = rows.filter((row) => row.riskTags.some((tag) => tag.key === 'REPLENISH_PENDING')).length
   const warehouseCount = rows.filter((row) => row.hasInboundRecord).length
 
   const cards = [
-    { label: 'WMS 来料状态', value: `${configuredCount}/${total} 已配置` },
-    { label: 'WMS 来料状态', value: `${claimedCount}/${total} 已入待加工仓` },
+    { label: '中转仓配料', value: `${configuredCount}/${total} 有配料数量` },
+    { label: '裁床领料', value: `${claimedCount}/${total} 有领料记录` },
     { label: '唛架状态', value: `${markerCount}/${total} 已排唛` },
     { label: '铺布状态', value: `${spreadingCount}/${total} 已铺布` },
     { label: '菲票状态', value: `${ticketCount}/${total} 已生成` },
@@ -851,9 +1355,9 @@ const PRODUCTION_PROGRESS_TABLE_HEADERS = [
   '款号 / SPU',
   '下单件数',
   '计划发货日期',
-  'WMS 来料进展',
-  'WMS 来料进展',
-  '原始裁片单数',
+  '中转仓配料',
+  '裁床领料',
+  '裁片单数',
   '当前进展',
   '部位差异',
   '风险提示',
@@ -861,21 +1365,21 @@ const PRODUCTION_PROGRESS_TABLE_HEADERS = [
 ] as const
 
 const CUT_ORDER_PROGRESS_TABLE_HEADERS = [
-  '原始裁片单号',
+  '裁片单号',
   '生产单号',
   '款号 / SPU',
-  '面料 SKU',
+  '面料',
   '工厂',
   '关联数量',
   '计划发货日期',
   '紧急程度',
-  'WMS 来料',
-  'WMS 来料',
+  '配料',
+  '领料',
   '裁剪',
   '菲票',
   '特殊工艺回仓',
-  '裁片发料',
-  '当前阻塞',
+  '交出单',
+  '风险与差异',
   '操作',
 ] as const
 
@@ -999,8 +1503,8 @@ function renderPieceGapSection(row: ProductionProgressRow): string {
         <table class="w-full min-w-[1080px] text-sm">
           <thead class="border-b bg-muted/30 text-muted-foreground">
             <tr>
-              <th class="px-4 py-3 text-left font-medium">原始裁片单号</th>
-              <th class="px-4 py-3 text-left font-medium">面料 SKU</th>
+              <th class="px-4 py-3 text-left font-medium">裁片单号</th>
+              <th class="px-4 py-3 text-left font-medium">面料</th>
               <th class="px-4 py-3 text-left font-medium">SKU</th>
               <th class="px-4 py-3 text-left font-medium">部位名称</th>
               <th class="px-4 py-3 text-left font-medium">理论片数</th>
@@ -1013,8 +1517,18 @@ function renderPieceGapSection(row: ProductionProgressRow): string {
               .map(
                 (item) => `
                   <tr class="border-b last:border-b-0 align-top">
-                    <td class="px-4 py-3 font-medium">${escapeHtml(resolveGapRowOriginalCutOrderNo(row, item))}</td>
-                    <td class="px-4 py-3">${escapeHtml(item.materialSku || '-')}</td>
+                    <td class="px-4 py-3 font-medium">${escapeHtml(resolveGapRowCutOrderNo(row, item))}</td>
+                    <td class="px-4 py-3">
+                      ${renderMaterialIdentityBlock(
+                        {
+                          materialSku: item.materialSku,
+                          materialLabel: '部位差异面料',
+                          materialAlias: findProgressMaterialIdentity(row, item.materialSku)?.materialAlias || '',
+                          materialImageUrl: findProgressMaterialIdentity(row, item.materialSku)?.materialImageUrl || '',
+                        },
+                        { compact: true, imageSizeClass: 'h-9 w-9', showCategory: false },
+                      )}
+                    </td>
                     <td class="px-4 py-3">
                       <div class="font-medium">${escapeHtml(item.skuCode || `${item.color}/${item.size}`)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${item.color} / ${item.size}`)}</div>
@@ -1058,14 +1572,14 @@ function renderSourceOrderSection(row: ProductionProgressRow): string {
     <section class="rounded-lg border bg-card p-4">
       <div class="flex items-center justify-between gap-4">
         <h3 class="text-sm font-semibold">来源裁片单</h3>
-        ${renderMetricChip('原始裁片单数', String(row.originalCutOrderCount), 'text-slate-900')}
+        ${renderMetricChip('裁片单数', String(row.cutOrderCount), 'text-slate-900')}
       </div>
       <div class="mt-4 overflow-x-auto">
         <table class="w-full min-w-[980px] text-sm">
           <thead class="border-b bg-muted/30 text-muted-foreground">
             <tr>
-              <th class="px-4 py-3 text-left font-medium">原始裁片单号</th>
-              <th class="px-4 py-3 text-left font-medium">面料 SKU</th>
+              <th class="px-4 py-3 text-left font-medium">裁片单号</th>
+              <th class="px-4 py-3 text-left font-medium">面料</th>
               <th class="px-4 py-3 text-left font-medium">承接 SKU 数</th>
               <th class="px-4 py-3 text-left font-medium">未完成部位片数</th>
               <th class="px-4 py-3 text-left font-medium">当前状态</th>
@@ -1077,13 +1591,23 @@ function renderSourceOrderSection(row: ProductionProgressRow): string {
               .map(
                 (item) => `
                   <tr class="border-b last:border-b-0 align-top">
-                    <td class="px-4 py-3 font-medium">${escapeHtml(item.originalCutOrderNo)}</td>
-                    <td class="px-4 py-3">${escapeHtml(item.materialSku || '-')}</td>
+                    <td class="px-4 py-3 font-medium">${escapeHtml(item.cutOrderNo)}</td>
+                    <td class="px-4 py-3">
+                      ${renderMaterialIdentityBlock(
+                        {
+                          materialSku: item.materialSku,
+                          materialLabel: '来源裁片单面料',
+                          materialAlias: item.materialAlias,
+                          materialImageUrl: item.materialImageUrl,
+                        },
+                        { compact: true, imageSizeClass: 'h-9 w-9', showCategory: false },
+                      )}
+                    </td>
                     <td class="px-4 py-3 tabular-nums">${formatQty(item.skuCount)}</td>
                     <td class="px-4 py-3 tabular-nums">${formatQty(item.incompletePieceQty)}</td>
                     <td class="px-4 py-3">${escapeHtml(item.currentStateLabel)}</td>
                     <td class="px-4 py-3">
-                      <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="go-original-orders" data-record-id="${row.id}">查看原始裁片单</button>
+                      <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="go-cut-orders" data-record-id="${row.id}">查看裁片单</button>
                     </td>
                   </tr>
                 `,
@@ -1182,7 +1706,7 @@ function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
                             </td>
                             <td class="px-4 py-3">${renderPrepProgressCell(row)}</td>
                             <td class="px-4 py-3">${renderClaimProgressCell(row)}</td>
-                            <td class="px-4 py-3 font-medium">${row.originalCutOrderCount}</td>
+                            <td class="px-4 py-3 font-medium">${row.cutOrderCount}</td>
                             <td class="px-4 py-3">${renderSkuProgressCell(row)}</td>
                             <td class="px-4 py-3">${renderPartDifferenceCell(row)}</td>
                             <td class="px-4 py-3">${renderRiskCell(row)}</td>
@@ -1225,7 +1749,7 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">裁片单主表</h2>
-          <div class="mt-1 text-xs text-muted-foreground">默认按裁片单维度查看待加工入仓、铺布裁剪、特殊工艺回仓和裁片发料。</div>
+          <div class="mt-1 text-xs text-muted-foreground">默认按裁片单维度查看待加工入仓、铺布裁剪、特殊工艺回仓和交出记录。</div>
         </div>
         <div class="text-xs text-muted-foreground">共 ${pagination.total} 条裁片单</div>
       </div>
@@ -1246,7 +1770,7 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
                       .map(
                         (item) => `
                           <tr class="border-b last:border-b-0 align-top hover:bg-muted/20">
-                            <td class="px-4 py-3 font-medium text-blue-600">${escapeHtml(item.originalCutOrderNo)}</td>
+                            <td class="px-4 py-3 font-medium text-blue-600">${escapeHtml(item.cutOrderNo)}</td>
                             <td class="px-4 py-3">
                               <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${item.parentRecordId}">
                                 ${escapeHtml(item.productionOrderNo)}
@@ -1256,13 +1780,35 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
                               <div class="font-medium text-foreground">${escapeHtml(item.styleLabel)}</div>
                               <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.styleName)}</div>
                             </td>
-                            <td class="px-4 py-3">${escapeHtml(item.materialSku)}</td>
+                            <td class="px-4 py-3">
+                              ${renderMaterialIdentityBlock(
+                                {
+                                  materialSku: item.materialSku,
+                                  materialLabel: '裁片单面料',
+                                  materialAlias: item.materialAlias,
+                                  materialImageUrl: item.materialImageUrl,
+                                },
+                                { compact: true, imageSizeClass: 'h-9 w-9', showCategory: false },
+                              )}
+                            </td>
                             <td class="px-4 py-3">${escapeHtml(formatFactoryDisplayName(item.factoryName))}</td>
                             <td class="px-4 py-3 font-medium tabular-nums">${formatQty(item.relatedQty)}</td>
                             <td class="px-4 py-3">${escapeHtml(item.plannedShipDateDisplay)}</td>
                             <td class="px-4 py-3">${renderBadge(item.urgencyLabel, item.urgencyClassName)}</td>
-                            <td class="px-4 py-3">${renderBadge(item.prepLabel, item.prepClassName)}</td>
-                            <td class="px-4 py-3">${renderBadge(item.pickupLabel, item.pickupClassName)}</td>
+                            <td class="px-4 py-3">
+                              ${renderMaterialLedgerLine(item.quantityLedger, [
+                                ['需求用量', 'requiredQty'],
+                                ['中转仓已配', 'configuredQty'],
+                                ['已锁定', 'lockedQty'],
+                              ])}
+                            </td>
+                            <td class="px-4 py-3">
+                              ${renderMaterialLedgerLine(item.quantityLedger, [
+                                ['裁床已领', 'claimedQty'],
+                                ['已消耗', 'consumedQty'],
+                                ['可用余额', 'availableQty'],
+                              ])}
+                            </td>
                             <td class="px-4 py-3">${renderBadge(item.cuttingLabel, item.cuttingClassName)}</td>
                             <td class="px-4 py-3">${renderBadge(item.feiTicketLabel, item.feiTicketClassName)}</td>
                             <td class="px-4 py-3">
@@ -1322,11 +1868,13 @@ function renderDetailDrawer(): string {
         ${renderDetailSummaryItem('本单成衣件数（件）', formatQty(row.orderQty))}
         ${renderDetailSummaryItem('计划发货日期', row.plannedShipDateDisplay)}
         ${renderDetailSummaryItem('紧急程度', `${row.urgency.label} · ${row.shipCountdownText}`)}
-        ${renderDetailSummaryItem('原始裁片单数', formatQty(row.originalCutOrderCount))}
-        ${renderDetailSummaryItem('补料WMS 待处理', buildPendingPrepSummaryText(row))}
+        ${renderDetailSummaryItem('裁片单数', formatQty(row.cutOrderCount))}
+        ${renderDetailSummaryItem('补料配料待处理', buildPendingPrepSummaryText(row))}
       </section>
 
+      ${renderFullChainDetailSection(row)}
       ${renderMaterialProgressSection(row)}
+      ${renderProductionPartFlowSection(row)}
       ${renderSkuCompletionSection(row)}
       ${renderPieceGapSection(row)}
       ${renderSourceOrderSection(row)}
@@ -1362,6 +1910,7 @@ export function renderCraftCuttingProductionProgressPage(): string {
       })}
 
       ${renderStatsCards(rows)}
+      ${renderFullChainOverviewCards(rows)}
 
       ${renderStickyFilterShell(`
         <div class="space-y-3">
@@ -1415,32 +1964,28 @@ export function renderCraftCuttingProductionProgressPage(): string {
               { value: 'OVERDUE_7_PLUS', label: '超计划发货 7 天以上' },
               { value: 'SHIP_DATE_MISSING', label: '计划发货日期待补' },
             ])}
-            ${renderFilterSelect('当前阶段', 'stage', state.filters.currentStage, [
+            ${renderFilterSelect('裁床主状态', 'stage', state.filters.currentStage, [
               { value: 'ALL', label: '全部' },
-              { value: 'WAITING_PREP', label: 'WMS 待处理' },
-              { value: 'PREPPING', label: 'WMS处理中' },
-              { value: 'WAITING_CLAIM', label: '待来料' },
-              { value: 'CUTTING', label: '裁剪中' },
-              { value: 'WAITING_INBOUND', label: '待入仓' },
-              { value: 'DONE', label: '已完成' },
+              { value: 'NOT_STARTED', label: '未开工' },
+              { value: 'STARTED', label: '已开工' },
             ])}
-            ${renderFilterSelect('WMS 来料进展', 'config', state.filters.configStatus, [
+            ${renderFilterSelect('中转仓配料', 'config', state.filters.configStatus, [
               { value: 'ALL', label: '全部' },
-              { value: 'NOT_CONFIGURED', label: '未配置' },
-              { value: 'PARTIAL', label: '部分配置' },
-              { value: 'CONFIGURED', label: '已配置' },
+              { value: 'NOT_CONFIGURED', label: '无配料数量' },
+              { value: 'PARTIAL', label: '配料数量不足' },
+              { value: 'CONFIGURED', label: '有配料数量' },
             ])}
-            ${renderFilterSelect('WMS 来料进展', 'claim', state.filters.receiveStatus, [
+            ${renderFilterSelect('裁床领料', 'claim', state.filters.receiveStatus, [
               { value: 'ALL', label: '全部' },
-              { value: 'NOT_RECEIVED', label: '待领取' },
-              { value: 'PARTIAL', label: '部分来料' },
-              { value: 'RECEIVED', label: '来料成功' },
-              { value: 'EXCEPTION', label: '领取异常' },
+              { value: 'NOT_RECEIVED', label: '无领料记录' },
+              { value: 'PARTIAL', label: '领料数量不足' },
+              { value: 'RECEIVED', label: '有领料记录' },
+              { value: 'EXCEPTION', label: '领料异常' },
             ])}
             ${renderFilterSelect('风险状态', 'risk', state.filters.riskFilter, [
               { value: 'ALL', label: '全部' },
               { value: 'ANY', label: '仅看有风险' },
-              { value: 'CONFIG_DELAY', label: 'WMS滞后' },
+              { value: 'CONFIG_DELAY', label: '中转仓滞后' },
               { value: 'SHIP_URGENT', label: '临近发货' },
               { value: 'REPLENISH_PENDING', label: '待补料' },
               { value: 'PIECE_GAP', label: '裁片缺口' },
@@ -1479,7 +2024,7 @@ function navigateToRecordTarget(recordId: string | undefined, key: CuttingCanoni
         ? row.filterPayloadForCuttablePool
         : key === 'summary'
           ? row.filterPayloadForSummary
-          : row.filterPayloadForOriginalOrders
+          : row.filterPayloadForCutOrders
 
   const context = buildCuttingDrillContext(payload, 'production-progress', {
     productionOrderId: row.productionOrderId,
@@ -1489,8 +2034,8 @@ function navigateToRecordTarget(recordId: string | undefined, key: CuttingCanoni
   appStore.navigate(buildCuttingRouteWithContext(
     key === 'summary'
       ? 'summary'
-      : key === 'original-orders'
-        ? 'originalOrders'
+      : key === 'cut-orders'
+        ? 'cutOrders'
         : key === 'cuttable-pool'
             ? 'cuttablePool'
             : key === 'spreading-list' || key === 'marker-spreading'
@@ -1582,8 +2127,8 @@ export function handleCraftCuttingProductionProgressEvent(target: Element): bool
     return true
   }
 
-  if (action === 'go-original-orders') {
-    return navigateToRecordTarget(actionNode.dataset.recordId, 'original-orders')
+  if (action === 'go-cut-orders') {
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'cut-orders')
   }
 
   if (action === 'go-material-prep') {

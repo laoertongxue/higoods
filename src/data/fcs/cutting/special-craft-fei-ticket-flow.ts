@@ -872,7 +872,7 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
     taskOrdersByKey.set(key, list)
   })
   const ticketLocationMap = new Map(
-    cuttingWarehouseItems.map((item) => [item.originalCutOrderNo, item.locationLabel] as const),
+    cuttingWarehouseItems.map((item) => [item.cutOrderNo, item.locationLabel] as const),
   )
 
   generatedFeiTickets.forEach((ticket) => {
@@ -923,15 +923,15 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
         return
       }
       occupiedBindingKeys.add(occupiedKey)
-      const locationLabel = ticketLocationMap.get(ticket.originalCutOrderNo) || '裁床厂待交出仓'
+      const locationLabel = ticketLocationMap.get(ticket.cutOrderNo) || '裁床厂待交出仓'
       const workOrderTarget = getWorkOrderTarget(taskOrder, line.demandLineId, line.partName)
       const originalQty = roundQty(ticket.qty)
       bindings.push({
         bindingId: buildBindingId(taskOrder.taskOrderId, line.demandLineId, ticket.feiTicketNo, operation.operationId),
         productionOrderId: taskOrder.productionOrderId,
         productionOrderNo: taskOrder.productionOrderNo,
-        cuttingOrderId: ticket.originalCutOrderId,
-        cuttingOrderNo: ticket.originalCutOrderNo,
+        cuttingOrderId: ticket.cutOrderId,
+        cuttingOrderNo: ticket.cutOrderNo,
         taskOrderId: taskOrder.taskOrderId,
         taskOrderNo: taskOrder.taskOrderNo,
         demandLineId: line.demandLineId,
@@ -993,8 +993,8 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
           bindingId: buildBindingId(taskOrder.taskOrderId, line.demandLineId, feiTicketNo, operation.operationId),
           productionOrderId: taskOrder.productionOrderId,
           productionOrderNo: taskOrder.productionOrderNo,
-          cuttingOrderId: generatedTicket?.originalCutOrderId || line.patternFileId,
-          cuttingOrderNo: generatedTicket?.originalCutOrderNo || line.patternFileName || '待绑定裁片单',
+          cuttingOrderId: generatedTicket?.cutOrderId || line.patternFileId,
+          cuttingOrderNo: generatedTicket?.cutOrderNo || line.patternFileName || '待绑定裁片单',
           taskOrderId: taskOrder.taskOrderId,
           taskOrderNo: taskOrder.taskOrderNo,
           demandLineId: line.demandLineId,
@@ -1322,7 +1322,7 @@ function buildPickupRecordFromBinding(
     warehouseHandedQty: handedQty,
     warehouseHandedAt: submittedAt,
     warehouseHandedBy: operatorName,
-    remark: '特殊工艺发料待来料',
+    remark: '特殊工艺交出待接收',
   }
 }
 
@@ -1369,7 +1369,7 @@ export function createSpecialCraftDispatchHandoverFromFeiTickets(input: {
       qtyUnit: binding.unit,
       factorySubmittedAt: input.submittedAt,
       factorySubmittedBy: input.operatorName,
-      factoryRemark: `特殊工艺发料 · ${binding.feiTicketNo}`,
+      factoryRemark: `特殊工艺交出 · ${binding.feiTicketNo}`,
       objectType: 'CUT_PIECE',
       handoutObjectType: 'CUT_PIECE',
       handoutItemLabel: `${binding.partName} / ${binding.colorName} / ${binding.sizeCode}`,
@@ -2255,7 +2255,7 @@ export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input: {
       status: differenceQty !== 0 ? '差异待处理' : '已入库',
       abnormalReason: differenceQty !== 0 ? input.differenceReason || '数量不符' : undefined,
       photoList: [],
-      remark: '特殊工艺回仓接收，进入裁床厂待交出仓',
+      remark: '特殊工艺回仓接收，进入裁床厂待交出仓，等待后续补交。',
     })
     inboundOrReturnRecords.push(inboundRecord)
     const waitHandoverStockItem = upsertFactoryWaitHandoverStockItem({
@@ -2300,7 +2300,7 @@ export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input: {
       status: '待交出',
       photoList: [],
       abnormalReason: differenceQty !== 0 ? input.differenceReason || '数量不符' : undefined,
-      remark: '特殊工艺回仓进入裁床厂待交出仓',
+      remark: '特殊工艺回仓进入裁床厂待交出仓，等待后续补交。',
     })
     cuttingWaitHandoverStockItems.push(waitHandoverStockItem)
     const nextBinding = updateBinding(flowStore!, binding.bindingId, (current) => ({

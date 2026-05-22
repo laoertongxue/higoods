@@ -3,7 +3,6 @@ export { renderCraftWorkbenchOverviewPage } from './workbench/overview'
 export {
   renderCraftCuttingProductionProgressPage,
   renderCraftCuttingCuttablePoolPage,
-  renderCraftCuttingMergeBatchesPage,
   renderCraftCuttingMarkerListPage,
   renderCraftCuttingMarkerCreatePage,
   renderCraftCuttingMarkerPlanEditPage,
@@ -22,7 +21,7 @@ export {
   renderCraftCuttingFeiTicketPrintPage,
   renderCraftCuttingFeiTicketReprintPage,
   renderCraftCuttingFeiTicketVoidPage,
-  renderCraftCuttingOriginalOrdersPage,
+  renderCraftCuttingCutOrdersPage,
   renderCraftCuttingSampleWarehousePage,
   renderCraftCuttingWarehouseManagementWaitProcessPage,
   renderCraftCuttingWarehouseManagementWaitHandoverPage,

@@ -31,19 +31,19 @@ function assertTraceabilitySources(): void {
   const feiSource = readRepoFile('src/data/fcs/cutting/generated-fei-tickets.ts')
   const carrierRuntime = readRepoFile('src/data/fcs/cutting/transfer-bag-runtime.ts')
 
-  assertIncludes(qrPayload, "codeType: 'ORIGINAL_CUT_ORDER'", '应存在原始裁片单主码 payload')
+  assertIncludes(qrPayload, "codeType: 'CUT_ORDER'", '应存在裁片单主码 payload')
   assertIncludes(qrPayload, "codeType: 'FEI_TICKET'", '应存在菲票子码 payload')
   assertIncludes(qrPayload, "codeType: 'CARRIER'", '应存在中转袋/箱父码 payload')
-  assertIncludes(qrPayload, 'buildOriginalCutOrderQrPayload', '缺少 buildOriginalCutOrderQrPayload')
+  assertIncludes(qrPayload, 'buildCutOrderQrPayload', '缺少 buildCutOrderQrPayload')
   assertIncludes(qrPayload, 'buildFeiTicketQrPayload', '缺少 buildFeiTicketQrPayload')
   assertIncludes(qrPayload, 'buildCarrierQrPayload', '缺少 buildCarrierQrPayload')
 
-  assertIncludes(qrCodes, 'encodeOriginalCutOrderQr', '缺少原始裁片单二维码编码器')
+  assertIncludes(qrCodes, 'encodeCutOrderQr', '缺少裁片单二维码编码器')
   assertIncludes(qrCodes, 'encodeFeiTicketQr', '缺少菲票二维码编码器')
   assertIncludes(qrCodes, 'encodeCarrierQr', '缺少载具二维码编码器')
   assertIncludes(qrCodes, 'validateFeiCraftSequence', '缺少工艺顺序校验')
 
-  assertIncludes(feiSource, 'originalCutOrderId', 'generated-fei-tickets.ts 必须绑定 originalCutOrderId')
+  assertIncludes(feiSource, 'cutOrderId', 'generated-fei-tickets.ts 必须绑定 cutOrderId')
   assertIncludes(feiSource, 'materialSku', 'generated-fei-tickets.ts 必须绑定 materialSku')
   assertIncludes(feiSource, 'secondaryCrafts', 'generated-fei-tickets.ts 必须写入二级工艺')
   assertIncludes(feiSource, 'craftSequenceVersion', 'generated-fei-tickets.ts 必须写入工艺顺序版本')
@@ -82,7 +82,7 @@ function assertFeiPagesCutover(): void {
   )
   assertIncludes(feiPage, 'craftTraceProjection', 'fei-tickets.ts 应接入工艺扫码追溯 projection')
   assertIncludes(feiPage, 'ticketId', 'fei-tickets.ts 应以 ticketId 作为正式页面锚点')
-  assertIncludes(feiPage, 'originalCutOrderId', 'fei-tickets.ts 应透传 originalCutOrderId')
+  assertIncludes(feiPage, 'cutOrderId', 'fei-tickets.ts 应透传 cutOrderId')
   assertIncludes(feiPage, 'productionOrderId', 'fei-tickets.ts 应透传 productionOrderId')
   assertIncludes(feiPage, 'materialSku', 'fei-tickets.ts 应透传 materialSku')
   assertNotIncludes(feiPage, 'cuttingOrderProgressRecords', 'fei-tickets.ts 不应继续直接依赖旧 progress 源')
@@ -147,7 +147,7 @@ function assertCraftTraceCutover(): void {
   assertIncludes(craftTraceProjection, 'craftSequenceVersion', 'craft-trace-projection.ts 应正式承载工艺顺序版本')
   assertIncludes(craftTraceProjection, 'validateFeiCraftSequence', 'craft-trace-projection.ts 应调用正式工艺顺序校验')
   assertIncludes(craftTraceProjection, 'feiTicketId', 'craft-trace-projection.ts 应以 feiTicketId 为正式工艺扫码锚点')
-  assertIncludes(craftTraceProjection, 'originalCutOrderId', 'craft-trace-projection.ts 应回落 originalCutOrderId')
+  assertIncludes(craftTraceProjection, 'cutOrderId', 'craft-trace-projection.ts 应回落 cutOrderId')
 }
 
 function assertNoLegacyAnchors(): void {

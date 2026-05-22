@@ -21,7 +21,7 @@ const productionHeaders = [
   '计划发货日期',
   '配料进展',
   '领料进展',
-  '原始裁片单数',
+  '裁片单数',
   '当前进展',
   '部位差异',
   '风险提示',
@@ -29,7 +29,7 @@ const productionHeaders = [
 ] as const
 
 const cutOrderHeaders = [
-  '原始裁片单号',
+  '裁片单号',
   '生产单号',
   '款号 / SPU',
   '面料 SKU',
@@ -42,7 +42,7 @@ const cutOrderHeaders = [
   '裁剪',
   '菲票',
   '特殊工艺回仓',
-  '裁片发料',
+  '裁片交出',
   '当前阻塞',
   '操作',
 ] as const
@@ -88,7 +88,7 @@ function main(): void {
   assert(source.includes('renderProductionOrderTable'), '裁床进度缺少生产单维度表格')
   assert(source.includes('renderMainTable'), '裁床进度缺少双维度统一入口')
   assert(source.includes('sourceOrderProgressLines'), '裁床进度裁片单维度未复用现有裁片单来源')
-  assert(source.includes('originalCutOrderNo'), '裁床进度裁片单维度缺少原始裁片单号来源')
+  assert(source.includes('cutOrderNo'), '裁床进度裁片单维度缺少裁片单号来源')
   assert(source.includes('materialSku'), '裁床进度裁片单维度缺少面料 SKU 来源')
   assert(source.includes('bundleLengthCmValues'), '裁床进度缺少 Step 1 捆条长度消费')
   assert(source.includes('bundleWidthCmValues'), '裁床进度缺少 Step 1 捆条宽度消费')

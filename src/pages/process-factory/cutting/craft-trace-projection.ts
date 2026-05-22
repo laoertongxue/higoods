@@ -26,8 +26,8 @@ import {
 export interface CraftTraceProjectionItem {
   feiTicketId: string
   feiTicketNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderNo: string
   materialSku: string
   secondaryCrafts: string[]
@@ -81,8 +81,8 @@ export function buildCraftTraceProjection(
     return {
       feiTicketId: generated?.feiTicketId || record.ticketRecordId,
       feiTicketNo: generated?.feiTicketNo || record.ticketNo,
-      originalCutOrderId: record.originalCutOrderId,
-      originalCutOrderNo: record.originalCutOrderNo,
+      cutOrderId: record.cutOrderId,
+      cutOrderNo: record.cutOrderNo,
       productionOrderNo: record.productionOrderNo,
       materialSku: record.materialSku,
       secondaryCrafts,

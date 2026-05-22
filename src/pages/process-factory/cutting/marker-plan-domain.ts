@@ -6,9 +6,9 @@ export type MarkerSizeCode = (typeof MARKER_SIZE_CODES)[number]
 
 export type MarkerPlanModeKey = 'normal' | 'high_low' | 'fold_normal' | 'fold_high_low'
 export type MarkerBedModeKey = MarkerPlanModeKey
-export type MarkerPlanContextType = 'original-cut-order' | 'merge-batch'
+export type MarkerPlanContextType = 'cut-order' | 'marker-plan-ref'
 export type MarkerPlanTabKey = 'basic' | 'explosion' | 'layout'
-export type MarkerSchemeSourceType = 'original-cut-order' | 'merge-batch' | 'mixed'
+export type MarkerSchemeSourceType = 'cut-order' | 'marker-plan-ref' | 'mixed'
 
 export type MarkerPlanStatusKey =
   | 'MAPPING_ISSUE'
@@ -88,7 +88,7 @@ export interface MarkerPlanAllocationLike {
 }
 
 export interface MarkerPlanLike {
-  originalCutOrderIds: string[]
+  cutOrderIds: string[]
   techPackSpuCode?: string
   spuCode: string
   sizeDistribution: Array<{
@@ -155,6 +155,8 @@ export interface MarkerPieceExplosionRow {
   sizeCode: string
   skuCode: string
   materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
   patternCode: string
   partCode: string
   partNameCn: string
@@ -268,10 +270,10 @@ export interface MarkerScheme {
   schemeNo: string
   schemeName: string
   sourceType: MarkerSchemeSourceType
-  sourceOriginalCutOrderIds: string[]
-  sourceOriginalCutOrderNos: string[]
-  sourceMergeBatchIds: string[]
-  sourceMergeBatchNos: string[]
+  sourceCutOrderIds: string[]
+  sourceCutOrderNos: string[]
+  sourceMarkerPlanIds: string[]
+  sourceMarkerPlanNos: string[]
   productionOrderIds: string[]
   productionOrderNos: string[]
   spuCode: string
@@ -309,6 +311,7 @@ export interface MarkerScheme {
 export interface MarkerPlan {
   id: string
   markerNo: string
+  markerPlanGroupKey?: string
   schemeId?: string
   schemeNo?: string
   schemeName?: string
@@ -324,10 +327,10 @@ export interface MarkerPlan {
   status: MarkerPlanStatusKey
   markerMode: MarkerPlanModeKey
   contextType: MarkerPlanContextType
-  originalCutOrderIds: string[]
-  originalCutOrderNos: string[]
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
+  markerPlanId: string
+  markerPlanNo: string
   productionOrderIds: string[]
   productionOrderNos: string[]
   styleCode: string
@@ -338,6 +341,8 @@ export interface MarkerPlan {
   sourceShipDate: string
   sourceUrgencyLabel: string
   materialSkuSummary: string
+  materialAliasSummary: string
+  materialImageUrl: string
   sourceMaterialSku: string
   colorSummary: string
   totalPieces: number
@@ -400,30 +405,67 @@ function formatDecimalFormulaValue(value: number, digits: number): string {
   return roundTo(safeNumber(value), digits).toFixed(digits)
 }
 
+export interface MarkerPlanCombinationRuleSource {
+  styleCode?: string | null
+  spuCode?: string | null
+  materialSku?: string | null
+  patternKey?: string | null
+  patternFileKey?: string | null
+  effectiveWidth?: number | string | null
+  historicalGroupKey?: string | null
+}
+
+export function normalizeMarkerPlanCombinationToken(value: string | null | undefined, fallback: string): string {
+  const text = String(value || '').trim()
+  if (!text) return fallback
+  return text.replace(/\s+/g, '-').replace(/_+/g, '_')
+}
+
+export function normalizeMarkerPlanEffectiveWidth(value: number | string | null | undefined): string {
+  const raw = String(value ?? '').trim()
+  const numeric = typeof value === 'number'
+    ? value
+    : Number(raw.match(/\d+(?:\.\d+)?/)?.[0] || Number.NaN)
+  if (!Number.isFinite(numeric) || numeric <= 0) return 'UNKNOWN_WIDTH'
+  const rounded = Math.round(numeric * 100) / 100
+  return `${rounded}cm`
+}
+
+export function buildMarkerPlanCombinationGroupKey(source: MarkerPlanCombinationRuleSource): string {
+  const spuKey = normalizeMarkerPlanCombinationToken(source.spuCode || source.styleCode, 'UNKNOWN_SPU')
+  const patternKey = normalizeMarkerPlanCombinationToken(
+    source.patternFileKey || source.patternKey,
+    'UNKNOWN_PATTERN',
+  )
+  const widthKey = normalizeMarkerPlanEffectiveWidth(source.effectiveWidth)
+  const historyKey = normalizeMarkerPlanCombinationToken(source.historicalGroupKey, 'NEW_GROUP')
+  return [spuKey, patternKey, widthKey, historyKey].join('__')
+}
+
 export const markerPlanModeMeta: Record<MarkerPlanModeKey, MarkerPlanStatusMeta<MarkerPlanModeKey>> = {
   normal: {
     key: 'normal',
-    label: '普通唛架',
+    label: '普通模式',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    helperText: '按普通唛架矩阵维护颜色、尺码和层数。',
+    helperText: '按普通模式维护颜色、尺码和层数。',
   },
   high_low: {
     key: 'high_low',
-    label: '高低层唛架',
+    label: '高低层模式',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    helperText: '按高低层唛架矩阵维护不同尺码列的层数。',
+    helperText: '按高低层模式维护不同尺码列的层数。',
   },
   fold_normal: {
     key: 'fold_normal',
-    label: '对折普通唛架',
+    label: '对折普通模式',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    helperText: '按对折普通唛架维护需求层数和实际铺布层数。',
+    helperText: '按对折普通模式维护需求层数和实际铺布层数。',
   },
   fold_high_low: {
     key: 'fold_high_low',
-    label: '对折高低层唛架',
+    label: '对折高低层模式',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    helperText: '按对折高低层唛架维护阶梯层数。',
+    helperText: '按对折高低层模式维护阶梯层数。',
   },
 }
 

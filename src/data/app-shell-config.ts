@@ -389,10 +389,9 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '裁前准备',
           icon: 'PackageSearch',
           children: [
-            { key: 'pfos-cutting-original-orders', title: '原始裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/original-orders' },
-            { key: 'pfos-cutting-cuttable-pool', title: '可裁排产', icon: 'CalendarClock', href: '/fcs/craft/cutting/cuttable-pool' },
-            { key: 'pfos-cutting-merge-batches', title: '合并裁剪批次', icon: 'Layers', href: '/fcs/craft/cutting/merge-batches' },
-            { key: 'pfos-cutting-marker-list', title: '唛架方案列表', icon: 'Ruler', href: '/fcs/craft/cutting/marker-list' },
+            { key: 'pfos-cutting-cut-orders', title: '裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/cut-orders' },
+            { key: 'pfos-cutting-cuttable-pool', title: '可排唛架裁片单', icon: 'CalendarClock', href: '/fcs/craft/cutting/cuttable-pool' },
+            { key: 'pfos-cutting-marker-list', title: '唛架方案', icon: 'Layers', href: '/fcs/craft/cutting/marker-list' },
           ],
         },
         {

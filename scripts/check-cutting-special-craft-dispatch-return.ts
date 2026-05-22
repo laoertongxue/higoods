@@ -44,11 +44,11 @@ function buildToken(...parts: string[]): string {
 
 const packageSource = read('package.json')
 const flowSource = read('src/data/fcs/cutting/special-craft-fei-ticket-flow.ts')
-const sewingDispatchSource = read('src/data/fcs/cutting/sewing-dispatch.ts') + read('src/pages/process-factory/cutting/sewing-dispatch.ts')
+const sewingDispatchSource = read('src/data/fcs/cutting/sewing-dispatch.ts') + read('src/pages/process-factory/cutting/warehouse-hub.ts')
 const progressStatisticsSource = read('src/data/fcs/progress-statistics-linkage.ts')
 const cuttingMetaSource = read('src/pages/process-factory/cutting/meta.ts')
-const dispatchPageSource = read('src/pages/process-factory/cutting/special-craft-dispatch.ts') + cuttingMetaSource
-const returnPageSource = read('src/pages/process-factory/cutting/special-craft-return.ts') + cuttingMetaSource
+const dispatchPageSource = read('src/pages/process-factory/cutting/warehouse-hub.ts') + cuttingMetaSource
+const returnPageSource = read('src/pages/process-factory/cutting/warehouse-hub.ts') + cuttingMetaSource
 const feiPageSource = read('src/pages/process-factory/cutting/fei-tickets.ts')
 const progressSource = read('src/pages/process-factory/cutting/production-progress.ts')
 const summarySource = read('src/pages/process-factory/cutting/cutting-summary.ts')
@@ -122,7 +122,7 @@ assertContains(flowSource, 'previous.specialCraftFlowStatus === \'已回仓\'', 
 
 ;[
   buildToken('特殊工艺', '发料'),
-  buildToken('扫', '菲票加入本次发料'),
+  buildToken('扫', '菲票加入本次交出'),
   buildToken('创建', '交出记录'),
   buildToken('查看', '任务'),
   buildToken('查看', '交出记录'),
@@ -314,11 +314,11 @@ const summaryBinding = bindings.find((item) => item.specialCraftFlowStatus === '
 assert(summaryBinding, '缺少可统计的特殊工艺菲票绑定')
 const orderSummary = getCuttingSpecialCraftReturnStatusByProductionOrder(summaryBinding.productionOrderId)
 assert(orderSummary.totalNeedSpecialCraftFeiTickets > 0, '生产单特殊工艺回仓汇总未生成')
-assertContains(sewingDispatchSource, 'getEligibleFeiTicketsForSewingDispatch', '裁片发车缝必须依赖特殊工艺回仓可用菲票筛选')
-assertContains(sewingDispatchSource, "specialCraftSummary.returnStatus.includes('已回仓')", '需要特殊工艺的菲票必须已回仓才可进入裁片发料')
-assertContains(sewingDispatchSource, '差异待处理不阻断裁片统一发料', '特殊工艺差异待处理不应阻断已回仓裁片发车缝')
+assertContains(sewingDispatchSource, 'getEligibleFeiTicketsForSewingDispatch', '裁片交出必须依赖特殊工艺回仓可用菲票筛选')
+assertContains(sewingDispatchSource, "specialCraftSummary.returnStatus.includes('已回仓')", '需要特殊工艺的菲票必须已回仓才可进入裁片交出')
+assertContains(sewingDispatchSource, '差异待处理不阻断裁片统一交出', '特殊工艺差异待处理不应阻断已回仓裁片交出')
 assertContains(sewingDispatchSource, 'currentQty > 0', '特殊工艺已回仓裁片仍需 currentQty 大于 0')
-assertContains(sewingDispatchSource, '特殊工艺未回仓', '特殊工艺未回仓必须阻断裁片发料')
+assertContains(sewingDispatchSource, '特殊工艺未回仓，交出后将形成缺口', '特殊工艺未回仓必须形成交出后缺口')
 assertNotContains(sewingDispatchSource, buildToken('特殊工艺', '厂', '直接发', '车', '缝'), '特殊工艺厂不得越过裁床统一发料')
 assertContains(progressStatisticsSource, 'getCuttingSpecialCraftReturnStatusByProductionOrder', '统计与进度联动必须消费特殊工艺回仓汇总')
 assertContains(progressStatisticsSource, 'specialCraftReturnStatus', '生产进度必须包含特殊工艺回仓状态')

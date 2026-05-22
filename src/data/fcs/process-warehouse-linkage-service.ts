@@ -3,8 +3,8 @@ import { getPrintWorkOrderById } from './printing-task-domain.ts'
 import { getDyeWorkOrderById } from './dyeing-task-domain.ts'
 import { cutPieceOrderRecords, type CutPieceOrderRecord } from './cutting/cut-piece-orders.ts'
 import { buildFcsCuttingDomainSnapshot } from '../../domain/fcs-cutting-runtime/index.ts'
-import type { GeneratedOriginalCutOrderSourceRecord } from './cutting/generated-original-cut-orders.ts'
-import { listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId } from './cutting/generated-fei-tickets.ts'
+import type { GeneratedCutOrderSourceRecord } from './cutting/generated-cut-orders.ts'
+import { listSpreadingResultGeneratedFeiTicketsByCutOrderId } from './cutting/generated-fei-tickets.ts'
 import {
   getSpecialCraftTaskWorkOrderById,
 } from './special-craft-task-orders.ts'
@@ -236,43 +236,43 @@ function resolveDyeContext(actionResult: ProcessWarehouseLinkageActionResult): W
 function findCuttingOrder(sourceId: string): CutPieceOrderRecord | undefined {
   return cutPieceOrderRecords.find(
     (item) =>
-      item.originalCutOrderId === sourceId ||
-      item.originalCutOrderNo === sourceId ||
+      item.cutOrderId === sourceId ||
+      item.cutOrderNo === sourceId ||
       item.id === sourceId ||
       item.cutPieceOrderNo === sourceId,
   )
 }
 
-function findGeneratedOriginalCutOrder(sourceId: string): GeneratedOriginalCutOrderSourceRecord | undefined {
-  return buildFcsCuttingDomainSnapshot().originalCutOrders.find(
-    (item) => item.originalCutOrderId === sourceId || item.originalCutOrderNo === sourceId,
+function findGeneratedCutOrder(sourceId: string): GeneratedCutOrderSourceRecord | undefined {
+  return buildFcsCuttingDomainSnapshot().cutOrders.find(
+    (item) => item.cutOrderId === sourceId || item.cutOrderNo === sourceId,
   )
 }
 
-function resolveCuttingFeiTicketIds(originalCutOrderId: string | undefined): string[] {
-  if (!originalCutOrderId) return []
-  return listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId).map((ticket) => ticket.feiTicketNo)
+function resolveCuttingFeiTicketIds(cutOrderId: string | undefined): string[] {
+  if (!cutOrderId) return []
+  return listSpreadingResultGeneratedFeiTicketsByCutOrderId(cutOrderId).map((ticket) => ticket.feiTicketNo)
 }
 
 function resolveCuttingContextFromGeneratedOrder(
   actionResult: ProcessWarehouseLinkageActionResult,
-  order: GeneratedOriginalCutOrderSourceRecord,
+  order: GeneratedCutOrderSourceRecord,
 ): WarehouseBaseContext {
-  const binding = validateCuttingOrderMobileTaskBinding(order.originalCutOrderId)
+  const binding = validateCuttingOrderMobileTaskBinding(order.cutOrderId)
   const isPickup = actionResult.actionCode === 'CUTTING_CONFIRM_PICKUP'
   const objectQty = roundQty(actionResult.objectQty || order.requiredQty)
-  const feiTicketIds = resolveCuttingFeiTicketIds(order.originalCutOrderId)
+  const feiTicketIds = resolveCuttingFeiTicketIds(order.cutOrderId)
   return {
     craftType: 'CUTTING',
     craftName: '裁片',
-    sourceWorkOrderId: order.originalCutOrderId,
-    sourceWorkOrderNo: order.originalCutOrderNo,
+    sourceWorkOrderId: order.cutOrderId,
+    sourceWorkOrderNo: order.cutOrderNo,
     sourceTaskId: binding.actualTaskId,
     sourceTaskNo: binding.actualTaskNo,
     sourceProductionOrderId: order.productionOrderId,
     sourceProductionOrderNo: order.productionOrderNo,
-    sourceDemandId: order.originalCutOrderId,
-    sourceDemandNo: order.originalCutOrderNo,
+    sourceDemandId: order.cutOrderId,
+    sourceDemandNo: order.cutOrderNo,
     sourceFactoryId: TEST_FACTORY_ID,
     sourceFactoryName: TEST_FACTORY_NAME,
     targetFactoryId: TEST_FACTORY_ID,
@@ -282,7 +282,7 @@ function resolveCuttingContextFromGeneratedOrder(
     skuSummary: order.pieceSummary || order.materialSku,
     materialSku: order.materialSku,
     materialName: order.materialLabel,
-    batchNo: order.mergeBatchNo || '',
+    batchNo: order.markerPlanNo || '',
     objectType: isPickup ? '面料' : '裁片',
     plannedObjectQty: roundQty(order.requiredQty),
     objectQty,
@@ -296,24 +296,24 @@ function resolveCuttingContextFromGeneratedOrder(
 function resolveCuttingContext(actionResult: ProcessWarehouseLinkageActionResult): WarehouseBaseContext | null {
   const order = findCuttingOrder(actionResult.sourceId)
   if (!order) {
-    const generatedOrder = findGeneratedOriginalCutOrder(actionResult.sourceId)
+    const generatedOrder = findGeneratedCutOrder(actionResult.sourceId)
     return generatedOrder ? resolveCuttingContextFromGeneratedOrder(actionResult, generatedOrder) : null
   }
-  const binding = validateCuttingOrderMobileTaskBinding(order.originalCutOrderId || order.id)
+  const binding = validateCuttingOrderMobileTaskBinding(order.cutOrderId || order.id)
   const isPickup = actionResult.actionCode === 'CUTTING_CONFIRM_PICKUP'
   const objectQty = roundQty(actionResult.objectQty || (isPickup ? order.markerInfo.netLength : order.markerInfo.totalPieces || order.orderQty))
-  const feiTicketIds = resolveCuttingFeiTicketIds(order.originalCutOrderId || order.id)
+  const feiTicketIds = resolveCuttingFeiTicketIds(order.cutOrderId || order.id)
   return {
     craftType: 'CUTTING',
     craftName: '裁片',
-    sourceWorkOrderId: order.originalCutOrderId || order.id,
-    sourceWorkOrderNo: order.originalCutOrderNo || order.cutPieceOrderNo,
+    sourceWorkOrderId: order.cutOrderId || order.id,
+    sourceWorkOrderNo: order.cutOrderNo || order.cutPieceOrderNo,
     sourceTaskId: binding.actualTaskId,
     sourceTaskNo: binding.actualTaskNo,
     sourceProductionOrderId: order.productionOrderId,
     sourceProductionOrderNo: order.productionOrderNo,
-    sourceDemandId: order.originalCutOrderId || order.id,
-    sourceDemandNo: order.originalCutOrderNo || order.cutPieceOrderNo,
+    sourceDemandId: order.cutOrderId || order.id,
+    sourceDemandNo: order.cutOrderNo || order.cutPieceOrderNo,
     sourceFactoryId: TEST_FACTORY_ID,
     sourceFactoryName: TEST_FACTORY_NAME,
     targetFactoryId: TEST_FACTORY_ID,
@@ -323,7 +323,7 @@ function resolveCuttingContext(actionResult: ProcessWarehouseLinkageActionResult
     skuSummary: `${order.materialSku} / ${order.materialLabel}`,
     materialSku: order.materialSku,
     materialName: order.materialLabel,
-    batchNo: order.latestConfigBatchNo || order.boundMergeBatchNo,
+    batchNo: order.latestConfigBatchNo || order.boundMarkerPlanRefNo,
     objectType: isPickup ? '面料' : '裁片',
     plannedObjectQty: roundQty(isPickup ? order.markerInfo.netLength : order.markerInfo.totalPieces || order.orderQty),
     objectQty,
@@ -587,8 +587,8 @@ export function applyDyeWarehouseLinkageAfterAction(actionResult: ProcessWarehou
 export function applyCuttingWarehouseLinkageAfterAction(actionResult: ProcessWarehouseLinkageActionResult): ProcessWarehouseLinkageResult {
   const context = resolveCuttingContext(actionResult)
   const base = emptyLinkageResult(actionResult)
-  if (!context) return mergeResult(base, { success: false, message: '未找到原始裁片单，不能执行仓联动' })
-  // 裁片冻结口径：合并裁剪批次只作为执行上下文，菲票归属原始裁片单。
+  if (!context) return mergeResult(base, { success: false, message: '未找到裁片单，不能执行仓联动' })
+  // 裁片冻结口径：唛架方案只作为执行上下文，菲票归属裁片单。
   if (actionResult.actionCode === 'CUTTING_CONFIRM_PICKUP') {
     const waitProcess = ensureWaitProcessWarehouseRecord(context, actionResult, '裁片待加工')
     return mergeResult(base, {
@@ -603,14 +603,14 @@ export function applyCuttingWarehouseLinkageAfterAction(actionResult: ProcessWar
     createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
     updatedWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
     updatedFeiTicketIds: context.relatedFeiTicketIds,
-    message: '裁片待交出仓已联动，菲票归属原始裁片单',
+    message: '裁片待交出仓已联动，菲票归属裁片单',
   })
   if (actionResult.actionCode === 'CUTTING_SUBMIT_HANDOVER') {
     const handover = ensureHandoverRecord({ ...context, objectType: '裁片', qtyUnit: '片' }, actionResult, waitHandover.warehouseRecordId)
     result = mergeResult(result, {
       createdHandoverRecordId: handover.handoverRecordId,
       updatedHandoverRecordId: handover.handoverRecordId,
-      message: '裁片交出记录已联动并关联原始裁片单和菲票',
+      message: '裁片交出记录已联动并关联裁片单和菲票',
     })
   }
   return result

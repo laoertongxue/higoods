@@ -1,6 +1,6 @@
 import { buildCuttingCoreRegistry } from '../../../domain/cutting-core/index.ts'
 import { productionOrders } from '../production-orders.ts'
-import { listGeneratedOriginalCutOrderSourceRecords } from './generated-original-cut-orders.ts'
+import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
 import { buildGeneratedFeiTicketTraceMatrix, listSpreadingResultGeneratedFeiTickets } from './generated-fei-tickets.ts'
 import { cuttingOrderProgressRecords } from './order-progress.ts'
 import { buildSpreadingDrivenTransferBagTraceMatrix, buildSystemSeedTransferBagRuntime } from './transfer-bag-runtime.ts'
@@ -21,16 +21,18 @@ export interface CuttingFabricStockRecord {
   id: string
   warehouseType: 'CUTTING_FABRIC'
   bindingState: FormalWarehouseBindingState
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  markerPlanId: string
+  markerPlanNo: string
   cutPieceOrderNo: string
   materialSku: string
   materialType: CuttingMaterialType
   materialLabel: string
+  materialAlias?: string
+  materialImageUrl?: string
   configuredRollCount: number
   configuredLength: number
   usedRollCount: number
@@ -48,12 +50,12 @@ export interface CutPieceWarehouseRecord {
   id: string
   warehouseType: 'CUT_PIECE'
   bindingState: FormalWarehouseBindingState
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  markerPlanId: string
+  markerPlanNo: string
   cutPieceOrderNo: string
   materialSku: string
   groupNo: string
@@ -80,8 +82,8 @@ export interface SampleWarehouseRecord {
   id: string
   warehouseType: 'SAMPLE'
   bindingState: FormalSampleBindingState
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   sampleNo: string
@@ -140,26 +142,26 @@ const productionOrderById = new Map(productionOrders.map((order) => [order.produ
 function resolveSourceProductionOrderNo(source: {
   productionOrderId: string
   productionOrderNo?: string
-  originalCutOrderNo: string
+  cutOrderNo: string
 }): string {
   const rawOrderNo = source.productionOrderNo || productionOrderById.get(source.productionOrderId)?.productionOrderNo
-  return String(rawOrderNo || source.productionOrderId || source.originalCutOrderNo || '').trim()
+  return String(rawOrderNo || source.productionOrderId || source.cutOrderNo || '').trim()
 }
 
-const progressLineByOriginalId = new Map<string, CuttingMaterialLine>()
-const progressLineByOriginalNo = new Map<string, CuttingMaterialLine>()
-const progressRecordByOriginalId = new Map<string, (typeof cuttingOrderProgressRecords)[number]>()
-const progressRecordByOriginalNo = new Map<string, (typeof cuttingOrderProgressRecords)[number]>()
+const progressLineByCutOrderId = new Map<string, CuttingMaterialLine>()
+const progressLineByCutOrderNo = new Map<string, CuttingMaterialLine>()
+const progressRecordByCutOrderId = new Map<string, (typeof cuttingOrderProgressRecords)[number]>()
+const progressRecordByCutOrderNo = new Map<string, (typeof cuttingOrderProgressRecords)[number]>()
 
 cuttingOrderProgressRecords.forEach((record) => {
   record.materialLines.forEach((line) => {
-    if (line.originalCutOrderId) {
-      progressLineByOriginalId.set(line.originalCutOrderId, line)
-      progressRecordByOriginalId.set(line.originalCutOrderId, record)
+    if (line.cutOrderId) {
+      progressLineByCutOrderId.set(line.cutOrderId, line)
+      progressRecordByCutOrderId.set(line.cutOrderId, record)
     }
-    if (line.originalCutOrderNo) {
-      progressLineByOriginalNo.set(line.originalCutOrderNo, line)
-      progressRecordByOriginalNo.set(line.originalCutOrderNo, record)
+    if (line.cutOrderNo) {
+      progressLineByCutOrderNo.set(line.cutOrderNo, line)
+      progressRecordByCutOrderNo.set(line.cutOrderNo, record)
     }
   })
 })
@@ -187,12 +189,12 @@ function unique<T>(values: T[]): T[] {
   return Array.from(new Set(values))
 }
 
-function resolveProgressLine(originalCutOrderId: string, originalCutOrderNo: string): CuttingMaterialLine | null {
-  return progressLineByOriginalId.get(originalCutOrderId) || progressLineByOriginalNo.get(originalCutOrderNo) || null
+function resolveProgressLine(cutOrderId: string, cutOrderNo: string): CuttingMaterialLine | null {
+  return progressLineByCutOrderId.get(cutOrderId) || progressLineByCutOrderNo.get(cutOrderNo) || null
 }
 
-function resolveProgressRecord(originalCutOrderId: string, originalCutOrderNo: string) {
-  return progressRecordByOriginalId.get(originalCutOrderId) || progressRecordByOriginalNo.get(originalCutOrderNo) || null
+function resolveProgressRecord(cutOrderId: string, cutOrderNo: string) {
+  return progressRecordByCutOrderId.get(cutOrderId) || progressRecordByCutOrderNo.get(cutOrderNo) || null
 }
 
 function resolveConfiguredLength(requiredQty: number, materialType: CuttingMaterialType): number {
@@ -234,9 +236,9 @@ function resolveUsageByReceiveStatus(options: {
   }
 }
 
-function buildFabricActionText(line: CuttingMaterialLine | null, originalCutOrderNo: string): string {
+function buildFabricActionText(line: CuttingMaterialLine | null, cutOrderNo: string): string {
   if (line?.latestActionText) return line.latestActionText
-  return `原始裁片单 ${originalCutOrderNo} 的裁床仓记录已切到正式主源，待现场继续确认领用节奏。`
+  return `裁片单 ${cutOrderNo} 的裁床仓记录已切到正式主源，待现场继续确认领用节奏。`
 }
 
 function buildPieceSummaryText(requiredQty: number, pieceName: string): string {
@@ -300,12 +302,12 @@ function buildSampleFlowHistory(options: {
 }
 
 function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
-  const originalSources = listGeneratedOriginalCutOrderSourceRecords()
-  const fabric: CuttingFabricStockRecord[] = originalSources.map((source, index) => {
+  const cutOrderSources = listGeneratedCutOrderSourceRecords()
+  const fabric: CuttingFabricStockRecord[] = cutOrderSources.map((source, index) => {
     const productionOrderNo = resolveSourceProductionOrderNo(source)
-    const progressLine = resolveProgressLine(source.originalCutOrderId, source.originalCutOrderNo)
-    const progressRecord = resolveProgressRecord(source.originalCutOrderId, source.originalCutOrderNo)
-    const originalRef = registry.originalCutOrdersById[source.originalCutOrderId]
+    const progressLine = resolveProgressLine(source.cutOrderId, source.cutOrderNo)
+    const progressRecord = resolveProgressRecord(source.cutOrderId, source.cutOrderNo)
+    const cutOrderRef = registry.cutOrdersById[source.cutOrderId]
     const configuredLength = progressLine?.configuredLength || resolveConfiguredLength(source.requiredQty, source.materialType)
     const configuredRollCount = progressLine?.configuredRollCount || resolveConfiguredRollCount(configuredLength)
     const usage = resolveUsageByReceiveStatus({
@@ -321,19 +323,21 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
     const remainingLength = Math.max(configuredLength - usedLength, 0)
 
     return {
-      id: `formal-fabric-${source.originalCutOrderId}`,
+      id: `formal-fabric-${source.cutOrderId}`,
       warehouseType: 'CUTTING_FABRIC',
       bindingState: 'BOUND_FORMAL_WAREHOUSE_RECORD',
-      originalCutOrderId: source.originalCutOrderId,
-      originalCutOrderNo: source.originalCutOrderNo,
+      cutOrderId: source.cutOrderId,
+      cutOrderNo: source.cutOrderNo,
       productionOrderId: source.productionOrderId,
       productionOrderNo,
-      mergeBatchId: originalRef?.activeMergeBatchId || '',
-      mergeBatchNo: originalRef?.activeMergeBatchNo || '',
-      cutPieceOrderNo: source.originalCutOrderNo,
+      markerPlanId: cutOrderRef?.activeMarkerPlanRefId || '',
+      markerPlanNo: cutOrderRef?.activeMarkerPlanRefNo || '',
+      cutPieceOrderNo: source.cutOrderNo,
       materialSku: source.materialSku,
       materialType: source.materialType,
       materialLabel: source.materialLabel,
+      materialAlias: source.materialAlias,
+      materialImageUrl: source.materialImageUrl,
       configuredRollCount,
       configuredLength,
       usedRollCount,
@@ -342,17 +346,17 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       remainingLength,
       latestConfigAt: progressRecord?.lastFieldUpdateAt || progressRecord?.purchaseDate || productionOrderById.get(source.productionOrderId)?.createdAt || '',
       latestReceiveAt: progressLine?.receiveStatus === 'NOT_RECEIVED' ? '' : progressRecord?.lastPickupScanAt || progressRecord?.lastFieldUpdateAt || '',
-      latestActionText: buildFabricActionText(progressLine, source.originalCutOrderNo),
+      latestActionText: buildFabricActionText(progressLine, source.cutOrderNo),
       fabricState: usage.fabricState,
-      note: usage.fabricState === 'NEED_RECHECK' ? '当前WMS 来料 / 使用记录存在差异，需继续核对。' : '当前仓务读链已切换到正式原始裁片单主码。',
+      note: usage.fabricState === 'NEED_RECHECK' ? '当前裁床领料 / 使用记录存在差异，需继续核对。' : '当前仓务读链已切换到正式裁片单主码。',
     }
   })
 
-  const cutPiece: CutPieceWarehouseRecord[] = originalSources.map((source, index) => {
+  const cutPiece: CutPieceWarehouseRecord[] = cutOrderSources.map((source, index) => {
     const productionOrderNo = resolveSourceProductionOrderNo(source)
-    const progressLine = resolveProgressLine(source.originalCutOrderId, source.originalCutOrderNo)
-    const progressRecord = resolveProgressRecord(source.originalCutOrderId, source.originalCutOrderNo)
-    const originalRef = registry.originalCutOrdersById[source.originalCutOrderId]
+    const progressLine = resolveProgressLine(source.cutOrderId, source.cutOrderNo)
+    const progressRecord = resolveProgressRecord(source.cutOrderId, source.cutOrderNo)
+    const cutOrderRef = registry.cutOrdersById[source.cutOrderId]
     const inboundStatus: CutPieceInboundStatus =
       progressRecord?.hasInboundRecord || (progressLine?.pieceProgressLines || []).some((line) => Number(line.inboundQty || 0) > 0)
         ? index % 5 === 0
@@ -365,18 +369,18 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
     const pieceName = source.pieceRows[0]?.partName || '裁片主片'
 
     return {
-      id: `formal-cut-piece-${source.originalCutOrderId}`,
+      id: `formal-cut-piece-${source.cutOrderId}`,
       warehouseType: 'CUT_PIECE',
       bindingState: 'BOUND_FORMAL_WAREHOUSE_RECORD',
-      originalCutOrderId: source.originalCutOrderId,
-      originalCutOrderNo: source.originalCutOrderNo,
+      cutOrderId: source.cutOrderId,
+      cutOrderNo: source.cutOrderNo,
       productionOrderId: source.productionOrderId,
       productionOrderNo,
-      mergeBatchId: originalRef?.activeMergeBatchId || '',
-      mergeBatchNo: originalRef?.activeMergeBatchNo || '',
-      cutPieceOrderNo: source.originalCutOrderNo,
+      markerPlanId: cutOrderRef?.activeMarkerPlanRefId || '',
+      markerPlanNo: cutOrderRef?.activeMarkerPlanRefNo || '',
+      cutPieceOrderNo: source.cutOrderNo,
       materialSku: source.materialSku,
-      groupNo: originalRef?.activeMergeBatchNo || `${source.materialSku}-主组`,
+      groupNo: cutOrderRef?.activeMarkerPlanRefNo || `${source.materialSku}-主组`,
       zoneCode,
       locationLabel: zoneCode === 'UNASSIGNED' ? '待分区' : `${zoneCode} 区 ${String((index % 4) + 1)} 组`,
       inboundStatus,
@@ -385,13 +389,13 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       pieceSummary: buildPieceSummaryText(quantity, pieceName),
       handoverStatus: inboundStatus === 'HANDED_OVER' ? 'HANDED_OVER' : 'WAITING_HANDOVER',
       handoverTarget: inboundStatus === 'HANDED_OVER' ? '已交接后道缝制' : '待后道交接',
-      note: progressLine?.latestActionText || `原始裁片单 ${source.originalCutOrderNo} 的裁片仓记录已切换到正式仓务读链。`,
+      note: progressLine?.latestActionText || `裁片单 ${source.cutOrderNo} 的裁片仓记录已切换到正式仓务读链。`,
     }
   })
 
   const sample: SampleWarehouseRecord[] = []
   const seenProductionOrders = new Set<string>()
-  originalSources.forEach((source, index) => {
+  cutOrderSources.forEach((source, index) => {
     if (seenProductionOrders.has(source.productionOrderId)) return
     seenProductionOrders.add(source.productionOrderId)
 
@@ -404,8 +408,8 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       statusPattern === 0 ? 'CUTTING' : statusPattern === 1 ? 'FACTORY_CHECK' : statusPattern === 2 ? 'BACK_TO_PMC' : 'RETURN_CHECK'
     const currentStatus: SampleWarehouseStatus =
       statusPattern === 0 ? 'IN_USE' : statusPattern === 1 ? 'WAITING_RETURN' : statusPattern === 2 ? 'AVAILABLE' : 'CHECKING'
-    const sampleNo = `SMP-${productionOrderNo.replace(/[^0-9]/g, '').slice(-6) || source.originalCutOrderNo.slice(-6)}`
-    const sampleName = `${productionOrder?.demandSnapshot.spuName || source.sourceTechPackSpuCode || source.originalCutOrderNo} 样衣`
+    const sampleNo = `SMP-${productionOrderNo.replace(/[^0-9]/g, '').slice(-6) || source.cutOrderNo.slice(-6)}`
+    const sampleName = `${productionOrder?.demandSnapshot.spuName || source.sourceTechPackSpuCode || source.cutOrderNo} 样衣`
     const nextSuggestedAction =
       currentStatus === 'IN_USE'
         ? '裁床参考结束后归还 PMC 仓库。'
@@ -419,14 +423,14 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       id: `formal-sample-${source.productionOrderId}`,
       warehouseType: 'SAMPLE',
       bindingState: 'BOUND_FORMAL_SAMPLE_RECORD',
-      originalCutOrderId: source.originalCutOrderId,
-      originalCutOrderNo: source.originalCutOrderNo,
+      cutOrderId: source.cutOrderId,
+      cutOrderNo: source.cutOrderNo,
       productionOrderId: source.productionOrderId,
       productionOrderNo,
       sampleNo,
       sampleName,
       relatedProductionOrderNo: productionOrderNo,
-      relatedCutPieceOrderNo: source.originalCutOrderNo,
+      relatedCutPieceOrderNo: source.cutOrderNo,
       currentLocationStage,
       currentHolder:
         currentStatus === 'IN_USE'
@@ -459,8 +463,8 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       warehouseAlertType: 'UNASSIGNED_ZONE',
       level: 'HIGH',
       title: '裁片待分区',
-      description: `${firstUnassigned.originalCutOrderNo} 仍待裁片仓分配区域。`,
-      relatedNo: firstUnassigned.originalCutOrderNo,
+      description: `${firstUnassigned.cutOrderNo} 仍待裁片仓分配区域。`,
+      relatedNo: firstUnassigned.cutOrderNo,
       suggestedAction: '优先完成入仓分区，避免后续查找与交接延迟。',
     })
   }
@@ -472,7 +476,7 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       warehouseAlertType: 'STOCK_RECHECK',
       level: 'HIGH',
       title: '裁床仓余量待核对',
-      description: `${firstNeedRecheck.materialSku} 当前存在WMS 来料或余量差异待核对。`,
+      description: `${firstNeedRecheck.materialSku} 当前存在裁床领料或余量差异待核对。`,
       relatedNo: firstNeedRecheck.materialSku,
       suggestedAction: '先核对裁床仓余料，再推进后续仓务收口。',
     })
@@ -543,10 +547,10 @@ export function cloneWarehouseManagementData() {
 
 export interface WarehouseRuntimeTraceMatrixRow {
   warehouseRecordId: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId: string
-  mergeBatchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
   materialSku: string
   cutPieceOrderNo: string
   spreadingSessionId: string
@@ -566,14 +570,14 @@ export interface WarehouseRuntimeTraceMatrixRow {
 export function buildWarehouseRuntimeTraceMatrix(
   records: CutPieceWarehouseRecord[] = listFormalCutPieceWarehouseRecords(),
 ): WarehouseRuntimeTraceMatrixRow[] {
-  const originalRows = listGeneratedOriginalCutOrderSourceRecords()
-  const originalRowsById = new Map(originalRows.map((record) => [record.originalCutOrderId, record] as const))
+  const cutOrderRows = listGeneratedCutOrderSourceRecords()
+  const cutOrderRowsById = new Map(cutOrderRows.map((record) => [record.cutOrderId, record] as const))
   const feiTraceById = new Map(buildGeneratedFeiTicketTraceMatrix().map((row) => [row.feiTicketId, row] as const))
   const transferTraceRows = buildSpreadingDrivenTransferBagTraceMatrix(
     buildSystemSeedTransferBagRuntime({
-      originalRows: originalRows.map((record) => ({
-        originalCutOrderId: record.originalCutOrderId,
-        originalCutOrderNo: record.originalCutOrderNo,
+      cutOrderRows: cutOrderRows.map((record) => ({
+        cutOrderId: record.cutOrderId,
+        cutOrderNo: record.cutOrderNo,
         productionOrderNo: record.productionOrderNo,
         styleCode: record.styleCode,
         spuCode: record.sourceTechPackSpuCode || '',
@@ -582,7 +586,7 @@ export function buildWarehouseRuntimeTraceMatrix(
         plannedQty: record.requiredQty,
       })),
       ticketRecords: listSpreadingResultGeneratedFeiTickets().map((record) => {
-        const original = originalRowsById.get(record.originalCutOrderId)
+        const sourceCutOrder = cutOrderRowsById.get(record.cutOrderId)
         const trace = feiTraceById.get(record.feiTicketId)
         return {
           feiTicketId: record.feiTicketId,
@@ -592,18 +596,18 @@ export function buildWarehouseRuntimeTraceMatrix(
           sourceMarkerId: record.sourceMarkerId,
           sourceMarkerNo: record.sourceMarkerNo,
           sourceWritebackId: trace?.sourceWritebackId || '',
-          originalCutOrderId: record.originalCutOrderId,
-          originalCutOrderNo: record.originalCutOrderNo,
+          cutOrderId: record.cutOrderId,
+          cutOrderNo: record.cutOrderNo,
           productionOrderNo: record.productionOrderNo,
-          mergeBatchNo: record.sourceMergeBatchNo,
-          styleCode: original?.styleCode || '',
-          spuCode: record.sourceTechPackSpuCode || original?.sourceTechPackSpuCode || '',
+          markerPlanNo: record.sourceMarkerPlanNo,
+          styleCode: sourceCutOrder?.styleCode || '',
+          spuCode: record.sourceTechPackSpuCode || sourceCutOrder?.sourceTechPackSpuCode || '',
           color: record.skuColor,
           size: record.skuSize,
           partName: record.partName,
           qty: record.garmentQty,
           materialSku: record.materialSku,
-          sourceContextType: record.sourceMergeBatchId ? 'merge-batch' : 'original-order',
+          sourceContextType: record.sourceMarkerPlanId ? 'marker-plan-ref' : 'cut-order',
           status: 'PRINTED' as const,
         }
       }),
@@ -615,18 +619,18 @@ export function buildWarehouseRuntimeTraceMatrix(
       const matchedTransferRow =
         transferTraceRows.find(
           (row) =>
-            row.originalCutOrderId === record.originalCutOrderId &&
-            (!record.mergeBatchNo || !row.mergeBatchNo || row.mergeBatchNo === record.mergeBatchNo),
+            row.cutOrderId === record.cutOrderId &&
+            (!record.markerPlanNo || !row.markerPlanNo || row.markerPlanNo === record.markerPlanNo),
         ) ||
-        transferTraceRows.find((row) => row.originalCutOrderId === record.originalCutOrderId) ||
+        transferTraceRows.find((row) => row.cutOrderId === record.cutOrderId) ||
         null
 
       return {
         warehouseRecordId: record.id,
-        originalCutOrderId: record.originalCutOrderId,
-        originalCutOrderNo: record.originalCutOrderNo,
-        mergeBatchId: record.mergeBatchId,
-        mergeBatchNo: record.mergeBatchNo,
+        cutOrderId: record.cutOrderId,
+        cutOrderNo: record.cutOrderNo,
+        markerPlanId: record.markerPlanId,
+        markerPlanNo: record.markerPlanNo,
         materialSku: record.materialSku,
         cutPieceOrderNo: record.cutPieceOrderNo,
         spreadingSessionId: matchedTransferRow?.sourceSpreadingSessionId || '',
@@ -645,7 +649,7 @@ export function buildWarehouseRuntimeTraceMatrix(
     })
     .sort(
       (left, right) =>
-        left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+        left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN')
         || left.warehouseRecordId.localeCompare(right.warehouseRecordId, 'zh-CN'),
     )
 }

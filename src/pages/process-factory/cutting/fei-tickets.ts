@@ -30,6 +30,7 @@ import {
   renderStickyFilterShell,
   renderStickyTableScroller,
 } from './layout.helpers.ts'
+import { renderMaterialIdentityBlock } from './material-identity.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   buildCuttingRouteWithContext,
@@ -48,9 +49,9 @@ import {
 import { findCuttingSewingDispatchByFeiTicketNo } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import { buildSpecialCraftTaskDetailPath } from '../../../data/fcs/special-craft-operations.ts'
 import { buildFeiTicketLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
-import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { CutOrderRow } from './cut-orders-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
 import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
 import type { TransferBagStore } from './transfer-bags-model.ts'
 import type { CraftTraceProjection, CraftTraceProjectionItem } from './craft-trace-projection.ts'
@@ -71,9 +72,9 @@ interface FeiOperationDraft {
 }
 
 interface FeiTicketsDataBundle {
-  originalRows: OriginalCutOrderRow[]
+  cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
+  markerPlanRefs: MarkerPlanRefRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -101,14 +102,18 @@ function getTicketScanCode(source: Record<string, unknown>): string {
   return typeof value === 'string' ? value : ''
 }
 
+function formatDispatchLabel(value: string): string {
+  return value.replaceAll('发料', '交出')
+}
+
 const printableTypeMeta: Record<'ALL' | PrintableUnitType, string> = {
   ALL: '全部',
-  BATCH: '合并裁剪批次',
+  MARKER_PLAN: '唛架方案',
   CUT_ORDER: '裁片单',
 }
 
 const operationTypeMeta: Record<TicketPrintRecord['operationType'], string> = {
-  FIRST_PRINT: '首次打印',
+  FIRST_PRINT: '首打',
   REPRINT: '补打',
   VOID: '作废',
 }
@@ -235,9 +240,9 @@ function mapPrintableStatusFromQuery(value: string | null): 'ALL' | PrintableUni
 
 function inferPrintableUnitType(params: URLSearchParams): 'ALL' | PrintableUnitType {
   const explicit = params.get('printableUnitType')
-  if (explicit === 'BATCH' || explicit === 'CUT_ORDER') return explicit
-  if (params.get('mergeBatchId') || params.get('mergeBatchNo')) return 'BATCH'
-  if (params.get('originalCutOrderId') || params.get('originalCutOrderNo')) return 'CUT_ORDER'
+  if (explicit === 'MARKER_PLAN' || explicit === 'CUT_ORDER') return explicit
+  if (params.get('markerPlanId') || params.get('markerPlanNo')) return 'MARKER_PLAN'
+  if (params.get('cutOrderId') || params.get('cutOrderNo')) return 'CUT_ORDER'
   return 'ALL'
 }
 
@@ -253,8 +258,8 @@ function filterPrintableUnitsByDrillContext(units: PrintableUnit[], drillContext
     if (drillContext.spreadingSessionNo && !unit.sourceSpreadingSessionNos.includes(drillContext.spreadingSessionNo)) return false
     // 已明确给到铺布 session 时，以铺布结果为主真相源，不再叠加其它上下文条件缩窄到空结果。
     if (hasSpreadingSessionAnchor) return true
-    if (drillContext.mergeBatchId && unit.batchId && unit.batchId !== drillContext.mergeBatchId) return false
-    if (drillContext.originalCutOrderId && !unit.sourceCutOrderIds.includes(drillContext.originalCutOrderId)) return false
+    if (drillContext.markerPlanId && unit.batchId && unit.batchId !== drillContext.markerPlanId) return false
+    if (drillContext.cutOrderId && !unit.sourceCutOrderIds.includes(drillContext.cutOrderId)) return false
     return true
   })
 }
@@ -290,7 +295,7 @@ function buildSpreadingTraceText(unit: PrintableUnit, drillContext = getCurrentD
   const preferred = resolvePreferredSpreadingTrace(unit, drillContext)
   const orderedNos = uniqueStrings([preferred.no, ...unit.sourceSpreadingSessionNos])
   const orderedIds = uniqueStrings([preferred.id, ...unit.sourceSpreadingSessionIds])
-  return orderedNos.join(' / ') || orderedIds.join(' / ') || '当前按原始裁片单参考补足'
+  return orderedNos.join(' / ') || orderedIds.join(' / ') || '当前按裁片单参考补足'
 }
 
 function renderReturnToSummaryButton(): string {
@@ -307,8 +312,8 @@ function buildFiltersFromQuery(params: URLSearchParams): PrintableUnitFilters {
       ? ''
       : drillContext?.printableUnitNo
         || drillContext?.ticketNo
-        || drillContext?.originalCutOrderNo
-        || drillContext?.mergeBatchNo
+        || drillContext?.cutOrderNo
+        || drillContext?.markerPlanNo
         || '')
   return {
     keyword,
@@ -383,9 +388,9 @@ function getDataBundle(): FeiTicketsDataBundle {
   }
 
   return {
-    originalRows: projection.originalRows,
+    cutOrderRows: projection.cutOrderRows,
     materialPrepRows: projection.materialPrepRows,
-    mergeBatches: projection.mergeBatches,
+    markerPlanRefs: projection.markerPlanRefs,
     markerStore: projection.markerStore,
     ticketRecords: projection.ticketRecords,
     printJobs: projection.printJobs,
@@ -406,8 +411,6 @@ function buildPrintableUnitQuery(unit: PrintableUnit): Record<string, string | u
     printableUnitType: unit.printableUnitType,
     batchId: unit.batchId || undefined,
     batchNo: unit.batchNo || undefined,
-    originalCutOrderId: unit.cutOrderId || undefined,
-    originalCutOrderNo: unit.cutOrderNo || undefined,
     cutOrderId: unit.cutOrderId || undefined,
     cutOrderNo: unit.cutOrderNo || undefined,
     productionOrderId: unit.sourceProductionOrderIds[0] || undefined,
@@ -478,7 +481,7 @@ function renderBadge(label: string, className: string): string {
 
 function renderUnitTypeBadge(type: PrintableUnitType): string {
   const className =
-    type === 'BATCH'
+    type === 'MARKER_PLAN'
       ? 'border border-violet-200 bg-violet-100 text-violet-700'
       : 'border border-slate-200 bg-slate-100 text-slate-700'
   return renderBadge(printableTypeMeta[type], className)
@@ -524,7 +527,7 @@ function renderFilterArea(): string {
             type="text"
             value="${escapeHtml(state.filters.keyword)}"
             data-cutting-fei-field="keyword"
-            placeholder="输入合并裁剪批次号 / 原始裁片单号"
+            placeholder="输入唛架方案号 / 裁片单号"
             class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           />
         </label>
@@ -534,7 +537,7 @@ function renderFilterArea(): string {
             data-cutting-fei-field="printableUnitType"
             class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           >
-            ${(['ALL', 'BATCH', 'CUT_ORDER'] as const)
+            ${(['ALL', 'MARKER_PLAN', 'CUT_ORDER'] as const)
               .map((item) => `<option value="${item}" ${item === state.filters.printableUnitType ? 'selected' : ''}>${printableTypeMeta[item]}</option>`)
               .join('')}
           </select>
@@ -550,12 +553,12 @@ function renderFilterArea(): string {
           />
         </label>
         <label class="space-y-1 text-sm text-slate-600">
-          <span class="font-medium text-slate-700">面料 SKU</span>
+          <span class="font-medium text-slate-700">面料</span>
           <input
             type="text"
             value="${escapeHtml(state.filters.fabricSku)}"
             data-cutting-fei-field="fabricSku"
-            placeholder="输入面料 SKU"
+            placeholder="输入面料 SKU / 技术包别名"
             class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           />
         </label>
@@ -725,7 +728,7 @@ function renderListTable(bundle: FeiTicketsDataBundle): string {
           <th class="px-3 py-3 text-left font-medium">可打印单元号</th>
           <th class="px-3 py-3 text-left font-medium">单元类型</th>
           <th class="px-3 py-3 text-left font-medium">款号</th>
-          <th class="px-3 py-3 text-left font-medium">面料 SKU</th>
+          <th class="px-3 py-3 text-left font-medium">面料</th>
           <th class="px-3 py-3 text-left font-medium">来源生产单数</th>
           <th class="px-3 py-3 text-left font-medium">来源裁片单数</th>
           <th class="px-3 py-3 text-left font-medium">应打菲票数</th>
@@ -753,7 +756,12 @@ function renderListTable(bundle: FeiTicketsDataBundle): string {
                 </td>
                 <td class="px-3 py-2.5 whitespace-nowrap">${renderUnitTypeBadge(unit.printableUnitType)}</td>
                 <td class="px-3 py-2.5 text-slate-700">${renderTruncatedText(unit.styleCode || '待补款号', '待补款号', 'max-w-[8rem]')}</td>
-                <td class="px-3 py-2.5 text-slate-700">${renderTruncatedText(unit.fabricSku || '待补面料', '待补面料', 'max-w-[10rem]')}</td>
+                <td class="px-3 py-2.5 text-slate-700">${renderMaterialIdentityBlock({
+                  materialSku: unit.fabricSku || '待补面料',
+                  materialLabel: unit.fabricSku || '待补面料',
+                  materialAlias: unit.materialAlias,
+                  materialImageUrl: unit.materialImageUrl,
+                }, { compact: true, imageSizeClass: 'h-9 w-9' })}</td>
                 <td class="px-3 py-2.5 text-slate-700">${formatCount(unit.sourceProductionOrderCount)}</td>
                 <td class="px-3 py-2.5 text-slate-700">${formatCount(unit.sourceCutOrderCount)}</td>
                 <td class="px-3 py-2.5 font-medium text-slate-900">${formatCount(unit.requiredTicketCount)}</td>
@@ -839,7 +847,7 @@ function renderDetailSummary(detailView: PrintableUnitDetailViewModel): string {
   const { unit } = detailView
   const sourceMarkerText = unit.sourceMarkerNos.join(' / ') || '待补'
   const sourceCutOrderText = unit.sourceCutOrderNos.join(' / ') || '待补'
-  const sourceMergeBatchText = unit.batchNo || '未关联合并裁剪批次'
+  const sourceMarkerPlanText = unit.batchNo || '未关联唛架方案'
   return `
     <section class="rounded-lg border bg-white p-4 shadow-sm">
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
@@ -857,8 +865,13 @@ function renderDetailSummary(detailView: PrintableUnitDetailViewModel): string {
             <p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(unit.styleCode || '待补款号')}</p>
           </div>
           <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p class="text-xs text-slate-500">面料 SKU</p>
-            <p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(unit.fabricSku || '待补面料')}</p>
+            <p class="text-xs text-slate-500">面料</p>
+            <div class="mt-2">${renderMaterialIdentityBlock({
+              materialSku: unit.fabricSku || '待补面料',
+              materialLabel: unit.fabricSku || '待补面料',
+              materialAlias: unit.materialAlias,
+              materialImageUrl: unit.materialImageUrl,
+            }, { compact: true })}</div>
           </div>
           <div class="rounded-lg border border-slate-200 bg-white p-3">
             <p class="text-xs text-slate-500">来源生产单数</p>
@@ -906,12 +919,12 @@ function renderDetailSummary(detailView: PrintableUnitDetailViewModel): string {
             <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sourceMarkerText)}</p>
           </div>
           <div class="rounded-lg border border-slate-200 bg-white p-3">
-            <p class="text-xs text-slate-500">来源原始裁片单</p>
+            <p class="text-xs text-slate-500">来源裁片单</p>
             <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sourceCutOrderText)}</p>
           </div>
           <div class="rounded-lg border border-slate-200 bg-white p-3">
-            <p class="text-xs text-slate-500">来源合并裁剪批次</p>
-            <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sourceMergeBatchText)}</p>
+            <p class="text-xs text-slate-500">来源唛架方案</p>
+            <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sourceMarkerPlanText)}</p>
           </div>
         </div>
         ${renderDetailHeaderActions(unit)}
@@ -967,7 +980,7 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
           <th class="px-3 py-3 text-left font-medium">数量</th>
           <th class="px-3 py-3 text-left font-medium">扎号</th>
           <th class="px-3 py-3 text-left font-medium">配套编号</th>
-          <th class="px-3 py-3 text-left font-medium">原始裁片单</th>
+          <th class="px-3 py-3 text-left font-medium">裁片单</th>
           <th class="px-3 py-3 text-left font-medium">生产单</th>
           <th class="px-3 py-3 text-left font-medium">缺口菲票数</th>
         </tr>
@@ -1047,8 +1060,8 @@ function renderSpecialCraftFlowBlock(ticketNo: string): string {
           <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.taskOrderNos.join(' / ') || '待绑定')}</p>
         </div>
         <div>
-          <p class="text-xs text-slate-500">发料状态</p>
-          <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.dispatchStatus)}</p>
+          <p class="text-xs text-slate-500">交出状态</p>
+          <p class="text-sm font-semibold text-slate-900">${escapeHtml(formatDispatchLabel(summary.dispatchStatus))}</p>
         </div>
         <div>
           <p class="text-xs text-slate-500">回仓状态</p>
@@ -1111,12 +1124,17 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                   <p class="text-lg font-semibold text-slate-900">${escapeHtml(ticket.ticketNo)}</p>
                 </div>
                 <div>
-                  <p class="text-sm text-slate-500">原始裁片单 / 生产单</p>
-                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(`${craftTrace?.originalCutOrderNo || ticket.sourceCutOrderNo} / ${craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补生产单'}`)}</p>
+                  <p class="text-sm text-slate-500">裁片单 / 生产单</p>
+                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(`${craftTrace?.cutOrderNo || ticket.sourceCutOrderNo} / ${craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补生产单'}`)}</p>
                 </div>
                 <div>
-                  <p class="text-sm text-slate-500">面料 SKU / 面料卷号</p>
-                  <p class="text-lg font-semibold text-slate-900">${escapeHtml(craftTrace?.materialSku || unit.fabricSku || '待补')}</p>
+                  <p class="text-sm text-slate-500">面料 / 面料卷号</p>
+                  ${renderMaterialIdentityBlock({
+                    materialSku: craftTrace?.materialSku || unit.fabricSku || '待补',
+                    materialLabel: craftTrace?.materialSku || unit.fabricSku || '待补',
+                    materialAlias: unit.materialAlias,
+                    materialImageUrl: unit.materialImageUrl,
+                  }, { compact: true })}
                   <p class="mt-1 text-xs text-slate-500">${escapeHtml(ticket.fabricRollNo || '暂无数据')}</p>
                 </div>
                 <div>
@@ -1150,8 +1168,8 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                   <p class="mt-1 text-xs text-slate-500">${escapeHtml(specialCraftSummary.taskOrderNos.join(' / ') || '待绑定')}</p>
                 </div>
                 <div>
-                  <p class="text-sm text-slate-500">发料状态 / 回仓状态</p>
-                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(`${specialCraftSummary.dispatchStatus} / ${specialCraftSummary.returnStatus}`)}</p>
+                  <p class="text-sm text-slate-500">交出状态 / 回仓状态</p>
+                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(`${formatDispatchLabel(specialCraftSummary.dispatchStatus)} / ${specialCraftSummary.returnStatus}`)}</p>
                   <p class="mt-1 text-xs text-slate-500">${escapeHtml(specialCraftSummary.currentLocation)}</p>
                 </div>
               </div>
@@ -1186,9 +1204,19 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
               }
               <div class="grid flex-1 gap-2 text-sm text-blue-900">
                 <div class="font-semibold">${escapeHtml(fiveDimTitle)}</div>
-                <div>原始裁片单：${escapeHtml(craftTrace?.originalCutOrderNo || ticket.sourceCutOrderNo)}</div>
+                <div>裁片单：${escapeHtml(craftTrace?.cutOrderNo || ticket.sourceCutOrderNo)}</div>
                 <div>生产单：${escapeHtml(craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补')}</div>
-                <div>面料 SKU：${escapeHtml(craftTrace?.materialSku || unit.fabricSku || '待补')}</div>
+                <div class="rounded-md bg-white/70 p-2">
+                  ${renderMaterialIdentityBlock(
+                    {
+                      materialSku: craftTrace?.materialSku || unit.fabricSku || '待补',
+                      materialLabel: craftTrace?.materialSku || unit.fabricSku || '待补',
+                      materialAlias: unit.materialAlias,
+                      materialImageUrl: unit.materialImageUrl,
+                    },
+                    { compact: true, imageSizeClass: 'h-9 w-9', showCategory: false },
+                  )}
+                </div>
                 <div>扎号：${escapeHtml(ticket.bundleNo || '暂无数据')}</div>
                 <div>配套编号：${escapeHtml(ticket.pieceSetNoRange || '暂无数据')}</div>
               </div>
@@ -1206,7 +1234,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
       <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
         <tr>
           <th class="px-3 py-3 text-left font-medium">菲票号</th>
-          <th class="px-3 py-3 text-left font-medium">原始裁片单</th>
+          <th class="px-3 py-3 text-left font-medium">裁片单</th>
           <th class="px-3 py-3 text-left font-medium">生产单</th>
           <th class="px-3 py-3 text-left font-medium">面料卷号</th>
           <th class="px-3 py-3 text-left font-medium">布料颜色</th>
@@ -1227,14 +1255,14 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
           <th class="px-3 py-3 text-left font-medium">累计货损</th>
           <th class="px-3 py-3 text-left font-medium">接收差异状态</th>
           <th class="px-3 py-3 text-left font-medium">回仓差异状态</th>
-          <th class="px-3 py-3 text-left font-medium">发料状态</th>
+          <th class="px-3 py-3 text-left font-medium">交出状态</th>
           <th class="px-3 py-3 text-left font-medium">回仓状态</th>
           <th class="px-3 py-3 text-left font-medium">当前所在</th>
           <th class="px-3 py-3 text-left font-medium">中转单号</th>
           <th class="px-3 py-3 text-left font-medium">中转袋号</th>
           <th class="px-3 py-3 text-left font-medium">袋内状态</th>
           <th class="px-3 py-3 text-left font-medium">所属交出记录</th>
-          <th class="px-3 py-3 text-left font-medium">发车缝状态</th>
+          <th class="px-3 py-3 text-left font-medium">交出状态</th>
           <th class="px-3 py-3 text-left font-medium">是否已装袋</th>
           <th class="px-3 py-3 text-left font-medium">是否已交出</th>
           <th class="px-3 py-3 text-left font-medium">车缝回写状态</th>
@@ -1262,7 +1290,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                     { label: '打印菲票标签', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'first') },
                     { label: '补打标签', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'reprint') },
                     {
-                      label: '查看裁片发料',
+                      label: '查看交出单',
                       href: `${getCanonicalCuttingPath('sewing-dispatch')}?keyword=${encodeURIComponent(ticket.ticketNo)}`,
                     },
                     {
@@ -1277,7 +1305,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                       ? [
                           { label: '查看特殊工艺任务', href: resolveSpecialCraftTaskRoute(ticket.ticketNo) },
                           {
-                            label: '查看特殊工艺发料',
+                            label: '查看特殊工艺交出',
                             href: `${getCanonicalCuttingPath('special-craft-dispatch')}?keyword=${encodeURIComponent(ticket.ticketNo)}`,
                           },
                           {
@@ -1329,7 +1357,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                 <td class="px-3 py-3 text-slate-700">${formatCount(specialCraftSummary.cumulativeDamageQty)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.receiveDifferenceStatus)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.returnDifferenceStatus)}</td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.dispatchStatus)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(formatDispatchLabel(specialCraftSummary.dispatchStatus))}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.returnStatus)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.currentLocation)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.dispatchBatch?.transferOrderNo || '未装袋')}</td>
@@ -1471,9 +1499,9 @@ function renderDetailOrChildPage(pageKey: 'fei-ticket-detail' | 'fei-ticket-prin
 
   const detailView = buildPrintableUnitDetailViewModel({
     unit,
-    originalRows: bundle.originalRows,
+    cutOrderRows: bundle.cutOrderRows,
     materialPrepRows: bundle.materialPrepRows,
-    mergeBatches: bundle.mergeBatches,
+    markerPlanRefs: bundle.markerPlanRefs,
     markerStore: bundle.markerStore,
     ticketRecords: bundle.ticketRecords,
     printJobs: bundle.printJobs,
@@ -1503,7 +1531,7 @@ function buildOperationPreviewRows(rows: TicketSplitDetail[]): string {
           <th class="px-3 py-3 text-left font-medium">数量</th>
           <th class="px-3 py-3 text-left font-medium">扎号</th>
           <th class="px-3 py-3 text-left font-medium">配套编号</th>
-          <th class="px-3 py-3 text-left font-medium">原始裁片单</th>
+          <th class="px-3 py-3 text-left font-medium">裁片单</th>
           <th class="px-3 py-3 text-left font-medium">当前缺口数</th>
         </tr>
       </thead>
@@ -1566,7 +1594,7 @@ function renderOperationValidation(message: string, unit: PrintableUnit | null, 
 }
 
 function getOperationButtonMeta(pageKey: OperationPageKey): { label: string; action: string } {
-  if (pageKey === 'fei-ticket-print') return { label: '确认首次打印', action: 'confirm-first-print' }
+  if (pageKey === 'fei-ticket-print') return { label: '确认首打', action: 'confirm-first-print' }
   if (pageKey === 'fei-ticket-reprint') return { label: '确认补打', action: 'confirm-reprint' }
   return { label: '确认作废', action: 'confirm-void-ticket' }
 }
@@ -1579,9 +1607,9 @@ function renderOperationPage(pageKey: OperationPageKey): string {
 
   const detailView = buildPrintableUnitDetailViewModel({
     unit,
-    originalRows: bundle.originalRows,
+    cutOrderRows: bundle.cutOrderRows,
     materialPrepRows: bundle.materialPrepRows,
-    mergeBatches: bundle.mergeBatches,
+    markerPlanRefs: bundle.markerPlanRefs,
     markerStore: bundle.markerStore,
     ticketRecords: bundle.ticketRecords,
     printJobs: bundle.printJobs,
@@ -1589,7 +1617,7 @@ function renderOperationPage(pageKey: OperationPageKey): string {
   const ticket = findTicketCard(detailView)
 
   if (pageKey === 'fei-ticket-print' && unit.printableUnitStatus !== 'WAITING_PRINT') {
-    return renderOperationValidation('只有待打印状态才能进入首次打印页。', unit, pageKey)
+    return renderOperationValidation('只有待打印状态才能进入首打页。', unit, pageKey)
   }
   if (pageKey === 'fei-ticket-reprint' && unit.printableUnitStatus !== 'NEED_REPRINT') {
     return renderOperationValidation('只有需补打状态才能进入补打页。', unit, pageKey)
@@ -1624,7 +1652,12 @@ function renderOperationPage(pageKey: OperationPageKey): string {
       ? `
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">菲票号</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(ticket.ticketNo)}</p></div>
-          <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">面料 SKU</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(findCraftTraceItem(bundle, ticket)?.materialSku || unit.fabricSku || '待补')}</p><p class="mt-1 text-xs text-slate-500">${escapeHtml(`${ticket.color} / ${ticket.size}`)}</p></div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">面料</p>${renderMaterialIdentityBlock({
+            materialSku: findCraftTraceItem(bundle, ticket)?.materialSku || unit.fabricSku || '待补',
+            materialLabel: findCraftTraceItem(bundle, ticket)?.materialSku || unit.fabricSku || '待补',
+            materialAlias: unit.materialAlias,
+            materialImageUrl: unit.materialImageUrl,
+          }, { compact: true })}<p class="mt-1 text-xs text-slate-500">${escapeHtml(`${ticket.color} / ${ticket.size}`)}</p></div>
           <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">裁片部位</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(ticket.partName)}</p></div>
           <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">是否存在替代票</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(ticket.replacementTicketNo || '暂无')}</p></div>
         </div>
@@ -1671,9 +1704,9 @@ function performPrintOperation(pageKey: Extract<OperationPageKey, 'fei-ticket-pr
   if (!unit) return
   const detailView = buildPrintableUnitDetailViewModel({
     unit,
-    originalRows: bundle.originalRows,
+    cutOrderRows: bundle.cutOrderRows,
     materialPrepRows: bundle.materialPrepRows,
-    mergeBatches: bundle.mergeBatches,
+    markerPlanRefs: bundle.markerPlanRefs,
     markerStore: bundle.markerStore,
     ticketRecords: bundle.ticketRecords,
     printJobs: bundle.printJobs,
@@ -1693,9 +1726,9 @@ function performPrintOperation(pageKey: Extract<OperationPageKey, 'fei-ticket-pr
   const result = executePrintableUnitPrint({
     unit,
     splitDetails: detailView.missingSplitDetails,
-    originalRows: bundle.originalRows,
+    cutOrderRows: bundle.cutOrderRows,
     materialPrepRows: bundle.materialPrepRows,
-    mergeBatches: bundle.mergeBatches,
+    markerPlanRefs: bundle.markerPlanRefs,
     markerStore: bundle.markerStore,
     ticketRecords: bundle.ticketRecords,
     printJobs: bundle.printJobs,
@@ -1721,9 +1754,9 @@ function performVoidTicket(): void {
   if (!unit) return
   const detailView = buildPrintableUnitDetailViewModel({
     unit,
-    originalRows: bundle.originalRows,
+    cutOrderRows: bundle.cutOrderRows,
     materialPrepRows: bundle.materialPrepRows,
-    mergeBatches: bundle.mergeBatches,
+    markerPlanRefs: bundle.markerPlanRefs,
     markerStore: bundle.markerStore,
     ticketRecords: bundle.ticketRecords,
     printJobs: bundle.printJobs,

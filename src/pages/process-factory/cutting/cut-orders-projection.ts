@@ -6,25 +6,25 @@ import type { CuttingSummaryBuildOptions } from './summary-model.ts'
 import {
   mapCuttingDomainSnapshotToSummaryBuildOptions,
 } from './runtime-projections.ts'
-import type { OriginalCutOrderRow, OriginalCutOrderViewModel } from './original-orders-model.ts'
+import type { CutOrderRow, CutOrderViewModel } from './cut-orders-model.ts'
 
-export interface OriginalOrdersProjection {
+export interface CutOrdersProjection {
   snapshot: CuttingDomainSnapshot
   sources: CuttingSummaryBuildOptions
-  viewModel: OriginalCutOrderViewModel
+  viewModel: CutOrderViewModel
 }
 
-export function buildOriginalOrdersProjection(
+export function buildCutOrdersProjection(
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
-): OriginalOrdersProjection {
+): CutOrdersProjection {
   const sources = mapCuttingDomainSnapshotToSummaryBuildOptions(snapshot)
-  const rows = sources.originalRows
+  const rows = sources.cutOrderRows
   return {
     snapshot,
     sources,
     viewModel: {
       rows,
-      rowsById: Object.fromEntries(rows.map((row: OriginalCutOrderRow) => [row.id, row])),
+      rowsById: Object.fromEntries(rows.map((row: CutOrderRow) => [row.id, row])),
     },
   }
 }

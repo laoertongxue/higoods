@@ -104,7 +104,7 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
         </header>
 
         <section class="grid grid-cols-2 gap-2">
-          ${field('WMS 来料接收', session.wmsReceiveStatus)}
+          ${field('裁床已领', session.wmsReceiveStatus)}
           ${field('待加工仓', '铺布扣出')}
         </section>
 

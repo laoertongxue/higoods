@@ -32,24 +32,24 @@ function buildSuccess(writebackId: string): CuttingWarehouseWritebackResult {
 function validateFormalIdentity(input: {
   productionOrderId: string
   productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
   materialSku: string
 }): string[] {
   const issues: string[] = []
   const registry = buildCuttingCoreRegistry()
   const productionOrder = registry.productionOrdersById[input.productionOrderId] || registry.productionOrdersByNo[input.productionOrderNo]
-  const originalCutOrder = registry.originalCutOrdersById[input.originalCutOrderId] || registry.originalCutOrdersByNo[input.originalCutOrderNo]
+  const cutOrder = registry.cutOrdersById[input.cutOrderId] || registry.cutOrdersByNo[input.cutOrderNo]
 
   if (!productionOrder) issues.push('未找到对应生产单，无法提交正式仓务写回。')
-  if (!originalCutOrder) issues.push('未找到对应原始裁片单，无法提交正式仓务写回。')
+  if (!cutOrder) issues.push('未找到对应裁片单，无法提交正式仓务写回。')
 
-  if (productionOrder && originalCutOrder && originalCutOrder.productionOrderId !== productionOrder.productionOrderId) {
-    issues.push('原始裁片单与生产单绑定不一致，已拒绝提交。')
+  if (productionOrder && cutOrder && cutOrder.productionOrderId !== productionOrder.productionOrderId) {
+    issues.push('裁片单与生产单绑定不一致，已拒绝提交。')
   }
 
-  if (originalCutOrder && input.materialSku && originalCutOrder.materialSku && originalCutOrder.materialSku !== input.materialSku) {
-    issues.push('当前仓务动作的面料 SKU 与正式原始裁片单不一致，已拒绝提交。')
+  if (cutOrder && input.materialSku && cutOrder.materialSku && cutOrder.materialSku !== input.materialSku) {
+    issues.push('当前仓务动作的面料 SKU 与正式裁片单不一致，已拒绝提交。')
   }
 
   return issues
@@ -60,7 +60,7 @@ export function submitCutPieceWarehouseWriteback(
 ): CuttingWarehouseWritebackResult {
   const issues = validateFormalIdentity(payload)
   if (!payload.warehouseRecordId.trim()) issues.push('缺少裁片仓记录主键，无法提交。')
-  if (!payload.originalCutOrderId.trim()) issues.push('缺少原始裁片单 ID，无法提交。')
+  if (!payload.cutOrderId.trim()) issues.push('缺少裁片单 ID，无法提交。')
   if (!payload.productionOrderId.trim()) issues.push('缺少生产单 ID，无法提交。')
   if (!payload.operatorAccountId.trim()) issues.push('缺少仓务操作人账号，无法提交。')
 
@@ -75,7 +75,7 @@ export function submitSampleWarehouseWriteback(
 ): CuttingWarehouseWritebackResult {
   const issues = validateFormalIdentity(payload)
   if (!payload.sampleRecordId.trim()) issues.push('缺少样衣仓记录主键，无法提交。')
-  if (!payload.originalCutOrderId.trim()) issues.push('缺少原始裁片单 ID，无法提交。')
+  if (!payload.cutOrderId.trim()) issues.push('缺少裁片单 ID，无法提交。')
   if (!payload.productionOrderId.trim()) issues.push('缺少生产单 ID，无法提交。')
   if (!payload.operatorAccountId.trim()) issues.push('缺少仓务操作人账号，无法提交。')
 

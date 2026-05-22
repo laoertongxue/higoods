@@ -61,8 +61,8 @@ test('染色绑定校验通过并可在移动端执行列表搜索到', async ({
 })
 
 test('裁片绑定校验通过并可在移动端执行列表搜索到', async ({ page }) => {
-  await page.goto('/fcs/craft/cutting/original-orders?originalCutOrderNo=CUT-260314-087-02')
-  await expect(page.getByTestId('cutting-original-orders-page')).toBeVisible()
+  await page.goto('/fcs/craft/cutting/cut-orders?cutOrderNo=CUT-260314-087-02')
+  await expect(page.getByTestId('cutting-cut-orders-page')).toBeVisible()
   await expect(page.locator('body')).toContainText('移动端执行绑定')
   await expect(page.locator('body')).toContainText('TASK-CUT-000097')
   await expect(page.locator('body')).toContainText('绑定状态')

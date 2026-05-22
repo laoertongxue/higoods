@@ -62,7 +62,7 @@ stateDiagram-v2
 - 绑定模块：`src/data/fcs/process-mobile-task-binding.ts`
 - 印花详情：`src/pages/process-factory/printing/work-order-detail.ts`
 - 染色详情：`src/pages/process-factory/dyeing/work-order-detail.ts`
-- 裁片详情：`src/pages/process-factory/cutting/original-orders.ts`
+- 裁片详情：`src/pages/process-factory/cutting/cut-orders.ts`
 - 特殊工艺工艺单详情：`src/pages/process-factory/special-craft/work-order-detail.ts`
 - PDA 执行列表：`src/pages/pda-exec.ts`
 - PDA 执行详情：`src/pages/pda-exec-detail.ts`

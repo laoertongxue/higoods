@@ -7,10 +7,10 @@ import type {
   PdaMobileQuotedTenderMock,
 } from '../pda-mobile-mock.ts'
 import {
-  getGeneratedOriginalCutOrderSourceRecordById,
-  listGeneratedOriginalCutOrderSourceRecords,
-  type GeneratedOriginalCutOrderSourceRecord,
-} from './generated-original-cut-orders.ts'
+  getGeneratedCutOrderSourceRecordById,
+  listGeneratedCutOrderSourceRecords,
+  type GeneratedCutOrderSourceRecord,
+} from './generated-cut-orders.ts'
 import {
   PDA_CUTTING_TASK_MOCK_MATRIX,
   type PdaCuttingExecutionBindingState,
@@ -24,7 +24,7 @@ export interface PdaCuttingResolvedExecutionScenario extends PdaCuttingExecution
   taskId: string
   taskNo: string
   bindingState: PdaCuttingExecutionBindingState
-  originalCutOrderRecord: GeneratedOriginalCutOrderSourceRecord | null
+  cutOrderRecord: GeneratedCutOrderSourceRecord | null
   spreadingPreset: PdaCuttingSpreadingPresetMatrixItem | null
 }
 
@@ -72,10 +72,10 @@ export interface PdaCuttingResolvedTaskScenario {
   executions: PdaCuttingResolvedExecutionScenario[]
 }
 
-const originalCutOrderByNo = new Map(
-  listGeneratedOriginalCutOrderSourceRecords().map((record) => [record.originalCutOrderNo, record] as const),
+const cutOrderByNo = new Map(
+  listGeneratedCutOrderSourceRecords().map((record) => [record.cutOrderNo, record] as const),
 )
-const missingOriginalCutOrderWarnings = new Set<string>()
+const missingCutOrderWarnings = new Set<string>()
 
 function getFactoryName(factoryId: string): string {
   if (factoryId === TEST_FACTORY_ID || factoryId === 'ID-F090') return TEST_FACTORY_NAME
@@ -83,14 +83,14 @@ function getFactoryName(factoryId: string): string {
 }
 
 function resolveBoundExecution(matrix: PdaCuttingTaskMockMatrixItem, execution: PdaCuttingTaskMockMatrixItem['executions'][number]): PdaCuttingResolvedExecutionScenario {
-  const originalCutOrderNo = execution.originalCutOrderNo?.trim() || ''
-  const originalCutOrderRecord = originalCutOrderByNo.get(originalCutOrderNo)
+  const cutOrderNo = execution.cutOrderNo?.trim() || ''
+  const cutOrderRecord = cutOrderByNo.get(cutOrderNo)
 
-  if (!originalCutOrderRecord) {
-    const warningKey = `${matrix.taskId}::${execution.executionOrderNo}::${originalCutOrderNo}`
-    if (!missingOriginalCutOrderWarnings.has(warningKey)) {
-      missingOriginalCutOrderWarnings.add(warningKey)
-      console.warn(`裁片 PDA mock 矩阵已自动降级为未绑定执行单：${matrix.taskId} / ${execution.executionOrderNo} / ${originalCutOrderNo}`)
+  if (!cutOrderRecord) {
+    const warningKey = `${matrix.taskId}::${execution.executionOrderNo}::${cutOrderNo}`
+    if (!missingCutOrderWarnings.has(warningKey)) {
+      missingCutOrderWarnings.add(warningKey)
+      console.warn(`裁片 PDA mock 矩阵已自动降级为未绑定执行单：${matrix.taskId} / ${execution.executionOrderNo} / ${cutOrderNo}`)
     }
     return resolveUnboundExecution(matrix, {
       ...execution,
@@ -103,15 +103,17 @@ function resolveBoundExecution(matrix: PdaCuttingTaskMockMatrixItem, execution: 
     taskNo: matrix.taskNo,
     executionOrderId: execution.executionOrderId,
     executionOrderNo: execution.executionOrderNo,
-    productionOrderId: execution.productionOrderNo || originalCutOrderRecord.productionOrderId,
-    productionOrderNo: execution.productionOrderNo || originalCutOrderRecord.productionOrderNo,
-    originalCutOrderId: originalCutOrderRecord.originalCutOrderId,
-    originalCutOrderNo: originalCutOrderRecord.originalCutOrderNo,
-    mergeBatchId: execution.mergeBatchId || originalCutOrderRecord.mergeBatchId || '',
-    mergeBatchNo: execution.mergeBatchNo || originalCutOrderRecord.mergeBatchNo || '',
-    materialSku: execution.materialSku || originalCutOrderRecord.materialSku,
+    productionOrderId: execution.productionOrderNo || cutOrderRecord.productionOrderId,
+    productionOrderNo: execution.productionOrderNo || cutOrderRecord.productionOrderNo,
+    cutOrderId: cutOrderRecord.cutOrderId,
+    cutOrderNo: cutOrderRecord.cutOrderNo,
+    markerPlanId: execution.markerPlanId || cutOrderRecord.markerPlanId || '',
+    markerPlanNo: execution.markerPlanNo || cutOrderRecord.markerPlanNo || '',
+    materialSku: execution.materialSku || cutOrderRecord.materialSku,
+    materialAlias: cutOrderRecord.materialAlias || '',
+    materialImageUrl: cutOrderRecord.materialImageUrl || '',
     bindingState: execution.bindingState || 'BOUND',
-    originalCutOrderRecord,
+    cutOrderRecord,
     spreadingPreset: execution.spreadingPreset || null,
   }
 }
@@ -124,13 +126,15 @@ function resolveUnboundExecution(matrix: PdaCuttingTaskMockMatrixItem, execution
     executionOrderNo: execution.executionOrderNo,
     productionOrderId: execution.productionOrderNo || '',
     productionOrderNo: execution.productionOrderNo || '',
-    originalCutOrderId: '',
-    originalCutOrderNo: execution.originalCutOrderNo?.trim() || '',
-    mergeBatchId: execution.mergeBatchId || '',
-    mergeBatchNo: execution.mergeBatchNo || '',
+    cutOrderId: '',
+    cutOrderNo: execution.cutOrderNo?.trim() || '',
+    markerPlanId: execution.markerPlanId || '',
+    markerPlanNo: execution.markerPlanNo || '',
     materialSku: execution.materialSku || '',
+    materialAlias: '',
+    materialImageUrl: '',
     bindingState: execution.bindingState || 'UNBOUND',
-    originalCutOrderRecord: null,
+    cutOrderRecord: null,
     spreadingPreset: execution.spreadingPreset || null,
   }
 }
@@ -187,11 +191,13 @@ export function listPdaCuttingExecutionSourceRecordsFromScenarios(): PdaCuttingE
       executionOrderNo: execution.executionOrderNo,
       productionOrderId: execution.productionOrderId,
       productionOrderNo: execution.productionOrderNo,
-      originalCutOrderId: execution.originalCutOrderId,
-      originalCutOrderNo: execution.originalCutOrderNo,
-      mergeBatchId: execution.mergeBatchId,
-      mergeBatchNo: execution.mergeBatchNo,
+      cutOrderId: execution.cutOrderId,
+      cutOrderNo: execution.cutOrderNo,
+      markerPlanId: execution.markerPlanId,
+      markerPlanNo: execution.markerPlanNo,
       materialSku: execution.materialSku,
+      materialAlias: execution.materialAlias || '',
+      materialImageUrl: execution.materialImageUrl || '',
       bindingState: execution.bindingState,
     })),
   )

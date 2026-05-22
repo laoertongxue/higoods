@@ -35,6 +35,7 @@ import {
   readSelectedExecutionOrderIdFromLocation,
   readSelectedExecutionOrderNoFromLocation,
 } from './pda-cutting-context'
+import { renderMaterialIdentityBlock } from './process-factory/cutting/material-identity'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 import { executeMobileProcessAction } from '../data/fcs/process-action-writeback-service.ts'
 
@@ -146,9 +147,9 @@ function getSelectedPlanUnit(target: PdaCuttingSpreadingTarget | null, planUnitI
 }
 
 function getTargetEntryLabel(target: PdaCuttingSpreadingTarget | null): string {
-  if (!target) return '待选择铺布对象'
+  if (!target) return '待选择铺布单'
   if (target.targetType === 'session') return '继续当前铺布'
-  return '待 Web 分配铺布单'
+  return '待分配铺布单'
 }
 
 function getActualCutGarmentQty(form: SpreadingFormState, selectedPlanUnit: ReturnType<typeof getSelectedPlanUnit>): number {
@@ -281,7 +282,7 @@ function renderLatestSummary(detail: NonNullable<ReturnType<typeof getSpreadingD
 
 function renderTargetSummary(target: PdaCuttingSpreadingTarget | null): string {
   if (!target) {
-    return renderPdaCuttingEmptyState('当前无可选铺布对象', '')
+    return renderPdaCuttingEmptyState('当前无可选铺布单', '')
   }
 
   const markerParts = target.sourceMarkerLabel.split('/').map((item) => item.trim()).filter(Boolean)
@@ -290,14 +291,25 @@ function renderTargetSummary(target: PdaCuttingSpreadingTarget | null): string {
 
   return `
     <div class="grid gap-1.5 text-xs sm:grid-cols-2">
-      <div><div class="text-muted-foreground">铺布任务</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.title)}</div></div>
+      <div><div class="text-muted-foreground">铺布单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.title)}</div></div>
       <div><div class="text-muted-foreground">当前状态</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.statusLabel)}</div></div>
       <div><div class="text-muted-foreground">排唛架方案</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(schemeLabel)}</div></div>
       <div><div class="text-muted-foreground">唛架编号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(markerLabel || '—')}</div></div>
       <div data-pda-cut-spreading-field="spreadingMode"><div class="text-muted-foreground">唛架模式</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(getSpreadingModeLabel(target.spreadingMode))}</div></div>
-      <div><div class="text-muted-foreground">原始裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.originalCutOrderNo || '—')}</div></div>
-      <div><div class="text-muted-foreground">合并裁剪批次</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.mergeBatchNo || '—')}</div></div>
-      <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.materialSku || '—')}</div></div>
+      <div><div class="text-muted-foreground">裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.cutOrderNo || '—')}</div></div>
+      <div><div class="text-muted-foreground">唛架方案</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.markerPlanNo || '—')}</div></div>
+      <div class="sm:col-span-2">
+        <div class="mb-1 text-muted-foreground">面料信息</div>
+        ${renderMaterialIdentityBlock(
+          {
+            materialSku: target.materialSku,
+            materialLabel: '铺布面料',
+            materialAlias: target.materialAlias,
+            materialImageUrl: target.materialImageUrl,
+          },
+          { compact: true, showCategory: false },
+        )}
+      </div>
       <div><div class="text-muted-foreground">颜色</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.colorSummary || '—')}</div></div>
     </div>
   `
@@ -315,14 +327,25 @@ function renderOperatorSummary(taskId: string, detail: PdaCuttingTaskDetailData)
 
 function renderPlanUnitSummary(planUnit: ReturnType<typeof getSelectedPlanUnit>): string {
   if (!planUnit) {
-    return renderPdaCuttingEmptyState('当前铺布任务暂无唛架明细', '')
+    return renderPdaCuttingEmptyState('当前铺布单暂无铺布明细', '')
   }
   const planUnitLabel = planUnit.label || `${planUnit.color || '待定'} / ${planUnit.materialSku || '待定'} / ${planUnit.garmentQtyPerUnit}件`
   return `
     <div class="grid gap-1.5 text-xs sm:grid-cols-2">
-      <div><div class="text-muted-foreground">当前唛架编号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnitLabel)}</div></div>
+      <div><div class="text-muted-foreground">铺布明细</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnitLabel)}</div></div>
       <div><div class="text-muted-foreground">本次成衣件数（件）</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(String(planUnit.garmentQtyPerUnit))}</div></div>
-      <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnit.materialSku || '—')}</div></div>
+      <div class="sm:col-span-2">
+        <div class="mb-1 text-muted-foreground">面料信息</div>
+        ${renderMaterialIdentityBlock(
+          {
+            materialSku: planUnit.materialSku,
+            materialLabel: '唛架铺布面料',
+            materialAlias: planUnit.materialAlias,
+            materialImageUrl: planUnit.materialImageUrl,
+          },
+          { compact: true, showCategory: false },
+        )}
+      </div>
       <div><div class="text-muted-foreground">颜色</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnit.color || '—')}</div></div>
     </div>
   `
@@ -346,16 +369,28 @@ function renderFormInner(
       ${renderFeedbackBlock(form)}
       <section class="rounded-xl border bg-card px-1.5 py-1" data-testid="pda-cutting-spreading-object-summary">
         <div class="grid gap-1 text-xs sm:grid-cols-2">
-          <div><div class="text-muted-foreground">铺布任务</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(selectedTarget?.title || detail.taskNo)}</div></div>
+          <div><div class="text-muted-foreground">铺布单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(selectedTarget?.title || detail.taskNo)}</div></div>
+          <div><div class="text-muted-foreground">唛架编号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(selectedTarget?.markerNo || selectedTarget?.sourceMarkerLabel || '—')}</div></div>
           <div><div class="text-muted-foreground">执行对象</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div></div>
-          <div><div class="text-muted-foreground">裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.originalCutOrderNo)}</div></div>
-          <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div></div>
+          <div><div class="text-muted-foreground">裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.cutOrderNo)}</div></div>
+          <div class="sm:col-span-2">
+            <div class="mb-1 text-muted-foreground">面料信息</div>
+            ${renderMaterialIdentityBlock(
+              {
+                materialSku: selectedTarget?.materialSku || detail.materialSku,
+                materialLabel: detail.materialTypeLabel,
+                materialAlias: selectedTarget?.materialAlias || detail.materialAlias,
+                materialImageUrl: selectedTarget?.materialImageUrl || detail.materialImageUrl,
+              },
+              { compact: true, showCategory: false },
+            )}
+          </div>
         </div>
       </section>
       <section class="rounded-xl border bg-card px-1.5 py-1" data-testid="pda-cutting-spreading-form-card">
         <div class="space-y-1">
           <label class="block space-y-0.5">
-            <span class="text-muted-foreground">铺布对象</span>
+            <span class="text-muted-foreground">铺布单 / 唛架编号</span>
             <select class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="selectedTargetKey">
               ${getVisibleTargets(detail)
                 .map(
@@ -371,9 +406,9 @@ function renderFormInner(
           ${renderTargetSummary(selectedTarget)}
           <div class="border-t pt-1" data-testid="pda-cutting-spreading-plan-summary">
             <label class="block space-y-0.5">
-              <span class="text-muted-foreground">当前唛架编号</span>
+              <span class="text-muted-foreground">铺布明细</span>
               <select class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="planUnitId">
-                <option value="">请选择当前唛架编号</option>
+                <option value="">请选择铺布明细</option>
                 ${(selectedTarget?.planUnits || [])
                   .map(
                     (unit) => `
@@ -654,10 +689,10 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     const identity = resolvePdaCuttingWritebackIdentity(taskId, {
       executionOrderId: context.selectedExecutionOrderId || undefined,
       executionOrderNo: context.selectedExecutionOrderNo || undefined,
-      originalCutOrderId: context.selectedExecutionOrder?.originalCutOrderId || undefined,
-      originalCutOrderNo: context.selectedExecutionOrder?.originalCutOrderNo || undefined,
-      mergeBatchId: context.selectedExecutionOrder?.mergeBatchId || undefined,
-      mergeBatchNo: context.selectedExecutionOrder?.mergeBatchNo || undefined,
+      cutOrderId: context.selectedExecutionOrder?.cutOrderId || undefined,
+      cutOrderNo: context.selectedExecutionOrder?.cutOrderNo || undefined,
+      markerPlanId: context.selectedExecutionOrder?.markerPlanId || undefined,
+      markerPlanNo: context.selectedExecutionOrder?.markerPlanNo || undefined,
       materialSku: context.selectedExecutionOrder?.materialSku || undefined,
     })
     if (!identity || !detail) {
@@ -669,14 +704,14 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
 
     const selectedTarget = getSelectedTarget(detail, form.selectedTargetKey)
     if (!selectedTarget) {
-      form.feedbackMessage = '请先选择当前铺布对象。'
+      form.feedbackMessage = '请先选择当前铺布单。'
       form.feedbackTone = 'warning'
       syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
       return true
     }
     const selectedPlanUnit = getSelectedPlanUnit(selectedTarget, form.selectedPlanUnitId)
     if (!selectedPlanUnit || !form.selectedPlanUnitId) {
-      form.feedbackMessage = '请先选择当前唛架编号。'
+      form.feedbackMessage = '请先选择铺布明细。'
       form.feedbackTone = 'warning'
       syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
       return true
@@ -725,7 +760,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     try {
       executeMobileProcessAction({
         sourceType: 'CUTTING',
-        sourceId: identity.originalCutOrderId,
+        sourceId: identity.cutOrderId,
         taskId,
         actionCode,
         operatorName: operator.operatorName,
@@ -735,10 +770,11 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         qtyUnit: '米',
         formData: {
           裁床组: operator.operatorRole || operator.operatorName,
+          唛架编号: selectedTarget.markerNo || selectedTarget.sourceMarkerLabel,
           铺布层数: layerCount,
           铺布实际长度: actualLength,
         },
-        remark: [form.note.trim(), `移动端${form.recordType}`, `卷号：${fabricRollNo}`].filter(Boolean).join('；'),
+        remark: [form.note.trim(), `移动端${form.recordType}`, `唛架编号：${selectedTarget.markerNo || selectedTarget.sourceMarkerLabel}`, `卷号：${fabricRollNo}`].filter(Boolean).join('；'),
       })
     } catch (error) {
       form.feedbackMessage = error instanceof Error ? error.message : '统一写回失败'
@@ -779,7 +815,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       actualLength,
       headLength,
       tailLength,
-      note: [form.note.trim(), `铺布对象：${selectedTarget.title}`, `模式：${getSpreadingModeLabel(selectedTarget.spreadingMode)}`]
+      note: [form.note.trim(), `铺布单：${selectedTarget.title}`, `唛架编号：${selectedTarget.markerNo || selectedTarget.sourceMarkerLabel}`, `模式：${getSpreadingModeLabel(selectedTarget.spreadingMode)}`]
         .filter(Boolean)
         .join('；'),
     })
