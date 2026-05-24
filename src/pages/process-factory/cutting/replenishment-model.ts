@@ -136,7 +136,7 @@ export type ReplenishmentReviewItemSourceType =
   | '领料差异'
   | 'PDA 铺布回写'
   | 'PDA 裁剪回写'
-  | 'Web 复核'
+  | 'Web 处理'
   | '现场反馈'
   | '卷记录异常'
   | '布头布尾异常'
@@ -396,33 +396,33 @@ export const replenishmentSourceMeta: Record<ReplenishmentSourceType, { label: s
 export const replenishmentStatusMetaMap: Record<ReplenishmentStatusKey, ReplenishmentStatusMeta> = {
   NO_ACTION: {
     key: 'NO_ACTION',
-    label: '无需补料',
+    label: '无需发起布料',
     className: 'bg-emerald-100 text-emerald-700',
-    detailText: '当前差异未形成补料动作，可继续观察。',
+    detailText: '当前差异未形成发起布料动作，可继续观察。',
   },
   PENDING_REVIEW: {
     key: 'PENDING_REVIEW',
-    label: '待审核',
+    label: '待处理',
     className: 'bg-amber-100 text-amber-700',
-    detailText: '实际差异已进入处理工作台，等待人工审核。',
+    detailText: '实际差异已进入处理工作台。',
   },
   PENDING_SUPPLEMENT: {
     key: 'PENDING_SUPPLEMENT',
-    label: '待补录',
+    label: '待处理',
     className: 'bg-orange-100 text-orange-700',
-    detailText: '当前差异依据不足，需补录再判断。',
+    detailText: '当前差异等待处理。',
   },
   REJECTED: {
     key: 'REJECTED',
-    label: '审核驳回',
+    label: '已忽略',
     className: 'bg-slate-200 text-slate-700',
-    detailText: '差异处理已驳回，当前不进入后续动作。',
+    detailText: '差异已忽略，当前不创建配料。',
   },
   APPROVED_PENDING_ACTION: {
     key: 'APPROVED_PENDING_ACTION',
-    label: '已通过待动作',
+    label: '待发起布料',
     className: 'bg-blue-100 text-blue-700',
-    detailText: '审核已通过，后续动作尚未开始。',
+    detailText: '处理结果已保存，等待发起布料。',
   },
   IN_ACTION: {
     key: 'IN_ACTION',
@@ -475,34 +475,43 @@ export const replenishmentFollowupActionTypeMetaMap: Record<
 > = {
   CREATE_PENDING_PREP: {
     key: 'CREATE_PENDING_PREP',
-    label: '等待再次领料',
-    shortLabel: '再次领料',
+    label: '发起布料',
+    shortLabel: '发起布料',
     className: 'bg-blue-100 text-blue-700',
   },
   SUPPLEMENT_BACKFILL: {
     key: 'SUPPLEMENT_BACKFILL',
-    label: '补录差异',
-    shortLabel: '补录',
-    className: 'bg-orange-100 text-orange-700',
+    label: '忽略',
+    shortLabel: '忽略',
+    className: 'bg-slate-100 text-slate-700',
   },
   REPLAN_MARKER: {
     key: 'REPLAN_MARKER',
-    label: '继续补排',
-    shortLabel: '补排',
-    className: 'bg-emerald-100 text-emerald-700',
+    label: '忽略',
+    shortLabel: '忽略',
+    className: 'bg-slate-100 text-slate-700',
   },
   CLOSE_CUT_ORDER: {
     key: 'CLOSE_CUT_ORDER',
-    label: '关闭裁片单',
-    shortLabel: '关闭',
-    className: 'bg-zinc-100 text-zinc-700',
+    label: '忽略',
+    shortLabel: '忽略',
+    className: 'bg-slate-100 text-slate-700',
   },
   RECORD_ONLY: {
     key: 'RECORD_ONLY',
-    label: '仅记录差异',
-    shortLabel: '记录',
+    label: '忽略',
+    shortLabel: '忽略',
     className: 'bg-slate-100 text-slate-700',
   },
+}
+
+export function normalizeReplenishmentReviewResult(result: ReplenishmentReviewResult | '' | undefined): ReplenishmentReviewResult {
+  return result === '需要补料' ? '需要补料' : '仅记录差异'
+}
+
+export function formatReplenishmentReviewResultLabel(result: ReplenishmentReviewResult | '' | undefined): string {
+  if (!result) return '待处理'
+  return normalizeReplenishmentReviewResult(result) === '需要补料' ? '发起布料' : '忽略'
 }
 
 function formatQty(value: number): string {
@@ -620,14 +629,14 @@ function buildSuggestedAction(options: {
   if (options.missingData) {
     return {
       status: 'PENDING_SUPPLEMENT',
-      text: '补录铺布、领料差异后审核。',
+      text: '差异资料不足，先进入处理。',
     }
   }
 
   if (options.shortageQty > 0 || options.varianceLength < 0) {
     return {
       status: 'PENDING_REVIEW',
-      text: `存在 ${formatQty(options.shortageQty)} 件对应差异，需审核后决定补料、补录、补排、关闭或仅记录。`,
+      text: `存在 ${formatQty(options.shortageQty)} 件对应差异，处理结果只能选择发起布料或忽略。`,
     }
   }
 
@@ -751,18 +760,16 @@ export function validateReplenishmentReviewAction(options: {
   closeReason?: string
 }): { ok: boolean; message: string } {
   const reason = options.decisionReason.trim()
+  const reviewResult = normalizeReplenishmentReviewResult(options.reviewResult)
   if (
     options.suggestion.statusMeta.key === 'NO_ACTION' &&
     options.reviewStatus === 'APPROVED' &&
-    options.reviewResult !== '仅记录差异'
+    reviewResult !== '仅记录差异'
   ) {
-    return { ok: false, message: '当前建议为“无需补料”，不能直接审核通过。' }
-  }
-  if (options.reviewResult === '关闭裁片单' && !String(options.closeReason || '').trim()) {
-    return { ok: false, message: '关闭裁片单必须填写关闭原因。' }
+    return { ok: false, message: '当前建议为“无需发起布料”，不能直接发起布料。' }
   }
   if ((options.reviewStatus === 'REJECTED' || options.reviewStatus === 'PENDING_SUPPLEMENT') && !reason) {
-    return { ok: false, message: '驳回或标记待补录时必须填写原因。' }
+    return { ok: false, message: '处理差异必须填写原因。' }
   }
   return { ok: true, message: '' }
 }
@@ -807,15 +814,11 @@ function buildActionTargetPath(targetPageKey: ReplenishmentFollowupTargetPageKey
 }
 
 export function resolveReviewStatusFromResult(result: ReplenishmentReviewResult): ReplenishmentReviewStatus {
-  if (result === '需要补录') return 'PENDING_SUPPLEMENT'
   return 'APPROVED'
 }
 
 export function resolveNextActionFromReviewResult(result: ReplenishmentReviewResult): ReplenishmentNextAction {
-  if (result === '需要补料') return '回到中转仓配料'
-  if (result === '需要补录') return '补录铺布或裁剪数据'
-  if (result === '继续补排') return '回到可排唛架'
-  if (result === '关闭裁片单') return '关闭裁片单'
+  if (normalizeReplenishmentReviewResult(result) === '需要补料') return '回到中转仓配料'
   return '无后续动作'
 }
 
@@ -828,43 +831,19 @@ function resolveFollowupActionFromReviewResult(
   note: string
 } | null {
   if (!result) return null
-  if (result === '需要补料') {
+  if (normalizeReplenishmentReviewResult(result) === '需要补料') {
     return {
       actionType: 'CREATE_PENDING_PREP',
-      title: '回到中转仓配料',
+      title: '发起布料',
       targetPageKey: 'materialPrep',
-      note: '审核判断需要补料，后续由中转仓形成补配数量，裁床再次领料后再判断是否补排。',
-    }
-  }
-  if (result === '需要补录') {
-    return {
-      actionType: 'SUPPLEMENT_BACKFILL',
-      title: '补录铺布或裁剪数据',
-      targetPageKey: 'markerSpreading',
-      note: '审核判断先补录实际铺布、裁剪或卷记录，再重新计算差异。',
-    }
-  }
-  if (result === '继续补排') {
-    return {
-      actionType: 'REPLAN_MARKER',
-      title: '回到可排唛架裁片单',
-      targetPageKey: 'cuttablePool',
-      note: '审核判断当前可继续补排，待可用余额满足后重新进入唛架方案。',
-    }
-  }
-  if (result === '关闭裁片单') {
-    return {
-      actionType: 'CLOSE_CUT_ORDER',
-      title: '关闭裁片单',
-      targetPageKey: 'cutOrders',
-      note: '审核判断不再补裁，裁片单需记录关闭原因并退出可排唛架。',
+      note: '处理结果为发起布料，WMS 中转仓将创建新的配料，裁床后续重新领料。',
     }
   }
   return {
     actionType: 'RECORD_ONLY',
-    title: '仅记录差异',
+    title: '忽略',
     targetPageKey: 'cutOrders',
-    note: '审核判断只保留差异记录，不改变数量账。',
+    note: '处理结果为忽略，不创建配料，不改变数量账。',
   }
 }
 
@@ -1068,8 +1047,8 @@ function buildReplenishmentNextOptions(suggestion: ReplenishmentSuggestion): Rep
     return [
       {
         key: 'NO_GAP',
-        label: '无需补排',
-        detailText: '当前没有形成面料缺口，不需要再次排唛架。',
+        label: '忽略',
+        detailText: '当前没有形成明确缺口，不创建配料。',
         target: 'cutOrders',
         className: 'bg-emerald-100 text-emerald-700',
       },
@@ -1080,8 +1059,8 @@ function buildReplenishmentNextOptions(suggestion: ReplenishmentSuggestion): Rep
     return [
       {
         key: 'CHECK_DATA',
-        label: '补齐数据',
-        detailText: '先补齐铺布、裁剪或领料数量，再判断是否补排。',
+        label: '忽略',
+        detailText: '当前资料不足，不创建配料。',
         target: 'markerSpreading',
         className: 'bg-orange-100 text-orange-700',
       },
@@ -1089,30 +1068,20 @@ function buildReplenishmentNextOptions(suggestion: ReplenishmentSuggestion): Rep
   }
 
   const options: ReplenishmentNextOption[] = []
-  if (claimedBalanceLength > 0) {
-    options.push({
-      key: 'REPLAN_MARKER',
-      label: '去补排唛架',
-      detailText: '已领面料仍有可用余额，可回到可排唛架裁片单继续补排。',
-      target: 'cuttablePool',
-      className: 'bg-blue-100 text-blue-700',
-    })
-  } else {
-    options.push({
-      key: 'WAIT_NEXT_PICKUP',
-      label: '等待再次领料',
-      detailText: '当前已领面料已消耗完，需要再次领料后才能继续补排。',
-      target: 'materialPrep',
-      className: 'bg-amber-100 text-amber-700',
-    })
-  }
+  options.push({
+    key: 'WAIT_NEXT_PICKUP',
+    label: '发起布料',
+    detailText: '对接 WMS 中转仓创建新的配料，裁床后续重新领料。',
+    target: 'materialPrep',
+    className: 'bg-blue-100 text-blue-700',
+  })
 
   options.push({
-    key: 'CLOSE_CUT_ORDER',
-    label: '关闭裁片单',
-    detailText: '如果确认后续不再来料，可关闭裁片单并填写关闭原因。',
+    key: 'NO_GAP',
+    label: '忽略',
+    detailText: '不创建配料，不改变数量账。',
     target: 'cutOrders',
-    className: 'bg-zinc-100 text-zinc-700',
+    className: 'bg-slate-100 text-slate-700',
   })
 
   return options
@@ -1123,10 +1092,10 @@ function buildNextActionSummary(options: ReplenishmentNextOption[]): string {
 }
 
 function buildReviewSummary(review: ReplenishmentReview | null): string {
-  if (!review) return '未审核'
-  if (review.reviewStatus === 'APPROVED') return '审核通过'
-  if (review.reviewStatus === 'REJECTED') return '审核驳回'
-  return '待补录'
+  if (!review) return '未处理'
+  if (review.reviewStatus === 'APPROVED') return '已处理'
+  if (review.reviewStatus === 'REJECTED') return '已忽略'
+  return '待处理'
 }
 
 function buildBlockingSummary(row: {
@@ -1138,8 +1107,8 @@ function buildBlockingSummary(row: {
   if (row.statusMeta.key === 'NO_ACTION') return '当前不影响后续'
   if (row.statusMeta.key === 'REJECTED') return '已驳回，不进入后续动作'
   if (row.statusMeta.key === 'COMPLETED') return '纠偏动作已闭环'
-  if (row.statusMeta.key === 'PENDING_SUPPLEMENT') return '待补录，仍影响下游'
-  if (row.statusMeta.key === 'PENDING_REVIEW') return '待审核，仍影响下游'
+  if (row.statusMeta.key === 'PENDING_SUPPLEMENT') return '待处理，仍影响下游'
+  if (row.statusMeta.key === 'PENDING_REVIEW') return '待处理，仍影响下游'
   if (row.pendingActionCount > 0) return `仍有 ${row.pendingActionCount} 项动作未完成`
   return '待继续处理'
 }
@@ -1266,17 +1235,17 @@ function buildMajorGapSummaryFromDifferences(
 }
 
 function buildHandlingStatusLabel(differences: SpreadingDifference[], review: ReplenishmentReview | null): string {
-  if (review?.reviewResult) return `已判断：${review.reviewResult}`
+  if (review?.reviewResult) return `已处理：${formatReplenishmentReviewResultLabel(review.reviewResult)}`
   if (!differences.length) return '无差异事项'
   return uniqueStrings(differences.map((difference) => difference.handlingStatus)).join(' / ')
 }
 
 function buildReviewResultLabel(review: ReplenishmentReview | null): string {
-  return review?.reviewResult || '待判断'
+  return formatReplenishmentReviewResultLabel(review?.reviewResult)
 }
 
 function buildNextActionLabel(review: ReplenishmentReview | null, nextOptions: ReplenishmentNextOption[]): string {
-  return review?.nextAction || buildNextActionSummary(nextOptions)
+  return review?.reviewResult ? resolveNextActionFromReviewResult(normalizeReplenishmentReviewResult(review.reviewResult)) : buildNextActionSummary(nextOptions)
 }
 
 function collectLinkedLedgerEventIds(
@@ -1584,13 +1553,13 @@ function buildSyntheticDifferenceRow(difference: SpreadingDifference): Replenish
     nextOptions: [
       {
         key: 'CHECK_DATA' as const,
-        label: '审核差异',
-        detailText: '先判断补料、补录、补排、关闭裁片单或仅记录。',
+        label: '处理差异',
+        detailText: '处理结果只能选择发起布料或忽略。',
         target: 'markerSpreading' as const,
         className: 'bg-orange-100 text-orange-700',
       },
     ],
-    nextActionSummary: '审核差异',
+    nextActionSummary: '处理差异',
     blockingSummary: '',
     statusMeta,
     riskMeta: replenishmentRiskMetaMap[difference.differenceLevel === '需处理' ? 'HIGH' : 'MEDIUM'],
@@ -1678,13 +1647,12 @@ function resolveReviewItemSourceType(row: ReplenishmentSuggestionRow): Replenish
   if (difference?.sourceType === '领料差异延续') return '领料差异'
   if (difference?.sourceType === 'PDA 铺布回写') return 'PDA 铺布回写'
   if (difference?.sourceType === 'PDA 裁剪回写') return 'PDA 裁剪回写'
-  if (difference?.sourceType === 'Web 复核') return 'Web 复核'
+  if (difference?.sourceType === 'Web 处理') return 'Web 处理'
   if (row.latestPdaFeedback) return '现场反馈'
   return '其他异常'
 }
 
 function resolveReviewItemStatus(row: ReplenishmentSuggestionRow): ReplenishmentReviewItemStatus {
-  if (row.review?.reviewResult === '关闭裁片单') return '已关闭'
   if (row.review?.reviewStatus === 'APPROVED') return '已处理'
   if (row.review?.reviewStatus === 'PENDING_SUPPLEMENT') return '审核中'
   if (row.review?.reviewStatus === 'REJECTED') return '已取消'
@@ -1775,12 +1743,12 @@ export function buildReplenishmentReviewItem(row: ReplenishmentSuggestionRow): R
     evidenceItems: buildReviewEvidenceItems(row),
     pdaFeedbackId: feedback?.writebackId || '',
     reviewStatus: resolveReviewItemStatus(row),
-    reviewResult: row.review?.reviewResult || '',
-    nextAction: row.review?.nextAction || '',
+    reviewResult: row.review?.reviewResult ? normalizeReplenishmentReviewResult(row.review.reviewResult) : '',
+    nextAction: row.review?.reviewResult ? resolveNextActionFromReviewResult(normalizeReplenishmentReviewResult(row.review.reviewResult)) : '',
     linkedLedgerEventIds: [...row.linkedLedgerEventIds],
-    closeCutOrderRequired: row.review?.reviewResult === '关闭裁片单',
-    closeReasonCode: row.review?.closeReasonCode || '',
-    closeReasonText: row.review?.closeReason || '',
+    closeCutOrderRequired: false,
+    closeReasonCode: '',
+    closeReasonText: '',
     createdAt: row.createdAt,
     createdBy: difference?.detectedBy || feedback?.operatorName || '系统',
     reviewedAt: row.review?.reviewedAt || '',
@@ -1793,9 +1761,9 @@ function buildSeedReplenishmentReviews(differences: SpreadingDifference[]): Repl
   const usedResults = new Set<ReplenishmentReviewResult>()
   const resultByDifferenceType: Partial<Record<SpreadingDifferenceType, ReplenishmentReviewResult>> = {
     面料余额不足: '需要补料',
-    实际用量差异: '需要补录',
-    实铺小于计划: '继续补排',
-    实裁小于计划: '关闭裁片单',
+    实际用量差异: '需要补料',
+    实铺小于计划: '需要补料',
+    实裁小于计划: '需要补料',
     卷记录异常: '仅记录差异',
   }
 
@@ -1811,22 +1779,16 @@ function buildSeedReplenishmentReviews(differences: SpreadingDifference[]): Repl
         reviewStatus: resolveReviewStatusFromResult(result),
         reviewResult: result,
         nextAction,
-        closeReasonCode: result === '关闭裁片单' ? 'BUSINESS_STOP_RECUT' : undefined,
-        closeReason: result === '关闭裁片单' ? '业务确认不再补裁，进入裁片单关闭链路。' : '',
+        closeReasonCode: undefined,
+        closeReason: '',
         linkedLedgerEventIds: result === '仅记录差异' ? [] : difference.linkedLedgerEventIds,
         reviewedBy: '系统预置审核',
         reviewedAt: difference.detectedAt,
         decisionReason:
           result === '需要补料'
-            ? '面料余额不足，需要回到中转仓配料或裁床领料。'
-            : result === '需要补录'
-              ? '实际用量异常，先补录或复核铺布裁剪数据。'
-              : result === '继续补排'
-                ? '实铺小于计划但仍可继续补排。'
-                : result === '关闭裁片单'
-                  ? '业务决定不再补裁，必须记录关闭原因。'
-                  : '卷记录异常仅记录差异，不改变数量账。',
-        note: '用于原型覆盖补料管理审核结果与后续动作场景。',
+            ? '处理结果为发起布料，WMS 中转仓将创建新的配料。'
+            : '处理结果为忽略，不创建配料，不改变数量账。',
+        note: '用于原型覆盖差异处理的发起布料和忽略两种结果。',
       }
     })
     .filter((review): review is ReplenishmentReview => Boolean(review))
@@ -1975,14 +1937,8 @@ export function deserializeReplenishmentActionsStorage(raw: string | null): Repl
           note:
             String(item.note || '').trim() ||
             (actionType === 'CREATE_PENDING_PREP'
-              ? '确认需要补料后，回到中转仓配料并由裁床再次领料。'
-              : actionType === 'SUPPLEMENT_BACKFILL'
-                ? '确认需要补录后，补齐铺布或裁剪实际数据。'
-                : actionType === 'REPLAN_MARKER'
-                  ? '确认继续补排后，回到可排唛架裁片单。'
-                  : actionType === 'CLOSE_CUT_ORDER'
-                    ? '确认不再补裁后，关闭裁片单并保留关闭原因。'
-                    : '仅保留差异记录，不改变数量账。'),
+              ? '发起布料后，WMS 中转仓创建新的配料，裁床后续重新领料。'
+              : '忽略本次差异，不创建配料，不改变数量账。'),
           decidedAt: String(item.decidedAt || '').trim(),
           decidedBy: String(item.decidedBy || '').trim(),
           completedAt: String(item.completedAt || '').trim(),

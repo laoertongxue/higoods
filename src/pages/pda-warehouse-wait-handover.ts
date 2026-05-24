@@ -13,12 +13,23 @@ import {
   listWoolWaitHandoverInboundRecords,
   listWoolWarehouseInventory,
 } from '../data/fcs/wool-task-domain.ts'
+import {
+  buildHandoverPickingTaskProjectionFromAllocationProjection,
+  buildSewingTaskAllocationProjectionFromInventory,
+} from '../data/fcs/cutting/sewing-dispatch.ts'
+import { listPdaCuttingTaskSourceRecords } from '../data/fcs/cutting/pda-cutting-task-source.ts'
+import {
+  buildInboundTempBagInventoryRecords,
+  buildInboundTempBagsFromTransferBagViewModel,
+} from './process-factory/cutting/transfer-bags-model.ts'
+import { buildTransferBagsProjection } from './process-factory/cutting/transfer-bags-projection.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildWarehouseDifferenceText,
   escapeAttr,
   formatWarehouseDateTime,
   getCurrentFactoryWarehouseByKind,
+  getMobileWarehouseSearchParams,
   getMobileWarehouseRuntimeContext,
   getWaitHandoverWritebackStatusLabel,
   getWarehouseQrDisplayText,
@@ -67,6 +78,100 @@ const FILTERS: Array<{ value: WaitHandoverFilter; label: string }> = [
 ]
 
 const LINKED_QR_FIELD = ['handoverRecord', 'QrValue'].join('')
+
+function getFirstCuttingTaskId(): string {
+  return listPdaCuttingTaskSourceRecords()[0]?.taskId || 'CUTTING-DEMO'
+}
+
+function renderCuttingWaitHandoverActionCards(firstTaskId: string): string {
+  const actions = [
+    { title: '扫码入仓', desc: '扫袋码和菲票，装入入仓暂存袋。', nav: `/fcs/pda/cutting/inbound/${firstTaskId}` },
+    { title: '二次分拣', desc: '扫配料任务、暂存袋、菲票，按车缝任务分拣。', action: 'cutting-wh-sort' },
+    { title: '重新装袋', desc: '扫目标中转袋，一个袋只绑定一个车缝任务。', action: 'cutting-wh-rebag' },
+    { title: '新增交出记录', desc: '扫交出单、中转袋和菲票，提交交出记录。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
+  ]
+  return `
+    <section class="grid grid-cols-2 gap-2">
+      ${actions.map((item) => `
+        <button
+          type="button"
+          class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
+          ${item.nav ? `data-nav="${escapeAttr(item.nav)}"` : `data-pda-warehouse-action="${escapeAttr(item.action)}"`}
+        >
+          <div class="text-sm font-semibold text-foreground">${escapeHtml(item.title)}</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(item.desc)}</div>
+        </button>
+      `).join('')}
+    </section>
+  `
+}
+
+function renderCuttingWaitHandoverPage(): string {
+  const transferBagViewModel = buildTransferBagsProjection().viewModel
+  const inboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
+  const inventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
+  const allocationProjection = buildSewingTaskAllocationProjectionFromInventory(inventoryRecords)
+  const pickingProjection = buildHandoverPickingTaskProjectionFromAllocationProjection(allocationProjection)
+  const firstTaskId = getFirstCuttingTaskId()
+  const totalPieceQty = inventoryRecords.reduce((sum, item) => sum + item.pieceQty, 0)
+  const pendingSortingQty = pickingProjection.tasks.reduce(
+    (sum, task) => sum + task.allocatedInventoryItems.reduce((taskSum, item) => taskSum + item.pieceQty, 0),
+    0,
+  )
+  const packedQty = pickingProjection.targetTransferBags.reduce((sum, bag) => sum + bag.totalPieceQty, 0)
+
+  return renderPdaFrame(`
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="grid grid-cols-2 gap-2">
+        <button type="button" class="rounded-2xl border bg-background px-4 py-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/wait-process?scope=cutting">裁床待加工仓</button>
+        <button type="button" class="rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-handover?scope=cutting">裁床待交出仓</button>
+      </section>
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <div class="text-lg font-semibold text-foreground">裁床待交出仓</div>
+        <div class="mt-1 text-xs text-muted-foreground">仓管只处理入仓暂存、二次分拣、重新装袋和交出扫码。</div>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <div class="rounded-xl bg-muted/60 px-3 py-3">
+            <div class="text-muted-foreground">入仓暂存袋</div>
+            <div class="mt-1 text-base font-semibold">${inboundTempBags.length} 袋</div>
+          </div>
+          <div class="rounded-xl bg-muted/60 px-3 py-3">
+            <div class="text-muted-foreground">裁片库存</div>
+            <div class="mt-1 text-base font-semibold">${totalPieceQty} 片</div>
+          </div>
+          <div class="rounded-xl bg-muted/60 px-3 py-3">
+            <div class="text-muted-foreground">待二次分拣</div>
+            <div class="mt-1 text-base font-semibold">${pendingSortingQty} 片</div>
+          </div>
+          <div class="rounded-xl bg-muted/60 px-3 py-3">
+            <div class="text-muted-foreground">已装袋待交出</div>
+            <div class="mt-1 text-base font-semibold">${packedQty} 片</div>
+          </div>
+        </div>
+      </section>
+      ${renderCuttingWaitHandoverActionCards(firstTaskId)}
+      <section class="space-y-3">
+        ${inboundTempBags.slice(0, 5).map((bag) => `
+          <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-semibold text-foreground">${escapeHtml(bag.bagCode)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bag.warehouseArea)} / ${escapeHtml(bag.locationCode)}</div>
+              </div>
+              ${renderStatusPill(bag.nextSortingStatus)}
+            </div>
+            <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+              <div>菲票数量：${bag.containedFeiTickets.length} 张</div>
+              <div>裁片数量：${bag.totalPieceQty} 片</div>
+              <div>混装情况：${escapeHtml(bag.mixedFlag ? bag.mixedSummary : '未混装')}</div>
+              <div>特殊工艺：${escapeHtml(bag.containedFeiTickets.some((ticket) => ticket.hasSpecialCraft) ? '包含特殊工艺裁片' : '无')}</div>
+              <div>入仓时间：${escapeHtml(bag.inboundAt)} / ${escapeHtml(bag.inboundBy)}</div>
+            </div>
+          </article>
+        `).join('') || renderMobilePageEmptyState('暂无入仓暂存袋', '菲票扫码入仓后，会进入裁床待交出仓。')}
+      </section>
+    </div>
+  `, 'warehouse', { headerTitle: '裁床待交出仓', disableTodoAutoOpen: true })
+}
 
 function normalizePostFinishingIdSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, '').slice(-16) || 'UNKNOWN'
@@ -355,6 +460,7 @@ function renderWoolWaitHandoverPage(): string {
 export function renderPdaWarehouseWaitHandoverPage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse', { disableTodoAutoOpen: true })
+  if (getMobileWarehouseSearchParams().get('scope') === 'cutting') return renderCuttingWaitHandoverPage()
   if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingWaitHandoverPage()
   if (runtime.factoryId === OWN_WOOL_FACTORY_ID) return renderWoolWaitHandoverPage()
 
@@ -436,6 +542,22 @@ export function renderPdaWarehouseWaitHandoverPage(): string {
 export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
+  if (action === 'cutting-wh-sort') {
+    const taskNo = window.prompt('请扫描待交出仓裁片配料任务码')?.trim()
+    if (!taskNo) return true
+    const feiTicketNo = window.prompt('请扫描菲票码')?.trim()
+    if (!feiTicketNo) return true
+    window.alert(`已记录二次分拣：${taskNo} / ${feiTicketNo}。同步状态：已同步。`)
+    return true
+  }
+  if (action === 'cutting-wh-rebag') {
+    const bagCode = window.prompt('请扫描目标中转袋码')?.trim()
+    if (!bagCode) return true
+    const taskNo = window.prompt('请扫描车缝任务或配料任务码')?.trim()
+    if (!taskNo) return true
+    window.alert(`已记录重新装袋：${bagCode} 绑定 ${taskNo}。同步状态：已同步。`)
+    return true
+  }
   if (action === 'open-wait-handover-detail' && actionNode.dataset.stockItemId) {
     state.detailId = actionNode.dataset.stockItemId
     return true

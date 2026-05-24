@@ -14,7 +14,7 @@ import { listPdaReplenishmentFeedbackWritebacks } from './pda-execution-writebac
 export type SpreadingDifferenceSourceType =
   | 'PDA 铺布回写'
   | 'PDA 裁剪回写'
-  | 'Web 复核'
+  | 'Web 处理'
   | '领料差异延续'
   | '系统计算'
 
@@ -28,7 +28,7 @@ export type SpreadingDifferenceType =
   | '现场反馈'
   | '其他异常'
 
-export type SpreadingDifferenceLevel = '提示' | '需复核' | '需处理'
+export type SpreadingDifferenceLevel = '提示' | '待处理' | '需处理'
 export type SpreadingDifferenceHandlingStatus = '待处理' | '处理中' | '已处理' | '仅记录'
 
 export interface SpreadingDifferenceEvidence {
@@ -70,21 +70,9 @@ export interface SpreadingDifference {
   linkedLedgerEventIds: string[]
 }
 
-export type ReplenishmentReviewResult =
-  | '需要补料'
-  | '需要补录'
-  | '继续补排'
-  | '关闭裁片单'
-  | '仅记录差异'
+export type ReplenishmentReviewResult = '需要补料' | '仅记录差异'
 
-export type ReplenishmentNextAction =
-  | '回到中转仓配料'
-  | '回到裁床领料'
-  | '回到可排唛架'
-  | '回到唛架方案'
-  | '补录铺布或裁剪数据'
-  | '关闭裁片单'
-  | '无后续动作'
+export type ReplenishmentNextAction = '回到中转仓配料' | '无后续动作'
 
 export interface SpreadingReplenishmentHandlingObject {
   replenishmentId: string
@@ -211,7 +199,7 @@ function buildOrdersFromSessions(sessions: SpreadingSession[]): SpreadingOrder[]
       plannedPieceQty: plannedGarmentQty,
       plannedMaterialUsage,
       plannedMaterialUsageUnit: firstSource?.materialUnit || '米',
-      sizeRatio: session.planUnits?.map((unit) => `${unit.sizeLabel || unit.planUnitId}×${unit.plannedCutGarmentQty || 0}`).join(' / ') || '',
+      sizeRatio: (session.planUnits || []).map((unit) => `${unit.sizeLabel || unit.planUnitId}×${unit.plannedCutGarmentQty || 0}`).join(' / '),
       markerMode: session.spreadingMode,
       markerModeLabel: session.spreadingMode,
       markerImageUrl: '',
@@ -331,7 +319,7 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
         plannedValue: order.plannedLayerCount,
         actualValue: base.actualLayerCount,
         unit: '层',
-        summary: '实铺层数小于唛架方案计划层数，允许提交，但需要进入补料管理判断是否补料、补录、补排或关闭裁片单。',
+        summary: '实铺层数小于唛架方案计划层数，允许提交，后续处理差异只选择发起布料或忽略。',
       }))
     }
 
@@ -342,11 +330,11 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
           suffix: 'usage-difference',
           sourceType: session?.sourceWritebackId ? 'PDA 铺布回写' : '系统计算',
           differenceType: '实际用量差异',
-          differenceLevel: usageRatio > 0.1 ? '需处理' : '需复核',
+          differenceLevel: usageRatio > 0.1 ? '需处理' : '待处理',
           plannedValue: order.plannedMaterialUsage,
           actualValue: base.actualUsage,
           unit: order.plannedMaterialUsageUnit || '米',
-          summary: '实际用量与计划用量差异超过 5%，需要复核差异来源。',
+          summary: '实际用量与计划用量差异超过 5%，需要进入差异处理。',
         }))
       }
     }
@@ -360,7 +348,7 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
         plannedValue: order.plannedGarmentQty,
         actualValue: base.actualCutQty,
         unit: '件',
-        summary: '实际裁剪数量小于计划数量，允许提交，但需要判断是否继续补排或关闭裁片单。',
+        summary: '实际裁剪数量小于计划数量，允许提交，后续处理差异只选择发起布料或忽略。',
       }))
     }
 
@@ -388,13 +376,13 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
     if (abnormalRolls.length) {
       differences.push(createDifference(order, session, {
         suffix: 'roll-record-abnormal',
-        sourceType: session?.sourceWritebackId ? 'PDA 铺布回写' : 'Web 复核',
+        sourceType: session?.sourceWritebackId ? 'PDA 铺布回写' : 'Web 处理',
         differenceType: '卷记录异常',
-        differenceLevel: '需复核',
+        differenceLevel: '待处理',
         plannedValue: abnormalRolls.length,
         actualValue: 0,
         unit: '卷',
-        summary: '存在布卷扫码或卷长使用异常，需要补料管理复核证据。',
+        summary: '存在布卷扫码或卷长使用异常，需要进入差异处理。',
         note: abnormalRolls.map((roll) => roll.note || roll.handoverNotes || roll.rollNo || '未命名布卷').join('；'),
       }))
     }
@@ -405,11 +393,11 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
         suffix: 'head-tail-abnormal',
         sourceType: session?.sourceWritebackId ? 'PDA 铺布回写' : '系统计算',
         differenceType: '布头布尾异常',
-        differenceLevel: '需复核',
+        differenceLevel: '待处理',
         plannedValue: 8,
         actualValue: headTailLength,
         unit: '米',
-        summary: '布头布尾合计偏高，需要复核现场损耗是否合理。',
+        summary: '布头布尾合计偏高，需要进入差异处理。',
       }))
     }
 
@@ -621,7 +609,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
       suffix: 'seed-usage-diff',
       sourceType: '系统计算',
       differenceType: '实际用量差异',
-      differenceLevel: '需复核',
+      differenceLevel: '待处理',
       plannedValue: 1020,
       actualValue: 1112,
       unit: order.plannedMaterialUsageUnit || '米',
@@ -646,7 +634,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
       suffix: 'seed-roll-abnormal',
       sourceType: 'PDA 铺布回写',
       differenceType: '卷记录异常',
-      differenceLevel: '需复核',
+      differenceLevel: '待处理',
       plannedValue: 1,
       actualValue: 0,
       unit: '卷',
@@ -663,10 +651,10 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
       plannedValue: 1,
       actualValue: 0,
       unit: '项',
-      summary: 'PDA 现场反馈布面局部瑕疵，需要补料管理判断补料、补录或仅记录差异。',
+      summary: 'PDA 现场反馈布面局部瑕疵，需要处理差异。',
       operatorName: '现场组长',
       occurredAt: '2026-03-18 17:28',
-      note: '布面瑕疵已拍照，待复核。',
+      note: '布面瑕疵已拍照，待处理。',
       photoProofCount: 1,
     }),
     createDifference(order, null, {
@@ -677,7 +665,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
       plannedValue: 180,
       actualValue: 120,
       unit: order.plannedMaterialUsageUnit || '米',
-      summary: '领料时少领 60 米，铺布复核后确认差异仍影响后续补排。',
+      summary: '领料时少领 60 米，差异仍影响后续用料。',
       operatorName: '裁床领料员',
       occurredAt: '2026-03-18 17:32',
       note: '由领料差异延续到铺布阶段，需补料管理判断后续动作。',
@@ -711,7 +699,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
         suffix: 'seed-pb2440-usage-diff',
         sourceType: '系统计算',
         differenceType: '实际用量差异',
-        differenceLevel: '需复核',
+        differenceLevel: '待处理',
         plannedValue: 4296.6,
         actualValue: 54,
         unit: pb2440Order.plannedMaterialUsageUnit,
@@ -777,9 +765,9 @@ export function listSpreadingDifferencesByProductionOrder(
 
 function resolveReviewResultFromDifferenceType(differenceType: SpreadingDifferenceType): ReplenishmentReviewResult | '' {
   if (differenceType === '面料余额不足') return '需要补料'
-  if (differenceType === '实际用量差异') return '需要补录'
-  if (differenceType === '实铺小于计划') return '继续补排'
-  if (differenceType === '实裁小于计划') return '关闭裁片单'
+  if (differenceType === '实际用量差异') return '需要补料'
+  if (differenceType === '实铺小于计划') return '需要补料'
+  if (differenceType === '实裁小于计划') return '需要补料'
   if (differenceType === '卷记录异常') return '仅记录差异'
   if (differenceType === '现场反馈') return '需要补料'
   return ''
@@ -787,9 +775,6 @@ function resolveReviewResultFromDifferenceType(differenceType: SpreadingDifferen
 
 function resolveNextActionFromReviewResult(reviewResult: ReplenishmentReviewResult | ''): ReplenishmentNextAction | '' {
   if (reviewResult === '需要补料') return '回到中转仓配料'
-  if (reviewResult === '需要补录') return '补录铺布或裁剪数据'
-  if (reviewResult === '继续补排') return '回到可排唛架'
-  if (reviewResult === '关闭裁片单') return '关闭裁片单'
   if (reviewResult === '仅记录差异') return '无后续动作'
   return ''
 }
@@ -819,8 +804,8 @@ export function buildSpreadingReplenishmentHandlingObjects(
       reviewStatus: reviewResult ? '已处理' : difference.handlingStatus,
       reviewResult,
       nextAction,
-      closeCutOrderRequired: reviewResult === '关闭裁片单',
-      closeReason: reviewResult === '关闭裁片单' ? '业务确认不再补裁，进入裁片单关闭链路。' : '',
+      closeCutOrderRequired: false,
+      closeReason: '',
       linkedLedgerEventIds: reviewResult === '仅记录差异' ? [] : [...difference.linkedLedgerEventIds],
     }
   })

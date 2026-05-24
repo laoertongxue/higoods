@@ -715,7 +715,7 @@ function createMarkerPlanAndGo(): boolean {
   query.set('patternVersion', summary.patternVersion)
   query.set('effectiveWidth', summary.effectiveWidthText)
   if (summary.historyCombinationGroup) query.set('historyCombinationGroup', summary.historyCombinationGroup)
-  query.set('tab', 'layout')
+  query.set('step', 'source')
   state.selectedIds = []
   clearNotice()
   appStore.navigate(`${getCanonicalCuttingPath('marker-create')}?${query.toString()}`)

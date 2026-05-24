@@ -17,6 +17,10 @@ import {
   listWoolWarehouseInventory,
   recoverWoolYarnToWaitProcessWarehouse,
 } from '../data/fcs/wool-task-domain.ts'
+import {
+  listMaterialLedgerProjections,
+  type MaterialLedgerProjection,
+} from '../data/fcs/cutting/material-ledger.ts'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { renderPdaFrame } from './pda-shell'
@@ -27,6 +31,7 @@ import {
   getCurrentFactoryWarehouseByKind,
   getWaitProcessSourceActionLabel,
   getWaitProcessSourceStatusLabel,
+  getMobileWarehouseSearchParams,
   getMobileWarehouseRuntimeContext,
   getWarehousePositionOptions,
   renderCompactFieldList,
@@ -68,6 +73,98 @@ const FILTERS: Array<{ value: WaitProcessFilter; label: string }> = [
   { value: '已入待加工仓', label: '已入待加工仓' },
   { value: '差异待处理', label: '差异待处理' },
 ]
+
+function formatCuttingWaitProcessQty(qty: number, unit = '米'): string {
+  const rollCount = qty <= 0 ? 0 : Math.max(Math.ceil(qty / 280), 1)
+  return `${new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 }).format(qty)} ${unit} / ${rollCount} 卷`
+}
+
+function renderCuttingWaitProcessActionCards(): string {
+  const actions = [
+    { action: 'cutting-wp-receive', title: '扫码收货', desc: '扫领料单或裁片单，确认收货库区、库位和卷数。' },
+    { action: 'cutting-wp-issue', title: '加工领料', desc: '扫铺布单，从指定库区库位领走面料去加工。' },
+    { action: 'cutting-wp-return', title: '回收入仓', desc: '铺布剩余面料扫码回收，记录回收库区库位。' },
+  ]
+  return `
+    <section class="grid grid-cols-1 gap-2">
+      ${actions.map((item) => `
+        <button
+          type="button"
+          class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
+          data-pda-warehouse-action="${escapeAttr(item.action)}"
+        >
+          <div class="text-base font-semibold text-foreground">${escapeHtml(item.title)}</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(item.desc)}</div>
+        </button>
+      `).join('')}
+    </section>
+  `
+}
+
+function renderCuttingWaitProcessRow(row: MaterialLedgerProjection, index: number): string {
+  const area = index % 2 === 0 ? '面料 A 区' : '面料 B 区'
+  const location = `FAB-${index % 2 === 0 ? 'A' : 'B'}-${String((index % 6) + 1).padStart(2, '0')}`
+  const latestClaimText = row.latestClaimEvent
+    ? `${row.latestClaimEvent.occurredAt} / ${row.latestClaimEvent.operatorName}`
+    : '暂无领料记录'
+  const status = row.cuttingClaimedQty <= 0 ? '未收货' : row.availableQty > 0 ? '在库可用' : '无可用'
+
+  return `
+    <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-semibold text-foreground">${escapeHtml(row.materialIdentity.materialSku)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.materialIdentity.materialName)} / ${escapeHtml(row.materialIdentity.materialColor || '待补颜色')}</div>
+        </div>
+        ${renderStatusPill(status)}
+      </div>
+      <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+        <div>裁片单：${escapeHtml(row.cutOrderNo)}</div>
+        <div>生产单：${escapeHtml(row.productionOrderNo)}</div>
+        <div>库区库位：${escapeHtml(area)} / ${escapeHtml(location)}</div>
+        <div>裁床已领：${escapeHtml(formatCuttingWaitProcessQty(row.cuttingClaimedQty, row.unit))}</div>
+        <div>可用余额：${escapeHtml(formatCuttingWaitProcessQty(row.availableQty, row.unit))}</div>
+        <div>最近领料：${escapeHtml(latestClaimText)}</div>
+      </div>
+    </article>
+  `
+}
+
+function renderCuttingWaitProcessPage(): string {
+  const rows = listMaterialLedgerProjections()
+  const stockedRows = rows.filter((row) => row.cuttingClaimedQty > 0 || row.availableQty >= 0)
+  const totalAvailable = rows.reduce((sum, row) => sum + row.availableQty, 0)
+  const totalClaimed = rows.reduce((sum, row) => sum + row.cuttingClaimedQty, 0)
+  const content = `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="grid grid-cols-2 gap-2">
+        <button type="button" class="rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-process?scope=cutting">裁床待加工仓</button>
+        <button type="button" class="rounded-2xl border bg-background px-4 py-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/wait-handover?scope=cutting">裁床待交出仓</button>
+      </section>
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <div class="text-lg font-semibold text-foreground">裁床待加工仓</div>
+        <div class="mt-1 text-xs text-muted-foreground">仓管只做三件事：扫码收货、加工领料、回收入仓。</div>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <div class="rounded-xl bg-muted/60 px-3 py-3">
+            <div class="text-muted-foreground">裁床已领</div>
+            <div class="mt-1 text-base font-semibold">${escapeHtml(formatCuttingWaitProcessQty(totalClaimed))}</div>
+          </div>
+          <div class="rounded-xl bg-muted/60 px-3 py-3">
+            <div class="text-muted-foreground">当前可用</div>
+            <div class="mt-1 text-base font-semibold">${escapeHtml(formatCuttingWaitProcessQty(totalAvailable))}</div>
+          </div>
+        </div>
+      </section>
+      ${renderCuttingWaitProcessActionCards()}
+      <section class="space-y-3">
+        ${stockedRows.length
+          ? stockedRows.slice(0, 8).map((row, index) => renderCuttingWaitProcessRow(row, index)).join('')
+          : renderMobilePageEmptyState('暂无裁床待加工库存', '扫码收货后会形成裁床待加工仓库存。')}
+      </section>
+    </div>
+  `
+  return renderPdaFrame(content, 'warehouse', { headerTitle: '裁床待加工仓', disableTodoAutoOpen: true })
+}
 
 function getPostFinishingWaitProcessRows(): PostFinishingWaitProcessWarehouseRecord[] {
   return listPostFinishingWaitProcessWarehouseRecords()
@@ -345,6 +442,7 @@ function renderWoolWaitProcessPage(): string {
 export function renderPdaWarehouseWaitProcessPage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse', { disableTodoAutoOpen: true })
+  if (getMobileWarehouseSearchParams().get('scope') === 'cutting') return renderCuttingWaitProcessPage()
   if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingWaitProcessPage()
   if (runtime.factoryId === OWN_WOOL_FACTORY_ID) return renderWoolWaitProcessPage()
 
@@ -424,6 +522,30 @@ export function renderPdaWarehouseWaitProcessPage(): string {
 export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
+  if (action === 'cutting-wp-receive') {
+    const sourceNo = window.prompt('请扫描领料单或裁片单二维码')?.trim()
+    if (!sourceNo) return true
+    const location = window.prompt('请输入收货库区库位', '面料 A 区 / FAB-A-01')?.trim()
+    if (!location) return true
+    window.alert(`已记录扫码收货：${sourceNo}，入库位置：${location}。同步状态：已同步。`)
+    return true
+  }
+  if (action === 'cutting-wp-issue') {
+    const sourceNo = window.prompt('请扫描铺布单或裁片单二维码')?.trim()
+    if (!sourceNo) return true
+    const qty = window.prompt('请输入加工领料数量和卷数', '120 米 / 1 卷')?.trim()
+    if (!qty) return true
+    window.alert(`已记录加工领料：${sourceNo}，领用 ${qty}。同步状态：已同步。`)
+    return true
+  }
+  if (action === 'cutting-wp-return') {
+    const sourceNo = window.prompt('请扫描铺布单或布卷码')?.trim()
+    if (!sourceNo) return true
+    const qty = window.prompt('请输入回收入仓数量和卷数', '35 米 / 1 卷')?.trim()
+    if (!qty) return true
+    window.alert(`已记录回收入仓：${sourceNo}，回收 ${qty}。同步状态：已同步。`)
+    return true
+  }
   if (action === 'recover-wool-yarn' && actionNode.dataset.woolOrderId) {
     const relatedOrderNos = (actionNode.dataset.relatedOrderNos || '')
       .split('|')

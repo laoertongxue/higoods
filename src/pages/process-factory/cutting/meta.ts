@@ -193,10 +193,10 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/fei-tickets',
     aliases: [],
     menuGroupTitle: '裁后处理',
-    pageTitle: '菲票',
+    pageTitle: '菲票打印',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看菲票、打印状态、特殊工艺、承接工厂和编号范围。',
+    shortDescription: '按铺布单确认菲票明细、打印状态、特殊工艺、承接工厂和编号范围。',
   },
   'fei-ticket-detail': {
     key: 'fei-ticket-detail',

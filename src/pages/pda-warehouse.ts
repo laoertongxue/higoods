@@ -84,6 +84,20 @@ function renderPostFinishingWarehouseHome(factoryName: string): string {
 
   return `
     <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+      <div class="text-lg font-semibold text-foreground">裁床仓管</div>
+      <div class="mt-1 text-xs text-muted-foreground">处理裁床待加工仓和裁床待交出仓的扫码、库位、分拣和装袋动作。</div>
+      <div class="mt-4 grid grid-cols-2 gap-3">
+        <button type="button" class="rounded-2xl border bg-background px-4 py-4 text-left shadow-sm" data-nav="/fcs/pda/warehouse/wait-process?scope=cutting">
+          <div class="text-sm font-semibold">裁床待加工仓</div>
+          <div class="mt-2 text-xs leading-5 text-muted-foreground">扫码收货、加工领料、回收入仓。</div>
+        </button>
+        <button type="button" class="rounded-2xl border bg-background px-4 py-4 text-left shadow-sm" data-nav="/fcs/pda/warehouse/wait-handover?scope=cutting">
+          <div class="text-sm font-semibold">裁床待交出仓</div>
+          <div class="mt-2 text-xs leading-5 text-muted-foreground">入仓暂存、二次分拣、装袋交出。</div>
+        </button>
+      </div>
+    </section>
+    <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
       <div class="flex items-start justify-between gap-3">
         <div>
           <div class="text-lg font-semibold text-foreground">后道仓管</div>
@@ -158,6 +172,16 @@ export function renderPdaWarehousePage(): string {
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
       ${renderWarehouseSummaryHeader('仓管', '待加工仓 / 待交出仓 / 入库记录 / 出库记录 / 盘点', runtime.overview)}
+      <section class="grid grid-cols-2 gap-3">
+        <button type="button" class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm" data-nav="/fcs/pda/warehouse/wait-process?scope=cutting">
+          <div class="text-sm font-semibold">裁床待加工仓</div>
+          <div class="mt-2 text-xs leading-5 text-muted-foreground">扫码收货、加工领料、回收入仓。</div>
+        </button>
+        <button type="button" class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm" data-nav="/fcs/pda/warehouse/wait-handover?scope=cutting">
+          <div class="text-sm font-semibold">裁床待交出仓</div>
+          <div class="mt-2 text-xs leading-5 text-muted-foreground">入仓暂存、二次分拣、重新装袋、交出。</div>
+        </button>
+      </section>
       ${
         runtime.overview.isSewingLightweight
           ? '<section class="rounded-2xl border bg-card px-4 py-3 text-xs text-muted-foreground">车缝厂查看中转袋接收、菲票回写和差异，不生成内部仓记录。</section>'

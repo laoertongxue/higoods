@@ -8,14 +8,14 @@ export function renderCompactKpiCard(
   formula = '',
 ): string {
   return `
-    <article class="rounded-lg border bg-card px-3 py-2">
+    <article data-cutting-kpi-card="true" class="min-w-0 rounded-lg border bg-card px-3 py-2">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
-          <p class="mt-0.5 text-lg font-semibold leading-none tabular-nums ${accentClass}">${escapeHtml(String(value))}</p>
-          ${formula ? `<p class="mt-1 font-mono text-[11px] leading-4 text-muted-foreground">${escapeHtml(formula)}</p>` : ''}
+          <p class="truncate text-xs text-muted-foreground" title="${escapeHtml(label)}">${escapeHtml(label)}</p>
+          <p class="mt-0.5 truncate text-lg font-semibold leading-none tabular-nums ${accentClass}" title="${escapeHtml(String(value))}">${escapeHtml(String(value))}</p>
+          ${formula ? `<p class="mt-1 truncate font-mono text-[11px] leading-4 text-muted-foreground" title="${escapeHtml(formula)}">${escapeHtml(formula)}</p>` : ''}
         </div>
-        ${hint ? `<p class="max-w-[9rem] text-right text-[10px] leading-4 text-muted-foreground">${escapeHtml(hint)}</p>` : ''}
+        ${hint ? `<p class="max-w-[9rem] shrink-0 truncate text-right text-[10px] leading-4 text-muted-foreground" title="${escapeHtml(hint)}">${escapeHtml(hint)}</p>` : ''}
       </div>
     </article>
   `
@@ -106,8 +106,8 @@ export function renderWorkbenchFilterChip(label: string, attrs: string, tone: 'b
           : 'border-blue-200 bg-blue-50 text-blue-700'
 
   return `
-    <button type="button" ${attrs} class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${toneClass}">
-      ${escapeHtml(label)}
+    <button type="button" ${attrs} title="${escapeHtml(label)}" class="inline-flex max-w-[12rem] items-center rounded-full border px-3 py-1 text-xs font-medium ${toneClass}">
+      <span class="truncate">${escapeHtml(label)}</span>
     </button>
   `
 }
@@ -120,12 +120,12 @@ export function renderWorkbenchStateBar(options: {
   if (!options.chips.length) return ''
 
   return `
-    <section class="flex flex-col gap-2 rounded-lg border border-dashed bg-muted/20 px-3 py-2 lg:flex-row lg:items-center lg:justify-between">
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="text-xs font-medium text-muted-foreground">${escapeHtml(options.summary)}</span>
+    <section class="flex flex-nowrap items-center justify-between gap-2 overflow-hidden rounded-lg border border-dashed bg-muted/20 px-3 py-2">
+      <div class="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto">
+        <span class="shrink-0 text-xs font-medium text-muted-foreground">${escapeHtml(options.summary)}</span>
         ${options.chips.join('')}
       </div>
-      <button type="button" ${options.clearAttrs} class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted">
+      <button type="button" ${options.clearAttrs} class="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted">
         清除当前视图条件
       </button>
     </section>
@@ -134,8 +134,10 @@ export function renderWorkbenchStateBar(options: {
 
 export function renderStickyFilterShell(content: string, extraClass = '', extraAttrs = ''): string {
   return `
-    <section ${extraAttrs} class="sticky top-2 z-20 rounded-lg border bg-card/95 p-2.5 shadow-sm backdrop-blur ${extraClass}">
-      ${content}
+    <section ${extraAttrs} data-cutting-filter-shell="true" class="sticky top-2 z-20 rounded-lg border bg-card/95 p-2.5 shadow-sm backdrop-blur ${extraClass}">
+      <div class="cutting-filter-single-line">
+        ${content}
+      </div>
     </section>
   `
 }

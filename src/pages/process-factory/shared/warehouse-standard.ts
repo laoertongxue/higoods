@@ -18,7 +18,12 @@ export interface FactoryWarehouseFlowLine {
   statusText?: string
 }
 
-export function renderFactoryWarehouseStandardTabs(tabs: FactoryWarehouseStandardTab[], idPrefix: string): string {
+export function renderFactoryWarehouseStandardTabs(
+  tabs: FactoryWarehouseStandardTab[],
+  idPrefix: string,
+  options: { showPanelHeader?: boolean } = {},
+): string {
+  const showPanelHeader = options.showPanelHeader !== false
   return `
     <section class="rounded-lg border bg-card">
       <style>
@@ -50,13 +55,13 @@ export function renderFactoryWarehouseStandardTabs(tabs: FactoryWarehouseStandar
           `,
         )
         .join('')}
-      <div class="factory-warehouse-tab-labels flex flex-wrap gap-2 border-b bg-muted/20 px-4 py-3">
+      <div class="factory-warehouse-tab-labels flex flex-nowrap gap-2 overflow-x-auto whitespace-nowrap border-b bg-muted/20 px-4 py-3">
         ${tabs
           .map(
             (tab) => `
               <label
                 for="${idPrefix}-${tab.key}"
-                class="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+                class="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
               >
                 <span>${escapeHtml(tab.label)}</span>
                 <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">${String(tab.count)}</span>
@@ -70,10 +75,12 @@ export function renderFactoryWarehouseStandardTabs(tabs: FactoryWarehouseStandar
           .map(
             (tab) => `
               <div class="hidden" data-factory-warehouse-tab-panel="${escapeHtml(tab.key)}">
-                <div class="flex items-center justify-between border-b px-4 py-3">
-                  <h2 class="text-base font-semibold">${escapeHtml(tab.label)}</h2>
-                  <span class="text-xs text-muted-foreground">共 ${String(tab.count)} 条</span>
-                </div>
+                ${showPanelHeader ? `
+                  <div class="flex items-center justify-between border-b px-4 py-3">
+                    <h2 class="text-base font-semibold">${escapeHtml(tab.label)}</h2>
+                    <span class="text-xs text-muted-foreground">共 ${String(tab.count)} 条</span>
+                  </div>
+                ` : ''}
                 ${tab.content}
               </div>
             `,
@@ -84,7 +91,7 @@ export function renderFactoryWarehouseStandardTabs(tabs: FactoryWarehouseStandar
   `
 }
 
-export function renderWarehouseFlowButton(title: string, flows: FactoryWarehouseFlowLine[]): string {
+export function renderWarehouseFlowButton(title: string, flows: FactoryWarehouseFlowLine[], label = '查看库存流水'): string {
   const encoded = encodeURIComponent(JSON.stringify(flows))
   return `
     <button
@@ -93,7 +100,7 @@ export function renderWarehouseFlowButton(title: string, flows: FactoryWarehouse
       data-warehouse-flow-action="open"
       data-flow-title="${escapeHtml(title)}"
       data-flow-json="${escapeHtml(encoded)}"
-    >查看库存流水</button>
+    >${escapeHtml(label)}</button>
   `
 }
 

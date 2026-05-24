@@ -10,6 +10,8 @@ import {
   deserializeReplenishmentReviewsStorage,
   filterReplenishmentRows,
   findReplenishmentByPrefilter,
+  formatReplenishmentReviewResultLabel,
+  normalizeReplenishmentReviewResult,
   replenishmentFollowupActionStatusMetaMap,
   replenishmentFollowupActionTypeMetaMap,
   replenishmentRiskMetaMap,
@@ -257,7 +259,7 @@ function buildPendingPrepFollowupRecords(row: ReplenishmentSuggestionRow, review
     status: 'PENDING_PREP',
     createdAt: review.reviewedAt,
     createdBy: review.reviewedBy,
-    note: `审核确认需要补料后记录为待再次领料项，差异成衣件数 ${formatQty(line.shortageGarmentQty)} 件。`,
+    note: `处理结果为发起布料，WMS 中转仓创建新的配料；差异成衣件数 ${formatQty(line.shortageGarmentQty)} 件。`,
   }))
 }
 
@@ -300,13 +302,13 @@ function getPrefilterFromQuery(): ReplenishmentPrefilter | null {
 
 function getPrefilterStatusLabel(value: ReplenishmentPrefilter['replenishmentStatus']): string {
   if (!value) return ''
-  if (value === 'APPROVED') return '已通过待动作 / 处理中'
+  if (value === 'APPROVED') return '已处理 / 处理中'
   if (value === 'APPLIED') return '已完成'
   return replenishmentStatusMetaMap[value]?.label || value
 }
 
 function syncReviewDraft(row: ReplenishmentSuggestionRow | null): void {
-  const result = row?.review?.reviewResult || '需要补料'
+  const result = normalizeReplenishmentReviewResult(row?.review?.reviewResult || '需要补料')
   state.reviewDraft = {
     result,
     status: row?.review?.reviewStatus || resolveReviewStatusFromResult(result),
@@ -339,12 +341,11 @@ function getFilteredRows(): ReplenishmentSuggestionRow[] {
   if (state.activeTab === 'handled') {
     return rows.filter((row) =>
       ['APPROVED_PENDING_ACTION', 'IN_ACTION', 'COMPLETED'].includes(row.statusMeta.key) &&
-      row.review?.reviewResult !== '关闭裁片单' &&
-      row.review?.reviewResult !== '仅记录差异',
+      Boolean(row.review?.reviewResult),
     )
   }
-  if (state.activeTab === 'closing') return rows.filter((row) => row.review?.reviewResult === '关闭裁片单')
-  return rows.filter((row) => row.review?.reviewResult === '仅记录差异')
+  if (state.activeTab === 'closing') return rows.filter((row) => normalizeReplenishmentReviewResult(row.review?.reviewResult) === '需要补料')
+  return rows.filter((row) => row.review?.reviewResult && normalizeReplenishmentReviewResult(row.review.reviewResult) === '仅记录差异')
 }
 
 function getActiveRow(): ReplenishmentSuggestionRow | null {
@@ -431,10 +432,10 @@ function renderStats(): string {
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       ${renderCompactKpiCard('差异处理项', stats.totalCount, '按差异来源汇总', 'text-slate-900')}
-      ${renderCompactKpiCard('待审核差异', stats.pendingReviewCount, '审核后才决定后续动作', 'text-amber-600')}
-      ${renderCompactKpiCard('可补排唛架', stats.replanReadyCount, '仍有已领面料余额', 'text-blue-600')}
-      ${renderCompactKpiCard('可关闭裁片单', stats.closeCandidateCount, '确认不再来料时关闭', 'text-zinc-700')}
-      ${renderCompactKpiCard('待补齐数据', stats.pendingSupplementCount, '铺布 / 裁剪 / 领料数量待补齐', 'text-orange-600')}
+      ${renderCompactKpiCard('待处理差异', stats.pendingReviewCount, '只判断发起布料或忽略', 'text-amber-600')}
+      ${renderCompactKpiCard('发起布料', stats.waitNextPickupCount, '对接 WMS 中转仓创建配料', 'text-blue-600')}
+      ${renderCompactKpiCard('已忽略', stats.completedCount, '不创建配料，不改数量账', 'text-zinc-700')}
+      ${renderCompactKpiCard('处理中', stats.inActionCount, '等待后续动作完成', 'text-orange-600')}
       ${renderCompactKpiCard('高风险', stats.highRiskCount, '需优先处理', 'text-rose-600')}
     </section>
   `
@@ -478,7 +479,7 @@ function renderBindingReplenishmentBridge(): string {
                   </div>
                   <div class="text-xs text-muted-foreground">
                     <p>差异类型：${escapeHtml(abnormal?.abnormalType || '实际长度小于计划长度')}</p>
-                    <p class="mt-1">审核建议：需要补料 / 需要补录 / 继续补排 / 仅记录差异</p>
+                    <p class="mt-1">处理结果：发起布料 / 忽略</p>
                     <p class="mt-1">数量账事件：${escapeHtml(row.linkedLedgerEventIds.length ? row.linkedLedgerEventIds.join(' / ') : '无直接变更')}</p>
                   </div>
                 </div>
@@ -501,21 +502,20 @@ function countRowsByTab(rows: ReplenishmentSuggestionRow[], tab: WorkbenchTabKey
   if (tab === 'handled') {
     return rows.filter((row) =>
       ['APPROVED_PENDING_ACTION', 'IN_ACTION', 'COMPLETED'].includes(row.statusMeta.key) &&
-      row.review?.reviewResult !== '关闭裁片单' &&
-      row.review?.reviewResult !== '仅记录差异',
+      Boolean(row.review?.reviewResult),
     ).length
   }
-  if (tab === 'closing') return rows.filter((row) => row.review?.reviewResult === '关闭裁片单').length
-  return rows.filter((row) => row.review?.reviewResult === '仅记录差异').length
+  if (tab === 'closing') return rows.filter((row) => normalizeReplenishmentReviewResult(row.review?.reviewResult) === '需要补料').length
+  return rows.filter((row) => row.review?.reviewResult && normalizeReplenishmentReviewResult(row.review.reviewResult) === '仅记录差异').length
 }
 
 function renderWorkbenchTabs(): string {
   const rows = filterReplenishmentRows(buildViewModel().rows, state.filters, state.prefilter)
   const tabs: Array<{ key: WorkbenchTabKey; label: string; hint: string }> = [
-    { key: 'pending', label: '待审核差异', hint: '实际差异进入审核' },
-    { key: 'handled', label: '已处理', hint: '已有审核结果和动作' },
-    { key: 'closing', label: '关闭裁片单', hint: '必须带关闭原因' },
-    { key: 'record-only', label: '仅记录差异', hint: '不改变数量账' },
+    { key: 'pending', label: '待处理差异', hint: '实际差异进入处理' },
+    { key: 'handled', label: '已处理', hint: '已有处理结果' },
+    { key: 'closing', label: '发起布料', hint: '对接 WMS 中转仓' },
+    { key: 'record-only', label: '忽略', hint: '不创建配料' },
     { key: 'all', label: '全部记录', hint: '查看完整处理项' },
   ]
 
@@ -597,12 +597,12 @@ function renderFilterBar(): string {
         ])}
         ${renderFilterSelect('处理状态', 'status', state.filters.status, [
           { value: 'ALL', label: '全部' },
-          { value: 'NO_ACTION', label: '无需补料' },
-          { value: 'PENDING_REVIEW', label: '待审核' },
-          { value: 'PENDING_SUPPLEMENT', label: '待补录' },
-          { value: 'APPROVED_PENDING_ACTION', label: '已通过待动作' },
+          { value: 'NO_ACTION', label: '无需发起布料' },
+          { value: 'PENDING_REVIEW', label: '待处理' },
+          { value: 'PENDING_SUPPLEMENT', label: '待处理' },
+          { value: 'APPROVED_PENDING_ACTION', label: '待发起布料' },
           { value: 'IN_ACTION', label: '处理中' },
-          { value: 'REJECTED', label: '审核驳回' },
+          { value: 'REJECTED', label: '已忽略' },
           { value: 'COMPLETED', label: '已完成' },
         ])}
         ${renderFilterSelect('风险等级', 'riskLevel', state.filters.riskLevel, [
@@ -627,9 +627,9 @@ function renderNextOptionTags(row: ReplenishmentSuggestionRow): string {
 }
 
 function getNextOptionButtonLabel(option: ReplenishmentSuggestionRow['nextOptions'][number]): string {
-  if (option.key === 'WAIT_NEXT_PICKUP') return '去待加工仓'
-  if (option.key === 'REPLAN_MARKER') return '去可排唛架裁片单'
-  if (option.key === 'CLOSE_CUT_ORDER') return '去裁片单'
+  if (option.key === 'WAIT_NEXT_PICKUP') return '发起布料到中转仓'
+  if (option.key === 'REPLAN_MARKER') return '忽略'
+  if (option.key === 'CLOSE_CUT_ORDER') return '忽略'
   return option.label
 }
 
@@ -718,7 +718,7 @@ function renderTable(rows: ReplenishmentSuggestionRow[]): string {
               <td class="px-4 py-3">
                 <div class="flex flex-wrap gap-2">
                   ${renderTag(row.statusMeta.label, row.statusMeta.className)}
-                  ${row.review?.reviewResult ? renderTag(row.review.reviewResult, row.review.reviewResult === '关闭裁片单' ? 'bg-zinc-100 text-zinc-700' : row.review.reviewResult === '仅记录差异' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700') : ''}
+                  ${row.review?.reviewResult ? renderTag(formatReplenishmentReviewResultLabel(row.review.reviewResult), normalizeReplenishmentReviewResult(row.review.reviewResult) === '仅记录差异' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700') : ''}
                 </div>
                 <div class="mt-2 flex flex-wrap gap-2">${renderNextOptionTags(row)}</div>
                 <div class="mt-1 text-xs text-muted-foreground">后续动作：${escapeHtml(item.nextAction || row.nextActionLabel)}</div>
@@ -811,7 +811,7 @@ function renderSpreadingDifferenceSection(row: ReplenishmentSuggestionRow): stri
               <article class="rounded-lg border bg-muted/20 p-3">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div class="flex flex-wrap items-center gap-2">
-                    ${renderTag(difference.differenceType, difference.differenceLevel === '需处理' ? 'bg-rose-100 text-rose-700' : difference.differenceLevel === '需复核' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700')}
+                    ${renderTag(difference.differenceType, difference.differenceLevel === '需处理' ? 'bg-rose-100 text-rose-700' : difference.differenceLevel === '待处理' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700')}
                     ${renderTag(difference.handlingStatus, difference.handlingStatus === '待处理' ? 'bg-amber-100 text-amber-700' : difference.handlingStatus === '已处理' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700')}
                     <span class="text-xs text-muted-foreground">${escapeHtml(difference.sourceType)}</span>
                   </div>
@@ -942,7 +942,13 @@ function renderSuggestionLineSection(row: ReplenishmentSuggestionRow): string {
 }
 
 function renderReviewSection(row: ReplenishmentSuggestionRow): string {
-  const closingSelected = state.reviewDraft.result === '关闭裁片单'
+  const currentResult = row.review?.reviewResult ? normalizeReplenishmentReviewResult(row.review.reviewResult) : ''
+  const currentDecisionText = currentResult
+    ? currentResult === '需要补料'
+      ? '发起布料，由 WMS 中转仓创建新的配料。'
+      : '忽略本次差异，不创建配料。'
+    : '待处理差异，处理结果只能选择发起布料或忽略。'
+
   return `
     <section class="rounded-lg border bg-card p-4">
       <h3 class="text-sm font-semibold text-foreground">处理判断</h3>
@@ -950,10 +956,10 @@ function renderReviewSection(row: ReplenishmentSuggestionRow): string {
         <article class="rounded-lg border bg-muted/20 p-3">
           <div class="text-xs text-muted-foreground">当前处理结果</div>
           <div class="mt-1 flex flex-wrap gap-2">
-            ${row.review ? renderTag(row.reviewResultLabel, row.review.reviewResult === '关闭裁片单' ? 'bg-zinc-100 text-zinc-700' : row.review.reviewResult === '需要补录' ? 'bg-orange-100 text-orange-700' : row.review.reviewResult === '仅记录差异' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700') : '<span class="text-xs text-muted-foreground">未审核</span>'}
+            ${row.review ? renderTag(row.reviewResultLabel, normalizeReplenishmentReviewResult(row.review.reviewResult) === '仅记录差异' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700') : '<span class="text-xs text-muted-foreground">未处理</span>'}
             ${renderTag(row.statusMeta.label, row.statusMeta.className)}
           </div>
-          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.review?.decisionReason || row.suggestedAction)}</div>
+          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(currentDecisionText)}</div>
         </article>
         <article class="rounded-lg border bg-muted/20 p-3">
           <div class="text-xs text-muted-foreground">当前后续方向</div>
@@ -965,33 +971,13 @@ function renderReviewSection(row: ReplenishmentSuggestionRow): string {
         <label class="space-y-2">
           <span class="text-xs text-muted-foreground">处理结论</span>
           <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-review-field="result">
-            <option value="需要补料" ${state.reviewDraft.result === '需要补料' ? 'selected' : ''}>需要补料</option>
-            <option value="需要补录" ${state.reviewDraft.result === '需要补录' ? 'selected' : ''}>需要补录</option>
-            <option value="继续补排" ${state.reviewDraft.result === '继续补排' ? 'selected' : ''}>继续补排</option>
-            <option value="关闭裁片单" ${state.reviewDraft.result === '关闭裁片单' ? 'selected' : ''}>关闭裁片单</option>
-            <option value="仅记录差异" ${state.reviewDraft.result === '仅记录差异' ? 'selected' : ''}>仅记录差异</option>
+            <option value="需要补料" ${state.reviewDraft.result === '需要补料' ? 'selected' : ''}>发起布料</option>
+            <option value="仅记录差异" ${state.reviewDraft.result === '仅记录差异' ? 'selected' : ''}>忽略</option>
           </select>
         </label>
         <label class="space-y-2">
           <span class="text-xs text-muted-foreground">决策原因</span>
           <input type="text" value="${escapeHtml(state.reviewDraft.reason)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="填写本次处理判断依据" data-cutting-replenish-review-field="reason" />
-        </label>
-      </div>
-      <div class="mt-3 grid gap-3 md:grid-cols-2 ${closingSelected ? '' : 'hidden'}">
-        <label class="space-y-2">
-          <span class="text-xs text-muted-foreground">关闭原因</span>
-          <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-review-field="closeReasonCode">
-            ${closeReasonOptions
-              .map(
-                (option) =>
-                  `<option value="${escapeHtml(option.value)}" ${state.reviewDraft.closeReasonCode === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`,
-              )
-              .join('')}
-          </select>
-        </label>
-        <label class="space-y-2">
-          <span class="text-xs text-muted-foreground">关闭说明</span>
-          <input type="text" value="${escapeHtml(state.reviewDraft.closeReason)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="关闭裁片单时必填" data-cutting-replenish-review-field="closeReason" />
         </label>
       </div>
       <label class="mt-3 block space-y-2">
@@ -1099,19 +1085,13 @@ function renderActionsSection(row: ReplenishmentSuggestionRow): string {
 
 function renderLedgerImpactSection(row: ReplenishmentSuggestionRow): string {
   const item = buildReplenishmentReviewItem(row)
-  const result = row.review?.reviewResult || '待审核'
+  const result = row.review?.reviewResult ? normalizeReplenishmentReviewResult(row.review.reviewResult) : ''
   const eventText =
     result === '需要补料'
-      ? '已生成补料需求数量账事件，后续由中转仓配料或裁床领料承接。'
-      : result === '需要补录'
-        ? '已生成补录调整数量账事件，用于修正实际用量、裁剪数量或领料记录。'
-        : result === '继续补排'
-          ? '不强制改数量账，保留后续可用余额判断和可排唛架入口。'
-          : result === '关闭裁片单'
-            ? '已生成裁片单关闭数量账事件，不删除历史数量账。'
-            : result === '仅记录差异'
-              ? '不产生数量账变更事件，仅保留差异记录。'
-              : '待审核，当前无数量账变更事件。'
+      ? '处理结果为发起布料，后续由 WMS 中转仓创建新的配料，数量账等待配料和领料事件更新。'
+      : result === '仅记录差异'
+        ? '处理结果为忽略，不产生数量账变更事件，仅保留差异记录。'
+        : '待处理，当前无数量账变更事件。'
 
   return `
     <section class="rounded-lg border bg-card p-4">
@@ -1119,7 +1099,7 @@ function renderLedgerImpactSection(row: ReplenishmentSuggestionRow): string {
       <div class="mt-3 grid gap-3 md:grid-cols-3">
         <article class="rounded-lg border bg-muted/20 p-3">
           <div class="text-xs text-muted-foreground">处理结论</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(result)}</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(formatReplenishmentReviewResultLabel(result))}</div>
         </article>
         <article class="rounded-lg border bg-muted/20 p-3">
           <div class="text-xs text-muted-foreground">后续动作</div>
@@ -1141,9 +1121,9 @@ function renderAuditSection(row: ReplenishmentSuggestionRow): string {
     .sort((left, right) => right.actionAt.localeCompare(left.actionAt, 'zh-CN'))
   const auditActionMeta: Record<ReplenishmentAuditTrail['action'], { label: string; className: string }> = {
     SUGGESTED: { label: '生成建议', className: 'bg-slate-100 text-slate-700' },
-    APPROVED: { label: '审核通过', className: 'bg-blue-100 text-blue-700' },
-    REJECTED: { label: '审核驳回', className: 'bg-slate-200 text-slate-700' },
-    MARKED_SUPPLEMENT: { label: '标记待补录', className: 'bg-orange-100 text-orange-700' },
+    APPROVED: { label: '已处理', className: 'bg-blue-100 text-blue-700' },
+    REJECTED: { label: '已忽略', className: 'bg-slate-200 text-slate-700' },
+    MARKED_SUPPLEMENT: { label: '标记待处理', className: 'bg-orange-100 text-orange-700' },
     IMPACT_UPDATED: { label: '更新影响', className: 'bg-violet-100 text-violet-700' },
     ACTION_CONFIRMED: { label: '确认动作', className: 'bg-blue-100 text-blue-700' },
     ACTION_SKIPPED: { label: '跳过动作', className: 'bg-slate-100 text-slate-700' },
@@ -1189,10 +1169,8 @@ function renderInlineDetail(): string {
           <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${row.sourceSummary} · ${row.differenceTypeSummary}`)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-cutting-replenish-action="submit-review" ${canReviewReplenishment(resolveFcsDemoRole('CUTTING_LEAD')) ? '' : `title="${ACTION_PERMISSION_DENIED_TEXT}" disabled`}>提交审核</button>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">去待加工仓</button>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-related" data-target-key="cuttablePool" data-suggestion-id="${escapeHtml(row.suggestionId)}">去可排唛架裁片单</button>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-cut-orders" data-suggestion-id="${escapeHtml(row.suggestionId)}">去裁片单</button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-cutting-replenish-action="submit-review" ${canReviewReplenishment(resolveFcsDemoRole('CUTTING_LEAD')) ? '' : `title="${ACTION_PERMISSION_DENIED_TEXT}" disabled`}>保存处理结果</button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">发起布料到中转仓</button>
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="close-overlay">返回补料管理</button>
         </div>
       </div>
@@ -1237,7 +1215,7 @@ function renderDetailPage(): string {
   if (row) syncReviewDraft(row)
   const meta = {
     ...getCanonicalCuttingMeta('/fcs/craft/cutting/replenishment', 'replenishment'),
-    pageTitle: '补料详情',
+    pageTitle: '差异处理详情',
   }
 
   return `
@@ -1360,10 +1338,11 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
     const field = reviewFieldNode.dataset.cuttingReplenishReviewField as ReviewField | undefined
     if (!field) return false
     if (field === 'result') {
-      const result = (reviewFieldNode as HTMLSelectElement).value as ReplenishmentReviewResult
+      const result = normalizeReplenishmentReviewResult((reviewFieldNode as HTMLSelectElement).value as ReplenishmentReviewResult)
       state.reviewDraft.result = result
       state.reviewDraft.status = resolveReviewStatusFromResult(result)
-      if (result === '需要补录' && !state.reviewDraft.reason) state.reviewDraft.reason = '补齐铺布或裁剪实际数据后再判断。'
+      if (result === '需要补料' && !state.reviewDraft.reason) state.reviewDraft.reason = '发起布料，由 WMS 中转仓创建新的配料。'
+      if (result === '仅记录差异' && !state.reviewDraft.reason) state.reviewDraft.reason = '本次差异忽略，不创建配料。'
       return true
     }
     if (field === 'status') state.reviewDraft.status = (reviewFieldNode as HTMLSelectElement).value as ReplenishmentReviewStatus
@@ -1446,15 +1425,16 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
     }
 
     const reviewedAt = nowText()
-    const reviewStatus = resolveReviewStatusFromResult(state.reviewDraft.result)
+    const normalizedResult = normalizeReplenishmentReviewResult(state.reviewDraft.result)
+    const reviewStatus = resolveReviewStatusFromResult(normalizedResult)
     const review: ReplenishmentReview = {
       reviewId: `review-${row.suggestionId}`,
       suggestionId: row.suggestionId,
       reviewStatus,
-      reviewResult: state.reviewDraft.result,
-      nextAction: resolveNextActionFromReviewResult(state.reviewDraft.result),
-      closeReasonCode: state.reviewDraft.result === '关闭裁片单' ? state.reviewDraft.closeReasonCode : undefined,
-      closeReason: state.reviewDraft.result === '关闭裁片单' ? state.reviewDraft.closeReason.trim() : '',
+      reviewResult: normalizedResult,
+      nextAction: resolveNextActionFromReviewResult(normalizedResult),
+      closeReasonCode: undefined,
+      closeReason: '',
       linkedLedgerEventIds: row.linkedLedgerEventIds,
       reviewedBy: '补料审核员 徐海宁',
       reviewedAt,
@@ -1476,28 +1456,14 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
       buildReplenishmentAuditTrail({
         suggestion: row,
         action:
-          review.reviewResult === '需要补料' || review.reviewResult === '继续补排' || review.reviewResult === '关闭裁片单' || review.reviewResult === '仅记录差异'
-            ? 'APPROVED'
-            : 'MARKED_SUPPLEMENT',
+          'APPROVED',
         actionBy: review.reviewedBy,
-        payloadSummary: `${row.suggestionNo} 已更新为 ${review.reviewResult || '待判断'}，后续动作：${review.nextAction || '无后续动作'}`,
+        payloadSummary: `${row.suggestionNo} 已更新为 ${formatReplenishmentReviewResultLabel(review.reviewResult)}，后续动作：${review.nextAction || '无后续动作'}`,
         note: review.decisionReason || review.note,
       }),
     )
     persistStore()
-    if (review.reviewResult === '关闭裁片单') {
-      const params = new URLSearchParams()
-      params.set('cutOrderId', row.cutOrderIds[0] || '')
-      params.set('suggestionId', row.suggestionId)
-      params.set('source', 'replenishment')
-      if (review.closeReasonCode) params.set('closeReasonCode', review.closeReasonCode)
-      if (review.closeReason) params.set('closeDescription', review.closeReason)
-      if (row.contextId) params.set('sourceDifferenceId', row.contextId)
-      appStore.navigate(`${getCanonicalCuttingPath('cut-order-close')}?${params.toString()}`)
-      return true
-    }
-
-    setFeedback('success', `已更新 ${row.suggestionNo} 的处理结果：${review.reviewResult}。`)
+    setFeedback('success', `已更新 ${row.suggestionNo} 的处理结果：${formatReplenishmentReviewResultLabel(review.reviewResult)}。`)
     return true
   }
 

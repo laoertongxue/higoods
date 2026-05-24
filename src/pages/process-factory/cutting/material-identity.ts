@@ -39,18 +39,20 @@ export function renderMaterialIdentityBlock(
   } = {},
 ): string {
   const sku = material.materialSku || '待补面料 SKU'
-  const label = material.materialName || material.materialLabel || '待补面料名称'
+  const label = material.materialName || material.materialLabel || ''
+  const shouldShowLabel = Boolean(label && label !== sku)
   const color = material.materialColor || '待补'
   const alias = material.materialAlias || '技术包未维护别名'
   const imageSizeClass = options.imageSizeClass || (options.compact ? 'h-10 w-10' : 'h-12 w-12')
   const unit = material.materialUnit || ''
   const category = [material.materialCategory || '', unit ? `单位：${unit}` : ''].filter(Boolean).join(' · ')
+  const fullMaterialTitle = shouldShowLabel ? `面料 SKU：${sku}；面料名称：${label}` : `面料 SKU：${sku}`
 
   return `
-    <div class="flex min-w-[12rem] items-start gap-2">
+    <div class="flex w-full min-w-0 max-w-full items-start gap-2">
       ${renderMaterialImage(material.materialImageUrl, alias || label || sku, imageSizeClass)}
-      <div class="min-w-0">
-        <div class="truncate font-medium text-foreground" title="${escapeHtml(`${sku} ${label}`)}">${escapeHtml(sku)} <span class="font-normal text-muted-foreground">${escapeHtml(label)}</span></div>
+      <div class="min-w-0 flex-1 overflow-hidden">
+        <div class="truncate whitespace-nowrap font-medium text-foreground" data-material-identity-name="true" title="${escapeHtml(fullMaterialTitle)}">${escapeHtml(sku)}${shouldShowLabel ? ` <span class="font-normal text-muted-foreground">${escapeHtml(label)}</span>` : ''}</div>
         <div class="mt-1 truncate text-xs text-blue-700" title="${escapeHtml(`颜色：${color} · 技术包别名：${alias}`)}">
           颜色：${escapeHtml(color)} · 技术包别名：${escapeHtml(alias)}
         </div>

@@ -692,7 +692,7 @@ function renderProductionStyleCell(row: CutOrderRow): string {
 
 function renderMaterialCell(row: CutOrderRow): string {
   return `
-    <div class="space-y-2">
+    <div class="max-w-[34rem] space-y-2">
       ${renderMaterialIdentityBlock(row, { compact: true })}
     </div>
   `
@@ -1065,7 +1065,11 @@ function renderTable(rows: CutOrderRow[]): string {
                               <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.relationSummary)}</p>
                             </td>
                             <td class="px-4 py-3 align-top">${renderProductionStyleCell(row)}</td>
-                            <td class="px-4 py-3 align-top">${renderMaterialCell(row)}</td>
+                            <td class="px-4 py-3 align-top">
+                              <div class="max-w-[34rem]">
+                                ${renderMaterialCell(row)}
+                              </div>
+                            </td>
                             <td class="px-4 py-3 align-top">${renderPatternCell(row)}</td>
                             <td class="px-4 py-3 align-top">${renderQuantityCell(row)}</td>
                             <td class="px-4 py-3 align-top">
