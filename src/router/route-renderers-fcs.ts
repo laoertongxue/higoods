@@ -240,6 +240,10 @@ export const renderCraftCuttingCutOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cut-orders'),
   'renderCraftCuttingCutOrdersPage',
 )
+export const renderCraftCuttingCutOrderClosePage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/cut-orders'),
+  'renderCraftCuttingCutOrderClosePage',
+)
 export const renderCraftCuttingProductionProgressPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/production-progress'),
   'renderCraftCuttingProductionProgressPage',
@@ -269,6 +273,10 @@ export const renderCraftCuttingReplenishmentPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/replenishment'),
   'renderCraftCuttingReplenishmentPage',
 )
+export const renderCraftCuttingReplenishmentDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/replenishment'),
+  'renderCraftCuttingReplenishmentDetailPage',
+)
 export const renderCraftCuttingSampleWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/sample-warehouse'),
   'renderCraftCuttingSampleWarehousePage',
@@ -276,6 +284,10 @@ export const renderCraftCuttingSampleWarehousePage = createAsyncRenderer(
 export const renderCraftCuttingSpecialProcessesPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/special-processes'),
   'renderCraftCuttingSpecialProcessesPage',
+)
+export const renderCraftCuttingSpecialProcessDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/special-processes'),
+  'renderCraftCuttingSpecialProcessDetailPage',
 )
 export const renderCraftCuttingSpreadingCreatePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/marker-spreading'),
@@ -304,6 +316,22 @@ export const renderCraftCuttingTransferBagDetailPage = createAsyncRenderer(
 export const renderCraftCuttingTransferBagsPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/transfer-bags'),
   'renderCraftCuttingTransferBagsPage',
+)
+export const renderCraftCuttingHandoverOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/handover-orders'),
+  'renderCraftCuttingHandoverOrdersPage',
+)
+export const renderCraftCuttingHandoverOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/handover-orders'),
+  'renderCraftCuttingHandoverOrderDetailPage',
+)
+export const renderCraftCuttingHandoverOrderRecordsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/handover-orders'),
+  'renderCraftCuttingHandoverOrderRecordsPage',
+)
+export const renderCraftCuttingHandoverRecordDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/handover-orders'),
+  'renderCraftCuttingHandoverRecordDetailPage',
 )
 export const renderCraftCuttingWarehouseManagementWaitProcessPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/warehouse-hub'),

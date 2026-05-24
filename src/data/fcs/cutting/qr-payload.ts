@@ -23,12 +23,24 @@ export interface CutOrderQrPayload extends CuttingQrPayloadBase<'CUT_ORDER'> {
 }
 
 export interface FeiTicketQrPayload extends CuttingQrPayloadBase<'FEI_TICKET'> {
+  payloadVersion: string
+  qrType: '菲票'
   feiTicketId: string
   feiTicketNo: string
   cutOrderId: string
   cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
+  markerNumber: string
+  bedNo: string
+  spreadingOrderId: string
+  spreadingOrderNo: string
+  spuCode: string
+  styleName: string
+  color: string
+  size: string
   sourceOutputLineId: string
   fabricRollId: string
   fabricRollNo: string
@@ -43,6 +55,11 @@ export interface FeiTicketQrPayload extends CuttingQrPayloadBase<'FEI_TICKET'> {
   skuSize: string
   partCode: string
   partName: string
+  pieceQty: number
+  garmentQty: number
+  pieceSequenceLabel: string
+  pieceSequenceStartNo: number
+  pieceSequenceEndNo: number
   bundleNo: string
   bundleQty: number
   pieceSetNoStart: number
@@ -51,6 +68,15 @@ export interface FeiTicketQrPayload extends CuttingQrPayloadBase<'FEI_TICKET'> {
   bundleTicketType: string
   actualCutPieceQty: number
   qty: number
+  hasSpecialCraft: boolean
+  specialCrafts: Array<{
+    craftCategory: string
+    craftType: string
+    receiverFactoryCode: string
+    receiverFactoryName: string
+  }>
+  feiTicketVersion: string
+  generatedAt: string
   secondaryCrafts: string[]
   craftSequenceVersion: string
   currentCraftStage?: string
@@ -125,6 +151,16 @@ export function buildFeiTicketQrPayload(input: {
   cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
+  markerPlanId?: string
+  markerPlanNo?: string
+  markerNumber?: string
+  bedNo?: string
+  spreadingOrderId?: string
+  spreadingOrderNo?: string
+  spuCode?: string
+  styleName?: string
+  color?: string
+  size?: string
   sourceOutputLineId: string
   fabricRollId: string
   fabricRollNo: string
@@ -139,6 +175,11 @@ export function buildFeiTicketQrPayload(input: {
   skuSize: string
   partCode: string
   partName: string
+  pieceQty?: number
+  garmentQty?: number
+  pieceSequenceLabel?: string
+  pieceSequenceStartNo?: number
+  pieceSequenceEndNo?: number
   bundleNo: string
   bundleQty: number
   pieceSetNoStart?: number
@@ -147,6 +188,14 @@ export function buildFeiTicketQrPayload(input: {
   bundleTicketType?: string
   actualCutPieceQty: number
   qty: number
+  hasSpecialCraft?: boolean
+  specialCrafts?: Array<{
+    craftCategory: string
+    craftType: string
+    receiverFactoryCode: string
+    receiverFactoryName: string
+  }>
+  feiTicketVersion?: string
   secondaryCrafts: string[]
   craftSequenceVersion: string
   issuedAt: string
@@ -155,6 +204,8 @@ export function buildFeiTicketQrPayload(input: {
   return {
     codeType: 'FEI_TICKET',
     version: CUTTING_QR_VERSION,
+    payloadVersion: CUTTING_QR_VERSION,
+    qrType: '菲票',
     issuedAt: input.issuedAt,
     feiTicketId: input.feiTicketId,
     feiTicketNo: input.feiTicketNo,
@@ -162,6 +213,16 @@ export function buildFeiTicketQrPayload(input: {
     cutOrderNo: input.cutOrderNo,
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
+    markerPlanId: input.markerPlanId || '',
+    markerPlanNo: input.markerPlanNo || '',
+    markerNumber: input.markerNumber || '',
+    bedNo: input.bedNo || '',
+    spreadingOrderId: input.spreadingOrderId || '',
+    spreadingOrderNo: input.spreadingOrderNo || '',
+    spuCode: input.spuCode || '',
+    styleName: input.styleName || '',
+    color: input.color || input.skuColor || input.garmentColor || input.fabricColor || '',
+    size: input.size || input.skuSize || '',
     sourceOutputLineId: input.sourceOutputLineId,
     fabricRollId: input.fabricRollId,
     fabricRollNo: input.fabricRollNo,
@@ -176,6 +237,11 @@ export function buildFeiTicketQrPayload(input: {
     skuSize: input.skuSize,
     partCode: input.partCode,
     partName: input.partName,
+    pieceQty: Math.max(input.pieceQty ?? input.actualCutPieceQty ?? input.qty, 0),
+    garmentQty: Math.max(input.garmentQty ?? input.qty ?? input.actualCutPieceQty, 0),
+    pieceSequenceLabel: input.pieceSequenceLabel || '',
+    pieceSequenceStartNo: Math.max(input.pieceSequenceStartNo || 0, 0),
+    pieceSequenceEndNo: Math.max(input.pieceSequenceEndNo || 0, 0),
     bundleNo: input.bundleNo,
     bundleQty: Math.max(input.bundleQty, 0),
     pieceSetNoStart: Math.max(input.pieceSetNoStart || 1, 1),
@@ -184,6 +250,15 @@ export function buildFeiTicketQrPayload(input: {
     bundleTicketType: input.bundleTicketType || '扎束菲票',
     actualCutPieceQty: Math.max(input.actualCutPieceQty, 0),
     qty: Math.max(input.qty, 0),
+    hasSpecialCraft: Boolean(input.hasSpecialCraft),
+    specialCrafts: (input.specialCrafts || []).map((craft) => ({
+      craftCategory: craft.craftCategory,
+      craftType: craft.craftType,
+      receiverFactoryCode: craft.receiverFactoryCode,
+      receiverFactoryName: craft.receiverFactoryName,
+    })),
+    feiTicketVersion: input.feiTicketVersion || 'V1',
+    generatedAt: input.issuedAt,
     secondaryCrafts: [...input.secondaryCrafts],
     craftSequenceVersion: input.craftSequenceVersion,
     currentCraftStage: input.currentCraftStage || '',

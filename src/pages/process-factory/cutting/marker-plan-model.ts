@@ -391,7 +391,7 @@ function resolveMarkerPlanEffectiveWidthByMaterialType(materialType: string): nu
 }
 
 function resolveMarkerPlanEffectiveWidthFromGeneratedRows(rows: GeneratedCutOrderSourceRecord[]): number | null {
-  const widths = uniqueStrings(rows.map((row) => String(resolveMarkerPlanEffectiveWidthByMaterialType(row.materialType))))
+  const widths = uniqueStrings(rows.map((row) => String(row.patternIdentity.effectiveWidthValue || resolveMarkerPlanEffectiveWidthByMaterialType(row.materialType))))
   if (widths.length !== 1) return null
   return Number(widths[0])
 }
@@ -399,7 +399,10 @@ function resolveMarkerPlanEffectiveWidthFromGeneratedRows(rows: GeneratedCutOrde
 function buildMarkerPlanPatternKeyFromGeneratedRows(rows: GeneratedCutOrderSourceRecord[]): string {
   return uniqueStrings(
     rows.flatMap((row) =>
-      row.pieceRows.map((piece) => piece.patternId || piece.patternName),
+      [
+        `${row.patternIdentity.patternFileId}:${row.patternIdentity.patternVersion}`,
+        ...row.pieceRows.map((piece) => piece.patternId || piece.patternName),
+      ],
     ),
   ).join('/')
 }
@@ -526,9 +529,12 @@ function buildCutOrderContextCandidate(input: {
     styleCode: input.row.styleCode,
     spuCode: input.row.spuCode,
     materialSku: input.row.materialSku,
+    patternFileKey: input.sourceRecord
+      ? `${input.sourceRecord.patternIdentity.patternFileId}:${input.sourceRecord.patternIdentity.patternVersion}`
+      : '',
     patternKey: buildMarkerPlanPatternKeyFromGeneratedRows(sourceGeneratedRows),
     effectiveWidth: input.sourceRecord
-      ? resolveMarkerPlanEffectiveWidthByMaterialType(input.sourceRecord.materialType)
+      ? input.sourceRecord.patternIdentity.effectiveWidthValue || resolveMarkerPlanEffectiveWidthByMaterialType(input.sourceRecord.materialType)
       : null,
     historicalGroupKey: input.row.latestMarkerPlanNo || input.sourceRecord?.markerPlanNo || '',
   })
@@ -671,7 +677,6 @@ export function buildCombinedMarkerPlanContextCandidate(
   if (!selectedContexts.length) return null
   if (selectedContexts.length === 1) return selectedContexts[0]
   const markerPlanGroupKeys = uniqueStrings(selectedContexts.map((context) => context.markerPlanGroupKey))
-  if (markerPlanGroupKeys.length !== 1) return null
 
   const sourceCutOrderRows = uniqueByKey(
     selectedContexts.flatMap((context) => context.sourceCutOrderRows),
@@ -707,7 +712,7 @@ export function buildCombinedMarkerPlanContextCandidate(
     contextKey: buildContextKey('cut-order', sourceCutOrderRows[0]?.cutOrderId || selectedContexts[0].id),
     contextNo: contextNos.join(' / '),
     contextLabel: '组合来源',
-    markerPlanGroupKey: markerPlanGroupKeys[0],
+    markerPlanGroupKey: markerPlanGroupKeys[0] || 'NEW_GROUP',
     cutOrderIds: sourceCutOrderRows.map((row) => row.cutOrderId),
     cutOrderNos: sourceCutOrderRows.map((row) => row.cutOrderNo),
     markerPlanId: markerPlanRefContexts.length === 1 ? markerPlanRefContexts[0].markerPlanId : '',
@@ -1658,7 +1663,7 @@ function buildPlanViewRow(
     sourceCutOrderCountText: `${sourceCutOrderCount} 张`,
     sourceProductionOrderCountText: `${sourceProductionOrderCount} 单`,
     referenceWarningText: isReferencedBySpreading
-      ? '当前方案唛架已被铺布引用。若修改配比、分配、唛架结构，建议复制为新方案。'
+      ? '当前方案唛架已被铺布引用。若修改配比、分配、唛架结构，请从可排唛架裁片单重新创建方案。'
       : '',
     isReferencedBySpreading,
     skuTypeCountText: `${explosionSummary.skuTypeCount}`,
@@ -1926,9 +1931,37 @@ function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: Ma
   }
 
   if (variant === 'ready' || variant === 'manual') {
+    const readyBeds = buildReadySeedSchemeBeds(nextPlan, context)
     nextPlan = {
       ...nextPlan,
-      beds: buildReadySeedSchemeBeds(nextPlan, context),
+      beds:
+        variant === 'manual'
+          ? readyBeds.flatMap((bed) =>
+              [0, 1, 2].map((offset) => {
+                const bedIndex = offset + 1
+                const bedNoPrefix = bed.bedNo.split('-')[0] || 'A'
+                const layerOffset = offset * 2
+                return {
+                  ...bed,
+                  bedId: `${nextPlan.id}-bed-${bedIndex}`,
+                  bedNo: `${bedNoPrefix}-${bedIndex}`,
+                  bedName: `${bedNoPrefix}-${bedIndex}`,
+                  bedSortOrder: bedIndex,
+                  highLowMatrixRows: (bed.highLowMatrixRows || []).map((row, rowIndex) => ({
+                    ...row,
+                    rowId: `${nextPlan.id}-ready-marker-row-${bedIndex}-${rowIndex + 1}`,
+                    sizeValues: Object.fromEntries(
+                      Object.entries(row.sizeValues || {}).map(([sizeName, value]) => [
+                        sizeName,
+                        Math.max(Math.round(safeNumber(value)) + layerOffset, 0),
+                      ]),
+                    ) as MarkerHighLowMatrixRow['sizeValues'],
+                  })),
+                  remark: offset === 0 ? bed.remark : '样例：同一唛架方案下的第二/第三个唛架编号。',
+                }
+              }),
+            )
+          : readyBeds,
     }
   }
 

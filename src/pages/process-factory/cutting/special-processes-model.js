@@ -1,0 +1,750 @@
+import { getCanonicalCuttingPath } from './meta.ts';
+import { buildDefaultSpecialProcessFollowupActions, buildDefaultSpecialProcessScopeLines, buildSpecialProcessExecutionLog, buildSpecialProcessSourceOptions, deriveSpecialProcessExecutionSnapshot, deriveSpecialProcessTypeExecutionMeta, getSpecialProcessOutputLabels, hydrateScopeLineFromSource, normalizeFollowupStatus, } from './special-processes-domain.ts';
+export const CUTTING_SPECIAL_PROCESS_ORDERS_STORAGE_KEY = 'cuttingSpecialProcessOrders';
+export const CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY = 'cuttingSpecialProcessBindingPayloads';
+export const CUTTING_SPECIAL_PROCESS_AUDIT_STORAGE_KEY = 'cuttingSpecialProcessAuditTrail';
+export const CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY = 'cuttingSpecialProcessScopeLines';
+export const CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY = 'cuttingSpecialProcessExecutionLogs';
+export const CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY = 'cuttingSpecialProcessFollowupActions';
+export const specialProcessTypeMeta = {
+    BINDING_STRIP: {
+        label: '捆条工艺',
+        className: 'bg-blue-100 text-blue-700',
+        detailText: '当前已接入裁片执行链。',
+    },
+    WASH: {
+        label: '洗水（预留）',
+        className: 'bg-slate-100 text-slate-700',
+        detailText: '当前仅保留预留结构，暂未进入执行链。',
+    },
+};
+export const specialProcessStatusMetaMap = {
+    DRAFT: { key: 'DRAFT', label: '草稿', className: 'bg-slate-100 text-slate-700', detailText: '工艺单已创建，待补范围与参数。' },
+    PENDING_EXECUTION: { key: 'PENDING_EXECUTION', label: '待执行', className: 'bg-amber-100 text-amber-700', detailText: '工艺单已准备就绪，待开工。' },
+    IN_PROGRESS: { key: 'IN_PROGRESS', label: '执行中', className: 'bg-blue-100 text-blue-700', detailText: '工艺执行中，继续补录进度。' },
+    DONE: { key: 'DONE', label: '已完成', className: 'bg-emerald-100 text-emerald-700', detailText: '工艺执行完成，待收后续动作。' },
+    CANCELLED: { key: 'CANCELLED', label: '已取消', className: 'bg-slate-200 text-slate-700', detailText: '工艺单已取消，不再继续执行。' },
+};
+function uniqueStrings(values) {
+    return Array.from(new Set(values.filter((value) => Boolean(value))));
+}
+function nowText(date = new Date()) {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    const hours = `${date.getHours()}`.padStart(2, '0');
+    const minutes = `${date.getMinutes()}`.padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+function buildProcessOrderNo(index) {
+    const date = nowText().slice(0, 10).replaceAll('-', '');
+    return `SP-${date}-${String(index + 1).padStart(3, '0')}`;
+}
+function normalizeStringArray(value) {
+    return Array.isArray(value) ? value.filter((item) => typeof item === 'string' && item.trim().length > 0) : [];
+}
+function normalizeSpecialProcessOrder(record) {
+    if (!record || typeof record !== 'object')
+        return null;
+    const raw = record;
+    if (typeof raw.processOrderId !== 'string' || typeof raw.processOrderNo !== 'string')
+        return null;
+    const processType = raw.processType === 'WASH' ? 'WASH' : 'BINDING_STRIP';
+    const sourceType = raw.sourceType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order';
+    const status = ['DRAFT', 'PENDING_EXECUTION', 'IN_PROGRESS', 'DONE', 'CANCELLED'].includes(String(raw.status))
+        ? raw.status
+        : 'DRAFT';
+    return {
+        processOrderId: raw.processOrderId,
+        processOrderNo: raw.processOrderNo,
+        processType,
+        sourceType,
+        cutOrderIds: normalizeStringArray(raw.cutOrderIds),
+        cutOrderNos: normalizeStringArray(raw.cutOrderNos),
+        markerPlanId: typeof raw.markerPlanId === 'string' ? raw.markerPlanId : '',
+        markerPlanNo: typeof raw.markerPlanNo === 'string' ? raw.markerPlanNo : '',
+        productionOrderIds: normalizeStringArray(raw.productionOrderIds),
+        productionOrderNos: normalizeStringArray(raw.productionOrderNos),
+        styleCode: typeof raw.styleCode === 'string' ? raw.styleCode : '',
+        spuCode: typeof raw.spuCode === 'string' ? raw.spuCode : '',
+        styleName: typeof raw.styleName === 'string' ? raw.styleName : '',
+        materialSku: typeof raw.materialSku === 'string' ? raw.materialSku : '',
+        status,
+        createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : nowText(),
+        createdBy: typeof raw.createdBy === 'string' ? raw.createdBy : '工艺专员',
+        note: typeof raw.note === 'string' ? raw.note : '',
+    };
+}
+function normalizeBindingStripPayload(record) {
+    if (!record || typeof record !== 'object')
+        return null;
+    const raw = record;
+    if (typeof raw.processOrderId !== 'string')
+        return null;
+    return {
+        processOrderId: raw.processOrderId,
+        materialLength: Number(raw.materialLength || 0),
+        cutWidth: Number(raw.cutWidth || 0),
+        expectedQty: Number(raw.expectedQty || 0),
+        actualQty: Number(raw.actualQty || 0),
+        operatorName: typeof raw.operatorName === 'string' ? raw.operatorName : '',
+        note: typeof raw.note === 'string' ? raw.note : '',
+    };
+}
+function normalizeSpecialProcessScopeLine(record) {
+    if (!record || typeof record !== 'object')
+        return null;
+    const raw = record;
+    if (typeof raw.scopeId !== 'string' || typeof raw.processOrderId !== 'string')
+        return null;
+    return {
+        scopeId: raw.scopeId,
+        processOrderId: raw.processOrderId,
+        sourceType: raw.sourceType === 'MARKER_PLAN' ? 'MARKER_PLAN' : 'CUT_ORDER',
+        sourceCutOrderId: typeof raw.sourceCutOrderId === 'string' ? raw.sourceCutOrderId : '',
+        sourceCutOrderNo: typeof raw.sourceCutOrderNo === 'string' ? raw.sourceCutOrderNo : '',
+        markerPlanId: typeof raw.markerPlanId === 'string' ? raw.markerPlanId : '',
+        markerPlanNo: typeof raw.markerPlanNo === 'string' ? raw.markerPlanNo : '',
+        sourceProductionOrderNo: typeof raw.sourceProductionOrderNo === 'string' ? raw.sourceProductionOrderNo : '',
+        styleCode: typeof raw.styleCode === 'string' ? raw.styleCode : '',
+        spuCode: typeof raw.spuCode === 'string' ? raw.spuCode : '',
+        color: typeof raw.color === 'string' ? raw.color : '',
+        materialSku: typeof raw.materialSku === 'string' ? raw.materialSku : '',
+        plannedQty: Math.max(Number(raw.plannedQty || 0), 0),
+        unitType: ['PIECE', 'GARMENT', 'METER', 'BUNDLE'].includes(String(raw.unitType)) ? raw.unitType : 'GARMENT',
+        note: typeof raw.note === 'string' ? raw.note : '',
+    };
+}
+function normalizeSpecialProcessExecutionLog(record) {
+    if (!record || typeof record !== 'object')
+        return null;
+    const raw = record;
+    if (typeof raw.executionId !== 'string' || typeof raw.processOrderId !== 'string')
+        return null;
+    return {
+        executionId: raw.executionId,
+        processOrderId: raw.processOrderId,
+        actionType: ['CREATE', 'UPDATE', 'START', 'PAUSE', 'RESUME', 'COMPLETE', 'CANCEL', 'NOTE'].includes(String(raw.actionType))
+            ? raw.actionType
+            : 'NOTE',
+        operatorName: typeof raw.operatorName === 'string' ? raw.operatorName : '待补执行人',
+        operatedAt: typeof raw.operatedAt === 'string' ? raw.operatedAt : nowText(),
+        actualQty: Math.max(Number(raw.actualQty || 0), 0),
+        actualLength: Math.max(Number(raw.actualLength || 0), 0),
+        actualWidth: Math.max(Number(raw.actualWidth || 0), 0),
+        remark: typeof raw.remark === 'string' ? raw.remark : '',
+    };
+}
+function normalizeSpecialProcessFollowupAction(record) {
+    if (!record || typeof record !== 'object')
+        return null;
+    const raw = record;
+    if (typeof raw.actionId !== 'string' || typeof raw.processOrderId !== 'string')
+        return null;
+    const targetPageKey = ['transfer-bags', 'cut-piece-warehouse', 'cut-orders', 'production-progress', 'summary'].includes(String(raw.targetPageKey))
+        ? raw.targetPageKey
+        : 'summary';
+    return {
+        actionId: raw.actionId,
+        processOrderId: raw.processOrderId,
+        actionType: ['GO_TRANSFER_BAG', 'GO_CUT_PIECE_WAREHOUSE', 'GO_CUT_ORDER', 'GO_CUTTING_DASHBOARD', 'GO_CUTTING_TOTAL_TABLE'].includes(String(raw.actionType))
+            ? raw.actionType
+            : 'GO_CUTTING_TOTAL_TABLE',
+        title: typeof raw.title === 'string' ? raw.title : '去裁剪结果核查',
+        status: normalizeFollowupStatus(typeof raw.status === 'string' ? raw.status : undefined),
+        targetPageKey,
+        targetPath: typeof raw.targetPath === 'string' ? raw.targetPath : getCanonicalCuttingPath('summary'),
+        targetQuery: raw.targetQuery && typeof raw.targetQuery === 'object' ? raw.targetQuery : {},
+        note: typeof raw.note === 'string' ? raw.note : '',
+        decidedAt: typeof raw.decidedAt === 'string' ? raw.decidedAt : '',
+        decidedBy: typeof raw.decidedBy === 'string' ? raw.decidedBy : '',
+        completedAt: typeof raw.completedAt === 'string' ? raw.completedAt : '',
+        completedBy: typeof raw.completedBy === 'string' ? raw.completedBy : '',
+    };
+}
+function normalizeSpecialProcessAudit(record) {
+    if (!record || typeof record !== 'object')
+        return null;
+    const raw = record;
+    if (typeof raw.auditTrailId !== 'string' || typeof raw.processOrderId !== 'string')
+        return null;
+    const action = ['CREATED', 'UPDATED', 'STATUS_CHANGED', 'CANCELLED', 'EXECUTION_LOGGED', 'FOLLOWUP_UPDATED'].includes(String(raw.action))
+        ? raw.action
+        : 'UPDATED';
+    return {
+        auditTrailId: raw.auditTrailId,
+        processOrderId: raw.processOrderId,
+        action,
+        actionAt: typeof raw.actionAt === 'string' ? raw.actionAt : nowText(),
+        actionBy: typeof raw.actionBy === 'string' ? raw.actionBy : '系统',
+        payloadSummary: typeof raw.payloadSummary === 'string' ? raw.payloadSummary : '',
+        note: typeof raw.note === 'string' ? raw.note : '',
+    };
+}
+export function createBindingStripProcessDraft(options) {
+    const markerPlanRef = (options.prefilter?.markerPlanNo && options.markerPlanRefs.find((item) => item.markerPlanNo === options.prefilter?.markerPlanNo)) || null;
+    const matchedCutOrders = options.prefilter?.cutOrderNo
+        ? options.cutOrderRows.filter((row) => row.cutOrderNo === options.prefilter?.cutOrderNo)
+        : markerPlanRef
+            ? options.cutOrderRows.filter((row) => markerPlanRef.items.some((item) => item.cutOrderId === row.cutOrderId))
+            : [options.cutOrderRows[0]].filter(Boolean);
+    const seed = matchedCutOrders[0];
+    const orderId = `sp-order-${Date.now()}`;
+    const orderNo = buildProcessOrderNo(options.existingCount);
+    const order = {
+        processOrderId: orderId,
+        processOrderNo: orderNo,
+        processType: 'BINDING_STRIP',
+        sourceType: markerPlanRef ? 'marker-plan-ref' : 'cut-order',
+        cutOrderIds: matchedCutOrders.map((row) => row.cutOrderId),
+        cutOrderNos: matchedCutOrders.map((row) => row.cutOrderNo),
+        markerPlanId: markerPlanRef?.markerPlanId || '',
+        markerPlanNo: markerPlanRef?.markerPlanNo || '',
+        productionOrderIds: uniqueStrings(matchedCutOrders.map((row) => row.productionOrderId)),
+        productionOrderNos: uniqueStrings(matchedCutOrders.map((row) => row.productionOrderNo)),
+        styleCode: seed?.styleCode || options.prefilter?.styleCode || '',
+        spuCode: seed?.spuCode || '',
+        styleName: seed?.styleName || '',
+        materialSku: options.prefilter?.materialSku || seed?.materialSku || '',
+        status: 'DRAFT',
+        createdAt: nowText(),
+        createdBy: '工艺专员 叶晓青',
+        note: markerPlanRef ? '来源于唛架方案预填。' : '来源于裁片单预填。',
+    };
+    const payload = {
+        processOrderId: orderId,
+        materialLength: seed ? Math.max(seed.plannedQty / 2, 18) : 20,
+        cutWidth: 3.5,
+        expectedQty: seed?.plannedQty || 0,
+        actualQty: 0,
+        operatorName: '',
+        note: '',
+    };
+    const navigationPayload = buildSpecialProcessNavigationPayload(order);
+    const typeMeta = deriveSpecialProcessTypeExecutionMeta(order.processType);
+    const scopeLines = buildDefaultSpecialProcessScopeLines({
+        order,
+        cutOrderRows: options.cutOrderRows,
+        markerPlanRefs: options.markerPlanRefs,
+    });
+    const followupActions = buildDefaultSpecialProcessFollowupActions({
+        order,
+        navigationPayload,
+        typeMeta,
+    });
+    return {
+        order,
+        payload,
+        scopeLines,
+        followupActions,
+        audit: buildSpecialProcessAuditTrail({
+            processOrderId: orderId,
+            action: 'CREATED',
+            actionBy: order.createdBy,
+            payloadSummary: `创建捆条工艺单 ${orderNo}`,
+            note: order.note,
+        }),
+    };
+}
+export function deriveSpecialProcessStatus(status) {
+    return specialProcessStatusMetaMap[status];
+}
+export function validateSpecialProcessPayload(options) {
+    if (options.order.processType === 'WASH') {
+        return { ok: false, message: '洗水工艺当前仅做预留，暂未接入裁片执行链。' };
+    }
+    if (!options.payload)
+        return { ok: false, message: '当前缺少捆条工艺参数。' };
+    if (options.payload.materialLength <= 0)
+        return { ok: false, message: '请填写计划布料长度。' };
+    if (options.payload.cutWidth <= 0)
+        return { ok: false, message: '请填写计划裁剪宽度。' };
+    if (options.payload.expectedQty <= 0) {
+        return { ok: false, message: `请填写${getSpecialProcessOutputLabels(options.order.processType).plannedQty}。` };
+    }
+    return { ok: true, message: '' };
+}
+export function buildReservedSpecialProcessPayload(processOrderId, processType) {
+    return {
+        processOrderId,
+        processType,
+        enabled: false,
+        payloadVersion: null,
+        data: null,
+    };
+}
+export function buildSpecialProcessNavigationPayload(order) {
+    const cutOrderId = order.cutOrderIds[0] || undefined;
+    const productionOrderId = order.productionOrderIds[0] || undefined;
+    return {
+        cutOrders: {
+            cutOrderId,
+            cutOrderNo: order.cutOrderNos[0] || undefined,
+            productionOrderId,
+            productionOrderNo: order.productionOrderNos[0] || undefined,
+            markerPlanId: order.markerPlanId || undefined,
+            markerPlanNo: order.markerPlanNo || undefined,
+            styleCode: order.styleCode || undefined,
+            materialSku: order.materialSku || undefined,
+        },
+        markerPlanRefs: {
+            markerPlanId: order.markerPlanId || undefined,
+            markerPlanNo: order.markerPlanNo || undefined,
+            cutOrderId,
+            cutOrderNo: order.cutOrderNos[0] || undefined,
+        },
+        replenishment: {
+            cutOrderId,
+            cutOrderNo: order.cutOrderNos[0] || undefined,
+            productionOrderId,
+            productionOrderNo: order.productionOrderNos[0] || undefined,
+            markerPlanId: order.markerPlanId || undefined,
+            markerPlanNo: order.markerPlanNo || undefined,
+            materialSku: order.materialSku || undefined,
+        },
+        summary: {
+            markerPlanId: order.markerPlanId || undefined,
+            markerPlanNo: order.markerPlanNo || undefined,
+            cutOrderId,
+            cutOrderNo: order.cutOrderNos[0] || undefined,
+            productionOrderId,
+            productionOrderNo: order.productionOrderNos[0] || undefined,
+            styleCode: order.styleCode || undefined,
+            materialSku: order.materialSku || undefined,
+        },
+        productionProgress: {
+            productionOrderId,
+            productionOrderNo: order.productionOrderNos[0] || undefined,
+            styleCode: order.styleCode || undefined,
+        },
+        cutPieceWarehouse: {
+            productionOrderId,
+            productionOrderNo: order.productionOrderNos[0] || undefined,
+            cutOrderId,
+            cutOrderNo: order.cutOrderNos[0] || undefined,
+            markerPlanId: order.markerPlanId || undefined,
+            markerPlanNo: order.markerPlanNo || undefined,
+            materialSku: order.materialSku || undefined,
+        },
+        transferBags: {
+            productionOrderId,
+            productionOrderNo: order.productionOrderNos[0] || undefined,
+            cutOrderId,
+            cutOrderNo: order.cutOrderNos[0] || undefined,
+            markerPlanId: order.markerPlanId || undefined,
+            markerPlanNo: order.markerPlanNo || undefined,
+            materialSku: order.materialSku || undefined,
+        },
+    };
+}
+export function buildSpecialProcessAuditTrail(options) {
+    return {
+        auditTrailId: `sp-audit-${options.processOrderId}-${options.action}-${Date.now()}`,
+        processOrderId: options.processOrderId,
+        action: options.action,
+        actionAt: options.actionAt || nowText(),
+        actionBy: options.actionBy,
+        payloadSummary: options.payloadSummary,
+        note: options.note || '',
+    };
+}
+function buildSystemSeedOrders(cutOrderRows, markerPlanRefs) {
+    const seedCutOrder = cutOrderRows[0];
+    const orders = [];
+    const payloads = [];
+    const scopeLines = [];
+    const executionLogs = [];
+    const followupActions = [];
+    const audits = [];
+    if (seedCutOrder) {
+        const order = {
+            processOrderId: 'sp-seed-binding-strip',
+            processOrderNo: 'SP-20260324-001',
+            processType: 'BINDING_STRIP',
+            sourceType: 'cut-order',
+            cutOrderIds: [seedCutOrder.cutOrderId],
+            cutOrderNos: [seedCutOrder.cutOrderNo],
+            markerPlanId: '',
+            markerPlanNo: seedCutOrder.latestMarkerPlanNo || '',
+            productionOrderIds: [seedCutOrder.productionOrderId],
+            productionOrderNos: [seedCutOrder.productionOrderNo],
+            styleCode: seedCutOrder.styleCode,
+            spuCode: seedCutOrder.spuCode,
+            styleName: seedCutOrder.styleName,
+            materialSku: seedCutOrder.materialSku,
+            status: 'IN_PROGRESS',
+            createdAt: '2026-03-24 09:20',
+            createdBy: '工艺专员 叶晓青',
+            note: '捆条工艺已进入执行，可继续补录实际数量。',
+        };
+        const payload = {
+            processOrderId: order.processOrderId,
+            materialLength: 28,
+            cutWidth: 3.2,
+            expectedQty: Math.max(seedCutOrder.plannedQty, 20),
+            actualQty: Math.max(seedCutOrder.plannedQty - 4, 0),
+            operatorName: '陈工',
+            note: '首轮捆条已完成，待复核余量。',
+        };
+        const navigationPayload = buildSpecialProcessNavigationPayload(order);
+        const typeMeta = deriveSpecialProcessTypeExecutionMeta(order.processType);
+        const seedScopes = buildDefaultSpecialProcessScopeLines({ order, cutOrderRows, markerPlanRefs });
+        const seedActions = buildDefaultSpecialProcessFollowupActions({ order, navigationPayload, typeMeta }).map((item, index) => index === 2
+            ? {
+                ...item,
+                status: 'DONE',
+                decidedAt: '2026-03-24 10:20',
+                decidedBy: '工艺专员 叶晓青',
+                completedAt: '2026-03-24 10:20',
+                completedBy: '工艺专员 叶晓青',
+                note: '已同步裁片单。',
+            }
+            : item);
+        const seedLogs = [
+            buildSpecialProcessExecutionLog({
+                processOrderId: order.processOrderId,
+                actionType: 'CREATE',
+                operatorName: order.createdBy,
+                actualQty: 0,
+                remark: '创建工艺单',
+                operatedAt: order.createdAt,
+            }),
+            buildSpecialProcessExecutionLog({
+                processOrderId: order.processOrderId,
+                actionType: 'START',
+                operatorName: '陈工',
+                actualQty: Math.max(seedCutOrder.plannedQty - 8, 0),
+                actualLength: 24,
+                actualWidth: 3.2,
+                remark: '已开工，先做首轮捆条。',
+                operatedAt: '2026-03-24 10:00',
+            }),
+            buildSpecialProcessExecutionLog({
+                processOrderId: order.processOrderId,
+                actionType: 'UPDATE',
+                operatorName: '陈工',
+                actualQty: payload.actualQty,
+                actualLength: 28,
+                actualWidth: 3.2,
+                remark: '补录本轮产出。',
+                operatedAt: '2026-03-24 11:30',
+            }),
+        ];
+        orders.push(order);
+        payloads.push(payload);
+        scopeLines.push(...seedScopes);
+        executionLogs.push(...seedLogs);
+        followupActions.push(...seedActions);
+        audits.push(buildSpecialProcessAuditTrail({
+            processOrderId: order.processOrderId,
+            action: 'CREATED',
+            actionBy: order.createdBy,
+            actionAt: order.createdAt,
+            payloadSummary: `创建工艺单 ${order.processOrderNo}`,
+            note: order.note,
+        }), buildSpecialProcessAuditTrail({
+            processOrderId: order.processOrderId,
+            action: 'EXECUTION_LOGGED',
+            actionBy: '陈工',
+            actionAt: '2026-03-24 10:00',
+            payloadSummary: `${order.processOrderNo} 已开工`,
+            note: '已记录首轮捆条。',
+        }));
+    }
+    return { orders, payloads, scopeLines, executionLogs, followupActions, audits };
+}
+export function buildSystemSeedSpecialProcessLedger(cutOrderRows, markerPlanRefs) {
+    return buildSystemSeedOrders(cutOrderRows, markerPlanRefs);
+}
+export function serializeSpecialProcessOrdersStorage(records) {
+    return JSON['stringify'](records);
+}
+export function deserializeSpecialProcessOrdersStorage(raw) {
+    if (!raw)
+        return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map(normalizeSpecialProcessOrder).filter((item) => Boolean(item)) : [];
+    }
+    catch {
+        return [];
+    }
+}
+export function serializeBindingStripPayloadsStorage(records) {
+    return JSON['stringify'](records);
+}
+export function deserializeBindingStripPayloadsStorage(raw) {
+    if (!raw)
+        return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map(normalizeBindingStripPayload).filter((item) => Boolean(item)) : [];
+    }
+    catch {
+        return [];
+    }
+}
+export function serializeSpecialProcessScopeLinesStorage(records) {
+    return JSON['stringify'](records);
+}
+export function deserializeSpecialProcessScopeLinesStorage(raw) {
+    if (!raw)
+        return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map(normalizeSpecialProcessScopeLine).filter((item) => Boolean(item)) : [];
+    }
+    catch {
+        return [];
+    }
+}
+export function serializeSpecialProcessExecutionLogsStorage(records) {
+    return JSON['stringify'](records);
+}
+export function deserializeSpecialProcessExecutionLogsStorage(raw) {
+    if (!raw)
+        return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map(normalizeSpecialProcessExecutionLog).filter((item) => Boolean(item)) : [];
+    }
+    catch {
+        return [];
+    }
+}
+export function serializeSpecialProcessFollowupActionsStorage(records) {
+    return JSON['stringify'](records);
+}
+export function deserializeSpecialProcessFollowupActionsStorage(raw) {
+    if (!raw)
+        return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map(normalizeSpecialProcessFollowupAction).filter((item) => Boolean(item)) : [];
+    }
+    catch {
+        return [];
+    }
+}
+export function serializeSpecialProcessAuditTrailStorage(records) {
+    return JSON['stringify'](records);
+}
+export function deserializeSpecialProcessAuditTrailStorage(raw) {
+    if (!raw)
+        return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map(normalizeSpecialProcessAudit).filter((item) => Boolean(item)) : [];
+    }
+    catch {
+        return [];
+    }
+}
+function getEffectiveScopeLines(options) {
+    const matched = options.storedScopeLines.filter((item) => item.processOrderId === options.order.processOrderId);
+    if (!matched.length) {
+        return buildDefaultSpecialProcessScopeLines({
+            order: options.order,
+            cutOrderRows: options.cutOrderRows,
+            markerPlanRefs: options.markerPlanRefs,
+        });
+    }
+    return matched.map((item) => hydrateScopeLineFromSource(item, options.sourceOptions));
+}
+function getEffectiveFollowupActions(options) {
+    const matched = options.storedActions.filter((item) => item.processOrderId === options.order.processOrderId);
+    if (!matched.length) {
+        return buildDefaultSpecialProcessFollowupActions({
+            order: options.order,
+            navigationPayload: options.navigationPayload,
+            typeMeta: options.typeMeta,
+        });
+    }
+    const defaultsByType = new Map(buildDefaultSpecialProcessFollowupActions({
+        order: options.order,
+        navigationPayload: options.navigationPayload,
+        typeMeta: options.typeMeta,
+    }).map((item) => [item.actionType, item]));
+    return matched.map((item) => ({
+        ...defaultsByType.get(item.actionType),
+        ...item,
+    }));
+}
+function buildSourceSummary(order, scopeLines) {
+    const scopeCutOrders = uniqueStrings(scopeLines.map((item) => item.sourceCutOrderNo));
+    if (order.sourceType === 'marker-plan-ref') {
+        return `来源唛架方案 ${order.markerPlanNo || '待补唛架方案号'}，当前覆盖 ${scopeCutOrders.length || order.cutOrderNos.length} 个裁片单。`;
+    }
+    return `来源裁片单 ${scopeCutOrders[0] || order.cutOrderNos[0] || '待补'}。`;
+}
+function buildKeywordIndex(order, scopeLines) {
+    return [
+        order.processOrderNo,
+        order.cutOrderNos.join(' '),
+        order.markerPlanNo,
+        order.styleCode,
+        order.spuCode,
+        order.materialSku,
+        ...scopeLines.map((item) => item.sourceProductionOrderNo),
+        ...scopeLines.map((item) => item.color),
+        ...scopeLines.map((item) => item.materialSku),
+    ]
+        .filter(Boolean)
+        .map((item) => item.toLowerCase());
+}
+function mergeByKey(seed, stored, key) {
+    const merged = new Map();
+    seed.forEach((item) => merged.set(String(item[key]), item));
+    stored.forEach((item) => merged.set(String(item[key]), item));
+    return Array.from(merged.values());
+}
+export function buildSpecialProcessViewModel(options) {
+    const seed = buildSystemSeedOrders(options.cutOrderRows, options.markerPlanRefs);
+    const orderMap = new Map();
+    mergeByKey(seed.orders, options.orders, 'processOrderId').forEach((order) => orderMap.set(order.processOrderId, order));
+    const payloadMap = new Map();
+    mergeByKey(seed.payloads, options.bindingPayloads, 'processOrderId').forEach((payload) => payloadMap.set(payload.processOrderId, payload));
+    const allStoredScopeLines = mergeByKey(seed.scopeLines, options.scopeLines || [], 'scopeId');
+    const allStoredExecutionLogs = mergeByKey(seed.executionLogs, options.executionLogs || [], 'executionId');
+    const allStoredFollowupActions = mergeByKey(seed.followupActions, options.followupActions || [], 'actionId');
+    const rows = Array.from(orderMap.values())
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt, 'zh-CN'))
+        .map((order) => {
+        const statusMeta = deriveSpecialProcessStatus(order.status);
+        const bindingPayload = payloadMap.get(order.processOrderId) || null;
+        const reservedPayload = buildReservedSpecialProcessPayload(order.processOrderId, order.processType);
+        const navigationPayload = buildSpecialProcessNavigationPayload(order);
+        const typeExecutionMeta = deriveSpecialProcessTypeExecutionMeta(order.processType);
+        const sourceOptions = buildSpecialProcessSourceOptions({
+            order,
+            cutOrderRows: options.cutOrderRows,
+            markerPlanRefs: options.markerPlanRefs,
+        });
+        const scopeLines = getEffectiveScopeLines({
+            order,
+            storedScopeLines: allStoredScopeLines,
+            cutOrderRows: options.cutOrderRows,
+            markerPlanRefs: options.markerPlanRefs,
+            sourceOptions,
+        });
+        const executionLogs = allStoredExecutionLogs
+            .filter((item) => item.processOrderId === order.processOrderId)
+            .sort((left, right) => right.operatedAt.localeCompare(left.operatedAt, 'zh-CN'));
+        const followupActions = getEffectiveFollowupActions({
+            order,
+            storedActions: allStoredFollowupActions,
+            navigationPayload,
+            typeMeta: typeExecutionMeta,
+        });
+        const executionSnapshot = deriveSpecialProcessExecutionSnapshot({
+            order,
+            payload: bindingPayload,
+            scopeLines,
+            executionLogs,
+            followupActions,
+            typeMeta: typeExecutionMeta,
+        });
+        return {
+            ...order,
+            processTypeLabel: specialProcessTypeMeta[order.processType].label,
+            sourceLabel: order.sourceType === 'marker-plan-ref' ? '唛架方案' : '裁片单',
+            sourceSummary: buildSourceSummary(order, scopeLines),
+            statusMeta,
+            bindingPayload,
+            reservedPayload,
+            navigationPayload,
+            keywordIndex: buildKeywordIndex(order, scopeLines),
+            scopeLines,
+            executionLogs,
+            followupActions,
+            sourceOptions,
+            typeExecutionMeta,
+            plannedQtyTotal: executionSnapshot.plannedQtyTotal,
+            actualQtyTotal: executionSnapshot.actualQtyTotal,
+            latestActualLength: executionSnapshot.latestActualLength,
+            latestActualWidth: executionSnapshot.latestActualWidth,
+            latestExecutionAt: executionSnapshot.latestExecutionAt,
+            latestOperatorName: executionSnapshot.latestOperatorName,
+            executionLogCount: executionSnapshot.logCount,
+            followupPendingCount: executionSnapshot.followupPendingCount,
+            followupDoneCount: executionSnapshot.followupDoneCount,
+            executionProgressSummary: executionSnapshot.executionProgressText,
+            followupProgressSummary: executionSnapshot.followupProgressText,
+            downstreamBlocked: executionSnapshot.downstreamBlocked,
+            downstreamBlockReason: executionSnapshot.downstreamBlockReason,
+        };
+    });
+    return {
+        rows,
+        rowsById: Object.fromEntries(rows.map((row) => [row.processOrderId, row])),
+        stats: {
+            totalCount: rows.length,
+            bindingStripCount: rows.filter((row) => row.processType === 'BINDING_STRIP').length,
+            pendingExecutionCount: rows.filter((row) => row.status === 'PENDING_EXECUTION').length,
+            inProgressCount: rows.filter((row) => row.status === 'IN_PROGRESS').length,
+            doneCount: rows.filter((row) => row.status === 'DONE').length,
+            reservedCount: rows.filter((row) => !row.typeExecutionMeta.enabledForExecution).length,
+        },
+    };
+}
+export function filterSpecialProcessRows(rows, filters, prefilter) {
+    const keyword = filters.keyword.trim().toLowerCase();
+    return rows.filter((row) => {
+        if (prefilter?.productionOrderId && !row.productionOrderIds.includes(prefilter.productionOrderId))
+            return false;
+        if (prefilter?.productionOrderNo && !row.productionOrderNos.includes(prefilter.productionOrderNo))
+            return false;
+        if (prefilter?.cutOrderId && !row.cutOrderIds.includes(prefilter.cutOrderId))
+            return false;
+        if (prefilter?.cutOrderNo && !row.cutOrderNos.includes(prefilter.cutOrderNo))
+            return false;
+        if (prefilter?.markerPlanId && row.markerPlanId !== prefilter.markerPlanId)
+            return false;
+        if (prefilter?.markerPlanNo && row.markerPlanNo !== prefilter.markerPlanNo)
+            return false;
+        if (prefilter?.processOrderId && row.processOrderId !== prefilter.processOrderId)
+            return false;
+        if (prefilter?.processOrderNo && row.processOrderNo !== prefilter.processOrderNo)
+            return false;
+        if (prefilter?.processType && row.processType !== prefilter.processType)
+            return false;
+        if (prefilter?.styleCode && row.styleCode !== prefilter.styleCode)
+            return false;
+        if (prefilter?.materialSku && row.materialSku !== prefilter.materialSku)
+            return false;
+        if (keyword && !row.keywordIndex.some((item) => item.includes(keyword)))
+            return false;
+        if (filters.processType !== 'ALL' && row.processType !== filters.processType)
+            return false;
+        if (filters.status !== 'ALL' && row.status !== filters.status)
+            return false;
+        if (filters.sourceType !== 'ALL' && row.sourceType !== filters.sourceType)
+            return false;
+        return true;
+    });
+}
+export function findSpecialProcessByPrefilter(rows, prefilter) {
+    if (!prefilter)
+        return null;
+    return (rows.find((row) => {
+        if (prefilter.processOrderId && row.processOrderId === prefilter.processOrderId)
+            return true;
+        if (prefilter.processOrderNo && row.processOrderNo === prefilter.processOrderNo)
+            return true;
+        if (prefilter.productionOrderId && row.productionOrderIds.includes(prefilter.productionOrderId))
+            return true;
+        if (prefilter.productionOrderNo && row.productionOrderNos.includes(prefilter.productionOrderNo))
+            return true;
+        if (prefilter.cutOrderId && row.cutOrderIds.includes(prefilter.cutOrderId))
+            return true;
+        if (prefilter.cutOrderNo && row.cutOrderNos.includes(prefilter.cutOrderNo))
+            return true;
+        if (prefilter.markerPlanId && row.markerPlanId === prefilter.markerPlanId)
+            return true;
+        if (prefilter.markerPlanNo && row.markerPlanNo === prefilter.markerPlanNo)
+            return true;
+        if (prefilter.processType && row.processType === prefilter.processType)
+            return true;
+        return false;
+    }) || null);
+}

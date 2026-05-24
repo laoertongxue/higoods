@@ -36,7 +36,9 @@ import {
   deriveSpreadingListStatus,
   deriveSpreadingSessionGarmentQtyPerLayer,
   hasSpreadingActualExecution,
+  resolveSpreadingOrderStatusFromSession,
   serializeMarkerSpreadingStorage,
+  spreadingOrderStatusMeta,
   upsertMarkerRecord,
   upsertSpreadingSession,
   updateSessionStatus,
@@ -53,6 +55,7 @@ import {
   type SpreadingOperatorRecord,
   type SpreadingOperatorAmountSummary,
   type SpreadingPlanUnit,
+  type SpreadingOrder,
   type SpreadingRollHandoverSummary,
   type SpreadingRollRecord,
   type SpreadingSession,
@@ -98,6 +101,7 @@ import {
   buildMarkerSpreadingProjection,
   buildSpreadingPlanUnitProjectionLabel,
   type SpreadingCreateSourceRow,
+  type MarkerSpreadingProjection,
 } from './marker-spreading-projection.ts'
 import {
   buildMarkerAllocationSourceRows,
@@ -153,6 +157,7 @@ import {
   cuttingTableResources,
 } from './cutting-table-resource.ts'
 import { buildPdaCuttingMainlinePathForSession } from '../../../data/fcs/cutting/cutting-mainline.ts'
+import { listSpreadingDifferencesBySpreadingOrder } from '../../../data/fcs/cutting/spreading-differences.ts'
 
 void import('../../pda-cutting-execution-unit.ts')
 void import('../../../router/routes-pda.ts')
@@ -677,7 +682,7 @@ function getSpreadingCreatePreview(): {
 
 function renderReturnToSummaryButton(): string {
   if (!hasSummaryReturnContext(state.drillContext)) return ''
-  return '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="return-summary">返回裁剪总结</button>'
+  return '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="return-summary">返回裁剪结果核查</button>'
 }
 
 function appendSummaryReturnAction(actions: string[]): string[] {
@@ -785,6 +790,146 @@ function renderCuttingTimeCell(startedAt?: string, finishedAt?: string): string 
     <div class="space-y-1 text-xs leading-5">
       <div><span class="text-muted-foreground">开始：</span><span class="font-medium text-foreground">${escapeHtml(formatScheduleDateTime(startedAt))}</span></div>
       <div><span class="text-muted-foreground">结束：</span><span class="font-medium text-foreground">${escapeHtml(formatScheduleDateTime(finishedAt))}</span></div>
+    </div>
+  `
+}
+
+function findSpreadingOrderForRow(
+  row: SupervisorSpreadingRow,
+  projection: MarkerSpreadingProjection = buildMarkerSpreadingProjection(),
+): SpreadingOrder | null {
+  return projection.spreadingOrders.find((order) =>
+    order.spreadingOrderId === row.spreadingSessionId ||
+    order.spreadingOrderNo === row.sessionNo ||
+    order.spreadingOrderId === row.session.spreadingSessionId,
+  ) || null
+}
+
+function resolvePdaWritebackSummary(session: SpreadingSession): {
+  statusLabel: string
+  statusClassName: string
+  latestAt: string
+  operatorName: string
+  sourceLabel: string
+} {
+  const writebackIds = [
+    session.sourceWritebackId,
+    ...session.rolls.map((roll) => roll.sourceWritebackId),
+    ...session.operators.map((operator) => operator.sourceWritebackId),
+  ].filter(Boolean)
+  const pdaTimes = [
+    session.updatedFromPdaAt,
+    ...session.rolls.map((roll) => roll.updatedFromPdaAt),
+    ...session.operators.map((operator) => operator.updatedFromPdaAt),
+  ].filter(Boolean).sort((left, right) => right.localeCompare(left, 'zh-CN'))
+  const operatorName =
+    session.operators.find((operator) => operator.operatorName)?.operatorName ||
+    session.rolls.find((roll) => roll.operatorNames?.length)?.operatorNames?.join(' / ') ||
+    session.ownerName ||
+    '待补'
+  const hasPdaSource =
+    session.sourceChannel === MOBILE_WRITEBACK_CHANNEL ||
+    session.sourceChannel === 'MIXED' ||
+    session.rolls.some((roll) => roll.sourceChannel === MOBILE_WRITEBACK_CHANNEL) ||
+    session.operators.some((operator) => operator.sourceChannel === MOBILE_WRITEBACK_CHANNEL)
+  const hasFailedWriteback = writebackIds.some((id) => /fail|failed|conflict|error/i.test(id))
+  if (hasFailedWriteback) {
+    return {
+      statusLabel: '同步失败',
+      statusClassName: 'border-rose-200 bg-rose-50 text-rose-700',
+      latestAt: pdaTimes[0] || session.updatedAt || '待补',
+      operatorName,
+      sourceLabel: 'PDA 写回',
+    }
+  }
+  if (hasPdaSource || writebackIds.length) {
+    return {
+      statusLabel: pdaTimes.length ? '已同步' : '待同步',
+      statusClassName: pdaTimes.length ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700',
+      latestAt: pdaTimes[0] || '待同步',
+      operatorName,
+      sourceLabel: 'PDA 写回',
+    }
+  }
+  return {
+    statusLabel: session.status === 'DRAFT' ? '无写回' : '电脑录入',
+    statusClassName: 'border-slate-200 bg-slate-50 text-slate-600',
+    latestAt: session.updatedAt || '待补',
+    operatorName,
+    sourceLabel: getSourceChannelDisplayLabel(session.sourceChannel),
+  }
+}
+
+function resolveWebSpreadingSummary(
+  row: SupervisorSpreadingRow,
+  projection: MarkerSpreadingProjection = buildMarkerSpreadingProjection(),
+) {
+  const session = row.session
+  const order = findSpreadingOrderForRow(row, projection)
+  const derived = resolveSpreadingDerivedState(session)
+  const rollSummary = derived.rollSummary
+  const varianceSummary = derived.varianceSummary
+  const plannedLayerCount = Math.max(Number(order?.plannedLayerCount || session.plannedLayers || derived.markerRecord?.plannedLayerCount || 0), 0)
+  const actualLayerCount = Math.max(Number(rollSummary.totalLayers || session.actualLayers || 0), 0)
+  const plannedUsage =
+    Math.max(Number(order?.plannedMaterialUsage || 0), 0) ||
+    Math.max(Number(derived.markerRecord?.spreadTotalLength || session.theoreticalSpreadTotalLength || 0), 0) ||
+    (session.planUnits || []).reduce((sum, unit) => sum + Math.max(Number(unit.plannedSpreadLengthM || 0), 0), 0)
+  const actualUsage = Math.max(Number(rollSummary.totalActualLength || session.totalActualLength || row.spreadActualLengthM || 0), 0)
+  const plannedQty = Math.max(Number(order?.plannedGarmentQty || varianceSummary?.plannedCutGarmentQty || row.plannedCutGarmentQty || 0), 0)
+  const actualCutQty = Math.max(Number(varianceSummary?.actualCutGarmentQty || row.actualCutGarmentQty || session.actualCutGarmentQty || 0), 0)
+  const layerDiff = actualLayerCount - plannedLayerCount
+  const usageDiff = Number((actualUsage - plannedUsage).toFixed(2))
+  const qtyDiff = actualCutQty - plannedQty
+  const pda = resolvePdaWritebackSummary(session)
+  const statusKey = resolveSpreadingOrderStatusFromSession(session)
+  const status = spreadingOrderStatusMeta[statusKey]
+  const needsReview =
+    pda.statusLabel === '同步失败' ||
+    row.hasVariance ||
+    Math.abs(layerDiff) > 0 ||
+    Math.abs(usageDiff) > 0.01 ||
+    Math.abs(qtyDiff) > 0
+
+  return {
+    order,
+    statusKey,
+    status,
+    plannedLayerCount,
+    actualLayerCount,
+    plannedUsage,
+    actualUsage,
+    plannedQty,
+    actualCutQty,
+    layerDiff,
+    usageDiff,
+    qtyDiff,
+    pda,
+    needsReview,
+  }
+}
+
+function formatSignedNumber(value: number, unit = ''): string {
+  if (!value) return `0${unit ? ` ${unit}` : ''}`
+  const prefix = value > 0 ? '+' : ''
+  return `${prefix}${new Intl.NumberFormat('zh-CN').format(value)}${unit ? ` ${unit}` : ''}`
+}
+
+function formatSignedLength(value: number): string {
+  if (!value) return '0.00 米'
+  const prefix = value > 0 ? '+' : ''
+  return `${prefix}${Number(value).toFixed(2)} 米`
+}
+
+function renderCompactMetricLines(lines: Array<[string, string]>): string {
+  return `
+    <div class="space-y-1 text-xs leading-5">
+      ${lines.map(([label, value]) => `
+        <div class="flex items-start justify-between gap-2">
+          <span class="shrink-0 text-muted-foreground">${escapeHtml(label)}</span>
+          <span class="text-right font-medium text-foreground">${escapeHtml(value)}</span>
+        </div>
+      `).join('')}
     </div>
   `
 }
@@ -2245,7 +2390,7 @@ function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename:
   ].join('')
 
   return {
-    filename: `铺布列表-${tabLabel}-${timestamp}.csv`,
+    filename: `铺布单-${tabLabel}-${timestamp}.csv`,
     rows: [
       [
         '铺布编号',
@@ -2264,7 +2409,7 @@ function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename:
         '铺布模式',
         '计划裁剪成衣件数（件）',
         '实际裁剪成衣件数（件）',
-        '缺口成衣件数（件）',
+        '差异成衣件数（件）',
         '总实际铺布长度（m）',
         '最近更新时间',
       ],
@@ -2371,95 +2516,93 @@ function renderSpreadingListCuttingAction(row: SupervisorSpreadingRow): string {
   return ''
 }
 
-function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
+function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: MarkerSpreadingProjection): string {
   if (!rows.length) {
     return '<section class="rounded-lg border border-dashed bg-card px-4 py-6 text-center text-sm text-muted-foreground" data-cutting-spreading-main-card="true">当前筛选范围内暂无铺布记录。</section>'
   }
 
   return `
-    <section class="rounded-lg border bg-card [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2" data-testid="cutting-spreading-list-table" data-cutting-spreading-main-card="true">
+    <section class="rounded-lg border bg-card" data-testid="cutting-spreading-list-table" data-cutting-spreading-main-card="true">
       <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div>
-          <h2 class="text-sm font-semibold">铺布主表</h2>
+          <h2 class="text-sm font-semibold">铺布单主表</h2>
         </div>
-        <div class="text-xs text-muted-foreground">共 ${rows.length} 条铺布记录</div>
+        <div class="text-xs text-muted-foreground">共 ${rows.length} 张铺布单</div>
       </div>
-      ${renderStickyTableScroller(`
-	    <table class="w-full min-w-[1780px] text-sm">
-      <thead class="sticky top-0 bg-muted/70 text-left text-xs text-muted-foreground backdrop-blur">
-        <tr>
-          <th class="px-2 py-1 font-medium">铺布编号</th>
-          <th class="px-2 py-1 font-medium">来源唛架方案</th>
-          <th class="px-2 py-1 font-medium">包含唛架编号</th>
-          <th class="px-2 py-1 font-medium">裁床</th>
-          <th class="px-2 py-1 font-medium">开始时间</th>
-          <th class="px-2 py-1 font-medium">结束时间</th>
-          <th class="px-2 py-1 font-medium">负责人</th>
-          <th class="px-2 py-1 font-medium">生产单 / 款式</th>
-          <th class="px-2 py-1 font-medium">面料</th>
-          <th class="px-2 py-1 font-medium">数量进度</th>
-	          <th class="px-2 py-1 font-medium">铺布状态</th>
-	          <th class="px-2 py-1 font-medium">裁剪状态</th>
-	          <th class="px-2 py-1 font-medium">裁剪时间</th>
-	          <th class="px-2 py-1 font-medium">操作</th>
-        </tr>
-      </thead>
-      <tbody>
+      <div class="divide-y">
         ${rows
-	          .map((row) => {
-	            const primaryAction = renderSpreadingListPrimaryAction(row)
-	            const cuttingAction = renderSpreadingListCuttingAction(row)
-	            const markerNos = row.session.sourceBedNo || row.session.markerNo || row.sourceMarkerLabel
-	            return `
-              <tr class="border-b align-top">
-                <td class="px-2 py-1 font-medium text-foreground">
-                  <div>${escapeHtml(row.sessionNo)}</div>
-                  <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(getSpreadingDataSourceLabel(row.dataSourceLabel))}</div>
-                </td>
-                <td class="px-2 py-1 font-medium">${escapeHtml(row.session.sourceSchemeNo || row.sourceMarkerLabel || '待关联')}</td>
-                <td class="px-2 py-1">${escapeHtml(markerNos || '待补')}</td>
-                <td class="px-2 py-1">
-                  <div class="font-medium text-foreground">${escapeHtml(row.session.cuttingTableName || row.session.cuttingTableNo || '未排程')}</div>
-                </td>
-                <td class="px-2 py-1">${escapeHtml(formatScheduleDateTime(row.session.actualStartAt))}</td>
-                <td class="px-2 py-1">${escapeHtml(formatScheduleDateTime(row.session.actualEndAt))}</td>
-                <td class="px-2 py-1">${escapeHtml(row.session.ownerName || '未分配')}</td>
-                <td class="px-2 py-1">
-                  <div>${escapeHtml(row.productionOrderNos.join(' / ') || '待补')}</div>
-                  <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(`${row.styleCode || '待补'} / ${row.spuCode || '待补'}`)}</div>
-                </td>
-                <td class="px-2 py-1">
+          .map((row) => {
+            const summary = resolveWebSpreadingSummary(row, projection)
+            const markerNos = row.session.sourceBedNo || row.session.markerNo || row.sourceMarkerLabel
+            const pattern = summary.order?.patternIdentity || null
+            const pda = summary.pda
+            return `
+              <article class="grid gap-4 px-4 py-4 text-sm xl:grid-cols-[1.1fr_1.2fr_1.4fr_1.2fr_1.2fr_1.2fr_1.2fr_1.1fr_1fr]">
+                <div class="space-y-2">
+                  <div class="font-semibold text-blue-600">${escapeHtml(row.sessionNo)}</div>
+                  <div class="flex flex-wrap gap-1">${renderStatusBadge(summary.status.label, summary.status.className)}</div>
+                  <div class="text-xs text-muted-foreground">唛架编号 / 床次：${escapeHtml(markerNos || '待补')}</div>
+                </div>
+                <div class="space-y-1 text-xs leading-5">
+                  <div class="text-sm font-medium text-foreground">${escapeHtml(row.session.sourceSchemeNo || row.markerPlanNo || '待关联唛架方案')}</div>
+                  <div class="text-muted-foreground">生产单：${escapeHtml(row.productionOrderNos.join(' / ') || '待补')}</div>
+                  <div class="text-muted-foreground">来源裁片单：${escapeHtml(`${formatQty(summary.order?.sourceCutOrderIds.length || row.cutOrderCount)} 张`)}</div>
+                </div>
+                <div>
                   ${renderMaterialIdentityBlock(
-                    {
+                    summary.order?.materialIdentity || {
                       materialSku: row.materialSkuSummary || '待补',
                       materialLabel: '铺布面料',
+                      materialColor: row.colorSummary,
                       materialAlias: row.materialAliasSummary,
                       materialImageUrl: row.materialImageUrl,
                     },
                     { compact: true, imageSizeClass: 'h-9 w-9', showCategory: false },
                   )}
-                </td>
-                <td class="px-2 py-1">
-                  <div class="font-medium text-foreground">${escapeHtml(`${formatQty(row.actualCutGarmentQty)} / ${formatQty(row.plannedCutGarmentQty)} 件`)}</div>
-                  <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(formatLength(row.spreadActualLengthM))}</div>
-                </td>
-	                <td class="px-2 py-1">${renderCompactListValueWithFormula(row.mainStageLabel, row.mainStageFormula)}</td>
-	                <td class="px-2 py-1">${renderCompactListValueWithFormula(row.cuttingStatusLabel, row.cuttingStatusFormula)}</td>
-	                <td class="px-2 py-1">${renderCuttingTimeCell(row.session.cuttingStartedAt, row.session.cuttingFinishedAt)}</td>
-	                <td class="px-2 py-1">
-	                  <div class="flex flex-nowrap gap-1 overflow-x-auto whitespace-nowrap">
-	                    ${primaryAction}
-	                    ${cuttingAction}
-                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs leading-5 hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
-                  </div>
-                </td>
-              </tr>
+                </div>
+                <div class="space-y-1 text-xs leading-5">
+                  <div class="font-medium text-foreground">${escapeHtml(pattern?.patternFileName || '纸样待补')}</div>
+                  <div class="text-muted-foreground">版本：${escapeHtml(pattern?.patternVersion || '待补')}</div>
+                  <div class="text-muted-foreground">有效幅宽：${escapeHtml(pattern?.effectiveWidthText || summary.order?.effectiveWidth || '待补')}</div>
+                </div>
+                <div>
+                  ${renderCompactMetricLines([
+                    ['计划层数', `${formatQty(summary.plannedLayerCount)} 层`],
+                    ['计划用量', formatLength(summary.plannedUsage)],
+                    ['计划数量', `${formatQty(summary.plannedQty)} 件`],
+                  ])}
+                </div>
+                <div>
+                  ${renderCompactMetricLines([
+                    ['实铺层数', `${formatQty(summary.actualLayerCount)} 层`],
+                    ['实际用量', formatLength(summary.actualUsage)],
+                    ['实际裁剪数量', `${formatQty(summary.actualCutQty)} 件`],
+                  ])}
+                </div>
+                <div>
+                  ${renderCompactMetricLines([
+                    ['层数差异', formatSignedNumber(summary.layerDiff, '层')],
+                    ['用量差异', formatSignedLength(summary.usageDiff)],
+                    ['数量差异', formatSignedNumber(summary.qtyDiff, '件')],
+                  ])}
+                  <div class="mt-2">${renderStatusBadge(summary.needsReview ? '需要复核' : '无需复核', summary.needsReview ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700')}</div>
+                </div>
+                <div class="space-y-1 text-xs leading-5">
+                  ${renderStatusBadge(pda.statusLabel, pda.statusClassName)}
+                  <div class="text-muted-foreground">最近写回：${escapeHtml(formatScheduleDateTime(pda.latestAt))}</div>
+                  <div class="text-muted-foreground">写回人：${escapeHtml(pda.operatorName)}</div>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
+                  <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">复核</button>
+                  <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看 PDA 记录</button>
+                  <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(row.spreadingSessionId)}">处理差异</button>
+                </div>
+              </article>
             `
           })
           .join('')}
-      </tbody>
-    </table>
-  `)}
+      </div>
     </section>
   `
 }
@@ -2467,14 +2610,13 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
 function renderSpreadingSupervisorListPage(): string {
   const pathname = getCurrentPathname()
   const meta = getCanonicalCuttingMeta(pathname, 'spreading-list')
-  const { spreadingRows } = getPageData()
-  const filteredRows = spreadingRows as SupervisorSpreadingRow[]
+  const pageData = getPageData()
+  const filteredRows = pageData.spreadingRows as SupervisorSpreadingRow[]
 
   return `
     <div class="space-y-4 p-4" data-testid="cutting-spreading-list-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
-          '<button type="button" class="rounded-md border border-blue-500 bg-blue-50 px-3 py-3 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="create-spreading">新建铺布</button>',
           '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="export-spreading-list">导出当前视图</button>',
         ])),
       })}
@@ -2482,7 +2624,7 @@ function renderSpreadingSupervisorListPage(): string {
       ${renderListStats()}
       ${renderListTabs()}
       ${renderFilterArea()}
-      ${renderSpreadingTable(filteredRows)}
+      ${renderSpreadingTable(filteredRows, pageData.projection)}
     </div>
   `
 }
@@ -2715,7 +2857,7 @@ function renderSpreadingReplenishmentSection(
             formula: warning.varianceLengthFormula,
           },
           {
-            label: '缺口成衣件数（件）',
+            label: '差异成衣件数（件）',
             value: `${formatQty(warning.shortageGarmentQty)} 件`,
             formula: warning.shortageGarmentQtyFormula,
           },
@@ -3738,6 +3880,265 @@ function renderSpreadingDetailPage(): string {
     varianceSummary?.theoreticalCutGarmentQty ??
     computeSessionPlannedCutGarmentQty(session, markerTotalPieces)
   const handoverSummaryByRollId = buildRollHandoverSummaryMap(session, markerTotalPieces)
+  const webSummary = resolveWebSpreadingSummary(row, pageData.projection)
+  const materialIdentity = webSummary.order?.materialIdentity || {
+    materialSku: row.materialSkuSummary || session.materialSkuSummary || '待补',
+    materialLabel: '铺布面料',
+    materialColor: row.colorSummary || session.colorSummary || '',
+    materialAlias: row.materialAliasSummary || session.materialAliasSummary || '',
+    materialImageUrl: row.materialImageUrl || session.materialImageUrl || '',
+  }
+  const patternIdentity = webSummary.order?.patternIdentity || null
+  const writebackRecords = [
+    session.sourceWritebackId
+      ? {
+          recordId: session.sourceWritebackId,
+          sourceLabel: '铺布单写回',
+          updatedAt: session.updatedFromPdaAt || session.updatedAt,
+          operatorName: webSummary.pda.operatorName,
+        }
+      : null,
+    ...session.rolls.map((roll) =>
+      roll.sourceWritebackId
+        ? {
+            recordId: roll.sourceWritebackId,
+            sourceLabel: `布卷 ${roll.rollNo || '待补'} 写回`,
+            updatedAt: roll.updatedFromPdaAt || roll.occurredAt,
+            operatorName: roll.operatorNames?.join(' / ') || webSummary.pda.operatorName,
+          }
+        : null,
+    ),
+    ...session.operators.map((operator) =>
+      operator.sourceWritebackId
+        ? {
+            recordId: operator.sourceWritebackId,
+            sourceLabel: `${operator.operatorName || '人员'} 写回`,
+            updatedAt: operator.updatedFromPdaAt || operator.endAt || operator.startAt,
+            operatorName: operator.operatorName || webSummary.pda.operatorName,
+          }
+        : null,
+    ),
+  ].filter((record): record is { recordId: string; sourceLabel: string; updatedAt: string; operatorName: string } => Boolean(record))
+  const differenceRuntime = {
+    orders: webSummary.order ? [webSummary.order] : [],
+    sessions: [session],
+  }
+  const spreadingDifferences = Array.from(
+    new Map(
+      [
+        ...listSpreadingDifferencesBySpreadingOrder(session.spreadingSessionId, differenceRuntime),
+        ...listSpreadingDifferencesBySpreadingOrder(session.sessionNo || '', differenceRuntime),
+        ...(webSummary.order?.spreadingOrderId ? listSpreadingDifferencesBySpreadingOrder(webSummary.order.spreadingOrderId, differenceRuntime) : []),
+        ...(webSummary.order?.spreadingOrderNo ? listSpreadingDifferencesBySpreadingOrder(webSummary.order.spreadingOrderNo, differenceRuntime) : []),
+      ].map((difference) => [difference.differenceId, difference]),
+    ).values(),
+  )
+
+  const renderRollCards = (): string => `
+    <div class="grid gap-3 lg:grid-cols-2">
+      ${session.rolls.length
+        ? session.rolls.map((roll) => {
+            const usableLength = computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength)
+            const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength)
+            return `
+              <article class="rounded-lg border bg-background p-3 text-sm">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div class="font-semibold text-foreground">${escapeHtml(roll.rollNo || '待补布卷号')}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(roll.materialSku || materialIdentity.materialSku || '待补面料')}</div>
+                  </div>
+                  <div class="text-xs text-muted-foreground">${escapeHtml(formatScheduleDateTime(roll.occurredAt))}</div>
+                </div>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                  ${renderReadonlyField('卷长', formatLength(roll.labeledLength))}
+                  ${renderReadonlyField('使用长度', formatLength(roll.actualLength))}
+                  ${renderReadonlyField('剩余长度', formatLength(remainingLength))}
+                  ${renderReadonlyField('净可用长度', formatLength(usableLength))}
+                  ${renderReadonlyField('布头长度', formatLength(roll.headLength))}
+                  ${renderReadonlyField('布尾长度', formatLength(roll.tailLength))}
+                  ${renderReadonlyField('实铺层数', `${formatQty(roll.layerCount)} 层`)}
+                  ${renderReadonlyField('操作人', roll.operatorNames?.join(' / ') || '待补')}
+                </div>
+              </article>
+            `
+          }).join('')
+        : '<div class="rounded-lg border border-dashed bg-background px-3 py-6 text-center text-sm text-muted-foreground">暂无卷记录。</div>'}
+    </div>
+  `
+
+  const renderOperatorCards = (): string => `
+    <div class="grid gap-3 lg:grid-cols-2">
+      ${session.operators.length
+        ? session.operators.map((operator) => {
+            const linkedRoll = session.rolls.find((roll) => roll.rollRecordId === operator.rollRecordId) || null
+            const handledLayerCount = computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer)
+            return `
+              <article class="rounded-lg border bg-background p-3 text-sm">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div class="font-semibold text-foreground">${escapeHtml(operator.operatorName || '待补人员')}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(operator.operatorAccountId || '待补账号')}</div>
+                  </div>
+                  ${renderStatusBadge(operator.actionType || '待补动作', 'border-slate-200 bg-slate-50 text-slate-700')}
+                </div>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                  ${renderReadonlyField('所属卷', linkedRoll?.rollNo || '待补')}
+                  ${renderReadonlyField('开始时间', formatScheduleDateTime(operator.startAt))}
+                  ${renderReadonlyField('结束时间', formatScheduleDateTime(operator.endAt))}
+                  ${renderReadonlyField('负责层数', handledLayerCount === null ? '待补' : `${formatQty(handledLayerCount)} 层`)}
+                  ${renderReadonlyField('计件数据', operator.handledLength ? formatLength(operator.handledLength) : '待补')}
+                  ${renderReadonlyField('交接备注', operator.note || operator.handoverNotes || '—')}
+                </div>
+              </article>
+            `
+          }).join('')
+        : '<div class="rounded-lg border border-dashed bg-background px-3 py-6 text-center text-sm text-muted-foreground">暂无人员记录。</div>'}
+    </div>
+  `
+
+  const renderPdaWritebackSection = (): string => `
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-center gap-2">
+        ${renderStatusBadge(webSummary.pda.statusLabel, webSummary.pda.statusClassName)}
+        <span class="text-xs text-muted-foreground">最近写回：${escapeHtml(formatScheduleDateTime(webSummary.pda.latestAt))}</span>
+        <span class="text-xs text-muted-foreground">写回人：${escapeHtml(webSummary.pda.operatorName)}</span>
+      </div>
+      <div class="grid gap-3 lg:grid-cols-2">
+        ${writebackRecords.length
+          ? writebackRecords.map((record) => `
+              <article class="rounded-lg border bg-background p-3 text-sm">
+                <div class="font-semibold text-foreground">${escapeHtml(record.sourceLabel)}</div>
+                <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                  ${renderReadonlyField('写回记录', record.recordId)}
+                  ${renderReadonlyField('写回时间', formatScheduleDateTime(record.updatedAt))}
+                  ${renderReadonlyField('写回人', record.operatorName)}
+                  ${renderReadonlyField('同步状态', webSummary.pda.statusLabel)}
+                </div>
+              </article>
+            `).join('')
+          : '<div class="rounded-lg border border-dashed bg-background px-3 py-6 text-center text-sm text-muted-foreground">暂无 PDA 写回记录。</div>'}
+      </div>
+    </div>
+  `
+
+  const renderDifferenceCards = (): string => `
+    <div class="mt-3 grid gap-3">
+      ${
+        spreadingDifferences.length
+          ? spreadingDifferences
+              .map(
+                (difference) => `
+                  <article class="rounded-lg border bg-background p-3 text-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                      <div class="flex flex-wrap items-center gap-2">
+                        ${renderStatusBadge(difference.differenceType, difference.differenceLevel === '需处理' ? 'border-rose-200 bg-rose-50 text-rose-700' : difference.differenceLevel === '需复核' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-700')}
+                        ${renderStatusBadge(difference.handlingStatus, difference.handlingStatus === '待处理' ? 'border-amber-200 bg-amber-50 text-amber-700' : difference.handlingStatus === '已处理' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-700')}
+                        <span class="text-xs text-muted-foreground">${escapeHtml(difference.sourceType)}</span>
+                      </div>
+                      <span class="text-xs text-muted-foreground">${escapeHtml(formatScheduleDateTime(difference.detectedAt))}</span>
+                    </div>
+                    <div class="mt-2 grid gap-2 sm:grid-cols-4">
+                      ${renderReadonlyField('计划值', `${formatQty(difference.plannedValue)} ${difference.unit}`)}
+                      ${renderReadonlyField('实际值', `${formatQty(difference.actualValue)} ${difference.unit}`)}
+                      ${renderReadonlyField('差异值', `${formatQty(Math.abs(difference.differenceValue))} ${difference.unit}`)}
+                      ${renderReadonlyField('关联补料处理', difference.linkedReplenishmentId)}
+                    </div>
+                    <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(difference.evidence.summary)}</p>
+                  </article>
+                `,
+              )
+              .join('')
+          : webSummary.needsReview
+            ? `
+              <article class="rounded-lg border bg-background p-3 text-sm">
+                <div class="flex flex-wrap items-center gap-2">
+                  ${renderStatusBadge('系统计算差异', 'border-amber-200 bg-amber-50 text-amber-700')}
+                  ${renderStatusBadge('待处理', 'border-amber-200 bg-amber-50 text-amber-700')}
+                </div>
+                <div class="mt-2 grid gap-2 sm:grid-cols-3">
+                  ${renderReadonlyField('层数差异', formatSignedNumber(webSummary.layerDiff, '层'))}
+                  ${renderReadonlyField('用量差异', formatSignedLength(webSummary.usageDiff))}
+                  ${renderReadonlyField('数量差异', formatSignedNumber(webSummary.qtyDiff, '件'))}
+                </div>
+                <p class="mt-2 text-xs text-muted-foreground">该铺布单存在计划与实际差异，允许提交现场数据，后续进入补料管理判断是否补料、补录、补排、关闭裁片单或仅记录。</p>
+              </article>
+            `
+          : '<div class="rounded-lg border border-dashed bg-background px-3 py-6 text-center text-sm text-muted-foreground">当前没有已生成的铺布或裁剪差异事项。</div>'
+      }
+    </div>
+  `
+
+  return `
+    <div class="space-y-4 p-4" data-testid="cutting-spreading-detail-page">
+      ${renderCuttingPageHeader(meta, {
+        actionsHtml: renderHeaderActions(appendSummaryReturnAction([
+          '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-list" data-tab="spreadings">返回铺布单</button>',
+          `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">处理差异</button>`,
+          `${row.markerPlanNo ? `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-marker-plan" data-session-id="${escapeHtml(row.spreadingSessionId)}">去来源唛架方案</button>` : ''}`,
+        ])),
+      })}
+      <section class="rounded-xl border bg-card p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div class="text-sm font-semibold text-blue-600">${escapeHtml(session.sessionNo || '待补铺布单号')}</div>
+            <div class="mt-1 text-xs text-muted-foreground">唛架方案：${escapeHtml(session.sourceSchemeNo || row.markerPlanNo || '待关联')} / 唛架编号：${escapeHtml(session.sourceBedNo || session.markerNo || row.sourceMarkerLabel || '待补')}</div>
+          </div>
+          <div class="flex flex-wrap gap-2">${renderStatusBadge(webSummary.status.label, webSummary.status.className)}</div>
+        </div>
+      </section>
+      ${renderSection('基本信息', `
+        <div class="grid gap-4 lg:grid-cols-[1.3fr_1fr_1fr]">
+          <div>${renderMaterialIdentityBlock(materialIdentity, { compact: true, imageSizeClass: 'h-12 w-12', showCategory: false })}</div>
+          <div class="space-y-2 text-sm">
+            ${renderReadonlyField('来源裁片单', (webSummary.order?.sourceCutOrderNos || linkedCutOrderNos).join(' / ') || '待补')}
+            ${renderReadonlyField('生产单', productionOrderNos.join(' / ') || row.productionOrderNos.join(' / ') || '待补')}
+            ${renderReadonlyField('铺布负责人', session.ownerName || '待分配')}
+          </div>
+          <div class="space-y-2 text-sm">
+            ${renderReadonlyField('纸样文件', patternIdentity?.patternFileName || '待补')}
+            ${renderReadonlyField('纸样版本', patternIdentity?.patternVersion || '待补')}
+            ${renderReadonlyField('有效幅宽', patternIdentity?.effectiveWidthText || webSummary.order?.effectiveWidth || '待补')}
+          </div>
+        </div>
+      `)}
+      ${renderSection('计划信息', `
+        ${renderInfoGrid([
+          { label: '计划层数', value: `${formatQty(webSummary.plannedLayerCount)} 层` },
+          { label: '计划用量', value: formatLength(webSummary.plannedUsage) },
+          { label: '计划数量', value: `${formatQty(webSummary.plannedQty)} 件` },
+          { label: '尺码配比', value: webSummary.order?.sizeRatio || linkedMarker?.sizeRatioPlanText || '待补' },
+          { label: '唛架图片', value: webSummary.order?.markerImageUrl || linkedMarker?.markerImageUrl || '待上传' },
+        ])}
+      `)}
+      ${renderSection('实际信息', `
+        ${renderInfoGrid([
+          { label: '实铺层数', value: `${formatQty(webSummary.actualLayerCount)} 层`, formula: buildLayerSumFormula(webSummary.actualLayerCount, session.rolls.map((roll) => roll.layerCount)) },
+          { label: '实际铺布长度', value: formatLength(webSummary.actualUsage), formula: buildSumFormula(webSummary.actualUsage, session.rolls.map((roll) => roll.actualLength), 2) },
+          { label: '实际用量', value: formatLength(webSummary.actualUsage) },
+          { label: '实际裁剪数量', value: `${formatQty(webSummary.actualCutQty)} 件` },
+          { label: '布头长度', value: formatLength(rollSummary.totalHeadLength) },
+          { label: '布尾长度', value: formatLength(rollSummary.totalTailLength) },
+        ])}
+      `)}
+      ${renderSection('卷记录', renderRollCards())}
+      ${renderSection('人员记录', renderOperatorCards())}
+      ${renderSection('PDA 写回记录', renderPdaWritebackSection())}
+      ${renderSection('差异与后续动作', `
+        ${renderInfoGrid([
+          { label: '层数差异', value: formatSignedNumber(webSummary.layerDiff, '层') },
+          { label: '用量差异', value: formatSignedLength(webSummary.usageDiff) },
+          { label: '数量差异', value: formatSignedNumber(webSummary.qtyDiff, '件') },
+          { label: '复核判断', value: webSummary.needsReview ? '需要复核' : '无需复核' },
+          { label: '差异说明', value: row.varianceNote || '当前未识别明显差异。' },
+        ])}
+        ${renderDifferenceCards()}
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">进入差异处理</button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-cut-orders" data-session-id="${escapeHtml(session.spreadingSessionId)}">查看来源裁片单</button>
+        </div>
+      `)}
+    </div>
+  `
 
   const renderTopInfo = (): string => `
     <section class="rounded-xl border bg-card p-4">
@@ -3806,7 +4207,7 @@ function renderSpreadingDetailPage(): string {
             formula: varianceSummary?.actualCutGarmentQtyFormula || buildQtySumFormula(0, []),
           },
           {
-            label: '缺口成衣件数（件）',
+            label: '差异成衣件数（件）',
             value: `${formatQty(varianceSummary?.shortageGarmentQty || 0)} 件`,
             formula: varianceSummary?.shortageGarmentQtyFormula || buildShortageQtyFormula(0, 0, 0),
           },
@@ -3851,7 +4252,7 @@ function renderSpreadingDetailPage(): string {
       '卷记录',
       `
         <div class="overflow-auto">
-          <table class="w-full min-w-[1760px] text-sm">
+          <table class="w-full text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">唛架项</th>
@@ -4014,7 +4415,7 @@ function renderSpreadingDetailPage(): string {
             formula: varianceSummary?.actualCutGarmentQtyFormula || buildQtySumFormula(0, []),
           },
           {
-            label: '缺口成衣件数（件）',
+            label: '差异成衣件数（件）',
             value: `${formatQty(varianceSummary?.shortageGarmentQty || 0)} 件`,
             formula: varianceSummary?.shortageGarmentQtyFormula || buildShortageQtyFormula(0, 0, 0),
           },
@@ -4035,13 +4436,13 @@ function renderSpreadingDetailPage(): string {
           },
         ])}
         <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <h4 class="text-sm font-semibold text-foreground">补料建议行</h4>
+          <h4 class="text-sm font-semibold text-foreground">差异处理项</h4>
           <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">去补料管理</button>
         </div>
         <details class="mt-2 rounded-md border bg-background" data-testid="cutting-spreading-detail-replenishment-fold" data-default-open="collapsed">
-          <summary class="cursor-pointer px-2.5 py-1.5 text-sm font-medium text-foreground">补料建议摘要</summary>
+          <summary class="cursor-pointer px-2.5 py-1.5 text-sm font-medium text-foreground">差异处理摘要</summary>
           <div class="border-t overflow-auto">
-          <table class="w-full min-w-[1540px] text-sm">
+          <table class="w-full min-w-full text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">裁片单</th>
@@ -4049,7 +4450,7 @@ function renderSpreadingDetailPage(): string {
                 <th class="px-3 py-3">颜色</th>
                 <th class="px-3 py-3">需求成衣件数（件）</th>
                 <th class="px-3 py-3">实际裁剪成衣件数（件）</th>
-                <th class="px-3 py-3">缺口成衣件数（件）</th>
+                <th class="px-3 py-3">差异成衣件数（件）</th>
                 <th class="px-3 py-3">裁床已领长度（m）</th>
                 <th class="px-3 py-3">实际铺布长度（m）</th>
                 <th class="px-3 py-3">预警等级</th>
@@ -4101,7 +4502,7 @@ function renderSpreadingDetailPage(): string {
                         `
                       })
                       .join('')
-                  : '<tr><td colspan="11" class="px-3 py-6 text-center text-xs text-muted-foreground">当前没有可展示的补料建议行。</td></tr>'
+                  : '<tr><td colspan="11" class="px-3 py-6 text-center text-xs text-muted-foreground">当前没有可展示的差异处理项。</td></tr>'
               }
             </tbody>
           </table>
@@ -4281,7 +4682,7 @@ function renderSpreadingEditPage(): string {
             formula: varianceSummary?.actualCutGarmentQtyFormula || buildQtySumFormula(0, []),
           },
           {
-            label: '缺口成衣件数（件）',
+            label: '差异成衣件数（件）',
             value: `${formatQty(varianceSummary?.shortageGarmentQty || 0)} 件`,
             formula: varianceSummary?.shortageGarmentQtyFormula || buildShortageQtyFormula(0, 0, 0),
           },
@@ -4336,7 +4737,7 @@ function renderSpreadingEditPage(): string {
           </div>
         </div>
         <div class="overflow-auto">
-          <table class="w-full min-w-[1760px] text-sm">
+          <table class="w-full text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">唛架项</th>
@@ -4535,7 +4936,7 @@ function renderSpreadingEditPage(): string {
             formula: varianceSummary?.actualCutGarmentQtyFormula || buildQtySumFormula(0, []),
           },
           {
-            label: '缺口成衣件数（件）',
+            label: '差异成衣件数（件）',
             value: `${formatQty(varianceSummary?.shortageGarmentQty || 0)} 件`,
             formula: varianceSummary?.shortageGarmentQtyFormula || buildShortageQtyFormula(0, 0, 0),
           },
@@ -4556,13 +4957,13 @@ function renderSpreadingEditPage(): string {
           },
         ])}
         <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2">
-          <h4 class="text-sm font-semibold text-foreground">补料建议行</h4>
+          <h4 class="text-sm font-semibold text-foreground">差异处理项</h4>
           <button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(draft.spreadingSessionId)}">去补料管理</button>
         </div>
         <details class="mt-2 rounded-md border bg-background" data-testid="cutting-spreading-edit-replenishment-fold" data-default-open="collapsed">
-          <summary class="cursor-pointer px-3 py-3 text-sm font-medium text-foreground">补料建议摘要</summary>
+          <summary class="cursor-pointer px-3 py-3 text-sm font-medium text-foreground">差异处理摘要</summary>
           <div class="border-t overflow-auto">
-          <table class="w-full min-w-[1540px] text-sm">
+          <table class="w-full min-w-full text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">裁片单</th>
@@ -4570,7 +4971,7 @@ function renderSpreadingEditPage(): string {
                 <th class="px-3 py-3">颜色</th>
                 <th class="px-3 py-3">需求成衣件数（件）</th>
                 <th class="px-3 py-3">实际裁剪成衣件数（件）</th>
-                <th class="px-3 py-3">缺口成衣件数（件）</th>
+                <th class="px-3 py-3">差异成衣件数（件）</th>
                 <th class="px-3 py-3">裁床已领长度（m）</th>
                 <th class="px-3 py-3">实际铺布长度（m）</th>
                 <th class="px-3 py-3">预警等级</th>
@@ -4622,7 +5023,7 @@ function renderSpreadingEditPage(): string {
                         `
                       })
                       .join('')
-                  : '<tr><td colspan="11" class="px-3 py-6 text-center text-xs text-muted-foreground">当前没有可展示的补料建议行。</td></tr>'
+                  : '<tr><td colspan="11" class="px-3 py-6 text-center text-xs text-muted-foreground">当前没有可展示的差异处理项。</td></tr>'
               }
             </tbody>
           </table>
@@ -5780,7 +6181,7 @@ export function renderCraftCuttingMarkerSpreadingPage(): string {
     })
     return `
       <div class="space-y-3 p-4">
-        <div class="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground">正在跳转到铺布列表…</div>
+        <div class="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground">正在跳转到铺布单…</div>
       </div>
     `
   }
@@ -6421,6 +6822,8 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
       materialSku: row.materialSkuSummary?.split(' / ')[0] || undefined,
       markerId: row.session.markerId || undefined,
       markerNo: row.session.markerNo || undefined,
+      spreadingSessionId: row.spreadingSessionId,
+      spreadingSessionNo: row.session.sessionNo || undefined,
       autoOpenDetail: true,
     })
     appStore.navigate(buildCuttingRouteWithContext('replenishment', context))

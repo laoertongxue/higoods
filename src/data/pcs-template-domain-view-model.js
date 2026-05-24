@@ -1,0 +1,183 @@
+import { getProjectTemplateSchema, getProjectWorkItemContract, listProjectTemplateSchemas, } from './pcs-project-domain-contract.ts';
+const OPTIONAL_NODE_RULES = {
+    基础款: {},
+    快时尚款: {},
+    改版款: {},
+    设计款: {
+        PATTERN_ARTWORK_TASK: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
+        FIRST_ORDER_SAMPLE: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
+    },
+};
+const REQUIRED_TEMPLATE_TERMINAL_NODE_CODE = 'SAMPLE_RETURN_HANDLE';
+const REQUIRED_TEMPLATE_TERMINAL_NODE_NAME = '样衣退回处理';
+function getPrimaryStyleType(styleType) {
+    return styleType[0] ?? null;
+}
+function listActiveNodes(nodes) {
+    return nodes.filter((item) => item.enabledFlag !== false);
+}
+function listPhaseNodeCodes(phaseCode, nodes) {
+    return listActiveNodes(nodes)
+        .filter((item) => item.phaseCode === phaseCode)
+        .sort((a, b) => a.sequenceNo - b.sequenceNo)
+        .map((item) => item.workItemTypeCode);
+}
+export function getTemplateNodeEditRule(styleType, workItemTypeCode) {
+    return (OPTIONAL_NODE_RULES[styleType]?.[workItemTypeCode] ?? {
+        optional: false,
+        allowDisable: false,
+        allowReorder: false,
+        allowRequiredSwitch: false,
+    });
+}
+export function validateTemplateBusinessIntegrity(input) {
+    const schema = listProjectTemplateSchemas().find((item) => item.styleTypes.includes(input.styleType));
+    if (!schema) {
+        return [{ code: 'MISSING_SCHEMA', message: `未找到适用款式类型 ${input.styleType} 的正式模板矩阵。` }];
+    }
+    const issues = [];
+    const expectedPhaseCodes = schema.phaseSchemas.map((item) => item.phaseCode);
+    const actualPhaseCodes = input.stages
+        .slice()
+        .sort((a, b) => a.phaseOrder - b.phaseOrder)
+        .map((item) => item.phaseCode);
+    if (JSON.stringify(expectedPhaseCodes) !== JSON.stringify(actualPhaseCodes)) {
+        issues.push({ code: 'INVALID_PHASES', message: '模板阶段必须严格使用正式模板矩阵，不允许自由增删阶段。' });
+    }
+    schema.phaseSchemas.forEach((phase) => {
+        const allowedCodes = phase.nodeCodes;
+        const activeCodes = listPhaseNodeCodes(phase.phaseCode, input.nodes);
+        const invalidCode = activeCodes.find((code) => !allowedCodes.includes(code));
+        if (invalidCode) {
+            issues.push({
+                code: `INVALID_NODE_${phase.phaseCode}`,
+                message: `${phase.phaseCode} 存在不属于正式矩阵的节点：${invalidCode}。`,
+            });
+        }
+        const missingRequired = allowedCodes.filter((code) => {
+            const rule = getTemplateNodeEditRule(input.styleType, code);
+            return !rule.optional && !activeCodes.includes(code);
+        });
+        if (missingRequired.length > 0) {
+            issues.push({
+                code: `MISSING_REQUIRED_${phase.phaseCode}`,
+                message: `${phase.phaseCode} 缺少正式必做节点：${missingRequired.join('、')}。`,
+            });
+        }
+    });
+    const activeCodes = new Set(listActiveNodes(input.nodes).map((item) => item.workItemTypeCode));
+    const hasMarketTest = activeCodes.has('LIVE_TEST') || activeCodes.has('VIDEO_TEST');
+    const hasDownstreamProduction = ['PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE', 'REVISION_TASK'].some((code) => activeCodes.has(code));
+    if (hasMarketTest && !activeCodes.has('CHANNEL_PRODUCT_LISTING')) {
+        issues.push({
+            code: 'MISSING_CHANNEL_LISTING',
+            message: '存在直播测款或短视频测款时，必须包含商品上架节点。',
+        });
+    }
+    if (hasDownstreamProduction && !activeCodes.has('STYLE_ARCHIVE_CREATE')) {
+        issues.push({
+            code: 'MISSING_STYLE_ARCHIVE',
+            message: '模板存在测款通过后的开发推进链路时，必须包含款式档案生成节点。',
+        });
+    }
+    if (!listPhaseNodeCodes('PHASE_03', input.nodes).includes('TEST_CONCLUSION')) {
+        issues.push({
+            code: 'PHASE_03_MISSING_CONCLUSION',
+            message: '市场测款阶段必须包含测款结论判定节点。',
+        });
+    }
+    if (!listPhaseNodeCodes('PHASE_04', input.nodes).includes('STYLE_ARCHIVE_CREATE')) {
+        issues.push({
+            code: 'PHASE_04_MISSING_STYLE_ARCHIVE',
+            message: '款式档案与开发推进阶段必须包含款式档案生成节点。',
+        });
+    }
+    if (!listPhaseNodeCodes('PHASE_05', input.nodes).includes(REQUIRED_TEMPLATE_TERMINAL_NODE_CODE)) {
+        issues.push({
+            code: 'PHASE_05_MISSING_SAMPLE_RETURN_HANDLE',
+            message: `项目收尾阶段必须包含${REQUIRED_TEMPLATE_TERMINAL_NODE_NAME}节点。`,
+        });
+    }
+    return issues;
+}
+export function buildTemplateBusinessSummary(template) {
+    const styleType = getPrimaryStyleType(template.styleType);
+    const schema = styleType
+        ? listProjectTemplateSchemas().find((item) => item.styleTypes.includes(styleType))
+        : null;
+    const issues = styleType
+        ? validateTemplateBusinessIntegrity({
+            styleType,
+            stages: template.stages,
+            nodes: template.nodes,
+        })
+        : [{ code: 'MISSING_STYLE_TYPE', message: '模板缺少适用款式类型。' }];
+    const activeNodes = listActiveNodes(template.nodes);
+    const activeCodes = new Set(activeNodes.map((item) => item.workItemTypeCode));
+    const hasChannelProductListing = activeCodes.has('CHANNEL_PRODUCT_LISTING');
+    const hasLiveTest = activeCodes.has('LIVE_TEST');
+    const hasVideoTest = activeCodes.has('VIDEO_TEST');
+    const hasStyleArchiveCreate = activeCodes.has('STYLE_ARCHIVE_CREATE');
+    const hasFullLoop = hasChannelProductListing &&
+        (hasLiveTest || hasVideoTest) &&
+        activeCodes.has('TEST_CONCLUSION') &&
+        hasStyleArchiveCreate;
+    const closureStatus = issues.length > 0 ? '配置异常' : hasFullLoop ? '完整闭环' : '仅测款不转档';
+    const closureText = closureStatus === '完整闭环'
+        ? '模板已覆盖测款、款式档案与开发推进链路。'
+        : closureStatus === '仅测款不转档'
+            ? '模板只覆盖市场测款，不足以进入款式档案与技术包闭环。'
+            : issues.map((item) => item.message).join('；');
+    const pathFlags = [
+        hasChannelProductListing ? '包含商品上架' : '缺少商品上架',
+        hasLiveTest ? '包含直播测款' : '不含直播测款',
+        hasVideoTest ? '包含短视频测款' : '不含短视频测款',
+        activeCodes.has('PATTERN_ARTWORK_TASK') ? '包含花型任务' : '不含花型任务',
+        activeCodes.has('FIRST_SAMPLE') ? '包含首版样衣' : '不含首版样衣',
+        activeCodes.has('FIRST_ORDER_SAMPLE') ? '包含首单样衣打样' : '不含首单样衣打样',
+    ];
+    const previewPhases = template.stages
+        .slice()
+        .sort((a, b) => a.phaseOrder - b.phaseOrder)
+        .map((phase) => ({
+        phaseCode: phase.phaseCode,
+        phaseName: phase.phaseName,
+        nodeNames: activeNodes
+            .filter((item) => item.phaseCode === phase.phaseCode)
+            .sort((a, b) => a.sequenceNo - b.sequenceNo)
+            .map((item) => item.workItemTypeName),
+    }));
+    return {
+        scenarioSummary: schema?.scenario || template.scenario || template.description,
+        closureStatus,
+        closureText,
+        issues,
+        hasChannelProductListing,
+        hasLiveTest,
+        hasVideoTest,
+        hasStyleArchiveCreate,
+        hasFullLoop,
+        pathFlags,
+        previewPhases,
+    };
+}
+export function buildTemplateRecommendedDraft(styleType) {
+    const schema = listProjectTemplateSchemas().find((item) => item.styleTypes.includes(styleType));
+    if (!schema) {
+        throw new Error(`未找到适用款式类型 ${styleType} 的推荐模板。`);
+    }
+    return getProjectTemplateSchema(schema.templateId);
+}
+export function buildTemplateTripletNote() {
+    return '三码关系在“渠道店铺商品已创建”“上游渠道商品已上架”“测款通过并生成款式档案”后正式建立：渠道店铺商品编码在创建渠道店铺商品时生成，上游渠道商品编码在发起上架成功后回填，款式档案编码在生成款式档案时回填，三者在款式档案回写时完成关联。';
+}
+export function buildTemplateNodeFieldSourceRows(workItemTypeCode) {
+    const contract = getProjectWorkItemContract(workItemTypeCode);
+    return contract.fieldDefinitions.map((field) => ({
+        fieldLabel: field.label,
+        sourceText: `${field.sourceKind} / ${field.sourceRef}`,
+        definitionText: `${field.meaning}；${field.businessLogic}`,
+        requiredText: field.required ? '是' : '否',
+        readonlyText: field.readonly ? '是' : '否',
+    }));
+}

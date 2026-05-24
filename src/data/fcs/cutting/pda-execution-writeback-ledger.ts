@@ -231,7 +231,31 @@ function createSeedBase(input: {
 }
 
 function createSeededPdaExecutionWritebackStore(): PdaExecutionWritebackStore {
-  const pickupWritebacks: PdaPickupWritebackRecord[] = []
+  const pickupWritebacks: PdaPickupWritebackRecord[] = [
+    '0302',
+    '0303',
+    '0304',
+    '0305',
+    '0306',
+    '0307',
+    '0310',
+  ].map((suffix, index) => ({
+    ...createSeedBase({
+      writebackId: `PDA-PICKUP-SEED-${suffix}`,
+      actionType: 'PICKUP_CONFIRM',
+      submittedAt: `2026-03-18 08:${String(30 + index).padStart(2, '0')}:00`,
+      taskId: `TASK-CUT-PDA-${suffix === '0302' ? 'PICKED-NOT-STARTED' : suffix === '0303' ? 'WAIT-SPREAD' : suffix === '0304' ? 'SPREADING' : suffix === '0305' ? 'WAIT-CUT' : suffix === '0306' ? 'CUTTING' : suffix === '0307' ? 'CUT-DONE' : 'SYNC-FAIL'}-${suffix}`,
+      executionOrderNo: `CPO-PDA-${suffix}`,
+      operatorName: '裁床领料员',
+      sourceRecordId: `pickup-seed-${suffix}`,
+    }),
+    resultLabel: '领料成功',
+    actualReceivedQtyText: '卷数 2 卷 / 长度 300 米',
+    discrepancyNote: '当前无差异',
+    photoProofCount: 1,
+    claimDisputeId: '',
+    claimDisputeNo: '',
+  }))
 
   const inboundWritebacks: PdaCutPieceInboundWritebackRecord[] = [
     {

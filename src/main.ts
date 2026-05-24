@@ -356,6 +356,9 @@ async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
 }
 
 async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
+  const pathname = appStore.getState().pathname || ''
+  if (pathname.startsWith('/fcs/pda')) return false
+
   try {
     const pcsHandlers = await getPcsHandlersModule()
     return pcsHandlers.dispatchPcsInputEvent(target)
@@ -974,6 +977,16 @@ root.addEventListener('click', async (event) => {
     event.preventDefault()
     const warehouseShared = await getFactoryWarehouseSharedModule()
     if (await warehouseShared.handleFactoryWarehouseSharedEvent(warehouseSharedNode)) {
+      return
+    }
+  }
+
+  const pdaCutInboundActionNode = target.closest<HTMLElement>('[data-pda-cut-inbound-action]')
+  if (pdaCutInboundActionNode) {
+    event.preventDefault()
+    const pdaCuttingInboundPage = await import('./pages/pda-cutting-inbound')
+    if (pdaCuttingInboundPage.handlePdaCuttingInboundEvent(pdaCutInboundActionNode)) {
+      await renderWithFocusRestore(focusSnapshot)
       return
     }
   }

@@ -13,6 +13,14 @@ export type MarkerModeKey = 'normal' | 'high_low' | 'fold_normal' | 'fold_high_l
 export type SpreadingStatusKey = 'DRAFT' | 'IN_PROGRESS' | 'DONE' | 'TO_FILL'
 export type SpreadingListStatusKey = 'WAITING_START' | 'IN_PROGRESS' | 'DONE'
 export type SpreadingCuttingStatusKey = 'WAITING_CUTTING' | 'CUTTING' | 'CUTTING_DONE'
+export type SpreadingOrderStatusKey =
+  | 'WAITING_SPREADING'
+  | 'SPREADING'
+  | 'SPREAD_DONE'
+  | 'WAITING_CUTTING'
+  | 'CUTTING'
+  | 'CUT_DONE'
+  | 'CANCELED'
 export type SpreadingSupervisorStageKey =
   | 'WAITING_START'
   | 'IN_PROGRESS'
@@ -25,7 +33,7 @@ export type SpreadingSourceChannel = 'MANUAL' | 'PDA_WRITEBACK' | 'MIXED'
 export type SpreadingOperatorActionType = '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
 export type SpreadingPricingMode = '按件计价' | '按长度计价' | '按层计价'
 export type SpreadingWarningLevel = '低' | '中' | '高'
-export type SpreadingSuggestedAction = '无需补料' | '建议补料' | '数据不足，待补录' | '存在异常差异，需人工确认'
+export type SpreadingSuggestedAction = '无需补料' | '差异处理' | '数据不足，待补录' | '存在异常差异，需人工确认'
 export const MARKER_SIZE_KEYS = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'onesize', 'plusonesize'] as const
 export type MarkerSizeKey = (typeof MARKER_SIZE_KEYS)[number]
 export const DEFAULT_HIGH_LOW_PATTERN_KEYS = ['S*1', 'XL*1', 'L*1+plusonesize', 'M*1+onesize', '2XL'] as const
@@ -693,6 +701,62 @@ export interface MarkerSpreadingStore {
   sessions: SpreadingSession[]
 }
 
+export interface SpreadingOrderMaterialIdentity {
+  materialSku: string
+  materialName: string
+  materialColor: string
+  materialAlias: string
+  materialImageUrl: string
+  materialUnit: string
+}
+
+export interface SpreadingOrderPatternIdentity {
+  patternFileId: string
+  patternFileName: string
+  patternVersion: string
+  patternKind: string
+  effectiveWidthValue: number
+  effectiveWidthUnit: string
+  effectiveWidthText: string
+  piecePartCodes: string[]
+  piecePartNames: string[]
+}
+
+export interface SpreadingOrder {
+  spreadingOrderId: string
+  spreadingOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
+  markerNumberId: string
+  markerNumber: string
+  bedNo: string
+  sourceCutOrderIds: string[]
+  sourceCutOrderNos: string[]
+  productionOrderIds: string[]
+  productionOrderNos: string[]
+  spuId: string
+  spuCode: string
+  styleId: string
+  styleName: string
+  materialIdentity: SpreadingOrderMaterialIdentity
+  patternIdentity: SpreadingOrderPatternIdentity
+  effectiveWidth: string
+  plannedLayerCount: number
+  plannedGarmentQty: number
+  plannedPieceQty: number
+  plannedMaterialUsage: number
+  plannedMaterialUsageUnit: string
+  sizeRatio: string
+  markerMode: MarkerModeKey
+  markerModeLabel: string
+  markerImageUrl: string
+  status: SpreadingOrderStatusKey
+  createdAt: string
+  createdBy: string
+  confirmedAt: string
+  linkedPdaTaskId: string
+}
+
 export interface MarkerSpreadingSessionReferenceSummary {
   cutOrderIds?: string[]
   completionLinkage?: {
@@ -805,6 +869,54 @@ const spreadingCuttingStatusMeta: Record<SpreadingCuttingStatusKey, { label: str
   },
 }
 
+export const spreadingOrderStatusMeta: Record<SpreadingOrderStatusKey, { label: string; className: string; detailText: string }> = {
+  WAITING_SPREADING: {
+    label: '待铺布',
+    className: 'bg-slate-100 text-slate-700 border border-slate-200',
+    detailText: '铺布单已由唛架编号生成，等待开始铺布。',
+  },
+  SPREADING: {
+    label: '铺布中',
+    className: 'bg-amber-100 text-amber-700 border border-amber-200',
+    detailText: '当前铺布正在执行。',
+  },
+  SPREAD_DONE: {
+    label: '已铺布',
+    className: 'bg-blue-100 text-blue-700 border border-blue-200',
+    detailText: '铺布已完成，等待裁剪。',
+  },
+  WAITING_CUTTING: {
+    label: '待裁剪',
+    className: 'bg-sky-100 text-sky-700 border border-sky-200',
+    detailText: '铺布已完成，等待开始裁剪。',
+  },
+  CUTTING: {
+    label: '裁剪中',
+    className: 'bg-violet-100 text-violet-700 border border-violet-200',
+    detailText: '当前裁剪正在执行。',
+  },
+  CUT_DONE: {
+    label: '已裁剪',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '裁剪已完成。',
+  },
+  CANCELED: {
+    label: '已取消',
+    className: 'bg-slate-100 text-slate-500 border border-slate-200',
+    detailText: '铺布单已取消。',
+  },
+}
+
+export function resolveSpreadingOrderStatusFromSession(session: SpreadingSession | null | undefined): SpreadingOrderStatusKey {
+  if (!session) return 'WAITING_SPREADING'
+  if (session.cuttingStatus === 'CUTTING_DONE') return 'CUT_DONE'
+  if (session.cuttingStatus === 'CUTTING') return 'CUTTING'
+  if (session.cuttingStatus === 'WAITING_CUTTING') return 'WAITING_CUTTING'
+  if (session.status === 'IN_PROGRESS') return 'SPREADING'
+  if (session.status === 'DONE') return 'SPREAD_DONE'
+  return 'WAITING_SPREADING'
+}
+
 const spreadingSupervisorStageMeta: Record<
   SpreadingSupervisorStageKey,
   { label: string; className: string; detailText: string }
@@ -827,7 +939,7 @@ const spreadingSupervisorStageMeta: Record<
   WAITING_FEI_TICKET: {
     label: '待打印菲票',
     className: 'bg-sky-100 text-sky-700 border border-sky-200',
-    detailText: '当前铺布执行已完成，下一步需打印正式菲票。',
+    detailText: '当前铺布执行已完成，需先确认铺布与裁剪差异处理结果，再进入菲票流程。',
   },
   WAITING_BAGGING: {
     label: '待入仓暂存',
@@ -1523,8 +1635,8 @@ export function buildShortageQtyFormula(shortageQty: number, requiredQty: number
 
 function buildWarningRuleText(shortageGarmentQty: number, varianceLength: number, missingData: boolean): string {
   if (missingData) return '待补录 = 需求成衣件数、裁床已领长度、总实际铺布长度未补齐'
-  if (shortageGarmentQty > 0 || varianceLength < 0) return '建议补料 = 存在缺口成衣件数，或实际铺布长度超出裁床已领长度'
-  return '无需补料 = 缺口成衣件数为 0，且实际铺布长度未超裁床已领长度'
+  if (shortageGarmentQty > 0 || varianceLength < 0) return '差异处理 = 存在实际差异，需审核后决定补料、补录、补排、关闭或仅记录'
+  return '仅记录差异 = 当前差异不触发后续数量账事件'
 }
 
 function buildRoundedDistribution(total: number, weights: number[], digits = 0): number[] {
@@ -1635,7 +1747,7 @@ function buildSpreadingReplenishmentLines(options: {
     const actualLengthTotal = actualLengthList[index] || 0
     const shortageGarmentQty = computeShortageQty(requiredGarmentQty, actualCutGarmentQty)
     const suggestedAction: SpreadingSuggestedAction =
-      shortageGarmentQty > 0 || actualLengthTotal > row.claimedLengthTotal ? '建议补料' : '无需补料'
+      shortageGarmentQty > 0 || actualLengthTotal > row.claimedLengthTotal ? '差异处理' : '无需补料'
 
     return {
       lineId: `spread-warning-line-${row.cutOrderId}-${index + 1}`,
@@ -1654,9 +1766,9 @@ function buildSpreadingReplenishmentLines(options: {
       actualCutGarmentQtyFormula: `${formatQty(actualCutGarmentQty)} 件 = 当前行各卷裁剪成衣件数合计`,
       shortageGarmentQtyFormula: buildShortageQtyFormula(shortageGarmentQty, requiredGarmentQty, actualCutGarmentQty),
       suggestedActionRuleText:
-        suggestedAction === '建议补料'
-          ? '建议补料 = 存在缺口成衣件数，或实际铺布长度超出裁床已领长度'
-          : '无需补料 = 缺口成衣件数为 0，且实际铺布长度未超裁床已领长度',
+        suggestedAction === '差异处理'
+          ? '差异处理 = 存在实际差异，需审核后决定补料、补录、补排、关闭或仅记录'
+          : '仅记录差异 = 当前差异不触发后续数量账事件',
     }
   })
 }
@@ -1774,7 +1886,7 @@ export function deriveSpreadingSuggestedAction(options: {
   const { requiredQty, actualCutQty, varianceLength, claimedLengthTotal, actualLengthTotal, warningMessages = [] } = options
 
   if (!requiredQty || !claimedLengthTotal || !actualLengthTotal) return '数据不足，待补录'
-  if (computeShortageQty(requiredQty, actualCutQty) > 0 || varianceLength < 0) return '建议补料'
+  if (computeShortageQty(requiredQty, actualCutQty) > 0 || varianceLength < 0) return '差异处理'
   if (warningMessages.length > 0) return '存在异常差异，需人工确认'
   return '无需补料'
 }
@@ -2513,7 +2625,7 @@ export function finalizeSpreadingCompletion(options: {
     varianceLength: replenishmentWarning.varianceLength,
     varianceNote:
       replenishmentWarning.suggestedAction === '无需补料'
-        ? '当前铺布已完成，差异未触发补料建议。'
+        ? '当前铺布已完成，差异未触发差异处理。'
         : replenishmentWarning.suggestedAction,
   }
 }

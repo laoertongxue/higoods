@@ -74,7 +74,8 @@ export function buildMarkerSchemeFromPlan(plan: MarkerPlan): MarkerScheme {
     schemeId: plan.schemeId || plan.id,
     schemeNo: plan.schemeNo || plan.markerNo,
     schemeName: plan.schemeName || plan.markerNo,
-    sourceType: plan.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
+    // 历史兼容字段：新建流程只从来源裁片单清单创建，不再按该字段分支。
+    sourceType: 'cut-order',
     sourceCutOrderIds: [...plan.cutOrderIds],
     sourceCutOrderNos: [...plan.cutOrderNos],
     sourceMarkerPlanIds: plan.markerPlanId ? [plan.markerPlanId] : [],

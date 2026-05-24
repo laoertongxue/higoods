@@ -9,6 +9,7 @@ export type CuttingCanonicalPageKey =
   | 'production-progress'
   | 'cuttable-pool'
   | 'cut-orders'
+  | 'cut-order-close'
   | 'marker-list'
   | 'marker-create'
   | 'spreading-list'
@@ -32,6 +33,9 @@ export type CuttingCanonicalPageKey =
   | 'sample-warehouse'
   | 'transfer-bags'
   | 'transfer-bag-detail'
+  | 'handover-orders'
+  | 'handover-order-detail'
+  | 'handover-record-detail'
   | 'replenishment'
   | 'special-craft-dispatch'
   | 'special-craft-return'
@@ -59,10 +63,10 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/production-progress',
     aliases: [],
     menuGroupTitle: '裁床总览',
-    pageTitle: '生产单进度',
+    pageTitle: '裁床生产单总览',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '按生产单查看裁片进度。',
+    shortDescription: '按生产单查看裁床主链路、数量账和待处理事项。',
   },
   'cuttable-pool': {
     key: 'cuttable-pool',
@@ -84,6 +88,16 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     isPlaceholder: false,
     shortDescription: '查看裁片单与执行记录。',
   },
+  'cut-order-close': {
+    key: 'cut-order-close',
+    canonicalPath: '/fcs/craft/cutting/cut-order-close',
+    aliases: [],
+    menuGroupTitle: '裁前准备',
+    pageTitle: '关闭裁片单',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '确认裁片单关闭原因、关闭前数量账和影响项。',
+  },
   'marker-list': {
     key: 'marker-list',
     canonicalPath: '/fcs/craft/cutting/marker-list',
@@ -92,27 +106,27 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '唛架方案',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看排唛架方案与唛架编号。',
+    shortDescription: '查看唛架方案与唛架编号。',
   },
   'marker-create': {
     key: 'marker-create',
     canonicalPath: '/fcs/craft/cutting/marker-create',
     aliases: [],
     menuGroupTitle: '裁前准备',
-    pageTitle: '新建排唛架方案',
+    pageTitle: '新建唛架方案',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '从可排唛架裁片单新建排唛架方案。',
+    shortDescription: '从可排唛架裁片单新建唛架方案。',
   },
   'spreading-list': {
     key: 'spreading-list',
     canonicalPath: '/fcs/craft/cutting/spreading-list',
     aliases: [],
     menuGroupTitle: '铺布执行',
-    pageTitle: '铺布列表',
+    pageTitle: '铺布单',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看铺布任务、执行状态与补料预警。',
+    shortDescription: '查看铺布单、计划实际对比、PDA 写回与差异复核。',
   },
   'spreading-create': {
     key: 'spreading-create',
@@ -122,7 +136,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '新建铺布',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '基于排唛架方案中的唛架编号新建铺布任务。',
+    shortDescription: '基于唛架方案中的唛架编号新建铺布任务。',
   },
   'marker-spreading': {
     key: 'marker-spreading',
@@ -139,30 +153,30 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/marker-detail',
     aliases: [],
     menuGroupTitle: '裁前准备',
-    pageTitle: '排唛架方案详情',
+    pageTitle: '唛架方案详情',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看排唛架方案、床次和图片。',
+    shortDescription: '查看唛架方案、床次和图片。',
   },
   'marker-edit': {
     key: 'marker-edit',
     canonicalPath: '/fcs/craft/cutting/marker-edit',
     aliases: [],
     menuGroupTitle: '裁前准备',
-    pageTitle: '编辑排唛架方案',
+    pageTitle: '编辑唛架方案',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '编辑排唛架方案计划。',
+    shortDescription: '编辑唛架方案计划。',
   },
   'spreading-detail': {
     key: 'spreading-detail',
     canonicalPath: '/fcs/craft/cutting/spreading-detail',
     aliases: [],
     menuGroupTitle: '铺布执行',
-    pageTitle: '铺布详情',
+    pageTitle: '铺布单详情',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看铺布明细。',
+    shortDescription: '查看铺布单计划、实际、卷记录、人员记录和 PDA 写回。',
   },
   'spreading-edit': {
     key: 'spreading-edit',
@@ -179,17 +193,17 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/fei-tickets',
     aliases: [],
     menuGroupTitle: '裁后处理',
-    pageTitle: '打印菲票',
+    pageTitle: '菲票',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看可打印单元与打印状态。',
+    shortDescription: '查看菲票、打印状态、特殊工艺、承接工厂和编号范围。',
   },
   'fei-ticket-detail': {
     key: 'fei-ticket-detail',
     canonicalPath: '/fcs/craft/cutting/fei-ticket-detail',
     aliases: [],
     menuGroupTitle: '裁后处理',
-    pageTitle: '打印菲票详情',
+    pageTitle: '菲票详情',
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看打印单元、菲票码与打印记录。',
@@ -209,7 +223,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/fei-ticket-records',
     aliases: [],
     menuGroupTitle: '裁后处理',
-    pageTitle: '打印菲票记录',
+    pageTitle: '菲票打印记录',
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看打印流水。',
@@ -219,7 +233,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/fei-ticket-print',
     aliases: [],
     menuGroupTitle: '裁后处理',
-    pageTitle: '打印菲票',
+    pageTitle: '菲票打印',
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '首次打印菲票。',
@@ -249,7 +263,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-process',
     aliases: [],
     menuGroupTitle: '裁床仓库管理',
-    pageTitle: '待加工仓',
+    pageTitle: '裁床待加工仓',
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '在待加工总览、裁床仓和特殊工艺待加工 / 交出之间切换。',
@@ -259,10 +273,10 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-handover',
     aliases: [],
     menuGroupTitle: '裁床仓库管理',
-    pageTitle: '待交出仓',
+    pageTitle: '裁床待交出仓',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '在待交出总览、裁片仓、特殊工艺回仓和交出单之间切换。',
+    shortDescription: '查看裁后待入仓确认、二次分拣、重新装袋、交出记录和接收差异。',
   },
   'fabric-warehouse': {
     key: 'fabric-warehouse',
@@ -289,10 +303,10 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/sample-warehouse',
     aliases: [],
     menuGroupTitle: '裁床仓库管理',
-    pageTitle: '样衣仓',
+    pageTitle: '裁床样衣仓',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '在样衣库存、样衣流转和样衣异常 / 待归还之间切换。',
+    shortDescription: '关联生产单、裁片单、纸样、唛架方案和样衣流转异常。',
   },
   'transfer-bags': {
     key: 'transfer-bags',
@@ -314,6 +328,36 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     isPlaceholder: false,
     shortDescription: '查看单个中转袋的流转详情、二维码与使用周期工作区。',
   },
+  'handover-orders': {
+    key: 'handover-orders',
+    canonicalPath: '/fcs/craft/cutting/handover-orders',
+    aliases: [],
+    menuGroupTitle: '裁床仓库管理',
+    pageTitle: '交出单',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '查看通用交出单、交出记录、接收回写、差异和异议。',
+  },
+  'handover-order-detail': {
+    key: 'handover-order-detail',
+    canonicalPath: '/fcs/craft/cutting/handover-orders',
+    aliases: [],
+    menuGroupTitle: '裁床仓库管理',
+    pageTitle: '交出单详情',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '查看交出单下的多次交出记录。',
+  },
+  'handover-record-detail': {
+    key: 'handover-record-detail',
+    canonicalPath: '/fcs/craft/cutting/handover-records',
+    aliases: [],
+    menuGroupTitle: '裁床仓库管理',
+    pageTitle: '交出记录详情',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '查看本次交出、累计交出、接收回写、差异和异议。',
+  },
   replenishment: {
     key: 'replenishment',
     canonicalPath: '/fcs/craft/cutting/replenishment',
@@ -322,7 +366,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '补料管理',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看补料建议与影响。',
+    shortDescription: '按实际差异审核补料、补录、补排、关闭或仅记录。',
   },
   'special-craft-dispatch': {
     key: 'special-craft-dispatch',
@@ -369,16 +413,17 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/summary',
     aliases: [],
     menuGroupTitle: '裁后处理',
-    pageTitle: '裁剪总结',
+    pageTitle: '裁剪结果核查',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看裁剪总结。',
+    shortDescription: '聚合裁床主链路待处理问题，支持快速定位来源对象。',
   },
 }
 
 const CUTTING_META_LIST = Object.values(CUTTING_PAGE_META)
 
 export function getCanonicalCuttingMeta(pathname: string, fallbackKey?: CuttingPageKey): CuttingPageMeta {
+  if (pathname in CUTTING_PAGE_META) return CUTTING_PAGE_META[pathname as CuttingCanonicalPageKey]
   const matched = CUTTING_META_LIST.find((item) => item.canonicalPath === pathname || item.aliases.includes(pathname))
   if (matched) return matched
   if (fallbackKey) return CUTTING_PAGE_META[fallbackKey]

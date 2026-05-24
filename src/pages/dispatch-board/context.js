@@ -1,0 +1,1087 @@
+import { appStore } from '../../state/store.ts';
+import { productionOrders } from '../../data/fcs/production-orders.ts';
+import { CAPACITY_CALENDAR_CONSTRAINT_STATUS_LABEL, createCapacityCalendarEvaluationContext, evaluateRuntimeTaskCapacityConstraint, } from '../../data/fcs/capacity-calendar.ts';
+import { aggregateFactorySamUsage, CAPACITY_STANDARD_TIME_JUDGEMENT_LABEL, createCapacityStandardTimeEvaluationContext, createFreezeFromDirectDispatch, resolveFactoryTaskStandardTimeJudgement, convertFreezeToCommitment, listActiveCommitmentsByFactory, listActiveFreezesByFactory, listCapacityCommitments, listCapacityFreezes, releaseFreeze, syncDirectTaskCapacityUsage, syncTenderParticipationCapacityUsage, } from '../../data/fcs/capacity-usage-ledger.ts';
+import { applyRuntimeDirectDispatchMeta, batchDispatchRuntimeTasks, batchSetRuntimeTaskAssignMode, createRuntimeTaskTenderByDetailGroups, dispatchRuntimeTaskByDetailGroups, getRuntimeTaskById as getRuntimeTaskByIdFromStore, isRuntimeSewingTask, isRuntimeTaskExecutionTask, listRuntimeTaskAllocatableGroups, listRuntimeProcessTasks, resolveRuntimeAllocatableGroupPublishedSam, resolveRuntimeTaskPublishedSam, setRuntimeTaskAssignMode, upsertRuntimeTaskTender, validateRuntimeBatchDispatchSelection, } from '../../data/fcs/runtime-process-tasks.ts';
+import { initialQualityInspections, initialAllocationByTaskId, } from '../../data/fcs/store-domain-quality-seeds.ts';
+import { listProgressExceptions } from '../../data/fcs/store-domain-progress.ts';
+import { listLegacyLikeDyePrintOrdersForTailPages } from '../../data/fcs/page-adapters/long-tail-pages-adapter.ts';
+import { indonesiaFactories } from '../../data/fcs/indonesia-factories.ts';
+import { listBusinessFactoryMasterRecords } from '../../data/fcs/factory-master-store.ts';
+import { applyQualitySeedBootstrap } from '../../data/fcs/store-domain-quality-bootstrap.ts';
+import { escapeHtml, toClassName } from '../../utils.ts';
+applyQualitySeedBootstrap();
+const pathZh = {
+    DIRECT: '直接派单',
+    BIDDING: '竞价',
+    HOLD: '暂不分配',
+    NONE: '—',
+};
+const resultZh = {
+    UNASSIGNED: '未分配',
+    DIRECT_ASSIGNED: '已直接派单',
+    BIDDING: '招标中',
+    AWAIT_AWARD: '待定标',
+    AWARDED: '已定标',
+    HOLD: '暂不分配',
+    EXCEPTION: '异常',
+};
+const resultBadgeClass = {
+    UNASSIGNED: 'bg-gray-100 text-gray-700 border-gray-200',
+    DIRECT_ASSIGNED: 'bg-blue-100 text-blue-700 border-blue-200',
+    BIDDING: 'bg-orange-100 text-orange-700 border-orange-200',
+    AWAIT_AWARD: 'bg-purple-100 text-purple-700 border-purple-200',
+    AWARDED: 'bg-green-100 text-green-700 border-green-200',
+    HOLD: 'bg-slate-100 text-slate-600 border-slate-200',
+    EXCEPTION: 'bg-red-100 text-red-700 border-red-200',
+};
+const taskStatusZh = {
+    NOT_STARTED: '待开始',
+    PENDING: '待开始',
+    IN_PROGRESS: '进行中',
+    COMPLETED: '已完成',
+    DONE: '已完成',
+    BLOCKED: '生产暂停',
+    CANCELLED: '已取消',
+};
+const colLabel = {
+    UNASSIGNED: '未分配',
+    BIDDING: '招标中',
+    AWAIT_AWARD: '待定标',
+    AWARDED: '已定标',
+    DIRECT_ASSIGNED: '已直接派单',
+    HOLD: '暂不分配',
+    EXCEPTION: '异常',
+};
+const colHeaderColor = {
+    UNASSIGNED: 'text-gray-600',
+    BIDDING: 'text-orange-700',
+    AWAIT_AWARD: 'text-purple-700',
+    AWARDED: 'text-green-700',
+    DIRECT_ASSIGNED: 'text-blue-700',
+    HOLD: 'text-slate-600',
+    EXCEPTION: 'text-red-700',
+};
+const colBg = {
+    UNASSIGNED: 'bg-gray-50 border-gray-200',
+    BIDDING: 'bg-orange-50 border-orange-200',
+    AWAIT_AWARD: 'bg-purple-50 border-purple-200',
+    AWARDED: 'bg-green-50 border-green-200',
+    DIRECT_ASSIGNED: 'bg-blue-50 border-blue-200',
+    HOLD: 'bg-slate-50 border-slate-200',
+    EXCEPTION: 'bg-red-50 border-red-200',
+};
+const candidateFactories = [
+    {
+        id: 'ID-F002',
+        name: '泗水裁片厂',
+        processTags: ['裁片', '裁剪'],
+        capacitySummary: '日产能 800件',
+        performanceSummary: '近3月良品率 97%',
+        settlementStatus: '结算正常',
+    },
+    {
+        id: 'ID-F003',
+        name: '万隆车缝厂',
+        processTags: ['车缝', '后整'],
+        capacitySummary: '日产能 1200件',
+        performanceSummary: '近3月良品率 96%',
+        settlementStatus: '结算正常',
+    },
+    {
+        id: 'ID-F004',
+        name: '三宝垄整烫厂',
+        processTags: ['后整', '整烫'],
+        capacitySummary: '日产能 600件',
+        performanceSummary: '近3月良品率 98%',
+        settlementStatus: '结算正常',
+    },
+    {
+        id: 'ID-F024',
+        name: '三宝垄微型车缝厂',
+        processTags: ['车缝', '钉扣'],
+        capacitySummary: '默认日供给 2122.52 标准工时',
+        performanceSummary: '近3月良品率 87%',
+        settlementStatus: '结算正常',
+    },
+    {
+        id: 'ID-F017',
+        name: 'CV Satellite Surabaya Selatan',
+        processTags: ['车缝', '特殊工艺'],
+        capacitySummary: '默认日供给 3290.4 标准工时',
+        performanceSummary: '近3月良品率 94%',
+        settlementStatus: '结算正常',
+    },
+    {
+        id: 'ID-F011',
+        name: '玛琅卫星工厂A',
+        processTags: ['车缝', '后整'],
+        capacitySummary: '默认日供给 726.872 标准工时',
+        performanceSummary: '近3月良品率 87%',
+        settlementStatus: '结算正常',
+    },
+    {
+        id: 'ID-F010',
+        name: '雅加达绣花专工厂',
+        processTags: ['刺绣', '特种工艺'],
+        capacitySummary: '日产能 300件',
+        performanceSummary: '近3月良品率 98%',
+        settlementStatus: '有待确认结算单',
+    },
+];
+const mockTenders = [
+    {
+        tenderId: 'TENDER-TASKGEN0015004-1001',
+        taskId: 'TASKGEN-202603-0015-004__ORDER',
+        status: 'BIDDING',
+        factoryPoolCount: 4,
+        quotedCount: 2,
+        currentMaxPrice: 14200,
+        currentMinPrice: 13800,
+        biddingDeadline: '2026-04-03 18:00:00',
+        taskDeadline: '2026-04-10 18:00:00',
+        minPrice: 12000,
+        maxPrice: 16000,
+        currency: 'IDR',
+        unit: '件',
+        participatingFactoryIds: ['ID-F003', 'ID-F006'],
+    },
+    {
+        tenderId: 'TENDER-TASKGEN0015006-1001',
+        taskId: 'TASKGEN-202603-0014-002__ORDER',
+        status: 'BIDDING',
+        factoryPoolCount: 5,
+        quotedCount: 1,
+        currentMaxPrice: 14900,
+        currentMinPrice: 13400,
+        biddingDeadline: '2026-04-04 18:00:00',
+        taskDeadline: '2026-04-12 18:00:00',
+        minPrice: 11800,
+        maxPrice: 15500,
+        currency: 'IDR',
+        unit: '件',
+        participatingFactoryIds: ['ID-F003'],
+    },
+    {
+        tenderId: 'TENDER-TASKGEN0009001-1001',
+        taskId: 'TASKGEN-202603-0009-001__ORDER',
+        status: 'BIDDING',
+        factoryPoolCount: 3,
+        quotedCount: 1,
+        currentMaxPrice: 15100,
+        currentMinPrice: 14100,
+        biddingDeadline: '2026-04-04 20:00:00',
+        taskDeadline: '2026-04-13 18:00:00',
+        minPrice: 12300,
+        maxPrice: 15800,
+        currency: 'IDR',
+        unit: '件',
+        participatingFactoryIds: ['ID-F017'],
+    },
+    {
+        tenderId: 'TENDER-TASKGEN0015005-1001',
+        taskId: 'TASKGEN-202603-0015-005__ORDER',
+        status: 'BIDDING',
+        factoryPoolCount: 4,
+        quotedCount: 3,
+        currentMaxPrice: 15700,
+        currentMinPrice: 14600,
+        biddingDeadline: '2026-03-28 18:00:00',
+        taskDeadline: '2026-04-09 18:00:00',
+        minPrice: 12800,
+        maxPrice: 16200,
+        currency: 'IDR',
+        unit: '件',
+        participatingFactoryIds: ['ID-F004', 'ID-F024', 'ID-F006'],
+    },
+    {
+        tenderId: 'TENDER-TASKGEN0003001-1001',
+        taskId: 'TASKGEN-202603-0003-001__ORDER',
+        status: 'AWAIT_AWARD',
+        factoryPoolCount: 5,
+        quotedCount: 5,
+        currentMaxPrice: 16200,
+        currentMinPrice: 10200,
+        biddingDeadline: '2026-03-21 12:00:00',
+        taskDeadline: '2026-04-12 18:00:00',
+        minPrice: 11000,
+        maxPrice: 15500,
+        currency: 'IDR',
+        unit: '件',
+        participatingFactoryIds: ['ID-F003', 'ID-F004', 'ID-F024', 'ID-F006', 'ID-F010'],
+    },
+    {
+        tenderId: 'TENDER-TASKGEN0015001-1001',
+        taskId: 'TASKGEN-202603-0015-001__ORDER',
+        status: 'AWAIT_AWARD',
+        factoryPoolCount: 4,
+        quotedCount: 4,
+        currentMaxPrice: 13900,
+        currentMinPrice: 12800,
+        biddingDeadline: '2026-03-21 18:00:00',
+        taskDeadline: '2026-04-08 18:00:00',
+        minPrice: 11800,
+        maxPrice: 14800,
+        currency: 'IDR',
+        unit: '件',
+        participatingFactoryIds: ['ID-F003', 'ID-F024', 'ID-F006', 'ID-F011'],
+    },
+    {
+        tenderId: 'TENDER-TASKGEN0084001-1001',
+        taskId: 'TASKGEN-202603-084-001__ORDER',
+        status: 'AWAIT_AWARD',
+        factoryPoolCount: 4,
+        quotedCount: 4,
+        currentMaxPrice: 14700,
+        currentMinPrice: 13600,
+        biddingDeadline: '2026-03-22 18:00:00',
+        taskDeadline: '2026-04-14 18:00:00',
+        minPrice: 12600,
+        maxPrice: 15100,
+        currency: 'IDR',
+        unit: '件',
+        participatingFactoryIds: ['ID-F003', 'ID-F004', 'ID-F006', 'ID-F010'],
+    },
+    {
+        tenderId: 'TENDER-TASKGEN0004001-1001',
+        taskId: 'TASKGEN-202603-0004-001__ORDER',
+        status: 'AWARDED',
+        factoryPoolCount: 3,
+        quotedCount: 3,
+        currentMaxPrice: 14100,
+        currentMinPrice: 13200,
+        biddingDeadline: '2026-03-18 18:00:00',
+        taskDeadline: '2026-04-10 18:00:00',
+        minPrice: 11500,
+        maxPrice: 15000,
+        currency: 'IDR',
+        unit: '件',
+        participatingFactoryIds: ['ID-F003', 'ID-F006', 'ID-F011'],
+        awardedFactoryId: 'ID-F003',
+        awardedFactoryName: '万隆车缝厂',
+        awardedPrice: 13200,
+    },
+    {
+        tenderId: 'TENDER-TASKGEN0015008-1001',
+        taskId: 'TASKGEN-202603-0014-003__ORDER',
+        status: 'AWARDED',
+        factoryPoolCount: 3,
+        quotedCount: 3,
+        currentMaxPrice: 9800,
+        currentMinPrice: 8800,
+        biddingDeadline: '2026-03-19 18:00:00',
+        taskDeadline: '2026-04-11 18:00:00',
+        minPrice: 8200,
+        maxPrice: 10100,
+        currency: 'IDR',
+        unit: '件',
+        participatingFactoryIds: ['ID-F004', 'ID-F024', 'ID-F006'],
+        awardedFactoryId: 'ID-F024',
+        awardedFactoryName: '三宝垄微型车缝厂',
+        awardedPrice: 8800,
+    },
+    {
+        tenderId: 'TENDER-TASKGEN0083001-1001',
+        taskId: 'TASKGEN-202603-083-001__ORDER',
+        status: 'AWARDED',
+        factoryPoolCount: 4,
+        quotedCount: 4,
+        currentMaxPrice: 15700,
+        currentMinPrice: 14800,
+        biddingDeadline: '2026-03-18 18:00:00',
+        taskDeadline: '2026-04-15 18:00:00',
+        minPrice: 13300,
+        maxPrice: 16000,
+        currency: 'IDR',
+        unit: '件',
+        participatingFactoryIds: ['ID-F003', 'ID-F006', 'ID-F011', 'ID-F010'],
+        awardedFactoryId: 'ID-F010',
+        awardedFactoryName: '雅加达绣花专工厂',
+        awardedPrice: 14800,
+    },
+];
+const priceStatusLabel = {
+    AT_STANDARD: '按标准价派单',
+    ABOVE_STANDARD: '高于标准价',
+    BELOW_STANDARD: '低于标准价',
+    NO_STANDARD: '—',
+};
+const priceStatusClass = {
+    AT_STANDARD: 'bg-green-50 text-green-700 border-green-200',
+    ABOVE_STANDARD: 'bg-amber-50 text-amber-700 border-amber-200',
+    BELOW_STANDARD: 'bg-blue-50 text-blue-700 border-blue-200',
+    NO_STANDARD: '',
+};
+const mockStandardPrices = {
+    PROC_CUT: 8500,
+    PROC_SEW: 14500,
+    PROC_DYE: 12000,
+    PROC_POST: 6000,
+    PROC_PACK: 3500,
+    PROC_QC: 5000,
+    PROC_IRON: 4500,
+    PROC_DATIAO: 9800,
+    CUT: 8500,
+    SEW: 14500,
+    DYE: 12000,
+    POST: 6000,
+    PACK: 3500,
+    QC: 5000,
+};
+const derivedTaskSetCache = {};
+const state = {
+    keyword: '',
+    view: 'list',
+    listTab: 'UNASSIGNED',
+    selectedIds: new Set(),
+    autoAssignDone: false,
+    autoAssignMessage: null,
+    autoAssignFeedback: null,
+    autoDispatchConfigOpen: false,
+    autoDispatchConfigs: {},
+    listPage: 1,
+    listPageSize: 20,
+    dispatchDialogTaskIds: null,
+    dispatchDialogError: null,
+    dispatchForm: emptyDispatchForm(),
+    tenderState: {},
+    createTenderTaskId: null,
+    createTenderForm: emptyCreateTenderForm(),
+    createTenderError: null,
+    viewTenderTaskId: null,
+    priceSnapshotTaskId: null,
+    actionMenuTaskId: null,
+};
+function emptyDispatchForm() {
+    return {
+        mode: 'TASK',
+        factoryId: '',
+        factoryName: '',
+        acceptDeadline: '',
+        taskDeadline: '',
+        remark: '',
+        dispatchPrice: '',
+        priceDiffReason: '',
+        mainFactoryGroupKey: '',
+        factoryByGroupKey: {},
+    };
+}
+function emptyCreateTenderForm() {
+    return {
+        mode: 'TASK',
+        tenderId: '',
+        minPrice: '',
+        maxPrice: '',
+        biddingDeadline: '',
+        taskDeadline: '',
+        remark: '',
+        mainFactoryId: '',
+        mainFactoryName: '',
+        selectedPool: new Set(),
+    };
+}
+function nowTimestamp(date = new Date()) {
+    return date.toISOString().replace('T', ' ').slice(0, 19);
+}
+function createDefaultAutoDispatchConfig() {
+    return {
+        enabled: true,
+        factoryId: '',
+        factoryName: '',
+        taskDeadlineDays: '7',
+        updatedBy: '系统预置',
+        updatedAt: nowTimestamp(),
+    };
+}
+function getAutoDispatchConfigKeyFromTask(task) {
+    return `${task.processCode}::${task.craftCode || '默认工艺'}`;
+}
+function getAutoDispatchProcessCraftLabel(task) {
+    return task.craftName ? `${task.processNameZh} / ${task.craftName}` : `${task.processNameZh} / 默认工艺`;
+}
+function parseDateLike(value) {
+    if (!value)
+        return Number.NaN;
+    const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+    return new Date(normalized).getTime();
+}
+function fromDateTimeLocal(value) {
+    if (!value)
+        return '';
+    const normalized = value.replace('T', ' ');
+    return normalized.length === 16 ? `${normalized}:00` : normalized;
+}
+function toDateTimeLocal(value) {
+    if (!value)
+        return '';
+    const normalized = value.replace(' ', 'T');
+    return normalized.length >= 16 ? normalized.slice(0, 16) : normalized;
+}
+function openAppRoute(pathname, key, title) {
+    if (key && title) {
+        appStore.openTab({
+            key,
+            title,
+            href: pathname,
+            closable: true,
+        });
+        return;
+    }
+    appStore.navigate(pathname);
+}
+function resolveTaskPublishedSam(task) {
+    if (!task)
+        return {};
+    return resolveRuntimeTaskPublishedSam(task);
+}
+function resolveAllocatableGroupPublishedSam(task, group) {
+    if (!task || !group)
+        return {};
+    return resolveRuntimeAllocatableGroupPublishedSam(task, group);
+}
+function formatPublishedSamNumber(value) {
+    if (!Number.isFinite(value) || value == null)
+        return '--';
+    return Number(value).toLocaleString('zh-CN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 3,
+    });
+}
+function toDispatchCapacityConstraintSnapshot(result) {
+    return {
+        ...result,
+        statusLabel: CAPACITY_CALENDAR_CONSTRAINT_STATUS_LABEL[result.status],
+    };
+}
+function describeDispatchCapacityConstraintDecision(snapshot) {
+    if (!snapshot)
+        return '待校验';
+    if (snapshot.status === 'PAUSED')
+        return '当前窗口暂停，不可选';
+    if (snapshot.status === 'OVERLOADED')
+        return '当前窗口超载，不可选';
+    if (snapshot.status === 'TIGHT')
+        return '当前窗口紧张，可选但需预警';
+    if (snapshot.status === 'DATE_INCOMPLETE')
+        return '日期不足，仅提示无法完全校验';
+    if (snapshot.status === 'SAM_MISSING')
+        return '工时缺失，仅提示无法完全校验';
+    return '当前窗口正常，可正常承接';
+}
+function compareDispatchCapacityConstraintPriority(status) {
+    const order = {
+        PAUSED: 6,
+        OVERLOADED: 5,
+        TIGHT: 4,
+        DATE_INCOMPLETE: 3,
+        SAM_MISSING: 3,
+        NORMAL: 2,
+    };
+    return order[status];
+}
+function createDispatchCapacityEvaluationContext() {
+    return createCapacityCalendarEvaluationContext();
+}
+function createDispatchStandardTimeEvaluationContext() {
+    syncDispatchCapacityUsageLedger();
+    return createCapacityStandardTimeEvaluationContext();
+}
+function toDispatchStandardTimeJudgementSnapshot(result) {
+    return {
+        ...result,
+        statusLabel: CAPACITY_STANDARD_TIME_JUDGEMENT_LABEL[result.status],
+    };
+}
+function resolveTaskFactoryStandardTimeJudgement(task, factoryId, evaluationContext = createDispatchStandardTimeEvaluationContext()) {
+    if (!task || !factoryId)
+        return null;
+    return toDispatchStandardTimeJudgementSnapshot(resolveFactoryTaskStandardTimeJudgement({
+        task,
+        factoryId,
+        evaluationContext,
+    }));
+}
+function resolveAllocatableGroupFactoryStandardTimeJudgement(task, group, factoryId, evaluationContext = createDispatchStandardTimeEvaluationContext()) {
+    if (!task || !group || !factoryId)
+        return null;
+    const groupSam = resolveRuntimeAllocatableGroupPublishedSam(task, group);
+    return toDispatchStandardTimeJudgementSnapshot(resolveFactoryTaskStandardTimeJudgement({
+        task,
+        factoryId,
+        standardSamTotal: groupSam.publishedSamTotal,
+        allocationUnitId: group.groupKey,
+        evaluationContext,
+    }));
+}
+function summarizeDispatchStandardTimeJudgements(results, extraReason) {
+    if (results.length === 0)
+        return null;
+    const priority = {
+        EXCEEDS_WINDOW: 5,
+        DATE_INCOMPLETE: 4,
+        SAM_MISSING: 4,
+        RISK: 3,
+        CAPABLE: 2,
+    };
+    const worst = results.reduce((current, item) => {
+        if (priority[item.status] !== priority[current.status]) {
+            return priority[item.status] > priority[current.status] ? item : current;
+        }
+        return (item.windowRemainingSam ?? 0) < (current.windowRemainingSam ?? 0) ? item : current;
+    }, results[0]);
+    return {
+        ...worst,
+        reason: [worst.reason, extraReason].filter(Boolean).join(' '),
+    };
+}
+function resolveTaskFactoryCapacityConstraint(task, factoryId, factoryName, evaluationContext = createDispatchCapacityEvaluationContext()) {
+    if (!task || !factoryId)
+        return null;
+    return toDispatchCapacityConstraintSnapshot(evaluateRuntimeTaskCapacityConstraint({
+        task,
+        factoryId,
+        factoryName,
+        evaluationContext,
+    }));
+}
+function resolveAllocatableGroupFactoryCapacityConstraint(task, group, factoryId, factoryName, evaluationContext = createDispatchCapacityEvaluationContext()) {
+    if (!task || !group || !factoryId)
+        return null;
+    return toDispatchCapacityConstraintSnapshot(evaluateRuntimeTaskCapacityConstraint({
+        task,
+        allocatableGroup: group,
+        factoryId,
+        factoryName,
+        evaluationContext,
+    }));
+}
+function summarizeDispatchCapacityConstraints(results, extraReason) {
+    if (results.length === 0)
+        return null;
+    const worst = results.reduce((current, item) => {
+        if (compareDispatchCapacityConstraintPriority(item.status) !==
+            compareDispatchCapacityConstraintPriority(current.status)) {
+            return compareDispatchCapacityConstraintPriority(item.status) >
+                compareDispatchCapacityConstraintPriority(current.status)
+                ? item
+                : current;
+        }
+        return item.reason.length > current.reason.length ? item : current;
+    }, results[0]);
+    const reasons = Array.from(new Set(results.map((item) => item.reason).filter(Boolean)));
+    return {
+        ...worst,
+        reason: [reasons[0], extraReason].filter(Boolean).join(' '),
+        allocations: results.flatMap((item) => item.allocations),
+    };
+}
+function resolveTenderFactoryCapacityConstraint(task, factoryId, factoryName, detailGroups = [], evaluationContext = createDispatchCapacityEvaluationContext()) {
+    if (!task || !factoryId)
+        return null;
+    if (detailGroups.length === 0) {
+        return resolveTaskFactoryCapacityConstraint(task, factoryId, factoryName, evaluationContext);
+    }
+    const groupedResults = detailGroups
+        .map((group) => resolveAllocatableGroupFactoryCapacityConstraint(task, group, factoryId, factoryName, evaluationContext))
+        .filter((item) => Boolean(item));
+    return summarizeDispatchCapacityConstraints(groupedResults, '按明细模式当前按各分配单元取最严结果。');
+}
+function resolveTenderFactoryStandardTimeJudgement(task, factoryId, detailGroups = [], evaluationContext = createDispatchStandardTimeEvaluationContext()) {
+    if (!task || !factoryId)
+        return null;
+    if (detailGroups.length === 0) {
+        return resolveTaskFactoryStandardTimeJudgement(task, factoryId, evaluationContext);
+    }
+    const groupedResults = detailGroups
+        .map((group) => resolveAllocatableGroupFactoryStandardTimeJudgement(task, group, factoryId, evaluationContext))
+        .filter((item) => Boolean(item));
+    return summarizeDispatchStandardTimeJudgements(groupedResults, '按明细模式当前按各分配单元分别判断，并展示最严结果。');
+}
+function getSelectableTenderFactoryIds(task, detailGroups = [], evaluationContext = createDispatchCapacityEvaluationContext()) {
+    return candidateFactories
+        .filter((factory) => {
+        const constraint = resolveTenderFactoryCapacityConstraint(task, factory.id, factory.name, detailGroups, evaluationContext);
+        return constraint ? !constraint.hardBlocked : true;
+    })
+        .map((factory) => factory.id);
+}
+function buildTenderParticipationSnapshot(tender) {
+    const status = 'tenderStatus' in tender ? tender.tenderStatus : tender.status;
+    return {
+        taskId: tender.taskId ?? '',
+        status,
+        participatingFactoryIds: tender.participatingFactoryIds ?? [],
+        awardedFactoryId: tender.awardedFactoryId,
+    };
+}
+export function syncDispatchCapacityUsageLedger() {
+    const runtimeTasks = listRuntimeProcessTasks();
+    for (const task of runtimeTasks) {
+        syncDirectTaskCapacityUsage(task);
+    }
+    const effectiveTenders = new Map();
+    for (const tender of mockTenders) {
+        effectiveTenders.set(tender.taskId, tender);
+    }
+    for (const [taskId, tender] of Object.entries(state.tenderState)) {
+        effectiveTenders.set(taskId, { ...tender, taskId });
+    }
+    for (const [taskId, tender] of effectiveTenders.entries()) {
+        const task = getRuntimeTaskByIdFromStore(taskId);
+        if (!task)
+            continue;
+        const snapshot = buildTenderParticipationSnapshot(tender);
+        syncTenderParticipationCapacityUsage(task, snapshot);
+    }
+    // 历史 mock 里有一批已定标任务没有独立招标对象快照；这里按“已中标且已落厂”补齐占用工时。
+    for (const task of runtimeTasks) {
+        if (task.assignmentMode !== 'BIDDING' || task.assignmentStatus !== 'AWARDED')
+            continue;
+        if (!task.assignedFactoryId)
+            continue;
+        if (effectiveTenders.has(task.taskId))
+            continue;
+        syncTenderParticipationCapacityUsage(task, {
+            tenderId: task.tenderId ?? `LEGACY-AWARDED-${task.taskId}`,
+            taskId: task.taskId,
+            status: 'AWARDED',
+            participatingFactoryIds: [task.assignedFactoryId],
+            awardedFactoryId: task.assignedFactoryId,
+        });
+    }
+}
+function attachTenderPublishedSam(tender, task) {
+    const sam = resolveTaskPublishedSam(task);
+    if (!sam.publishedSamPerUnit || !sam.publishedSamUnit)
+        return tender;
+    return {
+        ...tender,
+        publishedSamPerUnit: tender.publishedSamPerUnit ?? sam.publishedSamPerUnit,
+        publishedSamUnit: tender.publishedSamUnit ?? sam.publishedSamUnit,
+        publishedSamTotal: tender.publishedSamTotal ?? sam.publishedSamTotal,
+        publishedSamDifficulty: tender.publishedSamDifficulty ?? sam.publishedSamDifficulty,
+    };
+}
+function getMockTender(task) {
+    const tender = mockTenders.find((item) => item.taskId === task.taskId ||
+        item.taskId === task.baseTaskId ||
+        (task.tenderId ? item.tenderId === task.tenderId : false));
+    return tender ? attachTenderPublishedSam(tender, task) : undefined;
+}
+function getEffectiveTender(task) {
+    const local = state.tenderState[task.taskId];
+    if (local)
+        return attachTenderPublishedSam(local, task);
+    return getMockTender(task);
+}
+function hasTender(task) {
+    return Boolean(state.tenderState[task.taskId] || getMockTender(task));
+}
+function calcRemaining(deadline) {
+    const end = parseDateLike(deadline);
+    if (!Number.isFinite(end))
+        return '—';
+    const diff = end - Date.now();
+    if (diff <= 0)
+        return '已截止';
+    const days = Math.floor(diff / 86400000);
+    if (days >= 1)
+        return `还剩 ${days} 天`;
+    const hours = Math.floor(diff / 3600000);
+    if (hours >= 1)
+        return `还剩 ${hours} 小时`;
+    const mins = Math.floor(diff / 60000);
+    return `还剩 ${mins} 分钟`;
+}
+function deriveAssignPath(task) {
+    const lastLog = task.auditLogs[task.auditLogs.length - 1];
+    if (lastLog?.action === 'SET_ASSIGN_MODE' && lastLog.detail === '设为暂不分配') {
+        return 'HOLD';
+    }
+    if (task.assignmentMode === 'DIRECT')
+        return 'DIRECT';
+    if (task.assignmentMode === 'BIDDING')
+        return 'BIDDING';
+    return 'NONE';
+}
+function deriveAssignResult(task, hasException) {
+    if (hasException)
+        return 'EXCEPTION';
+    const lastLog = task.auditLogs[task.auditLogs.length - 1];
+    if (lastLog?.action === 'SET_ASSIGN_MODE' && lastLog.detail === '设为暂不分配') {
+        return 'HOLD';
+    }
+    if (task.assignmentMode === 'BIDDING') {
+        const localTender = state.tenderState[task.taskId];
+        if (localTender)
+            return localTender.tenderStatus;
+        const mock = getMockTender(task);
+        if (mock)
+            return mock.status;
+        return 'BIDDING';
+    }
+    if (task.assignmentStatus === 'AWARDED')
+        return 'AWARDED';
+    if (task.assignmentStatus === 'ASSIGNING')
+        return 'AWAIT_AWARD';
+    if (task.assignmentStatus === 'BIDDING')
+        return 'BIDDING';
+    if (task.assignmentStatus === 'ASSIGNED' && task.assignmentMode === 'DIRECT')
+        return 'DIRECT_ASSIGNED';
+    if (task.assignmentStatus === 'ASSIGNED')
+        return 'DIRECT_ASSIGNED';
+    return 'UNASSIGNED';
+}
+function deriveKanbanCol(task, hasException) {
+    const result = deriveAssignResult(task, hasException);
+    const map = {
+        UNASSIGNED: 'UNASSIGNED',
+        DIRECT_ASSIGNED: 'DIRECT_ASSIGNED',
+        BIDDING: 'BIDDING',
+        AWAIT_AWARD: 'AWAIT_AWARD',
+        AWARDED: 'AWARDED',
+        HOLD: 'HOLD',
+        EXCEPTION: 'EXCEPTION',
+    };
+    return map[result];
+}
+function getStandardPrice(task) {
+    return {
+        price: task.standardPrice ?? mockStandardPrices[task.processCode] ?? 10000,
+        currency: task.standardPriceCurrency ?? 'IDR',
+        unit: task.standardPriceUnit ?? '件',
+    };
+}
+function getPriceStatus(task) {
+    if (task.standardPrice == null || task.dispatchPrice == null)
+        return 'NO_STANDARD';
+    const diff = task.dispatchPrice - task.standardPrice;
+    if (Math.abs(diff) < 0.001)
+        return 'AT_STANDARD';
+    return diff > 0 ? 'ABOVE_STANDARD' : 'BELOW_STANDARD';
+}
+function getDeadlineStatus(task) {
+    if (task.assignmentMode !== 'DIRECT' || task.assignmentStatus !== 'ASSIGNED')
+        return 'NONE';
+    if (task.status === 'DONE' || task.status === 'CANCELLED')
+        return 'NONE';
+    const now = Date.now();
+    if (task.acceptanceStatus !== 'ACCEPTED' && task.acceptDeadline) {
+        const acceptMs = parseDateLike(task.acceptDeadline);
+        if (Number.isFinite(acceptMs) && now > acceptMs)
+            return 'ACCEPT_OVERDUE';
+    }
+    if (task.taskDeadline) {
+        const taskDeadlineMs = parseDateLike(task.taskDeadline);
+        if (Number.isFinite(taskDeadlineMs)) {
+            if ((task.acceptanceStatus === 'ACCEPTED' || task.status === 'IN_PROGRESS') && now > taskDeadlineMs) {
+                return 'TASK_OVERDUE';
+            }
+            if (taskDeadlineMs > now && taskDeadlineMs - now < 24 * 60 * 60 * 1000) {
+                return 'NEAR_DEADLINE';
+            }
+        }
+    }
+    return 'NORMAL';
+}
+function formatDeadlineBadge(status, task) {
+    if (status === 'NONE' || status === 'NORMAL')
+        return null;
+    if (status === 'ACCEPT_OVERDUE') {
+        return { label: '接单逾期', className: 'bg-red-100 text-red-700 border-red-200' };
+    }
+    if (status === 'TASK_OVERDUE') {
+        const diff = task.taskDeadline ? Date.now() - parseDateLike(task.taskDeadline) : 0;
+        const days = Number.isFinite(diff) ? Math.floor(diff / (24 * 60 * 60 * 1000)) : 0;
+        return {
+            label: `执行逾期${days > 0 ? ` ${days}天` : ''}`,
+            className: 'bg-red-100 text-red-700 border-red-200',
+        };
+    }
+    if (status === 'NEAR_DEADLINE') {
+        const diff = task.taskDeadline ? parseDateLike(task.taskDeadline) - Date.now() : 0;
+        const hours = Number.isFinite(diff) ? Math.max(0, Math.ceil(diff / (60 * 60 * 1000))) : 0;
+        return {
+            label: `即将逾期 ${hours}h`,
+            className: 'bg-amber-100 text-amber-700 border-amber-200',
+        };
+    }
+    return null;
+}
+function formatRemainingTime(taskDeadline) {
+    if (!taskDeadline)
+        return '—';
+    const diff = parseDateLike(taskDeadline) - Date.now();
+    if (!Number.isFinite(diff))
+        return '—';
+    if (diff < 0) {
+        const abs = Math.abs(diff);
+        const days = Math.floor(abs / (24 * 60 * 60 * 1000));
+        const hours = Math.floor((abs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+        return `已逾期${days > 0 ? ` ${days}天` : ''}${hours}h`;
+    }
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+    const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+    return days > 0 ? `剩余 ${days}天${hours}h` : `剩余 ${hours}h`;
+}
+function currentCheckpoint(task, result, tender, dyePendingIds, qcPendingOrderIds, hasException) {
+    if (task.status === 'DONE' || task.status === 'CANCELLED') {
+        return '任务已结束';
+    }
+    if (hasException)
+        return '存在分配异常，需人工处理';
+    if (result === 'HOLD') {
+        const lastLog = task.auditLogs[task.auditLogs.length - 1];
+        if (lastLog?.detail) {
+            return `${lastLog.detail.replace('设为', '')}，待复核`;
+        }
+        return '暂不分配，待复核';
+    }
+    if (result === 'BIDDING') {
+        if (!tender)
+            return '未创建招标单，请点击创建招标单';
+        const deadlineMs = parseDateLike('biddingDeadline' in tender ? tender.biddingDeadline : '');
+        if (Number.isFinite(deadlineMs)) {
+            if (Date.now() > deadlineMs)
+                return '报价已截止，待定标';
+            const hoursLeft = (deadlineMs - Date.now()) / (60 * 60 * 1000);
+            if (hoursLeft < 4)
+                return `竞价截止时间临近（剩余${Math.ceil(hoursLeft)}h）`;
+        }
+        return '招标进行中';
+    }
+    if (result === 'AWAIT_AWARD')
+        return '报价已截止，等待定标';
+    if (result === 'AWARDED')
+        return '已定标，等待派单接单';
+    if (result === 'DIRECT_ASSIGNED') {
+        if (task.acceptanceStatus !== 'ACCEPTED' && task.acceptDeadline) {
+            const acceptDeadlineMs = parseDateLike(task.acceptDeadline);
+            if (Number.isFinite(acceptDeadlineMs)) {
+                if (Date.now() > acceptDeadlineMs) {
+                    return '接单截止时间已过，工厂未确认接单';
+                }
+                const hoursLeft = (acceptDeadlineMs - Date.now()) / (60 * 60 * 1000);
+                if (hoursLeft < 4) {
+                    return `接单截止时间临近（剩余${Math.ceil(hoursLeft)}h）`;
+                }
+            }
+        }
+        if (task.taskDeadline) {
+            const taskDeadlineMs = parseDateLike(task.taskDeadline);
+            if (Number.isFinite(taskDeadlineMs)) {
+                if (Date.now() > taskDeadlineMs)
+                    return '任务截止时间已过，执行逾期';
+                const hoursLeft = (taskDeadlineMs - Date.now()) / (60 * 60 * 1000);
+                if (hoursLeft < 8)
+                    return `已接单但任务即将逾期（剩余${Math.ceil(hoursLeft)}h）`;
+            }
+        }
+        return '任务正常推进中';
+    }
+    if (isAffectedByTaskSet(task, dyePendingIds))
+        return '受染印回货影响，待确认';
+    if (qcPendingOrderIds.has(task.productionOrderId))
+        return '存在待质检项，暂不可分配';
+    const deps = task.dependsOnTaskIds ?? [];
+    if (deps.length > 0)
+        return '前序任务未完成，等待解锁';
+    return '待分配，可立即处理';
+}
+function getDyePendingTaskIds() {
+    if (derivedTaskSetCache.dyePendingTaskIds)
+        return derivedTaskSetCache.dyePendingTaskIds;
+    const set = new Set();
+    const taskIdsByOrder = new Map();
+    for (const task of listRuntimeProcessTasks()) {
+        const list = taskIdsByOrder.get(task.productionOrderId) ?? [];
+        list.push(task.taskId);
+        taskIdsByOrder.set(task.productionOrderId, list);
+    }
+    for (const order of listLegacyLikeDyePrintOrdersForTailPages()) {
+        const isPending = order.availableQty <= 0 || order.returnedFailQty > 0;
+        if (!isPending)
+            continue;
+        const relatedTasks = taskIdsByOrder.get(order.productionOrderId) ?? [];
+        for (const taskId of relatedTasks) {
+            set.add(taskId);
+        }
+    }
+    derivedTaskSetCache.dyePendingTaskIds = set;
+    return set;
+}
+function getQcPendingOrderIds() {
+    if (derivedTaskSetCache.qcPendingOrderIds)
+        return derivedTaskSetCache.qcPendingOrderIds;
+    const set = new Set();
+    for (const qc of initialQualityInspections) {
+        if (qc.status === 'SUBMITTED') {
+            set.add(qc.productionOrderId);
+        }
+    }
+    derivedTaskSetCache.qcPendingOrderIds = set;
+    return set;
+}
+function getExceptionTaskIds() {
+    if (derivedTaskSetCache.exceptionTaskIds)
+        return derivedTaskSetCache.exceptionTaskIds;
+    const active = new Set(['OPEN', 'IN_PROGRESS']);
+    const blockingReasons = new Set([
+        'DISPATCH_REJECTED',
+        'ACK_TIMEOUT',
+        'NO_BID',
+        'FACTORY_BLACKLISTED',
+    ]);
+    const set = new Set();
+    for (const item of listProgressExceptions()) {
+        if (!active.has(item.caseStatus))
+            continue;
+        if (item.category !== 'ASSIGNMENT')
+            continue;
+        if (!blockingReasons.has(item.reasonCode))
+            continue;
+        const relatedIds = item.relatedTaskIds ?? [];
+        if (relatedIds.length > 0) {
+            for (const taskId of relatedIds) {
+                set.add(taskId);
+            }
+            continue;
+        }
+        if (item.sourceType === 'TASK' && item.sourceId) {
+            set.add(item.sourceId);
+        }
+    }
+    for (const task of listRuntimeProcessTasks()) {
+        if (!isRuntimeTaskExecutionTask(task))
+            continue;
+        if (task.assignmentMode === 'DIRECT' && task.assignmentStatus === 'ASSIGNED') {
+            if (task.acceptanceStatus !== 'ACCEPTED' && task.acceptDeadline) {
+                const acceptDeadlineMs = parseDateLike(task.acceptDeadline);
+                if (Number.isFinite(acceptDeadlineMs) && Date.now() > acceptDeadlineMs) {
+                    set.add(task.taskId);
+                    continue;
+                }
+            }
+            if ((task.acceptanceStatus === 'ACCEPTED' || task.status === 'IN_PROGRESS') && task.taskDeadline) {
+                const taskDeadlineMs = parseDateLike(task.taskDeadline);
+                if (Number.isFinite(taskDeadlineMs) && Date.now() > taskDeadlineMs) {
+                    set.add(task.taskId);
+                    continue;
+                }
+            }
+        }
+        if (task.assignmentMode === 'BIDDING') {
+            const tender = getEffectiveTender(task);
+            const tenderStatus = tender ? ('tenderStatus' in tender ? tender.tenderStatus : tender.status) : undefined;
+            const biddingDeadline = tender?.biddingDeadline ?? task.biddingDeadline;
+            const deadlineMs = parseDateLike(biddingDeadline ?? '');
+            if (tenderStatus === 'BIDDING' && Number.isFinite(deadlineMs) && Date.now() > deadlineMs) {
+                set.add(task.taskId);
+            }
+        }
+    }
+    derivedTaskSetCache.exceptionTaskIds = set;
+    return set;
+}
+function isAffectedByTaskSet(task, taskSet) {
+    return taskSet.has(task.taskId) || taskSet.has(task.baseTaskId);
+}
+function formatScopeLabel(task) {
+    if (task.scopeType === 'SKU') {
+        const pieces = [task.skuCode, task.skuColor, task.skuSize].filter(Boolean);
+        return pieces.length > 0 ? pieces.join(' / ') : task.scopeLabel;
+    }
+    return task.scopeLabel;
+}
+function formatTaskNo(task) {
+    return task.taskNo ?? task.taskId;
+}
+function getFactoryOptions() {
+    return listBusinessFactoryMasterRecords().map((factory) => ({ id: factory.id, name: factory.name }));
+}
+function getEffectiveTasks() {
+    syncDispatchCapacityUsageLedger();
+    return listRuntimeProcessTasks().filter((task) => isRuntimeTaskExecutionTask(task));
+}
+function getFilteredRows(keyword) {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    const tasks = getEffectiveTasks();
+    if (!normalizedKeyword)
+        return tasks;
+    return tasks.filter((task) => {
+        const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId);
+        const scopeLabel = formatScopeLabel(task);
+        return (task.taskId.toLowerCase().includes(normalizedKeyword) ||
+            formatTaskNo(task).toLowerCase().includes(normalizedKeyword) ||
+            task.baseTaskId.toLowerCase().includes(normalizedKeyword) ||
+            task.processNameZh.toLowerCase().includes(normalizedKeyword) ||
+            scopeLabel.toLowerCase().includes(normalizedKeyword) ||
+            (task.skuCode ?? '').toLowerCase().includes(normalizedKeyword) ||
+            (task.skuColor ?? '').toLowerCase().includes(normalizedKeyword) ||
+            task.productionOrderId.toLowerCase().includes(normalizedKeyword) ||
+            (order?.legacyOrderNo ?? '').toLowerCase().includes(normalizedKeyword));
+    });
+}
+function getVisibleRows() {
+    return getFilteredRows(state.keyword);
+}
+function getTaskById(taskId) {
+    if (!taskId)
+        return null;
+    return getRuntimeTaskByIdFromStore(taskId);
+}
+function getDispatchDialogTasks() {
+    if (!state.dispatchDialogTaskIds || state.dispatchDialogTaskIds.length === 0)
+        return [];
+    const selected = new Set(state.dispatchDialogTaskIds);
+    return getEffectiveTasks().filter((task) => selected.has(task.taskId));
+}
+function getTaskAllocatableGroups(task) {
+    if (!task)
+        return [];
+    return listRuntimeTaskAllocatableGroups(task.taskId);
+}
+function supportsDetailAssignment(task) {
+    if (!task)
+        return false;
+    if ((task.assignmentGranularity ?? 'ORDER') === 'ORDER')
+        return false;
+    return getTaskAllocatableGroups(task).length > 1;
+}
+function getCreateTenderTask() {
+    return getTaskById(state.createTenderTaskId);
+}
+function getViewTenderTask() {
+    return getTaskById(state.viewTenderTaskId);
+}
+function getPriceSnapshotTask() {
+    return getTaskById(state.priceSnapshotTaskId);
+}
+function getDispatchDialogValidation(tasks) {
+    const refTask = tasks[0];
+    const std = refTask ? getStandardPrice(refTask) : { price: 0, currency: 'IDR', unit: '件' };
+    const parsedDispatchPrice = state.dispatchForm.dispatchPrice === ''
+        ? Number.NaN
+        : Number(state.dispatchForm.dispatchPrice);
+    const dispatchPrice = Number.isFinite(parsedDispatchPrice) ? parsedDispatchPrice : null;
+    const diff = dispatchPrice != null ? dispatchPrice - std.price : null;
+    const diffPct = diff != null && std.price !== 0 ? ((diff / std.price) * 100).toFixed(2) : null;
+    const changed = dispatchPrice != null ? Math.abs(dispatchPrice - std.price) >= 0.001 : false;
+    const needDiffReason = changed;
+    const valid = state.dispatchForm.acceptDeadline.trim() !== '' &&
+        state.dispatchForm.taskDeadline.trim() !== '' &&
+        dispatchPrice != null &&
+        (!needDiffReason || state.dispatchForm.priceDiffReason.trim() !== '');
+    return {
+        valid,
+        needDiffReason,
+        stdPrice: std.price,
+        stdCurrency: std.currency,
+        stdUnit: std.unit,
+        dispatchPrice,
+        diff,
+        diffPct,
+        changed,
+    };
+}
+export { appStore, aggregateFactorySamUsage, applyRuntimeDirectDispatchMeta, productionOrders, batchDispatchRuntimeTasks, batchSetRuntimeTaskAssignMode, createFreezeFromDirectDispatch, createRuntimeTaskTenderByDetailGroups, convertFreezeToCommitment, dispatchRuntimeTaskByDetailGroups, getRuntimeTaskByIdFromStore, isRuntimeSewingTask, isRuntimeTaskExecutionTask, listActiveCommitmentsByFactory, listActiveFreezesByFactory, listCapacityCommitments, listCapacityFreezes, listRuntimeTaskAllocatableGroups, listRuntimeProcessTasks, releaseFreeze, setRuntimeTaskAssignMode, upsertRuntimeTaskTender, validateRuntimeBatchDispatchSelection, initialQualityInspections, initialAllocationByTaskId, listProgressExceptions, listLegacyLikeDyePrintOrdersForTailPages, indonesiaFactories, escapeHtml, toClassName, pathZh, resultZh, resultBadgeClass, taskStatusZh, colLabel, colHeaderColor, colBg, mockTenders, priceStatusLabel, priceStatusClass, mockStandardPrices, candidateFactories, state, emptyDispatchForm, emptyCreateTenderForm, createDefaultAutoDispatchConfig, nowTimestamp, parseDateLike, fromDateTimeLocal, toDateTimeLocal, openAppRoute, getMockTender, getEffectiveTender, hasTender, describeDispatchCapacityConstraintDecision, resolveTaskPublishedSam, resolveAllocatableGroupPublishedSam, createDispatchCapacityEvaluationContext, createDispatchStandardTimeEvaluationContext, resolveTaskFactoryCapacityConstraint, resolveTaskFactoryStandardTimeJudgement, resolveAllocatableGroupFactoryCapacityConstraint, resolveAllocatableGroupFactoryStandardTimeJudgement, resolveTenderFactoryCapacityConstraint, resolveTenderFactoryStandardTimeJudgement, summarizeDispatchCapacityConstraints, summarizeDispatchStandardTimeJudgements, getSelectableTenderFactoryIds, formatPublishedSamNumber, calcRemaining, deriveAssignPath, deriveAssignResult, deriveKanbanCol, getStandardPrice, getPriceStatus, getDeadlineStatus, formatDeadlineBadge, formatRemainingTime, currentCheckpoint, getDyePendingTaskIds, getQcPendingOrderIds, getExceptionTaskIds, isAffectedByTaskSet, formatScopeLabel, formatTaskNo, getFactoryOptions, getEffectiveTasks, getFilteredRows, getVisibleRows, getTaskById, getDispatchDialogTasks, getTaskAllocatableGroups, supportsDetailAssignment, getCreateTenderTask, getViewTenderTask, getPriceSnapshotTask, getDispatchDialogValidation, getAutoDispatchConfigKeyFromTask, getAutoDispatchProcessCraftLabel, };

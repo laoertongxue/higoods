@@ -126,7 +126,7 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
           ${renderStep('完成铺布', '铺布完成后进入待裁剪', '完成铺布', session.statusTab === 'IN_PROGRESS')}
           ${renderStep('开始裁剪', '铺布完成后可开始裁剪', '开始裁剪', session.cuttingStageLabel === '待裁剪')}
           ${renderStep('完成裁剪', '记录裁剪完成数量', '完成裁剪', session.cuttingStageLabel === '裁剪中')}
-          ${renderStep('异常反馈', '补料 / 长度差异 / 裁床冲突', '反馈异常')}
+          ${renderStep('异常反馈', '现场差异 / 长度差异 / 裁床冲突', '反馈异常')}
           <div class="hidden rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800" data-pda-cutting-action-feedback></div>
         </section>
       </section>

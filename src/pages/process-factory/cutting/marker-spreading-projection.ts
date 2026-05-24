@@ -9,11 +9,16 @@ import type {
   MarkerSpreadingContext,
   MarkerModeKey,
   MarkerSpreadingStore,
+  SpreadingOrder,
+  SpreadingSession,
   SpreadingPlanUnit,
 } from './marker-spreading-model.ts'
 import {
+  buildSpreadingSessionIdentityForMarkerBed,
   buildMarkerSpreadingViewModel,
   buildSpreadingPlanUnitDisplayLabel,
+  createSpreadingDraftFromMarker,
+  resolveSpreadingOrderStatusFromSession,
 } from './marker-spreading-model.ts'
 import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers.ts'
 import {
@@ -68,6 +73,9 @@ export interface MarkerSpreadingProjection {
   store: MarkerSpreadingStore
   viewModel: ReturnType<typeof buildMarkerSpreadingViewModel>
   createSources: SpreadingCreateSourceRow[]
+  spreadingOrders: SpreadingOrder[]
+  spreadingOrdersByMarkerPlanId: Record<string, SpreadingOrder[]>
+  spreadingOrdersByProductionOrderId: Record<string, SpreadingOrder[]>
 }
 
 export function buildSpreadingPlanUnitProjectionLabel(
@@ -214,8 +222,8 @@ function buildMarkerRecordFromPlanBed(
     contextType: context.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
     cutOrderIds: [...plan.cutOrderIds],
     cutOrderNos: [...plan.cutOrderNos],
-    markerPlanId: plan.markerPlanId,
-    markerPlanNo: plan.markerPlanNo,
+    markerPlanId: plan.id,
+    markerPlanNo: plan.markerNo,
     styleCode: plan.styleCode,
     spuCode: plan.spuCode,
     techPackSpuCode: plan.techPackSpu,
@@ -256,19 +264,24 @@ function buildMarkerRecordFromPlanBed(
   }
 }
 
-function buildSpreadingContextFromPlanContext(context: MarkerPlanContextCandidate): MarkerSpreadingContext {
+function buildSpreadingContextFromPlanContext(
+  context: MarkerPlanContextCandidate,
+  plan?: Pick<MarkerPlanViewRow, 'id' | 'markerNo'>,
+): MarkerSpreadingContext {
   return {
     contextType: context.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
     cutOrderIds: [...context.cutOrderIds],
     cutOrderNos: [...context.cutOrderNos],
-    markerPlanId: context.markerPlanId,
-    markerPlanNo: context.markerPlanNo,
+    markerPlanId: plan?.id || context.markerPlanId,
+    markerPlanNo: plan?.markerNo || context.markerPlanNo,
     productionOrderNos: [...context.productionOrderNos],
     styleCode: context.styleCode,
     spuCode: context.spuCode,
     techPackSpuCode: context.techPackSpu,
     styleName: context.styleName,
     materialSkuSummary: context.materialSkuSummary,
+    materialAliasSummary: context.materialAliasSummary,
+    materialImageUrl: context.materialImageUrl,
     materialPrepRows: context.sourceMaterialPrepRows,
   }
 }
@@ -279,7 +292,7 @@ function buildCreateSourceRowsFromPlan(
 ): SpreadingCreateSourceRow[] {
   if (!context) return []
   const scheme = buildMarkerSchemeFromPlan(plan)
-  const spreadingContext = buildSpreadingContextFromPlanContext(context)
+  const spreadingContext = buildSpreadingContextFromPlanContext(context, plan)
   const contextSummary =
     spreadingContext.contextType === 'marker-plan-ref'
       ? `唛架方案 ${context.markerPlanNo || '待补'} / 裁片单 ${context.cutOrderNos.length} 张 / 生产单 ${context.productionOrderNos.join(' / ') || '待补'}`
@@ -303,8 +316,8 @@ function buildCreateSourceRowsFromPlan(
         contextSummary,
         cutOrderIds: [...plan.cutOrderIds],
         cutOrderNos: [...plan.cutOrderNos],
-        markerPlanId: plan.markerPlanId,
-        markerPlanNo: plan.markerPlanNo,
+        markerPlanId: plan.id,
+        markerPlanNo: plan.markerNo,
         productionOrderNos: [...plan.productionOrderNos],
         styleCode: plan.styleCode,
         spuCode: plan.spuCode,
@@ -323,11 +336,199 @@ function buildCreateSourceRowsFromPlan(
     })
 }
 
-function buildSpreadingCreateSourceRows(): SpreadingCreateSourceRow[] {
-  const projection = buildMarkerPlanProjection()
-  return projection.viewModel.plans
+function buildSpreadingCreateSourceRows(
+  planProjection: ReturnType<typeof buildMarkerPlanProjection>,
+): SpreadingCreateSourceRow[] {
+  return planProjection.viewModel.plans
     .filter((plan) => plan.readyForSpreading && plan.status !== 'CANCELED')
-    .flatMap((plan) => buildCreateSourceRowsFromPlan(plan, findMarkerPlanContextForPlan(projection.viewModel.contexts, plan)))
+    .flatMap((plan) => buildCreateSourceRowsFromPlan(plan, findMarkerPlanContextForPlan(planProjection.viewModel.contexts, plan)))
+}
+
+function findExistingSpreadingSession(
+  store: MarkerSpreadingStore,
+  identity: { spreadingSessionId: string; sessionNo: string },
+  plan: MarkerPlanViewRow,
+  bed: MarkerSchemeBed,
+): SpreadingSession | null {
+  return (
+    store.sessions.find((session) => session.spreadingSessionId === identity.spreadingSessionId) ||
+    store.sessions.find((session) => session.sessionNo === identity.sessionNo) ||
+    store.sessions.find(
+      (session) =>
+        (session.sourceSchemeId === plan.id || session.markerPlanId === plan.id) &&
+        (session.sourceBedId === bed.bedId || session.sourceBedNo === bed.bedNo),
+    ) ||
+    null
+  )
+}
+
+function parseEffectiveWidthText(value: string): { value: number; unit: string; text: string } {
+  const text = String(value || '').trim()
+  const match = text.match(/(\d+(?:\.\d+)?)\s*([A-Za-z\u4e00-\u9fa5]+)?/)
+  return {
+    value: match ? Number(match[1]) : 0,
+    unit: match?.[2] || (text ? '' : 'cm'),
+    text,
+  }
+}
+
+function buildSpreadingOrderFromPlanBed(
+  plan: MarkerPlanViewRow,
+  context: MarkerPlanContextCandidate,
+  bed: MarkerSchemeBed,
+  session: SpreadingSession,
+  index: number,
+): SpreadingOrder {
+  const sourceOrder = context.sourceCutOrderRows[0] || null
+  const effectiveWidth = parseEffectiveWidthText(sourceOrder?.effectiveWidthText || '')
+  const plannedLayerCount = Math.max(Number(bed.plannedLayerCount || 0), 0)
+  const plannedGarmentQty = Math.max(Number(bed.plannedGarmentQty || 0), 0)
+  const plannedPieceQty = Math.max(Number(bed.markerPieceQtyPerLayer || 0) * plannedLayerCount, plannedGarmentQty)
+  const markerImageUrl =
+    plan.schemeImage?.previewUrl ||
+    plan.detailImage?.previewUrl ||
+    (plan.imageRecords || []).find((image) => image.previewUrl)?.previewUrl ||
+    ''
+
+  return {
+    spreadingOrderId: session.spreadingSessionId,
+    spreadingOrderNo: session.sessionNo,
+    markerPlanId: plan.id,
+    markerPlanNo: plan.markerNo,
+    markerNumberId: bed.bedId || `${plan.id}-bed-${index + 1}`,
+    markerNumber: bed.bedNo || String(index + 1),
+    bedNo: bed.bedNo || String(index + 1),
+    sourceCutOrderIds: [...plan.cutOrderIds],
+    sourceCutOrderNos: [...plan.cutOrderNos],
+    productionOrderIds: [...plan.productionOrderIds],
+    productionOrderNos: [...plan.productionOrderNos],
+    spuId: plan.spuCode,
+    spuCode: plan.spuCode,
+    styleId: plan.styleCode,
+    styleName: plan.styleName,
+    materialIdentity: {
+      materialSku: bed.materialSku || plan.materialSkuSummary || sourceOrder?.materialSku || '',
+      materialName: sourceOrder?.materialName || context.sourceMaterialPrepRows[0]?.materialLabel || '',
+      materialColor: bed.colorName || bed.colorCode || plan.colorSummary || sourceOrder?.materialColor || sourceOrder?.color || '',
+      materialAlias: sourceOrder?.materialAlias || context.materialAliasSummary || '',
+      materialImageUrl: sourceOrder?.materialImageUrl || context.materialImageUrl || plan.materialImageUrl || '',
+      materialUnit: sourceOrder?.materialUnit || 'yard',
+    },
+    patternIdentity: {
+      patternFileId: sourceOrder?.patternFileId || '',
+      patternFileName: sourceOrder?.patternFileName || '',
+      patternVersion: sourceOrder?.patternVersion || '',
+      patternKind: sourceOrder?.patternKind || '',
+      effectiveWidthValue: effectiveWidth.value,
+      effectiveWidthUnit: effectiveWidth.unit,
+      effectiveWidthText: effectiveWidth.text,
+      piecePartCodes: [],
+      piecePartNames: [...(sourceOrder?.piecePartNames || [])],
+    },
+    effectiveWidth: effectiveWidth.text,
+    plannedLayerCount,
+    plannedGarmentQty,
+    plannedPieceQty,
+    plannedMaterialUsage: Math.max(Number(bed.spreadTotalLength || 0), 0),
+    plannedMaterialUsageUnit: '米',
+    sizeRatio: bed.sizeSummaryText || '',
+    markerMode: bed.bedMode,
+    markerModeLabel: markerPlanModeMeta[bed.bedMode]?.label || plan.modeMeta.label,
+    markerImageUrl,
+    status: resolveSpreadingOrderStatusFromSession(session),
+    createdAt: plan.confirmedAt || plan.updatedAt || plan.createdAt,
+    createdBy: plan.confirmedBy || plan.updatedBy || plan.createdBy,
+    confirmedAt: plan.confirmedAt,
+    linkedPdaTaskId: session.sourceWritebackId || '',
+  }
+}
+
+function buildConfirmedPlanSpreadingArtifacts(
+  planProjection: ReturnType<typeof buildMarkerPlanProjection>,
+  baseStore: MarkerSpreadingStore,
+): { store: MarkerSpreadingStore; spreadingOrders: SpreadingOrder[] } {
+  const generatedSessions = new Map<string, SpreadingSession>()
+  const replacedSessionIds = new Set<string>()
+  const spreadingOrders = new Map<string, SpreadingOrder>()
+
+  planProjection.viewModel.plans
+    .filter((plan) => plan.confirmationStatus === '已确认' && plan.status !== 'CANCELED')
+    .forEach((plan) => {
+      const context = findMarkerPlanContextForPlan(planProjection.viewModel.contexts, plan)
+      if (!context) return
+      const spreadingContext = buildSpreadingContextFromPlanContext(context, plan)
+      const scheme = buildMarkerSchemeFromPlan(plan)
+      scheme.beds
+        .filter((bed) => bed.readyForSpreading)
+        .forEach((bed, index) => {
+          const identity = buildSpreadingSessionIdentityForMarkerBed({
+            markerPlanId: plan.id,
+            markerPlanNo: plan.markerNo,
+            markerId: bed.bedId,
+            markerNo: bed.bedNo,
+            sourceSchemeId: plan.id,
+            sourceSchemeNo: plan.markerNo,
+            sourceBedId: bed.bedId,
+            sourceBedNo: bed.bedNo,
+          }, index)
+          const existingSession = findExistingSpreadingSession(baseStore, identity, plan, bed)
+          if (existingSession) replacedSessionIds.add(existingSession.spreadingSessionId)
+          const markerRecord = buildMarkerRecordFromPlanBed(plan, context, bed)
+          const timestamp = new Date((plan.confirmedAt || plan.updatedAt || plan.createdAt || '').replace(' ', 'T'))
+          const safeTimestamp = Number.isNaN(timestamp.getTime()) ? new Date() : timestamp
+          const session = createSpreadingDraftFromMarker(markerRecord, spreadingContext, safeTimestamp, {
+            baseSession: {
+              ...existingSession,
+              spreadingSessionId: identity.spreadingSessionId,
+              sessionNo: identity.sessionNo,
+              status: existingSession?.status || 'DRAFT',
+              createdAt: existingSession?.createdAt || plan.confirmedAt || plan.updatedAt || plan.createdAt,
+              updatedAt: existingSession?.updatedAt || plan.confirmedAt || plan.updatedAt || plan.createdAt,
+              sourceChannel: existingSession?.sourceChannel || 'MANUAL',
+            },
+            importNote: '由已确认唛架方案按唛架编号生成铺布单。',
+          })
+          generatedSessions.set(session.spreadingSessionId, session)
+          const order = buildSpreadingOrderFromPlanBed(plan, context, bed, session, index)
+          spreadingOrders.set(`${order.markerPlanId}::${order.markerNumberId}::${order.bedNo}`, order)
+        })
+    })
+
+  const generatedSessionIds = new Set(generatedSessions.keys())
+  return {
+    store: {
+      markers: [...baseStore.markers],
+      sessions: [
+        ...baseStore.sessions.filter((session) => !generatedSessionIds.has(session.spreadingSessionId) && !replacedSessionIds.has(session.spreadingSessionId)),
+        ...generatedSessions.values(),
+      ],
+    },
+    spreadingOrders: Array.from(spreadingOrders.values()).sort((left, right) =>
+      `${right.confirmedAt || right.createdAt}::${right.spreadingOrderNo}`.localeCompare(
+        `${left.confirmedAt || left.createdAt}::${left.spreadingOrderNo}`,
+        'zh-CN',
+      ),
+    ),
+  }
+}
+
+function groupSpreadingOrdersByMarkerPlanId(spreadingOrders: SpreadingOrder[]): Record<string, SpreadingOrder[]> {
+  return spreadingOrders.reduce<Record<string, SpreadingOrder[]>>((accumulator, order) => {
+    accumulator[order.markerPlanId] = accumulator[order.markerPlanId] || []
+    accumulator[order.markerPlanId].push(order)
+    return accumulator
+  }, {})
+}
+
+function groupSpreadingOrdersByProductionOrderId(spreadingOrders: SpreadingOrder[]): Record<string, SpreadingOrder[]> {
+  return spreadingOrders.reduce<Record<string, SpreadingOrder[]>>((accumulator, order) => {
+    order.productionOrderIds.forEach((productionOrderId) => {
+      if (!productionOrderId) return
+      accumulator[productionOrderId] = accumulator[productionOrderId] || []
+      accumulator[productionOrderId].push(order)
+    })
+    return accumulator
+  }, {})
 }
 
 export function buildMarkerSpreadingProjection(options: {
@@ -336,9 +537,12 @@ export function buildMarkerSpreadingProjection(options: {
   store?: MarkerSpreadingStore
 } = {}): MarkerSpreadingProjection {
   const context = buildExecutionPrepProjectionContext(options.snapshot)
-  const store =
+  const markerPlanProjection = buildMarkerPlanProjection()
+  const baseStore =
     options.store ??
     (context.snapshot.markerSpreadingState.store as unknown as MarkerSpreadingStore)
+  const spreadingArtifacts = buildConfirmedPlanSpreadingArtifacts(markerPlanProjection, baseStore)
+  const store = spreadingArtifacts.store
   const viewModel = buildMarkerSpreadingViewModel({
     rows: context.sources.materialPrepRows,
     markerPlanRefs: context.sources.markerPlanRefs,
@@ -365,6 +569,9 @@ export function buildMarkerSpreadingProjection(options: {
     markerPlanRefsById: Object.fromEntries(context.sources.markerPlanRefs.map((batch) => [batch.markerPlanId, batch])),
     store,
     viewModel,
-    createSources: buildSpreadingCreateSourceRows(),
+    createSources: buildSpreadingCreateSourceRows(markerPlanProjection),
+    spreadingOrders: spreadingArtifacts.spreadingOrders,
+    spreadingOrdersByMarkerPlanId: groupSpreadingOrdersByMarkerPlanId(spreadingArtifacts.spreadingOrders),
+    spreadingOrdersByProductionOrderId: groupSpreadingOrdersByProductionOrderId(spreadingArtifacts.spreadingOrders),
   }
 }

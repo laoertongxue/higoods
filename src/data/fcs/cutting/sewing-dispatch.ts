@@ -292,6 +292,255 @@ export interface CuttingSewingDispatchInventorySkuLine {
   availableGarmentQty: number
 }
 
+export interface SewingTaskAllocationInventoryRecord {
+  inventoryRecordId: string
+  feiTicketId: string
+  feiTicketNo: string
+  cutOrderId: string
+  cutOrderNo?: string
+  productionOrderId: string
+  productionOrderNo?: string
+  spuCode: string
+  color: string
+  size: string
+  partName: string
+  pieceQty: number
+  pieceSequenceLabel: string
+  hasSpecialCraft?: boolean
+  specialCraftDisplay?: string
+  receiverFactoryDisplay?: string
+  printStatus?: string
+  voidStatus?: string
+  tempBagCode: string
+  warehouseArea: string
+  locationCode: string
+  inboundAt: string
+  inventoryStatus: string
+}
+
+export interface SewingTaskAllocationItem {
+  allocationItemId: string
+  feiTicketId: string
+  feiTicketNo: string
+  inventoryRecordId: string
+  productionOrderNo: string
+  cutOrderNo: string
+  size: string
+  partCode: string
+  partName: string
+  pieceQty: number
+  pieceSequenceLabel: string
+  tempBagCode: string
+  inventoryLocation: string
+  hasSpecialCraft: boolean
+  specialCraftReturnStatus: CuttingSewingSpecialCraftReturnStatus
+}
+
+export interface SewingTaskAllocationShortageItem {
+  size: string
+  partCode: string
+  partName: string
+  requiredQty: number
+  allocatedQty: number
+  shortageQty: number
+  unit: '片'
+  shortageReason: string
+}
+
+export interface SewingTaskAllocationSpecialCraftPendingItem {
+  feiTicketId: string
+  feiTicketNo?: string
+  partName: string
+  specialCraftType: string
+  receiverFactoryName: string
+  expectedReturnStatus: CuttingSewingSpecialCraftReturnStatus
+  pendingQty: number
+}
+
+export interface InventoryReservation {
+  reservationId: string
+  inventoryRecordId: string
+  sewingTaskId: string
+  feiTicketId: string
+  reservedQty: number
+  unit: '片'
+  reservedAt: string
+  reservedBy: string
+  reservationStatus: '有效' | '已释放' | '已占用'
+}
+
+export interface SewingTaskAllocation {
+  sewingTaskId: string
+  sewingTaskNo: string
+  sourceType: '裁床待交出仓库存'
+  sourceWarehouseId: string
+  sourceWarehouseName: string
+  productionOrderIds: string[]
+  cutOrderIds: string[]
+  spuCode: string
+  styleName: string
+  color: string
+  receiverFactoryId: string
+  receiverFactoryCode: string
+  receiverFactoryName: string
+  allocationBasis: '基于裁床待交出仓已有菲票 / 裁片库存'
+  allocationStatus: '候选' | '已占用' | '已取消'
+  allocatedItems: SewingTaskAllocationItem[]
+  shortageItems: SewingTaskAllocationShortageItem[]
+  specialCraftPendingItems: SewingTaskAllocationSpecialCraftPendingItem[]
+  inventoryReservationIds: string[]
+  createdAt: string
+  createdBy: string
+  remark: string
+}
+
+export interface SewingTaskAllocationExcludedInventoryItem {
+  inventoryRecordId: string
+  feiTicketNo: string
+  exclusionReason: string
+}
+
+export interface SewingTaskAllocationProjection {
+  allocations: SewingTaskAllocation[]
+  reservations: InventoryReservation[]
+  releasedReservations: InventoryReservation[]
+  excludedItems: SewingTaskAllocationExcludedInventoryItem[]
+  specialCraftPendingItems: SewingTaskAllocationSpecialCraftPendingItem[]
+  availableInventoryCount: number
+  availablePieceQty: number
+  reservedInventoryCount: number
+  reservedPieceQty: number
+  shortageCount: number
+  specialCraftPendingCount: number
+  cancelledAllocationCount: number
+  ruleNotes: string[]
+}
+
+export type HandoverPickingTaskStatus =
+  | '待分拣'
+  | '分拣中'
+  | '已分拣待装袋'
+  | '已装袋待交出'
+  | '已关闭'
+
+export interface HandoverPickingRequiredItem {
+  size: string
+  partCode: string
+  partName: string
+  requiredQty: number
+  unit: '片'
+}
+
+export interface HandoverPickingAllocatedInventoryItem {
+  inventoryRecordId: string
+  feiTicketId: string
+  feiTicketNo: string
+  tempBagCode: string
+  locationCode: string
+  size: string
+  partCode: string
+  partName: string
+  pieceQty: number
+  pieceSequenceLabel: string
+  specialCraftReturnStatus: CuttingSewingSpecialCraftReturnStatus
+}
+
+export interface HandoverPickingPickedItem {
+  feiTicketId: string
+  feiTicketNo: string
+  scannedAt: string
+  scannedBy: string
+  sourceTempBagCode: string
+  targetTransferBagCode: string
+  size: string
+  partCode: string
+  partName: string
+  pickedQty: number
+  checkResult: '通过' | '拒绝' | '提示'
+}
+
+export interface HandoverPickingShortageItem {
+  size: string
+  partCode: string
+  partName: string
+  requiredQty: number
+  pickedQty: number
+  shortageQty: number
+  shortageReason: string
+}
+
+export interface HandoverPickingTempBagSource {
+  tempBagCode: string
+  feiTicketCount: number
+  pieceQty: number
+  locationCode: string
+}
+
+export interface TargetTransferBagUse {
+  bagUseId: string
+  bagCode: string
+  bagMasterId: string
+  useStage: '交出装袋'
+  sewingTaskId: string
+  sewingTaskNo: string
+  pickingTaskId: string
+  containedFeiTickets: Array<{
+    feiTicketId: string
+    feiTicketNo: string
+    pieceQty: number
+  }>
+  totalPieceQty: number
+  packedAt: string
+  packedBy: string
+  bagStatus: '装袋中' | '已装袋待交出' | '异常'
+}
+
+export interface HandoverPickingTask {
+  pickingTaskId: string
+  pickingTaskNo: string
+  sewingTaskId: string
+  sewingTaskNo: string
+  receiverFactoryId: string
+  receiverFactoryCode: string
+  receiverFactoryName: string
+  sourceWarehouseId: string
+  sourceWarehouseName: string
+  taskStatus: HandoverPickingTaskStatus
+  requiredItems: HandoverPickingRequiredItem[]
+  allocatedInventoryItems: HandoverPickingAllocatedInventoryItem[]
+  pickedItems: HandoverPickingPickedItem[]
+  shortageItems: HandoverPickingShortageItem[]
+  tempBagSources: HandoverPickingTempBagSource[]
+  targetTransferBags: TargetTransferBagUse[]
+  createdAt: string
+  createdBy: string
+  updatedAt: string
+}
+
+export interface HandoverPickingScanCheck {
+  checkId: string
+  pickingTaskNo: string
+  scanObject: '配料任务码' | '来源入仓暂存袋' | '菲票' | '目标中转袋'
+  scannedValue: string
+  checkResult: '通过' | '拒绝' | '提示'
+  reason: string
+  syncStatus: '已同步' | '待同步' | '同步失败'
+}
+
+export interface HandoverPickingTaskProjection {
+  tasks: HandoverPickingTask[]
+  targetTransferBags: TargetTransferBagUse[]
+  scanChecks: HandoverPickingScanCheck[]
+  taskCount: number
+  pendingCount: number
+  sortingCount: number
+  packedCount: number
+  shortageCount: number
+  targetTransferBagCount: number
+  syncFailedCount: number
+  ruleNotes: string[]
+}
+
 interface RequiredCutPieceLine {
   partName: string
   colorName: string
@@ -1100,6 +1349,616 @@ export function listAvailableSkuInventoryForSewingDispatch(input: {
   ))
 }
 
+function pickSewingAllocationReceiverFactory(color: string, index: number): Factory {
+  const candidates = mockFactories.filter((factory) =>
+    factory.factoryType === 'SATELLITE_SEWING' ||
+    factory.factoryType === 'THIRD_SEWING' ||
+    factory.factoryType === 'CENTRAL_GARMENT' ||
+    factory.name.includes('车缝'),
+  )
+  if (color.includes('Khaki') && candidates[1]) return candidates[1]
+  return candidates[index % Math.max(candidates.length, 1)] || getSewingFactory()
+}
+
+function getAllocationSpecialCraftDisplay(ticket: GeneratedFeiTicketSourceRecord | null, record?: SewingTaskAllocationInventoryRecord): string {
+  if (!ticket && record?.hasSpecialCraft) return record.specialCraftDisplay || '特殊工艺'
+  if (!ticket) return '无'
+  if (!ticket.hasSpecialCraft || !ticket.specialCrafts.length) return '无'
+  return unique(ticket.specialCrafts.map((craft) => craft.craftType || craft.craftName || '特殊工艺')).join('、') || '特殊工艺'
+}
+
+function getAllocationSpecialCraftReceiverDisplay(ticket: GeneratedFeiTicketSourceRecord | null, record?: SewingTaskAllocationInventoryRecord): string {
+  if (!ticket && record?.hasSpecialCraft) return record.receiverFactoryDisplay || '承接工厂待补充'
+  if (!ticket) return '无'
+  if (!ticket.hasSpecialCraft || !ticket.specialCrafts.length) return '无'
+  return unique(ticket.specialCrafts.map((craft) => craft.receiverFactoryName || '承接工厂待补充')).join('、') || '承接工厂待补充'
+}
+
+function buildAllocationShortageItems(
+  allocatedItems: SewingTaskAllocationItem[],
+  pendingItems: SewingTaskAllocationSpecialCraftPendingItem[],
+): SewingTaskAllocationShortageItem[] {
+  const shortageItems: SewingTaskAllocationShortageItem[] = []
+  const allocatedBySize = new Map<string, SewingTaskAllocationItem[]>()
+  allocatedItems.forEach((item) => {
+    const list = allocatedBySize.get(item.size) || []
+    list.push(item)
+    allocatedBySize.set(item.size, list)
+  })
+  pendingItems.forEach((item) => {
+    shortageItems.push({
+      size: allocatedItems.find((allocated) => allocated.feiTicketId === item.feiTicketId)?.size || '按菲票尺码',
+      partCode: item.partName,
+      partName: item.partName,
+      requiredQty: item.pendingQty,
+      allocatedQty: 0,
+      shortageQty: item.pendingQty,
+      unit: '片',
+      shortageReason: '特殊工艺未回仓',
+    })
+  })
+  allocatedBySize.forEach((items, size) => {
+    const partNames = unique(items.map((item) => item.partName))
+    if (partNames.length > 1) return
+    const allocatedQty = sum(items.map((item) => item.pieceQty))
+    shortageItems.push({
+      size,
+      partCode: '其他部位',
+      partName: '其他部位',
+      requiredQty: allocatedQty,
+      allocatedQty: 0,
+      shortageQty: allocatedQty,
+      unit: '片',
+      shortageReason: '当前库存仅覆盖部分部位，分配后继续展示缺口',
+    })
+  })
+  return shortageItems
+}
+
+export function buildSewingTaskAllocationProjectionFromInventory(
+  inventoryRecords: SewingTaskAllocationInventoryRecord[],
+): SewingTaskAllocationProjection {
+  const occupiedFeiTicketNos = getOccupiedFeiTicketNos()
+  const excludedItems: SewingTaskAllocationExcludedInventoryItem[] = []
+  const reservations: InventoryReservation[] = []
+  const releasedReservations: InventoryReservation[] = []
+  const allocatableRecords: Array<{
+    record: SewingTaskAllocationInventoryRecord
+    ticket: GeneratedFeiTicketSourceRecord | null
+    specialCraft: ReturnType<typeof mapSpecialCraftReturnStatus>
+  }> = []
+  const pendingSpecialCraftRecords: Array<{
+    record: SewingTaskAllocationInventoryRecord
+    ticket: GeneratedFeiTicketSourceRecord | null
+    specialCraft: ReturnType<typeof mapSpecialCraftReturnStatus>
+  }> = []
+
+  inventoryRecords.forEach((record) => {
+    const ticket = resolveFeiTicketForSewingDispatch(record.feiTicketNo)
+    if (record.voidStatus === '已作废' || ticket?.printStatus === 'VOIDED') {
+      excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '菲票已作废' })
+      return
+    }
+    if (record.printStatus === '未首打') {
+      excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '菲票未首打' })
+      return
+    }
+    if (record.pieceQty <= 0) {
+      excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '库存数量为 0' })
+      return
+    }
+    if (record.inventoryStatus !== '待分配') {
+      excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: `库存状态为${record.inventoryStatus}` })
+      return
+    }
+    if (occupiedFeiTicketNos.has(record.feiTicketNo)) {
+      excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '库存已被其他车缝任务占用' })
+      reservations.push({
+        reservationId: `RES-OCCUPIED-${record.inventoryRecordId}`,
+        inventoryRecordId: record.inventoryRecordId,
+        sewingTaskId: 'SEWING-TASK-EXISTING',
+        feiTicketId: record.feiTicketId,
+        reservedQty: record.pieceQty,
+        unit: '片',
+        reservedAt: '2026-05-20 10:00:00',
+        reservedBy: '裁片仓分配员',
+        reservationStatus: '已占用',
+      })
+      return
+    }
+    const mappedSpecialCraft = ticket
+      ? mapSpecialCraftReturnStatus(record.feiTicketNo)
+      : { specialCraftRequired: false, specialCraftReturnStatus: '不需要特殊工艺' as const }
+    const specialCraft = {
+      specialCraftRequired: mappedSpecialCraft.specialCraftRequired || Boolean(record.hasSpecialCraft),
+      specialCraftReturnStatus:
+        mappedSpecialCraft.specialCraftRequired
+          ? mappedSpecialCraft.specialCraftReturnStatus
+          : record.hasSpecialCraft
+            ? '未回仓'
+            : mappedSpecialCraft.specialCraftReturnStatus,
+    } satisfies ReturnType<typeof mapSpecialCraftReturnStatus>
+    if (specialCraft.specialCraftRequired && specialCraft.specialCraftReturnStatus !== '已回仓') {
+      pendingSpecialCraftRecords.push({ record, ticket, specialCraft })
+      return
+    }
+    allocatableRecords.push({ record, ticket, specialCraft })
+  })
+
+  if (allocatableRecords[0]) {
+    releasedReservations.push({
+      reservationId: `RES-RELEASED-${allocatableRecords[0].record.inventoryRecordId}`,
+      inventoryRecordId: allocatableRecords[0].record.inventoryRecordId,
+      sewingTaskId: 'SEWING-TASK-CANCELLED-001',
+      feiTicketId: allocatableRecords[0].record.feiTicketId,
+      reservedQty: allocatableRecords[0].record.pieceQty,
+      unit: '片',
+      reservedAt: '2026-05-21 15:30:00',
+      reservedBy: '裁片仓分配员',
+      reservationStatus: '已释放',
+    })
+  }
+
+  const grouped = new Map<string, Array<{ record: SewingTaskAllocationInventoryRecord; ticket: GeneratedFeiTicketSourceRecord | null; specialCraft: ReturnType<typeof mapSpecialCraftReturnStatus> }>>()
+  allocatableRecords.forEach((entry) => {
+    const key = `${entry.record.productionOrderId}|${entry.record.spuCode || entry.ticket?.sourceTechPackSpuCode || entry.ticket?.skuCode}|${entry.record.color}`
+    const list = grouped.get(key) || []
+    list.push(entry)
+    grouped.set(key, list)
+  })
+  const globalSpecialCraftPendingItems = pendingSpecialCraftRecords.map(({ record, ticket, specialCraft }) => ({
+    feiTicketId: record.feiTicketId,
+    feiTicketNo: record.feiTicketNo,
+    partName: record.partName || ticket?.partName || '未标记部位',
+    specialCraftType: getAllocationSpecialCraftDisplay(ticket, record),
+    receiverFactoryName: getAllocationSpecialCraftReceiverDisplay(ticket, record),
+    expectedReturnStatus: specialCraft.specialCraftReturnStatus,
+    pendingQty: record.pieceQty,
+  } satisfies SewingTaskAllocationSpecialCraftPendingItem))
+
+  const allocations: SewingTaskAllocation[] = [...grouped.values()].map((entries, index) => {
+    const first = entries[0]
+    const receiverFactory = pickSewingAllocationReceiverFactory(first.record.color || first.ticket?.garmentColor || '', index)
+    const allocatedItems: SewingTaskAllocationItem[] = entries.map(({ record, ticket, specialCraft }) => ({
+      allocationItemId: `ALLOC-ITEM-${record.inventoryRecordId}`,
+      feiTicketId: record.feiTicketId,
+      feiTicketNo: record.feiTicketNo,
+      inventoryRecordId: record.inventoryRecordId,
+      productionOrderNo: ticket?.productionOrderNo || record.productionOrderNo || record.productionOrderId,
+      cutOrderNo: ticket?.cutOrderNo || record.cutOrderNo || record.cutOrderId,
+      size: record.size || ticket?.skuSize || '未标记',
+      partCode: ticket?.partCode || record.partName,
+      partName: record.partName || ticket?.partName || '未标记部位',
+      pieceQty: record.pieceQty,
+      pieceSequenceLabel: record.pieceSequenceLabel || ticket?.pieceSequenceLabel || '按菲票追踪',
+      tempBagCode: record.tempBagCode,
+      inventoryLocation: `${record.warehouseArea}/${record.locationCode}`,
+      hasSpecialCraft: specialCraft.specialCraftRequired,
+      specialCraftReturnStatus: specialCraft.specialCraftReturnStatus,
+    }))
+    const relatedPendingItems = pendingSpecialCraftRecords
+      .filter(({ record }) => record.productionOrderId === first.record.productionOrderId && record.color === first.record.color)
+      .map(({ record, ticket, specialCraft }) => ({
+        feiTicketId: record.feiTicketId,
+        feiTicketNo: record.feiTicketNo,
+        partName: record.partName || ticket?.partName || '未标记部位',
+        specialCraftType: getAllocationSpecialCraftDisplay(ticket, record),
+        receiverFactoryName: getAllocationSpecialCraftReceiverDisplay(ticket, record),
+        expectedReturnStatus: specialCraft.specialCraftReturnStatus,
+        pendingQty: record.pieceQty,
+      } satisfies SewingTaskAllocationSpecialCraftPendingItem))
+    const allocationId = `SEW-ALLOC-${first.record.productionOrderId}-${first.record.color || 'COLOR'}-${String(index + 1).padStart(2, '0')}`
+    const allocationReservations = allocatedItems.map((item) => {
+      const reservation: InventoryReservation = {
+        reservationId: `RES-${allocationId}-${item.inventoryRecordId}`,
+        inventoryRecordId: item.inventoryRecordId,
+        sewingTaskId: allocationId,
+        feiTicketId: item.feiTicketId,
+        reservedQty: item.pieceQty,
+        unit: '片',
+        reservedAt: '2026-05-23 09:20:00',
+        reservedBy: '裁片仓分配员',
+        reservationStatus: '有效',
+      }
+      reservations.push(reservation)
+      return reservation
+    })
+    const shortageItems = buildAllocationShortageItems(allocatedItems, relatedPendingItems)
+    return {
+      sewingTaskId: allocationId,
+      sewingTaskNo: `CFRW-${first.ticket?.productionOrderNo || first.record.productionOrderNo || first.record.productionOrderId}-${String(index + 1).padStart(2, '0')}`,
+      sourceType: '裁床待交出仓库存',
+      sourceWarehouseId: 'cutting-wait-handover',
+      sourceWarehouseName: '裁床待交出仓',
+      productionOrderIds: unique(entries.map((entry) => entry.record.productionOrderId)),
+      cutOrderIds: unique(entries.map((entry) => entry.record.cutOrderId)),
+      spuCode: first.record.spuCode || first.ticket?.sourceTechPackSpuCode || first.ticket?.skuCode || '未关联 SPU',
+      styleName: first.ticket?.sourceTechPackSpuCode || first.ticket?.skuCode || first.record.spuCode || '未关联款式',
+      color: first.record.color || first.ticket?.garmentColor || '未标记颜色',
+      receiverFactoryId: receiverFactory.id,
+      receiverFactoryCode: receiverFactory.code || receiverFactory.id,
+      receiverFactoryName: receiverFactory.name.includes('车缝') ? receiverFactory.name : `${receiverFactory.name}车缝厂`,
+      allocationBasis: '基于裁床待交出仓已有菲票 / 裁片库存',
+      allocationStatus: '候选',
+      allocatedItems,
+      shortageItems,
+      specialCraftPendingItems: relatedPendingItems,
+      inventoryReservationIds: allocationReservations.map((reservation) => reservation.reservationId),
+      createdAt: '2026-05-23 09:20:00',
+      createdBy: '裁片仓分配员',
+      remark: '不齐套也可生成车缝任务候选；缺口在分配结果中展示。',
+    }
+  })
+
+  const availablePieceQty = allocations.reduce((total, allocation) => total + sum(allocation.allocatedItems.map((item) => item.pieceQty)), 0)
+  const reservedPieceQty = reservations.filter((reservation) => reservation.reservationStatus !== '已释放').reduce((total, reservation) => total + reservation.reservedQty, 0)
+  return {
+    allocations,
+    reservations,
+    releasedReservations,
+    excludedItems,
+    specialCraftPendingItems: globalSpecialCraftPendingItems,
+    availableInventoryCount: allocations.reduce((total, allocation) => total + allocation.allocatedItems.length, 0),
+    availablePieceQty,
+    reservedInventoryCount: reservations.filter((reservation) => reservation.reservationStatus !== '已释放').length,
+    reservedPieceQty,
+    shortageCount: allocations.reduce((total, allocation) => total + allocation.shortageItems.length, 0),
+    specialCraftPendingCount: pendingSpecialCraftRecords.length,
+    cancelledAllocationCount: releasedReservations.length,
+    ruleNotes: [
+      '车缝任务分配只读取裁床待交出仓已入仓菲票 / 裁片库存。',
+      '未入仓菲票不参与分配；已作废菲票不参与分配。',
+      '不齐套也可以生成车缝任务候选，分配后缺口作为结果展示。',
+      '特殊工艺未回仓的部位暂不参与本次可分配库存，其他部位仍可分配。',
+      '库存占用不等于交出；交出单和交出记录留给后续流程。',
+    ],
+  }
+}
+
+function buildPickingRequiredItems(allocation: SewingTaskAllocation): HandoverPickingRequiredItem[] {
+  const rows = new Map<string, HandoverPickingRequiredItem>()
+  const append = (input: { size: string; partCode: string; partName: string; qty: number }) => {
+    const key = `${input.size}|${input.partCode}|${input.partName}`
+    const current = rows.get(key)
+    if (current) {
+      current.requiredQty += input.qty
+      return
+    }
+    rows.set(key, {
+      size: input.size,
+      partCode: input.partCode,
+      partName: input.partName,
+      requiredQty: input.qty,
+      unit: '片',
+    })
+  }
+
+  allocation.allocatedItems.forEach((item) => {
+    append({
+      size: item.size,
+      partCode: item.partCode,
+      partName: item.partName,
+      qty: item.pieceQty,
+    })
+  })
+  allocation.shortageItems.forEach((item) => {
+    append({
+      size: item.size,
+      partCode: item.partCode,
+      partName: item.partName,
+      qty: item.shortageQty,
+    })
+  })
+  return [...rows.values()]
+}
+
+function buildPickingShortageItems(
+  requiredItems: HandoverPickingRequiredItem[],
+  pickedItems: HandoverPickingPickedItem[],
+): HandoverPickingShortageItem[] {
+  return requiredItems
+    .map((item) => {
+      const pickedQty = sum(
+        pickedItems
+          .filter((picked) => picked.checkResult === '通过' && picked.feiTicketNo && picked.sourceTempBagCode)
+          .filter((picked) => picked.size === item.size && picked.partCode === item.partCode && picked.partName === item.partName)
+          .map((picked) => picked.pickedQty),
+      )
+      const shortageQty = Math.max(0, item.requiredQty - pickedQty)
+      return {
+        size: item.size,
+        partCode: item.partCode,
+        partName: item.partName,
+        requiredQty: item.requiredQty,
+        pickedQty,
+        shortageQty,
+        shortageReason: shortageQty > 0 ? '本次部分分拣，缺口继续展示' : '已分拣',
+      } satisfies HandoverPickingShortageItem
+    })
+    .filter((item) => item.shortageQty > 0)
+}
+
+function buildPickingTempBagSources(items: HandoverPickingAllocatedInventoryItem[]): HandoverPickingTempBagSource[] {
+  const byBag = new Map<string, HandoverPickingTempBagSource>()
+  items.forEach((item) => {
+    const current = byBag.get(item.tempBagCode) || {
+      tempBagCode: item.tempBagCode,
+      feiTicketCount: 0,
+      pieceQty: 0,
+      locationCode: item.locationCode,
+    }
+    current.feiTicketCount += 1
+    current.pieceQty += item.pieceQty
+    byBag.set(item.tempBagCode, current)
+  })
+  return [...byBag.values()]
+}
+
+function buildTargetTransferBagUse(
+  allocation: SewingTaskAllocation,
+  pickingTaskId: string,
+  bagCode: string,
+  items: HandoverPickingPickedItem[],
+  sequence: number,
+): TargetTransferBagUse {
+  return {
+    bagUseId: `TB-USE-${pickingTaskId}-${String(sequence).padStart(2, '0')}`,
+    bagCode,
+    bagMasterId: `carrier-${bagCode.toLowerCase()}`,
+    useStage: '交出装袋',
+    sewingTaskId: allocation.sewingTaskId,
+    sewingTaskNo: allocation.sewingTaskNo,
+    pickingTaskId,
+    containedFeiTickets: items.map((item) => ({
+      feiTicketId: item.feiTicketId,
+      feiTicketNo: item.feiTicketNo,
+      pieceQty: item.pickedQty,
+    })),
+    totalPieceQty: sum(items.map((item) => item.pickedQty)),
+    packedAt: items[0]?.scannedAt || '2026-05-23 11:00:00',
+    packedBy: items[0]?.scannedBy || '裁片仓分拣员',
+    bagStatus: items.length ? '已装袋待交出' : '装袋中',
+  }
+}
+
+function buildPickedItemsForAllocation(
+  allocation: SewingTaskAllocation,
+  allocatedInventoryItems: HandoverPickingAllocatedInventoryItem[],
+  allocationIndex: number,
+): HandoverPickingPickedItem[] {
+  const selectedItems = allocationIndex === 0
+    ? allocatedInventoryItems.slice(0, 1)
+    : allocatedInventoryItems
+  return selectedItems.map((item, index) => ({
+    feiTicketId: item.feiTicketId,
+    feiTicketNo: item.feiTicketNo,
+    scannedAt: `2026-05-23 11:${String(10 + allocationIndex * 10 + index).padStart(2, '0')}:00`,
+    scannedBy: '裁片仓分拣员',
+    sourceTempBagCode: item.tempBagCode,
+    targetTransferBagCode:
+      allocationIndex === 0
+        ? 'BAG-PICK-001'
+        : index % 2 === 0
+          ? 'BAG-PICK-002'
+          : 'BAG-PICK-003',
+    size: item.size,
+    partCode: item.partCode,
+    partName: item.partName,
+    pickedQty: item.pieceQty,
+    checkResult: '通过',
+  }))
+}
+
+function buildTargetBagsForPickingTask(
+  allocation: SewingTaskAllocation,
+  pickingTaskId: string,
+  pickedItems: HandoverPickingPickedItem[],
+): TargetTransferBagUse[] {
+  const byBag = new Map<string, HandoverPickingPickedItem[]>()
+  pickedItems.forEach((item) => {
+    const rows = byBag.get(item.targetTransferBagCode) || []
+    rows.push(item)
+    byBag.set(item.targetTransferBagCode, rows)
+  })
+  return [...byBag.entries()].map(([bagCode, items], index) =>
+    buildTargetTransferBagUse(allocation, pickingTaskId, bagCode, items, index + 1),
+  )
+}
+
+function buildPickingScanChecks(tasks: HandoverPickingTask[], projection: SewingTaskAllocationProjection): HandoverPickingScanCheck[] {
+  const firstTask = tasks[0]
+  const secondTask = tasks[1]
+  const firstPicked = firstTask?.pickedItems[0]
+  const firstAllocated = firstTask?.allocatedInventoryItems[0]
+  const secondAllocated = secondTask?.allocatedInventoryItems[0]
+  const pendingSpecialCraft = projection.specialCraftPendingItems[0]
+  const checks: HandoverPickingScanCheck[] = []
+
+  if (firstTask) {
+    checks.push(
+      {
+        checkId: 'PICK-CHECK-TASK-OK',
+        pickingTaskNo: firstTask.pickingTaskNo,
+        scanObject: '配料任务码',
+        scannedValue: firstTask.pickingTaskNo,
+        checkResult: '通过',
+        reason: '已进入当前待交出仓裁片配料任务',
+        syncStatus: '已同步',
+      },
+      {
+        checkId: 'PICK-CHECK-SOURCE-BAG-OK',
+        pickingTaskNo: firstTask.pickingTaskNo,
+        scanObject: '来源入仓暂存袋',
+        scannedValue: firstTask.tempBagSources[0]?.tempBagCode || 'BAG-B-003',
+        checkResult: '通过',
+        reason: '来源袋内存在当前任务已分配菲票',
+        syncStatus: '已同步',
+      },
+    )
+  }
+  if (firstAllocated && firstTask) {
+    checks.push({
+      checkId: 'PICK-CHECK-FEI-OK',
+      pickingTaskNo: firstTask.pickingTaskNo,
+      scanObject: '菲票',
+      scannedValue: firstAllocated.feiTicketNo,
+      checkResult: '通过',
+      reason: '菲票属于当前车缝任务分配结果',
+      syncStatus: '已同步',
+    })
+  }
+  if (secondAllocated && firstTask) {
+    checks.push({
+      checkId: 'PICK-CHECK-FEI-WRONG-TASK',
+      pickingTaskNo: firstTask.pickingTaskNo,
+      scanObject: '菲票',
+      scannedValue: secondAllocated.feiTicketNo,
+      checkResult: '拒绝',
+      reason: '菲票不属于当前配料任务',
+      syncStatus: '已同步',
+    })
+  }
+  if (firstTask) {
+    checks.push(
+      {
+        checkId: 'PICK-CHECK-FEI-VOID',
+        pickingTaskNo: firstTask.pickingTaskNo,
+        scanObject: '菲票',
+        scannedValue: 'FT-VOID-PICKING-DEMO',
+        checkResult: '拒绝',
+        reason: '作废菲票不能分拣',
+        syncStatus: '已同步',
+      },
+      {
+        checkId: 'PICK-CHECK-BAG-CONFLICT',
+        pickingTaskNo: firstTask.pickingTaskNo,
+        scanObject: '目标中转袋',
+        scannedValue: 'BAG-PICK-LOCKED-001',
+        checkResult: '拒绝',
+        reason: '目标中转袋已绑定其他车缝任务',
+        syncStatus: '已同步',
+      },
+      {
+        checkId: 'PICK-CHECK-FEI-OTHER-PICKED',
+        pickingTaskNo: firstTask.pickingTaskNo,
+        scanObject: '菲票',
+        scannedValue: 'FT-OTHER-TASK-PICKED-DEMO',
+        checkResult: '拒绝',
+        reason: '菲票已被其他配料任务分拣',
+        syncStatus: '已同步',
+      },
+    )
+  }
+  if (pendingSpecialCraft && firstTask) {
+    checks.push({
+      checkId: 'PICK-CHECK-SPECIAL-PENDING',
+      pickingTaskNo: firstTask.pickingTaskNo,
+      scanObject: '菲票',
+      scannedValue: pendingSpecialCraft.feiTicketNo || pendingSpecialCraft.feiTicketId,
+      checkResult: '拒绝',
+      reason: '特殊工艺未回仓，暂不分拣给车缝任务',
+      syncStatus: '已同步',
+    })
+  }
+  if (firstPicked && firstTask) {
+    checks.push(
+      {
+        checkId: 'PICK-CHECK-DUPLICATE',
+        pickingTaskNo: firstTask.pickingTaskNo,
+        scanObject: '菲票',
+        scannedValue: firstPicked.feiTicketNo,
+        checkResult: '提示',
+        reason: '菲票已在当前任务完成分拣，避免重复分拣',
+        syncStatus: '已同步',
+      },
+      {
+        checkId: 'PICK-CHECK-SYNC-FAILED',
+        pickingTaskNo: firstTask.pickingTaskNo,
+        scanObject: '目标中转袋',
+        scannedValue: firstPicked.targetTransferBagCode,
+        checkResult: '提示',
+        reason: 'PDA 分拣提交已记录，等待重新同步',
+        syncStatus: '同步失败',
+      },
+    )
+  }
+  return checks
+}
+
+export function buildHandoverPickingTaskProjectionFromAllocationProjection(
+  allocationProjection: SewingTaskAllocationProjection,
+): HandoverPickingTaskProjection {
+  const tasks: HandoverPickingTask[] = allocationProjection.allocations.map((allocation, index) => {
+    const pickingTaskId = `PICK-${allocation.sewingTaskId}`
+    const requiredItems = buildPickingRequiredItems(allocation)
+    const allocatedInventoryItems = allocation.allocatedItems.map((item) => ({
+      inventoryRecordId: item.inventoryRecordId,
+      feiTicketId: item.feiTicketId,
+      feiTicketNo: item.feiTicketNo,
+      tempBagCode: item.tempBagCode,
+      locationCode: item.inventoryLocation,
+      size: item.size,
+      partCode: item.partCode,
+      partName: item.partName,
+      pieceQty: item.pieceQty,
+      pieceSequenceLabel: item.pieceSequenceLabel,
+      specialCraftReturnStatus: item.specialCraftReturnStatus,
+    } satisfies HandoverPickingAllocatedInventoryItem))
+    const pickedItems = buildPickedItemsForAllocation(allocation, allocatedInventoryItems, index)
+    const shortageItems = buildPickingShortageItems(requiredItems, pickedItems)
+    const targetTransferBags = buildTargetBagsForPickingTask(allocation, pickingTaskId, pickedItems)
+    const taskStatus: HandoverPickingTaskStatus =
+      targetTransferBags.length > 1 && shortageItems.length === 0
+        ? '已装袋待交出'
+        : pickedItems.length > 0
+          ? '分拣中'
+          : '待分拣'
+
+    return {
+      pickingTaskId,
+      pickingTaskNo: `CPT-${allocation.sewingTaskNo}`,
+      sewingTaskId: allocation.sewingTaskId,
+      sewingTaskNo: allocation.sewingTaskNo,
+      receiverFactoryId: allocation.receiverFactoryId,
+      receiverFactoryCode: allocation.receiverFactoryCode,
+      receiverFactoryName: allocation.receiverFactoryName,
+      sourceWarehouseId: allocation.sourceWarehouseId,
+      sourceWarehouseName: allocation.sourceWarehouseName,
+      taskStatus,
+      requiredItems,
+      allocatedInventoryItems,
+      pickedItems,
+      shortageItems,
+      tempBagSources: buildPickingTempBagSources(allocatedInventoryItems),
+      targetTransferBags,
+      createdAt: allocation.createdAt,
+      createdBy: allocation.createdBy,
+      updatedAt: index === 0 ? '2026-05-23 11:18:00' : '2026-05-23 11:38:00',
+    }
+  })
+  const targetTransferBags = tasks.flatMap((task) => task.targetTransferBags)
+  const scanChecks = buildPickingScanChecks(tasks, allocationProjection)
+  return {
+    tasks,
+    targetTransferBags,
+    scanChecks,
+    taskCount: tasks.length,
+    pendingCount: tasks.filter((task) => task.taskStatus === '待分拣').length,
+    sortingCount: tasks.filter((task) => task.taskStatus === '分拣中' || task.taskStatus === '已分拣待装袋').length,
+    packedCount: tasks.filter((task) => task.taskStatus === '已装袋待交出').length,
+    shortageCount: tasks.reduce((total, task) => total + task.shortageItems.length, 0),
+    targetTransferBagCount: targetTransferBags.length,
+    syncFailedCount: scanChecks.filter((check) => check.syncStatus === '同步失败').length,
+    ruleNotes: [
+      '待交出仓裁片配料只从车缝任务分配后的菲票 / 裁片库存拣选。',
+      '这里是裁片配料，不是前段中转仓给裁床准备面料。',
+      '入仓暂存袋可混装；二次分拣开始按车缝任务组织裁片。',
+      '交出装袋阶段一个中转袋只对应一个车缝任务，一个车缝任务可对应多个中转袋。',
+      '允许部分分拣提交，缺口作为分拣结果展示。',
+    ],
+  }
+}
+
 export function createCuttingSewingDispatchOrder(input: CreateDispatchOrderInput): CuttingSewingDispatchOrder {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const productionOrder = getProductionOrder(input.productionOrderId)
@@ -1402,7 +2261,8 @@ export function scanFeiTicketIntoTransferBag(input: {
           : specialCraft.specialCraftReturnStatus === '异议中'
             ? '特殊工艺异议中'
             : '特殊工艺未回仓',
-      validationMessage: '特殊工艺未回仓，加入本次交出后将形成缺口',
+      validationMessage: '特殊工艺未回仓，暂不加入本次车缝交出；不影响其他已裁出部位提交交出记录',
+      blocking: false,
     }
     storeRef.validationResults.push(result)
     return { updatedTransferBag: clone(bag), validationResult: clone(result) }

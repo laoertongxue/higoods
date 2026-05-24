@@ -1,0 +1,106 @@
+import { canFactorySeeSpecialCraftOperation, getSpecialCraftOperationByCraftCode, getSpecialCraftOperationById, listSpecialCraftOperationDefinitions } from './special-craft-operations.ts';
+import { getSpecialCraftTaskOrderById, getSpecialCraftTaskWorkOrderById, listSpecialCraftTaskOrders, listSpecialCraftTaskWorkOrders, } from './special-craft-task-orders.ts';
+const SPECIAL_CRAFT_TEXT_KEYWORDS = ['特殊工艺', '辅助工艺', '特种工艺', '绣花', '打揽', '打条', '压褶', '烫画', '直喷', '贝壳绣', '曲牙绣', '一字贝绣', '模板机', '激光开袋', '特种车缝', '橡筋'];
+function normalizeValue(value) {
+    return String(value ?? '').trim();
+}
+function uniqueValues(values) {
+    return [...new Set(values.map((value) => normalizeValue(value)).filter(Boolean))];
+}
+function getTaskRefs(task) {
+    return uniqueValues([
+        task.taskId,
+        task.taskNo,
+        task.rootTaskNo,
+        task.sourceTaskId,
+        task.sourceTaskNo,
+        task.taskOrderId,
+        task.taskOrderNo,
+        task.workOrderId,
+        task.workOrderNo,
+    ]);
+}
+function findTaskOrderOperation(task) {
+    for (const ref of getTaskRefs(task)) {
+        const directOrder = getSpecialCraftTaskOrderById(ref);
+        if (directOrder)
+            return getSpecialCraftOperationById(directOrder.operationId) ?? null;
+        const workOrder = getSpecialCraftTaskWorkOrderById(ref);
+        if (workOrder)
+            return getSpecialCraftOperationById(workOrder.operationId) ?? null;
+    }
+    const refs = new Set(getTaskRefs(task));
+    const taskOrder = listSpecialCraftTaskOrders().find((item) => refs.has(item.taskOrderId)
+        || refs.has(item.taskOrderNo)
+        || refs.has(item.sourceTaskNo)
+        || refs.has(item.sourceTaskId || '')
+        || item.workOrderIds?.some((workOrderId) => refs.has(workOrderId)));
+    if (taskOrder)
+        return getSpecialCraftOperationById(taskOrder.operationId) ?? null;
+    const workOrder = listSpecialCraftTaskWorkOrders().find((item) => refs.has(item.workOrderId)
+        || refs.has(item.workOrderNo)
+        || refs.has(item.taskOrderId)
+        || refs.has(item.taskOrderNo));
+    if (workOrder)
+        return getSpecialCraftOperationById(workOrder.operationId) ?? null;
+    return null;
+}
+function findTextMatchedOperation(task) {
+    if (task.operationId) {
+        const byId = getSpecialCraftOperationById(task.operationId);
+        if (byId)
+            return byId;
+    }
+    if (task.craftCode) {
+        const byCraftCode = getSpecialCraftOperationByCraftCode(task.craftCode);
+        if (byCraftCode)
+            return byCraftCode;
+    }
+    const text = uniqueValues([
+        task.operationName,
+        task.craftName,
+        task.processName,
+        task.processNameZh,
+        task.processBusinessName,
+        task.processBusinessCode,
+        task.processCode,
+    ]).join(' ');
+    if (!text)
+        return null;
+    return listSpecialCraftOperationDefinitions().find((operation) => text.includes(operation.operationName)
+        || text.includes(operation.craftName)
+        || text.includes(operation.craftCode)
+        || text.includes(operation.processCode)) ?? null;
+}
+export function resolveSpecialCraftOperationForPdaTask(task) {
+    if (!task)
+        return null;
+    return findTaskOrderOperation(task) ?? findTextMatchedOperation(task);
+}
+export function isSpecialCraftPdaTask(task) {
+    if (!task)
+        return false;
+    if (resolveSpecialCraftOperationForPdaTask(task))
+        return true;
+    const text = uniqueValues([
+        task.processCode,
+        task.processBusinessCode,
+        task.processNameZh,
+        task.processBusinessName,
+        task.craftName,
+    ]).join(' ');
+    return SPECIAL_CRAFT_TEXT_KEYWORDS.some((keyword) => text.includes(keyword));
+}
+export function canFactoryAccessSpecialCraftPdaTask(factoryId, task) {
+    if (!task)
+        return false;
+    if (!isSpecialCraftPdaTask(task))
+        return true;
+    const operation = resolveSpecialCraftOperationForPdaTask(task);
+    if (!operation)
+        return false;
+    return canFactorySeeSpecialCraftOperation(factoryId, operation.operationId);
+}
+export function filterSpecialCraftPdaTasksForFactory(tasks, factoryId) {
+    return tasks.filter((task) => canFactoryAccessSpecialCraftPdaTask(factoryId, task));
+}

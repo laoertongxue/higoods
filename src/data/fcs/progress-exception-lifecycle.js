@@ -1,0 +1,176 @@
+import { getDefaultSubCategoryKeyFromReason } from './progress-exception-taxonomy.ts';
+export const CLOSE_REASON_LABEL = {
+    RESOLVED_DONE: '已解决后关闭',
+    DUPLICATE: '重复异常',
+    FALSE_ALARM: '误报',
+    OBJECT_INVALID: '业务对象失效',
+    MERGED: '并入其他异常',
+};
+export const RESOLVE_RULE_LABEL = {
+    ASSIGNMENT_TARGET_SECURED: '任务已落实承接方',
+    EXEC_START_CONFIRMED: '工厂已确认开工',
+    EXEC_MILESTONE_REPORTED: '关键节点已上报',
+    EXEC_RESUMED: '生产暂停已恢复执行',
+    EXEC_ALLOW_CONTINUE: '平台允许继续',
+    TECH_PACK_RELEASED: '技术包已可用',
+    MATERIAL_SATISFIED: '领料需求已满足',
+    HANDOUT_ISSUE_CLOSED: '交出差异/异议已闭环',
+};
+export const RESOLVE_SOURCE_LABEL = {
+    SYSTEM: '系统',
+    USER: '人工',
+};
+function nowTimestamp(date = new Date()) {
+    return date.toISOString().replace('T', ' ').slice(0, 19);
+}
+function buildSequentialEventId(prefix, caseId, nextIndex) {
+    return `${prefix}-${caseId}-${String(nextIndex).padStart(3, '0')}`;
+}
+function deriveSubCategoryKey(exceptionCase) {
+    return exceptionCase.subCategoryKey || getDefaultSubCategoryKeyFromReason(exceptionCase.reasonCode) || 'EXEC_BLOCK_OTHER';
+}
+const AUTO_CLOSE_SUB_CATEGORY_SET = new Set([
+    'EXEC_START_OVERDUE',
+    'EXEC_MILESTONE_NOT_REPORTED',
+    'TECH_PACK_NOT_RELEASED',
+    'TECH_PACK_MISSING',
+    'TECH_PACK_PENDING_CONFIRM',
+    'MATERIAL_NOT_READY',
+    'MATERIAL_PREP_PENDING',
+    'MATERIAL_QTY_SHORT',
+    'MATERIAL_MULTI_OPEN',
+    'HANDOUT_DIFF',
+    'HANDOUT_OBJECTION',
+    'HANDOUT_MIXED',
+    'HANDOUT_DAMAGE',
+    'HANDOUT_PENDING_CHECK',
+]);
+export function appendCaseAction(exceptionCase, payload) {
+    const at = payload.at || nowTimestamp();
+    const action = {
+        id: payload.id || buildSequentialEventId('EA', exceptionCase.caseId, exceptionCase.actions.length + 1),
+        actionType: payload.actionType,
+        actionDetail: payload.actionDetail,
+        at,
+        by: payload.by,
+    };
+    return {
+        ...exceptionCase,
+        actions: [...exceptionCase.actions, action],
+    };
+}
+export function appendCaseAuditLog(exceptionCase, payload) {
+    const at = payload.at || nowTimestamp();
+    const audit = {
+        id: payload.id || buildSequentialEventId('EAL', exceptionCase.caseId, exceptionCase.auditLogs.length + 1),
+        action: payload.action,
+        detail: payload.detail,
+        at,
+        by: payload.by,
+    };
+    return {
+        ...exceptionCase,
+        auditLogs: [...exceptionCase.auditLogs, audit],
+    };
+}
+export function appendCaseStatusChangeAudit(exceptionCase, fromStatus, toStatus, at, by) {
+    if (fromStatus === toStatus)
+        return exceptionCase;
+    return appendCaseAuditLog(exceptionCase, {
+        action: 'STATUS_CHANGE',
+        detail: `${fromStatus} -> ${toStatus}`,
+        at,
+        by,
+    });
+}
+export function markCaseResolved(exceptionCase, payload) {
+    if (exceptionCase.caseStatus === 'CLOSED')
+        return exceptionCase;
+    const at = payload.at || nowTimestamp();
+    const nextStatus = 'RESOLVED';
+    const actionType = payload.actionType || (payload.source === 'SYSTEM' ? 'AUTO_RESOLVE' : 'RESOLVE');
+    const auditAction = payload.auditAction || (payload.source === 'SYSTEM' ? 'AUTO_RESOLVE' : 'RESOLVE');
+    let updated = {
+        ...exceptionCase,
+        caseStatus: nextStatus,
+        updatedAt: at,
+        resolvedAt: at,
+        resolvedBy: payload.by,
+        resolvedRuleCode: payload.ruleCode,
+        resolvedSource: payload.source,
+        resolvedDetail: payload.detail,
+    };
+    updated = appendCaseAction(updated, {
+        actionType,
+        actionDetail: payload.detail,
+        at,
+        by: payload.by,
+    });
+    updated = appendCaseAuditLog(updated, {
+        action: auditAction,
+        detail: payload.detail,
+        at,
+        by: payload.by,
+    });
+    updated = appendCaseStatusChangeAudit(updated, exceptionCase.caseStatus, nextStatus, at, payload.by);
+    return updated;
+}
+export function markCaseClosed(exceptionCase, payload) {
+    const at = payload.at || nowTimestamp();
+    const nextStatus = 'CLOSED';
+    const actionType = payload.actionType || 'CLOSE_EXCEPTION';
+    const auditAction = payload.auditAction || 'CLOSE_EXCEPTION';
+    let updated = {
+        ...exceptionCase,
+        caseStatus: nextStatus,
+        updatedAt: at,
+        closedAt: at,
+        closedBy: payload.by,
+        closeReasonCode: payload.reasonCode,
+        mergedCaseId: payload.mergedCaseId || undefined,
+        closeDetail: payload.detail,
+        closeRemark: payload.detail,
+    };
+    updated = appendCaseAction(updated, {
+        actionType,
+        actionDetail: payload.detail,
+        at,
+        by: payload.by,
+    });
+    updated = appendCaseAuditLog(updated, {
+        action: auditAction,
+        detail: payload.detail,
+        at,
+        by: payload.by,
+    });
+    updated = appendCaseStatusChangeAudit(updated, exceptionCase.caseStatus, nextStatus, at, payload.by);
+    return updated;
+}
+export function getAutoCloseDecision(exceptionCase) {
+    if (exceptionCase.caseStatus !== 'RESOLVED') {
+        return { shouldClose: false };
+    }
+    const subCategoryKey = deriveSubCategoryKey(exceptionCase);
+    if (!AUTO_CLOSE_SUB_CATEGORY_SET.has(subCategoryKey)) {
+        return { shouldClose: false };
+    }
+    const detail = `系统自动关闭：${exceptionCase.resolvedDetail || '满足自动关闭条件，已完成处理'}`;
+    return {
+        shouldClose: true,
+        reasonCode: 'RESOLVED_DONE',
+        detail,
+    };
+}
+export function maybeAutoCloseResolvedCase(exceptionCase, by = '系统') {
+    const decision = getAutoCloseDecision(exceptionCase);
+    if (!decision.shouldClose || !decision.reasonCode || !decision.detail) {
+        return exceptionCase;
+    }
+    return markCaseClosed(exceptionCase, {
+        by,
+        reasonCode: decision.reasonCode,
+        detail: decision.detail,
+        actionType: 'AUTO_CLOSE',
+        auditAction: 'AUTO_CLOSE',
+    });
+}

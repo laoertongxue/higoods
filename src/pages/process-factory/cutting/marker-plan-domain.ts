@@ -8,6 +8,7 @@ export type MarkerPlanModeKey = 'normal' | 'high_low' | 'fold_normal' | 'fold_hi
 export type MarkerBedModeKey = MarkerPlanModeKey
 export type MarkerPlanContextType = 'cut-order' | 'marker-plan-ref'
 export type MarkerPlanTabKey = 'basic' | 'explosion' | 'layout'
+/** @deprecated 历史兼容字段。新建唛架方案只从可排唛架裁片单进入，页面不再展示或选择该字段。 */
 export type MarkerSchemeSourceType = 'cut-order' | 'marker-plan-ref' | 'mixed'
 
 export type MarkerPlanStatusKey =
@@ -269,6 +270,7 @@ export interface MarkerScheme {
   schemeId: string
   schemeNo: string
   schemeName: string
+  /** @deprecated 历史兼容字段。新流程以 sourceCutOrderIds 追溯来源裁片单。 */
   sourceType: MarkerSchemeSourceType
   sourceCutOrderIds: string[]
   sourceCutOrderNos: string[]
@@ -378,7 +380,31 @@ export interface MarkerPlan {
   modeDetailLines: MarkerModeDetailLine[]
   pieceExplosionRows: MarkerPieceExplosionRow[]
   imageRecords: MarkerImageRecord[]
+  sourceCutOrderLockRows?: MarkerPlanSourceCutOrderLockRow[]
   lastVisitedTab?: MarkerPlanTabKey
+}
+
+export interface MarkerPlanSourceCutOrderLockRow {
+  cutOrderId: string
+  cutOrderNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  spuCode: string
+  styleCode: string
+  materialSku: string
+  materialName: string
+  materialColor: string
+  materialAlias: string
+  materialImageUrl: string
+  patternFileId: string
+  patternFileName: string
+  patternVersion: string
+  effectiveWidthText: string
+  piecePartNames: string[]
+  availableQty: number
+  lockedQty: number
+  unit: string
+  historyCombinationGroup: string
 }
 
 export interface MarkerPlanStatusMeta<Key extends string> {
@@ -459,7 +485,7 @@ export const markerPlanModeMeta: Record<MarkerPlanModeKey, MarkerPlanStatusMeta<
     key: 'fold_normal',
     label: '对折普通模式',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    helperText: '按对折普通模式维护需求层数和实际铺布层数。',
+    helperText: '按对折普通模式维护计划层数和对折门幅。',
   },
   fold_high_low: {
     key: 'fold_high_low',

@@ -1,4 +1,3 @@
-import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui/index.ts'
 import { normalizeSampleWarehouseWritebackInput } from '../../../data/fcs/cutting/warehouse-writeback-inputs.ts'
 import { submitSampleWarehouseWriteback } from '../../../domain/cutting-warehouse-writeback/bridge.ts'
 import { appStore } from '../../../state/store.ts'
@@ -27,11 +26,10 @@ import {
   buildWarehouseRouteWithQuery,
   getWarehouseSearchParams,
 } from './warehouse-shared.ts'
-import { renderMaterialIdentityBlock } from './material-identity.ts'
 
 type FilterField = 'keyword' | 'status' | 'locationType' | 'holder'
 type DetailField = 'locationType' | 'holder' | 'note'
-type SampleWarehouseTabKey = 'inventory' | 'circulation' | 'exception'
+type SampleWarehouseTabKey = 'cutting-use' | 'pending-return' | 'exception' | 'history'
 
 interface SampleWarehousePageState {
   filters: SampleWarehouseFilters
@@ -85,23 +83,26 @@ function getFilteredItems() {
 
 function getActiveTab(): SampleWarehouseTabKey {
   const raw = getWarehouseSearchParams().get('tab')
-  if (raw === 'circulation' || raw === 'exception') return raw
-  return 'inventory'
+  if (raw === 'pending-return' || raw === 'exception' || raw === 'history') return raw
+  return 'cutting-use'
 }
 
 function buildSampleWarehouseTabPath(tab: SampleWarehouseTabKey): string {
   const basePath = getCanonicalCuttingPath('sample-warehouse')
-  return tab === 'inventory' ? basePath : `${basePath}?tab=${encodeURIComponent(tab)}`
+  return tab === 'cutting-use' ? basePath : `${basePath}?tab=${encodeURIComponent(tab)}`
 }
 
 function filterItemsByTab(items: SampleWarehouseItem[], tab: SampleWarehouseTabKey): SampleWarehouseItem[] {
-  if (tab === 'circulation') {
-    return items.filter((item) => ['BORROWED', 'IN_FACTORY', 'INSPECTION', 'PENDING_RETURN'].includes(item.status.key))
+  if (tab === 'pending-return') {
+    return items.filter((item) => item.currentStatus === '待归还' || item.status.key === 'PENDING_RETURN')
   }
   if (tab === 'exception') {
-    return items.filter((item) => ['INSPECTION', 'PENDING_RETURN'].includes(item.status.key))
+    return items.filter((item) => item.abnormalFlag)
   }
-  return items.filter((item) => ['AVAILABLE', 'IN_FACTORY'].includes(item.status.key))
+  if (tab === 'history') {
+    return items.filter((item) => item.flowRecords.length > 0)
+  }
+  return items.filter((item) => item.currentStatus === '裁剪中使用' || item.currentUsageType === '裁床裁剪依据')
 }
 
 function renderTabButton(tab: SampleWarehouseTabKey, label: string, count: number): string {
@@ -119,25 +120,18 @@ function renderTabButton(tab: SampleWarehouseTabKey, label: string, count: numbe
 }
 
 function renderTabSection(items: SampleWarehouseItem[]): string {
-  const inventoryCount = items.filter((item) => ['AVAILABLE', 'IN_FACTORY'].includes(item.status.key)).length
-  const circulationCount = items.filter((item) => ['BORROWED', 'IN_FACTORY', 'INSPECTION', 'PENDING_RETURN'].includes(item.status.key)).length
-  const exceptionCount = items.filter((item) => ['INSPECTION', 'PENDING_RETURN'].includes(item.status.key)).length
+  const cuttingUseCount = items.filter((item) => item.currentStatus === '裁剪中使用' || item.currentUsageType === '裁床裁剪依据').length
+  const pendingReturnCount = items.filter((item) => item.currentStatus === '待归还' || item.status.key === 'PENDING_RETURN').length
+  const exceptionCount = items.filter((item) => item.abnormalFlag).length
+  const historyCount = items.filter((item) => item.flowRecords.length > 0).length
 
   return `
     <section class="rounded-xl border bg-card p-4">
       <div class="flex flex-wrap gap-2">
-        ${renderTabButton('inventory', '样衣库存', inventoryCount)}
-        ${renderTabButton('circulation', '样衣流转', circulationCount)}
-        ${renderTabButton('exception', '样衣异常 / 待归还', exceptionCount)}
-      </div>
-      <div class="mt-4 rounded-lg border border-dashed bg-muted/20 p-3 text-sm text-muted-foreground">
-        ${
-          getActiveTab() === 'inventory'
-            ? '聚焦在仓样衣与在工厂样衣，借出、归还和样衣详情继续通过列表行操作或详情抽屉处理。'
-            : getActiveTab() === 'circulation'
-              ? '聚焦样衣借出、工厂流转和抽检记录，调用记录、归还操作和样衣详情继续通过列表行操作或详情抽屉处理。'
-              : '聚焦待归还与抽检中的样衣，差异说明、归还确认和盘点记录继续通过列表行操作或详情抽屉处理。'
-        }
+        ${renderTabButton('cutting-use', '裁剪中使用样衣', cuttingUseCount)}
+        ${renderTabButton('pending-return', '待归还样衣', pendingReturnCount)}
+        ${renderTabButton('exception', '异常样衣', exceptionCount)}
+        ${renderTabButton('history', '历史流转记录', historyCount)}
       </div>
     </section>
   `
@@ -191,7 +185,7 @@ function renderHeaderActions(): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-cut-orders-index">查看相关裁片单 / 款号</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-summary-index">查看裁剪总结</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-summary-index">查看裁剪结果核查</button>
     </div>
   `
 }
@@ -223,9 +217,9 @@ function renderStatsCards(): string {
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       ${renderCompactKpiCard('样衣总数', summary.totalSampleCount, '当前样衣主档数量', 'text-slate-900')}
-      ${renderCompactKpiCard('在仓数', summary.availableCount, '可再次调用的样衣', 'text-emerald-600')}
-      ${renderCompactKpiCard('借出中数', summary.borrowedCount, '在裁床 / 工厂流转中', 'text-sky-600')}
-      ${renderCompactKpiCard('抽检中数', summary.inInspectionCount, '等待抽检或回流确认', 'text-amber-600')}
+      ${renderCompactKpiCard('裁剪中使用', summary.inCuttingUseCount, '裁床正在调用的样衣', 'text-blue-600')}
+      ${renderCompactKpiCard('待归还', summary.pendingReturnCount, '需跟进回仓的样衣', 'text-amber-600')}
+      ${renderCompactKpiCard('异常样衣', summary.abnormalCount, '进入裁剪结果核查', 'text-rose-600')}
       ${renderCompactKpiCard('流转记录数', summary.flowRecordCount, '所有样衣流转留痕', 'text-violet-600')}
     </section>
   `
@@ -278,7 +272,7 @@ function renderFilterArea(): string {
       </label>
       ${renderFilterSelect('状态筛选', 'status', state.filters.status, [
         { value: 'ALL', label: '全部' },
-        { value: 'AVAILABLE', label: '在仓' },
+        { value: 'AVAILABLE', label: '在库' },
         { value: 'BORROWED', label: '借出中' },
         { value: 'IN_FACTORY', label: '在工厂' },
         { value: 'INSPECTION', label: '抽检中' },
@@ -308,25 +302,25 @@ function renderFilterArea(): string {
 function renderTable(items: SampleWarehouseItem[]): string {
   if (!items.length) {
     const emptyText =
-      getActiveTab() === 'inventory'
-        ? '当前筛选条件下暂无样衣库存记录。'
-        : getActiveTab() === 'circulation'
-          ? '当前筛选条件下暂无样衣流转记录。'
-          : '当前筛选条件下暂无样衣异常 / 待归还记录。'
+      getActiveTab() === 'cutting-use'
+        ? '当前筛选条件下暂无裁剪中使用样衣。'
+        : getActiveTab() === 'pending-return'
+          ? '当前筛选条件下暂无待归还样衣。'
+          : getActiveTab() === 'exception'
+            ? '当前筛选条件下暂无异常样衣。'
+            : '当前筛选条件下暂无历史流转记录。'
     return `<section class="rounded-lg border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</section>`
   }
 
   return renderStickyTableScroller(`
-    <table class="min-w-full text-sm">
+    <table class="w-full text-sm">
       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
         <tr>
-          <th class="px-4 py-3 text-left">样衣编号</th>
-          <th class="px-4 py-3 text-left">面料 / 款号</th>
-          <th class="px-4 py-3 text-left">颜色 / 尺码</th>
+          <th class="px-4 py-3 text-left">样衣</th>
+          <th class="px-4 py-3 text-left">关联</th>
           <th class="px-4 py-3 text-left">当前状态</th>
-          <th class="px-4 py-3 text-left">当前位置</th>
-          <th class="px-4 py-3 text-left">当前持有人</th>
-          <th class="px-4 py-3 text-left">最近流转时间</th>
+          <th class="px-4 py-3 text-left">异常</th>
+          <th class="px-4 py-3 text-left">流转</th>
           <th class="px-4 py-3 text-left">操作</th>
         </tr>
       </thead>
@@ -338,22 +332,41 @@ function renderTable(items: SampleWarehouseItem[]): string {
                 <td class="px-4 py-3">
                   <button type="button" class="font-medium text-blue-700 hover:underline" data-sample-warehouse-action="open-detail" data-item-id="${escapeHtml(item.sampleItemId)}">${escapeHtml(item.sampleNo)}</button>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.sampleName)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml([item.styleCode || item.spuCode, item.color, item.size, item.sampleVersion].filter(Boolean).join(' / '))}</div>
                 </td>
                 <td class="px-4 py-3">
-                  ${renderMaterialIdentityBlock(item, { compact: true })}
-                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.styleCode || item.spuCode || '待补款号')}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.relatedProductionOrderNo)}</div>
+                  <div class="font-medium text-foreground">${escapeHtml(item.relatedProductionOrderNo || '生产单待补')}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.relatedCutOrderNo || '裁片单待补')}</div>
+                  <div class="mt-1 line-clamp-2 text-xs text-muted-foreground">${escapeHtml([item.relatedPatternFileNames[0], item.relatedPatternVersions[0]].filter(Boolean).join(' / ') || '纸样待补')}</div>
+                  <div class="mt-1 line-clamp-1 text-xs text-muted-foreground">${escapeHtml(item.relatedMarkerPlanNos[0] || '唛架方案待关联')}</div>
                 </td>
-                <td class="px-4 py-3">${escapeHtml(`${item.color} / ${item.size}`)}</td>
-                <td class="px-4 py-3">${renderTag(item.status.label, item.status.className)}</td>
-                <td class="px-4 py-3">${escapeHtml(item.currentLocationName)}</td>
-                <td class="px-4 py-3">${escapeHtml(item.currentHolder)}</td>
-                <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatDateTime(item.lastMovedAt))}</td>
+                <td class="px-4 py-3">
+                  ${renderTag(item.currentStatus, item.status.className)}
+                  <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(item.currentLocation)} / ${escapeHtml(item.currentHolder)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.currentUsageType)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">预计归还：${escapeHtml(item.expectedReturnAt || '按现场使用结束')}</div>
+                </td>
+                <td class="px-4 py-3">
+                  ${
+                    item.abnormalFlag
+                      ? `<div class="space-y-1">${item.abnormalItems
+                          .slice(0, 2)
+                          .map((abnormal) => `<div>${renderTag(abnormal.abnormalType, 'bg-rose-100 text-rose-700 border border-rose-200')}<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(abnormal.handlingStatus)}</div></div>`)
+                          .join('')}</div>`
+                      : '<span class="text-xs text-muted-foreground">无异常</span>'
+                  }
+                </td>
+                <td class="px-4 py-3">
+                  <div class="text-xs text-muted-foreground">最近：${escapeHtml(formatDateTime(item.lastMovedAt))}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">记录 ${escapeHtml(String(item.flowRecords.length))} 条</div>
+                  <div class="mt-1 text-xs text-muted-foreground">操作人：${escapeHtml(item.latestActionBy)}</div>
+                </td>
                 <td class="px-4 py-3">
                   <div class="flex flex-wrap gap-2">
-                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="open-detail" data-item-id="${escapeHtml(item.sampleItemId)}">查看详情</button>
-                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="borrow" data-item-id="${escapeHtml(item.sampleItemId)}">借出</button>
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="open-detail" data-item-id="${escapeHtml(item.sampleItemId)}">查看</button>
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="borrow" data-item-id="${escapeHtml(item.sampleItemId)}">登记使用</button>
                     <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="return" data-item-id="${escapeHtml(item.sampleItemId)}">归还</button>
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="mark-inspection" data-item-id="${escapeHtml(item.sampleItemId)}">登记异常</button>
                   </div>
                 </td>
               </tr>
@@ -365,27 +378,29 @@ function renderTable(items: SampleWarehouseItem[]): string {
   `)
 }
 
-function renderDetailDrawer(): string {
+function renderDetailPanel(): string {
   const item = getActiveItem()
   if (!item) return ''
 
-  return uiDetailDrawer(
-    {
-      title: `样衣详情 · ${item.sampleNo}`,
-      subtitle: '',
-      closeAction: { prefix: 'sample-warehouse', action: 'close-detail' },
-      width: 'lg',
-    },
-    `
-      <div class="space-y-6 text-sm">
+  return `
+    <section class="rounded-xl border bg-card text-sm">
+      <div class="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
+        <div>
+          <h2 class="text-base font-semibold text-foreground">样衣详情 · ${escapeHtml(item.sampleNo)}</h2>
+          <p class="mt-1 text-xs text-muted-foreground">样衣状态只用于裁床参考和流转追溯，不改变裁片单主状态。</p>
+        </div>
+        <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="close-detail">关闭详情</button>
+      </div>
+      <div class="space-y-6 p-4">
         <section class="grid gap-3 md:grid-cols-2">
           <div class="rounded-lg border bg-muted/20 p-3">
             <div class="text-xs text-muted-foreground">相关裁片单</div>
             <div class="mt-1 font-medium text-foreground">${escapeHtml(item.relatedCutOrderNo)}</div>
           </div>
           <div class="rounded-lg border bg-muted/20 p-3">
-            <div class="text-xs text-muted-foreground">面料</div>
-            <div class="mt-2">${renderMaterialIdentityBlock(item)}</div>
+            <div class="text-xs text-muted-foreground">样衣身份</div>
+            <div class="mt-1 font-medium text-foreground">${escapeHtml([item.sampleName, item.sampleVersion].filter(Boolean).join(' / '))}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml([item.styleCode || item.spuCode, item.color, item.size].filter(Boolean).join(' / '))}</div>
           </div>
           <div class="rounded-lg border bg-muted/20 p-3">
             <div class="text-xs text-muted-foreground">来源生产单号</div>
@@ -393,11 +408,16 @@ function renderDetailDrawer(): string {
           </div>
           <div class="rounded-lg border bg-muted/20 p-3">
             <div class="text-xs text-muted-foreground">当前状态</div>
-            <div class="mt-1">${renderTag(item.status.label, item.status.className)}</div>
+            <div class="mt-1">${renderTag(item.currentStatus, item.status.className)}</div>
           </div>
           <div class="rounded-lg border bg-muted/20 p-3">
             <div class="text-xs text-muted-foreground">当前位置 / 持有人</div>
             <div class="mt-1 font-medium text-foreground">${escapeHtml(`${item.currentLocationName} / ${item.currentHolder}`)}</div>
+          </div>
+          <div class="rounded-lg border bg-muted/20 p-3">
+            <div class="text-xs text-muted-foreground">纸样 / 唛架方案</div>
+            <div class="mt-1 font-medium text-foreground">${escapeHtml(item.relatedPatternFileNames[0] || '纸样待补')}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml([item.relatedPatternVersions[0], item.relatedMarkerPlanNos[0] || '唛架方案待关联'].filter(Boolean).join(' / '))}</div>
           </div>
         </section>
 
@@ -429,11 +449,32 @@ function renderDetailDrawer(): string {
             </label>
           </div>
           <div class="mt-4 flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="borrow" data-item-id="${escapeHtml(item.sampleItemId)}">借出</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="borrow" data-item-id="${escapeHtml(item.sampleItemId)}">登记使用</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="return" data-item-id="${escapeHtml(item.sampleItemId)}">归还</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="transfer" data-item-id="${escapeHtml(item.sampleItemId)}">调拨位置</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="mark-inspection" data-item-id="${escapeHtml(item.sampleItemId)}">标记抽检中</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="mark-inspection" data-item-id="${escapeHtml(item.sampleItemId)}">登记异常</button>
           </div>
+        </section>
+
+        <section class="rounded-lg border bg-card p-4">
+          <h3 class="text-sm font-semibold text-foreground">样衣异常</h3>
+          ${
+            item.abnormalItems.length
+              ? `<div class="mt-3 grid gap-3 md:grid-cols-2">
+                  ${item.abnormalItems
+                    .map(
+                      (abnormal) => `
+                        <div class="rounded-md border bg-rose-50/70 p-3">
+                          <div>${renderTag(abnormal.abnormalType, 'bg-rose-100 text-rose-700 border border-rose-200')}</div>
+                          <div class="mt-2 text-sm text-foreground">${escapeHtml(abnormal.description)}</div>
+                          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(abnormal.reportedAt)} / ${escapeHtml(abnormal.reportedBy)} / ${escapeHtml(abnormal.handlingStatus)}</div>
+                        </div>
+                      `,
+                    )
+                    .join('')}
+                </div>`
+              : '<p class="mt-3 text-sm text-muted-foreground">当前样衣无异常。</p>'
+          }
         </section>
 
         <section class="rounded-lg border bg-card">
@@ -445,7 +486,7 @@ function renderDetailDrawer(): string {
               <thead class="bg-muted/60 text-xs text-muted-foreground">
                 <tr>
                   <th class="px-3 py-2 text-left">时间</th>
-                  <th class="px-3 py-2 text-left">动作</th>
+                  <th class="px-3 py-2 text-left">流转类型</th>
                   <th class="px-3 py-2 text-left">流转路径</th>
                   <th class="px-3 py-2 text-left">操作人</th>
                   <th class="px-3 py-2 text-left">备注</th>
@@ -455,9 +496,9 @@ function renderDetailDrawer(): string {
                 ${item.flowRecords
                   .map(
                     (flow) => `
-                      <tr class="border-t align-top">
-                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(formatDateTime(flow.actionAt))}</td>
-                        <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(flow.actionType)}</td>
+                        <tr class="border-t align-top">
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(formatDateTime(flow.actionAt))}</td>
+                        <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(flow.flowType)}</td>
                         <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(`${flow.fromLocationName} → ${flow.toLocationName}`)}</td>
                         <td class="px-3 py-2">${escapeHtml(flow.operatorName)}</td>
                         <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(flow.note || '-')}</td>
@@ -478,18 +519,26 @@ function renderDetailDrawer(): string {
               <div class="mt-1 font-medium text-foreground">${escapeHtml(item.styleCode || item.spuCode || '待补款号')}</div>
             </div>
             <div>
+              <div class="text-xs text-muted-foreground">关联纸样</div>
+              <div class="mt-1 font-medium text-foreground">${escapeHtml(item.relatedPatternFileNames[0] || '纸样待补')}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">关联唛架方案</div>
+              <div class="mt-1 font-medium text-foreground">${escapeHtml(item.relatedMarkerPlanNos.join('、') || '唛架方案待关联')}</div>
+            </div>
+            <div>
               <div class="text-xs text-muted-foreground">最近动作人</div>
               <div class="mt-1 font-medium text-foreground">${escapeHtml(item.latestActionBy)}</div>
             </div>
           </div>
           <div class="mt-4 flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-cut-orders" data-item-id="${escapeHtml(item.sampleItemId)}">查看相关裁片单</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-summary" data-item-id="${escapeHtml(item.sampleItemId)}">去裁剪总结</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-summary" data-item-id="${escapeHtml(item.sampleItemId)}">去裁剪结果核查</button>
           </div>
         </section>
       </div>
-    `,
-  )
+    </section>
+  `
 }
 
 function renderPage(): string {
@@ -510,7 +559,7 @@ function renderPage(): string {
       ${renderFilterArea()}
       ${renderFilterStateBar()}
       ${renderTable(items)}
-      ${renderDetailDrawer()}
+      ${renderDetailPanel()}
     </div>
   `
 }
@@ -647,5 +696,5 @@ export function handleCraftCuttingSampleWarehouseEvent(target: Element): boolean
 }
 
 export function isCraftCuttingSampleWarehouseDialogOpen(): boolean {
-  return state.activeItemId !== null
+  return false
 }

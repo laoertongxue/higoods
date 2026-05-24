@@ -1,0 +1,553 @@
+import { formatFactoryDisplayName, TEST_FACTORY_ID } from './factory-mock-data.ts';
+import { getFactoryMasterRecordById } from './factory-master-store.ts';
+import { getDyeWorkOrderByTaskId } from './dyeing-task-domain.ts';
+import { getWoolWorkOrderByTaskId } from './wool-task-domain.ts';
+import { getPdaCuttingTaskSnapshot } from './pda-cutting-execution-source.ts';
+import { getMobileTaskFactoryId, getMobileTaskProcessType, getMobileTaskExecutionState, getPdaMobileExecutionTaskById, isTaskVisibleInMobileExecutionList, listPostFinishingMobileExecutionTasks, listPdaMobileExecutionTasks, } from './process-mobile-task-binding.ts';
+import { getPrintWorkOrderByTaskId } from './printing-task-domain.ts';
+import { getPostFinishingTaskById, getPostFinishingWorkOrderBySourceTaskId, } from './post-finishing-domain.ts';
+import { getSpecialCraftTaskWorkOrderById, listSpecialCraftTaskOrders, listSpecialCraftTaskWorkOrders, } from './special-craft-task-orders.ts';
+import { canFactoryAccessSpecialCraftPdaTask } from './special-craft-pda-scope.ts';
+export const MOBILE_EXECUTION_TASK_TAB_LABELS = {
+    NOT_STARTED: '待开工',
+    IN_PROGRESS: '进行中',
+    BLOCKED: '生产暂停',
+    DONE: '已完工',
+};
+function normalizeString(value) {
+    return String(value || '').trim();
+}
+function uniqueStrings(values) {
+    const seen = new Set();
+    return values
+        .map((value) => normalizeString(value))
+        .filter((value) => {
+        if (!value || seen.has(value))
+            return false;
+        seen.add(value);
+        return true;
+    });
+}
+function normalizeTabKey(statusTab) {
+    if (!statusTab)
+        return null;
+    if (statusTab === 'NOT_STARTED' || statusTab === '待开工')
+        return 'NOT_STARTED';
+    if (statusTab === 'IN_PROGRESS' || statusTab === '进行中')
+        return 'IN_PROGRESS';
+    if (statusTab === 'BLOCKED' || statusTab === '生产暂停')
+        return 'BLOCKED';
+    if (statusTab === 'DONE' || statusTab === '已完工')
+        return 'DONE';
+    return null;
+}
+function getFactoryMeta(task) {
+    const factoryId = getMobileTaskFactoryId(task);
+    const factory = factoryId ? getFactoryMasterRecordById(factoryId) : undefined;
+    const factoryName = normalizeString(factory?.name || task.assignedFactoryName || factoryId);
+    const factoryCode = normalizeString(factory?.code || factory?.id || task.assignedFactoryId || factoryId);
+    return {
+        factoryId,
+        factoryName,
+        factoryCode,
+        factoryDisplayName: formatFactoryDisplayName(factoryName || task.assignedFactoryName, factoryCode || factoryId),
+    };
+}
+function getPrintSourceInfo(task) {
+    const order = getPrintWorkOrderByTaskId(task.taskId);
+    if (!order)
+        return {};
+    return {
+        sourceType: 'PRINT_WORK_ORDER',
+        sourceId: normalizeString(order.printOrderId),
+        sourceWorkOrderId: normalizeString(order.workOrderId || order.printOrderId),
+        sourceWorkOrderNo: normalizeString(order.workOrderNo || order.printOrderNo),
+        workOrderNo: normalizeString(order.workOrderNo || order.printOrderNo),
+        printOrderNo: normalizeString(order.printOrderNo),
+        sourceIds: uniqueStrings([order.printOrderId, order.workOrderId]),
+        sourceNos: uniqueStrings([order.printOrderNo, order.workOrderNo]),
+        productionOrderNo: normalizeString(order.productionOrderIds?.[0] || task.productionOrderId),
+        patternNo: normalizeString(order.patternNo),
+        materialSku: normalizeString(order.materialSku),
+    };
+}
+function getDyeSourceInfo(task) {
+    const order = getDyeWorkOrderByTaskId(task.taskId);
+    if (!order)
+        return {};
+    return {
+        sourceType: 'DYE_WORK_ORDER',
+        sourceId: normalizeString(order.dyeOrderId),
+        sourceWorkOrderId: normalizeString(order.workOrderId || order.dyeOrderId),
+        sourceWorkOrderNo: normalizeString(order.workOrderNo || order.dyeOrderNo),
+        workOrderNo: normalizeString(order.workOrderNo || order.dyeOrderNo),
+        dyeOrderNo: normalizeString(order.dyeOrderNo),
+        sourceIds: uniqueStrings([order.dyeOrderId, order.workOrderId]),
+        sourceNos: uniqueStrings([order.dyeOrderNo, order.workOrderNo]),
+        productionOrderNo: normalizeString(order.productionOrderIds?.[0] || task.productionOrderId),
+        rawMaterialSku: normalizeString(order.rawMaterialSku),
+        targetColor: normalizeString(order.targetColor),
+        colorNo: normalizeString(order.colorNo),
+    };
+}
+function getWoolSourceInfo(task) {
+    const order = getWoolWorkOrderByTaskId(task.taskId);
+    if (!order)
+        return {};
+    return {
+        sourceType: 'WOOL_WORK_ORDER',
+        sourceId: normalizeString(order.woolOrderId),
+        sourceWorkOrderId: normalizeString(order.woolOrderId),
+        sourceWorkOrderNo: normalizeString(order.woolOrderNo),
+        workOrderNo: normalizeString(order.woolOrderNo),
+        woolOrderNo: normalizeString(order.woolOrderNo),
+        sourceIds: uniqueStrings([order.woolOrderId, order.taskNo]),
+        sourceNos: uniqueStrings([order.woolOrderNo, order.taskNo]),
+        productionOrderNo: normalizeString(order.productionOrderNo || task.productionOrderId),
+        sourceTaskNo: normalizeString(order.taskNo),
+        materialSku: normalizeString(order.yarnReceipt.yarnSku),
+        targetColor: normalizeString(order.colorName),
+        partName: normalizeString(order.kind === 'PART_PANEL' ? order.partPanels.map((panel) => panel.partName).join(' / ') : '整件'),
+        operationName: normalizeString(order.kind === 'PART_PANEL' ? '部位毛织' : '整件毛织'),
+        feiTicketNos: uniqueStrings(order.partPanels.map((panel) => panel.feiTicketNo)),
+    };
+}
+function getCuttingSourceInfo(task) {
+    const taskLike = task;
+    const detail = getPdaCuttingTaskSnapshot(task.taskId);
+    const cutOrderId = normalizeString(detail?.cutOrderId || taskLike.cutOrderId || taskLike.cutOrderIds?.[0]);
+    const cutOrderNo = normalizeString(detail?.cutOrderNo || taskLike.cutOrderNo || taskLike.cutOrderNos?.[0]);
+    const markerPlanNo = normalizeString(detail?.markerPlanNo || taskLike.markerPlanNo || taskLike.markerPlanNos?.[0]);
+    const productionOrderNo = normalizeString(detail?.productionOrderNo || taskLike.productionOrderNo || task.productionOrderId);
+    const markerPlanNos = uniqueStrings([markerPlanNo, ...(detail?.markerPlanNos || []), ...(taskLike.markerPlanNos || [])]);
+    return {
+        sourceType: 'CUTTING_ORDER',
+        sourceId: cutOrderId || cutOrderNo,
+        sourceWorkOrderId: cutOrderId,
+        sourceWorkOrderNo: cutOrderNo,
+        workOrderNo: cutOrderNo,
+        cuttingOrderNo: cutOrderNo,
+        sourceIds: uniqueStrings([cutOrderId, ...(taskLike.cutOrderIds || [])]),
+        sourceNos: uniqueStrings([cutOrderNo, ...(taskLike.cutOrderNos || [])]),
+        productionOrderNo,
+        materialSku: normalizeString(detail?.materialSku || taskLike.materialSku),
+        markerPlanNo,
+        markerPlanNos,
+        partName: normalizeString(taskLike.partName || taskLike.pieceName),
+    };
+}
+function getSpecialCraftSourceInfo(task) {
+    const taskLike = task;
+    const matchedTaskOrder = listSpecialCraftTaskOrders().find((taskOrder) => taskOrder.sourceTaskId === task.taskId
+        || taskOrder.taskOrderId === taskLike.sourceTaskId
+        || taskOrder.taskOrderNo === task.rootTaskNo
+        || taskOrder.sourceTaskNo === task.taskNo)
+        || null;
+    const directWorkOrder = taskLike.workOrderId ? getSpecialCraftTaskWorkOrderById(taskLike.workOrderId) : null;
+    const relatedWorkOrders = directWorkOrder
+        ? [directWorkOrder]
+        : matchedTaskOrder
+            ? listSpecialCraftTaskWorkOrders().filter((workOrder) => workOrder.taskOrderId === matchedTaskOrder.taskOrderId)
+            : [];
+    const firstWorkOrder = relatedWorkOrders[0] ?? null;
+    const workOrderIds = uniqueStrings(relatedWorkOrders.map((workOrder) => workOrder.workOrderId));
+    const workOrderNos = uniqueStrings(relatedWorkOrders.map((workOrder) => workOrder.workOrderNo));
+    const feiTicketNos = uniqueStrings([
+        ...(firstWorkOrder?.feiTicketNos || []),
+        ...(matchedTaskOrder?.feiTicketNos || []),
+        ...relatedWorkOrders.flatMap((workOrder) => workOrder.feiTicketNos),
+        taskLike.feiTicketNo,
+        ...(taskLike.feiTicketNos || []),
+    ]);
+    return {
+        sourceType: firstWorkOrder ? 'SPECIAL_CRAFT_WORK_ORDER' : 'SPECIAL_CRAFT_TASK_ORDER',
+        sourceId: normalizeString(firstWorkOrder?.workOrderId || matchedTaskOrder?.taskOrderId || taskLike.sourceTaskId || task.taskId),
+        sourceWorkOrderId: normalizeString(firstWorkOrder?.workOrderId || matchedTaskOrder?.taskOrderId),
+        sourceWorkOrderNo: normalizeString(firstWorkOrder?.workOrderNo || matchedTaskOrder?.taskOrderNo || task.taskNo || task.taskId),
+        workOrderNo: normalizeString(firstWorkOrder?.workOrderNo || matchedTaskOrder?.taskOrderNo),
+        specialCraftOrderNo: normalizeString(firstWorkOrder?.workOrderNo || matchedTaskOrder?.taskOrderNo),
+        taskOrderId: normalizeString(matchedTaskOrder?.taskOrderId),
+        taskOrderNo: normalizeString(matchedTaskOrder?.taskOrderNo),
+        workOrderIds,
+        workOrderNos,
+        sourceIds: uniqueStrings([
+            matchedTaskOrder?.taskOrderId,
+            firstWorkOrder?.workOrderId,
+            ...workOrderIds,
+            taskLike.sourceTaskId,
+        ]),
+        sourceNos: uniqueStrings([
+            matchedTaskOrder?.taskOrderNo,
+            matchedTaskOrder?.sourceTaskNo,
+            firstWorkOrder?.workOrderNo,
+            ...workOrderNos,
+            task.rootTaskNo,
+        ]),
+        productionOrderNo: normalizeString(firstWorkOrder?.productionOrderNo || matchedTaskOrder?.productionOrderNo || task.productionOrderId),
+        sourceTaskNo: normalizeString(matchedTaskOrder?.sourceTaskNo || task.rootTaskNo || task.taskNo || task.taskId),
+        materialSku: normalizeString(firstWorkOrder?.materialSku || matchedTaskOrder?.materialSku || taskLike.materialSku),
+        partName: normalizeString(firstWorkOrder?.partName || matchedTaskOrder?.partName || taskLike.partName || taskLike.pieceName),
+        operationName: normalizeString(firstWorkOrder?.operationName || matchedTaskOrder?.operationName || task.processNameZh || taskLike.craftName),
+        feiTicketNos,
+    };
+}
+function getPostFinishingSourceInfo(task) {
+    const postTask = getPostFinishingTaskById(task.taskId);
+    if (postTask) {
+        return {
+            sourceType: 'POST_FINISHING_TASK',
+            sourceId: normalizeString(postTask.postTaskId),
+            sourceWorkOrderId: normalizeString(postTask.postTaskId),
+            sourceWorkOrderNo: normalizeString(postTask.postTaskNo),
+            workOrderNo: normalizeString(postTask.postTaskNo),
+            postOrderNo: normalizeString(postTask.postTaskNo),
+            sourceIds: uniqueStrings([postTask.postTaskId, postTask.productionOrderId, postTask.productionOrderNo]),
+            sourceNos: uniqueStrings([postTask.postTaskNo, postTask.productionOrderNo, ...postTask.sourceTaskNos]),
+            productionOrderNo: normalizeString(postTask.productionOrderNo),
+            sourceTaskNo: normalizeString(postTask.sourceTaskNos.join('、') || postTask.postTaskNo),
+            partName: normalizeString(postTask.spuName),
+            operationName: '后道',
+        };
+    }
+    const order = getPostFinishingWorkOrderBySourceTaskId(task.taskId);
+    if (!order)
+        return {};
+    return {
+        sourceType: 'POST_FINISHING_WORK_ORDER',
+        sourceId: normalizeString(order.postOrderId),
+        sourceWorkOrderId: normalizeString(order.postOrderId),
+        sourceWorkOrderNo: normalizeString(order.postOrderNo),
+        workOrderNo: normalizeString(order.postOrderNo),
+        postOrderNo: normalizeString(order.postOrderNo),
+        sourceIds: uniqueStrings([order.postOrderId, order.sourceTaskId, order.sourcePostTaskId]),
+        sourceNos: uniqueStrings([order.postOrderNo, order.sourceTaskNo, order.sourcePostTaskNo]),
+        productionOrderNo: normalizeString(order.sourceProductionOrderNo || task.productionOrderId),
+        sourceTaskNo: normalizeString(order.sourceTaskNo || task.taskNo || task.taskId),
+        partName: normalizeString(order.skuSummary),
+        operationName: '后道',
+    };
+}
+function buildSourceInfo(task) {
+    const processType = getMobileTaskProcessType(task);
+    const factoryMeta = getFactoryMeta(task);
+    const taskLike = task;
+    const baseInfo = {
+        sourceType: '',
+        sourceId: '',
+        sourceWorkOrderId: '',
+        sourceWorkOrderNo: '',
+        workOrderNo: '',
+        printOrderNo: '',
+        dyeOrderNo: '',
+        woolOrderNo: '',
+        cuttingOrderNo: '',
+        specialCraftOrderNo: '',
+        postOrderNo: '',
+        taskOrderId: '',
+        taskOrderNo: '',
+        workOrderIds: [],
+        workOrderNos: [],
+        sourceIds: [],
+        sourceNos: [],
+        productionOrderNo: normalizeString(taskLike.productionOrderNo || task.productionOrderId),
+        sourceTaskNo: normalizeString(taskLike.sourceTaskNo || task.rootTaskNo || task.taskNo || task.taskId),
+        factoryId: factoryMeta.factoryId,
+        factoryName: factoryMeta.factoryName,
+        factoryCode: factoryMeta.factoryCode,
+        factoryDisplayName: factoryMeta.factoryDisplayName,
+        processType,
+        patternNo: '',
+        materialSku: normalizeString(taskLike.materialSku),
+        rawMaterialSku: normalizeString(taskLike.rawMaterialSku),
+        targetColor: normalizeString(taskLike.targetColor),
+        colorNo: normalizeString(taskLike.colorNo),
+        markerPlanNo: normalizeString(taskLike.markerPlanNo),
+        markerPlanNos: uniqueStrings(taskLike.markerPlanNos || []),
+        partName: normalizeString(taskLike.partName || taskLike.pieceName),
+        operationName: normalizeString(task.processNameZh || taskLike.craftName || taskLike.processBusinessName),
+        feiTicketNos: uniqueStrings([taskLike.feiTicketNo, ...(taskLike.feiTicketNos || [])]),
+    };
+    const processInfo = processType === 'PRINT'
+        ? getPrintSourceInfo(task)
+        : processType === 'DYE'
+            ? getDyeSourceInfo(task)
+            : processType === 'WOOL'
+                ? getWoolSourceInfo(task)
+                : processType === 'CUTTING'
+                    ? getCuttingSourceInfo(task)
+                    : processType === 'SPECIAL_CRAFT'
+                        ? getSpecialCraftSourceInfo(task)
+                        : processType === 'POST_FINISHING'
+                            ? getPostFinishingSourceInfo(task)
+                            : {};
+    return {
+        ...baseInfo,
+        ...processInfo,
+        sourceIds: uniqueStrings([...(baseInfo.sourceIds || []), ...(processInfo.sourceIds || []), processInfo.sourceId]),
+        sourceNos: uniqueStrings([...(baseInfo.sourceNos || []), ...(processInfo.sourceNos || []), processInfo.sourceWorkOrderNo, processInfo.workOrderNo]),
+        workOrderIds: uniqueStrings([...(baseInfo.workOrderIds || []), ...(processInfo.workOrderIds || [])]),
+        workOrderNos: uniqueStrings([...(baseInfo.workOrderNos || []), ...(processInfo.workOrderNos || [])]),
+        markerPlanNos: uniqueStrings([...(baseInfo.markerPlanNos || []), ...(processInfo.markerPlanNos || []), processInfo.markerPlanNo]),
+        feiTicketNos: uniqueStrings([...(baseInfo.feiTicketNos || []), ...(processInfo.feiTicketNos || [])]),
+    };
+}
+function matchSourceType(task, sourceType, sourceId) {
+    const normalizedSourceId = normalizeString(sourceId).toLowerCase();
+    if (!sourceType && !normalizedSourceId)
+        return true;
+    const info = buildSourceInfo(task);
+    const normalizedSourceType = normalizeString(sourceType).toUpperCase();
+    const relatedIds = uniqueStrings([
+        info.sourceId,
+        info.sourceWorkOrderId,
+        info.taskOrderId,
+        ...info.sourceIds,
+        ...info.workOrderIds,
+        info.printOrderNo,
+        info.dyeOrderNo,
+        info.woolOrderNo,
+        info.cuttingOrderNo,
+        info.specialCraftOrderNo,
+        info.postOrderNo,
+        info.sourceWorkOrderNo,
+        ...info.workOrderNos,
+    ]).map((value) => value.toLowerCase());
+    if (normalizedSourceId && !relatedIds.includes(normalizedSourceId))
+        return false;
+    if (!normalizedSourceType)
+        return true;
+    if (['PRINT_WORK_ORDER', 'PRINT_ORDER', 'PRINTING_WORK_ORDER'].includes(normalizedSourceType)) {
+        return info.processType === 'PRINT';
+    }
+    if (['DYE_WORK_ORDER', 'DYE_ORDER', 'DYEING_WORK_ORDER'].includes(normalizedSourceType)) {
+        return info.processType === 'DYE';
+    }
+    if (['WOOL_WORK_ORDER', 'WOOL_ORDER', 'WOOL_ORDER'].includes(normalizedSourceType)) {
+        return info.processType === 'WOOL';
+    }
+    if (['CUTTING_ORDER', 'CUTTING_ORDER', 'CUT_ORDER', 'CUT_PIECE_ORDER'].includes(normalizedSourceType)) {
+        return info.processType === 'CUTTING';
+    }
+    if (['SPECIAL_CRAFT_WORK_ORDER', 'SPECIAL_CRAFT_TASK_ORDER', 'SPECIAL_CRAFT_ORDER'].includes(normalizedSourceType)) {
+        return info.processType === 'SPECIAL_CRAFT';
+    }
+    if (['POST_FINISHING_TASK', 'POST_TASK', 'POST_FINISHING_WORK_ORDER', 'POST_FINISHING_ORDER', 'POST_ORDER'].includes(normalizedSourceType)) {
+        return info.processType === 'POST_FINISHING';
+    }
+    return info.sourceType === normalizedSourceType || relatedIds.includes(normalizedSourceType.toLowerCase());
+}
+function compareTasks(left, right) {
+    const leftVisible = isMobileTaskVisibleForFactory(left, TEST_FACTORY_ID) ? 0 : 1;
+    const rightVisible = isMobileTaskVisibleForFactory(right, TEST_FACTORY_ID) ? 0 : 1;
+    if (leftVisible !== rightVisible)
+        return leftVisible - rightVisible;
+    const rank = (task) => {
+        const tabKey = getMobileTaskTabKey(task);
+        if (tabKey === 'NOT_STARTED')
+            return 0;
+        if (tabKey === 'IN_PROGRESS')
+            return 1;
+        if (tabKey === 'BLOCKED')
+            return 2;
+        return 3;
+    };
+    const rankDiff = rank(left) - rank(right);
+    if (rankDiff !== 0)
+        return rankDiff;
+    return (left.taskNo || left.taskId).localeCompare(right.taskNo || right.taskId, 'zh-Hans-CN');
+}
+export function getMobileTaskTabKey(task) {
+    const state = getMobileTaskExecutionState(task);
+    if (state === '待开工')
+        return 'NOT_STARTED';
+    if (state === '进行中')
+        return 'IN_PROGRESS';
+    if (state === '生产暂停')
+        return 'BLOCKED';
+    return 'DONE';
+}
+export function isMobileTaskVisibleForFactory(task, currentFactoryId = TEST_FACTORY_ID) {
+    return isTaskVisibleInMobileExecutionList(task, currentFactoryId)
+        && canFactoryAccessSpecialCraftPdaTask(currentFactoryId, task);
+}
+export function getMobileExecutionTaskSourceInfo(task) {
+    if (!task) {
+        return {
+            sourceType: '',
+            sourceId: '',
+            sourceWorkOrderId: '',
+            sourceWorkOrderNo: '',
+            workOrderNo: '',
+            printOrderNo: '',
+            dyeOrderNo: '',
+            woolOrderNo: '',
+            cuttingOrderNo: '',
+            specialCraftOrderNo: '',
+            postOrderNo: '',
+            taskOrderId: '',
+            taskOrderNo: '',
+            workOrderIds: [],
+            workOrderNos: [],
+            sourceIds: [],
+            sourceNos: [],
+            productionOrderNo: '',
+            sourceTaskNo: '',
+            factoryId: '',
+            factoryName: '',
+            factoryCode: '',
+            factoryDisplayName: '',
+            processType: 'UNKNOWN',
+            patternNo: '',
+            materialSku: '',
+            rawMaterialSku: '',
+            targetColor: '',
+            colorNo: '',
+            markerPlanNo: '',
+            markerPlanNos: [],
+            partName: '',
+            operationName: '',
+            feiTicketNos: [],
+        };
+    }
+    return buildSourceInfo(task);
+}
+export function matchMobileTaskKeyword(task, keyword) {
+    if (!task)
+        return false;
+    const normalizedKeyword = normalizeString(keyword).toLowerCase();
+    if (!normalizedKeyword)
+        return true;
+    const info = getMobileExecutionTaskSourceInfo(task);
+    const taskLike = task;
+    const tokens = uniqueStrings([
+        task.taskId,
+        task.taskNo,
+        task.rootTaskNo,
+        info.sourceTaskNo,
+        info.sourceWorkOrderId,
+        info.sourceWorkOrderNo,
+        info.workOrderNo,
+        info.printOrderNo,
+        info.dyeOrderNo,
+        info.woolOrderNo,
+        info.cuttingOrderNo,
+        info.specialCraftOrderNo,
+        info.postOrderNo,
+        info.taskOrderId,
+        info.taskOrderNo,
+        ...info.workOrderIds,
+        ...info.workOrderNos,
+        ...info.sourceIds,
+        ...info.sourceNos,
+        task.productionOrderId,
+        info.productionOrderNo,
+        taskLike.productionOrderNo,
+        info.factoryName,
+        info.factoryCode,
+        info.factoryId,
+        info.factoryDisplayName,
+        info.patternNo,
+        info.materialSku,
+        info.rawMaterialSku,
+        info.targetColor,
+        info.colorNo,
+        info.markerPlanNo,
+        ...info.markerPlanNos,
+        info.partName,
+        info.operationName,
+        ...info.feiTicketNos,
+        task.processNameZh,
+        taskLike.craftName,
+        taskLike.processBusinessName,
+        taskLike.materialSku,
+        taskLike.rawMaterialSku,
+        taskLike.targetColor,
+        taskLike.colorNo,
+        taskLike.cutOrderNo,
+        taskLike.cutOrderId,
+        ...(taskLike.cutOrderNos || []),
+        ...(taskLike.cutOrderIds || []),
+        taskLike.markerPlanNo,
+        ...(taskLike.markerPlanNos || []),
+        taskLike.feiTicketNo,
+        ...(taskLike.feiTicketNos || []),
+        taskLike.spuCode,
+        taskLike.spuName,
+    ]);
+    return tokens.some((token) => token.toLowerCase().includes(normalizedKeyword));
+}
+export function listMobileExecutionTasks(params = {}) {
+    const currentFactoryId = normalizeString(params.currentFactoryId) || TEST_FACTORY_ID;
+    const statusTab = normalizeTabKey(params.statusTab);
+    let tasks = (params.processType === 'POST_FINISHING' ? listPostFinishingMobileExecutionTasks() : listPdaMobileExecutionTasks())
+        .filter((task) => isMobileTaskVisibleForFactory(task, currentFactoryId));
+    if (params.processType) {
+        tasks = tasks.filter((task) => getMobileTaskProcessType(task) === params.processType);
+    }
+    if (params.sourceType || params.sourceId) {
+        tasks = tasks.filter((task) => matchSourceType(task, params.sourceType, params.sourceId));
+    }
+    if (params.includeCompleted === false) {
+        tasks = tasks.filter((task) => getMobileTaskTabKey(task) !== 'DONE');
+    }
+    if (statusTab) {
+        tasks = tasks.filter((task) => getMobileTaskTabKey(task) === statusTab);
+    }
+    if (normalizeString(params.keyword)) {
+        tasks = tasks.filter((task) => matchMobileTaskKeyword(task, params.keyword));
+    }
+    return [...tasks].sort(compareTasks);
+}
+export function getMobileExecutionTaskById(taskId) {
+    return getPdaMobileExecutionTaskById(taskId) ?? null;
+}
+export function getMobileExecutionTaskByNo(taskNo) {
+    const normalizedTaskNo = normalizeString(taskNo);
+    if (!normalizedTaskNo)
+        return null;
+    return listPdaMobileExecutionTasks().find((task) => task.taskNo === normalizedTaskNo || task.taskId === normalizedTaskNo) ?? null;
+}
+export function getMobileExecutionTaskBySource(sourceType, sourceId) {
+    const normalizedSourceId = normalizeString(sourceId);
+    if (!normalizedSourceId)
+        return null;
+    return listMobileExecutionTasks().filter((task) => matchSourceType(task, sourceType, normalizedSourceId)).sort(compareTasks)[0] ?? null;
+}
+export function buildMobileExecutionListPath(params = {}) {
+    const searchParams = new URLSearchParams();
+    const normalizedTab = normalizeTabKey(params.statusTab);
+    if (normalizedTab)
+        searchParams.set('tab', normalizedTab);
+    if (normalizeString(params.keyword))
+        searchParams.set('keyword', normalizeString(params.keyword));
+    if (normalizeString(params.currentFactoryId))
+        searchParams.set('currentFactoryId', normalizeString(params.currentFactoryId));
+    if (normalizeString(params.processType))
+        searchParams.set('processType', normalizeString(params.processType));
+    if (normalizeString(params.sourceType))
+        searchParams.set('sourceType', normalizeString(params.sourceType));
+    if (normalizeString(params.sourceId))
+        searchParams.set('sourceId', normalizeString(params.sourceId));
+    const query = searchParams.toString();
+    return query ? `/fcs/pda/exec?${query}` : '/fcs/pda/exec';
+}
+export function buildMobileExecutionListLocatePathForTask(task, options = {}) {
+    const info = getMobileExecutionTaskSourceInfo(task);
+    const keyword = normalizeString(options.keyword)
+        || info.sourceWorkOrderNo
+        || info.workOrderNo
+        || info.printOrderNo
+        || info.dyeOrderNo
+        || info.woolOrderNo
+        || info.cuttingOrderNo
+        || info.specialCraftOrderNo
+        || info.postOrderNo
+        || info.productionOrderNo
+        || task.taskNo
+        || task.taskId;
+    return buildMobileExecutionListPath({
+        currentFactoryId: normalizeString(options.currentFactoryId) || info.factoryId || TEST_FACTORY_ID,
+        statusTab: getMobileTaskTabKey(task),
+        keyword,
+    });
+}

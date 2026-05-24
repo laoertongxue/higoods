@@ -1,5 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, extname, resolve } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 
 function ensureStaticPlaceholderAsset(root: string): void {
@@ -25,6 +25,33 @@ function ensureStaticPlaceholderPlugin(): Plugin {
     },
     buildStart() {
       ensureStaticPlaceholderAsset(process.cwd())
+    },
+  }
+}
+
+function preferTypeScriptSourcePlugin(): Plugin {
+  let root = process.cwd()
+
+  return {
+    name: 'prefer-typescript-source',
+    enforce: 'pre',
+    configResolved(config) {
+      root = config.root
+    },
+    resolveId(source, importer) {
+      if (!importer || !source.startsWith('.') || extname(source)) return null
+
+      const cleanImporter = importer.split('?')[0]
+      const importerPath = cleanImporter.startsWith('/src/')
+        ? resolve(root, cleanImporter.slice(1))
+        : cleanImporter
+      const absoluteBase = resolve(dirname(importerPath), source)
+      const tsCandidate = `${absoluteBase}.ts`
+      const tsxCandidate = `${absoluteBase}.tsx`
+
+      if (existsSync(tsCandidate)) return tsCandidate
+      if (existsSync(tsxCandidate)) return tsxCandidate
+      return null
     },
   }
 }
@@ -65,7 +92,10 @@ function resolveManualChunk(id: string): string | undefined {
 }
 
 export default defineConfig({
-  plugins: [ensureStaticPlaceholderPlugin()],
+  plugins: [preferTypeScriptSourcePlugin(), ensureStaticPlaceholderPlugin()],
+  resolve: {
+    extensions: ['.ts', '.tsx', '.mts', '.mjs', '.js', '.jsx', '.json'],
+  },
   server: {
     port: 5173,
     strictPort: true,

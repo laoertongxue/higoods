@@ -15,6 +15,7 @@ import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHead
 import type { ProductionProgressStageKey } from './production-progress-model.ts'
 import {
   buildCuttingSummaryIssues,
+  cuttingResultCheckGroupDefinitions,
   cuttingSummaryIssueMetaMap,
   cuttingSummaryRiskMetaMap,
   filterSummaryByIssueType,
@@ -28,6 +29,10 @@ import {
   type CuttingSummarySourceObjectItem,
   type CuttingSummaryTraceNode,
   type CuttingSummaryViewModel,
+  type CuttingResultCheckItem,
+  type CuttingResultCheckLevel,
+  type CuttingResultCheckStatus,
+  type CuttingResultCheckType,
 } from './summary-model.ts'
 import { getWarehouseSearchParams } from './warehouse-shared.ts'
 import {
@@ -54,6 +59,7 @@ import {
   type FcsCuttingSummaryProjection,
 } from './runtime-projections.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
+import { listSpreadingDifferences } from '../../../data/fcs/cutting/spreading-differences.ts'
 import {
   getCuttingProgressSnapshots,
   getCuttingSpecialCraftReturnStatusByProductionOrders,
@@ -69,6 +75,7 @@ import {
   type CuttingSewingDispatchOrder,
   type CuttingSewingTransferBag,
 } from '../../../data/fcs/cutting/sewing-dispatch.ts'
+import { buildBindingProcessOrders } from './special-processes.ts'
 
 type SummaryFilterField =
   | 'keyword'
@@ -80,6 +87,11 @@ type SummaryFilterField =
   | 'sourceObjectType'
   | 'materialSku'
   | 'sourceNoKeyword'
+  | 'checkType'
+  | 'checkStatus'
+  | 'checkLevel'
+  | 'ownerKeyword'
+  | 'timeRange'
 type SummaryNavigationTarget = keyof CuttingSummaryNavigationPayload
 
 interface SummaryFilters {
@@ -92,6 +104,11 @@ interface SummaryFilters {
   sourceObjectType: 'ALL' | CuttingCheckSourceObjectType
   materialSku: string
   sourceNoKeyword: string
+  checkType: 'ALL' | CuttingResultCheckType
+  checkStatus: 'ALL' | CuttingResultCheckStatus
+  checkLevel: 'ALL' | CuttingResultCheckLevel
+  ownerKeyword: string
+  timeRange: 'ALL' | 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH'
   pendingReplenishmentOnly: boolean
   pendingTicketsOnly: boolean
   pendingBagOnly: boolean
@@ -105,6 +122,7 @@ interface SummaryPageState {
   querySignature: string
   activeIssueId: string | null
   activeRowId: string | null
+  resolvedCheckItemIds: Set<string>
 }
 
 const initialFilters: SummaryFilters = {
@@ -117,6 +135,11 @@ const initialFilters: SummaryFilters = {
   sourceObjectType: 'ALL',
   materialSku: '',
   sourceNoKeyword: '',
+  checkType: 'ALL',
+  checkStatus: '待处理',
+  checkLevel: 'ALL',
+  ownerKeyword: '',
+  timeRange: 'ALL',
   pendingReplenishmentOnly: false,
   pendingTicketsOnly: false,
   pendingBagOnly: false,
@@ -130,6 +153,7 @@ const state: SummaryPageState = {
   querySignature: '',
   activeIssueId: null,
   activeRowId: null,
+  resolvedCheckItemIds: new Set(),
 }
 
 const completionSortWeight: Record<ProductionPieceTruthCompletionKey, number> = {
@@ -172,6 +196,36 @@ const sourceObjectGroupOrder: CuttingCheckSourceObjectType[] = [
   'FEI_PRINT_JOB',
   'BAG_USAGE',
   'SPECIAL_PROCESS',
+]
+
+const checkLevelMetaMap: Record<CuttingResultCheckLevel, { className: string }> = {
+  紧急: { className: 'border-rose-200 bg-rose-50 text-rose-700' },
+  需处理: { className: 'border-amber-200 bg-amber-50 text-amber-700' },
+  提示: { className: 'border-slate-200 bg-slate-50 text-slate-700' },
+}
+
+const checkStatusMetaMap: Record<CuttingResultCheckStatus, { className: string }> = {
+  待处理: { className: 'border-amber-200 bg-amber-50 text-amber-700' },
+  处理中: { className: 'border-blue-200 bg-blue-50 text-blue-700' },
+  已处理: { className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+  已关闭: { className: 'border-slate-200 bg-slate-50 text-slate-700' },
+}
+
+const checkTypeOptions: CuttingResultCheckType[] = [
+  '铺布差异',
+  '裁剪差异',
+  '补料待审核',
+  '补排待处理',
+  '裁片单已关闭',
+  '菲票待处理',
+  '入仓待处理',
+  '分拣待处理',
+  '交出后缺口',
+  '接收差异',
+  '特殊工艺未回仓',
+  '特殊工艺回仓差异',
+  '样衣异常',
+  '捆条异常',
 ]
 
 type SewingDispatchProgressSummary = ReturnType<typeof getRuntimeSewingDispatchProgressByProductionOrder>
@@ -700,6 +754,915 @@ function buildSummaryRenderAggregates(rows: CuttingSummaryRow[], sources: Cuttin
   }
 }
 
+function getCheckItemStatus(item: CuttingResultCheckItem): CuttingResultCheckStatus {
+  return state.resolvedCheckItemIds.has(item.checkItemId) ? '已处理' : item.handlingStatus
+}
+
+function buildCheckRoute(
+  row: CuttingSummaryRow,
+  target: SummaryNavigationTarget,
+  extra?: Partial<CuttingDrillContext>,
+): string {
+  return buildCuttingRouteWithContext(
+    target as CuttingNavigationTarget,
+    buildCuttingDrillContext(row.navigationPayload[target], 'cutting-summary', {
+      productionOrderId: row.productionOrderId,
+      productionOrderNo: row.productionOrderNo,
+      autoOpenDetail: true,
+      ...extra,
+    }),
+  )
+}
+
+function buildDirectCheckRoute(path: string, row: CuttingSummaryRow, extra?: Record<string, string | number | undefined | null>): string {
+  const params = new URLSearchParams()
+  params.set('sourcePageKey', 'cutting-summary')
+  params.set('productionOrderNo', row.productionOrderNo)
+  params.set('productionOrderId', row.productionOrderId)
+  Object.entries(extra || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return
+    params.set(key, String(value))
+  })
+  return `${path}${path.includes('?') ? '&' : '?'}${params.toString()}`
+}
+
+function findPrimaryCutOrder(row: CuttingSummaryRow, sources: CuttingSummaryBuildOptions): CuttingSummaryBuildOptions['cutOrderRows'][number] | null {
+  return (
+    sources.cutOrderRows.find((item) => item.productionOrderNo === row.productionOrderNo && item.currentStage.key === 'CLOSED') ||
+    sources.cutOrderRows.find((item) => item.productionOrderNo === row.productionOrderNo && item.cutOrderNo === row.relatedCutOrderNos[0]) ||
+    sources.cutOrderRows.find((item) => item.productionOrderNo === row.productionOrderNo) ||
+    null
+  )
+}
+
+function buildCheckMaterialIdentity(cutOrder: CuttingSummaryBuildOptions['cutOrderRows'][number] | null): CuttingResultCheckItem['materialIdentity'] {
+  if (!cutOrder) return null
+  return {
+    materialSku: cutOrder.materialSku,
+    materialName: cutOrder.materialName || cutOrder.materialLabel || cutOrder.materialSku,
+    materialColor: cutOrder.materialColor || cutOrder.color,
+    materialAlias: cutOrder.materialAlias,
+    materialImageUrl: cutOrder.materialImageUrl,
+    materialUnit: cutOrder.materialUnit,
+  }
+}
+
+function buildCheckPatternIdentity(cutOrder: CuttingSummaryBuildOptions['cutOrderRows'][number] | null): CuttingResultCheckItem['patternIdentity'] {
+  if (!cutOrder) return null
+  return {
+    patternFileId: cutOrder.patternFileId,
+    patternFileName: cutOrder.patternFileName,
+    patternVersion: cutOrder.patternVersion,
+    patternKind: cutOrder.patternKind,
+    effectiveWidthText: cutOrder.effectiveWidthText,
+    piecePartNames: cutOrder.piecePartNames,
+  }
+}
+
+function normalizeCheckLevel(level: CuttingSummaryRiskLevel | string | undefined): CuttingResultCheckLevel {
+  if (level === 'HIGH' || level === '高风险' || level === '紧急') return '紧急'
+  if (level === 'MEDIUM' || level === '中风险' || level === '需处理') return '需处理'
+  return '提示'
+}
+
+function buildCuttingResultCheckItems(
+  rows: CuttingSummaryRow[],
+  sources: CuttingSummaryBuildOptions,
+  aggregates: CuttingSummaryRenderAggregates,
+): CuttingResultCheckItem[] {
+  const items: CuttingResultCheckItem[] = []
+  const pushItem = (
+    row: CuttingSummaryRow,
+    input: Omit<CuttingResultCheckItem, 'materialIdentity' | 'patternIdentity' | 'productionOrderId' | 'productionOrderNo' | 'cutOrderId' | 'cutOrderNo'> & {
+      cutOrder?: CuttingSummaryBuildOptions['cutOrderRows'][number] | null
+    },
+  ) => {
+    const cutOrder = input.cutOrder === undefined ? findPrimaryCutOrder(row, sources) : input.cutOrder
+    items.push({
+      ...input,
+      productionOrderId: row.productionOrderId,
+      productionOrderNo: row.productionOrderNo,
+      cutOrderId: cutOrder?.cutOrderId || '',
+      cutOrderNo: cutOrder?.cutOrderNo || '',
+      materialIdentity: buildCheckMaterialIdentity(cutOrder || null),
+      patternIdentity: buildCheckPatternIdentity(cutOrder || null),
+    })
+  }
+
+  rows.forEach((row) => {
+    const primaryCutOrder = findPrimaryCutOrder(row, sources)
+    const rowCutOrderIds = new Set(row.relatedCutOrderIds)
+    const spreadingSessions = sources.markerStore.sessions.filter((session) =>
+      session.cutOrderIds.some((cutOrderId) => rowCutOrderIds.has(cutOrderId)),
+    )
+    const spreadingDifferenceRecords = listSpreadingDifferences({ sessions: spreadingSessions }).filter((difference) =>
+      difference.productionOrderNos.includes(row.productionOrderNo),
+    )
+    const spreadingDifferenceRecord = spreadingDifferenceRecords.find(
+      (difference) => difference.differenceType === '实铺小于计划' && difference.handlingStatus !== '已处理',
+    )
+    if (spreadingDifferenceRecord) {
+      pushItem(row, {
+        checkItemId: `check-spreading-difference-${spreadingDifferenceRecord.differenceId}`,
+        checkType: '铺布差异',
+        checkLevel: spreadingDifferenceRecord.differenceLevel === '提示' ? '提示' : '需处理',
+        sourceObjectType: '铺布单',
+        sourceObjectId: spreadingDifferenceRecord.spreadingOrderId,
+        sourceObjectNo: spreadingDifferenceRecord.spreadingOrderNo,
+        spreadingOrderId: spreadingDifferenceRecord.spreadingOrderId,
+        spreadingOrderNo: spreadingDifferenceRecord.spreadingOrderNo,
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `实铺小于计划：实际 ${formatCount(spreadingDifferenceRecord.actualValue)} ${spreadingDifferenceRecord.unit}，计划 ${formatCount(spreadingDifferenceRecord.plannedValue)} ${spreadingDifferenceRecord.unit}。`,
+        impactText: spreadingDifferenceRecord.evidence.summary || '允许提交，但需要判断是否补料、补录、继续补排或仅记录差异。',
+        suggestedAction: '去铺布单定位差异',
+        actionRoute: buildDirectCheckRoute(getCanonicalCuttingPath('spreading-list'), row, {
+          spreadingOrderNo: spreadingDifferenceRecord.spreadingOrderNo,
+        }),
+        handlingStatus: spreadingDifferenceRecord.handlingStatus === '仅记录' ? '已处理' : spreadingDifferenceRecord.handlingStatus,
+        ownerRole: '裁床主管',
+        ownerName: spreadingDifferenceRecord.detectedBy || '铺布复核员',
+        occurredAt: spreadingDifferenceRecord.detectedAt,
+        updatedAt: spreadingDifferenceRecord.detectedAt,
+        cutOrder: primaryCutOrder,
+      })
+    }
+    const spreadingDiff = spreadingSessions.find(
+      (session) => session.plannedLayers > 0 && session.actualLayers > 0 && session.actualLayers < session.plannedLayers,
+    )
+    if (spreadingDiff && !spreadingDifferenceRecord) {
+      pushItem(row, {
+        checkItemId: `check-spreading-${spreadingDiff.spreadingSessionId}`,
+        checkType: '铺布差异',
+        checkLevel: '需处理',
+        sourceObjectType: '铺布单',
+        sourceObjectId: spreadingDiff.spreadingSessionId,
+        sourceObjectNo: spreadingDiff.sessionNo || spreadingDiff.spreadingSessionId,
+        spreadingOrderId: spreadingDiff.spreadingSessionId,
+        spreadingOrderNo: spreadingDiff.sessionNo || '',
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `实铺 ${formatCount(spreadingDiff.actualLayers)} 层，小于计划 ${formatCount(spreadingDiff.plannedLayers)} 层。`,
+        impactText: `实际用量 ${formatMeter(spreadingDiff.totalActualLength)}，需核查是否继续补排或仅记录差异。`,
+        suggestedAction: '去铺布单详情核查差异',
+        actionRoute: buildCheckRoute(row, 'markerSpreading', {
+          spreadingSessionId: spreadingDiff.spreadingSessionId,
+          spreadingSessionNo: spreadingDiff.sessionNo,
+        }),
+        handlingStatus: '待处理',
+        ownerRole: '裁床主管',
+        ownerName: spreadingDiff.ownerName || '铺布复核员',
+        occurredAt: spreadingDiff.updatedFromPdaAt || spreadingDiff.actualEndAt || spreadingDiff.updatedAt,
+        updatedAt: spreadingDiff.updatedAt,
+        cutOrder: primaryCutOrder,
+      })
+    }
+
+    const cuttingDiff = spreadingSessions.find((session) => {
+      const plannedQty = session.theoreticalCutGarmentQty || session.theoreticalActualCutPieceQty || 0
+      const actualQty = session.actualCutGarmentQty || session.actualCutPieceQty || 0
+      return plannedQty > 0 && actualQty > 0 && actualQty < plannedQty
+    })
+    const cuttingDifferenceRecord = spreadingDifferenceRecords.find(
+      (difference) => difference.differenceType === '实裁小于计划' && difference.handlingStatus !== '已处理',
+    )
+    if (cuttingDifferenceRecord) {
+      pushItem(row, {
+        checkItemId: `check-cutting-difference-${cuttingDifferenceRecord.differenceId}`,
+        checkType: '裁剪差异',
+        checkLevel: cuttingDifferenceRecord.differenceLevel === '提示' ? '提示' : '需处理',
+        sourceObjectType: '铺布单',
+        sourceObjectId: cuttingDifferenceRecord.spreadingOrderId,
+        sourceObjectNo: cuttingDifferenceRecord.spreadingOrderNo,
+        spreadingOrderId: cuttingDifferenceRecord.spreadingOrderId,
+        spreadingOrderNo: cuttingDifferenceRecord.spreadingOrderNo,
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `实裁小于计划：实际 ${formatCount(cuttingDifferenceRecord.actualValue)} ${cuttingDifferenceRecord.unit}，计划 ${formatCount(cuttingDifferenceRecord.plannedValue)} ${cuttingDifferenceRecord.unit}。`,
+        impactText: cuttingDifferenceRecord.evidence.summary || '需要确认补录、继续补排、关闭裁片单或仅记录差异。',
+        suggestedAction: '去补料管理审核',
+        actionRoute: buildCheckRoute(row, 'replenishment', {
+          suggestionId: cuttingDifferenceRecord.linkedReplenishmentId,
+        }),
+        handlingStatus: cuttingDifferenceRecord.handlingStatus === '仅记录' ? '已处理' : cuttingDifferenceRecord.handlingStatus,
+        ownerRole: '补料审核',
+        ownerName: cuttingDifferenceRecord.detectedBy || '补料审核员',
+        occurredAt: cuttingDifferenceRecord.detectedAt,
+        updatedAt: cuttingDifferenceRecord.detectedAt,
+        cutOrder: primaryCutOrder,
+      })
+    }
+    if (cuttingDiff && !cuttingDifferenceRecord) {
+      const plannedQty = cuttingDiff.theoreticalCutGarmentQty || cuttingDiff.theoreticalActualCutPieceQty || 0
+      const actualQty = cuttingDiff.actualCutGarmentQty || cuttingDiff.actualCutPieceQty || 0
+      pushItem(row, {
+        checkItemId: `check-cutting-${cuttingDiff.spreadingSessionId}`,
+        checkType: '裁剪差异',
+        checkLevel: '需处理',
+        sourceObjectType: '铺布单',
+        sourceObjectId: cuttingDiff.spreadingSessionId,
+        sourceObjectNo: cuttingDiff.sessionNo || cuttingDiff.spreadingSessionId,
+        spreadingOrderId: cuttingDiff.spreadingSessionId,
+        spreadingOrderNo: cuttingDiff.sessionNo || '',
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `实裁小于计划：实际裁剪 ${formatCount(actualQty)} 件，小于计划 ${formatCount(plannedQty)} 件。`,
+        impactText: '需要确认是补录、继续补排、关闭裁片单，还是仅记录差异。',
+        suggestedAction: '去补料管理审核',
+        actionRoute: buildCheckRoute(row, 'replenishment'),
+        handlingStatus: '待处理',
+        ownerRole: '补料审核',
+        ownerName: '补料审核员',
+        occurredAt: cuttingDiff.cuttingFinishedAt || cuttingDiff.actualEndAt || cuttingDiff.updatedAt,
+        updatedAt: cuttingDiff.updatedAt,
+        cutOrder: primaryCutOrder,
+      })
+    }
+
+    const replenishment = sources.replenishmentView.rows.find(
+      (item) =>
+        item.productionOrderNos.includes(row.productionOrderNo) &&
+        ['PENDING_REVIEW', 'PENDING_SUPPLEMENT', 'APPROVED_PENDING_ACTION', 'IN_ACTION'].includes(item.statusMeta.key),
+    )
+    if (replenishment) {
+      pushItem(row, {
+        checkItemId: `check-replenishment-${replenishment.suggestionId}`,
+        checkType: '补料待审核',
+        checkLevel: normalizeCheckLevel(replenishment.riskMeta.label),
+        sourceObjectType: '补料管理',
+        sourceObjectId: replenishment.suggestionId,
+        sourceObjectNo: replenishment.suggestionNo,
+        spreadingOrderId: replenishment.context.session?.spreadingSessionId || '',
+        spreadingOrderNo: replenishment.context.session?.sessionNo || '',
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `${replenishment.differenceTypeSummary || replenishment.sourceSummary}，${replenishment.reviewStatusLabel}。`,
+        impactText: replenishment.differenceSummary || replenishment.majorGapSummary || '审核后决定是否补料、补录、继续补排、关闭裁片单或仅记录差异。',
+        suggestedAction: replenishment.nextActionLabel || '去补料管理处理',
+        actionRoute: buildCheckRoute(row, 'replenishment', {
+          suggestionId: replenishment.suggestionId,
+          suggestionNo: replenishment.suggestionNo,
+        }),
+        handlingStatus: replenishment.statusMeta.key === 'PENDING_SUPPLEMENT' ? '审核中' : '待处理',
+        ownerRole: '补料审核',
+        ownerName: replenishment.review?.reviewedBy || '补料审核员',
+        occurredAt: replenishment.createdAt,
+        updatedAt: replenishment.reviewedAt || replenishment.createdAt,
+        cutOrder: primaryCutOrder,
+      })
+
+      if ((replenishment.nextActionLabel || '').includes('可排唛架') || (replenishment.reviewResultLabel || '').includes('继续补排')) {
+        pushItem(row, {
+          checkItemId: `check-replan-${replenishment.suggestionId}`,
+          checkType: '补排待处理',
+          checkLevel: '需处理',
+          sourceObjectType: '补料管理',
+          sourceObjectId: replenishment.suggestionId,
+          sourceObjectNo: replenishment.suggestionNo,
+          spreadingOrderId: replenishment.context.session?.spreadingSessionId || '',
+          spreadingOrderNo: replenishment.context.session?.sessionNo || '',
+          feiTicketId: '',
+          feiTicketNo: '',
+          handoverOrderId: '',
+          handoverRecordId: '',
+          problemText: '补料审核指向继续补排，需要回到可排唛架裁片单确认余额和组合规则。',
+          impactText: '未处理前可能影响后续唛架方案和铺布单安排。',
+          suggestedAction: '去可排唛架裁片单',
+          actionRoute: buildCheckRoute(row, 'cuttablePool'),
+          handlingStatus: '待处理',
+          ownerRole: '裁前计划',
+          ownerName: '唛架计划员',
+          occurredAt: replenishment.reviewedAt || replenishment.createdAt,
+          updatedAt: replenishment.reviewedAt || replenishment.createdAt,
+          cutOrder: primaryCutOrder,
+        })
+      }
+    }
+
+    const closedCutOrders = sources.cutOrderRows.filter((item) => item.productionOrderNo === row.productionOrderNo && item.currentStage.key === 'CLOSED')
+    closedCutOrders.slice(0, 2).forEach((cutOrder) => {
+      pushItem(row, {
+        checkItemId: `check-closed-${cutOrder.cutOrderId}`,
+        checkType: '裁片单已关闭',
+        checkLevel: '提示',
+        sourceObjectType: '裁片单',
+        sourceObjectId: cutOrder.cutOrderId,
+        sourceObjectNo: cutOrder.cutOrderNo,
+        spreadingOrderId: '',
+        spreadingOrderNo: '',
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `裁片单已关闭，关闭原因：${cutOrder.closeReasonText || cutOrder.closeReason || '未填写'}`,
+        impactText: '关闭后不再进入可排唛架，也不再要求继续配料或领料；历史菲票、库存和交出记录仍可追溯。',
+        suggestedAction: '查看关闭记录',
+        actionRoute: buildCheckRoute(row, 'cutOrders', { cutOrderId: cutOrder.cutOrderId, cutOrderNo: cutOrder.cutOrderNo }),
+        handlingStatus: '待处理',
+        ownerRole: '裁床主管',
+        ownerName: cutOrder.closedBy || '裁床主管',
+        occurredAt: cutOrder.closedAt,
+        updatedAt: cutOrder.closedAt,
+        cutOrder,
+      })
+    })
+
+    const ticketOwners = sources.feiViewModel.owners.filter((owner) => owner.productionOrderNo === row.productionOrderNo)
+    const pendingTicketOwner = ticketOwners.find((owner) => ['NOT_GENERATED', 'DRAFT', 'PENDING_SUPPLEMENT'].includes(owner.ticketStatus))
+    if (pendingTicketOwner) {
+      const ownerCutOrder = sources.cutOrderRows.find((item) => item.cutOrderId === pendingTicketOwner.cutOrderId) || primaryCutOrder
+      pushItem(row, {
+        checkItemId: `check-fei-first-${pendingTicketOwner.id}`,
+        checkType: '菲票待处理',
+        checkLevel: '需处理',
+        sourceObjectType: '菲票',
+        sourceObjectId: pendingTicketOwner.id,
+        sourceObjectNo: pendingTicketOwner.cutOrderNo,
+        spreadingOrderId: '',
+        spreadingOrderNo: '',
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `裁片单 ${pendingTicketOwner.cutOrderNo} 菲票待首打。`,
+        impactText: '未首打菲票不能进入裁床待交出仓库存。',
+        suggestedAction: '去菲票打印页',
+        actionRoute: buildCheckRoute(row, 'feiTickets', pendingTicketOwner.navigationPayload.feiTickets),
+        handlingStatus: '待处理',
+        ownerRole: '菲票打印',
+        ownerName: '打印员',
+        occurredAt: '',
+        updatedAt: '',
+        cutOrder: ownerCutOrder,
+      })
+    }
+    const reprintTicketOwner = ticketOwners.find((owner) => owner.ticketStatus === 'PARTIAL_PRINTED')
+    if (reprintTicketOwner) {
+      const ownerCutOrder = sources.cutOrderRows.find((item) => item.cutOrderId === reprintTicketOwner.cutOrderId) || primaryCutOrder
+      pushItem(row, {
+        checkItemId: `check-fei-reprint-${reprintTicketOwner.id}`,
+        checkType: '菲票待处理',
+        checkLevel: '需处理',
+        sourceObjectType: '菲票',
+        sourceObjectId: reprintTicketOwner.id,
+        sourceObjectNo: reprintTicketOwner.cutOrderNo,
+        spreadingOrderId: '',
+        spreadingOrderNo: '',
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `裁片单 ${reprintTicketOwner.cutOrderNo} 菲票需补打。`,
+        impactText: '补打前需要核对编号范围、特殊工艺和承接工厂。',
+        suggestedAction: '去菲票补打页',
+        actionRoute: buildCheckRoute(row, 'feiTickets', { ...reprintTicketOwner.navigationPayload.feiTickets, focusTab: 'printed' }),
+        handlingStatus: '待处理',
+        ownerRole: '菲票打印',
+        ownerName: '打印员',
+        occurredAt: '',
+        updatedAt: '',
+        cutOrder: ownerCutOrder,
+      })
+    }
+
+    const waitingInbound = sources.cutPieceWarehouseView.items.find(
+      (item) => item.productionOrderNo === row.productionOrderNo && item.warehouseStatus.key === 'PENDING_INBOUND',
+    )
+    if (waitingInbound) {
+      const itemCutOrder = sources.cutOrderRows.find((item) => item.cutOrderId === waitingInbound.cutOrderId) || primaryCutOrder
+      pushItem(row, {
+        checkItemId: `check-inbound-${waitingInbound.warehouseItemId}`,
+        checkType: '入仓待处理',
+        checkLevel: '需处理',
+        sourceObjectType: '裁床待交出仓',
+        sourceObjectId: waitingInbound.warehouseItemId,
+        sourceObjectNo: waitingInbound.spreadingSessionNo || waitingInbound.cutOrderNo,
+        spreadingOrderId: waitingInbound.spreadingSessionId,
+        spreadingOrderNo: waitingInbound.spreadingSessionNo,
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `已打印菲票对应裁片待入仓确认，数量 ${formatCount(waitingInbound.pieceQty)} 片。`,
+        impactText: '未入仓前不能成为裁床待交出仓可分配库存。',
+        suggestedAction: '去裁床待交出仓',
+        actionRoute: buildDirectCheckRoute(getCanonicalCuttingPath('warehouse-management-wait-handover'), row),
+        handlingStatus: '待处理',
+        ownerRole: '待交出仓',
+        ownerName: waitingInbound.inWarehouseBy || '仓管',
+        occurredAt: waitingInbound.inWarehouseAt,
+        updatedAt: waitingInbound.inWarehouseAt,
+        cutOrder: itemCutOrder,
+      })
+    }
+
+    const sewingSummary = aggregates.sewingDispatchByProductionId.get(row.productionOrderId)
+    if (row.openBagUsageCount > 0 || (sewingSummary?.transferBagCount || 0) > 0) {
+      pushItem(row, {
+        checkItemId: `check-sorting-${row.productionOrderId}`,
+        checkType: '分拣待处理',
+        checkLevel: '需处理',
+        sourceObjectType: '待交出仓裁片配料',
+        sourceObjectId: row.productionOrderId,
+        sourceObjectNo: row.productionOrderNo,
+        spreadingOrderId: '',
+        spreadingOrderNo: '',
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: '车缝任务分配后仍有待二次分拣或待重新装袋事项。',
+        impactText: `中转袋 ${formatCount(sewingSummary?.transferBagCount || row.openBagUsageCount)} 个，需按交出对象重新核对裁片。`,
+        suggestedAction: '去待交出仓裁片配料',
+        actionRoute: buildDirectCheckRoute(`${getCanonicalCuttingPath('warehouse-management-wait-handover')}?tab=picking`, row),
+        handlingStatus: '待处理',
+        ownerRole: '待交出仓',
+        ownerName: '仓管',
+        occurredAt: '',
+        updatedAt: '',
+        cutOrder: primaryCutOrder,
+      })
+    }
+
+    const resultLine = aggregates.resultLineByProductionId.get(row.productionOrderId)
+    if ((resultLine?.remainingGapPieceQty || 0) > 0) {
+      pushItem(row, {
+        checkItemId: `check-handover-shortage-${row.productionOrderId}`,
+        checkType: '交出后缺口',
+        checkLevel: '需处理',
+        sourceObjectType: '交出记录',
+        sourceObjectId: row.productionOrderId,
+        sourceObjectNo: row.relatedUsageNos[0] || row.productionOrderNo,
+        spreadingOrderId: '',
+        spreadingOrderNo: '',
+        feiTicketId: '',
+        feiTicketNo: row.relatedTicketNos[0] || '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `交出后仍有缺口 ${formatCount(resultLine?.remainingGapPieceQty || 0)} 片。`,
+        impactText: '缺口是交出后的计算结果，不阻断后续有效裁片继续交出。',
+        suggestedAction: '去交出记录核查缺口',
+        actionRoute: buildDirectCheckRoute(getCanonicalCuttingPath('handover-orders'), row),
+        handlingStatus: '待处理',
+        ownerRole: '交出复核',
+        ownerName: '交出复核员',
+        occurredAt: '',
+        updatedAt: '',
+        cutOrder: primaryCutOrder,
+      })
+    }
+
+    if ((resultLine?.differenceQty || 0) > 0 || (sewingSummary?.differenceTransferBagCount || 0) > 0 || (sewingSummary?.objectionTransferBagCount || 0) > 0) {
+      pushItem(row, {
+        checkItemId: `check-receiver-diff-${row.productionOrderId}`,
+        checkType: '接收差异',
+        checkLevel: '紧急',
+        sourceObjectType: '交出记录',
+        sourceObjectId: row.productionOrderId,
+        sourceObjectNo: row.relatedUsageNos[0] || row.productionOrderNo,
+        spreadingOrderId: '',
+        spreadingOrderNo: '',
+        feiTicketId: '',
+        feiTicketNo: row.relatedTicketNos[0] || '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `接收差异 / 异议数量 ${formatCount((resultLine?.differenceQty || 0) + (sewingSummary?.differenceTransferBagCount || 0) + (sewingSummary?.objectionTransferBagCount || 0))}。`,
+        impactText: '需要核对交出记录、接收回写和异议处理记录。',
+        suggestedAction: '去交出记录处理差异',
+        actionRoute: buildDirectCheckRoute(getCanonicalCuttingPath('handover-orders'), row),
+        handlingStatus: '待处理',
+        ownerRole: '交出复核',
+        ownerName: '交出复核员',
+        occurredAt: '',
+        updatedAt: '',
+        cutOrder: primaryCutOrder,
+      })
+    }
+
+    const specialSummary = aggregates.specialReturnByProductionId.get(row.productionOrderId)
+    if ((specialSummary?.waitReturnCount || 0) > 0) {
+      pushItem(row, {
+        checkItemId: `check-special-pending-${row.productionOrderId}`,
+        checkType: '特殊工艺未回仓',
+        checkLevel: '需处理',
+        sourceObjectType: '特殊工艺',
+        sourceObjectId: row.productionOrderId,
+        sourceObjectNo: row.relatedProcessOrderNos[0] || row.productionOrderNo,
+        spreadingOrderId: '',
+        spreadingOrderNo: '',
+        feiTicketId: '',
+        feiTicketNo: row.relatedTicketNos[0] || '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `特殊工艺未回仓菲票 ${formatCount(specialSummary?.waitReturnCount || 0)} 张。`,
+        impactText: '未回仓部位暂不参与车缝任务分配，但不影响其他已裁出部位交出。',
+        suggestedAction: '去特殊工艺回仓页',
+        actionRoute: buildCheckRoute(row, 'specialProcesses'),
+        handlingStatus: '待处理',
+        ownerRole: '特殊工艺跟单',
+        ownerName: '特殊工艺跟单员',
+        occurredAt: '',
+        updatedAt: '',
+        cutOrder: primaryCutOrder,
+      })
+    }
+    if ((specialSummary?.differenceCount || 0) > 0 || (specialSummary?.objectionCount || 0) > 0) {
+      pushItem(row, {
+        checkItemId: `check-special-return-diff-${row.productionOrderId}`,
+        checkType: '特殊工艺回仓差异',
+        checkLevel: '紧急',
+        sourceObjectType: '特殊工艺',
+        sourceObjectId: row.productionOrderId,
+        sourceObjectNo: row.relatedProcessOrderNos[0] || row.productionOrderNo,
+        spreadingOrderId: '',
+        spreadingOrderNo: '',
+        feiTicketId: '',
+        feiTicketNo: row.relatedTicketNos[0] || '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `特殊工艺回仓差异 ${formatCount((specialSummary?.differenceCount || 0) + (specialSummary?.objectionCount || 0))} 项。`,
+        impactText: '需要核对回仓记录、承接工厂回写和裁床待交出仓库存。',
+        suggestedAction: '去特殊工艺回仓差异',
+        actionRoute: buildCheckRoute(row, 'specialProcesses'),
+        handlingStatus: '待处理',
+        ownerRole: '特殊工艺跟单',
+        ownerName: '特殊工艺跟单员',
+        occurredAt: '',
+        updatedAt: '',
+        cutOrder: primaryCutOrder,
+      })
+    }
+
+    const sampleAnomalies = sources.sampleWarehouseView.items.filter(
+      (item) =>
+        item.abnormalFlag &&
+        (item.relatedProductionOrderNo === row.productionOrderNo || item.styleCode === row.styleCode),
+    )
+    sampleAnomalies.slice(0, 2).forEach((sample) => {
+      const abnormal = sample.abnormalItems[0]
+      const sampleCutOrder = sources.cutOrderRows.find((item) => item.cutOrderId === sample.relatedCutOrderId) || primaryCutOrder
+      pushItem(row, {
+        checkItemId: `check-sample-${sample.sampleItemId}-${abnormal?.abnormalId || 'abnormal'}`,
+        checkType: '样衣异常',
+        checkLevel: abnormal?.abnormalType === '样衣未归还' ? '需处理' : '紧急',
+        sourceObjectType: '裁床样衣仓',
+        sourceObjectId: sample.sampleItemId,
+        sourceObjectNo: sample.sampleNo,
+        spreadingOrderId: sample.relatedSpreadingOrderIds[0] || '',
+        spreadingOrderNo: sample.relatedSpreadingOrderNos[0] || '',
+        feiTicketId: '',
+        feiTicketNo: '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `${sample.sampleNo} ${abnormal?.abnormalType || '样衣异常'}。`,
+        impactText: abnormal?.description || '样衣异常会影响裁前版型、部位、尺寸和拼接关系核对，但不改变裁片单主状态。',
+        suggestedAction: '去裁床样衣仓处理',
+        actionRoute: buildDirectCheckRoute(getCanonicalCuttingPath('sample-warehouse'), row, {
+          sampleNo: sample.sampleNo,
+          cutOrderId: sample.relatedCutOrderId,
+          status: sample.status.key,
+          tab: 'exception',
+        }),
+        handlingStatus: abnormal?.handlingStatus || '待处理',
+        ownerRole: '样衣仓',
+        ownerName: abnormal?.reportedBy || sample.currentHolder || '样衣管理员',
+        occurredAt: abnormal?.reportedAt || sample.lastMovedAt,
+        updatedAt: abnormal?.handledAt || abnormal?.reportedAt || sample.lastMovedAt,
+        cutOrder: sampleCutOrder,
+      })
+    })
+
+    const bindingAbnormalOrders = buildBindingProcessOrders().filter(
+      (order) =>
+        order.sourceProductionOrderNo === row.productionOrderNo ||
+        row.relatedCutOrderIds.includes(order.sourceCutOrderId) ||
+        row.relatedCutOrderNos.includes(order.sourceCutOrderNo),
+    )
+    bindingAbnormalOrders
+      .filter((order) => order.abnormalItems.length > 0)
+      .slice(0, 2)
+      .forEach((bindingOrder) => {
+        const abnormal = bindingOrder.abnormalItems[0]
+        const bindingCutOrder =
+          sources.cutOrderRows.find((item) => item.cutOrderId === bindingOrder.sourceCutOrderId) ||
+          sources.cutOrderRows.find((item) => item.cutOrderNo === bindingOrder.sourceCutOrderNo) ||
+          primaryCutOrder
+        pushItem(row, {
+          checkItemId: `check-binding-${bindingOrder.bindingOrderId}-${abnormal?.abnormalId || 'abnormal'}`,
+          checkType: '捆条异常',
+          checkLevel: abnormal?.abnormalLevel || '需处理',
+          sourceObjectType: '捆条加工单',
+          sourceObjectId: bindingOrder.bindingOrderId,
+          sourceObjectNo: bindingOrder.bindingOrderNo,
+          spreadingOrderId: bindingOrder.sourceSpreadingOrderId,
+          spreadingOrderNo: bindingOrder.sourceSpreadingOrderNo,
+          feiTicketId: bindingOrder.sourceFeiTicketIds[0] || '',
+          feiTicketNo: bindingOrder.sourceFeiTicketNos[0] || '',
+          handoverOrderId: '',
+          handoverRecordId: '',
+          problemText: `${bindingOrder.bindingOrderNo} ${abnormal?.abnormalType || '捆条异常'}。`,
+          impactText:
+            abnormal?.description ||
+            '捆条加工异常需要回到补料管理或裁剪结果核查处理，但不改变裁片单主状态。',
+          suggestedAction: '去捆条加工单处理',
+          actionRoute: buildDirectCheckRoute('/fcs/craft/cutting/special-processes/' + encodeURIComponent(bindingOrder.bindingOrderId), row, {
+            checkType: '捆条异常',
+            cutOrderId: bindingOrder.sourceCutOrderId,
+          }),
+          handlingStatus: abnormal?.handlingStatus || '待处理',
+          ownerRole: '裁床工艺',
+          ownerName: abnormal?.reportedBy || bindingOrder.operatorName || '捆条加工负责人',
+          occurredAt: abnormal?.reportedAt || bindingOrder.startedAt,
+          updatedAt: abnormal?.reportedAt || bindingOrder.completedAt || bindingOrder.startedAt,
+          cutOrder: bindingCutOrder,
+        })
+      })
+  })
+
+  buildBindingProcessOrders()
+    .filter((order) => order.abnormalItems.length > 0)
+    .forEach((bindingOrder) => {
+      const existing = items.some((item) => item.sourceObjectType === '捆条加工单' && item.sourceObjectId === bindingOrder.bindingOrderId)
+      if (existing) return
+      const fallbackRow =
+        rows.find((row) => row.productionOrderNo === bindingOrder.sourceProductionOrderNo) ||
+        rows.find((row) => row.relatedCutOrderNos.includes(bindingOrder.sourceCutOrderNo)) ||
+        rows[0]
+      if (!fallbackRow) return
+      const abnormal = bindingOrder.abnormalItems[0]
+      const bindingCutOrder =
+        sources.cutOrderRows.find((item) => item.cutOrderId === bindingOrder.sourceCutOrderId) ||
+        sources.cutOrderRows.find((item) => item.cutOrderNo === bindingOrder.sourceCutOrderNo) ||
+        findPrimaryCutOrder(fallbackRow, sources)
+      pushItem(fallbackRow, {
+        checkItemId: `check-binding-${bindingOrder.bindingOrderId}-${abnormal?.abnormalId || 'fallback'}`,
+        checkType: '捆条异常',
+        checkLevel: abnormal?.abnormalLevel || '需处理',
+        sourceObjectType: '捆条加工单',
+        sourceObjectId: bindingOrder.bindingOrderId,
+        sourceObjectNo: bindingOrder.bindingOrderNo,
+        spreadingOrderId: bindingOrder.sourceSpreadingOrderId,
+        spreadingOrderNo: bindingOrder.sourceSpreadingOrderNo,
+        feiTicketId: bindingOrder.sourceFeiTicketIds[0] || '',
+        feiTicketNo: bindingOrder.sourceFeiTicketNos[0] || '',
+        handoverOrderId: '',
+        handoverRecordId: '',
+        problemText: `${bindingOrder.bindingOrderNo} ${abnormal?.abnormalType || '捆条异常'}。`,
+        impactText:
+          abnormal?.description ||
+          '捆条加工异常需要回到补料管理或裁剪结果核查处理，但不改变裁片单主状态。',
+        suggestedAction: '去捆条加工单处理',
+        actionRoute: buildDirectCheckRoute('/fcs/craft/cutting/special-processes/' + encodeURIComponent(bindingOrder.bindingOrderId), fallbackRow, {
+          checkType: '捆条异常',
+          cutOrderId: bindingOrder.sourceCutOrderId,
+        }),
+        handlingStatus: abnormal?.handlingStatus || '待处理',
+        ownerRole: '裁床工艺',
+        ownerName: abnormal?.reportedBy || bindingOrder.operatorName || '捆条加工负责人',
+        occurredAt: abnormal?.reportedAt || bindingOrder.startedAt,
+        updatedAt: abnormal?.reportedAt || bindingOrder.completedAt || bindingOrder.startedAt,
+        cutOrder: bindingCutOrder,
+      })
+    })
+
+  return items
+}
+
+function getFilteredCheckItems(items: CuttingResultCheckItem[]): CuttingResultCheckItem[] {
+  const keyword = state.filters.keyword.trim().toLowerCase()
+  const sourceKeyword = state.filters.sourceNoKeyword.trim().toLowerCase()
+  const materialKeyword = state.filters.materialSku.trim().toLowerCase()
+  const ownerKeyword = state.filters.ownerKeyword.trim().toLowerCase()
+
+  return items
+    .filter((item) => {
+      const status = getCheckItemStatus(item)
+      if (state.filters.checkStatus !== 'ALL' && status !== state.filters.checkStatus) return false
+      if (state.filters.checkType !== 'ALL' && item.checkType !== state.filters.checkType) return false
+      if (state.filters.checkLevel !== 'ALL' && item.checkLevel !== state.filters.checkLevel) return false
+      if (ownerKeyword && !`${item.ownerRole} ${item.ownerName}`.toLowerCase().includes(ownerKeyword)) return false
+      if (materialKeyword && !item.materialIdentity?.materialSku.toLowerCase().includes(materialKeyword)) return false
+      if (sourceKeyword) {
+        const sourceText = [item.sourceObjectNo, item.cutOrderNo, item.spreadingOrderNo, item.feiTicketNo, item.productionOrderNo].join(' ').toLowerCase()
+        if (!sourceText.includes(sourceKeyword)) return false
+      }
+      if (keyword) {
+        const text = [
+          item.checkType,
+          item.problemText,
+          item.impactText,
+          item.suggestedAction,
+          item.productionOrderNo,
+          item.cutOrderNo,
+          item.spreadingOrderNo,
+          item.feiTicketNo,
+          item.ownerRole,
+          item.ownerName,
+          item.materialIdentity?.materialSku,
+          item.materialIdentity?.materialAlias,
+          item.patternIdentity?.patternFileName,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        if (!text.includes(keyword)) return false
+      }
+      return true
+    })
+    .sort((left, right) => {
+      const statusWeight: Record<CuttingResultCheckStatus, number> = { 待处理: 0, 处理中: 1, 已处理: 2, 已关闭: 3 }
+      const levelWeight: Record<CuttingResultCheckLevel, number> = { 紧急: 0, 需处理: 1, 提示: 2 }
+      const statusDiff = statusWeight[getCheckItemStatus(left)] - statusWeight[getCheckItemStatus(right)]
+      if (statusDiff !== 0) return statusDiff
+      const levelDiff = levelWeight[left.checkLevel] - levelWeight[right.checkLevel]
+      if (levelDiff !== 0) return levelDiff
+      return left.productionOrderNo.localeCompare(right.productionOrderNo, 'zh-CN')
+    })
+}
+
+function renderCheckBadge(label: string, className: string): string {
+  return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
+}
+
+function renderPatternIdentitySummary(item: CuttingResultCheckItem): string {
+  if (!item.patternIdentity) return '<span class="text-xs text-muted-foreground">纸样待补</span>'
+  return `
+    <div class="text-sm">
+      <p class="font-medium text-foreground">${escapeHtml(item.patternIdentity.patternFileName || '纸样文件待补')}</p>
+      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml([item.patternIdentity.patternVersion, item.patternIdentity.effectiveWidthText].filter(Boolean).join(' / ') || '版本和幅宽待补')}</p>
+      <p class="mt-1 line-clamp-2 text-xs text-muted-foreground">${escapeHtml(item.patternIdentity.piecePartNames.slice(0, 4).join('、') || '部位集合待补')}</p>
+    </div>
+  `
+}
+
+function renderCheckOverviewCards(items: CuttingResultCheckItem[]): string {
+  const pendingCount = items.filter((item) => ['待处理', '处理中'].includes(getCheckItemStatus(item))).length
+  const urgentCount = items.filter((item) => item.checkLevel === '紧急' && getCheckItemStatus(item) !== '已处理').length
+  const pendingReplenishmentCount = items.filter((item) => item.checkType === '补料待审核' && getCheckItemStatus(item) === '待处理').length
+  const handoverShortageCount = items.filter((item) => item.checkType === '交出后缺口').length
+  const specialCraftPendingCount = items.filter((item) => item.checkType === '特殊工艺未回仓').length
+  const closedCutOrderCount = items.filter((item) => item.checkType === '裁片单已关闭').length
+
+  return `
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      ${renderCompactKpiCard('待处理数量', pendingCount, '默认聚焦当前要处理的问题', 'text-amber-600')}
+      ${renderCompactKpiCard('紧急数量', urgentCount, '优先核查接收差异和回仓差异', 'text-rose-600')}
+      ${renderCompactKpiCard('待审核补料数量', pendingReplenishmentCount, '来自实际差异', 'text-violet-600')}
+      ${renderCompactKpiCard('交出后缺口数量', handoverShortageCount, '交出后的结果提示', 'text-orange-600')}
+      ${renderCompactKpiCard('特殊工艺未回仓数量', specialCraftPendingCount, '不阻断其他部位交出', 'text-fuchsia-600')}
+      ${renderCompactKpiCard('已关闭裁片单数量', closedCutOrderCount, '展示关闭原因与影响项', 'text-slate-700')}
+    </section>
+  `
+}
+
+function renderResultCheckFilterBar(): string {
+  return renderStickyFilterShell(`
+    <div class="grid gap-3 xl:grid-cols-6">
+      <label class="space-y-2 xl:col-span-2">
+        <span class="text-sm font-medium text-foreground">关键词</span>
+        <input
+          value="${escapeHtml(state.filters.keyword)}"
+          placeholder="生产单 / 裁片单 / 铺布单 / 菲票 / 问题说明"
+          class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          data-cutting-summary-field="keyword"
+        />
+      </label>
+      ${renderFilterSelect('核查类型', 'checkType', state.filters.checkType, [
+        { value: 'ALL', label: '全部类型' },
+        ...checkTypeOptions.map((type) => ({ value: type, label: type })),
+      ])}
+      ${renderFilterSelect('处理状态', 'checkStatus', state.filters.checkStatus, [
+        { value: 'ALL', label: '全部状态' },
+        { value: '待处理', label: '待处理' },
+        { value: '处理中', label: '处理中' },
+        { value: '已处理', label: '已处理' },
+        { value: '已关闭', label: '已关闭' },
+      ])}
+      ${renderFilterSelect('紧急程度', 'checkLevel', state.filters.checkLevel, [
+        { value: 'ALL', label: '全部' },
+        { value: '紧急', label: '紧急' },
+        { value: '需处理', label: '需处理' },
+        { value: '提示', label: '提示' },
+      ])}
+      ${renderFilterInput('负责人', 'ownerKeyword', state.filters.ownerKeyword, '负责人 / 角色')}
+    </div>
+    <div class="mt-3 grid gap-3 xl:grid-cols-6">
+      ${renderFilterInput('来源对象', 'sourceNoKeyword', state.filters.sourceNoKeyword, '裁片单 / 铺布单 / 交出记录')}
+      ${renderFilterInput('面料 SKU', 'materialSku', state.filters.materialSku, '输入面料 SKU')}
+      ${renderFilterSelect('时间范围', 'timeRange', state.filters.timeRange, [
+        { value: 'ALL', label: '全部时间' },
+        { value: 'TODAY', label: '今天' },
+        { value: 'THIS_WEEK', label: '本周' },
+        { value: 'THIS_MONTH', label: '本月' },
+      ])}
+      <div class="flex items-end gap-2 xl:col-span-3">
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="clear-filters">清除筛选条件</button>
+      </div>
+    </div>
+  `)
+}
+
+function renderCheckItemCard(item: CuttingResultCheckItem): string {
+  const status = getCheckItemStatus(item)
+  return `
+    <article class="rounded-lg border bg-background p-3">
+      <div class="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            ${renderCheckBadge(item.checkType, 'border-blue-200 bg-blue-50 text-blue-700')}
+            ${renderCheckBadge(item.checkLevel, checkLevelMetaMap[item.checkLevel].className)}
+          </div>
+          <p class="mt-2 text-sm font-medium leading-5 text-foreground">${escapeHtml(item.problemText)}</p>
+        </div>
+        <div class="min-w-0 text-sm">
+          <p class="font-medium text-foreground">${escapeHtml(item.productionOrderNo)}</p>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.cutOrderNo || '未关联裁片单')}</p>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml([item.spreadingOrderNo, item.feiTicketNo, item.sourceObjectNo].filter(Boolean).slice(0, 2).join(' / ') || item.sourceObjectType)}</p>
+        </div>
+        <div class="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+          <div>
+            ${
+              item.materialIdentity
+                ? renderMaterialIdentityBlock(
+                    {
+                      materialSku: item.materialIdentity.materialSku,
+                      materialLabel: item.materialIdentity.materialName,
+                      materialAlias: item.materialIdentity.materialAlias,
+                      materialImageUrl: item.materialIdentity.materialImageUrl,
+                    },
+                    { compact: true, imageSizeClass: 'h-9 w-9', showCategory: false },
+                  )
+                : '<span class="text-xs text-muted-foreground">面料待补</span>'
+            }
+          </div>
+          ${renderPatternIdentitySummary(item)}
+        </div>
+        <div class="min-w-0 text-xs leading-5 text-muted-foreground">
+          ${escapeHtml(item.impactText)}
+        </div>
+        <div class="min-w-0">
+          ${renderCheckBadge(status, checkStatusMetaMap[status].className)}
+          <p class="mt-2 text-xs text-blue-700">${escapeHtml(item.suggestedAction)}</p>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml([item.ownerRole, item.ownerName].filter(Boolean).join(' / ') || '负责人待定')}</p>
+        </div>
+        <div class="flex shrink-0 flex-col gap-2">
+          <a
+            href="${escapeHtml(item.actionRoute)}"
+            class="rounded-md border px-3 py-2 text-center text-xs hover:bg-muted"
+            data-nav="${escapeHtml(item.actionRoute)}"
+          >查看来源</a>
+          <a
+            href="${escapeHtml(item.actionRoute)}"
+            class="rounded-md border px-3 py-2 text-center text-xs hover:bg-muted"
+            data-nav="${escapeHtml(item.actionRoute)}"
+          >去处理</a>
+          <button
+            type="button"
+            class="rounded-md border px-3 py-2 text-xs hover:bg-muted"
+            data-cutting-summary-action="mark-check-handled"
+            data-check-item-id="${escapeHtml(item.checkItemId)}"
+          >标记已处理</button>
+        </div>
+      </div>
+    </article>
+  `
+}
+
+function renderGroupedCheckItems(items: CuttingResultCheckItem[]): string {
+  return `
+    <section class="space-y-4">
+      ${cuttingResultCheckGroupDefinitions
+        .map((group) => {
+          const groupItems = items.filter((item) => group.checkTypes.includes(item.checkType))
+          return `
+            <section class="space-y-3 rounded-lg border bg-card p-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-base font-semibold text-foreground">${escapeHtml(group.title)}</h2>
+                <span class="text-xs text-muted-foreground">${formatCount(groupItems.length)} 项</span>
+              </div>
+              ${
+                groupItems.length
+                  ? `<div class="space-y-3">${groupItems.map(renderCheckItemCard).join('')}</div>`
+                  : '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">当前筛选范围内暂无该类待处理事项。</div>'
+              }
+            </section>
+          `
+        })
+        .join('')}
+    </section>
+  `
+}
+
 function renderSpecialCraftReturnOverview(rows: CuttingSummaryRow[], aggregates: CuttingSummaryRenderAggregates): string {
   const summaries = rows
     .map((row) => aggregates.specialReturnByProductionId.get(row.productionOrderId))
@@ -835,7 +1798,7 @@ function renderProgressStatisticsSummary(rows: CuttingSummaryRow[], aggregates: 
     <section class="rounded-lg border bg-card px-4 py-4">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <p class="text-sm font-semibold text-foreground">裁剪总结进度联动</p>
+          <p class="text-sm font-semibold text-foreground">裁剪结果核查进度联动</p>
           <p class="mt-1 text-xs text-muted-foreground">汇总生产数量、裁剪完成、菲票、裁床厂待交出仓、特殊工艺回仓、中转袋和交出进度。</p>
         </div>
         <span class="inline-flex rounded-full border px-3 py-1 text-xs ${blockingReasons.length ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}">风险与差异：${escapeHtml(blockingReasons[0] || '无')}</span>
@@ -1051,7 +2014,7 @@ function renderResultMainTable(rows: CuttingSummaryRow[], aggregates: CuttingSum
     <section class="space-y-3 rounded-lg border bg-card p-4">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-base font-semibold text-foreground">裁剪结果总表</h2>
+          <h2 class="text-base font-semibold text-foreground">裁剪结果核查明细</h2>
         </div>
         <p class="text-xs text-muted-foreground">当前共 ${formatCount(rows.length)} 个生产单</p>
       </div>
@@ -1695,35 +2658,24 @@ function renderPage(): string {
   const projection = buildProjection()
   const { sources, viewModel } = projection
   syncStateWithQuery(viewModel)
-  const issueRows = getFilteredRows(viewModel, { ignoreIssueType: true })
-  const issues = buildCuttingSummaryIssues(issueRows)
-  const filteredRows = getFilteredRows(viewModel)
-  const aggregates = buildSummaryRenderAggregates(filteredRows, sources)
-  const activeRowId = getActiveRowId(filteredRows, issues)
-  const detail = activeRowId ? buildFcsCuttingSummaryDetailProjection(activeRowId, projection) : null
+  const baseRows = getFilteredRows(viewModel, { ignoreIssueType: true })
+  const aggregates = buildSummaryRenderAggregates(baseRows, sources)
+  const allCheckItems = buildCuttingResultCheckItems(baseRows, sources, aggregates)
+  const filteredCheckItems = getFilteredCheckItems(allCheckItems)
   const pathname = appStore.getState().pathname
   const meta = getCanonicalCuttingMeta(pathname, 'summary')
 
   return `
     <div class="space-y-4">
       ${renderCuttingPageHeader(meta)}
-      ${renderCuttingResultOverview(filteredRows, aggregates)}
       ${renderPrefilterBar()}
-      ${renderFilterBar()}
-      ${renderIssueBoard(issues)}
-      ${renderCheckStateBar(filteredRows)}
-      ${renderSpecialCraftReturnOverview(filteredRows, aggregates)}
-      ${renderSewingDispatchOverview(filteredRows, aggregates)}
-      ${renderProgressStatisticsSummary(filteredRows, aggregates)}
-      ${renderResultMainTable(filteredRows, aggregates)}
-      <section class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
-        <div class="space-y-4">
-          ${renderDetailPanel(detail, aggregates)}
-        </div>
-        <div class="space-y-4">
-          ${renderTracePanel(detail)}
-        </div>
+      ${renderCheckOverviewCards(allCheckItems)}
+      ${renderResultCheckFilterBar()}
+      <section class="rounded-lg border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        默认展示待处理核查项；如需历史查询，可将处理状态切换为全部状态。
+        当前筛选命中 ${formatCount(filteredCheckItems.length)} 项，来源生产单 ${formatCount(new Set(filteredCheckItems.map((item) => item.productionOrderNo)).size)} 个。
       </section>
+      ${renderGroupedCheckItems(filteredCheckItems)}
     </div>
   `
 }
@@ -1816,6 +2768,20 @@ export function handleCraftCuttingSummaryEvent(target: Element): boolean {
   if (action === 'clear-filters') {
     state.filters = { ...initialFilters }
     state.activeIssueId = null
+    return true
+  }
+
+  if (action === 'navigate-check-item') {
+    const route = actionNode.dataset.actionRoute
+    if (!route) return false
+    appStore.navigate(route)
+    return true
+  }
+
+  if (action === 'mark-check-handled') {
+    const checkItemId = actionNode.dataset.checkItemId
+    if (!checkItemId) return false
+    state.resolvedCheckItemIds.add(checkItemId)
     return true
   }
 

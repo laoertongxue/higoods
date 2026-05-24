@@ -19,6 +19,13 @@ import {
   CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
   CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY,
 } from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
+import {
+  listSpreadingDifferences,
+  type ReplenishmentNextAction,
+  type ReplenishmentReviewResult,
+  type SpreadingDifference,
+  type SpreadingDifferenceType,
+} from '../../../data/fcs/cutting/spreading-differences.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
@@ -43,10 +50,20 @@ export type ReplenishmentAuditAction =
   | 'ACTION_SKIPPED'
   | 'ACTION_DONE'
 
-export type ReplenishmentFollowupActionType = 'CREATE_PENDING_PREP'
+export type ReplenishmentFollowupActionType =
+  | 'CREATE_PENDING_PREP'
+  | 'SUPPLEMENT_BACKFILL'
+  | 'REPLAN_MARKER'
+  | 'CLOSE_CUT_ORDER'
+  | 'RECORD_ONLY'
 
 export type ReplenishmentFollowupActionStatus = 'PENDING' | 'CONFIRMED' | 'SKIPPED' | 'DONE'
-export type ReplenishmentFollowupTargetPageKey = 'materialPrep' | 'cuttablePool' | 'cutOrders'
+export type ReplenishmentFollowupTargetPageKey =
+  | 'materialPrep'
+  | 'cuttablePool'
+  | 'cutOrders'
+  | 'markerSpreading'
+  | 'markerPlanRefs'
 export type ReplenishmentNextOptionKey =
   | 'WAIT_NEXT_PICKUP'
   | 'REPLAN_MARKER'
@@ -115,10 +132,82 @@ export interface ReplenishmentSuggestionLine {
   suggestedActionRuleText: string
 }
 
+export type ReplenishmentReviewItemSourceType =
+  | '领料差异'
+  | 'PDA 铺布回写'
+  | 'PDA 裁剪回写'
+  | 'Web 复核'
+  | '现场反馈'
+  | '卷记录异常'
+  | '布头布尾异常'
+  | '面料余额不足'
+  | '其他异常'
+
+export type ReplenishmentReviewItemStatus = '待审核' | '审核中' | '已处理' | '已关闭' | '已取消'
+
+export interface ReplenishmentEvidenceItem {
+  evidenceId: string
+  evidenceType: 'PDA 反馈' | '照片' | '备注' | '卷记录' | '系统计算'
+  summary: string
+  operatorName: string
+  occurredAt: string
+}
+
+export interface ReplenishmentReviewItem {
+  replenishmentId: string
+  replenishmentNo: string
+  sourceDifferenceId: string
+  sourceType: ReplenishmentReviewItemSourceType
+  differenceType: string
+  differenceLevel: string
+  productionOrderIds: string[]
+  cutOrderIds: string[]
+  spreadingOrderId: string
+  spreadingOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
+  materialIdentity: {
+    materialSku: string
+    materialName: string
+    materialColor: string
+    materialAlias: string
+    materialImageUrl: string
+    materialUnit: string
+  }
+  patternIdentity: {
+    patternFileName: string
+    patternVersion: string
+    effectiveWidthText: string
+  }
+  plannedValue: number
+  actualValue: number
+  differenceValue: number
+  unit: string
+  evidenceItems: ReplenishmentEvidenceItem[]
+  pdaFeedbackId: string
+  reviewStatus: ReplenishmentReviewItemStatus
+  reviewResult: ReplenishmentReviewResult | ''
+  nextAction: ReplenishmentNextAction | ''
+  linkedLedgerEventIds: string[]
+  closeCutOrderRequired: boolean
+  closeReasonCode: ReplenishmentReview['closeReasonCode'] | ''
+  closeReasonText: string
+  createdAt: string
+  createdBy: string
+  reviewedAt: string
+  reviewedBy: string
+  remark: string
+}
+
 export interface ReplenishmentReview {
   reviewId: string
   suggestionId: string
   reviewStatus: ReplenishmentReviewStatus
+  reviewResult?: ReplenishmentReviewResult
+  nextAction?: ReplenishmentNextAction
+  closeReasonCode?: 'MATERIAL_NO_MORE_ARRIVAL' | 'BUSINESS_STOP_RECUT' | 'FORCED_CLOSE' | 'STYLE_CANCELLED' | 'DEMAND_CANCELLED' | 'MATERIAL_REPLACED_UNUSED' | 'OTHER'
+  closeReason?: string
+  linkedLedgerEventIds?: string[]
   reviewedBy: string
   reviewedAt: string
   decisionReason: string
@@ -204,6 +293,14 @@ export interface ReplenishmentNextOption {
 
 export interface ReplenishmentSuggestionRow extends ReplenishmentSuggestion {
   context: ReplenishmentContextRecord
+  sourceDifferences: SpreadingDifference[]
+  sourceDifferenceCount: number
+  differenceTypeSummary: string
+  handlingStatusLabel: string
+  reviewResultLabel: string
+  nextActionLabel: string
+  closeReason: string
+  linkedLedgerEventIds: string[]
   sourceLabel: string
   sourceSummary: string
   sourceProductionSummary: string
@@ -274,6 +371,8 @@ export interface ReplenishmentPrefilter {
   color?: string
   suggestionId?: string
   suggestionNo?: string
+  spreadingSessionId?: string
+  spreadingOrderId?: string
   riskLevel?: ReplenishmentRiskLevel
   replenishmentStatus?: ReplenishmentStatusKey
 }
@@ -305,7 +404,7 @@ export const replenishmentStatusMetaMap: Record<ReplenishmentStatusKey, Replenis
     key: 'PENDING_REVIEW',
     label: '待审核',
     className: 'bg-amber-100 text-amber-700',
-    detailText: '补料建议已生成，等待人工审核。',
+    detailText: '实际差异已进入处理工作台，等待人工审核。',
   },
   PENDING_SUPPLEMENT: {
     key: 'PENDING_SUPPLEMENT',
@@ -317,7 +416,7 @@ export const replenishmentStatusMetaMap: Record<ReplenishmentStatusKey, Replenis
     key: 'REJECTED',
     label: '审核驳回',
     className: 'bg-slate-200 text-slate-700',
-    detailText: '补料建议已驳回，当前不进入后续动作。',
+    detailText: '差异处理已驳回，当前不进入后续动作。',
   },
   APPROVED_PENDING_ACTION: {
     key: 'APPROVED_PENDING_ACTION',
@@ -379,6 +478,30 @@ export const replenishmentFollowupActionTypeMetaMap: Record<
     label: '等待再次领料',
     shortLabel: '再次领料',
     className: 'bg-blue-100 text-blue-700',
+  },
+  SUPPLEMENT_BACKFILL: {
+    key: 'SUPPLEMENT_BACKFILL',
+    label: '补录差异',
+    shortLabel: '补录',
+    className: 'bg-orange-100 text-orange-700',
+  },
+  REPLAN_MARKER: {
+    key: 'REPLAN_MARKER',
+    label: '继续补排',
+    shortLabel: '补排',
+    className: 'bg-emerald-100 text-emerald-700',
+  },
+  CLOSE_CUT_ORDER: {
+    key: 'CLOSE_CUT_ORDER',
+    label: '关闭裁片单',
+    shortLabel: '关闭',
+    className: 'bg-zinc-100 text-zinc-700',
+  },
+  RECORD_ONLY: {
+    key: 'RECORD_ONLY',
+    label: '仅记录差异',
+    shortLabel: '记录',
+    className: 'bg-slate-100 text-slate-700',
   },
 }
 
@@ -504,7 +627,7 @@ function buildSuggestedAction(options: {
   if (options.shortageQty > 0 || options.varianceLength < 0) {
     return {
       status: 'PENDING_REVIEW',
-      text: `建议补足 ${formatQty(options.shortageQty)} 件对应差异，并进入后续纠偏。`,
+      text: `存在 ${formatQty(options.shortageQty)} 件对应差异，需审核后决定补料、补录、补排、关闭或仅记录。`,
     }
   }
 
@@ -623,11 +746,20 @@ export function buildReplenishmentSuggestionFromContext(options: {
 export function validateReplenishmentReviewAction(options: {
   suggestion: ReplenishmentSuggestionRow
   reviewStatus: ReplenishmentReviewStatus
+  reviewResult?: ReplenishmentReviewResult
   decisionReason: string
+  closeReason?: string
 }): { ok: boolean; message: string } {
   const reason = options.decisionReason.trim()
-  if (options.suggestion.statusMeta.key === 'NO_ACTION' && options.reviewStatus === 'APPROVED') {
+  if (
+    options.suggestion.statusMeta.key === 'NO_ACTION' &&
+    options.reviewStatus === 'APPROVED' &&
+    options.reviewResult !== '仅记录差异'
+  ) {
     return { ok: false, message: '当前建议为“无需补料”，不能直接审核通过。' }
+  }
+  if (options.reviewResult === '关闭裁片单' && !String(options.closeReason || '').trim()) {
+    return { ok: false, message: '关闭裁片单必须填写关闭原因。' }
   }
   if ((options.reviewStatus === 'REJECTED' || options.reviewStatus === 'PENDING_SUPPLEMENT') && !reason) {
     return { ok: false, message: '驳回或标记待补录时必须填写原因。' }
@@ -669,7 +801,71 @@ function buildActionTargetPath(targetPageKey: ReplenishmentFollowupTargetPageKey
   if (targetPageKey === 'materialPrep') return '/fcs/craft/cutting/warehouse-management/wait-process'
   if (targetPageKey === 'cuttablePool') return '/fcs/craft/cutting/cuttable-pool'
   if (targetPageKey === 'cutOrders') return '/fcs/craft/cutting/cut-orders'
+  if (targetPageKey === 'markerSpreading') return '/fcs/craft/cutting/spreading-list'
+  if (targetPageKey === 'markerPlanRefs') return '/fcs/craft/cutting/marker-list'
   return '/fcs/craft/cutting/replenishment'
+}
+
+export function resolveReviewStatusFromResult(result: ReplenishmentReviewResult): ReplenishmentReviewStatus {
+  if (result === '需要补录') return 'PENDING_SUPPLEMENT'
+  return 'APPROVED'
+}
+
+export function resolveNextActionFromReviewResult(result: ReplenishmentReviewResult): ReplenishmentNextAction {
+  if (result === '需要补料') return '回到中转仓配料'
+  if (result === '需要补录') return '补录铺布或裁剪数据'
+  if (result === '继续补排') return '回到可排唛架'
+  if (result === '关闭裁片单') return '关闭裁片单'
+  return '无后续动作'
+}
+
+function resolveFollowupActionFromReviewResult(
+  result: ReplenishmentReviewResult | undefined,
+): {
+  actionType: ReplenishmentFollowupActionType
+  title: string
+  targetPageKey: ReplenishmentFollowupTargetPageKey
+  note: string
+} | null {
+  if (!result) return null
+  if (result === '需要补料') {
+    return {
+      actionType: 'CREATE_PENDING_PREP',
+      title: '回到中转仓配料',
+      targetPageKey: 'materialPrep',
+      note: '审核判断需要补料，后续由中转仓形成补配数量，裁床再次领料后再判断是否补排。',
+    }
+  }
+  if (result === '需要补录') {
+    return {
+      actionType: 'SUPPLEMENT_BACKFILL',
+      title: '补录铺布或裁剪数据',
+      targetPageKey: 'markerSpreading',
+      note: '审核判断先补录实际铺布、裁剪或卷记录，再重新计算差异。',
+    }
+  }
+  if (result === '继续补排') {
+    return {
+      actionType: 'REPLAN_MARKER',
+      title: '回到可排唛架裁片单',
+      targetPageKey: 'cuttablePool',
+      note: '审核判断当前可继续补排，待可用余额满足后重新进入唛架方案。',
+    }
+  }
+  if (result === '关闭裁片单') {
+    return {
+      actionType: 'CLOSE_CUT_ORDER',
+      title: '关闭裁片单',
+      targetPageKey: 'cutOrders',
+      note: '审核判断不再补裁，裁片单需记录关闭原因并退出可排唛架。',
+    }
+  }
+  return {
+    actionType: 'RECORD_ONLY',
+    title: '仅记录差异',
+    targetPageKey: 'cutOrders',
+    note: '审核判断只保留差异记录，不改变数量账。',
+  }
 }
 
 function buildFollowupAction(options: {
@@ -702,21 +898,34 @@ function buildFollowupAction(options: {
   }
 }
 
+export function buildReplenishmentFollowupActionForResult(options: {
+  suggestion: ReplenishmentSuggestion
+  navigationPayload: ReplenishmentNavigationPayload
+  result: ReplenishmentReviewResult
+  decidedAt: string
+  decidedBy: string
+}): ReplenishmentFollowupAction | null {
+  const actionMeta = resolveFollowupActionFromReviewResult(options.result)
+  if (!actionMeta) return null
+  return buildFollowupAction({
+    suggestion: options.suggestion,
+    navigationPayload: options.navigationPayload,
+    actionType: actionMeta.actionType,
+    title: actionMeta.title,
+    targetPageKey: actionMeta.targetPageKey,
+    note: actionMeta.note,
+    decidedAt: options.decidedAt,
+    decidedBy: options.decidedBy,
+  })
+}
+
 function buildDefaultFollowupActions(
   suggestion: ReplenishmentSuggestion,
   navigationPayload: ReplenishmentNavigationPayload,
 ): ReplenishmentFollowupAction[] {
-  if (suggestion.status === 'NO_ACTION') return []
-  return [
-    buildFollowupAction({
-      suggestion,
-      navigationPayload,
-      actionType: 'CREATE_PENDING_PREP',
-      title: '等待再次领料',
-      targetPageKey: 'materialPrep',
-      note: '确认需要继续补裁后，等待裁床再次领料；有领料余额后再去补排唛架。',
-    }),
-  ]
+  void suggestion
+  void navigationPayload
+  return []
 }
 
 function mergeStoredActions(options: {
@@ -725,6 +934,7 @@ function mergeStoredActions(options: {
   navigationPayload: ReplenishmentNavigationPayload
   storedActions: ReplenishmentFollowupAction[]
 }): ReplenishmentFollowupAction[] {
+  if (options.storedActions.length) return options.storedActions
   const defaults = buildDefaultFollowupActions(options.suggestion, options.navigationPayload)
   if (!options.storedActions.length) return defaults
 
@@ -776,8 +986,8 @@ function buildImpactPlanFromActions(options: {
     impactPlanId: `impact-${options.suggestion.suggestionId}`,
     suggestionId: options.suggestion.suggestionId,
     needReconfigureMaterial: options.actions.some((item) => item.actionType === 'CREATE_PENDING_PREP'),
-    needReclaimMaterial: false,
-    needPendingPrep: options.actions.some((item) => item.actionType === 'CREATE_PENDING_PREP'),
+    needReclaimMaterial: options.actions.some((item) => item.actionType === 'CREATE_PENDING_PREP'),
+    needPendingPrep: options.actions.some((item) => item.actionType === 'CREATE_PENDING_PREP' || item.actionType === 'REPLAN_MARKER'),
     impactSummary,
     applied: completed,
     appliedAt: latestCompleted?.completedAt || (completed && !options.actions.length ? reviewAppliedAt : ''),
@@ -820,7 +1030,7 @@ function buildDifferenceSummary(suggestion: ReplenishmentSuggestion): string {
   return [
     `计划裁剪成衣件数 ${formatQty(suggestion.requiredGarmentQty)} 件`,
     `理论裁剪成衣件数 ${formatQty(suggestion.theoreticalCutGarmentQty)} 件`,
-    `缺口成衣件数 ${formatQty(suggestion.shortageGarmentQty)} 件`,
+    `差异成衣件数 ${formatQty(suggestion.shortageGarmentQty)} 件`,
     `差异长度 ${numberFormatter.format(suggestion.varianceLength)} 米`,
   ].join(' / ')
 }
@@ -965,6 +1175,120 @@ function matchesPdaFeedbackWithSuggestion(
   return !suggestion.markerPlanId && !suggestion.markerPlanNo
 }
 
+function matchesSpreadingDifferenceWithSuggestion(
+  difference: SpreadingDifference,
+  suggestion: Pick<
+    ReplenishmentSuggestion,
+    | 'cutOrderIds'
+    | 'cutOrderNos'
+    | 'productionOrderIds'
+    | 'productionOrderNos'
+    | 'materialSkus'
+    | 'markerPlanId'
+    | 'markerPlanNo'
+  >,
+  context?: ReplenishmentContextRecord,
+): boolean {
+  const matchesCutOrder =
+    difference.cutOrderIds.some((id) => suggestion.cutOrderIds.includes(id)) ||
+    difference.cutOrderNos.some((no) => suggestion.cutOrderNos.includes(no))
+  if (!matchesCutOrder) return false
+
+  const matchesProduction =
+    difference.productionOrderIds.some((id) => suggestion.productionOrderIds.includes(id)) ||
+    difference.productionOrderNos.some((no) => suggestion.productionOrderNos.includes(no))
+  if (!matchesProduction) return false
+
+  if (suggestion.materialSkus.length && !suggestion.materialSkus.includes(difference.materialSku)) return false
+
+  if (context?.session?.spreadingSessionId || context?.session?.sessionNo) {
+    return (
+      difference.spreadingOrderId === context.session.spreadingSessionId ||
+      difference.spreadingOrderNo === context.session.sessionNo ||
+      difference.sourceObjectId === context.session.spreadingSessionId
+    )
+  }
+
+  if (difference.spreadingOrderId || difference.spreadingOrderNo) return false
+
+  if (suggestion.markerPlanId || suggestion.markerPlanNo) {
+    return suggestion.markerPlanId === difference.markerPlanId || suggestion.markerPlanNo === difference.markerPlanNo
+  }
+
+  return true
+}
+
+function matchesSpreadingDifferenceWithPrefilter(
+  difference: SpreadingDifference,
+  prefilter: ReplenishmentPrefilter,
+): boolean {
+  if (prefilter.spreadingSessionId) {
+    return (
+      difference.spreadingOrderId === prefilter.spreadingSessionId ||
+      difference.spreadingOrderNo === prefilter.spreadingSessionId ||
+      difference.sourceObjectId === prefilter.spreadingSessionId
+    )
+  }
+  if (prefilter.spreadingOrderId) {
+    return difference.spreadingOrderId === prefilter.spreadingOrderId || difference.spreadingOrderNo === prefilter.spreadingOrderId
+  }
+  return false
+}
+
+function summarizeDifferenceTypes(differences: SpreadingDifference[]): string {
+  if (!differences.length) return '无铺布差异'
+  return uniqueStrings(differences.map((difference) => difference.differenceType)).join(' / ')
+}
+
+function buildDifferenceSummaryFromDifferences(
+  differences: SpreadingDifference[],
+  fallback: string,
+): string {
+  if (!differences.length) return fallback
+  return differences
+    .slice(0, 3)
+    .map((difference) => {
+      const planned = `${numberFormatter.format(difference.plannedValue)} ${difference.unit}`
+      const actual = `${numberFormatter.format(difference.actualValue)} ${difference.unit}`
+      const gap = `${numberFormatter.format(Math.abs(difference.differenceValue))} ${difference.unit}`
+      return `${difference.differenceType}：计划 ${planned} / 实际 ${actual} / 差异 ${gap}`
+    })
+    .join('；')
+}
+
+function buildMajorGapSummaryFromDifferences(
+  differences: SpreadingDifference[],
+  fallback: string,
+): string {
+  const major = differences.find((difference) => difference.differenceLevel === '需处理') || differences[0]
+  if (!major) return fallback
+  return `${major.differenceType} ${numberFormatter.format(Math.abs(major.differenceValue))} ${major.unit}`
+}
+
+function buildHandlingStatusLabel(differences: SpreadingDifference[], review: ReplenishmentReview | null): string {
+  if (review?.reviewResult) return `已判断：${review.reviewResult}`
+  if (!differences.length) return '无差异事项'
+  return uniqueStrings(differences.map((difference) => difference.handlingStatus)).join(' / ')
+}
+
+function buildReviewResultLabel(review: ReplenishmentReview | null): string {
+  return review?.reviewResult || '待判断'
+}
+
+function buildNextActionLabel(review: ReplenishmentReview | null, nextOptions: ReplenishmentNextOption[]): string {
+  return review?.nextAction || buildNextActionSummary(nextOptions)
+}
+
+function collectLinkedLedgerEventIds(
+  differences: SpreadingDifference[],
+  review: ReplenishmentReview | null,
+): string[] {
+  return uniqueStrings([
+    ...(review?.linkedLedgerEventIds || []),
+    ...differences.flatMap((difference) => difference.linkedLedgerEventIds),
+  ])
+}
+
 function buildPdaFeedbackNavigationPayload(
   feedback: Pick<
     PdaReplenishmentFeedbackWritebackRecord,
@@ -1052,13 +1376,21 @@ function buildSyntheticFeedbackRow(
     usableLengthTotal: 0,
     shortageLengthTotal: 0,
     varianceLength: 0,
-    suggestedAction: '请先确认这条现场补料反馈，并补齐正式补料建议。',
+    suggestedAction: '请先确认这条现场反馈，并补齐差异处理依据。',
     riskLevel: 'MEDIUM' as const,
     createdAt: feedback.submittedAt,
     status: 'PENDING_REVIEW' as const,
     note: feedback.note,
     lines: [],
     context: buildSyntheticFeedbackContext(feedback),
+    sourceDifferences: [],
+    sourceDifferenceCount: 0,
+    differenceTypeSummary: '现场反馈',
+    handlingStatusLabel: '待处理',
+    reviewResultLabel: '待判断',
+    nextActionLabel: '补齐数据',
+    closeReason: '',
+    linkedLedgerEventIds: [],
     sourceLabel: replenishmentSourceMeta['pda-feedback'].label,
     sourceSummary: `现场反馈 · ${feedback.cutOrderNo}`,
     sourceProductionSummary: feedback.productionOrderNo,
@@ -1125,6 +1457,379 @@ function buildSyntheticFeedbackRow(
     ...row,
     blockingSummary: buildBlockingSummary(row),
   }
+}
+
+function buildSyntheticDifferenceContext(difference: SpreadingDifference): ReplenishmentContextRecord {
+  return {
+    contextId: `ctx-${difference.differenceId}`,
+    sourceType: 'spreading-session',
+    baseSourceType: 'spreading-session',
+    markerPlanId: difference.markerPlanId,
+    markerPlanNo: difference.markerPlanNo,
+    cutOrderIds: [...difference.cutOrderIds],
+    cutOrderNos: [...difference.cutOrderNos],
+    productionOrderNos: [...difference.productionOrderNos],
+    styleCode: '',
+    spuCode: '',
+    styleName: '',
+    materialRows: [],
+    marker: null,
+    session: null,
+    totalRequiredQty: 0,
+    totalConfiguredLength: 0,
+    totalClaimedLength: 0,
+    totalUsableLength: 0,
+    totalShortageLength: 0,
+    varianceSummary: null,
+  }
+}
+
+function buildSyntheticDifferenceRow(difference: SpreadingDifference): ReplenishmentSuggestionRow {
+  const suggestionId = difference.linkedReplenishmentId
+  const navigationPayload = buildReplenishmentNavigationPayload({
+    cutOrderIds: [...difference.cutOrderIds],
+    cutOrderNos: [...difference.cutOrderNos],
+    markerPlanId: difference.markerPlanId,
+    markerPlanNo: difference.markerPlanNo,
+    productionOrderIds: [...difference.productionOrderIds],
+    productionOrderNos: [...difference.productionOrderNos],
+    materialSku: difference.materialSku,
+  })
+  const statusMeta = replenishmentStatusMetaMap.PENDING_REVIEW
+  const row = {
+    suggestionId,
+    suggestionNo: `BL-${formatDateToken(difference.detectedAt)}-${difference.differenceId.slice(-2) || '01'}`,
+    contextId: `ctx-${difference.differenceId}`,
+    sourceType: 'spreading-session' as const,
+    cutOrderIds: [...difference.cutOrderIds],
+    cutOrderNos: [...difference.cutOrderNos],
+    markerPlanId: difference.markerPlanId,
+    markerPlanNo: difference.markerPlanNo,
+    productionOrderIds: [...difference.productionOrderIds],
+    productionOrderNos: [...difference.productionOrderNos],
+    styleCode: '',
+    spuCode: '',
+    styleName: '',
+    materialSku: difference.materialSku,
+    materialSkus: [difference.materialSku],
+    materialCategory: '面料',
+    materialAttr: difference.patternFileName,
+    materialAlias: difference.materialAlias,
+    materialImageUrl: difference.materialImageUrl,
+    requiredGarmentQty: 0,
+    theoreticalCutGarmentQty: 0,
+    actualCutGarmentQty: 0,
+    shortageGarmentQty: Math.max(difference.plannedValue - difference.actualValue, 0),
+    actualLengthTotal: difference.actualValue,
+    summaryRuleText: difference.evidence.summary,
+    requiredQty: difference.plannedValue,
+    estimatedCapacityQty: difference.actualValue,
+    shortageQty: Math.max(difference.plannedValue - difference.actualValue, 0),
+    configuredLengthTotal: difference.plannedValue,
+    claimedLengthTotal: difference.actualValue,
+    usableLengthTotal: 0,
+    shortageLengthTotal: Math.max(difference.plannedValue - difference.actualValue, 0),
+    varianceLength: difference.differenceValue,
+    suggestedAction: '差异进入补料管理后，先审核处理结果，再决定是否补料。',
+    riskLevel: difference.differenceLevel === '需处理' ? ('HIGH' as const) : ('MEDIUM' as const),
+    createdAt: difference.detectedAt,
+    status: 'PENDING_REVIEW' as const,
+    note: difference.evidence.note || difference.evidence.summary,
+    lines: [],
+    context: buildSyntheticDifferenceContext(difference),
+    sourceDifferences: [difference],
+    sourceDifferenceCount: 1,
+    differenceTypeSummary: difference.differenceType,
+    handlingStatusLabel: difference.handlingStatus,
+    reviewResultLabel: '待判断',
+    nextActionLabel: '待审核',
+    closeReason: '',
+    linkedLedgerEventIds: [...difference.linkedLedgerEventIds],
+    sourceLabel: replenishmentSourceMeta['spreading-session'].label,
+    sourceSummary: `铺布单 ${difference.spreadingOrderNo}`,
+    sourceProductionSummary: difference.productionOrderNos.join(' / ') || '待补',
+    sourceOrderSummary: `${difference.spreadingOrderNo} · ${difference.cutOrderNos.join(' / ')}`,
+    differenceSummary: buildDifferenceSummaryFromDifferences([difference], ''),
+    majorGapSummary: buildMajorGapSummaryFromDifferences([difference], ''),
+    review: null,
+    reviewSummary: '待审核',
+    reviewStatusLabel: '待审核',
+    impactPlan: {
+      impactPlanId: `impact-${suggestionId}`,
+      suggestionId,
+      needReconfigureMaterial: false,
+      needReclaimMaterial: false,
+      needPendingPrep: false,
+      impactSummary: '待审核差异处理结果；由审核结果决定后续动作。',
+      applied: false,
+      appliedAt: '',
+      appliedBy: '',
+      pendingActionCount: 0,
+      completedActionCount: 0,
+      manualConfirmCount: 0,
+      blocking: true,
+    },
+    followupActions: [],
+    followupActionCount: 0,
+    pendingActionCount: 0,
+    completedActionCount: 0,
+    skippedActionCount: 0,
+    followupProgressText: '待补料人员跟进',
+    pdaFeedbacks: [],
+    pendingPdaFeedbackCount: 0,
+    latestPdaFeedback: null,
+    latestPdaFeedbackSummary: '',
+    claimedBalanceLength: 0,
+    materialGapLength: Math.max(difference.plannedValue - difference.actualValue, 0),
+    nextOptions: [
+      {
+        key: 'CHECK_DATA' as const,
+        label: '审核差异',
+        detailText: '先判断补料、补录、补排、关闭裁片单或仅记录。',
+        target: 'markerSpreading' as const,
+        className: 'bg-orange-100 text-orange-700',
+      },
+    ],
+    nextActionSummary: '审核差异',
+    blockingSummary: '',
+    statusMeta,
+    riskMeta: replenishmentRiskMetaMap[difference.differenceLevel === '需处理' ? 'HIGH' : 'MEDIUM'],
+    navigationPayload,
+    keywordIndex: lowerKeywordIndex([
+      suggestionId,
+      difference.differenceId,
+      difference.spreadingOrderNo,
+      difference.markerPlanNo,
+      ...difference.cutOrderNos,
+      ...difference.productionOrderNos,
+      difference.materialSku,
+      difference.materialAlias,
+      difference.patternFileName,
+      difference.differenceType,
+      difference.evidence.summary,
+    ]),
+  }
+
+  return {
+    ...row,
+    blockingSummary: buildBlockingSummary(row),
+  }
+}
+
+function applyReviewToSyntheticDifferenceRow(
+  row: ReplenishmentSuggestionRow,
+  review: ReplenishmentReview | null | undefined,
+): ReplenishmentSuggestionRow {
+  if (!review) return row
+  const followupAction =
+    review.reviewResult
+      ? buildReplenishmentFollowupActionForResult({
+          suggestion: row,
+          navigationPayload: row.navigationPayload,
+          result: review.reviewResult,
+          decidedAt: review.reviewedAt || row.createdAt,
+          decidedBy: review.reviewedBy || '系统预置审核',
+        })
+      : null
+  const followupActions = followupAction ? [followupAction] : []
+  const impactPlan = buildImpactPlanFromActions({
+    suggestion: row,
+    actions: followupActions,
+    review,
+  })
+  const statusMeta = deriveStatusMeta({
+    suggestion: row,
+    review,
+    actions: followupActions,
+  })
+  const linkedLedgerEventIds = collectLinkedLedgerEventIds(row.sourceDifferences, review)
+  const nextActionLabel = buildNextActionLabel(review, row.nextOptions)
+  const nextRow = {
+    ...row,
+    review,
+    reviewResultLabel: buildReviewResultLabel(review),
+    nextActionLabel,
+    closeReason: review.closeReason || '',
+    linkedLedgerEventIds,
+    reviewSummary: buildReviewSummary(review),
+    reviewStatusLabel: buildReviewSummary(review),
+    impactPlan,
+    followupActions,
+    followupActionCount: followupActions.length,
+    pendingActionCount: followupActions.filter((item) => !['DONE', 'SKIPPED'].includes(item.status)).length,
+    completedActionCount: followupActions.filter((item) => item.status === 'DONE').length,
+    skippedActionCount: followupActions.filter((item) => item.status === 'SKIPPED').length,
+    followupProgressText: buildFollowupProgressText(followupActions),
+    nextActionSummary: nextActionLabel,
+    statusMeta,
+  }
+
+  return {
+    ...nextRow,
+    blockingSummary: buildBlockingSummary(nextRow),
+  }
+}
+
+function resolveReviewItemSourceType(row: ReplenishmentSuggestionRow): ReplenishmentReviewItemSourceType {
+  const difference = row.sourceDifferences[0]
+  if (difference?.differenceType === '卷记录异常') return '卷记录异常'
+  if (difference?.differenceType === '布头布尾异常') return '布头布尾异常'
+  if (difference?.differenceType === '面料余额不足') return '面料余额不足'
+  if (difference?.sourceType === '领料差异延续') return '领料差异'
+  if (difference?.sourceType === 'PDA 铺布回写') return 'PDA 铺布回写'
+  if (difference?.sourceType === 'PDA 裁剪回写') return 'PDA 裁剪回写'
+  if (difference?.sourceType === 'Web 复核') return 'Web 复核'
+  if (row.latestPdaFeedback) return '现场反馈'
+  return '其他异常'
+}
+
+function resolveReviewItemStatus(row: ReplenishmentSuggestionRow): ReplenishmentReviewItemStatus {
+  if (row.review?.reviewResult === '关闭裁片单') return '已关闭'
+  if (row.review?.reviewStatus === 'APPROVED') return '已处理'
+  if (row.review?.reviewStatus === 'PENDING_SUPPLEMENT') return '审核中'
+  if (row.review?.reviewStatus === 'REJECTED') return '已取消'
+  return '待审核'
+}
+
+function buildReviewEvidenceItems(row: ReplenishmentSuggestionRow): ReplenishmentEvidenceItem[] {
+  const differenceEvidence = row.sourceDifferences.flatMap((difference) => {
+    const items: ReplenishmentEvidenceItem[] = [
+      {
+        evidenceId: `${difference.differenceId}-summary`,
+        evidenceType: difference.sourceType.includes('PDA') ? 'PDA 反馈' : difference.sourceType === '系统计算' ? '系统计算' : '备注',
+        summary: difference.evidence.summary,
+        operatorName: difference.evidence.operatorName || difference.detectedBy,
+        occurredAt: difference.evidence.occurredAt || difference.detectedAt,
+      },
+    ]
+    if (difference.evidence.rollNos?.length) {
+      items.push({
+        evidenceId: `${difference.differenceId}-rolls`,
+        evidenceType: '卷记录',
+        summary: `关联布卷 ${difference.evidence.rollNos.join(' / ')}`,
+        operatorName: difference.evidence.operatorName || difference.detectedBy,
+        occurredAt: difference.evidence.occurredAt || difference.detectedAt,
+      })
+    }
+    if (difference.evidence.photoProofCount) {
+      items.push({
+        evidenceId: `${difference.differenceId}-photo`,
+        evidenceType: '照片',
+        summary: `现场照片 / 凭证 ${difference.evidence.photoProofCount} 个`,
+        operatorName: difference.evidence.operatorName || difference.detectedBy,
+        occurredAt: difference.evidence.occurredAt || difference.detectedAt,
+      })
+    }
+    return items
+  })
+
+  const feedbackEvidence = row.pdaFeedbacks.map((feedback) => ({
+    evidenceId: feedback.writebackId,
+    evidenceType: 'PDA 反馈' as const,
+    summary: `${feedback.reasonLabel}；${feedback.note || '无补充说明'}；照片 / 凭证 ${feedback.photoProofCount} 个`,
+    operatorName: feedback.operatorName,
+    occurredAt: feedback.submittedAt,
+  }))
+
+  return [...differenceEvidence, ...feedbackEvidence]
+}
+
+export function buildReplenishmentReviewItem(row: ReplenishmentSuggestionRow): ReplenishmentReviewItem {
+  const difference = row.sourceDifferences[0]
+  const feedback = row.latestPdaFeedback
+  const plannedValue = difference?.plannedValue ?? row.requiredQty
+  const actualValue = difference?.actualValue ?? row.actualCutGarmentQty
+  const differenceValue = difference?.differenceValue ?? row.varianceLength
+  const materialColor = Array.from(new Set(row.lines.map((line) => line.color).filter(Boolean))).join(' / ') || '待补'
+
+  return {
+    replenishmentId: row.suggestionId,
+    replenishmentNo: row.suggestionNo,
+    sourceDifferenceId: difference?.differenceId || feedback?.writebackId || row.contextId,
+    sourceType: resolveReviewItemSourceType(row),
+    differenceType: difference?.differenceType || (feedback ? '现场反馈' : '其他异常'),
+    differenceLevel: difference?.differenceLevel || row.riskMeta.label,
+    productionOrderIds: [...row.productionOrderIds],
+    cutOrderIds: [...row.cutOrderIds],
+    spreadingOrderId: difference?.spreadingOrderId || row.context.session?.spreadingSessionId || '',
+    spreadingOrderNo: difference?.spreadingOrderNo || row.context.session?.sessionNo || '',
+    markerPlanId: row.markerPlanId,
+    markerPlanNo: row.markerPlanNo,
+    materialIdentity: {
+      materialSku: row.materialSku,
+      materialName: row.materialCategory || row.materialSku,
+      materialColor,
+      materialAlias: row.materialAlias,
+      materialImageUrl: row.materialImageUrl,
+      materialUnit: difference?.unit || '米',
+    },
+    patternIdentity: {
+      patternFileName: difference?.patternFileName || row.materialAttr || '纸样待补',
+      patternVersion: '技术包当前版',
+      effectiveWidthText: '按裁片单纸样幅宽',
+    },
+    plannedValue,
+    actualValue,
+    differenceValue,
+    unit: difference?.unit || '米',
+    evidenceItems: buildReviewEvidenceItems(row),
+    pdaFeedbackId: feedback?.writebackId || '',
+    reviewStatus: resolveReviewItemStatus(row),
+    reviewResult: row.review?.reviewResult || '',
+    nextAction: row.review?.nextAction || '',
+    linkedLedgerEventIds: [...row.linkedLedgerEventIds],
+    closeCutOrderRequired: row.review?.reviewResult === '关闭裁片单',
+    closeReasonCode: row.review?.closeReasonCode || '',
+    closeReasonText: row.review?.closeReason || '',
+    createdAt: row.createdAt,
+    createdBy: difference?.detectedBy || feedback?.operatorName || '系统',
+    reviewedAt: row.review?.reviewedAt || '',
+    reviewedBy: row.review?.reviewedBy || '',
+    remark: row.review?.note || row.note,
+  }
+}
+
+function buildSeedReplenishmentReviews(differences: SpreadingDifference[]): ReplenishmentReview[] {
+  const usedResults = new Set<ReplenishmentReviewResult>()
+  const resultByDifferenceType: Partial<Record<SpreadingDifferenceType, ReplenishmentReviewResult>> = {
+    面料余额不足: '需要补料',
+    实际用量差异: '需要补录',
+    实铺小于计划: '继续补排',
+    实裁小于计划: '关闭裁片单',
+    卷记录异常: '仅记录差异',
+  }
+
+  return differences
+    .map((difference): ReplenishmentReview | null => {
+      const result = resultByDifferenceType[difference.differenceType]
+      if (!result || usedResults.has(result)) return null
+      usedResults.add(result)
+      const nextAction = resolveNextActionFromReviewResult(result)
+      return {
+        reviewId: `seed-review-${difference.linkedReplenishmentId}`,
+        suggestionId: difference.linkedReplenishmentId,
+        reviewStatus: resolveReviewStatusFromResult(result),
+        reviewResult: result,
+        nextAction,
+        closeReasonCode: result === '关闭裁片单' ? 'BUSINESS_STOP_RECUT' : undefined,
+        closeReason: result === '关闭裁片单' ? '业务确认不再补裁，进入裁片单关闭链路。' : '',
+        linkedLedgerEventIds: result === '仅记录差异' ? [] : difference.linkedLedgerEventIds,
+        reviewedBy: '系统预置审核',
+        reviewedAt: difference.detectedAt,
+        decisionReason:
+          result === '需要补料'
+            ? '面料余额不足，需要回到中转仓配料或裁床领料。'
+            : result === '需要补录'
+              ? '实际用量异常，先补录或复核铺布裁剪数据。'
+              : result === '继续补排'
+                ? '实铺小于计划但仍可继续补排。'
+                : result === '关闭裁片单'
+                  ? '业务决定不再补裁，必须记录关闭原因。'
+                  : '卷记录异常仅记录差异，不改变数量账。',
+        note: '用于原型覆盖补料管理审核结果与后续动作场景。',
+      }
+    })
+    .filter((review): review is ReplenishmentReview => Boolean(review))
 }
 
 function buildFollowupProgressText(actions: ReplenishmentFollowupAction[]): string {
@@ -1206,6 +1911,40 @@ export function serializeReplenishmentActionsStorage(records: ReplenishmentFollo
   return JSON['stringify'](records)
 }
 
+function normalizeFollowupActionType(value: unknown): ReplenishmentFollowupActionType {
+  const candidate = String(value || '')
+  if (
+    candidate === 'CREATE_PENDING_PREP' ||
+    candidate === 'SUPPLEMENT_BACKFILL' ||
+    candidate === 'REPLAN_MARKER' ||
+    candidate === 'CLOSE_CUT_ORDER' ||
+    candidate === 'RECORD_ONLY'
+  ) {
+    return candidate
+  }
+  return 'CREATE_PENDING_PREP'
+}
+
+function normalizeFollowupTargetPageKey(
+  value: unknown,
+  actionType: ReplenishmentFollowupActionType,
+): ReplenishmentFollowupTargetPageKey {
+  const candidate = String(value || '')
+  if (
+    candidate === 'materialPrep' ||
+    candidate === 'cuttablePool' ||
+    candidate === 'cutOrders' ||
+    candidate === 'markerSpreading' ||
+    candidate === 'markerPlanRefs'
+  ) {
+    return candidate
+  }
+  if (actionType === 'CREATE_PENDING_PREP') return 'materialPrep'
+  if (actionType === 'SUPPLEMENT_BACKFILL') return 'markerSpreading'
+  if (actionType === 'REPLAN_MARKER') return 'cuttablePool'
+  return 'cutOrders'
+}
+
 export function deserializeReplenishmentActionsStorage(raw: string | null): ReplenishmentFollowupAction[] {
   if (!raw) return []
   try {
@@ -1216,23 +1955,34 @@ export function deserializeReplenishmentActionsStorage(raw: string | null): Repl
       .map((item) => {
         const suggestionId = String(item.suggestionId || '').trim()
         if (!suggestionId) return null
+        const actionType = normalizeFollowupActionType(item.actionType)
+        const targetPageKey = normalizeFollowupTargetPageKey(item.targetPageKey, actionType)
+        const actionMeta = replenishmentFollowupActionTypeMetaMap[actionType]
         return {
-          actionId: String(item.actionId || `${suggestionId}-CREATE_PENDING_PREP`).trim() || `${suggestionId}-CREATE_PENDING_PREP`,
+          actionId: String(item.actionId || `${suggestionId}-${actionType}`).trim() || `${suggestionId}-${actionType}`,
           suggestionId,
-          actionType: 'CREATE_PENDING_PREP' as const,
-          title: String(item.title || '等待再次领料').trim() || '等待再次领料',
+          actionType,
+          title: String(item.title || actionMeta.label).trim() || actionMeta.label,
           status: ['PENDING', 'CONFIRMED', 'SKIPPED', 'DONE'].includes(String(item.status || ''))
             ? (item.status as ReplenishmentFollowupActionStatus)
             : 'PENDING',
-          targetPageKey: 'materialPrep' as const,
-          targetPath: buildActionTargetPath('materialPrep'),
+          targetPageKey,
+          targetPath: buildActionTargetPath(targetPageKey),
           targetQuery:
             item.targetQuery && typeof item.targetQuery === 'object'
               ? (item.targetQuery as Record<string, string | undefined>)
               : {},
           note:
             String(item.note || '').trim() ||
-            '确认需要继续补裁后，等待裁床再次领料；有领料余额后再去补排唛架。',
+            (actionType === 'CREATE_PENDING_PREP'
+              ? '确认需要补料后，回到中转仓配料并由裁床再次领料。'
+              : actionType === 'SUPPLEMENT_BACKFILL'
+                ? '确认需要补录后，补齐铺布或裁剪实际数据。'
+                : actionType === 'REPLAN_MARKER'
+                  ? '确认继续补排后，回到可排唛架裁片单。'
+                  : actionType === 'CLOSE_CUT_ORDER'
+                    ? '确认不再补裁后，关闭裁片单并保留关闭原因。'
+                    : '仅保留差异记录，不改变数量账。'),
           decidedAt: String(item.decidedAt || '').trim(),
           decidedBy: String(item.decidedBy || '').trim(),
           completedAt: String(item.completedAt || '').trim(),
@@ -1271,7 +2021,6 @@ export function buildReplenishmentViewModel(options: {
   pdaFeedbackWritebacks?: PdaReplenishmentFeedbackWritebackRecord[]
 }): ReplenishmentViewModel {
   const cutOrderRowsById = Object.fromEntries(options.cutOrderRows.map((row) => [row.cutOrderId, row]))
-  const reviewsBySuggestionId = Object.fromEntries(options.reviews.map((review) => [review.suggestionId, review]))
   const impactsBySuggestionId = Object.fromEntries(options.impactPlans.map((plan) => [plan.suggestionId, plan]))
   const actionsBySuggestionId = options.actions.reduce<Record<string, ReplenishmentFollowupAction[]>>((accumulator, action) => {
     accumulator[action.suggestionId] = accumulator[action.suggestionId] || []
@@ -1280,6 +2029,10 @@ export function buildReplenishmentViewModel(options: {
   }, {})
   const pdaFeedbackWritebacks =
     options.pdaFeedbackWritebacks ?? listPdaReplenishmentFeedbackWritebacks(getBrowserLocalStorage() || undefined)
+  const spreadingDifferences = listSpreadingDifferences({ sessions: options.markerStore.sessions })
+  const reviewsBySuggestionId = Object.fromEntries(
+    [...buildSeedReplenishmentReviews(spreadingDifferences), ...options.reviews].map((review) => [review.suggestionId, review]),
+  )
   const contexts = buildReplenishmentContextRecords({
     materialPrepRows: options.materialPrepRows,
     cutOrderRows: options.cutOrderRows,
@@ -1320,17 +2073,29 @@ export function buildReplenishmentViewModel(options: {
     const matchedPdaFeedbacks = pdaFeedbackWritebacks.filter((feedback) => matchesPdaFeedbackWithSuggestion(feedback, suggestion))
     const latestPdaFeedback = matchedPdaFeedbacks[0] ?? null
     const latestPdaFeedbackSummary = buildPdaFeedbackSummary(latestPdaFeedback)
+    const matchedDifferences = spreadingDifferences.filter((difference) =>
+      matchesSpreadingDifferenceWithSuggestion(difference, suggestion, context),
+    )
     const claimedBalanceLength = buildClaimedBalanceLength(suggestion)
     const materialGapLength = buildMaterialGapLength(suggestion)
     const nextOptions = buildReplenishmentNextOptions(suggestion)
     const effectiveStatusMeta =
-      latestPdaFeedback &&
+      (latestPdaFeedback || matchedDifferences.length > 0) &&
       ['NO_ACTION', 'COMPLETED', 'REJECTED'].includes(statusMeta.key)
         ? replenishmentStatusMetaMap.PENDING_REVIEW
         : statusMeta
+    const linkedLedgerEventIds = collectLinkedLedgerEventIds(matchedDifferences, review)
     const row = {
       ...suggestion,
       context,
+      sourceDifferences: matchedDifferences,
+      sourceDifferenceCount: matchedDifferences.length,
+      differenceTypeSummary: summarizeDifferenceTypes(matchedDifferences),
+      handlingStatusLabel: buildHandlingStatusLabel(matchedDifferences, review),
+      reviewResultLabel: buildReviewResultLabel(review),
+      nextActionLabel: buildNextActionLabel(review, nextOptions),
+      closeReason: review?.closeReason || '',
+      linkedLedgerEventIds,
       sourceLabel,
       sourceSummary: buildSourceSummary(context),
       sourceProductionSummary: context.productionOrderNos.join(' / ') || '待补',
@@ -1338,8 +2103,8 @@ export function buildReplenishmentViewModel(options: {
         context.baseSourceType === 'marker-plan-ref'
           ? `${context.markerPlanNo || '待补唛架方案号'} · ${context.cutOrderNos.join(' / ')}`
           : context.cutOrderNos.join(' / ') || '待补',
-      differenceSummary: buildDifferenceSummary(suggestion),
-      majorGapSummary: buildMajorGapSummary(suggestion),
+      differenceSummary: buildDifferenceSummaryFromDifferences(matchedDifferences, buildDifferenceSummary(suggestion)),
+      majorGapSummary: buildMajorGapSummaryFromDifferences(matchedDifferences, buildMajorGapSummary(suggestion)),
       review,
       reviewSummary: buildReviewSummary(review),
       reviewStatusLabel: buildReviewSummary(review),
@@ -1372,6 +2137,17 @@ export function buildReplenishmentViewModel(options: {
         suggestion.styleCode,
         suggestion.spuCode,
         buildNextActionSummary(nextOptions),
+        summarizeDifferenceTypes(matchedDifferences),
+        review?.reviewResult,
+        review?.nextAction,
+        review?.closeReason,
+        ...matchedDifferences.flatMap((difference) => [
+          difference.differenceId,
+          difference.spreadingOrderNo,
+          difference.differenceType,
+          difference.handlingStatus,
+          difference.evidence.summary,
+        ]),
         ...context.materialRows.flatMap((item) => item.materialLineItems.map((line) => line.materialAlias)),
         ...context.materialRows.flatMap((item) => item.materialLineItems.map((line) => line.materialAttr)),
       ]),
@@ -1381,14 +2157,21 @@ export function buildReplenishmentViewModel(options: {
       ...row,
       blockingSummary: buildBlockingSummary(row),
     }
-  })
+  }).filter((row) => row.sourceDifferences.length > 0 || row.pdaFeedbacks.length > 0 || Boolean(row.review) || row.followupActions.length > 0)
 
   const matchedFeedbackIds = new Set(rows.flatMap((row) => row.pdaFeedbacks.map((item) => item.writebackId)))
   const unmatchedFeedbackRows = pdaFeedbackWritebacks
     .filter((feedback) => !matchedFeedbackIds.has(feedback.writebackId))
     .map((feedback) => buildSyntheticFeedbackRow(feedback))
+  const matchedDifferenceIds = new Set(rows.flatMap((row) => row.sourceDifferences.map((item) => item.differenceId)))
+  const unmatchedDifferenceRows = spreadingDifferences
+    .filter((difference) => !matchedDifferenceIds.has(difference.differenceId))
+    .map((difference) => {
+      const row = buildSyntheticDifferenceRow(difference)
+      return applyReviewToSyntheticDifferenceRow(row, reviewsBySuggestionId[row.suggestionId])
+    })
 
-  const allRows = [...rows, ...unmatchedFeedbackRows].sort((left, right) =>
+  const allRows = [...rows, ...unmatchedFeedbackRows, ...unmatchedDifferenceRows].sort((left, right) =>
     right.createdAt.localeCompare(left.createdAt, 'zh-CN'),
   )
 
@@ -1421,6 +2204,23 @@ export function filterReplenishmentRows(
   const keyword = filters.keyword.trim().toLowerCase()
 
   return rows.filter((row) => {
+    if (prefilter?.spreadingSessionId || prefilter?.spreadingOrderId) {
+      const matchesSpreading =
+        row.sourceDifferences.some((difference) => matchesSpreadingDifferenceWithPrefilter(difference, prefilter)) ||
+        row.context.session?.spreadingSessionId === prefilter.spreadingSessionId ||
+        row.context.session?.sessionNo === prefilter.spreadingSessionId ||
+        row.context.session?.spreadingSessionId === prefilter.spreadingOrderId ||
+        row.context.session?.sessionNo === prefilter.spreadingOrderId
+      if (!matchesSpreading) return false
+      if (keyword && !row.keywordIndex.some((item) => item.includes(keyword))) return false
+      if (filters.sourceType !== 'ALL' && row.sourceType !== filters.sourceType) return false
+      if (filters.status !== 'ALL' && row.statusMeta.key !== filters.status) return false
+      if (filters.riskLevel !== 'ALL' && row.riskLevel !== filters.riskLevel) return false
+      if (filters.pendingReviewOnly && !['PENDING_REVIEW', 'PENDING_SUPPLEMENT'].includes(row.statusMeta.key)) return false
+      if (filters.pendingActionOnly && !['APPROVED_PENDING_ACTION', 'IN_ACTION'].includes(row.statusMeta.key)) return false
+      return true
+    }
+
     if (prefilter?.suggestionId && row.suggestionId !== prefilter.suggestionId) return false
     if (prefilter?.suggestionNo && row.suggestionNo !== prefilter.suggestionNo) return false
     if (prefilter?.cutOrderNo && !row.cutOrderNos.includes(prefilter.cutOrderNo)) return false
@@ -1430,6 +2230,16 @@ export function filterReplenishmentRows(
     if (prefilter?.productionOrderNo && !row.productionOrderNos.includes(prefilter.productionOrderNo)) return false
     if (prefilter?.materialSku && !row.materialSkus.includes(prefilter.materialSku)) return false
     if (prefilter?.color && !row.lines.some((line) => line.color === prefilter.color)) return false
+    if (
+      (prefilter?.spreadingSessionId || prefilter?.spreadingOrderId) &&
+      !row.sourceDifferences.some((difference) => matchesSpreadingDifferenceWithPrefilter(difference, prefilter)) &&
+      row.context.session?.spreadingSessionId !== prefilter.spreadingSessionId &&
+      row.context.session?.sessionNo !== prefilter.spreadingSessionId &&
+      row.context.session?.spreadingSessionId !== prefilter.spreadingOrderId &&
+      row.context.session?.sessionNo !== prefilter.spreadingOrderId
+    ) {
+      return false
+    }
     if (prefilter?.riskLevel && row.riskLevel !== prefilter.riskLevel) return false
     if (
       prefilter?.replenishmentStatus &&
@@ -1453,6 +2263,17 @@ export function findReplenishmentByPrefilter(
   prefilter: ReplenishmentPrefilter | null,
 ): ReplenishmentSuggestionRow | null {
   if (!prefilter) return null
+  if (prefilter.spreadingSessionId || prefilter.spreadingOrderId) {
+    return (
+      rows.find((row) =>
+        row.sourceDifferences.some((difference) => matchesSpreadingDifferenceWithPrefilter(difference, prefilter)) ||
+        row.context.session?.spreadingSessionId === prefilter.spreadingSessionId ||
+        row.context.session?.sessionNo === prefilter.spreadingSessionId ||
+        row.context.session?.spreadingSessionId === prefilter.spreadingOrderId ||
+        row.context.session?.sessionNo === prefilter.spreadingOrderId,
+      ) || null
+    )
+  }
   return (
     rows.find((row) => {
       if (prefilter.suggestionId && row.suggestionId === prefilter.suggestionId) return true
@@ -1464,6 +2285,16 @@ export function findReplenishmentByPrefilter(
       if (prefilter.productionOrderNo && row.productionOrderNos.includes(prefilter.productionOrderNo)) return true
       if (prefilter.materialSku && row.materialSkus.includes(prefilter.materialSku)) return true
       if (prefilter.color && row.lines.some((line) => line.color === prefilter.color)) return true
+      if (
+        (prefilter.spreadingSessionId || prefilter.spreadingOrderId) &&
+        (row.sourceDifferences.some((difference) => matchesSpreadingDifferenceWithPrefilter(difference, prefilter)) ||
+          row.context.session?.spreadingSessionId === prefilter.spreadingSessionId ||
+          row.context.session?.sessionNo === prefilter.spreadingSessionId ||
+          row.context.session?.spreadingSessionId === prefilter.spreadingOrderId ||
+          row.context.session?.sessionNo === prefilter.spreadingOrderId)
+      ) {
+        return true
+      }
       return false
     }) || null
   )

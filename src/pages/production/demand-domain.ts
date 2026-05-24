@@ -930,7 +930,6 @@ function performOrdersFromDemandGenerate(): void {
 
 export {
   renderDemandDetailDrawer,
-  renderDemandFactorySelectorFields,
   renderDemandBatchGenerateDialog,
   renderDemandSingleGenerateDialog,
   renderOrdersFromDemandDialog,

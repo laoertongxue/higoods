@@ -1049,7 +1049,7 @@ export function buildProgressBlockingReasons(order: ProductionOrder): ProgressBl
   }
 
   if (materialPrepStatus === '无配料数量') add('待加工入仓', order.productionOrderNo, '面料未完成中转仓配料', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '加急')
-  if (materialPrepStatus === '配料数量不足') add('待加工入仓', order.productionOrderNo, '面料部分完成中转仓配料', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '普通')
+  if (materialPrepStatus === '配料数量不足') add('待加工入仓', order.productionOrderNo, '面料已完成部分中转仓配料', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '普通')
   if (pickupStatus === '无领料记录') add('待加工入仓', order.productionOrderNo, '面料未形成裁床领料记录', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process')
   if (pickupStatus === '差异待处理') add('领料', order.productionOrderNo, '领料差异待处理', '处理差异', '/fcs/progress/handover', '紧急')
   if (cuttingStatus !== '已裁剪') add('裁床', order.productionOrderNo, cuttingStatus === '裁剪中' ? '裁剪未完成' : '唛架未完成', '裁剪', '/fcs/craft/cutting/production-progress')

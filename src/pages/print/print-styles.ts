@@ -304,12 +304,14 @@ export function renderUnifiedPrintStyles(): string {
         background: #fff;
         color: #111827;
         box-shadow: 0 14px 40px rgb(15 23 42 / 14%);
+        box-sizing: border-box;
       }
 
       .print-label-single-sheet {
         height: 100%;
         padding: 2mm;
         font-family: Arial, "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+        box-sizing: border-box;
       }
 
       .label-paper-label-80-50 {
@@ -324,11 +326,13 @@ export function renderUnifiedPrintStyles(): string {
 
       .label-paper-label-100-100 {
         width: 100mm;
+        height: 100mm;
         min-height: 100mm;
       }
 
       .label-paper-label-150-100 {
         width: 150mm;
+        height: 100mm;
         min-height: 100mm;
       }
 
@@ -353,8 +357,17 @@ export function renderUnifiedPrintStyles(): string {
         border: 1px solid #111827;
         padding: 2mm;
         background: #fff;
+        box-sizing: border-box;
         break-inside: avoid;
         page-break-inside: avoid;
+      }
+
+      .print-label-card.label-paper-label-100-100,
+      .print-label-card.label-paper-label-150-100 {
+        width: 100%;
+        height: 96mm;
+        min-height: 96mm;
+        overflow: hidden;
       }
 
       .print-label-card.label-paper-a4-label-grid {
@@ -418,10 +431,25 @@ export function renderUnifiedPrintStyles(): string {
         grid-template-columns: 1fr 34mm;
       }
 
+      .label-paper-label-100-100 .print-label-body,
+      .label-paper-label-150-100 .print-label-body {
+        gap: 1.5mm;
+        margin-top: 1.5mm;
+      }
+
       .print-label-fields {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 1mm 2mm;
+      }
+
+      .label-paper-label-100-100 .print-label-fields {
+        gap: 0.6mm 1.2mm;
+      }
+
+      .label-paper-label-150-100 .print-label-fields {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.8mm 1.6mm;
       }
 
       .print-label-field {
@@ -443,6 +471,11 @@ export function renderUnifiedPrintStyles(): string {
         color: #111827;
         font-size: 8.5px;
         line-height: 1.15;
+      }
+
+      .label-paper-label-100-100 .print-label-field strong {
+        font-size: 8px;
+        line-height: 1.1;
       }
 
       .print-label-field-emphasis strong {

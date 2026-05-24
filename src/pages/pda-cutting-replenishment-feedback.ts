@@ -25,10 +25,13 @@ import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface ReplenishmentFormState {
   operatorName: string
-  reasonLabel: string
+  differenceType: string
+  differenceQty: string
+  unit: string
   note: string
   photoProofCount: string
   feedbackMessage: string
+  syncStatus: string
   backHrefOverride: string
 }
 
@@ -45,19 +48,35 @@ function getState(taskId: string, executionOrderId?: string | null, executionOrd
   const detail = getReplenishmentDetail(taskId, executionOrderId ?? executionOrderNo ?? undefined)
   const initial: ReplenishmentFormState = {
     operatorName: detail?.latestFeedbackBy && detail.latestFeedbackBy !== '-' ? detail.latestFeedbackBy : '现场反馈人',
-    reasonLabel: detail?.latestFeedbackReason && detail.latestFeedbackReason !== '-' ? detail.latestFeedbackReason : '铺布余量不足预警',
+    differenceType: detail?.latestFeedbackReason && detail.latestFeedbackReason !== '-' ? detail.latestFeedbackReason : '面料余额不足',
+    differenceQty: '0',
+    unit: '米',
     note: detail?.latestFeedbackNote && detail.latestFeedbackNote !== '-' ? detail.latestFeedbackNote : '',
     photoProofCount: String(detail?.photoProofCount ?? 0),
     feedbackMessage: '',
+    syncStatus: '待提交',
     backHrefOverride: '',
   }
   feedbackState.set(stateKey, initial)
   return initial
 }
 
+function resolveFeedbackSelection(taskId: string) {
+  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+  if (selectedExecutionOrderId || selectedExecutionOrderNo) {
+    return { selectedExecutionOrderId, selectedExecutionOrderNo }
+  }
+  const context = buildPdaCuttingExecutionContext(taskId, 'replenishment-feedback')
+  return {
+    selectedExecutionOrderId: context.selectedExecutionOrderId,
+    selectedExecutionOrderNo: context.selectedExecutionOrderNo,
+  }
+}
+
 function renderFeedbackHistory(detail: NonNullable<ReturnType<typeof getReplenishmentDetail>>): string {
   if (!detail || !detail.replenishmentFeedbacks.length) {
-    return renderPdaCuttingEmptyState('当前裁片单暂无补料反馈记录', '')
+    return renderPdaCuttingEmptyState('当前裁片单暂无现场差异反馈记录', '')
   }
 
   return `
@@ -83,7 +102,7 @@ function renderFeedbackHistory(detail: NonNullable<ReturnType<typeof getReplenis
 
 function renderFeedbackStatus(detail: NonNullable<ReturnType<typeof getReplenishmentDetail>>): string {
   return renderPdaCuttingSummaryGrid([
-    { label: '当前风险情况', value: detail.replenishmentRiskSummary },
+    { label: '当前差异情况', value: detail.replenishmentRiskSummary },
     { label: '最近反馈时间', value: detail.latestFeedbackAt, hint: detail.latestFeedbackBy },
     { label: '最近反馈原因', value: detail.latestFeedbackReason || '暂无反馈' },
     { label: '凭证数量', value: `${detail.photoProofCount} 个` },
@@ -97,7 +116,7 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
   if (!detail) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '补料反馈',
+      title: '现场差异反馈',
       subtitle: '',
       activeTab: 'exec',
       body: '',
@@ -108,7 +127,7 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
   if (context.requiresCutPieceOrderSelection) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '补料反馈',
+      title: '现场差异反馈',
       subtitle: '',
       activeTab: 'exec',
       body: renderPdaCuttingOrderSelectionPrompt(detail, context.backHref, context.selectionNotice || undefined),
@@ -122,7 +141,7 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
   const formSection = `
     <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
       <div class="rounded-xl border border-dashed px-3 py-4 text-center">
-        <div class="text-sm font-medium text-foreground">当前补料风险摘要</div>
+        <div class="text-sm font-medium text-foreground">当前差异摘要</div>
         <p class="mt-1 text-muted-foreground">${escapeHtml(detail.replenishmentRiskSummary)}</p>
       </div>
       <label class="block space-y-1">
@@ -130,14 +149,26 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
         <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-replenishment-field="operatorName" value="${escapeHtml(form.operatorName)}" />
       </label>
       <label class="block space-y-1">
-        <span class="text-muted-foreground">补料原因</span>
+        <span class="text-muted-foreground">差异类型</span>
         <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-replenishment-field="reasonLabel">
-          ${['铺布余量不足预警', '来料差异导致预计不足', '现场裁剪损耗偏高', '需补充照片后再判断'].map((item) => `<option value="${escapeHtml(item)}" ${form.reasonLabel === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+          ${['领料差异', '实铺小于计划', '实裁小于计划', '实际用量异常', '面料余额不足', '卷记录异常', '布头布尾异常', '现场反馈'].map((item) => `<option value="${escapeHtml(item)}" ${form.differenceType === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
         </select>
       </label>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="block space-y-1">
+          <span class="text-muted-foreground">差异数量</span>
+          <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-replenishment-field="differenceQty" value="${escapeHtml(form.differenceQty)}" />
+        </label>
+        <label class="block space-y-1">
+          <span class="text-muted-foreground">单位</span>
+          <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-replenishment-field="unit">
+            ${['米', '层', '件', '卷', '项'].map((item) => `<option value="${escapeHtml(item)}" ${form.unit === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+          </select>
+        </label>
+      </div>
       <label class="block space-y-1">
-        <span class="text-muted-foreground">反馈记录</span>
-        <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-replenishment-field="note" placeholder="请填写补料风险、现场判断和建议处理方式">${escapeHtml(form.note)}</textarea>
+        <span class="text-muted-foreground">现场说明</span>
+        <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-replenishment-field="note" placeholder="请填写现场差异、证据和建议处理方式">${escapeHtml(form.note)}</textarea>
       </label>
       <label class="block space-y-1">
         <span class="text-muted-foreground">照片 / 凭证数量</span>
@@ -145,9 +176,11 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
       </label>
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">本次反馈预览</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.reasonLabel)}</div>
-        <div class="mt-1 text-muted-foreground">记录：${escapeHtml(form.note || '待填写')}</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.differenceType)}</div>
+        <div class="mt-1 text-muted-foreground">差异数量：${escapeHtml(form.differenceQty || '0')} ${escapeHtml(form.unit)}</div>
+        <div class="mt-1 text-muted-foreground">现场说明：${escapeHtml(form.note || '待填写')}</div>
         <div class="mt-1 text-muted-foreground">照片 / 凭证：${escapeHtml(form.photoProofCount || '0')} 个</div>
+        <div class="mt-1 text-muted-foreground">同步状态：${escapeHtml(form.syncStatus)}</div>
       </div>
       ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}
       <div class="grid grid-cols-2 gap-2">
@@ -155,22 +188,22 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
           返回裁片任务
         </button>
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-replenishment-action="submit" data-task-id="${escapeHtml(taskId)}">
-          提交补料反馈
+          提交现场差异反馈
         </button>
       </div>
     </div>
   `
 
   const body = `
-    ${renderPdaCuttingExecutionHero('补料反馈', detail)}
+    ${renderPdaCuttingExecutionHero('现场差异反馈', detail)}
     ${renderPdaCuttingSection('当前情况', '', renderFeedbackStatus(detail))}
-    ${renderPdaCuttingSection('补料反馈', '', formSection)}
+    ${renderPdaCuttingSection('现场差异反馈', '', formSection)}
     ${renderPdaCuttingSection('最近反馈记录', '', renderFeedbackHistory(detail))}
   `
 
   return renderPdaCuttingPageLayout({
     taskId,
-    title: '补料反馈',
+    title: '现场差异反馈',
     subtitle: '',
     activeTab: 'exec',
     body,
@@ -187,14 +220,15 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
-    const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+    const { selectedExecutionOrderId, selectedExecutionOrderNo } = resolveFeedbackSelection(taskId)
     const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const field = fieldNode.dataset.pdaCutReplenishmentField
     if (!field) return true
 
     if (field === 'operatorName') form.operatorName = fieldNode.value
-    if (field === 'reasonLabel') form.reasonLabel = fieldNode.value
+    if (field === 'reasonLabel') form.differenceType = fieldNode.value
+    if (field === 'differenceQty') form.differenceQty = fieldNode.value
+    if (field === 'unit') form.unit = fieldNode.value
     if (field === 'note') form.note = fieldNode.value
     if (field === 'photoProofCount') form.photoProofCount = fieldNode.value
     return true
@@ -205,8 +239,7 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
   const action = actionNode.dataset.pdaCutReplenishmentAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
-  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
-  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+  const { selectedExecutionOrderId, selectedExecutionOrderNo } = resolveFeedbackSelection(taskId)
 
   if (action === 'submit') {
     const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
@@ -222,22 +255,24 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
     })
     const operator = resolvePdaCuttingWritebackOperator(taskId, form.operatorName.trim() || '现场反馈人')
     if (!identity || !operator) {
-      form.feedbackMessage = '当前执行对象或操作人无法识别，不能提交补料反馈。'
+      form.feedbackMessage = '当前执行对象或操作人无法识别，不能提交现场差异反馈。'
       return true
     }
     const result = writePdaReplenishmentFeedbackToFcs({
       identity,
       operator,
       source: buildPdaCuttingWritebackSource('replenishment-feedback', identity.executionOrderId),
-      reasonLabel: form.reasonLabel,
-      note: form.note.trim() || '现场已记录补料风险，待 PCS 跟进',
+      reasonLabel: form.differenceType,
+      note: `${form.note.trim() || '现场已记录差异，待补料管理审核'}；差异数量 ${form.differenceQty || '0'} ${form.unit}`,
       photoProofCount: Number(form.photoProofCount || '0') || 0,
     })
     if (!result.success) {
       form.feedbackMessage = result.issues.join('；')
+      form.syncStatus = '同步失败'
       return true
     }
-    form.feedbackMessage = '补料反馈已提交。'
+    form.feedbackMessage = '现场差异反馈已提交，已进入补料管理。'
+    form.syncStatus = '已同步'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,
       context.selectedExecutionOrderId,

@@ -44,6 +44,26 @@ export interface CuttingPieceProgressLine {
   latestOperatorName?: string
 }
 
+export interface CuttingMaterialIdentity {
+  materialSku: string
+  materialName: string
+  materialColor: string
+  materialAlias: string
+  materialImageUrl: string
+  materialUnit: string
+}
+
+export interface CuttingPatternIdentity {
+  patternFileId: string
+  patternFileName: string
+  patternVersion: string
+  patternKind: string
+  effectiveWidthValue: number
+  effectiveWidthUnit: string
+  piecePartCodes: string[]
+  piecePartNames: string[]
+}
+
 export interface CuttingMaterialLine {
   cutOrderId?: string
   cutOrderNo?: string
@@ -56,6 +76,8 @@ export interface CuttingMaterialLine {
   materialImageUrl?: string
   color?: string
   materialCategory?: string
+  materialIdentity?: CuttingMaterialIdentity
+  patternIdentity?: CuttingPatternIdentity
   reviewStatus: CuttingReviewStatus
   configStatus: CuttingConfigStatus
   receiveStatus: CuttingReceiveStatus
@@ -90,8 +112,20 @@ export interface CuttingOrderProgressRecord {
   cuttingTaskNo: string
   assignedFactoryName: string
   cuttingStage: string
+  closeReasonCode?: 'MATERIAL_NO_MORE_ARRIVAL' | 'BUSINESS_STOP_RECUT' | 'FORCED_CLOSE' | 'STYLE_CANCELLED' | 'DEMAND_CANCELLED' | 'MATERIAL_REPLACED_UNUSED' | 'OTHER'
+  closeReasonText?: string
   closedAt?: string
+  closedBy?: string
   closeReason?: string
+  ledgerSnapshotBeforeClose?: {
+    requiredMaterialQty: number
+    transferWarehouseAllocatedQty: number
+    cuttingClaimedQty: number
+    markerLockedQty: number
+    spreadingConsumedQty: number
+    availableQty: number
+    unit: string
+  }
   riskFlags: CuttingRiskFlag[]
   lastPickupScanAt: string
   lastFieldUpdateAt: string

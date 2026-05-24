@@ -1,0 +1,17 @@
+export function escapeHtml(value) {
+    const text = value == null ? '' : String(value);
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+export function toClassName(...parts) {
+    return parts.filter(Boolean).join(' ');
+}
+export function formatDateTime(value) {
+    if (!value)
+        return '-';
+    return value.slice(0, 16);
+}

@@ -459,6 +459,7 @@ export interface TransferBagTicketCandidate {
   ticketRecordId: string
   feiTicketId: string
   ticketNo: string
+  printStatus?: FeiTicketLabelRecord['printStatus']
   sourceSpreadingSessionId: string
   sourceSpreadingSessionNo: string
   sourceMarkerId: string
@@ -484,6 +485,10 @@ export interface TransferBagTicketCandidate {
   materialSku: string
   materialAlias?: string
   materialImageUrl?: string
+  pieceSequenceLabel?: string
+  hasSpecialCraft?: boolean
+  specialCraftDisplayLabel?: string
+  receiverFactoryDisplay?: string
   sourceContextType: string
   ticketStatus: FeiTicketLabelRecord['status']
 }
@@ -609,6 +614,90 @@ export interface CutPieceSortingTaskSummary {
   targetTransferBagCount: number
 }
 
+export interface InboundTempBagContainedFeiTicket {
+  feiTicketId: string
+  feiTicketNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  spreadingOrderNo: string
+  spuCode: string
+  color: string
+  size: string
+  partName: string
+  pieceQty: number
+  pieceSequenceLabel: string
+  hasSpecialCraft: boolean
+  specialCraftDisplay: string
+  receiverFactoryDisplay: string
+  printStatus: string
+  voidStatus: string
+}
+
+export interface InboundTempBagDiscrepancyRecord {
+  discrepancyId: string
+  discrepancyType: string
+  feiTicketId: string
+  bagCode: string
+  expectedQty: number
+  actualQty: number
+  unit: string
+  evidencePhotos: string[]
+  remark: string
+  reportedAt: string
+  reportedBy: string
+  handlingStatus: string
+}
+
+export interface InboundTempBag {
+  tempBagUseId: string
+  bagCode: string
+  bagMasterId: string
+  useStage: '入仓暂存'
+  warehouseId: string
+  warehouseName: string
+  warehouseArea: string
+  locationCode: string
+  inboundStatus: string
+  inboundAt: string
+  inboundBy: string
+  inboundSource: string
+  containedFeiTickets: InboundTempBagContainedFeiTicket[]
+  totalPieceQty: number
+  mixedFlag: boolean
+  mixedSummary: string
+  discrepancyRecords: InboundTempBagDiscrepancyRecord[]
+  nextSortingStatus: string
+  remark: string
+}
+
+export interface InboundTempBagInventoryRecord {
+  inventoryRecordId: string
+  feiTicketId: string
+  feiTicketNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  spuCode: string
+  color: string
+  size: string
+  partName: string
+  pieceQty: number
+  pieceSequenceLabel: string
+  hasSpecialCraft: boolean
+  specialCraftDisplay: string
+  receiverFactoryDisplay: string
+  printStatus: string
+  voidStatus: string
+  tempBagCode: string
+  warehouseArea: string
+  locationCode: string
+  inboundAt: string
+  inventoryStatus: '待分配' | '已分配待分拣' | '已分拣待装袋' | '已装袋待交出' | '已交出' | '已作废或不可用'
+}
+
 export interface ActiveTicketPocketBinding {
   bindingId: string
   ticketRecordId: string
@@ -648,6 +737,93 @@ export interface TransferBagViewModel {
   stageLedgerItems: TransferBagStageLedgerItem[]
   sortingTaskSummary: CutPieceSortingTaskSummary
   sortingTasks: CutPieceSortingTask[]
+}
+
+export type TransferBagCarrierCurrentStatus = '可用' | '使用中' | '待回收' | '已回收' | '异常' | '停用'
+export type TransferBagCarrierUseStage = '无' | '入仓暂存' | '交出装袋' | '签收中' | '回收中'
+
+export interface TransferBagMasterArchiveRecord {
+  bagMasterId: string
+  bagCode: string
+  bagName: string
+  bagSpec: string
+  bagMaterial: string
+  currentStatus: TransferBagCarrierCurrentStatus
+  currentLocation: string
+  currentUseStage: TransferBagCarrierUseStage
+  currentUseId: string
+  currentBoundObjectType: string
+  currentBoundObjectId: string
+  currentBoundObjectNo: string
+  currentFeiTicketCount: number
+  currentPieceQty: number
+  lastUsedAt: string
+  lastSignedAt: string
+  lastReturnedAt: string
+  totalUseCount: number
+  abnormalCount: number
+  enabled: boolean
+  createdAt: string
+  createdBy: string
+}
+
+export interface TransferBagUseCycleView {
+  bagUseId: string
+  bagMasterId: string
+  bagCode: string
+  useStage: '入仓暂存' | '交出装袋'
+  sourceWarehouseId: string
+  sourceWarehouseName: string
+  targetObjectType: string
+  targetObjectId: string
+  targetObjectNo: string
+  receiverFactoryId: string
+  receiverFactoryName: string
+  containedFeiTickets: Array<{
+    feiTicketId: string
+    feiTicketNo: string
+    pieceQty: number
+    productionOrderNo: string
+    cutOrderNo: string
+    partName: string
+    size: string
+  }>
+  containedPieceQty: number
+  startedAt: string
+  handedOverAt: string
+  signedAt: string
+  returnedAt: string
+  closedAt: string
+  currentStatus: string
+  discrepancyRecords: TransferBagAbnormalRecord[]
+  mixedFlag: boolean
+  mixedSummary: string
+}
+
+export interface TransferBagAbnormalRecord {
+  abnormalId: string
+  bagCode: string
+  abnormalType: string
+  relatedUseId: string
+  relatedObjectType: string
+  relatedObjectId: string
+  description: string
+  evidencePhotos: string[]
+  reportedAt: string
+  reportedBy: string
+  handlingStatus: string
+  handledAt: string
+  handledBy: string
+}
+
+export interface TransferBagCarrierManagementProjection {
+  overviewCards: Array<{ label: string; value: number; hint: string }>
+  masterRecords: TransferBagMasterArchiveRecord[]
+  inboundTempUses: TransferBagUseCycleView[]
+  handoverPackingUses: TransferBagUseCycleView[]
+  signedAndReturnUses: TransferBagUseCycleView[]
+  abnormalRecords: TransferBagAbnormalRecord[]
+  taskBagGroups: Array<{ sewingTaskNo: string; receiverFactoryName: string; bagCodes: string[]; useCount: number }>
 }
 
 export interface TransferBagValidationResult {
@@ -836,6 +1012,17 @@ function createMeta<Key extends string>(
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
+}
+
+export function getTransferBagTicketPrintStatusLabel(
+  ticket: Pick<TransferBagTicketCandidate, 'ticketStatus' | 'printStatus'> | null | undefined,
+): string {
+  if (!ticket) return '未知'
+  if (ticket.ticketStatus === 'VOIDED' || ticket.printStatus === 'VOIDED') return '已作废'
+  if (ticket.ticketStatus === 'PRINTED') return ticket.printStatus === 'REPRINTED' ? '已补打' : '已首打'
+  if (ticket.printStatus === 'WAIT_PRINT') return '未首打'
+  if (ticket.printStatus === 'REPRINTED') return '已补打'
+  return '已首打'
 }
 
 function buildBagAuditId(nowText: string, usageId: string, action: string): string {
@@ -1585,6 +1772,12 @@ export function validateTicketBindingEligibility(options: {
   if (options.ticket.ticketStatus === 'VOIDED') {
     return { ok: false, reason: `${options.ticket.ticketNo} 已作废，禁止继续装袋。` }
   }
+  if (options.ticket.printStatus === 'WAIT_PRINT' && options.ticket.ticketStatus !== 'PRINTED') {
+    return { ok: false, reason: `${options.ticket.ticketNo} 未首打，不能进入入仓暂存袋。` }
+  }
+  if (options.ticket.printStatus === 'VOIDED') {
+    return { ok: false, reason: `${options.ticket.ticketNo} 已作废，禁止继续装袋。` }
+  }
   if (!options.ticket.cutOrderId || !options.ticket.cutOrderNo) {
     return { ok: false, reason: '当前菲票缺少裁片单 owner，不能进入中转袋。' }
   }
@@ -1683,6 +1876,7 @@ function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferB
       ticketRecordId: record.ticketRecordId,
       feiTicketId: record.ticketRecordId,
       ticketNo: record.ticketNo,
+      printStatus: record.printStatus,
       sourceSpreadingSessionId: record.sourceSpreadingSessionId || '',
       sourceSpreadingSessionNo: record.sourceSpreadingSessionNo || '',
       sourceMarkerId: record.sourceMarkerId || '',
@@ -1708,6 +1902,12 @@ function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferB
       materialSku: record.materialSku,
       materialAlias: record.materialAlias || '',
       materialImageUrl: record.materialImageUrl || '',
+      pieceSequenceLabel: record.pieceSequenceLabel || record.pieceSetNoRange || '',
+      hasSpecialCraft: Boolean(record.hasSpecialCraft),
+      specialCraftDisplayLabel: record.specialCraftDisplayLabel || (record.hasSpecialCraft ? '特殊工艺待维护' : '无'),
+      receiverFactoryDisplay: record.specialCrafts?.length
+        ? uniqueStrings(record.specialCrafts.map((craft) => craft.receiverFactoryName || '承接工厂待补充')).join('、')
+        : '无',
       sourceContextType: record.sourceContextType,
       ticketStatus: record.status,
     }))
@@ -1911,6 +2111,176 @@ function buildCutPieceSortingTasks(usageItems: TransferBagUsageItem[]): CutPiece
       } satisfies CutPieceSortingTask
     })
     .sort((left, right) => right.sortingTaskNo.localeCompare(left.sortingTaskNo, 'zh-CN'))
+}
+
+function buildInboundTempBagMixedSummary(tickets: InboundTempBagContainedFeiTicket[]): string {
+  const productionOrderCount = uniqueStrings(tickets.map((ticket) => ticket.productionOrderNo)).length
+  const cutOrderCount = uniqueStrings(tickets.map((ticket) => ticket.cutOrderNo)).length
+  const partCount = uniqueStrings(tickets.map((ticket) => ticket.partName)).length
+  const sizeCount = uniqueStrings(tickets.map((ticket) => ticket.size)).length
+  return `涉及 ${productionOrderCount} 个生产单 / ${cutOrderCount} 张裁片单 / ${partCount} 个部位 / ${sizeCount} 个尺码`
+}
+
+function buildInboundTempBagDiscrepancies(usage: TransferBagUsageItem, tickets: InboundTempBagContainedFeiTicket[], inboundBy: string): InboundTempBagDiscrepancyRecord[] {
+  if (usage.bagCode !== 'BAG-B-003') return []
+  const anchorTicket = tickets[0]
+  return [
+    {
+      discrepancyId: `DISC-${usage.usageId}-QTY`,
+      discrepancyType: '实物数量和菲票数量不一致',
+      feiTicketId: anchorTicket?.feiTicketId || '',
+      bagCode: usage.bagCode,
+      expectedQty: usage.summary.quantityTotal,
+      actualQty: Math.max(usage.summary.quantityTotal - 2, 0),
+      unit: '片',
+      evidencePhotos: ['photo://inbound-temp-bag/BAG-B-003/qty-check'],
+      remark: '现场复核发现一扎菲票边角破损，已拍照备注，等待仓管核对。',
+      reportedAt: usage.startedAt || usage.finishedPackingAt || '',
+      reportedBy: inboundBy,
+      handlingStatus: '待处理',
+    },
+  ]
+}
+
+export function buildInboundTempBagsFromTransferBagViewModel(
+  viewModel: Pick<TransferBagViewModel, 'usages' | 'auditTrailByUsageId'>,
+): InboundTempBag[] {
+  return viewModel.usages
+    .filter((usage) => usage.usageStage === 'INBOUND_TEMP')
+    .map((usage) => {
+      const audits = viewModel.auditTrailByUsageId[usage.usageId] || []
+      const firstAudit = audits[0]
+      const inboundBy = firstAudit?.actionBy || '裁片仓入仓员'
+      const inboundAt = usage.startedAt || firstAudit?.actionAt || usage.finishedPackingAt || ''
+      const containedFeiTickets: InboundTempBagContainedFeiTicket[] = usage.bindingItems.map((binding) => {
+        const ticket = binding.ticket
+        return {
+          feiTicketId: ticket?.feiTicketId || binding.feiTicketId,
+          feiTicketNo: ticket?.ticketNo || binding.ticketNo,
+          productionOrderId: ticket?.productionOrderId || '',
+          productionOrderNo: ticket?.productionOrderNo || binding.productionOrderNo,
+          cutOrderId: ticket?.cutOrderId || binding.cutOrderId,
+          cutOrderNo: ticket?.cutOrderNo || binding.cutOrderNo,
+          spreadingOrderNo: ticket?.sourceSpreadingSessionNo || binding.sourceSpreadingSessionNo || '',
+          spuCode: ticket?.spuCode || '',
+          color: ticket?.color || '',
+          size: ticket?.size || '',
+          partName: ticket?.partName || '',
+          pieceQty: ticket?.actualCutPieceQty || binding.quantity || 0,
+          pieceSequenceLabel: ticket?.pieceSequenceLabel || '按菲票追踪',
+          hasSpecialCraft: Boolean(ticket?.hasSpecialCraft),
+          specialCraftDisplay: ticket?.hasSpecialCraft ? ticket.specialCraftDisplayLabel || '特殊工艺待维护' : '无',
+          receiverFactoryDisplay: ticket?.hasSpecialCraft ? ticket.receiverFactoryDisplay || '承接工厂待补充' : '无',
+          printStatus: getTransferBagTicketPrintStatusLabel(ticket),
+          voidStatus: ticket?.ticketStatus === 'VOIDED' || ticket?.printStatus === 'VOIDED' ? '已作废' : '有效',
+        }
+      })
+      if (usage.bagCode === 'BAG-B-003' && !containedFeiTickets.some((ticket) => ticket.feiTicketNo === 'FT-CUT-260307-102-02-DEMO-FRONT')) {
+        containedFeiTickets.push(
+          {
+            feiTicketId: 'demo-khaki-front-ready-inventory',
+            feiTicketNo: 'FT-CUT-260307-102-02-DEMO-FRONT',
+            productionOrderId: 'PO-202603-0102',
+            productionOrderNo: 'PO-202603-0102',
+            cutOrderId: 'cut-order:po-202603-0102:tdv-demand-spu-2024-010-bom-khaki-canvas:tdv-demand-spu-2024-010-pattern-main:v1-0:145cm',
+            cutOrderNo: 'CUT-260307-102-02',
+            spreadingOrderNo: 'PB-030101-02',
+            spuCode: 'SPU-2024-010',
+            color: 'Khaki',
+            size: 'L',
+            partName: '前片',
+            pieceQty: 128,
+            pieceSequenceLabel: '1-128',
+            hasSpecialCraft: false,
+            specialCraftDisplay: '无',
+            receiverFactoryDisplay: '无',
+            printStatus: '已首打',
+            voidStatus: '有效',
+          },
+          {
+            feiTicketId: 'demo-khaki-back-ready-inventory',
+            feiTicketNo: 'FT-CUT-260307-102-02-DEMO-BACK',
+            productionOrderId: 'PO-202603-0102',
+            productionOrderNo: 'PO-202603-0102',
+            cutOrderId: 'cut-order:po-202603-0102:tdv-demand-spu-2024-010-bom-khaki-canvas:tdv-demand-spu-2024-010-pattern-main:v1-0:145cm',
+            cutOrderNo: 'CUT-260307-102-02',
+            spreadingOrderNo: 'PB-030101-02',
+            spuCode: 'SPU-2024-010',
+            color: 'Khaki',
+            size: 'L',
+            partName: '后片',
+            pieceQty: 128,
+            pieceSequenceLabel: '1-128',
+            hasSpecialCraft: false,
+            specialCraftDisplay: '无',
+            receiverFactoryDisplay: '无',
+            printStatus: '已首打',
+            voidStatus: '有效',
+          },
+        )
+      }
+      const productionOrderCount = uniqueStrings(containedFeiTickets.map((ticket) => ticket.productionOrderNo)).length
+      const cutOrderCount = uniqueStrings(containedFeiTickets.map((ticket) => ticket.cutOrderNo)).length
+      const partCount = uniqueStrings(containedFeiTickets.map((ticket) => ticket.partName)).length
+      const sizeCount = uniqueStrings(containedFeiTickets.map((ticket) => ticket.size)).length
+      const specialCraftLabels = uniqueStrings(containedFeiTickets.map((ticket) => ticket.hasSpecialCraft ? '有特殊工艺' : '无特殊工艺'))
+      const mixedFlag = productionOrderCount > 1 || cutOrderCount > 1 || partCount > 1 || sizeCount > 1 || specialCraftLabels.length > 1
+      const warehouseArea = usage.bagMaster?.currentLocation || '裁床待交出仓入仓暂存位'
+      const discrepancyRecords = buildInboundTempBagDiscrepancies(usage, containedFeiTickets, inboundBy)
+
+      return {
+        tempBagUseId: usage.usageId,
+        bagCode: usage.bagCode,
+        bagMasterId: usage.bagId,
+        useStage: '入仓暂存',
+        warehouseId: 'cutting-wait-handover',
+        warehouseName: '裁床待交出仓',
+        warehouseArea,
+        locationCode: warehouseArea,
+        inboundStatus: usage.statusMeta.label,
+        inboundAt,
+        inboundBy,
+        inboundSource: 'PDA 入仓扫码',
+        containedFeiTickets,
+        totalPieceQty: containedFeiTickets.reduce((total, ticket) => total + ticket.pieceQty, 0),
+        mixedFlag,
+        mixedSummary: buildInboundTempBagMixedSummary(containedFeiTickets),
+        discrepancyRecords,
+        nextSortingStatus: usage.sewingTaskNo ? '已参与后续分拣' : '未绑定车缝任务，待后续分配后再二次分拣',
+        remark: usage.note || INBOUND_TEMP_BAG_RULE_LABEL,
+      } satisfies InboundTempBag
+    })
+    .sort((left, right) => right.inboundAt.localeCompare(left.inboundAt, 'zh-CN'))
+}
+
+export function buildInboundTempBagInventoryRecords(bags: InboundTempBag[]): InboundTempBagInventoryRecord[] {
+  return bags.flatMap((bag) =>
+    bag.containedFeiTickets.map((ticket) => ({
+      inventoryRecordId: `INV-${bag.tempBagUseId}-${ticket.feiTicketId}`,
+      feiTicketId: ticket.feiTicketId,
+      feiTicketNo: ticket.feiTicketNo,
+      cutOrderId: ticket.cutOrderId,
+      cutOrderNo: ticket.cutOrderNo,
+      productionOrderId: ticket.productionOrderId,
+      productionOrderNo: ticket.productionOrderNo,
+      spuCode: ticket.spuCode,
+      color: ticket.color,
+      size: ticket.size,
+      partName: ticket.partName,
+      pieceQty: ticket.pieceQty,
+      pieceSequenceLabel: ticket.pieceSequenceLabel,
+      hasSpecialCraft: ticket.hasSpecialCraft,
+      specialCraftDisplay: ticket.specialCraftDisplay,
+      receiverFactoryDisplay: ticket.receiverFactoryDisplay,
+      printStatus: ticket.printStatus,
+      voidStatus: ticket.voidStatus,
+      tempBagCode: bag.bagCode,
+      warehouseArea: bag.warehouseArea,
+      locationCode: bag.locationCode,
+      inboundAt: bag.inboundAt,
+      inventoryStatus: '待分配',
+    })),
+  )
 }
 
 export function buildTransferBagViewModel(options: {
@@ -2223,5 +2593,262 @@ export function buildTransferBagViewModel(options: {
     stageLedgerItems,
     sortingTaskSummary,
     sortingTasks,
+  }
+}
+
+function deriveCarrierManagementStatus(master: TransferBagMasterItem): TransferBagCarrierCurrentStatus {
+  if (master.currentStatus === 'DISABLED') return '停用'
+  if (master.currentStatus === 'WAITING_REPAIR' || master.currentStatus === 'WAITING_CLEANING') return '异常'
+  if (master.currentStatus === 'REUSABLE') return '已回收'
+  if (master.currentUsage?.usageStatus === 'WAITING_RETURN' || master.currentUsage?.usageStatus === 'RETURN_INSPECTING') return '待回收'
+  if (master.currentUsage) return '使用中'
+  return '可用'
+}
+
+function deriveCarrierManagementUseStage(usage: TransferBagUsageItem | null | undefined): TransferBagCarrierUseStage {
+  if (!usage) return '无'
+  if (usage.usageStage === 'INBOUND_TEMP') return '入仓暂存'
+  if (usage.usageStatus === 'DISPATCHED' || usage.usageStatus === 'PENDING_SIGNOFF') return '签收中'
+  if (usage.usageStatus === 'WAITING_RETURN' || usage.usageStatus === 'RETURN_INSPECTING') return '回收中'
+  return '交出装袋'
+}
+
+function getCarrierUseMixedSummary(usage: TransferBagUsageItem): { mixedFlag: boolean; mixedSummary: string } {
+  const productionOrderCount = usage.productionOrderNos.length
+  const cutOrderCount = usage.cutOrderNos.length
+  const partCount = uniqueStrings(usage.bindingItems.map((item) => item.ticket?.partName || item.partName)).length
+  const sizeCount = uniqueStrings(usage.bindingItems.map((item) => item.ticket?.size || item.size)).length
+  const mixedFlag = usage.usageStage === 'INBOUND_TEMP' && (productionOrderCount > 1 || cutOrderCount > 1 || partCount > 1 || sizeCount > 1)
+  return {
+    mixedFlag,
+    mixedSummary: usage.usageStage === 'INBOUND_TEMP'
+      ? `涉及 ${productionOrderCount} 个生产单 / ${cutOrderCount} 张裁片单 / ${partCount} 个部位 / ${sizeCount} 个尺码`
+      : `绑定 ${usage.sewingTaskNo || '待补车缝任务'}，${usage.summary.ticketCount} 张菲票`,
+  }
+}
+
+function mapTransferBagDiscrepancyType(type: TransferBagDiscrepancyType): string {
+  if (type === 'QTY_MISMATCH') return '签收数量差异'
+  if (type === 'DAMAGED_BAG') return '中转袋破损'
+  if (type === 'LATE_RETURN') return '应回收未回收'
+  if (type === 'MISSING_RECORD') return '回收记录缺失'
+  return '其他异常'
+}
+
+function toTransferBagUseCycleView(usage: TransferBagUsageItem, abnormalRecords: TransferBagAbnormalRecord[]): TransferBagUseCycleView {
+  const mixed = getCarrierUseMixedSummary(usage)
+  return {
+    bagUseId: usage.usageId,
+    bagMasterId: usage.bagId,
+    bagCode: usage.bagCode,
+    useStage: usage.usageStage === 'INBOUND_TEMP' ? '入仓暂存' : '交出装袋',
+    sourceWarehouseId: 'cutting-wait-handover',
+    sourceWarehouseName: '裁床待交出仓',
+    targetObjectType: usage.usageStage === 'INBOUND_TEMP' ? '' : '车缝任务',
+    targetObjectId: usage.usageStage === 'INBOUND_TEMP' ? '' : usage.sewingTaskId,
+    targetObjectNo: usage.usageStage === 'INBOUND_TEMP' ? '' : usage.sewingTaskNo,
+    receiverFactoryId: usage.usageStage === 'INBOUND_TEMP' ? '' : usage.sewingFactoryId,
+    receiverFactoryName: usage.usageStage === 'INBOUND_TEMP' ? '暂不绑定接收对象' : usage.sewingFactoryName,
+    containedFeiTickets: usage.bindingItems.map((binding) => ({
+      feiTicketId: binding.feiTicketId,
+      feiTicketNo: binding.ticketNo,
+      pieceQty: binding.qty,
+      productionOrderNo: binding.productionOrderNo,
+      cutOrderNo: binding.cutOrderNo,
+      partName: binding.ticket?.partName || binding.partName || '待补部位',
+      size: binding.ticket?.size || binding.size || '待补尺码',
+    })),
+    containedPieceQty: usage.summary.quantityTotal,
+    startedAt: usage.startedAt || '',
+    handedOverAt: usage.dispatchAt || '',
+    signedAt: usage.signedAt || '',
+    returnedAt: usage.returnedAt || '',
+    closedAt: ['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus) ? usage.returnedAt || usage.signedAt || usage.dispatchAt || '' : '',
+    currentStatus: usage.statusMeta.label,
+    discrepancyRecords: abnormalRecords.filter((item) => item.relatedUseId === usage.usageId),
+    mixedFlag: mixed.mixedFlag,
+    mixedSummary: mixed.mixedSummary,
+  }
+}
+
+function buildTransferBagAbnormalRecordsFromStore(
+  store: TransferBagStore,
+  viewModel: TransferBagViewModel,
+): TransferBagAbnormalRecord[] {
+  const records: TransferBagAbnormalRecord[] = []
+  const usageById = viewModel.usagesById
+
+  store.returnReceipts
+    .filter((receipt) => receipt.discrepancyType !== 'NONE')
+    .forEach((receipt) => {
+      records.push({
+        abnormalId: `ABN-${receipt.returnReceiptId}`,
+        bagCode: receipt.bagCode,
+        abnormalType: mapTransferBagDiscrepancyType(receipt.discrepancyType),
+        relatedUseId: receipt.usageId,
+        relatedObjectType: '使用周期',
+        relatedObjectId: receipt.usageNo,
+        description: receipt.discrepancyNote || receipt.note || '签收或回收环节存在差异。',
+        evidencePhotos: [],
+        reportedAt: receipt.returnAt,
+        reportedBy: receipt.receivedBy || receipt.returnedBy || '回收验收员',
+        handlingStatus: '已记录',
+        handledAt: '',
+        handledBy: '',
+      })
+    })
+
+  store.conditionRecords
+    .filter((condition) => condition.conditionStatus !== 'GOOD' || condition.repairNeeded || condition.reusableDecision !== 'REUSABLE')
+    .forEach((condition) => {
+      records.push({
+        abnormalId: `ABN-${condition.conditionRecordId}`,
+        bagCode: condition.bagCode,
+        abnormalType: condition.reusableDecision === 'DISABLED' ? '中转袋停用' : '中转袋破损',
+        relatedUseId: condition.usageId,
+        relatedObjectType: '袋况验收',
+        relatedObjectId: condition.conditionRecordId,
+        description: condition.damageType || condition.note || '袋况异常，需要处理后再复用。',
+        evidencePhotos: [],
+        reportedAt: condition.inspectedAt,
+        reportedBy: condition.inspectedBy,
+        handlingStatus: condition.reusableDecision === 'REUSABLE' ? '已处理' : '待处理',
+        handledAt: '',
+        handledBy: '',
+      })
+    })
+
+  store.closureResults
+    .filter((closure) => closure.closureStatus === 'EXCEPTION_CLOSED')
+    .forEach((closure) => {
+      records.push({
+        abnormalId: `ABN-${closure.closureId}`,
+        bagCode: usageById[closure.usageId]?.bagCode || closure.cycleNo,
+        abnormalType: closure.nextBagStatus === 'DISABLED' ? '中转袋停用' : '异常关闭',
+        relatedUseId: closure.usageId,
+        relatedObjectType: '使用周期',
+        relatedObjectId: closure.usageNo,
+        description: closure.reason || closure.warningMessages.join('；') || '本次使用周期异常关闭。',
+        evidencePhotos: [],
+        reportedAt: closure.closedAt,
+        reportedBy: closure.closedBy,
+        handlingStatus: '已关闭',
+        handledAt: closure.closedAt,
+        handledBy: closure.closedBy,
+      })
+    })
+
+  const handoverUsage = viewModel.usages.find((usage) => usage.usageStage === 'HANDOVER_PACKING' && usage.sewingTaskNo)
+  if (handoverUsage) {
+    records.push({
+      abnormalId: `ABN-MULTI-TASK-${handoverUsage.usageId}`,
+      bagCode: handoverUsage.bagCode,
+      abnormalType: '一个袋尝试绑定多个车缝任务',
+      relatedUseId: handoverUsage.usageId,
+      relatedObjectType: '交出装袋校验',
+      relatedObjectId: handoverUsage.usageNo,
+      description: '交出装袋阶段拦截同一中转袋绑定多个车缝任务；该袋本轮只保留当前车缝任务。',
+      evidencePhotos: [],
+      reportedAt: handoverUsage.startedAt || handoverUsage.dispatchAt || '',
+      reportedBy: '中转袋页面校验',
+      handlingStatus: '已拦截',
+      handledAt: handoverUsage.startedAt || '',
+      handledBy: '中转袋页面校验',
+    })
+  }
+
+  return records.sort((left, right) => right.reportedAt.localeCompare(left.reportedAt, 'zh-CN'))
+}
+
+export function buildTransferBagCarrierManagementProjection(
+  store: TransferBagStore,
+  viewModel: TransferBagViewModel,
+): TransferBagCarrierManagementProjection {
+  const abnormalRecords = buildTransferBagAbnormalRecordsFromStore(store, viewModel)
+  const abnormalCountByBag = abnormalRecords.reduce<Record<string, number>>((result, record) => {
+    result[record.bagCode] = (result[record.bagCode] || 0) + 1
+    return result
+  }, {})
+  const usagesByBag = viewModel.usages.reduce<Record<string, TransferBagUsageItem[]>>((result, usage) => {
+    if (!result[usage.bagId]) result[usage.bagId] = []
+    result[usage.bagId].push(usage)
+    return result
+  }, {})
+
+  const masterRecords: TransferBagMasterArchiveRecord[] = viewModel.masters.map((master) => {
+    const relatedUsages = (usagesByBag[master.bagId] || []).slice().sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))
+    const currentUsage = master.currentUsage
+    const currentUseStage = deriveCarrierManagementUseStage(currentUsage)
+    const currentBoundObjectType = !currentUsage
+      ? ''
+      : currentUseStage === '入仓暂存'
+        ? '入仓暂存记录'
+        : '车缝任务'
+    const currentBoundObjectNo = !currentUsage
+      ? ''
+      : currentUseStage === '入仓暂存'
+        ? currentUsage.usageNo
+        : currentUsage.sewingTaskNo || currentUsage.usageNo
+    return {
+      bagMasterId: master.bagId,
+      bagCode: master.bagCode,
+      bagName: master.bagCode,
+      bagSpec: `${master.bagType || '中转袋'} / 容量 ${master.capacity} 张菲票`,
+      bagMaterial: master.carrierType === 'box' ? '周转箱' : '可复用软袋',
+      currentStatus: deriveCarrierManagementStatus(master),
+      currentLocation: master.currentLocation || '待命位',
+      currentUseStage,
+      currentUseId: currentUsage?.usageId || '',
+      currentBoundObjectType,
+      currentBoundObjectId: currentUseStage === '入仓暂存' ? currentUsage?.usageId || '' : currentUsage?.sewingTaskId || '',
+      currentBoundObjectNo,
+      currentFeiTicketCount: master.packedTicketCount,
+      currentPieceQty: master.currentTotalPieceCount,
+      lastUsedAt: relatedUsages[0]?.startedAt || '',
+      lastSignedAt: master.currentSignedAt,
+      lastReturnedAt: master.currentReturnedAt,
+      totalUseCount: relatedUsages.length,
+      abnormalCount: abnormalCountByBag[master.bagCode] || 0,
+      enabled: master.currentStatus !== 'DISABLED',
+      createdAt: '2026-03-01 08:00',
+      createdBy: '裁床仓管',
+    }
+  })
+
+  const useCycles = viewModel.usages.map((usage) => toTransferBagUseCycleView(usage, abnormalRecords))
+  const handoverPackingUses = useCycles.filter((cycle) => cycle.useStage === '交出装袋')
+  const signedAndReturnUses = useCycles.filter((cycle) => cycle.signedAt || cycle.returnedAt || ['待回仓', '回收中', '已关闭', '异常关闭'].includes(cycle.currentStatus))
+  const taskBagGroups = Object.values(
+    handoverPackingUses.reduce<Record<string, { sewingTaskNo: string; receiverFactoryName: string; bagCodes: string[]; useCount: number }>>((result, cycle) => {
+      const key = cycle.targetObjectNo || '未绑定车缝任务'
+      if (!result[key]) {
+        result[key] = {
+          sewingTaskNo: key,
+          receiverFactoryName: cycle.receiverFactoryName,
+          bagCodes: [],
+          useCount: 0,
+        }
+      }
+      result[key].bagCodes.push(cycle.bagCode)
+      result[key].bagCodes = uniqueStrings(result[key].bagCodes)
+      result[key].useCount += 1
+      return result
+    }, {}),
+  ).filter((item) => item.bagCodes.length > 1)
+
+  return {
+    overviewCards: [
+      { label: '中转袋档案', value: masterRecords.length, hint: '可复用载具主档' },
+      { label: '入仓暂存使用', value: useCycles.filter((cycle) => cycle.useStage === '入仓暂存').length, hint: '允许混装，不绑定车缝任务' },
+      { label: '交出装袋使用', value: handoverPackingUses.length, hint: '一个袋只绑定一个车缝任务' },
+      { label: '签收与回收', value: signedAndReturnUses.length, hint: '签收、返仓、复用闭环' },
+      { label: '异常记录', value: abnormalRecords.length, hint: '破损、丢失、错扫、差异' },
+    ],
+    masterRecords,
+    inboundTempUses: useCycles.filter((cycle) => cycle.useStage === '入仓暂存'),
+    handoverPackingUses,
+    signedAndReturnUses,
+    abnormalRecords,
+    taskBagGroups,
   }
 }

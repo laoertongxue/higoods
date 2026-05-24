@@ -22,7 +22,10 @@ import type {
 
 interface CuttingDemoStageProfile {
   stageLabel: string
+  closeReasonCode?: CuttingOrderProgressRecord['closeReasonCode']
+  closeReasonText?: string
   closedAt?: string
+  closedBy?: string
   closeReason?: string
   reviewStatus: CuttingReviewStatus
   configStatus: CuttingConfigStatus
@@ -131,7 +134,10 @@ const DEMO_STAGE_PROFILES: CuttingDemoStageProfile[] = [
   },
   {
     stageLabel: '已关闭',
+    closeReasonCode: 'MATERIAL_NO_MORE_ARRIVAL',
+    closeReasonText: '面料不再到货',
     closedAt: '2026-03-24 17:40',
+    closedBy: '裁床主管',
     closeReason: '面料不再补入，业务确认剩余缺口不再继续排唛架铺布裁剪。',
     reviewStatus: 'APPROVED',
     configStatus: 'CONFIGURED',
@@ -227,6 +233,12 @@ function buildProjectedMaterialLine(
     materialImageUrl: generated.materialImageUrl,
     color: generated.colorScope[0] || '待补',
     materialCategory: generated.materialCategory,
+    materialIdentity: { ...generated.materialIdentity },
+    patternIdentity: {
+      ...generated.patternIdentity,
+      piecePartCodes: [...generated.patternIdentity.piecePartCodes],
+      piecePartNames: [...generated.patternIdentity.piecePartNames],
+    },
     reviewStatus: profile.reviewStatus,
     configStatus: profile.configStatus,
     receiveStatus: profile.receiveStatus,
@@ -271,8 +283,22 @@ function buildProjectedRecord(
     cuttingTaskNo: `CUT-TASK-${order.productionOrderId.replace(/\D/g, '').slice(-6)}`,
     assignedFactoryName: order.mainFactorySnapshot?.name || TEST_FACTORY_NAME,
     cuttingStage: profile.stageLabel,
+    closeReasonCode: profile.closeReasonCode,
+    closeReasonText: profile.closeReasonText,
     closedAt: profile.closedAt,
+    closedBy: profile.closedBy,
     closeReason: profile.closeReason,
+    ledgerSnapshotBeforeClose: profile.closeReason
+      ? {
+          requiredMaterialQty: materialLines.reduce((sum, line) => sum + Number(line.configuredLength || 0), 0),
+          transferWarehouseAllocatedQty: materialLines.reduce((sum, line) => sum + Number(line.configuredLength || 0), 0),
+          cuttingClaimedQty: materialLines.reduce((sum, line) => sum + Number(line.receivedLength || 0), 0),
+          markerLockedQty: 0,
+          spreadingConsumedQty: materialLines.reduce((sum, line) => sum + Number(line.receivedLength || 0), 0) * 0.68,
+          availableQty: 0,
+          unit: '米',
+        }
+      : undefined,
     riskFlags: [...profile.riskFlags],
     lastPickupScanAt: profile.receiveStatus === 'RECEIVED' ? updatedAt : '',
     lastFieldUpdateAt: updatedAt,
@@ -299,7 +325,15 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = formalC
 
 export function updateCuttingOrderProgressWebStage(
   cutOrderId: string,
-  payload: { cuttingStage: string; operatorName?: string; operatedAt?: string },
+  payload: {
+    cuttingStage: string
+    operatorName?: string
+    operatedAt?: string
+    closeReasonCode?: CuttingOrderProgressRecord['closeReasonCode']
+    closeReasonText?: string
+    closeReason?: string
+    ledgerSnapshotBeforeClose?: CuttingOrderProgressRecord['ledgerSnapshotBeforeClose']
+  },
 ): CuttingOrderProgressRecord | undefined {
   const record = cuttingOrderProgressRecords.find((item) =>
     item.materialLines.some(
@@ -314,7 +348,11 @@ export function updateCuttingOrderProgressWebStage(
   record.cuttingStage = payload.cuttingStage
   if (payload.cuttingStage === '已关闭') {
     record.closedAt = payload.operatedAt?.trim() || record.lastFieldUpdateAt
-    record.closeReason = record.closeReason || '现场确认不再继续排唛架铺布裁剪。'
+    record.closedBy = payload.operatorName?.trim() || record.lastOperatorName
+    record.closeReasonCode = payload.closeReasonCode || record.closeReasonCode || 'FORCED_CLOSE'
+    record.closeReasonText = payload.closeReasonText || record.closeReasonText || '强行完结'
+    record.closeReason = payload.closeReason || record.closeReason || '现场确认不再继续排唛架铺布裁剪。'
+    record.ledgerSnapshotBeforeClose = payload.ledgerSnapshotBeforeClose || record.ledgerSnapshotBeforeClose
   }
   record.lastOperatorName = payload.operatorName?.trim() || record.lastOperatorName
   record.lastFieldUpdateAt = payload.operatedAt?.trim() || record.lastFieldUpdateAt

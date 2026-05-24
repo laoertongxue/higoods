@@ -1,0 +1,197 @@
+import { createTaskBootstrapSnapshot } from './pcs-task-bootstrap.ts';
+import { normalizeSamplePlanLines } from './pcs-sample-chain-service.ts';
+const STORAGE_KEY = 'higood-pcs-first-order-sample-store-v2';
+const STORE_VERSION = 2;
+let memorySnapshot = null;
+function canUseStorage() {
+    return typeof localStorage !== 'undefined';
+}
+function cloneTask(task) {
+    return {
+        ...task,
+        specialSceneReasonCodes: [...(task.specialSceneReasonCodes || [])],
+        samplePlanLines: (task.samplePlanLines || []).map((line) => ({ ...line })),
+    };
+}
+function clonePendingItem(item) {
+    return { ...item };
+}
+function cloneSnapshot(snapshot) {
+    return {
+        version: snapshot.version,
+        tasks: snapshot.tasks.map(cloneTask),
+        pendingItems: snapshot.pendingItems.map(clonePendingItem),
+    };
+}
+function seedSnapshot() {
+    const bootstrap = createTaskBootstrapSnapshot();
+    return {
+        version: STORE_VERSION,
+        tasks: bootstrap.firstOrderSampleTasks.map(cloneTask),
+        pendingItems: bootstrap.firstOrderSamplePendingItems.map(clonePendingItem),
+    };
+}
+function normalizeTask(task) {
+    const sampleChainMode = task.sampleChainMode || '复用首版结论';
+    const sourceFirstSampleCode = task.sourceFirstSampleCode || (sampleChainMode === '复用首版结论' ? task.sampleCode || '' : '');
+    return {
+        ...cloneTask(task),
+        note: task.note || '',
+        sourceTechPackVersionId: task.sourceTechPackVersionId || '',
+        sourceTechPackVersionCode: task.sourceTechPackVersionCode || '',
+        sourceTechPackVersionLabel: task.sourceTechPackVersionLabel || '',
+        sourceFirstSampleTaskId: task.sourceFirstSampleTaskId || (task.upstreamObjectType.includes('首版') ? task.upstreamObjectId : ''),
+        sourceFirstSampleTaskCode: task.sourceFirstSampleTaskCode || (task.upstreamObjectType.includes('首版') ? task.upstreamObjectCode : ''),
+        sourceFirstSampleCode,
+        sampleChainMode,
+        specialSceneReasonCodes: Array.isArray(task.specialSceneReasonCodes) ? [...task.specialSceneReasonCodes] : [],
+        specialSceneReasonText: task.specialSceneReasonText || '',
+        productionReferenceRequiredFlag: Boolean(task.productionReferenceRequiredFlag),
+        chinaReviewRequiredFlag: Boolean(task.chinaReviewRequiredFlag),
+        correctFabricRequiredFlag: Boolean(task.correctFabricRequiredFlag),
+        samplePlanLines: Array.isArray(task.samplePlanLines) && task.samplePlanLines.length === 0
+            ? []
+            : normalizeSamplePlanLines(sampleChainMode, task.samplePlanLines, sourceFirstSampleCode),
+        finalReferenceNote: task.finalReferenceNote || '',
+        sampleCode: task.sampleCode || '',
+        conclusionResult: task.conclusionResult || '',
+        conclusionNote: task.conclusionNote || '',
+        confirmedAt: task.confirmedAt || '',
+        confirmedBy: task.confirmedBy || '',
+        legacyProjectRef: task.legacyProjectRef || '',
+        legacyUpstreamRef: task.legacyUpstreamRef || '',
+    };
+}
+function hydrateSnapshot(snapshot) {
+    const hydrated = {
+        version: STORE_VERSION,
+        tasks: Array.isArray(snapshot.tasks) ? snapshot.tasks.map(normalizeTask) : [],
+        pendingItems: Array.isArray(snapshot.pendingItems) ? snapshot.pendingItems.map(clonePendingItem) : [],
+    };
+    return mergeMissingBootstrapData(hydrated);
+}
+function mergeMissingBootstrapData(snapshot) {
+    const seed = seedSnapshot();
+    const taskIds = new Set(snapshot.tasks.map((task) => task.firstOrderSampleTaskId));
+    const pendingIds = new Set(snapshot.pendingItems.map((item) => item.pendingId));
+    return {
+        version: STORE_VERSION,
+        tasks: [
+            ...snapshot.tasks,
+            ...seed.tasks
+                .filter((task) => !taskIds.has(task.firstOrderSampleTaskId))
+                .map(normalizeTask),
+        ],
+        pendingItems: [
+            ...snapshot.pendingItems,
+            ...seed.pendingItems
+                .filter((item) => !pendingIds.has(item.pendingId))
+                .map(clonePendingItem),
+        ],
+    };
+}
+function loadSnapshot() {
+    if (memorySnapshot)
+        return cloneSnapshot(memorySnapshot);
+    if (!canUseStorage()) {
+        memorySnapshot = seedSnapshot();
+        return cloneSnapshot(memorySnapshot);
+    }
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+            memorySnapshot = seedSnapshot();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot));
+            return cloneSnapshot(memorySnapshot);
+        }
+        const parsed = JSON.parse(raw);
+        memorySnapshot = hydrateSnapshot({
+            version: STORE_VERSION,
+            tasks: Array.isArray(parsed.tasks) ? parsed.tasks : seedSnapshot().tasks,
+            pendingItems: Array.isArray(parsed.pendingItems) ? parsed.pendingItems : seedSnapshot().pendingItems,
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot));
+        return cloneSnapshot(memorySnapshot);
+    }
+    catch {
+        memorySnapshot = seedSnapshot();
+        if (canUseStorage()) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot));
+        }
+        return cloneSnapshot(memorySnapshot);
+    }
+}
+function persistSnapshot(snapshot) {
+    memorySnapshot = hydrateSnapshot(snapshot);
+    if (canUseStorage()) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot));
+    }
+}
+export function listFirstOrderSampleTasks() {
+    return loadSnapshot().tasks.map(cloneTask).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+export function getFirstOrderSampleTaskById(firstOrderSampleTaskId) {
+    const task = loadSnapshot().tasks.find((item) => item.firstOrderSampleTaskId === firstOrderSampleTaskId);
+    return task ? cloneTask(task) : null;
+}
+export function listFirstOrderSampleTasksByProject(projectId) {
+    return loadSnapshot().tasks.filter((item) => item.projectId === projectId).map(cloneTask);
+}
+export function listFirstOrderSampleTasksByProjectNode(projectId, projectNodeId) {
+    return loadSnapshot()
+        .tasks
+        .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
+        .sort((a, b) => (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt))
+        .map(cloneTask);
+}
+export function getLatestFirstOrderSampleTaskByProjectNode(projectId, projectNodeId) {
+    return listFirstOrderSampleTasksByProjectNode(projectId, projectNodeId)[0] ?? null;
+}
+export function upsertFirstOrderSampleTask(task) {
+    const snapshot = loadSnapshot();
+    persistSnapshot({
+        ...snapshot,
+        tasks: [
+            normalizeTask(task),
+            ...snapshot.tasks.filter((item) => item.firstOrderSampleTaskId !== task.firstOrderSampleTaskId),
+        ],
+    });
+    return getFirstOrderSampleTaskById(task.firstOrderSampleTaskId) ?? normalizeTask(task);
+}
+export function updateFirstOrderSampleTask(firstOrderSampleTaskId, patch) {
+    const current = getFirstOrderSampleTaskById(firstOrderSampleTaskId);
+    if (!current)
+        return null;
+    return upsertFirstOrderSampleTask({
+        ...current,
+        ...patch,
+        firstOrderSampleTaskId: current.firstOrderSampleTaskId,
+        firstOrderSampleTaskCode: current.firstOrderSampleTaskCode,
+    });
+}
+export function listFirstOrderSampleTaskPendingItems() {
+    return loadSnapshot().pendingItems.map(clonePendingItem);
+}
+export function upsertFirstOrderSampleTaskPendingItem(item) {
+    const snapshot = loadSnapshot();
+    persistSnapshot({
+        ...snapshot,
+        pendingItems: [item, ...snapshot.pendingItems.filter((current) => current.pendingId !== item.pendingId)],
+    });
+    return clonePendingItem(item);
+}
+export function replaceFirstOrderSampleTaskStore(tasks, pendingItems = []) {
+    persistSnapshot({
+        version: STORE_VERSION,
+        tasks,
+        pendingItems,
+    });
+}
+export function resetFirstOrderSampleTaskRepository() {
+    const snapshot = seedSnapshot();
+    persistSnapshot(snapshot);
+    if (canUseStorage()) {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    }
+}

@@ -3,9 +3,11 @@ import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   areCutOrdersReadyForMarkerPlan,
+  buildCuttableSelectionSummary,
   buildQuickMarkerPlanBuckets,
   buildCuttablePoolStats,
   filterCuttablePoolGroups,
+  validateCuttableSelection,
   type CuttableCutOrderItem,
   type CuttablePoolFilters,
   type CuttablePoolPrefilter,
@@ -20,22 +22,37 @@ import {
   paginateItems,
   renderCompactKpiCard,
   renderStickyFilterShell,
-  renderStickyTableScroller,
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchStateBar,
 } from './layout.helpers.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
 
-type FilterField = 'keyword' | 'urgency'
+type FilterField =
+  | 'keyword'
+  | 'productionOrder'
+  | 'spu'
+  | 'style'
+  | 'material'
+  | 'pattern'
+  | 'effectiveWidth'
+  | 'availableRange'
+  | 'historyCombinationGroup'
+  | 'urgency'
 
 const initialFilters: CuttablePoolFilters = {
   keyword: '',
+  productionOrderKeyword: '',
+  spuKeyword: '',
+  styleKeyword: '',
+  materialKeyword: '',
+  patternKeyword: '',
+  effectiveWidthKeyword: '',
+  historyCombinationGroupKeyword: '',
+  availableRange: 'ALL',
   urgencyLevel: 'ALL',
   cuttableState: 'ALL',
   coverageStatus: 'ALL',
-  configStatus: 'ALL',
-  receiveStatus: 'ALL',
   onlyCuttable: false,
 }
 
@@ -114,12 +131,6 @@ function getSelectedItems(viewModel = getViewModel()): CuttableCutOrderItem[] {
     .filter((item): item is CuttableCutOrderItem => Boolean(item))
 }
 
-function getSelectedMarkerPlanGroupKey(viewModel = getViewModel()): string | null {
-  const selectedItems = getSelectedItems(viewModel)
-  const markerPlanReadiness = areCutOrdersReadyForMarkerPlan(selectedItems)
-  return markerPlanReadiness.ok ? markerPlanReadiness.markerPlanGroupKey : selectedItems[0]?.markerPlanGroupKey ?? null
-}
-
 function setNotice(message: string): void {
   state.notice = message
 }
@@ -140,8 +151,6 @@ function resetPagination(): void {
 function normalizeCuttableOnlyFilters(): void {
   state.filters.cuttableState = 'ALL'
   state.filters.coverageStatus = 'ALL'
-  state.filters.configStatus = 'ALL'
-  state.filters.receiveStatus = 'ALL'
   state.filters.onlyCuttable = false
 }
 
@@ -175,6 +184,21 @@ function renderFilterSelect(
           .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
           .join('')}
       </select>
+    </label>
+  `
+}
+
+function renderFilterInput(label: string, field: FilterField, value: string, placeholder: string): string {
+  return `
+    <label class="space-y-2">
+      <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
+      <input
+        type="text"
+        value="${escapeHtml(value)}"
+        placeholder="${escapeHtml(placeholder)}"
+        class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        data-cuttable-pool-field="${field}"
+      />
     </label>
   `
 }
@@ -229,7 +253,7 @@ function getPrefilterLabels(): string[] {
   const prefilter = state.prefilter
   if (!prefilter) return labels
 
-  if (prefilter.productionOrderNo) labels.push(`来自生产单进度：${prefilter.productionOrderNo}`)
+  if (prefilter.productionOrderNo) labels.push(`来自裁床生产单总览：${prefilter.productionOrderNo}`)
   if (prefilter.styleCode) labels.push(`预筛同款：${prefilter.styleCode}`)
   if (prefilter.spuCode) labels.push(`预筛 SPU：${prefilter.spuCode}`)
   if (prefilter.urgencyLevel) labels.push(`预筛紧急度：${urgencyMeta[prefilter.urgencyLevel].label}`)
@@ -240,6 +264,23 @@ function getPrefilterLabels(): string[] {
 function getFilterLabels(): string[] {
   const labels = getPrefilterLabels()
   if (state.filters.keyword) labels.push(`关键词：${state.filters.keyword}`)
+  if (state.filters.productionOrderKeyword) labels.push(`生产单：${state.filters.productionOrderKeyword}`)
+  if (state.filters.spuKeyword) labels.push(`SPU：${state.filters.spuKeyword}`)
+  if (state.filters.styleKeyword) labels.push(`款式：${state.filters.styleKeyword}`)
+  if (state.filters.materialKeyword) labels.push(`面料：${state.filters.materialKeyword}`)
+  if (state.filters.patternKeyword) labels.push(`纸样：${state.filters.patternKeyword}`)
+  if (state.filters.effectiveWidthKeyword) labels.push(`有效幅宽：${state.filters.effectiveWidthKeyword}`)
+  if (state.filters.historyCombinationGroupKeyword) labels.push(`历史组合组：${state.filters.historyCombinationGroupKeyword}`)
+  if (state.filters.availableRange !== 'ALL') {
+    const availableRangeLabel: Record<CuttablePoolFilters['availableRange'], string> = {
+      ALL: '全部',
+      GT_0: '可用余额大于 0',
+      '0_300': '0-300',
+      '300_600': '300-600',
+      '600_PLUS': '600 以上',
+    }
+    labels.push(`可用余额：${availableRangeLabel[state.filters.availableRange]}`)
+  }
   if (state.filters.urgencyLevel !== 'ALL') labels.push(`紧急程度：${urgencyMeta[state.filters.urgencyLevel].label}`)
   return labels
 }
@@ -274,17 +315,22 @@ function renderFilters(): string {
       <div class="flex flex-wrap items-center justify-between gap-3">
         ${renderViewModeSwitch()}
       </div>
-      <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_18rem]">
-        <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">关键词</span>
-          <input
-            type="text"
-            value="${escapeHtml(state.filters.keyword)}"
-            placeholder="支持生产单号 / 裁片单号 / 款号 / SPU / 面料 SKU"
-            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-            data-cuttable-pool-field="keyword"
-          />
-        </label>
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        ${renderFilterInput('关键词', 'keyword', state.filters.keyword, '裁片单 / 生产单 / SPU / 面料 / 纸样')}
+        ${renderFilterInput('生产单', 'productionOrder', state.filters.productionOrderKeyword, '输入生产单号')}
+        ${renderFilterInput('SPU', 'spu', state.filters.spuKeyword, '输入 SPU')}
+        ${renderFilterInput('款式', 'style', state.filters.styleKeyword, '输入款号或款式名')}
+        ${renderFilterInput('面料', 'material', state.filters.materialKeyword, 'SKU / 名称 / 颜色 / 别名')}
+        ${renderFilterInput('纸样', 'pattern', state.filters.patternKeyword, '纸样文件 / 版本 / 部位')}
+        ${renderFilterInput('有效幅宽', 'effectiveWidth', state.filters.effectiveWidthKeyword, '如 150cm')}
+        ${renderFilterInput('历史组合组', 'historyCombinationGroup', state.filters.historyCombinationGroupKeyword, '输入组合组')}
+        ${renderFilterSelect('可用余额范围', 'availableRange', state.filters.availableRange, [
+          { value: 'ALL', label: '全部' },
+          { value: 'GT_0', label: '大于 0' },
+          { value: '0_300', label: '0-300' },
+          { value: '300_600', label: '300-600' },
+          { value: '600_PLUS', label: '600 以上' },
+        ])}
         ${renderFilterSelect('紧急程度', 'urgency', state.filters.urgencyLevel, [
           { value: 'ALL', label: '全部' },
           { value: 'AA', label: 'AA 紧急' },
@@ -299,72 +345,90 @@ function renderFilters(): string {
   `)
 }
 
-function isMarkerPlanGroupBlocked(item: CuttableCutOrderItem, currentMarkerPlanGroupKey: string | null): boolean {
-  return !!currentMarkerPlanGroupKey && item.markerPlanGroupKey !== currentMarkerPlanGroupKey
+function formatLength(value: number, unit = '米'): string {
+  return `${Math.round(Number(value || 0) * 10) / 10} ${unit}`
 }
 
-function formatLength(value: number): string {
-  return `${Math.round(Number(value || 0) * 10) / 10} m`
+function renderPatternBlock(item: CuttableCutOrderItem): string {
+  const partNames = item.patternIdentity.piecePartNames.length
+    ? item.patternIdentity.piecePartNames.join(' / ')
+    : '部位待补'
+
+  return `
+    <div class="min-w-0 space-y-1 text-sm">
+      <div class="break-words font-medium text-foreground">${escapeHtml(item.patternFileName || item.patternFileId || '-')}</div>
+      <div class="text-xs text-muted-foreground">版本：${escapeHtml(item.patternVersion || '-')}</div>
+      <div class="text-xs text-muted-foreground">有效幅宽：${escapeHtml(item.effectiveWidthText || '-')}</div>
+      <div class="break-words text-xs text-muted-foreground">部位：${escapeHtml(partNames)}</div>
+    </div>
+  `
 }
 
-function renderCutOrderRows(order: ReturnType<typeof getVisibleOrders>[number], currentMarkerPlanGroupKey: string | null): string {
+function renderLedgerBlock(item: CuttableCutOrderItem): string {
+  const ledger = item.ledgerSummary
+  const unit = item.availableUnit
+  return `
+    <div class="min-w-0 space-y-1 text-xs text-muted-foreground">
+      <div>需求用量：${escapeHtml(formatLength(ledger.requiredMaterialQty, unit))}</div>
+      <div>中转仓已配数量：${escapeHtml(formatLength(ledger.transferWarehouseAllocatedQty, unit))}</div>
+      <div>裁床已领数量：${escapeHtml(formatLength(ledger.cuttingClaimedQty, unit))}</div>
+      <div>已锁定数量：${escapeHtml(formatLength(ledger.markerLockedQty, unit))}</div>
+      <div>已消耗数量：${escapeHtml(formatLength(ledger.spreadingConsumedQty, unit))}</div>
+      <div class="font-semibold text-emerald-700">可用余额：${escapeHtml(formatLength(item.availableQty, unit))}</div>
+    </div>
+  `
+}
+
+function renderCutOrderRows(order: ReturnType<typeof getVisibleOrders>[number]): string {
   return order.items
     .map((item) => {
-      const disabled = isMarkerPlanGroupBlocked(item, currentMarkerPlanGroupKey)
+      const selected = state.selectedIds.includes(item.id)
+      const historyGroupLabel = item.historyCombinationGroup || '新组合'
 
       return `
-        <tr class="border-b last:border-b-0 align-top ${state.selectedIds.includes(item.id) ? 'bg-blue-50/40' : ''}" data-testid="cutting-cuttable-pool-cut-order-row">
-          <td class="px-3 py-3">
+        <div
+          class="grid gap-3 border-b px-3 py-3 text-sm last:border-b-0 xl:grid-cols-[2.5rem_minmax(0,1.1fr)_minmax(0,1.35fr)_minmax(0,1.35fr)_minmax(0,1.35fr)_minmax(0,1fr)] ${selected ? 'bg-blue-50/50' : 'bg-card'}"
+          data-testid="cutting-cuttable-pool-cut-order-row"
+          data-cut-order-no="${escapeHtml(item.cutOrderNo)}"
+        >
+          <div class="flex items-start xl:pt-1">
             <input
               type="checkbox"
               class="h-4 w-4 rounded border"
               data-cuttable-pool-action="toggle-item"
               data-item-id="${item.id}"
-              ${state.selectedIds.includes(item.id) ? 'checked' : ''}
-              ${disabled ? 'aria-disabled="true"' : ''}
+              data-cut-order-no="${escapeHtml(item.cutOrderNo)}"
+              ${selected ? 'checked' : ''}
             />
-          </td>
-          <td class="px-3 py-3">
-            <button class="font-medium text-blue-600 hover:underline" data-cuttable-pool-action="go-cut-order-detail" data-item-id="${item.id}">
+          </div>
+          <div class="min-w-0 space-y-1">
+            <button class="break-words text-left font-semibold text-blue-600 hover:underline" data-cuttable-pool-action="go-cut-order-detail" data-item-id="${item.id}">
               ${escapeHtml(item.cutOrderNo)}
             </button>
-          </td>
-          <td class="px-3 py-3">
+            <div class="text-xs text-muted-foreground">生产单：${escapeHtml(item.productionOrderNo)}</div>
+            <div class="text-xs text-muted-foreground">SPU / 款式：${escapeHtml(item.spuCode || '-')} / ${escapeHtml(item.styleName || '-')}</div>
+            <div>${renderBadge(item.urgencyLabel, urgencyMeta[item.urgencyKey].className)}</div>
+          </div>
+          <div class="min-w-0">
             ${renderMaterialIdentityBlock(item, { compact: true })}
-          </td>
-          <td class="px-3 py-3">
-            <div class="font-medium text-emerald-700">${escapeHtml(formatLength(item.availableLength))}</div>
-            <div class="mt-1 text-xs text-muted-foreground">已领 ${escapeHtml(formatLength(item.receivedLength))}</div>
-          </td>
-          <td class="px-3 py-3 text-sm text-muted-foreground">
-            ${escapeHtml(item.productionOrderNo)}
-          </td>
-          <td class="px-3 py-3 text-sm text-muted-foreground">
-            ${escapeHtml(item.plannedShipDateDisplay)}
-          </td>
-        </tr>
+          </div>
+          <div class="min-w-0">${renderPatternBlock(item)}</div>
+          <div class="min-w-0">${renderLedgerBlock(item)}</div>
+          <div class="min-w-0 space-y-2 text-xs text-muted-foreground">
+            <div>历史组合组：<span class="font-medium text-foreground">${escapeHtml(historyGroupLabel)}</span></div>
+            <div>最近唛架方案：${escapeHtml(item.markerPlanNo || '暂无')}</div>
+            <div>计划发货：${escapeHtml(item.plannedShipDateDisplay)}</div>
+            <button class="rounded-md border px-2 py-1 text-xs text-foreground hover:bg-muted" data-cuttable-pool-action="go-cut-order-detail" data-item-id="${item.id}">
+              查看裁片单
+            </button>
+          </div>
+        </div>
       `
     })
     .join('')
 }
 
-function renderOrderCard(order: ReturnType<typeof getVisibleOrders>[number], currentMarkerPlanGroupKey: string | null): string {
-  const tableHtml = `
-    <table class="w-full min-w-[920px] text-sm">
-      <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
-        <tr>
-          <th class="px-3 py-2 text-left font-medium">选择</th>
-          <th class="px-3 py-2 text-left font-medium">裁片单号</th>
-          <th class="px-3 py-2 text-left font-medium">面料</th>
-          <th class="px-3 py-2 text-left font-medium">可用领料余额</th>
-          <th class="px-3 py-2 text-left font-medium">生产单</th>
-          <th class="px-3 py-2 text-left font-medium">计划发货</th>
-        </tr>
-      </thead>
-      <tbody>${renderCutOrderRows(order, currentMarkerPlanGroupKey)}</tbody>
-    </table>
-  `
-
+function renderOrderCard(order: ReturnType<typeof getVisibleOrders>[number]): string {
   return `
     <article class="rounded-lg border bg-card" data-testid="cutting-cuttable-pool-order-card">
       <div class="border-b px-4 py-3">
@@ -385,7 +449,15 @@ function renderOrderCard(order: ReturnType<typeof getVisibleOrders>[number], cur
         </div>
       </div>
       <div data-testid="cutting-cuttable-pool-cut-order-table">
-        ${renderStickyTableScroller(tableHtml, 'max-h-[24rem]')}
+        <div class="hidden border-b bg-muted/70 px-3 py-2 text-xs font-medium text-muted-foreground xl:grid xl:grid-cols-[2.5rem_minmax(0,1.1fr)_minmax(0,1.35fr)_minmax(0,1.35fr)_minmax(0,1.35fr)_minmax(0,1fr)] xl:gap-3">
+          <span>选择</span>
+          <span>裁片单 / 生产单 / SPU</span>
+          <span>面料</span>
+          <span>纸样</span>
+          <span>数量账 / 可用余额</span>
+          <span>历史组合组 / 最近唛架方案</span>
+        </div>
+        ${renderCutOrderRows(order)}
       </div>
     </article>
   `
@@ -404,7 +476,7 @@ function renderPoolPagination(total: number): string {
   })
 }
 
-function renderStyleGroups(groups: CuttableStyleGroup[], currentMarkerPlanGroupKey: string | null): string {
+function renderStyleGroups(groups: CuttableStyleGroup[]): string {
   if (!groups.length) {
     return '<section class="rounded-lg border bg-card px-6 py-14 text-center text-sm text-muted-foreground">当前筛选条件下暂无可展示的同款分组。</section>'
   }
@@ -450,7 +522,7 @@ function renderStyleGroups(groups: CuttableStyleGroup[], currentMarkerPlanGroupK
                   </div>
                 </div>
                 <div class="space-y-3 p-4">
-                  ${group.orders.map((order) => renderOrderCard(order, currentMarkerPlanGroupKey)).join('')}
+                  ${group.orders.map((order) => renderOrderCard(order)).join('')}
                 </div>
               </section>
             `,
@@ -462,7 +534,7 @@ function renderStyleGroups(groups: CuttableStyleGroup[], currentMarkerPlanGroupK
   `
 }
 
-function renderProductionOrderFlat(groups: CuttableStyleGroup[], currentMarkerPlanGroupKey: string | null): string {
+function renderProductionOrderFlat(groups: CuttableStyleGroup[]): string {
   const orders = groups.flatMap((group) => group.orders)
   if (!orders.length) {
     return '<section class="rounded-lg border bg-card px-6 py-14 text-center text-sm text-muted-foreground">当前筛选条件下暂无可展示的生产单。</section>'
@@ -476,7 +548,7 @@ function renderProductionOrderFlat(groups: CuttableStyleGroup[], currentMarkerPl
           (order) => `
             <div class="rounded-lg border bg-card p-4">
               <div class="mb-3 text-xs text-muted-foreground">同款：${escapeHtml(order.styleCode || order.spuCode || '-')} · ${escapeHtml(order.styleName || '-')}</div>
-              ${renderOrderCard(order, currentMarkerPlanGroupKey)}
+              ${renderOrderCard(order)}
             </div>
           `,
         )
@@ -491,7 +563,48 @@ function renderEmptyStateIfNeeded(groups: ReturnType<typeof getVisibleGroups>): 
 
   return `
     <section class="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-      当前筛选条件下暂无可排唛架裁片单，可调整筛选条件或从生产单进度重新进入。
+      当前筛选条件下暂无可排唛架裁片单，可调整筛选条件或从裁床生产单总览重新进入。
+    </section>
+  `
+}
+
+function renderSelectedCutOrdersBar(viewModel = getViewModel()): string {
+  const selectedItems = getSelectedItems(viewModel)
+  const summary = buildCuttableSelectionSummary(selectedItems)
+  if (!summary) return ''
+
+  const cutOrderList = selectedItems
+    .slice(0, 5)
+    .map((item) => `<span class="rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">${escapeHtml(item.cutOrderNo)}</span>`)
+    .join('')
+  const extraCount = Math.max(selectedItems.length - 5, 0)
+
+  return `
+    <section class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur" data-testid="cutting-cuttable-selected-bar">
+      <div class="mx-auto flex max-w-[calc(100vw-2rem)] flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div class="min-w-0 space-y-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-semibold">已选裁片单 ${summary.selectedCount} 个</span>
+            <span class="text-xs text-muted-foreground">涉及生产单 ${summary.productionOrderCount} 个</span>
+            <span class="text-xs text-muted-foreground">合计可用余额 ${escapeHtml(formatLength(summary.totalAvailableQty, summary.availableUnit))}</span>
+          </div>
+          <div class="grid gap-x-4 gap-y-1 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-5">
+            <span>SPU：${escapeHtml(summary.spuCode || '-')}</span>
+            <span>纸样文件：${escapeHtml(summary.patternFileName || summary.patternFileId || '-')}</span>
+            <span>纸样版本：${escapeHtml(summary.patternVersion || '-')}</span>
+            <span>有效幅宽：${escapeHtml(summary.effectiveWidthText || '-')}</span>
+            <span>历史组合组：${escapeHtml(summary.historyCombinationGroup || '新组合')}</span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${cutOrderList}
+            ${extraCount ? `<span class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">另 ${extraCount} 个</span>` : ''}
+          </div>
+        </div>
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
+          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="clear-selection">清空选择</button>
+          <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cuttable-pool-action="create-marker-plan">新建唛架方案</button>
+        </div>
+      </div>
     </section>
   `
 }
@@ -504,10 +617,9 @@ export function renderCraftCuttingCuttablePoolPage(): string {
   const meta = getCanonicalCuttingMeta(pathname, 'cuttable-pool')
   const viewModel = getViewModel()
   const groups = getVisibleGroups(viewModel)
-  const currentMarkerPlanGroupKey = getSelectedMarkerPlanGroupKey(viewModel)
 
   return `
-    <div class="space-y-4 p-4" data-testid="cutting-cuttable-pool-page">
+    <div class="space-y-4 p-4 pb-40" data-testid="cutting-cuttable-pool-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderActionBar(viewModel),
         showAliasBadge: isCuttingAliasPath(pathname),
@@ -523,13 +635,14 @@ export function renderCraftCuttingCuttablePoolPage(): string {
             <div class="space-y-4">
               ${
                 state.viewMode === 'PRODUCTION_ORDER'
-                  ? renderProductionOrderFlat(groups, currentMarkerPlanGroupKey)
-                  : renderStyleGroups(groups, currentMarkerPlanGroupKey)
+                  ? renderProductionOrderFlat(groups)
+                  : renderStyleGroups(groups)
               }
             </div>
           `
           : ''
       }
+      ${renderSelectedCutOrdersBar(viewModel)}
     </div>
   `
 }
@@ -547,14 +660,9 @@ function toggleItemSelection(itemId: string | undefined): boolean {
     return true
   }
 
-  if (!item.cuttableState.selectable) {
-    setNotice(item.cuttableState.reasonText)
-    return true
-  }
-
-  const currentMarkerPlanGroupKey = getSelectedMarkerPlanGroupKey(viewModel)
-  if (currentMarkerPlanGroupKey && currentMarkerPlanGroupKey !== item.markerPlanGroupKey) {
-    setNotice('当前选择仅支持同 SPU、同纸样、同有效幅宽的裁片单进入同一唛架方案。')
+  const validation = validateCuttableSelection(getSelectedItems(viewModel), item)
+  if (!validation.ok) {
+    setNotice(validation.reason || '当前裁片单不能进入同一个唛架方案。')
     return true
   }
 
@@ -571,10 +679,42 @@ function createMarkerPlanAndGo(): boolean {
     return true
   }
 
+  const summary = buildCuttableSelectionSummary(selectedItems)
+  if (!summary) {
+    setNotice('请先选择至少 1 条可排唛架裁片单。')
+    return true
+  }
+
+  const contextPayload = {
+    selectedCutOrderIds: selectedItems.map((item) => item.cutOrderId),
+    selectedCutOrderNos: selectedItems.map((item) => item.cutOrderNo),
+    source: '可排唛架裁片单',
+    spu: summary.spuCode,
+    patternFileId: summary.patternFileId,
+    patternFileName: summary.patternFileName,
+    patternVersion: summary.patternVersion,
+    effectiveWidth: summary.effectiveWidthText,
+    historyCombinationGroup: summary.historyCombinationGroup,
+    selectedSummary: summary,
+  }
+
+  try {
+    window.sessionStorage.setItem('cutting.markerPlan.create.selectedCutOrders', JSON.stringify(contextPayload))
+  } catch {
+    // 原型环境下 sessionStorage 不可用时仍通过 query 保留最小上下文。
+  }
+
   const query = new URLSearchParams()
   selectedItems.forEach((item) => {
     query.append('contextKey', `cut-order:${item.cutOrderId}`)
   })
+  query.set('selectedCutOrderIds', selectedItems.map((item) => item.cutOrderId).join(','))
+  query.set('source', '可排唛架裁片单')
+  query.set('spu', summary.spuCode)
+  query.set('patternFileId', summary.patternFileId)
+  query.set('patternVersion', summary.patternVersion)
+  query.set('effectiveWidth', summary.effectiveWidthText)
+  if (summary.historyCombinationGroup) query.set('historyCombinationGroup', summary.historyCombinationGroup)
   query.set('tab', 'layout')
   state.selectedIds = []
   clearNotice()
@@ -590,6 +730,14 @@ export function handleCraftCuttingCuttablePoolEvent(target: Element): boolean {
 
     const input = fieldNode as HTMLInputElement | HTMLSelectElement
     if (field === 'keyword') state.filters.keyword = input.value
+    if (field === 'productionOrder') state.filters.productionOrderKeyword = input.value
+    if (field === 'spu') state.filters.spuKeyword = input.value
+    if (field === 'style') state.filters.styleKeyword = input.value
+    if (field === 'material') state.filters.materialKeyword = input.value
+    if (field === 'pattern') state.filters.patternKeyword = input.value
+    if (field === 'effectiveWidth') state.filters.effectiveWidthKeyword = input.value
+    if (field === 'historyCombinationGroup') state.filters.historyCombinationGroupKeyword = input.value
+    if (field === 'availableRange') state.filters.availableRange = input.value as CuttablePoolFilters['availableRange']
     if (field === 'urgency') state.filters.urgencyLevel = input.value as CuttablePoolFilters['urgencyLevel']
     resetPagination()
     return true
@@ -636,6 +784,12 @@ export function handleCraftCuttingCuttablePoolEvent(target: Element): boolean {
   }
 
   if (action === 'clear-notice') {
+    clearNotice()
+    return true
+  }
+
+  if (action === 'clear-selection') {
+    state.selectedIds = []
     clearNotice()
     return true
   }

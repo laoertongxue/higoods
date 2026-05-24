@@ -1,0 +1,763 @@
+import { buildCraftClaimDisputeSummary, formatClaimQty as formatDisputeQty, getClaimDisputeStatusLabel, parseLengthQtyFromText, } from '../../../helpers/fcs-claim-dispute.ts';
+import { getLatestClaimDisputeByCutOrderNo, listClaimDisputesByCutOrderNo } from '../../../state/fcs-claim-dispute-store.ts';
+import { buildCutOrderQrValue, } from '../../../data/fcs/cutting/qr-codes.ts';
+import { listPdaPickupWritebacks, } from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts';
+import { getBrowserLocalStorage } from '../../../data/browser-storage.ts';
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts';
+import { CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY, deserializeReplenishmentPendingPrepStorage, } from '../../../data/fcs/cutting/storage/replenishment-storage.ts';
+import { canViewPrepQr, getPrepQrHiddenText, shouldDisplayQrByPrepStatus, shouldDisplayQrLabelByPrepStatus, shouldPrintPrepQr, } from './material-prep.helpers.ts';
+import { summarizeMarkerPlanRefParticipation } from './cut-orders-model.ts';
+import { buildProductionProgressRows, urgencyMeta } from './production-progress-model.ts';
+const numberFormatter = new Intl.NumberFormat('zh-CN');
+export const materialPrepMeta = {
+    NOT_CONFIGURED: { label: '无配料数量', className: 'bg-slate-100 text-slate-700' },
+    PARTIAL: { label: '配料数量不足', className: 'bg-orange-100 text-orange-700' },
+    CONFIGURED: { label: '有配料数量', className: 'bg-emerald-100 text-emerald-700' },
+};
+export const materialClaimMeta = {
+    NOT_RECEIVED: { label: '无领料记录', className: 'bg-slate-100 text-slate-700' },
+    PARTIAL: { label: '领料数量不足', className: 'bg-orange-100 text-orange-700' },
+    RECEIVED: { label: '有领料记录', className: 'bg-emerald-100 text-emerald-700' },
+    EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700' },
+};
+export const materialSchedulingMeta = {
+    UNASSIGNED: { label: '待排单', className: 'bg-slate-100 text-slate-700' },
+    ASSIGNED: { label: '已排单', className: 'bg-blue-100 text-blue-700' },
+};
+export const materialPrepStageMeta = {
+    WAITING_PREP: { label: '未开工', className: 'bg-slate-100 text-slate-700' },
+    WAITING_CLAIM: { label: '未开工', className: 'bg-slate-100 text-slate-700' },
+    WAITING_SCHEDULING: { label: '待排单', className: 'bg-sky-100 text-sky-700' },
+    ASSIGNED: { label: '已排单', className: 'bg-cyan-100 text-cyan-700' },
+    CUTTING: { label: '已开工', className: 'bg-violet-100 text-violet-700' },
+    WAITING_INBOUND: { label: '已开工', className: 'bg-violet-100 text-violet-700' },
+    DONE: { label: '已开工', className: 'bg-violet-100 text-violet-700' },
+};
+export const materialPrepRiskMeta = {
+    PREP_DELAY: { label: '中转仓滞后', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
+    CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
+    SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
+    DATE_MISSING: { label: '日期缺失', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
+    STATUS_CONFLICT: { label: '数量差异', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
+    UNASSIGNED: { label: '待排单', className: 'bg-sky-100 text-sky-700 border border-sky-200' },
+};
+function formatQty(value) {
+    return numberFormatter.format(Math.max(value, 0));
+}
+function buildSummaryMeta(key, label, className, detailText) {
+    return { key, label, className, detailText };
+}
+function materialCategoryLabel(line) {
+    if (line.materialCategory)
+        return line.materialCategory;
+    if (line.materialType === 'PRINT')
+        return '主料';
+    if (line.materialType === 'DYE')
+        return '主料';
+    if (line.materialType === 'LINING')
+        return '里辅料';
+    return '主料';
+}
+function materialTypeName(line) {
+    if (line.materialType === 'PRINT')
+        return '印花面料';
+    if (line.materialType === 'DYE')
+        return '染色面料';
+    if (line.materialType === 'LINING')
+        return '里布';
+    return '纯色面料';
+}
+function inferRequiredQty(line) {
+    const baseline = Math.max(line.configuredLength, line.receivedLength, 60);
+    if (line.configStatus === 'CONFIGURED' && line.receiveStatus === 'RECEIVED')
+        return baseline;
+    if (line.configStatus === 'PARTIAL' && line.receiveStatus === 'PARTIAL')
+        return Math.max(baseline, Math.ceil(baseline * 1.5));
+    if (line.configStatus === 'PARTIAL')
+        return Math.max(baseline, Math.ceil(baseline * 1.35));
+    if (line.receiveStatus === 'PARTIAL')
+        return Math.max(baseline, Math.ceil(baseline * 1.2));
+    if (line.configStatus === 'NOT_CONFIGURED')
+        return Math.max(baseline, 180);
+    return baseline;
+}
+function inferAssignedCuttingGroup(record, line) {
+    if (record.hasSpreadingRecord || /裁片中|裁剪中|待入仓|已完成/.test(record.cuttingStage)) {
+        return `${formatFactoryDisplayName(record.assignedFactoryName)} / 裁床一组`;
+    }
+    if (line.markerPlanOccupancyStatus === 'IN_MARKER_PLAN') {
+        return `${formatFactoryDisplayName(record.assignedFactoryName)} / 待排床`;
+    }
+    return '';
+}
+function buildKeywordIndex(values) {
+    return values
+        .filter((value) => Boolean(value && value.trim()))
+        .map((value) => value.toLowerCase());
+}
+export function deriveMaterialPrepStatus(lineItems) {
+    const total = lineItems.length;
+    const configuredCount = lineItems.filter((item) => item.configuredQty >= item.requiredQty && item.requiredQty > 0).length;
+    const partialCount = lineItems.filter((item) => item.configuredQty > 0 && item.configuredQty < item.requiredQty).length;
+    if (configuredCount === total && total > 0) {
+        return buildSummaryMeta('CONFIGURED', materialPrepMeta.CONFIGURED.label, materialPrepMeta.CONFIGURED.className, `中转仓已配 ${configuredCount}/${total} 项。`);
+    }
+    if (configuredCount > 0 || partialCount > 0) {
+        return buildSummaryMeta('PARTIAL', materialPrepMeta.PARTIAL.label, materialPrepMeta.PARTIAL.className, `中转仓已配 ${configuredCount + partialCount}/${total} 项，仍有剩余待补齐。`);
+    }
+    return buildSummaryMeta('NOT_CONFIGURED', materialPrepMeta.NOT_CONFIGURED.label, materialPrepMeta.NOT_CONFIGURED.className, `当前共 ${total} 项面料待进入待加工仓。`);
+}
+export function deriveMaterialClaimStatus(lineItems) {
+    if (lineItems.some((item) => item.hasClaimException)) {
+        return buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '当前存在领料差异，待仓库复核。');
+    }
+    const total = lineItems.length;
+    const receivedCount = lineItems.filter((item) => item.claimedQty >= item.requiredQty && item.requiredQty > 0).length;
+    const partialCount = lineItems.filter((item) => item.claimedQty > 0 && item.claimedQty < item.requiredQty).length;
+    if (receivedCount === total && total > 0) {
+        return buildSummaryMeta('RECEIVED', materialClaimMeta.RECEIVED.label, materialClaimMeta.RECEIVED.className, `裁床已领 ${receivedCount}/${total} 项。`);
+    }
+    if (receivedCount > 0 || partialCount > 0) {
+        return buildSummaryMeta('PARTIAL', materialClaimMeta.PARTIAL.label, materialClaimMeta.PARTIAL.className, `裁床已领 ${receivedCount + partialCount}/${total} 项，仍有余量待补齐。`);
+    }
+    return buildSummaryMeta('NOT_RECEIVED', materialClaimMeta.NOT_RECEIVED.label, materialClaimMeta.NOT_RECEIVED.className, `当前共 ${total} 项面料未形成领料记录。`);
+}
+export function deriveSchedulingStatus(assignedCuttingGroup) {
+    if (assignedCuttingGroup.trim()) {
+        return buildSummaryMeta('ASSIGNED', materialSchedulingMeta.ASSIGNED.label, materialSchedulingMeta.ASSIGNED.className, `当前已分配至 ${assignedCuttingGroup}。`);
+    }
+    return buildSummaryMeta('UNASSIGNED', materialSchedulingMeta.UNASSIGNED.label, materialSchedulingMeta.UNASSIGNED.className, '当前尚未分配裁床组。');
+}
+export function buildSameCodeValue(cutOrderNo) {
+    return cutOrderNo;
+}
+function buildQrCodeValue(cutOrderNo) {
+    return buildCutOrderQrValue(cutOrderNo);
+}
+function deriveCurrentStage(record, row) {
+    if (record.hasInboundRecord || /已完成|已入仓/.test(record.cuttingStage)) {
+        return buildSummaryMeta('DONE', materialPrepStageMeta.DONE.label, materialPrepStageMeta.DONE.className, '当前裁片单已产生裁剪后续记录。');
+    }
+    if (/待入仓/.test(record.cuttingStage)) {
+        return buildSummaryMeta('WAITING_INBOUND', materialPrepStageMeta.WAITING_INBOUND.label, materialPrepStageMeta.WAITING_INBOUND.className, '当前裁片单已进入铺布裁剪后续。');
+    }
+    if (record.hasSpreadingRecord || /裁片中|裁剪中/.test(record.cuttingStage)) {
+        return buildSummaryMeta('CUTTING', materialPrepStageMeta.CUTTING.label, materialPrepStageMeta.CUTTING.className, '当前已进入铺布裁剪执行上下文。');
+    }
+    if (row.materialPrepStatus.key === 'NOT_CONFIGURED' || row.materialPrepStatus.key === 'PARTIAL') {
+        return buildSummaryMeta('WAITING_PREP', materialPrepStageMeta.WAITING_PREP.label, materialPrepStageMeta.WAITING_PREP.className, '当前仍未形成完整中转仓配料数量。');
+    }
+    if (row.materialClaimStatus.key === 'NOT_RECEIVED' || row.materialClaimStatus.key === 'PARTIAL' || row.materialClaimStatus.key === 'EXCEPTION') {
+        return buildSummaryMeta('WAITING_CLAIM', materialPrepStageMeta.WAITING_CLAIM.label, materialPrepStageMeta.WAITING_CLAIM.className, '当前仍未形成完整裁床领料数量。');
+    }
+    if (row.schedulingStatus.key === 'UNASSIGNED') {
+        return buildSummaryMeta('WAITING_SCHEDULING', materialPrepStageMeta.WAITING_SCHEDULING.label, materialPrepStageMeta.WAITING_SCHEDULING.className, '领料已到位，等待分配裁床组。');
+    }
+    return buildSummaryMeta('ASSIGNED', materialPrepStageMeta.ASSIGNED.label, materialPrepStageMeta.ASSIGNED.className, '当前已具备进入唛架铺布的执行准备。');
+}
+function buildInitialClaimRecords(record, lineItem, cutOrderId) {
+    if (lineItem.claimedQty <= 0 && !lineItem.hasClaimException)
+        return [];
+    const result = lineItem.hasClaimException ? 'EXCEPTION' : lineItem.claimedQty >= lineItem.requiredQty ? 'SUCCESS' : 'PARTIAL';
+    return [
+        {
+            claimRecordId: `${cutOrderId}-claim-seed`,
+            cutOrderId,
+            claimedAt: record.lastPickupScanAt || record.lastFieldUpdateAt || '',
+            claimedBy: record.lastOperatorName || '仓库领料员',
+            result,
+            summary: result === 'SUCCESS'
+                ? `已回写 ${formatQty(lineItem.claimedQty)} 米。`
+                : result === 'PARTIAL'
+                    ? `已回写领料数量 ${formatQty(lineItem.claimedQty)} 米。`
+                    : '领料存在差异，待仓库复核。',
+            note: lineItem.latestActionText,
+        },
+    ].filter((item) => item.claimedAt);
+}
+function isPickupWritebackSuccess(resultLabel) {
+    return resultLabel.includes('成功');
+}
+function mapPickupWritebackResult(resultLabel) {
+    if (!isPickupWritebackSuccess(resultLabel))
+        return 'EXCEPTION';
+    return 'SUCCESS';
+}
+function buildPdaPickupClaimSummary(record) {
+    if (!isPickupWritebackSuccess(record.resultLabel)) {
+        return `${record.resultLabel}：${record.discrepancyNote || '待仓库复核'}`;
+    }
+    return `已回写 ${record.actualReceivedQtyText || '领料结果'}。`;
+}
+function applyPdaPickupWritebacksToRow(row, pickupWritebacks, sourceRecord) {
+    if (!pickupWritebacks.length)
+        return row;
+    const latestWriteback = pickupWritebacks[0];
+    const parsedQty = parseLengthQtyFromText(latestWriteback.actualReceivedQtyText);
+    const matchedIndexes = row.materialLineItems.reduce((accumulator, item, index) => {
+        if (item.materialSku === latestWriteback.materialSku)
+            accumulator.push(index);
+        return accumulator;
+    }, []);
+    const targetIndexes = matchedIndexes.length ? matchedIndexes : row.materialLineItems.length === 1 ? [0] : [];
+    row.materialLineItems = row.materialLineItems.map((item, index) => {
+        if (!targetIndexes.includes(index))
+            return item;
+        const nextClaimedQty = parsedQty > 0 ? parsedQty : isPickupWritebackSuccess(latestWriteback.resultLabel) ? Math.max(item.requiredQty, item.claimedQty) : item.claimedQty;
+        return {
+            ...item,
+            claimedQty: nextClaimedQty,
+            hasClaimException: !isPickupWritebackSuccess(latestWriteback.resultLabel),
+            latestActionText: buildPdaPickupClaimSummary(latestWriteback),
+        };
+    });
+    const overlayClaimRecords = pickupWritebacks.map((record) => ({
+        claimRecordId: record.writebackId,
+        cutOrderId: row.cutOrderId,
+        claimedAt: record.submittedAt,
+        claimedBy: record.operatorName,
+        result: mapPickupWritebackResult(record.resultLabel),
+        summary: buildPdaPickupClaimSummary(record),
+        note: record.discrepancyNote,
+    }));
+    const existingClaimRecords = row.claimRecords.filter((record) => !overlayClaimRecords.some((item) => item.claimRecordId === record.claimRecordId));
+    row.claimRecords = [...overlayClaimRecords, ...existingClaimRecords].sort((left, right) => right.claimedAt.localeCompare(left.claimedAt, 'zh-CN'));
+    return recalculateMaterialPrepRow(row, sourceRecord);
+}
+function buildLineItem(record, line) {
+    const cutOrderId = line.cutOrderId || line.cutOrderNo || line.cutPieceOrderNo;
+    const materialLineId = `${cutOrderId}::${line.materialSku || line.materialLabel || 'material'}`;
+    const requiredQty = inferRequiredQty(line);
+    const configuredQty = line.configuredLength;
+    const claimedQty = line.receivedLength;
+    const hasClaimException = line.issueFlags.includes('RECEIVE_DIFF');
+    const linePrepStatus = deriveMaterialPrepStatus([
+        {
+            materialLineId,
+            materialSku: line.materialSku,
+            materialName: line.materialLabel,
+            materialCategory: materialCategoryLabel(line),
+            materialAttr: line.color || '待补',
+            materialAlias: line.materialAlias || '',
+            materialImageUrl: line.materialImageUrl || '',
+            materialTypeName: materialTypeName(line),
+            requiredQty,
+            configuredQty,
+            claimedQty,
+            shortageQty: Math.max(requiredQty - claimedQty, 0),
+            configuredRollCount: line.configuredRollCount,
+            claimedRollCount: line.receivedRollCount,
+            sourceType: line.materialType === 'PRINT'
+                ? 'PRINT_REVIEW'
+                : line.materialType === 'DYE'
+                    ? 'DYE_REVIEW'
+                    : 'MANUAL',
+            linePrepStatus: buildSummaryMeta('NOT_CONFIGURED', '', '', ''),
+            lineClaimStatus: buildSummaryMeta('NOT_RECEIVED', '', '', ''),
+            hasClaimException,
+            note: line.latestActionText,
+            latestActionText: line.latestActionText,
+        },
+    ]);
+    const lineClaimStatus = deriveMaterialClaimStatus([
+        {
+            materialLineId,
+            materialSku: line.materialSku,
+            materialName: line.materialLabel,
+            materialCategory: materialCategoryLabel(line),
+            materialAttr: line.color || '待补',
+            materialAlias: line.materialAlias || '',
+            materialImageUrl: line.materialImageUrl || '',
+            materialTypeName: materialTypeName(line),
+            requiredQty,
+            configuredQty,
+            claimedQty,
+            shortageQty: Math.max(requiredQty - claimedQty, 0),
+            configuredRollCount: line.configuredRollCount,
+            claimedRollCount: line.receivedRollCount,
+            sourceType: line.materialType === 'PRINT'
+                ? 'PRINT_REVIEW'
+                : line.materialType === 'DYE'
+                    ? 'DYE_REVIEW'
+                    : 'MANUAL',
+            linePrepStatus,
+            lineClaimStatus: buildSummaryMeta('NOT_RECEIVED', '', '', ''),
+            hasClaimException,
+            note: line.latestActionText,
+            latestActionText: line.latestActionText,
+        },
+    ]);
+    return {
+        materialLineId,
+        materialSku: line.materialSku,
+        materialName: line.materialLabel,
+        materialCategory: materialCategoryLabel(line),
+        materialAttr: line.color || '待补',
+        materialAlias: line.materialAlias || '',
+        materialImageUrl: line.materialImageUrl || '',
+        materialTypeName: materialTypeName(line),
+        requiredQty,
+        configuredQty,
+        claimedQty,
+        shortageQty: Math.max(requiredQty - claimedQty, 0),
+        configuredRollCount: line.configuredRollCount,
+        claimedRollCount: line.receivedRollCount,
+        sourceType: line.materialType === 'PRINT'
+            ? 'PRINT_REVIEW'
+            : line.materialType === 'DYE'
+                ? 'DYE_REVIEW'
+                : 'MANUAL',
+        linePrepStatus,
+        lineClaimStatus,
+        hasClaimException,
+        note: line.latestActionText,
+        latestActionText: line.latestActionText,
+    };
+}
+function buildMaterialSkuSummary(lineItems) {
+    const labels = Array.from(new Set(lineItems.map((item) => item.materialSku)));
+    return labels.join(' / ');
+}
+export function summarizeMaterialLineItems(lineItems) {
+    if (!lineItems.length)
+        return '暂无面料行项目';
+    const required = lineItems.reduce((sum, item) => sum + item.requiredQty, 0);
+    const configured = lineItems.reduce((sum, item) => sum + item.configuredQty, 0);
+    const claimed = lineItems.reduce((sum, item) => sum + item.claimedQty, 0);
+    const shortage = lineItems.reduce((sum, item) => sum + item.shortageQty, 0);
+    return `需求 ${formatQty(required)} 米 / 中转仓已配 ${formatQty(configured)} 米 / 裁床已领 ${formatQty(claimed)} 米 / 缺口 ${formatQty(shortage)} 米`;
+}
+export function buildMaterialPrepNavigationPayload(row) {
+    return {
+        cutOrders: {
+            cutOrderId: row.cutOrderId,
+            cutOrderNo: row.cutOrderNo,
+            productionOrderNo: row.productionOrderNo,
+        },
+        markerSpreading: {
+            cutOrderId: row.cutOrderId,
+            cutOrderNo: row.cutOrderNo,
+            markerPlanId: row.latestMarkerPlanId || undefined,
+            markerPlanNo: row.latestMarkerPlanNo || undefined,
+            productionOrderNo: row.productionOrderNo,
+            materialSku: row.materialSkuSummary || undefined,
+            tab: 'spreadings',
+        },
+        summary: {
+            productionOrderId: row.productionOrderId,
+            productionOrderNo: row.productionOrderNo,
+            cutOrderId: row.cutOrderId,
+            cutOrderNo: row.cutOrderNo,
+            markerPlanId: row.latestMarkerPlanId || undefined,
+            markerPlanNo: row.latestMarkerPlanNo || undefined,
+            materialSku: row.materialSkuSummary || undefined,
+        },
+        productionProgress: {
+            productionOrderId: row.productionOrderId,
+            productionOrderNo: row.productionOrderNo,
+        },
+        markerPlanRefs: {
+            markerPlanId: row.latestMarkerPlanId || undefined,
+            markerPlanNo: row.latestMarkerPlanNo || undefined,
+            cutOrderNo: row.cutOrderNo,
+            cutOrderId: row.cutOrderId,
+        },
+    };
+}
+function buildRiskTags(record, row) {
+    const keys = new Set();
+    if (row.materialPrepStatus.key === 'NOT_CONFIGURED' || row.materialPrepStatus.key === 'PARTIAL')
+        keys.add('PREP_DELAY');
+    if (row.materialClaimStatus.key === 'PARTIAL' || row.materialClaimStatus.key === 'EXCEPTION')
+        keys.add('CLAIM_EXCEPTION');
+    if (!row.plannedShipDate)
+        keys.add('DATE_MISSING');
+    if (record.urgencyLevel === 'AA' || record.urgencyLevel === 'A')
+        keys.add('SHIP_URGENT');
+    if (row.materialClaimStatus.key === 'RECEIVED' && row.schedulingStatus.key === 'UNASSIGNED')
+        keys.add('UNASSIGNED');
+    if (/已完成/.test(record.cuttingStage) && !record.hasInboundRecord)
+        keys.add('STATUS_CONFLICT');
+    return Array.from(keys).map((key) => ({
+        key,
+        label: materialPrepRiskMeta[key].label,
+        className: materialPrepRiskMeta[key].className,
+    }));
+}
+function createRow(record, line, ledger) {
+    const cutOrderId = line.cutOrderId || line.cutOrderNo || line.cutPieceOrderNo;
+    const cutOrderNo = line.cutOrderNo || line.cutOrderId || line.cutPieceOrderNo;
+    const progressRows = buildProductionProgressRows([record]);
+    const urgency = urgencyMeta[progressRows[0]?.urgency.key ?? 'UNKNOWN'];
+    const lineItems = [buildLineItem(record, line)];
+    const batchSummary = summarizeMarkerPlanRefParticipation(cutOrderId, ledger);
+    const claimRecords = buildInitialClaimRecords(record, lineItems[0], cutOrderId);
+    const materialPrepStatus = deriveMaterialPrepStatus(lineItems);
+    const materialClaimStatus = deriveMaterialClaimStatus(lineItems);
+    const assignedCuttingGroup = inferAssignedCuttingGroup(record, line);
+    const schedulingStatus = deriveSchedulingStatus(assignedCuttingGroup);
+    const baseRow = {
+        id: cutOrderId,
+        cutOrderId,
+        cutOrderNo,
+        productionOrderId: record.productionOrderId,
+        productionOrderNo: record.productionOrderNo,
+        styleCode: record.styleCode,
+        spuCode: record.spuCode,
+        techPackSpuCode: record.techPackSpuCode || '',
+        styleName: record.styleName,
+        color: line.color || '待补',
+        materialSkuSummary: buildMaterialSkuSummary(lineItems),
+        plannedShipDate: record.plannedShipDate,
+        urgencyKey: progressRows[0]?.urgency.key ?? 'UNKNOWN',
+        urgencyLabel: urgency.label,
+        urgencyClassName: urgency.className,
+        sameCodeValue: buildSameCodeValue(cutOrderNo),
+        cutOrderQrValue: buildQrCodeValue(cutOrderNo),
+        qrCodeValue: buildQrCodeValue(cutOrderNo),
+        qrCodeLabel: '裁片单二维码',
+        shouldDisplayQr: false,
+        shouldDisplayQrLabel: false,
+        canViewQr: false,
+        shouldPrintQr: false,
+        qrHiddenHint: getPrepQrHiddenText('NOT_CONFIGURED'),
+        materialPrepStatus,
+        materialClaimStatus,
+        schedulingStatus,
+        assignedCuttingGroup,
+        currentStage: buildSummaryMeta('WAITING_PREP', '', '', ''),
+        riskTags: [],
+        materialLineItems: lineItems,
+        claimRecords,
+        claimRecordCount: claimRecords.length,
+        latestClaimRecordAt: claimRecords[0]?.claimedAt || '',
+        latestClaimRecordSummary: claimRecords[0]?.summary || '暂无来料记录',
+        claimDisputes: [],
+        claimDisputeCount: 0,
+        latestClaimDispute: null,
+        hasClaimDispute: false,
+        claimDisputeStatusLabel: '暂无异议',
+        claimDisputeSummary: '当前暂无领料长度异议。',
+        claimDisputeDiscrepancyText: '差异 0 米',
+        claimDisputeEvidenceCount: 0,
+        claimDisputeHandleSummary: '待平台处理结果',
+        printedAt: line.printSlipStatus === 'PRINTED' ? record.lastFieldUpdateAt || record.lastPickupScanAt || '' : '',
+        printedBy: line.printSlipStatus === 'PRINTED' ? `${record.lastOperatorName || '系统'} / 打印回写` : '',
+        latestMarkerPlanId: batchSummary.activeMarkerPlanId || '',
+        latestMarkerPlanNo: batchSummary.latestMarkerPlanNo || line.markerPlanNo || '',
+        markerPlanNos: batchSummary.markerPlanNos,
+        markerPlanIds: batchSummary.markerPlanIds,
+        currentStageText: record.cuttingStage || '待补',
+        replenishmentPendingPrepItems: [],
+        replenishmentPendingPrepCount: 0,
+        replenishmentPendingPrepSummary: '当前无补料配料待处理',
+        hasReplenishmentPendingPrep: false,
+        navigationPayload: buildMaterialPrepNavigationPayload({
+            cutOrderId,
+            cutOrderNo,
+            productionOrderId: record.productionOrderId,
+            productionOrderNo: record.productionOrderNo,
+            styleCode: record.styleCode,
+            spuCode: record.spuCode,
+            materialSkuSummary: line.materialSku,
+            latestMarkerPlanNo: batchSummary.latestMarkerPlanNo || line.markerPlanNo || '',
+        }),
+        keywordIndex: buildKeywordIndex([
+            cutOrderId,
+            cutOrderNo,
+            record.productionOrderId,
+            record.productionOrderNo,
+            record.styleCode,
+            record.spuCode,
+            record.techPackSpuCode,
+            record.styleName,
+            line.materialSku,
+            line.materialLabel,
+            line.color,
+            line.materialCategory,
+        ]),
+    };
+    return recalculateMaterialPrepRow(baseRow, record);
+}
+function applyPendingPrepFollowupsToRow(row, followups) {
+    const matched = followups.filter((item) => item.cutOrderId === row.cutOrderId ||
+        item.cutOrderNo === row.cutOrderNo);
+    if (!matched.length) {
+        row.replenishmentPendingPrepItems = [];
+        row.replenishmentPendingPrepCount = 0;
+        row.replenishmentPendingPrepSummary = '当前无补料配料待处理';
+        row.hasReplenishmentPendingPrep = false;
+        row.materialLineItems = row.materialLineItems.map((item) => ({
+            ...item,
+            sourceType: item.sourceType === 'REPLENISHMENT_PENDING_PREP'
+                ? item.materialTypeName === '印花面料'
+                    ? 'PRINT_REVIEW'
+                    : item.materialTypeName === '染色面料'
+                        ? 'DYE_REVIEW'
+                        : 'MANUAL'
+                : item.sourceType,
+            sourceLabel: item.sourceType === 'REPLENISHMENT_PENDING_PREP'
+                ? item.materialTypeName === '印花面料'
+                    ? '印花加工单审核通过'
+                    : item.materialTypeName === '染色面料'
+                        ? '染色加工单审核通过'
+                        : '手动配置'
+                : item.sourceLabel || '手动配置',
+            replenishmentPendingPrepQty: 0,
+            sourceReplenishmentRequestId: '',
+            sourceSpreadingSessionId: '',
+        }));
+        return row;
+    }
+    row.replenishmentPendingPrepItems = matched;
+    row.replenishmentPendingPrepCount = matched.length;
+    row.replenishmentPendingPrepSummary = matched
+        .map((item) => `${item.materialSku} / ${item.color || row.color} · 缺口 ${formatQty(item.shortageGarmentQty)} 件 · 来源铺布 ${item.sourceSpreadingSessionId || '待补'} · 来源补料 ${item.sourceReplenishmentRequestId || '待补'}`)
+        .join('；');
+    row.hasReplenishmentPendingPrep = true;
+    row.materialLineItems = row.materialLineItems.map((item) => {
+        const pendingItem = matched.find((followup) => followup.materialSku === item.materialSku && (!followup.color || followup.color === row.color));
+        if (!pendingItem) {
+            return {
+                ...item,
+                sourceType: item.materialTypeName === '印花面料'
+                    ? 'PRINT_REVIEW'
+                    : item.materialTypeName === '染色面料'
+                        ? 'DYE_REVIEW'
+                        : 'MANUAL',
+                sourceLabel: item.materialTypeName === '印花面料'
+                    ? '印花加工单审核通过'
+                    : item.materialTypeName === '染色面料'
+                        ? '染色加工单审核通过'
+                        : '手动配置',
+            };
+        }
+        return {
+            ...item,
+            sourceType: 'REPLENISHMENT_PENDING_PREP',
+            sourceLabel: '补料配料待处理',
+            replenishmentPendingPrepQty: pendingItem.shortageGarmentQty,
+            sourceReplenishmentRequestId: pendingItem.sourceReplenishmentRequestId,
+            sourceSpreadingSessionId: pendingItem.sourceSpreadingSessionId,
+            latestActionText: pendingItem.note || item.latestActionText,
+        };
+    });
+    return row;
+}
+export function recalculateMaterialPrepRow(row, sourceRecord) {
+    row.materialLineItems = row.materialLineItems.map((item) => {
+        const shortageQty = Math.max(item.requiredQty - item.claimedQty, 0);
+        const nextPrepStatus = item.configuredQty >= item.requiredQty
+            ? buildSummaryMeta('CONFIGURED', materialPrepMeta.CONFIGURED.label, materialPrepMeta.CONFIGURED.className, `中转仓已配 ${formatQty(item.configuredQty)} 米。`)
+            : item.configuredQty > 0
+                ? buildSummaryMeta('PARTIAL', materialPrepMeta.PARTIAL.label, materialPrepMeta.PARTIAL.className, `中转仓已配 ${formatQty(item.configuredQty)} 米，仍需补齐。`)
+                : buildSummaryMeta('NOT_CONFIGURED', materialPrepMeta.NOT_CONFIGURED.label, materialPrepMeta.NOT_CONFIGURED.className, '当前尚未形成配料数量。');
+        const nextClaimStatus = item.hasClaimException
+            ? buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '领料存在差异，需复核。')
+            : item.claimedQty >= item.requiredQty
+                ? buildSummaryMeta('RECEIVED', materialClaimMeta.RECEIVED.label, materialClaimMeta.RECEIVED.className, `裁床已领 ${formatQty(item.claimedQty)} 米。`)
+                : item.claimedQty > 0
+                    ? buildSummaryMeta('PARTIAL', materialClaimMeta.PARTIAL.label, materialClaimMeta.PARTIAL.className, `裁床已领 ${formatQty(item.claimedQty)} 米，仍有余量待补齐。`)
+                    : buildSummaryMeta('NOT_RECEIVED', materialClaimMeta.NOT_RECEIVED.label, materialClaimMeta.NOT_RECEIVED.className, '当前尚未完成来料。');
+        return {
+            ...item,
+            shortageQty,
+            linePrepStatus: nextPrepStatus,
+            lineClaimStatus: nextClaimStatus,
+        };
+    });
+    row.materialSkuSummary = buildMaterialSkuSummary(row.materialLineItems);
+    row.materialPrepStatus = deriveMaterialPrepStatus(row.materialLineItems);
+    row.materialClaimStatus = deriveMaterialClaimStatus(row.materialLineItems);
+    row.schedulingStatus = deriveSchedulingStatus(row.assignedCuttingGroup);
+    row.shouldDisplayQr = shouldDisplayQrByPrepStatus(row.materialPrepStatus.key);
+    row.shouldDisplayQrLabel = shouldDisplayQrLabelByPrepStatus(row.materialPrepStatus.key);
+    row.canViewQr = canViewPrepQr(row.materialPrepStatus.key);
+    row.shouldPrintQr = shouldPrintPrepQr(row.materialPrepStatus.key);
+    row.qrHiddenHint = getPrepQrHiddenText(row.materialPrepStatus.key);
+    row.claimRecordCount = row.claimRecords.length;
+    row.latestClaimRecordAt = row.claimRecords[0]?.claimedAt || '';
+    row.latestClaimRecordSummary = row.claimRecords[0]?.summary || '暂无来料记录';
+    row.claimDisputes = listClaimDisputesByCutOrderNo(row.cutOrderNo);
+    row.claimDisputeCount = row.claimDisputes.length;
+    row.latestClaimDispute = getLatestClaimDisputeByCutOrderNo(row.cutOrderNo);
+    row.hasClaimDispute = Boolean(row.latestClaimDispute);
+    row.claimDisputeStatusLabel = row.latestClaimDispute ? getClaimDisputeStatusLabel(row.latestClaimDispute.status) : '暂无异议';
+    row.claimDisputeSummary = row.latestClaimDispute ? buildCraftClaimDisputeSummary(row.latestClaimDispute) : '当前暂无领料长度异议。';
+    row.claimDisputeDiscrepancyText = row.latestClaimDispute ? `差异 ${formatDisputeQty(row.latestClaimDispute.discrepancyQty)}` : '差异 0 米';
+    row.claimDisputeEvidenceCount = row.latestClaimDispute?.evidenceCount ?? 0;
+    row.claimDisputeHandleSummary = row.latestClaimDispute
+        ? row.latestClaimDispute.handleConclusion || row.latestClaimDispute.handleNote || '待平台处理结果'
+        : '待平台处理结果';
+    const fallbackRecord = sourceRecord || {
+        id: row.productionOrderId,
+        productionOrderId: row.productionOrderId,
+        productionOrderNo: row.productionOrderNo,
+        actualOrderDate: '',
+        purchaseDate: '',
+        orderQty: 0,
+        plannedShipDate: row.plannedShipDate,
+        spuCode: row.spuCode,
+        techPackSpuCode: row.techPackSpuCode,
+        styleCode: row.styleCode,
+        styleName: row.styleName,
+        urgencyLevel: row.urgencyKey === 'UNKNOWN' ? 'D' : row.urgencyKey,
+        cuttingTaskNo: '',
+        assignedFactoryName: '',
+        cuttingStage: row.currentStageText,
+        riskFlags: [],
+        lastPickupScanAt: row.latestClaimRecordAt,
+        lastFieldUpdateAt: row.printedAt || row.latestClaimRecordAt,
+        lastOperatorName: row.printedBy,
+        hasSpreadingRecord: row.currentStage.key === 'CUTTING',
+        hasInboundRecord: row.currentStage.key === 'DONE',
+        materialLines: [],
+    };
+    row.currentStage = deriveCurrentStage(fallbackRecord, row);
+    row.riskTags = buildRiskTags(fallbackRecord, row);
+    return row;
+}
+export function buildMaterialPrepViewModel(records, ledger = [], options = {}) {
+    const pickupWritebacks = options.pickupWritebacks ?? listPdaPickupWritebacks(getBrowserLocalStorage() || undefined);
+    const pendingPrepFollowups = options.pendingPrepFollowups ??
+        deserializeReplenishmentPendingPrepStorage(getBrowserLocalStorage()?.getItem(CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY) || null);
+    const pickupWritebacksByCutOrderNo = pickupWritebacks.reduce((accumulator, item) => {
+        accumulator[item.cutOrderNo] = accumulator[item.cutOrderNo] || [];
+        accumulator[item.cutOrderNo].push(item);
+        return accumulator;
+    }, {});
+    const rows = records
+        .flatMap((record) => record.materialLines.map((line) => {
+        const row = createRow(record, line, ledger);
+        const hydratedRow = applyPdaPickupWritebacksToRow(row, pickupWritebacksByCutOrderNo[row.cutOrderNo] || [], record);
+        return applyPendingPrepFollowupsToRow(hydratedRow, pendingPrepFollowups);
+    }))
+        .sort((left, right) => {
+        const leftWeight = urgencyMeta[left.urgencyKey].sortWeight;
+        const rightWeight = urgencyMeta[right.urgencyKey].sortWeight;
+        return (rightWeight - leftWeight ||
+            left.plannedShipDate.localeCompare(right.plannedShipDate, 'zh-CN') ||
+            left.productionOrderNo.localeCompare(right.productionOrderNo, 'zh-CN') ||
+            left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN'));
+    });
+    return {
+        rows,
+        rowsById: Object.fromEntries(rows.map((row) => [row.id, row])),
+    };
+}
+function matchesText(row, search) {
+    const keyword = search.trim().toLowerCase();
+    return row.keywordIndex.some((value) => value.includes(keyword));
+}
+function applyPrefilter(rows, prefilter) {
+    if (!prefilter)
+        return rows;
+    return rows.filter((row) => {
+        if (prefilter.productionOrderId && row.productionOrderId !== prefilter.productionOrderId)
+            return false;
+        if (prefilter.productionOrderNo && row.productionOrderNo !== prefilter.productionOrderNo)
+            return false;
+        if (prefilter.cutOrderId && row.cutOrderId !== prefilter.cutOrderId)
+            return false;
+        if (prefilter.cutOrderNo && row.cutOrderNo !== prefilter.cutOrderNo)
+            return false;
+        if (prefilter.styleCode && row.styleCode !== prefilter.styleCode)
+            return false;
+        if (prefilter.spuCode && row.spuCode !== prefilter.spuCode)
+            return false;
+        if (prefilter.materialSku && !row.materialLineItems.some((item) => item.materialSku === prefilter.materialSku))
+            return false;
+        if (prefilter.schedulingStatus && row.schedulingStatus.key !== prefilter.schedulingStatus)
+            return false;
+        if (prefilter.materialPrepStatus && row.materialPrepStatus.key !== prefilter.materialPrepStatus)
+            return false;
+        if (prefilter.materialClaimStatus && row.materialClaimStatus.key !== prefilter.materialClaimStatus)
+            return false;
+        return true;
+    });
+}
+export function filterMaterialPrepRows(rows, filters, prefilter) {
+    return applyPrefilter(rows, prefilter).filter((row) => {
+        if (filters.keyword && !matchesText(row, filters.keyword))
+            return false;
+        if (filters.productionOrderNo && !row.productionOrderNo.includes(filters.productionOrderNo.trim()))
+            return false;
+        if (filters.styleKeyword) {
+            const keyword = filters.styleKeyword.trim().toLowerCase();
+            if (![row.styleCode, row.spuCode, row.styleName].some((value) => value.toLowerCase().includes(keyword)))
+                return false;
+        }
+        if (filters.materialSku) {
+            const keyword = filters.materialSku.trim().toLowerCase();
+            const matched = row.materialLineItems.some((item) => [item.materialSku, item.materialCategory, item.materialName, item.materialAttr, item.materialAlias].some((value) => value.toLowerCase().includes(keyword)));
+            if (!matched)
+                return false;
+        }
+        if (filters.materialPrepStatus !== 'ALL' && row.materialPrepStatus.key !== filters.materialPrepStatus)
+            return false;
+        if (filters.materialClaimStatus !== 'ALL' && row.materialClaimStatus.key !== filters.materialClaimStatus)
+            return false;
+        if (filters.schedulingStatus !== 'ALL' && row.schedulingStatus.key !== filters.schedulingStatus)
+            return false;
+        if (filters.cuttingGroup && !row.assignedCuttingGroup.toLowerCase().includes(filters.cuttingGroup.trim().toLowerCase()))
+            return false;
+        if (filters.issuesOnly && !row.riskTags.length)
+            return false;
+        if (filters.onlyPrintable && !row.shouldPrintQr)
+            return false;
+        if (filters.onlyPendingScheduling && row.schedulingStatus.key !== 'UNASSIGNED')
+            return false;
+        return true;
+    });
+}
+export function buildMaterialPrepStats(rows) {
+    return {
+        totalCount: rows.length,
+        configuredCount: rows.filter((row) => row.materialPrepStatus.key === 'CONFIGURED').length,
+        partialConfigCount: rows.filter((row) => row.materialPrepStatus.key === 'PARTIAL').length,
+        waitingClaimCount: rows.filter((row) => row.materialClaimStatus.key === 'NOT_RECEIVED').length,
+        claimSuccessCount: rows.filter((row) => row.materialClaimStatus.key === 'RECEIVED').length,
+        claimExceptionCount: rows.filter((row) => row.materialClaimStatus.key === 'EXCEPTION' || row.riskTags.some((tag) => tag.key === 'CLAIM_EXCEPTION')).length,
+        pendingSchedulingCount: rows.filter((row) => row.schedulingStatus.key === 'UNASSIGNED').length,
+        assignedCount: rows.filter((row) => row.schedulingStatus.key === 'ASSIGNED').length,
+    };
+}
+export function findMaterialPrepRowByPrefilter(rows, prefilter) {
+    if (!prefilter)
+        return null;
+    return (rows.find((row) => {
+        if (prefilter.cutOrderId)
+            return row.cutOrderId === prefilter.cutOrderId;
+        if (prefilter.cutOrderNo)
+            return row.cutOrderNo === prefilter.cutOrderNo;
+        return false;
+    }) ?? null);
+}
+export function buildIssueListPrintPayload(row) {
+    return {
+        title: '配料单',
+        printTime: new Date().toLocaleString('zh-CN', { hour12: false }),
+        cutOrderNo: row.cutOrderNo,
+        sameCodeValue: row.sameCodeValue,
+        cutOrderQrValue: row.cutOrderQrValue,
+        qrCodeValue: row.qrCodeValue,
+        qrCodeLabel: row.qrCodeLabel,
+        shouldPrintQr: row.shouldPrintQr,
+        qrHiddenHint: getPrepQrHiddenText(row.materialPrepStatus.key, 'print'),
+        productionOrderNo: row.productionOrderNo,
+        styleCode: row.styleCode,
+        spuCode: row.spuCode,
+        styleName: row.styleName,
+        materialLineItems: row.materialLineItems.map((item) => ({
+            materialSku: item.materialSku,
+            materialTypeName: item.materialTypeName,
+            materialCategory: item.materialCategory,
+            configuredRollCount: item.configuredRollCount,
+            claimedRollCount: item.claimedRollCount,
+            requiredQty: item.requiredQty,
+            configuredQty: item.configuredQty,
+            claimedQty: item.claimedQty,
+            shortageQty: item.shortageQty,
+        })),
+    };
+}

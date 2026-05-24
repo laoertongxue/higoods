@@ -375,7 +375,13 @@ const SEED_SESSION_MATRIX: SeedSessionProfile[][] = [
     { code: 'waiting-start-a', status: 'DRAFT' },
   ],
   [
-    { code: 'in-progress-b', status: 'IN_PROGRESS' },
+    {
+      code: 'in-progress-b',
+      status: 'IN_PROGRESS',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-sync-failed-in-progress-b',
+      scenarioNote: 'PDA 已写回部分卷记录，但同步失败，等待 Web 复核。',
+    },
   ],
   [
     { code: 'waiting-cutting-b', status: 'DONE', cuttingStatus: 'WAITING_CUTTING' },
@@ -399,6 +405,17 @@ const SEED_SESSION_MATRIX: SeedSessionProfile[][] = [
       plannedLayerCount: 40,
       actualLayerCounts: [24, 16],
       scenarioNote: '第二次领料后补排唛架，继续按可用领料余额铺布裁剪。',
+    },
+  ],
+  [
+    {
+      code: 'pda-sync-failed-h',
+      status: 'IN_PROGRESS',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-sync-failed-h',
+      plannedLayerCount: 60,
+      actualLayerCounts: [42],
+      scenarioNote: 'PDA 写回已到达 Web，但同步失败，等待主管复核。',
     },
   ],
 ]
@@ -735,11 +752,13 @@ export function buildMarkerSpreadingPrototypeStore(options: {
       session.sourceMarkerNo &&
       session.planUnits?.length,
     )
+  const isGeneratedFromConfirmedMarkerPlan = (session: SpreadingSession) =>
+    isLinkedToMarkerPlan(session) && /^MKP-\d{8}-\d{3}$/.test(session.sourceSchemeNo || '')
   nextStore = {
     ...nextStore,
     markers: nextStore.markers.filter((marker) => isLinkedToExecutableRows(marker.cutOrderIds || [])),
     sessions: nextStore.sessions.filter((session) =>
-      isLinkedToExecutableRows(session.cutOrderIds || []) &&
+      (isLinkedToExecutableRows(session.cutOrderIds || []) || isGeneratedFromConfirmedMarkerPlan(session)) &&
       isLinkedToMarkerPlan(session),
     ).map((session, index) => ensureSpreadingScheduleDefaults(session, index)),
   }
@@ -1008,7 +1027,7 @@ export function buildSpreadingListViewModel(options: {
               ? `已记录 ${operatorSummary.handoverRollCount} 卷交接`
               : '无提醒',
         hasReplenishmentWarning:
-          replenishmentWarning.suggestedAction === '建议补料' || replenishmentWarning.suggestedAction === '存在异常差异，需人工确认',
+          replenishmentWarning.suggestedAction === '差异处理' || replenishmentWarning.suggestedAction === '存在异常差异，需人工确认',
         replenishmentWarningLevel: replenishmentWarning.warningLevel,
         replenishmentSuggestedAction: replenishmentWarning.suggestedAction,
         pendingReplenishmentConfirmation:

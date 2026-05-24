@@ -1,0 +1,3781 @@
+import { appStore } from '../../state/store.ts';
+import { escapeHtml } from '../../utils.ts';
+import { TECH_PACK_PATTERN_CATEGORY_OPTIONS, TECH_PACK_PATTERN_MATERIAL_TYPE_LABELS, TECH_PACK_PATTERN_PARSE_STATUS_LABELS, TECH_PACK_STATUS_LABEL, resolveTechPackProcessEntryRule, } from '../../data/fcs/tech-packs.ts';
+import { buildLegacyTechPackFromTechnicalVersion, buildTechnicalContentPatchFromLegacyTechPack } from '../../data/pcs-technical-data-fcs-adapter.ts';
+import { saveTechnicalDataVersionContent } from '../../data/pcs-project-technical-data-writeback.ts';
+import { getTechnicalDataVersionById, getTechnicalDataVersionContent, } from '../../data/pcs-technical-data-version-repository.ts';
+import { listPartTemplateRecords } from '../../data/pcs-part-template-library.ts';
+import { DETAIL_SPLIT_DIMENSION_LABEL, DETAIL_SPLIT_MODE_LABEL, PUBLISHED_SAM_UNIT_LABEL, PROCESS_ASSIGNMENT_GRANULARITY_LABEL, PROCESS_DOC_TYPE_LABEL, RULE_SOURCE_LABEL, TASK_TYPE_MODE_LABEL, getProcessCraftByCode, getProcessDefinitionByCode, getSpecialCraftSupportedTargetObjectLabels, listCutPiecePartCrafts, listProcessCraftDefinitions, listSelectableSpecialCraftDefinitions, listProcessDefinitions, listProcessesByStageCode, listProcessStages, normalizeSpecialCraftTargetObjectLabel, } from '../../data/fcs/process-craft-dict.ts';
+import { productionOrders } from '../../data/fcs/production-orders.ts';
+import { bomRequirementOptions, bomTriggerFieldLabel, isBomDrivenPrepTechnique as isBomDrivenPrepTechniqueFromBom, syncPreparationProcessesFromBom, } from './bom-process-linkage.ts';
+import { buildPatternSignature } from './pattern-duplicate-check.ts';
+const currentUser = {
+    id: 'U001',
+    name: 'Budi Santoso',
+    role: 'ADMIN',
+};
+const techPackStatusConfig = {
+    DRAFT: { label: TECH_PACK_STATUS_LABEL.DRAFT, className: 'bg-yellow-100 text-yellow-700' },
+    ENABLED: { label: TECH_PACK_STATUS_LABEL.ENABLED, className: 'bg-green-100 text-green-700' },
+    DISABLED: { label: TECH_PACK_STATUS_LABEL.DISABLED, className: 'bg-slate-100 text-slate-600' },
+};
+const tabItems = [
+    { key: 'bom', icon: 'clipboard-list', label: '物料清单' },
+    { key: 'pattern', icon: 'file-text', label: '纸样管理' },
+    { key: 'process', icon: 'scissors', label: '工序工艺' },
+    { key: 'size', icon: 'ruler', label: '放码规则' },
+    { key: 'color-mapping', icon: 'git-merge', label: '款色用料对应' },
+    { key: 'design', icon: 'image', label: '花型设计' },
+    { key: 'attachments', icon: 'paperclip', label: '附件' },
+];
+const printOptions = ['无', '数码印', '丝网印', '胶浆印', '烫金', '烫银', '转印', '其他'];
+const dyeOptions = ['无', '匹染', '成衣染', '扎染', '渐变染', '其他'];
+function requestTechPackRender() {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('higood:request-render'));
+    }
+}
+const derivedCache = new Map();
+function createCacheSignature(value) {
+    return JSON.stringify(value);
+}
+function getCachedDerived(cacheKey, signatureValue, factory) {
+    const signature = createCacheSignature(signatureValue);
+    const cached = derivedCache.get(cacheKey);
+    if (cached?.signature === signature)
+        return cached.value;
+    const value = factory();
+    derivedCache.set(cacheKey, { signature, value });
+    return value;
+}
+function clearTechPackDerivedCache() {
+    derivedCache.clear();
+}
+function normalizePatternMaterialType(value) {
+    if (value === 'WOVEN' || value === 'WOOL' || value === 'UNKNOWN')
+        return value;
+    return 'UNKNOWN';
+}
+function getPatternMaterialTypeLabel(value) {
+    return TECH_PACK_PATTERN_MATERIAL_TYPE_LABELS[value] || '暂无数据';
+}
+function normalizePatternParseStatus(value) {
+    if (value === 'NOT_PARSED'
+        || value === 'PARSING'
+        || value === 'PARSED'
+        || value === 'FAILED'
+        || value === 'NOT_REQUIRED') {
+        return value;
+    }
+    return 'NOT_PARSED';
+}
+function getPatternParseStatusLabel(value) {
+    return TECH_PACK_PATTERN_PARSE_STATUS_LABELS[value] || '待解析';
+}
+function inferPatternMaterialTypeFromPatternFile(input) {
+    const haystack = [
+        input.fileName,
+        input.singlePatternFileName,
+        input.dxfFileName,
+        input.linkedBomName,
+        input.linkedBomSpec,
+        input.linkedBomType,
+    ]
+        .map((item) => String(item || '').trim().toLowerCase())
+        .join(' ');
+    if (haystack.includes('毛织') || haystack.includes('wool'))
+        return 'WOOL';
+    if (haystack.includes('布料') || haystack.includes('梭织') || haystack.includes('woven'))
+        return 'WOVEN';
+    return 'UNKNOWN';
+}
+function inferPatternFileMode(materialType) {
+    return materialType === 'WOVEN' ? 'PAIRED_DXF_RUL' : 'SINGLE_FILE';
+}
+function getPatternIsWoolted(materialType, input) {
+    if (input === '是' || input === '否')
+        return input;
+    return materialType === 'WOOL' ? '是' : '否';
+}
+function createPatternManagedFile(input) {
+    const fileName = String(input.fileName || '').trim();
+    if (!fileName)
+        return null;
+    const suffix = fileName.includes('.') ? fileName.split('.').pop() || '' : '';
+    return {
+        fileName,
+        fileType: suffix ? `.${suffix}` : '',
+        fileSize: Number.isFinite(input.fileSize) ? Number(input.fileSize) : 0,
+        uploadedAt: input.uploadedAt || toTimestamp(),
+        uploadedBy: input.uploadedBy || currentUser.name,
+        previewUrl: input.previewUrl,
+    };
+}
+function createPatternBindingStrip(input = {}, index = 0) {
+    return {
+        bindingStripId: input.bindingStripId || `BTS-${Date.now()}-${index + 1}`,
+        bindingStripNo: input.bindingStripNo || `BT-${String(index + 1).padStart(3, '0')}`,
+        bindingStripName: input.bindingStripName || '',
+        lengthCm: Number.isFinite(Number(input.lengthCm)) ? Number(input.lengthCm) : 0,
+        widthCm: Number.isFinite(Number(input.widthCm)) ? Number(input.widthCm) : 0,
+        relatedMaterialId: input.relatedMaterialId || '',
+        remark: input.remark || '',
+        createdBy: input.createdBy || currentUser.name,
+        updatedAt: input.updatedAt || toTimestamp(),
+    };
+}
+function normalizePatternBindingStrips(input = []) {
+    return input.map((item, index) => ({
+        ...createPatternBindingStrip(item, index),
+        bindingStripNo: `BT-${String(index + 1).padStart(3, '0')}`,
+    }));
+}
+function createEmptyPatternFormState() {
+    const patternMaterialType = 'WOVEN';
+    const parseStatus = 'NOT_PARSED';
+    return {
+        name: '',
+        type: '主体片',
+        image: '',
+        file: '',
+        remark: '',
+        linkedBomItemId: '',
+        linkedMaterialId: '',
+        linkedMaterialName: '',
+        linkedMaterialAlias: '',
+        linkedMaterialSku: '',
+        widthCm: 0,
+        markerLengthM: 0,
+        totalPieceCount: 0,
+        patternTotalPieceQty: 0,
+        isWoolted: '否',
+        maintainerStepStatus: '待跟单维护',
+        merchandiserInfoStatus: '未填写',
+        patternMakerInfoStatus: '未填写',
+        prjFile: null,
+        markerImage: null,
+        dxfFile: null,
+        rulFile: null,
+        bindingStrips: [],
+        patternSignature: '',
+        duplicateConfirmed: false,
+        duplicateWarningReasons: [],
+        patternMaterialType,
+        patternMaterialTypeLabel: getPatternMaterialTypeLabel(patternMaterialType),
+        patternFileMode: inferPatternFileMode(patternMaterialType),
+        parseStatus,
+        parseStatusLabel: getPatternParseStatusLabel(parseStatus),
+        parseError: '',
+        parsedAt: '',
+        dxfFileName: '',
+        dxfFileSize: 0,
+        dxfLastModified: '',
+        rulFileName: '',
+        rulFileSize: 0,
+        rulLastModified: '',
+        singlePatternFileName: '',
+        singlePatternFileSize: 0,
+        singlePatternFileLastModified: '',
+        dxfEncoding: '',
+        rulEncoding: '',
+        rulSizeList: [],
+        rulSampleSize: '',
+        patternSoftwareName: '',
+        sizeRange: '',
+        selectedSizeCodes: [],
+        pieceRows: [],
+        pieceInstances: [],
+        pieceInstanceTotal: 0,
+        specialCraftConfiguredPieceTotal: 0,
+        specialCraftUnconfiguredPieceTotal: 0,
+        selectedPrjFile: null,
+        selectedMarkerImageFile: null,
+        selectedDxfFile: null,
+        selectedRulFile: null,
+        selectedSinglePatternFile: null,
+        patternParsing: false,
+    };
+}
+function createEmptyBomFormState() {
+    return {
+        type: '面料',
+        colorLabel: '',
+        materialCode: '',
+        materialName: '',
+        spec: '',
+        patternPieces: [],
+        linkedPatternIds: [],
+        applicableSkuCodes: [],
+        usageProcessCodes: [],
+        usage: '',
+        lossRate: '',
+        printRequirement: '无',
+        dyeRequirement: '无',
+        shrinkRequirement: '否',
+        washRequirement: '否',
+        printSideMode: '',
+        frontPatternDesignId: '',
+        insidePatternDesignId: '',
+    };
+}
+const currencyOptions = ['人民币', '美元', '印尼盾'];
+const materialUnitOptions = ['人民币/米', '人民币/码', '人民币/件', '美元/米', '美元/件', '印尼盾/件'];
+const processUnitOptions = ['人民币/件', '人民币/批', '美元/件', '美元/批', '印尼盾/件', '印尼盾/批'];
+const customCostUnitOptions = ['人民币/件', '人民币/批', '人民币/项', '美元/项', '印尼盾/项'];
+const bomUsageProcessOptions = [
+    { code: 'PROC_CUT', label: '裁片' },
+    { code: 'PROC_PRINT', label: '印花' },
+    { code: 'PROC_DYE', label: '染色' },
+    { code: 'PROC_SEW', label: '车缝' },
+    { code: 'PROC_IRON', label: '后道' },
+    { code: 'PROC_PACK', label: '包装' },
+];
+const difficultyOptions = ['简单', '中等', '困难'];
+const stageCodeToName = new Map(listProcessStages().map((item) => [item.stageCode, item.stageName]));
+const stageOptions = listProcessStages()
+    .slice()
+    .sort((a, b) => a.sort - b.sort)
+    .map((item) => item.stageName);
+const stageNameToCode = new Map(listProcessStages().map((item) => [item.stageName, item.stageCode]));
+const baselineProcessOptions = listProcessDefinitions()
+    .filter((item) => item.stageCode === 'PREP')
+    .map((item) => ({
+    processCode: item.processCode,
+    processName: item.processName,
+    stageCode: item.stageCode,
+    stageName: stageCodeToName.get(item.stageCode) || item.stageCode,
+    assignmentGranularity: item.assignmentGranularity,
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: item.detailSplitMode,
+    detailSplitDimensions: [...item.detailSplitDimensions],
+    defaultDocType: item.defaultDocType,
+    taskTypeMode: item.taskTypeMode,
+    triggerSource: item.triggerSource || '',
+}));
+const craftOptions = listProcessCraftDefinitions()
+    .map((item) => {
+    const processDef = getProcessDefinitionByCode(item.processCode);
+    return {
+        craftCode: item.craftCode,
+        craftName: item.craftName,
+        processCode: item.processCode,
+        processName: processDef?.processName || item.processCode,
+        stageCode: item.stageCode,
+        stageName: stageCodeToName.get(item.stageCode) || item.stageCode,
+        assignmentGranularity: item.assignmentGranularity,
+        ruleSource: item.ruleSource,
+        detailSplitMode: item.detailSplitMode,
+        detailSplitDimensions: [...item.detailSplitDimensions],
+        defaultDocType: item.defaultDocType,
+        taskTypeMode: item.taskTypeMode,
+        isSpecialCraft: item.isSpecialCraft,
+        supportedTargetObjects: item.isSpecialCraft ? [...item.supportedTargetObjects] : undefined,
+        supportedTargetObjectLabels: item.isSpecialCraft
+            ? getSpecialCraftSupportedTargetObjectLabels(item.supportedTargetObjects)
+            : undefined,
+        referencePublishedSamValue: item.referencePublishedSamValue,
+        referencePublishedSamUnit: item.referencePublishedSamUnit,
+        referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[item.referencePublishedSamUnit],
+        referencePublishedSamNote: item.referencePublishedSamNote,
+    };
+})
+    .sort((a, b) => a.craftName.localeCompare(b.craftName, 'zh-Hans-CN'));
+const defaultPartTemplateRecords = listPartTemplateRecords();
+const defaultFrontTemplate = defaultPartTemplateRecords[0] ?? null;
+const defaultInsideTemplate = defaultPartTemplateRecords[1] ?? defaultFrontTemplate;
+const DEFAULT_PATTERN_ITEMS = [
+    {
+        id: 'PAT-001',
+        recordKind: 'MATERIAL_ASSOCIATION',
+        name: '前片',
+        type: '主体片',
+        image: 'pattern-front.png',
+        file: 'front-panel.dxf / front-panel.rul',
+        remark: '标准前片',
+        linkedBomItemId: 'bom-1',
+        linkedMaterialId: 'bom-1',
+        linkedMaterialName: '纯棉毛织布',
+        linkedMaterialAlias: '主面料-前片',
+        linkedMaterialSku: 'FAB-001',
+        widthCm: 142,
+        markerLengthM: 2.62,
+        totalPieceCount: 6,
+        patternTotalPieceQty: 6,
+        isWoolted: '否',
+        maintainerStepStatus: '已完成',
+        merchandiserInfoStatus: '已填写',
+        patternMakerInfoStatus: '已解析',
+        prjFile: createPatternManagedFile({
+            fileName: 'front-panel.prj',
+            fileSize: 24576,
+            uploadedAt: '2026-04-20 09:08:00',
+            uploadedBy: 'Sari 版师',
+        }),
+        markerImage: createPatternManagedFile({
+            fileName: 'front-panel-marker.png',
+            fileSize: 36864,
+            uploadedAt: '2026-04-20 09:09:00',
+            uploadedBy: 'Sari 版师',
+            previewUrl: 'front-panel-marker.png',
+        }),
+        dxfFile: createPatternManagedFile({
+            fileName: 'front-panel.dxf',
+            fileSize: 32768,
+            uploadedAt: '2026-04-20 09:10:00',
+            uploadedBy: 'Sari 版师',
+        }),
+        rulFile: createPatternManagedFile({
+            fileName: 'front-panel.rul',
+            fileSize: 8192,
+            uploadedAt: '2026-04-20 09:11:00',
+            uploadedBy: 'Sari 版师',
+        }),
+        bindingStrips: [],
+        patternSignature: '',
+        duplicateConfirmed: false,
+        duplicateWarningReasons: [],
+        patternMaterialType: 'WOVEN',
+        patternMaterialTypeLabel: getPatternMaterialTypeLabel('WOVEN'),
+        patternFileMode: 'PAIRED_DXF_RUL',
+        parseStatus: 'PARSED',
+        parseStatusLabel: getPatternParseStatusLabel('PARSED'),
+        parseError: '',
+        parsedAt: '2026-04-20 09:20:00',
+        dxfFileName: 'front-panel.dxf',
+        dxfFileSize: 0,
+        dxfLastModified: '2026-04-20 09:10:00',
+        rulFileName: 'front-panel.rul',
+        rulFileSize: 0,
+        rulLastModified: '2026-04-20 09:11:00',
+        singlePatternFileName: '',
+        singlePatternFileSize: 0,
+        singlePatternFileLastModified: '',
+        dxfEncoding: 'UTF-8',
+        rulEncoding: 'UTF-8',
+        rulSizeList: ['S', 'M', 'L', 'XL'],
+        rulSampleSize: 'M',
+        patternSoftwareName: 'Lectra',
+        sizeRange: 'S / M / L / XL',
+        selectedSizeCodes: ['S', 'M', 'L', 'XL'],
+        pieceRows: [
+            {
+                id: 'PAT-001-R1',
+                name: '前片',
+                count: 2,
+                note: '',
+                isTemplate: Boolean(defaultFrontTemplate),
+                partTemplateId: defaultFrontTemplate?.id,
+                partTemplateName: defaultFrontTemplate?.templateName,
+                partTemplatePreviewSvg: defaultFrontTemplate?.previewSvg,
+                partTemplateShapeDescription: defaultFrontTemplate?.shapeDescription?.autoDescription,
+                applicableSkuCodes: [],
+                colorAllocations: [],
+                colorPieceQuantities: [
+                    { colorId: 'C-BLK', colorName: '黑色', enabled: true, pieceQty: 1 },
+                    { colorId: 'C-WHT', colorName: '白色', enabled: true, pieceQty: 1 },
+                ],
+                totalPieceQty: 2,
+                parsedQuantity: 2,
+                specialCrafts: [],
+                sourceType: 'PARSED_PATTERN',
+            },
+            {
+                id: 'PAT-001-R2',
+                name: '门襟',
+                count: 2,
+                note: '',
+                isTemplate: false,
+                applicableSkuCodes: [],
+                colorAllocations: [],
+                colorPieceQuantities: [
+                    { colorId: 'C-BLK', colorName: '黑色', enabled: true, pieceQty: 1 },
+                    { colorId: 'C-WHT', colorName: '白色', enabled: true, pieceQty: 1 },
+                ],
+                totalPieceQty: 2,
+                parsedQuantity: 2,
+                specialCrafts: [],
+                sourceType: 'PARSED_PATTERN',
+            },
+            {
+                id: 'PAT-001-R3',
+                name: '口袋贴',
+                count: 2,
+                note: '可选口袋款',
+                isTemplate: false,
+                applicableSkuCodes: [],
+                colorAllocations: [],
+                colorPieceQuantities: [
+                    { colorId: 'C-BLK', colorName: '黑色', enabled: true, pieceQty: 1 },
+                    { colorId: 'C-WHT', colorName: '白色', enabled: true, pieceQty: 1 },
+                ],
+                totalPieceQty: 2,
+                parsedQuantity: 2,
+                specialCrafts: [],
+                sourceType: 'PARSED_PATTERN',
+            },
+        ],
+        pieceInstances: [],
+        pieceInstanceTotal: 0,
+        specialCraftConfiguredPieceTotal: 0,
+        specialCraftUnconfiguredPieceTotal: 0,
+    },
+    {
+        id: 'PAT-002',
+        recordKind: 'MATERIAL_ASSOCIATION',
+        name: '后片',
+        type: '主体片',
+        image: 'pattern-back.png',
+        file: 'back.dxf',
+        remark: '标准后片',
+        linkedBomItemId: 'bom-1',
+        linkedMaterialId: 'bom-1',
+        linkedMaterialName: '纯棉毛织布',
+        linkedMaterialAlias: '主面料-后片',
+        linkedMaterialSku: 'FAB-001',
+        widthCm: 142,
+        markerLengthM: 2.2,
+        totalPieceCount: 4,
+        patternTotalPieceQty: 4,
+        isWoolted: '是',
+        maintainerStepStatus: '已完成',
+        merchandiserInfoStatus: '已填写',
+        patternMakerInfoStatus: '已解析',
+        prjFile: createPatternManagedFile({
+            fileName: 'back-panel.prj',
+            fileSize: 20480,
+            uploadedAt: '2026-04-20 10:05:00',
+            uploadedBy: 'Sari 版师',
+        }),
+        markerImage: createPatternManagedFile({
+            fileName: 'back-panel-marker.png',
+            fileSize: 32768,
+            uploadedAt: '2026-04-20 10:06:00',
+            uploadedBy: 'Sari 版师',
+            previewUrl: 'back-panel-marker.png',
+        }),
+        dxfFile: createPatternManagedFile({
+            fileName: 'back.dxf',
+            fileSize: 24576,
+            uploadedAt: '2026-04-20 10:07:00',
+            uploadedBy: 'Sari 版师',
+        }),
+        rulFile: createPatternManagedFile({
+            fileName: 'back.rul',
+            fileSize: 8192,
+            uploadedAt: '2026-04-20 10:08:00',
+            uploadedBy: 'Sari 版师',
+        }),
+        bindingStrips: normalizePatternBindingStrips([
+            { bindingStripName: '领口捆条', lengthCm: 58, widthCm: 3.2, remark: '毛织后片领口使用' },
+        ]),
+        patternSignature: '',
+        duplicateConfirmed: false,
+        duplicateWarningReasons: [],
+        patternMaterialType: 'WOOL',
+        patternMaterialTypeLabel: getPatternMaterialTypeLabel('WOOL'),
+        patternFileMode: 'SINGLE_FILE',
+        parseStatus: 'NOT_REQUIRED',
+        parseStatusLabel: getPatternParseStatusLabel('NOT_REQUIRED'),
+        parseError: '',
+        parsedAt: '',
+        dxfFileName: '',
+        dxfFileSize: 0,
+        dxfLastModified: '',
+        rulFileName: '',
+        rulFileSize: 0,
+        rulLastModified: '',
+        singlePatternFileName: 'back.dxf',
+        singlePatternFileSize: 0,
+        singlePatternFileLastModified: '',
+        dxfEncoding: '',
+        rulEncoding: '',
+        rulSizeList: [],
+        rulSampleSize: '',
+        patternSoftwareName: '',
+        sizeRange: 'S / M / L / XL',
+        selectedSizeCodes: ['S', 'M', 'L', 'XL'],
+        pieceRows: [
+            {
+                id: 'PAT-002-R1',
+                name: '后片',
+                count: 2,
+                note: '',
+                isTemplate: Boolean(defaultInsideTemplate),
+                partTemplateId: defaultInsideTemplate?.id,
+                partTemplateName: defaultInsideTemplate?.templateName,
+                partTemplatePreviewSvg: defaultInsideTemplate?.previewSvg,
+                partTemplateShapeDescription: defaultInsideTemplate?.shapeDescription?.autoDescription,
+                applicableSkuCodes: [],
+                colorAllocations: [],
+                colorPieceQuantities: [
+                    { colorId: 'C-BLK', colorName: '黑色', enabled: true, pieceQty: 1 },
+                    { colorId: 'C-WHT', colorName: '白色', enabled: true, pieceQty: 1 },
+                ],
+                totalPieceQty: 2,
+                specialCrafts: [],
+                sourceType: 'MANUAL',
+            },
+            {
+                id: 'PAT-002-R2',
+                name: '肩部补强片',
+                count: 2,
+                note: '',
+                isTemplate: false,
+                applicableSkuCodes: [],
+                colorAllocations: [],
+                colorPieceQuantities: [
+                    { colorId: 'C-BLK', colorName: '黑色', enabled: true, pieceQty: 1 },
+                    { colorId: 'C-WHT', colorName: '白色', enabled: true, pieceQty: 1 },
+                ],
+                totalPieceQty: 2,
+                specialCrafts: [],
+                sourceType: 'MANUAL',
+            },
+        ],
+        pieceInstances: [],
+        pieceInstanceTotal: 0,
+        specialCraftConfiguredPieceTotal: 0,
+        specialCraftUnconfiguredPieceTotal: 0,
+    },
+];
+const patternMaintenanceStatuses = [
+    '待跟单维护',
+    '待版师维护',
+    '待解析',
+    '已解析待确认',
+    '已完成',
+];
+function createDemoColorPieceQuantities(index, rowIndex) {
+    if (index % 3 === 0) {
+        return [
+            { colorId: 'C-BLK', colorName: '黑色', enabled: true, pieceQty: 1 },
+            { colorId: 'C-WHT', colorName: '白色', enabled: true, pieceQty: 1 },
+        ];
+    }
+    if (index % 3 === 1) {
+        return [
+            { colorId: 'C-BLK', colorName: '黑色', enabled: true, pieceQty: rowIndex === 0 ? 1 : 2 },
+            { colorId: 'C-WHT', colorName: '白色', enabled: true, pieceQty: 1 },
+            { colorId: 'C-RED', colorName: '红色', enabled: true, pieceQty: 1 },
+        ];
+    }
+    return [
+        { colorId: 'C-BLK', colorName: '黑色', enabled: rowIndex === 0, pieceQty: 0, remark: '请维护颜色片数' },
+    ];
+}
+function createDemoPatternPieceRow(baseId, index, rowIndex, name) {
+    const colorPieceQuantities = createDemoColorPieceQuantities(index, rowIndex);
+    const totalPieceQty = calculatePatternPieceTotalQty(colorPieceQuantities);
+    return {
+        id: `${baseId}-R${rowIndex + 1}`,
+        name,
+        count: totalPieceQty,
+        note: rowIndex === 0 ? 'DXF Annotation：前中线对齐' : 'DXF Annotation：后中线对齐',
+        isTemplate: false,
+        applicableSkuCodes: [],
+        colorAllocations: colorPieceQuantitiesToAllocations(colorPieceQuantities, `${baseId}-R${rowIndex + 1}`, ''),
+        colorPieceQuantities,
+        totalPieceQty,
+        parsedQuantity: index % 3 === 1 || index % 3 === 2 ? 2 : totalPieceQty,
+        specialCrafts: [],
+        sourceType: 'PARSED_PATTERN',
+        annotation: rowIndex === 0 ? '前中线对齐' : '后中线对齐',
+    };
+}
+function createPatternStatusDemoItem(status, index, bomItems) {
+    const linkedBom = bomItems[index % Math.max(bomItems.length, 1)] || null;
+    const linkedBomId = linkedBom?.id || 'bom-1';
+    const linkedMaterialName = linkedBom?.materialName || linkedBom?.name || '演示面料';
+    const linkedMaterialSku = linkedBom?.materialCode || linkedBomId;
+    const hasMerchandiserInfo = true;
+    const hasMakerFiles = status === '待解析' || status === '已解析待确认' || status === '已完成';
+    const hasParsedRows = status === '已解析待确认' || status === '已完成';
+    const baseId = `PAT-DEMO-${status}-${index + 1}`;
+    const fileBaseName = `${status}-纸样-${index + 1}`;
+    return {
+        id: baseId,
+        recordKind: 'MATERIAL_ASSOCIATION',
+        name: hasMerchandiserInfo ? `${status}纸样${index + 1}` : '',
+        type: '主体片',
+        image: hasMakerFiles ? `${fileBaseName}-marker.png` : '',
+        file: hasMakerFiles ? `${fileBaseName}.dxf / ${fileBaseName}.rul` : '',
+        remark: '',
+        linkedBomItemId: hasMerchandiserInfo ? linkedBomId : '',
+        linkedMaterialId: hasMerchandiserInfo ? linkedBomId : '',
+        linkedMaterialName: hasMerchandiserInfo ? linkedMaterialName : '',
+        linkedMaterialAlias: hasMerchandiserInfo ? `${status}用料${index + 1}` : '',
+        linkedMaterialSku: hasMerchandiserInfo ? linkedMaterialSku : '',
+        widthCm: hasMerchandiserInfo ? 142 + index : 0,
+        markerLengthM: hasMakerFiles ? 2.2 + index * 0.08 : 0,
+        totalPieceCount: hasParsedRows ? 4 : 0,
+        patternTotalPieceQty: hasParsedRows ? 4 : 0,
+        isWoolted: '否',
+        maintainerStepStatus: status,
+        merchandiserInfoStatus: status === '待跟单维护' ? '未填写' : '已填写',
+        patternMakerInfoStatus: status === '已解析待确认' || status === '已完成'
+            ? '已解析'
+            : status === '待解析'
+                ? '待解析'
+                : '未填写',
+        prjFile: hasMakerFiles
+            ? createPatternManagedFile({
+                fileName: `${fileBaseName}.prj`,
+                fileSize: 24576 + index * 1024,
+                uploadedAt: `2026-04-${String(10 + index).padStart(2, '0')} 09:00:00`,
+                uploadedBy: 'Sari 版师',
+            })
+            : null,
+        markerImage: hasMakerFiles
+            ? createPatternManagedFile({
+                fileName: `${fileBaseName}-marker.png`,
+                fileSize: 32768 + index * 1024,
+                uploadedAt: `2026-04-${String(10 + index).padStart(2, '0')} 09:10:00`,
+                uploadedBy: 'Sari 版师',
+                previewUrl: `${fileBaseName}-marker.png`,
+            })
+            : null,
+        dxfFile: hasMakerFiles
+            ? createPatternManagedFile({
+                fileName: `${fileBaseName}.dxf`,
+                fileSize: 32768,
+                uploadedAt: `2026-04-${String(10 + index).padStart(2, '0')} 09:20:00`,
+                uploadedBy: 'Sari 版师',
+            })
+            : null,
+        rulFile: hasMakerFiles
+            ? createPatternManagedFile({
+                fileName: `${fileBaseName}.rul`,
+                fileSize: 8192,
+                uploadedAt: `2026-04-${String(10 + index).padStart(2, '0')} 09:30:00`,
+                uploadedBy: 'Sari 版师',
+            })
+            : null,
+        bindingStrips: index % 3 === 0
+            ? []
+            : normalizePatternBindingStrips(index % 3 === 1
+                ? [{ bindingStripName: `${status}领口捆条`, lengthCm: 58 + index, widthCm: 3.2, remark: '单条捆条演示' }]
+                : [
+                    { bindingStripName: `${status}领口捆条`, lengthCm: 58 + index, widthCm: 3.2, remark: '多条捆条演示' },
+                    { bindingStripName: `${status}袖口捆条`, lengthCm: 42 + index, widthCm: 2.8, remark: '多条捆条演示' },
+                ]),
+        patternSignature: '',
+        duplicateConfirmed: false,
+        duplicateWarningReasons: [],
+        patternMaterialType: 'WOVEN',
+        patternMaterialTypeLabel: getPatternMaterialTypeLabel('WOVEN'),
+        patternFileMode: 'PAIRED_DXF_RUL',
+        parseStatus: hasParsedRows ? 'PARSED' : 'NOT_PARSED',
+        parseStatusLabel: getPatternParseStatusLabel(hasParsedRows ? 'PARSED' : 'NOT_PARSED'),
+        parseError: '',
+        parsedAt: hasParsedRows ? `2026-04-${String(10 + index).padStart(2, '0')} 10:00:00` : '',
+        dxfFileName: hasMakerFiles ? `${fileBaseName}.dxf` : '',
+        dxfFileSize: hasMakerFiles ? 32768 : 0,
+        dxfLastModified: hasMakerFiles ? `2026-04-${String(10 + index).padStart(2, '0')} 09:20:00` : '',
+        rulFileName: hasMakerFiles ? `${fileBaseName}.rul` : '',
+        rulFileSize: hasMakerFiles ? 8192 : 0,
+        rulLastModified: hasMakerFiles ? `2026-04-${String(10 + index).padStart(2, '0')} 09:30:00` : '',
+        singlePatternFileName: '',
+        singlePatternFileSize: 0,
+        singlePatternFileLastModified: '',
+        dxfEncoding: hasParsedRows ? 'UTF-8' : '',
+        rulEncoding: hasParsedRows ? 'UTF-8' : '',
+        rulSizeList: hasParsedRows ? ['S', 'M', 'L', 'XL'] : [],
+        rulSampleSize: hasParsedRows ? 'M' : '',
+        patternSoftwareName: hasMakerFiles ? 'Lectra' : '',
+        sizeRange: hasParsedRows ? 'S / M / L / XL' : '',
+        selectedSizeCodes: hasParsedRows ? ['S', 'M', 'L', 'XL'] : [],
+        pieceRows: hasParsedRows
+            ? [
+                createDemoPatternPieceRow(baseId, index, 0, '前片'),
+                createDemoPatternPieceRow(baseId, index, 1, '后片'),
+            ]
+            : [],
+        pieceInstances: [],
+        pieceInstanceTotal: 0,
+        specialCraftConfiguredPieceTotal: 0,
+        specialCraftUnconfiguredPieceTotal: 0,
+    };
+}
+function ensurePatternStatusDemoCoverage(items, bomItems) {
+    const nextItems = [...items];
+    patternMaintenanceStatuses.forEach((status) => {
+        let count = nextItems.filter((item) => item.maintainerStepStatus === status).length;
+        while (count < 3) {
+            nextItems.push(createPatternStatusDemoItem(status, count, bomItems));
+            count += 1;
+        }
+    });
+    return nextItems.map((item) => {
+        const isPackage = item.recordKind === 'PACKAGE';
+        const normalizedRows = normalizePatternPieceRows(item.pieceRows, item.id, item.linkedBomItemId);
+        const pieceRows = isPackage ? sanitizePatternPackageAssetRows(normalizedRows) : normalizedRows;
+        const patternTotalPieceQty = calculatePatternTotalPieceQty(pieceRows);
+        const generatedPieceInstances = isPackage
+            ? []
+            : generatePieceInstancesFromColorQuantities({
+                id: item.id,
+                pieceRows,
+                pieceInstances: item.pieceInstances,
+            });
+        const pieceInstances = isPackage ? [] : seedDemoPieceInstanceSpecialCrafts(generatedPieceInstances, item.id);
+        const pieceInstanceSummary = isPackage
+            ? {
+                pieceInstanceTotal: 0,
+                specialCraftConfiguredPieceTotal: 0,
+                specialCraftUnconfiguredPieceTotal: 0,
+            }
+            : summarizePieceInstances(pieceInstances);
+        return {
+            ...item,
+            totalPieceCount: patternTotalPieceQty,
+            patternTotalPieceQty,
+            pieceRows,
+            pieceInstances,
+            ...pieceInstanceSummary,
+            bindingStrips: isPackage ? [] : normalizePatternBindingStrips(item.bindingStrips),
+            patternSignature: item.patternSignature || buildPatternSignature(item),
+            duplicateConfirmed: Boolean(item.duplicateConfirmed),
+            duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
+        };
+    });
+}
+function sanitizePatternPackageAssetRows(rows) {
+    return rows.map((row) => {
+        const pieceQty = normalizePieceQty(row.totalPieceQty || row.count || row.parsedQuantity || 0);
+        return {
+            ...row,
+            count: pieceQty,
+            note: row.note || row.annotation || '',
+            isTemplate: false,
+            partTemplateId: undefined,
+            partTemplateName: undefined,
+            partTemplatePreviewSvg: undefined,
+            partTemplateShapeDescription: undefined,
+            applicableSkuCodes: [],
+            colorAllocations: [],
+            colorPieceQuantities: [],
+            totalPieceQty: pieceQty,
+            specialCrafts: [],
+            bundleLengthCm: undefined,
+            bundleWidthCm: undefined,
+        };
+    });
+}
+function createPatternPoolDemoPackage(source, spec) {
+    const isWool = spec.materialType === 'WOOL';
+    const pieceRows = isWool ? [] : sanitizePatternPackageAssetRows(normalizePatternPieceRows(source.pieceRows, spec.id, ''));
+    const patternTotalPieceQty = calculatePatternTotalPieceQty(pieceRows);
+    return {
+        ...source,
+        id: spec.id,
+        recordKind: 'PACKAGE',
+        name: spec.name,
+        type: spec.type,
+        image: `${spec.fileBaseName}-marker.png`,
+        file: isWool ? `${spec.fileBaseName}.prj` : `${spec.fileBaseName}.dxf / ${spec.fileBaseName}.rul`,
+        remark: '',
+        linkedBomItemId: '',
+        linkedMaterialId: '',
+        linkedMaterialName: '',
+        linkedMaterialAlias: '',
+        linkedMaterialSku: '',
+        widthCm: 0,
+        markerLengthM: 0,
+        totalPieceCount: patternTotalPieceQty,
+        patternTotalPieceQty,
+        isWoolted: isWool ? '是' : '否',
+        maintainerStepStatus: isWool ? '待版师维护' : '已解析待确认',
+        merchandiserInfoStatus: '已填写',
+        patternMakerInfoStatus: isWool ? '未填写' : '已解析',
+        prjFile: createPatternManagedFile({
+            fileName: `${spec.fileBaseName}.prj`,
+            fileSize: 24576,
+            uploadedAt: '2026-04-20 09:00:00',
+            uploadedBy: 'Sari 版师',
+        }),
+        markerImage: createPatternManagedFile({
+            fileName: `${spec.fileBaseName}-marker.png`,
+            fileSize: 32768,
+            uploadedAt: '2026-04-20 09:05:00',
+            uploadedBy: 'Sari 版师',
+            previewUrl: `${spec.fileBaseName}-marker.png`,
+        }),
+        dxfFile: isWool
+            ? null
+            : createPatternManagedFile({
+                fileName: `${spec.fileBaseName}.dxf`,
+                fileSize: 32768,
+                uploadedAt: '2026-04-20 09:10:00',
+                uploadedBy: 'Sari 版师',
+            }),
+        rulFile: isWool
+            ? null
+            : createPatternManagedFile({
+                fileName: `${spec.fileBaseName}.rul`,
+                fileSize: 8192,
+                uploadedAt: '2026-04-20 09:15:00',
+                uploadedBy: 'Sari 版师',
+            }),
+        bindingStrips: [],
+        patternSignature: '',
+        duplicateConfirmed: false,
+        duplicateWarningReasons: [],
+        patternMaterialType: spec.materialType,
+        patternMaterialTypeLabel: getPatternMaterialTypeLabel(spec.materialType),
+        patternFileMode: isWool ? 'SINGLE_FILE' : 'PAIRED_DXF_RUL',
+        parseStatus: isWool ? 'NOT_REQUIRED' : 'PARSED',
+        parseStatusLabel: getPatternParseStatusLabel(isWool ? 'NOT_REQUIRED' : 'PARSED'),
+        parseError: '',
+        parsedAt: isWool ? '' : '2026-04-20 09:30:00',
+        dxfFileName: isWool ? '' : `${spec.fileBaseName}.dxf`,
+        dxfFileSize: isWool ? 0 : 32768,
+        dxfLastModified: isWool ? '' : '2026-04-20 09:10:00',
+        rulFileName: isWool ? '' : `${spec.fileBaseName}.rul`,
+        rulFileSize: isWool ? 0 : 8192,
+        rulLastModified: isWool ? '' : '2026-04-20 09:15:00',
+        singlePatternFileName: isWool ? `${spec.fileBaseName}.prj` : '',
+        singlePatternFileSize: isWool ? 24576 : 0,
+        singlePatternFileLastModified: isWool ? '2026-04-20 09:00:00' : '',
+        dxfEncoding: isWool ? '' : 'UTF-8',
+        rulEncoding: isWool ? '' : 'UTF-8',
+        rulSizeList: isWool ? [] : [...source.rulSizeList],
+        rulSampleSize: isWool ? '' : source.rulSampleSize,
+        patternSoftwareName: isWool ? '' : source.patternSoftwareName || 'Lectra',
+        sizeRange: isWool ? '' : source.sizeRange,
+        selectedSizeCodes: isWool ? [] : [...source.selectedSizeCodes],
+        pieceRows,
+        pieceInstances: [],
+        pieceInstanceTotal: 0,
+        specialCraftConfiguredPieceTotal: 0,
+        specialCraftUnconfiguredPieceTotal: 0,
+        sourcePatternPackageId: undefined,
+        sourcePatternPackageName: undefined,
+    };
+}
+function createMaterialPatternDemoAssociation(patternPackage, bomItem, index) {
+    const linkedBomId = bomItem?.id || '';
+    const linkedMaterialName = bomItem?.materialName || bomItem?.name || '';
+    const linkedMaterialSku = bomItem?.materialCode || linkedBomId;
+    const associationId = `PAT-LINK-${index + 1}`;
+    const isWool = patternPackage.patternMaterialType === 'WOOL';
+    const pieceRows = isWool
+        ? normalizePatternPieceRows([
+            {
+                id: `${associationId}-R1`,
+                name: '罗纹领口片',
+                count: 2,
+                note: '毛织纸样手工维护部位',
+                isTemplate: false,
+                applicableSkuCodes: [],
+                colorAllocations: [],
+                colorPieceQuantities: [
+                    { colorId: 'C-BLK', colorName: '黑色', enabled: true, pieceQty: 1 },
+                    { colorId: 'C-WHT', colorName: '白色', enabled: true, pieceQty: 1 },
+                ],
+                totalPieceQty: 2,
+                parsedQuantity: undefined,
+                specialCrafts: [],
+                sourceType: 'MANUAL',
+            },
+        ], associationId, linkedBomId)
+        : normalizePatternPieceRows(patternPackage.pieceRows, associationId, linkedBomId);
+    const patternTotalPieceQty = calculatePatternTotalPieceQty(pieceRows);
+    const pieceInstances = generatePieceInstancesFromColorQuantities({
+        id: associationId,
+        pieceRows,
+        pieceInstances: [],
+    });
+    const pieceInstanceSummary = summarizePieceInstances(pieceInstances);
+    return {
+        ...patternPackage,
+        id: associationId,
+        recordKind: 'MATERIAL_ASSOCIATION',
+        linkedBomItemId: linkedBomId,
+        linkedMaterialId: linkedBomId,
+        linkedMaterialName,
+        linkedMaterialAlias: `${patternPackage.name}用料`,
+        linkedMaterialSku,
+        widthCm: isWool ? 0 : 142 + index,
+        markerLengthM: isWool ? 1.2 : 2.2 + index * 0.18,
+        totalPieceCount: patternTotalPieceQty,
+        patternTotalPieceQty,
+        maintainerStepStatus: '已解析待确认',
+        merchandiserInfoStatus: '已填写',
+        patternMakerInfoStatus: isWool ? '已填写' : '已解析',
+        bindingStrips: isWool
+            ? normalizePatternBindingStrips([
+                { bindingStripName: '领口捆条', lengthCm: 58, widthCm: 3.2, remark: '跟随毛织纸样维护' },
+            ])
+            : [],
+        pieceRows,
+        pieceInstances,
+        ...pieceInstanceSummary,
+        sourcePatternPackageId: patternPackage.id,
+        sourcePatternPackageName: patternPackage.name,
+    };
+}
+function ensurePatternPoolDemoPackages(items, bomItems) {
+    const normalizedItems = items.map((item) => ({
+        ...item,
+        recordKind: item.recordKind ?? 'MATERIAL_ASSOCIATION',
+    }));
+    const materialAssociations = normalizedItems.filter((item) => item.recordKind !== 'PACKAGE');
+    const parsedWovenSources = materialAssociations.filter((item) => item.patternMaterialType !== 'WOOL' && item.pieceRows.length > 0);
+    const wovenSources = parsedWovenSources.length >= 3
+        ? parsedWovenSources
+        : materialAssociations.filter((item) => item.patternMaterialType !== 'WOOL');
+    const woolSource = materialAssociations.find((item) => item.patternMaterialType === 'WOOL') ?? DEFAULT_PATTERN_ITEMS[1];
+    const fallbackWoven = wovenSources[0] ?? DEFAULT_PATTERN_ITEMS[0];
+    const packageItems = [
+        createPatternPoolDemoPackage(wovenSources[0] ?? fallbackWoven, {
+            id: 'PAT-PKG-FRONT',
+            name: '前片纸样包',
+            type: '主体片',
+            materialType: 'WOVEN',
+            fileBaseName: 'front-pattern-package',
+        }),
+        createPatternPoolDemoPackage(wovenSources[1] ?? fallbackWoven, {
+            id: 'PAT-PKG-BACK',
+            name: '后片纸样包',
+            type: '主体片',
+            materialType: 'WOVEN',
+            fileBaseName: 'back-pattern-package',
+        }),
+        createPatternPoolDemoPackage(wovenSources[2] ?? fallbackWoven, {
+            id: 'PAT-PKG-SLEEVE',
+            name: '袖片纸样包',
+            type: '结构片',
+            materialType: 'WOVEN',
+            fileBaseName: 'sleeve-pattern-package',
+        }),
+        createPatternPoolDemoPackage(woolSource, {
+            id: 'PAT-PKG-WOOL-RIB',
+            name: '罗纹毛织纸样包',
+            type: '主体片',
+            materialType: 'WOOL',
+            fileBaseName: 'rib-wool-pattern-package',
+        }),
+    ];
+    const fabricBomItems = bomItems.filter((item) => String(item.type || '').includes('面料'));
+    const associationItems = [
+        createMaterialPatternDemoAssociation(packageItems[0], fabricBomItems[0] ?? bomItems[0], 0),
+        createMaterialPatternDemoAssociation(packageItems[1], fabricBomItems[0] ?? bomItems[0], 1),
+        createMaterialPatternDemoAssociation(packageItems[2], fabricBomItems[1] ?? bomItems[1] ?? bomItems[0], 2),
+        createMaterialPatternDemoAssociation(packageItems[3], fabricBomItems[1] ?? bomItems[1] ?? bomItems[0], 3),
+    ];
+    return [...packageItems, ...associationItems];
+}
+const DEFAULT_BOM_ITEMS = [
+    {
+        id: 'bom-1',
+        type: '面料',
+        colorLabel: 'White',
+        materialCode: 'FAB-001',
+        materialName: '纯棉毛织布',
+        spec: '180g/m²',
+        patternPieces: ['前片', '后片', '袖片'],
+        linkedPatternIds: ['PAT-001', 'PAT-002'],
+        applicableSkuCodes: [],
+        usageProcessCodes: ['PROC_CUT'],
+        usage: 0.8,
+        lossRate: 3,
+        printRequirement: '数码印',
+        dyeRequirement: '无',
+        shrinkRequirement: '是',
+        washRequirement: '是',
+        printSideMode: 'SINGLE',
+        frontPatternDesignId: 'design-front-1',
+        insidePatternDesignId: '',
+    },
+    {
+        id: 'bom-2',
+        type: '面料',
+        colorLabel: 'White',
+        materialCode: 'FAB-002',
+        materialName: '弹力罗纹',
+        spec: '200g/m²',
+        patternPieces: ['领片'],
+        linkedPatternIds: [],
+        applicableSkuCodes: [],
+        usageProcessCodes: ['PROC_CUT', 'PROC_SEW'],
+        usage: 0.1,
+        lossRate: 5,
+        printRequirement: '无',
+        dyeRequirement: '匹染',
+        shrinkRequirement: '是',
+        washRequirement: '否',
+        printSideMode: '',
+        frontPatternDesignId: '',
+        insidePatternDesignId: '',
+    },
+    {
+        id: 'bom-3',
+        type: '辅料',
+        colorLabel: '全部SKU（当前未区分颜色）',
+        materialCode: 'ACC-001',
+        materialName: '纽扣',
+        spec: '15mm圆形',
+        patternPieces: ['前片'],
+        linkedPatternIds: [],
+        applicableSkuCodes: [],
+        usageProcessCodes: ['PROC_PACK'],
+        usage: 5,
+        lossRate: 2,
+        printRequirement: '无',
+        dyeRequirement: '无',
+        shrinkRequirement: '否',
+        washRequirement: '否',
+        printSideMode: '',
+        frontPatternDesignId: '',
+        insidePatternDesignId: '',
+    },
+];
+const DEFAULT_TECHNIQUES = [
+    {
+        id: 'tech-default-1',
+        entryType: 'PROCESS_BASELINE',
+        stageCode: 'PREP',
+        stage: '准备阶段',
+        processCode: 'PRINT',
+        process: '印花',
+        craftCode: '',
+        technique: '印花',
+        assignmentGranularity: 'COLOR',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+        defaultDocType: 'DEMAND',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        triggerSource: 'BOM上存在印花要求',
+        standardTime: 10,
+        timeUnit: '分钟/件',
+        referencePublishedSamValue: null,
+        referencePublishedSamUnit: '',
+        referencePublishedSamUnitLabel: '',
+        referencePublishedSamNote: '工序级准备项',
+        difficulty: '中等',
+        remark: '',
+        source: '字典引用',
+    },
+    {
+        id: 'tech-default-2',
+        entryType: 'CRAFT',
+        stageCode: 'PROD',
+        stage: '生产阶段',
+        processCode: 'CUT_PANEL',
+        process: '裁片',
+        craftCode: 'CRAFT_000001',
+        technique: '定位裁',
+        assignmentGranularity: 'ORDER',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_COLOR', 'PATTERN', 'MATERIAL_SKU'],
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        triggerSource: '',
+        standardTime: 6,
+        timeUnit: '分钟/件',
+        referencePublishedSamValue: 0.6,
+        referencePublishedSamUnit: 'MINUTE_PER_PIECE',
+        referencePublishedSamUnitLabel: '分钟/件',
+        referencePublishedSamNote: '普通复杂度',
+        difficulty: '简单',
+        remark: '',
+        source: '字典引用',
+    },
+    {
+        id: 'tech-default-3',
+        entryType: 'CRAFT',
+        stageCode: 'PROD',
+        stage: '生产阶段',
+        processCode: 'SEW',
+        process: '车缝',
+        craftCode: 'CRAFT_262144',
+        technique: '曲牙',
+        assignmentGranularity: 'SKU',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        triggerSource: '',
+        standardTime: 12,
+        timeUnit: '分钟/件',
+        referencePublishedSamValue: 1.4,
+        referencePublishedSamUnit: 'MINUTE_PER_PIECE',
+        referencePublishedSamUnitLabel: '分钟/件',
+        referencePublishedSamNote: '普通复杂度',
+        difficulty: '中等',
+        remark: '',
+        source: '字典引用',
+    },
+    {
+        id: 'tech-default-post-finishing',
+        entryType: 'PROCESS_BASELINE',
+        stageCode: 'POST',
+        stage: '后道阶段',
+        processCode: 'POST_FINISHING',
+        process: '后道',
+        craftCode: '',
+        technique: '后道',
+        assignmentGranularity: 'SKU',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        triggerSource: '技术包默认后道工序',
+        standardTime: 0,
+        timeUnit: '分钟/件',
+        referencePublishedSamValue: null,
+        referencePublishedSamUnit: '',
+        referencePublishedSamUnitLabel: '',
+        referencePublishedSamNote: '工序级后道项',
+        difficulty: '中等',
+        remark: '所有生产单默认包含后道工序，质检完成后由质检人员判断是否生成后道单。',
+        source: '字典引用',
+    },
+];
+const state = {
+    currentSpuCode: null,
+    currentStyleId: null,
+    currentTechnicalVersionId: null,
+    currentTechnicalVersionCode: null,
+    loading: true,
+    activeTab: 'pattern',
+    techPack: null,
+    compatibilityMode: false,
+    compatibilityMessage: '',
+    compatibilitySourceKind: null,
+    compatibilityMaintenancePath: '',
+    compatibilityMaintenanceTitle: '',
+    compatibilitySourceNote: '',
+    compatibilitySourceNoteOpen: false,
+    patternItems: [],
+    bomItems: [],
+    techniques: [],
+    materialCostRows: [],
+    processCostRows: [],
+    customCostRows: [],
+    colorMaterialMappings: [],
+    releaseDialogOpen: false,
+    addPatternDialogOpen: false,
+    addBomDialogOpen: false,
+    addTechniqueDialogOpen: false,
+    addSizeDialogOpen: false,
+    addDesignDialogOpen: false,
+    addAttachmentDialogOpen: false,
+    patternDialogOpen: false,
+    patternTemplateDialogOpen: false,
+    designPreviewDialogOpen: false,
+    selectedPattern: null,
+    designPreviewDesignId: null,
+    designPreviewSource: null,
+    editPatternItemId: null,
+    patternFormPurpose: 'ASSOCIATION',
+    patternMaintenanceStep: 'MERCHANDISER',
+    patternDuplicateWarning: null,
+    pieceInstanceCraftDialogOpen: false,
+    activePieceInstanceSourcePieceId: null,
+    activePieceInstanceId: null,
+    pieceInstanceCraftDraft: {
+        craftCode: '',
+        craftPosition: '',
+        remark: '',
+    },
+    pieceInstanceCraftError: '',
+    editBomItemId: null,
+    editTechniqueId: null,
+    activePatternTemplatePieceId: null,
+    patternTemplateSearchKeyword: '',
+    newPattern: createEmptyPatternFormState(),
+    newBomItem: createEmptyBomFormState(),
+    newTechnique: {
+        stageCode: '',
+        processCode: '',
+        entryType: 'CRAFT',
+        baselineProcessCode: '',
+        craftCode: '',
+        selectedTargetObject: '',
+        packagingRequired: false,
+        ruleSource: 'INHERIT_PROCESS',
+        assignmentGranularity: 'ORDER',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+        standardTime: '',
+        timeUnit: '分钟/件',
+        difficulty: '中等',
+        remark: '',
+    },
+    newSizeRow: {
+        part: '',
+        S: '',
+        M: '',
+        L: '',
+        XL: '',
+        tolerance: '',
+    },
+    newDesignName: '',
+    newDesignSideType: 'FRONT',
+    newDesignFileName: '',
+    newDesignOriginalFileMimeType: '',
+    newDesignOriginalFileDataUrl: '',
+    newDesignPreviewThumbnailDataUrl: '',
+    selectedDesignFile: null,
+    newAttachment: {
+        fileName: '',
+        fileType: 'PDF',
+        fileSize: '1.0MB',
+    },
+};
+function toTimestamp(date = new Date()) {
+    return date.toISOString().replace('T', ' ').slice(0, 19);
+}
+function decodeSpuCode(rawSpuCode) {
+    try {
+        return decodeURIComponent(rawSpuCode);
+    }
+    catch {
+        return rawSpuCode;
+    }
+}
+function cloneTechPack(techPack) {
+    return {
+        ...techPack,
+        patternFiles: techPack.patternFiles.map((item) => ({
+            ...item,
+            selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
+            pieceRows: (item.pieceRows ?? []).map((row) => ({
+                ...row,
+                applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+                colorAllocations: row.colorAllocations?.map((allocation) => ({
+                    ...allocation,
+                    skuCodes: [...(allocation.skuCodes ?? [])],
+                })),
+                specialCrafts: row.specialCrafts?.map((craft) => ({ ...craft })),
+            })),
+        })),
+        processes: techPack.processes.map((item) => ({ ...item })),
+        processEntries: (techPack.processEntries ?? []).map((item) => ({
+            ...item,
+            detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+        })),
+        sizeTable: techPack.sizeTable.map((item) => ({ ...item })),
+        bomItems: techPack.bomItems.map((item) => ({
+            ...item,
+            applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+            linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+            usageProcessCodes: [...(item.usageProcessCodes ?? [])],
+        })),
+        skuCatalog: (techPack.skuCatalog ?? []).map((item) => ({ ...item })),
+        materialCostItems: (techPack.materialCostItems ?? []).map((item) => ({ ...item })),
+        processCostItems: (techPack.processCostItems ?? []).map((item) => ({ ...item })),
+        customCostItems: (techPack.customCostItems ?? []).map((item) => ({ ...item })),
+        colorMaterialMappings: (techPack.colorMaterialMappings ?? []).map((item) => ({
+            ...item,
+            lines: item.lines.map((line) => ({
+                ...line,
+                applicableSkuCodes: [...(line.applicableSkuCodes ?? [])],
+            })),
+        })),
+        patternDesigns: techPack.patternDesigns.map((item) => ({ ...item })),
+        attachments: techPack.attachments.map((item) => ({ ...item })),
+        missingChecklist: [...techPack.missingChecklist],
+    };
+}
+function applyTechPackState(techPack, options) {
+    const normalizedSeedSkuCatalog = options.skuCatalog
+        ? normalizeSeedSkuCatalog(options.skuCatalog)
+        : undefined;
+    const nextTechPack = cloneTechPack({
+        ...techPack,
+        spuName: options.spuName || techPack.spuName,
+        skuCatalog: normalizedSeedSkuCatalog || techPack.skuCatalog || [],
+    });
+    state.currentSpuCode = options.currentSpuCode;
+    state.currentStyleId = options.styleId;
+    state.currentTechnicalVersionId = options.technicalVersionId;
+    state.currentTechnicalVersionCode = options.technicalVersionCode;
+    state.techPack = nextTechPack;
+    state.activeTab = options.activeTab ?? state.activeTab;
+    state.compatibilityMode = false;
+    state.compatibilityMessage = '';
+    state.compatibilitySourceKind = null;
+    state.compatibilityMaintenancePath = '';
+    state.compatibilityMaintenanceTitle = '';
+    state.compatibilitySourceNote = '';
+    state.compatibilitySourceNoteOpen = false;
+    state.bomItems = buildBomItemsFromTechPack(nextTechPack);
+    state.techniques = buildTechniquesFromTechPack(nextTechPack, state.bomItems);
+    state.patternItems = buildPatternItemsFromTechPack(nextTechPack);
+    state.materialCostRows = buildMaterialCostRows(state.bomItems, nextTechPack);
+    state.processCostRows = buildProcessCostRows(state.techniques, nextTechPack);
+    state.customCostRows = buildCustomCostRows(nextTechPack);
+    const loadedMappings = buildColorMaterialMappings(nextTechPack);
+    state.colorMaterialMappings = buildSourceDrivenColorMaterialMappings(loadedMappings);
+}
+function clearTechPackState(spuCode, compatibilityMode = false) {
+    state.currentSpuCode = spuCode;
+    state.currentStyleId = null;
+    state.currentTechnicalVersionId = null;
+    state.currentTechnicalVersionCode = null;
+    state.techPack = null;
+    state.patternItems = [];
+    state.bomItems = [];
+    state.techniques = [];
+    state.materialCostRows = [];
+    state.processCostRows = [];
+    state.customCostRows = [];
+    state.colorMaterialMappings = [];
+    state.compatibilityMode = false;
+    state.compatibilityMessage = '';
+    state.compatibilitySourceKind = null;
+    state.compatibilityMaintenancePath = '';
+    state.compatibilityMaintenanceTitle = '';
+    state.compatibilitySourceNote = '';
+    state.compatibilitySourceNoteOpen = false;
+}
+function normalizeSeedSkuCatalog(skuCatalog) {
+    const deduped = new Map();
+    for (const item of skuCatalog) {
+        const skuCode = item.skuCode?.trim();
+        if (!skuCode)
+            continue;
+        deduped.set(skuCode, {
+            skuCode,
+            color: item.color?.trim() || '未识别颜色',
+            size: item.size?.trim() || '-',
+        });
+    }
+    return Array.from(deduped.values());
+}
+function shouldReplaceSkuCatalog(current, next) {
+    if ((current?.length ?? 0) !== next.length)
+        return true;
+    if (!current)
+        return true;
+    const currentMap = new Map(current.map((item) => [item.skuCode, `${item.color || ''}|${item.size || ''}`]));
+    if (currentMap.size !== next.length)
+        return true;
+    return next.some((item) => currentMap.get(item.skuCode) !== `${item.color || ''}|${item.size || ''}`);
+}
+function mapDifficultyToZh(value) {
+    if (value === 'LOW')
+        return '简单';
+    if (value === 'HIGH')
+        return '困难';
+    return '中等';
+}
+function mapDifficultyToEnum(value) {
+    if (value === '简单')
+        return 'LOW';
+    if (value === '困难')
+        return 'HIGH';
+    return 'MEDIUM';
+}
+function getStageName(stageCode) {
+    return stageCodeToName.get(stageCode) || stageCode;
+}
+function getBaselineProcessByCode(code) {
+    return baselineProcessOptions.find((item) => item.processCode === code) ?? null;
+}
+function getTechniqueProcessOptions(stageCode) {
+    if (!stageCode)
+        return [];
+    return listProcessesByStageCode(stageCode).map((item) => ({
+        processCode: item.processCode,
+        processName: item.processName,
+        stageCode: item.stageCode,
+        stageName: getStageName(item.stageCode),
+    }));
+}
+function getTechniqueCraftOptions(stageCode, processCode) {
+    if (!stageCode || !processCode)
+        return [];
+    return craftOptions.filter((item) => item.stageCode === stageCode && item.processCode === processCode);
+}
+function isPrepStage(stage) {
+    return stageNameToCode.get(stage) === 'PREP';
+}
+function isBomDrivenPrepTechnique(item) {
+    return isBomDrivenPrepTechniqueFromBom(item);
+}
+function hasPrintDemand(bomItems) {
+    return bomItems.some((item) => (item.printRequirement || '无') !== '无');
+}
+function hasDyeDemand(bomItems) {
+    return bomItems.some((item) => (item.dyeRequirement || '无') !== '无');
+}
+function syncBomDrivenPrepTechniques(techniques, bomItems) {
+    return syncPreparationProcessesFromBom(techniques, bomItems).techniques;
+}
+function getCraftOptionByCode(code) {
+    return craftOptions.find((item) => item.craftCode === code) ?? null;
+}
+function getDefaultSelectedTargetObject(craft) {
+    if (!craft.isSpecialCraft)
+        return '';
+    return craft.supportedTargetObjectLabels?.length === 1 ? craft.supportedTargetObjectLabels[0] : '';
+}
+function getSelectedTargetObjectForCraft(craft) {
+    if (!craft.isSpecialCraft)
+        return '';
+    const normalized = normalizeSpecialCraftTargetObjectLabel(state.newTechnique.selectedTargetObject);
+    if (normalized && craft.supportedTargetObjectLabels?.includes(normalized))
+        return normalized;
+    return getDefaultSelectedTargetObject(craft);
+}
+function getWoolEntryMeta(craftName) {
+    if (craftName === '部位毛织') {
+        return {
+            woolTaskType: 'PART_PANEL',
+            downstreamTarget: '裁床待交出仓',
+            requiresFeiTicket: true,
+            packagingRequired: false,
+            materialIssueMode: 'WAREHOUSE_DELIVERY',
+        };
+    }
+    if (craftName === '整件毛织') {
+        return {
+            woolTaskType: 'WHOLE_GARMENT',
+            downstreamTarget: '后道工厂',
+            requiresFeiTicket: false,
+            packagingRequired: state.newTechnique.packagingRequired,
+            materialIssueMode: 'WAREHOUSE_DELIVERY',
+        };
+    }
+    return {};
+}
+function getTechniqueReferenceMetaByCraftCode(craftCode) {
+    const craft = craftCode ? getProcessCraftByCode(craftCode) : undefined;
+    if (!craft) {
+        return {
+            referencePublishedSamValue: null,
+            referencePublishedSamUnit: '',
+            referencePublishedSamUnitLabel: '',
+            referencePublishedSamNote: '工序级准备项',
+        };
+    }
+    return {
+        referencePublishedSamValue: craft.referencePublishedSamValue,
+        referencePublishedSamUnit: craft.referencePublishedSamUnit,
+        referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[craft.referencePublishedSamUnit],
+        referencePublishedSamNote: normalizeReferencePublishedSamNote(craft.referencePublishedSamNote),
+    };
+}
+function normalizeReferencePublishedSamNote(value) {
+    const normalized = String(value || '').trim();
+    if (!normalized)
+        return '';
+    if (normalized.includes('平台理论参考值'))
+        return '普通复杂度';
+    if (normalized.includes('工序级准备项'))
+        return '工序级准备项';
+    return normalized;
+}
+function getSelectedDraftMeta() {
+    if (state.newTechnique.stageCode && state.newTechnique.processCode && state.newTechnique.craftCode) {
+        const craft = getTechniqueCraftOptions(state.newTechnique.stageCode, state.newTechnique.processCode).find((item) => item.craftCode === state.newTechnique.craftCode);
+        if (!craft)
+            return null;
+        const selectedTargetObject = getSelectedTargetObjectForCraft(craft);
+        if (craft.isSpecialCraft && !selectedTargetObject)
+            return null;
+        return {
+            entryType: 'CRAFT',
+            stageCode: craft.stageCode,
+            stageName: craft.stageName,
+            processCode: craft.processCode,
+            processName: craft.processName,
+            craftCode: craft.craftCode,
+            craftName: craft.craftName,
+            ruleSource: craft.ruleSource,
+            assignmentGranularity: craft.assignmentGranularity,
+            detailSplitMode: craft.detailSplitMode,
+            detailSplitDimensions: [...craft.detailSplitDimensions],
+            defaultDocType: craft.defaultDocType,
+            taskTypeMode: craft.taskTypeMode,
+            isSpecialCraft: craft.isSpecialCraft,
+            selectedTargetObject,
+            supportedTargetObjects: craft.supportedTargetObjects ? [...craft.supportedTargetObjects] : undefined,
+            supportedTargetObjectLabels: craft.supportedTargetObjectLabels ? [...craft.supportedTargetObjectLabels] : undefined,
+            triggerSource: '',
+        };
+    }
+    if (state.newTechnique.entryType === 'PROCESS_BASELINE') {
+        const baseline = getBaselineProcessByCode(state.newTechnique.baselineProcessCode);
+        if (!baseline)
+            return null;
+        return {
+            entryType: 'PROCESS_BASELINE',
+            stageCode: baseline.stageCode,
+            stageName: baseline.stageName,
+            processCode: baseline.processCode,
+            processName: baseline.processName,
+            craftCode: '',
+            craftName: baseline.processName,
+            assignmentGranularity: baseline.assignmentGranularity,
+            ruleSource: 'INHERIT_PROCESS',
+            detailSplitMode: baseline.detailSplitMode,
+            detailSplitDimensions: [...baseline.detailSplitDimensions],
+            defaultDocType: baseline.defaultDocType,
+            taskTypeMode: baseline.taskTypeMode,
+            isSpecialCraft: false,
+            selectedTargetObject: undefined,
+            supportedTargetObjects: undefined,
+            supportedTargetObjectLabels: undefined,
+            triggerSource: baseline.triggerSource,
+        };
+    }
+    const craft = getCraftOptionByCode(state.newTechnique.craftCode);
+    if (!craft)
+        return null;
+    const selectedTargetObject = getSelectedTargetObjectForCraft(craft);
+    if (craft.isSpecialCraft && !selectedTargetObject)
+        return null;
+    const forceOverride = craft.isSpecialCraft;
+    const ruleSource = forceOverride ? 'OVERRIDE_CRAFT' : state.newTechnique.ruleSource;
+    const effectiveRuleSource = ruleSource === 'OVERRIDE_CRAFT' ? 'OVERRIDE_CRAFT' : 'INHERIT_PROCESS';
+    const assignmentGranularity = effectiveRuleSource === 'OVERRIDE_CRAFT'
+        ? state.newTechnique.assignmentGranularity
+        : craft.assignmentGranularity;
+    const detailSplitMode = effectiveRuleSource === 'OVERRIDE_CRAFT'
+        ? state.newTechnique.detailSplitMode
+        : craft.detailSplitMode;
+    const detailSplitDimensions = effectiveRuleSource === 'OVERRIDE_CRAFT'
+        ? state.newTechnique.detailSplitDimensions.length > 0
+            ? [...state.newTechnique.detailSplitDimensions]
+            : [...craft.detailSplitDimensions]
+        : [...craft.detailSplitDimensions];
+    return {
+        entryType: 'CRAFT',
+        stageCode: craft.stageCode,
+        stageName: craft.stageName,
+        processCode: craft.processCode,
+        processName: craft.processName,
+        craftCode: craft.craftCode,
+        craftName: craft.craftName,
+        ruleSource: effectiveRuleSource,
+        assignmentGranularity,
+        detailSplitMode,
+        detailSplitDimensions,
+        defaultDocType: craft.defaultDocType,
+        taskTypeMode: craft.taskTypeMode,
+        isSpecialCraft: craft.isSpecialCraft,
+        selectedTargetObject,
+        targetObject: craft.isSpecialCraft ? undefined : craft.processCode === 'WOOL' && craft.craftName === '整件毛织' ? 'GARMENT_SEMI' : craft.processCode === 'WOOL' ? 'CUT_PIECE_PART' : undefined,
+        targetObjectName: craft.isSpecialCraft ? undefined : craft.processCode === 'WOOL' && craft.craftName === '整件毛织' ? '成衣半成品' : craft.processCode === 'WOOL' ? '裁片部位' : undefined,
+        ...getWoolEntryMeta(craft.craftName),
+        supportedTargetObjects: craft.supportedTargetObjects ? [...craft.supportedTargetObjects] : undefined,
+        supportedTargetObjectLabels: craft.supportedTargetObjectLabels ? [...craft.supportedTargetObjectLabels] : undefined,
+        triggerSource: '',
+    };
+}
+function canEditTechnique(item) {
+    if (isBomDrivenPrepTechnique(item))
+        return false;
+    return item.stageCode !== 'PROD' && item.stageCode !== 'POST';
+}
+function dedupeStrings(values) {
+    return Array.from(new Set(values.filter((item) => item.trim().length > 0)));
+}
+function dedupeByKey(items, getKey) {
+    const seen = new Set();
+    return items.filter((item) => {
+        const key = getKey(item);
+        if (!key || seen.has(key))
+            return false;
+        seen.add(key);
+        return true;
+    });
+}
+function formatDetailSplitDimensionsText(dimensions) {
+    if (dimensions.length === 0)
+        return '-';
+    return dimensions.map((item) => DETAIL_SPLIT_DIMENSION_LABEL[item]).join(' + ');
+}
+function formatPatternSpec(widthCm, markerLengthM) {
+    const width = Number.isFinite(widthCm) && widthCm > 0 ? `${widthCm}cm` : '-';
+    const markerLength = Number.isFinite(markerLengthM) && markerLengthM > 0 ? `${markerLengthM}m` : '-';
+    if (width === '-' && markerLength === '-')
+        return '-';
+    if (width === '-')
+        return markerLength;
+    if (markerLength === '-')
+        return width;
+    return `${width} × ${markerLength}`;
+}
+const colorMappingStatusLabel = {
+    AUTO_CONFIRMED: '系统自动确认',
+    AUTO_DRAFT: '系统草稿待确认',
+    CONFIRMED: '已确认',
+    MANUAL_ADJUSTED: '人工调整',
+};
+const colorMappingStatusClass = {
+    AUTO_CONFIRMED: 'border-blue-200 bg-blue-50 text-blue-700',
+    AUTO_DRAFT: 'border-amber-200 bg-amber-50 text-amber-700',
+    CONFIRMED: 'border-green-200 bg-green-50 text-green-700',
+    MANUAL_ADJUSTED: 'border-purple-200 bg-purple-50 text-purple-700',
+};
+const generatedModeLabel = {
+    AUTO: '系统生成',
+    MANUAL: '人工维护',
+};
+function normalizeColorMappingLineRows(lines, mappingId) {
+    return lines.map((line, index) => ({
+        id: line.id || `${mappingId}-L${index + 1}`,
+        bomItemId: line.bomItemId?.trim() || '',
+        materialCode: line.materialCode?.trim() || '',
+        materialName: line.materialName?.trim() || '-',
+        materialType: line.materialType?.trim() || '其他',
+        patternId: line.patternId?.trim() || '',
+        patternName: line.patternName?.trim() || '',
+        pieceId: line.pieceId?.trim() || '',
+        pieceName: line.pieceName?.trim() || '',
+        pieceCountPerUnit: Number.isFinite(Number(line.pieceCountPerUnit))
+            ? Number(line.pieceCountPerUnit)
+            : 0,
+        unit: line.unit?.trim() || '件',
+        applicableSkuCodes: dedupeStrings([...(line.applicableSkuCodes ?? [])]),
+        sourceMode: line.sourceMode === 'MANUAL' ? 'MANUAL' : 'AUTO',
+        note: line.note?.trim() || '',
+    }));
+}
+function buildColorMaterialMappings(techPack) {
+    return (techPack.colorMaterialMappings ?? []).map((item) => ({
+        id: item.id,
+        spuCode: item.spuCode,
+        colorCode: item.colorCode,
+        colorName: item.colorName,
+        status: item.status,
+        generatedMode: item.generatedMode,
+        confirmedBy: item.confirmedBy || '',
+        confirmedAt: item.confirmedAt || '',
+        remark: item.remark || '',
+        lines: normalizeColorMappingLineRows(item.lines, item.id),
+    }));
+}
+function getSkuOptionsForCurrentSpu() {
+    if (!state.techPack)
+        return [];
+    return getCachedDerived('sku-options', {
+        spuCode: state.techPack.spuCode,
+        skuCatalog: (state.techPack.skuCatalog ?? []).map((line) => [
+            line.skuCode,
+            line.color,
+            line.size,
+        ]),
+        bomSkuCodes: state.bomItems.map((item) => [item.id, item.applicableSkuCodes]),
+    }, () => {
+        const byCode = new Map();
+        for (const line of state.techPack?.skuCatalog ?? []) {
+            if (!byCode.has(line.skuCode)) {
+                byCode.set(line.skuCode, {
+                    skuCode: line.skuCode,
+                    color: line.color || '未识别颜色',
+                    size: line.size || '-',
+                });
+            }
+        }
+        for (const order of productionOrders) {
+            if (order.demandSnapshot.spuCode !== state.techPack?.spuCode)
+                continue;
+            for (const line of order.demandSnapshot.skuLines) {
+                if (!byCode.has(line.skuCode)) {
+                    byCode.set(line.skuCode, {
+                        skuCode: line.skuCode,
+                        color: line.color || '未识别颜色',
+                        size: line.size || '-',
+                    });
+                }
+            }
+        }
+        for (const item of state.bomItems) {
+            for (const skuCode of item.applicableSkuCodes) {
+                if (!byCode.has(skuCode)) {
+                    byCode.set(skuCode, { skuCode, color: '未识别颜色', size: '-' });
+                }
+            }
+        }
+        return Array.from(byCode.values());
+    });
+}
+function extractSizeCodeOptionsFromSizeTable(sizeTable) {
+    const reservedKeys = new Set(['id', 'part', 'tolerance']);
+    const seen = new Set();
+    const options = [];
+    sizeTable.forEach((row) => {
+        Object.keys(row).forEach((key) => {
+            if (reservedKeys.has(key) || seen.has(key))
+                return;
+            seen.add(key);
+            options.push({
+                sizeCode: key,
+                label: key,
+            });
+        });
+    });
+    return options;
+}
+function splitLegacySizeRange(sizeRange) {
+    const normalized = String(sizeRange || '').trim();
+    if (!normalized)
+        return [];
+    const separatorSplit = normalized
+        .split(/[\/,，、;；]+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    if (separatorSplit.length > 1)
+        return separatorSplit;
+    return normalized
+        .split(/\s+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+function normalizeSelectedSizeCodes(selectedSizeCodes, sizeRange = '', sizeTable = state.techPack?.sizeTable ?? []) {
+    const options = extractSizeCodeOptionsFromSizeTable(sizeTable);
+    const optionCodeSet = new Set(options.map((item) => item.sizeCode));
+    const normalizedSelected = dedupeStrings(selectedSizeCodes)
+        .map((item) => item.trim())
+        .filter((item) => optionCodeSet.has(item));
+    if (normalizedSelected.length > 0)
+        return normalizedSelected;
+    const legacyTokens = splitLegacySizeRange(sizeRange);
+    if (legacyTokens.length === 0)
+        return [];
+    const optionMap = new Map(options.map((item) => [item.label.trim().toLowerCase(), item.sizeCode]));
+    return dedupeStrings(legacyTokens
+        .map((token) => optionMap.get(token.trim().toLowerCase()) || '')
+        .filter(Boolean));
+}
+function getSizeCodeOptionsFromSizeRules() {
+    if (!state.techPack)
+        return [];
+    return getCachedDerived('size-code-options', state.techPack.sizeTable, () => extractSizeCodeOptionsFromSizeTable(state.techPack?.sizeTable ?? []));
+}
+function isSelectableBomColorName(colorName) {
+    const normalized = String(colorName || '').trim();
+    if (!normalized)
+        return false;
+    return !['全部SKU（当前未区分颜色）', '未识别颜色', '多颜色'].includes(normalized);
+}
+function buildBomColorOptions(bomItems, skuOptions) {
+    const skuByCode = new Map(skuOptions.map((item) => [item.skuCode, item]));
+    const byColor = new Map();
+    const upsert = (colorName, skuCodes, sourceBomItemId) => {
+        const trimmedName = colorName.trim();
+        if (!isSelectableBomColorName(trimmedName))
+            return;
+        const key = trimmedName.toLowerCase();
+        const current = byColor.get(key);
+        const normalizedSkuCodes = dedupeStrings(skuCodes);
+        if (current) {
+            current.skuCodes = dedupeStrings([...current.skuCodes, ...normalizedSkuCodes]);
+            current.sourceBomItemIds = dedupeStrings([...current.sourceBomItemIds, sourceBomItemId]);
+            return;
+        }
+        byColor.set(key, {
+            colorName: trimmedName,
+            colorCode: trimmedName,
+            skuCodes: normalizedSkuCodes,
+            sourceBomItemIds: sourceBomItemId ? [sourceBomItemId] : [],
+        });
+    };
+    bomItems.forEach((item) => {
+        const explicitColorName = String(item.colorLabel || '').trim();
+        const applicableSkuCodes = item.applicableSkuCodes.length > 0 ? item.applicableSkuCodes : skuOptions.map((sku) => sku.skuCode);
+        const applicableSkuOptions = applicableSkuCodes
+            .map((skuCode) => skuByCode.get(skuCode) ?? null)
+            .filter((sku) => Boolean(sku));
+        if (isSelectableBomColorName(explicitColorName)) {
+            const matchedSkuCodes = applicableSkuOptions.length > 0
+                ? applicableSkuOptions
+                    .filter((sku) => sku.color.trim() === explicitColorName)
+                    .map((sku) => sku.skuCode)
+                : skuOptions
+                    .filter((sku) => sku.color.trim() === explicitColorName)
+                    .map((sku) => sku.skuCode);
+            upsert(explicitColorName, matchedSkuCodes, item.id);
+            return;
+        }
+        const colorsByName = new Map();
+        applicableSkuOptions.forEach((sku) => {
+            const colorName = sku.color.trim();
+            if (!isSelectableBomColorName(colorName))
+                return;
+            const current = colorsByName.get(colorName) ?? [];
+            current.push(sku.skuCode);
+            colorsByName.set(colorName, current);
+        });
+        colorsByName.forEach((skuCodes, colorName) => {
+            upsert(colorName, skuCodes, item.id);
+        });
+    });
+    return Array.from(byColor.values());
+}
+function getBomColorOptionsForPattern(linkedBomItemId) {
+    if (!state.techPack)
+        return [];
+    const normalizedLinkedBomItemId = String(linkedBomItemId || '').trim();
+    return getCachedDerived(`bom-color-options:${normalizedLinkedBomItemId}`, {
+        linkedBomItemId: normalizedLinkedBomItemId,
+        bomItems: state.techPack.bomItems.map((item) => [
+            item.id,
+            item.type,
+            item.colorLabel,
+            item.name,
+            item.spec,
+            item.linkedPatternIds,
+            item.applicableSkuCodes,
+            item.usageProcessCodes,
+            item.unitConsumption,
+            item.lossRate,
+            item.printRequirement,
+            item.dyeRequirement,
+            item.shrinkRequirement,
+            item.washRequirement,
+            item.printSideMode,
+            item.frontPatternDesignId,
+            item.insidePatternDesignId,
+        ]),
+        skuOptions: getSkuOptionsForCurrentSpu(),
+    }, () => {
+        const skuOptions = getSkuOptionsForCurrentSpu();
+        const allBomItems = (state.techPack?.bomItems ?? []).map((item) => ({
+            id: item.id,
+            type: item.type,
+            colorLabel: item.colorLabel || '',
+            materialCode: item.name,
+            materialName: item.name,
+            spec: item.spec,
+            patternPieces: [],
+            linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+            applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+            usageProcessCodes: [...(item.usageProcessCodes ?? [])],
+            usage: item.unitConsumption,
+            lossRate: item.lossRate,
+            printRequirement: item.printRequirement || '无',
+            dyeRequirement: item.dyeRequirement || '无',
+            shrinkRequirement: item.shrinkRequirement || '否',
+            washRequirement: item.washRequirement || '否',
+            printSideMode: item.printSideMode || '',
+            frontPatternDesignId: item.frontPatternDesignId || '',
+            insidePatternDesignId: item.insidePatternDesignId || '',
+        }));
+        if (normalizedLinkedBomItemId) {
+            const linkedItem = allBomItems.find((item) => item.id === normalizedLinkedBomItemId);
+            const linkedOptions = linkedItem ? buildBomColorOptions([linkedItem], skuOptions) : [];
+            if (linkedOptions.length > 0)
+                return linkedOptions;
+        }
+        return buildBomColorOptions(allBomItems, skuOptions);
+    });
+}
+function getPatternColorQuantityOptions(linkedBomItemId) {
+    const options = getBomColorOptionsForPattern(linkedBomItemId);
+    if (options.length > 0)
+        return options;
+    return [{ colorName: '默认颜色', colorCode: 'DEFAULT', skuCodes: [], sourceBomItemIds: [] }];
+}
+function normalizePieceQty(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric))
+        return 0;
+    const integer = Math.trunc(numeric);
+    return integer >= 0 ? integer : 0;
+}
+function calculatePatternPieceTotalQty(quantities) {
+    return quantities.reduce((sum, item) => sum + (item.enabled ? normalizePieceQty(item.pieceQty) : 0), 0);
+}
+function calculatePatternTotalPieceQty(rows) {
+    return rows.reduce((sum, row) => {
+        if (Number.isFinite(Number(row.totalPieceQty)))
+            return sum + normalizePieceQty(row.totalPieceQty);
+        return sum + calculatePatternPieceTotalQty(row.colorPieceQuantities ?? []);
+    }, 0);
+}
+function hasInvalidColorPieceQty(row) {
+    return row.colorPieceQuantities.some((item) => {
+        const numeric = Number(item.pieceQty);
+        return !Number.isInteger(numeric) || numeric < 0;
+    });
+}
+function hasEnabledColorPiece(row) {
+    return row.colorPieceQuantities.some((item) => item.enabled);
+}
+function hasPositiveEnabledColorPiece(row) {
+    return row.colorPieceQuantities.some((item) => item.enabled && normalizePieceQty(item.pieceQty) > 0);
+}
+function normalizePatternColorPieceQuantities(input, pieceId, linkedBomItemId, fallbackPieceQty, sourceType) {
+    const options = getPatternColorQuantityOptions(linkedBomItemId);
+    const optionByKey = new Map(options.map((option) => [
+        String(option.colorCode || option.colorName).trim().toLowerCase(),
+        option,
+    ]));
+    const explicit = (input ?? [])
+        .map((item) => {
+        const colorName = String(item.colorName || '').trim();
+        const colorId = String(item.colorId || '').trim() || colorName;
+        if (!colorName && !colorId)
+            return null;
+        const option = optionByKey.get(colorId.toLowerCase())
+            || options.find((candidate) => candidate.colorName.trim().toLowerCase() === colorName.toLowerCase());
+        return {
+            colorId: option?.colorCode || colorId || colorName,
+            colorName: option?.colorName || colorName || colorId,
+            enabled: Boolean(item.enabled),
+            pieceQty: normalizePieceQty(item.pieceQty),
+            remark: String(item.remark || '').trim() || undefined,
+        };
+    })
+        .filter((item) => Boolean(item));
+    if (explicit.length > 0) {
+        return dedupeByKey(explicit, (item) => item.colorId.trim().toLowerCase());
+    }
+    if (sourceType === 'PARSED_PATTERN') {
+        return options.map((option) => ({
+            colorId: option.colorCode || option.colorName,
+            colorName: option.colorName,
+            enabled: true,
+            pieceQty: fallbackPieceQty > 0 ? fallbackPieceQty : 0,
+            remark: fallbackPieceQty > 0 ? undefined : '请维护颜色片数',
+        }));
+    }
+    if (options.length === 1) {
+        const option = options[0];
+        return [{
+                colorId: option.colorCode || option.colorName,
+                colorName: option.colorName,
+                enabled: fallbackPieceQty > 0,
+                pieceQty: fallbackPieceQty,
+                remark: fallbackPieceQty > 0 ? undefined : '请维护颜色片数',
+            }];
+    }
+    return options.map((option) => ({
+        colorId: option.colorCode || option.colorName,
+        colorName: option.colorName,
+        enabled: false,
+        pieceQty: 0,
+        remark: fallbackPieceQty > 0 ? `历史片数 ${fallbackPieceQty} 片，请维护颜色片数` : '请维护颜色片数',
+    }));
+}
+function colorPieceQuantitiesToAllocations(quantities, pieceId, linkedBomItemId) {
+    const options = getPatternColorQuantityOptions(linkedBomItemId);
+    return quantities
+        .filter((item) => item.enabled)
+        .map((item, index) => {
+        const option = options.find((candidate) => (candidate.colorCode || candidate.colorName).trim().toLowerCase() === item.colorId.trim().toLowerCase()
+            || candidate.colorName.trim().toLowerCase() === item.colorName.trim().toLowerCase());
+        return {
+            id: `${pieceId}-color-${index + 1}`,
+            colorName: option?.colorName || item.colorName,
+            colorCode: option?.colorCode || item.colorId,
+            skuCodes: [...(option?.skuCodes ?? [])],
+            pieceCount: normalizePieceQty(item.pieceQty),
+        };
+    });
+}
+const PATTERN_CRAFT_POSITION_OPTIONS = [
+    { code: 'LEFT', name: '左' },
+    { code: 'RIGHT', name: '右' },
+    { code: 'BOTTOM', name: '底' },
+    { code: 'FACE', name: '面' },
+];
+const patternCraftPositionNameByCode = new Map(PATTERN_CRAFT_POSITION_OPTIONS.map((item) => [item.code, item.name]));
+const forbiddenPieceInstanceCraftNames = new Set(['捆条', '橡筋定长切割', '缩水', '洗水']);
+function sanitizePieceInstanceIdPart(value) {
+    return String(value || '')
+        .trim()
+        .replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]+/g, '-')
+        .replace(/-+/g, '-')
+        || 'NA';
+}
+function buildPieceInstanceId(patternId, pieceId, colorId, sequenceNo) {
+    return [
+        sanitizePieceInstanceIdPart(patternId),
+        sanitizePieceInstanceIdPart(pieceId),
+        sanitizePieceInstanceIdPart(colorId),
+        `P${sequenceNo}`,
+    ].join('-');
+}
+function normalizePatternPieceSpecialCraftAssignments(assignments = []) {
+    const optionByCode = new Map(getPatternPieceInstanceSpecialCraftOptions().map((item) => [item.craftCode, item]));
+    return dedupeByKey(assignments
+        .map((assignment, index) => {
+        const craftCode = String(assignment.craftCode || '').trim();
+        const option = optionByCode.get(craftCode)
+            || getPatternPieceInstanceSpecialCraftOptions().find((item) => item.craftName === assignment.craftName);
+        if (!option)
+            return null;
+        const position = assignment.craftPosition;
+        if (!position || !patternCraftPositionNameByCode.has(position))
+            return null;
+        return {
+            assignmentId: String(assignment.assignmentId || `${craftCode}-${position}-${index + 1}`),
+            craftCode: option.craftCode,
+            craftName: option.craftName,
+            craftCategory: option.craftCategory,
+            craftCategoryName: option.craftCategoryName,
+            targetObject: option.targetObject,
+            targetObjectName: option.targetObjectName,
+            craftPosition: position,
+            craftPositionName: patternCraftPositionNameByCode.get(position) || assignment.craftPositionName || '面',
+            remark: String(assignment.remark || '').trim() || undefined,
+            createdBy: assignment.createdBy || currentUser.name,
+            updatedAt: assignment.updatedAt || toTimestamp(),
+        };
+    })
+        .filter((item) => Boolean(item)), (item) => item.craftCode);
+}
+function getPatternPieceInstanceSpecialCraftOptions() {
+    return getCachedDerived('piece-instance-special-craft-options', 'process-craft-dict', () => listCutPiecePartCrafts()
+        .filter((item) => !forbiddenPieceInstanceCraftNames.has(item.craftName))
+        .filter((item) => item.targetObject === 'CUT_PIECE_PART' && item.canSelectInPatternPiece));
+}
+function generatePieceInstancesFromColorQuantities(pattern) {
+    const existingById = new Map((pattern.pieceInstances ?? []).map((instance) => [instance.pieceInstanceId, instance]));
+    const existingByLogicalKey = new Map((pattern.pieceInstances ?? []).map((instance) => [
+        `${instance.sourcePieceId}:${instance.colorId}:${instance.sequenceNo}`,
+        instance,
+    ]));
+    const nextInstances = [];
+    pattern.pieceRows.forEach((row) => {
+        row.colorPieceQuantities
+            .filter((quantity) => quantity.enabled && normalizePieceQty(quantity.pieceQty) > 0)
+            .forEach((quantity) => {
+            const pieceQty = normalizePieceQty(quantity.pieceQty);
+            for (let sequenceNo = 1; sequenceNo <= pieceQty; sequenceNo += 1) {
+                const pieceInstanceId = buildPieceInstanceId(pattern.id, row.id, quantity.colorId || quantity.colorName, sequenceNo);
+                const logicalKey = `${row.id}:${quantity.colorId || quantity.colorName}:${sequenceNo}`;
+                const existing = existingById.get(pieceInstanceId) || existingByLogicalKey.get(logicalKey);
+                const specialCraftAssignments = normalizePatternPieceSpecialCraftAssignments(existing?.specialCraftAssignments ?? []);
+                const displayName = `${row.name || row.sourcePartName || '未命名部位'} / ${quantity.colorName} / 第${sequenceNo}片`;
+                nextInstances.push({
+                    pieceInstanceId,
+                    sourcePieceId: row.id,
+                    pieceName: row.name || row.sourcePartName || '未命名部位',
+                    sizeName: row.sizeCode || '',
+                    colorId: quantity.colorId || quantity.colorName,
+                    colorName: quantity.colorName,
+                    sequenceNo,
+                    displayName,
+                    specialCraftAssignments,
+                    status: specialCraftAssignments.length > 0 ? '已配置' : '未配置',
+                });
+            }
+        });
+    });
+    return nextInstances;
+}
+function summarizePieceInstances(pieceInstances) {
+    const pieceInstanceTotal = pieceInstances.length;
+    const specialCraftConfiguredPieceTotal = pieceInstances.filter((instance) => instance.specialCraftAssignments.length > 0).length;
+    return {
+        pieceInstanceTotal,
+        specialCraftConfiguredPieceTotal,
+        specialCraftUnconfiguredPieceTotal: pieceInstanceTotal - specialCraftConfiguredPieceTotal,
+    };
+}
+function findConfiguredPieceInstancesRemoved(previousInstances, nextInstances) {
+    const nextIds = new Set(nextInstances.map((instance) => instance.pieceInstanceId));
+    return previousInstances.filter((instance) => !nextIds.has(instance.pieceInstanceId) && instance.specialCraftAssignments.length > 0);
+}
+function createPieceInstanceCraftAssignment(option, position, seed) {
+    return {
+        assignmentId: `PIA-${sanitizePieceInstanceIdPart(seed)}-${option.craftCode}-${position}`,
+        craftCode: option.craftCode,
+        craftName: option.craftName,
+        craftCategory: option.craftCategory,
+        craftCategoryName: option.craftCategoryName,
+        targetObject: option.targetObject,
+        targetObjectName: option.targetObjectName,
+        craftPosition: position,
+        craftPositionName: patternCraftPositionNameByCode.get(position) || '面',
+        remark: '',
+        createdBy: currentUser.name,
+        updatedAt: toTimestamp(),
+    };
+}
+function seedDemoPieceInstanceSpecialCrafts(pieceInstances, patternId) {
+    if (pieceInstances.some((instance) => instance.specialCraftAssignments.length > 0)) {
+        return pieceInstances;
+    }
+    const options = getPatternPieceInstanceSpecialCraftOptions();
+    if (options.length === 0)
+        return pieceInstances;
+    return pieceInstances.map((instance, index) => {
+        if (index % 4 === 0)
+            return instance;
+        const firstOption = options[index % options.length];
+        const firstPosition = PATTERN_CRAFT_POSITION_OPTIONS[index % PATTERN_CRAFT_POSITION_OPTIONS.length].code;
+        const assignments = [
+            createPieceInstanceCraftAssignment(firstOption, firstPosition, `${patternId}-${instance.pieceInstanceId}-1`),
+        ];
+        if (index % 3 === 0) {
+            const secondOption = options[(index + 3) % options.length];
+            const secondPosition = PATTERN_CRAFT_POSITION_OPTIONS[(index + 2) % PATTERN_CRAFT_POSITION_OPTIONS.length].code;
+            if (secondOption.craftCode !== firstOption.craftCode) {
+                assignments.push(createPieceInstanceCraftAssignment(secondOption, secondPosition, `${patternId}-${instance.pieceInstanceId}-2`));
+            }
+        }
+        return {
+            ...instance,
+            specialCraftAssignments: assignments,
+            status: '已配置',
+        };
+    });
+}
+function applyPieceInstanceSummary(pattern, pieceInstances) {
+    const summary = summarizePieceInstances(pieceInstances);
+    return {
+        ...pattern,
+        pieceInstances,
+        ...summary,
+    };
+}
+function getPatternDesignPreviewUrl(input) {
+    return String(input.previewThumbnailDataUrl || input.imageUrl || '').trim();
+}
+function getPatternDesignPreviewAssetById(designId) {
+    const normalizedId = String(designId || '').trim();
+    if (!state.techPack || !normalizedId)
+        return null;
+    const design = state.techPack.patternDesigns.find((item) => item.id === normalizedId);
+    if (!design)
+        return null;
+    return {
+        id: design.id,
+        name: String(design.name || '').trim(),
+        previewUrl: getPatternDesignPreviewUrl(design),
+        sideType: design.designSideType || null,
+    };
+}
+function getPatternDesignOptionsBySide(sideType) {
+    if (!state.techPack)
+        return [];
+    return state.techPack.patternDesigns
+        .filter((item) => item.designSideType === sideType)
+        .map((item) => ({
+        id: item.id,
+        name: item.name,
+        previewThumbnailDataUrl: getPatternDesignPreviewUrl(item),
+        originalFileName: String(item.originalFileName || item.fileName || '').trim(),
+        uploadedAt: String(item.uploadedAt || '').trim(),
+    }));
+}
+function getPartTemplateOptions() {
+    return defaultPartTemplateRecords;
+}
+function getPartTemplateRecordById(partTemplateId) {
+    const normalizedId = String(partTemplateId || '').trim();
+    if (!normalizedId)
+        return null;
+    return getPartTemplateOptions().find((record) => record.id === normalizedId) ?? null;
+}
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function normalizePatternPiecePartName(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+function stripPatternPieceSizeSuffix(value, sizeTokens) {
+    let normalized = value;
+    sizeTokens
+        .filter(Boolean)
+        .forEach((token) => {
+        const escapedToken = escapeRegExp(token);
+        normalized = normalized.replace(new RegExp(`[\\s\\-_/（(]*${escapedToken}[）)]*$`, 'i'), '').trim();
+    });
+    return normalized;
+}
+function buildPatternPiecePartKey(row) {
+    const primaryName = normalizePatternPiecePartName(row.name)
+        || normalizePatternPiecePartName(row.sourcePartName || '')
+        || normalizePatternPiecePartName(row.systemPieceName || '');
+    if (!primaryName)
+        return '';
+    const sizeTokens = dedupeStrings([
+        row.sizeCode || '',
+        ...getSizeCodeOptionsFromSizeRules().map((item) => item.sizeCode),
+    ]).map((item) => item.trim().toLowerCase());
+    return stripPatternPieceSizeSuffix(primaryName, sizeTokens) || primaryName;
+}
+function getPatternPieceSpecialCraftOptionsFromCurrentTechPack() {
+    return getCachedDerived('pattern-piece-special-craft-options', state.techniques.map((item) => [
+        item.id,
+        item.entryType,
+        item.isSpecialCraft,
+        item.processCode,
+        item.craftCode,
+        item.selectedTargetObject,
+        item.supportedTargetObjects,
+        item.supportedTargetObjectLabels,
+    ]), () => {
+        const validDefinitionsByCode = new Map(listSelectableSpecialCraftDefinitions().map((item) => [item.craftCode, item]));
+        return dedupeByKey(state.techniques
+            .filter((item) => item.entryType === 'CRAFT'
+            && item.isSpecialCraft
+            && item.processCode === 'SPECIAL_CRAFT'
+            && String(item.craftCode || '').trim().length > 0)
+            .map((item) => {
+            const definition = validDefinitionsByCode.get(item.craftCode);
+            if (!definition)
+                return null;
+            if (definition.craftName === '捆条')
+                return null;
+            const selectedTargetObject = normalizeSpecialCraftTargetObjectLabel(item.selectedTargetObject);
+            if (selectedTargetObject !== '已裁部位')
+                return null;
+            const processDefinition = getProcessDefinitionByCode(definition.processCode);
+            const processName = processDefinition?.processName || '特殊工艺';
+            const supportedTargetObjects = item.supportedTargetObjects?.length
+                ? [...item.supportedTargetObjects]
+                : [...definition.supportedTargetObjects];
+            const supportedTargetObjectLabels = item.supportedTargetObjectLabels?.length
+                ? [...item.supportedTargetObjectLabels]
+                : getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects);
+            return {
+                processCode: definition.processCode,
+                processName,
+                craftCode: definition.craftCode,
+                craftName: definition.craftName,
+                displayName: definition.craftName,
+                selectedTargetObject,
+                supportedTargetObjects,
+                supportedTargetObjectLabels,
+            };
+        })
+            .filter((item) => Boolean(item) && item.processName === '特殊工艺'), (item) => `${item.processCode}:${item.craftCode}:${item.selectedTargetObject}`);
+    });
+}
+function getSpecialCraftOptionsForPatternPiece() {
+    return getPatternPieceSpecialCraftOptionsFromCurrentTechPack();
+}
+function getSkuCodesByColor(colorCodeOrName) {
+    const token = colorCodeOrName.trim().toLowerCase();
+    if (!token)
+        return [];
+    return getSkuOptionsForCurrentSpu()
+        .filter((item) => item.color.trim().toLowerCase() === token || item.skuCode.toLowerCase().includes(token))
+        .map((item) => item.skuCode);
+}
+function getPatternById(patternId) {
+    return state.patternItems.find((item) => item.id === patternId) ?? null;
+}
+function getPatternPieceById(patternId, pieceId) {
+    const pattern = getPatternById(patternId);
+    if (!pattern)
+        return null;
+    return pattern.pieceRows.find((row) => row.id === pieceId) ?? null;
+}
+function createEmptyMappingLine(mappingId) {
+    return {
+        id: `${mappingId}-L${Date.now()}`,
+        bomItemId: '',
+        materialCode: '',
+        materialName: '',
+        materialType: '其他',
+        patternId: '',
+        patternName: '',
+        pieceId: '',
+        pieceName: '',
+        pieceCountPerUnit: 0,
+        unit: '片',
+        applicableSkuCodes: [],
+        sourceMode: 'MANUAL',
+        note: '',
+    };
+}
+function normalizeColorMatchKey(value) {
+    return String(value || '').trim().toLowerCase();
+}
+const colorMatchAliases = {
+    white: ['白色', '本白', '米白', 'wht'],
+    black: ['黑色', 'blk'],
+    red: ['红色'],
+    blue: ['蓝色'],
+    green: ['绿色'],
+    yellow: ['黄色'],
+    gray: ['灰色', 'grey'],
+    grey: ['灰色', 'gray'],
+};
+function getColorSpecificPieceQty(piece, colorName, colorCode, matchedSkuCodes) {
+    const baseKeys = [
+        normalizeColorMatchKey(colorName),
+        normalizeColorMatchKey(colorCode),
+        ...matchedSkuCodes.map((skuCode) => normalizeColorMatchKey(skuCode)),
+    ].filter(Boolean);
+    const colorKeys = new Set([
+        ...baseKeys,
+        ...baseKeys.flatMap((key) => colorMatchAliases[key] ?? []).map(normalizeColorMatchKey),
+    ]);
+    const matchedQuantity = piece.colorPieceQuantities.find((quantity) => {
+        if (!quantity.enabled)
+            return false;
+        return colorKeys.has(normalizeColorMatchKey(quantity.colorId))
+            || colorKeys.has(normalizeColorMatchKey(quantity.colorName));
+    });
+    if (matchedQuantity)
+        return normalizePieceQty(matchedQuantity.pieceQty);
+    const matchedAllocation = piece.colorAllocations.find((allocation) => {
+        if (colorKeys.has(normalizeColorMatchKey(allocation.colorCode))
+            || colorKeys.has(normalizeColorMatchKey(allocation.colorName))) {
+            return true;
+        }
+        return (allocation.skuCodes ?? []).some((skuCode) => colorKeys.has(normalizeColorMatchKey(skuCode)));
+    });
+    if (matchedAllocation)
+        return normalizePieceQty(matchedAllocation.pieceCount);
+    return normalizePieceQty(piece.count || piece.totalPieceQty || 0);
+}
+function isComplexColorMappingScenario(colorCount) {
+    if (colorCount > 1)
+        return true;
+    const hasPieceSkuRestriction = state.patternItems.some((pattern) => pattern.pieceRows.some((piece) => piece.applicableSkuCodes.length > 0));
+    const hasBomSkuRestriction = state.bomItems.some((item) => item.applicableSkuCodes.length > 0);
+    return hasPieceSkuRestriction || hasBomSkuRestriction;
+}
+function buildAutoMappingLinesForColor(colorName, mappingId, colorCode = colorName) {
+    const skuCodesOfColor = getSkuCodesByColor(colorName);
+    const skuCodeSet = new Set(skuCodesOfColor);
+    return state.bomItems.flatMap((bomItem) => {
+        const matchedSkuCodes = bomItem.applicableSkuCodes.length === 0
+            ? skuCodesOfColor
+            : skuCodesOfColor.filter((skuCode) => bomItem.applicableSkuCodes.includes(skuCode));
+        if (matchedSkuCodes.length === 0)
+            return [];
+        const linkedPatterns = state.patternItems.filter((pattern) => pattern.recordKind !== 'PACKAGE'
+            && (pattern.linkedBomItemId === bomItem.id || bomItem.linkedPatternIds.includes(pattern.id)));
+        if (linkedPatterns.length === 0)
+            return [];
+        return linkedPatterns.flatMap((pattern) => {
+            const matchedPieces = pattern.pieceRows.filter((piece) => {
+                if (piece.applicableSkuCodes.length === 0)
+                    return true;
+                return piece.applicableSkuCodes.some((skuCode) => skuCodeSet.has(skuCode));
+            });
+            if (matchedPieces.length === 0)
+                return [];
+            return matchedPieces
+                .map((piece) => {
+                const applicableSkuCodes = piece.applicableSkuCodes.length > 0
+                    ? matchedSkuCodes.filter((skuCode) => piece.applicableSkuCodes.includes(skuCode))
+                    : matchedSkuCodes;
+                if (applicableSkuCodes.length === 0)
+                    return null;
+                const pieceCountPerUnit = getColorSpecificPieceQty(piece, colorName, colorCode, applicableSkuCodes);
+                if (pieceCountPerUnit <= 0)
+                    return null;
+                return normalizeColorMappingLineRows([
+                    {
+                        id: `${mappingId}-${bomItem.id}-${pattern.id}-${piece.id}`,
+                        bomItemId: bomItem.id,
+                        materialCode: bomItem.materialCode,
+                        materialName: bomItem.materialName,
+                        materialType: bomItem.type === '面料' || bomItem.type === '辅料' ? bomItem.type : '其他',
+                        patternId: pattern.id,
+                        patternName: pattern.name,
+                        pieceId: piece.id,
+                        pieceName: piece.name,
+                        pieceCountPerUnit,
+                        unit: '片',
+                        applicableSkuCodes,
+                        sourceMode: 'AUTO',
+                        note: `系统按 ${colorName} 从 BOM 与纸样明细生成`,
+                    },
+                ], mappingId)[0];
+            })
+                .filter((line) => Boolean(line));
+        });
+    });
+}
+function getColorMaterialMappingColors() {
+    const skuOptions = getSkuOptionsForCurrentSpu();
+    const colorMap = new Map();
+    skuOptions.forEach((sku) => {
+        const colorName = sku.color || '未识别颜色';
+        const colorCode = colorName.toUpperCase().replace(/\s+/g, '_');
+        colorMap.set(colorCode, { colorCode, colorName });
+    });
+    if (colorMap.size === 0) {
+        colorMap.set('ALL', { colorCode: 'ALL', colorName: '全部颜色' });
+    }
+    return Array.from(colorMap.values());
+}
+function buildSourceDrivenColorMaterialMappings(previousMappings = []) {
+    if (!state.techPack)
+        return [];
+    const colors = getColorMaterialMappingColors();
+    const complex = isComplexColorMappingScenario(colors.length);
+    const defaultStatus = complex ? 'AUTO_DRAFT' : 'AUTO_CONFIRMED';
+    const previousByColor = new Map();
+    previousMappings.forEach((mapping) => {
+        previousByColor.set(normalizeColorMatchKey(mapping.colorCode), mapping);
+        previousByColor.set(normalizeColorMatchKey(mapping.colorName), mapping);
+    });
+    return colors.map((color) => {
+        const previous = previousByColor.get(normalizeColorMatchKey(color.colorCode))
+            || previousByColor.get(normalizeColorMatchKey(color.colorName));
+        const mappingId = previous?.id || `MAP-${state.techPack?.spuCode || 'SPU'}-${color.colorCode}`;
+        return {
+            id: mappingId,
+            spuCode: state.techPack?.spuCode || '',
+            colorCode: color.colorCode,
+            colorName: color.colorName,
+            status: previous?.status || defaultStatus,
+            generatedMode: previous?.generatedMode || 'AUTO',
+            confirmedBy: previous?.confirmedBy || (defaultStatus === 'AUTO_CONFIRMED' ? '系统' : ''),
+            confirmedAt: previous?.confirmedAt || (defaultStatus === 'AUTO_CONFIRMED' ? toTimestamp() : ''),
+            remark: previous?.remark
+                || (defaultStatus === 'AUTO_CONFIRMED'
+                    ? '系统从物料清单与纸样管理生成并确认。'
+                    : '系统从物料清单与纸样管理生成，待人工确认。'),
+            lines: buildAutoMappingLinesForColor(color.colorName, mappingId, color.colorCode),
+        };
+    });
+}
+function buildSystemSuggestedColorMappings() {
+    return buildSourceDrivenColorMaterialMappings();
+}
+function touchMappingAsManual(mapping) {
+    return {
+        ...mapping,
+        status: 'MANUAL_ADJUSTED',
+        generatedMode: 'MANUAL',
+        confirmedBy: '',
+        confirmedAt: '',
+        remark: mapping.remark || '人工修订后待确认',
+        lines: mapping.lines.map((line) => ({ ...line, sourceMode: 'MANUAL' })),
+    };
+}
+function updateColorMapping(mappingId, updater) {
+    state.colorMaterialMappings = state.colorMaterialMappings.map((mapping) => mapping.id === mappingId ? updater(mapping) : mapping);
+}
+function updateColorMappingLine(mappingId, lineId, updater) {
+    updateColorMapping(mappingId, (mapping) => touchMappingAsManual({
+        ...mapping,
+        lines: mapping.lines.map((line) => (line.id === lineId ? updater(line) : line)),
+    }));
+}
+function copySystemDraftToManual(mappingId) {
+    updateColorMapping(mappingId, (mapping) => ({
+        ...touchMappingAsManual(mapping),
+        remark: mapping.remark || '系统草稿已复制为人工版本，可继续修订并确认',
+        lines: mapping.lines.map((line) => ({ ...line, sourceMode: 'MANUAL' })),
+    }));
+}
+function resetColorMappingToSystemSuggestion(mappingId) {
+    const suggestions = buildSystemSuggestedColorMappings();
+    const suggested = suggestions.find((item) => item.id === mappingId);
+    if (!suggested)
+        return;
+    updateColorMapping(mappingId, () => suggested);
+}
+function getPatternBySelectionKey(selectionKey) {
+    return (state.patternItems.find((item) => item.id === selectionKey) ??
+        state.patternItems.find((item) => item.name === selectionKey) ??
+        null);
+}
+function normalizePatternPieceColorAllocations(allocations, pieceId, fallbackPieceCount) {
+    return dedupeByKey(allocations
+        .map((allocation, index) => ({
+        id: allocation.id?.trim() || `${pieceId}-color-${index + 1}`,
+        colorName: String(allocation.colorName || '').trim(),
+        colorCode: allocation.colorCode?.trim() || undefined,
+        skuCodes: dedupeStrings([...(allocation.skuCodes ?? [])]),
+        pieceCount: Number.isFinite(Number(allocation.pieceCount)) && Number(allocation.pieceCount) > 0
+            ? Number(allocation.pieceCount)
+            : fallbackPieceCount,
+    }))
+        .filter((allocation) => allocation.colorName.length > 0), (allocation) => allocation.colorName.trim().toLowerCase());
+}
+function deriveColorAllocationsFromApplicableSkuCodes(skuCodes, pieceId, fallbackPieceCount) {
+    if (skuCodes.length === 0)
+        return [];
+    const skuByCode = new Map(getSkuOptionsForCurrentSpu().map((item) => [item.skuCode, item]));
+    const colorMap = new Map();
+    skuCodes.forEach((skuCode) => {
+        const sku = skuByCode.get(skuCode);
+        const colorName = sku?.color?.trim() || '';
+        if (!isSelectableBomColorName(colorName))
+            return;
+        const current = colorMap.get(colorName) ?? [];
+        current.push(skuCode);
+        colorMap.set(colorName, current);
+    });
+    return Array.from(colorMap.entries()).map(([colorName, matchedSkuCodes], index) => ({
+        id: `${pieceId}-legacy-color-${index + 1}`,
+        colorName,
+        colorCode: colorName,
+        skuCodes: dedupeStrings(matchedSkuCodes),
+        pieceCount: fallbackPieceCount,
+    }));
+}
+function normalizePatternPieceSpecialCrafts(specialCrafts) {
+    const optionByCode = new Map(getSpecialCraftOptionsForPatternPiece().map((item) => [`${item.processCode}:${item.craftCode}:${item.selectedTargetObject}`, item]));
+    return dedupeByKey(specialCrafts
+        .flatMap((item) => {
+        const processCode = String(item.processCode || '').trim();
+        const craftCode = String(item.craftCode || '').trim();
+        const selectedTargetObject = normalizeSpecialCraftTargetObjectLabel(item.selectedTargetObject) || '已裁部位';
+        const matched = optionByCode.get(`${processCode}:${craftCode}:${selectedTargetObject}`);
+        return matched ? [{ ...matched }] : [];
+    })
+        .filter((item) => Boolean(item)), (item) => `${item.processCode}:${item.craftCode}:${item.selectedTargetObject}`);
+}
+function hasBundleSpecialCraft(specialCrafts) {
+    return specialCrafts.some((craft) => craft.craftName === '捆条' || craft.displayName === '捆条');
+}
+function normalizePatternPieceRows(rows, patternId, linkedBomItemId = '') {
+    const bomOptions = getBomColorOptionsForPattern(linkedBomItemId);
+    return rows.map((row, index) => {
+        const normalizedPieceId = row.id || `${patternId}-piece-${index + 1}`;
+        const templateRecord = getPartTemplateRecordById(row.partTemplateId);
+        const isTemplate = Boolean(row.isTemplate && (templateRecord || String(row.partTemplateId || '').trim()));
+        const normalizedCount = Number.isFinite(row.count)
+            ? Number(row.count)
+            : Number.parseInt(String(row.count || ''), 10) || 0;
+        const normalizedSourceType = row.sourceType === 'PARSED_PATTERN' ? 'PARSED_PATTERN' : 'MANUAL';
+        const parsedQuantity = Number.isFinite(Number(row.parsedQuantity)) && Number(row.parsedQuantity) >= 0
+            ? normalizePieceQty(row.parsedQuantity)
+            : Number.isFinite(Number(row.quantityText)) && Number(row.quantityText) >= 0
+                ? normalizePieceQty(row.quantityText)
+                : normalizedSourceType === 'PARSED_PATTERN'
+                    ? normalizedCount
+                    : undefined;
+        const explicitColorAllocations = normalizePatternPieceColorAllocations(row.colorAllocations ?? [], normalizedPieceId, normalizedCount);
+        const legacyColorPieceQuantities = explicitColorAllocations.map((allocation) => ({
+            colorId: allocation.colorCode || allocation.colorName,
+            colorName: allocation.colorName,
+            enabled: true,
+            pieceQty: allocation.pieceCount,
+        }));
+        const normalizedColorPieceQuantities = normalizePatternColorPieceQuantities(row.colorPieceQuantities && row.colorPieceQuantities.length > 0
+            ? row.colorPieceQuantities
+            : legacyColorPieceQuantities, normalizedPieceId, linkedBomItemId, parsedQuantity ?? normalizedCount, normalizedSourceType);
+        const allocationFromColorQuantities = colorPieceQuantitiesToAllocations(normalizedColorPieceQuantities, normalizedPieceId, linkedBomItemId);
+        const normalizedColorAllocations = allocationFromColorQuantities.length > 0
+            ? allocationFromColorQuantities
+            : explicitColorAllocations.length > 0
+                ? explicitColorAllocations
+                : deriveColorAllocationsFromApplicableSkuCodes([...(row.applicableSkuCodes ?? [])], normalizedPieceId, normalizedCount);
+        const totalPieceQty = calculatePatternPieceTotalQty(normalizedColorPieceQuantities);
+        const derivedSkuCodes = normalizedColorAllocations.flatMap((allocation) => {
+            if (allocation.skuCodes.length > 0)
+                return allocation.skuCodes;
+            const matched = bomOptions.find((option) => option.colorName.trim().toLowerCase() === allocation.colorName.trim().toLowerCase());
+            return matched?.skuCodes ?? [];
+        });
+        const normalizedSpecialCrafts = normalizePatternPieceSpecialCrafts(row.specialCrafts ?? []);
+        const bundleLengthCm = Number(row.bundleLengthCm);
+        const bundleWidthCm = Number(row.bundleWidthCm);
+        return {
+            id: normalizedPieceId,
+            name: String(row.name || '').trim(),
+            count: totalPieceQty,
+            note: String(row.note || '').trim(),
+            isTemplate,
+            partTemplateId: isTemplate ? String(row.partTemplateId || templateRecord?.id || '').trim() || undefined : undefined,
+            partTemplateName: isTemplate
+                ? String(row.partTemplateName || templateRecord?.templateName || '').trim() || undefined
+                : undefined,
+            partTemplatePreviewSvg: isTemplate
+                ? String(row.partTemplatePreviewSvg || templateRecord?.previewSvg || '').trim() || undefined
+                : undefined,
+            partTemplateShapeDescription: isTemplate
+                ? String(row.partTemplateShapeDescription
+                    || templateRecord?.shapeDescription?.autoDescription
+                    || '').trim() || undefined
+                : undefined,
+            applicableSkuCodes: dedupeStrings([...(row.applicableSkuCodes ?? []), ...derivedSkuCodes]),
+            colorAllocations: normalizedColorAllocations,
+            colorPieceQuantities: normalizedColorPieceQuantities,
+            totalPieceQty,
+            specialCrafts: normalizedSpecialCrafts,
+            bundleLengthCm: hasBundleSpecialCraft(normalizedSpecialCrafts) && Number.isFinite(bundleLengthCm) && bundleLengthCm > 0
+                ? bundleLengthCm
+                : undefined,
+            bundleWidthCm: hasBundleSpecialCraft(normalizedSpecialCrafts) && Number.isFinite(bundleWidthCm) && bundleWidthCm > 0
+                ? bundleWidthCm
+                : undefined,
+            sourceType: normalizedSourceType,
+            sourcePartName: row.sourcePartName?.trim() || undefined,
+            systemPieceName: row.systemPieceName?.trim() || undefined,
+            candidatePartNames: dedupeStrings([...(row.candidatePartNames ?? [])]),
+            sizeCode: row.sizeCode?.trim() || undefined,
+            parsedQuantity,
+            quantityText: row.quantityText?.trim() || undefined,
+            annotation: row.annotation?.trim() || undefined,
+            category: row.category?.trim() || undefined,
+            width: Number.isFinite(row.width) ? Number(row.width) : undefined,
+            height: Number.isFinite(row.height) ? Number(row.height) : undefined,
+            area: Number.isFinite(row.area) ? Number(row.area) : undefined,
+            perimeter: Number.isFinite(row.perimeter) ? Number(row.perimeter) : undefined,
+            geometryHash: row.geometryHash?.trim() || undefined,
+            previewSvg: row.previewSvg?.trim() || undefined,
+            parserStatus: row.parserStatus || undefined,
+            machineReadyStatus: row.machineReadyStatus || undefined,
+            rawTextLabels: dedupeStrings([...(row.rawTextLabels ?? [])]),
+            missingName: Boolean(row.missingName),
+            missingCount: Boolean(row.missingCount),
+        };
+    });
+}
+function buildPatternDisplayFile(input) {
+    if (input.patternFileMode === 'PAIRED_DXF_RUL') {
+        const dxf = String(input.dxfFileName || '').trim();
+        const rul = String(input.rulFileName || '').trim();
+        if (dxf && rul)
+            return `${dxf} / ${rul}`;
+        return dxf || rul || String(input.fileName || '').trim();
+    }
+    return String(input.singlePatternFileName || input.fileName || '').trim();
+}
+function buildPatternName(input, fallbackIndex) {
+    const explicitName = String(input.patternName || '').trim();
+    if (explicitName)
+        return explicitName;
+    const fallbackFileName = String(input.singlePatternFileName || input.dxfFileName || input.fileName || '').trim();
+    if (fallbackFileName)
+        return fallbackFileName.replace(/\.[^/.]+$/, '');
+    return `纸样${fallbackIndex + 1}`;
+}
+function buildPatternItemsFromTechPack(techPack) {
+    if (techPack.patternFiles.length === 0) {
+        return ensurePatternPoolDemoPackages(ensurePatternStatusDemoCoverage(DEFAULT_PATTERN_ITEMS.map((item) => ({
+            ...item,
+            recordKind: item.recordKind ?? 'MATERIAL_ASSOCIATION',
+            prjFile: item.prjFile ? { ...item.prjFile } : null,
+            markerImage: item.markerImage ? { ...item.markerImage } : null,
+            dxfFile: item.dxfFile ? { ...item.dxfFile } : null,
+            rulFile: item.rulFile ? { ...item.rulFile } : null,
+            bindingStrips: normalizePatternBindingStrips(item.bindingStrips),
+            patternSignature: item.patternSignature || buildPatternSignature(item),
+            duplicateConfirmed: Boolean(item.duplicateConfirmed),
+            duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
+            pieceInstances: item.pieceInstances.map((instance) => ({
+                ...instance,
+                specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+            })),
+            selectedSizeCodes: [...item.selectedSizeCodes],
+            pieceRows: item.pieceRows.map((row) => ({
+                ...row,
+                applicableSkuCodes: [...row.applicableSkuCodes],
+                colorAllocations: row.colorAllocations.map((allocation) => ({
+                    ...allocation,
+                    skuCodes: [...(allocation.skuCodes ?? [])],
+                })),
+                colorPieceQuantities: [...(row.colorPieceQuantities ?? [])],
+                totalPieceQty: row.totalPieceQty ?? row.count,
+                parsedQuantity: row.parsedQuantity,
+                specialCrafts: row.specialCrafts.map((craft) => ({ ...craft })),
+                candidatePartNames: [...(row.candidatePartNames ?? [])],
+                rawTextLabels: [...(row.rawTextLabels ?? [])],
+            })),
+        })), techPack.bomItems), techPack.bomItems);
+    }
+    return ensurePatternPoolDemoPackages(ensurePatternStatusDemoCoverage(techPack.patternFiles.map((item, index) => {
+        const patternId = item.id || `PAT-${index + 1}`;
+        const linkedBom = techPack.bomItems.find((bom) => bom.id === item.linkedBomItemId)
+            || techPack.bomItems[index % Math.max(techPack.bomItems.length, 1)]
+            || null;
+        const normalizedRows = normalizePatternPieceRows((item.pieceRows ?? []).map((row) => ({
+            id: row.id || '',
+            name: row.name,
+            count: Number(row.count),
+            note: row.note || '',
+            isTemplate: Boolean(row.isTemplate),
+            partTemplateId: row.partTemplateId,
+            partTemplateName: row.partTemplateName,
+            partTemplatePreviewSvg: row.partTemplatePreviewSvg,
+            partTemplateShapeDescription: row.partTemplateShapeDescription,
+            applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+            colorAllocations: (row.colorAllocations ?? []).map((allocation) => ({
+                ...allocation,
+                skuCodes: [...(allocation.skuCodes ?? [])],
+            })),
+            colorPieceQuantities: [...(row.colorPieceQuantities ?? [])],
+            totalPieceQty: row.totalPieceQty ?? row.count,
+            parsedQuantity: row.parsedQuantity,
+            specialCrafts: (row.specialCrafts ?? []).map((craft) => ({ ...craft })),
+            bundleLengthCm: row.bundleLengthCm,
+            bundleWidthCm: row.bundleWidthCm,
+            sourceType: row.sourceType === 'PARSED_PATTERN' ? 'PARSED_PATTERN' : 'MANUAL',
+            sourcePartName: row.sourcePartName,
+            systemPieceName: row.systemPieceName,
+            candidatePartNames: [...(row.candidatePartNames ?? [])],
+            sizeCode: row.sizeCode,
+            quantityText: row.quantityText,
+            annotation: row.annotation,
+            category: row.category,
+            width: row.width,
+            height: row.height,
+            area: row.area,
+            perimeter: row.perimeter,
+            geometryHash: row.geometryHash,
+            previewSvg: row.previewSvg,
+            parserStatus: row.parserStatus,
+            machineReadyStatus: row.machineReadyStatus,
+            rawTextLabels: [...(row.rawTextLabels ?? [])],
+            missingName: row.missingName,
+            missingCount: row.missingCount,
+        })), patternId, item.linkedBomItemId ?? '');
+        const recordKind = item.recordKind ?? 'MATERIAL_ASSOCIATION';
+        const effectiveRows = recordKind === 'PACKAGE'
+            ? sanitizePatternPackageAssetRows(normalizedRows)
+            : normalizedRows;
+        const inferredPieceCount = calculatePatternTotalPieceQty(effectiveRows);
+        const patternMaterialType = normalizePatternMaterialType(item.patternMaterialType)
+            || inferPatternMaterialTypeFromPatternFile({
+                fileName: item.fileName,
+                singlePatternFileName: item.singlePatternFileName,
+                dxfFileName: item.dxfFileName,
+                linkedBomItemId: item.linkedBomItemId,
+                linkedBomName: linkedBom?.name,
+                linkedBomSpec: linkedBom?.spec,
+                linkedBomType: linkedBom?.type,
+            });
+        const normalizedMaterialType = patternMaterialType === 'UNKNOWN'
+            ? inferPatternMaterialTypeFromPatternFile({
+                fileName: item.fileName,
+                singlePatternFileName: item.singlePatternFileName,
+                dxfFileName: item.dxfFileName,
+                linkedBomItemId: item.linkedBomItemId,
+                linkedBomName: linkedBom?.name,
+                linkedBomSpec: linkedBom?.spec,
+                linkedBomType: linkedBom?.type,
+            })
+            : patternMaterialType;
+        const patternFileMode = item.patternFileMode === 'PAIRED_DXF_RUL' || item.patternFileMode === 'SINGLE_FILE'
+            ? item.patternFileMode
+            : inferPatternFileMode(normalizedMaterialType);
+        const parseStatus = normalizePatternParseStatus(item.parseStatus);
+        const patternName = buildPatternName(item, index);
+        const hasLegacyTechnicalFiles = Boolean(item.fileName
+            || item.dxfFileName
+            || item.rulFileName
+            || parseStatus === 'PARSED');
+        const prjFile = item.prjFile ?? createPatternManagedFile({
+            fileName: hasLegacyTechnicalFiles ? `${patternName}.prj` : '',
+            fileSize: 24576,
+            uploadedAt: item.uploadedAt,
+            uploadedBy: item.uploadedBy,
+        });
+        const markerImage = item.markerImage ?? createPatternManagedFile({
+            fileName: item.imageUrl || (hasLegacyTechnicalFiles ? `${patternName}-marker.png` : ''),
+            fileSize: item.imageUrl || hasLegacyTechnicalFiles ? 32768 : 0,
+            uploadedAt: item.uploadedAt,
+            uploadedBy: item.uploadedBy,
+            previewUrl: item.imageUrl || (hasLegacyTechnicalFiles ? `${patternName}-marker.png` : undefined),
+        });
+        const dxfFile = item.dxfFile ?? createPatternManagedFile({
+            fileName: item.dxfFileName,
+            fileSize: item.dxfFileSize,
+            uploadedAt: item.dxfLastModified || item.uploadedAt,
+            uploadedBy: item.uploadedBy,
+        });
+        const rulFile = item.rulFile ?? createPatternManagedFile({
+            fileName: item.rulFileName,
+            fileSize: item.rulFileSize,
+            uploadedAt: item.rulLastModified || item.uploadedAt,
+            uploadedBy: item.uploadedBy,
+        });
+        const bindingStrips = recordKind === 'PACKAGE' ? [] : normalizePatternBindingStrips(item.bindingStrips);
+        const pieceInstances = recordKind === 'PACKAGE'
+            ? []
+            : generatePieceInstancesFromColorQuantities({
+                id: patternId,
+                pieceRows: effectiveRows,
+                pieceInstances: item.pieceInstances ?? [],
+            });
+        const pieceInstanceSummary = recordKind === 'PACKAGE'
+            ? {
+                pieceInstanceTotal: 0,
+                specialCraftConfiguredPieceTotal: 0,
+                specialCraftUnconfiguredPieceTotal: 0,
+            }
+            : summarizePieceInstances(pieceInstances);
+        return {
+            id: patternId,
+            recordKind,
+            name: patternName,
+            type: item.patternCategory || '主体片',
+            image: item.imageUrl || '',
+            file: buildPatternDisplayFile({
+                patternFileMode,
+                dxfFileName: item.dxfFileName,
+                rulFileName: item.rulFileName,
+                singlePatternFileName: item.singlePatternFileName,
+                fileName: item.fileName,
+            }),
+            remark: item.remark || '',
+            linkedBomItemId: recordKind === 'PACKAGE' ? '' : item.linkedBomItemId || linkedBom?.id || '',
+            linkedMaterialId: recordKind === 'PACKAGE' ? '' : item.linkedMaterialId || item.linkedBomItemId || linkedBom?.id || '',
+            linkedMaterialName: recordKind === 'PACKAGE' ? '' : item.linkedMaterialName || linkedBom?.name || '',
+            linkedMaterialAlias: recordKind === 'PACKAGE' ? '' : item.linkedMaterialAlias || '',
+            linkedMaterialSku: recordKind === 'PACKAGE' ? '' : item.linkedMaterialSku || linkedBom?.id || '',
+            // 门幅单位固定 cm
+            widthCm: recordKind === 'PACKAGE' ? 0 : Number.isFinite(item.widthCm) && Number(item.widthCm) > 0 ? Number(item.widthCm) : 142 + index,
+            // 排料长度单位固定 m
+            markerLengthM: recordKind === 'PACKAGE' ? 0 : Number.isFinite(item.markerLengthM) ? Number(item.markerLengthM) : 0,
+            // totalPieceCount 固定语义：裁片总片数
+            totalPieceCount: Number.isFinite(item.totalPieceCount) && Number(item.totalPieceCount) > 0
+                ? Number(item.totalPieceCount)
+                : inferredPieceCount,
+            patternTotalPieceQty: Number.isFinite(item.patternTotalPieceQty) && Number(item.patternTotalPieceQty) > 0
+                ? Number(item.patternTotalPieceQty)
+                : inferredPieceCount,
+            isWoolted: getPatternIsWoolted(normalizedMaterialType, item.isWoolted),
+            maintainerStepStatus: item.maintainerStepStatus
+                || (parseStatus === 'PARSED' ? '已解析待确认' : prjFile && markerImage && item.dxfFileName && item.rulFileName ? '待解析' : '待版师维护'),
+            merchandiserInfoStatus: recordKind === 'PACKAGE'
+                ? '已填写'
+                : item.merchandiserInfoStatus
+                    || (patternName && item.linkedBomItemId && Number(item.widthCm) > 0 ? '已填写' : '未填写'),
+            patternMakerInfoStatus: item.patternMakerInfoStatus
+                || (parseStatus === 'PARSED' ? '已解析' : prjFile && markerImage && item.dxfFileName && item.rulFileName ? '待解析' : '未填写'),
+            prjFile,
+            markerImage,
+            dxfFile,
+            rulFile,
+            bindingStrips,
+            pieceInstances,
+            ...pieceInstanceSummary,
+            patternSignature: item.patternSignature || '',
+            duplicateConfirmed: Boolean(item.duplicateConfirmed),
+            duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
+            patternMaterialType: normalizedMaterialType,
+            patternMaterialTypeLabel: String(item.patternMaterialTypeLabel || '').trim() || getPatternMaterialTypeLabel(normalizedMaterialType),
+            patternFileMode,
+            parseStatus,
+            parseStatusLabel: String(item.parseStatusLabel || '').trim() || getPatternParseStatusLabel(parseStatus),
+            parseError: item.parseError || '',
+            parsedAt: item.parsedAt || '',
+            dxfFileName: item.dxfFileName || '',
+            dxfFileSize: Number.isFinite(item.dxfFileSize) ? Number(item.dxfFileSize) : 0,
+            dxfLastModified: item.dxfLastModified || '',
+            rulFileName: item.rulFileName || '',
+            rulFileSize: Number.isFinite(item.rulFileSize) ? Number(item.rulFileSize) : 0,
+            rulLastModified: item.rulLastModified || '',
+            singlePatternFileName: item.singlePatternFileName || '',
+            singlePatternFileSize: Number.isFinite(item.singlePatternFileSize) ? Number(item.singlePatternFileSize) : 0,
+            singlePatternFileLastModified: item.singlePatternFileLastModified || '',
+            dxfEncoding: item.dxfEncoding || '',
+            rulEncoding: item.rulEncoding || '',
+            rulSizeList: [...(item.rulSizeList ?? [])],
+            rulSampleSize: item.rulSampleSize || '',
+            patternSoftwareName: item.patternSoftwareName || '',
+            selectedSizeCodes: normalizeSelectedSizeCodes([...(item.selectedSizeCodes ?? [])], item.sizeRange || '', techPack.sizeTable),
+            sizeRange: normalizeSelectedSizeCodes([...(item.selectedSizeCodes ?? [])], item.sizeRange || '', techPack.sizeTable)
+                .join(' / ') || item.sizeRange || '',
+            pieceRows: effectiveRows,
+            sourcePatternPackageId: item.sourcePatternPackageId,
+            sourcePatternPackageName: item.sourcePatternPackageName,
+        };
+    }), techPack.bomItems), techPack.bomItems);
+}
+function buildBomItemsFromTechPack(techPack) {
+    if (techPack.bomItems.length === 0) {
+        return DEFAULT_BOM_ITEMS.map((item) => ({
+            ...item,
+            patternPieces: [...item.patternPieces],
+            linkedPatternIds: [...item.linkedPatternIds],
+            applicableSkuCodes: [...item.applicableSkuCodes],
+            usageProcessCodes: [...item.usageProcessCodes],
+        }));
+    }
+    const patternNameById = new Map(techPack.patternFiles.map((item) => [item.id, item.fileName.replace(/\.[^/.]+$/, '')]));
+    const patternNamesByLinkedBom = new Map();
+    techPack.patternFiles.forEach((item) => {
+        if (!item.linkedBomItemId)
+            return;
+        const current = patternNamesByLinkedBom.get(item.linkedBomItemId) ?? [];
+        current.push(item.fileName.replace(/\.[^/.]+$/, ''));
+        patternNamesByLinkedBom.set(item.linkedBomItemId, current);
+    });
+    return techPack.bomItems.map((item, index) => {
+        const linkedPatternIds = dedupeStrings([...(item.linkedPatternIds ?? [])]);
+        const namesFromLinkedIds = linkedPatternIds
+            .map((id) => patternNameById.get(id) || '')
+            .filter((name) => name.trim().length > 0);
+        const namesFromLinkedBom = patternNamesByLinkedBom.get(item.id) ?? [];
+        const patternPieces = dedupeStrings([...namesFromLinkedIds, ...namesFromLinkedBom]);
+        return {
+            id: item.id || `bom-${index + 1}`,
+            type: item.type,
+            colorLabel: item.colorLabel || '',
+            materialCode: item.id || `MAT-${index + 1}`,
+            materialName: item.name,
+            spec: item.spec,
+            patternPieces,
+            linkedPatternIds,
+            applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+            usageProcessCodes: [...(item.usageProcessCodes ?? [])],
+            usage: item.unitConsumption,
+            lossRate: item.lossRate,
+            printRequirement: item.printRequirement ?? '无',
+            dyeRequirement: item.dyeRequirement ?? '无',
+            shrinkRequirement: item.shrinkRequirement ?? '否',
+            washRequirement: item.washRequirement ?? '否',
+            printSideMode: item.printSideMode ?? '',
+            frontPatternDesignId: item.frontPatternDesignId ?? '',
+            insidePatternDesignId: item.insidePatternDesignId ?? '',
+        };
+    });
+}
+function toTechniqueItemFromEntry(entry, fallbackIndex) {
+    const normalizedEntry = resolveTechPackProcessEntryRule(entry);
+    const referenceMeta = normalizedEntry.craftCode
+        ? getTechniqueReferenceMetaByCraftCode(normalizedEntry.craftCode)
+        : getTechniqueReferenceMetaByCraftCode('');
+    return {
+        id: normalizedEntry.id || `tech-${fallbackIndex + 1}`,
+        entryType: normalizedEntry.entryType,
+        stageCode: normalizedEntry.stageCode,
+        stage: getStageName(normalizedEntry.stageCode),
+        processCode: normalizedEntry.processCode,
+        process: normalizedEntry.processName,
+        craftCode: normalizedEntry.craftCode || '',
+        technique: normalizedEntry.craftName || normalizedEntry.processName,
+        assignmentGranularity: normalizedEntry.assignmentGranularity,
+        ruleSource: normalizedEntry.ruleSource ?? 'INHERIT_PROCESS',
+        detailSplitMode: normalizedEntry.detailSplitMode ?? 'COMPOSITE',
+        detailSplitDimensions: [...(normalizedEntry.detailSplitDimensions ?? [])],
+        defaultDocType: normalizedEntry.defaultDocType,
+        taskTypeMode: normalizedEntry.taskTypeMode,
+        isSpecialCraft: normalizedEntry.isSpecialCraft,
+        selectedTargetObject: normalizeSpecialCraftTargetObjectLabel(normalizedEntry.selectedTargetObject) || undefined,
+        supportedTargetObjects: normalizedEntry.supportedTargetObjects
+            ? [...normalizedEntry.supportedTargetObjects]
+            : undefined,
+        supportedTargetObjectLabels: normalizedEntry.supportedTargetObjectLabels
+            ? [...normalizedEntry.supportedTargetObjectLabels]
+            : undefined,
+        targetObject: normalizedEntry.targetObject,
+        targetObjectName: normalizedEntry.targetObjectName,
+        woolTaskType: normalizedEntry.woolTaskType,
+        downstreamTarget: normalizedEntry.downstreamTarget,
+        requiresFeiTicket: normalizedEntry.requiresFeiTicket,
+        packagingRequired: normalizedEntry.packagingRequired,
+        materialIssueMode: normalizedEntry.materialIssueMode,
+        linkedBomItemIds: normalizedEntry.linkedBomItemIds ? [...normalizedEntry.linkedBomItemIds] : undefined,
+        linkedPatternIds: normalizedEntry.linkedPatternIds ? [...normalizedEntry.linkedPatternIds] : undefined,
+        triggerSource: normalizedEntry.triggerSource || '',
+        standardTime: Number.isFinite(normalizedEntry.standardTimeMinutes)
+            ? Number(normalizedEntry.standardTimeMinutes)
+            : 0,
+        timeUnit: normalizedEntry.referencePublishedSamUnitLabel ||
+            normalizedEntry.timeUnit ||
+            '分钟/件',
+        referencePublishedSamValue: normalizedEntry.referencePublishedSamValue ?? referenceMeta.referencePublishedSamValue,
+        referencePublishedSamUnit: normalizedEntry.referencePublishedSamUnit ?? referenceMeta.referencePublishedSamUnit,
+        referencePublishedSamUnitLabel: normalizedEntry.referencePublishedSamUnitLabel ??
+            referenceMeta.referencePublishedSamUnitLabel,
+        referencePublishedSamNote: normalizeReferencePublishedSamNote(normalizedEntry.referencePublishedSamNote ?? referenceMeta.referencePublishedSamNote),
+        difficulty: mapDifficultyToZh(normalizedEntry.difficulty || 'MEDIUM'),
+        remark: normalizedEntry.remark || '',
+        source: '字典引用',
+        sourceType: normalizedEntry.sourceType,
+        triggerField: normalizedEntry.triggerField,
+        isAutoGenerated: normalizedEntry.isAutoGenerated,
+        canRemoveAutomatically: normalizedEntry.canRemoveAutomatically,
+        hasManualOverride: normalizedEntry.hasManualOverride,
+        manualNotes: normalizedEntry.manualNotes,
+        manualFieldsTouched: normalizedEntry.manualFieldsTouched,
+        requiresRemovalConfirmation: normalizedEntry.requiresRemovalConfirmation,
+        linkageStatus: normalizedEntry.linkageStatus,
+    };
+}
+function buildTechniquesFromTechPack(techPack, bomItems = buildBomItemsFromTechPack(techPack)) {
+    if ((techPack.processEntries ?? []).length > 0) {
+        return syncBomDrivenPrepTechniques((techPack.processEntries ?? []).map((entry, index) => toTechniqueItemFromEntry(entry, index)), bomItems);
+    }
+    if (techPack.processes.length === 0) {
+        return syncBomDrivenPrepTechniques(DEFAULT_TECHNIQUES.map((item) => ({
+            ...item,
+            detailSplitDimensions: [...item.detailSplitDimensions],
+        })), bomItems);
+    }
+    return syncBomDrivenPrepTechniques(techPack.processes.map((item, index) => {
+        const craft = listProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name);
+        if (craft) {
+            const processDef = getProcessDefinitionByCode(craft.processCode);
+            const referenceMeta = getTechniqueReferenceMetaByCraftCode(craft.craftCode);
+            const supportedTargetObjectLabels = craft.isSpecialCraft
+                ? getSpecialCraftSupportedTargetObjectLabels(craft.supportedTargetObjects)
+                : undefined;
+            return {
+                id: item.id || `tech-${index + 1}`,
+                entryType: 'CRAFT',
+                stageCode: craft.stageCode,
+                stage: getStageName(craft.stageCode),
+                processCode: craft.processCode,
+                process: processDef?.processName || craft.processCode,
+                craftCode: craft.craftCode,
+                technique: craft.craftName,
+                assignmentGranularity: craft.assignmentGranularity,
+                ruleSource: craft.ruleSource,
+                detailSplitMode: craft.detailSplitMode,
+                detailSplitDimensions: [...craft.detailSplitDimensions],
+                defaultDocType: craft.defaultDocType,
+                taskTypeMode: craft.taskTypeMode,
+                isSpecialCraft: craft.isSpecialCraft,
+                selectedTargetObject: craft.isSpecialCraft && supportedTargetObjectLabels?.length === 1
+                    ? supportedTargetObjectLabels[0]
+                    : undefined,
+                targetObject: undefined,
+                targetObjectName: undefined,
+                supportedTargetObjects: craft.isSpecialCraft ? [...craft.supportedTargetObjects] : undefined,
+                supportedTargetObjectLabels,
+                triggerSource: '',
+                standardTime: item.timeMinutes,
+                timeUnit: referenceMeta.referencePublishedSamUnitLabel || '分钟/件',
+                referencePublishedSamValue: referenceMeta.referencePublishedSamValue,
+                referencePublishedSamUnit: referenceMeta.referencePublishedSamUnit,
+                referencePublishedSamUnitLabel: referenceMeta.referencePublishedSamUnitLabel,
+                referencePublishedSamNote: referenceMeta.referencePublishedSamNote,
+                difficulty: mapDifficultyToZh(item.difficulty),
+                remark: '',
+                source: '字典引用',
+            };
+        }
+        const processDef = listProcessDefinitions().find((processItem) => processItem.processName === item.name || processItem.systemProcessCode === item.name);
+        if (processDef) {
+            return {
+                id: item.id || `tech-${index + 1}`,
+                entryType: 'PROCESS_BASELINE',
+                stageCode: processDef.stageCode,
+                stage: getStageName(processDef.stageCode),
+                processCode: processDef.processCode,
+                process: processDef.processName,
+                craftCode: '',
+                technique: processDef.processName,
+                assignmentGranularity: processDef.assignmentGranularity,
+                ruleSource: 'INHERIT_PROCESS',
+                detailSplitMode: processDef.detailSplitMode,
+                detailSplitDimensions: [...processDef.detailSplitDimensions],
+                defaultDocType: processDef.defaultDocType,
+                taskTypeMode: processDef.taskTypeMode,
+                isSpecialCraft: false,
+                triggerSource: processDef.triggerSource || '',
+                standardTime: item.timeMinutes,
+                timeUnit: '分钟/件',
+                referencePublishedSamValue: null,
+                referencePublishedSamUnit: '',
+                referencePublishedSamUnitLabel: '',
+                referencePublishedSamNote: '工序级准备项',
+                difficulty: mapDifficultyToZh(item.difficulty),
+                remark: '',
+                source: '字典引用',
+            };
+        }
+        return {
+            id: item.id || `tech-${index + 1}`,
+            entryType: 'CRAFT',
+            stageCode: 'PROD',
+            stage: getStageName('PROD'),
+            processCode: 'SEW',
+            process: '车缝',
+            craftCode: '',
+            technique: item.name,
+            assignmentGranularity: 'SKU',
+            ruleSource: 'INHERIT_PROCESS',
+            detailSplitMode: 'COMPOSITE',
+            detailSplitDimensions: ['GARMENT_SKU'],
+            defaultDocType: 'TASK',
+            taskTypeMode: 'PROCESS',
+            isSpecialCraft: false,
+            triggerSource: '',
+            standardTime: item.timeMinutes,
+            timeUnit: '分钟/件',
+            referencePublishedSamValue: null,
+            referencePublishedSamUnit: '',
+            referencePublishedSamUnitLabel: '',
+            referencePublishedSamNote: '工序级准备项',
+            difficulty: mapDifficultyToZh(item.difficulty),
+            remark: '',
+            source: '字典引用',
+        };
+    }), bomItems);
+}
+function buildMaterialCostRows(bomItems, techPack) {
+    const costByBomItemId = new Map((techPack.materialCostItems ?? []).map((item) => [item.bomItemId, item]));
+    return bomItems.map((item) => ({
+        id: item.id,
+        materialName: item.materialName,
+        spec: item.spec,
+        usage: item.usage,
+        price: String(costByBomItemId.get(item.id)?.price ?? ''),
+        currency: costByBomItemId.get(item.id)?.currency || '人民币',
+        unit: costByBomItemId.get(item.id)?.unit || '人民币/件',
+    }));
+}
+function buildProcessCostRows(techniques, techPack) {
+    const costByProcessId = new Map((techPack.processCostItems ?? []).map((item) => [item.processId, item]));
+    return techniques.map((item) => ({
+        id: item.id,
+        stage: item.stage,
+        process: item.process,
+        technique: item.technique,
+        price: String(costByProcessId.get(item.id)?.price ?? ''),
+        currency: costByProcessId.get(item.id)?.currency || '人民币',
+        unit: costByProcessId.get(item.id)?.unit || '人民币/件',
+    }));
+}
+function buildCustomCostRows(techPack) {
+    return (techPack.customCostItems ?? []).map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: String(item.price ?? ''),
+        currency: item.currency || '人民币',
+        unit: item.unit || '人民币/项',
+        remark: item.remark || '',
+    }));
+}
+function syncMaterialCostRows() {
+    const currentById = new Map(state.materialCostRows.map((row) => [row.id, row]));
+    state.materialCostRows = state.bomItems.map((item) => {
+        const current = currentById.get(item.id);
+        if (!current) {
+            return {
+                id: item.id,
+                materialName: item.materialName,
+                spec: item.spec,
+                usage: item.usage,
+                price: '',
+                currency: '人民币',
+                unit: '人民币/件',
+            };
+        }
+        return {
+            ...current,
+            materialName: item.materialName,
+            spec: item.spec,
+            usage: item.usage,
+        };
+    });
+}
+function syncProcessCostRows() {
+    const currentById = new Map(state.processCostRows.map((row) => [row.id, row]));
+    state.processCostRows = state.techniques.map((item) => {
+        const current = currentById.get(item.id);
+        if (!current) {
+            return {
+                id: item.id,
+                stage: item.stage,
+                process: item.process,
+                technique: item.technique,
+                price: '',
+                currency: '人民币',
+                unit: '人民币/件',
+            };
+        }
+        return {
+            ...current,
+            stage: item.stage,
+            process: item.process,
+            technique: item.technique,
+        };
+    });
+}
+function getChecklist() {
+    if (!state.techPack)
+        return [];
+    const hasDesignRequirement = state.bomItems.some((item) => item.printRequirement && item.printRequirement !== '无');
+    return [
+        { key: 'bom', label: '物料清单', required: true, done: state.bomItems.length > 0 },
+        { key: 'pattern', label: '纸样管理', required: true, done: state.patternItems.length > 0 },
+        { key: 'process', label: '工序工艺', required: true, done: state.techniques.length > 0 },
+        { key: 'size', label: '放码规则', required: true, done: state.techPack.sizeTable.length > 0 },
+        {
+            key: 'color-mapping',
+            label: '款色用料对应',
+            required: true,
+            done: state.colorMaterialMappings.length > 0,
+        },
+        {
+            key: 'design',
+            label: '花型设计',
+            required: hasDesignRequirement,
+            done: state.techPack.patternDesigns.length > 0,
+        },
+    ];
+}
+function syncTechPackToStore(options = { touch: true, persist: true }) {
+    if (!state.techPack)
+        return;
+    state.techniques = syncBomDrivenPrepTechniques(state.techniques, state.bomItems);
+    syncProcessCostRows();
+    const checklist = getChecklist();
+    const requiredItems = checklist.filter((item) => item.required);
+    const doneCount = requiredItems.filter((item) => item.done).length;
+    const score = requiredItems.length === 0 ? 100 : Math.round((doneCount / requiredItems.length) * 100);
+    const missing = requiredItems.filter((item) => !item.done).map((item) => item.label);
+    const patternIdByName = new Map(state.patternItems.map((item) => [item.name, item.id]));
+    const next = {
+        ...state.techPack,
+        patternFiles: state.patternItems.map((item) => {
+            const pieceRows = normalizePatternPieceRows(item.pieceRows, item.id, item.linkedBomItemId);
+            const inferredPieceCount = calculatePatternTotalPieceQty(pieceRows);
+            const selectedSizeCodes = normalizeSelectedSizeCodes([...(item.selectedSizeCodes ?? [])], item.sizeRange);
+            const sizeRange = selectedSizeCodes.join(' / ');
+            const legacyFileName = buildPatternDisplayFile({
+                patternFileMode: item.patternFileMode,
+                dxfFileName: item.dxfFileName,
+                rulFileName: item.rulFileName,
+                singlePatternFileName: item.singlePatternFileName,
+                fileName: item.file,
+            }) || `${item.name}.dxf`;
+            const pieceInstances = generatePieceInstancesFromColorQuantities({
+                id: item.id,
+                pieceRows,
+                pieceInstances: item.pieceInstances,
+            });
+            const pieceInstanceSummary = summarizePieceInstances(pieceInstances);
+            return {
+                id: item.id,
+                recordKind: item.recordKind,
+                patternName: item.name,
+                patternCategory: item.type,
+                patternMaterialType: item.patternMaterialType,
+                patternMaterialTypeLabel: item.patternMaterialTypeLabel,
+                patternFileMode: item.patternFileMode,
+                fileName: legacyFileName,
+                fileUrl: '#',
+                uploadedAt: state.techPack?.lastUpdatedAt || toTimestamp(),
+                uploadedBy: currentUser.name,
+                dxfFileName: item.dxfFileName || undefined,
+                dxfFileSize: item.dxfFileSize > 0 ? item.dxfFileSize : undefined,
+                dxfLastModified: item.dxfLastModified || undefined,
+                rulFileName: item.rulFileName || undefined,
+                rulFileSize: item.rulFileSize > 0 ? item.rulFileSize : undefined,
+                rulLastModified: item.rulLastModified || undefined,
+                singlePatternFileName: item.singlePatternFileName || undefined,
+                singlePatternFileSize: item.singlePatternFileSize > 0 ? item.singlePatternFileSize : undefined,
+                singlePatternFileLastModified: item.singlePatternFileLastModified || undefined,
+                parseStatus: item.parseStatus,
+                parseStatusLabel: item.parseStatusLabel,
+                parseError: item.parseError || undefined,
+                parsedAt: item.parsedAt || undefined,
+                dxfEncoding: item.dxfEncoding || undefined,
+                rulEncoding: item.rulEncoding || undefined,
+                rulSizeList: item.rulSizeList.length > 0 ? [...item.rulSizeList] : undefined,
+                rulSampleSize: item.rulSampleSize || undefined,
+                patternSoftwareName: item.patternSoftwareName || undefined,
+                sizeRange: sizeRange || item.sizeRange || undefined,
+                selectedSizeCodes: selectedSizeCodes.length > 0 ? [...selectedSizeCodes] : undefined,
+                imageUrl: item.image || undefined,
+                remark: item.remark || undefined,
+                linkedBomItemId: item.linkedBomItemId || undefined,
+                linkedMaterialId: item.linkedMaterialId || item.linkedBomItemId || undefined,
+                linkedMaterialName: item.linkedMaterialName || undefined,
+                linkedMaterialAlias: item.linkedMaterialAlias || undefined,
+                linkedMaterialSku: item.linkedMaterialSku || undefined,
+                isWoolted: item.isWoolted,
+                maintainerStepStatus: item.maintainerStepStatus,
+                merchandiserInfoStatus: item.merchandiserInfoStatus,
+                patternMakerInfoStatus: item.patternMakerInfoStatus,
+                prjFile: item.prjFile ? { ...item.prjFile } : undefined,
+                markerImage: item.markerImage ? { ...item.markerImage } : undefined,
+                dxfFile: item.dxfFile ? { ...item.dxfFile } : undefined,
+                rulFile: item.rulFile ? { ...item.rulFile } : undefined,
+                bindingStrips: normalizePatternBindingStrips(item.bindingStrips),
+                patternTotalPieceQty: inferredPieceCount,
+                pieceInstances: pieceInstances.map((instance) => ({
+                    ...instance,
+                    specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+                })),
+                ...pieceInstanceSummary,
+                sourcePatternPackageId: item.sourcePatternPackageId || undefined,
+                sourcePatternPackageName: item.sourcePatternPackageName || undefined,
+                patternSignature: item.patternSignature || buildPatternSignature(item),
+                duplicateConfirmed: Boolean(item.duplicateConfirmed),
+                duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
+                // 门幅单位固定 cm；排料长度单位固定 m
+                widthCm: Number.isFinite(item.widthCm) ? item.widthCm : 0,
+                markerLengthM: Number.isFinite(item.markerLengthM) ? item.markerLengthM : 0,
+                // totalPieceCount 固定语义：裁片总片数
+                totalPieceCount: Number.isFinite(item.totalPieceCount) && item.totalPieceCount > 0
+                    ? item.totalPieceCount
+                    : inferredPieceCount,
+                pieceRows: pieceRows.map((row) => ({
+                    id: row.id,
+                    name: row.name,
+                    count: row.count,
+                    parsedQuantity: row.parsedQuantity,
+                    colorPieceQuantities: row.colorPieceQuantities.length > 0
+                        ? row.colorPieceQuantities.map((quantity) => ({
+                            colorId: quantity.colorId,
+                            colorName: quantity.colorName,
+                            pieceQty: quantity.pieceQty,
+                            enabled: quantity.enabled,
+                            remark: quantity.remark || undefined,
+                        }))
+                        : undefined,
+                    totalPieceQty: row.totalPieceQty,
+                    note: row.note || undefined,
+                    isTemplate: row.isTemplate || undefined,
+                    partTemplateId: row.partTemplateId || undefined,
+                    partTemplateName: row.partTemplateName || undefined,
+                    partTemplatePreviewSvg: row.partTemplatePreviewSvg || undefined,
+                    partTemplateShapeDescription: row.partTemplateShapeDescription || undefined,
+                    applicableSkuCodes: row.applicableSkuCodes.length > 0 ? [...row.applicableSkuCodes] : undefined,
+                    colorAllocations: row.colorAllocations.length > 0
+                        ? row.colorAllocations.map((allocation) => ({
+                            id: allocation.id,
+                            colorName: allocation.colorName,
+                            colorCode: allocation.colorCode || undefined,
+                            skuCodes: allocation.skuCodes.length > 0 ? [...allocation.skuCodes] : undefined,
+                            pieceCount: allocation.pieceCount,
+                        }))
+                        : undefined,
+                    specialCrafts: row.specialCrafts.length > 0
+                        ? row.specialCrafts.map((craft) => ({
+                            processCode: craft.processCode,
+                            processName: craft.processName,
+                            craftCode: craft.craftCode,
+                            craftName: craft.craftName,
+                            displayName: craft.displayName,
+                            selectedTargetObject: craft.selectedTargetObject,
+                            supportedTargetObjects: craft.supportedTargetObjects ? [...craft.supportedTargetObjects] : undefined,
+                            supportedTargetObjectLabels: craft.supportedTargetObjectLabels ? [...craft.supportedTargetObjectLabels] : undefined,
+                        }))
+                        : undefined,
+                    bundleLengthCm: row.bundleLengthCm,
+                    bundleWidthCm: row.bundleWidthCm,
+                    sourceType: row.sourceType,
+                    missingName: row.missingName || undefined,
+                    missingCount: row.missingCount || undefined,
+                    sourcePartName: row.sourcePartName || undefined,
+                    systemPieceName: row.systemPieceName || undefined,
+                    candidatePartNames: row.candidatePartNames && row.candidatePartNames.length > 0
+                        ? [...row.candidatePartNames]
+                        : undefined,
+                    sizeCode: row.sizeCode || undefined,
+                    quantityText: row.quantityText || undefined,
+                    annotation: row.annotation || undefined,
+                    category: row.category || undefined,
+                    width: row.width,
+                    height: row.height,
+                    area: row.area,
+                    perimeter: row.perimeter,
+                    geometryHash: row.geometryHash || undefined,
+                    previewSvg: row.previewSvg || undefined,
+                    parserStatus: row.parserStatus || undefined,
+                    machineReadyStatus: row.machineReadyStatus || undefined,
+                    rawTextLabels: row.rawTextLabels && row.rawTextLabels.length > 0 ? [...row.rawTextLabels] : undefined,
+                })),
+            };
+        }),
+        processes: state.techniques.map((item, index) => ({
+            id: item.id,
+            seq: index + 1,
+            name: item.technique,
+            timeMinutes: Number(item.standardTime) || 0,
+            difficulty: mapDifficultyToEnum(item.difficulty),
+            qcPoint: '',
+        })),
+        processEntries: state.techniques.map((item) => ({
+            id: item.id,
+            entryType: item.entryType,
+            stageCode: item.stageCode,
+            stageName: item.stage,
+            processCode: item.processCode,
+            processName: item.process,
+            craftCode: item.craftCode || undefined,
+            craftName: item.entryType === 'CRAFT' ? item.technique : undefined,
+            assignmentGranularity: item.assignmentGranularity,
+            ruleSource: item.ruleSource,
+            detailSplitMode: item.detailSplitMode,
+            detailSplitDimensions: [...item.detailSplitDimensions],
+            defaultDocType: item.defaultDocType,
+            taskTypeMode: item.taskTypeMode,
+            isSpecialCraft: item.isSpecialCraft,
+            selectedTargetObject: item.selectedTargetObject,
+            targetObject: item.targetObject,
+            targetObjectName: item.targetObjectName,
+            woolTaskType: item.woolTaskType,
+            downstreamTarget: item.downstreamTarget,
+            requiresFeiTicket: item.requiresFeiTicket,
+            packagingRequired: item.packagingRequired,
+            materialIssueMode: item.materialIssueMode,
+            linkedBomItemIds: item.linkedBomItemIds ? [...item.linkedBomItemIds] : undefined,
+            linkedPatternIds: item.linkedPatternIds ? [...item.linkedPatternIds] : undefined,
+            supportedTargetObjects: item.supportedTargetObjects ? [...item.supportedTargetObjects] : undefined,
+            supportedTargetObjectLabels: item.supportedTargetObjectLabels ? [...item.supportedTargetObjectLabels] : undefined,
+            triggerSource: item.triggerSource || undefined,
+            standardTimeMinutes: Number(item.standardTime) || 0,
+            timeUnit: item.timeUnit,
+            difficulty: mapDifficultyToEnum(item.difficulty),
+            remark: item.remark || undefined,
+            sourceType: item.sourceType,
+            triggerField: item.triggerField,
+            isAutoGenerated: item.isAutoGenerated,
+            canRemoveAutomatically: item.canRemoveAutomatically,
+            hasManualOverride: item.hasManualOverride,
+            manualNotes: item.manualNotes || undefined,
+            manualFieldsTouched: item.manualFieldsTouched,
+            requiresRemovalConfirmation: item.requiresRemovalConfirmation,
+            linkageStatus: item.linkageStatus,
+        })),
+        bomItems: state.bomItems.map((item) => ({
+            id: item.id,
+            type: item.type,
+            name: item.materialName,
+            spec: item.spec,
+            colorLabel: item.colorLabel || undefined,
+            unitConsumption: Number(item.usage) || 0,
+            lossRate: Number(item.lossRate) || 0,
+            supplier: '-',
+            printRequirement: item.printRequirement || '无',
+            dyeRequirement: item.dyeRequirement || '无',
+            shrinkRequirement: item.shrinkRequirement || '否',
+            washRequirement: item.washRequirement || '否',
+            printSideMode: item.printSideMode || undefined,
+            frontPatternDesignId: item.frontPatternDesignId || undefined,
+            insidePatternDesignId: item.insidePatternDesignId || undefined,
+            applicableSkuCodes: dedupeStrings([...(item.applicableSkuCodes ?? [])]),
+            linkedPatternIds: dedupeStrings([
+                ...(item.linkedPatternIds ?? []),
+                ...item.patternPieces
+                    .map((pieceName) => patternIdByName.get(pieceName) || '')
+                    .filter((id) => id.trim().length > 0),
+            ]),
+            usageProcessCodes: item.usageProcessCodes.length > 0
+                ? dedupeStrings([...item.usageProcessCodes])
+                : undefined,
+        })),
+        materialCostItems: state.materialCostRows.map((row) => ({
+            id: `MC-${row.id}`,
+            bomItemId: row.id,
+            price: Number.parseFloat(row.price) || 0,
+            currency: row.currency,
+            unit: row.unit,
+        })),
+        processCostItems: state.processCostRows.map((row) => ({
+            id: `PC-${row.id}`,
+            processId: row.id,
+            price: Number.parseFloat(row.price) || 0,
+            currency: row.currency,
+            unit: row.unit,
+        })),
+        customCostItems: state.customCostRows.map((row, index) => ({
+            id: row.id,
+            name: row.name.trim() || `自定义成本-${index + 1}`,
+            price: Number.parseFloat(row.price) || 0,
+            currency: row.currency,
+            unit: row.unit,
+            remark: row.remark.trim() || undefined,
+            sort: index + 1,
+        })),
+        colorMaterialMappings: state.colorMaterialMappings.map((mapping) => ({
+            id: mapping.id,
+            spuCode: mapping.spuCode,
+            colorCode: mapping.colorCode,
+            colorName: mapping.colorName,
+            status: mapping.status,
+            generatedMode: mapping.generatedMode,
+            confirmedBy: mapping.confirmedBy.trim() || undefined,
+            confirmedAt: mapping.confirmedAt.trim() || undefined,
+            remark: mapping.remark.trim() || undefined,
+            lines: mapping.lines.map((line) => ({
+                id: line.id,
+                bomItemId: line.bomItemId.trim() || undefined,
+                materialCode: line.materialCode.trim() || undefined,
+                materialName: line.materialName,
+                materialType: line.materialType === '面料' ||
+                    line.materialType === '辅料' ||
+                    line.materialType === '半成品' ||
+                    line.materialType === '包装材料'
+                    ? line.materialType
+                    : '其他',
+                patternId: line.patternId.trim() || undefined,
+                patternName: line.patternName.trim() || undefined,
+                pieceId: line.pieceId.trim() || undefined,
+                pieceName: line.pieceName.trim() || undefined,
+                pieceCountPerUnit: Number.isFinite(line.pieceCountPerUnit) && line.pieceCountPerUnit > 0
+                    ? line.pieceCountPerUnit
+                    : undefined,
+                unit: line.unit,
+                applicableSkuCodes: line.applicableSkuCodes.length > 0 ? [...line.applicableSkuCodes] : undefined,
+                sourceMode: line.sourceMode,
+                note: line.note.trim() || undefined,
+            })),
+        })),
+        completenessScore: score,
+        missingChecklist: missing,
+        lastUpdatedAt: options.touch ? toTimestamp() : state.techPack.lastUpdatedAt,
+        lastUpdatedBy: options.touch ? currentUser.name : state.techPack.lastUpdatedBy,
+    };
+    state.techPack = next;
+    clearTechPackDerivedCache();
+    if (options.persist !== false && state.currentTechnicalVersionId && !state.compatibilityMode) {
+        const patch = buildTechnicalContentPatchFromLegacyTechPack(next);
+        saveTechnicalDataVersionContent(state.currentTechnicalVersionId, patch, currentUser.name);
+    }
+}
+function closeAllDialogs() {
+    state.releaseDialogOpen = false;
+    state.addPatternDialogOpen = false;
+    state.addBomDialogOpen = false;
+    state.addTechniqueDialogOpen = false;
+    state.addSizeDialogOpen = false;
+    state.addDesignDialogOpen = false;
+    state.addAttachmentDialogOpen = false;
+    state.patternDialogOpen = false;
+    state.patternTemplateDialogOpen = false;
+    state.patternDuplicateWarning = null;
+    state.pieceInstanceCraftDialogOpen = false;
+    state.activePieceInstanceSourcePieceId = null;
+    state.activePieceInstanceId = null;
+    state.pieceInstanceCraftDraft = { craftCode: '', craftPosition: '', remark: '' };
+    state.pieceInstanceCraftError = '';
+    state.designPreviewDialogOpen = false;
+    state.designPreviewDesignId = null;
+    state.designPreviewSource = null;
+}
+function buildPatternFormStateFromItem(item) {
+    const selectedSizeCodes = normalizeSelectedSizeCodes([...(item.selectedSizeCodes ?? [])], item.sizeRange);
+    return {
+        name: item.name,
+        type: item.type,
+        image: item.image,
+        file: item.file,
+        remark: item.remark,
+        linkedBomItemId: item.linkedBomItemId,
+        linkedMaterialId: item.linkedMaterialId,
+        linkedMaterialName: item.linkedMaterialName,
+        linkedMaterialAlias: item.linkedMaterialAlias || '',
+        linkedMaterialSku: item.linkedMaterialSku,
+        widthCm: item.widthCm,
+        markerLengthM: item.markerLengthM,
+        totalPieceCount: item.totalPieceCount,
+        patternTotalPieceQty: item.patternTotalPieceQty,
+        isWoolted: item.isWoolted,
+        maintainerStepStatus: item.maintainerStepStatus,
+        merchandiserInfoStatus: item.merchandiserInfoStatus,
+        patternMakerInfoStatus: item.patternMakerInfoStatus,
+        prjFile: item.prjFile ? { ...item.prjFile } : null,
+        markerImage: item.markerImage ? { ...item.markerImage } : null,
+        dxfFile: item.dxfFile ? { ...item.dxfFile } : null,
+        rulFile: item.rulFile ? { ...item.rulFile } : null,
+        bindingStrips: normalizePatternBindingStrips(item.bindingStrips),
+        patternSignature: item.patternSignature || buildPatternSignature(item),
+        duplicateConfirmed: Boolean(item.duplicateConfirmed),
+        duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
+        patternMaterialType: item.patternMaterialType,
+        patternMaterialTypeLabel: item.patternMaterialTypeLabel,
+        patternFileMode: item.patternFileMode,
+        parseStatus: item.parseStatus,
+        parseStatusLabel: item.parseStatusLabel,
+        parseError: item.parseError,
+        parsedAt: item.parsedAt,
+        dxfFileName: item.dxfFileName,
+        dxfFileSize: item.dxfFileSize,
+        dxfLastModified: item.dxfLastModified,
+        rulFileName: item.rulFileName,
+        rulFileSize: item.rulFileSize,
+        rulLastModified: item.rulLastModified,
+        singlePatternFileName: item.singlePatternFileName,
+        singlePatternFileSize: item.singlePatternFileSize,
+        singlePatternFileLastModified: item.singlePatternFileLastModified,
+        dxfEncoding: item.dxfEncoding,
+        rulEncoding: item.rulEncoding,
+        rulSizeList: [...item.rulSizeList],
+        rulSampleSize: item.rulSampleSize,
+        patternSoftwareName: item.patternSoftwareName,
+        sizeRange: selectedSizeCodes.join(' / ') || item.sizeRange,
+        selectedSizeCodes,
+        pieceRows: item.pieceRows.map((row) => ({
+            ...row,
+            applicableSkuCodes: [...row.applicableSkuCodes],
+            colorAllocations: row.colorAllocations.map((allocation) => ({
+                ...allocation,
+                skuCodes: [...(allocation.skuCodes ?? [])],
+            })),
+            colorPieceQuantities: row.colorPieceQuantities.map((quantity) => ({ ...quantity })),
+            totalPieceQty: row.totalPieceQty,
+            parsedQuantity: row.parsedQuantity,
+            specialCrafts: row.specialCrafts.map((craft) => ({ ...craft })),
+            candidatePartNames: [...(row.candidatePartNames ?? [])],
+            rawTextLabels: [...(row.rawTextLabels ?? [])],
+        })),
+        pieceInstances: item.pieceInstances.map((instance) => ({
+            ...instance,
+            specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+        })),
+        pieceInstanceTotal: item.pieceInstanceTotal,
+        specialCraftConfiguredPieceTotal: item.specialCraftConfiguredPieceTotal,
+        specialCraftUnconfiguredPieceTotal: item.specialCraftUnconfiguredPieceTotal,
+        sourcePatternPackageId: item.sourcePatternPackageId,
+        sourcePatternPackageName: item.sourcePatternPackageName,
+        selectedPrjFile: null,
+        selectedMarkerImageFile: null,
+        selectedDxfFile: null,
+        selectedRulFile: null,
+        selectedSinglePatternFile: null,
+        patternParsing: false,
+    };
+}
+function resetPatternForm() {
+    state.newPattern = createEmptyPatternFormState();
+    state.editPatternItemId = null;
+    state.patternFormPurpose = 'ASSOCIATION';
+    state.patternMaintenanceStep = 'MERCHANDISER';
+    state.patternDuplicateWarning = null;
+    state.patternTemplateDialogOpen = false;
+    state.activePatternTemplatePieceId = null;
+    state.patternTemplateSearchKeyword = '';
+    state.pieceInstanceCraftDialogOpen = false;
+    state.activePieceInstanceSourcePieceId = null;
+    state.activePieceInstanceId = null;
+    state.pieceInstanceCraftDraft = { craftCode: '', craftPosition: '', remark: '' };
+    state.pieceInstanceCraftError = '';
+}
+function resetBomForm() {
+    state.editBomItemId = null;
+    state.newBomItem = createEmptyBomFormState();
+}
+function resetTechniqueForm() {
+    state.editTechniqueId = null;
+    state.newTechnique = {
+        stageCode: '',
+        processCode: '',
+        entryType: 'CRAFT',
+        baselineProcessCode: '',
+        craftCode: '',
+        selectedTargetObject: '',
+        ruleSource: 'INHERIT_PROCESS',
+        assignmentGranularity: 'ORDER',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+        standardTime: '',
+        timeUnit: '分钟/件',
+        difficulty: '中等',
+        remark: '',
+    };
+}
+function resetSizeForm() {
+    state.newSizeRow = {
+        part: '',
+        S: '',
+        M: '',
+        L: '',
+        XL: '',
+        tolerance: '',
+    };
+}
+function resetAttachmentForm() {
+    state.newAttachment = {
+        fileName: '',
+        fileType: 'PDF',
+        fileSize: '1.0MB',
+    };
+}
+function ensureTechPackPageState(rawSpuCode, seed = {}) {
+    const spuCode = decodeSpuCode(rawSpuCode);
+    const nextActiveTab = seed.activeTab ?? state.activeTab;
+    if (seed.technicalVersionId && state.currentTechnicalVersionId === seed.technicalVersionId && state.techPack) {
+        state.activeTab = nextActiveTab;
+        return;
+    }
+    clearTechPackDerivedCache();
+    state.loading = true;
+    const technicalVersionId = seed.technicalVersionId || '';
+    const styleId = seed.styleId || '';
+    if (technicalVersionId) {
+        const record = getTechnicalDataVersionById(technicalVersionId);
+        const content = getTechnicalDataVersionContent(technicalVersionId);
+        if (record && content) {
+            const techPack = buildLegacyTechPackFromTechnicalVersion(record, content);
+            applyTechPackState(techPack, {
+                ...seed,
+                activeTab: nextActiveTab,
+                currentSpuCode: record.styleCode || spuCode,
+                styleId: styleId || record.styleId,
+                technicalVersionId: record.technicalVersionId,
+                technicalVersionCode: record.technicalVersionCode,
+            });
+        }
+        else {
+            clearTechPackState(spuCode);
+        }
+    }
+    else {
+        clearTechPackState(spuCode);
+        state.activeTab = nextActiveTab;
+    }
+    closeAllDialogs();
+    resetPatternForm();
+    resetBomForm();
+    resetTechniqueForm();
+    resetSizeForm();
+    resetAttachmentForm();
+    state.newDesignName = '';
+    state.newDesignSideType = 'FRONT';
+    state.newDesignFileName = '';
+    state.newDesignOriginalFileMimeType = '';
+    state.newDesignOriginalFileDataUrl = '';
+    state.newDesignPreviewThumbnailDataUrl = '';
+    state.selectedDesignFile = null;
+    state.patternTemplateSearchKeyword = '';
+    state.activePatternTemplatePieceId = null;
+    state.selectedPattern = null;
+    state.loading = false;
+    if (state.techPack) {
+        syncTechPackToStore({ touch: false, persist: false });
+    }
+}
+function renderStatusBadge(status) {
+    const config = techPackStatusConfig[status] ?? techPackStatusConfig.DRAFT;
+    return `<span class="inline-flex rounded border px-2 py-0.5 text-xs ${config.className}">${escapeHtml(config.label)}</span>`;
+}
+function renderChecklist() {
+    const checklist = getChecklist();
+    return checklist
+        .map((item) => {
+        let label = '未完成';
+        let className = 'text-orange-700 border-orange-400 bg-orange-50';
+        if (!item.required) {
+            label = '可选';
+            className = 'text-muted-foreground border-muted-foreground/30';
+        }
+        else if (item.done) {
+            label = '已完成';
+            className = 'text-green-700 border-green-400 bg-green-50';
+        }
+        return `
+        <div class="flex flex-col items-center gap-0.5">
+          <span class="text-xs text-muted-foreground">${escapeHtml(item.label)}</span>
+          <span class="inline-flex rounded border px-1.5 py-0 text-xs ${className}">${label}</span>
+        </div>
+      `;
+    })
+        .join('');
+}
+function renderTabHeader() {
+    return `
+    <div class="grid w-full grid-cols-7 gap-2 rounded-lg border bg-muted/20 p-2">
+      ${tabItems
+        .map((tab) => `
+            <button
+              class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm ${state.activeTab === tab.key ? 'bg-background shadow-sm font-medium' : 'hover:bg-muted'}"
+              data-tech-action="switch-tab"
+              data-tab="${tab.key}"
+            >
+              <i data-lucide="${tab.icon}" class="h-4 w-4"></i>
+              ${escapeHtml(tab.label)}
+            </button>
+          `)
+        .join('')}
+    </div>
+  `;
+}
+function isTechPackReadOnly() {
+    return state.techPack?.status !== 'DRAFT';
+}
+export { appStore, escapeHtml, currentUser, TECH_PACK_PATTERN_CATEGORY_OPTIONS, techPackStatusConfig, DETAIL_SPLIT_DIMENSION_LABEL, DETAIL_SPLIT_MODE_LABEL, PROCESS_ASSIGNMENT_GRANULARITY_LABEL, PROCESS_DOC_TYPE_LABEL, RULE_SOURCE_LABEL, TASK_TYPE_MODE_LABEL, tabItems, printOptions, dyeOptions, bomRequirementOptions, bomTriggerFieldLabel, currencyOptions, materialUnitOptions, processUnitOptions, customCostUnitOptions, bomUsageProcessOptions, difficultyOptions, stageOptions, stageCodeToName, stageNameToCode, baselineProcessOptions, craftOptions, getTechniqueProcessOptions, getTechniqueCraftOptions, state, isTechPackReadOnly, toTimestamp, decodeSpuCode, cloneTechPack, mapDifficultyToZh, mapDifficultyToEnum, getStageName, getBaselineProcessByCode, getCraftOptionByCode, getTechniqueReferenceMetaByCraftCode, getSelectedDraftMeta, canEditTechnique, dedupeStrings, formatDetailSplitDimensionsText, formatPatternSpec, colorMappingStatusLabel, colorMappingStatusClass, generatedModeLabel, normalizeColorMappingLineRows, buildColorMaterialMappings, getSkuOptionsForCurrentSpu, getSkuCodesByColor, getSizeCodeOptionsFromSizeRules, getBomColorOptionsForPattern, getPatternColorQuantityOptions, calculatePatternPieceTotalQty, calculatePatternTotalPieceQty, hasEnabledColorPiece, hasInvalidColorPieceQty, hasPositiveEnabledColorPiece, getPatternDesignOptionsBySide, getPatternDesignPreviewAssetById, getPatternDesignPreviewUrl, getPatternPieceSpecialCraftOptionsFromCurrentTechPack, getPatternPieceInstanceSpecialCraftOptions, PATTERN_CRAFT_POSITION_OPTIONS, generatePieceInstancesFromColorQuantities, summarizePieceInstances, findConfiguredPieceInstancesRemoved, getSpecialCraftOptionsForPatternPiece, getPartTemplateOptions, getPartTemplateRecordById, buildPatternPiecePartKey, getPatternById, getPatternPieceById, hasDyeDemand, hasPrintDemand, isBomDrivenPrepTechnique, isPrepStage, createEmptyMappingLine, isComplexColorMappingScenario, buildAutoMappingLinesForColor, buildSystemSuggestedColorMappings, touchMappingAsManual, updateColorMapping, updateColorMappingLine, copySystemDraftToManual, resetColorMappingToSystemSuggestion, getPatternBySelectionKey, normalizePatternPieceRows, buildPatternItemsFromTechPack, requestTechPackRender, getPatternMaterialTypeLabel, getPatternParseStatusLabel, createPatternManagedFile, createPatternBindingStrip, normalizePatternBindingStrips, buildPatternDisplayFile, buildPatternFormStateFromItem, buildBomItemsFromTechPack, toTechniqueItemFromEntry, buildTechniquesFromTechPack, syncBomDrivenPrepTechniques, buildMaterialCostRows, buildProcessCostRows, buildCustomCostRows, syncMaterialCostRows, syncProcessCostRows, getChecklist, syncTechPackToStore, closeAllDialogs, resetPatternForm, resetBomForm, resetTechniqueForm, resetSizeForm, resetAttachmentForm, ensureTechPackPageState, renderStatusBadge, renderChecklist, renderTabHeader, };

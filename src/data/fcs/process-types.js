@@ -1,0 +1,307 @@
+// 工艺字典兼容层
+// 说明：统一真相源已收口到 process-craft-dict.ts；本文件保留旧调用方所需的查询接口。
+import { getProcessDefinitionByCode, listActiveProcessCraftDefinitions, listProcessDefinitions, } from './process-craft-dict.ts';
+export const stageLabels = {
+    PREP: '前道准备',
+    CUTTING: '裁剪',
+    SEWING: '车缝',
+    POST: '后道',
+    SPECIAL: '特种工艺',
+    MATERIAL: '物料',
+    WAREHOUSE: '仓储',
+};
+const processAssignmentGranularityOverrides = {
+    PROC_PRINT: 'COLOR',
+    PROC_DYE: 'COLOR',
+    PROC_SEW: 'SKU',
+    PROC_FINISHING: 'SKU',
+    PROC_IRON: 'SKU',
+    PROC_PACK: 'SKU',
+    PROC_QC: 'SKU',
+};
+function mapToLegacyStage(processCode, systemProcessCode, stageCode) {
+    if (stageCode === 'PREP')
+        return 'PREP';
+    if (stageCode === 'POST')
+        return 'POST';
+    if (processCode === 'CUT_PANEL')
+        return 'CUTTING';
+    if (processCode === 'SPECIAL_CRAFT' || processCode === 'EMBROIDERY' || processCode === 'SHRINKING') {
+        return 'SPECIAL';
+    }
+    if (systemProcessCode === 'PROC_PRINT' || systemProcessCode === 'PROC_DYE')
+        return 'SPECIAL';
+    return 'SEWING';
+}
+function getRecommendedOwnerTypes(stage, processCode, taskVisibility) {
+    if (taskVisibility === 'INTERNAL' && stage === 'POST')
+        return ['FINISHING'];
+    if (processCode === 'PRINT' || processCode === 'DYE')
+        return ['PRINTING', 'DYEING'];
+    if (processCode === 'SHRINKING' || processCode === 'WASHING')
+        return ['DYEING', 'SPECIAL_PROCESS'];
+    if (processCode === 'POST_FINISHING')
+        return ['FINISHING', 'WAREHOUSE'];
+    if (stage === 'CUTTING')
+        return ['CUTTING', 'SEWING'];
+    if (stage === 'POST')
+        return ['FINISHING', 'WAREHOUSE'];
+    if (stage === 'SPECIAL')
+        return ['SPECIAL_PROCESS', 'SEWING'];
+    if (stage === 'MATERIAL')
+        return ['WAREHOUSE'];
+    if (stage === 'WAREHOUSE')
+        return ['WAREHOUSE'];
+    return ['SEWING'];
+}
+const processTypeMap = new Map();
+function upsertProcessType(item) {
+    processTypeMap.set(item.code, item);
+}
+for (const processDef of listProcessDefinitions()) {
+    const stage = mapToLegacyStage(processDef.processCode, processDef.systemProcessCode, processDef.stageCode);
+    const isExternalConstraint = processDef.processCode === 'PRINT' || processDef.processCode === 'DYE';
+    const taskVisibility = processDef.generatesExternalTask ? 'EXTERNAL' : 'INTERNAL';
+    upsertProcessType({
+        code: processDef.systemProcessCode,
+        nameZh: processDef.processName,
+        stage,
+        taskVisibility,
+        processRole: processDef.processRole,
+        parentProcessCode: processDef.parentProcessCode,
+        isActive: processDef.isActive,
+        assignmentGranularity: processDef.assignmentGranularity,
+        canOutsource: processDef.generatesExternalTask,
+        isExternalConstraint,
+        recommendedAssignmentMode: isExternalConstraint ? 'BIDDING' : 'DIRECT',
+        recommendedOwnerTier: isExternalConstraint ? 'THIRD_PARTY' : 'ANY',
+        recommendedOwnerTypes: getRecommendedOwnerTypes(stage, processDef.processCode, taskVisibility),
+        defaultQcPoints: [],
+        defaultParamKeys: [],
+        processCode: processDef.processCode,
+        defaultDocType: processDef.defaultDocType,
+        taskTypeMode: processDef.taskTypeMode,
+        isSpecialCraft: processDef.isSpecialCraftContainer,
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: processDef.detailSplitMode,
+        detailSplitDimensions: [...processDef.detailSplitDimensions],
+    });
+}
+for (const craftDef of listActiveProcessCraftDefinitions()) {
+    if (processTypeMap.has(craftDef.systemProcessCode))
+        continue;
+    const processDef = getProcessDefinitionByCode(craftDef.processCode);
+    const stage = mapToLegacyStage(craftDef.processCode, craftDef.systemProcessCode, craftDef.stageCode);
+    const taskVisibility = craftDef.generatesExternalTask ? 'EXTERNAL' : 'INTERNAL';
+    upsertProcessType({
+        code: craftDef.systemProcessCode,
+        nameZh: craftDef.craftName,
+        stage,
+        taskVisibility,
+        processRole: craftDef.processRole,
+        parentProcessCode: craftDef.parentProcessCode,
+        isActive: craftDef.isActive,
+        assignmentGranularity: craftDef.assignmentGranularity,
+        canOutsource: craftDef.generatesExternalTask,
+        isExternalConstraint: false,
+        recommendedAssignmentMode: craftDef.isSpecialCraft ? 'BIDDING' : 'DIRECT',
+        recommendedOwnerTier: craftDef.isSpecialCraft ? 'CENTRAL' : 'ANY',
+        recommendedOwnerTypes: getRecommendedOwnerTypes(stage, craftDef.processCode, taskVisibility),
+        defaultQcPoints: [],
+        defaultParamKeys: [],
+        processCode: craftDef.processCode,
+        defaultDocType: craftDef.defaultDocType,
+        taskTypeMode: craftDef.taskTypeMode,
+        isSpecialCraft: craftDef.isSpecialCraft,
+        ruleSource: craftDef.ruleSource,
+        detailSplitMode: craftDef.detailSplitMode,
+        detailSplitDimensions: [...craftDef.detailSplitDimensions],
+    });
+    if (processDef && !processTypeMap.has(processDef.systemProcessCode)) {
+        upsertProcessType({
+            code: processDef.systemProcessCode,
+            nameZh: processDef.processName,
+            stage: mapToLegacyStage(processDef.processCode, processDef.systemProcessCode, processDef.stageCode),
+            taskVisibility: processDef.generatesExternalTask ? 'EXTERNAL' : 'INTERNAL',
+            processRole: processDef.processRole,
+            parentProcessCode: processDef.parentProcessCode,
+            isActive: processDef.isActive,
+            assignmentGranularity: processDef.assignmentGranularity,
+            canOutsource: processDef.generatesExternalTask,
+            isExternalConstraint: false,
+            recommendedAssignmentMode: 'DIRECT',
+            recommendedOwnerTier: 'ANY',
+            recommendedOwnerTypes: getRecommendedOwnerTypes(stage, processDef.processCode, processDef.generatesExternalTask ? 'EXTERNAL' : 'INTERNAL'),
+            defaultQcPoints: [],
+            defaultParamKeys: [],
+            processCode: processDef.processCode,
+            defaultDocType: processDef.defaultDocType,
+            taskTypeMode: processDef.taskTypeMode,
+            isSpecialCraft: processDef.isSpecialCraftContainer,
+            ruleSource: 'INHERIT_PROCESS',
+            detailSplitMode: processDef.detailSplitMode,
+            detailSplitDimensions: [...processDef.detailSplitDimensions],
+        });
+    }
+}
+const compatibilitySeeds = [
+    {
+        code: 'PROC_IRON',
+        nameZh: '熨烫',
+        stage: 'POST',
+        taskVisibility: 'INTERNAL',
+        processRole: 'INTERNAL_CAPACITY_NODE',
+        parentProcessCode: 'POST_FINISHING',
+        isActive: true,
+        assignmentGranularity: 'SKU',
+        canOutsource: false,
+        isExternalConstraint: false,
+        recommendedAssignmentMode: 'DIRECT',
+        recommendedOwnerTier: 'ANY',
+        recommendedOwnerTypes: ['FINISHING', 'SEWING'],
+        defaultQcPoints: [],
+        defaultParamKeys: [],
+        processCode: 'IRONING',
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
+    },
+    {
+        code: 'PROC_PACK',
+        nameZh: '包装',
+        stage: 'POST',
+        taskVisibility: 'INTERNAL',
+        processRole: 'INTERNAL_CAPACITY_NODE',
+        parentProcessCode: 'POST_FINISHING',
+        isActive: true,
+        assignmentGranularity: 'SKU',
+        canOutsource: false,
+        isExternalConstraint: false,
+        recommendedAssignmentMode: 'DIRECT',
+        recommendedOwnerTier: 'ANY',
+        recommendedOwnerTypes: ['WAREHOUSE', 'FINISHING'],
+        defaultQcPoints: [],
+        defaultParamKeys: [],
+        processCode: 'PACKAGING',
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
+    },
+    {
+        code: 'PROC_QC',
+        nameZh: '质检',
+        stage: 'POST',
+        taskVisibility: 'EXTERNAL',
+        assignmentGranularity: 'SKU',
+        canOutsource: false,
+        isExternalConstraint: false,
+        recommendedAssignmentMode: 'DIRECT',
+        recommendedOwnerTier: 'ANY',
+        recommendedOwnerTypes: ['FINISHING', 'WAREHOUSE'],
+        defaultQcPoints: [],
+        defaultParamKeys: [],
+        processCode: 'POST',
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
+    },
+    {
+        code: 'PROC_FINISHING',
+        nameZh: '后道',
+        stage: 'POST',
+        taskVisibility: 'EXTERNAL',
+        assignmentGranularity: 'SKU',
+        canOutsource: false,
+        isExternalConstraint: false,
+        recommendedAssignmentMode: 'DIRECT',
+        recommendedOwnerTier: 'ANY',
+        recommendedOwnerTypes: ['FINISHING', 'WAREHOUSE'],
+        defaultQcPoints: [],
+        defaultParamKeys: [],
+        processCode: 'POST_FINISHING',
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
+    },
+    {
+        code: 'PROC_MATERIAL_PREP',
+        nameZh: '物料准备',
+        stage: 'MATERIAL',
+        taskVisibility: 'EXTERNAL',
+        assignmentGranularity: 'ORDER',
+        canOutsource: false,
+        isExternalConstraint: false,
+        recommendedAssignmentMode: 'DIRECT',
+        recommendedOwnerTier: 'ANY',
+        recommendedOwnerTypes: ['WAREHOUSE'],
+        defaultQcPoints: [],
+        defaultParamKeys: [],
+        processCode: 'MATERIAL',
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+    },
+    {
+        code: 'PROC_WAREHOUSE_IN',
+        nameZh: '入库',
+        stage: 'WAREHOUSE',
+        taskVisibility: 'EXTERNAL',
+        assignmentGranularity: 'ORDER',
+        canOutsource: false,
+        isExternalConstraint: false,
+        recommendedAssignmentMode: 'DIRECT',
+        recommendedOwnerTier: 'ANY',
+        recommendedOwnerTypes: ['WAREHOUSE'],
+        defaultQcPoints: [],
+        defaultParamKeys: [],
+        processCode: 'WAREHOUSE',
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+    },
+];
+for (const compatibilitySeed of compatibilitySeeds) {
+    if (!processTypeMap.has(compatibilitySeed.code)) {
+        upsertProcessType(compatibilitySeed);
+    }
+}
+export const processTypes = Array.from(processTypeMap.values()).sort((a, b) => a.code.localeCompare(b.code));
+export function getProcessTypeByCode(code) {
+    return processTypeMap.get(code);
+}
+export function getProcessTypesByStage(stage) {
+    return processTypes.filter((p) => p.stage === stage);
+}
+export function getAllProcessCodes() {
+    return processTypes.map((p) => p.code);
+}
+export function getProcessAssignmentGranularity(code) {
+    const process = getProcessTypeByCode(code);
+    if (!process)
+        return processAssignmentGranularityOverrides[code] ?? 'ORDER';
+    return process.assignmentGranularity;
+}
+export function isSkuGranularityProcess(code) {
+    return getProcessAssignmentGranularity(code) === 'SKU';
+}
+export function isColorGranularityProcess(code) {
+    return getProcessAssignmentGranularity(code) === 'COLOR';
+}

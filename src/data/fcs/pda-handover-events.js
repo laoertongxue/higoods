@@ -1,0 +1,3143 @@
+import { getWarehouseExecutionDocById, listWarehouseIssueOrders, listWarehouseReturnOrders, } from './warehouse-material-execution.ts';
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts';
+import { PROCESS_ASSIGNMENT_GRANULARITY_LABEL, getProcessDefinitionByCode, isExternalTaskProcess, isPostCapacityNode, } from './process-craft-dict.ts';
+import { getRuntimeTaskById, } from './runtime-process-tasks.ts';
+import { getPdaGenericHandoutRecordSeedsByHeadId, getPdaGenericPickupRecordSeedsByHeadId, listPdaGenericProcessTasks, listPdaGenericHandoverHeadSeeds, } from './pda-task-mock-factory.ts';
+import { getWoolHandoutRecordSeedsByHeadId, getWoolPickupRecordSeedsByHeadId, listWoolHandoverHeadSeeds, listWoolMobileProcessTasks, } from './wool-task-domain.ts';
+import { FULL_CAPABILITY_FACTORY_ID, FULL_CAPABILITY_FACTORY_NAME, listPostFinishingAvailableHandoverLines, listPostFinishingUpstreamHandovers, listPostFinishingWaitHandoverWarehouseRecords, recordPostFinishingHandoverSubmission, writeBackPostFinishingHandoverSubmission, } from './post-finishing-domain.ts';
+import { buildHandoverOrderQrValue, buildHandoverRecordQrValue, } from './task-qr.ts';
+// 保留旧导出以兼容历史引用，真实数据由下方构建函数实时生成。
+export const pdaHandoverEvents = [];
+const handoverHeadAdditions = new Map();
+const pickupRecordAdditions = new Map();
+const handoutRecordAdditions = new Map();
+const pickupRecordOverrides = new Map();
+const handoutRecordOverrides = new Map();
+const headCompletionOverrides = new Map();
+let cachedBuiltHeads = null;
+function invalidatePdaHandoverHeadCache() {
+    cachedBuiltHeads = null;
+}
+function buildHandoverOrderNo(handoverOrderId) {
+    return `HDO-${handoverOrderId.replace(/[^A-Za-z0-9]/g, '').slice(-12)}`;
+}
+function buildHandoverRecordNo(handoverRecordId) {
+    return `HDR-${handoverRecordId.replace(/[^A-Za-z0-9]/g, '').slice(-12)}`;
+}
+function normalizeReceiverKind(targetKind, receiverKind) {
+    if (receiverKind)
+        return receiverKind;
+    return targetKind === 'FACTORY' ? 'MANAGED_POST_FACTORY' : 'WAREHOUSE';
+}
+function normalizeReceiverId(head) {
+    if (head.receiverId)
+        return head.receiverId;
+    if (head.targetName?.includes('后道工厂'))
+        return 'POST-FACTORY-OWN';
+    if (head.targetName?.includes('裁片仓'))
+        return 'WH-CUT-PIECE';
+    if (head.targetName?.includes('成衣仓'))
+        return 'WH-GARMENT-HANDOFF';
+    if (head.targetName?.includes('中转'))
+        return 'WH-TRANSFER';
+    return head.factoryId ? `${head.factoryId}-RECEIVER` : 'FCS-RECEIVER';
+}
+function normalizeReceiverName(head) {
+    return head.receiverName || head.targetName || '接收方';
+}
+function normalizeFactorySubmittedBy(value) {
+    return value?.trim() || '工厂操作员';
+}
+function resolveHandoverObjectType(record) {
+    if (record.handoutObjectType === 'CUT_PIECE')
+        return 'CUT_PIECE';
+    if (record.handoutObjectType === 'FABRIC')
+        return 'FABRIC';
+    return 'FINISHED_GARMENT';
+}
+function resolveSubmittedQty(record) {
+    if (typeof record.submittedQty === 'number')
+        return record.submittedQty;
+    if (typeof record.plannedQty === 'number')
+        return record.plannedQty;
+    return 0;
+}
+function resolveReceiverWrittenQty(record) {
+    if (typeof record.receiverWrittenQty === 'number')
+        return record.receiverWrittenQty;
+    if (typeof record.warehouseWrittenQty === 'number')
+        return record.warehouseWrittenQty;
+    return undefined;
+}
+function resolveReceiverWrittenAt(record) {
+    return record.receiverWrittenAt || record.warehouseWrittenAt;
+}
+function mapRecordLifecycleStatus(record) {
+    if (record.status === 'OBJECTION_REPORTED')
+        return 'OBJECTION_REPORTED';
+    if (record.status === 'OBJECTION_PROCESSING')
+        return 'OBJECTION_PROCESSING';
+    if (record.status === 'OBJECTION_RESOLVED')
+        return 'OBJECTION_RESOLVED';
+    if (record.factoryDiffDecision === 'ACCEPT_DIFF')
+        return 'DIFF_ACCEPTED';
+    const submittedQty = resolveSubmittedQty(record);
+    const writtenQty = resolveReceiverWrittenQty(record);
+    if (typeof writtenQty !== 'number')
+        return 'SUBMITTED_WAIT_WRITEBACK';
+    if (writtenQty === submittedQty)
+        return 'WRITTEN_BACK_MATCHED';
+    return 'WRITTEN_BACK_DIFF';
+}
+function mapLegacyRecordStatus(status) {
+    if (status === 'OBJECTION_REPORTED')
+        return 'OBJECTION_REPORTED';
+    if (status === 'OBJECTION_PROCESSING')
+        return 'OBJECTION_PROCESSING';
+    if (status === 'OBJECTION_RESOLVED')
+        return 'OBJECTION_RESOLVED';
+    return status === 'SUBMITTED_WAIT_WRITEBACK' ? 'PENDING_WRITEBACK' : 'WRITTEN_BACK';
+}
+function deriveDiffQty(record) {
+    const writtenQty = resolveReceiverWrittenQty(record);
+    if (typeof writtenQty !== 'number')
+        return undefined;
+    return writtenQty - resolveSubmittedQty(record);
+}
+function createRecordLines(record) {
+    const recordId = record.recordId;
+    const submittedQty = resolveSubmittedQty(record);
+    const receiverWrittenQty = resolveReceiverWrittenQty(record);
+    if (record.cutPieceLines && record.cutPieceLines.length > 0) {
+        return record.cutPieceLines.map((line) => ({
+            lineId: line.lineId,
+            handoverRecordId: recordId,
+            objectType: 'CUT_PIECE',
+            garmentSkuCode: line.garmentSkuCode,
+            garmentColor: line.colorLabel,
+            sizeCode: line.sizeLabel,
+            partCode: line.piecePartCode,
+            partName: line.piecePartLabel,
+            submittedQty: line.pieceQty,
+            qtyUnit: '片',
+            receiverWrittenQty: undefined,
+        }));
+    }
+    return [
+        {
+            lineId: `${recordId}-LINE-001`,
+            handoverRecordId: recordId,
+            objectType: resolveHandoverObjectType(record),
+            materialSku: record.materialCode,
+            garmentSkuCode: record.skuCode,
+            garmentColor: record.skuColor,
+            sizeCode: record.skuSize,
+            partName: record.pieceName,
+            submittedQty,
+            receiverWrittenQty,
+            qtyUnit: record.qtyUnit || '件',
+        },
+    ];
+}
+function hydrateHandoverRecordDomain(record, head) {
+    const handoverOrderId = head.handoverOrderId || head.handoverId;
+    const submittedQty = resolveSubmittedQty(record);
+    const receiverWrittenQty = resolveReceiverWrittenQty(record);
+    const receiverWrittenAt = resolveReceiverWrittenAt(record);
+    const handoverRecordStatus = mapRecordLifecycleStatus(record);
+    const diffQty = deriveDiffQty(record);
+    return {
+        ...record,
+        handoverRecordId: record.handoverRecordId || record.recordId,
+        handoverRecordNo: record.handoverRecordNo || buildHandoverRecordNo(record.recordId),
+        handoverOrderId,
+        sourceTaskId: record.sourceTaskId || record.taskId,
+        objectType: record.objectType || resolveHandoverObjectType(record),
+        submittedQty,
+        factorySubmittedBy: normalizeFactorySubmittedBy(record.factorySubmittedBy),
+        factorySubmittedByKind: 'FACTORY',
+        handoverRecordStatus,
+        handoverRecordQrValue: record.handoverRecordQrValue || buildHandoverRecordQrValue(record.recordId),
+        receiverWrittenQty,
+        receiverWrittenAt,
+        receiverWrittenBy: record.receiverWrittenBy || (receiverWrittenAt ? '接收方扫码员' : undefined),
+        receiverRemark: record.receiverRemark,
+        diffQty,
+        diffReason: record.diffReason || record.objectionReason,
+        factoryDiffDecision: record.factoryDiffDecision
+            || (handoverRecordStatus === 'OBJECTION_REPORTED' || handoverRecordStatus === 'OBJECTION_PROCESSING'
+                ? 'RAISE_OBJECTION'
+                : undefined),
+        quantityObjectionId: record.quantityObjectionId
+            || (handoverRecordStatus === 'OBJECTION_REPORTED' || handoverRecordStatus === 'OBJECTION_PROCESSING' || handoverRecordStatus === 'OBJECTION_RESOLVED'
+                ? `QO-${record.recordId}`
+                : undefined),
+        recordLines: createRecordLines(record),
+        warehouseWrittenQty: receiverWrittenQty,
+        warehouseWrittenAt: receiverWrittenAt,
+        status: mapLegacyRecordStatus(handoverRecordStatus),
+    };
+}
+function deriveHandoverOrderStatus(records, hasFactoryMarkedComplete) {
+    if (records.length === 0)
+        return hasFactoryMarkedComplete ? 'OPEN' : 'AUTO_CREATED';
+    const lifecycleStatuses = records.map((record) => record.handoverRecordStatus || mapRecordLifecycleStatus(record));
+    const objectionCount = lifecycleStatuses.filter((status) => status === 'OBJECTION_REPORTED' || status === 'OBJECTION_PROCESSING').length;
+    if (objectionCount > 0)
+        return objectionCount === lifecycleStatuses.length ? 'HAS_OBJECTION' : 'OBJECTION_PROCESSING';
+    const pendingCount = lifecycleStatuses.filter((status) => status === 'SUBMITTED_WAIT_WRITEBACK').length;
+    const diffCount = lifecycleStatuses.filter((status) => status === 'WRITTEN_BACK_DIFF').length;
+    if (diffCount > 0)
+        return 'DIFF_WAIT_FACTORY_CONFIRM';
+    if (pendingCount === lifecycleStatuses.length)
+        return 'WAIT_RECEIVER_WRITEBACK';
+    if (pendingCount > 0)
+        return 'PARTIAL_WRITTEN_BACK';
+    if (!hasFactoryMarkedComplete)
+        return 'PARTIAL_SUBMITTED';
+    return 'WRITTEN_BACK';
+}
+function hydrateHandoverHeadDomain(head, records) {
+    const handoverOrderId = head.handoverOrderId || head.handoverId;
+    const receiverKind = normalizeReceiverKind(head.targetKind, head.receiverKind);
+    const receiverName = normalizeReceiverName(head);
+    const submittedQtyTotal = sumBy(records, (record) => resolveSubmittedQty(record));
+    const writtenBackQtyTotal = sumBy(records, (record) => resolveReceiverWrittenQty(record) ?? 0);
+    const diffQtyTotal = sumBy(records, (record) => deriveDiffQty(record) ?? 0);
+    const factoryMarkedComplete = head.factoryMarkedComplete ?? head.completionStatus === 'COMPLETED';
+    const handoverOrderStatus = head.headType === 'HANDOUT'
+        ? deriveHandoverOrderStatus(records, factoryMarkedComplete)
+        : undefined;
+    return {
+        ...head,
+        handoverOrderId,
+        handoverOrderNo: head.handoverOrderNo || buildHandoverOrderNo(handoverOrderId),
+        handoverOrderQrValue: head.headType === 'HANDOUT' ? buildHandoverOrderQrValue(handoverOrderId) : undefined,
+        qrCodeValue: head.headType === 'HANDOUT' ? buildHandoverOrderQrValue(handoverOrderId) : head.qrCodeValue,
+        sourceTaskId: head.sourceTaskId || head.taskId,
+        sourceTaskNo: head.sourceTaskNo || head.taskNo,
+        sourceFactoryId: head.sourceFactoryId || head.factoryId,
+        receiverKind,
+        receiverId: normalizeReceiverId(head),
+        receiverName,
+        handoverOrderStatus,
+        submittedQtyTotal,
+        writtenBackQtyTotal,
+        diffQtyTotal,
+        plannedQty: head.plannedQty ?? head.qtyExpectedTotal,
+        factoryMarkedComplete,
+        factoryMarkedCompleteAt: head.factoryMarkedCompleteAt || head.completedByWarehouseAt,
+        receiverClosedAt: head.receiverClosedAt,
+        qtyActualTotal: writtenBackQtyTotal,
+        qtyDiffTotal: head.qtyExpectedTotal - writtenBackQtyTotal,
+    };
+}
+function buildGenericMockHead(seed) {
+    const handoverOrderId = seed.handoverId;
+    const receiverKind = normalizeReceiverKind(seed.targetKind, seed.receiverKind);
+    const receiverName = normalizeReceiverName(seed);
+    return {
+        handoverId: seed.handoverId,
+        handoverOrderId,
+        handoverOrderNo: buildHandoverOrderNo(handoverOrderId),
+        headType: seed.headType,
+        qrCodeValue: seed.headType === 'HANDOUT' ? buildHandoutHeadQrCodeValue(seed.handoverId) : '',
+        handoverOrderQrValue: seed.headType === 'HANDOUT' ? buildHandoverOrderQrValue(handoverOrderId) : undefined,
+        taskId: seed.taskId,
+        sourceTaskId: seed.taskId,
+        taskNo: seed.taskNo,
+        sourceTaskNo: seed.taskNo,
+        productionOrderNo: seed.productionOrderNo,
+        processName: seed.processName,
+        sourceFactoryName: seed.sourceFactoryName,
+        targetName: seed.targetName,
+        targetKind: seed.targetKind,
+        receiverKind,
+        receiverId: normalizeReceiverId({ ...seed, targetName: seed.targetName }),
+        receiverName,
+        qtyUnit: seed.qtyUnit,
+        factoryId: seed.factoryId,
+        taskStatus: seed.taskStatus,
+        summaryStatus: seed.summaryStatus,
+        handoverOrderStatus: seed.headType === 'HANDOUT' ? 'AUTO_CREATED' : undefined,
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        submittedQtyTotal: 0,
+        writtenBackQtyTotal: 0,
+        diffQtyTotal: 0,
+        objectionCount: 0,
+        plannedQty: seed.qtyExpectedTotal,
+        completionStatus: seed.completionStatus,
+        factoryMarkedComplete: seed.completionStatus === 'COMPLETED',
+        factoryMarkedCompleteAt: seed.completedByWarehouseAt,
+        completedByWarehouseAt: seed.completedByWarehouseAt,
+        receiverClosedAt: seed.completedByWarehouseAt,
+        qtyExpectedTotal: seed.qtyExpectedTotal,
+        qtyActualTotal: seed.qtyActualTotal,
+        qtyDiffTotal: seed.qtyDiffTotal,
+        sourceDocNo: seed.sourceDocNo,
+        scopeLabel: seed.scopeLabel,
+        stageCode: seed.stageCode,
+        stageName: seed.stageName,
+        processBusinessCode: seed.processBusinessCode,
+        processBusinessName: seed.processBusinessName,
+        taskTypeCode: seed.taskTypeCode,
+        taskTypeLabel: seed.taskTypeLabel,
+        assignmentGranularityLabel: seed.assignmentGranularityLabel,
+    };
+}
+function normalizeIdSegment(value) {
+    return value.replace(/[^A-Za-z0-9]/g, '').slice(-16) || 'UNKNOWN';
+}
+function buildPostFinishingHandoutHeadId(recheckOrderNo) {
+    return `HOH-POST-${normalizeIdSegment(recheckOrderNo)}`;
+}
+function buildPostFinishingPickupHeadId(handoverRecordNo) {
+    return `PKH-POST-${normalizeIdSegment(handoverRecordNo)}`;
+}
+function buildPostFinishingTaskIdFromOrderNo(productionOrderNo) {
+    return `POST-TASK-${productionOrderNo.replace(/^PO-/, '')}`;
+}
+function buildPostFinishingPickupHeads() {
+    return listPostFinishingUpstreamHandovers().map((handover) => {
+        const handoverId = buildPostFinishingPickupHeadId(handover.handoverRecordNo);
+        const qtyExpectedTotal = sumBy(handover.skuLines, (line) => line.plannedQty);
+        return {
+            handoverId,
+            headType: 'PICKUP',
+            qrCodeValue: handover.qrCode,
+            taskId: buildPostFinishingTaskIdFromOrderNo(handover.productionOrderNo),
+            sourceTaskId: handover.sourceTaskNo,
+            taskNo: buildPostFinishingTaskIdFromOrderNo(handover.productionOrderNo),
+            sourceTaskNo: handover.sourceTaskNo,
+            rootTaskNo: handover.sourceTaskNo,
+            productionOrderNo: handover.productionOrderNo,
+            processName: '后道',
+            sourceFactoryName: handover.sourceFactoryName,
+            targetName: FULL_CAPABILITY_FACTORY_NAME,
+            targetKind: 'FACTORY',
+            qtyUnit: handover.skuLines[0]?.qtyUnit || '件',
+            factoryId: FULL_CAPABILITY_FACTORY_ID,
+            taskStatus: 'IN_PROGRESS',
+            summaryStatus: 'SUBMITTED',
+            recordCount: handover.skuLines.length,
+            pendingWritebackCount: handover.skuLines.length,
+            writtenBackQtyTotal: 0,
+            objectionCount: 0,
+            completionStatus: 'OPEN',
+            qtyExpectedTotal,
+            qtyActualTotal: 0,
+            qtyDiffTotal: qtyExpectedTotal,
+            sourceDocId: handover.handoverRecordId,
+            sourceDocNo: handover.handoverRecordNo,
+            scopeLabel: `${handover.sourceFactoryType}交出成衣 ${handover.skuLines.length} 个 SKU`,
+            executorKind: 'EXTERNAL_FACTORY',
+            transitionFromPrev: 'SAME_FACTORY_CONTINUE',
+            transitionToNext: 'SAME_FACTORY_CONTINUE',
+            stageCode: 'POST',
+            stageName: '后道阶段',
+            processBusinessCode: 'POST_FINISHING',
+            processBusinessName: '后道',
+            taskTypeCode: 'POST_FINISHING',
+            taskTypeLabel: '后道任务',
+            assignmentGranularity: 'ORDER',
+            assignmentGranularityLabel: '整单',
+            isSpecialCraft: false,
+        };
+    });
+}
+function isPostFinishingPickupHead(head) {
+    return head.headType === 'PICKUP' && head.processBusinessCode === 'POST_FINISHING' && Boolean(head.sourceDocNo);
+}
+function buildPostFinishingPickupRecords(head) {
+    if (!isPostFinishingPickupHead(head))
+        return [];
+    const handover = listPostFinishingUpstreamHandovers().find((item) => item.handoverRecordNo === head.sourceDocNo);
+    if (!handover)
+        return [];
+    return handover.skuLines.map((line, index) => ({
+        recordId: `PF-PICKUP-${normalizeIdSegment(handover.handoverRecordNo)}-${String(index + 1).padStart(2, '0')}`,
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: index + 1,
+        materialCode: handover.handoverRecordNo,
+        materialName: `${handover.sourceFactoryType}交出成衣`,
+        materialSpec: `${handover.spuCode} / ${line.colorName} / ${line.sizeName}`,
+        skuCode: line.skuCode,
+        skuColor: line.colorName,
+        skuSize: line.sizeName,
+        pieceName: '成衣',
+        pickupMode: 'WAREHOUSE_DELIVERY',
+        pickupModeLabel: '仓库配送到厂',
+        materialSummary: `${handover.sourceFactoryName}交出 ${line.skuCode} / ${line.colorName} / ${line.sizeName}`,
+        qtyExpected: line.plannedQty,
+        qtyActual: 0,
+        qtyUnit: line.qtyUnit,
+        submittedAt: handover.handedOverAt,
+        status: 'PENDING_FACTORY_CONFIRM',
+        qrCodeValue: `POST_FINISHING_PICKUP|${handover.handoverRecordNo}|${line.handoverLineId}`,
+        warehouseHandedQty: line.plannedQty,
+        warehouseHandedAt: handover.handedOverAt,
+        warehouseHandedBy: handover.sourceFactoryName,
+        remark: `${handover.handoverRecordNo} / ${line.handoverLineId}`,
+    }));
+}
+function buildPostFinishingHandoutHeads() {
+    const groups = new Map();
+    listPostFinishingWaitHandoverWarehouseRecords().forEach((record) => {
+        const key = record.recheckOrderId || record.recheckOrderNo;
+        groups.set(key, [...(groups.get(key) ?? []), record]);
+    });
+    return Array.from(groups.values()).map((lines) => {
+        const first = lines[0];
+        const handoverId = buildPostFinishingHandoutHeadId(first.recheckOrderNo);
+        const qtyExpectedTotal = sumBy(lines, (line) => line.waitHandoverGarmentQty);
+        return {
+            handoverId,
+            handoverOrderId: handoverId,
+            handoverOrderNo: buildHandoverOrderNo(handoverId),
+            headType: 'HANDOUT',
+            qrCodeValue: buildHandoverOrderQrValue(handoverId),
+            handoverOrderQrValue: buildHandoverOrderQrValue(handoverId),
+            taskId: first.postOrderId,
+            sourceTaskId: first.postOrderId,
+            taskNo: first.postOrderNo,
+            sourceTaskNo: first.postOrderNo,
+            rootTaskNo: first.sourceTaskNo,
+            productionOrderNo: first.sourceProductionOrderNo,
+            processName: '后道',
+            sourceFactoryName: first.managedPostFactoryName,
+            targetName: '成衣仓交接点',
+            targetKind: 'WAREHOUSE',
+            receiverKind: 'WAREHOUSE',
+            receiverId: 'WH-GARMENT-HANDOFF',
+            receiverName: '成衣仓交接点',
+            qtyUnit: first.qtyUnit,
+            factoryId: FULL_CAPABILITY_FACTORY_ID,
+            taskStatus: 'DONE',
+            summaryStatus: 'NONE',
+            handoverOrderStatus: 'AUTO_CREATED',
+            recordCount: 0,
+            pendingWritebackCount: 0,
+            submittedQtyTotal: 0,
+            writtenBackQtyTotal: 0,
+            diffQtyTotal: 0,
+            objectionCount: 0,
+            plannedQty: qtyExpectedTotal,
+            completionStatus: 'OPEN',
+            qtyExpectedTotal,
+            qtyActualTotal: 0,
+            qtyDiffTotal: qtyExpectedTotal,
+            sourceDocId: first.recheckOrderId,
+            sourceDocNo: first.recheckOrderNo,
+            scopeLabel: `复检合格成衣 ${lines.length} 个 SKU`,
+            executorKind: 'EXTERNAL_FACTORY',
+            transitionFromPrev: 'SAME_FACTORY_CONTINUE',
+            transitionToNext: 'RETURN_TO_WAREHOUSE',
+            stageCode: 'POST',
+            stageName: '后道阶段',
+            processBusinessCode: 'POST_FINISHING',
+            processBusinessName: '后道',
+            taskTypeCode: 'POST_FINISHING',
+            taskTypeLabel: '后道任务',
+            assignmentGranularity: 'ORDER',
+            assignmentGranularityLabel: '整单',
+            isSpecialCraft: false,
+        };
+    });
+}
+function isPostFinishingGeneratedHead(head) {
+    return head.processBusinessCode === 'POST_FINISHING' && head.handoverId.startsWith('HOH-POST-');
+}
+function buildGenericPickupRecord(seed) {
+    return {
+        recordId: seed.recordId,
+        handoverId: seed.handoverId,
+        taskId: seed.taskId,
+        sequenceNo: seed.sequenceNo ?? 1,
+        materialCode: seed.materialCode,
+        materialName: seed.materialName,
+        materialSpec: seed.materialSpec,
+        skuCode: seed.skuCode,
+        skuColor: seed.skuColor,
+        skuSize: seed.skuSize,
+        pieceName: seed.pieceName,
+        pickupMode: seed.pickupMode,
+        pickupModeLabel: seed.pickupMode === 'FACTORY_PICKUP' ? '工厂到仓自提' : '仓库配送到厂',
+        materialSummary: seed.materialSummary,
+        qtyExpected: seed.qtyExpected,
+        qtyActual: seed.qtyActual,
+        qtyUnit: seed.qtyUnit,
+        submittedAt: seed.submittedAt,
+        status: seed.status,
+        receivedAt: seed.receivedAt,
+        qrCodeValue: seed.qrCodeValue || `PICKUP-RECORD:${seed.recordId}`,
+        warehouseHandedQty: seed.warehouseHandedQty,
+        warehouseHandedAt: seed.warehouseHandedAt,
+        warehouseHandedBy: seed.warehouseHandedBy,
+        factoryConfirmedQty: seed.factoryConfirmedQty,
+        factoryConfirmedAt: seed.factoryConfirmedAt,
+        factoryReportedQty: seed.factoryReportedQty,
+        finalResolvedQty: seed.finalResolvedQty,
+        finalResolvedAt: seed.finalResolvedAt,
+        exceptionCaseId: seed.exceptionCaseId,
+        objectionReason: seed.objectionReason,
+        objectionRemark: seed.objectionRemark,
+        objectionProofFiles: cloneProofFiles(seed.objectionProofFiles ?? []),
+        objectionStatus: seed.objectionStatus,
+        followUpRemark: seed.followUpRemark,
+        resolvedRemark: seed.resolvedRemark,
+        remark: seed.remark,
+    };
+}
+function buildGenericHandoutRecord(seed) {
+    return hydrateHandoverRecordDomain({
+        recordId: seed.recordId,
+        handoverId: seed.handoverId,
+        taskId: seed.taskId,
+        sequenceNo: 1,
+        handoutObjectType: seed.handoutObjectType,
+        handoutItemLabel: seed.handoutItemLabel,
+        garmentEquivalentQty: seed.garmentEquivalentQty,
+        materialCode: seed.materialCode,
+        materialName: seed.materialName,
+        materialSpec: seed.materialSpec,
+        skuCode: seed.skuCode,
+        skuColor: seed.skuColor,
+        skuSize: seed.skuSize,
+        pieceName: seed.pieceName,
+        plannedQty: seed.plannedQty,
+        submittedQty: seed.plannedQty,
+        qtyUnit: seed.qtyUnit,
+        cutPieceLines: seed.cutPieceLines?.map((line) => ({ ...line })),
+        factorySubmittedAt: seed.factorySubmittedAt,
+        factorySubmittedBy: seed.factorySubmittedBy,
+        factoryRemark: seed.factoryRemark,
+        factoryProofFiles: [],
+        status: seed.status,
+        warehouseReturnNo: seed.warehouseReturnNo,
+        warehouseWrittenQty: seed.warehouseWrittenQty,
+        warehouseWrittenAt: seed.warehouseWrittenAt,
+        receiverWrittenQty: seed.receiverWrittenQty ?? seed.warehouseWrittenQty,
+        receiverWrittenAt: seed.receiverWrittenAt ?? seed.warehouseWrittenAt,
+        receiverWrittenBy: seed.receiverWrittenBy,
+        receiverRemark: seed.receiverRemark,
+        diffReason: seed.diffReason,
+        factoryDiffDecision: seed.factoryDiffDecision,
+        quantityObjectionId: seed.quantityObjectionId,
+        objectionReason: seed.objectionReason,
+        objectionRemark: seed.objectionRemark,
+    }, { handoverId: seed.handoverId });
+}
+const PDA_GENERIC_HANDOVER_HEADS = [
+    ...listPdaGenericHandoverHeadSeeds(),
+    ...listWoolHandoverHeadSeeds(),
+].map((seed) => buildGenericMockHead(seed));
+const PDA_GENERIC_PICKUP_RECORDS = Object.fromEntries(PDA_GENERIC_HANDOVER_HEADS
+    .filter((head) => head.headType === 'PICKUP')
+    .map((head) => [
+    head.handoverId,
+    [
+        ...getPdaGenericPickupRecordSeedsByHeadId(head.handoverId),
+        ...getWoolPickupRecordSeedsByHeadId(head.handoverId),
+    ].map((seed) => buildGenericPickupRecord(seed)),
+]));
+const PDA_GENERIC_HANDOUT_RECORDS = Object.fromEntries(PDA_GENERIC_HANDOVER_HEADS
+    .filter((head) => head.headType === 'HANDOUT')
+    .map((head) => [
+    head.handoverId,
+    [
+        ...getPdaGenericHandoutRecordSeedsByHeadId(head.handoverId),
+        ...getWoolHandoutRecordSeedsByHeadId(head.handoverId),
+    ].map((seed) => buildGenericHandoutRecord(seed)),
+]));
+const PDA_MOCK_FACTORY_ID = TEST_FACTORY_ID;
+const PDA_MOCK_CUTTING_FACTORY_ID = TEST_FACTORY_ID;
+const PDA_MOCK_HANDOVER_HEADS = [
+    {
+        handoverId: 'PKH-MOCK-CUT-089',
+        headType: 'PICKUP',
+        qrCodeValue: '',
+        taskId: 'TASK-CUT-000089',
+        taskNo: 'TASK-CUT-000089',
+        productionOrderNo: 'PO-20260319-013',
+        processName: '裁片',
+        sourceFactoryName: '一仓裁床仓',
+        targetName: TEST_FACTORY_NAME,
+        targetKind: 'FACTORY',
+        qtyUnit: '卷',
+        factoryId: PDA_MOCK_FACTORY_ID,
+        taskStatus: 'IN_PROGRESS',
+        summaryStatus: 'SUBMITTED',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        writtenBackQtyTotal: 0,
+        objectionCount: 0,
+        completionStatus: 'OPEN',
+        qtyExpectedTotal: 10,
+        qtyActualTotal: 0,
+        qtyDiffTotal: 10,
+        sourceDocNo: 'ISS-MOCK-013',
+        scopeLabel: '主布首批领料',
+        executorKind: 'EXTERNAL_FACTORY',
+        transitionFromPrev: 'NOT_APPLICABLE',
+        transitionToNext: 'SAME_FACTORY_CONTINUE',
+        stageCode: 'PROD',
+        stageName: '生产阶段',
+        processBusinessCode: 'PROC_CUT',
+        processBusinessName: '裁片',
+        taskTypeCode: 'CUTTING',
+        taskTypeLabel: '裁片任务',
+        assignmentGranularity: 'ORDER',
+        assignmentGranularityLabel: '整单',
+        isSpecialCraft: true,
+    },
+    {
+        handoverId: 'HOH-MOCK-CUT-093',
+        headType: 'HANDOUT',
+        qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-CUT-093'),
+        taskId: 'TASK-CUT-000093',
+        taskNo: 'TASK-CUT-000093',
+        productionOrderNo: 'PO-20260319-017',
+        processName: '裁片',
+        sourceFactoryName: TEST_FACTORY_NAME,
+        targetName: '后道车缝',
+        targetKind: 'FACTORY',
+        qtyUnit: '片',
+        factoryId: PDA_MOCK_FACTORY_ID,
+        taskStatus: 'DONE',
+        summaryStatus: 'PARTIAL_WRITTEN_BACK',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        writtenBackQtyTotal: 0,
+        objectionCount: 0,
+        completionStatus: 'OPEN',
+        qtyExpectedTotal: 320,
+        qtyActualTotal: 240,
+        qtyDiffTotal: 80,
+        sourceDocNo: 'RET-MOCK-CUT-093',
+        scopeLabel: '多部位尾批交接',
+        executorKind: 'EXTERNAL_FACTORY',
+        transitionFromPrev: 'RETURN_TO_WAREHOUSE',
+        transitionToNext: 'SAME_FACTORY_CONTINUE',
+        stageCode: 'PROD',
+        stageName: '生产阶段',
+        processBusinessCode: 'PROC_CUT',
+        processBusinessName: '裁片',
+        taskTypeCode: 'CUTTING',
+        taskTypeLabel: '裁片任务',
+        assignmentGranularity: 'ORDER',
+        assignmentGranularityLabel: '整单',
+        isSpecialCraft: true,
+    },
+    {
+        handoverId: 'HOH-MOCK-CUT-094',
+        headType: 'HANDOUT',
+        qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-CUT-094'),
+        taskId: 'TASK-CUT-000094',
+        taskNo: 'TASK-CUT-000094',
+        productionOrderNo: 'PO-20260319-018',
+        processName: '裁片',
+        sourceFactoryName: TEST_FACTORY_NAME,
+        targetName: '后道车缝',
+        targetKind: 'FACTORY',
+        qtyUnit: '片',
+        factoryId: PDA_MOCK_FACTORY_ID,
+        taskStatus: 'DONE',
+        summaryStatus: 'WRITTEN_BACK',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        writtenBackQtyTotal: 0,
+        objectionCount: 0,
+        completionStatus: 'COMPLETED',
+        qtyExpectedTotal: 320,
+        qtyActualTotal: 320,
+        qtyDiffTotal: 0,
+        sourceDocNo: 'RET-MOCK-CUT-094',
+        scopeLabel: '整单多部位交接',
+        executorKind: 'EXTERNAL_FACTORY',
+        transitionFromPrev: 'RETURN_TO_WAREHOUSE',
+        transitionToNext: 'SAME_FACTORY_CONTINUE',
+        stageCode: 'PROD',
+        stageName: '生产阶段',
+        processBusinessCode: 'PROC_CUT',
+        processBusinessName: '裁片',
+        taskTypeCode: 'CUTTING',
+        taskTypeLabel: '裁片任务',
+        assignmentGranularity: 'ORDER',
+        assignmentGranularityLabel: '整单',
+        isSpecialCraft: true,
+    },
+    {
+        handoverId: 'PKH-MOCK-CUT-020-F004',
+        headType: 'PICKUP',
+        qrCodeValue: '',
+        taskId: 'TASK-CUT-BID-020',
+        taskNo: 'TASK-CUT-BID-020',
+        productionOrderNo: 'PO-202603-0003',
+        processName: '裁片',
+        sourceFactoryName: '五仓裁片仓',
+        targetName: 'PT Mulia Cutting Center',
+        targetKind: 'FACTORY',
+        qtyUnit: '卷',
+        factoryId: PDA_MOCK_CUTTING_FACTORY_ID,
+        taskStatus: 'IN_PROGRESS',
+        summaryStatus: 'PARTIAL_WRITTEN_BACK',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        writtenBackQtyTotal: 0,
+        objectionCount: 0,
+        completionStatus: 'OPEN',
+        qtyExpectedTotal: 8,
+        qtyActualTotal: 0,
+        qtyDiffTotal: 8,
+        sourceDocNo: 'ISS-MOCK-CUT-020',
+        scopeLabel: '异地裁床首批领料',
+        executorKind: 'EXTERNAL_FACTORY',
+        transitionFromPrev: 'NOT_APPLICABLE',
+        transitionToNext: 'SAME_FACTORY_CONTINUE',
+        stageCode: 'PROD',
+        stageName: '生产阶段',
+        processBusinessCode: 'PROC_CUT',
+        processBusinessName: '裁片',
+        taskTypeCode: 'CUTTING',
+        taskTypeLabel: '裁片任务',
+        assignmentGranularity: 'ORDER',
+        assignmentGranularityLabel: '整单',
+        isSpecialCraft: true,
+    },
+    {
+        handoverId: 'HOH-MOCK-CUT-103-F004-OPEN',
+        headType: 'HANDOUT',
+        qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-CUT-103-F004-OPEN'),
+        taskId: 'TASK-CUT-000103',
+        taskNo: 'TASK-CUT-000103',
+        productionOrderNo: 'PO-202603-0009',
+        processName: '裁片',
+        sourceFactoryName: 'PT Mulia Cutting Center',
+        targetName: 'PT Sinar Garment Indonesia',
+        targetKind: 'FACTORY',
+        qtyUnit: '片',
+        factoryId: PDA_MOCK_CUTTING_FACTORY_ID,
+        taskStatus: 'DONE',
+        summaryStatus: 'SUBMITTED',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        writtenBackQtyTotal: 0,
+        objectionCount: 0,
+        completionStatus: 'OPEN',
+        qtyExpectedTotal: 180,
+        qtyActualTotal: 0,
+        qtyDiffTotal: 180,
+        sourceDocNo: 'RET-MOCK-CUT-103-OPEN',
+        scopeLabel: '尾批交接',
+        executorKind: 'EXTERNAL_FACTORY',
+        transitionFromPrev: 'RETURN_TO_WAREHOUSE',
+        transitionToNext: 'SAME_FACTORY_CONTINUE',
+        stageCode: 'PROD',
+        stageName: '生产阶段',
+        processBusinessCode: 'PROC_CUT',
+        processBusinessName: '裁片',
+        taskTypeCode: 'CUTTING',
+        taskTypeLabel: '裁片任务',
+        assignmentGranularity: 'ORDER',
+        assignmentGranularityLabel: '整单',
+        isSpecialCraft: true,
+    },
+    {
+        handoverId: 'HOH-MOCK-CUT-103-F004-DONE',
+        headType: 'HANDOUT',
+        qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-CUT-103-F004-DONE'),
+        taskId: 'TASK-CUT-000103',
+        taskNo: 'TASK-CUT-000103',
+        productionOrderNo: 'PO-202603-0009',
+        processName: '裁片',
+        sourceFactoryName: 'PT Mulia Cutting Center',
+        targetName: 'PT Sinar Garment Indonesia',
+        targetKind: 'FACTORY',
+        qtyUnit: '片',
+        factoryId: PDA_MOCK_CUTTING_FACTORY_ID,
+        taskStatus: 'DONE',
+        summaryStatus: 'WRITTEN_BACK',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        writtenBackQtyTotal: 0,
+        objectionCount: 0,
+        completionStatus: 'COMPLETED',
+        completedByWarehouseAt: '2026-03-24 18:20:00',
+        qtyExpectedTotal: 220,
+        qtyActualTotal: 0,
+        qtyDiffTotal: 220,
+        sourceDocNo: 'RET-MOCK-CUT-103-DONE',
+        scopeLabel: '首批交接',
+        executorKind: 'EXTERNAL_FACTORY',
+        transitionFromPrev: 'RETURN_TO_WAREHOUSE',
+        transitionToNext: 'SAME_FACTORY_CONTINUE',
+        stageCode: 'PROD',
+        stageName: '生产阶段',
+        processBusinessCode: 'PROC_CUT',
+        processBusinessName: '裁片',
+        taskTypeCode: 'CUTTING',
+        taskTypeLabel: '裁片任务',
+        assignmentGranularity: 'ORDER',
+        assignmentGranularityLabel: '整单',
+        isSpecialCraft: true,
+    },
+    ...PDA_GENERIC_HANDOVER_HEADS,
+];
+const PDA_MOCK_PICKUP_RECORDS = {
+    'PKH-MOCK-CUT-089': [
+        {
+            recordId: 'PKR-MOCK-CUT089-001',
+            handoverId: 'PKH-MOCK-CUT-089',
+            taskId: 'TASK-CUT-000089',
+            sequenceNo: 1,
+            materialCode: 'FAB-SKU-DYE-022',
+            materialName: '染色主布',
+            materialSpec: '150cm / 120g',
+            skuCode: 'FAB-SKU-DYE-022',
+            skuColor: '雾蓝',
+            skuSize: '均码',
+            pieceName: '主片',
+            pickupMode: 'WAREHOUSE_DELIVERY',
+            pickupModeLabel: '仓库配送到厂',
+            materialSummary: '染色主布 / 主片',
+            qtyExpected: 4,
+            qtyUnit: '卷',
+            submittedAt: '2026-03-22 08:10:00',
+            status: 'PENDING_FACTORY_CONFIRM',
+            qrCodeValue: buildPickupQrCodeValue('PKR-MOCK-CUT089-001'),
+            warehouseHandedQty: 4,
+            warehouseHandedAt: '2026-03-22 08:40:00',
+            warehouseHandedBy: '五仓发料员',
+            remark: '首批已扫码交付，待工厂确认',
+        },
+        {
+            recordId: 'PKR-MOCK-CUT089-002',
+            handoverId: 'PKH-MOCK-CUT-089',
+            taskId: 'TASK-CUT-000089',
+            sequenceNo: 2,
+            materialCode: 'FAB-SKU-DYE-022',
+            materialName: '染色主布',
+            materialSpec: '150cm / 120g',
+            skuCode: 'FAB-SKU-DYE-022',
+            skuColor: '雾蓝',
+            skuSize: '均码',
+            pieceName: '主片',
+            pickupMode: 'FACTORY_PICKUP',
+            pickupModeLabel: '工厂到仓自提',
+            materialSummary: '染色主布 / 主片补批',
+            qtyExpected: 6,
+            qtyUnit: '卷',
+            submittedAt: '2026-03-22 09:15:00',
+            status: 'PENDING_FACTORY_PICKUP',
+            qrCodeValue: buildPickupQrCodeValue('PKR-MOCK-CUT089-002'),
+            remark: '余下 6 卷待工厂到仓自提',
+        },
+    ],
+    'PKH-MOCK-CUT-020-F004': [
+        {
+            recordId: 'PKR-MOCK-CUT020-001',
+            handoverId: 'PKH-MOCK-CUT-020-F004',
+            taskId: 'TASK-CUT-BID-020',
+            sequenceNo: 1,
+            materialCode: 'FAB-SKU-CUT-020',
+            materialName: '弹力牛仔主布',
+            materialSpec: '150cm / 10oz',
+            skuCode: 'FAB-SKU-CUT-020',
+            skuColor: '深靛蓝',
+            skuSize: '均码',
+            pieceName: '主片',
+            pickupMode: 'WAREHOUSE_DELIVERY',
+            pickupModeLabel: '仓库配送到厂',
+            materialSummary: '主布 / 首批裁床领料',
+            qtyExpected: 5,
+            qtyUnit: '卷',
+            submittedAt: '2026-03-24 08:10:00',
+            status: 'OBJECTION_PROCESSING',
+            qrCodeValue: buildPickupQrCodeValue('PKR-MOCK-CUT020-001'),
+            warehouseHandedQty: 5,
+            warehouseHandedAt: '2026-03-24 08:45:00',
+            warehouseHandedBy: '五仓发料员',
+            factoryReportedQty: 3,
+            exceptionCaseId: 'EX-PDA-PICK-CUT-020',
+            objectionReason: '首批到厂数量少于仓库扫码交付数量',
+            objectionRemark: '工厂复点少 2 卷，待平台核定。',
+            objectionStatus: 'PROCESSING',
+            followUpRemark: '平台已要求仓库复点并补传交付凭证。',
+            remark: '首批主布存在数量差异，处理中',
+        },
+        {
+            recordId: 'PKR-MOCK-CUT020-002',
+            handoverId: 'PKH-MOCK-CUT-020-F004',
+            taskId: 'TASK-CUT-BID-020',
+            sequenceNo: 2,
+            materialCode: 'FAB-SKU-CUT-020',
+            materialName: '弹力牛仔主布',
+            materialSpec: '150cm / 10oz',
+            skuCode: 'FAB-SKU-CUT-020',
+            skuColor: '深靛蓝',
+            skuSize: '均码',
+            pieceName: '主片',
+            pickupMode: 'FACTORY_PICKUP',
+            pickupModeLabel: '工厂到仓自提',
+            materialSummary: '主布 / 余量补批',
+            qtyExpected: 3,
+            qtyUnit: '卷',
+            submittedAt: '2026-03-24 10:05:00',
+            status: 'PENDING_FACTORY_PICKUP',
+            qrCodeValue: buildPickupQrCodeValue('PKR-MOCK-CUT020-002'),
+            remark: '余下 3 卷待裁片专厂自提',
+        },
+    ],
+    ...PDA_GENERIC_PICKUP_RECORDS,
+};
+const PDA_MOCK_HANDOUT_RECORDS = {
+    'HOH-MOCK-CUT-093': [
+        {
+            recordId: 'HOR-MOCK-CUT093-001',
+            handoverId: 'HOH-MOCK-CUT-093',
+            taskId: 'TASK-CUT-000093',
+            sequenceNo: 1,
+            handoutObjectType: 'CUT_PIECE',
+            handoutItemLabel: '前片、后片（2 种部位） / CPO-20260319-G / CPO-20260319-H（2 个）',
+            garmentEquivalentQty: 120,
+            materialCode: 'CUT-093-PANEL',
+            materialName: '裁片',
+            materialSpec: '前片、后片首批交接',
+            skuCode: 'CPO-20260319-G',
+            skuColor: '石灰蓝',
+            skuSize: 'M / L',
+            pieceName: '前片 / 后片',
+            cutPieceLines: [
+                {
+                    lineId: 'CUT093-001-FRONT-G',
+                    piecePartLabel: '前片',
+                    garmentSkuCode: 'CPO-20260319-G',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'M',
+                    pieceQty: 60,
+                    garmentEquivalentQty: 30,
+                },
+                {
+                    lineId: 'CUT093-001-FRONT-H',
+                    piecePartLabel: '前片',
+                    garmentSkuCode: 'CPO-20260319-H',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'L',
+                    pieceQty: 60,
+                    garmentEquivalentQty: 30,
+                },
+                {
+                    lineId: 'CUT093-001-BACK-G',
+                    piecePartLabel: '后片',
+                    garmentSkuCode: 'CPO-20260319-G',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'M',
+                    pieceQty: 60,
+                    garmentEquivalentQty: 30,
+                },
+                {
+                    lineId: 'CUT093-001-BACK-H',
+                    piecePartLabel: '后片',
+                    garmentSkuCode: 'CPO-20260319-H',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'L',
+                    pieceQty: 60,
+                    garmentEquivalentQty: 30,
+                },
+            ],
+            plannedQty: 240,
+            qtyUnit: '片',
+            factorySubmittedAt: '2026-03-22 09:40:00',
+            factoryRemark: '前片、后片首批已完成仓库收货确认',
+            factoryProofFiles: [],
+            status: 'WRITTEN_BACK',
+            warehouseReturnNo: 'RET-MOCK-CUT-093-001',
+            warehouseWrittenQty: 240,
+            warehouseWrittenAt: '2026-03-22 10:05:00',
+        },
+        {
+            recordId: 'HOR-MOCK-CUT093-002',
+            handoverId: 'HOH-MOCK-CUT-093',
+            taskId: 'TASK-CUT-000093',
+            sequenceNo: 2,
+            handoutObjectType: 'CUT_PIECE',
+            handoutItemLabel: '罗纹领口（1 种部位） / CPO-20260319-G / CPO-20260319-H（2 个）',
+            garmentEquivalentQty: 40,
+            materialCode: 'CUT-093-COLLAR',
+            materialName: '裁片',
+            materialSpec: '罗纹领口尾批待收货确认',
+            skuCode: 'CPO-20260319-G / CPO-20260319-H',
+            skuColor: '石灰蓝',
+            skuSize: 'M / L',
+            pieceName: '罗纹领口',
+            cutPieceLines: [
+                {
+                    lineId: 'CUT093-002-COLLAR-G',
+                    piecePartLabel: '罗纹领口',
+                    garmentSkuCode: 'CPO-20260319-G',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'M',
+                    pieceQty: 40,
+                    garmentEquivalentQty: 20,
+                },
+                {
+                    lineId: 'CUT093-002-COLLAR-H',
+                    piecePartLabel: '罗纹领口',
+                    garmentSkuCode: 'CPO-20260319-H',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'L',
+                    pieceQty: 40,
+                    garmentEquivalentQty: 20,
+                },
+            ],
+            plannedQty: 80,
+            qtyUnit: '片',
+            factorySubmittedAt: '2026-03-22 14:10:00',
+            factoryRemark: '罗纹领口已签收但存在数量差异',
+            factoryProofFiles: [],
+            status: 'WRITTEN_BACK',
+            warehouseReturnNo: 'RET-MOCK-CUT-093-002',
+            warehouseWrittenQty: 70,
+            warehouseWrittenAt: '2026-03-22 14:35:00',
+            diffReason: '主厂签收数量少于工厂交出对象数量',
+        },
+    ],
+    'HOH-MOCK-CUT-094': [
+        {
+            recordId: 'HOR-MOCK-CUT094-001',
+            handoverId: 'HOH-MOCK-CUT-094',
+            taskId: 'TASK-CUT-000094',
+            sequenceNo: 1,
+            handoutObjectType: 'CUT_PIECE',
+            handoutItemLabel: '前片、后片、罗纹领口（3 种部位） / CPO-20260319-G / CPO-20260319-H（2 个）',
+            garmentEquivalentQty: 160,
+            materialCode: 'CUT-094-MULTI',
+            materialName: '印花裁片',
+            materialSpec: '整单多部位交接',
+            skuCode: 'CPO-20260319-G / CPO-20260319-H',
+            skuColor: '石灰蓝',
+            skuSize: 'M / L',
+            pieceName: '前片 / 后片 / 罗纹领口',
+            cutPieceLines: [
+                {
+                    lineId: 'CUT094-001-FRONT-G',
+                    piecePartLabel: '前片',
+                    garmentSkuCode: 'CPO-20260319-G',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'M',
+                    pieceQty: 60,
+                    garmentEquivalentQty: 30,
+                },
+                {
+                    lineId: 'CUT094-001-FRONT-H',
+                    piecePartLabel: '前片',
+                    garmentSkuCode: 'CPO-20260319-H',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'L',
+                    pieceQty: 60,
+                    garmentEquivalentQty: 30,
+                },
+                {
+                    lineId: 'CUT094-001-BACK-G',
+                    piecePartLabel: '后片',
+                    garmentSkuCode: 'CPO-20260319-G',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'M',
+                    pieceQty: 60,
+                    garmentEquivalentQty: 30,
+                },
+                {
+                    lineId: 'CUT094-001-BACK-H',
+                    piecePartLabel: '后片',
+                    garmentSkuCode: 'CPO-20260319-H',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'L',
+                    pieceQty: 60,
+                    garmentEquivalentQty: 30,
+                },
+                {
+                    lineId: 'CUT094-001-COLLAR-G',
+                    piecePartLabel: '罗纹领口',
+                    garmentSkuCode: 'CPO-20260319-G',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'M',
+                    pieceQty: 40,
+                    garmentEquivalentQty: 20,
+                },
+                {
+                    lineId: 'CUT094-001-COLLAR-H',
+                    piecePartLabel: '罗纹领口',
+                    garmentSkuCode: 'CPO-20260319-H',
+                    colorLabel: '石灰蓝',
+                    sizeLabel: 'L',
+                    pieceQty: 40,
+                    garmentEquivalentQty: 20,
+                },
+            ],
+            plannedQty: 320,
+            qtyUnit: '片',
+            factorySubmittedAt: '2026-03-22 10:10:00',
+            factoryRemark: '多部位裁片已交接后道车缝',
+            factoryProofFiles: [],
+            status: 'WRITTEN_BACK',
+            warehouseReturnNo: 'RET-MOCK-CUT-094-001',
+            warehouseWrittenQty: 320,
+            warehouseWrittenAt: '2026-03-22 10:30:00',
+        },
+    ],
+    'HOH-MOCK-CUT-103-F004-OPEN': [
+        {
+            recordId: 'HOR-MOCK-CUT103-OPEN-001',
+            handoverId: 'HOH-MOCK-CUT-103-F004-OPEN',
+            taskId: 'TASK-CUT-000103',
+            sequenceNo: 1,
+            handoutObjectType: 'CUT_PIECE',
+            handoutItemLabel: '灰蓝拼接 / CPO-20260324-E1 / 180片 / 前片',
+            garmentEquivalentQty: 90,
+            materialCode: 'CUT-103-FRONT',
+            materialName: '裁片',
+            materialSpec: '异地裁床尾批交接',
+            skuCode: 'CPO-20260324-E1',
+            skuColor: '灰蓝拼接',
+            skuSize: 'M',
+            pieceName: '前片',
+            plannedQty: 180,
+            qtyUnit: '片',
+            factorySubmittedAt: '2026-03-24 16:10:00',
+            factoryRemark: '尾批已发出，主厂收货确认后已发起数量异议',
+            factoryProofFiles: [],
+            status: 'OBJECTION_REPORTED',
+            warehouseReturnNo: 'RET-MOCK-CUT-103-OPEN-001',
+            warehouseWrittenQty: 168,
+            warehouseWrittenAt: '2026-03-24 16:40:00',
+            diffReason: '主厂签收数量少于交出对象数量',
+            quantityObjectionId: 'QO-HOR-MOCK-CUT103-OPEN-001',
+            objectionReason: '主厂签收数量少于交出对象数量',
+            objectionRemark: '工厂已发起数量异议',
+            factoryDiffDecision: 'RAISE_OBJECTION',
+            followUpRemark: '等待双方复核处理',
+        },
+    ],
+    'HOH-MOCK-CUT-103-F004-DONE': [
+        {
+            recordId: 'HOR-MOCK-CUT103-DONE-001',
+            handoverId: 'HOH-MOCK-CUT-103-F004-DONE',
+            taskId: 'TASK-CUT-000103',
+            sequenceNo: 1,
+            handoutObjectType: 'CUT_PIECE',
+            handoutItemLabel: '灰蓝拼接 / CPO-20260324-E1 / 220片 / 前后片整单',
+            garmentEquivalentQty: 110,
+            materialCode: 'CUT-103-SET',
+            materialName: '裁片',
+            materialSpec: '异地裁床首批交接',
+            skuCode: 'CPO-20260324-E1',
+            skuColor: '灰蓝拼接',
+            skuSize: 'M',
+            pieceName: '前后片整单',
+            plannedQty: 220,
+            qtyUnit: '片',
+            factorySubmittedAt: '2026-03-24 14:20:00',
+            factoryRemark: '首批已交回主厂',
+            factoryProofFiles: [],
+            status: 'WRITTEN_BACK',
+            warehouseReturnNo: 'RET-MOCK-CUT-103-001',
+            warehouseWrittenQty: 220,
+            warehouseWrittenAt: '2026-03-24 15:00:00',
+        },
+    ],
+    ...PDA_GENERIC_HANDOUT_RECORDS,
+};
+function buildTaskBoardPickupRecordSeeds(head) {
+    if (head.headType !== 'PICKUP')
+        return [];
+    if (head.taskId === 'TASKGEN-202603-0003-001__ORDER') {
+        return [
+            {
+                recordId: 'PKR-SEED-TASKGEN0003001-001',
+                handoverId: head.handoverId,
+                taskId: head.taskId,
+                sequenceNo: 1,
+                materialCode: 'FAB-SEW-0003',
+                materialName: '车缝主布',
+                materialSpec: '首批裁片',
+                skuCode: 'SKU-0003-A',
+                skuColor: '雾蓝',
+                skuSize: 'M',
+                pieceName: '主片',
+                pickupMode: 'WAREHOUSE_DELIVERY',
+                pickupModeLabel: '仓库配送到厂',
+                materialSummary: '车缝主布 / 主片',
+                qtyExpected: Math.max(head.qtyExpectedTotal, 120),
+                qtyActual: 0,
+                qtyUnit: head.qtyUnit || '件',
+                submittedAt: '2026-03-20 12:20:00',
+                status: 'REJECTED',
+                qrCodeValue: buildPickupQrCodeValue('PKR-SEED-TASKGEN0003001-001'),
+                warehouseHandedQty: Math.max(head.qtyExpectedTotal, 120),
+                warehouseHandedAt: '2026-03-20 12:15:00',
+                warehouseHandedBy: '一仓发料员',
+                factoryConfirmedAt: '2026-03-20 12:28:00',
+                objectionReason: '到货数量与领料内容不符',
+                objectionRemark: '已驳回，等待仓库重新发料',
+                followUpRemark: '工厂已驳回本次领料',
+                remark: '首批已驳回，不进入待加工仓',
+            },
+        ];
+    }
+    if (head.taskId === 'TASKGEN-202603-0004-001__ORDER') {
+        return [
+            {
+                recordId: 'PKR-SEED-TASKGEN0004001-001',
+                handoverId: head.handoverId,
+                taskId: head.taskId,
+                sequenceNo: 1,
+                materialCode: 'FAB-SEW-0004',
+                materialName: '车缝主布',
+                materialSpec: '首批裁片',
+                skuCode: 'SKU-0004-A',
+                skuColor: '砂灰',
+                skuSize: 'L',
+                pieceName: '主片',
+                pickupMode: 'WAREHOUSE_DELIVERY',
+                pickupModeLabel: '仓库配送到厂',
+                materialSummary: '车缝主布 / 主片',
+                qtyExpected: Math.max(head.qtyExpectedTotal, 160),
+                qtyActual: Math.max(head.qtyExpectedTotal, 160),
+                qtyUnit: head.qtyUnit || '件',
+                submittedAt: '2026-03-20 15:40:00',
+                status: 'RECEIVED',
+                receivedAt: '2026-03-20 16:10:00',
+                qrCodeValue: buildPickupQrCodeValue('PKR-SEED-TASKGEN0004001-001'),
+                warehouseHandedQty: Math.max(head.qtyExpectedTotal, 160),
+                warehouseHandedAt: '2026-03-20 15:50:00',
+                warehouseHandedBy: '一仓发料员',
+                factoryConfirmedQty: Math.max(head.qtyExpectedTotal, 160),
+                factoryConfirmedAt: '2026-03-20 16:10:00',
+                remark: '整单已确认领料',
+            },
+        ];
+    }
+    if (head.taskId === 'TASKGEN-202603-0005-001__ORDER') {
+        return [
+            {
+                recordId: 'PKR-SEED-TASKGEN0005001-001',
+                handoverId: head.handoverId,
+                taskId: head.taskId,
+                sequenceNo: 1,
+                materialCode: 'FAB-SEW-0005',
+                materialName: '车缝主布',
+                materialSpec: '首批自提',
+                skuCode: 'SKU-0005-A',
+                skuColor: '深蓝',
+                skuSize: 'M',
+                pieceName: '主片',
+                pickupMode: 'FACTORY_PICKUP',
+                pickupModeLabel: '工厂到仓自提',
+                materialSummary: '车缝主布 / 主片',
+                qtyExpected: Math.max(head.qtyExpectedTotal, 140),
+                qtyUnit: head.qtyUnit || '件',
+                submittedAt: '2026-03-20 17:10:00',
+                status: 'OBJECTION_PROCESSING',
+                qrCodeValue: buildPickupQrCodeValue('PKR-SEED-TASKGEN0005001-001'),
+                warehouseHandedQty: Math.max(head.qtyExpectedTotal, 140),
+                warehouseHandedAt: '2026-03-20 17:00:00',
+                warehouseHandedBy: '二仓发料员',
+                factoryReportedQty: Math.max(head.qtyExpectedTotal - 28, 112),
+                exceptionCaseId: 'EX-PICKUP-TASKGEN0005001',
+                objectionReason: '工厂复点数量少于仓库交付数量',
+                objectionRemark: '差异待仓库复核处理',
+                objectionStatus: 'PROCESSING',
+                followUpRemark: '仓库正在复核并补传交付凭证',
+                remark: '数量差异处理中',
+            },
+        ];
+    }
+    return [];
+}
+function buildTaskBoardHandoutRecordSeeds(head) {
+    if (head.headType !== 'HANDOUT')
+        return [];
+    if (head.taskId === 'TASKGEN-202603-0001-001__ORDER') {
+        return [
+            {
+                recordId: 'HOR-SEED-TASKGEN0001001-001',
+                handoverId: head.handoverId,
+                taskId: head.taskId,
+                sequenceNo: 1,
+                materialName: '车缝半成品',
+                materialSpec: '整单回货',
+                skuCode: 'SKU-0001-A',
+                skuColor: '黑色',
+                skuSize: 'M',
+                pieceName: '半成品包',
+                plannedQty: Math.max(head.qtyExpectedTotal, 180),
+                qtyUnit: head.qtyUnit || '件',
+                factorySubmittedAt: '2026-03-21 09:10:00',
+                factoryRemark: '仓库复核数量存在差异',
+                factoryProofFiles: [],
+                status: 'OBJECTION_PROCESSING',
+                objectionReason: '仓库回写数量与工厂提交数量不一致',
+                objectionRemark: '待平台核对后处理',
+                objectionStatus: 'PROCESSING',
+                followUpRemark: '仓库与工厂正在共同复核',
+            },
+        ];
+    }
+    if (head.taskId === 'TASKGEN-202603-0002-003__ORDER') {
+        return [
+            {
+                recordId: 'HOR-SEED-TASKGEN0002003-001',
+                handoverId: head.handoverId,
+                taskId: head.taskId,
+                sequenceNo: 1,
+                materialName: '特殊工艺半成品',
+                materialSpec: '首批回货',
+                skuCode: 'SKU-0002-C',
+                skuColor: '水洗蓝',
+                skuSize: '整单',
+                pieceName: '半成品包',
+                plannedQty: Math.max(head.qtyExpectedTotal, 120),
+                qtyUnit: head.qtyUnit || '件',
+                factorySubmittedAt: '2026-03-21 10:20:00',
+                factoryRemark: '已发起交出，待仓库收货确认',
+                factoryProofFiles: [],
+                status: 'PENDING_WRITEBACK',
+            },
+        ];
+    }
+    if (head.taskId === 'TASKGEN-202603-0002-005__ORDER') {
+        return [
+            {
+                recordId: 'HOR-SEED-TASKGEN0002005-001',
+                handoverId: head.handoverId,
+                taskId: head.taskId,
+                sequenceNo: 1,
+                materialName: '后道成衣',
+                materialSpec: '后道首批交出',
+                skuCode: 'SKU-0002-E',
+                skuColor: '暗红',
+                skuSize: '整单',
+                pieceName: '半成品包',
+                plannedQty: Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90),
+                qtyUnit: head.qtyUnit || '件',
+                factorySubmittedAt: '2026-03-21 11:00:00',
+                factoryRemark: '首批已确认收货',
+                factoryProofFiles: [],
+                status: 'WRITTEN_BACK',
+                warehouseReturnNo: 'RET-TASKGEN0002005-001',
+                warehouseWrittenQty: Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90),
+                warehouseWrittenAt: '2026-03-21 11:20:00',
+            },
+            {
+                recordId: 'HOR-SEED-TASKGEN0002005-002',
+                handoverId: head.handoverId,
+                taskId: head.taskId,
+                sequenceNo: 2,
+                materialName: '后道成衣',
+                materialSpec: '后道尾批交出',
+                skuCode: 'SKU-0002-E',
+                skuColor: '暗红',
+                skuSize: '整单',
+                pieceName: '半成品包',
+                plannedQty: Math.max(head.qtyExpectedTotal - Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90), 40),
+                qtyUnit: head.qtyUnit || '件',
+                factorySubmittedAt: '2026-03-21 11:45:00',
+                factoryRemark: '尾批已确认收货，存在数量差异',
+                factoryProofFiles: [],
+                status: 'WRITTEN_BACK',
+                warehouseReturnNo: 'RET-TASKGEN0002005-002',
+                warehouseWrittenQty: Math.max(head.qtyExpectedTotal - Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90), 40) - 8,
+                warehouseWrittenAt: '2026-03-21 12:05:00',
+                diffReason: '接收方签收数量少于交出对象数量',
+            },
+        ];
+    }
+    if (head.taskId === 'TASKGEN-202603-0008-001__ORDER') {
+        return [
+            {
+                recordId: 'HOR-SEED-TASKGEN0008001-001',
+                handoverId: head.handoverId,
+                taskId: head.taskId,
+                sequenceNo: 1,
+                materialName: '车缝半成品',
+                materialSpec: '整单回货',
+                skuCode: 'SKU-0008-A',
+                skuColor: '卡其',
+                skuSize: '整单',
+                pieceName: '半成品包',
+                plannedQty: Math.max(head.qtyExpectedTotal, 150),
+                qtyUnit: head.qtyUnit || '件',
+                factorySubmittedAt: '2026-03-21 12:10:00',
+                factoryRemark: '整单已回仓完成',
+                factoryProofFiles: [],
+                status: 'WRITTEN_BACK',
+                warehouseReturnNo: 'RET-TASKGEN0008001-001',
+                warehouseWrittenQty: Math.max(head.qtyExpectedTotal, 150),
+                warehouseWrittenAt: '2026-03-21 12:40:00',
+            },
+        ];
+    }
+    return [];
+}
+headCompletionOverrides.set('HOH-MOCK-CUT-094', {
+    completionStatus: 'COMPLETED',
+    completedByWarehouseAt: '2026-03-22 10:45:00',
+});
+headCompletionOverrides.set('HOH-MOCK-CUT-103-F004-DONE', {
+    completionStatus: 'COMPLETED',
+    completedByWarehouseAt: '2026-03-24 18:20:00',
+});
+PDA_GENERIC_HANDOVER_HEADS
+    .filter((head) => head.completionStatus === 'COMPLETED')
+    .forEach((head) => {
+    headCompletionOverrides.set(head.handoverId, {
+        completionStatus: 'COMPLETED',
+        completedByWarehouseAt: head.completedByWarehouseAt,
+    });
+});
+function nowTimestamp(date = new Date()) {
+    return date.toISOString().replace('T', ' ').slice(0, 19);
+}
+function parseDateMs(value) {
+    if (!value)
+        return Number.NaN;
+    return new Date(value.replace(' ', 'T')).getTime();
+}
+function roundNumber(value) {
+    if (!Number.isFinite(value))
+        return 0;
+    return Math.round(Number(value) * 100) / 100;
+}
+function cloneProofFiles(files) {
+    return files.map((file) => ({ ...file }));
+}
+function cloneCutPieceLines(lines) {
+    return lines?.map((line) => ({ ...line }));
+}
+function cloneCuttingHandoverSummary(summary) {
+    if (!summary)
+        return undefined;
+    return {
+        ...summary,
+        gapLines: summary.gapLines.map((line) => ({ ...line })),
+    };
+}
+function cloneHead(head) {
+    return { ...head };
+}
+function clonePickupRecord(record) {
+    return {
+        ...record,
+        objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
+    };
+}
+function cloneRecord(record) {
+    return {
+        ...record,
+        cutPieceLines: cloneCutPieceLines(record.cutPieceLines),
+        cuttingHandoverSummary: cloneCuttingHandoverSummary(record.cuttingHandoverSummary),
+        recordLines: record.recordLines?.map((line) => ({ ...line })),
+        factoryProofFiles: cloneProofFiles(record.factoryProofFiles),
+        receiverProofFiles: cloneProofFiles(record.receiverProofFiles ?? []),
+        objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
+    };
+}
+function sumBy(rows, picker) {
+    return rows.reduce((sum, row) => sum + picker(row), 0);
+}
+function makePickupHeadId(docId) {
+    return `PKH-${docId}`;
+}
+function makeHandoutHeadId(docId) {
+    return `HOH-${docId}`;
+}
+function readIssueDocByHeadId(handoverId) {
+    if (!handoverId.startsWith('PKH-'))
+        return undefined;
+    return listWarehouseIssueOrders().find((doc) => makePickupHeadId(doc.id) === handoverId);
+}
+function readReturnDocByHeadId(handoverId) {
+    if (!handoverId.startsWith('HOH-'))
+        return undefined;
+    return listWarehouseReturnOrders().find((doc) => makeHandoutHeadId(doc.id) === handoverId);
+}
+function mapTaskStatus(task) {
+    return task?.status === 'DONE' ? 'DONE' : 'IN_PROGRESS';
+}
+function buildPickupHeadFromIssue(doc) {
+    const runtimeTask = getRuntimeTaskById(doc.runtimeTaskId);
+    const assignmentGranularity = runtimeTask?.assignmentGranularity;
+    return {
+        handoverId: makePickupHeadId(doc.id),
+        headType: 'PICKUP',
+        qrCodeValue: '',
+        taskId: runtimeTask?.taskId ?? doc.runtimeTaskId,
+        taskNo: runtimeTask?.taskNo ?? doc.taskNo ?? doc.runtimeTaskId,
+        baseTaskId: runtimeTask?.baseTaskId ?? doc.baseTaskId,
+        rootTaskNo: runtimeTask?.rootTaskNo ?? doc.rootTaskNo,
+        splitGroupId: runtimeTask?.splitGroupId ?? doc.splitGroupId,
+        splitFromTaskNo: runtimeTask?.splitFromTaskNo ?? doc.splitFromTaskNo,
+        isSplitResult: runtimeTask?.isSplitResult ?? doc.isSplitResult,
+        productionOrderNo: doc.productionOrderId,
+        processName: doc.processNameZh,
+        sourceFactoryName: doc.warehouseName ?? '仓库',
+        targetName: doc.targetFactoryName ?? runtimeTask?.assignedFactoryName ?? '待分配工厂',
+        targetKind: 'FACTORY',
+        qtyUnit: runtimeTask?.qtyUnit ?? '件',
+        factoryId: doc.targetFactoryId ?? runtimeTask?.assignedFactoryId ?? '',
+        taskStatus: mapTaskStatus(runtimeTask),
+        summaryStatus: 'NONE',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        writtenBackQtyTotal: 0,
+        objectionCount: 0,
+        completionStatus: 'OPEN',
+        qtyExpectedTotal: sumBy(doc.lines, (line) => line.plannedQty),
+        qtyActualTotal: 0,
+        qtyDiffTotal: 0,
+        runtimeTaskId: doc.runtimeTaskId,
+        sourceDocId: doc.id,
+        sourceDocNo: doc.docNo,
+        scopeType: doc.scopeType,
+        scopeKey: doc.scopeKey,
+        scopeLabel: doc.scopeLabel,
+        executorKind: doc.executorKind,
+        transitionFromPrev: runtimeTask?.transitionFromPrev,
+        transitionToNext: runtimeTask?.transitionToNext,
+        stageCode: runtimeTask?.stageCode,
+        stageName: runtimeTask?.stageName,
+        processBusinessCode: runtimeTask?.processBusinessCode,
+        processBusinessName: runtimeTask?.processBusinessName,
+        craftCode: runtimeTask?.craftCode,
+        craftName: runtimeTask?.craftName,
+        taskTypeCode: runtimeTask
+            ? runtimeTask.isSpecialCraft
+                ? runtimeTask.craftCode || runtimeTask.processBusinessCode
+                : runtimeTask.processBusinessCode
+            : undefined,
+        taskTypeLabel: runtimeTask?.taskCategoryZh,
+        assignmentGranularity,
+        assignmentGranularityLabel: assignmentGranularity
+            ? PROCESS_ASSIGNMENT_GRANULARITY_LABEL[assignmentGranularity]
+            : undefined,
+        isSpecialCraft: runtimeTask?.isSpecialCraft,
+    };
+}
+function buildHandoutHeadFromReturn(doc) {
+    const runtimeTask = getRuntimeTaskById(doc.runtimeTaskId);
+    const assignmentGranularity = runtimeTask?.assignmentGranularity;
+    const displayUnit = normalizeDisplayUnit(doc.lines[0]?.unit || runtimeTask?.qtyUnit || '件');
+    return {
+        handoverId: makeHandoutHeadId(doc.id),
+        headType: 'HANDOUT',
+        qrCodeValue: buildHandoutHeadQrCodeValue(makeHandoutHeadId(doc.id)),
+        taskId: runtimeTask?.taskId ?? doc.runtimeTaskId,
+        taskNo: runtimeTask?.taskNo ?? doc.taskNo ?? doc.runtimeTaskId,
+        baseTaskId: runtimeTask?.baseTaskId ?? doc.baseTaskId,
+        rootTaskNo: runtimeTask?.rootTaskNo ?? doc.rootTaskNo,
+        splitGroupId: runtimeTask?.splitGroupId ?? doc.splitGroupId,
+        splitFromTaskNo: runtimeTask?.splitFromTaskNo ?? doc.splitFromTaskNo,
+        isSplitResult: runtimeTask?.isSplitResult ?? doc.isSplitResult,
+        productionOrderNo: doc.productionOrderId,
+        processName: doc.processNameZh,
+        sourceFactoryName: doc.targetFactoryName ?? runtimeTask?.assignedFactoryName ?? '待分配工厂',
+        targetName: doc.warehouseName ?? '仓库',
+        targetKind: 'WAREHOUSE',
+        qtyUnit: displayUnit,
+        factoryId: doc.targetFactoryId ?? runtimeTask?.assignedFactoryId ?? '',
+        taskStatus: mapTaskStatus(runtimeTask),
+        summaryStatus: 'NONE',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        writtenBackQtyTotal: 0,
+        objectionCount: 0,
+        completionStatus: 'OPEN',
+        qtyExpectedTotal: sumBy(doc.lines, (line) => line.plannedQty),
+        qtyActualTotal: 0,
+        qtyDiffTotal: 0,
+        runtimeTaskId: doc.runtimeTaskId,
+        sourceDocId: doc.id,
+        sourceDocNo: doc.docNo,
+        scopeType: doc.scopeType,
+        scopeKey: doc.scopeKey,
+        scopeLabel: doc.scopeLabel,
+        executorKind: doc.executorKind,
+        transitionFromPrev: runtimeTask?.transitionFromPrev,
+        transitionToNext: runtimeTask?.transitionToNext,
+        stageCode: runtimeTask?.stageCode,
+        stageName: runtimeTask?.stageName,
+        processBusinessCode: runtimeTask?.processBusinessCode,
+        processBusinessName: runtimeTask?.processBusinessName,
+        craftCode: runtimeTask?.craftCode,
+        craftName: runtimeTask?.craftName,
+        taskTypeCode: runtimeTask
+            ? runtimeTask.isSpecialCraft
+                ? runtimeTask.craftCode || runtimeTask.processBusinessCode
+                : runtimeTask.processBusinessCode
+            : undefined,
+        taskTypeLabel: runtimeTask?.taskCategoryZh,
+        assignmentGranularity,
+        assignmentGranularityLabel: assignmentGranularity
+            ? PROCESS_ASSIGNMENT_GRANULARITY_LABEL[assignmentGranularity]
+            : undefined,
+        isSpecialCraft: runtimeTask?.isSpecialCraft,
+    };
+}
+function isPrepProcessCode(code) {
+    if (!code)
+        return false;
+    return code === 'PRINT' || code === 'DYE' || code === 'PROC_PRINT' || code === 'PROC_DYE';
+}
+export function buildHandoutHeadQrCodeValue(handoverId) {
+    return buildHandoverOrderQrValue(handoverId);
+}
+function buildPickupQrCodeValue(recordId) {
+    return `PICKUP-RECORD:${recordId}`;
+}
+function normalizeDisplayUnit(unit, fallback = '件') {
+    if (!unit)
+        return fallback;
+    if (unit === '米')
+        return 'm';
+    return unit;
+}
+function resolveHandoutProcessKey(processCode) {
+    if (!processCode)
+        return null;
+    const normalized = processCode.toUpperCase();
+    if (normalized.includes('PRINT'))
+        return 'PRINTING';
+    if (normalized.includes('DYE'))
+        return 'DYEING';
+    if (normalized.includes('CUT'))
+        return 'CUTTING';
+    if (normalized.includes('IRON'))
+        return 'IRONING';
+    if (normalized.includes('PACK'))
+        return 'PACKAGING';
+    if (normalized.includes('FINISH'))
+        return 'FINISHING';
+    if (normalized.includes('QC'))
+        return 'QC';
+    if (normalized.includes('SEW'))
+        return 'SEWING';
+    return null;
+}
+function deriveHandoutObjectType(head, record, runtimeTask, sourceDoc) {
+    if (record?.handoutObjectType)
+        return record.handoutObjectType;
+    const processKey = resolveHandoutProcessKey(runtimeTask?.processCode) ||
+        resolveHandoutProcessKey(runtimeTask?.processBusinessCode) ||
+        resolveHandoutProcessKey(head.processBusinessCode) ||
+        resolveHandoutProcessKey(head.taskTypeCode) ||
+        resolveHandoutProcessKey(sourceDoc?.processCode);
+    if (processKey === 'PRINTING' || processKey === 'CUTTING')
+        return 'CUT_PIECE';
+    if (processKey === 'DYEING')
+        return 'FABRIC';
+    const displayUnit = normalizeDisplayUnit(record?.qtyUnit || head.qtyUnit);
+    if (displayUnit === '片')
+        return 'CUT_PIECE';
+    if (displayUnit === '卷' || displayUnit === 'm')
+        return 'FABRIC';
+    return 'GARMENT';
+}
+function getHandoutObjectTypeLabel(objectType) {
+    if (objectType === 'CUT_PIECE')
+        return '裁片';
+    if (objectType === 'FABRIC')
+        return '面料';
+    return '成衣';
+}
+function getHandoutQtyLabels(objectType, unit) {
+    if (objectType === 'CUT_PIECE') {
+        return {
+            primaryQtyLabel: '计划交出裁片片数（片）',
+            writtenQtyLabel: '接收方实收裁片片数（片）',
+            pendingQtyLabel: '待接收方确认裁片片数（片）',
+        };
+    }
+    if (objectType === 'FABRIC') {
+        const normalizedUnit = normalizeDisplayUnit(unit, '卷');
+        const objectLabel = normalizedUnit === '卷' ? '面料卷数（卷）' : '面料长度（m）';
+        return {
+            primaryQtyLabel: `计划交出${objectLabel}`,
+            writtenQtyLabel: `接收方实收${objectLabel}`,
+            pendingQtyLabel: `待接收方确认${objectLabel}`,
+        };
+    }
+    return {
+        primaryQtyLabel: '计划交出成衣件数（件）',
+        writtenQtyLabel: '接收方实收成衣件数（件）',
+        pendingQtyLabel: '待接收方确认成衣件数（件）',
+    };
+}
+function formatQtyValue(qty, unit) {
+    if (typeof qty !== 'number')
+        return '待接收方确认';
+    const normalizedUnit = normalizeDisplayUnit(unit);
+    return `${Math.round(qty * 100) / 100} ${normalizedUnit}`;
+}
+function uniqueLabels(values) {
+    const normalized = values
+        .map((value) => value?.trim())
+        .filter((value) => Boolean(value));
+    return Array.from(new Set(normalized));
+}
+function formatPartScopeLine(labels) {
+    if (labels.length === 0)
+        return '涉及部位裁片：未标部位';
+    if (labels.length <= 3)
+        return `涉及部位裁片：${labels.join('、')}（${labels.length} 种部位）`;
+    return `涉及部位裁片：${labels.slice(0, 3).join('、')}等 ${labels.length} 种部位`;
+}
+function formatSkuScopeLine(codes) {
+    if (codes.length === 0)
+        return '涉及 SKU：未标 SKU';
+    if (codes.length <= 2)
+        return `涉及 SKU：${codes.join(' / ')}（${codes.length} 个）`;
+    return `涉及 SKU：${codes.slice(0, 2).join(' / ')} 等 ${codes.length} 个`;
+}
+export function listCutPieceLines(record) {
+    if (record.cutPieceLines && record.cutPieceLines.length > 0) {
+        return cloneCutPieceLines(record.cutPieceLines) ?? [];
+    }
+    const plannedPieceQty = typeof record.plannedQty === 'number' ? record.plannedQty : 0;
+    const garmentEquivalentQty = typeof record.garmentEquivalentQty === 'number' ? record.garmentEquivalentQty : 0;
+    if (!record.pieceName && !record.skuCode && plannedPieceQty === 0 && garmentEquivalentQty === 0) {
+        return [];
+    }
+    return [
+        {
+            lineId: `${record.recordId}-line-001`,
+            piecePartLabel: record.pieceName || '未标部位',
+            garmentSkuCode: record.skuCode || '未标 SKU',
+            colorLabel: record.skuColor,
+            sizeLabel: record.skuSize,
+            pieceQty: plannedPieceQty,
+            garmentEquivalentQty,
+        },
+    ];
+}
+export function groupCutPieceLinesByPart(record) {
+    const groups = new Map();
+    listCutPieceLines(record).forEach((line) => {
+        const key = `${line.piecePartLabel}::${line.piecePartCode || ''}`;
+        const existed = groups.get(key);
+        if (existed) {
+            existed.totalPieceQty += line.pieceQty;
+            existed.totalGarmentEquivalentQty += line.garmentEquivalentQty;
+            existed.skuLines.push({ ...line });
+            return;
+        }
+        groups.set(key, {
+            partLabel: line.piecePartLabel,
+            partCode: line.piecePartCode,
+            totalPieceQty: line.pieceQty,
+            totalGarmentEquivalentQty: line.garmentEquivalentQty,
+            skuLines: [{ ...line }],
+        });
+    });
+    return Array.from(groups.values());
+}
+export function deriveCutPieceRecordSummary(record) {
+    const lines = listCutPieceLines(record);
+    const plannedFromLines = sumBy(lines, (line) => line.pieceQty);
+    const garmentFromLines = sumBy(lines, (line) => line.garmentEquivalentQty);
+    const plannedPieceQtyTotal = plannedFromLines > 0 ? plannedFromLines : typeof record.plannedQty === 'number' ? record.plannedQty : 0;
+    const returnedPieceQtyTotal = resolveReceiverWrittenQty(record) ?? 0;
+    const pendingPieceQtyTotal = Math.max(plannedPieceQtyTotal - returnedPieceQtyTotal, 0);
+    const garmentEquivalentQtyTotal = garmentFromLines > 0 ? garmentFromLines : typeof record.garmentEquivalentQty === 'number' ? record.garmentEquivalentQty : 0;
+    return {
+        involvedPartLabels: uniqueLabels(lines.map((line) => line.piecePartLabel)),
+        involvedPartCount: uniqueLabels(lines.map((line) => line.piecePartLabel)).length,
+        involvedSkuCodes: uniqueLabels(lines.map((line) => line.garmentSkuCode)),
+        involvedSkuCount: uniqueLabels(lines.map((line) => line.garmentSkuCode)).length,
+        plannedPieceQtyTotal,
+        returnedPieceQtyTotal,
+        pendingPieceQtyTotal,
+        garmentEquivalentQtyTotal,
+    };
+}
+export function buildCutPieceHeadSummary(head, records) {
+    const lines = records.flatMap((record) => listCutPieceLines(record));
+    const plannedFromLines = sumBy(lines, (line) => line.pieceQty);
+    const plannedFromRecords = sumBy(records, (record) => (typeof record.plannedQty === 'number' ? record.plannedQty : 0));
+    const returnedPieceQtyTotal = records.length > 0
+        ? sumBy(records, (record) => resolveReceiverWrittenQty(record) ?? 0)
+        : head.writtenBackQtyTotal;
+    const plannedPieceQtyTotal = plannedFromLines > 0 ? plannedFromLines : records.length > 0 ? plannedFromRecords : head.qtyExpectedTotal;
+    const pendingPieceQtyTotal = Math.max(plannedPieceQtyTotal - returnedPieceQtyTotal, 0);
+    const garmentFromLines = sumBy(lines, (line) => line.garmentEquivalentQty);
+    const garmentFromRecords = sumBy(records, (record) => (typeof record.garmentEquivalentQty === 'number' ? record.garmentEquivalentQty : 0));
+    return {
+        involvedPartLabels: uniqueLabels(lines.map((line) => line.piecePartLabel)),
+        involvedPartCount: uniqueLabels(lines.map((line) => line.piecePartLabel)).length,
+        involvedSkuCodes: uniqueLabels(lines.map((line) => line.garmentSkuCode)),
+        involvedSkuCount: uniqueLabels(lines.map((line) => line.garmentSkuCode)).length,
+        plannedPieceQtyTotal,
+        returnedPieceQtyTotal,
+        pendingPieceQtyTotal,
+        garmentEquivalentQtyTotal: garmentFromLines > 0 ? garmentFromLines : garmentFromRecords,
+    };
+}
+function buildHandoutInfoLines(record, objectType) {
+    if (objectType === 'CUT_PIECE') {
+        const cutPieceSummary = deriveCutPieceRecordSummary(record);
+        return [formatPartScopeLine(cutPieceSummary.involvedPartLabels), formatSkuScopeLine(cutPieceSummary.involvedSkuCodes)];
+    }
+    if (objectType === 'FABRIC') {
+        return [
+            record.materialCode || record.skuCode ? `面料 SKU：${record.materialCode || record.skuCode || '—'}` : '',
+            record.skuColor ? `颜色：${record.skuColor}` : '',
+            record.materialSpec ? `面料说明：${record.materialSpec}` : '',
+        ].filter(Boolean);
+    }
+    return [
+        record.postFinishingRecheckOrderNo ? `来源复检单：${record.postFinishingRecheckOrderNo}` : '',
+        record.skuCode ? `SKU 编码：${record.skuCode}` : '',
+        record.skuColor || record.skuSize ? `颜色 / 尺码：${record.skuColor || '—'} / ${record.skuSize || '—'}` : '',
+        record.materialSpec ? `交出说明：${record.materialSpec}` : '',
+    ].filter(Boolean);
+}
+function buildHandoutListLine(record, objectType) {
+    if (record.handoutItemLabel)
+        return record.handoutItemLabel;
+    if (objectType === 'CUT_PIECE') {
+        const cutPieceSummary = deriveCutPieceRecordSummary(record);
+        return `${formatPartScopeLine(cutPieceSummary.involvedPartLabels).replace('涉及部位裁片：', '')} / ${formatSkuScopeLine(cutPieceSummary.involvedSkuCodes).replace('涉及 SKU：', '')}`;
+    }
+    if (objectType === 'FABRIC') {
+        return `${record.materialCode || record.skuCode || record.materialName || '面料'} / ${record.skuColor || '未标颜色'} / ${formatQtyValue(record.plannedQty, record.qtyUnit || '卷')}`;
+    }
+    return `${record.skuColor || '未标颜色'} / ${record.skuCode || record.materialCode || record.materialName || '成衣'} / ${formatQtyValue(record.plannedQty, record.qtyUnit || '件')}`;
+}
+export function deriveHandoutRecordProfile(record, head, runtimeTask = getPdaHeadRuntimeTask(head.handoverId), sourceDoc = getPdaHeadSourceExecutionDoc(head.handoverId)) {
+    const objectType = deriveHandoutObjectType(head, record, runtimeTask, sourceDoc);
+    const displayUnit = normalizeDisplayUnit(record.qtyUnit || head.qtyUnit, objectType === 'FABRIC' ? '卷' : objectType === 'CUT_PIECE' ? '片' : '件');
+    const labels = getHandoutQtyLabels(objectType, displayUnit);
+    if (objectType === 'CUT_PIECE') {
+        const cutPieceRecordSummary = deriveCutPieceRecordSummary(record);
+        const cutPiecePartGroups = groupCutPieceLinesByPart(record);
+        const itemTitle = cutPiecePartGroups.length > 1
+            ? '多部位裁片交出'
+            : cutPiecePartGroups[0]?.partLabel
+                ? `${cutPiecePartGroups[0].partLabel}交出`
+                : record.pieceName || '裁片交出物';
+        return {
+            objectType,
+            objectTypeLabel: getHandoutObjectTypeLabel(objectType),
+            displayUnit,
+            plannedQtyLabel: labels.primaryQtyLabel,
+            writtenQtyLabel: labels.writtenQtyLabel,
+            pendingQtyLabel: labels.pendingQtyLabel,
+            itemTitle,
+            infoLines: [formatPartScopeLine(cutPieceRecordSummary.involvedPartLabels), formatSkuScopeLine(cutPieceRecordSummary.involvedSkuCodes)],
+            plannedQtyText: `${cutPieceRecordSummary.plannedPieceQtyTotal} ${displayUnit}`,
+            writtenQtyText: formatQtyValue(typeof resolveReceiverWrittenQty(record) === 'number' ? cutPieceRecordSummary.returnedPieceQtyTotal : undefined, displayUnit),
+            pendingQtyText: `${cutPieceRecordSummary.pendingPieceQtyTotal} ${displayUnit}`,
+            garmentEquivalentQty: cutPieceRecordSummary.garmentEquivalentQtyTotal > 0 ? cutPieceRecordSummary.garmentEquivalentQtyTotal : undefined,
+            cutPieceRecordSummary,
+            cutPiecePartGroups,
+        };
+    }
+    const plannedQty = typeof record.plannedQty === 'number' ? record.plannedQty : 0;
+    const writtenQty = resolveReceiverWrittenQty(record) ?? 0;
+    const pendingQty = Math.max(plannedQty - writtenQty, 0);
+    return {
+        objectType,
+        objectTypeLabel: getHandoutObjectTypeLabel(objectType),
+        displayUnit,
+        plannedQtyLabel: labels.primaryQtyLabel,
+        writtenQtyLabel: labels.writtenQtyLabel,
+        pendingQtyLabel: labels.pendingQtyLabel,
+        itemTitle: objectType === 'FABRIC'
+            ? record.materialName || record.materialCode || '面料交出物'
+            : objectType === 'CUT_PIECE'
+                ? record.pieceName || record.materialName || '裁片交出物'
+                : record.materialName || '成衣交出物',
+        infoLines: buildHandoutInfoLines(record, objectType),
+        plannedQtyText: `${plannedQty} ${displayUnit}`,
+        writtenQtyText: formatQtyValue(resolveReceiverWrittenQty(record), displayUnit),
+        pendingQtyText: `${pendingQty} ${displayUnit}`,
+        garmentEquivalentQty: record.garmentEquivalentQty,
+    };
+}
+export function deriveHandoutObjectProfile(head, records, runtimeTask = getPdaHeadRuntimeTask(head.handoverId), sourceDoc = getPdaHeadSourceExecutionDoc(head.handoverId)) {
+    const objectType = deriveHandoutObjectType(head, records[0], runtimeTask, sourceDoc);
+    const displayUnit = normalizeDisplayUnit(records[0]?.qtyUnit || head.qtyUnit, objectType === 'FABRIC' ? '卷' : objectType === 'CUT_PIECE' ? '片' : '件');
+    const labels = getHandoutQtyLabels(objectType, displayUnit);
+    if (objectType === 'CUT_PIECE') {
+        const cutPieceRecordSummary = buildCutPieceHeadSummary(head, records);
+        return {
+            objectType,
+            objectTypeLabel: getHandoutObjectTypeLabel(objectType),
+            primaryQtyLabel: labels.primaryQtyLabel,
+            writtenQtyLabel: labels.writtenQtyLabel,
+            pendingQtyLabel: labels.pendingQtyLabel,
+            displayUnit,
+            objectInfoLines: [
+                formatPartScopeLine(cutPieceRecordSummary.involvedPartLabels),
+                formatSkuScopeLine(cutPieceRecordSummary.involvedSkuCodes),
+            ],
+            totalPlannedQty: cutPieceRecordSummary.plannedPieceQtyTotal,
+            totalWrittenQty: cutPieceRecordSummary.returnedPieceQtyTotal,
+            totalPendingQty: cutPieceRecordSummary.pendingPieceQtyTotal,
+            garmentEquivalentQtyTotal: cutPieceRecordSummary.garmentEquivalentQtyTotal > 0 ? cutPieceRecordSummary.garmentEquivalentQtyTotal : undefined,
+            cutPieceRecordSummary,
+        };
+    }
+    const totalPlannedQty = records.length > 0
+        ? sumBy(records, (record) => (typeof record.plannedQty === 'number' ? record.plannedQty : 0))
+        : head.qtyExpectedTotal;
+    const totalWrittenQty = records.length > 0
+        ? sumBy(records, (record) => resolveReceiverWrittenQty(record) ?? 0)
+        : head.writtenBackQtyTotal;
+    const totalPendingQty = Math.max(totalPlannedQty - totalWrittenQty, 0);
+    const garmentEquivalentQtyTotal = objectType === 'CUT_PIECE'
+        ? sumBy(records, (record) => (typeof record.garmentEquivalentQty === 'number' ? record.garmentEquivalentQty : 0))
+        : undefined;
+    return {
+        objectType,
+        objectTypeLabel: getHandoutObjectTypeLabel(objectType),
+        primaryQtyLabel: labels.primaryQtyLabel,
+        writtenQtyLabel: labels.writtenQtyLabel,
+        pendingQtyLabel: labels.pendingQtyLabel,
+        displayUnit,
+        objectInfoLines: records.slice(0, 3).map((record) => buildHandoutListLine(record, objectType)),
+        totalPlannedQty,
+        totalWrittenQty,
+        totalPendingQty,
+        garmentEquivalentQtyTotal: typeof garmentEquivalentQtyTotal === 'number' && garmentEquivalentQtyTotal > 0
+            ? garmentEquivalentQtyTotal
+            : undefined,
+    };
+}
+function isPickupRecordFinalized(record) {
+    return record.status === 'RECEIVED' || record.status === 'OBJECTION_RESOLVED';
+}
+function getPickupRecordFinalQty(record) {
+    if (typeof record.finalResolvedQty === 'number')
+        return record.finalResolvedQty;
+    if (typeof record.factoryConfirmedQty === 'number')
+        return record.factoryConfirmedQty;
+    return 0;
+}
+function shouldIncludePdaDoc(doc, runtimeTask) {
+    if (runtimeTask?.stageCode === 'PREP')
+        return false;
+    if (isPrepProcessCode(runtimeTask?.processBusinessCode) || isPrepProcessCode(runtimeTask?.processCode))
+        return false;
+    if (isPrepProcessCode(doc.processCode))
+        return false;
+    const businessProcessCode = runtimeTask?.processBusinessCode;
+    if (businessProcessCode && isPostCapacityNode(businessProcessCode))
+        return false;
+    if (businessProcessCode && !isExternalTaskProcess(businessProcessCode))
+        return false;
+    return true;
+}
+function mapIssueLineStatus(doc, line) {
+    if ((doc.status === 'ISSUED' || doc.status === 'IN_TRANSIT' || doc.status === 'RECEIVED' || doc.status === 'CLOSED') &&
+        line.issuedQty > 0) {
+        return 'PENDING_FACTORY_CONFIRM';
+    }
+    if (line.preparedQty >= line.plannedQty && line.plannedQty > 0)
+        return 'PENDING_FACTORY_PICKUP';
+    if (doc.status === 'READY')
+        return 'PENDING_FACTORY_PICKUP';
+    return 'PENDING_WAREHOUSE_DISPATCH';
+}
+function buildPickupLineRecord(head, doc, line, index) {
+    const status = mapIssueLineStatus(doc, line);
+    const recordId = `PKR-${doc.id}-${String(index + 1).padStart(3, '0')}`;
+    const warehouseHandedQty = status === 'PENDING_FACTORY_CONFIRM' ? Math.max(line.issuedQty, line.plannedQty > 0 ? line.plannedQty : line.issuedQty) : undefined;
+    return {
+        recordId,
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: index + 1,
+        materialCode: line.materialCode,
+        materialName: line.materialName,
+        materialSpec: line.materialSpec,
+        skuCode: line.skuCode,
+        skuColor: line.skuColor,
+        skuSize: line.skuSize,
+        pieceName: line.pieceName,
+        pickupMode: 'WAREHOUSE_DELIVERY',
+        pickupModeLabel: '仓库配送到厂',
+        materialSummary: line.pieceName ? `${line.materialName} / ${line.pieceName}` : line.materialName,
+        qtyExpected: line.plannedQty,
+        qtyUnit: line.unit,
+        submittedAt: doc.updatedAt,
+        status,
+        qrCodeValue: buildPickupQrCodeValue(recordId),
+        warehouseHandedQty,
+        warehouseHandedAt: status === 'PENDING_FACTORY_CONFIRM' ? doc.updatedAt : undefined,
+        warehouseHandedBy: status === 'PENDING_FACTORY_CONFIRM' ? '仓库扫码员' : undefined,
+        remark: doc.remark,
+    };
+}
+function mapReturnLineStatus(doc, line) {
+    if (line.returnedQty > 0)
+        return 'WRITTEN_BACK';
+    if (doc.status === 'RETURNED' || doc.status === 'CLOSED')
+        return 'WRITTEN_BACK';
+    return 'PENDING_WRITEBACK';
+}
+function buildHandoutLineRecord(head, doc, line, index) {
+    const status = mapReturnLineStatus(doc, line);
+    const writtenQty = status === 'WRITTEN_BACK' ? Math.max(line.returnedQty, 0) : undefined;
+    const objectType = deriveHandoutObjectType(head, { handoutObjectType: undefined, qtyUnit: line.unit }, getRuntimeTaskById(doc.runtimeTaskId), doc);
+    const sourceText = line.pieceName ? `${line.materialName} / ${line.pieceName}` : line.materialName;
+    const garmentEquivalentQty = objectType === 'CUT_PIECE' && typeof line.pieceCountPerUnit === 'number' && line.pieceCountPerUnit > 0
+        ? Math.round((line.plannedQty / line.pieceCountPerUnit) * 100) / 100
+        : undefined;
+    return hydrateHandoverRecordDomain({
+        recordId: `HOR-${doc.id}-${String(index + 1).padStart(3, '0')}`,
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: index + 1,
+        handoutObjectType: objectType,
+        handoutItemLabel: buildHandoutListLine({
+            recordId: '',
+            handoverId: head.handoverId,
+            taskId: head.taskId,
+            sequenceNo: index + 1,
+            handoutObjectType: objectType,
+            materialCode: line.materialCode,
+            materialName: line.materialName,
+            materialSpec: line.materialSpec,
+            skuCode: line.skuCode,
+            skuColor: line.skuColor,
+            skuSize: line.skuSize,
+            pieceName: line.pieceName,
+            plannedQty: line.plannedQty,
+            qtyUnit: line.unit,
+            factorySubmittedAt: doc.updatedAt,
+            factoryProofFiles: [],
+            status,
+        }, objectType),
+        materialCode: line.materialCode,
+        materialName: line.materialName,
+        materialSpec: line.materialSpec,
+        skuCode: line.skuCode,
+        skuColor: line.skuColor,
+        skuSize: line.skuSize,
+        pieceName: line.pieceName,
+        garmentEquivalentQty,
+        cutPieceLines: objectType === 'CUT_PIECE'
+            ? [
+                {
+                    lineId: `CUTLINE-${doc.id}-${String(index + 1).padStart(3, '0')}`,
+                    piecePartLabel: line.pieceName || '未标部位',
+                    garmentSkuCode: line.skuCode || '未标 SKU',
+                    colorLabel: line.skuColor,
+                    sizeLabel: line.skuSize,
+                    pieceQty: line.plannedQty,
+                    garmentEquivalentQty: garmentEquivalentQty || 0,
+                },
+            ]
+            : undefined,
+        plannedQty: line.plannedQty,
+        submittedQty: line.plannedQty,
+        qtyUnit: normalizeDisplayUnit(line.unit),
+        factorySubmittedAt: doc.updatedAt,
+        factoryRemark: `回货来源：${sourceText}`,
+        factoryProofFiles: [],
+        status,
+        warehouseReturnNo: status === 'WRITTEN_BACK' ? doc.docNo : undefined,
+        warehouseWrittenQty: writtenQty,
+        warehouseWrittenAt: status === 'WRITTEN_BACK' ? doc.updatedAt : undefined,
+    }, head);
+}
+function getHeadCompletionOverride(handoverId) {
+    return headCompletionOverrides.get(handoverId) ?? null;
+}
+function getPickupRecordsForHeadInternal(head) {
+    const mockRecords = PDA_MOCK_PICKUP_RECORDS[head.handoverId]?.map(clonePickupRecord) ?? [];
+    const taskBoardSeedRecords = buildTaskBoardPickupRecordSeeds(head);
+    const postFinishingPickupRecords = buildPostFinishingPickupRecords(head);
+    const doc = head.sourceDocId ? getWarehouseExecutionDocById(head.sourceDocId) : null;
+    const baseRecords = mockRecords.length > 0
+        ? mockRecords
+        : taskBoardSeedRecords.length > 0
+            ? taskBoardSeedRecords
+            : postFinishingPickupRecords.length > 0
+                ? postFinishingPickupRecords
+                : doc && doc.docType === 'ISSUE'
+                    ? doc.lines.map((line, index) => buildPickupLineRecord(head, doc, line, index))
+                    : [];
+    const appended = pickupRecordAdditions.get(head.handoverId) ?? [];
+    const merged = [...baseRecords, ...appended].map((record) => ({ ...record, ...(pickupRecordOverrides.get(record.recordId) ?? {}) }));
+    return merged
+        .sort((a, b) => b.sequenceNo - a.sequenceNo)
+        .map(clonePickupRecord);
+}
+function getHandoutRecordsForHeadInternal(head) {
+    const mockRecords = PDA_MOCK_HANDOUT_RECORDS[head.handoverId]?.map(cloneRecord) ?? [];
+    const taskBoardSeedRecords = buildTaskBoardHandoutRecordSeeds(head);
+    const doc = head.sourceDocId ? getWarehouseExecutionDocById(head.sourceDocId) : null;
+    const baseRecords = mockRecords.length > 0
+        ? mockRecords
+        : taskBoardSeedRecords.length > 0
+            ? taskBoardSeedRecords
+            : doc && doc.docType === 'RETURN'
+                ? doc.lines.map((line, index) => buildHandoutLineRecord(head, doc, line, index))
+                : [];
+    const appended = handoutRecordAdditions.get(head.handoverId) ?? [];
+    const merged = [...baseRecords, ...appended].map((record) => ({ ...record, ...(handoutRecordOverrides.get(record.recordId) ?? {}) }));
+    return merged
+        .sort((a, b) => b.sequenceNo - a.sequenceNo)
+        .map((record) => cloneRecord(hydrateHandoverRecordDomain(record, head)));
+}
+function refreshPickupHeadSummary(head) {
+    const records = getPickupRecordsForHeadInternal(head);
+    const pendingCount = records.filter((record) => !isPickupRecordFinalized(record)).length;
+    const objectionCount = records.filter((record) => record.status === 'OBJECTION_REPORTED' ||
+        record.status === 'OBJECTION_PROCESSING' ||
+        record.status === 'OBJECTION_RESOLVED').length;
+    const writtenQtyTotal = sumBy(records.filter(isPickupRecordFinalized), getPickupRecordFinalQty);
+    const latestAt = records
+        .map((record) => record.finalResolvedAt ||
+        record.factoryConfirmedAt ||
+        record.warehouseHandedAt ||
+        record.receivedAt ||
+        record.submittedAt)
+        .filter(Boolean)
+        .sort((a, b) => parseDateMs(b) - parseDateMs(a))[0];
+    const updated = {
+        ...head,
+        recordCount: records.length,
+        pendingWritebackCount: pendingCount,
+        writtenBackQtyTotal: writtenQtyTotal,
+        qtyActualTotal: writtenQtyTotal,
+        qtyDiffTotal: head.qtyExpectedTotal - writtenQtyTotal,
+        objectionCount,
+        lastRecordAt: latestAt,
+        summaryStatus: records.length === 0
+            ? 'NONE'
+            : objectionCount > 0
+                ? 'HAS_OBJECTION'
+                : pendingCount === records.length
+                    ? 'SUBMITTED'
+                    : pendingCount > 0
+                        ? 'PARTIAL_WRITTEN_BACK'
+                        : 'WRITTEN_BACK',
+    };
+    const completionOverride = getHeadCompletionOverride(head.handoverId);
+    if (completionOverride) {
+        updated.completionStatus = completionOverride.completionStatus;
+        updated.completedByWarehouseAt = completionOverride.completedByWarehouseAt;
+        return updated;
+    }
+    const doc = head.sourceDocId ? getWarehouseExecutionDocById(head.sourceDocId) : null;
+    const autoCompleted = Boolean(doc &&
+        (doc.status === 'RECEIVED' || doc.status === 'CLOSED') &&
+        pendingCount === 0 &&
+        objectionCount === 0);
+    updated.completionStatus = autoCompleted ? 'COMPLETED' : 'OPEN';
+    updated.completedByWarehouseAt = autoCompleted ? doc?.updatedAt : undefined;
+    return updated;
+}
+function refreshHandoutHeadSummary(head) {
+    const records = getHandoutRecordsForHeadInternal(head);
+    const pendingCount = records.filter((record) => record.handoverRecordStatus === 'SUBMITTED_WAIT_WRITEBACK').length;
+    const objectionCount = records.filter((record) => record.handoverRecordStatus === 'OBJECTION_REPORTED' ||
+        record.handoverRecordStatus === 'OBJECTION_PROCESSING' ||
+        record.handoverRecordStatus === 'OBJECTION_RESOLVED').length;
+    const writtenQtyTotal = sumBy(records, (record) => resolveReceiverWrittenQty(record) ?? 0);
+    const latestAt = records
+        .map((record) => record.receiverWrittenAt || record.factorySubmittedAt)
+        .filter(Boolean)
+        .sort((a, b) => parseDateMs(b) - parseDateMs(a))[0];
+    let updated = {
+        ...hydrateHandoverHeadDomain(head, records),
+        recordCount: records.length,
+        pendingWritebackCount: pendingCount,
+        writtenBackQtyTotal: writtenQtyTotal,
+        qtyActualTotal: writtenQtyTotal,
+        qtyDiffTotal: head.qtyExpectedTotal - writtenQtyTotal,
+        objectionCount,
+        lastRecordAt: latestAt,
+        summaryStatus: records.length === 0
+            ? 'NONE'
+            : objectionCount > 0
+                ? 'HAS_OBJECTION'
+                : pendingCount === records.length
+                    ? 'SUBMITTED'
+                    : pendingCount > 0
+                        ? 'PARTIAL_WRITTEN_BACK'
+                        : 'WRITTEN_BACK',
+    };
+    const completionOverride = getHeadCompletionOverride(head.handoverId);
+    if (completionOverride) {
+        updated = hydrateHandoverHeadDomain({
+            ...updated,
+            completionStatus: completionOverride.completionStatus,
+            completedByWarehouseAt: completionOverride.completedByWarehouseAt,
+        }, records);
+        return updated;
+    }
+    const doc = head.sourceDocId ? getWarehouseExecutionDocById(head.sourceDocId) : null;
+    const autoCompleted = Boolean(doc &&
+        (doc.status === 'RETURNED' || doc.status === 'CLOSED') &&
+        pendingCount === 0 &&
+        objectionCount === 0);
+    updated = hydrateHandoverHeadDomain({
+        ...updated,
+        completionStatus: autoCompleted ? 'COMPLETED' : 'OPEN',
+        completedByWarehouseAt: autoCompleted ? doc?.updatedAt : undefined,
+    }, records);
+    return updated;
+}
+function recomputeHeadsInternal() {
+    const pickupHeads = listWarehouseIssueOrders()
+        .filter((doc) => doc.targetType === 'EXTERNAL_FACTORY')
+        .filter((doc) => shouldIncludePdaDoc(doc, getRuntimeTaskById(doc.runtimeTaskId)))
+        .map((doc) => refreshPickupHeadSummary(buildPickupHeadFromIssue(doc)));
+    const handoutHeads = listWarehouseReturnOrders()
+        .filter((doc) => shouldIncludePdaDoc(doc, getRuntimeTaskById(doc.runtimeTaskId)))
+        .map((doc) => refreshHandoutHeadSummary(buildHandoutHeadFromReturn(doc)));
+    const postFinishingPickupHeads = buildPostFinishingPickupHeads().map((head) => refreshPickupHeadSummary(head));
+    const postFinishingHandoutHeads = buildPostFinishingHandoutHeads().map((head) => refreshHandoutHeadSummary(head));
+    const mockHeads = PDA_MOCK_HANDOVER_HEADS.map((head) => head.headType === 'PICKUP'
+        ? refreshPickupHeadSummary(cloneHead(head))
+        : refreshHandoutHeadSummary(cloneHead(head)));
+    const addedHeads = Array.from(handoverHeadAdditions.values()).map((head) => head.headType === 'PICKUP'
+        ? refreshPickupHeadSummary(cloneHead(head))
+        : refreshHandoutHeadSummary(cloneHead(head)));
+    return [...pickupHeads, ...handoutHeads, ...postFinishingPickupHeads, ...postFinishingHandoutHeads, ...mockHeads, ...addedHeads];
+}
+function buildHeadsInternal() {
+    if (!cachedBuiltHeads) {
+        cachedBuiltHeads = recomputeHeadsInternal();
+    }
+    return cachedBuiltHeads;
+}
+function listHeadsSorted(factoryId) {
+    return buildHeadsInternal()
+        .filter((head) => !factoryId || head.factoryId === factoryId)
+        .sort((a, b) => {
+        const bTime = parseDateMs(b.lastRecordAt || b.completedByWarehouseAt || '');
+        const aTime = parseDateMs(a.lastRecordAt || a.completedByWarehouseAt || '');
+        const safeB = Number.isFinite(bTime) ? bTime : 0;
+        const safeA = Number.isFinite(aTime) ? aTime : 0;
+        return safeB - safeA;
+    })
+        .map(cloneHead);
+}
+function findHead(handoverId) {
+    return buildHeadsInternal().find((item) => item.handoverId === handoverId);
+}
+function findRecord(recordId) {
+    const head = buildHeadsInternal().find((item) => item.headType === 'HANDOUT');
+    if (!head) {
+        for (const one of buildHeadsInternal().filter((item) => item.headType === 'HANDOUT')) {
+            const found = getHandoutRecordsForHeadInternal(one).find((item) => item.recordId === recordId);
+            if (found)
+                return found;
+        }
+        return undefined;
+    }
+    const allHeads = buildHeadsInternal().filter((item) => item.headType === 'HANDOUT');
+    for (const one of allHeads) {
+        const found = getHandoutRecordsForHeadInternal(one).find((item) => item.recordId === recordId);
+        if (found)
+            return found;
+    }
+    return undefined;
+}
+function findPickupRecord(recordId) {
+    const allHeads = buildHeadsInternal().filter((item) => item.headType === 'PICKUP');
+    for (const one of allHeads) {
+        const found = getPickupRecordsForHeadInternal(one).find((item) => item.recordId === recordId);
+        if (found)
+            return found;
+    }
+    return undefined;
+}
+function findTaskById(taskId) {
+    return getRuntimeTaskById(taskId)
+        ?? listPdaGenericProcessTasks().find((task) => task.taskId === taskId)
+        ?? listWoolMobileProcessTasks().find((task) => task.taskId === taskId)
+        ?? null;
+}
+function isTaskEligibleForHandover(task) {
+    const processCode = task.processBusinessCode || task.processCode;
+    if (!processCode)
+        return false;
+    if (isPostCapacityNode(processCode))
+        return false;
+    const definition = getProcessDefinitionByCode(processCode);
+    if (definition)
+        return definition.generatesExternalTask;
+    return isExternalTaskProcess(processCode);
+}
+function resolveTaskReceiver(task) {
+    if (task.receiverKind && task.receiverId && task.receiverName) {
+        return {
+            receiverKind: task.receiverKind,
+            receiverId: task.receiverId,
+            receiverName: task.receiverName,
+        };
+    }
+    if (task.processBusinessCode === 'SEW' || task.processNameZh?.includes('车缝')) {
+        return {
+            receiverKind: 'MANAGED_POST_FACTORY',
+            receiverId: 'POST-FACTORY-OWN',
+            receiverName: '我方后道工厂',
+        };
+    }
+    if (task.processBusinessCode === 'CUT_PANEL' || task.processNameZh?.includes('裁片')) {
+        return {
+            receiverKind: 'WAREHOUSE',
+            receiverId: 'WH-CUT-PIECE',
+            receiverName: '裁片仓',
+        };
+    }
+    if (task.processBusinessCode === 'POST_FINISHING' || task.processNameZh?.includes('后道')) {
+        return {
+            receiverKind: 'WAREHOUSE',
+            receiverId: 'WH-GARMENT-HANDOFF',
+            receiverName: '成衣仓交接点',
+        };
+    }
+    return {
+        receiverKind: 'WAREHOUSE',
+        receiverId: 'WH-TRANSFER',
+        receiverName: '中转区域',
+    };
+}
+function savePickupRecord(record) {
+    if (findPickupRecord(record.recordId)) {
+        const existedOverride = pickupRecordOverrides.get(record.recordId) ?? {};
+        pickupRecordOverrides.set(record.recordId, { ...existedOverride, ...record });
+        invalidatePdaHandoverHeadCache();
+        return;
+    }
+    const head = findHead(record.handoverId);
+    if (head?.completionStatus === 'COMPLETED') {
+        throw new Error('领料单已完成，不允许新增领料记录');
+    }
+    const list = pickupRecordAdditions.get(record.handoverId) ?? [];
+    const index = list.findIndex((item) => item.recordId === record.recordId);
+    if (index >= 0) {
+        list[index] = clonePickupRecord(record);
+    }
+    else {
+        list.push(clonePickupRecord(record));
+    }
+    pickupRecordAdditions.set(record.handoverId, list);
+    invalidatePdaHandoverHeadCache();
+}
+function saveHandoutRecord(record) {
+    if (record.recordId.startsWith('HOR-')) {
+        const existedOverride = handoutRecordOverrides.get(record.recordId) ?? {};
+        handoutRecordOverrides.set(record.recordId, { ...existedOverride, ...record });
+        invalidatePdaHandoverHeadCache();
+        return;
+    }
+    const existingRecord = findRecord(record.recordId);
+    const head = findHead(record.handoverId);
+    if (!existingRecord && head?.completionStatus === 'COMPLETED') {
+        throw new Error('交出单已完成，不允许新增交出记录');
+    }
+    const list = handoutRecordAdditions.get(record.handoverId) ?? [];
+    const index = list.findIndex((item) => item.recordId === record.recordId);
+    if (index >= 0) {
+        list[index] = cloneRecord(record);
+    }
+    else {
+        list.push(cloneRecord(record));
+    }
+    handoutRecordAdditions.set(record.handoverId, list);
+    invalidatePdaHandoverHeadCache();
+}
+function listLegacyHandoverEvents() {
+    return buildHeadsInternal().map((head) => ({
+        eventId: head.handoverId,
+        action: head.headType,
+        taskId: head.taskId,
+        productionOrderId: head.productionOrderNo,
+        currentProcess: head.processName,
+        isFirstProcess: head.transitionFromPrev === 'NOT_APPLICABLE',
+        fromPartyKind: head.headType === 'PICKUP' ? 'WAREHOUSE' : 'FACTORY',
+        fromPartyName: head.sourceFactoryName,
+        toPartyKind: head.targetKind,
+        toPartyName: head.targetName,
+        qtyExpected: head.qtyExpectedTotal,
+        qtyActual: head.qtyActualTotal,
+        qtyUnit: head.qtyUnit,
+        qtyDiff: head.qtyDiffTotal,
+        deadlineTime: head.lastRecordAt || '',
+        status: head.completionStatus === 'COMPLETED' ? 'CONFIRMED' : 'PENDING',
+        confirmedAt: head.completedByWarehouseAt,
+        proofCount: 0,
+        factoryId: head.factoryId,
+        materialSummary: head.scopeLabel,
+    }));
+}
+export function findPdaHandoverEvent(eventId) {
+    return listLegacyHandoverEvents().find((event) => event.eventId === eventId);
+}
+export function updatePdaHandoverEvent(eventId, updater) {
+    const found = findPdaHandoverEvent(eventId);
+    if (!found)
+        return undefined;
+    const next = { ...found };
+    updater(next);
+    return next;
+}
+export function listPdaHandoverHeads() {
+    return listHeadsSorted();
+}
+export function listPdaHandoverHeadsByType(type) {
+    return listPdaHandoverHeads().filter((head) => head.headType === type);
+}
+export function listPdaHandoverHeadsByFactory(factoryId) {
+    return listHeadsSorted(factoryId);
+}
+export function listPdaHandoverHeadsByOrder(productionOrderId) {
+    return listPdaHandoverHeads().filter((head) => head.productionOrderNo === productionOrderId);
+}
+export function getPdaHandoverHeadById(id) {
+    const found = findHead(id);
+    return found ? cloneHead(found) : undefined;
+}
+export function getPdaHeadSourceExecutionDoc(headId) {
+    const head = findHead(headId);
+    if (!head?.sourceDocId)
+        return undefined;
+    const doc = getWarehouseExecutionDocById(head.sourceDocId);
+    if (!doc)
+        return undefined;
+    if (doc.docType !== 'ISSUE' && doc.docType !== 'RETURN')
+        return undefined;
+    return doc;
+}
+export function getPdaHeadRuntimeTask(headId) {
+    const head = findHead(headId);
+    if (!head?.runtimeTaskId)
+        return null;
+    return getRuntimeTaskById(head.runtimeTaskId);
+}
+export function getPdaPickupHeads(factoryId) {
+    return listHeadsSorted(factoryId).filter((head) => head.headType === 'PICKUP' && head.completionStatus === 'OPEN');
+}
+export function getPdaHandoutHeads(factoryId) {
+    return listHeadsSorted(factoryId).filter((head) => head.headType === 'HANDOUT' && head.completionStatus === 'OPEN');
+}
+export function getPdaPostFinishingPickupHeads() {
+    return listHeadsSorted(FULL_CAPABILITY_FACTORY_ID).filter((head) => head.headType === 'PICKUP' && head.completionStatus === 'OPEN' && head.processBusinessCode === 'POST_FINISHING');
+}
+export function getPdaPostFinishingHandoutHeads() {
+    return listHeadsSorted(FULL_CAPABILITY_FACTORY_ID).filter((head) => head.headType === 'HANDOUT' && head.completionStatus === 'OPEN' && head.processBusinessCode === 'POST_FINISHING');
+}
+export function getPdaPostFinishingCompletedHeads() {
+    return listHeadsSorted(FULL_CAPABILITY_FACTORY_ID)
+        .filter((head) => head.completionStatus === 'COMPLETED' && head.processBusinessCode === 'POST_FINISHING')
+        .sort((a, b) => parseDateMs(b.completedByWarehouseAt || '') - parseDateMs(a.completedByWarehouseAt || ''));
+}
+export function getPdaCompletedHeads(factoryId) {
+    return listHeadsSorted(factoryId)
+        .filter((head) => head.completionStatus === 'COMPLETED')
+        .sort((a, b) => parseDateMs(b.completedByWarehouseAt || '') - parseDateMs(a.completedByWarehouseAt || ''));
+}
+export function getPdaPendingPickupHeads(factoryId) {
+    return getPdaPickupHeads(factoryId);
+}
+export function getPdaPendingHandoutHeads(factoryId) {
+    return getPdaHandoutHeads(factoryId);
+}
+export function getPdaHandoverSummary() {
+    const heads = listPdaHandoverHeads();
+    return {
+        totalHeads: heads.length,
+        pickupPendingCount: heads.filter((head) => head.headType === 'PICKUP' && head.completionStatus === 'OPEN').length,
+        handoutPendingCount: heads.filter((head) => head.headType === 'HANDOUT' && head.completionStatus === 'OPEN').length,
+        completedCount: heads.filter((head) => head.completionStatus === 'COMPLETED').length,
+        objectionCount: heads.filter((head) => head.objectionCount > 0).length,
+    };
+}
+export function getPdaHandoverSummaryByFactory(factoryId) {
+    const heads = listPdaHandoverHeadsByFactory(factoryId);
+    return {
+        totalHeads: heads.length,
+        pickupPendingCount: heads.filter((head) => head.headType === 'PICKUP' && head.completionStatus === 'OPEN').length,
+        handoutPendingCount: heads.filter((head) => head.headType === 'HANDOUT' && head.completionStatus === 'OPEN').length,
+        completedCount: heads.filter((head) => head.completionStatus === 'COMPLETED').length,
+        objectionCount: heads.filter((head) => head.objectionCount > 0).length,
+    };
+}
+export function findPdaHandoutHead(handoverId) {
+    const found = findHead(handoverId);
+    return found && found.headType === 'HANDOUT' ? cloneHead(found) : undefined;
+}
+export function findPdaPickupHead(handoverId) {
+    const found = findHead(handoverId);
+    return found && found.headType === 'PICKUP' ? cloneHead(found) : undefined;
+}
+export function findPdaHandoverHead(handoverId) {
+    const found = findHead(handoverId);
+    return found ? cloneHead(found) : undefined;
+}
+export function listPdaHandoverRecordsByHeadId(handoverId) {
+    return getPdaHandoverRecordsByHead(handoverId);
+}
+export function getPdaHandoverRecordsByHead(handoverId) {
+    const head = findHead(handoverId);
+    if (!head || head.headType !== 'HANDOUT')
+        return [];
+    return getHandoutRecordsForHeadInternal(head);
+}
+export function findPdaHandoverRecord(recordId) {
+    const found = findRecord(recordId);
+    return found ? cloneRecord(found) : undefined;
+}
+export function getPdaPickupRecordsByHead(handoverId) {
+    const head = findHead(handoverId);
+    if (!head || head.headType !== 'PICKUP')
+        return [];
+    return getPickupRecordsForHeadInternal(head);
+}
+export function findPdaPickupRecord(recordId) {
+    const found = findPickupRecord(recordId);
+    return found ? clonePickupRecord(found) : undefined;
+}
+export function getPdaHandoverHeadBusinessLabel(headType) {
+    return headType === 'PICKUP' ? '领料单' : '交出单';
+}
+export function getPdaPickupOrderDisplayNo(head) {
+    return head.handoverOrderNo || head.handoverOrderId || head.handoverId;
+}
+export function getPdaHandoutOrderDisplayNo(head) {
+    return head.handoverOrderNo || head.handoverOrderId || head.handoverId;
+}
+function getHeadCompletionBasisQty(head) {
+    if (!head)
+        return 0;
+    const basisQty = head.plannedQty ?? head.qtyExpectedTotal;
+    return Number.isFinite(basisQty) ? Number(basisQty) : 0;
+}
+export function getPickupHeadCompletionBasisQty(handoverId) {
+    return getHeadCompletionBasisQty(findPdaPickupHead(handoverId));
+}
+export function getHandoutHeadCompletionBasisQty(handoverId) {
+    return getHeadCompletionBasisQty(findPdaHandoutHead(handoverId));
+}
+function getPickupRecordEffectiveCompletedQty(record) {
+    if (record.status === 'REJECTED')
+        return 0;
+    if (record.status === 'RECEIVED')
+        return roundNumber(record.factoryConfirmedQty ?? record.qtyActual ?? record.warehouseHandedQty ?? 0);
+    if (record.status === 'OBJECTION_RESOLVED')
+        return roundNumber(record.finalResolvedQty ?? record.qtyActual ?? record.factoryReportedQty ?? 0);
+    if (record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING') {
+        return roundNumber(record.factoryReportedQty ?? record.qtyActual ?? 0);
+    }
+    return 0;
+}
+function getHandoutRecordEffectiveCompletedQty(record) {
+    if ((record.handoverRecordStatus || mapRecordLifecycleStatus(record)) === 'VOIDED')
+        return 0;
+    return roundNumber(record.submittedQty ?? record.plannedQty ?? 0);
+}
+export function getPickupHeadEffectiveCompletedQty(handoverId) {
+    return roundNumber(getPdaPickupRecordsByHead(handoverId).reduce((sum, record) => sum + getPickupRecordEffectiveCompletedQty(record), 0));
+}
+export function getHandoutHeadEffectiveCompletedQty(handoverId) {
+    return roundNumber(getPdaHandoverRecordsByHead(handoverId).reduce((sum, record) => sum + getHandoutRecordEffectiveCompletedQty(record), 0));
+}
+function isPickupRecordStillWaiting(record) {
+    return (record.status === 'PENDING_WAREHOUSE_DISPATCH'
+        || record.status === 'PENDING_FACTORY_PICKUP'
+        || record.status === 'PENDING_FACTORY_CONFIRM');
+}
+function validateCompletionRange(label, basisQty, effectiveQty) {
+    if (!Number.isFinite(basisQty) || basisQty <= 0) {
+        return { ok: false, message: `缺少计划对象数量，无法完成${label}` };
+    }
+    if (effectiveQty < basisQty * 0.8) {
+        return { ok: false, message: `累计${label === '领料单' ? '领料' : '交出'}数量未达到计划对象数量的 80%，暂不可完成${label}` };
+    }
+    if (effectiveQty > basisQty * 1.2) {
+        return { ok: false, message: `累计${label === '领料单' ? '领料' : '交出'}数量超出计划对象数量的 20%，请先核对后再完成${label}` };
+    }
+    return { ok: true, message: `可完成${label}` };
+}
+export function canCompletePdaPickupHead(handoverId) {
+    const head = findPdaPickupHead(handoverId);
+    const basisQty = getPickupHeadCompletionBasisQty(handoverId);
+    const effectiveQty = getPickupHeadEffectiveCompletedQty(handoverId);
+    if (!head)
+        return { ok: false, message: '未找到领料单', basisQty, effectiveQty };
+    if (head.completionStatus === 'COMPLETED')
+        return { ok: false, message: '该领料单已完成', basisQty, effectiveQty };
+    const records = getPdaPickupRecordsByHead(handoverId);
+    if (records.length === 0)
+        return { ok: false, message: '暂无领料记录，无法完成领料单', basisQty, effectiveQty };
+    if (records.some(isPickupRecordStillWaiting)) {
+        return { ok: false, message: '仍有待确认的领料记录，暂不可完成领料单', basisQty, effectiveQty };
+    }
+    const rangeResult = validateCompletionRange('领料单', basisQty, effectiveQty);
+    return { ...rangeResult, basisQty, effectiveQty };
+}
+export function canCompletePdaHandoutHead(handoverId) {
+    const head = findPdaHandoutHead(handoverId);
+    const basisQty = getHandoutHeadCompletionBasisQty(handoverId);
+    const effectiveQty = getHandoutHeadEffectiveCompletedQty(handoverId);
+    if (!head)
+        return { ok: false, message: '未找到交出单', basisQty, effectiveQty };
+    if (head.completionStatus === 'COMPLETED')
+        return { ok: false, message: '该交出单已完成', basisQty, effectiveQty };
+    const records = getPdaHandoverRecordsByHead(handoverId);
+    if (records.length === 0)
+        return { ok: false, message: '暂无交出记录，无法完成交出单', basisQty, effectiveQty };
+    const rangeResult = validateCompletionRange('交出单', basisQty, effectiveQty);
+    return { ...rangeResult, basisQty, effectiveQty };
+}
+export function listHandoverOrdersByTaskId(taskId) {
+    return listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId);
+}
+export function getHandoverOrderById(handoverOrderId) {
+    return listPdaHandoverHeads().find((head) => head.headType === 'HANDOUT' && (head.handoverOrderId || head.handoverId) === handoverOrderId);
+}
+export function listReceiverWritebacks() {
+    return listPdaHandoverHeads()
+        .filter((head) => head.headType === 'HANDOUT')
+        .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId)
+        .filter((record) => typeof record.receiverWrittenQty === 'number' && Boolean(record.receiverWrittenAt))
+        .map((record) => {
+        const writtenQty = record.receiverWrittenQty ?? 0;
+        const submittedQty = record.submittedQty ?? record.plannedQty ?? 0;
+        const diffQty = writtenQty - submittedQty;
+        return {
+            writebackId: `WB-${record.handoverRecordId || record.recordId}`,
+            handoverRecordId: record.handoverRecordId || record.recordId,
+            handoverOrderId: head.handoverOrderId || head.handoverId,
+            receiverKind: head.receiverKind || 'WAREHOUSE',
+            receiverId: head.receiverId || normalizeReceiverId(head),
+            receiverName: head.receiverName || normalizeReceiverName(head),
+            submittedQty,
+            writtenQty,
+            diffQty,
+            qtyUnit: record.qtyUnit || head.qtyUnit,
+            writebackResult: diffQty === 0 ? 'MATCH' : diffQty < 0 ? 'SHORT' : 'OVER',
+            diffReason: record.diffReason || record.objectionReason,
+            proofFiles: cloneProofFiles(record.receiverProofFiles ?? []),
+            writtenBy: record.receiverWrittenBy || '接收方扫码员',
+            writtenAt: record.receiverWrittenAt || '',
+            isLatest: true,
+        };
+    }));
+}
+export function listQuantityObjections() {
+    return listPdaHandoverHeads()
+        .filter((head) => head.headType === 'HANDOUT')
+        .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId)
+        .filter((record) => record.handoverRecordStatus === 'OBJECTION_REPORTED'
+        || record.handoverRecordStatus === 'OBJECTION_PROCESSING'
+        || record.handoverRecordStatus === 'OBJECTION_RESOLVED')
+        .map((record) => ({
+        objectionId: record.quantityObjectionId || `QO-${record.recordId}`,
+        objectionNo: `OBJ-${(record.quantityObjectionId || record.recordId).replace(/[^A-Za-z0-9]/g, '').slice(-12)}`,
+        handoverRecordId: record.handoverRecordId || record.recordId,
+        handoverOrderId: head.handoverOrderId || head.handoverId,
+        sourceTaskId: record.sourceTaskId || record.taskId,
+        productionOrderId: head.productionOrderNo,
+        factoryId: head.factoryId,
+        factoryName: head.sourceFactoryName,
+        raisedByKind: 'FACTORY',
+        submittedQty: record.submittedQty ?? record.plannedQty ?? 0,
+        receiverWrittenQty: record.receiverWrittenQty ?? 0,
+        diffQty: record.diffQty ?? 0,
+        qtyUnit: record.qtyUnit || head.qtyUnit,
+        objectionReason: 'OTHER',
+        objectionRemark: record.objectionRemark || record.objectionReason || '',
+        factoryProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
+        receiverProofFiles: cloneProofFiles(record.receiverProofFiles ?? []),
+        status: record.handoverRecordStatus === 'OBJECTION_REPORTED'
+            ? 'REPORTED'
+            : record.handoverRecordStatus === 'OBJECTION_PROCESSING'
+                ? 'PROCESSING'
+                : 'RESOLVED_PARTIAL',
+        resolvedQty: record.receiverWrittenQty,
+        resolvedRemark: record.resolvedRemark,
+        resolvedAt: record.handoverRecordStatus === 'OBJECTION_RESOLVED' ? record.receiverWrittenAt : undefined,
+        createdAt: record.factorySubmittedAt,
+        createdBy: record.factorySubmittedBy || '工厂操作员',
+    })));
+}
+export function ensureHandoverOrderForStartedTask(taskId) {
+    const existing = listHandoverOrdersByTaskId(taskId)[0];
+    if (existing) {
+        return {
+            taskId,
+            handoverOrderId: existing.handoverOrderId || existing.handoverId,
+            created: false,
+        };
+    }
+    const task = findTaskById(taskId);
+    if (!task) {
+        throw new Error(`未找到任务：${taskId}`);
+    }
+    if (!isTaskEligibleForHandover(task)) {
+        throw new Error(`当前任务不进入交出链路：${taskId}`);
+    }
+    if (!task.startedAt) {
+        throw new Error(`任务尚未开工，不能创建交出单：${taskId}`);
+    }
+    const receiver = resolveTaskReceiver(task);
+    const handoverOrderId = `HO-${taskId.replace(/[^A-Za-z0-9]/g, '')}`;
+    const productionOrderNo = 'productionOrderNo' in task && typeof task.productionOrderNo === 'string'
+        ? task.productionOrderNo
+        : task.productionOrderId;
+    const assignmentGranularityLabel = task.assignmentGranularity
+        ? PROCESS_ASSIGNMENT_GRANULARITY_LABEL[task.assignmentGranularity]
+        : undefined;
+    const createdHead = hydrateHandoverHeadDomain({
+        handoverId: handoverOrderId,
+        handoverOrderId,
+        handoverOrderNo: buildHandoverOrderNo(handoverOrderId),
+        headType: 'HANDOUT',
+        qrCodeValue: buildHandoverOrderQrValue(handoverOrderId),
+        handoverOrderQrValue: buildHandoverOrderQrValue(handoverOrderId),
+        taskId: task.taskId,
+        sourceTaskId: task.taskId,
+        taskNo: task.taskNo || task.taskId,
+        sourceTaskNo: task.taskNo || task.taskId,
+        productionOrderNo,
+        processName: task.processNameZh,
+        sourceFactoryName: task.assignedFactoryName || '待分配工厂',
+        sourceFactoryId: task.assignedFactoryId,
+        targetName: receiver.receiverName,
+        targetKind: receiver.receiverKind === 'MANAGED_POST_FACTORY' ? 'FACTORY' : 'WAREHOUSE',
+        receiverKind: receiver.receiverKind,
+        receiverId: receiver.receiverId,
+        receiverName: receiver.receiverName,
+        qtyUnit: task.qtyUnit === 'METER' ? 'm' : task.qtyUnit === 'BUNDLE' ? '打' : '件',
+        factoryId: task.assignedFactoryId || '',
+        taskStatus: task.status === 'DONE' ? 'DONE' : 'IN_PROGRESS',
+        summaryStatus: 'NONE',
+        handoverOrderStatus: 'AUTO_CREATED',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        submittedQtyTotal: 0,
+        writtenBackQtyTotal: 0,
+        diffQtyTotal: 0,
+        objectionCount: 0,
+        completionStatus: 'OPEN',
+        plannedQty: task.qty,
+        qtyExpectedTotal: task.qty,
+        qtyActualTotal: 0,
+        qtyDiffTotal: task.qty,
+        runtimeTaskId: taskId,
+        stageCode: task.stageCode,
+        stageName: task.stageName,
+        processBusinessCode: task.processBusinessCode,
+        processBusinessName: task.processBusinessName,
+        craftCode: task.craftCode,
+        craftName: task.craftName,
+        taskTypeCode: task.taskTypeMode === 'CRAFT' ? task.craftCode || task.processBusinessCode : task.processBusinessCode,
+        taskTypeLabel: task.taskCategoryZh,
+        assignmentGranularity: task.assignmentGranularity,
+        assignmentGranularityLabel,
+        isSpecialCraft: task.isSpecialCraft,
+        factoryMarkedComplete: false,
+        factoryMarkedCompleteAt: undefined,
+    }, []);
+    handoverHeadAdditions.set(handoverOrderId, createdHead);
+    invalidatePdaHandoverHeadCache();
+    return { taskId, handoverOrderId, created: true };
+}
+function resolvePostFinishingLineForCreate(head, submittedQty) {
+    if (!isPostFinishingGeneratedHead(head))
+        return undefined;
+    const lines = listPostFinishingAvailableHandoverLines()
+        .filter((line) => line.recheckOrderNo === head.sourceDocNo || line.recheckOrderId === head.sourceDocId);
+    const matched = lines.find((line) => line.availableHandoverGarmentQty >= submittedQty);
+    if (!matched) {
+        const totalAvailable = sumBy(lines, (line) => line.availableHandoverGarmentQty);
+        if (totalAvailable <= 0)
+            throw new Error('当前复检库存已全部交出');
+        throw new Error(`本次交出数量不能超过单个复检明细可交出库存，请按 SKU 分批交出；当前最大可交出 ${Math.max(...lines.map((line) => line.availableHandoverGarmentQty))}${head.qtyUnit}`);
+    }
+    return matched;
+}
+export function createFactoryHandoverRecord(input) {
+    const head = getHandoverOrderById(input.handoverOrderId);
+    if (!head || head.headType !== 'HANDOUT') {
+        throw new Error(`未找到交出单：${input.handoverOrderId}`);
+    }
+    if (head.completionStatus === 'COMPLETED') {
+        throw new Error('交出单已完成，不允许新增交出记录');
+    }
+    const postFinishingLine = resolvePostFinishingLineForCreate(head, input.submittedQty);
+    const existing = getPdaHandoverRecordsByHead(head.handoverId);
+    const sequenceNo = existing.reduce((max, record) => Math.max(max, record.sequenceNo), 0) + 1;
+    const handoverRecordId = `HDR-${head.handoverId.replace(/[^A-Za-z0-9]/g, '')}-${String(sequenceNo).padStart(3, '0')}`;
+    const created = hydrateHandoverRecordDomain({
+        recordId: handoverRecordId,
+        handoverRecordId,
+        handoverId: head.handoverId,
+        handoverOrderId: head.handoverOrderId || head.handoverId,
+        taskId: head.taskId,
+        sourceTaskId: head.taskId,
+        sequenceNo,
+        handoutItemLabel: input.handoutItemLabel || (postFinishingLine ? `${postFinishingLine.skuCode} / ${postFinishingLine.colorName} / ${postFinishingLine.sizeName} / ${input.submittedQty}${postFinishingLine.qtyUnit}` : undefined),
+        postFinishingRecheckOrderId: postFinishingLine?.recheckOrderId,
+        postFinishingRecheckOrderNo: postFinishingLine?.recheckOrderNo,
+        postFinishingWarehouseRecordId: postFinishingLine?.warehouseRecordId,
+        postFinishingSkuLineId: postFinishingLine?.skuLineId,
+        objectType: postFinishingLine ? 'FINISHED_GARMENT' : input.objectType,
+        garmentEquivalentQty: input.garmentEquivalentQty,
+        materialCode: input.materialCode || postFinishingLine?.skuCode,
+        materialName: input.materialName || (postFinishingLine ? '后道复检合格成衣' : undefined),
+        materialSpec: input.materialSpec || (postFinishingLine ? `${postFinishingLine.spuName} / ${postFinishingLine.colorName} / ${postFinishingLine.sizeName}` : undefined),
+        skuCode: input.skuCode || postFinishingLine?.skuCode,
+        skuColor: input.skuColor || postFinishingLine?.colorName,
+        skuSize: input.skuSize || postFinishingLine?.sizeName,
+        pieceName: input.pieceName || (postFinishingLine ? '成衣' : undefined),
+        cutPieceLines: input.cutPieceLines?.map((line) => ({ ...line })),
+        handoutObjectType: postFinishingLine
+            ? 'GARMENT'
+            : input.handoutObjectType
+                ? input.handoutObjectType
+                : input.objectType === 'CUT_PIECE'
+                    ? 'CUT_PIECE'
+                    : input.objectType === 'FABRIC'
+                        ? 'FABRIC'
+                        : 'GARMENT',
+        submittedQty: input.submittedQty,
+        plannedQty: input.submittedQty,
+        qtyUnit: input.qtyUnit || head.qtyUnit,
+        factorySubmittedAt: input.factorySubmittedAt,
+        factorySubmittedBy: input.factorySubmittedBy,
+        factorySubmittedByKind: 'FACTORY',
+        factoryRemark: input.factoryRemark,
+        factoryProofFiles: cloneProofFiles(input.factoryProofFiles ?? []),
+        status: 'PENDING_WRITEBACK',
+    }, head);
+    saveHandoutRecord(created);
+    if (postFinishingLine) {
+        recordPostFinishingHandoverSubmission({
+            handoverId: head.handoverId,
+            handoverOrderNo: head.handoverOrderNo || head.handoverId,
+            handoverRecordId: created.handoverRecordId || created.recordId,
+            handoverRecordNo: created.handoverRecordNo || created.recordId,
+            recheckOrderId: postFinishingLine.recheckOrderId,
+            recheckOrderNo: postFinishingLine.recheckOrderNo,
+            skuLineId: postFinishingLine.skuLineId,
+            submittedQty: created.submittedQty || input.submittedQty,
+            qtyUnit: created.qtyUnit || postFinishingLine.qtyUnit,
+            submittedAt: created.factorySubmittedAt,
+            submittedBy: created.factorySubmittedBy || '工厂操作员',
+        });
+        invalidatePdaHandoverHeadCache();
+    }
+    return cloneRecord(created);
+}
+export function upsertPdaHandoverHeadMock(head) {
+    handoverHeadAdditions.set(head.handoverId, cloneHead(head));
+    invalidatePdaHandoverHeadCache();
+    return findPdaHandoverHead(head.handoverId) ?? cloneHead(head);
+}
+export function upsertPdaPickupRecordMock(record) {
+    const exists = findPickupRecord(record.recordId);
+    const head = findHead(record.handoverId);
+    if (!exists && head?.completionStatus === 'COMPLETED') {
+        throw new Error('领料单已完成，不允许新增领料记录');
+    }
+    savePickupRecord(record);
+    return findPdaPickupRecord(record.recordId) ?? clonePickupRecord(record);
+}
+export function upsertPdaHandoutRecordMock(record) {
+    const exists = findRecord(record.recordId);
+    const head = findHead(record.handoverId);
+    if (!exists && head?.completionStatus === 'COMPLETED') {
+        throw new Error('交出单已完成，不允许新增交出记录');
+    }
+    saveHandoutRecord(record);
+    return findPdaHandoverRecord(record.recordId) ?? cloneRecord(record);
+}
+export function writeBackHandoverRecord(input) {
+    const current = findRecord(input.handoverRecordId);
+    if (!current) {
+        throw new Error(`未找到交出记录：${input.handoverRecordId}`);
+    }
+    const head = findPdaHandoverHead(current.handoverId);
+    if (!head) {
+        throw new Error(`未找到交出单：${current.handoverId}`);
+    }
+    const updated = hydrateHandoverRecordDomain({
+        ...current,
+        receiverWrittenQty: input.receiverWrittenQty,
+        receiverWrittenAt: input.receiverWrittenAt,
+        receiverWrittenBy: input.receiverWrittenBy,
+        receiverRemark: input.receiverRemark?.trim() || undefined,
+        diffReason: input.diffReason?.trim() || undefined,
+        warehouseWrittenQty: input.receiverWrittenQty,
+        warehouseWrittenAt: input.receiverWrittenAt,
+    }, head);
+    saveHandoutRecord(updated);
+    writeBackPostFinishingHandoverSubmission({
+        handoverRecordId: updated.handoverRecordId || updated.recordId,
+        receiverWrittenQty: input.receiverWrittenQty,
+        receiverWrittenAt: input.receiverWrittenAt,
+        receiverWrittenBy: input.receiverWrittenBy,
+    });
+    invalidatePdaHandoverHeadCache();
+    return cloneRecord(updated);
+}
+export function acceptHandoverRecordDiff(handoverRecordId) {
+    const current = findRecord(handoverRecordId);
+    if (!current || current.handoverRecordStatus !== 'WRITTEN_BACK_DIFF') {
+        return null;
+    }
+    const head = findPdaHandoverHead(current.handoverId);
+    if (!head) {
+        throw new Error(`未找到交出单：${current.handoverId}`);
+    }
+    const updated = hydrateHandoverRecordDomain({
+        ...current,
+        status: 'WRITTEN_BACK',
+        factoryDiffDecision: 'ACCEPT_DIFF',
+    }, head);
+    saveHandoutRecord(updated);
+    return cloneRecord(updated);
+}
+export function raiseQuantityObjection(input) {
+    const current = findRecord(input.handoverRecordId);
+    if (!current) {
+        throw new Error(`未找到交出记录：${input.handoverRecordId}`);
+    }
+    if (current.handoverRecordStatus !== 'WRITTEN_BACK_DIFF') {
+        throw new Error(`当前交出记录没有数量差异，不能发起异议：${input.handoverRecordId}`);
+    }
+    const updated = hydrateHandoverRecordDomain({
+        ...current,
+        factorySubmittedBy: current.factorySubmittedBy || input.createdBy,
+        objectionReason: input.objectionRemark,
+        objectionRemark: input.objectionRemark,
+        objectionProofFiles: cloneProofFiles(input.factoryProofFiles ?? []),
+        quantityObjectionId: current.quantityObjectionId || `QO-${current.recordId}`,
+        factoryDiffDecision: 'RAISE_OBJECTION',
+        status: 'OBJECTION_REPORTED',
+    }, { handoverId: current.handoverId, handoverOrderId: current.handoverOrderId });
+    saveHandoutRecord(updated);
+    const objection = listQuantityObjections().find((item) => item.handoverRecordId === updated.recordId);
+    if (!objection) {
+        throw new Error(`数量异议生成失败：${input.handoverRecordId}`);
+    }
+    return {
+        ...objection,
+        objectionReason: input.objectionReason,
+        objectionRemark: input.objectionRemark,
+        createdBy: input.createdBy,
+    };
+}
+export function confirmPdaPickupRecordReceived(recordId, payload) {
+    const current = findPickupRecord(recordId);
+    if (!current || current.status !== 'PENDING_FACTORY_CONFIRM')
+        return undefined;
+    const updated = {
+        ...current,
+        qtyActual: payload.factoryConfirmedQty,
+        receivedAt: payload.factoryConfirmedAt,
+        factoryConfirmedQty: payload.factoryConfirmedQty,
+        factoryConfirmedAt: payload.factoryConfirmedAt,
+        status: 'RECEIVED',
+        objectionStatus: undefined,
+    };
+    savePickupRecord(updated);
+    return clonePickupRecord(updated);
+}
+export function rejectPdaPickupRecord(recordId, payload) {
+    const current = findPickupRecord(recordId);
+    if (!current || current.status !== 'PENDING_FACTORY_CONFIRM')
+        return undefined;
+    const updated = {
+        ...current,
+        status: 'REJECTED',
+        objectionReason: payload.rejectReason.trim(),
+        objectionRemark: payload.rejectRemark?.trim() || undefined,
+        followUpRemark: payload.rejectRemark?.trim() || payload.rejectReason.trim(),
+        resolvedRemark: undefined,
+        factoryConfirmedQty: undefined,
+        factoryConfirmedAt: payload.rejectedAt,
+        factoryReportedQty: undefined,
+        finalResolvedQty: undefined,
+        finalResolvedAt: undefined,
+        objectionStatus: undefined,
+        remark: payload.rejectReason.trim(),
+    };
+    savePickupRecord(updated);
+    return clonePickupRecord(updated);
+}
+export function markPdaPickupRecordWarehouseHanded(recordId, payload) {
+    const current = findPickupRecord(recordId);
+    if (!current ||
+        (current.status !== 'PENDING_WAREHOUSE_DISPATCH' && current.status !== 'PENDING_FACTORY_PICKUP')) {
+        return undefined;
+    }
+    const updated = {
+        ...current,
+        status: 'PENDING_FACTORY_CONFIRM',
+        warehouseHandedQty: payload.warehouseHandedQty,
+        warehouseHandedAt: payload.warehouseHandedAt,
+        warehouseHandedBy: payload.warehouseHandedBy,
+    };
+    savePickupRecord(updated);
+    return clonePickupRecord(updated);
+}
+export function reportPdaPickupQtyObjection(recordId, payload) {
+    const current = findPickupRecord(recordId);
+    if (!current || current.status !== 'PENDING_FACTORY_CONFIRM')
+        return undefined;
+    const updated = {
+        ...current,
+        status: 'OBJECTION_REPORTED',
+        factoryReportedQty: payload.factoryReportedQty,
+        exceptionCaseId: payload.exceptionCaseId || current.exceptionCaseId,
+        objectionReason: payload.objectionReason.trim(),
+        objectionRemark: payload.objectionRemark?.trim() || undefined,
+        objectionProofFiles: cloneProofFiles(payload.objectionProofFiles),
+        objectionStatus: 'REPORTED',
+    };
+    savePickupRecord(updated);
+    return clonePickupRecord(updated);
+}
+export function processPdaPickupQtyObjection(recordId, payload) {
+    const current = findPickupRecord(recordId);
+    if (!current || (current.status !== 'OBJECTION_REPORTED' && current.status !== 'OBJECTION_PROCESSING')) {
+        return undefined;
+    }
+    const updated = {
+        ...current,
+        status: 'OBJECTION_PROCESSING',
+        objectionStatus: 'PROCESSING',
+        followUpRemark: payload.followUpRemark?.trim() || current.followUpRemark,
+    };
+    savePickupRecord(updated);
+    return clonePickupRecord(updated);
+}
+export function resolvePdaPickupQtyObjection(recordId, payload) {
+    const current = findPickupRecord(recordId);
+    if (!current || (current.status !== 'OBJECTION_REPORTED' && current.status !== 'OBJECTION_PROCESSING')) {
+        return undefined;
+    }
+    const updated = {
+        ...current,
+        status: 'OBJECTION_RESOLVED',
+        qtyActual: payload.finalResolvedQty,
+        finalResolvedQty: payload.finalResolvedQty,
+        finalResolvedAt: payload.finalResolvedAt,
+        resolvedRemark: payload.resolvedRemark?.trim() || undefined,
+        objectionStatus: 'RESOLVED',
+    };
+    savePickupRecord(updated);
+    return clonePickupRecord(updated);
+}
+export function createPdaHandoverRecord(handoverId, payload) {
+    const head = findHead(handoverId);
+    if (!head || head.headType !== 'HANDOUT')
+        return undefined;
+    if (head.completionStatus === 'COMPLETED') {
+        throw new Error('交出单已完成，不允许新增交出记录');
+    }
+    return createFactoryHandoverRecord({
+        handoverOrderId: head.handoverOrderId || handoverId,
+        submittedQty: Math.max(head.qtyExpectedTotal - (head.submittedQtyTotal ?? 0), 0),
+        qtyUnit: head.qtyUnit,
+        factorySubmittedAt: payload.factorySubmittedAt,
+        factorySubmittedBy: '工厂操作员',
+        factoryRemark: payload.factoryRemark?.trim() || undefined,
+        factoryProofFiles: payload.factoryProofFiles,
+    });
+}
+export function mockWritebackPdaHandoverRecord(recordId, payload) {
+    const current = findRecord(recordId);
+    if (!current || current.status !== 'PENDING_WRITEBACK')
+        return undefined;
+    const updated = writeBackHandoverRecord({
+        handoverRecordId: recordId,
+        receiverWrittenQty: payload.warehouseWrittenQty,
+        receiverWrittenAt: payload.warehouseWrittenAt,
+        receiverWrittenBy: '接收方扫码员',
+    });
+    updated.warehouseReturnNo = payload.warehouseReturnNo;
+    saveHandoutRecord(updated);
+    return cloneRecord(updated);
+}
+export function markPdaPickupHeadCompleted(handoverId, completedAt) {
+    const validation = canCompletePdaPickupHead(handoverId);
+    if (!validation.ok)
+        return { ok: false, message: validation.message };
+    headCompletionOverrides.set(handoverId, {
+        completionStatus: 'COMPLETED',
+        completedByWarehouseAt: completedAt,
+    });
+    invalidatePdaHandoverHeadCache();
+    const updated = findHead(handoverId);
+    return updated
+        ? { ok: true, message: '已完成领料单', data: cloneHead(updated) }
+        : { ok: true, message: '已完成领料单' };
+}
+export function markPdaHandoutHeadCompleted(handoverId, completedAt) {
+    const validation = canCompletePdaHandoutHead(handoverId);
+    if (!validation.ok)
+        return { ok: false, message: validation.message };
+    headCompletionOverrides.set(handoverId, {
+        completionStatus: 'COMPLETED',
+        completedByWarehouseAt: completedAt,
+    });
+    invalidatePdaHandoverHeadCache();
+    const updated = findHead(handoverId);
+    return updated
+        ? { ok: true, message: '已完成交出单', data: cloneHead(updated) }
+        : { ok: true, message: '已完成交出单' };
+}
+export function reportPdaHandoverQtyObjection(recordId, payload) {
+    const current = findRecord(recordId);
+    if (!current || current.handoverRecordStatus !== 'WRITTEN_BACK_DIFF')
+        return undefined;
+    raiseQuantityObjection({
+        handoverRecordId: recordId,
+        objectionReason: 'OTHER',
+        objectionRemark: payload.objectionRemark?.trim() || payload.objectionReason.trim(),
+        factoryProofFiles: payload.objectionProofFiles,
+        createdBy: current.factorySubmittedBy || '工厂操作员',
+    });
+    return findPdaHandoverRecord(recordId);
+}
+export function followupPdaHandoverObjection(recordId, followUpRemark) {
+    const current = findRecord(recordId);
+    if (!current || (current.status !== 'OBJECTION_REPORTED' && current.status !== 'OBJECTION_PROCESSING')) {
+        return undefined;
+    }
+    const updated = {
+        ...current,
+        status: 'OBJECTION_PROCESSING',
+        objectionStatus: 'PROCESSING',
+        followUpRemark: followUpRemark.trim() || undefined,
+    };
+    saveHandoutRecord(updated);
+    return cloneRecord(updated);
+}
+export function resolvePdaHandoverObjection(recordId, resolvedRemark) {
+    const current = findRecord(recordId);
+    if (!current || (current.status !== 'OBJECTION_REPORTED' && current.status !== 'OBJECTION_PROCESSING')) {
+        return undefined;
+    }
+    const updated = {
+        ...current,
+        status: 'OBJECTION_RESOLVED',
+        objectionStatus: 'RESOLVED',
+        resolvedRemark: resolvedRemark.trim() || undefined,
+    };
+    saveHandoutRecord(updated);
+    return cloneRecord(updated);
+}

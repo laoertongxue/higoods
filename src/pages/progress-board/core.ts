@@ -30,7 +30,7 @@ function renderProductionProgressLinkage(): string {
         </div>
         <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
           <span class="rounded-full border px-2 py-1">风险原因</span>
-          <span class="rounded-full border px-2 py-1">是否可交出</span>
+          <span class="rounded-full border px-2 py-1">交出后结果</span>
           <span class="rounded-full border px-2 py-1">紧急程度</span>
         </div>
       </div>

@@ -1,0 +1,2313 @@
+import { TEST_FACTORY_ID, mockFactories } from '../factory-mock-data.ts';
+import { findFactoryInternalWarehouseByFactoryAndKind, findFactoryWaitHandoverStockItemByHandoverRecordId, upsertFactoryWaitHandoverStockItem, upsertFactoryWarehouseInboundRecord, } from '../factory-internal-warehouse.ts';
+import { linkPickupConfirmToInboundRecord, linkTaskCompletionToWaitHandoverStock, linkHandoverRecordToOutboundRecord, syncQuantityObjectionToOutboundRecord, syncReceiverWritebackToOutboundRecord, } from '../factory-warehouse-linkage.ts';
+import { getSpecialCraftTaskWorkOrderLineByDemandLineId, getSpecialCraftTaskWorkOrdersByTaskOrderId, getSpecialCraftTaskOrderById, listSpecialCraftTaskOrders, } from '../special-craft-task-orders.ts';
+import { getSpecialCraftOperationById, listEnabledSpecialCraftOperationDefinitions, } from '../special-craft-operations.ts';
+import { getFeiTicketByNo, listSpreadingResultGeneratedFeiTickets, } from './generated-fei-tickets.ts';
+import { listFormalCutPieceWarehouseRecords } from './warehouse-runtime.ts';
+import { createFactoryHandoverRecord, findPdaHandoverHead, findPdaHandoverRecord, findPdaPickupRecord, getPdaHandoverRecordsByHead, getPdaPickupRecordsByHead, reportPdaHandoverQtyObjection, upsertPdaHandoverHeadMock, upsertPdaPickupRecordMock, writeBackHandoverRecord, } from '../pda-handover-events.ts';
+import { buildHandoverOrderQrValue, buildTaskQrValue, } from '../task-qr.ts';
+const CUTTING_SPECIAL_FACTORY_STATUSES = new Set(['待发料', '已发料', '已接收', '加工中', '已完成', '待回仓', '已回仓']);
+const PROMPT7_SEED_OPERATOR = '系统示例';
+const PROMPT7_SEED_TIME = '2026-04-23 10:30:00';
+const PROMPT7_CUTTING_FACTORY_ID = TEST_FACTORY_ID;
+const PROMPT7_DEFAULT_SPECIAL_FACTORY_ID = TEST_FACTORY_ID;
+let flowStore = null;
+let projectionBindingsCache = null;
+function cloneValue(value) {
+    return JSON.parse(JSON.stringify(value));
+}
+function normalizeText(value) {
+    return String(value || '').trim();
+}
+function isCutPieceSpecialCraftTask(taskOrder) {
+    return taskOrder.targetObject === '裁片' || taskOrder.targetObject === '已裁部位';
+}
+function roundQty(value) {
+    if (!Number.isFinite(value))
+        return 0;
+    return Math.round(Number(value) * 100) / 100;
+}
+function getNowText() {
+    return PROMPT7_SEED_TIME;
+}
+function getBindingFlowQty(binding) {
+    return roundQty(binding.currentQty || binding.openingQty || binding.qty || 0);
+}
+function getBindingCompletionQty(binding) {
+    return roundQty(binding.closingQty || binding.currentQty || binding.qty || 0);
+}
+function getOpenDifferenceStatus(status) {
+    if (status === '待处理' || status === '处理中')
+        return status;
+    return undefined;
+}
+function getDifferenceDisplayStatus(status) {
+    const openStatus = getOpenDifferenceStatus(status);
+    return openStatus ? '差异待处理' : status || '—';
+}
+function getWorkOrderTarget(taskOrder, demandLineId, partName) {
+    const line = getSpecialCraftTaskWorkOrderLineByDemandLineId(taskOrder.taskOrderId, demandLineId);
+    if (line) {
+        const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId).find((item) => item.workOrderId === line.workOrderId);
+        if (workOrder) {
+            return {
+                workOrderId: workOrder.workOrderId,
+                workOrderNo: workOrder.workOrderNo,
+                workOrderLineId: line.lineId,
+            };
+        }
+    }
+    const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId).find((item) => item.partName === partName);
+    return {
+        workOrderId: workOrder?.workOrderId || `${taskOrder.taskOrderId}-WO-001`,
+        workOrderNo: workOrder?.workOrderNo || `${taskOrder.taskOrderNo}-部位01`,
+        workOrderLineId: line?.lineId,
+    };
+}
+function makeFlowEvent(binding, input) {
+    return {
+        eventId: `SCFE-${binding.bindingId}-${String((flowStore?.flowEvents.length || 0) + 1).padStart(4, '0')}`,
+        bindingId: binding.bindingId,
+        productionOrderId: binding.productionOrderId,
+        taskOrderId: binding.taskOrderId,
+        workOrderId: binding.workOrderId,
+        operationId: binding.operationId,
+        operationName: binding.operationName,
+        feiTicketNo: binding.feiTicketNo,
+        ...input,
+    };
+}
+function appendFlowEvent(store, binding, event) {
+    store.flowEvents.push(event);
+    return updateBinding(store, binding.bindingId, (current) => ({
+        ...current,
+        flowEventIds: [...new Set([...current.flowEventIds, event.eventId])],
+        updatedAt: event.occurredAt,
+    }));
+}
+function createQtyDifferenceReport(store, binding, input) {
+    const differenceQty = roundQty(input.actualQty - input.expectedQty);
+    const report = {
+        reportId: `SCQDR-${binding.bindingId}-${input.reportPhase === '接收差异' ? 'RCV' : 'RET'}-${String(store.differenceReports.length + 1).padStart(3, '0')}`,
+        reportPhase: input.reportPhase,
+        productionOrderId: binding.productionOrderId,
+        productionOrderNo: binding.productionOrderNo,
+        taskOrderId: binding.taskOrderId,
+        taskOrderNo: binding.taskOrderNo,
+        workOrderId: binding.workOrderId,
+        workOrderNo: binding.workOrderNo,
+        operationId: binding.operationId,
+        operationName: binding.operationName,
+        feiTicketNo: binding.feiTicketNo,
+        expectedQty: input.expectedQty,
+        actualQty: input.actualQty,
+        differenceQty,
+        unit: binding.unit,
+        sourceRecordId: input.sourceRecordId,
+        sourceRecordNo: input.sourceRecordNo,
+        reportedBy: input.reportedBy,
+        reportedAt: input.reportedAt,
+        reason: input.reason || '数量不符',
+        platformStatus: '待处理',
+    };
+    store.differenceReports.push(report);
+    appendFlowEvent(store, binding, makeFlowEvent(binding, {
+        eventType: input.reportPhase === '接收差异' ? '接收差异上报' : '回仓差异上报',
+        beforeQty: input.expectedQty,
+        changedQty: differenceQty,
+        afterQty: input.actualQty,
+        operatorName: input.reportedBy,
+        occurredAt: input.reportedAt,
+        relatedRecordId: input.sourceRecordId,
+        relatedRecordNo: input.sourceRecordNo,
+        remark: input.reason || '数量不符',
+    }));
+    return report;
+}
+function getCuttingFactory() {
+    return (mockFactories.find((factory) => factory.id === PROMPT7_CUTTING_FACTORY_ID)
+        || mockFactories.find((factory) => factory.factoryType === 'CENTRAL_CUTTING')
+        || mockFactories[0]);
+}
+function resolveSpecialCraftFactory(operationName) {
+    const preferred = mockFactories.find((factory) => factory.id === PROMPT7_DEFAULT_SPECIAL_FACTORY_ID);
+    if (preferred?.processAbilities.some((ability) => ability.processCode === 'SPECIAL_CRAFT' && ability.craftNames.includes(operationName))) {
+        return preferred;
+    }
+    return (mockFactories.find((factory) => factory.processAbilities.some((ability) => ability.processCode === 'SPECIAL_CRAFT' && ability.craftNames.includes(operationName)))
+        || preferred
+        || mockFactories[0]);
+}
+function getCuttingWaitHandoverWarehouse() {
+    const warehouse = findFactoryInternalWarehouseByFactoryAndKind(getCuttingFactory().id, 'WAIT_HANDOVER');
+    if (!warehouse) {
+        throw new Error('未找到裁床厂待交出仓');
+    }
+    return warehouse;
+}
+function getPositionSeed(warehouse, binding, preferredAreaName) {
+    const area = warehouse.areaList.find((item) => item.areaName === preferredAreaName) || warehouse.areaList[0];
+    const shelf = area?.shelfList[0];
+    const location = shelf?.locationList[0];
+    return {
+        areaName: area?.areaName || 'A区',
+        shelfNo: shelf?.shelfNo || 'A-01',
+        locationNo: location?.locationNo || 'A-01-01',
+        locationText: `${area?.areaName || 'A区'} / ${shelf?.shelfNo || 'A-01'} / ${location?.locationNo || 'A-01-01'}`,
+        binding,
+    };
+}
+function getBindingRecordLine(binding) {
+    const pieceQty = getBindingFlowQty(binding);
+    return {
+        lineId: `SC-LINE-${binding.bindingId}`,
+        piecePartLabel: binding.partName,
+        piecePartCode: binding.demandLineId,
+        garmentSkuCode: binding.productionOrderNo,
+        garmentSkuLabel: binding.productionOrderNo,
+        colorLabel: binding.colorName,
+        sizeLabel: binding.sizeCode,
+        pieceQty,
+        garmentEquivalentQty: pieceQty,
+    };
+}
+function getBindingFlowLabel(binding) {
+    return `${binding.operationName} · ${binding.specialCraftFlowStatus}`;
+}
+function sortBindings(left, right) {
+    return (left.productionOrderNo.localeCompare(right.productionOrderNo, 'zh-CN')
+        || left.taskOrderNo.localeCompare(right.taskOrderNo, 'zh-CN')
+        || left.feiTicketNo.localeCompare(right.feiTicketNo, 'zh-CN'));
+}
+function buildDispatchHeadId(operationId, targetFactoryId) {
+    return `SC-DISPATCH-${operationId.replace(/[^A-Za-z0-9]/g, '')}-${targetFactoryId.replace(/[^A-Za-z0-9]/g, '')}`;
+}
+function buildPickupHeadId(operationId, targetFactoryId) {
+    return `SC-PICKUP-${operationId.replace(/[^A-Za-z0-9]/g, '')}-${targetFactoryId.replace(/[^A-Za-z0-9]/g, '')}`;
+}
+function buildReturnHeadId(operationId, targetFactoryId) {
+    return `SC-RETURN-${operationId.replace(/[^A-Za-z0-9]/g, '')}-${targetFactoryId.replace(/[^A-Za-z0-9]/g, '')}`;
+}
+function ensureDispatchHead(binding, selectedBindings) {
+    const headId = buildDispatchHeadId(binding.operationId, binding.targetFactoryId);
+    const existed = findPdaHandoverHead(headId);
+    if (existed)
+        return existed;
+    const cuttingFactory = getCuttingFactory();
+    const qtyExpectedTotal = roundQty(selectedBindings.reduce((total, item) => total + item.qty, 0));
+    return upsertPdaHandoverHeadMock({
+        handoverId: headId,
+        handoverOrderId: headId,
+        handoverOrderNo: `SCD-${binding.operationName}-${binding.targetFactoryId.slice(-3)}`,
+        headType: 'HANDOUT',
+        qrCodeValue: buildHandoverOrderQrValue(headId),
+        handoverOrderQrValue: buildHandoverOrderQrValue(headId),
+        taskId: binding.taskOrderId,
+        sourceTaskId: binding.taskOrderId,
+        taskNo: binding.taskOrderNo,
+        sourceTaskNo: binding.taskOrderNo,
+        productionOrderNo: binding.productionOrderNo,
+        processName: `${binding.operationName}发料`,
+        sourceFactoryName: cuttingFactory.name,
+        sourceFactoryId: cuttingFactory.id,
+        targetName: binding.targetFactoryName,
+        targetKind: 'FACTORY',
+        receiverKind: 'MANAGED_POST_FACTORY',
+        receiverId: binding.targetFactoryId,
+        receiverName: binding.targetFactoryName,
+        qtyUnit: binding.unit,
+        factoryId: cuttingFactory.id,
+        taskStatus: 'IN_PROGRESS',
+        summaryStatus: 'NONE',
+        handoverOrderStatus: 'OPEN',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        submittedQtyTotal: 0,
+        writtenBackQtyTotal: 0,
+        diffQtyTotal: 0,
+        objectionCount: 0,
+        plannedQty: qtyExpectedTotal,
+        completionStatus: 'OPEN',
+        qtyExpectedTotal,
+        qtyActualTotal: 0,
+        qtyDiffTotal: qtyExpectedTotal,
+        processBusinessCode: binding.processCode,
+        processBusinessName: binding.processName,
+        craftCode: binding.craftCode,
+        craftName: binding.craftName,
+        taskTypeCode: binding.craftCode,
+        taskTypeLabel: `${binding.operationName}任务`,
+        isSpecialCraft: true,
+    });
+}
+function ensurePickupHead(binding, selectedBindings) {
+    const headId = buildPickupHeadId(binding.operationId, binding.targetFactoryId);
+    const existed = findPdaHandoverHead(headId);
+    if (existed)
+        return existed;
+    const qtyExpectedTotal = roundQty(selectedBindings.reduce((total, item) => total + item.qty, 0));
+    return upsertPdaHandoverHeadMock({
+        handoverId: headId,
+        handoverOrderId: headId,
+        handoverOrderNo: `SCP-${binding.operationName}-${binding.targetFactoryId.slice(-3)}`,
+        headType: 'PICKUP',
+        qrCodeValue: buildTaskQrValue(headId),
+        taskId: binding.taskOrderId,
+        sourceTaskId: binding.taskOrderId,
+        taskNo: binding.taskOrderNo,
+        sourceTaskNo: binding.taskOrderNo,
+        productionOrderNo: binding.productionOrderNo,
+        processName: `${binding.operationName}待来料`,
+        sourceFactoryName: getCuttingFactory().name,
+        sourceFactoryId: getCuttingFactory().id,
+        targetName: binding.targetFactoryName,
+        targetKind: 'FACTORY',
+        receiverKind: 'MANAGED_POST_FACTORY',
+        receiverId: binding.targetFactoryId,
+        receiverName: binding.targetFactoryName,
+        qtyUnit: binding.unit,
+        factoryId: binding.targetFactoryId,
+        taskStatus: 'IN_PROGRESS',
+        summaryStatus: 'NONE',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        submittedQtyTotal: 0,
+        writtenBackQtyTotal: 0,
+        diffQtyTotal: 0,
+        objectionCount: 0,
+        completionStatus: 'OPEN',
+        qtyExpectedTotal,
+        qtyActualTotal: 0,
+        qtyDiffTotal: qtyExpectedTotal,
+        processBusinessCode: binding.processCode,
+        processBusinessName: binding.processName,
+        craftCode: binding.craftCode,
+        craftName: binding.craftName,
+        taskTypeCode: binding.craftCode,
+        taskTypeLabel: `${binding.operationName}任务`,
+        isSpecialCraft: true,
+    });
+}
+function ensureReturnHead(binding, selectedBindings) {
+    const headId = buildReturnHeadId(binding.operationId, binding.targetFactoryId);
+    const existed = findPdaHandoverHead(headId);
+    if (existed)
+        return existed;
+    const qtyExpectedTotal = roundQty(selectedBindings.reduce((total, item) => total + item.qty, 0));
+    return upsertPdaHandoverHeadMock({
+        handoverId: headId,
+        handoverOrderId: headId,
+        handoverOrderNo: `SCR-${binding.operationName}-${binding.targetFactoryId.slice(-3)}`,
+        headType: 'HANDOUT',
+        qrCodeValue: buildHandoverOrderQrValue(headId),
+        handoverOrderQrValue: buildHandoverOrderQrValue(headId),
+        taskId: binding.taskOrderId,
+        sourceTaskId: binding.taskOrderId,
+        taskNo: binding.taskOrderNo,
+        sourceTaskNo: binding.taskOrderNo,
+        productionOrderNo: binding.productionOrderNo,
+        processName: `${binding.operationName}回仓`,
+        sourceFactoryName: binding.targetFactoryName,
+        sourceFactoryId: binding.targetFactoryId,
+        targetName: getCuttingFactory().name,
+        targetKind: 'FACTORY',
+        receiverKind: 'MANAGED_POST_FACTORY',
+        receiverId: getCuttingFactory().id,
+        receiverName: getCuttingFactory().name,
+        qtyUnit: binding.unit,
+        factoryId: binding.targetFactoryId,
+        taskStatus: 'DONE',
+        summaryStatus: 'NONE',
+        handoverOrderStatus: 'OPEN',
+        recordCount: 0,
+        pendingWritebackCount: 0,
+        submittedQtyTotal: 0,
+        writtenBackQtyTotal: 0,
+        diffQtyTotal: 0,
+        objectionCount: 0,
+        plannedQty: qtyExpectedTotal,
+        completionStatus: 'OPEN',
+        qtyExpectedTotal,
+        qtyActualTotal: 0,
+        qtyDiffTotal: qtyExpectedTotal,
+        processBusinessCode: binding.processCode,
+        processBusinessName: binding.processName,
+        craftCode: binding.craftCode,
+        craftName: binding.craftName,
+        taskTypeCode: binding.craftCode,
+        taskTypeLabel: `${binding.operationName}任务`,
+        isSpecialCraft: true,
+    });
+}
+function syncPickupHeadSummary(headId) {
+    const head = findPdaHandoverHead(headId);
+    if (!head)
+        return;
+    const records = getPdaPickupRecordsByHead(headId);
+    const receivedCount = records.filter((record) => record.status === 'RECEIVED').length;
+    const hasObjection = records.some((record) => record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING');
+    const summaryStatus = records.length === 0
+        ? 'NONE'
+        : hasObjection
+            ? 'HAS_OBJECTION'
+            : receivedCount === records.length
+                ? 'WRITTEN_BACK'
+                : receivedCount > 0
+                    ? 'PARTIAL_WRITTEN_BACK'
+                    : 'SUBMITTED';
+    upsertPdaHandoverHeadMock({
+        ...head,
+        summaryStatus,
+        recordCount: records.length,
+        writtenBackQtyTotal: roundQty(records.reduce((total, record) => total + (record.factoryConfirmedQty || 0), 0)),
+        qtyActualTotal: roundQty(records.reduce((total, record) => total + (record.factoryConfirmedQty || 0), 0)),
+        diffQtyTotal: roundQty(records.reduce((total, record) => total + ((record.factoryConfirmedQty ?? record.factoryReportedQty ?? 0) - record.qtyExpected), 0)),
+        objectionCount: records.filter((record) => record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING').length,
+    });
+}
+function syncHandoutHeadSummary(headId) {
+    const head = findPdaHandoverHead(headId);
+    if (!head)
+        return;
+    const records = getPdaHandoverRecordsByHead(headId);
+    const pendingWritebackCount = records.filter((record) => !record.receiverWrittenAt).length;
+    const writtenBackCount = records.filter((record) => Boolean(record.receiverWrittenAt)).length;
+    const diffCount = records.filter((record) => (record.diffQty || 0) !== 0).length;
+    const objectionCount = records.filter((record) => record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING').length;
+    const summaryStatus = records.length === 0
+        ? 'NONE'
+        : objectionCount > 0
+            ? 'HAS_OBJECTION'
+            : pendingWritebackCount === records.length
+                ? 'SUBMITTED'
+                : writtenBackCount === records.length
+                    ? 'WRITTEN_BACK'
+                    : 'PARTIAL_WRITTEN_BACK';
+    const handoverOrderStatus = objectionCount > 0
+        ? 'HAS_OBJECTION'
+        : diffCount > 0
+            ? 'DIFF_WAIT_FACTORY_CONFIRM'
+            : pendingWritebackCount > 0
+                ? 'WAIT_RECEIVER_WRITEBACK'
+                : 'WRITTEN_BACK';
+    upsertPdaHandoverHeadMock({
+        ...head,
+        summaryStatus,
+        handoverOrderStatus,
+        recordCount: records.length,
+        pendingWritebackCount,
+        submittedQtyTotal: roundQty(records.reduce((total, record) => total + (record.submittedQty || 0), 0)),
+        writtenBackQtyTotal: roundQty(records.reduce((total, record) => total + (record.receiverWrittenQty || 0), 0)),
+        diffQtyTotal: roundQty(records.reduce((total, record) => total + (record.diffQty || 0), 0)),
+        qtyActualTotal: roundQty(records.reduce((total, record) => total + (record.receiverWrittenQty || 0), 0)),
+        objectionCount,
+    });
+}
+function buildBindingId(taskOrderId, demandLineId, feiTicketNo, operationId) {
+    return `SCB-${taskOrderId}-${demandLineId}-${operationId}-${feiTicketNo}`.replace(/[^A-Za-z0-9-]/g, '');
+}
+function resolveBindingTargetFactory(taskOrder, operation) {
+    if (taskOrder.assignedFactoryId && taskOrder.assignedFactoryName) {
+        return {
+            targetFactoryId: taskOrder.assignedFactoryId,
+            targetFactoryName: taskOrder.assignedFactoryName,
+        };
+    }
+    if (taskOrder.suggestedFactoryId && taskOrder.suggestedFactoryName) {
+        return {
+            targetFactoryId: taskOrder.suggestedFactoryId,
+            targetFactoryName: taskOrder.suggestedFactoryName,
+        };
+    }
+    const factory = resolveSpecialCraftFactory(operation.operationName);
+    return {
+        targetFactoryId: factory.id,
+        targetFactoryName: factory.name,
+    };
+}
+function buildPendingBindingViews(taskOrders, bindingList) {
+    return taskOrders.flatMap((taskOrder) => (taskOrder.demandLines || [])
+        .map((line) => {
+        const boundQty = bindingList
+            .filter((binding) => binding.demandLineId === line.demandLineId)
+            .reduce((total, binding) => total + binding.qty, 0);
+        const remainingQty = roundQty(line.planPieceQty - boundQty);
+        if (remainingQty <= 0)
+            return null;
+        const targetFactory = resolveBindingTargetFactory(taskOrder, getSpecialCraftOperationById(taskOrder.operationId));
+        return {
+            pendingViewId: `SC-PENDING-${line.demandLineId}`,
+            productionOrderNo: taskOrder.productionOrderNo,
+            cuttingOrderNo: '待绑定裁片单',
+            operationName: taskOrder.operationName,
+            targetFactoryName: targetFactory.targetFactoryName,
+            taskOrderNo: taskOrder.taskOrderNo,
+            partName: line.partName,
+            colorName: line.colorName,
+            sizeCode: line.sizeCode,
+            qty: remainingQty,
+            unit: line.unit,
+            reason: '待绑定',
+        };
+    })
+        .filter((item) => Boolean(item)));
+}
+function buildTaskOrderLookupKey(productionOrderId, partName, fabricColor) {
+    return [
+        productionOrderId,
+        normalizeText(partName),
+        normalizeText(fabricColor),
+    ].join('__');
+}
+export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input) {
+    const taskOrders = (input?.specialCraftTaskOrders || listSpecialCraftTaskOrders()).filter(isCutPieceSpecialCraftTask);
+    const generatedFeiTickets = input?.generatedFeiTickets || listSpreadingResultGeneratedFeiTickets();
+    const cuttingWarehouseItems = input?.cuttingWarehouseItems || listFormalCutPieceWarehouseRecords();
+    const specialCraftOperations = input?.specialCraftOperations || listEnabledSpecialCraftOperationDefinitions();
+    const bindings = [];
+    const warnings = [];
+    const errors = [];
+    const occupiedBindingKeys = new Set();
+    const operationById = new Map(specialCraftOperations.map((operation) => [operation.operationId, operation]));
+    const taskOrdersByKey = new Map();
+    taskOrders.forEach((taskOrder, taskSortIndex) => {
+        const key = buildTaskOrderLookupKey(taskOrder.productionOrderId, taskOrder.partName, taskOrder.fabricColor);
+        const list = taskOrdersByKey.get(key) || [];
+        list.push({ taskOrder, taskSortIndex });
+        taskOrdersByKey.set(key, list);
+    });
+    const ticketLocationMap = new Map(cuttingWarehouseItems.map((item) => [item.cutOrderNo, item.locationLabel]));
+    generatedFeiTickets.forEach((ticket) => {
+        const candidateTaskOrders = [
+            ...(taskOrdersByKey.get(buildTaskOrderLookupKey(ticket.productionOrderId, ticket.partName, ticket.skuColor)) || []),
+            ...(taskOrdersByKey.get(buildTaskOrderLookupKey(ticket.productionOrderId, ticket.partName, '')) || []),
+        ];
+        if (!candidateTaskOrders.length)
+            return;
+        const ticketSecondaryCrafts = new Set(ticket.secondaryCrafts.map(normalizeText));
+        const candidateLines = candidateTaskOrders.flatMap(({ taskOrder, taskSortIndex }) => (taskOrder.demandLines || [])
+            .filter((line) => normalizeText(line.sizeCode) === normalizeText(ticket.skuSize))
+            .map((line) => ({ line, taskOrder, taskSortIndex })));
+        if (!candidateLines.length)
+            return;
+        const matchedLines = candidateLines.filter(({ line }) => {
+            const operation = operationById.get(line.operationId);
+            if (!operation || !operation.requiresFeiTicketScan)
+                return false;
+            if (!ticketSecondaryCrafts.has(normalizeText(operation.operationName)))
+                return false;
+            return true;
+        });
+        if (!matchedLines.length)
+            return;
+        const sortedMatchedLines = [...matchedLines].sort((left, right) => {
+            const leftIndex = ticket.secondaryCrafts.indexOf(left.line.operationName);
+            const rightIndex = ticket.secondaryCrafts.indexOf(right.line.operationName);
+            if (leftIndex < 0 && rightIndex < 0)
+                return left.taskSortIndex - right.taskSortIndex;
+            if (leftIndex < 0)
+                return 1;
+            if (rightIndex < 0)
+                return -1;
+            return leftIndex - rightIndex;
+        });
+        sortedMatchedLines.forEach(({ line, taskOrder, taskSortIndex }, index) => {
+            const operation = operationById.get(line.operationId) || getSpecialCraftOperationById(line.operationId);
+            if (!operation) {
+                errors.push(`未找到特殊工艺运营分类：${line.operationName}`);
+                return;
+            }
+            const targetFactory = resolveBindingTargetFactory(taskOrder, operation);
+            const occupiedKey = `${ticket.feiTicketNo}__${operation.operationId}`;
+            if (occupiedBindingKeys.has(occupiedKey)) {
+                warnings.push(`菲票 ${ticket.feiTicketNo} 已绑定到 ${operation.operationName}，已跳过重复绑定。`);
+                return;
+            }
+            occupiedBindingKeys.add(occupiedKey);
+            const locationLabel = ticketLocationMap.get(ticket.cutOrderNo) || '裁床厂待交出仓';
+            const workOrderTarget = getWorkOrderTarget(taskOrder, line.demandLineId, line.partName);
+            const originalQty = roundQty(ticket.qty);
+            bindings.push({
+                bindingId: buildBindingId(taskOrder.taskOrderId, line.demandLineId, ticket.feiTicketNo, operation.operationId),
+                productionOrderId: taskOrder.productionOrderId,
+                productionOrderNo: taskOrder.productionOrderNo,
+                cuttingOrderId: ticket.cutOrderId,
+                cuttingOrderNo: ticket.cutOrderNo,
+                taskOrderId: taskOrder.taskOrderId,
+                taskOrderNo: taskOrder.taskOrderNo,
+                demandLineId: line.demandLineId,
+                workOrderId: workOrderTarget.workOrderId,
+                workOrderNo: workOrderTarget.workOrderNo,
+                workOrderLineId: workOrderTarget.workOrderLineId,
+                operationId: operation.operationId,
+                operationName: operation.operationName,
+                processCode: operation.processCode,
+                processName: operation.processName,
+                craftCode: operation.craftCode,
+                craftName: operation.craftName,
+                targetFactoryId: targetFactory.targetFactoryId,
+                targetFactoryName: targetFactory.targetFactoryName,
+                feiTicketId: ticket.feiTicketId,
+                feiTicketNo: ticket.feiTicketNo,
+                partName: line.partName,
+                colorName: line.colorName,
+                sizeCode: line.sizeCode,
+                qty: originalQty,
+                originalQty,
+                openingQty: originalQty,
+                receivedQty: 0,
+                scrapQty: 0,
+                damageQty: 0,
+                closingQty: 0,
+                returnedQty: 0,
+                currentQty: originalQty,
+                cumulativeScrapQty: 0,
+                cumulativeDamageQty: 0,
+                unit: line.unit || '片',
+                feiTicketStatus: index === 0 ? '待发料' : '待确认顺序',
+                specialCraftFlowStatus: index === 0 ? '待发料' : '待确认顺序',
+                currentLocation: '裁床厂待交出仓',
+                flowEventIds: [],
+                completedOperationNames: [],
+                nextOperationName: sortedMatchedLines[index + 1]?.line.operationName,
+                createdAt: ticket.issuedAt || getNowText(),
+                updatedAt: ticket.issuedAt || getNowText(),
+            });
+        });
+    });
+    taskOrders.forEach((taskOrder) => {
+        ;
+        (taskOrder.demandLines || []).forEach((line) => {
+            const operation = operationById.get(line.operationId);
+            if (!operation || !operation.requiresFeiTicketScan)
+                return;
+            const targetFactory = resolveBindingTargetFactory(taskOrder, operation);
+            const ticketNos = [...new Set(line.feiTicketNos || [])];
+            ticketNos.forEach((feiTicketNo) => {
+                const occupiedKey = `${feiTicketNo}__${operation.operationId}`;
+                if (occupiedBindingKeys.has(occupiedKey))
+                    return;
+                occupiedBindingKeys.add(occupiedKey);
+                const generatedTicket = getFeiTicketByNo(feiTicketNo);
+                const fallbackQty = roundQty(line.planPieceQty / Math.max(ticketNos.length, 1));
+                const originalQty = roundQty(generatedTicket?.qty || fallbackQty);
+                const workOrderTarget = getWorkOrderTarget(taskOrder, line.demandLineId, line.partName);
+                bindings.push({
+                    bindingId: buildBindingId(taskOrder.taskOrderId, line.demandLineId, feiTicketNo, operation.operationId),
+                    productionOrderId: taskOrder.productionOrderId,
+                    productionOrderNo: taskOrder.productionOrderNo,
+                    cuttingOrderId: generatedTicket?.cutOrderId || line.patternFileId,
+                    cuttingOrderNo: generatedTicket?.cutOrderNo || line.patternFileName || '待绑定裁片单',
+                    taskOrderId: taskOrder.taskOrderId,
+                    taskOrderNo: taskOrder.taskOrderNo,
+                    demandLineId: line.demandLineId,
+                    workOrderId: workOrderTarget.workOrderId,
+                    workOrderNo: workOrderTarget.workOrderNo,
+                    workOrderLineId: workOrderTarget.workOrderLineId,
+                    operationId: operation.operationId,
+                    operationName: operation.operationName,
+                    processCode: operation.processCode,
+                    processName: operation.processName,
+                    craftCode: operation.craftCode,
+                    craftName: operation.craftName,
+                    targetFactoryId: targetFactory.targetFactoryId,
+                    targetFactoryName: targetFactory.targetFactoryName,
+                    feiTicketId: generatedTicket?.feiTicketId || feiTicketNo,
+                    feiTicketNo,
+                    partName: line.partName,
+                    colorName: line.colorName,
+                    sizeCode: line.sizeCode,
+                    qty: originalQty,
+                    originalQty,
+                    openingQty: originalQty,
+                    receivedQty: 0,
+                    scrapQty: 0,
+                    damageQty: 0,
+                    closingQty: 0,
+                    returnedQty: 0,
+                    currentQty: originalQty,
+                    cumulativeScrapQty: 0,
+                    cumulativeDamageQty: 0,
+                    unit: line.unit || '片',
+                    feiTicketStatus: '待发料',
+                    specialCraftFlowStatus: '待发料',
+                    currentLocation: '裁床厂待交出仓',
+                    flowEventIds: [],
+                    completedOperationNames: [],
+                    createdAt: generatedTicket?.issuedAt || taskOrder.createdAt || getNowText(),
+                    updatedAt: generatedTicket?.issuedAt || taskOrder.createdAt || getNowText(),
+                });
+            });
+        });
+    });
+    const hasMultiOperationTicket = new Set(bindings.map((binding) => binding.feiTicketNo)).size < bindings.length;
+    if (!hasMultiOperationTicket && bindings.length >= 2) {
+        const firstBinding = bindings[0];
+        const nextOperationBinding = bindings.find((binding) => binding.operationId !== firstBinding.operationId);
+        if (nextOperationBinding) {
+            bindings.push({
+                ...nextOperationBinding,
+                bindingId: buildBindingId(nextOperationBinding.taskOrderId, nextOperationBinding.demandLineId, firstBinding.feiTicketNo, nextOperationBinding.operationId),
+                productionOrderId: firstBinding.productionOrderId,
+                productionOrderNo: firstBinding.productionOrderNo,
+                cuttingOrderId: firstBinding.cuttingOrderId,
+                cuttingOrderNo: firstBinding.cuttingOrderNo,
+                feiTicketId: firstBinding.feiTicketId,
+                feiTicketNo: firstBinding.feiTicketNo,
+                partName: firstBinding.partName,
+                colorName: firstBinding.colorName,
+                sizeCode: firstBinding.sizeCode,
+                qty: firstBinding.originalQty,
+                originalQty: firstBinding.originalQty,
+                openingQty: firstBinding.originalQty,
+                receivedQty: 0,
+                scrapQty: 0,
+                damageQty: 0,
+                closingQty: 0,
+                returnedQty: 0,
+                currentQty: firstBinding.originalQty,
+                cumulativeScrapQty: 0,
+                cumulativeDamageQty: 0,
+                feiTicketStatus: '待发料',
+                specialCraftFlowStatus: '待发料',
+                currentLocation: '裁床厂待交出仓',
+                flowEventIds: [],
+                completedOperationNames: [],
+                nextOperationName: undefined,
+                createdAt: firstBinding.createdAt,
+                updatedAt: firstBinding.updatedAt,
+            });
+        }
+    }
+    const pendingBindingViews = buildPendingBindingViews(taskOrders, bindings);
+    if (pendingBindingViews.length > 0) {
+        warnings.push(`存在 ${pendingBindingViews.length} 条待绑定裁片需求。`);
+    }
+    return {
+        bindings,
+        warnings,
+        errors,
+    };
+}
+function buildInternalBindings() {
+    const buildResult = buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets();
+    const taskOrders = listSpecialCraftTaskOrders().filter(isCutPieceSpecialCraftTask);
+    const pendingBindingViews = buildPendingBindingViews(taskOrders, buildResult.bindings);
+    const fallbackSequenceMap = new Map();
+    buildResult.bindings.forEach((binding) => {
+        const matchedTicket = getFeiTicketByNo(binding.feiTicketNo);
+        if (matchedTicket?.secondaryCrafts.includes(binding.operationName))
+            return;
+        const list = fallbackSequenceMap.get(binding.feiTicketNo) || [];
+        list.push(binding.bindingId);
+        fallbackSequenceMap.set(binding.feiTicketNo, list);
+    });
+    const internalBindings = buildResult.bindings
+        .map((binding) => {
+        const matchedTicket = getFeiTicketByNo(binding.feiTicketNo);
+        const fallbackSequence = fallbackSequenceMap.get(binding.feiTicketNo) || [];
+        const matchedSequenceIndex = matchedTicket?.secondaryCrafts.indexOf(binding.operationName) ?? -1;
+        const sequenceIndex = matchedSequenceIndex >= 0
+            ? matchedSequenceIndex
+            : Math.max(fallbackSequence.indexOf(binding.bindingId), 0);
+        const sequenceTotal = matchedTicket?.secondaryCrafts.length || fallbackSequence.length || 1;
+        const taskSortIndex = matchedTicket && sequenceIndex >= 0 ? sequenceIndex : 999;
+        return {
+            ...binding,
+            sequenceIndex,
+            sequenceTotal,
+            taskSortIndex,
+        };
+    })
+        .sort(sortBindings);
+    return {
+        bindings: internalBindings,
+        warnings: buildResult.warnings,
+        errors: buildResult.errors,
+        pendingBindingViews,
+    };
+}
+function updateBinding(store, bindingId, updater) {
+    const index = store.bindings.findIndex((binding) => binding.bindingId === bindingId);
+    if (index < 0) {
+        throw new Error(`未找到特殊工艺菲票流转记录：${bindingId}`);
+    }
+    const nextBinding = updater(store.bindings[index]);
+    store.bindings[index] = nextBinding;
+    return nextBinding;
+}
+function findBindingByFeiTicketAndOperation(store, feiTicketNo, operationId) {
+    return store.bindings.find((binding) => binding.feiTicketNo === feiTicketNo && binding.operationId === operationId);
+}
+function getDispatchBindingsByRecordId(store, handoverRecordId) {
+    return store.bindings.filter((binding) => binding.dispatchHandoverRecordId === handoverRecordId);
+}
+function getReturnBindingsByRecordId(store, handoverRecordId) {
+    return store.bindings.filter((binding) => binding.returnHandoverRecordId === handoverRecordId);
+}
+function recomputeSequenceGate(store, productionOrderId, feiTicketNo) {
+    const byTicket = new Map();
+    store.bindings
+        .filter((binding) => (!productionOrderId || binding.productionOrderId === productionOrderId) && (!feiTicketNo || binding.feiTicketNo === feiTicketNo))
+        .forEach((binding) => {
+        const list = byTicket.get(binding.feiTicketNo) || [];
+        list.push(binding);
+        byTicket.set(binding.feiTicketNo, list);
+    });
+    byTicket.forEach((list) => {
+        const sorted = [...list].sort((left, right) => left.sequenceIndex - right.sequenceIndex);
+        sorted.forEach((binding, index) => {
+            const completedOperationNames = sorted
+                .slice(0, index)
+                .filter((item) => item.specialCraftFlowStatus === '已回仓' && item.currentLocation === '裁床厂待交出仓')
+                .map((item) => item.operationName);
+            if (index === 0) {
+                updateBinding(store, binding.bindingId, (current) => ({
+                    ...current,
+                    completedOperationNames,
+                    nextOperationName: sorted[index + 1]?.operationName,
+                }));
+                return;
+            }
+            const previous = sorted[index - 1];
+            const canDispatch = previous.specialCraftFlowStatus === '已回仓'
+                && previous.currentLocation === '裁床厂待交出仓'
+                && previous.currentQty > 0;
+            updateBinding(store, binding.bindingId, (current) => {
+                if (CUTTING_SPECIAL_FACTORY_STATUSES.has(current.specialCraftFlowStatus) && current.dispatchHandoverRecordId) {
+                    return {
+                        ...current,
+                        completedOperationNames,
+                        nextOperationName: sorted[index + 1]?.operationName,
+                    };
+                }
+                const openingQty = canDispatch ? previous.returnedQty || previous.currentQty : current.openingQty;
+                return {
+                    ...current,
+                    openingQty,
+                    currentQty: canDispatch ? openingQty : current.currentQty,
+                    completedOperationNames,
+                    nextOperationName: sorted[index + 1]?.operationName,
+                    feiTicketStatus: canDispatch ? '待发料' : '待确认顺序',
+                    specialCraftFlowStatus: canDispatch ? '待发料' : '待确认顺序',
+                    updatedAt: getNowText(),
+                };
+            });
+        });
+    });
+}
+export function assertSpecialCraftDispatchAllowed(input) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const binding = findBindingByFeiTicketAndOperation(flowStore, input.feiTicketNo, input.operationId);
+    if (!binding)
+        throw new Error(`菲票 ${input.feiTicketNo} 未绑定对应特殊工艺加工单。`);
+    if (binding.targetFactoryId !== input.targetFactoryId)
+        throw new Error('目标工厂与特殊工艺加工单不一致。');
+    if (binding.currentLocation !== '裁床厂待交出仓')
+        throw new Error('当前菲票不在裁床厂待交出仓。');
+    if (binding.currentQty <= 0)
+        throw new Error('当前数量为 0，不能发料。');
+    if (binding.specialCraftFlowStatus !== '待发料') {
+        if (binding.specialCraftFlowStatus === '待确认顺序') {
+            throw new Error('当前特殊工艺顺序未满足，暂不可发料。');
+        }
+        throw new Error(`当前菲票状态为 ${binding.specialCraftFlowStatus}，不能发料。`);
+    }
+    return binding;
+}
+export function assertSpecialCraftReturnAllowed(input) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const binding = findBindingByFeiTicketAndOperation(flowStore, input.feiTicketNo, input.operationId);
+    if (!binding)
+        throw new Error(`菲票 ${input.feiTicketNo} 未绑定对应特殊工艺加工单。`);
+    if (binding.specialCraftFlowStatus !== '待回仓')
+        throw new Error(`当前菲票状态为 ${binding.specialCraftFlowStatus}，暂不可回仓。`);
+    if (binding.currentLocation !== '特殊工艺厂待交出仓')
+        throw new Error('当前菲票不在特殊工艺厂待交出仓。');
+    if (input.receiverFactoryId !== getCuttingFactory().id)
+        throw new Error('特殊工艺回仓对象必须是裁床厂。');
+    return binding;
+}
+export function getEligibleSpecialCraftFeiTickets(operationId, filters = {}) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    return flowStore.bindings.filter((binding) => {
+        if (binding.operationId !== operationId)
+            return false;
+        if (binding.specialCraftFlowStatus !== '待发料')
+            return false;
+        if (binding.currentLocation !== '裁床厂待交出仓')
+            return false;
+        if (filters.productionOrderNo && binding.productionOrderNo !== filters.productionOrderNo)
+            return false;
+        if (filters.targetFactoryId && binding.targetFactoryId !== filters.targetFactoryId)
+            return false;
+        if (filters.keyword) {
+            const keyword = normalizeText(filters.keyword);
+            const haystack = [
+                binding.productionOrderNo,
+                binding.cuttingOrderNo,
+                binding.feiTicketNo,
+                binding.partName,
+                binding.colorName,
+                binding.sizeCode,
+            ].join(' ');
+            if (!haystack.includes(keyword))
+                return false;
+        }
+        return true;
+    });
+}
+function buildPickupRecordFromBinding(binding, pickupHeadId, sequenceNo, operatorName, submittedAt) {
+    const handedQty = getBindingFlowQty(binding);
+    return {
+        recordId: `SCPR-${binding.bindingId}`,
+        handoverId: pickupHeadId,
+        taskId: binding.taskOrderId,
+        sequenceNo,
+        materialCode: binding.craftCode,
+        materialName: binding.operationName,
+        materialSpec: binding.partName,
+        skuCode: binding.productionOrderNo,
+        skuColor: binding.colorName,
+        skuSize: binding.sizeCode,
+        pieceName: binding.partName,
+        pickupMode: 'WAREHOUSE_DELIVERY',
+        pickupModeLabel: '仓库配送到厂',
+        materialSummary: `${binding.operationName} / 菲票 ${binding.feiTicketNo}`,
+        qtyExpected: handedQty,
+        qtyActual: undefined,
+        qtyUnit: binding.unit,
+        submittedAt,
+        status: 'PENDING_FACTORY_CONFIRM',
+        qrCodeValue: buildTaskQrValue(`SCPR-${binding.bindingId}`),
+        warehouseHandedQty: handedQty,
+        warehouseHandedAt: submittedAt,
+        warehouseHandedBy: operatorName,
+        remark: '特殊工艺交出待接收',
+    };
+}
+export function createSpecialCraftDispatchHandoverFromFeiTickets(input) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const selectedBindings = input.selectedFeiTicketNos.map((feiTicketNo) => assertSpecialCraftDispatchAllowed({
+        feiTicketNo,
+        operationId: input.operationId,
+        targetFactoryId: input.targetFactoryId,
+    }));
+    if (!selectedBindings.length) {
+        throw new Error('本次未选择可发料菲票。');
+    }
+    const handoverOrder = ensureDispatchHead(selectedBindings[0], selectedBindings);
+    const pickupHead = ensurePickupHead(selectedBindings[0], selectedBindings);
+    let latestRecord = null;
+    const updatedBindings = [];
+    selectedBindings.forEach((binding, index) => {
+        const handoverQty = getBindingFlowQty(binding);
+        if (binding.dispatchHandoverRecordId) {
+            updatedBindings.push(cloneValue(binding));
+            return;
+        }
+        const record = createFactoryHandoverRecord({
+            handoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
+            submittedQty: handoverQty,
+            qtyUnit: binding.unit,
+            factorySubmittedAt: input.submittedAt,
+            factorySubmittedBy: input.operatorName,
+            factoryRemark: `特殊工艺交出 · ${binding.feiTicketNo}`,
+            objectType: 'CUT_PIECE',
+            handoutObjectType: 'CUT_PIECE',
+            handoutItemLabel: `${binding.partName} / ${binding.colorName} / ${binding.sizeCode}`,
+            garmentEquivalentQty: handoverQty,
+            materialCode: binding.craftCode,
+            materialName: binding.operationName,
+            materialSpec: binding.partName,
+            skuCode: binding.productionOrderNo,
+            skuColor: binding.colorName,
+            skuSize: binding.sizeCode,
+            pieceName: binding.partName,
+            cutPieceLines: [getBindingRecordLine(binding)],
+        });
+        latestRecord = record;
+        upsertPdaPickupRecordMock(buildPickupRecordFromBinding(binding, pickupHead.handoverId, index + 1, input.operatorName, input.submittedAt));
+        const outboundLink = linkHandoverRecordToOutboundRecord({
+            handoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
+            handoverOrderNo: handoverOrder.handoverOrderNo || handoverOrder.handoverId,
+            handoverRecordId: record.handoverRecordId || record.recordId,
+            handoverRecordNo: record.handoverRecordNo || record.recordId,
+            handoverRecordQrValue: record.handoverRecordQrValue,
+            taskId: binding.taskOrderId,
+            taskNo: binding.taskOrderNo,
+            factoryId: input.cuttingFactoryId,
+            factoryName: input.cuttingFactoryName,
+            receiverKind: '特殊工艺厂',
+            receiverName: input.targetFactoryName,
+            itemKind: '裁片',
+            itemName: `${binding.operationName}裁片`,
+            partName: binding.partName,
+            fabricColor: binding.colorName,
+            sizeCode: binding.sizeCode,
+            feiTicketNo: binding.feiTicketNo,
+            submittedQty: handoverQty,
+            unit: binding.unit,
+            operatorName: input.operatorName,
+            submittedAt: input.submittedAt,
+        });
+        const nextBinding = updateBinding(flowStore, binding.bindingId, (current) => ({
+            ...current,
+            dispatchHandoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
+            dispatchHandoverOrderNo: handoverOrder.handoverOrderNo || handoverOrder.handoverId,
+            dispatchHandoverRecordId: record.handoverRecordId || record.recordId,
+            dispatchHandoverRecordNo: record.handoverRecordNo || record.recordId,
+            feiTicketStatus: '已发料',
+            specialCraftFlowStatus: '已发料',
+            currentLocation: '特殊工艺厂待来料',
+            updatedAt: input.submittedAt,
+        }));
+        const eventBinding = appendFlowEvent(flowStore, nextBinding, makeFlowEvent(nextBinding, {
+            eventType: '发料',
+            beforeQty: binding.currentQty,
+            changedQty: 0,
+            afterQty: handoverQty,
+            operatorName: input.operatorName,
+            occurredAt: input.submittedAt,
+            relatedRecordId: record.handoverRecordId || record.recordId,
+            relatedRecordNo: record.handoverRecordNo || record.recordId,
+        }));
+        flowStore.pickupRecordToDispatchRecordId.set(`SCPR-${binding.bindingId}`, record.handoverRecordId || record.recordId);
+        updatedBindings.push(cloneValue(eventBinding));
+        void outboundLink;
+    });
+    syncHandoutHeadSummary(handoverOrder.handoverId);
+    syncPickupHeadSummary(pickupHead.handoverId);
+    recomputeSequenceGate(flowStore, selectedBindings[0].productionOrderId);
+    return {
+        handoverOrder: findPdaHandoverHead(handoverOrder.handoverId) || handoverOrder,
+        handoverRecord: latestRecord || findPdaHandoverRecord(updatedBindings[0].dispatchHandoverRecordId || ''),
+        updatedBindings,
+    };
+}
+function getDispatchRecordIdByPickupRecordId(pickupRecordId) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    return flowStore.pickupRecordToDispatchRecordId.get(pickupRecordId);
+}
+export function getSpecialCraftBindingByPickupRecordId(pickupRecordId) {
+    const dispatchRecordId = getDispatchRecordIdByPickupRecordId(pickupRecordId);
+    if (!dispatchRecordId)
+        return undefined;
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const matched = getDispatchBindingsByRecordId(flowStore, dispatchRecordId)[0];
+    return matched ? cloneValue(matched) : undefined;
+}
+export function getSpecialCraftReturnBindingsByHandoverRecordId(handoverRecordId) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    return getReturnBindingsByRecordId(flowStore, handoverRecordId).map(cloneValue);
+}
+export function isSpecialCraftDispatchPickupRecord(pickupRecordId) {
+    return Boolean(getDispatchRecordIdByPickupRecordId(pickupRecordId));
+}
+export function isSpecialCraftReturnHandoverRecord(handoverRecordId) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    return flowStore.bindings.some((binding) => binding.returnHandoverRecordId === handoverRecordId);
+}
+function patchProjectionBinding(binding, patch) {
+    if (!binding)
+        return;
+    Object.assign(binding, {
+        ...patch,
+        updatedAt: PROMPT7_SEED_TIME,
+    });
+}
+function seedProjectionReturnStatuses(bindings) {
+    const firstStageBindings = bindings.filter((binding) => binding.sequenceIndex <= 0).sort(sortBindings);
+    const remainingBindings = [...firstStageBindings];
+    const takeBinding = (predicate) => {
+        const matchIndex = predicate ? remainingBindings.findIndex(predicate) : 0;
+        if (matchIndex < 0)
+            return undefined;
+        const [selected] = remainingBindings.splice(matchIndex, 1);
+        return selected;
+    };
+    void takeBinding();
+    const dispatchOnlyBinding = takeBinding();
+    const receivedBinding = takeBinding();
+    const waitReturnBinding = takeBinding();
+    const returnedBinding = takeBinding((binding) => binding.qty >= 2) || takeBinding();
+    const diffBinding = takeBinding((binding) => binding.qty >= 2) || takeBinding();
+    const objectionBinding = takeBinding((binding) => binding.qty >= 2) || takeBinding();
+    patchProjectionBinding(dispatchOnlyBinding, {
+        feiTicketStatus: '已发料',
+        specialCraftFlowStatus: '已发料',
+        currentLocation: '特殊工艺厂待来料',
+    });
+    patchProjectionBinding(receivedBinding, {
+        receivedQty: receivedBinding?.qty || 0,
+        currentQty: receivedBinding?.qty || 0,
+        feiTicketStatus: '已接收',
+        specialCraftFlowStatus: '已接收',
+        currentLocation: '特殊工艺厂待加工仓',
+    });
+    patchProjectionBinding(waitReturnBinding, {
+        receivedQty: waitReturnBinding?.qty || 0,
+        closingQty: waitReturnBinding?.qty || 0,
+        currentQty: waitReturnBinding?.qty || 0,
+        feiTicketStatus: '待回仓',
+        specialCraftFlowStatus: '待回仓',
+        currentLocation: '特殊工艺厂待交出仓',
+    });
+    patchProjectionBinding(returnedBinding, {
+        receivedQty: returnedBinding?.qty || 0,
+        closingQty: returnedBinding?.qty || 0,
+        returnedQty: returnedBinding?.qty || 0,
+        currentQty: returnedBinding?.qty || 0,
+        feiTicketStatus: '已回仓',
+        specialCraftFlowStatus: '已回仓',
+        currentLocation: '裁床厂待交出仓',
+    });
+    patchProjectionBinding(diffBinding, {
+        receivedQty: diffBinding?.qty || 0,
+        closingQty: Math.max((diffBinding?.qty || 0) - 1, 0),
+        returnedQty: Math.max((diffBinding?.qty || 0) - 1, 0),
+        currentQty: Math.max((diffBinding?.qty || 0) - 1, 0),
+        differenceQty: -1,
+        returnDifferenceStatus: '处理中',
+        feiTicketStatus: '差异',
+        specialCraftFlowStatus: '差异',
+        currentLocation: '差异待处理',
+    });
+    patchProjectionBinding(objectionBinding, {
+        receivedQty: objectionBinding?.qty || 0,
+        closingQty: Math.max((objectionBinding?.qty || 0) - 1, 0),
+        returnedQty: Math.max((objectionBinding?.qty || 0) - 1, 0),
+        currentQty: Math.max((objectionBinding?.qty || 0) - 1, 0),
+        differenceQty: -1,
+        returnDifferenceStatus: '处理中',
+        objectionStatus: '异议中',
+        feiTicketStatus: '异议中',
+        specialCraftFlowStatus: '异议中',
+        currentLocation: '差异待处理',
+    });
+}
+function getProjectionBindings() {
+    if (flowStore)
+        return flowStore.bindings;
+    if (projectionBindingsCache)
+        return projectionBindingsCache;
+    const built = buildInternalBindings();
+    projectionBindingsCache = built.bindings.map((binding) => ({ ...binding }));
+    seedProjectionReturnStatuses(projectionBindingsCache);
+    return projectionBindingsCache;
+}
+function buildReturnStatusFromBindings(productionOrderId, orderBindings) {
+    const productionOrderNo = orderBindings[0]?.productionOrderNo || productionOrderId;
+    const totalNeedSpecialCraftFeiTickets = orderBindings.length;
+    const waitDispatchCount = orderBindings.filter((binding) => binding.specialCraftFlowStatus === '待发料').length;
+    const dispatchedCount = orderBindings.filter((binding) => binding.specialCraftFlowStatus === '已发料').length;
+    const receivedBySpecialFactoryCount = orderBindings.filter((binding) => binding.specialCraftFlowStatus === '已接收').length;
+    const completedCount = orderBindings.filter((binding) => binding.specialCraftFlowStatus === '待回仓').length;
+    const waitReturnCount = orderBindings.filter((binding) => binding.specialCraftFlowStatus === '待回仓' || binding.currentLocation === '回仓途中').length;
+    const returnedCount = orderBindings.filter((binding) => binding.specialCraftFlowStatus === '已回仓').length;
+    const differenceCount = orderBindings.filter((binding) => getOpenDifferenceStatus(binding.receiveDifferenceStatus) || getOpenDifferenceStatus(binding.returnDifferenceStatus)).length;
+    const objectionCount = orderBindings.filter((binding) => binding.objectionStatus === '异议中').length;
+    const lastByFeiTicket = new Map();
+    orderBindings.forEach((binding) => {
+        const existing = lastByFeiTicket.get(binding.feiTicketNo);
+        if (!existing || binding.sequenceIndex > existing.sequenceIndex) {
+            lastByFeiTicket.set(binding.feiTicketNo, binding);
+        }
+    });
+    const allReturned = lastByFeiTicket.size > 0
+        && [...lastByFeiTicket.values()].every((binding) => binding.specialCraftFlowStatus === '已回仓'
+            && binding.currentLocation === '裁床厂待交出仓'
+            && binding.currentQty > 0);
+    return {
+        productionOrderNo,
+        totalNeedSpecialCraftFeiTickets,
+        waitDispatchCount,
+        dispatchedCount,
+        receivedBySpecialFactoryCount,
+        completedCount,
+        waitReturnCount,
+        returnedCount,
+        differenceCount,
+        objectionCount,
+        allReturned,
+    };
+}
+export function listCuttingSpecialCraftFeiTicketBindingsForProjection() {
+    return getProjectionBindings().map(cloneValue);
+}
+export function getCuttingSpecialCraftReturnStatusByProductionOrders(productionOrderIds) {
+    const requestedIds = new Set(productionOrderIds);
+    const groupedBindings = new Map();
+    getProjectionBindings().forEach((binding) => {
+        if (requestedIds.size > 0 && !requestedIds.has(binding.productionOrderId))
+            return;
+        const list = groupedBindings.get(binding.productionOrderId) || [];
+        list.push(binding);
+        groupedBindings.set(binding.productionOrderId, list);
+    });
+    const summaries = new Map();
+    productionOrderIds.forEach((productionOrderId) => {
+        summaries.set(productionOrderId, buildReturnStatusFromBindings(productionOrderId, groupedBindings.get(productionOrderId) || []));
+    });
+    return summaries;
+}
+export function markSpecialCraftFactoryReceivedFromHandover(input) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const targetBindings = getDispatchBindingsByRecordId(flowStore, input.handoverRecordId).filter((binding) => input.receivedFeiTicketNos.includes(binding.feiTicketNo));
+    const inboundRecords = [];
+    const waitProcessStockItems = [];
+    const updatedBindings = [];
+    targetBindings.forEach((binding) => {
+        const pickupRecordId = `SCPR-${binding.bindingId}`;
+        const pickupRecord = findPdaPickupRecord(pickupRecordId);
+        if (!pickupRecord)
+            return;
+        const expectedQty = binding.openingQty || binding.currentQty || binding.qty;
+        const receivedQty = targetBindings.length === 1 ? input.receiverWrittenQty : expectedQty;
+        const differenceQty = roundQty(receivedQty - expectedQty);
+        if (differenceQty !== 0) {
+            upsertPdaPickupRecordMock({
+                ...pickupRecord,
+                status: 'OBJECTION_REPORTED',
+                qtyActual: receivedQty,
+                factoryReportedQty: receivedQty,
+                objectionReason: input.differenceReason || '数量不符',
+                objectionRemark: input.differenceReason || '数量不符',
+                objectionStatus: 'REPORTED',
+                receivedAt: input.receivedAt,
+            });
+        }
+        else {
+            upsertPdaPickupRecordMock({
+                ...pickupRecord,
+                status: 'RECEIVED',
+                qtyActual: receivedQty,
+                receivedAt: input.receivedAt,
+                factoryConfirmedQty: receivedQty,
+                factoryConfirmedAt: input.receivedAt,
+            });
+        }
+        const linked = linkPickupConfirmToInboundRecord({
+            pickupRecordId,
+            pickupRecordNo: pickupRecordId,
+            factoryId: binding.targetFactoryId,
+            factoryName: binding.targetFactoryName,
+            taskId: binding.taskOrderId,
+            taskNo: binding.taskOrderNo,
+            sourceObjectName: getCuttingFactory().name,
+            itemKind: '裁片',
+            itemName: `${binding.operationName}裁片`,
+            partName: binding.partName,
+            fabricColor: binding.colorName,
+            sizeCode: binding.sizeCode,
+            feiTicketNo: binding.feiTicketNo,
+            expectedQty,
+            receivedQty,
+            unit: binding.unit,
+            receiverName: input.receiverName,
+            receivedAt: input.receivedAt,
+            abnormalReason: differenceQty !== 0 ? input.differenceReason || '数量不符' : undefined,
+        });
+        inboundRecords.push(linked.inboundRecord);
+        waitProcessStockItems.push(linked.waitProcessStockItem);
+        const nextBinding = updateBinding(flowStore, binding.bindingId, (current) => ({
+            ...current,
+            receiverWrittenQty: receivedQty,
+            differenceQty,
+            receivedQty,
+            currentQty: receivedQty,
+            feiTicketStatus: '已接收',
+            specialCraftFlowStatus: '已接收',
+            currentLocation: '特殊工艺厂待加工仓',
+            abnormalReason: differenceQty !== 0 ? input.differenceReason || '数量不符' : undefined,
+            updatedAt: input.receivedAt,
+        }));
+        const receivedBinding = appendFlowEvent(flowStore, nextBinding, makeFlowEvent(nextBinding, {
+            eventType: '接收',
+            beforeQty: expectedQty,
+            changedQty: differenceQty,
+            afterQty: receivedQty,
+            operatorName: input.receiverName,
+            occurredAt: input.receivedAt,
+            relatedRecordId: pickupRecordId,
+            relatedRecordNo: pickupRecordId,
+        }));
+        if (differenceQty !== 0) {
+            const report = createQtyDifferenceReport(flowStore, receivedBinding, {
+                reportPhase: '接收差异',
+                expectedQty,
+                actualQty: receivedQty,
+                sourceRecordId: pickupRecordId,
+                sourceRecordNo: pickupRecordId,
+                reportedBy: input.receiverName,
+                reportedAt: input.receivedAt,
+                reason: input.differenceReason || '数量不符',
+            });
+            const reportedBinding = updateBinding(flowStore, receivedBinding.bindingId, (current) => ({
+                ...current,
+                receiveDifferenceReportId: report.reportId,
+                receiveDifferenceStatus: report.platformStatus,
+            }));
+            updatedBindings.push(cloneValue(reportedBinding));
+            return;
+        }
+        updatedBindings.push(cloneValue(receivedBinding));
+    });
+    const pickupHeadId = targetBindings[0] ? buildPickupHeadId(targetBindings[0].operationId, targetBindings[0].targetFactoryId) : '';
+    if (pickupHeadId) {
+        syncPickupHeadSummary(pickupHeadId);
+    }
+    return {
+        updatedBindings,
+        inboundRecords,
+        waitProcessStockItems,
+    };
+}
+export function recordSpecialCraftFeiTicketLossAndDamage(input) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const binding = input.bindingId
+        ? flowStore.bindings.find((item) => item.bindingId === input.bindingId)
+        : input.feiTicketNo && input.operationId
+            ? findBindingByFeiTicketAndOperation(flowStore, input.feiTicketNo, input.operationId)
+            : undefined;
+    if (!binding)
+        throw new Error('未找到特殊工艺菲票记录。');
+    const scrapQty = roundQty(input.scrapQty);
+    const damageQty = roundQty(input.damageQty);
+    if (scrapQty + damageQty <= 0)
+        throw new Error('报废数量和货损数量必须大于 0。');
+    const sourceQty = binding.receivedQty || binding.currentQty || binding.openingQty;
+    if (scrapQty + damageQty > sourceQty)
+        throw new Error('报废和货损数量不能超过当前实收裁片数量。');
+    let nextBinding = updateBinding(flowStore, binding.bindingId, (current) => ({
+        ...current,
+        scrapQty,
+        damageQty,
+        closingQty: roundQty(sourceQty - scrapQty - damageQty),
+        currentQty: roundQty(sourceQty - scrapQty - damageQty),
+        cumulativeScrapQty: roundQty(current.cumulativeScrapQty + scrapQty),
+        cumulativeDamageQty: roundQty(current.cumulativeDamageQty + damageQty),
+        updatedAt: input.operatedAt,
+    }));
+    if (scrapQty > 0) {
+        nextBinding = appendFlowEvent(flowStore, nextBinding, makeFlowEvent(nextBinding, {
+            eventType: '报废',
+            beforeQty: sourceQty,
+            changedQty: -scrapQty,
+            afterQty: roundQty(sourceQty - scrapQty),
+            operatorName: input.operatorName,
+            occurredAt: input.operatedAt,
+            remark: input.reason,
+        }));
+    }
+    if (damageQty > 0) {
+        nextBinding = appendFlowEvent(flowStore, nextBinding, makeFlowEvent(nextBinding, {
+            eventType: '货损',
+            beforeQty: roundQty(sourceQty - scrapQty),
+            changedQty: -damageQty,
+            afterQty: nextBinding.closingQty,
+            operatorName: input.operatorName,
+            occurredAt: input.operatedAt,
+            remark: input.reason,
+        }));
+    }
+    return cloneValue(nextBinding);
+}
+export function applySpecialCraftHandoverDifferenceToFeiTickets(input) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const feiTicketSet = new Set(input.feiTicketNos || []);
+    const targetBindings = flowStore.bindings.filter((binding) => binding.workOrderId === input.workOrderId
+        && (!feiTicketSet.size || feiTicketSet.has(binding.feiTicketNo)));
+    if (!targetBindings.length)
+        return [];
+    const totalImpactQty = roundQty(Math.abs(input.diffQty));
+    const impactQtyPerBinding = targetBindings.length > 0 ? roundQty(totalImpactQty / targetBindings.length) : 0;
+    const updatedBindings = [];
+    targetBindings.forEach((binding, index) => {
+        const impactQty = index === targetBindings.length - 1
+            ? roundQty(totalImpactQty - impactQtyPerBinding * (targetBindings.length - 1))
+            : impactQtyPerBinding;
+        const sourceQty = getBindingFlowQty(binding);
+        let nextCurrentQty = binding.currentQty;
+        let nextScrapQty = binding.cumulativeScrapQty;
+        let nextDamageQty = binding.cumulativeDamageQty;
+        let eventType = '回仓差异上报';
+        if (input.differenceType === '报废') {
+            nextCurrentQty = roundQty(Math.max(sourceQty - impactQty, 0));
+            nextScrapQty = roundQty(binding.cumulativeScrapQty + impactQty);
+            eventType = '报废';
+        }
+        else if (input.differenceType === '货损' || input.differenceType === '破损') {
+            nextCurrentQty = roundQty(Math.max(sourceQty - impactQty, 0));
+            nextDamageQty = roundQty(binding.cumulativeDamageQty + impactQty);
+            eventType = '货损';
+        }
+        else if (input.differenceType === '少收') {
+            nextCurrentQty = roundQty(Math.max(input.actualQty / targetBindings.length, 0));
+        }
+        const report = createQtyDifferenceReport(flowStore, binding, {
+            reportPhase: '回仓差异',
+            expectedQty: input.expectedQty,
+            actualQty: input.actualQty,
+            sourceRecordId: input.sourceRecordId,
+            sourceRecordNo: input.sourceRecordNo,
+            reportedBy: input.operatorName,
+            reportedAt: input.operatedAt,
+            reason: input.reason || input.differenceType,
+        });
+        let updated = updateBinding(flowStore, binding.bindingId, (current) => ({
+            ...current,
+            currentQty: nextCurrentQty,
+            cumulativeScrapQty: nextScrapQty,
+            cumulativeDamageQty: nextDamageQty,
+            returnDifferenceReportId: report.reportId,
+            returnDifferenceStatus: '待处理',
+            differenceQty: input.diffQty,
+            specialCraftFlowStatus: current.specialCraftFlowStatus,
+            currentLocation: '差异待处理',
+            abnormalReason: input.reason || input.differenceType,
+            updatedAt: input.operatedAt,
+        }));
+        if (eventType === '报废' || eventType === '货损') {
+            updated = appendFlowEvent(flowStore, updated, makeFlowEvent(updated, {
+                eventType,
+                beforeQty: sourceQty,
+                changedQty: -impactQty,
+                afterQty: nextCurrentQty,
+                operatorName: input.operatorName,
+                occurredAt: input.operatedAt,
+                relatedRecordId: input.sourceRecordId,
+                relatedRecordNo: input.sourceRecordNo,
+                remark: input.reason || input.differenceType,
+            }));
+        }
+        else {
+            updated = appendFlowEvent(flowStore, updated, makeFlowEvent(updated, {
+                eventType: '平台处理',
+                beforeQty: sourceQty,
+                changedQty: input.differenceType === '少收' ? -impactQty : 0,
+                afterQty: nextCurrentQty,
+                operatorName: input.operatorName,
+                occurredAt: input.operatedAt,
+                relatedRecordId: input.sourceRecordId,
+                relatedRecordNo: input.sourceRecordNo,
+                remark: input.reason || `${input.differenceType}待平台确认`,
+            }));
+        }
+        updatedBindings.push(cloneValue(updated));
+    });
+    return updatedBindings;
+}
+export function linkSpecialCraftCompletionToReturnWaitHandoverStock(input) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const taskOrder = getSpecialCraftTaskOrderById(input.taskOrderId);
+    if (!taskOrder)
+        throw new Error(`未找到特殊工艺加工单：${input.taskOrderId}`);
+    const targetBindings = flowStore.bindings.filter((binding) => binding.taskOrderId === input.taskOrderId
+        && input.completedFeiTicketNos.includes(binding.feiTicketNo)
+        && (binding.specialCraftFlowStatus === '已接收' || binding.specialCraftFlowStatus === '加工中'));
+    const waitHandoverStockItems = [];
+    const updatedBindings = [];
+    const returnHead = targetBindings[0] ? ensureReturnHead(targetBindings[0], targetBindings) : undefined;
+    targetBindings.forEach((binding) => {
+        const receivedQty = binding.receivedQty || binding.currentQty || binding.openingQty || binding.qty;
+        const scrapQty = targetBindings.length === 1 ? roundQty(input.scrapQty ?? input.lossQty ?? binding.scrapQty ?? 0) : binding.scrapQty || 0;
+        const damageQty = targetBindings.length === 1 ? roundQty(input.damageQty ?? binding.damageQty ?? 0) : binding.damageQty || 0;
+        const closingQty = targetBindings.length === 1
+            ? roundQty(input.completedQty || receivedQty - scrapQty - damageQty)
+            : roundQty(receivedQty - scrapQty - damageQty);
+        if (closingQty < 0)
+            throw new Error('完工后数量不能小于 0。');
+        const result = linkTaskCompletionToWaitHandoverStock({
+            taskId: taskOrder.taskOrderId,
+            taskNo: taskOrder.taskOrderNo,
+            factoryId: binding.targetFactoryId,
+            factoryName: binding.targetFactoryName,
+            productionOrderId: binding.productionOrderId,
+            productionOrderNo: binding.productionOrderNo,
+            handoverOrderId: returnHead?.handoverOrderId || returnHead?.handoverId,
+            handoverOrderNo: returnHead?.handoverOrderNo,
+            itemKind: '裁片',
+            itemName: `${binding.operationName}完成裁片`,
+            partName: binding.partName,
+            fabricColor: binding.colorName,
+            sizeCode: binding.sizeCode,
+            feiTicketNo: binding.feiTicketNo,
+            completedQty: closingQty,
+            lossQty: scrapQty + damageQty,
+            unit: binding.unit,
+            receiverKind: '裁床厂',
+            receiverName: getCuttingFactory().name,
+            completedAt: input.completedAt,
+        });
+        waitHandoverStockItems.push(result.waitHandoverStockItem);
+        const nextBinding = updateBinding(flowStore, binding.bindingId, (current) => ({
+            ...current,
+            receivedQty,
+            scrapQty,
+            damageQty,
+            closingQty,
+            currentQty: closingQty,
+            cumulativeScrapQty: roundQty(current.cumulativeScrapQty + Math.max(scrapQty - current.scrapQty, 0)),
+            cumulativeDamageQty: roundQty(current.cumulativeDamageQty + Math.max(damageQty - current.damageQty, 0)),
+            feiTicketStatus: '待回仓',
+            specialCraftFlowStatus: '待回仓',
+            currentLocation: '特殊工艺厂待交出仓',
+            updatedAt: input.completedAt,
+        }));
+        const completedBinding = appendFlowEvent(flowStore, nextBinding, makeFlowEvent(nextBinding, {
+            eventType: '完工',
+            beforeQty: receivedQty,
+            changedQty: roundQty(closingQty - receivedQty),
+            afterQty: closingQty,
+            operatorName: input.operatorName,
+            occurredAt: input.completedAt,
+            relatedRecordId: result.waitHandoverStockItem.stockItemId,
+            relatedRecordNo: result.waitHandoverStockItem.handoverOrderNo,
+            remark: scrapQty || damageQty ? `报废 ${scrapQty}，货损 ${damageQty}` : undefined,
+        }));
+        const waitReturnBinding = appendFlowEvent(flowStore, completedBinding, makeFlowEvent(completedBinding, {
+            eventType: '待回仓',
+            beforeQty: closingQty,
+            changedQty: 0,
+            afterQty: closingQty,
+            operatorName: '系统',
+            occurredAt: input.completedAt,
+            relatedRecordId: result.waitHandoverStockItem.stockItemId,
+            relatedRecordNo: result.waitHandoverStockItem.handoverOrderNo,
+        }));
+        updatedBindings.push(cloneValue(waitReturnBinding));
+    });
+    return { waitHandoverStockItems, updatedBindings };
+}
+export function createSpecialCraftReturnHandover(input) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const selectedBindings = input.selectedFeiTicketNos.map((feiTicketNo) => assertSpecialCraftReturnAllowed({
+        feiTicketNo,
+        operationId: input.operationId,
+        receiverFactoryId: input.cuttingFactoryId,
+    }));
+    if (!selectedBindings.length)
+        throw new Error('本次未选择可回仓菲票。');
+    const handoverOrder = ensureReturnHead(selectedBindings[0], selectedBindings);
+    let latestRecord = null;
+    const updatedBindings = [];
+    selectedBindings.forEach((binding) => {
+        const returnQty = getBindingCompletionQty(binding);
+        if (binding.returnHandoverRecordId) {
+            updatedBindings.push(cloneValue(binding));
+            return;
+        }
+        const record = createFactoryHandoverRecord({
+            handoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
+            submittedQty: returnQty,
+            qtyUnit: binding.unit,
+            factorySubmittedAt: input.submittedAt,
+            factorySubmittedBy: input.operatorName,
+            factoryRemark: `特殊工艺回仓 · ${binding.feiTicketNo}`,
+            objectType: 'CUT_PIECE',
+            handoutObjectType: 'CUT_PIECE',
+            handoutItemLabel: `${binding.partName} / ${binding.colorName} / ${binding.sizeCode}`,
+            garmentEquivalentQty: returnQty,
+            materialCode: binding.craftCode,
+            materialName: binding.operationName,
+            materialSpec: binding.partName,
+            skuCode: binding.productionOrderNo,
+            skuColor: binding.colorName,
+            skuSize: binding.sizeCode,
+            pieceName: binding.partName,
+            cutPieceLines: [getBindingRecordLine(binding)],
+        });
+        latestRecord = record;
+        void linkHandoverRecordToOutboundRecord({
+            handoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
+            handoverOrderNo: handoverOrder.handoverOrderNo || handoverOrder.handoverId,
+            handoverRecordId: record.handoverRecordId || record.recordId,
+            handoverRecordNo: record.handoverRecordNo || record.recordId,
+            handoverRecordQrValue: record.handoverRecordQrValue,
+            taskId: binding.taskOrderId,
+            taskNo: binding.taskOrderNo,
+            factoryId: input.specialCraftFactoryId,
+            factoryName: input.specialCraftFactoryName,
+            receiverKind: '裁床厂',
+            receiverName: input.cuttingFactoryName,
+            itemKind: '裁片',
+            itemName: `${binding.operationName}回仓裁片`,
+            partName: binding.partName,
+            fabricColor: binding.colorName,
+            sizeCode: binding.sizeCode,
+            feiTicketNo: binding.feiTicketNo,
+            submittedQty: returnQty,
+            unit: binding.unit,
+            operatorName: input.operatorName,
+            submittedAt: input.submittedAt,
+        });
+        const nextBinding = updateBinding(flowStore, binding.bindingId, (current) => ({
+            ...current,
+            returnHandoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
+            returnHandoverOrderNo: handoverOrder.handoverOrderNo || handoverOrder.handoverId,
+            returnHandoverRecordId: record.handoverRecordId || record.recordId,
+            returnHandoverRecordNo: record.handoverRecordNo || record.recordId,
+            feiTicketStatus: '待回仓',
+            specialCraftFlowStatus: '待回仓',
+            currentLocation: '回仓途中',
+            updatedAt: input.submittedAt,
+        }));
+        const eventBinding = appendFlowEvent(flowStore, nextBinding, makeFlowEvent(nextBinding, {
+            eventType: '回仓交出',
+            beforeQty: returnQty,
+            changedQty: 0,
+            afterQty: returnQty,
+            operatorName: input.operatorName,
+            occurredAt: input.submittedAt,
+            relatedRecordId: record.handoverRecordId || record.recordId,
+            relatedRecordNo: record.handoverRecordNo || record.recordId,
+        }));
+        updatedBindings.push(cloneValue(eventBinding));
+    });
+    syncHandoutHeadSummary(handoverOrder.handoverId);
+    return {
+        handoverOrder: findPdaHandoverHead(handoverOrder.handoverId) || handoverOrder,
+        handoverRecord: latestRecord || findPdaHandoverRecord(updatedBindings[0].returnHandoverRecordId || ''),
+        updatedBindings,
+    };
+}
+export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const targetBindings = getReturnBindingsByRecordId(flowStore, input.returnHandoverRecordId).filter((binding) => input.receivedFeiTicketNos.includes(binding.feiTicketNo));
+    const handoverRecord = findPdaHandoverRecord(input.returnHandoverRecordId);
+    if (!handoverRecord) {
+        throw new Error(`未找到回仓交出记录：${input.returnHandoverRecordId}`);
+    }
+    if (!handoverRecord.receiverWrittenAt) {
+        writeBackHandoverRecord({
+            handoverRecordId: input.returnHandoverRecordId,
+            receiverWrittenQty: input.receiverWrittenQty,
+            receiverWrittenAt: input.receivedAt,
+            receiverWrittenBy: input.receiverName,
+            diffReason: input.differenceReason,
+        });
+    }
+    void syncReceiverWritebackToOutboundRecord({
+        handoverRecordId: input.returnHandoverRecordId,
+        receiverWrittenQty: input.receiverWrittenQty,
+        receiverWrittenAt: input.receivedAt,
+        receiverWrittenBy: input.receiverName,
+        differenceQty: targetBindings.length === 1 ? roundQty(input.receiverWrittenQty - getBindingCompletionQty(targetBindings[0])) : 0,
+    });
+    const cuttingWarehouse = getCuttingWaitHandoverWarehouse();
+    const cuttingWaitHandoverStockItems = [];
+    const inboundOrReturnRecords = [];
+    const updatedBindings = [];
+    targetBindings.forEach((binding) => {
+        const expectedQty = getBindingCompletionQty(binding);
+        const receivedQty = targetBindings.length === 1 ? input.receiverWrittenQty : expectedQty;
+        const differenceQty = roundQty(receivedQty - expectedQty);
+        const position = getPositionSeed(cuttingWarehouse, binding, differenceQty !== 0 ? '异常区' : '待确认区');
+        const inboundRecord = upsertFactoryWarehouseInboundRecord({
+            inboundRecordId: `SC-RET-INB-${binding.bindingId}`,
+            inboundRecordNo: `RK-${binding.feiTicketNo}`,
+            warehouseId: cuttingWarehouse.warehouseId,
+            warehouseName: cuttingWarehouse.warehouseName,
+            factoryId: getCuttingFactory().id,
+            factoryName: getCuttingFactory().name,
+            factoryKind: getCuttingFactory().factoryType,
+            processCode: binding.processCode,
+            processName: binding.processName,
+            craftCode: binding.craftCode,
+            craftName: binding.craftName,
+            sourceRecordId: input.returnHandoverRecordId,
+            sourceRecordNo: binding.returnHandoverRecordNo || input.returnHandoverRecordId,
+            sourceRecordType: 'HANDOVER_RECEIVE',
+            sourceObjectName: binding.targetFactoryName,
+            taskId: binding.taskOrderId,
+            taskNo: binding.taskOrderNo,
+            itemKind: '裁片',
+            itemName: `${binding.operationName}回仓裁片`,
+            partName: binding.partName,
+            fabricColor: binding.colorName,
+            sizeCode: binding.sizeCode,
+            feiTicketNo: binding.feiTicketNo,
+            expectedQty,
+            receivedQty,
+            differenceQty,
+            unit: binding.unit,
+            receiverName: input.receiverName,
+            receivedAt: input.receivedAt,
+            areaName: position.areaName,
+            shelfNo: position.shelfNo,
+            locationNo: position.locationNo,
+            status: differenceQty !== 0 ? '差异待处理' : '已入库',
+            abnormalReason: differenceQty !== 0 ? input.differenceReason || '数量不符' : undefined,
+            photoList: [],
+            remark: '特殊工艺回仓接收，进入裁床厂待交出仓，等待后续补交。',
+        });
+        inboundOrReturnRecords.push(inboundRecord);
+        const waitHandoverStockItem = upsertFactoryWaitHandoverStockItem({
+            stockItemId: `SC-RET-WHS-${binding.bindingId}`,
+            warehouseId: cuttingWarehouse.warehouseId,
+            factoryId: getCuttingFactory().id,
+            factoryName: getCuttingFactory().name,
+            factoryKind: getCuttingFactory().factoryType,
+            warehouseName: cuttingWarehouse.warehouseName,
+            processCode: binding.processCode,
+            processName: binding.processName,
+            craftCode: binding.craftCode,
+            craftName: binding.craftName,
+            taskId: binding.taskOrderId,
+            taskNo: binding.taskOrderNo,
+            productionOrderId: binding.productionOrderId,
+            productionOrderNo: binding.productionOrderNo,
+            itemKind: '裁片',
+            itemName: `${binding.operationName}回仓裁片`,
+            partName: binding.partName,
+            fabricColor: binding.colorName,
+            sizeCode: binding.sizeCode,
+            feiTicketNo: binding.feiTicketNo,
+            completedQty: receivedQty,
+            lossQty: 0,
+            waitHandoverQty: Math.max(receivedQty, 0),
+            unit: binding.unit,
+            receiverKind: '裁片仓',
+            receiverName: '裁床厂待交出仓',
+            handoverOrderId: binding.returnHandoverOrderId,
+            handoverOrderNo: binding.returnHandoverOrderNo,
+            handoverRecordId: binding.returnHandoverRecordId,
+            handoverRecordNo: binding.returnHandoverRecordNo,
+            handoverRecordQrValue: handoverRecord.handoverRecordQrValue,
+            receiverWrittenQty: receivedQty,
+            differenceQty: differenceQty || undefined,
+            objectionStatus: differenceQty !== 0 ? '差异待处理' : undefined,
+            areaName: position.areaName,
+            shelfNo: position.shelfNo,
+            locationNo: position.locationNo,
+            locationText: position.locationText,
+            status: '待交出',
+            photoList: [],
+            abnormalReason: differenceQty !== 0 ? input.differenceReason || '数量不符' : undefined,
+            remark: '特殊工艺回仓进入裁床厂待交出仓，等待后续补交。',
+        });
+        cuttingWaitHandoverStockItems.push(waitHandoverStockItem);
+        const nextBinding = updateBinding(flowStore, binding.bindingId, (current) => ({
+            ...current,
+            receiverWrittenQty: receivedQty,
+            differenceQty,
+            returnedQty: receivedQty,
+            currentQty: receivedQty,
+            feiTicketStatus: '已回仓',
+            specialCraftFlowStatus: '已回仓',
+            currentLocation: '裁床厂待交出仓',
+            abnormalReason: differenceQty !== 0 ? input.differenceReason || '数量不符' : undefined,
+            updatedAt: input.receivedAt,
+        }));
+        const receivedBinding = appendFlowEvent(flowStore, nextBinding, makeFlowEvent(nextBinding, {
+            eventType: '回仓接收',
+            beforeQty: expectedQty,
+            changedQty: differenceQty,
+            afterQty: receivedQty,
+            operatorName: input.receiverName,
+            occurredAt: input.receivedAt,
+            relatedRecordId: input.returnHandoverRecordId,
+            relatedRecordNo: binding.returnHandoverRecordNo || input.returnHandoverRecordId,
+        }));
+        if (differenceQty !== 0) {
+            const report = createQtyDifferenceReport(flowStore, receivedBinding, {
+                reportPhase: '回仓差异',
+                expectedQty,
+                actualQty: receivedQty,
+                sourceRecordId: input.returnHandoverRecordId,
+                sourceRecordNo: binding.returnHandoverRecordNo || input.returnHandoverRecordId,
+                reportedBy: input.receiverName,
+                reportedAt: input.receivedAt,
+                reason: input.differenceReason || '数量不符',
+            });
+            const reportedBinding = updateBinding(flowStore, receivedBinding.bindingId, (current) => ({
+                ...current,
+                returnDifferenceReportId: report.reportId,
+                returnDifferenceStatus: report.platformStatus,
+            }));
+            updatedBindings.push(cloneValue(reportedBinding));
+            return;
+        }
+        updatedBindings.push(cloneValue(receivedBinding));
+    });
+    recomputeSequenceGate(flowStore, targetBindings[0]?.productionOrderId, targetBindings[0]?.feiTicketNo);
+    return {
+        updatedBindings,
+        cuttingWaitHandoverStockItems,
+        inboundOrReturnRecords,
+    };
+}
+export function syncSpecialCraftReturnObjectionByHandoverRecord(input) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const outboundSync = syncQuantityObjectionToOutboundRecord({
+        handoverRecordId: input.handoverRecordId,
+        objectionId: input.objectionId,
+        objectionStatus: input.objectionStatus,
+    });
+    const updatedBindings = getReturnBindingsByRecordId(flowStore, input.handoverRecordId).map((binding) => updateBinding(flowStore, binding.bindingId, (current) => ({
+        ...current,
+        objectionStatus: '异议中',
+        returnDifferenceStatus: current.returnDifferenceStatus === '已处理' ? '已处理' : '处理中',
+        feiTicketStatus: current.specialCraftFlowStatus,
+        specialCraftFlowStatus: current.specialCraftFlowStatus,
+        currentLocation: current.currentLocation,
+        updatedAt: getNowText(),
+    })));
+    const currentWaitHandover = findFactoryWaitHandoverStockItemByHandoverRecordId(input.handoverRecordId);
+    const cuttingWaitHandoverStockItem = currentWaitHandover
+        ? upsertFactoryWaitHandoverStockItem({
+            ...currentWaitHandover,
+            status: '异议中',
+            objectionStatus: '异议中',
+        })
+        : undefined;
+    return {
+        updatedBindings: updatedBindings.map(cloneValue),
+        outboundRecord: outboundSync.updatedOutboundRecord,
+        cuttingWaitHandoverStockItem,
+    };
+}
+export function getCuttingSpecialCraftReturnStatusByProductionOrder(productionOrderId) {
+    return getCuttingSpecialCraftReturnStatusByProductionOrders([productionOrderId]).get(productionOrderId);
+}
+export function getSpecialCraftBindingsByTaskOrderId(taskOrderId) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    return flowStore.bindings
+        .filter((binding) => binding.taskOrderId === taskOrderId)
+        .map(cloneValue);
+}
+export function getSpecialCraftBindingSummaryByTaskOrderId(taskOrderId) {
+    const bindings = getSpecialCraftBindingsByTaskOrderId(taskOrderId);
+    const linkedFeiTicketCount = bindings.length;
+    const dispatchedFeiTicketCount = bindings.filter((binding) => binding.specialCraftFlowStatus === '已发料').length;
+    const receivedFeiTicketCount = bindings.filter((binding) => binding.specialCraftFlowStatus === '已接收').length;
+    const completedFeiTicketCount = bindings.filter((binding) => binding.specialCraftFlowStatus === '待回仓').length;
+    const returnedFeiTicketCount = bindings.filter((binding) => binding.specialCraftFlowStatus === '已回仓').length;
+    const receiveDifferenceTicketCount = bindings.filter((binding) => getOpenDifferenceStatus(binding.receiveDifferenceStatus)).length;
+    const returnDifferenceTicketCount = bindings.filter((binding) => getOpenDifferenceStatus(binding.returnDifferenceStatus)).length;
+    const differenceFeiTicketCount = receiveDifferenceTicketCount + returnDifferenceTicketCount;
+    const cumulativeScrapQty = roundQty(bindings.reduce((total, binding) => total + binding.cumulativeScrapQty, 0));
+    const cumulativeDamageQty = roundQty(bindings.reduce((total, binding) => total + binding.cumulativeDamageQty, 0));
+    const currentQty = roundQty(bindings.reduce((total, binding) => total + binding.currentQty, 0));
+    const childWorkOrderCount = new Set(bindings.map((binding) => binding.workOrderId).filter(Boolean)).size;
+    const returnStatus = completedFeiTicketCount > 0
+        ? '待回仓'
+        : returnedFeiTicketCount > 0 && returnedFeiTicketCount === linkedFeiTicketCount
+            ? differenceFeiTicketCount > 0
+                ? '已回仓 · 差异待处理'
+                : '已回仓'
+            : dispatchedFeiTicketCount > 0
+                ? '处理中'
+                : linkedFeiTicketCount > 0
+                    ? '待发料'
+                    : '待绑定';
+    return {
+        linkedFeiTicketCount,
+        dispatchedFeiTicketCount,
+        receivedFeiTicketCount,
+        completedFeiTicketCount,
+        returnedFeiTicketCount,
+        receiveDifferenceTicketCount,
+        returnDifferenceTicketCount,
+        differenceFeiTicketCount,
+        cumulativeScrapQty,
+        cumulativeDamageQty,
+        currentQty,
+        childWorkOrderCount,
+        returnStatus,
+    };
+}
+export function getSpecialCraftFeiTicketScanSummary(feiTicketNo) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const bindings = (flowStore?.bindings || [])
+        .filter((binding) => binding.feiTicketNo === feiTicketNo)
+        .sort((left, right) => left.sequenceIndex - right.sequenceIndex);
+    if (!bindings.length) {
+        return {
+            hasSpecialCraft: false,
+            operationNames: [],
+            completedOperationNames: [],
+            currentOperationName: '无特殊工艺',
+            nextOperationName: '',
+            currentFlowStatus: '无特殊工艺',
+            currentLocation: '裁床厂待交出仓',
+            originalQty: getFeiTicketByNo(feiTicketNo)?.qty || 0,
+            currentQty: getFeiTicketByNo(feiTicketNo)?.qty || 0,
+            cumulativeScrapQty: 0,
+            cumulativeDamageQty: 0,
+            hasOpenReceiveDifference: false,
+            hasOpenReturnDifference: false,
+            blockingReason: '',
+            parentTaskOrderNo: '',
+            workOrderNo: '',
+        };
+    }
+    const current = bindings.find((binding) => binding.specialCraftFlowStatus !== '已回仓')
+        || bindings[bindings.length - 1];
+    const completedOperationNames = bindings
+        .filter((binding) => binding.specialCraftFlowStatus === '已回仓')
+        .map((binding) => binding.operationName);
+    const hasOpenReceiveDifference = bindings.some((binding) => getOpenDifferenceStatus(binding.receiveDifferenceStatus));
+    const hasOpenReturnDifference = bindings.some((binding) => getOpenDifferenceStatus(binding.returnDifferenceStatus));
+    const blockingReason = current.specialCraftFlowStatus === '待确认顺序'
+        ? '等待前一道回仓'
+        : current.currentQty <= 0
+            ? '当前数量为 0'
+            : '';
+    return {
+        hasSpecialCraft: true,
+        operationNames: bindings.map((binding) => binding.operationName),
+        completedOperationNames,
+        currentOperationName: current.operationName,
+        nextOperationName: current.nextOperationName || '',
+        currentFlowStatus: current.specialCraftFlowStatus,
+        currentLocation: current.currentLocation,
+        originalQty: bindings[0].originalQty,
+        currentQty: current.currentQty,
+        cumulativeScrapQty: roundQty(bindings.reduce((total, binding) => total + binding.cumulativeScrapQty, 0)),
+        cumulativeDamageQty: roundQty(bindings.reduce((total, binding) => total + binding.cumulativeDamageQty, 0)),
+        hasOpenReceiveDifference,
+        hasOpenReturnDifference,
+        blockingReason,
+        parentTaskOrderNo: current.taskOrderNo,
+        workOrderNo: current.workOrderNo,
+    };
+}
+export function getSpecialCraftFeiTicketSummary(feiTicketNo) {
+    const scanSummary = getSpecialCraftFeiTicketScanSummary(feiTicketNo);
+    const bindings = flowStore?.bindings.filter((binding) => binding.feiTicketNo === feiTicketNo) || [];
+    if (!scanSummary.hasSpecialCraft) {
+        return {
+            needSpecialCraft: false,
+            operationNames: [],
+            completedOperationNames: [],
+            currentOperationName: '无特殊工艺',
+            nextOperationName: '',
+            taskOrderNos: [],
+            dispatchStatus: '无',
+            returnStatus: '无',
+            currentLocation: '裁床厂待交出仓',
+            originalQty: scanSummary.originalQty,
+            currentQty: scanSummary.currentQty,
+            cumulativeScrapQty: 0,
+            cumulativeDamageQty: 0,
+            receiveDifferenceStatus: '—',
+            returnDifferenceStatus: '—',
+        };
+    }
+    const latest = bindings.find((binding) => binding.operationName === scanSummary.currentOperationName) || bindings[bindings.length - 1];
+    return {
+        needSpecialCraft: true,
+        operationNames: scanSummary.operationNames,
+        completedOperationNames: scanSummary.completedOperationNames,
+        currentOperationName: scanSummary.currentOperationName,
+        nextOperationName: scanSummary.nextOperationName,
+        taskOrderNos: Array.from(new Set(bindings.map((binding) => binding.taskOrderNo))),
+        dispatchStatus: scanSummary.currentFlowStatus,
+        returnStatus: latest?.specialCraftFlowStatus === '已回仓'
+            ? scanSummary.hasOpenReturnDifference ? '已回仓 · 差异待处理' : '已回仓'
+            : latest?.currentLocation === '回仓途中'
+                ? '回仓途中'
+                : latest?.specialCraftFlowStatus === '待回仓'
+                    ? '待回仓'
+                    : latest?.specialCraftFlowStatus || '待发料',
+        currentLocation: scanSummary.currentLocation,
+        originalQty: scanSummary.originalQty,
+        currentQty: scanSummary.currentQty,
+        cumulativeScrapQty: scanSummary.cumulativeScrapQty,
+        cumulativeDamageQty: scanSummary.cumulativeDamageQty,
+        receiveDifferenceStatus: scanSummary.hasOpenReceiveDifference ? '差异待处理' : '—',
+        returnDifferenceStatus: scanSummary.hasOpenReturnDifference ? '差异待处理' : '—',
+    };
+}
+export function listCuttingSpecialCraftFeiTicketBindings() {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    return flowStore.bindings.map(cloneValue);
+}
+export function listSpecialCraftQtyDifferenceReports() {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    return flowStore.differenceReports.map(cloneValue);
+}
+export function getSpecialCraftQtyDifferenceReportsByTaskOrderId(taskOrderId) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    return flowStore.differenceReports.filter((report) => report.taskOrderId === taskOrderId).map(cloneValue);
+}
+export function getSpecialCraftFeiTicketFlowEventsByWorkOrderId(workOrderId) {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    return flowStore.flowEvents.filter((event) => event.workOrderId === workOrderId).map(cloneValue);
+}
+export function listCuttingSpecialCraftDispatchViews() {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    const bindingViews = flowStore.bindings.map((binding) => ({
+        dispatchViewId: `SCDV-${binding.bindingId}`,
+        productionOrderNo: binding.productionOrderNo,
+        cuttingOrderNo: binding.cuttingOrderNo,
+        operationName: binding.operationName,
+        targetFactoryName: binding.targetFactoryName,
+        feiTicketNo: binding.feiTicketNo,
+        partName: binding.partName,
+        colorName: binding.colorName,
+        sizeCode: binding.sizeCode,
+        qty: binding.currentQty || binding.qty,
+        dispatchStatus: binding.specialCraftFlowStatus === '待确认顺序'
+            ? '待确认顺序'
+            : binding.objectionStatus === '异议中'
+                ? '异议中'
+                : binding.specialCraftFlowStatus === '已接收'
+                    ? '已接收'
+                    : binding.specialCraftFlowStatus === '已发料'
+                        ? '已发料'
+                        : binding.specialCraftFlowStatus === '待绑定'
+                            ? '待绑定'
+                            : '待发料',
+        handoverRecordNo: binding.dispatchHandoverRecordNo || '未创建',
+        receiverStatus: binding.specialCraftFlowStatus === '已接收'
+            ? getOpenDifferenceStatus(binding.receiveDifferenceStatus)
+                ? '已接收 · 差异待处理'
+                : '已接收'
+            : binding.objectionStatus === '异议中'
+                ? '异议中'
+                : '待接收',
+        returnStatus: binding.specialCraftFlowStatus === '已回仓'
+            ? '已回仓'
+            : binding.objectionStatus === '异议中'
+                ? '异议中'
+                : binding.currentLocation === '回仓途中'
+                    ? '回仓途中'
+                    : binding.specialCraftFlowStatus === '待回仓'
+                        ? '待回仓'
+                        : '未回仓',
+        currentLocation: binding.currentLocation,
+        operationLabel: getBindingFlowLabel(binding),
+    }));
+    const pendingViews = flowStore.pendingBindingViews.map((view) => ({
+        dispatchViewId: view.pendingViewId,
+        productionOrderNo: view.productionOrderNo,
+        cuttingOrderNo: view.cuttingOrderNo,
+        operationName: view.operationName,
+        targetFactoryName: view.targetFactoryName,
+        feiTicketNo: '待绑定',
+        partName: view.partName,
+        colorName: view.colorName,
+        sizeCode: view.sizeCode,
+        qty: view.qty,
+        dispatchStatus: '待绑定',
+        handoverRecordNo: '未创建',
+        receiverStatus: '待绑定',
+        returnStatus: '未回仓',
+        currentLocation: '裁床厂待交出仓',
+        operationLabel: view.reason,
+    }));
+    return [...pendingViews, ...bindingViews];
+}
+export function listCuttingSpecialCraftReturnViews() {
+    ensureSpecialCraftFeiTicketFlowSeeded();
+    return flowStore.bindings
+        .filter((binding) => binding.returnHandoverRecordId || binding.specialCraftFlowStatus === '待回仓' || binding.specialCraftFlowStatus === '已回仓' || binding.specialCraftFlowStatus === '差异' || binding.specialCraftFlowStatus === '异议中')
+        .map((binding) => ({
+        returnViewId: `SCRV-${binding.bindingId}`,
+        productionOrderNo: binding.productionOrderNo,
+        cuttingOrderNo: binding.cuttingOrderNo,
+        operationName: binding.operationName,
+        sourceFactoryName: binding.targetFactoryName,
+        feiTicketNo: binding.feiTicketNo,
+        partName: binding.partName,
+        colorName: binding.colorName,
+        sizeCode: binding.sizeCode,
+        qty: binding.currentQty || binding.qty,
+        returnHandoverRecordNo: binding.returnHandoverRecordNo || '未创建',
+        receiverWrittenQty: binding.receiverWrittenQty,
+        differenceQty: binding.differenceQty,
+        returnStatus: binding.specialCraftFlowStatus === '已回仓'
+            ? '已回仓'
+            : binding.objectionStatus === '异议中'
+                ? '异议中'
+                : binding.currentLocation === '回仓途中'
+                    ? '回仓途中'
+                    : binding.specialCraftFlowStatus === '待回仓'
+                        ? '待回仓'
+                        : '未回仓',
+        cuttingWarehouseName: getCuttingWaitHandoverWarehouse().warehouseName,
+        currentLocation: binding.currentLocation,
+    }));
+}
+function seedPrompt7Scenario(store) {
+    const firstStageBindings = store.bindings.filter((binding) => binding.sequenceIndex <= 0).sort(sortBindings);
+    const remainingBindings = [...firstStageBindings];
+    const takeBinding = (predicate) => {
+        const matchIndex = predicate
+            ? remainingBindings.findIndex(predicate)
+            : 0;
+        if (matchIndex < 0)
+            return undefined;
+        const [selected] = remainingBindings.splice(matchIndex, 1);
+        return selected;
+    };
+    const pendingBinding = takeBinding();
+    const dispatchOnlyBinding = takeBinding();
+    const receivedBinding = takeBinding();
+    const waitReturnBinding = takeBinding();
+    const returnedBinding = takeBinding((binding) => binding.qty >= 2) || takeBinding();
+    const diffBinding = takeBinding((binding) => binding.qty >= 2) || takeBinding();
+    const objectionBinding = takeBinding((binding) => binding.qty >= 2) || takeBinding();
+    if (!pendingBinding
+        && !dispatchOnlyBinding
+        && !receivedBinding
+        && !waitReturnBinding
+        && !returnedBinding
+        && !diffBinding
+        && !objectionBinding) {
+        return;
+    }
+    if (dispatchOnlyBinding) {
+        createSpecialCraftDispatchHandoverFromFeiTickets({
+            cuttingFactoryId: getCuttingFactory().id,
+            cuttingFactoryName: getCuttingFactory().name,
+            targetFactoryId: dispatchOnlyBinding.targetFactoryId,
+            targetFactoryName: dispatchOnlyBinding.targetFactoryName,
+            operationId: dispatchOnlyBinding.operationId,
+            operationName: dispatchOnlyBinding.operationName,
+            selectedFeiTicketNos: [dispatchOnlyBinding.feiTicketNo],
+            operatorName: PROMPT7_SEED_OPERATOR,
+            submittedAt: '2026-04-23 10:40:00',
+        });
+    }
+    if (receivedBinding) {
+        createSpecialCraftDispatchHandoverFromFeiTickets({
+            cuttingFactoryId: getCuttingFactory().id,
+            cuttingFactoryName: getCuttingFactory().name,
+            targetFactoryId: receivedBinding.targetFactoryId,
+            targetFactoryName: receivedBinding.targetFactoryName,
+            operationId: receivedBinding.operationId,
+            operationName: receivedBinding.operationName,
+            selectedFeiTicketNos: [receivedBinding.feiTicketNo],
+            operatorName: PROMPT7_SEED_OPERATOR,
+            submittedAt: '2026-04-23 10:45:00',
+        });
+        markSpecialCraftFactoryReceivedFromHandover({
+            handoverRecordId: findBindingByFeiTicketAndOperation(store, receivedBinding.feiTicketNo, receivedBinding.operationId)?.dispatchHandoverRecordId || '',
+            receivedFeiTicketNos: [receivedBinding.feiTicketNo],
+            receiverWrittenQty: receivedBinding.qty,
+            receiverName: receivedBinding.targetFactoryName,
+            receivedAt: '2026-04-23 11:00:00',
+        });
+    }
+    if (waitReturnBinding) {
+        createSpecialCraftDispatchHandoverFromFeiTickets({
+            cuttingFactoryId: getCuttingFactory().id,
+            cuttingFactoryName: getCuttingFactory().name,
+            targetFactoryId: waitReturnBinding.targetFactoryId,
+            targetFactoryName: waitReturnBinding.targetFactoryName,
+            operationId: waitReturnBinding.operationId,
+            operationName: waitReturnBinding.operationName,
+            selectedFeiTicketNos: [waitReturnBinding.feiTicketNo],
+            operatorName: PROMPT7_SEED_OPERATOR,
+            submittedAt: '2026-04-23 10:50:00',
+        });
+        markSpecialCraftFactoryReceivedFromHandover({
+            handoverRecordId: findBindingByFeiTicketAndOperation(store, waitReturnBinding.feiTicketNo, waitReturnBinding.operationId)?.dispatchHandoverRecordId || '',
+            receivedFeiTicketNos: [waitReturnBinding.feiTicketNo],
+            receiverWrittenQty: waitReturnBinding.qty,
+            receiverName: waitReturnBinding.targetFactoryName,
+            receivedAt: '2026-04-23 11:05:00',
+        });
+        linkSpecialCraftCompletionToReturnWaitHandoverStock({
+            taskOrderId: waitReturnBinding.taskOrderId,
+            completedFeiTicketNos: [waitReturnBinding.feiTicketNo],
+            completedQty: waitReturnBinding.qty,
+            operatorName: PROMPT7_SEED_OPERATOR,
+            completedAt: '2026-04-23 14:00:00',
+        });
+    }
+    if (returnedBinding) {
+        createSpecialCraftDispatchHandoverFromFeiTickets({
+            cuttingFactoryId: getCuttingFactory().id,
+            cuttingFactoryName: getCuttingFactory().name,
+            targetFactoryId: returnedBinding.targetFactoryId,
+            targetFactoryName: returnedBinding.targetFactoryName,
+            operationId: returnedBinding.operationId,
+            operationName: returnedBinding.operationName,
+            selectedFeiTicketNos: [returnedBinding.feiTicketNo],
+            operatorName: PROMPT7_SEED_OPERATOR,
+            submittedAt: '2026-04-23 10:55:00',
+        });
+        markSpecialCraftFactoryReceivedFromHandover({
+            handoverRecordId: findBindingByFeiTicketAndOperation(store, returnedBinding.feiTicketNo, returnedBinding.operationId)?.dispatchHandoverRecordId || '',
+            receivedFeiTicketNos: [returnedBinding.feiTicketNo],
+            receiverWrittenQty: returnedBinding.qty,
+            receiverName: returnedBinding.targetFactoryName,
+            receivedAt: '2026-04-23 11:10:00',
+        });
+        linkSpecialCraftCompletionToReturnWaitHandoverStock({
+            taskOrderId: returnedBinding.taskOrderId,
+            completedFeiTicketNos: [returnedBinding.feiTicketNo],
+            completedQty: returnedBinding.qty,
+            operatorName: PROMPT7_SEED_OPERATOR,
+            completedAt: '2026-04-23 14:15:00',
+        });
+        createSpecialCraftReturnHandover({
+            specialCraftFactoryId: returnedBinding.targetFactoryId,
+            specialCraftFactoryName: returnedBinding.targetFactoryName,
+            cuttingFactoryId: getCuttingFactory().id,
+            cuttingFactoryName: getCuttingFactory().name,
+            operationId: returnedBinding.operationId,
+            operationName: returnedBinding.operationName,
+            selectedFeiTicketNos: [returnedBinding.feiTicketNo],
+            operatorName: PROMPT7_SEED_OPERATOR,
+            submittedAt: '2026-04-23 16:00:00',
+        });
+        receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse({
+            returnHandoverRecordId: findBindingByFeiTicketAndOperation(store, returnedBinding.feiTicketNo, returnedBinding.operationId)?.returnHandoverRecordId || '',
+            receivedFeiTicketNos: [returnedBinding.feiTicketNo],
+            receiverWrittenQty: returnedBinding.qty,
+            receiverName: '裁床扫码员',
+            receivedAt: '2026-04-23 17:05:00',
+        });
+    }
+    if (diffBinding) {
+        createSpecialCraftDispatchHandoverFromFeiTickets({
+            cuttingFactoryId: getCuttingFactory().id,
+            cuttingFactoryName: getCuttingFactory().name,
+            targetFactoryId: diffBinding.targetFactoryId,
+            targetFactoryName: diffBinding.targetFactoryName,
+            operationId: diffBinding.operationId,
+            operationName: diffBinding.operationName,
+            selectedFeiTicketNos: [diffBinding.feiTicketNo],
+            operatorName: PROMPT7_SEED_OPERATOR,
+            submittedAt: '2026-04-23 11:15:00',
+        });
+        markSpecialCraftFactoryReceivedFromHandover({
+            handoverRecordId: findBindingByFeiTicketAndOperation(store, diffBinding.feiTicketNo, diffBinding.operationId)?.dispatchHandoverRecordId || '',
+            receivedFeiTicketNos: [diffBinding.feiTicketNo],
+            receiverWrittenQty: diffBinding.qty,
+            receiverName: diffBinding.targetFactoryName,
+            receivedAt: '2026-04-23 11:25:00',
+        });
+        linkSpecialCraftCompletionToReturnWaitHandoverStock({
+            taskOrderId: diffBinding.taskOrderId,
+            completedFeiTicketNos: [diffBinding.feiTicketNo],
+            completedQty: diffBinding.qty,
+            operatorName: PROMPT7_SEED_OPERATOR,
+            completedAt: '2026-04-23 14:25:00',
+        });
+        createSpecialCraftReturnHandover({
+            specialCraftFactoryId: diffBinding.targetFactoryId,
+            specialCraftFactoryName: diffBinding.targetFactoryName,
+            cuttingFactoryId: getCuttingFactory().id,
+            cuttingFactoryName: getCuttingFactory().name,
+            operationId: diffBinding.operationId,
+            operationName: diffBinding.operationName,
+            selectedFeiTicketNos: [diffBinding.feiTicketNo],
+            operatorName: PROMPT7_SEED_OPERATOR,
+            submittedAt: '2026-04-23 16:15:00',
+        });
+        receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse({
+            returnHandoverRecordId: findBindingByFeiTicketAndOperation(store, diffBinding.feiTicketNo, diffBinding.operationId)?.returnHandoverRecordId || '',
+            receivedFeiTicketNos: [diffBinding.feiTicketNo],
+            receiverWrittenQty: Math.max(diffBinding.qty - 1, 0),
+            receiverName: '裁床扫码员',
+            receivedAt: '2026-04-23 17:20:00',
+            differenceReason: '回仓少收',
+        });
+    }
+    if (objectionBinding) {
+        createSpecialCraftDispatchHandoverFromFeiTickets({
+            cuttingFactoryId: getCuttingFactory().id,
+            cuttingFactoryName: getCuttingFactory().name,
+            targetFactoryId: objectionBinding.targetFactoryId,
+            targetFactoryName: objectionBinding.targetFactoryName,
+            operationId: objectionBinding.operationId,
+            operationName: objectionBinding.operationName,
+            selectedFeiTicketNos: [objectionBinding.feiTicketNo],
+            operatorName: PROMPT7_SEED_OPERATOR,
+            submittedAt: '2026-04-23 11:30:00',
+        });
+        markSpecialCraftFactoryReceivedFromHandover({
+            handoverRecordId: findBindingByFeiTicketAndOperation(store, objectionBinding.feiTicketNo, objectionBinding.operationId)?.dispatchHandoverRecordId || '',
+            receivedFeiTicketNos: [objectionBinding.feiTicketNo],
+            receiverWrittenQty: objectionBinding.qty,
+            receiverName: objectionBinding.targetFactoryName,
+            receivedAt: '2026-04-23 11:40:00',
+        });
+        linkSpecialCraftCompletionToReturnWaitHandoverStock({
+            taskOrderId: objectionBinding.taskOrderId,
+            completedFeiTicketNos: [objectionBinding.feiTicketNo],
+            completedQty: objectionBinding.qty,
+            operatorName: PROMPT7_SEED_OPERATOR,
+            completedAt: '2026-04-23 14:35:00',
+        });
+        createSpecialCraftReturnHandover({
+            specialCraftFactoryId: objectionBinding.targetFactoryId,
+            specialCraftFactoryName: objectionBinding.targetFactoryName,
+            cuttingFactoryId: getCuttingFactory().id,
+            cuttingFactoryName: getCuttingFactory().name,
+            operationId: objectionBinding.operationId,
+            operationName: objectionBinding.operationName,
+            selectedFeiTicketNos: [objectionBinding.feiTicketNo],
+            operatorName: PROMPT7_SEED_OPERATOR,
+            submittedAt: '2026-04-23 16:30:00',
+        });
+        const returnRecordId = findBindingByFeiTicketAndOperation(store, objectionBinding.feiTicketNo, objectionBinding.operationId)?.returnHandoverRecordId || '';
+        receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse({
+            returnHandoverRecordId: returnRecordId,
+            receivedFeiTicketNos: [objectionBinding.feiTicketNo],
+            receiverWrittenQty: Math.max(objectionBinding.qty - 1, 0),
+            receiverName: '裁床扫码员',
+            receivedAt: '2026-04-23 17:35:00',
+            differenceReason: '回仓数量不符',
+        });
+        if (returnRecordId) {
+            reportPdaHandoverQtyObjection(returnRecordId, {
+                objectionReason: '数量不符',
+                objectionRemark: '特殊工艺回仓数量不符，已发起数量异议',
+            });
+            syncSpecialCraftReturnObjectionByHandoverRecord({
+                handoverRecordId: returnRecordId,
+                objectionId: `QO-${returnRecordId}`,
+                objectionStatus: 'REPORTED',
+            });
+        }
+    }
+    recomputeSequenceGate(store);
+}
+function ensureFlowStore() {
+    if (flowStore)
+        return flowStore;
+    const built = buildInternalBindings();
+    flowStore = {
+        bindings: built.bindings,
+        differenceReports: [],
+        flowEvents: built.bindings.map((binding, index) => ({
+            eventId: `SCFE-${binding.bindingId}-${String(index + 1).padStart(4, '0')}`,
+            bindingId: binding.bindingId,
+            productionOrderId: binding.productionOrderId,
+            taskOrderId: binding.taskOrderId,
+            workOrderId: binding.workOrderId,
+            operationId: binding.operationId,
+            operationName: binding.operationName,
+            feiTicketNo: binding.feiTicketNo,
+            eventType: '绑定',
+            beforeQty: binding.originalQty,
+            changedQty: 0,
+            afterQty: binding.currentQty,
+            operatorName: '系统',
+            occurredAt: binding.createdAt,
+            remark: '由特殊工艺加工明细绑定菲票',
+        })),
+        warnings: built.warnings,
+        errors: built.errors,
+        pendingBindingViews: built.pendingBindingViews,
+        pickupRecordToDispatchRecordId: new Map(),
+    };
+    flowStore.bindings = flowStore.bindings.map((binding, index) => ({
+        ...binding,
+        flowEventIds: [flowStore.flowEvents[index].eventId],
+    }));
+    seedPrompt7Scenario(flowStore);
+    return flowStore;
+}
+export function ensureSpecialCraftFeiTicketFlowSeeded() {
+    ensureFlowStore();
+}

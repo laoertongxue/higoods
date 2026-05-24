@@ -243,7 +243,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       requiresReconfig: true,
       requiresRereceive: true,
       requiresPendingPrep: true,
-      impactDescription: '该补料建议已通过，后续需由中转仓补配并重新领料后进入待加工仓。',
+      impactDescription: '该差异处理已通过，后续需由中转仓补配并重新领料后进入待加工仓。',
       nextSuggestedActionText: '回到中转仓配料页新增补配数量，并继续裁床领料。',
     },
     linkedDocumentSummaries: [

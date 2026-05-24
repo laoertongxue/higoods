@@ -49,7 +49,6 @@ import {
   type CutOrderRow,
 } from './cut-orders-model.ts'
 import { buildMarkerSpreadingCountsByCutOrder } from './marker-spreading-utils.ts'
-import { configMeta, receiveMeta } from './production-progress-model.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import { getClaimDisputeStatusLabel } from '../../../helpers/fcs-claim-dispute.ts'
 import { getLatestClaimDisputeByCutOrderNo } from '../../../state/fcs-claim-dispute-store.ts'
@@ -75,7 +74,21 @@ import {
   type CuttingNavigationTarget,
 } from './navigation-context.ts'
 import { buildCutOrdersProjection } from './cut-orders-projection.ts'
+import { buildSampleWarehouseProjection } from './sample-warehouse-projection.ts'
+import type { SampleWarehouseItem } from './sample-warehouse-model.ts'
 import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import { updateCuttingOrderProgressWebStage } from '../../../data/fcs/cutting/order-progress.ts'
+import {
+  buildCutOrderCloseImpactItems,
+  buildCutOrderLedgerSnapshotBeforeClose,
+  cutOrderCloseReasonOptions,
+  formatCutOrderCloseLedgerQty,
+  resolveCutOrderCloseReasonText,
+  upsertStoredCutOrderCloseRecord,
+  type CutOrderCloseImpactItem,
+  type CutOrderCloseReasonCode,
+  type CutOrderCloseRecord,
+} from '../../../data/fcs/cutting/cut-order-close-records'
 
 type FilterField =
   | 'keyword'
@@ -84,9 +97,10 @@ type FilterField =
   | 'materialSku'
   | 'currentStage'
   | 'cuttableState'
-  | 'prepStatus'
-  | 'claimStatus'
   | 'inBatch'
+  | 'hasAvailableBalance'
+  | 'hasCloseReason'
+type CloseField = 'closeReasonCode' | 'closeDescription' | 'closedBy'
 
 const FIELD_TO_FILTER_KEY: Record<FilterField, keyof CutOrderFilters> = {
   keyword: 'keyword',
@@ -95,9 +109,9 @@ const FIELD_TO_FILTER_KEY: Record<FilterField, keyof CutOrderFilters> = {
   materialSku: 'materialSku',
   currentStage: 'currentStage',
   cuttableState: 'cuttableState',
-  prepStatus: 'prepStatus',
-  claimStatus: 'claimStatus',
   inBatch: 'inBatch',
+  hasAvailableBalance: 'hasAvailableBalance',
+  hasCloseReason: 'hasCloseReason',
 }
 
 const initialFilters: CutOrderFilters = {
@@ -107,9 +121,9 @@ const initialFilters: CutOrderFilters = {
   materialSku: '',
   currentStage: 'ALL',
   cuttableState: 'ALL',
-  prepStatus: 'ALL',
-  claimStatus: 'ALL',
   inBatch: 'ALL',
+  hasAvailableBalance: 'ALL',
+  hasCloseReason: 'ALL',
   riskOnly: false,
 }
 
@@ -122,6 +136,13 @@ interface CutOrdersPageState {
   prefilter: CutOrderPrefilter | null
   drillContext: CuttingDrillContext | null
   feedback: { tone: 'warning' | 'success'; message: string } | null
+  closeDraft: {
+    querySignature: string
+    closeReasonCode: CutOrderCloseReasonCode
+    closeDescription: string
+    closedBy: string
+    feedback: { tone: 'warning' | 'success'; message: string } | null
+  }
 }
 
 const state: CutOrdersPageState = {
@@ -133,6 +154,13 @@ const state: CutOrdersPageState = {
   prefilter: null,
   drillContext: null,
   feedback: null,
+  closeDraft: {
+    querySignature: '',
+    closeReasonCode: 'BUSINESS_STOP_RECUT',
+    closeDescription: '',
+    closedBy: '裁床主管 何倩',
+    feedback: null,
+  },
 }
 
 const consumedWebActionKeys = new Set<string>()
@@ -253,6 +281,15 @@ function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
+function renderInfoCard(label: string, value: string): string {
+  return `
+    <div class="rounded-lg border bg-muted/20 p-3">
+      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 text-sm font-medium leading-5 text-foreground">${escapeHtml(value || '—')}</div>
+    </div>
+  `
+}
+
 function formatDate(value: string): string {
   return value || '待补'
 }
@@ -261,18 +298,18 @@ function formatCount(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(value)
 }
 
-function formatMaterialLedgerQty(value: number, unit = 'm'): string {
+function formatMaterialLedgerQty(value: number, unit = '米'): string {
   return `${formatCount(Math.round(value * 10) / 10)} ${unit}`
 }
 
 function renderMaterialLedgerGrid(row: CutOrderRow): string {
   const ledger = row.materialQuantityLedger
   const items = [
-    ['需求用量', ledger.requiredQty],
-    ['中转仓已配', ledger.configuredQty],
-    ['裁床已领', ledger.claimedQty],
-    ['已锁定', ledger.lockedQty],
-    ['已消耗', ledger.consumedQty],
+    ['需求用量', ledger.requiredMaterialQty],
+    ['中转仓已配数量', ledger.transferWarehouseAllocatedQty],
+    ['裁床已领数量', ledger.cuttingClaimedQty],
+    ['已锁定数量', ledger.markerLockedQty],
+    ['已消耗数量', ledger.spreadingConsumedQty],
     ['可用余额', ledger.availableQty],
   ] as const
   return `
@@ -414,9 +451,10 @@ function buildStatsCards(rows: CutOrderRow[]): string {
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       ${renderCompactKpiCard('裁片单总数', stats.totalCount, '当前筛选范围', 'text-slate-900')}
       ${renderCompactKpiCard('可排唛架数', stats.cuttableCount, '已开工、有领料记录、有可用余额、未被方案锁定', 'text-emerald-600')}
-      ${renderCompactKpiCard('当前方案锁定数', stats.inBatchCount, '草稿或有效唛架方案占用余额', 'text-violet-600')}
-      ${renderCompactKpiCard('配料异常数', stats.prepExceptionCount, '配料数量不足', 'text-amber-600')}
-      ${renderCompactKpiCard('领料异常数', stats.claimExceptionCount, '无领料记录或领料差异', 'text-rose-600')}
+      ${renderCompactKpiCard('唛架方案占用数', stats.inBatchCount, '草稿或有效唛架方案占用余额', 'text-violet-600')}
+      ${renderCompactKpiCard('有可用余额数', stats.availableBalanceCount, '裁床可用面料余额大于 0', 'text-blue-600')}
+      ${renderCompactKpiCard('已关闭数', stats.closedCount, '已填写关闭原因', 'text-zinc-600')}
+      ${renderCompactKpiCard('未产生领料记录数', stats.noClaimRecordCount, '可排唛架判断原因', 'text-amber-600')}
     </section>
   `
 }
@@ -486,12 +524,14 @@ function getFilterLabels(): string[] {
   if (state.filters.productionOrderNo) labels.push(`来源生产单：${state.filters.productionOrderNo}`)
   if (state.filters.styleKeyword) labels.push(`款号 / SPU：${state.filters.styleKeyword}`)
   if (state.filters.materialSku) labels.push(`面料：${state.filters.materialSku}`)
-  if (state.filters.currentStage !== 'ALL') labels.push(`裁片单状态：${cutOrderStageMeta[state.filters.currentStage].label}`)
-  if (state.filters.cuttableState !== 'ALL') labels.push(`排唛架状态：${cutOrderVisibleCuttableMeta[state.filters.cuttableState].label}`)
-  if (state.filters.prepStatus !== 'ALL') labels.push(`中转仓配料：${configMeta[state.filters.prepStatus].label}`)
-  if (state.filters.claimStatus !== 'ALL') labels.push(`裁床领料：${receiveMeta[state.filters.claimStatus].label}`)
-  if (state.filters.inBatch === 'IN_MARKER_PLAN') labels.push('仅看当前被方案锁定')
-  if (state.filters.inBatch === 'NOT_IN_MARKER_PLAN') labels.push('仅看当前未被方案锁定')
+  if (state.filters.currentStage !== 'ALL') labels.push(`裁片单主状态：${cutOrderStageMeta[state.filters.currentStage].label}`)
+  if (state.filters.cuttableState !== 'ALL') labels.push(`可排唛架判断：${cutOrderVisibleCuttableMeta[state.filters.cuttableState].label}`)
+  if (state.filters.inBatch === 'IN_MARKER_PLAN') labels.push('仅看有唛架方案占用')
+  if (state.filters.inBatch === 'NOT_IN_MARKER_PLAN') labels.push('仅看无唛架方案占用')
+  if (state.filters.hasAvailableBalance === 'YES') labels.push('可用余额：大于 0')
+  if (state.filters.hasAvailableBalance === 'NO') labels.push('可用余额：等于 0')
+  if (state.filters.hasCloseReason === 'YES') labels.push('关闭原因：已填写')
+  if (state.filters.hasCloseReason === 'NO') labels.push('关闭原因：未填写')
   if (state.filters.riskOnly) labels.push('仅看异常项')
 
   return labels
@@ -576,31 +616,29 @@ function renderFilterArea(): string {
             data-cutting-piece-field="materialSku"
           />
         </label>
-        ${renderFilterSelect('裁片单状态', 'currentStage', state.filters.currentStage, [
+        ${renderFilterSelect('裁片单主状态', 'currentStage', state.filters.currentStage, [
           { value: 'ALL', label: '全部状态' },
           ...Object.entries(cutOrderStageMeta).map(([value, meta]) => ({ value, label: meta.label })),
         ])}
-        ${renderFilterSelect('排唛架状态', 'cuttableState', state.filters.cuttableState, [
+        ${renderFilterSelect('可排唛架判断', 'cuttableState', state.filters.cuttableState, [
           { value: 'ALL', label: '全部' },
           { value: 'CUTTABLE', label: cutOrderVisibleCuttableMeta.CUTTABLE.label },
           { value: 'NOT_CUTTABLE', label: cutOrderVisibleCuttableMeta.NOT_CUTTABLE.label },
         ])}
-        ${renderFilterSelect('中转仓配料', 'prepStatus', state.filters.prepStatus, [
-          { value: 'ALL', label: '全部配料数量' },
-          { value: 'NOT_CONFIGURED', label: configMeta.NOT_CONFIGURED.label },
-          { value: 'PARTIAL', label: configMeta.PARTIAL.label },
-          { value: 'CONFIGURED', label: configMeta.CONFIGURED.label },
-        ])}
-        ${renderFilterSelect('裁床领料', 'claimStatus', state.filters.claimStatus, [
-          { value: 'ALL', label: '全部领料数量' },
-          { value: 'NOT_RECEIVED', label: receiveMeta.NOT_RECEIVED.label },
-          { value: 'PARTIAL', label: receiveMeta.PARTIAL.label },
-          { value: 'RECEIVED', label: receiveMeta.RECEIVED.label },
-        ])}
-        ${renderFilterSelect('方案锁定状态', 'inBatch', state.filters.inBatch, [
+        ${renderFilterSelect('唛架方案占用', 'inBatch', state.filters.inBatch, [
           { value: 'ALL', label: '全部' },
-          { value: 'IN_MARKER_PLAN', label: '仅看当前被方案锁定' },
-          { value: 'NOT_IN_MARKER_PLAN', label: '仅看当前未被方案锁定' },
+          { value: 'IN_MARKER_PLAN', label: '有占用关系' },
+          { value: 'NOT_IN_MARKER_PLAN', label: '无占用关系' },
+        ])}
+        ${renderFilterSelect('是否有可用余额', 'hasAvailableBalance', state.filters.hasAvailableBalance, [
+          { value: 'ALL', label: '全部' },
+          { value: 'YES', label: '可用余额大于 0' },
+          { value: 'NO', label: '可用余额等于 0' },
+        ])}
+        ${renderFilterSelect('是否有关闭原因', 'hasCloseReason', state.filters.hasCloseReason, [
+          { value: 'ALL', label: '全部' },
+          { value: 'YES', label: '已填写关闭原因' },
+          { value: 'NO', label: '未填写关闭原因' },
         ])}
       </div>
     </div>
@@ -653,7 +691,20 @@ function renderMaterialCell(row: CutOrderRow): string {
   return `
     <div class="space-y-2">
       ${renderMaterialIdentityBlock(row, { compact: true })}
-      <div class="text-xs text-muted-foreground">颜色：${escapeHtml(row.color || '待补')}</div>
+    </div>
+  `
+}
+
+function renderPatternCell(row: CutOrderRow): string {
+  return `
+    <div class="space-y-1.5 text-xs">
+      <div class="text-sm font-medium text-foreground">${escapeHtml(row.patternFileName || '待补纸样文件')}</div>
+      <div class="text-muted-foreground">版本：${escapeHtml(row.patternVersion || '待补')}</div>
+      <div class="text-muted-foreground">类型：${escapeHtml(row.patternKind || '待补')}</div>
+      <div class="text-muted-foreground">有效幅宽：<span class="font-medium text-foreground">${escapeHtml(row.effectiveWidthText || '待补')}</span></div>
+      <div class="line-clamp-2 text-muted-foreground" title="${escapeHtml(row.piecePartNames.join('、'))}">
+        部位：${escapeHtml(row.piecePartNames.length ? row.piecePartNames.join('、') : '待补')}
+      </div>
     </div>
   `
 }
@@ -665,29 +716,292 @@ function renderQuantityCell(row: CutOrderRow): string {
       <div class="text-sm font-medium text-foreground">${escapeHtml(row.pieceCountText)} 件</div>
       <div class="text-muted-foreground">需求成衣件数</div>
       <div class="pt-1 leading-5 text-muted-foreground">
-        <div>需求用量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.requiredQty, ledger.unit))}</span></div>
-        <div>中转仓已配：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.configuredQty, ledger.unit))}</span></div>
-        <div>裁床已领：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.claimedQty, ledger.unit))}</span></div>
-        <div>已锁定：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.lockedQty, ledger.unit))}</span></div>
-        <div>已消耗：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.consumedQty, ledger.unit))}</span></div>
+        <div>需求用量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.requiredMaterialQty, ledger.unit))}</span></div>
+        <div>中转仓已配数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.transferWarehouseAllocatedQty, ledger.unit))}</span></div>
+        <div>裁床已领数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.cuttingClaimedQty, ledger.unit))}</span></div>
+        <div>已锁定数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.markerLockedQty, ledger.unit))}</span></div>
+        <div>已消耗数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.spreadingConsumedQty, ledger.unit))}</span></div>
         <div>可用余额：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.availableQty, ledger.unit))}</span></div>
       </div>
     </div>
   `
 }
 
+function nowText(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  const hours = `${date.getHours()}`.padStart(2, '0')
+  const minutes = `${date.getMinutes()}`.padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
+
+function syncCloseDraftFromPath(): void {
+  const pathname = appStore.getState().pathname
+  if (state.closeDraft.querySignature === pathname) return
+  const params = getCurrentSearchParams()
+  const reasonCode = params.get('closeReasonCode') as CutOrderCloseReasonCode | null
+  state.closeDraft.querySignature = pathname
+  state.closeDraft.closeReasonCode = cutOrderCloseReasonOptions.some((option) => option.value === reasonCode)
+    ? reasonCode as CutOrderCloseReasonCode
+    : 'BUSINESS_STOP_RECUT'
+  state.closeDraft.closeDescription = params.get('closeDescription') || ''
+  state.closeDraft.closedBy = '裁床主管 何倩'
+  state.closeDraft.feedback = null
+}
+
+function findClosePageRow(viewModel = getViewModel()): CutOrderRow | null {
+  const params = getCurrentSearchParams()
+  const cutOrderId = params.get('cutOrderId') || ''
+  const cutOrderNo = params.get('cutOrderNo') || ''
+  if (cutOrderId) return viewModel.rows.find((row) => row.cutOrderId === cutOrderId || row.id === cutOrderId) ?? null
+  if (cutOrderNo) return viewModel.rows.find((row) => row.cutOrderNo === cutOrderNo) ?? null
+  return null
+}
+
+function renderCloseFeedbackBar(): string {
+  const feedback = state.closeDraft.feedback
+  if (!feedback) return ''
+  const className =
+    feedback.tone === 'success'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : 'border-amber-200 bg-amber-50 text-amber-700'
+  return `<section class="rounded-lg border px-4 py-3 text-sm ${className}">${escapeHtml(feedback.message)}</section>`
+}
+
+function buildCloseImpactContext(row: CutOrderRow): {
+  ledgerSnapshot: NonNullable<CutOrderCloseRecord['ledgerSnapshotBeforeClose']>
+  impactItems: CutOrderCloseImpactItem[]
+  inventorySummary: string
+  pendingSpecialCraftSummary: string
+  pendingHandoverSummary: string
+  markerSpreadingSummary: string
+  feiTicketSummary: string
+  replenishmentSummary: string
+} {
+  const projection = getProjection()
+  const sources = projection.sources
+  const ledgerSnapshot = buildCutOrderLedgerSnapshotBeforeClose(row.materialQuantityLedger)
+  const warehouseItems = sources.cutPieceWarehouseView.items.filter(
+    (item) => item.cutOrderId === row.cutOrderId || item.cutOrderNo === row.cutOrderNo,
+  )
+  const inventoryQty = warehouseItems.reduce((sum, item) => sum + Number(item.pieceQty || item.quantity || 0), 0)
+  const inventorySummary = inventoryQty > 0 ? `${formatCount(inventoryQty)} 片 / ${formatCount(warehouseItems.length)} 条库存` : ''
+  const openHandoverItems = warehouseItems.filter((item) => !/已交出|已关闭|已取消/.test(item.handoffStatus?.label || ''))
+  const pendingHandoverSummary = openHandoverItems.length ? `${openHandoverItems.length} 条` : ''
+  const replenishmentRows = sources.replenishmentView.rows.filter(
+    (item) => item.cutOrderIds.includes(row.cutOrderId) || item.cutOrderNos.includes(row.cutOrderNo),
+  )
+  const pendingReplenishmentCount = replenishmentRows.filter((item) => item.reviewStatusLabel !== '已处理' && item.reviewStatusLabel !== '已关闭').length
+  const specialProcessRows = sources.specialProcessView.rows.filter(
+    (item) => item.cutOrderIds.includes(row.cutOrderId) || item.cutOrderNos.includes(row.cutOrderNo),
+  )
+  const pendingSpecialCraftCount = specialProcessRows.filter((item) => !/已回仓|已关闭|已取消/.test(item.statusMeta?.label || '')).length
+  const pendingSpecialCraftSummary = pendingSpecialCraftCount ? `${pendingSpecialCraftCount} 单未回仓` : ''
+  const draftLocks = row.currentLocks.filter((lock) => lock.lockType === '草稿唛架锁定')
+  const draftMarkerLockSummary = draftLocks.length
+    ? `${draftLocks.length} 条 / ${formatMaterialLedgerQty(draftLocks.reduce((sum, lock) => sum + Number(lock.lockedQty || 0), 0), row.availableUnit || row.materialUnit)}`
+    : ''
+  const markerSpreadingCounts = buildMarkerSpreadingCountsByCutOrder(row.cutOrderId)
+  const feiTicketCount = sources.feiViewModel.ticketRecords.filter(
+    (ticket) => ticket.cutOrderId === row.cutOrderId || ticket.cutOrderNo === row.cutOrderNo,
+  ).length
+
+  return {
+    ledgerSnapshot,
+    impactItems: buildCutOrderCloseImpactItems({
+      ledgerSnapshot,
+      pendingDifferenceCount: pendingReplenishmentCount,
+      inventorySummary,
+      pendingSpecialCraftSummary,
+      pendingHandoverSummary,
+      draftMarkerLockSummary,
+    }),
+    inventorySummary: inventorySummary || '0 片',
+    pendingSpecialCraftSummary: pendingSpecialCraftSummary || '0 片',
+    pendingHandoverSummary: pendingHandoverSummary || '0 条',
+    markerSpreadingSummary: `${markerSpreadingCounts.markerCount} 个唛架方案 / ${markerSpreadingCounts.sessionCount} 张铺布单 / 实际裁剪 ${markerSpreadingCounts.statusSummary}`,
+    feiTicketSummary: `${formatCount(feiTicketCount)} 张菲票`,
+    replenishmentSummary: `${formatCount(pendingReplenishmentCount)} 项待处理 / ${formatCount(replenishmentRows.length)} 项总记录`,
+  }
+}
+
+function renderCloseLedgerSnapshot(snapshot: NonNullable<CutOrderCloseRecord['ledgerSnapshotBeforeClose']>): string {
+  const rows = [
+    ['需求用量', snapshot.requiredMaterialQty],
+    ['中转仓已配数量', snapshot.transferWarehouseAllocatedQty],
+    ['裁床已领数量', snapshot.cuttingClaimedQty],
+    ['已锁定数量', snapshot.markerLockedQty],
+    ['已消耗数量', snapshot.spreadingConsumedQty],
+    ['可用余额', snapshot.availableQty],
+  ] as const
+  return `
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      ${rows
+        .map(
+          ([label, value]) => `
+            <div class="rounded-lg border bg-muted/20 p-3">
+              <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+              <div class="mt-1 text-base font-semibold tabular-nums">${escapeHtml(formatCutOrderCloseLedgerQty(value, snapshot.unit))}</div>
+            </div>
+          `,
+        )
+        .join('')}
+    </div>
+  `
+}
+
+function renderCloseImpactItems(items: CutOrderCloseImpactItem[]): string {
+  const classMap: Record<CutOrderCloseImpactItem['severity'], string> = {
+    info: 'border-slate-200 bg-slate-50 text-slate-700',
+    warning: 'border-amber-200 bg-amber-50 text-amber-700',
+    critical: 'border-rose-200 bg-rose-50 text-rose-700',
+  }
+  return `
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      ${items
+        .map(
+          (item) => `
+            <article class="rounded-lg border p-3 ${classMap[item.severity]}">
+              <div class="text-xs">${escapeHtml(item.label)}</div>
+              <div class="mt-1 text-base font-semibold">${escapeHtml(item.value)}</div>
+              <p class="mt-2 text-xs leading-5">${escapeHtml(item.detailText)}</p>
+            </article>
+          `,
+        )
+        .join('')}
+    </div>
+  `
+}
+
+function renderCutOrderClosePage(): string {
+  syncCloseDraftFromPath()
+  const viewModel = getViewModel()
+  const row = findClosePageRow(viewModel)
+  const meta = getCanonicalCuttingMeta(getCanonicalCuttingPath('cut-order-close'), 'cut-order-close')
+  if (!row) {
+    return `
+      <div class="space-y-4 p-4" data-testid="cut-order-close-page">
+        ${renderCuttingPageHeader(meta)}
+        <section class="rounded-lg border bg-card p-6 text-sm text-muted-foreground">未找到要关闭的裁片单，请返回裁片单页面重新选择。</section>
+      </div>
+    `
+  }
+
+  const params = getCurrentSearchParams()
+  const sourceReplenishmentId = params.get('suggestionId') || ''
+  const sourceDifferenceId = params.get('sourceDifferenceId') || ''
+  const impactContext = buildCloseImpactContext(row)
+  const alreadyClosed = row.currentStage.key === 'CLOSED'
+  const closeRecord = row.closeRecord
+  const sourceText = sourceReplenishmentId ? `补料审核 ${sourceReplenishmentId}` : '人工关闭'
+
+  return `
+    <div class="space-y-4 p-4" data-testid="cut-order-close-page">
+      ${renderCuttingPageHeader(meta)}
+      ${renderCloseFeedbackBar()}
+
+      <section class="rounded-lg border bg-card p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold">关闭裁片单：${escapeHtml(row.cutOrderNo)}</h2>
+            <p class="mt-1 text-sm text-muted-foreground">关闭后不再进入可排唛架，不再要求继续配料或领料；历史记录保留追溯。</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('cut-orders'), { cutOrderId: row.cutOrderId, cutOrderNo: row.cutOrderNo }))}">返回裁片单</button>
+            ${sourceReplenishmentId ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('replenishment'), { suggestionId: sourceReplenishmentId }))}">返回补料管理</button>` : ''}
+          </div>
+        </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          ${renderInfoCard('裁片单', row.cutOrderNo)}
+          ${renderInfoCard('来源生产单', row.productionOrderNo)}
+          ${renderInfoCard('当前主状态', row.currentStage.label)}
+          ${renderInfoCard('关闭来源', sourceText)}
+        </div>
+      </section>
+
+      ${
+        alreadyClosed
+          ? `
+            <section class="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <div class="text-sm font-semibold text-zinc-800">该裁片单已经关闭，不能重复关闭。</div>
+              <div class="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
+                ${renderInfoCard('关闭原因', closeRecord?.closeReasonText || row.closeReasonText || row.closeReason || '已关闭')}
+                ${renderInfoCard('关闭时间', closeRecord?.closedAt || row.closedAt || '已记录')}
+                ${renderInfoCard('关闭人', closeRecord?.closedBy || row.closedBy || '已记录')}
+                ${renderInfoCard('关闭记录', closeRecord?.closeRecordNo || '历史记录')}
+              </div>
+            </section>
+          `
+          : `
+            <section class="rounded-lg border bg-card p-4">
+              <h3 class="text-sm font-semibold">关闭信息</h3>
+              <div class="mt-3 grid gap-3 md:grid-cols-2">
+                <label class="space-y-2">
+                  <span class="text-sm font-medium">关闭原因</span>
+                  <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-piece-close-field="closeReasonCode">
+                    ${cutOrderCloseReasonOptions
+                      .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === state.closeDraft.closeReasonCode ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+                      .join('')}
+                  </select>
+                </label>
+                <label class="space-y-2">
+                  <span class="text-sm font-medium">关闭人</span>
+                  <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" value="${escapeHtml(state.closeDraft.closedBy)}" data-cutting-piece-close-field="closedBy" />
+                </label>
+                <label class="space-y-2 md:col-span-2">
+                  <span class="text-sm font-medium">关闭说明</span>
+                  <textarea class="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="说明为什么不再继续补排、补裁或等待面料" data-cutting-piece-close-field="closeDescription">${escapeHtml(state.closeDraft.closeDescription)}</textarea>
+                </label>
+              </div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button type="button" class="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-700" data-cutting-piece-action="submit-close-cut-order" data-record-id="${escapeHtml(row.id)}" data-source-replenishment-id="${escapeHtml(sourceReplenishmentId)}" data-source-difference-id="${escapeHtml(sourceDifferenceId)}">确认关闭裁片单</button>
+                <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('cut-orders'), { cutOrderId: row.cutOrderId, cutOrderNo: row.cutOrderNo }))}">取消</button>
+              </div>
+            </section>
+          `
+      }
+
+      <section class="rounded-lg border bg-card p-4">
+        <h3 class="text-sm font-semibold">关闭前数量账</h3>
+        <div class="mt-3">${renderCloseLedgerSnapshot(impactContext.ledgerSnapshot)}</div>
+      </section>
+
+      <section class="rounded-lg border bg-card p-4">
+        <h3 class="text-sm font-semibold">关闭前影响项</h3>
+        <p class="mt-1 text-xs text-muted-foreground">以下内容只做关闭前提示，不作为禁止关闭条件；关闭后仍保留历史追溯。</p>
+        <div class="mt-3">${renderCloseImpactItems(impactContext.impactItems)}</div>
+      </section>
+
+      <section class="rounded-lg border bg-card p-4">
+        <h3 class="text-sm font-semibold">历史执行记录仍保留</h3>
+        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          ${renderInfoCard('唛架 / 铺布', impactContext.markerSpreadingSummary)}
+          ${renderInfoCard('菲票', impactContext.feiTicketSummary)}
+          ${renderInfoCard('库存与交出', `${impactContext.inventorySummary}；未关闭交出记录 ${impactContext.pendingHandoverSummary}`)}
+          ${renderInfoCard('补料 / 特殊工艺', `${impactContext.replenishmentSummary}；特殊工艺 ${impactContext.pendingSpecialCraftSummary}`)}
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderStatusCell(row: CutOrderRow): string {
+  const lockSource = row.activeMarkerPlanNo || row.latestMarkerPlanNo
   return `
     <div class="space-y-2">
       <div class="space-y-1">
-        <div class="text-xs text-muted-foreground">裁片单状态</div>
+        <div class="text-xs text-muted-foreground">裁片单主状态</div>
         ${renderBadge(row.currentStageLabel, row.currentStage.className)}
+        ${row.closeReason ? `<p class="text-xs leading-5 text-muted-foreground">关闭原因：${escapeHtml(row.closeReasonText || row.closeReason)}</p>` : ''}
       </div>
-      <div class="flex flex-wrap gap-1">
-        <span class="w-full text-xs text-muted-foreground">判断标签</span>
+      <div class="space-y-1 text-xs text-muted-foreground">
+        <div class="flex flex-wrap gap-1">
+          <span class="w-full text-xs text-muted-foreground">可排唛架判断</span>
         ${renderBadge(row.visibleCuttableStatus.label, row.visibleCuttableStatus.className)}
-        ${renderBadge(`中转仓${row.materialPrepStatus.label}`, row.materialPrepStatus.className)}
-        ${renderBadge(`裁床${row.materialClaimStatus.label}`, row.materialClaimStatus.className)}
+        </div>
+        ${row.cuttableState.key === 'CUTTABLE' ? '' : `<p>不满足原因：${escapeHtml(row.cuttableState.reasonText)}</p>`}
+        ${lockSource ? `<p>当前锁定来源：${escapeHtml(lockSource)}</p>` : ''}
       </div>
       ${renderBatchSummary(row)}
     </div>
@@ -697,7 +1011,7 @@ function renderStatusCell(row: CutOrderRow): string {
 function renderEmptyTableState(): string {
   return `
     <tr>
-      <td colspan="8" class="px-4 py-16 text-center text-sm text-muted-foreground">
+      <td colspan="9" class="px-4 py-16 text-center text-sm text-muted-foreground">
         当前条件下暂无裁片单，请调整筛选条件或清除预筛后重试。
       </td>
     </tr>
@@ -717,15 +1031,16 @@ function renderTable(rows: CutOrderRow[]): string {
       </div>
       ${renderStickyTableScroller(
         `
-          <table class="w-full min-w-[1240px] text-sm">
+          <table class="w-full min-w-[1260px] text-sm">
             <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
               <tr>
                 <th class="px-4 py-3 text-left font-medium">裁片单</th>
                 <th class="px-4 py-3 text-left font-medium">生产单与款式</th>
                 <th class="px-4 py-3 text-left font-medium">面料</th>
+                <th class="px-4 py-3 text-left font-medium">纸样</th>
                 <th class="px-4 py-3 text-left font-medium">数量</th>
                 <th class="px-4 py-3 text-left font-medium">日期</th>
-                <th class="px-4 py-3 text-left font-medium">裁片单状态</th>
+                <th class="px-4 py-3 text-left font-medium">裁片单主状态</th>
                 <th class="px-4 py-3 text-left font-medium">风险</th>
                 <th class="px-4 py-3 text-left font-medium">操作</th>
               </tr>
@@ -748,6 +1063,7 @@ function renderTable(rows: CutOrderRow[]): string {
                             </td>
                             <td class="px-4 py-3 align-top">${renderProductionStyleCell(row)}</td>
                             <td class="px-4 py-3 align-top">${renderMaterialCell(row)}</td>
+                            <td class="px-4 py-3 align-top">${renderPatternCell(row)}</td>
                             <td class="px-4 py-3 align-top">${renderQuantityCell(row)}</td>
                             <td class="px-4 py-3 align-top">
                               <div class="space-y-1 text-xs text-muted-foreground">
@@ -771,6 +1087,7 @@ function renderTable(rows: CutOrderRow[]): string {
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
                                 ${canEnterExecution ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
+                                ${row.currentStage.key !== 'CLOSED' ? `<button type="button" class="text-xs text-zinc-700 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">关闭裁片单</button>` : `<button type="button" class="text-xs text-zinc-600 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">查看关闭记录</button>`}
                                 ${canEnterFeiTickets ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
                               </div>
                             </td>
@@ -827,6 +1144,64 @@ function renderDetailSection(title: string, body: string): string {
   `
 }
 
+function getSampleItemsForCutOrder(row: CutOrderRow): SampleWarehouseItem[] {
+  return buildSampleWarehouseProjection().viewModel.items.filter(
+    (item) =>
+      item.relatedCutOrderId === row.cutOrderId ||
+      item.relatedCutOrderNo === row.cutOrderNo ||
+      (item.relatedProductionOrderNo === row.productionOrderNo && item.styleCode === row.styleCode),
+  )
+}
+
+function renderCutOrderSampleSection(row: CutOrderRow): string {
+  const sampleItems = getSampleItemsForCutOrder(row)
+  const sampleWarehousePath = (item: SampleWarehouseItem) =>
+    buildRouteWithQuery(getCanonicalCuttingPath('sample-warehouse'), {
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+      sampleNo: item.sampleNo,
+    })
+
+  return renderDetailSection(
+    '关联样衣',
+    `
+      <div class="space-y-3">
+        <div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          样衣用于裁床裁剪前核对版型、部位、尺寸和拼接关系；样衣状态不改变裁片单主状态。
+        </div>
+        ${
+          sampleItems.length
+            ? `<div class="grid gap-3 md:grid-cols-2">
+                ${sampleItems
+                  .map(
+                    (item) => `
+                      <div class="rounded-lg border bg-background p-3">
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div class="font-medium text-blue-700">${escapeHtml(item.sampleNo)}</div>
+                            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml([item.sampleName, item.sampleVersion].filter(Boolean).join(' / '))}</div>
+                          </div>
+                          ${renderBadge(item.currentStatus, item.status.className)}
+                        </div>
+                        <div class="mt-3 grid gap-2 text-xs text-muted-foreground">
+                          <div>用途：${escapeHtml(item.currentUsageType)}</div>
+                          <div>位置：${escapeHtml(item.currentLocation)} / ${escapeHtml(item.currentHolder)}</div>
+                          <div>预计归还：${escapeHtml(item.expectedReturnAt || '按现场使用结束')}</div>
+                          <div>异常：${escapeHtml(item.abnormalItems.map((abnormal) => abnormal.abnormalType).join('、') || '无')}</div>
+                        </div>
+                        <button type="button" class="mt-3 rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(sampleWarehousePath(item))}">查看样衣详情</button>
+                      </div>
+                    `,
+                  )
+                  .join('')}
+              </div>`
+            : '<div class="rounded-lg border border-dashed bg-card px-4 py-6 text-sm text-muted-foreground">当前裁片单暂无关联样衣。</div>'
+        }
+      </div>
+    `,
+  )
+}
+
 function renderCuttingWebActions(row: CutOrderRow, actions: ProcessWebAction[]): string {
   const actionable = actions.filter((action) => !action.disabledReason)
   const disabledReason = actions.find((action) => action.disabledReason)?.disabledReason
@@ -840,7 +1215,7 @@ function renderCuttingWebActions(row: CutOrderRow, actions: ProcessWebAction[]):
     `
       <div class="space-y-3">
         ${renderInfoGrid([
-              { label: '裁片单状态', value: row.currentStage.label, tone: 'strong' },
+              { label: '裁片单主状态', value: row.currentStage.label, tone: 'strong' },
               ...(row.closeReason ? [{ label: '关闭原因', value: row.closeReason }] : []),
               ...(row.closedAt ? [{ label: '关闭时间', value: row.closedAt }] : []),
           { label: '操作方式', value: '按当前状态开放' },
@@ -963,6 +1338,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
       ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">${row.currentStage.key === 'CLOSED' ? '查看关闭记录' : '关闭裁片单'}</button>
     </div>
   `
 
@@ -976,10 +1352,13 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               ${renderMaterialIdentityBlock(
                 {
                   materialSku: row.materialSku,
+                  materialName: row.materialName,
                   materialLabel: row.materialLabel,
                   materialCategory: row.materialCategory,
+                  materialColor: row.materialColor,
                   materialAlias: row.materialAlias,
                   materialImageUrl: row.materialImageUrl,
+                  materialUnit: row.materialUnit,
                 },
                 { imageSizeClass: 'h-14 w-14' },
               )}
@@ -988,7 +1367,11 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '裁片单号', value: row.cutOrderNo, tone: 'strong' },
               { label: '来源生产单号', value: row.productionOrderNo },
               { label: '款号 / SPU', value: `${row.styleCode || row.spuCode} / ${row.styleName || row.spuCode}` },
-              { label: '颜色', value: row.color },
+              { label: '面料颜色', value: row.materialColor || row.color },
+              { label: '纸样文件', value: row.patternFileName },
+              { label: '纸样版本', value: row.patternVersion },
+              { label: '有效幅宽', value: row.effectiveWidthText },
+              { label: '部位集合', value: row.piecePartNames.join('、') },
               { label: '需求成衣件数（件）', value: `${formatCount(row.orderQty)} 件` },
               { label: '计划裁片数量（片）', value: `${formatCount(row.orderQty)} 片` },
               { label: '采购日期', value: formatDate(row.purchaseDate) },
@@ -1002,21 +1385,24 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
         `,
       )}
 
+      ${renderCutOrderSampleSection(row)}
+
       ${renderDetailSection(
-        '当前状态摘要',
+        '主状态与判断关系',
         `
           <div class="space-y-3">
             <div class="flex flex-wrap gap-2">
               <span class="w-full text-xs text-muted-foreground">裁片单主状态</span>
               ${renderBadge(row.currentStage.label, row.currentStage.className)}
-              <span class="mt-2 w-full text-xs text-muted-foreground">判断标签</span>
-              ${renderBadge(row.cuttableState.label, row.cuttableState.className)}
-              ${renderBadge(`中转仓${row.materialPrepStatus.label}`, row.materialPrepStatus.className)}
-              ${renderBadge(`裁床${row.materialClaimStatus.label}`, row.materialClaimStatus.className)}
+              <span class="mt-2 w-full text-xs text-muted-foreground">可排唛架判断</span>
+              ${renderBadge(row.visibleCuttableStatus.label, row.visibleCuttableStatus.className)}
             </div>
-            ${row.closeReason ? `<p class="text-sm"><span class="text-muted-foreground">关闭原因：</span>${escapeHtml(row.closeReason)}</p>` : ''}
+            ${row.closeReason ? `<p class="text-sm"><span class="text-muted-foreground">关闭原因：</span>${escapeHtml(row.closeReasonText || row.closeReason)}</p>` : ''}
+            ${row.closedAt ? `<p class="text-sm"><span class="text-muted-foreground">关闭时间：</span>${escapeHtml(row.closedAt)}</p>` : ''}
+            ${row.closedBy ? `<p class="text-sm"><span class="text-muted-foreground">关闭人：</span>${escapeHtml(row.closedBy)}</p>` : ''}
             <div class="space-y-2 text-sm">
-              <p><span class="text-muted-foreground">排唛架状态：</span>${escapeHtml(row.cuttableState.reasonText)}</p>
+              <p><span class="text-muted-foreground">不满足原因：</span>${escapeHtml(row.cuttableState.key === 'CUTTABLE' ? '满足可排唛架条件' : row.cuttableState.reasonText)}</p>
+              <p><span class="text-muted-foreground">当前锁定来源：</span>${escapeHtml(row.activeMarkerPlanNo || row.latestMarkerPlanNo || '无')}</p>
               <div class="flex flex-wrap items-center gap-1">
                 <span class="text-muted-foreground">风险：</span>
                 ${
@@ -1211,7 +1597,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
             ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
             ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单进度</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回裁床生产单总览</button>
           </div>
         `,
       )}
@@ -1315,6 +1701,10 @@ export function renderCraftCuttingCutOrdersPage(): string {
   return renderPage()
 }
 
+export function renderCraftCuttingCutOrderClosePage(): string {
+  return renderCutOrderClosePage()
+}
+
 export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
   const pageSizeNode = target.closest<HTMLElement>('[data-cutting-piece-page-size]')
   if (pageSizeNode) {
@@ -1336,6 +1726,20 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       [filterKey]: input.value,
     }
     resetPagination()
+    return true
+  }
+
+  const closeFieldNode = target.closest<HTMLElement>('[data-cutting-piece-close-field]')
+  if (closeFieldNode) {
+    const field = closeFieldNode.dataset.cuttingPieceCloseField as CloseField | undefined
+    if (!field) return false
+    const input = closeFieldNode as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    if (field === 'closeReasonCode') {
+      state.closeDraft.closeReasonCode = input.value as CutOrderCloseReasonCode
+    } else {
+      state.closeDraft[field] = input.value
+    }
+    state.closeDraft.feedback = null
     return true
   }
 
@@ -1444,6 +1848,78 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
 
   if (action === 'go-replenishment') {
     return navigateToRecordTarget(actionNode.dataset.recordId, 'replenishment')
+  }
+
+  if (action === 'go-close-cut-order') {
+    const row = actionNode.dataset.recordId ? getViewModel().rowsById[actionNode.dataset.recordId] : null
+    if (!row) return false
+    appStore.navigate(buildRouteWithQuery(getCanonicalCuttingPath('cut-order-close'), {
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+    }))
+    return true
+  }
+
+  if (action === 'submit-close-cut-order') {
+    const row = actionNode.dataset.recordId ? getViewModel().rowsById[actionNode.dataset.recordId] : findClosePageRow()
+    if (!row) return false
+    if (row.currentStage.key === 'CLOSED') {
+      state.closeDraft.feedback = { tone: 'warning', message: '该裁片单已经关闭，不能重复关闭。' }
+      return true
+    }
+    if (!state.closeDraft.closeReasonCode) {
+      state.closeDraft.feedback = { tone: 'warning', message: '关闭裁片单必须选择关闭原因。' }
+      return true
+    }
+    if (!state.closeDraft.closeDescription.trim()) {
+      state.closeDraft.feedback = { tone: 'warning', message: '关闭裁片单必须填写关闭说明。' }
+      return true
+    }
+    if (!state.closeDraft.closedBy.trim()) {
+      state.closeDraft.feedback = { tone: 'warning', message: '关闭裁片单必须填写关闭人。' }
+      return true
+    }
+    const impactContext = buildCloseImpactContext(row)
+    const closedAt = nowText()
+    const closeReasonText = resolveCutOrderCloseReasonText(state.closeDraft.closeReasonCode)
+    const closeRecord: CutOrderCloseRecord = {
+      closeRecordId: `close-${row.cutOrderId}`,
+      closeRecordNo: `CLOSE-${row.cutOrderNo.replace(/^CUT-/, '')}`,
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+      productionOrderId: row.productionOrderId,
+      productionOrderNo: row.productionOrderNo,
+      closeReasonCode: state.closeDraft.closeReasonCode,
+      closeReasonText,
+      closeDescription: state.closeDraft.closeDescription.trim(),
+      closedAt,
+      closedBy: state.closeDraft.closedBy.trim(),
+      closeSourceType: actionNode.dataset.sourceReplenishmentId ? '补料审核' : '人工关闭',
+      sourceReplenishmentId: actionNode.dataset.sourceReplenishmentId || undefined,
+      sourceDifferenceId: actionNode.dataset.sourceDifferenceId || undefined,
+      ledgerSnapshotBeforeClose: impactContext.ledgerSnapshot,
+      openImpactItems: impactContext.impactItems,
+      remainingInventorySummary: impactContext.inventorySummary,
+      pendingSpecialCraftSummary: impactContext.pendingSpecialCraftSummary,
+      pendingHandoverSummary: impactContext.pendingHandoverSummary,
+      createdAt: closedAt,
+      createdBy: state.closeDraft.closedBy.trim(),
+    }
+    upsertStoredCutOrderCloseRecord(closeRecord)
+    updateCuttingOrderProgressWebStage(row.cutOrderId, {
+      cuttingStage: '已关闭',
+      operatorName: closeRecord.closedBy,
+      operatedAt: closeRecord.closedAt,
+      closeReasonCode: closeRecord.closeReasonCode,
+      closeReasonText: closeRecord.closeReasonText,
+      closeReason: closeRecord.closeDescription,
+      ledgerSnapshotBeforeClose: closeRecord.ledgerSnapshotBeforeClose,
+    })
+    state.closeDraft.feedback = {
+      tone: 'success',
+      message: '已关闭裁片单并记录关闭原因；该裁片单不会进入可排唛架，历史菲票、库存和交出记录仍保留。',
+    }
+    return true
   }
 
   if (action === 'go-marker-plan') {

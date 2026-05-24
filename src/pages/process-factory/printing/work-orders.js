@@ -1,0 +1,117 @@
+import { escapeHtml } from '../../../utils';
+import { getPrintOrderHandoverSummary, getPrintWorkOrderSummary, listPrintWorkOrders, } from '../../../data/fcs/printing-task-domain.ts';
+import { buildPrintingWorkOrderDetailLink, buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts';
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts';
+import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts';
+import { formatPrintProcessQty, getPrintQuantityLabel, getPrintPrinterSummary, renderActionButton, renderMetricCard, renderPageHeader, renderSection, renderWorkOrderStatusBadge, } from './shared';
+function renderSummaryCards() {
+    const summary = getPrintWorkOrderSummary();
+    return `
+    <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
+      ${renderMetricCard('印花任务', String(summary.total), '加工单数')}
+      ${renderMetricCard('等打印', String(summary.waitPrintCount), '花型测试已完成')}
+      ${renderMetricCard('打印中', String(summary.printingCount), '当前机台执行')}
+      ${renderMetricCard('待交出', String(summary.waitHandoverCount), '转印完成待发起交出')}
+      ${renderMetricCard('交出待收货', String(summary.waitReceiveCount), '交出后待仓库确认收货')}
+      ${renderMetricCard('部分交出', String(summary.partialHandoverCount), '仓库已确认部分收货')}
+      ${renderMetricCard('全部交出', String(summary.fullHandoverCount), '仓库已确认全部收货')}
+      ${renderMetricCard('收货差异', String(summary.handoverDifferenceCount), '交出与实收存在差异')}
+      ${renderMetricCard('差异', String(summary.diffQty), '交出与实收差异')}
+    </section>
+  `;
+}
+function renderOrdersTable() {
+    const rows = listPrintWorkOrders()
+        .map((order) => {
+        const handover = getPrintOrderHandoverSummary(order.printOrderId);
+        const printer = getPrintPrinterSummary(order);
+        const handoverText = order.handoverOrderId ? escapeHtml(order.handoverOrderNo || order.handoverOrderId) : '未生成';
+        const startPrerequisite = getStartPrerequisiteByTaskId(order.taskId);
+        return `
+        <tr class="border-b align-top last:border-b-0">
+          <td class="px-3 py-3">
+            <div class="font-mono text-xs font-medium">${escapeHtml(order.printOrderNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.patternNo)} / ${escapeHtml(order.patternVersion)}</div>
+          </td>
+          <td class="px-3 py-3">
+            <div class="text-sm font-medium">${escapeHtml(order.taskNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.materialSku)}${order.materialColor ? ` / ${escapeHtml(order.materialColor)}` : ''}</div>
+          </td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(order.patternNo)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(order.materialSku)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div class="text-xs text-muted-foreground">需求单印花数量</div>
+            <div class="font-medium">${formatPrintProcessQty(order, order.plannedQty, '计划')}</div>
+          </td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(order.printFactoryName, order.printFactoryId))}</td>
+          <td class="px-3 py-3">${renderWorkOrderStatusBadge(order.status)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div class="font-medium">${escapeHtml(startPrerequisite?.statusLabel || '按加工单状态判断')}</div>
+            <div class="mt-1 text-xs text-muted-foreground">实际印花前必须确认领料到位</div>
+          </td>
+          <td class="px-3 py-3 text-sm">
+            <div>${escapeHtml(printer.printerNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(printer.speedText)}</div>
+          </td>
+          <td class="px-3 py-3 text-sm">
+            <div class="text-xs text-muted-foreground">${escapeHtml(getPrintQuantityLabel(order, '已完成', 'PRINT_FINISH_TRANSFER'))}</div>
+            <div class="font-medium">${formatPrintProcessQty(order, printer.outputQty, '已完成', 'PRINT_FINISH_TRANSFER')}</div>
+          </td>
+          <td class="px-3 py-3 text-sm">${handoverText}</td>
+          <td class="px-3 py-3 text-sm">${handover.pendingWritebackCount} 条</td>
+          <td class="px-3 py-3 text-sm">${handover.diffQty}</td>
+          <td class="px-3 py-3 text-sm">${handover.objectionCount}</td>
+          <td class="px-3 py-3">
+            <div class="flex flex-wrap gap-2">
+              ${renderActionButton({
+            label: '查看详情',
+            action: 'navigate',
+            attrs: { href: buildPrintingWorkOrderDetailLink(order.printOrderId) },
+        })}
+              ${renderActionButton({
+            label: '打印任务流转卡',
+            action: 'navigate',
+            attrs: { href: buildTaskRouteCardPrintLink('PRINTING_WORK_ORDER', order.printOrderId) },
+        })}
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+        .join('');
+    return renderSection('印花加工单表格', `
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-slate-50 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 font-medium">印花单号</th>
+              <th class="px-3 py-2 font-medium">印花任务</th>
+              <th class="px-3 py-2 font-medium">花型</th>
+              <th class="px-3 py-2 font-medium">面料</th>
+              <th class="px-3 py-2 font-medium">需求单印花数量</th>
+              <th class="px-3 py-2 font-medium">印花工厂</th>
+              <th class="px-3 py-2 font-medium">当前状态</th>
+              <th class="px-3 py-2 font-medium">开工准备</th>
+              <th class="px-3 py-2 font-medium">打印机</th>
+              <th class="px-3 py-2 font-medium">转印完成面料米数 / 裁片数量</th>
+              <th class="px-3 py-2 font-medium">交出单</th>
+              <th class="px-3 py-2 font-medium">待收货</th>
+              <th class="px-3 py-2 font-medium">差异</th>
+              <th class="px-3 py-2 font-medium">异议</th>
+              <th class="px-3 py-2 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `, '');
+}
+export function renderCraftPrintingWorkOrdersPage() {
+    return `
+    <div class="space-y-4 p-4">
+      ${renderPageHeader('印花加工单', '')}
+      ${renderSummaryCards()}
+      ${renderOrdersTable()}
+    </div>
+  `;
+}

@@ -13,6 +13,11 @@ import {
   resolveSelectedExecutionOrderLine,
 } from './pda-cutting-context'
 import {
+  resolvePdaCuttingWritebackIdentity,
+  resolvePdaCuttingWritebackOperator,
+} from '../data/fcs/pda-cutting-writeback-inputs.ts'
+import { appendPdaCuttingStageWritebackRecord } from '../data/fcs/cutting/pda-cutting-stage-writeback.ts'
+import {
   renderPdaCuttingEmptyState,
   renderPdaCuttingStatusChip,
 } from './pda-cutting-shared'
@@ -137,9 +142,6 @@ function renderCurrentReceiveBlock(detail: PdaCuttingTaskDetailData, backHref: s
         ${renderMiniField('实领数量', detail.actualReceivedQtyText)}
         ${renderMiniField('差异说明', detail.discrepancyNote)}
       </div>
-      <button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700" data-nav="${escapeHtml(buildPickupHref(detail.taskId, backHref))}">
-        去交接模块查看领料
-      </button>
     </section>
   `
 }
@@ -147,8 +149,13 @@ function renderCurrentReceiveBlock(detail: PdaCuttingTaskDetailData, backHref: s
 function renderOrderLine(taskId: string, line: PdaCuttingTaskOrderLine, backHref: string, selected: boolean): string {
   const actionHref = buildActionHref(taskId, line, backHref)
   const tone = line.isDone ? 'green' : line.hasException ? 'red' : line.currentStepCode === 'PICKUP' ? 'amber' : 'blue'
+  const isStartAction = line.nextActionLabel === '开工'
+  const primaryAction = isStartAction
+    ? `<button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" data-pda-cutting-task-action="start-work" data-task-id="${escapeHtml(taskId)}" data-execution-order-id="${escapeHtml(line.executionOrderId)}" data-execution-order-no="${escapeHtml(line.executionOrderNo)}">开工</button>`
+    : `<button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" data-nav="${escapeHtml(actionHref)}">${escapeHtml(line.nextActionLabel)}</button>`
+  const exceptionLabel = line.currentStepCode === 'PICKUP' ? '领料差异' : '现场差异反馈'
   return `
-    <article class="rounded-2xl border bg-card p-3 shadow-sm ${selected ? 'border-blue-300 ring-2 ring-blue-100' : ''}">
+    <article class="rounded-2xl border bg-card p-3 shadow-sm ${selected ? 'border-blue-300 ring-2 ring-blue-100' : ''}" data-pda-cutting-order-line="${escapeHtml(line.executionOrderId)}">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
           <div class="text-[11px] text-muted-foreground">执行对象</div>
@@ -162,12 +169,21 @@ function renderOrderLine(taskId: string, line: PdaCuttingTaskOrderLine, backHref
         ${renderMiniMaterialField(line)}
         ${renderMiniField('计划数量', `${line.plannedQty.toLocaleString('zh-CN')} 件`)}
         ${renderMiniField('当前状态', line.currentStateLabel)}
-        ${renderMiniField('入仓状态', line.currentInboundStatus)}
-        ${renderMiniField('交出状态', line.currentHandoverStatus)}
+        ${renderMiniField('现场步骤', line.currentStepLabel)}
+        ${renderMiniField('同步状态', line.latestSyncStatus)}
       </div>
-      <button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" data-nav="${escapeHtml(actionHref)}">
-        ${escapeHtml(line.nextActionLabel)}
-      </button>
+      ${primaryAction}
+      <button class="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700" data-nav="${escapeHtml(buildPdaCuttingRoute(taskId, 'replenishment-feedback', {
+        executionOrderId: line.executionOrderId,
+        executionOrderNo: line.executionOrderNo,
+        cutOrderId: line.cutOrderId,
+        cutOrderNo: line.cutOrderNo,
+        markerPlanId: line.markerPlanId,
+        markerPlanNo: line.markerPlanNo,
+        materialSku: line.materialSku,
+        returnTo: backHref,
+      }))}">${escapeHtml(exceptionLabel)}</button>
+      <div class="mt-2 hidden rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs text-emerald-800" data-pda-cutting-task-feedback></div>
     </article>
   `
 }
@@ -240,7 +256,6 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
         </section>
 
         ${renderCurrentReceiveBlock(detail, backHref)}
-        ${renderTraceIdentity(detail)}
 
         <section class="space-y-2">
           <div class="flex items-center justify-between">
@@ -258,6 +273,45 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
   )
 }
 
-export function handlePdaCuttingTaskDetailEvent(_target: HTMLElement): boolean {
-  return false
+export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
+  const button = target.closest<HTMLElement>('[data-pda-cutting-task-action="start-work"]')
+  if (!button) return false
+  const taskId = button.dataset.taskId || ''
+  const executionOrderId = button.dataset.executionOrderId || ''
+  const executionOrderNo = button.dataset.executionOrderNo || ''
+  const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+    executionOrderId,
+    executionOrderNo,
+  })
+  const feedback = button.closest<HTMLElement>('[data-pda-cutting-order-line]')?.querySelector<HTMLElement>('[data-pda-cutting-task-feedback]')
+  if (!identity) {
+    if (feedback) {
+      feedback.classList.remove('hidden', 'border-emerald-200', 'bg-emerald-50', 'text-emerald-800')
+      feedback.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-800')
+      feedback.textContent = '同步失败：当前执行对象无法识别。'
+    }
+    return true
+  }
+  const operator = resolvePdaCuttingWritebackOperator(taskId, '裁床组长')
+  const record = appendPdaCuttingStageWritebackRecord({
+    taskId,
+    executionOrderId: identity.executionOrderId,
+    executionOrderNo: identity.executionOrderNo,
+    cutOrderId: identity.cutOrderId,
+    cutOrderNo: identity.cutOrderNo,
+    markerPlanId: identity.markerPlanId,
+    markerPlanNo: identity.markerPlanNo,
+    actionType: 'START_WORK',
+    operatorName: operator.operatorName,
+    syncStatus: '已同步',
+    note: 'PDA 开工写回，裁床任务进入可铺布。',
+  })
+  if (feedback) {
+    feedback.classList.remove('hidden')
+    feedback.textContent = `${record.syncStatus}：开工已提交，${record.submittedAt}`
+  }
+  button.textContent = '已开工'
+  button.setAttribute('disabled', 'true')
+  button.classList.add('opacity-70')
+  return true
 }

@@ -381,7 +381,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '裁床总览',
           icon: 'Scissors',
           children: [
-            { key: 'pfos-cutting-production-progress', title: '生产单进度', icon: 'ListTodo', href: '/fcs/craft/cutting/production-progress' },
+            { key: 'pfos-cutting-production-progress', title: '裁床生产单总览', icon: 'ListTodo', href: '/fcs/craft/cutting/production-progress' },
           ],
         },
         {
@@ -399,7 +399,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '铺布执行',
           icon: 'Rows3',
           children: [
-            { key: 'pfos-cutting-spreading-list', title: '铺布列表', icon: 'Rows3', href: '/fcs/craft/cutting/spreading-list' },
+            { key: 'pfos-cutting-spreading-list', title: '铺布单', icon: 'Rows3', href: '/fcs/craft/cutting/spreading-list' },
           ],
         },
         {
@@ -409,9 +409,9 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'pfos-cutting-replenishment', title: '补料管理', icon: 'ShieldAlert', href: '/fcs/craft/cutting/replenishment' },
             { key: 'pfos-cutting-binding-strip-orders', title: '捆条加工单', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
-            { key: 'pfos-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
+            { key: 'pfos-cutting-fei-tickets', title: '菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
             { key: 'pfos-cutting-transfer-bags', title: '中转袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
-            { key: 'pfos-cutting-summary', title: '裁剪总结', icon: 'ClipboardPen', href: '/fcs/craft/cutting/summary' },
+            { key: 'pfos-cutting-summary', title: '裁剪结果核查', icon: 'ClipboardPen', href: '/fcs/craft/cutting/summary' },
           ],
         },
         {
@@ -419,9 +419,10 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '裁床仓库管理',
           icon: 'Warehouse',
           children: [
-            { key: 'pfos-cutting-warehouse-wait-process', title: '待加工仓', icon: 'PackageSearch', href: '/fcs/craft/cutting/warehouse-management/wait-process' },
-            { key: 'pfos-cutting-warehouse-wait-handover', title: '待交出仓', icon: 'Archive', href: '/fcs/craft/cutting/warehouse-management/wait-handover' },
-            { key: 'pfos-cutting-warehouse-sample', title: '样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/warehouse-management/sample-warehouse' },
+            { key: 'pfos-cutting-warehouse-wait-process', title: '裁床待加工仓', icon: 'PackageSearch', href: '/fcs/craft/cutting/warehouse-management/wait-process' },
+            { key: 'pfos-cutting-warehouse-wait-handover', title: '裁床待交出仓', icon: 'Archive', href: '/fcs/craft/cutting/warehouse-management/wait-handover' },
+            { key: 'pfos-cutting-handover-orders', title: '交出单', icon: 'ArrowLeftRight', href: '/fcs/craft/cutting/handover-orders' },
+            { key: 'pfos-cutting-warehouse-sample', title: '裁床样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/warehouse-management/sample-warehouse' },
           ],
         },
       ],

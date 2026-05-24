@@ -1,0 +1,451 @@
+import { listFormalCutPieceWarehouseRecords, } from '../../../data/fcs/cutting/warehouse-runtime.ts';
+import { listPdaHandoverWritebacks, listPdaInboundWritebacks, } from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts';
+import { listCutPieceWarehouseWritebacks, } from '../../../data/fcs/cutting/warehouse-writeback-ledger.ts';
+import { buildWarehouseQueryPayload } from './warehouse-shared.ts';
+import { getBrowserLocalStorage } from '../../../data/browser-storage.ts';
+import { getTransferBagRuleLabel, getTransferBagUsageStageLabel, } from './transfer-bags-model.ts';
+import { buildSpreadingTraceAnchors, findSpreadingTraceAnchor, } from './marker-spreading-model.ts';
+const numberFormatter = new Intl.NumberFormat('zh-CN');
+export const cutPieceWarehouseZoneMeta = {
+    A: { label: 'A 区', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
+    B: { label: 'B 区', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
+    C: { label: 'C 区', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
+    UNASSIGNED: { label: '未分配', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
+};
+export const cutPieceWarehouseStatusMeta = {
+    PENDING_INBOUND: { label: '待入仓', className: 'bg-slate-100 text-slate-700 border border-slate-200', detailText: '当前裁片仍待入仓整理。' },
+    INBOUNDED: { label: '已入仓', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200', detailText: '当前裁片已进入裁片仓。' },
+    WAITING_HANDOVER: { label: '待交接', className: 'bg-amber-100 text-amber-700 border border-amber-200', detailText: '当前裁片已入仓，待发后道。' },
+    HANDED_OVER: { label: '已交接', className: 'bg-sky-100 text-sky-700 border border-sky-200', detailText: '当前裁片已完成后道交接。' },
+};
+export const cutPieceHandoverStatusMeta = {
+    WAITING_HANDOVER: { label: '待交接', className: 'bg-amber-100 text-amber-700 border border-amber-200', detailText: '待交接给后道或后续口袋流程。' },
+    HANDED_OVER: { label: '已交接', className: 'bg-sky-100 text-sky-700 border border-sky-200', detailText: '已完成当前交接。' },
+};
+function parseQuantity(pieceSummary) {
+    const matched = pieceSummary.match(/(\d+)/);
+    return matched ? Number(matched[1]) : 0;
+}
+function createStatusMeta(key, label, className, detailText) {
+    return { key, label, className, detailText };
+}
+export function deriveCutPieceWarehouseStatus(record) {
+    const meta = cutPieceWarehouseStatusMeta[record.inboundStatus];
+    return createStatusMeta(record.inboundStatus, meta.label, meta.className, meta.detailText);
+}
+function deriveCutPieceHandoverStatus(record) {
+    const meta = cutPieceHandoverStatusMeta[record.handoverStatus];
+    return createStatusMeta(record.handoverStatus, meta.label, meta.className, meta.detailText);
+}
+function deriveCutPieceRiskTags(record) {
+    const tags = [];
+    if (record.zoneCode === 'UNASSIGNED')
+        tags.push({ key: 'UNASSIGNED_ZONE', label: '未分区', className: 'bg-rose-100 text-rose-700 border border-rose-200' });
+    if (record.inboundStatus === 'PENDING_INBOUND')
+        tags.push({ key: 'WAITING_INBOUND', label: '待入仓', className: 'bg-slate-100 text-slate-700 border border-slate-200' });
+    if (record.handoverStatus === 'WAITING_HANDOVER')
+        tags.push({ key: 'WAITING_HANDOFF', label: '待交接', className: 'bg-amber-100 text-amber-700 border border-amber-200' });
+    return tags;
+}
+function buildWarehouseOverlayRecord(options) {
+    return options.baseRecord || {
+        id: `cpw-pda-${options.cutOrderId || options.cutOrderNo}`,
+        warehouseType: 'CUT_PIECE',
+        bindingState: options.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
+        cutOrderId: options.cutOrderId,
+        cutOrderNo: options.cutOrderNo,
+        productionOrderId: options.productionOrderId,
+        productionOrderNo: options.productionOrderNo,
+        markerPlanId: '',
+        markerPlanNo: '',
+        cutPieceOrderNo: options.cutOrderNo,
+        materialSku: options.materialSku,
+        groupNo: '工厂端回写',
+        zoneCode: 'UNASSIGNED',
+        locationLabel: '待补位',
+        inboundStatus: 'PENDING_INBOUND',
+        inboundAt: '',
+        inboundBy: '',
+        pieceSummary: '工厂端回写生成的裁片仓记录。',
+        handoverStatus: 'WAITING_HANDOVER',
+        handoverTarget: '待交接',
+        note: '',
+    };
+}
+function applyExecutionWritebackOverlay(records, options = {}) {
+    const storage = getBrowserLocalStorage() || undefined;
+    const inboundWritebacks = options.inboundWritebacks ?? listPdaInboundWritebacks(storage);
+    const handoverWritebacks = options.handoverWritebacks ?? listPdaHandoverWritebacks(storage);
+    const runtimeMap = new Map(records.map((record) => [record.cutOrderId || record.cutOrderNo, { ...record }]));
+    inboundWritebacks.forEach((writeback) => {
+        const key = writeback.cutOrderId || writeback.cutOrderNo;
+        const current = runtimeMap.get(key);
+        const next = buildWarehouseOverlayRecord({
+            baseRecord: current,
+            cutOrderId: writeback.cutOrderId,
+            cutOrderNo: writeback.cutOrderNo,
+            productionOrderId: writeback.productionOrderId,
+            productionOrderNo: writeback.productionOrderNo,
+            materialSku: writeback.materialSku,
+        });
+        runtimeMap.set(key, {
+            ...next,
+            id: current?.id || `cpw-pda-${writeback.cutOrderId || writeback.cutOrderNo}`,
+            bindingState: writeback.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
+            cutOrderId: writeback.cutOrderId,
+            cutOrderNo: writeback.cutOrderNo,
+            productionOrderId: writeback.productionOrderId,
+            productionOrderNo: writeback.productionOrderNo,
+            cutPieceOrderNo: writeback.cutOrderNo,
+            materialSku: writeback.materialSku,
+            markerPlanId: writeback.markerPlanId,
+            markerPlanNo: writeback.markerPlanNo,
+            zoneCode: writeback.zoneCode,
+            locationLabel: writeback.locationLabel,
+            inboundStatus: 'WAITING_HANDOVER',
+            inboundAt: writeback.submittedAt,
+            inboundBy: writeback.operatorName,
+            handoverStatus: current?.handoverStatus || 'WAITING_HANDOVER',
+            note: writeback.note || next.note,
+        });
+    });
+    handoverWritebacks.forEach((writeback) => {
+        const key = writeback.cutOrderId || writeback.cutOrderNo;
+        const current = runtimeMap.get(key);
+        const next = buildWarehouseOverlayRecord({
+            baseRecord: current,
+            cutOrderId: writeback.cutOrderId,
+            cutOrderNo: writeback.cutOrderNo,
+            productionOrderId: writeback.productionOrderId,
+            productionOrderNo: writeback.productionOrderNo,
+            materialSku: writeback.materialSku,
+        });
+        runtimeMap.set(key, {
+            ...next,
+            id: current?.id || `cpw-pda-${writeback.cutOrderId || writeback.cutOrderNo}`,
+            bindingState: writeback.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
+            cutOrderId: writeback.cutOrderId,
+            cutOrderNo: writeback.cutOrderNo,
+            productionOrderId: writeback.productionOrderId,
+            productionOrderNo: writeback.productionOrderNo,
+            cutPieceOrderNo: writeback.cutOrderNo,
+            materialSku: writeback.materialSku,
+            markerPlanId: writeback.markerPlanId,
+            markerPlanNo: writeback.markerPlanNo,
+            inboundStatus: 'HANDED_OVER',
+            inboundAt: current?.inboundAt || writeback.submittedAt,
+            inboundBy: current?.inboundBy || writeback.operatorName,
+            handoverStatus: 'HANDED_OVER',
+            handoverTarget: writeback.targetLabel,
+            note: writeback.note || next.note,
+        });
+    });
+    return Array.from(runtimeMap.values());
+}
+function applyWarehouseWritebackOverlay(records, options = {}) {
+    const storage = getBrowserLocalStorage() || undefined;
+    const warehouseWritebacks = [...(options.warehouseWritebacks ?? listCutPieceWarehouseWritebacks(storage))]
+        .sort((left, right) => left.submittedAt.localeCompare(right.submittedAt, 'zh-CN'));
+    const runtimeMap = new Map(records.map((record) => [record.id, { ...record }]));
+    warehouseWritebacks.forEach((writeback) => {
+        const current = runtimeMap.get(writeback.warehouseRecordId);
+        const next = buildWarehouseOverlayRecord({
+            baseRecord: current,
+            cutOrderId: writeback.cutOrderId,
+            cutOrderNo: writeback.cutOrderNo,
+            productionOrderId: writeback.productionOrderId,
+            productionOrderNo: writeback.productionOrderNo,
+            materialSku: writeback.materialSku,
+        });
+        const overlayBase = {
+            ...next,
+            id: writeback.warehouseRecordId,
+            bindingState: writeback.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
+            cutOrderId: writeback.cutOrderId,
+            cutOrderNo: writeback.cutOrderNo,
+            productionOrderId: writeback.productionOrderId,
+            productionOrderNo: writeback.productionOrderNo,
+            cutPieceOrderNo: writeback.cutOrderNo,
+            materialSku: writeback.materialSku,
+            markerPlanId: writeback.markerPlanId,
+            markerPlanNo: writeback.markerPlanNo,
+            zoneCode: (writeback.zoneCode || next.zoneCode),
+            locationLabel: writeback.locationCode || next.locationLabel,
+            note: writeback.note || next.note,
+        };
+        if (writeback.actionType === 'CUT_PIECE_WAREHOUSE_SAVE_LOCATION') {
+            runtimeMap.set(writeback.warehouseRecordId, overlayBase);
+            return;
+        }
+        if (writeback.actionType === 'CUT_PIECE_WAREHOUSE_MARK_INBOUND') {
+            runtimeMap.set(writeback.warehouseRecordId, {
+                ...overlayBase,
+                inboundStatus: 'INBOUNDED',
+                inboundAt: writeback.submittedAt,
+                inboundBy: writeback.operatorName,
+            });
+            return;
+        }
+        if (writeback.actionType === 'CUT_PIECE_WAREHOUSE_MARK_WAITING_HANDOFF') {
+            runtimeMap.set(writeback.warehouseRecordId, {
+                ...overlayBase,
+                inboundStatus: 'WAITING_HANDOVER',
+                inboundAt: next.inboundAt || writeback.submittedAt,
+                inboundBy: next.inboundBy || writeback.operatorName,
+                handoverStatus: 'WAITING_HANDOVER',
+                handoverTarget: writeback.handoverTarget || '待后道交接',
+            });
+            return;
+        }
+        runtimeMap.set(writeback.warehouseRecordId, {
+            ...overlayBase,
+            inboundStatus: 'HANDED_OVER',
+            inboundAt: next.inboundAt || writeback.submittedAt,
+            inboundBy: next.inboundBy || writeback.operatorName,
+            handoverStatus: 'HANDED_OVER',
+            handoverTarget: writeback.handoverTarget || '已交接至后道 / 中转袋后续',
+        });
+    });
+    return Array.from(runtimeMap.values());
+}
+export function buildCutPieceWarehouseNavigationPayload(item) {
+    return buildWarehouseQueryPayload({
+        cutOrderId: item.cutOrderId,
+        cutOrderNo: item.cutOrderNo,
+        productionOrderId: item.productionOrderId,
+        productionOrderNo: item.productionOrderNo,
+        markerPlanId: item.markerPlanId || undefined,
+        markerPlanNo: item.markerPlanNo || undefined,
+        materialSku: item.materialSku || undefined,
+        cuttingGroup: item.cuttingGroup,
+        zoneCode: item.zoneCode,
+        warehouseStatus: item.warehouseStatus.key,
+        styleCode: item.styleCode,
+        usageId: item.bagUsageId || undefined,
+        bagCode: item.bagCode || undefined,
+        sampleNo: item.spreadingSessionId || undefined,
+        holder: item.sourceWritebackId || undefined,
+        autoOpenDetail: true,
+    });
+}
+export function buildCutPieceWarehouseViewModel(cutOrderRows, records = listFormalCutPieceWarehouseRecords(), options = {}) {
+    const runtimeRecords = applyWarehouseWritebackOverlay(applyExecutionWritebackOverlay(records, options), options);
+    const rowById = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderId, row]));
+    const rowByOrderNo = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderNo, row]));
+    const findBoundCutOrderRow = (record) => rowById[record.cutOrderId] ||
+        rowByOrderNo[record.cutOrderNo];
+    const transferBagBindings = options.transferBagViewModel?.bindings || [];
+    const spreadingTraceAnchors = options.spreadingStore ? buildSpreadingTraceAnchors(options.spreadingStore) : [];
+    const spreadingSessionById = new Map((options.spreadingStore?.sessions || []).map((session) => [session.spreadingSessionId, session]));
+    const items = runtimeRecords
+        .map((record) => {
+        const row = findBoundCutOrderRow(record);
+        const baseTraceAnchor = findSpreadingTraceAnchor(spreadingTraceAnchors, {
+            cutOrderIds: record.cutOrderId ? [record.cutOrderId] : [],
+            markerPlanId: row?.latestMarkerPlanId || record.markerPlanId,
+            materialSku: record.materialSku || '',
+            color: '',
+        });
+        const matchedBinding = transferBagBindings.find((binding) => binding.cutOrderId === record.cutOrderId &&
+            (!binding.ticket?.materialSku || binding.ticket.materialSku === record.materialSku) &&
+            (!baseTraceAnchor?.spreadingSessionId || binding.usage?.spreadingSessionId === baseTraceAnchor.spreadingSessionId)) ||
+            transferBagBindings.find((binding) => binding.cutOrderId === record.cutOrderId &&
+                (!baseTraceAnchor?.spreadingSessionId || binding.usage?.spreadingSessionId === baseTraceAnchor.spreadingSessionId)) ||
+            transferBagBindings.find((binding) => binding.cutOrderId === record.cutOrderId &&
+                (!binding.ticket?.materialSku || binding.ticket.materialSku === record.materialSku)) ||
+            transferBagBindings.find((binding) => binding.cutOrderId === record.cutOrderId) ||
+            null;
+        const usageSession = matchedBinding?.usage?.spreadingSessionId
+            ? spreadingSessionById.get(matchedBinding.usage.spreadingSessionId) || null
+            : null;
+        const usageSessionMatchesRecord = usageSession
+            ? usageSession.cutOrderIds.includes(record.cutOrderId) ||
+                Boolean((row?.latestMarkerPlanId || record.markerPlanId) && usageSession.markerPlanId === (row?.latestMarkerPlanId || record.markerPlanId))
+            : false;
+        const inheritedUsageTrace = matchedBinding?.usage?.spreadingSessionId && usageSessionMatchesRecord
+            ? {
+                spreadingSessionId: matchedBinding.usage.spreadingSessionId,
+                spreadingSessionNo: matchedBinding.usage.spreadingSessionNo,
+                sourceWritebackId: matchedBinding.usage.spreadingSourceWritebackId,
+            }
+            : null;
+        const traceAnchor = inheritedUsageTrace ||
+            baseTraceAnchor ||
+            findSpreadingTraceAnchor(spreadingTraceAnchors, {
+                cutOrderIds: record.cutOrderId ? [record.cutOrderId] : [],
+                markerPlanId: row?.latestMarkerPlanId || record.markerPlanId,
+                materialSku: record.materialSku || '',
+                color: matchedBinding?.ticket?.color || '',
+            });
+        const bagUsageStage = matchedBinding?.usage?.usageStage || '';
+        const bagUsageStageLabel = bagUsageStage ? getTransferBagUsageStageLabel(bagUsageStage) : '';
+        const item = {
+            warehouseItemId: record.id,
+            cutOrderId: record.cutOrderId,
+            cutOrderNo: record.cutOrderNo,
+            productionOrderId: record.productionOrderId,
+            productionOrderNo: record.productionOrderNo,
+            markerPlanId: row?.latestMarkerPlanId || record.markerPlanId,
+            markerPlanNo: row?.latestMarkerPlanNo || record.markerPlanNo,
+            sourceMarkerId: traceAnchor?.sourceMarkerId || '',
+            sourceMarkerNo: traceAnchor?.sourceMarkerNo || '',
+            materialSku: record.materialSku,
+            materialAlias: row?.materialAlias || '',
+            materialImageUrl: row?.materialImageUrl || '',
+            styleCode: row?.styleCode || '',
+            spuCode: row?.spuCode || '',
+            cuttingGroup: record.groupNo,
+            zoneCode: record.zoneCode,
+            locationCode: record.locationLabel,
+            quantity: parseQuantity(record.pieceSummary),
+            pieceQty: parseQuantity(record.pieceSummary),
+            warehouseStatus: deriveCutPieceWarehouseStatus(record),
+            handoffStatus: deriveCutPieceHandoverStatus(record),
+            inWarehouseAt: record.inboundAt,
+            inWarehouseBy: record.inboundBy,
+            handoffTarget: record.handoverTarget,
+            spreadingSessionId: traceAnchor?.spreadingSessionId || '',
+            spreadingSessionNo: traceAnchor?.spreadingSessionNo || '',
+            sourceWritebackId: traceAnchor?.sourceWritebackId || '',
+            bagUsageId: matchedBinding?.usageId || '',
+            bagUsageNo: matchedBinding?.usage?.usageNo || '',
+            bagCode: matchedBinding?.bagCode || '',
+            bagUsageStage,
+            bagUsageStageLabel,
+            bagFirstSatisfied: Boolean(matchedBinding?.bindingId),
+            bagFirstRuleLabel: matchedBinding?.bindingId
+                ? getTransferBagRuleLabel(bagUsageStage)
+                : '入仓后可先放入暂存袋；当前未找到暂存袋绑定，仅作为待补链路展示。',
+            note: record.note,
+            riskTags: deriveCutPieceRiskTags(record),
+            navigationPayload: buildCutPieceWarehouseNavigationPayload({
+                cutOrderId: record.cutOrderId,
+                cutOrderNo: record.cutOrderNo,
+                productionOrderId: record.productionOrderId,
+                productionOrderNo: record.productionOrderNo,
+                markerPlanId: row?.latestMarkerPlanId || record.markerPlanId,
+                markerPlanNo: row?.latestMarkerPlanNo || record.markerPlanNo,
+                materialSku: record.materialSku,
+                cuttingGroup: record.groupNo,
+                zoneCode: record.zoneCode,
+                warehouseStatus: record.inboundStatus,
+                styleCode: row?.styleCode || '',
+                spreadingSessionId: traceAnchor?.spreadingSessionId || '',
+                sourceWritebackId: traceAnchor?.sourceWritebackId || '',
+                bagUsageId: matchedBinding?.usageId || '',
+                bagCode: matchedBinding?.bagCode || '',
+            }),
+            keywordIndex: [
+                record.cutOrderId,
+                record.cutOrderNo,
+                record.productionOrderId,
+                record.productionOrderNo,
+                record.materialSku,
+                row?.materialAlias,
+                row?.styleCode,
+                row?.spuCode,
+                record.groupNo,
+                record.locationLabel,
+                row?.latestMarkerPlanId,
+                row?.latestMarkerPlanNo,
+                traceAnchor?.spreadingSessionId,
+                traceAnchor?.sourceWritebackId,
+                matchedBinding?.bagCode,
+                matchedBinding?.usage?.usageNo,
+                bagUsageStageLabel,
+            ]
+                .filter(Boolean)
+                .map((value) => String(value).toLowerCase()),
+        };
+        return item;
+    })
+        .sort((left, right) => left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN'));
+    return {
+        items,
+        itemsById: Object.fromEntries(items.map((item) => [item.warehouseItemId, item])),
+        zoneSummary: summarizeCutPieceWarehouseZones(items),
+        summary: {
+            totalItemCount: items.length,
+            totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+            pieceQtyTotal: items.reduce((sum, item) => sum + item.pieceQty, 0),
+            waitingInWarehouseCount: items.filter((item) => item.warehouseStatus.key === 'PENDING_INBOUND').length,
+            inWarehouseCount: items.filter((item) => item.warehouseStatus.key !== 'PENDING_INBOUND').length,
+            waitingHandoffCount: items.filter((item) => item.handoffStatus.key === 'WAITING_HANDOVER').length,
+            zoneCount: new Set(items.map((item) => item.zoneCode)).size,
+        },
+    };
+}
+export function summarizeCutPieceWarehouseZones(items) {
+    return ['A', 'B', 'C', 'UNASSIGNED']
+        .map((zoneCode) => {
+        const zoneItems = items.filter((item) => item.zoneCode === zoneCode);
+        return {
+            zoneCode,
+            itemCount: zoneItems.length,
+            quantityTotal: zoneItems.reduce((sum, item) => sum + item.quantity, 0),
+            pieceQtyTotal: zoneItems.reduce((sum, item) => sum + item.pieceQty, 0),
+            cuttingGroupSummary: Array.from(new Set(zoneItems.map((item) => item.cuttingGroup))).slice(0, 3).join(' / ') || '待补',
+            occupancyStatus: zoneItems.length ? (zoneCode === 'UNASSIGNED' ? '待整理' : '已使用') : '空位充足',
+        };
+    })
+        .filter((zone) => zone.itemCount > 0 || zone.zoneCode !== 'UNASSIGNED');
+}
+export function filterCutPieceWarehouseItems(items, filters, prefilter) {
+    const keyword = filters.keyword.trim().toLowerCase();
+    return items.filter((item) => {
+        if (prefilter?.cutOrderId && item.cutOrderId !== prefilter.cutOrderId)
+            return false;
+        if (prefilter?.cutOrderNo && item.cutOrderNo !== prefilter.cutOrderNo)
+            return false;
+        if (prefilter?.productionOrderId && item.productionOrderId !== prefilter.productionOrderId)
+            return false;
+        if (prefilter?.productionOrderNo && item.productionOrderNo !== prefilter.productionOrderNo)
+            return false;
+        if (prefilter?.markerPlanId && item.markerPlanId !== prefilter.markerPlanId)
+            return false;
+        if (prefilter?.markerPlanNo && item.markerPlanNo !== prefilter.markerPlanNo)
+            return false;
+        if (prefilter?.materialSku && item.materialSku !== prefilter.materialSku)
+            return false;
+        if (prefilter?.spreadingSessionId && item.spreadingSessionId !== prefilter.spreadingSessionId)
+            return false;
+        if (prefilter?.sourceWritebackId && item.sourceWritebackId !== prefilter.sourceWritebackId)
+            return false;
+        if (prefilter?.cuttingGroup && item.cuttingGroup !== prefilter.cuttingGroup)
+            return false;
+        if (prefilter?.zoneCode && item.zoneCode !== prefilter.zoneCode)
+            return false;
+        if (prefilter?.warehouseStatus && item.warehouseStatus.key !== prefilter.warehouseStatus)
+            return false;
+        if (filters.zoneCode !== 'ALL' && item.zoneCode !== filters.zoneCode)
+            return false;
+        if (filters.cuttingGroup && item.cuttingGroup !== filters.cuttingGroup)
+            return false;
+        if (filters.warehouseStatus !== 'ALL' && item.warehouseStatus.key !== filters.warehouseStatus)
+            return false;
+        if (filters.handoffOnly && item.handoffStatus.key !== 'WAITING_HANDOVER')
+            return false;
+        if (filters.risk !== 'ALL' && !item.riskTags.some((tag) => tag.key === filters.risk))
+            return false;
+        if (!keyword)
+            return true;
+        return item.keywordIndex.some((value) => value.includes(keyword));
+    });
+}
+export function findCutPieceWarehouseByPrefilter(items, prefilter) {
+    if (!prefilter)
+        return null;
+    return ((prefilter.cutOrderId && items.find((item) => item.cutOrderId === prefilter.cutOrderId)) ||
+        (prefilter.cutOrderNo && items.find((item) => item.cutOrderNo === prefilter.cutOrderNo)) ||
+        (prefilter.markerPlanId && items.find((item) => item.markerPlanId === prefilter.markerPlanId)) ||
+        (prefilter.markerPlanNo && items.find((item) => item.markerPlanNo === prefilter.markerPlanNo)) ||
+        (prefilter.productionOrderId && items.find((item) => item.productionOrderId === prefilter.productionOrderId)) ||
+        (prefilter.productionOrderNo && items.find((item) => item.productionOrderNo === prefilter.productionOrderNo)) ||
+        (prefilter.materialSku && items.find((item) => item.materialSku === prefilter.materialSku)) ||
+        (prefilter.spreadingSessionId && items.find((item) => item.spreadingSessionId === prefilter.spreadingSessionId)) ||
+        (prefilter.sourceWritebackId && items.find((item) => item.sourceWritebackId === prefilter.sourceWritebackId)) ||
+        null);
+}
+export function formatCutPieceQuantity(value) {
+    return `${numberFormatter.format(Math.max(value, 0))} 件`;
+}

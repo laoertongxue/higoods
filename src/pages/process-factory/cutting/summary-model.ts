@@ -298,6 +298,102 @@ export interface CuttingSummaryViewModel {
   searchIndex: CuttingSummarySearchIndexEntry[]
 }
 
+export type CuttingResultCheckType =
+  | '铺布差异'
+  | '裁剪差异'
+  | '补料待审核'
+  | '补排待处理'
+  | '裁片单已关闭'
+  | '菲票待处理'
+  | '入仓待处理'
+  | '分拣待处理'
+  | '交出后缺口'
+  | '接收差异'
+  | '特殊工艺未回仓'
+  | '特殊工艺回仓差异'
+  | '样衣异常'
+  | '捆条异常'
+
+export type CuttingResultCheckLevel = '提示' | '需处理' | '紧急'
+export type CuttingResultCheckStatus = '待处理' | '处理中' | '已处理' | '已关闭'
+
+export interface CuttingResultCheckMaterialIdentity {
+  materialSku: string
+  materialName: string
+  materialColor: string
+  materialAlias: string
+  materialImageUrl: string
+  materialUnit: string
+}
+
+export interface CuttingResultCheckPatternIdentity {
+  patternFileId: string
+  patternFileName: string
+  patternVersion: string
+  patternKind: string
+  effectiveWidthText: string
+  piecePartNames: string[]
+}
+
+export interface CuttingResultCheckItem {
+  checkItemId: string
+  checkType: CuttingResultCheckType
+  checkLevel: CuttingResultCheckLevel
+  sourceObjectType: string
+  sourceObjectId: string
+  sourceObjectNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  spreadingOrderId: string
+  spreadingOrderNo: string
+  feiTicketId: string
+  feiTicketNo: string
+  handoverOrderId: string
+  handoverRecordId: string
+  materialIdentity: CuttingResultCheckMaterialIdentity | null
+  patternIdentity: CuttingResultCheckPatternIdentity | null
+  problemText: string
+  impactText: string
+  suggestedAction: string
+  actionRoute: string
+  handlingStatus: CuttingResultCheckStatus
+  ownerRole: string
+  ownerName: string
+  occurredAt: string
+  updatedAt: string
+}
+
+export type CuttingResultCheckGroupKey =
+  | 'DIFFERENCE'
+  | 'REPLENISHMENT'
+  | 'REPLAN'
+  | 'CLOSED_CUT_ORDER'
+  | 'FEI_TICKET'
+  | 'WAIT_HANDOVER'
+  | 'HANDOVER_SHORTAGE'
+  | 'SPECIAL_CRAFT'
+  | 'SAMPLE_AND_BINDING'
+
+export interface CuttingResultCheckGroupDefinition {
+  groupKey: CuttingResultCheckGroupKey
+  title: string
+  checkTypes: CuttingResultCheckType[]
+}
+
+export const cuttingResultCheckGroupDefinitions: CuttingResultCheckGroupDefinition[] = [
+  { groupKey: 'DIFFERENCE', title: '待处理差异', checkTypes: ['铺布差异', '裁剪差异'] },
+  { groupKey: 'REPLENISHMENT', title: '待审核补料', checkTypes: ['补料待审核'] },
+  { groupKey: 'REPLAN', title: '待补排', checkTypes: ['补排待处理'] },
+  { groupKey: 'CLOSED_CUT_ORDER', title: '已关闭裁片单', checkTypes: ['裁片单已关闭'] },
+  { groupKey: 'FEI_TICKET', title: '菲票待处理', checkTypes: ['菲票待处理'] },
+  { groupKey: 'WAIT_HANDOVER', title: '待交出仓待处理', checkTypes: ['入仓待处理', '分拣待处理'] },
+  { groupKey: 'HANDOVER_SHORTAGE', title: '交出后缺口 / 接收差异', checkTypes: ['交出后缺口', '接收差异'] },
+  { groupKey: 'SPECIAL_CRAFT', title: '特殊工艺未回仓 / 回仓差异', checkTypes: ['特殊工艺未回仓', '特殊工艺回仓差异'] },
+  { groupKey: 'SAMPLE_AND_BINDING', title: '样衣 / 捆条异常', checkTypes: ['样衣异常', '捆条异常'] },
+]
+
 export interface CuttingSummaryBuildOptions {
   productionRows: ProductionProgressRow[]
   cutOrderRows: CutOrderRow[]

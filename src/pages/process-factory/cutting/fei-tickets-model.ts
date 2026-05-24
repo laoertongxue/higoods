@@ -6,10 +6,18 @@ import {
   buildCuttingTraceabilityId,
 } from '../../../data/fcs/cutting/qr-codes.ts'
 import {
+  FEI_TICKET_SOURCE_BASIS,
+  FEI_TICKET_SOURCE_BASIS_TYPE,
+  FEI_TICKET_WAITING_SOURCE_BASIS_TYPE,
   getGeneratedFeiTicketMapByCutOrderId,
   getFeiTicketById as getGeneratedFeiTicketById,
-  listSpreadingResultGeneratedFeiTicketsByCutOrderId,
+  listActualCuttingOutputGeneratedFeiTicketsByCutOrderId,
   type GeneratedFeiTicketSourceRecord,
+  type FeiTicketSpecialCraft,
+  type PieceSequenceRange,
+  type FeiTicketSourceBasis,
+  type FeiTicketSourceBasisType,
+  type WaitingFeiTicketSourceBasisType,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import {
   FEI_QR_SCHEMA_NAME,
@@ -126,7 +134,7 @@ export interface CutOrderTicketOwner {
   relatedMarkerPlanIds: string[]
   relatedMarkerPlanNos: string[]
   sourceContextLabel: string
-  ticketCountBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
+  ticketCountBasisType: FeiTicketSourceBasisType | WaitingFeiTicketSourceBasisType
   ticketCountBasisLabel: string
   ticketCountBasisDetail: string
   currentStageLabel: string
@@ -142,6 +150,8 @@ export interface FeiTicketLabelRecord {
   ticketRecordId: string
   ticketNo: string
   sourceOutputLineId?: string
+  sourceBasis?: FeiTicketSourceBasis
+  sourceBasisType?: FeiTicketSourceBasisType
   sourceSpreadingSessionId?: string
   sourceSpreadingSessionNo?: string
   sourceMarkerId?: string
@@ -178,6 +188,7 @@ export interface FeiTicketLabelRecord {
   splitDetailId?: string
   partCode?: string
   partName?: string
+  partInstanceNo?: string
   size?: string
   bundleNo?: string
   pieceSetNoStart?: number
@@ -188,6 +199,12 @@ export interface FeiTicketLabelRecord {
   actualCutPieceQty?: number
   printStatus?: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   processTags?: string[]
+  hasSpecialCraft?: boolean
+  specialCrafts?: FeiTicketSpecialCraft[]
+  specialCraftDisplayLabel?: string
+  pieceSequenceRange?: PieceSequenceRange | null
+  pieceSequenceLabel?: string
+  pieceSequenceCannotGenerateReason?: string
   version?: number
   voidedAt?: string
   voidedBy?: string
@@ -303,7 +320,7 @@ export interface FeiTicketStatusMeta {
 }
 
 export interface TicketCountBasisResult {
-  basisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
+  basisType: FeiTicketSourceBasisType | WaitingFeiTicketSourceBasisType
   ticketCount: number
   basisLabel: string
   detailText: string
@@ -379,7 +396,7 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
 }
 
 function getGeneratedFeiRecordsByCutOrderId(cutOrderId: string): GeneratedFeiTicketSourceRecord[] {
-  return listSpreadingResultGeneratedFeiTicketsByCutOrderId(cutOrderId)
+  return listActualCuttingOutputGeneratedFeiTicketsByCutOrderId(cutOrderId)
 }
 
 function getGeneratedFeiRecordBySequence(
@@ -431,6 +448,8 @@ function createEmptyPreviewRecord(
     ticketRecordId: generated?.feiTicketId || `${owner.cutOrderId}-${sequenceNo}`,
     ticketNo: generated?.feiTicketNo || buildFeiTicketNo(owner.cutOrderNo, sequenceNo),
     sourceOutputLineId: generated?.sourceOutputLineId || '',
+    sourceBasis: generated?.sourceBasis || FEI_TICKET_SOURCE_BASIS,
+    sourceBasisType: generated?.sourceBasisType || FEI_TICKET_SOURCE_BASIS_TYPE,
     sourceSpreadingSessionId: generated?.sourceSpreadingSessionId || '',
     sourceSpreadingSessionNo: generated?.sourceSpreadingSessionNo || '',
     sourceMarkerId: generated?.sourceMarkerId || '',
@@ -472,6 +491,12 @@ function createEmptyPreviewRecord(
     actualCutPieceQty: generated?.actualCutPieceQty ?? generated?.qty ?? 1,
     printStatus: generated?.printStatus || 'WAIT_PRINT',
     processTags: generated?.secondaryCrafts || [],
+    hasSpecialCraft: generated?.hasSpecialCraft || false,
+    specialCrafts: generated?.specialCrafts ? generated.specialCrafts.map((craft) => ({ ...craft })) : [],
+    specialCraftDisplayLabel: generated?.specialCraftDisplayLabel || '无',
+    pieceSequenceRange: generated?.pieceSequenceRange ? { ...generated.pieceSequenceRange } : null,
+    pieceSequenceLabel: generated?.pieceSequenceLabel || '不可生成',
+    pieceSequenceCannotGenerateReason: generated?.pieceSequenceCannotGenerateReason || '',
   }
 }
 
@@ -506,9 +531,9 @@ function createSeedOwnerFromRow(options: {
     relatedMarkerPlanIds: markerPlanIds,
     relatedMarkerPlanNos: markerPlanNos,
     sourceContextLabel: markerPlanNos[0] ? `来自唛架方案 ${markerPlanNos[0]}` : '裁片单上下文',
-    ticketCountBasisType: 'WAITING_SPREADING_RESULT',
-    ticketCountBasisLabel: '待铺布完成',
-    ticketCountBasisDetail: '当前尚未形成正式铺布完成结果，不能生成菲票。',
+    ticketCountBasisType: FEI_TICKET_WAITING_SOURCE_BASIS_TYPE,
+    ticketCountBasisLabel: '待实际裁剪产出',
+    ticketCountBasisDetail: '当前尚未形成实际裁剪产出，不能生成菲票。',
     currentStageLabel: options.row.currentStage.label,
     cuttableStateLabel: options.row.cuttableState.label,
     riskLabels: options.row.riskTags.map((tag) => tag.label),
@@ -854,33 +879,33 @@ export function resolveTicketCountBasis(
   owner: Pick<CutOrderTicketOwner, 'cutOrderId' | 'relatedMarkerPlanIds' | 'relatedMarkerPlanNos'> & { orderQtyHint: number },
   markerStore: MarkerSpreadingStore,
   context: FeiTicketsContext | null,
-  spreadingResultTicketCount = 0,
+  actualOutputTicketCount = 0,
 ): TicketCountBasisResult {
-  if (spreadingResultTicketCount > 0) {
+  if (actualOutputTicketCount > 0) {
     return {
-      basisType: 'SPREADING_RESULT',
-      ticketCount: spreadingResultTicketCount,
-      basisLabel: '铺布完成结果',
-      detailText: `当前按铺布完成结果生成，按实际成衣件数拆分 ${formatQty(spreadingResultTicketCount)} 张。`,
+      basisType: FEI_TICKET_SOURCE_BASIS_TYPE,
+      ticketCount: actualOutputTicketCount,
+      basisLabel: FEI_TICKET_SOURCE_BASIS,
+      detailText: `当前按实际裁剪产出生成，按实际裁片数量拆分 ${formatQty(actualOutputTicketCount)} 张。`,
     }
   }
 
   const markerPieces = findRelevantMarkerPieceCount(owner, markerStore, context)
   if (markerPieces && markerPieces > 0) {
     return {
-      basisType: 'WAITING_SPREADING_RESULT',
+      basisType: FEI_TICKET_WAITING_SOURCE_BASIS_TYPE,
       ticketCount: 0,
-      basisLabel: '待铺布完成',
-      detailText: '已维护排唛架方案，但尚未形成正式铺布完成结果，不能生成菲票。',
+      basisLabel: '待实际裁剪产出',
+      detailText: '已维护唛架方案，但尚未形成实际裁剪产出，不能生成菲票。',
     }
   }
 
   void owner.orderQtyHint
   return {
-    basisType: 'WAITING_SPREADING_RESULT',
+    basisType: FEI_TICKET_WAITING_SOURCE_BASIS_TYPE,
     ticketCount: 0,
-    basisLabel: '待铺布完成',
-    detailText: '当前尚未形成正式铺布完成结果，不能生成菲票。',
+    basisLabel: '待实际裁剪产出',
+    detailText: '当前尚未形成实际裁剪产出，不能生成菲票。',
   }
 }
 
@@ -1174,7 +1199,7 @@ export function buildFeiTicketsViewModel(options: {
     const markerPlanNos = Array.isArray(row.markerPlanNos) ? row.markerPlanNos : []
     const materialRow = materialRowsById[row.cutOrderId]
     const generatedTickets = printable ? generatedTicketMap[row.cutOrderId] || [] : []
-    const spreadingResultTicketCount = generatedTickets.filter((ticket) => ticket.sourceBasisType === 'SPREADING_RESULT').length
+    const actualOutputTicketCount = generatedTickets.filter((ticket) => ticket.sourceBasisType === FEI_TICKET_SOURCE_BASIS_TYPE).length
     const ticketCountBasis = printable
       ? resolveTicketCountBasis(
           {
@@ -1185,13 +1210,13 @@ export function buildFeiTicketsViewModel(options: {
           },
           options.markerStore,
           null,
-          spreadingResultTicketCount,
+          actualOutputTicketCount,
         )
       : {
-          basisType: 'WAITING_SPREADING_RESULT' as const,
+          basisType: FEI_TICKET_WAITING_SOURCE_BASIS_TYPE,
           ticketCount: 0,
           basisLabel: '未进入打印环节',
-          detailText: '当前仍未完成领料或铺布结果，不能生成菲票。',
+          detailText: '当前仍未形成实际裁剪产出，不能生成菲票。',
         }
     const plannedTicketQty = ticketCountBasis.ticketCount
     const ownerRecords = printable ? options.ticketRecords.filter((record) => record.cutOrderId === row.cutOrderId) : []
@@ -1751,7 +1776,7 @@ export interface PrintableUnit {
   sourceCutOrderCount: number
   requiredTicketCount: number
   garmentQtyTotal: number
-  ticketCountBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
+  ticketCountBasisType: FeiTicketSourceBasisType | WaitingFeiTicketSourceBasisType
   ticketCountBasisLabel: string
   ticketCountBasisDetail: string
   validPrintedTicketCount: number
@@ -1807,6 +1832,7 @@ export interface TicketSplitDetail {
   size: string
   partCode: string
   partName: string
+  partInstanceNo: string
   bundleNo: string
   pieceSetNoStart: number
   pieceSetNoEnd: number
@@ -1819,6 +1845,12 @@ export interface TicketSplitDetail {
   validPrintedTicketCount: number
   gapCount: number
   sequenceNo: number
+  hasSpecialCraft: boolean
+  specialCrafts: FeiTicketSpecialCraft[]
+  specialCraftDisplayLabel: string
+  pieceSequenceRange: PieceSequenceRange | null
+  pieceSequenceLabel: string
+  pieceSequenceCannotGenerateReason: string
 }
 
 export interface TicketCard {
@@ -1840,6 +1872,7 @@ export interface TicketCard {
   size: string
   partCode: string
   partName: string
+  partInstanceNo: string
   bundleNo: string
   pieceSetNoStart: number
   pieceSetNoEnd: number
@@ -1850,6 +1883,12 @@ export interface TicketCard {
   printStatus: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   garmentQty: number
   processTags: string[]
+  hasSpecialCraft: boolean
+  specialCrafts: FeiTicketSpecialCraft[]
+  specialCraftDisplayLabel: string
+  pieceSequenceRange: PieceSequenceRange | null
+  pieceSequenceLabel: string
+  pieceSequenceCannotGenerateReason: string
   qrContentText: string
   version: number
   status: TicketCardStatus
@@ -1932,7 +1971,7 @@ function isFeiTicketRecordVoided(record: FeiTicketLabelRecord): boolean {
 }
 
 export function isPrintableSourceRow(row: CutOrderRow): boolean {
-  return getGeneratedFeiRecordsByCutOrderId(row.cutOrderId).some((record) => record.sourceBasisType === 'SPREADING_RESULT')
+  return getGeneratedFeiRecordsByCutOrderId(row.cutOrderId).some((record) => record.sourceBasisType === FEI_TICKET_SOURCE_BASIS_TYPE)
 }
 
 function comparePrintedAtDesc(left: string, right: string): number {
@@ -2142,14 +2181,14 @@ function buildPrintableUnitFromMarkerPlanRef(options: {
   )
   const ownerBasisTypes = unique(options.owners.map((owner) => owner.ticketCountBasisType))
   const ticketCountBasisType =
-    ownerBasisTypes.length === 1 && ownerBasisTypes[0] === 'SPREADING_RESULT'
-      ? 'SPREADING_RESULT'
-      : 'WAITING_SPREADING_RESULT'
-  const ticketCountBasisLabel = ticketCountBasisType === 'SPREADING_RESULT' ? '铺布完成结果' : '待铺布完成'
+    ownerBasisTypes.length === 1 && ownerBasisTypes[0] === FEI_TICKET_SOURCE_BASIS_TYPE
+      ? FEI_TICKET_SOURCE_BASIS_TYPE
+      : FEI_TICKET_WAITING_SOURCE_BASIS_TYPE
+  const ticketCountBasisLabel = ticketCountBasisType === FEI_TICKET_SOURCE_BASIS_TYPE ? FEI_TICKET_SOURCE_BASIS : '待实际裁剪产出'
   const ticketCountBasisDetail =
-    ticketCountBasisType === 'SPREADING_RESULT'
-      ? `当前按铺布完成结果汇总，按实际成衣件数拆分 ${formatQty(generatedRecords.length)} 张。`
-      : '当前尚未形成正式铺布完成结果，不能生成菲票。'
+    ticketCountBasisType === FEI_TICKET_SOURCE_BASIS_TYPE
+      ? `当前按实际裁剪产出汇总，按实际裁片数量拆分 ${formatQty(generatedRecords.length)} 张。`
+      : '当前尚未形成实际裁剪产出，不能生成菲票。'
   const missingTicketCount = Math.max(requiredTicketCount - stats.validPrintedTicketCount, 0)
   const printableUnitStatus = derivePrintableUnitStatus({
     requiredTicketCount,
@@ -2317,7 +2356,7 @@ export function buildPrintableUnitViewModel(options: {
   })
 
   const contextualUnits = filterUnitsByContext(units, options.prefilter)
-    .filter((unit) => unit.requiredTicketCount > 0 && unit.ticketCountBasisType === 'SPREADING_RESULT')
+    .filter((unit) => unit.requiredTicketCount > 0 && unit.ticketCountBasisType === FEI_TICKET_SOURCE_BASIS_TYPE)
     .sort((left, right) => {
       const priorityDiff = derivePrintableUnitSortPriority(left.printableUnitStatus) - derivePrintableUnitSortPriority(right.printableUnitStatus)
       if (priorityDiff !== 0) return priorityDiff
@@ -2419,6 +2458,7 @@ function buildSplitDetailsFromOwner(
         size: record.skuSize || printableSizeCycle[index % printableSizeCycle.length],
         partCode: record.partCode || '',
         partName: record.partName || printablePartCycle[index % printablePartCycle.length],
+        partInstanceNo: record.partInstanceNo || '',
         bundleNo: record.bundleNo || `BUNDLE-${String(index + 1).padStart(3, '0')}`,
         pieceSetNoStart: record.pieceSetNoStart || 1,
         pieceSetNoEnd: record.pieceSetNoEnd || record.bundleQty || record.qty || 1,
@@ -2427,6 +2467,12 @@ function buildSplitDetailsFromOwner(
         quantity: Math.max(record.bundleQty || record.qty, 1),
         actualCutPieceQty: Math.max(record.actualCutPieceQty || record.qty, 1),
         garmentQty: Math.max(record.garmentQty || record.bundleQty || record.qty, 1),
+        hasSpecialCraft: record.hasSpecialCraft,
+        specialCrafts: record.specialCrafts.map((craft) => ({ ...craft })),
+        specialCraftDisplayLabel: record.specialCraftDisplayLabel,
+        pieceSequenceRange: record.pieceSequenceRange ? { ...record.pieceSequenceRange } : null,
+        pieceSequenceLabel: record.pieceSequenceLabel,
+        pieceSequenceCannotGenerateReason: record.pieceSequenceCannotGenerateReason,
       }))
     : Array.from({ length: Math.max(source.owner.plannedTicketQty, 0) }, (_, index) => ({
         sequenceNo: index + 1,
@@ -2438,6 +2484,7 @@ function buildSplitDetailsFromOwner(
         size: printableSizeCycle[index % printableSizeCycle.length],
         partCode: '',
         partName: printablePartCycle[index % printablePartCycle.length],
+        partInstanceNo: '',
         bundleNo: `BUNDLE-${String(index + 1).padStart(3, '0')}`,
         pieceSetNoStart: 1,
         pieceSetNoEnd: 1,
@@ -2446,6 +2493,12 @@ function buildSplitDetailsFromOwner(
         quantity: 1,
         actualCutPieceQty: 1,
         garmentQty: 1,
+        hasSpecialCraft: false,
+        specialCrafts: [],
+        specialCraftDisplayLabel: '无',
+        pieceSequenceRange: null,
+        pieceSequenceLabel: '不可生成',
+        pieceSequenceCannotGenerateReason: '缺少实际裁剪产出',
       }))
 
   return detailSeeds.map((seed) => {
@@ -2466,6 +2519,7 @@ function buildSplitDetailsFromOwner(
         size: seed.size,
         partCode: seed.partCode,
         partName: seed.partName,
+        partInstanceNo: seed.partInstanceNo,
         bundleNo: seed.bundleNo,
         pieceSetNoStart: seed.pieceSetNoStart,
         pieceSetNoEnd: seed.pieceSetNoEnd,
@@ -2477,6 +2531,12 @@ function buildSplitDetailsFromOwner(
         validPrintedTicketCount: 0,
         gapCount: 0,
         sequenceNo: seed.sequenceNo,
+        hasSpecialCraft: seed.hasSpecialCraft,
+        specialCrafts: seed.specialCrafts,
+        specialCraftDisplayLabel: seed.specialCraftDisplayLabel,
+        pieceSequenceRange: seed.pieceSequenceRange,
+        pieceSequenceLabel: seed.pieceSequenceLabel,
+        pieceSequenceCannotGenerateReason: seed.pieceSequenceCannotGenerateReason,
       },
       ticketRecords,
     ).filter((record) => !isFeiTicketRecordVoided(record))
@@ -2501,6 +2561,7 @@ function buildSplitDetailsFromOwner(
       size: seed.size,
       partCode: seed.partCode,
       partName: seed.partName,
+      partInstanceNo: seed.partInstanceNo,
       bundleNo: seed.bundleNo,
       pieceSetNoStart: seed.pieceSetNoStart,
       pieceSetNoEnd: seed.pieceSetNoEnd,
@@ -2513,6 +2574,16 @@ function buildSplitDetailsFromOwner(
       validPrintedTicketCount,
       gapCount: Math.max(1 - validPrintedTicketCount, 0),
       sequenceNo: seed.sequenceNo,
+      hasSpecialCraft: relatedRecords[0]?.hasSpecialCraft ?? seed.hasSpecialCraft,
+      specialCrafts: relatedRecords[0]?.specialCrafts
+        ? relatedRecords[0].specialCrafts.map((craft) => ({ ...craft }))
+        : seed.specialCrafts.map((craft) => ({ ...craft })),
+      specialCraftDisplayLabel: relatedRecords[0]?.specialCraftDisplayLabel || seed.specialCraftDisplayLabel || '无',
+      pieceSequenceRange: relatedRecords[0]?.pieceSequenceRange
+        ? { ...relatedRecords[0].pieceSequenceRange }
+        : seed.pieceSequenceRange ? { ...seed.pieceSequenceRange } : null,
+      pieceSequenceLabel: relatedRecords[0]?.pieceSequenceLabel || seed.pieceSequenceLabel || '不可生成',
+      pieceSequenceCannotGenerateReason: relatedRecords[0]?.pieceSequenceCannotGenerateReason || seed.pieceSequenceCannotGenerateReason || '',
     }
   })
 }
@@ -2564,6 +2635,7 @@ export function buildTicketCards(options: {
         size: record.size || detail?.size || '待补尺码',
         partCode: record.partCode || detail?.partCode || '',
         partName: record.partName || detail?.partName || '待补部位',
+        partInstanceNo: record.partInstanceNo || detail?.partInstanceNo || '',
         bundleNo: record.bundleNo || detail?.bundleNo || '',
         pieceSetNoStart: record.pieceSetNoStart || detail?.pieceSetNoStart || 1,
         pieceSetNoEnd: record.pieceSetNoEnd || detail?.pieceSetNoEnd || record.quantity || detail?.quantity || 1,
@@ -2574,6 +2646,16 @@ export function buildTicketCards(options: {
         printStatus: record.printStatus || 'PRINTED',
         garmentQty: record.quantity ?? detail?.garmentQty ?? detail?.quantity ?? 1,
         processTags: record.processTags || [],
+        hasSpecialCraft: record.hasSpecialCraft ?? detail?.hasSpecialCraft ?? false,
+        specialCrafts: record.specialCrafts
+          ? record.specialCrafts.map((craft) => ({ ...craft }))
+          : (detail?.specialCrafts || []).map((craft) => ({ ...craft })),
+        specialCraftDisplayLabel: record.specialCraftDisplayLabel || detail?.specialCraftDisplayLabel || '无',
+        pieceSequenceRange: record.pieceSequenceRange
+          ? { ...record.pieceSequenceRange }
+          : detail?.pieceSequenceRange ? { ...detail.pieceSequenceRange } : null,
+        pieceSequenceLabel: record.pieceSequenceLabel || detail?.pieceSequenceLabel || '不可生成',
+        pieceSequenceCannotGenerateReason: record.pieceSequenceCannotGenerateReason || detail?.pieceSequenceCannotGenerateReason || '',
         qrContentText: record.qrSerializedValue || record.qrValue,
         version: record.version ?? record.reprintCount + 1,
         status: isFeiTicketRecordVoided(record) ? 'VOIDED' : 'VALID',
@@ -2745,18 +2827,30 @@ export function executePrintableUnitPrint(options: {
         ),
         ticketRecordId,
         ticketNo: buildVersionedTicketNo(detail.sourceCutOrderNo, detail.sequenceNo, nextVersion),
+        sourceOutputLineId: detail.sourceOutputLineId,
+        sourceBasis: FEI_TICKET_SOURCE_BASIS,
+        sourceBasisType: FEI_TICKET_SOURCE_BASIS_TYPE,
+        sourceSpreadingSessionId: detail.sourceSpreadingSessionId,
+        sourceSpreadingSessionNo: detail.sourceSpreadingSessionNo,
         printableUnitId: options.unit.printableUnitId,
         printableUnitNo: options.unit.printableUnitNo,
         printableUnitType: options.unit.printableUnitType,
         quantity: detail.quantity,
         partName: detail.partName,
+        partInstanceNo: detail.partInstanceNo,
         size: detail.size,
         bundleNo: detail.bundleNo,
         pieceSetNoStart: detail.pieceSetNoStart,
         pieceSetNoEnd: detail.pieceSetNoEnd,
         pieceSetNoRange: detail.pieceSetNoRange,
         bundleTicketType: detail.bundleTicketType,
-        processTags: [],
+        processTags: detail.specialCrafts.map((craft) => craft.craftName),
+        hasSpecialCraft: detail.hasSpecialCraft,
+        specialCrafts: detail.specialCrafts.map((craft) => ({ ...craft })),
+        specialCraftDisplayLabel: detail.specialCraftDisplayLabel,
+        pieceSequenceRange: detail.pieceSequenceRange ? { ...detail.pieceSequenceRange } : null,
+        pieceSequenceLabel: detail.pieceSequenceLabel,
+        pieceSequenceCannotGenerateReason: detail.pieceSequenceCannotGenerateReason,
         version: nextVersion,
         createdAt: options.operatedAt,
         printedAt: options.operatedAt,

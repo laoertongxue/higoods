@@ -29,6 +29,12 @@ import type {
   PdaReplenishmentFeedbackWritebackRecord,
 } from './cutting/pda-execution-writeback-ledger.ts'
 import type { MarkerSpreadingStore, SpreadingOperatorRecord, SpreadingRollRecord, SpreadingSession } from './cutting/marker-spreading-ledger.ts'
+import {
+  getLatestPdaCuttingStageWritebackByExecution,
+  listPdaCuttingStageWritebacksByExecution,
+  type PdaCuttingStageActionType,
+  type PdaCuttingStageWritebackRecord,
+} from './cutting/pda-cutting-stage-writeback.ts'
 import { getLatestClaimDisputeByCutOrderNo } from '../../state/fcs-claim-dispute-store.ts'
 import {
   buildSpreadingPlanUnitsFromMarker,
@@ -43,6 +49,14 @@ export type PdaTaskEntryMode = 'DEFAULT' | 'CUTTING_SPECIAL'
 export type PdaCuttingRouteKey = 'task' | 'unit' | 'spreading' | 'inbound' | 'handover' | 'replenishment-feedback'
 export type PdaCuttingCurrentStepCode = 'START' | 'PICKUP' | 'SPREADING' | 'REPLENISHMENT' | 'HANDOVER' | 'INBOUND' | 'DONE'
 export type PdaSpreadingMode = 'NORMAL' | 'HIGH_LOW' | 'FOLD_NORMAL' | 'FOLD_HIGH_LOW'
+type PdaCuttingMobileStage =
+  | 'WAIT_PICKUP'
+  | 'WAIT_START'
+  | 'WAIT_SPREADING'
+  | 'SPREADING'
+  | 'WAIT_CUTTING'
+  | 'CUTTING'
+  | 'CUT_DONE'
 
 export interface PdaTaskSummary {
   currentStage: string
@@ -111,6 +125,9 @@ export interface PdaCuttingTaskOrderLine {
   currentStepLabel: string
   primaryExecutionRouteKey: Exclude<PdaCuttingRouteKey, 'task' | 'unit'>
   nextActionLabel: string
+  mobileStage: PdaCuttingMobileStage
+  latestSyncStatus: string
+  latestSyncSummary: string
   qrCodeValue: string
   pickupSlipNo: string
   isDone: boolean
@@ -325,6 +342,8 @@ export interface PdaCuttingTaskDetailData {
   inboundRecords: PdaCuttingInboundRecord[]
   handoverRecords: PdaCuttingHandoverRecord[]
   replenishmentFeedbacks: PdaCuttingReplenishmentFeedbackRecord[]
+  latestSyncStatus: string
+  latestSyncSummary: string
 }
 
 export interface PdaCuttingRouteOptions {
@@ -490,6 +509,33 @@ function buildFallbackPlanUnitsFromSession(session: SpreadingSession, execution:
     plannedSpreadLengthM: Math.max(Number(session.theoreticalSpreadTotalLength || 0), 0),
   }
   return [toSpreadingPlanUnitOption(fallbackUnit)]
+}
+
+function buildFallbackPlanUnitFromExecution(execution: PdaCuttingExecutionSourceRecord): PdaCuttingSpreadingPlanUnitOption {
+  const scenario = getPdaCuttingTaskScenarioByTaskId(execution.taskId)
+  const originalRecord = getCutOrderRecord(execution)
+  const plannedRepeatCount = Math.max(
+    Number(scenario?.executions.find((item) => item.executionOrderId === execution.executionOrderId)?.spreadingPreset?.layerCount || 0),
+    100,
+  )
+  const plannedCutGarmentQty = Math.max(Number(scenario?.qty || originalRecord?.requiredQty || 0), 1)
+  const garmentQtyPerUnit = Math.max(Math.round(plannedCutGarmentQty / plannedRepeatCount), 1)
+  const plannedSpreadLengthM = Number((plannedRepeatCount * 2).toFixed(2))
+  const unit: SpreadingPlanUnit = {
+    planUnitId: `plan-unit-${execution.executionOrderId}-pda`,
+    sourceType: 'exception',
+    sourceLineId: execution.executionOrderId,
+    color: originalRecord?.materialColor || '',
+    materialSku: execution.materialSku || originalRecord?.materialSku || '',
+    materialAlias: execution.materialAlias || originalRecord?.materialAlias || '',
+    materialImageUrl: execution.materialImageUrl || originalRecord?.materialImageUrl || '',
+    garmentQtyPerUnit,
+    plannedRepeatCount,
+    lengthPerUnitM: 2,
+    plannedCutGarmentQty,
+    plannedSpreadLengthM,
+  }
+  return toSpreadingPlanUnitOption(unit)
 }
 
 function buildExecutionMarkerSpreadingContext(
@@ -865,11 +911,58 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
     importedFromMarker: Boolean(session.importedFromMarker),
     planUnits: (session.planUnits?.length ? session.planUnits : undefined)?.map(toSpreadingPlanUnitOption) || buildFallbackPlanUnitsFromSession(session, execution),
   }))
-  return sessionTargets
+  if (sessionTargets.length) return sessionTargets
+
+  const canonicalTargets = listCanonicalMarkerPlansForExecution(snapshot, execution).map((plan) => ({
+    targetKey: `marker-plan:${plan.id}`,
+    targetType: 'session' as const,
+    spreadingSessionId: '',
+    markerId: plan.id,
+    markerNo: plan.markerNo || plan.contextNo || '',
+    sourceMarkerLabel: plan.markerNo || plan.contextNo || '待关联唛架编号',
+    spreadingMode: mapMarkerPlanModeToSpreadingMode(plan.markerMode),
+    title: plan.markerNo || plan.contextNo || `铺布对象 ${execution.executionOrderNo}`,
+    contextLabel: '待铺布',
+    statusLabel: '待铺布',
+    cutOrderNo: execution.cutOrderNo || '',
+    markerPlanNo: plan.markerPlanNo || execution.markerPlanNo || '',
+    productionOrderNo: execution.productionOrderNo || '',
+    materialSku: execution.materialSku || plan.sourceMaterialSku || '',
+    materialAlias: execution.materialAlias || plan.materialAliasSummary || '',
+    materialImageUrl: execution.materialImageUrl || plan.materialImageUrl || '',
+    colorSummary: plan.colorSummary || '',
+    importedFromMarker: true,
+    planUnits: buildPlanUnitsFromCanonicalPlan(plan, execution),
+  }))
+  if (canonicalTargets.length) return canonicalTargets
+
+  if (!isPdaSequenceMockTask(execution.taskId)) return []
+  const fallbackUnit = buildFallbackPlanUnitFromExecution(execution)
+  return [{
+    targetKey: `pda-sequence:${execution.executionOrderId}`,
+    targetType: 'session',
+    spreadingSessionId: '',
+    markerId: execution.markerPlanId || '',
+    markerNo: execution.markerPlanNo || 'A-1',
+    sourceMarkerLabel: execution.markerPlanNo || 'PDA 验证唛架编号 A-1',
+    spreadingMode: 'NORMAL',
+    title: `铺布单 ${execution.taskId}`,
+    contextLabel: '待铺布',
+    statusLabel: '待铺布',
+    cutOrderNo: execution.cutOrderNo || '',
+    markerPlanNo: execution.markerPlanNo || '',
+    productionOrderNo: execution.productionOrderNo || '',
+    materialSku: execution.materialSku || fallbackUnit.materialSku || '',
+    materialAlias: execution.materialAlias || fallbackUnit.materialAlias || '',
+    materialImageUrl: execution.materialImageUrl || fallbackUnit.materialImageUrl || '',
+    colorSummary: fallbackUnit.color || '',
+    importedFromMarker: true,
+    planUnits: [fallbackUnit],
+  }]
 }
 
 function getScenarioSpreadingPreset(execution: PdaCuttingExecutionSourceRecord): {
-  status: 'STARTED' | 'DONE' | 'BLOCKED'
+  status: 'STARTED' | 'DONE' | 'CUTTING' | 'CUT_DONE' | 'BLOCKED'
   recordId: string
   fabricRollNo: string
   layerCount: number
@@ -896,10 +989,10 @@ function listOperatorsForExecution(snapshot: CuttingDomainSnapshot, execution: P
 }
 
 function buildReplenishmentLabel(latestReplenishment: PdaReplenishmentFeedbackRecord | null): string {
-  if (!latestReplenishment) return '当前无补料风险'
+  if (!latestReplenishment) return '当前无现场差异'
   if (latestReplenishment.lifecycleStatus === 'CLOSED') return `${latestReplenishment.reasonLabel}，已关闭`
   if (latestReplenishment.lifecycleStatus === 'PENDING') return `${latestReplenishment.reasonLabel}，待工艺工厂跟进`
-  return `${latestReplenishment.reasonLabel}，已提交补料反馈`
+  return `${latestReplenishment.reasonLabel}，已提交现场差异反馈`
 }
 
 function includesAny(value: string | undefined, keywords: string[]): boolean {
@@ -908,7 +1001,7 @@ function includesAny(value: string | undefined, keywords: string[]): boolean {
 }
 
 function hasPendingReplenishmentRisk(label: string): boolean {
-  return !includesAny(label, ['当前无补料风险', '暂无补料风险', '无需补料', '已关闭'])
+  return !includesAny(label, ['当前无现场差异', '暂无现场差异', '无需处理', '已关闭'])
 }
 
 function isReceiveCompleted(status: string): boolean {
@@ -928,50 +1021,42 @@ function isInboundCompleted(status: string): boolean {
 }
 
 function resolveCurrentStepCode(input: {
-  bindingState: 'BOUND' | 'UNBOUND'
-  taskStatus: ProcessTask['status']
-  currentReceiveStatus: string
-  currentExecutionStatus: string
-  currentInboundStatus: string
-  currentHandoverStatus: string
-  replenishmentRiskLabel: string
+  mobileStage: PdaCuttingMobileStage
 }): PdaCuttingCurrentStepCode {
-  if (input.bindingState === 'UNBOUND') return 'SPREADING'
-  if (input.taskStatus === 'NOT_STARTED') return 'START'
-  if (input.taskStatus === 'CANCELLED') return 'DONE'
-  if (!isReceiveCompleted(input.currentReceiveStatus)) return 'PICKUP'
-  if (!isSpreadingCompleted(input.currentExecutionStatus)) return 'SPREADING'
-  if (hasPendingReplenishmentRisk(input.replenishmentRiskLabel)) return 'REPLENISHMENT'
-  if (!isInboundCompleted(input.currentInboundStatus)) return 'INBOUND'
-  if (!isHandoverCompleted(input.currentHandoverStatus)) return 'HANDOVER'
+  if (input.mobileStage === 'WAIT_PICKUP') return 'PICKUP'
+  if (input.mobileStage === 'WAIT_START') return 'START'
+  if (
+    input.mobileStage === 'WAIT_SPREADING' ||
+    input.mobileStage === 'SPREADING' ||
+    input.mobileStage === 'WAIT_CUTTING' ||
+    input.mobileStage === 'CUTTING'
+  ) return 'SPREADING'
   return 'DONE'
 }
 
-function resolveCurrentStepLabel(stepCode: PdaCuttingCurrentStepCode): string {
-  if (stepCode === 'START') return '待开工'
-  if (stepCode === 'PICKUP') return '交接领料'
-  if (stepCode === 'SPREADING') return '按唛架方案铺布'
-  if (stepCode === 'REPLENISHMENT') return '反馈异常'
-  if (stepCode === 'INBOUND') return '入裁片待交出仓'
-  if (stepCode === 'HANDOVER') return '发起交出'
-  return '已完成'
+function resolveMobileStageLabel(stage: PdaCuttingMobileStage): string {
+  if (stage === 'WAIT_PICKUP') return '待领料'
+  if (stage === 'WAIT_START') return '待开工'
+  if (stage === 'WAIT_SPREADING') return '待铺布'
+  if (stage === 'SPREADING') return '铺布中'
+  if (stage === 'WAIT_CUTTING') return '待裁剪'
+  if (stage === 'CUTTING') return '裁剪中'
+  return '已裁剪'
 }
 
 function resolveNextAction(line: {
-  currentStepCode: PdaCuttingCurrentStepCode
+  mobileStage: PdaCuttingMobileStage
   taskStatus: ProcessTask['status']
   hasException: boolean
 }): string {
-  if (line.taskStatus === 'CANCELLED') return '查看当前情况'
-  if (line.taskStatus === 'BLOCKED') return '查看异常'
-  if (line.hasException) return '查看异常'
-  if (line.currentStepCode === 'START') return '返回执行页开工'
-  if (line.currentStepCode === 'PICKUP') return '去交接模块领料'
-  if (line.currentStepCode === 'SPREADING') return '按唛架方案铺布'
-  if (line.currentStepCode === 'REPLENISHMENT') return '反馈异常'
-  if (line.currentStepCode === 'INBOUND') return '入裁片待交出仓'
-  if (line.currentStepCode === 'HANDOVER') return '发起交出'
-  return '查看当前情况'
+  if (line.taskStatus === 'CANCELLED' || line.taskStatus === 'BLOCKED') return '查看提交结果'
+  if (line.mobileStage === 'WAIT_PICKUP') return '去领料'
+  if (line.mobileStage === 'WAIT_START') return '开工'
+  if (line.mobileStage === 'WAIT_SPREADING') return '开始铺布'
+  if (line.mobileStage === 'SPREADING') return '完成铺布'
+  if (line.mobileStage === 'WAIT_CUTTING') return '开始裁剪'
+  if (line.mobileStage === 'CUTTING') return '完成裁剪'
+  return '查看提交结果'
 }
 
 function resolveCurrentState(line: {
@@ -986,17 +1071,18 @@ function resolveCurrentState(line: {
   hasException: boolean
 }): string {
   if (line.bindingState === 'UNBOUND') return '待绑定'
-  if (line.taskStatus === 'NOT_STARTED') return '待开工'
   if (line.taskStatus === 'CANCELLED') return '已中止'
   if (line.taskStatus === 'BLOCKED' && line.currentExecutionStatus.includes('暂停')) return '执行暂停'
   if (line.hasException && !line.pickupSuccess) return '领料差异待处理'
   if (!line.pickupSuccess) return '待裁床领料'
-  if (!line.hasSpreading || line.currentExecutionStatus.includes('待铺布')) return '待铺布'
-  if (!line.hasInbound) return '待入仓'
-  if (!line.hasHandover) return '待交接'
-  if (line.replenishmentLabel.includes('待工艺工厂跟进')) return '补料风险待关注'
-  if (line.taskStatus === 'DONE' || line.replenishmentLabel.includes('已关闭')) return '已完成'
-  return '已完成'
+  if (line.taskStatus === 'NOT_STARTED') return '待开工'
+  if (line.currentExecutionStatus === '待铺布') return '待铺布'
+  if (line.currentExecutionStatus === '铺布中') return '铺布中'
+  if (line.currentExecutionStatus === '已铺布待裁剪') return '待裁剪'
+  if (line.currentExecutionStatus === '裁剪中') return '裁剪中'
+  if (line.currentExecutionStatus === '已裁剪') return '已裁剪'
+  if (line.replenishmentLabel.includes('待工艺工厂跟进')) return '现场差异待关注'
+  return line.currentExecutionStatus || '待铺布'
 }
 
 function resolvePrimaryExecutionRouteKey(input: {
@@ -1007,15 +1093,61 @@ function resolvePrimaryExecutionRouteKey(input: {
   hasException: boolean
 }): Exclude<PdaCuttingRouteKey, 'task' | 'unit'> {
   if (input.bindingState === 'UNBOUND') return 'spreading'
-  if (input.taskStatus === 'NOT_STARTED') return 'spreading'
   if (input.taskStatus === 'CANCELLED') return 'handover'
-  if (input.taskStatus === 'BLOCKED' && input.replenishmentLabel !== '当前无补料风险') return 'replenishment-feedback'
+  if (input.taskStatus === 'BLOCKED' && input.replenishmentLabel !== '当前无现场差异') return 'replenishment-feedback'
   if (input.currentStepCode === 'PICKUP') return 'spreading'
   if (input.currentStepCode === 'SPREADING') return 'spreading'
   if (input.currentStepCode === 'REPLENISHMENT') return 'replenishment-feedback'
   if (input.currentStepCode === 'INBOUND') return 'inbound'
   if (input.currentStepCode === 'HANDOVER') return 'handover'
   return 'handover'
+}
+
+function hasSyncedAction(records: PdaCuttingStageWritebackRecord[], actionType: PdaCuttingStageActionType): boolean {
+  return records.some((record) => record.actionType === actionType && record.syncStatus !== '同步失败')
+}
+
+function latestSyncedAction(records: PdaCuttingStageWritebackRecord[]): PdaCuttingStageWritebackRecord | null {
+  return records.find((record) => record.syncStatus !== '同步失败') ?? null
+}
+
+function isPdaSequenceMockTask(taskId?: string): boolean {
+  return Boolean(taskId?.startsWith('TASK-CUT-PDA-'))
+}
+
+function resolveMobileStage(input: {
+  taskStatus: ProcessTask['status']
+  hasPickupSuccess: boolean
+  hasStarted: boolean
+  stageActions: PdaCuttingStageWritebackRecord[]
+  preset: ReturnType<typeof getScenarioSpreadingPreset>
+  sessions: SpreadingSession[]
+}): PdaCuttingMobileStage {
+  if (!input.hasPickupSuccess) return 'WAIT_PICKUP'
+  if (!input.hasStarted) return 'WAIT_START'
+
+  const latestSynced = latestSyncedAction(input.stageActions)
+  if (latestSynced?.actionType === 'FINISH_CUTTING') return 'CUT_DONE'
+  if (latestSynced?.actionType === 'START_CUTTING') return 'CUTTING'
+  if (latestSynced?.actionType === 'FINISH_SPREADING') return 'WAIT_CUTTING'
+  if (latestSynced?.actionType === 'START_SPREADING') return 'SPREADING'
+
+  if (input.taskStatus === 'DONE') return 'CUT_DONE'
+  if (input.preset?.status === 'CUT_DONE') return 'CUT_DONE'
+  if (input.preset?.status === 'CUTTING') return 'CUTTING'
+  if (input.preset?.status === 'DONE') return 'WAIT_CUTTING'
+  if (input.preset?.status === 'STARTED') return 'SPREADING'
+
+  const latestSession = input.sessions[0] ?? null
+  if (latestSession?.status === 'DONE') return 'WAIT_CUTTING'
+  if (latestSession?.status === 'IN_PROGRESS') return 'SPREADING'
+
+  return 'WAIT_SPREADING'
+}
+
+function buildSyncSummary(record: PdaCuttingStageWritebackRecord | null): string {
+  if (!record) return '暂无提交'
+  return `${record.syncStatus}：${record.actionLabel}${record.varianceFlag ? '（已标记差异）' : ''} / ${record.submittedAt}`
 }
 
 function listRiskTips(line: {
@@ -1028,7 +1160,7 @@ function listRiskTips(line: {
   if (line.disputeSummary) tips.push(line.disputeSummary)
   if (!line.hasInbound) tips.push('当前尚未完成入仓扫码，后续仓务无法稳定回流。')
   if (!line.hasHandover) tips.push('当前尚未完成交接扫码，后道承接状态未闭环。')
-  if (line.replenishmentLabel !== '当前无补料风险') tips.push(line.replenishmentLabel)
+  if (line.replenishmentLabel !== '当前无现场差异') tips.push(line.replenishmentLabel)
   return unique(tips)
 }
 
@@ -1046,33 +1178,67 @@ function buildTaskOrderLine(
   const latestReplenishment = getLatestReplenishment(snapshot, execution)
   const sessions = listSessionsForExecution(snapshot, execution)
   const preset = getScenarioSpreadingPreset(execution)
+  const stageActions = listPdaCuttingStageWritebacksByExecution(execution.taskId, execution.executionOrderId)
+  const latestStageAction = getLatestPdaCuttingStageWritebackByExecution(execution.taskId, execution.executionOrderId)
   const pickupDispute = execution.cutOrderNo ? getLatestClaimDisputeByCutOrderNo(execution.cutOrderNo) : null
   const hasInbound = Boolean(latestInbound)
   const hasHandover = Boolean(latestHandover)
   const hasDownstreamWarehouseSignal = hasInbound || hasHandover
+  const useExplicitPickupWriteback = isPdaSequenceMockTask(execution.taskId)
   const currentReceiveStatus =
     pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
       ? '来料异议处理中'
-      : latestPickup?.resultLabel || (hasDownstreamWarehouseSignal ? '来料已入仓' : mapReceiveStatusLabel(progressLine?.receiveStatus))
+      : latestPickup?.resultLabel
+        || (useExplicitPickupWriteback
+          ? '待裁床领料'
+          : hasDownstreamWarehouseSignal
+            ? '来料已入仓'
+            : mapReceiveStatusLabel(progressLine?.receiveStatus))
   const hasPickupSuccess =
     Boolean(latestPickup?.resultLabel?.includes('成功'))
-    || progressLine?.receiveStatus === 'RECEIVED'
-    || hasDownstreamWarehouseSignal
-  const hasSpreading = sessions.length > 0 || Boolean(preset)
+    || (!useExplicitPickupWriteback && (
+      progressLine?.receiveStatus === 'RECEIVED'
+      || hasDownstreamWarehouseSignal
+    ))
+  const hasStarted =
+    scenario?.taskStatus === 'IN_PROGRESS'
+    || scenario?.taskStatus === 'DONE'
+    || scenario?.taskStatus === 'BLOCKED'
+    || Boolean(scenario?.startedAt)
+    || hasSyncedAction(stageActions, 'START_WORK')
+  const mobileStage = resolveMobileStage({
+    taskStatus: scenario?.taskStatus || 'NOT_STARTED',
+    hasPickupSuccess,
+    hasStarted,
+    stageActions,
+    preset,
+    sessions,
+  })
+  const hasSpreading =
+    mobileStage === 'SPREADING'
+    || mobileStage === 'WAIT_CUTTING'
+    || mobileStage === 'CUTTING'
+    || mobileStage === 'CUT_DONE'
   const currentExecutionStatus =
     execution.bindingState === 'UNBOUND'
       ? '待绑定裁片单'
-      : scenario?.taskStatus === 'NOT_STARTED'
+      : mobileStage === 'WAIT_PICKUP'
+        ? '待领料'
+        : mobileStage === 'WAIT_START'
         ? '待开工'
         : scenario?.taskStatus === 'CANCELLED'
           ? '执行已中止'
           : preset?.status === 'BLOCKED' || scenario?.taskStatus === 'BLOCKED'
             ? '铺布已暂停'
-            : preset?.status === 'DONE' || scenario?.taskStatus === 'DONE'
-              ? '铺布已完成'
-              : hasSpreading
-                ? '铺布进行中'
-                : '待铺布录入'
+            : mobileStage === 'WAIT_SPREADING'
+              ? '待铺布'
+              : mobileStage === 'SPREADING'
+                ? '铺布中'
+                : mobileStage === 'WAIT_CUTTING'
+                  ? '已铺布待裁剪'
+                  : mobileStage === 'CUTTING'
+                    ? '裁剪中'
+                    : '已裁剪'
   const currentInboundStatus = latestInbound ? '已入仓' : '待入仓扫码'
   const currentHandoverStatus = latestHandover ? '已交接' : '待交接扫码'
   const replenishmentRiskLabel = buildReplenishmentLabel(latestReplenishment)
@@ -1084,15 +1250,9 @@ function buildTaskOrderLine(
     || currentExecutionStatus.includes('暂停')
     || currentExecutionStatus.includes('中止')
   const currentStepCode = resolveCurrentStepCode({
-    bindingState: execution.bindingState,
-    taskStatus: scenario?.taskStatus || 'NOT_STARTED',
-    currentReceiveStatus,
-    currentExecutionStatus,
-    currentInboundStatus,
-    currentHandoverStatus,
-    replenishmentRiskLabel,
+    mobileStage,
   })
-  const currentStepLabel = resolveCurrentStepLabel(currentStepCode)
+  const currentStepLabel = resolveMobileStageLabel(mobileStage)
   const currentStateLabel = resolveCurrentState({
     bindingState: execution.bindingState,
     taskStatus: scenario?.taskStatus || 'NOT_STARTED',
@@ -1111,6 +1271,8 @@ function buildTaskOrderLine(
     replenishmentLabel: replenishmentRiskLabel,
     hasException,
   })
+  const latestSyncStatus = latestStageAction?.syncStatus || (latestPickup ? '已同步' : '暂无提交')
+  const latestSyncSummary = latestStageAction ? buildSyncSummary(latestStageAction) : (latestPickup ? `已同步：领料 / ${latestPickup.submittedAt}` : '暂无提交')
   return {
     executionOrderId: execution.executionOrderId,
     executionOrderNo: execution.executionOrderNo,
@@ -1137,19 +1299,18 @@ function buildTaskOrderLine(
     currentStepLabel,
     primaryExecutionRouteKey,
     nextActionLabel: resolveNextAction({
-      currentStepCode,
+      mobileStage,
       taskStatus: scenario?.taskStatus || 'NOT_STARTED',
       hasException,
     }),
+    mobileStage,
+    latestSyncStatus,
+    latestSyncSummary,
     qrCodeValue: buildQrCodeValue(execution.cutOrderNo || execution.executionOrderNo),
     pickupSlipNo: buildPickupSlipNo(execution.cutOrderNo || execution.executionOrderNo),
     isDone:
-      scenario?.taskStatus === 'DONE'
-      || (hasPickupSuccess
-        && hasSpreading
-        && hasInbound
-        && hasHandover
-        && (replenishmentRiskLabel === '当前无补料风险' || replenishmentRiskLabel.includes('已关闭'))),
+      mobileStage === 'CUT_DONE'
+      || scenario?.taskStatus === 'DONE',
     hasException,
     sortOrder,
   }
@@ -1393,7 +1554,7 @@ function buildRecentActions(input: {
   if (latestReplenishment) {
     actions.push({
       actionType: 'REPLENISHMENT',
-      actionTypeLabel: '补料反馈',
+      actionTypeLabel: '现场差异反馈',
       operatedBy: latestReplenishment.operatorName,
       operatedAt: latestReplenishment.feedbackAt,
       summary: latestReplenishment.reasonLabel,
@@ -1445,7 +1606,7 @@ function resolveTaskSummary(executions: PdaCuttingTaskOrderLine[]): PdaTaskSumma
             : executions.some((item) => item.currentExecutionStatus.includes('待绑定'))
               ? '存在待绑定执行对象'
               : '待开始铺布',
-    handoverSummary: executions.every((item) => item.currentHandoverStatus === '已交接') && executions.length > 0 ? '交出已完成' : '待交出',
+    handoverSummary: '后续阶段处理',
   }
 }
 
@@ -1610,23 +1771,52 @@ export function getPdaCuttingTaskSnapshot(
     hasInbound: selectedLine.currentInboundStatus === '已入仓',
     hasHandover: selectedLine.currentHandoverStatus === '已交接',
   })
-  const receiveSummary = task.summary.receiveSummary
+  const receiveSummary = selectedLine.currentReceiveStatus
   const executionSummary = spreadingRecords.length > 0 ? `已有 ${spreadingRecords.length} 条铺布记录` : '待开始铺布'
   const handoverSummary = handoverRecords.length > 0 ? '交接扫码已完成' : '待交接扫码'
   const configuredQtyText = buildConfiguredQtyText(
     originalRecord ?? {
       cutOrderId: selectedExecutionRecord.cutOrderId,
       cutOrderNo: selectedExecutionRecord.cutOrderNo,
+      generationKey: selectedExecutionRecord.cutOrderId || selectedExecutionRecord.cutOrderNo,
       productionOrderId: selectedExecutionRecord.productionOrderId,
       productionOrderNo: selectedExecutionRecord.productionOrderNo,
+      spuCode: '',
+      styleId: '',
+      styleCode: '',
+      styleName: '',
+      techPackVersionId: '',
+      techPackVersionLabel: '',
       materialSku: selectedExecutionRecord.materialSku,
+      materialName: selectedExecutionRecord.materialSku,
+      materialColor: '',
       materialType: 'SOLID',
       materialLabel: selectedExecutionRecord.materialSku,
       materialCategory: '',
+      materialAlias: selectedExecutionRecord.materialAlias || '',
+      materialImageUrl: selectedExecutionRecord.materialImageUrl || '',
+      materialUnit: '米',
+      materialIdentity: {
+        materialSku: selectedExecutionRecord.materialSku,
+        materialName: selectedExecutionRecord.materialSku,
+        materialColor: '',
+        materialAlias: selectedExecutionRecord.materialAlias || selectedExecutionRecord.materialSku,
+        materialImageUrl: selectedExecutionRecord.materialImageUrl || '',
+        materialUnit: '米',
+      },
+      patternIdentity: {
+        patternFileId: '',
+        patternFileName: '待补纸样文件',
+        patternVersion: '待补',
+        patternKind: '待补纸样类型',
+        effectiveWidthValue: 0,
+        effectiveWidthUnit: 'cm',
+        piecePartCodes: [],
+        piecePartNames: [],
+      },
       markerPlanId: selectedExecutionRecord.markerPlanId,
       markerPlanNo: selectedExecutionRecord.markerPlanNo,
       requiredQty: 0,
-      techPackVersionLabel: '',
       sourceTechPackSpuCode: '',
       colorScope: [],
       skuScopeLines: [],
@@ -1638,8 +1828,8 @@ export function getPdaCuttingTaskSnapshot(
   )
   const actualReceivedQtyText = buildActualReceivedQtyText({
     latestPickup: getLatestPickup(currentSnapshot, selectedExecutionRecord),
-    receivedLength: progressLine?.receivedLength,
-    receivedRollCount: progressLine?.receivedRollCount,
+    receivedLength: isPdaSequenceMockTask(selectedExecutionRecord.taskId) && !latestPickup ? 0 : progressLine?.receivedLength,
+    receivedRollCount: isPdaSequenceMockTask(selectedExecutionRecord.taskId) && !latestPickup ? 0 : progressLine?.receivedRollCount,
   })
   const currentOwnerName = task.assignedFactoryName || '工艺工厂裁片执行'
   const orderQty = originalRecord?.requiredQty || 0
@@ -1745,6 +1935,8 @@ export function getPdaCuttingTaskSnapshot(
     inboundRecords,
     handoverRecords,
     replenishmentFeedbacks,
+    latestSyncStatus: selectedLine.latestSyncStatus,
+    latestSyncSummary: selectedLine.latestSyncSummary,
   }
 }
 

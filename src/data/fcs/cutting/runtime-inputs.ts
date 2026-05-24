@@ -65,6 +65,9 @@ import {
   CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
   deserializeCuttingWarehouseWritebackStorage,
 } from './warehouse-writeback-ledger.ts'
+import {
+  CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY,
+} from './cut-order-close-records'
 
 const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
@@ -82,6 +85,7 @@ const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
   CUTTING_PDA_EXECUTION_WRITEBACK_STORAGE_KEY,
   CUTTING_MARKER_PLAN_REF_LEDGER_STORAGE_KEY,
   CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
+  CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY,
 ]
 
 const CUTTING_RUNTIME_SESSION_STORAGE_SIGNATURE_KEYS = [
@@ -209,6 +213,14 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
       ...record,
       materialLines: record.materialLines.map((line) => ({
         ...line,
+        materialIdentity: line.materialIdentity ? { ...line.materialIdentity } : undefined,
+        patternIdentity: line.patternIdentity
+          ? {
+              ...line.patternIdentity,
+              piecePartCodes: [...line.patternIdentity.piecePartCodes],
+              piecePartNames: [...line.patternIdentity.piecePartNames],
+            }
+          : undefined,
         skuScopeLines: (line.skuScopeLines || []).map((scope) => ({ ...scope })),
         pieceProgressLines: (line.pieceProgressLines || []).map((piece) => ({ ...piece })),
         issueFlags: [...line.issueFlags],

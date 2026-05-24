@@ -9,6 +9,11 @@ export interface CutOrderRef {
   productionOrderId: string
   productionOrderNo: string
   materialSku: string
+  materialColor: string
+  materialAlias: string
+  patternFileId: string
+  patternVersion: string
+  effectiveWidthText: string
   activeMarkerPlanRefId: string
   activeMarkerPlanRefNo: string
   markerPlanIds: string[]

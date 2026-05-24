@@ -1,0 +1,334 @@
+import { getQualityDeductionCaseStatus, qualityDeductionSharedCaseFacts, qualityDeductionSharedDeductionBases, qualityDeductionSharedDisputeCases, qualityDeductionSharedFactoryResponses, qualityDeductionSharedFormalLedgers, qualityDeductionSharedPendingDeductionRecords, qualityDeductionSharedQcRecords, qualityDeductionSharedSettlementAdjustments, qualityDeductionSharedSettlementImpacts, validateQualityDeductionSharedFacts, } from './quality-deduction-shared-facts.ts';
+import { resolveSettlementImpactAfterConfirmation, syncQualityDeductionLifecycle, } from './quality-deduction-lifecycle.ts';
+const caseByQcId = new Map();
+const caseByBasisId = new Map();
+const caseByDisputeId = new Map();
+const qcIdByRouteAlias = new Map();
+let runtimeMutationSequence = 1;
+function indexCaseFact(caseFact) {
+    caseByQcId.set(caseFact.qcRecord.qcId, caseFact);
+    if (caseFact.deductionBasis) {
+        caseByBasisId.set(caseFact.deductionBasis.basisId, caseFact);
+    }
+    if (caseFact.disputeCase) {
+        caseByDisputeId.set(caseFact.disputeCase.disputeId, caseFact);
+    }
+    for (const alias of caseFact.qcRecord.routeAliases) {
+        qcIdByRouteAlias.set(alias, caseFact.qcRecord.qcId);
+    }
+}
+for (const caseFact of qualityDeductionSharedCaseFacts) {
+    indexCaseFact(caseFact);
+}
+function normalizeRouteKey(routeKey) {
+    const normalized = routeKey.trim();
+    if (!normalized)
+        return [];
+    return Array.from(new Set([normalized, decodeURIComponent(normalized)]));
+}
+function nowTimestamp(date = new Date()) {
+    return date.toISOString().replace('T', ' ').slice(0, 19);
+}
+function parseDateMs(value) {
+    if (!value)
+        return null;
+    const timestamp = new Date(value.replace(' ', 'T')).getTime();
+    return Number.isFinite(timestamp) ? timestamp : null;
+}
+function isPastDeadline(deadline, now = new Date()) {
+    const deadlineMs = parseDateMs(deadline);
+    if (deadlineMs === null)
+        return false;
+    return deadlineMs < now.getTime();
+}
+function nextMutationId(prefix) {
+    runtimeMutationSequence += 1;
+    return `${prefix}-${String(runtimeMutationSequence).padStart(4, '0')}`;
+}
+function sanitizeIdPart(value) {
+    return value.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function ensureFactoryResponseArrayEntry(factoryResponse) {
+    if (qualityDeductionSharedFactoryResponses.some((item) => item.responseId === factoryResponse.responseId))
+        return;
+    qualityDeductionSharedFactoryResponses.push(factoryResponse);
+}
+function ensureDisputeArrayEntry(disputeCase) {
+    if (qualityDeductionSharedDisputeCases.some((item) => item.disputeId === disputeCase.disputeId))
+        return;
+    qualityDeductionSharedDisputeCases.push(disputeCase);
+}
+function updateSettlementImpactTotals(caseFact) {
+    caseFact.settlementImpact.totalFinancialImpactAmount =
+        caseFact.settlementImpact.blockedProcessingFeeAmount + caseFact.settlementImpact.effectiveQualityDeductionAmount;
+}
+function appendQcAuditLog(caseFact, detail, by, at, action) {
+    caseFact.qcRecord.auditLogs = [
+        ...caseFact.qcRecord.auditLogs,
+        {
+            id: nextMutationId(`AL-${caseFact.qcRecord.qcId}`),
+            action,
+            detail,
+            at,
+            by,
+        },
+    ];
+}
+function appendBasisAuditLog(caseFact, detail, by, at, action) {
+    if (!caseFact.deductionBasis)
+        return;
+    caseFact.deductionBasis.auditLogs = [
+        ...caseFact.deductionBasis.auditLogs,
+        {
+            id: nextMutationId(`AL-${caseFact.deductionBasis.basisId}`),
+            action,
+            detail,
+            at,
+            by,
+        },
+    ];
+}
+function createEvidenceAsset(qcId, index, asset) {
+    return {
+        assetId: `${sanitizeIdPart(qcId)}-DISPUTE-ASSET-${String(index + 1).padStart(2, '0')}`,
+        name: asset.name,
+        assetType: asset.assetType,
+        url: asset.url,
+    };
+}
+export function listQualityDeductionCaseFacts(options = {}) {
+    syncQualityDeductionLifecycle();
+    const { includeLegacy = true } = options;
+    return qualityDeductionSharedCaseFacts.filter((item) => includeLegacy || !item.qcRecord.isLegacy);
+}
+export function listQualityDeductionQcRecords(options = {}) {
+    return listQualityDeductionCaseFacts(options).map((item) => item.qcRecord);
+}
+export function listQualityDeductionFactoryResponses(options = {}) {
+    return listQualityDeductionCaseFacts(options)
+        .map((item) => item.factoryResponse)
+        .filter((item) => item !== null);
+}
+export function listQualityDeductionDeductionBases(options = {}) {
+    return listQualityDeductionCaseFacts(options)
+        .map((item) => item.deductionBasis)
+        .filter((item) => item !== null);
+}
+export function listPendingQualityDeductionRecords(options = {}) {
+    return listQualityDeductionCaseFacts(options)
+        .map((item) => item.pendingDeductionRecord)
+        .filter((item) => item !== null);
+}
+export function listFormalQualityDeductionLedgers(options = {}) {
+    return listQualityDeductionCaseFacts(options)
+        .map((item) => item.formalLedger)
+        .filter((item) => item !== null);
+}
+export function listQualityDeductionDisputeCases(options = {}) {
+    return listQualityDeductionCaseFacts(options)
+        .map((item) => item.disputeCase)
+        .filter((item) => item !== null);
+}
+export function listQualityDeductionSettlementImpacts(options = {}) {
+    return listQualityDeductionCaseFacts(options).map((item) => item.settlementImpact);
+}
+export function listQualityDeductionSettlementAdjustments(options = {}) {
+    return listQualityDeductionCaseFacts(options)
+        .map((item) => item.settlementAdjustment)
+        .filter((item) => item !== null);
+}
+export function getQualityDeductionCaseFactByQcId(qcId) {
+    syncQualityDeductionLifecycle();
+    return caseByQcId.get(qcId) ?? null;
+}
+export function getQualityDeductionCaseFactByBasisId(basisId) {
+    syncQualityDeductionLifecycle();
+    return caseByBasisId.get(basisId) ?? null;
+}
+export function getQualityDeductionCaseFactByDisputeId(disputeId) {
+    syncQualityDeductionLifecycle();
+    return caseByDisputeId.get(disputeId) ?? null;
+}
+export function resolveQualityDeductionQcId(routeKey) {
+    const aliases = normalizeRouteKey(routeKey);
+    for (const alias of aliases) {
+        const qcId = qcIdByRouteAlias.get(alias);
+        if (qcId)
+            return qcId;
+    }
+    return null;
+}
+export function getQualityDeductionCaseFactByRouteKey(routeKey) {
+    const qcId = resolveQualityDeductionQcId(routeKey);
+    return qcId ? getQualityDeductionCaseFactByQcId(qcId) : null;
+}
+export function getQualityDeductionQcRecord(qcId) {
+    return getQualityDeductionCaseFactByQcId(qcId)?.qcRecord ?? null;
+}
+export function getQualityDeductionDeductionBasis(basisId) {
+    return getQualityDeductionCaseFactByBasisId(basisId)?.deductionBasis ?? null;
+}
+export function getQualityDeductionDisputeCase(disputeId) {
+    return getQualityDeductionCaseFactByDisputeId(disputeId)?.disputeCase ?? null;
+}
+export function getQualityDeductionSettlementImpact(qcId) {
+    return getQualityDeductionCaseFactByQcId(qcId)?.settlementImpact ?? null;
+}
+export function getQualityDeductionSettlementAdjustmentByQcId(qcId) {
+    return getQualityDeductionCaseFactByQcId(qcId)?.settlementAdjustment ?? null;
+}
+export function getPendingQualityDeductionRecordByQcId(qcId) {
+    return getQualityDeductionCaseFactByQcId(qcId)?.pendingDeductionRecord ?? null;
+}
+export function getFormalQualityDeductionLedgerByQcId(qcId) {
+    return getQualityDeductionCaseFactByQcId(qcId)?.formalLedger ?? null;
+}
+export function getFormalQualityDeductionLedgerById(ledgerId) {
+    syncQualityDeductionLifecycle();
+    return qualityDeductionSharedFormalLedgers.find((item) => item.ledgerId === ledgerId || item.ledgerNo === ledgerId) ?? null;
+}
+export function traceQualityDeductionLedgerSource(ledgerId) {
+    const ledger = getFormalQualityDeductionLedgerById(ledgerId);
+    if (!ledger)
+        return null;
+    const caseFact = getQualityDeductionCaseFactByQcId(ledger.qcId);
+    if (!caseFact)
+        return null;
+    return {
+        ledger,
+        caseFact,
+        pendingRecord: caseFact.pendingDeductionRecord,
+        disputeCase: caseFact.disputeCase,
+    };
+}
+export function getQualityDeductionCaseStatusByQcId(qcId) {
+    syncQualityDeductionLifecycle();
+    const caseFact = getQualityDeductionCaseFactByQcId(qcId);
+    return caseFact ? getQualityDeductionCaseStatus(caseFact) : null;
+}
+export function confirmQualityDeductionFactoryResponse(input) {
+    syncQualityDeductionLifecycle();
+    const caseFact = getQualityDeductionCaseFactByQcId(input.qcId);
+    if (!caseFact) {
+        return { ok: false, message: '未找到对应质检记录' };
+    }
+    const { qcRecord } = caseFact;
+    if (!caseFact.factoryResponse || caseFact.factoryResponse.factoryResponseStatus !== 'PENDING_RESPONSE') {
+        return { ok: false, message: '当前记录不处于待工厂处理状态' };
+    }
+    if (qcRecord.factoryLiabilityQty <= 0) {
+        return { ok: false, message: '当前记录不需要工厂确认处理' };
+    }
+    const respondedAt = input.respondedAt ?? nowTimestamp();
+    if (caseFact.pendingDeductionRecord) {
+        caseFact.pendingDeductionRecord.status = 'FACTORY_CONFIRMED';
+        caseFact.pendingDeductionRecord.handledAt = respondedAt;
+        caseFact.pendingDeductionRecord.handledBy = input.responderUserName;
+        caseFact.pendingDeductionRecord.handledComment = input.responseComment ?? '工厂已确认当前责任与处理结果';
+        caseFact.pendingDeductionRecord.updatedAt = respondedAt;
+        caseFact.pendingDeductionRecord.isOverdue = isPastDeadline(caseFact.pendingDeductionRecord.responseDeadlineAt, new Date(respondedAt.replace(' ', 'T')));
+    }
+    caseFact.factoryResponse.factoryResponseStatus = 'CONFIRMED';
+    caseFact.factoryResponse.respondedAt = respondedAt;
+    caseFact.factoryResponse.autoConfirmedAt = undefined;
+    caseFact.factoryResponse.responderUserName = input.responderUserName;
+    caseFact.factoryResponse.responseAction = 'CONFIRM';
+    caseFact.factoryResponse.responseComment = input.responseComment ?? '工厂已确认当前责任与处理结果';
+    caseFact.factoryResponse.isOverdue = isPastDeadline(caseFact.factoryResponse.responseDeadlineAt, new Date(respondedAt.replace(' ', 'T')));
+    ensureFactoryResponseArrayEntry(caseFact.factoryResponse);
+    const settlementResult = resolveSettlementImpactAfterConfirmation(input.qcId, respondedAt, input.responderUserName);
+    if (!settlementResult.ok) {
+        return settlementResult;
+    }
+    if (caseFact.deductionBasis && caseFact.deductionBasis.status === 'EFFECTIVE') {
+        appendBasisAuditLog(caseFact, '工厂已确认，扣款依据转为生效状态', input.responderUserName, respondedAt, 'FACTORY_CONFIRM_BASIS');
+    }
+    qcRecord.updatedAt = respondedAt;
+    appendQcAuditLog(caseFact, '工厂确认处理后，正式质量扣款流水已生成', input.responderUserName, respondedAt, 'FACTORY_CONFIRM_RESPONSE');
+    return { ok: true, caseFact };
+}
+export function submitQualityDeductionDispute(input) {
+    syncQualityDeductionLifecycle();
+    const caseFact = getQualityDeductionCaseFactByQcId(input.qcId);
+    if (!caseFact) {
+        return { ok: false, message: '未找到对应质检记录' };
+    }
+    if (!caseFact.factoryResponse || caseFact.factoryResponse.factoryResponseStatus !== 'PENDING_RESPONSE') {
+        return { ok: false, message: '当前记录不允许再发起异议' };
+    }
+    if (!caseFact.deductionBasis) {
+        return { ok: false, message: '缺少扣款依据，暂不可发起异议' };
+    }
+    if (caseFact.qcRecord.factoryLiabilityQty <= 0) {
+        return { ok: false, message: '当前记录不存在工厂责任数量，不能发起异议' };
+    }
+    if (!input.disputeReasonCode.trim() || !input.disputeReasonName.trim()) {
+        return { ok: false, message: '请先填写异议原因' };
+    }
+    if (!input.disputeDescription.trim()) {
+        return { ok: false, message: '请补充异议说明' };
+    }
+    if (caseFact.factoryResponse.responseDeadlineAt &&
+        isPastDeadline(caseFact.factoryResponse.responseDeadlineAt, new Date((input.submittedAt ?? nowTimestamp()).replace(' ', 'T')))) {
+        return { ok: false, message: '当前记录已超过 48 小时响应时限，系统自动确认后不能再发起异议' };
+    }
+    if (input.disputeEvidenceAssets.length === 0) {
+        return { ok: false, message: '请至少上传 1 个图片或视频证据' };
+    }
+    if (!input.disputeEvidenceAssets.some((item) => item.assetType === 'IMAGE' || item.assetType === 'VIDEO')) {
+        return { ok: false, message: '异议证据必须包含图片或视频' };
+    }
+    const submittedAt = input.submittedAt ?? nowTimestamp();
+    caseFact.factoryResponse.factoryResponseStatus = 'DISPUTED';
+    caseFact.factoryResponse.respondedAt = submittedAt;
+    caseFact.factoryResponse.autoConfirmedAt = undefined;
+    caseFact.factoryResponse.responderUserName = input.submittedByUserName;
+    caseFact.factoryResponse.responseAction = 'DISPUTE';
+    caseFact.factoryResponse.responseComment = input.disputeDescription;
+    caseFact.factoryResponse.isOverdue = false;
+    ensureFactoryResponseArrayEntry(caseFact.factoryResponse);
+    if (caseFact.pendingDeductionRecord) {
+        caseFact.pendingDeductionRecord.status = 'DISPUTED';
+        caseFact.pendingDeductionRecord.handledAt = submittedAt;
+        caseFact.pendingDeductionRecord.handledBy = input.submittedByUserName;
+        caseFact.pendingDeductionRecord.handledComment = input.disputeDescription;
+        caseFact.pendingDeductionRecord.updatedAt = submittedAt;
+        caseFact.pendingDeductionRecord.isOverdue = false;
+    }
+    const disputeId = caseFact.disputeCase?.disputeId ?? `QCD-${sanitizeIdPart(caseFact.qcRecord.qcId)}`;
+    const nextEvidenceAssets = input.disputeEvidenceAssets.map((item, index) => createEvidenceAsset(caseFact.qcRecord.qcId, index, item));
+    const disputeCase = {
+        disputeId,
+        qcId: caseFact.qcRecord.qcId,
+        basisId: caseFact.deductionBasis.basisId,
+        status: 'PENDING_REVIEW',
+        disputeReasonCode: input.disputeReasonCode.trim(),
+        disputeReasonName: input.disputeReasonName.trim(),
+        disputeDescription: input.disputeDescription.trim(),
+        disputeEvidenceAssets: nextEvidenceAssets,
+        submittedAt,
+        submittedByUserName: input.submittedByUserName,
+        reviewerUserName: undefined,
+        adjudicatedAt: undefined,
+        adjudicationComment: undefined,
+        requestedAmount: caseFact.deductionBasis.proposedQualityDeductionAmount,
+        adjudicatedAmount: undefined,
+    };
+    caseFact.disputeCase = disputeCase;
+    ensureDisputeArrayEntry(disputeCase);
+    caseByDisputeId.set(disputeId, caseFact);
+    if (caseFact.deductionBasis.status === 'EFFECTIVE') {
+        caseFact.deductionBasis.status = 'GENERATED';
+    }
+    caseFact.deductionBasis.updatedAt = submittedAt;
+    caseFact.deductionBasis.updatedBy = input.submittedByUserName;
+    appendBasisAuditLog(caseFact, '工厂发起异议，扣款依据进入待平台复核', input.submittedByUserName, submittedAt, 'FACTORY_SUBMIT_DISPUTE');
+    caseFact.qcRecord.updatedAt = submittedAt;
+    appendQcAuditLog(caseFact, `工厂发起异议：${input.disputeReasonName.trim()}`, input.submittedByUserName, submittedAt, 'FACTORY_SUBMIT_DISPUTE');
+    return { ok: true, caseFact };
+}
+export function validateQualityDeductionRepository() {
+    syncQualityDeductionLifecycle();
+    return validateQualityDeductionSharedFacts();
+}
+export { qualityDeductionSharedCaseFacts, qualityDeductionSharedDeductionBases, qualityDeductionSharedDisputeCases, qualityDeductionSharedFactoryResponses, qualityDeductionSharedFormalLedgers, qualityDeductionSharedPendingDeductionRecords, qualityDeductionSharedQcRecords, qualityDeductionSharedSettlementAdjustments, qualityDeductionSharedSettlementImpacts, };

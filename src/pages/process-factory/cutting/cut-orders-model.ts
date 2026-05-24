@@ -10,6 +10,15 @@ import {
   type GeneratedCutOrderSourceRecord,
 } from '../../../data/fcs/cutting/generated-cut-orders.ts'
 import {
+  buildMaterialLedgerProjectionMap,
+  type MaterialLedgerProjection,
+} from '../../../data/fcs/cutting/material-ledger.ts'
+import {
+  applyCutOrderCloseRecordToProgressRecord,
+  buildCutOrderCloseRecordLookup,
+  type CutOrderCloseRecord,
+} from '../../../data/fcs/cutting/cut-order-close-records'
+import {
   buildProductionProgressRows,
   configMeta,
   receiveMeta,
@@ -24,6 +33,11 @@ import {
   type CutOrderStartState,
 } from './cutting-readiness.ts'
 import type { MarkerPlanOccupancyLookup } from './marker-plan-occupancy.ts'
+import {
+  deriveCuttableMarkerEligibility,
+  type CuttableMarkerCurrentLock,
+  type CuttableMarkerEligibility,
+} from './cuttable-marker-eligibility.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 const currencyFormatter = new Intl.NumberFormat('zh-CN', {
@@ -40,14 +54,12 @@ export type CutOrderStageKey =
 
 export type CutOrderCuttableStateKey =
   | 'CUTTABLE'
-  | 'WAITING_PREP'
-  | 'WAITING_CLAIM'
-  | 'CLAIM_EXCEPTION'
-  | 'WAITING_START'
-  | 'IN_MARKER_PLAN'
-  | 'INBOUND'
-  | 'CUTTING'
-  | 'BLOCKED'
+  | 'CLOSED'
+  | 'NOT_STARTED'
+  | 'NO_CLAIM_RECORD'
+  | 'LOCKED_BY_MARKER_PLAN'
+  | 'NO_AVAILABLE_BALANCE'
+  | 'NOT_ELIGIBLE'
 
 export type CutOrderCuttableVisibleStateKey = 'CUTTABLE' | 'NOT_CUTTABLE'
 
@@ -83,15 +95,7 @@ export interface CutOrderNavigationPayload {
   sameProductionOrders: Record<string, string | undefined>
 }
 
-export interface CutOrderMaterialQuantityLedger {
-  requiredQty: number
-  configuredQty: number
-  claimedQty: number
-  lockedQty: number
-  consumedQty: number
-  availableQty: number
-  unit: string
-}
+export type CutOrderMaterialQuantityLedger = MaterialLedgerProjection
 
 export interface CutOrderRow {
   id: string
@@ -99,6 +103,7 @@ export interface CutOrderRow {
   cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
+  assignedFactoryId: string
   assignedFactoryName: string
   styleCode: string
   spuCode: string
@@ -108,8 +113,17 @@ export interface CutOrderRow {
   materialType: CuttingMaterialType
   materialCategory: string
   materialLabel: string
+  materialName: string
+  materialColor: string
   materialAlias: string
   materialImageUrl: string
+  materialUnit: string
+  patternFileId: string
+  patternFileName: string
+  patternVersion: string
+  patternKind: string
+  effectiveWidthText: string
+  piecePartNames: string[]
   orderQty: number
   pieceCountText: string
   plannedQty: number
@@ -131,6 +145,14 @@ export interface CutOrderRow {
     selectable: boolean
     reasonText: string
   }
+  eligibility: CuttableMarkerEligibility
+  reasonTexts: string[]
+  currentLocks: CuttableMarkerCurrentLock[]
+  availableQty: number
+  availableUnit: string
+  claimedQty: number
+  lockedQty: number
+  consumedQty: number
   visibleCuttableStatus: {
     key: CutOrderCuttableVisibleStateKey
     label: string
@@ -142,8 +164,14 @@ export interface CutOrderRow {
   batchParticipationCount: number
   activeMarkerPlanId: string
   activeMarkerPlanNo: string
+  closeReasonCode: CuttingOrderProgressRecord['closeReasonCode']
+  closeReasonText: string
   closeReason: string
   closedAt: string
+  closedBy: string
+  ledgerSnapshotBeforeClose: CuttingOrderProgressRecord['ledgerSnapshotBeforeClose'] | null
+  closeRecord: CutOrderCloseRecord | null
+  openImpactItems: CutOrderCloseRecord['openImpactItems']
   riskTags: CutOrderRiskTag[]
   statusSummary: string
   relationSummary: string
@@ -164,9 +192,9 @@ export interface CutOrderFilters {
   materialSku: string
   currentStage: 'ALL' | CutOrderStageKey
   cuttableState: 'ALL' | CutOrderCuttableVisibleStateKey
-  prepStatus: 'ALL' | CuttingConfigStatus
-  claimStatus: 'ALL' | CuttingReceiveStatus
   inBatch: 'ALL' | 'IN_MARKER_PLAN' | 'NOT_IN_MARKER_PLAN'
+  hasAvailableBalance: 'ALL' | 'YES' | 'NO'
+  hasCloseReason: 'ALL' | 'YES' | 'NO'
   riskOnly: boolean
 }
 
@@ -186,9 +214,9 @@ export interface CutOrderStats {
   totalCount: number
   cuttableCount: number
   inBatchCount: number
-  prepExceptionCount: number
-  claimExceptionCount: number
-  feiPendingCount: number
+  availableBalanceCount: number
+  closedCount: number
+  noClaimRecordCount: number
 }
 
 export const cutOrderStageMeta: Record<CutOrderStageKey, { label: string; className: string }> = {
@@ -199,29 +227,27 @@ export const cutOrderStageMeta: Record<CutOrderStageKey, { label: string; classN
 
 export const cutOrderCuttableMeta: Record<CutOrderCuttableStateKey, { label: string; className: string }> = {
   CUTTABLE: { label: '可排唛架', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-  WAITING_PREP: { label: '配料数量不足', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
-  WAITING_CLAIM: { label: '无领料记录', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
-  CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
-  WAITING_START: { label: '待开工', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
-  IN_MARKER_PLAN: { label: '当前被方案锁定', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
-  INBOUND: { label: '已入仓', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-  CUTTING: { label: '裁剪中', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
-  BLOCKED: { label: '暂不可排唛架', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
+  CLOSED: { label: '已关闭', className: 'bg-zinc-100 text-zinc-700 border border-zinc-200' },
+  NOT_STARTED: { label: '未开工', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
+  NO_CLAIM_RECORD: { label: '无领料记录', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
+  LOCKED_BY_MARKER_PLAN: { label: '可用余额已锁定', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
+  NO_AVAILABLE_BALANCE: { label: '可用余额为 0', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
+  NOT_ELIGIBLE: { label: '不可进入', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
 }
 
 export const cutOrderVisibleCuttableMeta: Record<CutOrderCuttableVisibleStateKey, { label: string; className: string }> = {
   CUTTABLE: { label: '可排唛架', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-  NOT_CUTTABLE: { label: '暂不可排唛架', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
+  NOT_CUTTABLE: { label: '不可排唛架', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
 }
 
 export const cutOrderRiskMeta: Record<CutOrderRiskKey, { label: string; className: string }> = {
-  PREP_DELAY: { label: '配料异常', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
-  CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
+  PREP_DELAY: { label: '配料数量不足', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
+  CLAIM_EXCEPTION: { label: '领料差异', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
   DATE_MISSING: { label: '日期缺失', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
   STATUS_CONFLICT: { label: '状态不一致', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
   REPLENISH_PENDING: { label: '待补料', className: 'bg-purple-100 text-purple-700 border border-purple-200' },
-  IN_MARKER_PLAN: { label: '当前被方案锁定', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
+  IN_MARKER_PLAN: { label: '唛架方案占用', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
 }
 
 function materialCategoryLabel(materialType: CuttingMaterialType): string {
@@ -262,6 +288,12 @@ function buildProgressLineFallback(source: GeneratedCutOrderSourceRecord): Cutti
     materialImageUrl: source.materialImageUrl,
     color: source.colorScope[0] || '待补',
     materialCategory: source.materialCategory,
+    materialIdentity: { ...source.materialIdentity },
+    patternIdentity: {
+      ...source.patternIdentity,
+      piecePartCodes: [...source.patternIdentity.piecePartCodes],
+      piecePartNames: [...source.patternIdentity.piecePartNames],
+    },
     reviewStatus: 'NOT_REQUIRED',
     configStatus: 'NOT_CONFIGURED',
     receiveStatus: 'NOT_RECEIVED',
@@ -325,7 +357,7 @@ export function deriveCutOrderStage(
     return createSummaryMeta('CLOSED', cutOrderStageMeta.CLOSED.label, cutOrderStageMeta.CLOSED.className, record.closeReason || '该裁片单已关闭，不再继续排唛架铺布裁剪。')
   }
 
-  if (startState.started || line.receiveStatus === 'RECEIVED' || record.hasSpreadingRecord || record.hasInboundRecord) {
+  if (startState.started || record.hasSpreadingRecord || record.hasInboundRecord) {
     return createSummaryMeta('STARTED', cutOrderStageMeta.STARTED.label, cutOrderStageMeta.STARTED.className, '裁床已开工；排唛架、铺布、裁剪作为子作业单独追踪。')
   }
 
@@ -333,51 +365,34 @@ export function deriveCutOrderStage(
 }
 
 function buildCutOrderMaterialQuantityLedger(
-  line: CuttingMaterialLine,
   source: GeneratedCutOrderSourceRecord,
-  markerPlanOccupancy: MarkerPlanOccupancyLookup[string] | null,
+  materialLedgerProjectionMap: Record<string, MaterialLedgerProjection>,
 ): CutOrderMaterialQuantityLedger {
-  const configuredQty = Number(line.configuredLength || 0)
-  const claimedQty = Number(line.receivedLength || 0)
-  const consumedQty = estimateConsumedMaterialQty(line, source, claimedQty)
-  const lockedQty = markerPlanOccupancy ? Math.max(claimedQty - consumedQty, 0) : 0
-  const availableQty = Math.max(claimedQty - lockedQty - consumedQty, 0)
-
+  const projection = materialLedgerProjectionMap[source.cutOrderId] || materialLedgerProjectionMap[source.cutOrderNo]
+  if (projection) return projection
   return {
-    requiredQty: Number(source.requiredQty || 0),
-    configuredQty,
-    claimedQty,
-    lockedQty,
-    consumedQty,
-    availableQty,
-    unit: 'm',
+    cutOrderId: source.cutOrderId,
+    cutOrderNo: source.cutOrderNo,
+    productionOrderId: source.productionOrderId,
+    productionOrderNo: source.productionOrderNo,
+    materialIdentity: { ...source.materialIdentity },
+    patternIdentity: {
+      ...source.patternIdentity,
+      piecePartCodes: [...source.patternIdentity.piecePartCodes],
+      piecePartNames: [...source.patternIdentity.piecePartNames],
+    },
+    requiredMaterialQty: 0,
+    transferWarehouseAllocatedQty: 0,
+    cuttingClaimedQty: 0,
+    markerLockedQty: 0,
+    spreadingConsumedQty: 0,
+    returnedQty: 0,
+    adjustmentQty: 0,
+    availableQty: 0,
+    unit: source.materialIdentity.materialUnit || source.materialUnit || '米',
+    latestClaimEvent: null,
+    events: [],
   }
-}
-
-function sumRequiredPieceQty(source: GeneratedCutOrderSourceRecord): number {
-  const pieces = source.pieceRows.length
-    ? source.pieceRows
-    : [{ pieceCountPerUnit: 1, applicableSkuCodes: [] as string[] }]
-
-  return source.skuScopeLines.reduce((total, skuLine) => {
-    const skuPieces = pieces.filter((piece) => {
-      const applicableSkuCodes = piece.applicableSkuCodes || []
-      return applicableSkuCodes.length === 0 || applicableSkuCodes.includes(skuLine.skuCode)
-    })
-    const pieceCountPerGarment = skuPieces.reduce((sum, piece) => sum + Math.max(Number(piece.pieceCountPerUnit || 0), 1), 0)
-    return total + Number(skuLine.plannedQty || 0) * Math.max(pieceCountPerGarment, 1)
-  }, 0)
-}
-
-function estimateConsumedMaterialQty(line: CuttingMaterialLine, source: GeneratedCutOrderSourceRecord, claimedQty: number): number {
-  const actualPieceQty = (line.pieceProgressLines || []).reduce((total, pieceLine) => total + Math.max(Number(pieceLine.actualCutQty || 0), 0), 0)
-  if (actualPieceQty <= 0) return 0
-
-  const requiredPieceQty = sumRequiredPieceQty(source)
-  if (requiredPieceQty <= 0) return 0
-
-  const consumedRatio = Math.min(actualPieceQty / requiredPieceQty, 1)
-  return Math.min(claimedQty, claimedQty * consumedRatio)
 }
 
 function hasClaimRecord(line: CuttingMaterialLine, record: CuttingOrderProgressRecord): boolean {
@@ -387,64 +402,72 @@ function hasClaimRecord(line: CuttingMaterialLine, record: CuttingOrderProgressR
 }
 
 export function deriveCutOrderCuttableState(
-  record: CuttingOrderProgressRecord,
-  line: CuttingMaterialLine,
-  ledger: MarkerPlanRefRecord[],
-  startState: CutOrderStartState,
-  materialQuantityLedger: CutOrderMaterialQuantityLedger,
-  markerPlanOccupancy: MarkerPlanOccupancyLookup[string] | null = null,
+  eligibility: CuttableMarkerEligibility,
 ): CutOrderSummaryMeta<CutOrderCuttableStateKey> & {
   selectable: boolean
   reasonText: string
 } {
-  const participation = summarizeMarkerPlanRefParticipation(line.cutOrderId || line.cutOrderNo || line.cutPieceOrderNo, ledger)
-  if (record.closeReason || record.closedAt || /已关闭|不再补裁/.test(record.cuttingStage)) {
+  const reasonText = eligibility.reasonTexts.join('；') || '当前不满足可排唛架判断条件。'
+  if (eligibility.reasonCodes.includes('CUT_ORDER_CLOSED')) {
     return {
-      ...createSummaryMeta('BLOCKED', cutOrderCuttableMeta.BLOCKED.label, cutOrderCuttableMeta.BLOCKED.className, record.closeReason || '该裁片单已关闭。'),
+      ...createSummaryMeta('CLOSED', cutOrderCuttableMeta.CLOSED.label, cutOrderCuttableMeta.CLOSED.className, '该裁片单已关闭。'),
       selectable: false,
-      reasonText: record.closeReason || '该裁片单已关闭，不再参与唛架方案。',
+      reasonText,
     }
   }
-  if (markerPlanOccupancy) {
-    const markerPlanNo = markerPlanOccupancy.markerPlanNo || participation.activeMarkerPlanNo || line.markerPlanNo || '当前唛架方案'
+
+  if (eligibility.reasonCodes.includes('NO_CLAIM_RECORD')) {
     return {
       ...createSummaryMeta(
-        'IN_MARKER_PLAN',
-        cutOrderCuttableMeta.IN_MARKER_PLAN.label,
-        cutOrderCuttableMeta.IN_MARKER_PLAN.className,
-        `当前可用领料余额已被唛架方案 ${markerPlanNo} 锁定。`,
+        'NO_CLAIM_RECORD',
+        cutOrderCuttableMeta.NO_CLAIM_RECORD.label,
+        cutOrderCuttableMeta.NO_CLAIM_RECORD.className,
+        '当前还没有裁床领料记录。',
       ),
       selectable: false,
-      reasonText: '当前可用领料余额已被唛架方案锁定。',
+      reasonText,
     }
   }
 
-  if (!hasClaimRecord(line, record)) {
+  if (eligibility.reasonCodes.includes('NOT_STARTED')) {
     return {
-      ...createSummaryMeta('WAITING_CLAIM', cutOrderCuttableMeta.WAITING_CLAIM.label, cutOrderCuttableMeta.WAITING_CLAIM.className, '当前裁床领料数量不足。'),
+      ...createSummaryMeta('NOT_STARTED', cutOrderCuttableMeta.NOT_STARTED.label, cutOrderCuttableMeta.NOT_STARTED.className, '已领料，待裁床任务开工。'),
       selectable: false,
-      reasonText: '当前还没有裁床领料记录。',
+      reasonText,
     }
   }
 
-  if (!startState.started) {
+  if (eligibility.reasonCodes.includes('BALANCE_LOCKED_BY_DRAFT_MARKER_PLAN') || eligibility.reasonCodes.includes('BALANCE_LOCKED_BY_EFFECTIVE_MARKER_PLAN')) {
     return {
-      ...createSummaryMeta('WAITING_START', cutOrderCuttableMeta.WAITING_START.label, cutOrderCuttableMeta.WAITING_START.className, '已领料，待裁床任务开工。'),
+      ...createSummaryMeta(
+        'LOCKED_BY_MARKER_PLAN',
+        cutOrderCuttableMeta.LOCKED_BY_MARKER_PLAN.label,
+        cutOrderCuttableMeta.LOCKED_BY_MARKER_PLAN.className,
+        `当前 ${eligibility.lockedQty}${eligibility.availableMaterialUnit} 可用余额已被唛架方案锁定。`,
+      ),
       selectable: false,
-      reasonText: '已领料但尚未开工，暂不可排唛架。',
+      reasonText,
     }
   }
 
-  if (materialQuantityLedger.availableQty <= 0) {
+  if (eligibility.reasonCodes.includes('NO_AVAILABLE_BALANCE')) {
     return {
-      ...createSummaryMeta('BLOCKED', cutOrderCuttableMeta.BLOCKED.label, cutOrderCuttableMeta.BLOCKED.className, '裁床已领面料已锁定或已消耗，暂无可排唛架余额。'),
+      ...createSummaryMeta('NO_AVAILABLE_BALANCE', cutOrderCuttableMeta.NO_AVAILABLE_BALANCE.label, cutOrderCuttableMeta.NO_AVAILABLE_BALANCE.className, '裁床已领面料已锁定或已消耗，暂无可排唛架余额。'),
       selectable: false,
-      reasonText: '裁床已领面料已锁定或已消耗，暂无可排唛架余额。',
+      reasonText,
+    }
+  }
+
+  if (!eligibility.isEligible) {
+    return {
+      ...createSummaryMeta('NOT_ELIGIBLE', cutOrderCuttableMeta.NOT_ELIGIBLE.label, cutOrderCuttableMeta.NOT_ELIGIBLE.className, reasonText),
+      selectable: false,
+      reasonText,
     }
   }
 
   return {
-    ...createSummaryMeta('CUTTABLE', cutOrderCuttableMeta.CUTTABLE.label, cutOrderCuttableMeta.CUTTABLE.className, '未关闭、已开工、有领料记录、有可用余额，且当前未被唛架方案锁定。'),
+    ...createSummaryMeta('CUTTABLE', cutOrderCuttableMeta.CUTTABLE.label, cutOrderCuttableMeta.CUTTABLE.className, '未关闭、已开工、有领料记录、有可用余额，且当前余额未被唛架方案全量锁定。'),
     selectable: true,
     reasonText: '当前裁片单满足可排唛架条件。',
   }
@@ -459,7 +482,7 @@ export function summarizeCutOrderRisks(
   const keys = new Set<CutOrderRiskKey>()
 
   if (line.configStatus === 'NOT_CONFIGURED' || line.configStatus === 'PARTIAL') keys.add('PREP_DELAY')
-  if (line.issueFlags.includes('RECEIVE_DIFF') || cuttableState.key === 'CLAIM_EXCEPTION') keys.add('CLAIM_EXCEPTION')
+  if (line.issueFlags.includes('RECEIVE_DIFF')) keys.add('CLAIM_EXCEPTION')
   if (!record.plannedShipDate) keys.add('DATE_MISSING')
   if (record.urgencyLevel === 'AA' || record.urgencyLevel === 'A') keys.add('SHIP_URGENT')
   if (line.issueFlags.includes('REPLENISH_PENDING') || record.riskFlags.includes('REPLENISH_PENDING')) keys.add('REPLENISH_PENDING')
@@ -530,6 +553,26 @@ function buildKeywordIndex(values: Array<string | undefined | number | null>): s
     .map((value) => String(value).toLowerCase())
 }
 
+function buildDateInfoLines(record: CuttingOrderProgressRecord): Array<{ label: '需求' | '下单' | '回货'; value: string }> {
+  return [
+    { label: '需求', value: formatDisplayDate(record.purchaseDate) },
+    { label: '下单', value: formatDisplayDate(record.actualOrderDate) },
+    { label: '回货', value: formatDisplayDate(record.plannedShipDate) },
+  ]
+}
+
+function deriveVisibleCuttableStatus(
+  cuttableState: CutOrderRow['cuttableState'],
+): CutOrderRow['visibleCuttableStatus'] {
+  const key: CutOrderCuttableVisibleStateKey = cuttableState.key === 'CUTTABLE' ? 'CUTTABLE' : 'NOT_CUTTABLE'
+  const meta = cutOrderVisibleCuttableMeta[key]
+  return {
+    key,
+    label: meta.label,
+    className: meta.className,
+  }
+}
+
 function buildPrepSummary(line: CuttingMaterialLine): CutOrderSummaryMeta<CuttingConfigStatus> {
   const meta = configMeta[line.configStatus]
   const detailText =
@@ -554,26 +597,6 @@ function buildClaimSummary(line: CuttingMaterialLine): CutOrderSummaryMeta<Cutti
   return createSummaryMeta(line.receiveStatus, meta.label, meta.className, detailText)
 }
 
-function buildDateInfoLines(record: CuttingOrderProgressRecord): Array<{ label: '需求' | '下单' | '回货'; value: string }> {
-  return [
-    { label: '需求', value: formatDisplayDate(record.purchaseDate) },
-    { label: '下单', value: formatDisplayDate(record.actualOrderDate) },
-    { label: '回货', value: formatDisplayDate(record.plannedShipDate) },
-  ]
-}
-
-function deriveVisibleCuttableStatus(
-  cuttableState: CutOrderRow['cuttableState'],
-): CutOrderRow['visibleCuttableStatus'] {
-  const key: CutOrderCuttableVisibleStateKey = cuttableState.key === 'CUTTABLE' ? 'CUTTABLE' : 'NOT_CUTTABLE'
-  const meta = cutOrderVisibleCuttableMeta[key]
-  return {
-    key,
-    label: meta.label,
-    className: meta.className,
-  }
-}
-
 function createRow(
   source: GeneratedCutOrderSourceRecord,
   record: CuttingOrderProgressRecord,
@@ -583,12 +606,25 @@ function createRow(
   options: {
     startState: CutOrderStartState
     markerPlanOccupancy: MarkerPlanOccupancyLookup[string] | null
+    materialLedgerProjectionMap: Record<string, MaterialLedgerProjection>
+    closeRecordLookup: Record<string, CutOrderCloseRecord>
   },
 ): CutOrderRow {
+  const closeRecord = options.closeRecordLookup[source.cutOrderId] || options.closeRecordLookup[source.cutOrderNo] || null
+  const effectiveRecord = applyCutOrderCloseRecordToProgressRecord(record, closeRecord)
   const batchSummary = summarizeMarkerPlanRefParticipation(source.cutOrderId, ledger)
-  const materialQuantityLedger = buildCutOrderMaterialQuantityLedger(line, source, options.markerPlanOccupancy)
-  const cuttableState = deriveCutOrderCuttableState(record, line, ledger, options.startState, materialQuantityLedger, options.markerPlanOccupancy)
-  const currentStage = deriveCutOrderStage(record, line, options.startState)
+  const materialQuantityLedger = buildCutOrderMaterialQuantityLedger(source, options.materialLedgerProjectionMap)
+  const eligibility = deriveCuttableMarkerEligibility({
+    cutOrderId: source.cutOrderId,
+    productionOrderId: source.productionOrderId,
+    line,
+    record: effectiveRecord,
+    startState: options.startState,
+    materialLedgerProjection: materialQuantityLedger,
+    markerPlanOccupancy: options.markerPlanOccupancy,
+  })
+  const cuttableState = deriveCutOrderCuttableState(eligibility)
+  const currentStage = deriveCutOrderStage(effectiveRecord, line, options.startState)
   const materialPrepStatus = buildPrepSummary(line)
   const materialClaimStatus = buildClaimSummary(line)
   const urgencyKey = progressRow?.urgency.key ?? 'UNKNOWN'
@@ -608,7 +644,9 @@ function createRow(
   const activeMarkerPlanId = options.markerPlanOccupancy?.markerPlanId || batchSummary.activeMarkerPlanId
   const activeMarkerPlanNo = options.markerPlanOccupancy?.markerPlanNo || batchSummary.activeMarkerPlanNo
   const latestMarkerPlanNo = options.markerPlanOccupancy?.markerPlanNo || batchSummary.latestMarkerPlanNo
-  const riskTags = summarizeCutOrderRisks(record, line, cuttableState, markerPlanParticipationCount)
+  const riskTags = summarizeCutOrderRisks(effectiveRecord, line, cuttableState, markerPlanParticipationCount)
+  const patternIdentity = line.patternIdentity || source.patternIdentity
+  const materialIdentity = line.materialIdentity || source.materialIdentity
 
   const row: CutOrderRow = {
     id: source.cutOrderId,
@@ -616,27 +654,37 @@ function createRow(
     cutOrderNo: source.cutOrderNo,
     productionOrderId: source.productionOrderId,
     productionOrderNo: source.productionOrderNo,
+    assignedFactoryId: '',
     assignedFactoryName: progressRow?.assignedFactoryName || '',
-    styleCode: record.styleCode,
-    spuCode: record.spuCode,
-    styleName: record.styleName,
-    color: line.color || source.colorScope[0] || '待补',
+    styleCode: effectiveRecord.styleCode,
+    spuCode: effectiveRecord.spuCode,
+    styleName: effectiveRecord.styleName,
+    color: materialIdentity.materialColor || line.color || source.colorScope[0] || '待补',
     materialSku: source.materialSku,
     materialType: source.materialType,
     materialCategory: source.materialCategory || materialCategoryLabel(source.materialType),
     materialLabel: source.materialLabel,
-    materialAlias: source.materialAlias || line.materialAlias || '',
-    materialImageUrl: source.materialImageUrl || line.materialImageUrl || '',
-    orderQty: record.orderQty,
-    pieceCountText: formatQty(record.orderQty),
+    materialName: materialIdentity.materialName || source.materialName || source.materialLabel,
+    materialColor: materialIdentity.materialColor || source.materialColor || line.color || source.colorScope[0] || '',
+    materialAlias: materialIdentity.materialAlias || source.materialAlias || line.materialAlias || '',
+    materialImageUrl: materialIdentity.materialImageUrl || source.materialImageUrl || line.materialImageUrl || '',
+    materialUnit: materialIdentity.materialUnit || source.materialUnit || '米',
+    patternFileId: patternIdentity.patternFileId,
+    patternFileName: patternIdentity.patternFileName,
+    patternVersion: patternIdentity.patternVersion,
+    patternKind: patternIdentity.patternKind,
+    effectiveWidthText: `${patternIdentity.effectiveWidthValue}${patternIdentity.effectiveWidthUnit}`,
+    piecePartNames: [...patternIdentity.piecePartNames],
+    orderQty: effectiveRecord.orderQty,
+    pieceCountText: formatQty(effectiveRecord.orderQty),
     plannedQty: source.requiredQty,
     receivedQty: line.receivedLength,
     materialQuantityLedger,
-    purchaseDate: record.purchaseDate,
-    actualOrderDate: record.actualOrderDate,
-    plannedShipDate: record.plannedShipDate,
-    dateInfoLines: buildDateInfoLines(record),
-    sellingPrice: record.sellingPrice ?? null,
+    purchaseDate: effectiveRecord.purchaseDate,
+    actualOrderDate: effectiveRecord.actualOrderDate,
+    plannedShipDate: effectiveRecord.plannedShipDate,
+    dateInfoLines: buildDateInfoLines(effectiveRecord),
+    sellingPrice: effectiveRecord.sellingPrice ?? null,
     urgencyKey,
     urgencyLabel: urgency.label,
     urgencyClassName: urgency.className,
@@ -645,6 +693,14 @@ function createRow(
     currentStage,
     currentStageLabel,
     cuttableState,
+    eligibility,
+    reasonTexts: [...eligibility.reasonTexts],
+    currentLocks: eligibility.currentLocks.map((lock) => ({ ...lock })),
+    availableQty: eligibility.availableMaterialQty,
+    availableUnit: eligibility.availableMaterialUnit,
+    claimedQty: eligibility.claimedQty,
+    lockedQty: eligibility.lockedQty,
+    consumedQty: eligibility.consumedQty,
     visibleCuttableStatus,
     markerPlanIds,
     markerPlanNos,
@@ -652,26 +708,30 @@ function createRow(
     batchParticipationCount: markerPlanParticipationCount,
     activeMarkerPlanId,
     activeMarkerPlanNo,
-    closeReason: record.closeReason || '',
-    closedAt: record.closedAt || '',
+    closeReasonCode: closeRecord?.closeReasonCode || effectiveRecord.closeReasonCode,
+    closeReasonText: closeRecord?.closeReasonText || effectiveRecord.closeReasonText || '',
+    closeReason: closeRecord?.closeDescription || effectiveRecord.closeReason || '',
+    closedAt: closeRecord?.closedAt || effectiveRecord.closedAt || '',
+    closedBy: closeRecord?.closedBy || effectiveRecord.closedBy || '',
+    ledgerSnapshotBeforeClose: closeRecord?.ledgerSnapshotBeforeClose || effectiveRecord.ledgerSnapshotBeforeClose || null,
+    closeRecord,
+    openImpactItems: closeRecord?.openImpactItems || [],
     riskTags,
     statusSummary: [
       `裁片单${currentStage.label}`,
-      cuttableState.label,
-      `中转仓${materialPrepStatus.label}`,
-      `裁床${materialClaimStatus.label}`,
+      `可排唛架判断${visibleCuttableStatus.label}`,
     ].join(' / '),
     relationSummary: markerPlanParticipationCount
       ? `已参与 ${markerPlanParticipationCount} 个唛架方案`
       : '当前尚未进入唛架方案',
-    latestActionText: line.latestActionText || record.lastFieldUpdateAt || '暂无最近执行痕迹。',
+    latestActionText: line.latestActionText || effectiveRecord.lastFieldUpdateAt || '暂无最近执行痕迹。',
     navigationPayload: buildCutOrderNavigationPayload({
       cutOrderId: source.cutOrderId,
       cutOrderNo: source.cutOrderNo,
       productionOrderId: source.productionOrderId,
       productionOrderNo: source.productionOrderNo,
-      styleCode: record.styleCode,
-      spuCode: record.spuCode,
+      styleCode: effectiveRecord.styleCode,
+      spuCode: effectiveRecord.spuCode,
       materialSku: source.materialSku,
       activeMarkerPlanRefId: activeMarkerPlanId,
       latestMarkerPlanNo,
@@ -680,12 +740,20 @@ function createRow(
       source.cutOrderNo,
       source.productionOrderId,
       source.productionOrderNo,
-      record.styleCode,
-      record.spuCode,
-      record.styleName,
+      effectiveRecord.styleCode,
+      effectiveRecord.spuCode,
+      effectiveRecord.styleName,
       source.materialSku,
       source.materialLabel,
       source.materialAlias,
+      source.materialColor,
+      source.materialName,
+      source.patternIdentity.patternFileId,
+      source.patternIdentity.patternFileName,
+      source.patternIdentity.patternVersion,
+      source.patternIdentity.patternKind,
+      `${source.patternIdentity.effectiveWidthValue}${source.patternIdentity.effectiveWidthUnit}`,
+      ...source.patternIdentity.piecePartNames,
       source.materialType,
       source.materialCategory,
       line.color,
@@ -706,6 +774,8 @@ export function buildCutOrderViewModel(
 ): CutOrderViewModel {
   const startStateLookup = buildCutOrderStartStateLookup()
   const markerPlanOccupancyLookup = options.markerPlanOccupancy ?? {}
+  const materialLedgerProjectionMap = buildMaterialLedgerProjectionMap()
+  const closeRecordLookup = buildCutOrderCloseRecordLookup()
   const progressRowMap = new Map(
     (options.progressRows ?? buildProductionProgressRows(records)).map((row) => [row.productionOrderId, row] as const),
   )
@@ -730,6 +800,8 @@ export function buildCutOrderViewModel(
           cutPieceOrderNo: line.cutPieceOrderNo,
         }),
         markerPlanOccupancy: markerPlanOccupancyLookup[source.cutOrderId] || markerPlanOccupancyLookup[source.cutOrderNo] || null,
+        materialLedgerProjectionMap,
+        closeRecordLookup,
       })
     })
     .filter((row): row is CutOrderRow => row !== null)
@@ -791,10 +863,12 @@ export function filterCutOrderRows(
     }
     if (filters.currentStage !== 'ALL' && row.currentStage.key !== filters.currentStage) return false
     if (filters.cuttableState !== 'ALL' && row.visibleCuttableStatus.key !== filters.cuttableState) return false
-    if (filters.prepStatus !== 'ALL' && row.materialPrepStatus.key !== filters.prepStatus) return false
-    if (filters.claimStatus !== 'ALL' && row.materialClaimStatus.key !== filters.claimStatus) return false
     if (filters.inBatch === 'IN_MARKER_PLAN' && !row.activeMarkerPlanNo) return false
     if (filters.inBatch === 'NOT_IN_MARKER_PLAN' && row.activeMarkerPlanNo) return false
+    if (filters.hasAvailableBalance === 'YES' && row.materialQuantityLedger.availableQty <= 0) return false
+    if (filters.hasAvailableBalance === 'NO' && row.materialQuantityLedger.availableQty > 0) return false
+    if (filters.hasCloseReason === 'YES' && !row.closeReason) return false
+    if (filters.hasCloseReason === 'NO' && row.closeReason) return false
     if (filters.riskOnly && row.riskTags.length === 0) return false
     return true
   })
@@ -805,9 +879,9 @@ export function buildCutOrderStats(rows: CutOrderRow[]): CutOrderStats {
     totalCount: rows.length,
     cuttableCount: rows.filter((row) => row.cuttableState.key === 'CUTTABLE').length,
     inBatchCount: rows.filter((row) => row.activeMarkerPlanNo).length,
-    prepExceptionCount: rows.filter((row) => row.materialPrepStatus.key !== 'CONFIGURED').length,
-    claimExceptionCount: rows.filter((row) => row.materialClaimStatus.key !== 'RECEIVED' || row.cuttableState.key === 'CLAIM_EXCEPTION').length,
-    feiPendingCount: rows.filter((row) => row.currentStage.key !== 'CLOSED').length,
+    availableBalanceCount: rows.filter((row) => row.materialQuantityLedger.availableQty > 0).length,
+    closedCount: rows.filter((row) => row.currentStage.key === 'CLOSED').length,
+    noClaimRecordCount: rows.filter((row) => row.cuttableState.key === 'NO_CLAIM_RECORD').length,
   }
 }
 

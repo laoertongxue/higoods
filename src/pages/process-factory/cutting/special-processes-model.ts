@@ -44,6 +44,84 @@ export type SpecialProcessFollowupActionType =
 export type SpecialProcessFollowupActionStatus = 'PENDING' | 'DONE' | 'SKIPPED'
 export type SpecialProcessReadinessLevel = 'READY' | 'RESERVED'
 export type SpecialProcessIntegrationLevel = 'EXECUTION' | 'PLACEHOLDER'
+export type BindingProcessMode = '裁床内部加工' | '外部承接工厂加工'
+export type BindingProcessStatus = '待加工' | '加工中' | '已完成' | '异常处理中' | '已入库' | '已取消'
+
+export interface BindingProcessMaterialIdentity {
+  materialSku: string
+  materialName: string
+  materialColor: string
+  materialAlias: string
+  materialImageUrl: string
+  materialUnit: string
+}
+
+export interface BindingProcessPatternIdentity {
+  patternFileId: string
+  patternFileName: string
+  patternVersion: string
+  patternKind: string
+  effectiveWidthText: string
+  piecePartNames: string[]
+}
+
+export interface BindingProcessCostItem {
+  costItemId: string
+  costType: string
+  amount: number
+  unit: string
+  remark: string
+}
+
+export interface BindingProcessAbnormalItem {
+  abnormalId: string
+  abnormalType: string
+  abnormalLevel: '提示' | '需处理' | '紧急'
+  description: string
+  targetModule: '补料管理' | '裁剪结果核查'
+  handlingStatus: '待处理' | '处理中' | '已处理'
+  reportedAt: string
+  reportedBy: string
+}
+
+export interface BindingProcessOrder {
+  bindingOrderId: string
+  bindingOrderNo: string
+  processType: '捆条'
+  processMode: BindingProcessMode
+  sourceCutOrderId: string
+  sourceCutOrderNo: string
+  sourceProductionOrderId: string
+  sourceProductionOrderNo: string
+  sourceSpreadingOrderId: string
+  sourceSpreadingOrderNo: string
+  sourceFeiTicketIds: string[]
+  sourceFeiTicketNos: string[]
+  materialIdentity: BindingProcessMaterialIdentity
+  patternIdentity: BindingProcessPatternIdentity
+  bindingWidth: number
+  plannedLength: number
+  actualLength: number
+  lossLength: number
+  lossRate: number
+  plannedOutputQty: number
+  actualOutputQty: number
+  unit: string
+  operatorName: string
+  startedAt: string
+  completedAt: string
+  status: BindingProcessStatus
+  costItems: BindingProcessCostItem[]
+  abnormalItems: BindingProcessAbnormalItem[]
+  inboundInventoryRecordIds: string[]
+  linkedReplenishmentIds: string[]
+  linkedCheckItemIds: string[]
+  externalReceiverFactoryName: string
+  externalHandoverOrderNo: string
+  externalHandoverRecordNo: string
+  externalReturnStatus: string
+  remark: string
+}
 
 export interface SpecialProcessTypeExecutionMeta {
   enabledForExecution: boolean
@@ -373,7 +451,7 @@ function normalizeSpecialProcessFollowupAction(record: unknown): SpecialProcessF
     actionType: ['GO_TRANSFER_BAG', 'GO_CUT_PIECE_WAREHOUSE', 'GO_CUT_ORDER', 'GO_CUTTING_DASHBOARD', 'GO_CUTTING_TOTAL_TABLE'].includes(String(raw.actionType))
       ? (raw.actionType as SpecialProcessFollowupActionType)
       : 'GO_CUTTING_TOTAL_TABLE',
-    title: typeof raw.title === 'string' ? raw.title : '去裁剪总结',
+    title: typeof raw.title === 'string' ? raw.title : '去裁剪结果核查',
     status: normalizeFollowupStatus(typeof raw.status === 'string' ? raw.status : undefined),
     targetPageKey,
     targetPath: typeof raw.targetPath === 'string' ? raw.targetPath : getCanonicalCuttingPath('summary'),

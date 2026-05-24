@@ -1,0 +1,642 @@
+import { escapeHtml, formatDateTime, toClassName } from '../utils.ts';
+import { getPcsWorkItemDefinition, listPcsWorkItems, } from '../data/pcs-work-items.ts';
+import { getProjectWorkItemContractById, listProjectWorkItemFieldGroups, } from '../data/pcs-project-domain-contract.ts';
+const initialState = {
+    search: '',
+    nature: '全部类型',
+    role: '全部角色',
+    status: '全部状态',
+    currentPage: 1,
+    itemsPerPage: 10,
+    jumpPage: '',
+};
+const state = {
+    ...initialState,
+};
+const FIELD_TYPE_LABELS = {
+    text: '单行文本',
+    textarea: '多行文本',
+    number: '数字',
+    select: '下拉单选',
+    'multi-select': '多选标签',
+    date: '日期',
+    datetime: '日期时间',
+    image: '图片上传',
+    file: '文件上传',
+    'cascade-select': '级联选择',
+    'single-select': '单选下拉',
+    'user-select': '用户选择',
+    'user-multi-select': '多用户选择',
+    'team-select': '团队选择',
+    url: '链接',
+    reference: '关联引用',
+    'reference-multi': '多对象关联',
+    system: '系统字段',
+};
+function resetState() {
+    Object.assign(state, initialState);
+}
+function getWorkItems() {
+    return listPcsWorkItems().map((item) => {
+        const definition = getPcsWorkItemDefinition(item.id);
+        return {
+            ...item,
+            enabledFlag: definition?.enabledFlag !== false,
+            displayStatus: definition?.enabledFlag === false ? '停用' : '启用',
+        };
+    });
+}
+function getNatureOptions() {
+    return ['全部类型', ...Array.from(new Set(getWorkItems().map((item) => item.nature)))];
+}
+function getRoleOptions() {
+    return ['全部角色', ...Array.from(new Set(getWorkItems().map((item) => item.role)))];
+}
+function getFilteredWorkItems() {
+    const keyword = state.search.trim().toLowerCase();
+    return getWorkItems().filter((item) => {
+        const matchesKeyword = keyword.length === 0 ||
+            [item.name, item.code, item.phaseName, item.desc, item.role].join(' ').toLowerCase().includes(keyword);
+        const matchesNature = state.nature === '全部类型' || item.nature === state.nature;
+        const matchesRole = state.role === '全部角色' || item.role === state.role;
+        const matchesStatus = state.status === '全部状态' || item.displayStatus === state.status;
+        return matchesKeyword && matchesNature && matchesRole && matchesStatus;
+    });
+}
+function clampCurrentPage(totalPages) {
+    if (totalPages <= 0)
+        return 1;
+    if (state.currentPage > totalPages) {
+        state.currentPage = totalPages;
+    }
+    if (state.currentPage < 1) {
+        state.currentPage = 1;
+    }
+    return state.currentPage;
+}
+function getPagedWorkItems() {
+    const filteredItems = getFilteredWorkItems();
+    const totalPages = Math.max(1, Math.ceil(filteredItems.length / state.itemsPerPage));
+    const currentPage = clampCurrentPage(totalPages);
+    const startIndex = (currentPage - 1) * state.itemsPerPage;
+    return {
+        filteredItems,
+        totalPages,
+        currentPage,
+        pagedItems: filteredItems.slice(startIndex, startIndex + state.itemsPerPage),
+    };
+}
+function getNatureBadgeClass(nature) {
+    if (nature === '决策类')
+        return 'border-amber-200 bg-amber-50 text-amber-700';
+    if (nature === '执行类')
+        return 'border-blue-200 bg-blue-50 text-blue-700';
+    if (nature === '里程碑类')
+        return 'border-violet-200 bg-violet-50 text-violet-700';
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+}
+function getStatusBadgeClass(status) {
+    return status === '停用' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-700';
+}
+function renderPagerButton(label, page, currentPage, disabled = false) {
+    return `
+    <button
+      type="button"
+      class="${toClassName('inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs', disabled
+        ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+        : currentPage === page
+            ? 'border-blue-600 bg-blue-600 text-white'
+            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}"
+      data-pcs-work-item-action="set-page"
+      data-pcs-work-item-page="${page}"
+      ${disabled ? 'disabled' : ''}
+    >${escapeHtml(label)}</button>
+  `;
+}
+function renderPagination(totalPages, currentPage) {
+    const pages = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1, currentPage - 2, currentPage + 2]);
+    const visiblePages = Array.from(pages).filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+    const content = [];
+    visiblePages.forEach((page, index) => {
+        const previous = visiblePages[index - 1];
+        if (typeof previous === 'number' && page - previous > 1) {
+            content.push('<span class="px-1 text-xs text-slate-400">...</span>');
+        }
+        content.push(renderPagerButton(String(page), page, currentPage));
+    });
+    return content.join('');
+}
+function renderLibraryHeader() {
+    const items = getWorkItems();
+    const enabledCount = items.filter((item) => item.displayStatus === '启用').length;
+    const factCount = items.filter((item) => item.nature === '事实类').length;
+    const milestoneCount = items.filter((item) => item.nature === '里程碑类').length;
+    return `
+    <header class="space-y-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="text-xs text-slate-500">商品中心 / 标准工作项</p>
+          <h1 class="text-xl font-semibold text-slate-900">工作项库</h1>
+        </div>
+      </div>
+      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <article class="rounded-lg border bg-white p-4">
+          <p class="text-xs text-slate-500">工作项总数</p>
+          <p class="mt-2 text-2xl font-semibold text-slate-900">${items.length}</p>
+        </article>
+        <article class="rounded-lg border bg-white p-4">
+          <p class="text-xs text-slate-500">当前启用</p>
+          <p class="mt-2 text-2xl font-semibold text-slate-900">${enabledCount}</p>
+        </article>
+        <article class="rounded-lg border bg-white p-4">
+          <p class="text-xs text-slate-500">里程碑 / 事实类</p>
+          <p class="mt-2 text-2xl font-semibold text-slate-900">${milestoneCount + factCount}</p>
+        </article>
+        <article class="rounded-lg border bg-white p-4">
+          <p class="text-xs text-slate-500">最近更新</p>
+          <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(formatDateTime(getWorkItems()[0]?.updatedAt ?? ''))}</p>
+        </article>
+      </section>
+    </header>
+  `;
+}
+function renderLibraryFilters() {
+    const natureOptions = getNatureOptions();
+    const roleOptions = getRoleOptions();
+    const statusOptions = ['全部状态', '启用', '停用'];
+    return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="grid gap-3 xl:grid-cols-[minmax(240px,1.4fr)_180px_220px_140px_auto]">
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">搜索工作项</span>
+          <input
+            class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            placeholder="搜索工作项名称、编码或阶段"
+            value="${escapeHtml(state.search)}"
+            data-pcs-work-item-field="search"
+          />
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">工作项性质</span>
+          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-work-item-field="nature">
+            ${natureOptions
+        .map((option) => `<option value="${escapeHtml(option)}" ${state.nature === option ? 'selected' : ''}>${escapeHtml(option)}</option>`)
+        .join('')}
+          </select>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">默认执行角色</span>
+          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-work-item-field="role">
+            ${roleOptions
+        .map((option) => `<option value="${escapeHtml(option)}" ${state.role === option ? 'selected' : ''}>${escapeHtml(option)}</option>`)
+        .join('')}
+          </select>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">状态</span>
+          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-work-item-field="status">
+            ${statusOptions
+        .map((option) => `<option value="${escapeHtml(option)}" ${state.status === option ? 'selected' : ''}>${escapeHtml(option)}</option>`)
+        .join('')}
+          </select>
+        </label>
+        <div class="flex items-end gap-2">
+          <button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-work-item-action="query">查询</button>
+          <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-work-item-action="reset">重置</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+function renderLibraryTable() {
+    const { filteredItems, pagedItems, totalPages, currentPage } = getPagedWorkItems();
+    return `
+    <section class="overflow-hidden rounded-lg border bg-white">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50">
+            <tr class="border-b border-slate-200 text-left text-slate-600">
+              <th class="px-4 py-3 font-medium">操作</th>
+              <th class="px-4 py-3 font-medium">工作项名称</th>
+              <th class="px-4 py-3 font-medium">工作项性质</th>
+              <th class="px-4 py-3 font-medium">默认执行角色</th>
+              <th class="px-4 py-3 font-medium">最近更新</th>
+              <th class="px-4 py-3 font-medium">状态</th>
+              <th class="px-4 py-3 font-medium">描述</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            ${pagedItems.length === 0
+        ? `
+                  <tr>
+                    <td colspan="7" class="px-4 py-16 text-center">
+                      <p class="text-sm font-medium text-slate-700">未找到符合条件的工作项</p>
+                      <p class="mt-1 text-xs text-slate-500">可以调整筛选条件，或重置后重新查看全部标准工作项。</p>
+                    </td>
+                  </tr>
+                `
+        : pagedItems
+            .map((item) => `
+                        <tr class="align-top hover:bg-slate-50">
+                          <td class="px-4 py-3">
+                            <button type="button" class="inline-flex rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="/pcs/work-items/${escapeHtml(item.id)}">查看</button>
+                          </td>
+                          <td class="px-4 py-3">
+                            <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/work-items/${escapeHtml(item.id)}">${escapeHtml(item.name)}</button>
+                            <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.code)}</p>
+                          </td>
+                          <td class="px-4 py-3">
+                            <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getNatureBadgeClass(item.nature)}">${escapeHtml(item.nature)}</span>
+                          </td>
+                          <td class="px-4 py-3 text-slate-600">${escapeHtml(item.role)}</td>
+                          <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(formatDateTime(item.updatedAt))}</td>
+                          <td class="px-4 py-3">
+                            <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getStatusBadgeClass(item.displayStatus)}">${escapeHtml(item.displayStatus)}</span>
+                          </td>
+                          <td class="px-4 py-3 text-slate-600">
+                            <p class="max-w-[360px] leading-6">${escapeHtml(item.desc)}</p>
+                          </td>
+                        </tr>
+                      `)
+            .join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
+        <div class="text-sm text-slate-600">共 ${filteredItems.length} 条</div>
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-2 text-sm text-slate-600">
+            <span>每页</span>
+            <select class="h-8 rounded-md border border-slate-200 px-2 text-xs" data-pcs-work-item-field="pageSize">
+              ${[10, 20, 50]
+        .map((size) => `<option value="${size}" ${state.itemsPerPage === size ? 'selected' : ''}>${size} 条/页</option>`)
+        .join('')}
+            </select>
+          </label>
+          <div class="flex items-center gap-1">
+            ${renderPagerButton('上一页', Math.max(1, currentPage - 1), currentPage, currentPage === 1)}
+            ${renderPagination(totalPages, currentPage)}
+            ${renderPagerButton('下一页', Math.min(totalPages, currentPage + 1), currentPage, currentPage === totalPages)}
+          </div>
+          <div class="flex items-center gap-2 text-sm text-slate-600">
+            <span>前往</span>
+            <input
+              class="h-8 w-16 rounded-md border border-slate-200 px-2 text-center text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              value="${escapeHtml(state.jumpPage)}"
+              inputmode="numeric"
+              data-pcs-work-item-field="jumpPage"
+            />
+            <span>页</span>
+            <button type="button" class="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-work-item-action="jump-page">跳转</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+function renderKeyValueCard(label, value, helper) {
+    return `
+    <article class="rounded-lg border bg-white p-4">
+      <p class="text-xs text-slate-500">${escapeHtml(label)}</p>
+      <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(value || '-')}</p>
+      ${helper ? `<p class="mt-1 text-xs leading-5 text-slate-500">${escapeHtml(helper)}</p>` : ''}
+    </article>
+  `;
+}
+function renderFieldGroups(groups) {
+    return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">三</span>
+        <h2 class="text-lg font-semibold text-slate-900">字段定义</h2>
+      </div>
+      <div class="space-y-6">
+        ${groups
+        .map((group, groupIndex) => `
+              <article class="space-y-3">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-100 px-2 text-xs font-semibold text-blue-700">${groupIndex + 1}</span>
+                    <h3 class="text-base font-semibold text-slate-900">${escapeHtml(group.groupTitle)}</h3>
+                  </div>
+                  <p class="mt-1 text-sm text-slate-500">${escapeHtml(group.groupDescription)}</p>
+                </div>
+                <div class="overflow-x-auto rounded-lg border">
+                  <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-left text-slate-600">
+                      <tr class="border-b border-slate-200">
+                        <th class="px-4 py-3 font-medium">字段名称</th>
+                        <th class="px-4 py-3 font-medium">字段类型</th>
+                        <th class="px-4 py-3 font-medium">必填</th>
+                        <th class="px-4 py-3 font-medium">来源与规则</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                      ${group.fields
+        .map((field) => `
+                            <tr class="align-top">
+                              <td class="px-4 py-3">
+                                <div class="flex flex-wrap items-center gap-2">
+                                  <span class="font-medium text-slate-900">${escapeHtml(field.label)}</span>
+                                  ${field.readonly ? '<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">只读</span>' : ''}
+                                  ${field.conditionalRequired ? '<span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">条件必填</span>' : ''}
+                                </div>
+                                <p class="mt-1 text-xs font-mono text-slate-400">${escapeHtml(field.fieldKey)}</p>
+                              </td>
+                              <td class="px-4 py-3 text-slate-700">${escapeHtml(FIELD_TYPE_LABELS[field.type] ?? field.type)}</td>
+                              <td class="px-4 py-3">
+                                <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${field.required ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}">${field.required ? '必填' : '选填'}</span>
+                              </td>
+                              <td class="space-y-1 px-4 py-3 text-slate-600">
+                                <p>来源：${escapeHtml(field.sourceKind)} / ${escapeHtml(field.sourceRef)}</p>
+                                <p>业务含义：${escapeHtml(field.meaning)}</p>
+                                <p>业务逻辑：${escapeHtml(field.businessLogic)}</p>
+                                ${field.placeholder ? `<p class="text-xs text-slate-500">提示文本：${escapeHtml(field.placeholder)}</p>` : ''}
+                                ${field.conditionalRequired ? `<p class="text-xs text-amber-700">条件必填：${escapeHtml(field.conditionalRequired)}</p>` : ''}
+                                ${field.options && field.options.length > 0
+        ? `<div class="flex flex-wrap gap-1 pt-1">${field.options
+            .map((option) => `<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(option.label)}</span>`)
+            .join('')}</div>`
+        : ''}
+                              </td>
+                            </tr>
+                          `)
+        .join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            `)
+        .join('')}
+      </div>
+    </section>
+  `;
+}
+function renderStatusDefinitions(indexLabel, title, statusDefinitions, badgeClass = 'bg-blue-100 text-blue-700') {
+    if (statusDefinitions.length === 0)
+        return '';
+    return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
+        <h2 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h2>
+      </div>
+      <div class="grid gap-3 lg:grid-cols-2">
+        ${statusDefinitions
+        .map((status) => `
+              <article class="rounded-lg border bg-slate-50 p-4">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${badgeClass}">${escapeHtml(status.statusName)}</span>
+                </div>
+                <p class="mt-3 text-sm leading-6 text-slate-700">${escapeHtml(status.businessMeaning)}</p>
+                <div class="mt-3 space-y-2 text-xs text-slate-500">
+                  <p><span class="font-medium text-slate-700">进入条件：</span>${escapeHtml(status.entryConditions.join('；') || '-')}</p>
+                  <p><span class="font-medium text-slate-700">退出条件：</span>${escapeHtml(status.exitConditions.join('；') || '-')}</p>
+                </div>
+              </article>
+            `)
+        .join('')}
+      </div>
+    </section>
+  `;
+}
+function renderOperationDefinitions(indexLabel, operationDefinitions) {
+    if (operationDefinitions.length === 0)
+        return '';
+    return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
+        <h2 class="text-lg font-semibold text-slate-900">操作定义</h2>
+      </div>
+      <div class="space-y-4">
+        ${operationDefinitions
+        .map((operation) => `
+              <article class="rounded-lg border p-4">
+                <div>
+                  <h3 class="text-base font-semibold text-slate-900">${escapeHtml(operation.actionName)}</h3>
+                  <p class="mt-1 text-xs font-mono text-slate-400">${escapeHtml(operation.actionKey)}</p>
+                </div>
+                <div class="mt-4 grid gap-3 xl:grid-cols-3">
+                  <div class="rounded-lg bg-slate-50 p-3">
+                    <p class="text-xs font-medium text-slate-700">触发前提</p>
+                    <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                      ${operation.preconditions.map((item) => `<li>• ${escapeHtml(item)}</li>`).join('') || '<li>• -</li>'}
+                    </ul>
+                  </div>
+                  <div class="rounded-lg bg-slate-50 p-3">
+                    <p class="text-xs font-medium text-slate-700">动作结果</p>
+                    <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                      ${operation.effects.map((item) => `<li>• ${escapeHtml(item)}</li>`).join('') || '<li>• -</li>'}
+                    </ul>
+                  </div>
+                  <div class="rounded-lg bg-slate-50 p-3">
+                    <p class="text-xs font-medium text-slate-700">回写规则</p>
+                    <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                      ${operation.writebackRules.map((item) => `<li>• ${escapeHtml(item)}</li>`).join('') || '<li>• -</li>'}
+                    </ul>
+                  </div>
+                </div>
+              </article>
+            `)
+        .join('')}
+      </div>
+    </section>
+  `;
+}
+function renderMultiInstanceSection(indexLabel, definition) {
+    if (!definition)
+        return '';
+    return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
+        <h2 class="text-lg font-semibold text-slate-900">多实例语义</h2>
+      </div>
+      <div class="grid gap-3 xl:grid-cols-3">
+        ${renderKeyValueCard('语义类型', definition.semanticLabel)}
+        ${renderKeyValueCard('主实例对象', definition.primaryInstanceTypeName, definition.granularityLabel)}
+        ${renderKeyValueCard('主来源层', definition.primarySourceLayers.join(' / '), definition.projectDisplayRule)}
+        ${renderKeyValueCard('主实例计数口径', definition.validInstanceCountRule)}
+        ${renderKeyValueCard('latest 实例口径', definition.latestInstanceRule)}
+        ${renderKeyValueCard('伴随对象', definition.supportingRelationObjectTypes.length > 0 ? definition.supportingRelationObjectTypes.join(' / ') : '无')}
+      </div>
+    </section>
+  `;
+}
+export function renderPcsWorkItemLibraryPage() {
+    return `
+    <div class="space-y-5 p-4">
+      ${renderLibraryHeader()}
+      ${renderLibraryFilters()}
+      ${renderLibraryTable()}
+    </div>
+  `;
+}
+export function renderPcsWorkItemDetailPage(workItemId) {
+    const definition = getPcsWorkItemDefinition(workItemId);
+    const contract = getProjectWorkItemContractById(workItemId);
+    if (!definition || !contract) {
+        return `
+      <div class="space-y-4 p-4">
+        <section class="rounded-lg border bg-white p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 class="text-xl font-semibold text-slate-900">工作项不存在</h1>
+              <p class="mt-1 text-sm text-slate-500">未找到对应的 PCS 标准工作项定义，请返回列表重新选择。</p>
+            </div>
+            <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/work-items">
+              <i data-lucide="arrow-left" class="h-4 w-4"></i>返回工作项库
+            </button>
+          </div>
+        </section>
+      </div>
+    `;
+    }
+    const fieldGroups = listProjectWorkItemFieldGroups(contract.workItemTypeCode);
+    const headerBadges = [
+        `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getNatureBadgeClass(definition.workItemNature)}">${escapeHtml(definition.workItemNature)}</span>`,
+        definition.isBuiltin
+            ? '<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">系统内置</span>'
+            : '',
+        `<span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getStatusBadgeClass(definition.enabledFlag === false ? '停用' : '启用')}">${definition.enabledFlag === false ? '停用' : '启用'}</span>`,
+    ]
+        .filter(Boolean)
+        .join('');
+    let sectionNumber = 7;
+    const nextSectionLabel = () => {
+        sectionNumber += 1;
+        return String(sectionNumber);
+    };
+    const instanceStatusDefinitions = contract.instanceStatusDefinitions ?? [];
+    const nodeStatusCount = contract.statusDefinitions.length;
+    const instanceStatusCount = instanceStatusDefinitions.length;
+    sectionNumber = 3;
+    return `
+    <div class="space-y-5 p-4">
+      <section class="rounded-lg border bg-white p-4">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/work-items">
+                <i data-lucide="arrow-left" class="h-4 w-4"></i>返回工作项库
+              </button>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500">工作项库 / 详情</p>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <h1 class="text-2xl font-semibold text-slate-900">${escapeHtml(definition.name)}</h1>
+                ${headerBadges}
+              </div>
+              <p class="mt-2 text-sm text-slate-500">${escapeHtml(definition.description)}</p>
+            </div>
+          </div>
+          <div class="rounded-lg border bg-slate-50 px-4 py-3 text-right">
+            <p class="text-xs text-slate-500">工作项编码</p>
+            <p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(definition.code)}</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-lg border bg-white p-4">
+        <div class="mb-4 flex items-center gap-2">
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">一</span>
+          <h2 class="text-lg font-semibold text-slate-900">基础信息</h2>
+        </div>
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          ${renderKeyValueCard('工作项名称', definition.name)}
+          ${renderKeyValueCard('工作项编码', definition.code)}
+          ${renderKeyValueCard('所属阶段', definition.defaultPhaseName, contract.scenario)}
+          ${renderKeyValueCard('默认执行角色', definition.role)}
+          ${renderKeyValueCard('字段 / 节点状态 / 实例状态 / 操作', `${fieldGroups.reduce((sum, group) => sum + group.fields.length, 0)} / ${nodeStatusCount} / ${instanceStatusCount || '-'} / ${contract.operationDefinitions.length}`)}
+          ${renderKeyValueCard('可用于模板', definition.isSelectableForTemplate ? '是' : '否')}
+          ${renderKeyValueCard('最近更新', formatDateTime(definition.updatedAt), contract.keepReason)}
+        </div>
+      </section>
+
+      ${renderFieldGroups(fieldGroups)}
+      ${renderStatusDefinitions(nextSectionLabel(), '节点状态定义', contract.statusDefinitions)}
+      ${renderStatusDefinitions(nextSectionLabel(), '实例状态定义', instanceStatusDefinitions, 'bg-violet-100 text-violet-700')}
+      ${renderOperationDefinitions(nextSectionLabel(), contract.operationDefinitions)}
+      ${renderMultiInstanceSection(nextSectionLabel(), contract.multiInstanceDefinition)}
+    </div>
+  `;
+}
+export function handlePcsWorkItemsInput(target) {
+    const fieldNode = target.closest('[data-pcs-work-item-field]');
+    if (!fieldNode)
+        return false;
+    const field = fieldNode.dataset.pcsWorkItemField;
+    if (!field)
+        return false;
+    if (field === 'search' && fieldNode instanceof HTMLInputElement) {
+        state.search = fieldNode.value;
+        state.currentPage = 1;
+        return true;
+    }
+    if (field === 'nature' && fieldNode instanceof HTMLSelectElement) {
+        state.nature = fieldNode.value;
+        state.currentPage = 1;
+        return true;
+    }
+    if (field === 'role' && fieldNode instanceof HTMLSelectElement) {
+        state.role = fieldNode.value;
+        state.currentPage = 1;
+        return true;
+    }
+    if (field === 'status' && fieldNode instanceof HTMLSelectElement) {
+        state.status = fieldNode.value;
+        state.currentPage = 1;
+        return true;
+    }
+    if (field === 'pageSize' && fieldNode instanceof HTMLSelectElement) {
+        const nextSize = Number.parseInt(fieldNode.value, 10);
+        if (Number.isFinite(nextSize) && nextSize > 0) {
+            state.itemsPerPage = nextSize;
+            state.currentPage = 1;
+        }
+        return true;
+    }
+    if (field === 'jumpPage' && fieldNode instanceof HTMLInputElement) {
+        state.jumpPage = fieldNode.value.replaceAll(/[^\d]/g, '');
+        return true;
+    }
+    return false;
+}
+export function handlePcsWorkItemsEvent(target) {
+    const actionNode = target.closest('[data-pcs-work-item-action]');
+    if (!actionNode)
+        return false;
+    const action = actionNode.dataset.pcsWorkItemAction;
+    if (!action)
+        return false;
+    if (action === 'reset') {
+        resetState();
+        return true;
+    }
+    if (action === 'query') {
+        state.currentPage = 1;
+        return true;
+    }
+    if (action === 'set-page') {
+        const page = Number.parseInt(actionNode.dataset.pcsWorkItemPage ?? '', 10);
+        if (Number.isFinite(page) && page > 0) {
+            state.currentPage = page;
+            state.jumpPage = '';
+        }
+        return true;
+    }
+    if (action === 'jump-page') {
+        const targetPage = Number.parseInt(state.jumpPage, 10);
+        const totalPages = Math.max(1, Math.ceil(getFilteredWorkItems().length / state.itemsPerPage));
+        if (Number.isFinite(targetPage) && targetPage >= 1) {
+            state.currentPage = Math.min(targetPage, totalPages);
+            state.jumpPage = '';
+        }
+        return true;
+    }
+    return false;
+}
+export function isPcsWorkItemsDialogOpen() {
+    return false;
+}

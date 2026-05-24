@@ -1,0 +1,29 @@
+import { resolvePdaTaskDetailPath, resolvePdaTaskExecPath, } from '../data/fcs/pda-cutting-execution-source.ts';
+export function buildPdaCuttingTaskEntryAction(task, options = {}) {
+    const normalizedOptions = typeof options === 'string' ? { returnTo: options } : options;
+    if (task.taskReadyForDirectExec && (task.defaultExecutionOrderId || task.defaultExecutionOrderNo)) {
+        return {
+            label: '继续处理',
+            href: normalizedOptions.execHref || resolvePdaTaskExecPath(task.taskId, normalizedOptions.returnTo),
+            helperText: '',
+            directExec: true,
+        };
+    }
+    return {
+        label: '查看任务',
+        href: normalizedOptions.detailHref || resolvePdaTaskDetailPath(task.taskId, normalizedOptions.returnTo),
+        helperText: task.hasMultipleCutPieceOrders ? '需先选择执行单' : '',
+        directExec: false,
+    };
+}
+export function getPdaCuttingTaskStateBadgeClass(taskStateLabel) {
+    if (taskStateLabel === '已完成')
+        return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    if (taskStateLabel === '有异常')
+        return 'border-destructive/20 bg-destructive text-destructive-foreground';
+    if (taskStateLabel?.includes('部分'))
+        return 'border-amber-200 bg-amber-50 text-amber-700';
+    if (taskStateLabel === '进行中')
+        return 'border-blue-200 bg-blue-50 text-blue-700';
+    return 'border-border bg-background text-muted-foreground';
+}

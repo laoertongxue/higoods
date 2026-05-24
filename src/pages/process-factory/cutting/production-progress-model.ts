@@ -79,8 +79,11 @@ export interface ProductionProgressRiskTag {
 export interface ProductionProgressMaterialPrepLine {
   materialLabel: string
   materialSku: string
+  materialName: string
+  materialColor: string
   materialAlias: string
   materialImageUrl: string
+  materialUnit: string
   preparedQty: number
   totalQty: number
 }
@@ -88,8 +91,11 @@ export interface ProductionProgressMaterialPrepLine {
 export interface ProductionProgressMaterialClaimLine {
   materialLabel: string
   materialSku: string
+  materialName: string
+  materialColor: string
   materialAlias: string
   materialImageUrl: string
+  materialUnit: string
   claimedQty: number
   preparedQty: number
 }
@@ -110,10 +116,17 @@ export interface ProductionProgressPartDifferenceSummary {
 }
 
 export interface ProductionProgressSourceOrderProgressLine {
+  cutOrderId: string
   cutOrderNo: string
   materialSku: string
+  materialName: string
+  materialColor: string
   materialAlias: string
   materialImageUrl: string
+  materialUnit: string
+  patternFileName: string
+  patternVersion: string
+  effectiveWidthText: string
   skuCount: number
   incompletePieceQty: number
   currentStateLabel: string
@@ -211,6 +224,10 @@ export interface ProductionProgressRow {
   latestPickupScanAt: string
   latestOperatorName: string
   rawStageText: string
+  closeReasonText: string
+  closeReason: string
+  closedAt: string
+  closedBy: string
   hasSpreadingRecord: boolean
   hasInboundRecord: boolean
   materialLines: CuttingMaterialLine[]
@@ -255,10 +272,10 @@ export const configMeta: Record<CuttingConfigStatus, { label: string; className:
 }
 
 export const receiveMeta: Record<ProductionProgressReceiveKey, { label: string; className: string }> = {
-  NOT_RECEIVED: { label: '无领料记录', className: 'bg-slate-100 text-slate-700' },
+  NOT_RECEIVED: { label: '未产生领料记录', className: 'bg-slate-100 text-slate-700' },
   PARTIAL: { label: '领料数量不足', className: 'bg-orange-100 text-orange-700' },
   RECEIVED: { label: '有领料记录', className: 'bg-emerald-100 text-emerald-700' },
-  EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700' },
+  EXCEPTION: { label: '领料差异', className: 'bg-rose-100 text-rose-700' },
 }
 
 export const stageMeta: Record<ProductionProgressStageKey, { label: string; className: string }> = {
@@ -662,8 +679,11 @@ function buildMaterialPrepLines(
     const current = grouped.get(key) || {
       materialLabel: line.materialLabel || line.materialSku,
       materialSku: line.materialSku,
-      materialAlias: line.materialAlias || '',
-      materialImageUrl: line.materialImageUrl || '',
+      materialName: line.materialIdentity?.materialName || line.materialLabel || line.materialSku,
+      materialColor: line.materialIdentity?.materialColor || line.color || '',
+      materialAlias: line.materialIdentity?.materialAlias || line.materialAlias || '',
+      materialImageUrl: line.materialIdentity?.materialImageUrl || line.materialImageUrl || '',
+      materialUnit: line.materialIdentity?.materialUnit || '米',
       preparedQty: 0,
       totalQty: 0,
     }
@@ -687,8 +707,11 @@ function buildMaterialClaimLines(record: CuttingOrderProgressRecord): Production
     const current = grouped.get(key) || {
       materialLabel: line.materialLabel || line.materialSku,
       materialSku: line.materialSku,
-      materialAlias: line.materialAlias || '',
-      materialImageUrl: line.materialImageUrl || '',
+      materialName: line.materialIdentity?.materialName || line.materialLabel || line.materialSku,
+      materialColor: line.materialIdentity?.materialColor || line.color || '',
+      materialAlias: line.materialIdentity?.materialAlias || line.materialAlias || '',
+      materialImageUrl: line.materialIdentity?.materialImageUrl || line.materialImageUrl || '',
+      materialUnit: line.materialIdentity?.materialUnit || '米',
       claimedQty: 0,
       preparedQty: 0,
     }
@@ -846,9 +869,16 @@ function buildSourceOrderProgressLines(
     string,
     {
       cutOrderNo: string
+      cutOrderId: string
       materialSku: string
+      materialName: string
+      materialColor: string
       materialAlias: string
       materialImageUrl: string
+      materialUnit: string
+      patternFileName: string
+      patternVersion: string
+      effectiveWidthText: string
       skuCodes: Set<string>
       cutQty: number
       inboundQty: number
@@ -859,19 +889,30 @@ function buildSourceOrderProgressLines(
   >()
 
   record.materialLines.forEach((materialLine) => {
+    const cutOrderId = materialLine.cutOrderId || materialLine.cutOrderNo || materialLine.cutPieceOrderNo || ''
+    const cutOrderNo = materialLine.cutOrderNo || materialLine.cutOrderId || materialLine.cutPieceOrderNo || ''
     const key = makeProductionProgressCutOrderKey({
       productionOrderId: record.productionOrderId,
-      cutOrderNo: materialLine.cutOrderNo,
+      cutOrderNo,
       materialSku: materialLine.materialSku,
     })
     const requirement = cutOrderRequirementMap.get(key)
     const current =
       grouped.get(key) ||
       {
-        cutOrderNo: materialLine.cutOrderNo || '',
+        cutOrderNo,
+        cutOrderId,
         materialSku: materialLine.materialSku,
-        materialAlias: materialLine.materialAlias || '',
-        materialImageUrl: materialLine.materialImageUrl || '',
+        materialName: materialLine.materialIdentity?.materialName || materialLine.materialLabel || materialLine.materialSku,
+        materialColor: materialLine.materialIdentity?.materialColor || materialLine.color || '',
+        materialAlias: materialLine.materialIdentity?.materialAlias || materialLine.materialAlias || '',
+        materialImageUrl: materialLine.materialIdentity?.materialImageUrl || materialLine.materialImageUrl || '',
+        materialUnit: materialLine.materialIdentity?.materialUnit || '米',
+        patternFileName: materialLine.patternIdentity?.patternFileName || '待补纸样文件',
+        patternVersion: materialLine.patternIdentity?.patternVersion || '待补',
+        effectiveWidthText: materialLine.patternIdentity
+          ? `${materialLine.patternIdentity.effectiveWidthValue}${materialLine.patternIdentity.effectiveWidthUnit}`
+          : '待补',
         skuCodes: new Set<string>(requirement ? Array.from(requirement.skuCodes) : []),
         cutQty: 0,
         inboundQty: 0,
@@ -906,10 +947,17 @@ function buildSourceOrderProgressLines(
           : 0
 
       return {
+        cutOrderId: row.cutOrderId,
         cutOrderNo: row.cutOrderNo,
         materialSku: row.materialSku,
+        materialName: row.materialName,
+        materialColor: row.materialColor,
         materialAlias: row.materialAlias,
         materialImageUrl: row.materialImageUrl,
+        materialUnit: row.materialUnit,
+        patternFileName: row.patternFileName,
+        patternVersion: row.patternVersion,
+        effectiveWidthText: row.effectiveWidthText,
         skuCount: row.skuCodes.size,
         incompletePieceQty,
         currentStateLabel,
@@ -923,10 +971,19 @@ function buildSourceOrderProgressLines(
     : truth.cutOrderRows.map((row) => {
         const materialLine = record.materialLines.find((line) => line.materialSku === row.materialSku)
         return {
+          cutOrderId: materialLine?.cutOrderId || row.cutOrderNo,
           cutOrderNo: row.cutOrderNo,
           materialSku: row.materialSku,
-          materialAlias: materialLine?.materialAlias || '',
-          materialImageUrl: materialLine?.materialImageUrl || '',
+          materialName: materialLine?.materialIdentity?.materialName || materialLine?.materialLabel || row.materialSku,
+          materialColor: materialLine?.materialIdentity?.materialColor || materialLine?.color || '',
+          materialAlias: materialLine?.materialIdentity?.materialAlias || materialLine?.materialAlias || '',
+          materialImageUrl: materialLine?.materialIdentity?.materialImageUrl || materialLine?.materialImageUrl || '',
+          materialUnit: materialLine?.materialIdentity?.materialUnit || '米',
+          patternFileName: materialLine?.patternIdentity?.patternFileName || '待补纸样文件',
+          patternVersion: materialLine?.patternIdentity?.patternVersion || '待补',
+          effectiveWidthText: materialLine?.patternIdentity
+            ? `${materialLine.patternIdentity.effectiveWidthValue}${materialLine.patternIdentity.effectiveWidthUnit}`
+            : '待补',
           skuCount: row.skuCount,
           incompletePieceQty: Math.max(row.gapCutQty, row.gapInboundQty),
           currentStateLabel: row.currentStateLabel,
@@ -1124,6 +1181,10 @@ export function buildProductionProgressRows(
       latestPickupScanAt: record.lastPickupScanAt,
       latestOperatorName: record.lastOperatorName,
       rawStageText: record.cuttingStage,
+      closeReasonText: record.closeReasonText || '',
+      closeReason: record.closeReason || '',
+      closedAt: record.closedAt || '',
+      closedBy: record.closedBy || '',
       hasSpreadingRecord: record.hasSpreadingRecord,
       hasInboundRecord: record.hasInboundRecord,
       materialLines: record.materialLines,

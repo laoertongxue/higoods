@@ -75,15 +75,15 @@ export interface CuttingDrillContext {
 export type CuttingPrefilterPayload = Record<string, string | undefined>
 
 const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
-  'cutting-summary': '裁剪总结',
+  'cutting-summary': '裁剪结果核查',
   replenishment: '补料管理',
   'special-processes': '特殊工艺',
-  'material-prep': '待加工仓',
-  'spreading-list': '铺布列表',
-  'marker-spreading': '铺布列表',
-  'fei-tickets': '打印菲票',
+  'material-prep': '裁床待加工仓',
+  'spreading-list': '铺布单',
+  'marker-spreading': '铺布单',
+  'fei-tickets': '菲票',
   'cut-orders': '裁片单',
-  'production-progress': '生产单进度',
+  'production-progress': '裁床生产单总览',
   'transfer-bags': '中转袋流转',
   'cut-piece-warehouse': '裁片仓',
   'fabric-warehouse': '裁床仓',
@@ -92,16 +92,16 @@ const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
 }
 
 const actionLabelMap: Record<CuttingNavigationTarget, string> = {
-  summary: '去裁剪总结',
+  summary: '去裁剪结果核查',
   replenishment: '去补料管理',
   specialProcesses: '去特殊工艺',
-  materialPrep: '去待加工仓',
+  materialPrep: '去裁床待加工仓',
   markerPlan: '去唛架',
   spreadingList: '去铺布',
   markerSpreading: '去铺布',
-  feiTickets: '去打印菲票',
+  feiTickets: '去菲票',
   cutOrders: '去裁片单',
-  productionProgress: '去生产单进度',
+  productionProgress: '去裁床生产单总览',
   transferBags: '去中转袋流转',
   cutPieceWarehouse: '去裁片仓',
   fabricWarehouse: '去裁床仓',
@@ -382,7 +382,7 @@ export function buildCuttingDrillChipLabels(context: CuttingDrillContext | null)
 
 export function buildCuttingDrillSummary(context: CuttingDrillContext | null): string {
   if (!context) return ''
-  if (context.sourcePageKey === 'cutting-summary') return '当前已恢复裁剪总结定位'
+  if (context.sourcePageKey === 'cutting-summary') return '当前已恢复裁剪结果核查定位'
   return `来源：${getCuttingSourcePageLabel(context.sourcePageKey)}`
 }
 
