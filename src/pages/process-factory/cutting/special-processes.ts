@@ -187,6 +187,7 @@ function buildBindingOrder(source: GeneratedCutOrderSourceRecord, index: number)
     abnormalItems,
     inboundInventoryRecordIds: seed.status === '已入库' || seed.key === 'external-returned' ? [`INV-BIND-${String(index + 1).padStart(3, '0')}`] : [],
     linkedReplenishmentIds: abnormalItems.some((item) => item.targetModule === '补料管理') ? [`RP-BIND-${String(index + 1).padStart(3, '0')}`] : [],
+    linkedLedgerEventIds: abnormalItems.map((item) => `ledger:${bindingOrderId}:abnormal:${item.abnormalId}`),
     linkedCheckItemIds: abnormalItems.some((item) => item.targetModule === '裁剪结果核查') ? [`CHECK-BIND-${String(index + 1).padStart(3, '0')}`] : [],
     externalReceiverFactoryName:
       seed.key === 'external-aux'

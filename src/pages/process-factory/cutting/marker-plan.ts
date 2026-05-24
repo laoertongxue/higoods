@@ -10,10 +10,12 @@ import type { CuttableCutOrderItem } from './cuttable-pool-model.ts'
 import { spreadingOrderStatusMeta, type SpreadingOrder } from './marker-spreading-model.ts'
 import {
   buildMaterialLedgerProjectionMap,
+} from '../../../data/fcs/cutting/material-ledger.ts'
+import {
   listStoredMarkerPlanLockLedger,
   saveStoredMarkerPlanLockLedger,
   type MarkerPlanMaterialLockRecord,
-} from '../../../data/fcs/cutting/material-ledger.ts'
+} from '../../../data/fcs/cutting/marker-plan-lock-ledger.ts'
 import { buildMarkerSchemeFromPlan } from './marker-scheme-adapter.ts'
 import {
   buildMarkerPlanBalanceRows,
@@ -26,7 +28,7 @@ import {
   findMarkerPlanContextById,
   findMarkerPlanContextForPlan,
   getMarkerPlanInitialEditTab,
-  getMarkerPlanReferencedWarning,
+  getMarkerPlanSourceerencedWarning,
   getMarkerPlanStorageKey,
   hydrateMarkerPlan,
   serializeMarkerPlanStorage,
@@ -1718,7 +1720,7 @@ function renderPlanHeaderActions(route: MarkerPlanRouteKind, plan: MarkerPlan | 
       ${renderActionButton('返回列表', 'data-marker-plan-action="go-list"')}
       ${renderActionButton('交给铺布', `data-marker-plan-action="go-spreading"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'primary', !plan || !plan.readyForSpreading)}
       ${renderActionButton('去裁片单', `data-marker-plan-action="go-cut-orders"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'secondary', !plan || !plan.cutOrderIds.length)}
-      ${plan?.markerPlanId ? renderActionButton('去唛架方案', `data-marker-plan-action="go-marker-plan-ref" data-plan-id="${escapeHtml(plan.id)}"`, 'secondary') : ''}
+      ${plan?.markerPlanId ? renderActionButton('去唛架方案', `data-marker-plan-action="go-marker-plan" data-plan-id="${escapeHtml(plan.id)}"`, 'secondary') : ''}
       ${renderActionButton('去裁床生产单总览', `data-marker-plan-action="go-production-progress"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'secondary', !plan)}
     </div>
   `
@@ -1764,13 +1766,13 @@ function buildGoMaterialPrepPath(plan: MarkerPlan | MarkerPlanViewRow): string {
   })
 }
 
-function buildGoMarkerPlanRefPath(plan: MarkerPlan | MarkerPlanViewRow): string {
+function buildGoMarkerPlanSourcePath(plan: MarkerPlan | MarkerPlanViewRow): string {
   return buildRouteWithQuery(getCanonicalCuttingPath('marker-list'), {
     focusBatchId: plan.markerPlanId || undefined,
   })
 }
 
-function buildGoMarkerPlanRefPathFromContext(context: MarkerPlanContextCandidate): string {
+function buildGoMarkerPlanSourcePathFromContext(context: MarkerPlanContextCandidate): string {
   return buildRouteWithQuery(getCanonicalCuttingPath('marker-list'), {
     focusBatchId: context.markerPlanId || undefined,
   })
@@ -1892,7 +1894,7 @@ function renderPlanTopInfo(
   const mergeChip = plan.markerPlanNo
     ? renderTopInfoChip(
         plan.markerPlanNo,
-        `data-marker-plan-action="go-marker-plan-ref" data-marker-plan-ref-id="${escapeHtml(plan.markerPlanId)}" data-marker-plan-ref-no="${escapeHtml(plan.markerPlanNo)}"`,
+        `data-marker-plan-action="go-marker-plan" data-marker-plan-id="${escapeHtml(plan.markerPlanId)}" data-marker-plan-no="${escapeHtml(plan.markerPlanNo)}"`,
         'amber',
       )
     : '<span class="text-xs text-muted-foreground">—</span>'
@@ -1901,7 +1903,7 @@ function renderPlanTopInfo(
         .map((productionOrderNo, index) =>
           renderTopInfoChip(
             productionOrderNo,
-            `data-marker-plan-action="go-production-progress" data-production-order-id="${escapeHtml(plan.productionOrderIds[index] || '')}" data-production-order-no="${escapeHtml(productionOrderNo)}" data-style-code="${escapeHtml(plan.styleCode || '')}" data-spu-code="${escapeHtml(plan.spuCode || '')}" data-material-sku="${escapeHtml(plan.sourceMaterialSku || '')}" data-cut-order-id="${escapeHtml(plan.cutOrderIds[index] || '')}" data-cut-order-no="${escapeHtml(plan.cutOrderNos[index] || '')}" data-marker-plan-ref-id="${escapeHtml(plan.markerPlanId || '')}" data-marker-plan-ref-no="${escapeHtml(plan.markerPlanNo || '')}"`,
+            `data-marker-plan-action="go-production-progress" data-production-order-id="${escapeHtml(plan.productionOrderIds[index] || '')}" data-production-order-no="${escapeHtml(productionOrderNo)}" data-style-code="${escapeHtml(plan.styleCode || '')}" data-spu-code="${escapeHtml(plan.spuCode || '')}" data-material-sku="${escapeHtml(plan.sourceMaterialSku || '')}" data-cut-order-id="${escapeHtml(plan.cutOrderIds[index] || '')}" data-cut-order-no="${escapeHtml(plan.cutOrderNos[index] || '')}" data-marker-plan-id="${escapeHtml(plan.markerPlanId || '')}" data-marker-plan-no="${escapeHtml(plan.markerPlanNo || '')}"`,
             'emerald',
           ),
         )
@@ -1993,7 +1995,7 @@ function renderPlanTopInfo(
               <div class="pointer-events-auto flex flex-wrap items-center gap-2 border-t pt-3">
                 ${renderActionButton('去裁片单', `data-marker-plan-action="go-cut-orders"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
                 ${renderActionButton('去待加工仓', `data-marker-plan-action="go-material-prep"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
-                ${plan.markerPlanId ? renderActionButton('去唛架方案', `data-marker-plan-action="go-marker-plan-ref"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`) : ''}
+                ${plan.markerPlanId ? renderActionButton('去唛架方案', `data-marker-plan-action="go-marker-plan"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`) : ''}
                 ${renderActionButton('去裁床生产单总览', `data-marker-plan-action="go-production-progress"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
               </div>
             `
@@ -3335,7 +3337,7 @@ function renderListPage(viewModel = getViewModel()): string {
 
 function renderEditorWarning(plan: MarkerPlanViewRow | null): string {
   if (!plan) return ''
-  const warningText = getMarkerPlanReferencedWarning(plan)
+  const warningText = getMarkerPlanSourceerencedWarning(plan)
   if (!warningText) return ''
   return `
     <section class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3.5 text-sm text-amber-700">
@@ -3996,11 +3998,11 @@ function handleAction(action: string, node: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'go-marker-plan-ref') {
+  if (action === 'go-marker-plan') {
     const planId = node.dataset.planId || route.id
     const plan = resolveCurrentPlan(viewModel, planId)
     if (!plan || !plan.markerPlanId) return false
-    appStore.navigate(buildGoMarkerPlanRefPath(plan))
+    appStore.navigate(buildGoMarkerPlanSourcePath(plan))
     return true
   }
 
@@ -4030,7 +4032,7 @@ function handleAction(action: string, node: HTMLElement): boolean {
     if (!contextType || !contextId) return false
     const context = findMarkerPlanContextById(viewModel.contexts, contextType, contextId)
     if (!context || !context.markerPlanId) return false
-    appStore.navigate(buildGoMarkerPlanRefPathFromContext(context))
+    appStore.navigate(buildGoMarkerPlanSourcePathFromContext(context))
     return true
   }
 

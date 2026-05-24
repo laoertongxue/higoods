@@ -548,7 +548,7 @@ function buildExecutionMarkerSpreadingContext(
   } = {},
 ): MarkerSpreadingContext {
   return {
-    contextType: execution.markerPlanId ? 'marker-plan-ref' : 'cut-order',
+    contextType: execution.markerPlanId ? 'marker-plan' : 'cut-order',
     cutOrderIds: execution.cutOrderId ? [execution.cutOrderId] : [],
     cutOrderNos: execution.cutOrderNo ? [execution.cutOrderNo] : [],
     markerPlanId: execution.markerPlanId || '',

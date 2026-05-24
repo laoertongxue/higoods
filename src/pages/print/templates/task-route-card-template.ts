@@ -222,7 +222,7 @@ export function buildCuttingCutOrderRouteCardPrintDocument(input: TaskRouteCardA
   return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.CUTTING_ORDER)
 }
 
-export function buildCuttingMarkerPlanRefRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
+export function buildCuttingMarkerPlanSourceRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
   const resolvedInput = resolveTaskRouteCardInput(input, 'CUTTING_MARKER_PLAN')
   return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.CUTTING_MARKER_PLAN)
 }

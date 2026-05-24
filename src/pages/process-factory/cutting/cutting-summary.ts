@@ -2607,7 +2607,7 @@ function renderTraceNode(node: CuttingSummaryTraceNode, rowId: string): string {
   const targetMap: Record<CuttingSummaryTraceNode['nodeType'], SummaryNavigationTarget> = {
     'production-order': 'productionProgress',
     'cut-order': 'cutOrders',
-    'marker-plan-ref': 'markerPlanRefs',
+    'marker-plan': 'markerPlanSources',
     ticket: 'feiTickets',
     'bag-usage': 'transferBags',
     replenishment: 'replenishment',

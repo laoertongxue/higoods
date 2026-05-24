@@ -165,7 +165,7 @@ void import('../../../router/routes-pda.ts')
 type ListTabKey = 'ALL' | SpreadingListStatusKey
 type FeedbackTone = 'success' | 'warning'
 type MarkerModeFilter = 'ALL' | MarkerModeKey
-type ContextTypeFilter = 'ALL' | 'cut-order' | 'marker-plan-ref'
+type ContextTypeFilter = 'ALL' | 'cut-order' | 'marker-plan'
 type BooleanFilter = 'ALL' | 'YES' | 'NO'
 type SpreadingStageFilter = 'ALL' | SpreadingListStatusKey
 const MOBILE_SOURCE_CHANNEL = 'PDA' as const
@@ -274,7 +274,7 @@ interface MarkerSpreadingPageState {
   contextNoFilter: string
   sessionNoFilter: string
   cutOrderFilter: string
-  markerPlanRefFilter: string
+  markerPlanSourceFilter: string
   markerNoFilter: string
   productionOrderFilter: string
   styleSpuFilter: string
@@ -365,7 +365,7 @@ const state: MarkerSpreadingPageState = {
   contextNoFilter: '',
   sessionNoFilter: '',
   cutOrderFilter: '',
-  markerPlanRefFilter: '',
+  markerPlanSourceFilter: '',
   markerNoFilter: '',
   productionOrderFilter: '',
   styleSpuFilter: '',
@@ -451,7 +451,7 @@ function matchesSpreadingCreateSource(source: SpreadingCreateSourceRow): boolean
     return false
   }
   if (!matchesIncludesFilter(state.cutOrderFilter, source.cutOrderNos)) return false
-  if (!matchesIncludesFilter(state.markerPlanRefFilter, [source.markerPlanNo])) return false
+  if (!matchesIncludesFilter(state.markerPlanSourceFilter, [source.markerPlanNo])) return false
   if (!matchesIncludesFilter(state.markerNoFilter, [source.markerNo, source.sourceSchemeNo, source.sourceBedNo])) return false
   if (!matchesIncludesFilter(state.productionOrderFilter, source.productionOrderNos)) return false
   if (!matchesIncludesFilter(state.styleSpuFilter, [source.styleCode, source.spuCode])) return false
@@ -610,7 +610,7 @@ function buildCreateAssignmentGroups(rows: SpreadingCreateSourceRow[]): Array<{
 
 function getExceptionCreateContext(): MarkerSpreadingContext | null {
   const data = readMarkerSpreadingPrototypeData()
-  return getDefaultMarkerSpreadingContext(data.rows, data.markerPlanRefs, state.prefilter)
+  return getDefaultMarkerSpreadingContext(data.rows, data.markerPlanSources, state.prefilter)
 }
 
 function buildEmptyCreatePreview(): {
@@ -1673,7 +1673,7 @@ function createFallbackMarkerDraft(): MarkerRecord {
 
 function buildNewMarkerDraft(): MarkerRecord {
   const data = readMarkerSpreadingPrototypeData()
-  const context = getDefaultMarkerSpreadingContext(data.rows, data.markerPlanRefs, state.prefilter)
+  const context = getDefaultMarkerSpreadingContext(data.rows, data.markerPlanSources, state.prefilter)
   const seeded = context ? buildMarkerSeedDraft(context, null) : null
   const draft = seeded ? cloneMarkerRecord(seeded) : createFallbackMarkerDraft()
   draft.markerId = `marker-${Date.now()}`
@@ -1729,8 +1729,8 @@ function resolveSeededMarkerForContext(
 
   return (
     markers.find((item) => {
-      if (context.contextType === 'marker-plan-ref' && context.markerPlanId) {
-        return item.contextType === 'marker-plan-ref' && item.markerPlanId === context.markerPlanId
+      if (context.contextType === 'marker-plan' && context.markerPlanId) {
+        return item.contextType === 'marker-plan' && item.markerPlanId === context.markerPlanId
       }
       if (!context.cutOrderIds.length) return false
       return context.cutOrderIds.some((id) => item.cutOrderIds.includes(id))
@@ -1754,9 +1754,9 @@ function buildCreatePayloadFromContext(
         ? context.cutOrderNos[0] || undefined
         : state.prefilter?.cutOrderNo,
     markerPlanId:
-      context?.contextType === 'marker-plan-ref' ? context.markerPlanId || undefined : state.prefilter?.markerPlanId,
+      context?.contextType === 'marker-plan' ? context.markerPlanId || undefined : state.prefilter?.markerPlanId,
     markerPlanNo:
-      context?.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : state.prefilter?.markerPlanNo,
+      context?.contextType === 'marker-plan' ? context.markerPlanNo || undefined : state.prefilter?.markerPlanNo,
     productionOrderNo: context?.productionOrderNos[0] || state.prefilter?.productionOrderNo,
     styleCode: marker?.styleCode || context?.styleCode || state.prefilter?.styleCode || undefined,
     materialSku: marker?.materialSkuSummary?.split(' / ')[0] || context?.materialSkuSummary || state.prefilter?.materialSku || undefined,
@@ -1805,7 +1805,7 @@ function buildNewSpreadingDraft(): SpreadingSession {
   const markerId = params.get('markerId')
   const exceptionEntry = params.get('exceptionEntry') === '1'
   const existingMarker = markerId ? data.store.markers.find((item) => item.markerId === markerId) || null : null
-  const context = exceptionEntry ? getDefaultMarkerSpreadingContext(data.rows, data.markerPlanRefs, state.prefilter) : null
+  const context = exceptionEntry ? getDefaultMarkerSpreadingContext(data.rows, data.markerPlanSources, state.prefilter) : null
   const seededMarker = existingMarker || (exceptionEntry ? buildMarkerSeedDraft(context, null) : null)
 
   if (!seededMarker) {
@@ -1920,8 +1920,8 @@ function buildContextPayloadFromSession(session: SpreadingSession): Record<strin
     markerNo: session.markerNo || undefined,
     cutOrderId: session.contextType === 'cut-order' ? session.cutOrderIds[0] : undefined,
     cutOrderNo: session.contextType === 'cut-order' ? primaryRow?.cutOrderNo : undefined,
-    markerPlanId: session.contextType === 'marker-plan-ref' ? session.markerPlanId || undefined : undefined,
-    markerPlanNo: session.contextType === 'marker-plan-ref' ? session.markerPlanNo || undefined : undefined,
+    markerPlanId: session.contextType === 'marker-plan' ? session.markerPlanId || undefined : undefined,
+    markerPlanNo: session.contextType === 'marker-plan' ? session.markerPlanNo || undefined : undefined,
     styleCode: session.styleCode || primaryRow?.styleCode || undefined,
     materialSku: session.materialSkuSummary?.split(' / ')[0] || primaryRow?.materialSkuSummary || undefined,
   }
@@ -2033,7 +2033,7 @@ function syncStateFromPath(): void {
   state.contextNoFilter = ''
   state.sessionNoFilter = ''
   state.cutOrderFilter = ''
-  state.markerPlanRefFilter = ''
+  state.markerPlanSourceFilter = ''
   state.markerNoFilter = ''
   state.productionOrderFilter = ''
   state.styleSpuFilter = ''
@@ -2084,7 +2084,7 @@ function syncStateFromPath(): void {
     const existing = sessionId ? data.store.sessions.find((item) => item.spreadingSessionId === sessionId) || null : null
     state.spreadingDraft = existing ? cloneSpreadingSession(existing) : buildNewSpreadingDraft()
     state.spreadingCompletionSelection =
-      state.spreadingDraft.contextType === 'marker-plan-ref'
+      state.spreadingDraft.contextType === 'marker-plan'
         ? [...(state.spreadingDraft.completionLinkage?.linkedCutOrderIds || [])]
         : [...state.spreadingDraft.cutOrderIds]
     state.markerDraft = null
@@ -2165,7 +2165,7 @@ function buildSupervisorSpreadingRows(baseRows: SpreadingListRow[]): SupervisorS
       ...row,
       sourceMarkerLabel: row.session.markerNo || '待关联唛架编号',
       contextSummary:
-        row.contextType === 'marker-plan-ref'
+        row.contextType === 'marker-plan'
           ? `唛架方案 ${row.markerPlanNo || '待补'} / 裁片单 ${formatQty(row.cutOrderCount)} 张`
           : `裁片单 ${row.cutOrderNos.join(' / ') || '待补'} / 生产单 ${row.productionOrderNos.join(' / ') || '待补'}`,
       productionOrderCount: row.productionOrderNos.length,
@@ -2203,19 +2203,19 @@ function getPageData() {
   })
   const store = buildMarkerSpreadingPrototypeStore({
     rows: projection.rows,
-    markerPlanRefs: projection.markerPlanRefs,
+    markerPlanSources: projection.markerPlanSources,
     stored: projection.store,
   })
   const viewModel = buildMarkerSpreadingViewModel({
     rows: projection.rows,
-    markerPlanRefs: projection.markerPlanRefs,
+    markerPlanSources: projection.markerPlanSources,
     store,
     prefilter: state.prefilter,
   })
   const baseRows = buildSpreadingListViewModel({
     spreadingSessions: viewModel.spreadingSessions,
     rowsById: projection.rowsById,
-    markerPlanRefs: projection.markerPlanRefs,
+    markerPlanSources: projection.markerPlanSources,
     markerRecords: store.markers,
   })
   const supervisorRows = buildSupervisorSpreadingRows(baseRows)
@@ -2238,7 +2238,7 @@ function getPageData() {
     if (!matchesIncludesFilter(state.cutOrderFilter, row.cutOrderNos)) {
       return false
     }
-    if (!matchesIncludesFilter(state.markerPlanRefFilter, [row.markerPlanNo])) {
+    if (!matchesIncludesFilter(state.markerPlanSourceFilter, [row.markerPlanNo])) {
       return false
     }
     if (!matchesIncludesFilter(state.markerNoFilter, [
@@ -2289,8 +2289,8 @@ function getPageData() {
   return {
     rows: projection.rows,
     rowsById: projection.rowsById,
-    markerPlanRefs: projection.markerPlanRefs,
-    markerPlanRefsById: projection.markerPlanRefsById,
+    markerPlanSources: projection.markerPlanSources,
+    markerPlanSourcesById: projection.markerPlanSourcesById,
     store,
     projection,
     viewModel,
@@ -2767,7 +2767,7 @@ function renderRollHandoverWarnings(summary: SpreadingRollHandoverSummary): stri
 }
 
 function buildSpreadingCompletionTargetIds(session: SpreadingSession): string[] {
-  if (session.contextType === 'marker-plan-ref') return [...state.spreadingCompletionSelection]
+  if (session.contextType === 'marker-plan') return [...state.spreadingCompletionSelection]
   return [...session.cutOrderIds]
 }
 
@@ -2888,7 +2888,7 @@ function renderSpreadingCompletionLinkageSection(session: SpreadingSession, link
 
   return renderSection(
     '状态联动区',
-    session.contextType === 'marker-plan-ref'
+    session.contextType === 'marker-plan'
       ? `
           <div class="space-y-3">
             <div class="rounded-md border border-dashed bg-muted/10 px-3 py-3 text-sm text-muted-foreground">
@@ -3844,7 +3844,7 @@ function renderSpreadingDetailPage(): string {
   const detailView = buildSpreadingDetailViewModel({
     row,
     rowsById: pageData.rowsById,
-    markerPlanRefs: pageData.markerPlanRefs,
+    markerPlanSources: pageData.markerPlanSources,
     markerRecords: pageData.store.markers,
   })
   const session = row.session
@@ -5384,7 +5384,7 @@ function navigateFromSpreadingSession(sessionId: string | undefined, target: 'cu
       autoOpenDetail: true,
     },
   )
-  appStore.navigate(buildCuttingRouteWithContext(target === 'cut-orders' ? 'cutOrders' : 'markerPlanRefs', context))
+  appStore.navigate(buildCuttingRouteWithContext(target === 'cut-orders' ? 'cutOrders' : 'markerPlanSources', context))
   return true
 }
 
@@ -5961,7 +5961,7 @@ function saveCurrentSpreading(goDetail: boolean, successMessage?: string): boole
   const saved = nextStore.sessions.find((item) => item.spreadingSessionId === draft.spreadingSessionId) || normalizedDraft
   state.spreadingDraft = cloneSpreadingSession(saved)
   state.spreadingCompletionSelection =
-    saved.contextType === 'marker-plan-ref'
+    saved.contextType === 'marker-plan'
       ? [...(saved.completionLinkage?.linkedCutOrderIds || [])]
       : [...saved.cutOrderIds]
   state.feedback = { tone: 'success', message: successMessage || `${saved.sessionNo || '铺布 session'} 已保存。` }
@@ -6026,7 +6026,7 @@ function completeCurrentSpreading(): boolean {
   const saved = nextStore.sessions.find((item) => item.spreadingSessionId === completedDraft.spreadingSessionId) || completedDraft
   state.spreadingDraft = cloneSpreadingSession(saved)
   state.spreadingCompletionSelection =
-    saved.contextType === 'marker-plan-ref'
+    saved.contextType === 'marker-plan'
       ? [...(saved.completionLinkage?.linkedCutOrderIds || [])]
       : [...saved.cutOrderIds]
   state.spreadingEditTab = 'completion'
@@ -6221,7 +6221,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     if (field === 'context-no') state.contextNoFilter = value
     if (field === 'session-no') state.sessionNoFilter = value
     if (field === 'cut-order') state.cutOrderFilter = value
-    if (field === 'marker-plan-ref') state.markerPlanRefFilter = value
+    if (field === 'marker-plan') state.markerPlanSourceFilter = value
     if (field === 'marker-no') state.markerNoFilter = value
     if (field === 'production-order') state.productionOrderFilter = value
     if (field === 'style-spu') state.styleSpuFilter = value
@@ -6661,7 +6661,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     state.contextNoFilter = ''
     state.sessionNoFilter = ''
     state.cutOrderFilter = ''
-    state.markerPlanRefFilter = ''
+    state.markerPlanSourceFilter = ''
     state.markerNoFilter = ''
     state.productionOrderFilter = ''
     state.styleSpuFilter = ''

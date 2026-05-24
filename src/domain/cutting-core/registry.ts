@@ -1,6 +1,6 @@
 import {
   listCuttingTaskRefs,
-  listMarkerPlanRefRefs,
+  listMarkerPlanSourceRefs,
   listCutOrderRefs,
   listPdaExecutionRefs,
   listProductionOrderRefs,
@@ -8,7 +8,7 @@ import {
 import type {
   CuttingCoreRegistry,
   CuttingTaskRef,
-  MarkerPlanRefRef,
+  MarkerPlanSourceRef,
   CutOrderRef,
   PdaCutPieceExecutionRef,
   ProductionOrderRef,
@@ -29,7 +29,7 @@ export function buildCuttingCoreRegistry(): CuttingCoreRegistry {
 
   const productionOrders = listProductionOrderRefs()
   const cutOrders = listCutOrderRefs()
-  const markerPlanRefs = listMarkerPlanRefRefs()
+  const markerPlanSources = listMarkerPlanSourceRefs()
   const cuttingTasks = listCuttingTaskRefs()
   const pdaExecutions = listPdaExecutionRefs()
 
@@ -45,8 +45,8 @@ export function buildCuttingCoreRegistry(): CuttingCoreRegistry {
     productionOrdersByNo: indexById(productionOrders, 'productionOrderNo'),
     cutOrdersById: indexById(cutOrders, 'cutOrderId'),
     cutOrdersByNo: indexById(cutOrders, 'cutOrderNo'),
-    markerPlanRefsById: indexById(markerPlanRefs, 'markerPlanId'),
-    markerPlanRefsByNo: indexById(markerPlanRefs, 'markerPlanNo'),
+    markerPlanSourcesById: indexById(markerPlanSources, 'markerPlanId'),
+    markerPlanSourcesByNo: indexById(markerPlanSources, 'markerPlanNo'),
     cuttingTasksById: indexById(cuttingTasks, 'taskId'),
     cuttingTasksByNo: indexById(cuttingTasks, 'taskNo'),
     pdaExecutionsByTaskAndOrder: Object.fromEntries(pdaExecutions.map((record) => [buildExecutionKey(record.taskId, record.executionOrderNo), record])),
@@ -74,10 +74,10 @@ export function resolveCutOrderRef(input: { cutOrderId?: string; cutOrderNo?: st
   return null
 }
 
-export function resolveMarkerPlanRefRef(input: { markerPlanId?: string; markerPlanNo?: string }): MarkerPlanRefRef | null {
+export function resolveMarkerPlanSourceRef(input: { markerPlanId?: string; markerPlanNo?: string }): MarkerPlanSourceRef | null {
   const registry = buildCuttingCoreRegistry()
-  if (input.markerPlanId && registry.markerPlanRefsById[input.markerPlanId]) return registry.markerPlanRefsById[input.markerPlanId]
-  if (input.markerPlanNo && registry.markerPlanRefsByNo[input.markerPlanNo]) return registry.markerPlanRefsByNo[input.markerPlanNo]
+  if (input.markerPlanId && registry.markerPlanSourcesById[input.markerPlanId]) return registry.markerPlanSourcesById[input.markerPlanId]
+  if (input.markerPlanNo && registry.markerPlanSourcesByNo[input.markerPlanNo]) return registry.markerPlanSourcesByNo[input.markerPlanNo]
   return null
 }
 

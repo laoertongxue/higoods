@@ -119,15 +119,15 @@ function getRows(): SpreadingListRow[] {
   return buildSpreadingListViewModel({
     spreadingSessions: data.store.sessions,
     rowsById: data.rowsById,
-    markerPlanRefs: data.markerPlanRefs,
+    markerPlanSources: data.markerPlanSources,
     markerRecords: data.store.markers,
   })
 }
 
 function mapRowToSession(taskId: string, row: SpreadingListRow, reportConfig = getCuttingReportConfig()): CuttingMainlineSessionView {
   const stage = deriveSpreadingListStatus(row.session.status)
-  const sourceTypeLabel = row.contextType === 'marker-plan-ref' ? '唛架方案' : '裁片单'
-  const sourceOrderLabel = row.contextType === 'marker-plan-ref'
+  const sourceTypeLabel = row.contextType === 'marker-plan' ? '唛架方案' : '裁片单'
+  const sourceOrderLabel = row.contextType === 'marker-plan'
     ? row.markerPlanNo || row.cutOrderNos.join(' / ')
     : row.cutOrderNos.join(' / ')
   const productionOrderNo = row.productionOrderNos[0] || ''

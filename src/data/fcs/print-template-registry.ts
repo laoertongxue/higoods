@@ -5,7 +5,7 @@ import type {
   PrintSourceType,
 } from './print-service.ts'
 import {
-  buildCuttingMarkerPlanRefRouteCardPrintDocument,
+  buildCuttingMarkerPlanSourceRouteCardPrintDocument,
   buildCuttingCutOrderRouteCardPrintDocument,
   buildDyeingWorkOrderRouteCardPrintDocument,
   buildLegacyTaskRouteCardPrintDocument,
@@ -278,7 +278,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     templateName: '唛架方案任务流转卡',
     documentType: 'TASK_ROUTE_CARD',
     supportedSourceTypes: ['CUTTING_MARKER_PLAN'],
-    buildDocument: buildCuttingMarkerPlanRefRouteCardPrintDocument,
+    buildDocument: buildCuttingMarkerPlanSourceRouteCardPrintDocument,
     render: renderTaskRouteCardTemplate,
   },
 ]

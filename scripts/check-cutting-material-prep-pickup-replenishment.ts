@@ -113,8 +113,8 @@ function main(): void {
     )
   })
   assert(
-    replenishmentPage.includes('补料建议') || replenishmentPage.includes('补料明细建议'),
-    '补料页面缺少“补料建议”文案',
+    replenishmentPage.includes('差异处理项') && replenishmentPage.includes('审核建议'),
+    '补料页面缺少差异处理工作台文案',
   )
   assert(
     replenishmentPage.includes('待审核') || replenishmentModel.includes('WAIT_APPROVAL'),
@@ -164,7 +164,7 @@ function main(): void {
   assert(productionProgressPage.includes('配料数量'), '生产进度页面未展示配料数量')
   assert(productionProgressPage.includes('领料数量'), '生产进度页面未展示领料数量')
   const cuttingSummaryPage = read('src/pages/process-factory/cutting/cutting-summary.ts')
-  ;['补料建议', '待交出仓库存'].forEach((snippet) => {
+  ;['补料待审核', '待交出仓库存'].forEach((snippet) => {
     assert(cuttingSummaryPage.includes(snippet), `裁剪总结缺少汇总项：${snippet}`)
   })
 
@@ -183,10 +183,10 @@ function main(): void {
         配料单打印含裁片单二维码: '通过',
         领料差异照片校验: '通过',
         印花染色中转可配置来源: '通过',
-        补料建议与审核: '通过',
+        差异处理与审核: '通过',
         裁片仓简化区域: '通过',
         面料卷标签轻量桥接字段: '通过',
-        生产进度与裁剪总结联动: '通过',
+        生产进度与裁剪结果核查联动: '通过',
         Prompt10菲票五维未破坏: '通过',
       },
       null,

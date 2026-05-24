@@ -60,7 +60,7 @@ import { buildSpecialCraftTaskDetailPath } from '../../../data/fcs/special-craft
 import { buildFeiTicketLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
 import type { TransferBagStore } from './transfer-bags-model.ts'
 import type { CraftTraceProjection, CraftTraceProjectionItem } from './craft-trace-projection.ts'
@@ -83,7 +83,7 @@ interface FeiOperationDraft {
 interface FeiTicketsDataBundle {
   cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -429,7 +429,7 @@ function getDataBundle(): FeiTicketsDataBundle {
   return {
     cutOrderRows: projection.cutOrderRows,
     materialPrepRows: projection.materialPrepRows,
-    markerPlanRefs: projection.markerPlanRefs,
+    markerPlanSources: projection.markerPlanSources,
     markerStore: projection.markerStore,
     ticketRecords: projection.ticketRecords,
     printJobs: projection.printJobs,
@@ -2079,7 +2079,7 @@ function renderDetailOrChildPage(pageKey: 'fei-ticket-detail' | 'fei-ticket-prin
     unit,
     cutOrderRows: bundle.cutOrderRows,
     materialPrepRows: bundle.materialPrepRows,
-    markerPlanRefs: bundle.markerPlanRefs,
+    markerPlanSources: bundle.markerPlanSources,
     markerStore: bundle.markerStore,
     ticketRecords: bundle.ticketRecords,
     printJobs: bundle.printJobs,
@@ -2191,7 +2191,7 @@ function renderOperationPage(pageKey: OperationPageKey): string {
     unit,
     cutOrderRows: bundle.cutOrderRows,
     materialPrepRows: bundle.materialPrepRows,
-    markerPlanRefs: bundle.markerPlanRefs,
+    markerPlanSources: bundle.markerPlanSources,
     markerStore: bundle.markerStore,
     ticketRecords: bundle.ticketRecords,
     printJobs: bundle.printJobs,
@@ -2587,7 +2587,7 @@ function performPrintOperation(pageKey: Extract<OperationPageKey, 'fei-ticket-pr
     unit,
     cutOrderRows: bundle.cutOrderRows,
     materialPrepRows: bundle.materialPrepRows,
-    markerPlanRefs: bundle.markerPlanRefs,
+    markerPlanSources: bundle.markerPlanSources,
     markerStore: bundle.markerStore,
     ticketRecords: bundle.ticketRecords,
     printJobs: bundle.printJobs,
@@ -2609,7 +2609,7 @@ function performPrintOperation(pageKey: Extract<OperationPageKey, 'fei-ticket-pr
     splitDetails: detailView.missingSplitDetails,
     cutOrderRows: bundle.cutOrderRows,
     materialPrepRows: bundle.materialPrepRows,
-    markerPlanRefs: bundle.markerPlanRefs,
+    markerPlanSources: bundle.markerPlanSources,
     markerStore: bundle.markerStore,
     ticketRecords: bundle.ticketRecords,
     printJobs: bundle.printJobs,
@@ -2637,7 +2637,7 @@ function performVoidTicket(): void {
     unit,
     cutOrderRows: bundle.cutOrderRows,
     materialPrepRows: bundle.materialPrepRows,
-    markerPlanRefs: bundle.markerPlanRefs,
+    markerPlanSources: bundle.markerPlanSources,
     markerStore: bundle.markerStore,
     ticketRecords: bundle.ticketRecords,
     printJobs: bundle.printJobs,

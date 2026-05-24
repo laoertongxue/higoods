@@ -276,6 +276,7 @@ function createDifference(
 ): SpreadingDifference {
   const base = buildDifferenceBase(order, session)
   const differenceId = `diff-${order.spreadingOrderId}-${input.suffix}`.replace(/[^a-zA-Z0-9\u4e00-\u9fa5-]/g, '-')
+  const ledgerEventId = `ledger:${order.spreadingOrderId}:difference:${input.suffix}`.replace(/[^a-zA-Z0-9\u4e00-\u9fa5:-]/g, '-')
   return {
     differenceId,
     sourceType: input.sourceType,
@@ -310,7 +311,7 @@ function createDifference(
     detectedBy: input.operatorName || base.detectedBy,
     handlingStatus: '待处理',
     linkedReplenishmentId: `rep-diff-${differenceId}`,
-    linkedLedgerEventIds: [`ledger-placeholder-${differenceId}`],
+    linkedLedgerEventIds: [ledgerEventId],
   }
 }
 
@@ -488,11 +489,11 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
   )
   const pb2440Primary = pb2440Sources[0]
   const pb2440Order = pb2440Primary ? {
-    spreadingOrderId: 'spreading-session-marker-plan-ref-marker-plan-ref-mb-030102-02-planned-100-actual-80-c',
+    spreadingOrderId: 'spreading-session-marker-plan-marker-plan-mb-030102-02-planned-100-actual-80-c',
     spreadingOrderNo: 'PB-2440',
-    markerPlanId: 'marker-plan-ref:MB-030102-02',
+    markerPlanId: 'marker-plan:MB-030102-02',
     markerPlanNo: 'MB-030102-02',
-    markerNumberId: 'seed-marker-marker-plan-ref-marker-plan-ref:MB-030102-02-bed-A-1',
+    markerNumberId: 'seed-marker-marker-plan-marker-plan:MB-030102-02-bed-A-1',
     markerNumber: 'A-1',
     bedNo: 'A-1',
     sourceCutOrderIds: pb2440Sources.map((record) => record.cutOrderId),
@@ -655,6 +656,20 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
       note: '布卷 R-ABN-01 未匹配本次领料记录。',
     }),
     createDifference(order, null, {
+      suffix: 'seed-field-feedback',
+      sourceType: 'PDA 铺布回写',
+      differenceType: '现场反馈',
+      differenceLevel: '需处理',
+      plannedValue: 1,
+      actualValue: 0,
+      unit: '项',
+      summary: 'PDA 现场反馈布面局部瑕疵，需要补料管理判断补料、补录或仅记录差异。',
+      operatorName: '现场组长',
+      occurredAt: '2026-03-18 17:28',
+      note: '布面瑕疵已拍照，待复核。',
+      photoProofCount: 1,
+    }),
+    createDifference(order, null, {
       suffix: 'seed-claim-diff-carry',
       sourceType: '领料差异延续',
       differenceType: '面料余额不足',
@@ -760,30 +775,53 @@ export function listSpreadingDifferencesByProductionOrder(
   )
 }
 
+function resolveReviewResultFromDifferenceType(differenceType: SpreadingDifferenceType): ReplenishmentReviewResult | '' {
+  if (differenceType === '面料余额不足') return '需要补料'
+  if (differenceType === '实际用量差异') return '需要补录'
+  if (differenceType === '实铺小于计划') return '继续补排'
+  if (differenceType === '实裁小于计划') return '关闭裁片单'
+  if (differenceType === '卷记录异常') return '仅记录差异'
+  if (differenceType === '现场反馈') return '需要补料'
+  return ''
+}
+
+function resolveNextActionFromReviewResult(reviewResult: ReplenishmentReviewResult | ''): ReplenishmentNextAction | '' {
+  if (reviewResult === '需要补料') return '回到中转仓配料'
+  if (reviewResult === '需要补录') return '补录铺布或裁剪数据'
+  if (reviewResult === '继续补排') return '回到可排唛架'
+  if (reviewResult === '关闭裁片单') return '关闭裁片单'
+  if (reviewResult === '仅记录差异') return '无后续动作'
+  return ''
+}
+
 export function buildSpreadingReplenishmentHandlingObjects(
   differences: SpreadingDifference[] = listSpreadingDifferences(),
 ): SpreadingReplenishmentHandlingObject[] {
-  return differences.map((difference) => ({
-    replenishmentId: difference.linkedReplenishmentId,
-    sourceDifferenceId: difference.differenceId,
-    differenceSource: difference.sourceType,
-    differenceType: difference.differenceType,
-    spreadingOrderId: difference.spreadingOrderId,
-    cutOrderIds: [...difference.cutOrderIds],
-    productionOrderIds: [...difference.productionOrderIds],
-    materialSku: difference.materialSku,
-    materialAlias: difference.materialAlias,
-    patternFileName: difference.patternFileName,
-    plannedValue: difference.plannedValue,
-    actualValue: difference.actualValue,
-    differenceValue: difference.differenceValue,
-    unit: difference.unit,
-    evidence: { ...difference.evidence },
-    reviewStatus: difference.handlingStatus,
-    reviewResult: '',
-    nextAction: '',
-    closeCutOrderRequired: false,
-    closeReason: '',
-    linkedLedgerEventIds: [...difference.linkedLedgerEventIds],
-  }))
+  return differences.map((difference) => {
+    const reviewResult = resolveReviewResultFromDifferenceType(difference.differenceType)
+    const nextAction = resolveNextActionFromReviewResult(reviewResult)
+    return {
+      replenishmentId: difference.linkedReplenishmentId,
+      sourceDifferenceId: difference.differenceId,
+      differenceSource: difference.sourceType,
+      differenceType: difference.differenceType,
+      spreadingOrderId: difference.spreadingOrderId,
+      cutOrderIds: [...difference.cutOrderIds],
+      productionOrderIds: [...difference.productionOrderIds],
+      materialSku: difference.materialSku,
+      materialAlias: difference.materialAlias,
+      patternFileName: difference.patternFileName,
+      plannedValue: difference.plannedValue,
+      actualValue: difference.actualValue,
+      differenceValue: difference.differenceValue,
+      unit: difference.unit,
+      evidence: { ...difference.evidence },
+      reviewStatus: reviewResult ? '已处理' : difference.handlingStatus,
+      reviewResult,
+      nextAction,
+      closeCutOrderRequired: reviewResult === '关闭裁片单',
+      closeReason: reviewResult === '关闭裁片单' ? '业务确认不再补裁，进入裁片单关闭链路。' : '',
+      linkedLedgerEventIds: reviewResult === '仅记录差异' ? [] : [...difference.linkedLedgerEventIds],
+    }
+  })
 }

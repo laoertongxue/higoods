@@ -17,7 +17,7 @@ export function buildFeiTicketsProjection(
     snapshot,
     cutOrderRows: context.cutOrderRows,
     materialPrepRows: context.materialPrepRows,
-    markerPlanRefs: context.markerPlanRefs,
+    markerPlanSources: context.markerPlanSources,
     markerStore: context.markerStore,
     ticketRecords: context.ticketRecords,
     printJobs: context.printJobs,

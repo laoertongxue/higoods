@@ -629,15 +629,6 @@ function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRe
       applicableSkuCodes: [...row.applicableSkuCodes],
     })),
   }))
-  const noImageScenario = scenarioRows.find((record) => record.cutOrderNo === 'CUT-260306-101-04')
-  if (noImageScenario) {
-    noImageScenario.materialImageUrl = ''
-    noImageScenario.materialIdentity = {
-      ...noImageScenario.materialIdentity,
-      materialImageUrl: '',
-    }
-  }
-
   const samePatternMaterialA: CuttingMaterialIdentity = {
     ...blackJoggerSeed.materialIdentity,
     materialSku: 'tdv_demand_SPU_2024_010-bom-black-stretch-twill-select-a',

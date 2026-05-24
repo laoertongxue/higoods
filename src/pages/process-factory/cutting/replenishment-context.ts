@@ -1,4 +1,4 @@
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import {
   buildSpreadingVarianceSummary,
   type MarkerRecord,
@@ -10,7 +10,7 @@ import {
 import type { MaterialPrepLineItem, MaterialPrepRow } from './material-prep-model.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
 
-export type ReplenishmentContextBaseSourceType = 'cut-order' | 'marker-plan-ref'
+export type ReplenishmentContextBaseSourceType = 'cut-order' | 'marker-plan'
 export type ReplenishmentContextSourceType = ReplenishmentContextBaseSourceType | 'spreading-session'
 export type ReplenishmentPendingPrepDecisionKey = 'YES' | 'NO' | 'UNKNOWN'
 
@@ -66,16 +66,16 @@ function buildCutOrderRowsById(rows: CutOrderRow[]): Record<string, CutOrderRow>
   }, {})
 }
 
-function getContextRowsByMarkerPlanRef(batch: MarkerPlanRefRecord, rowsById: Record<string, MaterialPrepRow>): MaterialPrepRow[] {
+function getContextRowsByMarkerPlanSource(batch: MarkerPlanSourceRecord, rowsById: Record<string, MaterialPrepRow>): MaterialPrepRow[] {
   return batch.items
     .map((item) => rowsById[item.cutOrderId] || rowsById[item.cutOrderNo])
     .filter((row): row is MaterialPrepRow => Boolean(row))
 }
 
-function findMarkerPlanRefForRow(row: MaterialPrepRow, markerPlanRefs: MarkerPlanRefRecord[]): MarkerPlanRefRecord | null {
+function findMarkerPlanSourceForRow(row: MaterialPrepRow, markerPlanSources: MarkerPlanSourceRecord[]): MarkerPlanSourceRecord | null {
   return (
-    (row.markerPlanIds[0] && markerPlanRefs.find((batch) => batch.markerPlanId === row.markerPlanIds[0])) ||
-    (row.latestMarkerPlanNo && markerPlanRefs.find((batch) => batch.markerPlanNo === row.latestMarkerPlanNo)) ||
+    (row.markerPlanIds[0] && markerPlanSources.find((batch) => batch.markerPlanId === row.markerPlanIds[0])) ||
+    (row.latestMarkerPlanNo && markerPlanSources.find((batch) => batch.markerPlanNo === row.latestMarkerPlanNo)) ||
     null
   )
 }
@@ -87,8 +87,8 @@ function findRelevantSession(context: {
 }, store: MarkerSpreadingStore): SpreadingSession | null {
   const matched = store.sessions
     .filter((session) => {
-      if (context.baseSourceType === 'marker-plan-ref' && context.markerPlanId) {
-        return session.contextType === 'marker-plan-ref' && session.markerPlanId === context.markerPlanId
+      if (context.baseSourceType === 'marker-plan' && context.markerPlanId) {
+        return session.contextType === 'marker-plan' && session.markerPlanId === context.markerPlanId
       }
       return session.contextType === 'cut-order' && session.cutOrderIds[0] === context.cutOrderIds[0]
     })
@@ -104,8 +104,8 @@ function findRelevantMarker(context: {
 }, store: MarkerSpreadingStore): MarkerRecord | null {
   const matched = store.markers
     .filter((marker) => {
-      if (context.baseSourceType === 'marker-plan-ref' && context.markerPlanId) {
-        return marker.contextType === 'marker-plan-ref' && marker.markerPlanId === context.markerPlanId
+      if (context.baseSourceType === 'marker-plan' && context.markerPlanId) {
+        return marker.contextType === 'marker-plan' && marker.markerPlanId === context.markerPlanId
       }
       return marker.contextType === 'cut-order' && marker.cutOrderIds[0] === context.cutOrderIds[0]
     })
@@ -210,36 +210,36 @@ function buildContextRecord(options: {
 export function buildReplenishmentContextRecords(options: {
   materialPrepRows: MaterialPrepRow[]
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
 }): ReplenishmentContextRecord[] {
   const rowsById = buildRowsById(options.materialPrepRows)
   const cutOrderRowsById = buildCutOrderRowsById(options.cutOrderRows)
   const contexts: ReplenishmentContextRecord[] = []
   const consumedCutOrderIds = new Set<string>()
-  const createdMarkerPlanRefIds = new Set<string>()
+  const createdMarkerPlanSourceIds = new Set<string>()
 
   for (const row of options.materialPrepRows) {
     if (consumedCutOrderIds.has(row.cutOrderId)) continue
 
-    const markerPlanRef = findMarkerPlanRefForRow(row, options.markerPlanRefs)
-    if (markerPlanRef && !createdMarkerPlanRefIds.has(markerPlanRef.markerPlanId)) {
-      const batchRows = getContextRowsByMarkerPlanRef(markerPlanRef, rowsById)
+    const markerPlanSource = findMarkerPlanSourceForRow(row, options.markerPlanSources)
+    if (markerPlanSource && !createdMarkerPlanSourceIds.has(markerPlanSource.markerPlanId)) {
+      const batchRows = getContextRowsByMarkerPlanSource(markerPlanSource, rowsById)
       if (batchRows.length) {
         batchRows.forEach((item) => consumedCutOrderIds.add(item.cutOrderId))
-        createdMarkerPlanRefIds.add(markerPlanRef.markerPlanId)
+        createdMarkerPlanSourceIds.add(markerPlanSource.markerPlanId)
         contexts.push(
           buildContextRecord({
-            contextId: `merge-${markerPlanRef.markerPlanId}`,
-            baseSourceType: 'marker-plan-ref',
-            markerPlanId: markerPlanRef.markerPlanId,
-            markerPlanNo: markerPlanRef.markerPlanNo,
+            contextId: `merge-${markerPlanSource.markerPlanId}`,
+            baseSourceType: 'marker-plan',
+            markerPlanId: markerPlanSource.markerPlanId,
+            markerPlanNo: markerPlanSource.markerPlanNo,
             cutOrderIds: batchRows.map((item) => item.cutOrderId),
             cutOrderNos: batchRows.map((item) => item.cutOrderNo),
             productionOrderNos: uniqueStrings(batchRows.map((item) => item.productionOrderNo)),
-            styleCode: markerPlanRef.styleCode || row.styleCode,
-            spuCode: markerPlanRef.spuCode || row.spuCode,
-            styleName: markerPlanRef.styleName || row.styleName,
+            styleCode: markerPlanSource.styleCode || row.styleCode,
+            spuCode: markerPlanSource.spuCode || row.spuCode,
+            styleName: markerPlanSource.styleName || row.styleName,
             materialRows: batchRows,
             cutOrderRowsById,
             markerStore: options.markerStore,

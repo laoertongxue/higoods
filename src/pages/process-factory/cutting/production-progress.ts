@@ -1,5 +1,4 @@
 // production-progress 是 canonical 页面文件。
-import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
@@ -570,6 +569,10 @@ function buildRouteWithQuery(key: CuttingCanonicalPageKey, payload?: Record<stri
 
   const query = params.toString()
   return query ? `${pathname}?${query}` : pathname
+}
+
+function buildProductionProgressDetailPath(recordId: string): string {
+  return `/fcs/craft/cutting/production-progress-detail/${encodeURIComponent(recordId)}`
 }
 
 function getCurrentSearchParams(): URLSearchParams {
@@ -1837,7 +1840,7 @@ function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
                               <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.shipCountdownText)}</div>
                             </td>
                             <td class="px-4 py-3">
-                              <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${row.id}">
+                              <button class="font-medium text-blue-600 hover:underline" data-nav="${escapeHtml(buildProductionProgressDetailPath(row.id))}">
                                 ${escapeHtml(row.productionOrderNo)}
                               </button>
                               <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatFactoryDisplayName(row.assignedFactoryName))}</div>
@@ -1858,7 +1861,7 @@ function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
                             <td class="px-4 py-3">${renderRiskCell(row)}</td>
                             <td class="px-4 py-3">
                               <div class="flex flex-wrap gap-2">
-                                <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="open-detail" data-record-id="${row.id}">查看详情</button>
+                                <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildProductionProgressDetailPath(row.id))}">查看详情</button>
                                 <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="go-marker-spreading" data-record-id="${row.id}">去铺布</button>
                               </div>
                             </td>
@@ -1927,7 +1930,7 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
                               <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.plannedShipDateDisplay)}</div>
                             </td>
                             <td class="px-4 py-3">
-                              <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${item.parentRecordId}">
+                              <button class="font-medium text-blue-600 hover:underline" data-nav="${escapeHtml(buildProductionProgressDetailPath(item.parentRecordId))}">
                                 ${escapeHtml(item.productionOrderNo)}
                               </button>
                               <div class="font-medium text-foreground">${escapeHtml(item.styleLabel)}</div>
@@ -1983,7 +1986,7 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
                             </td>
                             <td class="px-4 py-3">
                               <div class="flex flex-col gap-1">
-                                <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="open-detail" data-record-id="${item.parentRecordId}">查看详情</button>
+                                <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildProductionProgressDetailPath(item.parentRecordId))}">查看详情</button>
                               </div>
                             </td>
                           </tr>
@@ -2013,10 +2016,7 @@ function renderMainTable(rows: ProductionProgressRow[]): string {
     : renderProductionOrderTable(rows)
 }
 
-function renderDetailDrawer(): string {
-  const row = getAllRows().find((item) => item.id === state.activeDetailId)
-  if (!row) return ''
-
+function renderProductionProgressDetailPanel(row: ProductionProgressRow): string {
   const content = `
     <div class="space-y-6">
       <section class="grid gap-3 rounded-lg border bg-muted/10 p-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -2042,18 +2042,19 @@ function renderDetailDrawer(): string {
     </div>
   `
 
-  return uiDrawer(
-    {
-      title: '生产单详情',
-      subtitle: row.productionOrderNo,
-      closeAction: { prefix: 'cutting-progress', action: 'close-detail' },
-      width: 'lg',
-    },
-    content,
-    {
-      cancel: { prefix: 'cutting-progress', action: 'close-detail', label: '关闭' },
-    },
-  )
+  return `
+    <article class="space-y-4" data-testid="cutting-production-progress-detail-page">
+      <div class="flex flex-wrap items-start justify-between gap-3 rounded-xl border bg-card p-4">
+        <div>
+          <p class="text-sm text-muted-foreground">生产单详情</p>
+          <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(row.productionOrderNo)}</h1>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.styleName || row.styleCode || row.spuCode || '裁床生产单')}</p>
+        </div>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('production-progress'))}">返回裁床生产单总览</button>
+      </div>
+      ${content}
+    </article>
+  `
 }
 
 export function renderCraftCuttingProductionProgressPage(): string {
@@ -2161,9 +2162,25 @@ export function renderCraftCuttingProductionProgressPage(): string {
 
       ${renderActiveStateBar()}
       ${renderMainTable(rows)}
-      ${renderDetailDrawer()}
     </div>
   `
+}
+
+export function renderCraftCuttingProductionProgressDetailPage(recordId?: string): string {
+  const row = getAllRows().find((item) => item.id === decodeURIComponent(recordId || ''))
+  if (!row) {
+    return `
+      <div class="space-y-4 p-4" data-testid="cutting-production-progress-detail-page">
+        <section class="rounded-xl border bg-card p-8 text-center">
+          <h1 class="text-xl font-semibold text-foreground">生产单详情</h1>
+          <p class="mt-2 text-sm text-muted-foreground">未找到对应生产单详情，请返回裁床生产单总览重新选择。</p>
+          <button type="button" class="mt-4 rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('production-progress'))}">返回裁床生产单总览</button>
+        </section>
+      </div>
+    `
+  }
+
+  return `<div class="space-y-4 p-4">${renderProductionProgressDetailPanel(row)}</div>`
 }
 
 function findRowById(recordId: string | undefined): ProductionProgressRow | undefined {
@@ -2265,7 +2282,8 @@ export function handleCraftCuttingProductionProgressEvent(target: Element): bool
   }
 
   if (action === 'open-detail') {
-    state.activeDetailId = actionNode.dataset.recordId ?? null
+    const recordId = actionNode.dataset.recordId
+    if (recordId) appStore.navigate(`/fcs/craft/cutting/production-progress-detail/${encodeURIComponent(recordId)}`)
     return true
   }
 

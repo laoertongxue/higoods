@@ -90,8 +90,8 @@ export interface CutPieceOrderRecord {
   linkedDocuments: CutPieceLinkedDocument[]
   markerPlanId: string
   markerPlanNo: string
-  boundMarkerPlanRefId: string
-  boundMarkerPlanRefNo: string
+  boundMarkerPlanSourceId: string
+  boundMarkerPlanSourceNo: string
 }
 
 export interface CutPieceOrderFilters {
@@ -128,10 +128,10 @@ function normalizeCutPieceOrderRecord(record: CutPieceOrderSeed): CutPieceOrderR
     bindingState,
     boundCutOrderId: boundCutOrder?.cutOrderId || '',
     boundCutOrderNo: boundCutOrder?.cutOrderNo || '',
-    markerPlanId: boundCutOrder?.activeMarkerPlanRefId || '',
-    markerPlanNo: boundCutOrder?.activeMarkerPlanRefNo || '',
-    boundMarkerPlanRefId: boundCutOrder?.activeMarkerPlanRefId || '',
-    boundMarkerPlanRefNo: boundCutOrder?.activeMarkerPlanRefNo || '',
+    markerPlanId: boundCutOrder?.activeMarkerPlanSourceId || '',
+    markerPlanNo: boundCutOrder?.activeMarkerPlanSourceNo || '',
+    boundMarkerPlanSourceId: boundCutOrder?.activeMarkerPlanSourceId || '',
+    boundMarkerPlanSourceNo: boundCutOrder?.activeMarkerPlanSourceNo || '',
   }
 }
 

@@ -1,5 +1,5 @@
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import {
   DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
   getDefaultCuttingTable,
@@ -136,7 +136,7 @@ export interface MarkerSpreadingPrefilter {
 }
 
 export interface MarkerSpreadingContext {
-  contextType: 'cut-order' | 'marker-plan-ref'
+  contextType: 'cut-order' | 'marker-plan'
   cutOrderIds: string[]
   cutOrderNos: string[]
   markerPlanId: string
@@ -160,7 +160,7 @@ export interface MarkerRecord {
   bedId?: string
   bedNo?: string
   bedMode?: MarkerModeKey
-  contextType: 'cut-order' | 'marker-plan-ref'
+  contextType: 'cut-order' | 'marker-plan'
   cutOrderIds: string[]
   cutOrderNos?: string[]
   markerPlanId: string
@@ -336,7 +336,7 @@ export interface SpreadingImportSource {
   sourceMarkerId: string
   sourceMarkerNo: string
   sourceMarkerMode: MarkerModeKey
-  sourceContextType: 'cut-order' | 'marker-plan-ref'
+  sourceContextType: 'cut-order' | 'marker-plan'
   sourceCutOrderIds: string[]
   sourceCutOrderNos: string[]
   sourceMarkerPlanId: string
@@ -391,8 +391,8 @@ export interface SpreadingPlanUnit {
 
 export interface SpreadingReplenishmentWarning {
   warningId: string
-  sourceType: 'cut-order' | 'marker-plan-ref' | 'spreading-session'
-  sourceContextType: 'cut-order' | 'marker-plan-ref'
+  sourceType: 'cut-order' | 'marker-plan' | 'spreading-session'
+  sourceContextType: 'cut-order' | 'marker-plan'
   spreadingSessionId: string
   spreadingSessionNo: string
   cutOrderIds: string[]
@@ -473,7 +473,7 @@ export interface SpreadingCompletionValidationResult {
 export interface SpreadingTraceAnchor {
   spreadingSessionId: string
   spreadingSessionNo: string
-  contextType: 'cut-order' | 'marker-plan-ref'
+  contextType: 'cut-order' | 'marker-plan'
   cutOrderIds: string[]
   cutOrderNos: string[]
   markerPlanId: string
@@ -490,7 +490,7 @@ export interface SpreadingTraceAnchor {
 export interface SpreadingSession {
   spreadingSessionId: string
   sessionNo?: string
-  contextType: 'cut-order' | 'marker-plan-ref'
+  contextType: 'cut-order' | 'marker-plan'
   cutOrderIds: string[]
   markerPlanId: string
   markerPlanNo: string
@@ -687,7 +687,7 @@ export interface MarkerSpreadingNavigationPayload {
   replenishment: Record<string, string | undefined>
   feiTickets: Record<string, string | undefined>
   cutOrders: Record<string, string | undefined>
-  markerPlanRefs: Record<string, string | undefined>
+  markerPlanSources: Record<string, string | undefined>
   summary: Record<string, string | undefined>
 }
 
@@ -1968,7 +1968,7 @@ function summarizeTechPackSpuCode(rows: MaterialPrepRow[]): string {
   return techPackSpuCodes.length === 1 ? techPackSpuCodes[0] : ''
 }
 
-function getContextRowsByMarkerPlanRef(batch: MarkerPlanRefRecord, rowsById: Record<string, MaterialPrepRow>): MaterialPrepRow[] {
+function getContextRowsByMarkerPlanSource(batch: MarkerPlanSourceRecord, rowsById: Record<string, MaterialPrepRow>): MaterialPrepRow[] {
   return batch.items
     .map((item) => rowsById[item.cutOrderId] || rowsById[item.cutOrderNo])
     .filter((row): row is MaterialPrepRow => Boolean(row))
@@ -1977,31 +1977,31 @@ function getContextRowsByMarkerPlanRef(batch: MarkerPlanRefRecord, rowsById: Rec
 function buildContext(
   rows: MaterialPrepRow[],
   rowsById: Record<string, MaterialPrepRow>,
-  markerPlanRefs: MarkerPlanRefRecord[],
+  markerPlanSources: MarkerPlanSourceRecord[],
   prefilter: MarkerSpreadingPrefilter | null,
 ): MarkerSpreadingContext | null {
   if (!prefilter) return null
 
-  const markerPlanRef =
-    (prefilter.markerPlanId && markerPlanRefs.find((batch) => batch.markerPlanId === prefilter.markerPlanId)) ||
-    (prefilter.markerPlanNo && markerPlanRefs.find((batch) => batch.markerPlanNo === prefilter.markerPlanNo))
+  const markerPlanSource =
+    (prefilter.markerPlanId && markerPlanSources.find((batch) => batch.markerPlanId === prefilter.markerPlanId)) ||
+    (prefilter.markerPlanNo && markerPlanSources.find((batch) => batch.markerPlanNo === prefilter.markerPlanNo))
 
-  if (markerPlanRef) {
-    const batchRows = getContextRowsByMarkerPlanRef(markerPlanRef, rowsById)
+  if (markerPlanSource) {
+    const batchRows = getContextRowsByMarkerPlanSource(markerPlanSource, rowsById)
     if (!batchRows.length) return null
 
     return {
-      contextType: 'marker-plan-ref',
+      contextType: 'marker-plan',
       cutOrderIds: batchRows.map((row) => row.cutOrderId),
       cutOrderNos: batchRows.map((row) => row.cutOrderNo),
-      markerPlanId: markerPlanRef.markerPlanId,
-      markerPlanNo: markerPlanRef.markerPlanNo,
+      markerPlanId: markerPlanSource.markerPlanId,
+      markerPlanNo: markerPlanSource.markerPlanNo,
       productionOrderNos: uniqueStrings(batchRows.map((row) => row.productionOrderNo)),
-      styleCode: markerPlanRef.styleCode || batchRows[0]?.styleCode || '',
-      spuCode: markerPlanRef.spuCode || batchRows[0]?.spuCode || '',
+      styleCode: markerPlanSource.styleCode || batchRows[0]?.styleCode || '',
+      spuCode: markerPlanSource.spuCode || batchRows[0]?.spuCode || '',
       techPackSpuCode: summarizeTechPackSpuCode(batchRows),
-      styleName: markerPlanRef.styleName || batchRows[0]?.styleName || '',
-      materialSkuSummary: markerPlanRef.materialSkuSummary || summarizeMaterialSku(batchRows),
+      styleName: markerPlanSource.styleName || batchRows[0]?.styleName || '',
+      materialSkuSummary: markerPlanSource.materialSkuSummary || summarizeMaterialSku(batchRows),
       materialPrepRows: batchRows,
     }
   }
@@ -2029,13 +2029,13 @@ function buildContext(
   }
 }
 
-function matchesContext<T extends { contextType: 'cut-order' | 'marker-plan-ref'; cutOrderIds: string[]; markerPlanId: string }>(
+function matchesContext<T extends { contextType: 'cut-order' | 'marker-plan'; cutOrderIds: string[]; markerPlanId: string }>(
   record: T,
   context: MarkerSpreadingContext | null,
 ): boolean {
   if (!context) return false
-  if (context.contextType === 'marker-plan-ref') {
-    return record.contextType === 'marker-plan-ref' && record.markerPlanId === context.markerPlanId
+  if (context.contextType === 'marker-plan') {
+    return record.contextType === 'marker-plan' && record.markerPlanId === context.markerPlanId
   }
   return record.contextType === 'cut-order' && record.cutOrderIds[0] === context.cutOrderIds[0]
 }
@@ -2050,7 +2050,7 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
   const netLength = Number((configuredLengthTotal > 0 ? configuredLengthTotal : totalPieces * 1.2).toFixed(2))
   const singlePieceUsage = totalPieces > 0 ? Number((netLength / totalPieces).toFixed(3)) : 0
   const markerId = `seed-marker-${context.contextType}-${context.markerPlanId || context.cutOrderIds[0]}`
-  const markerMode: MarkerModeKey = context.contextType === 'marker-plan-ref' ? 'high_low' : 'normal'
+  const markerMode: MarkerModeKey = context.contextType === 'marker-plan' ? 'high_low' : 'normal'
   const highLowPatternKeys = [...DEFAULT_HIGH_LOW_PATTERN_KEYS]
   const colors = uniqueStrings(context.materialPrepRows.map((row) => row.color))
   const plannedLayerCount = Math.max(Math.ceil(totalPieces / 20), 1)
@@ -2109,9 +2109,9 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
 
   return {
     markerId,
-    markerNo: `MKP-${context.contextType === 'marker-plan-ref' ? 'B' : 'O'}-${(context.markerPlanNo || context.cutOrderNos[0] || '001').slice(-6)}`,
+    markerNo: `MKP-${context.contextType === 'marker-plan' ? 'B' : 'O'}-${(context.markerPlanNo || context.cutOrderNos[0] || '001').slice(-6)}`,
     schemeId: markerId,
-    schemeNo: `MKP-${context.contextType === 'marker-plan-ref' ? 'B' : 'O'}-${(context.markerPlanNo || context.cutOrderNos[0] || '001').slice(-6)}`,
+    schemeNo: `MKP-${context.contextType === 'marker-plan' ? 'B' : 'O'}-${(context.markerPlanNo || context.cutOrderNos[0] || '001').slice(-6)}`,
     bedId: `${markerId}-bed-A-1`,
     bedNo: 'A-1',
     bedMode: markerMode,
@@ -2565,7 +2565,7 @@ export function validateSpreadingCompletion(options: {
     messages.push('当前缺少单层成衣件数，无法准确推导裁剪成衣件数，不能完成铺布。')
   }
 
-  if (session.contextType === 'marker-plan-ref' && !selectedCutOrderIds.length) {
+  if (session.contextType === 'marker-plan' && !selectedCutOrderIds.length) {
     messages.push('唛架方案上下文下必须勾选至少一个裁片单，才能联动完成铺布。')
   }
 
@@ -3483,7 +3483,7 @@ export function buildMarkerSpreadingNavigationPayload(
       replenishment: {},
       feiTickets: {},
       cutOrders: {},
-      markerPlanRefs: {},
+      markerPlanSources: {},
       summary: {},
     }
   }
@@ -3500,7 +3500,7 @@ export function buildMarkerSpreadingNavigationPayload(
     replenishment: {
       spreadingSessionId: warning?.spreadingSessionId,
       warningId: warning?.warningId,
-      markerPlanNo: context.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : undefined,
+      markerPlanNo: context.contextType === 'marker-plan' ? context.markerPlanNo || undefined : undefined,
       cutOrderNo: context.contextType === 'cut-order' ? baseCutOrderNo || undefined : undefined,
       productionOrderNo: baseProduction || undefined,
       materialSku: context.materialSkuSummary?.split(' / ')[0] || undefined,
@@ -3509,21 +3509,21 @@ export function buildMarkerSpreadingNavigationPayload(
       shortageHint,
     },
     feiTickets: {
-      markerPlanNo: context.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : undefined,
+      markerPlanNo: context.contextType === 'marker-plan' ? context.markerPlanNo || undefined : undefined,
       cutOrderNo: baseCutOrderNo || undefined,
     },
     cutOrders: {
-      markerPlanNo: context.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : undefined,
+      markerPlanNo: context.contextType === 'marker-plan' ? context.markerPlanNo || undefined : undefined,
       cutOrderNo: baseCutOrderNo || undefined,
       productionOrderNo: baseProduction || undefined,
     },
-    markerPlanRefs: {
+    markerPlanSources: {
       markerPlanId: context.markerPlanId || undefined,
       markerPlanNo: context.markerPlanNo || undefined,
       cutOrderNo: context.contextType === 'cut-order' ? baseCutOrderNo || undefined : undefined,
     },
     summary: {
-      markerPlanNo: context.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : undefined,
+      markerPlanNo: context.contextType === 'marker-plan' ? context.markerPlanNo || undefined : undefined,
       cutOrderNo: context.contextType === 'cut-order' ? baseCutOrderNo || undefined : undefined,
       productionOrderNo: baseProduction || undefined,
     },
@@ -3688,12 +3688,12 @@ export function updateSpreadingReplenishmentHandled(
 
 export function buildMarkerSpreadingViewModel(options: {
   rows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   store: MarkerSpreadingStore
   prefilter: MarkerSpreadingPrefilter | null
 }): MarkerSpreadingViewModel {
   const rowsById = Object.fromEntries(options.rows.map((row) => [row.cutOrderId, row]))
-  const context = buildContext(options.rows, rowsById, options.markerPlanRefs, options.prefilter)
+  const context = buildContext(options.rows, rowsById, options.markerPlanSources, options.prefilter)
   const markerRecords = context ? options.store.markers.filter((record) => matchesContext(record, context)) : options.store.markers
   const spreadingSessions = context ? options.store.sessions.filter((record) => matchesContext(record, context)) : options.store.sessions
 
@@ -3731,7 +3731,7 @@ export function formatSpreadingLength(value: number): string {
 
 export function summarizeContextHint(context: MarkerSpreadingContext | null): string {
   if (!context) return '当前尚未收到裁片单或唛架方案上下文，请从上游页面进入。'
-  if (context.contextType === 'marker-plan-ref') {
+  if (context.contextType === 'marker-plan') {
     return `当前以唛架方案 ${context.markerPlanNo || '待补唛架方案号'} 作为执行上下文，底层追溯仍回落 ${context.cutOrderNos.length} 个裁片单。`
   }
   return `当前以裁片单 ${context.cutOrderNos[0]} 作为上下文，后续若进入打印菲票，归属仍回落该裁片单。`

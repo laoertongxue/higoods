@@ -8,8 +8,8 @@ import {
   listGeneratedCutOrderSourceRecords,
 } from './generated-cut-orders.ts'
 import {
-  listMarkerPlanRefSourceRecords,
-} from './marker-plan-ref-source.ts'
+  listMarkerPlanCutOrderSourceRecords,
+} from './marker-plan-source.ts'
 import { cuttingOrderProgressRecords } from './order-progress.ts'
 import {
   listFormalCutPieceWarehouseRecords,
@@ -58,9 +58,13 @@ import {
   deserializePdaExecutionWritebackStorage,
 } from './pda-execution-writeback-ledger.ts'
 import {
-  CUTTING_MARKER_PLAN_REF_LEDGER_STORAGE_KEY,
-  deserializeMarkerPlanRefStorage,
-} from './storage/marker-plan-ref-storage.ts'
+  CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY,
+  deserializeMarkerPlanSourceStorage,
+} from './storage/marker-plan-source-storage.ts'
+import {
+  CUTTING_MARKER_PLAN_LOCK_LEDGER_STORAGE_KEY,
+  deserializeMarkerPlanLockLedger,
+} from './marker-plan-lock-ledger.ts'
 import {
   CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
   deserializeCuttingWarehouseWritebackStorage,
@@ -83,7 +87,8 @@ const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
   CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY,
   CUTTING_PDA_EXECUTION_WRITEBACK_STORAGE_KEY,
-  CUTTING_MARKER_PLAN_REF_LEDGER_STORAGE_KEY,
+  CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY,
+  CUTTING_MARKER_PLAN_LOCK_LEDGER_STORAGE_KEY,
   CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
   CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY,
 ]
@@ -179,9 +184,15 @@ export function readCuttingPdaExecutionRuntimeState() {
   }
 }
 
-export function readCuttingStoredMarkerPlanRefLedger() {
-  return deserializeMarkerPlanRefStorage(
-    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MARKER_PLAN_REF_LEDGER_STORAGE_KEY),
+export function readCuttingStoredMarkerPlanSourceLedger() {
+  return deserializeMarkerPlanSourceStorage(
+    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY),
+  )
+}
+
+export function readCuttingStoredMarkerPlanLockLedger() {
+  return deserializeMarkerPlanLockLedger(
+    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MARKER_PLAN_LOCK_LEDGER_STORAGE_KEY),
   )
 }
 
@@ -205,9 +216,10 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
   return {
     productionOrders: listCuttingProductionOrdersWithFormalTechPack().map((order) => ({ ...order })),
     cutOrders: listGeneratedCutOrderSourceRecords(),
-    markerPlanRefState: {
-      sourceRecords: listMarkerPlanRefSourceRecords(),
-      storedRecords: readCuttingStoredMarkerPlanRefLedger().map((record) => ({ ...record })),
+    markerPlanSourceState: {
+      sourceRecords: listMarkerPlanCutOrderSourceRecords(),
+      storedRecords: readCuttingStoredMarkerPlanSourceLedger().map((record) => ({ ...record })),
+      lockRecords: readCuttingStoredMarkerPlanLockLedger().map((record) => ({ ...record })),
     },
     progressRecords: cuttingOrderProgressRecords.map((record) => ({
       ...record,

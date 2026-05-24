@@ -40,6 +40,7 @@ export interface CutOrderCloseRecord {
   closeSourceType: CutOrderCloseSourceType
   sourceReplenishmentId?: string
   sourceDifferenceId?: string
+  linkedLedgerEventIds: string[]
   ledgerSnapshotBeforeClose: NonNullable<CuttingOrderProgressRecord['ledgerSnapshotBeforeClose']>
   openImpactItems: CutOrderCloseImpactItem[]
   remainingInventorySummary: string
@@ -178,6 +179,9 @@ function normalizeCloseRecord(item: unknown): CutOrderCloseRecord | null {
       : '人工关闭') as CutOrderCloseSourceType,
     sourceReplenishmentId: raw.sourceReplenishmentId ? String(raw.sourceReplenishmentId) : undefined,
     sourceDifferenceId: raw.sourceDifferenceId ? String(raw.sourceDifferenceId) : undefined,
+    linkedLedgerEventIds: Array.isArray(raw.linkedLedgerEventIds)
+      ? raw.linkedLedgerEventIds.map((value) => String(value || '')).filter(Boolean)
+      : [`ledger:${String(raw.cutOrderId)}:close:${String(raw.closeRecordId)}`],
     ledgerSnapshotBeforeClose: {
       requiredMaterialQty: roundQty(Number(snapshot.requiredMaterialQty || 0)),
       transferWarehouseAllocatedQty: roundQty(Number(snapshot.transferWarehouseAllocatedQty || 0)),
@@ -279,6 +283,7 @@ function buildSeedCloseRecord(input: {
     closedAt: input.closedAt,
     closedBy: input.closedBy,
     closeSourceType: input.sourceType,
+    linkedLedgerEventIds: [`ledger:${source.cutOrderId}:close:close-${source.cutOrderId}`],
     ledgerSnapshotBeforeClose: ledgerSnapshot,
     openImpactItems: buildCutOrderCloseImpactItems({
       ledgerSnapshot,

@@ -1216,7 +1216,7 @@ function resolveSourceReturnAction(): { label: string; href: string } | null {
     'production-progress': 'productionProgress',
     'cut-piece-warehouse': 'cutPieceWarehouse',
     'fabric-warehouse': 'fabricWarehouse',
-     'marker-list': 'markerPlanRefs',
+     'marker-list': 'markerPlanSources',
     'cuttable-pool': 'cuttablePool',
   }
 

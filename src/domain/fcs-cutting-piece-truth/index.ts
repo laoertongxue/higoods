@@ -344,7 +344,7 @@ function getCutOrderIdentity(materialLine: CuttingMaterialLine): {
   }
 }
 
-function getMarkerPlanRefIdentity(materialLine: CuttingMaterialLine): {
+function getMarkerPlanSourceIdentity(materialLine: CuttingMaterialLine): {
   markerPlanId: string
   markerPlanNo: string
 } {
@@ -500,7 +500,7 @@ export function buildCutOrderSkuScopes(
 
   record.materialLines.forEach((materialLine) => {
     const cutOrderIdentity = getCutOrderIdentity(materialLine)
-    const mergeIdentity = getMarkerPlanRefIdentity(materialLine)
+    const mergeIdentity = getMarkerPlanSourceIdentity(materialLine)
 
     ;(materialLine.skuScopeLines || [])
       .filter((scopeLine) => Number(scopeLine.plannedQty || 0) > 0)
@@ -707,7 +707,7 @@ export function buildPieceActualRows(
 
   record.materialLines.forEach((materialLine) => {
     const cutOrderIdentity = getCutOrderIdentity(materialLine)
-    const mergeIdentity = getMarkerPlanRefIdentity(materialLine)
+    const mergeIdentity = getMarkerPlanSourceIdentity(materialLine)
     ;(materialLine.pieceProgressLines || []).forEach((pieceLine) => {
       const key = makePieceKey({
         cutOrderNo: cutOrderIdentity.cutOrderNo,
@@ -1315,7 +1315,7 @@ export function buildProductionPieceTruth(
 
   record.materialLines.forEach((materialLine) => {
     const cutOrderIdentity = getCutOrderIdentity(materialLine)
-    const mergeIdentity = getMarkerPlanRefIdentity(materialLine)
+    const mergeIdentity = getMarkerPlanSourceIdentity(materialLine)
     if (mergeIdentity.markerPlanNo && !mergeIdentity.markerPlanId) {
       pushIssue(dataIssues, {
         issueType: 'DATA_PENDING',

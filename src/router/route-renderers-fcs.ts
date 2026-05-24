@@ -240,6 +240,10 @@ export const renderCraftCuttingCutOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cut-orders'),
   'renderCraftCuttingCutOrdersPage',
 )
+export const renderCraftCuttingCutOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/cut-orders'),
+  'renderCraftCuttingCutOrderDetailPage',
+)
 export const renderCraftCuttingCutOrderClosePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cut-orders'),
   'renderCraftCuttingCutOrderClosePage',
@@ -247,6 +251,10 @@ export const renderCraftCuttingCutOrderClosePage = createAsyncRenderer(
 export const renderCraftCuttingProductionProgressPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/production-progress'),
   'renderCraftCuttingProductionProgressPage',
+)
+export const renderCraftCuttingProductionProgressDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/production-progress'),
+  'renderCraftCuttingProductionProgressDetailPage',
 )
 export const renderPlaceholderPage = createAsyncRenderer(() => import('../pages/placeholder'), 'renderPlaceholderPage')
 export const renderCraftCuttingMarkerCreatePage = createAsyncRenderer(

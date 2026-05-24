@@ -3,7 +3,7 @@ import {
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
 import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress.ts'
-import { listMarkerPlanRefSourceRecords } from '../../../data/fcs/cutting/marker-plan-ref-source.ts'
+import { listMarkerPlanCutOrderSourceRecords } from '../../../data/fcs/cutting/marker-plan-source.ts'
 import type { CuttingOrderProgressRecord } from '../../../data/fcs/cutting/types.ts'
 import type { CuttingSummaryBuildOptions } from './summary-model.ts'
 import {
@@ -13,10 +13,10 @@ import {
 } from './marker-spreading-model.ts'
 import { buildMaterialPrepViewModel } from './material-prep-model.ts'
 import {
-  buildSystemSeedMarkerPlanRefs,
-  type MarkerPlanRefRecord,
-  type MarkerPlanRefSourceCutOrderItem,
-} from './marker-plan-ref-model.ts'
+  buildSystemSeedMarkerPlanSources,
+  type MarkerPlanSourceRecord,
+  type MarkerPlanCutOrderSourceItem,
+} from './marker-plan-source-model.ts'
 import { buildCutOrderViewModel, type CutOrderRow } from './cut-orders-model.ts'
 import { buildProductionProgressRows } from './production-progress-model.ts'
 import { buildMarkerPlanViewModel, deserializeMarkerPlanStorage, getMarkerPlanStorageKey, type MarkerPlan, type MarkerPlanViewModel } from './marker-plan-model.ts'
@@ -37,11 +37,11 @@ function readStoredMarkerPlans(): MarkerPlan[] {
   }
 }
 
-function buildMarkerPlanSourceMarkerPlanRefItems(
+function buildMarkerPlanSourceMarkerPlanSourceItems(
   cutOrderRows: CutOrderRow[],
-): MarkerPlanRefSourceCutOrderItem[] {
+): MarkerPlanCutOrderSourceItem[] {
   const rowsById = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderId, row]))
-  return listMarkerPlanRefSourceRecords().flatMap((record) =>
+  return listMarkerPlanCutOrderSourceRecords().flatMap((record) =>
     record.sourceCutOrderIds
       .map((cutOrderId) => rowsById[cutOrderId] || null)
       .filter((row): row is CutOrderRow => Boolean(row))
@@ -75,11 +75,11 @@ function buildMarkerPlanSourceMarkerPlanRefItems(
 
 function buildMarkerPlanSeedMarkerStore(options: {
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
 }): MarkerSpreadingStore {
   const store = createEmptyStore()
   const cutOrderRows = options.cutOrderRows.slice(0, 2)
-  const markerPlanRef = options.markerPlanRefs[0] || null
+  const markerPlanSource = options.markerPlanSources[0] || null
   const sessions = [
     ...cutOrderRows.map((row, index) => ({
       spreadingSessionId: `seed-spreading-cut-order-${index + 1}`,
@@ -90,17 +90,17 @@ function buildMarkerPlanSeedMarkerStore(options: {
         linkedCutOrderIds: [row.cutOrderId],
       },
     })),
-    ...(markerPlanRef
+    ...(markerPlanSource
       ? [
           {
-            spreadingSessionId: 'seed-spreading-marker-plan-ref-1',
+            spreadingSessionId: 'seed-spreading-marker-plan-1',
             sessionNo: 'PB-SEED-901',
-            contextType: 'marker-plan-ref',
-            markerPlanId: markerPlanRef.markerPlanId,
-            markerPlanNo: markerPlanRef.markerPlanNo,
-            cutOrderIds: markerPlanRef.items.map((item) => item.cutOrderId),
+            contextType: 'marker-plan',
+            markerPlanId: markerPlanSource.markerPlanId,
+            markerPlanNo: markerPlanSource.markerPlanNo,
+            cutOrderIds: markerPlanSource.items.map((item) => item.cutOrderId),
             completionLinkage: {
-              linkedCutOrderIds: markerPlanRef.items.map((item) => item.cutOrderId),
+              linkedCutOrderIds: markerPlanSource.items.map((item) => item.cutOrderId),
             },
           },
         ]
@@ -119,21 +119,21 @@ export function buildMarkerPlanSummaryBuildOptions(
 ): CuttingSummaryBuildOptions {
   const productionRows = buildProductionProgressRows(progressRecords)
   const seedCutOrderRows = buildCutOrderViewModel(progressRecords, [], { progressRows: productionRows, markerPlanOccupancy }).rows
-  const markerPlanRefs: MarkerPlanRefRecord[] = buildSystemSeedMarkerPlanRefs(
-    buildMarkerPlanSourceMarkerPlanRefItems(seedCutOrderRows),
+  const markerPlanSources: MarkerPlanSourceRecord[] = buildSystemSeedMarkerPlanSources(
+    buildMarkerPlanSourceMarkerPlanSourceItems(seedCutOrderRows),
   )
-  const cutOrderRows = buildCutOrderViewModel(progressRecords, markerPlanRefs, { progressRows: productionRows, markerPlanOccupancy }).rows
-  const materialPrepRows = buildMaterialPrepViewModel(progressRecords, markerPlanRefs, { pickupWritebacks: [] }).rows
+  const cutOrderRows = buildCutOrderViewModel(progressRecords, markerPlanSources, { progressRows: productionRows, markerPlanOccupancy }).rows
+  const materialPrepRows = buildMaterialPrepViewModel(progressRecords, markerPlanSources, { pickupWritebacks: [] }).rows
   const markerStore = buildMarkerPlanSeedMarkerStore({
     cutOrderRows,
-    markerPlanRefs,
+    markerPlanSources,
   })
 
   return {
     productionRows,
     cutOrderRows,
     materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     markerStore,
     feiViewModel: { rows: [], printableUnits: [], unitRowsById: {}, unitsById: {}, ticketRecords: [], printJobs: [], ticketRecordsById: {}, printJobsById: {} } as never,
     fabricWarehouseView: { rows: [], rowsById: {}, stockItems: [] } as never,

@@ -65,9 +65,9 @@ export interface PdaSpreadingOperatorWritebackItem {
 
 export interface PdaWritebackValidationResult {
   isValid: boolean
-  matchedContextType: 'cut-order' | 'marker-plan-ref' | ''
+  matchedContextType: 'cut-order' | 'marker-plan' | ''
   matchedCutOrderIds: string[]
-  matchedMarkerPlanRefId: string
+  matchedMarkerPlanSourceId: string
   hasConflict: boolean
   hasMissingField: boolean
   hasOccupancyConflict: boolean
@@ -136,7 +136,7 @@ export interface PdaSpreadingWriteback {
   submittedAt: string
   occurredAt: string
   payloadVersion: string
-  contextType: 'cut-order' | 'marker-plan-ref'
+  contextType: 'cut-order' | 'marker-plan'
   spreadingSessionId: string
   markerId: string
   markerNo: string
@@ -377,7 +377,7 @@ export function normalizePdaWritebackPayload(rawPayload: unknown): PdaSpreadingW
     submittedAt: String(raw.submittedAt || nowText()),
     occurredAt: String(raw.occurredAt || raw.submittedAt || nowText()),
     payloadVersion: String(raw.payloadVersion || 'v1'),
-    contextType: raw.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
+    contextType: raw.contextType === 'marker-plan' ? 'marker-plan' : 'cut-order',
     spreadingSessionId: String(raw.spreadingSessionId || ''),
     markerId: String(raw.markerId || ''),
     markerNo: String(raw.markerNo || ''),
@@ -420,7 +420,7 @@ export function validatePdaWritebackPayload(writeback: PdaSpreadingWriteback): P
   if (!writeback.cutOrderIds.length || !writeback.cutOrderNos.length) {
     issues.push('缺少裁片单追溯信息，不能直接应用。')
   }
-  if (writeback.contextType === 'marker-plan-ref' && !writeback.markerPlanId && !writeback.markerPlanNo) {
+  if (writeback.contextType === 'marker-plan' && !writeback.markerPlanId && !writeback.markerPlanNo) {
     issues.push('唛架方案上下文缺少 markerPlanId / markerPlanNo。')
   }
   if (!writeback.rollItems.length) {
@@ -449,7 +449,7 @@ export function validatePdaWritebackPayload(writeback: PdaSpreadingWriteback): P
     isValid: issues.length === 0,
     matchedContextType: writeback.contextType,
     matchedCutOrderIds: [...writeback.cutOrderIds],
-    matchedMarkerPlanRefId: writeback.markerPlanId,
+    matchedMarkerPlanSourceId: writeback.markerPlanId,
     hasConflict: false,
     hasMissingField: issues.length > 0,
     hasOccupancyConflict: false,
@@ -472,7 +472,7 @@ export function matchWritebackToSpreadingContext(
     issues.push('回写唛架关联信息与当前页面不一致。')
   }
 
-  if (writeback.contextType === 'marker-plan-ref') {
+  if (writeback.contextType === 'marker-plan') {
     const currentBatchKey = context.markerPlanId || context.markerPlanNo
     const incomingBatchKey = writeback.markerPlanId || writeback.markerPlanNo
     if (currentBatchKey && incomingBatchKey && currentBatchKey !== incomingBatchKey) {
@@ -499,7 +499,7 @@ export function compareWritebackWithExistingSession(
   sessions: SpreadingSession[],
 ): PdaWritebackSessionComparison {
   const matchedSessions = sessions.filter((session) => {
-    if (writeback.contextType === 'marker-plan-ref') {
+    if (writeback.contextType === 'marker-plan') {
       return Boolean(writeback.markerPlanId) && session.markerPlanId === writeback.markerPlanId
     }
     return writeback.cutOrderIds.some((id) => session.cutOrderIds.includes(id))
@@ -580,7 +580,7 @@ function toSpreadingSourceChannel(session: SpreadingSession | null): SpreadingSo
 }
 
 function sessionMatchesWritebackContext(session: SpreadingSession, writeback: PdaSpreadingWriteback): boolean {
-  if (writeback.contextType === 'marker-plan-ref') {
+  if (writeback.contextType === 'marker-plan') {
     if (writeback.markerPlanId && session.markerPlanId === writeback.markerPlanId) return true
     if (writeback.markerPlanNo && session.markerPlanNo === writeback.markerPlanNo) return true
     return false
@@ -1126,18 +1126,18 @@ export function buildMockPdaWritebacks(options: {
     ],
   })
 
-  const markerPlanRefContext = normalizePdaWritebackPayload({
+  const markerPlanSourceContext = normalizePdaWritebackPayload({
     writebackId: 'pda-writeback-seed-06',
     writebackNo: `PDA-WB-${now.getFullYear()}${`${now.getMonth() + 1}`.padStart(2, '0')}${`${now.getDate()}`.padStart(2, '0')}-104`,
     sourceAccountId: 'pda-operator-009',
     sourceAccountName: '赵楠',
     submittedAt: nowText(new Date(now.getTime() - 10 * 60 * 1000)),
     occurredAt: nowText(new Date(now.getTime() - 10 * 60 * 1000)),
-    contextType: 'marker-plan-ref',
+    contextType: 'marker-plan',
     spreadingMode: 'HIGH_LOW',
     cutOrderIds: context.cutOrderIds,
     cutOrderNos: context.cutOrderNos,
-    markerPlanId: context.markerPlanId || 'mock-marker-plan-ref',
+    markerPlanId: context.markerPlanId || buildWritebackTimestampId('marker-plan'),
     markerPlanNo: context.markerPlanNo || 'MKP-MOCK',
     productionOrderNos: context.productionOrderNos,
     styleCode: context.styleCode,
@@ -1157,7 +1157,7 @@ export function buildMockPdaWritebacks(options: {
     ],
     operatorItems: [
       {
-        rollWritebackItemId: 'marker-plan-ref-roll-1',
+        rollWritebackItemId: 'marker-plan-roll-1',
         operatorAccountId: 'pda-operator-009',
         operatorName: '赵楠',
         startAt: nowText(new Date(now.getTime() - 15 * 60 * 1000)),
@@ -1170,7 +1170,7 @@ export function buildMockPdaWritebacks(options: {
     ],
   })
 
-  return [normal, handoverFollowup, markerPlanRefContext, missing, conflict]
+  return [normal, handoverFollowup, markerPlanSourceContext, missing, conflict]
 }
 
 export function buildPdaWritebackTraceMatrix(options: {

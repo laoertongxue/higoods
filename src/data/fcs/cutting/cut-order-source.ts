@@ -11,8 +11,8 @@ export interface CuttingProductionOrderSourceRecord {
 
 export type CutOrderSourceRecord = GeneratedCutOrderSourceRecord
 
-export function normalizeMarkerPlanRefId(markerPlanNo: string): string {
-  return markerPlanNo.trim() ? `marker-plan-ref:${markerPlanNo.trim()}` : ''
+export function normalizeMarkerPlanSourceId(markerPlanNo: string): string {
+  return markerPlanNo.trim() ? `marker-plan:${markerPlanNo.trim()}` : ''
 }
 
 export function listCuttingProductionOrderSourceRecords(): CuttingProductionOrderSourceRecord[] {

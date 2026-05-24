@@ -6,10 +6,8 @@ export type MarkerSizeCode = (typeof MARKER_SIZE_CODES)[number]
 
 export type MarkerPlanModeKey = 'normal' | 'high_low' | 'fold_normal' | 'fold_high_low'
 export type MarkerBedModeKey = MarkerPlanModeKey
-export type MarkerPlanContextType = 'cut-order' | 'marker-plan-ref'
+export type MarkerPlanContextType = 'cut-order' | 'marker-plan'
 export type MarkerPlanTabKey = 'basic' | 'explosion' | 'layout'
-/** @deprecated 历史兼容字段。新建唛架方案只从可排唛架裁片单进入，页面不再展示或选择该字段。 */
-export type MarkerSchemeSourceType = 'cut-order' | 'marker-plan-ref' | 'mixed'
 
 export type MarkerPlanStatusKey =
   | 'MAPPING_ISSUE'
@@ -270,8 +268,6 @@ export interface MarkerScheme {
   schemeId: string
   schemeNo: string
   schemeName: string
-  /** @deprecated 历史兼容字段。新流程以 sourceCutOrderIds 追溯来源裁片单。 */
-  sourceType: MarkerSchemeSourceType
   sourceCutOrderIds: string[]
   sourceCutOrderNos: string[]
   sourceMarkerPlanIds: string[]

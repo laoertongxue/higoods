@@ -35,7 +35,7 @@ import {
   buildPdaCuttingWritebackId,
 } from '../../data/fcs/pda-cutting-writeback-inputs.ts'
 import {
-  resolveMarkerPlanRefRef,
+  resolveMarkerPlanSourceRef,
   resolveCutOrderRef,
   resolvePdaExecutionRef,
   resolveProductionOrderRef,
@@ -142,11 +142,11 @@ function validateIdentity(identity: CuttingPdaWritebackIdentity): string[] {
   }
 
   if (identity.markerPlanId || identity.markerPlanNo) {
-    const markerPlanRefRef = resolveMarkerPlanRefRef({
+    const markerPlanSourceRef = resolveMarkerPlanSourceRef({
       markerPlanId: identity.markerPlanId,
       markerPlanNo: identity.markerPlanNo,
     })
-    if (!markerPlanRefRef) {
+    if (!markerPlanSourceRef) {
       issues.push('当前唛架方案未能对齐到工艺工厂主来源。')
     }
   }
@@ -302,7 +302,7 @@ export function writePdaSpreadingToFcs(options: {
     sourceDeviceId: options.source.sourceDeviceId,
     submittedAt,
     occurredAt: submittedAt,
-    contextType: options.identity.markerPlanId || options.identity.markerPlanNo ? 'marker-plan-ref' : 'cut-order',
+    contextType: options.identity.markerPlanId || options.identity.markerPlanNo ? 'marker-plan' : 'cut-order',
     spreadingSessionId: options.spreadingSessionId || '',
     markerId: options.markerId || '',
     markerNo: options.markerNo || '',

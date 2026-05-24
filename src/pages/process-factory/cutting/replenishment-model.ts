@@ -1,4 +1,4 @@
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import { buildReplenishmentPreview } from './marker-spreading-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
@@ -63,7 +63,7 @@ export type ReplenishmentFollowupTargetPageKey =
   | 'cuttablePool'
   | 'cutOrders'
   | 'markerSpreading'
-  | 'markerPlanRefs'
+  | 'markerPlanSources'
 export type ReplenishmentNextOptionKey =
   | 'WAIT_NEXT_PICKUP'
   | 'REPLAN_MARKER'
@@ -382,13 +382,13 @@ export interface ReplenishmentNavigationPayload {
   materialPrep: Record<string, string | undefined>
   cuttablePool: Record<string, string | undefined>
   cutOrders: Record<string, string | undefined>
-  markerPlanRefs: Record<string, string | undefined>
+  markerPlanSources: Record<string, string | undefined>
   summary: Record<string, string | undefined>
 }
 
 export const replenishmentSourceMeta: Record<ReplenishmentSourceType, { label: string; className: string }> = {
   'cut-order': { label: '裁片单', className: 'bg-slate-100 text-slate-700' },
-  'marker-plan-ref': { label: '唛架方案', className: 'bg-violet-100 text-violet-700' },
+  'marker-plan': { label: '唛架方案', className: 'bg-violet-100 text-violet-700' },
   'spreading-session': { label: '铺布记录', className: 'bg-sky-100 text-sky-700' },
   'pda-feedback': { label: '现场补料反馈', className: 'bg-amber-100 text-amber-700' },
 }
@@ -576,7 +576,7 @@ function buildSuggestionNo(createdAt: string, index: number): string {
 
 function buildStableSuggestionId(context: ReplenishmentContextRecord): string {
   if (context.session?.spreadingSessionId) return `rep-session-${context.session.spreadingSessionId}`
-  if (context.baseSourceType === 'marker-plan-ref' && context.markerPlanId) return `rep-merge-${context.markerPlanId}`
+  if (context.baseSourceType === 'marker-plan' && context.markerPlanId) return `rep-merge-${context.markerPlanId}`
   return `rep-cut-order-${context.cutOrderIds[0] || context.contextId}`
 }
 
@@ -792,7 +792,7 @@ function buildReplenishmentNavigationPayload(
     materialPrep: { cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, materialSku },
     cuttablePool: { cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, markerPlanId, markerPlanNo, materialSku },
     cutOrders: { cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, markerPlanId, markerPlanNo, materialSku },
-    markerPlanRefs: { markerPlanId, markerPlanNo, cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, materialSku },
+    markerPlanSources: { markerPlanId, markerPlanNo, cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, materialSku },
     summary: { cutOrderId, cutOrderNo, markerPlanId, markerPlanNo, productionOrderId, productionOrderNo, materialSku },
   }
 }
@@ -802,7 +802,7 @@ function buildActionTargetPath(targetPageKey: ReplenishmentFollowupTargetPageKey
   if (targetPageKey === 'cuttablePool') return '/fcs/craft/cutting/cuttable-pool'
   if (targetPageKey === 'cutOrders') return '/fcs/craft/cutting/cut-orders'
   if (targetPageKey === 'markerSpreading') return '/fcs/craft/cutting/spreading-list'
-  if (targetPageKey === 'markerPlanRefs') return '/fcs/craft/cutting/marker-list'
+  if (targetPageKey === 'markerPlanSources') return '/fcs/craft/cutting/marker-list'
   return '/fcs/craft/cutting/replenishment'
 }
 
@@ -1020,7 +1020,7 @@ function deriveStatusMeta(options: {
 }
 
 function buildSourceSummary(context: ReplenishmentContextRecord): string {
-  if (context.baseSourceType === 'marker-plan-ref') {
+  if (context.baseSourceType === 'marker-plan') {
     return `唛架方案 ${context.markerPlanNo || '待补唛架方案号'} · ${context.cutOrderNos.length} 个裁片单`
   }
   return `裁片单 ${context.cutOrderNos[0] || '待补'}`
@@ -1935,7 +1935,7 @@ function normalizeFollowupTargetPageKey(
     candidate === 'cuttablePool' ||
     candidate === 'cutOrders' ||
     candidate === 'markerSpreading' ||
-    candidate === 'markerPlanRefs'
+    candidate === 'markerPlanSources'
   ) {
     return candidate
   }
@@ -2013,7 +2013,7 @@ export function deserializeReplenishmentActionsStorage(raw: string | null): Repl
 export function buildReplenishmentViewModel(options: {
   materialPrepRows: MaterialPrepRow[]
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
   reviews: ReplenishmentReview[]
   impactPlans: ReplenishmentImpactPlan[]
@@ -2036,7 +2036,7 @@ export function buildReplenishmentViewModel(options: {
   const contexts = buildReplenishmentContextRecords({
     materialPrepRows: options.materialPrepRows,
     cutOrderRows: options.cutOrderRows,
-    markerPlanRefs: options.markerPlanRefs,
+    markerPlanSources: options.markerPlanSources,
     markerStore: options.markerStore,
   })
 
@@ -2100,7 +2100,7 @@ export function buildReplenishmentViewModel(options: {
       sourceSummary: buildSourceSummary(context),
       sourceProductionSummary: context.productionOrderNos.join(' / ') || '待补',
       sourceOrderSummary:
-        context.baseSourceType === 'marker-plan-ref'
+        context.baseSourceType === 'marker-plan'
           ? `${context.markerPlanNo || '待补唛架方案号'} · ${context.cutOrderNos.join(' / ')}`
           : context.cutOrderNos.join(' / ') || '待补',
       differenceSummary: buildDifferenceSummaryFromDifferences(matchedDifferences, buildDifferenceSummary(suggestion)),

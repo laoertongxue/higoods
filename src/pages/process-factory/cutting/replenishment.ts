@@ -479,7 +479,7 @@ function renderBindingReplenishmentBridge(): string {
                   <div class="text-xs text-muted-foreground">
                     <p>差异类型：${escapeHtml(abnormal?.abnormalType || '实际长度小于计划长度')}</p>
                     <p class="mt-1">审核建议：需要补料 / 需要补录 / 继续补排 / 仅记录差异</p>
-                    <p class="mt-1">数量账事件：${escapeHtml(row.linkedReplenishmentIds.length ? row.linkedReplenishmentIds.join(' / ') : '待审核后生成')}</p>
+                    <p class="mt-1">数量账事件：${escapeHtml(row.linkedLedgerEventIds.length ? row.linkedLedgerEventIds.join(' / ') : '无直接变更')}</p>
                   </div>
                 </div>
                 <div class="mt-3 flex flex-wrap gap-2">
@@ -591,7 +591,7 @@ function renderFilterBar(): string {
         ${renderFilterSelect('业务对象', 'sourceType', state.filters.sourceType, [
           { value: 'ALL', label: '全部' },
           { value: 'cut-order', label: '裁片单' },
-          { value: 'marker-plan-ref', label: '唛架方案' },
+          { value: 'marker-plan', label: '唛架方案' },
           { value: 'spreading-session', label: '铺布记录' },
           { value: 'pda-feedback', label: '现场反馈' },
         ])}
@@ -1102,16 +1102,16 @@ function renderLedgerImpactSection(row: ReplenishmentSuggestionRow): string {
   const result = row.review?.reviewResult || '待审核'
   const eventText =
     result === '需要补料'
-      ? '预留补料需求事件，后续回到中转仓配料或裁床领料后再进入数量账。'
+      ? '已生成补料需求数量账事件，后续由中转仓配料或裁床领料承接。'
       : result === '需要补录'
-        ? '预留补录调整事件，用于修正实际用量、裁剪数量或领料记录。'
+        ? '已生成补录调整数量账事件，用于修正实际用量、裁剪数量或领料记录。'
         : result === '继续补排'
           ? '不强制改数量账，保留后续可用余额判断和可排唛架入口。'
           : result === '关闭裁片单'
-            ? '预留裁片单关闭事件，不删除历史数量账。'
+            ? '已生成裁片单关闭数量账事件，不删除历史数量账。'
             : result === '仅记录差异'
               ? '不产生数量账变更事件，仅保留差异记录。'
-              : '待审核后决定是否生成数量账事件。'
+              : '待审核，当前无数量账变更事件。'
 
   return `
     <section class="rounded-lg border bg-card p-4">
@@ -1543,7 +1543,7 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
   if (action === 'go-marker') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'spreadingList')
   if (action === 'go-material-prep') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'materialPrep')
   if (action === 'go-cut-orders') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'cutOrders')
-  if (action === 'go-marker-plan') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'markerPlanRefs')
+  if (action === 'go-marker-plan') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'markerPlanSources')
   if (action === 'go-summary') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'summary')
 
   if (action === 'go-marker-index') {

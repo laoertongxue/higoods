@@ -1,5 +1,5 @@
 import { getCanonicalCuttingPath } from './meta.ts'
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
 import type {
   BindingStripProcessPayload,
@@ -121,11 +121,11 @@ export function deriveSpecialProcessTypeExecutionMeta(processType: SpecialProces
 export function buildSpecialProcessSourceOptions(options: {
   order: Pick<SpecialProcessOrder, 'sourceType' | 'cutOrderIds' | 'markerPlanId' | 'markerPlanNo'>
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
 }): SpecialProcessSourceOption[] {
   const rowsById = new Map(options.cutOrderRows.map((row) => [row.cutOrderId, row]))
-  if (options.order.sourceType === 'marker-plan-ref') {
-    const batch = options.markerPlanRefs.find((item) => item.markerPlanId === options.order.markerPlanId || item.markerPlanNo === options.order.markerPlanNo)
+  if (options.order.sourceType === 'marker-plan') {
+    const batch = options.markerPlanSources.find((item) => item.markerPlanId === options.order.markerPlanId || item.markerPlanNo === options.order.markerPlanNo)
     if (!batch) return []
     return batch.items
       .map((item) => {
@@ -168,7 +168,7 @@ export function buildSpecialProcessSourceOptions(options: {
 export function buildDefaultSpecialProcessScopeLines(options: {
   order: SpecialProcessOrder
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
 }): SpecialProcessScopeLine[] {
   return buildSpecialProcessSourceOptions(options).map((item, index) => ({
     scopeId: `scope-${options.order.processOrderId}-${index + 1}`,

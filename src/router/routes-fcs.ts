@@ -76,8 +76,10 @@ import {
   renderCraftCuttingFeiTicketVoidPage,
   renderCraftCuttingFeiTicketsPage,
   renderCraftCuttingCutOrdersPage,
+  renderCraftCuttingCutOrderDetailPage,
   renderCraftCuttingCutOrderClosePage,
   renderCraftCuttingProductionProgressPage,
+  renderCraftCuttingProductionProgressDetailPage,
   renderPlaceholderPage,
   renderCraftCuttingReplenishmentDetailPage,
   renderCraftCuttingMarkerCreatePage,
@@ -345,6 +347,14 @@ export const routes: RouteRegistry = {
     '/fcs/trace/unit-price': () => renderTraceUnitPricePage(),
   },
   dynamicRoutes: [
+    {
+      pattern: /^\/fcs\/craft\/cutting\/production-progress-detail\/([^/]+)$/,
+      render: (match) => renderCraftCuttingProductionProgressDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/fcs\/craft\/cutting\/cut-orders\/([^/]+)$/,
+      render: (match) => renderCraftCuttingCutOrderDetailPage(match[1]),
+    },
     {
       pattern: /^\/fcs\/craft\/cutting\/fei-tickets\/([^/]+)\/print$/,
       render: () => renderCraftCuttingFeiTicketPrintPage(),

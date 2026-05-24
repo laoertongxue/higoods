@@ -33,8 +33,8 @@ import {
   shouldDisplayQrLabelByPrepStatus,
   shouldPrintPrepQr,
 } from './material-prep.helpers.ts'
-import { summarizeMarkerPlanRefParticipation } from './cut-orders-model.ts'
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import { summarizeMarkerPlanSourceParticipation } from './cut-orders-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import { buildProductionProgressRows, type ProductionProgressUrgencyKey, urgencyMeta } from './production-progress-model.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
@@ -112,7 +112,7 @@ export interface MaterialPrepNavigationPayload {
   markerSpreading: Record<string, string | undefined>
   summary: Record<string, string | undefined>
   productionProgress: Record<string, string | undefined>
-  markerPlanRefs: Record<string, string | undefined>
+  markerPlanSources: Record<string, string | undefined>
 }
 
 export interface MaterialPrepRow {
@@ -648,7 +648,7 @@ export function buildMaterialPrepNavigationPayload(row: Pick<
       productionOrderId: row.productionOrderId,
       productionOrderNo: row.productionOrderNo,
     },
-    markerPlanRefs: {
+    markerPlanSources: {
       markerPlanId: row.latestMarkerPlanId || undefined,
       markerPlanNo: row.latestMarkerPlanNo || undefined,
       cutOrderNo: row.cutOrderNo,
@@ -680,14 +680,14 @@ function buildRiskTags(
 function createRow(
   record: CuttingOrderProgressRecord,
   line: CuttingMaterialLine,
-  ledger: MarkerPlanRefRecord[],
+  ledger: MarkerPlanSourceRecord[],
 ): MaterialPrepRow {
   const cutOrderId = line.cutOrderId || line.cutOrderNo || line.cutPieceOrderNo
   const cutOrderNo = line.cutOrderNo || line.cutOrderId || line.cutPieceOrderNo
   const progressRows = buildProductionProgressRows([record])
   const urgency = urgencyMeta[progressRows[0]?.urgency.key ?? 'UNKNOWN']
   const lineItems = [buildLineItem(record, line)]
-  const batchSummary = summarizeMarkerPlanRefParticipation(cutOrderId, ledger)
+  const batchSummary = summarizeMarkerPlanSourceParticipation(cutOrderId, ledger)
   const claimRecords = buildInitialClaimRecords(record, lineItems[0], cutOrderId)
   const materialPrepStatus = deriveMaterialPrepStatus(lineItems)
   const materialClaimStatus = deriveMaterialClaimStatus(lineItems)
@@ -947,7 +947,7 @@ export function recalculateMaterialPrepRow(
 
 export function buildMaterialPrepViewModel(
   records: CuttingOrderProgressRecord[],
-  ledger: MarkerPlanRefRecord[] = [],
+  ledger: MarkerPlanSourceRecord[] = [],
   options: {
     pickupWritebacks?: PdaPickupWritebackRecord[]
     pendingPrepFollowups?: ReplenishmentPendingPrepFollowupRecord[]

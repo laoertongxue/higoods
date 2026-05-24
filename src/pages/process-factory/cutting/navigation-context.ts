@@ -30,7 +30,7 @@ export type CuttingNavigationTarget =
   | 'transferBags'
   | 'cutPieceWarehouse'
   | 'fabricWarehouse'
-  | 'markerPlanRefs'
+  | 'markerPlanSources'
   | 'cuttablePool'
 
 export interface CuttingDrillContext {
@@ -105,7 +105,7 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
   transferBags: '去中转袋流转',
   cutPieceWarehouse: '去裁片仓',
   fabricWarehouse: '去裁床仓',
-  markerPlanRefs: '去唛架方案',
+  markerPlanSources: '去唛架方案',
   cuttablePool: '去可排唛架裁片单',
 }
 
@@ -323,7 +323,7 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   }
   if (target === 'cutPieceWarehouse') return getCanonicalCuttingPath('cut-piece-warehouse')
   if (target === 'fabricWarehouse') return getCanonicalCuttingPath('fabric-warehouse')
-  if (target === 'markerPlanRefs') return getCanonicalCuttingPath('marker-list')
+  if (target === 'markerPlanSources') return getCanonicalCuttingPath('marker-list')
   if (target === 'cuttablePool') return getCanonicalCuttingPath('cuttable-pool')
 
   if (target === 'markerSpreading') {

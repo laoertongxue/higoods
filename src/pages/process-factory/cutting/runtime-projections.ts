@@ -44,7 +44,7 @@ import {
   type TransferBagStore,
 } from './transfer-bags-model.ts'
 import { buildTransferBagReturnViewModel } from './transfer-bag-return-model.ts'
-import type { MarkerPlanRefItem, MarkerPlanRefRecord, MarkerPlanRefStatus } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceItem, MarkerPlanSourceRecord, MarkerPlanSourceStatus } from './marker-plan-source-model.ts'
 import { readStoredMarkerPlanOccupancyLookup } from './marker-plan-occupancy.ts'
 
 export interface FcsCuttingSummaryProjection {
@@ -64,22 +64,22 @@ function mergeByKey<T extends Record<string, unknown>>(seed: T[], stored: T[], k
   return Array.from(merged.values())
 }
 
-function parseMarkerPlanRefDate(markerPlanNo: string): string {
+function parseMarkerPlanSourceDate(markerPlanNo: string): string {
   const match = markerPlanNo.match(/(\d{2})(\d{2})(\d{2})/)
   if (!match) return ''
   return `20${match[1]}-${match[2]}-${match[3]}`
 }
 
-function inferSourceMarkerPlanRefStatus(rows: CutOrderRow[]): MarkerPlanRefStatus {
+function inferSourceMarkerPlanSourceStatus(rows: CutOrderRow[]): MarkerPlanSourceStatus {
   if (rows.some((row) => row.currentStage.key === 'INBOUND')) return 'DONE'
   if (rows.some((row) => ['CUTTING', 'IN_MARKER_PLAN'].includes(row.currentStage.key))) return 'CUTTING'
   return 'READY'
 }
 
-function buildSourceMarkerPlanRefItems(source: {
+function buildSourceMarkerPlanSourceItems(source: {
   markerPlanId: string
   cutOrderRows: CutOrderRow[]
-}): MarkerPlanRefItem[] {
+}): MarkerPlanSourceItem[] {
   return source.cutOrderRows.map((row) => ({
     markerPlanId: source.markerPlanId,
     cutOrderId: row.cutOrderId,
@@ -101,12 +101,12 @@ function buildSourceMarkerPlanRefItems(source: {
   }))
 }
 
-function buildRuntimeMarkerPlanRefRecords(
+function buildRuntimeMarkerPlanSourceRecords(
   snapshot: CuttingDomainSnapshot,
   cutOrderRows: CutOrderRow[],
-): MarkerPlanRefRecord[] {
+): MarkerPlanSourceRecord[] {
   const cutOrderRowsById = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderId, row]))
-  const sourceRecords = snapshot.markerPlanRefState.sourceRecords
+  const sourceRecords = snapshot.markerPlanSourceState.sourceRecords
     .map((record) => {
       const rows = record.sourceCutOrderIds
         .map((id) => cutOrderRowsById[id])
@@ -116,7 +116,7 @@ function buildRuntimeMarkerPlanRefRecords(
       return {
         markerPlanId: record.markerPlanId,
         markerPlanNo: record.markerPlanNo,
-        status: inferSourceMarkerPlanRefStatus(rows),
+        status: inferSourceMarkerPlanSourceStatus(rows),
         markerPlanGroupKey: `${rows[0]?.styleCode || ''}::${materialSkuSummary}`,
         styleCode: rows[0]?.styleCode || '',
         spuCode: rows[0]?.spuCode || '',
@@ -125,32 +125,32 @@ function buildRuntimeMarkerPlanRefRecords(
         sourceProductionOrderCount: unique(rows.map((row) => row.productionOrderId)).length,
         sourceCutOrderCount: rows.length,
         plannedCuttingGroup: '',
-        plannedCuttingDate: parseMarkerPlanRefDate(record.markerPlanNo),
+        plannedCuttingDate: parseMarkerPlanSourceDate(record.markerPlanNo),
         note: '来源于裁片 runtime 主源聚合。',
         createdFrom: 'system-seed' as const,
-        createdAt: parseMarkerPlanRefDate(record.markerPlanNo) ? `${parseMarkerPlanRefDate(record.markerPlanNo)} 09:00` : '',
-        updatedAt: parseMarkerPlanRefDate(record.markerPlanNo) ? `${parseMarkerPlanRefDate(record.markerPlanNo)} 09:00` : '',
-        items: buildSourceMarkerPlanRefItems({
+        createdAt: parseMarkerPlanSourceDate(record.markerPlanNo) ? `${parseMarkerPlanSourceDate(record.markerPlanNo)} 09:00` : '',
+        updatedAt: parseMarkerPlanSourceDate(record.markerPlanNo) ? `${parseMarkerPlanSourceDate(record.markerPlanNo)} 09:00` : '',
+        items: buildSourceMarkerPlanSourceItems({
           markerPlanId: record.markerPlanId,
           cutOrderRows: rows,
         }),
       }
     })
-    .filter((record): record is MarkerPlanRefRecord => record !== null)
+    .filter((record): record is MarkerPlanSourceRecord => record !== null)
 
   return mergeByKey(
     sourceRecords,
-    snapshot.markerPlanRefState.storedRecords as unknown as MarkerPlanRefRecord[],
+    snapshot.markerPlanSourceState.storedRecords as unknown as MarkerPlanSourceRecord[],
     'markerPlanId',
   )
 }
 
 function buildCutOrderRows(
   snapshot: CuttingDomainSnapshot,
-  markerPlanRefs: MarkerPlanRefRecord[],
+  markerPlanSources: MarkerPlanSourceRecord[],
   progressRows: ReturnType<typeof buildProductionProgressRows>,
 ): CutOrderRow[] {
-  return buildCutOrderViewModel(snapshot.progressRecords, markerPlanRefs, {
+  return buildCutOrderViewModel(snapshot.progressRecords, markerPlanSources, {
     progressRows,
     markerPlanOccupancy: readStoredMarkerPlanOccupancyLookup(),
   }).rows
@@ -160,13 +160,13 @@ function buildFeiLedger(options: {
   snapshot: CuttingDomainSnapshot
   cutOrderRows: CutOrderRow[]
   materialPrepRows: ReturnType<typeof buildMaterialPrepViewModel>['rows']
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
 }) {
   const systemFeiLedger = buildSystemSeedFeiTicketLedger({
     cutOrderRows: options.cutOrderRows,
     materialPrepRows: options.materialPrepRows,
-    markerPlanRefs: options.markerPlanRefs,
+    markerPlanSources: options.markerPlanSources,
     markerStore: options.markerStore,
   })
 
@@ -189,12 +189,12 @@ function buildTransferBagStore(
   snapshot: CuttingDomainSnapshot,
   cutOrderRows: CutOrderRow[],
   ticketRecords: FeiTicketLabelRecord[],
-  markerPlanRefs: MarkerPlanRefRecord[],
+  markerPlanSources: MarkerPlanSourceRecord[],
 ): TransferBagStore {
   const seed = buildSystemSeedTransferBagStore({
     cutOrderRows,
     ticketRecords,
-    markerPlanRefs,
+    markerPlanSources,
   })
   return mergeTransferBagStores(seed, snapshot.transferBagState.store as unknown as TransferBagStore)
 }
@@ -209,9 +209,9 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     replenishmentFeedbackWritebacks: snapshot.pdaExecutionState.replenishmentFeedbackWritebacks as never[],
   })
   const seedCutOrderRows = buildCutOrderRows(snapshot, [], progressRows)
-  const markerPlanRefs = buildRuntimeMarkerPlanRefRecords(snapshot, seedCutOrderRows)
-  const cutOrderRows = buildCutOrderRows(snapshot, markerPlanRefs, progressRows)
-  const materialPrepRows = buildMaterialPrepViewModel(snapshot.progressRecords, markerPlanRefs, {
+  const markerPlanSources = buildRuntimeMarkerPlanSourceRecords(snapshot, seedCutOrderRows)
+  const cutOrderRows = buildCutOrderRows(snapshot, markerPlanSources, progressRows)
+  const materialPrepRows = buildMaterialPrepViewModel(snapshot.progressRecords, markerPlanSources, {
     pickupWritebacks: snapshot.pdaExecutionState.pickupWritebacks as never[],
   }).rows
   const markerStore = snapshot.markerSpreadingState.store as unknown as MarkerSpreadingStore
@@ -219,14 +219,14 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     snapshot,
     cutOrderRows,
     materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     markerStore,
   })
 
   const feiViewModel = buildFeiTicketsViewModel({
     cutOrderRows,
     materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     markerStore,
     ticketRecords: feiLedger.ticketRecords,
     printJobs: feiLedger.printJobs,
@@ -255,11 +255,11 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     },
   )
 
-  const transferStore = buildTransferBagStore(snapshot, cutOrderRows, feiLedger.ticketRecords, markerPlanRefs)
+  const transferStore = buildTransferBagStore(snapshot, cutOrderRows, feiLedger.ticketRecords, markerPlanSources)
   const transferBagView = buildTransferBagViewModel({
     cutOrderRows,
     ticketRecords: feiLedger.ticketRecords,
-    markerPlanRefs,
+    markerPlanSources,
     store: transferStore,
   })
   const transferBagReturnView = buildTransferBagReturnViewModel({
@@ -270,7 +270,7 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
   const replenishmentView = buildReplenishmentViewModel({
     materialPrepRows,
     cutOrderRows,
-    markerPlanRefs,
+    markerPlanSources,
     markerStore,
     reviews: snapshot.replenishmentState.reviews as unknown as ReplenishmentReview[],
     impactPlans: snapshot.replenishmentState.impactPlans as unknown as ReplenishmentImpactPlan[],
@@ -280,7 +280,7 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
 
   const specialProcessView = buildSpecialProcessViewModel({
     cutOrderRows,
-    markerPlanRefs,
+    markerPlanSources,
     orders: snapshot.specialProcessState.orders as unknown as SpecialProcessOrder[],
     bindingPayloads: snapshot.specialProcessState.bindingPayloads as unknown as BindingStripProcessPayload[],
     scopeLines: snapshot.specialProcessState.scopeLines as unknown as SpecialProcessScopeLine[],
@@ -292,7 +292,7 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     productionRows: progressRows,
     cutOrderRows,
     materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     markerStore,
     feiViewModel,
     fabricWarehouseView,

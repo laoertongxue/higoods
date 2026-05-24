@@ -6,7 +6,7 @@ import type {
 } from './fei-tickets-model.ts'
 import type { MarkerSpreadingStore, SpreadingSession } from './marker-spreading-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
 import type {
   ProductionProgressRow,
@@ -50,7 +50,7 @@ export type CuttingCheckSourceObjectType =
 export type CuttingCheckActionTarget =
   | 'productionProgress'
   | 'cuttablePool'
-  | 'markerPlanRefs'
+  | 'markerPlanSources'
   | 'cutOrders'
   | 'materialPrep'
   | 'markerSpreading'
@@ -124,7 +124,7 @@ export interface CuttingCheckNextAction {
 export interface CuttingCheckBuildOptions {
   productionRow: ProductionProgressRow
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   materialPrepRows: MaterialPrepRow[]
   spreadingSessions: SpreadingSession[]
   markerStore: MarkerSpreadingStore
@@ -444,7 +444,7 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
   if (!options.spreadingSessions.length) {
     if (requiresSpreading) {
       const sourceCutOrder = options.cutOrderRows[0]
-      const sourceMarkerPlan = options.markerPlanRefs[0]
+      const sourceMarkerPlan = options.markerPlanSources[0]
       blockers.push(
         buildBlocker({
           productionOrderId: options.productionRow.productionOrderId,
@@ -475,12 +475,12 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
             sectionKey: 'SPREADING',
             severity: 'HIGH',
             title: `${session.spreadingSessionNo} 未完成`,
-            sourceType: session.contextType === 'marker-plan-ref' ? 'MARKER_PLAN' : 'CUT_ORDER',
-            sourceId: session.contextType === 'marker-plan-ref' ? session.markerPlanId : session.cutOrderIds[0] || session.spreadingSessionId,
-            sourceNo: session.contextType === 'marker-plan-ref'
+            sourceType: session.contextType === 'marker-plan' ? 'MARKER_PLAN' : 'CUT_ORDER',
+            sourceId: session.contextType === 'marker-plan' ? session.markerPlanId : session.cutOrderIds[0] || session.spreadingSessionId,
+            sourceNo: session.contextType === 'marker-plan'
               ? session.markerPlanNo || session.spreadingSessionNo
               : session.cutOrderNos?.[0] || session.spreadingSessionNo,
-            sourceLabel: session.contextType === 'marker-plan-ref' ? '唛架方案' : '裁片单',
+            sourceLabel: session.contextType === 'marker-plan' ? '唛架方案' : '裁片单',
             materialSku: session.materialSku || '',
             currentStateLabel: session.status === 'IN_PROGRESS' ? '铺布中' : '待补录',
             blockerReason: session.status === 'IN_PROGRESS' ? '当前铺布记录仍在执行中。' : '当前铺布记录待补录。',
@@ -499,12 +499,12 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
             sectionKey: 'SPREADING',
             severity: 'MEDIUM',
             title: `${session.spreadingSessionNo} 存在差异`,
-            sourceType: session.contextType === 'marker-plan-ref' ? 'MARKER_PLAN' : 'CUT_ORDER',
-            sourceId: session.contextType === 'marker-plan-ref' ? session.markerPlanId : session.cutOrderIds[0] || session.spreadingSessionId,
-            sourceNo: session.contextType === 'marker-plan-ref'
+            sourceType: session.contextType === 'marker-plan' ? 'MARKER_PLAN' : 'CUT_ORDER',
+            sourceId: session.contextType === 'marker-plan' ? session.markerPlanId : session.cutOrderIds[0] || session.spreadingSessionId,
+            sourceNo: session.contextType === 'marker-plan'
               ? session.markerPlanNo || session.spreadingSessionNo
               : session.cutOrderNos?.[0] || session.spreadingSessionNo,
-            sourceLabel: session.contextType === 'marker-plan-ref' ? '唛架方案' : '裁片单',
+            sourceLabel: session.contextType === 'marker-plan' ? '唛架方案' : '裁片单',
             materialSku: session.materialSku || '',
             currentStateLabel: '差异待核',
             blockerReason: session.warningMessages[0] || '当前铺布存在差异，需继续核查。',

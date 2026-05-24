@@ -26,7 +26,7 @@ function normalizePrintableUnitRecord<T extends Record<string, unknown>>(record:
   }
 
   if (
-    normalizedTraceRecord.sourceContextType === 'marker-plan-ref' &&
+    normalizedTraceRecord.sourceContextType === 'marker-plan' &&
     typeof normalizedTraceRecord.sourceMarkerPlanId === 'string' &&
     normalizedTraceRecord.sourceMarkerPlanId
   ) {

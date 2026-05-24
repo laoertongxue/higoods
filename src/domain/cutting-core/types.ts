@@ -14,13 +14,13 @@ export interface CutOrderRef {
   patternFileId: string
   patternVersion: string
   effectiveWidthText: string
-  activeMarkerPlanRefId: string
-  activeMarkerPlanRefNo: string
+  activeMarkerPlanSourceId: string
+  activeMarkerPlanSourceNo: string
   markerPlanIds: string[]
   markerPlanNos: string[]
 }
 
-export interface MarkerPlanRefRef {
+export interface MarkerPlanSourceRef {
   markerPlanId: string
   markerPlanNo: string
   sourceCutOrderIds: string[]
@@ -59,8 +59,8 @@ export interface CuttingCoreRegistry {
   productionOrdersByNo: Record<string, ProductionOrderRef>
   cutOrdersById: Record<string, CutOrderRef>
   cutOrdersByNo: Record<string, CutOrderRef>
-  markerPlanRefsById: Record<string, MarkerPlanRefRef>
-  markerPlanRefsByNo: Record<string, MarkerPlanRefRef>
+  markerPlanSourcesById: Record<string, MarkerPlanSourceRef>
+  markerPlanSourcesByNo: Record<string, MarkerPlanSourceRef>
   cuttingTasksById: Record<string, CuttingTaskRef>
   cuttingTasksByNo: Record<string, CuttingTaskRef>
   pdaExecutionsByTaskAndOrder: Record<string, PdaCutPieceExecutionRef>

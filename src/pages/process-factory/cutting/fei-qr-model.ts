@@ -55,7 +55,7 @@ export interface FeiQrPayload extends CanonicalFeiTicketQrPayload {
   schemaVersion: string
   ownerType: 'cut-order'
   ownerId: string
-  sourceContextType: 'cut-order' | 'marker-plan-ref'
+  sourceContextType: 'cut-order' | 'marker-plan'
   sourceMarkerPlanId: string
   sourceMarkerPlanNo: string
   sourcePrintJobId: string
@@ -77,7 +77,7 @@ export interface FeiQrPayloadSummary {
   styleCode: string
   spuCode: string
   materialSku: string
-  sourceContextType: 'cut-order' | 'marker-plan-ref'
+  sourceContextType: 'cut-order' | 'marker-plan'
   hasReservedProcess: boolean
   hasReservedTrace: boolean
 }

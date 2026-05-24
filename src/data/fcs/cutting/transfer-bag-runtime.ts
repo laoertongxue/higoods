@@ -28,7 +28,7 @@ export interface TransferBagSeedCutOrderRowLike {
   orderQty?: number
 }
 
-export interface TransferBagSeedMarkerPlanRefLike {
+export interface TransferBagSeedMarkerPlanSourceLike {
   markerPlanId: string
   markerPlanNo: string
   styleCode: string
@@ -329,9 +329,9 @@ function buildCarrierRecord(input: {
 
 function buildSewingTaskSeeds(
   cutOrderRows: TransferBagSeedCutOrderRowLike[] = [],
-  markerPlanRefs: TransferBagSeedMarkerPlanRefLike[] = [],
+  markerPlanSources: TransferBagSeedMarkerPlanSourceLike[] = [],
 ): SewingTaskRefRecord[] {
-  const markerPlanSeeds = markerPlanRefs.slice(0, 3).map((batch, index) => {
+  const markerPlanSeeds = markerPlanSources.slice(0, 3).map((batch, index) => {
     const factory = pickTransferBagSewingFactory(index)
     return {
     sewingTaskId: `sewing-task-${sanitizeId(batch.markerPlanId || batch.markerPlanNo)}`,
@@ -496,10 +496,10 @@ export function createCarrierCycleBinding(options: {
 export function buildSystemSeedTransferBagRuntime(options: {
   cutOrderRows: TransferBagSeedCutOrderRowLike[]
   ticketRecords: TransferBagSeedTicketLike[]
-  markerPlanRefs?: TransferBagSeedMarkerPlanRefLike[]
+  markerPlanSources?: TransferBagSeedMarkerPlanSourceLike[]
 }): TransferBagRuntimeStore {
-  const markerPlanRefs = options.markerPlanRefs || []
-  const sewingTasks = buildSewingTaskSeeds(options.cutOrderRows, markerPlanRefs)
+  const markerPlanSources = options.markerPlanSources || []
+  const sewingTasks = buildSewingTaskSeeds(options.cutOrderRows, markerPlanSources)
   if (!sewingTasks.length) {
     const fallbackFactory = pickTransferBagSewingFactory(0)
     sewingTasks.push({

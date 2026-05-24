@@ -53,7 +53,7 @@ import {
   type PostFinishingTaskView,
 } from './post-finishing-domain.ts'
 import {
-  getCuttingMarkerPlanRefTaskPrintSourceById,
+  getCuttingMarkerPlanSourceTaskPrintSourceById,
   getCuttingCutOrderTaskPrintSourceById,
 } from './cutting-task-print-source.ts'
 import { getQuantityLabel } from './process-quantity-labels.ts'
@@ -1267,8 +1267,8 @@ function buildRouteCardFromCuttingCutOrder(sourceId: string): TaskRouteCardBuild
   }
 }
 
-function buildRouteCardFromCuttingMarkerPlanRef(sourceId: string): TaskRouteCardBuildResult {
-  const source = getCuttingMarkerPlanRefTaskPrintSourceById(sourceId)
+function buildRouteCardFromCuttingMarkerPlanSource(sourceId: string): TaskRouteCardBuildResult {
+  const source = getCuttingMarkerPlanSourceTaskPrintSourceById(sourceId)
   if (!source) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到唛架方案：${sourceId}` }
 
   return {
@@ -1335,7 +1335,7 @@ export function buildTaskRouteCardBySource(
     case 'CUTTING_ORDER':
       return buildRouteCardFromCuttingCutOrder(sourceId)
     case 'CUTTING_MARKER_PLAN':
-      return buildRouteCardFromCuttingMarkerPlanRef(sourceId)
+      return buildRouteCardFromCuttingMarkerPlanSource(sourceId)
     default: {
       const _exhaustive: never = sourceType
       return _exhaustive

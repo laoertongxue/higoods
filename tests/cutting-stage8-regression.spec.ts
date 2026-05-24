@@ -209,6 +209,27 @@ test.describe('阶段 8 裁床 Web 页面全量收口', () => {
   }
 })
 
+test('阶段 8 生产单总览和裁片单完整详情使用独立页面', async ({ page }) => {
+  const errors = collectBrowserErrors(page)
+  await openAndCheck(page, WEB_PAGES.find((item) => item.path === '/fcs/craft/cutting/production-progress')!)
+  await page.getByRole('button', { name: '查看详情' }).first().click()
+  await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/production-progress-detail\/[^/]+$/)
+  await expect(page.locator('[data-testid="cutting-production-progress-detail-page"]')).toBeVisible()
+  await expect(page.locator('body')).toContainText('生产单详情')
+  await expect(page.locator('body')).toContainText('全链路总览')
+  await expectNoMainHorizontalScroll(page)
+
+  await page.goto('/fcs/craft/cutting/cut-orders', { waitUntil: 'domcontentloaded' })
+  await page.getByRole('button', { name: '查看详情' }).first().click()
+  await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/cut-orders\/[^/]+$/)
+  await expect(page.locator('[data-testid="cut-order-detail-page"]')).toBeVisible()
+  await expect(page.locator('body')).toContainText('裁片单详情')
+  await expect(page.locator('body')).toContainText('面料数量账')
+  await expectNoOldVisibleText(page)
+  await expectNoMainHorizontalScroll(page)
+  expect(errors).toEqual([])
+})
+
 test('阶段 8 交出单可挂多条交出记录并进入独立详情页', async ({ page }) => {
   const errors = collectBrowserErrors(page)
   await openAndCheck(page, WEB_PAGES.find((item) => item.path === '/fcs/craft/cutting/handover-orders')!)

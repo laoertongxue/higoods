@@ -46,7 +46,7 @@ export interface CuttingCutOrderTaskPrintSource {
   nodeRows: CuttingTaskPrintNodeRow[]
 }
 
-export interface CuttingMarkerPlanRefTaskPrintSource {
+export interface CuttingMarkerPlanSourceTaskPrintSource {
   markerPlanId: string
   markerPlanNo: string
   status: 'DRAFT' | 'READY' | 'CUTTING' | 'DONE' | 'CANCELLED'
@@ -241,12 +241,12 @@ export function getCuttingCutOrderTaskPrintSourceById(
   }
 }
 
-function normalizeMarkerPlanRefStatus(value: string | undefined): CuttingMarkerPlanRefTaskPrintSource['status'] {
+function normalizeMarkerPlanSourceStatus(value: string | undefined): CuttingMarkerPlanSourceTaskPrintSource['status'] {
   if (value === 'CUTTING' || value === 'DONE' || value === 'CANCELLED' || value === 'DRAFT' || value === 'READY') return value
   return 'READY'
 }
 
-function getMarkerPlanRefStatusLabel(status: CuttingMarkerPlanRefTaskPrintSource['status']): string {
+function getMarkerPlanSourceStatusLabel(status: CuttingMarkerPlanSourceTaskPrintSource['status']): string {
   if (status === 'CUTTING') return '铺布裁剪中'
   if (status === 'DONE') return '铺布裁剪完成'
   if (status === 'CANCELLED') return '已取消'
@@ -259,13 +259,13 @@ function parseBatchDateFromNo(markerPlanNo: string): string {
   return `20${match[1]}-${match[2]}-${match[3]}`
 }
 
-function inferMarkerPlanRefStatus(rows: CuttingCutOrderTaskPrintSource[]): CuttingMarkerPlanRefTaskPrintSource['status'] {
+function inferMarkerPlanSourceStatus(rows: CuttingCutOrderTaskPrintSource[]): CuttingMarkerPlanSourceTaskPrintSource['status'] {
   if (rows.some((row) => /已完成|已入仓/.test(row.currentStageLabel))) return 'DONE'
   if (rows.some((row) => /裁片中|裁剪中|待入仓/.test(row.currentStageLabel))) return 'CUTTING'
   return 'READY'
 }
 
-function buildMarkerPlanRefNodeRows(batch: CuttingMarkerPlanRefTaskPrintSource): CuttingTaskPrintNodeRow[] {
+function buildMarkerPlanSourceNodeRows(batch: CuttingMarkerPlanSourceTaskPrintSource): CuttingTaskPrintNodeRow[] {
   const visibleStatus = batch.status === 'DRAFT' ? 'READY' : batch.status
   const rows: CuttingTaskPrintNodeRow[] = [
     {
@@ -323,20 +323,20 @@ function buildMarkerPlanRefNodeRows(batch: CuttingMarkerPlanRefTaskPrintSource):
   return rows
 }
 
-function buildStoredMarkerPlanRefSource(raw: Record<string, unknown>): CuttingMarkerPlanRefTaskPrintSource | null {
+function buildStoredMarkerPlanCutOrderSource(raw: Record<string, unknown>): CuttingMarkerPlanSourceTaskPrintSource | null {
   const markerPlanId = typeof raw.markerPlanId === 'string' ? raw.markerPlanId : ''
   const markerPlanNo = typeof raw.markerPlanNo === 'string' ? raw.markerPlanNo : ''
   if (!markerPlanId || !markerPlanNo) return null
-  const status = normalizeMarkerPlanRefStatus(typeof raw.status === 'string' ? raw.status : undefined)
+  const status = normalizeMarkerPlanSourceStatus(typeof raw.status === 'string' ? raw.status : undefined)
   const items = Array.isArray(raw.items) ? raw.items.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object')) : []
   const cutOrderNos = unique(items.map((item) => (typeof item.cutOrderNo === 'string' ? item.cutOrderNo : '')))
   const productionNos = unique(items.map((item) => (typeof item.productionOrderNo === 'string' ? item.productionOrderNo : '')))
   const materialSkus = unique(items.map((item) => (typeof item.materialSku === 'string' ? item.materialSku : '')))
-  const batch: CuttingMarkerPlanRefTaskPrintSource = {
+  const batch: CuttingMarkerPlanSourceTaskPrintSource = {
     markerPlanId,
     markerPlanNo,
     status,
-    statusLabel: getMarkerPlanRefStatusLabel(status),
+    statusLabel: getMarkerPlanSourceStatusLabel(status),
     styleCode: typeof raw.styleCode === 'string' ? raw.styleCode : '',
     spuCode: typeof raw.spuCode === 'string' ? raw.spuCode : '',
     materialSkuSummary: typeof raw.materialSkuSummary === 'string' ? raw.materialSkuSummary : materialSkus.join(' / '),
@@ -351,31 +351,31 @@ function buildStoredMarkerPlanRefSource(raw: Record<string, unknown>): CuttingMa
     firstProductionOrderNo: productionNos[0] || '',
     nodeRows: [],
   }
-  batch.nodeRows = buildMarkerPlanRefNodeRows(batch)
+  batch.nodeRows = buildMarkerPlanSourceNodeRows(batch)
   return batch
 }
 
-export function listCuttingMarkerPlanRefTaskPrintSources(
+export function listCuttingMarkerPlanSourceTaskPrintSources(
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
-): CuttingMarkerPlanRefTaskPrintSource[] {
+): CuttingMarkerPlanSourceTaskPrintSource[] {
   const cutOrderRows = snapshot.cutOrders
     .map((source) => getCuttingCutOrderTaskPrintSourceById(source.cutOrderId, snapshot))
     .filter((source): source is CuttingCutOrderTaskPrintSource => Boolean(source))
   const cutOrdersById = new Map(cutOrderRows.map((row) => [row.cutOrderId, row]))
-  const byId = new Map<string, CuttingMarkerPlanRefTaskPrintSource>()
+  const byId = new Map<string, CuttingMarkerPlanSourceTaskPrintSource>()
 
-  snapshot.markerPlanRefState.sourceRecords.forEach((record) => {
+  snapshot.markerPlanSourceState.sourceRecords.forEach((record) => {
     const rows = record.sourceCutOrderIds
       .map((id) => cutOrdersById.get(id))
       .filter((row): row is CuttingCutOrderTaskPrintSource => Boolean(row))
     if (!rows.length) return
-    const status = inferMarkerPlanRefStatus(rows)
+    const status = inferMarkerPlanSourceStatus(rows)
     const plannedDate = parseBatchDateFromNo(record.markerPlanNo)
-    const batch: CuttingMarkerPlanRefTaskPrintSource = {
+    const batch: CuttingMarkerPlanSourceTaskPrintSource = {
       markerPlanId: record.markerPlanId,
       markerPlanNo: record.markerPlanNo,
       status,
-      statusLabel: getMarkerPlanRefStatusLabel(status),
+      statusLabel: getMarkerPlanSourceStatusLabel(status),
       styleCode: rows[0]?.styleCode || '',
       spuCode: rows[0]?.spuCode || '',
       materialSkuSummary: unique(rows.map((row) => row.materialSku)).join(' / '),
@@ -390,23 +390,23 @@ export function listCuttingMarkerPlanRefTaskPrintSources(
       firstProductionOrderNo: rows[0]?.productionOrderNo || '',
       nodeRows: [],
     }
-    batch.nodeRows = buildMarkerPlanRefNodeRows(batch)
+    batch.nodeRows = buildMarkerPlanSourceNodeRows(batch)
     byId.set(batch.markerPlanId, batch)
   })
 
-  snapshot.markerPlanRefState.storedRecords
-    .map((record) => buildStoredMarkerPlanRefSource(record))
-    .filter((record): record is CuttingMarkerPlanRefTaskPrintSource => Boolean(record))
+  snapshot.markerPlanSourceState.storedRecords
+    .map((record) => buildStoredMarkerPlanCutOrderSource(record))
+    .filter((record): record is CuttingMarkerPlanSourceTaskPrintSource => Boolean(record))
     .forEach((record) => byId.set(record.markerPlanId, record))
 
   return Array.from(byId.values())
 }
 
-export function getCuttingMarkerPlanRefTaskPrintSourceById(
+export function getCuttingMarkerPlanSourceTaskPrintSourceById(
   sourceId: string,
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
-): CuttingMarkerPlanRefTaskPrintSource | null {
-  return listCuttingMarkerPlanRefTaskPrintSources(snapshot).find(
+): CuttingMarkerPlanSourceTaskPrintSource | null {
+  return listCuttingMarkerPlanSourceTaskPrintSources(snapshot).find(
     (record) => record.markerPlanId === sourceId || record.markerPlanNo === sourceId,
   ) || null
 }

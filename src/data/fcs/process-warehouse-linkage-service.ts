@@ -323,7 +323,7 @@ function resolveCuttingContext(actionResult: ProcessWarehouseLinkageActionResult
     skuSummary: `${order.materialSku} / ${order.materialLabel}`,
     materialSku: order.materialSku,
     materialName: order.materialLabel,
-    batchNo: order.latestConfigBatchNo || order.boundMarkerPlanRefNo,
+    batchNo: order.latestConfigBatchNo || order.boundMarkerPlanSourceNo,
     objectType: isPickup ? '面料' : '裁片',
     plannedObjectQty: roundQty(isPickup ? order.markerInfo.netLength : order.markerInfo.totalPieces || order.orderQty),
     objectQty,

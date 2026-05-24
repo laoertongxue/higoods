@@ -1,5 +1,5 @@
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import { DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES } from './cutting-table-resource.ts'
 import {
   buildMarkerSeedDraft,
@@ -116,7 +116,7 @@ export {
 export interface MarkerListRow {
   markerId: string
   markerNo: string
-  contextType: 'cut-order' | 'marker-plan-ref'
+  contextType: 'cut-order' | 'marker-plan'
   contextLabel: string
   cutOrderCount: number
   cutOrderNos: string[]
@@ -169,7 +169,7 @@ export interface MarkerDetailViewModel {
 export interface SpreadingListRow {
   spreadingSessionId: string
   sessionNo: string
-  contextType: 'cut-order' | 'marker-plan-ref'
+  contextType: 'cut-order' | 'marker-plan'
   contextLabel: string
   cutOrderCount: number
   cutOrderNos: string[]
@@ -254,14 +254,14 @@ export interface MarkerLineItemSummary {
 export interface MarkerSpreadingPrototypeData {
   rows: MaterialPrepRow[]
   rowsById: Record<string, MaterialPrepRow>
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   store: MarkerSpreadingStore
 }
 
 function buildSessionContext(
   session: SpreadingSession,
   cutOrderRows: MaterialPrepRow[],
-  batch: MarkerPlanRefRecord | null,
+  batch: MarkerPlanSourceRecord | null,
 ): MarkerSpreadingContext | null {
   if (!cutOrderRows.length && !session.markerPlanId && !session.cutOrderIds.length) return null
 
@@ -331,7 +331,7 @@ function buildCutOrderContext(row: MaterialPrepRow): MarkerSpreadingContext {
   }
 }
 
-function buildMarkerPlanRefContext(batch: MarkerPlanRefRecord, rowsById: Record<string, MaterialPrepRow>): MarkerSpreadingContext | null {
+function buildMarkerPlanSourceContext(batch: MarkerPlanSourceRecord, rowsById: Record<string, MaterialPrepRow>): MarkerSpreadingContext | null {
   const materialPrepRows = batch.items
     .map((item) => rowsById[item.cutOrderId])
     .filter((row): row is MaterialPrepRow => Boolean(row))
@@ -339,7 +339,7 @@ function buildMarkerPlanRefContext(batch: MarkerPlanRefRecord, rowsById: Record<
   if (!materialPrepRows.length) return null
 
   return {
-    contextType: 'marker-plan-ref',
+    contextType: 'marker-plan',
     cutOrderIds: materialPrepRows.map((row) => row.cutOrderId),
     cutOrderNos: materialPrepRows.map((row) => row.cutOrderNo),
     markerPlanId: batch.markerPlanId,
@@ -503,7 +503,7 @@ function createSeedSession(
   seedEndDate.setMinutes(seedEndDate.getMinutes() + DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
   const owner = SEED_SESSION_OWNERS[(contextIndex + profileIndex) % SEED_SESSION_OWNERS.length]
   const sessionKeyBase =
-    context.contextType === 'marker-plan-ref' ? context.markerPlanId || context.markerPlanNo : context.cutOrderIds[0] || context.cutOrderNos[0]
+    context.contextType === 'marker-plan' ? context.markerPlanId || context.markerPlanNo : context.cutOrderIds[0] || context.cutOrderNos[0]
   const sessionId = `spreading-session-${context.contextType}-${sanitizeSeedKey(sessionKeyBase)}-${profile.code}`
   const session = createSpreadingDraftFromMarker(marker, context, seedDate, {
     baseSession: {
@@ -704,8 +704,8 @@ function createSeedSession(
 }
 
 function hasMarkerForContext(store: MarkerSpreadingStore, context: MarkerSpreadingContext): boolean {
-  if (context.contextType === 'marker-plan-ref') {
-    return store.markers.some((item) => item.contextType === 'marker-plan-ref' && item.markerPlanId === context.markerPlanId)
+  if (context.contextType === 'marker-plan') {
+    return store.markers.some((item) => item.contextType === 'marker-plan' && item.markerPlanId === context.markerPlanId)
   }
   return store.markers.some(
     (item) => item.contextType === 'cut-order' && item.cutOrderIds[0] === context.cutOrderIds[0],
@@ -733,7 +733,7 @@ export function summarizeMarkerLineItems(lineItems: MarkerLineItem[] = []): Mark
 
 export function buildMarkerSpreadingPrototypeStore(options: {
   rows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   stored?: MarkerSpreadingStore
 }): MarkerSpreadingStore {
   let nextStore = options.stored ? deserializeMarkerSpreadingStorage(JSON['stringify'](options.stored)) : createEmptyStore()
@@ -767,27 +767,27 @@ export function buildMarkerSpreadingPrototypeStore(options: {
     .map((row) => buildCutOrderContext(row))
     .filter((context, index, all) => all.findIndex((item) => item.cutOrderIds[0] === context.cutOrderIds[0]) === index)
     .slice(0, 3)
-  const markerPlanRefContexts = options.markerPlanRefs
-    .map((batch) => buildMarkerPlanRefContext(batch, rowsById))
+  const markerPlanSourceContexts = options.markerPlanSources
+    .map((batch) => buildMarkerPlanSourceContext(batch, rowsById))
     .filter((context): context is MarkerSpreadingContext => Boolean(context))
     .filter((context) => context.cutOrderIds.every((id) => executableRowIds.has(id)))
     .filter((context, index, all) => all.findIndex((item) => item.markerPlanId === context.markerPlanId) === index)
     .slice(0, 3)
 
-  const seedContexts: MarkerSpreadingContext[] = [...cutOrderContexts, ...markerPlanRefContexts].slice(0, 5)
+  const seedContexts: MarkerSpreadingContext[] = [...cutOrderContexts, ...markerPlanSourceContexts].slice(0, 5)
 
   const preferredSeedModes = new Map<string, MarkerModeKey>()
   if (cutOrderContexts[0]) preferredSeedModes.set(`cut-order:${cutOrderContexts[0].cutOrderIds[0]}`, 'normal')
   if (cutOrderContexts[1]) preferredSeedModes.set(`cut-order:${cutOrderContexts[1].cutOrderIds[0]}`, 'fold_normal')
   if (cutOrderContexts[2]) preferredSeedModes.set(`cut-order:${cutOrderContexts[2].cutOrderIds[0]}`, 'high_low')
-  if (markerPlanRefContexts[0]) preferredSeedModes.set(`marker-plan-ref:${markerPlanRefContexts[0].markerPlanId}`, 'fold_high_low')
-  if (markerPlanRefContexts[1]) preferredSeedModes.set(`marker-plan-ref:${markerPlanRefContexts[1].markerPlanId}`, 'normal')
-  if (markerPlanRefContexts[2]) preferredSeedModes.set(`marker-plan-ref:${markerPlanRefContexts[2].markerPlanId}`, 'high_low')
+  if (markerPlanSourceContexts[0]) preferredSeedModes.set(`marker-plan:${markerPlanSourceContexts[0].markerPlanId}`, 'fold_high_low')
+  if (markerPlanSourceContexts[1]) preferredSeedModes.set(`marker-plan:${markerPlanSourceContexts[1].markerPlanId}`, 'normal')
+  if (markerPlanSourceContexts[2]) preferredSeedModes.set(`marker-plan:${markerPlanSourceContexts[2].markerPlanId}`, 'high_low')
 
   seedContexts.forEach((context, index) => {
     const contextKey =
-      context.contextType === 'marker-plan-ref'
-        ? `marker-plan-ref:${context.markerPlanId}`
+      context.contextType === 'marker-plan'
+        ? `marker-plan:${context.markerPlanId}`
         : `cut-order:${context.cutOrderIds[0]}`
     if (!hasMarkerForContext(nextStore, context)) {
       const markerDraft = buildMarkerSeedDraft(context, null)
@@ -803,8 +803,8 @@ export function buildMarkerSpreadingPrototypeStore(options: {
 
     const marker =
       nextStore.markers.find((item) =>
-        context.contextType === 'marker-plan-ref'
-          ? item.contextType === 'marker-plan-ref' && item.markerPlanId === context.markerPlanId
+        context.contextType === 'marker-plan'
+          ? item.contextType === 'marker-plan' && item.markerPlanId === context.markerPlanId
           : item.contextType === 'cut-order' && item.cutOrderIds[0] === context.cutOrderIds[0],
       ) || null
 
@@ -813,7 +813,7 @@ export function buildMarkerSpreadingPrototypeStore(options: {
     const profiles = SEED_SESSION_MATRIX[index] || SEED_SESSION_MATRIX[SEED_SESSION_MATRIX.length - 1]
     profiles.forEach((profile, profileIndex) => {
       const sessionKeyBase =
-        context.contextType === 'marker-plan-ref' ? context.markerPlanId || context.markerPlanNo : context.cutOrderIds[0] || context.cutOrderNos[0]
+        context.contextType === 'marker-plan' ? context.markerPlanId || context.markerPlanNo : context.cutOrderIds[0] || context.cutOrderNos[0]
       const sessionId = `spreading-session-${context.contextType}-${sanitizeSeedKey(sessionKeyBase)}-${profile.code}`
       if (hasSessionById(nextStore, sessionId)) return
       nextStore = {
@@ -833,14 +833,14 @@ export function readMarkerSpreadingPrototypeData(): MarkerSpreadingPrototypeData
   const projection = buildMarkerSpreadingProjection()
   const store = buildMarkerSpreadingPrototypeStore({
     rows: projection.rows,
-    markerPlanRefs: projection.markerPlanRefs,
+    markerPlanSources: projection.markerPlanSources,
     stored: projection.store,
   })
 
   return {
     rows: projection.rows,
     rowsById: projection.rowsById,
-    markerPlanRefs: projection.markerPlanRefs,
+    markerPlanSources: projection.markerPlanSources,
     store,
   }
 }
@@ -848,9 +848,9 @@ export function readMarkerSpreadingPrototypeData(): MarkerSpreadingPrototypeData
 export function buildMarkerListViewModel(options: {
   markerRecords: MarkerRecord[]
   rowsById: Record<string, MaterialPrepRow>
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
 }): MarkerListRow[] {
-  const batchById = Object.fromEntries(options.markerPlanRefs.map((batch) => [batch.markerPlanId, batch]))
+  const batchById = Object.fromEntries(options.markerPlanSources.map((batch) => [batch.markerPlanId, batch]))
 
   return options.markerRecords
     .map((record) => {
@@ -866,7 +866,7 @@ export function buildMarkerListViewModel(options: {
         markerId: record.markerId,
         markerNo: record.markerNo || record.markerId,
         contextType: record.contextType,
-        contextLabel: record.contextType === 'marker-plan-ref' ? '唛架方案上下文' : '裁片单上下文',
+        contextLabel: record.contextType === 'marker-plan' ? '唛架方案上下文' : '裁片单上下文',
         cutOrderCount: record.cutOrderIds.length,
         cutOrderNos,
         markerPlanNo: record.markerPlanNo || batch?.markerPlanNo || '',
@@ -918,10 +918,10 @@ export function buildMarkerListViewModel(options: {
 export function buildSpreadingListViewModel(options: {
   spreadingSessions: SpreadingSession[]
   rowsById: Record<string, MaterialPrepRow>
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerRecords?: MarkerRecord[]
 }): SpreadingListRow[] {
-  const batchById = Object.fromEntries(options.markerPlanRefs.map((batch) => [batch.markerPlanId, batch]))
+  const batchById = Object.fromEntries(options.markerPlanSources.map((batch) => [batch.markerPlanId, batch]))
   const markerById = Object.fromEntries((options.markerRecords || []).map((marker) => [marker.markerId, marker]))
 
   return options.spreadingSessions
@@ -969,7 +969,7 @@ export function buildSpreadingListViewModel(options: {
         spreadingSessionId: session.spreadingSessionId,
         sessionNo: session.sessionNo || session.spreadingSessionId,
         contextType: session.contextType,
-        contextLabel: session.contextType === 'marker-plan-ref' ? '唛架方案上下文' : '裁片单上下文',
+        contextLabel: session.contextType === 'marker-plan' ? '唛架方案上下文' : '裁片单上下文',
         cutOrderCount: session.cutOrderIds.length,
         cutOrderNos,
         markerPlanNo: session.markerPlanNo || batch?.markerPlanNo || '',
@@ -1061,10 +1061,10 @@ export function buildSpreadingListViewModel(options: {
 export function buildSpreadingDetailViewModel(options: {
   row: SpreadingListRow
   rowsById: Record<string, MaterialPrepRow>
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerRecords: MarkerRecord[]
 }): SpreadingDetailViewModel {
-  const batchById = Object.fromEntries(options.markerPlanRefs.map((batch) => [batch.markerPlanId, batch]))
+  const batchById = Object.fromEntries(options.markerPlanSources.map((batch) => [batch.markerPlanId, batch]))
   const markerById = Object.fromEntries(options.markerRecords.map((marker) => [marker.markerId, marker]))
   const session = options.row.session
   const batch = session.markerPlanId ? batchById[session.markerPlanId] || null : null
@@ -1164,8 +1164,8 @@ export function buildMarkerNavigationPayload(row: MarkerListRow): Record<string,
     markerId: row.markerId,
     cutOrderId: row.contextType === 'cut-order' ? row.record.cutOrderIds[0] : undefined,
     cutOrderNo: row.contextType === 'cut-order' ? row.cutOrderNos[0] : undefined,
-    markerPlanId: row.contextType === 'marker-plan-ref' ? row.record.markerPlanId || undefined : undefined,
-    markerPlanNo: row.contextType === 'marker-plan-ref' ? row.markerPlanNo || undefined : undefined,
+    markerPlanId: row.contextType === 'marker-plan' ? row.record.markerPlanId || undefined : undefined,
+    markerPlanNo: row.contextType === 'marker-plan' ? row.markerPlanNo || undefined : undefined,
     styleCode: row.styleCode || undefined,
     materialSku: row.materialSkuSummary?.split(' / ')[0] || undefined,
   }
@@ -1173,16 +1173,16 @@ export function buildMarkerNavigationPayload(row: MarkerListRow): Record<string,
 
 export function getDefaultMarkerSpreadingContext(
   rows: MaterialPrepRow[],
-  markerPlanRefs: MarkerPlanRefRecord[],
+  markerPlanSources: MarkerPlanSourceRecord[],
   prefilter: MarkerSpreadingPrefilter | null,
 ): MarkerSpreadingContext | null {
   if (prefilter?.markerPlanId || prefilter?.markerPlanNo) {
     const rowsById = Object.fromEntries(rows.map((row) => [row.cutOrderId, row]))
     const batch =
-      (prefilter.markerPlanId && markerPlanRefs.find((item) => item.markerPlanId === prefilter.markerPlanId)) ||
-      (prefilter.markerPlanNo && markerPlanRefs.find((item) => item.markerPlanNo === prefilter.markerPlanNo)) ||
+      (prefilter.markerPlanId && markerPlanSources.find((item) => item.markerPlanId === prefilter.markerPlanId)) ||
+      (prefilter.markerPlanNo && markerPlanSources.find((item) => item.markerPlanNo === prefilter.markerPlanNo)) ||
       null
-    if (batch) return buildMarkerPlanRefContext(batch, rowsById)
+    if (batch) return buildMarkerPlanSourceContext(batch, rowsById)
   }
 
   if (prefilter?.cutOrderId || prefilter?.cutOrderNo) {

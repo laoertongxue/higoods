@@ -49,7 +49,7 @@ export interface CuttingTraceabilityProjectionContext {
   snapshot: CuttingDomainSnapshot
   cutOrderRows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['cutOrderRows']
   materialPrepRows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows']
-  markerPlanRefs: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanRefs']
+  markerPlanSources: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanSources']
   markerStore: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerStore']
   spreadingStore: MarkerSpreadingStore
   spreadingTraceAnchors: SpreadingTraceAnchor[]
@@ -120,13 +120,13 @@ function resolveTraceabilitySessionColors(session: MarkerSpreadingStore['session
 function buildTraceabilitySpreadingContext(
   session: MarkerSpreadingStore['sessions'][number],
   materialPrepRows: CuttingTraceabilityProjectionContext['materialPrepRows'],
-  markerPlanRefs: CuttingTraceabilityProjectionContext['markerPlanRefs'],
+  markerPlanSources: CuttingTraceabilityProjectionContext['markerPlanSources'],
 ) {
   const relatedRows = materialPrepRows.filter((row) => session.cutOrderIds.includes(row.cutOrderId))
   const batch =
     (session.markerPlanId
-      ? markerPlanRefs.find((item) => item.markerPlanId === session.markerPlanId)
-      : markerPlanRefs.find((item) => item.markerPlanNo === session.markerPlanNo)) || null
+      ? markerPlanSources.find((item) => item.markerPlanId === session.markerPlanId)
+      : markerPlanSources.find((item) => item.markerPlanNo === session.markerPlanNo)) || null
   if (!relatedRows.length && !batch) return null
 
   return {
@@ -154,7 +154,7 @@ function buildTraceabilitySpreadingContext(
 function ensureTraceabilityTicketRecords(options: {
   ticketRecords: FeiTicketLabelRecord[]
   materialPrepRows: CuttingTraceabilityProjectionContext['materialPrepRows']
-  markerPlanRefs: CuttingTraceabilityProjectionContext['markerPlanRefs']
+  markerPlanSources: CuttingTraceabilityProjectionContext['markerPlanSources']
   spreadingStore: MarkerSpreadingStore
 }) {
   const tickets = [...options.ticketRecords]
@@ -176,10 +176,10 @@ function ensureTraceabilityTicketRecords(options: {
         const size = '均码'
         const partName = '前后片'
         const materialSku = row.materialLineItems[0]?.materialSku || row.materialSkuSummary
-        const markerPlanRef =
+        const markerPlanSource =
           (session.markerPlanId
-            ? options.markerPlanRefs.find((item) => item.markerPlanId === session.markerPlanId)
-            : options.markerPlanRefs.find((item) => item.markerPlanNo === session.markerPlanNo || item.items.some((detail) => detail.cutOrderId === row.cutOrderId))) ||
+            ? options.markerPlanSources.find((item) => item.markerPlanId === session.markerPlanId)
+            : options.markerPlanSources.find((item) => item.markerPlanNo === session.markerPlanNo || item.items.some((detail) => detail.cutOrderId === row.cutOrderId))) ||
           null
         const traceTicket: FeiTicketLabelRecord = {
           ticketRecordId,
@@ -199,12 +199,12 @@ function ensureTraceabilityTicketRecords(options: {
           printedBy: session.completedBy || session.updatedBy || '系统示例',
           reprintCount: 0,
           sourcePrintJobId: `trace-print-job-${sanitizeTraceabilityId(session.spreadingSessionId)}-${rowIndex + 1}`,
-          sourceContextType: session.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
-          sourceMarkerPlanId: session.markerPlanId || markerPlanRef?.markerPlanId || '',
-          sourceMarkerPlanNo: session.markerPlanNo || markerPlanRef?.markerPlanNo || '',
-          printableUnitId: session.contextType === 'marker-plan-ref' ? `marker-plan:${session.markerPlanId || session.markerPlanNo}` : `cut-order:${row.cutOrderId}`,
-          printableUnitNo: session.contextType === 'marker-plan-ref' ? session.markerPlanNo || markerPlanRef?.markerPlanNo || '' : row.cutOrderNo,
-          printableUnitType: session.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
+          sourceContextType: session.contextType === 'marker-plan' ? 'marker-plan' : 'cut-order',
+          sourceMarkerPlanId: session.markerPlanId || markerPlanSource?.markerPlanId || '',
+          sourceMarkerPlanNo: session.markerPlanNo || markerPlanSource?.markerPlanNo || '',
+          printableUnitId: session.contextType === 'marker-plan' ? `marker-plan:${session.markerPlanId || session.markerPlanNo}` : `cut-order:${row.cutOrderId}`,
+          printableUnitNo: session.contextType === 'marker-plan' ? session.markerPlanNo || markerPlanSource?.markerPlanNo || '' : row.cutOrderNo,
+          printableUnitType: session.contextType === 'marker-plan' ? 'marker-plan' : 'cut-order',
           sourceProductionOrderId: row.productionOrderId,
           partName,
           size,
@@ -227,7 +227,7 @@ function ensureTraceabilityTicketRecords(options: {
 function hydrateTraceabilitySpreadingStore(options: {
   store: MarkerSpreadingStore
   materialPrepRows: CuttingTraceabilityProjectionContext['materialPrepRows']
-  markerPlanRefs: CuttingTraceabilityProjectionContext['markerPlanRefs']
+  markerPlanSources: CuttingTraceabilityProjectionContext['markerPlanSources']
   markerStore: CuttingTraceabilityProjectionContext['markerStore']
 }) {
   let nextStore = options.store
@@ -235,15 +235,15 @@ function hydrateTraceabilitySpreadingStore(options: {
     nextStore.sessions.find((item) => item.contextType === 'cut-order' && item.status === 'DONE') ||
       nextStore.sessions.find((item) => item.contextType === 'cut-order') ||
       null,
-    nextStore.sessions.find((item) => item.contextType === 'marker-plan-ref' && item.status === 'DONE') ||
-      nextStore.sessions.find((item) => item.contextType === 'marker-plan-ref') ||
+    nextStore.sessions.find((item) => item.contextType === 'marker-plan' && item.status === 'DONE') ||
+      nextStore.sessions.find((item) => item.contextType === 'marker-plan') ||
       null,
   ].filter(Boolean)
 
   targetSessions.forEach((targetSession, index) => {
     const session = nextStore.sessions.find((item) => item.spreadingSessionId === targetSession!.spreadingSessionId)
     if (!session) return
-    const context = buildTraceabilitySpreadingContext(session, options.materialPrepRows, options.markerPlanRefs)
+    const context = buildTraceabilitySpreadingContext(session, options.materialPrepRows, options.markerPlanSources)
     if (!context) return
     const writebackDraft =
       buildMockPdaWritebacks({ context, sessions: [session] }).find(
@@ -278,7 +278,7 @@ function hydrateTraceabilitySpreadingStore(options: {
 
     const latestSession = nextStore.sessions.find((item) => item.spreadingSessionId === (applyResult.updatedSessionId || applyResult.createdSessionId || session.spreadingSessionId))
     if (!latestSession) return
-    if (latestSession.contextType === 'marker-plan-ref' && latestSession.status !== 'DONE') {
+    if (latestSession.contextType === 'marker-plan' && latestSession.status !== 'DONE') {
       const markerRecord = (options.markerStore as MarkerSpreadingStore | null)?.markers?.find((item) => item.markerId === latestSession.markerId) || null
       const finalized = finalizeSpreadingCompletion({
         session: latestSession,
@@ -302,7 +302,7 @@ function ensureTraceabilityBagFirstSeed(options: {
   store: TransferBagStore
   ticketRecords: FeiTicketLabelRecord[]
   materialPrepRows: CuttingTraceabilityProjectionContext['materialPrepRows']
-  markerPlanRefs: CuttingTraceabilityProjectionContext['markerPlanRefs']
+  markerPlanSources: CuttingTraceabilityProjectionContext['markerPlanSources']
   spreadingStore: MarkerSpreadingStore
 }) {
   let nextStore = options.store
@@ -318,8 +318,8 @@ function ensureTraceabilityBagFirstSeed(options: {
     )
     .slice()
     .sort((left, right) => {
-      const leftScore = (left.sourceWritebackId ? 8 : 0) + (left.contextType === 'marker-plan-ref' ? 4 : 0)
-      const rightScore = (right.sourceWritebackId ? 8 : 0) + (right.contextType === 'marker-plan-ref' ? 4 : 0)
+      const leftScore = (left.sourceWritebackId ? 8 : 0) + (left.contextType === 'marker-plan' ? 4 : 0)
+      const rightScore = (right.sourceWritebackId ? 8 : 0) + (right.contextType === 'marker-plan' ? 4 : 0)
       if (leftScore !== rightScore) return rightScore - leftScore
       return right.updatedAt.localeCompare(left.updatedAt, 'zh-CN')
     })
@@ -551,24 +551,24 @@ export function buildCuttingTraceabilityProjectionContext(
   const effectiveSnapshot = context.snapshot
   const cutOrderRows = context.sources.cutOrderRows
   const materialPrepRows = context.sources.materialPrepRows
-  const markerPlanRefs = context.sources.markerPlanRefs
+  const markerPlanSources = context.sources.markerPlanSources
   const markerStore = context.sources.markerStore
   const prototypeSpreadingStore = buildMarkerSpreadingPrototypeStore({
     rows: materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     stored: markerStore as unknown as MarkerSpreadingStore,
   })
   const spreadingStore = hydrateTraceabilitySpreadingStore({
     store: prototypeSpreadingStore,
     materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     markerStore,
   })
   const spreadingTraceAnchors = buildSpreadingTraceAnchors(spreadingStore)
   const seedLedger = buildSystemSeedFeiTicketLedger({
     cutOrderRows,
     materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     markerStore,
   })
   const mergedRawTicketRecords = mergeTicketRecords(
@@ -578,14 +578,14 @@ export function buildCuttingTraceabilityProjectionContext(
   const rawTicketRecords = ensureTraceabilityTicketRecords({
     ticketRecords: mergedRawTicketRecords,
     materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     spreadingStore,
   })
   const printJobs = mergePrintJobs(seedLedger.printJobs, castPrintJobs(effectiveSnapshot.feiTicketState.printJobs))
   const seedTransferBagStore = buildSystemSeedTransferBagStore({
     cutOrderRows,
     ticketRecords: rawTicketRecords,
-    markerPlanRefs,
+    markerPlanSources,
   })
   const mergedTransferBagStore = storeOverride
     ? mergeTransferBagStores(seedTransferBagStore, storeOverride)
@@ -594,14 +594,14 @@ export function buildCuttingTraceabilityProjectionContext(
     store: mergedTransferBagStore,
     ticketRecords: rawTicketRecords,
     materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     spreadingStore,
   })
   const ticketRecords = applyPocketBindingLocksToTicketRecords(rawTicketRecords, transferBagStore)
   const printableViewModel = buildPrintableUnitViewModel({
     cutOrderRows,
     materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     markerStore,
     ticketRecords,
     printJobs,
@@ -610,7 +610,7 @@ export function buildCuttingTraceabilityProjectionContext(
   const transferBagViewModel = buildTransferBagViewModel({
     cutOrderRows,
     ticketRecords,
-    markerPlanRefs,
+    markerPlanSources,
     store: transferBagStore,
     spreadingStore,
   })
@@ -623,7 +623,7 @@ export function buildCuttingTraceabilityProjectionContext(
     snapshot: context.snapshot,
     cutOrderRows,
     materialPrepRows,
-    markerPlanRefs,
+    markerPlanSources,
     markerStore,
     spreadingStore,
     spreadingTraceAnchors,

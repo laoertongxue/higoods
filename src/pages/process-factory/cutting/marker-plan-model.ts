@@ -8,7 +8,7 @@ import {
   getTechnicalDataVersionContentById,
 } from '../../../data/pcs-technical-data-version-repository.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MarkerPlanRefItem, MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceItem, MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
 import type { ProductionProgressRow } from './production-progress-model.ts'
 import type { CuttingSummaryBuildOptions } from './summary-model.ts'
@@ -290,7 +290,7 @@ export interface MarkerPlanMockCoverageReport {
   totalContextCount: number
   pendingContextCount: number
   pendingCutOrderContextCount: number
-  pendingMarkerPlanRefContextCount: number
+  pendingMarkerPlanSourceContextCount: number
   builtPlanCount: number
   referencedPlanCount: number
   mappingIssueCount: number
@@ -573,8 +573,8 @@ function buildCutOrderContextCandidate(input: {
   }
 }
 
-function buildMarkerPlanRefContextCandidate(input: {
-  batch: MarkerPlanRefRecord
+function buildMarkerPlanSourceContextCandidate(input: {
+  batch: MarkerPlanSourceRecord
   cutOrderRowsById: Record<string, CutOrderRow>
   materialPrepRowsById: Record<string, MaterialPrepRow>
   productionRowsById: Record<string, ProductionProgressRow>
@@ -616,8 +616,8 @@ function buildMarkerPlanRefContextCandidate(input: {
 
   return {
     id: input.batch.markerPlanId,
-    contextType: 'marker-plan-ref',
-    contextKey: buildContextKey('marker-plan-ref', input.batch.markerPlanId),
+    contextType: 'marker-plan',
+    contextKey: buildContextKey('marker-plan', input.batch.markerPlanId),
     contextNo: input.batch.markerPlanNo,
     contextLabel: '唛架方案',
     markerPlanGroupKey,
@@ -701,7 +701,7 @@ export function buildCombinedMarkerPlanContextCandidate(
   const materialAliasSummary = splitContextSummary(selectedContexts.map((context) => context.materialAliasSummary)).join(' / ')
   const materialImageUrl = selectedContexts.find((context) => context.materialImageUrl)?.materialImageUrl || ''
   const colorSummary = splitContextSummary(selectedContexts.map((context) => context.colorSummary)).join(' / ')
-  const markerPlanRefContexts = selectedContexts.filter((context) => context.contextType === 'marker-plan-ref')
+  const markerPlanSourceContexts = selectedContexts.filter((context) => context.contextType === 'marker-plan')
   const contextNos = selectedContexts.map((context) => context.contextNo).filter(Boolean)
   const techPackStatusLabels = uniqueStrings(selectedContexts.map((context) => context.techPackStatusLabel))
   const prepStatusLabels = uniqueStrings(selectedContexts.map((context) => context.prepStatusLabel))
@@ -715,8 +715,8 @@ export function buildCombinedMarkerPlanContextCandidate(
     markerPlanGroupKey: markerPlanGroupKeys[0] || 'NEW_GROUP',
     cutOrderIds: sourceCutOrderRows.map((row) => row.cutOrderId),
     cutOrderNos: sourceCutOrderRows.map((row) => row.cutOrderNo),
-    markerPlanId: markerPlanRefContexts.length === 1 ? markerPlanRefContexts[0].markerPlanId : '',
-    markerPlanNo: uniqueStrings(markerPlanRefContexts.map((context) => context.markerPlanNo)).join(' / '),
+    markerPlanId: markerPlanSourceContexts.length === 1 ? markerPlanSourceContexts[0].markerPlanId : '',
+    markerPlanNo: uniqueStrings(markerPlanSourceContexts.map((context) => context.markerPlanNo)).join(' / '),
     productionOrderIds,
     productionOrderNos,
     styleCode: styleCodes[0] || '',
@@ -2120,14 +2120,14 @@ export function buildMarkerPlanMockCoverageReport(
   )
   const hydratedPlans = mergedPlans
     .map((plan) => {
-      const contextId = plan.contextType === 'marker-plan-ref' ? plan.markerPlanId : plan.cutOrderIds[0]
+      const contextId = plan.contextType === 'marker-plan' ? plan.markerPlanId : plan.cutOrderIds[0]
       const context = contextMap[buildContextKey(plan.contextType, contextId)]
       return context ? hydrateMarkerPlan(plan, context) : null
     })
     .filter((plan): plan is MarkerPlan => Boolean(plan))
   const usedContextKeys = new Set(
     hydratedPlans.map((plan) =>
-      buildContextKey(plan.contextType, plan.contextType === 'marker-plan-ref' ? plan.markerPlanId : plan.cutOrderIds[0]),
+      buildContextKey(plan.contextType, plan.contextType === 'marker-plan' ? plan.markerPlanId : plan.cutOrderIds[0]),
     ),
   )
   const pendingContexts = contexts.filter((context) => !usedContextKeys.has(context.contextKey))
@@ -2147,7 +2147,7 @@ export function buildMarkerPlanMockCoverageReport(
     totalContextCount: contexts.length,
     pendingContextCount: pendingContexts.length,
     pendingCutOrderContextCount: pendingContexts.filter((context) => context.contextType === 'cut-order').length,
-    pendingMarkerPlanRefContextCount: pendingContexts.filter((context) => context.contextType === 'marker-plan-ref').length,
+    pendingMarkerPlanSourceContextCount: pendingContexts.filter((context) => context.contextType === 'marker-plan').length,
     builtPlanCount: hydratedPlans.length,
     referencedPlanCount: hydratedPlans.filter((plan) => plan.cutOrderIds.some((id) => referencedCutOrderIds.has(id))).length,
     mappingIssueCount: hydratedPlans.filter((plan) => plan.mappingStatus !== 'passed').length,
@@ -2182,10 +2182,10 @@ export function findMarkerPlanContextForPlan(
   contexts: MarkerPlanContextCandidate[],
   plan: Pick<MarkerPlan, 'contextType' | 'markerPlanId' | 'markerPlanNo' | 'cutOrderIds'>,
 ): MarkerPlanContextCandidate | null {
-  if (plan.contextType !== 'marker-plan-ref' && (plan.cutOrderIds.length > 1 || plan.markerPlanNo)) {
+  if (plan.contextType !== 'marker-plan' && (plan.cutOrderIds.length > 1 || plan.markerPlanNo)) {
     const markerPlanNos = new Set(String(plan.markerPlanNo || '').split('/').map((item) => item.trim()).filter(Boolean))
     const markerPlanContexts = contexts.filter(
-      (context) => context.contextType === 'marker-plan-ref' && markerPlanNos.has(context.markerPlanNo),
+      (context) => context.contextType === 'marker-plan' && markerPlanNos.has(context.markerPlanNo),
     )
     const coveredByMarkerPlans = new Set(markerPlanContexts.flatMap((context) => context.cutOrderIds))
     const cutOrderContexts = plan.cutOrderIds
@@ -2207,12 +2207,12 @@ export function findMarkerPlanContextForPlan(
       return buildCombinedMarkerPlanContextCandidate(sourceContexts)
     }
   }
-  const contextId = plan.contextType === 'marker-plan-ref' ? plan.markerPlanId : plan.cutOrderIds[0]
+  const contextId = plan.contextType === 'marker-plan' ? plan.markerPlanId : plan.cutOrderIds[0]
   if (!contextId) return null
   return findMarkerPlanContextById(contexts, plan.contextType, contextId)
 }
 
-export function getMarkerPlanReferencedWarning(
+export function getMarkerPlanSourceerencedWarning(
   plan: Pick<MarkerPlanViewRow, 'isReferencedBySpreading' | 'referenceWarningText'>,
 ): string {
   return plan.isReferencedBySpreading ? plan.referenceWarningText : ''
@@ -2222,8 +2222,8 @@ function listUsedContextKeysForPlan(
   contexts: MarkerPlanContextCandidate[],
   plan: Pick<MarkerPlan, 'contextType' | 'markerPlanId' | 'markerPlanNo' | 'cutOrderIds'>,
 ): string[] {
-  if (plan.contextType === 'marker-plan-ref' && plan.markerPlanId) {
-    return [buildContextKey('marker-plan-ref', plan.markerPlanId)]
+  if (plan.contextType === 'marker-plan' && plan.markerPlanId) {
+    return [buildContextKey('marker-plan', plan.markerPlanId)]
   }
   const cutOrderIdSet = new Set(plan.cutOrderIds)
   const markerPlanNos = new Set(String(plan.markerPlanNo || '').split('/').map((item) => item.trim()).filter(Boolean))

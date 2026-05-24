@@ -315,6 +315,14 @@ assertNoTokens(scopedSource, [
   joinText(['库位', '规则']),
   joinText(['完整', '库存账']),
 ], '统计联动不得扩展完整仓储能力')
-assertNoTokens(scopedSource, [buildToken('PD', 'A'), joinText(['来', '料仓']), joinText(['半成品', '仓']), 'QR payload', 'JSON.stringify'], '统计联动页面不得出现旧文案或原始二维码内容')
+assertNoTokens(scopedSource, [
+  joinText(['PDA', '配料']),
+  joinText(['PDA', '领料']),
+  joinText(['PDA', '裁床']),
+  joinText(['来', '料仓']),
+  joinText(['半成品', '仓']),
+  'QR payload',
+  'JSON.stringify',
+], '统计联动页面不得出现旧文案或原始二维码内容')
 
 console.log('check:progress-statistics-linkage passed')

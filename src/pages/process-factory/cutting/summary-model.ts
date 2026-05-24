@@ -14,9 +14,9 @@ import type { CutOrderRow } from './cut-orders-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MarkerSpreadingStore, SpreadingSession } from './marker-spreading-model.ts'
 import {
-  getMarkerPlanRefStatusMeta,
-  type MarkerPlanRefRecord,
-} from './marker-plan-ref-model.ts'
+  getMarkerPlanSourceStatusMeta,
+  type MarkerPlanSourceRecord,
+} from './marker-plan-source-model.ts'
 import type {
   FeiTicketsViewModel,
   FeiTicketLabelRecord,
@@ -93,7 +93,7 @@ export interface CuttingSummaryIssueMeta {
 export interface CuttingSummaryNavigationPayload {
   productionProgress: Record<string, string | undefined>
   cuttablePool: Record<string, string | undefined>
-  markerPlanRefs: Record<string, string | undefined>
+  markerPlanSources: Record<string, string | undefined>
   cutOrders: Record<string, string | undefined>
   materialPrep: Record<string, string | undefined>
   markerSpreading: Record<string, string | undefined>
@@ -117,7 +117,7 @@ export interface CuttingSummaryRow {
   currentStageKey: ProductionProgressStageKey | 'UNKNOWN'
   currentStageLabel: string
   cutOrderCount: number
-  markerPlanRefCount: number
+  markerPlanSourceCount: number
   progressSummary: string
   materialPrepSummary: string
   spreadingSummary: string
@@ -212,7 +212,7 @@ export interface CuttingSummaryTraceNode {
   nodeType:
     | 'production-order'
     | 'cut-order'
-    | 'marker-plan-ref'
+    | 'marker-plan'
     | 'ticket'
     | 'bag-usage'
     | 'replenishment'
@@ -226,7 +226,7 @@ export interface CuttingSummaryTraceNode {
 export interface CuttingSummaryDashboardSummary {
   productionOrderCount: number
   cutOrderCount: number
-  markerPlanRefCount: number
+  markerPlanSourceCount: number
   openReplenishmentCount: number
   openSpecialProcessCount: number
   ticketPrintedCount: number
@@ -263,7 +263,7 @@ export interface CuttingSummaryDetailPanelData {
   pieceTruth: ProductionPieceTruthResult
   productionRow: ProductionProgressRow | null
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   materialPrepRows: MaterialPrepRow[]
   spreadingSessions: SpreadingSession[]
   ticketOwners: CutOrderTicketOwner[]
@@ -398,7 +398,7 @@ export interface CuttingSummaryBuildOptions {
   productionRows: ProductionProgressRow[]
   cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
   feiViewModel: FeiTicketsViewModel
   fabricWarehouseView: FabricWarehouseViewModel
@@ -638,7 +638,7 @@ function deriveOverallRiskLevel(options: {
 function buildSummarySourceObjects(options: {
   row: CuttingSummaryRow
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   ticketOwners: CutOrderTicketOwner[]
   printJobs: FeiTicketPrintJob[]
   bagUsages: TransferBagUsageItem[]
@@ -674,18 +674,18 @@ function buildSummarySourceObjects(options: {
     navigationPayload: item.navigationPayload.cutOrders,
   }))
 
-  const markerPlanRefObjects = options.markerPlanRefs.map<CuttingSummarySourceObjectItem>((item) => ({
+  const markerPlanSourceObjects = options.markerPlanSources.map<CuttingSummarySourceObjectItem>((item) => ({
     sourceType: 'MARKER_PLAN',
     sourceLabel: '唛架方案',
     sourceId: item.markerPlanId,
     sourceNo: item.markerPlanNo,
-    statusLabel: getMarkerPlanRefStatusMeta(item.status).label,
+    statusLabel: getMarkerPlanSourceStatusMeta(item.status).label,
     materialSku: uniqueStrings(item.items.map((row) => row.materialSku)).join(' / '),
     materialAlias: uniqueStrings(item.items.map((row) => resolveMaterialIdentity(row.materialSku, row.cutOrderNo).materialAlias)).join(' / '),
     materialImageUrl: item.items.map((row) => resolveMaterialIdentity(row.materialSku, row.cutOrderNo).materialImageUrl).find(Boolean) || '',
     blockerCount: blockerCountBySourceNo[item.markerPlanNo] || 0,
-    navigationTarget: 'markerPlanRefs',
-    navigationPayload: options.row.navigationPayload.markerPlanRefs,
+    navigationTarget: 'markerPlanSources',
+    navigationPayload: options.row.navigationPayload.markerPlanSources,
   }))
 
   const ticketOwners = options.ticketOwners.map<CuttingSummarySourceObjectItem>((item) => ({
@@ -760,7 +760,7 @@ function buildSummarySourceObjects(options: {
 
   return [
     ...cutOrderObjects,
-    ...markerPlanRefObjects,
+    ...markerPlanSourceObjects,
     ...ticketOwners,
     ...printJobs,
     ...bagUsages,
@@ -782,7 +782,7 @@ export function buildSummaryNavigationPayload(options: {
   suggestionIds: string[]
 }): CuttingSummaryNavigationPayload {
   const firstCutOrderNo = options.cutOrderNos[0]
-  const firstMarkerPlanRefNo = options.markerPlanNos[0]
+  const firstMarkerPlanSourceNo = options.markerPlanNos[0]
   const firstMaterialSku = options.materialSkus[0]
   const firstTicketNo = options.ticketNos[0]
   const firstBagCode = options.bagCodes[0]
@@ -798,15 +798,15 @@ export function buildSummaryNavigationPayload(options: {
       productionOrderNo: options.productionOrderNo,
       styleCode: options.styleCode || undefined,
     },
-    markerPlanRefs: {
-      markerPlanNo: firstMarkerPlanRefNo,
+    markerPlanSources: {
+      markerPlanNo: firstMarkerPlanSourceNo,
       productionOrderNo: options.productionOrderNo,
       cutOrderNo: firstCutOrderNo,
     },
     cutOrders: {
       productionOrderNo: options.productionOrderNo,
       cutOrderNo: firstCutOrderNo,
-      markerPlanNo: firstMarkerPlanRefNo,
+      markerPlanNo: firstMarkerPlanSourceNo,
       styleCode: options.styleCode || undefined,
       materialSku: firstMaterialSku,
     },
@@ -816,13 +816,13 @@ export function buildSummaryNavigationPayload(options: {
       materialSku: firstMaterialSku,
     },
     markerSpreading: {
-      markerPlanNo: firstMarkerPlanRefNo,
+      markerPlanNo: firstMarkerPlanSourceNo,
       cutOrderNo: firstCutOrderNo,
       productionOrderNo: options.productionOrderNo,
       materialSku: firstMaterialSku,
     },
     feiTickets: {
-      markerPlanNo: firstMarkerPlanRefNo,
+      markerPlanNo: firstMarkerPlanSourceNo,
       cutOrderNo: firstCutOrderNo,
       productionOrderNo: options.productionOrderNo,
       printJobNo: '',
@@ -836,7 +836,7 @@ export function buildSummaryNavigationPayload(options: {
     cutPieceWarehouse: {
       productionOrderNo: options.productionOrderNo,
       cutOrderNo: firstCutOrderNo,
-      markerPlanNo: firstMarkerPlanRefNo,
+      markerPlanNo: firstMarkerPlanSourceNo,
     },
     sampleWarehouse: {
       styleCode: options.styleCode || undefined,
@@ -844,7 +844,7 @@ export function buildSummaryNavigationPayload(options: {
     transferBags: {
       productionOrderNo: options.productionOrderNo,
       cutOrderNo: firstCutOrderNo,
-      markerPlanNo: firstMarkerPlanRefNo,
+      markerPlanNo: firstMarkerPlanSourceNo,
       ticketNo: firstTicketNo,
       bagCode: firstBagCode,
       usageNo: firstUsageNo,
@@ -852,13 +852,13 @@ export function buildSummaryNavigationPayload(options: {
     replenishment: {
       productionOrderNo: options.productionOrderNo,
       cutOrderNo: firstCutOrderNo,
-      markerPlanNo: firstMarkerPlanRefNo,
+      markerPlanNo: firstMarkerPlanSourceNo,
       materialSku: firstMaterialSku,
       suggestionId: firstSuggestionId,
     },
     specialProcesses: {
       cutOrderNo: firstCutOrderNo,
-      markerPlanNo: firstMarkerPlanRefNo,
+      markerPlanNo: firstMarkerPlanSourceNo,
       processOrderNo: firstProcessOrderNo,
       styleCode: options.styleCode || undefined,
       materialSku: firstMaterialSku,
@@ -866,7 +866,7 @@ export function buildSummaryNavigationPayload(options: {
     summary: {
       productionOrderNo: options.productionOrderNo,
       cutOrderNo: firstCutOrderNo,
-      markerPlanNo: firstMarkerPlanRefNo,
+      markerPlanNo: firstMarkerPlanSourceNo,
       ticketNo: firstTicketNo,
       bagCode: firstBagCode,
       usageNo: firstUsageNo,
@@ -886,10 +886,10 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
     const cutOrderRows = cutOrderRowsByProduction[productionRow.productionOrderNo] || []
     const cutOrderIdSet = new Set(cutOrderRows.map((row) => row.cutOrderId))
     const cutOrderNoSet = new Set(cutOrderRows.map((row) => row.cutOrderNo))
-    const markerPlanRefs = options.markerPlanRefs.filter((batch) =>
+    const markerPlanSources = options.markerPlanSources.filter((batch) =>
       batch.items.some((item) => cutOrderIdSet.has(item.cutOrderId) || item.productionOrderNo === productionRow.productionOrderNo),
     )
-    const markerPlanNoSet = new Set(markerPlanRefs.map((batch) => batch.markerPlanNo))
+    const markerPlanNoSet = new Set(markerPlanSources.map((batch) => batch.markerPlanNo))
     const materialPrepRows = options.materialPrepRows.filter((row) => row.productionOrderNo === productionRow.productionOrderNo)
     const spreadingSessions = options.markerStore.sessions.filter((session) =>
       (session.cutOrderIds || []).some((cutOrderId) => cutOrderIdSet.has(cutOrderId)),
@@ -916,7 +916,7 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
     const relatedCutOrderNos = uniqueStrings(cutOrderRows.map((row) => row.cutOrderNo))
     const relatedCutOrderIds = uniqueStrings(cutOrderRows.map((row) => row.cutOrderId))
     const relatedMarkerPlanIds = uniqueStrings([
-      ...markerPlanRefs.map((batch) => batch.markerPlanId),
+      ...markerPlanSources.map((batch) => batch.markerPlanId),
       ...cutOrderRows.flatMap((row) => row.markerPlanIds),
       ...bagBindings.map((binding) => binding.markerPlanId),
     ])
@@ -952,7 +952,7 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
     const checkResult = buildCuttingCheckResult({
       productionRow,
       cutOrderRows,
-      markerPlanRefs,
+      markerPlanSources,
       materialPrepRows,
       spreadingSessions,
       markerStore: options.markerStore,
@@ -1001,7 +1001,7 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       currentStageKey: productionRow.currentStage.key,
       currentStageLabel: productionRow.currentStage.label,
       cutOrderCount: relatedCutOrderNos.length,
-      markerPlanRefCount: relatedMarkerPlanNos.length,
+      markerPlanSourceCount: relatedMarkerPlanNos.length,
       progressSummary: `${productionRow.currentStage.label} · ${productionRow.cuttingCompletionSummary.label}`,
       skuProgressSummary: `已完成 ${productionRow.completedSkuCount} / ${productionRow.skuTotalCount}`,
       materialPrepSummary: summarizeMaterialPrep(materialPrepRows),
@@ -1144,14 +1144,14 @@ export function filterSummaryByIssueType(
 
 export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData, 'traceTree'>): CuttingSummaryTraceNode[] {
   const cutOrderNodes = detail.cutOrderRows.map((row) => {
-    const markerPlanNodes = detail.markerPlanRefs
+    const markerPlanNodes = detail.markerPlanSources
       .filter((batch) => batch.items.some((item) => item.cutOrderId === row.cutOrderId))
       .map<CuttingSummaryTraceNode>((batch) => ({
         nodeId: `trace-batch-${batch.markerPlanId}`,
-        nodeType: 'marker-plan-ref',
+        nodeType: 'marker-plan',
         nodeLabel: batch.markerPlanNo,
         relatedIds: [batch.markerPlanId, batch.markerPlanNo],
-        status: getMarkerPlanRefStatusMeta(batch.status).label,
+        status: getMarkerPlanSourceStatusMeta(batch.status).label,
         children: [],
       }))
 
@@ -1228,7 +1228,7 @@ export function buildSummaryDetailPanelData(
   const productionRow = options.productionRows.find((item) => item.productionOrderId === row.productionOrderId) || null
   const cutOrderRows = options.cutOrderRows.filter((item) => item.productionOrderNo === row.productionOrderNo)
   const cutOrderIdSet = new Set(cutOrderRows.map((item) => item.cutOrderId))
-  const markerPlanRefs = options.markerPlanRefs.filter((batch) =>
+  const markerPlanSources = options.markerPlanSources.filter((batch) =>
     batch.items.some((item) => cutOrderIdSet.has(item.cutOrderId) || item.productionOrderNo === row.productionOrderNo),
   )
   const materialPrepRows = options.materialPrepRows.filter((item) => item.productionOrderNo === row.productionOrderNo)
@@ -1255,7 +1255,7 @@ export function buildSummaryDetailPanelData(
   const sourceObjects = buildSummarySourceObjects({
     row,
     cutOrderRows,
-    markerPlanRefs,
+    markerPlanSources,
     ticketOwners,
     printJobs,
     bagUsages,
@@ -1284,7 +1284,7 @@ export function buildSummaryDetailPanelData(
     pieceTruth: row.pieceTruth,
     productionRow,
     cutOrderRows,
-    markerPlanRefs,
+    markerPlanSources,
     materialPrepRows,
     spreadingSessions,
     ticketOwners,
@@ -1330,7 +1330,7 @@ export function buildSummaryDashboardCards(
     {
       key:  'marker-list',
       label: '唛架方案数',
-      value: dashboard.markerPlanRefCount,
+      value: dashboard.markerPlanSourceCount,
       hint: '执行层唛架方案台账',
       accentClass: 'text-violet-600',
     },
@@ -1411,7 +1411,7 @@ export function buildCuttingSummaryViewModel(options: CuttingSummaryBuildOptions
   const dashboard: CuttingSummaryDashboardSummary = {
     productionOrderCount: rows.length,
     cutOrderCount: rows.reduce((sum, row) => sum + row.cutOrderCount, 0),
-    markerPlanRefCount: options.markerPlanRefs.length,
+    markerPlanSourceCount: options.markerPlanSources.length,
     openReplenishmentCount: options.replenishmentView.rows.filter((item) => !['NO_ACTION', 'REJECTED', 'COMPLETED'].includes(item.statusMeta.key)).length,
     openSpecialProcessCount: options.specialProcessView.rows.filter((item) => isOpenSpecialProcess(item)).length,
     ticketPrintedCount: options.feiViewModel.ticketRecords.length,

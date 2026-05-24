@@ -36,7 +36,7 @@ export { readMarkerSpreadingPrototypeData } from '../../../pages/process-factory
 export interface CuttingSpreadingFlowMatrixRow {
   spreadingSessionId: string
   sessionNo: string
-  contextType: 'cut-order' | 'marker-plan-ref'
+  contextType: 'cut-order' | 'marker-plan'
   stageKey:
     | 'WAITING_START'
     | 'IN_PROGRESS'
@@ -115,7 +115,7 @@ function buildSeedTransferBagStore() {
           partName: record.partName,
           qty: record.garmentQty,
           materialSku: record.materialSku,
-          sourceContextType: record.sourceMarkerPlanId ? 'marker-plan-ref' : 'cut-order',
+          sourceContextType: record.sourceMarkerPlanId ? 'marker-plan' : 'cut-order',
           status: 'PRINTED' as const,
         }
       }),

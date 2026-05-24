@@ -1,7 +1,7 @@
 import {
   listCutOrderSourceRecords,
 } from '../../data/fcs/cutting/cut-order-source.ts'
-import { listMarkerPlanRefSourceRecords } from '../../data/fcs/cutting/marker-plan-ref-source.ts'
+import { listMarkerPlanCutOrderSourceRecords } from '../../data/fcs/cutting/marker-plan-source.ts'
 import {
   listPdaCuttingExecutionSourceRecords,
   listPdaCuttingTaskSourceRecords,
@@ -9,7 +9,7 @@ import {
 import { productionOrders } from '../../data/fcs/production-orders.ts'
 import type {
   CuttingTaskRef,
-  MarkerPlanRefRef,
+  MarkerPlanSourceRef,
   CutOrderRef,
   PdaCutPieceExecutionRef,
   ProductionOrderRef,
@@ -26,8 +26,8 @@ export function listProductionOrderRefs(): ProductionOrderRef[] {
   }))
 }
 
-export function listMarkerPlanRefRefs(): MarkerPlanRefRef[] {
-  return listMarkerPlanRefSourceRecords().map((record) => ({
+export function listMarkerPlanSourceRefs(): MarkerPlanSourceRef[] {
+  return listMarkerPlanCutOrderSourceRecords().map((record) => ({
     markerPlanId: record.markerPlanId,
     markerPlanNo: record.markerPlanNo,
     sourceCutOrderIds: [...record.sourceCutOrderIds],
@@ -38,11 +38,11 @@ export function listMarkerPlanRefRefs(): MarkerPlanRefRef[] {
 }
 
 export function listCutOrderRefs(): CutOrderRef[] {
-  const markerPlanRefRefs = listMarkerPlanRefRefs()
+  const markerPlanSourceRefs = listMarkerPlanSourceRefs()
   const markerPlanNosByCutOrderId = new Map<string, string[]>()
   const markerPlanIdsByCutOrderId = new Map<string, string[]>()
 
-  markerPlanRefRefs.forEach((batch) => {
+  markerPlanSourceRefs.forEach((batch) => {
     batch.sourceCutOrderIds.forEach((cutOrderId) => {
       markerPlanNosByCutOrderId.set(cutOrderId, unique([...(markerPlanNosByCutOrderId.get(cutOrderId) ?? []), batch.markerPlanNo]))
       markerPlanIdsByCutOrderId.set(cutOrderId, unique([...(markerPlanIdsByCutOrderId.get(cutOrderId) ?? []), batch.markerPlanId]))
@@ -64,8 +64,8 @@ export function listCutOrderRefs(): CutOrderRef[] {
       patternFileId: record.patternIdentity.patternFileId,
       patternVersion: record.patternIdentity.patternVersion,
       effectiveWidthText: `${record.patternIdentity.effectiveWidthValue}${record.patternIdentity.effectiveWidthUnit}`,
-      activeMarkerPlanRefId: markerPlanIds[0] ?? '',
-      activeMarkerPlanRefNo: markerPlanNos[0] ?? '',
+      activeMarkerPlanSourceId: markerPlanIds[0] ?? '',
+      activeMarkerPlanSourceNo: markerPlanNos[0] ?? '',
       markerPlanIds,
       markerPlanNos,
     } satisfies CutOrderRef

@@ -906,9 +906,9 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
     .filter((record): record is GeneratedCutOrderSourceRecord => Boolean(record))
   if (!seedRecords.length) return createEmptyStore()
 
-  const sessionId = 'spreading-session-marker-plan-ref-marker-plan-ref-mb-030102-02-planned-100-actual-80-c'
+  const sessionId = 'spreading-session-marker-plan-marker-plan-mb-030102-02-planned-100-actual-80-c'
   const sessionNo = 'PB-2440'
-  const markerPlanId = seedRecords[0]?.markerPlanId || 'marker-plan-ref:MB-030102-02'
+  const markerPlanId = seedRecords[0]?.markerPlanId || 'marker-plan:MB-030102-02'
   const markerPlanNo = seedRecords[0]?.markerPlanNo || 'MB-030102-02'
   const completedAt = '2026-03-14 20:00'
   const actualCutQuantities = [557, 613]
@@ -934,12 +934,12 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
     cuttingStatus: 'CUTTING_DONE',
     cutOrderIds: seedRecords.map((record) => record.cutOrderId),
     cutOrderNos: seedRecords.map((record) => record.cutOrderNo),
-    contextType: 'marker-plan-ref',
+    contextType: 'marker-plan',
     markerPlanId,
     markerPlanNo,
-    sourceMarkerId: 'seed-marker-marker-plan-ref-marker-plan-ref:MB-030102-02',
+    sourceMarkerId: 'seed-marker-marker-plan-marker-plan:MB-030102-02',
     sourceMarkerNo: 'A-1',
-    markerId: 'seed-marker-marker-plan-ref-marker-plan-ref:MB-030102-02',
+    markerId: 'seed-marker-marker-plan-marker-plan:MB-030102-02',
     markerNo: 'A-1',
     plannedLayers: 100,
     actualLayers: 80,
@@ -1019,7 +1019,7 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
     cuttingStatus: 'CUTTING_DONE',
     cutOrderIds: seedRecords.map((record) => record.cutOrderId),
     cutOrderNos: seedRecords.map((record) => record.cutOrderNo),
-    contextType: 'marker-plan-ref',
+    contextType: 'marker-plan',
     markerPlanId,
     markerPlanNo,
     sourceMarkerId: 'seed-marker-fei-ready-bed-B-1',
@@ -1754,7 +1754,7 @@ function getGeneratedFeiTicketRuntimeSignature(): string {
   if (!storage) return ''
   return [
     'cuttingMarkerSpreadingLedger',
-    'cuttingMarkerPlanRefLedger',
+    'cuttingMarkerPlanSourceLedger',
   ]
     .map((key) => `${key}:${storage.getItem(key) || ''}`)
     .join('\n')

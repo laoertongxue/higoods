@@ -1,5 +1,4 @@
 // cut-orders 是 canonical 页面文件。
-import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui/index.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -76,7 +75,7 @@ import {
 import { buildCutOrdersProjection } from './cut-orders-projection.ts'
 import { buildSampleWarehouseProjection } from './sample-warehouse-projection.ts'
 import type { SampleWarehouseItem } from './sample-warehouse-model.ts'
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import { updateCuttingOrderProgressWebStage } from '../../../data/fcs/cutting/order-progress.ts'
 import {
   buildCutOrderCloseImpactItems,
@@ -186,6 +185,10 @@ function buildRouteWithQuery(pathname: string, payload?: Record<string, string |
   return query ? `${pathname}?${query}` : pathname
 }
 
+function buildCutOrderDetailPath(recordId: string): string {
+  return `/fcs/craft/cutting/cut-orders/${encodeURIComponent(recordId)}`
+}
+
 function applyWebActionFromUrl(): void {
   const params = getCurrentSearchParams()
   const sourceId = params.get('cutOrderId') || params.get('cutOrderNo') || ''
@@ -219,8 +222,8 @@ function getProjection() {
   return buildCutOrdersProjection()
 }
 
-function getMarkerPlanRefLedger(): MarkerPlanRefRecord[] {
-  return getProjection().sources.markerPlanRefs
+function getMarkerPlanSourceLedger(): MarkerPlanSourceRecord[] {
+  return getProjection().sources.markerPlanSources
 }
 
 function getViewModel() {
@@ -376,7 +379,7 @@ function buildPrintableUnitSummaryByCutOrder(rows: CutOrderRow[]) {
   const printableView = buildPrintableUnitViewModel({
     cutOrderRows: rows,
     materialPrepRows: projection.sources.materialPrepRows,
-    markerPlanRefs: projection.sources.markerPlanRefs,
+    markerPlanSources: projection.sources.markerPlanSources,
     markerStore: projection.sources.markerStore,
     ticketRecords: projection.sources.feiViewModel.ticketRecords,
     printJobs: projection.sources.feiViewModel.printJobs,
@@ -439,7 +442,7 @@ function buildCutOrderQrSummary(row: CutOrderRow): {
     schemaVersion: summary.schemaVersion,
     ownerType: summary.ownerType === 'cut-order' ? '裁片单' : summary.ownerType,
     qrBaseValue: summary.qrBaseValue,
-    sourceContextText: summary.sourceContextType === 'marker-plan-ref' ? `来源唛架方案 ${latestRecord.sourceMarkerPlanNo || '待补唛架方案号'}` : '裁片单上下文',
+    sourceContextText: summary.sourceContextType === 'marker-plan' ? `来源唛架方案 ${latestRecord.sourceMarkerPlanNo || '待补唛架方案号'}` : '裁片单上下文',
     reservedProcessText: summary.hasReservedProcess ? '已预留 4 类工艺扩展槽位' : '待补',
     schemaText: schema.schemaNote.replaceAll('二维码', '裁片单主码'),
   }
@@ -1056,7 +1059,7 @@ function renderTable(rows: CutOrderRow[]): string {
                         return `
                           <tr class="${highlighted ? 'bg-blue-50/60' : 'hover:bg-muted/20'}">
                             <td class="px-4 py-3 align-top">
-                              <button type="button" class="text-left font-medium text-blue-600 hover:underline" data-cutting-piece-action="open-detail" data-record-id="${escapeHtml(row.id)}">
+                              <button type="button" class="text-left font-medium text-blue-600 hover:underline" data-nav="${escapeHtml(buildCutOrderDetailPath(row.id))}">
                                 ${escapeHtml(row.cutOrderNo)}
                               </button>
                               <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.relationSummary)}</p>
@@ -1083,7 +1086,7 @@ function renderTable(rows: CutOrderRow[]): string {
                             </td>
                             <td class="px-4 py-3 align-top">
                               <div class="flex flex-wrap gap-2">
-                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="open-detail" data-record-id="${escapeHtml(row.id)}">查看详情</button>
+                                <button type="button" class="text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(buildCutOrderDetailPath(row.id))}">查看详情</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
                                 ${canEnterExecution ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
@@ -1292,9 +1295,7 @@ function renderCuttingWebOperationRecords(records: ProcessWebOperationRecord[]):
   )
 }
 
-function renderDetailDrawer(viewModel = getViewModel()): string {
-  const row = getActiveRow(viewModel)
-  if (!row) return ''
+function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel()): string {
   const qrSummary = buildCutOrderQrSummary(row)
   const markerSpreadingCounts = buildMarkerSpreadingCountsByCutOrder(row.cutOrderId)
   const latestClaimDispute = getLatestClaimDisputeByCutOrderNo(row.cutOrderNo)
@@ -1616,16 +1617,22 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
     </div>
   `
 
-  return uiDetailDrawer(
-    {
-      title: row.cutOrderNo,
-      subtitle: '',
-      closeAction: { prefix: 'cuttingPiece', action: 'close-overlay' },
-      width: 'lg',
-    },
-    content,
-    extraButtons,
-  )
+  return `
+    <article class="space-y-4" data-testid="cut-order-detail-page">
+      <div class="flex flex-wrap items-start justify-between gap-3 rounded-xl border bg-card p-4">
+        <div>
+          <p class="text-sm text-muted-foreground">裁片单详情</p>
+          <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(row.cutOrderNo)}</h1>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.productionOrderNo)} · ${escapeHtml(row.materialSku)} · ${escapeHtml(row.patternFileName)}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          ${extraButtons}
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('cut-orders'))}">返回裁片单</button>
+        </div>
+      </div>
+      ${content}
+    </article>
+  `
 }
 
 function renderPage(): string {
@@ -1647,7 +1654,6 @@ function renderPage(): string {
       ${renderFilterArea()}
       ${renderFilterStateBar()}
       ${renderTable(rows)}
-      ${renderDetailDrawer(viewModel)}
     </div>
   `
 }
@@ -1699,6 +1705,30 @@ function navigateToRecordTarget(
 
 export function renderCraftCuttingCutOrdersPage(): string {
   return renderPage()
+}
+
+export function renderCraftCuttingCutOrderDetailPage(recordId?: string): string {
+  const decodedId = decodeURIComponent(recordId || '')
+  const viewModel = getViewModel()
+  const row =
+    viewModel.rowsById[decodedId] ||
+    viewModel.rows.find(
+      (item) => item.cutOrderId === decodedId || item.cutOrderNo === decodedId,
+    )
+
+  if (!row) {
+    return `
+      <div class="space-y-4 p-4" data-testid="cut-order-detail-page">
+        <section class="rounded-xl border bg-card p-8 text-center">
+          <h1 class="text-xl font-semibold text-foreground">裁片单详情</h1>
+          <p class="mt-2 text-sm text-muted-foreground">未找到对应裁片单详情，请返回裁片单页面重新选择。</p>
+          <button type="button" class="mt-4 rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('cut-orders'))}">返回裁片单</button>
+        </section>
+      </div>
+    `
+  }
+
+  return `<div class="space-y-4 p-4">${renderCutOrderDetailPanel(row, viewModel)}</div>`
 }
 
 export function renderCraftCuttingCutOrderClosePage(): string {
@@ -1772,7 +1802,8 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
   }
 
   if (action === 'open-detail') {
-    state.activeOrderId = actionNode.dataset.recordId ?? null
+    const recordId = actionNode.dataset.recordId
+    if (recordId) appStore.navigate(`/fcs/craft/cutting/cut-orders/${encodeURIComponent(recordId)}`)
     return true
   }
 
@@ -1897,6 +1928,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       closeSourceType: actionNode.dataset.sourceReplenishmentId ? '补料审核' : '人工关闭',
       sourceReplenishmentId: actionNode.dataset.sourceReplenishmentId || undefined,
       sourceDifferenceId: actionNode.dataset.sourceDifferenceId || undefined,
+      linkedLedgerEventIds: [`ledger:${row.cutOrderId}:close:close-${row.cutOrderId}`],
       ledgerSnapshotBeforeClose: impactContext.ledgerSnapshot,
       openImpactItems: impactContext.impactItems,
       remainingInventorySummary: impactContext.inventorySummary,
@@ -1928,7 +1960,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       setFeedback('warning', '当前没有关联的唛架方案，无法跳转。')
       return true
     }
-    return navigateToRecordTarget(actionNode.dataset.recordId, 'markerPlanRefs')
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'markerPlanSources')
   }
 
   if (action === 'clear-feedback') {

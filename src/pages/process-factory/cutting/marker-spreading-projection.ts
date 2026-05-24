@@ -41,7 +41,7 @@ export interface SpreadingCreateSourceRow {
   sourceBedNo: string
   sourceBedMode: MarkerModeKey
   bedSizeSummaryText: string
-  contextType: 'cut-order' | 'marker-plan-ref'
+  contextType: 'cut-order' | 'marker-plan'
   contextSummary: string
   cutOrderIds: string[]
   cutOrderNos: string[]
@@ -68,8 +68,8 @@ export interface MarkerSpreadingProjection {
   rows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows']
   rowsById: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows'][number]>
   rowsByProductionOrderNo: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows'][]>
-  markerPlanRefs: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanRefs']
-  markerPlanRefsById: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanRefs'][number]>
+  markerPlanSources: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanSources']
+  markerPlanSourcesById: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanSources'][number]>
   store: MarkerSpreadingStore
   viewModel: ReturnType<typeof buildMarkerSpreadingViewModel>
   createSources: SpreadingCreateSourceRow[]
@@ -219,7 +219,7 @@ function buildMarkerRecordFromPlanBed(
     bedId: bed.bedId,
     bedNo: bed.bedNo,
     bedMode: bed.bedMode,
-    contextType: context.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
+    contextType: context.contextType === 'marker-plan' ? 'marker-plan' : 'cut-order',
     cutOrderIds: [...plan.cutOrderIds],
     cutOrderNos: [...plan.cutOrderNos],
     markerPlanId: plan.id,
@@ -269,7 +269,7 @@ function buildSpreadingContextFromPlanContext(
   plan?: Pick<MarkerPlanViewRow, 'id' | 'markerNo'>,
 ): MarkerSpreadingContext {
   return {
-    contextType: context.contextType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order',
+    contextType: context.contextType === 'marker-plan' ? 'marker-plan' : 'cut-order',
     cutOrderIds: [...context.cutOrderIds],
     cutOrderNos: [...context.cutOrderNos],
     markerPlanId: plan?.id || context.markerPlanId,
@@ -294,7 +294,7 @@ function buildCreateSourceRowsFromPlan(
   const scheme = buildMarkerSchemeFromPlan(plan)
   const spreadingContext = buildSpreadingContextFromPlanContext(context, plan)
   const contextSummary =
-    spreadingContext.contextType === 'marker-plan-ref'
+    spreadingContext.contextType === 'marker-plan'
       ? `唛架方案 ${context.markerPlanNo || '待补'} / 裁片单 ${context.cutOrderNos.length} 张 / 生产单 ${context.productionOrderNos.join(' / ') || '待补'}`
       : `裁片单 ${context.cutOrderNos.join(' / ') || '待补'} / 生产单 ${context.productionOrderNos.join(' / ') || '待补'}`
 
@@ -545,7 +545,7 @@ export function buildMarkerSpreadingProjection(options: {
   const store = spreadingArtifacts.store
   const viewModel = buildMarkerSpreadingViewModel({
     rows: context.sources.materialPrepRows,
-    markerPlanRefs: context.sources.markerPlanRefs,
+    markerPlanSources: context.sources.markerPlanSources,
     store,
     prefilter: options.prefilter ?? null,
   })
@@ -565,8 +565,8 @@ export function buildMarkerSpreadingProjection(options: {
       accumulator[key].push(row)
       return accumulator
     }, {}),
-    markerPlanRefs: context.sources.markerPlanRefs,
-    markerPlanRefsById: Object.fromEntries(context.sources.markerPlanRefs.map((batch) => [batch.markerPlanId, batch])),
+    markerPlanSources: context.sources.markerPlanSources,
+    markerPlanSourcesById: Object.fromEntries(context.sources.markerPlanSources.map((batch) => [batch.markerPlanId, batch])),
     store,
     viewModel,
     createSources: buildSpreadingCreateSourceRows(markerPlanProjection),

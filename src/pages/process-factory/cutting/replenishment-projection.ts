@@ -24,7 +24,7 @@ export function buildReplenishmentProjection(options: {
     viewModel: buildReplenishmentViewModel({
       materialPrepRows: context.sources.materialPrepRows,
       cutOrderRows: context.sources.cutOrderRows,
-      markerPlanRefs: context.sources.markerPlanRefs,
+      markerPlanSources: context.sources.markerPlanSources,
       markerStore: context.sources.markerStore,
       reviews:
         options.reviews ??

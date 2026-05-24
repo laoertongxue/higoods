@@ -19,7 +19,7 @@ import {
   type SewingTaskRefRecord,
   type TransferBagDispatchManifestRecord,
   type TransferBagRuntimeStore,
-  type TransferBagSeedMarkerPlanRefLike,
+  type TransferBagSeedMarkerPlanSourceLike,
   type TransferBagSeedCutOrderRowLike,
   type TransferBagSeedTicketLike,
   type TransferBagUsageStage,
@@ -36,7 +36,7 @@ import {
 } from '../../../data/fcs/factory-master-store.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../../../data/fcs/factory-mock-data.ts'
 import { FEI_TICKET_DEMO_CASE_IDS, type FeiTicketLabelRecord } from './fei-tickets-model.ts'
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import {
   buildSpreadingTraceAnchors,
   findSpreadingTraceAnchor,
@@ -168,7 +168,7 @@ export interface TransferBagCycleContextResolution {
   ok: boolean
   reason: string
   sewingTask: SewingTaskRef | null
-  source: 'marker-plan-ref' | 'cut-order' | 'style-spu' | 'usage-locked' | null
+  source: 'marker-plan' | 'cut-order' | 'style-spu' | 'usage-locked' | null
 }
 
 export interface TransferBagMaster {
@@ -450,7 +450,7 @@ export interface TransferBagParentChildSummary {
   ticketCount: number
   cutOrderCount: number
   productionOrderCount: number
-  markerPlanRefCount: number
+  markerPlanSourceCount: number
   quantityTotal: number
   garmentQtyTotal: number
 }
@@ -1353,7 +1353,7 @@ function toRuntimeSeedCutOrderRows(rows: CutOrderRow[]): TransferBagSeedCutOrder
   }))
 }
 
-function toRuntimeSeedMarkerPlanRefs(batches: MarkerPlanRefRecord[]): TransferBagSeedMarkerPlanRefLike[] {
+function toRuntimeSeedMarkerPlanSources(batches: MarkerPlanSourceRecord[]): TransferBagSeedMarkerPlanSourceLike[] {
   return batches.map((batch) => ({
     markerPlanId: batch.markerPlanId,
     markerPlanNo: batch.markerPlanNo,
@@ -1442,7 +1442,7 @@ export function resolveTransferBagCycleContextFromTicket(options: {
   if (options.ticket.markerPlanNo) {
     const matches = options.sewingTasks.filter((task) => task.sewingTaskId === `sewing-task-${sanitizeId(options.ticket!.markerPlanNo)}`)
     const result = buildTaskResolutionResult(
-      'marker-plan-ref',
+      'marker-plan',
       matches,
       '',
       `${options.ticket.markerPlanNo} 对应了多个车缝任务，暂不能自动装袋。`,
@@ -1708,7 +1708,7 @@ export function buildTransferBagParentChildSummary(bindings: TransferBagItemBind
     ticketCount: bindings.length,
     cutOrderCount: uniqueStrings(bindings.map((item) => item.cutOrderNo)).length,
     productionOrderCount: uniqueStrings(bindings.map((item) => item.productionOrderNo)).length,
-    markerPlanRefCount: uniqueStrings(bindings.map((item) => item.markerPlanNo)).length,
+    markerPlanSourceCount: uniqueStrings(bindings.map((item) => item.markerPlanNo)).length,
     quantityTotal: bindings.reduce((sum, item) => sum + Math.max(item.qty, 0), 0),
     garmentQtyTotal: bindings.reduce((sum, item) => sum + Math.max(item.garmentQty ?? item.qty, 0), 0),
   }
@@ -1831,9 +1831,9 @@ export function createTransferBagDispatchManifest(options: {
 
 function buildSewingTaskSeeds(
   cutOrderRows: CutOrderRow[] = [],
-  markerPlanRefs: MarkerPlanRefRecord[] = [],
+  markerPlanSources: MarkerPlanSourceRecord[] = [],
 ): SewingTaskRef[] {
-  const markerPlanTaskSeeds = markerPlanRefs.slice(0, 3).map((batch, index) => {
+  const markerPlanTaskSeeds = markerPlanSources.slice(0, 3).map((batch, index) => {
     const factory = pickTransferBagSewingFactory(index)
     return {
     sewingTaskId: `sewing-task-${sanitizeId(batch.markerPlanNo)}`,
@@ -1964,14 +1964,14 @@ export function applyPocketBindingLocksToTicketRecords(
 export function buildSystemSeedTransferBagStore(options: {
   cutOrderRows: CutOrderRow[]
   ticketRecords: FeiTicketLabelRecord[]
-  markerPlanRefs?: MarkerPlanRefRecord[]
+  markerPlanSources?: MarkerPlanSourceRecord[]
 }): TransferBagStore {
-  const markerPlanRefs = options.markerPlanRefs ?? []
+  const markerPlanSources = options.markerPlanSources ?? []
   return toPageStore(
     buildSystemSeedTransferBagRuntime({
       cutOrderRows: toRuntimeSeedCutOrderRows(options.cutOrderRows),
       ticketRecords: toRuntimeSeedTickets(options.ticketRecords),
-      markerPlanRefs: toRuntimeSeedMarkerPlanRefs(markerPlanRefs),
+      markerPlanSources: toRuntimeSeedMarkerPlanSources(markerPlanSources),
     }),
   )
 }
@@ -2286,11 +2286,11 @@ export function buildInboundTempBagInventoryRecords(bags: InboundTempBag[]): Inb
 export function buildTransferBagViewModel(options: {
   cutOrderRows: CutOrderRow[]
   ticketRecords: FeiTicketLabelRecord[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   store: TransferBagStore
   spreadingStore?: MarkerSpreadingStore
 }): TransferBagViewModel {
-  void options.markerPlanRefs
+  void options.markerPlanSources
   const spreadingTraceAnchors = options.spreadingStore ? buildSpreadingTraceAnchors(options.spreadingStore) : []
   const ticketCandidates = buildTicketCandidates(options.ticketRecords)
   const ticketCandidatesById = Object.fromEntries(ticketCandidates.map((item) => [item.ticketRecordId, item]))
@@ -2482,7 +2482,7 @@ export function buildTransferBagViewModel(options: {
         currentGarmentQtyTotal: summary.garmentQtyTotal,
         currentSourceProductionOrderCount: summary.productionOrderCount,
         currentSourceCutOrderCount: summary.cutOrderCount,
-        currentSourceMarkerPlanCount: summary.markerPlanRefCount,
+        currentSourceMarkerPlanCount: summary.markerPlanSourceCount,
         currentDispatchedAt: usage?.dispatchAt || latestUsage?.dispatchAt || '',
         currentSignedAt: usage?.signedAt || latestUsage?.signedAt || '',
         currentReturnedAt: usage?.returnedAt || latestUsage?.returnedAt || '',

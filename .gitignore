@@ -20,3 +20,5 @@ node_modules/
 .npm/
 .tmp*
 Library/
+src/**/*.js
+vite.config.js

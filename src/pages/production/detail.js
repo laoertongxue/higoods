@@ -1,1 +1,0 @@
-export { renderProductionOrderDetailPage, } from './core';

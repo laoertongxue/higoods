@@ -939,7 +939,7 @@ function renderSpecialCraftHandoverArea(groups: SpecialCraftHandoverGroup[]): st
         }
       </div>
       <div class="mt-3 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        特殊工艺未回仓不影响其他部位交给车缝厂；中转袋仍按使用阶段管理，不做物理分类。
+        特殊工艺未回仓不影响其他部位交给车缝厂；中转袋按使用阶段追踪，同一袋码可循环复用。
       </div>
     </section>
   `
@@ -984,7 +984,7 @@ function renderSpecialCraftReturnRecordCard(record: SpecialCraftReturnRecord): s
       </dl>
       <div class="mt-3 flex flex-wrap gap-2">
         <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', record.returnStatus === '已回仓' ? 'assignment' : 'special-craft-return'))}">${escapeHtml(nextAction)}</button>
-        <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">模拟回仓确认</button>
+        <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">确认回仓</button>
       </div>
     </article>
   `

@@ -1,7 +1,7 @@
 import type { CutOrderRow, CutOrderNavigationPayload } from './cut-orders-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import {
   buildCuttingTraceabilityId,
 } from '../../../data/fcs/cutting/qr-codes.ts'
@@ -70,7 +70,7 @@ export const FEI_TICKET_DEMO_CASE_IDS = {
   },
 } as const
 
-export type FeiTicketsContextType = 'cut-order' | 'marker-plan-ref'
+export type FeiTicketsContextType = 'cut-order' | 'marker-plan'
 export type FeiTicketStatusKey =
   | 'NOT_GENERATED'
   | 'DRAFT'
@@ -104,7 +104,7 @@ export interface FeiQrReservedPayload {
 
 export interface FeiNavigationPayload {
   cutOrders: Record<string, string | undefined>
-  markerPlanRefs: Record<string, string | undefined>
+  markerPlanSources: Record<string, string | undefined>
   markerSpreading: Record<string, string | undefined>
   replenishment: Record<string, string | undefined>
   summary: Record<string, string | undefined>
@@ -339,7 +339,7 @@ export interface CreateFeiTicketPrintJobResult {
   nextRecords: FeiTicketLabelRecord[]
 }
 
-type MarkerPlanRefRefLike = {
+type MarkerPlanSourceRefLike = {
   relatedMarkerPlanIds?: string[]
   relatedMarkerPlanNos?: string[]
   markerPlanIds?: string[]
@@ -379,13 +379,13 @@ const feiTicketStatusMetaMap: Record<FeiTicketStatusKey, FeiTicketStatusMeta> = 
   },
 }
 
-function getMarkerPlanRefIds(source: MarkerPlanRefRefLike): string[] {
+function getMarkerPlanSourceIds(source: MarkerPlanSourceRefLike): string[] {
   if (Array.isArray(source.relatedMarkerPlanIds)) return source.relatedMarkerPlanIds
   if (Array.isArray(source.markerPlanIds)) return source.markerPlanIds
   return []
 }
 
-function getMarkerPlanRefNos(source: MarkerPlanRefRefLike): string[] {
+function getMarkerPlanSourceNos(source: MarkerPlanSourceRefLike): string[] {
   if (Array.isArray(source.relatedMarkerPlanNos)) return source.relatedMarkerPlanNos
   if (Array.isArray(source.markerPlanNos)) return source.markerPlanNos
   return []
@@ -735,7 +735,7 @@ function normalizeRecordPrintableUnit(record: FeiTicketLabelRecord): FeiTicketLa
 
   if (normalizedRecord.printableUnitId && normalizedRecord.printableUnitNo && normalizedRecord.printableUnitType) return normalizedRecord
 
-  if (normalizedRecord.sourceContextType === 'marker-plan-ref' && normalizedRecord.sourceMarkerPlanId) {
+  if (normalizedRecord.sourceContextType === 'marker-plan' && normalizedRecord.sourceMarkerPlanId) {
     return {
       ...normalizedRecord,
       printableUnitId: normalizedRecord.printableUnitId || `marker-plan:${normalizedRecord.sourceMarkerPlanId}`,
@@ -755,7 +755,7 @@ function normalizeRecordPrintableUnit(record: FeiTicketLabelRecord): FeiTicketLa
 function normalizePrintJobPrintableUnit(printJob: FeiTicketPrintJob): FeiTicketPrintJob {
   if (printJob.printableUnitId && printJob.printableUnitNo && printJob.printableUnitType) return printJob
 
-  if (printJob.sourceContextType === 'marker-plan-ref' && printJob.sourceMarkerPlanId) {
+  if (printJob.sourceContextType === 'marker-plan' && printJob.sourceMarkerPlanId) {
     return {
       ...printJob,
       printableUnitId: printJob.printableUnitId || `marker-plan:${printJob.sourceMarkerPlanId}`,
@@ -778,7 +778,7 @@ function matchesPrintableUnitRecord(scope: PrintableUnitScope, record: FeiTicket
   if (record.printableUnitId) return record.printableUnitId === scope.printableUnitId
 
   if (scope.printableUnitType === 'MARKER_PLAN') {
-    return Boolean(scope.batchId) && record.sourceContextType === 'marker-plan-ref' && record.sourceMarkerPlanId === scope.batchId
+    return Boolean(scope.batchId) && record.sourceContextType === 'marker-plan' && record.sourceMarkerPlanId === scope.batchId
   }
 
   return record.cutOrderId === scope.cutOrderId
@@ -788,35 +788,35 @@ function matchesPrintableUnitPrintJob(scope: PrintableUnitScope, printJob: FeiTi
   if (printJob.printableUnitId) return printJob.printableUnitId === scope.printableUnitId
 
   if (scope.printableUnitType === 'MARKER_PLAN') {
-    return Boolean(scope.batchId) && printJob.sourceContextType === 'marker-plan-ref' && printJob.sourceMarkerPlanId === scope.batchId
+    return Boolean(scope.batchId) && printJob.sourceContextType === 'marker-plan' && printJob.sourceMarkerPlanId === scope.batchId
   }
 
   return Boolean(scope.cutOrderId) && printJob.cutOrderIds.includes(scope.cutOrderId)
 }
 
-function findMatchingMarkerPlanRef(
-  markerPlanRefs: MarkerPlanRefRecord[],
+function findMatchingMarkerPlanSource(
+  markerPlanSources: MarkerPlanSourceRecord[],
   prefilter: FeiTicketsPrefilter | null,
-): MarkerPlanRefRecord | null {
+): MarkerPlanSourceRecord | null {
   if (!prefilter) return null
   return (
-    (prefilter.markerPlanId && markerPlanRefs.find((batch) => batch.markerPlanId === prefilter.markerPlanId)) ||
-    (prefilter.markerPlanNo && markerPlanRefs.find((batch) => batch.markerPlanNo === prefilter.markerPlanNo)) ||
+    (prefilter.markerPlanId && markerPlanSources.find((batch) => batch.markerPlanId === prefilter.markerPlanId)) ||
+    (prefilter.markerPlanNo && markerPlanSources.find((batch) => batch.markerPlanNo === prefilter.markerPlanNo)) ||
     null
   )
 }
 
 function buildContext(
   owners: CutOrderTicketOwner[],
-  markerPlanRefs: MarkerPlanRefRecord[],
+  markerPlanSources: MarkerPlanSourceRecord[],
   prefilter: FeiTicketsPrefilter | null,
 ): FeiTicketsContext | null {
-  const batch = findMatchingMarkerPlanRef(markerPlanRefs, prefilter)
+  const batch = findMatchingMarkerPlanSource(markerPlanSources, prefilter)
   if (batch) {
     const batchOwners = owners.filter((owner) => batch.items.some((item) => item.cutOrderId === owner.cutOrderId))
     if (!batchOwners.length) return null
     return {
-      contextType: 'marker-plan-ref',
+      contextType: 'marker-plan',
       cutOrderIds: batchOwners.map((owner) => owner.cutOrderId),
       cutOrderNos: batchOwners.map((owner) => owner.cutOrderNo),
       markerPlanId: batch.markerPlanId,
@@ -837,8 +837,8 @@ function buildContext(
     null
 
   if (!owner) return null
-  const markerPlanIds = getMarkerPlanRefIds(owner)
-  const markerPlanNos = getMarkerPlanRefNos(owner)
+  const markerPlanIds = getMarkerPlanSourceIds(owner)
+  const markerPlanNos = getMarkerPlanSourceNos(owner)
   return {
     contextType: 'cut-order',
     cutOrderIds: [owner.cutOrderId],
@@ -864,12 +864,12 @@ function findRelevantMarkerPieceCount(
   )
   if (originalMarker?.totalPieces) return originalMarker.totalPieces
 
-  const ownerMarkerPlanRefIds = getMarkerPlanRefIds(owner)
-  const ownerMarkerPlanRefNos = getMarkerPlanRefNos(owner)
-  const targetBatchId = context?.contextType === 'marker-plan-ref' ? context.markerPlanId : ownerMarkerPlanRefIds[0]
-  const targetBatchNo = context?.contextType === 'marker-plan-ref' ? context.markerPlanNo : ownerMarkerPlanRefNos[0]
+  const ownerMarkerPlanSourceIds = getMarkerPlanSourceIds(owner)
+  const ownerMarkerPlanSourceNos = getMarkerPlanSourceNos(owner)
+  const targetBatchId = context?.contextType === 'marker-plan' ? context.markerPlanId : ownerMarkerPlanSourceIds[0]
+  const targetBatchNo = context?.contextType === 'marker-plan' ? context.markerPlanNo : ownerMarkerPlanSourceNos[0]
   const mergeMarker = markerStore.markers.find((marker) => {
-    if (marker.contextType !== 'marker-plan-ref') return false
+    if (marker.contextType !== 'marker-plan') return false
     return (targetBatchId && marker.markerPlanId === targetBatchId) || (targetBatchNo && marker.markerPlanNo === targetBatchNo)
   })
   return mergeMarker?.totalPieces ?? null
@@ -1129,11 +1129,11 @@ export function createFeiTicketPrintJob(options: {
 
 export function buildFeiNavigationPayload(
   owner: Pick<CutOrderTicketOwner, 'cutOrderId' | 'cutOrderNo' | 'productionOrderNo'> &
-    MarkerPlanRefRefLike,
+    MarkerPlanSourceRefLike,
   context: FeiTicketsContext | null,
 ): FeiNavigationPayload {
-  const markerPlanNos = getMarkerPlanRefNos(owner)
-  const markerPlanNo = context?.contextType === 'marker-plan-ref' ? context.markerPlanNo || undefined : markerPlanNos[0] || undefined
+  const markerPlanNos = getMarkerPlanSourceNos(owner)
+  const markerPlanNo = context?.contextType === 'marker-plan' ? context.markerPlanNo || undefined : markerPlanNos[0] || undefined
 
   return {
     cutOrders: {
@@ -1141,7 +1141,7 @@ export function buildFeiNavigationPayload(
       cutOrderNo: owner.cutOrderNo,
       productionOrderNo: owner.productionOrderNo,
     },
-    markerPlanRefs: {
+    markerPlanSources: {
       markerPlanNo,
       cutOrderNo: owner.cutOrderNo,
     },
@@ -1172,7 +1172,7 @@ export function buildTicketOwnerGroupsFromContext(
   owners: CutOrderTicketOwner[],
 ): CutOrderTicketOwner[] {
   if (!context) return owners
-  if (context.contextType === 'marker-plan-ref') {
+  if (context.contextType === 'marker-plan') {
     const allowedIds = new Set(context.cutOrderIds)
     return owners.filter((owner) => allowedIds.has(owner.cutOrderId))
   }
@@ -1182,7 +1182,7 @@ export function buildTicketOwnerGroupsFromContext(
 export function buildFeiTicketsViewModel(options: {
   cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -1286,10 +1286,10 @@ export function buildFeiTicketsViewModel(options: {
     }
   })
 
-  const context = buildContext(owners, options.markerPlanRefs, options.prefilter)
+  const context = buildContext(owners, options.markerPlanSources, options.prefilter)
   const contextualOwners = buildTicketOwnerGroupsFromContext(context, owners).map((owner) => ({
     ...owner,
-    sourceContextLabel: context?.contextType === 'marker-plan-ref' ? `来源唛架方案 ${context.markerPlanNo || '待补唛架方案号'}` : '裁片单上下文',
+    sourceContextLabel: context?.contextType === 'marker-plan' ? `来源唛架方案 ${context.markerPlanNo || '待补唛架方案号'}` : '裁片单上下文',
     navigationPayload: buildFeiNavigationPayload(owner, context),
   }))
 
@@ -1428,11 +1428,11 @@ export function getFeiTicketStatusMeta(status: FeiTicketStatusKey): FeiTicketSta
 export function buildSystemSeedFeiTicketLedger(options: {
   cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
 }): FeiTicketSeedLedger {
   void options.markerStore
-  void options.markerPlanRefs
+  void options.markerPlanSources
   const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.cutOrderId, row]))
   const generatedTicketMap = getGeneratedFeiTicketMapByCutOrderId()
   const owners = options.cutOrderRows
@@ -1455,14 +1455,14 @@ export function buildSystemSeedFeiTicketLedger(options: {
   const resolveScope = (owner: CutOrderTicketOwner) => {
     const markerPlanId = owner.relatedMarkerPlanIds[0] || ''
     const markerPlanNo = owner.relatedMarkerPlanNos[0] || ''
-    const sourceContextType: FeiTicketsContextType = markerPlanId || markerPlanNo ? 'marker-plan-ref' : 'cut-order'
+    const sourceContextType: FeiTicketsContextType = markerPlanId || markerPlanNo ? 'marker-plan' : 'cut-order'
     return {
       sourceContextType,
-      sourceMarkerPlanId: sourceContextType === 'marker-plan-ref' ? markerPlanId : '',
-      sourceMarkerPlanNo: sourceContextType === 'marker-plan-ref' ? markerPlanNo : '',
-      printableUnitId: sourceContextType === 'marker-plan-ref' ? `marker-plan:${markerPlanId}` : `cut-order:${owner.cutOrderId}`,
-      printableUnitNo: sourceContextType === 'marker-plan-ref' ? markerPlanNo : owner.cutOrderNo,
-      printableUnitType: sourceContextType === 'marker-plan-ref' ? 'MARKER_PLAN' as const : 'CUT_ORDER' as const,
+      sourceMarkerPlanId: sourceContextType === 'marker-plan' ? markerPlanId : '',
+      sourceMarkerPlanNo: sourceContextType === 'marker-plan' ? markerPlanNo : '',
+      printableUnitId: sourceContextType === 'marker-plan' ? `marker-plan:${markerPlanId}` : `cut-order:${owner.cutOrderId}`,
+      printableUnitNo: sourceContextType === 'marker-plan' ? markerPlanNo : owner.cutOrderNo,
+      printableUnitType: sourceContextType === 'marker-plan' ? 'MARKER_PLAN' as const : 'CUT_ORDER' as const,
     }
   }
 
@@ -2153,24 +2153,24 @@ function buildPrintableUnitFromCutOrder(options: {
   return unit
 }
 
-function buildPrintableUnitFromMarkerPlanRef(options: {
-  markerPlanRef: MarkerPlanRefRecord
+function buildPrintableUnitFromMarkerPlanSource(options: {
+  markerPlanSource: MarkerPlanSourceRecord
   owners: CutOrderTicketOwner[]
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
 }): PrintableUnit {
   const generatedRecords = options.owners.flatMap((owner) => getGeneratedFeiRecordsByCutOrderId(owner.cutOrderId))
   const traceMeta = collectGeneratedRecordTrace(generatedRecords)
-  const sourceProductionOrderIds = uniqueStrings(options.markerPlanRef.items.map((item) => item.productionOrderId))
-  const sourceProductionOrderNos = uniqueStrings(options.markerPlanRef.items.map((item) => item.productionOrderNo))
+  const sourceProductionOrderIds = uniqueStrings(options.markerPlanSource.items.map((item) => item.productionOrderId))
+  const sourceProductionOrderNos = uniqueStrings(options.markerPlanSource.items.map((item) => item.productionOrderNo))
   const sourceCutOrderIds = uniqueStrings(options.owners.map((owner) => owner.cutOrderId))
   const sourceCutOrderNos = uniqueStrings(options.owners.map((owner) => owner.cutOrderNo))
   const scope: PrintableUnitScope = {
-    printableUnitId: `marker-plan:${options.markerPlanRef.markerPlanId}`,
-    printableUnitNo: options.markerPlanRef.markerPlanNo,
+    printableUnitId: `marker-plan:${options.markerPlanSource.markerPlanId}`,
+    printableUnitNo: options.markerPlanSource.markerPlanNo,
     printableUnitType: 'MARKER_PLAN',
-    batchId: options.markerPlanRef.markerPlanId,
-    batchNo: options.markerPlanRef.markerPlanNo,
+    batchId: options.markerPlanSource.markerPlanId,
+    batchNo: options.markerPlanSource.markerPlanNo,
     cutOrderId: '',
     sourceCutOrderIds,
   }
@@ -2198,15 +2198,15 @@ function buildPrintableUnitFromMarkerPlanRef(options: {
   })
 
   const unit: PrintableUnit = {
-    printableUnitId: `marker-plan:${options.markerPlanRef.markerPlanId}`,
-    printableUnitNo: options.markerPlanRef.markerPlanNo,
+    printableUnitId: `marker-plan:${options.markerPlanSource.markerPlanId}`,
+    printableUnitNo: options.markerPlanSource.markerPlanNo,
     printableUnitType: 'MARKER_PLAN',
-    batchId: options.markerPlanRef.markerPlanId,
-    batchNo: options.markerPlanRef.markerPlanNo,
+    batchId: options.markerPlanSource.markerPlanId,
+    batchNo: options.markerPlanSource.markerPlanNo,
     cutOrderId: '',
     cutOrderNo: '',
-    styleCode: options.markerPlanRef.styleCode || options.owners[0]?.styleCode || options.markerPlanRef.spuCode || '',
-    fabricSku: options.markerPlanRef.materialSkuSummary || uniqueStrings(options.owners.map((owner) => owner.materialSku)).join(' / '),
+    styleCode: options.markerPlanSource.styleCode || options.owners[0]?.styleCode || options.markerPlanSource.spuCode || '',
+    fabricSku: options.markerPlanSource.materialSkuSummary || uniqueStrings(options.owners.map((owner) => owner.materialSku)).join(' / '),
     materialAlias: uniqueStrings(options.owners.map((owner) => owner.materialAlias)).join(' / '),
     materialImageUrl: options.owners.find((owner) => owner.materialImageUrl)?.materialImageUrl || '',
     sourceProductionOrderIds,
@@ -2231,10 +2231,10 @@ function buildPrintableUnitFromMarkerPlanRef(options: {
     lastPrintedAt: stats.lastPrintedAt,
     lastPrintedBy: stats.lastPrintedBy,
     keywordIndex: buildKeywordIndex([
-      options.markerPlanRef.markerPlanNo,
-      options.markerPlanRef.styleCode,
-      options.markerPlanRef.spuCode,
-      options.markerPlanRef.materialSkuSummary,
+      options.markerPlanSource.markerPlanNo,
+      options.markerPlanSource.styleCode,
+      options.markerPlanSource.spuCode,
+      options.markerPlanSource.materialSkuSummary,
       ...sourceProductionOrderNos,
       ...sourceCutOrderNos,
       ...traceMeta.sourceSpreadingSessionNos,
@@ -2297,7 +2297,7 @@ export function filterPrintableUnits(units: PrintableUnit[], filters: PrintableU
 export function buildPrintableUnitViewModel(options: {
   cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -2306,7 +2306,7 @@ export function buildPrintableUnitViewModel(options: {
   const ownerView = buildFeiTicketsViewModel({
     cutOrderRows: options.cutOrderRows,
     materialPrepRows: options.materialPrepRows,
-    markerPlanRefs: options.markerPlanRefs,
+    markerPlanSources: options.markerPlanSources,
     markerStore: options.markerStore,
     ticketRecords: options.ticketRecords,
     printJobs: options.printJobs,
@@ -2319,7 +2319,7 @@ export function buildPrintableUnitViewModel(options: {
   const units: PrintableUnit[] = []
   const coveredCutOrderIds = new Set<string>()
 
-  options.markerPlanRefs.forEach((batch) => {
+  options.markerPlanSources.forEach((batch) => {
     const memberOwners = batch.items
       .map((item) => ownersByCutOrderId[item.cutOrderId])
       .filter((owner): owner is CutOrderTicketOwner => Boolean(owner))
@@ -2332,8 +2332,8 @@ export function buildPrintableUnitViewModel(options: {
 
     memberRows.forEach((row) => coveredCutOrderIds.add(row.cutOrderId))
     units.push(
-      buildPrintableUnitFromMarkerPlanRef({
-        markerPlanRef: batch,
+      buildPrintableUnitFromMarkerPlanSource({
+        markerPlanSource: batch,
         owners: memberOwners,
         ticketRecords: options.ticketRecords,
         printJobs: options.printJobs,
@@ -2382,7 +2382,7 @@ const printableSizeCycle = ['M', 'L', 'XL', 'S', '2XL', '均码']
 function buildOwnerMaps(options: {
   cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -2393,7 +2393,7 @@ function buildOwnerMaps(options: {
   const ownerView = buildFeiTicketsViewModel({
     cutOrderRows: options.cutOrderRows,
     materialPrepRows: options.materialPrepRows,
-    markerPlanRefs: options.markerPlanRefs,
+    markerPlanSources: options.markerPlanSources,
     markerStore: options.markerStore,
     ticketRecords: options.ticketRecords,
     printJobs: options.printJobs,
@@ -2592,7 +2592,7 @@ export function buildTicketSplitDetails(options: {
   unit: PrintableUnit
   cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -2708,7 +2708,7 @@ export function buildPrintableUnitDetailViewModel(options: {
   unit: PrintableUnit
   cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -2780,7 +2780,7 @@ export function executePrintableUnitPrint(options: {
   splitDetails: TicketSplitDetail[]
   cutOrderRows: CutOrderRow[]
   materialPrepRows: MaterialPrepRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
@@ -2821,7 +2821,7 @@ export function executePrintableUnitPrint(options: {
         ...createEmptyPreviewRecord(
           owner,
           detail.sequenceNo,
-          options.unit.printableUnitType === 'MARKER_PLAN' ? 'marker-plan-ref' : 'cut-order',
+          options.unit.printableUnitType === 'MARKER_PLAN' ? 'marker-plan' : 'cut-order',
           options.unit.batchId,
           options.unit.batchNo,
         ),
@@ -2886,7 +2886,7 @@ export function executePrintableUnitPrint(options: {
     ownerType: 'cut-order',
     cutOrderIds: uniqueStrings(targetDetails.map((detail) => detail.sourceCutOrderId)),
     cutOrderNos: uniqueStrings(targetDetails.map((detail) => detail.sourceCutOrderNo)),
-    sourceContextType: options.unit.printableUnitType === 'MARKER_PLAN' ? 'marker-plan-ref' : 'cut-order',
+    sourceContextType: options.unit.printableUnitType === 'MARKER_PLAN' ? 'marker-plan' : 'cut-order',
     sourceMarkerPlanId: options.unit.batchId,
     sourceMarkerPlanNo: options.unit.batchNo,
     totalTicketCount: createdRecords.length,

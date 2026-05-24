@@ -1,4 +1,4 @@
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import { getCanonicalCuttingPath } from './meta.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
 import {
@@ -23,7 +23,7 @@ export const CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY = 'cuttingSpecia
 export const CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY = 'cuttingSpecialProcessFollowupActions'
 
 export type SpecialProcessType = 'BINDING_STRIP' | 'WASH'
-export type SpecialProcessSourceType = 'cut-order' | 'marker-plan-ref'
+export type SpecialProcessSourceType = 'cut-order' | 'marker-plan'
 export type SpecialProcessStatusKey = 'DRAFT' | 'PENDING_EXECUTION' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED'
 export type SpecialProcessAuditAction =
   | 'CREATED'
@@ -115,6 +115,7 @@ export interface BindingProcessOrder {
   abnormalItems: BindingProcessAbnormalItem[]
   inboundInventoryRecordIds: string[]
   linkedReplenishmentIds: string[]
+  linkedLedgerEventIds: string[]
   linkedCheckItemIds: string[]
   externalReceiverFactoryName: string
   externalHandoverOrderNo: string
@@ -257,7 +258,7 @@ export interface SpecialProcessFilters {
 
 export interface SpecialProcessNavigationPayload {
   cutOrders: Record<string, string | undefined>
-  markerPlanRefs: Record<string, string | undefined>
+  markerPlanSources: Record<string, string | undefined>
   replenishment: Record<string, string | undefined>
   summary: Record<string, string | undefined>
   productionProgress: Record<string, string | undefined>
@@ -355,7 +356,7 @@ function normalizeSpecialProcessOrder(record: unknown): SpecialProcessOrder | nu
   const raw = record as Record<string, unknown>
   if (typeof raw.processOrderId !== 'string' || typeof raw.processOrderNo !== 'string') return null
   const processType = raw.processType === 'WASH' ? 'WASH' : 'BINDING_STRIP'
-  const sourceType = raw.sourceType === 'marker-plan-ref' ? 'marker-plan-ref' : 'cut-order'
+  const sourceType = raw.sourceType === 'marker-plan' ? 'marker-plan' : 'cut-order'
   const status = ['DRAFT', 'PENDING_EXECUTION', 'IN_PROGRESS', 'DONE', 'CANCELLED'].includes(String(raw.status))
     ? (raw.status as SpecialProcessStatusKey)
     : 'DRAFT'
@@ -484,7 +485,7 @@ function normalizeSpecialProcessAudit(record: unknown): SpecialProcessAuditTrail
 
 export function createBindingStripProcessDraft(options: {
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   prefilter: SpecialProcessPrefilter | null
   existingCount: number
 }): {
@@ -494,12 +495,12 @@ export function createBindingStripProcessDraft(options: {
   followupActions: SpecialProcessFollowupAction[]
   audit: SpecialProcessAuditTrail
 } {
-  const markerPlanRef =
-    (options.prefilter?.markerPlanNo && options.markerPlanRefs.find((item) => item.markerPlanNo === options.prefilter?.markerPlanNo)) || null
+  const markerPlanSource =
+    (options.prefilter?.markerPlanNo && options.markerPlanSources.find((item) => item.markerPlanNo === options.prefilter?.markerPlanNo)) || null
   const matchedCutOrders = options.prefilter?.cutOrderNo
     ? options.cutOrderRows.filter((row) => row.cutOrderNo === options.prefilter?.cutOrderNo)
-    : markerPlanRef
-      ? options.cutOrderRows.filter((row) => markerPlanRef.items.some((item) => item.cutOrderId === row.cutOrderId))
+    : markerPlanSource
+      ? options.cutOrderRows.filter((row) => markerPlanSource.items.some((item) => item.cutOrderId === row.cutOrderId))
       : [options.cutOrderRows[0]].filter(Boolean)
 
   const seed = matchedCutOrders[0]
@@ -509,11 +510,11 @@ export function createBindingStripProcessDraft(options: {
     processOrderId: orderId,
     processOrderNo: orderNo,
     processType: 'BINDING_STRIP',
-    sourceType: markerPlanRef ? 'marker-plan-ref' : 'cut-order',
+    sourceType: markerPlanSource ? 'marker-plan' : 'cut-order',
     cutOrderIds: matchedCutOrders.map((row) => row.cutOrderId),
     cutOrderNos: matchedCutOrders.map((row) => row.cutOrderNo),
-    markerPlanId: markerPlanRef?.markerPlanId || '',
-    markerPlanNo: markerPlanRef?.markerPlanNo || '',
+    markerPlanId: markerPlanSource?.markerPlanId || '',
+    markerPlanNo: markerPlanSource?.markerPlanNo || '',
     productionOrderIds: uniqueStrings(matchedCutOrders.map((row) => row.productionOrderId)),
     productionOrderNos: uniqueStrings(matchedCutOrders.map((row) => row.productionOrderNo)),
     styleCode: seed?.styleCode || options.prefilter?.styleCode || '',
@@ -523,7 +524,7 @@ export function createBindingStripProcessDraft(options: {
     status: 'DRAFT',
     createdAt: nowText(),
     createdBy: '工艺专员 叶晓青',
-    note: markerPlanRef ? '来源于唛架方案预填。' : '来源于裁片单预填。',
+    note: markerPlanSource ? '来源于唛架方案预填。' : '来源于裁片单预填。',
   }
   const payload: BindingStripProcessPayload = {
     processOrderId: orderId,
@@ -539,7 +540,7 @@ export function createBindingStripProcessDraft(options: {
   const scopeLines = buildDefaultSpecialProcessScopeLines({
     order,
     cutOrderRows: options.cutOrderRows,
-    markerPlanRefs: options.markerPlanRefs,
+    markerPlanSources: options.markerPlanSources,
   })
   const followupActions = buildDefaultSpecialProcessFollowupActions({
     order,
@@ -618,7 +619,7 @@ export function buildSpecialProcessNavigationPayload(
       styleCode: order.styleCode || undefined,
       materialSku: order.materialSku || undefined,
     },
-    markerPlanRefs: {
+    markerPlanSources: {
       markerPlanId: order.markerPlanId || undefined,
       markerPlanNo: order.markerPlanNo || undefined,
       cutOrderId,
@@ -688,7 +689,7 @@ export function buildSpecialProcessAuditTrail(options: {
   }
 }
 
-function buildSystemSeedOrders(cutOrderRows: CutOrderRow[], markerPlanRefs: MarkerPlanRefRecord[]): {
+function buildSystemSeedOrders(cutOrderRows: CutOrderRow[], markerPlanSources: MarkerPlanSourceRecord[]): {
   orders: SpecialProcessOrder[]
   payloads: BindingStripProcessPayload[]
   scopeLines: SpecialProcessScopeLine[]
@@ -736,7 +737,7 @@ function buildSystemSeedOrders(cutOrderRows: CutOrderRow[], markerPlanRefs: Mark
     }
     const navigationPayload = buildSpecialProcessNavigationPayload(order)
     const typeMeta = deriveSpecialProcessTypeExecutionMeta(order.processType)
-    const seedScopes = buildDefaultSpecialProcessScopeLines({ order, cutOrderRows, markerPlanRefs })
+    const seedScopes = buildDefaultSpecialProcessScopeLines({ order, cutOrderRows, markerPlanSources })
     const seedActions = buildDefaultSpecialProcessFollowupActions({ order, navigationPayload, typeMeta }).map((item, index) =>
       index === 2
         ? {
@@ -811,7 +812,7 @@ function buildSystemSeedOrders(cutOrderRows: CutOrderRow[], markerPlanRefs: Mark
 
 export function buildSystemSeedSpecialProcessLedger(
   cutOrderRows: CutOrderRow[],
-  markerPlanRefs: MarkerPlanRefRecord[],
+  markerPlanSources: MarkerPlanSourceRecord[],
 ): {
   orders: SpecialProcessOrder[]
   payloads: BindingStripProcessPayload[]
@@ -820,7 +821,7 @@ export function buildSystemSeedSpecialProcessLedger(
   followupActions: SpecialProcessFollowupAction[]
   audits: SpecialProcessAuditTrail[]
 } {
-  return buildSystemSeedOrders(cutOrderRows, markerPlanRefs)
+  return buildSystemSeedOrders(cutOrderRows, markerPlanSources)
 }
 
 export function serializeSpecialProcessOrdersStorage(records: SpecialProcessOrder[]): string {
@@ -911,7 +912,7 @@ function getEffectiveScopeLines(options: {
   order: SpecialProcessOrder
   storedScopeLines: SpecialProcessScopeLine[]
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   sourceOptions: SpecialProcessSourceOption[]
 }): SpecialProcessScopeLine[] {
   const matched = options.storedScopeLines.filter((item) => item.processOrderId === options.order.processOrderId)
@@ -919,7 +920,7 @@ function getEffectiveScopeLines(options: {
     return buildDefaultSpecialProcessScopeLines({
       order: options.order,
       cutOrderRows: options.cutOrderRows,
-      markerPlanRefs: options.markerPlanRefs,
+      markerPlanSources: options.markerPlanSources,
     })
   }
   return matched.map((item) => hydrateScopeLineFromSource(item, options.sourceOptions))
@@ -954,7 +955,7 @@ function getEffectiveFollowupActions(options: {
 
 function buildSourceSummary(order: SpecialProcessOrder, scopeLines: SpecialProcessScopeLine[]): string {
   const scopeCutOrders = uniqueStrings(scopeLines.map((item) => item.sourceCutOrderNo))
-  if (order.sourceType === 'marker-plan-ref') {
+  if (order.sourceType === 'marker-plan') {
     return `来源唛架方案 ${order.markerPlanNo || '待补唛架方案号'}，当前覆盖 ${scopeCutOrders.length || order.cutOrderNos.length} 个裁片单。`
   }
   return `来源裁片单 ${scopeCutOrders[0] || order.cutOrderNos[0] || '待补'}。`
@@ -985,14 +986,14 @@ function mergeByKey<T extends Record<string, unknown>>(seed: T[], stored: T[], k
 
 export function buildSpecialProcessViewModel(options: {
   cutOrderRows: CutOrderRow[]
-  markerPlanRefs: MarkerPlanRefRecord[]
+  markerPlanSources: MarkerPlanSourceRecord[]
   orders: SpecialProcessOrder[]
   bindingPayloads: BindingStripProcessPayload[]
   scopeLines?: SpecialProcessScopeLine[]
   executionLogs?: SpecialProcessExecutionLog[]
   followupActions?: SpecialProcessFollowupAction[]
 }): SpecialProcessViewModel {
-  const seed = buildSystemSeedOrders(options.cutOrderRows, options.markerPlanRefs)
+  const seed = buildSystemSeedOrders(options.cutOrderRows, options.markerPlanSources)
   const orderMap = new Map<string, SpecialProcessOrder>()
   mergeByKey(seed.orders, options.orders, 'processOrderId').forEach((order) => orderMap.set(order.processOrderId, order))
 
@@ -1014,13 +1015,13 @@ export function buildSpecialProcessViewModel(options: {
       const sourceOptions = buildSpecialProcessSourceOptions({
         order,
         cutOrderRows: options.cutOrderRows,
-        markerPlanRefs: options.markerPlanRefs,
+        markerPlanSources: options.markerPlanSources,
       })
       const scopeLines = getEffectiveScopeLines({
         order,
         storedScopeLines: allStoredScopeLines,
         cutOrderRows: options.cutOrderRows,
-        markerPlanRefs: options.markerPlanRefs,
+        markerPlanSources: options.markerPlanSources,
         sourceOptions,
       })
       const executionLogs = allStoredExecutionLogs
@@ -1043,7 +1044,7 @@ export function buildSpecialProcessViewModel(options: {
       return {
         ...order,
         processTypeLabel: specialProcessTypeMeta[order.processType].label,
-        sourceLabel: order.sourceType === 'marker-plan-ref' ? '唛架方案' : '裁片单',
+        sourceLabel: order.sourceType === 'marker-plan' ? '唛架方案' : '裁片单',
         sourceSummary: buildSourceSummary(order, scopeLines),
         statusMeta,
         bindingPayload,

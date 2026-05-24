@@ -21,7 +21,7 @@ import {
 } from '../fcs-cutting-runtime/index.ts'
 import type {
   CuttingTaskRef,
-  MarkerPlanRefRef,
+  MarkerPlanSourceRef,
   CutOrderRef,
   ProductionOrderRef,
 } from '../cutting-core/index.ts'
@@ -71,7 +71,7 @@ export interface PlatformCuttingOverviewRow {
   markerPlanNos: string[]
   productionOrderRef: ProductionOrderRef | null
   cutOrderRefs: CutOrderRef[]
-  markerPlanRefRefs: MarkerPlanRefRef[]
+  markerPlanSourceRefs: MarkerPlanSourceRef[]
   cuttingTaskRef: CuttingTaskRef | null
   purchaseDate: string
   orderQty: number
@@ -226,11 +226,11 @@ function getCutOrderRefs(snapshot: CuttingDomainSnapshot, record: CuttingOrderPr
     .filter((row): row is CutOrderRef => Boolean(row))
 }
 
-function getMarkerPlanRefRefs(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord): MarkerPlanRefRef[] {
-  const refs = snapshot.markerPlanRefState.sourceRecords
+function getMarkerPlanSourceRefs(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord): MarkerPlanSourceRef[] {
+  const refs = snapshot.markerPlanSourceState.sourceRecords
     .filter((item) => item.sourceProductionOrderIds.includes(record.productionOrderId) || item.sourceProductionOrderNos.includes(record.productionOrderNo))
-    .map((item) => snapshot.registry.markerPlanRefsById[item.markerPlanId] || snapshot.registry.markerPlanRefsByNo[item.markerPlanNo])
-    .filter((item): item is MarkerPlanRefRef => Boolean(item))
+    .map((item) => snapshot.registry.markerPlanSourcesById[item.markerPlanId] || snapshot.registry.markerPlanSourcesByNo[item.markerPlanNo])
+    .filter((item): item is MarkerPlanSourceRef => Boolean(item))
 
   return unique(refs.map((item) => item.markerPlanId)).map((markerPlanId) => refs.find((item) => item.markerPlanId === markerPlanId)!).filter(Boolean)
 }
@@ -278,9 +278,9 @@ function buildOverlaySignals(snapshot: CuttingDomainSnapshot, record: CuttingOrd
   ]
 }
 
-function buildMarkerAndSpreadingSummary(snapshot: CuttingDomainSnapshot, cutOrderRefs: CutOrderRef[], markerPlanRefRefs: MarkerPlanRefRef[]) {
+function buildMarkerAndSpreadingSummary(snapshot: CuttingDomainSnapshot, cutOrderRefs: CutOrderRef[], markerPlanSourceRefs: MarkerPlanSourceRef[]) {
   const cutOrderIdSet = new Set(cutOrderRefs.map((item) => item.cutOrderId))
-  const markerPlanIdSet = new Set(markerPlanRefRefs.map((item) => item.markerPlanId))
+  const markerPlanIdSet = new Set(markerPlanSourceRefs.map((item) => item.markerPlanId))
   const store = snapshot.markerSpreadingState.store as unknown as RuntimeMarkerStore
   const markers = (store.markers || []).filter(
     (item) => (item.cutOrderIds || []).some((id) => cutOrderIdSet.has(id)) || (item.markerPlanId && markerPlanIdSet.has(item.markerPlanId)),
@@ -631,14 +631,14 @@ function buildLinkedPages(row: PlatformCuttingOverviewRow): CuttingSummaryLinked
 function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord): PlatformCuttingOverviewRow {
   const productionOrderRef = getProductionOrderRef(snapshot, record)
   const cutOrderRefs = getCutOrderRefs(snapshot, record)
-  const markerPlanRefRefs = getMarkerPlanRefRefs(snapshot, record)
+  const markerPlanSourceRefs = getMarkerPlanSourceRefs(snapshot, record)
   const cuttingTaskRef = getCuttingTaskRef(snapshot, record)
   const overlaySignals = buildOverlaySignals(snapshot, record)
   const truth = buildProductionPieceTruth(record, { overlaySignals })
   const pickupPrepProjection = buildPlatformCuttingPrepProjection(snapshot, record, cutOrderRefs)
   const pickupAggregate = pickupPrepProjection.aggregate
   const pickupSummary = pickupPrepProjection.summary
-  const { markerSummary, spreadingSummary } = buildMarkerAndSpreadingSummary(snapshot, cutOrderRefs, markerPlanRefRefs)
+  const { markerSummary, spreadingSummary } = buildMarkerAndSpreadingSummary(snapshot, cutOrderRefs, markerPlanSourceRefs)
   const replenishmentSummary = buildReplenishmentSummary(snapshot, record)
   const warehouseSummary = buildWarehouseSummary(snapshot, record)
   const sampleSummary = buildSampleSummary(snapshot, record)
@@ -708,11 +708,11 @@ function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderP
     productionOrderNo: record.productionOrderNo,
     cutOrderIds: cutOrderRefs.map((item) => item.cutOrderId),
     cutOrderNos: cutOrderRefs.map((item) => item.cutOrderNo),
-    markerPlanIds: markerPlanRefRefs.map((item) => item.markerPlanId),
-    markerPlanNos: markerPlanRefRefs.map((item) => item.markerPlanNo),
+    markerPlanIds: markerPlanSourceRefs.map((item) => item.markerPlanId),
+    markerPlanNos: markerPlanSourceRefs.map((item) => item.markerPlanNo),
     productionOrderRef,
     cutOrderRefs,
-    markerPlanRefRefs,
+    markerPlanSourceRefs,
     cuttingTaskRef,
     purchaseDate: record.purchaseDate,
     orderQty: record.orderQty,

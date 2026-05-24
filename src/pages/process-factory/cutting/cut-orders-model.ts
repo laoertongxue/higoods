@@ -26,7 +26,7 @@ import {
   type ProductionProgressUrgencyKey,
   urgencyMeta,
 } from './production-progress-model.ts'
-import type { MarkerPlanRefRecord } from './marker-plan-ref-model.ts'
+import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
 import {
   buildCutOrderStartStateLookup,
   resolveCutOrderStartState,
@@ -91,7 +91,7 @@ export interface CutOrderNavigationPayload {
   markerSpreading: Record<string, string | undefined>
   feiTickets: Record<string, string | undefined>
   replenishment: Record<string, string | undefined>
-  markerPlanRefs: Record<string, string | undefined>
+  markerPlanSources: Record<string, string | undefined>
   sameProductionOrders: Record<string, string | undefined>
 }
 
@@ -319,13 +319,13 @@ function createSummaryMeta<Key extends string>(
   return { key, label, className, detailText }
 }
 
-function getBatchSortTime(batch: MarkerPlanRefRecord): string {
+function getBatchSortTime(batch: MarkerPlanSourceRecord): string {
   return batch.updatedAt || batch.createdAt || ''
 }
 
-export function summarizeMarkerPlanRefParticipation(
+export function summarizeMarkerPlanSourceParticipation(
   cutOrderId: string,
-  ledger: MarkerPlanRefRecord[],
+  ledger: MarkerPlanSourceRecord[],
 ): {
   markerPlanIds: string[]
   markerPlanNos: string[]
@@ -504,7 +504,7 @@ export function buildCutOrderNavigationPayload(row: {
   styleCode: string
   spuCode: string
   materialSku: string
-  activeMarkerPlanRefId: string
+  activeMarkerPlanSourceId: string
   latestMarkerPlanNo: string
 }): CutOrderNavigationPayload {
   return {
@@ -534,8 +534,8 @@ export function buildCutOrderNavigationPayload(row: {
       cutOrderNo: row.cutOrderNo,
       productionOrderNo: row.productionOrderNo,
     },
-    markerPlanRefs: {
-      markerPlanId: row.activeMarkerPlanRefId || undefined,
+    markerPlanSources: {
+      markerPlanId: row.activeMarkerPlanSourceId || undefined,
       markerPlanNo: row.latestMarkerPlanNo || undefined,
       cutOrderId: row.cutOrderId,
       cutOrderNo: row.cutOrderNo,
@@ -602,7 +602,7 @@ function createRow(
   record: CuttingOrderProgressRecord,
   line: CuttingMaterialLine,
   progressRow: ProductionProgressRow | undefined,
-  ledger: MarkerPlanRefRecord[],
+  ledger: MarkerPlanSourceRecord[],
   options: {
     startState: CutOrderStartState
     markerPlanOccupancy: MarkerPlanOccupancyLookup[string] | null
@@ -612,7 +612,7 @@ function createRow(
 ): CutOrderRow {
   const closeRecord = options.closeRecordLookup[source.cutOrderId] || options.closeRecordLookup[source.cutOrderNo] || null
   const effectiveRecord = applyCutOrderCloseRecordToProgressRecord(record, closeRecord)
-  const batchSummary = summarizeMarkerPlanRefParticipation(source.cutOrderId, ledger)
+  const batchSummary = summarizeMarkerPlanSourceParticipation(source.cutOrderId, ledger)
   const materialQuantityLedger = buildCutOrderMaterialQuantityLedger(source, options.materialLedgerProjectionMap)
   const eligibility = deriveCuttableMarkerEligibility({
     cutOrderId: source.cutOrderId,
@@ -733,7 +733,7 @@ function createRow(
       styleCode: effectiveRecord.styleCode,
       spuCode: effectiveRecord.spuCode,
       materialSku: source.materialSku,
-      activeMarkerPlanRefId: activeMarkerPlanId,
+      activeMarkerPlanSourceId: activeMarkerPlanId,
       latestMarkerPlanNo,
     }),
     keywordIndex: buildKeywordIndex([
@@ -766,7 +766,7 @@ function createRow(
 
 export function buildCutOrderViewModel(
   records: CuttingOrderProgressRecord[],
-  ledger: MarkerPlanRefRecord[] = [],
+  ledger: MarkerPlanSourceRecord[] = [],
   options: {
     progressRows?: ProductionProgressRow[]
     markerPlanOccupancy?: MarkerPlanOccupancyLookup
