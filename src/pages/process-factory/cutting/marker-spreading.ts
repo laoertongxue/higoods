@@ -2529,6 +2529,17 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
         </div>
         <div class="text-xs text-muted-foreground">共 ${rows.length} 张铺布单</div>
       </div>
+      <div class="hidden border-b bg-slate-50 px-4 py-3 text-left text-xs font-medium text-muted-foreground xl:grid xl:grid-cols-[1.1fr_1.2fr_1.4fr_1.2fr_1.2fr_1.2fr_1.2fr_1.1fr_1fr] xl:gap-4">
+        <div>铺布单</div>
+        <div>来源</div>
+        <div>面料</div>
+        <div>纸样</div>
+        <div>计划</div>
+        <div>实际</div>
+        <div>差异</div>
+        <div>PDA 写回</div>
+        <div>操作</div>
+      </div>
       <div class="divide-y">
         ${rows
           .map((row) => {

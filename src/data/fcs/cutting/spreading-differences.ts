@@ -140,7 +140,8 @@ function buildOrdersFromSessions(sessions: SpreadingSession[]): SpreadingOrder[]
   })
 
   return sessions.map((session) => {
-    const sourceRows = session.cutOrderIds
+    const sessionCutOrderIds = session.cutOrderIds || []
+    const sourceRows = sessionCutOrderIds
       .map((cutOrderId) => sourceById.get(cutOrderId))
       .filter((record): record is GeneratedCutOrderSourceRecord => Boolean(record))
     const firstSource = sourceRows[0]
@@ -166,7 +167,7 @@ function buildOrdersFromSessions(sessions: SpreadingSession[]): SpreadingOrder[]
       markerNumberId: session.sourceBedId || session.markerId || session.spreadingSessionId,
       markerNumber: session.sourceBedNo || session.markerNo || session.sessionNo || session.spreadingSessionId,
       bedNo: session.sourceBedNo || session.markerNo || '',
-      sourceCutOrderIds: [...session.cutOrderIds],
+      sourceCutOrderIds: [...sessionCutOrderIds],
       sourceCutOrderNos: sourceRows.map((record) => record.cutOrderNo),
       productionOrderIds: uniqueStrings(sourceRows.map((record) => record.productionOrderId)),
       productionOrderNos: uniqueStrings(sourceRows.map((record) => record.productionOrderNo)),

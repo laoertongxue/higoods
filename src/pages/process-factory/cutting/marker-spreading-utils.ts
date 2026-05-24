@@ -1228,6 +1228,7 @@ export function buildMarkerSpreadingCountsByCutOrder(cutOrderId: string): {
   const latestAmountSummary = latestSession
     ? summarizeSpreadingOperatorAmounts(latestSession.operators, latestMarkerTotalPieces, latestSession.unitPrice)
     : null
+  const latestWarning = latestSession?.replenishmentWarning || null
   const completedForCurrentOrder = linkedSessions.some((item) => getCompletedLinkedCutOrderIds(item).includes(cutOrderId))
   const spreadingStatusLabel = completedForCurrentOrder
     ? '已铺布'

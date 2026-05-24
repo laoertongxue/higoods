@@ -12,6 +12,7 @@ import type { CuttingMaterialIdentity, CuttingPatternIdentity } from './types.ts
 export type CuttingMaterialLedgerEventType =
   | 'TRANSFER_WAREHOUSE_ALLOCATED'
   | 'CUTTING_CLAIMED'
+  | 'CUTTING_WAIT_PROCESS_INBOUNDED'
   | 'MARKER_DRAFT_LOCKED'
   | 'MARKER_DRAFT_RELEASED'
   | 'MARKER_CONFIRMED_LOCKED'
@@ -22,6 +23,7 @@ export type CuttingMaterialLedgerEventType =
 export const cuttingMaterialLedgerEventTypeLabels: Record<CuttingMaterialLedgerEventType, string> = {
   TRANSFER_WAREHOUSE_ALLOCATED: '中转仓配料',
   CUTTING_CLAIMED: '裁床领料',
+  CUTTING_WAIT_PROCESS_INBOUNDED: '扫码入仓',
   MARKER_DRAFT_LOCKED: '唛架草稿锁定',
   MARKER_DRAFT_RELEASED: '草稿取消释放',
   MARKER_CONFIRMED_LOCKED: '唛架确认锁定',
@@ -34,6 +36,7 @@ export type CuttingMaterialLedgerSourceObjectType =
   | 'CUT_ORDER_REQUIREMENT'
   | 'WMS_PREP_RECORD'
   | 'PDA_PICKUP_RECORD'
+  | 'WAIT_PROCESS_INBOUND_RECORD'
   | 'MARKER_PLAN_DRAFT'
   | 'MARKER_PLAN'
   | 'SPREADING_SESSION'
@@ -524,14 +527,34 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
   return []
 }
 
+function buildWaitProcessInboundEvents(events: CuttingMaterialLedgerEvent[]): CuttingMaterialLedgerEvent[] {
+  return events
+    .filter((event) => event.eventType === 'CUTTING_CLAIMED')
+    .map((event) => ({
+      ...event,
+      eventId: `${event.eventId}:wait-process-inbound`,
+      eventType: 'CUTTING_WAIT_PROCESS_INBOUNDED' as const,
+      sourceObjectType: 'WAIT_PROCESS_INBOUND_RECORD' as const,
+      sourceObjectId: `wait-process-inbound:${event.sourceObjectId}`,
+      remark: '裁床完成中转仓领料后，扫码确认进入裁床待加工仓库区库位。',
+    }))
+}
+
 export function listCuttingMaterialLedgerEvents(): CuttingMaterialLedgerEvent[] {
-  return uniqueByEventId(
+  const baseEvents = uniqueByEventId(
     [
       ...listGeneratedCutOrderSourceRecords().flatMap((record) => {
       const scenarioEvents = buildPrompt2ScenarioEvents(record)
       return scenarioEvents.length ? scenarioEvents : buildProgressDrivenEvents(record)
       }),
       ...buildLockLedgerEvents(),
+    ],
+  )
+
+  return uniqueByEventId(
+    [
+      ...baseEvents,
+      ...buildWaitProcessInboundEvents(baseEvents),
     ],
   ).sort((left, right) =>
     left.productionOrderNo.localeCompare(right.productionOrderNo, 'zh-CN')

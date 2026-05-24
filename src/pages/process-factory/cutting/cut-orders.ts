@@ -88,6 +88,7 @@ import {
   type CutOrderCloseReasonCode,
   type CutOrderCloseRecord,
 } from '../../../data/fcs/cutting/cut-order-close-records'
+import { cuttingMaterialLedgerEventTypeLabels } from '../../../data/fcs/cutting/material-ledger.ts'
 
 type FilterField =
   | 'keyword'
@@ -161,6 +162,16 @@ const state: CutOrdersPageState = {
     feedback: null,
   },
 }
+
+const cutOrderDemoScenarioNos = new Set([
+  // 只保留裁片单页面需要演示的关键业务场景，避免大量重复 mock 干扰阅读。
+  'CUT-260308-081-01', // 未开工：无配料、无领料、无唛架
+  'CUT-260306-101-05', // 已开工未排唛架：只有配料 / 领料 / 入仓记录
+  'CUT-260306-101-01', // 已排唛架：有唛架锁定、铺布和后续记录
+  'CUT-260306-101-02', // 历史唛架后仍有可用余额
+  'CUT-260307-102-01', // 已裁剪：有菲票和差异记录
+  'CUT-260306-101-04', // 已关闭：有关闭原因和影响项
+])
 
 const consumedWebActionKeys = new Set<string>()
 
@@ -272,7 +283,10 @@ function syncStateFromPath(viewModel = getViewModel()): void {
 }
 
 function getDisplayRows(viewModel = getViewModel()): CutOrderRow[] {
-  return filterCutOrderRows(viewModel.rows, state.filters, state.prefilter)
+  const sourceRows = state.prefilter
+    ? viewModel.rows
+    : viewModel.rows.filter((row) => cutOrderDemoScenarioNos.has(row.cutOrderNo))
+  return filterCutOrderRows(sourceRows.length ? sourceRows : viewModel.rows, state.filters, state.prefilter)
 }
 
 function getActiveRow(viewModel = getViewModel()): CutOrderRow | null {
@@ -1028,7 +1042,7 @@ function renderTable(rows: CutOrderRow[]): string {
     <section class="rounded-lg border bg-card" data-testid="cutting-cut-orders-main-table">
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
-          <h2 class="text-sm font-semibold">裁片单主表</h2>
+          <h2 class="text-sm font-semibold">裁片单</h2>
         </div>
         <div class="text-xs text-muted-foreground">共 ${pagination.total} 条裁片单</div>
       </div>
@@ -1041,9 +1055,9 @@ function renderTable(rows: CutOrderRow[]): string {
                 <th class="px-4 py-3 text-left font-medium">生产单与款式</th>
                 <th class="px-4 py-3 text-left font-medium">面料</th>
                 <th class="px-4 py-3 text-left font-medium">纸样</th>
-                <th class="px-4 py-3 text-left font-medium">数量</th>
+                <th class="px-4 py-3 text-left font-medium">数量账</th>
                 <th class="px-4 py-3 text-left font-medium">日期</th>
-                <th class="px-4 py-3 text-left font-medium">裁片单主状态</th>
+                <th class="px-4 py-3 text-left font-medium">主状态 / 判断</th>
                 <th class="px-4 py-3 text-left font-medium">风险</th>
                 <th class="px-4 py-3 text-left font-medium">操作</th>
               </tr>
@@ -1639,6 +1653,577 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
   `
 }
 
+type CutOrderDetailTabKey =
+  | 'overview'
+  | 'material-flow'
+  | 'marker-plans'
+  | 'spreading'
+  | 'tickets-warehouse'
+  | 'differences'
+  | 'close'
+
+const cutOrderDetailTabs: Array<{ key: CutOrderDetailTabKey; label: string; description: string }> = [
+  { key: 'overview', label: '概览', description: '当前事实' },
+  { key: 'material-flow', label: '配料领料', description: '多次配料 / 领料 / 入仓' },
+  { key: 'marker-plans', label: '唛架方案', description: '多次排唛架与锁定' },
+  { key: 'spreading', label: '铺布裁剪', description: '多张铺布单与实裁' },
+  { key: 'tickets-warehouse', label: '菲票入仓交出', description: '实际裁剪后的追踪' },
+  { key: 'differences', label: '差异补料', description: '差异与后续动作' },
+  { key: 'close', label: '关闭记录', description: '关闭原因和快照' },
+]
+
+const markerPlanSourceStatusLabels: Record<string, string> = {
+  DRAFT: '草稿',
+  READY: '已确认',
+  CUTTING: '执行中',
+  DONE: '已完成',
+  CANCELLED: '已取消',
+}
+
+const spreadingStatusLabels: Record<string, string> = {
+  DRAFT: '草稿',
+  TO_FILL: '待铺布',
+  IN_PROGRESS: '铺布中',
+  DONE: '已铺布',
+  CANCELLED: '已取消',
+}
+
+const cuttingStatusLabels: Record<string, string> = {
+  WAITING_CUTTING: '待裁剪',
+  CUTTING: '裁剪中',
+  CUTTING_DONE: '已裁剪',
+  CANCELLED: '已取消',
+}
+
+const feiTicketPrintStatusLabels: Record<string, string> = {
+  WAIT_PRINT: '待首打',
+  PRINTED: '已首打',
+  REPRINTED: '已补打',
+  VOIDED: '已作废',
+}
+
+function isCutOrderLinked(value: unknown, row: Pick<CutOrderRow, 'cutOrderId' | 'cutOrderNo'>): boolean {
+  if (Array.isArray(value)) return value.includes(row.cutOrderId) || value.includes(row.cutOrderNo)
+  return value === row.cutOrderId || value === row.cutOrderNo
+}
+
+function isObjectLinkedToCutOrder(item: Record<string, any>, row: Pick<CutOrderRow, 'cutOrderId' | 'cutOrderNo'>): boolean {
+  return (
+    isCutOrderLinked(item.cutOrderId, row) ||
+    isCutOrderLinked(item.cutOrderNo, row) ||
+    isCutOrderLinked(item.cutOrderIds, row) ||
+    isCutOrderLinked(item.cutOrderNos, row) ||
+    isCutOrderLinked(item.sourceCutOrderIds, row) ||
+    isCutOrderLinked(item.sourceCutOrderNos, row) ||
+    isCutOrderLinked(item.completionLinkage?.linkedCutOrderIds, row) ||
+    isCutOrderLinked(item.completionLinkage?.linkedCutOrderNos, row)
+  )
+}
+
+function formatUnknownText(value: unknown, fallback = '—'): string {
+  if (value === null || value === undefined || value === '') return fallback
+  return String(value)
+}
+
+function formatUnknownNumber(value: unknown, unit = ''): string {
+  const numeric = Number(value || 0)
+  const label = Number.isFinite(numeric) ? formatCount(Math.round(numeric * 100) / 100) : '0'
+  return unit ? `${label} ${unit}` : label
+}
+
+function readRecordDate(record: Record<string, any>, keys: string[]): string {
+  for (const key of keys) {
+    if (record[key]) return String(record[key])
+  }
+  return ''
+}
+
+function sortRecordsByLatest<T extends Record<string, any>>(records: T[], keys: string[]): T[] {
+  return [...records].sort((left, right) =>
+    readRecordDate(right, keys).localeCompare(readRecordDate(left, keys), 'zh-CN'),
+  )
+}
+
+function getCutOrderDetailActiveTab(): CutOrderDetailTabKey {
+  const tab = getCurrentSearchParams().get('tab') as CutOrderDetailTabKey | null
+  return cutOrderDetailTabs.some((item) => item.key === tab) ? tab as CutOrderDetailTabKey : 'overview'
+}
+
+function buildCutOrderDetailTabPath(row: CutOrderRow, tab: CutOrderDetailTabKey): string {
+  return buildRouteWithQuery(buildCutOrderDetailPath(row.id), { tab })
+}
+
+function renderCutOrderDetailTabs(row: CutOrderRow, activeTab: CutOrderDetailTabKey): string {
+  const activeItem = cutOrderDetailTabs.find((item) => item.key === activeTab) || cutOrderDetailTabs[0]
+  return `
+    <nav class="rounded-xl border bg-card px-4 pt-3" aria-label="裁片单详情页签">
+      <div class="flex flex-wrap gap-1 border-b">
+        ${cutOrderDetailTabs.map((item) => {
+          const active = item.key === activeTab
+          return `
+            <button
+              type="button"
+              class="-mb-px whitespace-nowrap rounded-t-md border px-4 py-2 text-sm font-medium transition ${active ? 'border-slate-200 border-b-card bg-card text-blue-700 shadow-sm' : 'border-transparent text-muted-foreground hover:bg-muted/70 hover:text-foreground'}"
+              data-nav="${escapeHtml(buildCutOrderDetailTabPath(row, item.key))}"
+            >
+              ${escapeHtml(item.label)}
+            </button>
+          `
+        }).join('')}
+      </div>
+      <div class="py-2 text-xs text-muted-foreground">${escapeHtml(activeItem.description)}</div>
+    </nav>
+  `
+}
+
+function renderEmptyDetailRecord(message: string): string {
+  return `<div class="rounded-lg border border-dashed bg-background px-4 py-6 text-center text-sm text-muted-foreground">${escapeHtml(message)}</div>`
+}
+
+function renderCompactRecordList<T>(
+  records: T[],
+  emptyText: string,
+  renderItem: (record: T, index: number) => string,
+): string {
+  if (!records.length) return renderEmptyDetailRecord(emptyText)
+  return `<div class="divide-y rounded-lg border bg-background">${records.map(renderItem).join('')}</div>`
+}
+
+function buildCutOrderDetailView(row: CutOrderRow, viewModel = getViewModel()) {
+  const projection = getProjection()
+  const sources = projection.sources
+  const materialEvents = sortRecordsByLatest(
+    row.materialQuantityLedger.events.map((event) => ({ ...event })),
+    ['occurredAt'],
+  )
+  const markerPlanRecords = sortRecordsByLatest(
+    sources.markerPlanSources
+      .filter((record) => record.items.some((item) => item.cutOrderId === row.cutOrderId || item.cutOrderNo === row.cutOrderNo))
+      .map((record) => ({ ...record })),
+    ['updatedAt', 'createdAt'],
+  )
+  const markerPlanIds = new Set(markerPlanRecords.map((record) => String(record.markerPlanId || '')).filter(Boolean))
+  const markerPlanNos = new Set(markerPlanRecords.map((record) => String(record.markerPlanNo || '')).filter(Boolean))
+  const spreadingSessions = sortRecordsByLatest(
+    (sources.markerStore.sessions as Array<Record<string, any>>)
+      .filter((session) => {
+        if (!markerPlanRecords.length) return false
+        return (
+          isObjectLinkedToCutOrder(session, row) ||
+          markerPlanIds.has(String(session.markerPlanId || session.sourceSchemeId || '')) ||
+          markerPlanNos.has(String(session.markerPlanNo || session.sourceMarkerNo || session.markerNo || ''))
+        )
+      })
+      .map((session) => ({ ...session })),
+    ['updatedAt', 'actualEndAt', 'createdAt'],
+  )
+  const spreadingSessionIds = new Set(spreadingSessions.map((session) => String(session.spreadingSessionId || '')).filter(Boolean))
+  const spreadingSessionNos = new Set(
+    spreadingSessions
+      .flatMap((session) => [session.sessionNo, session.spreadingOrderNo, session.sourceSpreadingSessionNo])
+      .map((value) => String(value || ''))
+      .filter(Boolean),
+  )
+  const ticketRecords = sortRecordsByLatest(
+    (sources.feiViewModel.ticketRecords as Array<Record<string, any>>)
+      .filter((ticket) => {
+        if (!markerPlanRecords.length) return false
+        return (
+          isObjectLinkedToCutOrder(ticket, row) ||
+          spreadingSessionIds.has(String(ticket.spreadingSessionId || ticket.sourceSpreadingSessionId || '')) ||
+          spreadingSessionNos.has(String(ticket.spreadingOrderNo || ticket.sourceSpreadingSessionNo || ''))
+        )
+      })
+      .map((ticket) => ({ ...ticket })),
+    ['printedAt', 'createdAt'],
+  )
+  const warehouseItems = sortRecordsByLatest(
+    (sources.cutPieceWarehouseView.items as Array<Record<string, any>>)
+      .filter((item) => ticketRecords.length > 0 && isObjectLinkedToCutOrder(item, row))
+      .map((item) => ({ ...item })),
+    ['inWarehouseAt', 'updatedAt'],
+  )
+  const replenishmentRows = sortRecordsByLatest(
+    (sources.replenishmentView.rows as Array<Record<string, any>>)
+      .filter((item) => (materialEvents.length > 0 || markerPlanRecords.length > 0 || spreadingSessions.length > 0) && isObjectLinkedToCutOrder(item, row))
+      .map((item) => ({ ...item })),
+    ['updatedAt', 'reviewedAt', 'createdAt'],
+  )
+  const specialProcessRows = sortRecordsByLatest(
+    (sources.specialProcessView.rows as Array<Record<string, any>>)
+      .filter((item) => ticketRecords.length > 0 && isObjectLinkedToCutOrder(item, row))
+      .map((item) => ({ ...item })),
+    ['updatedAt', 'returnedAt', 'createdAt'],
+  )
+  const siblingRows = viewModel.rows.filter(
+    (item) => item.productionOrderId === row.productionOrderId && item.cutOrderId !== row.cutOrderId,
+  )
+
+  return {
+    row,
+    materialEvents,
+    markerPlanRecords,
+    spreadingSessions,
+    ticketRecords,
+    warehouseItems,
+    replenishmentRows,
+    specialProcessRows,
+    siblingRows,
+  }
+}
+
+function renderMaterialFlowEventRows(
+  title: string,
+  records: Array<Record<string, any>>,
+  emptyText: string,
+): string {
+  return `
+    <section class="space-y-2">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-semibold">${escapeHtml(title)}</h3>
+        <span class="text-xs text-muted-foreground">${records.length} 条</span>
+      </div>
+      ${renderCompactRecordList(records, emptyText, (event) => `
+        <div class="grid gap-3 px-3 py-3 text-sm md:grid-cols-[1.1fr_1fr_1.1fr_1.3fr]">
+          <div>
+            <div class="font-medium text-foreground">${escapeHtml(cuttingMaterialLedgerEventTypeLabels[event.eventType as keyof typeof cuttingMaterialLedgerEventTypeLabels] || title)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(event.sourceObjectId))}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">数量</div>
+            <div class="font-semibold tabular-nums">${escapeHtml(formatMaterialLedgerQty(Number(event.quantity || 0), event.unit || '米'))}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">操作</div>
+            <div>${escapeHtml(formatUnknownText(event.operatorName))}</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(formatUnknownText(event.occurredAt))}</div>
+          </div>
+          <div class="text-xs leading-5 text-muted-foreground">${escapeHtml(formatUnknownText(event.remark, '无备注'))}</div>
+        </div>
+      `)}
+    </section>
+  `
+}
+
+function renderCutOrderOverviewTab(view: ReturnType<typeof buildCutOrderDetailView>): string {
+  const { row } = view
+  const markerSpreadingCounts = buildMarkerSpreadingCountsByCutOrder(row.cutOrderId)
+  return `
+    <div class="space-y-4">
+      ${renderDetailSection('当前概览', `
+        <div class="grid gap-3 xl:grid-cols-[1.1fr_1fr]">
+          <div class="rounded-lg border bg-muted/20 p-3">
+            ${renderMaterialIdentityBlock(
+              {
+                materialSku: row.materialSku,
+                materialName: row.materialName,
+                materialLabel: row.materialLabel,
+                materialCategory: row.materialCategory,
+                materialColor: row.materialColor,
+                materialAlias: row.materialAlias,
+                materialImageUrl: row.materialImageUrl,
+                materialUnit: row.materialUnit,
+              },
+              { imageSizeClass: 'h-14 w-14' },
+            )}
+          </div>
+          ${renderInfoGrid([
+            { label: '裁片单号', value: row.cutOrderNo, tone: 'strong' },
+            { label: '来源生产单', value: row.productionOrderNo },
+            { label: '主状态', value: row.currentStageLabel, tone: 'strong' },
+            { label: '可排唛架判断', value: row.visibleCuttableStatus.label },
+            { label: '可用余额', value: formatMaterialLedgerQty(row.availableQty, row.availableUnit || row.materialUnit), tone: 'strong' },
+            { label: '当前锁定来源', value: row.activeMarkerPlanNo || row.latestMarkerPlanNo || '无' },
+          ])}
+        </div>
+      `)}
+      ${renderDetailSection('纸样与日期', renderInfoGrid([
+        { label: '纸样文件', value: row.patternFileName },
+        { label: '纸样版本', value: row.patternVersion },
+        { label: '有效幅宽', value: row.effectiveWidthText },
+        { label: '部位集合', value: row.piecePartNames.join('、') || '待补' },
+        ...row.dateInfoLines.map((line) => ({ label: `${line.label}日期`, value: line.value })),
+        { label: '最近执行痕迹', value: row.latestActionText },
+      ]))}
+      ${renderDetailSection('数量账', renderMaterialLedgerGrid(row))}
+      ${renderDetailSection('最近关系', renderInfoGrid([
+        { label: '最近唛架方案', value: row.latestMarkerPlanNo || '暂无' },
+        { label: '参与唛架方案数', value: `${row.batchParticipationCount} 次` },
+        { label: '铺布记录', value: `${markerSpreadingCounts.sessionCount} 张铺布单 / 最近 ${markerSpreadingCounts.latestSessionNo}` },
+        { label: '铺布裁剪进度', value: markerSpreadingCounts.statusSummary },
+        { label: '菲票记录', value: `${view.ticketRecords.length} 条` },
+        { label: '补料差异', value: `${view.replenishmentRows.length} 条` },
+      ]))}
+    </div>
+  `
+}
+
+function renderCutOrderMaterialFlowTab(view: ReturnType<typeof buildCutOrderDetailView>): string {
+  const eventGroups = [
+    { title: '中转仓配料记录', types: ['TRANSFER_WAREHOUSE_ALLOCATED'], empty: '暂无中转仓配料记录。' },
+    { title: '裁床领料记录', types: ['CUTTING_CLAIMED'], empty: '暂无裁床领料记录。' },
+    { title: '扫码入仓记录', types: ['CUTTING_WAIT_PROCESS_INBOUNDED'], empty: '暂无扫码入仓记录。' },
+    { title: '唛架锁定 / 释放流水', types: ['MARKER_DRAFT_LOCKED', 'MARKER_DRAFT_RELEASED', 'MARKER_CONFIRMED_LOCKED'], empty: '暂无唛架锁定或释放流水。' },
+    { title: '加工用料 / 铺布消耗', types: ['SPREADING_ACTUAL_CONSUMED'], empty: '暂无加工用料或铺布消耗记录。' },
+    { title: '回收入仓 / 调整', types: ['CUTTING_RETURNED', 'LEDGER_ADJUSTED'], empty: '暂无回收入仓或调整记录。' },
+  ]
+
+  return `
+    <div class="space-y-4">
+      ${renderDetailSection('当前数量账', renderMaterialLedgerGrid(view.row))}
+      ${eventGroups.map((group) =>
+        renderMaterialFlowEventRows(
+          group.title,
+          view.materialEvents.filter((event) => group.types.includes(event.eventType)),
+          group.empty,
+        ),
+      ).join('')}
+    </div>
+  `
+}
+
+function renderCutOrderMarkerPlanTab(view: ReturnType<typeof buildCutOrderDetailView>): string {
+  return `
+    <div class="space-y-4">
+      ${renderDetailSection('唛架方案记录', renderCompactRecordList(view.markerPlanRecords, '暂无唛架方案记录。', (record) => {
+        const sourceItem = record.items.find((item: Record<string, any>) => item.cutOrderId === view.row.cutOrderId || item.cutOrderNo === view.row.cutOrderNo)
+        return `
+          <div class="grid gap-3 px-3 py-3 text-sm xl:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]">
+            <div>
+              <div class="font-semibold text-blue-600">${escapeHtml(record.markerPlanNo || '待补唛架方案号')}</div>
+              <div class="mt-1 text-xs text-muted-foreground">来源裁片单 ${escapeHtml(String(record.sourceCutOrderCount || record.items.length || 0))} 张</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">状态</div>
+              <div>${escapeHtml(markerPlanSourceStatusLabels[record.status] || record.status || '待补')}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">本裁片单</div>
+              <div>${escapeHtml(sourceItem?.cutOrderNo || view.row.cutOrderNo)}</div>
+              <div class="text-xs text-muted-foreground">${escapeHtml(sourceItem?.cuttableStateLabel || view.row.visibleCuttableStatus.label)}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">时间</div>
+              <div>创建：${escapeHtml(record.createdAt || '待补')}</div>
+              <div class="text-xs text-muted-foreground">更新：${escapeHtml(record.updatedAt || '待补')}</div>
+            </div>
+            <div class="flex items-center justify-start xl:justify-end">
+              <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('marker-list'), {
+                markerPlanNo: record.markerPlanNo,
+                cutOrderId: view.row.cutOrderId,
+                cutOrderNo: view.row.cutOrderNo,
+              }))}">查看唛架方案</button>
+            </div>
+          </div>
+        `
+      }))}
+      ${renderDetailSection('当前锁定流水', renderCompactRecordList(view.row.currentLocks, '当前没有草稿或有效唛架锁定。', (lock) => `
+        <div class="grid gap-3 px-3 py-3 text-sm md:grid-cols-4">
+          <div><div class="text-xs text-muted-foreground">锁定类型</div><div class="font-medium">${escapeHtml(lock.lockType)}</div></div>
+          <div><div class="text-xs text-muted-foreground">唛架方案</div><div>${escapeHtml(lock.markerPlanId || '待补')}</div></div>
+          <div><div class="text-xs text-muted-foreground">锁定数量</div><div class="font-semibold">${escapeHtml(formatMaterialLedgerQty(lock.lockedQty, lock.unit))}</div></div>
+          <div><div class="text-xs text-muted-foreground">锁定 ID</div><div class="truncate" title="${escapeHtml(lock.lockId)}">${escapeHtml(lock.lockId)}</div></div>
+        </div>
+      `))}
+    </div>
+  `
+}
+
+function renderCutOrderSpreadingTab(view: ReturnType<typeof buildCutOrderDetailView>): string {
+  return `
+    <div class="space-y-4">
+      ${renderDetailSection('铺布 / 裁剪记录', renderCompactRecordList(view.spreadingSessions, '暂无铺布单记录。', (session) => {
+        const spreadingStatus = spreadingStatusLabels[session.status] || formatUnknownText(session.status, '待补')
+        const cuttingStatus = session.status === 'DONE'
+          ? cuttingStatusLabels[session.cuttingStatus] || formatUnknownText(session.cuttingStatus, '待裁剪')
+          : '-'
+        return `
+          <div class="grid gap-3 px-3 py-3 text-sm xl:grid-cols-[1.2fr_1.1fr_1.1fr_1.1fr_1.3fr_auto]">
+            <div>
+              <div class="font-semibold text-blue-600">${escapeHtml(formatUnknownText(session.sessionNo || session.spreadingOrderNo || session.spreadingSessionId))}</div>
+              <div class="mt-1 text-xs text-muted-foreground">唛架编号 / 床次：${escapeHtml(formatUnknownText(session.sourceBedNo || session.bedNo || session.markerNo))}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">唛架方案</div>
+              <div>${escapeHtml(formatUnknownText(session.markerPlanNo || session.sourceMarkerNo || session.markerNo))}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">状态</div>
+              <div>铺布：${escapeHtml(spreadingStatus)}</div>
+              <div class="text-xs text-muted-foreground">裁剪：${escapeHtml(cuttingStatus)}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">层数</div>
+              <div>计划：${escapeHtml(formatUnknownNumber(session.plannedLayers, '层'))}</div>
+              <div class="text-xs text-muted-foreground">实铺：${escapeHtml(formatUnknownNumber(session.actualLayers, '层'))}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">用量 / 数量</div>
+              <div>计划用量：${escapeHtml(formatUnknownNumber(session.theoreticalSpreadTotalLength || session.plannedMaterialUsage, '米'))}</div>
+              <div>实际用量：${escapeHtml(formatUnknownNumber(session.totalActualLength, '米'))}</div>
+              <div>实际裁剪：${escapeHtml(formatUnknownNumber(session.actualCutGarmentQty ?? session.actualCutPieceQty, '件'))}</div>
+            </div>
+            <div class="flex items-center justify-start xl:justify-end">
+              <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('spreading-list'), {
+                cutOrderId: view.row.cutOrderId,
+                cutOrderNo: view.row.cutOrderNo,
+                sessionId: session.spreadingSessionId,
+              }))}">查看铺布单</button>
+            </div>
+          </div>
+        `
+      }))}
+    </div>
+  `
+}
+
+function renderCutOrderTicketsWarehouseTab(view: ReturnType<typeof buildCutOrderDetailView>): string {
+  return `
+    <div class="space-y-4">
+      ${renderDetailSection('菲票记录', renderCompactRecordList(view.ticketRecords, '暂无菲票记录。', (ticket) => `
+        <div class="grid gap-3 px-3 py-3 text-sm xl:grid-cols-[1.2fr_1.1fr_1.2fr_1.2fr_1fr_auto]">
+          <div>
+            <div class="font-semibold text-blue-600">${escapeHtml(formatUnknownText(ticket.ticketNo))}</div>
+            <div class="mt-1 text-xs text-muted-foreground">来源铺布单：${escapeHtml(formatUnknownText(ticket.sourceSpreadingSessionNo))}</div>
+          </div>
+          <div><div class="text-xs text-muted-foreground">裁片</div><div>${escapeHtml(formatUnknownText(ticket.partName))} / ${escapeHtml(formatUnknownText(ticket.size))}</div></div>
+          <div><div class="text-xs text-muted-foreground">数量 / 编号范围</div><div>${escapeHtml(formatUnknownNumber(ticket.quantity ?? ticket.actualCutPieceQty, '片'))}</div><div class="text-xs text-muted-foreground">${escapeHtml(formatUnknownText(ticket.pieceSequenceLabel || ticket.pieceSetNoRange, '编号待补'))}</div></div>
+          <div><div class="text-xs text-muted-foreground">特殊工艺</div><div>${escapeHtml(ticket.hasSpecialCraft ? formatUnknownText(ticket.specialCraftDisplayLabel, '有特殊工艺') : '无')}</div></div>
+          <div><div class="text-xs text-muted-foreground">打印状态</div><div>${escapeHtml(feiTicketPrintStatusLabels[ticket.printStatus || ticket.status] || formatUnknownText(ticket.printStatus || ticket.status))}</div></div>
+          <div class="flex items-center justify-start xl:justify-end"><button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('fei-tickets'), {
+            cutOrderId: view.row.cutOrderId,
+            cutOrderNo: view.row.cutOrderNo,
+          }))}">查看菲票</button></div>
+        </div>
+      `))}
+      ${renderDetailSection('待交出仓库存', renderCompactRecordList(view.warehouseItems, '暂无入仓或待交出仓库存。', (item) => `
+        <div class="grid gap-3 px-3 py-3 text-sm xl:grid-cols-[1.2fr_1fr_1fr_1fr_1fr]">
+          <div><div class="font-medium">${escapeHtml(formatUnknownText(item.warehouseItemId || item.inventoryRecordId))}</div><div class="mt-1 text-xs text-muted-foreground">铺布单：${escapeHtml(formatUnknownText(item.spreadingSessionNo || item.spreadingOrderNo))}</div></div>
+          <div><div class="text-xs text-muted-foreground">数量</div><div class="font-semibold">${escapeHtml(formatUnknownNumber(item.pieceQty || item.quantity, '片'))}</div></div>
+          <div><div class="text-xs text-muted-foreground">库区库位</div><div>${escapeHtml(formatUnknownText(item.zoneCode || item.warehouseArea))} / ${escapeHtml(formatUnknownText(item.locationCode))}</div></div>
+          <div><div class="text-xs text-muted-foreground">暂存袋</div><div>${escapeHtml(formatUnknownText(item.bagCode))}</div></div>
+          <div><div class="text-xs text-muted-foreground">交出状态</div><div>${escapeHtml(formatUnknownText(item.handoffStatus?.label || item.warehouseStatus?.label))}</div></div>
+        </div>
+      `))}
+    </div>
+  `
+}
+
+function renderCutOrderDifferencesTab(view: ReturnType<typeof buildCutOrderDetailView>): string {
+  return `
+    <div class="space-y-4">
+      ${renderDetailSection('差异 / 补料处理', renderCompactRecordList(view.replenishmentRows, '暂无差异或补料处理记录。', (item) => `
+        <div class="grid gap-3 px-3 py-3 text-sm xl:grid-cols-[1.2fr_1.2fr_1fr_1fr_1fr_auto]">
+          <div><div class="font-semibold">${escapeHtml(formatUnknownText(item.replenishmentNo || item.replenishmentId))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.sourceType || item.differenceSource))}</div></div>
+          <div><div class="text-xs text-muted-foreground">差异</div><div>${escapeHtml(formatUnknownText(item.differenceType || item.problemText))}</div><div class="text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.differenceLevel || item.levelLabel))}</div></div>
+          <div><div class="text-xs text-muted-foreground">计划 / 实际</div><div>${escapeHtml(formatUnknownNumber(item.plannedValue, item.unit))} / ${escapeHtml(formatUnknownNumber(item.actualValue, item.unit))}</div></div>
+          <div><div class="text-xs text-muted-foreground">处理结果</div><div>${escapeHtml(formatUnknownText(item.reviewResultLabel || item.reviewResult || item.resultLabel))}</div></div>
+          <div><div class="text-xs text-muted-foreground">后续动作</div><div>${escapeHtml(formatUnknownText(item.nextActionLabel || item.nextAction))}</div></div>
+          <div class="flex items-center justify-start xl:justify-end"><button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('replenishment'), {
+            cutOrderId: view.row.cutOrderId,
+            cutOrderNo: view.row.cutOrderNo,
+          }))}">去补料管理</button></div>
+        </div>
+      `))}
+      ${renderDetailSection('特殊工艺关联', renderCompactRecordList(view.specialProcessRows, '暂无特殊工艺记录。', (item) => `
+        <div class="grid gap-3 px-3 py-3 text-sm md:grid-cols-4">
+          <div><div class="font-medium">${escapeHtml(formatUnknownText(item.processNo || item.specialCraftTaskNo || item.id))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.processType || item.craftType))}</div></div>
+          <div><div class="text-xs text-muted-foreground">承接工厂</div><div>${escapeHtml(formatUnknownText(item.receiverFactoryName || item.factoryName))}</div></div>
+          <div><div class="text-xs text-muted-foreground">状态</div><div>${escapeHtml(formatUnknownText(item.statusMeta?.label || item.statusLabel || item.status))}</div></div>
+          <div><div class="text-xs text-muted-foreground">数量</div><div>${escapeHtml(formatUnknownNumber(item.pieceQty || item.quantity, '片'))}</div></div>
+        </div>
+      `))}
+    </div>
+  `
+}
+
+function renderCutOrderCloseRecordTab(view: ReturnType<typeof buildCutOrderDetailView>): string {
+  const row = view.row
+  if (!row.closeRecord && row.currentStage.key !== 'CLOSED') {
+    return `
+      <div class="space-y-4">
+        ${renderDetailSection('关闭记录', renderEmptyDetailRecord('当前裁片单未关闭。'))}
+      </div>
+    `
+  }
+  return `
+    <div class="space-y-4">
+      ${renderDetailSection('关闭原因', renderInfoGrid([
+        { label: '关闭原因', value: row.closeReasonText || row.closeReason || '待补', tone: 'strong' },
+        { label: '关闭说明', value: row.closeReason || row.closeRecord?.closeDescription || '待补' },
+        { label: '关闭人', value: row.closedBy || row.closeRecord?.closedBy || '待补' },
+        { label: '关闭时间', value: row.closedAt || row.closeRecord?.closedAt || '待补' },
+        { label: '关闭来源', value: row.closeRecord?.closeSourceType || '人工关闭' },
+      ]))}
+      ${row.ledgerSnapshotBeforeClose ? renderDetailSection('关闭前数量账快照', renderCloseLedgerSnapshot(row.ledgerSnapshotBeforeClose)) : renderDetailSection('关闭前数量账快照', renderMaterialLedgerGrid(row))}
+      ${renderDetailSection('关闭前影响项', row.openImpactItems.length
+        ? `<div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">${row.openImpactItems.map((item) => renderInfoCard(item.label, item.summary || '已提示')).join('')}</div>`
+        : renderEmptyDetailRecord('当前无关闭前影响项记录。'))}
+    </div>
+  `
+}
+
+function renderCutOrderDetailTabContent(view: ReturnType<typeof buildCutOrderDetailView>, activeTab: CutOrderDetailTabKey): string {
+  switch (activeTab) {
+    case 'material-flow':
+      return renderCutOrderMaterialFlowTab(view)
+    case 'marker-plans':
+      return renderCutOrderMarkerPlanTab(view)
+    case 'spreading':
+      return renderCutOrderSpreadingTab(view)
+    case 'tickets-warehouse':
+      return renderCutOrderTicketsWarehouseTab(view)
+    case 'differences':
+      return renderCutOrderDifferencesTab(view)
+    case 'close':
+      return renderCutOrderCloseRecordTab(view)
+    case 'overview':
+    default:
+      return renderCutOrderOverviewTab(view)
+  }
+}
+
+function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel()): string {
+  const activeTab = getCutOrderDetailActiveTab()
+  const view = buildCutOrderDetailView(row, viewModel)
+  const canEnterExecution = isCutOrderInExecutionStage(row)
+  const canEnterFeiTickets = isPrintableSourceRow(row)
+
+  return `
+    <article class="space-y-4" data-testid="cut-order-detail-page">
+      <section class="rounded-xl border bg-card p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-sm text-muted-foreground">裁片单详情</p>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(row.cutOrderNo)}</h1>
+              ${renderBadge(row.currentStageLabel, row.currentStage.className)}
+              ${renderBadge(row.visibleCuttableStatus.label, row.visibleCuttableStatus.className)}
+            </div>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.productionOrderNo)} · ${escapeHtml(row.materialSku)} · ${escapeHtml(row.patternFileName)} · ${escapeHtml(row.effectiveWidthText)}</p>
+            ${row.closeReason ? `<p class="mt-1 text-sm text-amber-700">关闭原因：${escapeHtml(row.closeReasonText || row.closeReason)}</p>` : ''}
+          </div>
+          <div class="grid gap-2 text-right text-xs text-muted-foreground sm:grid-cols-4 sm:text-left">
+            <div class="rounded-lg border px-3 py-2"><div>裁床已领</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(formatMaterialLedgerQty(row.claimedQty, row.availableUnit))}</div></div>
+            <div class="rounded-lg border px-3 py-2"><div>已锁定</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(formatMaterialLedgerQty(row.lockedQty, row.availableUnit))}</div></div>
+            <div class="rounded-lg border px-3 py-2"><div>已消耗</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(formatMaterialLedgerQty(row.consumedQty, row.availableUnit))}</div></div>
+            <div class="rounded-lg border px-3 py-2"><div>可用余额</div><div class="mt-1 text-sm font-semibold text-blue-600">${escapeHtml(formatMaterialLedgerQty(row.availableQty, row.availableUnit))}</div></div>
+          </div>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2">
+          ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
+          ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">${row.currentStage.key === 'CLOSED' ? '查看关闭记录' : '关闭裁片单'}</button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('cut-orders'))}">返回裁片单</button>
+        </div>
+      </section>
+      ${renderCutOrderDetailTabs(row, activeTab)}
+      ${renderCutOrderDetailTabContent(view, activeTab)}
+    </article>
+  `
+}
+
 function renderPage(): string {
   applyWebActionFromUrl()
   const viewModel = getViewModel()
@@ -1732,7 +2317,7 @@ export function renderCraftCuttingCutOrderDetailPage(recordId?: string): string 
     `
   }
 
-  return `<div class="space-y-4 p-4">${renderCutOrderDetailPanel(row, viewModel)}</div>`
+  return `<div class="space-y-4 p-4">${renderCutOrderDetailPanelV2(row, viewModel)}</div>`
 }
 
 export function renderCraftCuttingCutOrderClosePage(): string {
