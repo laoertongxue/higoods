@@ -26,6 +26,11 @@ import {
   listSpreadingDifferencesBySpreadingOrder,
   type SpreadingDifference,
 } from './spreading-differences.ts'
+import {
+  CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
+  listCuttingRuntimeEventsByType,
+  type FinishCuttingPayload,
+} from './cutting-runtime-event-ledger.ts'
 
 export const FEI_TICKET_SOURCE_BASIS = '实际裁剪产出' as const
 export const FEI_TICKET_SOURCE_BASIS_TYPE = 'ACTUAL_CUTTING_OUTPUT' as const
@@ -744,7 +749,7 @@ function buildFallbackPieceRows(record: GeneratedCutOrderSourceRecord): Generate
   return [
     {
       partCode: record.materialSku,
-      partName: record.pieceSummary || '整单裁片',
+      partName: record.pieceSummary || record.materialSku,
       pieceCountPerUnit: 1,
       patternId: '',
       patternName: '',
@@ -1261,8 +1266,12 @@ function buildSpreadingPieceOutputLinesFromSessions(
           const pieceSetNoEnd = Math.max(sizeRow.garmentQty, 1)
           const pieceSetNoRange = formatPieceSetRange(pieceSetNoStart, pieceSetNoEnd)
           const baseMarkerMode = normalizePieceSequenceMarkerMode(session.sourceBedMode || session.spreadingMode)
-          findPieceRowsForSku(sourceRecord, sizeRow.skuCode).forEach((pieceRow, partIndex) => {
+          findPieceRowsForSku(sourceRecord, sizeRow.skuCode)
+            .filter((pieceRow) => Boolean(normalizeText(pieceRow.partCode) || normalizeText(pieceRow.partName)))
+            .forEach((pieceRow, partIndex) => {
             const pieceRepeatCount = Math.max(Number(pieceRow.pieceCountPerUnit || 0), 1)
+            const partCode = normalizeBusinessText(pieceRow.partCode, pieceRow.partName)
+            const partName = normalizeBusinessText(pieceRow.partName, partCode)
             Array.from({ length: pieceRepeatCount }, (_, instanceIndex) => instanceIndex + 1).forEach((partInstanceNo) => {
               const partInstanceLabel = pieceRepeatCount > 1 ? String(partInstanceNo) : ''
               outputLines.push({
@@ -1270,7 +1279,7 @@ function buildSpreadingPieceOutputLinesFromSessions(
                   session.spreadingSessionId,
                   normalizeText(roll.rollRecordId) || `roll-${lineIndex + 1}`,
                   normalizeText(sizeRow.size) || `size-${sizeIndex + 1}`,
-                  normalizeText(pieceRow.partCode) || `part-${partIndex + 1}`,
+                  normalizeText(partCode),
                   partInstanceLabel || 'single',
                   bundleNo,
                 ].join('__'),
@@ -1292,8 +1301,8 @@ function buildSpreadingPieceOutputLinesFromSessions(
                 garmentSkuId: normalizeBusinessText(sizeRow.skuCode, sourceRecord.cutOrderNo),
                 garmentColor: normalizeBusinessText(sizeRow.color, line.color || roll.color || '待补颜色'),
                 sizeCode: normalizeBusinessText(sizeRow.size, '均码'),
-                partCode: normalizeBusinessText(pieceRow.partCode, pieceRow.partName),
-                partName: normalizeBusinessText(pieceRow.partName, '整单裁片'),
+                partCode,
+                partName,
                 partInstanceNo: partInstanceLabel,
                 pieceCountPerGarment: 1,
                 bundleNo,
@@ -1319,6 +1328,80 @@ function buildSpreadingPieceOutputLinesFromSessions(
     })
 
   return outputLines
+}
+
+function isFinishCuttingPayload(value: unknown): value is FinishCuttingPayload {
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  return Array.isArray(record.outputLines) && typeof record.spreadingOrderId === 'string'
+}
+
+function buildRuntimeActualOutputLinesFromEvents(
+  sourceRecords: GeneratedCutOrderSourceRecord[],
+): SpreadingPieceOutputLine[] {
+  return listCuttingRuntimeEventsByType('完成裁剪').flatMap((event) => {
+    if (!isFinishCuttingPayload(event.payload)) return []
+    const sourceRecord =
+      sourceRecords.find((record) => record.cutOrderId === event.refs.cutOrderId && record.productionOrderId === event.refs.productionOrderId)
+      || sourceRecords.find((record) => record.cutOrderId === event.refs.cutOrderId)
+      || sourceRecords.find((record) => record.cutOrderNo === event.refs.cutOrderNo)
+      || null
+    if (!sourceRecord) return []
+
+    const payload = event.payload
+    return payload.outputLines
+      .filter((line) =>
+        Number(line.actualPieceQty || 0) > 0
+        && Boolean(line.size)
+        && Boolean(line.partCode || line.partName),
+      )
+      .map((line, index): SpreadingPieceOutputLine => {
+        const sequence = index + 1
+        const actualQty = Math.max(Number(line.actualPieceQty || 0), 1)
+        const partCode = line.partCode || line.partName
+        const partName = line.partName || line.partCode
+        return {
+          outputLineId: line.outputId || `${event.eventId}__${sequence}`,
+          spreadingSessionId: payload.spreadingOrderId || event.refs.spreadingOrderId || '',
+          sourceSpreadingSessionNo: payload.spreadingOrderNo || event.refs.spreadingOrderNo || '',
+          sourceMarkerId: event.refs.markerPlanId || '',
+          sourceMarkerNo: event.refs.markerPlanNo || '',
+          sourceMarkerLineItemId: `${event.eventId}__${sequence}`,
+          cutOrderId: sourceRecord.cutOrderId,
+          cutOrderNo: sourceRecord.cutOrderNo,
+          markerPlanId: event.refs.markerPlanId || sourceRecord.markerPlanId || '',
+          markerPlanNo: event.refs.markerPlanNo || sourceRecord.markerPlanNo || '',
+          productionOrderId: sourceRecord.productionOrderId,
+          productionOrderNo: sourceRecord.productionOrderNo,
+          fabricRollId: event.eventId,
+          fabricRollNo: event.eventNo,
+          fabricColor: line.color || sourceRecord.colorScope[0] || '待补颜色',
+          materialSku: event.material?.materialSku || sourceRecord.materialSku,
+          garmentSkuId: `${sourceRecord.spuCode}-${line.size}`,
+          garmentColor: line.color || sourceRecord.colorScope[0] || '待补颜色',
+          sizeCode: line.size,
+          partCode,
+          partName,
+          partInstanceNo: '',
+          pieceCountPerGarment: 1,
+          bundleNo: buildBundleNo(index),
+          bundleQty: actualQty,
+          pieceSetNoStart: 1,
+          pieceSetNoEnd: actualQty,
+          pieceSetNoRange: formatPieceSetRange(1, actualQty),
+          bundleTicketType: '扎束菲票',
+          layerCount: 0,
+          markerMode: 'normal',
+          sizeGroupId: line.size,
+          actualCutPieceQty: actualQty,
+          actualCutGarmentQty: Math.max(Number(line.actualGarmentQty || line.actualPieceQty || 0), 1),
+          sourceBasis: FEI_TICKET_SOURCE_BASIS,
+          sourceBasisType: FEI_TICKET_SOURCE_BASIS_TYPE,
+          createdBy: payload.cuttingCompletedBy || event.operatorName,
+          createdAt: payload.cuttingCompletedAt || event.occurredAt,
+        }
+      })
+  })
 }
 
 function buildCuttingActualOutputFromLine(
@@ -1532,7 +1615,7 @@ function buildFeiRecordsFromSpreadingSessions(
     const feiTicketId = line.outputLineId
     const feiTicketNo = buildFeiTicketNo(line.cutOrderNo, sequenceNo)
     const pieceScope = unique([line.fabricRollNo, line.fabricColor, line.sizeCode, line.partName])
-    const pieceGroup = normalizeText(line.partName) || normalizeText(line.partCode) || '整单裁片'
+    const pieceGroup = normalizeText(line.partName) || normalizeText(line.partCode) || line.sizeCode
     const bundleScope = `${line.fabricRollNo}-${line.fabricColor}-${line.sizeCode}-${line.bundleNo}`
     const qty = Math.max(line.bundleQty, 1)
     const materialIdentity = sourceRecord?.materialIdentity || {
@@ -1730,7 +1813,10 @@ function buildGeneratedFeiTicketDataset(records: GeneratedFeiTicketSourceRecord[
 export function listSpreadingPieceOutputLines(
   sourceRecords: GeneratedCutOrderSourceRecord[] = listGeneratedCutOrderSourceRecords(),
 ): SpreadingPieceOutputLine[] {
-  const generatedLines = buildSpreadingPieceOutputLinesFromSessions(sourceRecords)
+  const generatedLines = [
+    ...buildSpreadingPieceOutputLinesFromSessions(sourceRecords),
+    ...buildRuntimeActualOutputLinesFromEvents(sourceRecords),
+  ]
   const lineMap = new Map<string, SpreadingPieceOutputLine>()
   generatedLines.forEach((line) => {
     if (!lineMap.has(line.outputLineId)) {
@@ -1755,6 +1841,7 @@ function getGeneratedFeiTicketRuntimeSignature(): string {
   return [
     'cuttingMarkerSpreadingLedger',
     'cuttingMarkerPlanSourceLedger',
+    CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
   ]
     .map((key) => `${key}:${storage.getItem(key) || ''}`)
     .join('\n')

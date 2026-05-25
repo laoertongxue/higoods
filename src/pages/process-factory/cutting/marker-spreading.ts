@@ -805,14 +805,14 @@ function findSpreadingOrderForRow(
   ) || null
 }
 
-function resolvePdaWritebackSummary(session: SpreadingSession): {
+function resolvePdaRuntimeEventSummary(session: SpreadingSession): {
   statusLabel: string
   statusClassName: string
   latestAt: string
   operatorName: string
   sourceLabel: string
 } {
-  const writebackIds = [
+  const runtimeEventIds = [
     session.sourceWritebackId,
     ...session.rolls.map((roll) => roll.sourceWritebackId),
     ...session.operators.map((operator) => operator.sourceWritebackId),
@@ -832,27 +832,27 @@ function resolvePdaWritebackSummary(session: SpreadingSession): {
     session.sourceChannel === 'MIXED' ||
     session.rolls.some((roll) => roll.sourceChannel === MOBILE_WRITEBACK_CHANNEL) ||
     session.operators.some((operator) => operator.sourceChannel === MOBILE_WRITEBACK_CHANNEL)
-  const hasFailedWriteback = writebackIds.some((id) => /fail|failed|conflict|error/i.test(id))
-  if (hasFailedWriteback) {
+  const hasFailedRuntimeEvent = runtimeEventIds.some((id) => /fail|failed|conflict|error/i.test(id))
+  if (hasFailedRuntimeEvent) {
     return {
       statusLabel: '同步失败',
       statusClassName: 'border-rose-200 bg-rose-50 text-rose-700',
       latestAt: pdaTimes[0] || session.updatedAt || '待补',
       operatorName,
-      sourceLabel: 'PDA 写回',
+      sourceLabel: 'PDA 执行事件',
     }
   }
-  if (hasPdaSource || writebackIds.length) {
+  if (hasPdaSource || runtimeEventIds.length) {
     return {
       statusLabel: pdaTimes.length ? '已同步' : '待同步',
       statusClassName: pdaTimes.length ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700',
       latestAt: pdaTimes[0] || '待同步',
       operatorName,
-      sourceLabel: 'PDA 写回',
+      sourceLabel: 'PDA 执行事件',
     }
   }
   return {
-    statusLabel: session.status === 'DRAFT' ? '无写回' : '电脑录入',
+    statusLabel: session.status === 'DRAFT' ? '无 PDA 记录' : '电脑录入',
     statusClassName: 'border-slate-200 bg-slate-50 text-slate-600',
     latestAt: session.updatedAt || '待补',
     operatorName,
@@ -881,7 +881,7 @@ function resolveWebSpreadingSummary(
   const layerDiff = actualLayerCount - plannedLayerCount
   const usageDiff = Number((actualUsage - plannedUsage).toFixed(2))
   const qtyDiff = actualCutQty - plannedQty
-  const pda = resolvePdaWritebackSummary(session)
+  const pda = resolvePdaRuntimeEventSummary(session)
   const statusKey = resolveSpreadingOrderStatusFromSession(session)
   const status = spreadingOrderStatusMeta[statusKey]
   const needsReview =
@@ -2537,7 +2537,7 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
         <div>计划</div>
         <div>实际</div>
         <div>差异</div>
-        <div>PDA 写回</div>
+        <div>PDA 执行记录</div>
         <div>操作</div>
       </div>
       <div class="divide-y">
@@ -2609,8 +2609,8 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
                 </div>
                 <div class="space-y-1 text-xs leading-5">
                   ${renderStatusBadge(pda.statusLabel, pda.statusClassName)}
-                  <div class="text-muted-foreground">最近写回：${escapeHtml(formatScheduleDateTime(pda.latestAt))}</div>
-                  <div class="text-muted-foreground">写回人：${escapeHtml(pda.operatorName)}</div>
+                  <div class="text-muted-foreground">最近同步：${escapeHtml(formatScheduleDateTime(pda.latestAt))}</div>
+                  <div class="text-muted-foreground">操作人：${escapeHtml(pda.operatorName)}</div>
                 </div>
                 <div class="flex flex-col gap-1">
                   <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
@@ -4015,12 +4015,12 @@ function renderSpreadingDetailPage(): string {
     </div>
   `
 
-  const renderPdaWritebackSection = (): string => `
+  const renderPdaRuntimeEventSection = (): string => `
     <div class="space-y-3">
       <div class="flex flex-wrap items-center gap-2">
         ${renderStatusBadge(webSummary.pda.statusLabel, webSummary.pda.statusClassName)}
-        <span class="text-xs text-muted-foreground">最近写回：${escapeHtml(formatScheduleDateTime(webSummary.pda.latestAt))}</span>
-        <span class="text-xs text-muted-foreground">写回人：${escapeHtml(webSummary.pda.operatorName)}</span>
+        <span class="text-xs text-muted-foreground">最近同步：${escapeHtml(formatScheduleDateTime(webSummary.pda.latestAt))}</span>
+        <span class="text-xs text-muted-foreground">操作人：${escapeHtml(webSummary.pda.operatorName)}</span>
       </div>
       <div class="grid gap-3 lg:grid-cols-2">
         ${writebackRecords.length
@@ -4028,14 +4028,14 @@ function renderSpreadingDetailPage(): string {
               <article class="rounded-lg border bg-background p-3 text-sm">
                 <div class="font-semibold text-foreground">${escapeHtml(record.sourceLabel)}</div>
                 <div class="mt-2 grid gap-2 sm:grid-cols-2">
-                  ${renderReadonlyField('写回记录', record.recordId)}
-                  ${renderReadonlyField('写回时间', formatScheduleDateTime(record.updatedAt))}
-                  ${renderReadonlyField('写回人', record.operatorName)}
+                  ${renderReadonlyField('执行记录', record.recordId)}
+                  ${renderReadonlyField('同步时间', formatScheduleDateTime(record.updatedAt))}
+                  ${renderReadonlyField('操作人', record.operatorName)}
                   ${renderReadonlyField('同步状态', webSummary.pda.statusLabel)}
                 </div>
               </article>
             `).join('')
-          : '<div class="rounded-lg border border-dashed bg-background px-3 py-6 text-center text-sm text-muted-foreground">暂无 PDA 写回记录。</div>'}
+          : '<div class="rounded-lg border border-dashed bg-background px-3 py-6 text-center text-sm text-muted-foreground">暂无 PDA 执行记录。</div>'}
       </div>
     </div>
   `
@@ -4141,7 +4141,7 @@ function renderSpreadingDetailPage(): string {
       `)}
       ${renderSection('卷记录', renderRollCards())}
       ${renderSection('人员记录', renderOperatorCards())}
-      ${renderSection('PDA 写回记录', renderPdaWritebackSection())}
+      ${renderSection('PDA 执行记录', renderPdaRuntimeEventSection())}
       ${renderSection('差异与后续动作', `
         ${renderInfoGrid([
           { label: '层数差异', value: formatSignedNumber(webSummary.layerDiff, '层') },
@@ -5625,17 +5625,17 @@ function syncDraftRollFromPlanUnit(draft: SpreadingSession, roll: SpreadingRollR
   roll.actualCutPieceQty = computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit)
 }
 
-function syncSpreadingDraftFromStoredPdaWriteback(draft: SpreadingSession): boolean {
+function syncSpreadingDraftFromStoredPdaRuntimeEvent(draft: SpreadingSession): boolean {
   const stored = getStoredSpreadingSession(draft.spreadingSessionId)
   if (!stored) {
-    state.feedback = { tone: 'warning', message: '当前铺布还没有可同步的工厂端回写记录。' }
+    state.feedback = { tone: 'warning', message: '当前铺布还没有可同步的工厂端执行记录。' }
     return true
   }
   const hasPdaSource =
     stored.rolls.some((roll) => isMobileWritebackSource(roll.sourceChannel, roll.sourceWritebackId)) ||
     stored.operators.some((operator) => isMobileWritebackSource(operator.sourceChannel, operator.sourceWritebackId))
   if (!hasPdaSource) {
-    state.feedback = { tone: 'warning', message: '当前铺布还没有来自工厂端的卷或人员回写。' }
+    state.feedback = { tone: 'warning', message: '当前铺布还没有来自工厂端的卷或人员记录。' }
     return true
   }
   state.spreadingDraft = cloneSpreadingSession(stored)
@@ -7056,7 +7056,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
 
   if (action === 'sync-spreading-rolls-from-pda' && state.spreadingDraft) {
     if (!ensureCanEditCurrentSpreadingExecution()) return true
-    return syncSpreadingDraftFromStoredPdaWriteback(state.spreadingDraft)
+    return syncSpreadingDraftFromStoredPdaRuntimeEvent(state.spreadingDraft)
   }
 
   if (action === 'add-operator' && state.spreadingDraft) {

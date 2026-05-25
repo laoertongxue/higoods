@@ -24,7 +24,7 @@ export type CuttingPdaActionType =
   | 'HANDOVER_CONFIRM'
   | 'REPLENISHMENT_FEEDBACK'
 
-export interface CuttingPdaWritebackIdentityInput {
+export interface CuttingPdaRuntimeIdentityInput {
   taskId: string
   taskNo: string
   productionOrderId: string
@@ -41,7 +41,7 @@ export interface CuttingPdaWritebackIdentityInput {
   spuCode?: string
 }
 
-export interface CuttingPdaWritebackOperatorInput {
+export interface CuttingPdaRuntimeOperatorInput {
   operatorAccountId: string
   operatorName: string
   operatorRole: string
@@ -49,14 +49,14 @@ export interface CuttingPdaWritebackOperatorInput {
   operatorFactoryName: string
 }
 
-export interface CuttingPdaWritebackSourceInput {
+export interface CuttingPdaRuntimeSourceInput {
   sourceChannel: 'PDA'
   sourceDeviceId: string
   sourceRecordId: string
   sourcePageKey: string
 }
 
-export interface PdaCuttingWritebackSelection {
+export interface PdaCuttingRuntimeSelection {
   executionOrderId?: string
   executionOrderNo?: string
   cutOrderId?: string
@@ -119,7 +119,7 @@ function resolveFactoryContext(taskId: string): { factoryId: string; factoryName
   }
 }
 
-function resolveOperatorFromSession(taskId: string, operatorName?: string): CuttingPdaWritebackOperatorInput {
+function resolveOperatorFromSession(taskId: string, operatorName?: string): CuttingPdaRuntimeOperatorInput {
   const session = getPdaSession()
   const currentPdaUser = getCurrentPdaUser()
   const normalizedName = operatorName?.trim() || ''
@@ -173,7 +173,7 @@ function resolveOperatorFromSession(taskId: string, operatorName?: string): Cutt
 
 function matchExecutionLine(
   detail: PdaCuttingTaskDetailData,
-  selection: PdaCuttingWritebackSelection = {},
+  selection: PdaCuttingRuntimeSelection = {},
 ): PdaCuttingTaskOrderLine | null {
   if (selection.executionOrderId) {
     return detail.cutPieceOrders.find((item) => item.executionOrderId === selection.executionOrderId) ?? null
@@ -201,7 +201,7 @@ function matchExecutionLine(
 
 export function resolvePdaCuttingExecutionContext(
   taskId: string,
-  selection: PdaCuttingWritebackSelection = {},
+  selection: PdaCuttingRuntimeSelection = {},
 ): PdaCuttingResolvedExecutionContext | null {
   const executionKey =
     selection.executionOrderId
@@ -217,10 +217,10 @@ export function resolvePdaCuttingExecutionContext(
   return { detail, line }
 }
 
-export function resolvePdaCuttingWritebackIdentity(
+export function resolvePdaCuttingRuntimeIdentity(
   taskId: string,
-  selection: PdaCuttingWritebackSelection = {},
-): CuttingPdaWritebackIdentityInput | null {
+  selection: PdaCuttingRuntimeSelection = {},
+): CuttingPdaRuntimeIdentityInput | null {
   const context = resolvePdaCuttingExecutionContext(taskId, selection)
   if (!context) return null
   const { detail, line } = context
@@ -240,17 +240,17 @@ export function resolvePdaCuttingWritebackIdentity(
   }
 }
 
-export function resolvePdaCuttingWritebackOperator(
+export function resolvePdaCuttingRuntimeOperator(
   taskId: string,
   operatorName?: string,
-): CuttingPdaWritebackOperatorInput {
+): CuttingPdaRuntimeOperatorInput {
   return resolveOperatorFromSession(taskId, operatorName)
 }
 
-export function buildPdaCuttingWritebackSource(
+export function buildPdaCuttingRuntimeSource(
   sourcePageKey: string,
   sourceRecordId = '',
-): CuttingPdaWritebackSourceInput {
+): CuttingPdaRuntimeSourceInput {
   return {
     sourceChannel: 'PDA',
     sourceDeviceId: 'PDA-CUTTING-HANDSET',
@@ -259,9 +259,9 @@ export function buildPdaCuttingWritebackSource(
   }
 }
 
-export function buildPdaCuttingWritebackId(
+export function buildPdaCuttingRuntimeEventId(
   actionType: CuttingPdaActionType,
-  identity: Pick<CuttingPdaWritebackIdentityInput, 'taskId' | 'executionOrderId' | 'cutOrderId'>,
+  identity: Pick<CuttingPdaRuntimeIdentityInput, 'taskId' | 'executionOrderId' | 'cutOrderId'>,
   actionAt = nowText(),
 ): string {
   const compact = compactTimestamp(actionAt)
@@ -271,13 +271,13 @@ export function buildPdaCuttingWritebackId(
 }
 
 export function buildDefaultPdaRollNo(
-  identity: Pick<CuttingPdaWritebackIdentityInput, 'executionOrderNo' | 'materialSku'>,
+  identity: Pick<CuttingPdaRuntimeIdentityInput, 'executionOrderNo' | 'materialSku'>,
   actionAt = nowText(),
 ): string {
   const compact = compactTimestamp(actionAt).slice(-8)
   return `ROLL-${identity.executionOrderNo}-${compact}-${(identity.materialSku || 'MAT').slice(0, 6)}`
 }
 
-export function getPdaCuttingWritebackStorage(): BrowserStorageLike | null {
+export function getPdaCuttingRuntimeStorage(): BrowserStorageLike | null {
   return getBrowserLocalStorage()
 }

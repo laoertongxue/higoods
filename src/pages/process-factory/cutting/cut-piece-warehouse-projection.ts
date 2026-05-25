@@ -23,8 +23,8 @@ export function buildCutPieceWarehouseProjection(options: {
     snapshot: context.snapshot,
     records,
     viewModel: buildCutPieceWarehouseViewModel(context.cutOrderRows, records, {
-      inboundWritebacks: context.snapshot.pdaExecutionState.inboundWritebacks as never[],
-      handoverWritebacks: context.snapshot.pdaExecutionState.handoverWritebacks as never[],
+      inboundEvents: context.snapshot.pdaExecutionState.inboundEvents as never[],
+      handoverEvents: context.snapshot.pdaExecutionState.handoverEvents as never[],
       warehouseWritebacks: options.warehouseWritebacks ?? context.snapshot.warehouseState.cutPieceWritebacks,
       transferBagViewModel: context.transferBagViewModel,
       spreadingStore: context.spreadingStore,

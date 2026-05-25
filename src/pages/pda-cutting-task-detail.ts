@@ -13,10 +13,10 @@ import {
   resolveSelectedExecutionOrderLine,
 } from './pda-cutting-context'
 import {
-  resolvePdaCuttingWritebackIdentity,
-  resolvePdaCuttingWritebackOperator,
-} from '../data/fcs/pda-cutting-writeback-inputs.ts'
-import { appendPdaCuttingStageWritebackRecord } from '../data/fcs/cutting/pda-cutting-stage-writeback.ts'
+  resolvePdaCuttingRuntimeIdentity,
+  resolvePdaCuttingRuntimeOperator,
+} from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
+import { appendCuttingRuntimeEvent } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   renderPdaCuttingEmptyState,
   renderPdaCuttingStatusChip,
@@ -279,7 +279,7 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
   const taskId = button.dataset.taskId || ''
   const executionOrderId = button.dataset.executionOrderId || ''
   const executionOrderNo = button.dataset.executionOrderNo || ''
-  const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+  const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
     executionOrderId,
     executionOrderNo,
   })
@@ -292,23 +292,37 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
     }
     return true
   }
-  const operator = resolvePdaCuttingWritebackOperator(taskId, '裁床组长')
-  const record = appendPdaCuttingStageWritebackRecord({
-    taskId,
-    executionOrderId: identity.executionOrderId,
-    executionOrderNo: identity.executionOrderNo,
-    cutOrderId: identity.cutOrderId,
-    cutOrderNo: identity.cutOrderNo,
-    markerPlanId: identity.markerPlanId,
-    markerPlanNo: identity.markerPlanNo,
-    actionType: 'START_WORK',
+  const operator = resolvePdaCuttingRuntimeOperator(taskId, '裁床组长')
+  const startedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const event = appendCuttingRuntimeEvent({
+    eventType: '裁片单开工',
+    eventSource: 'PDA',
+    eventStatus: '已同步',
+    occurredAt: startedAt,
+    operatorId: operator.operatorAccountId,
     operatorName: operator.operatorName,
-    syncStatus: '已同步',
-    note: 'PDA 开工写回，裁床任务进入可铺布。',
+    operatorRole: operator.operatorRole || '裁床组长',
+    refs: {
+      productionOrderId: identity.productionOrderId,
+      productionOrderNo: identity.productionOrderNo,
+      cutOrderId: identity.cutOrderId,
+      cutOrderNo: identity.cutOrderNo,
+      markerPlanId: identity.markerPlanId,
+      markerPlanNo: identity.markerPlanNo,
+      spreadingOrderId: identity.executionOrderId,
+      spreadingOrderNo: identity.executionOrderNo,
+    },
+    payload: {
+      cutOrderId: identity.cutOrderId,
+      cutOrderNo: identity.cutOrderNo,
+      startedAt,
+      startedBy: operator.operatorName,
+      startSource: 'PDA',
+    },
   })
   if (feedback) {
     feedback.classList.remove('hidden')
-    feedback.textContent = `${record.syncStatus}：开工已提交，${record.submittedAt}`
+    feedback.textContent = `已同步：开工已提交，${event.occurredAt}`
   }
   button.textContent = '已开工'
   button.setAttribute('disabled', 'true')

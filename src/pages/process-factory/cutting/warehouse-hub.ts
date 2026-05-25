@@ -1,29 +1,15 @@
-import { listCuttingSpecialCraftReturnViews } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import {
-  type CuttingSewingDispatchBatch,
   type HandoverPickingTask,
   type HandoverPickingTaskProjection,
-  type CuttingSewingDispatchValidationResult,
   type SewingTaskAllocationProjection,
   buildHandoverPickingTaskProjectionFromAllocationProjection,
   buildSewingTaskAllocationProjectionFromInventory,
-  getCuttingSewingDispatchBatchHandoverSummary,
-  getCuttingSewingDispatchSummary,
-  listAvailableCutPieceInventoryForSewingDispatch,
-  listCuttingSewingDispatchBatches,
-  listCuttingSewingDispatchOrders,
-  listCuttingSewingDispatchValidationResults,
-  listCuttingSewingTransferBags,
 } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import {
   listSpreadingResultGeneratedFeiTickets,
   type GeneratedFeiTicketSourceRecord,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import {
-  buildHandoverAfterRecordResult,
-  buildSpecialCraftHandoverGroups,
-  buildSpecialCraftReturnProjection,
-  buildUniversalHandoverProjection,
   type SpecialCraftHandoverGroup,
   type SpecialCraftReturnInventoryRecord,
   type SpecialCraftReturnProjection,
@@ -36,17 +22,18 @@ import {
   type CuttingMaterialLedgerEvent,
   type MaterialLedgerProjection,
 } from '../../../data/fcs/cutting/material-ledger.ts'
+import {
+  listCuttingRuntimeEventsByInventoryScope,
+  listCuttingRuntimeEventsByType,
+  type CuttingRuntimeEvent,
+} from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { buildCutPieceWarehouseProjection } from './cut-piece-warehouse-projection.ts'
-import type { CutPieceWarehouseItem } from './cut-piece-warehouse-model.ts'
 import { renderCompactKpiCard, renderStickyTableScroller } from './layout.helpers.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta.ts'
-import { buildTransferBagsProjection } from './transfer-bags-projection.ts'
 import {
   buildInboundTempBagInventoryRecords,
-  buildInboundTempBagsFromTransferBagViewModel,
-  type CutPieceSortingTask,
   type InboundTempBag,
+  type InboundTempBagContainedFeiTicket,
   type InboundTempBagInventoryRecord,
   type TransferBagTicketCandidate,
 } from './transfer-bags-model.ts'
@@ -202,8 +189,233 @@ function getWaitProcessEventSourceDetail(event: CuttingMaterialLedgerEvent): str
   return parts.join(' / ')
 }
 
+function toRuntimeRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : {}
+}
+
+function runtimeNumber(value: unknown): number {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+function runtimeString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function listRuntimeWaitProcessEvents(): CuttingRuntimeEvent[] {
+  const events = [
+    ...listCuttingRuntimeEventsByType('中转仓领料'),
+    ...listCuttingRuntimeEventsByInventoryScope('裁床待加工仓'),
+  ]
+  const seen = new Set<string>()
+  return events
+    .filter((event) => {
+      if (!event.eventId || seen.has(event.eventId)) return false
+      seen.add(event.eventId)
+      return true
+    })
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt, 'zh-CN'))
+}
+
+function isRuntimeEventForLedgerRow(event: CuttingRuntimeEvent, row: MaterialLedgerProjection): boolean {
+  const materialSku = event.material?.materialSku || runtimeString(toRuntimeRecord(event.payload).materialSku)
+  return [
+    event.refs.cutOrderId && event.refs.cutOrderId === row.cutOrderId,
+    event.refs.cutOrderNo && event.refs.cutOrderNo === row.cutOrderNo,
+    event.refs.productionOrderNo && event.refs.productionOrderNo === row.productionOrderNo && materialSku === row.materialIdentity.materialSku,
+    materialSku && materialSku === row.materialIdentity.materialSku && event.refs.productionOrderNo === row.productionOrderNo,
+  ].some(Boolean)
+}
+
+function getRuntimeWaitProcessQty(event: CuttingRuntimeEvent): number {
+  const payload = toRuntimeRecord(event.payload)
+  if (event.inventoryEffect?.qty) return event.inventoryEffect.qty
+  return runtimeNumber(payload.pickupQty)
+    || runtimeNumber(payload.receivedQty)
+    || runtimeNumber(payload.issuedQty)
+    || runtimeNumber(payload.returnedQty)
+}
+
+function getRuntimeWaitProcessRollCount(event: CuttingRuntimeEvent): number {
+  const payload = toRuntimeRecord(event.payload)
+  return runtimeNumber(event.inventoryEffect?.rollCount) || runtimeNumber(payload.rollCount) || estimateMaterialRollCount(getRuntimeWaitProcessQty(event))
+}
+
+function getRuntimeWaitProcessSourceObjectId(event: CuttingRuntimeEvent): string {
+  const payload = toRuntimeRecord(event.payload)
+  return runtimeString(payload.pickupRecordNo)
+    || runtimeString(payload.inboundRecordNo)
+    || runtimeString(payload.issueRecordNo)
+    || runtimeString(payload.returnRecordNo)
+    || event.refs.spreadingOrderNo
+    || event.refs.cutOrderNo
+    || event.eventNo
+}
+
+function convertRuntimeWaitProcessEventToLedgerEvent(event: CuttingRuntimeEvent, row: MaterialLedgerProjection): CuttingMaterialLedgerEvent | null {
+  const typeMap: Partial<Record<CuttingRuntimeEvent['eventType'], CuttingMaterialLedgerEventType>> = {
+    中转仓领料: 'CUTTING_CLAIMED',
+    待加工仓扫码入仓: 'CUTTING_WAIT_PROCESS_INBOUNDED',
+    待加工仓加工领料: 'SPREADING_ACTUAL_CONSUMED',
+    待加工仓回收入仓: 'CUTTING_RETURNED',
+  }
+  const eventType = typeMap[event.eventType]
+  if (!eventType) return null
+  const sourceObjectType =
+    eventType === 'CUTTING_CLAIMED'
+      ? 'PDA_PICKUP_RECORD'
+      : eventType === 'CUTTING_WAIT_PROCESS_INBOUNDED'
+        ? 'WAIT_PROCESS_INBOUND_RECORD'
+        : eventType === 'SPREADING_ACTUAL_CONSUMED'
+          ? 'SPREADING_SESSION'
+          : 'RETURN_RECORD'
+
+  return {
+    eventId: event.eventId,
+    cutOrderId: row.cutOrderId,
+    cutOrderNo: row.cutOrderNo,
+    productionOrderId: row.productionOrderId,
+    productionOrderNo: row.productionOrderNo,
+    materialSku: event.material?.materialSku || row.materialIdentity.materialSku,
+    materialName: event.material?.materialName || row.materialIdentity.materialName,
+    materialColor: event.material?.materialColor || row.materialIdentity.materialColor,
+    materialAlias: event.material?.materialAlias || row.materialIdentity.materialAlias,
+    patternFileId: row.patternIdentity.patternFileId,
+    quantity: getRuntimeWaitProcessQty(event),
+    unit: event.inventoryEffect?.unit || event.material?.unit || row.unit,
+    eventType,
+    sourceObjectType,
+    sourceObjectId: getRuntimeWaitProcessSourceObjectId(event),
+    occurredAt: event.occurredAt,
+    operatorName: event.operatorName,
+    remark: `${event.eventNo} / ${event.eventStatus} / ${getRuntimeWaitProcessRollCount(event)} 卷`,
+  }
+}
+
+function buildRuntimeFallbackLedgerRow(event: CuttingRuntimeEvent): MaterialLedgerProjection | null {
+  if (!event.material?.materialSku && !event.refs.cutOrderNo) return null
+  const payload = toRuntimeRecord(event.payload)
+  const cutOrderNo = event.refs.cutOrderNo || runtimeString(payload.cutOrderNo) || '未关联裁片单'
+  const productionOrderNo = event.refs.productionOrderNo || runtimeString(payload.productionOrderNo) || '未关联生产单'
+  const row: MaterialLedgerProjection = {
+    cutOrderId: event.refs.cutOrderId || cutOrderNo,
+    cutOrderNo,
+    productionOrderId: event.refs.productionOrderId || productionOrderNo,
+    productionOrderNo,
+    materialIdentity: {
+      materialSku: event.material?.materialSku || runtimeString(payload.materialSku) || '未识别面料',
+      materialName: event.material?.materialName || runtimeString(payload.materialName) || '未识别面料',
+      materialColor: event.material?.materialColor || runtimeString(payload.materialColor) || '待补',
+      materialAlias: event.material?.materialAlias || '',
+      materialImageUrl: '',
+      materialUnit: event.material?.unit || '米',
+    },
+    patternIdentity: event.pattern
+      ? {
+          patternFileId: event.pattern.patternFileId,
+          patternFileName: event.pattern.patternFileName,
+          patternVersion: event.pattern.patternVersion,
+          patternKind: '布料纸样',
+          effectiveWidthValue: Number.parseFloat(event.pattern.effectiveWidth) || 0,
+          effectiveWidthUnit: event.pattern.effectiveWidth.replace(/[0-9.]/g, '') || 'cm',
+          piecePartCodes: [],
+          piecePartNames: event.pattern.partNames,
+        }
+      : {
+          patternFileId: '未关联纸样',
+          patternFileName: '未关联纸样',
+          patternVersion: '-',
+          patternKind: '布料纸样',
+          effectiveWidthValue: 0,
+          effectiveWidthUnit: 'cm',
+          piecePartCodes: [],
+          piecePartNames: [],
+        },
+    requiredMaterialQty: 0,
+    transferWarehouseAllocatedQty: 0,
+    cuttingClaimedQty: 0,
+    markerLockedQty: 0,
+    spreadingConsumedQty: 0,
+    returnedQty: 0,
+    adjustmentQty: 0,
+    availableQty: 0,
+    unit: event.inventoryEffect?.unit || event.material?.unit || '米',
+    latestClaimEvent: null,
+    events: [],
+  }
+  return row
+}
+
+function mergeRuntimeWaitProcessEventsIntoLedgerRows(rows: MaterialLedgerProjection[]): MaterialLedgerProjection[] {
+  const runtimeEvents = listRuntimeWaitProcessEvents()
+  if (!runtimeEvents.length) return rows
+  const matchedEventIds = new Set<string>()
+
+  const mergedRows = rows.map((row) => {
+    const matchedEvents = runtimeEvents.filter((event) => isRuntimeEventForLedgerRow(event, row))
+    matchedEvents.forEach((event) => matchedEventIds.add(event.eventId))
+    const convertedEvents = matchedEvents
+      .map((event) => convertRuntimeWaitProcessEventToLedgerEvent(event, row))
+      .filter((event): event is CuttingMaterialLedgerEvent => Boolean(event))
+    if (!convertedEvents.length) return row
+
+    const pickupQty = convertedEvents
+      .filter((event) => event.eventType === 'CUTTING_CLAIMED')
+      .reduce((sum, event) => sum + event.quantity, 0)
+    const inboundQty = convertedEvents
+      .filter((event) => event.eventType === 'CUTTING_WAIT_PROCESS_INBOUNDED')
+      .reduce((sum, event) => sum + event.quantity, 0)
+    const issueQty = convertedEvents
+      .filter((event) => event.eventType === 'SPREADING_ACTUAL_CONSUMED')
+      .reduce((sum, event) => sum + event.quantity, 0)
+    const returnQty = convertedEvents
+      .filter((event) => event.eventType === 'CUTTING_RETURNED')
+      .reduce((sum, event) => sum + event.quantity, 0)
+    const runtimeHasInventory = inboundQty + issueQty + returnQty > 0
+    const runtimeAvailableQty = Math.max(inboundQty + returnQty - issueQty - row.markerLockedQty, 0)
+    const mergedEvents = [...convertedEvents, ...row.events]
+      .filter((event, index, all) => all.findIndex((item) => item.eventId === event.eventId) === index)
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt, 'zh-CN'))
+    const latestClaimEvent =
+      mergedEvents.find((event) => event.eventType === 'CUTTING_CLAIMED') ||
+      row.latestClaimEvent
+
+    return {
+      ...row,
+      cuttingClaimedQty: row.cuttingClaimedQty + pickupQty,
+      spreadingConsumedQty: row.spreadingConsumedQty + issueQty,
+      returnedQty: row.returnedQty + returnQty,
+      availableQty: runtimeHasInventory ? runtimeAvailableQty : row.availableQty,
+      latestClaimEvent,
+      events: mergedEvents,
+    }
+  })
+
+  const fallbackRows = runtimeEvents
+    .filter((event) => !matchedEventIds.has(event.eventId))
+    .map((event) => {
+      const fallbackRow = buildRuntimeFallbackLedgerRow(event)
+      if (!fallbackRow) return null
+      const converted = convertRuntimeWaitProcessEventToLedgerEvent(event, fallbackRow)
+      if (!converted) return null
+      const qty = converted.quantity
+      return {
+        ...fallbackRow,
+        cuttingClaimedQty: converted.eventType === 'CUTTING_CLAIMED' ? qty : 0,
+        spreadingConsumedQty: converted.eventType === 'SPREADING_ACTUAL_CONSUMED' ? qty : 0,
+        returnedQty: converted.eventType === 'CUTTING_RETURNED' ? qty : 0,
+        availableQty: converted.eventType === 'CUTTING_WAIT_PROCESS_INBOUNDED' || converted.eventType === 'CUTTING_RETURNED' ? qty : 0,
+        latestClaimEvent: converted.eventType === 'CUTTING_CLAIMED' ? converted : null,
+        events: [converted],
+      }
+    })
+    .filter((row): row is MaterialLedgerProjection => Boolean(row))
+
+  return [...mergedRows, ...fallbackRows]
+}
+
 function buildWaitProcessMaterialLedgerSummary() {
-  const rows = listMaterialLedgerProjections()
+  const rows = mergeRuntimeWaitProcessEventsIntoLedgerRows(listMaterialLedgerProjections())
   const unit = rows[0]?.unit || '米'
   const requiredQty = rows.reduce((sum, item) => sum + Number(item.requiredMaterialQty || 0), 0)
   const configuredQty = rows.reduce((sum, item) => sum + Number(item.transferWarehouseAllocatedQty || 0), 0)
@@ -1070,22 +1282,6 @@ function renderWaitProcessEventTable(
   `
 }
 
-function getSafeCuttingSewingDispatchSummary(): ReturnType<typeof getCuttingSewingDispatchSummary> {
-  try {
-    return getCuttingSewingDispatchSummary()
-  } catch {
-    return {
-      waitingCompleteOrderCount: 0,
-      readyBatchCount: 0,
-      handedOverBatchCount: 0,
-      writtenBackBatchCount: 0,
-      differenceBatchCount: 0,
-      objectionBatchCount: 0,
-      remainingGarmentQty: 0,
-    }
-  }
-}
-
 function renderHubActionCard(options: {
   title: string
   rows: Array<[string, string | number]>
@@ -1312,7 +1508,7 @@ interface WaitHandoverWorkbenchProjection {
   specialCraftReturnProjection: SpecialCraftReturnProjection
   inboundTempBags: InboundTempBag[]
   inboundInventoryRecords: InboundTempBagInventoryRecord[]
-  specialCraftReturnInventoryRecords: SpecialCraftReturnInventoryRecord[]
+  specialCraftReturnInventoryRecords: InboundTempBagInventoryRecord[]
   sewingAllocationProjection: SewingTaskAllocationProjection
   handoverPickingProjection: HandoverPickingTaskProjection
   inventorySnapshot: {
@@ -1364,6 +1560,48 @@ function getReceiverFactoryDisplay(ticket?: GeneratedFeiTicketSourceRecord): str
   )
 }
 
+function buildRuntimeTicketCandidatesFromGeneratedTickets(
+  generatedTickets: GeneratedFeiTicketSourceRecord[],
+): TransferBagTicketCandidate[] {
+  return generatedTickets.map((ticket) => ({
+    ticketRecordId: ticket.feiTicketId,
+    feiTicketId: ticket.feiTicketId,
+    ticketNo: ticket.feiTicketNo,
+    printStatus: ticket.printStatus as TransferBagTicketCandidate['printStatus'],
+    sourceSpreadingSessionId: ticket.spreadingOrderId || ticket.sourceSpreadingSessionId,
+    sourceSpreadingSessionNo: ticket.spreadingOrderNo || ticket.sourceSpreadingSessionNo,
+    sourceMarkerId: ticket.sourceMarkerPlanId || ticket.sourceMarkerId,
+    sourceMarkerNo: ticket.sourceMarkerPlanNo || ticket.sourceMarkerNo,
+    cutOrderId: ticket.cutOrderId,
+    cutOrderNo: ticket.cutOrderNo,
+    productionOrderId: ticket.productionOrderId,
+    productionOrderNo: ticket.productionOrderNo,
+    markerPlanId: ticket.sourceMarkerPlanId,
+    markerPlanNo: ticket.sourceMarkerPlanNo,
+    styleCode: ticket.sourceTechPackSpuCode || ticket.skuCode,
+    spuCode: ticket.sourceTechPackSpuCode || ticket.skuCode,
+    fabricRollNo: ticket.fabricRollNo,
+    fabricColor: ticket.fabricColor,
+    color: ticket.skuColor || ticket.fabricColor,
+    size: ticket.skuSize,
+    partCode: ticket.partCode,
+    partName: ticket.partName,
+    bundleNo: ticket.bundleNo,
+    qty: ticket.qty,
+    actualCutPieceQty: ticket.actualCutPieceQty,
+    garmentQty: ticket.garmentQty,
+    materialSku: ticket.materialSku,
+    materialAlias: ticket.materialIdentity.materialAlias,
+    materialImageUrl: ticket.materialIdentity.materialImageUrl,
+    pieceSequenceLabel: ticket.pieceSequenceLabel,
+    hasSpecialCraft: ticket.hasSpecialCraft,
+    specialCraftDisplayLabel: ticket.specialCraftDisplayLabel,
+    receiverFactoryDisplay: getReceiverFactoryDisplay(ticket),
+    sourceContextType: '实际裁剪产出',
+    ticketStatus: ticket.printStatus === 'VOIDED' ? 'VOIDED' : 'PRINTED',
+  }))
+}
+
 function createWaitHandoverItemFromTicket(
   candidate: TransferBagTicketCandidate,
   generatedTicket: GeneratedFeiTicketSourceRecord | undefined,
@@ -1409,60 +1647,6 @@ function createWaitHandoverItemFromTicket(
     nextAction: options.nextAction,
     nextActionHref: options.nextActionHref,
     evidenceLines: options.evidenceLines || [],
-  }
-}
-
-function createWaitHandoverItemFromSortingTask(
-  task: CutPieceSortingTask,
-  batch: CuttingSewingDispatchBatch | undefined,
-  generatedTicketsByNo: Record<string, GeneratedFeiTicketSourceRecord>,
-  options: {
-    itemType: WaitHandoverWorkbenchItemType
-    nextAction: string
-    nextActionHref: string
-    evidenceLines?: string[]
-  },
-): WaitHandoverWorkbenchItem {
-  const relatedTicket = task.targetTransferBagNos
-    .concat(task.sourceTempBagNos)
-    .map((value) => generatedTicketsByNo[value])
-    .filter(Boolean)[0]
-  const skuLine = batch?.plannedSkuQtyLines[0]
-  const pendingPieceQty = Math.max((task.expectedTicketCount - task.pickedTicketCount) || task.expectedTicketCount, 0)
-  return {
-    itemId: `${options.itemType}-${task.sortingTaskId}`,
-    itemType: options.itemType,
-    urgentLevel: '普通',
-    updatedAt: batch?.updatedAt || '最近更新',
-    productionOrderId: batch?.productionOrderId || '',
-    productionOrderNo: task.productionOrderNo || batch?.productionOrderNo || '未关联生产单',
-    cutOrderId: '',
-    cutOrderNo: batch?.transferOrderNo || '按交出任务汇总',
-    spreadingOrderId: relatedTicket?.spreadingOrderId || '',
-    spreadingOrderNo: relatedTicket?.spreadingOrderNo || '',
-    feiTicketIds: [],
-    feiTicketNos: batch?.feiTicketNos || [],
-    spuCode: task.skuSummary || relatedTicket?.sourceTechPackSpuCode || '按车缝任务汇总',
-    color: skuLine?.colorName || relatedTicket?.skuColor || '多颜色',
-    size: skuLine?.sizeCode || relatedTicket?.skuSize || '多尺码',
-    partName: skuLine?.partName || relatedTicket?.partName || '多部位',
-    pieceQty: pendingPieceQty,
-    pieceSequenceLabel: relatedTicket?.pieceSequenceLabel || '按菲票追踪',
-    hasSpecialCraft: Boolean(relatedTicket?.hasSpecialCraft),
-    specialCraftDisplay: getSpecialCraftDisplay(relatedTicket),
-    receiverFactoryDisplay: getReceiverFactoryDisplay(relatedTicket),
-    currentWarehouseArea: '裁床待交出仓',
-    tempBagCodes: task.sourceTempBagNos,
-    targetTaskId: task.sortingTaskNo,
-    targetReceiver: task.targetFactoryName,
-    shortageAfterHandover: '交出后计算',
-    nextAction: options.nextAction,
-    nextActionHref: options.nextActionHref,
-    evidenceLines: options.evidenceLines || [
-      `来源暂存袋：${task.sourceTempBagNos.join('、') || '待确认'}`,
-      `已分拣菲票：${task.pickedTicketCount}/${task.expectedTicketCount} 张`,
-      `目标中转袋：${task.targetTransferBagNos.join('、') || '待重新装袋'}`,
-    ],
   }
 }
 
@@ -1518,129 +1702,68 @@ function createWaitHandoverItemFromPickingTask(
   }
 }
 
-function createWaitHandoverItemFromBatch(
-  batch: CuttingSewingDispatchBatch,
-  itemType: WaitHandoverWorkbenchItemType,
-  nextAction: string,
-  nextActionHref: string,
-): WaitHandoverWorkbenchItem {
-  const summary = getCuttingSewingDispatchBatchHandoverSummary(batch.dispatchBatchId)
-  const skuLine = batch.plannedSkuQtyLines[0]
-  const gapPreview = summary?.gapLines
-    .slice(0, 2)
-    .map((line) => `${line.colorName}/${line.sizeCode}/${line.partName} 缺 ${line.missingPieceQty} 片`)
-    .join('；')
-  return {
-    itemId: `${itemType}-${batch.dispatchBatchId}`,
-    itemType,
-    urgentLevel: '普通',
-    updatedAt: batch.updatedAt,
-    productionOrderId: batch.productionOrderId,
-    productionOrderNo: batch.productionOrderNo,
-    cutOrderId: '',
-    cutOrderNo: batch.transferOrderNo,
-    spreadingOrderId: '',
-    spreadingOrderNo: '',
-    feiTicketIds: [],
-    feiTicketNos: batch.feiTicketNos,
-    spuCode: skuLine?.skuCode || '按交出任务汇总',
-    color: skuLine?.colorName || '多颜色',
-    size: skuLine?.sizeCode || '多尺码',
-    partName: skuLine?.partName || '多部位',
-    pieceQty: summary?.currentSubmittedPieceQty || batch.feiTicketNos.length,
-    pieceSequenceLabel: '按菲票追踪',
-    hasSpecialCraft: batch.plannedSkuQtyLines.some((line) => line.specialCraftRequired),
-    specialCraftDisplay: batch.plannedSkuQtyLines.some((line) => line.specialCraftRequired) ? '含特殊工艺部位' : '无',
-    receiverFactoryDisplay: '接收对象见交出单',
-    currentWarehouseArea: '裁床待交出仓',
-    tempBagCodes: batch.transferBagIds,
-    targetTaskId: batch.dispatchBatchNo,
-    targetReceiver: '车缝厂',
-    shortageAfterHandover: summary?.completeAfterSubmit ? '交出后无缺口' : gapPreview || '交出后仍有缺口',
-    nextAction,
-    nextActionHref,
-    evidenceLines: [
-      `已装袋数量：${batch.transferBagIds.length} 袋`,
-      `本次可交出：${formatPieceQty(summary?.currentSubmittedPieceQty || batch.feiTicketNos.length)}`,
-      `上次交出：${formatPieceQty(summary?.previousSubmittedPieceQty || 0)}`,
-    ],
-  }
-}
-
-function createWaitHandoverItemFromValidation(
-  result: CuttingSewingDispatchValidationResult,
-  batch: CuttingSewingDispatchBatch | undefined,
-): WaitHandoverWorkbenchItem {
-  return {
-    itemId: `discrepancy-${result.validationId}`,
-    itemType: '接收差异 / 交出后缺口',
-    urgentLevel: result.blocking ? '高' : '普通',
-    updatedAt: '最近更新',
-    productionOrderId: result.productionOrderId,
-    productionOrderNo: result.productionOrderNo,
-    cutOrderId: '',
-    cutOrderNo: batch?.transferOrderNo || '按交出记录追踪',
-    spreadingOrderId: '',
-    spreadingOrderNo: '',
-    feiTicketIds: [],
-    feiTicketNos: batch?.feiTicketNos || [],
-    spuCode: batch?.plannedSkuQtyLines[0]?.skuCode || '按接收差异汇总',
-    color: result.colorName,
-    size: result.sizeCode,
-    partName: result.partName,
-    pieceQty: Math.max(result.missingPieceQty || result.overPieceQty || result.scannedPieceQty, 0),
-    pieceSequenceLabel: '按菲票追踪',
-    hasSpecialCraft: result.specialCraftRequired,
-    specialCraftDisplay: result.specialCraftRequired ? result.specialCraftStatus : '无',
-    receiverFactoryDisplay: '接收对象见交出单',
-    currentWarehouseArea: '裁床待交出仓',
-    tempBagCodes: [result.transferBagId],
-    targetTaskId: batch?.dispatchBatchNo || result.dispatchBatchId,
-    targetReceiver: '接收方',
-    shortageAfterHandover:
-      result.missingPieceQty > 0
-        ? `缺 ${formatPieceQty(result.missingPieceQty)}`
-        : result.overPieceQty > 0
-          ? `多 ${formatPieceQty(result.overPieceQty)}`
-          : result.validationType,
-    nextAction: '查看处理记录',
-    nextActionHref: buildHubTabHref('warehouse-management-wait-handover', 'handoverRecords'),
-    evidenceLines: [
-      `差异类型：${result.validationType}`,
-      `差异数量：${formatPieceQty(Math.max(result.missingPieceQty || result.overPieceQty || 0, 0))}`,
-      `异议状态：${result.validationMessage}`,
-    ],
-  }
-}
-
 function buildWaitHandoverWorkbenchProjection(options: {
+  runtimeEvents: CuttingRuntimeEvent[]
   ticketCandidates: TransferBagTicketCandidate[]
   generatedTickets: GeneratedFeiTicketSourceRecord[]
   inboundTempBags: InboundTempBag[]
   inboundInventoryRecords: InboundTempBagInventoryRecord[]
   specialCraftReturnProjection: SpecialCraftReturnProjection
-  specialCraftReturnInventoryRecords: SpecialCraftReturnInventoryRecord[]
+  specialCraftReturnInventoryRecords: InboundTempBagInventoryRecord[]
   sewingAllocationProjection: SewingTaskAllocationProjection
   handoverPickingProjection: HandoverPickingTaskProjection
-  cutPieceItems: CutPieceWarehouseItem[]
-  cutPieceSummary: { totalItemCount: number; pieceQtyTotal: number }
+  specialCraftHandoverGroups: SpecialCraftHandoverGroup[]
   transferBagSummary: { bagCount: number }
-  sortingTaskSummary: {
-    pendingCount: number
-    sortingCount: number
-    packedCount: number
-    handedOverCount: number
-    sourceTempBagCount: number
-    targetTransferBagCount: number
-  }
-  sortingTasks: CutPieceSortingTask[]
-  dispatchBatches: CuttingSewingDispatchBatch[]
-  validationResults: CuttingSewingDispatchValidationResult[]
-  returnRows: ReturnType<typeof listCuttingSpecialCraftReturnViews>
-  dispatchOrderCount: number
-  sewingSummary: ReturnType<typeof getSafeCuttingSewingDispatchSummary>
 }): WaitHandoverWorkbenchProjection {
   const generatedTicketsByNo = Object.fromEntries(options.generatedTickets.map((ticket) => [ticket.feiTicketNo, ticket]))
+  const runtimeSortingItems = options.runtimeEvents
+    .filter((event) => event.eventType === '待交出仓二次分拣')
+    .slice(0, 3)
+    .map((event) =>
+      createWaitHandoverItemFromRuntimeEvent(
+        event,
+        '待二次分拣',
+        options.generatedTickets,
+        '查看二次分拣',
+        buildHubTabHref('warehouse-management-wait-handover', 'sorting'),
+      ),
+    )
+  const runtimeRebaggingItems = options.runtimeEvents
+    .filter((event) => event.eventType === '待交出仓重新装袋')
+    .slice(0, 3)
+    .map((event) =>
+      createWaitHandoverItemFromRuntimeEvent(
+        event,
+        '待重新装袋',
+        options.generatedTickets,
+        '查看重新装袋',
+        buildHubTabHref('warehouse-management-wait-handover', 'sorting'),
+      ),
+    )
+  const runtimeHandoverRecordItems = options.runtimeEvents
+    .filter((event) => event.eventType === '新增交出记录')
+    .slice(0, 3)
+    .map((event) =>
+      createWaitHandoverItemFromRuntimeEvent(
+        event,
+        '待新增交出记录',
+        options.generatedTickets,
+        '查看交出记录',
+        buildHubTabHref('warehouse-management-wait-handover', 'handoverRecords'),
+      ),
+    )
+  const runtimeReadyHandoverItems = options.runtimeEvents
+    .filter((event) => event.eventType === '待交出仓重新装袋')
+    .slice(0, 3)
+    .map((event) =>
+      createWaitHandoverItemFromRuntimeEvent(
+        event,
+        '待新增交出记录',
+        options.generatedTickets,
+        '新增交出记录',
+        buildHubTabHref('warehouse-management-wait-handover', 'handoverRecords'),
+      ),
+    )
   const printedCandidates = options.ticketCandidates
     .filter((ticket) => ticket.ticketStatus === 'PRINTED' || ticket.ticketStatus === 'REPRINTED')
     .slice(0, 2)
@@ -1667,6 +1790,7 @@ function buildWaitHandoverWorkbenchProjection(options: {
         buildHubTabHref('warehouse-management-wait-handover', 'sorting'),
       ),
     )
+    .concat(runtimeSortingItems)
   const pendingRebaggingItems = options.handoverPickingProjection.tasks
     .filter((task) => task.taskStatus === '已分拣待装袋' || task.taskStatus === '已装袋待交出' || task.targetTransferBags.length > 0)
     .slice(0, 2)
@@ -1678,50 +1802,51 @@ function buildWaitHandoverWorkbenchProjection(options: {
         buildHubTabHref('warehouse-management-wait-handover', 'sorting'),
       ),
     )
-  const pendingHandoverRecordItems = options.dispatchBatches
-    .filter((batch) => batch.transferBagIds.length > 0 && !batch.handoverRecordNo)
+    .concat(runtimeRebaggingItems)
+  const pendingHandoverRecordItems = options.handoverPickingProjection.tasks
+    .filter((task) => task.targetTransferBags.length > 0)
     .slice(0, 2)
-    .map((batch) =>
-      createWaitHandoverItemFromBatch(
-        batch,
+    .map((task) =>
+      createWaitHandoverItemFromPickingTask(
+        task,
         '待新增交出记录',
         '新增交出记录',
         buildHubTabHref('warehouse-management-wait-handover', 'handoverRecords'),
       ),
     )
-  const exceptionValidations = options.validationResults
-    .filter((result) => result.validationType !== '通过')
-    .slice(0, 3)
-  const discrepancyAndShortageItems = exceptionValidations.map((result) =>
-    createWaitHandoverItemFromValidation(
-      result,
-      options.dispatchBatches.find((batch) => batch.dispatchBatchId === result.dispatchBatchId),
-    ),
-  )
+    .concat(runtimeReadyHandoverItems)
+  const discrepancyAndShortageItems = runtimeHandoverRecordItems.map((item) => ({
+    ...item,
+    itemType: '接收差异 / 交出后缺口' as const,
+    nextAction: '查看交出记录',
+    shortageAfterHandover: '交出后计算，等待接收方回写',
+    evidenceLines: item.evidenceLines.concat('接收回写后在交出记录内展示差异、异议和交出后缺口。'),
+  }))
   const tempBagCodes = uniqueStrings(options.inboundTempBags.map((bag) => bag.bagCode))
   const inboundTempPieceQty = options.inboundTempBags.reduce((sum, bag) => sum + bag.totalPieceQty, 0)
   const specialCraftReturnPieceQty = options.specialCraftReturnInventoryRecords.reduce((sum, record) => sum + record.pieceQty, 0)
   const inboundTempDiscrepancyCount = options.inboundTempBags.reduce((sum, bag) => sum + bag.discrepancyRecords.length, 0)
-  const waitingReturnCount =
-    options.returnRows.filter((row) => row.returnStatus !== '已回仓').length +
-    options.specialCraftReturnProjection.summary.waitingReturnCount
-  const returnedCount =
-    options.returnRows.filter((row) => row.returnStatus === '已回仓').length +
-    options.specialCraftReturnProjection.summary.returnedCount
-  const differenceCount =
-    options.returnRows.filter((row) => row.returnStatus === '差异' || row.differenceQty > 0).length +
-    options.specialCraftReturnProjection.summary.discrepancyCount
-  const specialCraftHandoverGroups = buildSpecialCraftHandoverGroups()
+  const waitingReturnCount = options.specialCraftReturnProjection.summary.waitingReturnCount
+  const returnedCount = options.specialCraftReturnProjection.summary.returnedCount
+  const differenceCount = options.specialCraftReturnProjection.summary.discrepancyCount
+  const specialCraftHandoverGroups = options.specialCraftHandoverGroups
   const readySpecialCraftGroups = specialCraftHandoverGroups.filter((group) => group.canCreateHandover).length
   const shortageCount = discrepancyAndShortageItems.filter((item) => item.shortageAfterHandover.includes('缺')).length
+  const inventoryPieceQty = inboundTempPieceQty + specialCraftReturnPieceQty
+  const inventoryItemCount = options.inboundInventoryRecords.length + options.specialCraftReturnInventoryRecords.length
+  const handoverOrderCount = uniqueStrings(
+    options.runtimeEvents
+      .filter((event) => event.eventType === '新增交出记录')
+      .map((event) => runtimeString(toRuntimeRecord(event.payload).handoverOrderNo) || event.refs.handoverOrderId),
+  ).length
   const overviewCards: WaitHandoverOverviewCard[] = [
     { label: '待入仓确认裁片数量', value: formatPieceQty(pendingInboundItems.reduce((sum, item) => sum + item.pieceQty, 0)), hint: '已打印菲票进入裁后仓前确认', tone: 'text-blue-600' },
     { label: '入仓暂存袋数量', value: options.inboundTempBags.length, hint: `${formatPieceQty(inboundTempPieceQty)} 已扫码入仓`, tone: 'text-slate-700' },
-    { label: '裁片库存数量', value: formatPieceQty(Math.max(options.cutPieceSummary.pieceQtyTotal, inboundTempPieceQty + specialCraftReturnPieceQty)), hint: `${options.inboundInventoryRecords.length + options.specialCraftReturnInventoryRecords.length} 条入仓 / 回仓库存记录`, tone: 'text-emerald-600' },
+    { label: '裁片库存数量', value: formatPieceQty(inventoryPieceQty), hint: `${inventoryItemCount} 条入仓 / 回仓库存记录`, tone: 'text-emerald-600' },
     { label: '待二次分拣任务数量', value: pendingSortingItems.length || options.handoverPickingProjection.pendingCount + options.handoverPickingProjection.sortingCount, hint: '车缝任务分配后触发', tone: 'text-amber-600' },
     { label: '待重新装袋数量', value: pendingRebaggingItems.length || options.handoverPickingProjection.packedCount, hint: '二次分拣后重新装中转袋', tone: 'text-violet-600' },
-    { label: '待新增交出记录数量', value: pendingHandoverRecordItems.length || options.sewingSummary.readyBatchCount, hint: '齐套不是交出前置条件', tone: 'text-blue-600' },
-    { label: '接收差异数量', value: discrepancyAndShortageItems.length + options.sewingSummary.differenceBatchCount + options.sewingSummary.objectionBatchCount, hint: '接收回写和异议提示', tone: 'text-rose-600' },
+    { label: '待新增交出记录数量', value: pendingHandoverRecordItems.length, hint: '齐套不是交出前置条件', tone: 'text-blue-600' },
+    { label: '接收差异数量', value: discrepancyAndShortageItems.length, hint: '接收回写和异议提示', tone: 'text-rose-600' },
     { label: '交出后缺口数量', value: shortageCount, hint: '缺口作为交出后结果展示', tone: 'text-orange-600' },
     { label: '特殊工艺待交出归组', value: specialCraftHandoverGroups.length, hint: `${readySpecialCraftGroups} 组可生成通用交出单`, tone: 'text-violet-600' },
   ]
@@ -1740,12 +1865,9 @@ function buildWaitHandoverWorkbenchProjection(options: {
     sewingAllocationProjection: options.sewingAllocationProjection,
     handoverPickingProjection: options.handoverPickingProjection,
     inventorySnapshot: {
-      pieceQty: Math.max(
-        options.cutPieceSummary.pieceQtyTotal,
-        inboundTempPieceQty + options.specialCraftReturnInventoryRecords.reduce((sum, record) => sum + record.pieceQty, 0),
-      ),
-      itemCount: Math.max(options.cutPieceSummary.totalItemCount, options.inboundInventoryRecords.length + options.specialCraftReturnInventoryRecords.length),
-      unassignedCount: options.cutPieceItems.filter((item) => item.zoneCode === 'UNASSIGNED').length,
+      pieceQty: inventoryPieceQty,
+      itemCount: inventoryItemCount,
+      unassignedCount: options.inboundInventoryRecords.filter((record) => record.inventoryStatus === '待分配').length,
     },
     tempBagSnapshot: {
       tempBagCount: options.inboundTempBags.length,
@@ -1762,8 +1884,8 @@ function buildWaitHandoverWorkbenchProjection(options: {
       hint: '特殊工艺未回仓不影响其他已裁出部位交出；回仓后重新进入裁床待交出仓库存。',
     },
     handoverSnapshot: {
-      handoverOrderCount: options.dispatchOrderCount,
-      handoverRecordCount: options.dispatchBatches.filter((batch) => batch.handoverRecordNo).length,
+      handoverOrderCount,
+      handoverRecordCount: runtimeHandoverRecordItems.length,
       shortageCount,
       discrepancyCount: discrepancyAndShortageItems.length,
     },
@@ -2329,36 +2451,662 @@ function renderWaitHandoverWorkbench(projection: WaitHandoverWorkbenchProjection
   `
 }
 
-function mapSpecialCraftReturnInventoryForWaitHandover(
-  records: SpecialCraftReturnInventoryRecord[],
+function listRuntimeWaitHandoverEvents(): CuttingRuntimeEvent[] {
+  const events = [
+    ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓'),
+    ...listCuttingRuntimeEventsByType('待交出仓二次分拣'),
+    ...listCuttingRuntimeEventsByType('待交出仓重新装袋'),
+    ...listCuttingRuntimeEventsByType('新增交出记录'),
+    ...listCuttingRuntimeEventsByType('特殊工艺交出'),
+    ...listCuttingRuntimeEventsByType('特殊工艺回仓'),
+  ]
+  const seen = new Set<string>()
+  return events
+    .filter((event) => {
+      if (!event.eventId || seen.has(event.eventId)) return false
+      seen.add(event.eventId)
+      return true
+    })
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt, 'zh-CN'))
+}
+
+function findGeneratedFeiTicket(
+  generatedTickets: GeneratedFeiTicketSourceRecord[],
+  feiTicketId: string,
+  feiTicketNo: string,
+): GeneratedFeiTicketSourceRecord | undefined {
+  return generatedTickets.find((ticket) =>
+    (feiTicketId && ticket.feiTicketId === feiTicketId) ||
+    (feiTicketNo && ticket.feiTicketNo === feiTicketNo),
+  )
+}
+
+function getRuntimeTicketPrintStatus(ticket?: GeneratedFeiTicketSourceRecord): string {
+  if (!ticket) return '已首打'
+  if (ticket.printStatus === 'WAIT_PRINT') return '待首打'
+  if (ticket.printStatus === 'REPRINTED') return '已补打'
+  if (ticket.printStatus === 'VOIDED') return '已作废'
+  return '已首打'
+}
+
+function getRuntimeTicketVoidStatus(ticket?: GeneratedFeiTicketSourceRecord): string {
+  return ticket?.printStatus === 'VOIDED' ? '已作废' : '有效'
+}
+
+function buildInboundTempBagMixedSummaryFromTickets(tickets: InboundTempBagContainedFeiTicket[]): string {
+  const productionOrderCount = uniqueStrings(tickets.map((ticket) => ticket.productionOrderNo)).length
+  const cutOrderCount = uniqueStrings(tickets.map((ticket) => ticket.cutOrderNo)).length
+  const partCount = uniqueStrings(tickets.map((ticket) => ticket.partName)).length
+  const sizeCount = uniqueStrings(tickets.map((ticket) => ticket.size)).length
+  const specialCraftCount = tickets.filter((ticket) => ticket.hasSpecialCraft).length
+  return `涉及生产单 ${productionOrderCount} 个、裁片单 ${cutOrderCount} 张、部位 ${partCount} 个、尺码 ${sizeCount} 个、特殊工艺菲票 ${specialCraftCount} 张`
+}
+
+function buildRuntimeInboundTempBagsFromEvents(
+  runtimeEvents: CuttingRuntimeEvent[],
+  generatedTickets: GeneratedFeiTicketSourceRecord[],
+): InboundTempBag[] {
+  return runtimeEvents
+    .filter((event) => event.eventType === '菲票入仓暂存')
+    .map((event) => {
+      const payload = toRuntimeRecord(event.payload)
+      const rawItems = Array.isArray(payload.feiTicketItems) ? payload.feiTicketItems : []
+      const containedFeiTickets = rawItems.map((rawItem) => {
+        const item = toRuntimeRecord(rawItem)
+        const feiTicketId = runtimeString(item.feiTicketId)
+        const feiTicketNo = runtimeString(item.feiTicketNo)
+        const ticket = findGeneratedFeiTicket(generatedTickets, feiTicketId, feiTicketNo)
+        return {
+          feiTicketId: feiTicketId || ticket?.feiTicketId || event.refs.feiTicketIds?.[0] || '',
+          feiTicketNo: feiTicketNo || ticket?.feiTicketNo || event.refs.feiTicketNos?.[0] || '',
+          productionOrderId: ticket?.productionOrderId || event.refs.productionOrderId || '',
+          productionOrderNo: ticket?.productionOrderNo || event.refs.productionOrderNo || '按菲票事件追踪',
+          cutOrderId: runtimeString(item.cutOrderId) || ticket?.cutOrderId || event.refs.cutOrderId || '',
+          cutOrderNo: runtimeString(item.cutOrderNo) || ticket?.cutOrderNo || event.refs.cutOrderNo || '按菲票事件追踪',
+          spreadingOrderNo: runtimeString(item.spreadingOrderNo) || ticket?.spreadingOrderNo || event.refs.spreadingOrderNo || '',
+          spuCode: ticket?.sourceTechPackSpuCode || ticket?.skuCode || '按菲票追踪',
+          color: ticket?.skuColor || ticket?.fabricColor || '未标记',
+          size: ticket?.skuSize || '未标记',
+          partName: ticket?.partName || '未标记',
+          pieceQty: runtimeNumber(item.pieceQty) || ticket?.actualCutPieceQty || ticket?.qty || 0,
+          pieceSequenceLabel: runtimeString(item.pieceSequenceLabel) || ticket?.pieceSequenceLabel || ticket?.pieceSetNoRange || '按菲票追踪',
+          hasSpecialCraft: Boolean(item.hasSpecialCraft) || Boolean(ticket?.hasSpecialCraft),
+          specialCraftDisplay: getSpecialCraftDisplay(ticket),
+          receiverFactoryDisplay: getReceiverFactoryDisplay(ticket),
+          printStatus: getRuntimeTicketPrintStatus(ticket),
+          voidStatus: getRuntimeTicketVoidStatus(ticket),
+        } satisfies InboundTempBagContainedFeiTicket
+      })
+      const derivedMixedFlag =
+        uniqueStrings(containedFeiTickets.map((ticket) => ticket.productionOrderNo)).length > 1 ||
+        uniqueStrings(containedFeiTickets.map((ticket) => ticket.cutOrderNo)).length > 1 ||
+        uniqueStrings(containedFeiTickets.map((ticket) => ticket.partName)).length > 1 ||
+        uniqueStrings(containedFeiTickets.map((ticket) => ticket.size)).length > 1 ||
+        uniqueStrings(containedFeiTickets.map((ticket) => ticket.hasSpecialCraft ? '有特殊工艺' : '无特殊工艺')).length > 1
+
+      return {
+        tempBagUseId: runtimeString(payload.tempBagUseId) || event.eventId,
+        bagCode: runtimeString(payload.bagCode) || event.refs.transferBagCode || '待补袋码',
+        bagMasterId: runtimeString(payload.bagMasterId) || runtimeString(payload.bagCode) || event.refs.transferBagCode || event.eventId,
+        useStage: '入仓暂存',
+        warehouseId: 'cutting-wait-handover',
+        warehouseName: '裁床待交出仓',
+        warehouseArea: runtimeString(payload.warehouseArea) || event.inventoryEffect?.toWarehouseArea || '裁床待交出仓',
+        locationCode: runtimeString(payload.locationCode) || event.inventoryEffect?.toLocationCode || '待补库位',
+        inboundStatus: event.eventStatus,
+        inboundAt: runtimeString(payload.inboundAt) || event.occurredAt,
+        inboundBy: runtimeString(payload.inboundBy) || event.operatorName,
+        inboundSource: 'PDA 菲票入仓事件账',
+        containedFeiTickets,
+        totalPieceQty: runtimeNumber(payload.totalPieceQty) || containedFeiTickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0),
+        mixedFlag: typeof payload.mixedFlag === 'boolean' ? payload.mixedFlag : derivedMixedFlag,
+        mixedSummary: buildInboundTempBagMixedSummaryFromTickets(containedFeiTickets),
+        discrepancyRecords: [],
+        nextSortingStatus: '未绑定车缝任务，待后续分配后再二次分拣',
+        remark: `${event.eventNo} / ${event.eventSource}`,
+      } satisfies InboundTempBag
+    })
+}
+
+function buildRuntimeSpecialCraftReturnInventoryRecordsFromEvents(
+  runtimeEvents: CuttingRuntimeEvent[],
+  generatedTickets: GeneratedFeiTicketSourceRecord[],
 ): InboundTempBagInventoryRecord[] {
-  return records.map((record) => ({
-    inventoryRecordId: record.inventoryRecordId,
-    feiTicketId: record.feiTicketId,
-    feiTicketNo: record.feiTicketNo,
-    cutOrderId: record.cutOrderId,
-    cutOrderNo: record.cutOrderNo,
-    productionOrderId: record.productionOrderId,
-    productionOrderNo: record.productionOrderNo,
-    spuCode: record.spuCode,
-    color: record.color,
-    size: record.size,
-    partName: record.partName,
-    pieceQty: record.pieceQty,
-    pieceSequenceLabel: record.pieceSequenceLabel,
-    hasSpecialCraft: !record.specialCraftReadyForSewing,
-    specialCraftDisplay: record.specialCraftReadyForSewing
-      ? `${record.specialCraftDisplay}，可参与车缝任务分配`
-      : `${record.specialCraftDisplay}，仍有${record.remainingSpecialCraftDisplay || '回仓差异'}待处理`,
-    receiverFactoryDisplay: record.receiverFactoryDisplay,
-    printStatus: '已首打',
-    voidStatus: '有效',
-    tempBagCode: '特殊工艺回仓',
-    warehouseArea: record.warehouseArea,
-    locationCode: record.locationCode,
-    inboundAt: record.inboundAt,
-    inventoryStatus: record.inventoryStatus === '待分配' ? '待分配' : '已作废或不可用',
-  }))
+  return runtimeEvents
+    .filter((event) => event.eventType === '特殊工艺回仓')
+    .flatMap((event) => {
+      const payload = toRuntimeRecord(event.payload)
+      const rawItems = Array.isArray(payload.returnedFeiTicketItems) ? payload.returnedFeiTicketItems : []
+      return rawItems.map((rawItem) => {
+        const item = toRuntimeRecord(rawItem)
+        const feiTicketId = runtimeString(item.feiTicketId)
+        const feiTicketNo = runtimeString(item.feiTicketNo)
+        const ticket = findGeneratedFeiTicket(generatedTickets, feiTicketId, feiTicketNo)
+        const returnedQty = runtimeNumber(item.returnedQty) || runtimeNumber(item.pieceQty) || ticket?.actualCutPieceQty || 0
+        return {
+          inventoryRecordId: `INV-${event.eventId}-${feiTicketId || feiTicketNo}`,
+          feiTicketId: feiTicketId || ticket?.feiTicketId || '',
+          feiTicketNo: feiTicketNo || ticket?.feiTicketNo || '',
+          cutOrderId: ticket?.cutOrderId || event.refs.cutOrderId || '',
+          cutOrderNo: ticket?.cutOrderNo || event.refs.cutOrderNo || '按回仓事件追踪',
+          productionOrderId: ticket?.productionOrderId || event.refs.productionOrderId || '',
+          productionOrderNo: ticket?.productionOrderNo || event.refs.productionOrderNo || '按回仓事件追踪',
+          spuCode: ticket?.sourceTechPackSpuCode || ticket?.skuCode || '按菲票追踪',
+          color: ticket?.skuColor || ticket?.fabricColor || '未标记',
+          size: ticket?.skuSize || '未标记',
+          partName: ticket?.partName || '未标记',
+          pieceQty: returnedQty,
+          pieceSequenceLabel: ticket?.pieceSequenceLabel || ticket?.pieceSetNoRange || '按菲票追踪',
+          hasSpecialCraft: false,
+          specialCraftDisplay: `${runtimeString(item.craftType) || runtimeString(payload.craftType) || '特殊工艺'}已回仓，可参与车缝任务分配`,
+          receiverFactoryDisplay: runtimeString(payload.receiverFactoryName) || getReceiverFactoryDisplay(ticket),
+          printStatus: getRuntimeTicketPrintStatus(ticket),
+          voidStatus: getRuntimeTicketVoidStatus(ticket),
+          tempBagCode: '特殊工艺回仓',
+          warehouseArea: runtimeString(payload.warehouseArea) || event.inventoryEffect?.toWarehouseArea || '特殊工艺回仓区',
+          locationCode: runtimeString(payload.locationCode) || event.inventoryEffect?.toLocationCode || '待补库位',
+          inboundAt: runtimeString(payload.returnedAt) || event.occurredAt,
+          inventoryStatus: getRuntimeTicketVoidStatus(ticket) === '已作废' ? '已作废或不可用' : '待分配',
+        } satisfies InboundTempBagInventoryRecord
+      })
+    })
+}
+
+function buildRuntimeSpecialCraftHandoverGroups(
+  runtimeEvents: CuttingRuntimeEvent[],
+  inboundInventoryRecords: InboundTempBagInventoryRecord[],
+  generatedTickets: GeneratedFeiTicketSourceRecord[],
+): SpecialCraftHandoverGroup[] {
+  const handedOverCraftKeys = new Set<string>()
+  const returnedCraftKeys = new Set<string>()
+
+  runtimeEvents
+    .filter((event) => event.eventType === '特殊工艺交出')
+    .forEach((event) => {
+      const payload = toRuntimeRecord(event.payload)
+      const rawItems = Array.isArray(payload.feiTicketItems) ? payload.feiTicketItems : []
+      rawItems.forEach((rawItem) => {
+        const item = toRuntimeRecord(rawItem)
+        const feiTicketId = runtimeString(item.feiTicketId)
+        const specialCraftId = runtimeString(item.specialCraftId)
+        if (feiTicketId && specialCraftId) handedOverCraftKeys.add(`${feiTicketId}:${specialCraftId}`)
+      })
+    })
+
+  runtimeEvents
+    .filter((event) => event.eventType === '特殊工艺回仓')
+    .forEach((event) => {
+      const payload = toRuntimeRecord(event.payload)
+      const rawItems = Array.isArray(payload.returnedFeiTicketItems) ? payload.returnedFeiTicketItems : []
+      rawItems.forEach((rawItem) => {
+        const item = toRuntimeRecord(rawItem)
+        const feiTicketId = runtimeString(item.feiTicketId)
+        const specialCraftId = runtimeString(item.specialCraftId)
+        const returnStatus = runtimeString(item.returnStatus)
+        if (feiTicketId && specialCraftId && returnStatus === '已回仓') returnedCraftKeys.add(`${feiTicketId}:${specialCraftId}`)
+      })
+    })
+
+  const candidates = inboundInventoryRecords.flatMap((record) => {
+    const ticket = findGeneratedFeiTicket(generatedTickets, record.feiTicketId, record.feiTicketNo)
+    if (!ticket?.hasSpecialCraft || !ticket.specialCrafts.length || record.voidStatus === '已作废') return []
+    return ticket.specialCrafts.map((craft) => {
+      const specialCraftId = craft.specialCraftId || `${ticket.feiTicketId}-${craft.craftType || craft.craftName}`
+      const craftKey = `${ticket.feiTicketId}:${specialCraftId}`
+      const receiverFactoryName = craft.receiverFactoryName || '承接工厂待补充'
+      const receiverFactoryId = craft.receiverFactoryId || ''
+      const receiverFactoryType =
+        craft.receiverFactoryType === '特种工艺厂' || craft.craftCategory === '特种工艺'
+          ? '特种工艺厂'
+          : '辅助工艺厂'
+      const isReturned = returnedCraftKeys.has(craftKey)
+      const isHandedOver = handedOverCraftKeys.has(craftKey) && !isReturned
+      const receiverMissing = !receiverFactoryId || receiverFactoryName === '承接工厂待补充'
+      const canCreateHandover = !receiverMissing && !isHandedOver && !isReturned
+      return {
+        candidateId: `SC-HO-CAND-${record.inventoryRecordId}-${specialCraftId}`,
+        feiTicketId: ticket.feiTicketId,
+        feiTicketNo: ticket.feiTicketNo,
+        inventoryRecordId: record.inventoryRecordId,
+        productionOrderId: ticket.productionOrderId,
+        productionOrderNo: ticket.productionOrderNo,
+        cutOrderId: ticket.cutOrderId,
+        cutOrderNo: ticket.cutOrderNo,
+        spuCode: ticket.sourceTechPackSpuCode || ticket.skuCode,
+        color: ticket.skuColor || ticket.fabricColor,
+        size: ticket.skuSize,
+        partCode: ticket.partCode,
+        partName: ticket.partName,
+        pieceQty: record.pieceQty,
+        pieceSequenceLabel: ticket.pieceSequenceLabel || ticket.pieceSetNoRange || record.pieceSequenceLabel,
+        specialCraftId,
+        craftCategory: craft.craftCategory,
+        craftType: craft.craftType,
+        craftName: craft.craftName || craft.craftType,
+        receiverFactoryId,
+        receiverFactoryCode: craft.receiverFactoryCode || '',
+        receiverFactoryName,
+        receiverFactoryType,
+        currentInventoryStatus: receiverMissing
+          ? '承接工厂待补充'
+          : isHandedOver
+            ? '特殊工艺加工中'
+            : isReturned
+              ? '不可用'
+              : '在库可分配',
+        specialCraftHandoverStatus: receiverMissing
+          ? '承接工厂待补充'
+          : isHandedOver
+            ? '已交出未回仓'
+            : isReturned
+              ? '不可交出'
+              : '待交出',
+        specialCraftReturnStatus: isReturned ? '已回仓' : isHandedOver ? '待回仓' : '未回仓',
+        canCreateHandover,
+        reasonTexts: receiverMissing
+          ? ['承接工厂待补充']
+          : isHandedOver
+            ? ['同一特殊工艺已交出未回仓，不能重复交出']
+            : isReturned
+              ? ['该特殊工艺已回仓，不需要再次交出']
+              : [],
+      } satisfies SpecialCraftHandoverGroup['candidates'][number]
+    })
+  })
+
+  const groupMap = new Map<string, SpecialCraftHandoverGroup>()
+  candidates.forEach((candidate) => {
+    const groupKey = `${candidate.receiverFactoryId || 'missing'}:${candidate.craftCategory}:${candidate.craftType}`
+    const current = groupMap.get(groupKey)
+    if (!current) {
+      groupMap.set(groupKey, {
+        groupId: `SC-HO-GROUP-${groupKey}`,
+        craftCategory: candidate.craftCategory,
+        craftType: candidate.craftType,
+        craftName: candidate.craftName,
+        receiverFactoryId: candidate.receiverFactoryId,
+        receiverFactoryCode: candidate.receiverFactoryCode,
+        receiverFactoryName: candidate.receiverFactoryName,
+        receiverType: candidate.receiverFactoryType === '特种工艺厂' ? '特种工艺厂' : '辅助工艺厂',
+        candidates: [candidate],
+        totalPieceQty: candidate.pieceQty,
+        canCreateHandover: candidate.canCreateHandover,
+        reasonTexts: candidate.reasonTexts,
+      })
+      return
+    }
+    current.candidates.push(candidate)
+    current.totalPieceQty += candidate.pieceQty
+    current.canCreateHandover = current.candidates.some((item) => item.canCreateHandover)
+    current.reasonTexts = uniqueStrings(current.candidates.flatMap((item) => item.reasonTexts))
+  })
+
+  return Array.from(groupMap.values())
+}
+
+function buildRuntimeReturnSummaryItem(
+  ticket: GeneratedFeiTicketSourceRecord | undefined,
+  item: Record<string, unknown>,
+  pieceQty: number,
+  label: '应回' | '实回',
+) {
+  const partName = ticket?.partName || '未标记部位'
+  const size = ticket?.skuSize || '未标记尺码'
+  return {
+    productionOrderNo: ticket?.productionOrderNo || '',
+    cutOrderNo: ticket?.cutOrderNo || '',
+    color: ticket?.skuColor || ticket?.fabricColor || '',
+    size,
+    partCode: ticket?.partCode || '',
+    partName,
+    pieceQty,
+    unit: '片',
+    summaryText: `${partName} ${size} ${label} ${formatPieceQty(pieceQty)}`,
+  }
+}
+
+function buildRuntimeSpecialCraftReturnProjectionFromEvents(
+  runtimeEvents: CuttingRuntimeEvent[],
+  generatedTickets: GeneratedFeiTicketSourceRecord[],
+): SpecialCraftReturnProjection {
+  const records: SpecialCraftReturnRecord[] = runtimeEvents
+    .filter((event) => event.eventType === '特殊工艺回仓')
+    .map((event) => {
+      const payload = toRuntimeRecord(event.payload)
+      const rawItems = Array.isArray(payload.returnedFeiTicketItems) ? payload.returnedFeiTicketItems : []
+      const returnedFeiTicketItems = rawItems.map((rawItem) => {
+        const item = toRuntimeRecord(rawItem)
+        const feiTicketId = runtimeString(item.feiTicketId)
+        const feiTicketNo = runtimeString(item.feiTicketNo)
+        const specialCraftId = runtimeString(item.specialCraftId)
+        const ticket = findGeneratedFeiTicket(generatedTickets, feiTicketId, feiTicketNo)
+        const craft = ticket?.specialCrafts.find((craftItem) =>
+          craftItem.specialCraftId === specialCraftId ||
+          craftItem.craftType === runtimeString(item.craftType),
+        )
+        const expectedQty = runtimeNumber(item.expectedQty) || ticket?.actualCutPieceQty || ticket?.qty || 0
+        const returnedQty = runtimeNumber(item.returnedQty)
+        const remainingSpecialCrafts = (ticket?.specialCrafts || [])
+          .filter((craftItem) => craftItem.specialCraftId !== specialCraftId)
+          .map((craftItem) => craftItem.craftType || craftItem.craftName)
+          .filter(Boolean)
+        return {
+          feiTicketId: feiTicketId || ticket?.feiTicketId || '',
+          feiTicketNo: feiTicketNo || ticket?.feiTicketNo || '',
+          inventoryRecordId: `INV-${event.eventId}-${feiTicketId || feiTicketNo}`,
+          productionOrderNo: ticket?.productionOrderNo || event.refs.productionOrderNo || '',
+          cutOrderNo: ticket?.cutOrderNo || event.refs.cutOrderNo || '',
+          spuCode: ticket?.sourceTechPackSpuCode || ticket?.skuCode || '',
+          color: ticket?.skuColor || ticket?.fabricColor || '',
+          size: ticket?.skuSize || '',
+          partCode: ticket?.partCode || '',
+          partName: ticket?.partName || '',
+          pieceQty: expectedQty,
+          returnedQty,
+          pieceSequenceLabel: ticket?.pieceSequenceLabel || ticket?.pieceSetNoRange || '',
+          specialCraftId,
+          craftType: craft?.craftType || runtimeString(payload.craftType) || '特殊工艺',
+          receiverFactoryName: runtimeString(payload.receiverFactoryName) || craft?.receiverFactoryName || '承接工厂待补充',
+          returnCheckResult: returnedQty === expectedQty ? '正常' : returnedQty < expectedQty ? '部分回仓' : '数量差异',
+          allRequiredCraftsReturned: remainingSpecialCrafts.length === 0 && returnedQty === expectedQty,
+          remainingSpecialCrafts,
+        } satisfies SpecialCraftReturnRecord['returnedFeiTicketItems'][number]
+      })
+      const expectedReturnSummary = rawItems.map((rawItem, index) => {
+        const item = toRuntimeRecord(rawItem)
+        const ticket = findGeneratedFeiTicket(generatedTickets, runtimeString(item.feiTicketId), runtimeString(item.feiTicketNo))
+        return buildRuntimeReturnSummaryItem(ticket, item, returnedFeiTicketItems[index]?.pieceQty || runtimeNumber(item.expectedQty), '应回')
+      })
+      const actualReturnSummary = rawItems.map((rawItem, index) => {
+        const item = toRuntimeRecord(rawItem)
+        const ticket = findGeneratedFeiTicket(generatedTickets, runtimeString(item.feiTicketId), runtimeString(item.feiTicketNo))
+        return buildRuntimeReturnSummaryItem(ticket, item, returnedFeiTicketItems[index]?.returnedQty || runtimeNumber(item.returnedQty), '实回')
+      })
+      const discrepancyItems = returnedFeiTicketItems
+        .filter((item) => item.returnedQty !== item.pieceQty)
+        .map((item) => ({
+          discrepancyId: `SCR-DIFF-${event.eventId}-${item.feiTicketId}`,
+          discrepancyType: item.returnedQty < item.pieceQty ? '回仓数量小于交出数量' : '回仓数量大于交出数量',
+          expectedQty: item.pieceQty,
+          actualQty: item.returnedQty,
+          differenceQty: item.returnedQty - item.pieceQty,
+          unit: '片',
+          feiTicketId: item.feiTicketId,
+          sourceHandoverRecordId: runtimeString(payload.sourceHandoverRecordId) || event.refs.handoverRecordId || '',
+          returnRecordId: runtimeString(payload.returnRecordId) || event.eventId,
+          description: 'PDA 特殊工艺回仓数量与原交出数量不一致。',
+          evidencePhotos: [],
+          reportedAt: runtimeString(payload.returnedAt) || event.occurredAt,
+          reportedBy: runtimeString(payload.returnedBy) || event.operatorName,
+          handlingStatus: '待处理',
+        } satisfies SpecialCraftReturnRecord['discrepancyItems'][number]))
+      const craftType = returnedFeiTicketItems[0]?.craftType || '特殊工艺'
+      const craftCategory = craftType.includes('模板') || craftType.includes('激光') || craftType.includes('特种') ? '特种工艺' : '辅助工艺'
+      const hasPartial = returnedFeiTicketItems.some((item) => item.returnedQty < item.pieceQty)
+      const hasDifference = discrepancyItems.length > 0
+      const allReturned = returnedFeiTicketItems.length > 0 && returnedFeiTicketItems.every((item) => item.returnedQty === item.pieceQty)
+      return {
+        returnRecordId: runtimeString(payload.returnRecordId) || event.eventId,
+        returnRecordNo: runtimeString(payload.returnRecordNo) || event.eventNo,
+        sourceHandoverOrderId: runtimeString(payload.sourceHandoverOrderId) || event.refs.handoverOrderId || '',
+        sourceHandoverOrderNo: runtimeString(payload.sourceHandoverOrderNo) || runtimeString(payload.sourceHandoverOrderId) || event.refs.handoverOrderId || '按交出事件追踪',
+        sourceHandoverRecordId: runtimeString(payload.sourceHandoverRecordId) || event.refs.handoverRecordId || '',
+        sourceHandoverRecordNo: runtimeString(payload.sourceHandoverRecordNo) || runtimeString(payload.sourceHandoverRecordId) || event.refs.handoverRecordId || '按交出事件追踪',
+        receiverFactoryId: runtimeString(payload.receiverFactoryId) || '',
+        receiverFactoryCode: runtimeString(payload.receiverFactoryCode) || '',
+        receiverFactoryName: runtimeString(payload.receiverFactoryName) || returnedFeiTicketItems[0]?.receiverFactoryName || '承接工厂待补充',
+        craftCategory,
+        craftType,
+        craftName: craftType,
+        returnedFeiTicketItems,
+        expectedReturnSummary,
+        actualReturnSummary,
+        discrepancyItems,
+        returnStatus: hasDifference ? '回仓差异处理中' : hasPartial ? '部分回仓' : allReturned ? '已回仓' : '待回仓',
+        returnedAt: runtimeString(payload.returnedAt) || event.occurredAt,
+        returnedBy: runtimeString(payload.returnedBy) || event.operatorName,
+        receivedWarehouseId: 'cutting-wait-handover',
+        receivedWarehouseName: '裁床待交出仓',
+        receivedWarehouseArea: runtimeString(payload.warehouseArea) || event.inventoryEffect?.toWarehouseArea || '特殊工艺回仓区',
+        receivedLocationCode: runtimeString(payload.locationCode) || event.inventoryEffect?.toLocationCode || '待补库位',
+        createdAt: event.createdAt,
+        createdBy: event.operatorName,
+        remark: `${event.eventNo} / ${event.eventSource}`,
+      } satisfies SpecialCraftReturnRecord
+    })
+
+  const inventoryRecords: SpecialCraftReturnInventoryRecord[] = records.flatMap((record) =>
+    record.returnedFeiTicketItems
+      .filter((item) => item.returnedQty > 0)
+      .map((item) => ({
+        inventoryRecordId: item.inventoryRecordId,
+        sourceType: '特殊工艺回仓',
+        sourceReturnRecordId: record.returnRecordId,
+        sourceHandoverOrderId: record.sourceHandoverOrderId,
+        sourceHandoverRecordId: record.sourceHandoverRecordId,
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        productionOrderId: '',
+        productionOrderNo: item.productionOrderNo,
+        cutOrderId: '',
+        cutOrderNo: item.cutOrderNo,
+        spuCode: item.spuCode,
+        color: item.color,
+        size: item.size,
+        partName: item.partName,
+        pieceQty: item.returnedQty,
+        pieceSequenceLabel: item.pieceSequenceLabel,
+        warehouseArea: record.receivedWarehouseArea,
+        locationCode: record.receivedLocationCode,
+        inventoryStatus: record.returnStatus === '已回仓' ? '待分配' : '回仓差异处理中',
+        specialCraftReadyForSewing: item.allRequiredCraftsReturned && record.returnStatus === '已回仓',
+        inboundAt: record.returnedAt,
+        inboundBy: record.returnedBy,
+        specialCraftDisplay: `${record.craftType}已回仓`,
+        receiverFactoryDisplay: record.receiverFactoryName,
+        remainingSpecialCraftDisplay: item.remainingSpecialCrafts.join('、') || '无',
+      } satisfies SpecialCraftReturnInventoryRecord)),
+  )
+
+  return {
+    records,
+    inventoryRecords,
+    waitingRecords: records.filter((record) => record.returnStatus === '待回仓'),
+    returnedRecords: records.filter((record) => record.returnStatus === '已回仓'),
+    partialReturnedRecords: records.filter((record) => record.returnStatus === '部分回仓'),
+    discrepancyRecords: records.filter((record) => record.returnStatus === '回仓差异处理中'),
+    summary: {
+      returnRecordCount: records.length,
+      waitingReturnCount: records.filter((record) => record.returnStatus === '待回仓').length,
+      returnedCount: records.filter((record) => record.returnStatus === '已回仓').length,
+      partialReturnCount: records.filter((record) => record.returnStatus === '部分回仓').length,
+      discrepancyCount: records.filter((record) => record.returnStatus === '回仓差异处理中').length,
+      returnedInventoryCount: inventoryRecords.length,
+      readyForSewingCount: inventoryRecords.filter((record) => record.specialCraftReadyForSewing).length,
+    },
+  }
+}
+
+function buildRuntimeHandoverTableProjection(
+  runtimeEvents: CuttingRuntimeEvent[],
+  generatedTickets: GeneratedFeiTicketSourceRecord[],
+): {
+  orderRows: string[][]
+  recordRows: string[][]
+  summary: {
+    orderCount: number
+    recordCount: number
+    totalHandedOverQty: number
+    pendingWritebackCount: number
+    discrepancyCount: number
+  }
+} {
+  const recordEvents = runtimeEvents
+    .filter((event) => event.eventType === '新增交出记录')
+    .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt, 'zh-CN'))
+  const cumulativeByOrder = new Map<string, number>()
+  const orderGroups = new Map<string, {
+    orderNo: string
+    receiver: string
+    productionOrderNos: Set<string>
+    totalQty: number
+    recordCount: number
+    latestAt: string
+    status: string
+  }>()
+
+  const recordRows = recordEvents.map((event) => {
+    const payload = toRuntimeRecord(event.payload)
+    const rawItems = Array.isArray(payload.feiTicketItems) ? payload.feiTicketItems : []
+    const feiTicketNos = rawItems.map((rawItem) => runtimeString(toRuntimeRecord(rawItem).feiTicketNo)).filter(Boolean)
+    const tickets = feiTicketNos
+      .map((feiTicketNo) => findGeneratedFeiTicket(generatedTickets, '', feiTicketNo))
+      .filter((ticket): ticket is GeneratedFeiTicketSourceRecord => Boolean(ticket))
+    const orderNo = runtimeString(payload.handoverOrderNo) || event.refs.handoverOrderId || '按交出事件追踪'
+    const recordNo = runtimeString(payload.handoverRecordNo) || event.eventNo
+    const receiverType = runtimeString(payload.receiverType)
+    const receiverName = runtimeString(payload.receiverName) || '待接收方回写'
+    const currentQty =
+      runtimeNumber(payload.currentHandedOverQty) ||
+      rawItems.reduce((sum, rawItem) => sum + runtimeNumber(toRuntimeRecord(rawItem).pieceQty), 0)
+    const previousQty = cumulativeByOrder.get(orderNo) || 0
+    const cumulativeQty = previousQty + currentQty
+    cumulativeByOrder.set(orderNo, cumulativeQty)
+    const transferBagCodes = Array.isArray(payload.transferBagUses)
+      ? payload.transferBagUses
+          .map((rawBag) => runtimeString(toRuntimeRecord(rawBag).bagCode))
+          .filter(Boolean)
+      : []
+    const productionOrderNos = uniqueStrings([
+      ...tickets.map((ticket) => ticket.productionOrderNo),
+      event.refs.productionOrderNo,
+    ])
+    const orderGroup = orderGroups.get(orderNo) || {
+      orderNo,
+      receiver: `${receiverType || '接收对象'} / ${receiverName}`,
+      productionOrderNos: new Set<string>(),
+      totalQty: 0,
+      recordCount: 0,
+      latestAt: event.occurredAt,
+      status: event.eventStatus === '同步失败' ? '同步失败' : '待接收回写',
+    }
+    productionOrderNos.forEach((productionOrderNo) => orderGroup.productionOrderNos.add(productionOrderNo))
+    orderGroup.totalQty += currentQty
+    orderGroup.recordCount += 1
+    orderGroup.latestAt = event.occurredAt > orderGroup.latestAt ? event.occurredAt : orderGroup.latestAt
+    if (event.eventStatus === '同步失败') orderGroup.status = '同步失败'
+    orderGroups.set(orderNo, orderGroup)
+
+    return [
+      orderNo,
+      productionOrderNos.join('、') || '按菲票追踪',
+      recordNo,
+      formatPieceQty(previousQty),
+      formatPieceQty(currentQty),
+      formatPieceQty(cumulativeQty),
+      '交出后计算',
+      transferBagCodes.join('、') || event.refs.transferBagCode || '按装袋事件追踪',
+      event.eventStatus === '同步失败' ? '同步失败' : '待接收回写',
+    ]
+  })
+
+  const orderRows = Array.from(orderGroups.values())
+    .sort((left, right) => right.latestAt.localeCompare(left.latestAt, 'zh-CN'))
+    .map((order) => [
+      order.orderNo,
+      Array.from(order.productionOrderNos).join('、') || '按菲票追踪',
+      order.receiver,
+      formatPieceQty(order.totalQty),
+      `${order.recordCount} 条记录`,
+      order.status,
+    ])
+
+  return {
+    orderRows,
+    recordRows: recordRows.slice().reverse(),
+    summary: {
+      orderCount: orderRows.length,
+      recordCount: recordRows.length,
+      totalHandedOverQty: Array.from(orderGroups.values()).reduce((sum, order) => sum + order.totalQty, 0),
+      pendingWritebackCount: recordRows.length,
+      discrepancyCount: recordEvents.filter((event) => event.eventStatus === '同步失败').length,
+    },
+  }
+}
+
+function createWaitHandoverItemFromRuntimeEvent(
+  event: CuttingRuntimeEvent,
+  itemType: WaitHandoverWorkbenchItemType,
+  generatedTickets: GeneratedFeiTicketSourceRecord[],
+  nextAction: string,
+  nextActionHref: string,
+): WaitHandoverWorkbenchItem {
+  const payload = toRuntimeRecord(event.payload)
+  const feiTicketIds = Array.isArray(payload.scannedFeiTicketIds)
+    ? payload.scannedFeiTicketIds.map((item) => runtimeString(item)).filter(Boolean)
+    : Array.isArray(payload.containedFeiTicketIds)
+      ? payload.containedFeiTicketIds.map((item) => runtimeString(item)).filter(Boolean)
+      : event.refs.feiTicketIds || []
+  const feiTicketNos = Array.isArray(payload.scannedFeiTicketNos)
+    ? payload.scannedFeiTicketNos.map((item) => runtimeString(item)).filter(Boolean)
+    : Array.isArray(payload.containedFeiTicketNos)
+      ? payload.containedFeiTicketNos.map((item) => runtimeString(item)).filter(Boolean)
+      : event.refs.feiTicketNos || []
+  const firstTicket = findGeneratedFeiTicket(generatedTickets, feiTicketIds[0] || '', feiTicketNos[0] || '')
+  const totalPieceQty =
+    runtimeNumber(payload.pickedQty) ||
+    runtimeNumber(payload.totalPieceQty) ||
+    runtimeNumber(payload.currentHandedOverQty) ||
+    (Array.isArray(payload.feiTicketItems)
+      ? payload.feiTicketItems.reduce((sum, rawItem) => sum + runtimeNumber(toRuntimeRecord(rawItem).pieceQty), 0)
+      : 0) ||
+    firstTicket?.actualCutPieceQty ||
+    0
+
+  return {
+    itemId: `${itemType}-${event.eventId}`,
+    itemType,
+    urgentLevel: event.eventStatus === '同步失败' ? '高' : '普通',
+    updatedAt: event.occurredAt,
+    productionOrderId: firstTicket?.productionOrderId || event.refs.productionOrderId || '',
+    productionOrderNo: firstTicket?.productionOrderNo || event.refs.productionOrderNo || '按事件账追踪',
+    cutOrderId: firstTicket?.cutOrderId || event.refs.cutOrderId || '',
+    cutOrderNo: firstTicket?.cutOrderNo || event.refs.cutOrderNo || '按事件账追踪',
+    spreadingOrderId: firstTicket?.spreadingOrderId || event.refs.spreadingOrderId || '',
+    spreadingOrderNo: firstTicket?.spreadingOrderNo || event.refs.spreadingOrderNo || '',
+    feiTicketIds,
+    feiTicketNos,
+    spuCode: firstTicket?.sourceTechPackSpuCode || firstTicket?.skuCode || runtimeString(payload.sewingTaskNo) || '按事件账追踪',
+    color: firstTicket?.skuColor || '多颜色',
+    size: firstTicket?.skuSize || '多尺码',
+    partName: firstTicket?.partName || '多部位',
+    pieceQty: totalPieceQty,
+    pieceSequenceLabel: firstTicket?.pieceSequenceLabel || firstTicket?.pieceSetNoRange || '按菲票追踪',
+    hasSpecialCraft: Boolean(firstTicket?.hasSpecialCraft),
+    specialCraftDisplay: getSpecialCraftDisplay(firstTicket),
+    receiverFactoryDisplay: getReceiverFactoryDisplay(firstTicket),
+    currentWarehouseArea: event.inventoryEffect?.toWarehouseArea || event.inventoryEffect?.fromWarehouseArea || '裁床待交出仓',
+    tempBagCodes: uniqueStrings([
+      runtimeString(payload.sourceTempBagCode),
+      runtimeString(payload.targetTransferBagCode),
+      event.refs.transferBagCode,
+    ]),
+    targetTaskId:
+      runtimeString(payload.pickingTaskNo) ||
+      runtimeString(payload.sewingTaskNo) ||
+      runtimeString(payload.handoverRecordNo) ||
+      runtimeString(payload.handoverOrderNo) ||
+      event.eventNo,
+    targetReceiver: runtimeString(payload.receiverName) || runtimeString(payload.receiverFactoryName) || '按事件账追踪',
+    shortageAfterHandover: '交出后计算',
+    nextAction,
+    nextActionHref,
+    evidenceLines: [
+      `事件：${event.eventNo} / ${event.eventType}`,
+      `同步：${event.eventStatus}`,
+      `操作人：${event.operatorName || '待记录'}`,
+    ],
+  }
 }
 
 export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
@@ -2435,74 +3183,57 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
 }
 
 export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string {
-  const cutPieceViewModel = buildCutPieceWarehouseProjection().viewModel
-  const cutPieceSummary = cutPieceViewModel.summary
-  const transferBagViewModel = buildTransferBagsProjection().viewModel
   const generatedTickets = listSpreadingResultGeneratedFeiTickets()
-  const dispatchOrders = listCuttingSewingDispatchOrders()
-  const dispatchBatches = listCuttingSewingDispatchBatches()
-  const transferBags = listCuttingSewingTransferBags()
-  const validationResults = listCuttingSewingDispatchValidationResults()
-  const availableSewingPieceInventory = listAvailableCutPieceInventoryForSewingDispatch()
-  const returnRows = listCuttingSpecialCraftReturnViews()
-  const sewingSummary = getSafeCuttingSewingDispatchSummary()
-  const completedReturnCount = returnRows.filter((row) => row.returnStatus === '已回仓').length
-  const returnDifferenceCount = returnRows.filter((row) => row.returnStatus === '差异' || row.differenceQty > 0).length
-  const sortingTaskSummary = transferBagViewModel.sortingTaskSummary
-  const pendingSortingUsageCount = sortingTaskSummary.pendingCount + sortingTaskSummary.sortingCount
-  const sortedUsageCount = sortingTaskSummary.packedCount + sortingTaskSummary.handedOverCount
-  const exceptionValidationCount = validationResults.filter((result) => result.validationType !== '通过').length
-  const inboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
+  const runtimeWaitHandoverEvents = listRuntimeWaitHandoverEvents()
+  const inboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
+  const transferBagSummary = { bagCount: uniqueStrings(inboundTempBags.map((bag) => bag.bagCode)).length }
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
-  const specialCraftReturnProjection = buildSpecialCraftReturnProjection()
-  const specialCraftReturnInventoryRecords = specialCraftReturnProjection.inventoryRecords
+  const inboundTicketIds = new Set(inboundInventoryRecords.map((record) => record.feiTicketId))
+  const ticketCandidates = buildRuntimeTicketCandidatesFromGeneratedTickets(generatedTickets)
+    .filter((ticket) => !inboundTicketIds.has(ticket.feiTicketId))
+  const runtimeSpecialCraftReturnInventoryRecords = buildRuntimeSpecialCraftReturnInventoryRecordsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
   const effectiveInventoryRecords = [
     ...inboundInventoryRecords,
-    ...mapSpecialCraftReturnInventoryForWaitHandover(specialCraftReturnInventoryRecords),
+    ...runtimeSpecialCraftReturnInventoryRecords,
   ]
+  const specialCraftReturnProjection = buildRuntimeSpecialCraftReturnProjectionFromEvents(runtimeWaitHandoverEvents, generatedTickets)
+  const specialCraftHandoverGroups = buildRuntimeSpecialCraftHandoverGroups(runtimeWaitHandoverEvents, inboundInventoryRecords, generatedTickets)
   const sewingAllocationProjection = buildSewingTaskAllocationProjectionFromInventory(effectiveInventoryRecords)
   const handoverPickingProjection = buildHandoverPickingTaskProjectionFromAllocationProjection(sewingAllocationProjection)
-  const universalHandoverProjection = buildUniversalHandoverProjection()
+  const handoverTableProjection = buildRuntimeHandoverTableProjection(runtimeWaitHandoverEvents, generatedTickets)
   const activeTab = readTabKey<WaitHandoverTabKey>('workbench', ['workbench', 'inventory', 'assignment', 'sorting', 'special-craft-return', 'handoverOrders', 'handoverRecords', 'locations'])
   const assignedTaskCount = sewingAllocationProjection.allocations.length
   const workbenchProjection = buildWaitHandoverWorkbenchProjection({
-    ticketCandidates: transferBagViewModel.ticketCandidates,
+    runtimeEvents: runtimeWaitHandoverEvents,
+    ticketCandidates,
     generatedTickets,
     inboundTempBags,
     inboundInventoryRecords,
     specialCraftReturnProjection,
-    specialCraftReturnInventoryRecords,
+    specialCraftReturnInventoryRecords: runtimeSpecialCraftReturnInventoryRecords,
     sewingAllocationProjection,
     handoverPickingProjection,
-    cutPieceItems: cutPieceViewModel.items,
-    cutPieceSummary,
-    transferBagSummary: transferBagViewModel.summary,
-    sortingTaskSummary,
-    sortingTasks: transferBagViewModel.sortingTasks,
-    dispatchBatches,
-    validationResults,
-    returnRows,
-    dispatchOrderCount: dispatchOrders.length,
-    sewingSummary,
+    transferBagSummary,
+    specialCraftHandoverGroups,
   })
 
   const cutPieceWarehouseCard = renderHubActionCard({
     title: '裁片库存',
     rows: [
-      ['记录数', cutPieceSummary.totalItemCount],
-      ['裁片总数量', cutPieceSummary.totalQuantity],
-      ['菲票库存', transferBagViewModel.ticketCandidates.length],
-      ['已入仓数量', cutPieceSummary.inWarehouseCount],
-      ['待交出数量', cutPieceSummary.waitingHandoffCount],
+      ['库存记录数', effectiveInventoryRecords.length],
+      ['裁片总数量', formatPieceQty(effectiveInventoryRecords.reduce((sum, record) => sum + record.pieceQty, 0))],
+      ['待入仓菲票', ticketCandidates.length],
+      ['入仓暂存袋', inboundTempBags.length],
+      ['特殊工艺回仓库存', runtimeSpecialCraftReturnInventoryRecords.length],
     ],
   })
 
   const specialCraftReturnCard = renderHubActionCard({
     title: '特殊工艺回仓补入库存',
     rows: [
-      ['回仓记录数', returnRows.length + specialCraftReturnProjection.summary.returnRecordCount],
-      ['已完成回仓数', completedReturnCount + specialCraftReturnProjection.summary.returnedCount],
-      ['差异数', returnDifferenceCount + specialCraftReturnProjection.summary.discrepancyCount],
+      ['回仓记录数', specialCraftReturnProjection.summary.returnRecordCount],
+      ['已完成回仓数', specialCraftReturnProjection.summary.returnedCount],
+      ['差异数', specialCraftReturnProjection.summary.discrepancyCount],
       ['回仓库存记录', specialCraftReturnProjection.summary.returnedInventoryCount],
       ['可参与车缝分配', specialCraftReturnProjection.summary.readyForSewingCount],
     ],
@@ -2534,21 +3265,22 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   const sewingDispatchCard = renderHubActionCard({
     title: '交出单',
     rows: [
-      ['交出单数', universalHandoverProjection.summary.orderCount],
-      ['待核对 / 待扫码', sewingSummary.waitingCompleteOrderCount],
-      ['可新增交出记录', sewingSummary.readyBatchCount],
-      ['交出记录数', universalHandoverProjection.summary.recordCount],
-      ['差异 / 异议', universalHandoverProjection.summary.discrepancyCount + universalHandoverProjection.summary.objectionCount],
+      ['交出单数', handoverTableProjection.summary.orderCount],
+      ['交出记录数', handoverTableProjection.summary.recordCount],
+      ['本次交出数量', formatPieceQty(handoverTableProjection.summary.totalHandedOverQty)],
+      ['待接收回写', handoverTableProjection.summary.pendingWritebackCount],
+      ['同步异常', handoverTableProjection.summary.discrepancyCount],
     ],
   })
 
-  const cutPieceInventoryRows = cutPieceViewModel.items.slice(0, 8).map((item) => [
-    item.cutOrderNo,
-    item.productionOrderNo,
-    item.materialSku,
-    `${item.quantity} 片`,
-    item.warehouseStatus.label.replace('交接', '交出'),
-    item.bagCode ? `${item.bagCode}${item.bagUsageStageLabel ? ` / ${item.bagUsageStageLabel}` : ''}` : '未入暂存袋',
+  const cutPieceInventoryRows = effectiveInventoryRecords.slice(0, 12).map((record) => [
+    record.feiTicketNo,
+    record.productionOrderNo,
+    record.cutOrderNo,
+    `${record.spuCode} / ${record.color} / ${record.size} / ${record.partName}`,
+    formatPieceQty(record.pieceQty),
+    record.inventoryStatus,
+    record.tempBagCode || `${record.warehouseArea} / ${record.locationCode}`,
   ])
   const sortingRows = handoverPickingProjection.tasks.slice(0, 8).map((task) => [
     task.pickingTaskNo,
@@ -2562,25 +3294,8 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
       : '暂无缺口',
     task.taskStatus,
   ])
-  const handoverOrderRows = universalHandoverProjection.orders.slice(0, 8).map((order) => [
-    order.handoverOrderNo,
-    order.relatedProductionOrderIds.join('、'),
-    `${order.receiverType} / ${order.receiverName}`,
-    `${order.totalHandedOverPieceQty} 片`,
-    `${order.totalRecordCount} 条记录`,
-    order.status,
-  ])
-  const handoverRecordRows = universalHandoverProjection.records.slice(0, 8).map((record) => [
-    record.handoverOrderNo,
-    record.relatedProductionOrderIds.join('、'),
-    record.handoverRecordNo,
-    record.previousHandedOverSummary.map((item) => item.summaryText).join('；') || '0 片',
-    record.currentHandedOverSummary.map((item) => item.summaryText).join('；') || '0 片',
-    record.cumulativeHandedOverSummary.map((item) => item.summaryText).join('；') || '0 片',
-    buildHandoverAfterRecordResult(record).completenessResult.summaryText,
-    record.transferBagUses.map((bag) => bag.bagCode).join('、') || '未装袋',
-    record.recordStatus,
-  ])
+  const handoverOrderRows = handoverTableProjection.orderRows.slice(0, 8)
+  const handoverRecordRows = handoverTableProjection.recordRows.slice(0, 8)
 
   const standardTabs: FactoryWarehouseStandardTab[] = [
     {
@@ -2597,10 +3312,10 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     {
       key: 'inventory',
       label: '裁片库存',
-      count: cutPieceSummary.totalItemCount,
+      count: effectiveInventoryRecords.length,
       content: `<section class="space-y-4">
         <div class="grid gap-4 xl:grid-cols-2">${cutPieceWarehouseCard}${specialCraftReturnCard}</div>
-        ${renderHubTable(['裁片单', '生产单', '面料', '库存数量', '库存状态', '入仓暂存袋'], cutPieceInventoryRows)}
+        ${renderHubTable(['菲票', '生产单', '裁片单', '裁片', '库存数量', '库存状态', '暂存袋 / 来源'], cutPieceInventoryRows)}
       </section>`,
     },
     {
@@ -2631,7 +3346,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     {
       key: 'handoverOrders',
       label: '交出单',
-      count: universalHandoverProjection.summary.orderCount,
+      count: handoverTableProjection.summary.orderCount,
       content: `<section class="space-y-4">
         ${sewingDispatchCard}
         <div class="flex flex-wrap gap-2">
@@ -2643,15 +3358,15 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     {
       key: 'handoverRecords',
       label: '交出记录',
-      count: universalHandoverProjection.summary.recordCount,
+      count: handoverTableProjection.summary.recordCount,
       content: `<section class="space-y-4">
         ${renderHubActionCard({
           title: '交出记录',
           rows: [
-            ['已生成记录数', universalHandoverProjection.summary.recordCount],
-            ['已交出批次', sewingSummary.handedOverBatchCount],
-            ['已回写批次', sewingSummary.writtenBackBatchCount],
-            ['差异 / 异议记录', universalHandoverProjection.summary.discrepancyCount + universalHandoverProjection.summary.objectionCount],
+            ['已生成记录数', handoverTableProjection.summary.recordCount],
+            ['本次交出数量', formatPieceQty(handoverTableProjection.summary.totalHandedOverQty)],
+            ['待接收回写', handoverTableProjection.summary.pendingWritebackCount],
+            ['同步异常', handoverTableProjection.summary.discrepancyCount],
           ],
         })}
         <div class="flex flex-wrap gap-2">

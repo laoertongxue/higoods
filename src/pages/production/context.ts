@@ -29,6 +29,10 @@ import {
   getDemandCurrentTechPackInfo,
 } from '../../data/fcs/production-tech-pack-snapshot-builder'
 import {
+  getTechnicalDataVersionById,
+  listTechnicalDataVersions,
+} from '../../data/pcs-technical-data-version-repository'
+import {
   getRuntimeAssignmentSummaryByOrder,
   getRuntimeBiddingSummaryByOrder,
   getRuntimeOrderStandardTimeTotal,
@@ -1232,15 +1236,27 @@ function getOrderTechPackInfo(order: ProductionOrder): {
 function getOrderTechPackSnapshotDisplay(order: ProductionOrder): {
   techPackVersionText: string
   techPackSnapshotAt: string
+  garmentDifficultyGrade: string
   techPackReadyStatus: '已冻结' | '缺失'
   techPackReadyClassName: string
 } {
   const info = getOrderTechPackInfo(order)
+  const sourceTechPackRecord = order.techPackSnapshot?.sourceTechPackVersionId
+    ? getTechnicalDataVersionById(order.techPackSnapshot.sourceTechPackVersionId)
+    : null
+  const sourceTechPackRecordByCode = !sourceTechPackRecord && order.techPackSnapshot?.sourceTechPackVersionCode
+    ? listTechnicalDataVersions().find((record) => record.technicalVersionCode === order.techPackSnapshot?.sourceTechPackVersionCode) ?? null
+    : null
   return {
     techPackVersionText: order.techPackSnapshot
       ? `${order.techPackSnapshot.sourceTechPackVersionCode || '-'} / ${order.techPackSnapshot.sourceTechPackVersionLabel || '-'}`
       : '暂无技术包快照',
     techPackSnapshotAt: order.techPackSnapshot?.snapshotAt || '-',
+    garmentDifficultyGrade:
+      order.techPackSnapshot?.garmentDifficultyGrade
+      || sourceTechPackRecord?.garmentDifficultyGrade
+      || sourceTechPackRecordByCode?.garmentDifficultyGrade
+      || (order.techPackSnapshot ? 'B' : '-'),
     techPackReadyStatus: info.snapshotReadyStatus,
     techPackReadyClassName: info.snapshotReadyClassName,
   }

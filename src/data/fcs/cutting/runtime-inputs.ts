@@ -54,10 +54,6 @@ import {
   deserializeTransferBagStorage,
 } from './storage/transfer-bags-storage.ts'
 import {
-  CUTTING_PDA_EXECUTION_WRITEBACK_STORAGE_KEY,
-  deserializePdaExecutionWritebackStorage,
-} from './pda-execution-writeback-ledger.ts'
-import {
   CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY,
   deserializeMarkerPlanSourceStorage,
 } from './storage/marker-plan-source-storage.ts'
@@ -72,6 +68,11 @@ import {
 import {
   CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY,
 } from './cut-order-close-records'
+import {
+  CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
+  deserializeCuttingRuntimeEventLedgerStorage,
+  listRuntimePdaExecutionEventProjections,
+} from './cutting-runtime-event-ledger.ts'
 
 const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
@@ -86,11 +87,11 @@ const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
   CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY,
-  CUTTING_PDA_EXECUTION_WRITEBACK_STORAGE_KEY,
   CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY,
   CUTTING_MARKER_PLAN_LOCK_LEDGER_STORAGE_KEY,
   CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
   CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY,
+  CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
 ]
 
 const CUTTING_RUNTIME_SESSION_STORAGE_SIGNATURE_KEYS = [
@@ -173,15 +174,13 @@ export function readCuttingSpecialProcessRuntimeState() {
 }
 
 export function readCuttingPdaExecutionRuntimeState() {
-  const store = deserializePdaExecutionWritebackStorage(
-    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_PDA_EXECUTION_WRITEBACK_STORAGE_KEY),
+  return listRuntimePdaExecutionEventProjections(getBrowserLocalStorage())
+}
+
+export function readCuttingRuntimeEventState() {
+  return deserializeCuttingRuntimeEventLedgerStorage(
+    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY),
   )
-  return {
-    pickupWritebacks: store.pickupWritebacks,
-    inboundWritebacks: store.inboundWritebacks,
-    handoverWritebacks: store.handoverWritebacks,
-    replenishmentFeedbackWritebacks: store.replenishmentFeedbackWritebacks,
-  }
 }
 
 export function readCuttingStoredMarkerPlanSourceLedger() {
@@ -211,6 +210,7 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
   const replenishmentRuntimeState = readCuttingReplenishmentRuntimeState()
   const specialProcessRuntimeState = readCuttingSpecialProcessRuntimeState()
   const pdaExecutionRuntimeState = readCuttingPdaExecutionRuntimeState()
+  const runtimeEventState = readCuttingRuntimeEventState()
   const warehouseWritebackRuntimeState = readCuttingWarehouseWritebackRuntimeState()
 
   return {
@@ -271,10 +271,13 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
       followupActions: specialProcessRuntimeState.followupActions as Array<Record<string, unknown>>,
     },
     pdaExecutionState: {
-      pickupWritebacks: pdaExecutionRuntimeState.pickupWritebacks as Array<Record<string, unknown>>,
-      inboundWritebacks: pdaExecutionRuntimeState.inboundWritebacks as Array<Record<string, unknown>>,
-      handoverWritebacks: pdaExecutionRuntimeState.handoverWritebacks as Array<Record<string, unknown>>,
-      replenishmentFeedbackWritebacks: pdaExecutionRuntimeState.replenishmentFeedbackWritebacks as Array<Record<string, unknown>>,
+      pickupEvents: pdaExecutionRuntimeState.pickupEvents as Array<Record<string, unknown>>,
+      inboundEvents: pdaExecutionRuntimeState.inboundEvents as Array<Record<string, unknown>>,
+      handoverEvents: pdaExecutionRuntimeState.handoverEvents as Array<Record<string, unknown>>,
+      replenishmentFeedbackEvents: pdaExecutionRuntimeState.replenishmentFeedbackEvents as Array<Record<string, unknown>>,
+    },
+    runtimeEventState: {
+      events: runtimeEventState.events,
     },
   }
 }

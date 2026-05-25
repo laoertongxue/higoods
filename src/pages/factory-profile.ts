@@ -1627,20 +1627,6 @@ export function renderFactoryProfilePage(): string {
         </button>
       </div>
 
-      <section class="rounded-lg border bg-card p-4">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 class="text-sm font-medium text-foreground">后道接单能力口径</h2>
-            <p class="mt-1 text-xs text-muted-foreground">专门后道工厂固定具备后道、质检、复检；非专门工厂只展示后道，质检和复检由后道工厂承接。</p>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <span class="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">后道</span>
-            <span class="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">质检</span>
-            <span class="rounded border border-purple-200 bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">复检</span>
-          </div>
-        </div>
-      </section>
-
       <div class="flex flex-wrap items-center gap-3">
         <label class="relative min-w-[220px] flex-1 max-w-sm">
           <input

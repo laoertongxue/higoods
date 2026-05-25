@@ -1727,7 +1727,7 @@ function buildPickedItemsForAllocation(
   allocationIndex: number,
 ): HandoverPickingPickedItem[] {
   const selectedItems = allocationIndex === 0
-    ? allocatedInventoryItems.slice(0, 1)
+    ? []
     : allocatedInventoryItems
   return selectedItems.map((item, index) => ({
     feiTicketId: item.feiTicketId,
@@ -3316,11 +3316,25 @@ function seedStore(): void {
     })
     bag.updatedAt = operatedAt
   }
-  const seedProductionOrderId = 'PO-202603-0102'
+  const seedAvailableTickets = listAvailableFeiTicketsForSewingDispatchInternal()
+  const seedTicket =
+    seedAvailableTickets.find((ticket) => ticket.productionOrderId === 'PO-202603-0102') || seedAvailableTickets[0]
+  if (!seedTicket) return
+  const seedProductionOrderId = seedTicket.productionOrderId
+  const getSeedSkuLine = (index: number, fallbackQty: number): CuttingSewingDispatchSkuQtyLine => {
+    const tickets = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: seedProductionOrderId })
+    const ticket = tickets[index] || tickets[0] || seedTicket
+    return {
+      colorName: ticket.garmentColor,
+      colorCode: ticket.garmentColor,
+      sizeCode: ticket.skuSize,
+      plannedGarmentQty: Math.max(ticket.garmentQty || fallbackQty, 1),
+    }
+  }
   const readyOrder = createCuttingSewingDispatchOrder({ productionOrderId: seedProductionOrderId, remark: '车缝任务分配：按待交出仓实际库存分批交出。' })
   const readyBatch = createCuttingSewingDispatchBatch({
     dispatchOrderId: readyOrder.dispatchOrderId,
-    plannedSkuQtyLines: [{ colorName: 'Navy', colorCode: 'Navy', sizeCode: 'M', plannedGarmentQty: 356 }],
+    plannedSkuQtyLines: [getSeedSkuLine(0, 356)],
   })
   const readyBags = createCuttingSewingTransferBags({
     dispatchBatchId: readyBatch.dispatchBatchId,
@@ -3346,7 +3360,7 @@ function seedStore(): void {
 
   const secondBatch = createCuttingSewingDispatchBatch({
     dispatchOrderId: readyOrder.dispatchOrderId,
-    plannedSkuQtyLines: [{ colorName: 'Khaki', colorCode: 'Khaki', sizeCode: 'L', plannedGarmentQty: 368 }],
+    plannedSkuQtyLines: [getSeedSkuLine(1, 368)],
   })
   const secondBags = createCuttingSewingTransferBags({
     dispatchBatchId: secondBatch.dispatchBatchId,
@@ -3364,7 +3378,7 @@ function seedStore(): void {
 
   const pendingBatch = createCuttingSewingDispatchBatch({
     dispatchOrderId: readyOrder.dispatchOrderId,
-    plannedSkuQtyLines: [{ colorName: 'Navy', colorCode: 'Navy', sizeCode: 'S', plannedGarmentQty: 201 }],
+    plannedSkuQtyLines: [getSeedSkuLine(2, 201)],
   })
   const pendingBags = createCuttingSewingTransferBags({
     dispatchBatchId: pendingBatch.dispatchBatchId,

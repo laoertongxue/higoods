@@ -23,12 +23,17 @@ import {
   type MobileExecutionTaskStatusTab,
 } from '../data/fcs/mobile-execution-task-index.ts'
 import {
+  getMobileTaskExecutionState,
   getMobileTaskProcessType,
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import { getPrintWorkOrderByTaskId } from '../data/fcs/printing-task-domain.ts'
 import { getDyeWorkOrderByTaskId } from '../data/fcs/dyeing-task-domain.ts'
+import {
+  getPostFinishingTaskById,
+  getPostFinishingWorkOrderBySourceTaskId,
+} from '../data/fcs/post-finishing-domain.ts'
 import {
   formatProcessQuantityWithUnit,
   getQuantityLabel,
@@ -411,6 +416,22 @@ function renderSourceBadge(mode: string): string {
   `
 }
 
+function getTaskStatusLabel(task: ProcessTask): string {
+  const postTask = getPostFinishingTaskById(task.taskId)
+  if (postTask) return postTask.currentStatus
+  const postOrder = getPostFinishingWorkOrderBySourceTaskId(task.taskId)
+  if (postOrder) return postOrder.currentStatus
+  return getMobileTaskExecutionState(task)
+}
+
+function renderTaskStatusBadge(task: ProcessTask): string {
+  return `
+    <span class="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+      状态：${escapeHtml(getTaskStatusLabel(task))}
+    </span>
+  `
+}
+
 function buildPdaExecTasksByStatus(acceptedTasks: ProcessTask[]): Record<TaskStatusTab, ProcessTask[]> {
   const tasksByStatus: Record<TaskStatusTab, ProcessTask[]> = {
     NOT_STARTED: [],
@@ -491,7 +512,10 @@ function renderNotStartedCard(task: ProcessTask): string {
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
-          ${renderSourceBadge(task.assignmentMode)}
+          <div class="flex shrink-0 items-center gap-1.5">
+            ${renderTaskStatusBadge(task)}
+            ${renderSourceBadge(task.assignmentMode)}
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -619,6 +643,7 @@ function renderInProgressCard(task: ProcessTask): string {
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
           <div class="flex items-center gap-1.5">
+            ${renderTaskStatusBadge(task)}
             ${renderSourceBadge(task.assignmentMode)}
             ${milestoneTag}
           </div>
@@ -733,7 +758,10 @@ function renderBlockedCard(task: ProcessTask): string {
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
-          ${renderSourceBadge(task.assignmentMode)}
+          <div class="flex shrink-0 items-center gap-1.5">
+            ${renderTaskStatusBadge(task)}
+            ${renderSourceBadge(task.assignmentMode)}
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -789,7 +817,10 @@ function renderDoneCard(task: ProcessTask): string {
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
-          ${renderSourceBadge(task.assignmentMode)}
+          <div class="flex shrink-0 items-center gap-1.5">
+            ${renderTaskStatusBadge(task)}
+            ${renderSourceBadge(task.assignmentMode)}
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">

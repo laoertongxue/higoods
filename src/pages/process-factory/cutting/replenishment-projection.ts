@@ -35,9 +35,6 @@ export function buildReplenishmentProjection(options: {
       actions:
         options.actions ??
         (context.snapshot.replenishmentState.actions as unknown as ReplenishmentFollowupAction[]),
-      pdaFeedbackWritebacks:
-        context.snapshot.pdaExecutionState.replenishmentFeedbackWritebacks as never[],
     }),
   }
 }
-

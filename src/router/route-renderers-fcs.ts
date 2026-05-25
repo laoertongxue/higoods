@@ -289,6 +289,10 @@ export const renderCraftCuttingSampleWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/sample-warehouse'),
   'renderCraftCuttingSampleWarehousePage',
 )
+export const renderCraftCuttingSampleWarehouseDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/sample-warehouse'),
+  'renderCraftCuttingSampleWarehouseDetailPage',
+)
 export const renderCraftCuttingSpecialProcessesPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/special-processes'),
   'renderCraftCuttingSpecialProcessesPage',

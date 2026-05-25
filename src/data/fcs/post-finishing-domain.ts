@@ -1,4 +1,8 @@
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import {
+  DEDICATED_POST_FACTORY_ID,
+  DEDICATED_POST_FACTORY_NAME,
+} from './factory-mock-data.ts'
 
 export type PostFinishingRouteMode = '需要后道加工' | '无需后道加工'
 export type PostFinishingActionType = '扫码收货' | '质检' | '后道' | '复检'
@@ -7,9 +11,11 @@ export type PostFinishingQcResult = '全数合规' | '部分不合格' | '全数
 export type PostFinishingNeedFlag = '开扣眼' | '装扣子' | '熨烫' | '包装'
 export type PostFinishingTaskStatus = '待上游交出' | '待收货' | '待质检' | '质检中' | '待后道' | '后道中' | '待复检' | '待交出' | '已完成'
 export type PostFinishingTaskAcceptanceStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
+export type PostFinishingLiabilityType = '平台' | '工厂'
+export type PostFinishingPostProjectStatus = '待开始' | '进行中' | '已完成'
 
-export const FULL_CAPABILITY_FACTORY_ID = 'F090'
-export const FULL_CAPABILITY_FACTORY_NAME = '全能力测试工厂'
+export const FULL_CAPABILITY_FACTORY_ID = DEDICATED_POST_FACTORY_ID
+export const FULL_CAPABILITY_FACTORY_NAME = DEDICATED_POST_FACTORY_NAME
 export const FULL_CAPABILITY_FACTORY_LABEL = `${FULL_CAPABILITY_FACTORY_NAME}（${FULL_CAPABILITY_FACTORY_ID}）`
 
 export interface PostFinishingSkuLine {
@@ -21,11 +27,87 @@ export interface PostFinishingSkuLine {
   skuCode: string
   colorName: string
   sizeName: string
+  imageUrl?: string
   plannedQty: number
   receivedQty: number
   availableQty: number
   handedOverQty: number
   qtyUnit: string
+}
+
+export interface PostFinishingQcDefectReasonItem {
+  reasonItemId: string
+  reasonName: string
+  qty: number
+  liabilityType: PostFinishingLiabilityType
+  responsibleFactoryId?: string
+  responsibleFactoryName?: string
+}
+
+export interface PostFinishingQcPostProjectJudgement {
+  projectName: PostFinishingNeedFlag
+  needed: boolean
+  qty: number
+}
+
+export interface PostFinishingQcSkuResult {
+  qcSkuResultId: string
+  skuLineId: string
+  skuId: string
+  skuCode: string
+  skuImageUrl?: string
+  colorName: string
+  sizeName: string
+  inspectedQty: number
+  qualifiedQty: number
+  unqualifiedQty: number
+  platformReasonQty: number
+  factoryReasonQty: number
+  responsibleFactoryId?: string
+  responsibleFactoryName?: string
+  defectReasonItems: PostFinishingQcDefectReasonItem[]
+  postProjectJudgements: PostFinishingQcPostProjectJudgement[]
+  qtyUnit: string
+  remark?: string
+}
+
+export interface PostFinishingPostProjectLine {
+  projectLineId: string
+  postOrderId: string
+  postOrderNo: string
+  qcOrderId: string
+  qcOrderNo: string
+  skuLineId: string
+  skuId: string
+  skuCode: string
+  skuImageUrl?: string
+  colorName: string
+  sizeName: string
+  projectName: PostFinishingNeedFlag
+  plannedQty: number
+  status: PostFinishingPostProjectStatus
+  startedAt?: string
+  startedBy?: string
+  finishedAt?: string
+  finishedBy?: string
+  completedQty: number
+  qtyUnit: string
+}
+
+export interface PostFinishingRecheckSkuResult {
+  recheckSkuResultId: string
+  skuLineId: string
+  skuId: string
+  skuCode: string
+  skuImageUrl?: string
+  colorName: string
+  sizeName: string
+  waitRecheckQty: number
+  recheckQty: number
+  qualifiedQty: number
+  unqualifiedQty: number
+  qtyUnit: string
+  remark?: string
 }
 
 export interface PostFinishingSourceContext {
@@ -183,6 +265,9 @@ export interface PostFinishingActionRecord {
   completedPostGarmentQty?: number
   recheckedGarmentQty?: number
   confirmedGarmentQty?: number
+  qcSkuResults?: PostFinishingQcSkuResult[]
+  postProjectLines?: PostFinishingPostProjectLine[]
+  recheckSkuResults?: PostFinishingRecheckSkuResult[]
   qcStationId?: string
   qcStationName?: string
   qcResult?: PostFinishingQcResult | '全数合格'
@@ -240,6 +325,7 @@ export interface PostFinishingWaitQcSkuItem {
   spuName: string
   skuId: string
   skuCode: string
+  skuImageUrl?: string
   colorName: string
   sizeName: string
   areaId?: string
@@ -302,6 +388,7 @@ export interface PostFinishingQcOrder {
   inspectedGarmentQty: number
   passedGarmentQty: number
   defectiveGarmentQty: number
+  qcSkuResults: PostFinishingQcSkuResult[]
   qcResult: PostFinishingQcResult
   unqualifiedDisposition: '' | '返修' | '让步接收' | '报废' | '退回上游'
   unqualifiedReasonSummary: string
@@ -524,6 +611,7 @@ export interface PostFinishingWorkOrder {
   needIroning: boolean
   needPackaging: boolean
   postProcessItems: PostFinishingNeedFlag[]
+  postProjectLines: PostFinishingPostProjectLine[]
   qcOrderId: string
   qcOrderNo: string
   recheckOrderId?: string
@@ -560,6 +648,7 @@ export interface PostFinishingRecheckOrder {
   recheckedGarmentQty: number
   passedGarmentQty: number
   defectiveGarmentQty: number
+  recheckSkuResults: PostFinishingRecheckSkuResult[]
   recheckerName: string
   recheckedAt?: string
   createdAt: string
@@ -601,6 +690,7 @@ function sku(skuId: string, spuId: string, spuCode: string, spuName: string, col
     skuCode: skuId,
     colorName,
     sizeName,
+    imageUrl: `https://placehold.co/96x96?text=${encodeURIComponent(sizeName)}`,
     plannedQty: qty,
     receivedQty: qty,
     availableQty: qty,
@@ -611,6 +701,26 @@ function sku(skuId: string, spuId: string, spuCode: string, spuName: string, col
 
 function cloneSkuLine(line: PostFinishingSkuLine): PostFinishingSkuLine {
   return { ...line }
+}
+
+function cloneQcDefectReasonItem(item: PostFinishingQcDefectReasonItem): PostFinishingQcDefectReasonItem {
+  return { ...item }
+}
+
+function cloneQcSkuResult(result: PostFinishingQcSkuResult): PostFinishingQcSkuResult {
+  return {
+    ...result,
+    defectReasonItems: result.defectReasonItems.map(cloneQcDefectReasonItem),
+    postProjectJudgements: result.postProjectJudgements.map((item) => ({ ...item })),
+  }
+}
+
+function clonePostProjectLine(line: PostFinishingPostProjectLine): PostFinishingPostProjectLine {
+  return { ...line }
+}
+
+function cloneRecheckSkuResult(result: PostFinishingRecheckSkuResult): PostFinishingRecheckSkuResult {
+  return { ...result }
 }
 
 function cloneFlowRecord(record: PostFinishingWarehouseFlowRecord): PostFinishingWarehouseFlowRecord {
@@ -735,13 +845,285 @@ function summarizeSku(lines: PostFinishingSkuLine[]): string {
   return lines.map((line) => `${line.skuCode}/${line.colorName}/${line.sizeName} ${line.plannedQty}${line.qtyUnit}`).join('、')
 }
 
-function postFlags(qc: Pick<PostFinishingQcOrder, 'needButtonhole' | 'needButton' | 'needIroning' | 'needPackaging'>): PostFinishingNeedFlag[] {
+function postFlags(qc: Pick<PostFinishingQcOrder, 'needButtonhole' | 'needButton' | 'needIroning' | 'needPackaging'> & { qcSkuResults?: PostFinishingQcSkuResult[] }): PostFinishingNeedFlag[] {
+  const fromSku = (qc.qcSkuResults || [])
+    .flatMap((result) => result.postProjectJudgements)
+    .filter((judgement) => judgement.needed && judgement.qty > 0)
+    .map((judgement) => judgement.projectName)
+  if (fromSku.length) return Array.from(new Set(fromSku))
   return [
     qc.needButtonhole ? '开扣眼' : '',
     qc.needButton ? '装扣子' : '',
     qc.needIroning ? '熨烫' : '',
     qc.needPackaging ? '包装' : '',
   ].filter(Boolean) as PostFinishingNeedFlag[]
+}
+
+function postProjectJudgementsFromFlags(input: {
+  needButtonhole?: boolean
+  needButton?: boolean
+  needIroning?: boolean
+  needPackaging?: boolean
+  qty: number
+}): PostFinishingQcPostProjectJudgement[] {
+  const pairs: Array<[PostFinishingNeedFlag, boolean | undefined]> = [
+    ['开扣眼', input.needButtonhole],
+    ['装扣子', input.needButton],
+    ['熨烫', input.needIroning],
+    ['包装', input.needPackaging],
+  ]
+  return pairs
+    .filter(([, needed]) => Boolean(needed))
+    .map(([projectName]) => ({ projectName, needed: true, qty: input.qty }))
+}
+
+function buildQcSkuResultsFromLines(input: {
+  qcOrderId: string
+  lines: PostFinishingSkuLine[]
+  completed: boolean
+  passedQty?: number
+  defectiveQty?: number
+  sourceFactoryId?: string
+  sourceFactoryName?: string
+  needButtonhole?: boolean
+  needButton?: boolean
+  needIroning?: boolean
+  needPackaging?: boolean
+}): PostFinishingQcSkuResult[] {
+  let remainingPassed = Math.max(input.passedQty ?? 0, 0)
+  let remainingDefective = Math.max(input.defectiveQty ?? 0, 0)
+  return input.lines.map((line, index) => {
+    const inspectedQty = input.completed ? line.plannedQty : 0
+    const unqualifiedQty = input.completed ? Math.min(remainingDefective, inspectedQty) : 0
+    remainingDefective = Math.max(remainingDefective - unqualifiedQty, 0)
+    const autoQualified = Math.max(inspectedQty - unqualifiedQty, 0)
+    const qualifiedQty = input.completed ? Math.min(remainingPassed || autoQualified, autoQualified) : 0
+    remainingPassed = Math.max(remainingPassed - qualifiedQty, 0)
+    const platformReasonQty = unqualifiedQty > 0 ? Math.floor(unqualifiedQty / 2) : 0
+    const factoryReasonQty = unqualifiedQty - platformReasonQty
+    const defectReasonItems: PostFinishingQcDefectReasonItem[] = []
+    if (factoryReasonQty > 0) {
+      defectReasonItems.push({
+        reasonItemId: `${input.qcOrderId}-${line.skuId}-REASON-F`,
+        reasonName: '做工原因',
+        qty: factoryReasonQty,
+        liabilityType: '工厂',
+        responsibleFactoryId: input.sourceFactoryId,
+        responsibleFactoryName: input.sourceFactoryName,
+      })
+    }
+    if (platformReasonQty > 0) {
+      defectReasonItems.push({
+        reasonItemId: `${input.qcOrderId}-${line.skuId}-REASON-P`,
+        reasonName: '色差',
+        qty: platformReasonQty,
+        liabilityType: '平台',
+      })
+    }
+    return {
+      qcSkuResultId: `${input.qcOrderId}-SKU-${index + 1}`,
+      skuLineId: line.skuLineId,
+      skuId: line.skuId,
+      skuCode: line.skuCode,
+      skuImageUrl: line.imageUrl,
+      colorName: line.colorName,
+      sizeName: line.sizeName,
+      inspectedQty,
+      qualifiedQty,
+      unqualifiedQty,
+      platformReasonQty,
+      factoryReasonQty,
+      responsibleFactoryId: factoryReasonQty > 0 ? input.sourceFactoryId : undefined,
+      responsibleFactoryName: factoryReasonQty > 0 ? input.sourceFactoryName : undefined,
+      defectReasonItems,
+      postProjectJudgements: postProjectJudgementsFromFlags({
+        needButtonhole: input.needButtonhole,
+        needButton: input.needButton,
+        needIroning: input.needIroning,
+        needPackaging: input.needPackaging,
+        qty: qualifiedQty,
+      }),
+      qtyUnit: line.qtyUnit,
+    }
+  })
+}
+
+function normalizeQcSkuResults(input: {
+  qcOrderId: string
+  lines: PostFinishingSkuLine[]
+  results?: PostFinishingQcSkuResult[]
+  sourceFactoryId?: string
+  sourceFactoryName?: string
+  needButtonhole?: boolean
+  needButton?: boolean
+  needIroning?: boolean
+  needPackaging?: boolean
+}): PostFinishingQcSkuResult[] {
+  const provided = input.results || []
+  if (!provided.length) {
+    return buildQcSkuResultsFromLines({
+      qcOrderId: input.qcOrderId,
+      lines: input.lines,
+      completed: false,
+      sourceFactoryId: input.sourceFactoryId,
+      sourceFactoryName: input.sourceFactoryName,
+      needButtonhole: input.needButtonhole,
+      needButton: input.needButton,
+      needIroning: input.needIroning,
+      needPackaging: input.needPackaging,
+    })
+  }
+  return input.lines.map((line, index) => {
+    const result = provided.find((item) => item.skuLineId === line.skuLineId || item.skuId === line.skuId)
+    const inspectedQty = Math.max(Number(result?.inspectedQty ?? line.plannedQty) || 0, 0)
+    const unqualifiedQty = Math.max(Number(result?.unqualifiedQty ?? 0) || 0, 0)
+    const qualifiedQty = Math.max(Number(result?.qualifiedQty ?? inspectedQty - unqualifiedQty) || 0, 0)
+    const platformReasonQty = Math.max(Number(result?.platformReasonQty ?? 0) || 0, 0)
+    const factoryReasonQty = Math.max(Number(result?.factoryReasonQty ?? Math.max(unqualifiedQty - platformReasonQty, 0)) || 0, 0)
+    const postProjectJudgements = result?.postProjectJudgements?.length
+      ? result.postProjectJudgements.map((item) => ({ ...item, qty: Math.max(Number(item.qty) || 0, 0) }))
+      : postProjectJudgementsFromFlags({
+          needButtonhole: input.needButtonhole,
+          needButton: input.needButton,
+          needIroning: input.needIroning,
+          needPackaging: input.needPackaging,
+          qty: qualifiedQty,
+        })
+    return {
+      qcSkuResultId: result?.qcSkuResultId || `${input.qcOrderId}-SKU-${index + 1}`,
+      skuLineId: line.skuLineId,
+      skuId: line.skuId,
+      skuCode: line.skuCode,
+      skuImageUrl: result?.skuImageUrl || line.imageUrl,
+      colorName: line.colorName,
+      sizeName: line.sizeName,
+      inspectedQty,
+      qualifiedQty,
+      unqualifiedQty,
+      platformReasonQty,
+      factoryReasonQty,
+      responsibleFactoryId: result?.responsibleFactoryId || (factoryReasonQty > 0 ? input.sourceFactoryId : undefined),
+      responsibleFactoryName: result?.responsibleFactoryName || (factoryReasonQty > 0 ? input.sourceFactoryName : undefined),
+      defectReasonItems: result?.defectReasonItems?.map(cloneQcDefectReasonItem) || [],
+      postProjectJudgements,
+      qtyUnit: line.qtyUnit,
+      remark: result?.remark,
+    }
+  })
+}
+
+function sumQcSkuResults(results: PostFinishingQcSkuResult[], key: 'inspectedQty' | 'qualifiedQty' | 'unqualifiedQty'): number {
+  return roundQty(results.reduce((sum, item) => sum + (Number(item[key]) || 0), 0))
+}
+
+function buildPostProjectLinesFromQc(qc: PostFinishingQcOrder, postOrderId: string, postOrderNo: string, seedStatus: PostFinishingPostProjectStatus = '待开始'): PostFinishingPostProjectLine[] {
+  const lines: PostFinishingPostProjectLine[] = []
+  qc.qcSkuResults.forEach((result) => {
+    result.postProjectJudgements
+      .filter((judgement) => judgement.needed && judgement.qty > 0)
+      .forEach((judgement) => {
+        lines.push({
+          projectLineId: `${postOrderId}-${result.skuId}-${judgement.projectName}`,
+          postOrderId,
+          postOrderNo,
+          qcOrderId: qc.qcOrderId,
+          qcOrderNo: qc.qcOrderNo,
+          skuLineId: result.skuLineId,
+          skuId: result.skuId,
+          skuCode: result.skuCode,
+          skuImageUrl: result.skuImageUrl,
+          colorName: result.colorName,
+          sizeName: result.sizeName,
+          projectName: judgement.projectName,
+          plannedQty: judgement.qty,
+          status: seedStatus,
+          completedQty: seedStatus === '已完成' ? judgement.qty : 0,
+          qtyUnit: result.qtyUnit,
+        })
+      })
+  })
+  return lines
+}
+
+function summarizePostProjectStatus(lines: PostFinishingPostProjectLine[]): string {
+  if (!lines.length) return '无需后道'
+  if (lines.every((line) => line.status === '已完成')) return '后道完成'
+  if (lines.some((line) => line.status === '进行中' || line.status === '已完成')) return '后道中'
+  return '待后道'
+}
+
+function buildRecheckSkuResultsFromLines(input: {
+  recheckOrderId: string
+  lines: PostFinishingSkuLine[]
+  completed: boolean
+  passedQty?: number
+  defectiveQty?: number
+}): PostFinishingRecheckSkuResult[] {
+  let remainingPassed = Math.max(input.passedQty ?? 0, 0)
+  let remainingDefective = Math.max(input.defectiveQty ?? 0, 0)
+  return input.lines.map((line, index) => {
+    const waitRecheckQty = line.plannedQty
+    const recheckQty = input.completed ? waitRecheckQty : 0
+    const unqualifiedQty = input.completed ? Math.min(remainingDefective, recheckQty) : 0
+    remainingDefective = Math.max(remainingDefective - unqualifiedQty, 0)
+    const autoQualified = Math.max(recheckQty - unqualifiedQty, 0)
+    const qualifiedQty = input.completed ? Math.min(remainingPassed || autoQualified, autoQualified) : 0
+    remainingPassed = Math.max(remainingPassed - qualifiedQty, 0)
+    return {
+      recheckSkuResultId: `${input.recheckOrderId}-SKU-${index + 1}`,
+      skuLineId: line.skuLineId,
+      skuId: line.skuId,
+      skuCode: line.skuCode,
+      skuImageUrl: line.imageUrl,
+      colorName: line.colorName,
+      sizeName: line.sizeName,
+      waitRecheckQty,
+      recheckQty,
+      qualifiedQty,
+      unqualifiedQty,
+      qtyUnit: line.qtyUnit,
+    }
+  })
+}
+
+function normalizeRecheckSkuResults(input: {
+  recheckOrderId: string
+  lines: PostFinishingSkuLine[]
+  results?: PostFinishingRecheckSkuResult[]
+  completed: boolean
+  passedQty?: number
+  defectiveQty?: number
+}): PostFinishingRecheckSkuResult[] {
+  const provided = input.results || []
+  if (!provided.length) {
+    return buildRecheckSkuResultsFromLines({
+      recheckOrderId: input.recheckOrderId,
+      lines: input.lines,
+      completed: input.completed,
+      passedQty: input.passedQty,
+      defectiveQty: input.defectiveQty,
+    })
+  }
+  return input.lines.map((line, index) => {
+    const result = provided.find((item) => item.skuLineId === line.skuLineId || item.skuId === line.skuId)
+    const recheckQty = Math.max(Number(result?.recheckQty ?? line.plannedQty) || 0, 0)
+    const unqualifiedQty = Math.max(Number(result?.unqualifiedQty ?? 0) || 0, 0)
+    return {
+      recheckSkuResultId: result?.recheckSkuResultId || `${input.recheckOrderId}-SKU-${index + 1}`,
+      skuLineId: line.skuLineId,
+      skuId: line.skuId,
+      skuCode: line.skuCode,
+      skuImageUrl: result?.skuImageUrl || line.imageUrl,
+      colorName: line.colorName,
+      sizeName: line.sizeName,
+      waitRecheckQty: Math.max(Number(result?.waitRecheckQty ?? line.plannedQty) || 0, 0),
+      recheckQty,
+      qualifiedQty: Math.max(Number(result?.qualifiedQty ?? recheckQty - unqualifiedQty) || 0, 0),
+      unqualifiedQty,
+      qtyUnit: line.qtyUnit,
+      remark: result?.remark,
+    }
+  })
 }
 
 function nowText(): string {
@@ -771,6 +1153,7 @@ function buildFallbackSkuLinesFromProductionOrder(order: ProductionOrder): PostF
     skuCode: line.skuCode,
     colorName: line.color,
     sizeName: line.size,
+    imageUrl: `https://placehold.co/96x96?text=${encodeURIComponent(line.size)}`,
     plannedQty: line.qty,
     receivedQty: 0,
     availableQty: 0,
@@ -1098,10 +1481,28 @@ function defaultWarehouseAreaAndLocation(lineIndex: number): {
   }
 }
 
-function buildQcWarehouseAllocations(receipt: PostFinishingReceiptRecord, qcOrderId: string): PostFinishingQcWarehouseAllocation[] {
+function buildAllocatedSkuLines(lines: PostFinishingSkuLine[], allocationQty?: number): PostFinishingSkuLine[] {
+  if (allocationQty === undefined) return lines.map(cloneSkuLine)
+  let remainingQty = Math.max(Number(allocationQty) || 0, 0)
+  return lines
+    .map((line) => {
+      const lineQty = Math.min(line.plannedQty, remainingQty)
+      remainingQty = Math.max(remainingQty - lineQty, 0)
+      return {
+        ...line,
+        plannedQty: lineQty,
+        receivedQty: lineQty,
+        availableQty: lineQty,
+      }
+    })
+    .filter((line) => line.plannedQty > 0)
+}
+
+function buildQcWarehouseAllocations(receipt: PostFinishingReceiptRecord, qcOrderId: string, skuLines = receipt.skuLines): PostFinishingQcWarehouseAllocation[] {
   const context = getSourceContextsForProductionOrder(receipt.productionOrderNo)[0]
-  return receipt.skuLines.map((line, lineIndex) => {
-    const recordId = receiptWarehouseRecordId(receipt, lineIndex)
+  return skuLines.map((line, lineIndex) => {
+    const receiptLineIndex = receipt.skuLines.findIndex((item) => item.skuId === line.skuId)
+    const recordId = receiptWarehouseRecordId(receipt, receiptLineIndex >= 0 ? receiptLineIndex : lineIndex)
     const location = defaultWarehouseAreaAndLocation(lineIndex)
     return {
       allocationId: `${qcOrderId}-ALLOC-${lineIndex + 1}`,
@@ -1132,12 +1533,27 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
   needButton?: boolean
   needIroning?: boolean
   needPackaging?: boolean
+  allocationQty?: number
   station: string
 }): PostFinishingQcOrder {
   const qcOrderId = `PF-QC-${pad(index)}`
-  const inspectedQty = totalQty(receipt.skuLines)
+  const skuLines = buildAllocatedSkuLines(receipt.skuLines, options.allocationQty)
+  const inspectedQty = totalQty(skuLines)
   const defectiveQty = options.status === '质检完成' ? options.defectiveQty : 0
   const passedQty = options.status === '质检完成' ? options.passedQty : 0
+  const qcSkuResults = buildQcSkuResultsFromLines({
+    qcOrderId,
+    lines: skuLines,
+    completed: options.status === '质检完成',
+    passedQty,
+    defectiveQty,
+    sourceFactoryId: context.sourceFactoryId,
+    sourceFactoryName: context.sourceFactoryName,
+    needButtonhole: options.needButtonhole,
+    needButton: options.needButton,
+    needIroning: options.needIroning,
+    needPackaging: options.needPackaging,
+  })
   const qcResult: PostFinishingQcResult = options.status !== '质检完成'
     ? '部分不合格'
     : defectiveQty <= 0
@@ -1165,15 +1581,16 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
     spuId: context.spuId,
     spuCode: context.spuCode,
     spuName: context.spuName,
-    skuSummary: summarizeSku(receipt.skuLines),
-    skuLines: receipt.skuLines.map(cloneSkuLine),
-    warehouseAllocations: buildQcWarehouseAllocations(receipt, qcOrderId),
+    skuSummary: summarizeSku(skuLines),
+    skuLines: skuLines.map(cloneSkuLine),
+    warehouseAllocations: buildQcWarehouseAllocations(receipt, qcOrderId, skuLines),
     qcStationId: `QC-STATION-${options.station}`,
     qcStationName: `后道质检台 ${options.station}`,
     qcStatus: options.status,
     inspectedGarmentQty: inspectedQty,
     passedGarmentQty: passedQty,
     defectiveGarmentQty: defectiveQty,
+    qcSkuResults,
     qcResult,
     unqualifiedDisposition: hasDefect ? '返修' : '',
     unqualifiedReasonSummary: hasDefect ? '成衣存在后道处理瑕疵，需记录责任并进入后续处理。' : '',
@@ -1201,8 +1618,12 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
 let qcOrders: PostFinishingQcOrder[] = [
   buildQcOrder(1, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 388, defectiveQty: 12, needIroning: true, needPackaging: true, station: 'A' }),
   buildQcOrder(2, SOURCE_CONTEXTS[1], receiptRecords[1], { status: '质检完成', passedQty: 340, defectiveQty: 0, station: 'B' }),
-  buildQcOrder(3, SOURCE_CONTEXTS[2], receiptRecords[2], { status: '待质检', passedQty: 0, defectiveQty: 0, station: 'C' }),
+  buildQcOrder(3, SOURCE_CONTEXTS[2], receiptRecords[2], { status: '待质检', passedQty: 0, defectiveQty: 0, allocationQty: 120, station: 'C' }),
   buildQcOrder(4, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 188, defectiveQty: 12, needButtonhole: true, needButton: true, needIroning: true, station: 'A' }),
+  buildQcOrder(5, SOURCE_CONTEXTS[4], receiptRecords[4], { status: '质检中', passedQty: 0, defectiveQty: 0, station: 'B' }),
+  buildQcOrder(6, SOURCE_CONTEXTS[4], receiptRecords[4], { status: '质检完成', passedQty: 206, defectiveQty: 4, needPackaging: true, station: 'C' }),
+  buildQcOrder(7, SOURCE_CONTEXTS[1], receiptRecords[1], { status: '质检完成', passedQty: 334, defectiveQty: 6, station: 'A' }),
+  buildQcOrder(8, SOURCE_CONTEXTS[2], receiptRecords[2], { status: '质检完成', passedQty: 96, defectiveQty: 4, allocationQty: 100, station: 'B' }),
 ]
 
 function getContext(contextId: string): PostFinishingSourceContext {
@@ -1262,6 +1683,7 @@ function cloneQcOrder(order: PostFinishingQcOrder): PostFinishingQcOrder {
     ...order,
     skuLines: order.skuLines.map(cloneSkuLine),
     warehouseAllocations: order.warehouseAllocations.map((allocation) => ({ ...allocation })),
+    qcSkuResults: order.qcSkuResults.map(cloneQcSkuResult),
     defectItems: order.defectItems.map((item) => ({ ...item })),
     evidenceAssets: order.evidenceAssets.map((item) => ({ ...item })),
   }
@@ -1376,15 +1798,20 @@ function makeActionRecord(input: {
     action.needButton = input.qc.needButton
     action.needIroning = input.qc.needIroning
     action.needPackaging = input.qc.needPackaging
+    action.qcSkuResults = input.qc.qcSkuResults.map(cloneQcSkuResult)
     action.evidenceAssets = input.qc.evidenceAssets.map((item) => ({ ...item }))
     action.evidenceUrls = input.qc.evidenceAssets.map((item) => item.url)
     action.qualityDeductionSnapshot = snapshot
     action.warehouseAllocations = input.qc.warehouseAllocations.map((allocation) => ({ ...allocation }))
   }
-  if (input.actionType === '后道') action.completedPostGarmentQty = input.acceptedQty
+  if (input.actionType === '后道') {
+    action.completedPostGarmentQty = input.acceptedQty
+    action.postProjectLines = input.post?.postProjectLines.map(clonePostProjectLine)
+  }
   if (input.actionType === '复检') {
     action.recheckedGarmentQty = input.recheck?.recheckedGarmentQty || input.acceptedQty
     action.confirmedGarmentQty = input.acceptedQty
+    action.recheckSkuResults = input.recheck?.recheckSkuResults.map(cloneRecheckSkuResult)
   }
   return action
 }
@@ -1395,8 +1822,11 @@ function buildPostOrderFromQc(qc: PostFinishingQcOrder, index: number): PostFini
   const postOrderId = `POST-WO-${pad(index)}`
   const postOrderNo = `HD-2026-${pad(index)}`
   const recheck = recheckOrders.find((item) => item.postOrderId === postOrderId || item.qcOrderId === qc.qcOrderId)
-  const postStatus = recheck ? '后道完成' : index === 1 ? '后道中' : '待后道'
+  const projectSeedStatus: PostFinishingPostProjectStatus = recheck ? '已完成' : index === 1 ? '进行中' : '待开始'
+  const postProjectLines = buildPostProjectLinesFromQc(qc, postOrderId, postOrderNo, projectSeedStatus)
+  const postStatus = summarizePostProjectStatus(postProjectLines)
   const currentStatus = recheck?.recheckStatus === '复检完成' ? '复检完成' : postStatus
+  const completedPostQty = roundQty(postProjectLines.reduce((sum, line) => sum + line.completedQty, 0))
   const receiveAction = makeActionRecord({
     id: `PF-RV-ACT-${pad(index)}`,
     no: qc.receiptId.replace('PF-RV', 'RV-ACT'),
@@ -1442,12 +1872,13 @@ function buildPostOrderFromQc(qc: PostFinishingQcOrder, index: number): PostFini
     targetFactoryName: qc.managedPostFactoryName,
     operatorName: postStatus === '待后道' ? '—' : '后道操作员',
     submittedQty: qc.passedGarmentQty,
-    acceptedQty: postStatus === '待后道' ? 0 : qc.passedGarmentQty,
+    acceptedQty: completedPostQty,
     startedAt: postStatus === '待后道' ? undefined : `2026-05-${String(index + 5).padStart(2, '0')} 09:00`,
     finishedAt: postStatus === '后道完成' ? `2026-05-${String(index + 5).padStart(2, '0')} 16:00` : undefined,
     skuLines: qc.skuLines,
     remark: needs.join('、'),
   })
+  postAction.postProjectLines = postProjectLines.map(clonePostProjectLine)
   const recheckAction = recheck
     ? makeActionRecord({
         id: recheck.recheckOrderId,
@@ -1527,6 +1958,7 @@ function buildPostOrderFromQc(qc: PostFinishingQcOrder, index: number): PostFini
     needIroning: qc.needIroning,
     needPackaging: qc.needPackaging,
     postProcessItems: needs,
+    postProjectLines,
     qcOrderId: qc.qcOrderId,
     qcOrderNo: qc.qcOrderNo,
     recheckOrderId: recheck?.recheckOrderId,
@@ -1543,8 +1975,18 @@ function buildPostOrderFromQc(qc: PostFinishingQcOrder, index: number): PostFini
 }
 
 function buildDirectRecheckFromQc(qc: PostFinishingQcOrder, index: number): PostFinishingRecheckOrder {
+  const recheckOrderId = `PF-RC-${pad(index)}`
+  const inProgress = index % 3 === 0
+  const completed = !inProgress && index % 2 === 0
+  const recheckSkuResults = buildRecheckSkuResultsFromLines({
+    recheckOrderId,
+    lines: qc.skuLines,
+    completed,
+    passedQty: qc.passedGarmentQty,
+    defectiveQty: 0,
+  })
   return {
-    recheckOrderId: `PF-RC-${pad(index)}`,
+    recheckOrderId,
     recheckOrderNo: `RC-POST-2026-${pad(index)}`,
     postTaskId: qc.postTaskId || buildPostFinishingTaskId(qc.productionOrderId),
     postTaskNo: qc.postTaskNo || buildPostFinishingTaskNo(qc.productionOrderNo),
@@ -1559,20 +2001,29 @@ function buildDirectRecheckFromQc(qc: PostFinishingQcOrder, index: number): Post
     spuName: qc.spuName,
     skuSummary: qc.skuSummary,
     skuLines: qc.skuLines.map(cloneSkuLine),
-    recheckStatus: index % 2 === 0 ? '复检完成' : '待复检',
+    recheckStatus: inProgress ? '复检中' : completed ? '复检完成' : '待复检',
     recheckedGarmentQty: qc.passedGarmentQty,
-    passedGarmentQty: qc.passedGarmentQty,
+    passedGarmentQty: completed ? qc.passedGarmentQty : 0,
     defectiveGarmentQty: 0,
-    recheckerName: index % 2 === 0 ? '复检员' : '—',
-    recheckedAt: index % 2 === 0 ? `2026-05-${String(index + 5).padStart(2, '0')} 16:40` : undefined,
+    recheckSkuResults,
+    recheckerName: completed || inProgress ? '复检员' : '—',
+    recheckedAt: completed ? `2026-05-${String(index + 5).padStart(2, '0')} 16:40` : undefined,
     createdAt: qc.updatedAt,
     updatedAt: `2026-05-${String(index + 5).padStart(2, '0')} 17:00`,
   }
 }
 
 function buildPostRecheck(qc: PostFinishingQcOrder, postOrderId: string, postOrderNo: string, index: number): PostFinishingRecheckOrder {
+  const recheckOrderId = `PF-RC-${pad(index)}`
+  const recheckSkuResults = buildRecheckSkuResultsFromLines({
+    recheckOrderId,
+    lines: qc.skuLines,
+    completed: true,
+    passedQty: qc.passedGarmentQty,
+    defectiveQty: 0,
+  })
   return {
-    recheckOrderId: `PF-RC-${pad(index)}`,
+    recheckOrderId,
     recheckOrderNo: `RC-POST-2026-${pad(index)}`,
     postTaskId: qc.postTaskId || buildPostFinishingTaskId(qc.productionOrderId),
     postTaskNo: qc.postTaskNo || buildPostFinishingTaskNo(qc.productionOrderNo),
@@ -1593,6 +2044,7 @@ function buildPostRecheck(qc: PostFinishingQcOrder, postOrderId: string, postOrd
     recheckedGarmentQty: qc.passedGarmentQty,
     passedGarmentQty: qc.passedGarmentQty,
     defectiveGarmentQty: 0,
+    recheckSkuResults,
     recheckerName: '复检员',
     recheckedAt: `2026-05-${String(index + 6).padStart(2, '0')} 16:30`,
     createdAt: `2026-05-${String(index + 6).padStart(2, '0')} 09:00`,
@@ -1601,8 +2053,14 @@ function buildPostRecheck(qc: PostFinishingQcOrder, postOrderId: string, postOrd
 }
 
 function buildPendingRecheckFromQc(qc: PostFinishingQcOrder, index: number, postOrder?: Pick<PostFinishingWorkOrder, 'postOrderId' | 'postOrderNo'>): PostFinishingRecheckOrder {
+  const recheckOrderId = `PF-RC-${pad(index)}`
+  const recheckSkuResults = buildRecheckSkuResultsFromLines({
+    recheckOrderId,
+    lines: qc.skuLines,
+    completed: false,
+  })
   return {
-    recheckOrderId: `PF-RC-${pad(index)}`,
+    recheckOrderId,
     recheckOrderNo: `RC-POST-2026-${pad(index)}`,
     postTaskId: qc.postTaskId || buildPostFinishingTaskId(qc.productionOrderId),
     postTaskNo: qc.postTaskNo || buildPostFinishingTaskNo(qc.productionOrderNo),
@@ -1623,6 +2081,7 @@ function buildPendingRecheckFromQc(qc: PostFinishingQcOrder, index: number, post
     recheckedGarmentQty: qc.passedGarmentQty,
     passedGarmentQty: 0,
     defectiveGarmentQty: 0,
+    recheckSkuResults,
     recheckerName: '—',
     createdAt: nowText(),
     updatedAt: nowText(),
@@ -1631,6 +2090,8 @@ function buildPendingRecheckFromQc(qc: PostFinishingQcOrder, index: number, post
 
 let recheckOrders: PostFinishingRecheckOrder[] = [
   buildDirectRecheckFromQc(qcOrders[1], 2),
+  buildDirectRecheckFromQc(qcOrders[6], 7),
+  buildDirectRecheckFromQc(qcOrders[7], 6),
   buildPostRecheck(qcOrders[3], 'POST-WO-004', 'HD-2026-004', 4),
 ]
 
@@ -1677,7 +2138,17 @@ function ensurePostOrderFromQc(qc: PostFinishingQcOrder): PostFinishingWorkOrder
   if (existing) return existing
   const order = buildPostOrderFromQc(qc, nextPostOrderIndex())
   order.currentStatus = '待后道'
+  order.postProjectLines = order.postProjectLines.map((line) => ({
+    ...line,
+    status: '待开始',
+    startedAt: undefined,
+    startedBy: undefined,
+    finishedAt: undefined,
+    finishedBy: undefined,
+    completedQty: 0,
+  }))
   order.postAction.status = '待后道'
+  order.postAction.postProjectLines = order.postProjectLines.map(clonePostProjectLine)
   order.postAction.operatorName = '—'
   order.postAction.acceptedGarmentQty = 0
   order.postAction.completedPostGarmentQty = 0
@@ -1741,6 +2212,9 @@ function cloneActionRecord(record: PostFinishingActionRecord): PostFinishingActi
   return {
     ...record,
     skuLines: record.skuLines.map(cloneSkuLine),
+    qcSkuResults: record.qcSkuResults?.map(cloneQcSkuResult),
+    postProjectLines: record.postProjectLines?.map(clonePostProjectLine),
+    recheckSkuResults: record.recheckSkuResults?.map(cloneRecheckSkuResult),
     defectItems: record.defectItems?.map((item) => ({ ...item })),
     evidenceAssets: record.evidenceAssets?.map((item) => ({ ...item })),
     evidenceUrls: record.evidenceUrls ? [...record.evidenceUrls] : undefined,
@@ -1760,6 +2234,7 @@ function cloneWorkOrder(order: PostFinishingWorkOrder): PostFinishingWorkOrder {
     ...order,
     skuLines: order.skuLines.map(cloneSkuLine),
     postProcessItems: [...order.postProcessItems],
+    postProjectLines: order.postProjectLines.map(clonePostProjectLine),
     receiveAction: cloneActionRecord(order.receiveAction),
     qcAction: cloneActionRecord(order.qcAction),
     postAction: cloneActionRecord(order.postAction),
@@ -1768,7 +2243,11 @@ function cloneWorkOrder(order: PostFinishingWorkOrder): PostFinishingWorkOrder {
 }
 
 function cloneRecheck(order: PostFinishingRecheckOrder): PostFinishingRecheckOrder {
-  return { ...order, skuLines: order.skuLines.map(cloneSkuLine) }
+  return {
+    ...order,
+    skuLines: order.skuLines.map(cloneSkuLine),
+    recheckSkuResults: order.recheckSkuResults.map(cloneRecheckSkuResult),
+  }
 }
 
 export function getPostFinishingSourceLabel(order: Pick<PostFinishingWorkOrder, 'sourceFactoryType' | 'requiresPostFinishing'>): string {
@@ -1843,6 +2322,7 @@ export function listPostFinishingWaitQcSkuItems(input: { postTaskId?: string; pr
     .filter((record) => !targetProductionOrderNo || record.sourceProductionOrderNo === targetProductionOrderNo)
     .map((record) => {
       const context = findSourceContextForWarehouseRecord(record)
+      const sourceLine = context?.skuLines.find((line) => line.skuId === record.skuId || line.skuCode === record.skuCode)
       const postTaskId = context
         ? buildPostFinishingTaskId(context.productionOrderId)
         : buildPostFinishingTaskId(record.sourceProductionOrderNo)
@@ -1867,6 +2347,7 @@ export function listPostFinishingWaitQcSkuItems(input: { postTaskId?: string; pr
         spuName: record.spuName,
         skuId: record.skuId,
         skuCode: record.skuCode,
+        skuImageUrl: sourceLine?.imageUrl,
         colorName: record.colorName,
         sizeName: record.sizeName,
         areaId: record.areaId,
@@ -1953,6 +2434,7 @@ export function createPostFinishingQcOrder(input: {
     skuCode: item.skuCode,
     colorName: item.colorName,
     sizeName: item.sizeName,
+    imageUrl: item.skuImageUrl,
     plannedQty: qcQty,
     receivedQty: qcQty,
     availableQty: qcQty,
@@ -1981,6 +2463,13 @@ export function createPostFinishingQcOrder(input: {
     qtyUnit: item.qtyUnit,
   }))
   const inspectedQty = selected.reduce((sum, item) => sum + item.qcQty, 0)
+  const qcSkuResults = buildQcSkuResultsFromLines({
+    qcOrderId,
+    lines: skuLines,
+    completed: false,
+    sourceFactoryId: context.sourceFactoryId,
+    sourceFactoryName: context.sourceFactoryName,
+  })
   const qc: PostFinishingQcOrder = {
     qcOrderId,
     qcOrderNo: `QC-POST-2026-${pad(qcIndex)}`,
@@ -2009,6 +2498,7 @@ export function createPostFinishingQcOrder(input: {
     inspectedGarmentQty: inspectedQty,
     passedGarmentQty: 0,
     defectiveGarmentQty: 0,
+    qcSkuResults,
     qcResult: '部分不合格',
     unqualifiedDisposition: '',
     unqualifiedReasonSummary: '',
@@ -2056,12 +2546,37 @@ export function completePostFinishingQcOrder(input: {
   needButton?: boolean
   needIroning?: boolean
   needPackaging?: boolean
+  qcSkuResults?: PostFinishingQcSkuResult[]
 }): PostFinishingQcOrder {
   const qc = qcOrders.find((item) => item.qcOrderId === input.qcOrderId)
   if (!qc) throw new Error(`未找到质检单：${input.qcOrderId}`)
-  const inspectedQty = input.inspectedGarmentQty ?? totalQty(qc.skuLines)
-  const defectiveQty = input.defectiveGarmentQty ?? qc.defectiveGarmentQty
-  const passedQty = input.passedGarmentQty ?? Math.max(inspectedQty - defectiveQty, 0)
+  const fallbackInspectedQty = input.inspectedGarmentQty ?? totalQty(qc.skuLines)
+  const fallbackDefectiveQty = input.defectiveGarmentQty ?? qc.defectiveGarmentQty
+  const fallbackPassedQty = input.passedGarmentQty ?? Math.max(fallbackInspectedQty - fallbackDefectiveQty, 0)
+  const nextQcSkuResults = input.qcSkuResults?.length
+    ? normalizeQcSkuResults({
+        qcOrderId: qc.qcOrderId,
+        lines: qc.skuLines,
+        results: input.qcSkuResults,
+        sourceFactoryId: qc.sourceFactoryId,
+        sourceFactoryName: qc.sourceFactoryName,
+      })
+    : buildQcSkuResultsFromLines({
+        qcOrderId: qc.qcOrderId,
+        lines: qc.skuLines,
+        completed: true,
+        passedQty: fallbackPassedQty,
+        defectiveQty: fallbackDefectiveQty,
+        sourceFactoryId: qc.sourceFactoryId,
+        sourceFactoryName: qc.sourceFactoryName,
+        needButtonhole: input.needButtonhole,
+        needButton: input.needButton,
+        needIroning: input.needIroning,
+        needPackaging: input.needPackaging,
+      })
+  const inspectedQty = sumQcSkuResults(nextQcSkuResults, 'inspectedQty') || fallbackInspectedQty
+  const defectiveQty = sumQcSkuResults(nextQcSkuResults, 'unqualifiedQty')
+  const passedQty = sumQcSkuResults(nextQcSkuResults, 'qualifiedQty')
   const result = input.qcResult || (defectiveQty <= 0 ? '全数合规' : passedQty <= 0 ? '全数不合格' : '部分不合格')
   const hasDefect = result !== '全数合规'
   qc.qcStatus = '质检完成'
@@ -2071,6 +2586,7 @@ export function completePostFinishingQcOrder(input: {
   qc.inspectedGarmentQty = inspectedQty
   qc.passedGarmentQty = passedQty
   qc.defectiveGarmentQty = hasDefect ? defectiveQty : 0
+  qc.qcSkuResults = nextQcSkuResults.map(cloneQcSkuResult)
   qc.qcResult = result
   qc.unqualifiedDisposition = hasDefect ? input.unqualifiedDisposition || qc.unqualifiedDisposition || '返修' : ''
   qc.unqualifiedReasonSummary = hasDefect ? input.unqualifiedReasonSummary || qc.unqualifiedReasonSummary || '质检发现不合格成衣，需记录责任。' : ''
@@ -2080,10 +2596,11 @@ export function completePostFinishingQcOrder(input: {
   qc.responsiblePartyId = hasDefect ? qc.responsiblePartyId || qc.sourceFactoryId : ''
   qc.deductionDecision = hasDefect ? input.deductionDecision || qc.deductionDecision || '建议扣款' : ''
   qc.deductionDecisionRemark = hasDefect ? input.deductionDecisionRemark || qc.deductionDecisionRemark || '按质量扣款模块质检记录继续判定。' : ''
-  qc.needButtonhole = Boolean(input.needButtonhole)
-  qc.needButton = Boolean(input.needButton)
-  qc.needIroning = Boolean(input.needIroning)
-  qc.needPackaging = Boolean(input.needPackaging)
+  const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
+  qc.needButtonhole = nextNeeds.includes('开扣眼')
+  qc.needButton = nextNeeds.includes('装扣子')
+  qc.needIroning = nextNeeds.includes('熨烫')
+  qc.needPackaging = nextNeeds.includes('包装')
   qc.defectItems = hasDefect ? [defect(`PF-DEF-${pad(nextQcIndex())}`, qc.defectiveGarmentQty)] : []
   qc.evidenceAssets = hasDefect ? qc.evidenceAssets : []
   qc.inspectedAt = nowText()
@@ -2188,6 +2705,29 @@ function doneStatus(actionType: PostFinishingActionType): string {
   return '复检完成'
 }
 
+function refreshPostOrderProjectStatus(order: PostFinishingWorkOrder): void {
+  const postStatus = summarizePostProjectStatus(order.postProjectLines)
+  const completedQty = roundQty(order.postProjectLines.reduce((sum, line) => sum + line.completedQty, 0))
+  order.postStatus = postStatus
+  order.postAction.status = postStatus
+  order.postAction.acceptedGarmentQty = completedQty
+  order.postAction.completedPostGarmentQty = completedQty
+  order.postAction.postProjectLines = order.postProjectLines.map(clonePostProjectLine)
+  order.postAction.startedAt = order.postProjectLines.find((line) => line.startedAt)?.startedAt
+  order.postAction.finishedAt = postStatus === '后道完成'
+    ? order.postProjectLines.map((line) => line.finishedAt).filter(Boolean).sort().at(-1)
+    : undefined
+  if (postStatus === '后道完成') {
+    const recheck = ensurePostRecheckFromOrder(order)
+    order.currentStatus = '待复检'
+    order.recheckStatus = recheck.recheckStatus
+    order.handoverStatus = '待复检'
+  } else {
+    order.currentStatus = postStatus
+  }
+  order.updatedAt = nowText()
+}
+
 function syncOrderStatusFields(order: PostFinishingWorkOrder): void {
   order.receiveMaterialStatus = order.receiveAction.status
   order.qcStatus = order.qcAction.status
@@ -2221,6 +2761,46 @@ export function applyPostFinishingActionStart(input: {
   action.operatorName = input.operatorName || action.operatorName || '后道操作员'
   action.startedAt = input.startedAt || nowText()
   order.currentStatus = action.status
+  syncOrderStatusFields(order)
+  return cloneWorkOrder(order)
+}
+
+export function startPostFinishingProjectLine(input: {
+  postOrderId: string
+  projectLineId: string
+  operatorName?: string
+  startedAt?: string
+}): PostFinishingWorkOrder {
+  const order = getMutablePostFinishingWorkOrder(input.postOrderId)
+  const line = order.postProjectLines.find((item) => item.projectLineId === input.projectLineId)
+  if (!line) throw new Error(`未找到后道项目行：${input.projectLineId}`)
+  if (line.status === '已完成') throw new Error('该后道项目已完成，不能再次开始。')
+  line.status = '进行中'
+  line.startedAt = input.startedAt || nowText()
+  line.startedBy = input.operatorName || '后道操作员'
+  refreshPostOrderProjectStatus(order)
+  syncOrderStatusFields(order)
+  return cloneWorkOrder(order)
+}
+
+export function completePostFinishingProjectLine(input: {
+  postOrderId: string
+  projectLineId: string
+  operatorName?: string
+  completedQty?: number
+  finishedAt?: string
+}): PostFinishingWorkOrder {
+  const order = getMutablePostFinishingWorkOrder(input.postOrderId)
+  const line = order.postProjectLines.find((item) => item.projectLineId === input.projectLineId)
+  if (!line) throw new Error(`未找到后道项目行：${input.projectLineId}`)
+  const completedQty = Math.max(Number(input.completedQty ?? line.plannedQty) || 0, 0)
+  line.status = '已完成'
+  line.startedAt = line.startedAt || input.finishedAt || nowText()
+  line.startedBy = line.startedBy || input.operatorName || '后道操作员'
+  line.finishedAt = input.finishedAt || nowText()
+  line.finishedBy = input.operatorName || '后道操作员'
+  line.completedQty = Math.min(completedQty, line.plannedQty)
+  refreshPostOrderProjectStatus(order)
   syncOrderStatusFields(order)
   return cloneWorkOrder(order)
 }
@@ -2268,7 +2848,17 @@ export function applyPostFinishingActionFinish(input: {
     }
   }
   if (normalizeActionType(input.actionType) === '后道') {
+    order.postProjectLines = order.postProjectLines.map((line) => ({
+      ...line,
+      status: '已完成',
+      startedAt: line.startedAt || action.startedAt || action.finishedAt,
+      startedBy: line.startedBy || action.operatorName,
+      finishedAt: action.finishedAt,
+      finishedBy: action.operatorName,
+      completedQty: line.plannedQty,
+    }))
     action.completedPostGarmentQty = acceptedQty
+    action.postProjectLines = order.postProjectLines.map(clonePostProjectLine)
     const recheck = ensurePostRecheckFromOrder(order)
     order.linkedRecheckOrderId = recheck.recheckOrderId
     order.recheckOrderId = recheck.recheckOrderId
@@ -2279,10 +2869,18 @@ export function applyPostFinishingActionFinish(input: {
     action.confirmedGarmentQty = acceptedQty
     const recheck = recheckOrders.find((item) => item.postOrderId === order.postOrderId || item.recheckOrderId === order.recheckOrderId)
     if (recheck) {
+      const recheckSkuResults = buildRecheckSkuResultsFromLines({
+        recheckOrderId: recheck.recheckOrderId,
+        lines: recheck.skuLines,
+        completed: true,
+        passedQty: acceptedQty,
+        defectiveQty: rejectedQty,
+      })
       recheck.recheckStatus = '复检完成'
       recheck.recheckedGarmentQty = submittedQty
-      recheck.passedGarmentQty = acceptedQty
-      recheck.defectiveGarmentQty = rejectedQty
+      recheck.passedGarmentQty = roundQty(recheckSkuResults.reduce((sum, item) => sum + item.qualifiedQty, 0))
+      recheck.defectiveGarmentQty = roundQty(recheckSkuResults.reduce((sum, item) => sum + item.unqualifiedQty, 0))
+      recheck.recheckSkuResults = recheckSkuResults
       recheck.recheckerName = action.operatorName
       recheck.recheckedAt = action.finishedAt
       recheck.updatedAt = action.finishedAt || nowText()
@@ -2296,28 +2894,46 @@ export function applyPostFinishingActionFinish(input: {
 
 export function completePostFinishingWorkOrder(input: { postOrderId: string; operatorName?: string; completedGarmentQty?: number }): PostFinishingWorkOrder {
   const order = getMutablePostFinishingWorkOrder(input.postOrderId)
-  const qty = input.completedGarmentQty ?? order.plannedGarmentQty
-  return applyPostFinishingActionFinish({
-    postOrderId: input.postOrderId,
-    actionType: '后道',
-    operatorName: input.operatorName || '后道操作员',
-    submittedGarmentQty: qty,
-    acceptedGarmentQty: qty,
-    rejectedGarmentQty: 0,
-    diffGarmentQty: 0,
-    remark: '后道完成后自动生成复检单',
-  })
+  const now = nowText()
+  order.postProjectLines = order.postProjectLines.map((line) => ({
+    ...line,
+    status: '已完成',
+    startedAt: line.startedAt || now,
+    startedBy: line.startedBy || input.operatorName || '后道操作员',
+    finishedAt: now,
+    finishedBy: input.operatorName || '后道操作员',
+    completedQty: Math.min(input.completedGarmentQty ?? line.plannedQty, line.plannedQty),
+  }))
+  refreshPostOrderProjectStatus(order)
+  syncOrderStatusFields(order)
+  return cloneWorkOrder(order)
 }
 
-export function completePostFinishingRecheckOrder(input: { recheckOrderId: string; operatorName?: string; passedGarmentQty?: number; defectiveGarmentQty?: number }): PostFinishingRecheckOrder {
+export function completePostFinishingRecheckOrder(input: {
+  recheckOrderId: string
+  operatorName?: string
+  passedGarmentQty?: number
+  defectiveGarmentQty?: number
+  recheckSkuResults?: PostFinishingRecheckSkuResult[]
+}): PostFinishingRecheckOrder {
   const recheck = recheckOrders.find((item) => item.recheckOrderId === input.recheckOrderId)
   if (!recheck) throw new Error(`未找到复检单：${input.recheckOrderId}`)
   const submittedQty = recheck.recheckedGarmentQty
   const defectiveQty = input.defectiveGarmentQty ?? 0
   const passedQty = input.passedGarmentQty ?? Math.max(submittedQty - defectiveQty, 0)
+  const recheckSkuResults = normalizeRecheckSkuResults({
+    recheckOrderId: recheck.recheckOrderId,
+    lines: recheck.skuLines,
+    results: input.recheckSkuResults,
+    completed: true,
+    passedQty,
+    defectiveQty,
+  })
   recheck.recheckStatus = '复检完成'
-  recheck.passedGarmentQty = passedQty
-  recheck.defectiveGarmentQty = defectiveQty
+  recheck.recheckSkuResults = recheckSkuResults
+  recheck.recheckedGarmentQty = roundQty(recheckSkuResults.reduce((sum, item) => sum + item.recheckQty, 0))
+  recheck.passedGarmentQty = roundQty(recheckSkuResults.reduce((sum, item) => sum + item.qualifiedQty, 0))
+  recheck.defectiveGarmentQty = roundQty(recheckSkuResults.reduce((sum, item) => sum + item.unqualifiedQty, 0))
   recheck.recheckerName = input.operatorName || '复检员'
   recheck.recheckedAt = nowText()
   recheck.updatedAt = recheck.recheckedAt
@@ -2336,9 +2952,9 @@ export function completePostFinishingRecheckOrder(input: { recheckOrderId: strin
       sourceFactoryName: order.managedPostFactoryName,
       targetFactoryName: order.managedPostFactoryName,
       operatorName: recheck.recheckerName,
-      submittedQty,
-      acceptedQty: passedQty,
-      rejectedQty: defectiveQty,
+      submittedQty: recheck.recheckedGarmentQty,
+      acceptedQty: recheck.passedGarmentQty,
+      rejectedQty: recheck.defectiveGarmentQty,
       startedAt: recheck.createdAt,
       finishedAt: recheck.recheckedAt,
       skuLines: recheck.skuLines,
@@ -2499,6 +3115,8 @@ function persistPostFinishingHandoverSubmissions(): void {
 }
 
 function getRecheckLinePassedQty(recheck: PostFinishingRecheckOrder, line: PostFinishingSkuLine): number {
+  const skuResult = recheck.recheckSkuResults.find((item) => item.skuLineId === line.skuLineId || item.skuId === line.skuId)
+  if (skuResult) return Math.min(line.plannedQty, skuResult.qualifiedQty)
   const recheckedTotal = recheck.recheckedGarmentQty || totalQty(recheck.skuLines)
   if (recheckedTotal <= 0) return 0
   return Math.min(line.plannedQty, roundQty(line.plannedQty * (recheck.passedGarmentQty / recheckedTotal)))

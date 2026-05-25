@@ -123,7 +123,7 @@ export function buildMarkerPlanSummaryBuildOptions(
     buildMarkerPlanSourceMarkerPlanSourceItems(seedCutOrderRows),
   )
   const cutOrderRows = buildCutOrderViewModel(progressRecords, markerPlanSources, { progressRows: productionRows, markerPlanOccupancy }).rows
-  const materialPrepRows = buildMaterialPrepViewModel(progressRecords, markerPlanSources, { pickupWritebacks: [] }).rows
+  const materialPrepRows = buildMaterialPrepViewModel(progressRecords, markerPlanSources, { pickupEvents: [] }).rows
   const markerStore = buildMarkerPlanSeedMarkerStore({
     cutOrderRows,
     markerPlanSources,

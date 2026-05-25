@@ -27,10 +27,6 @@ import {
 } from './marker-spreading-model.ts'
 import { buildMarkerSpreadingPrototypeStore } from './marker-spreading-utils.ts'
 import {
-  applyWritebackToSpreadingSession,
-  buildMockPdaWritebacks,
-} from '../../../data/fcs/cutting/pda-spreading-writeback.ts'
-import {
   buildTransferBagReturnViewModel,
   type TransferBagReturnViewModel,
 } from './transfer-bag-return-model.ts'
@@ -245,38 +241,7 @@ function hydrateTraceabilitySpreadingStore(options: {
     if (!session) return
     const context = buildTraceabilitySpreadingContext(session, options.materialPrepRows, options.markerPlanSources)
     if (!context) return
-    const writebackDraft =
-      buildMockPdaWritebacks({ context, sessions: [session] }).find(
-        (item) => item.sourceAccountId && item.contextType === context.contextType && item.rollItems.length > 0,
-      ) || null
-    if (!writebackDraft) return
-    const writebackId = `pda-writeback-trace-${sanitizeTraceabilityId(session.spreadingSessionId)}`
-    const rollItems = writebackDraft.rollItems.map((item, rollIndex) => ({
-      ...item,
-      writebackId,
-      rollWritebackItemId: `${writebackId}-roll-${rollIndex + 1}`,
-    }))
-    const writeback = {
-      ...writebackDraft,
-      writebackId,
-      rollItems,
-      operatorItems: writebackDraft.operatorItems.map((item, operatorIndex) => ({
-        ...item,
-        writebackId,
-        operatorWritebackItemId: `${writebackId}-operator-${operatorIndex + 1}`,
-        rollWritebackItemId:
-          rollItems[operatorIndex]?.rollWritebackItemId || rollItems[0]?.rollWritebackItemId || `${writebackId}-roll-1`,
-      })),
-    }
-    const applyResult = applyWritebackToSpreadingSession({
-      writeback,
-      store: nextStore,
-      force: true,
-      appliedBy: 'traceability-projection',
-    })
-    nextStore = applyResult.nextStore
-
-    const latestSession = nextStore.sessions.find((item) => item.spreadingSessionId === (applyResult.updatedSessionId || applyResult.createdSessionId || session.spreadingSessionId))
+    const latestSession = nextStore.sessions.find((item) => item.spreadingSessionId === session.spreadingSessionId)
     if (!latestSession) return
     if (latestSession.contextType === 'marker-plan' && latestSession.status !== 'DONE') {
       const markerRecord = (options.markerStore as MarkerSpreadingStore | null)?.markers?.find((item) => item.markerId === latestSession.markerId) || null

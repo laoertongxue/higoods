@@ -9,6 +9,7 @@ import type {
   TechnicalProcessEntry,
   TechnicalQualityRule,
   TechnicalSizeRow,
+  TechnicalGarmentDifficultyGrade,
 } from '../pcs-technical-data-version-types.ts'
 
 export type PatternMaterialType = 'WOOL' | 'WOVEN' | 'UNKNOWN'
@@ -109,6 +110,7 @@ export interface ProductionOrderTechPackSnapshot {
   sourceTechPackVersionId: string
   sourceTechPackVersionCode: string
   sourceTechPackVersionLabel: string
+  garmentDifficultyGrade?: TechnicalGarmentDifficultyGrade
   sourcePublishedAt: string
   snapshotAt: string
   snapshotBy: string

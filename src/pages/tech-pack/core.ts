@@ -5,6 +5,7 @@ import {
   renderChecklist,
   renderStatusBadge,
   renderTabHeader,
+  isTechPackReadOnly,
   state,
 } from './context.ts'
 import { getStyleArchiveById } from '../../data/pcs-style-archive-repository.ts'
@@ -14,6 +15,7 @@ import {
   buildTechPackVersionSourceTaskSummary,
 } from '../../data/pcs-tech-pack-task-generation.ts'
 import { listTechPackVersionLogsByVersionId } from '../../data/pcs-tech-pack-version-log-repository.ts'
+import { TECHNICAL_GARMENT_DIFFICULTY_GRADES } from '../../data/pcs-technical-data-version-types.ts'
 import { renderAttachmentsTab, renderAddAttachmentDialog, renderAddDesignDialog, renderDesignTab } from './asset-domain.ts'
 import { renderBomFormDialog, renderBomTab, renderDesignThumbnailPreviewDialog } from './bom-domain.ts'
 import { renderColorMappingTab } from './color-mapping-domain.ts'
@@ -56,6 +58,35 @@ function renderReleaseDialog(): string {
   `
 }
 
+function renderGarmentDifficultyField(record: ReturnType<typeof getTechnicalDataVersionById>): string {
+  const grade = record?.garmentDifficultyGrade || 'B'
+  if (isTechPackReadOnly()) {
+    return `<div>做货难度：<span class="font-medium text-foreground">${escapeHtml(grade)}</span></div>`
+  }
+  return `
+    <div class="md:col-span-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <span>做货难度：</span>
+        <div class="flex flex-wrap items-center gap-3">
+          ${TECHNICAL_GARMENT_DIFFICULTY_GRADES.map((item) => `
+            <label class="inline-flex items-center gap-1.5 text-sm text-foreground">
+              <input
+                type="radio"
+                name="tech-pack-garment-difficulty"
+                value="${escapeHtml(item)}"
+                class="h-4 w-4"
+                data-tech-field="garment-difficulty-grade"
+                ${item === grade ? 'checked' : ''}
+              />
+              <span>${escapeHtml(item)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `
+}
+
 function renderTechPackSummary(): string {
   if (!state.currentTechnicalVersionId || !state.currentStyleId) return ''
   const record = getTechnicalDataVersionById(state.currentTechnicalVersionId)
@@ -69,6 +100,7 @@ function renderTechPackSummary(): string {
       <div>技术包状态：${renderStatusBadge(state.techPack?.status || 'DRAFT')}</div>
       <div>是否当前生效版本：<span class="font-medium text-foreground">${isCurrent ? '是' : '否'}</span></div>
       <div>来源任务链：<span class="font-medium text-foreground">${escapeHtml(sourceSummary.taskChainText)}</span></div>
+      ${renderGarmentDifficultyField(record)}
       <div>关联花型库资产：<span class="font-medium text-foreground">${patternAssets.length > 0 ? escapeHtml(patternAssets.map((item) => item.pattern_code).join('、')) : '未关联'}</span></div>
       <div>归档状态：<span class="font-medium text-foreground">${record.archiveCollectedFlag ? '已归档' : '未归档'}</span></div>
       <div>当前花型资产：<span class="font-medium text-foreground">${patternAssets.length} 个</span></div>

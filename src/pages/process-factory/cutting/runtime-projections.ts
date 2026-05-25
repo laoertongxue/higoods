@@ -203,16 +203,16 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
   snapshot: CuttingDomainSnapshot,
 ): CuttingSummaryBuildOptions {
   const progressRows = buildProductionProgressRows(snapshot.progressRecords, {
-    pickupWritebacks: snapshot.pdaExecutionState.pickupWritebacks as never[],
-    inboundWritebacks: snapshot.pdaExecutionState.inboundWritebacks as never[],
-    handoverWritebacks: snapshot.pdaExecutionState.handoverWritebacks as never[],
-    replenishmentFeedbackWritebacks: snapshot.pdaExecutionState.replenishmentFeedbackWritebacks as never[],
+    pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
+    inboundEvents: snapshot.pdaExecutionState.inboundEvents as never[],
+    handoverEvents: snapshot.pdaExecutionState.handoverEvents as never[],
+    replenishmentFeedbackEvents: snapshot.pdaExecutionState.replenishmentFeedbackEvents as never[],
   })
   const seedCutOrderRows = buildCutOrderRows(snapshot, [], progressRows)
   const markerPlanSources = buildRuntimeMarkerPlanSourceRecords(snapshot, seedCutOrderRows)
   const cutOrderRows = buildCutOrderRows(snapshot, markerPlanSources, progressRows)
   const materialPrepRows = buildMaterialPrepViewModel(snapshot.progressRecords, markerPlanSources, {
-    pickupWritebacks: snapshot.pdaExecutionState.pickupWritebacks as never[],
+    pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
   }).rows
   const markerStore = snapshot.markerSpreadingState.store as unknown as MarkerSpreadingStore
   const feiLedger = buildFeiLedger({
@@ -242,8 +242,8 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     cutOrderRows,
     snapshot.warehouseState.cutPieceRecords,
     {
-      inboundWritebacks: snapshot.pdaExecutionState.inboundWritebacks as never[],
-      handoverWritebacks: snapshot.pdaExecutionState.handoverWritebacks as never[],
+      inboundEvents: snapshot.pdaExecutionState.inboundEvents as never[],
+      handoverEvents: snapshot.pdaExecutionState.handoverEvents as never[],
       warehouseWritebacks: snapshot.warehouseState.cutPieceWritebacks,
     },
   )
@@ -275,7 +275,6 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     reviews: snapshot.replenishmentState.reviews as unknown as ReplenishmentReview[],
     impactPlans: snapshot.replenishmentState.impactPlans as unknown as ReplenishmentImpactPlan[],
     actions: snapshot.replenishmentState.actions as unknown as ReplenishmentFollowupAction[],
-    pdaFeedbackWritebacks: snapshot.pdaExecutionState.replenishmentFeedbackWritebacks as never[],
   })
 
   const specialProcessView = buildSpecialProcessViewModel({

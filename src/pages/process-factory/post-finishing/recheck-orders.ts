@@ -4,6 +4,7 @@ import {
   getPostFinishingRecheckOrderById,
   listPostFinishingRecheckOrderEntities,
   type PostFinishingRecheckOrder,
+  type PostFinishingRecheckSkuResult,
 } from '../../../data/fcs/post-finishing-domain.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
@@ -48,21 +49,54 @@ function registerPostRecheckActions(): void {
   if (typeof window === 'undefined') return
   const win = window as Window & { __postCompleteRecheck?: (recheckOrderId: string) => void }
   win.__postCompleteRecheck = (recheckOrderId: string) => {
-    const updated = completePostFinishingRecheckOrder({ recheckOrderId, operatorName: '复检员' })
+    const recheckSkuResults = Array.from(document.querySelectorAll<HTMLElement>('[data-recheck-sku-row]')).map((row): PostFinishingRecheckSkuResult => ({
+      recheckSkuResultId: row.dataset.recheckSkuResultId || '',
+      skuLineId: row.dataset.skuLineId || '',
+      skuId: row.dataset.skuId || '',
+      skuCode: row.dataset.skuCode || '',
+      skuImageUrl: row.dataset.skuImageUrl || undefined,
+      colorName: row.dataset.colorName || '',
+      sizeName: row.dataset.sizeName || '',
+      waitRecheckQty: Number(row.dataset.waitRecheckQty || 0),
+      recheckQty: Number((row.querySelector('[data-recheck-qty]') as HTMLInputElement | null)?.value || 0),
+      qualifiedQty: Number((row.querySelector('[data-recheck-qualified]') as HTMLInputElement | null)?.value || 0),
+      unqualifiedQty: Number((row.querySelector('[data-recheck-unqualified]') as HTMLInputElement | null)?.value || 0),
+      qtyUnit: row.dataset.qtyUnit || '件',
+      remark: (row.querySelector('[data-recheck-remark]') as HTMLInputElement | null)?.value || undefined,
+    }))
+    const updated = completePostFinishingRecheckOrder({ recheckOrderId, operatorName: '复检员', recheckSkuResults })
     appStore.navigate(buildPostFinishingRecheckOrderDetailLink(updated.recheckOrderId))
   }
 }
 
 function renderSkuRows(record: PostFinishingRecheckOrder): string {
-  return record.skuLines.map((line) => `
-    <tr>
-      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(line.skuCode)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(line.spuName)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(line.colorName)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(line.sizeName)}</td>
-      <td class="px-3 py-3 text-sm font-medium">${formatGarmentQty(line.plannedQty, line.qtyUnit)}</td>
+  return record.recheckSkuResults.map((result) => {
+    const readonly = record.recheckStatus === '复检完成'
+    const disabled = readonly ? 'disabled' : ''
+    return `
+    <tr
+      data-recheck-sku-row
+      data-recheck-sku-result-id="${escapeHtml(result.recheckSkuResultId)}"
+      data-sku-line-id="${escapeHtml(result.skuLineId)}"
+      data-sku-id="${escapeHtml(result.skuId)}"
+      data-sku-code="${escapeHtml(result.skuCode)}"
+      data-sku-image-url="${escapeHtml(result.skuImageUrl || '')}"
+      data-color-name="${escapeHtml(result.colorName)}"
+      data-size-name="${escapeHtml(result.sizeName)}"
+      data-wait-recheck-qty="${result.waitRecheckQty}"
+      data-qty-unit="${escapeHtml(result.qtyUnit)}"
+      class="align-top"
+    >
+      <td class="px-3 py-3"><img class="h-12 w-12 rounded border object-cover" src="${escapeHtml(result.skuImageUrl || 'https://placehold.co/96x96?text=SKU')}" alt="${escapeHtml(result.skuCode)}" /></td>
+      <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(result.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(result.colorName)} / ${escapeHtml(result.sizeName)}</div></td>
+      <td class="px-3 py-3 text-sm font-medium">${formatGarmentQty(result.waitRecheckQty, result.qtyUnit)}</td>
+      <td class="px-3 py-3"><input class="h-9 w-24 rounded-md border px-2 text-sm disabled:bg-slate-100" type="number" min="0" data-recheck-qty value="${result.recheckQty || result.waitRecheckQty}" ${disabled} /></td>
+      <td class="px-3 py-3"><input class="h-9 w-24 rounded-md border px-2 text-sm disabled:bg-slate-100" type="number" min="0" data-recheck-qualified value="${result.qualifiedQty || result.waitRecheckQty}" ${disabled} /></td>
+      <td class="px-3 py-3"><input class="h-9 w-24 rounded-md border px-2 text-sm disabled:bg-slate-100" type="number" min="0" data-recheck-unqualified value="${result.unqualifiedQty}" ${disabled} /></td>
+      <td class="px-3 py-3"><input class="h-9 w-44 rounded-md border px-2 text-sm disabled:bg-slate-100" data-recheck-remark value="${escapeHtml(result.remark || '')}" ${disabled} /></td>
     </tr>
-  `).join('')
+  `
+  }).join('')
 }
 
 function renderDetailField(label: string, value: string): string {
@@ -103,9 +137,9 @@ export function renderPostFinishingRecheckOrderDetailPage(recheckOrderId: string
         </div>
       `)}
       ${renderPostSection('SKU 明细', renderPostTable(
-        ['SKU', '款式', '颜色', '尺码', '复检数量'],
+        ['图片', 'SKU', '待复检数量', '本次复检数量', '合格数量', '不合格数量', '备注'],
         renderSkuRows(record),
-        'min-w-[760px]',
+        'min-w-[1080px]',
       ))}
     </div>
   `

@@ -11,6 +11,8 @@ import {
 import { normalizeBomRequirement } from './bom-process-linkage.ts'
 import { buildPatternSignature, checkDuplicatePattern } from './pattern-duplicate-check.ts'
 import { renderPieceInstanceSpecialCraftDialog } from './pattern-domain.ts'
+import { saveTechnicalDataVersionRecordMeta } from '../../data/pcs-project-technical-data-writeback.ts'
+import type { TechnicalGarmentDifficultyGrade } from '../../data/pcs-technical-data-version-types.ts'
 import {
   TECH_PACK_PATTERN_CATEGORY_OPTIONS,
   buildPatternDisplayFile,
@@ -1220,6 +1222,20 @@ function handleTechPackField(
 
   const value = node.value
   const checked = node instanceof HTMLInputElement ? node.checked : false
+
+  if (field === 'garment-difficulty-grade') {
+    if (!state.currentTechnicalVersionId) return true
+    const nextGrade: TechnicalGarmentDifficultyGrade =
+      value === 'A' || value === 'A+' || value === 'A++' || value === 'B' || value === 'C' || value === 'D'
+        ? value
+        : 'B'
+    saveTechnicalDataVersionRecordMeta(
+      state.currentTechnicalVersionId,
+      { garmentDifficultyGrade: nextGrade },
+      currentUser.name,
+    )
+    return true
+  }
 
   if (field === 'new-pattern-name') {
     state.newPattern.name = value

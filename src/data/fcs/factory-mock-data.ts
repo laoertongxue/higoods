@@ -28,6 +28,9 @@ export const TEST_FACTORY_SCOPE = 'ALL_PROCESS_CRAFT' as const
 export const OWN_WOOL_FACTORY_ID = 'OWN_WOOL_FACTORY'
 export const OWN_WOOL_FACTORY_CODE = 'WOOL-OWN-001'
 export const OWN_WOOL_FACTORY_NAME = '周哥毛织厂'
+export const DEDICATED_POST_FACTORY_ID = 'PF-DEDICATED-001'
+export const DEDICATED_POST_FACTORY_CODE = 'POST-FIN-001'
+export const DEDICATED_POST_FACTORY_NAME = 'HiGood 后道工厂'
 
 export function formatFactoryDisplayName(factoryName?: string | null, factoryCodeOrId?: string | null): string {
   const normalizedName = factoryName?.trim() || ''
@@ -306,6 +309,48 @@ const ownWoolFactory: Factory = {
   },
 }
 
+const dedicatedPostFactory: Factory = {
+  id: DEDICATED_POST_FACTORY_ID,
+  code: DEDICATED_POST_FACTORY_CODE,
+  name: DEDICATED_POST_FACTORY_NAME,
+  factoryShortName: 'higood_post',
+  address: '印尼雅加达后道加工园区 1 号楼',
+  contact: '后道工厂负责人',
+  mobilePhone: '+62 21 8800 2605',
+  phone: '+62 21 8800 2605',
+  status: 'active',
+  cooperationMode: 'exclusive',
+  processAbilities: [
+    {
+      processCode: 'POST_FINISHING',
+      craftCodes: [],
+      capacityNodeCodes: [...POST_CAPACITY_NODE_CODES],
+      abilityId: 'ABILITY_POST_FINISHING_DEDICATED',
+      processName: '后道',
+      craftNames: [...DEDICATED_POST_ACTION_NAMES],
+      abilityName: '后道',
+      abilityScope: 'PROCESS',
+      canReceiveTask: true,
+      capacityManaged: true,
+      status: 'ACTIVE',
+    },
+  ],
+  qualityScore: 93,
+  deliveryScore: 91,
+  createdAt: '2026-05-22 09:00:00',
+  updatedAt: '2026-05-22 09:00:00',
+  factoryTier: 'SATELLITE',
+  factoryType: 'SATELLITE_FINISHING',
+  pdaEnabled: true,
+  pdaTenantId: DEDICATED_POST_FACTORY_ID,
+  eligibility: {
+    allowDispatch: true,
+    allowBid: false,
+    allowExecute: true,
+    allowSettle: true,
+  },
+}
+
 export const specialCraftDedicatedFactories: Factory[] = specialCraftDedicatedFactorySeeds.map((seed) => {
   const processName = seed.managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? '辅助工艺' : '特种工艺'
   return {
@@ -350,6 +395,7 @@ export const specialCraftDedicatedFactories: Factory[] = specialCraftDedicatedFa
 })
 
 export const mockFactories: Factory[] = [
+  dedicatedPostFactory,
   ...generatedFactories,
   allProcessCraftTestFactory,
   ownWoolFactory,

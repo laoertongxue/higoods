@@ -415,7 +415,7 @@ const SEED_SESSION_MATRIX: SeedSessionProfile[][] = [
       sourceWritebackId: 'pda-sync-failed-h',
       plannedLayerCount: 60,
       actualLayerCounts: [42],
-      scenarioNote: 'PDA 写回已到达 Web，但同步失败，等待主管复核。',
+      scenarioNote: 'PDA 执行记录已到达 Web，但同步失败，等待主管处理。',
     },
   ],
 ]

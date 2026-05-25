@@ -19,15 +19,15 @@ import {
   type ProductionPieceTruthResult,
 } from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import {
-  listPdaPickupWritebacks,
-  listPdaInboundWritebacks,
-  listPdaHandoverWritebacks,
-  listPdaReplenishmentFeedbackWritebacks,
-  type PdaCutPieceHandoverWritebackRecord,
-  type PdaCutPieceInboundWritebackRecord,
-  type PdaPickupWritebackRecord,
-  type PdaReplenishmentFeedbackWritebackRecord,
-} from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
+  listPdaPickupEvents,
+  listPdaInboundEvents,
+  listPdaHandoverEvents,
+  listPdaReplenishmentFeedbackEvents,
+  type PdaCutPieceHandoverEventRecord,
+  type PdaCutPieceInboundEventRecord,
+  type PdaPickupEventRecord,
+  type PdaReplenishmentFeedbackEventRecord,
+} from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 
 const PRODUCTION_PROGRESS_REFERENCE_DATE = '2026-03-24'
@@ -526,23 +526,23 @@ function buildPieceTruthOverlaySignals(
   })
 
   const storage = getBrowserLocalStorage() || undefined
-  const pickupWritebacks = options.pickupWritebacks ?? listPdaPickupWritebacks(storage)
-  const inboundWritebacks = options.inboundWritebacks ?? listPdaInboundWritebacks(storage)
-  const handoverWritebacks = options.handoverWritebacks ?? listPdaHandoverWritebacks(storage)
-  const replenishmentFeedbackWritebacks =
-    options.replenishmentFeedbackWritebacks ?? listPdaReplenishmentFeedbackWritebacks(storage)
+  const pickupEvents = options.pickupEvents ?? listPdaPickupEvents(storage)
+  const inboundEvents = options.inboundEvents ?? listPdaInboundEvents(storage)
+  const handoverEvents = options.handoverEvents ?? listPdaHandoverEvents(storage)
+  const replenishmentFeedbackEvents =
+    options.replenishmentFeedbackEvents ?? listPdaReplenishmentFeedbackEvents(storage)
 
   return [
-    ...pickupWritebacks
+    ...pickupEvents
       .filter(productionOrderMatches)
       .map((item) => toSignal('PICKUP', item)),
-    ...inboundWritebacks
+    ...inboundEvents
       .filter(productionOrderMatches)
       .map((item) => toSignal('INBOUND', item)),
-    ...handoverWritebacks
+    ...handoverEvents
       .filter(productionOrderMatches)
       .map((item) => toSignal('HANDOVER', item)),
-    ...replenishmentFeedbackWritebacks
+    ...replenishmentFeedbackEvents
       .filter(productionOrderMatches)
       .map((item) => toSignal('REPLENISHMENT', item)),
   ]
@@ -1040,10 +1040,10 @@ function buildKeywordIndex(
 }
 
 export interface ProductionProgressRuntimeOptions {
-  pickupWritebacks?: PdaPickupWritebackRecord[]
-  inboundWritebacks?: PdaCutPieceInboundWritebackRecord[]
-  handoverWritebacks?: PdaCutPieceHandoverWritebackRecord[]
-  replenishmentFeedbackWritebacks?: PdaReplenishmentFeedbackWritebackRecord[]
+  pickupEvents?: PdaPickupEventRecord[]
+  inboundEvents?: PdaCutPieceInboundEventRecord[]
+  handoverEvents?: PdaCutPieceHandoverEventRecord[]
+  replenishmentFeedbackEvents?: PdaReplenishmentFeedbackEventRecord[]
 }
 
 export function buildProductionProgressRows(

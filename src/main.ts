@@ -759,6 +759,11 @@ function shouldSkipInputRerender(target: Element): boolean {
     return true
   }
 
+  const pdaCutHandoverFieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
+  if (pdaCutHandoverFieldNode instanceof HTMLInputElement || pdaCutHandoverFieldNode instanceof HTMLTextAreaElement) {
+    return true
+  }
+
   const markerPlanInputNode = target.closest<HTMLElement>(
     [
       '[data-marker-plan-filter-field]',
@@ -828,6 +833,11 @@ function shouldSkipChangeRerender(target: Element): boolean {
 
   const pdaLoginFieldNode = target.closest<HTMLElement>('[data-pda-login-field]')
   if (pdaLoginFieldNode instanceof HTMLInputElement || pdaLoginFieldNode instanceof HTMLTextAreaElement) {
+    return true
+  }
+
+  const pdaCutHandoverFieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
+  if (pdaCutHandoverFieldNode instanceof HTMLInputElement || pdaCutHandoverFieldNode instanceof HTMLTextAreaElement) {
     return true
   }
 
@@ -986,6 +996,16 @@ root.addEventListener('click', async (event) => {
     event.preventDefault()
     const pdaCuttingInboundPage = await import('./pages/pda-cutting-inbound')
     if (pdaCuttingInboundPage.handlePdaCuttingInboundEvent(pdaCutInboundActionNode)) {
+      await renderWithFocusRestore(focusSnapshot)
+      return
+    }
+  }
+
+  const pdaCutHandoverActionNode = target.closest<HTMLElement>('[data-pda-cut-handover-action]')
+  if (pdaCutHandoverActionNode) {
+    event.preventDefault()
+    const pdaCuttingHandoverPage = await import('./pages/pda-cutting-handover')
+    if (pdaCuttingHandoverPage.handlePdaCuttingHandoverEvent(pdaCutHandoverActionNode)) {
       await renderWithFocusRestore(focusSnapshot)
       return
     }

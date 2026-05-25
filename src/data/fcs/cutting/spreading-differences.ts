@@ -8,12 +8,15 @@ import {
   type GeneratedCutOrderSourceRecord,
 } from './generated-cut-orders.ts'
 import { buildMaterialLedgerProjectionMap } from './material-ledger.ts'
-import { listPdaCuttingStageWritebackRecords } from './pda-cutting-stage-writeback.ts'
-import { listPdaReplenishmentFeedbackWritebacks } from './pda-execution-writeback-ledger.ts'
+import {
+  listCuttingRuntimeEventsByType,
+  listPdaReplenishmentFeedbackEvents,
+  type CuttingRuntimeEvent,
+} from './cutting-runtime-event-ledger.ts'
 
 export type SpreadingDifferenceSourceType =
-  | 'PDA 铺布回写'
-  | 'PDA 裁剪回写'
+  | 'PDA 铺布记录'
+  | 'PDA 裁剪记录'
   | 'Web 处理'
   | '领料差异延续'
   | '系统计算'
@@ -118,6 +121,32 @@ function resolveSessionForOrder(order: SpreadingOrder, sessions: SpreadingSessio
     sessions.find((session) => session.sessionNo === order.spreadingOrderNo) ||
     sessions.find((session) => session.markerPlanId === order.markerPlanId && session.sourceBedNo === order.bedNo) ||
     null
+  )
+}
+
+function resolveOrderForRuntimeEvent(event: CuttingRuntimeEvent, orders: SpreadingOrder[]): SpreadingOrder | null {
+  return (
+    orders.find((order) => order.spreadingOrderId === event.refs.spreadingOrderId) ||
+    orders.find((order) => order.spreadingOrderNo === event.refs.spreadingOrderNo) ||
+    orders.find((order) => event.refs.cutOrderId && order.sourceCutOrderIds.includes(event.refs.cutOrderId)) ||
+    orders.find((order) => event.refs.cutOrderNo && order.sourceCutOrderNos.includes(event.refs.cutOrderNo)) ||
+    orders[0] ||
+    null
+  )
+}
+
+function getRuntimeEventPayload(event: CuttingRuntimeEvent): Record<string, unknown> {
+  return event.payload && typeof event.payload === 'object' ? (event.payload as Record<string, unknown>) : {}
+}
+
+function sumRuntimeOutputPieceQty(event: CuttingRuntimeEvent): number {
+  const payload = getRuntimeEventPayload(event)
+  const outputLines = Array.isArray(payload.outputLines) ? payload.outputLines : []
+  return round(
+    outputLines.reduce((sum, line) => {
+      if (!line || typeof line !== 'object') return sum
+      return sum + Math.max(Number((line as Record<string, unknown>).actualPieceQty || 0), 0)
+    }, 0),
   )
 }
 
@@ -314,7 +343,7 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
     if (base.actualLayerCount > 0 && base.actualLayerCount < order.plannedLayerCount) {
       differences.push(createDifference(order, session, {
         suffix: 'actual-layer-less-than-plan',
-        sourceType: session?.sourceWritebackId ? 'PDA 铺布回写' : '系统计算',
+        sourceType: session?.sourceWritebackId ? 'PDA 铺布记录' : '系统计算',
         differenceType: '实铺小于计划',
         differenceLevel: '需处理',
         plannedValue: order.plannedLayerCount,
@@ -329,7 +358,7 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
       if (usageRatio > USAGE_DIFFERENCE_THRESHOLD) {
         differences.push(createDifference(order, session, {
           suffix: 'usage-difference',
-          sourceType: session?.sourceWritebackId ? 'PDA 铺布回写' : '系统计算',
+          sourceType: session?.sourceWritebackId ? 'PDA 铺布记录' : '系统计算',
           differenceType: '实际用量差异',
           differenceLevel: usageRatio > 0.1 ? '需处理' : '待处理',
           plannedValue: order.plannedMaterialUsage,
@@ -343,7 +372,7 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
     if (base.actualCutQty > 0 && base.actualCutQty < order.plannedGarmentQty) {
       differences.push(createDifference(order, session, {
         suffix: 'actual-cut-less-than-plan',
-        sourceType: session?.sourceWritebackId ? 'PDA 裁剪回写' : '系统计算',
+        sourceType: session?.sourceWritebackId ? 'PDA 裁剪记录' : '系统计算',
         differenceType: '实裁小于计划',
         differenceLevel: '需处理',
         plannedValue: order.plannedGarmentQty,
@@ -377,7 +406,7 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
     if (abnormalRolls.length) {
       differences.push(createDifference(order, session, {
         suffix: 'roll-record-abnormal',
-        sourceType: session?.sourceWritebackId ? 'PDA 铺布回写' : 'Web 处理',
+        sourceType: session?.sourceWritebackId ? 'PDA 铺布记录' : 'Web 处理',
         differenceType: '卷记录异常',
         differenceLevel: '待处理',
         plannedValue: abnormalRolls.length,
@@ -392,7 +421,7 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
     if (headTailLength > 8) {
       differences.push(createDifference(order, session, {
         suffix: 'head-tail-abnormal',
-        sourceType: session?.sourceWritebackId ? 'PDA 铺布回写' : '系统计算',
+        sourceType: session?.sourceWritebackId ? 'PDA 铺布记录' : '系统计算',
         differenceType: '布头布尾异常',
         differenceLevel: '待处理',
         plannedValue: 8,
@@ -406,57 +435,66 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
   })
 }
 
-function buildDifferencesFromStageWritebacks(orders: SpreadingOrder[]): SpreadingDifference[] {
-  const order = orders[0]
-  if (!order) return []
-  return listPdaCuttingStageWritebackRecords()
-    .filter((record) => record.varianceFlag)
-    .flatMap((record) => {
-      if (record.actionType === 'FINISH_SPREADING' && Number(record.actualLayerCount || 0) > 0) {
-        const planned = Math.max(order.plannedLayerCount || Number(record.actualLayerCount || 0) + 20, Number(record.actualLayerCount || 0) + 1)
-        return [createDifference(order, null, {
-          suffix: `pda-${record.writebackId}-layer`,
-          sourceType: 'PDA 铺布回写',
-          sourceObjectId: record.writebackId,
-          differenceType: '实铺小于计划',
-          differenceLevel: '需处理',
-          plannedValue: planned,
-          actualValue: Number(record.actualLayerCount || 0),
-          unit: '层',
-          summary: 'PDA 完成铺布时上报实铺层数小于计划层数。',
-          operatorName: record.operatorName,
-          occurredAt: record.submittedAt,
-          note: record.note,
-        })]
-      }
-      if (record.actionType === 'FINISH_CUTTING' && Number(record.actualCutQty || 0) > 0) {
-        const planned = Math.max(order.plannedGarmentQty || Number(record.actualCutQty || 0) + 20, Number(record.actualCutQty || 0) + 1)
-        return [createDifference(order, null, {
-          suffix: `pda-${record.writebackId}-cut`,
-          sourceType: 'PDA 裁剪回写',
-          sourceObjectId: record.writebackId,
-          differenceType: '实裁小于计划',
-          differenceLevel: '需处理',
-          plannedValue: planned,
-          actualValue: Number(record.actualCutQty || 0),
-          unit: '件',
-          summary: 'PDA 完成裁剪时上报实际裁剪数量小于计划数量。',
-          operatorName: record.operatorName,
-          occurredAt: record.submittedAt,
-          note: record.note,
-        })]
-      }
-      return []
-    })
+function buildDifferencesFromRuntimeStageEvents(orders: SpreadingOrder[]): SpreadingDifference[] {
+  if (!orders.length) return []
+  const spreadingEvents = listCuttingRuntimeEventsByType('完成铺布')
+  const cuttingEvents = listCuttingRuntimeEventsByType('完成裁剪')
+
+  const spreadingDifferences = spreadingEvents.flatMap((event) => {
+    const order = resolveOrderForRuntimeEvent(event, orders)
+    if (!order) return []
+    const payload = getRuntimeEventPayload(event)
+    const actualLayerCount = Number(payload.actualLayerCount || 0)
+    const plannedLayerCount = Number(order.plannedLayerCount || 0)
+    if (!(actualLayerCount > 0 && plannedLayerCount > 0 && actualLayerCount < plannedLayerCount)) return []
+    return [createDifference(order, null, {
+      suffix: `pda-event-${event.eventId}-layer`,
+      sourceType: 'PDA 铺布记录',
+      sourceObjectId: event.eventId,
+      differenceType: '实铺小于计划',
+      differenceLevel: '需处理',
+      plannedValue: plannedLayerCount,
+      actualValue: actualLayerCount,
+      unit: '层',
+      summary: 'PDA 完成铺布事件记录实铺层数小于计划层数。',
+      operatorName: event.operatorName,
+      occurredAt: event.occurredAt,
+      note: `来源事件：${event.eventNo}`,
+    })]
+  })
+
+  const cuttingDifferences = cuttingEvents.flatMap((event) => {
+    const order = resolveOrderForRuntimeEvent(event, orders)
+    if (!order) return []
+    const actualPieceQty = sumRuntimeOutputPieceQty(event)
+    const plannedPieceQty = Number(order.plannedPieceQty || order.plannedGarmentQty || 0)
+    if (!(actualPieceQty > 0 && plannedPieceQty > 0 && actualPieceQty < plannedPieceQty)) return []
+    return [createDifference(order, null, {
+      suffix: `pda-event-${event.eventId}-cut`,
+      sourceType: 'PDA 裁剪记录',
+      sourceObjectId: event.eventId,
+      differenceType: '实裁小于计划',
+      differenceLevel: '需处理',
+      plannedValue: plannedPieceQty,
+      actualValue: actualPieceQty,
+      unit: '片',
+      summary: 'PDA 完成裁剪事件记录实际裁片数量小于计划数量。',
+      operatorName: event.operatorName,
+      occurredAt: event.occurredAt,
+      note: `来源事件：${event.eventNo}`,
+    })]
+  })
+
+  return [...spreadingDifferences, ...cuttingDifferences]
 }
 
 function buildDifferencesFromPdaFeedbacks(orders: SpreadingOrder[]): SpreadingDifference[] {
   const fallbackOrder = orders[0]
   if (!fallbackOrder) return []
-  return listPdaReplenishmentFeedbackWritebacks().map((record) => createDifference(fallbackOrder, null, {
-    suffix: `pda-feedback-${record.writebackId}`,
-    sourceType: 'PDA 铺布回写',
-    sourceObjectId: record.writebackId,
+  return listPdaReplenishmentFeedbackEvents().map((record) => createDifference(fallbackOrder, null, {
+    suffix: `pda-feedback-${record.runtimeEventId}`,
+    sourceType: 'PDA 铺布记录',
+    sourceObjectId: record.runtimeEventId,
     differenceType: record.reasonLabel.includes('余量') || record.reasonLabel.includes('不足') ? '面料余额不足' : '现场反馈',
     differenceLevel: '需处理',
     plannedValue: 1,
@@ -584,7 +622,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
   return [
     createDifference(order, null, {
       suffix: 'seed-layer-short',
-      sourceType: 'PDA 铺布回写',
+      sourceType: 'PDA 铺布记录',
       differenceType: '实铺小于计划',
       differenceLevel: '需处理',
       plannedValue: 100,
@@ -596,7 +634,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
     }),
     createDifference(order, null, {
       suffix: 'seed-cut-short',
-      sourceType: 'PDA 裁剪回写',
+      sourceType: 'PDA 裁剪记录',
       differenceType: '实裁小于计划',
       differenceLevel: '需处理',
       plannedValue: 1000,
@@ -619,7 +657,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
     }),
     createDifference(order, null, {
       suffix: 'seed-material-short',
-      sourceType: 'PDA 铺布回写',
+      sourceType: 'PDA 铺布记录',
       differenceType: '面料余额不足',
       differenceLevel: '需处理',
       plannedValue: 240,
@@ -633,7 +671,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
     }),
     createDifference(order, null, {
       suffix: 'seed-roll-abnormal',
-      sourceType: 'PDA 铺布回写',
+      sourceType: 'PDA 铺布记录',
       differenceType: '卷记录异常',
       differenceLevel: '待处理',
       plannedValue: 1,
@@ -646,7 +684,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
     }),
     createDifference(order, null, {
       suffix: 'seed-field-feedback',
-      sourceType: 'PDA 铺布回写',
+      sourceType: 'PDA 铺布记录',
       differenceType: '现场反馈',
       differenceLevel: '需处理',
       plannedValue: 1,
@@ -729,7 +767,7 @@ export function listSpreadingDifferences(input?: {
   const orders = input?.orders?.length ? input.orders : buildOrdersFromSessions(sessions)
   return uniqueByDifferenceId([
     ...buildDifferencesFromOrders(orders, sessions),
-    ...buildDifferencesFromStageWritebacks(orders),
+    ...buildDifferencesFromRuntimeStageEvents(orders),
     ...buildDifferencesFromPdaFeedbacks(orders),
     ...buildSeedDifferences(orders),
   ]).sort((left, right) => right.detectedAt.localeCompare(left.detectedAt, 'zh-CN'))

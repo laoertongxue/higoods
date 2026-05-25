@@ -234,7 +234,7 @@ export function serializeCutOrderCloseRecordsStorage(records: CutOrderCloseRecor
 export function listStoredCutOrderCloseRecords(
   storage: Pick<Storage, 'getItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): CutOrderCloseRecord[] {
-  if (!storage) return []
+  if (!storage || typeof storage.getItem !== 'function') return []
   return deserializeCutOrderCloseRecordsStorage(storage.getItem(CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY))
 }
 
@@ -242,7 +242,7 @@ export function saveStoredCutOrderCloseRecords(
   records: CutOrderCloseRecord[],
   storage: Pick<Storage, 'setItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): void {
-  if (!storage) return
+  if (!storage || typeof storage.setItem !== 'function') return
   storage.setItem(CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY, serializeCutOrderCloseRecordsStorage(records))
 }
 

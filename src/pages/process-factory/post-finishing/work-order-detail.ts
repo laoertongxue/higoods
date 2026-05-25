@@ -1,8 +1,9 @@
 import { buildUnifiedPrintPreviewRouteLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
-  completePostFinishingWorkOrder,
+  completePostFinishingProjectLine,
   getPostFinishingSourceLabel,
   getPostFinishingWorkOrderById,
+  startPostFinishingProjectLine,
   type PostFinishingWorkOrder,
 } from '../../../data/fcs/post-finishing-domain.ts'
 import { appStore } from '../../../state/store.ts'
@@ -74,12 +75,17 @@ function renderEmptyRow(colspan: number, text: string): string {
 function registerPostWorkOrderDetailActions(): void {
   if (typeof window === 'undefined') return
   const win = window as Window & {
-    __completePostFinishingWorkOrderFromDetail?: (postOrderId: string) => void
+    __startPostFinishingProjectLine?: (postOrderId: string, projectLineId: string) => void
+    __completePostFinishingProjectLine?: (postOrderId: string, projectLineId: string, plannedQty: number) => void
     __reportPostFinishingWorkOrderException?: (postOrderNo: string) => void
   }
-  win.__completePostFinishingWorkOrderFromDetail = (postOrderId: string) => {
-    const updated = completePostFinishingWorkOrder({ postOrderId, operatorName: '后道操作员' })
-    appStore.navigate(`${buildDetailHref(updated.postOrderId, 'result')}&refresh=${Date.now()}`)
+  win.__startPostFinishingProjectLine = (postOrderId: string, projectLineId: string) => {
+    const updated = startPostFinishingProjectLine({ postOrderId, projectLineId, operatorName: '后道操作员' })
+    appStore.navigate(`${buildDetailHref(updated.postOrderId, 'items')}&refresh=${Date.now()}`)
+  }
+  win.__completePostFinishingProjectLine = (postOrderId: string, projectLineId: string, plannedQty: number) => {
+    const updated = completePostFinishingProjectLine({ postOrderId, projectLineId, completedQty: plannedQty, operatorName: '后道操作员' })
+    appStore.navigate(`${buildDetailHref(updated.postOrderId, updated.postStatus === '后道完成' ? 'result' : 'items')}&refresh=${Date.now()}`)
   }
   win.__reportPostFinishingWorkOrderException = (postOrderNo: string) => {
     window.alert(`已记录后道异常：${postOrderNo}`)
@@ -87,13 +93,11 @@ function registerPostWorkOrderDetailActions(): void {
 }
 
 function renderActionBar(order: PostFinishingWorkOrder): string {
-  const canComplete = order.postStatus !== '后道完成'
   return `
     <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white p-3">
       ${renderTabs(order.postOrderId, getCurrentTab())}
       <div class="flex flex-wrap gap-2">
         ${renderPostAction('返回后道单列表', '/fcs/craft/post-finishing/work-orders')}
-        ${canComplete ? `<button type="button" class="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100" onclick="window.__completePostFinishingWorkOrderFromDetail('${escapeHtml(order.postOrderId)}')">完成后道</button>` : ''}
         <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="window.__reportPostFinishingWorkOrderException('${escapeHtml(order.postOrderNo)}')">上报异常</button>
         ${renderPostAction('打印后道单', buildUnifiedPrintPreviewRouteLink({ documentType: 'TASK_ROUTE_CARD', sourceType: 'POST_FINISHING_WORK_ORDER', sourceId: order.postOrderId }))}
       </div>
@@ -114,14 +118,24 @@ function renderSkuRows(order: PostFinishingWorkOrder): string {
 }
 
 function renderPostItemRows(order: PostFinishingWorkOrder): string {
-  const itemSet = new Set(order.postProcessItems)
-  const rows = (['开扣眼', '装扣子', '熨烫', '包装'] as const).map((item) => `
+  const rows = order.postProjectLines.map((line) => `
     <tr class="align-top">
-      <td class="px-3 py-3 text-sm font-medium">${escapeHtml(item)}</td>
-      <td class="px-3 py-3 text-sm">${itemSet.has(item) ? '需要' : '不需要'}</td>
+      <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(line.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeName)}</div></td>
+      <td class="px-3 py-3 text-sm font-medium">${escapeHtml(line.projectName)}</td>
+      <td class="px-3 py-3 text-sm">${formatGarmentQty(line.plannedQty, line.qtyUnit)}</td>
+      <td class="px-3 py-3 text-sm">${formatGarmentQty(line.completedQty, line.qtyUnit)}</td>
+      <td class="px-3 py-3">${renderPostStatusBadge(line.status)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(line.startedAt || '—')}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(line.finishedAt || '—')}</td>
+      <td class="px-3 py-3">
+        <div class="flex flex-wrap gap-2">
+          ${line.status === '待开始' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__startPostFinishingProjectLine('${escapeHtml(order.postOrderId)}','${escapeHtml(line.projectLineId)}')">开始后道</button>` : ''}
+          ${line.status !== '已完成' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__completePostFinishingProjectLine('${escapeHtml(order.postOrderId)}','${escapeHtml(line.projectLineId)}',${line.plannedQty})">完成后道</button>` : ''}
+        </div>
+      </td>
     </tr>
   `).join('')
-  return rows || renderEmptyRow(2, '暂无后道项目')
+  return rows || renderEmptyRow(8, '暂无后道项目')
 }
 
 function renderResultRows(order: PostFinishingWorkOrder): string {
@@ -151,9 +165,9 @@ function renderTabBody(order: PostFinishingWorkOrder): string {
   }
   if (activeTab === 'items') {
     return renderPostSection('后道项目', renderPostTable(
-      ['后道项目', '是否需要'],
+      ['SKU', '后道项目', '计划数量', '完成数量', '状态', '开始时间', '完成时间', '操作'],
       renderPostItemRows(order),
-      'min-w-[560px]',
+      'min-w-[1180px]',
     ))
   }
   if (activeTab === 'result') {

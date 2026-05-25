@@ -5,12 +5,12 @@ import {
   listSpecialCraftReturnRecords,
 } from './handover-orders.ts'
 import { listCuttingMaterialLedgerEvents } from './material-ledger.ts'
-import { hydratePdaExecutionWritebackStore } from './pda-execution-writeback-ledger.ts'
+import { listRuntimePdaExecutionEventProjections } from './cutting-runtime-event-ledger.ts'
 import { buildSpreadingReplenishmentHandlingObjects, listSpreadingDifferences } from './spreading-differences.ts'
 
 export type CuttingMainlineLedgerEventStage =
   | '数量账'
-  | 'PDA执行写回'
+  | 'PDA执行事件'
   | '铺布裁剪差异'
   | '补料管理'
   | '裁片单关闭'
@@ -43,21 +43,21 @@ function sum(values: number[]): number {
   return values.reduce((total, value) => total + (Number.isFinite(value) ? value : 0), 0)
 }
 
-function buildPdaWritebackEvents(): CuttingMainlineLedgerEvent[] {
-  const store = hydratePdaExecutionWritebackStore()
-  const writebacks = [
-    ...store.pickupWritebacks,
-    ...store.inboundWritebacks,
-    ...store.handoverWritebacks,
-    ...store.replenishmentFeedbackWritebacks,
+function buildPdaRuntimeEvents(): CuttingMainlineLedgerEvent[] {
+  const store = listRuntimePdaExecutionEventProjections()
+  const pdaEvents = [
+    ...store.pickupEvents,
+    ...store.inboundEvents,
+    ...store.handoverEvents,
+    ...store.replenishmentFeedbackEvents,
   ]
 
-  return writebacks.map((record) => ({
-    eventId: record.writebackId,
-    eventStage: 'PDA执行写回',
+  return pdaEvents.map((record) => ({
+    eventId: record.runtimeEventId,
+    eventStage: 'PDA执行事件',
     eventType: record.actionType,
-    sourceObjectType: 'PDA_WRITEBACK',
-    sourceObjectId: record.sourceWritebackId || record.writebackId,
+    sourceObjectType: 'CUTTING_RUNTIME_EVENT',
+    sourceObjectId: record.sourceEventId || record.runtimeEventId,
     sourceObjectNo: record.executionOrderNo,
     productionOrderIds: compact([record.productionOrderId]),
     cutOrderIds: compact([record.cutOrderId]),
@@ -65,7 +65,7 @@ function buildPdaWritebackEvents(): CuttingMainlineLedgerEvent[] {
     operatorName: record.operatorName,
     quantity: 0,
     unit: '',
-    ledgerEventIds: [record.writebackId],
+    ledgerEventIds: [record.runtimeEventId],
     traceText: `${record.taskNo} / ${record.executionOrderNo} / ${record.actionType}`,
   }))
 }
@@ -192,7 +192,7 @@ export function listCuttingMainlineLedgerEvents(): CuttingMainlineLedgerEvent[] 
 
   return [
     ...materialEvents,
-    ...buildPdaWritebackEvents(),
+    ...buildPdaRuntimeEvents(),
     ...differenceEvents,
     ...replenishmentEvents,
     ...closeEvents,

@@ -548,6 +548,7 @@ export function cloneProductionOrderTechPackSnapshot(
   if (!snapshot) return null
   return {
     ...snapshot,
+    garmentDifficultyGrade: snapshot.garmentDifficultyGrade || 'B',
     bomItems: cloneBomItems(snapshot.bomItems),
     patternFiles: clonePatternFiles(snapshot.patternFiles),
     processEntries: cloneProcessEntries(snapshot.processEntries),
@@ -605,6 +606,7 @@ function buildSnapshotFromSource(input: {
     sourceTechPackVersionId: record.technicalVersionId,
     sourceTechPackVersionCode: record.technicalVersionCode,
     sourceTechPackVersionLabel: record.versionLabel,
+    garmentDifficultyGrade: record.garmentDifficultyGrade || 'B',
     sourcePublishedAt: record.publishedAt,
     snapshotAt,
     snapshotBy,

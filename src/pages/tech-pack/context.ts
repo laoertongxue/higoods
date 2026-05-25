@@ -4237,8 +4237,14 @@ function getChecklist(): ChecklistItem[] {
   const hasDesignRequirement = state.bomItems.some(
     (item) => item.printRequirement && item.printRequirement !== '无',
   )
+  const currentRecord = state.currentTechnicalVersionId
+    ? getTechnicalDataVersionById(state.currentTechnicalVersionId)
+    : null
 
   return [
+    ...(state.currentTechnicalVersionId
+      ? [{ key: 'difficulty', label: '做货难度', required: true, done: Boolean(currentRecord?.garmentDifficultyGrade) }]
+      : []),
     { key: 'bom', label: '物料清单', required: true, done: state.bomItems.length > 0 },
     { key: 'pattern', label: '纸样管理', required: true, done: state.patternItems.length > 0 },
     { key: 'process', label: '工序工艺', required: true, done: state.techniques.length > 0 },

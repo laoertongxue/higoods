@@ -6,11 +6,12 @@ import {
   type TransferBagTicketCandidate,
 } from './process-factory/cutting/transfer-bags-model.ts'
 import {
-  buildPdaCuttingWritebackSource,
-  resolvePdaCuttingWritebackIdentity,
-  resolvePdaCuttingWritebackOperator,
-} from '../data/fcs/pda-cutting-writeback-inputs.ts'
-import { writePdaInboundToFcs } from '../domain/cutting-pda-writeback/bridge.ts'
+  resolvePdaCuttingRuntimeIdentity,
+  resolvePdaCuttingRuntimeOperator,
+} from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
+import {
+  appendCuttingRuntimeEvent,
+} from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
@@ -216,6 +217,16 @@ function renderInboundStatus(detail: NonNullable<ReturnType<typeof getInboundDet
   ])
 }
 
+function buildInboundTempBagMixedFlag(tickets: TransferBagTicketCandidate[]): boolean {
+  const productionOrders = new Set(tickets.map((ticket) => ticket.productionOrderNo).filter(Boolean))
+  const cutOrders = new Set(tickets.map((ticket) => ticket.cutOrderNo).filter(Boolean))
+  const spuCodes = new Set(tickets.map((ticket) => ticket.spuCode).filter(Boolean))
+  const colors = new Set(tickets.map((ticket) => ticket.color || ticket.fabricColor).filter(Boolean))
+  const sizes = new Set(tickets.map((ticket) => ticket.size).filter(Boolean))
+  const parts = new Set(tickets.map((ticket) => ticket.partName).filter(Boolean))
+  return [productionOrders, cutOrders, spuCodes, colors, sizes, parts].some((items) => items.size > 1)
+}
+
 export function renderPdaCuttingInboundPage(taskId: string): string {
   const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
   const detail = context.detail
@@ -361,7 +372,7 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
 
   if (action === 'confirm') {
     const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
-    const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+    const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
       executionOrderId: context.selectedExecutionOrderId || undefined,
       executionOrderNo: context.selectedExecutionOrderNo || undefined,
       cutOrderId: context.selectedExecutionOrder?.cutOrderId || undefined,
@@ -370,7 +381,7 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
       markerPlanNo: context.selectedExecutionOrder?.markerPlanNo || undefined,
       materialSku: context.selectedExecutionOrder?.materialSku || undefined,
     })
-    const operator = resolvePdaCuttingWritebackOperator(taskId, form.operatorName.trim() || '仓务操作员')
+    const operator = resolvePdaCuttingRuntimeOperator(taskId, form.operatorName.trim() || '仓务操作员')
     if (!identity || !operator) {
       form.feedbackMessage = '当前执行对象或操作人无法识别，不能确认入仓。'
       return true
@@ -387,25 +398,60 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
       .map((ticketNo) => resolveInboundScanTicket(ticketNo))
       .filter((ticket): ticket is TransferBagTicketCandidate => Boolean(ticket))
     const inboundQty = inboundTickets.reduce((sum, ticket) => sum + Number(ticket.actualCutPieceQty || ticket.qty || 0), 0)
-    const result = writePdaInboundToFcs({
-      identity,
-      operator,
-      source: buildPdaCuttingWritebackSource('inbound', identity.executionOrderId),
-      zoneCode: form.zoneCode,
-      locationLabel: form.locationLabel.trim() || `${form.zoneCode}-01 临时位`,
-      note: [
-        `暂存袋：${form.carrierCode.trim()}`,
-        `菲票：${form.scannedTicketNos.join('、')}`,
-        `数量：${inboundQty} 片`,
-        '入仓暂存袋允许混装',
-        form.note.trim(),
-      ].filter(Boolean).join('；'),
+    const inboundAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+    const bagCode = form.carrierCode.trim()
+    const warehouseArea = `${form.zoneCode} 区`
+    const locationCode = form.locationLabel.trim() || `${form.zoneCode}-01 临时位`
+    appendCuttingRuntimeEvent({
+      eventType: '菲票入仓暂存',
+      eventSource: 'PDA',
+      eventStatus: '已同步',
+      occurredAt: inboundAt,
+      operatorId: operator.operatorAccountId,
+      operatorName: operator.operatorName,
+      operatorRole: operator.operatorRole || '仓务操作员',
+      refs: {
+        productionOrderId: inboundTickets[0]?.productionOrderId || identity.productionOrderId,
+        productionOrderNo: inboundTickets[0]?.productionOrderNo || identity.productionOrderNo,
+        cutOrderId: inboundTickets[0]?.cutOrderId || identity.cutOrderId,
+        cutOrderNo: inboundTickets[0]?.cutOrderNo || identity.cutOrderNo,
+        spreadingOrderId: inboundTickets[0]?.sourceSpreadingSessionId || identity.executionOrderId,
+        spreadingOrderNo: inboundTickets[0]?.sourceSpreadingSessionNo || identity.executionOrderNo,
+        feiTicketIds: inboundTickets.map((ticket) => ticket.feiTicketId).filter(Boolean),
+        feiTicketNos: inboundTickets.map((ticket) => ticket.ticketNo).filter(Boolean),
+        transferBagCode: bagCode,
+      },
+      inventoryEffect: {
+        inventoryScope: '裁床待交出仓',
+        direction: 'IN',
+        qty: inboundQty,
+        unit: '片',
+        toWarehouseArea: warehouseArea,
+        toLocationCode: locationCode,
+      },
+      payload: {
+        tempBagUseId: `temp-bag:${bagCode}:${inboundAt.replace(/[^0-9]/g, '')}`,
+        bagCode,
+        warehouseArea,
+        locationCode,
+        inboundBy: operator.operatorName,
+        inboundAt,
+        feiTicketItems: inboundTickets.map((ticket) => ({
+          feiTicketId: ticket.feiTicketId,
+          feiTicketNo: ticket.ticketNo,
+          spreadingOrderId: ticket.sourceSpreadingSessionId,
+          spreadingOrderNo: ticket.sourceSpreadingSessionNo,
+          cutOrderId: ticket.cutOrderId,
+          cutOrderNo: ticket.cutOrderNo,
+          pieceQty: Number(ticket.actualCutPieceQty || ticket.qty || 0),
+          unit: '片',
+          pieceSequenceLabel: ticket.pieceSequenceLabel || '按菲票追踪',
+          hasSpecialCraft: Boolean(ticket.hasSpecialCraft),
+        })),
+        totalPieceQty: inboundQty,
+        mixedFlag: buildInboundTempBagMixedFlag(inboundTickets),
+      },
     })
-    if (!result.success) {
-      form.feedbackMessage = result.issues.join('；')
-      form.syncStatus = '同步失败'
-      return true
-    }
     form.scanCode = ''
     form.inboundQty = ''
     form.scannedTicketNos = []

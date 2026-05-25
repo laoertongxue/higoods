@@ -17,10 +17,10 @@ export function buildProductionProgressProjection(
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
 ): ProductionProgressProjection {
   const rows = buildProductionProgressRows(snapshot.progressRecords, {
-    pickupWritebacks: snapshot.pdaExecutionState.pickupWritebacks as never[],
-    inboundWritebacks: snapshot.pdaExecutionState.inboundWritebacks as never[],
-    handoverWritebacks: snapshot.pdaExecutionState.handoverWritebacks as never[],
-    replenishmentFeedbackWritebacks: snapshot.pdaExecutionState.replenishmentFeedbackWritebacks as never[],
+    pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
+    inboundEvents: snapshot.pdaExecutionState.inboundEvents as never[],
+    handoverEvents: snapshot.pdaExecutionState.handoverEvents as never[],
+    replenishmentFeedbackEvents: snapshot.pdaExecutionState.replenishmentFeedbackEvents as never[],
   })
 
   return {

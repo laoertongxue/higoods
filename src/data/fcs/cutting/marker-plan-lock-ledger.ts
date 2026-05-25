@@ -82,7 +82,7 @@ export function serializeMarkerPlanLockLedger(records: MarkerPlanMaterialLockRec
 export function listStoredMarkerPlanLockLedger(
   storage: Pick<Storage, 'getItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): MarkerPlanMaterialLockRecord[] {
-  if (!storage) return []
+  if (!storage || typeof storage.getItem !== 'function') return []
   return deserializeMarkerPlanLockLedger(storage.getItem(CUTTING_MARKER_PLAN_LOCK_LEDGER_STORAGE_KEY))
 }
 
@@ -90,6 +90,6 @@ export function saveStoredMarkerPlanLockLedger(
   records: MarkerPlanMaterialLockRecord[],
   storage: Pick<Storage, 'setItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): void {
-  if (!storage) return
+  if (!storage || typeof storage.setItem !== 'function') return
   storage.setItem(CUTTING_MARKER_PLAN_LOCK_LEDGER_STORAGE_KEY, serializeMarkerPlanLockLedger(records))
 }

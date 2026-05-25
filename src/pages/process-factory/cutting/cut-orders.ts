@@ -1616,7 +1616,7 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
             ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
             ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回裁床生产单总览</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单总览</button>
           </div>
         `,
       )}
@@ -1754,24 +1754,21 @@ function buildCutOrderDetailTabPath(row: CutOrderRow, tab: CutOrderDetailTabKey)
 }
 
 function renderCutOrderDetailTabs(row: CutOrderRow, activeTab: CutOrderDetailTabKey): string {
-  const activeItem = cutOrderDetailTabs.find((item) => item.key === activeTab) || cutOrderDetailTabs[0]
   return `
-    <nav class="rounded-xl border bg-card px-4 pt-3" aria-label="裁片单详情页签">
-      <div class="flex flex-wrap gap-1 border-b">
-        ${cutOrderDetailTabs.map((item) => {
-          const active = item.key === activeTab
-          return `
-            <button
-              type="button"
-              class="-mb-px whitespace-nowrap rounded-t-md border px-4 py-2 text-sm font-medium transition ${active ? 'border-slate-200 border-b-card bg-card text-blue-700 shadow-sm' : 'border-transparent text-muted-foreground hover:bg-muted/70 hover:text-foreground'}"
-              data-nav="${escapeHtml(buildCutOrderDetailTabPath(row, item.key))}"
-            >
-              ${escapeHtml(item.label)}
-            </button>
-          `
-        }).join('')}
-      </div>
-      <div class="py-2 text-xs text-muted-foreground">${escapeHtml(activeItem.description)}</div>
+    <nav class="flex flex-wrap gap-2 rounded-xl border bg-card p-2" aria-label="裁片单详情页签">
+      ${cutOrderDetailTabs.map((item) => {
+        const active = item.key === activeTab
+        return `
+          <button
+            type="button"
+            class="rounded-md px-3 py-2 text-sm font-medium transition ${active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}"
+            data-nav="${escapeHtml(buildCutOrderDetailTabPath(row, item.key))}"
+            aria-current="${active ? 'page' : 'false'}"
+          >
+            ${escapeHtml(item.label)}
+          </button>
+        `
+      }).join('')}
     </nav>
   `
 }

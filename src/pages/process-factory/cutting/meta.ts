@@ -63,7 +63,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/production-progress',
     aliases: [],
     menuGroupTitle: '裁床总览',
-    pageTitle: '裁床生产单总览',
+    pageTitle: '生产单总览',
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '按生产单查看裁床主链路、数量账和待处理事项。',
@@ -126,7 +126,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '铺布单',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看铺布单、计划实际对比、PDA 写回与差异复核。',
+    shortDescription: '查看铺布单、计划实际对比、PDA 执行记录与差异处理。',
   },
   'spreading-create': {
     key: 'spreading-create',
@@ -176,7 +176,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '铺布单详情',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看铺布单计划、实际、卷记录、人员记录和 PDA 写回。',
+    shortDescription: '查看铺布单计划、实际、卷记录、人员记录和 PDA 执行记录。',
   },
   'spreading-edit': {
     key: 'spreading-edit',

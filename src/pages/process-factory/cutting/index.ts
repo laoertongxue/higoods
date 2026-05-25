@@ -27,7 +27,10 @@ export {
   renderCraftCuttingFeiTicketReprintPage,
   renderCraftCuttingFeiTicketVoidPage,
 } from './fei-tickets.ts'
-export { renderCraftCuttingSampleWarehousePage } from './sample-warehouse.ts'
+export {
+  renderCraftCuttingSampleWarehouseDetailPage,
+  renderCraftCuttingSampleWarehousePage,
+} from './sample-warehouse.ts'
 export {
   renderCraftCuttingWarehouseManagementWaitProcessPage,
   renderCraftCuttingWarehouseManagementWaitHandoverPage,

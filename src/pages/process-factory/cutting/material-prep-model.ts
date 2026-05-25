@@ -16,9 +16,9 @@ import {
   buildCutOrderQrValue,
 } from '../../../data/fcs/cutting/qr-codes.ts'
 import {
-  listPdaPickupWritebacks,
-  type PdaPickupWritebackRecord,
-} from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
+  listPdaPickupEvents,
+  type PdaPickupEventRecord,
+} from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
@@ -440,54 +440,54 @@ function buildInitialClaimRecords(
   ].filter((item) => item.claimedAt)
 }
 
-function isPickupWritebackSuccess(resultLabel: string): boolean {
+function isPickupEventSuccess(resultLabel: string): boolean {
   return resultLabel.includes('成功')
 }
 
-function mapPickupWritebackResult(resultLabel: string): MaterialClaimRecord['result'] {
-  if (!isPickupWritebackSuccess(resultLabel)) return 'EXCEPTION'
+function mapPickupEventResult(resultLabel: string): MaterialClaimRecord['result'] {
+  if (!isPickupEventSuccess(resultLabel)) return 'EXCEPTION'
   return 'SUCCESS'
 }
 
-function buildPdaPickupClaimSummary(record: PdaPickupWritebackRecord): string {
-  if (!isPickupWritebackSuccess(record.resultLabel)) {
+function buildPdaPickupClaimSummary(record: PdaPickupEventRecord): string {
+  if (!isPickupEventSuccess(record.resultLabel)) {
     return `${record.resultLabel}：${record.discrepancyNote || '待仓库复核'}`
   }
-  return `已回写 ${record.actualReceivedQtyText || '领料结果'}。`
+  return `已记录 ${record.actualReceivedQtyText || '领料结果'}。`
 }
 
-function applyPdaPickupWritebacksToRow(
+function applyPdaPickupEventsToRow(
   row: MaterialPrepRow,
-  pickupWritebacks: PdaPickupWritebackRecord[],
+  pickupEvents: PdaPickupEventRecord[],
   sourceRecord?: CuttingOrderProgressRecord,
 ): MaterialPrepRow {
-  if (!pickupWritebacks.length) return row
+  if (!pickupEvents.length) return row
 
-  const latestWriteback = pickupWritebacks[0]
-  const parsedQty = parseLengthQtyFromText(latestWriteback.actualReceivedQtyText)
+  const latestEvent = pickupEvents[0]
+  const parsedQty = parseLengthQtyFromText(latestEvent.actualReceivedQtyText)
   const matchedIndexes = row.materialLineItems.reduce<number[]>((accumulator, item, index) => {
-    if (item.materialSku === latestWriteback.materialSku) accumulator.push(index)
+    if (item.materialSku === latestEvent.materialSku) accumulator.push(index)
     return accumulator
   }, [])
   const targetIndexes = matchedIndexes.length ? matchedIndexes : row.materialLineItems.length === 1 ? [0] : []
 
   row.materialLineItems = row.materialLineItems.map((item, index) => {
     if (!targetIndexes.includes(index)) return item
-    const nextClaimedQty = parsedQty > 0 ? parsedQty : isPickupWritebackSuccess(latestWriteback.resultLabel) ? Math.max(item.requiredQty, item.claimedQty) : item.claimedQty
+    const nextClaimedQty = parsedQty > 0 ? parsedQty : isPickupEventSuccess(latestEvent.resultLabel) ? Math.max(item.requiredQty, item.claimedQty) : item.claimedQty
     return {
       ...item,
       claimedQty: nextClaimedQty,
-      hasClaimException: !isPickupWritebackSuccess(latestWriteback.resultLabel),
-      latestActionText: buildPdaPickupClaimSummary(latestWriteback),
+      hasClaimException: !isPickupEventSuccess(latestEvent.resultLabel),
+      latestActionText: buildPdaPickupClaimSummary(latestEvent),
     }
   })
 
-  const overlayClaimRecords = pickupWritebacks.map<MaterialClaimRecord>((record) => ({
-    claimRecordId: record.writebackId,
+  const overlayClaimRecords = pickupEvents.map<MaterialClaimRecord>((record) => ({
+    claimRecordId: record.runtimeEventId,
     cutOrderId: row.cutOrderId,
     claimedAt: record.submittedAt,
     claimedBy: record.operatorName,
-    result: mapPickupWritebackResult(record.resultLabel),
+    result: mapPickupEventResult(record.resultLabel),
     summary: buildPdaPickupClaimSummary(record),
     note: record.discrepancyNote,
   }))
@@ -949,17 +949,17 @@ export function buildMaterialPrepViewModel(
   records: CuttingOrderProgressRecord[],
   ledger: MarkerPlanSourceRecord[] = [],
   options: {
-    pickupWritebacks?: PdaPickupWritebackRecord[]
+    pickupEvents?: PdaPickupEventRecord[]
     pendingPrepFollowups?: ReplenishmentPendingPrepFollowupRecord[]
   } = {},
 ): MaterialPrepViewModel {
-  const pickupWritebacks = options.pickupWritebacks ?? listPdaPickupWritebacks(getBrowserLocalStorage() || undefined)
+  const pickupEvents = options.pickupEvents ?? listPdaPickupEvents(getBrowserLocalStorage() || undefined)
   const pendingPrepFollowups =
     options.pendingPrepFollowups ??
     deserializeReplenishmentPendingPrepStorage(
       getBrowserLocalStorage()?.getItem(CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY) || null,
     )
-  const pickupWritebacksByCutOrderNo = pickupWritebacks.reduce<Record<string, PdaPickupWritebackRecord[]>>((accumulator, item) => {
+  const pickupEventsByCutOrderNo = pickupEvents.reduce<Record<string, PdaPickupEventRecord[]>>((accumulator, item) => {
     accumulator[item.cutOrderNo] = accumulator[item.cutOrderNo] || []
     accumulator[item.cutOrderNo].push(item)
     return accumulator
@@ -968,7 +968,7 @@ export function buildMaterialPrepViewModel(
     .flatMap((record) =>
       record.materialLines.map((line) => {
         const row = createRow(record, line, ledger)
-        const hydratedRow = applyPdaPickupWritebacksToRow(row, pickupWritebacksByCutOrderNo[row.cutOrderNo] || [], record)
+        const hydratedRow = applyPdaPickupEventsToRow(row, pickupEventsByCutOrderNo[row.cutOrderNo] || [], record)
         return applyPendingPrepFollowupsToRow(hydratedRow, pendingPrepFollowups)
       }),
     )

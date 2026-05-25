@@ -13,6 +13,7 @@ import type {
 import type { CuttingOrderProgressRecord } from '../../data/fcs/cutting/types.ts'
 import type { ProductionOrder } from '../../data/fcs/production-orders.ts'
 import type { CuttingCoreRegistry } from '../cutting-core/types.ts'
+import type { CuttingRuntimeEvent } from '../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 
 export interface CuttingMarkerStoreInput {
   store: Record<string, unknown>
@@ -43,10 +44,14 @@ export interface CuttingSpecialProcessRuntimeInput {
 }
 
 export interface CuttingPdaExecutionRuntimeInput {
-  pickupWritebacks: Array<Record<string, unknown>>
-  inboundWritebacks: Array<Record<string, unknown>>
-  handoverWritebacks: Array<Record<string, unknown>>
-  replenishmentFeedbackWritebacks: Array<Record<string, unknown>>
+  pickupEvents: Array<Record<string, unknown>>
+  inboundEvents: Array<Record<string, unknown>>
+  handoverEvents: Array<Record<string, unknown>>
+  replenishmentFeedbackEvents: Array<Record<string, unknown>>
+}
+
+export interface CuttingRuntimeEventLedgerInput {
+  events: CuttingRuntimeEvent[]
 }
 
 export interface CuttingMarkerPlanSourceRuntimeInput {
@@ -75,6 +80,7 @@ export interface CuttingRuntimeInputs {
   replenishmentState: CuttingReplenishmentRuntimeInput
   specialProcessState: CuttingSpecialProcessRuntimeInput
   pdaExecutionState: CuttingPdaExecutionRuntimeInput
+  runtimeEventState: CuttingRuntimeEventLedgerInput
 }
 
 export interface CuttingDomainSnapshot extends CuttingRuntimeInputs {

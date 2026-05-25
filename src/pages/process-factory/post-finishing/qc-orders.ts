@@ -6,6 +6,8 @@ import {
   listPostFinishingQcOrders,
   listPostFinishingWaitQcSkuItems,
   type PostFinishingActionRecord,
+  type PostFinishingQcPostProjectJudgement,
+  type PostFinishingQcSkuResult,
   type PostFinishingWaitQcSkuItem,
 } from '../../../data/fcs/post-finishing-domain.ts'
 import { appStore } from '../../../state/store.ts'
@@ -121,15 +123,38 @@ function registerQcPageActions(): void {
   }
   win.__postCompleteQcOrder = (qcOrderId: string) => {
     const valueOf = (selector: string) => (document.querySelector(selector) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null)?.value || ''
-    const checked = (selector: string) => Boolean((document.querySelector(selector) as HTMLInputElement | null)?.checked)
     const result = normalizeResult(valueOf('[data-qc-result-select]'))
+    const qcSkuResults = Array.from(document.querySelectorAll<HTMLElement>('[data-qc-sku-result-row]')).map((row): PostFinishingQcSkuResult => {
+      const numberOf = (selector: string) => Number((row.querySelector(selector) as HTMLInputElement | null)?.value || 0)
+      const postProjectJudgements: PostFinishingQcPostProjectJudgement[] = Array.from(row.querySelectorAll<HTMLInputElement>('[data-qc-post-project]')).map((checkbox) => ({
+        projectName: checkbox.value as PostFinishingQcPostProjectJudgement['projectName'],
+        needed: checkbox.checked,
+        qty: checkbox.checked ? Math.max(numberOf('[data-qc-sku-qualified]'), 0) : 0,
+      }))
+      return {
+        qcSkuResultId: row.dataset.qcSkuResultId || '',
+        skuLineId: row.dataset.skuLineId || '',
+        skuId: row.dataset.skuId || '',
+        skuCode: row.dataset.skuCode || '',
+        skuImageUrl: row.dataset.skuImageUrl || undefined,
+        colorName: row.dataset.colorName || '',
+        sizeName: row.dataset.sizeName || '',
+        inspectedQty: numberOf('[data-qc-sku-inspected]'),
+        qualifiedQty: numberOf('[data-qc-sku-qualified]'),
+        unqualifiedQty: result === '全数合规' ? 0 : numberOf('[data-qc-sku-unqualified]'),
+        platformReasonQty: result === '全数合规' ? 0 : numberOf('[data-qc-sku-platform]'),
+        factoryReasonQty: result === '全数合规' ? 0 : numberOf('[data-qc-sku-factory]'),
+        responsibleFactoryName: result === '全数合规' ? undefined : valueOf('[data-qc-responsible-name]'),
+        defectReasonItems: [],
+        postProjectJudgements,
+        qtyUnit: row.dataset.qtyUnit || '件',
+        remark: (row.querySelector('[data-qc-sku-remark]') as HTMLInputElement | null)?.value || undefined,
+      }
+    })
     const completed = completePostFinishingQcOrder({
       qcOrderId,
       qcStationName: valueOf('[data-qc-complete-station]') || '后道质检台 A',
       inspectorName: '后道质检员',
-      inspectedGarmentQty: Number(valueOf('[data-qc-inspected-qty]') || 0),
-      passedGarmentQty: Number(valueOf('[data-qc-passed-qty]') || 0),
-      defectiveGarmentQty: result === '全数合规' ? 0 : Number(valueOf('[data-qc-defective-qty]') || 0),
       qcResult: result,
       unqualifiedDisposition: result === '全数合规' ? '' : valueOf('[data-qc-disposition]') as any,
       unqualifiedReasonSummary: result === '全数合规' ? '' : valueOf('[data-qc-reason]'),
@@ -138,10 +163,7 @@ function registerQcPageActions(): void {
       responsiblePartyName: result === '全数合规' ? '' : valueOf('[data-qc-responsible-name]'),
       deductionDecision: result === '全数合规' ? '' : valueOf('[data-qc-deduction-decision]') as any,
       deductionDecisionRemark: result === '全数合规' ? '' : valueOf('[data-qc-deduction-remark]'),
-      needButtonhole: checked('[data-post-need-buttonhole]'),
-      needButton: checked('[data-post-need-button]'),
-      needIroning: checked('[data-post-need-ironing]'),
-      needPackaging: checked('[data-post-need-packaging]'),
+      qcSkuResults,
     })
     if (completed.generatedPostOrderId) {
       navigateInPrototype(`/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(completed.generatedPostOrderId)}`)
@@ -202,6 +224,9 @@ function renderCreateQcDialog(): string {
     return `
       <tr data-qc-source-row data-warehouse-record-id="${escapeHtml(item.warehouseRecordId)}" class="align-top ${checked ? 'bg-blue-50/60' : ''}">
         <td class="px-3 py-3"><input type="checkbox" data-qc-source-check ${checked ? 'checked' : ''} /></td>
+        <td class="px-3 py-3">
+          <img class="h-14 w-14 rounded-lg border object-cover" src="${escapeHtml(item.skuImageUrl || 'https://placehold.co/96x96?text=SKU')}" alt="${escapeHtml(item.skuCode)}" />
+        </td>
         <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(item.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div></td>
         <td class="px-3 py-3 text-sm"><div>${escapeHtml(item.productionOrderNo)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.sourceTaskNo)}</div></td>
         <td class="px-3 py-3 text-sm">${escapeHtml(item.sourceFactoryName)}</td>
@@ -230,9 +255,9 @@ function renderCreateQcDialog(): string {
         </div>
       </div>
       <div class="overflow-x-auto rounded-xl border">
-        <table class="min-w-[1180px] w-full text-sm">
-          <thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">选择</th><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">生产单 / 上游任务</th><th class="px-3 py-2 text-left">上游工厂</th><th class="px-3 py-2 text-left">取货库区 / 库位</th><th class="px-3 py-2 text-left">当前库存</th><th class="px-3 py-2 text-left">待质检数量</th><th class="px-3 py-2 text-left">质检中数量</th><th class="px-3 py-2 text-left">本次质检数量</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="9" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无可创建质检单的库存 SKU</td></tr>'}</tbody>
+        <table class="min-w-[1280px] w-full text-sm">
+          <thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">选择</th><th class="px-3 py-2 text-left">图片</th><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">生产单 / 上游任务</th><th class="px-3 py-2 text-left">上游工厂</th><th class="px-3 py-2 text-left">取货库区 / 库位</th><th class="px-3 py-2 text-left">当前库存</th><th class="px-3 py-2 text-left">待质检数量</th><th class="px-3 py-2 text-left">质检中数量</th><th class="px-3 py-2 text-left">本次质检数量</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="10" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无可创建质检单的库存 SKU</td></tr>'}</tbody>
         </table>
       </div>
       <div class="flex justify-end gap-2">
@@ -303,6 +328,70 @@ function renderPostNeeds(record: PostFinishingActionRecord, readonly = false): s
   `
 }
 
+const QC_POST_PROJECTS: PostFinishingQcPostProjectJudgement['projectName'][] = ['开扣眼', '装扣子', '熨烫', '包装']
+
+function normalizeRecordSkuResults(record: PostFinishingActionRecord): PostFinishingQcSkuResult[] {
+  if (record.qcSkuResults?.length) return record.qcSkuResults
+  return record.skuLines.map((line, index) => ({
+    qcSkuResultId: `${record.actionRecordId}-SKU-${index + 1}`,
+    skuLineId: line.skuLineId,
+    skuId: line.skuId,
+    skuCode: line.skuCode,
+    skuImageUrl: line.imageUrl,
+    colorName: line.colorName,
+    sizeName: line.sizeName,
+    inspectedQty: line.plannedQty,
+    qualifiedQty: line.plannedQty,
+    unqualifiedQty: 0,
+    platformReasonQty: 0,
+    factoryReasonQty: 0,
+    defectReasonItems: [],
+    postProjectJudgements: [],
+    qtyUnit: line.qtyUnit,
+  }))
+}
+
+function renderSkuQcResultRows(record: PostFinishingActionRecord): string {
+  return normalizeRecordSkuResults(record).map((result) => {
+    const checkedProjects = new Set(result.postProjectJudgements.filter((item) => item.needed).map((item) => item.projectName))
+    return `
+      <tr
+        data-qc-sku-result-row
+        data-qc-sku-result-id="${escapeHtml(result.qcSkuResultId)}"
+        data-sku-line-id="${escapeHtml(result.skuLineId)}"
+        data-sku-id="${escapeHtml(result.skuId)}"
+        data-sku-code="${escapeHtml(result.skuCode)}"
+        data-sku-image-url="${escapeHtml(result.skuImageUrl || '')}"
+        data-color-name="${escapeHtml(result.colorName)}"
+        data-size-name="${escapeHtml(result.sizeName)}"
+        data-qty-unit="${escapeHtml(result.qtyUnit)}"
+        class="align-top"
+      >
+        <td class="px-3 py-3">
+          <img class="h-14 w-14 rounded-lg border object-cover" src="${escapeHtml(result.skuImageUrl || 'https://placehold.co/96x96?text=SKU')}" alt="${escapeHtml(result.skuCode)}" />
+        </td>
+        <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(result.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(result.colorName)} / ${escapeHtml(result.sizeName)}</div></td>
+        <td class="px-3 py-3"><input class="h-9 w-24 rounded-md border px-2 text-sm" type="number" min="0" data-qc-sku-inspected value="${result.inspectedQty || record.submittedGarmentQty}" /></td>
+        <td class="px-3 py-3"><input class="h-9 w-24 rounded-md border px-2 text-sm" type="number" min="0" data-qc-sku-qualified value="${result.qualifiedQty || result.inspectedQty}" /></td>
+        <td class="px-3 py-3"><input class="h-9 w-24 rounded-md border px-2 text-sm" type="number" min="0" data-qc-sku-unqualified value="${result.unqualifiedQty}" /></td>
+        <td class="px-3 py-3"><input class="h-9 w-24 rounded-md border px-2 text-sm" type="number" min="0" data-qc-sku-platform value="${result.platformReasonQty}" /></td>
+        <td class="px-3 py-3"><input class="h-9 w-24 rounded-md border px-2 text-sm" type="number" min="0" data-qc-sku-factory value="${result.factoryReasonQty}" /></td>
+        <td class="px-3 py-3">
+          <div class="grid min-w-[260px] gap-2 md:grid-cols-2">
+            ${QC_POST_PROJECTS.map((project) => `
+              <label class="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs">
+                <input type="checkbox" data-qc-post-project value="${escapeHtml(project)}" ${checkedProjects.has(project) ? 'checked' : ''} />
+                <span>${escapeHtml(project)}</span>
+              </label>
+            `).join('')}
+          </div>
+        </td>
+        <td class="px-3 py-3"><input class="h-9 w-40 rounded-md border px-2 text-sm" data-qc-sku-remark value="${escapeHtml(result.remark || '')}" /></td>
+      </tr>
+    `
+  }).join('')
+}
+
 function renderCompleteQcDialog(): string {
   const recordId = getCompleteId()
   if (!recordId) return ''
@@ -316,11 +405,29 @@ function renderCompleteQcDialog(): string {
       <div class="grid gap-3 lg:grid-cols-3">
         ${renderInput('质检单号', record.actionRecordNo, 'disabled')}
         ${renderSelect('质检台', ['后道质检台 A', '后道质检台 B', '后道质检台 C'], record.qcStationName || '后道质检台 A', 'data-qc-complete-station')}
-        ${renderInput('质检数量', String(record.inspectedGarmentQty ?? record.submittedGarmentQty), 'disabled data-qc-inspected-qty')}
         ${renderSelect('质检结果', ['全数合规', '部分不合格', '全数不合格'], result, 'data-qc-result-select="1" onchange="window.__syncQcCompleteForm(this)"')}
-        ${renderInput('合格数量', String(record.passedGarmentQty ?? record.acceptedGarmentQty), 'data-qc-passed-qty')}
-        ${renderInput('不合格数量', String(record.defectiveGarmentQty ?? record.rejectedGarmentQty), `${disabled} data-qc-defective-qty`)}
       </div>
+      <section class="space-y-3 rounded-xl border p-4">
+        <h3 class="text-sm font-semibold text-foreground">SKU 质检结果与后道项目判断</h3>
+        <div class="overflow-x-auto rounded-xl border">
+          <table class="min-w-[1320px] w-full text-sm">
+            <thead class="bg-slate-50 text-xs text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 text-left">图片</th>
+                <th class="px-3 py-2 text-left">SKU</th>
+                <th class="px-3 py-2 text-left">质检数量</th>
+                <th class="px-3 py-2 text-left">合格数量</th>
+                <th class="px-3 py-2 text-left">不合格数量</th>
+                <th class="px-3 py-2 text-left">平台原因</th>
+                <th class="px-3 py-2 text-left">工厂原因</th>
+                <th class="px-3 py-2 text-left">后道项目</th>
+                <th class="px-3 py-2 text-left">备注</th>
+              </tr>
+            </thead>
+            <tbody>${renderSkuQcResultRows(record)}</tbody>
+          </table>
+        </div>
+      </section>
       <section class="space-y-3 rounded-xl border p-4" data-qc-defect-section ${isAllGood ? 'hidden' : ''}>
         <h3 class="text-sm font-semibold text-foreground">数量与处理</h3>
         <div class="grid gap-3 lg:grid-cols-3">
@@ -337,10 +444,6 @@ function renderCompleteQcDialog(): string {
           ${renderSelect('扣款决策', ['', '暂不扣款', '建议扣款', '确认扣款'], record.deductionDecision || '', `${disabled} data-qc-deduction-decision`)}
           ${renderTextarea('扣款说明', record.deductionDecisionRemark || '', `${disabled} data-qc-deduction-remark`)}
         </div>
-      </section>
-      <section class="space-y-3 rounded-xl border p-4">
-        <h3 class="text-sm font-semibold text-foreground">后道项目判断</h3>
-        ${renderPostNeeds(record)}
       </section>
       <div class="flex justify-end gap-2">
         <button class="rounded-md border px-3 py-2 text-sm" data-nav="${escapeHtml(closeDialogLink())}">取消</button>
@@ -378,6 +481,19 @@ function renderViewDialog(): string {
       <td class="px-3 py-2">${formatGarmentQty(allocation.qcQty, allocation.qtyUnit)}</td>
     </tr>
   `).join('')
+  const skuResultRows = normalizeRecordSkuResults(record).map((result) => `
+    <tr>
+      <td class="px-3 py-2"><img class="h-12 w-12 rounded border object-cover" src="${escapeHtml(result.skuImageUrl || 'https://placehold.co/96x96?text=SKU')}" alt="${escapeHtml(result.skuCode)}" /></td>
+      <td class="px-3 py-2">${escapeHtml(result.skuCode)}</td>
+      <td class="px-3 py-2">${escapeHtml(result.colorName)} / ${escapeHtml(result.sizeName)}</td>
+      <td class="px-3 py-2">${formatGarmentQty(result.inspectedQty, result.qtyUnit)}</td>
+      <td class="px-3 py-2">${formatGarmentQty(result.qualifiedQty, result.qtyUnit)}</td>
+      <td class="px-3 py-2">${formatGarmentQty(result.unqualifiedQty, result.qtyUnit)}</td>
+      <td class="px-3 py-2">${formatGarmentQty(result.platformReasonQty, result.qtyUnit)}</td>
+      <td class="px-3 py-2">${formatGarmentQty(result.factoryReasonQty, result.qtyUnit)}</td>
+      <td class="px-3 py-2">${escapeHtml(result.postProjectJudgements.filter((item) => item.needed).map((item) => item.projectName).join('、') || '无')}</td>
+    </tr>
+  `).join('')
   return renderModal('质检单详情', `
     <div class="space-y-5">
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -390,6 +506,13 @@ function renderViewDialog(): string {
         ${renderReadonlyField('质检结果', normalizeResult(record.qcResult))}
         ${renderReadonlyField('责任方', snapshot?.responsiblePartyName || '—')}
         ${renderReadonlyField('扣款决策', snapshot?.deductionDecision || '—')}
+      </div>
+      <div class="overflow-x-auto rounded-xl border">
+        <div class="border-b px-4 py-3 text-sm font-semibold">SKU 级质检结果</div>
+        <table class="min-w-[1100px] w-full text-sm">
+          <thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">图片</th><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">颜色 / 尺码</th><th class="px-3 py-2 text-left">质检数量</th><th class="px-3 py-2 text-left">合格数量</th><th class="px-3 py-2 text-left">不合格数量</th><th class="px-3 py-2 text-left">平台原因</th><th class="px-3 py-2 text-left">工厂原因</th><th class="px-3 py-2 text-left">后道项目</th></tr></thead>
+          <tbody>${skuResultRows}</tbody>
+        </table>
       </div>
       <div class="overflow-x-auto rounded-xl border">
         <div class="border-b px-4 py-3 text-sm font-semibold">质检取货明细</div>

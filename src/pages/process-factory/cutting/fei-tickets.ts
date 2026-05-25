@@ -721,7 +721,7 @@ function buildStandaloneFeiTicketHref(ticketId: string, suffix = ''): string {
 }
 
 function buildStandaloneSpreadingHref(row: FeiTicketSpreadingWorkbenchRow, suffix = ''): string {
-  return `/fcs/craft/cutting/fei-tickets/${encodeURIComponent(`spreading:${row.tab}:${row.spreadingKey}`)}${suffix}`
+  return `/fcs/craft/cutting/fei-tickets/${encodeURIComponent(`spreading:${row.spreadingKey}`)}${suffix}`
 }
 
 function buildWorkbenchTabHref(tab: FeiWorkbenchTabKey): string {
@@ -1001,17 +1001,81 @@ function findFeiWorkbenchRow(bundle: FeiTicketsDataBundle, ticketId: string): Fe
 
 function findFeiSpreadingWorkbenchRow(bundle: FeiTicketsDataBundle, ticketId: string): FeiTicketSpreadingWorkbenchRow | null {
   const normalized = normalizeTicketRouteId(ticketId)
-  const rows = buildFeiTicketSpreadingWorkbenchRows(buildFeiTicketWorkbenchRows(bundle))
+  const detailRows = buildFeiTicketWorkbenchRows(bundle)
+  const rows = buildFeiTicketSpreadingWorkbenchRows(detailRows)
   if (normalized.startsWith('spreading:')) {
-    const [, tab, spreadingKey] = normalized.split(':')
-    return rows.find((row) => row.tab === tab && row.spreadingKey === spreadingKey) || null
+    const routeParts = normalized.split(':')
+    const possibleTab = routeParts[1] as FeiWorkbenchTabKey | undefined
+    const hasLegacyTab = possibleTab === 'WAIT_FIRST' || possibleTab === 'PRINTED' || possibleTab === 'NEED_REPRINT' || possibleTab === 'VOIDED'
+    const spreadingKey = hasLegacyTab ? routeParts.slice(2).join(':') : routeParts.slice(1).join(':')
+    const row = rows.find((item) =>
+      item.spreadingKey === spreadingKey
+      && (!hasLegacyTab || item.tab === possibleTab)
+    ) || rows.find((item) => item.spreadingKey === spreadingKey)
+    return row ? withAllSpreadingDetailRows(row, detailRows) : null
   }
-  return rows.find((row) =>
-    row.spreadingKey === normalized
-    || row.spreadingOrderNo === normalized
-    || row.primaryRow.ticketId === normalized
-    || row.primaryRow.ticketNo === normalized
+  const row = rows.find((item) =>
+    item.spreadingKey === normalized
+    || item.spreadingOrderNo === normalized
+    || item.primaryRow.ticketId === normalized
+    || item.primaryRow.ticketNo === normalized
   ) || null
+  return row ? withAllSpreadingDetailRows(row, detailRows) : null
+}
+
+function sortFeiTicketDetailRows(rows: FeiTicketWorkbenchRow[]): FeiTicketWorkbenchRow[] {
+  return [...rows].sort((left, right) => {
+    const sizeCompare = left.size.localeCompare(right.size, 'zh-CN')
+    if (sizeCompare !== 0) return sizeCompare
+    const partCompare = left.partName.localeCompare(right.partName, 'zh-CN')
+    if (partCompare !== 0) return partCompare
+    return left.ticketNo.localeCompare(right.ticketNo, 'zh-CN')
+  })
+}
+
+function dedupeSpreadingDetailRows(rows: FeiTicketWorkbenchRow[]): FeiTicketWorkbenchRow[] {
+  const priority: Record<Exclude<FeiWorkbenchTabKey, 'PRINT_RECORDS'>, number> = {
+    PRINTED: 4,
+    WAIT_FIRST: 3,
+    NEED_REPRINT: 2,
+    VOIDED: 1,
+  }
+  const grouped = new Map<string, FeiTicketWorkbenchRow>()
+  rows.forEach((row) => {
+    const key = row.generated.sourceOutputLineId || row.generated.feiTicketId || row.ticketNo
+    const existing = grouped.get(key)
+    if (!existing || priority[row.tab] > priority[existing.tab]) grouped.set(key, row)
+  })
+  return sortFeiTicketDetailRows(Array.from(grouped.values()))
+}
+
+function withAllSpreadingDetailRows(
+  row: FeiTicketSpreadingWorkbenchRow,
+  allRows: FeiTicketWorkbenchRow[],
+): FeiTicketSpreadingWorkbenchRow {
+  const allDetails = dedupeSpreadingDetailRows(
+    allRows.filter((detail) => resolveSpreadingGroupKey(detail) === row.spreadingKey),
+  )
+  if (!allDetails.length) return row
+  return {
+    ...row,
+    productionOrderNos: uniqueStrings(allDetails.map((detail) => detail.productionOrderNo)),
+    cutOrderNos: uniqueStrings(allDetails.map((detail) => detail.cutOrderNo)),
+    spuCodes: uniqueStrings(allDetails.map((detail) => detail.spuCode)),
+    colors: uniqueStrings(allDetails.map((detail) => detail.color)),
+    sizes: uniqueStrings(allDetails.map((detail) => detail.size)),
+    partNames: uniqueStrings(allDetails.map((detail) => detail.partName)),
+    ticketCount: allDetails.length,
+    totalPieceQty: allDetails.reduce((sum, detail) => sum + detail.pieceQty, 0),
+    pendingCount: allDetails.filter((detail) => detail.tab === 'WAIT_FIRST').length,
+    printedCount: allDetails.filter((detail) => detail.tab === 'PRINTED' || detail.tab === 'NEED_REPRINT').length,
+    voidedCount: allDetails.filter((detail) => detail.tab === 'VOIDED').length,
+    pieceSequenceLabels: uniqueStrings(allDetails.map((detail) => detail.pieceSequenceLabel)),
+    hasSpecialCraft: allDetails.some((detail) => detail.hasSpecialCraft),
+    specialCraftLines: uniqueStrings(allDetails.flatMap((detail) => detail.specialCraftLines)),
+    receiverFactoryLines: uniqueStrings(allDetails.flatMap((detail) => detail.receiverFactoryLines)),
+    detailRows: allDetails,
+  }
 }
 
 function renderGenerationEligibilityArea(): string {
@@ -1381,7 +1445,7 @@ function renderFeiTicketWorkbenchCard(row: FeiTicketSpreadingWorkbenchRow): stri
                 <span class="font-medium text-slate-800">${escapeHtml(`${detail.partName || '待补部位'} / ${detail.size || '待补尺码'}`)}</span>
                 <span class="text-slate-400"> · </span>
                 <span class="font-semibold text-slate-900">${formatCount(detail.pieceQty)} 片</span>
-                <span class="text-slate-400"> · 编号 </span>
+                <span class="text-slate-400"> · 编号范围 </span>
                 <span class="font-semibold text-slate-900">${escapeHtml(detail.pieceSequenceLabel || '不可生成')}</span>
               </p>
             `)

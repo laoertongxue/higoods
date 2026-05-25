@@ -83,6 +83,30 @@ export function saveTechnicalDataVersionContent(
   return nextRecord
 }
 
+export function saveTechnicalDataVersionRecordMeta(
+  technicalVersionId: string,
+  patch: Pick<Partial<TechnicalDataVersionRecord>, 'garmentDifficultyGrade'>,
+  operatorName = '当前用户',
+): TechnicalDataVersionRecord {
+  const record = getTechnicalDataVersionById(technicalVersionId)
+  if (!record) throw new Error('未找到技术包版本。')
+  if (record.versionStatus !== 'DRAFT') throw new Error('已发布的正式版本技术包不能编辑。')
+
+  const nextRecord = updateTechnicalDataVersionRecord(technicalVersionId, {
+    ...patch,
+    updatedAt: nowText(),
+    updatedBy: operatorName,
+  })
+  if (!nextRecord) throw new Error('保存技术包版本失败。')
+
+  writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
+  syncStyleArchiveFromTechPackVersion(nextRecord)
+  syncProjectFromTechPackVersion(nextRecord)
+  syncProjectSourceNodeFromTechPackVersion(nextRecord, operatorName, 'WRITTEN')
+  syncExistingProjectArchiveByProjectId(nextRecord.sourceProjectId, operatorName)
+  return nextRecord
+}
+
 export function publishTechnicalDataVersion(
   technicalVersionId: string,
   operatorName = '当前用户',

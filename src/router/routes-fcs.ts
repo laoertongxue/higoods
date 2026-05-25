@@ -88,6 +88,7 @@ import {
   renderCraftCuttingMarkerPlanEditPage,
   renderCraftCuttingMarkerSpreadingPage,
   renderCraftCuttingReplenishmentPage,
+  renderCraftCuttingSampleWarehouseDetailPage,
   renderCraftCuttingSampleWarehousePage,
   renderCraftCuttingSpecialProcessDetailPage,
   renderCraftCuttingSpecialProcessesPage,
@@ -236,7 +237,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/workbench/todos': () => renderCraftWorkbenchOverviewPage(),
     '/fcs/craft/workbench/risks': () => renderCraftWorkbenchOverviewPage(),
     '/fcs/craft/cutting': () =>
-      renderRouteRedirect('/fcs/craft/cutting/production-progress', '正在跳转到裁床生产单总览'),
+      renderRouteRedirect('/fcs/craft/cutting/production-progress', '正在跳转到生产单总览'),
     '/fcs/craft/cutting/production-progress': () => renderCraftCuttingProductionProgressPage(),
     '/fcs/craft/cutting/cuttable-pool': () => renderCraftCuttingCuttablePoolPage(),
     '/fcs/craft/cutting/cut-orders': () => renderCraftCuttingCutOrdersPage(),
@@ -354,6 +355,10 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/craft\/cutting\/cut-orders\/([^/]+)$/,
       render: (match) => renderCraftCuttingCutOrderDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/fcs\/craft\/cutting\/sample-warehouse\/([^/?]+)(?:\?.*)?$/,
+      render: (match) => renderCraftCuttingSampleWarehouseDetailPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/craft\/cutting\/fei-tickets\/([^/]+)\/print$/,

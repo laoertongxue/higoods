@@ -31,6 +31,16 @@ function buildSizeTable(seed: ProductionDemandTechPackSeed) {
 
 type SeedScenario = 'DEFAULT' | 'WHOLE_WOOL' | 'PART_WOOL' | 'GARMENT_HEAT_TRANSFER'
 
+function resolveSeedGarmentDifficulty(seed: ProductionDemandTechPackSeed) {
+  const scenario = resolveSeedScenario(seed)
+  if (scenario === 'WHOLE_WOOL') return 'A+' as const
+  if (scenario === 'PART_WOOL') return 'A++' as const
+  if (scenario === 'GARMENT_HEAT_TRANSFER') return 'B' as const
+  if (seed.demand.spuCode === 'SPU-2024-009') return 'A' as const
+  if (seed.demand.spuCode === 'SPU-2024-014') return 'C' as const
+  return 'B' as const
+}
+
 function resolveSeedScenario(seed: ProductionDemandTechPackSeed): SeedScenario {
   if (seed.demand.spuCode === 'SPU-2024-011' || seed.demand.spuCode === 'SPU-2024-012') return 'WHOLE_WOOL'
   if (seed.demand.spuCode === 'SPU-TEE-084') return 'PART_WOOL'
@@ -629,6 +639,7 @@ export function createTechnicalDataVersionBootstrapSnapshot(
       baseTechnicalVersionCode: '',
       changeScope: '改版生成',
       changeSummary: '生产需求单当前生效技术包初始化。',
+      garmentDifficultyGrade: resolveSeedGarmentDifficulty(seed),
       linkedPartTemplateIds: [],
       linkedPatternLibraryVersionIds: [],
       linkedPatternAssetIds: [],
@@ -697,6 +708,7 @@ export function createTechnicalDataVersionBootstrapSnapshot(
       baseTechnicalVersionCode: '',
       changeScope: '制版生成',
       changeSummary: '由制版任务 PT-20260407-018 建立款式档案首个正式技术包版本。',
+      garmentDifficultyGrade: 'A+',
       linkedPartTemplateIds: [],
       linkedPatternLibraryVersionIds: [],
       linkedPatternAssetIds: [],

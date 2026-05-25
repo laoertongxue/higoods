@@ -11,6 +11,7 @@ import type {
   TechnicalDataVersionRecord,
   TechnicalDataVersionStoreSnapshot,
   TechnicalDomainStatus,
+  TechnicalGarmentDifficultyGrade,
   TechnicalPatternDesign,
   TechnicalPatternFile,
   TechnicalProcessEntry,
@@ -200,6 +201,12 @@ function normalizeChangeScope(value: string | null | undefined): TechPackVersion
   return '改版生成'
 }
 
+function normalizeGarmentDifficultyGrade(value: unknown): TechnicalGarmentDifficultyGrade {
+  return value === 'A' || value === 'A+' || value === 'A++' || value === 'B' || value === 'C' || value === 'D'
+    ? value
+    : 'B'
+}
+
 function createEmptyContent(technicalVersionId: string): TechnicalDataVersionContent {
   return {
     technicalVersionId,
@@ -338,6 +345,7 @@ function applyDerivedFields(
     baseTechnicalVersionCode: record.baseTechnicalVersionCode || '',
     changeScope: normalizeChangeScope(record.changeScope),
     changeSummary: record.changeSummary || '',
+    garmentDifficultyGrade: normalizeGarmentDifficultyGrade(record.garmentDifficultyGrade),
     linkedPartTemplateIds: [...(record.linkedPartTemplateIds ?? [])],
     linkedPatternLibraryVersionIds: [...(record.linkedPatternLibraryVersionIds ?? [])],
     linkedPatternAssetIds: [...(record.linkedPatternAssetIds ?? [])],
@@ -378,6 +386,7 @@ function normalizeRecord(
       baseTechnicalVersionCode: rawRecord.baseTechnicalVersionCode || '',
       changeScope: normalizeChangeScope(rawRecord.changeScope),
       changeSummary: rawRecord.changeSummary || '',
+      garmentDifficultyGrade: normalizeGarmentDifficultyGrade(rawRecord.garmentDifficultyGrade),
       versionStatus: normalizeVersionStatus(rawRecord.versionStatus),
       bomStatus: normalizeDomainStatus(rawRecord.bomStatus),
       patternStatus: normalizeDomainStatus(rawRecord.patternStatus),

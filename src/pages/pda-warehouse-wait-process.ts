@@ -21,6 +21,14 @@ import {
   listMaterialLedgerProjections,
   type MaterialLedgerProjection,
 } from '../data/fcs/cutting/material-ledger.ts'
+import {
+  appendCuttingRuntimeEvent,
+  listCuttingRuntimeEventsByType,
+  type CuttingRuntimeQtyUnit,
+  type RuntimeInventoryEffect,
+  type RuntimeMaterialSnapshot,
+  type RuntimePatternSnapshot,
+} from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { renderPdaFrame } from './pda-shell'
@@ -79,9 +87,133 @@ function formatCuttingWaitProcessQty(qty: number, unit = '米'): string {
   return `${new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 }).format(qty)} ${unit} / ${rollCount} 卷`
 }
 
+function normalizeCuttingRuntimeQtyUnit(unit: string | undefined): CuttingRuntimeQtyUnit {
+  return unit === '片' || unit === '件' ? unit : '米'
+}
+
+function getCuttingRuntimeNowText(): string {
+  return new Date().toISOString().slice(0, 16).replace('T', ' ')
+}
+
+function parseCuttingQtyAndRoll(rawValue: string | null | undefined, fallbackQty = 0): { qty: number; rollCount: number; displayText: string } {
+  const text = (rawValue || '').trim()
+  const numberMatches = text.match(/\d+(?:\.\d+)?/g) || []
+  const qty = Number(numberMatches[0] || fallbackQty)
+  const rollCount = Math.max(Number(numberMatches[1] || 1), qty > 0 ? 1 : 0)
+  return {
+    qty: Number.isFinite(qty) ? qty : fallbackQty,
+    rollCount: Number.isFinite(rollCount) ? rollCount : 1,
+    displayText: text || formatCuttingWaitProcessQty(fallbackQty),
+  }
+}
+
+function splitCuttingLocationText(rawValue: string | null | undefined): { warehouseArea: string; locationCode: string } {
+  const text = (rawValue || '').trim()
+  const [area, location] = text.split('/').map((item) => item.trim())
+  return {
+    warehouseArea: area || '面料 A 区',
+    locationCode: location || 'FAB-A-01',
+  }
+}
+
+function findCuttingWaitProcessLedgerRow(sourceNo: string | undefined): MaterialLedgerProjection | undefined {
+  const keyword = (sourceNo || '').trim().toLowerCase()
+  if (!keyword) return undefined
+  return listMaterialLedgerProjections().find((row) => {
+    const candidates = [
+      row.cutOrderNo,
+      row.productionOrderNo,
+      row.materialIdentity.materialSku,
+      row.materialIdentity.materialName,
+      row.materialIdentity.materialColor,
+      row.patternIdentity.patternFileId,
+      row.patternIdentity.patternFileName,
+    ].map((item) => String(item || '').toLowerCase())
+    return candidates.some((item) => item && (item === keyword || item.includes(keyword) || keyword.includes(item)))
+  })
+}
+
+function buildCuttingRuntimeMaterialSnapshot(row: MaterialLedgerProjection | undefined, fallbackSku = ''): RuntimeMaterialSnapshot | undefined {
+  if (!row && !fallbackSku) return undefined
+  return {
+    materialSku: row?.materialIdentity.materialSku || fallbackSku,
+    materialName: row?.materialIdentity.materialName || fallbackSku,
+    materialColor: row?.materialIdentity.materialColor || '',
+    materialAlias: row?.materialIdentity.materialAlias || '',
+    unit: normalizeCuttingRuntimeQtyUnit(row?.unit),
+  }
+}
+
+function buildCuttingRuntimePatternSnapshot(row: MaterialLedgerProjection | undefined): RuntimePatternSnapshot | undefined {
+  if (!row) return undefined
+  return {
+    patternFileId: row.patternIdentity.patternFileId,
+    patternFileName: row.patternIdentity.patternFileName,
+    patternVersion: row.patternIdentity.patternVersion,
+    effectiveWidth: `${row.patternIdentity.effectiveWidthValue}${row.patternIdentity.effectiveWidthUnit}`,
+    partNames: row.patternIdentity.piecePartNames,
+  }
+}
+
+function buildCuttingRuntimeRefs(row: MaterialLedgerProjection | undefined, sourceNo: string) {
+  const isSpreadingOrder = /^PB-|铺布/i.test(sourceNo)
+  return {
+    productionOrderId: row?.productionOrderId || '',
+    productionOrderNo: row?.productionOrderNo || '',
+    cutOrderId: row?.cutOrderId || '',
+    cutOrderNo: row?.cutOrderNo || (isSpreadingOrder ? '' : sourceNo),
+    spreadingOrderNo: isSpreadingOrder ? sourceNo : '',
+  }
+}
+
+function buildCuttingRollNos(sourceNo: string, rollCount: number): string[] {
+  return Array.from({ length: Math.max(Math.round(rollCount), 1) }, (_, index) => `${sourceNo || 'ROLL'}-${String(index + 1).padStart(2, '0')}`)
+}
+
+function renderCuttingPendingPickupList(rows: MaterialLedgerProjection[]): string {
+  const pickedCutOrders = new Set(
+    listCuttingRuntimeEventsByType('中转仓领料')
+      .map((event) => event.refs.cutOrderNo)
+      .filter(Boolean),
+  )
+  const pendingRows = rows
+    .filter((row) => row.transferWarehouseAllocatedQty > 0)
+    .filter((row) => !pickedCutOrders.has(row.cutOrderNo))
+    .slice(0, 4)
+
+  return `
+    <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div class="text-base font-semibold text-foreground">待领料</div>
+          <div class="mt-1 text-xs text-muted-foreground">上游已配料，仓管先确认中转仓领料，再扫码入待加工仓。</div>
+        </div>
+        ${renderStatusPill(`${pendingRows.length} 条`)}
+      </div>
+      <div class="mt-3 space-y-2">
+        ${pendingRows.length
+          ? pendingRows.map((row) => `
+              <button
+                type="button"
+                class="w-full rounded-xl border bg-background px-3 py-3 text-left"
+                data-pda-warehouse-action="cutting-wp-pickup"
+                data-source-no="${escapeAttr(row.cutOrderNo)}"
+              >
+                <div class="text-sm font-semibold text-foreground">${escapeHtml(row.cutOrderNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.materialIdentity.materialSku)} · ${escapeHtml(row.materialIdentity.materialName)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">中转仓已配：${escapeHtml(formatCuttingWaitProcessQty(row.transferWarehouseAllocatedQty, row.unit))}</div>
+              </button>
+            `).join('')
+          : '<div class="rounded-xl bg-muted/60 px-3 py-3 text-xs text-muted-foreground">暂无待领料通知。</div>'}
+      </div>
+    </section>
+  `
+}
+
 function renderCuttingWaitProcessActionCards(): string {
   const actions = [
-    { action: 'cutting-wp-receive', title: '扫码收货', desc: '扫领料单或裁片单，确认收货库区、库位和卷数。' },
+    { action: 'cutting-wp-pickup', title: '中转仓领料', desc: '按待领料通知到中转仓领料，记录领料数量和卷数。' },
+    { action: 'cutting-wp-receive', title: '扫码入仓', desc: '扫领料单或裁片单，确认收货库区、库位和卷数。' },
     { action: 'cutting-wp-issue', title: '加工领料', desc: '扫铺布单，从指定库区库位领走面料去加工。' },
     { action: 'cutting-wp-return', title: '回收入仓', desc: '铺布剩余面料扫码回收，记录回收库区库位。' },
   ]
@@ -143,7 +275,7 @@ function renderCuttingWaitProcessPage(): string {
       </section>
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
         <div class="text-lg font-semibold text-foreground">裁床待加工仓</div>
-        <div class="mt-1 text-xs text-muted-foreground">仓管只做三件事：扫码收货、加工领料、回收入仓。</div>
+        <div class="mt-1 text-xs text-muted-foreground">仓管按顺序处理：待领料、中转仓领料、扫码入仓、加工领料、回收入仓。</div>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div class="rounded-xl bg-muted/60 px-3 py-3">
             <div class="text-muted-foreground">裁床已领</div>
@@ -155,6 +287,7 @@ function renderCuttingWaitProcessPage(): string {
           </div>
         </div>
       </section>
+      ${renderCuttingPendingPickupList(rows)}
       ${renderCuttingWaitProcessActionCards()}
       <section class="space-y-3">
         ${stockedRows.length
@@ -522,20 +655,135 @@ export function renderPdaWarehouseWaitProcessPage(): string {
 export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
+  if (action === 'cutting-wp-pickup') {
+    const sourceNo = actionNode?.dataset.sourceNo || window.prompt('请扫描待领料通知、配料单或裁片单二维码')?.trim()
+    if (!sourceNo) return true
+    const row = findCuttingWaitProcessLedgerRow(sourceNo)
+    const qtyText = window.prompt('请输入中转仓领料数量和卷数', formatCuttingWaitProcessQty(row?.transferWarehouseAllocatedQty || 120, row?.unit))?.trim()
+    if (!qtyText) return true
+    const occurredAt = getCuttingRuntimeNowText()
+    const { qty, rollCount, displayText } = parseCuttingQtyAndRoll(qtyText, row?.transferWarehouseAllocatedQty || 0)
+    const rollNos = buildCuttingRollNos(sourceNo, rollCount)
+    const event = appendCuttingRuntimeEvent({
+      eventType: '中转仓领料',
+      operatorName: '裁床仓管',
+      operatorRole: 'PDA 仓管',
+      occurredAt,
+      refs: buildCuttingRuntimeRefs(row, sourceNo),
+      material: buildCuttingRuntimeMaterialSnapshot(row, sourceNo),
+      pattern: buildCuttingRuntimePatternSnapshot(row),
+      payload: {
+        pickupRecordId: `pickup:${sourceNo}:${occurredAt}`,
+        pickupRecordNo: `领料-${sourceNo}`,
+        prepNoticeId: `prep:${sourceNo}`,
+        prepOrderNo: sourceNo,
+        pickupQty: qty,
+        unit: '米',
+        rollCount,
+        rollNos,
+        pickupBy: '裁床仓管',
+        pickupAt: occurredAt,
+        hasDifference: false,
+      },
+    })
+    window.alert(`已记录中转仓领料：${sourceNo}，领料 ${displayText}。事件：${event.eventNo}，同步状态：${event.eventStatus}。`)
+    return true
+  }
   if (action === 'cutting-wp-receive') {
     const sourceNo = window.prompt('请扫描领料单或裁片单二维码')?.trim()
     if (!sourceNo) return true
     const location = window.prompt('请输入收货库区库位', '面料 A 区 / FAB-A-01')?.trim()
     if (!location) return true
-    window.alert(`已记录扫码收货：${sourceNo}，入库位置：${location}。同步状态：已同步。`)
+    const row = findCuttingWaitProcessLedgerRow(sourceNo)
+    const qtyText = window.prompt('请输入扫码入仓数量和卷数', formatCuttingWaitProcessQty(row?.cuttingClaimedQty || row?.transferWarehouseAllocatedQty || 120, row?.unit))?.trim()
+    if (!qtyText) return true
+    const occurredAt = getCuttingRuntimeNowText()
+    const { qty, rollCount, displayText } = parseCuttingQtyAndRoll(qtyText, row?.cuttingClaimedQty || 0)
+    const { warehouseArea, locationCode } = splitCuttingLocationText(location)
+    const inventoryEffect: RuntimeInventoryEffect = {
+      inventoryScope: '裁床待加工仓',
+      direction: 'IN',
+      qty,
+      unit: '米',
+      rollCount,
+      toWarehouseArea: warehouseArea,
+      toLocationCode: locationCode,
+    }
+    const event = appendCuttingRuntimeEvent({
+      eventType: '待加工仓扫码入仓',
+      operatorName: '裁床仓管',
+      operatorRole: 'PDA 仓管',
+      occurredAt,
+      refs: buildCuttingRuntimeRefs(row, sourceNo),
+      material: buildCuttingRuntimeMaterialSnapshot(row, sourceNo),
+      pattern: buildCuttingRuntimePatternSnapshot(row),
+      inventoryEffect,
+      payload: {
+        inboundRecordId: `wp-in:${sourceNo}:${occurredAt}`,
+        inboundRecordNo: `入仓-${sourceNo}`,
+        pickupRecordId: `pickup:${sourceNo}`,
+        materialSku: row?.materialIdentity.materialSku || sourceNo,
+        receivedQty: qty,
+        unit: '米',
+        rollCount,
+        rollNos: buildCuttingRollNos(sourceNo, rollCount),
+        warehouseArea,
+        locationCode,
+        receivedBy: '裁床仓管',
+        receivedAt: occurredAt,
+        checkResult: '正常',
+      },
+    })
+    window.alert(`已记录扫码入仓：${sourceNo}，入库位置：${warehouseArea} / ${locationCode}，数量 ${displayText}。事件：${event.eventNo}，同步状态：${event.eventStatus}。`)
     return true
   }
   if (action === 'cutting-wp-issue') {
     const sourceNo = window.prompt('请扫描铺布单或裁片单二维码')?.trim()
     if (!sourceNo) return true
+    const location = window.prompt('请输入领料库区库位', '面料 A 区 / FAB-A-01')?.trim()
+    if (!location) return true
     const qty = window.prompt('请输入加工领料数量和卷数', '120 米 / 1 卷')?.trim()
     if (!qty) return true
-    window.alert(`已记录加工领料：${sourceNo}，领用 ${qty}。同步状态：已同步。`)
+    const row = findCuttingWaitProcessLedgerRow(sourceNo)
+    const occurredAt = getCuttingRuntimeNowText()
+    const { qty: issuedQty, rollCount, displayText } = parseCuttingQtyAndRoll(qty, 120)
+    const { warehouseArea, locationCode } = splitCuttingLocationText(location)
+    const inventoryEffect: RuntimeInventoryEffect = {
+      inventoryScope: '裁床待加工仓',
+      direction: 'OUT',
+      qty: issuedQty,
+      unit: '米',
+      rollCount,
+      fromWarehouseArea: warehouseArea,
+      fromLocationCode: locationCode,
+    }
+    const event = appendCuttingRuntimeEvent({
+      eventType: '待加工仓加工领料',
+      operatorName: '裁床仓管',
+      operatorRole: 'PDA 仓管',
+      occurredAt,
+      refs: buildCuttingRuntimeRefs(row, sourceNo),
+      material: buildCuttingRuntimeMaterialSnapshot(row, sourceNo),
+      pattern: buildCuttingRuntimePatternSnapshot(row),
+      inventoryEffect,
+      payload: {
+        issueRecordId: `wp-out:${sourceNo}:${occurredAt}`,
+        issueRecordNo: `加工领料-${sourceNo}`,
+        spreadingOrderId: sourceNo,
+        spreadingOrderNo: sourceNo,
+        materialSku: row?.materialIdentity.materialSku || sourceNo,
+        issuedQty,
+        unit: '米',
+        rollCount,
+        rollNos: buildCuttingRollNos(sourceNo, rollCount),
+        fromWarehouseArea: warehouseArea,
+        fromLocationCode: locationCode,
+        issuedBy: '裁床仓管',
+        issuedAt: occurredAt,
+        purpose: '铺布用料',
+      },
+    })
+    window.alert(`已记录加工领料：${sourceNo}，从 ${warehouseArea} / ${locationCode} 领用 ${displayText}。事件：${event.eventNo}，同步状态：${event.eventStatus}。`)
     return true
   }
   if (action === 'cutting-wp-return') {
@@ -543,7 +791,48 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     if (!sourceNo) return true
     const qty = window.prompt('请输入回收入仓数量和卷数', '35 米 / 1 卷')?.trim()
     if (!qty) return true
-    window.alert(`已记录回收入仓：${sourceNo}，回收 ${qty}。同步状态：已同步。`)
+    const location = window.prompt('请输入回收入库区库位', '面料 A 区 / FAB-A-02')?.trim()
+    if (!location) return true
+    const row = findCuttingWaitProcessLedgerRow(sourceNo)
+    const occurredAt = getCuttingRuntimeNowText()
+    const { qty: returnedQty, rollCount, displayText } = parseCuttingQtyAndRoll(qty, 35)
+    const { warehouseArea, locationCode } = splitCuttingLocationText(location)
+    const inventoryEffect: RuntimeInventoryEffect = {
+      inventoryScope: '裁床待加工仓',
+      direction: 'IN',
+      qty: returnedQty,
+      unit: '米',
+      rollCount,
+      toWarehouseArea: warehouseArea,
+      toLocationCode: locationCode,
+    }
+    const event = appendCuttingRuntimeEvent({
+      eventType: '待加工仓回收入仓',
+      operatorName: '裁床仓管',
+      operatorRole: 'PDA 仓管',
+      occurredAt,
+      refs: buildCuttingRuntimeRefs(row, sourceNo),
+      material: buildCuttingRuntimeMaterialSnapshot(row, sourceNo),
+      pattern: buildCuttingRuntimePatternSnapshot(row),
+      inventoryEffect,
+      payload: {
+        returnRecordId: `wp-return:${sourceNo}:${occurredAt}`,
+        returnRecordNo: `回收-${sourceNo}`,
+        spreadingOrderId: sourceNo,
+        spreadingOrderNo: sourceNo,
+        materialSku: row?.materialIdentity.materialSku || sourceNo,
+        returnedQty,
+        unit: '米',
+        rollCount,
+        rollNos: buildCuttingRollNos(sourceNo, rollCount),
+        warehouseArea,
+        locationCode,
+        returnedBy: '裁床仓管',
+        returnedAt: occurredAt,
+        reason: '铺布剩余',
+      },
+    })
+    window.alert(`已记录回收入仓：${sourceNo}，回收 ${displayText} 到 ${warehouseArea} / ${locationCode}。事件：${event.eventNo}，同步状态：${event.eventStatus}。`)
     return true
   }
   if (action === 'recover-wool-yarn' && actionNode.dataset.woolOrderId) {

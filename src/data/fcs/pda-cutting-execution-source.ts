@@ -22,19 +22,16 @@ import {
 } from './cutting/pda-cutting-task-scenarios.ts'
 import { getTaskChainTaskById, listTaskChainTasks } from './page-adapters/task-chain-pages-adapter.ts'
 import type { ProcessTask } from './process-tasks.ts'
-import type {
-  PdaCutPieceHandoverWritebackRecord,
-  PdaCutPieceInboundWritebackRecord,
-  PdaPickupWritebackRecord,
-  PdaReplenishmentFeedbackWritebackRecord,
-} from './cutting/pda-execution-writeback-ledger.ts'
 import type { MarkerSpreadingStore, SpreadingOperatorRecord, SpreadingRollRecord, SpreadingSession } from './cutting/marker-spreading-ledger.ts'
 import {
-  getLatestPdaCuttingStageWritebackByExecution,
-  listPdaCuttingStageWritebacksByExecution,
-  type PdaCuttingStageActionType,
-  type PdaCuttingStageWritebackRecord,
-} from './cutting/pda-cutting-stage-writeback.ts'
+  listCuttingRuntimeEvents,
+  type CuttingRuntimeEvent,
+  type CuttingRuntimeEventType,
+  type PdaCutPieceHandoverEventRecord,
+  type PdaCutPieceInboundEventRecord,
+  type PdaPickupEventRecord,
+  type PdaReplenishmentFeedbackEventRecord,
+} from './cutting/cutting-runtime-event-ledger.ts'
 import { getLatestClaimDisputeByCutOrderNo } from '../../state/fcs-claim-dispute-store.ts'
 import {
   buildSpreadingPlanUnitsFromMarker,
@@ -57,6 +54,39 @@ type PdaCuttingMobileStage =
   | 'WAIT_CUTTING'
   | 'CUTTING'
   | 'CUT_DONE'
+
+type PdaCuttingStageActionType =
+  | 'START_WORK'
+  | 'START_SPREADING'
+  | 'FINISH_SPREADING'
+  | 'START_CUTTING'
+  | 'FINISH_CUTTING'
+
+type PdaCuttingSyncStatus = '已同步' | '待同步' | '同步失败'
+
+interface PdaCuttingStageEventRecord {
+  runtimeEventId: string
+  taskId: string
+  executionOrderId: string
+  executionOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
+  actionType: PdaCuttingStageActionType
+  actionLabel: string
+  submittedAt: string
+  operatorName: string
+  syncStatus: PdaCuttingSyncStatus
+  actualLayerCount?: number
+  actualSpreadLength?: number
+  headLength?: number
+  tailLength?: number
+  actualCutQty?: number
+  actualUsage?: number
+  varianceFlag?: boolean
+  note: string
+}
 
 export interface PdaTaskSummary {
   currentStage: string
@@ -208,6 +238,17 @@ export interface PdaCuttingSpreadingPlanUnitOption {
   lengthPerUnitM: number
   plannedCutGarmentQty: number
   plannedSpreadLengthM: number
+  sizeRows: Array<{
+    skuCode: string
+    color: string
+    size: string
+    plannedQty: number
+  }>
+  partRows: Array<{
+    partCode: string
+    partName: string
+    pieceCountPerUnit: number
+  }>
 }
 
 export interface PdaCuttingInboundRecord {
@@ -446,7 +487,7 @@ function buildConfiguredQtyText(record: GeneratedCutOrderSourceRecord, configure
 }
 
 function buildActualReceivedQtyText(input: {
-  latestPickup: PdaPickupWritebackRecord | null
+  latestPickup: PdaPickupEventRecord | null
   receivedLength?: number
   receivedRollCount?: number
 }): string {
@@ -469,21 +510,61 @@ function buildSpreadingPlanUnitLabel(unit: SpreadingPlanUnit): string {
   return `${unit.color || '待补颜色'} / ${unit.materialSku || '待补面料'} / ${formatQty(unit.garmentQtyPerUnit)}件/层`
 }
 
-function toSpreadingPlanUnitOption(unit: SpreadingPlanUnit): PdaCuttingSpreadingPlanUnitOption {
+function buildPlanUnitSizeRows(execution: PdaCuttingExecutionSourceRecord, color?: string): PdaCuttingSpreadingPlanUnitOption['sizeRows'] {
+  const record = getCutOrderRecord(execution)
+  if (!record?.skuScopeLines?.length) return []
+  const normalizedColor = String(color || '').trim().toLowerCase()
+  const matchingRows = normalizedColor
+    ? record.skuScopeLines.filter((line) => String(line.color || '').trim().toLowerCase() === normalizedColor)
+    : []
+  const rows = matchingRows.length ? matchingRows : record.skuScopeLines
+  return rows.map((line) => ({
+    skuCode: line.skuCode,
+    color: line.color,
+    size: line.size,
+    plannedQty: Number(line.plannedQty || 0),
+  }))
+}
+
+function buildPlanUnitPartRows(execution: PdaCuttingExecutionSourceRecord): PdaCuttingSpreadingPlanUnitOption['partRows'] {
+  const record = getCutOrderRecord(execution)
+  return (record?.pieceRows || [])
+    .map((row) => ({
+      partCode: row.partCode,
+      partName: row.partName,
+      pieceCountPerUnit: Number(row.pieceCountPerUnit || 0),
+    }))
+    .filter((row) => row.partName && row.pieceCountPerUnit > 0)
+}
+
+function withCuttingBreakdownRows(
+  unit: Omit<PdaCuttingSpreadingPlanUnitOption, 'sizeRows' | 'partRows'>,
+  execution: PdaCuttingExecutionSourceRecord,
+): PdaCuttingSpreadingPlanUnitOption {
   return {
-    planUnitId: unit.planUnitId,
-    sourceType: unit.sourceType,
-    sourceLineId: unit.sourceLineId,
-    label: buildSpreadingPlanUnitLabel(unit),
-    color: unit.color,
-    materialSku: unit.materialSku,
-    materialAlias: unit.materialAlias || '',
-    materialImageUrl: unit.materialImageUrl || '',
-    garmentQtyPerUnit: unit.garmentQtyPerUnit,
-    plannedRepeatCount: unit.plannedRepeatCount,
-    lengthPerUnitM: unit.lengthPerUnitM,
-    plannedCutGarmentQty: unit.plannedCutGarmentQty,
-    plannedSpreadLengthM: unit.plannedSpreadLengthM,
+    ...unit,
+    sizeRows: buildPlanUnitSizeRows(execution, unit.color),
+    partRows: buildPlanUnitPartRows(execution),
+  }
+}
+
+function toSpreadingPlanUnitOption(unit: SpreadingPlanUnit, execution: PdaCuttingExecutionSourceRecord): PdaCuttingSpreadingPlanUnitOption {
+  return {
+    ...withCuttingBreakdownRows({
+      planUnitId: unit.planUnitId,
+      sourceType: unit.sourceType,
+      sourceLineId: unit.sourceLineId,
+      label: buildSpreadingPlanUnitLabel(unit),
+      color: unit.color,
+      materialSku: unit.materialSku,
+      materialAlias: unit.materialAlias || '',
+      materialImageUrl: unit.materialImageUrl || '',
+      garmentQtyPerUnit: unit.garmentQtyPerUnit,
+      plannedRepeatCount: unit.plannedRepeatCount,
+      lengthPerUnitM: unit.lengthPerUnitM,
+      plannedCutGarmentQty: unit.plannedCutGarmentQty,
+      plannedSpreadLengthM: unit.plannedSpreadLengthM,
+    }, execution),
   }
 }
 
@@ -508,7 +589,7 @@ function buildFallbackPlanUnitsFromSession(session: SpreadingSession, execution:
     plannedCutGarmentQty: Math.max(Number(session.theoreticalActualCutPieceQty || 0), 0),
     plannedSpreadLengthM: Math.max(Number(session.theoreticalSpreadTotalLength || 0), 0),
   }
-  return [toSpreadingPlanUnitOption(fallbackUnit)]
+  return [toSpreadingPlanUnitOption(fallbackUnit, execution)]
 }
 
 function buildFallbackPlanUnitFromExecution(execution: PdaCuttingExecutionSourceRecord): PdaCuttingSpreadingPlanUnitOption {
@@ -535,7 +616,7 @@ function buildFallbackPlanUnitFromExecution(execution: PdaCuttingExecutionSource
     plannedCutGarmentQty,
     plannedSpreadLengthM,
   }
-  return toSpreadingPlanUnitOption(unit)
+  return toSpreadingPlanUnitOption(unit, execution)
 }
 
 function buildExecutionMarkerSpreadingContext(
@@ -592,21 +673,18 @@ function buildPlanUnitsFromCanonicalPlan(
             plannedCutGarmentQty: Number(bed.plannedGarmentQty || 0),
             plannedSpreadLengthM: Number(bed.spreadTotalLength || 0),
           }
-          return {
+          return withCuttingBreakdownRows({
             ...unit,
             label: buildSpreadingPlanUnitLabel(unit),
-          }
+          }, execution)
         })
     : []
 
   if (bedUnits.length) return bedUnits
 
   const layoutUnits = Array.isArray(plan.layoutLines)
-    ? plan.layoutLines.map((line, index) => ({
-      planUnitId: `plan-unit-${plan.id}-layout-${line.id || index + 1}`,
-      sourceType: 'marker-line',
-      sourceLineId: line.id || `${index + 1}`,
-      label: buildSpreadingPlanUnitLabel({
+    ? plan.layoutLines.map((line, index) => {
+      const unit: Omit<PdaCuttingSpreadingPlanUnitOption, 'sizeRows' | 'partRows'> = {
         planUnitId: `plan-unit-${plan.id}-layout-${line.id || index + 1}`,
           sourceType: 'marker-line',
           sourceLineId: line.id || `${index + 1}`,
@@ -619,27 +697,18 @@ function buildPlanUnitsFromCanonicalPlan(
           lengthPerUnitM: Number(line.markerLength || 0),
           plannedCutGarmentQty: Number(line.markerPieceQty || 0) * Number(line.repeatCount || 0),
           plannedSpreadLengthM: Number(line.spreadLength || 0),
-        }),
-        color: line.colorCode || fallbackColor,
-        materialSku,
-        materialAlias,
-        materialImageUrl,
-        garmentQtyPerUnit: Number(line.markerPieceQty || 0),
-        plannedRepeatCount: Number(line.repeatCount || 0),
-        lengthPerUnitM: Number(line.markerLength || 0),
-        plannedCutGarmentQty: Number(line.markerPieceQty || 0) * Number(line.repeatCount || 0),
-        plannedSpreadLengthM: Number(line.spreadLength || 0),
-      }))
+        label: '',
+      }
+      unit.label = buildSpreadingPlanUnitLabel(unit)
+      return withCuttingBreakdownRows(unit, execution)
+    })
     : []
 
   if (layoutUnits.length) return layoutUnits
 
   const modeUnits = Array.isArray(plan.modeDetailLines)
-    ? plan.modeDetailLines.map((line, index) => ({
-      planUnitId: `plan-unit-${plan.id}-mode-${line.id || index + 1}`,
-      sourceType: 'high-low-row',
-      sourceLineId: line.id || `${index + 1}`,
-      label: buildSpreadingPlanUnitLabel({
+    ? plan.modeDetailLines.map((line, index) => {
+      const unit: Omit<PdaCuttingSpreadingPlanUnitOption, 'sizeRows' | 'partRows'> = {
         planUnitId: `plan-unit-${plan.id}-mode-${line.id || index + 1}`,
           sourceType: 'high-low-row',
           sourceLineId: line.id || `${index + 1}`,
@@ -652,23 +721,17 @@ function buildPlanUnitsFromCanonicalPlan(
           lengthPerUnitM: Number(line.markerLength || 0),
           plannedCutGarmentQty: Number(line.markerPieceQty || 0) * Number(line.repeatCount || 0),
           plannedSpreadLengthM: Number(line.spreadLength || 0),
-        }),
-        color: line.colorCode || fallbackColor,
-        materialSku,
-        materialAlias,
-        materialImageUrl,
-        garmentQtyPerUnit: Number(line.markerPieceQty || 0),
-        plannedRepeatCount: Number(line.repeatCount || 0),
-        lengthPerUnitM: Number(line.markerLength || 0),
-        plannedCutGarmentQty: Number(line.markerPieceQty || 0) * Number(line.repeatCount || 0),
-        plannedSpreadLengthM: Number(line.spreadLength || 0),
-      }))
+        label: '',
+      }
+      unit.label = buildSpreadingPlanUnitLabel(unit)
+      return withCuttingBreakdownRows(unit, execution)
+    })
     : []
 
   if (modeUnits.length) return modeUnits
 
   return [
-    {
+    withCuttingBreakdownRows({
       planUnitId: `plan-unit-${plan.id}-fallback`,
       sourceType: 'exception',
       sourceLineId: 'fallback',
@@ -682,7 +745,7 @@ function buildPlanUnitsFromCanonicalPlan(
       lengthPerUnitM: Number(plan.netLength || 0),
       plannedCutGarmentQty: Number(plan.totalPieces || 0),
       plannedSpreadLengthM: Number(plan.plannedSpreadLength || 0),
-    },
+    }, execution),
   ]
 }
 
@@ -833,23 +896,23 @@ function getCutOrderRecord(execution: PdaCuttingExecutionSourceRecord) {
   return getGeneratedCutOrderSourceRecordById(execution.cutOrderId)
 }
 
-function getLatestPickup(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaPickupWritebackRecord | null {
-  const rows = snapshot.pdaExecutionState.pickupWritebacks as unknown as PdaPickupWritebackRecord[]
+function getLatestPickup(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaPickupEventRecord | null {
+  const rows = snapshot.pdaExecutionState.pickupEvents as unknown as PdaPickupEventRecord[]
   return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.cutOrderId === execution.cutOrderId) ?? null
 }
 
-function getLatestInbound(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCutPieceInboundWritebackRecord | null {
-  const rows = snapshot.pdaExecutionState.inboundWritebacks as unknown as PdaCutPieceInboundWritebackRecord[]
+function getLatestInbound(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCutPieceInboundEventRecord | null {
+  const rows = snapshot.pdaExecutionState.inboundEvents as unknown as PdaCutPieceInboundEventRecord[]
   return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.cutOrderId === execution.cutOrderId) ?? null
 }
 
-function getLatestHandover(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCutPieceHandoverWritebackRecord | null {
-  const rows = snapshot.pdaExecutionState.handoverWritebacks as unknown as PdaCutPieceHandoverWritebackRecord[]
+function getLatestHandover(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCutPieceHandoverEventRecord | null {
+  const rows = snapshot.pdaExecutionState.handoverEvents as unknown as PdaCutPieceHandoverEventRecord[]
   return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.cutOrderId === execution.cutOrderId) ?? null
 }
 
-function getLatestReplenishment(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaReplenishmentFeedbackWritebackRecord | null {
-  const rows = snapshot.pdaExecutionState.replenishmentFeedbackWritebacks as unknown as PdaReplenishmentFeedbackWritebackRecord[]
+function getLatestReplenishment(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaReplenishmentFeedbackEventRecord | null {
+  const rows = snapshot.pdaExecutionState.replenishmentFeedbackEvents as unknown as PdaReplenishmentFeedbackEventRecord[]
   return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.cutOrderId === execution.cutOrderId) ?? null
 }
 
@@ -909,7 +972,7 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
     materialImageUrl: execution.materialImageUrl || '',
     colorSummary: session.colorSummary || '',
     importedFromMarker: Boolean(session.importedFromMarker),
-    planUnits: (session.planUnits?.length ? session.planUnits : undefined)?.map(toSpreadingPlanUnitOption) || buildFallbackPlanUnitsFromSession(session, execution),
+    planUnits: (session.planUnits?.length ? session.planUnits : undefined)?.map((unit) => toSpreadingPlanUnitOption(unit, execution)) || buildFallbackPlanUnitsFromSession(session, execution),
   }))
   if (sessionTargets.length) return sessionTargets
 
@@ -1103,11 +1166,105 @@ function resolvePrimaryExecutionRouteKey(input: {
   return 'handover'
 }
 
-function hasSyncedAction(records: PdaCuttingStageWritebackRecord[], actionType: PdaCuttingStageActionType): boolean {
+function runtimeEventActionType(eventType: CuttingRuntimeEventType): PdaCuttingStageActionType | null {
+  if (eventType === '裁片单开工') return 'START_WORK'
+  if (eventType === '开始铺布') return 'START_SPREADING'
+  if (eventType === '完成铺布') return 'FINISH_SPREADING'
+  if (eventType === '开始裁剪') return 'START_CUTTING'
+  if (eventType === '完成裁剪') return 'FINISH_CUTTING'
+  return null
+}
+
+function runtimeActionLabel(actionType: PdaCuttingStageActionType): string {
+  if (actionType === 'START_WORK') return '开工'
+  if (actionType === 'START_SPREADING') return '开始铺布'
+  if (actionType === 'FINISH_SPREADING') return '完成铺布'
+  if (actionType === 'START_CUTTING') return '开始裁剪'
+  return '完成裁剪'
+}
+
+function eventMatchesExecution(event: CuttingRuntimeEvent, execution: PdaCuttingExecutionSourceRecord): boolean {
+  return [
+    event.refs.spreadingOrderId && event.refs.spreadingOrderId === execution.executionOrderId,
+    event.refs.spreadingOrderNo && event.refs.spreadingOrderNo === execution.executionOrderNo,
+    event.refs.cutOrderId && event.refs.cutOrderId === execution.cutOrderId,
+    event.refs.cutOrderNo && event.refs.cutOrderNo === execution.cutOrderNo,
+  ].some(Boolean)
+}
+
+function numberFromPayload(payload: CuttingRuntimeEvent['payload'], key: string): number | undefined {
+  if (!payload || typeof payload !== 'object') return undefined
+  const value = Number((payload as Record<string, unknown>)[key])
+  return Number.isFinite(value) ? value : undefined
+}
+
+function actualCutQtyFromRuntimePayload(payload: CuttingRuntimeEvent['payload']): number | undefined {
+  const direct = numberFromPayload(payload, 'actualPieceQty')
+  if (direct !== undefined) return direct
+  if (!payload || typeof payload !== 'object') return undefined
+  const outputLines = (payload as Record<string, unknown>).outputLines
+  if (!Array.isArray(outputLines)) return undefined
+  const total = outputLines.reduce((sum, line) => {
+    if (!line || typeof line !== 'object') return sum
+    return sum + Number((line as Record<string, unknown>).actualPieceQty || 0)
+  }, 0)
+  return Number.isFinite(total) && total > 0 ? total : undefined
+}
+
+function noteFromRuntimeEvent(event: CuttingRuntimeEvent): string {
+  if (event.eventType === '完成铺布') return 'PDA 完成铺布事件已同步。'
+  if (event.eventType === '开始铺布') return 'PDA 开始铺布事件已同步。'
+  if (event.eventType === '完成裁剪') return 'PDA 完成裁剪事件已同步。'
+  if (event.eventType === '开始裁剪') return 'PDA 开始裁剪事件已同步。'
+  return 'PDA 开工事件已同步。'
+}
+
+function mapRuntimeEventToStageRecord(
+  event: CuttingRuntimeEvent,
+  execution: PdaCuttingExecutionSourceRecord,
+): PdaCuttingStageEventRecord | null {
+  const actionType = runtimeEventActionType(event.eventType)
+  if (!actionType || !eventMatchesExecution(event, execution)) return null
+  const syncStatus: PdaCuttingSyncStatus = event.eventStatus === '同步失败' ? '同步失败' : '已同步'
+  return {
+    runtimeEventId: event.eventId,
+    taskId: execution.taskId,
+    executionOrderId: execution.executionOrderId,
+    executionOrderNo: execution.executionOrderNo,
+    cutOrderId: event.refs.cutOrderId || execution.cutOrderId,
+    cutOrderNo: event.refs.cutOrderNo || execution.cutOrderNo,
+    markerPlanId: event.refs.markerPlanId || execution.markerPlanId,
+    markerPlanNo: event.refs.markerPlanNo || execution.markerPlanNo,
+    actionType,
+    actionLabel: runtimeActionLabel(actionType),
+    submittedAt: event.occurredAt,
+    operatorName: event.operatorName || '现场操作员',
+    syncStatus,
+    actualLayerCount: numberFromPayload(event.payload, 'actualLayerCount'),
+    actualSpreadLength: numberFromPayload(event.payload, 'actualSpreadLength'),
+    headLength: numberFromPayload(event.payload, 'headLength'),
+    tailLength: numberFromPayload(event.payload, 'tailLength'),
+    actualCutQty: actualCutQtyFromRuntimePayload(event.payload),
+    actualUsage: numberFromPayload(event.payload, 'actualMaterialUsage'),
+    varianceFlag: Array.isArray((event.payload as Record<string, unknown>).differenceTypes)
+      ? ((event.payload as Record<string, unknown>).differenceTypes as unknown[]).length > 0
+      : Boolean((event.payload as Record<string, unknown>).hasDifference),
+    note: noteFromRuntimeEvent(event),
+  }
+}
+
+function listRuntimeStageEventsByExecution(execution: PdaCuttingExecutionSourceRecord): PdaCuttingStageEventRecord[] {
+  return listCuttingRuntimeEvents()
+    .map((event) => mapRuntimeEventToStageRecord(event, execution))
+    .filter((record): record is PdaCuttingStageEventRecord => Boolean(record))
+    .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt, 'zh-CN'))
+}
+
+function hasSyncedAction(records: PdaCuttingStageEventRecord[], actionType: PdaCuttingStageActionType): boolean {
   return records.some((record) => record.actionType === actionType && record.syncStatus !== '同步失败')
 }
 
-function latestSyncedAction(records: PdaCuttingStageWritebackRecord[]): PdaCuttingStageWritebackRecord | null {
+function latestSyncedAction(records: PdaCuttingStageEventRecord[]): PdaCuttingStageEventRecord | null {
   return records.find((record) => record.syncStatus !== '同步失败') ?? null
 }
 
@@ -1119,7 +1276,7 @@ function resolveMobileStage(input: {
   taskStatus: ProcessTask['status']
   hasPickupSuccess: boolean
   hasStarted: boolean
-  stageActions: PdaCuttingStageWritebackRecord[]
+  stageActions: PdaCuttingStageEventRecord[]
   preset: ReturnType<typeof getScenarioSpreadingPreset>
   sessions: SpreadingSession[]
 }): PdaCuttingMobileStage {
@@ -1145,7 +1302,7 @@ function resolveMobileStage(input: {
   return 'WAIT_SPREADING'
 }
 
-function buildSyncSummary(record: PdaCuttingStageWritebackRecord | null): string {
+function buildSyncSummary(record: PdaCuttingStageEventRecord | null): string {
   if (!record) return '暂无提交'
   return `${record.syncStatus}：${record.actionLabel}${record.varianceFlag ? '（已标记差异）' : ''} / ${record.submittedAt}`
 }
@@ -1178,25 +1335,25 @@ function buildTaskOrderLine(
   const latestReplenishment = getLatestReplenishment(snapshot, execution)
   const sessions = listSessionsForExecution(snapshot, execution)
   const preset = getScenarioSpreadingPreset(execution)
-  const stageActions = listPdaCuttingStageWritebacksByExecution(execution.taskId, execution.executionOrderId)
-  const latestStageAction = getLatestPdaCuttingStageWritebackByExecution(execution.taskId, execution.executionOrderId)
+  const stageActions = listRuntimeStageEventsByExecution(execution)
+  const latestStageAction = stageActions[0] ?? null
   const pickupDispute = execution.cutOrderNo ? getLatestClaimDisputeByCutOrderNo(execution.cutOrderNo) : null
   const hasInbound = Boolean(latestInbound)
   const hasHandover = Boolean(latestHandover)
   const hasDownstreamWarehouseSignal = hasInbound || hasHandover
-  const useExplicitPickupWriteback = isPdaSequenceMockTask(execution.taskId)
+  const useExplicitPickupEvent = isPdaSequenceMockTask(execution.taskId)
   const currentReceiveStatus =
     pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
       ? '来料异议处理中'
       : latestPickup?.resultLabel
-        || (useExplicitPickupWriteback
+        || (useExplicitPickupEvent
           ? '待裁床领料'
           : hasDownstreamWarehouseSignal
             ? '来料已入仓'
             : mapReceiveStatusLabel(progressLine?.receiveStatus))
   const hasPickupSuccess =
-    Boolean(latestPickup?.resultLabel?.includes('成功'))
-    || (!useExplicitPickupWriteback && (
+    Boolean(latestPickup)
+    || (!useExplicitPickupEvent && (
       progressLine?.receiveStatus === 'RECEIVED'
       || hasDownstreamWarehouseSignal
     ))
@@ -1321,7 +1478,7 @@ function buildPickupLogs(snapshot: CuttingDomainSnapshot, execution: PdaCuttingE
   if (!latestPickup) return []
   return [{
     executionOrderId: execution.executionOrderId,
-    id: latestPickup.writebackId,
+    id: latestPickup.runtimeEventId,
     scannedAt: latestPickup.submittedAt,
     operatorName: latestPickup.operatorName,
     resultLabel: latestPickup.resultLabel,
@@ -1465,7 +1622,7 @@ function buildInboundRecords(snapshot: CuttingDomainSnapshot, execution: PdaCutt
   if (!latestInbound) return []
   return [{
     executionOrderId: execution.executionOrderId,
-    id: latestInbound.writebackId,
+    id: latestInbound.runtimeEventId,
     scannedAt: latestInbound.submittedAt,
     operatorName: latestInbound.operatorName,
     zoneCode: latestInbound.zoneCode,
@@ -1479,7 +1636,7 @@ function buildHandoverRecords(snapshot: CuttingDomainSnapshot, execution: PdaCut
   if (!latestHandover) return []
   return [{
     executionOrderId: execution.executionOrderId,
-    id: latestHandover.writebackId,
+    id: latestHandover.runtimeEventId,
     handoverAt: latestHandover.submittedAt,
     operatorName: latestHandover.operatorName,
     targetLabel: latestHandover.targetLabel,
@@ -1493,7 +1650,7 @@ function buildReplenishmentRecords(snapshot: CuttingDomainSnapshot, execution: P
   if (!latestReplenishment) return []
   return [{
     executionOrderId: execution.executionOrderId,
-    id: latestReplenishment.writebackId,
+    id: latestReplenishment.runtimeEventId,
     feedbackAt: latestReplenishment.submittedAt,
     operatorName: latestReplenishment.operatorName,
     reasonLabel: latestReplenishment.reasonLabel,

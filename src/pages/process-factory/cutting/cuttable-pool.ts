@@ -253,7 +253,7 @@ function getPrefilterLabels(): string[] {
   const prefilter = state.prefilter
   if (!prefilter) return labels
 
-  if (prefilter.productionOrderNo) labels.push(`来自裁床生产单总览：${prefilter.productionOrderNo}`)
+  if (prefilter.productionOrderNo) labels.push(`来自生产单总览：${prefilter.productionOrderNo}`)
   if (prefilter.styleCode) labels.push(`预筛同款：${prefilter.styleCode}`)
   if (prefilter.spuCode) labels.push(`预筛 SPU：${prefilter.spuCode}`)
   if (prefilter.urgencyLevel) labels.push(`预筛紧急度：${urgencyMeta[prefilter.urgencyLevel].label}`)
@@ -563,7 +563,7 @@ function renderEmptyStateIfNeeded(groups: ReturnType<typeof getVisibleGroups>): 
 
   return `
     <section class="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-      当前筛选条件下暂无可排唛架裁片单，可调整筛选条件或从裁床生产单总览重新进入。
+      当前筛选条件下暂无可排唛架裁片单，可调整筛选条件或从生产单总览重新进入。
     </section>
   `
 }

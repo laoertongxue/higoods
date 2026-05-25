@@ -400,7 +400,7 @@ function getReasonMeta(reasonCode: BindingReasonCode): { label: string; action: 
     TASK_MISSING: { label: '移动端任务不存在', action: '补齐移动端任务或修正 taskId / taskNo' },
     TASK_NOT_BOUND: { label: '当前加工单尚未绑定移动端执行任务', action: '补充正确的 taskId / taskNo' },
     TASK_PROCESS_TYPE_MISMATCH: { label: '移动端任务工艺类型不匹配', action: '改绑同工艺的移动端任务' },
-    TASK_FACTORY_MISMATCH: { label: '当前任务不属于全能力测试工厂（F090）', action: '改绑 F090 / 全能力测试工厂的执行任务' },
+    TASK_FACTORY_MISMATCH: { label: '当前任务不属于当前工厂', action: '请切换到任务所属工厂账号后查看' },
     TASK_NOT_ACCEPTED: { label: '当前任务尚未接单，不能执行', action: '先在接单模块完成接单，再开放执行入口' },
     TASK_IN_BIDDING: { label: '当前任务仍在报价阶段，不能执行', action: '改绑已接单且可执行的移动端任务' },
     TASK_WAITING_AWARD: { label: '当前任务仍在待定标阶段，不能执行', action: '等待定标完成后再绑定执行任务' },
@@ -678,6 +678,7 @@ export function validatePostFinishingMobileTaskBinding(postOrderId: string): Pro
   const task = getPostFinishingTaskById(postOrderId)
   const order = task ? undefined : getPostFinishingWorkOrderById(postOrderId)
   const expectedTaskId = task?.postTaskId || order?.postTaskId || order?.sourceTaskId || ''
+  const expectedFactoryId = task?.managedPostFactoryId || order?.managedPostFactoryId || TEST_FACTORY_ID
   return validateBinding({
     workOrderId: task?.postTaskId || order?.postOrderId || postOrderId,
     workOrderNo: task?.postTaskNo || order?.postOrderNo || postOrderId,
@@ -686,10 +687,10 @@ export function validatePostFinishingMobileTaskBinding(postOrderId: string): Pro
     sourceId: postOrderId,
     expectedTaskId,
     expectedTaskNo: task?.postTaskNo || order?.postOrderNo || order?.sourceTaskNo,
-    expectedFactoryId: task?.managedPostFactoryId || order?.managedPostFactoryId || TEST_FACTORY_ID,
+    expectedFactoryId,
     sourceExists: Boolean(task || order),
     actualTask: expectedTaskId ? getPdaMobileExecutionTaskById(expectedTaskId) : null,
-    currentFactoryId: TEST_FACTORY_ID,
+    currentFactoryId: expectedFactoryId,
   })
 }
 

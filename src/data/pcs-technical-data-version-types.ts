@@ -2,6 +2,8 @@ export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
 export type TechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK' | 'MANUAL'
 export type TechPackVersionChangeScope = '制版生成' | '花型写入' | '花型替换' | '改版生成' | '手动新增'
+export type TechnicalGarmentDifficultyGrade = 'A' | 'A+' | 'A++' | 'B' | 'C' | 'D'
+export const TECHNICAL_GARMENT_DIFFICULTY_GRADES: TechnicalGarmentDifficultyGrade[] = ['A', 'A+', 'A++', 'B', 'C', 'D']
 
 export type TechnicalPatternMaterialType = 'WOVEN' | 'WOOL' | 'UNKNOWN'
 export type TechnicalPatternFileMode = 'PAIRED_DXF_RUL' | 'SINGLE_FILE'
@@ -372,6 +374,7 @@ export interface TechnicalDataVersionRecord {
   baseTechnicalVersionCode: string
   changeScope: TechPackVersionChangeScope
   changeSummary: string
+  garmentDifficultyGrade: TechnicalGarmentDifficultyGrade
   linkedPartTemplateIds: string[]
   linkedPatternLibraryVersionIds: string[]
   linkedPatternAssetIds?: string[]

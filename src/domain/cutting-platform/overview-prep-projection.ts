@@ -1,5 +1,5 @@
 import type { CuttingOrderProgressRecord, CuttingMaterialLine } from '../../data/fcs/cutting/types'
-import type { PdaPickupWritebackRecord } from '../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
+import type { PdaPickupEventRecord } from '../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import type { CutOrderRef } from '../cutting-core/index.ts'
 import type { CuttingDomainSnapshot } from '../fcs-cutting-runtime/index.ts'
 
@@ -51,7 +51,7 @@ interface PrepGroupProjection {
   cutOrderNo: string
   materialSkus: string[]
   lines: CuttingMaterialLine[]
-  latestWriteback: PdaPickupWritebackRecord | null
+  latestPickupEvent: PdaPickupEventRecord | null
   latestResultStatus: PlatformPickupResultStatus
   latestResultLabel: string
   latestScannedAt: string
@@ -106,7 +106,7 @@ function toReceiptStatusLabel(status: PlatformPickupReceiptStatus): string {
   return '未回执'
 }
 
-function deriveStatusFromWriteback(record: PdaPickupWritebackRecord): PlatformPickupResultStatus {
+function deriveStatusFromPickupEvent(record: PdaPickupEventRecord): PlatformPickupResultStatus {
   const resultLabel = record.resultLabel || ''
   if (/成功|正常|匹配|一致/.test(resultLabel)) return 'MATCHED'
   if ((record.photoProofCount || 0) > 0) return 'PHOTO_SUBMITTED'
@@ -189,16 +189,16 @@ function buildGroupProjection(options: {
   cutOrderId: string
   cutOrderNo: string
   lines: CuttingMaterialLine[]
-  writebacks: PdaPickupWritebackRecord[]
+  pickupEvents: PdaPickupEventRecord[]
 }): PrepGroupProjection {
-  const sortedWritebacks = options.writebacks
+  const sortedPickupEvents = options.pickupEvents
     .slice()
     .sort((left, right) => compareDateTime(right.submittedAt, left.submittedAt))
-  const latestWriteback = sortedWritebacks[0] || null
-  const latestResultStatus = latestWriteback
-    ? deriveStatusFromWriteback(latestWriteback)
+  const latestPickupEvent = sortedPickupEvents[0] || null
+  const latestResultStatus = latestPickupEvent
+    ? deriveStatusFromPickupEvent(latestPickupEvent)
     : deriveStatusFromLines(options.lines)
-  const latestResultLabel = latestWriteback?.resultLabel || toResultLabel(latestResultStatus)
+  const latestResultLabel = latestPickupEvent?.resultLabel || toResultLabel(latestResultStatus)
   const receiptStatus = toReceiptStatus(latestResultStatus)
   const receiptStatusLabel = toReceiptStatusLabel(receiptStatus)
   const printed = options.lines.some((line) => line.printSlipStatus === 'PRINTED')
@@ -208,11 +208,11 @@ function buildGroupProjection(options: {
   const latestPrintVersionNo = buildPrintVersionNo(pickupSlipNo, printCopyCount)
   const qrCodeValue = qrGenerated ? buildQrCodeValue(options.cutOrderId, options.cutOrderNo) : '-'
   const materialSkus = unique(options.lines.map((line) => line.materialSku))
-  const hasPhotoEvidence = sortedWritebacks.some((item) => item.photoProofCount > 0)
-  const photoProofCount = sortedWritebacks.reduce((sum, item) => sum + Number(item.photoProofCount || 0), 0)
+  const hasPhotoEvidence = sortedPickupEvents.some((item) => item.photoProofCount > 0)
+  const photoProofCount = sortedPickupEvents.reduce((sum, item) => sum + Number(item.photoProofCount || 0), 0)
   const needsRecheck = latestResultStatus === 'RECHECK_REQUIRED' || options.lines.some((line) => line.issueFlags.includes('RECEIVE_DIFF'))
-  const latestScannedAt = latestWriteback?.submittedAt || options.record.lastPickupScanAt || '-'
-  const latestScannedBy = latestWriteback?.operatorName || options.record.lastOperatorName || '-'
+  const latestScannedAt = latestPickupEvent?.submittedAt || options.record.lastPickupScanAt || '-'
+  const latestScannedBy = latestPickupEvent?.operatorName || options.record.lastOperatorName || '-'
   const printSlipStatusLabel = printed ? '已打印' : '未打印'
   const qrBindingSummaryText = qrGenerated
     ? `主码已按裁片单生成，覆盖 ${materialSkus.length || options.lines.length || 1} 个面料项`
@@ -223,7 +223,7 @@ function buildGroupProjection(options: {
     cutOrderNo: options.cutOrderNo,
     materialSkus,
     lines: options.lines,
-    latestWriteback,
+    latestPickupEvent,
     latestResultStatus,
     latestResultLabel,
     latestScannedAt,
@@ -342,9 +342,9 @@ export function buildPlatformCuttingPrepProjection(
   cutOrderRefs: CutOrderRef[],
 ): PlatformCuttingPrepProjection {
   const groupedLines = groupLinesByCutOrder(record, cutOrderRefs)
-  const pickupWritebacks = snapshot.pdaExecutionState.pickupWritebacks as unknown as PdaPickupWritebackRecord[]
+  const pickupEvents = snapshot.pdaExecutionState.pickupEvents as unknown as PdaPickupEventRecord[]
   const groups = groupedLines.map((group) => {
-    const writebacks = pickupWritebacks.filter(
+    const matchedPickupEvents = pickupEvents.filter(
       (item) => {
         if (group.cutOrderId) return item.cutOrderId === group.cutOrderId
         if (group.cutOrderNo) return item.cutOrderNo === group.cutOrderNo
@@ -356,7 +356,7 @@ export function buildPlatformCuttingPrepProjection(
       cutOrderId: group.cutOrderId,
       cutOrderNo: group.cutOrderNo,
       lines: group.lines,
-      writebacks,
+      pickupEvents: matchedPickupEvents,
     })
   })
   const aggregate = buildAggregate(groups, record)

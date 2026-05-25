@@ -162,6 +162,19 @@ function getOrderListStatusDisplay(order: ProductionOrder): { label: string; col
   return productionOrderStatusConfig[order.status] ?? { label: order.status, color: 'bg-slate-100 text-slate-700' }
 }
 
+function renderGarmentDifficultyBadge(grade: string): string {
+  if (!grade || grade === '-') return '<span class="text-muted-foreground">-</span>'
+  const classMap: Record<string, string> = {
+    'A++': 'bg-red-100 text-red-700',
+    'A+': 'bg-orange-100 text-orange-700',
+    A: 'bg-amber-100 text-amber-700',
+    B: 'bg-blue-100 text-blue-700',
+    C: 'bg-slate-100 text-slate-700',
+    D: 'bg-zinc-100 text-zinc-700',
+  }
+  return renderBadge(grade, classMap[grade] ?? 'bg-slate-100 text-slate-700')
+}
+
 function renderOrderDemandSnapshotDrawer(): string {
   const order = getOrderById(state.ordersDemandSnapshotId)
   if (!order) return ''
@@ -917,6 +930,7 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">SPU</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">状态</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">技术包快照版本</th>
+                <th class="min-w-[90px] px-3 py-3 text-left font-medium">做货难度</th>
                 <th class="min-w-[120px] px-3 py-3 text-left font-medium">任务准备</th>
                 <th class="min-w-[120px] px-3 py-3 text-left font-medium">总标准工时</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">分配概览</th>
@@ -931,7 +945,7 @@ export function renderProductionOrdersPage(): string {
             <tbody>
               ${
                 pagedOrders.length === 0
-                  ? renderEmptyRow(15, '暂无数据')
+                  ? renderEmptyRow(16, '暂无数据')
                   : pagedOrders
                     .map((order) => {
                         const assignment = getOrderDisplayAssignmentSnapshot(order)
@@ -978,6 +992,9 @@ export function renderProductionOrdersPage(): string {
                                   <span>冻结时间 ${escapeHtml(techPackSnapshotDisplay.techPackSnapshotAt)}</span>
                                 </div>
                               </div>
+                            </td>
+                            <td class="px-3 py-3">
+                              ${renderGarmentDifficultyBadge(techPackSnapshotDisplay.garmentDifficultyGrade)}
                             </td>
                             <td class="px-3 py-3">
                               <div class="text-sm">

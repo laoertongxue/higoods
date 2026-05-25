@@ -6,16 +6,13 @@ import {
 } from '../data/fcs/pda-cutting-execution-source.ts'
 import { buildPdaCuttingSpreadingProjection } from './pda-cutting-spreading-projection'
 import {
-  buildPdaCuttingWritebackSource,
-  resolvePdaCuttingWritebackIdentity,
-  resolvePdaCuttingWritebackOperator,
-  type CuttingPdaWritebackOperatorInput,
-} from '../data/fcs/pda-cutting-writeback-inputs.ts'
-import { writePdaSpreadingToFcs } from '../domain/cutting-pda-writeback/bridge.ts'
+  resolvePdaCuttingRuntimeIdentity,
+  resolvePdaCuttingRuntimeOperator,
+  type CuttingPdaRuntimeOperatorInput,
+} from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
 import {
-  appendPdaCuttingStageWritebackRecord,
-  type PdaCuttingSyncStatus,
-} from '../data/fcs/cutting/pda-cutting-stage-writeback.ts'
+  appendCuttingRuntimeEvent,
+} from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   findFactoryPdaRoleById,
   getCurrentPdaUser,
@@ -41,10 +38,10 @@ import {
 } from './pda-cutting-context'
 import { renderMaterialIdentityBlock } from './process-factory/cutting/material-identity'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
-import { executeMobileProcessAction } from '../data/fcs/process-action-writeback-service.ts'
 
 type SpreadingRecordType = '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
 type FeedbackTone = 'default' | 'success' | 'warning'
+type PdaCuttingSyncStatus = '已同步' | '待同步' | '同步失败'
 
 interface SpreadingReuseSnapshot {
   layerCount: string
@@ -200,6 +197,83 @@ function formatLength(value: number): string {
   return `${Number(value || 0).toFixed(2)} 米`
 }
 
+function buildCuttingActualOutputLines(
+  target: PdaCuttingSpreadingTarget,
+  actualCutQty: number,
+  occurredAt: string,
+): Array<{
+  outputId: string
+  color: string
+  size: string
+  partCode: string
+  partName: string
+  actualPieceQty: number
+  actualGarmentQty: number
+  unit: '片'
+}> {
+  const planUnits = target.planUnits
+    .map((unit) => ({
+      ...unit,
+      sizeRows: unit.sizeRows.filter((sizeRow) => Boolean(sizeRow.size || sizeRow.skuCode)),
+      partRows: unit.partRows.filter((partRow) => Boolean(partRow.partCode || partRow.partName)),
+    }))
+    .filter((unit) => unit.sizeRows.length > 0 && unit.partRows.length > 0)
+
+  const allocateByWeight = <T extends { weight: number }>(totalQty: number, rows: T[]): Array<T & { allocatedQty: number }> => {
+    if (!rows.length) return []
+    const totalWeight = rows.reduce((sum, row) => sum + Math.max(Number(row.weight || 0), 0), 0)
+    let allocated = 0
+    return rows.map((row, index) => {
+      const isLast = index === rows.length - 1
+      const ratio = totalWeight > 0 ? Math.max(Number(row.weight || 0), 0) / totalWeight : 1 / rows.length
+      const allocatedQty = isLast ? Math.max(totalQty - allocated, 0) : Math.max(Math.round(totalQty * ratio), 0)
+      allocated += allocatedQty
+      return { ...row, allocatedQty }
+    })
+  }
+
+  const totalPlanned = planUnits.reduce((sum, unit) => sum + Math.max(Number(unit.plannedCutGarmentQty || 0), 0), 0)
+  const timestampKey = occurredAt.replace(/[^0-9]/g, '')
+  return allocateByWeight(
+    actualCutQty,
+    planUnits.map((unit) => ({
+      unit,
+      weight: totalPlanned > 0 ? Math.max(Number(unit.plannedCutGarmentQty || 0), 0) : 1,
+    })),
+  ).flatMap(({ unit, allocatedQty: unitGarmentQty }) => {
+    return allocateByWeight(
+      unitGarmentQty,
+      unit.sizeRows.map((sizeRow) => ({
+        sizeRow,
+        weight: Math.max(Number(sizeRow.plannedQty || 0), 0),
+      })),
+    ).flatMap(({ sizeRow, allocatedQty: sizeGarmentQty }) =>
+      unit.partRows.map((partRow, partIndex) => {
+        const pieceCountPerUnit = Math.max(Number(partRow.pieceCountPerUnit || 0), 1)
+        const partCode = String(partRow.partCode || partRow.partName || '')
+        const partName = String(partRow.partName || partRow.partCode || '')
+        return {
+          outputId: `actual-output:${target.spreadingSessionId || target.markerId || target.title}:${unit.planUnitId}:${sizeRow.skuCode || sizeRow.size}:${partCode}:${partIndex + 1}:${timestampKey}`,
+          color: sizeRow.color || unit.color || target.colorSummary || '综合颜色',
+          size: sizeRow.size || sizeRow.skuCode,
+          partCode,
+          partName,
+          actualPieceQty: Math.max(sizeGarmentQty * pieceCountPerUnit, 0),
+          actualGarmentQty: sizeGarmentQty,
+          unit: '片' as const,
+        }
+      }),
+    )
+  })
+}
+
+function hasCuttingOutputBreakdown(target: PdaCuttingSpreadingTarget | null): boolean {
+  return Boolean(target?.planUnits?.some((unit) =>
+    unit.sizeRows.some((sizeRow) => Boolean(sizeRow.size || sizeRow.skuCode))
+    && unit.partRows.some((partRow) => Boolean(partRow.partCode || partRow.partName)),
+  ))
+}
+
 function resolveRecordHandoverResultLabel(label?: string | null): string {
   return normalizePdaCuttingHandoverResultLabel(label)
 }
@@ -225,7 +299,7 @@ function resolveRoleName(roleId: string): string {
     || roleId
 }
 
-function resolveCurrentOperator(taskId: string, detail: PdaCuttingTaskDetailData): CuttingPdaWritebackOperatorInput {
+function resolveCurrentOperator(taskId: string, detail: PdaCuttingTaskDetailData): CuttingPdaRuntimeOperatorInput {
   const session = getPdaSession()
   const pdaUser = getCurrentPdaUser()
   if (session?.userId && pdaUser) {
@@ -251,7 +325,7 @@ function resolveCurrentOperator(taskId: string, detail: PdaCuttingTaskDetailData
     }
   }
 
-  return resolvePdaCuttingWritebackOperator(taskId, '现场铺布员')
+  return resolvePdaCuttingRuntimeOperator(taskId, '现场铺布员')
 }
 
 function buildHandoverOptions(taskId: string, detail: PdaCuttingTaskDetailData): Array<{ accountId: string; name: string }> {
@@ -721,7 +795,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
     const detail = context.detail
-    const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+    const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
       executionOrderId: context.selectedExecutionOrderId || undefined,
       executionOrderNo: context.selectedExecutionOrderNo || undefined,
     })
@@ -733,26 +807,40 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       return true
     }
     const operator = resolveCurrentOperator(taskId, detail)
-    const record = appendPdaCuttingStageWritebackRecord({
-      taskId,
-      executionOrderId: identity.executionOrderId,
-      executionOrderNo: identity.executionOrderNo,
-      cutOrderId: identity.cutOrderId,
-      cutOrderNo: identity.cutOrderNo,
-      markerPlanId: identity.markerPlanId,
-      markerPlanNo: identity.markerPlanNo,
-      actionType: 'START_WORK',
+    const startedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+    const event = appendCuttingRuntimeEvent({
+      eventType: '裁片单开工',
+      eventSource: 'PDA',
+      eventStatus: '已同步',
+      occurredAt: startedAt,
+      operatorId: operator.operatorAccountId,
       operatorName: operator.operatorName,
-      syncStatus: '已同步',
-      note: 'PDA 开工写回，裁床任务进入可铺布。',
+      operatorRole: operator.operatorRole || '裁床组长',
+      refs: {
+        productionOrderId: identity.productionOrderId,
+        productionOrderNo: identity.productionOrderNo,
+        cutOrderId: identity.cutOrderId,
+        cutOrderNo: identity.cutOrderNo,
+        markerPlanId: identity.markerPlanId,
+        markerPlanNo: identity.markerPlanNo,
+        spreadingOrderId: identity.executionOrderId,
+        spreadingOrderNo: identity.executionOrderNo,
+      },
+      payload: {
+        cutOrderId: identity.cutOrderId,
+        cutOrderNo: identity.cutOrderNo,
+        startedAt,
+        startedBy: operator.operatorName,
+        startSource: 'PDA',
+      },
     })
-    form.feedbackMessage = `开工已提交，${record.submittedAt}`
+    form.feedbackMessage = `开工已提交，${event.occurredAt}`
     form.feedbackTone = 'success'
-    form.syncStatus = record.syncStatus
+    form.syncStatus = '已同步'
     const feedback = document.querySelector<HTMLElement>('[data-pda-cutting-spreading-stage-feedback]')
     if (feedback) {
       feedback.classList.remove('hidden')
-      feedback.textContent = `${record.syncStatus}：开工已提交，${record.submittedAt}`
+      feedback.textContent = `已同步：开工已提交，${event.occurredAt}`
     }
     syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     return true
@@ -783,7 +871,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
     const detail = context.detail
-    const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+    const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
       executionOrderId: context.selectedExecutionOrderId || undefined,
       executionOrderNo: context.selectedExecutionOrderNo || undefined,
       cutOrderId: context.selectedExecutionOrder?.cutOrderId || undefined,
@@ -819,31 +907,95 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
         return true
       }
-      const record = appendPdaCuttingStageWritebackRecord({
-        taskId,
-        executionOrderId: identity.executionOrderId,
-        executionOrderNo: identity.executionOrderNo,
-        cutOrderId: identity.cutOrderId,
-        cutOrderNo: identity.cutOrderNo,
-        markerPlanId: identity.markerPlanId,
-        markerPlanNo: identity.markerPlanNo,
-        actionType: actionLabel === '开始裁剪' ? 'START_CUTTING' : 'FINISH_CUTTING',
-        operatorName: form.cuttingOperator.trim() || operator.operatorName,
-        syncStatus: '已同步',
-        actualCutQty: actionLabel === '完成裁剪' ? actualCutQty : undefined,
-        actualUsage: actionLabel === '完成裁剪' ? actualUsage : undefined,
-        varianceFlag: actionLabel === '完成裁剪' && plannedCutQty > 0 && actualCutQty < plannedCutQty,
-        note: [form.note.trim(), actionLabel === '完成裁剪' && plannedCutQty > 0 && actualCutQty < plannedCutQty ? '实际裁剪数量小于计划，已标记差异。' : '']
-          .filter(Boolean)
-          .join('；'),
-      })
+      const submittedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+      const varianceFlag = actionLabel === '完成裁剪' && plannedCutQty > 0 && actualCutQty < plannedCutQty
+      if (actionLabel === '完成裁剪') {
+        if (!hasCuttingOutputBreakdown(selectedTarget)) {
+          form.feedbackMessage = '当前铺布单缺少尺码或部位明细，不能生成实际裁剪产出。'
+          form.feedbackTone = 'warning'
+          syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+          return true
+        }
+        const cuttingCompletedAt = submittedAt
+        const outputLines = buildCuttingActualOutputLines(selectedTarget, actualCutQty, cuttingCompletedAt)
+        appendCuttingRuntimeEvent({
+          eventType: '完成裁剪',
+          eventSource: 'PDA',
+          eventStatus: '已同步',
+          occurredAt: cuttingCompletedAt,
+          operatorId: operator.operatorAccountId,
+          operatorName: form.cuttingOperator.trim() || operator.operatorName,
+          operatorRole: operator.operatorRole || '裁剪人员',
+          refs: {
+            productionOrderId: context.selectedExecutionOrder?.productionOrderId || '',
+            productionOrderNo: context.selectedExecutionOrder?.productionOrderNo || selectedTarget.productionOrderNo || '',
+            cutOrderId: identity.cutOrderId,
+            cutOrderNo: identity.cutOrderNo,
+            markerPlanId: identity.markerPlanId,
+            markerPlanNo: identity.markerPlanNo || selectedTarget.markerPlanNo,
+            spreadingOrderId: selectedTarget.spreadingSessionId || identity.executionOrderId,
+            spreadingOrderNo: selectedTarget.title || identity.executionOrderNo,
+          },
+          material: {
+            materialSku: selectedTarget.materialSku || identity.materialSku,
+            materialName: selectedTarget.materialAlias || selectedTarget.materialSku || identity.materialSku,
+            materialColor: selectedTarget.colorSummary || '',
+            materialAlias: selectedTarget.materialAlias || '',
+            unit: '米',
+          },
+          payload: {
+            spreadingOrderId: selectedTarget.spreadingSessionId || identity.executionOrderId,
+            spreadingOrderNo: selectedTarget.title || identity.executionOrderNo,
+            cuttingCompletedAt,
+            cuttingCompletedBy: form.cuttingOperator.trim() || operator.operatorName,
+            actualMaterialUsage: actualUsage,
+            actualMaterialUsageUnit: '米',
+            outputLines,
+            hasDifference: plannedCutQty > 0 && actualCutQty < plannedCutQty,
+            differenceTypes: plannedCutQty > 0 && actualCutQty < plannedCutQty ? ['实裁小于计划'] : [],
+          },
+        })
+      } else {
+        appendCuttingRuntimeEvent({
+          eventType: '开始裁剪',
+          eventSource: 'PDA',
+          eventStatus: '已同步',
+          occurredAt: submittedAt,
+          operatorId: operator.operatorAccountId,
+          operatorName: form.cuttingOperator.trim() || operator.operatorName,
+          operatorRole: operator.operatorRole || '裁剪人员',
+          refs: {
+            productionOrderId: context.selectedExecutionOrder?.productionOrderId || '',
+            productionOrderNo: context.selectedExecutionOrder?.productionOrderNo || selectedTarget.productionOrderNo || '',
+            cutOrderId: identity.cutOrderId,
+            cutOrderNo: identity.cutOrderNo,
+            markerPlanId: identity.markerPlanId,
+            markerPlanNo: identity.markerPlanNo || selectedTarget.markerPlanNo,
+            spreadingOrderId: selectedTarget.spreadingSessionId || identity.executionOrderId,
+            spreadingOrderNo: selectedTarget.title || identity.executionOrderNo,
+          },
+          material: {
+            materialSku: selectedTarget.materialSku || identity.materialSku,
+            materialName: selectedTarget.materialAlias || selectedTarget.materialSku || identity.materialSku,
+            materialColor: selectedTarget.colorSummary || '',
+            materialAlias: selectedTarget.materialAlias || '',
+            unit: '米',
+          },
+          payload: {
+            spreadingOrderId: selectedTarget.spreadingSessionId || identity.executionOrderId,
+            spreadingOrderNo: selectedTarget.title || identity.executionOrderNo,
+            startedAt: submittedAt,
+            startedBy: form.cuttingOperator.trim() || operator.operatorName,
+          },
+        })
+      }
       form.actualCutQty = ''
       form.actualUsage = ''
       form.photoProofCount = ''
       form.note = ''
-      form.feedbackMessage = `${actionLabel}已提交，${record.varianceFlag ? '已标记差异，' : ''}${record.submittedAt}`
+      form.feedbackMessage = `${actionLabel}已提交，${varianceFlag ? '已标记差异，' : ''}${submittedAt}`
       form.feedbackTone = 'success'
-      form.syncStatus = record.syncStatus
+      form.syncStatus = '已同步'
       form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
         taskId,
         context.selectedExecutionOrderId,
@@ -889,99 +1041,61 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
 
     const fabricRollNo = form.fabricRollNo.trim()
     const recordType = actionLabel === '完成铺布' ? '完成铺布' : '开始铺布'
-    const actionCode =
-      recordType === '完成铺布'
-        ? 'CUTTING_FINISH_SPREADING'
-        : 'CUTTING_START_SPREADING'
-
-    try {
-      executeMobileProcessAction({
-        sourceType: 'CUTTING',
-        sourceId: identity.cutOrderId,
-        taskId,
-        actionCode,
-        operatorName: operator.operatorName,
-        operatedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
-        objectType: '面料',
-        objectQty: actualLength,
-        qtyUnit: '米',
-        formData: {
-          裁床组: operator.operatorRole || operator.operatorName,
-          唛架编号: selectedTarget.markerNo || selectedTarget.sourceMarkerLabel,
-          铺布层数: layerCount,
-          铺布实际长度: actualLength,
-        },
-        remark: [form.note.trim(), `移动端${recordType}`, `唛架编号：${selectedTarget.markerNo || selectedTarget.sourceMarkerLabel}`, `卷号：${fabricRollNo}`].filter(Boolean).join('；'),
-      })
-    } catch (error) {
-      form.feedbackMessage = error instanceof Error ? error.message : '统一写回失败'
-      form.feedbackTone = 'warning'
-      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
-      return true
-    }
-
-    const result = writePdaSpreadingToFcs({
-      identity,
-      operator,
-      source: buildPdaCuttingWritebackSource('spreading', selectedTarget.spreadingSessionId || selectedTarget.targetKey),
-      spreadingSessionId: selectedTarget.spreadingSessionId || '',
-      markerId: selectedTarget.markerId || '',
-      markerNo: selectedTarget.markerNo || '',
-      planUnitId: selectedPlanUnit.planUnitId,
-      planUnits: selectedTarget.planUnits.map((unit) => ({
-        planUnitId: unit.planUnitId,
-        sourceType: unit.sourceType,
-        sourceLineId: unit.sourceLineId,
-        color: unit.color,
-        materialSku: unit.materialSku,
-        garmentQtyPerUnit: unit.garmentQtyPerUnit,
-        plannedRepeatCount: unit.plannedRepeatCount,
-        lengthPerUnitM: unit.lengthPerUnitM,
-        plannedCutGarmentQty: unit.plannedCutGarmentQty,
-        plannedSpreadLengthM: unit.plannedSpreadLengthM,
-      })),
-      spreadingMode: selectedTarget.spreadingMode,
-      recordType,
-      fabricRollNo,
-      operatorActionType: recordType,
-      handoverFlag: false,
-      handoverNote: '',
-      handoverToAccountId: '',
-      handoverToName: '',
-      layerCount,
-      actualLength,
-      headLength,
-      tailLength,
-      note: [form.note.trim(), `铺布单：${selectedTarget.title}`, `唛架编号：${selectedTarget.markerNo || selectedTarget.sourceMarkerLabel}`, `模式：${getSpreadingModeLabel(selectedTarget.spreadingMode)}`]
-        .filter(Boolean)
-        .join('；'),
-    })
-    if (!result.success) {
-      form.feedbackMessage = result.issues.join('；')
-      form.feedbackTone = 'warning'
-      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
-      return true
-    }
-
-    const stageRecord = appendPdaCuttingStageWritebackRecord({
-      taskId,
-      executionOrderId: identity.executionOrderId,
-      executionOrderNo: identity.executionOrderNo,
-      cutOrderId: identity.cutOrderId,
-      cutOrderNo: identity.cutOrderNo,
-      markerPlanId: identity.markerPlanId,
-      markerPlanNo: identity.markerPlanNo,
-      actionType: recordType === '完成铺布' ? 'FINISH_SPREADING' : 'START_SPREADING',
+    const submittedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+    const varianceFlag = getPlannedLayerCount(selectedTarget) > 0 && layerCount < getPlannedLayerCount(selectedTarget)
+    const runtimeEvent = appendCuttingRuntimeEvent({
+      eventType: recordType === '完成铺布' ? '完成铺布' : '开始铺布',
+      eventSource: 'PDA',
+      eventStatus: '已同步',
+      occurredAt: submittedAt,
+      operatorId: operator.operatorAccountId,
       operatorName: operator.operatorName,
-      syncStatus: '已同步',
-      actualLayerCount: layerCount,
-      actualSpreadLength: actualLength,
-      headLength,
-      tailLength,
-      varianceFlag: getPlannedLayerCount(selectedTarget) > 0 && layerCount < getPlannedLayerCount(selectedTarget),
-      note: [form.note.trim(), getPlannedLayerCount(selectedTarget) > 0 && layerCount < getPlannedLayerCount(selectedTarget) ? '实铺层数小于计划，已标记差异。' : '']
-        .filter(Boolean)
-        .join('；'),
+      operatorRole: operator.operatorRole || '铺布人员',
+      refs: {
+        productionOrderId: context.selectedExecutionOrder?.productionOrderId || '',
+        productionOrderNo: context.selectedExecutionOrder?.productionOrderNo || selectedTarget.productionOrderNo || '',
+        cutOrderId: identity.cutOrderId,
+        cutOrderNo: identity.cutOrderNo,
+        markerPlanId: identity.markerPlanId,
+        markerPlanNo: identity.markerPlanNo || selectedTarget.markerPlanNo,
+        spreadingOrderId: selectedTarget.spreadingSessionId || identity.executionOrderId,
+        spreadingOrderNo: selectedTarget.title || identity.executionOrderNo,
+      },
+      material: {
+        materialSku: selectedTarget.materialSku || identity.materialSku,
+        materialName: selectedTarget.materialAlias || selectedTarget.materialSku || identity.materialSku,
+        materialColor: selectedTarget.colorSummary || '',
+        materialAlias: selectedTarget.materialAlias || '',
+        unit: '米',
+      },
+      payload: recordType === '完成铺布'
+        ? {
+            spreadingOrderId: selectedTarget.spreadingSessionId || identity.executionOrderId,
+            spreadingOrderNo: selectedTarget.title || identity.executionOrderNo,
+            actualLayerCount: layerCount,
+            actualSpreadLength: actualLength,
+            actualMaterialUsage: getGrossOccupiedLength(form),
+            headLength,
+            tailLength,
+            unit: '米',
+            rollNos: [fabricRollNo],
+            operatorNames: [operator.operatorName],
+            finishedAt: submittedAt,
+          }
+        : {
+            spreadingOrderId: selectedTarget.spreadingSessionId || identity.executionOrderId,
+            spreadingOrderNo: selectedTarget.title || identity.executionOrderNo,
+            fabricRollNo,
+            actualLayerCount: layerCount,
+            actualSpreadLength: actualLength,
+            headLength,
+            tailLength,
+            startedAt: submittedAt,
+            startedBy: operator.operatorName,
+            note: [form.note.trim(), `唛架编号：${selectedTarget.markerNo || selectedTarget.sourceMarkerLabel}`, `模式：${getSpreadingModeLabel(selectedTarget.spreadingMode)}`]
+              .filter(Boolean)
+              .join('；'),
+          },
     })
 
     form.lastSubmittedSnapshot = snapshot
@@ -994,9 +1108,9 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     form.handoverNote = ''
     form.note = ''
     form.photoProofCount = ''
-    form.feedbackMessage = `${recordType}已提交，${stageRecord.varianceFlag ? '已标记差异，' : ''}${stageRecord.submittedAt}`
+    form.feedbackMessage = `${recordType}已提交，${varianceFlag ? '已标记差异，' : ''}${runtimeEvent.occurredAt}`
     form.feedbackTone = 'success'
-    form.syncStatus = stageRecord.syncStatus
+    form.syncStatus = '已同步'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,
       context.selectedExecutionOrderId,

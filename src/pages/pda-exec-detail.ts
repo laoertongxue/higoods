@@ -105,11 +105,19 @@ import {
 } from '../data/fcs/process-quantity-labels.ts'
 import type {
   PostFinishingActionType,
+  PostFinishingQcPostProjectJudgement,
+  PostFinishingQcSkuResult,
+  PostFinishingRecheckSkuResult,
   PostFinishingTaskView,
+  PostFinishingWaitQcSkuItem,
   PostFinishingWorkOrder,
   SewingFactoryPostTask,
 } from '../data/fcs/post-finishing-domain.ts'
 import {
+  completePostFinishingProjectLine,
+  completePostFinishingQcOrder,
+  completePostFinishingRecheckOrder,
+  createPostFinishingQcOrder,
   getPostFinishingFlowText,
   getPostFinishingSourceLabel,
   getPostFinishingTaskById,
@@ -120,6 +128,7 @@ import {
   listPostFinishingWorkOrders,
   listSewingFactoryPostTasks,
   finishSewingFactoryPostTask,
+  startPostFinishingProjectLine,
   startSewingFactoryPostTask,
   transferSewingFactoryPostTaskToManagedFactory,
 } from '../data/fcs/post-finishing-domain.ts'
@@ -2120,6 +2129,251 @@ function renderPostFinishingActionButton(
   `
 }
 
+const PDA_POST_PROJECT_OPTIONS: Array<PostFinishingQcPostProjectJudgement['projectName']> = ['开扣眼', '装扣子', '熨烫', '包装']
+
+function buildPdaPostTaskActionHref(execId: string, action: string, params: Record<string, string> = {}): string {
+  const search = new URLSearchParams({ postMobileAction: action, ...params })
+  return `/fcs/pda/exec/${encodeURIComponent(execId)}?${search.toString()}`
+}
+
+function getPdaPostMobileAction(): string {
+  return new URLSearchParams(window.location.search).get('postMobileAction') || ''
+}
+
+function getPdaPostMobileParam(name: string): string {
+  return new URLSearchParams(window.location.search).get(name) || ''
+}
+
+function renderSkuThumb(imageUrl: string | undefined, label: string): string {
+  return imageUrl
+    ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(label)}" class="h-14 w-14 rounded-md border object-cover">`
+    : `<div class="flex h-14 w-14 items-center justify-center rounded-md border bg-muted text-[10px] text-muted-foreground">无图</div>`
+}
+
+function renderPdaPostActionHeader(title: string, subtitle: string): string {
+  return `
+    <div class="flex items-center gap-2">
+      <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">
+        <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
+        返回
+      </button>
+      <div>
+        <h1 class="text-base font-semibold">${escapeHtml(title)}</h1>
+        <div class="text-xs text-muted-foreground">${escapeHtml(subtitle)}</div>
+      </div>
+    </div>
+  `
+}
+
+function renderPdaPostCreateQcPage(execId: string, task: PostFinishingTaskView, waitItems: PostFinishingWaitQcSkuItem[]): string {
+  const cards = waitItems.map((item, index) => `
+    <article class="rounded-lg border bg-card p-3" data-pda-qc-card data-warehouse-record-id="${escapeHtml(item.warehouseRecordId)}" data-wait-qty="${item.waitQcQty}">
+      <label class="flex items-start gap-3">
+        <input type="checkbox" class="mt-1 h-4 w-4 rounded border" data-pda-qc-selected ${index === 0 ? 'checked' : ''}>
+        ${renderSkuThumb(item.skuImageUrl, item.skuCode)}
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-sm font-semibold">${escapeHtml(item.skuCode)}</div>
+          <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div>
+          <div class="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+            <div class="rounded-md bg-muted px-2 py-1"><div class="text-muted-foreground">当前库存</div><div class="font-semibold">${item.currentStockQty}</div></div>
+            <div class="rounded-md bg-muted px-2 py-1"><div class="text-muted-foreground">待质检</div><div class="font-semibold">${item.waitQcQty}</div></div>
+            <div class="rounded-md bg-muted px-2 py-1"><div class="text-muted-foreground">质检中</div><div class="font-semibold">${item.qcInProgressQty}</div></div>
+          </div>
+        </div>
+      </label>
+      <div class="mt-3 grid gap-1">
+        <label class="text-xs font-medium">本次质检数量</label>
+        <input type="number" min="0" max="${item.waitQcQty}" value="${item.waitQcQty}" class="h-10 rounded-md border px-3 text-sm" data-pda-qc-qty>
+      </div>
+    </article>
+  `).join('')
+
+  const content = `
+    <div class="space-y-4 bg-background p-4 pb-6">
+      ${renderPdaPostActionHeader('创建质检单', task.postTaskNo)}
+      <article class="rounded-lg border bg-card p-3 text-xs">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+          <span class="text-muted-foreground">生产单</span><span class="font-medium">${escapeHtml(task.productionOrderNo)}</span>
+          <span class="text-muted-foreground">后道工厂</span><span>${escapeHtml(task.managedPostFactoryName)}</span>
+        </div>
+      </article>
+      <div class="space-y-3">${cards || '<div class="rounded-md border bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">暂无待质检 SKU</div>'}</div>
+      <button type="button" class="inline-flex h-11 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50" data-pda-execd-action="post-mobile-create-qc-submit" data-post-task-id="${escapeHtml(task.postTaskId)}" ${waitItems.length ? '' : 'disabled'}>提交质检单</button>
+    </div>
+  `
+  void execId
+  return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+}
+
+function renderPdaPostCompleteQcPage(execId: string, qcOrderId: string): string {
+  const qc = listPostFinishingQcOrderEntities().find((item) => item.qcOrderId === qcOrderId || item.qcOrderNo === qcOrderId)
+  if (!qc) {
+    return renderPdaFrame(`<div class="p-4"><button class="mb-4 inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">返回</button><div class="rounded-md border bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">质检单不存在</div></div>`, 'exec', { disableTodoAutoOpen: true })
+  }
+
+  const cards = qc.qcSkuResults.map((result) => {
+    const projectNames = new Set(result.postProjectJudgements.filter((item) => item.needed).map((item) => item.projectName))
+    return `
+      <article class="rounded-lg border bg-card p-3" data-pda-qc-result-card
+        data-sku-line-id="${escapeHtml(result.skuLineId)}"
+        data-sku-id="${escapeHtml(result.skuId)}"
+        data-sku-code="${escapeHtml(result.skuCode)}"
+        data-sku-image-url="${escapeHtml(result.skuImageUrl || '')}"
+        data-color-name="${escapeHtml(result.colorName)}"
+        data-size-name="${escapeHtml(result.sizeName)}"
+        data-qty-unit="${escapeHtml(result.qtyUnit)}"
+        data-source-factory-id="${escapeHtml(qc.sourceFactoryId)}"
+        data-source-factory-name="${escapeHtml(qc.sourceFactoryName)}"
+      >
+        <div class="flex gap-3">
+          ${renderSkuThumb(result.skuImageUrl, result.skuCode)}
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-sm font-semibold">${escapeHtml(result.skuCode)}</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(result.colorName)} / ${escapeHtml(result.sizeName)}</div>
+          </div>
+        </div>
+        <div class="mt-3 grid grid-cols-3 gap-2">
+          <label class="grid gap-1 text-xs"><span>质检数量</span><input type="number" min="0" value="${result.inspectedQty}" class="h-9 rounded-md border px-2" data-qc-inspected></label>
+          <label class="grid gap-1 text-xs"><span>合格数量</span><input type="number" min="0" value="${result.qualifiedQty || result.inspectedQty}" class="h-9 rounded-md border px-2" data-qc-qualified></label>
+          <label class="grid gap-1 text-xs"><span>不合格数量</span><input type="number" min="0" value="${result.unqualifiedQty}" class="h-9 rounded-md border px-2" data-qc-unqualified></label>
+          <label class="grid gap-1 text-xs"><span>平台原因</span><input type="number" min="0" value="${result.platformReasonQty}" class="h-9 rounded-md border px-2" data-qc-platform></label>
+          <label class="grid gap-1 text-xs"><span>工厂原因</span><input type="number" min="0" value="${result.factoryReasonQty}" class="h-9 rounded-md border px-2" data-qc-factory></label>
+          <label class="grid gap-1 text-xs"><span>备注</span><input type="text" value="${escapeHtml(result.remark || '')}" class="h-9 rounded-md border px-2" data-qc-remark></label>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+          ${PDA_POST_PROJECT_OPTIONS.map((projectName) => `
+            <label class="inline-flex items-center gap-2 rounded-md border px-2 py-2">
+              <input type="checkbox" data-qc-project-name="${escapeHtml(projectName)}" ${projectNames.has(projectName) ? 'checked' : ''}>
+              <span>${escapeHtml(projectName)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </article>
+    `
+  }).join('')
+
+  const content = `
+    <div class="space-y-4 bg-background p-4 pb-6">
+      ${renderPdaPostActionHeader('完成质检', qc.qcOrderNo)}
+      <div class="space-y-3">${cards}</div>
+      <button type="button" class="inline-flex h-11 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-mobile-complete-qc-submit" data-qc-order-id="${escapeHtml(qc.qcOrderId)}" data-post-task-id="${escapeHtml(qc.postTaskId || execId)}">提交质检结果</button>
+    </div>
+  `
+  return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+}
+
+function renderPdaPostCompleteRecheckPage(execId: string, recheckOrderId: string): string {
+  const recheck = listPostFinishingRecheckOrderEntities().find((item) => item.recheckOrderId === recheckOrderId || item.recheckOrderNo === recheckOrderId)
+  if (!recheck) {
+    return renderPdaFrame(`<div class="p-4"><button class="mb-4 inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">返回</button><div class="rounded-md border bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">复检单不存在</div></div>`, 'exec', { disableTodoAutoOpen: true })
+  }
+
+  const cards = recheck.recheckSkuResults.map((result) => `
+    <article class="rounded-lg border bg-card p-3" data-pda-recheck-card
+      data-sku-line-id="${escapeHtml(result.skuLineId)}"
+      data-sku-id="${escapeHtml(result.skuId)}"
+      data-sku-code="${escapeHtml(result.skuCode)}"
+      data-sku-image-url="${escapeHtml(result.skuImageUrl || '')}"
+      data-color-name="${escapeHtml(result.colorName)}"
+      data-size-name="${escapeHtml(result.sizeName)}"
+      data-qty-unit="${escapeHtml(result.qtyUnit)}"
+    >
+      <div class="flex gap-3">
+        ${renderSkuThumb(result.skuImageUrl, result.skuCode)}
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-sm font-semibold">${escapeHtml(result.skuCode)}</div>
+          <div class="text-xs text-muted-foreground">${escapeHtml(result.colorName)} / ${escapeHtml(result.sizeName)}</div>
+        </div>
+      </div>
+      <div class="mt-3 grid grid-cols-3 gap-2">
+        <label class="grid gap-1 text-xs"><span>本次复检</span><input type="number" min="0" value="${result.recheckQty || result.waitRecheckQty}" class="h-9 rounded-md border px-2" data-recheck-qty></label>
+        <label class="grid gap-1 text-xs"><span>合格数量</span><input type="number" min="0" value="${result.qualifiedQty || result.waitRecheckQty}" class="h-9 rounded-md border px-2" data-recheck-qualified></label>
+        <label class="grid gap-1 text-xs"><span>不合格数量</span><input type="number" min="0" value="${result.unqualifiedQty}" class="h-9 rounded-md border px-2" data-recheck-unqualified></label>
+      </div>
+      <label class="mt-3 grid gap-1 text-xs"><span>备注</span><input type="text" value="${escapeHtml(result.remark || '')}" class="h-9 rounded-md border px-2" data-recheck-remark></label>
+    </article>
+  `).join('')
+
+  const content = `
+    <div class="space-y-4 bg-background p-4 pb-6">
+      ${renderPdaPostActionHeader('完成复检', recheck.recheckOrderNo)}
+      <div class="space-y-3">${cards}</div>
+      <button type="button" class="inline-flex h-11 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-mobile-complete-recheck-submit" data-recheck-order-id="${escapeHtml(recheck.recheckOrderId)}" data-post-task-id="${escapeHtml(recheck.postTaskId || execId)}">提交复检结果</button>
+    </div>
+  `
+  return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+}
+
+function readNumberFromElement(root: ParentNode, selector: string, fallback = 0): number {
+  const element = root.querySelector<HTMLInputElement>(selector)
+  const value = Number(element?.value || fallback)
+  return Number.isFinite(value) ? value : fallback
+}
+
+function readTextFromElement(root: ParentNode, selector: string): string {
+  return root.querySelector<HTMLInputElement>(selector)?.value.trim() || ''
+}
+
+function collectPdaQcSkuResults(qcOrderId: string): PostFinishingQcSkuResult[] {
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-pda-qc-result-card]')).map((card, index) => {
+    const inspectedQty = readNumberFromElement(card, '[data-qc-inspected]')
+    const qualifiedQty = readNumberFromElement(card, '[data-qc-qualified]')
+    const unqualifiedQty = readNumberFromElement(card, '[data-qc-unqualified]')
+    const platformReasonQty = readNumberFromElement(card, '[data-qc-platform]')
+    const factoryReasonQty = readNumberFromElement(card, '[data-qc-factory]')
+    const projectJudgements = Array.from(card.querySelectorAll<HTMLInputElement>('[data-qc-project-name]')).map((checkbox) => ({
+      projectName: checkbox.dataset.qcProjectName as PostFinishingQcPostProjectJudgement['projectName'],
+      needed: checkbox.checked,
+      qty: checkbox.checked ? Math.max(qualifiedQty, 0) : 0,
+    }))
+    return {
+      qcSkuResultId: `${qcOrderId}-PDA-${index + 1}`,
+      skuLineId: card.dataset.skuLineId || '',
+      skuId: card.dataset.skuId || '',
+      skuCode: card.dataset.skuCode || '',
+      skuImageUrl: card.dataset.skuImageUrl || undefined,
+      colorName: card.dataset.colorName || '',
+      sizeName: card.dataset.sizeName || '',
+      inspectedQty,
+      qualifiedQty,
+      unqualifiedQty,
+      platformReasonQty,
+      factoryReasonQty,
+      responsibleFactoryId: card.dataset.sourceFactoryId || undefined,
+      responsibleFactoryName: card.dataset.sourceFactoryName || undefined,
+      defectReasonItems: unqualifiedQty > 0 ? [{
+        reasonItemId: `${qcOrderId}-PDA-DEF-${index + 1}`,
+        reasonName: factoryReasonQty > 0 ? '做工原因' : '平台原因',
+        qty: unqualifiedQty,
+        liabilityType: factoryReasonQty > 0 ? '工厂' : '平台',
+        responsibleFactoryId: card.dataset.sourceFactoryId || undefined,
+        responsibleFactoryName: card.dataset.sourceFactoryName || undefined,
+      }] : [],
+      postProjectJudgements: projectJudgements,
+      qtyUnit: card.dataset.qtyUnit || '件',
+      remark: readTextFromElement(card, '[data-qc-remark]') || undefined,
+    }
+  })
+}
+
+function collectPdaRecheckSkuResults(recheckOrderId: string): PostFinishingRecheckSkuResult[] {
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-pda-recheck-card]')).map((card, index) => ({
+    recheckSkuResultId: `${recheckOrderId}-PDA-${index + 1}`,
+    skuLineId: card.dataset.skuLineId || '',
+    skuId: card.dataset.skuId || '',
+    skuCode: card.dataset.skuCode || '',
+    skuImageUrl: card.dataset.skuImageUrl || undefined,
+    colorName: card.dataset.colorName || '',
+    sizeName: card.dataset.sizeName || '',
+    waitRecheckQty: readNumberFromElement(card, '[data-recheck-qty]'),
+    recheckQty: readNumberFromElement(card, '[data-recheck-qty]'),
+    qualifiedQty: readNumberFromElement(card, '[data-recheck-qualified]'),
+    unqualifiedQty: readNumberFromElement(card, '[data-recheck-unqualified]'),
+    qtyUnit: card.dataset.qtyUnit || '件',
+    remark: readTextFromElement(card, '[data-recheck-remark]') || undefined,
+  }))
+}
+
 function canPostFinishingManagedFactoryOperate(order: PostFinishingWorkOrder): boolean {
   return order.isDedicatedPostFactory
 }
@@ -2142,10 +2396,62 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
   }
 
   if (!order.isPostDoneBySewingFactory && order.currentStatus === '待后道') {
-    actions.push(renderPostFinishingActionButton(order, '后道', 'start'))
+    const projectLines = order.postProjectLines.filter((line) => line.status === '待开始')
+    if (projectLines.length) {
+      actions.push(...projectLines.map((line) => `
+        <article class="rounded-md border bg-card p-3">
+          <div class="flex items-start gap-3">
+            ${renderSkuThumb(line.skuImageUrl, line.skuCode)}
+            <div class="min-w-0 flex-1 text-xs">
+              <div class="truncate text-sm font-semibold">${escapeHtml(line.projectName)}｜${escapeHtml(line.skuCode)}</div>
+              <div class="mt-0.5 text-muted-foreground">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeName)}</div>
+              <div class="mt-2 grid grid-cols-3 gap-2 text-center">
+                <div class="rounded bg-muted px-2 py-1"><div class="text-muted-foreground">计划</div><div class="font-semibold">${line.plannedQty}</div></div>
+                <div class="rounded bg-muted px-2 py-1"><div class="text-muted-foreground">完成</div><div class="font-semibold">${line.completedQty}</div></div>
+                <div class="rounded bg-muted px-2 py-1"><div class="text-muted-foreground">状态</div><div class="font-semibold">${escapeHtml(line.status)}</div></div>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="mt-3 inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-project-start" data-post-order-id="${escapeHtml(order.postOrderId)}" data-project-line-id="${escapeHtml(line.projectLineId)}">
+            开始后道
+          </button>
+        </article>
+      `))
+    } else {
+      actions.push(renderPostFinishingActionButton(order, '后道', 'start'))
+    }
   }
   if (!order.isPostDoneBySewingFactory && order.currentStatus === '后道中') {
-    actions.push(renderPostFinishingActionButton(order, '后道', 'finish'))
+    const projectLines = order.postProjectLines.filter((line) => line.status !== '已完成')
+    if (projectLines.length) {
+      actions.push(...projectLines.map((line) => `
+        <article class="rounded-md border bg-card p-3">
+          <div class="flex items-start gap-3">
+            ${renderSkuThumb(line.skuImageUrl, line.skuCode)}
+            <div class="min-w-0 flex-1 text-xs">
+              <div class="truncate text-sm font-semibold">${escapeHtml(line.projectName)}｜${escapeHtml(line.skuCode)}</div>
+              <div class="mt-0.5 text-muted-foreground">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeName)}</div>
+              <div class="mt-2 grid grid-cols-3 gap-2 text-center">
+                <div class="rounded bg-muted px-2 py-1"><div class="text-muted-foreground">计划</div><div class="font-semibold">${line.plannedQty}</div></div>
+                <div class="rounded bg-muted px-2 py-1"><div class="text-muted-foreground">完成</div><div class="font-semibold">${line.completedQty}</div></div>
+                <div class="rounded bg-muted px-2 py-1"><div class="text-muted-foreground">状态</div><div class="font-semibold">${escapeHtml(line.status)}</div></div>
+              </div>
+            </div>
+          </div>
+          ${line.status === '待开始' ? `
+            <button type="button" class="mt-3 inline-flex h-10 w-full items-center justify-center rounded-md border px-3 text-sm font-medium" data-pda-execd-action="post-project-start" data-post-order-id="${escapeHtml(order.postOrderId)}" data-project-line-id="${escapeHtml(line.projectLineId)}">
+              开始后道
+            </button>
+          ` : `
+            <button type="button" class="mt-3 inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-project-complete" data-post-order-id="${escapeHtml(order.postOrderId)}" data-project-line-id="${escapeHtml(line.projectLineId)}" data-project-planned-qty="${line.plannedQty}">
+              完成后道
+            </button>
+          `}
+        </article>
+      `))
+    } else {
+      actions.push(renderPostFinishingActionButton(order, '后道', 'finish'))
+    }
     actions.push(`
       <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-report-difference" data-post-order-id="${escapeHtml(order.postOrderId)}" data-task-id="${escapeHtml(order.sourceTaskId)}">
         上报差异
@@ -2157,7 +2463,11 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
     if (order.currentStatus === '待质检') {
       actions.push(renderPostFinishingActionButton(order, '质检', 'start', !receivedStatuses.includes(order.receiveAction.status)))
     } else if (order.currentStatus === '质检中') {
-      actions.push(renderPostFinishingActionButton(order, '质检', 'finish'))
+      actions.push(`
+        <button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-mobile-open-complete-qc" data-qc-order-id="${escapeHtml(order.qcOrderId || order.linkedQcOrderId)}" data-post-task-id="${escapeHtml(order.postTaskId || order.sourceTaskId)}">
+          完成质检
+        </button>
+      `)
       actions.push(`
         <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-report-difference" data-post-order-id="${escapeHtml(order.postOrderId)}" data-task-id="${escapeHtml(order.sourceTaskId)}">
           上报差异
@@ -2166,7 +2476,11 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
     }
 
     if (order.currentStatus === '复检中') {
-      actions.push(renderPostFinishingActionButton(order, '复检', 'finish'))
+      actions.push(`
+        <button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-mobile-open-complete-recheck" data-recheck-order-id="${escapeHtml(order.recheckOrderId || order.linkedRecheckOrderId)}" data-post-task-id="${escapeHtml(order.postTaskId || order.sourceTaskId)}">
+          完成复检
+        </button>
+      `)
       actions.push(`
         <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-report-difference" data-post-order-id="${escapeHtml(order.postOrderId)}" data-task-id="${escapeHtml(order.sourceTaskId)}">
           上报差异
@@ -2232,6 +2546,16 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
   const qcOrders = listPostFinishingQcOrderEntities().filter((item) => item.postTaskId === task.postTaskId || item.productionOrderNo === task.productionOrderNo)
   const postOrders = listPostFinishingWorkOrders().filter((item) => item.postTaskId === task.postTaskId || item.sourceProductionOrderNo === task.productionOrderNo)
   const recheckOrders = listPostFinishingRecheckOrderEntities().filter((item) => item.postTaskId === task.postTaskId || item.productionOrderNo === task.productionOrderNo)
+  const mobileAction = getPdaPostMobileAction()
+  if (mobileAction === 'create-qc') {
+    return renderPdaPostCreateQcPage(execId, task, waitItems)
+  }
+  if (mobileAction === 'complete-qc') {
+    return renderPdaPostCompleteQcPage(execId, getPdaPostMobileParam('qcOrderId'))
+  }
+  if (mobileAction === 'complete-recheck') {
+    return renderPdaPostCompleteRecheckPage(execId, getPdaPostMobileParam('recheckOrderId'))
+  }
   const waitQcQty = task.waitQcQty + task.qcInProgressQty
   const shouldGoHandover = task.currentStatus === '待上游交出' || task.currentStatus === '待收货'
   const isAccepted = task.acceptanceStatus === 'ACCEPTED'
@@ -2243,7 +2567,7 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
       ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-go-handover" data-post-task-id="${escapeHtml(task.postTaskId)}">去交接接收</button>`
       : '',
     task.waitQcQty > 0
-      ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-task-create-qc" data-post-task-id="${escapeHtml(task.postTaskId)}">创建质检单</button>`
+      ? `<a class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" href="${escapeHtml(buildPdaPostTaskActionHref(execId, 'create-qc'))}">创建质检单</a>`
       : '',
     postOrders[0]
       ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-task-open-order" data-post-order-id="${escapeHtml(postOrders[0].postOrderId)}">处理后道单</button>`
@@ -2251,9 +2575,9 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
   ].filter(Boolean).join('')
   const waitRows = waitItems.map((item) => `
     <tr>
-      <td class="px-3 py-2">${escapeHtml(item.skuCode)}</td>
+      <td class="px-3 py-2"><div class="flex items-center gap-2">${renderSkuThumb(item.skuImageUrl, item.skuCode)}<span>${escapeHtml(item.skuCode)}</span></div></td>
       <td class="px-3 py-2">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</td>
-      <td class="px-3 py-2">${item.waitQcQty} ${escapeHtml(item.qtyUnit)}</td>
+      <td class="px-3 py-2">${item.currentStockQty} / ${item.waitQcQty} / ${item.qcInProgressQty} ${escapeHtml(item.qtyUnit)}</td>
     </tr>
   `).join('')
   const qcRows = qcOrders.map((item) => `
@@ -2261,6 +2585,9 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
       <td class="px-3 py-2 font-mono">${escapeHtml(item.qcOrderNo)}</td>
       <td class="px-3 py-2">${escapeHtml(item.qcStatus)}</td>
       <td class="px-3 py-2">${item.inspectedGarmentQty} 件</td>
+      <td class="px-3 py-2">
+        ${item.qcStatus !== '质检完成' ? `<a class="inline-flex h-8 items-center rounded-md bg-primary px-2 text-xs font-medium text-primary-foreground" href="${escapeHtml(buildPdaPostTaskActionHref(execId, 'complete-qc', { qcOrderId: item.qcOrderId }))}">完成质检</a>` : '—'}
+      </td>
     </tr>
   `).join('')
   const postRows = postOrders.map((item) => `
@@ -2275,6 +2602,9 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
       <td class="px-3 py-2 font-mono">${escapeHtml(item.recheckOrderNo)}</td>
       <td class="px-3 py-2">${escapeHtml(item.sourceType)}</td>
       <td class="px-3 py-2">${escapeHtml(item.recheckStatus)}</td>
+      <td class="px-3 py-2">
+        ${item.recheckStatus !== '复检完成' ? `<a class="inline-flex h-8 items-center rounded-md bg-primary px-2 text-xs font-medium text-primary-foreground" href="${escapeHtml(buildPdaPostTaskActionHref(execId, 'complete-recheck', { recheckOrderId: item.recheckOrderId }))}">完成复检</a>` : '—'}
+      </td>
     </tr>
   `).join('')
 
@@ -2328,7 +2658,7 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
         <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">待质检库存</h2></header>
         <div class="overflow-x-auto p-4">
           <table class="min-w-[480px] text-left text-xs">
-            <thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">SKU</th><th class="px-3 py-2">颜色 / 尺码</th><th class="px-3 py-2">待质检</th></tr></thead>
+            <thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">SKU</th><th class="px-3 py-2">颜色 / 尺码</th><th class="px-3 py-2">库存 / 待质检 / 质检中</th></tr></thead>
             <tbody class="divide-y">${waitRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无待质检库存</td></tr>'}</tbody>
           </table>
         </div>
@@ -2337,9 +2667,9 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">质检、后道、复检</h2></header>
         <div class="space-y-3 p-4">
-          <div class="overflow-x-auto"><table class="min-w-[520px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">质检单</th><th class="px-3 py-2">状态</th><th class="px-3 py-2">数量</th></tr></thead><tbody class="divide-y">${qcRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无质检单</td></tr>'}</tbody></table></div>
+          <div class="overflow-x-auto"><table class="min-w-[600px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">质检单</th><th class="px-3 py-2">状态</th><th class="px-3 py-2">数量</th><th class="px-3 py-2">操作</th></tr></thead><tbody class="divide-y">${qcRows || '<tr><td colspan="4" class="px-3 py-4 text-center text-muted-foreground">暂无质检单</td></tr>'}</tbody></table></div>
           <div class="overflow-x-auto"><table class="min-w-[520px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">后道单</th><th class="px-3 py-2">后道项目</th><th class="px-3 py-2">状态</th></tr></thead><tbody class="divide-y">${postRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无后道单</td></tr>'}</tbody></table></div>
-          <div class="overflow-x-auto"><table class="min-w-[520px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">复检单</th><th class="px-3 py-2">来源</th><th class="px-3 py-2">状态</th></tr></thead><tbody class="divide-y">${recheckRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无复检单</td></tr>'}</tbody></table></div>
+          <div class="overflow-x-auto"><table class="min-w-[600px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">复检单</th><th class="px-3 py-2">来源</th><th class="px-3 py-2">状态</th><th class="px-3 py-2">操作</th></tr></thead><tbody class="divide-y">${recheckRows || '<tr><td colspan="4" class="px-3 py-4 text-center text-muted-foreground">暂无复检单</td></tr>'}</tbody></table></div>
         </div>
       </article>
     </div>
@@ -4128,6 +4458,130 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
   }
 
   if (
+    action === 'post-mobile-create-qc-submit'
+    || action === 'post-mobile-complete-qc-submit'
+    || action === 'post-mobile-complete-recheck-submit'
+    || action === 'post-mobile-open-complete-qc'
+    || action === 'post-mobile-open-complete-recheck'
+    || action === 'post-project-start'
+    || action === 'post-project-complete'
+  ) {
+    try {
+      if (action === 'post-mobile-open-complete-qc') {
+        const qcOrderId = actionNode.dataset.qcOrderId
+        const postTaskId = actionNode.dataset.postTaskId || qcOrderId
+        if (!qcOrderId || !postTaskId) return true
+        appStore.navigate(buildPdaPostTaskActionHref(postTaskId, 'complete-qc', { qcOrderId }))
+        return true
+      }
+
+      if (action === 'post-mobile-open-complete-recheck') {
+        const recheckOrderId = actionNode.dataset.recheckOrderId
+        const postTaskId = actionNode.dataset.postTaskId || recheckOrderId
+        if (!recheckOrderId || !postTaskId) return true
+        appStore.navigate(buildPdaPostTaskActionHref(postTaskId, 'complete-recheck', { recheckOrderId }))
+        return true
+      }
+
+      if (action === 'post-mobile-create-qc-submit') {
+        const postTaskId = actionNode.dataset.postTaskId
+        if (!postTaskId) return true
+        const allocations = Array.from(document.querySelectorAll<HTMLElement>('[data-pda-qc-card]'))
+          .filter((card) => card.querySelector<HTMLInputElement>('[data-pda-qc-selected]')?.checked)
+          .map((card) => ({
+            warehouseRecordId: card.dataset.warehouseRecordId || '',
+            qcQty: readNumberFromElement(card, '[data-pda-qc-qty]'),
+          }))
+          .filter((item) => item.warehouseRecordId && item.qcQty > 0)
+        if (!allocations.length) {
+          showPdaExecDetailToast('请至少选择一个待质检 SKU')
+          return true
+        }
+        const qc = createPostFinishingQcOrder({
+          postTaskId,
+          allocations,
+          inspectorName: 'PDA 后道质检员',
+          qcStationName: '后道质检台 A',
+        })
+        showPdaExecDetailToast('质检单已创建')
+        appStore.navigate(buildPdaPostTaskActionHref(postTaskId, 'complete-qc', { qcOrderId: qc.qcOrderId }))
+        return true
+      }
+
+      if (action === 'post-mobile-complete-qc-submit') {
+        const qcOrderId = actionNode.dataset.qcOrderId
+        const postTaskId = actionNode.dataset.postTaskId
+        if (!qcOrderId) return true
+        const qcSkuResults = collectPdaQcSkuResults(qcOrderId)
+        if (!qcSkuResults.length) {
+          showPdaExecDetailToast('请填写 SKU 质检结果')
+          return true
+        }
+        const inspectedQty = qcSkuResults.reduce((sum, item) => sum + item.inspectedQty, 0)
+        const defectiveQty = qcSkuResults.reduce((sum, item) => sum + item.unqualifiedQty, 0)
+        const passedQty = qcSkuResults.reduce((sum, item) => sum + item.qualifiedQty, 0)
+        completePostFinishingQcOrder({
+          qcOrderId,
+          qcSkuResults,
+          inspectedGarmentQty: inspectedQty,
+          passedGarmentQty: passedQty,
+          defectiveGarmentQty: defectiveQty,
+          qcResult: defectiveQty <= 0 ? '全数合规' : passedQty <= 0 ? '全数不合格' : '部分不合格',
+          inspectorName: 'PDA 后道质检员',
+          qcStationName: '后道质检台 A',
+          unqualifiedReasonSummary: defectiveQty > 0 ? 'PDA 录入 SKU 级不合格结果' : '',
+        })
+        showPdaExecDetailToast('质检结果已提交')
+        appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(postTaskId || qcOrderId)}`)
+        return true
+      }
+
+      if (action === 'post-mobile-complete-recheck-submit') {
+        const recheckOrderId = actionNode.dataset.recheckOrderId
+        const postTaskId = actionNode.dataset.postTaskId
+        if (!recheckOrderId) return true
+        const recheckSkuResults = collectPdaRecheckSkuResults(recheckOrderId)
+        if (!recheckSkuResults.length) {
+          showPdaExecDetailToast('请填写 SKU 复检结果')
+          return true
+        }
+        completePostFinishingRecheckOrder({
+          recheckOrderId,
+          operatorName: 'PDA 复检员',
+          recheckSkuResults,
+        })
+        showPdaExecDetailToast('复检结果已提交')
+        appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(postTaskId || recheckOrderId)}`)
+        return true
+      }
+
+      const postOrderId = actionNode.dataset.postOrderId
+      const projectLineId = actionNode.dataset.projectLineId
+      if (!postOrderId || !projectLineId) return true
+      if (action === 'post-project-start') {
+        startPostFinishingProjectLine({
+          postOrderId,
+          projectLineId,
+          operatorName: 'PDA 后道操作员',
+        })
+        showPdaExecDetailToast('后道项目已开始')
+        return true
+      }
+      completePostFinishingProjectLine({
+        postOrderId,
+        projectLineId,
+        operatorName: 'PDA 后道操作员',
+        completedQty: Number(actionNode.dataset.projectPlannedQty || '0'),
+      })
+      showPdaExecDetailToast('后道项目已完成')
+      return true
+    } catch (error) {
+      showPdaExecDetailToast(error instanceof Error ? error.message : 'PDA 后道操作失败')
+      return true
+    }
+  }
+
+  if (
     action === 'post-start-action'
     || action === 'post-finish-action'
     || action === 'post-report-difference'
@@ -4173,6 +4627,22 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       }
 
       if (!actionType) return true
+
+      if (action === 'post-finish-action' && actionType === '质检') {
+        const qcOrderId = getPostFinishingWorkOrderForMobile(postOrderId)?.qcOrderId
+        if (qcOrderId) {
+          appStore.navigate(buildPdaPostTaskActionHref(postTaskId || postOrderId, 'complete-qc', { qcOrderId }))
+        }
+        return true
+      }
+
+      if (action === 'post-finish-action' && actionType === '复检') {
+        const recheckOrderId = getPostFinishingWorkOrderForMobile(postOrderId)?.recheckOrderId
+        if (recheckOrderId) {
+          appStore.navigate(buildPdaPostTaskActionHref(postTaskId || postOrderId, 'complete-recheck', { recheckOrderId }))
+        }
+        return true
+      }
 
       if (action === 'post-start-action') {
         executeMobileProcessAction({
@@ -4240,7 +4710,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
   if (action === 'post-task-create-qc') {
     const postTaskId = actionNode.dataset.postTaskId
     if (!postTaskId) return true
-    appStore.navigate(`/fcs/craft/post-finishing/qc-orders?postTaskId=${encodeURIComponent(postTaskId)}&createQc=1`)
+    appStore.navigate(buildPdaPostTaskActionHref(postTaskId, 'create-qc'))
     return true
   }
 

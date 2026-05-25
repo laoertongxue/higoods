@@ -1,11 +1,10 @@
 import { escapeHtml } from '../utils'
 import { buildPdaCuttingReplenishmentProjection } from './pda-cutting-replenishment-projection'
 import {
-  buildPdaCuttingWritebackSource,
-  resolvePdaCuttingWritebackIdentity,
-  resolvePdaCuttingWritebackOperator,
-} from '../data/fcs/pda-cutting-writeback-inputs.ts'
-import { writePdaReplenishmentFeedbackToFcs } from '../domain/cutting-pda-writeback/bridge.ts'
+  resolvePdaCuttingRuntimeIdentity,
+  resolvePdaCuttingRuntimeOperator,
+} from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
+import { appendCuttingRuntimeEvent } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
@@ -244,7 +243,7 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
   if (action === 'submit') {
     const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'replenishment-feedback')
-    const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+    const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
       executionOrderId: context.selectedExecutionOrderId || undefined,
       executionOrderNo: context.selectedExecutionOrderNo || undefined,
       cutOrderId: context.selectedExecutionOrder?.cutOrderId || undefined,
@@ -253,24 +252,50 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
       markerPlanNo: context.selectedExecutionOrder?.markerPlanNo || undefined,
       materialSku: context.selectedExecutionOrder?.materialSku || undefined,
     })
-    const operator = resolvePdaCuttingWritebackOperator(taskId, form.operatorName.trim() || '现场反馈人')
+    const operator = resolvePdaCuttingRuntimeOperator(taskId, form.operatorName.trim() || '现场反馈人')
     if (!identity || !operator) {
       form.feedbackMessage = '当前执行对象或操作人无法识别，不能提交现场差异反馈。'
       return true
     }
-    const result = writePdaReplenishmentFeedbackToFcs({
-      identity,
-      operator,
-      source: buildPdaCuttingWritebackSource('replenishment-feedback', identity.executionOrderId),
-      reasonLabel: form.differenceType,
-      note: `${form.note.trim() || '现场已记录差异，待补料管理审核'}；差异数量 ${form.differenceQty || '0'} ${form.unit}`,
-      photoProofCount: Number(form.photoProofCount || '0') || 0,
+    const submittedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+    appendCuttingRuntimeEvent({
+      eventType: '补料反馈',
+      eventSource: 'PDA',
+      eventStatus: '已同步',
+      occurredAt: submittedAt,
+      operatorId: operator.operatorAccountId,
+      operatorName: operator.operatorName,
+      operatorRole: operator.operatorRole || '现场反馈人',
+      refs: {
+        productionOrderId: identity.productionOrderId,
+        productionOrderNo: identity.productionOrderNo,
+        cutOrderId: identity.cutOrderId,
+        cutOrderNo: identity.cutOrderNo,
+        markerPlanId: identity.markerPlanId,
+        markerPlanNo: identity.markerPlanNo,
+        spreadingOrderId: identity.executionOrderId,
+        spreadingOrderNo: identity.executionOrderNo,
+      },
+      material: {
+        materialSku: identity.materialSku,
+        materialName: identity.materialSku,
+        materialColor: '待补',
+        materialAlias: '现场反馈',
+        unit: form.unit === '件' ? '件' : form.unit === '片' ? '片' : '米',
+      },
+      payload: {
+        feedbackId: `replenishment:${identity.executionOrderId}:${submittedAt.replace(/[^0-9]/g, '')}`,
+        taskId,
+        taskNo: context.detail?.taskNo || taskId,
+        executionOrderId: identity.executionOrderId,
+        executionOrderNo: identity.executionOrderNo,
+        reasonLabel: form.differenceType,
+        differenceQty: Number(form.differenceQty || '0') || 0,
+        unit: form.unit === '件' ? '件' : form.unit === '片' ? '片' : '米',
+        note: `${form.note.trim() || '现场已记录差异，待补料管理审核'}；差异数量 ${form.differenceQty || '0'} ${form.unit}`,
+        photoProofCount: Number(form.photoProofCount || '0') || 0,
+      },
     })
-    if (!result.success) {
-      form.feedbackMessage = result.issues.join('；')
-      form.syncStatus = '同步失败'
-      return true
-    }
     form.feedbackMessage = '现场差异反馈已提交，已进入补料管理。'
     form.syncStatus = '已同步'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(

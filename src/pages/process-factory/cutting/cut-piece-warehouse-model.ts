@@ -7,11 +7,11 @@ import {
 } from '../../../data/fcs/cutting/warehouse-runtime.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
 import {
-  listPdaHandoverWritebacks,
-  listPdaInboundWritebacks,
-  type PdaCutPieceHandoverWritebackRecord,
-  type PdaCutPieceInboundWritebackRecord,
-} from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
+  listPdaHandoverEvents,
+  listPdaInboundEvents,
+  type PdaCutPieceHandoverEventRecord,
+  type PdaCutPieceInboundEventRecord,
+} from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   listCutPieceWarehouseWritebacks,
   type CutPieceWarehouseWritebackRecord,
@@ -217,82 +217,82 @@ function buildWarehouseOverlayRecord(options: {
   }
 }
 
-function applyExecutionWritebackOverlay(
+function applyExecutionEventOverlay(
   records: CutPieceWarehouseRecord[],
   options: {
-    inboundWritebacks?: PdaCutPieceInboundWritebackRecord[]
-    handoverWritebacks?: PdaCutPieceHandoverWritebackRecord[]
+    inboundEvents?: PdaCutPieceInboundEventRecord[]
+    handoverEvents?: PdaCutPieceHandoverEventRecord[]
   } = {},
 ): CutPieceWarehouseRecord[] {
   const storage = getBrowserLocalStorage() || undefined
-  const inboundWritebacks = options.inboundWritebacks ?? listPdaInboundWritebacks(storage)
-  const handoverWritebacks = options.handoverWritebacks ?? listPdaHandoverWritebacks(storage)
+  const inboundEvents = options.inboundEvents ?? listPdaInboundEvents(storage)
+  const handoverEvents = options.handoverEvents ?? listPdaHandoverEvents(storage)
   const runtimeMap = new Map<string, CutPieceWarehouseRecord>(
     records.map((record) => [record.cutOrderId || record.cutOrderNo, { ...record }]),
   )
 
-  inboundWritebacks.forEach((writeback) => {
-    const key = writeback.cutOrderId || writeback.cutOrderNo
+  inboundEvents.forEach((eventRecord) => {
+    const key = eventRecord.cutOrderId || eventRecord.cutOrderNo
     const current = runtimeMap.get(key)
     const next = buildWarehouseOverlayRecord({
       baseRecord: current,
-      cutOrderId: writeback.cutOrderId,
-      cutOrderNo: writeback.cutOrderNo,
-      productionOrderId: writeback.productionOrderId,
-      productionOrderNo: writeback.productionOrderNo,
-      materialSku: writeback.materialSku,
+      cutOrderId: eventRecord.cutOrderId,
+      cutOrderNo: eventRecord.cutOrderNo,
+      productionOrderId: eventRecord.productionOrderId,
+      productionOrderNo: eventRecord.productionOrderNo,
+      materialSku: eventRecord.materialSku,
     })
     runtimeMap.set(key, {
       ...next,
-      id: current?.id || `cpw-pda-${writeback.cutOrderId || writeback.cutOrderNo}`,
-      bindingState: writeback.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
-      cutOrderId: writeback.cutOrderId,
-      cutOrderNo: writeback.cutOrderNo,
-      productionOrderId: writeback.productionOrderId,
-      productionOrderNo: writeback.productionOrderNo,
-      cutPieceOrderNo: writeback.cutOrderNo,
-      materialSku: writeback.materialSku,
-      markerPlanId: writeback.markerPlanId,
-      markerPlanNo: writeback.markerPlanNo,
-      zoneCode: writeback.zoneCode,
-      locationLabel: writeback.locationLabel,
+      id: current?.id || `cpw-pda-${eventRecord.cutOrderId || eventRecord.cutOrderNo}`,
+      bindingState: eventRecord.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
+      cutOrderId: eventRecord.cutOrderId,
+      cutOrderNo: eventRecord.cutOrderNo,
+      productionOrderId: eventRecord.productionOrderId,
+      productionOrderNo: eventRecord.productionOrderNo,
+      cutPieceOrderNo: eventRecord.cutOrderNo,
+      materialSku: eventRecord.materialSku,
+      markerPlanId: eventRecord.markerPlanId,
+      markerPlanNo: eventRecord.markerPlanNo,
+      zoneCode: eventRecord.zoneCode,
+      locationLabel: eventRecord.locationLabel,
       inboundStatus: 'WAITING_HANDOVER',
-      inboundAt: writeback.submittedAt,
-      inboundBy: writeback.operatorName,
+      inboundAt: eventRecord.submittedAt,
+      inboundBy: eventRecord.operatorName,
       handoverStatus: current?.handoverStatus || 'WAITING_HANDOVER',
-      note: writeback.note || next.note,
+      note: eventRecord.note || next.note,
     })
   })
 
-  handoverWritebacks.forEach((writeback) => {
-    const key = writeback.cutOrderId || writeback.cutOrderNo
+  handoverEvents.forEach((eventRecord) => {
+    const key = eventRecord.cutOrderId || eventRecord.cutOrderNo
     const current = runtimeMap.get(key)
     const next = buildWarehouseOverlayRecord({
       baseRecord: current,
-      cutOrderId: writeback.cutOrderId,
-      cutOrderNo: writeback.cutOrderNo,
-      productionOrderId: writeback.productionOrderId,
-      productionOrderNo: writeback.productionOrderNo,
-      materialSku: writeback.materialSku,
+      cutOrderId: eventRecord.cutOrderId,
+      cutOrderNo: eventRecord.cutOrderNo,
+      productionOrderId: eventRecord.productionOrderId,
+      productionOrderNo: eventRecord.productionOrderNo,
+      materialSku: eventRecord.materialSku,
     })
     runtimeMap.set(key, {
       ...next,
-      id: current?.id || `cpw-pda-${writeback.cutOrderId || writeback.cutOrderNo}`,
-      bindingState: writeback.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
-      cutOrderId: writeback.cutOrderId,
-      cutOrderNo: writeback.cutOrderNo,
-      productionOrderId: writeback.productionOrderId,
-      productionOrderNo: writeback.productionOrderNo,
-      cutPieceOrderNo: writeback.cutOrderNo,
-      materialSku: writeback.materialSku,
-      markerPlanId: writeback.markerPlanId,
-      markerPlanNo: writeback.markerPlanNo,
+      id: current?.id || `cpw-pda-${eventRecord.cutOrderId || eventRecord.cutOrderNo}`,
+      bindingState: eventRecord.cutOrderId ? 'BOUND_FORMAL_WAREHOUSE_RECORD' : 'UNBOUND_FORMAL_WAREHOUSE_RECORD',
+      cutOrderId: eventRecord.cutOrderId,
+      cutOrderNo: eventRecord.cutOrderNo,
+      productionOrderId: eventRecord.productionOrderId,
+      productionOrderNo: eventRecord.productionOrderNo,
+      cutPieceOrderNo: eventRecord.cutOrderNo,
+      materialSku: eventRecord.materialSku,
+      markerPlanId: eventRecord.markerPlanId,
+      markerPlanNo: eventRecord.markerPlanNo,
       inboundStatus: 'HANDED_OVER',
-      inboundAt: current?.inboundAt || writeback.submittedAt,
-      inboundBy: current?.inboundBy || writeback.operatorName,
+      inboundAt: current?.inboundAt || eventRecord.submittedAt,
+      inboundBy: current?.inboundBy || eventRecord.operatorName,
       handoverStatus: 'HANDED_OVER',
-      handoverTarget: writeback.targetLabel,
-      note: writeback.note || next.note,
+      handoverTarget: eventRecord.targetLabel,
+      note: eventRecord.note || next.note,
     })
   })
 
@@ -424,15 +424,15 @@ export function buildCutPieceWarehouseViewModel(
   cutOrderRows: CutOrderRow[],
   records = listFormalCutPieceWarehouseRecords(),
   options: {
-    inboundWritebacks?: PdaCutPieceInboundWritebackRecord[]
-    handoverWritebacks?: PdaCutPieceHandoverWritebackRecord[]
+    inboundEvents?: PdaCutPieceInboundEventRecord[]
+    handoverEvents?: PdaCutPieceHandoverEventRecord[]
     warehouseWritebacks?: CutPieceWarehouseWritebackRecord[]
     transferBagViewModel?: TransferBagViewModel
     spreadingStore?: MarkerSpreadingStore
   } = {},
 ): CutPieceWarehouseViewModel {
   const runtimeRecords = applyWarehouseWritebackOverlay(
-    applyExecutionWritebackOverlay(records, options),
+    applyExecutionEventOverlay(records, options),
     options,
   )
   const rowById = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderId, row]))

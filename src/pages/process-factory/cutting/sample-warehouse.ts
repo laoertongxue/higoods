@@ -29,7 +29,6 @@ import {
 
 type FilterField = 'keyword' | 'status' | 'locationType' | 'holder'
 type DetailField = 'locationType' | 'holder' | 'note'
-type SampleWarehouseTabKey = 'cutting-use' | 'pending-return' | 'exception' | 'history'
 
 interface SampleWarehousePageState {
   filters: SampleWarehouseFilters
@@ -81,60 +80,8 @@ function getFilteredItems() {
   return filterSampleWarehouseItems(getViewModel().items, state.filters, state.prefilter)
 }
 
-function getActiveTab(): SampleWarehouseTabKey {
-  const raw = getWarehouseSearchParams().get('tab')
-  if (raw === 'pending-return' || raw === 'exception' || raw === 'history') return raw
-  return 'cutting-use'
-}
-
-function buildSampleWarehouseTabPath(tab: SampleWarehouseTabKey): string {
-  const basePath = getCanonicalCuttingPath('sample-warehouse')
-  return tab === 'cutting-use' ? basePath : `${basePath}?tab=${encodeURIComponent(tab)}`
-}
-
-function filterItemsByTab(items: SampleWarehouseItem[], tab: SampleWarehouseTabKey): SampleWarehouseItem[] {
-  if (tab === 'pending-return') {
-    return items.filter((item) => item.currentStatus === '待归还' || item.status.key === 'PENDING_RETURN')
-  }
-  if (tab === 'exception') {
-    return items.filter((item) => item.abnormalFlag)
-  }
-  if (tab === 'history') {
-    return items.filter((item) => item.flowRecords.length > 0)
-  }
-  return items.filter((item) => item.currentStatus === '裁剪中使用' || item.currentUsageType === '裁床裁剪依据')
-}
-
-function renderTabButton(tab: SampleWarehouseTabKey, label: string, count: number): string {
-  const isActive = getActiveTab() === tab
-  return `
-    <button
-      type="button"
-      class="flex min-w-40 flex-col rounded-lg px-3 py-2 text-left ${isActive ? 'bg-slate-900 text-white' : 'border bg-card text-slate-700 hover:bg-muted'}"
-      data-nav="${escapeHtml(buildSampleWarehouseTabPath(tab))}"
-    >
-      <span class="text-sm font-semibold">${escapeHtml(label)}</span>
-      <span class="mt-1 text-xs ${isActive ? 'text-slate-200' : 'text-muted-foreground'}">当前 ${escapeHtml(String(count))} 条</span>
-    </button>
-  `
-}
-
-function renderTabSection(items: SampleWarehouseItem[]): string {
-  const cuttingUseCount = items.filter((item) => item.currentStatus === '裁剪中使用' || item.currentUsageType === '裁床裁剪依据').length
-  const pendingReturnCount = items.filter((item) => item.currentStatus === '待归还' || item.status.key === 'PENDING_RETURN').length
-  const exceptionCount = items.filter((item) => item.abnormalFlag).length
-  const historyCount = items.filter((item) => item.flowRecords.length > 0).length
-
-  return `
-    <section class="rounded-xl border bg-card p-4">
-      <div class="flex flex-wrap gap-2">
-        ${renderTabButton('cutting-use', '裁剪中使用样衣', cuttingUseCount)}
-        ${renderTabButton('pending-return', '待归还样衣', pendingReturnCount)}
-        ${renderTabButton('exception', '异常样衣', exceptionCount)}
-        ${renderTabButton('history', '历史流转记录', historyCount)}
-      </div>
-    </section>
-  `
+function buildSampleWarehouseDetailPath(itemId: string): string {
+  return `${getCanonicalCuttingPath('sample-warehouse')}/${encodeURIComponent(itemId)}`
 }
 
 function getPrefilterFromQuery(): SampleWarehousePrefilter | null {
@@ -301,15 +248,7 @@ function renderFilterArea(): string {
 
 function renderTable(items: SampleWarehouseItem[]): string {
   if (!items.length) {
-    const emptyText =
-      getActiveTab() === 'cutting-use'
-        ? '当前筛选条件下暂无裁剪中使用样衣。'
-        : getActiveTab() === 'pending-return'
-          ? '当前筛选条件下暂无待归还样衣。'
-          : getActiveTab() === 'exception'
-            ? '当前筛选条件下暂无异常样衣。'
-            : '当前筛选条件下暂无历史流转记录。'
-    return `<section class="rounded-lg border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</section>`
+    return '<section class="rounded-lg border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">当前筛选条件下暂无样衣记录。</section>'
   }
 
   return renderStickyTableScroller(`
@@ -330,7 +269,7 @@ function renderTable(items: SampleWarehouseItem[]): string {
             (item) => `
               <tr class="border-b align-top ${state.activeItemId === item.sampleItemId ? 'bg-blue-50/60' : 'bg-card'}">
                 <td class="px-4 py-3">
-                  <button type="button" class="font-medium text-blue-700 hover:underline" data-sample-warehouse-action="open-detail" data-item-id="${escapeHtml(item.sampleItemId)}">${escapeHtml(item.sampleNo)}</button>
+                  <button type="button" class="font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(buildSampleWarehouseDetailPath(item.sampleItemId))}">${escapeHtml(item.sampleNo)}</button>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.sampleName)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml([item.styleCode || item.spuCode, item.color, item.size, item.sampleVersion].filter(Boolean).join(' / '))}</div>
                 </td>
@@ -363,7 +302,8 @@ function renderTable(items: SampleWarehouseItem[]): string {
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex flex-wrap gap-2">
-                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="open-detail" data-item-id="${escapeHtml(item.sampleItemId)}">查看</button>
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildSampleWarehouseDetailPath(item.sampleItemId))}">查看</button>
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildSampleWarehouseDetailPath(item.sampleItemId))}">样衣流转记录</button>
                     <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="borrow" data-item-id="${escapeHtml(item.sampleItemId)}">登记使用</button>
                     <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="return" data-item-id="${escapeHtml(item.sampleItemId)}">归还</button>
                     <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="mark-inspection" data-item-id="${escapeHtml(item.sampleItemId)}">登记异常</button>
@@ -389,7 +329,6 @@ function renderDetailPanel(): string {
           <h2 class="text-base font-semibold text-foreground">样衣详情 · ${escapeHtml(item.sampleNo)}</h2>
           <p class="mt-1 text-xs text-muted-foreground">样衣状态只用于裁床参考和流转追溯，不改变裁片单主状态。</p>
         </div>
-        <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-sample-warehouse-action="close-detail">关闭详情</button>
       </div>
       <div class="space-y-6 p-4">
         <section class="grid gap-3 md:grid-cols-2">
@@ -477,7 +416,7 @@ function renderDetailPanel(): string {
           }
         </section>
 
-        <section class="rounded-lg border bg-card">
+        <section id="sample-flow-records" class="rounded-lg border bg-card">
           <div class="border-b px-4 py-3">
             <h3 class="text-sm font-semibold text-foreground">流转记录</h3>
           </div>
@@ -545,7 +484,7 @@ function renderPage(): string {
   syncPrefilterFromQuery()
   const pathname = appStore.getState().pathname
   const meta = getCanonicalCuttingMeta(pathname, 'sample-warehouse')
-  const items = filterItemsByTab(getFilteredItems(), getActiveTab())
+  const items = getFilteredItems()
 
   return `
     <div class="space-y-3 p-4">
@@ -554,12 +493,10 @@ function renderPage(): string {
         actionsHtml: renderHeaderActions(),
       })}
       ${renderStatsCards()}
-      ${renderTabSection(getViewModel().items)}
       ${renderPrefilterBar()}
       ${renderFilterArea()}
       ${renderFilterStateBar()}
       ${renderTable(items)}
-      ${renderDetailPanel()}
     </div>
   `
 }
@@ -620,6 +557,42 @@ export function renderCraftCuttingSampleWarehousePage(): string {
   return renderPage()
 }
 
+export function renderCraftCuttingSampleWarehouseDetailPage(sampleItemId?: string): string {
+  const pathname = appStore.getState().pathname
+  const meta = getCanonicalCuttingMeta(getCanonicalCuttingPath('sample-warehouse'), 'sample-warehouse')
+  const decodedItemId = decodeURIComponent(sampleItemId ?? '')
+  const item = getViewModel().itemsById[decodedItemId]
+
+  if (!item) {
+    return `
+      <div class="space-y-3 p-4">
+        ${renderCuttingPageHeader(meta, {
+          showAliasBadge: isCuttingAliasPath(pathname),
+          actionsHtml: `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('sample-warehouse'))}">返回样衣列表</button>`,
+        })}
+        <section class="rounded-lg border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+          未找到对应样衣记录。
+        </section>
+      </div>
+    `
+  }
+
+  if (state.activeItemId !== item.sampleItemId) {
+    state.activeItemId = item.sampleItemId
+    syncDetailDraft()
+  }
+
+  return `
+    <div class="space-y-3 p-4">
+      ${renderCuttingPageHeader(meta, {
+        showAliasBadge: isCuttingAliasPath(pathname),
+        actionsHtml: `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('sample-warehouse'))}">返回样衣列表</button>`,
+      })}
+      ${renderDetailPanel()}
+    </div>
+  `
+}
+
 export function handleCraftCuttingSampleWarehouseEvent(target: Element): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-sample-warehouse-field]')
   if (fieldNode) {
@@ -658,19 +631,20 @@ export function handleCraftCuttingSampleWarehouseEvent(target: Element): boolean
   if (action === 'clear-prefilter') {
     state.prefilter = null
     state.activeItemId = null
-    state.querySignature = buildSampleWarehouseTabPath(getActiveTab())
-    appStore.navigate(buildSampleWarehouseTabPath(getActiveTab()))
+    state.querySignature = getCanonicalCuttingPath('sample-warehouse')
+    appStore.navigate(getCanonicalCuttingPath('sample-warehouse'))
     return true
   }
 
   if (action === 'open-detail') {
-    state.activeItemId = actionNode.dataset.itemId ?? null
-    syncDetailDraft()
+    const itemId = actionNode.dataset.itemId
+    if (itemId) appStore.navigate(buildSampleWarehouseDetailPath(itemId))
     return true
   }
 
   if (action === 'close-detail') {
     state.activeItemId = null
+    appStore.navigate(getCanonicalCuttingPath('sample-warehouse'))
     return true
   }
 

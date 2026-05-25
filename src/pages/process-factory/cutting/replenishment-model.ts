@@ -9,9 +9,9 @@ import {
 } from './replenishment-context.ts'
 import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
 import {
-  listPdaReplenishmentFeedbackWritebacks,
-  type PdaReplenishmentFeedbackWritebackRecord,
-} from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
+  listPdaReplenishmentFeedbackEvents,
+  type PdaReplenishmentFeedbackEventRecord,
+} from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 import {
   CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
@@ -317,9 +317,9 @@ export interface ReplenishmentSuggestionRow extends ReplenishmentSuggestion {
   completedActionCount: number
   skippedActionCount: number
   followupProgressText: string
-  pdaFeedbacks: PdaReplenishmentFeedbackWritebackRecord[]
+  pdaFeedbacks: PdaReplenishmentFeedbackEventRecord[]
   pendingPdaFeedbackCount: number
-  latestPdaFeedback: PdaReplenishmentFeedbackWritebackRecord | null
+  latestPdaFeedback: PdaReplenishmentFeedbackEventRecord | null
   latestPdaFeedbackSummary: string
   claimedBalanceLength: number
   materialGapLength: number
@@ -396,9 +396,9 @@ export const replenishmentSourceMeta: Record<ReplenishmentSourceType, { label: s
 export const replenishmentStatusMetaMap: Record<ReplenishmentStatusKey, ReplenishmentStatusMeta> = {
   NO_ACTION: {
     key: 'NO_ACTION',
-    label: '无需发起布料',
+    label: '无需发起补料',
     className: 'bg-emerald-100 text-emerald-700',
-    detailText: '当前差异未形成发起布料动作，可继续观察。',
+    detailText: '当前差异未形成发起补料动作，可继续观察。',
   },
   PENDING_REVIEW: {
     key: 'PENDING_REVIEW',
@@ -420,9 +420,9 @@ export const replenishmentStatusMetaMap: Record<ReplenishmentStatusKey, Replenis
   },
   APPROVED_PENDING_ACTION: {
     key: 'APPROVED_PENDING_ACTION',
-    label: '待发起布料',
+    label: '待发起补料',
     className: 'bg-blue-100 text-blue-700',
-    detailText: '处理结果已保存，等待发起布料。',
+    detailText: '处理结果已保存，等待发起补料。',
   },
   IN_ACTION: {
     key: 'IN_ACTION',
@@ -475,8 +475,8 @@ export const replenishmentFollowupActionTypeMetaMap: Record<
 > = {
   CREATE_PENDING_PREP: {
     key: 'CREATE_PENDING_PREP',
-    label: '发起布料',
-    shortLabel: '发起布料',
+    label: '发起补料',
+    shortLabel: '发起补料',
     className: 'bg-blue-100 text-blue-700',
   },
   SUPPLEMENT_BACKFILL: {
@@ -511,7 +511,7 @@ export function normalizeReplenishmentReviewResult(result: ReplenishmentReviewRe
 
 export function formatReplenishmentReviewResultLabel(result: ReplenishmentReviewResult | '' | undefined): string {
   if (!result) return '待处理'
-  return normalizeReplenishmentReviewResult(result) === '需要补料' ? '发起布料' : '忽略'
+  return normalizeReplenishmentReviewResult(result) === '需要补料' ? '发起补料' : '忽略'
 }
 
 function formatQty(value: number): string {
@@ -636,7 +636,7 @@ function buildSuggestedAction(options: {
   if (options.shortageQty > 0 || options.varianceLength < 0) {
     return {
       status: 'PENDING_REVIEW',
-      text: `存在 ${formatQty(options.shortageQty)} 件对应差异，处理结果只能选择发起布料或忽略。`,
+      text: `存在 ${formatQty(options.shortageQty)} 件对应差异，处理结果只能选择发起补料或忽略。`,
     }
   }
 
@@ -766,7 +766,7 @@ export function validateReplenishmentReviewAction(options: {
     options.reviewStatus === 'APPROVED' &&
     reviewResult !== '仅记录差异'
   ) {
-    return { ok: false, message: '当前建议为“无需发起布料”，不能直接发起布料。' }
+    return { ok: false, message: '当前建议为“无需发起补料”，不能直接发起补料。' }
   }
   if ((options.reviewStatus === 'REJECTED' || options.reviewStatus === 'PENDING_SUPPLEMENT') && !reason) {
     return { ok: false, message: '处理差异必须填写原因。' }
@@ -834,9 +834,9 @@ function resolveFollowupActionFromReviewResult(
   if (normalizeReplenishmentReviewResult(result) === '需要补料') {
     return {
       actionType: 'CREATE_PENDING_PREP',
-      title: '发起布料',
+      title: '发起补料',
       targetPageKey: 'materialPrep',
-      note: '处理结果为发起布料，WMS 中转仓将创建新的配料，裁床后续重新领料。',
+      note: '处理结果为发起补料，WMS 中转仓将创建新的配料，裁床后续重新领料。',
     }
   }
   return {
@@ -1070,7 +1070,7 @@ function buildReplenishmentNextOptions(suggestion: ReplenishmentSuggestion): Rep
   const options: ReplenishmentNextOption[] = []
   options.push({
     key: 'WAIT_NEXT_PICKUP',
-    label: '发起布料',
+    label: '发起补料',
     detailText: '对接 WMS 中转仓创建新的配料，裁床后续重新领料。',
     target: 'materialPrep',
     className: 'bg-blue-100 text-blue-700',
@@ -1113,13 +1113,13 @@ function buildBlockingSummary(row: {
   return '待继续处理'
 }
 
-function buildPdaFeedbackSummary(record: PdaReplenishmentFeedbackWritebackRecord | null): string {
+function buildPdaFeedbackSummary(record: PdaReplenishmentFeedbackEventRecord | null): string {
   if (!record) return ''
   return `现场反馈：${record.reasonLabel}，由 ${record.operatorName} 于 ${record.submittedAt} 提交`
 }
 
 function matchesPdaFeedbackWithSuggestion(
-  feedback: PdaReplenishmentFeedbackWritebackRecord,
+  feedback: PdaReplenishmentFeedbackEventRecord,
   suggestion: Pick<
     ReplenishmentSuggestion,
     'cutOrderIds' | 'cutOrderNos' | 'productionOrderIds' | 'productionOrderNos' | 'materialSkus' | 'markerPlanId' | 'markerPlanNo'
@@ -1260,7 +1260,7 @@ function collectLinkedLedgerEventIds(
 
 function buildPdaFeedbackNavigationPayload(
   feedback: Pick<
-    PdaReplenishmentFeedbackWritebackRecord,
+    PdaReplenishmentFeedbackEventRecord,
     | 'cutOrderId'
     | 'cutOrderNo'
     | 'markerPlanId'
@@ -1281,9 +1281,9 @@ function buildPdaFeedbackNavigationPayload(
   })
 }
 
-function buildSyntheticFeedbackContext(feedback: PdaReplenishmentFeedbackWritebackRecord): ReplenishmentContextRecord {
+function buildSyntheticFeedbackContext(feedback: PdaReplenishmentFeedbackEventRecord): ReplenishmentContextRecord {
   return {
-    contextId: `ctx-${feedback.writebackId}`,
+    contextId: `ctx-${feedback.runtimeEventId}`,
     sourceType: 'cut-order',
     baseSourceType: 'cut-order',
     markerPlanId: feedback.markerPlanId,
@@ -1307,14 +1307,14 @@ function buildSyntheticFeedbackContext(feedback: PdaReplenishmentFeedbackWriteba
 }
 
 function buildSyntheticFeedbackRow(
-  feedback: PdaReplenishmentFeedbackWritebackRecord,
+  feedback: PdaReplenishmentFeedbackEventRecord,
 ): ReplenishmentSuggestionRow {
   const navigationPayload = buildPdaFeedbackNavigationPayload(feedback)
   const statusMeta = replenishmentStatusMetaMap.PENDING_REVIEW
   const row = {
-    suggestionId: `rep-pda-feedback-${feedback.writebackId}`,
+    suggestionId: `rep-pda-feedback-${feedback.runtimeEventId}`,
     suggestionNo: `BL-${formatDateToken(feedback.submittedAt)}-${feedback.cutOrderNo.slice(-2) || '01'}`,
-    contextId: `ctx-${feedback.writebackId}`,
+    contextId: `ctx-${feedback.runtimeEventId}`,
     sourceType: 'pda-feedback' as const,
     cutOrderIds: [feedback.cutOrderId],
     cutOrderNos: [feedback.cutOrderNo],
@@ -1370,8 +1370,8 @@ function buildSyntheticFeedbackRow(
     reviewSummary: '待审核',
     reviewStatusLabel: '待审核',
     impactPlan: {
-      impactPlanId: `impact-${feedback.writebackId}`,
-      suggestionId: `rep-pda-feedback-${feedback.writebackId}`,
+      impactPlanId: `impact-${feedback.runtimeEventId}`,
+      suggestionId: `rep-pda-feedback-${feedback.runtimeEventId}`,
       needReconfigureMaterial: false,
       needReclaimMaterial: false,
       needPendingPrep: false,
@@ -1411,7 +1411,7 @@ function buildSyntheticFeedbackRow(
     riskMeta: replenishmentRiskMetaMap.MEDIUM,
     navigationPayload,
     keywordIndex: lowerKeywordIndex([
-      feedback.writebackId,
+      feedback.runtimeEventId,
       feedback.taskNo,
       feedback.productionOrderNo,
       feedback.cutOrderNo,
@@ -1554,7 +1554,7 @@ function buildSyntheticDifferenceRow(difference: SpreadingDifference): Replenish
       {
         key: 'CHECK_DATA' as const,
         label: '处理差异',
-        detailText: '处理结果只能选择发起布料或忽略。',
+        detailText: '处理结果只能选择发起补料或忽略。',
         target: 'markerSpreading' as const,
         className: 'bg-orange-100 text-orange-700',
       },
@@ -1692,7 +1692,7 @@ function buildReviewEvidenceItems(row: ReplenishmentSuggestionRow): Replenishmen
   })
 
   const feedbackEvidence = row.pdaFeedbacks.map((feedback) => ({
-    evidenceId: feedback.writebackId,
+    evidenceId: feedback.runtimeEventId,
     evidenceType: 'PDA 反馈' as const,
     summary: `${feedback.reasonLabel}；${feedback.note || '无补充说明'}；照片 / 凭证 ${feedback.photoProofCount} 个`,
     operatorName: feedback.operatorName,
@@ -1713,7 +1713,7 @@ export function buildReplenishmentReviewItem(row: ReplenishmentSuggestionRow): R
   return {
     replenishmentId: row.suggestionId,
     replenishmentNo: row.suggestionNo,
-    sourceDifferenceId: difference?.differenceId || feedback?.writebackId || row.contextId,
+    sourceDifferenceId: difference?.differenceId || feedback?.runtimeEventId || row.contextId,
     sourceType: resolveReviewItemSourceType(row),
     differenceType: difference?.differenceType || (feedback ? '现场反馈' : '其他异常'),
     differenceLevel: difference?.differenceLevel || row.riskMeta.label,
@@ -1741,7 +1741,7 @@ export function buildReplenishmentReviewItem(row: ReplenishmentSuggestionRow): R
     differenceValue,
     unit: difference?.unit || '米',
     evidenceItems: buildReviewEvidenceItems(row),
-    pdaFeedbackId: feedback?.writebackId || '',
+    pdaFeedbackId: feedback?.runtimeEventId || '',
     reviewStatus: resolveReviewItemStatus(row),
     reviewResult: row.review?.reviewResult ? normalizeReplenishmentReviewResult(row.review.reviewResult) : '',
     nextAction: row.review?.reviewResult ? resolveNextActionFromReviewResult(normalizeReplenishmentReviewResult(row.review.reviewResult)) : '',
@@ -1786,9 +1786,9 @@ function buildSeedReplenishmentReviews(differences: SpreadingDifference[]): Repl
         reviewedAt: difference.detectedAt,
         decisionReason:
           result === '需要补料'
-            ? '处理结果为发起布料，WMS 中转仓将创建新的配料。'
+            ? '处理结果为发起补料，WMS 中转仓将创建新的配料。'
             : '处理结果为忽略，不创建配料，不改变数量账。',
-        note: '用于原型覆盖差异处理的发起布料和忽略两种结果。',
+        note: '用于原型覆盖差异处理的发起补料和忽略两种结果。',
       }
     })
     .filter((review): review is ReplenishmentReview => Boolean(review))
@@ -1937,7 +1937,7 @@ export function deserializeReplenishmentActionsStorage(raw: string | null): Repl
           note:
             String(item.note || '').trim() ||
             (actionType === 'CREATE_PENDING_PREP'
-              ? '发起布料后，WMS 中转仓创建新的配料，裁床后续重新领料。'
+              ? '发起补料后，WMS 中转仓创建新的配料，裁床后续重新领料。'
               : '忽略本次差异，不创建配料，不改变数量账。'),
           decidedAt: String(item.decidedAt || '').trim(),
           decidedBy: String(item.decidedBy || '').trim(),
@@ -1974,7 +1974,7 @@ export function buildReplenishmentViewModel(options: {
   reviews: ReplenishmentReview[]
   impactPlans: ReplenishmentImpactPlan[]
   actions: ReplenishmentFollowupAction[]
-  pdaFeedbackWritebacks?: PdaReplenishmentFeedbackWritebackRecord[]
+  pdaFeedbackEvents?: PdaReplenishmentFeedbackEventRecord[]
 }): ReplenishmentViewModel {
   const cutOrderRowsById = Object.fromEntries(options.cutOrderRows.map((row) => [row.cutOrderId, row]))
   const impactsBySuggestionId = Object.fromEntries(options.impactPlans.map((plan) => [plan.suggestionId, plan]))
@@ -1983,8 +1983,8 @@ export function buildReplenishmentViewModel(options: {
     accumulator[action.suggestionId].push(action)
     return accumulator
   }, {})
-  const pdaFeedbackWritebacks =
-    options.pdaFeedbackWritebacks ?? listPdaReplenishmentFeedbackWritebacks(getBrowserLocalStorage() || undefined)
+  const pdaFeedbackEvents =
+    options.pdaFeedbackEvents ?? listPdaReplenishmentFeedbackEvents(getBrowserLocalStorage() || undefined)
   const spreadingDifferences = listSpreadingDifferences({ sessions: options.markerStore.sessions })
   const reviewsBySuggestionId = Object.fromEntries(
     [...buildSeedReplenishmentReviews(spreadingDifferences), ...options.reviews].map((review) => [review.suggestionId, review]),
@@ -2026,7 +2026,7 @@ export function buildReplenishmentViewModel(options: {
     const pendingActionCount = followupActions.filter((item) => !['DONE', 'SKIPPED'].includes(item.status)).length
     const completedActionCount = followupActions.filter((item) => item.status === 'DONE').length
     const skippedActionCount = followupActions.filter((item) => item.status === 'SKIPPED').length
-    const matchedPdaFeedbacks = pdaFeedbackWritebacks.filter((feedback) => matchesPdaFeedbackWithSuggestion(feedback, suggestion))
+    const matchedPdaFeedbacks = pdaFeedbackEvents.filter((feedback) => matchesPdaFeedbackWithSuggestion(feedback, suggestion))
     const latestPdaFeedback = matchedPdaFeedbacks[0] ?? null
     const latestPdaFeedbackSummary = buildPdaFeedbackSummary(latestPdaFeedback)
     const matchedDifferences = spreadingDifferences.filter((difference) =>
@@ -2115,9 +2115,9 @@ export function buildReplenishmentViewModel(options: {
     }
   }).filter((row) => row.sourceDifferences.length > 0 || row.pdaFeedbacks.length > 0 || Boolean(row.review) || row.followupActions.length > 0)
 
-  const matchedFeedbackIds = new Set(rows.flatMap((row) => row.pdaFeedbacks.map((item) => item.writebackId)))
-  const unmatchedFeedbackRows = pdaFeedbackWritebacks
-    .filter((feedback) => !matchedFeedbackIds.has(feedback.writebackId))
+  const matchedFeedbackIds = new Set(rows.flatMap((row) => row.pdaFeedbacks.map((item) => item.runtimeEventId)))
+  const unmatchedFeedbackRows = pdaFeedbackEvents
+    .filter((feedback) => !matchedFeedbackIds.has(feedback.runtimeEventId))
     .map((feedback) => buildSyntheticFeedbackRow(feedback))
   const matchedDifferenceIds = new Set(rows.flatMap((row) => row.sourceDifferences.map((item) => item.differenceId)))
   const unmatchedDifferenceRows = spreadingDifferences

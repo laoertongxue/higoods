@@ -152,7 +152,7 @@ interface RuntimeMarkerStore {
   sessions?: RuntimeSpreadingSession[]
 }
 
-interface RuntimeExecutionWriteback {
+interface RuntimeExecutionEvent {
   productionOrderId: string
   productionOrderNo: string
   cutOrderId: string
@@ -166,16 +166,16 @@ interface RuntimeExecutionWriteback {
   note?: string
 }
 
-interface RuntimeInboundWriteback extends RuntimeExecutionWriteback {
+interface RuntimeInboundEvent extends RuntimeExecutionEvent {
   zoneCode: string
   locationLabel: string
 }
 
-interface RuntimeHandoverWriteback extends RuntimeExecutionWriteback {
+interface RuntimeHandoverEvent extends RuntimeExecutionEvent {
   targetLabel: string
 }
 
-interface RuntimeReplenishmentFeedbackWriteback extends RuntimeExecutionWriteback {
+interface RuntimeReplenishmentFeedbackEvent extends RuntimeExecutionEvent {
   reasonLabel: string
   photoProofCount: number
 }
@@ -249,7 +249,7 @@ function buildOverlaySignals(snapshot: CuttingDomainSnapshot, record: CuttingOrd
 
   const toSignal = (
     sourceType: PieceTruthOverlaySignal['sourceType'],
-    item: RuntimeExecutionWriteback,
+    item: RuntimeExecutionEvent,
   ): PieceTruthOverlaySignal => ({
     sourceType,
     productionOrderId: item.productionOrderId,
@@ -265,16 +265,16 @@ function buildOverlaySignals(snapshot: CuttingDomainSnapshot, record: CuttingOrd
     note: item.note,
   })
 
-  const pickupWritebacks = snapshot.pdaExecutionState.pickupWritebacks as unknown as RuntimeExecutionWriteback[]
-  const inboundWritebacks = snapshot.pdaExecutionState.inboundWritebacks as unknown as RuntimeExecutionWriteback[]
-  const handoverWritebacks = snapshot.pdaExecutionState.handoverWritebacks as unknown as RuntimeExecutionWriteback[]
-  const replenishmentFeedbackWritebacks = snapshot.pdaExecutionState.replenishmentFeedbackWritebacks as unknown as RuntimeExecutionWriteback[]
+  const pickupEvents = snapshot.pdaExecutionState.pickupEvents as unknown as RuntimeExecutionEvent[]
+  const inboundEvents = snapshot.pdaExecutionState.inboundEvents as unknown as RuntimeExecutionEvent[]
+  const handoverEvents = snapshot.pdaExecutionState.handoverEvents as unknown as RuntimeExecutionEvent[]
+  const replenishmentFeedbackEvents = snapshot.pdaExecutionState.replenishmentFeedbackEvents as unknown as RuntimeExecutionEvent[]
 
   return [
-    ...pickupWritebacks.filter(productionMatches).map((item) => toSignal('PICKUP', item)),
-    ...inboundWritebacks.filter(productionMatches).map((item) => toSignal('INBOUND', item)),
-    ...handoverWritebacks.filter(productionMatches).map((item) => toSignal('HANDOVER', item)),
-    ...replenishmentFeedbackWritebacks.filter(productionMatches).map((item) => toSignal('REPLENISHMENT', item)),
+    ...pickupEvents.filter(productionMatches).map((item) => toSignal('PICKUP', item)),
+    ...inboundEvents.filter(productionMatches).map((item) => toSignal('INBOUND', item)),
+    ...handoverEvents.filter(productionMatches).map((item) => toSignal('HANDOVER', item)),
+    ...replenishmentFeedbackEvents.filter(productionMatches).map((item) => toSignal('REPLENISHMENT', item)),
   ]
 }
 
@@ -319,7 +319,7 @@ function buildWarehouseRecordsWithOverlay(
     .map((item) => ({ ...item }))
   const byKey = new Map(base.map((item) => [`${item.productionOrderNo}::${item.cutPieceOrderNo}::${item.materialSku}`, item] as const))
 
-  const ensureRecord = (item: RuntimeExecutionWriteback): CutPieceWarehouseRecord => {
+  const ensureRecord = (item: RuntimeExecutionEvent): CutPieceWarehouseRecord => {
     const key = `${item.productionOrderNo}::${item.cutOrderNo}::${item.materialSku}`
     const current = byKey.get(key)
     if (current) return current
@@ -344,7 +344,7 @@ function buildWarehouseRecordsWithOverlay(
     return created
   }
 
-  ;(snapshot.pdaExecutionState.inboundWritebacks as unknown as RuntimeInboundWriteback[])
+  ;(snapshot.pdaExecutionState.inboundEvents as unknown as RuntimeInboundEvent[])
     .filter((item) => item.productionOrderId === record.productionOrderId || item.productionOrderNo === productionOrderNo)
     .forEach((item) => {
       const current = ensureRecord(item)
@@ -359,7 +359,7 @@ function buildWarehouseRecordsWithOverlay(
       current.note = item.note || current.note
     })
 
-  ;(snapshot.pdaExecutionState.handoverWritebacks as unknown as RuntimeHandoverWriteback[])
+  ;(snapshot.pdaExecutionState.handoverEvents as unknown as RuntimeHandoverEvent[])
     .filter((item) => item.productionOrderId === record.productionOrderId || item.productionOrderNo === productionOrderNo)
     .forEach((item) => {
       const current = ensureRecord(item)
@@ -407,7 +407,7 @@ function buildSampleSummary(snapshot: CuttingDomainSnapshot, record: CuttingOrde
 }
 
 function buildReplenishmentSummary(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord) {
-  const feedbacks = (snapshot.pdaExecutionState.replenishmentFeedbackWritebacks as unknown as RuntimeReplenishmentFeedbackWriteback[])
+  const feedbacks = (snapshot.pdaExecutionState.replenishmentFeedbackEvents as unknown as RuntimeReplenishmentFeedbackEvent[])
     .filter((item) => item.productionOrderId === record.productionOrderId || item.productionOrderNo === record.productionOrderNo)
   const suggestionCount = Math.max(feedbacks.length, record.riskFlags.includes('REPLENISH_PENDING') ? 1 : 0)
   const highRiskCount = feedbacks.filter((item) => /缺料|短缺|高风险/.test(item.reasonLabel || item.note || '')).length

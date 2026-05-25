@@ -500,6 +500,7 @@ function buildTechPackVersionRecord(input: {
     baseTechnicalVersionCode: base?.technicalVersionCode || '',
     changeScope: input.changeScope,
     changeSummary: input.changeSummary,
+    garmentDifficultyGrade: base?.garmentDifficultyGrade || 'B',
     linkedPartTemplateIds: base?.linkedPartTemplateIds ? [...base.linkedPartTemplateIds] : [],
     linkedPatternLibraryVersionIds: [...(input.linkedPatternLibraryVersionIds ?? base?.linkedPatternLibraryVersionIds ?? [])],
     linkedPatternAssetIds: [...(input.linkedPatternAssetIds ?? base?.linkedPatternAssetIds ?? [])],
