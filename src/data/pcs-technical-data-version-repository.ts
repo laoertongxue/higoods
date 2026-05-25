@@ -12,6 +12,11 @@ import type {
   TechnicalDataVersionStoreSnapshot,
   TechnicalDomainStatus,
   TechnicalGarmentDifficultyGrade,
+  TechnicalReviewNode,
+  TechnicalReviewNodeKey,
+  TechnicalReviewNodeStatus,
+  TechnicalReviewRole,
+  TechnicalReviewStage,
   TechnicalPatternDesign,
   TechnicalPatternFile,
   TechnicalProcessEntry,
@@ -127,6 +132,9 @@ function cloneRecord(record: TechnicalDataVersionRecord): TechnicalDataVersionRe
     linkedPatternAssetCodes: [...(record.linkedPatternAssetCodes ?? [])],
     missingItemCodes: [...(record.missingItemCodes ?? [])],
     missingItemNames: [...(record.missingItemNames ?? [])],
+    buyerReview: record.buyerReview ? { ...record.buyerReview } : undefined,
+    patternMakerReview: record.patternMakerReview ? { ...record.patternMakerReview } : undefined,
+    merchandiserReview: record.merchandiserReview ? { ...record.merchandiserReview } : undefined,
   }
 }
 
@@ -205,6 +213,63 @@ function normalizeGarmentDifficultyGrade(value: unknown): TechnicalGarmentDiffic
   return value === 'A' || value === 'A+' || value === 'A++' || value === 'B' || value === 'C' || value === 'D'
     ? value
     : 'B'
+}
+
+const REVIEW_NODE_META: Record<
+  TechnicalReviewNodeKey,
+  { nodeName: TechnicalReviewNode['nodeName']; reviewerRole: TechnicalReviewRole }
+> = {
+  BUYER: { nodeName: '买手审核', reviewerRole: '买手' },
+  PATTERN_MAKER: { nodeName: '版师审核', reviewerRole: '版师' },
+  MERCHANDISER: { nodeName: '跟单审核', reviewerRole: '跟单' },
+}
+
+function normalizeReviewNodeStatus(value: string | null | undefined): TechnicalReviewNodeStatus {
+  if (value === '审核中' || value === '审核-未通过' || value === '审核-已通过') return value
+  return '待审核'
+}
+
+function normalizeReviewNode(
+  nodeKey: TechnicalReviewNodeKey,
+  node?: Partial<TechnicalReviewNode> | null,
+): TechnicalReviewNode {
+  const meta = REVIEW_NODE_META[nodeKey]
+  return {
+    nodeKey,
+    nodeName: meta.nodeName,
+    status: normalizeReviewNodeStatus(node?.status),
+    reviewerRole: meta.reviewerRole,
+    reviewedBy: node?.reviewedBy || '',
+    reviewedAt: node?.reviewedAt || '',
+    opinion: node?.opinion || '',
+  }
+}
+
+function deriveReviewStage(input: {
+  versionStatus: TechnicalVersionStatus
+  reviewStage?: TechnicalReviewStage
+  buyerReview: TechnicalReviewNode
+  patternMakerReview: TechnicalReviewNode
+  merchandiserReview: TechnicalReviewNode
+}): TechnicalReviewStage {
+  if (input.versionStatus === 'PUBLISHED' || input.versionStatus === 'ARCHIVED') return '已发布'
+  if (input.reviewStage === '已发布') return '已发布'
+  if (input.merchandiserReview.status === '审核-已通过') return '待发布'
+  if (
+    input.buyerReview.status === '审核-已通过' &&
+    input.patternMakerReview.status === '审核-已通过'
+  ) {
+    return '跟单复核'
+  }
+  if (
+    input.reviewStage === '第一阶段并行审核' ||
+    input.reviewStage === '跟单复核' ||
+    input.buyerReview.status !== '待审核' ||
+    input.patternMakerReview.status !== '待审核'
+  ) {
+    return '第一阶段并行审核'
+  }
+  return '未提交审核'
 }
 
 function createEmptyContent(technicalVersionId: string): TechnicalDataVersionContent {
@@ -328,9 +393,25 @@ function applyDerivedFields(
 ): TechnicalDataVersionRecord {
   const versionStatus = normalizeVersionStatus(record.versionStatus)
   const derived = buildTechnicalDataDerivedState(versionStatus, content)
+  const buyerReview = normalizeReviewNode('BUYER', record.buyerReview)
+  const patternMakerReview = normalizeReviewNode('PATTERN_MAKER', record.patternMakerReview)
+  const merchandiserReview = normalizeReviewNode('MERCHANDISER', record.merchandiserReview)
   return {
     ...cloneRecord(record),
     versionStatus,
+    reviewStage: deriveReviewStage({
+      versionStatus,
+      reviewStage: record.reviewStage,
+      buyerReview,
+      patternMakerReview,
+      merchandiserReview,
+    }),
+    buyerReview,
+    patternMakerReview,
+    merchandiserReview,
+    reviewSubmittedAt: record.reviewSubmittedAt || '',
+    reviewSubmittedBy: record.reviewSubmittedBy || '',
+    returnedFromMerchandiserFlag: Boolean(record.returnedFromMerchandiserFlag),
     ...derived,
     linkedRevisionTaskIds: [...(record.linkedRevisionTaskIds ?? [])],
     linkedPatternTaskIds: [...(record.linkedPatternTaskIds ?? [])],

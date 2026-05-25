@@ -1,6 +1,7 @@
 import {
   appendTechPackVersionLog,
 } from './pcs-tech-pack-version-log-repository.ts'
+import { canPublishTechnicalVersionByReview } from './pcs-tech-pack-review.ts'
 import {
   activateTechPackVersionForStyle,
 } from './pcs-tech-pack-version-activation.ts'
@@ -116,6 +117,9 @@ export function publishTechnicalDataVersion(
   if (record.versionStatus !== 'DRAFT') throw new Error('只有草稿技术包版本才能发布。')
   if (record.missingItemCodes.length > 0) {
     throw new Error(`核心域未补全，暂不能发布：${record.missingItemNames.join('、')}`)
+  }
+  if (!canPublishTechnicalVersionByReview(record)) {
+    throw new Error('跟单审核通过后才能发布正式版本。')
   }
 
   const publishedAt = nowText()

@@ -11,8 +11,21 @@ import {
 import { normalizeBomRequirement } from './bom-process-linkage.ts'
 import { buildPatternSignature, checkDuplicatePattern } from './pattern-duplicate-check.ts'
 import { renderPieceInstanceSpecialCraftDialog } from './pattern-domain.ts'
-import { saveTechnicalDataVersionRecordMeta } from '../../data/pcs-project-technical-data-writeback.ts'
-import type { TechnicalGarmentDifficultyGrade } from '../../data/pcs-technical-data-version-types.ts'
+import {
+  publishTechnicalDataVersion,
+  saveTechnicalDataVersionRecordMeta,
+} from '../../data/pcs-project-technical-data-writeback.ts'
+import {
+  approveTechPackReview,
+  rejectTechPackReview,
+  returnTechPackReviewToFirstStage,
+  startTechPackReview,
+  submitTechPackFirstStageReview,
+} from '../../data/pcs-tech-pack-review.ts'
+import type {
+  TechnicalGarmentDifficultyGrade,
+  TechnicalReviewNodeKey,
+} from '../../data/pcs-technical-data-version-types.ts'
 import {
   TECH_PACK_PATTERN_CATEGORY_OPTIONS,
   buildPatternDisplayFile,
@@ -2230,6 +2243,23 @@ function handleTechPackField(
 function performRelease(): void {
   if (!state.techPack) return
   syncTechPackToStore()
+  if (state.currentTechnicalVersionId) {
+    try {
+      const record = publishTechnicalDataVersion(state.currentTechnicalVersionId, currentUser.name)
+      state.techPack = {
+        ...state.techPack,
+        status: 'ENABLED',
+        versionLabel: record.versionLabel,
+        lastUpdatedAt: record.updatedAt,
+        lastUpdatedBy: record.updatedBy,
+      }
+      state.compatibilityMessage = ''
+    } catch (error) {
+      state.compatibilityMessage = error instanceof Error ? error.message : '发布技术包版本失败'
+    }
+    state.releaseDialogOpen = false
+    return
+  }
   const validation = validateTechPackForPublish(state.techPack)
   if (validation.length > 0) {
     state.compatibilityMessage = validation[0] || '请检查技术包'
@@ -2345,6 +2375,64 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'close-pattern-image-preview') {
     closePatternImagePreviewModal()
+    return true
+  }
+
+  if (action === 'submit-review') {
+    if (!state.currentTechnicalVersionId) return true
+    try {
+      submitTechPackFirstStageReview(state.currentTechnicalVersionId, currentUser.name)
+      state.compatibilityMessage = ''
+    } catch (error) {
+      state.compatibilityMessage = error instanceof Error ? error.message : '提交审核失败'
+    }
+    return true
+  }
+  if (action === 'start-review') {
+    const nodeKey = actionNode.dataset.reviewNode as TechnicalReviewNodeKey | undefined
+    if (!state.currentTechnicalVersionId || !nodeKey) return true
+    try {
+      startTechPackReview(state.currentTechnicalVersionId, nodeKey, currentUser.name)
+      state.compatibilityMessage = ''
+    } catch (error) {
+      state.compatibilityMessage = error instanceof Error ? error.message : '开始审核失败'
+    }
+    return true
+  }
+  if (action === 'approve-review') {
+    const nodeKey = actionNode.dataset.reviewNode as TechnicalReviewNodeKey | undefined
+    if (!state.currentTechnicalVersionId || !nodeKey) return true
+    try {
+      approveTechPackReview(state.currentTechnicalVersionId, nodeKey, '审核通过。', currentUser.name)
+      state.compatibilityMessage = ''
+    } catch (error) {
+      state.compatibilityMessage = error instanceof Error ? error.message : '审核通过失败'
+    }
+    return true
+  }
+  if (action === 'reject-review') {
+    const nodeKey = actionNode.dataset.reviewNode as TechnicalReviewNodeKey | undefined
+    if (!state.currentTechnicalVersionId || !nodeKey) return true
+    try {
+      rejectTechPackReview(state.currentTechnicalVersionId, nodeKey, '审核未通过，请修改后重新提交。', currentUser.name)
+      state.compatibilityMessage = ''
+    } catch (error) {
+      state.compatibilityMessage = error instanceof Error ? error.message : '审核不通过失败'
+    }
+    return true
+  }
+  if (action === 'return-review-first-stage') {
+    if (!state.currentTechnicalVersionId) return true
+    try {
+      returnTechPackReviewToFirstStage(
+        state.currentTechnicalVersionId,
+        '跟单复核发现问题，打回买手、版师重新审核。',
+        currentUser.name,
+      )
+      state.compatibilityMessage = ''
+    } catch (error) {
+      state.compatibilityMessage = error instanceof Error ? error.message : '打回上一阶段失败'
+    }
     return true
   }
 

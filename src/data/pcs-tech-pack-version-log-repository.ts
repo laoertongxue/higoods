@@ -9,7 +9,12 @@ const STORE_VERSION = 1
 let memorySnapshot: TechPackVersionLogStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
+  return (
+    typeof localStorage !== 'undefined' &&
+    typeof localStorage.getItem === 'function' &&
+    typeof localStorage.setItem === 'function' &&
+    typeof localStorage.removeItem === 'function'
+  )
 }
 
 function cloneLog(log: TechPackVersionLogRecord): TechPackVersionLogRecord {

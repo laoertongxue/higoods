@@ -2200,6 +2200,8 @@ function getPageData() {
   syncStateFromPath()
   const projection = buildMarkerSpreadingProjection({
     prefilter: state.prefilter,
+    includeCreateSources: false,
+    includeViewModel: false,
   })
   const store = buildMarkerSpreadingPrototypeStore({
     rows: projection.rows,
@@ -2454,8 +2456,8 @@ function renderFilterArea(): string {
     `, '', 'data-testid="cutting-spreading-list-filters"')
 }
 
-function renderListTabs(): string {
-  const { stageCounts } = getPageData()
+function renderListTabs(pageData = getPageData()): string {
+  const { stageCounts } = pageData
   return `
     <section class="rounded-lg border border-dashed bg-muted/20 px-3 py-3" data-testid="cutting-spreading-stage-tabs">
       <div class="flex flex-wrap gap-2">
@@ -2479,8 +2481,8 @@ function renderListTabs(): string {
   `
 }
 
-function renderListStats(): string {
-  const { stageCounts } = getPageData()
+function renderListStats(pageData = getPageData()): string {
+  const { stageCounts } = pageData
 
   return `
     <section class="grid gap-3 md:grid-cols-3" data-testid="cutting-spreading-list-stats">
@@ -2640,8 +2642,8 @@ function renderSpreadingSupervisorListPage(): string {
         ])),
       })}
       ${renderFeedbackBar()}
-      ${renderListStats()}
-      ${renderListTabs()}
+      ${renderListStats(pageData)}
+      ${renderListTabs(pageData)}
       ${renderFilterArea()}
       ${renderSpreadingTable(filteredRows, pageData.projection)}
     </div>

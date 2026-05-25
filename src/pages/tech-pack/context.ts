@@ -422,6 +422,7 @@ const tabItems: Array<{ key: TechPackTab; icon: string; label: string }> = [
   { key: 'process', icon: 'scissors', label: '工序工艺' },
   { key: 'size', icon: 'ruler', label: '放码规则' },
   { key: 'color-mapping', icon: 'git-merge', label: '款色用料对应' },
+  { key: 'cost', icon: 'badge-dollar-sign', label: '核价' },
   { key: 'design', icon: 'image', label: '花型设计' },
   { key: 'attachments', icon: 'paperclip', label: '附件' },
 ]
@@ -4856,7 +4857,7 @@ function renderChecklist(): string {
 
 function renderTabHeader(): string {
   return `
-    <div class="grid w-full grid-cols-7 gap-2 rounded-lg border bg-muted/20 p-2">
+    <div class="grid w-full grid-cols-8 gap-2 rounded-lg border bg-muted/20 p-2">
       ${tabItems
         .map(
           (tab) => `

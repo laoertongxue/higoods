@@ -8,6 +8,12 @@ import { buildTechPackVersionSourceTaskSummary } from './pcs-tech-pack-task-gene
 import { listTechPackVersionLogsByVersionId } from './pcs-tech-pack-version-log-repository.ts'
 import { listPatternAssetsForTechPackVersions } from './pcs-pattern-library-archive-linkage.ts'
 import {
+  canPublishTechnicalVersionByReview,
+  getTechnicalReviewPendingRoles,
+  getTechnicalReviewStatusText,
+  normalizeTechnicalReviewSnapshot,
+} from './pcs-tech-pack-review.ts'
+import {
   getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
@@ -41,6 +47,10 @@ export interface TechnicalVersionListItemViewModel {
   archiveStatusText: string
   canPublish: boolean
   canActivate: boolean
+  reviewStage: string
+  reviewStatusText: string
+  pendingReviewerText: string
+  reviewActionText: string
 }
 
 export interface TechnicalVersionDetailViewModel {
@@ -52,6 +62,10 @@ export interface TechnicalVersionDetailViewModel {
   isCurrentTechPackVersion: boolean
   sourceTaskText: string
   canPublish: boolean
+  reviewStage: string
+  reviewStatusText: string
+  pendingReviewerText: string
+  reviewActionText: string
   compatibilityMode: boolean
   versionLogs: TechPackVersionLogRecord[]
   linkedPatternAssets: ReturnType<typeof listPatternAssetsForTechPackVersions>
@@ -79,39 +93,71 @@ export function getTechnicalDomainStatusLabel(status: TechnicalDomainStatus): st
   return '未建立'
 }
 
-export function canPublishTechnicalVersion(record: Pick<TechnicalDataVersionRecord, 'missingItemCodes'>): boolean {
-  return record.missingItemCodes.length === 0
+export function canPublishTechnicalVersion(
+  record: Pick<TechnicalDataVersionRecord, 'missingItemCodes' | 'versionStatus' | 'merchandiserReview'>,
+): boolean {
+  return record.missingItemCodes.length === 0 && canPublishTechnicalVersionByReview(record)
+}
+
+function buildTechnicalReviewSummary(record: TechnicalDataVersionRecord): {
+  reviewStage: string
+  reviewStatusText: string
+  pendingReviewerText: string
+  reviewActionText: string
+} {
+  const snapshot = normalizeTechnicalReviewSnapshot(record)
+  const pendingRoles = getTechnicalReviewPendingRoles(record)
+  const pendingReviewerText = pendingRoles.length > 0 ? pendingRoles.join('、') : '无'
+  let reviewActionText = '查看技术包'
+  if (record.versionStatus === 'PUBLISHED') reviewActionText = '查看正式版本'
+  else if (snapshot.reviewStage === '未提交审核') reviewActionText = '提交审核'
+  else if (snapshot.reviewStage === '待发布') reviewActionText = '发布正式版本'
+  else if (pendingRoles.includes('买手') && pendingRoles.includes('版师')) reviewActionText = '去买手、版师审核'
+  else if (pendingRoles.includes('买手')) reviewActionText = '去买手审核'
+  else if (pendingRoles.includes('版师')) reviewActionText = '去版师审核'
+  else if (pendingRoles.includes('跟单')) reviewActionText = '去跟单复核'
+  return {
+    reviewStage: snapshot.reviewStage || '未提交审核',
+    reviewStatusText: getTechnicalReviewStatusText(record),
+    pendingReviewerText,
+    reviewActionText,
+  }
 }
 
 export function buildTechnicalVersionListByStyle(styleId: string): TechnicalVersionListItemViewModel[] {
   const style = getStyleArchiveById(styleId)
-  return listTechnicalDataVersionsByStyleId(styleId).map((record) => ({
-    technicalVersionId: record.technicalVersionId,
-    technicalVersionCode: record.technicalVersionCode,
-    versionLabel: record.versionLabel,
-    versionStatus: record.versionStatus,
-    versionStatusLabel: getTechnicalVersionBusinessStatusLabel(record, style?.currentTechPackVersionId || ''),
-    isCurrentTechPackVersion: style?.currentTechPackVersionId === record.technicalVersionId,
-    completenessScore: record.completenessScore,
-    missingItemNames: [...record.missingItemNames],
-    sourceTaskText: buildTechPackVersionSourceTaskSummary(record).taskChainText,
-    sourceProjectText: record.sourceProjectCode
-      ? `${record.sourceProjectCode} · ${record.sourceProjectName}`
-      : '未绑定商品项目',
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
-    publishedAt: record.publishedAt,
-    versionLogCount: listTechPackVersionLogsByVersionId(record.technicalVersionId).length,
-    linkedPatternAssetCount: listPatternAssetsForTechPackVersions([record]).length,
-    archiveStatusText: record.archiveCollectedFlag ? '已进入项目资料归档' : '未进入项目资料归档',
-    canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
-    canActivate: record.versionStatus === 'PUBLISHED' && style?.currentTechPackVersionId !== record.technicalVersionId,
-  }))
+  return listTechnicalDataVersionsByStyleId(styleId).map((record) => {
+    const review = buildTechnicalReviewSummary(record)
+    return {
+      technicalVersionId: record.technicalVersionId,
+      technicalVersionCode: record.technicalVersionCode,
+      versionLabel: record.versionLabel,
+      versionStatus: record.versionStatus,
+      versionStatusLabel: getTechnicalVersionBusinessStatusLabel(record, style?.currentTechPackVersionId || ''),
+      isCurrentTechPackVersion: style?.currentTechPackVersionId === record.technicalVersionId,
+      completenessScore: record.completenessScore,
+      missingItemNames: [...record.missingItemNames],
+      sourceTaskText: buildTechPackVersionSourceTaskSummary(record).taskChainText,
+      sourceProjectText: record.sourceProjectCode
+        ? `${record.sourceProjectCode} · ${record.sourceProjectName}`
+        : '未绑定商品项目',
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      publishedAt: record.publishedAt,
+      versionLogCount: listTechPackVersionLogsByVersionId(record.technicalVersionId).length,
+      linkedPatternAssetCount: listPatternAssetsForTechPackVersions([record]).length,
+      archiveStatusText: record.archiveCollectedFlag ? '已进入项目资料归档' : '未进入项目资料归档',
+      canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
+      canActivate: record.versionStatus === 'PUBLISHED' && style?.currentTechPackVersionId !== record.technicalVersionId,
+      ...review,
+    }
+  })
 }
 
 export function buildTechnicalVersionListByProject(projectId: string): TechnicalVersionListItemViewModel[] {
   return listTechnicalDataVersionsByProjectId(projectId).map((record) => {
     const style = getStyleArchiveById(record.styleId)
+    const review = buildTechnicalReviewSummary(record)
     return {
       technicalVersionId: record.technicalVersionId,
       technicalVersionCode: record.technicalVersionCode,
@@ -134,6 +180,7 @@ export function buildTechnicalVersionListByProject(projectId: string): Technical
       canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
       canActivate:
         record.versionStatus === 'PUBLISHED' && style?.currentTechPackVersionId !== record.technicalVersionId,
+      ...review,
     }
   })
 }
@@ -144,6 +191,7 @@ export function buildTechnicalVersionDetailViewModel(
   const record = getTechnicalDataVersionById(technicalVersionId)
   const content = getTechnicalDataVersionContent(technicalVersionId)
   if (!record || !content) return null
+  const review = buildTechnicalReviewSummary(record)
   return {
     record,
     content,
@@ -159,6 +207,7 @@ export function buildTechnicalVersionDetailViewModel(
       getStyleArchiveById(record.styleId)?.currentTechPackVersionId === record.technicalVersionId,
     sourceTaskText: buildTechPackVersionSourceTaskSummary(record).taskChainText,
     canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
+    ...review,
     compatibilityMode: false,
     versionLogs: listTechPackVersionLogsByVersionId(record.technicalVersionId),
     linkedPatternAssets: listPatternAssetsForTechPackVersions([record]),

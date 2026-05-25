@@ -12,6 +12,12 @@ import { getStyleArchiveById } from '../../data/pcs-style-archive-repository.ts'
 import { getTechnicalDataVersionById } from '../../data/pcs-technical-data-version-repository.ts'
 import { listPatternAssetsForTechPackVersions } from '../../data/pcs-pattern-library-archive-linkage.ts'
 import {
+  canPublishTechnicalVersionByReview,
+  getTechnicalReviewPendingRoles,
+  getTechnicalReviewStatusText,
+  normalizeTechnicalReviewSnapshot,
+} from '../../data/pcs-tech-pack-review.ts'
+import {
   buildTechPackVersionSourceTaskSummary,
 } from '../../data/pcs-tech-pack-task-generation.ts'
 import { listTechPackVersionLogsByVersionId } from '../../data/pcs-tech-pack-version-log-repository.ts'
@@ -146,6 +152,132 @@ function renderTechPackVersionLogsPanel(): string {
   `
 }
 
+function renderReviewNodeCard(input: {
+  title: string
+  scope: string
+  status: string
+  reviewer: string
+  reviewedAt: string
+  opinion: string
+  actions: string
+}): string {
+  return `
+    <article class="rounded-lg border bg-muted/10 p-3">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-medium text-foreground">${escapeHtml(input.title)}</h3>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(input.scope)}</p>
+        </div>
+        <span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(input.status)}</span>
+      </div>
+      <div class="mt-3 grid gap-2 text-xs text-muted-foreground">
+        <div>审核人：<span class="font-medium text-foreground">${escapeHtml(input.reviewer || '-')}</span></div>
+        <div>审核时间：<span class="font-medium text-foreground">${escapeHtml(input.reviewedAt || '-')}</span></div>
+        <div>审核意见：<span class="font-medium text-foreground">${escapeHtml(input.opinion || '未填写')}</span></div>
+      </div>
+      ${input.actions ? `<div class="mt-3 flex flex-wrap gap-2">${input.actions}</div>` : ''}
+    </article>
+  `
+}
+
+function renderReviewButton(action: string, label: string, nodeKey?: string, style = 'border'): string {
+  const className =
+    style === 'primary'
+      ? 'inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-700'
+      : style === 'danger'
+      ? 'inline-flex h-8 items-center rounded-md border border-red-200 bg-white px-3 text-xs text-red-600 hover:bg-red-50'
+      : 'inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted'
+  return `<button type="button" class="${className}" data-tech-action="${escapeHtml(action)}"${nodeKey ? ` data-review-node="${escapeHtml(nodeKey)}"` : ''}>${escapeHtml(label)}</button>`
+}
+
+function renderNodeActions(status: string, nodeKey: 'BUYER' | 'PATTERN_MAKER' | 'MERCHANDISER'): string {
+  if (status === '审核-已通过') return ''
+  if (status === '审核中') {
+    if (nodeKey === 'MERCHANDISER') {
+      return [
+        renderReviewButton('approve-review', '跟单复核通过', nodeKey, 'primary'),
+        renderReviewButton('return-review-first-stage', '打回买手、版师复审', nodeKey, 'danger'),
+      ].join('')
+    }
+    return [
+      renderReviewButton('approve-review', '审核通过', nodeKey, 'primary'),
+      renderReviewButton('reject-review', '审核不通过', nodeKey, 'danger'),
+    ].join('')
+  }
+  return renderReviewButton('start-review', '开始审核', nodeKey)
+}
+
+function renderTechPackReviewPanel(): string {
+  if (!state.currentTechnicalVersionId) return ''
+  const record = getTechnicalDataVersionById(state.currentTechnicalVersionId)
+  if (!record) return ''
+  const review = normalizeTechnicalReviewSnapshot(record)
+  const pendingRoles = getTechnicalReviewPendingRoles(record)
+  const canSubmit = record.versionStatus === 'DRAFT' && review.reviewStage === '未提交审核'
+  const canPublish = record.missingItemCodes.length === 0 && canPublishTechnicalVersionByReview(record)
+  const buyerActions =
+    record.versionStatus === 'DRAFT' && review.reviewStage !== '未提交审核'
+      ? renderNodeActions(review.buyerReview.status, 'BUYER')
+      : ''
+  const patternActions =
+    record.versionStatus === 'DRAFT' && review.reviewStage !== '未提交审核'
+      ? renderNodeActions(review.patternMakerReview.status, 'PATTERN_MAKER')
+      : ''
+  const merchandiserActions =
+    record.versionStatus === 'DRAFT' &&
+    review.buyerReview.status === '审核-已通过' &&
+    review.patternMakerReview.status === '审核-已通过'
+      ? renderNodeActions(review.merchandiserReview.status, 'MERCHANDISER')
+      : ''
+  return `
+    <section class="rounded-lg border bg-card p-4" data-tech-pack-review-panel="true">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-medium text-foreground">技术包审核</h2>
+          <p class="mt-1 text-sm text-muted-foreground">
+            当前阶段：<span class="font-medium text-foreground">${escapeHtml(review.reviewStage || '未提交审核')}</span>
+            · 当前状态：<span class="font-medium text-foreground">${escapeHtml(getTechnicalReviewStatusText(record))}</span>
+            · 待处理人：<span class="font-medium text-foreground">${escapeHtml(pendingRoles.join('、') || '无')}</span>
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${canSubmit ? renderReviewButton('submit-review', '提交买手、版师并行审核', undefined, 'primary') : ''}
+          ${canPublish ? renderReviewButton('confirm-release', '发布正式版本', undefined, 'primary') : ''}
+        </div>
+      </div>
+      <div class="mt-4 grid gap-3 lg:grid-cols-3">
+        ${renderReviewNodeCard({
+          title: '买手审核',
+          scope: '物料清单、核价',
+          status: review.buyerReview.status,
+          reviewer: review.buyerReview.reviewedBy,
+          reviewedAt: review.buyerReview.reviewedAt,
+          opinion: review.buyerReview.opinion,
+          actions: buyerActions,
+        })}
+        ${renderReviewNodeCard({
+          title: '版师审核',
+          scope: '纸样管理、款色用料对应',
+          status: review.patternMakerReview.status,
+          reviewer: review.patternMakerReview.reviewedBy,
+          reviewedAt: review.patternMakerReview.reviewedAt,
+          opinion: review.patternMakerReview.opinion,
+          actions: patternActions,
+        })}
+        ${renderReviewNodeCard({
+          title: '跟单审核',
+          scope: '剩余部分、整体复核',
+          status: review.merchandiserReview.status,
+          reviewer: review.merchandiserReview.reviewedBy,
+          reviewedAt: review.merchandiserReview.reviewedAt,
+          opinion: review.merchandiserReview.opinion,
+          actions: merchandiserActions,
+        })}
+      </div>
+    </section>
+  `
+}
+
 export function renderTechPackPage(
   rawSpuCode: string,
   options?: {
@@ -180,7 +312,11 @@ export function renderTechPackPage(
 
   const checklist = getChecklist()
   const hasIncomplete = checklist.some((item) => item.required && !item.done)
-  const canRelease = !hasIncomplete && state.techPack.status === 'DRAFT'
+  const currentRecord = state.currentTechnicalVersionId ? getTechnicalDataVersionById(state.currentTechnicalVersionId) : null
+  const canRelease =
+    !hasIncomplete &&
+    state.techPack.status === 'DRAFT' &&
+    (!currentRecord || canPublishTechnicalVersionByReview(currentRecord))
   return `
     <div data-tech-pack-page-root="true" class="space-y-4">
       <header class="flex items-start justify-between">
@@ -205,13 +341,14 @@ export function renderTechPackPage(
           </div>
           <button type="button" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
             canRelease ? '' : 'pointer-events-none opacity-50'
-          }" data-tech-action="open-release" title="${hasIncomplete ? '核心域未补全，暂不可发布' : state.techPack.status !== 'DRAFT' ? '只有草稿可以发布' : ''}">
+          }" data-tech-action="open-release" title="${hasIncomplete ? '核心域未补全，暂不可发布' : state.techPack.status !== 'DRAFT' ? '只有草稿可以发布' : currentRecord && !canPublishTechnicalVersionByReview(currentRecord) ? '跟单审核通过后才能发布正式版本' : ''}">
             <i data-lucide="check" class="mr-2 h-4 w-4"></i>
             发布版本
           </button>
         </div>
       </header>
 
+      ${renderTechPackReviewPanel()}
       ${renderTechPackVersionLogsPanel()}
       ${renderTabHeader()}
       ${renderCurrentTabContent()}

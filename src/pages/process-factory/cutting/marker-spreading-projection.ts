@@ -535,6 +535,8 @@ export function buildMarkerSpreadingProjection(options: {
   snapshot?: CuttingDomainSnapshot
   prefilter?: MarkerSpreadingPrefilter | null
   store?: MarkerSpreadingStore
+  includeCreateSources?: boolean
+  includeViewModel?: boolean
 } = {}): MarkerSpreadingProjection {
   const context = buildExecutionPrepProjectionContext(options.snapshot)
   const markerPlanProjection = buildMarkerPlanProjection()
@@ -543,12 +545,29 @@ export function buildMarkerSpreadingProjection(options: {
     (context.snapshot.markerSpreadingState.store as unknown as MarkerSpreadingStore)
   const spreadingArtifacts = buildConfirmedPlanSpreadingArtifacts(markerPlanProjection, baseStore)
   const store = spreadingArtifacts.store
-  const viewModel = buildMarkerSpreadingViewModel({
-    rows: context.sources.materialPrepRows,
-    markerPlanSources: context.sources.markerPlanSources,
-    store,
-    prefilter: options.prefilter ?? null,
-  })
+  const viewModel = options.includeViewModel === false
+    ? {
+        context: null,
+        prefilter: options.prefilter ?? null,
+        markerRecords: [],
+        spreadingSessions: [],
+        stats: {
+          markerCount: 0,
+          sessionCount: 0,
+          inProgressCount: 0,
+          doneCount: 0,
+          rollCount: 0,
+          warningCount: 0,
+          contextCutOrderCount: 0,
+          contextProductionOrderCount: 0,
+        },
+      }
+    : buildMarkerSpreadingViewModel({
+        rows: context.sources.materialPrepRows,
+        markerPlanSources: context.sources.markerPlanSources,
+        store,
+        prefilter: options.prefilter ?? null,
+      })
 
   return {
     snapshot: context.snapshot,
@@ -569,7 +588,7 @@ export function buildMarkerSpreadingProjection(options: {
     markerPlanSourcesById: Object.fromEntries(context.sources.markerPlanSources.map((batch) => [batch.markerPlanId, batch])),
     store,
     viewModel,
-    createSources: buildSpreadingCreateSourceRows(markerPlanProjection),
+    createSources: options.includeCreateSources === false ? [] : buildSpreadingCreateSourceRows(markerPlanProjection),
     spreadingOrders: spreadingArtifacts.spreadingOrders,
     spreadingOrdersByMarkerPlanId: groupSpreadingOrdersByMarkerPlanId(spreadingArtifacts.spreadingOrders),
     spreadingOrdersByProductionOrderId: groupSpreadingOrdersByProductionOrderId(spreadingArtifacts.spreadingOrders),
