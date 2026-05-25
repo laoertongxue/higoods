@@ -6,7 +6,7 @@ import {
   getPatternById,
   getPatternPieceById,
   getSkuOptionsForCurrentSpu,
-  isTechPackReadOnly,
+  isTechPackModuleReadOnly,
   state,
 } from './context.ts'
 
@@ -60,7 +60,7 @@ function renderReadonlyColorMappingLines(
 
 export function renderColorMappingTab(): string {
   if (!state.techPack) return ''
-  const readonly = isTechPackReadOnly()
+  const readonly = isTechPackModuleReadOnly('COLOR_MATERIAL_MAPPING')
   const readonlyAttr = readonly ? 'disabled aria-disabled="true"' : ''
 
   const mappings = state.colorMaterialMappings

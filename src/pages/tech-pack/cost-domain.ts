@@ -2,14 +2,14 @@ import {
   currencyOptions,
   customCostUnitOptions,
   escapeHtml,
-  isTechPackReadOnly,
+  isTechPackModuleReadOnly,
   materialUnitOptions,
   processUnitOptions,
   state,
 } from './context.ts'
 
 export function renderCostTab(): string {
-  const readonly = isTechPackReadOnly()
+  const readonly = isTechPackModuleReadOnly('COST')
   const materialTotal = state.materialCostRows.reduce(
     (sum, row) => sum + row.usage * (Number.parseFloat(row.price) || 0),
     0,

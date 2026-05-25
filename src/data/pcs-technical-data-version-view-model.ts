@@ -110,7 +110,7 @@ function buildTechnicalReviewSummary(record: TechnicalDataVersionRecord): {
   const pendingReviewerText = pendingRoles.length > 0 ? pendingRoles.join('、') : '无'
   let reviewActionText = '查看技术包'
   if (record.versionStatus === 'PUBLISHED') reviewActionText = '查看正式版本'
-  else if (snapshot.reviewStage === '未提交审核') reviewActionText = '提交审核'
+  else if (snapshot.reviewStage === '未提交审核') reviewActionText = '提交买手、版师并行审核'
   else if (snapshot.reviewStage === '待发布') reviewActionText = '发布正式版本'
   else if (pendingRoles.includes('买手') && pendingRoles.includes('版师')) reviewActionText = '去买手、版师审核'
   else if (pendingRoles.includes('买手')) reviewActionText = '去买手审核'

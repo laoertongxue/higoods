@@ -8,6 +8,11 @@ export type TechPackVersionLogType =
   | '手动新增技术包版本'
   | '发布技术包版本'
   | '启用当前生效版本'
+  | '提交技术包审核'
+  | '开始技术包审核'
+  | '技术包审核通过'
+  | '技术包审核不通过'
+  | '跟单打回第一阶段'
 
 export interface TechPackVersionLogRecord {
   logId: string

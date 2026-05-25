@@ -5,7 +5,7 @@ import {
   renderChecklist,
   renderStatusBadge,
   renderTabHeader,
-  isTechPackReadOnly,
+  isTechPackModuleReadOnly,
   state,
 } from './context.ts'
 import { getStyleArchiveById } from '../../data/pcs-style-archive-repository.ts'
@@ -66,7 +66,7 @@ function renderReleaseDialog(): string {
 
 function renderGarmentDifficultyField(record: ReturnType<typeof getTechnicalDataVersionById>): string {
   const grade = record?.garmentDifficultyGrade || 'B'
-  if (isTechPackReadOnly()) {
+  if (isTechPackModuleReadOnly('QUALITY')) {
     return `<div>做货难度：<span class="font-medium text-foreground">${escapeHtml(grade)}</span></div>`
   }
   return `
@@ -114,41 +114,63 @@ function renderTechPackSummary(): string {
   `
 }
 
-function renderTechPackVersionLogsPanel(): string {
+function renderTechPackVersionLogButton(): string {
   if (!state.currentTechnicalVersionId) return ''
   const logs = listTechPackVersionLogsByVersionId(state.currentTechnicalVersionId)
   return `
-    <section class="rounded-lg border bg-card p-4">
-      <div class="flex items-center justify-between gap-3">
-        <h2 class="text-sm font-medium text-foreground">技术包版本日志</h2>
-        <span class="text-xs text-muted-foreground">共 ${escapeHtml(String(logs.length))} 条</span>
-      </div>
-      ${
-        logs.length > 0
-          ? `
-            <div class="mt-4 space-y-3">
-              ${logs
-                .map(
-                  (item) => `
-                    <div class="rounded-lg border bg-muted/20 px-4 py-3">
-                      <div class="flex flex-wrap items-center justify-between gap-3">
-                        <div class="text-sm font-medium text-foreground">${escapeHtml(item.logType)}</div>
-                        <div class="text-xs text-muted-foreground">${escapeHtml(item.createdAt)}</div>
-                      </div>
-                      <div class="mt-2 text-sm text-muted-foreground">${escapeHtml(item.changeText || '未补充')}</div>
-                      <div class="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                        <span>操作人：${escapeHtml(item.createdBy || '-')}</span>
-                        <span>来源任务：${escapeHtml(item.sourceTaskCode ? `${item.sourceTaskCode} · ${item.sourceTaskName || item.sourceTaskType}` : '系统操作')}</span>
-                      </div>
-                    </div>
-                  `,
-                )
-                .join('')}
-            </div>
-          `
-          : '<div class="mt-4 rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">暂无技术包版本日志。</div>'
-      }
-    </section>
+    <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-version-logs">
+      <i data-lucide="history" class="mr-2 h-4 w-4"></i>
+      查看版本日志
+      <span class="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">${escapeHtml(String(logs.length))}</span>
+    </button>
+  `
+}
+
+function renderTechPackVersionLogDialog(): string {
+  if (!state.versionLogDialogOpen || !state.currentTechnicalVersionId) return ''
+  const logs = listTechPackVersionLogsByVersionId(state.currentTechnicalVersionId)
+  return `
+    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
+      <section class="flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+        <header class="flex items-center justify-between gap-3 border-b px-6 py-4">
+          <div>
+            <h3 class="text-lg font-semibold">技术包版本日志</h3>
+            <p class="mt-1 text-sm text-muted-foreground">共 ${escapeHtml(String(logs.length))} 条</p>
+          </div>
+          <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md border text-lg leading-none hover:bg-muted" data-tech-action="close-version-logs" aria-label="关闭版本日志">×</button>
+        </header>
+        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          ${
+            logs.length > 0
+              ? `
+                <div class="space-y-3">
+                  ${logs
+                    .map(
+                      (item) => `
+                        <div class="rounded-lg border bg-muted/20 px-4 py-3">
+                          <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="text-sm font-medium text-foreground">${escapeHtml(item.logType)}</div>
+                            <div class="text-xs text-muted-foreground">${escapeHtml(item.createdAt)}</div>
+                          </div>
+                          <div class="mt-2 text-sm text-muted-foreground">${escapeHtml(item.changeText || '未补充')}</div>
+                          <div class="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                            <span>操作人：${escapeHtml(item.createdBy || '-')}</span>
+                            <span>来源任务：${escapeHtml(item.sourceTaskCode ? `${item.sourceTaskCode} · ${item.sourceTaskName || item.sourceTaskType}` : '系统操作')}</span>
+                          </div>
+                        </div>
+                      `,
+                    )
+                    .join('')}
+                </div>
+              `
+              : '<div class="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">暂无技术包版本日志。</div>'
+          }
+        </div>
+        <footer class="flex items-center justify-end border-t px-6 py-4">
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-version-logs">关闭</button>
+        </footer>
+      </section>
+    </div>
   `
 }
 
@@ -335,6 +357,7 @@ export function renderTechPackPage(
         </div>
 
         <div class="flex items-center gap-3">
+          ${renderTechPackVersionLogButton()}
           <div class="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
             <span class="mr-1 text-sm font-medium text-muted-foreground">关键项检查:</span>
             ${renderChecklist()}
@@ -349,12 +372,12 @@ export function renderTechPackPage(
       </header>
 
       ${renderTechPackReviewPanel()}
-      ${renderTechPackVersionLogsPanel()}
       ${renderTabHeader()}
       ${renderCurrentTabContent()}
 
       ${renderPatternDialog()}
       ${renderPatternTemplateDialog()}
+      ${renderTechPackVersionLogDialog()}
       ${renderReleaseDialog()}
       ${renderPatternFormDialog()}
       ${renderBomFormDialog()}

@@ -1,9 +1,9 @@
-import { escapeHtml, isTechPackReadOnly, state } from './context.ts'
+import { escapeHtml, isTechPackModuleReadOnly, state } from './context.ts'
 
 export function renderSizeTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
-  const readonly = isTechPackReadOnly()
+  const readonly = isTechPackModuleReadOnly('SIZE')
 
   return `
     <section class="rounded-lg border bg-card">
@@ -65,6 +65,7 @@ export function renderSizeTab(): string {
 
 export function renderAddSizeDialog(): string {
   if (!state.addSizeDialogOpen) return ''
+  if (isTechPackModuleReadOnly('SIZE')) return ''
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">

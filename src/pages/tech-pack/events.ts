@@ -24,6 +24,7 @@ import {
 } from '../../data/pcs-tech-pack-review.ts'
 import type {
   TechnicalGarmentDifficultyGrade,
+  TechnicalModuleKey,
   TechnicalReviewNodeKey,
 } from '../../data/pcs-technical-data-version-types.ts'
 import {
@@ -69,6 +70,7 @@ import {
   hasEnabledColorPiece,
   hasInvalidColorPieceQty,
   hasPositiveEnabledColorPiece,
+  isTechPackModuleReadOnly,
   isTechPackReadOnly,
   requestTechPackRender,
   resetAttachmentForm,
@@ -98,6 +100,103 @@ import type {
 } from './context.ts'
 
 const PATTERN_IMAGE_PREVIEW_MODAL_ID = 'tech-pack-pattern-image-preview-modal'
+
+const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
+  'open-add-bom': 'BOM',
+  'edit-bom': 'BOM',
+  'save-bom': 'BOM',
+  'delete-bom': 'BOM',
+  'add-custom-cost': 'COST',
+  'delete-custom-cost': 'COST',
+  'confirm-color-mapping': 'COLOR_MATERIAL_MAPPING',
+  'mark-color-mapping-manual': 'COLOR_MATERIAL_MAPPING',
+  'copy-system-draft-manual': 'COLOR_MATERIAL_MAPPING',
+  'reset-color-mapping-suggestion': 'COLOR_MATERIAL_MAPPING',
+  'add-mapping-line': 'COLOR_MATERIAL_MAPPING',
+  'delete-mapping-line': 'COLOR_MATERIAL_MAPPING',
+  'open-add-pattern': 'PATTERN',
+  'open-add-pattern-package': 'PATTERN',
+  'edit-pattern': 'PATTERN',
+  'delete-pattern': 'PATTERN',
+  'switch-pattern-maintenance-step': 'PATTERN',
+  'save-pattern-merchandiser-step': 'PATTERN',
+  'save-pattern-and-go-maker': 'PATTERN',
+  'add-pattern-binding-strip': 'PATTERN',
+  'delete-pattern-binding-strip': 'PATTERN',
+  'confirm-pattern-duplicate-warning': 'PATTERN',
+  'save-pattern-package': 'PATTERN',
+  'save-pattern-maker-step': 'PATTERN',
+  'save-pattern-and-parse': 'PATTERN',
+  'save-pattern': 'PATTERN',
+  'open-pattern-prj-picker': 'PATTERN',
+  'open-pattern-dxf-picker': 'PATTERN',
+  'open-pattern-rul-picker': 'PATTERN',
+  'open-pattern-marker-image-picker': 'PATTERN',
+  'open-pattern-single-file-picker': 'PATTERN',
+  'clear-pattern-uploaded-files': 'PATTERN',
+  'parse-pattern': 'PATTERN',
+  'toggle-pattern-size-code': 'PATTERN',
+  'toggle-pattern-piece-color': 'PATTERN',
+  'toggle-pattern-piece-special-craft': 'PATTERN',
+  'open-pattern-piece-template-dialog': 'PATTERN',
+  'select-pattern-template': 'PATTERN',
+  'add-new-pattern-piece-row': 'PATTERN',
+  'delete-new-pattern-piece-row': 'PATTERN',
+  'open-piece-instance-special-craft-dialog': 'PATTERN',
+  'add-piece-instance-special-craft': 'PATTERN',
+  'delete-piece-instance-special-craft': 'PATTERN',
+  'apply-piece-instance-craft-to-same-color': 'PATTERN',
+  'open-add-technique': 'PROCESS',
+  'edit-technique': 'PROCESS',
+  'save-technique': 'PROCESS',
+  'delete-technique': 'PROCESS',
+  'keep-bom-prep-process': 'PROCESS',
+  'remove-bom-prep-process': 'PROCESS',
+  'open-add-size': 'SIZE',
+  'save-size': 'SIZE',
+  'delete-size': 'SIZE',
+  'open-add-design': 'DESIGN',
+  'open-design-file-picker': 'DESIGN',
+  'save-design': 'DESIGN',
+  'delete-design': 'DESIGN',
+  'open-add-attachment': 'ATTACHMENT',
+  'save-attachment': 'ATTACHMENT',
+  'delete-attachment': 'ATTACHMENT',
+}
+
+function getTechPackFieldModuleKey(field: string): TechnicalModuleKey | null {
+  const normalized = field.trim()
+  if (!normalized) return null
+  if (normalized === 'garment-difficulty-grade') return 'QUALITY'
+  if (normalized.startsWith('new-bom-') || normalized.startsWith('bom-')) return 'BOM'
+  if (
+    normalized.startsWith('custom-cost-') ||
+    normalized.startsWith('material-') ||
+    normalized.startsWith('process-')
+  ) {
+    return 'COST'
+  }
+  if (normalized === 'mapping-remark' || normalized.startsWith('mapping-line-')) {
+    return 'COLOR_MATERIAL_MAPPING'
+  }
+  if (normalized.startsWith('new-pattern-') || normalized.startsWith('piece-instance-')) {
+    return 'PATTERN'
+  }
+  if (normalized.startsWith('new-technique-') || normalized.startsWith('tech-')) return 'PROCESS'
+  if (normalized.startsWith('new-size-')) return 'SIZE'
+  if (normalized.startsWith('new-design-')) return 'DESIGN'
+  if (normalized.startsWith('new-attachment-')) return 'ATTACHMENT'
+  return null
+}
+
+function getTechPackActionModuleKey(action: string): TechnicalModuleKey | null {
+  return TECH_PACK_ACTION_MODULE_MAP[action.trim()] ?? null
+}
+
+function isTechPackFieldReadOnly(field: string): boolean {
+  const moduleKey = getTechPackFieldModuleKey(field)
+  return moduleKey ? isTechPackModuleReadOnly(moduleKey) : isTechPackReadOnly()
+}
 
 function closePatternImagePreviewModal(): void {
   document.getElementById(PATTERN_IMAGE_PREVIEW_MODAL_ID)?.remove()
@@ -2285,7 +2384,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     fieldNode instanceof HTMLSelectElement ||
     fieldNode instanceof HTMLTextAreaElement
   ) {
-    if (isTechPackReadOnly()) return true
+    if (isTechPackFieldReadOnly(fieldNode.dataset.techField || '')) return true
     return handleTechPackField(fieldNode)
   }
 
@@ -2332,6 +2431,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   if (action === 'close-dialog') {
     if (state.releaseDialogOpen) {
       state.releaseDialogOpen = false
+    } else if (state.versionLogDialogOpen) {
+      state.versionLogDialogOpen = false
     } else if (state.designPreviewDialogOpen) {
       state.designPreviewDialogOpen = false
       state.designPreviewDesignId = null
@@ -2435,6 +2536,14 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
     return true
   }
+  if (action === 'open-version-logs') {
+    state.versionLogDialogOpen = true
+    return true
+  }
+  if (action === 'close-version-logs') {
+    state.versionLogDialogOpen = false
+    return true
+  }
 
   if (isTechPackReadOnly()) {
     const isReadonlySafeAction =
@@ -2447,6 +2556,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       action === 'download-attachment'
     if (!isReadonlySafeAction) return true
   }
+
+  const lockedModuleKey = getTechPackActionModuleKey(action)
+  if (lockedModuleKey && isTechPackModuleReadOnly(lockedModuleKey)) return true
 
   if (action === 'open-release') {
     state.releaseDialogOpen = true

@@ -2,6 +2,7 @@ import {
   getTechnicalDataVersionById,
   updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
+import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
 import type {
   TechnicalDataVersionRecord,
   TechnicalModuleKey,
@@ -11,6 +12,7 @@ import type {
   TechnicalReviewRole,
   TechnicalReviewStage,
 } from './pcs-technical-data-version-types.ts'
+import type { TechPackVersionLogType } from './pcs-tech-pack-version-log-types.ts'
 
 const REVIEW_NODE_META: Record<
   TechnicalReviewNodeKey,
@@ -38,6 +40,14 @@ const MODULE_OWNER: Partial<Record<TechnicalModuleKey, TechnicalReviewNodeKey>> 
   ATTACHMENT: 'MERCHANDISER',
   QUALITY: 'MERCHANDISER',
 }
+
+const REVIEW_SCOPE_TEXT: Record<TechnicalReviewNodeKey, string> = {
+  BUYER: '物料清单、核价',
+  PATTERN_MAKER: '纸样管理、款色用料对应',
+  MERCHANDISER: '剩余部分、整体复核',
+}
+
+let reviewLogSequence = 0
 
 function nowText(): string {
   const now = new Date()
@@ -189,7 +199,7 @@ export function getTechnicalReviewPendingRoles(
 ): TechnicalReviewRole[] {
   const snapshot = normalizeTechnicalReviewSnapshot(record)
   if (record.versionStatus === 'PUBLISHED') return []
-  if (snapshot.reviewStage === '未提交审核') return []
+  if (snapshot.reviewStage === '未提交审核') return ['买手', '版师']
   if (snapshot.reviewStage === '待发布') return []
   if (snapshot.reviewStage === '跟单复核') {
     return snapshot.merchandiserReview.status === '审核-已通过' ? [] : ['跟单']
@@ -233,13 +243,53 @@ function saveReviewPatch(
   return nextRecord
 }
 
+function getReviewNodeFromSnapshot(
+  snapshot: ReturnType<typeof normalizeTechnicalReviewSnapshot>,
+  nodeKey: TechnicalReviewNodeKey,
+): TechnicalReviewNode {
+  if (nodeKey === 'BUYER') return snapshot.buyerReview
+  if (nodeKey === 'PATTERN_MAKER') return snapshot.patternMakerReview
+  return snapshot.merchandiserReview
+}
+
+function appendReviewLog(input: {
+  record: TechnicalDataVersionRecord
+  logType: TechPackVersionLogType
+  changeText: string
+  operatorName: string
+  createdAt: string
+  logKey?: string
+}): void {
+  appendTechPackVersionLog({
+    logId: `tech_pack_review_${input.record.technicalVersionId}_${input.createdAt.replace(/[^0-9]/g, '')}_${Date.now()}_${++reviewLogSequence}_${input.logType}${input.logKey ? `_${input.logKey}` : ''}`,
+    technicalVersionId: input.record.technicalVersionId,
+    technicalVersionCode: input.record.technicalVersionCode,
+    versionLabel: input.record.versionLabel,
+    styleId: input.record.styleId,
+    styleCode: input.record.styleCode,
+    logType: input.logType,
+    sourceTaskType: '',
+    sourceTaskId: '',
+    sourceTaskCode: '',
+    sourceTaskName: '',
+    changeScope: '',
+    changeText: input.changeText,
+    beforeVersionId: input.record.baseTechnicalVersionId || '',
+    beforeVersionCode: input.record.baseTechnicalVersionCode || '',
+    afterVersionId: input.record.technicalVersionId,
+    afterVersionCode: input.record.technicalVersionCode,
+    createdAt: input.createdAt,
+    createdBy: input.operatorName,
+  })
+}
+
 export function submitTechPackFirstStageReview(
   technicalVersionId: string,
   operatorName = '当前用户',
 ): TechnicalDataVersionRecord {
   requireDraftRecord(technicalVersionId)
   const submittedAt = nowText()
-  return saveReviewPatch(technicalVersionId, {
+  const nextRecord = saveReviewPatch(technicalVersionId, {
     reviewStage: '第一阶段并行审核',
     buyerReview: createReviewNode('BUYER', '待审核'),
     patternMakerReview: createReviewNode('PATTERN_MAKER', '待审核'),
@@ -250,6 +300,14 @@ export function submitTechPackFirstStageReview(
     updatedAt: submittedAt,
     updatedBy: operatorName,
   })
+  appendReviewLog({
+    record: nextRecord,
+    logType: '提交技术包审核',
+    changeText: `已提交技术包版本 ${nextRecord.versionLabel}，进入买手、版师并行审核。`,
+    operatorName,
+    createdAt: submittedAt,
+  })
+  return nextRecord
 }
 
 export function startTechPackReview(
@@ -259,6 +317,10 @@ export function startTechPackReview(
 ): TechnicalDataVersionRecord {
   const record = requireDraftRecord(technicalVersionId)
   const snapshot = normalizeTechnicalReviewSnapshot(record)
+  if (snapshot.reviewStage === '未提交审核') throw new Error('请先提交技术包审核。')
+  const currentNode = getReviewNodeFromSnapshot(snapshot, nodeKey)
+  if (currentNode.status === '审核中') throw new Error('当前审核节点已在审核中。')
+  if (currentNode.status === '审核-已通过') throw new Error('当前审核节点已通过，不能重复开始审核。')
   if (nodeKey === 'MERCHANDISER') {
     if (
       snapshot.buyerReview.status !== '审核-已通过' ||
@@ -269,16 +331,12 @@ export function startTechPackReview(
   }
 
   const node = normalizeTechnicalReviewNode(nodeKey, {
-    ...(nodeKey === 'BUYER'
-      ? snapshot.buyerReview
-      : nodeKey === 'PATTERN_MAKER'
-      ? snapshot.patternMakerReview
-      : snapshot.merchandiserReview),
+    ...currentNode,
     status: '审核中',
     reviewedBy: operatorName,
     reviewedAt: nowText(),
   })
-  return saveReviewPatch(technicalVersionId, {
+  const nextRecord = saveReviewPatch(technicalVersionId, {
     ...(nodeKey === 'BUYER'
       ? { buyerReview: node }
       : nodeKey === 'PATTERN_MAKER'
@@ -287,6 +345,15 @@ export function startTechPackReview(
     updatedAt: node.reviewedAt,
     updatedBy: operatorName,
   })
+  appendReviewLog({
+    record: nextRecord,
+    logType: '开始技术包审核',
+    changeText: `${operatorName} 开始${node.nodeName}，审核范围：${REVIEW_SCOPE_TEXT[nodeKey]}。`,
+    operatorName,
+    createdAt: node.reviewedAt,
+    logKey: nodeKey,
+  })
+  return nextRecord
 }
 
 export function approveTechPackReview(
@@ -297,13 +364,17 @@ export function approveTechPackReview(
 ): TechnicalDataVersionRecord {
   const record = requireDraftRecord(technicalVersionId)
   const snapshot = normalizeTechnicalReviewSnapshot(record)
+  const currentNode = getReviewNodeFromSnapshot(snapshot, nodeKey)
+  if (currentNode.status !== '审核中') throw new Error('当前审核节点需先进入审核中。')
+  if (
+    nodeKey === 'MERCHANDISER' &&
+    (snapshot.buyerReview.status !== '审核-已通过' || snapshot.patternMakerReview.status !== '审核-已通过')
+  ) {
+    throw new Error('买手和版师审核都通过后，才能进入跟单复核。')
+  }
   const reviewedAt = nowText()
   const node = normalizeTechnicalReviewNode(nodeKey, {
-    ...(nodeKey === 'BUYER'
-      ? snapshot.buyerReview
-      : nodeKey === 'PATTERN_MAKER'
-      ? snapshot.patternMakerReview
-      : snapshot.merchandiserReview),
+    ...currentNode,
     status: '审核-已通过',
     reviewedBy: operatorName,
     reviewedAt,
@@ -314,7 +385,7 @@ export function approveTechPackReview(
   const firstStagePassed =
     nextBuyer.status === '审核-已通过' && nextPattern.status === '审核-已通过'
 
-  return saveReviewPatch(technicalVersionId, {
+  const nextRecord = saveReviewPatch(technicalVersionId, {
     ...(nodeKey === 'BUYER'
       ? { buyerReview: node }
       : nodeKey === 'PATTERN_MAKER'
@@ -328,6 +399,15 @@ export function approveTechPackReview(
     updatedAt: reviewedAt,
     updatedBy: operatorName,
   })
+  appendReviewLog({
+    record: nextRecord,
+    logType: '技术包审核通过',
+    changeText: `${node.nodeName}通过，审核范围：${REVIEW_SCOPE_TEXT[nodeKey]}。${opinion ? `意见：${opinion}` : ''}`,
+    operatorName,
+    createdAt: reviewedAt,
+    logKey: nodeKey,
+  })
+  return nextRecord
 }
 
 export function rejectTechPackReview(
@@ -338,19 +418,17 @@ export function rejectTechPackReview(
 ): TechnicalDataVersionRecord {
   const record = requireDraftRecord(technicalVersionId)
   const snapshot = normalizeTechnicalReviewSnapshot(record)
+  const currentNode = getReviewNodeFromSnapshot(snapshot, nodeKey)
+  if (currentNode.status !== '审核中') throw new Error('当前审核节点需先进入审核中。')
   const reviewedAt = nowText()
   const node = normalizeTechnicalReviewNode(nodeKey, {
-    ...(nodeKey === 'BUYER'
-      ? snapshot.buyerReview
-      : nodeKey === 'PATTERN_MAKER'
-      ? snapshot.patternMakerReview
-      : snapshot.merchandiserReview),
+    ...currentNode,
     status: '审核-未通过',
     reviewedBy: operatorName,
     reviewedAt,
     opinion,
   })
-  return saveReviewPatch(technicalVersionId, {
+  const nextRecord = saveReviewPatch(technicalVersionId, {
     ...(nodeKey === 'BUYER'
       ? { buyerReview: node, reviewStage: '第一阶段并行审核' as const }
       : nodeKey === 'PATTERN_MAKER'
@@ -359,6 +437,15 @@ export function rejectTechPackReview(
     updatedAt: reviewedAt,
     updatedBy: operatorName,
   })
+  appendReviewLog({
+    record: nextRecord,
+    logType: '技术包审核不通过',
+    changeText: `${node.nodeName}不通过，审核范围：${REVIEW_SCOPE_TEXT[nodeKey]}。${opinion ? `意见：${opinion}` : ''}`,
+    operatorName,
+    createdAt: reviewedAt,
+    logKey: nodeKey,
+  })
+  return nextRecord
 }
 
 export function returnTechPackReviewToFirstStage(
@@ -368,7 +455,7 @@ export function returnTechPackReviewToFirstStage(
 ): TechnicalDataVersionRecord {
   requireDraftRecord(technicalVersionId)
   const returnedAt = nowText()
-  return saveReviewPatch(technicalVersionId, {
+  const nextRecord = saveReviewPatch(technicalVersionId, {
     reviewStage: '第一阶段并行审核',
     buyerReview: createReviewNode('BUYER', '待审核'),
     patternMakerReview: createReviewNode('PATTERN_MAKER', '待审核'),
@@ -382,4 +469,12 @@ export function returnTechPackReviewToFirstStage(
     updatedAt: returnedAt,
     updatedBy: operatorName,
   })
+  appendReviewLog({
+    record: nextRecord,
+    logType: '跟单打回第一阶段',
+    changeText: `跟单复核打回买手、版师重新审核。${opinion ? `原因：${opinion}` : ''}`,
+    operatorName,
+    createdAt: returnedAt,
+  })
+  return nextRecord
 }

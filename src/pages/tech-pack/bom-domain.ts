@@ -7,7 +7,7 @@ import {
   getPatternDesignPreviewAssetById,
   getPatternDesignOptionsBySide,
   getSkuOptionsForCurrentSpu,
-  isTechPackReadOnly,
+  isTechPackModuleReadOnly,
   printOptions,
   state,
 } from './context.ts'
@@ -120,7 +120,7 @@ export function renderDesignThumbnailPreviewDialog(): string {
 }
 
 export function renderBomTab(): string {
-  const readonly = isTechPackReadOnly()
+  const readonly = isTechPackModuleReadOnly('BOM')
   const spuLabel = state.techPack?.spuCode || '-'
   const skuOptions = getSkuOptionsForCurrentSpu()
   const skuByCode = new Map(skuOptions.map((item) => [item.skuCode, item]))
@@ -326,7 +326,7 @@ export function renderBomTab(): string {
 
 export function renderBomFormDialog(): string {
   if (!state.addBomDialogOpen) return ''
-  if (isTechPackReadOnly()) return ''
+  if (isTechPackModuleReadOnly('BOM')) return ''
   const skuOptions = getSkuOptionsForCurrentSpu()
   const colorOptions = dedupeStrings(skuOptions.map((item) => item.color))
   const applyAllSku = state.newBomItem.applicableSkuCodes.length === 0

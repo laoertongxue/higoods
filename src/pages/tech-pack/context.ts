@@ -46,6 +46,8 @@ import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
 } from '../../data/pcs-technical-data-version-repository.ts'
+import { canEditTechnicalModule } from '../../data/pcs-tech-pack-review.ts'
+import type { TechnicalModuleKey } from '../../data/pcs-technical-data-version-types.ts'
 import { listPartTemplateRecords, type PartTemplateRecord } from '../../data/pcs-part-template-library.ts'
 import {
   DETAIL_SPLIT_DIMENSION_LABEL,
@@ -1657,6 +1659,7 @@ interface TechPackPageState {
   colorMaterialMappings: ColorMaterialMappingRow[]
 
   releaseDialogOpen: boolean
+  versionLogDialogOpen: boolean
   addPatternDialogOpen: boolean
   addBomDialogOpen: boolean
   addTechniqueDialogOpen: boolean
@@ -1769,6 +1772,7 @@ const state: TechPackPageState = {
   colorMaterialMappings: [],
 
   releaseDialogOpen: false,
+  versionLogDialogOpen: false,
   addPatternDialogOpen: false,
   addBomDialogOpen: false,
   addTechniqueDialogOpen: false,
@@ -4599,6 +4603,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
 
 function closeAllDialogs(): void {
   state.releaseDialogOpen = false
+  state.versionLogDialogOpen = false
   state.addPatternDialogOpen = false
   state.addBomDialogOpen = false
   state.addTechniqueDialogOpen = false
@@ -4882,6 +4887,14 @@ function isTechPackReadOnly(): boolean {
   return state.techPack?.status !== 'DRAFT'
 }
 
+function isTechPackModuleReadOnly(moduleKey: TechnicalModuleKey): boolean {
+  if (isTechPackReadOnly()) return true
+  if (!state.currentTechnicalVersionId) return false
+  const record = getTechnicalDataVersionById(state.currentTechnicalVersionId)
+  if (!record) return false
+  return !canEditTechnicalModule(record, moduleKey)
+}
+
 export {
   appStore,
   escapeHtml,
@@ -4914,6 +4927,7 @@ export {
   getTechniqueCraftOptions,
   state,
   isTechPackReadOnly,
+  isTechPackModuleReadOnly,
   toTimestamp,
   decodeSpuCode,
   cloneTechPack,

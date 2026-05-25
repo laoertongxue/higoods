@@ -33,16 +33,24 @@ import {
 import type { SkuArchiveMappingHealth, SkuArchiveRecord, SkuArchiveStatusCode } from '../data/pcs-sku-archive-types.ts'
 import { buildTechnicalVersionListByStyle } from '../data/pcs-technical-data-version-view-model.ts'
 import {
+  getTechnicalDataVersionById,
   listTechnicalDataVersions,
   listTechnicalDataVersionsByStyleId,
 } from '../data/pcs-technical-data-version-repository.ts'
-import type { TechnicalDataVersionRecord } from '../data/pcs-technical-data-version-types.ts'
+import type { TechnicalDataVersionRecord, TechnicalReviewStage } from '../data/pcs-technical-data-version-types.ts'
+import {
+  getTechnicalReviewPendingRoles,
+  getTechnicalReviewStatusText,
+  normalizeTechnicalReviewSnapshot,
+} from '../data/pcs-tech-pack-review.ts'
+import { listTechPackVersionLogsByVersionId } from '../data/pcs-tech-pack-version-log-repository.ts'
 import {
   listProjectWorkspaceColors,
   listProjectWorkspaceSizes,
 } from '../data/pcs-project-config-workspace-adapter.ts'
 
 type StyleVersionFilter = 'all' | 'has' | 'none'
+type StyleReviewFilter = 'all' | 'needsReview' | 'waitingPublish' | 'published'
 type StyleDetailTabKey = 'overview' | 'versions' | 'specifications' | 'mappings' | 'channels' | 'logs'
 type SkuDetailTabKey = 'overview' | 'channelMappings' | 'channelVariants' | 'codeMappings' | 'logs'
 type SkuCreateMode = 'single' | 'batch' | 'import'
@@ -54,6 +62,7 @@ interface ProductArchivePageState {
     search: string
     status: 'all' | StyleArchiveBusinessStatusKey
     version: StyleVersionFilter
+    review: StyleReviewFilter
     mapping: 'all' | SkuArchiveMappingHealth
   }
   skuList: {
@@ -120,6 +129,10 @@ interface ProductArchivePageState {
     open: boolean
     styleId: string
   }
+  versionLogDialog: {
+    open: boolean
+    technicalVersionId: string
+  }
 }
 
 interface StyleArchiveListItemViewModel {
@@ -130,6 +143,13 @@ interface StyleArchiveListItemViewModel {
   mappingHealth: SkuArchiveMappingHealth
   currentVersionText: string
   currentVersionMetaText: string
+  reviewVersionId: string
+  reviewVersionText: string
+  reviewStage: TechnicalReviewStage | '无技术包'
+  reviewStatusText: string
+  reviewPendingReviewerText: string
+  reviewActionText: string
+  reviewBadgeClass: string
   channelCount: number
   onSaleCount: number
   legacyMappingText: string
@@ -257,12 +277,20 @@ function createDefaultManualTechPackVersionState(): ProductArchivePageState['man
   }
 }
 
+function createDefaultVersionLogDialogState(): ProductArchivePageState['versionLogDialog'] {
+  return {
+    open: false,
+    technicalVersionId: '',
+  }
+}
+
 const state: ProductArchivePageState = {
   notice: null,
   styleList: {
     search: '',
     status: 'all',
     version: 'all',
+    review: 'all',
     mapping: 'all',
   },
   skuList: {
@@ -283,6 +311,7 @@ const state: ProductArchivePageState = {
   styleCompletion: createDefaultStyleCompletionState(),
   imagePreview: createDefaultImagePreviewState(),
   manualTechPackVersion: createDefaultManualTechPackVersionState(),
+  versionLogDialog: createDefaultVersionLogDialogState(),
 }
 
 function resetSkuCreateState(): void {
@@ -301,12 +330,17 @@ function resetManualTechPackVersionState(): void {
   state.manualTechPackVersion = createDefaultManualTechPackVersionState()
 }
 
+function resetVersionLogDialogState(): void {
+  state.versionLogDialog = createDefaultVersionLogDialogState()
+}
+
 export function resetPcsProductArchiveState(): void {
   state.notice = null
   state.styleList = {
     search: '',
     status: 'all',
     version: 'all',
+    review: 'all',
     mapping: 'all',
   }
   state.skuList = {
@@ -327,6 +361,7 @@ export function resetPcsProductArchiveState(): void {
   resetStyleCompletionState()
   resetImagePreviewState()
   resetManualTechPackVersionState()
+  resetVersionLogDialogState()
 }
 
 function ensurePageDataReady(): void {
@@ -414,6 +449,71 @@ function groupTechnicalVersionsByStyleId(records: TechnicalDataVersionRecord[]):
   return grouped
 }
 
+function resolveStyleReviewTargetVersion(
+  style: StyleArchiveShellRecord,
+  versions: TechnicalDataVersionRecord[],
+): TechnicalDataVersionRecord | null {
+  const draftVersion = versions.find((item) => item.versionStatus === 'DRAFT')
+  if (draftVersion) return draftVersion
+  return versions.find((item) => item.technicalVersionId === style.currentTechPackVersionId) || versions[0] || null
+}
+
+function resolveReviewBadgeClass(reviewStage: TechnicalReviewStage | '无技术包', statusText: string): string {
+  if (reviewStage === '无技术包') return 'border-slate-200 bg-slate-50 text-slate-600'
+  if (statusText.includes('未通过') || statusText.includes('打回')) return 'border-rose-200 bg-rose-50 text-rose-700'
+  if (reviewStage === '待发布') return 'border-blue-200 bg-blue-50 text-blue-700'
+  if (reviewStage === '已发布') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  if (reviewStage === '未提交审核') return 'border-amber-200 bg-amber-50 text-amber-700'
+  return 'border-orange-200 bg-orange-50 text-orange-700'
+}
+
+function buildStyleReviewSummary(version: TechnicalDataVersionRecord | null): Pick<
+  StyleArchiveListItemViewModel,
+  | 'reviewVersionId'
+  | 'reviewVersionText'
+  | 'reviewStage'
+  | 'reviewStatusText'
+  | 'reviewPendingReviewerText'
+  | 'reviewActionText'
+  | 'reviewBadgeClass'
+> {
+  if (!version) {
+    return {
+      reviewVersionId: '',
+      reviewVersionText: '未建立技术包版本',
+      reviewStage: '无技术包',
+      reviewStatusText: '未建立技术包',
+      reviewPendingReviewerText: '无',
+      reviewActionText: '先建立技术包版本',
+      reviewBadgeClass: resolveReviewBadgeClass('无技术包', '未建立技术包'),
+    }
+  }
+
+  const snapshot = normalizeTechnicalReviewSnapshot(version)
+  const pendingRoles = getTechnicalReviewPendingRoles(version)
+  const statusText = getTechnicalReviewStatusText(version)
+  const actionText =
+    version.versionStatus === 'PUBLISHED' || snapshot.reviewStage === '已发布'
+      ? '无需审核'
+      : snapshot.reviewStage === '未提交审核'
+        ? '提交买手、版师并行审核'
+        : snapshot.reviewStage === '待发布'
+          ? '发布正式版本'
+          : pendingRoles.length > 0
+            ? `待${pendingRoles.join('、')}审核`
+            : '等待审核流转'
+
+  return {
+    reviewVersionId: version.technicalVersionId,
+    reviewVersionText: `${version.versionLabel} · ${version.technicalVersionCode}`,
+    reviewStage: snapshot.reviewStage,
+    reviewStatusText: statusText,
+    reviewPendingReviewerText: pendingRoles.length > 0 ? pendingRoles.join('、') : '无',
+    reviewActionText: actionText,
+    reviewBadgeClass: resolveReviewBadgeClass(snapshot.reviewStage, statusText),
+  }
+}
+
 function hasPersistedSkuArchiveStore(): boolean {
   return (
     typeof localStorage !== 'undefined' &&
@@ -496,6 +596,8 @@ function buildStyleListItems(context = buildProductArchiveListContext()): StyleA
     const versions = context.technicalVersionsByStyleId.get(style.styleId) || []
     const currentVersion =
       versions.find((item) => item.technicalVersionId === style.currentTechPackVersionId) || versions[0] || null
+    const reviewTargetVersion = resolveStyleReviewTargetVersion(style, versions)
+    const reviewSummary = buildStyleReviewSummary(reviewTargetVersion)
     const styleChannels = listStyleChannelProducts(style, context)
     return {
       style,
@@ -505,6 +607,7 @@ function buildStyleListItems(context = buildProductArchiveListContext()): StyleA
       mappingHealth: skuSummary.mappingHealth,
       currentVersionText: currentVersion ? `${currentVersion.versionLabel}` : '未建立当前生效技术包',
       currentVersionMetaText: currentVersion?.publishedAt ? `生效于 ${currentVersion.publishedAt.slice(0, 10)}` : '待建立技术包版本',
+      ...reviewSummary,
       channelCount: styleChannels.length || style.channelProductCount,
       onSaleCount: countOnSaleChannelProducts(styleChannels),
       legacyMappingText: style.legacyOriginProject ? `历史项目：${style.legacyOriginProject}` : `款号：${style.styleNumber || style.styleCode}`,
@@ -532,6 +635,13 @@ function filterStyleItems(items: StyleArchiveListItemViewModel[]): StyleArchiveL
     if (state.styleList.status !== 'all' && item.displayStatus !== state.styleList.status) return false
     if (state.styleList.version === 'has' && !item.hasEffectiveTechPack) return false
     if (state.styleList.version === 'none' && item.hasEffectiveTechPack) return false
+    if (state.styleList.review === 'needsReview' && !(
+      item.reviewStage !== '无技术包' &&
+      item.reviewStage !== '待发布' &&
+      item.reviewStage !== '已发布'
+    )) return false
+    if (state.styleList.review === 'waitingPublish' && item.reviewStage !== '待发布') return false
+    if (state.styleList.review === 'published' && item.reviewStage !== '已发布') return false
     if (state.styleList.mapping !== 'all' && item.mappingHealth !== state.styleList.mapping) return false
 
     return true
@@ -780,6 +890,60 @@ function renderImagePreviewModal(): string {
   `
 }
 
+function renderTechPackVersionLogDialog(): string {
+  if (!state.versionLogDialog.open || !state.versionLogDialog.technicalVersionId) return ''
+  const record = getTechnicalDataVersionById(state.versionLogDialog.technicalVersionId)
+  const logs = listTechPackVersionLogsByVersionId(state.versionLogDialog.technicalVersionId)
+  const versionText = record
+    ? `${record.versionLabel} · ${record.technicalVersionCode}`
+    : state.versionLogDialog.technicalVersionId
+
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+      <button type="button" class="absolute inset-0 bg-slate-950/55" data-pcs-product-archive-action="close-tech-pack-version-logs"></button>
+      <section class="relative z-10 flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 class="text-base font-semibold text-slate-900">技术包版本日志</h2>
+            <p class="mt-1 text-sm text-slate-500">${escapeHtml(versionText)} · 共 ${escapeHtml(String(logs.length))} 条</p>
+          </div>
+          <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50" data-pcs-product-archive-action="close-tech-pack-version-logs">×</button>
+        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          ${
+            logs.length > 0
+              ? `
+                <div class="space-y-3">
+                  ${logs
+                    .map(
+                      (item) => `
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                          <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="text-sm font-medium text-slate-900">${escapeHtml(item.logType)}</div>
+                            <div class="text-xs text-slate-500">${escapeHtml(item.createdAt)}</div>
+                          </div>
+                          <div class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(item.changeText || '未补充')}</div>
+                          <div class="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
+                            <span>操作人：${escapeHtml(item.createdBy || '-')}</span>
+                            <span>来源任务：${escapeHtml(item.sourceTaskCode ? `${item.sourceTaskCode} · ${item.sourceTaskName || item.sourceTaskType}` : '系统操作')}</span>
+                          </div>
+                        </div>
+                      `,
+                    )
+                    .join('')}
+                </div>
+              `
+              : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">暂无技术包版本日志。</div>'
+          }
+        </div>
+        <div class="flex items-center justify-end border-t border-slate-200 px-5 py-4">
+          <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-tech-pack-version-logs">关闭</button>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderStyleHeader(): string {
   return `
     <section class="flex flex-wrap items-start justify-between gap-4">
@@ -818,6 +982,7 @@ function renderStyleFilters(total: number): string {
         <div class="min-w-[240px] flex-1">${renderTextInput('style-list-search', state.styleList.search, '搜索款式编码/名称/款号/老系统编码...')}</div>
         <div class="w-full sm:w-48">${renderSelect('style-list-status', state.styleList.status === 'all' ? '' : state.styleList.status, [{ value: 'WAITING_BASE_INFO', label: '待完善' }, { value: 'WAITING_TECH_PACK', label: '已建档待技术包' }, { value: 'ACTIVE', label: '已启用' }, { value: 'ARCHIVED', label: '已归档' }], '全部状态')}</div>
         <div class="w-full sm:w-44">${renderSelect('style-list-version', state.styleList.version === 'all' ? '' : state.styleList.version, [{ value: 'has', label: '有当前生效技术包' }, { value: 'none', label: '无当前生效技术包' }], '技术包情况')}</div>
+        <div class="w-full sm:w-44">${renderSelect('style-list-review', state.styleList.review === 'all' ? '' : state.styleList.review, [{ value: 'needsReview', label: '需要审核' }, { value: 'waitingPublish', label: '待发布正式版' }, { value: 'published', label: '已发布正式版' }], '技术包审核')}</div>
         <div class="w-full sm:w-40">${renderSelect('style-list-mapping', state.styleList.mapping === 'all' ? '' : state.styleList.mapping, [{ value: 'OK', label: '健康' }, { value: 'MISSING', label: '缺映射' }, { value: 'CONFLICT', label: '冲突' }], '映射健康')}</div>
       </div>
       <div class="mt-3 text-sm text-slate-500">共 ${escapeHtml(total)} 条款式档案记录。</div>
@@ -860,6 +1025,16 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
             <div class="text-sm font-medium text-slate-900">${escapeHtml(item.currentVersionText)}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.currentTechPackVersionCode || item.currentVersionMetaText)}</div>
           </td>
+          <td class="px-4 py-3">
+            <div>${renderBadge(item.reviewStatusText, item.reviewBadgeClass)}</div>
+            <div class="mt-1 text-xs text-slate-500">${
+              item.reviewVersionId
+                ? `<button type="button" class="text-left hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.style.styleId)}/technical-data/${escapeHtml(item.reviewVersionId)}">${escapeHtml(item.reviewVersionText)}</button>`
+                : escapeHtml(item.reviewVersionText)
+            }</div>
+            <div class="mt-1 text-xs text-slate-500">待审核：${escapeHtml(item.reviewPendingReviewerText)}</div>
+            <div class="mt-1 text-xs text-slate-500">提示：${escapeHtml(item.reviewActionText)}</div>
+          </td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.skuCount)}</td>
           <td class="px-4 py-3">${renderMappingBadge(item.mappingHealth)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">
@@ -891,6 +1066,7 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
               <th class="px-4 py-3 font-medium">类目</th>
               <th class="px-4 py-3 font-medium">风格标签</th>
               <th class="px-4 py-3 font-medium">当前生效版本</th>
+              <th class="px-4 py-3 font-medium">技术包审核</th>
               <th class="px-4 py-3 font-medium">规格数</th>
               <th class="px-4 py-3 font-medium">映射状态</th>
               <th class="px-4 py-3 font-medium">渠道 / 在售</th>
@@ -899,7 +1075,7 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
               <th class="px-4 py-3 text-right font-medium">操作</th>
             </tr>
           </thead>
-          <tbody>${rows || '<tr><td colspan="11" class="px-4 py-10 text-center text-sm text-slate-500">暂无款式档案数据。</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="12" class="px-4 py-10 text-center text-sm text-slate-500">暂无款式档案数据。</td></tr>'}</tbody>
         </table>
       </div>
     </section>
@@ -1369,6 +1545,8 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
   const onSaleChannelCount = countOnSaleChannelProducts(styleChannelProducts)
   const gallery = getStyleImageUrls(style)
   const alreadyFormalized = isStyleArchiveFormalized(style)
+  const technicalVersions = listTechnicalDataVersionsByStyleId(style.styleId)
+  const reviewSummary = buildStyleReviewSummary(resolveStyleReviewTargetVersion(style, technicalVersions))
   const currentTechPackHref =
     style.currentTechPackVersionId && style.currentTechPackVersionCode
       ? `/pcs/products/styles/${style.styleId}/technical-data/${style.currentTechPackVersionId}`
@@ -1405,6 +1583,12 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
               <div><div class="text-xs text-slate-500">来源项目</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sourceProjectCode ? `${style.sourceProjectCode} · ${style.sourceProjectName}` : '未绑定商品项目')}</div></div>
               <div><div class="text-xs text-slate-500">图片来源</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.imageSource || '-')}</div></div>
               <div><div class="text-xs text-slate-500">当前生效技术包</div><div class="mt-1 text-sm text-slate-700">${currentTechPackHref ? `<button type="button" class="font-medium text-slate-900 hover:text-slate-700" data-nav="${escapeHtml(currentTechPackHref)}">${escapeHtml(style.currentTechPackVersionLabel || style.currentTechPackVersionCode)}</button>` : escapeHtml(style.currentTechPackVersionLabel || '未建立当前生效技术包')}</div></div>
+              <div>
+                <div class="text-xs text-slate-500">技术包审核</div>
+                <div class="mt-1">${renderBadge(reviewSummary.reviewStatusText, reviewSummary.reviewBadgeClass)}</div>
+                <div class="mt-1 text-xs text-slate-500">${escapeHtml(reviewSummary.reviewVersionText)}</div>
+                <div class="mt-1 text-xs text-slate-500">待审核：${escapeHtml(reviewSummary.reviewPendingReviewerText)}；${escapeHtml(reviewSummary.reviewActionText)}</div>
+              </div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">测款渠道</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.targetChannelCodes.join(' / ') || '-')}</div></div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">卖点摘要</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sellingPointText || '-')}</div></div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">包装信息</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.packagingInfo || '-')}</div></div>
@@ -1452,6 +1636,11 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.technicalVersionCode)}</div>
           </td>
           <td class="px-4 py-3">${renderBadge(item.versionStatusLabel, item.isCurrentTechPackVersion ? 'border-blue-200 bg-blue-50 text-blue-700' : item.versionStatus === 'PUBLISHED' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600')}</td>
+          <td class="px-4 py-3">
+            <div>${renderBadge(item.reviewStatusText, resolveReviewBadgeClass(item.reviewStage as TechnicalReviewStage, item.reviewStatusText))}</div>
+            <div class="mt-1 text-xs text-slate-500">待审核：${escapeHtml(item.pendingReviewerText)}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.reviewActionText)}</div>
+          </td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(`${item.completenessScore}%`)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sourceTaskText)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sourceProjectText)}</td>
@@ -1462,7 +1651,7 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
           <td class="px-4 py-3">
             <div class="flex flex-wrap gap-2">
               <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}/technical-data/${escapeHtml(item.technicalVersionId)}">查看版本</button>
-              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}/technical-data/${escapeHtml(item.technicalVersionId)}">查看版本日志</button>
+              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-product-archive-action="open-tech-pack-version-logs" data-version-id="${escapeHtml(item.technicalVersionId)}">查看版本日志</button>
               ${item.canActivate ? `<button type="button" class="inline-flex h-8 items-center rounded-md bg-slate-900 px-3 text-xs text-white hover:bg-slate-800" data-pcs-product-archive-action="activate-tech-pack-version" data-style-id="${escapeHtml(style.styleId)}" data-version-id="${escapeHtml(item.technicalVersionId)}">启用为当前生效版本</button>` : ''}
             </div>
           </td>
@@ -1482,6 +1671,7 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
             <tr>
               <th class="px-4 py-3 font-medium">版本</th>
               <th class="px-4 py-3 font-medium">状态</th>
+              <th class="px-4 py-3 font-medium">审核状态</th>
               <th class="px-4 py-3 font-medium">完整度</th>
               <th class="px-4 py-3 font-medium">来源任务</th>
               <th class="px-4 py-3 font-medium">来源项目</th>
@@ -1492,7 +1682,7 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
               <th class="px-4 py-3 font-medium">操作</th>
             </tr>
           </thead>
-          <tbody>${rows || '<tr><td colspan="10" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未建立技术包版本。</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="11" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未建立技术包版本。</td></tr>'}</tbody>
         </table>
       </div>
     </section>
@@ -1751,6 +1941,7 @@ function renderStyleDetailPage(styleId: string): string {
       ${renderSkuCreateDrawer()}
       ${renderStyleCompletionDrawer()}
       ${renderManualTechPackVersionDrawer()}
+      ${renderTechPackVersionLogDialog()}
       ${renderImagePreviewModal()}
     </div>
   `
@@ -2347,6 +2538,9 @@ export function handlePcsProductArchiveInput(target: Element): boolean {
     case 'style-list-version':
       state.styleList.version = (value || 'all') as StyleVersionFilter
       return true
+    case 'style-list-review':
+      state.styleList.review = (value || 'all') as StyleReviewFilter
+      return true
     case 'style-list-mapping':
       state.styleList.mapping = (value || 'all') as ProductArchivePageState['styleList']['mapping']
       return true
@@ -2468,6 +2662,22 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       resetSkuCreateState()
       resetStyleCompletionState()
       resetManualTechPackVersionState()
+      resetVersionLogDialogState()
+      return true
+    case 'open-tech-pack-version-logs': {
+      const technicalVersionId = actionNode.dataset.versionId || ''
+      if (!technicalVersionId) {
+        state.notice = '未找到需要查看日志的技术包版本。'
+        return true
+      }
+      state.versionLogDialog = {
+        open: true,
+        technicalVersionId,
+      }
+      return true
+    }
+    case 'close-tech-pack-version-logs':
+      resetVersionLogDialogState()
       return true
     case 'open-image-preview':
       state.imagePreview = {
@@ -2563,11 +2773,14 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       if (filter === 'reset') {
         state.styleList.status = 'all'
         state.styleList.version = 'all'
+        state.styleList.review = 'all'
         state.styleList.mapping = 'all'
       } else if (filter === 'status') {
         state.styleList.status = (actionNode.dataset.value || 'all') as ProductArchivePageState['styleList']['status']
       } else if (filter === 'version') {
         state.styleList.version = (actionNode.dataset.value || 'all') as StyleVersionFilter
+      } else if (filter === 'review') {
+        state.styleList.review = (actionNode.dataset.value || 'all') as StyleReviewFilter
       } else if (filter === 'mapping') {
         state.styleList.mapping = (actionNode.dataset.value || 'all') as ProductArchivePageState['styleList']['mapping']
       }
@@ -2656,5 +2869,11 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
 }
 
 export function isPcsProductArchiveDialogOpen(): boolean {
-  return state.skuCreate.open || state.styleCompletion.open || state.imagePreview.open || state.manualTechPackVersion.open
+  return (
+    state.skuCreate.open ||
+    state.styleCompletion.open ||
+    state.imagePreview.open ||
+    state.manualTechPackVersion.open ||
+    state.versionLogDialog.open
+  )
 }

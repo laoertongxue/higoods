@@ -1,14 +1,14 @@
 import {
   escapeHtml,
   getPatternDesignPreviewUrl,
-  isTechPackReadOnly,
+  isTechPackModuleReadOnly,
   state,
 } from './context.ts'
 
 export function renderDesignTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
-  const readonly = isTechPackReadOnly()
+  const readonly = isTechPackModuleReadOnly('DESIGN')
   const frontDesigns = techPack.patternDesigns.filter((item) => item.designSideType === 'FRONT')
   const insideDesigns = techPack.patternDesigns.filter((item) => item.designSideType === 'INSIDE')
 
@@ -103,7 +103,7 @@ export function renderDesignTab(): string {
 export function renderAttachmentsTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
-  const readonly = isTechPackReadOnly()
+  const readonly = isTechPackModuleReadOnly('ATTACHMENT')
 
   return `
     <section class="rounded-lg border bg-card">
@@ -166,6 +166,7 @@ export function renderAttachmentsTab(): string {
 
 export function renderAddDesignDialog(): string {
   if (!state.addDesignDialogOpen) return ''
+  if (isTechPackModuleReadOnly('DESIGN')) return ''
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
@@ -221,6 +222,7 @@ export function renderAddDesignDialog(): string {
 
 export function renderAddAttachmentDialog(): string {
   if (!state.addAttachmentDialogOpen) return ''
+  if (isTechPackModuleReadOnly('ATTACHMENT')) return ''
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">

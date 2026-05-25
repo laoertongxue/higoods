@@ -11,6 +11,7 @@ import {
   PATTERN_CRAFT_POSITION_OPTIONS,
   getPatternBySelectionKey,
   getSizeCodeOptionsFromSizeRules,
+  isTechPackModuleReadOnly,
   isTechPackReadOnly,
   state,
 } from './context.ts'
@@ -683,7 +684,7 @@ export function renderPatternTab(): string {
       },
     ]),
   )
-  const readonly = isTechPackReadOnly()
+  const readonly = isTechPackModuleReadOnly('PATTERN')
   const patternPackages = state.patternItems.filter((item) => item.recordKind === 'PACKAGE')
   const materialPatternLinks = state.patternItems.filter((item) => item.recordKind !== 'PACKAGE')
 
@@ -1491,6 +1492,7 @@ void renderPatternFormDialogLegacy
 
 export function renderPatternFormDialog(): string {
   if (!state.addPatternDialogOpen) return ''
+  if (isTechPackModuleReadOnly('PATTERN')) return ''
 
   const bomOptions = state.bomItems
   const isWoven = state.newPattern.patternMaterialType !== 'WOOL'
@@ -1851,6 +1853,7 @@ function renderPieceInstanceAssignmentList(instance: (typeof state.newPattern.pi
 
 export function renderPieceInstanceSpecialCraftDialog(): string {
   if (!state.pieceInstanceCraftDialogOpen || !state.activePieceInstanceSourcePieceId) return ''
+  if (isTechPackModuleReadOnly('PATTERN')) return ''
   const instances = getPieceInstancesBySourcePieceId(state.activePieceInstanceSourcePieceId)
   const activeInstance =
     instances.find((instance) => instance.pieceInstanceId === state.activePieceInstanceId)
@@ -1945,6 +1948,7 @@ export function renderPieceInstanceSpecialCraftDialog(): string {
 
 export function renderPatternTemplateDialog(): string {
   if (!state.patternTemplateDialogOpen || !state.activePatternTemplatePieceId) return ''
+  if (isTechPackModuleReadOnly('PATTERN')) return ''
 
   const keyword = state.patternTemplateSearchKeyword.trim().toLowerCase()
   const templateOptions = getPartTemplateOptions().filter((record) => {
