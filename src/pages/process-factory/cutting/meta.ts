@@ -266,7 +266,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '裁床待加工仓',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '在待加工总览、裁床仓和特殊工艺待加工 / 交出之间切换。',
+    shortDescription: '管理裁床面料库存、中转仓领料、扫码入仓、加工领料、回收入仓和库区库位。',
   },
   'warehouse-management-wait-handover': {
     key: 'warehouse-management-wait-handover',
@@ -276,7 +276,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '裁床待交出仓',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看裁后待入仓确认、二次分拣、重新装袋、交出记录和接收差异。',
+    shortDescription: '管理裁后裁片库存、菲票入仓、二次分拣、重新装袋、交出出库和回写差异。',
   },
   'fabric-warehouse': {
     key: 'fabric-warehouse',

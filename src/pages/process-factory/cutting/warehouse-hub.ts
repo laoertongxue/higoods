@@ -40,12 +40,10 @@ import {
 import { getWarehouseSearchParams } from './warehouse-shared.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
 import {
-  renderFactoryWarehouseStandardTabs,
   renderWarehouseFlowButton,
   renderWarehouseLocationActions,
   renderWarehouseLocationToolbar,
   type FactoryWarehouseFlowLine,
-  type FactoryWarehouseStandardTab,
 } from '../shared/warehouse-standard.ts'
 
 type WaitProcessTabKey = 'inventory' | 'claims' | 'claimRecords' | 'receipts' | 'usage' | 'returns' | 'locations'
@@ -56,13 +54,32 @@ const waitProcessStockFlowEventTypes: CuttingMaterialLedgerEventType[] = [
   'SPREADING_ACTUAL_CONSUMED',
   'CUTTING_RETURNED',
 ]
-type WaitHandoverTabKey = 'workbench' | 'inventory' | 'assignment' | 'sorting' | 'special-craft-return' | 'handoverOrders' | 'handoverRecords' | 'locations'
+type WaitHandoverTabKey =
+  | 'inventory'
+  | 'pending-inbound'
+  | 'inbound-records'
+  | 'sorting'
+  | 'handoverRecords'
+  | 'writeback-differences'
+  | 'special-craft-return'
+  | 'locations'
 
 interface WaitProcessFilterState {
   keyword: string
   stockStatus: string
   locationArea: string
   operatorName: string
+  eventType: string
+  dateFrom: string
+  dateTo: string
+}
+
+interface WaitHandoverFilterState {
+  keyword: string
+  stockStatus: string
+  locationArea: string
+  specialCraftStatus: string
+  receiverName: string
   eventType: string
   dateFrom: string
   dateTo: string
@@ -92,6 +109,20 @@ function getWaitProcessFilters(): WaitProcessFilterState {
     stockStatus: params.get('stockStatus') || '全部',
     locationArea: params.get('locationArea') || '全部',
     operatorName: (params.get('operatorName') || '').trim(),
+    eventType: params.get('eventType') || '全部',
+    dateFrom: params.get('dateFrom') || '',
+    dateTo: params.get('dateTo') || '',
+  }
+}
+
+function getWaitHandoverFilters(): WaitHandoverFilterState {
+  const params = getWarehouseSearchParams()
+  return {
+    keyword: (params.get('q') || '').trim(),
+    stockStatus: params.get('stockStatus') || '全部',
+    locationArea: params.get('locationArea') || '全部',
+    specialCraftStatus: params.get('specialCraftStatus') || '全部',
+    receiverName: (params.get('receiverName') || '').trim(),
     eventType: params.get('eventType') || '全部',
     dateFrom: params.get('dateFrom') || '',
     dateTo: params.get('dateTo') || '',
@@ -1132,7 +1163,7 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
       title: '回收入仓',
       badge: '形成回收入仓记录',
       submitLabel: '确认回收入仓',
-      eventText: '确认后把铺布未用完的面料回收到指定库区库位，恢复待加工仓可用库存。',
+      eventText: '确认后把铺布未用完的面料回收到指定库区库位，恢复待加工仓库存。',
       fields: [
         renderWaitProcessActionTextField('扫描铺布单 / 布卷', '扫铺布单或布卷码'),
         renderWaitProcessActionSelect('面料', baseMaterialOptions),
@@ -1358,6 +1389,371 @@ function renderHubTable(headers: string[], rows: string[][], emptyText = '暂无
   `
 }
 
+function getWaitHandoverEventQty(event: CuttingRuntimeEvent): number {
+  const payload = toRuntimeRecord(event.payload)
+  if (event.inventoryEffect?.qty) return event.inventoryEffect.qty
+  return (
+    runtimeNumber(payload.totalPieceQty) ||
+    runtimeNumber(payload.currentHandedOverQty) ||
+    runtimeNumber(payload.pickedQty) ||
+    runtimeNumber(payload.returnedQty) ||
+    (Array.isArray(payload.feiTicketItems)
+      ? payload.feiTicketItems.reduce((sum, rawItem) => sum + runtimeNumber(toRuntimeRecord(rawItem).pieceQty), 0)
+      : 0) ||
+    (Array.isArray(payload.returnedFeiTicketItems)
+      ? payload.returnedFeiTicketItems.reduce((sum, rawItem) => sum + runtimeNumber(toRuntimeRecord(rawItem).returnedQty), 0)
+      : 0)
+  )
+}
+
+function getWaitHandoverEventBagText(event: CuttingRuntimeEvent): string {
+  const payload = toRuntimeRecord(event.payload)
+  const transferBagUses = Array.isArray(payload.transferBagUses) ? payload.transferBagUses : []
+  const bagCodes = uniqueStrings([
+    runtimeString(payload.bagCode),
+    runtimeString(payload.sourceTempBagCode),
+    runtimeString(payload.targetTransferBagCode),
+    event.refs.transferBagCode,
+    ...transferBagUses.map((rawBag) => runtimeString(toRuntimeRecord(rawBag).bagCode)),
+  ])
+  return bagCodes.join('、') || '按菲票追踪'
+}
+
+function getWaitHandoverEventLocationText(event: CuttingRuntimeEvent): string {
+  const payload = toRuntimeRecord(event.payload)
+  const area =
+    runtimeString(payload.warehouseArea) ||
+    event.inventoryEffect?.toWarehouseArea ||
+    event.inventoryEffect?.fromWarehouseArea ||
+    '裁床待交出仓'
+  const location =
+    runtimeString(payload.locationCode) ||
+    event.inventoryEffect?.toLocationCode ||
+    event.inventoryEffect?.fromLocationCode ||
+    ''
+  return [area, location].filter(Boolean).join(' / ')
+}
+
+function eventMatchesWaitHandoverRecord(event: CuttingRuntimeEvent, record: InboundTempBagInventoryRecord): boolean {
+  const serializedPayload = JSON.stringify(event.payload || {})
+  return [
+    event.refs.feiTicketIds?.includes(record.feiTicketId),
+    event.refs.feiTicketNos?.includes(record.feiTicketNo),
+    serializedPayload.includes(record.feiTicketId),
+    serializedPayload.includes(record.feiTicketNo),
+    record.tempBagCode && serializedPayload.includes(record.tempBagCode),
+    record.tempBagCode && event.refs.transferBagCode === record.tempBagCode,
+  ].some(Boolean)
+}
+
+function buildWaitHandoverFlowLines(
+  record: InboundTempBagInventoryRecord,
+  events: CuttingRuntimeEvent[],
+): FactoryWarehouseFlowLine[] {
+  return events
+    .filter((event) => eventMatchesWaitHandoverRecord(event, record))
+    .map((event) => ({
+      flowType: event.eventType,
+      qtyText: formatPieceQty(getWaitHandoverEventQty(event)),
+      sourceNo: `${event.eventNo} / ${getWaitHandoverEventBagText(event)}`,
+      operatedAt: event.occurredAt,
+      operatorName: event.operatorName,
+      statusText: event.eventStatus,
+    }))
+}
+
+function buildWaitHandoverReservedQtyMap(projection: HandoverPickingTaskProjection): Map<string, number> {
+  const reservedQtyByRecord = new Map<string, number>()
+  projection.tasks.forEach((task) => {
+    if (task.taskStatus === '已关闭') return
+    task.allocatedInventoryItems.forEach((item) => {
+      reservedQtyByRecord.set(
+        item.inventoryRecordId,
+        (reservedQtyByRecord.get(item.inventoryRecordId) || 0) + item.pieceQty,
+      )
+    })
+  })
+  return reservedQtyByRecord
+}
+
+function normalizeWaitHandoverInventoryStatus(
+  record: InboundTempBagInventoryRecord,
+  reservedQty: number,
+): string {
+  if (record.voidStatus === '已作废' || record.inventoryStatus === '已作废或不可用') return '已作废 / 不可用'
+  if (record.inventoryStatus === '已交出') return '已交出待回写'
+  if (record.inventoryStatus === '已装袋待交出') return '已装袋待交出'
+  if (record.inventoryStatus === '已分拣待装袋') return '已分拣待装袋'
+  if (record.inventoryStatus === '已分配待分拣' || reservedQty > 0) return '已占用'
+  return '在库可分配'
+}
+
+function getWaitHandoverSpecialCraftStatus(record: InboundTempBagInventoryRecord): string {
+  if (!record.hasSpecialCraft && !record.specialCraftDisplay.includes('回仓')) return '无特殊工艺'
+  if (record.specialCraftDisplay.includes('已回仓')) return '特殊工艺已回仓'
+  if (record.specialCraftDisplay.includes('加工中')) return '特殊工艺加工中'
+  return record.hasSpecialCraft ? '待特殊工艺交出' : record.specialCraftDisplay || '无特殊工艺'
+}
+
+function filterWaitHandoverInventoryRecords(
+  records: InboundTempBagInventoryRecord[],
+  filters: WaitHandoverFilterState,
+  reservedQtyByRecord: Map<string, number>,
+): InboundTempBagInventoryRecord[] {
+  return records.filter((record) => {
+    const reservedQty = reservedQtyByRecord.get(record.inventoryRecordId) || 0
+    const status = normalizeWaitHandoverInventoryStatus(record, reservedQty)
+    const specialCraftStatus = getWaitHandoverSpecialCraftStatus(record)
+    const keywordMatched = includesKeyword([
+      record.feiTicketNo,
+      record.productionOrderNo,
+      record.cutOrderNo,
+      record.spuCode,
+      record.color,
+      record.size,
+      record.partName,
+      record.tempBagCode,
+      record.warehouseArea,
+      record.locationCode,
+      record.specialCraftDisplay,
+      record.receiverFactoryDisplay,
+    ], filters.keyword)
+    const statusMatched = filters.stockStatus === '全部' || status === filters.stockStatus
+    const locationMatched = filters.locationArea === '全部' || record.warehouseArea === filters.locationArea
+    const specialCraftMatched = filters.specialCraftStatus === '全部' || specialCraftStatus === filters.specialCraftStatus
+    const receiverMatched = !filters.receiverName || record.receiverFactoryDisplay.includes(filters.receiverName)
+    return keywordMatched && statusMatched && locationMatched && specialCraftMatched && receiverMatched
+  })
+}
+
+function filterWaitHandoverEvents(events: CuttingRuntimeEvent[], filters: WaitHandoverFilterState): CuttingRuntimeEvent[] {
+  return events.filter((event) => {
+    const payloadText = JSON.stringify(event.payload || {})
+    const keywordMatched = includesKeyword([
+      event.eventNo,
+      event.eventType,
+      event.refs.productionOrderNo,
+      event.refs.cutOrderNo,
+      event.refs.transferBagCode,
+      ...(event.refs.feiTicketNos || []),
+      payloadText,
+    ], filters.keyword)
+    const typeMatched = filters.eventType === '全部' || event.eventType === filters.eventType
+    const eventDate = event.occurredAt.slice(0, 10)
+    const fromMatched = !filters.dateFrom || eventDate >= filters.dateFrom
+    const toMatched = !filters.dateTo || eventDate <= filters.dateTo
+    return keywordMatched && typeMatched && fromMatched && toMatched
+  })
+}
+
+function renderWaitHandoverFilterInput(label: string, name: string, value: string, placeholder: string, widthClass = 'w-72'): string {
+  return `
+    <label class="block shrink-0 ${widthClass}">
+      <span class="text-xs font-medium text-slate-700">${escapeHtml(label)}</span>
+      <input name="${escapeHtml(name)}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" class="mt-1 h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-blue-500" />
+    </label>
+  `
+}
+
+function renderWaitHandoverFilterSelect(label: string, name: string, value: string, options: string[], widthClass = 'w-44'): string {
+  return `
+    <label class="block shrink-0 ${widthClass}">
+      <span class="text-xs font-medium text-slate-700">${escapeHtml(label)}</span>
+      <select name="${escapeHtml(name)}" class="mt-1 h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-blue-500">
+        ${options.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+      </select>
+    </label>
+  `
+}
+
+function renderWaitHandoverFilterDate(label: string, name: string, value: string): string {
+  return `
+    <label class="block w-40 shrink-0">
+      <span class="text-xs font-medium text-slate-700">${escapeHtml(label)}</span>
+      <input type="date" name="${escapeHtml(name)}" value="${escapeHtml(value)}" class="mt-1 h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-blue-500" />
+    </label>
+  `
+}
+
+function renderWaitHandoverFilterPanel(options: {
+  tabKey: WaitHandoverTabKey
+  filters: WaitHandoverFilterState
+  inventoryRecords: InboundTempBagInventoryRecord[]
+  runtimeEvents: CuttingRuntimeEvent[]
+  reservedQtyByRecord: Map<string, number>
+}): string {
+  const resetHref = buildHubTabHref('warehouse-management-wait-handover', options.tabKey)
+  const locationOptions = ['全部', ...uniqueStrings(options.inventoryRecords.map((item) => item.warehouseArea))]
+  const eventTypeOptions = ['全部', ...uniqueStrings(options.runtimeEvents.map((item) => item.eventType))]
+  const stockStatusOptions = [
+    '全部',
+    '在库可分配',
+    '已占用',
+    '已分拣待装袋',
+    '已装袋待交出',
+    '已交出待回写',
+    '已作废 / 不可用',
+  ]
+  const specialCraftOptions = ['全部', '无特殊工艺', '待特殊工艺交出', '特殊工艺加工中', '特殊工艺已回仓']
+  const controls =
+    options.tabKey === 'inventory'
+      ? [
+          renderWaitHandoverFilterInput('菲票 / 生产单 / 袋码', 'q', options.filters.keyword, '菲票号、生产单、裁片单、中转袋'),
+          renderWaitHandoverFilterSelect('库存状态', 'stockStatus', options.filters.stockStatus, stockStatusOptions),
+          renderWaitHandoverFilterSelect('库区', 'locationArea', options.filters.locationArea, locationOptions),
+          renderWaitHandoverFilterSelect('特殊工艺', 'specialCraftStatus', options.filters.specialCraftStatus, specialCraftOptions),
+          renderWaitHandoverFilterInput('接收对象', 'receiverName', options.filters.receiverName, '车缝厂 / 特殊工艺厂', 'w-52'),
+        ]
+      : options.tabKey === 'pending-inbound' || options.tabKey === 'sorting'
+        ? [
+            renderWaitHandoverFilterInput('菲票 / 任务 / 袋码', 'q', options.filters.keyword, '菲票号、分拣任务、中转袋'),
+          ]
+        : [
+            renderWaitHandoverFilterInput('菲票 / 记录 / 袋码', 'q', options.filters.keyword, '菲票号、交出记录、中转袋'),
+            renderWaitHandoverFilterSelect('流水类型', 'eventType', options.filters.eventType, eventTypeOptions),
+            renderWaitHandoverFilterDate('开始日期', 'dateFrom', options.filters.dateFrom),
+            renderWaitHandoverFilterDate('结束日期', 'dateTo', options.filters.dateTo),
+          ]
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <form method="get" action="${escapeHtml(getCanonicalCuttingPath('warehouse-management-wait-handover'))}" class="flex flex-nowrap items-end gap-3 overflow-x-auto pb-1">
+        <input type="hidden" name="tab" value="${escapeHtml(options.tabKey)}" />
+        ${controls.join('')}
+        <button type="submit" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700">筛选</button>
+        <button type="button" data-nav="${escapeHtml(resetHref)}" class="h-10 shrink-0 rounded-md border px-4 text-sm hover:bg-muted">重置</button>
+      </form>
+    </section>
+  `
+}
+
+function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
+  const tabs: Array<{ key: WaitHandoverTabKey; label: string }> = [
+    { key: 'inventory', label: '库存明细' },
+    { key: 'pending-inbound', label: '待入仓' },
+    { key: 'inbound-records', label: '入仓记录' },
+    { key: 'sorting', label: '分拣装袋' },
+    { key: 'handoverRecords', label: '交出记录' },
+    { key: 'writeback-differences', label: '回写差异' },
+    { key: 'special-craft-return', label: '特殊工艺回仓' },
+    { key: 'locations', label: '库区库位' },
+  ]
+  return renderHubTabs('warehouse-management-wait-handover', activeTab, tabs)
+}
+
+function renderWaitHandoverHeaderActions(firstTaskId: string): string {
+  return `
+    <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
+      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/fcs/pda/cutting/inbound/${escapeHtml(firstTaskId)}">扫码入仓</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', 'sorting'))}">二次分拣</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', 'sorting'))}">重新装袋</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-nav="/fcs/pda/cutting/handover/${escapeHtml(firstTaskId)}">新增交出记录</button>
+    </div>
+  `
+}
+
+function renderWaitHandoverInventoryTable(
+  records: InboundTempBagInventoryRecord[],
+  reservedQtyByRecord: Map<string, number>,
+  runtimeEvents: CuttingRuntimeEvent[],
+): string {
+  if (!records.length) {
+    return '<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">暂无裁床待交出仓库存。</div>'
+  }
+  const rows = records.map((record) => {
+    const reservedQty = reservedQtyByRecord.get(record.inventoryRecordId) || 0
+    const availableQty = Math.max(record.pieceQty - reservedQty, 0)
+    const status = normalizeWaitHandoverInventoryStatus(record, reservedQty)
+    const specialCraftStatus = getWaitHandoverSpecialCraftStatus(record)
+    return `
+      <tr class="border-b last:border-b-0">
+        <td class="px-3 py-3 align-top">
+          <div class="truncate font-medium text-blue-700" title="${escapeHtml(record.feiTicketNo)}">${escapeHtml(record.feiTicketNo)}</div>
+          <div class="mt-1 truncate text-xs text-muted-foreground" title="${escapeHtml(record.productionOrderNo)}">生产单：${escapeHtml(record.productionOrderNo)}</div>
+          <div class="mt-1 truncate text-xs text-muted-foreground" title="${escapeHtml(record.cutOrderNo)}">裁片单：${escapeHtml(record.cutOrderNo)}</div>
+        </td>
+        <td class="px-3 py-3 align-top">
+          <div class="truncate font-medium" title="${escapeHtml(record.spuCode)}">${escapeHtml(record.spuCode)}</div>
+          <div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(record.color)} / ${escapeHtml(record.size)} / ${escapeHtml(record.partName)}</div>
+          <div class="mt-1 truncate text-xs text-muted-foreground">件序：${escapeHtml(record.pieceSequenceLabel || '按菲票追踪')}</div>
+        </td>
+        <td class="px-3 py-3 align-top text-xs">
+          <div class="font-semibold tabular-nums text-emerald-700">当前库存：${escapeHtml(formatPieceQty(record.pieceQty))}</div>
+          <div class="mt-1 text-muted-foreground">已占用：${escapeHtml(formatPieceQty(reservedQty))}</div>
+          <div class="mt-1 text-muted-foreground">可交出：${escapeHtml(formatPieceQty(availableQty))}</div>
+        </td>
+        <td class="px-3 py-3 align-top text-xs">
+          <div class="truncate font-medium" title="${escapeHtml(record.tempBagCode || '无暂存袋')}">${escapeHtml(record.tempBagCode || '无暂存袋')}</div>
+          <div class="mt-1 truncate text-muted-foreground" title="${escapeHtml(`${record.warehouseArea} / ${record.locationCode}`)}">${escapeHtml(`${record.warehouseArea} / ${record.locationCode}`)}</div>
+          <div class="mt-1 truncate text-muted-foreground">入仓：${escapeHtml(record.inboundAt || '-')}</div>
+        </td>
+        <td class="px-3 py-3 align-top text-xs">
+          <div class="truncate font-medium" title="${escapeHtml(specialCraftStatus)}">${escapeHtml(specialCraftStatus)}</div>
+          <div class="mt-1 truncate text-muted-foreground" title="${escapeHtml(record.receiverFactoryDisplay || '-')}">接收对象：${escapeHtml(record.receiverFactoryDisplay || '-')}</div>
+          <span class="mt-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium text-slate-700">${escapeHtml(status)}</span>
+        </td>
+        <td class="px-3 py-3 align-top">
+          <div class="flex flex-col gap-2">
+            ${renderWarehouseFlowButton(`${record.feiTicketNo} 库存流水`, buildWaitHandoverFlowLines(record, runtimeEvents), '查看流水')}
+            <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted">调整库位</button>
+          </div>
+        </td>
+      </tr>
+    `
+  }).join('')
+  return `
+    <div class="rounded-lg border bg-card">
+      <div class="flex items-center justify-between border-b px-4 py-3">
+        <h2 class="text-base font-semibold">待交出仓裁片库存</h2>
+        <span class="text-xs text-muted-foreground">共 ${records.length} 条库存记录</span>
+      </div>
+      <div class="max-h-[32rem] overflow-y-auto">
+        <table class="w-full table-fixed text-left text-sm">
+          <colgroup>
+            <col class="w-[17%]" />
+            <col class="w-[24%]" />
+            <col class="w-[18%]" />
+            <col class="w-[18%]" />
+            <col class="w-[15%]" />
+            <col class="w-[8%]" />
+          </colgroup>
+          <thead class="sticky top-0 z-10 bg-slate-50 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 font-medium">菲票 / 来源</th>
+              <th class="px-3 py-2 font-medium">款式 / 裁片</th>
+              <th class="px-3 py-2 font-medium">数量账</th>
+              <th class="px-3 py-2 font-medium">袋码 / 库位</th>
+              <th class="px-3 py-2 font-medium">状态</th>
+              <th class="px-3 py-2 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `
+}
+
+function renderWaitHandoverEventTable(events: CuttingRuntimeEvent[], emptyText: string): string {
+  if (!events.length) return `<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
+  const rows = events.map((event) => [
+    event.eventNo,
+    event.eventType,
+    event.refs.productionOrderNo || '按事件追踪',
+    event.refs.cutOrderNo || '按事件追踪',
+    uniqueStrings(event.refs.feiTicketNos || []).join('、') || getWaitHandoverEventBagText(event),
+    formatPieceQty(getWaitHandoverEventQty(event)),
+    getWaitHandoverEventLocationText(event),
+    `${event.operatorName} / ${event.occurredAt}`,
+    event.eventStatus,
+  ])
+  return renderHubTable(
+    ['记录号', '类型', '生产单', '裁片单', '菲票 / 袋码', '数量', '库区 / 库位', '操作人 / 时间', '状态'],
+    rows,
+    emptyText,
+  )
+}
+
 function renderLocationRows(scopeLabel: string, rows: Array<[string, string, string, string]>): string {
   const tableHtml = `
     <table class="min-w-[960px] w-full text-left text-sm">
@@ -1402,7 +1798,9 @@ function buildHubTabHref(
   tabKey: string,
 ): string {
   const basePath = getCanonicalCuttingPath(pageKey)
-  return tabKey === 'overview' ? basePath : `${basePath}?tab=${encodeURIComponent(tabKey)}`
+  if (tabKey === 'overview') return basePath
+  if (pageKey === 'warehouse-management-wait-handover' && tabKey === 'inventory') return basePath
+  return `${basePath}?tab=${encodeURIComponent(tabKey)}`
 }
 
 function renderHubTabs(
@@ -1600,6 +1998,39 @@ function buildRuntimeTicketCandidatesFromGeneratedTickets(
     sourceContextType: '实际裁剪产出',
     ticketStatus: ticket.printStatus === 'VOIDED' ? 'VOIDED' : 'PRINTED',
   }))
+}
+
+function buildWaitHandoverFallbackInventoryRecords(
+  generatedTickets: GeneratedFeiTicketSourceRecord[],
+): InboundTempBagInventoryRecord[] {
+  return generatedTickets
+    .filter((ticket) => ticket.printStatus !== 'VOIDED')
+    .slice(0, 8)
+    .map((ticket, index) => ({
+      inventoryRecordId: `INV-DEMO-WH-${ticket.feiTicketId}`,
+      feiTicketId: ticket.feiTicketId,
+      feiTicketNo: ticket.feiTicketNo,
+      cutOrderId: ticket.cutOrderId,
+      cutOrderNo: ticket.cutOrderNo,
+      productionOrderId: ticket.productionOrderId,
+      productionOrderNo: ticket.productionOrderNo,
+      spuCode: ticket.sourceTechPackSpuCode || ticket.skuCode,
+      color: ticket.skuColor || ticket.fabricColor,
+      size: ticket.skuSize,
+      partName: ticket.partName,
+      pieceQty: ticket.actualCutPieceQty || ticket.qty,
+      pieceSequenceLabel: ticket.pieceSequenceLabel || ticket.pieceSetNoRange || '按菲票追踪',
+      hasSpecialCraft: ticket.hasSpecialCraft,
+      specialCraftDisplay: getSpecialCraftDisplay(ticket),
+      receiverFactoryDisplay: getReceiverFactoryDisplay(ticket),
+      printStatus: getRuntimeTicketPrintStatus(ticket),
+      voidStatus: getRuntimeTicketVoidStatus(ticket),
+      tempBagCode: `CT-DB-${String(index + 1).padStart(3, '0')}`,
+      warehouseArea: index % 3 === 0 ? '中转袋暂存区' : '裁片 A 区',
+      locationCode: index % 3 === 0 ? `BAG-A-${String(index + 1).padStart(2, '0')}` : `CUT-A-${String(index + 1).padStart(2, '0')}`,
+      inboundAt: ticket.issuedAt || '2026-05-25 09:30',
+      inventoryStatus: index % 4 === 0 ? '已装袋待交出' : index % 4 === 1 ? '已分配待分拣' : '待分配',
+    } satisfies InboundTempBagInventoryRecord))
 }
 
 function createWaitHandoverItemFromTicket(
@@ -3188,21 +3619,33 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   const inboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
   const transferBagSummary = { bagCount: uniqueStrings(inboundTempBags.map((bag) => bag.bagCode)).length }
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
-  const inboundTicketIds = new Set(inboundInventoryRecords.map((record) => record.feiTicketId))
-  const ticketCandidates = buildRuntimeTicketCandidatesFromGeneratedTickets(generatedTickets)
-    .filter((ticket) => !inboundTicketIds.has(ticket.feiTicketId))
   const runtimeSpecialCraftReturnInventoryRecords = buildRuntimeSpecialCraftReturnInventoryRecordsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
+  const fallbackInventoryRecords = inboundInventoryRecords.length || runtimeSpecialCraftReturnInventoryRecords.length
+    ? []
+    : buildWaitHandoverFallbackInventoryRecords(generatedTickets)
   const effectiveInventoryRecords = [
     ...inboundInventoryRecords,
+    ...fallbackInventoryRecords,
     ...runtimeSpecialCraftReturnInventoryRecords,
   ]
+  const inboundTicketIds = new Set(effectiveInventoryRecords.map((record) => record.feiTicketId))
+  const ticketCandidates = buildRuntimeTicketCandidatesFromGeneratedTickets(generatedTickets)
+    .filter((ticket) => !inboundTicketIds.has(ticket.feiTicketId))
   const specialCraftReturnProjection = buildRuntimeSpecialCraftReturnProjectionFromEvents(runtimeWaitHandoverEvents, generatedTickets)
   const specialCraftHandoverGroups = buildRuntimeSpecialCraftHandoverGroups(runtimeWaitHandoverEvents, inboundInventoryRecords, generatedTickets)
   const sewingAllocationProjection = buildSewingTaskAllocationProjectionFromInventory(effectiveInventoryRecords)
   const handoverPickingProjection = buildHandoverPickingTaskProjectionFromAllocationProjection(sewingAllocationProjection)
   const handoverTableProjection = buildRuntimeHandoverTableProjection(runtimeWaitHandoverEvents, generatedTickets)
-  const activeTab = readTabKey<WaitHandoverTabKey>('workbench', ['workbench', 'inventory', 'assignment', 'sorting', 'special-craft-return', 'handoverOrders', 'handoverRecords', 'locations'])
-  const assignedTaskCount = sewingAllocationProjection.allocations.length
+  const activeTab = readTabKey<WaitHandoverTabKey>('inventory', [
+    'inventory',
+    'pending-inbound',
+    'inbound-records',
+    'sorting',
+    'handoverRecords',
+    'writeback-differences',
+    'special-craft-return',
+    'locations',
+  ])
   const workbenchProjection = buildWaitHandoverWorkbenchProjection({
     runtimeEvents: runtimeWaitHandoverEvents,
     ticketCandidates,
@@ -3216,187 +3659,238 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     transferBagSummary,
     specialCraftHandoverGroups,
   })
-
-  const cutPieceWarehouseCard = renderHubActionCard({
-    title: '裁片库存',
-    rows: [
-      ['库存记录数', effectiveInventoryRecords.length],
-      ['裁片总数量', formatPieceQty(effectiveInventoryRecords.reduce((sum, record) => sum + record.pieceQty, 0))],
-      ['待入仓菲票', ticketCandidates.length],
-      ['入仓暂存袋', inboundTempBags.length],
-      ['特殊工艺回仓库存', runtimeSpecialCraftReturnInventoryRecords.length],
-    ],
-  })
-
-  const specialCraftReturnCard = renderHubActionCard({
-    title: '特殊工艺回仓补入库存',
-    rows: [
-      ['回仓记录数', specialCraftReturnProjection.summary.returnRecordCount],
-      ['已完成回仓数', specialCraftReturnProjection.summary.returnedCount],
-      ['差异数', specialCraftReturnProjection.summary.discrepancyCount],
-      ['回仓库存记录', specialCraftReturnProjection.summary.returnedInventoryCount],
-      ['可参与车缝分配', specialCraftReturnProjection.summary.readyForSewingCount],
-    ],
-  })
-
-  const sewingAssignmentCard = renderHubActionCard({
-    title: '车缝任务分配',
-    rows: [
-      ['可分配库存记录', sewingAllocationProjection.availableInventoryCount],
-      ['可分配裁片数量', formatPieceQty(sewingAllocationProjection.availablePieceQty)],
-      ['库存占用记录', sewingAllocationProjection.reservedInventoryCount],
-      ['已释放占用', sewingAllocationProjection.releasedReservations.length],
-      ['特殊工艺未回仓', sewingAllocationProjection.specialCraftPendingCount],
-    ],
-  })
-
-  const sortingCard = renderHubActionCard({
-    title: '待交出仓配料',
-    rows: [
-      ['裁片配料任务', handoverPickingProjection.taskCount],
-      ['待分拣 / 分拣中', handoverPickingProjection.pendingCount + handoverPickingProjection.sortingCount],
-      ['已装袋待交出', handoverPickingProjection.packedCount],
-      ['分拣后缺口', handoverPickingProjection.shortageCount],
-      ['目标中转袋数', handoverPickingProjection.targetTransferBagCount],
-      ['PDA 同步失败', handoverPickingProjection.syncFailedCount],
-    ],
-  })
-
-  const sewingDispatchCard = renderHubActionCard({
-    title: '交出单',
-    rows: [
-      ['交出单数', handoverTableProjection.summary.orderCount],
-      ['交出记录数', handoverTableProjection.summary.recordCount],
-      ['本次交出数量', formatPieceQty(handoverTableProjection.summary.totalHandedOverQty)],
-      ['待接收回写', handoverTableProjection.summary.pendingWritebackCount],
-      ['同步异常', handoverTableProjection.summary.discrepancyCount],
-    ],
-  })
-
-  const cutPieceInventoryRows = effectiveInventoryRecords.slice(0, 12).map((record) => [
-    record.feiTicketNo,
-    record.productionOrderNo,
-    record.cutOrderNo,
-    `${record.spuCode} / ${record.color} / ${record.size} / ${record.partName}`,
-    formatPieceQty(record.pieceQty),
-    record.inventoryStatus,
-    record.tempBagCode || `${record.warehouseArea} / ${record.locationCode}`,
+  const filters = getWaitHandoverFilters()
+  const reservedQtyByRecord = buildWaitHandoverReservedQtyMap(handoverPickingProjection)
+  const filteredInventoryRecords = filterWaitHandoverInventoryRecords(effectiveInventoryRecords, filters, reservedQtyByRecord)
+  const filteredPendingTickets = ticketCandidates
+    .filter((ticket) => ticket.ticketStatus !== 'VOIDED')
+    .filter((ticket) =>
+      includesKeyword([
+        ticket.ticketNo,
+        ticket.productionOrderNo,
+        ticket.cutOrderNo,
+        ticket.spuCode,
+        ticket.color,
+        ticket.size,
+        ticket.partName,
+        ticket.specialCraftDisplayLabel,
+        ticket.receiverFactoryDisplay,
+      ], filters.keyword),
+    )
+  const inboundEvents = filterWaitHandoverEvents(
+    runtimeWaitHandoverEvents.filter((event) => event.eventType === '菲票入仓暂存' || event.eventType === '特殊工艺回仓'),
+    filters,
+  )
+  const handoverRecordEvents = filterWaitHandoverEvents(
+    runtimeWaitHandoverEvents.filter((event) => event.eventType === '新增交出记录'),
+    filters,
+  )
+  const writebackEvents = filterWaitHandoverEvents(
+    runtimeWaitHandoverEvents.filter((event) => event.eventType === '新增交出记录' && event.eventStatus === '同步失败'),
+    filters,
+  )
+  const sortingRows = handoverPickingProjection.tasks
+    .filter((task) =>
+      includesKeyword([
+        task.pickingTaskNo,
+        task.sewingTaskNo,
+        task.receiverFactoryName,
+        ...task.allocatedInventoryItems.map((item) => item.feiTicketNo),
+        ...task.tempBagSources.map((item) => item.tempBagCode),
+        ...task.targetTransferBags.map((bag) => bag.bagCode),
+      ], filters.keyword),
+    )
+    .slice(0, 16)
+    .map((task) => [
+      task.pickingTaskNo,
+      task.sewingTaskNo,
+      task.tempBagSources.map((item) => item.tempBagCode).join('、') || '待扫来源暂存袋',
+      task.targetTransferBags.map((bag) => bag.bagCode).join('、') || '待扫目标中转袋',
+      `${task.pickedItems.length}/${task.allocatedInventoryItems.length} 张`,
+      task.receiverFactoryName,
+      task.shortageItems.length
+        ? task.shortageItems.slice(0, 2).map((item) => `${item.size}/${item.partName}缺${formatPieceQty(item.shortageQty)}`).join('；')
+        : '暂无缺口',
+      task.taskStatus,
+    ])
+  const pendingInboundRows = filteredPendingTickets.slice(0, 20).map((ticket) => [
+    ticket.ticketNo,
+    ticket.productionOrderNo || '按菲票追踪',
+    ticket.cutOrderNo || '按菲票追踪',
+    `${ticket.spuCode || '-'} / ${ticket.color || '-'} / ${ticket.size || '-'} / ${ticket.partName || '-'}`,
+    formatPieceQty(Number(ticket.actualCutPieceQty || ticket.qty || 0)),
+    ticket.hasSpecialCraft ? ticket.specialCraftDisplayLabel || '待特殊工艺交出' : '无特殊工艺',
+    ticket.printStatus || '已打印',
+    '扫码入仓',
   ])
-  const sortingRows = handoverPickingProjection.tasks.slice(0, 8).map((task) => [
-    task.pickingTaskNo,
-    task.sewingTaskNo,
-    task.tempBagSources.map((item) => item.tempBagCode).join('、') || '待扫来源暂存袋',
-    task.targetTransferBags.map((bag) => bag.bagCode).join('、') || '待扫目标中转袋',
-    `${task.pickedItems.length}/${task.allocatedInventoryItems.length} 张`,
-    task.receiverFactoryName,
-    task.shortageItems.length
-      ? task.shortageItems.slice(0, 2).map((item) => `${item.size}/${item.partName}缺${item.shortageQty}`).join('；')
-      : '暂无缺口',
-    task.taskStatus,
-  ])
-  const handoverOrderRows = handoverTableProjection.orderRows.slice(0, 8)
-  const handoverRecordRows = handoverTableProjection.recordRows.slice(0, 8)
+  const specialCraftReturnRows = specialCraftReturnProjection.records.slice(0, 16).map((record) => {
+    const expectedQty = record.expectedReturnSummary.reduce((sum, item) => sum + item.pieceQty, 0)
+    const actualQty = record.actualReturnSummary.reduce((sum, item) => sum + item.pieceQty, 0)
+    return [
+      record.returnRecordNo,
+      record.sourceHandoverRecordNo,
+      record.receiverFactoryName,
+      record.craftType,
+      `${formatPieceQty(expectedQty)} / ${formatPieceQty(actualQty)}`,
+      `${record.receivedWarehouseArea} / ${record.receivedLocationCode}`,
+      record.returnStatus,
+      record.discrepancyItems.length ? `${record.discrepancyItems.length} 条差异` : '无差异',
+    ]
+  })
+  const writebackDifferenceRows = [
+    ...workbenchProjection.discrepancyAndShortageItems.map((item) => [
+      item.targetTaskId || item.itemId,
+      item.productionOrderNo,
+      item.feiTicketNos.join('、') || '按交出记录追踪',
+      formatPieceQty(item.pieceQty),
+      item.targetReceiver || '待接收方回写',
+      item.shortageAfterHandover,
+      item.urgentLevel,
+      item.updatedAt,
+    ]),
+    ...specialCraftReturnProjection.discrepancyRecords.flatMap((record) =>
+      record.discrepancyItems.map((item) => [
+        record.returnRecordNo,
+        record.sourceHandoverRecordNo,
+        item.feiTicketId || '按回仓记录追踪',
+        formatPieceQty(Math.abs(item.differenceQty)),
+        record.receiverFactoryName,
+        item.description,
+        item.handlingStatus,
+        item.reportedAt,
+      ]),
+    ),
+  ].slice(0, 16)
 
-  const standardTabs: FactoryWarehouseStandardTab[] = [
-    {
-      key: 'workbench',
-      label: '裁后工作台',
-      count:
-        workbenchProjection.pendingInboundItems.length +
-        workbenchProjection.pendingSortingItems.length +
-        workbenchProjection.pendingRebaggingItems.length +
-        workbenchProjection.pendingHandoverRecordItems.length +
-        workbenchProjection.discrepancyAndShortageItems.length,
-      content: renderWaitHandoverWorkbench(workbenchProjection),
-    },
-    {
-      key: 'inventory',
-      label: '裁片库存',
-      count: effectiveInventoryRecords.length,
-      content: `<section class="space-y-4">
-        <div class="grid gap-4 xl:grid-cols-2">${cutPieceWarehouseCard}${specialCraftReturnCard}</div>
-        ${renderHubTable(['菲票', '生产单', '裁片单', '裁片', '库存数量', '库存状态', '暂存袋 / 来源'], cutPieceInventoryRows)}
-      </section>`,
-    },
-    {
-      key: 'assignment',
-      label: '车缝任务分配',
-      count: assignedTaskCount,
-      content: `<section class="space-y-4">
-        ${sewingAssignmentCard}
-        ${renderSewingAllocationArea(sewingAllocationProjection)}
-      </section>`,
-    },
-    {
-      key: 'sorting',
-      label: '待交出仓配料',
-      count: handoverPickingProjection.taskCount,
-      content: `<section class="space-y-4">
-        ${sortingCard}
-        ${renderHandoverPickingArea(handoverPickingProjection)}
-        ${renderHubTable(['配料任务', '车缝任务', '来源暂存袋', '目标中转袋', '已分拣菲票', '接收对象', '分拣后缺口', '状态'], sortingRows)}
-      </section>`,
-    },
-    {
-      key: 'special-craft-return',
-      label: '特殊工艺回仓',
-      count: specialCraftReturnProjection.summary.returnRecordCount,
-      content: renderSpecialCraftReturnArea(specialCraftReturnProjection),
-    },
-    {
-      key: 'handoverOrders',
-      label: '交出单',
-      count: handoverTableProjection.summary.orderCount,
-      content: `<section class="space-y-4">
-        ${sewingDispatchCard}
-        <div class="flex flex-wrap gap-2">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/cutting/handover-orders">打开交出单列表</button>
-        </div>
-        ${renderHubTable(['交出单', '生产单', '接收对象', '累计已交', '交出记录', '状态'], handoverOrderRows)}
-      </section>`,
-    },
-    {
-      key: 'handoverRecords',
-      label: '交出记录',
-      count: handoverTableProjection.summary.recordCount,
-      content: `<section class="space-y-4">
-        ${renderHubActionCard({
-          title: '交出记录',
-          rows: [
-            ['已生成记录数', handoverTableProjection.summary.recordCount],
-            ['本次交出数量', formatPieceQty(handoverTableProjection.summary.totalHandedOverQty)],
-            ['待接收回写', handoverTableProjection.summary.pendingWritebackCount],
-            ['同步异常', handoverTableProjection.summary.discrepancyCount],
-          ],
-        })}
-        <div class="flex flex-wrap gap-2">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/cutting/handover-orders">打开交出单列表</button>
-        </div>
-        ${renderHubTable(['交出记录来源', '生产单', '交出记录', '之前已交', '本次交出', '累计交出', '交出后结果', '中转袋', '状态'], handoverRecordRows)}
-      </section>`,
-    },
-    {
-      key: 'locations',
-      label: '库区库位',
-      count: 3,
-      content: `<div class="border-b px-4 py-3">${renderWarehouseLocationToolbar('裁床待交出仓')}</div>${renderLocationRows('裁床待交出仓', [
-        ['裁床待交出仓', '裁片 A 区', 'CUT-A-01', '待交出裁片'],
-        ['裁床待交出仓', '特殊工艺回仓区', 'SP-RETURN-01', '回仓裁片'],
-        ['裁床待交出仓', '中转袋暂存区', 'BAG-A-01', '待交出中转袋'],
-      ])}`,
-    },
-  ]
+  const filterPanelOptions = {
+    filters,
+    inventoryRecords: effectiveInventoryRecords,
+    runtimeEvents: runtimeWaitHandoverEvents,
+    reservedQtyByRecord,
+  }
+  const inventoryContent = `<section class="space-y-4">
+    ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inventory' })}
+    ${renderWaitHandoverInventoryTable(filteredInventoryRecords, reservedQtyByRecord, runtimeWaitHandoverEvents)}
+  </section>`
+  const pendingInboundContent = `<section class="space-y-4">
+    ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'pending-inbound' })}
+    ${renderHubTable(['菲票', '生产单', '裁片单', '裁片', '待入仓数量', '特殊工艺', '打印状态', '操作'], pendingInboundRows, '暂无待入仓菲票。')}
+  </section>`
+  const inboundRecordsContent = `<section class="space-y-4">
+    ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inbound-records' })}
+    ${renderHubActionCard({
+      title: '入仓记录汇总',
+      rows: [
+        ['入仓暂存袋', inboundTempBags.length],
+        ['入仓记录数', inboundEvents.length],
+        ['特殊工艺回仓库存', runtimeSpecialCraftReturnInventoryRecords.length],
+        ['暂存袋数量', transferBagSummary.bagCount],
+      ],
+    })}
+    ${renderWaitHandoverEventTable(inboundEvents, '暂无入仓记录。')}
+  </section>`
+  const sortingContent = `<section class="space-y-4">
+    ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'sorting' })}
+    ${renderHubActionCard({
+      title: '分拣装袋汇总',
+      rows: [
+        ['二次分拣任务', handoverPickingProjection.taskCount],
+        ['待分拣 / 分拣中', handoverPickingProjection.pendingCount + handoverPickingProjection.sortingCount],
+        ['已装袋待交出', handoverPickingProjection.packedCount],
+        ['分拣后缺口', handoverPickingProjection.shortageCount],
+        ['目标中转袋', handoverPickingProjection.targetTransferBagCount],
+        ['PDA 同步失败', handoverPickingProjection.syncFailedCount],
+      ],
+    })}
+    ${renderHubTable(['分拣任务', '车缝任务', '来源暂存袋', '目标中转袋', '已分拣菲票', '接收对象', '分拣后缺口', '状态'], sortingRows, '暂无分拣装袋任务。')}
+  </section>`
+  const handoverRecordContent = `<section class="space-y-4">
+    ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'handoverRecords' })}
+    ${renderHubActionCard({
+      title: '交出记录汇总',
+      rows: [
+        ['交出单数', handoverTableProjection.summary.orderCount],
+        ['交出记录数', handoverTableProjection.summary.recordCount],
+        ['本次交出数量', formatPieceQty(handoverTableProjection.summary.totalHandedOverQty)],
+        ['待接收回写', handoverTableProjection.summary.pendingWritebackCount],
+        ['同步异常', handoverTableProjection.summary.discrepancyCount],
+      ],
+    })}
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/cutting/handover-orders">查看交出单</button>
+    </div>
+    ${renderWaitHandoverEventTable(handoverRecordEvents, '暂无交出记录。')}
+  </section>`
+  const writebackDifferenceContent = `<section class="space-y-4">
+    ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'writeback-differences' })}
+    ${renderHubActionCard({
+      title: '回写差异汇总',
+      rows: [
+        ['接收回写异常', writebackEvents.length],
+        ['交出后缺口', workbenchProjection.handoverSnapshot.shortageCount],
+        ['特殊工艺回仓差异', specialCraftReturnProjection.summary.discrepancyCount],
+        ['待处理差异', writebackDifferenceRows.length],
+      ],
+    })}
+    ${renderHubTable(['差异来源', '关联单据', '菲票', '差异数量', '接收对象', '差异说明', '状态', '更新时间'], writebackDifferenceRows, '暂无回写差异。')}
+  </section>`
+  const specialCraftReturnContent = `<section class="space-y-4">
+    ${renderHubActionCard({
+      title: '特殊工艺回仓汇总',
+      rows: [
+        ['回仓记录数', specialCraftReturnProjection.summary.returnRecordCount],
+        ['已完成回仓', specialCraftReturnProjection.summary.returnedCount],
+        ['部分回仓', specialCraftReturnProjection.summary.partialReturnCount],
+        ['回仓差异', specialCraftReturnProjection.summary.discrepancyCount],
+        ['回仓库存记录', specialCraftReturnProjection.summary.returnedInventoryCount],
+        ['可参与车缝分配', specialCraftReturnProjection.summary.readyForSewingCount],
+      ],
+    })}
+    ${renderHubTable(['回仓记录', '来源交出记录', '承接工厂', '工艺', '应回 / 实回', '回仓库位', '状态', '差异'], specialCraftReturnRows, '暂无特殊工艺回仓记录。')}
+  </section>`
+  const locationContent = `<section class="rounded-lg border bg-card">
+    <div class="border-b px-4 py-3">${renderWarehouseLocationToolbar('裁床待交出仓')}</div>
+    ${renderLocationRows('裁床待交出仓', [
+      ['裁床待交出仓', '待入仓确认区', 'CUT-IN-01', '已打印未入仓菲票'],
+      ['裁床待交出仓', '裁片 A 区', 'CUT-A-01', '在库待分配裁片'],
+      ['裁床待交出仓', '中转袋暂存区', 'BAG-A-01', '已装袋待交出中转袋'],
+      ['裁床待交出仓', '特殊工艺回仓区', 'SP-RETURN-01', '特殊工艺回仓裁片'],
+      ['裁床待交出仓', '差异暂存区', 'DIFF-01', '回写差异或数量异常裁片'],
+    ])}
+  </section>`
+  const activeContent =
+    activeTab === 'pending-inbound'
+      ? pendingInboundContent
+      : activeTab === 'inbound-records'
+        ? inboundRecordsContent
+        : activeTab === 'sorting'
+          ? sortingContent
+          : activeTab === 'handoverRecords'
+            ? handoverRecordContent
+            : activeTab === 'writeback-differences'
+              ? writebackDifferenceContent
+              : activeTab === 'special-craft-return'
+                ? specialCraftReturnContent
+                : activeTab === 'locations'
+                  ? locationContent
+                  : inventoryContent
+  const reservedPieceQty = Array.from(reservedQtyByRecord.values()).reduce((sum, qty) => sum + qty, 0)
+  const inventoryPieceQty = effectiveInventoryRecords.reduce((sum, record) => sum + record.pieceQty, 0)
+  const firstTaskId = handoverPickingProjection.tasks[0]?.pickingTaskId || 'demo-task'
 
   return renderHubShell({
     metaKey: 'warehouse-management-wait-handover',
-    description: '聚合已打印菲票、裁片库存、入仓暂存袋、二次分拣、重新装袋、交出记录和接收差异。',
-    kpis: workbenchProjection.overviewCards
-      .map((card) => renderCompactKpiCard(card.label, card.value, card.hint, card.tone))
+    description: '基于菲票、裁片和中转袋管理待交出仓库存、入仓、分拣、交出和差异。',
+    kpis: [
+      renderCompactKpiCard('待入仓菲票', filteredPendingTickets.length, '已打印未确认入仓', 'text-blue-600'),
+      renderCompactKpiCard('在库裁片', formatPieceQty(inventoryPieceQty), `${effectiveInventoryRecords.length} 条库存`, 'text-emerald-600'),
+      renderCompactKpiCard('已占用裁片', formatPieceQty(reservedPieceQty), '车缝任务占用', 'text-amber-600'),
+      renderCompactKpiCard('已装袋待交出', handoverPickingProjection.packedCount, '分拣装袋完成', 'text-violet-600'),
+      renderCompactKpiCard('差异 / 异常', writebackDifferenceRows.length, '回写差异与回仓差异', 'text-rose-600'),
+    ]
       .join(''),
-    tabs: '',
-    content: renderFactoryWarehouseStandardTabs(
-      standardTabs.sort((a, b) => Number(b.key === activeTab) - Number(a.key === activeTab)),
-      'cutting-wait-handover-standard-tabs',
-    ),
+    tabs: renderWaitHandoverTabs(activeTab),
+    content: activeContent,
+    headerActions: renderWaitHandoverHeaderActions(firstTaskId),
   })
 }
