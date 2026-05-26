@@ -922,13 +922,28 @@ function renderCompactMetricLines(lines: Array<[string, string]>): string {
   return `
     <div class="space-y-1 text-xs leading-5">
       ${lines.map(([label, value]) => `
-        <div class="grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-2 text-left">
-          <span class="text-muted-foreground">${escapeHtml(label)}</span>
-          <span class="text-left font-medium text-foreground">${escapeHtml(value)}</span>
+        <div class="flex min-w-0 items-baseline justify-between gap-2 text-left">
+          <span class="shrink-0 text-muted-foreground">${escapeHtml(label)}</span>
+          <span class="min-w-0 truncate whitespace-nowrap text-right font-medium text-foreground" title="${escapeHtml(value)}">${escapeHtml(value)}</span>
         </div>
       `).join('')}
     </div>
   `
+}
+
+function summarizeListValues(values: string[], fallback = '待补', visibleCount = 1): { label: string; title: string } {
+  const uniqueValues = Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+  if (!uniqueValues.length) return { label: fallback, title: fallback }
+  const title = uniqueValues.join(' / ')
+  if (uniqueValues.length <= visibleCount) return { label: title, title }
+  return {
+    label: `${uniqueValues.slice(0, visibleCount).join(' / ')} 等 ${formatQty(uniqueValues.length)} 项`,
+    title,
+  }
+}
+
+function renderSingleLineText(value: string, className = ''): string {
+  return `<div class="truncate ${className}" title="${escapeHtml(value)}">${escapeHtml(value)}</div>`
 }
 
 function formatDateTimeLocal(date = new Date()): string {
@@ -2515,6 +2530,9 @@ function renderSpreadingListCuttingAction(row: SupervisorSpreadingRow): string {
   return ''
 }
 
+const SPREADING_LIST_GRID_CLASS =
+  'xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)_minmax(0,1.45fr)_minmax(0,0.9fr)_minmax(0,0.85fr)_minmax(0,0.85fr)_minmax(0,0.85fr)_minmax(0,0.78fr)_minmax(0,0.86fr)]'
+
 function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: MarkerSpreadingProjection): string {
   if (!rows.length) {
     return '<section class="rounded-lg border border-dashed bg-card px-4 py-6 text-center text-sm text-muted-foreground" data-cutting-spreading-main-card="true">当前筛选范围内暂无铺布记录。</section>'
@@ -2528,7 +2546,7 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
         </div>
         <div class="text-xs text-muted-foreground">共 ${rows.length} 张铺布单</div>
       </div>
-      <div class="hidden border-b bg-slate-50 px-4 py-3 text-left text-xs font-medium text-muted-foreground xl:grid xl:grid-cols-[1.1fr_1.2fr_1.4fr_1.2fr_1.2fr_1.2fr_1.2fr_1.1fr_1fr] xl:gap-4">
+      <div class="hidden border-b bg-slate-50 px-4 py-3 text-left text-xs font-medium text-muted-foreground xl:grid ${SPREADING_LIST_GRID_CLASS} xl:gap-3">
         <div>铺布单</div>
         <div>来源</div>
         <div>面料</div>
@@ -2546,10 +2564,15 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
             const markerNos = row.session.sourceBedNo || row.session.markerNo || row.sourceMarkerLabel
             const pattern = summary.order?.patternIdentity || null
             const pda = summary.pda
+            const sourceSchemeLabel = row.session.sourceSchemeNo || row.markerPlanNo || '待关联唛架方案'
+            const productionOrders = summarizeListValues(row.productionOrderNos)
+            const patternName = pattern?.patternFileName || '纸样待补'
+            const patternVersion = pattern?.patternVersion || '待补'
+            const effectiveWidth = pattern?.effectiveWidthText || summary.order?.effectiveWidth || '待补'
             return `
-              <article class="grid gap-4 px-4 py-4 text-left text-sm xl:grid-cols-[1.1fr_1.2fr_1.4fr_1.2fr_1.2fr_1.2fr_1.2fr_1.1fr_1fr]">
-                <div class="space-y-2">
-                  <div class="font-semibold text-blue-600">${escapeHtml(row.sessionNo)}</div>
+              <article class="grid min-w-0 gap-3 px-4 py-4 text-left text-sm xl:grid ${SPREADING_LIST_GRID_CLASS}">
+                <div class="min-w-0 space-y-2">
+                  ${renderSingleLineText(row.sessionNo, 'font-semibold text-blue-600')}
                   <div class="space-y-1">
                     <div class="text-[11px] text-muted-foreground">铺布状态</div>
                     <div class="flex flex-wrap gap-1">${renderStatusBadge(row.mainStageLabel, row.mainStageClassName)}</div>
@@ -2560,14 +2583,14 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
                       ${row.mainStageKey === 'DONE' ? renderStatusBadge(row.cuttingStatusLabel, row.cuttingStatusClassName) : '-'}
                     </div>
                   </div>
-                  <div class="text-xs text-muted-foreground">唛架编号 / 床次：${escapeHtml(markerNos || '待补')}</div>
+                  <div class="truncate text-xs text-muted-foreground" title="${escapeHtml(markerNos || '待补')}">唛架编号 / 床次：${escapeHtml(markerNos || '待补')}</div>
                 </div>
-                <div class="space-y-1 text-xs leading-5">
-                  <div class="text-sm font-medium text-foreground">${escapeHtml(row.session.sourceSchemeNo || row.markerPlanNo || '待关联唛架方案')}</div>
-                  <div class="text-muted-foreground">生产单：${escapeHtml(row.productionOrderNos.join(' / ') || '待补')}</div>
+                <div class="min-w-0 space-y-1 text-xs leading-5">
+                  ${renderSingleLineText(sourceSchemeLabel, 'text-sm font-medium text-foreground')}
+                  <div class="truncate text-muted-foreground" title="${escapeHtml(productionOrders.title)}">生产单：${escapeHtml(productionOrders.label)}</div>
                   <div class="text-muted-foreground">来源裁片单：${escapeHtml(`${formatQty(summary.order?.sourceCutOrderIds.length || row.cutOrderCount)} 张`)}</div>
                 </div>
-                <div>
+                <div class="min-w-0">
                   ${renderMaterialIdentityBlock(
                     summary.order?.materialIdentity || {
                       materialSku: row.materialSkuSummary || '待补',
@@ -2579,26 +2602,26 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
                     { compact: true, imageSizeClass: 'h-9 w-9', showCategory: false },
                   )}
                 </div>
-                <div class="space-y-1 text-xs leading-5">
-                  <div class="font-medium text-foreground">${escapeHtml(pattern?.patternFileName || '纸样待补')}</div>
-                  <div class="text-muted-foreground">版本：${escapeHtml(pattern?.patternVersion || '待补')}</div>
-                  <div class="text-muted-foreground">有效幅宽：${escapeHtml(pattern?.effectiveWidthText || summary.order?.effectiveWidth || '待补')}</div>
+                <div class="min-w-0 space-y-1 text-xs leading-5">
+                  ${renderSingleLineText(patternName, 'font-medium text-foreground')}
+                  <div class="truncate text-muted-foreground" title="${escapeHtml(patternVersion)}">版本：${escapeHtml(patternVersion)}</div>
+                  <div class="truncate text-muted-foreground" title="${escapeHtml(effectiveWidth)}">有效幅宽：${escapeHtml(effectiveWidth)}</div>
                 </div>
-                <div>
+                <div class="min-w-0">
                   ${renderCompactMetricLines([
                     ['计划层数', `${formatQty(summary.plannedLayerCount)} 层`],
                     ['计划用量', formatLength(summary.plannedUsage)],
                     ['计划数量', `${formatQty(summary.plannedQty)} 件`],
                   ])}
                 </div>
-                <div>
+                <div class="min-w-0">
                   ${renderCompactMetricLines([
                     ['实铺层数', `${formatQty(summary.actualLayerCount)} 层`],
                     ['实际用量', formatLength(summary.actualUsage)],
                     ['实际裁剪数量', `${formatQty(summary.actualCutQty)} 件`],
                   ])}
                 </div>
-                <div>
+                <div class="min-w-0">
                   ${renderCompactMetricLines([
                     ['层数差异', formatSignedNumber(summary.layerDiff, '层')],
                     ['用量差异', formatSignedLength(summary.usageDiff)],
@@ -2606,16 +2629,16 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
                   ])}
                   <div class="mt-2">${renderStatusBadge(summary.needsReview ? '有差异' : '无差异', summary.needsReview ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700')}</div>
                 </div>
-                <div class="space-y-1 text-xs leading-5">
+                <div class="min-w-0 space-y-1 text-xs leading-5">
                   ${renderStatusBadge(pda.statusLabel, pda.statusClassName)}
-                  <div class="text-muted-foreground">最近同步：${escapeHtml(formatScheduleDateTime(pda.latestAt))}</div>
-                  <div class="text-muted-foreground">操作人：${escapeHtml(pda.operatorName)}</div>
+                  <div class="truncate text-muted-foreground" title="${escapeHtml(formatScheduleDateTime(pda.latestAt))}">最近同步：${escapeHtml(formatScheduleDateTime(pda.latestAt))}</div>
+                  <div class="truncate text-muted-foreground" title="${escapeHtml(pda.operatorName)}">操作人：${escapeHtml(pda.operatorName)}</div>
                 </div>
-                <div class="flex flex-col gap-1">
-                  <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
-                  <button type="button" class="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700 hover:bg-blue-100" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(row.spreadingSessionId)}">编辑铺布</button>
-                  <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看 PDA 记录</button>
-                  <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(row.spreadingSessionId)}">处理差异</button>
+                <div class="flex min-w-0 flex-col gap-1">
+                  <button type="button" class="w-full truncate whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
+                  <button type="button" class="w-full truncate whitespace-nowrap rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700 hover:bg-blue-100" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(row.spreadingSessionId)}">编辑铺布</button>
+                  <button type="button" class="w-full truncate whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看 PDA</button>
+                  <button type="button" class="w-full truncate whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(row.spreadingSessionId)}">处理差异</button>
                 </div>
               </article>
             `
