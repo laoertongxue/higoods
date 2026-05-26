@@ -253,7 +253,7 @@ export function buildRuntimeInboundTempBagsFromWaitHandoverEvents(
         inboundStatus: event.eventStatus,
         inboundAt: runtimeString(payload.inboundAt) || event.occurredAt,
         inboundBy: runtimeString(payload.inboundBy) || event.operatorName,
-        inboundSource: `${event.eventSource} 菲票入仓事件账`,
+        inboundSource: '菲票入仓',
         containedFeiTickets,
         totalPieceQty: runtimeNumber(payload.totalPieceQty) || containedFeiTickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0),
         mixedFlag: typeof payload.mixedFlag === 'boolean'
@@ -268,7 +268,7 @@ export function buildRuntimeInboundTempBagsFromWaitHandoverEvents(
         mixedSummary: buildMixedSummary(containedFeiTickets),
         discrepancyRecords: [],
         nextSortingStatus: '未绑定车缝任务，待后续分配后再二次分拣',
-        remark: `${event.eventNo} / ${event.eventSource}`,
+        remark: `菲票入仓 / ${event.eventStatus}`,
       } satisfies InboundTempBag
     })
 }

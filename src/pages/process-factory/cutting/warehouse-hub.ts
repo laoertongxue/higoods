@@ -25,9 +25,14 @@ import {
   type MaterialLedgerProjection,
 } from '../../../data/fcs/cutting/material-ledger.ts'
 import {
+  appendCuttingRuntimeEvent,
   listCuttingRuntimeEventsByInventoryScope,
   listCuttingRuntimeEventsByType,
   type CuttingRuntimeEvent,
+  type TransferPickupPayload,
+  type WaitProcessInboundPayload,
+  type WaitProcessIssuePayload,
+  type WaitProcessReturnPayload,
   type HandoverRecordSubmitPayload,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { escapeHtml } from '../../../utils.ts'
@@ -291,7 +296,36 @@ function getRuntimeWaitProcessSourceObjectId(event: CuttingRuntimeEvent): string
     || runtimeString(payload.returnRecordNo)
     || event.refs.spreadingOrderNo
     || event.refs.cutOrderNo
-    || event.eventNo
+    || event.eventType
+}
+
+function getRuntimeWaitProcessReadableSource(event: CuttingRuntimeEvent): string {
+  const payload = toRuntimeRecord(event.payload)
+  if (event.eventType === '中转仓领料') return runtimeString(payload.pickupRecordNo) || '中转仓领料'
+  if (event.eventType === '待加工仓扫码入仓') return runtimeString(payload.inboundRecordNo) || '扫码入仓'
+  if (event.eventType === '待加工仓加工领料') return runtimeString(payload.issueRecordNo) || runtimeString(payload.spreadingOrderNo) || '加工领料'
+  if (event.eventType === '待加工仓回收入仓') return runtimeString(payload.returnRecordNo) || runtimeString(payload.spreadingOrderNo) || '回收入仓'
+  return event.eventType
+}
+
+function getRuntimeWaitProcessLocationParts(event: CuttingRuntimeEvent): { area: string; location: string } {
+  const payload = toRuntimeRecord(event.payload)
+  if (event.eventType === '待加工仓加工领料') {
+    return {
+      area: runtimeString(payload.fromWarehouseArea) || event.inventoryEffect?.fromWarehouseArea || '',
+      location: runtimeString(payload.fromLocationCode) || event.inventoryEffect?.fromLocationCode || '',
+    }
+  }
+  return {
+    area: runtimeString(payload.warehouseArea) || event.inventoryEffect?.toWarehouseArea || event.inventoryEffect?.fromWarehouseArea || '',
+    location: runtimeString(payload.locationCode) || event.inventoryEffect?.toLocationCode || event.inventoryEffect?.fromLocationCode || '',
+  }
+}
+
+function getRuntimeWaitProcessLocationLabel(event: CuttingRuntimeEvent): string {
+  if (event.eventType === '中转仓领料') return '待扫码入仓'
+  const parts = getRuntimeWaitProcessLocationParts(event)
+  return [parts.area, parts.location].filter(Boolean).join(' / ') || '待确认库区 / 待确认库位'
 }
 
 function convertRuntimeWaitProcessEventToLedgerEvent(event: CuttingRuntimeEvent, row: MaterialLedgerProjection): CuttingMaterialLedgerEvent | null {
@@ -330,7 +364,7 @@ function convertRuntimeWaitProcessEventToLedgerEvent(event: CuttingRuntimeEvent,
     sourceObjectId: getRuntimeWaitProcessSourceObjectId(event),
     occurredAt: event.occurredAt,
     operatorName: event.operatorName,
-    remark: `${event.eventNo} / ${event.eventStatus} / ${getRuntimeWaitProcessRollCount(event)} 卷`,
+    remark: `${getRuntimeWaitProcessReadableSource(event)} / ${event.eventStatus} / ${getRuntimeWaitProcessRollCount(event)} 卷`,
   }
 }
 
@@ -504,7 +538,7 @@ function buildWaitProcessInventoryItems(rows: MaterialLedgerProjection[]): WaitP
       getWaitProcessInboundQty(right) - getWaitProcessInboundQty(left) ||
       left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN'),
     )
-    .map((row, index) => {
+    .map((row) => {
       const inboundQty = getWaitProcessInboundQty(row)
       const statusLabel =
         inboundQty <= 0
@@ -526,7 +560,7 @@ function buildWaitProcessInventoryItems(rows: MaterialLedgerProjection[]): WaitP
         row,
         statusLabel,
         statusClassName,
-        locationLabel: `面料 ${index % 2 === 0 ? 'A' : 'B'} 区 / FAB-${index % 2 === 0 ? 'A' : 'B'}-${String((index % 6) + 1).padStart(2, '0')}`,
+        locationLabel: buildWaitProcessInventoryLocationLabel(row),
       }
     })
 }
@@ -570,6 +604,26 @@ function getWaitProcessLatestInboundEvent(row: MaterialLedgerProjection): Cuttin
   return getWaitProcessInboundEvents(row)[0] || null
 }
 
+function findRuntimeWaitProcessEventByLedgerEvent(event: CuttingMaterialLedgerEvent): CuttingRuntimeEvent | undefined {
+  return listRuntimeWaitProcessEvents().find((runtimeEvent) => runtimeEvent.eventId === event.eventId)
+}
+
+function getWaitProcessLedgerEventLocationLabel(event: CuttingMaterialLedgerEvent): string {
+  const runtimeEvent = findRuntimeWaitProcessEventByLedgerEvent(event)
+  if (runtimeEvent) return getRuntimeWaitProcessLocationLabel(runtimeEvent)
+  if (event.eventType === 'CUTTING_CLAIMED') return '待扫码入仓'
+  return '待确认库区 / 待确认库位'
+}
+
+function buildWaitProcessInventoryLocationLabel(row: MaterialLedgerProjection): string {
+  const latestStockLocationEvent = row.events
+    .filter((event) => event.eventType === 'CUTTING_WAIT_PROCESS_INBOUNDED' || event.eventType === 'CUTTING_RETURNED')
+    .slice()
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt, 'zh-CN'))[0]
+  if (latestStockLocationEvent) return getWaitProcessLedgerEventLocationLabel(latestStockLocationEvent)
+  return '待扫码入仓'
+}
+
 function buildWaitProcessFlowLines(row: MaterialLedgerProjection): FactoryWarehouseFlowLine[] {
   return row.events
     .slice()
@@ -578,7 +632,7 @@ function buildWaitProcessFlowLines(row: MaterialLedgerProjection): FactoryWareho
     .map((event) => ({
       flowType: getWaitProcessStockFlowTypeLabel(event.eventType),
       qtyText: formatMaterialQtyWithRolls(event.quantity, event.unit),
-      sourceNo: `${getWaitProcessEventSourceLabel(event)} / ${event.remark}`,
+      sourceNo: `${getWaitProcessEventSourceLabel(event)} / ${getWaitProcessEventSourceDetail(event)}`,
       operatedAt: event.occurredAt,
       operatorName: event.operatorName,
       statusText: `${getWaitProcessFlowStatusLabel(event.eventType)} / ${getWaitProcessStockDirectionLabel(event.eventType)}`,
@@ -593,7 +647,7 @@ function buildWaitProcessTransferClaimFlowLines(row: MaterialLedgerProjection): 
     .map((event) => ({
       flowType: getWaitProcessEventTypeLabel(event.eventType),
       qtyText: formatMaterialQtyWithRolls(event.quantity, event.unit),
-      sourceNo: `${getWaitProcessEventSourceLabel(event)} / ${event.remark}`,
+      sourceNo: `${getWaitProcessEventSourceLabel(event)} / ${getWaitProcessEventSourceDetail(event)}`,
       operatedAt: event.occurredAt,
       operatorName: event.operatorName,
       statusText: getWaitProcessFlowStatusLabel(event.eventType),
@@ -627,7 +681,9 @@ function getWaitProcessEventLocationLabel(
   event: CuttingMaterialLedgerEvent,
   locationByCutOrderId: Map<string, string>,
 ): string {
-  return locationByCutOrderId.get(event.cutOrderId) || '待确认库区 / 待确认库位'
+  const eventLocation = getWaitProcessLedgerEventLocationLabel(event)
+  if (eventLocation !== '待确认库区 / 待确认库位') return eventLocation
+  return locationByCutOrderId.get(event.cutOrderId) || eventLocation
 }
 
 function renderWaitProcessInventoryDetailDialog(items: WaitProcessInventoryItem[]): string {
@@ -654,7 +710,7 @@ function renderWaitProcessInventoryDetailDialog(items: WaitProcessInventoryItem[
           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(getWaitProcessEventSourceDetail(event))}</div>
           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(event.remark)}</div>
         </td>
-        <td class="px-3 py-3 text-xs">${escapeHtml(locationLabel)}</td>
+        <td class="px-3 py-3 text-xs">${escapeHtml(getWaitProcessLedgerEventLocationLabel(event))}</td>
         <td class="px-3 py-3">${escapeHtml(event.operatorName)}</td>
         <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(event.occurredAt)}</td>
       </tr>
@@ -1094,21 +1150,26 @@ function renderWaitProcessHeaderActions(): string {
   `
 }
 
-function renderWaitProcessActionTextField(label: string, placeholder: string): string {
+function renderWaitProcessActionTextField(field: string, label: string, placeholder: string, value = ''): string {
   return `
     <label class="block">
       <span class="text-xs font-medium text-slate-700">${escapeHtml(label)}</span>
-      <input class="mt-1 h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-blue-500" placeholder="${escapeHtml(placeholder)}" />
+      <input
+        data-wait-process-field="${escapeHtml(field)}"
+        value="${escapeHtml(value)}"
+        class="mt-1 h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-blue-500"
+        placeholder="${escapeHtml(placeholder)}"
+      />
     </label>
   `
 }
 
-function renderWaitProcessActionSelect(label: string, options: string[]): string {
+function renderWaitProcessActionSelect(field: string, label: string, options: Array<{ value: string; label: string }>): string {
   return `
     <label class="block">
       <span class="text-xs font-medium text-slate-700">${escapeHtml(label)}</span>
-      <select class="mt-1 h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-blue-500">
-        ${options.map((option) => `<option>${escapeHtml(option)}</option>`).join('')}
+      <select data-wait-process-field="${escapeHtml(field)}" class="mt-1 h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-blue-500">
+        ${options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('')}
       </select>
     </label>
   `
@@ -1121,10 +1182,13 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
   const closeHref = escapeHtml(buildWaitProcessWarehouseActionHref(undefined))
   const areaOptions = Array.from(new Set(items.map((item) => item.locationLabel.split(' / ')[0]).filter(Boolean)))
   const locationOptions = Array.from(new Set(items.map((item) => item.locationLabel.split(' / ')[1]).filter(Boolean)))
-  const materialOptions = items.slice(0, 8).map((item) => `${item.row.materialIdentity.materialSku} / ${item.row.materialIdentity.materialColor}`)
-  const baseAreaOptions = areaOptions.length ? areaOptions : ['面料 A 区', '面料 B 区']
-  const baseLocationOptions = locationOptions.length ? locationOptions : ['FAB-A-01', 'FAB-B-02']
-  const baseMaterialOptions = materialOptions.length ? materialOptions : ['扫描后带出面料']
+  const materialOptions = items.slice(0, 24).map((item) => ({
+    value: item.row.cutOrderId,
+    label: `${item.row.cutOrderNo} / ${item.row.materialIdentity.materialSku} / ${item.row.materialIdentity.materialColor}`,
+  }))
+  const baseAreaOptions = (areaOptions.length ? areaOptions : ['面料 A 区', '面料 B 区']).map((value) => ({ value, label: value }))
+  const baseLocationOptions = (locationOptions.length ? locationOptions : ['FAB-A-01', 'FAB-B-02']).map((value) => ({ value, label: value }))
+  const baseMaterialOptions = materialOptions.length ? materialOptions : [{ value: '', label: '扫描后带出面料' }]
 
   const config: Record<WaitProcessWarehouseAction, { title: string; badge: string; submitLabel: string; fields: string[]; eventText: string }> = {
     claim: {
@@ -1133,11 +1197,11 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
       submitLabel: '确认领料',
       eventText: '确认后形成中转仓领料记录；该面料从待领料列表移出，后续再扫码入待加工仓库区库位。',
       fields: [
-        renderWaitProcessActionTextField('扫描中转仓配料单 / 裁片单', '扫中转仓配料单或裁片单二维码'),
-        renderWaitProcessActionSelect('面料', baseMaterialOptions),
-        renderWaitProcessActionTextField('领料数量', '例如 300'),
-        renderWaitProcessActionTextField('卷数', '例如 2'),
-        renderWaitProcessActionTextField('领料人', '默认当前操作人'),
+        renderWaitProcessActionTextField('scanCode', '扫描中转仓配料单 / 裁片单', '扫中转仓配料单或裁片单二维码'),
+        renderWaitProcessActionSelect('cutOrderId', '面料', baseMaterialOptions),
+        renderWaitProcessActionTextField('quantity', '领料数量', '例如 300'),
+        renderWaitProcessActionTextField('rollCount', '卷数', '例如 2'),
+        renderWaitProcessActionTextField('operatorName', '领料人', '默认当前操作人'),
       ],
     },
     receive: {
@@ -1146,13 +1210,13 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
       submitLabel: '确认入仓',
       eventText: '确认后记录收货库区库位，增加待加工仓库存明细。',
       fields: [
-        renderWaitProcessActionTextField('扫描领料单 / 裁片单', '扫领料单号或裁片单二维码'),
-        renderWaitProcessActionSelect('面料', baseMaterialOptions),
-        renderWaitProcessActionTextField('收货数量', '例如 300'),
-        renderWaitProcessActionTextField('卷数', '例如 2'),
-        renderWaitProcessActionSelect('收货库区', baseAreaOptions),
-        renderWaitProcessActionSelect('收货库位', baseLocationOptions),
-        renderWaitProcessActionTextField('收货人', '默认当前操作人'),
+        renderWaitProcessActionTextField('scanCode', '扫描领料单 / 裁片单', '扫领料单号或裁片单二维码'),
+        renderWaitProcessActionSelect('cutOrderId', '面料', baseMaterialOptions),
+        renderWaitProcessActionTextField('quantity', '收货数量', '例如 300'),
+        renderWaitProcessActionTextField('rollCount', '卷数', '例如 2'),
+        renderWaitProcessActionSelect('warehouseArea', '收货库区', baseAreaOptions),
+        renderWaitProcessActionSelect('locationCode', '收货库位', baseLocationOptions),
+        renderWaitProcessActionTextField('operatorName', '收货人', '默认当前操作人'),
       ],
     },
     'process-issue': {
@@ -1161,13 +1225,13 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
       submitLabel: '确认领料',
       eventText: '确认后从来源库区库位扣减库存，并记录用于哪张铺布单或加工任务。',
       fields: [
-        renderWaitProcessActionTextField('扫描铺布单 / 裁片单', '扫铺布单、唛架编号或裁片单二维码'),
-        renderWaitProcessActionSelect('面料', baseMaterialOptions),
-        renderWaitProcessActionSelect('来源库区', baseAreaOptions),
-        renderWaitProcessActionSelect('来源库位', baseLocationOptions),
-        renderWaitProcessActionTextField('领用数量', '例如 120'),
-        renderWaitProcessActionTextField('卷数', '例如 1'),
-        renderWaitProcessActionTextField('加工用途', '例如 铺布单 PB-2441'),
+        renderWaitProcessActionTextField('scanCode', '扫描铺布单 / 裁片单', '扫铺布单、唛架编号或裁片单二维码'),
+        renderWaitProcessActionSelect('cutOrderId', '面料', baseMaterialOptions),
+        renderWaitProcessActionSelect('warehouseArea', '来源库区', baseAreaOptions),
+        renderWaitProcessActionSelect('locationCode', '来源库位', baseLocationOptions),
+        renderWaitProcessActionTextField('quantity', '领用数量', '例如 120'),
+        renderWaitProcessActionTextField('rollCount', '卷数', '例如 1'),
+        renderWaitProcessActionTextField('spreadingOrderNo', '加工用途', '例如 铺布单 PB-2441'),
       ],
     },
     return: {
@@ -1176,20 +1240,20 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
       submitLabel: '确认回收入仓',
       eventText: '确认后把铺布未用完的面料回收到指定库区库位，恢复待加工仓库存。',
       fields: [
-        renderWaitProcessActionTextField('扫描铺布单 / 布卷', '扫铺布单或布卷码'),
-        renderWaitProcessActionSelect('面料', baseMaterialOptions),
-        renderWaitProcessActionTextField('回收数量', '例如 35'),
-        renderWaitProcessActionTextField('卷数', '例如 1'),
-        renderWaitProcessActionSelect('回收库区', baseAreaOptions),
-        renderWaitProcessActionSelect('回收库位', baseLocationOptions),
-        renderWaitProcessActionTextField('回收原因', '例如 铺布余料'),
+        renderWaitProcessActionTextField('scanCode', '扫描铺布单 / 布卷', '扫铺布单或布卷码'),
+        renderWaitProcessActionSelect('cutOrderId', '面料', baseMaterialOptions),
+        renderWaitProcessActionTextField('quantity', '回收数量', '例如 35'),
+        renderWaitProcessActionTextField('rollCount', '卷数', '例如 1'),
+        renderWaitProcessActionSelect('warehouseArea', '回收库区', baseAreaOptions),
+        renderWaitProcessActionSelect('locationCode', '回收库位', baseLocationOptions),
+        renderWaitProcessActionTextField('returnReason', '回收原因', '例如 铺布余料', '铺布剩余'),
       ],
     },
   }
   const current = config[action]
 
   return `
-    <div class="fixed inset-0 z-[120]">
+    <div class="fixed inset-0 z-[120]" data-wait-process-modal data-wait-process-action-type="${escapeHtml(action)}">
       <button class="absolute inset-0 bg-black/45" data-nav="${closeHref}" aria-label="关闭弹窗"></button>
       <section class="absolute left-1/2 top-1/2 w-[min(760px,calc(100vw-40px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border bg-background shadow-2xl">
         <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
@@ -1203,16 +1267,255 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
           <div class="grid gap-3 md:grid-cols-2">${current.fields.join('')}</div>
           <label class="mt-3 block">
             <span class="text-xs font-medium text-slate-700">备注</span>
-            <textarea class="mt-1 h-20 w-full resize-none rounded-md border px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="现场说明，可不填"></textarea>
+            <textarea data-wait-process-field="remark" class="mt-1 h-20 w-full resize-none rounded-md border px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="现场说明，可不填"></textarea>
           </label>
         </div>
         <footer class="flex justify-end gap-2 border-t px-4 py-3">
           <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-nav="${closeHref}">取消</button>
-          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="${closeHref}">${escapeHtml(current.submitLabel)}</button>
+          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-wait-process-action="submit">${escapeHtml(current.submitLabel)}</button>
         </footer>
       </section>
     </div>
   `
+}
+
+function removeWaitProcessWarehouseActionDialog(): void {
+  if (typeof document === 'undefined') return
+  document.querySelector<HTMLElement>('[data-wait-process-modal]')?.remove()
+}
+
+function requestWaitProcessRefresh(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event('higood:request-render'))
+}
+
+function readWaitProcessActionField(dialog: ParentNode, field: string): string {
+  return dialog.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`[data-wait-process-field="${field}"]`)?.value.trim() || ''
+}
+
+function readWaitProcessActionNumber(dialog: ParentNode, field: string): number {
+  const value = Number(readWaitProcessActionField(dialog, field))
+  return Number.isFinite(value) ? value : 0
+}
+
+function compactRuntimeActionDate(value: string): string {
+  return value.replace(/[^0-9]/g, '').slice(0, 14) || String(Date.now())
+}
+
+function nowRuntimeActionTime(): string {
+  return new Date().toISOString().slice(0, 19).replace('T', ' ')
+}
+
+function findWaitProcessActionItem(cutOrderId: string): WaitProcessInventoryItem | undefined {
+  return buildWaitProcessInventoryItems(buildWaitProcessMaterialLedgerSummary().rows)
+    .find((item) => item.row.cutOrderId === cutOrderId)
+}
+
+function buildRuntimeMaterialFromWaitProcessRow(row: MaterialLedgerProjection) {
+  const unit = row.unit === '片' || row.unit === '件' ? row.unit : '米'
+  return {
+    materialSku: row.materialIdentity.materialSku,
+    materialName: row.materialIdentity.materialName,
+    materialColor: row.materialIdentity.materialColor,
+    materialAlias: row.materialIdentity.materialAlias,
+    unit,
+  }
+}
+
+function buildRuntimePatternFromWaitProcessRow(row: MaterialLedgerProjection) {
+  return {
+    patternFileId: row.patternIdentity.patternFileId,
+    patternFileName: row.patternIdentity.patternFileName,
+    patternVersion: row.patternIdentity.patternVersion,
+    effectiveWidth: `${row.patternIdentity.effectiveWidthValue || ''}${row.patternIdentity.effectiveWidthUnit || ''}` || '待补',
+    partNames: row.patternIdentity.piecePartNames || [],
+  }
+}
+
+function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
+  const action = dialog.dataset.waitProcessActionType as WaitProcessWarehouseAction | undefined
+  if (!action) return false
+  const selectedItem = findWaitProcessActionItem(readWaitProcessActionField(dialog, 'cutOrderId'))
+  if (!selectedItem) {
+    window.alert('请选择本次操作的面料。')
+    return true
+  }
+  const row = selectedItem.row
+  const quantity = readWaitProcessActionNumber(dialog, 'quantity')
+  if (quantity <= 0) {
+    window.alert('请输入大于 0 的数量。')
+    return true
+  }
+  const rollCount = Math.max(1, Math.round(readWaitProcessActionNumber(dialog, 'rollCount') || estimateMaterialRollCount(quantity)))
+  const operatorName = readWaitProcessActionField(dialog, 'operatorName') || '裁床仓管'
+  const occurredAt = nowRuntimeActionTime()
+  const compactDate = compactRuntimeActionDate(occurredAt)
+  const commonInput = {
+    eventSource: 'WEB' as const,
+    eventStatus: '已同步' as const,
+    operatorName,
+    operatorRole: '裁床仓管',
+    occurredAt,
+    refs: {
+      productionOrderId: row.productionOrderId,
+      productionOrderNo: row.productionOrderNo,
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+    },
+    material: buildRuntimeMaterialFromWaitProcessRow(row),
+    pattern: buildRuntimePatternFromWaitProcessRow(row),
+  }
+  const warehouseArea = readWaitProcessActionField(dialog, 'warehouseArea')
+  const locationCode = readWaitProcessActionField(dialog, 'locationCode')
+
+  if (action === 'claim') {
+    const payload: TransferPickupPayload = {
+      pickupRecordId: `web-pickup:${row.cutOrderId}:${compactDate}`,
+      pickupRecordNo: `裁床领料-${compactDate.slice(-6)}`,
+      prepNoticeId: readWaitProcessActionField(dialog, 'scanCode') || `prep:${row.cutOrderId}`,
+      prepOrderNo: readWaitProcessActionField(dialog, 'scanCode') || row.cutOrderNo,
+      pickupQty: quantity,
+      unit: '米',
+      rollCount,
+      rollNos: [],
+      pickupBy: operatorName,
+      pickupAt: occurredAt,
+      hasDifference: false,
+      differenceReason: readWaitProcessActionField(dialog, 'remark') || undefined,
+    }
+    appendCuttingRuntimeEvent({
+      ...commonInput,
+      eventType: '中转仓领料',
+      payload,
+    })
+    return false
+  }
+
+  if (!warehouseArea || !locationCode) {
+    window.alert('请确认库区和库位。')
+    return true
+  }
+
+  if (action === 'receive') {
+    const payload: WaitProcessInboundPayload = {
+      inboundRecordId: `web-inbound:${row.cutOrderId}:${compactDate}`,
+      inboundRecordNo: `扫码入仓-${compactDate.slice(-6)}`,
+      pickupRecordId: readWaitProcessActionField(dialog, 'scanCode') || `pickup:${row.cutOrderId}`,
+      materialSku: row.materialIdentity.materialSku,
+      receivedQty: quantity,
+      unit: '米',
+      rollCount,
+      rollNos: [],
+      warehouseArea,
+      locationCode,
+      receivedBy: operatorName,
+      receivedAt: occurredAt,
+      checkResult: '正常',
+      remark: readWaitProcessActionField(dialog, 'remark') || undefined,
+    }
+    appendCuttingRuntimeEvent({
+      ...commonInput,
+      eventType: '待加工仓扫码入仓',
+      inventoryEffect: {
+        inventoryScope: '裁床待加工仓',
+        direction: 'IN',
+        qty: quantity,
+        unit: '米',
+        rollCount,
+        toWarehouseArea: warehouseArea,
+        toLocationCode: locationCode,
+      },
+      payload,
+    })
+    return false
+  }
+
+  if (action === 'process-issue') {
+    const spreadingOrderNo = readWaitProcessActionField(dialog, 'spreadingOrderNo') || readWaitProcessActionField(dialog, 'scanCode') || '铺布单待补'
+    const payload: WaitProcessIssuePayload = {
+      issueRecordId: `web-issue:${row.cutOrderId}:${compactDate}`,
+      issueRecordNo: `加工领料-${compactDate.slice(-6)}`,
+      spreadingOrderId: spreadingOrderNo,
+      spreadingOrderNo,
+      materialSku: row.materialIdentity.materialSku,
+      issuedQty: quantity,
+      unit: '米',
+      rollCount,
+      rollNos: [],
+      fromWarehouseArea: warehouseArea,
+      fromLocationCode: locationCode,
+      issuedBy: operatorName,
+      issuedAt: occurredAt,
+      purpose: '铺布用料',
+    }
+    appendCuttingRuntimeEvent({
+      ...commonInput,
+      eventType: '待加工仓加工领料',
+      refs: { ...commonInput.refs, spreadingOrderNo },
+      inventoryEffect: {
+        inventoryScope: '裁床待加工仓',
+        direction: 'OUT',
+        qty: quantity,
+        unit: '米',
+        rollCount,
+        fromWarehouseArea: warehouseArea,
+        fromLocationCode: locationCode,
+      },
+      payload,
+    })
+    return false
+  }
+
+  const spreadingOrderNo = readWaitProcessActionField(dialog, 'scanCode') || '铺布单待补'
+  const payload: WaitProcessReturnPayload = {
+    returnRecordId: `web-return:${row.cutOrderId}:${compactDate}`,
+    returnRecordNo: `回收入仓-${compactDate.slice(-6)}`,
+    spreadingOrderId: spreadingOrderNo,
+    spreadingOrderNo,
+    materialSku: row.materialIdentity.materialSku,
+    returnedQty: quantity,
+    unit: '米',
+    rollCount,
+    rollNos: [],
+    warehouseArea,
+    locationCode,
+    returnedBy: operatorName,
+    returnedAt: occurredAt,
+    reason: readWaitProcessActionField(dialog, 'returnReason') === '取消加工' ? '取消加工' : readWaitProcessActionField(dialog, 'returnReason') === '其他' ? '其他' : '铺布剩余',
+  }
+  appendCuttingRuntimeEvent({
+    ...commonInput,
+    eventType: '待加工仓回收入仓',
+    refs: { ...commonInput.refs, spreadingOrderNo },
+    inventoryEffect: {
+      inventoryScope: '裁床待加工仓',
+      direction: 'IN',
+      qty: quantity,
+      unit: '米',
+      rollCount,
+      toWarehouseArea: warehouseArea,
+      toLocationCode: locationCode,
+    },
+    payload,
+  })
+  return false
+}
+
+export function handleCraftCuttingWaitProcessEvent(target: HTMLElement): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-wait-process-action]')
+  const action = actionNode?.dataset.waitProcessAction
+  if (!action) return false
+  const dialog = actionNode.closest<HTMLElement>('[data-wait-process-modal]')
+  if (action === 'close-dialog') {
+    removeWaitProcessWarehouseActionDialog()
+    return true
+  }
+  if (action !== 'submit' || !dialog) return false
+  const blocked = submitWaitProcessWarehouseAction(dialog)
+  if (blocked) return true
+  removeWaitProcessWarehouseActionDialog()
+  requestWaitProcessRefresh()
+  return true
 }
 
 function filterWaitProcessEvents(
@@ -1430,6 +1733,40 @@ function getWaitHandoverEventBagText(event: CuttingRuntimeEvent): string {
   return bagCodes.join('、') || '按菲票追踪'
 }
 
+function getWaitHandoverEventTypeLabel(eventType: CuttingRuntimeEvent['eventType']): string {
+  if (eventType === '菲票入仓暂存') return '菲票入仓'
+  if (eventType === '待交出仓二次分拣') return '二次分拣'
+  if (eventType === '待交出仓重新装袋') return '重新装袋'
+  if (eventType === '新增交出记录') return '交出记录'
+  if (eventType === '特殊工艺交出') return '特殊工艺交出'
+  if (eventType === '特殊工艺回仓') return '特殊工艺回仓'
+  return eventType
+}
+
+function getWaitHandoverEventSourceText(event: CuttingRuntimeEvent): string {
+  const payload = toRuntimeRecord(event.payload)
+  if (event.eventType === '菲票入仓暂存') return `菲票入仓：${getWaitHandoverEventBagText(event)}`
+  if (event.eventType === '待交出仓二次分拣') return `二次分拣：${runtimeString(payload.pickingTaskNo) || getWaitHandoverEventBagText(event)}`
+  if (event.eventType === '待交出仓重新装袋') return `重新装袋：${runtimeString(payload.targetTransferBagCode) || getWaitHandoverEventBagText(event)}`
+  if (event.eventType === '新增交出记录') {
+    return `交出记录：${runtimeString(payload.handoverRecordNo) || runtimeString(payload.handoverOrderNo) || runtimeString(payload.receiverName) || getWaitHandoverEventBagText(event)}`
+  }
+  if (event.eventType === '特殊工艺交出') return `特殊工艺交出：${runtimeString(payload.craftType) || runtimeString(payload.receiverFactoryName) || getWaitHandoverEventBagText(event)}`
+  if (event.eventType === '特殊工艺回仓') return `特殊工艺回仓：${runtimeString(payload.returnRecordNo) || runtimeString(payload.receiverFactoryName) || '回仓记录'}`
+  return getWaitHandoverEventTypeLabel(event.eventType)
+}
+
+function getWaitHandoverEventStatusText(event: CuttingRuntimeEvent): string {
+  if (event.eventStatus === '同步失败') return '同步失败'
+  if (event.eventType === '菲票入仓暂存') return '已入仓'
+  if (event.eventType === '待交出仓二次分拣') return '已分拣'
+  if (event.eventType === '待交出仓重新装袋') return '已装袋'
+  if (event.eventType === '新增交出记录') return '待接收回写'
+  if (event.eventType === '特殊工艺交出') return '加工中'
+  if (event.eventType === '特殊工艺回仓') return '已回仓'
+  return event.eventStatus
+}
+
 function getWaitHandoverEventLocationText(event: CuttingRuntimeEvent): string {
   const payload = toRuntimeRecord(event.payload)
   const area =
@@ -1464,12 +1801,12 @@ function buildWaitHandoverFlowLines(
   return events
     .filter((event) => eventMatchesWaitHandoverRecord(event, record))
     .map((event) => ({
-      flowType: event.eventType,
+      flowType: getWaitHandoverEventTypeLabel(event.eventType),
       qtyText: formatPieceQty(getWaitHandoverEventQty(event)),
-      sourceNo: `${event.eventNo} / ${getWaitHandoverEventBagText(event)}`,
+      sourceNo: getWaitHandoverEventSourceText(event),
       operatedAt: event.occurredAt,
       operatorName: event.operatorName,
-      statusText: event.eventStatus,
+      statusText: getWaitHandoverEventStatusText(event),
     }))
 }
 
@@ -1541,7 +1878,6 @@ function filterWaitHandoverEvents(events: CuttingRuntimeEvent[], filters: WaitHa
   return events.filter((event) => {
     const payloadText = JSON.stringify(event.payload || {})
     const keywordMatched = includesKeyword([
-      event.eventNo,
       event.eventType,
       event.refs.productionOrderNo,
       event.refs.cutOrderNo,
@@ -1693,10 +2029,7 @@ function buildWaitHandoverWebInventoryRecords(): InboundTempBagInventoryRecord[]
   const inboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeEvents, generatedTickets)
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
   const specialCraftReturnRecords = buildRuntimeSpecialCraftReturnInventoryRecordsFromEvents(runtimeEvents, generatedTickets)
-  const fallbackRecords = inboundInventoryRecords.length || specialCraftReturnRecords.length
-    ? []
-    : buildWaitHandoverFallbackInventoryRecords(generatedTickets)
-  return [...inboundInventoryRecords, ...fallbackRecords, ...specialCraftReturnRecords]
+  return [...inboundInventoryRecords, ...specialCraftReturnRecords]
 }
 
 function buildWaitHandoverWebPickingProjection(): HandoverPickingTaskProjection {
@@ -2102,18 +2435,18 @@ function renderWaitHandoverInventoryTable(
 function renderWaitHandoverEventTable(events: CuttingRuntimeEvent[], emptyText: string): string {
   if (!events.length) return `<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
   const rows = events.map((event) => [
-    event.eventNo,
-    event.eventType,
+    getWaitHandoverEventSourceText(event),
+    getWaitHandoverEventTypeLabel(event.eventType),
     event.refs.productionOrderNo || '按事件追踪',
     event.refs.cutOrderNo || '按事件追踪',
     uniqueStrings(event.refs.feiTicketNos || []).join('、') || getWaitHandoverEventBagText(event),
     formatPieceQty(getWaitHandoverEventQty(event)),
     getWaitHandoverEventLocationText(event),
     `${event.operatorName} / ${event.occurredAt}`,
-    event.eventStatus,
+    getWaitHandoverEventStatusText(event),
   ])
   return renderHubTable(
-    ['记录号', '类型', '生产单', '裁片单', '菲票 / 袋码', '数量', '库区 / 库位', '操作人 / 时间', '状态'],
+    ['业务来源', '类型', '生产单', '裁片单', '菲票 / 袋码', '数量', '库区 / 库位', '操作人 / 时间', '状态'],
     rows,
     emptyText,
   )
@@ -2363,39 +2696,6 @@ function buildRuntimeTicketCandidatesFromGeneratedTickets(
     sourceContextType: '实际裁剪产出',
     ticketStatus: ticket.printStatus === 'VOIDED' ? 'VOIDED' : 'PRINTED',
   }))
-}
-
-function buildWaitHandoverFallbackInventoryRecords(
-  generatedTickets: GeneratedFeiTicketSourceRecord[],
-): InboundTempBagInventoryRecord[] {
-  return generatedTickets
-    .filter((ticket) => ticket.printStatus !== 'VOIDED')
-    .slice(0, 8)
-    .map((ticket, index) => ({
-      inventoryRecordId: `INV-DEMO-WH-${ticket.feiTicketId}`,
-      feiTicketId: ticket.feiTicketId,
-      feiTicketNo: ticket.feiTicketNo,
-      cutOrderId: ticket.cutOrderId,
-      cutOrderNo: ticket.cutOrderNo,
-      productionOrderId: ticket.productionOrderId,
-      productionOrderNo: ticket.productionOrderNo,
-      spuCode: ticket.sourceTechPackSpuCode || ticket.skuCode,
-      color: ticket.skuColor || ticket.fabricColor,
-      size: ticket.skuSize,
-      partName: ticket.partName,
-      pieceQty: ticket.actualCutPieceQty || ticket.qty,
-      pieceSequenceLabel: ticket.pieceSequenceLabel || ticket.pieceSetNoRange || '按菲票追踪',
-      hasSpecialCraft: ticket.hasSpecialCraft,
-      specialCraftDisplay: getSpecialCraftDisplay(ticket),
-      receiverFactoryDisplay: getReceiverFactoryDisplay(ticket),
-      printStatus: getRuntimeTicketPrintStatus(ticket),
-      voidStatus: getRuntimeTicketVoidStatus(ticket),
-      tempBagCode: `CT-DB-${String(index + 1).padStart(3, '0')}`,
-      warehouseArea: index % 3 === 0 ? '中转袋暂存区' : '裁片 A 区',
-      locationCode: index % 3 === 0 ? `BAG-A-${String(index + 1).padStart(2, '0')}` : `CUT-A-${String(index + 1).padStart(2, '0')}`,
-      inboundAt: ticket.issuedAt || '2026-05-25 09:30',
-      inventoryStatus: index % 4 === 0 ? '已装袋待交出' : index % 4 === 1 ? '已分配待分拣' : '待分配',
-    } satisfies InboundTempBagInventoryRecord))
 }
 
 function createWaitHandoverItemFromTicket(
@@ -3352,14 +3652,14 @@ function buildRuntimeInboundTempBagsFromEvents(
         inboundStatus: event.eventStatus,
         inboundAt: runtimeString(payload.inboundAt) || event.occurredAt,
         inboundBy: runtimeString(payload.inboundBy) || event.operatorName,
-        inboundSource: 'PDA 菲票入仓事件账',
+        inboundSource: '菲票入仓',
         containedFeiTickets,
         totalPieceQty: runtimeNumber(payload.totalPieceQty) || containedFeiTickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0),
         mixedFlag: typeof payload.mixedFlag === 'boolean' ? payload.mixedFlag : derivedMixedFlag,
         mixedSummary: buildInboundTempBagMixedSummaryFromTickets(containedFeiTickets),
         discrepancyRecords: [],
         nextSortingStatus: '未绑定车缝任务，待后续分配后再二次分拣',
-        remark: `${event.eventNo} / ${event.eventSource}`,
+        remark: `${getWaitHandoverEventSourceText(event)} / ${getWaitHandoverEventStatusText(event)}`,
       } satisfies InboundTempBag
     })
 }
@@ -3643,11 +3943,11 @@ function buildRuntimeSpecialCraftReturnProjectionFromEvents(
       const allReturned = returnedFeiTicketItems.length > 0 && returnedFeiTicketItems.every((item) => item.returnedQty === item.pieceQty)
       return {
         returnRecordId: runtimeString(payload.returnRecordId) || event.eventId,
-        returnRecordNo: runtimeString(payload.returnRecordNo) || event.eventNo,
+        returnRecordNo: runtimeString(payload.returnRecordNo) || '回仓记录待补',
         sourceHandoverOrderId: runtimeString(payload.sourceHandoverOrderId) || event.refs.handoverOrderId || '',
-        sourceHandoverOrderNo: runtimeString(payload.sourceHandoverOrderNo) || runtimeString(payload.sourceHandoverOrderId) || event.refs.handoverOrderId || '按交出事件追踪',
+        sourceHandoverOrderNo: runtimeString(payload.sourceHandoverOrderNo) || '来源交出单待补',
         sourceHandoverRecordId: runtimeString(payload.sourceHandoverRecordId) || event.refs.handoverRecordId || '',
-        sourceHandoverRecordNo: runtimeString(payload.sourceHandoverRecordNo) || runtimeString(payload.sourceHandoverRecordId) || event.refs.handoverRecordId || '按交出事件追踪',
+        sourceHandoverRecordNo: runtimeString(payload.sourceHandoverRecordNo) || '来源交出记录待补',
         receiverFactoryId: runtimeString(payload.receiverFactoryId) || '',
         receiverFactoryCode: runtimeString(payload.receiverFactoryCode) || '',
         receiverFactoryName: runtimeString(payload.receiverFactoryName) || returnedFeiTicketItems[0]?.receiverFactoryName || '承接工厂待补充',
@@ -3667,7 +3967,7 @@ function buildRuntimeSpecialCraftReturnProjectionFromEvents(
         receivedLocationCode: runtimeString(payload.locationCode) || event.inventoryEffect?.toLocationCode || '待补库位',
         createdAt: event.createdAt,
         createdBy: event.operatorName,
-        remark: `${event.eventNo} / ${event.eventSource}`,
+        remark: `${getWaitHandoverEventSourceText(event)} / ${getWaitHandoverEventStatusText(event)}`,
       } satisfies SpecialCraftReturnRecord
     })
 
@@ -3758,8 +4058,8 @@ function buildRuntimeHandoverTableProjection(
     const tickets = feiTicketNos
       .map((feiTicketNo) => findGeneratedFeiTicket(generatedTickets, '', feiTicketNo))
       .filter((ticket): ticket is GeneratedFeiTicketSourceRecord => Boolean(ticket))
-    const orderNo = runtimeString(payload.handoverOrderNo) || event.refs.handoverOrderId || '按交出事件追踪'
-    const recordNo = runtimeString(payload.handoverRecordNo) || event.eventNo
+    const orderNo = runtimeString(payload.handoverOrderNo) || '交出单待补'
+    const recordNo = runtimeString(payload.handoverRecordNo) || '交出记录待补'
     const receiverType = runtimeString(payload.receiverType)
     const receiverName = runtimeString(payload.receiverName) || '待接收方回写'
     const currentQty =
@@ -3892,14 +4192,14 @@ function createWaitHandoverItemFromRuntimeEvent(
       runtimeString(payload.sewingTaskNo) ||
       runtimeString(payload.handoverRecordNo) ||
       runtimeString(payload.handoverOrderNo) ||
-      event.eventNo,
+      getWaitHandoverEventTypeLabel(event.eventType),
     targetReceiver: runtimeString(payload.receiverName) || runtimeString(payload.receiverFactoryName) || '按事件账追踪',
     shortageAfterHandover: '交出后计算',
     nextAction,
     nextActionHref,
     evidenceLines: [
-      `事件：${event.eventNo} / ${event.eventType}`,
-      `同步：${event.eventStatus}`,
+      `来源：${getWaitHandoverEventSourceText(event)}`,
+      `状态：${getWaitHandoverEventStatusText(event)}`,
       `操作人：${event.operatorName || '待记录'}`,
     ],
   }
@@ -3985,12 +4285,8 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   const transferBagSummary = { bagCount: uniqueStrings(inboundTempBags.map((bag) => bag.bagCode)).length }
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
   const runtimeSpecialCraftReturnInventoryRecords = buildRuntimeSpecialCraftReturnInventoryRecordsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
-  const fallbackInventoryRecords = inboundInventoryRecords.length || runtimeSpecialCraftReturnInventoryRecords.length
-    ? []
-    : buildWaitHandoverFallbackInventoryRecords(generatedTickets)
   const effectiveInventoryRecords = [
     ...inboundInventoryRecords,
-    ...fallbackInventoryRecords,
     ...runtimeSpecialCraftReturnInventoryRecords,
   ]
   const inboundTicketIds = new Set(effectiveInventoryRecords.map((record) => record.feiTicketId))

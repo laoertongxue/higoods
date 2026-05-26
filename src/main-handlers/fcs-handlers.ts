@@ -174,7 +174,10 @@ import {
   handleCraftCuttingSummaryEvent,
   isCraftCuttingSummaryDialogOpen,
 } from '../pages/process-factory/cutting/cutting-summary'
-import { handleCraftCuttingWaitHandoverEvent } from '../pages/process-factory/cutting/warehouse-hub'
+import {
+  handleCraftCuttingWaitHandoverEvent,
+  handleCraftCuttingWaitProcessEvent,
+} from '../pages/process-factory/cutting/warehouse-hub'
 import { handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
 import { handlePostFinishingEvent } from '../pages/process-factory/post-finishing/events'
 import { handleCraftPrintingEvent } from '../pages/process-factory/printing/events'
@@ -280,6 +283,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleCraftCuttingMarkerPlanEvent(target) ||
     await handleCraftCuttingMarkerSpreadingEvent(target) ||
     await handleCraftCuttingFeiTicketsEvent(target) ||
+    await handleCraftCuttingWaitProcessEvent(target) ||
     await handleCraftCuttingWaitHandoverEvent(target) ||
     await handleCraftCuttingSampleWarehouseEvent(target) ||
     await handleCraftCuttingTransferBagsEvent(target) ||

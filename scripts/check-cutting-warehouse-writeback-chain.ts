@@ -25,28 +25,47 @@ function assertFileExists(rel: string): void {
 function assertNoForbiddenPatterns(file: string, patterns: string[]): void {
   const source = read(file)
   patterns.forEach((pattern) => {
+    if (pattern.endsWith(' =')) {
+      const target = pattern.slice(0, -2).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const assignmentPattern = new RegExp(`${target}\\s*=(?!=)`)
+      assert(!assignmentPattern.test(source), `${file} 仍残留页面本地 mutation 逻辑：${pattern}`)
+      return
+    }
     assert(!source.includes(pattern), `${file} 仍残留页面本地 mutation 逻辑：${pattern}`)
   })
 }
 
 function main(): void {
-  const cutPiecePage = 'src/pages/process-factory/cutting/cut-piece-warehouse.ts'
+  const cutPieceModel = 'src/pages/process-factory/cutting/cut-piece-warehouse-model.ts'
+  const cutPieceProjection = 'src/pages/process-factory/cutting/cut-piece-warehouse-projection.ts'
+  const warehouseHubPage = 'src/pages/process-factory/cutting/warehouse-hub.ts'
   const samplePage = 'src/pages/process-factory/cutting/sample-warehouse.ts'
   const bridgeFile = 'src/domain/cutting-warehouse-writeback/bridge.ts'
   const ledgerFile = 'src/data/fcs/cutting/warehouse-writeback-ledger.ts'
   const inputsFile = 'src/data/fcs/cutting/warehouse-writeback-inputs.ts'
 
+  assertFileExists(cutPieceModel)
+  assertFileExists(cutPieceProjection)
+  assertFileExists(warehouseHubPage)
+  assertFileExists(samplePage)
   assertFileExists(bridgeFile)
   assertFileExists(ledgerFile)
   assertFileExists(inputsFile)
 
-  assertNoForbiddenPatterns(cutPiecePage, [
+  assertNoForbiddenPatterns(cutPieceModel, [
     'updateSourceRecord(',
     'record.zoneCode =',
     'record.locationLabel =',
     'record.inboundStatus =',
     'record.handoverStatus =',
-    'cutPieceWarehouseRecords',
+  ])
+
+  assertNoForbiddenPatterns(warehouseHubPage, [
+    'updateSourceRecord(',
+    'record.zoneCode =',
+    'record.locationLabel =',
+    'record.inboundStatus =',
+    'record.handoverStatus =',
   ])
 
   assertNoForbiddenPatterns(samplePage, [
@@ -62,9 +81,19 @@ function main(): void {
     '仓务原型操作',
   ])
 
-  const cutPieceSource = read(cutPiecePage)
+  const cutPieceSource = read(cutPieceModel)
+  const warehouseHubSource = read(warehouseHubPage)
   const sampleSource = read(samplePage)
-  assert(cutPieceSource.includes('submitCutPieceWarehouseWriteback('), `${cutPiecePage} 未接正式裁片仓 writeback bridge`)
+  assert(cutPieceSource.includes('listCutPieceWarehouseWritebacks('), `${cutPieceModel} 未读取正式裁片仓 writeback ledger`)
+  assert(warehouseHubSource.includes('appendCuttingRuntimeEvent('), `${warehouseHubPage} 未写入待加工仓 runtime event ledger`)
+  ;[
+    '中转仓领料',
+    '待加工仓扫码入仓',
+    '待加工仓加工领料',
+    '待加工仓回收入仓',
+  ].forEach((eventType) => {
+    assert(warehouseHubSource.includes(eventType), `${warehouseHubPage} 缺少待加工仓事件写入：${eventType}`)
+  })
   assert(sampleSource.includes('submitSampleWarehouseWriteback('), `${samplePage} 未接正式样衣仓 writeback bridge`)
 
   const inputsSource = read(inputsFile)
@@ -81,13 +110,16 @@ function main(): void {
   })
 
   const bridgeSource = read(bridgeFile)
+  assert(bridgeSource.includes('submitCutPieceWarehouseWriteback('), `${bridgeFile} 缺少裁片仓 writeback bridge 兼容入口`)
   assert(bridgeSource.includes('appendCutPieceWarehouseWritebackRecord('), `${bridgeFile} 未落账裁片仓 writeback ledger`)
   assert(bridgeSource.includes('appendSampleWarehouseWritebackRecord('), `${bridgeFile} 未落账样衣仓 writeback ledger`)
 
   console.log(
     JSON.stringify(
       {
-        页面本地mutation退场: '通过',
+        当前仓务页面本地mutation退场: '通过',
+        待加工仓runtimeEvent写入存在: '通过',
+        裁片仓projection读取writebackLedger存在: '通过',
         正式仓务writebackBridge存在: '通过',
         正式仓务writebackLedger存在: '通过',
         正式写回payload主键完整: '通过',

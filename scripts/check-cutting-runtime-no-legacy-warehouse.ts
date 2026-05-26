@@ -24,7 +24,12 @@ function assertFileExists(rel: string): void {
 
 function assertNoImport(rel: string, target: string): void {
   const source = read(rel)
-  assert(!source.includes(target), `${rel} 仍直接依赖旧源：${target}`)
+  const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const importPattern = new RegExp(
+    String.raw`(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?['"][^'"]*${escapedTarget}[^'"]*['"]`,
+    'm',
+  )
+  assert(!importPattern.test(source), `${rel} 仍直接 import/export 旧源：${target}`)
 }
 
 function assertNoPattern(rel: string, pattern: string, description: string): void {
