@@ -53,6 +53,11 @@ export interface FcsCuttingSummaryProjection {
   viewModel: CuttingSummaryViewModel
 }
 
+export type MarkerSpreadingSummaryBuildOptions = Pick<
+  CuttingSummaryBuildOptions,
+  'productionRows' | 'cutOrderRows' | 'materialPrepRows' | 'markerPlanSources' | 'markerStore'
+>
+
 function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
@@ -301,6 +306,33 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     transferBagReturnView,
     replenishmentView,
     specialProcessView,
+  }
+}
+
+export function mapCuttingDomainSnapshotToMarkerSpreadingBuildOptions(
+  snapshot: CuttingDomainSnapshot,
+): MarkerSpreadingSummaryBuildOptions {
+  const progressRows = buildProductionProgressRows(snapshot.progressRecords, {
+    pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
+    inboundEvents: snapshot.pdaExecutionState.inboundEvents as never[],
+    handoverEvents: snapshot.pdaExecutionState.handoverEvents as never[],
+    replenishmentFeedbackEvents: snapshot.pdaExecutionState.replenishmentFeedbackEvents as never[],
+  })
+  const seedCutOrderRows = buildCutOrderRows(snapshot, [], progressRows)
+  const markerPlanSources = buildRuntimeMarkerPlanSourceRecords(snapshot, seedCutOrderRows)
+  const cutOrderRows = buildCutOrderRows(snapshot, markerPlanSources, progressRows)
+  const materialPrepRows = buildMaterialPrepViewModel(snapshot.progressRecords, markerPlanSources, {
+    pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
+    pendingPrepFollowups: [],
+    includeClaimDisputes: false,
+  }).rows
+
+  return {
+    productionRows: progressRows,
+    cutOrderRows,
+    materialPrepRows,
+    markerPlanSources,
+    markerStore: snapshot.markerSpreadingState.store as unknown as MarkerSpreadingStore,
   }
 }
 

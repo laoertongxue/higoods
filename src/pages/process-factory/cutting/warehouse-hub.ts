@@ -10,6 +10,8 @@ import {
   type GeneratedFeiTicketSourceRecord,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import {
+  listHandoverRecords,
+  type HandoverRecord,
   type SpecialCraftHandoverGroup,
   type SpecialCraftReturnInventoryRecord,
   type SpecialCraftReturnProjection,
@@ -26,6 +28,7 @@ import {
   listCuttingRuntimeEventsByInventoryScope,
   listCuttingRuntimeEventsByType,
   type CuttingRuntimeEvent,
+  type HandoverRecordSubmitPayload,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { renderCompactKpiCard, renderStickyTableScroller } from './layout.helpers.ts'
@@ -45,6 +48,14 @@ import {
   renderWarehouseLocationToolbar,
   type FactoryWarehouseFlowLine,
 } from '../shared/warehouse-standard.ts'
+import {
+  appendWaitHandoverHandoverRecordEvent,
+  appendWaitHandoverInboundEvent,
+  appendWaitHandoverRebagEvent,
+  appendWaitHandoverSortingEvent,
+  buildWaitHandoverRuntimeTicketFromGeneratedTicket,
+  runtimeEventHasWaitHandoverTicket,
+} from './wait-handover-runtime.ts'
 
 type WaitProcessTabKey = 'inventory' | 'claims' | 'claimRecords' | 'receipts' | 'usage' | 'returns' | 'locations'
 type WaitProcessWarehouseAction = 'claim' | 'receive' | 'process-issue' | 'return'
@@ -1644,12 +1655,366 @@ function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
 function renderWaitHandoverHeaderActions(firstTaskId: string): string {
   return `
     <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
-      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/fcs/pda/cutting/inbound/${escapeHtml(firstTaskId)}">扫码入仓</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', 'sorting'))}">二次分拣</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', 'sorting'))}">重新装袋</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-nav="/fcs/pda/cutting/handover/${escapeHtml(firstTaskId)}">新增交出记录</button>
+      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="open-inbound">扫码入仓</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-sorting">二次分拣</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-rebag">重新装袋</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover">新增交出记录</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/cutting/inbound/${escapeHtml(firstTaskId)}">PDA 现场扫码</button>
     </div>
   `
+}
+
+type WaitHandoverWebAction = 'inbound' | 'sorting' | 'rebag' | 'handover'
+
+const WAIT_HANDOVER_WEB_MODAL_ID = 'cutting-wait-handover-web-action-modal'
+
+function removeWaitHandoverWebActionDialog(): void {
+  if (typeof document === 'undefined') return
+  document.getElementById(WAIT_HANDOVER_WEB_MODAL_ID)?.remove()
+}
+
+function requestWaitHandoverWebRefresh(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event('higood:request-render'))
+}
+
+function getWaitHandoverWebOperator(dialog: ParentNode): { operatorName: string; operatorRole: string } {
+  const operatorName = dialog.querySelector<HTMLInputElement>('[data-wait-handover-field="operatorName"]')?.value.trim() || '裁片仓操作员'
+  return { operatorName, operatorRole: '裁片仓操作员' }
+}
+
+function readWaitHandoverWebField(dialog: ParentNode, field: string): string {
+  return dialog.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`[data-wait-handover-field="${field}"]`)?.value.trim() || ''
+}
+
+function buildWaitHandoverWebInventoryRecords(): InboundTempBagInventoryRecord[] {
+  const generatedTickets = listSpreadingResultGeneratedFeiTickets()
+  const runtimeEvents = listRuntimeWaitHandoverEvents()
+  const inboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeEvents, generatedTickets)
+  const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
+  const specialCraftReturnRecords = buildRuntimeSpecialCraftReturnInventoryRecordsFromEvents(runtimeEvents, generatedTickets)
+  const fallbackRecords = inboundInventoryRecords.length || specialCraftReturnRecords.length
+    ? []
+    : buildWaitHandoverFallbackInventoryRecords(generatedTickets)
+  return [...inboundInventoryRecords, ...fallbackRecords, ...specialCraftReturnRecords]
+}
+
+function buildWaitHandoverWebPickingProjection(): HandoverPickingTaskProjection {
+  return buildHandoverPickingTaskProjectionFromAllocationProjection(
+    buildSewingTaskAllocationProjectionFromInventory(buildWaitHandoverWebInventoryRecords()),
+  )
+}
+
+function buildWaitHandoverActionSelectOptions(
+  options: Array<{ value: string; label: string; disabled?: boolean }>,
+  emptyLabel: string,
+): string {
+  if (!options.length) return `<option value="" disabled selected>${escapeHtml(emptyLabel)}</option>`
+  return options.map((option, index) => `
+    <option value="${escapeHtml(option.value)}" ${index === 0 ? 'selected' : ''} ${option.disabled ? 'disabled' : ''}>${escapeHtml(option.label)}</option>
+  `).join('')
+}
+
+function getWaitHandoverTicketOptions(): Array<{ value: string; label: string }> {
+  const inventoryTicketIds = new Set(buildWaitHandoverWebInventoryRecords().map((record) => record.feiTicketId))
+  return buildRuntimeTicketCandidatesFromGeneratedTickets(listSpreadingResultGeneratedFeiTickets())
+    .filter((ticket) => ticket.ticketStatus !== 'VOIDED')
+    .filter((ticket) => !inventoryTicketIds.has(ticket.feiTicketId))
+    .slice(0, 30)
+    .map((ticket) => ({
+      value: ticket.feiTicketId,
+      label: `${ticket.ticketNo} / ${ticket.productionOrderNo} / ${ticket.color} / ${ticket.size} / ${ticket.partName} / ${ticket.actualCutPieceQty || ticket.qty} 片`,
+    }))
+}
+
+function getWaitHandoverPickingOptions(): Array<{ value: string; label: string }> {
+  return buildWaitHandoverWebPickingProjection().tasks.flatMap((task) =>
+    task.allocatedInventoryItems
+      .filter((item) => item.voidStatus !== '已作废')
+      .slice(0, 6)
+      .map((item) => ({
+        value: `${task.pickingTaskId}|${item.feiTicketId}`,
+        label: `${task.pickingTaskNo} / ${item.feiTicketNo} / ${item.partName} ${item.size} / ${item.pieceQty} 片`,
+      })),
+  ).slice(0, 30)
+}
+
+function getWaitHandoverRecordOptions(): Array<{ value: string; label: string }> {
+  return listHandoverRecords().flatMap((record) =>
+    record.feiTicketItems
+      .filter((ticket) => !runtimeEventHasWaitHandoverTicket('新增交出记录', ticket.feiTicketId))
+      .slice(0, 6)
+      .map((ticket) => ({
+        value: `${record.handoverRecordId}|${ticket.feiTicketId}`,
+        label: `${record.handoverOrderNo} / ${ticket.feiTicketNo} / ${ticket.partName} ${ticket.size} / ${ticket.pieceQty} 片`,
+      })),
+  ).slice(0, 30)
+}
+
+function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction): string {
+  const titleMap: Record<WaitHandoverWebAction, string> = {
+    inbound: '扫码入仓',
+    sorting: '二次分拣',
+    rebag: '重新装袋',
+    handover: '新增交出记录',
+  }
+  const submitMap: Record<WaitHandoverWebAction, string> = {
+    inbound: '提交入仓',
+    sorting: '提交分拣',
+    rebag: '提交装袋',
+    handover: '提交交出',
+  }
+  const actionContent = action === 'inbound'
+    ? `
+      <label class="space-y-1 text-sm">
+        <span class="text-muted-foreground">入仓菲票</span>
+        <select class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="feiTicketId">
+          ${buildWaitHandoverActionSelectOptions(getWaitHandoverTicketOptions(), '暂无待入仓菲票')}
+        </select>
+      </label>
+      <div class="grid gap-3 md:grid-cols-3">
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">暂存袋码</span><input class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="bagCode" value="WEB-TEMP-BAG-001" /></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">库区</span><input class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="warehouseArea" value="B 区" /></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">库位</span><input class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="locationCode" value="B-02 临时位" /></label>
+      </div>
+    `
+    : action === 'handover'
+      ? `
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">交出单 / 菲票</span>
+          <select class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="handoverSelection">
+            ${buildWaitHandoverActionSelectOptions(getWaitHandoverRecordOptions(), '暂无可交出菲票')}
+          </select>
+        </label>
+      `
+      : `
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">分拣任务 / 菲票</span>
+          <select class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="pickingSelection">
+            ${buildWaitHandoverActionSelectOptions(getWaitHandoverPickingOptions(), '暂无分拣装袋任务')}
+          </select>
+        </label>
+        ${
+          action === 'rebag'
+            ? '<label class="space-y-1 text-sm"><span class="text-muted-foreground">目标中转袋</span><input class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="targetTransferBagCode" value="WEB-HANDOVER-BAG-001" /></label>'
+            : '<label class="space-y-1 text-sm"><span class="text-muted-foreground">来源暂存袋</span><input class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="sourceTempBagCode" value="按任务默认来源袋" /></label>'
+        }
+      `
+  return `
+    <div id="${WAIT_HANDOVER_WEB_MODAL_ID}" class="fixed inset-0 z-[130]" data-wait-handover-modal="${escapeHtml(action)}">
+      <button type="button" class="absolute inset-0 bg-black/45" data-skip-page-rerender="true" data-wait-handover-action="close-dialog" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-1/2 flex max-h-[88vh] w-[min(720px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-center justify-between border-b px-5 py-4">
+          <div>
+            <h2 class="text-base font-semibold text-foreground">${escapeHtml(titleMap[action])}</h2>
+            <p class="mt-1 text-xs text-muted-foreground">Web 端直接写入裁床待交出仓同一事实账，PDA 刷新后可见。</p>
+          </div>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="close-dialog">关闭</button>
+        </header>
+        <div class="space-y-4 overflow-y-auto px-5 py-4">
+          <label class="space-y-1 text-sm">
+            <span class="text-muted-foreground">操作人</span>
+            <input class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="operatorName" value="Web 仓务操作员" />
+          </label>
+          ${actionContent}
+          <label class="space-y-1 text-sm">
+            <span class="text-muted-foreground">备注</span>
+            <textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2" data-wait-handover-field="remark" placeholder="可填写异常说明或现场备注"></textarea>
+          </label>
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-5 py-4">
+          <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="close-dialog">取消</button>
+          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-wait-handover-action="submit-${escapeHtml(action)}">${escapeHtml(submitMap[action])}</button>
+        </footer>
+      </section>
+    </div>
+  `
+}
+
+function openWaitHandoverWebActionDialog(action: WaitHandoverWebAction): void {
+  if (typeof document === 'undefined') return
+  removeWaitHandoverWebActionDialog()
+  ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', renderWaitHandoverWebActionDialog(action))
+}
+
+function findWaitHandoverPickingSelection(value: string): {
+  task: HandoverPickingTaskProjection['tasks'][number]
+  item: HandoverPickingTaskProjection['tasks'][number]['allocatedInventoryItems'][number]
+  sourceTempBagCode: string
+} | null {
+  const [taskId, feiTicketId] = value.split('|')
+  const task = buildWaitHandoverWebPickingProjection().tasks.find((item) => item.pickingTaskId === taskId)
+  const selectedItem = task?.allocatedInventoryItems.find((item) => item.feiTicketId === feiTicketId)
+  if (!task || !selectedItem) return null
+  return {
+    task,
+    item: selectedItem,
+    sourceTempBagCode: selectedItem.tempBagCode || task.tempBagSources[0]?.tempBagCode || '',
+  }
+}
+
+function findWaitHandoverRecordSelection(value: string): { record: HandoverRecord; ticket: HandoverRecord['feiTicketItems'][number] } | null {
+  const [recordId, feiTicketId] = value.split('|')
+  const record = listHandoverRecords().find((item) => item.handoverRecordId === recordId)
+  const ticket = record?.feiTicketItems.find((item) => item.feiTicketId === feiTicketId)
+  return record && ticket ? { record, ticket } : null
+}
+
+function submitWaitHandoverInbound(dialog: HTMLElement): boolean {
+  const feiTicketId = readWaitHandoverWebField(dialog, 'feiTicketId')
+  const ticket = listSpreadingResultGeneratedFeiTickets().find((item) => item.feiTicketId === feiTicketId)
+  if (!ticket) {
+    window.alert('请选择可入仓菲票。')
+    return true
+  }
+  if (runtimeEventHasWaitHandoverTicket('菲票入仓暂存', ticket.feiTicketId)) {
+    window.alert('该菲票已入仓，不能重复入仓。')
+    return true
+  }
+  const bagCode = readWaitHandoverWebField(dialog, 'bagCode') || 'WEB-TEMP-BAG-001'
+  appendWaitHandoverInboundEvent({
+    source: 'WEB',
+    operator: getWaitHandoverWebOperator(dialog),
+    bagCode,
+    warehouseArea: readWaitHandoverWebField(dialog, 'warehouseArea') || 'B 区',
+    locationCode: readWaitHandoverWebField(dialog, 'locationCode') || 'B-02 临时位',
+    tickets: [buildWaitHandoverRuntimeTicketFromGeneratedTicket(ticket)],
+  })
+  return false
+}
+
+function submitWaitHandoverSorting(dialog: HTMLElement): boolean {
+  const selection = findWaitHandoverPickingSelection(readWaitHandoverWebField(dialog, 'pickingSelection'))
+  if (!selection) {
+    window.alert('请选择可分拣菲票。')
+    return true
+  }
+  if (runtimeEventHasWaitHandoverTicket('待交出仓二次分拣', selection.item.feiTicketId)) {
+    window.alert('该菲票已有二次分拣记录，不能重复分拣。')
+    return true
+  }
+  appendWaitHandoverSortingEvent({
+    source: 'WEB',
+    operator: { ...getWaitHandoverWebOperator(dialog), operatorRole: '裁片仓分拣员' },
+    pickingTaskId: selection.task.pickingTaskId,
+    pickingTaskNo: selection.task.pickingTaskNo,
+    sewingTaskId: selection.task.sewingTaskId,
+    sewingTaskNo: selection.task.sewingTaskNo,
+    sourceTempBagCode: selection.sourceTempBagCode || readWaitHandoverWebField(dialog, 'sourceTempBagCode') || '按任务默认来源袋',
+    tickets: [{
+      feiTicketId: selection.item.feiTicketId,
+      feiTicketNo: selection.item.feiTicketNo,
+      pieceQty: selection.item.pieceQty,
+    }],
+  })
+  return false
+}
+
+function submitWaitHandoverRebag(dialog: HTMLElement): boolean {
+  const selection = findWaitHandoverPickingSelection(readWaitHandoverWebField(dialog, 'pickingSelection'))
+  if (!selection) {
+    window.alert('请选择可装袋菲票。')
+    return true
+  }
+  const targetTransferBagCode = readWaitHandoverWebField(dialog, 'targetTransferBagCode')
+  if (!targetTransferBagCode) {
+    window.alert('请填写目标中转袋。')
+    return true
+  }
+  appendWaitHandoverRebagEvent({
+    source: 'WEB',
+    operator: { ...getWaitHandoverWebOperator(dialog), operatorRole: '裁片仓分拣员' },
+    targetTransferBagCode,
+    sewingTaskId: selection.task.sewingTaskId,
+    sewingTaskNo: selection.task.sewingTaskNo,
+    pickingTaskId: selection.task.pickingTaskId,
+    pickingTaskNo: selection.task.pickingTaskNo,
+    tickets: [{
+      feiTicketId: selection.item.feiTicketId,
+      feiTicketNo: selection.item.feiTicketNo,
+      pieceQty: selection.item.pieceQty,
+    }],
+  })
+  return false
+}
+
+function submitWaitHandoverRecord(dialog: HTMLElement): boolean {
+  const selection = findWaitHandoverRecordSelection(readWaitHandoverWebField(dialog, 'handoverSelection'))
+  if (!selection) {
+    window.alert('请选择可交出菲票。')
+    return true
+  }
+  if (runtimeEventHasWaitHandoverTicket('新增交出记录', selection.ticket.feiTicketId)) {
+    window.alert('该菲票已有交出记录，不能重复交出。')
+    return true
+  }
+  const now = new Date().toISOString()
+  const recordId = `WEB-HR-${selection.record.handoverOrderId}-${Date.now()}`
+  const recordNo = `${selection.record.handoverOrderNo}-WEB-${String(Date.now()).slice(-4)}`
+  const bag = selection.record.transferBagUses.find((item) => item.containedFeiTicketIds.includes(selection.ticket.feiTicketId)) || selection.record.transferBagUses[0]
+  if (!bag) {
+    window.alert('当前交出单没有中转袋，不能提交交出记录。')
+    return true
+  }
+  const payload: HandoverRecordSubmitPayload = {
+    handoverOrderId: selection.record.handoverOrderId,
+    handoverOrderNo: selection.record.handoverOrderNo,
+    handoverRecordId: recordId,
+    handoverRecordNo: recordNo,
+    receiverType: selection.record.receiverType,
+    receiverId: selection.record.receiverId,
+    receiverName: selection.record.receiverName,
+    transferBagUses: [{
+      bagUseId: bag.bagUseId,
+      bagCode: bag.bagCode,
+      containedFeiTicketIds: [selection.ticket.feiTicketId],
+      totalPieceQty: selection.ticket.pieceQty,
+    }],
+    feiTicketItems: [{
+      feiTicketId: selection.ticket.feiTicketId,
+      feiTicketNo: selection.ticket.feiTicketNo,
+      pieceQty: selection.ticket.pieceQty,
+      unit: '片',
+    }],
+    currentHandedOverQty: selection.ticket.pieceQty,
+    submittedAt: now,
+    submittedBy: getWaitHandoverWebOperator(dialog).operatorName,
+  }
+  appendWaitHandoverHandoverRecordEvent({
+    source: 'WEB',
+    operator: { ...getWaitHandoverWebOperator(dialog), operatorRole: '裁片仓交出员' },
+    payload,
+    fromWarehouseArea: selection.record.sourceWarehouseName,
+    fromLocationCode: bag.bagCode,
+    occurredAt: now,
+  })
+  return false
+}
+
+export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-wait-handover-action]')
+  const action = actionNode?.dataset.waitHandoverAction
+  if (!action) return false
+  if (action === 'close-dialog') {
+    removeWaitHandoverWebActionDialog()
+    return true
+  }
+  if (action === 'open-inbound' || action === 'open-sorting' || action === 'open-rebag' || action === 'open-handover') {
+    openWaitHandoverWebActionDialog(action.replace('open-', '') as WaitHandoverWebAction)
+    return true
+  }
+  const dialog = actionNode?.closest<HTMLElement>('[data-wait-handover-modal]')
+  if (!dialog) return false
+  const blocked =
+    action === 'submit-inbound' ? submitWaitHandoverInbound(dialog) :
+    action === 'submit-sorting' ? submitWaitHandoverSorting(dialog) :
+    action === 'submit-rebag' ? submitWaitHandoverRebag(dialog) :
+    action === 'submit-handover' ? submitWaitHandoverRecord(dialog) :
+    true
+  if (blocked) return true
+  removeWaitHandoverWebActionDialog()
+  requestWaitHandoverWebRefresh()
+  return true
 }
 
 function renderWaitHandoverInventoryTable(

@@ -739,7 +739,7 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
   }
 }
 
-function validateBinding(sourceType: ProcessActionSourceType, sourceId: string): { ok: boolean; reason: string; taskId: string } {
+function validateBinding(sourceType: ProcessActionSourceType, sourceId: string, sourceChannel?: ProcessActionPayload['sourceChannel']): { ok: boolean; reason: string; taskId: string } {
   const binding =
     sourceType === 'PRINT'
       ? validatePrintWorkOrderMobileTaskBinding(sourceId)
@@ -750,8 +750,15 @@ function validateBinding(sourceType: ProcessActionSourceType, sourceId: string):
           : sourceType === 'SPECIAL_CRAFT'
             ? validateSpecialCraftMobileTaskBinding(sourceId)
             : validatePostFinishingMobileTaskBinding(sourceId)
+  const prototypeCanUseFactoryScopedSpecialCraft =
+    (sourceChannel === 'Web 端' || sourceChannel === '移动端') &&
+    sourceType === 'SPECIAL_CRAFT' &&
+    binding.isBound &&
+    binding.isTaskFound &&
+    binding.isProcessTypeMatched &&
+    binding.isAcceptedOrExecutable
   return {
-    ok: binding.canOpenMobileExecution,
+    ok: binding.canOpenMobileExecution || prototypeCanUseFactoryScopedSpecialCraft,
     reason: binding.reasonLabel,
     taskId: binding.actualTaskId,
   }
@@ -861,7 +868,7 @@ function assertRequiredFields(payload: ProcessActionPayload, definition: Process
 export function validateProcessAction(payload: ProcessActionPayload): { ok: boolean; message: string; definition?: ProcessActionDefinition; snapshot?: StatusSnapshot } {
   const definition = getProcessActionDefinition(payload.sourceType, payload.actionCode)
   if (!definition) return { ok: false, message: '当前动作未注册，不能写回' }
-  const binding = validateBinding(payload.sourceType, payload.sourceId)
+  const binding = validateBinding(payload.sourceType, payload.sourceId, payload.sourceChannel)
   if (!binding.ok) return { ok: false, message: binding.reason || '加工单与移动端任务绑定无效' }
   const snapshot = getProcessActionStatusSnapshot(payload.sourceType, payload.sourceId)
   if (!definition.fromStatuses.includes(snapshot.status)) {

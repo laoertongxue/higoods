@@ -23,6 +23,7 @@ import {
   buildInboundTempBagsFromTransferBagViewModel,
 } from './process-factory/cutting/transfer-bags-model.ts'
 import { buildTransferBagsProjection } from './process-factory/cutting/transfer-bags-projection.ts'
+import { buildWaitHandoverRuntimeProjection } from './process-factory/cutting/wait-handover-runtime.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildWarehouseDifferenceText,
@@ -86,8 +87,8 @@ function getFirstCuttingTaskId(): string {
 function renderCuttingWaitHandoverActionCards(firstTaskId: string): string {
   const actions = [
     { title: '扫码入仓', desc: '扫袋码和菲票，装入入仓暂存袋。', nav: `/fcs/pda/cutting/inbound/${firstTaskId}` },
-    { title: '二次分拣', desc: '扫配料任务、暂存袋、菲票，按车缝任务分拣。', action: 'cutting-wh-sort' },
-    { title: '重新装袋', desc: '扫目标中转袋，一个袋只绑定一个车缝任务。', action: 'cutting-wh-rebag' },
+    { title: '二次分拣', desc: '扫配料任务、暂存袋、菲票，按车缝任务分拣。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
+    { title: '重新装袋', desc: '扫目标中转袋，一个袋只绑定一个车缝任务。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
     { title: '新增交出记录', desc: '扫交出单、中转袋和菲票，提交交出记录。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
   ]
   return `
@@ -96,7 +97,7 @@ function renderCuttingWaitHandoverActionCards(firstTaskId: string): string {
         <button
           type="button"
           class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
-          ${item.nav ? `data-nav="${escapeAttr(item.nav)}"` : `data-pda-warehouse-action="${escapeAttr(item.action)}"`}
+          data-nav="${escapeAttr(item.nav)}"
         >
           <div class="text-sm font-semibold text-foreground">${escapeHtml(item.title)}</div>
           <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(item.desc)}</div>
@@ -107,9 +108,13 @@ function renderCuttingWaitHandoverActionCards(firstTaskId: string): string {
 }
 
 function renderCuttingWaitHandoverPage(): string {
+  const runtimeProjection = buildWaitHandoverRuntimeProjection()
   const transferBagViewModel = buildTransferBagsProjection().viewModel
-  const inboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
-  const inventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
+  const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
+  const inboundTempBags = runtimeProjection.inboundTempBags.length ? runtimeProjection.inboundTempBags : fallbackInboundTempBags
+  const inventoryRecords = runtimeProjection.inboundInventoryRecords.length
+    ? runtimeProjection.inboundInventoryRecords
+    : buildInboundTempBagInventoryRecords(inboundTempBags)
   const allocationProjection = buildSewingTaskAllocationProjectionFromInventory(inventoryRecords)
   const pickingProjection = buildHandoverPickingTaskProjectionFromAllocationProjection(allocationProjection)
   const firstTaskId = getFirstCuttingTaskId()
@@ -542,22 +547,6 @@ export function renderPdaWarehouseWaitHandoverPage(): string {
 export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
-  if (action === 'cutting-wh-sort') {
-    const taskNo = window.prompt('请扫描待交出仓裁片配料任务码')?.trim()
-    if (!taskNo) return true
-    const feiTicketNo = window.prompt('请扫描菲票码')?.trim()
-    if (!feiTicketNo) return true
-    window.alert(`已记录二次分拣：${taskNo} / ${feiTicketNo}。同步状态：已同步。`)
-    return true
-  }
-  if (action === 'cutting-wh-rebag') {
-    const bagCode = window.prompt('请扫描目标中转袋码')?.trim()
-    if (!bagCode) return true
-    const taskNo = window.prompt('请扫描车缝任务或配料任务码')?.trim()
-    if (!taskNo) return true
-    window.alert(`已记录重新装袋：${bagCode} 绑定 ${taskNo}。同步状态：已同步。`)
-    return true
-  }
   if (action === 'open-wait-handover-detail' && actionNode.dataset.stockItemId) {
     state.detailId = actionNode.dataset.stockItemId
     return true

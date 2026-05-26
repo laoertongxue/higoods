@@ -21,14 +21,17 @@ import {
   resolvePdaCuttingRuntimeOperator,
 } from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
 import {
-  appendCuttingRuntimeEvent,
-  listCuttingRuntimeEvents,
   type HandoverRecordSubmitPayload,
-  type HandoverSortingPayload,
-  type RebagPayload,
   type SpecialCraftHandoverPayload,
   type SpecialCraftReturnPayload,
 } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import {
+  appendWaitHandoverHandoverRecordEvent,
+  appendWaitHandoverSortingAndRebagEvents,
+  appendWaitHandoverSpecialCraftHandoverEvent,
+  appendWaitHandoverSpecialCraftReturnEvent,
+  runtimeEventHasWaitHandoverTicket,
+} from './process-factory/cutting/wait-handover-runtime.ts'
 import {
   buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
@@ -180,12 +183,7 @@ function syncHandoverFormFromControls(form: HandoverFormState, container: Parent
 }
 
 function runtimeEventHasTicket(eventType: string, feiTicketId: string, specialCraftId?: string): boolean {
-  return listCuttingRuntimeEvents().some((event) => {
-    if (event.eventType !== eventType || event.eventStatus === '已取消') return false
-    if (!event.refs.feiTicketIds?.includes(feiTicketId)) return false
-    if (specialCraftId && event.refs.specialCraftId !== specialCraftId) return false
-    return true
-  })
+  return runtimeEventHasWaitHandoverTicket(eventType, feiTicketId, specialCraftId)
 }
 
 function validatePickingScans(
@@ -312,68 +310,24 @@ function appendPdaPickingAndRebagEvents(
 
   const now = new Date().toISOString()
   const pickedQty = validation.item.pieceQty
-  const scannedFeiTicketIds = [validation.item.feiTicketId]
-  const scannedFeiTicketNos = [validation.item.feiTicketNo]
-
-  const sortingPayload: HandoverSortingPayload = {
+  appendWaitHandoverSortingAndRebagEvents({
+    source: 'PDA',
+    operator: {
+      operatorName,
+      operatorRole: '裁片仓分拣员',
+    },
     pickingTaskId: task.pickingTaskId,
     pickingTaskNo: task.pickingTaskNo,
     sewingTaskId: task.sewingTaskId,
     sewingTaskNo: task.sewingTaskNo,
     sourceTempBagCode: validation.sourceTempBagCode,
-    scannedFeiTicketIds,
-    scannedFeiTicketNos,
-    pickedQty,
-    unit: '片',
-    scannedBy: operatorName,
-    scannedAt: now,
-    checkResult: '正常',
-  }
-
-  appendCuttingRuntimeEvent({
-    eventType: '待交出仓二次分拣',
-    eventSource: 'PDA',
-    eventStatus: '已同步',
-    occurredAt: now,
-    operatorName,
-    operatorRole: '裁片仓分拣员',
-    refs: {
-      feiTicketIds: scannedFeiTicketIds,
-      feiTicketNos: scannedFeiTicketNos,
-      transferBagCode: validation.sourceTempBagCode,
-    },
-    payload: sortingPayload,
-  })
-
-  const rebagPayload: RebagPayload = {
-    bagUseId: `PDA-REBAG-${task.pickingTaskId}-${Date.now()}`,
     targetTransferBagCode: validation.targetTransferBagCode,
-    sewingTaskId: task.sewingTaskId,
-    sewingTaskNo: task.sewingTaskNo,
-    pickingTaskId: task.pickingTaskId,
-    pickingTaskNo: task.pickingTaskNo,
-    containedFeiTicketIds: scannedFeiTicketIds,
-    containedFeiTicketNos: scannedFeiTicketNos,
-    totalPieceQty: pickedQty,
-    unit: '片',
-    packedAt: now,
-    packedBy: operatorName,
-    bagBindingRule: '一个中转袋只能绑定一个车缝任务',
-  }
-
-  appendCuttingRuntimeEvent({
-    eventType: '待交出仓重新装袋',
-    eventSource: 'PDA',
-    eventStatus: '已同步',
+    tickets: [{
+      feiTicketId: validation.item.feiTicketId,
+      feiTicketNo: validation.item.feiTicketNo,
+      pieceQty: pickedQty,
+    }],
     occurredAt: now,
-    operatorName,
-    operatorRole: '裁片仓分拣员',
-    refs: {
-      feiTicketIds: scannedFeiTicketIds,
-      feiTicketNos: scannedFeiTicketNos,
-      transferBagCode: validation.targetTransferBagCode,
-    },
-    payload: rebagPayload,
   })
 
   return `已同步二次分拣与重新装袋：${validation.item.feiTicketNo}，目标袋 ${validation.targetTransferBagCode}。`
@@ -420,8 +374,6 @@ function appendPdaUniversalHandoverEvent(draft: PdaHandoverRecordDraftProjection
   const now = new Date().toISOString()
   const recordId = `PDA-HR-${draft.handoverOrderId}-${Date.now()}`
   const recordNo = `${draft.handoverOrderNo}-PDA-${String(draft.nextRecordSequence).padStart(3, '0')}`
-  const feiTicketIds = [validation.ticket.feiTicketId]
-  const feiTicketNos = [validation.ticket.feiTicketNo]
   const payload: HandoverRecordSubmitPayload = {
     handoverOrderId: draft.handoverOrderId,
     handoverOrderNo: draft.handoverOrderNo,
@@ -447,29 +399,16 @@ function appendPdaUniversalHandoverEvent(draft: PdaHandoverRecordDraftProjection
     submittedBy: operatorName,
   }
 
-  appendCuttingRuntimeEvent({
-    eventType: '新增交出记录',
-    eventSource: 'PDA',
-    eventStatus: '已同步',
-    occurredAt: now,
-    operatorName,
-    operatorRole: '裁片仓交出员',
-    refs: {
-      handoverOrderId: draft.handoverOrderId,
-      handoverRecordId: recordId,
-      feiTicketIds,
-      feiTicketNos,
-      transferBagCode: validation.bag.bagCode,
-    },
-    inventoryEffect: {
-      inventoryScope: '裁床待交出仓',
-      direction: 'OUT',
-      qty: payload.currentHandedOverQty,
-      unit: '片',
-      fromWarehouseArea: sourceRecord.sourceWarehouseName,
-      fromLocationCode: validation.bag.bagCode,
+  appendWaitHandoverHandoverRecordEvent({
+    source: 'PDA',
+    operator: {
+      operatorName,
+      operatorRole: '裁片仓交出员',
     },
     payload,
+    fromWarehouseArea: sourceRecord.sourceWarehouseName,
+    fromLocationCode: validation.bag.bagCode,
+    occurredAt: now,
   })
 
   return `已同步交出记录：${recordNo}，本次交出 ${payload.currentHandedOverQty} 片。`
@@ -534,30 +473,19 @@ function appendPdaSpecialCraftHandoverEvent(draft: PdaHandoverRecordDraftProject
   }
   const totalQty = payload.feiTicketItems.reduce((total, item) => total + item.pieceQty, 0)
 
-  appendCuttingRuntimeEvent({
-    eventType: '特殊工艺交出',
-    eventSource: 'PDA',
-    eventStatus: '已同步',
-    occurredAt: now,
-    operatorName,
-    operatorRole: '特殊工艺交出员',
-    refs: {
-      handoverOrderId: draft.handoverOrderId,
-      handoverRecordId: sourceRecord.handoverRecordId,
-      specialCraftId: firstCraft.specialCraftId,
-      feiTicketIds: payload.feiTicketItems.map((item) => item.feiTicketId),
-      feiTicketNos: payload.feiTicketItems.map((item) => item.feiTicketNo),
-      transferBagCode: validation.bag.bagCode,
-    },
-    inventoryEffect: {
-      inventoryScope: '裁床待交出仓',
-      direction: 'OUT',
-      qty: totalQty,
-      unit: '片',
-      fromWarehouseArea: sourceRecord.sourceWarehouseName,
-      fromLocationCode: validation.bag.bagCode,
+  appendWaitHandoverSpecialCraftHandoverEvent({
+    source: 'PDA',
+    operator: {
+      operatorName,
+      operatorRole: '特殊工艺交出员',
     },
     payload,
+    handoverOrderId: draft.handoverOrderId,
+    handoverRecordId: sourceRecord.handoverRecordId,
+    specialCraftId: firstCraft.specialCraftId,
+    transferBagCode: validation.bag.bagCode,
+    fromWarehouseArea: sourceRecord.sourceWarehouseName,
+    occurredAt: now,
   })
 
   return `已同步特殊工艺交出：${validation.ticketNo} / ${firstCraft.craftType}，交出 ${totalQty} 片。`
@@ -637,29 +565,15 @@ function appendPdaSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProjectio
   }
   const returnedQty = payload.returnedFeiTicketItems.reduce((total, item) => total + item.returnedQty, 0)
 
-  appendCuttingRuntimeEvent({
-    eventType: '特殊工艺回仓',
-    eventSource: 'PDA',
-    eventStatus: '已同步',
-    occurredAt: now,
-    operatorName,
-    operatorRole: '特殊工艺回仓员',
-    refs: {
-      handoverOrderId: sourceRecord.handoverOrderId,
-      handoverRecordId: sourceRecord.handoverRecordId,
-      specialCraftId: craftItems[0].specialCraftId,
-      feiTicketIds: payload.returnedFeiTicketItems.map((item) => item.feiTicketId),
-      feiTicketNos: payload.returnedFeiTicketItems.map((item) => item.feiTicketNo),
-    },
-    inventoryEffect: {
-      inventoryScope: '裁床待交出仓',
-      direction: 'IN',
-      qty: returnedQty,
-      unit: '片',
-      toWarehouseArea: payload.warehouseArea,
-      toLocationCode: payload.locationCode,
+  appendWaitHandoverSpecialCraftReturnEvent({
+    source: 'PDA',
+    operator: {
+      operatorName,
+      operatorRole: '特殊工艺回仓员',
     },
     payload,
+    specialCraftId: craftItems[0].specialCraftId,
+    occurredAt: now,
   })
 
   return `已同步特殊工艺回仓：${validation.ticketNo}，回仓 ${returnedQty} 片。`

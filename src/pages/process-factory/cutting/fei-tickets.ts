@@ -2552,7 +2552,7 @@ function renderSpreadingDetailRows(row: FeiTicketSpreadingWorkbenchRow): string 
               </div>
               <div>
                 <p class="text-xs text-slate-500">来源裁片单</p>
-                <p class="mt-1 font-semibold text-slate-900">${escapeHtml(detail.cutOrderNo || '待补裁片单')}</p>
+                <p class="mt-1 font-semibold text-slate-900">${escapeHtml(detail.cutOrderNo || '待完善裁片单')}</p>
                 <p class="mt-1 text-xs text-slate-500">${escapeHtml(detail.productionOrderNo || '待补生产单')}</p>
               </div>
               <div>

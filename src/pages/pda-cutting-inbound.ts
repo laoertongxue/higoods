@@ -10,8 +10,9 @@ import {
   resolvePdaCuttingRuntimeOperator,
 } from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
 import {
-  appendCuttingRuntimeEvent,
-} from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+  appendWaitHandoverInboundEvent,
+  buildWaitHandoverRuntimeTicketFromTransferCandidate,
+} from './process-factory/cutting/wait-handover-runtime.ts'
 import {
   buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
@@ -217,16 +218,6 @@ function renderInboundStatus(detail: NonNullable<ReturnType<typeof getInboundDet
   ])
 }
 
-function buildInboundTempBagMixedFlag(tickets: TransferBagTicketCandidate[]): boolean {
-  const productionOrders = new Set(tickets.map((ticket) => ticket.productionOrderNo).filter(Boolean))
-  const cutOrders = new Set(tickets.map((ticket) => ticket.cutOrderNo).filter(Boolean))
-  const spuCodes = new Set(tickets.map((ticket) => ticket.spuCode).filter(Boolean))
-  const colors = new Set(tickets.map((ticket) => ticket.color || ticket.fabricColor).filter(Boolean))
-  const sizes = new Set(tickets.map((ticket) => ticket.size).filter(Boolean))
-  const parts = new Set(tickets.map((ticket) => ticket.partName).filter(Boolean))
-  return [productionOrders, cutOrders, spuCodes, colors, sizes, parts].some((items) => items.size > 1)
-}
-
 export function renderPdaCuttingInboundPage(taskId: string): string {
   const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
   const detail = context.detail
@@ -402,55 +393,18 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
     const bagCode = form.carrierCode.trim()
     const warehouseArea = `${form.zoneCode} 区`
     const locationCode = form.locationLabel.trim() || `${form.zoneCode}-01 临时位`
-    appendCuttingRuntimeEvent({
-      eventType: '菲票入仓暂存',
-      eventSource: 'PDA',
-      eventStatus: '已同步',
+    appendWaitHandoverInboundEvent({
+      source: 'PDA',
+      operator: {
+        operatorId: operator.operatorAccountId,
+        operatorName: operator.operatorName,
+        operatorRole: operator.operatorRole || '仓务操作员',
+      },
+      bagCode,
+      warehouseArea,
+      locationCode,
+      tickets: inboundTickets.map((ticket) => buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket)),
       occurredAt: inboundAt,
-      operatorId: operator.operatorAccountId,
-      operatorName: operator.operatorName,
-      operatorRole: operator.operatorRole || '仓务操作员',
-      refs: {
-        productionOrderId: inboundTickets[0]?.productionOrderId || identity.productionOrderId,
-        productionOrderNo: inboundTickets[0]?.productionOrderNo || identity.productionOrderNo,
-        cutOrderId: inboundTickets[0]?.cutOrderId || identity.cutOrderId,
-        cutOrderNo: inboundTickets[0]?.cutOrderNo || identity.cutOrderNo,
-        spreadingOrderId: inboundTickets[0]?.sourceSpreadingSessionId || identity.executionOrderId,
-        spreadingOrderNo: inboundTickets[0]?.sourceSpreadingSessionNo || identity.executionOrderNo,
-        feiTicketIds: inboundTickets.map((ticket) => ticket.feiTicketId).filter(Boolean),
-        feiTicketNos: inboundTickets.map((ticket) => ticket.ticketNo).filter(Boolean),
-        transferBagCode: bagCode,
-      },
-      inventoryEffect: {
-        inventoryScope: '裁床待交出仓',
-        direction: 'IN',
-        qty: inboundQty,
-        unit: '片',
-        toWarehouseArea: warehouseArea,
-        toLocationCode: locationCode,
-      },
-      payload: {
-        tempBagUseId: `temp-bag:${bagCode}:${inboundAt.replace(/[^0-9]/g, '')}`,
-        bagCode,
-        warehouseArea,
-        locationCode,
-        inboundBy: operator.operatorName,
-        inboundAt,
-        feiTicketItems: inboundTickets.map((ticket) => ({
-          feiTicketId: ticket.feiTicketId,
-          feiTicketNo: ticket.ticketNo,
-          spreadingOrderId: ticket.sourceSpreadingSessionId,
-          spreadingOrderNo: ticket.sourceSpreadingSessionNo,
-          cutOrderId: ticket.cutOrderId,
-          cutOrderNo: ticket.cutOrderNo,
-          pieceQty: Number(ticket.actualCutPieceQty || ticket.qty || 0),
-          unit: '片',
-          pieceSequenceLabel: ticket.pieceSequenceLabel || '按菲票追踪',
-          hasSpecialCraft: Boolean(ticket.hasSpecialCraft),
-        })),
-        totalPieceQty: inboundQty,
-        mixedFlag: buildInboundTempBagMixedFlag(inboundTickets),
-      },
     })
     form.scanCode = ''
     form.inboundQty = ''

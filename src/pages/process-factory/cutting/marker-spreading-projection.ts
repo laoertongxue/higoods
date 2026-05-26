@@ -20,7 +20,7 @@ import {
   createSpreadingDraftFromMarker,
   resolveSpreadingOrderStatusFromSession,
 } from './marker-spreading-model.ts'
-import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers.ts'
+import { buildMarkerSpreadingProjectionContext } from './execution-prep-projection-helpers.ts'
 import {
   buildMarkerPlanProjection,
 } from './marker-plan-projection.ts'
@@ -65,11 +65,11 @@ export interface SpreadingCreateSourceRow {
 
 export interface MarkerSpreadingProjection {
   snapshot: CuttingDomainSnapshot
-  rows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows']
-  rowsById: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows'][number]>
-  rowsByProductionOrderNo: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows'][]>
-  markerPlanSources: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanSources']
-  markerPlanSourcesById: Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanSources'][number]>
+  rows: ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['materialPrepRows']
+  rowsById: Record<string, ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['materialPrepRows'][number]>
+  rowsByProductionOrderNo: Record<string, ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['materialPrepRows'][]>
+  markerPlanSources: ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['markerPlanSources']
+  markerPlanSourcesById: Record<string, ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['markerPlanSources'][number]>
   store: MarkerSpreadingStore
   viewModel: ReturnType<typeof buildMarkerSpreadingViewModel>
   createSources: SpreadingCreateSourceRow[]
@@ -538,7 +538,7 @@ export function buildMarkerSpreadingProjection(options: {
   includeCreateSources?: boolean
   includeViewModel?: boolean
 } = {}): MarkerSpreadingProjection {
-  const context = buildExecutionPrepProjectionContext(options.snapshot)
+  const context = buildMarkerSpreadingProjectionContext(options.snapshot)
   const markerPlanProjection = buildMarkerPlanProjection()
   const baseStore =
     options.store ??
@@ -576,7 +576,7 @@ export function buildMarkerSpreadingProjection(options: {
       context.sources.materialPrepRows.map((row) => [row.cutOrderId, row]),
     ),
     rowsByProductionOrderNo: context.sources.materialPrepRows.reduce<
-      Record<string, ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows']>
+      Record<string, ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['materialPrepRows']>
     >((accumulator, row) => {
       const key = row.productionOrderNo || ''
       if (!key) return accumulator

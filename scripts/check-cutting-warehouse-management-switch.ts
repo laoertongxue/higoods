@@ -113,6 +113,10 @@ const waitHandoverHtml = renderCraftCuttingWarehouseManagementWaitHandoverPage()
   '二次分拣',
   '重新装袋',
   '新增交出记录',
+  'data-wait-handover-action="open-inbound"',
+  'data-wait-handover-action="open-sorting"',
+  'data-wait-handover-action="open-rebag"',
+  'data-wait-handover-action="open-handover"',
 ].forEach((item) => assertIncludes(waitHandoverHtml, item, `裁床待交出仓缺少仓库页签或动作：${item}`))
 assertOrdered(
   waitHandoverHtml,
@@ -135,6 +139,12 @@ const hubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
   'renderWarehouseLocationToolbar',
   'renderCuttingPageHeader',
   'renderCompactKpiCard',
+  'handleCraftCuttingWaitHandoverEvent',
+  'appendWaitHandoverInboundEvent',
+  'appendWaitHandoverSortingEvent',
+  'appendWaitHandoverRebagEvent',
+  'appendWaitHandoverHandoverRecordEvent',
+  "source: 'WEB'",
 ].forEach((item) => assertIncludes(hubSource, item, `hub 页缺少待交出仓仓库化能力：${item}`))
 ;['renderFactoryWarehouseStandardTabs', 'FactoryWarehouseStandardTab', "key: 'workbench'", "label: '裁后工作台'"].forEach((item) =>
   assertNotIncludes(hubSource, item, `待交出仓不应继续使用旧标准入口结构：${item}`),
@@ -144,7 +154,21 @@ const pdaWaitHandoverSource = read('src/pages/pda-warehouse-wait-handover.ts')
 ;['裁床待交出仓', '扫码入仓', '二次分拣', '重新装袋', '新增交出记录'].forEach((item) =>
   assertIncludes(pdaWaitHandoverSource, item, `PDA 裁床待交出仓缺少动作：${item}`),
 )
+assertIncludes(pdaWaitHandoverSource, 'buildWaitHandoverRuntimeProjection', 'PDA 裁床待交出仓必须读取同一事实账投影')
+;['cutting-wh-sort', 'cutting-wh-rebag', '请扫描待交出仓裁片配料任务码'].forEach((item) =>
+  assertNotIncludes(pdaWaitHandoverSource, item, `PDA 裁床待交出仓不得保留提示式假操作：${item}`),
+)
 assertNotIncludes(pdaWaitHandoverSource, '裁床交出仓', 'PDA 不应显示旧名称“裁床交出仓”')
+
+const waitHandoverRuntimeSource = read('src/pages/process-factory/cutting/wait-handover-runtime.ts')
+;[
+  'appendWaitHandoverInboundEvent',
+  'appendWaitHandoverSortingEvent',
+  'appendWaitHandoverRebagEvent',
+  'appendWaitHandoverHandoverRecordEvent',
+  'buildWaitHandoverRuntimeProjection',
+  'listWaitHandoverRuntimeEvents',
+].forEach((item) => assertIncludes(waitHandoverRuntimeSource, item, `缺少 Web/PDA 同账共享能力：${item}`))
 
 ;[
   'src/pages/process-factory/cutting/fabric-warehouse-model.ts',

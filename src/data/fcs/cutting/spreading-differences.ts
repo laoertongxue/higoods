@@ -73,9 +73,9 @@ export interface SpreadingDifference {
   linkedLedgerEventIds: string[]
 }
 
-export type ReplenishmentReviewResult = '需要补料' | '仅记录差异'
+export type ReplenishmentReviewResult = '需要补料' | '仅记录差异' | '关闭裁片单'
 
-export type ReplenishmentNextAction = '回到中转仓配料' | '无后续动作'
+export type ReplenishmentNextAction = '回到中转仓配料' | '无后续动作' | '关闭裁片单'
 
 export interface SpreadingReplenishmentHandlingObject {
   replenishmentId: string
@@ -808,13 +808,14 @@ function resolveReviewResultFromDifferenceType(differenceType: SpreadingDifferen
   if (differenceType === '实铺小于计划') return '需要补料'
   if (differenceType === '实裁小于计划') return '需要补料'
   if (differenceType === '卷记录异常') return '仅记录差异'
-  if (differenceType === '现场反馈') return '需要补料'
+  if (differenceType === '现场反馈') return '关闭裁片单'
   return ''
 }
 
 function resolveNextActionFromReviewResult(reviewResult: ReplenishmentReviewResult | ''): ReplenishmentNextAction | '' {
   if (reviewResult === '需要补料') return '回到中转仓配料'
   if (reviewResult === '仅记录差异') return '无后续动作'
+  if (reviewResult === '关闭裁片单') return '关闭裁片单'
   return ''
 }
 
@@ -843,8 +844,8 @@ export function buildSpreadingReplenishmentHandlingObjects(
       reviewStatus: reviewResult ? '已处理' : difference.handlingStatus,
       reviewResult,
       nextAction,
-      closeCutOrderRequired: false,
-      closeReason: '',
+      closeCutOrderRequired: reviewResult === '关闭裁片单',
+      closeReason: reviewResult === '关闭裁片单' ? '现场确认剩余缺口不再继续排唛架铺布裁剪。' : '',
       linkedLedgerEventIds: reviewResult === '仅记录差异' ? [] : [...difference.linkedLedgerEventIds],
     }
   })

@@ -1882,6 +1882,17 @@ function buildPickingScanChecks(tasks: HandoverPickingTask[], projection: Sewing
       },
     )
   }
+  if (!firstPicked && firstTask) {
+    checks.push({
+      checkId: 'PICK-CHECK-SYNC-FAILED-DEMO',
+      pickingTaskNo: firstTask.pickingTaskNo,
+      scanObject: '目标中转袋',
+      scannedValue: firstTask.targetTransferBags[0]?.bagCode || 'BAG-PICK-SYNC-DEMO',
+      checkResult: '提示',
+      reason: 'PDA 分拣提交已记录，等待重新同步',
+      syncStatus: '同步失败',
+    })
+  }
   return checks
 }
 

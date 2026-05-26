@@ -6,6 +6,8 @@ import {
 import { getCuttingRuntimeStorageSignature } from '../../../data/fcs/cutting/runtime-inputs.ts'
 import {
   mapCuttingDomainSnapshotToSummaryBuildOptions,
+  mapCuttingDomainSnapshotToMarkerSpreadingBuildOptions,
+  type MarkerSpreadingSummaryBuildOptions,
 } from './runtime-projections.ts'
 import type { CuttingSummaryBuildOptions } from './summary-model.ts'
 
@@ -14,11 +16,21 @@ export interface CuttingExecutionPrepProjectionContext {
   sources: CuttingSummaryBuildOptions
 }
 
+export interface MarkerSpreadingProjectionContext {
+  snapshot: CuttingDomainSnapshot
+  sources: MarkerSpreadingSummaryBuildOptions
+}
+
 let defaultExecutionPrepProjectionCache: {
   signature: string
   context: CuttingExecutionPrepProjectionContext
 } | null = null
+let defaultMarkerSpreadingProjectionCache: {
+  signature: string
+  context: MarkerSpreadingProjectionContext
+} | null = null
 const snapshotExecutionPrepProjectionCache = new WeakMap<CuttingDomainSnapshot, CuttingExecutionPrepProjectionContext>()
+const snapshotMarkerSpreadingProjectionCache = new WeakMap<CuttingDomainSnapshot, MarkerSpreadingProjectionContext>()
 
 export function buildExecutionPrepProjectionContext(
   snapshot?: CuttingDomainSnapshot,
@@ -49,6 +61,38 @@ export function buildExecutionPrepProjectionContext(
     sources: mapCuttingDomainSnapshotToSummaryBuildOptions(snapshot),
   }
   snapshotExecutionPrepProjectionCache.set(snapshot, context)
+  return context
+}
+
+export function buildMarkerSpreadingProjectionContext(
+  snapshot?: CuttingDomainSnapshot,
+): MarkerSpreadingProjectionContext {
+  if (!snapshot) {
+    const signature = getCuttingRuntimeStorageSignature()
+    if (defaultMarkerSpreadingProjectionCache?.signature === signature) {
+      return defaultMarkerSpreadingProjectionCache.context
+    }
+
+    const nextSnapshot = buildFcsCuttingDomainSnapshot()
+    const context = {
+      snapshot: nextSnapshot,
+      sources: mapCuttingDomainSnapshotToMarkerSpreadingBuildOptions(nextSnapshot),
+    }
+    defaultMarkerSpreadingProjectionCache = { signature, context }
+    snapshotMarkerSpreadingProjectionCache.set(nextSnapshot, context)
+    return context
+  }
+
+  const cachedContext = snapshotMarkerSpreadingProjectionCache.get(snapshot)
+  if (cachedContext) {
+    return cachedContext
+  }
+
+  const context = {
+    snapshot,
+    sources: mapCuttingDomainSnapshotToMarkerSpreadingBuildOptions(snapshot),
+  }
+  snapshotMarkerSpreadingProjectionCache.set(snapshot, context)
   return context
 }
 

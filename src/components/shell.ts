@@ -356,8 +356,9 @@ function joinClassNames(...values: Array<string | undefined>): string {
     .join(' ')
 }
 
+const iconMap = { ...lucideIcons, ...shellIcons } as unknown as Record<string, IconNode>
+
 export function hydrateIcons(root: ParentNode = document): void {
-  const iconMap = { ...lucideIcons, ...shellIcons } as unknown as Record<string, IconNode>
   root.querySelectorAll('[data-lucide]').forEach((element) => {
     const iconName = element.getAttribute('data-lucide')
     if (!iconName || !element.parentNode) return

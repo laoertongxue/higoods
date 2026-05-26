@@ -926,24 +926,27 @@ export function buildSpreadingListViewModel(options: {
 
   return options.spreadingSessions
     .map((session) => {
-      const cutOrderRows = session.cutOrderIds.map((id) => options.rowsById[id]).filter((row): row is MaterialPrepRow => Boolean(row))
-      const rollSummary = summarizeSpreadingRolls(session.rolls)
-      const operatorSummary = summarizeSpreadingOperators(session.operators)
+      const cutOrderIds = Array.isArray(session.cutOrderIds) ? session.cutOrderIds : []
+      const rolls = Array.isArray(session.rolls) ? session.rolls : []
+      const operators = Array.isArray(session.operators) ? session.operators : []
+      const cutOrderRows = cutOrderIds.map((id) => options.rowsById[id]).filter((row): row is MaterialPrepRow => Boolean(row))
+      const rollSummary = summarizeSpreadingRolls(rolls)
+      const operatorSummary = summarizeSpreadingOperators(operators)
       const cutOrderNos = cutOrderRows.map((row) => row.cutOrderNo)
       const modeMeta = deriveSpreadingModeMeta(session.spreadingMode)
       const batch = session.markerPlanId ? batchById[session.markerPlanId] : null
       const markerRecord = session.markerId ? markerById[session.markerId] || null : null
       const context = buildSessionContext(session, cutOrderRows, batch)
       const colorSummary = deriveSpreadingColorSummary({
-        rolls: session.rolls,
+        rolls,
         importSourceColorSummary: session.importSource?.sourceColorSummary,
         contextColors: cutOrderRows.map((row) => row.color),
         fallbackSummary: session.colorSummary,
       }).value
       const varianceSummary = buildSpreadingVarianceSummary(context, markerRecord, session)
-      const handoverSummary = buildSpreadingHandoverListSummary(session.rolls, session.operators, markerRecord?.totalPieces || 0)
+      const handoverSummary = buildSpreadingHandoverListSummary(rolls, operators, markerRecord?.totalPieces || 0)
       const operatorAmountSummary = summarizeSpreadingOperatorAmounts(
-        session.operators,
+        operators,
         markerRecord?.totalPieces || 0,
         session.unitPrice,
       )
@@ -970,20 +973,20 @@ export function buildSpreadingListViewModel(options: {
         sessionNo: session.sessionNo || session.spreadingSessionId,
         contextType: session.contextType,
         contextLabel: session.contextType === 'marker-plan' ? '唛架方案上下文' : '裁片单上下文',
-        cutOrderCount: session.cutOrderIds.length,
+        cutOrderCount: cutOrderIds.length,
         cutOrderNos,
         markerPlanNo: session.markerPlanNo || batch?.markerPlanNo || '',
         styleCode: session.styleCode || cutOrderRows[0]?.styleCode || '',
         spuCode: session.spuCode || cutOrderRows[0]?.spuCode || '',
         materialSkuSummary:
           session.materialSkuSummary || uniqueStrings(cutOrderRows.map((row) => row.materialSkuSummary)).join(' / '),
-        materialAliasSummary: session.materialAliasSummary || context.materialAliasSummary || '',
-        materialImageUrl: session.materialImageUrl || context.materialImageUrl || '',
+        materialAliasSummary: session.materialAliasSummary || context?.materialAliasSummary || '',
+        materialImageUrl: session.materialImageUrl || context?.materialImageUrl || '',
         colorSummary: colorSummary === '待补' ? '' : colorSummary,
         spreadingMode: session.spreadingMode,
         spreadingModeLabel: modeMeta.label,
-        rollCount: session.rollCount || session.rolls.length,
-        operatorCount: session.operatorCount || session.operators.length,
+        rollCount: session.rollCount || rolls.length,
+        operatorCount: session.operatorCount || operators.length,
         totalActualLength: session.totalActualLength || rollSummary.totalActualLength,
         totalCalculatedUsableLength: session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength,
         totalRemainingLength: session.totalRemainingLength ?? rollSummary.totalRemainingLength,
@@ -991,7 +994,7 @@ export function buildSpreadingListViewModel(options: {
         plannedCutGarmentQty: varianceSummary?.plannedCutGarmentQty || replenishmentWarning.plannedCutGarmentQty,
         theoreticalCutGarmentQty: varianceSummary?.theoreticalCutGarmentQty || replenishmentWarning.theoreticalCutGarmentQty,
         actualCutGarmentQty: varianceSummary?.actualCutGarmentQty || replenishmentWarning.actualCutGarmentQty,
-        fabricRollCount: varianceSummary?.fabricRollCount || session.rolls.length,
+        fabricRollCount: varianceSummary?.fabricRollCount || rolls.length,
         spreadLayerCount: varianceSummary?.spreadLayerCount || rollSummary.totalLayers,
         spreadActualLengthM: varianceSummary?.spreadActualLengthM || session.totalActualLength || rollSummary.totalActualLength,
         spreadUsableLengthM: varianceSummary?.spreadUsableLengthM || session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength,
@@ -1049,9 +1052,9 @@ export function buildSpreadingListViewModel(options: {
           session.styleCode,
           session.spuCode,
           session.materialSkuSummary,
-          ...session.rolls.map((roll) => roll.rollNo),
-          ...session.rolls.map((roll) => roll.materialSku),
-          ...session.operators.map((operator) => operator.operatorName),
+          ...rolls.map((roll) => roll.rollNo),
+          ...rolls.map((roll) => roll.materialSku),
+          ...operators.map((operator) => operator.operatorName),
         ]),
       }
     })

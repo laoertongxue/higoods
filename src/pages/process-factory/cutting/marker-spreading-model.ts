@@ -3578,6 +3578,10 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
             const rollSummary = summarizeSpreadingRolls(rolls)
             return {
               ...session,
+              contextType: session.contextType === 'marker-plan' ? 'marker-plan' : 'cut-order',
+              cutOrderIds: Array.isArray(session.cutOrderIds) ? session.cutOrderIds.filter(Boolean) : [],
+              markerPlanId: session.markerPlanId || '',
+              markerPlanNo: session.markerPlanNo || '',
               spreadingMode: normalizeMarkerMode(session.spreadingMode as string | undefined),
               rolls,
               operators: Array.isArray(session.operators)
@@ -3655,6 +3659,22 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
               theoreticalActualCutPieceQty: session.theoreticalActualCutPieceQty ?? 0,
               importAdjustmentRequired: Boolean(session.importAdjustmentRequired),
               importAdjustmentNote: session.importAdjustmentNote || '',
+              completionLinkage: session.completionLinkage
+                ? {
+                    ...session.completionLinkage,
+                    linkedCutOrderIds: Array.isArray(session.completionLinkage.linkedCutOrderIds)
+                      ? session.completionLinkage.linkedCutOrderIds.filter(Boolean)
+                      : [],
+                    linkedCutOrderNos: Array.isArray(session.completionLinkage.linkedCutOrderNos)
+                      ? session.completionLinkage.linkedCutOrderNos.filter(Boolean)
+                      : [],
+                    completedAt: session.completionLinkage.completedAt || '',
+                    completedBy: session.completionLinkage.completedBy || '',
+                    generatedWarningId: session.completionLinkage.generatedWarningId || '',
+                    generatedWarning: Boolean(session.completionLinkage.generatedWarning),
+                    note: session.completionLinkage.note || '',
+                  }
+                : undefined,
               prototypeLifecycleOverrides: session.prototypeLifecycleOverrides || null,
             }
           })

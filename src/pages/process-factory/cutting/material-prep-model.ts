@@ -681,6 +681,7 @@ function createRow(
   record: CuttingOrderProgressRecord,
   line: CuttingMaterialLine,
   ledger: MarkerPlanSourceRecord[],
+  options: { includeClaimDisputes?: boolean } = {},
 ): MaterialPrepRow {
   const cutOrderId = line.cutOrderId || line.cutOrderNo || line.cutPieceOrderNo
   const cutOrderNo = line.cutOrderNo || line.cutOrderId || line.cutPieceOrderNo
@@ -776,7 +777,7 @@ function createRow(
     ]),
   }
 
-  return recalculateMaterialPrepRow(baseRow, record)
+  return recalculateMaterialPrepRow(baseRow, record, options)
 }
 
 function applyPendingPrepFollowupsToRow(
@@ -865,6 +866,7 @@ function applyPendingPrepFollowupsToRow(
 export function recalculateMaterialPrepRow(
   row: MaterialPrepRow,
   sourceRecord?: CuttingOrderProgressRecord,
+  options: { includeClaimDisputes?: boolean } = {},
 ): MaterialPrepRow {
   row.materialLineItems = row.materialLineItems.map((item) => {
     const shortageQty = Math.max(item.requiredQty - item.claimedQty, 0)
@@ -903,17 +905,29 @@ export function recalculateMaterialPrepRow(
   row.claimRecordCount = row.claimRecords.length
   row.latestClaimRecordAt = row.claimRecords[0]?.claimedAt || ''
   row.latestClaimRecordSummary = row.claimRecords[0]?.summary || '暂无来料记录'
-  row.claimDisputes = listClaimDisputesByCutOrderNo(row.cutOrderNo)
-  row.claimDisputeCount = row.claimDisputes.length
-  row.latestClaimDispute = getLatestClaimDisputeByCutOrderNo(row.cutOrderNo)
-  row.hasClaimDispute = Boolean(row.latestClaimDispute)
-  row.claimDisputeStatusLabel = row.latestClaimDispute ? getClaimDisputeStatusLabel(row.latestClaimDispute.status) : '暂无异议'
-  row.claimDisputeSummary = row.latestClaimDispute ? buildCraftClaimDisputeSummary(row.latestClaimDispute) : '当前暂无领料长度异议。'
-  row.claimDisputeDiscrepancyText = row.latestClaimDispute ? `差异 ${formatDisputeQty(row.latestClaimDispute.discrepancyQty)}` : '差异 0 米'
-  row.claimDisputeEvidenceCount = row.latestClaimDispute?.evidenceCount ?? 0
-  row.claimDisputeHandleSummary = row.latestClaimDispute
-    ? row.latestClaimDispute.handleConclusion || row.latestClaimDispute.handleNote || '待平台处理结果'
-    : '待平台处理结果'
+  if (options.includeClaimDisputes === false) {
+    row.claimDisputes = []
+    row.claimDisputeCount = 0
+    row.latestClaimDispute = null
+    row.hasClaimDispute = false
+    row.claimDisputeStatusLabel = '暂无异议'
+    row.claimDisputeSummary = '当前暂无领料长度异议。'
+    row.claimDisputeDiscrepancyText = '差异 0 米'
+    row.claimDisputeEvidenceCount = 0
+    row.claimDisputeHandleSummary = '待平台处理结果'
+  } else {
+    row.claimDisputes = listClaimDisputesByCutOrderNo(row.cutOrderNo)
+    row.claimDisputeCount = row.claimDisputes.length
+    row.latestClaimDispute = getLatestClaimDisputeByCutOrderNo(row.cutOrderNo)
+    row.hasClaimDispute = Boolean(row.latestClaimDispute)
+    row.claimDisputeStatusLabel = row.latestClaimDispute ? getClaimDisputeStatusLabel(row.latestClaimDispute.status) : '暂无异议'
+    row.claimDisputeSummary = row.latestClaimDispute ? buildCraftClaimDisputeSummary(row.latestClaimDispute) : '当前暂无领料长度异议。'
+    row.claimDisputeDiscrepancyText = row.latestClaimDispute ? `差异 ${formatDisputeQty(row.latestClaimDispute.discrepancyQty)}` : '差异 0 米'
+    row.claimDisputeEvidenceCount = row.latestClaimDispute?.evidenceCount ?? 0
+    row.claimDisputeHandleSummary = row.latestClaimDispute
+      ? row.latestClaimDispute.handleConclusion || row.latestClaimDispute.handleNote || '待平台处理结果'
+      : '待平台处理结果'
+  }
 
   const fallbackRecord: CuttingOrderProgressRecord = sourceRecord || {
     id: row.productionOrderId,
@@ -951,6 +965,7 @@ export function buildMaterialPrepViewModel(
   options: {
     pickupEvents?: PdaPickupEventRecord[]
     pendingPrepFollowups?: ReplenishmentPendingPrepFollowupRecord[]
+    includeClaimDisputes?: boolean
   } = {},
 ): MaterialPrepViewModel {
   const pickupEvents = options.pickupEvents ?? listPdaPickupEvents(getBrowserLocalStorage() || undefined)
@@ -967,7 +982,9 @@ export function buildMaterialPrepViewModel(
   const rows = records
     .flatMap((record) =>
       record.materialLines.map((line) => {
-        const row = createRow(record, line, ledger)
+        const row = createRow(record, line, ledger, {
+          includeClaimDisputes: options.includeClaimDisputes,
+        })
         const hydratedRow = applyPdaPickupEventsToRow(row, pickupEventsByCutOrderNo[row.cutOrderNo] || [], record)
         return applyPendingPrepFollowupsToRow(hydratedRow, pendingPrepFollowups)
       }),

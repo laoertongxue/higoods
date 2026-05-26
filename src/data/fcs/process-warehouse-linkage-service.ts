@@ -4,7 +4,10 @@ import { getDyeWorkOrderById } from './dyeing-task-domain.ts'
 import { cutPieceOrderRecords, type CutPieceOrderRecord } from './cutting/cut-piece-orders.ts'
 import { buildFcsCuttingDomainSnapshot } from '../../domain/fcs-cutting-runtime/index.ts'
 import type { GeneratedCutOrderSourceRecord } from './cutting/generated-cut-orders.ts'
-import { listSpreadingResultGeneratedFeiTicketsByCutOrderId } from './cutting/generated-fei-tickets.ts'
+import {
+  listSpreadingResultGeneratedFeiTickets,
+  listSpreadingResultGeneratedFeiTicketsByCutOrderId,
+} from './cutting/generated-fei-tickets.ts'
 import {
   getSpecialCraftTaskWorkOrderById,
 } from './special-craft-task-orders.ts'
@@ -13,6 +16,7 @@ import {
 } from './post-finishing-domain.ts'
 import {
   applySpecialCraftDifferenceToFeiTickets,
+  attachProcessHandoverRecordFeiTickets,
   createProcessHandoverDifferenceRecord,
   createProcessHandoverRecord,
   createWaitHandoverWarehouseRecord,
@@ -249,9 +253,16 @@ function findGeneratedCutOrder(sourceId: string): GeneratedCutOrderSourceRecord 
   )
 }
 
-function resolveCuttingFeiTicketIds(cutOrderId: string | undefined): string[] {
-  if (!cutOrderId) return []
-  return listSpreadingResultGeneratedFeiTicketsByCutOrderId(cutOrderId).map((ticket) => ticket.feiTicketNo)
+function resolveCuttingFeiTicketIds(cutOrderId: string | undefined, cutOrderNo?: string, productionOrderNo?: string): string[] {
+  const byCutOrderId = cutOrderId ? listSpreadingResultGeneratedFeiTicketsByCutOrderId(cutOrderId) : []
+  const allTickets = byCutOrderId.length ? byCutOrderId : listSpreadingResultGeneratedFeiTickets().filter((ticket) =>
+    (cutOrderId && ticket.cutOrderId === cutOrderId) ||
+    (cutOrderNo && ticket.cutOrderNo === cutOrderNo) ||
+    (productionOrderNo && ticket.productionOrderNo === productionOrderNo),
+  )
+  const ticketNos = allTickets.map((ticket) => ticket.feiTicketNo).filter(Boolean)
+  if (ticketNos.length) return ticketNos
+  return cutOrderNo ? [`FT-${cutOrderNo}-001`] : []
 }
 
 function resolveCuttingContextFromGeneratedOrder(
@@ -261,24 +272,24 @@ function resolveCuttingContextFromGeneratedOrder(
   const binding = validateCuttingOrderMobileTaskBinding(order.cutOrderId)
   const isPickup = actionResult.actionCode === 'CUTTING_CONFIRM_PICKUP'
   const objectQty = roundQty(actionResult.objectQty || order.requiredQty)
-  const feiTicketIds = resolveCuttingFeiTicketIds(order.cutOrderId)
+  const feiTicketIds = resolveCuttingFeiTicketIds(order.cutOrderId, order.cutOrderNo, order.productionOrderNo)
   return {
     craftType: 'CUTTING',
     craftName: '裁片',
-    sourceWorkOrderId: order.cutOrderId,
+    sourceWorkOrderId: actionResult.sourceId,
     sourceWorkOrderNo: order.cutOrderNo,
     sourceTaskId: binding.actualTaskId,
     sourceTaskNo: binding.actualTaskNo,
     sourceProductionOrderId: order.productionOrderId,
     sourceProductionOrderNo: order.productionOrderNo,
-    sourceDemandId: order.cutOrderId,
+    sourceDemandId: actionResult.sourceId,
     sourceDemandNo: order.cutOrderNo,
     sourceFactoryId: TEST_FACTORY_ID,
     sourceFactoryName: TEST_FACTORY_NAME,
     targetFactoryId: TEST_FACTORY_ID,
     targetFactoryName: TEST_FACTORY_NAME,
-    targetWarehouseName: isPickup ? '裁床待加工仓' : '裁片待交出仓',
-    warehouseLocation: isPickup ? '裁床待加工仓-C01' : '裁片待交出仓-C01',
+    targetWarehouseName: isPickup ? '裁床待加工仓' : '裁床待交出仓',
+    warehouseLocation: isPickup ? '裁床待加工仓-C01' : '裁床待交出仓-C01',
     skuSummary: order.pieceSummary || order.materialSku,
     materialSku: order.materialSku,
     materialName: order.materialLabel,
@@ -302,24 +313,24 @@ function resolveCuttingContext(actionResult: ProcessWarehouseLinkageActionResult
   const binding = validateCuttingOrderMobileTaskBinding(order.cutOrderId || order.id)
   const isPickup = actionResult.actionCode === 'CUTTING_CONFIRM_PICKUP'
   const objectQty = roundQty(actionResult.objectQty || (isPickup ? order.markerInfo.netLength : order.markerInfo.totalPieces || order.orderQty))
-  const feiTicketIds = resolveCuttingFeiTicketIds(order.cutOrderId || order.id)
+  const feiTicketIds = resolveCuttingFeiTicketIds(order.cutOrderId || order.id, order.cutOrderNo || order.cutPieceOrderNo, order.productionOrderNo)
   return {
     craftType: 'CUTTING',
     craftName: '裁片',
-    sourceWorkOrderId: order.cutOrderId || order.id,
+    sourceWorkOrderId: actionResult.sourceId,
     sourceWorkOrderNo: order.cutOrderNo || order.cutPieceOrderNo,
     sourceTaskId: binding.actualTaskId,
     sourceTaskNo: binding.actualTaskNo,
     sourceProductionOrderId: order.productionOrderId,
     sourceProductionOrderNo: order.productionOrderNo,
-    sourceDemandId: order.cutOrderId || order.id,
+    sourceDemandId: actionResult.sourceId,
     sourceDemandNo: order.cutOrderNo || order.cutPieceOrderNo,
     sourceFactoryId: TEST_FACTORY_ID,
     sourceFactoryName: TEST_FACTORY_NAME,
     targetFactoryId: TEST_FACTORY_ID,
     targetFactoryName: TEST_FACTORY_NAME,
-    targetWarehouseName: isPickup ? '裁床待加工仓' : '裁片待交出仓',
-    warehouseLocation: isPickup ? '裁床待加工仓-C01' : '裁片待交出仓-C01',
+    targetWarehouseName: isPickup ? '裁床待加工仓' : '裁床待交出仓',
+    warehouseLocation: isPickup ? '裁床待加工仓-C01' : '裁床待交出仓-C01',
     skuSummary: `${order.materialSku} / ${order.materialLabel}`,
     materialSku: order.materialSku,
     materialName: order.materialLabel,
@@ -461,7 +472,7 @@ function ensureHandoverRecord(
   warehouseRecordId?: string,
 ): ProcessHandoverRecord {
   const existed = actionResult.affectedHandoverRecordId ? getProcessHandoverRecordById(actionResult.affectedHandoverRecordId) : undefined
-  if (existed) return existed
+  if (existed) return attachProcessHandoverRecordFeiTickets(existed.handoverRecordId, context.relatedFeiTicketIds) || existed
   const fallbackWarehouse =
     warehouseRecordId ||
     listWaitHandoverWarehouseRecords({
@@ -603,7 +614,7 @@ export function applyCuttingWarehouseLinkageAfterAction(actionResult: ProcessWar
     createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
     updatedWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
     updatedFeiTicketIds: context.relatedFeiTicketIds,
-    message: '裁片待交出仓已联动，菲票归属裁片单',
+    message: '裁床待交出仓已联动，菲票归属裁片单',
   })
   if (actionResult.actionCode === 'CUTTING_SUBMIT_HANDOVER') {
     const handover = ensureHandoverRecord({ ...context, objectType: '裁片', qtyUnit: '片' }, actionResult, waitHandover.warehouseRecordId)

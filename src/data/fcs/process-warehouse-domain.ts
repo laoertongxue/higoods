@@ -1137,6 +1137,18 @@ export function getProcessHandoverRecordById(recordId: string): ProcessHandoverR
   return record ? cloneHandoverRecord(record) : undefined
 }
 
+export function attachProcessHandoverRecordFeiTickets(handoverRecordId: string, feiTicketIds: string[]): ProcessHandoverRecord | undefined {
+  const record = processHandoverRecords.find((item) => item.handoverRecordId === handoverRecordId)
+  if (!record) return undefined
+  const nextFeiTicketIds = Array.from(new Set([...record.relatedFeiTicketIds, ...feiTicketIds].filter(Boolean)))
+  record.relatedFeiTicketIds = nextFeiTicketIds
+  const warehouse = processWarehouseRecords.find((item) => item.warehouseRecordId === record.warehouseRecordId)
+  if (warehouse) {
+    warehouse.relatedFeiTicketIds = Array.from(new Set([...warehouse.relatedFeiTicketIds, ...nextFeiTicketIds].filter(Boolean)))
+  }
+  return cloneHandoverRecord(record)
+}
+
 export function getProcessHandoverDifferenceRecordById(differenceRecordId: string): ProcessHandoverDifferenceRecord | undefined {
   const record = processHandoverDifferenceRecords.find((item) => item.differenceRecordId === differenceRecordId)
   return record ? cloneDifferenceRecord(record) : undefined

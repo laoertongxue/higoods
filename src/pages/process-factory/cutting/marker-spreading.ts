@@ -159,9 +159,6 @@ import {
 import { buildPdaCuttingMainlinePathForSession } from '../../../data/fcs/cutting/cutting-mainline.ts'
 import { listSpreadingDifferencesBySpreadingOrder } from '../../../data/fcs/cutting/spreading-differences.ts'
 
-void import('../../pda-cutting-execution-unit.ts')
-void import('../../../router/routes-pda.ts')
-
 type ListTabKey = 'ALL' | SpreadingListStatusKey
 type FeedbackTone = 'success' | 'warning'
 type MarkerModeFilter = 'ALL' | MarkerModeKey
@@ -2616,6 +2613,7 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
                 </div>
                 <div class="flex flex-col gap-1">
                   <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
+                  <button type="button" class="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700 hover:bg-blue-100" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(row.spreadingSessionId)}">编辑铺布</button>
                   <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看 PDA 记录</button>
                   <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(row.spreadingSessionId)}">处理差异</button>
                 </div>
@@ -2638,6 +2636,7 @@ function renderSpreadingSupervisorListPage(): string {
     <div class="space-y-4 p-4" data-testid="cutting-spreading-list-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
+          '<button type="button" class="rounded-md bg-blue-600 px-3 py-3 text-sm text-white hover:bg-blue-700" data-cutting-marker-action="create-spreading">新增铺布单</button>',
           '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="export-spreading-list">导出当前视图</button>',
         ])),
       })}
@@ -4094,6 +4093,7 @@ function renderSpreadingDetailPage(): string {
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
           '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-list" data-tab="spreadings">返回铺布单</button>',
+          `<button type="button" class="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(session.spreadingSessionId)}">编辑铺布</button>`,
           `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">处理差异</button>`,
           `${row.markerPlanNo ? `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-marker-plan" data-session-id="${escapeHtml(row.spreadingSessionId)}">去来源唛架方案</button>` : ''}`,
         ])),

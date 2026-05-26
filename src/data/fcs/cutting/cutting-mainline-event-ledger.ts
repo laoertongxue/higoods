@@ -10,7 +10,7 @@ import { buildSpreadingReplenishmentHandlingObjects, listSpreadingDifferences } 
 
 export type CuttingMainlineLedgerEventStage =
   | '数量账'
-  | 'PDA执行事件'
+  | 'PDA执行写回'
   | '铺布裁剪差异'
   | '补料管理'
   | '裁片单关闭'
@@ -51,10 +51,28 @@ function buildPdaRuntimeEvents(): CuttingMainlineLedgerEvent[] {
     ...store.handoverEvents,
     ...store.replenishmentFeedbackEvents,
   ]
+  if (!pdaEvents.length) {
+    return [{
+      eventId: 'PDA-RUNTIME-DEMO-WRITEBACK',
+      eventStage: 'PDA执行写回',
+      eventType: 'PDA现场扫码写回',
+      sourceObjectType: 'CUTTING_RUNTIME_EVENT',
+      sourceObjectId: 'PDA-RUNTIME-DEMO-WRITEBACK',
+      sourceObjectNo: 'PDA-DEMO-CUTTING',
+      productionOrderIds: ['PO-202603-0102'],
+      cutOrderIds: ['CUT-260307-102-01'],
+      occurredAt: '2026-05-23 10:30',
+      operatorName: 'PDA 裁片仓操作员',
+      quantity: 1,
+      unit: '次',
+      ledgerEventIds: ['PDA-RUNTIME-DEMO-WRITEBACK'],
+      traceText: 'PDA现场扫码写回 / 裁床待交出仓 / 同一事实账',
+    }]
+  }
 
   return pdaEvents.map((record) => ({
     eventId: record.runtimeEventId,
-    eventStage: 'PDA执行事件',
+    eventStage: 'PDA执行写回',
     eventType: record.actionType,
     sourceObjectType: 'CUTTING_RUNTIME_EVENT',
     sourceObjectId: record.sourceEventId || record.runtimeEventId,
