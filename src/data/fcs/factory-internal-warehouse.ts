@@ -13,7 +13,7 @@ import {
 
 export type FactoryInternalWarehouseKind = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
 export type FactoryWarehouseLocationStatus = 'AVAILABLE' | 'STOPPED'
-export type FactoryWarehouseSourceRecordType = 'MATERIAL_PICKUP' | 'HANDOVER_RECEIVE' | 'TRANSFER_RECEIVE'
+export type FactoryWarehouseSourceRecordType = 'MATERIAL_PICKUP' | 'HANDOVER_RECEIVE' | 'TRANSFER_RECEIVE' | 'STOCKTAKE_ADJUSTMENT'
 export type FactoryWarehouseSourceObjectKind =
   | '面辅料仓'
   | '中转仓'
@@ -275,6 +275,10 @@ export interface FactoryWarehouseStocktakeOrder {
   warehouseName: string
   warehouseKind: FactoryInternalWarehouseKind
   stocktakeScope: FactoryWarehouseStocktakeScope
+  stocktakeMethod?: FactoryWarehouseStocktakeScope
+  isBlindStocktake?: boolean
+  ownerNames?: string[]
+  plannedAt?: string
   status: FactoryWarehouseStocktakeStatus
   createdBy: string
   createdAt: string
@@ -319,6 +323,7 @@ export interface FactoryWarehouseStocktakeDifferenceReview {
 export interface FactoryWarehouseAdjustmentOrder {
   adjustmentOrderId: string
   adjustmentOrderNo: string
+  adjustmentType?: '盘盈单' | '盘亏单'
   sourceStocktakeOrderId: string
   sourceStocktakeOrderNo: string
   sourceLineId: string
@@ -525,6 +530,29 @@ export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = moc
         } satisfies FactoryInternalWarehouse
       })
     })
+}
+
+const ONBOARDING_CUTTING_FACTORY_ID = 'FACTORY-ONBOARD-0034'
+const ONBOARDING_CUTTING_FACTORY_NAME = '定向裁演示工厂34'
+
+function buildOnboardingCuttingInternalWarehouses(): FactoryInternalWarehouse[] {
+  return (['WAIT_PROCESS', 'WAIT_HANDOVER'] as const).map((warehouseKind) => {
+    const warehouseShortName = getWarehouseShortName(warehouseKind)
+    return {
+      warehouseId: `FIW-${ONBOARDING_CUTTING_FACTORY_ID}-${warehouseKind}`,
+      factoryId: ONBOARDING_CUTTING_FACTORY_ID,
+      factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
+      factoryKind: 'CENTRAL_CUTTING',
+      warehouseKind,
+      warehouseName: `${ONBOARDING_CUTTING_FACTORY_NAME} · ${warehouseShortName}`,
+      warehouseShortName,
+      isDefault: true,
+      isEnabled: true,
+      areaList: buildDefaultAreaList(),
+      createdAt: '2026-04-20 08:00:00',
+      updatedAt: '2026-04-20 08:00:00',
+    } satisfies FactoryInternalWarehouse
+  })
 }
 
 function pickWarehouseLocation(
@@ -887,6 +915,8 @@ function buildWaitProcessStockItemFromInbound(
     sourceObjectKind:
       record.sourceRecordType === 'MATERIAL_PICKUP'
         ? '面辅料仓'
+        : record.sourceRecordType === 'STOCKTAKE_ADJUSTMENT'
+          ? '上游工厂仓'
         : resolveSourceObjectKindFromHead({
           handoverId: '',
           headType: 'HANDOUT',
@@ -1304,7 +1334,10 @@ function refreshStocktakeOrderStatusAfterAdjustment(order: FactoryWarehouseStock
 }
 
 function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
-  const warehouses = buildDefaultFactoryInternalWarehouses(mockFactories)
+  const warehouses = [
+    ...buildDefaultFactoryInternalWarehouses(mockFactories),
+    ...buildOnboardingCuttingInternalWarehouses(),
+  ]
   const warehouseMap = new Map<string, FactoryInternalWarehouse>()
   const waitProcessWarehouseMap = new Map<string, FactoryInternalWarehouse>()
   const waitHandoverWarehouseMap = new Map<string, FactoryInternalWarehouse>()
@@ -1400,6 +1433,46 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
     })
   }
 
+  const onboardingWaitProcessWarehouse = waitProcessWarehouseMap.get(ONBOARDING_CUTTING_FACTORY_ID)
+  if (onboardingWaitProcessWarehouse) {
+    const location = pickWarehouseLocation(onboardingWaitProcessWarehouse, 'CUT-260306-101-01', '已入库')
+    inboundRecords.push({
+      inboundRecordId: 'INB-ONBOARD-CUT-260306-101-01',
+      inboundRecordNo: 'RK-CUT-260306-101-01',
+      warehouseId: onboardingWaitProcessWarehouse.warehouseId,
+      warehouseName: onboardingWaitProcessWarehouse.warehouseName,
+      factoryId: ONBOARDING_CUTTING_FACTORY_ID,
+      factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
+      factoryKind: 'CENTRAL_CUTTING',
+      processCode: 'CUT_PANEL',
+      processName: '裁床',
+      sourceRecordId: 'PICKUP-CUT-260306-101-01',
+      sourceRecordNo: 'LL-CUT-260306-101-01',
+      sourceRecordType: 'MATERIAL_PICKUP',
+      sourceObjectName: '中央仓-中转仓',
+      taskId: 'CUT-260306-101-01',
+      taskNo: 'CUT-260306-101-01',
+      itemKind: '面料',
+      itemName: 'Black 弹力斜纹主面料',
+      materialSku: 'tdv_demand_SPU_2024_010-bom-black-stretch-twill',
+      fabricColor: 'Black',
+      sizeCode: '整匹',
+      fabricRollNo: 'ROLL-CUT-101-01',
+      expectedQty: 1320,
+      receivedQty: 1320,
+      differenceQty: 0,
+      unit: '米',
+      receiverName: '裁床仓管',
+      receivedAt: '2026-04-20 09:30:00',
+      areaName: location.areaName,
+      shelfNo: location.shelfNo,
+      locationNo: location.locationNo,
+      status: '已入库',
+      photoList: [],
+      remark: 'PDA 扫码入仓演示数据',
+    })
+  }
+
   const waitProcessStockItems = inboundRecords.map((record) => buildWaitProcessStockItemFromInbound(record))
   inboundRecords.forEach((record, index) => {
     record.generatedStockItemId = waitProcessStockItems[index]?.stockItemId
@@ -1465,6 +1538,46 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
       outboundRecords.push(diffOutbound)
       waitHandoverStockItems.push(diffWaitHandoverStockItem)
     }
+  }
+
+  const onboardingWaitHandoverWarehouse = waitHandoverWarehouseMap.get(ONBOARDING_CUTTING_FACTORY_ID)
+  if (onboardingWaitHandoverWarehouse) {
+    const location = pickWarehouseLocation(onboardingWaitHandoverWarehouse, 'PB-ONBOARD-001', '待交出')
+    waitHandoverStockItems.push({
+      stockItemId: 'WHS-ONBOARD-PB-001-FEI-001',
+      warehouseId: onboardingWaitHandoverWarehouse.warehouseId,
+      factoryId: ONBOARDING_CUTTING_FACTORY_ID,
+      factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
+      factoryKind: 'CENTRAL_CUTTING',
+      warehouseName: onboardingWaitHandoverWarehouse.warehouseName,
+      processCode: 'CUT_PANEL',
+      processName: '裁床',
+      taskId: 'PB-ONBOARD-001',
+      taskNo: 'PB-ONBOARD-001',
+      productionOrderId: 'PO-202603-0004',
+      productionOrderNo: 'PO-202603-0004',
+      itemKind: '裁片',
+      itemName: '前片待交出',
+      materialSku: 'tdv_demand_SPU_2024_010-bom-black-stretch-twill',
+      partName: '前片',
+      fabricColor: 'Black',
+      sizeCode: 'M',
+      feiTicketNo: 'FT-ONBOARD-001',
+      transferBagNo: 'TB-ONBOARD-001',
+      completedQty: 80,
+      lossQty: 0,
+      waitHandoverQty: 80,
+      unit: '片',
+      receiverKind: '后道工厂',
+      receiverName: '后道工厂',
+      areaName: location.areaName,
+      shelfNo: location.shelfNo,
+      locationNo: location.locationNo,
+      locationText: location.locationText,
+      status: '待交出',
+      photoList: [],
+      remark: '菲票入仓演示库存',
+    })
   }
 
   const completionSeedFactory = factoryMap.get('ID-F002')
@@ -1559,6 +1672,10 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
       warehouseName: completedWarehouse.warehouseName,
       warehouseKind: completedWarehouse.warehouseKind,
       stocktakeScope: '全盘',
+      stocktakeMethod: '全盘',
+      isBlindStocktake: false,
+      ownerNames: ['仓库专员'],
+      plannedAt: '2026-04-18 09:00:00',
       status: '已完成',
       createdBy: '仓库专员',
       createdAt: '2026-04-18 09:10:00',
@@ -1576,6 +1693,10 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
       warehouseName: pendingWarehouse.warehouseName,
       warehouseKind: pendingWarehouse.warehouseKind,
       stocktakeScope: '全盘',
+      stocktakeMethod: '全盘',
+      isBlindStocktake: true,
+      ownerNames: ['仓库专员', '仓库主管'],
+      plannedAt: '2026-04-20 14:00:00',
       status: '待确认',
       createdBy: '仓库专员',
       createdAt: '2026-04-20 14:10:00',
@@ -1712,12 +1833,14 @@ export function getFactoryWarehouseAdjustmentOrder(adjustmentOrderId: string): F
 export function getFactoryWarehouseSourceRecordTypeLabel(sourceRecordType: FactoryWarehouseSourceRecordType): string {
   if (sourceRecordType === 'MATERIAL_PICKUP') return '领料记录'
   if (sourceRecordType === 'HANDOVER_RECEIVE') return '交出接收'
+  if (sourceRecordType === 'STOCKTAKE_ADJUSTMENT') return '盘点调整'
   return '转入接收'
 }
 
 export function getFactoryWarehouseInboundSourceLabel(sourceRecordType: FactoryWarehouseSourceRecordType): string {
   if (sourceRecordType === 'MATERIAL_PICKUP') return '由领料记录生成'
   if (sourceRecordType === 'HANDOVER_RECEIVE') return '由交出接收生成'
+  if (sourceRecordType === 'STOCKTAKE_ADJUSTMENT') return '由盘点调整生成'
   return '由转入接收生成'
 }
 
@@ -2117,6 +2240,12 @@ export function createFactoryWarehouseStocktakeOrder(
   factoryId: string,
   warehouseId: string,
   createdBy = '仓库专员',
+  options: {
+    stocktakeMethod?: FactoryWarehouseStocktakeScope
+    isBlindStocktake?: boolean
+    ownerNames?: string[]
+    plannedAt?: string
+  } = {},
 ): FactoryWarehouseStocktakeOrder | null {
   const store = ensureFactoryInternalWarehouseStore()
   const warehouse = store.warehouses.find((item) => item.warehouseId === warehouseId && item.factoryId === factoryId)
@@ -2140,7 +2269,11 @@ export function createFactoryWarehouseStocktakeOrder(
     warehouseId,
     warehouseName: warehouse.warehouseName,
     warehouseKind: warehouse.warehouseKind,
-    stocktakeScope: '全盘',
+    stocktakeScope: options.stocktakeMethod || '全盘',
+    stocktakeMethod: options.stocktakeMethod || '全盘',
+    isBlindStocktake: Boolean(options.isBlindStocktake),
+    ownerNames: options.ownerNames?.length ? options.ownerNames : [createdBy],
+    plannedAt: options.plannedAt || now,
     status: '盘点中',
     createdBy,
     createdAt: now,
@@ -2252,7 +2385,8 @@ export function approveFactoryWarehouseStocktakeDifferenceReview(input: {
   if (!adjustment) {
     adjustment = {
       adjustmentOrderId,
-      adjustmentOrderNo: `TZ-${review.stocktakeOrderNo.replace(/[^A-Za-z0-9]/g, '').slice(-8)}-${String(store.adjustmentOrders.length + 1).padStart(3, '0')}`,
+      adjustmentOrderNo: `${review.countedQty - review.bookQty > 0 ? 'PY' : 'PK'}-${review.stocktakeOrderNo.replace(/[^A-Za-z0-9]/g, '').slice(-8)}-${String(store.adjustmentOrders.length + 1).padStart(3, '0')}`,
+      adjustmentType: review.countedQty - review.bookQty > 0 ? '盘盈单' : '盘亏单',
       sourceStocktakeOrderId: review.stocktakeOrderId,
       sourceStocktakeOrderNo: review.stocktakeOrderNo,
       sourceLineId: review.lineId,
@@ -2336,6 +2470,101 @@ export function executeFactoryWarehouseAdjustmentOrder(input: {
       stockItem.waitHandoverQty = roundQty(adjustment.countedQty)
       stockItem.differenceQty = roundQty(stockItem.waitHandoverQty - stockItem.completedQty)
       stockItem.status = stockItem.differenceQty === 0 ? '待交出' : '差异'
+    }
+  }
+  const warehouse = store.warehouses.find((item) => item.warehouseId === adjustment.warehouseId)
+  const waitProcessItem = store.waitProcessStockItems.find((item) => item.stockItemId === adjustment.stockItemId)
+  const waitHandoverItem = store.waitHandoverStockItems.find((item) => item.stockItemId === adjustment.stockItemId)
+  const baseLocation = {
+    areaName: waitProcessItem?.areaName || waitHandoverItem?.areaName || warehouse?.areaList[0]?.areaName || '待确认区',
+    shelfNo: waitProcessItem?.shelfNo || waitHandoverItem?.shelfNo || warehouse?.areaList[0]?.shelfList[0]?.shelfNo || '待确认-01',
+    locationNo:
+      waitProcessItem?.locationNo
+      || waitHandoverItem?.locationNo
+      || warehouse?.areaList[0]?.shelfList[0]?.locationList[0]?.locationNo
+      || '待确认-01-01',
+  }
+  const flowQty = roundQty(Math.abs(adjustment.adjustmentQty))
+  if (flowQty > 0 && adjustment.adjustmentQty > 0) {
+    const inboundRecordId = `INB-${adjustment.adjustmentOrderId}`
+    if (!store.inboundRecords.some((record) => record.inboundRecordId === inboundRecordId)) {
+      store.inboundRecords.unshift({
+        inboundRecordId,
+        inboundRecordNo: `RK-${adjustment.adjustmentOrderNo}`,
+        warehouseId: adjustment.warehouseId,
+        warehouseName: adjustment.warehouseName,
+        factoryId: adjustment.factoryId,
+        factoryName: adjustment.factoryName,
+        factoryKind: warehouse?.factoryKind || waitProcessItem?.factoryKind || waitHandoverItem?.factoryKind || 'CENTRAL_CUTTING',
+        processCode: waitProcessItem?.processCode || waitHandoverItem?.processCode,
+        processName: waitProcessItem?.processName || waitHandoverItem?.processName,
+        sourceRecordId: adjustment.adjustmentOrderId,
+        sourceRecordNo: adjustment.adjustmentOrderNo,
+        sourceRecordType: 'STOCKTAKE_ADJUSTMENT',
+        sourceObjectName: '盘点调整',
+        taskId: adjustment.sourceStocktakeOrderId,
+        taskNo: adjustment.sourceStocktakeOrderNo,
+        itemKind: adjustment.itemKind,
+        itemName: adjustment.itemName,
+        materialSku: adjustment.materialSku,
+        partName: adjustment.partName,
+        fabricColor: adjustment.fabricColor,
+        sizeCode: adjustment.sizeCode,
+        feiTicketNo: adjustment.feiTicketNo,
+        transferBagNo: adjustment.transferBagNo,
+        fabricRollNo: adjustment.fabricRollNo,
+        expectedQty: flowQty,
+        receivedQty: flowQty,
+        differenceQty: 0,
+        unit: adjustment.unit,
+        receiverName: input.executedBy,
+        receivedAt: now,
+        areaName: baseLocation.areaName,
+        shelfNo: baseLocation.shelfNo,
+        locationNo: baseLocation.locationNo,
+        status: '已入库',
+        photoList: [],
+        generatedStockItemId: adjustment.stockItemId,
+        remark: '盘盈审核通过后生成库存调整入库流水',
+      })
+    }
+  } else if (flowQty > 0 && adjustment.adjustmentQty < 0) {
+    const outboundRecordId = `OUT-${adjustment.adjustmentOrderId}`
+    if (!store.outboundRecords.some((record) => record.outboundRecordId === outboundRecordId)) {
+      store.outboundRecords.unshift({
+        outboundRecordId,
+        outboundRecordNo: `CK-${adjustment.adjustmentOrderNo}`,
+        warehouseId: adjustment.warehouseId,
+        warehouseName: adjustment.warehouseName,
+        factoryId: adjustment.factoryId,
+        factoryName: adjustment.factoryName,
+        factoryKind: warehouse?.factoryKind || waitProcessItem?.factoryKind || waitHandoverItem?.factoryKind || 'CENTRAL_CUTTING',
+        processCode: waitProcessItem?.processCode || waitHandoverItem?.processCode,
+        processName: waitProcessItem?.processName || waitHandoverItem?.processName,
+        sourceTaskId: adjustment.sourceStocktakeOrderId,
+        sourceTaskNo: adjustment.sourceStocktakeOrderNo,
+        receiverKind: '其他接收方',
+        receiverName: '盘点调整',
+        itemKind: adjustment.itemKind,
+        itemName: adjustment.itemName,
+        materialSku: adjustment.materialSku,
+        partName: adjustment.partName,
+        fabricColor: adjustment.fabricColor,
+        sizeCode: adjustment.sizeCode,
+        feiTicketNo: adjustment.feiTicketNo,
+        transferBagNo: adjustment.transferBagNo,
+        fabricRollNo: adjustment.fabricRollNo,
+        outboundQty: flowQty,
+        receiverWrittenQty: flowQty,
+        differenceQty: 0,
+        unit: adjustment.unit,
+        operatorName: input.executedBy,
+        outboundAt: now,
+        status: '已回写',
+        photoList: [],
+        relatedWaitHandoverStockItemId: adjustment.warehouseKind === 'WAIT_HANDOVER' ? adjustment.stockItemId : undefined,
+        remark: '盘亏审核通过后生成库存调整出库流水',
+      })
     }
   }
   adjustment.status = '已完成'

@@ -1439,8 +1439,8 @@ export function buildSewingTaskAllocationProjectionFromInventory(
       excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '菲票已作废' })
       return
     }
-    if (record.printStatus === '未首打') {
-      excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '菲票未首打' })
+    if (record.printStatus === '未打印' || record.printStatus === '待打印') {
+      excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '菲票未打印' })
       return
     }
     if (record.pieceQty <= 0) {

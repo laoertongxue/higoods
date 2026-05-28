@@ -1696,8 +1696,8 @@ const cuttingStatusLabels: Record<string, string> = {
 }
 
 const feiTicketPrintStatusLabels: Record<string, string> = {
-  WAIT_PRINT: '待首打',
-  PRINTED: '已首打',
+  WAIT_PRINT: '待打印',
+  PRINTED: '已打印',
   REPRINTED: '已补打',
   VOIDED: '已作废',
 }

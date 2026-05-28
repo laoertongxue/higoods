@@ -86,11 +86,11 @@ function runtimeNumber(value: unknown): number {
 }
 
 function getRuntimeTicketPrintStatus(ticket?: GeneratedFeiTicketSourceRecord): string {
-  if (!ticket) return '已首打'
-  if (ticket.printStatus === 'WAIT_PRINT') return '待首打'
+  if (!ticket) return '已打印'
+  if (ticket.printStatus === 'WAIT_PRINT') return '待打印'
   if (ticket.printStatus === 'REPRINTED') return '已补打'
   if (ticket.printStatus === 'VOIDED') return '已作废'
-  return '已首打'
+  return '已打印'
 }
 
 function getRuntimeTicketVoidStatus(ticket?: GeneratedFeiTicketSourceRecord): string {
@@ -182,7 +182,7 @@ export function buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket: Tran
     hasSpecialCraft: Boolean(ticket.hasSpecialCraft),
     specialCraftDisplay: ticket.hasSpecialCraft ? ticket.specialCraftDisplayLabel || '特殊工艺待维护' : '无',
     receiverFactoryDisplay: ticket.hasSpecialCraft ? ticket.receiverFactoryDisplay || '承接工厂待补充' : '无',
-    printStatus: ticket.printStatus === 'WAIT_PRINT' ? '待首打' : ticket.printStatus === 'VOIDED' ? '已作废' : '已首打',
+    printStatus: ticket.printStatus === 'WAIT_PRINT' ? '待打印' : ticket.printStatus === 'VOIDED' ? '已作废' : '已打印',
     voidStatus: ticket.ticketStatus === 'VOIDED' || ticket.printStatus === 'VOIDED' ? '已作废' : '有效',
   }
 }

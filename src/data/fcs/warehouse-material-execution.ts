@@ -527,7 +527,7 @@ function buildExecutionDocuments(): {
     }
   })
 
-  if (issueOrders.length === 0) {
+  if (!issueOrders.some((order) => order.lines.length > 0)) {
     issueOrders.push({
       id: 'WIE-FALLBACK-001',
       docNo: 'LL-FALLBACK-001',

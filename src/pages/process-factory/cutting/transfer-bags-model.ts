@@ -1019,10 +1019,10 @@ export function getTransferBagTicketPrintStatusLabel(
 ): string {
   if (!ticket) return '未知'
   if (ticket.ticketStatus === 'VOIDED' || ticket.printStatus === 'VOIDED') return '已作废'
-  if (ticket.ticketStatus === 'PRINTED') return ticket.printStatus === 'REPRINTED' ? '已补打' : '已首打'
-  if (ticket.printStatus === 'WAIT_PRINT') return '未首打'
+  if (ticket.ticketStatus === 'PRINTED') return ticket.printStatus === 'REPRINTED' ? '已补打' : '已打印'
+  if (ticket.printStatus === 'WAIT_PRINT') return '未打印'
   if (ticket.printStatus === 'REPRINTED') return '已补打'
-  return '已首打'
+  return '已打印'
 }
 
 function buildBagAuditId(nowText: string, usageId: string, action: string): string {
@@ -1773,7 +1773,7 @@ export function validateTicketBindingEligibility(options: {
     return { ok: false, reason: `${options.ticket.ticketNo} 已作废，禁止继续装袋。` }
   }
   if (options.ticket.printStatus === 'WAIT_PRINT' && options.ticket.ticketStatus !== 'PRINTED') {
-    return { ok: false, reason: `${options.ticket.ticketNo} 未首打，不能进入入仓暂存袋。` }
+    return { ok: false, reason: `${options.ticket.ticketNo} 未打印，不能进入入仓暂存袋。` }
   }
   if (options.ticket.printStatus === 'VOIDED') {
     return { ok: false, reason: `${options.ticket.ticketNo} 已作废，禁止继续装袋。` }
@@ -2194,7 +2194,7 @@ export function buildInboundTempBagsFromTransferBagViewModel(
             hasSpecialCraft: false,
             specialCraftDisplay: '无',
             receiverFactoryDisplay: '无',
-            printStatus: '已首打',
+            printStatus: '已打印',
             voidStatus: '有效',
           },
           {
@@ -2214,7 +2214,7 @@ export function buildInboundTempBagsFromTransferBagViewModel(
             hasSpecialCraft: false,
             specialCraftDisplay: '无',
             receiverFactoryDisplay: '无',
-            printStatus: '已首打',
+            printStatus: '已打印',
             voidStatus: '有效',
           },
         )

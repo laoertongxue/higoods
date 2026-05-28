@@ -3578,11 +3578,11 @@ function findGeneratedFeiTicket(
 }
 
 function getRuntimeTicketPrintStatus(ticket?: GeneratedFeiTicketSourceRecord): string {
-  if (!ticket) return '已首打'
-  if (ticket.printStatus === 'WAIT_PRINT') return '待首打'
+  if (!ticket) return '已打印'
+  if (ticket.printStatus === 'WAIT_PRINT') return '待打印'
   if (ticket.printStatus === 'REPRINTED') return '已补打'
   if (ticket.printStatus === 'VOIDED') return '已作废'
-  return '已首打'
+  return '已打印'
 }
 
 function getRuntimeTicketVoidStatus(ticket?: GeneratedFeiTicketSourceRecord): string {

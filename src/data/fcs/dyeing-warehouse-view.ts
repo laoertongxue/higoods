@@ -1,6 +1,10 @@
 import {
   listFactoryInternalWarehouses,
+  listFactoryWaitHandoverStockItems,
+  listFactoryWaitProcessStockItems,
+  listFactoryWarehouseInboundRecords,
   listFactoryWarehouseNodeRows,
+  listFactoryWarehouseOutboundRecords,
   listFactoryWarehouseStocktakeOrders,
   type FactoryInternalWarehouse,
   type FactoryWaitHandoverStockItem,
@@ -76,6 +80,16 @@ function matchesKeyword(tokens: Array<string | undefined>, keyword: string): boo
 function matchesStatus(status: string | undefined, filterStatus: string | undefined): boolean {
   if (!filterStatus || filterStatus === 'ALL') return true
   return status === filterStatus
+}
+
+function dedupeById<T>(items: T[], getId: (item: T) => string): T[] {
+  const seen = new Set<string>()
+  return items.filter((item) => {
+    const id = getId(item)
+    if (seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
 }
 
 function mapWaitProcessRecord(record: ProcessWarehouseRecord): FactoryWaitProcessStockItem {
@@ -256,10 +270,38 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
     && withinTimeRange(item.handoverAt, filters.timeRange),
   )
 
-  const waitProcessItems = waitProcessRecords.map(mapWaitProcessRecord)
-  const waitHandoverItems = waitHandoverRecords.map(mapWaitHandoverRecord)
-  const inboundRecords = waitProcessRecords.map(mapInboundRecord)
-  const outboundRecords = handoverRecords.map(mapOutboundRecord)
+  const baseWaitProcessItems = listFactoryWaitProcessStockItems().filter((item) =>
+    item.factoryKind === 'CENTRAL_DYE'
+    && byFactory(item.factoryId)
+    && matchesStatus(item.status, filters.status)
+    && matchesKeyword([item.stockItemId, item.itemName, item.materialSku, item.taskNo, item.productionOrderNo], keyword)
+    && withinTimeRange(item.receivedAt, filters.timeRange),
+  )
+  const baseWaitHandoverItems = listFactoryWaitHandoverStockItems().filter((item) =>
+    item.factoryKind === 'CENTRAL_DYE'
+    && byFactory(item.factoryId)
+    && matchesStatus(item.status, filters.status)
+    && matchesKeyword([item.stockItemId, item.itemName, item.materialSku, item.taskNo, item.productionOrderNo], keyword),
+  )
+  const baseInboundRecords = listFactoryWarehouseInboundRecords().filter((item) =>
+    item.factoryKind === 'CENTRAL_DYE'
+    && byFactory(item.factoryId)
+    && matchesStatus(item.status, filters.status)
+    && matchesKeyword([item.inboundRecordNo, item.itemName, item.materialSku, item.taskNo, item.sourceRecordNo], keyword)
+    && withinTimeRange(item.receivedAt, filters.timeRange),
+  )
+  const baseOutboundRecords = listFactoryWarehouseOutboundRecords().filter((item) =>
+    item.factoryKind === 'CENTRAL_DYE'
+    && byFactory(item.factoryId)
+    && matchesStatus(item.status, filters.status)
+    && matchesKeyword([item.outboundRecordNo, item.itemName, item.sourceTaskNo, item.handoverRecordNo], keyword)
+    && withinTimeRange(item.outboundAt, filters.timeRange),
+  )
+
+  const waitProcessItems = dedupeById([...baseWaitProcessItems, ...waitProcessRecords.map(mapWaitProcessRecord)], (item) => item.stockItemId)
+  const waitHandoverItems = dedupeById([...baseWaitHandoverItems, ...waitHandoverRecords.map(mapWaitHandoverRecord)], (item) => item.stockItemId)
+  const inboundRecords = dedupeById([...baseInboundRecords, ...waitProcessRecords.map(mapInboundRecord)], (item) => item.inboundRecordId)
+  const outboundRecords = dedupeById([...baseOutboundRecords, ...handoverRecords.map(mapOutboundRecord)], (item) => item.outboundRecordId)
   const taskIds = new Set([
     ...waitProcessRecords.map((record) => record.sourceTaskId),
     ...waitHandoverRecords.map((record) => record.sourceTaskId),

@@ -21,6 +21,8 @@ import {
   listMaterialLedgerProjections,
   type MaterialLedgerProjection,
 } from '../data/fcs/cutting/material-ledger.ts'
+import { buildMarkerSpreadingProjection } from './process-factory/cutting/marker-spreading-projection.ts'
+import type { SpreadingOrder } from './process-factory/cutting/marker-spreading-model.ts'
 import {
   appendCuttingRuntimeEvent,
   listCuttingRuntimeEventsByInventoryScope,
@@ -65,6 +67,28 @@ interface WaitProcessState {
   shelfNo: string
   locationNo: string
   remark: string
+  cuttingPickupSourceNo: string
+  cuttingPickupQty: string
+  cuttingPickupRollCount: string
+  cuttingReceiveSourceNo: string
+  cuttingReceiveWarehouseArea: string
+  cuttingReceiveLocationCode: string
+  cuttingReceiveQty: string
+  cuttingReceiveRollCount: string
+  cuttingIssueSourceNo: string
+  cuttingIssueWarehouseArea: string
+  cuttingIssueLocationCode: string
+  cuttingIssueQty: string
+  cuttingIssueRollCount: string
+  cuttingReturnSourceNo: string
+  cuttingReturnRelatedDocNo: string
+  cuttingReturnWarehouseArea: string
+  cuttingReturnLocationCode: string
+  cuttingReturnQty: string
+  cuttingReturnRollCount: string
+  woolReturnSourceOrderId: string
+  woolReturnSelectedOrderId: string
+  woolReturnQty: string
 }
 
 const state: WaitProcessState = {
@@ -75,6 +99,28 @@ const state: WaitProcessState = {
   shelfNo: '',
   locationNo: '',
   remark: '',
+  cuttingPickupSourceNo: '',
+  cuttingPickupQty: '',
+  cuttingPickupRollCount: '',
+  cuttingReceiveSourceNo: '',
+  cuttingReceiveWarehouseArea: '',
+  cuttingReceiveLocationCode: '',
+  cuttingReceiveQty: '',
+  cuttingReceiveRollCount: '',
+  cuttingIssueSourceNo: '',
+  cuttingIssueWarehouseArea: '',
+  cuttingIssueLocationCode: '',
+  cuttingIssueQty: '',
+  cuttingIssueRollCount: '',
+  cuttingReturnSourceNo: '',
+  cuttingReturnRelatedDocNo: '',
+  cuttingReturnWarehouseArea: '',
+  cuttingReturnLocationCode: '',
+  cuttingReturnQty: '',
+  cuttingReturnRollCount: '',
+  woolReturnSourceOrderId: '',
+  woolReturnSelectedOrderId: '',
+  woolReturnQty: '',
 }
 
 const FILTERS: Array<{ value: WaitProcessFilter; label: string }> = [
@@ -82,6 +128,12 @@ const FILTERS: Array<{ value: WaitProcessFilter; label: string }> = [
   { value: '待领料', label: '待领料' },
   { value: '已入待加工仓', label: '已入待加工仓' },
   { value: '差异待处理', label: '差异待处理' },
+]
+
+const CUTTING_RECEIVE_LOCATIONS = [
+  { area: '面料 A 区', locations: ['FAB-A-01', 'FAB-A-02', 'FAB-A-03'] },
+  { area: '面料 B 区', locations: ['FAB-B-01', 'FAB-B-02', 'FAB-B-03'] },
+  { area: '临时收货区', locations: ['TEMP-01', 'TEMP-02'] },
 ]
 
 function formatCuttingWaitProcessQty(qty: number, unit = '米'): string {
@@ -363,16 +415,524 @@ function renderCuttingWaitProcessSingleAction(activeAction: string): string {
   const action = getCuttingWaitProcessActions().find((item) => item.key === activeAction)
   if (!action) return ''
   return `
-    <section class="rounded-2xl border border-primary/40 bg-primary/5 px-4 py-4 shadow-sm">
-      <div class="text-base font-semibold text-foreground">${escapeHtml(action.title)}</div>
-      <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(action.desc)}</div>
+    <section class="space-y-3">
       <button
         type="button"
-        class="mt-4 w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+        class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
         data-pda-warehouse-action="${escapeAttr(action.action)}"
       >
         开始${escapeHtml(action.title)}
       </button>
+    </section>
+  `
+}
+
+function getCuttingWaitProcessActionEventType(activeAction: string): string {
+  if (activeAction === 'pickup') return '中转仓领料'
+  if (activeAction === 'receive') return '待加工仓扫码入仓'
+  if (activeAction === 'issue') return '待加工仓加工领料'
+  if (activeAction === 'return') return '待加工仓回收入仓'
+  return ''
+}
+
+function getCuttingWaitProcessActionResultTitle(activeAction: string): string {
+  if (activeAction === 'pickup') return '中转仓领料后结果'
+  if (activeAction === 'receive') return '扫码入仓后结果'
+  if (activeAction === 'issue') return '加工领料后结果'
+  if (activeAction === 'return') return '回收入仓后结果'
+  return '操作后结果'
+}
+
+function getCuttingWaitProcessActionFallbackRow(rows: MaterialLedgerProjection[]): MaterialLedgerProjection | undefined {
+  return listCuttingPendingPickupRows(rows)[0] || rows.find((row) => row.cuttingClaimedQty > 0) || rows[0]
+}
+
+function openCuttingPickupDraft(sourceNo?: string): void {
+  const rows = listMaterialLedgerProjections()
+  const row = findCuttingWaitProcessLedgerRow(sourceNo) || getCuttingWaitProcessActionFallbackRow(rows)
+  const defaultQty = row?.transferWarehouseAllocatedQty || 120
+  const defaultRollCount = defaultQty > 0 ? Math.max(Math.ceil(defaultQty / 280), 1) : 1
+  state.cuttingPickupSourceNo = row?.cutOrderNo || sourceNo || ''
+  state.cuttingPickupQty = String(defaultQty)
+  state.cuttingPickupRollCount = String(defaultRollCount)
+}
+
+function clearCuttingPickupDraft(): void {
+  state.cuttingPickupSourceNo = ''
+  state.cuttingPickupQty = ''
+  state.cuttingPickupRollCount = ''
+}
+
+function renderCuttingPickupDraftPage(): string {
+  const row = findCuttingWaitProcessLedgerRow(state.cuttingPickupSourceNo)
+  const sourceNo = row?.cutOrderNo || state.cuttingPickupSourceNo
+  const materialText = row
+    ? `${row.materialIdentity.materialSku} · ${row.materialIdentity.materialName} / ${row.materialIdentity.materialColor || '待补颜色'}`
+    : '请重新选择待领料裁片任务'
+  const preparedQty = row ? formatCuttingWaitProcessQty(row.transferWarehouseAllocatedQty, row.unit) : '-'
+  const claimedQty = row ? formatCuttingWaitProcessQty(row.cuttingClaimedQty, row.unit) : '-'
+  return `
+    <section class="space-y-4">
+      <div class="space-y-2 px-1">
+        <div class="text-base font-semibold text-foreground">待领料裁片任务</div>
+        <div class="rounded-2xl border bg-background px-4 py-4 text-sm shadow-sm">
+          <div class="text-xs font-medium text-muted-foreground">裁片任务</div>
+          <div class="mt-1 text-base font-semibold text-foreground">${escapeHtml(sourceNo || '未识别')}</div>
+          <div class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(materialText)}</div>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+            <div>中转仓已配：${escapeHtml(preparedQty)}</div>
+            <div>已领料：${escapeHtml(claimedQty)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-3 px-1">
+        <div>
+          <div class="text-base font-semibold text-foreground">确认中转仓领料</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">这里只确认从中转仓领回的数量和卷数，入库库区库位在扫码入仓时确认。</div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">领料数量（米）</span>
+            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.cuttingPickupQty)}" data-pda-warehouse-field="cutting-pickup-qty" />
+          </label>
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">卷数</span>
+            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="numeric" value="${escapeAttr(state.cuttingPickupRollCount)}" data-pda-warehouse-field="cutting-pickup-roll-count" />
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button type="button" class="rounded-xl border bg-background px-4 py-3 text-sm font-medium text-foreground" data-pda-warehouse-action="cancel-cutting-wp-pickup">重新选择</button>
+          <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-cutting-wp-pickup">确认领料</button>
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function openCuttingReceiveDraft(sourceNo?: string): void {
+  const rows = listMaterialLedgerProjections()
+  const row = findCuttingWaitProcessLedgerRow(sourceNo) || getCuttingWaitProcessActionFallbackRow(rows)
+  const defaultQty = row?.cuttingClaimedQty || row?.transferWarehouseAllocatedQty || 120
+  const defaultRollCount = defaultQty > 0 ? Math.max(Math.ceil(defaultQty / 280), 1) : 1
+  state.cuttingReceiveSourceNo = row?.cutOrderNo || sourceNo || ''
+  state.cuttingReceiveWarehouseArea = '面料 A 区'
+  state.cuttingReceiveLocationCode = 'FAB-A-01'
+  state.cuttingReceiveQty = String(defaultQty)
+  state.cuttingReceiveRollCount = String(defaultRollCount)
+}
+
+function clearCuttingReceiveDraft(): void {
+  state.cuttingReceiveSourceNo = ''
+  state.cuttingReceiveWarehouseArea = ''
+  state.cuttingReceiveLocationCode = ''
+  state.cuttingReceiveQty = ''
+  state.cuttingReceiveRollCount = ''
+}
+
+function getCuttingReceiveLocationOptions() {
+  const currentArea = state.cuttingReceiveWarehouseArea || CUTTING_RECEIVE_LOCATIONS[0]?.area || ''
+  const currentAreaConfig = CUTTING_RECEIVE_LOCATIONS.find((item) => item.area === currentArea) || CUTTING_RECEIVE_LOCATIONS[0]
+  return {
+    areaOptions: CUTTING_RECEIVE_LOCATIONS.map((item) => item.area),
+    locationOptions: currentAreaConfig?.locations || [],
+  }
+}
+
+function renderCuttingReceiveDraftPage(): string {
+  const row = findCuttingWaitProcessLedgerRow(state.cuttingReceiveSourceNo)
+  const sourceNo = row?.cutOrderNo || state.cuttingReceiveSourceNo
+  const materialText = row
+    ? `${row.materialIdentity.materialSku} · ${row.materialIdentity.materialName} / ${row.materialIdentity.materialColor || '待补颜色'}`
+    : '请重新扫码确认裁片任务'
+  const preparedQty = row ? formatCuttingWaitProcessQty(row.transferWarehouseAllocatedQty, row.unit) : '-'
+  const receivedQty = row ? formatCuttingWaitProcessQty(row.cuttingClaimedQty, row.unit) : '-'
+  const options = getCuttingReceiveLocationOptions()
+  return `
+    <section class="space-y-4">
+      <div class="space-y-2 px-1">
+        <div class="text-base font-semibold text-foreground">已扫对象</div>
+        <div class="rounded-2xl border bg-background px-4 py-4 text-sm shadow-sm">
+          <div class="text-xs font-medium text-muted-foreground">裁片任务</div>
+          <div class="mt-1 text-base font-semibold text-foreground">${escapeHtml(sourceNo || '未识别')}</div>
+          <div class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(materialText)}</div>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+            <div>中转仓已配：${escapeHtml(preparedQty)}</div>
+            <div>已收货：${escapeHtml(receivedQty)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-3 px-1">
+        <div>
+          <div class="text-base font-semibold text-foreground">选择入库库区库位</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">入库位置必须现场确认，库存明细会按这里写入事件账。</div>
+        </div>
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">入库库区</span>
+          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-receive-area">
+            ${options.areaOptions.map((area) => `<option value="${escapeAttr(area)}" ${area === state.cuttingReceiveWarehouseArea ? 'selected' : ''}>${escapeHtml(area)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">入库库位</span>
+          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-receive-location">
+            ${options.locationOptions.map((location) => `<option value="${escapeAttr(location)}" ${location === state.cuttingReceiveLocationCode ? 'selected' : ''}>${escapeHtml(location)}</option>`).join('')}
+          </select>
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">入仓数量（米）</span>
+            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.cuttingReceiveQty)}" data-pda-warehouse-field="cutting-receive-qty" />
+          </label>
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">卷数</span>
+            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="numeric" value="${escapeAttr(state.cuttingReceiveRollCount)}" data-pda-warehouse-field="cutting-receive-roll-count" />
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button type="button" class="rounded-xl border bg-background px-4 py-3 text-sm font-medium text-foreground" data-pda-warehouse-action="cancel-cutting-wp-receive">重新扫码</button>
+          <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-cutting-wp-receive">确认入仓</button>
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function openCuttingIssueDraft(sourceNo?: string): void {
+  const rows = listMaterialLedgerProjections()
+  const row = findCuttingWaitProcessLedgerRow(sourceNo) || rows.find((item) => item.availableQty > 0) || getCuttingWaitProcessActionFallbackRow(rows)
+  const stockQty = row?.availableQty || row?.cuttingClaimedQty || row?.transferWarehouseAllocatedQty || 120
+  const defaultQty = row?.availableQty && row.availableQty > 0
+    ? Math.max(Math.round(row.availableQty * 0.6), 1)
+    : Math.max(Math.round(stockQty * 0.6), 1)
+  const defaultRollCount = defaultQty > 0 ? Math.max(Math.ceil(defaultQty / 280), 1) : 1
+  const latestLocation = row ? splitCuttingLocationText(getCuttingWaitProcessLocationLabel(row)) : { warehouseArea: '面料 A 区', locationCode: 'FAB-A-01' }
+  state.cuttingIssueSourceNo = row?.cutOrderNo || sourceNo || ''
+  state.cuttingIssueWarehouseArea = latestLocation.warehouseArea
+  state.cuttingIssueLocationCode = latestLocation.locationCode
+  state.cuttingIssueQty = String(defaultQty)
+  state.cuttingIssueRollCount = String(defaultRollCount)
+}
+
+function clearCuttingIssueDraft(): void {
+  state.cuttingIssueSourceNo = ''
+  state.cuttingIssueWarehouseArea = ''
+  state.cuttingIssueLocationCode = ''
+  state.cuttingIssueQty = ''
+  state.cuttingIssueRollCount = ''
+}
+
+function getCuttingIssueLocationOptions() {
+  const currentArea = state.cuttingIssueWarehouseArea || CUTTING_RECEIVE_LOCATIONS[0]?.area || ''
+  const currentAreaConfig = CUTTING_RECEIVE_LOCATIONS.find((item) => item.area === currentArea) || CUTTING_RECEIVE_LOCATIONS[0]
+  return {
+    areaOptions: CUTTING_RECEIVE_LOCATIONS.map((item) => item.area),
+    locationOptions: currentAreaConfig?.locations || [],
+  }
+}
+
+function renderCuttingIssueDraftPage(): string {
+  const row = findCuttingWaitProcessLedgerRow(state.cuttingIssueSourceNo)
+  const sourceNo = row?.cutOrderNo || state.cuttingIssueSourceNo
+  const materialText = row
+    ? `${row.materialIdentity.materialSku} · ${row.materialIdentity.materialName} / ${row.materialIdentity.materialColor || '待补颜色'}`
+    : '请重新扫码确认领料对象'
+  const availableQty = row ? formatCuttingWaitProcessQty(row.availableQty, row.unit) : '-'
+  const latestLocation = row ? getCuttingWaitProcessLocationLabel(row) : '-'
+  const options = getCuttingIssueLocationOptions()
+  return `
+    <section class="space-y-4">
+      <div class="space-y-2 px-1">
+        <div class="text-base font-semibold text-foreground">已扫对象</div>
+        <div class="rounded-2xl border bg-background px-4 py-4 text-sm shadow-sm">
+          <div class="text-xs font-medium text-muted-foreground">铺布用料来源</div>
+          <div class="mt-1 text-base font-semibold text-foreground">${escapeHtml(sourceNo || '未识别')}</div>
+          <div class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(materialText)}</div>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+            <div>在库可用：${escapeHtml(availableQty)}</div>
+            <div>最近库位：${escapeHtml(latestLocation)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-3 px-1">
+        <div>
+          <div class="text-base font-semibold text-foreground">确认加工领料</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">从待加工仓指定库区库位领走面料，用于铺布或加工。</div>
+        </div>
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">领料库区</span>
+          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-issue-area">
+            ${options.areaOptions.map((area) => `<option value="${escapeAttr(area)}" ${area === state.cuttingIssueWarehouseArea ? 'selected' : ''}>${escapeHtml(area)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">领料库位</span>
+          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-issue-location">
+            ${options.locationOptions.map((location) => `<option value="${escapeAttr(location)}" ${location === state.cuttingIssueLocationCode ? 'selected' : ''}>${escapeHtml(location)}</option>`).join('')}
+          </select>
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">领料数量（米）</span>
+            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.cuttingIssueQty)}" data-pda-warehouse-field="cutting-issue-qty" />
+          </label>
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">卷数</span>
+            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="numeric" value="${escapeAttr(state.cuttingIssueRollCount)}" data-pda-warehouse-field="cutting-issue-roll-count" />
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button type="button" class="rounded-xl border bg-background px-4 py-3 text-sm font-medium text-foreground" data-pda-warehouse-action="cancel-cutting-wp-issue">重新扫码</button>
+          <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-cutting-wp-issue">确认领料</button>
+        </div>
+      </div>
+    </section>
+  `
+}
+
+interface CuttingReturnDocumentOption {
+  docNo: string
+  docId: string
+  label: string
+  materialSku: string
+  materialName: string
+  cutOrderNo: string
+  productionOrderNo: string
+  plannedUsage: number
+}
+
+function listCuttingReturnDocumentOptions(): CuttingReturnDocumentOption[] {
+  return buildMarkerSpreadingProjection({ includeCreateSources: false, includeViewModel: false })
+    .spreadingOrders
+    .slice(0, 24)
+    .map((order: SpreadingOrder) => ({
+      docNo: order.spreadingOrderNo,
+      docId: order.spreadingOrderId,
+      label: `${order.spreadingOrderNo} / ${order.markerPlanNo} / ${order.materialIdentity.materialSku}`,
+      materialSku: order.materialIdentity.materialSku,
+      materialName: order.materialIdentity.materialName,
+      cutOrderNo: order.sourceCutOrderNos[0] || '',
+      productionOrderNo: order.productionOrderNos[0] || '',
+      plannedUsage: order.plannedMaterialUsage,
+    }))
+}
+
+function findCuttingLedgerRowByReturnDocument(docNo: string): MaterialLedgerProjection | undefined {
+  if (!docNo) return undefined
+  const option = listCuttingReturnDocumentOptions().find((item) => item.docNo === docNo)
+  if (!option) return undefined
+  return listMaterialLedgerProjections().find((row) => {
+    return (
+      row.cutOrderNo === option.cutOrderNo ||
+      row.productionOrderNo === option.productionOrderNo ||
+      row.materialIdentity.materialSku === option.materialSku ||
+      row.materialIdentity.materialName === option.materialName
+    )
+  })
+}
+
+function openCuttingReturnDraft(sourceNo?: string): void {
+  const rows = listMaterialLedgerProjections()
+  const row = findCuttingWaitProcessLedgerRow(sourceNo) || rows.find((item) => item.spreadingConsumedQty > 0 || item.cuttingClaimedQty > 0) || getCuttingWaitProcessActionFallbackRow(rows)
+  const baseQty = row?.spreadingConsumedQty || row?.cuttingClaimedQty || row?.transferWarehouseAllocatedQty || 420
+  const defaultQty = Math.max(Math.round(baseQty * 0.08), 1)
+  const defaultRollCount = defaultQty > 0 ? Math.max(Math.ceil(defaultQty / 280), 1) : 1
+  state.cuttingReturnSourceNo = row?.cutOrderNo || sourceNo || ''
+  state.cuttingReturnRelatedDocNo = ''
+  state.cuttingReturnWarehouseArea = '面料 A 区'
+  state.cuttingReturnLocationCode = 'FAB-A-02'
+  state.cuttingReturnQty = String(defaultQty)
+  state.cuttingReturnRollCount = String(defaultRollCount)
+}
+
+function clearCuttingReturnDraft(): void {
+  state.cuttingReturnSourceNo = ''
+  state.cuttingReturnRelatedDocNo = ''
+  state.cuttingReturnWarehouseArea = ''
+  state.cuttingReturnLocationCode = ''
+  state.cuttingReturnQty = ''
+  state.cuttingReturnRollCount = ''
+}
+
+function getCuttingReturnLocationOptions() {
+  const currentArea = state.cuttingReturnWarehouseArea || CUTTING_RECEIVE_LOCATIONS[0]?.area || ''
+  const currentAreaConfig = CUTTING_RECEIVE_LOCATIONS.find((item) => item.area === currentArea) || CUTTING_RECEIVE_LOCATIONS[0]
+  return {
+    areaOptions: CUTTING_RECEIVE_LOCATIONS.map((item) => item.area),
+    locationOptions: currentAreaConfig?.locations || [],
+  }
+}
+
+function renderCuttingReturnDraftPage(): string {
+  const documentOptions = listCuttingReturnDocumentOptions()
+  const selectedDocument = documentOptions.find((item) => item.docNo === state.cuttingReturnRelatedDocNo)
+  const row = selectedDocument
+    ? findCuttingLedgerRowByReturnDocument(selectedDocument.docNo)
+    : findCuttingWaitProcessLedgerRow(state.cuttingReturnSourceNo)
+  const sourceNo = row?.cutOrderNo || state.cuttingReturnSourceNo || '未选择裁片任务'
+  const materialText = selectedDocument
+    ? `${selectedDocument.materialSku} · ${selectedDocument.materialName}`
+    : row
+      ? `${row.materialIdentity.materialSku} · ${row.materialIdentity.materialName} / ${row.materialIdentity.materialColor || '待补颜色'}`
+      : '可不关联单据，直接按现场剩余面料回收入仓'
+  const options = getCuttingReturnLocationOptions()
+  return `
+    <section class="space-y-4">
+      <div class="space-y-2 px-1">
+        <div class="text-base font-semibold text-foreground">回收对象</div>
+        <div class="rounded-2xl border bg-background px-4 py-4 text-sm shadow-sm">
+          <div class="text-xs font-medium text-muted-foreground">${selectedDocument ? '关联铺布单' : '来源裁片任务'}</div>
+          <div class="mt-1 text-base font-semibold text-foreground">${escapeHtml(selectedDocument?.docNo || sourceNo)}</div>
+          <div class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(materialText)}</div>
+          ${selectedDocument
+            ? `<div class="mt-2 text-xs text-muted-foreground">来源裁片任务：${escapeHtml(selectedDocument.cutOrderNo || '-')} · 计划用量：${escapeHtml(String(selectedDocument.plannedUsage))} 米</div>`
+            : '<div class="mt-2 text-xs text-muted-foreground">铺布单为可选项，没有对应单据时可直接回收现场剩余面料。</div>'}
+        </div>
+      </div>
+
+      <div class="space-y-3 px-1">
+        <div>
+          <div class="text-base font-semibold text-foreground">确认回收入仓</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">选择关联单据不是必填；必须确认回收入库区、库位、数量和卷数。</div>
+        </div>
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">关联单据（可选）</span>
+          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-return-related-doc">
+            <option value="">不关联单据</option>
+            ${documentOptions.map((item) => `<option value="${escapeAttr(item.docNo)}" ${item.docNo === state.cuttingReturnRelatedDocNo ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">回收入库区</span>
+          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-return-area">
+            ${options.areaOptions.map((area) => `<option value="${escapeAttr(area)}" ${area === state.cuttingReturnWarehouseArea ? 'selected' : ''}>${escapeHtml(area)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">回收入库位</span>
+          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-return-location">
+            ${options.locationOptions.map((location) => `<option value="${escapeAttr(location)}" ${location === state.cuttingReturnLocationCode ? 'selected' : ''}>${escapeHtml(location)}</option>`).join('')}
+          </select>
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">回收数量（米）</span>
+            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.cuttingReturnQty)}" data-pda-warehouse-field="cutting-return-qty" />
+          </label>
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">卷数</span>
+            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="numeric" value="${escapeAttr(state.cuttingReturnRollCount)}" data-pda-warehouse-field="cutting-return-roll-count" />
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button type="button" class="rounded-xl border bg-background px-4 py-3 text-sm font-medium text-foreground" data-pda-warehouse-action="cancel-cutting-wp-return">重新选择</button>
+          <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-cutting-wp-return">确认回收入仓</button>
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function renderCuttingWaitProcessEventResult(event: CuttingRuntimeEvent): string {
+  const qty = getCuttingRuntimeEventQty(event)
+  const rollCount = getCuttingRuntimeEventRollCount(event)
+  const payload = runtimeRecord(event.payload)
+  const unit = event.inventoryEffect?.unit || runtimeString(payload.unit) || '米'
+  const locationLine = event.eventType === '中转仓领料'
+    ? '下一步：扫码入仓时确认库区库位'
+    : `库区库位：${getCuttingRuntimeEventLocationLabel(event)}`
+  return `
+    <div class="space-y-1.5 border-t py-3 text-xs text-muted-foreground first:border-t-0 first:pt-0 last:pb-0">
+      <div class="text-sm font-semibold text-foreground">${escapeHtml(getCuttingRuntimeEventSourceText(event))}</div>
+      <div>数量：${escapeHtml(`${qty} ${unit} / ${rollCount} 卷`)}</div>
+      <div>${escapeHtml(locationLine)}</div>
+      <div>同步状态：${escapeHtml(event.eventStatus)} · ${escapeHtml(event.occurredAt)}</div>
+    </div>
+  `
+}
+
+function renderCuttingWaitProcessFallbackResult(activeAction: string, rows: MaterialLedgerProjection[]): string {
+  const row = getCuttingWaitProcessActionFallbackRow(rows)
+  if (!row) return '<div class="py-3 text-xs text-muted-foreground">暂无可演示的裁片任务。</div>'
+  const qty = activeAction === 'receive'
+    ? row.cuttingClaimedQty || row.transferWarehouseAllocatedQty
+    : activeAction === 'pickup'
+      ? row.transferWarehouseAllocatedQty
+    : activeAction === 'return'
+      ? Math.max(Math.round((row.cuttingClaimedQty || row.transferWarehouseAllocatedQty) * 0.08), 35)
+      : Math.max(Math.round((row.availableQty || row.cuttingClaimedQty || row.transferWarehouseAllocatedQty) * 0.6), 120)
+  const location = activeAction === 'return' ? '面料 A 区 / FAB-A-02' : '面料 A 区 / FAB-A-01'
+  const sourceText = activeAction === 'receive'
+    ? `扫码入仓：${row.cutOrderNo}`
+    : activeAction === 'pickup'
+      ? `中转仓领料：${row.cutOrderNo}`
+      : activeAction === 'issue'
+        ? `加工领料：${row.cutOrderNo}`
+        : `回收入仓：${row.cutOrderNo}`
+  return `
+    <div class="space-y-1.5 py-3 text-xs text-muted-foreground">
+      <div class="text-sm font-semibold text-foreground">${escapeHtml(sourceText)}</div>
+      <div>面料：${escapeHtml(row.materialIdentity.materialSku)} · ${escapeHtml(row.materialIdentity.materialName)}</div>
+      <div>数量：${escapeHtml(formatCuttingWaitProcessQty(qty, row.unit))}</div>
+      <div>${escapeHtml(activeAction === 'pickup' ? '下一步：扫码入仓时确认库区库位' : `库区库位：${location}`)}</div>
+      <div>同步状态：演示数据，扫码提交后会写入事件账。</div>
+    </div>
+  `
+}
+
+function renderCuttingWaitProcessActionResult(activeAction: string, rows: MaterialLedgerProjection[]): string {
+  const eventType = getCuttingWaitProcessActionEventType(activeAction)
+  const recentEvents = eventType
+    ? listCuttingWaitProcessRuntimeEvents().filter((event) => event.eventType === eventType).slice(0, 2)
+    : []
+  return `
+    <section class="space-y-2">
+      <div class="px-1 text-base font-semibold text-foreground">${escapeHtml(getCuttingWaitProcessActionResultTitle(activeAction))}</div>
+      <div class="rounded-2xl bg-muted/50 px-4 py-1">
+        ${recentEvents.length
+          ? recentEvents.map((event) => renderCuttingWaitProcessEventResult(event)).join('')
+          : renderCuttingWaitProcessFallbackResult(activeAction, rows)}
+      </div>
+    </section>
+  `
+}
+
+function renderCuttingWaitProcessNextActions(activeAction: string): string {
+  const actions = activeAction === 'pickup'
+    ? [
+        { label: '去扫码入仓', route: '/fcs/pda/warehouse/wait-process?scope=cutting&action=receive' },
+        { label: '返回待领料', route: '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup' },
+      ]
+    : activeAction === 'receive'
+    ? [
+        { label: '去加工领料', route: '/fcs/pda/warehouse/wait-process?scope=cutting&action=issue' },
+        { label: '查看待加工仓库存', route: '/fcs/pda/warehouse/wait-process?scope=cutting' },
+      ]
+    : activeAction === 'issue'
+      ? [
+          { label: '去回收入仓', route: '/fcs/pda/warehouse/wait-process?scope=cutting&action=return' },
+          { label: '查看待加工仓库存', route: '/fcs/pda/warehouse/wait-process?scope=cutting' },
+        ]
+      : [
+          { label: '查看待加工仓库存', route: '/fcs/pda/warehouse/wait-process?scope=cutting' },
+          { label: '返回仓管', route: '/fcs/pda/warehouse' },
+        ]
+  return `
+    <section class="space-y-2">
+      <div class="px-1 text-base font-semibold text-foreground">后续操作</div>
+      <div class="grid grid-cols-1 gap-2">
+        ${actions.map((item) => `
+          <button
+            type="button"
+            class="w-full rounded-xl border bg-background px-4 py-3 text-left text-sm font-medium text-foreground"
+            data-nav="${escapeAttr(item.route)}"
+          >
+            ${escapeHtml(item.label)}
+          </button>
+        `).join('')}
+      </div>
     </section>
   `
 }
@@ -396,10 +956,20 @@ function renderCuttingWaitProcessSubpageHeader(title: string, description: strin
 }
 
 function renderCuttingPickupTaskPage(rows: MaterialLedgerProjection[]): string {
+  if (state.cuttingPickupSourceNo) {
+    return `
+      <div class="space-y-4 px-4 pb-5 pt-4">
+        ${renderCuttingWaitProcessSubpageHeader('中转仓领料', '确认按裁片任务从中转仓领回的数量和卷数。')}
+        ${renderCuttingPickupDraftPage()}
+      </div>
+    `
+  }
   return `
     <div class="space-y-4 px-4 pb-5 pt-4">
       ${renderCuttingWaitProcessSubpageHeader('待领料', '中转仓按裁片任务配料后，裁床仓管在这里确认中转仓领料。')}
       ${renderCuttingPendingPickupList(rows)}
+      ${renderCuttingWaitProcessActionResult('pickup', rows)}
+      ${renderCuttingWaitProcessNextActions('pickup')}
     </div>
   `
 }
@@ -412,10 +982,37 @@ function renderCuttingWaitProcessActionPage(activeAction: string): string {
   ]
   const current = actions.find((item) => item.key === activeAction)
   if (!current) return ''
+  const rows = listMaterialLedgerProjections()
+  if (activeAction === 'receive' && state.cuttingReceiveSourceNo) {
+    return `
+      <div class="space-y-4 px-4 pb-5 pt-4">
+        ${renderCuttingWaitProcessSubpageHeader(current.title, current.desc)}
+        ${renderCuttingReceiveDraftPage()}
+      </div>
+    `
+  }
+  if (activeAction === 'issue' && state.cuttingIssueSourceNo) {
+    return `
+      <div class="space-y-4 px-4 pb-5 pt-4">
+        ${renderCuttingWaitProcessSubpageHeader(current.title, current.desc)}
+        ${renderCuttingIssueDraftPage()}
+      </div>
+    `
+  }
+  if (activeAction === 'return' && (state.cuttingReturnSourceNo || state.cuttingReturnRelatedDocNo)) {
+    return `
+      <div class="space-y-4 px-4 pb-5 pt-4">
+        ${renderCuttingWaitProcessSubpageHeader(current.title, current.desc)}
+        ${renderCuttingReturnDraftPage()}
+      </div>
+    `
+  }
   return `
     <div class="space-y-4 px-4 pb-5 pt-4">
       ${renderCuttingWaitProcessSubpageHeader(current.title, current.desc)}
       ${renderCuttingWaitProcessSingleAction(activeAction)}
+      ${renderCuttingWaitProcessActionResult(activeAction, rows)}
+      ${renderCuttingWaitProcessNextActions(activeAction)}
     </div>
   `
 }
@@ -691,7 +1288,109 @@ function renderPostFinishingWaitProcessPage(): string {
   return renderPdaFrame(content, 'warehouse', { headerTitle: '后道待加工仓', disableTodoAutoOpen: true })
 }
 
+function listWoolReturnDocumentOptions(sourceOrderId: string): Array<{
+  woolOrderId: string
+  woolOrderNo: string
+  productionOrderNo: string
+  yarnSku: string
+  yarnName: string
+  colorName: string
+  lossWeightKg: number
+  recoveredWeightKg: number
+}> {
+  const sourceOrder = getWoolWorkOrderById(sourceOrderId)
+  const sourceYarnSku = sourceOrder?.yarnReceipt.yarnSku || ''
+  return listWoolWorkOrders()
+    .filter((order) => !sourceYarnSku || order.yarnReceipt.yarnSku === sourceYarnSku || order.woolOrderId === sourceOrderId)
+    .slice(0, 24)
+    .map((order) => {
+      const usage = getWoolYarnUsageSummary(order)
+      return {
+        woolOrderId: order.woolOrderId,
+        woolOrderNo: order.woolOrderNo,
+        productionOrderNo: order.productionOrderNo,
+        yarnSku: order.yarnReceipt.yarnSku,
+        yarnName: order.yarnReceipt.yarnName,
+        colorName: order.yarnReceipt.colorName,
+        lossWeightKg: usage.linkingLossWeightKg,
+        recoveredWeightKg: usage.recoveredWeightKg,
+      }
+    })
+}
+
+function openWoolReturnDraft(sourceOrderId: string): void {
+  const sourceOrder = getWoolWorkOrderById(sourceOrderId)
+  const usage = sourceOrder ? getWoolYarnUsageSummary(sourceOrder) : null
+  const defaultQty = usage ? Math.max(usage.linkingLossWeightKg - usage.recoveredWeightKg, 0.1) : 0.1
+  state.woolReturnSourceOrderId = sourceOrderId
+  state.woolReturnSelectedOrderId = ''
+  state.woolReturnQty = String(Math.round(defaultQty * 100) / 100)
+}
+
+function clearWoolReturnDraft(): void {
+  state.woolReturnSourceOrderId = ''
+  state.woolReturnSelectedOrderId = ''
+  state.woolReturnQty = ''
+}
+
+function renderWoolReturnDraftPage(): string {
+  const sourceOrder = getWoolWorkOrderById(state.woolReturnSourceOrderId)
+  const selectedOrder = state.woolReturnSelectedOrderId ? getWoolWorkOrderById(state.woolReturnSelectedOrderId) : undefined
+  const activeOrder = selectedOrder || sourceOrder
+  const options = listWoolReturnDocumentOptions(state.woolReturnSourceOrderId)
+  const sourceText = sourceOrder
+    ? `${sourceOrder.woolOrderNo} · ${sourceOrder.productionOrderNo}`
+    : '未识别来源毛织加工单'
+  const yarnText = activeOrder
+    ? `${activeOrder.yarnReceipt.yarnSku} · ${activeOrder.yarnReceipt.yarnName} / ${activeOrder.yarnReceipt.colorName}`
+    : '请选择或保留当前来源'
+  return `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="flex items-start justify-between gap-3 border-b pb-4">
+        <div class="min-w-0">
+          <div class="text-xl font-semibold text-foreground">回收入仓</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">毛织损耗或剩余纱线回收入仓。关联毛织加工单可选，不选则按当前来源记录。</div>
+        </div>
+        <button type="button" class="shrink-0 rounded-full bg-muted px-3 py-2 text-xs font-medium" data-pda-warehouse-action="cancel-wool-return">返回仓管</button>
+      </section>
+
+      <section class="space-y-3">
+        <div>
+          <div class="text-sm font-semibold text-foreground">回收来源</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(sourceText)}</div>
+        </div>
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">关联毛织加工单（可选）</span>
+          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="wool-return-selected-order">
+            <option value="">不关联加工单</option>
+            ${options.map((order) => `
+              <option value="${escapeAttr(order.woolOrderId)}" ${order.woolOrderId === state.woolReturnSelectedOrderId ? 'selected' : ''}>
+                ${escapeHtml(`${order.woolOrderNo} / ${order.productionOrderNo} / ${order.yarnSku}`)}
+              </option>
+            `).join('')}
+          </select>
+        </label>
+        <div class="rounded-2xl bg-muted/50 px-4 py-3 text-xs leading-5 text-muted-foreground">
+          <div class="font-semibold text-foreground">${escapeHtml(yarnText)}</div>
+          <div class="mt-1">可回收参考：损耗 ${escapeHtml(String(options.find((item) => item.woolOrderId === (activeOrder?.woolOrderId || ''))?.lossWeightKg || 0))} kg / 已回收 ${escapeHtml(String(options.find((item) => item.woolOrderId === (activeOrder?.woolOrderId || ''))?.recoveredWeightKg || 0))} kg</div>
+        </div>
+      </section>
+
+      <section class="space-y-3">
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">回收重量（kg）</span>
+          <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.woolReturnQty)}" data-pda-warehouse-field="wool-return-qty" />
+        </label>
+        <button type="button" class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-wool-return">确认回收入仓</button>
+      </section>
+    </div>
+  `
+}
+
 function renderWoolWaitProcessPage(): string {
+  if (state.woolReturnSourceOrderId) {
+    return renderPdaFrame(renderWoolReturnDraftPage(), 'warehouse', { headerTitle: '毛织回收入仓', disableTodoAutoOpen: true })
+  }
   const inventory = listWoolWarehouseInventory('wait-process')
   const receipts = listWoolWaitProcessReceiptRecords()
   const usage = listWoolWaitProcessUsageRecords()
@@ -829,15 +1528,38 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
   if (action === 'cutting-wp-pickup') {
-    const sourceNo = actionNode?.dataset.sourceNo || window.prompt('请扫描待领料通知、配料单或裁片单二维码')?.trim()
-    if (!sourceNo) return true
+    const sourceNo = actionNode?.dataset.sourceNo
+    if (!sourceNo) {
+      window.location.href = '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup'
+      return true
+    }
+    openCuttingPickupDraft(sourceNo)
+    return true
+  }
+  if (action === 'cancel-cutting-wp-pickup') {
+    clearCuttingPickupDraft()
+    return true
+  }
+  if (action === 'confirm-cutting-wp-pickup') {
+    const sourceNo = state.cuttingPickupSourceNo.trim()
+    if (!sourceNo) {
+      window.alert('请先选择待领料裁片任务。')
+      return true
+    }
     const row = findCuttingWaitProcessLedgerRow(sourceNo)
-    const qtyText = window.prompt('请输入中转仓领料数量和卷数', formatCuttingWaitProcessQty(row?.transferWarehouseAllocatedQty || 120, row?.unit))?.trim()
-    if (!qtyText) return true
+    const qty = Number(state.cuttingPickupQty)
+    const rollCount = Number(state.cuttingPickupRollCount)
+    if (!Number.isFinite(qty) || qty <= 0) {
+      window.alert('请输入大于 0 的领料数量。')
+      return true
+    }
+    if (!Number.isFinite(rollCount) || rollCount <= 0) {
+      window.alert('请输入大于 0 的卷数。')
+      return true
+    }
     const occurredAt = getCuttingRuntimeNowText()
-    const { qty, rollCount, displayText } = parseCuttingQtyAndRoll(qtyText, row?.transferWarehouseAllocatedQty || 0)
     const rollNos = buildCuttingRollNos(sourceNo, rollCount)
-    const event = appendCuttingRuntimeEvent({
+    appendCuttingRuntimeEvent({
       eventType: '中转仓领料',
       operatorName: '裁床仓管',
       operatorRole: 'PDA 仓管',
@@ -856,23 +1578,41 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         rollNos,
         pickupBy: '裁床仓管',
         pickupAt: occurredAt,
-        hasDifference: false,
+        hasDifference: row ? qty !== row.transferWarehouseAllocatedQty : false,
+        differenceReason: row && qty !== row.transferWarehouseAllocatedQty ? '现场按实领料' : '',
       },
     })
-    window.alert(`已记录中转仓领料：${sourceNo}，领料 ${displayText}。事件：${event.eventNo}，同步状态：${event.eventStatus}。`)
+    clearCuttingPickupDraft()
     return true
   }
   if (action === 'cutting-wp-receive') {
-    const sourceNo = window.prompt('请扫描领料单或裁片单二维码')?.trim()
-    if (!sourceNo) return true
-    const location = window.prompt('请输入收货库区库位', '面料 A 区 / FAB-A-01')?.trim()
-    if (!location) return true
+    openCuttingReceiveDraft(actionNode?.dataset.sourceNo)
+    return true
+  }
+  if (action === 'cancel-cutting-wp-receive') {
+    clearCuttingReceiveDraft()
+    return true
+  }
+  if (action === 'confirm-cutting-wp-receive') {
+    const sourceNo = state.cuttingReceiveSourceNo.trim()
+    if (!sourceNo) {
+      window.alert('请先扫码确认裁片任务。')
+      return true
+    }
     const row = findCuttingWaitProcessLedgerRow(sourceNo)
-    const qtyText = window.prompt('请输入扫码入仓数量和卷数', formatCuttingWaitProcessQty(row?.cuttingClaimedQty || row?.transferWarehouseAllocatedQty || 120, row?.unit))?.trim()
-    if (!qtyText) return true
+    const qty = Number(state.cuttingReceiveQty)
+    const rollCount = Number(state.cuttingReceiveRollCount)
+    if (!Number.isFinite(qty) || qty <= 0) {
+      window.alert('请输入大于 0 的入仓数量。')
+      return true
+    }
+    if (!Number.isFinite(rollCount) || rollCount <= 0) {
+      window.alert('请输入大于 0 的卷数。')
+      return true
+    }
+    const warehouseArea = state.cuttingReceiveWarehouseArea || '面料 A 区'
+    const locationCode = state.cuttingReceiveLocationCode || 'FAB-A-01'
     const occurredAt = getCuttingRuntimeNowText()
-    const { qty, rollCount, displayText } = parseCuttingQtyAndRoll(qtyText, row?.cuttingClaimedQty || 0)
-    const { warehouseArea, locationCode } = splitCuttingLocationText(location)
     const inventoryEffect: RuntimeInventoryEffect = {
       inventoryScope: '裁床待加工仓',
       direction: 'IN',
@@ -882,7 +1622,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       toWarehouseArea: warehouseArea,
       toLocationCode: locationCode,
     }
-    const event = appendCuttingRuntimeEvent({
+    appendCuttingRuntimeEvent({
       eventType: '待加工仓扫码入仓',
       operatorName: '裁床仓管',
       operatorRole: 'PDA 仓管',
@@ -907,20 +1647,37 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         checkResult: '正常',
       },
     })
-    window.alert(`已记录扫码入仓：${sourceNo}，入库位置：${warehouseArea} / ${locationCode}，数量 ${displayText}。事件：${event.eventNo}，同步状态：${event.eventStatus}。`)
+    clearCuttingReceiveDraft()
     return true
   }
   if (action === 'cutting-wp-issue') {
-    const sourceNo = window.prompt('请扫描铺布单或裁片单二维码')?.trim()
-    if (!sourceNo) return true
-    const location = window.prompt('请输入领料库区库位', '面料 A 区 / FAB-A-01')?.trim()
-    if (!location) return true
-    const qty = window.prompt('请输入加工领料数量和卷数', '120 米 / 1 卷')?.trim()
-    if (!qty) return true
+    openCuttingIssueDraft(actionNode?.dataset.sourceNo)
+    return true
+  }
+  if (action === 'cancel-cutting-wp-issue') {
+    clearCuttingIssueDraft()
+    return true
+  }
+  if (action === 'confirm-cutting-wp-issue') {
+    const sourceNo = state.cuttingIssueSourceNo.trim()
+    if (!sourceNo) {
+      window.alert('请先扫码确认加工领料对象。')
+      return true
+    }
     const row = findCuttingWaitProcessLedgerRow(sourceNo)
+    const issuedQty = Number(state.cuttingIssueQty)
+    const rollCount = Number(state.cuttingIssueRollCount)
+    if (!Number.isFinite(issuedQty) || issuedQty <= 0) {
+      window.alert('请输入大于 0 的领料数量。')
+      return true
+    }
+    if (!Number.isFinite(rollCount) || rollCount <= 0) {
+      window.alert('请输入大于 0 的卷数。')
+      return true
+    }
+    const warehouseArea = state.cuttingIssueWarehouseArea || '面料 A 区'
+    const locationCode = state.cuttingIssueLocationCode || 'FAB-A-01'
     const occurredAt = getCuttingRuntimeNowText()
-    const { qty: issuedQty, rollCount, displayText } = parseCuttingQtyAndRoll(qty, 120)
-    const { warehouseArea, locationCode } = splitCuttingLocationText(location)
     const inventoryEffect: RuntimeInventoryEffect = {
       inventoryScope: '裁床待加工仓',
       direction: 'OUT',
@@ -930,7 +1687,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       fromWarehouseArea: warehouseArea,
       fromLocationCode: locationCode,
     }
-    const event = appendCuttingRuntimeEvent({
+    appendCuttingRuntimeEvent({
       eventType: '待加工仓加工领料',
       operatorName: '裁床仓管',
       operatorRole: 'PDA 仓管',
@@ -956,20 +1713,42 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         purpose: '铺布用料',
       },
     })
-    window.alert(`已记录加工领料：${sourceNo}，从 ${warehouseArea} / ${locationCode} 领用 ${displayText}。事件：${event.eventNo}，同步状态：${event.eventStatus}。`)
+    clearCuttingIssueDraft()
     return true
   }
   if (action === 'cutting-wp-return') {
-    const sourceNo = window.prompt('请扫描铺布单或布卷码')?.trim()
-    if (!sourceNo) return true
-    const qty = window.prompt('请输入回收入仓数量和卷数', '35 米 / 1 卷')?.trim()
-    if (!qty) return true
-    const location = window.prompt('请输入回收入库区库位', '面料 A 区 / FAB-A-02')?.trim()
-    if (!location) return true
-    const row = findCuttingWaitProcessLedgerRow(sourceNo)
+    openCuttingReturnDraft(actionNode?.dataset.sourceNo)
+    return true
+  }
+  if (action === 'cancel-cutting-wp-return') {
+    clearCuttingReturnDraft()
+    return true
+  }
+  if (action === 'confirm-cutting-wp-return') {
+    const selectedDocument = state.cuttingReturnRelatedDocNo
+      ? listCuttingReturnDocumentOptions().find((item) => item.docNo === state.cuttingReturnRelatedDocNo)
+      : undefined
+    const sourceNo = selectedDocument?.docNo || state.cuttingReturnSourceNo.trim()
+    if (!sourceNo) {
+      window.alert('请先选择回收对象。')
+      return true
+    }
+    const row = selectedDocument
+      ? findCuttingLedgerRowByReturnDocument(selectedDocument.docNo)
+      : findCuttingWaitProcessLedgerRow(sourceNo)
+    const returnedQty = Number(state.cuttingReturnQty)
+    const rollCount = Number(state.cuttingReturnRollCount)
+    if (!Number.isFinite(returnedQty) || returnedQty <= 0) {
+      window.alert('请输入大于 0 的回收数量。')
+      return true
+    }
+    if (!Number.isFinite(rollCount) || rollCount <= 0) {
+      window.alert('请输入大于 0 的卷数。')
+      return true
+    }
+    const warehouseArea = state.cuttingReturnWarehouseArea || '面料 A 区'
+    const locationCode = state.cuttingReturnLocationCode || 'FAB-A-02'
     const occurredAt = getCuttingRuntimeNowText()
-    const { qty: returnedQty, rollCount, displayText } = parseCuttingQtyAndRoll(qty, 35)
-    const { warehouseArea, locationCode } = splitCuttingLocationText(location)
     const inventoryEffect: RuntimeInventoryEffect = {
       inventoryScope: '裁床待加工仓',
       direction: 'IN',
@@ -979,7 +1758,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       toWarehouseArea: warehouseArea,
       toLocationCode: locationCode,
     }
-    const event = appendCuttingRuntimeEvent({
+    appendCuttingRuntimeEvent({
       eventType: '待加工仓回收入仓',
       operatorName: '裁床仓管',
       operatorRole: 'PDA 仓管',
@@ -991,8 +1770,8 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       payload: {
         returnRecordId: `wp-return:${sourceNo}:${occurredAt}`,
         returnRecordNo: `回收-${sourceNo}`,
-        spreadingOrderId: sourceNo,
-        spreadingOrderNo: sourceNo,
+        spreadingOrderId: selectedDocument?.docId || (sourceNo.startsWith('PB-') ? sourceNo : ''),
+        spreadingOrderNo: selectedDocument?.docNo || (sourceNo.startsWith('PB-') ? sourceNo : ''),
         materialSku: row?.materialIdentity.materialSku || sourceNo,
         returnedQty,
         unit: '米',
@@ -1005,35 +1784,31 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         reason: '铺布剩余',
       },
     })
-    window.alert(`已记录回收入仓：${sourceNo}，回收 ${displayText} 到 ${warehouseArea} / ${locationCode}。事件：${event.eventNo}，同步状态：${event.eventStatus}。`)
+    clearCuttingReturnDraft()
     return true
   }
   if (action === 'recover-wool-yarn' && actionNode.dataset.woolOrderId) {
-    const relatedOrderNos = (actionNode.dataset.relatedOrderNos || '')
-      .split('|')
-      .map((item) => item.trim())
-      .filter(Boolean)
-    const selectedOrderNo = relatedOrderNos.length > 1
-      ? window.prompt('请输入回收来源毛织单号', relatedOrderNos[0])?.trim()
-      : relatedOrderNos[0]
-    if (selectedOrderNo === undefined) return true
-    const order = selectedOrderNo
-      ? listWoolWorkOrders().find((item) => item.woolOrderNo === selectedOrderNo || item.woolOrderId === selectedOrderNo)
-      : getWoolWorkOrderById(actionNode.dataset.woolOrderId)
+    openWoolReturnDraft(actionNode.dataset.woolOrderId)
+    return true
+  }
+  if (action === 'cancel-wool-return') {
+    clearWoolReturnDraft()
+    return true
+  }
+  if (action === 'confirm-wool-return') {
+    const orderId = state.woolReturnSelectedOrderId || state.woolReturnSourceOrderId
+    const order = getWoolWorkOrderById(orderId)
     if (!order) {
       window.alert('未找到该毛织加工单，请重新选择来源毛织单。')
       return true
     }
-    const usage = order ? getWoolYarnUsageSummary(order) : null
-    const defaultQty = usage ? Math.max(usage.linkingLossWeightKg - usage.recoveredWeightKg, 0) : 0
-    const rawValue = window.prompt('请输入回收入仓纱线重量（kg）', String(defaultQty))?.trim()
-    if (rawValue === undefined) return true
-    const recoveredWeightKg = Number(rawValue.replace(/kg|公斤/g, '').trim())
+    const recoveredWeightKg = Number(state.woolReturnQty.replace(/kg|公斤/g, '').trim())
     if (!Number.isFinite(recoveredWeightKg) || recoveredWeightKg <= 0) {
       window.alert('请输入大于 0 的重量。')
       return true
     }
     recoverWoolYarnToWaitProcessWarehouse(order.woolOrderId, Math.round(recoveredWeightKg * 100) / 100, '工厂端仓管')
+    clearWoolReturnDraft()
     return true
   }
   if (action === 'open-wait-process-detail' && actionNode.dataset.stockItemId) {
@@ -1091,6 +1866,87 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   }
   if (field === 'wait-process-remark') {
     state.remark = value
+    return true
+  }
+  if (field === 'cutting-pickup-qty') {
+    state.cuttingPickupQty = value
+    return true
+  }
+  if (field === 'cutting-pickup-roll-count') {
+    state.cuttingPickupRollCount = value
+    return true
+  }
+  if (field === 'cutting-receive-area') {
+    state.cuttingReceiveWarehouseArea = value
+    const nextArea = CUTTING_RECEIVE_LOCATIONS.find((item) => item.area === value)
+    state.cuttingReceiveLocationCode = nextArea?.locations[0] || ''
+    return true
+  }
+  if (field === 'cutting-receive-location') {
+    state.cuttingReceiveLocationCode = value
+    return true
+  }
+  if (field === 'cutting-receive-qty') {
+    state.cuttingReceiveQty = value
+    return true
+  }
+  if (field === 'cutting-receive-roll-count') {
+    state.cuttingReceiveRollCount = value
+    return true
+  }
+  if (field === 'cutting-issue-area') {
+    state.cuttingIssueWarehouseArea = value
+    const nextArea = CUTTING_RECEIVE_LOCATIONS.find((item) => item.area === value)
+    state.cuttingIssueLocationCode = nextArea?.locations[0] || ''
+    return true
+  }
+  if (field === 'cutting-issue-location') {
+    state.cuttingIssueLocationCode = value
+    return true
+  }
+  if (field === 'cutting-issue-qty') {
+    state.cuttingIssueQty = value
+    return true
+  }
+  if (field === 'cutting-issue-roll-count') {
+    state.cuttingIssueRollCount = value
+    return true
+  }
+  if (field === 'cutting-return-related-doc') {
+    state.cuttingReturnRelatedDocNo = value
+    const row = value ? findCuttingLedgerRowByReturnDocument(value) : findCuttingWaitProcessLedgerRow(state.cuttingReturnSourceNo)
+    if (row) state.cuttingReturnSourceNo = row.cutOrderNo
+    return true
+  }
+  if (field === 'cutting-return-area') {
+    state.cuttingReturnWarehouseArea = value
+    const nextArea = CUTTING_RECEIVE_LOCATIONS.find((item) => item.area === value)
+    state.cuttingReturnLocationCode = nextArea?.locations[0] || ''
+    return true
+  }
+  if (field === 'cutting-return-location') {
+    state.cuttingReturnLocationCode = value
+    return true
+  }
+  if (field === 'cutting-return-qty') {
+    state.cuttingReturnQty = value
+    return true
+  }
+  if (field === 'cutting-return-roll-count') {
+    state.cuttingReturnRollCount = value
+    return true
+  }
+  if (field === 'wool-return-selected-order') {
+    state.woolReturnSelectedOrderId = value
+    const selectedOrder = value ? getWoolWorkOrderById(value) : getWoolWorkOrderById(state.woolReturnSourceOrderId)
+    if (selectedOrder) {
+      const usage = getWoolYarnUsageSummary(selectedOrder)
+      state.woolReturnQty = String(Math.round(Math.max(usage.linkingLossWeightKg - usage.recoveredWeightKg, 0.1) * 100) / 100)
+    }
+    return true
+  }
+  if (field === 'wool-return-qty') {
+    state.woolReturnQty = value
     return true
   }
 

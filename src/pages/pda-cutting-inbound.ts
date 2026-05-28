@@ -143,12 +143,12 @@ function resolveInboundScanTicket(scanCode: string): TransferBagTicketCandidate 
 function validateInboundScan(form: InboundFormState, scanCode: string): { ok: boolean; reason: string; ticket: TransferBagTicketCandidate | null } {
   const normalized = scanCode.trim().toUpperCase()
   if (!normalized) return { ok: false, reason: '请先扫描菲票二维码。', ticket: null }
-  if (normalized.includes('WAIT') || normalized.includes('未首打')) return { ok: false, reason: '菲票未首打，不能入仓。', ticket: null }
+  if (normalized.includes('WAIT') || normalized.includes('未打印')) return { ok: false, reason: '菲票未打印，不能入仓。', ticket: null }
   if (normalized.includes('VOID') || normalized.includes('作废')) return { ok: false, reason: '菲票已作废，不能入仓。', ticket: null }
   const ticket = resolveInboundScanTicket(scanCode)
   if (!ticket) return { ok: false, reason: '菲票不存在，不能入仓。', ticket: null }
   if (ticket.ticketStatus === 'VOIDED' || ticket.printStatus === 'VOIDED') return { ok: false, reason: '菲票已作废，不能入仓。', ticket }
-  if (ticket.printStatus === 'WAIT_PRINT' && ticket.ticketStatus !== 'PRINTED') return { ok: false, reason: '菲票未首打，不能入仓。', ticket }
+  if (ticket.printStatus === 'WAIT_PRINT' && ticket.ticketStatus !== 'PRINTED') return { ok: false, reason: '菲票未打印，不能入仓。', ticket }
   if (form.scannedTicketNos.includes(ticket.ticketNo)) return { ok: false, reason: `${ticket.ticketNo} 已扫描，本次入仓不能重复。`, ticket }
   return { ok: true, reason: '', ticket }
 }

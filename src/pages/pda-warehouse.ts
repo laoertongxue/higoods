@@ -1,4 +1,5 @@
 import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { getFactoryMobileTodos, type FactoryMobileTodoType } from '../data/fcs/factory-mobile-todos.ts'
 import {
   getMobileWarehouseRuntimeContext,
@@ -26,13 +27,49 @@ function withQuery(route: string, query: Record<string, string | undefined>): st
   return queryString ? `${route}?${queryString}` : route
 }
 
+function isCuttingWarehouseRuntime(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): boolean {
+  const factory = getFactoryMasterRecordById(runtime.factoryId)
+  return factory?.factoryType === 'CENTRAL_CUTTING' || runtime.factoryName.includes('裁')
+}
+
+function isWoolWarehouseRuntime(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): boolean {
+  const factory = getFactoryMasterRecordById(runtime.factoryId)
+  return runtime.factoryId === OWN_WOOL_FACTORY_ID || factory?.factoryType === 'CENTRAL_WOOL' || runtime.factoryName.includes('毛织')
+}
+
+function getWaitHandoverInboundShortcut(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): Pick<WarehouseShortcut, 'title' | 'subtitle'> {
+  const factory = getFactoryMasterRecordById(runtime.factoryId)
+  if (isCuttingWarehouseRuntime(runtime)) {
+    return {
+      title: '菲票入仓',
+      subtitle: '扫暂存袋和菲票，进入裁床待交出仓。',
+    }
+  }
+  if (isWoolWarehouseRuntime(runtime)) {
+    return {
+      title: '整件入仓',
+      subtitle: '整件毛织完成后扫码入待交出仓。',
+    }
+  }
+  if (factory?.factoryType === 'CENTRAL_PRINT' || factory?.factoryType === 'CENTRAL_DYE') {
+    return {
+      title: '加工物料入仓',
+      subtitle: '加工完成后扫码入待交出仓。',
+    }
+  }
+  return {
+    title: '完工入仓',
+    subtitle: '加工完成后扫码入待交出仓。',
+  }
+}
+
 function resolveWarehouseRoute(
   route: '/fcs/pda/warehouse/wait-process' | '/fcs/pda/warehouse/wait-handover' | '/fcs/pda/warehouse/stocktake',
   runtime: ReturnType<typeof getMobileWarehouseRuntimeContext>,
   extraQuery: Record<string, string | undefined> = {},
 ): string {
   if (!runtime) return route
-  const scope = runtime.factoryId === OWN_WOOL_FACTORY_ID ? undefined : 'cutting'
+  const scope = isCuttingWarehouseRuntime(runtime) ? 'cutting' : undefined
   return withQuery(route, { scope, ...extraQuery })
 }
 
@@ -120,10 +157,11 @@ function renderWaitProcessActions(runtime: NonNullable<ReturnType<typeof getMobi
 
 function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): string {
   const handoverCount = getActiveTodoCount(runtime, ['待交出'])
+  const inboundShortcut = getWaitHandoverInboundShortcut(runtime)
   const waitHandoverActions: WarehouseShortcut[] = [
     {
-      title: '菲票入仓',
-      subtitle: '加工完成后进入待交出仓。',
+      title: inboundShortcut.title,
+      subtitle: inboundShortcut.subtitle,
       route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'inbound' }),
     },
     {
@@ -152,7 +190,6 @@ function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMob
 }
 
 function renderInventoryActions(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): string {
-  const exceptionCount = getActiveTodoCount(runtime, ['差异待处理', '异常待处理'])
   const actions: WarehouseShortcut[] = [
     {
       title: '查库存',
@@ -165,18 +202,12 @@ function renderInventoryActions(runtime: NonNullable<ReturnType<typeof getMobile
       route: resolveWarehouseRoute('/fcs/pda/warehouse/stocktake', runtime, { mode: 'scan' }),
     },
     {
-      title: '盘点',
+      title: '库存盘点',
       subtitle: '按库位核对实物数量。',
       route: resolveWarehouseRoute('/fcs/pda/warehouse/stocktake', runtime, { mode: 'stocktake' }),
     },
-    {
-      title: '异常上报',
-      subtitle: '数量、库位、扫码异常。',
-      route: '/fcs/pda/notify',
-      ...buildPendingTone(exceptionCount, 'warning'),
-    },
   ]
-  return renderWarehouseActionGroup('库存与异常', actions)
+  return renderWarehouseActionGroup('库存与盘点', actions)
 }
 
 export function renderPdaWarehousePage(): string {

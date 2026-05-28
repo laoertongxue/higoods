@@ -182,7 +182,7 @@ const printableTypeMeta: Record<'ALL' | PrintableUnitType, string> = {
 }
 
 const operationTypeMeta: Record<TicketPrintRecord['operationType'], string> = {
-  FIRST_PRINT: '首打',
+  FIRST_PRINT: '首次打印',
   REPRINT: '补打',
   VOID: '作废',
 }
@@ -696,8 +696,8 @@ function renderStatusTabsArea(bundle: FeiTicketsDataBundle): string {
 }
 
 const workbenchTabLabels: Record<FeiWorkbenchTabKey, string> = {
-  WAIT_FIRST: '待首打',
-  PRINTED: '已首打',
+  WAIT_FIRST: '待打印',
+  PRINTED: '已打印',
   NEED_REPRINT: '需补打',
   VOIDED: '已作废',
   PRINT_RECORDS: '打印记录',
@@ -873,7 +873,7 @@ function buildFeiTicketWorkbenchRows(bundle: FeiTicketsDataBundle): FeiTicketWor
       ticketId: validRecord?.ticketRecordId || generated.feiTicketId,
       ticketNo: validRecord?.ticketNo || generated.feiTicketNo,
       versionLabel: getTicketRecordVersionLabel(validRecord),
-      printStatusLabel: validRecord ? (validRecord.reprintCount > 0 || (validRecord.version || 1) > 1 ? '已补打' : '已首打') : '待首打',
+      printStatusLabel: validRecord ? (validRecord.reprintCount > 0 || (validRecord.version || 1) > 1 ? '已补打' : '已打印') : '待打印',
       productionOrderNo: generated.productionOrderNo,
       cutOrderNo: generated.cutOrderNo,
       markerPlanNo: generated.sourceMarkerPlanNo,
@@ -973,12 +973,12 @@ function buildFeiTicketSpreadingWorkbenchRows(rows: FeiTicketWorkbenchRow[]): Fe
         printedBy: uniqueStrings(sortedRows.map((row) => row.printedBy)).join('、'),
         printStatusLabel:
           tab === 'WAIT_FIRST'
-            ? `待确认明细 ${sortedRows.length} 条`
+            ? `待打印 ${sortedRows.length} 条`
             : tab === 'PRINTED'
-              ? `已确认明细 ${sortedRows.length} 条`
+              ? `已打印 ${sortedRows.length} 条`
               : tab === 'NEED_REPRINT'
-                ? `需补打明细 ${sortedRows.length} 条`
-                : `已作废明细 ${sortedRows.length} 条`,
+                ? `需补打 ${sortedRows.length} 条`
+                : `已作废 ${sortedRows.length} 条`,
         detailRows: sortedRows,
         primaryRow,
       } satisfies FeiTicketSpreadingWorkbenchRow
@@ -1400,14 +1400,12 @@ function renderSpreadingLifecycleStatusBadge(row: FeiTicketSpreadingWorkbenchRow
 function renderSpreadingWorkbenchRowActions(row: FeiTicketSpreadingWorkbenchRow): string {
   const primary = row.primaryRow
   const detailHref = buildStandaloneSpreadingHref(row)
-  const printHref = buildStandaloneFeiTicketHref(primary.ticketId, '/print')
   const reprintHref = buildStandaloneFeiTicketHref(primary.ticketId, '/reprint')
   const voidHref = buildStandaloneFeiTicketHref(primary.ticketId, '/void')
   const recordHref = `/fcs/craft/cutting/fei-tickets/print-records?ticketId=${encodeURIComponent(primary.ticketId)}`
   return `
     <div class="flex flex-wrap gap-1.5">
-      <button type="button" data-nav="${escapeHtml(detailHref)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">确认菲票明细</button>
-      ${row.tab === 'WAIT_FIRST' ? `<button type="button" data-nav="${escapeHtml(printHref)}" class="inline-flex min-h-8 items-center rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700">打印菲票</button>` : ''}
+      <button type="button" data-nav="${escapeHtml(detailHref)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">部位菲票明细</button>
       ${row.tab === 'PRINTED' || row.tab === 'NEED_REPRINT' ? `<button type="button" data-nav="${escapeHtml(reprintHref)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">补打</button>` : ''}
       ${row.tab === 'PRINTED' || row.tab === 'NEED_REPRINT' ? `<button type="button" data-nav="${escapeHtml(voidHref)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">作废</button>` : ''}
       <button type="button" data-nav="${escapeHtml(recordHref)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">查看记录</button>
@@ -1450,7 +1448,7 @@ function renderFeiTicketWorkbenchCard(row: FeiTicketSpreadingWorkbenchRow): stri
               </p>
             `)
             .join('')}
-          ${remainingCount ? `<p class="text-slate-500">另 ${formatCount(remainingCount)} 条明细，进入详情确认。</p>` : ''}
+          ${remainingCount ? `<p class="text-slate-500">另 ${formatCount(remainingCount)} 条明细，进入部位明细查看。</p>` : ''}
         </div>
         <div class="space-y-1 text-xs text-slate-600">
           <p class="font-semibold text-slate-900">特殊工艺</p>
@@ -1460,7 +1458,7 @@ function renderFeiTicketWorkbenchCard(row: FeiTicketSpreadingWorkbenchRow): stri
         </div>
         <div class="space-y-1 text-xs text-slate-600">
           <p class="font-semibold text-slate-900">打印信息</p>
-          <p><span class="text-slate-400">首打时间：</span><span class="font-medium text-slate-800">${escapeHtml(row.firstPrintedAt || '待首打')}</span></p>
+          <p><span class="text-slate-400">打印时间：</span><span class="font-medium text-slate-800">${escapeHtml(row.firstPrintedAt || '未打印')}</span></p>
           <p><span class="text-slate-400">最近补打：</span><span class="font-medium text-slate-800">${escapeHtml(row.latestReprintAt || '无')}</span></p>
           <p><span class="text-slate-400">打印次数：</span><span class="font-medium text-slate-800">${formatCount(row.printCount)}</span></p>
           <p><span class="text-slate-400">打印人：</span><span class="font-medium text-slate-800">${escapeHtml(row.printedBy || '待打印')}</span></p>
@@ -2528,13 +2526,67 @@ function renderStandaloneNotFound(ticketId: string): string {
   `)
 }
 
+function isDetailPrinted(detail: FeiTicketWorkbenchRow): boolean {
+  return detail.tab === 'PRINTED' || detail.tab === 'NEED_REPRINT'
+}
+
+function needsDetailPrint(detail: FeiTicketWorkbenchRow): boolean {
+  return detail.tab === 'WAIT_FIRST' || detail.tab === 'NEED_REPRINT'
+}
+
+function renderDetailPrintedFlag(detail: FeiTicketWorkbenchRow): string {
+  if (detail.tab === 'VOIDED') {
+    return renderBadge('已作废', 'border border-rose-200 bg-rose-50 text-rose-700')
+  }
+  if (detail.tab === 'NEED_REPRINT') {
+    return renderBadge('已打印，需补打', 'border border-amber-200 bg-amber-50 text-amber-700')
+  }
+  if (isDetailPrinted(detail)) {
+    return renderBadge('已打印', 'border border-emerald-200 bg-emerald-50 text-emerald-700')
+  }
+  return renderBadge('未打印', 'border border-slate-200 bg-slate-100 text-slate-700')
+}
+
+function buildSpreadingPrintPreviewHref(details: FeiTicketWorkbenchRow[], mode: 'all' | 'missing'): string {
+  const printableDetails = mode === 'missing' ? details.filter(needsDetailPrint) : details
+  const sourceIds = printableDetails
+    .map((detail) => detail.record?.ticketRecordId || detail.generated.feiTicketId || detail.generated.feiTicketNo || detail.ticketNo)
+    .filter(Boolean)
+  const documentType = mode === 'missing' ? 'FEI_TICKET_REPRINT_LABEL' : 'FEI_TICKET_LABEL'
+  return `/fcs/print/preview?documentType=${documentType}&sourceType=FEI_TICKET_RECORD&sourceId=${encodeURIComponent(sourceIds.join(','))}`
+}
+
+function renderSpreadingDetailHeaderActions(row: FeiTicketSpreadingWorkbenchRow): string {
+  const missingDetails = row.detailRows.filter(needsDetailPrint)
+  const allHref = buildSpreadingPrintPreviewHref(row.detailRows, 'all')
+  const missingHref = buildSpreadingPrintPreviewHref(row.detailRows, 'missing')
+  return `
+    <div class="flex flex-wrap gap-2">
+      <button type="button" data-nav="${escapeHtml(allHref)}" class="inline-flex min-h-9 items-center rounded-md border border-blue-600 bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-700">全部打印</button>
+      <button type="button" ${missingDetails.length ? `data-nav="${escapeHtml(missingHref)}"` : 'disabled'} class="inline-flex min-h-9 items-center rounded-md border px-3 text-xs font-medium ${missingDetails.length ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50' : 'border-slate-200 bg-slate-100 text-slate-400'}">补打</button>
+    </div>
+  `
+}
+
+function renderSpreadingDetailSection(row: FeiTicketSpreadingWorkbenchRow): string {
+  return `
+    <section class="rounded-lg border bg-white shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+        <h2 class="text-sm font-semibold text-slate-900">该铺布单下全部部位明细</h2>
+        ${renderSpreadingDetailHeaderActions(row)}
+      </div>
+      <div class="p-4">${renderSpreadingDetailRows(row)}</div>
+    </section>
+  `
+}
+
 function renderSpreadingDetailRows(row: FeiTicketSpreadingWorkbenchRow): string {
   return `
     <div class="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
       ${row.detailRows
         .map(
           (detail, index) => `
-            <article class="grid gap-3 p-3 text-sm xl:grid-cols-[3.5rem_1.1fr_1fr_1fr_1.1fr_1.3fr_auto] xl:items-start">
+            <article class="grid gap-3 p-3 text-sm xl:grid-cols-[3.5rem_1.1fr_0.9fr_1fr_1.1fr_1.25fr_0.9fr_auto] xl:items-start">
               <div class="text-xs font-semibold text-slate-400">#${formatCount(index + 1)}</div>
               <div>
                 <p class="text-xs text-slate-500">部位 / 尺码</p>
@@ -2559,6 +2611,10 @@ function renderSpreadingDetailRows(row: FeiTicketSpreadingWorkbenchRow): string 
                 <p class="text-xs text-slate-500">特殊工艺 / 承接工厂</p>
                 <p class="mt-1 font-semibold text-slate-900">${escapeHtml(joinCompactLines(detail.specialCraftLines, 3))}</p>
                 <p class="mt-1 text-xs text-slate-500">${escapeHtml(joinCompactLines(detail.receiverFactoryLines, 3))}</p>
+              </div>
+              <div>
+                <p class="text-xs text-slate-500">是否已打印菲票</p>
+                <div class="mt-1">${renderDetailPrintedFlag(detail)}</div>
               </div>
               <div class="flex flex-wrap gap-1.5 xl:justify-end">
                 <button type="button" data-nav="${escapeHtml(buildStandaloneFeiTicketHref(detail.ticketId))}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">单条详情</button>
@@ -2591,7 +2647,7 @@ function renderSpreadingStandaloneDetailSections(row: FeiTicketSpreadingWorkbenc
         <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">特殊工艺 / 承接工厂</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(joinCompactLines(row.specialCraftLines, 4))}</p><p class="mt-1 text-xs text-slate-500">${escapeHtml(joinCompactLines(row.receiverFactoryLines, 4))}</p></div>
       </div>
     `)}
-    ${renderSectionCard('该铺布单下全部部位明细', '', renderSpreadingDetailRows(row))}
+    ${renderSpreadingDetailSection(row)}
   `
 }
 
@@ -2654,7 +2710,7 @@ function renderStandaloneDetailSections(row: FeiTicketWorkbenchRow): string {
     `)}
     ${renderSectionCard('打印记录', '', `
       <div class="grid gap-3 md:grid-cols-3">
-        <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">首打记录</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(row.firstPrintedAt || '待首打')}</p></div>
+        <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">首次打印记录</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(row.firstPrintedAt || '未打印')}</p></div>
         <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">补打记录</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(row.latestReprintAt || '无')}</p></div>
         <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">作废记录</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(row.tab === 'VOIDED' ? row.reason : '无')}</p></div>
       </div>

@@ -540,7 +540,7 @@ function renderTabs(): string {
   `
 }
 
-function renderTableWrapper(headers: string[], body: string, minWidthClass = 'min-w-[1600px]'): string {
+function renderTableWrapper(headers: string[], body: string, minWidthClass = 'min-w-[1120px]'): string {
   return `
     <div class="overflow-x-auto">
       <table class="w-full ${minWidthClass} text-sm">
@@ -556,7 +556,14 @@ function renderTableWrapper(headers: string[], body: string, minWidthClass = 'mi
 }
 
 function getWaitProcessSourceActionLabel(item: FactoryWaitProcessStockItem): string {
-  return item.sourceRecordType === 'HANDOVER_RECEIVE' ? '交出接收' : '领料确认'
+  return getInboundSourceActionLabel(item.sourceRecordType)
+}
+
+function getInboundSourceActionLabel(sourceRecordType: FactoryWarehouseInboundRecord['sourceRecordType']): string {
+  if (sourceRecordType === 'HANDOVER_RECEIVE') return '交出接收'
+  if (sourceRecordType === 'TRANSFER_RECEIVE') return '流转接收'
+  if (sourceRecordType === 'STOCKTAKE_ADJUSTMENT') return '盘点调整'
+  return '领料确认'
 }
 
 function getWaitProcessSourceStatusLabel(item: FactoryWaitProcessStockItem): string {
@@ -594,7 +601,12 @@ function renderWaitProcessTab(): string {
       ? `<tr><td colspan="25" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td></tr>`
       : rows
           .map((item) => {
-            const sourceHref = item.sourceRecordType === 'MATERIAL_PICKUP' ? '/fcs/progress/material' : '/fcs/progress/handover'
+            const sourceHref =
+              item.sourceRecordType === 'MATERIAL_PICKUP'
+                ? '/fcs/progress/material'
+                : item.sourceRecordType === 'HANDOVER_RECEIVE'
+                  ? '/fcs/progress/handover'
+                  : '#'
             const taskHref = item.taskId ? buildTaskDetailLink(item.taskId) : item.productionOrderId ? buildProductionOrderLink(item.productionOrderId) : ''
             const inboundRecord = findFactoryWarehouseInboundRecordBySourceRecordId(item.sourceRecordId)
             return `
@@ -767,7 +779,7 @@ function renderInboundTab(): string {
                 <td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.inboundRecordNo)}</td>
                 <td class="px-3 py-2">${escapeHtml(item.factoryName)}</td>
                 <td class="px-3 py-2">${escapeHtml(item.warehouseName)}</td>
-                <td class="px-3 py-2">${escapeHtml(item.sourceRecordType === 'HANDOVER_RECEIVE' ? '交出接收' : '领料确认')}</td>
+                <td class="px-3 py-2">${escapeHtml(getInboundSourceActionLabel(item.sourceRecordType))}</td>
                 <td class="px-3 py-2">${escapeHtml(getFactoryWarehouseInboundSourceLabel(item.sourceRecordType))}</td>
                 <td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.sourceRecordNo)}</td>
                 <td class="px-3 py-2">${escapeHtml(item.sourceObjectName)}</td>
@@ -1003,7 +1015,7 @@ function renderStocktakeTab(): string {
   const targetWarehouse = getTargetWarehouseForMaintenance()
   const body =
     rows.length === 0
-      ? `<tr><td colspan="13" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td></tr>`
+      ? `<tr><td colspan="15" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td></tr>`
       : rows
           .map((item) => {
             const differenceCount = item.lineList.filter((line) => (line.differenceQty ?? 0) !== 0).length
@@ -1015,8 +1027,10 @@ function renderStocktakeTab(): string {
                 <td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.stocktakeOrderNo)}</td>
                 <td class="px-3 py-2">${escapeHtml(item.factoryName)}</td>
                 <td class="px-3 py-2">${escapeHtml(item.warehouseName)}</td>
-                <td class="px-3 py-2">${escapeHtml(item.stocktakeScope)}</td>
-                <td class="px-3 py-2">${escapeHtml(item.createdBy)}</td>
+                <td class="px-3 py-2">${escapeHtml(item.stocktakeMethod || item.stocktakeScope)}</td>
+                <td class="px-3 py-2">${item.isBlindStocktake ? renderStatusBadge('盲盘', 'blue') : renderStatusBadge('非盲盘', 'slate')}</td>
+                <td class="px-3 py-2">${escapeHtml((item.ownerNames?.length ? item.ownerNames : [item.createdBy]).join('、'))}</td>
+                <td class="px-3 py-2">${escapeHtml(item.plannedAt ? formatDateTime(item.plannedAt) : '—')}</td>
                 <td class="px-3 py-2">${escapeHtml(formatDateTime(item.startedAt || item.createdAt))}</td>
                 <td class="px-3 py-2">${escapeHtml(item.completedAt ? formatDateTime(item.completedAt) : '—')}</td>
                 <td class="px-3 py-2">${item.lineList.length}</td>
@@ -1043,8 +1057,8 @@ function renderStocktakeTab(): string {
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4">
         <div>
-          <div class="text-sm font-medium text-foreground">默认全盘</div>
-          <div class="mt-1 text-xs text-muted-foreground">${targetWarehouse ? `当前可创建：${targetWarehouse.warehouseName}` : '请选择工厂后创建全盘'}</div>
+          <div class="text-sm font-medium text-foreground">盘点记录</div>
+          <div class="mt-1 text-xs text-muted-foreground">${targetWarehouse ? `当前可创建：${targetWarehouse.warehouseName}，PDA 创建的盘点单也会同步显示在这里。` : '请选择工厂后创建全盘'}</div>
         </div>
         <button
           type="button"
@@ -1052,10 +1066,10 @@ function renderStocktakeTab(): string {
           data-factory-warehouse-action="create-stocktake"
           data-warehouse-id="${escapeHtml(targetWarehouse?.warehouseId || '')}"
         >
-          创建全盘
+          创建明盘全盘
         </button>
       </div>
-      ${renderTableWrapper(['盘点单号', '工厂', '仓库', '盘点范围', '盘点人', '开始时间', '完成时间', '明细数', '差异数', '待审核差异', '已调整', '状态', '操作'], body, 'min-w-[1200px]')}
+      ${renderTableWrapper(['盘点单号', '工厂', '仓库', '盘点方式', '盲盘', '责任人', '计划时间', '开始时间', '完成时间', '明细数', '差异数', '待审核差异', '已调整', '状态', '操作'], body, 'min-w-[1360px]')}
     </div>
   `
 }
@@ -1206,7 +1220,7 @@ function renderInboundDetail(record: FactoryWarehouseInboundRecord): string {
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         ${renderKeyValueItem('入库单号', escapeHtml(record.inboundRecordNo))}
         ${renderKeyValueItem('入库仓', escapeHtml(record.warehouseName))}
-        ${renderKeyValueItem('来源动作', escapeHtml(record.sourceRecordType === 'HANDOVER_RECEIVE' ? '交出接收' : '领料确认'))}
+        ${renderKeyValueItem('来源动作', escapeHtml(getInboundSourceActionLabel(record.sourceRecordType)))}
         ${renderKeyValueItem('生成方式', '自动转单', true)}
         ${renderKeyValueItem('来源', escapeHtml(getFactoryWarehouseInboundSourceLabel(record.sourceRecordType)))}
         ${renderKeyValueItem('来源单号', escapeHtml(record.sourceRecordNo))}
@@ -1290,77 +1304,90 @@ function renderStocktakeDetail(order: FactoryWarehouseStocktakeOrder): string {
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           ${renderKeyValueItem('工厂', escapeHtml(order.factoryName))}
           ${renderKeyValueItem('仓库', escapeHtml(order.warehouseName))}
-          ${renderKeyValueItem('盘点范围', escapeHtml(order.stocktakeScope))}
-          ${renderKeyValueItem('盘点人', escapeHtml(order.createdBy))}
+          ${renderKeyValueItem('盘点方式', escapeHtml(order.stocktakeMethod || order.stocktakeScope))}
+          ${renderKeyValueItem('盘点模式', escapeHtml(order.isBlindStocktake ? '盲盘' : '非盲盘'))}
+          ${renderKeyValueItem('责任人', escapeHtml((order.ownerNames?.length ? order.ownerNames : [order.createdBy]).join('、')))}
+          ${renderKeyValueItem('计划时间', escapeHtml(order.plannedAt ? formatDateTime(order.plannedAt) : '—'))}
           ${renderKeyValueItem('状态', escapeHtml(order.status))}
           ${renderKeyValueItem('待审核差异', escapeHtml(String(reviews.filter((review) => review.reviewStatus !== '已调整').length)))}
           ${renderKeyValueItem('已调整差异', escapeHtml(String(reviews.filter((review) => review.reviewStatus === '已调整').length)))}
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-[1780px] text-sm">
-            <thead>
-              <tr class="border-b bg-muted/40 text-left">
-                <th class="px-3 py-2 font-medium">物料 / 裁片类型</th>
-                <th class="px-3 py-2 font-medium">面料 SKU / 裁片部位</th>
-                <th class="px-3 py-2 font-medium">颜色</th>
-                <th class="px-3 py-2 font-medium">尺码</th>
-                <th class="px-3 py-2 font-medium">菲票号</th>
-                <th class="px-3 py-2 font-medium">中转袋号</th>
-                <th class="px-3 py-2 font-medium">卷号</th>
-                <th class="px-3 py-2 font-medium">账面数量</th>
-                <th class="px-3 py-2 font-medium">实盘数量</th>
-                <th class="px-3 py-2 font-medium">差异数量</th>
-                <th class="px-3 py-2 font-medium">库区</th>
-                <th class="px-3 py-2 font-medium">货架</th>
-                <th class="px-3 py-2 font-medium">库位</th>
-                <th class="px-3 py-2 font-medium">差异原因</th>
-                <th class="px-3 py-2 font-medium">状态</th>
-                <th class="px-3 py-2 font-medium">审核状态</th>
-                <th class="px-3 py-2 font-medium">调整单</th>
-                <th class="px-3 py-2 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${lines
-                .map(
-                  (line) => {
-                    const review = reviews.find((item) => item.lineId === line.lineId)
-                    const adjustment = adjustments.find((item) => item.sourceLineId === line.lineId)
-                    const canReview = Boolean(review && review.reviewStatus === '待审核')
-                    const canExecuteAdjustment = Boolean(adjustment && adjustment.status === '待执行')
-                    return `
-                    <tr class="border-b last:border-b-0">
-                      <td class="px-3 py-2">${escapeHtml(line.itemKind)}</td>
-                      <td class="px-3 py-2">${escapeHtml(line.materialSku || line.partName || line.itemName)}</td>
-                      <td class="px-3 py-2">${escapeHtml(line.fabricColor || '—')}</td>
-                      <td class="px-3 py-2">${escapeHtml(line.sizeCode || '—')}</td>
-                      <td class="px-3 py-2 font-mono text-xs">${escapeHtml(line.feiTicketNo || '—')}</td>
-                      <td class="px-3 py-2 font-mono text-xs">${escapeHtml(line.transferBagNo || '—')}</td>
-                      <td class="px-3 py-2 font-mono text-xs">${escapeHtml(line.fabricRollNo || '—')}</td>
-                      <td class="px-3 py-2">${formatQty(line.bookQty)}</td>
-                      <td class="px-3 py-2">
+        <div class="grid gap-3 lg:grid-cols-2">
+          ${lines
+            .map((line) => {
+              const review = reviews.find((item) => item.lineId === line.lineId)
+              const adjustment = adjustments.find((item) => item.sourceLineId === line.lineId)
+              const canReview = Boolean(review && review.reviewStatus === '待审核')
+              const canExecuteAdjustment = Boolean(adjustment && adjustment.status === '待执行')
+              const differenceLabel =
+                typeof line.differenceQty === 'number' && line.differenceQty !== 0
+                  ? line.differenceQty > 0
+                    ? '盘盈单'
+                    : '盘亏单'
+                  : '—'
+              return `
+                <article class="rounded-xl border bg-card p-3 text-sm">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <div class="font-medium text-foreground">${escapeHtml(line.materialSku || line.partName || line.itemName)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.itemKind)} · ${escapeHtml(line.fabricColor || '无颜色')} · ${escapeHtml(line.sizeCode || '无尺码')}</div>
+                    </div>
+                    <div class="shrink-0">${renderStatusBadge(line.status, getStatusTone(line.status))}</div>
+                  </div>
+                  <div class="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                    <div>菲票：${escapeHtml(line.feiTicketNo || '—')}</div>
+                    <div>中转袋：${escapeHtml(line.transferBagNo || '—')}</div>
+                    <div>卷号：${escapeHtml(line.fabricRollNo || '—')}</div>
+                    <div>库位：${escapeHtml(`${line.areaName} / ${line.shelfNo} / ${line.locationNo}`)}</div>
+                  </div>
+                  <div class="mt-3 grid gap-2 sm:grid-cols-4">
+                    <div class="rounded-lg bg-muted/50 px-3 py-2">
+                      <div class="text-xs text-muted-foreground">库存数量</div>
+                      <div class="mt-1 font-medium">${order.isBlindStocktake ? '盲盘不显示' : escapeHtml(formatQty(line.bookQty))}</div>
+                    </div>
+                    <div class="rounded-lg bg-muted/50 px-3 py-2">
+                      <div class="text-xs text-muted-foreground">盘点数量</div>
+                      <div class="mt-1">
                         ${
                           order.status === '已完成'
-                            ? escapeHtml(typeof line.countedQty === 'number' ? formatQty(line.countedQty) : '—')
-                            : `<input type="number" min="0" class="h-9 w-24 rounded-md border bg-background px-2 text-sm" value="${line.countedQty ?? ''}" data-factory-warehouse-field="stocktake-countedQty" data-stocktake-order-id="${escapeHtml(order.stocktakeOrderId)}" data-line-id="${escapeHtml(line.lineId)}" />`
+                            ? `<span class="font-medium">${escapeHtml(typeof line.countedQty === 'number' ? formatQty(line.countedQty) : '—')}</span>`
+                            : `<input type="number" min="0" class="h-9 w-full rounded-md border bg-background px-2 text-sm" value="${line.countedQty ?? ''}" data-factory-warehouse-field="stocktake-countedQty" data-stocktake-order-id="${escapeHtml(order.stocktakeOrderId)}" data-line-id="${escapeHtml(line.lineId)}" />`
                         }
-                      </td>
-                      <td class="px-3 py-2 ${line.differenceQty ? 'text-rose-600' : ''}">${typeof line.differenceQty === 'number' ? formatQty(line.differenceQty) : '—'}</td>
-                      <td class="px-3 py-2">${escapeHtml(line.areaName)}</td>
-                      <td class="px-3 py-2">${escapeHtml(line.shelfNo)}</td>
-                      <td class="px-3 py-2">${escapeHtml(line.locationNo)}</td>
-                      <td class="px-3 py-2">
-                        ${
-                          order.status === '已完成'
-                            ? escapeHtml(line.differenceReason || '—')
-                            : `<input type="text" class="h-9 w-40 rounded-md border bg-background px-2 text-sm" value="${escapeHtml(line.differenceReason || '')}" placeholder="差异原因" data-factory-warehouse-field="stocktake-differenceReason" data-stocktake-order-id="${escapeHtml(order.stocktakeOrderId)}" data-line-id="${escapeHtml(line.lineId)}" />`
-                        }
-                      </td>
-                      <td class="px-3 py-2">${renderStatusBadge(line.status, getStatusTone(line.status))}</td>
-                      <td class="px-3 py-2">${line.reviewStatus ? renderStatusBadge(line.reviewStatus, line.reviewStatus === '已调整' ? 'green' : line.reviewStatus === '已驳回' ? 'red' : 'amber') : '—'}</td>
-                      <td class="px-3 py-2">${adjustment ? `${escapeHtml(adjustment.adjustmentOrderNo)} · ${escapeHtml(adjustment.status)}` : '—'}</td>
-                      <td class="px-3 py-2">
-                        <div class="flex flex-wrap gap-2">
+                      </div>
+                    </div>
+                    <div class="rounded-lg bg-muted/50 px-3 py-2">
+                      <div class="text-xs text-muted-foreground">差异数量</div>
+                      <div class="mt-1 font-medium ${line.differenceQty ? 'text-rose-600' : ''}">${typeof line.differenceQty === 'number' ? escapeHtml(formatQty(line.differenceQty)) : '—'}</div>
+                    </div>
+                    <div class="rounded-lg bg-muted/50 px-3 py-2">
+                      <div class="text-xs text-muted-foreground">盘盈 / 盘亏</div>
+                      <div class="mt-1">${
+                        differenceLabel !== '—'
+                          ? renderStatusBadge(differenceLabel, differenceLabel === '盘盈单' ? 'green' : 'red')
+                          : '—'
+                      }</div>
+                    </div>
+                  </div>
+                  <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                    <label class="block text-xs text-muted-foreground">
+                      <span>差异原因</span>
+                      ${
+                        order.status === '已完成'
+                          ? `<div class="mt-1 rounded-lg border bg-muted/30 px-3 py-2 text-foreground">${escapeHtml(line.differenceReason || '—')}</div>`
+                          : `<input type="text" class="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm text-foreground" value="${escapeHtml(line.differenceReason || '')}" placeholder="差异原因" data-factory-warehouse-field="stocktake-differenceReason" data-stocktake-order-id="${escapeHtml(order.stocktakeOrderId)}" data-line-id="${escapeHtml(line.lineId)}" />`
+                      }
+                    </label>
+                    <div class="text-xs text-muted-foreground">
+                      <span>审核与调整</span>
+                      <div class="mt-1 rounded-lg border bg-muted/30 px-3 py-2 text-foreground">
+                        ${line.reviewStatus ? renderStatusBadge(line.reviewStatus, line.reviewStatus === '已调整' ? 'green' : line.reviewStatus === '已驳回' ? 'red' : 'amber') : '—'}
+                        <span class="ml-2">${adjustment ? `${escapeHtml(adjustment.adjustmentOrderNo)} · ${escapeHtml(adjustment.status)}` : '暂无调整单'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  ${
+                    canReview || canExecuteAdjustment
+                      ? `<div class="mt-3 flex flex-wrap gap-2">
                           ${
                             canReview
                               ? `<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-factory-warehouse-action="approve-stocktake-review" data-review-id="${escapeHtml(review?.reviewId || '')}">审核通过</button>
@@ -1372,15 +1399,13 @@ function renderStocktakeDetail(order: FactoryWarehouseStocktakeOrder): string {
                               ? `<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs text-emerald-700 hover:bg-emerald-50" data-factory-warehouse-action="execute-adjustment-order" data-adjustment-order-id="${escapeHtml(adjustment?.adjustmentOrderId || '')}">执行调整</button>`
                               : ''
                           }
-                        </div>
-                      </td>
-                    </tr>
-                  `
-                  },
-                )
-                .join('')}
-            </tbody>
-          </table>
+                        </div>`
+                      : ''
+                  }
+                </article>
+              `
+            })
+            .join('')}
         </div>
       </div>
     `,
@@ -1798,7 +1823,11 @@ export function handleFactoryInternalWarehouseEvent(target: HTMLElement): boolea
       state.notice = '请先选择工厂后再创建全盘'
       return true
     }
-    const order = createFactoryWarehouseStocktakeOrder(warehouse.factoryId, warehouseId)
+    const order = createFactoryWarehouseStocktakeOrder(warehouse.factoryId, warehouseId, '仓库主管', {
+      stocktakeMethod: '全盘',
+      isBlindStocktake: false,
+      ownerNames: ['仓库主管'],
+    })
     state.notice = order ? `已创建全盘：${order.stocktakeOrderNo}` : '创建全盘失败'
     if (order) {
       state.activeTab = 'STOCKTAKE'
