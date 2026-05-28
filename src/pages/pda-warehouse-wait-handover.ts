@@ -13,13 +13,8 @@ import {
   listWoolWaitHandoverInboundRecords,
   listWoolWarehouseInventory,
 } from '../data/fcs/wool-task-domain.ts'
-import {
-  buildHandoverPickingTaskProjectionFromAllocationProjection,
-  buildSewingTaskAllocationProjectionFromInventory,
-} from '../data/fcs/cutting/sewing-dispatch.ts'
 import { listPdaCuttingTaskSourceRecords } from '../data/fcs/cutting/pda-cutting-task-source.ts'
 import {
-  buildInboundTempBagInventoryRecords,
   buildInboundTempBagsFromTransferBagViewModel,
 } from './process-factory/cutting/transfer-bags-model.ts'
 import { buildTransferBagsProjection } from './process-factory/cutting/transfer-bags-projection.ts'
@@ -84,19 +79,20 @@ function getFirstCuttingTaskId(): string {
   return listPdaCuttingTaskSourceRecords()[0]?.taskId || 'CUTTING-DEMO'
 }
 
-function renderCuttingWaitHandoverActionCards(firstTaskId: string): string {
+function renderCuttingWaitHandoverActionCards(firstTaskId: string, activeAction?: string | null): string {
   const actions = [
-    { title: '扫码入仓', desc: '扫袋码和菲票，装入入仓暂存袋。', nav: `/fcs/pda/cutting/inbound/${firstTaskId}` },
-    { title: '二次分拣', desc: '扫配料任务、暂存袋、菲票，按车缝任务分拣。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
-    { title: '重新装袋', desc: '扫目标中转袋，一个袋只绑定一个车缝任务。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
-    { title: '新增交出记录', desc: '扫交出单、中转袋和菲票，提交交出记录。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
+    { key: 'inbound', title: '菲票入仓', desc: '扫袋码和菲票，装入入仓暂存袋。', nav: `/fcs/pda/cutting/inbound/${firstTaskId}` },
+    { key: 'sorting', title: '二次分拣', desc: '扫配料任务、暂存袋、菲票。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
+    { key: 'rebagging', title: '重新装袋', desc: '扫目标中转袋，绑定下游任务。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
+    { key: 'handover', title: '新增交出', desc: '扫交出单、中转袋和菲票。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
+    { key: 'writeback', title: '接收回写', desc: '查看接收数量、差异和异议。', nav: `/fcs/pda/cutting/handover/${firstTaskId}` },
   ]
   return `
     <section class="grid grid-cols-2 gap-2">
       ${actions.map((item) => `
         <button
           type="button"
-          class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
+          class="rounded-2xl border px-4 py-4 text-left shadow-sm ${activeAction === item.key ? 'border-primary bg-primary/5' : 'bg-card'}"
           data-nav="${escapeAttr(item.nav)}"
         >
           <div class="text-sm font-semibold text-foreground">${escapeHtml(item.title)}</div>
@@ -107,53 +103,27 @@ function renderCuttingWaitHandoverActionCards(firstTaskId: string): string {
   `
 }
 
+function renderCuttingWarehouseSwitch(active: 'wait-process' | 'wait-handover'): string {
+  return `
+    <section class="grid grid-cols-2 gap-2">
+      <button type="button" class="rounded-2xl ${active === 'wait-process' ? 'bg-primary text-primary-foreground' : 'border bg-background'} px-4 py-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/wait-process?scope=cutting">裁床待加工仓</button>
+      <button type="button" class="rounded-2xl ${active === 'wait-handover' ? 'bg-primary text-primary-foreground' : 'border bg-background'} px-4 py-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/wait-handover?scope=cutting">裁床待交出仓</button>
+    </section>
+  `
+}
+
 function renderCuttingWaitHandoverPage(): string {
+  const activeAction = getMobileWarehouseSearchParams().get('action')
   const runtimeProjection = buildWaitHandoverRuntimeProjection()
   const transferBagViewModel = buildTransferBagsProjection().viewModel
   const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
   const inboundTempBags = runtimeProjection.inboundTempBags.length ? runtimeProjection.inboundTempBags : fallbackInboundTempBags
-  const inventoryRecords = runtimeProjection.inboundInventoryRecords.length
-    ? runtimeProjection.inboundInventoryRecords
-    : buildInboundTempBagInventoryRecords(inboundTempBags)
-  const allocationProjection = buildSewingTaskAllocationProjectionFromInventory(inventoryRecords)
-  const pickingProjection = buildHandoverPickingTaskProjectionFromAllocationProjection(allocationProjection)
   const firstTaskId = getFirstCuttingTaskId()
-  const totalPieceQty = inventoryRecords.reduce((sum, item) => sum + item.pieceQty, 0)
-  const pendingSortingQty = pickingProjection.tasks.reduce(
-    (sum, task) => sum + task.allocatedInventoryItems.reduce((taskSum, item) => taskSum + item.pieceQty, 0),
-    0,
-  )
-  const packedQty = pickingProjection.targetTransferBags.reduce((sum, bag) => sum + bag.totalPieceQty, 0)
 
   return renderPdaFrame(`
     <div class="space-y-4 px-4 pb-5 pt-4">
-      <section class="grid grid-cols-2 gap-2">
-        <button type="button" class="rounded-2xl border bg-background px-4 py-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/wait-process?scope=cutting">裁床待加工仓</button>
-        <button type="button" class="rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-handover?scope=cutting">裁床待交出仓</button>
-      </section>
-      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-        <div class="text-lg font-semibold text-foreground">裁床待交出仓</div>
-        <div class="mt-1 text-xs text-muted-foreground">仓管只处理入仓暂存、二次分拣、重新装袋和交出扫码。</div>
-        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div class="rounded-xl bg-muted/60 px-3 py-3">
-            <div class="text-muted-foreground">入仓暂存袋</div>
-            <div class="mt-1 text-base font-semibold">${inboundTempBags.length} 袋</div>
-          </div>
-          <div class="rounded-xl bg-muted/60 px-3 py-3">
-            <div class="text-muted-foreground">裁片库存</div>
-            <div class="mt-1 text-base font-semibold">${totalPieceQty} 片</div>
-          </div>
-          <div class="rounded-xl bg-muted/60 px-3 py-3">
-            <div class="text-muted-foreground">待二次分拣</div>
-            <div class="mt-1 text-base font-semibold">${pendingSortingQty} 片</div>
-          </div>
-          <div class="rounded-xl bg-muted/60 px-3 py-3">
-            <div class="text-muted-foreground">已装袋待交出</div>
-            <div class="mt-1 text-base font-semibold">${packedQty} 片</div>
-          </div>
-        </div>
-      </section>
-      ${renderCuttingWaitHandoverActionCards(firstTaskId)}
+      ${renderCuttingWarehouseSwitch('wait-handover')}
+      ${renderCuttingWaitHandoverActionCards(firstTaskId, activeAction)}
       <section class="space-y-3">
         ${inboundTempBags.slice(0, 5).map((bag) => `
           <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">

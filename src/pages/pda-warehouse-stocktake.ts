@@ -1,6 +1,8 @@
 import {
   completeFactoryWarehouseStocktakeOrder,
   createFactoryWarehouseStocktakeOrder,
+  listFactoryWaitHandoverStockItems,
+  listFactoryWaitProcessStockItems,
   listFactoryWarehouseStocktakeOrders,
   updateFactoryWarehouseStocktakeLine,
 } from '../data/fcs/factory-internal-warehouse.ts'
@@ -12,16 +14,17 @@ import {
   buildWarehouseDifferenceText,
   escapeAttr,
   getCurrentFactoryWarehouseByKind,
+  getMobileWarehouseSearchParams,
   getMobileWarehouseRuntimeContext,
   renderCompactFieldList,
   renderMobilePageEmptyState,
   renderSectionFilterChips,
   renderStatusPill,
-  renderWarehouseSummaryHeader,
 } from './pda-warehouse-shared'
-import { escapeHtml } from '../utils'
+import { escapeHtml, toClassName } from '../utils'
 
 type StocktakeFilter = '全部' | '盘点中' | '待确认' | '已完成' | '已取消'
+type WarehouseToolMode = 'search' | 'scan' | 'stocktake'
 
 interface StocktakeState {
   status: StocktakeFilter
@@ -43,12 +46,114 @@ const FILTERS: Array<{ value: StocktakeFilter; label: string }> = [
   { value: '已取消', label: '已取消' },
 ]
 
+const MODE_OPTIONS: Array<{ value: WarehouseToolMode; label: string; title: string; description: string }> = [
+  { value: 'search', label: '查库存', title: '查库存', description: '按物料、菲票、载具或库位查看当前仓内记录。' },
+  { value: 'scan', label: '扫码查询', title: '扫码查询', description: '现场扫码后查看物料、菲票、载具或库位信息。' },
+  { value: 'stocktake', label: '盘点', title: '库存盘点', description: '按仓库当前明细生成盘点单，盘点差异提交审核。' },
+]
+
+function getWarehouseToolMode(): WarehouseToolMode {
+  const value = getMobileWarehouseSearchParams().get('mode')
+  return value === 'scan' || value === 'stocktake' ? value : 'search'
+}
+
+function buildWarehouseToolRoute(mode: WarehouseToolMode): string {
+  const current = getMobileWarehouseSearchParams()
+  const params = new URLSearchParams()
+  const scope = current.get('scope')
+  if (scope) params.set('scope', scope)
+  params.set('mode', mode)
+  return `/fcs/pda/warehouse/stocktake?${params.toString()}`
+}
+
 function getRows() {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return []
   return listFactoryWarehouseStocktakeOrders()
     .filter((item) => item.factoryId === runtime.factoryId)
     .filter((item) => (state.status === '全部' ? true : item.status === state.status))
+}
+
+function renderModeSwitch(activeMode: WarehouseToolMode): string {
+  return `
+    <section class="grid grid-cols-3 gap-2">
+      ${MODE_OPTIONS.map((item) => `
+        <button
+          type="button"
+          class="rounded-2xl border px-3 py-3 text-center text-sm font-medium ${toClassName(
+            activeMode === item.value ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-foreground',
+          )}"
+          data-nav="${escapeAttr(buildWarehouseToolRoute(item.value))}"
+        >${escapeHtml(item.label)}</button>
+      `).join('')}
+    </section>
+  `
+}
+
+function renderInventorySearchPanel(mode: WarehouseToolMode): string {
+  const runtime = getMobileWarehouseRuntimeContext()
+  if (!runtime) return ''
+  const waitProcessItems = listFactoryWaitProcessStockItems()
+    .filter((item) => item.factoryId === runtime.factoryId)
+    .map((item) => ({
+      id: item.stockItemId,
+      warehouseName: item.warehouseName,
+      itemName: item.itemName,
+      code: item.materialSku || item.feiTicketNo || item.transferBagNo || item.fabricRollNo || item.sourceRecordNo,
+      qty: item.receivedQty,
+      unit: item.unit,
+      locationText: item.locationText,
+      status: item.status,
+    }))
+  const waitHandoverItems = listFactoryWaitHandoverStockItems()
+    .filter((item) => item.factoryId === runtime.factoryId)
+    .map((item) => ({
+      id: item.stockItemId,
+      warehouseName: item.warehouseName,
+      itemName: item.itemName,
+      code: item.feiTicketNo || item.transferBagNo || item.materialSku || item.fabricRollNo || item.handoverRecordNo,
+      qty: item.waitHandoverQty,
+      unit: item.unit,
+      locationText: item.locationText,
+      status: item.status,
+    }))
+  const rows = [...waitProcessItems, ...waitHandoverItems].slice(0, 8)
+  const inputLabel = mode === 'scan' ? '扫描码' : '关键词'
+  const inputPlaceholder = mode === 'scan' ? '扫描物料码 / 菲票码 / 载具码 / 库位码' : '输入物料、菲票、载具、库位'
+  return `
+    <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+      <label class="text-xs font-medium text-muted-foreground">
+        ${escapeHtml(inputLabel)}
+        <input
+          class="mt-2 h-11 w-full rounded-xl border bg-background px-3 text-sm"
+          placeholder="${escapeAttr(inputPlaceholder)}"
+        />
+      </label>
+      <button type="button" class="mt-3 h-11 w-full rounded-xl bg-primary text-sm font-medium text-primary-foreground">${mode === 'scan' ? '确认扫码查询' : '查询'}</button>
+    </section>
+    <section class="space-y-3">
+      ${
+        rows.length
+          ? rows.map((row) => `
+            <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="truncate text-sm font-semibold text-foreground">${escapeHtml(row.itemName)}</div>
+                  <div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(row.code || '-')}</div>
+                </div>
+                ${renderStatusPill(row.status)}
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <div>仓库：${escapeHtml(row.warehouseName)}</div>
+                <div>数量：${escapeHtml(`${row.qty} ${row.unit}`)}</div>
+                <div class="col-span-2">库位：${escapeHtml(row.locationText || '待确认')}</div>
+              </div>
+            </article>
+          `).join('')
+          : renderMobilePageEmptyState('暂无库存记录', '扫码入仓或回收入仓后会在这里显示。')
+      }
+    </section>
+  `
 }
 
 function renderDetailDrawer(): string {
@@ -140,59 +245,71 @@ function renderDetailDrawer(): string {
 export function renderPdaWarehouseStocktakePage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse')
+  const mode = getWarehouseToolMode()
+  const modeMeta = MODE_OPTIONS.find((item) => item.value === mode) || MODE_OPTIONS[0]
   const rows = getRows()
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${renderWarehouseSummaryHeader('盘点', '只支持全盘，盘点差异需提交审核，审核通过后生成调整单。', runtime.overview)}
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <div class="text-sm font-semibold text-foreground">创建全盘</div>
-            <div class="mt-1 text-xs text-muted-foreground">选择待加工仓或待交出仓，按当前库存明细生成盘点单。</div>
-          </div>
-          <button type="button" class="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground" data-pda-warehouse-action="create-stocktake">创建全盘</button>
-        </div>
-        <div class="mt-3 flex gap-2">
-          <button type="button" class="rounded-full border px-3 py-1.5 text-xs ${state.createWarehouseKind === 'WAIT_PROCESS' ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground'}" data-pda-warehouse-field="stocktake-warehouse-kind" data-value="WAIT_PROCESS">待加工仓</button>
-          <button type="button" class="rounded-full border px-3 py-1.5 text-xs ${state.createWarehouseKind === 'WAIT_HANDOVER' ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground'}" data-pda-warehouse-field="stocktake-warehouse-kind" data-value="WAIT_HANDOVER">待交出仓</button>
-        </div>
+        <div class="text-lg font-semibold text-foreground">${escapeHtml(modeMeta.title)}</div>
+        <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(modeMeta.description)}</div>
       </section>
-      ${renderSectionFilterChips(state.status, FILTERS, 'stocktake-status')}
-      <section class="space-y-3">
-        ${
-          rows.length > 0
-            ? rows
-                .map(
-                  (row) => `
-                    <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0 flex-1">
-                          <div class="text-sm font-semibold text-foreground">${escapeHtml(row.stocktakeOrderNo)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.warehouseName)} · ${escapeHtml(row.stocktakeScope)}</div>
-                        </div>
-                        ${renderStatusPill(row.status)}
-                      </div>
-                      <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
-                        <div>盘点人：${escapeHtml(row.createdBy)}</div>
-                        <div>开始时间：${escapeHtml(row.startedAt ? row.startedAt.slice(0, 16) : '-')}</div>
-                        <div>完成时间：${escapeHtml(row.completedAt ? row.completedAt.slice(0, 16) : '-')}</div>
-                        <div>明细数 / 差异数：${escapeHtml(buildStocktakeOrderSummary(row))}</div>
-                      </div>
-                      <div class="mt-4 flex flex-wrap gap-2">
-                        <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-stocktake-detail" data-order-id="${escapeAttr(row.stocktakeOrderId)}">查看</button>
-                        ${row.status === '盘点中' ? `<button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-stocktake-detail" data-order-id="${escapeAttr(row.stocktakeOrderId)}">录入实盘</button>` : ''}
-                      </div>
-                    </article>
-                  `,
-                )
-                .join('')
-            : renderMobilePageEmptyState('暂无盘点记录', '点击“创建全盘”即可按当前仓库明细生成盘点单。')
-        }
-      </section>
-      ${renderDetailDrawer()}
+      ${renderModeSwitch(mode)}
+      ${
+        mode === 'stocktake'
+          ? `
+            <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <div class="text-sm font-semibold text-foreground">创建全盘</div>
+                  <div class="mt-1 text-xs text-muted-foreground">选择待加工仓或待交出仓，按当前库存明细生成盘点单。</div>
+                </div>
+                <button type="button" class="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground" data-pda-warehouse-action="create-stocktake">创建全盘</button>
+              </div>
+              <div class="mt-3 flex gap-2">
+                <button type="button" class="rounded-full border px-3 py-1.5 text-xs ${state.createWarehouseKind === 'WAIT_PROCESS' ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground'}" data-pda-warehouse-field="stocktake-warehouse-kind" data-value="WAIT_PROCESS">待加工仓</button>
+                <button type="button" class="rounded-full border px-3 py-1.5 text-xs ${state.createWarehouseKind === 'WAIT_HANDOVER' ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground'}" data-pda-warehouse-field="stocktake-warehouse-kind" data-value="WAIT_HANDOVER">待交出仓</button>
+              </div>
+            </section>
+            ${renderSectionFilterChips(state.status, FILTERS, 'stocktake-status')}
+            <section class="space-y-3">
+              ${
+                rows.length > 0
+                  ? rows
+                      .map(
+                        (row) => `
+                          <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+                            <div class="flex items-start justify-between gap-3">
+                              <div class="min-w-0 flex-1">
+                                <div class="text-sm font-semibold text-foreground">${escapeHtml(row.stocktakeOrderNo)}</div>
+                                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.warehouseName)} · ${escapeHtml(row.stocktakeScope)}</div>
+                              </div>
+                              ${renderStatusPill(row.status)}
+                            </div>
+                            <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                              <div>盘点人：${escapeHtml(row.createdBy)}</div>
+                              <div>开始时间：${escapeHtml(row.startedAt ? row.startedAt.slice(0, 16) : '-')}</div>
+                              <div>完成时间：${escapeHtml(row.completedAt ? row.completedAt.slice(0, 16) : '-')}</div>
+                              <div>明细数 / 差异数：${escapeHtml(buildStocktakeOrderSummary(row))}</div>
+                            </div>
+                            <div class="mt-4 flex flex-wrap gap-2">
+                              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-stocktake-detail" data-order-id="${escapeAttr(row.stocktakeOrderId)}">查看</button>
+                              ${row.status === '盘点中' ? `<button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-stocktake-detail" data-order-id="${escapeAttr(row.stocktakeOrderId)}">录入实盘</button>` : ''}
+                            </div>
+                          </article>
+                        `,
+                      )
+                      .join('')
+                  : renderMobilePageEmptyState('暂无盘点记录', '点击“创建全盘”即可按当前仓库明细生成盘点单。')
+              }
+            </section>
+            ${renderDetailDrawer()}
+          `
+          : renderInventorySearchPanel(mode)
+      }
     </div>
   `
-  return renderPdaFrame(content, 'warehouse', { headerTitle: '盘点' })
+  return renderPdaFrame(content, 'warehouse', { headerTitle: modeMeta.title })
 }
 
 export function handlePdaWarehouseStocktakeEvent(target: HTMLElement): boolean {

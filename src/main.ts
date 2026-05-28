@@ -15,6 +15,7 @@ type CraftDyeingWarehousePageModule = typeof import('./pages/process-factory/dye
 type FactoryWarehouseSharedModule = typeof import('./pages/process-factory/shared/warehouse-standard')
 type PrintPreviewPageModule = typeof import('./pages/print/print-preview')
 type PdaExecPageModule = typeof import('./pages/pda-exec')
+type PdaWarehousePageModule = typeof import('./pages/pda-warehouse')
 type RoutesModule = typeof import('./router/routes')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
@@ -29,6 +30,7 @@ let craftDyeingWarehousePageModulePromise: Promise<CraftDyeingWarehousePageModul
 let factoryWarehouseSharedModulePromise: Promise<FactoryWarehouseSharedModule> | null = null
 let printPreviewPageModulePromise: Promise<PrintPreviewPageModule> | null = null
 let pdaExecPageModulePromise: Promise<PdaExecPageModule> | null = null
+let pdaWarehousePageModulePromise: Promise<PdaWarehousePageModule> | null = null
 let routesModulePromise: Promise<RoutesModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
@@ -152,6 +154,16 @@ function getPdaExecPageModule(): Promise<PdaExecPageModule> {
     })
   }
   return pdaExecPageModulePromise
+}
+
+function getPdaWarehousePageModule(): Promise<PdaWarehousePageModule> {
+  if (!pdaWarehousePageModulePromise) {
+    pdaWarehousePageModulePromise = import('./pages/pda-warehouse').catch((error) => {
+      pdaWarehousePageModulePromise = null
+      throw error
+    })
+  }
+  return pdaWarehousePageModulePromise
 }
 
 function getRoutesModule(): Promise<RoutesModule> {
@@ -423,12 +435,70 @@ async function closeDialogsOnEscape(): Promise<boolean> {
 
 let renderSerial = 0
 
+function isPdaPath(pathname: string): boolean {
+  return pathname.split('?')[0].split('#')[0].startsWith('/fcs/pda')
+}
+
+function renderPdaLoadingShell(): string {
+  return `
+    <section class="relative flex h-screen min-h-0 flex-col overflow-hidden bg-background">
+      <header class="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur">
+        <div class="h-5 w-44 rounded bg-muted"></div>
+        <div class="mt-1 h-3 w-16 rounded bg-muted"></div>
+      </header>
+      <main class="min-h-0 flex-1 overflow-hidden px-4 py-4">
+        <div class="rounded-3xl border bg-card px-4 py-4 shadow-sm">
+          <div class="h-5 w-24 rounded bg-muted"></div>
+          <div class="mt-4 grid grid-cols-2 gap-3">
+            <div class="h-20 rounded-2xl bg-muted/70"></div>
+            <div class="h-20 rounded-2xl bg-muted/70"></div>
+            <div class="h-20 rounded-2xl bg-muted/70"></div>
+            <div class="h-20 rounded-2xl bg-muted/70"></div>
+          </div>
+        </div>
+        <div class="mt-4 rounded-3xl border bg-card px-4 py-4 shadow-sm">
+          <div class="h-5 w-20 rounded bg-muted"></div>
+          <div class="mt-3 h-14 rounded-2xl bg-muted/70"></div>
+          <div class="mt-3 grid grid-cols-4 gap-2">
+            <div class="h-12 rounded-2xl bg-muted/70"></div>
+            <div class="h-12 rounded-2xl bg-muted/70"></div>
+            <div class="h-12 rounded-2xl bg-muted/70"></div>
+            <div class="h-12 rounded-2xl bg-muted/70"></div>
+          </div>
+        </div>
+      </main>
+      <nav class="absolute bottom-0 left-0 right-0 z-10 flex h-[72px] items-center justify-around border-t bg-background px-1">
+        ${['接单', '执行', '交接', '仓管', '结算']
+          .map(
+            (label) => `
+              <div class="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2">
+                <div class="h-5 w-5 rounded bg-muted"></div>
+                <div class="text-[10px] font-medium leading-tight text-muted-foreground">${label}</div>
+              </div>
+            `,
+          )
+          .join('')}
+      </nav>
+    </section>
+  `
+}
+
+function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
+  if (!isPdaPath(state.pathname)) return
+  if (root.childElementCount > 0) return
+  root.innerHTML = renderAppShell(state, renderPdaLoadingShell())
+}
+
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
     if (normalizedPathname === '/fcs/pda/exec') {
       const pdaExecPage = await getPdaExecPageModule()
       return pdaExecPage.renderPdaExecPage()
+    }
+    if (normalizedPathname === '/fcs/pda/warehouse') {
+      const pdaWarehousePage = await getPdaWarehousePageModule()
+      return pdaWarehousePage.renderPdaWarehousePage()
     }
     if (normalizedPathname === '/fcs/craft/printing/wait-process-warehouse') {
       const printingWarehousePage = await getCraftPrintingWarehousePageModule()
@@ -465,6 +535,7 @@ async function render(): Promise<void> {
   const currentSerial = ++renderSerial
   const state = appStore.getState()
 
+  ensureInitialPdaLoadingShell(state)
   const pageContent = await renderCurrentPageContent(state.pathname)
   if (currentSerial !== renderSerial) {
     return

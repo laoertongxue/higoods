@@ -315,6 +315,14 @@ export function renderAppShell(state: AppState, pageContent: string): string {
     `
   }
 
+  if (state.pathname.startsWith('/fcs/pda')) {
+    return `
+      <div class="min-h-screen bg-slate-100" data-pda-standalone-root="true">
+        ${pageContent}
+      </div>
+    `
+  }
+
   return `
     <div class="flex h-screen flex-col overflow-hidden">
       ${renderTopBar(state)}

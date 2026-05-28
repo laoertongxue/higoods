@@ -23,7 +23,9 @@ import {
 } from '../data/fcs/cutting/material-ledger.ts'
 import {
   appendCuttingRuntimeEvent,
+  listCuttingRuntimeEventsByInventoryScope,
   listCuttingRuntimeEventsByType,
+  type CuttingRuntimeEvent,
   type CuttingRuntimeQtyUnit,
   type RuntimeInventoryEffect,
   type RuntimeMaterialSnapshot,
@@ -133,6 +135,130 @@ function findCuttingWaitProcessLedgerRow(sourceNo: string | undefined): Material
   })
 }
 
+function runtimeRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : {}
+}
+
+function runtimeString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function runtimeNumber(value: unknown): number {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+function listCuttingWaitProcessRuntimeEvents(): CuttingRuntimeEvent[] {
+  const events = [
+    ...listCuttingRuntimeEventsByType('中转仓领料'),
+    ...listCuttingRuntimeEventsByInventoryScope('裁床待加工仓'),
+  ]
+  const seen = new Set<string>()
+  return events
+    .filter((event) => {
+      if (!event.eventId || seen.has(event.eventId)) return false
+      seen.add(event.eventId)
+      return true
+    })
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt, 'zh-CN'))
+}
+
+function isCuttingRuntimeEventForLedgerRow(event: CuttingRuntimeEvent, row: MaterialLedgerProjection): boolean {
+  const payload = runtimeRecord(event.payload)
+  const candidates = [
+    event.refs.cutOrderNo,
+    event.refs.productionOrderNo,
+    event.refs.spreadingOrderNo,
+    event.material?.materialSku,
+    event.material?.materialName,
+    runtimeString(payload.materialSku),
+    runtimeString(payload.prepOrderNo),
+    runtimeString(payload.spreadingOrderNo),
+  ].map((item) => String(item || '').toLowerCase())
+  const rowKeys = [
+    row.cutOrderNo,
+    row.productionOrderNo,
+    row.materialIdentity.materialSku,
+    row.materialIdentity.materialName,
+    row.patternIdentity.patternFileId,
+    row.patternIdentity.patternFileName,
+  ].map((item) => String(item || '').toLowerCase())
+  return rowKeys.some((rowKey) => rowKey && candidates.some((candidate) => candidate && (candidate === rowKey || candidate.includes(rowKey) || rowKey.includes(candidate))))
+}
+
+function getCuttingRuntimeEventQty(event: CuttingRuntimeEvent): number {
+  const payload = runtimeRecord(event.payload)
+  return (
+    runtimeNumber(event.inventoryEffect?.qty) ||
+    runtimeNumber(payload.pickupQty) ||
+    runtimeNumber(payload.receivedQty) ||
+    runtimeNumber(payload.issuedQty) ||
+    runtimeNumber(payload.returnedQty)
+  )
+}
+
+function getCuttingRuntimeEventRollCount(event: CuttingRuntimeEvent): number {
+  const payload = runtimeRecord(event.payload)
+  const qty = getCuttingRuntimeEventQty(event)
+  return runtimeNumber(event.inventoryEffect?.rollCount) || runtimeNumber(payload.rollCount) || (qty > 0 ? Math.max(Math.ceil(qty / 280), 1) : 0)
+}
+
+function getCuttingRuntimeEventSourceText(event: CuttingRuntimeEvent): string {
+  const payload = runtimeRecord(event.payload)
+  if (event.eventType === '中转仓领料') return `中转仓领料：${runtimeString(payload.pickupRecordNo) || event.refs.cutOrderNo || event.eventNo}`
+  if (event.eventType === '待加工仓扫码入仓') return `扫码入仓：${runtimeString(payload.inboundRecordNo) || event.refs.cutOrderNo || event.eventNo}`
+  if (event.eventType === '待加工仓加工领料') return `加工领料：${runtimeString(payload.issueRecordNo) || event.refs.spreadingOrderNo || event.eventNo}`
+  if (event.eventType === '待加工仓回收入仓') return `回收入仓：${runtimeString(payload.returnRecordNo) || event.refs.spreadingOrderNo || event.eventNo}`
+  return event.eventType
+}
+
+function getCuttingRuntimeEventLocationLabel(event: CuttingRuntimeEvent): string {
+  const payload = runtimeRecord(event.payload)
+  const area =
+    event.inventoryEffect?.toWarehouseArea ||
+    event.inventoryEffect?.fromWarehouseArea ||
+    runtimeString(payload.warehouseArea) ||
+    runtimeString(payload.fromWarehouseArea)
+  const location =
+    event.inventoryEffect?.toLocationCode ||
+    event.inventoryEffect?.fromLocationCode ||
+    runtimeString(payload.locationCode) ||
+    runtimeString(payload.fromLocationCode)
+  return area || location ? `${area || '待补库区'} / ${location || '待补库位'}` : '待扫码确认'
+}
+
+function findLatestCuttingRuntimeEvent(
+  row: MaterialLedgerProjection,
+  predicate?: (event: CuttingRuntimeEvent) => boolean,
+): CuttingRuntimeEvent | undefined {
+  return listCuttingWaitProcessRuntimeEvents()
+    .filter((event) => isCuttingRuntimeEventForLedgerRow(event, row))
+    .find((event) => (predicate ? predicate(event) : true))
+}
+
+function getCuttingWaitProcessLocationLabel(row: MaterialLedgerProjection): string {
+  const latestInbound = findLatestCuttingRuntimeEvent(
+    row,
+    (event) => event.eventType === '待加工仓扫码入仓' || event.eventType === '待加工仓回收入仓',
+  )
+  if (latestInbound) return getCuttingRuntimeEventLocationLabel(latestInbound)
+  const latestIssue = findLatestCuttingRuntimeEvent(row, (event) => event.eventType === '待加工仓加工领料')
+  if (latestIssue && row.availableQty <= 0) return '已领出加工'
+  return '待扫码入仓'
+}
+
+function getCuttingWaitProcessLatestSourceText(row: MaterialLedgerProjection): string {
+  const latestEvent = findLatestCuttingRuntimeEvent(row)
+  if (latestEvent) {
+    const qty = getCuttingRuntimeEventQty(latestEvent)
+    const rollCount = getCuttingRuntimeEventRollCount(latestEvent)
+    return `${getCuttingRuntimeEventSourceText(latestEvent)} · ${qty} ${latestEvent.inventoryEffect?.unit || normalizeCuttingRuntimeQtyUnit(row.unit)} / ${rollCount} 卷 · ${latestEvent.occurredAt}`
+  }
+  return row.latestClaimEvent
+    ? `领料记录：${row.latestClaimEvent.occurredAt} / ${row.latestClaimEvent.operatorName}`
+    : '暂无流水'
+}
+
 function buildCuttingRuntimeMaterialSnapshot(row: MaterialLedgerProjection | undefined, fallbackSku = ''): RuntimeMaterialSnapshot | undefined {
   if (!row && !fallbackSku) return undefined
   return {
@@ -170,38 +296,34 @@ function buildCuttingRollNos(sourceNo: string, rollCount: number): string[] {
   return Array.from({ length: Math.max(Math.round(rollCount), 1) }, (_, index) => `${sourceNo || 'ROLL'}-${String(index + 1).padStart(2, '0')}`)
 }
 
-function renderCuttingPendingPickupList(rows: MaterialLedgerProjection[]): string {
+function listCuttingPendingPickupRows(rows: MaterialLedgerProjection[]): MaterialLedgerProjection[] {
   const pickedCutOrders = new Set(
     listCuttingRuntimeEventsByType('中转仓领料')
       .map((event) => event.refs.cutOrderNo)
       .filter(Boolean),
   )
-  const pendingRows = rows
+  return rows
     .filter((row) => row.transferWarehouseAllocatedQty > 0)
     .filter((row) => !pickedCutOrders.has(row.cutOrderNo))
-    .slice(0, 4)
+}
 
+function renderCuttingPendingPickupList(rows: MaterialLedgerProjection[]): string {
+  const pendingRows = listCuttingPendingPickupRows(rows)
   return `
-    <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <div class="text-base font-semibold text-foreground">待领料</div>
-          <div class="mt-1 text-xs text-muted-foreground">上游已配料，仓管先确认中转仓领料，再扫码入待加工仓。</div>
-        </div>
-        ${renderStatusPill(`${pendingRows.length} 条`)}
-      </div>
-      <div class="mt-3 space-y-2">
+    <section class="space-y-2">
+      <div class="space-y-2">
         ${pendingRows.length
           ? pendingRows.map((row) => `
               <button
                 type="button"
-                class="w-full rounded-xl border bg-background px-3 py-3 text-left"
+                class="w-full rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
                 data-pda-warehouse-action="cutting-wp-pickup"
                 data-source-no="${escapeAttr(row.cutOrderNo)}"
               >
-                <div class="text-sm font-semibold text-foreground">${escapeHtml(row.cutOrderNo)}</div>
+                <div class="text-xs font-medium text-muted-foreground">裁片任务</div>
+                <div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(row.cutOrderNo)}</div>
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.materialIdentity.materialSku)} · ${escapeHtml(row.materialIdentity.materialName)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">中转仓已配：${escapeHtml(formatCuttingWaitProcessQty(row.transferWarehouseAllocatedQty, row.unit))}</div>
+                <div class="mt-1 text-xs text-muted-foreground">按裁片任务已配：${escapeHtml(formatCuttingWaitProcessQty(row.transferWarehouseAllocatedQty, row.unit))}</div>
               </button>
             `).join('')
           : '<div class="rounded-xl bg-muted/60 px-3 py-3 text-xs text-muted-foreground">暂无待领料通知。</div>'}
@@ -210,19 +332,23 @@ function renderCuttingPendingPickupList(rows: MaterialLedgerProjection[]): strin
   `
 }
 
-function renderCuttingWaitProcessActionCards(): string {
-  const actions = [
-    { action: 'cutting-wp-pickup', title: '中转仓领料', desc: '按待领料通知到中转仓领料，记录领料数量和卷数。' },
-    { action: 'cutting-wp-receive', title: '扫码入仓', desc: '扫领料单或裁片单，确认收货库区、库位和卷数。' },
-    { action: 'cutting-wp-issue', title: '加工领料', desc: '扫铺布单，从指定库区库位领走面料去加工。' },
-    { action: 'cutting-wp-return', title: '回收入仓', desc: '铺布剩余面料扫码回收，记录回收库区库位。' },
+function getCuttingWaitProcessActions() {
+  return [
+    { key: 'pickup', action: 'cutting-wp-pickup', title: '中转仓领料', desc: '按裁片任务配料通知领料，记录数量和卷数。' },
+    { key: 'receive', action: 'cutting-wp-receive', title: '扫码入仓', desc: '扫领料单或裁片任务，确认库区、库位和卷数。' },
+    { key: 'issue', action: 'cutting-wp-issue', title: '加工领料', desc: '扫铺布单，从指定库区库位领走面料。' },
+    { key: 'return', action: 'cutting-wp-return', title: '回收入仓', desc: '铺布剩余面料扫码回收，写回库区库位。' },
   ]
+}
+
+function renderCuttingWaitProcessActionCards(activeAction?: string | null): string {
+  const actions = getCuttingWaitProcessActions()
   return `
     <section class="grid grid-cols-1 gap-2">
       ${actions.map((item) => `
         <button
           type="button"
-          class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
+          class="rounded-2xl border px-4 py-4 text-left shadow-sm ${activeAction === item.key ? 'border-primary bg-primary/5' : 'bg-card'}"
           data-pda-warehouse-action="${escapeAttr(item.action)}"
         >
           <div class="text-base font-semibold text-foreground">${escapeHtml(item.title)}</div>
@@ -233,12 +359,70 @@ function renderCuttingWaitProcessActionCards(): string {
   `
 }
 
-function renderCuttingWaitProcessRow(row: MaterialLedgerProjection, index: number): string {
-  const area = index % 2 === 0 ? '面料 A 区' : '面料 B 区'
-  const location = `FAB-${index % 2 === 0 ? 'A' : 'B'}-${String((index % 6) + 1).padStart(2, '0')}`
-  const latestClaimText = row.latestClaimEvent
-    ? `${row.latestClaimEvent.occurredAt} / ${row.latestClaimEvent.operatorName}`
-    : '暂无领料记录'
+function renderCuttingWaitProcessSingleAction(activeAction: string): string {
+  const action = getCuttingWaitProcessActions().find((item) => item.key === activeAction)
+  if (!action) return ''
+  return `
+    <section class="rounded-2xl border border-primary/40 bg-primary/5 px-4 py-4 shadow-sm">
+      <div class="text-base font-semibold text-foreground">${escapeHtml(action.title)}</div>
+      <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(action.desc)}</div>
+      <button
+        type="button"
+        class="mt-4 w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+        data-pda-warehouse-action="${escapeAttr(action.action)}"
+      >
+        开始${escapeHtml(action.title)}
+      </button>
+    </section>
+  `
+}
+
+function renderCuttingWaitProcessSubpageHeader(title: string, description: string): string {
+  return `
+    <div class="flex items-start justify-between gap-3 px-1 pb-1 pt-1">
+      <div class="min-w-0">
+        <div class="text-xl font-semibold leading-tight text-foreground">${escapeHtml(title)}</div>
+        <div class="mt-1 max-w-[260px] text-xs leading-5 text-muted-foreground">${escapeHtml(description)}</div>
+      </div>
+      <button
+        type="button"
+        class="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-foreground"
+        data-nav="/fcs/pda/warehouse"
+      >
+        返回仓管
+      </button>
+    </div>
+  `
+}
+
+function renderCuttingPickupTaskPage(rows: MaterialLedgerProjection[]): string {
+  return `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      ${renderCuttingWaitProcessSubpageHeader('待领料', '中转仓按裁片任务配料后，裁床仓管在这里确认中转仓领料。')}
+      ${renderCuttingPendingPickupList(rows)}
+    </div>
+  `
+}
+
+function renderCuttingWaitProcessActionPage(activeAction: string): string {
+  const actions = [
+    { key: 'receive', title: '扫码入仓', desc: '领料完成后扫码入待加工仓，必须确认库区、库位、数量和卷数。' },
+    { key: 'issue', title: '加工领料', desc: '铺布或加工前从待加工仓领走面料，必须记录来源库区库位。' },
+    { key: 'return', title: '回收入仓', desc: '铺布剩余面料回收入仓，必须写回库区库位。' },
+  ]
+  const current = actions.find((item) => item.key === activeAction)
+  if (!current) return ''
+  return `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      ${renderCuttingWaitProcessSubpageHeader(current.title, current.desc)}
+      ${renderCuttingWaitProcessSingleAction(activeAction)}
+    </div>
+  `
+}
+
+function renderCuttingWaitProcessRow(row: MaterialLedgerProjection): string {
+  const latestSourceText = getCuttingWaitProcessLatestSourceText(row)
+  const locationLabel = getCuttingWaitProcessLocationLabel(row)
   const status = row.cuttingClaimedQty <= 0 ? '未收货' : row.availableQty > 0 ? '在库可用' : '无可用'
 
   return `
@@ -253,45 +437,34 @@ function renderCuttingWaitProcessRow(row: MaterialLedgerProjection, index: numbe
       <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
         <div>裁片单：${escapeHtml(row.cutOrderNo)}</div>
         <div>生产单：${escapeHtml(row.productionOrderNo)}</div>
-        <div>库区库位：${escapeHtml(area)} / ${escapeHtml(location)}</div>
+        <div>库区库位：${escapeHtml(locationLabel)}</div>
         <div>裁床已领：${escapeHtml(formatCuttingWaitProcessQty(row.cuttingClaimedQty, row.unit))}</div>
         <div>可用余额：${escapeHtml(formatCuttingWaitProcessQty(row.availableQty, row.unit))}</div>
-        <div>最近领料：${escapeHtml(latestClaimText)}</div>
+        <div>最近流水：${escapeHtml(latestSourceText)}</div>
       </div>
     </article>
   `
 }
 
 function renderCuttingWaitProcessPage(): string {
+  const params = getMobileWarehouseSearchParams()
+  const activeAction = params.get('action')
+  const activeView = params.get('view')
   const rows = listMaterialLedgerProjections()
+  if (activeView === 'pickup' || activeAction === 'pickup') {
+    return renderPdaFrame(renderCuttingPickupTaskPage(rows), 'warehouse', { headerTitle: '待领料', disableTodoAutoOpen: true })
+  }
+  if (activeAction) {
+    return renderPdaFrame(renderCuttingWaitProcessActionPage(activeAction), 'warehouse', { headerTitle: '裁床待加工仓', disableTodoAutoOpen: true })
+  }
   const stockedRows = rows.filter((row) => row.cuttingClaimedQty > 0 || row.availableQty >= 0)
-  const totalAvailable = rows.reduce((sum, row) => sum + row.availableQty, 0)
-  const totalClaimed = rows.reduce((sum, row) => sum + row.cuttingClaimedQty, 0)
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      <section class="grid grid-cols-2 gap-2">
-        <button type="button" class="rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-process?scope=cutting">裁床待加工仓</button>
-        <button type="button" class="rounded-2xl border bg-background px-4 py-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/wait-handover?scope=cutting">裁床待交出仓</button>
-      </section>
-      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-        <div class="text-lg font-semibold text-foreground">裁床待加工仓</div>
-        <div class="mt-1 text-xs text-muted-foreground">仓管按顺序处理：待领料、中转仓领料、扫码入仓、加工领料、回收入仓。</div>
-        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div class="rounded-xl bg-muted/60 px-3 py-3">
-            <div class="text-muted-foreground">裁床已领</div>
-            <div class="mt-1 text-base font-semibold">${escapeHtml(formatCuttingWaitProcessQty(totalClaimed))}</div>
-          </div>
-          <div class="rounded-xl bg-muted/60 px-3 py-3">
-            <div class="text-muted-foreground">当前可用</div>
-            <div class="mt-1 text-base font-semibold">${escapeHtml(formatCuttingWaitProcessQty(totalAvailable))}</div>
-          </div>
-        </div>
-      </section>
-      ${renderCuttingPendingPickupList(rows)}
-      ${renderCuttingWaitProcessActionCards()}
+      ${renderCuttingWaitProcessSubpageHeader('裁床待加工仓', '处理待领料、扫码入仓、加工领料和回收入仓。')}
+      ${renderCuttingWaitProcessActionCards(null)}
       <section class="space-y-3">
         ${stockedRows.length
-          ? stockedRows.slice(0, 8).map((row, index) => renderCuttingWaitProcessRow(row, index)).join('')
+          ? stockedRows.slice(0, 8).map((row) => renderCuttingWaitProcessRow(row)).join('')
           : renderMobilePageEmptyState('暂无裁床待加工库存', '扫码收货后会形成裁床待加工仓库存。')}
       </section>
     </div>

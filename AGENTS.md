@@ -243,7 +243,31 @@ Mock 数据应优先表现：
 
 ---
 
-## 12. 明确禁止事项
+## 12. CodeGraph 使用规则
+
+本项目已接入 CodeGraph。执行代码核查、方案设计、代码修改、实现确认前，必须优先使用 CodeGraph 辅助定位上下文。
+
+默认流程：
+
+1. 开始前先运行：
+   - `codegraph sync`
+   - `codegraph status`
+2. 核查或修改模块前，根据任务使用：
+   - `codegraph files`
+   - `codegraph query`
+   - `codegraph callers`
+   - `codegraph callees`
+   - `codegraph impact`
+   - `codegraph context`
+3. CodeGraph 用于确认模块边界、符号关系、调用关系和影响面；中文文案、按钮、路由、状态展示仍需结合 `rg` 精查。
+4. 完成代码修改后必须再次运行：
+   - `codegraph sync`
+   - `codegraph status`
+5. 最终回复中说明是否已同步 CodeGraph 索引。
+
+---
+
+## 13. 明确禁止事项
 
 除非用户明确要求，否则禁止：
 
@@ -258,7 +282,7 @@ Mock 数据应优先表现：
 
 ---
 
-## 13. 与用户协作的默认原则
+## 14. 与用户协作的默认原则
 
 默认认为用户要的是：
 - 快速、准确、低成本地迭代原型

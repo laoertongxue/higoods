@@ -121,8 +121,6 @@ interface TaskReceiveState {
   selectedFactoryId: string
   activeTab: TabKey
   keyword: string
-  processFilter: string
-  deadlineFilter: string
   quoteDialogOpen: boolean
   quotingTenderId: string | null
   quoteAmount: string
@@ -146,8 +144,6 @@ const state: TaskReceiveState = {
   selectedFactoryId: '',
   activeTab: 'pending-accept',
   keyword: '',
-  processFilter: 'ALL',
-  deadlineFilter: 'ALL',
   quoteDialogOpen: false,
   quotingTenderId: null,
   quoteAmount: '',
@@ -504,10 +500,6 @@ function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask
       !task.productionOrderId.includes(keyword) &&
       !displayProcessName.includes(keyword)
     ) {
-      return false
-    }
-
-    if (state.processFilter !== 'ALL' && displayProcessName !== state.processFilter) {
       return false
     }
 
@@ -1084,11 +1076,6 @@ export function renderPdaTaskReceivePage(): string {
   scheduleTaskFocus(getFocusedTaskId())
 
   const pendingAcceptTasks = getPendingAcceptTasks(selectedFactoryId)
-  const processOptions = Array.from(new Set(pendingAcceptTasks.map((task) => getTaskProcessDisplayName(task))))
-  if (state.processFilter !== 'ALL' && !processOptions.includes(state.processFilter)) {
-    state.processFilter = 'ALL'
-  }
-
   const activeBiddingTenders = getActiveBiddingTenders()
   syncQuoteDialogWithQuery(activeBiddingTenders)
   const allQuotedTenders = getQuotedTenders(selectedFactoryId)
@@ -1105,12 +1092,7 @@ export function renderPdaTaskReceivePage(): string {
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background">
       <header class="sticky top-0 z-30 border-b bg-background px-4 py-3">
-        <h1 class="mb-3 flex items-center gap-2 text-lg font-semibold">
-          <i data-lucide="clipboard-list" class="h-5 w-5"></i>
-          接单与报价
-        </h1>
-
-        <div class="relative mb-2">
+        <div class="relative">
           <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
           <input
             class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm"
@@ -1119,31 +1101,6 @@ export function renderPdaTaskReceivePage(): string {
             value="${escapeHtml(state.keyword)}"
           />
         </div>
-
-        ${
-          state.activeTab === 'pending-accept'
-            ? `
-              <div class="flex gap-2">
-                <select class="h-8 flex-1 rounded-md border bg-background px-2 text-xs" data-pda-tr-field="processFilter">
-                  <option value="ALL" ${state.processFilter === 'ALL' ? 'selected' : ''}>全部工序</option>
-                  ${processOptions
-                    .map(
-                      (processName) =>
-                        `<option value="${escapeHtml(processName)}" ${state.processFilter === processName ? 'selected' : ''}>${escapeHtml(processName)}</option>`,
-                    )
-                    .join('')}
-                </select>
-
-                <select class="h-8 flex-1 rounded-md border bg-background px-2 text-xs" data-pda-tr-field="deadlineFilter">
-                  <option value="ALL" ${state.deadlineFilter === 'ALL' ? 'selected' : ''}>全部状态</option>
-                  <option value="NORMAL" ${state.deadlineFilter === 'NORMAL' ? 'selected' : ''}>正常</option>
-                  <option value="SOON" ${state.deadlineFilter === 'SOON' ? 'selected' : ''}>即将逾期</option>
-                  <option value="EXPIRED" ${state.deadlineFilter === 'EXPIRED' ? 'selected' : ''}>接单逾期</option>
-                </select>
-              </div>
-            `
-            : ''
-        }
       </header>
 
       <div class="sticky top-[auto] z-20 flex border-b bg-background">
@@ -1270,16 +1227,6 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
 
     if (field === 'keyword') {
       state.keyword = fieldNode.value
-      return true
-    }
-
-    if (field === 'processFilter') {
-      state.processFilter = fieldNode.value
-      return true
-    }
-
-    if (field === 'deadlineFilter') {
-      state.deadlineFilter = fieldNode.value
       return true
     }
 

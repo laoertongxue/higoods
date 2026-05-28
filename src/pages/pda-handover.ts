@@ -435,30 +435,31 @@ export function renderPdaHandoverPage(): string {
 
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background">
-      <div class="shrink-0 px-4 pb-2 pt-4">
-        <h1 class="mb-3 text-lg font-semibold">交接</h1>
-
-        <div class="mb-3 grid grid-cols-3 gap-1.5">
-          ${TAB_CONFIG.map((tab) => {
-            const active = state.activeTab === tab.key
-            return `
-              <button
-                class="${toClassName(
-                  'rounded-lg border p-2 text-center transition-colors',
-                  active ? 'border-primary bg-primary text-primary-foreground' : 'border-transparent bg-muted/40',
-                )}"
-                data-pda-handover-action="switch-tab"
-                data-tab="${tab.key}"
-              >
-                <p class="text-base font-bold tabular-nums">${tabCounts[tab.key]}</p>
-                <p class="mt-0.5 text-[9px] leading-tight opacity-80">${escapeHtml(tab.label)}</p>
-              </button>
-            `
-          }).join('')}
-        </div>
+      <div class="sticky top-[auto] z-20 flex border-b bg-background" data-testid="pda-handover-tabs">
+        ${TAB_CONFIG.map((tab) => {
+          const active = state.activeTab === tab.key
+          return `
+            <button
+              class="flex-1 border-b-2 py-2.5 text-xs font-medium transition-colors ${toClassName(
+                active ? 'border-primary text-primary' : 'border-transparent text-muted-foreground',
+              )}"
+              data-pda-handover-action="switch-tab"
+              data-tab="${tab.key}"
+            >
+              ${escapeHtml(tab.label)}
+              ${
+                tabCounts[tab.key] > 0
+                  ? `<span class="ml-1 inline-block rounded-full px-1.5 py-0 text-[10px] leading-4 ${toClassName(
+                      active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                    )}">${tabCounts[tab.key]}</span>`
+                  : ''
+              }
+            </button>
+          `
+        }).join('')}
       </div>
 
-      <div class="flex-1 space-y-3 overflow-y-auto px-4 pb-4 pt-3">
+      <div class="flex-1 space-y-3 overflow-y-auto p-4">
         ${
           state.activeTab === 'pickup'
             ? `

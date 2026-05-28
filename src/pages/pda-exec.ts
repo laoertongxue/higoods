@@ -2,7 +2,6 @@ import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
-import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
@@ -67,9 +66,6 @@ interface PdaExecState {
   activeTab: TaskStatusTab
   searchKeyword: string
   riskParam: string
-  rawTabParam: string
-  bannerVisible: boolean
-  querySignature: string
 }
 
 const TAB_CONFIG: Array<{ key: TaskStatusTab; label: string }> = [
@@ -84,9 +80,6 @@ const state: PdaExecState = {
   activeTab: 'NOT_STARTED',
   searchKeyword: '',
   riskParam: '',
-  rawTabParam: '',
-  bannerVisible: true,
-  querySignature: '',
 }
 
 function listTaskFacts(): ProcessTask[] {
@@ -213,17 +206,10 @@ function getCurrentSearchParams(): URLSearchParams {
 }
 
 function syncTabWithQuery(): void {
-  const pathname = appStore.getState().pathname
-  if (state.querySignature !== pathname) {
-    state.querySignature = pathname
-    state.bannerVisible = true
-  }
-
   const searchParams = getCurrentSearchParams()
   const rawTab = searchParams.get('tab') || ''
   const mapped = TAB_PARAM_MAP[rawTab] || 'NOT_STARTED'
   state.activeTab = mapped
-  state.rawTabParam = rawTab
   state.riskParam = searchParams.get('risk') || ''
   if (searchParams.has('keyword')) {
     state.searchKeyword = searchParams.get('keyword') || ''
@@ -254,11 +240,6 @@ function getCurrentFactoryId(): string {
   const runtime = getPdaRuntimeContext()
   state.selectedFactoryId = runtime?.factoryId ?? ''
   return state.selectedFactoryId
-}
-
-function getFactoryName(factoryId: string): string {
-  const factory = getFactoryMasterRecordById(factoryId)
-  return formatFactoryDisplayName(factory?.name || factoryId, factory?.code || factoryId)
 }
 
 function blockReasonLabel(reason: string | undefined): string {
@@ -891,7 +872,6 @@ export function renderPdaExecPage(): string {
   syncTabWithQuery()
 
   const selectedFactoryId = getCurrentFactoryId()
-  const factoryName = formatFactoryDisplayName(runtime.factoryName || getFactoryName(selectedFactoryId), selectedFactoryId)
   const acceptedTasks = getAcceptedTasks(selectedFactoryId)
 
   const tasksByStatus: Record<TaskStatusTab, ProcessTask[]> = {
@@ -907,43 +887,11 @@ export function renderPdaExecPage(): string {
   }
 
   const filteredTasks = getFilteredTasks(tasksByStatus, state.activeTab)
-  const fromNotify = !!state.rawTabParam
-  const bannerText =
-    state.rawTabParam === 'blocked' || state.rawTabParam === 'BLOCKED'
-      ? '已为您定位到生产暂停任务'
-      : (state.rawTabParam === 'in-progress' || state.rawTabParam === 'IN_PROGRESS') &&
-            state.riskParam === 'due-soon'
-          ? '已为您定位到即将逾期任务'
-          : (state.rawTabParam === 'not-started' || state.rawTabParam === 'NOT_STARTED') &&
-                state.riskParam === 'start-due-soon'
-            ? '已为您定位到开工预期任务'
-          : ''
-
   const emptyStateText = getPdaExecEmptyStateText(acceptedTasks)
 
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
-      <header class="sticky top-0 z-30 space-y-4 border-b bg-background p-4">
-        <h1 class="text-lg font-semibold">执行</h1>
-
-        ${
-          fromNotify && bannerText && state.bannerVisible
-            ? `
-                <div class="flex items-center justify-between gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                  <span>${escapeHtml(bannerText)}</span>
-                  <button class="text-base leading-none text-blue-400 hover:text-blue-700" data-pda-exec-action="close-banner">×</button>
-                </div>
-              `
-            : ''
-        }
-
-        <div class="flex items-center gap-2">
-          <span class="shrink-0 text-sm text-muted-foreground">当前工厂:</span>
-          <div class="flex h-9 flex-1 items-center rounded-md border bg-muted/20 px-3 text-sm text-foreground">
-            ${escapeHtml(factoryName)}
-          </div>
-        </div>
-
+      <header class="sticky top-0 z-30 border-b bg-background p-4">
         <div class="relative">
           <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
           <input
@@ -1002,11 +950,6 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
 
   const action = actionNode.dataset.pdaExecAction
   if (!action) return false
-
-  if (action === 'close-banner') {
-    state.bannerVisible = false
-    return true
-  }
 
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined
