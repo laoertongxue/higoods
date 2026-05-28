@@ -224,6 +224,8 @@ export interface MarkerNormalLayoutRow extends MarkerLayoutLine {}
 
 export interface MarkerHighLowMatrixRow {
   rowId: string
+  stepNo?: number
+  stepLabel?: string
   colorCode: string
   colorName: string
   markerLength: number

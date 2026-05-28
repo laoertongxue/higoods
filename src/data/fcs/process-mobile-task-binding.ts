@@ -123,6 +123,19 @@ type GenericMobileTask = ProcessTask & {
 const EXECUTABLE_STATES = new Set(['待开工', '进行中', '生产暂停'])
 const OPENABLE_STATES = new Set(['待开工', '进行中', '生产暂停', '已完工'])
 
+export const ONBOARDING_CUTTING_DEMO_FACTORIES: ReadonlyArray<{ factoryId: string; factoryName: string }> = [
+  { factoryId: 'FACTORY-ONBOARD-0034', factoryName: '定向裁演示工厂34' },
+  { factoryId: 'FACTORY-ONBOARD-0035', factoryName: '定位裁演示工厂35' },
+]
+
+export function getOnboardingCuttingDemoFactoryName(factoryId: string): string {
+  return ONBOARDING_CUTTING_DEMO_FACTORIES.find((factory) => factory.factoryId === factoryId)?.factoryName || ''
+}
+
+export function isOnboardingCuttingDemoFactory(factoryId: string): boolean {
+  return Boolean(getOnboardingCuttingDemoFactoryName(factoryId))
+}
+
 function getTaskOrigin(task: ProcessTask): string {
   return String((task as GenericMobileTask).mockOrigin || '')
 }
@@ -316,6 +329,21 @@ export function getMobileTaskFactoryId(task: ProcessTask | null | undefined): st
   return String((task as GenericMobileTask | null | undefined)?.assignedFactoryId || '')
 }
 
+export function isMobileTaskFactoryMatched(
+  task: ProcessTask | null | undefined,
+  currentFactoryId = TEST_FACTORY_ID,
+  expectedFactoryId?: string,
+): boolean {
+  if (!task) return false
+  const taskFactoryId = getMobileTaskFactoryId(task)
+  const expected = expectedFactoryId || currentFactoryId
+  if (taskFactoryId === expected && taskFactoryId === currentFactoryId) return true
+  return isOnboardingCuttingDemoFactory(currentFactoryId)
+    && taskFactoryId === TEST_FACTORY_ID
+    && (!expectedFactoryId || expectedFactoryId === TEST_FACTORY_ID || expectedFactoryId === currentFactoryId)
+    && getMobileTaskProcessType(task) === 'CUTTING'
+}
+
 export function getMobileTaskAcceptanceState(task: ProcessTask | null | undefined): '待接单' | '已接单' | '已拒单' | '不适用' | '未知' {
   if (!task) return '未知'
   const origin = getTaskOrigin(task)
@@ -374,7 +402,7 @@ export function isTaskExecutable(task: ProcessTask | null | undefined): boolean 
 
 export function isTaskVisibleInMobileExecutionList(task: ProcessTask | null | undefined, currentFactoryId = TEST_FACTORY_ID): boolean {
   if (!task) return false
-  if (getMobileTaskFactoryId(task) !== currentFactoryId) return false
+  if (!isMobileTaskFactoryMatched(task, currentFactoryId)) return false
   if (!isTaskAccepted(task)) return false
   if (isTaskRejected(task) || isTaskInBiddingOrAwarding(task) || isTaskClosed(task)) return false
   return OPENABLE_STATES.has(getMobileTaskExecutionState(task))
@@ -425,7 +453,7 @@ export function getMobileTaskAccessResult(task: ProcessTask | null | undefined, 
     }
   }
   let reasonCode: BindingReasonCode = 'OK'
-  if (getMobileTaskFactoryId(task) !== currentFactoryId) {
+  if (!isMobileTaskFactoryMatched(task, currentFactoryId)) {
     reasonCode = 'TASK_FACTORY_MISMATCH'
   } else if (isTaskRejected(task)) {
     reasonCode = 'TASK_REJECTED'
@@ -465,8 +493,7 @@ function validateBinding(context: ValidateBindingContext): ProcessMobileTaskBind
       : getMobileTaskProcessType(task) === context.processType
     : false
   const isFactoryMatched = task
-    ? getMobileTaskFactoryId(task) === (context.expectedFactoryId || context.currentFactoryId)
-      && getMobileTaskFactoryId(task) === context.currentFactoryId
+    ? isMobileTaskFactoryMatched(task, context.currentFactoryId, context.expectedFactoryId)
     : false
   const isAcceptedOrExecutable = Boolean(task) && (isTaskAccepted(task) || isTaskExecutable(task))
   const isVisibleInMobileExecutionList = isTaskVisibleInMobileExecutionList(task, context.currentFactoryId)

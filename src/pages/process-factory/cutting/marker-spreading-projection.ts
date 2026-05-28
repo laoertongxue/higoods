@@ -8,12 +8,14 @@ import type {
   MarkerSpreadingPrefilter,
   MarkerSpreadingContext,
   MarkerModeKey,
+  MarkerSizeKey,
   MarkerSpreadingStore,
   SpreadingOrder,
   SpreadingSession,
   SpreadingPlanUnit,
 } from './marker-spreading-model.ts'
 import {
+  MARKER_SIZE_KEYS,
   buildSpreadingSessionIdentityForMarkerBed,
   buildMarkerSpreadingViewModel,
   buildSpreadingPlanUnitDisplayLabel,
@@ -79,7 +81,7 @@ export interface MarkerSpreadingProjection {
 }
 
 export function buildSpreadingPlanUnitProjectionLabel(
-  planUnit: Pick<SpreadingPlanUnit, 'color' | 'materialSku' | 'garmentQtyPerUnit'>,
+  planUnit: Pick<SpreadingPlanUnit, 'color' | 'materialSku' | 'garmentQtyPerUnit'> & Partial<Pick<SpreadingPlanUnit, 'stepLabel'>>,
 ): string {
   return buildSpreadingPlanUnitDisplayLabel(planUnit)
 }
@@ -118,6 +120,31 @@ function buildSizeDistributionFromBed(bed: MarkerSchemeBed, distributedQty: numb
     sizeLabel: row.sizeName || row.sizeCode,
     quantity: Math.max(Number(distributedQty[index] || 0), 0),
   }))
+}
+
+function buildHighLowStepLabel(stepNo: number): string {
+  return `第${Math.max(Math.round(Number(stepNo || 1)), 1)}阶`
+}
+
+function normalizeMarkerSizeKey(sizeName: string): MarkerSizeKey {
+  const normalized = String(sizeName || '').trim()
+  if ((MARKER_SIZE_KEYS as readonly string[]).includes(normalized)) return normalized as MarkerSizeKey
+  const lower = normalized.toLowerCase()
+  if (lower === 'onesizeplus' || lower === 'plus-one-size' || lower === 'plusonesize') return 'plusonesize'
+  if (lower === 'one-size' || lower === 'one size' || lower === 'onesize' || normalized === '均码') return 'onesize'
+  return 'onesize'
+}
+
+function buildDefaultHighLowSizeValueMap(): Record<MarkerSizeKey, number> {
+  return Object.fromEntries(MARKER_SIZE_KEYS.map((sizeKey) => [sizeKey, 0])) as Record<MarkerSizeKey, number>
+}
+
+function getHighLowMatrixRowActualLayer(bed: MarkerSchemeBed, row: MarkerSchemeBed['highLowMatrixRows'][number]): number {
+  const maxLayer = Math.max(
+    ...Object.values(row.sizeValues || {}).map((value) => Math.max(Math.round(Number(value || 0)), 0)),
+    0,
+  )
+  return bed.bedMode === 'fold_high_low' ? maxLayer / 2 : maxLayer
 }
 
 function buildMarkerRecordFromPlanBed(
@@ -170,46 +197,53 @@ function buildMarkerRecordFromPlanBed(
           },
         ]
       : []
-  const highLowCuttingRows: HighLowCuttingRow[] =
-    bed.bedMode === 'high_low' || bed.bedMode === 'fold_high_low'
-      ? [
-          {
-            rowId: `${bed.bedId}-high-low-1`,
-            markerId: bed.bedId,
-            color: bedColor,
-            sizeValues: {
-              S: 0,
-              M: 0,
-              L: 0,
-              XL: 0,
-              '2XL': 0,
-              '3XL': 0,
-              '4XL': 0,
-              onesize: 0,
-              plusonesize: 0,
-              ...Object.fromEntries(
-                bed.coverageRows.map((row, index) => [
-                  row.sizeCode === 'onesizeplus' ? 'plusonesize' : row.sizeCode,
-                  Math.max(Number(distributedQty[index] || 0), 0),
-                ]),
-              ),
-            },
-            total: bedTotalPieces,
-          },
-        ]
-      : []
-  const highLowPatternKeys = bed.bedMode === 'high_low' || bed.bedMode === 'fold_high_low' ? [bed.bedNo] : []
-  const highLowPatternRows: HighLowPatternRow[] = highLowPatternKeys.length
-    ? [
-        {
-          rowId: `${bed.bedId}-pattern-1`,
-          markerId: bed.bedId,
-          color: bedColor,
-          patternValues: { [bed.bedNo]: bedTotalPieces },
-          total: bedTotalPieces,
-        },
-      ]
+  const highLowMatrixRows = bed.bedMode === 'high_low' || bed.bedMode === 'fold_high_low'
+    ? (bed.highLowMatrixRows || [])
     : []
+  const highLowCuttingRows: HighLowCuttingRow[] =
+    highLowMatrixRows.length
+      ? highLowMatrixRows.map((row, index) => {
+          const stepNo = Math.max(Number(row.stepNo || index + 1), 1)
+          const stepLabel = row.stepLabel || buildHighLowStepLabel(stepNo)
+          const sizeValues = buildDefaultHighLowSizeValueMap()
+          const sizeLayerValues: Record<string, number> = {}
+          Object.entries(row.sizeValues || {}).forEach(([sizeName, layerValue]) => {
+            const normalizedSize = normalizeMarkerSizeKey(sizeName)
+            const layerCount = Math.max(Math.round(Number(layerValue || 0)), 0)
+            const piecePerLayer = Math.max(Number(bed.sizePiecePerLayer?.[sizeName] ?? bed.sizePiecePerLayer?.[normalizedSize] ?? 0), 0)
+            sizeValues[normalizedSize] += layerCount * piecePerLayer
+            sizeLayerValues[normalizedSize] = layerCount
+          })
+          const total = MARKER_SIZE_KEYS.reduce((sum, sizeKey) => sum + Math.max(Number(sizeValues[sizeKey] || 0), 0), 0)
+          return {
+            rowId: row.rowId || `${bed.bedId}-high-low-${index + 1}`,
+            markerId: bed.bedId,
+            stepNo,
+            stepLabel,
+            color: row.colorName || row.colorCode || bedColor,
+            sizeValues,
+            sizeLayerValues,
+            markerLength: Math.max(Number(row.markerLength || 0), 0),
+            plannedRepeatCount: getHighLowMatrixRowActualLayer(bed, row),
+            total,
+          }
+        })
+      : []
+  const highLowPatternKeys = highLowMatrixRows.length
+    ? highLowMatrixRows.map((row, index) => row.stepLabel || buildHighLowStepLabel(row.stepNo || index + 1))
+    : []
+  const highLowPatternRows: HighLowPatternRow[] = highLowPatternKeys.length
+    ? highLowCuttingRows.map((row, index) => ({
+        rowId: `${row.rowId}-pattern`,
+        markerId: bed.bedId,
+        stepNo: row.stepNo,
+        stepLabel: row.stepLabel,
+        color: row.color,
+        patternValues: { [highLowPatternKeys[index]]: row.total },
+        total: row.total,
+      }))
+    : []
+  const highLowTotalMarkerLength = highLowMatrixRows.reduce((sum, row) => sum + Math.max(Number(row.markerLength || 0), 0), 0)
 
   return {
     markerId: bed.bedId,
@@ -232,7 +266,7 @@ function buildMarkerRecordFromPlanBed(
     colorSummary: bedColor,
     sizeDistribution: buildSizeDistributionFromBed(bed, distributedQty),
     totalPieces: bedTotalPieces,
-    netLength: Math.max(Number(bed.markerLength || 0), 0),
+    netLength: Math.max(Number(bed.markerLength || highLowTotalMarkerLength || 0), 0),
     singlePieceUsage: Math.max(Number(bed.unitFabricUsage || 0), 0),
     spreadTotalLength: bedSpreadLength,
     sizeRatioPlanText: bed.sizeSummaryText,

@@ -60,7 +60,7 @@ const REVIEW_NODE_META: Record<
 export const TECH_PACK_REVIEW_MODULES: Record<TechnicalReviewNodeKey, TechnicalModuleKey[]> = {
   BUYER: ['BOM', 'COST'],
   PATTERN_MAKER: ['PATTERN', 'COLOR_MATERIAL_MAPPING'],
-  MERCHANDISER: ['PROCESS', 'SIZE', 'DESIGN', 'ATTACHMENT', 'QUALITY'],
+  MERCHANDISER: ['PROCESS', 'SIZE', 'DESIGN', 'QUALITY'],
 }
 
 const MODULE_OWNER: Partial<Record<TechnicalModuleKey, TechnicalReviewNodeKey>> = {
@@ -71,7 +71,6 @@ const MODULE_OWNER: Partial<Record<TechnicalModuleKey, TechnicalReviewNodeKey>> 
   PROCESS: 'MERCHANDISER',
   SIZE: 'MERCHANDISER',
   DESIGN: 'MERCHANDISER',
-  ATTACHMENT: 'MERCHANDISER',
   QUALITY: 'MERCHANDISER',
 }
 

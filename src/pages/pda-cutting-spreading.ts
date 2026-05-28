@@ -364,6 +364,7 @@ function renderRecords(detail: NonNullable<ReturnType<typeof getSpreadingDetail>
                 <div class="text-muted-foreground">${escapeHtml(item.enteredAt)}</div>
               </div>
               <div class="mt-1.5 grid grid-cols-2 gap-1.5 text-muted-foreground">
+                ${item.stepLabel ? `<div>阶梯：${escapeHtml(item.stepLabel)}</div>` : ''}
                 <div>铺布层数：${escapeHtml(String(item.layerCount))} 层</div>
                 <div>长度：${escapeHtml(String(item.actualLength))} 米</div>
                 <div>录入人：${escapeHtml(item.enteredBy || '现场铺布员')}</div>
@@ -446,6 +447,8 @@ function renderPlanUnitSummary(planUnit: ReturnType<typeof getSelectedPlanUnit>)
     <div class="grid gap-1.5 text-xs sm:grid-cols-2">
       <div><div class="text-muted-foreground">铺布明细</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnitLabel)}</div></div>
       <div><div class="text-muted-foreground">本次成衣件数（件）</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(String(planUnit.garmentQtyPerUnit))}</div></div>
+      ${planUnit.stepLabel ? `<div><div class="text-muted-foreground">阶梯编号</div><div class="mt-0.5 text-sm font-semibold text-blue-600">${escapeHtml(planUnit.stepLabel)}</div></div>` : ''}
+      <div><div class="text-muted-foreground">计划层数/净长</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(`${planUnit.plannedRepeatCount || 0} 层 / ${Number(planUnit.lengthPerUnitM || 0).toFixed(2)} m`)}</div></div>
       <div class="sm:col-span-2">
         <div class="mb-1 text-muted-foreground">面料信息</div>
         ${renderMaterialIdentityBlock(
@@ -539,7 +542,7 @@ function renderFormInner(
                 <input class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="fabricRollNo" value="${escapeHtml(form.fabricRollNo)}" />
               </label>
               <label class="block space-y-0.5">
-                <span class="text-muted-foreground">实铺层数</span>
+                <span class="text-muted-foreground">${selectedPlanUnit?.stepLabel ? `${selectedPlanUnit.stepLabel}实铺层数` : '实铺层数'}</span>
                 <input type="number" min="0" step="1" class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="layerCount" value="${escapeHtml(form.layerCount)}" />
               </label>
               <label class="block space-y-0.5">
@@ -1072,6 +1075,12 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         ? {
             spreadingOrderId: selectedTarget.spreadingSessionId || identity.executionOrderId,
             spreadingOrderNo: selectedTarget.title || identity.executionOrderNo,
+            planUnitId: selectedPlanUnit.planUnitId,
+            sourceLineId: selectedPlanUnit.sourceLineId,
+            stepNo: selectedPlanUnit.stepNo,
+            stepLabel: selectedPlanUnit.stepLabel,
+            materialSku: selectedPlanUnit.materialSku,
+            color: selectedPlanUnit.color,
             actualLayerCount: layerCount,
             actualSpreadLength: actualLength,
             actualMaterialUsage: getGrossOccupiedLength(form),
@@ -1085,6 +1094,12 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         : {
             spreadingOrderId: selectedTarget.spreadingSessionId || identity.executionOrderId,
             spreadingOrderNo: selectedTarget.title || identity.executionOrderNo,
+            planUnitId: selectedPlanUnit.planUnitId,
+            sourceLineId: selectedPlanUnit.sourceLineId,
+            stepNo: selectedPlanUnit.stepNo,
+            stepLabel: selectedPlanUnit.stepLabel,
+            materialSku: selectedPlanUnit.materialSku,
+            color: selectedPlanUnit.color,
             fabricRollNo,
             actualLayerCount: layerCount,
             actualSpreadLength: actualLength,
@@ -1092,7 +1107,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
             tailLength,
             startedAt: submittedAt,
             startedBy: operator.operatorName,
-            note: [form.note.trim(), `唛架编号：${selectedTarget.markerNo || selectedTarget.sourceMarkerLabel}`, `模式：${getSpreadingModeLabel(selectedTarget.spreadingMode)}`]
+            note: [form.note.trim(), selectedPlanUnit.stepLabel ? `阶梯：${selectedPlanUnit.stepLabel}` : '', `唛架编号：${selectedTarget.markerNo || selectedTarget.sourceMarkerLabel}`, `模式：${getSpreadingModeLabel(selectedTarget.spreadingMode)}`]
               .filter(Boolean)
               .join('；'),
           },

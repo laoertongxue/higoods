@@ -838,6 +838,10 @@ function isFoldBedMode(mode: MarkerBedModeKey): boolean {
   return mode === 'fold_normal' || mode === 'fold_high_low'
 }
 
+function buildHighLowStepLabel(stepNo: number): string {
+  return `第${Math.max(Math.round(safeNumber(stepNo)), 1)}阶`
+}
+
 function getMarkerBedModeOptions(): MarkerBedModeKey[] {
   return ['normal', 'high_low', 'fold_normal', 'fold_high_low']
 }
@@ -939,6 +943,8 @@ function createMarkerMatrixRows(plan: MarkerPlan | MarkerPlanViewRow, bed: Marke
     ? existingRows
     : colors.map((color, index) => ({
         rowId: `${bed.bedId}-matrix-${index + 1}`,
+        stepNo: index + 1,
+        stepLabel: buildHighLowStepLabel(index + 1),
         colorCode: color,
         colorName: color,
         markerLength: 0,
@@ -958,6 +964,8 @@ function createMarkerMatrixRows(plan: MarkerPlan | MarkerPlanViewRow, bed: Marke
     )
     return {
       rowId: existing?.rowId || `${bed.bedId}-matrix-${index + 1}`,
+      stepNo: index + 1,
+      stepLabel: buildHighLowStepLabel(index + 1),
       colorCode: existing?.colorCode || color,
       colorName: color,
       markerLength: Math.max(safeNumber(existing?.markerLength), 0),
@@ -2870,6 +2878,7 @@ function renderMarkerMatrixReadonlyTable(plan: MarkerPlan | MarkerPlanViewRow, b
       <table class="min-w-[960px] w-full text-center text-xs">
         <thead class="bg-muted/40 text-muted-foreground">
           <tr>
+            ${highLowMode ? '<th class="w-24 px-3 py-3 text-left font-medium">阶梯编号</th>' : ''}
             <th class="w-28 px-3 py-3 text-left font-medium">颜色</th>
             <th class="w-44 px-3 py-3 text-left font-medium">物料信息</th>
             ${sizeColumns.map((size) => `<th class="px-3 py-3 font-medium"><div>${escapeHtml(size)}</div><div class="mt-1 text-[10px] text-muted-foreground">每层件数 ${formatCount(sizePiecePerLayer[size] || 0)}</div><div class="mt-1 text-[10px] text-muted-foreground">需求 ${formatCount(sizeDemandMap[size] || 0)}</div></th>`).join('')}
@@ -2878,11 +2887,12 @@ function renderMarkerMatrixReadonlyTable(plan: MarkerPlan | MarkerPlanViewRow, b
           </tr>
         </thead>
         <tbody class="divide-y">
-          ${rows.map((row) => {
+          ${rows.map((row, index) => {
             const rowTotal = sizeColumns.reduce((total, size) => total + getMarkerMatrixCellPlannedQty(row, size, sizePiecePerLayer), 0)
             const materialText = getMarkerMatrixMaterialForColor(plan, row.colorName || row.colorCode)
             return `
               <tr>
+                ${highLowMode ? `<td class="px-3 py-3 text-left font-medium text-blue-600">${escapeHtml(row.stepLabel || buildHighLowStepLabel(index + 1))}</td>` : ''}
                 <td class="px-3 py-3 text-left font-medium text-foreground">
                   ${escapeHtml(row.colorName || row.colorCode)}
                 </td>
@@ -2900,6 +2910,7 @@ function renderMarkerMatrixReadonlyTable(plan: MarkerPlan | MarkerPlanViewRow, b
         </tbody>
         <tfoot class="border-t bg-muted/20 text-xs font-medium">
           <tr>
+            ${highLowMode ? '<td class="px-3 py-3 text-left">—</td>' : ''}
             <td class="px-3 py-3 text-left">累计层数&累计件数</td>
             <td class="px-3 py-3 text-left text-muted-foreground">按尺码列累计</td>
             ${sizeColumns.map((size) => `<td class="px-3 py-3"><div>${formatCount(layerTotals[size] || 0)} 层</div><div class="mt-1 text-[10px] text-muted-foreground">${formatCount(pieceTotals[size] || 0)} 件</div></td>`).join('')}
@@ -3028,6 +3039,7 @@ function renderMarkerMatrixEditor(plan: MarkerPlan, bed: MarkerSchemeBed): strin
         <table class="min-w-[980px] w-full text-center text-xs">
           <thead class="bg-muted/40 text-muted-foreground">
             <tr>
+              ${highLowMode ? '<th class="w-24 px-3 py-3 text-left font-medium">阶梯编号</th>' : ''}
               <th class="w-36 px-3 py-3 text-left font-medium">颜色</th>
               <th class="w-44 px-3 py-3 text-left font-medium">物料信息</th>
               ${sizeColumns.map((size) => `
@@ -3052,11 +3064,12 @@ function renderMarkerMatrixEditor(plan: MarkerPlan, bed: MarkerSchemeBed): strin
             </tr>
           </thead>
           <tbody class="divide-y">
-            ${rows.map((row) => {
+            ${rows.map((row, index) => {
               const rowTotal = sizeColumns.reduce((total, size) => total + getMarkerMatrixCellPlannedQty(row, size, sizePiecePerLayer), 0)
               const materialText = getMarkerMatrixMaterialForColor(plan, row.colorName || row.colorCode)
               return `
                 <tr>
+                  ${highLowMode ? `<td class="px-3 py-3 text-left font-medium text-blue-600">${escapeHtml(row.stepLabel || buildHighLowStepLabel(index + 1))}</td>` : ''}
                   <td class="px-3 py-3 text-left">
                     <select data-marker-plan-matrix-row-color="true" data-bed-id="${escapeHtml(bed.bedId)}" data-row-id="${escapeHtml(row.rowId)}" class="h-8 w-full rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
                       ${colorOptions.map((color) => `<option value="${escapeHtml(color)}" ${color === (row.colorName || row.colorCode) ? 'selected' : ''}>${escapeHtml(color)}</option>`).join('')}
@@ -3110,6 +3123,7 @@ function renderMarkerMatrixEditor(plan: MarkerPlan, bed: MarkerSchemeBed): strin
           </tbody>
           <tfoot class="border-t bg-muted/20 text-xs font-medium">
             <tr>
+              ${highLowMode ? '<td class="px-3 py-3 text-left">—</td>' : ''}
               <td class="px-3 py-3 text-left">累计层数&累计件数</td>
               <td class="px-3 py-3 text-left text-muted-foreground">按尺码列累计</td>
               ${sizeColumns.map((size) => `<td class="px-3 py-3"><div>${formatCount(layerTotals[size] || 0)} 层</div><div class="mt-1 text-[10px] text-muted-foreground">${formatCount(pieceTotals[size] || 0)} 件</div></td>`).join('')}
@@ -4446,6 +4460,8 @@ if (action === 'add-scheme-bed') {
             ...rows,
             {
               rowId: `${bed.bedId}-matrix-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              stepNo: rows.length + 1,
+              stepLabel: buildHighLowStepLabel(rows.length + 1),
               colorCode: defaultColor,
               colorName: defaultColor,
               markerLength: 0,

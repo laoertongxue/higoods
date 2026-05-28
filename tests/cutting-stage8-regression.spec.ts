@@ -81,7 +81,7 @@ const WEB_PAGES: Array<{ path: string; title: string; required: string[]; forbid
   {
     path: '/fcs/craft/cutting/warehouse-management/wait-handover',
     title: '裁床待交出仓',
-    required: ['待入仓确认', '待二次分拣', '待重新装袋', '待新增交出记录', '接收差异', '入仓暂存袋', '特殊工艺回仓'],
+    required: ['待入仓确认', '待分拣装袋', '待新增交出记录', '接收差异', '入仓暂存袋', '特殊工艺回仓'],
   },
   {
     path: '/fcs/craft/cutting/transfer-bags',

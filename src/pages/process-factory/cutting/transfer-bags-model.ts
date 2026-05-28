@@ -49,7 +49,7 @@ export type { TransferBagUsageStage }
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 const TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const
-const INBOUND_TEMP_BAG_RULE_LABEL = '入仓暂存袋可混装不同生产单、SKU、部位的菲票；车缝任务分配后再二次分拣。'
+const INBOUND_TEMP_BAG_RULE_LABEL = '入仓暂存袋可混装不同生产单、SKU、部位的菲票；车缝任务分配后再分拣装袋。'
 const HANDOVER_PACKING_BAG_RULE_LABEL = '交出装袋需先扫中转袋，再扫菲票子码；本阶段才按交出单关系核对。'
 
 function normalizeTransferBagUsageStage(stage: string | undefined): TransferBagUsageStage {
@@ -2022,7 +2022,7 @@ function buildTransferBagStageLedgerItems(usageItems: TransferBagUsageItem[]): T
       cutOrderNos: usage.cutOrderNos,
       ticketCount: usage.summary.ticketCount,
       statusLabel: usage.visibleStatusMeta.label,
-      relationLabel: '未绑定交出单，待车缝任务分配后二次分拣',
+      relationLabel: '未绑定交出单，待车缝任务分配后分拣装袋',
       relationOk: true,
       handoverOrderNo: '',
       handoverRecordNo: '',
@@ -2246,7 +2246,7 @@ export function buildInboundTempBagsFromTransferBagViewModel(
         mixedFlag,
         mixedSummary: buildInboundTempBagMixedSummary(containedFeiTickets),
         discrepancyRecords,
-        nextSortingStatus: usage.sewingTaskNo ? '已参与后续分拣' : '未绑定车缝任务，待后续分配后再二次分拣',
+        nextSortingStatus: usage.sewingTaskNo ? '已参与后续分拣装袋' : '未绑定车缝任务，待后续分配后再分拣装袋',
         remark: usage.note || INBOUND_TEMP_BAG_RULE_LABEL,
       } satisfies InboundTempBag
     })

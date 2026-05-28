@@ -105,14 +105,21 @@ export interface MarkerLineItem {
 export interface HighLowCuttingRow {
   rowId: string
   markerId: string
+  stepNo?: number
+  stepLabel?: string
   color: string
   sizeValues: Record<MarkerSizeKey, number>
+  sizeLayerValues?: Record<string, number>
+  markerLength?: number
+  plannedRepeatCount?: number
   total: number
 }
 
 export interface HighLowPatternRow {
   rowId: string
   markerId: string
+  stepNo?: number
+  stepLabel?: string
   color: string
   patternValues: Record<string, number>
   total: number
@@ -212,6 +219,9 @@ export interface SpreadingRollRecord {
   rollRecordId: string
   spreadingSessionId: string
   planUnitId?: string
+  sourceHighLowRowId?: string
+  stepNo?: number
+  stepLabel?: string
   sortOrder: number
   rollNo: string
   materialSku: string
@@ -378,6 +388,10 @@ export interface SpreadingPlanUnit {
   planUnitId: string
   sourceType: 'marker-line' | 'high-low-row' | 'exception'
   sourceLineId: string
+  stepNo?: number
+  stepLabel?: string
+  sourceBedId?: string
+  sourceBedNo?: string
   color: string
   materialSku: string
   materialAlias?: string
@@ -387,6 +401,14 @@ export interface SpreadingPlanUnit {
   lengthPerUnitM: number
   plannedCutGarmentQty: number
   plannedSpreadLengthM: number
+  sizeLayerValues?: Record<string, number>
+  sizeRows?: Array<{
+    skuCode: string
+    color: string
+    size: string
+    plannedQty: number
+    plannedLayerCount: number
+  }>
 }
 
 export interface SpreadingReplenishmentWarning {
@@ -1001,9 +1023,10 @@ function formatQty(value: number): string {
 }
 
 export function buildSpreadingPlanUnitDisplayLabel(
-  planUnit: Pick<SpreadingPlanUnit, 'color' | 'materialSku' | 'garmentQtyPerUnit'>,
+  planUnit: Pick<SpreadingPlanUnit, 'color' | 'materialSku' | 'garmentQtyPerUnit'> & Partial<Pick<SpreadingPlanUnit, 'stepLabel'>>,
 ): string {
-  return `${planUnit.color || '待补颜色'} / ${planUnit.materialSku || '待补面料'} / ${formatQty(planUnit.garmentQtyPerUnit)}件/层`
+  const prefix = planUnit.stepLabel ? `${planUnit.stepLabel} / ` : ''
+  return `${prefix}${planUnit.color || '待补颜色'} / ${planUnit.materialSku || '待补面料'} / ${formatQty(planUnit.garmentQtyPerUnit)}件/层`
 }
 
 function formatDateTime(value: string): string {
@@ -1064,13 +1087,22 @@ function normalizeHighLowCuttingRow(item: Partial<HighLowCuttingRow>, markerId: 
   MARKER_SIZE_KEYS.forEach((sizeKey) => {
     sizeValues[sizeKey] = Number(item.sizeValues?.[sizeKey] ?? 0)
   })
-  const total = MARKER_SIZE_KEYS.reduce((sum, sizeKey) => sum + Math.max(sizeValues[sizeKey], 0), 0)
+  const total = Math.max(
+    Number(item.total || 0),
+    MARKER_SIZE_KEYS.reduce((sum, sizeKey) => sum + Math.max(sizeValues[sizeKey], 0), 0),
+  )
+  const stepNo = Math.max(Number(item.stepNo || index + 1), 1)
 
   return {
     rowId: item.rowId || `high-low-cutting-${markerId}-${index + 1}`,
     markerId,
+    stepNo,
+    stepLabel: item.stepLabel || `第${stepNo}阶`,
     color: item.color || '',
     sizeValues,
+    sizeLayerValues: item.sizeLayerValues || {},
+    markerLength: Math.max(Number(item.markerLength || 0), 0),
+    plannedRepeatCount: Math.max(Number(item.plannedRepeatCount || 0), 0),
     total,
   }
 }
@@ -1083,10 +1115,13 @@ function normalizeHighLowPatternRow(
 ): HighLowPatternRow {
   const patternValues = Object.fromEntries(patternKeys.map((key) => [key, Number(item.patternValues?.[key] ?? 0)]))
   const total = patternKeys.reduce((sum, key) => sum + Math.max(patternValues[key] || 0, 0), 0)
+  const stepNo = Math.max(Number(item.stepNo || index + 1), 1)
 
   return {
     rowId: item.rowId || `high-low-pattern-${markerId}-${index + 1}`,
     markerId,
+    stepNo,
+    stepLabel: item.stepLabel || `第${stepNo}阶`,
     color: item.color || '',
     patternValues,
     total,
@@ -2318,25 +2353,42 @@ export function buildSpreadingPlanUnitsFromMarker(
 
   const highLowRows = marker.highLowCuttingRows || []
   if (highLowRows.length) {
-    const rowCount = highLowRows.length
-    const averageLength = rowCount > 0 ? Number((Number(marker.spreadTotalLength || 0) / rowCount).toFixed(2)) : 0
-    const plannedRepeatCount = Math.max(Number(marker.plannedLayerCount || 0), 1)
     return highLowRows.map((row, index) => {
       const plannedCutGarmentQty = Math.max(Number(row.total || 0), 0)
       const color = row.color || context.materialPrepRows[0]?.color || ''
       const materialSku = resolveMaterialSku(color)
+      const plannedRepeatCount = Math.max(Number(row.plannedRepeatCount || marker.plannedLayerCount || 0), 1)
+      const lengthPerUnitM = Math.max(Number(row.markerLength || marker.markerLength || marker.netLength || 0), 0)
+      const plannedSpreadLengthM = Number((((lengthPerUnitM + 0.06) * plannedRepeatCount).toFixed(2)))
+      const stepNo = Math.max(Number(row.stepNo || index + 1), 1)
+      const stepLabel = row.stepLabel || `第${stepNo}阶`
+      const sizeLayerValues = row.sizeLayerValues || {}
       return {
         planUnitId: `plan-unit-${marker.markerId}-${index + 1}`,
         sourceType: 'high-low-row',
         sourceLineId: row.rowId || `high-low-${index + 1}`,
+        stepNo,
+        stepLabel,
+        sourceBedId: marker.bedId || marker.markerId,
+        sourceBedNo: marker.bedNo || marker.markerNo || '',
         color,
         materialSku,
         ...buildPlanUnitMaterialIdentity(context, color, materialSku),
         garmentQtyPerUnit: plannedRepeatCount > 0 ? Math.max(Math.ceil(plannedCutGarmentQty / plannedRepeatCount), 0) : plannedCutGarmentQty,
         plannedRepeatCount,
-        lengthPerUnitM: Number(marker.markerLength || marker.netLength || 0),
+        lengthPerUnitM,
         plannedCutGarmentQty,
-        plannedSpreadLengthM: averageLength,
+        plannedSpreadLengthM,
+        sizeLayerValues,
+        sizeRows: Object.entries(row.sizeValues || {})
+          .filter(([, value]) => Math.max(Number(value || 0), 0) > 0)
+          .map(([size, value]) => ({
+            skuCode: `${color || context.spuCode || marker.spuCode || 'SKU'}-${size}`,
+            color,
+            size,
+            plannedQty: Math.max(Number(value || 0), 0),
+            plannedLayerCount: Math.max(Number(sizeLayerValues[size] || 0), 0),
+          })),
       }
     })
   }

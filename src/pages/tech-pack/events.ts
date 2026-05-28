@@ -74,7 +74,6 @@ import {
   isTechPackModuleReadOnly,
   isTechPackReadOnly,
   requestTechPackRender,
-  resetAttachmentForm,
   resetBomForm,
   resetColorMappingToSystemSuggestion,
   resetPatternForm,
@@ -160,9 +159,6 @@ const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'open-design-file-picker': 'DESIGN',
   'save-design': 'DESIGN',
   'delete-design': 'DESIGN',
-  'open-add-attachment': 'ATTACHMENT',
-  'save-attachment': 'ATTACHMENT',
-  'delete-attachment': 'ATTACHMENT',
 }
 
 function getTechPackFieldModuleKey(field: string): TechnicalModuleKey | null {
@@ -186,7 +182,6 @@ function getTechPackFieldModuleKey(field: string): TechnicalModuleKey | null {
   if (normalized.startsWith('new-technique-') || normalized.startsWith('tech-')) return 'PROCESS'
   if (normalized.startsWith('new-size-')) return 'SIZE'
   if (normalized.startsWith('new-design-')) return 'DESIGN'
-  if (normalized.startsWith('new-attachment-')) return 'ATTACHMENT'
   return null
 }
 
@@ -2329,19 +2324,6 @@ function handleTechPackField(
     return true
   }
 
-  if (field === 'new-attachment-file-name') {
-    state.newAttachment.fileName = value
-    return true
-  }
-  if (field === 'new-attachment-file-type') {
-    state.newAttachment.fileType = value
-    return true
-  }
-  if (field === 'new-attachment-file-size') {
-    state.newAttachment.fileSize = value
-    return true
-  }
-
   return false
 }
 
@@ -2468,8 +2450,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       state.addSizeDialogOpen = false
     } else if (state.addDesignDialogOpen) {
       state.addDesignDialogOpen = false
-    } else if (state.addAttachmentDialogOpen) {
-      state.addAttachmentDialogOpen = false
     } else if (state.patternDialogOpen) {
       state.patternDialogOpen = false
     } else if (state.pieceInstanceCraftDialogOpen) {
@@ -2654,8 +2634,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       action === 'open-pattern-image-preview' ||
       action === 'open-design-thumbnail-preview' ||
       action === 'preview-design-thumbnail' ||
-      action === 'download-design-original-file' ||
-      action === 'download-attachment'
+      action === 'download-design-original-file'
     if (!isReadonlySafeAction) return true
   }
 
@@ -3761,54 +3740,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
 
     syncTechPackToStore()
-    return true
-  }
-
-  if (action === 'open-add-attachment') {
-    resetAttachmentForm()
-    state.addAttachmentDialogOpen = true
-    return true
-  }
-  if (action === 'close-add-attachment') {
-    state.addAttachmentDialogOpen = false
-    return true
-  }
-  if (action === 'save-attachment') {
-    if (!state.techPack || !state.newAttachment.fileName.trim()) return true
-
-    state.techPack = {
-      ...state.techPack,
-      attachments: [
-        ...state.techPack.attachments,
-        {
-          id: `att-${Date.now()}`,
-          fileName: state.newAttachment.fileName,
-          fileType: state.newAttachment.fileType,
-          fileSize: state.newAttachment.fileSize,
-          uploadedAt: toTimestamp(),
-          uploadedBy: currentUser.name,
-          downloadUrl: '#',
-        },
-      ],
-    }
-
-    syncTechPackToStore()
-    state.addAttachmentDialogOpen = false
-    return true
-  }
-  if (action === 'delete-attachment') {
-    const attachmentId = actionNode.dataset.attachmentId
-    if (!state.techPack || !attachmentId) return true
-
-    state.techPack = {
-      ...state.techPack,
-      attachments: state.techPack.attachments.filter((item) => item.id !== attachmentId),
-    }
-
-    syncTechPackToStore()
-    return true
-  }
-  if (action === 'download-attachment') {
     return true
   }
 

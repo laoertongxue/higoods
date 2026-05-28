@@ -7,7 +7,9 @@ import {
   getMobileTaskFactoryId,
   getMobileTaskProcessType,
   getMobileTaskExecutionState,
+  getOnboardingCuttingDemoFactoryName,
   getPdaMobileExecutionTaskById,
+  isOnboardingCuttingDemoFactory,
   isTaskVisibleInMobileExecutionList,
   listPostFinishingMobileExecutionTasks,
   listPdaMobileExecutionTasks,
@@ -468,6 +470,21 @@ function compareTasks(left: ProcessTask, right: ProcessTask): number {
   return (left.taskNo || left.taskId).localeCompare(right.taskNo || right.taskId, 'zh-Hans-CN')
 }
 
+function scopeOnboardingCuttingDemoTask(task: ProcessTask, currentFactoryId: string): ProcessTask {
+  if (!isOnboardingCuttingDemoFactory(currentFactoryId)) return task
+  if (getMobileTaskFactoryId(task) !== TEST_FACTORY_ID) return task
+  if (getMobileTaskProcessType(task) !== 'CUTTING') return task
+
+  const factoryName = getOnboardingCuttingDemoFactoryName(currentFactoryId)
+  return {
+    ...task,
+    assignedFactoryId: currentFactoryId,
+    assignedFactoryName: factoryName || task.assignedFactoryName,
+    receiverId: currentFactoryId,
+    receiverName: factoryName || task.assignedFactoryName,
+  }
+}
+
 export function getMobileTaskTabKey(task: ProcessTask | null | undefined): MobileExecutionTaskStatusTab {
   const state = getMobileTaskExecutionState(task)
   if (state === '待开工') return 'NOT_STARTED'
@@ -592,6 +609,7 @@ export function listMobileExecutionTasks(params: ListMobileExecutionTasksParams 
   const statusTab = normalizeTabKey(params.statusTab)
   let tasks = (params.processType === 'POST_FINISHING' ? listPostFinishingMobileExecutionTasks() : listPdaMobileExecutionTasks())
     .filter((task) => isMobileTaskVisibleForFactory(task, currentFactoryId))
+    .map((task) => scopeOnboardingCuttingDemoTask(task, currentFactoryId))
 
   if (params.processType) {
     tasks = tasks.filter((task) => getMobileTaskProcessType(task) === params.processType)

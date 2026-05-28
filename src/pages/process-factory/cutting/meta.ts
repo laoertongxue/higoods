@@ -254,7 +254,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '裁床待交出仓',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '管理裁后裁片库存、菲票入仓、二次分拣、重新装袋、交出出库和回写差异。',
+    shortDescription: '管理裁后裁片库存、菲票入仓、分拣装袋、交出出库和回写差异。',
   },
   'fabric-warehouse': {
     key: 'fabric-warehouse',

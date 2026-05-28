@@ -40,11 +40,13 @@ import { renderCompactKpiCard, renderStickyTableScroller } from './layout.helper
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta.ts'
 import {
   buildInboundTempBagInventoryRecords,
+  buildInboundTempBagsFromTransferBagViewModel,
   type InboundTempBag,
   type InboundTempBagContainedFeiTicket,
   type InboundTempBagInventoryRecord,
   type TransferBagTicketCandidate,
 } from './transfer-bags-model.ts'
+import { buildTransferBagsProjection } from './transfer-bags-projection.ts'
 import { getWarehouseSearchParams } from './warehouse-shared.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
 import {
@@ -56,8 +58,7 @@ import {
 import {
   appendWaitHandoverHandoverRecordEvent,
   appendWaitHandoverInboundEvent,
-  appendWaitHandoverRebagEvent,
-  appendWaitHandoverSortingEvent,
+  appendWaitHandoverSortingBaggingEvent,
   buildWaitHandoverRuntimeTicketFromGeneratedTicket,
   runtimeEventHasWaitHandoverTicket,
 } from './wait-handover-runtime.ts'
@@ -1735,8 +1736,7 @@ function getWaitHandoverEventBagText(event: CuttingRuntimeEvent): string {
 
 function getWaitHandoverEventTypeLabel(eventType: CuttingRuntimeEvent['eventType']): string {
   if (eventType === '菲票入仓暂存') return '菲票入仓'
-  if (eventType === '待交出仓二次分拣') return '二次分拣'
-  if (eventType === '待交出仓重新装袋') return '重新装袋'
+  if (eventType === '待交出仓分拣装袋') return '分拣装袋'
   if (eventType === '新增交出记录') return '交出记录'
   if (eventType === '特殊工艺交出') return '特殊工艺交出'
   if (eventType === '特殊工艺回仓') return '特殊工艺回仓'
@@ -1746,8 +1746,7 @@ function getWaitHandoverEventTypeLabel(eventType: CuttingRuntimeEvent['eventType
 function getWaitHandoverEventSourceText(event: CuttingRuntimeEvent): string {
   const payload = toRuntimeRecord(event.payload)
   if (event.eventType === '菲票入仓暂存') return `菲票入仓：${getWaitHandoverEventBagText(event)}`
-  if (event.eventType === '待交出仓二次分拣') return `二次分拣：${runtimeString(payload.pickingTaskNo) || getWaitHandoverEventBagText(event)}`
-  if (event.eventType === '待交出仓重新装袋') return `重新装袋：${runtimeString(payload.targetTransferBagCode) || getWaitHandoverEventBagText(event)}`
+  if (event.eventType === '待交出仓分拣装袋') return `分拣装袋：${runtimeString(payload.pickingTaskNo) || runtimeString(payload.targetTransferBagCode) || getWaitHandoverEventBagText(event)}`
   if (event.eventType === '新增交出记录') {
     return `交出记录：${runtimeString(payload.handoverRecordNo) || runtimeString(payload.handoverOrderNo) || runtimeString(payload.receiverName) || getWaitHandoverEventBagText(event)}`
   }
@@ -1759,8 +1758,7 @@ function getWaitHandoverEventSourceText(event: CuttingRuntimeEvent): string {
 function getWaitHandoverEventStatusText(event: CuttingRuntimeEvent): string {
   if (event.eventStatus === '同步失败') return '同步失败'
   if (event.eventType === '菲票入仓暂存') return '已入仓'
-  if (event.eventType === '待交出仓二次分拣') return '已分拣'
-  if (event.eventType === '待交出仓重新装袋') return '已装袋'
+  if (event.eventType === '待交出仓分拣装袋') return '已装袋待交出'
   if (event.eventType === '新增交出记录') return '待接收回写'
   if (event.eventType === '特殊工艺交出') return '加工中'
   if (event.eventType === '特殊工艺回仓') return '已回仓'
@@ -1992,15 +1990,14 @@ function renderWaitHandoverHeaderActions(firstTaskId: string): string {
   return `
     <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
       <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="open-inbound">扫码入仓</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-sorting">二次分拣</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-rebag">重新装袋</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-sorting-bagging">分拣装袋</button>
       <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover">新增交出记录</button>
       <button type="button" class="h-10 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/cutting/inbound/${escapeHtml(firstTaskId)}">PDA 现场扫码</button>
     </div>
   `
 }
 
-type WaitHandoverWebAction = 'inbound' | 'sorting' | 'rebag' | 'handover'
+type WaitHandoverWebAction = 'inbound' | 'sorting-bagging' | 'handover'
 
 const WAIT_HANDOVER_WEB_MODAL_ID = 'cutting-wait-handover-web-action-modal'
 
@@ -2026,7 +2023,9 @@ function readWaitHandoverWebField(dialog: ParentNode, field: string): string {
 function buildWaitHandoverWebInventoryRecords(): InboundTempBagInventoryRecord[] {
   const generatedTickets = listSpreadingResultGeneratedFeiTickets()
   const runtimeEvents = listRuntimeWaitHandoverEvents()
-  const inboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeEvents, generatedTickets)
+  const runtimeInboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeEvents, generatedTickets)
+  const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(buildTransferBagsProjection().viewModel)
+  const inboundTempBags = runtimeInboundTempBags.length ? runtimeInboundTempBags : fallbackInboundTempBags
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
   const specialCraftReturnRecords = buildRuntimeSpecialCraftReturnInventoryRecordsFromEvents(runtimeEvents, generatedTickets)
   return [...inboundInventoryRecords, ...specialCraftReturnRecords]
@@ -2061,15 +2060,17 @@ function getWaitHandoverTicketOptions(): Array<{ value: string; label: string }>
 }
 
 function getWaitHandoverPickingOptions(): Array<{ value: string; label: string }> {
-  return buildWaitHandoverWebPickingProjection().tasks.flatMap((task) =>
-    task.allocatedInventoryItems
+  return buildWaitHandoverWebPickingProjection().tasks.flatMap((task) => {
+    const pickedFeiTicketIds = new Set(task.pickedItems.map((item) => item.feiTicketId))
+    return task.allocatedInventoryItems
       .filter((item) => item.voidStatus !== '已作废')
+      .filter((item) => !pickedFeiTicketIds.has(item.feiTicketId))
       .slice(0, 6)
       .map((item) => ({
         value: `${task.pickingTaskId}|${item.feiTicketId}`,
         label: `${task.pickingTaskNo} / ${item.feiTicketNo} / ${item.partName} ${item.size} / ${item.pieceQty} 片`,
-      })),
-  ).slice(0, 30)
+      }))
+  }).slice(0, 30)
 }
 
 function getWaitHandoverRecordOptions(): Array<{ value: string; label: string }> {
@@ -2087,14 +2088,12 @@ function getWaitHandoverRecordOptions(): Array<{ value: string; label: string }>
 function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction): string {
   const titleMap: Record<WaitHandoverWebAction, string> = {
     inbound: '扫码入仓',
-    sorting: '二次分拣',
-    rebag: '重新装袋',
+    'sorting-bagging': '分拣装袋',
     handover: '新增交出记录',
   }
   const submitMap: Record<WaitHandoverWebAction, string> = {
     inbound: '提交入仓',
-    sorting: '提交分拣',
-    rebag: '提交装袋',
+    'sorting-bagging': '提交分拣装袋',
     handover: '提交交出',
   }
   const actionContent = action === 'inbound'
@@ -2122,16 +2121,15 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction): strin
       `
       : `
         <label class="space-y-1 text-sm">
-          <span class="text-muted-foreground">分拣任务 / 菲票</span>
+          <span class="text-muted-foreground">分拣装袋任务 / 菲票</span>
           <select class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="pickingSelection">
             ${buildWaitHandoverActionSelectOptions(getWaitHandoverPickingOptions(), '暂无分拣装袋任务')}
           </select>
         </label>
-        ${
-          action === 'rebag'
-            ? '<label class="space-y-1 text-sm"><span class="text-muted-foreground">目标中转袋</span><input class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="targetTransferBagCode" value="WEB-HANDOVER-BAG-001" /></label>'
-            : '<label class="space-y-1 text-sm"><span class="text-muted-foreground">来源暂存袋</span><input class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="sourceTempBagCode" value="按任务默认来源袋" /></label>'
-        }
+        <div class="grid gap-3 md:grid-cols-2">
+          <label class="space-y-1 text-sm"><span class="text-muted-foreground">来源暂存袋</span><input class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="sourceTempBagCode" value="按任务默认来源袋" /></label>
+          <label class="space-y-1 text-sm"><span class="text-muted-foreground">目标中转袋</span><input class="h-10 w-full rounded-md border bg-background px-3" data-wait-handover-field="targetTransferBagCode" value="WEB-HANDOVER-BAG-001" /></label>
+        </div>
       `
   return `
     <div id="${WAIT_HANDOVER_WEB_MODAL_ID}" class="fixed inset-0 z-[130]" data-wait-handover-modal="${escapeHtml(action)}">
@@ -2216,37 +2214,18 @@ function submitWaitHandoverInbound(dialog: HTMLElement): boolean {
   return false
 }
 
-function submitWaitHandoverSorting(dialog: HTMLElement): boolean {
+function submitWaitHandoverSortingBagging(dialog: HTMLElement): boolean {
   const selection = findWaitHandoverPickingSelection(readWaitHandoverWebField(dialog, 'pickingSelection'))
   if (!selection) {
-    window.alert('请选择可分拣菲票。')
+    window.alert('请选择可分拣装袋菲票。')
     return true
   }
-  if (runtimeEventHasWaitHandoverTicket('待交出仓二次分拣', selection.item.feiTicketId)) {
-    window.alert('该菲票已有二次分拣记录，不能重复分拣。')
+  if (selection.task.pickedItems.some((item) => item.feiTicketId === selection.item.feiTicketId)) {
+    window.alert('该菲票已在当前分拣装袋任务中装袋，不能重复分拣。')
     return true
   }
-  appendWaitHandoverSortingEvent({
-    source: 'WEB',
-    operator: { ...getWaitHandoverWebOperator(dialog), operatorRole: '裁片仓分拣员' },
-    pickingTaskId: selection.task.pickingTaskId,
-    pickingTaskNo: selection.task.pickingTaskNo,
-    sewingTaskId: selection.task.sewingTaskId,
-    sewingTaskNo: selection.task.sewingTaskNo,
-    sourceTempBagCode: selection.sourceTempBagCode || readWaitHandoverWebField(dialog, 'sourceTempBagCode') || '按任务默认来源袋',
-    tickets: [{
-      feiTicketId: selection.item.feiTicketId,
-      feiTicketNo: selection.item.feiTicketNo,
-      pieceQty: selection.item.pieceQty,
-    }],
-  })
-  return false
-}
-
-function submitWaitHandoverRebag(dialog: HTMLElement): boolean {
-  const selection = findWaitHandoverPickingSelection(readWaitHandoverWebField(dialog, 'pickingSelection'))
-  if (!selection) {
-    window.alert('请选择可装袋菲票。')
+  if (runtimeEventHasWaitHandoverTicket('待交出仓分拣装袋', selection.item.feiTicketId)) {
+    window.alert('该菲票已有分拣装袋记录，不能重复分拣装袋。')
     return true
   }
   const targetTransferBagCode = readWaitHandoverWebField(dialog, 'targetTransferBagCode')
@@ -2254,14 +2233,15 @@ function submitWaitHandoverRebag(dialog: HTMLElement): boolean {
     window.alert('请填写目标中转袋。')
     return true
   }
-  appendWaitHandoverRebagEvent({
+  appendWaitHandoverSortingBaggingEvent({
     source: 'WEB',
     operator: { ...getWaitHandoverWebOperator(dialog), operatorRole: '裁片仓分拣员' },
-    targetTransferBagCode,
-    sewingTaskId: selection.task.sewingTaskId,
-    sewingTaskNo: selection.task.sewingTaskNo,
     pickingTaskId: selection.task.pickingTaskId,
     pickingTaskNo: selection.task.pickingTaskNo,
+    sewingTaskId: selection.task.sewingTaskId,
+    sewingTaskNo: selection.task.sewingTaskNo,
+    sourceTempBagCode: selection.sourceTempBagCode || readWaitHandoverWebField(dialog, 'sourceTempBagCode') || '按任务默认来源袋',
+    targetTransferBagCode,
     tickets: [{
       feiTicketId: selection.item.feiTicketId,
       feiTicketNo: selection.item.feiTicketNo,
@@ -2332,7 +2312,7 @@ export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolea
     removeWaitHandoverWebActionDialog()
     return true
   }
-  if (action === 'open-inbound' || action === 'open-sorting' || action === 'open-rebag' || action === 'open-handover') {
+  if (action === 'open-inbound' || action === 'open-sorting-bagging' || action === 'open-handover') {
     openWaitHandoverWebActionDialog(action.replace('open-', '') as WaitHandoverWebAction)
     return true
   }
@@ -2340,8 +2320,7 @@ export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolea
   if (!dialog) return false
   const blocked =
     action === 'submit-inbound' ? submitWaitHandoverInbound(dialog) :
-    action === 'submit-sorting' ? submitWaitHandoverSorting(dialog) :
-    action === 'submit-rebag' ? submitWaitHandoverRebag(dialog) :
+    action === 'submit-sorting-bagging' ? submitWaitHandoverSortingBagging(dialog) :
     action === 'submit-handover' ? submitWaitHandoverRecord(dialog) :
     true
   if (blocked) return true
@@ -2549,8 +2528,7 @@ function renderHubShell(options: {
 
 type WaitHandoverWorkbenchItemType =
   | '待入仓确认'
-  | '待二次分拣'
-  | '待重新装袋'
+  | '待分拣装袋'
   | '待新增交出记录'
   | '接收差异 / 交出后缺口'
 
@@ -2596,8 +2574,7 @@ interface WaitHandoverWorkbenchItem {
 interface WaitHandoverWorkbenchProjection {
   overviewCards: WaitHandoverOverviewCard[]
   pendingInboundItems: WaitHandoverWorkbenchItem[]
-  pendingSortingItems: WaitHandoverWorkbenchItem[]
-  pendingRebaggingItems: WaitHandoverWorkbenchItem[]
+  pendingSortingBaggingItems: WaitHandoverWorkbenchItem[]
   pendingHandoverRecordItems: WaitHandoverWorkbenchItem[]
   discrepancyAndShortageItems: WaitHandoverWorkbenchItem[]
   specialCraftHandoverGroups: SpecialCraftHandoverGroup[]
@@ -2641,6 +2618,50 @@ function uniqueStrings(values: Array<string | undefined | null>): string[] {
 
 function formatPieceQty(value: number): string {
   return `${formatNumber(value)} 片`
+}
+
+function getRuntimeSortingBaggingEventsForTask(task: HandoverPickingTask, runtimeEvents: CuttingRuntimeEvent[]): CuttingRuntimeEvent[] {
+  return runtimeEvents.filter((event) => {
+    if (event.eventType !== '待交出仓分拣装袋') return false
+    const payload = toRuntimeRecord(event.payload)
+    return (
+      runtimeString(payload.pickingTaskId) === task.pickingTaskId ||
+      runtimeString(payload.pickingTaskNo) === task.pickingTaskNo ||
+      runtimeString(payload.sewingTaskId) === task.sewingTaskId ||
+      runtimeString(payload.sewingTaskNo) === task.sewingTaskNo
+    )
+  })
+}
+
+function getRuntimeSortingBaggingTicketCount(events: CuttingRuntimeEvent[]): number {
+  return events.reduce((total, event) => {
+    const payload = toRuntimeRecord(event.payload)
+    const containedIds = Array.isArray(payload.containedFeiTicketIds) ? payload.containedFeiTicketIds : []
+    const scannedIds = Array.isArray(payload.scannedFeiTicketIds) ? payload.scannedFeiTicketIds : []
+    return total + (containedIds.length || scannedIds.length || 1)
+  }, 0)
+}
+
+function formatSortingBaggingTargetBagCodes(task: HandoverPickingTask, runtimeEvents: CuttingRuntimeEvent[]): string {
+  const codes = uniqueStrings([
+    ...task.targetTransferBags.map((bag) => bag.bagCode),
+    ...runtimeEvents.map((event) => runtimeString(toRuntimeRecord(event.payload).targetTransferBagCode) || getWaitHandoverEventBagText(event)),
+  ])
+  return codes.join('、') || '待扫目标中转袋'
+}
+
+function formatSortingBaggingRecordSummary(task: HandoverPickingTask, runtimeEvents: CuttingRuntimeEvent[]): string {
+  const mockRecords = task.targetTransferBags.map((bag, index) =>
+    `第 ${index + 1} 次：${bag.bagCode} / ${formatPieceQty(bag.totalPieceQty)} / ${bag.packedAt}`,
+  )
+  const runtimeRecords = runtimeEvents.map((event, index) => {
+    const payload = toRuntimeRecord(event.payload)
+    const recordIndex = mockRecords.length + index + 1
+    const bagCode = runtimeString(payload.targetTransferBagCode) || getWaitHandoverEventBagText(event)
+    return `第 ${recordIndex} 次：${bagCode} / ${formatPieceQty(getWaitHandoverEventQty(event))} / ${event.occurredAt.replace('T', ' ').slice(0, 16)}`
+  })
+  const records = [...mockRecords, ...runtimeRecords]
+  return records.length ? records.join('；') : '暂无分拣装袋记录'
 }
 
 function getSpecialCraftDisplay(ticket?: GeneratedFeiTicketSourceRecord): string {
@@ -2791,8 +2812,8 @@ function createWaitHandoverItemFromPickingTask(
     evidenceLines: [
       `车缝任务：${task.sewingTaskNo}`,
       `来源暂存袋：${task.tempBagSources.map((item) => item.tempBagCode).join('、') || '待扫描'}`,
-      `已分拣：${formatPieceQty(totalPickedQty)}`,
-      `目标中转袋：${task.targetTransferBags.map((bag) => bag.bagCode).join('、') || '待重新装袋'}`,
+      `已装袋：${formatPieceQty(totalPickedQty)}`,
+      `目标中转袋：${task.targetTransferBags.map((bag) => bag.bagCode).join('、') || '待分拣装袋'}`,
       `分拣后缺口：${shortagePreview}`,
     ],
   }
@@ -2812,27 +2833,15 @@ function buildWaitHandoverWorkbenchProjection(options: {
   transferBagSummary: { bagCount: number }
 }): WaitHandoverWorkbenchProjection {
   const generatedTicketsByNo = Object.fromEntries(options.generatedTickets.map((ticket) => [ticket.feiTicketNo, ticket]))
-  const runtimeSortingItems = options.runtimeEvents
-    .filter((event) => event.eventType === '待交出仓二次分拣')
+  const runtimeSortingBaggingItems = options.runtimeEvents
+    .filter((event) => event.eventType === '待交出仓分拣装袋')
     .slice(0, 3)
     .map((event) =>
       createWaitHandoverItemFromRuntimeEvent(
         event,
-        '待二次分拣',
+        '待分拣装袋',
         options.generatedTickets,
-        '查看二次分拣',
-        buildHubTabHref('warehouse-management-wait-handover', 'sorting'),
-      ),
-    )
-  const runtimeRebaggingItems = options.runtimeEvents
-    .filter((event) => event.eventType === '待交出仓重新装袋')
-    .slice(0, 3)
-    .map((event) =>
-      createWaitHandoverItemFromRuntimeEvent(
-        event,
-        '待重新装袋',
-        options.generatedTickets,
-        '查看重新装袋',
+        '查看分拣装袋',
         buildHubTabHref('warehouse-management-wait-handover', 'sorting'),
       ),
     )
@@ -2849,7 +2858,7 @@ function buildWaitHandoverWorkbenchProjection(options: {
       ),
     )
   const runtimeReadyHandoverItems = options.runtimeEvents
-    .filter((event) => event.eventType === '待交出仓重新装袋')
+    .filter((event) => event.eventType === '待交出仓分拣装袋')
     .slice(0, 3)
     .map((event) =>
       createWaitHandoverItemFromRuntimeEvent(
@@ -2875,30 +2884,18 @@ function buildWaitHandoverWorkbenchProjection(options: {
       ],
     }),
   )
-  const pendingSortingItems = options.handoverPickingProjection.tasks
-    .filter((task) => task.taskStatus === '待分拣' || task.taskStatus === '分拣中' || task.shortageItems.length > 0)
-    .slice(0, 2)
+  const pendingSortingBaggingItems = options.handoverPickingProjection.tasks
+    .filter((task) => task.taskStatus !== '已装袋待交出' || task.shortageItems.length > 0 || task.targetTransferBags.length > 0)
+    .slice(0, 4)
     .map((task) =>
       createWaitHandoverItemFromPickingTask(
         task,
-        '待二次分拣',
-        '去二次分拣',
+        '待分拣装袋',
+        '去分拣装袋',
         buildHubTabHref('warehouse-management-wait-handover', 'sorting'),
       ),
     )
-    .concat(runtimeSortingItems)
-  const pendingRebaggingItems = options.handoverPickingProjection.tasks
-    .filter((task) => task.taskStatus === '已分拣待装袋' || task.taskStatus === '已装袋待交出' || task.targetTransferBags.length > 0)
-    .slice(0, 2)
-    .map((task) =>
-      createWaitHandoverItemFromPickingTask(
-        task,
-        '待重新装袋',
-        '重新装袋',
-        buildHubTabHref('warehouse-management-wait-handover', 'sorting'),
-      ),
-    )
-    .concat(runtimeRebaggingItems)
+    .concat(runtimeSortingBaggingItems)
   const pendingHandoverRecordItems = options.handoverPickingProjection.tasks
     .filter((task) => task.targetTransferBags.length > 0)
     .slice(0, 2)
@@ -2939,8 +2936,8 @@ function buildWaitHandoverWorkbenchProjection(options: {
     { label: '待入仓确认裁片数量', value: formatPieceQty(pendingInboundItems.reduce((sum, item) => sum + item.pieceQty, 0)), hint: '已打印菲票进入裁后仓前确认', tone: 'text-blue-600' },
     { label: '入仓暂存袋数量', value: options.inboundTempBags.length, hint: `${formatPieceQty(inboundTempPieceQty)} 已扫码入仓`, tone: 'text-slate-700' },
     { label: '裁片库存数量', value: formatPieceQty(inventoryPieceQty), hint: `${inventoryItemCount} 条入仓 / 回仓库存记录`, tone: 'text-emerald-600' },
-    { label: '待二次分拣任务数量', value: pendingSortingItems.length || options.handoverPickingProjection.pendingCount + options.handoverPickingProjection.sortingCount, hint: '车缝任务分配后触发', tone: 'text-amber-600' },
-    { label: '待重新装袋数量', value: pendingRebaggingItems.length || options.handoverPickingProjection.packedCount, hint: '二次分拣后重新装中转袋', tone: 'text-violet-600' },
+    { label: '待分拣装袋任务数量', value: pendingSortingBaggingItems.length || options.handoverPickingProjection.pendingCount + options.handoverPickingProjection.sortingCount, hint: '车缝任务分配后触发', tone: 'text-amber-600' },
+    { label: '已装袋待交出数量', value: pendingHandoverRecordItems.length || options.handoverPickingProjection.packedCount, hint: '分拣装袋后进入交出', tone: 'text-violet-600' },
     { label: '待新增交出记录数量', value: pendingHandoverRecordItems.length, hint: '齐套不是交出前置条件', tone: 'text-blue-600' },
     { label: '接收差异数量', value: discrepancyAndShortageItems.length, hint: '接收回写和异议提示', tone: 'text-rose-600' },
     { label: '交出后缺口数量', value: shortageCount, hint: '缺口作为交出后结果展示', tone: 'text-orange-600' },
@@ -2949,8 +2946,7 @@ function buildWaitHandoverWorkbenchProjection(options: {
   return {
     overviewCards,
     pendingInboundItems,
-    pendingSortingItems,
-    pendingRebaggingItems,
+    pendingSortingBaggingItems,
     pendingHandoverRecordItems,
     discrepancyAndShortageItems,
     specialCraftHandoverGroups,
@@ -3296,7 +3292,7 @@ function renderInboundTempBagArea(bags: InboundTempBag[], inventoryRecords: Inbo
                       <div><span class="font-medium text-foreground">部位：</span>${partCount} 个</div>
                       <div><span class="font-medium text-foreground">特殊工艺：</span>${hasSpecialCraft ? '包含特殊工艺裁片' : '无'}</div>
                       <div class="sm:col-span-2"><span class="font-medium text-foreground">混装概况：</span>${escapeHtml(bag.mixedSummary)}</div>
-                      <div class="sm:col-span-2"><span class="font-medium text-foreground">后续二次分拣：</span>${escapeHtml(bag.nextSortingStatus)}</div>
+                      <div class="sm:col-span-2"><span class="font-medium text-foreground">后续分拣装袋：</span>${escapeHtml(bag.nextSortingStatus)}</div>
                       <div class="sm:col-span-2"><span class="font-medium text-foreground">入仓差异：</span>${bag.discrepancyRecords.length ? `${bag.discrepancyRecords.length} 条待处理` : '无'}</div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-2">
@@ -3379,7 +3375,7 @@ function renderSewingAllocationArea(projection: SewingTaskAllocationProjection):
                       <div class="sm:col-span-2"><span class="font-medium text-foreground">特殊工艺未回仓：</span>${escapeHtml(pendingPreview)}</div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-2">
-                      <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">生成待交出仓裁片配料任务</button>
+                      <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">生成待交出仓分拣装袋任务</button>
                       <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">查看分配后缺口</button>
                     </div>
                   </article>
@@ -3430,14 +3426,14 @@ function renderHandoverPickingArea(projection: HandoverPickingTaskProjection): s
     <section class="rounded-lg border bg-card p-4" data-section="handover-picking">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 class="text-base font-semibold">待交出仓裁片配料</h3>
-          <p class="mt-1 text-xs text-muted-foreground">车缝任务分配后，从裁床待交出仓已有菲票 / 裁片库存中二次分拣；这是裁片配料，不是前段面料配料。</p>
+          <h3 class="text-base font-semibold">待交出仓分拣装袋</h3>
+          <p class="mt-1 text-xs text-muted-foreground">车缝任务分配后，从裁床待交出仓已有菲票 / 裁片库存中按车缝任务分拣并装入中转袋。</p>
         </div>
-        <button type="button" class="rounded-md border bg-background px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', 'sorting'))}">打开裁片配料任务</button>
+        <button type="button" class="rounded-md border bg-background px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', 'sorting'))}">打开分拣装袋任务</button>
       </div>
       <dl class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div class="rounded-md border bg-background px-3 py-2">
-          <dt class="text-xs text-muted-foreground">裁片配料任务</dt>
+          <dt class="text-xs text-muted-foreground">分拣装袋任务</dt>
           <dd class="mt-1 text-base font-semibold tabular-nums">${projection.taskCount}</dd>
         </div>
         <div class="rounded-md border bg-background px-3 py-2">
@@ -3476,28 +3472,27 @@ function renderHandoverPickingArea(projection: HandoverPickingTaskProjection): s
                         <div class="text-xs text-muted-foreground">${escapeHtml(task.taskStatus)} · ${escapeHtml(task.updatedAt)}</div>
                         <h4 class="mt-1 truncate text-sm font-semibold">${escapeHtml(task.pickingTaskNo)}</h4>
                       </div>
-                      <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700">二次分拣</span>
+                      <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700">分拣装袋</span>
                     </div>
                     <div class="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
                       <div><span class="font-medium text-foreground">车缝任务：</span>${escapeHtml(task.sewingTaskNo)}</div>
                       <div><span class="font-medium text-foreground">接收工厂：</span>${escapeHtml(task.receiverFactoryName)}</div>
                       <div><span class="font-medium text-foreground">需要数量：</span>${escapeHtml(formatPieceQty(requiredQty))}</div>
                       <div><span class="font-medium text-foreground">已分配库存：</span>${escapeHtml(formatPieceQty(allocatedQty))}</div>
-                      <div><span class="font-medium text-foreground">已分拣数量：</span>${escapeHtml(formatPieceQty(pickedQty))}</div>
+                      <div><span class="font-medium text-foreground">已装袋数量：</span>${escapeHtml(formatPieceQty(pickedQty))}</div>
                       <div><span class="font-medium text-foreground">已装袋数量：</span>${escapeHtml(formatPieceQty(packedQty))}</div>
                       <div class="sm:col-span-2"><span class="font-medium text-foreground">来源暂存袋：</span>${escapeHtml(task.tempBagSources.map((item) => item.tempBagCode).join('、') || '待扫描')}</div>
-                      <div class="sm:col-span-2"><span class="font-medium text-foreground">目标中转袋：</span>${escapeHtml(task.targetTransferBags.map((bag) => bag.bagCode).join('、') || '待重新装袋')}</div>
+                      <div class="sm:col-span-2"><span class="font-medium text-foreground">目标中转袋：</span>${escapeHtml(task.targetTransferBags.map((bag) => bag.bagCode).join('、') || '待分拣装袋')}</div>
                       <div class="sm:col-span-2"><span class="font-medium text-foreground">分拣后缺口：</span>${escapeHtml(shortagePreview)}</div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-2">
-                      <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">扫码分拣</button>
-                      <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">确认装袋</button>
+                      <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">分拣装袋</button>
                       <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">查看缺口</button>
                     </div>
                   </article>
                 `
               }).join('')
-            : '<div class="rounded-lg border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground xl:col-span-2">暂无待交出仓裁片配料任务。</div>'
+            : '<div class="rounded-lg border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground xl:col-span-2">暂无待交出仓分拣装袋任务。</div>'
         }
       </div>
       <div class="mt-4 grid gap-3 xl:grid-cols-2">
@@ -3536,8 +3531,7 @@ function renderWaitHandoverWorkbench(projection: WaitHandoverWorkbenchProjection
       ${renderHandoverPickingArea(projection.handoverPickingProjection)}
       <section class="grid gap-4 xl:grid-cols-2">
         ${renderWaitHandoverWorkArea('待入仓确认', '已打印菲票进入裁床待交出仓前的确认入口。', projection.pendingInboundItems, '暂无待入仓确认菲票。')}
-        ${renderWaitHandoverWorkArea('待二次分拣', '车缝任务分配后，从入仓暂存袋按任务拣出裁片。', projection.pendingSortingItems, '暂无待二次分拣任务。')}
-        ${renderWaitHandoverWorkArea('待重新装袋', '二次分拣后重新装入中转袋，准备交出。', projection.pendingRebaggingItems, '暂无待重新装袋任务。')}
+        ${renderWaitHandoverWorkArea('待分拣装袋', '车缝任务分配后，从入仓暂存袋按任务拣出裁片并装入中转袋。', projection.pendingSortingBaggingItems, '暂无待分拣装袋任务。')}
         ${renderWaitHandoverWorkArea('待新增交出记录', '已装袋后新增交出记录；齐套和缺口在交出后计算。', projection.pendingHandoverRecordItems, '暂无待新增交出记录。')}
         <div class="xl:col-span-2">
           ${renderWaitHandoverWorkArea('接收差异 / 交出后缺口', '展示接收回写差异、异议和交出后缺口。', projection.discrepancyAndShortageItems, '暂无接收差异或交出后缺口。')}
@@ -3550,8 +3544,7 @@ function renderWaitHandoverWorkbench(projection: WaitHandoverWorkbenchProjection
 function listRuntimeWaitHandoverEvents(): CuttingRuntimeEvent[] {
   const events = [
     ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓'),
-    ...listCuttingRuntimeEventsByType('待交出仓二次分拣'),
-    ...listCuttingRuntimeEventsByType('待交出仓重新装袋'),
+    ...listCuttingRuntimeEventsByType('待交出仓分拣装袋'),
     ...listCuttingRuntimeEventsByType('新增交出记录'),
     ...listCuttingRuntimeEventsByType('特殊工艺交出'),
     ...listCuttingRuntimeEventsByType('特殊工艺回仓'),
@@ -3658,7 +3651,7 @@ function buildRuntimeInboundTempBagsFromEvents(
         mixedFlag: typeof payload.mixedFlag === 'boolean' ? payload.mixedFlag : derivedMixedFlag,
         mixedSummary: buildInboundTempBagMixedSummaryFromTickets(containedFeiTickets),
         discrepancyRecords: [],
-        nextSortingStatus: '未绑定车缝任务，待后续分配后再二次分拣',
+        nextSortingStatus: '未绑定车缝任务，待后续分配后再分拣装袋',
         remark: `${getWaitHandoverEventSourceText(event)} / ${getWaitHandoverEventStatusText(event)}`,
       } satisfies InboundTempBag
     })
@@ -4281,7 +4274,9 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
 export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string {
   const generatedTickets = listSpreadingResultGeneratedFeiTickets()
   const runtimeWaitHandoverEvents = listRuntimeWaitHandoverEvents()
-  const inboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
+  const runtimeInboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
+  const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(buildTransferBagsProjection().viewModel)
+  const inboundTempBags = runtimeInboundTempBags.length ? runtimeInboundTempBags : fallbackInboundTempBags
   const transferBagSummary = { bagCount: uniqueStrings(inboundTempBags.map((bag) => bag.bagCode)).length }
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
   const runtimeSpecialCraftReturnInventoryRecords = buildRuntimeSpecialCraftReturnInventoryRecordsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
@@ -4362,18 +4357,30 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
       ], filters.keyword),
     )
     .slice(0, 16)
-    .map((task) => [
-      task.pickingTaskNo,
-      task.sewingTaskNo,
-      task.tempBagSources.map((item) => item.tempBagCode).join('、') || '待扫来源暂存袋',
-      task.targetTransferBags.map((bag) => bag.bagCode).join('、') || '待扫目标中转袋',
-      `${task.pickedItems.length}/${task.allocatedInventoryItems.length} 张`,
-      task.receiverFactoryName,
-      task.shortageItems.length
-        ? task.shortageItems.slice(0, 2).map((item) => `${item.size}/${item.partName}缺${formatPieceQty(item.shortageQty)}`).join('；')
-        : '暂无缺口',
-      task.taskStatus,
-    ])
+    .map((task) => {
+      const runtimeSortingEvents = getRuntimeSortingBaggingEventsForTask(task, runtimeWaitHandoverEvents)
+      const runtimeTicketCount = getRuntimeSortingBaggingTicketCount(runtimeSortingEvents)
+      const packedTicketCount = task.pickedItems.length + runtimeTicketCount
+      const displayStatus =
+        packedTicketCount > 0 && packedTicketCount >= task.allocatedInventoryItems.length && task.shortageItems.length === 0
+          ? '已装袋待交出'
+          : packedTicketCount > 0
+            ? '分拣中'
+            : task.taskStatus
+      return [
+        task.pickingTaskNo,
+        task.sewingTaskNo,
+        task.tempBagSources.map((item) => item.tempBagCode).join('、') || '待扫来源暂存袋',
+        formatSortingBaggingRecordSummary(task, runtimeSortingEvents),
+        formatSortingBaggingTargetBagCodes(task, runtimeSortingEvents),
+        `${packedTicketCount}/${task.allocatedInventoryItems.length} 张`,
+        task.receiverFactoryName,
+        task.shortageItems.length
+          ? task.shortageItems.slice(0, 2).map((item) => `${item.size}/${item.partName}缺${formatPieceQty(item.shortageQty)}`).join('；')
+          : '暂无缺口',
+        displayStatus,
+      ]
+    })
   const pendingInboundRows = filteredPendingTickets.slice(0, 20).map((ticket) => [
     ticket.ticketNo,
     ticket.productionOrderNo || '按菲票追踪',
@@ -4455,15 +4462,16 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     ${renderHubActionCard({
       title: '分拣装袋汇总',
       rows: [
-        ['二次分拣任务', handoverPickingProjection.taskCount],
+        ['分拣装袋任务', handoverPickingProjection.taskCount],
         ['待分拣 / 分拣中', handoverPickingProjection.pendingCount + handoverPickingProjection.sortingCount],
         ['已装袋待交出', handoverPickingProjection.packedCount],
         ['分拣后缺口', handoverPickingProjection.shortageCount],
+        ['分拣装袋记录', handoverPickingProjection.targetTransferBagCount],
         ['目标中转袋', handoverPickingProjection.targetTransferBagCount],
         ['PDA 同步失败', handoverPickingProjection.syncFailedCount],
       ],
     })}
-    ${renderHubTable(['分拣任务', '车缝任务', '来源暂存袋', '目标中转袋', '已分拣菲票', '接收对象', '分拣后缺口', '状态'], sortingRows, '暂无分拣装袋任务。')}
+    ${renderHubTable(['分拣任务', '车缝任务', '来源暂存袋', '分拣装袋记录', '目标中转袋', '已装袋菲票', '接收对象', '分拣后缺口', '状态'], sortingRows, '暂无分拣装袋任务。')}
   </section>`
   const handoverRecordContent = `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'handoverRecords' })}

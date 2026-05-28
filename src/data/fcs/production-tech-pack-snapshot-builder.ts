@@ -16,13 +16,11 @@ import {
   type TechPackSizeMeasurementSnapshot,
 } from './production-tech-pack-snapshot-types.ts'
 import type {
-  TechnicalAttachment,
   TechnicalColorMaterialMapping,
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
   TechnicalPatternDesign,
   TechnicalProcessEntry,
-  TechnicalQualityRule,
   TechnicalSizeRow,
 } from '../pcs-technical-data-version-types.ts'
 
@@ -222,10 +220,6 @@ function cloneBomItems(items: TechPackBomItemSnapshot[]): TechPackBomItemSnapsho
   }))
 }
 
-function cloneQualityRules(items: TechnicalQualityRule[]): TechnicalQualityRule[] {
-  return items.map((item) => ({ ...item }))
-}
-
 function cloneColorMappings(items: TechnicalColorMaterialMapping[]): TechnicalColorMaterialMapping[] {
   return items.map((item) => ({
     ...item,
@@ -237,10 +231,6 @@ function cloneColorMappings(items: TechnicalColorMaterialMapping[]): TechnicalCo
 }
 
 function clonePatternDesigns(items: TechnicalPatternDesign[]): TechnicalPatternDesign[] {
-  return items.map((item) => ({ ...item }))
-}
-
-function cloneAttachments(items: TechnicalAttachment[]): TechnicalAttachment[] {
   return items.map((item) => ({ ...item }))
 }
 
@@ -554,12 +544,10 @@ export function cloneProductionOrderTechPackSnapshot(
     processEntries: cloneProcessEntries(snapshot.processEntries),
     sizeTable: cloneSizeTable(snapshot.sizeTable),
     sizeMeasurements: cloneSizeMeasurements(snapshot.sizeMeasurements),
-    qualityRules: cloneQualityRules(snapshot.qualityRules),
     colorMaterialMappings: cloneColorMappings(snapshot.colorMaterialMappings),
     cutPieceParts: cloneCutPieceParts(snapshot.cutPieceParts),
     imageSnapshot: cloneImageSnapshot(snapshot.imageSnapshot),
     patternDesigns: clonePatternDesigns(snapshot.patternDesigns),
-    attachments: cloneAttachments(snapshot.attachments),
     linkedRevisionTaskIds: [...snapshot.linkedRevisionTaskIds],
     linkedPatternTaskIds: [...snapshot.linkedPatternTaskIds],
     linkedArtworkTaskIds: [...snapshot.linkedArtworkTaskIds],
@@ -616,7 +604,6 @@ function buildSnapshotFromSource(input: {
     processEntries: ensurePostFinishingProcessEntry(content.processEntries, snapshotId),
     sizeTable: cloneSizeTable(content.sizeTable),
     sizeMeasurements: buildSizeMeasurements(content.sizeTable),
-    qualityRules: cloneQualityRules(content.qualityRules),
     colorMaterialMappings: cloneColorMappings(content.colorMaterialMappings),
     cutPieceParts: buildCutPieceParts({
       patternFiles,
@@ -625,7 +612,6 @@ function buildSnapshotFromSource(input: {
     }),
     imageSnapshot,
     patternDesigns,
-    attachments: cloneAttachments(content.attachments),
     linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
     linkedPatternTaskIds: [...record.linkedPatternTaskIds],
     linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],

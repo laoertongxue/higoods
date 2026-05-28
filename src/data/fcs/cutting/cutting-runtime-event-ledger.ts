@@ -23,8 +23,7 @@ export type CuttingRuntimeEventType =
   | '开始裁剪'
   | '完成裁剪'
   | '菲票入仓暂存'
-  | '待交出仓二次分拣'
-  | '待交出仓重新装袋'
+  | '待交出仓分拣装袋'
   | '新增交出记录'
   | '特殊工艺交出'
   | '特殊工艺回仓'
@@ -172,6 +171,12 @@ export interface StartWorkPayload {
 export interface FinishSpreadingPayload {
   spreadingOrderId: string
   spreadingOrderNo: string
+  planUnitId?: string
+  sourceLineId?: string
+  stepNo?: number
+  stepLabel?: string
+  materialSku?: string
+  color?: string
   actualLayerCount: number
   actualSpreadLength: number
   actualMaterialUsage: number
@@ -227,34 +232,28 @@ export interface FeiTicketInboundPayload {
   mixedFlag: boolean
 }
 
-export interface HandoverSortingPayload {
+export interface HandoverSortingBaggingPayload {
+  sortingBaggingRecordId: string
+  sortingBaggingRecordNo: string
   pickingTaskId: string
   pickingTaskNo: string
   sewingTaskId: string
   sewingTaskNo: string
   sourceTempBagCode: string
+  targetTransferBagCode: string
+  bagUseId: string
   scannedFeiTicketIds: string[]
   scannedFeiTicketNos: string[]
-  pickedQty: number
-  unit: '片'
-  scannedBy: string
-  scannedAt: string
-  checkResult: '正常' | '不属于当前任务' | '已作废' | '特殊工艺未回仓' | '已被其他任务分拣'
-}
-
-export interface RebagPayload {
-  bagUseId: string
-  targetTransferBagCode: string
-  sewingTaskId: string
-  sewingTaskNo: string
-  pickingTaskId: string
-  pickingTaskNo: string
   containedFeiTicketIds: string[]
   containedFeiTicketNos: string[]
   totalPieceQty: number
+  pickedQty: number
   unit: '片'
+  scannedAt: string
+  scannedBy: string
   packedAt: string
   packedBy: string
+  checkResult: '正常' | '不属于当前任务' | '已作废' | '特殊工艺未回仓' | '已被其他任务分拣'
   bagBindingRule: '一个中转袋只能绑定一个车缝任务'
 }
 
@@ -347,8 +346,7 @@ export type CuttingRuntimeEventPayload =
   | FinishSpreadingPayload
   | FinishCuttingPayload
   | FeiTicketInboundPayload
-  | HandoverSortingPayload
-  | RebagPayload
+  | HandoverSortingBaggingPayload
   | HandoverRecordSubmitPayload
   | SpecialCraftHandoverPayload
   | SpecialCraftReturnPayload
@@ -497,8 +495,7 @@ function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
     '开始裁剪',
     '完成裁剪',
     '菲票入仓暂存',
-    '待交出仓二次分拣',
-    '待交出仓重新装袋',
+    '待交出仓分拣装袋',
     '新增交出记录',
     '特殊工艺交出',
     '特殊工艺回仓',
@@ -572,8 +569,7 @@ function eventTypeCode(eventType: CuttingRuntimeEventType): string {
     开始裁剪: 'CUT-START',
     完成裁剪: 'CUT-FINISH',
     菲票入仓暂存: 'TICKET-IN',
-    待交出仓二次分拣: 'SORT',
-    待交出仓重新装袋: 'REBAG',
+    待交出仓分拣装袋: 'SORT-BAG',
     新增交出记录: 'HANDOVER',
     特殊工艺交出: 'CRAFT-OUT',
     特殊工艺回仓: 'CRAFT-IN',

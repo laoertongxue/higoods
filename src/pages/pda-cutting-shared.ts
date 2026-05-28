@@ -26,6 +26,8 @@ interface CuttingPageLayoutOptions {
   activeTab: PdaTabKey
   body: string
   backHref?: string
+  hideHeaderToolbar?: boolean
+  titleActionHtml?: string
 }
 
 export interface PdaCuttingPageContext {
@@ -247,14 +249,17 @@ export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): s
     `
       <section class="space-y-3 px-3 py-3">
         <header class="space-y-2.5">
+          ${options.hideHeaderToolbar ? '' : `
+            <div class="flex items-center justify-between gap-3">
+              <button class="inline-flex items-center rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(backHref)}">
+                返回
+              </button>
+              ${renderChip(detail.taskTypeLabel, 'border-slate-200 bg-slate-50 text-slate-700')}
+            </div>
+          `}
           <div class="flex items-center justify-between gap-3">
-            <button class="inline-flex items-center rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(backHref)}">
-              返回
-            </button>
-            ${renderChip(detail.taskTypeLabel, 'border-slate-200 bg-slate-50 text-slate-700')}
-          </div>
-          <div>
             <h1 class="text-xl font-semibold text-foreground">${escapeHtml(options.title)}</h1>
+            ${options.titleActionHtml || ''}
           </div>
         </header>
         ${options.body}

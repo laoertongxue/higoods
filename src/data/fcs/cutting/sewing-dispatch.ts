@@ -1782,7 +1782,7 @@ function buildPickingScanChecks(tasks: HandoverPickingTask[], projection: Sewing
         scanObject: '配料任务码',
         scannedValue: firstTask.pickingTaskNo,
         checkResult: '通过',
-        reason: '已进入当前待交出仓裁片配料任务',
+        reason: '已进入当前待交出仓分拣装袋任务',
         syncStatus: '已同步',
       },
       {
@@ -1927,7 +1927,7 @@ export function buildHandoverPickingTaskProjectionFromAllocationProjection(
 
     return {
       pickingTaskId,
-      pickingTaskNo: `CPT-${allocation.sewingTaskNo}`,
+      pickingTaskNo: `SBG-${allocation.sewingTaskNo}`,
       sewingTaskId: allocation.sewingTaskId,
       sewingTaskNo: allocation.sewingTaskNo,
       receiverFactoryId: allocation.receiverFactoryId,
@@ -1961,10 +1961,10 @@ export function buildHandoverPickingTaskProjectionFromAllocationProjection(
     targetTransferBagCount: targetTransferBags.length,
     syncFailedCount: scanChecks.filter((check) => check.syncStatus === '同步失败').length,
     ruleNotes: [
-      '待交出仓裁片配料只从车缝任务分配后的菲票 / 裁片库存拣选。',
-      '这里是裁片配料，不是前段中转仓给裁床准备面料。',
-      '入仓暂存袋可混装；二次分拣开始按车缝任务组织裁片。',
-      '交出装袋阶段一个中转袋只对应一个车缝任务，一个车缝任务可对应多个中转袋。',
+      '待交出仓分拣装袋只从车缝任务分配后的菲票 / 裁片库存拣选。',
+      '这里是裁片分拣装袋，不是前段中转仓给裁床准备面料。',
+      '入仓暂存袋可混装；分拣装袋开始按车缝任务组织裁片。',
+      '分拣装袋阶段一个中转袋只对应一个车缝任务，一个车缝任务可对应多个中转袋。',
       '允许部分分拣提交，缺口作为分拣结果展示。',
     ],
   }
@@ -3323,7 +3323,7 @@ function seedStore(): void {
     bag.status = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
     bag.currentLocation = '裁床厂待交出'
     bag.contentItems.forEach((item) => {
-      item.remark = item.remark || '二次分拣样例：从入仓暂存袋重新拣出后装入本交出记录。'
+      item.remark = item.remark || '分拣装袋样例：从入仓暂存袋按车缝任务拣出后装入本交出记录。'
     })
     bag.updatedAt = operatedAt
   }

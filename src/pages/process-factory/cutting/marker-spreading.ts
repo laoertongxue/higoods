@@ -2584,6 +2584,7 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
                     </div>
                   </div>
                   <div class="truncate text-xs text-muted-foreground" title="${escapeHtml(markerNos || '待补')}">唛架编号 / 床次：${escapeHtml(markerNos || '待补')}</div>
+                  <div class="truncate text-xs text-muted-foreground" title="${escapeHtml(row.spreadingModeLabel || '待补')}">唛架模式：${escapeHtml(row.spreadingModeLabel || '待补')}</div>
                 </div>
                 <div class="min-w-0 space-y-1 text-xs leading-5">
                   ${renderSingleLineText(sourceSchemeLabel, 'text-sm font-medium text-foreground')}
@@ -4299,7 +4300,7 @@ function renderSpreadingDetailPage(): string {
           <table class="w-full text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th class="px-3 py-3">唛架项</th>
+                <th class="px-3 py-3">阶梯/唛架项</th>
                 <th class="px-3 py-3">卷号</th>
                 <th class="px-3 py-3">面料</th>
                 <th class="px-3 py-3">颜色</th>
@@ -4784,7 +4785,7 @@ function renderSpreadingEditPage(): string {
           <table class="w-full text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th class="px-3 py-3">唛架项</th>
+                <th class="px-3 py-3">阶梯/唛架项</th>
                 <th class="px-3 py-3">卷号</th>
                 <th class="px-3 py-3">面料</th>
                 <th class="px-3 py-3">颜色</th>
@@ -4816,7 +4817,7 @@ function renderSpreadingEditPage(): string {
                           <tr class="border-b align-top">
                             <td class="px-3 py-3">
                                 <select class="h-8 w-52 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="planUnitId">
-                                <option value="">请选择唛架项</option>
+                                <option value="">请选择阶梯/唛架项</option>
                                 ${(draft.planUnits || [])
                                   .map(
                                     (unit) =>
@@ -4854,7 +4855,7 @@ function renderSpreadingEditPage(): string {
                         `
                       })
                       .join('')
-                  : '<tr><td colspan="16" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录并绑定唛架项。</td></tr>'
+                  : '<tr><td colspan="16" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录并绑定阶梯/唛架项。</td></tr>'
               }
             </tbody>
           </table>
@@ -5627,6 +5628,9 @@ function cloneRollRecordForDraft(
     ...nextRoll,
     sortOrder: nextIndex + 1,
     planUnitId: roll.planUnitId || nextRoll.planUnitId,
+    sourceHighLowRowId: roll.sourceHighLowRowId || '',
+    stepNo: roll.stepNo,
+    stepLabel: roll.stepLabel || '',
     materialSku: roll.materialSku || nextRoll.materialSku,
     color: roll.color || '',
     labeledLength: roll.labeledLength,
@@ -5643,6 +5647,9 @@ function syncDraftRollFromPlanUnit(draft: SpreadingSession, roll: SpreadingRollR
   const linkedPlanUnit = findSpreadingPlanUnitById(draft.planUnits, roll.planUnitId)
   if (linkedPlanUnit) {
     roll.planUnitId = linkedPlanUnit.planUnitId
+    roll.sourceHighLowRowId = linkedPlanUnit.sourceType === 'high-low-row' ? linkedPlanUnit.sourceLineId : ''
+    roll.stepNo = linkedPlanUnit.stepNo
+    roll.stepLabel = linkedPlanUnit.stepLabel
     roll.materialSku = linkedPlanUnit.materialSku
     roll.color = linkedPlanUnit.color
   }
@@ -5699,6 +5706,9 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
     return {
       ...roll,
       planUnitId: roll.planUnitId || linkedPlanUnit?.planUnitId || '',
+      sourceHighLowRowId: linkedPlanUnit?.sourceType === 'high-low-row' ? linkedPlanUnit.sourceLineId : roll.sourceHighLowRowId || '',
+      stepNo: linkedPlanUnit?.stepNo ?? roll.stepNo,
+      stepLabel: linkedPlanUnit?.stepLabel || roll.stepLabel || '',
       materialSku: linkedPlanUnit?.materialSku || roll.materialSku,
       color: linkedPlanUnit?.color || roll.color,
       sortOrder: index + 1,

@@ -353,6 +353,7 @@ export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
       execution('CPO-20260318-MR5', 'CUT-260306-101-05'),
       execution('CPO-20260318-MR6', 'CUT-260306-101-06'),
       execution('CPO-20260318-MR7', 'CUT-260307-102-03'),
+      execution('CPO-20260318-MR8', 'CUT-260302-006-01'),
     ],
   },
   {

@@ -513,7 +513,7 @@ export const handoverOrders: HandoverOrder[] = [
     relatedCutOrderIds: ['CUT-260306-101-01', 'CUT-260306-101-02'],
     relatedSewingTaskId: 'ST-260324-001',
     relatedPickingTaskId: 'PK-260324-001',
-    handoverBasis: '基于待交出仓裁片配料任务和交出装袋结果',
+    handoverBasis: '基于待交出仓分拣装袋任务和交出装袋结果',
     status: '部分接收',
     totalRecordCount: 3,
     totalPlannedPieceQty: 460,

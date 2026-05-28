@@ -88,7 +88,6 @@ type TechPackTab =
   | 'color-mapping'
   | 'size'
   | 'design'
-  | 'attachments'
   | 'cost'
 type DifficultyLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 
@@ -426,7 +425,6 @@ const tabItems: Array<{ key: TechPackTab; icon: string; label: string }> = [
   { key: 'color-mapping', icon: 'git-merge', label: '款色用料对应' },
   { key: 'cost', icon: 'badge-dollar-sign', label: '核价' },
   { key: 'design', icon: 'image', label: '花型设计' },
-  { key: 'attachments', icon: 'paperclip', label: '附件' },
 ]
 
 const printOptions = ['无', '数码印', '丝网印', '胶浆印', '烫金', '烫银', '转印', '其他']
@@ -1673,7 +1671,6 @@ interface TechPackPageState {
   addTechniqueDialogOpen: boolean
   addSizeDialogOpen: boolean
   addDesignDialogOpen: boolean
-  addAttachmentDialogOpen: boolean
   patternDialogOpen: boolean
   patternTemplateDialogOpen: boolean
   designPreviewDialogOpen: boolean
@@ -1748,11 +1745,6 @@ interface TechPackPageState {
   newDesignOriginalFileDataUrl: string
   newDesignPreviewThumbnailDataUrl: string
   selectedDesignFile: File | null
-  newAttachment: {
-    fileName: string
-    fileType: string
-    fileSize: string
-  }
 }
 
 const state: TechPackPageState = {
@@ -1794,7 +1786,6 @@ const state: TechPackPageState = {
   addTechniqueDialogOpen: false,
   addSizeDialogOpen: false,
   addDesignDialogOpen: false,
-  addAttachmentDialogOpen: false,
   patternDialogOpen: false,
   patternTemplateDialogOpen: false,
   designPreviewDialogOpen: false,
@@ -1854,11 +1845,6 @@ const state: TechPackPageState = {
   newDesignOriginalFileDataUrl: '',
   newDesignPreviewThumbnailDataUrl: '',
   selectedDesignFile: null,
-  newAttachment: {
-    fileName: '',
-    fileType: 'PDF',
-    fileSize: '1.0MB',
-  },
 }
 
 type TechPackPageInitSeed = {
@@ -4633,7 +4619,6 @@ function closeAllDialogs(): void {
   state.addTechniqueDialogOpen = false
   state.addSizeDialogOpen = false
   state.addDesignDialogOpen = false
-  state.addAttachmentDialogOpen = false
   state.patternDialogOpen = false
   state.patternTemplateDialogOpen = false
   state.patternDuplicateWarning = null
@@ -4786,14 +4771,6 @@ function resetSizeForm(): void {
   }
 }
 
-function resetAttachmentForm(): void {
-  state.newAttachment = {
-    fileName: '',
-    fileType: 'PDF',
-    fileSize: '1.0MB',
-  }
-}
-
 function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed = {}): void {
   const spuCode = decodeSpuCode(rawSpuCode)
   const nextActiveTab = seed.activeTab ?? state.activeTab
@@ -4835,7 +4812,6 @@ function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed 
   resetBomForm()
   resetTechniqueForm()
   resetSizeForm()
-  resetAttachmentForm()
   state.newDesignName = ''
   state.newDesignSideType = 'FRONT'
   state.newDesignFileName = ''
@@ -5036,7 +5012,6 @@ export {
   resetBomForm,
   resetTechniqueForm,
   resetSizeForm,
-  resetAttachmentForm,
   ensureTechPackPageState,
   renderStatusBadge,
   renderChecklist,

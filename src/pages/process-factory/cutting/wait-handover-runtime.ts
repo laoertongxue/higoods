@@ -7,8 +7,7 @@ import {
   type CuttingRuntimeEventSource,
   type FeiTicketInboundPayload,
   type HandoverRecordSubmitPayload,
-  type HandoverSortingPayload,
-  type RebagPayload,
+  type HandoverSortingBaggingPayload,
   type SpecialCraftHandoverPayload,
   type SpecialCraftReturnPayload,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
@@ -59,8 +58,7 @@ export interface WaitHandoverRuntimeProjection {
   inboundTempBags: InboundTempBag[]
   inboundInventoryRecords: InboundTempBagInventoryRecord[]
   ticketCandidates: GeneratedFeiTicketSourceRecord[]
-  sortingEvents: CuttingRuntimeEvent[]
-  rebagEvents: CuttingRuntimeEvent[]
+  sortingBaggingEvents: CuttingRuntimeEvent[]
   handoverRecordEvents: CuttingRuntimeEvent[]
 }
 
@@ -190,8 +188,7 @@ export function buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket: Tran
 export function listWaitHandoverRuntimeEvents(): CuttingRuntimeEvent[] {
   const events = [
     ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓'),
-    ...listCuttingRuntimeEventsByType('待交出仓二次分拣'),
-    ...listCuttingRuntimeEventsByType('待交出仓重新装袋'),
+    ...listCuttingRuntimeEventsByType('待交出仓分拣装袋'),
     ...listCuttingRuntimeEventsByType('新增交出记录'),
     ...listCuttingRuntimeEventsByType('特殊工艺交出'),
     ...listCuttingRuntimeEventsByType('特殊工艺回仓'),
@@ -267,7 +264,7 @@ export function buildRuntimeInboundTempBagsFromWaitHandoverEvents(
             ),
         mixedSummary: buildMixedSummary(containedFeiTickets),
         discrepancyRecords: [],
-        nextSortingStatus: '未绑定车缝任务，待后续分配后再二次分拣',
+        nextSortingStatus: '未绑定车缝任务，待后续分配后再分拣装袋',
         remark: `菲票入仓 / ${event.eventStatus}`,
       } satisfies InboundTempBag
     })
@@ -284,8 +281,7 @@ export function buildWaitHandoverRuntimeProjection(generatedTickets = listSpread
     inboundTempBags,
     inboundInventoryRecords,
     ticketCandidates: generatedTickets.filter((ticket) => !inboundTicketIds.has(ticket.feiTicketId)),
-    sortingEvents: runtimeEvents.filter((event) => event.eventType === '待交出仓二次分拣'),
-    rebagEvents: runtimeEvents.filter((event) => event.eventType === '待交出仓重新装袋'),
+    sortingBaggingEvents: runtimeEvents.filter((event) => event.eventType === '待交出仓分拣装袋'),
     handoverRecordEvents: runtimeEvents.filter((event) => event.eventType === '新增交出记录'),
   }
 }
@@ -365,7 +361,7 @@ export function appendWaitHandoverInboundEvent(input: {
   })
 }
 
-export function appendWaitHandoverSortingEvent(input: {
+export function appendWaitHandoverSortingBaggingEvent(input: {
   source: CuttingRuntimeEventSource
   operator: WaitHandoverRuntimeOperator
   pickingTaskId: string
@@ -373,71 +369,42 @@ export function appendWaitHandoverSortingEvent(input: {
   sewingTaskId: string
   sewingTaskNo: string
   sourceTempBagCode: string
+  targetTransferBagCode: string
+  bagUseId?: string
   tickets: Array<Pick<WaitHandoverRuntimeTicketInput, 'feiTicketId' | 'feiTicketNo' | 'pieceQty'>>
   occurredAt?: string
 }) {
   const occurredAt = input.occurredAt || new Date().toISOString()
-  const payload: HandoverSortingPayload = {
+  const recordId = `${input.source}-SORT-BAG-${input.pickingTaskId}-${Date.now()}`
+  const totalPieceQty = input.tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
+  const ticketIds = input.tickets.map((ticket) => ticket.feiTicketId).filter(Boolean)
+  const ticketNos = input.tickets.map((ticket) => ticket.feiTicketNo).filter(Boolean)
+  const payload: HandoverSortingBaggingPayload = {
+    sortingBaggingRecordId: recordId,
+    sortingBaggingRecordNo: `SBG-${compactDate(occurredAt)}-${input.pickingTaskNo}`,
     pickingTaskId: input.pickingTaskId,
     pickingTaskNo: input.pickingTaskNo,
     sewingTaskId: input.sewingTaskId,
     sewingTaskNo: input.sewingTaskNo,
     sourceTempBagCode: input.sourceTempBagCode,
-    scannedFeiTicketIds: input.tickets.map((ticket) => ticket.feiTicketId).filter(Boolean),
-    scannedFeiTicketNos: input.tickets.map((ticket) => ticket.feiTicketNo).filter(Boolean),
-    pickedQty: input.tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0),
-    unit: '片',
-    scannedBy: input.operator.operatorName,
-    scannedAt: occurredAt,
-    checkResult: '正常',
-  }
-  return appendCuttingRuntimeEvent({
-    eventType: '待交出仓二次分拣',
-    eventSource: input.source,
-    eventStatus: '已同步',
-    occurredAt,
-    operatorId: input.operator.operatorId,
-    operatorName: input.operator.operatorName,
-    operatorRole: input.operator.operatorRole || '裁片仓分拣员',
-    refs: {
-      feiTicketIds: payload.scannedFeiTicketIds,
-      feiTicketNos: payload.scannedFeiTicketNos,
-      transferBagCode: input.sourceTempBagCode,
-    },
-    payload,
-  })
-}
-
-export function appendWaitHandoverRebagEvent(input: {
-  source: CuttingRuntimeEventSource
-  operator: WaitHandoverRuntimeOperator
-  bagUseId?: string
-  targetTransferBagCode: string
-  sewingTaskId: string
-  sewingTaskNo: string
-  pickingTaskId: string
-  pickingTaskNo: string
-  tickets: Array<Pick<WaitHandoverRuntimeTicketInput, 'feiTicketId' | 'feiTicketNo' | 'pieceQty'>>
-  occurredAt?: string
-}) {
-  const occurredAt = input.occurredAt || new Date().toISOString()
-  const payload: RebagPayload = {
-    bagUseId: input.bagUseId || `${input.source}-REBAG-${input.pickingTaskId}-${Date.now()}`,
     targetTransferBagCode: input.targetTransferBagCode,
-    sewingTaskId: input.sewingTaskId,
-    sewingTaskNo: input.sewingTaskNo,
-    pickingTaskId: input.pickingTaskId,
-    pickingTaskNo: input.pickingTaskNo,
-    containedFeiTicketIds: input.tickets.map((ticket) => ticket.feiTicketId).filter(Boolean),
-    containedFeiTicketNos: input.tickets.map((ticket) => ticket.feiTicketNo).filter(Boolean),
-    totalPieceQty: input.tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0),
+    bagUseId: input.bagUseId || `${input.source}-BAG-USE-${input.pickingTaskId}-${Date.now()}`,
+    scannedFeiTicketIds: ticketIds,
+    scannedFeiTicketNos: ticketNos,
+    containedFeiTicketIds: ticketIds,
+    containedFeiTicketNos: ticketNos,
+    totalPieceQty,
+    pickedQty: totalPieceQty,
     unit: '片',
+    scannedAt: occurredAt,
+    scannedBy: input.operator.operatorName,
     packedAt: occurredAt,
     packedBy: input.operator.operatorName,
+    checkResult: '正常',
     bagBindingRule: '一个中转袋只能绑定一个车缝任务',
   }
   return appendCuttingRuntimeEvent({
-    eventType: '待交出仓重新装袋',
+    eventType: '待交出仓分拣装袋',
     eventSource: input.source,
     eventStatus: '已同步',
     occurredAt,
@@ -449,21 +416,18 @@ export function appendWaitHandoverRebagEvent(input: {
       feiTicketNos: payload.containedFeiTicketNos,
       transferBagCode: input.targetTransferBagCode,
     },
+    inventoryEffect: {
+      inventoryScope: '裁床待交出仓',
+      direction: 'ADJUST',
+      qty: totalPieceQty,
+      unit: '片',
+      fromWarehouseArea: '入仓暂存区',
+      fromLocationCode: input.sourceTempBagCode,
+      toWarehouseArea: '中转袋暂存区',
+      toLocationCode: input.targetTransferBagCode,
+    },
     payload,
   })
-}
-
-export function appendWaitHandoverSortingAndRebagEvents(input: Parameters<typeof appendWaitHandoverSortingEvent>[0] & {
-  targetTransferBagCode: string
-}) {
-  const occurredAt = input.occurredAt || new Date().toISOString()
-  const sortingEvent = appendWaitHandoverSortingEvent({ ...input, occurredAt })
-  const rebagEvent = appendWaitHandoverRebagEvent({
-    ...input,
-    occurredAt,
-    targetTransferBagCode: input.targetTransferBagCode,
-  })
-  return { sortingEvent, rebagEvent }
 }
 
 export function appendWaitHandoverHandoverRecordEvent(input: {

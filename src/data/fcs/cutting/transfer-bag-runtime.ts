@@ -1441,7 +1441,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     ticketCount: inboundTempTickets.length,
     tickets: inboundTempTickets,
     usageStage: 'INBOUND_TEMP',
-    note: '入仓暂存袋：允许不同生产单、SKU、部位菲票临时混装，车缝任务分配后再二次分拣。',
+    note: '入仓暂存袋：允许不同生产单、SKU、部位菲票临时混装，车缝任务分配后再分拣装袋。',
   })
 
   return {

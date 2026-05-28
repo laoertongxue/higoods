@@ -3043,7 +3043,7 @@ function buildBaggingStepSummary(
   if (stepId === 'review') {
     if (!focusedUsage) return '装袋后再核对袋内内容'
     if (!currentSummary?.ticketCount) return '当前还没有菲票，请先扫码装袋'
-    if (isInboundTempUsage) return '入仓暂存袋内容可混装，交出前再按交出单二次分拣'
+    if (isInboundTempUsage) return '入仓暂存袋内容可混装，交出前再按车缝任务分拣装袋'
     return capacityExceeded ? '当前容量已超出，请先核对后再完成装袋' : '袋内内容待核对，可打印清单后完成装袋'
   }
   if (!focusedUsage) return '完成装袋后才可交出'

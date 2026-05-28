@@ -4,7 +4,6 @@ import { productionOrders } from '../data/fcs/production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from '../data/fcs/production-order-tech-pack-runtime.ts'
 import { getTechnicalDataVersionById, getTechnicalDataVersionContentById } from '../data/pcs-technical-data-version-repository.ts'
 import type {
-  TechnicalAttachment,
   TechnicalBomItem,
   TechnicalColorMaterialMapping,
   TechnicalColorMaterialMappingLine,
@@ -23,7 +22,6 @@ type SnapshotTabKey =
   | 'size'
   | 'color-mapping'
   | 'design'
-  | 'attachments'
 
 const tabItems: Array<{ key: SnapshotTabKey; label: string }> = [
   { key: 'pattern', label: '纸样管理' },
@@ -32,7 +30,6 @@ const tabItems: Array<{ key: SnapshotTabKey; label: string }> = [
   { key: 'size', label: '放码规则' },
   { key: 'color-mapping', label: '款色用料对应' },
   { key: 'design', label: '花型设计' },
-  { key: 'attachments', label: '附件' },
 ]
 
 type SourceTechPack = {
@@ -640,45 +637,12 @@ function renderDesignTab(rows: TechnicalPatternDesign[]): string {
   `
 }
 
-function renderAttachmentsTab(rows: TechnicalAttachment[]): string {
-  if (rows.length === 0) return renderEmptyState('暂无附件。')
-  return `
-    <div class="overflow-x-auto rounded-lg border">
-      <table class="w-full text-sm">
-        <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
-          <tr>
-            <th class="px-3 py-2 text-left font-medium">附件名称</th>
-            <th class="px-3 py-2 text-left font-medium">附件类型</th>
-            <th class="px-3 py-2 text-left font-medium">文件大小</th>
-            <th class="px-3 py-2 text-left font-medium">上传时间</th>
-            <th class="px-3 py-2 text-left font-medium">上传人</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .map((row) => `
-              <tr class="border-b last:border-0">
-                <td class="px-3 py-2 font-medium">${escapeHtml(row.fileName)}</td>
-                <td class="px-3 py-2">${escapeHtml(row.fileType)}</td>
-                <td class="px-3 py-2">${escapeHtml(row.fileSize)}</td>
-                <td class="px-3 py-2">${escapeHtml(row.uploadedAt || '-')}</td>
-                <td class="px-3 py-2">${escapeHtml(row.uploadedBy || '-')}</td>
-              </tr>
-            `)
-            .join('')}
-        </tbody>
-      </table>
-    </div>
-  `
-}
-
 function renderTabContent(tab: SnapshotTabKey, source: SourceTechPack): string {
   if (tab === 'bom') return renderBomTab(source.content.bomItems)
   if (tab === 'process') return renderProcessTab(source.content.processEntries)
   if (tab === 'size') return renderSizeTab(source.content.sizeTable)
   if (tab === 'color-mapping') return renderColorMappingTab(buildResolvedColorMappingRows(source.content))
   if (tab === 'design') return renderDesignTab(source.content.patternDesigns)
-  if (tab === 'attachments') return renderAttachmentsTab(source.content.attachments)
   return renderPatternTab(source)
 }
 

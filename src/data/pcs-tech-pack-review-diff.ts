@@ -87,8 +87,6 @@ function scopeItems(content: TechnicalDataVersionContent, nodeKey: TechnicalRevi
     { scope: '工序工艺', items: content.processEntries },
     { scope: '放码规则', items: content.sizeTable },
     { scope: '花型设计', items: content.patternDesigns },
-    { scope: '附件', items: content.attachments },
-    { scope: '质检规则', items: content.qualityRules },
   ]
 }
 

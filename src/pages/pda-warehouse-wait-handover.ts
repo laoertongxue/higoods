@@ -15,6 +15,7 @@ import {
 } from '../data/fcs/wool-task-domain.ts'
 import { listPdaCuttingTaskSourceRecords } from '../data/fcs/cutting/pda-cutting-task-source.ts'
 import {
+  buildInboundTempBagInventoryRecords,
   buildInboundTempBagsFromTransferBagViewModel,
   type InboundTempBag,
 } from './process-factory/cutting/transfer-bags-model.ts'
@@ -23,6 +24,11 @@ import {
   buildWaitHandoverRuntimeProjection,
   type WaitHandoverRuntimeProjection,
 } from './process-factory/cutting/wait-handover-runtime.ts'
+import {
+  buildHandoverPickingTaskProjectionFromAllocationProjection,
+  buildSewingTaskAllocationProjectionFromInventory,
+  type HandoverPickingTaskProjection,
+} from '../data/fcs/cutting/sewing-dispatch.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildWarehouseDifferenceText,
@@ -47,7 +53,13 @@ import { escapeHtml } from '../utils'
 import { getSpecialCraftFeiTicketSummary } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 
 type WaitHandoverFilter = '全部' | '待交出' | '已交出' | '已回写' | '差异' | '异议中'
-type CuttingWaitHandoverActionKey = 'inbound' | 'sorting' | 'rebagging' | 'handover' | 'writeback'
+type CuttingWaitHandoverActionKey = 'inbound' | 'sorting-bagging' | 'handover' | 'writeback'
+
+interface CuttingWaitHandoverCardAction {
+  label: string
+  route: string
+  hint: string
+}
 
 interface WaitHandoverState {
   status: WaitHandoverFilter
@@ -93,16 +105,10 @@ const CUTTING_WAIT_HANDOVER_ACTIONS: Array<{
     primaryLabel: '开始菲票入仓',
   },
   {
-    key: 'sorting',
-    title: '二次分拣',
-    desc: '按下游任务从入仓暂存袋里扫描菲票，确认本次分拣数量。',
-    primaryLabel: '开始二次分拣',
-  },
-  {
-    key: 'rebagging',
-    title: '重新装袋',
-    desc: '把分拣后的菲票装入目标中转袋，确认一个袋只绑定一个下游任务。',
-    primaryLabel: '开始重新装袋',
+    key: 'sorting-bagging',
+    title: '分拣装袋',
+    desc: '按车缝任务从入仓暂存袋扫描菲票，并装入目标中转袋。',
+    primaryLabel: '进入分拣装袋',
   },
   {
     key: 'handover',
@@ -128,14 +134,75 @@ function getCuttingWaitHandoverAction(value?: string | null): typeof CUTTING_WAI
 
 function getCuttingWaitHandoverActionRoute(actionKey: CuttingWaitHandoverActionKey, firstTaskId: string): string {
   if (actionKey === 'inbound') return `/fcs/pda/cutting/inbound/${firstTaskId}`
-  const actionQuery = actionKey === 'sorting'
-    ? 'sorting'
-    : actionKey === 'rebagging'
-      ? 'rebagging'
-      : actionKey === 'handover'
-        ? 'handover'
-        : 'writeback'
+  const actionQuery = actionKey === 'sorting-bagging'
+    ? 'sorting-bagging'
+    : actionKey === 'handover'
+      ? 'handover'
+      : 'writeback'
   return `/fcs/pda/cutting/handover/${firstTaskId}?action=${actionQuery}`
+}
+
+function buildCuttingSortingBaggingProjection(inboundTempBags: InboundTempBag[]): HandoverPickingTaskProjection {
+  const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
+  return buildHandoverPickingTaskProjectionFromAllocationProjection(
+    buildSewingTaskAllocationProjectionFromInventory(inboundInventoryRecords),
+  )
+}
+
+function renderCuttingSortingBaggingTaskCard(
+  task: HandoverPickingTaskProjection['tasks'][number],
+  firstTaskId: string,
+): string {
+  const requiredQty = task.requiredItems.reduce((sum, item) => sum + item.requiredQty, 0)
+  const availableQty = task.allocatedInventoryItems.reduce((sum, item) => sum + item.pieceQty, 0)
+  const packedQty = task.targetTransferBags.reduce((sum, bag) => sum + bag.totalPieceQty, 0)
+  const skuCount = new Set(task.allocatedInventoryItems.map((item) => `${item.size}-${item.partCode}`)).size || task.allocatedInventoryItems.length
+  const route = `/fcs/pda/cutting/handover/${firstTaskId}?action=sorting-bagging&sortingTaskId=${escapeAttr(task.pickingTaskId)}`
+  return `
+    <article class="rounded-lg border bg-card p-3">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="truncate text-sm font-semibold text-foreground">${escapeHtml(task.pickingTaskNo)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">车缝任务：${escapeHtml(task.sewingTaskNo)}</div>
+        </div>
+        ${renderStatusPill(task.taskStatus === '待分拣' ? '待分拣装袋' : task.taskStatus)}
+      </div>
+      <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        <div><span class="text-muted-foreground">车缝厂：</span>${escapeHtml(task.receiverFactoryName)}</div>
+        <div><span class="text-muted-foreground">SKU/部位：</span>${skuCount} 项</div>
+        <div><span class="text-muted-foreground">应装：</span>${requiredQty} 片</div>
+        <div><span class="text-muted-foreground">可装：</span>${availableQty} 片</div>
+        <div><span class="text-muted-foreground">已装：</span>${packedQty} 片</div>
+        <div><span class="text-muted-foreground">缺口：</span>${task.shortageItems.length} 项</div>
+      </div>
+      <div class="mt-3 rounded border bg-muted/20 px-2.5 py-2 text-xs text-muted-foreground">
+        来源暂存袋：${escapeHtml(task.tempBagSources.map((item) => item.tempBagCode).join('、') || '待扫描')}
+      </div>
+      <button
+        type="button"
+        class="mt-3 inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground"
+        data-nav="${route}"
+      >
+        进入分拣装袋
+      </button>
+    </article>
+  `
+}
+
+function renderCuttingSortingBaggingTaskList(
+  projection: HandoverPickingTaskProjection,
+  firstTaskId: string,
+): string {
+  return `
+    <section class="space-y-3">
+      <div class="px-1 text-base font-semibold text-foreground">分拣装袋任务</div>
+      ${
+        projection.tasks.length
+          ? projection.tasks.map((task) => renderCuttingSortingBaggingTaskCard(task, firstTaskId)).join('')
+          : renderMobilePageEmptyState('暂无分拣装袋任务', '车缝任务分配并有裁片入仓后，会按车缝任务生成分拣装袋任务。')
+      }
+    </section>
+  `
 }
 
 function renderCuttingWaitHandoverActionCards(activeAction?: string | null): string {
@@ -173,110 +240,195 @@ function renderCuttingWaitHandoverSubpageHeader(title: string, description: stri
   `
 }
 
-function renderCuttingWaitHandoverSingleAction(
-  action: typeof CUTTING_WAIT_HANDOVER_ACTIONS[number],
-  firstTaskId: string,
-): string {
-  const route = getCuttingWaitHandoverActionRoute(action.key, firstTaskId)
-  const objectText = action.key === 'inbound'
-    ? '暂存袋、菲票、库区库位'
-    : action.key === 'sorting'
-      ? '配料任务、来源暂存袋、菲票'
-      : action.key === 'rebagging'
-        ? '分拣结果、目标中转袋'
-        : action.key === 'handover'
-          ? '交出单、中转袋、菲票'
-          : '交出记录、接收数量、差异'
+function renderCuttingWaitHandoverCardAction(action?: CuttingWaitHandoverCardAction): string {
+  if (!action) return ''
   return `
-    <section class="space-y-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-4">
-      <div class="text-sm font-semibold text-foreground">${escapeHtml(action.title)}</div>
-      <div class="text-xs leading-5 text-muted-foreground">扫码对象：${escapeHtml(objectText)}</div>
-      <button
-        type="button"
-        class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
-        data-nav="${escapeAttr(route)}"
-      >
-        ${escapeHtml(action.primaryLabel)}
-      </button>
-    </section>
+    <div class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[10px] leading-4 text-blue-700">${escapeHtml(action.hint)}</div>
+    <button
+      type="button"
+      class="mt-3 inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+      data-nav="${escapeAttr(action.route)}"
+    >
+      ${escapeHtml(action.label)}
+    </button>
   `
 }
 
-function renderCuttingTicketCandidate(ticket: WaitHandoverRuntimeProjection['ticketCandidates'][number]): string {
+function renderCuttingTicketCandidate(
+  ticket: WaitHandoverRuntimeProjection['ticketCandidates'][number],
+  action?: CuttingWaitHandoverCardAction,
+): string {
   const pieceQty = ticket.actualCutPieceQty || ticket.qty || 0
   const status = ticket.printStatus === 'WAIT_PRINT' ? '待打印' : ticket.printStatus === 'VOIDED' ? '已作废' : '可入仓'
   return `
-    <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-semibold text-foreground">${escapeHtml(ticket.feiTicketNo)}</div>
-          <div class="mt-1 line-clamp-2 text-xs text-muted-foreground">${escapeHtml(ticket.partName)} · ${escapeHtml(ticket.skuSize)} · ${escapeHtml(ticket.skuColor || ticket.fabricColor || '待补颜色')}</div>
+    <article class="cursor-pointer rounded-lg border bg-card transition-colors hover:border-primary">
+      <div class="space-y-2 p-3">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex min-w-0 items-center gap-1.5">
+            <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">菲票</span>
+            <span class="truncate text-sm font-semibold text-foreground">${escapeHtml(ticket.feiTicketNo)}</span>
+          </div>
+          ${renderStatusPill(status)}
         </div>
-        ${renderStatusPill(status)}
-      </div>
-      <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
-        <div>铺布单：${escapeHtml(ticket.spreadingOrderNo || ticket.sourceSpreadingSessionNo || '待关联')}</div>
-        <div>裁片数量：${pieceQty} 片</div>
-        <div>编号范围：${escapeHtml(ticket.pieceSequenceLabel || ticket.pieceSetNoRange || '按菲票追踪')}</div>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+          <div><span class="text-muted-foreground">铺布单：</span>${escapeHtml(ticket.spreadingOrderNo || ticket.sourceSpreadingSessionNo || '待关联')}</div>
+          <div><span class="text-muted-foreground">裁片数量：</span>${pieceQty} 片</div>
+          <div><span class="text-muted-foreground">颜色：</span>${escapeHtml(ticket.skuColor || ticket.fabricColor || '待补颜色')}</div>
+          <div><span class="text-muted-foreground">尺码：</span>${escapeHtml(ticket.skuSize || '-')}</div>
+          <div class="col-span-2"><span class="text-muted-foreground">编号范围：</span>${escapeHtml(ticket.pieceSequenceLabel || ticket.pieceSetNoRange || '按菲票追踪')}</div>
+        </div>
+        <div class="flex items-center gap-2 py-0.5 text-xs">
+          <span class="shrink-0 text-muted-foreground">流向：</span>
+          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">裁剪完成</span>
+          <i data-lucide="arrow-right" class="h-3 w-3 shrink-0 text-muted-foreground"></i>
+          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">待交出仓</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
+          <div>部位：<span class="font-medium">${escapeHtml(ticket.partName || '-')}</span></div>
+          <div>特殊工艺：<span class="font-medium">${ticket.hasSpecialCraft ? '有' : '无'}</span></div>
+        </div>
+        ${renderCuttingWaitHandoverCardAction(action)}
       </div>
     </article>
   `
 }
 
-function renderCuttingInboundBagItem(bag: InboundTempBag): string {
+function renderCuttingInboundBagItem(bag: InboundTempBag, action?: CuttingWaitHandoverCardAction): string {
   return `
-    <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-semibold text-foreground">${escapeHtml(bag.bagCode)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bag.warehouseArea)} / ${escapeHtml(bag.locationCode)}</div>
+    <article class="cursor-pointer rounded-lg border bg-card transition-colors hover:border-primary">
+      <div class="space-y-2 p-3">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex min-w-0 items-center gap-1.5">
+            <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">暂存袋</span>
+            <span class="truncate text-sm font-semibold text-foreground">${escapeHtml(bag.bagCode)}</span>
+          </div>
+          ${renderStatusPill(bag.nextSortingStatus)}
         </div>
-        ${renderStatusPill(bag.nextSortingStatus)}
-      </div>
-      <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
-        <div>菲票数量：${bag.containedFeiTickets.length} 张</div>
-        <div>裁片数量：${bag.totalPieceQty} 片</div>
-        <div>混装情况：${escapeHtml(bag.mixedFlag ? bag.mixedSummary : '未混装')}</div>
-        <div>特殊工艺：${escapeHtml(bag.containedFeiTickets.some((ticket) => ticket.hasSpecialCraft) ? '包含特殊工艺裁片' : '无')}</div>
-        <div>入仓时间：${escapeHtml(bag.inboundAt)} / ${escapeHtml(bag.inboundBy)}</div>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+          <div><span class="text-muted-foreground">库区：</span>${escapeHtml(bag.warehouseArea)}</div>
+          <div><span class="text-muted-foreground">库位：</span>${escapeHtml(bag.locationCode)}</div>
+          <div><span class="text-muted-foreground">菲票数量：</span>${bag.containedFeiTickets.length} 张</div>
+          <div><span class="text-muted-foreground">裁片数量：</span>${bag.totalPieceQty} 片</div>
+        </div>
+        <div class="flex items-center gap-2 py-0.5 text-xs">
+          <span class="shrink-0 text-muted-foreground">流向：</span>
+          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">菲票入仓</span>
+          <i data-lucide="arrow-right" class="h-3 w-3 shrink-0 text-muted-foreground"></i>
+          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">分拣装袋</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
+          <div>混装：<span class="font-medium">${escapeHtml(bag.mixedFlag ? bag.mixedSummary : '未混装')}</span></div>
+          <div>特殊工艺：<span class="font-medium">${escapeHtml(bag.containedFeiTickets.some((ticket) => ticket.hasSpecialCraft) ? '包含' : '无')}</span></div>
+          <div class="col-span-2">入仓：<span class="font-medium">${escapeHtml(bag.inboundAt)} / ${escapeHtml(bag.inboundBy)}</span></div>
+        </div>
+        ${renderCuttingWaitHandoverCardAction(action)}
       </div>
     </article>
   `
 }
 
-function renderCuttingRuntimeEventItem(event: WaitHandoverRuntimeProjection['runtimeEvents'][number]): string {
+function renderCuttingRuntimeEventItem(
+  event: WaitHandoverRuntimeProjection['runtimeEvents'][number],
+  action?: CuttingWaitHandoverCardAction,
+): string {
   const payload = event.payload && typeof event.payload === 'object' ? event.payload as Record<string, unknown> : {}
   const totalQty = Number(event.inventoryEffect?.qty || payload.totalPieceQty || payload.pickedQty || payload.totalPieceQty || 0)
   const transferBagCode = event.refs.transferBagCode || String(payload.bagCode || payload.targetTransferBagCode || payload.sourceTempBagCode || '-')
   return `
-    <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-semibold text-foreground">${escapeHtml(event.eventNo || event.eventType)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(event.eventType)} · ${escapeHtml(event.occurredAt)}</div>
+    <article class="cursor-pointer rounded-lg border bg-card transition-colors hover:border-primary">
+      <div class="space-y-2 p-3">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex min-w-0 items-center gap-1.5">
+            <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${escapeHtml(event.eventType)}</span>
+            <span class="truncate text-sm font-semibold text-foreground">${escapeHtml(event.eventNo || event.eventType)}</span>
+          </div>
+          ${renderStatusPill(event.eventStatus)}
         </div>
-        ${renderStatusPill(event.eventStatus)}
+        <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+          <div><span class="text-muted-foreground">中转袋：</span>${escapeHtml(transferBagCode)}</div>
+          <div><span class="text-muted-foreground">菲票数量：</span>${event.refs.feiTicketNos?.length || event.refs.feiTicketIds?.length || 0} 张</div>
+          <div><span class="text-muted-foreground">数量：</span>${Number.isFinite(totalQty) ? totalQty : 0} ${escapeHtml(event.inventoryEffect?.unit || '片')}</div>
+          <div><span class="text-muted-foreground">操作人：</span>${escapeHtml(event.operatorName || '待补')}</div>
+          <div class="col-span-2"><span class="text-muted-foreground">操作时间：</span>${escapeHtml(event.occurredAt)}</div>
+        </div>
+        <div class="flex items-center gap-2 py-0.5 text-xs">
+          <span class="shrink-0 text-muted-foreground">来源：</span>
+          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">${escapeHtml(event.refs.cutOrderNo || event.refs.productionOrderNo || '裁床任务')}</span>
+          <i data-lucide="arrow-right" class="h-3 w-3 shrink-0 text-muted-foreground"></i>
+          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">${escapeHtml(event.inventoryEffect?.inventoryScope || '待交出仓')}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
+          <div>生产单：<span class="font-medium">${escapeHtml(event.refs.productionOrderNo || '-')}</span></div>
+          <div>裁片单：<span class="font-medium">${escapeHtml(event.refs.cutOrderNo || '-')}</span></div>
+        </div>
+        ${renderCuttingWaitHandoverCardAction(action)}
       </div>
-      <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
-        <div>中转袋：${escapeHtml(transferBagCode)}</div>
-        <div>菲票数量：${event.refs.feiTicketNos?.length || event.refs.feiTicketIds?.length || 0} 张</div>
-        <div>数量：${Number.isFinite(totalQty) ? totalQty : 0} ${escapeHtml(event.inventoryEffect?.unit || '片')}</div>
-        <div>操作人：${escapeHtml(event.operatorName || '待补')}</div>
+    </article>
+  `
+}
+
+function renderCuttingWaitHandoverStarterCard(
+  action: typeof CUTTING_WAIT_HANDOVER_ACTIONS[number],
+  cardAction: CuttingWaitHandoverCardAction,
+  options: {
+    objectLabel: string
+    objectText: string
+    fromText: string
+    toText: string
+    summaryLeft: string
+    summaryRight: string
+  },
+): string {
+  return `
+    <article class="cursor-pointer rounded-lg border bg-card transition-colors hover:border-primary">
+      <div class="space-y-2 p-3">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex min-w-0 items-center gap-1.5">
+            <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${escapeHtml(options.objectLabel)}</span>
+            <span class="truncate text-sm font-semibold text-foreground">${escapeHtml(action.title)}</span>
+          </div>
+          ${renderStatusPill('待扫描')}
+        </div>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+          <div class="col-span-2"><span class="text-muted-foreground">操作对象：</span>${escapeHtml(options.objectText)}</div>
+          <div><span class="text-muted-foreground">当前功能：</span>${escapeHtml(action.title)}</div>
+          <div><span class="text-muted-foreground">状态：</span>待扫描</div>
+        </div>
+        <div class="flex items-center gap-2 py-0.5 text-xs">
+          <span class="shrink-0 text-muted-foreground">流向：</span>
+          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">${escapeHtml(options.fromText)}</span>
+          <i data-lucide="arrow-right" class="h-3 w-3 shrink-0 text-muted-foreground"></i>
+          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">${escapeHtml(options.toText)}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
+          <div>${escapeHtml(options.summaryLeft)}</div>
+          <div>${escapeHtml(options.summaryRight)}</div>
+        </div>
+        ${renderCuttingWaitHandoverCardAction(cardAction)}
       </div>
     </article>
   `
 }
 
 function renderCuttingWaitHandoverActionPreview(
-  actionKey: CuttingWaitHandoverActionKey,
+  action: typeof CUTTING_WAIT_HANDOVER_ACTIONS[number],
+  firstTaskId: string,
   runtimeProjection: WaitHandoverRuntimeProjection,
   inboundTempBags: InboundTempBag[],
 ): string {
+  const actionRoute = getCuttingWaitHandoverActionRoute(action.key, firstTaskId)
+  const cardAction: CuttingWaitHandoverCardAction = {
+    label: action.primaryLabel,
+    route: actionRoute,
+    hint: action.desc,
+  }
+  const actionKey = action.key
+
   if (actionKey === 'inbound') {
     return `
       <section class="space-y-3">
         <div class="px-1 text-base font-semibold text-foreground">待入仓菲票</div>
-        ${runtimeProjection.ticketCandidates.slice(0, 4).map(renderCuttingTicketCandidate).join('') || renderMobilePageEmptyState('暂无待入仓菲票', '裁剪完成并确认菲票后，会出现在这里。')}
+        ${runtimeProjection.ticketCandidates.slice(0, 4).map((ticket) => renderCuttingTicketCandidate(ticket, cardAction)).join('') || renderMobilePageEmptyState('暂无待入仓菲票', '裁剪完成并确认菲票后，会出现在这里。')}
       </section>
       <section class="space-y-3">
         <div class="px-1 text-base font-semibold text-foreground">最近入仓结果</div>
@@ -284,35 +436,36 @@ function renderCuttingWaitHandoverActionPreview(
       </section>
     `
   }
-  if (actionKey === 'sorting') {
+  if (actionKey === 'sorting-bagging') {
+    const pickingProjection = buildCuttingSortingBaggingProjection(inboundTempBags)
     return `
+      ${renderCuttingSortingBaggingTaskList(pickingProjection, firstTaskId)}
       <section class="space-y-3">
-        <div class="px-1 text-base font-semibold text-foreground">可分拣暂存袋</div>
-        ${inboundTempBags.slice(0, 5).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无可分拣暂存袋', '菲票入仓后，按下游任务进行二次分拣。')}
-      </section>
-    `
-  }
-  if (actionKey === 'rebagging') {
-    return `
-      <section class="space-y-3">
-        <div class="px-1 text-base font-semibold text-foreground">最近二次分拣</div>
-        ${runtimeProjection.sortingEvents.slice(0, 5).map(renderCuttingRuntimeEventItem).join('') || renderMobilePageEmptyState('暂无二次分拣记录', '完成二次分拣后，再重新装入目标中转袋。')}
+        <div class="px-1 text-base font-semibold text-foreground">最近分拣装袋</div>
+        ${runtimeProjection.sortingBaggingEvents.slice(0, 5).map((event) => renderCuttingRuntimeEventItem(event, cardAction)).join('') || renderMobilePageEmptyState('暂无分拣装袋记录', '进入任务后扫码来源暂存袋、菲票和目标中转袋。')}
       </section>
     `
   }
   if (actionKey === 'handover') {
-    const sourceEvents = runtimeProjection.rebagEvents.length ? runtimeProjection.rebagEvents : runtimeProjection.runtimeEvents.filter((event) => event.eventType === '菲票入仓暂存')
+    const sourceEvents = runtimeProjection.sortingBaggingEvents.length ? runtimeProjection.sortingBaggingEvents : runtimeProjection.runtimeEvents.filter((event) => event.eventType === '菲票入仓暂存')
     return `
       <section class="space-y-3">
         <div class="px-1 text-base font-semibold text-foreground">可交出载具</div>
-        ${sourceEvents.slice(0, 5).map(renderCuttingRuntimeEventItem).join('') || renderMobilePageEmptyState('暂无可交出载具', '重新装袋后，可提交交出记录。')}
+        ${sourceEvents.slice(0, 5).map((event) => renderCuttingRuntimeEventItem(event, cardAction)).join('') || renderCuttingWaitHandoverStarterCard(action, cardAction, {
+          objectLabel: '交出对象',
+          objectText: '扫描交出单、中转袋或菲票',
+          fromText: '分拣装袋',
+          toText: '交出',
+          summaryLeft: '交出单：待扫描',
+          summaryRight: '接收方：待确认',
+        })}
       </section>
     `
   }
   return `
     <section class="space-y-3">
       <div class="px-1 text-base font-semibold text-foreground">接收回写记录</div>
-      ${runtimeProjection.handoverRecordEvents.slice(0, 5).map(renderCuttingRuntimeEventItem).join('') || renderMobilePageEmptyState('暂无接收回写', '交出记录提交后，接收方回写数量和差异。')}
+      ${runtimeProjection.handoverRecordEvents.slice(0, 5).map((event) => renderCuttingRuntimeEventItem(event, cardAction)).join('') || renderMobilePageEmptyState('暂无接收回写', '交出记录提交后，接收方回写数量和差异。')}
     </section>
   `
 }
@@ -320,15 +473,10 @@ function renderCuttingWaitHandoverActionPreview(
 function renderCuttingWaitHandoverNextActions(actionKey: CuttingWaitHandoverActionKey): string {
   const actions = actionKey === 'inbound'
     ? [
-        { label: '去二次分拣', route: '/fcs/pda/warehouse/wait-handover?scope=cutting&action=sorting' },
+        { label: '去分拣装袋', route: '/fcs/pda/warehouse/wait-handover?scope=cutting&action=sorting-bagging' },
         { label: '返回裁床待交出仓', route: '/fcs/pda/warehouse/wait-handover?scope=cutting' },
       ]
-    : actionKey === 'sorting'
-      ? [
-          { label: '去重新装袋', route: '/fcs/pda/warehouse/wait-handover?scope=cutting&action=rebagging' },
-          { label: '返回裁床待交出仓', route: '/fcs/pda/warehouse/wait-handover?scope=cutting' },
-        ]
-      : actionKey === 'rebagging'
+    : actionKey === 'sorting-bagging'
         ? [
             { label: '去交出', route: '/fcs/pda/warehouse/wait-handover?scope=cutting&action=handover' },
             { label: '返回裁床待交出仓', route: '/fcs/pda/warehouse/wait-handover?scope=cutting' },
@@ -369,8 +517,7 @@ function renderCuttingWaitHandoverActionPage(
   return `
     <div class="space-y-4 px-4 pb-5 pt-4">
       ${renderCuttingWaitHandoverSubpageHeader(action.title, action.desc)}
-      ${renderCuttingWaitHandoverSingleAction(action, firstTaskId)}
-      ${renderCuttingWaitHandoverActionPreview(action.key, runtimeProjection, inboundTempBags)}
+      ${renderCuttingWaitHandoverActionPreview(action, firstTaskId, runtimeProjection, inboundTempBags)}
       ${renderCuttingWaitHandoverNextActions(action.key)}
     </div>
   `

@@ -1116,6 +1116,8 @@ type SpreadingOutputSourceLine = {
   color: string
   actualCutGarmentQty: number
   rollRecordId?: string
+  stepLabel?: string
+  sizeRows?: Array<{ skuCode: string; color: string; size: string; plannedQty: number }>
 }
 
 function findPieceRowsForSku(
@@ -1202,6 +1204,7 @@ function buildFallbackOutputSourceLines(
     .map((roll): SpreadingOutputSourceLine | null => {
       const sourceRecord = findSourceRecordForRoll(session, sourceRecords, roll)
       const actualCutGarmentQty = deriveRollActualGarmentQty(session, roll)
+      const planUnit = (session.planUnits || []).find((unit) => unit.planUnitId === roll.planUnitId) || null
       if (!sourceRecord || !actualCutGarmentQty) return null
       return {
         cutOrderId: sourceRecord.cutOrderId,
@@ -1210,6 +1213,8 @@ function buildFallbackOutputSourceLines(
         color: normalizeText(roll.color || '') || sourceRecord.colorScope[0] || '待补颜色',
         actualCutGarmentQty,
         rollRecordId: roll.rollRecordId,
+        stepLabel: roll.stepLabel || planUnit?.stepLabel || '',
+        sizeRows: planUnit?.sizeRows,
       }
     })
     .filter((line): line is SpreadingOutputSourceLine => Boolean(line))
@@ -1259,7 +1264,10 @@ function buildSpreadingPieceOutputLinesFromSessions(
           ) || session.rolls[0] || null
         if (!sourceRecord || !roll) return
 
-        const splitRows = splitGarmentQtyBySize(resolveColorScopedSkuLines(sourceRecord, line.color), line.actualCutGarmentQty)
+        const splitRows = splitGarmentQtyBySize(
+          line.sizeRows?.length ? line.sizeRows : resolveColorScopedSkuLines(sourceRecord, line.color),
+          line.actualCutGarmentQty,
+        )
         splitRows.forEach((sizeRow, sizeIndex) => {
           const bundleNo = buildBundleNo(sizeIndex)
           const pieceSetNoStart = 1

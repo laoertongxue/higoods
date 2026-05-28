@@ -457,7 +457,7 @@ function ensureTraceabilityBagFirstSeed(options: {
       action: 'TRACEABILITY_AUTOLINK',
       actionAt: nowText,
       actionBy: operatorName,
-      note: '自动补齐入仓暂存袋映射，裁片交出前仍需按车缝任务二次分拣。',
+      note: '自动补齐入仓暂存袋映射，裁片交出前仍需按车缝任务分拣装袋。',
     })
 
     const nextUsages = nextStore.usages.filter((item) => item.usageId !== usage.usageId)

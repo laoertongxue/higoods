@@ -884,6 +884,8 @@ function buildDefaultSchemeBeds(options: {
     ) as Record<string, number>
     return {
       rowId: `${options.planId}-marker-row-${index + 1}`,
+      stepNo: index + 1,
+      stepLabel: buildHighLowStepLabel(index + 1),
       colorCode: colorName,
       colorName,
       markerLength: 0,
@@ -999,7 +1001,8 @@ function buildReadySeedSchemeBeds(plan: MarkerPlan, context: MarkerPlanContextCa
   ) as Record<string, number>
 
   const baseMarkerLength = roundTo(12 + activeSizes.length * 1.2 + activeColors.length * 0.4, 2)
-  const matrixRows: MarkerHighLowMatrixRow[] = activeColors.map((colorName, index) => {
+  const matrixColors = isHighLowMode && activeColors.length ? [...activeColors, activeColors[0]] : activeColors
+  const matrixRows: MarkerHighLowMatrixRow[] = matrixColors.map((colorName, index) => {
     const rawLayers = activeSizes.map((sizeName) =>
       getSeedLayerCount(demandByColorSize.get(buildDemandMatchKey(colorName, sizeName)) || 0, sizePiecePerLayer[sizeName], bedMode),
     )
@@ -1013,6 +1016,8 @@ function buildReadySeedSchemeBeds(plan: MarkerPlan, context: MarkerPlanContextCa
     )
     return {
       rowId: `${plan.id}-ready-marker-row-${index + 1}`,
+      stepNo: index + 1,
+      stepLabel: buildHighLowStepLabel(index + 1),
       colorCode: colorName,
       colorName,
       markerLength: isHighLowMode ? roundTo(baseMarkerLength + index * 0.8, 2) : 0,
@@ -1024,8 +1029,9 @@ function buildReadySeedSchemeBeds(plan: MarkerPlan, context: MarkerPlanContextCa
   const coverageRows = demandRows.map((row, index) => {
     const colorName = row.colorName || row.colorCode || '主色'
     const sizeName = row.sizeName || row.sizeCode || 'M'
-    const matrixRow = matrixRows.find((item) => (item.colorName || item.colorCode) === colorName)
-    const plannedQty = matrixRow ? getMarkerMatrixCellPlannedQty(matrixRow, sizeName, sizePiecePerLayer) : 0
+    const plannedQty = matrixRows
+      .filter((item) => (item.colorName || item.colorCode) === colorName)
+      .reduce((sum, matrixRow) => sum + getMarkerMatrixCellPlannedQty(matrixRow, sizeName, sizePiecePerLayer), 0)
     const demandQty = Math.max(Math.round(safeNumber(row.demandQty)), 0)
     return {
       rowId: `${row.rowId}-ready-coverage-${index + 1}`,
@@ -1215,6 +1221,10 @@ function isHighLowMarkerBedMode(mode: string): boolean {
   return mode === 'high_low' || mode === 'fold_high_low'
 }
 
+function buildHighLowStepLabel(stepNo: number): string {
+  return `第${Math.max(Math.round(safeNumber(stepNo)), 1)}阶`
+}
+
 function normalizeMarkerSizePiecePerLayer(
   bed: MarkerSchemeBed,
   sizeNames: string[],
@@ -1260,6 +1270,8 @@ function normalizeMarkerMatrixRows(
     )
     return {
       rowId: row.rowId || `${bed.bedId}-matrix-${index + 1}`,
+      stepNo: index + 1,
+      stepLabel: buildHighLowStepLabel(index + 1),
       colorCode: row.colorCode || row.colorName || '主色',
       colorName: row.colorName || row.colorCode || '主色',
       markerLength: Math.max(safeNumber(row.markerLength), 0),
@@ -1829,7 +1841,7 @@ type SeedVariantKey = 'ready' | 'unbalanced' | 'mapping' | 'layout' | 'image' | 
 
 function buildSeedVariants(contexts: MarkerPlanContextCandidate[]): Array<{ context: MarkerPlanContextCandidate; mode: MarkerPlanModeKey; variant: SeedVariantKey }> {
   const modes: MarkerPlanModeKey[] = ['normal', 'high_low', 'fold_normal', 'fold_high_low']
-  const variants: SeedVariantKey[] = ['ready', 'layout', 'ready', 'image', 'ready', 'manual']
+  const variants: SeedVariantKey[] = ['ready', 'layout', 'ready', 'ready', 'ready', 'manual']
   const preferredContexts = contexts.filter((context) => context.contextType === 'cut-order' && context.spuCode !== 'SPU-2024-010')
   const uniqueContexts = preferredContexts.filter(
     (context, index, all) => all.findIndex((item) => item.contextKey === context.contextKey) === index,
@@ -1950,6 +1962,8 @@ function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: Ma
                   highLowMatrixRows: (bed.highLowMatrixRows || []).map((row, rowIndex) => ({
                     ...row,
                     rowId: `${nextPlan.id}-ready-marker-row-${bedIndex}-${rowIndex + 1}`,
+                    stepNo: rowIndex + 1,
+                    stepLabel: buildHighLowStepLabel(rowIndex + 1),
                     sizeValues: Object.fromEntries(
                       Object.entries(row.sizeValues || {}).map(([sizeName, value]) => [
                         sizeName,

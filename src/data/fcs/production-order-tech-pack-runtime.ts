@@ -10,12 +10,10 @@ import type {
 } from './production-tech-pack-snapshot-types.ts'
 import { getProductionOrderTechPackSnapshot as getOrderSnapshot } from './production-orders.ts'
 import type {
-  TechnicalAttachment,
   TechnicalBomItem,
   TechnicalColorMaterialMapping,
   TechnicalPatternDesign,
   TechnicalProcessEntry,
-  TechnicalQualityRule,
   TechnicalSizeRow,
 } from '../pcs-technical-data-version-types.ts'
 
@@ -68,10 +66,6 @@ function cloneSizeTable(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
   return items.map((item) => ({ ...item }))
 }
 
-function cloneQualityRules(items: TechnicalQualityRule[]): TechnicalQualityRule[] {
-  return items.map((item) => ({ ...item }))
-}
-
 function cloneColorMappings(items: TechnicalColorMaterialMapping[]): TechnicalColorMaterialMapping[] {
   return items.map((item) => ({
     ...item,
@@ -83,10 +77,6 @@ function cloneColorMappings(items: TechnicalColorMaterialMapping[]): TechnicalCo
 }
 
 function clonePatternDesigns(items: TechnicalPatternDesign[]): TechnicalPatternDesign[] {
-  return items.map((item) => ({ ...item }))
-}
-
-function cloneAttachments(items: TechnicalAttachment[]): TechnicalAttachment[] {
   return items.map((item) => ({ ...item }))
 }
 
@@ -147,11 +137,6 @@ export function getProductionOrderSizeTable(productionOrderId: string): Technica
   return snapshot ? cloneSizeTable(snapshot.sizeTable) : []
 }
 
-export function getProductionOrderQualityRules(productionOrderId: string): TechnicalQualityRule[] {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
-  return snapshot ? cloneQualityRules(snapshot.qualityRules) : []
-}
-
 export function getProductionOrderColorMaterialMappings(
   productionOrderId: string,
 ): TechnicalColorMaterialMapping[] {
@@ -162,11 +147,6 @@ export function getProductionOrderColorMaterialMappings(
 export function getProductionOrderPatternDesigns(productionOrderId: string): TechnicalPatternDesign[] {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
   return snapshot ? clonePatternDesigns(snapshot.patternDesigns) : []
-}
-
-export function getProductionOrderAttachments(productionOrderId: string): TechnicalAttachment[] {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
-  return snapshot ? cloneAttachments(snapshot.attachments) : []
 }
 
 export function getProductionOrderSizeMeasurements(

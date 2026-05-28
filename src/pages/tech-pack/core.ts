@@ -30,7 +30,7 @@ import {
 import { buildTechPackReviewDiffSnapshot } from '../../data/pcs-tech-pack-review-diff.ts'
 import { getFixedTechPackReviewers } from '../../data/pcs-tech-pack-reviewer-directory.ts'
 import { listTechPackReviewNotificationsByNode } from '../../data/pcs-tech-pack-review-notification-repository.ts'
-import { renderAttachmentsTab, renderAddAttachmentDialog, renderAddDesignDialog, renderDesignTab } from './asset-domain.ts'
+import { renderAddDesignDialog, renderDesignTab } from './asset-domain.ts'
 import { renderBomFormDialog, renderBomTab, renderDesignThumbnailPreviewDialog } from './bom-domain.ts'
 import { renderColorMappingTab } from './color-mapping-domain.ts'
 import { renderCostTab } from './cost-domain.ts'
@@ -51,7 +51,7 @@ function renderCurrentTabContent(): string {
   if (state.activeTab === 'color-mapping') return renderColorMappingTab()
   if (state.activeTab === 'size') return renderSizeTab()
   if (state.activeTab === 'design') return renderDesignTab()
-  return renderAttachmentsTab()
+  return renderPatternTab()
 }
 
 function renderReleaseDialog(): string {
@@ -199,7 +199,7 @@ function renderReviewSubmitDialog(): string {
         </header>
         <div class="space-y-4 px-6 py-5 text-sm">
           <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
-            提交前请确认物料清单、核价、纸样管理、款色用料对应、工序工艺、放码规则、花型设计和附件等内容已维护完整。审核中和审核通过的模块将锁定，不允许修改。
+            提交前请确认物料清单、核价、纸样管理、款色用料对应、工序工艺、放码规则、花型设计等内容已维护完整。审核中和审核通过的模块将锁定，不允许修改。
           </div>
           <div class="grid gap-2 rounded-lg border bg-muted/20 px-4 py-3">
             <div class="font-medium text-foreground">固定审核人</div>
@@ -569,7 +569,7 @@ export function renderTechPackPage(
   options?: {
     spuName?: string
     skuCatalog?: { skuCode: string; color: string; size: string }[]
-    activeTab?: 'pattern' | 'bom' | 'process' | 'color-mapping' | 'size' | 'design' | 'attachments' | 'cost'
+    activeTab?: 'pattern' | 'bom' | 'process' | 'color-mapping' | 'size' | 'design' | 'cost'
     styleId?: string
     technicalVersionId?: string
   },
@@ -644,7 +644,6 @@ export function renderTechPackPage(
       ${renderAddTechniqueDialog()}
       ${renderAddSizeDialog()}
       ${renderAddDesignDialog()}
-      ${renderAddAttachmentDialog()}
     </div>
   `
 }

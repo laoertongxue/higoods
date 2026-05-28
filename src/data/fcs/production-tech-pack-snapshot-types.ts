@@ -1,5 +1,4 @@
 import type {
-  TechnicalAttachment,
   TechnicalBomItem,
   TechnicalColorMaterialMapping,
   TechnicalPatternDesign,
@@ -7,7 +6,6 @@ import type {
   TechnicalPatternParseStatus,
   TechnicalPatternFile,
   TechnicalProcessEntry,
-  TechnicalQualityRule,
   TechnicalSizeRow,
   TechnicalGarmentDifficultyGrade,
 } from '../pcs-technical-data-version-types.ts'
@@ -120,12 +118,10 @@ export interface ProductionOrderTechPackSnapshot {
   processEntries: TechnicalProcessEntry[]
   sizeTable: TechnicalSizeRow[]
   sizeMeasurements: TechPackSizeMeasurementSnapshot[]
-  qualityRules: TechnicalQualityRule[]
   colorMaterialMappings: TechnicalColorMaterialMapping[]
   cutPieceParts: TechPackCutPiecePartSnapshot[]
   imageSnapshot: TechPackImageSnapshot
   patternDesigns: TechnicalPatternDesign[]
-  attachments: TechnicalAttachment[]
   linkedRevisionTaskIds: string[]
   linkedPatternTaskIds: string[]
   linkedArtworkTaskIds: string[]

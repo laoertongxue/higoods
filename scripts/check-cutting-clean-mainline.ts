@@ -297,10 +297,10 @@ function assertWaitHandoverInventoryAndDispatch(): void {
   assert(allocationProjection.releasedReservations.length > 0, '车缝任务取消后必须有占用释放场景')
 
   const pickingProjection = buildHandoverPickingTaskProjectionFromAllocationProjection(allocationProjection)
-  assert(pickingProjection.tasks.length > 0, '车缝任务分配后必须生成待交出仓裁片配料任务')
-  assert(pickingProjection.targetTransferBags.length > 0, '二次分拣后必须有重新装中转袋结果')
+  assert(pickingProjection.tasks.length > 0, '车缝任务分配后必须生成待交出仓分拣装袋任务')
+  assert(pickingProjection.targetTransferBags.length > 0, '分拣装袋后必须有中转袋结果')
   assert(pickingProjection.targetTransferBags.some((bag) => bag.useStage === '交出装袋'), '交出装袋阶段使用阶段错误')
-  assert(pickingProjection.scanChecks.some((check) => check.checkResult.includes('拒绝') || check.reason.includes('拒绝') || check.reason.includes('不能')), '二次分拣必须有错误扫码拒绝场景')
+  assert(pickingProjection.scanChecks.some((check) => check.checkResult.includes('拒绝') || check.reason.includes('拒绝') || check.reason.includes('不能')), '分拣装袋必须有错误扫码拒绝场景')
   assert(pickingProjection.syncFailedCount > 0, 'PDA 分拣同步失败场景必须可见')
 }
 

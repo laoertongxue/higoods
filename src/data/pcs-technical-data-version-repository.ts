@@ -35,7 +35,7 @@ const CORE_MISSING_NAME_MAP: Record<string, string> = {
   PATTERN: '纸样管理',
   PROCESS: '工序工艺',
   GRADING: '放码规则',
-  QUALITY: '质检标准',
+  DESIGN: '花型设计',
   COLOR_MATERIAL: '款色用料对应',
 }
 
@@ -385,8 +385,8 @@ export function buildTechnicalDataDerivedState(
   else missingItemCodes.push('PROCESS')
   if (gradingRuleCount > 0) completenessScore += 15
   else missingItemCodes.push('GRADING')
-  if (qualityRuleCount > 0) completenessScore += 15
-  else missingItemCodes.push('QUALITY')
+  if (designAssetCount > 0) completenessScore += 15
+  else missingItemCodes.push('DESIGN')
   if (colorMaterialMappingCount > 0) completenessScore += 10
   else missingItemCodes.push('COLOR_MATERIAL')
 

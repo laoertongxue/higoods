@@ -78,6 +78,10 @@ interface PdaCuttingStageEventRecord {
   submittedAt: string
   operatorName: string
   syncStatus: PdaCuttingSyncStatus
+  planUnitId?: string
+  sourceLineId?: string
+  stepNo?: number
+  stepLabel?: string
   actualLayerCount?: number
   actualSpreadLength?: number
   headLength?: number
@@ -180,6 +184,8 @@ export interface PdaCuttingSpreadingRecord {
   id: string
   spreadingSessionId: string
   planUnitId: string
+  stepNo?: number
+  stepLabel?: string
   rollRecordId: string
   operatorRecordId: string
   markerId: string
@@ -228,6 +234,8 @@ export interface PdaCuttingSpreadingPlanUnitOption {
   planUnitId: string
   sourceType: 'marker-line' | 'high-low-row' | 'exception'
   sourceLineId: string
+  stepNo?: number
+  stepLabel?: string
   label: string
   color: string
   materialSku: string
@@ -243,6 +251,7 @@ export interface PdaCuttingSpreadingPlanUnitOption {
     color: string
     size: string
     plannedQty: number
+    plannedLayerCount?: number
   }>
   partRows: Array<{
     partCode: string
@@ -507,7 +516,8 @@ function formatQty(value: number): string {
 }
 
 function buildSpreadingPlanUnitLabel(unit: SpreadingPlanUnit): string {
-  return `${unit.color || '待补颜色'} / ${unit.materialSku || '待补面料'} / ${formatQty(unit.garmentQtyPerUnit)}件/层`
+  const prefix = unit.stepLabel ? `${unit.stepLabel} / ` : ''
+  return `${prefix}${unit.color || '待补颜色'} / ${unit.materialSku || '待补面料'} / ${formatQty(unit.garmentQtyPerUnit)}件/层`
 }
 
 function buildPlanUnitSizeRows(execution: PdaCuttingExecutionSourceRecord, color?: string): PdaCuttingSpreadingPlanUnitOption['sizeRows'] {
@@ -540,10 +550,11 @@ function buildPlanUnitPartRows(execution: PdaCuttingExecutionSourceRecord): PdaC
 function withCuttingBreakdownRows(
   unit: Omit<PdaCuttingSpreadingPlanUnitOption, 'sizeRows' | 'partRows'>,
   execution: PdaCuttingExecutionSourceRecord,
+  sizeRows?: PdaCuttingSpreadingPlanUnitOption['sizeRows'],
 ): PdaCuttingSpreadingPlanUnitOption {
   return {
     ...unit,
-    sizeRows: buildPlanUnitSizeRows(execution, unit.color),
+    sizeRows: sizeRows?.length ? sizeRows : buildPlanUnitSizeRows(execution, unit.color),
     partRows: buildPlanUnitPartRows(execution),
   }
 }
@@ -554,6 +565,8 @@ function toSpreadingPlanUnitOption(unit: SpreadingPlanUnit, execution: PdaCuttin
       planUnitId: unit.planUnitId,
       sourceType: unit.sourceType,
       sourceLineId: unit.sourceLineId,
+      stepNo: unit.stepNo,
+      stepLabel: unit.stepLabel,
       label: buildSpreadingPlanUnitLabel(unit),
       color: unit.color,
       materialSku: unit.materialSku,
@@ -564,7 +577,7 @@ function toSpreadingPlanUnitOption(unit: SpreadingPlanUnit, execution: PdaCuttin
       lengthPerUnitM: unit.lengthPerUnitM,
       plannedCutGarmentQty: unit.plannedCutGarmentQty,
       plannedSpreadLengthM: unit.plannedSpreadLengthM,
-    }, execution),
+    }, execution, unit.sizeRows),
   }
 }
 
@@ -658,7 +671,52 @@ function buildPlanUnitsFromCanonicalPlan(
   const bedUnits = Array.isArray(plan.beds)
     ? plan.beds
         .filter((bed) => bed.readyForSpreading)
-        .map((bed, index) => {
+        .flatMap((bed, index) => {
+          if (bed.bedMode === 'high_low' || bed.bedMode === 'fold_high_low') {
+            return (bed.highLowMatrixRows || []).map((row, rowIndex) => {
+              const stepNo = Math.max(Number(row.stepNo || rowIndex + 1), 1)
+              const stepLabel = row.stepLabel || `第${stepNo}阶`
+              const plannedRepeatCount = Math.max(
+                ...Object.values(row.sizeValues || {}).map((value) => Math.max(Math.round(Number(value || 0)), 0)),
+                1,
+              )
+              const actualRepeatCount = bed.bedMode === 'fold_high_low' ? plannedRepeatCount / 2 : plannedRepeatCount
+              const plannedCutGarmentQty = Object.entries(row.sizeValues || {}).reduce((sum, [size, layer]) => {
+                return sum + Math.max(Number(layer || 0), 0) * Math.max(Number(bed.sizePiecePerLayer?.[size] || 0), 0)
+              }, 0)
+              const garmentQtyPerUnit = actualRepeatCount > 0 ? Math.max(Math.ceil(plannedCutGarmentQty / actualRepeatCount), 0) : plannedCutGarmentQty
+              const unit: SpreadingPlanUnit = {
+                planUnitId: `plan-unit-${plan.id}-bed-${bed.bedId || index + 1}-step-${stepNo}`,
+                sourceType: 'high-low-row',
+                sourceLineId: row.rowId || `${bed.bedId || index + 1}-step-${stepNo}`,
+                stepNo,
+                stepLabel,
+                color: row.colorName || row.colorCode || bed.colorName || bed.colorCode || fallbackColor,
+                materialSku: bed.materialSku || materialSku,
+                materialAlias,
+                materialImageUrl,
+                garmentQtyPerUnit,
+                plannedRepeatCount: actualRepeatCount,
+                lengthPerUnitM: Number(row.markerLength || 0),
+                plannedCutGarmentQty,
+                plannedSpreadLengthM: Number((((Number(row.markerLength || 0) + 0.06) * actualRepeatCount).toFixed(2))),
+                sizeLayerValues: Object.fromEntries(Object.entries(row.sizeValues || {}).map(([size, value]) => [size, Math.max(Number(value || 0), 0)])),
+                sizeRows: Object.entries(row.sizeValues || {})
+                  .filter(([, value]) => Math.max(Number(value || 0), 0) > 0)
+                  .map(([size, value]) => ({
+                    skuCode: `${row.colorName || row.colorCode || fallbackColor}-${size}`,
+                    color: row.colorName || row.colorCode || fallbackColor,
+                    size,
+                    plannedQty: Math.max(Number(value || 0), 0) * Math.max(Number(bed.sizePiecePerLayer?.[size] || 0), 0),
+                    plannedLayerCount: Math.max(Number(value || 0), 0),
+                  })),
+              }
+              return withCuttingBreakdownRows({
+                ...unit,
+                label: buildSpreadingPlanUnitLabel(unit),
+              }, execution, unit.sizeRows)
+            })
+          }
           const unit: SpreadingPlanUnit = {
             planUnitId: `plan-unit-${plan.id}-bed-${bed.bedId || index + 1}`,
             sourceType: bed.bedMode === 'high_low' || bed.bedMode === 'fold_high_low' ? 'high-low-row' : 'marker-line',
@@ -1198,6 +1256,12 @@ function numberFromPayload(payload: CuttingRuntimeEvent['payload'], key: string)
   return Number.isFinite(value) ? value : undefined
 }
 
+function stringFromPayload(payload: CuttingRuntimeEvent['payload'], key: string): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined
+  const value = (payload as Record<string, unknown>)[key]
+  return typeof value === 'string' && value.trim() ? value : undefined
+}
+
 function actualCutQtyFromRuntimePayload(payload: CuttingRuntimeEvent['payload']): number | undefined {
   const direct = numberFromPayload(payload, 'actualPieceQty')
   if (direct !== undefined) return direct
@@ -1240,6 +1304,10 @@ function mapRuntimeEventToStageRecord(
     submittedAt: event.occurredAt,
     operatorName: event.operatorName || '现场操作员',
     syncStatus,
+    planUnitId: stringFromPayload(event.payload, 'planUnitId'),
+    sourceLineId: stringFromPayload(event.payload, 'sourceLineId'),
+    stepNo: numberFromPayload(event.payload, 'stepNo'),
+    stepLabel: stringFromPayload(event.payload, 'stepLabel'),
     actualLayerCount: numberFromPayload(event.payload, 'actualLayerCount'),
     actualSpreadLength: numberFromPayload(event.payload, 'actualSpreadLength'),
     headLength: numberFromPayload(event.payload, 'headLength'),
@@ -1511,6 +1579,8 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
       id: roll.rollRecordId,
       spreadingSessionId: session.spreadingSessionId,
       planUnitId: roll.planUnitId || '',
+      stepNo: roll.stepNo,
+      stepLabel: roll.stepLabel,
       rollRecordId: roll.rollRecordId,
       operatorRecordId: latestOperator?.operatorRecordId || '',
       markerId: session.markerId || '',

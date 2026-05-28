@@ -165,14 +165,9 @@ function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMob
       route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'inbound' }),
     },
     {
-      title: '二次分拣',
-      subtitle: '按下游任务拣菲票。',
-      route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'sorting' }),
-    },
-    {
-      title: '重新装袋',
-      subtitle: '把分拣结果装入载具。',
-      route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'rebagging' }),
+      title: '分拣装袋',
+      subtitle: '按车缝任务拣菲票并装入中转袋。',
+      route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'sorting-bagging' }),
     },
     {
       title: '交出',
