@@ -9,6 +9,16 @@ export type TechnicalReviewNodeKey = 'BUYER' | 'PATTERN_MAKER' | 'MERCHANDISER'
 export type TechnicalReviewRole = '买手' | '版师' | '跟单'
 export type TechnicalReviewNodeStatus = '待审核' | '审核中' | '审核-未通过' | '审核-已通过'
 export type TechnicalReviewStage = '未提交审核' | '第一阶段并行审核' | '跟单复核' | '待发布' | '已发布'
+export type TechnicalReviewDiffStatus = '无基线' | '无差异' | '有差异'
+export type TechnicalReviewDiffChangeType = '新增' | '删除' | '修改'
+export type TechnicalReviewFeishuNotifyStatus = '未发送' | '已发送' | '发送失败'
+export type TechnicalReviewNotificationType =
+  | '提交审核'
+  | '每日提醒'
+  | '进入跟单复核'
+  | '打回复审'
+  | '改派提醒'
+  | '手动重试'
 export type TechnicalModuleKey =
   | 'BOM'
   | 'COST'
@@ -25,9 +35,75 @@ export interface TechnicalReviewNode {
   nodeName: '买手审核' | '版师审核' | '跟单审核'
   status: TechnicalReviewNodeStatus
   reviewerRole: TechnicalReviewRole
+  assignedReviewerId: string
+  assignedReviewerName: string
+  assignedReviewerRole: TechnicalReviewRole
+  assignedReviewerFeishuOpenId: string
+  assignedAt: string
+  assignedBy: string
   reviewedBy: string
   reviewedAt: string
+  startedOpinion: string
   opinion: string
+  diffSnapshotId: string
+  diffStatus: TechnicalReviewDiffStatus
+  diffSummaryText: string
+  lastFeishuNotifyAt: string
+  lastFeishuNotifyStatus: TechnicalReviewFeishuNotifyStatus
+  lastFeishuNotifyRecordId: string
+  todayFeishuNotifiedFlag: boolean
+  todayFeishuNotifyAt: string
+  feishuNotifyCount: number
+}
+
+export interface TechnicalReviewDiffItem {
+  diffItemId: string
+  scope: string
+  title: string
+  changeType: TechnicalReviewDiffChangeType
+  beforeText: string
+  afterText: string
+}
+
+export interface TechnicalReviewDiffSnapshot {
+  snapshotId: string
+  technicalVersionId: string
+  nodeKey: TechnicalReviewNodeKey
+  baselineVersionId: string
+  baselineVersionCode: string
+  baselineVersionLabel: string
+  baselinePublishedAt: string
+  diffStatus: TechnicalReviewDiffStatus
+  summaryText: string
+  addedCount: number
+  changedCount: number
+  removedCount: number
+  items: TechnicalReviewDiffItem[]
+  builtAt: string
+}
+
+export interface TechnicalReviewNotificationRecord {
+  notificationId: string
+  technicalVersionId: string
+  technicalVersionCode: string
+  styleId: string
+  styleCode: string
+  styleName: string
+  nodeKey: TechnicalReviewNodeKey
+  nodeName: TechnicalReviewNode['nodeName']
+  notificationType: TechnicalReviewNotificationType
+  reviewerId: string
+  reviewerName: string
+  reviewerRole: TechnicalReviewRole
+  feishuOpenId: string
+  reviewStatusSnapshot: TechnicalReviewNodeStatus
+  diffSummarySnapshot: string
+  sendStatus: Extract<TechnicalReviewFeishuNotifyStatus, '已发送' | '发送失败'>
+  sentAt: string
+  failedReason: string
+  feishuMessageId: string
+  deepLink: string
+  createdBy: string
 }
 
 export type TechnicalPatternMaterialType = 'WOVEN' | 'WOOL' | 'UNKNOWN'

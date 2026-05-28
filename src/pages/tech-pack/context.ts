@@ -47,7 +47,7 @@ import {
   getTechnicalDataVersionContent,
 } from '../../data/pcs-technical-data-version-repository.ts'
 import { canEditTechnicalModule } from '../../data/pcs-tech-pack-review.ts'
-import type { TechnicalModuleKey } from '../../data/pcs-technical-data-version-types.ts'
+import type { TechnicalModuleKey, TechnicalReviewNodeKey } from '../../data/pcs-technical-data-version-types.ts'
 import { listPartTemplateRecords, type PartTemplateRecord } from '../../data/pcs-part-template-library.ts'
 import {
   DETAIL_SPLIT_DIMENSION_LABEL,
@@ -1660,6 +1660,14 @@ interface TechPackPageState {
 
   releaseDialogOpen: boolean
   versionLogDialogOpen: boolean
+  reviewSubmitDialogOpen: boolean
+  reviewDetailDrawerOpen: boolean
+  reviewActionDialogOpen: boolean
+  reviewDiffDialogNodeKey: TechnicalReviewNodeKey | null
+  reviewNotificationDialogNodeKey: TechnicalReviewNodeKey | null
+  reviewActionNodeKey: TechnicalReviewNodeKey | null
+  reviewActionType: 'start' | 'approve' | 'reject' | 'return' | null
+  reviewActionOpinion: string
   addPatternDialogOpen: boolean
   addBomDialogOpen: boolean
   addTechniqueDialogOpen: boolean
@@ -1773,6 +1781,14 @@ const state: TechPackPageState = {
 
   releaseDialogOpen: false,
   versionLogDialogOpen: false,
+  reviewSubmitDialogOpen: false,
+  reviewDetailDrawerOpen: false,
+  reviewActionDialogOpen: false,
+  reviewDiffDialogNodeKey: null,
+  reviewNotificationDialogNodeKey: null,
+  reviewActionNodeKey: null,
+  reviewActionType: null,
+  reviewActionOpinion: '',
   addPatternDialogOpen: false,
   addBomDialogOpen: false,
   addTechniqueDialogOpen: false,
@@ -4604,6 +4620,14 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
 function closeAllDialogs(): void {
   state.releaseDialogOpen = false
   state.versionLogDialogOpen = false
+  state.reviewSubmitDialogOpen = false
+  state.reviewDetailDrawerOpen = false
+  state.reviewActionDialogOpen = false
+  state.reviewDiffDialogNodeKey = null
+  state.reviewNotificationDialogNodeKey = null
+  state.reviewActionNodeKey = null
+  state.reviewActionType = null
+  state.reviewActionOpinion = ''
   state.addPatternDialogOpen = false
   state.addBomDialogOpen = false
   state.addTechniqueDialogOpen = false

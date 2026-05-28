@@ -22,6 +22,7 @@ import {
   startTechPackReview,
   submitTechPackFirstStageReview,
 } from '../../data/pcs-tech-pack-review.ts'
+import { getFixedTechPackReviewers } from '../../data/pcs-tech-pack-reviewer-directory.ts'
 import type {
   TechnicalGarmentDifficultyGrade,
   TechnicalModuleKey,
@@ -1335,6 +1336,11 @@ function handleTechPackField(
   const value = node.value
   const checked = node instanceof HTMLInputElement ? node.checked : false
 
+  if (field === 'review-action-opinion') {
+    state.reviewActionOpinion = value
+    return true
+  }
+
   if (field === 'garment-difficulty-grade') {
     if (!state.currentTechnicalVersionId) return true
     const nextGrade: TechnicalGarmentDifficultyGrade =
@@ -2433,6 +2439,19 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       state.releaseDialogOpen = false
     } else if (state.versionLogDialogOpen) {
       state.versionLogDialogOpen = false
+    } else if (state.reviewSubmitDialogOpen) {
+      state.reviewSubmitDialogOpen = false
+    } else if (state.reviewDetailDrawerOpen) {
+      state.reviewDetailDrawerOpen = false
+    } else if (state.reviewActionDialogOpen) {
+      state.reviewActionDialogOpen = false
+      state.reviewActionNodeKey = null
+      state.reviewActionType = null
+      state.reviewActionOpinion = ''
+    } else if (state.reviewDiffDialogNodeKey) {
+      state.reviewDiffDialogNodeKey = null
+    } else if (state.reviewNotificationDialogNodeKey) {
+      state.reviewNotificationDialogNodeKey = null
     } else if (state.designPreviewDialogOpen) {
       state.designPreviewDialogOpen = false
       state.designPreviewDesignId = null
@@ -2480,60 +2499,143 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'submit-review') {
+    state.reviewSubmitDialogOpen = true
+    state.compatibilityMessage = ''
+    return true
+  }
+  if (action === 'close-review-submit') {
+    state.reviewSubmitDialogOpen = false
+    return true
+  }
+  if (action === 'confirm-submit-review') {
     if (!state.currentTechnicalVersionId) return true
+    const reviewers = getFixedTechPackReviewers({
+      styleId: state.currentStyleId || '',
+      technicalVersionId: state.currentTechnicalVersionId,
+    })
     try {
-      submitTechPackFirstStageReview(state.currentTechnicalVersionId, currentUser.name)
+      submitTechPackFirstStageReview(state.currentTechnicalVersionId, {
+        buyerReviewerId: reviewers.buyerReviewer.reviewerId,
+        patternMakerReviewerId: reviewers.patternMakerReviewer.reviewerId,
+        merchandiserReviewerId: reviewers.merchandiserReviewer.reviewerId,
+        operator: currentUser,
+      })
+      state.reviewSubmitDialogOpen = false
       state.compatibilityMessage = ''
     } catch (error) {
       state.compatibilityMessage = error instanceof Error ? error.message : '提交审核失败'
     }
     return true
   }
+  if (action === 'open-review-detail-drawer') {
+    state.reviewDetailDrawerOpen = true
+    return true
+  }
+  if (action === 'close-review-detail-drawer') {
+    state.reviewDetailDrawerOpen = false
+    return true
+  }
   if (action === 'start-review') {
     const nodeKey = actionNode.dataset.reviewNode as TechnicalReviewNodeKey | undefined
     if (!state.currentTechnicalVersionId || !nodeKey) return true
-    try {
-      startTechPackReview(state.currentTechnicalVersionId, nodeKey, currentUser.name)
-      state.compatibilityMessage = ''
-    } catch (error) {
-      state.compatibilityMessage = error instanceof Error ? error.message : '开始审核失败'
-    }
+    state.reviewActionNodeKey = nodeKey
+    state.reviewActionType = 'start'
+    state.reviewActionOpinion = ''
+    state.reviewActionDialogOpen = true
+    state.compatibilityMessage = ''
     return true
   }
   if (action === 'approve-review') {
     const nodeKey = actionNode.dataset.reviewNode as TechnicalReviewNodeKey | undefined
     if (!state.currentTechnicalVersionId || !nodeKey) return true
-    try {
-      approveTechPackReview(state.currentTechnicalVersionId, nodeKey, '审核通过。', currentUser.name)
-      state.compatibilityMessage = ''
-    } catch (error) {
-      state.compatibilityMessage = error instanceof Error ? error.message : '审核通过失败'
-    }
+    state.reviewActionNodeKey = nodeKey
+    state.reviewActionType = 'approve'
+    state.reviewActionOpinion = ''
+    state.reviewActionDialogOpen = true
+    state.compatibilityMessage = ''
     return true
   }
   if (action === 'reject-review') {
     const nodeKey = actionNode.dataset.reviewNode as TechnicalReviewNodeKey | undefined
     if (!state.currentTechnicalVersionId || !nodeKey) return true
-    try {
-      rejectTechPackReview(state.currentTechnicalVersionId, nodeKey, '审核未通过，请修改后重新提交。', currentUser.name)
-      state.compatibilityMessage = ''
-    } catch (error) {
-      state.compatibilityMessage = error instanceof Error ? error.message : '审核不通过失败'
-    }
+    state.reviewActionNodeKey = nodeKey
+    state.reviewActionType = 'reject'
+    state.reviewActionOpinion = ''
+    state.reviewActionDialogOpen = true
+    state.compatibilityMessage = ''
     return true
   }
   if (action === 'return-review-first-stage') {
     if (!state.currentTechnicalVersionId) return true
+    state.reviewActionNodeKey = 'MERCHANDISER'
+    state.reviewActionType = 'return'
+    state.reviewActionOpinion = ''
+    state.reviewActionDialogOpen = true
+    state.compatibilityMessage = ''
+    return true
+  }
+  if (action === 'close-review-action') {
+    state.reviewActionDialogOpen = false
+    state.reviewActionNodeKey = null
+    state.reviewActionType = null
+    state.reviewActionOpinion = ''
+    return true
+  }
+  if (action === 'confirm-review-action') {
+    if (!state.currentTechnicalVersionId || !state.reviewActionNodeKey || !state.reviewActionType) return true
     try {
-      returnTechPackReviewToFirstStage(
-        state.currentTechnicalVersionId,
-        '跟单复核发现问题，打回买手、版师重新审核。',
-        currentUser.name,
-      )
+      if (state.reviewActionType === 'start') {
+        startTechPackReview(state.currentTechnicalVersionId, state.reviewActionNodeKey, {
+          operator: currentUser,
+          opinion: state.reviewActionOpinion,
+        })
+      } else if (state.reviewActionType === 'approve') {
+        approveTechPackReview(
+          state.currentTechnicalVersionId,
+          state.reviewActionNodeKey,
+          state.reviewActionOpinion,
+          currentUser,
+        )
+      } else if (state.reviewActionType === 'reject') {
+        rejectTechPackReview(
+          state.currentTechnicalVersionId,
+          state.reviewActionNodeKey,
+          state.reviewActionOpinion,
+          currentUser,
+        )
+      } else {
+        returnTechPackReviewToFirstStage(
+          state.currentTechnicalVersionId,
+          state.reviewActionOpinion,
+          currentUser,
+        )
+      }
+      state.reviewActionDialogOpen = false
+      state.reviewActionNodeKey = null
+      state.reviewActionType = null
+      state.reviewActionOpinion = ''
       state.compatibilityMessage = ''
     } catch (error) {
-      state.compatibilityMessage = error instanceof Error ? error.message : '打回上一阶段失败'
+      state.compatibilityMessage = error instanceof Error ? error.message : '审核操作失败'
     }
+    return true
+  }
+  if (action === 'open-review-diff') {
+    const nodeKey = actionNode.dataset.reviewNode as TechnicalReviewNodeKey | undefined
+    if (nodeKey) state.reviewDiffDialogNodeKey = nodeKey
+    return true
+  }
+  if (action === 'close-review-diff') {
+    state.reviewDiffDialogNodeKey = null
+    return true
+  }
+  if (action === 'open-review-notifications') {
+    const nodeKey = actionNode.dataset.reviewNode as TechnicalReviewNodeKey | undefined
+    if (nodeKey) state.reviewNotificationDialogNodeKey = nodeKey
+    return true
+  }
+  if (action === 'close-review-notifications') {
+    state.reviewNotificationDialogNodeKey = null
     return true
   }
   if (action === 'open-version-logs') {

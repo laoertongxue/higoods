@@ -39,7 +39,8 @@ import {
 } from '../data/pcs-technical-data-version-repository.ts'
 import type { TechnicalDataVersionRecord, TechnicalReviewStage } from '../data/pcs-technical-data-version-types.ts'
 import {
-  getTechnicalReviewPendingRoles,
+  getTechnicalReviewFeishuNotifyText,
+  getTechnicalReviewPendingReviewerText,
   getTechnicalReviewStatusText,
   normalizeTechnicalReviewSnapshot,
 } from '../data/pcs-tech-pack-review.ts'
@@ -148,6 +149,7 @@ interface StyleArchiveListItemViewModel {
   reviewStage: TechnicalReviewStage | '无技术包'
   reviewStatusText: string
   reviewPendingReviewerText: string
+  reviewNotifyText: string
   reviewActionText: string
   reviewBadgeClass: string
   channelCount: number
@@ -474,6 +476,7 @@ function buildStyleReviewSummary(version: TechnicalDataVersionRecord | null): Pi
   | 'reviewStage'
   | 'reviewStatusText'
   | 'reviewPendingReviewerText'
+  | 'reviewNotifyText'
   | 'reviewActionText'
   | 'reviewBadgeClass'
 > {
@@ -484,13 +487,15 @@ function buildStyleReviewSummary(version: TechnicalDataVersionRecord | null): Pi
       reviewStage: '无技术包',
       reviewStatusText: '未建立技术包',
       reviewPendingReviewerText: '无',
+      reviewNotifyText: '无待通知审核人',
       reviewActionText: '先建立技术包版本',
       reviewBadgeClass: resolveReviewBadgeClass('无技术包', '未建立技术包'),
     }
   }
 
   const snapshot = normalizeTechnicalReviewSnapshot(version)
-  const pendingRoles = getTechnicalReviewPendingRoles(version)
+  const pendingReviewerText = getTechnicalReviewPendingReviewerText(version)
+  const notifyText = getTechnicalReviewFeishuNotifyText(version)
   const statusText = getTechnicalReviewStatusText(version)
   const actionText =
     version.versionStatus === 'PUBLISHED' || snapshot.reviewStage === '已发布'
@@ -499,8 +504,8 @@ function buildStyleReviewSummary(version: TechnicalDataVersionRecord | null): Pi
         ? '提交买手、版师并行审核'
         : snapshot.reviewStage === '待发布'
           ? '发布正式版本'
-          : pendingRoles.length > 0
-            ? `待${pendingRoles.join('、')}审核`
+          : pendingReviewerText !== '无'
+            ? `待${pendingReviewerText}审核`
             : '等待审核流转'
 
   return {
@@ -508,7 +513,8 @@ function buildStyleReviewSummary(version: TechnicalDataVersionRecord | null): Pi
     reviewVersionText: `${version.versionLabel} · ${version.technicalVersionCode}`,
     reviewStage: snapshot.reviewStage,
     reviewStatusText: statusText,
-    reviewPendingReviewerText: pendingRoles.length > 0 ? pendingRoles.join('、') : '无',
+    reviewPendingReviewerText: pendingReviewerText,
+    reviewNotifyText: notifyText,
     reviewActionText: actionText,
     reviewBadgeClass: resolveReviewBadgeClass(snapshot.reviewStage, statusText),
   }
@@ -1033,6 +1039,7 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
                 : escapeHtml(item.reviewVersionText)
             }</div>
             <div class="mt-1 text-xs text-slate-500">待审核：${escapeHtml(item.reviewPendingReviewerText)}</div>
+            <div class="mt-1 text-xs text-slate-500">飞书：${escapeHtml(item.reviewNotifyText)}</div>
             <div class="mt-1 text-xs text-slate-500">提示：${escapeHtml(item.reviewActionText)}</div>
           </td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.skuCount)}</td>
@@ -1588,6 +1595,7 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
                 <div class="mt-1">${renderBadge(reviewSummary.reviewStatusText, reviewSummary.reviewBadgeClass)}</div>
                 <div class="mt-1 text-xs text-slate-500">${escapeHtml(reviewSummary.reviewVersionText)}</div>
                 <div class="mt-1 text-xs text-slate-500">待审核：${escapeHtml(reviewSummary.reviewPendingReviewerText)}；${escapeHtml(reviewSummary.reviewActionText)}</div>
+                <div class="mt-1 text-xs text-slate-500">飞书：${escapeHtml(reviewSummary.reviewNotifyText)}</div>
               </div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">测款渠道</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.targetChannelCodes.join(' / ') || '-')}</div></div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">卖点摘要</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sellingPointText || '-')}</div></div>
@@ -1639,6 +1647,7 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
           <td class="px-4 py-3">
             <div>${renderBadge(item.reviewStatusText, resolveReviewBadgeClass(item.reviewStage as TechnicalReviewStage, item.reviewStatusText))}</div>
             <div class="mt-1 text-xs text-slate-500">待审核：${escapeHtml(item.pendingReviewerText)}</div>
+            <div class="mt-1 text-xs text-slate-500">飞书：${escapeHtml(item.reviewNotifyText)}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.reviewActionText)}</div>
           </td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(`${item.completenessScore}%`)}</td>

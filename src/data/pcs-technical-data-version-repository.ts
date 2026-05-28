@@ -239,9 +239,36 @@ function normalizeReviewNode(
     nodeName: meta.nodeName,
     status: normalizeReviewNodeStatus(node?.status),
     reviewerRole: meta.reviewerRole,
+    assignedReviewerId: node?.assignedReviewerId || '',
+    assignedReviewerName: node?.assignedReviewerName || '',
+    assignedReviewerRole:
+      node?.assignedReviewerRole === '买手' ||
+      node?.assignedReviewerRole === '版师' ||
+      node?.assignedReviewerRole === '跟单'
+        ? node.assignedReviewerRole
+        : meta.reviewerRole,
+    assignedReviewerFeishuOpenId: node?.assignedReviewerFeishuOpenId || '',
+    assignedAt: node?.assignedAt || '',
+    assignedBy: node?.assignedBy || '',
     reviewedBy: node?.reviewedBy || '',
     reviewedAt: node?.reviewedAt || '',
+    startedOpinion: node?.startedOpinion || '',
     opinion: node?.opinion || '',
+    diffSnapshotId: node?.diffSnapshotId || '',
+    diffStatus:
+      node?.diffStatus === '无基线' || node?.diffStatus === '无差异' || node?.diffStatus === '有差异'
+        ? node.diffStatus
+        : '无基线',
+    diffSummaryText: node?.diffSummaryText || '',
+    lastFeishuNotifyAt: node?.lastFeishuNotifyAt || '',
+    lastFeishuNotifyStatus:
+      node?.lastFeishuNotifyStatus === '已发送' || node?.lastFeishuNotifyStatus === '发送失败'
+        ? node.lastFeishuNotifyStatus
+        : '未发送',
+    lastFeishuNotifyRecordId: node?.lastFeishuNotifyRecordId || '',
+    todayFeishuNotifiedFlag: Boolean(node?.todayFeishuNotifiedFlag),
+    todayFeishuNotifyAt: node?.todayFeishuNotifyAt || '',
+    feishuNotifyCount: Number.isFinite(Number(node?.feishuNotifyCount)) ? Number(node?.feishuNotifyCount) : 0,
   }
 }
 
@@ -253,7 +280,6 @@ function deriveReviewStage(input: {
   merchandiserReview: TechnicalReviewNode
 }): TechnicalReviewStage {
   if (input.versionStatus === 'PUBLISHED' || input.versionStatus === 'ARCHIVED') return '已发布'
-  if (input.reviewStage === '已发布') return '已发布'
   if (input.merchandiserReview.status === '审核-已通过') return '待发布'
   if (
     input.buyerReview.status === '审核-已通过' &&

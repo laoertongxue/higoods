@@ -165,6 +165,44 @@ function getTicketScanCode(source: Record<string, unknown>): string {
   return typeof value === 'string' ? value : ''
 }
 
+function buildFeiActualOutputBusinessLines(row: FeiTicketWorkbenchRow): string[] {
+  const generated = row.generated
+  const primaryLine = [
+    row.spreadingOrderNo ? `铺布单 ${row.spreadingOrderNo}` : '',
+    row.markerNumber ? `唛架编号 ${row.markerNumber}` : '',
+    generated.bedNo ? `床次 ${generated.bedNo}` : '',
+  ].filter(Boolean).join(' · ')
+  const pieceLine = [
+    row.partName || generated.partName ? `部位 ${row.partName || generated.partName}` : '',
+    row.size || generated.skuSize ? `尺码 ${row.size || generated.skuSize}` : '',
+    row.pieceSequenceLabel && row.pieceSequenceLabel !== '不可生成' ? `编号范围 ${row.pieceSequenceLabel}` : '',
+  ].filter(Boolean).join(' · ')
+  const qtyLine = row.pieceQty > 0 ? `本张菲票裁片数量 ${formatCount(row.pieceQty)} 片` : ''
+  return [primaryLine, pieceLine, qtyLine].filter(Boolean)
+}
+
+function buildFeiQrBusinessTraceLines(
+  row: FeiTicketWorkbenchRow,
+  projection: ReturnType<typeof buildFeiTicketLabelPrintProjection>,
+): string[] {
+  const qr = projection.qrPayload
+  const sourceLine = [
+    qr.productionOrderNo ? `生产单 ${qr.productionOrderNo}` : '',
+    qr.cutOrderNo ? `裁片单 ${qr.cutOrderNo}` : '',
+    qr.spreadingOrderNo ? `铺布单 ${qr.spreadingOrderNo}` : '',
+  ].filter(Boolean).join(' · ')
+  const pieceLine = [
+    qr.color ? `颜色 ${qr.color}` : '',
+    qr.size ? `尺码 ${qr.size}` : '',
+    qr.partName ? `部位 ${qr.partName}` : '',
+    qr.pieceSequenceLabel ? `编号范围 ${qr.pieceSequenceLabel}` : '',
+  ].filter(Boolean).join(' · ')
+  const craftLine = row.hasSpecialCraft
+    ? `特殊工艺 ${joinCompactLines(row.specialCraftLines, 3)}；承接工厂 ${joinCompactLines(row.receiverFactoryLines, 3)}`
+    : '特殊工艺 无'
+  return [sourceLine, pieceLine, craftLine].filter(Boolean)
+}
+
 function formatDispatchLabel(value: string): string {
   return value.replaceAll('发料', '交出')
 }
@@ -1344,6 +1382,103 @@ function renderFeiTicketWorkbenchCard(row: FeiTicketSpreadingWorkbenchRow): stri
   `
 }
 
+function renderFeiTicketWorkbenchTable(rows: FeiTicketSpreadingWorkbenchRow[]): string {
+  if (!rows.length) {
+    return `
+      <section class="rounded-lg border bg-card px-6 py-10 text-center text-sm text-muted-foreground">
+        暂无铺布单菲票。
+      </section>
+    `
+  }
+
+  return `
+    <section class="rounded-lg border bg-card">
+      <div class="flex items-center justify-between border-b px-4 py-3">
+        <div>
+          <h2 class="text-sm font-semibold">菲票打印</h2>
+        </div>
+        <div class="text-xs text-muted-foreground">共 ${formatCount(rows.length)} 条铺布单</div>
+      </div>
+      ${renderStickyTableScroller(
+        `
+          <table class="w-full min-w-[1260px] text-sm">
+            <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium">铺布单</th>
+                <th class="px-4 py-3 text-left font-medium">来源</th>
+                <th class="px-4 py-3 text-left font-medium">菲票明细</th>
+                <th class="px-4 py-3 text-left font-medium">特殊工艺</th>
+                <th class="px-4 py-3 text-left font-medium">打印信息</th>
+                <th class="px-4 py-3 text-left font-medium">状态</th>
+                <th class="px-4 py-3 text-left font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              ${rows
+                .map((row) => {
+                  const detailLines = row.detailRows.slice(0, 3)
+                  const remainingCount = Math.max(row.detailRows.length - detailLines.length, 0)
+                  return `
+                    <tr class="hover:bg-muted/20">
+                      <td class="px-4 py-3 align-top">
+                        <button type="button" data-nav="${escapeHtml(buildStandaloneSpreadingHref(row))}" class="text-left font-medium text-blue-600 hover:underline">
+                          ${escapeHtml(row.spreadingOrderNo)}
+                        </button>
+                        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${row.markerPlanNo} / 唛架编号 ${row.markerNumber}`)}</p>
+                        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(`菲票明细 ${formatCount(row.ticketCount)} 条 / 裁片 ${formatCount(row.totalPieceQty)} 片`)}</p>
+                      </td>
+                      <td class="px-4 py-3 align-top">
+                        <div class="space-y-1 text-xs text-muted-foreground">
+                          <p><span>生产单：</span><span class="font-medium text-foreground">${escapeHtml(joinCompactLines(row.productionOrderNos, 2))}</span></p>
+                          <p><span>裁片单：</span><span class="font-medium text-foreground">${escapeHtml(joinCompactLines(row.cutOrderNos, 2))}</span></p>
+                          <p><span>SPU：</span><span class="font-medium text-foreground">${escapeHtml(joinCompactLines(row.spuCodes, 2))}</span></p>
+                          <p><span>颜色：</span><span class="font-medium text-foreground">${escapeHtml(joinCompactLines(row.colors, 2))}</span></p>
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 align-top">
+                        <div class="space-y-1 text-xs text-muted-foreground">
+                          ${detailLines
+                            .map((detail) => `
+                              <p>
+                                <span class="font-medium text-foreground">${escapeHtml(`${detail.partName || '待补部位'} / ${detail.size || '待补尺码'}`)}</span>
+                                <span> · ${formatCount(detail.pieceQty)} 片 · 编号 ${escapeHtml(detail.pieceSequenceLabel || '不可生成')}</span>
+                              </p>
+                            `)
+                            .join('')}
+                          ${remainingCount ? `<p>另 ${formatCount(remainingCount)} 条明细，进入部位明细查看。</p>` : ''}
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 align-top">
+                        <div class="space-y-1 text-xs text-muted-foreground">
+                          <p><span>是否有特殊工艺：</span><span class="font-medium text-foreground">${row.hasSpecialCraft ? '是' : '无'}</span></p>
+                          <p><span>特殊工艺类型：</span><span class="font-medium text-foreground">${escapeHtml(joinCompactLines(row.specialCraftLines, 2))}</span></p>
+                          <p><span>承接工厂：</span><span class="font-medium text-foreground">${escapeHtml(joinCompactLines(row.receiverFactoryLines, 2))}</span></p>
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 align-top">
+                        <div class="space-y-1 text-xs text-muted-foreground">
+                          <p><span>打印时间：</span><span class="font-medium text-foreground">${escapeHtml(row.firstPrintedAt || '未打印')}</span></p>
+                          <p><span>最近补打：</span><span class="font-medium text-foreground">${escapeHtml(row.latestReprintAt || '无')}</span></p>
+                          <p><span>打印次数：</span><span class="font-medium text-foreground">${formatCount(row.printCount)}</span></p>
+                          <p><span>打印人：</span><span class="font-medium text-foreground">${escapeHtml(row.printedBy || '待打印')}</span></p>
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 align-top">${renderSpreadingLifecycleStatusBadge(row)}</td>
+                      <td class="px-4 py-3 align-top">
+                        <div class="min-w-[180px]">${renderSpreadingWorkbenchRowActions(row)}</div>
+                      </td>
+                    </tr>
+                  `
+                })
+                .join('')}
+            </tbody>
+          </table>
+        `,
+      )}
+    </section>
+  `
+}
+
 function renderListTable(bundle: FeiTicketsDataBundle): string {
   if (!bundle.filteredUnits.length) {
     const title = bundle.printableViewModel.units.length ? '暂无匹配结果' : '暂无待打印对象'
@@ -1437,9 +1572,7 @@ function renderListPage(): string {
   const rows = buildFeiTicketSpreadingWorkbenchRows(detailRows)
   const body = `
     ${renderFilterArea()}
-    ${rows.length
-      ? `<section class="space-y-2">${rows.map((row) => renderFeiTicketWorkbenchCard(row)).join('')}</section>`
-      : '<section class="rounded-lg border bg-white px-6 py-10 text-center text-sm text-slate-500 shadow-sm">暂无铺布单菲票。</section>'}
+    ${renderFeiTicketWorkbenchTable(rows)}
   `
 
   return renderPrintablePageShell(`
@@ -2382,6 +2515,8 @@ function renderSpreadingStandaloneDetailSections(row: FeiTicketSpreadingWorkbenc
 function renderStandaloneDetailSections(row: FeiTicketWorkbenchRow): string {
   const recordLike = row.record || row.generated
   const printProjection = buildFeiTicketLabelPrintProjection(recordLike)
+  const actualOutputBusinessLines = buildFeiActualOutputBusinessLines(row)
+  const qrBusinessTraceLines = buildFeiQrBusinessTraceLines(row, printProjection)
   return `
     ${renderSectionCard('基本信息', '', `
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -2404,7 +2539,7 @@ function renderStandaloneDetailSections(row: FeiTicketWorkbenchRow): string {
         <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">纸样</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(row.generated.patternIdentity?.patternFileName || '待补纸样')}</p><p class="mt-1 text-xs text-slate-500">${escapeHtml(`${row.generated.patternIdentity?.patternVersion || '待补版本'} / ${row.generated.patternIdentity?.effectiveWidthValue || ''}${row.generated.patternIdentity?.effectiveWidthUnit || ''}`)}</p></div>
         <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">唛架方案 / 唛架编号</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(row.markerPlanNo || '待补')} / ${escapeHtml(row.markerNumber || '待补')}</p></div>
         <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">铺布单</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(row.spreadingOrderNo || '待补')}</p></div>
-        <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">实际裁剪产出</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(row.generated.sourceOutputLineId)}</p></div>
+        <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">裁剪产出来源</p>${actualOutputBusinessLines.length ? actualOutputBusinessLines.map((line, index) => `<p class="${index === 0 ? 'mt-1 text-sm font-semibold text-slate-900' : 'mt-1 text-xs text-slate-600'}">${escapeHtml(line)}</p>`).join('') : '<p class="mt-1 text-sm font-semibold text-slate-900">待补裁剪产出</p>'}</div>
       </div>
     `)}
     ${renderSectionCard('裁片信息', '', `
@@ -2430,9 +2565,9 @@ function renderStandaloneDetailSections(row: FeiTicketWorkbenchRow): string {
           <p class="mt-2 text-center text-xs text-slate-500">二维码预览</p>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
-          <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">payload 版本</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(printProjection.qrPayload.payloadVersion)}</p></div>
-          <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">二维码类型</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(printProjection.qrPayload.qrType)}</p></div>
-          <div class="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">追踪码</p><p class="mt-1 break-all text-xs font-medium text-slate-900">${escapeHtml(printProjection.qrDisplayValue.slice(0, 360))}${printProjection.qrDisplayValue.length > 360 ? '...' : ''}</p></div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">二维码版本</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(printProjection.qrPayload.payloadVersion)}</p></div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">业务类型</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(printProjection.qrPayload.qrType || '菲票')}</p></div>
+          <div class="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">业务追踪信息</p>${qrBusinessTraceLines.map((line, index) => `<p class="${index === 0 ? 'mt-1 text-sm font-semibold text-slate-900' : 'mt-1 text-xs text-slate-600'}">${escapeHtml(line)}</p>`).join('')}</div>
         </div>
       </div>
     `)}

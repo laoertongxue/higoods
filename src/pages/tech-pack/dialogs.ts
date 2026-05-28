@@ -4,6 +4,11 @@ export function isTechPackDialogOpen(): boolean {
   return (
     state.releaseDialogOpen ||
     state.versionLogDialogOpen ||
+    state.reviewSubmitDialogOpen ||
+    state.reviewDetailDrawerOpen ||
+    state.reviewActionDialogOpen ||
+    Boolean(state.reviewDiffDialogNodeKey) ||
+    Boolean(state.reviewNotificationDialogNodeKey) ||
     state.designPreviewDialogOpen ||
     state.addPatternDialogOpen ||
     state.addBomDialogOpen ||

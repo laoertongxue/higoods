@@ -9,7 +9,6 @@ import type {
   PrintDocumentType,
   PrintSourceType,
 } from '../../data/fcs/print-service.ts'
-import { createPrintRecordFromDocument } from '../../data/fcs/print-record-domain.ts'
 import { renderUnifiedPrintStyles } from './print-styles.ts'
 
 function decodeParam(value: string): string {
@@ -95,8 +94,6 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
       handoverRecordId: resolved.handoverRecordId ? decodeParam(resolved.handoverRecordId) : undefined,
     } as PrintDocumentBuildInput)
 
-    const printRecord = createPrintRecordFromDocument(document, '已预览')
-
     return `
       ${renderUnifiedPrintStyles()}
       <div class="print-preview-root">
@@ -105,7 +102,6 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
             <div>
               <h1 class="text-lg font-semibold">${escapeHtml(document.documentTitle)}打印预览</h1>
               <p class="mt-1 text-xs text-muted-foreground">打印前请在浏览器打印设置中关闭页眉和页脚。该提示不会被打印。</p>
-              <p class="mt-1 text-xs text-muted-foreground">打印记录：${escapeHtml(printRecord.printRecordId)} · ${escapeHtml(printRecord.documentType)} · ${escapeHtml(printRecord.sourceId)} · ${escapeHtml(printRecord.printStatus)}</p>
             </div>
             <div class="flex flex-wrap gap-2">
               ${document.printMeta.returnHref ? `<button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(document.printMeta.returnHref)}">返回业务单据</button>` : ''}

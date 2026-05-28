@@ -9,7 +9,9 @@ import { listTechPackVersionLogsByVersionId } from './pcs-tech-pack-version-log-
 import { listPatternAssetsForTechPackVersions } from './pcs-pattern-library-archive-linkage.ts'
 import {
   canPublishTechnicalVersionByReview,
-  getTechnicalReviewPendingRoles,
+  getTechnicalReviewFeishuNotifyText,
+  getTechnicalReviewPendingReviewerInfos,
+  getTechnicalReviewPendingReviewerText,
   getTechnicalReviewStatusText,
   normalizeTechnicalReviewSnapshot,
 } from './pcs-tech-pack-review.ts'
@@ -50,6 +52,7 @@ export interface TechnicalVersionListItemViewModel {
   reviewStage: string
   reviewStatusText: string
   pendingReviewerText: string
+  reviewNotifyText: string
   reviewActionText: string
 }
 
@@ -65,6 +68,7 @@ export interface TechnicalVersionDetailViewModel {
   reviewStage: string
   reviewStatusText: string
   pendingReviewerText: string
+  reviewNotifyText: string
   reviewActionText: string
   compatibilityMode: boolean
   versionLogs: TechPackVersionLogRecord[]
@@ -103,11 +107,14 @@ function buildTechnicalReviewSummary(record: TechnicalDataVersionRecord): {
   reviewStage: string
   reviewStatusText: string
   pendingReviewerText: string
+  reviewNotifyText: string
   reviewActionText: string
 } {
   const snapshot = normalizeTechnicalReviewSnapshot(record)
-  const pendingRoles = getTechnicalReviewPendingRoles(record)
-  const pendingReviewerText = pendingRoles.length > 0 ? pendingRoles.join('、') : '无'
+  const pendingReviewers = getTechnicalReviewPendingReviewerInfos(record)
+  const pendingRoles = pendingReviewers.map((item) => item.role)
+  const pendingReviewerText = getTechnicalReviewPendingReviewerText(record)
+  const reviewNotifyText = getTechnicalReviewFeishuNotifyText(record)
   let reviewActionText = '查看技术包'
   if (record.versionStatus === 'PUBLISHED') reviewActionText = '查看正式版本'
   else if (snapshot.reviewStage === '未提交审核') reviewActionText = '提交买手、版师并行审核'
@@ -120,6 +127,7 @@ function buildTechnicalReviewSummary(record: TechnicalDataVersionRecord): {
     reviewStage: snapshot.reviewStage || '未提交审核',
     reviewStatusText: getTechnicalReviewStatusText(record),
     pendingReviewerText,
+    reviewNotifyText,
     reviewActionText,
   }
 }
