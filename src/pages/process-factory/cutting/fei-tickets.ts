@@ -672,19 +672,7 @@ function renderStatusTabsArea(bundle: FeiTicketsDataBundle): string {
   `
 }
 
-const workbenchTabLabels: Record<FeiWorkbenchTabKey, string> = {
-  WAIT_FIRST: '待打印',
-  PRINTED: '已打印',
-  NEED_REPRINT: '需补打',
-}
-
 const reprintReasonOptions = ['菲票丢失', '菲票破损', '打印不清晰', '数量拆分需要补打', '现场复核需要', '其他原因']
-
-function getWorkbenchActiveTab(): FeiWorkbenchTabKey {
-  const value = getCurrentSearchParams().get('tab')
-  if (value === 'PRINTED' || value === 'NEED_REPRINT') return value
-  return 'WAIT_FIRST'
-}
 
 function normalizeTicketRouteId(value: string | undefined): string {
   return decodeURIComponent(value || '').trim()
@@ -696,11 +684,6 @@ function buildStandaloneFeiTicketHref(ticketId: string, suffix = ''): string {
 
 function buildStandaloneSpreadingHref(row: FeiTicketSpreadingWorkbenchRow, suffix = ''): string {
   return `/fcs/craft/cutting/fei-tickets/${encodeURIComponent(`spreading:${row.spreadingKey}`)}${suffix}`
-}
-
-function buildWorkbenchTabHref(tab: FeiWorkbenchTabKey): string {
-  if (tab === 'WAIT_FIRST') return getCanonicalCuttingPath('fei-tickets')
-  return `${getCanonicalCuttingPath('fei-tickets')}?tab=${tab}`
 }
 
 function getTicketRecordVersionLabel(record: FeiTicketLabelRecord | null): string {
@@ -1247,29 +1230,6 @@ function renderPrintablePageShell(content: string): string {
   return `<div class="space-y-3 p-4">${content}</div>`
 }
 
-function renderWorkbenchTabs(activeTab: FeiWorkbenchTabKey, rows: FeiTicketSpreadingWorkbenchRow[]): string {
-  const counts: Record<FeiWorkbenchTabKey, number> = {
-    WAIT_FIRST: rows.filter((row) => row.tab === 'WAIT_FIRST').length,
-    PRINTED: rows.filter((row) => row.tab === 'PRINTED').length,
-    NEED_REPRINT: rows.filter((row) => row.tab === 'NEED_REPRINT').length,
-  }
-  return `
-    <section class="rounded-lg border bg-white p-3 shadow-sm">
-      <div class="flex flex-wrap gap-2">
-        ${(Object.keys(workbenchTabLabels) as FeiWorkbenchTabKey[])
-          .map((tab) => {
-            const active = activeTab === tab
-            const className = active
-              ? 'border-blue-500 bg-blue-50 text-blue-700'
-              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-            return `<button type="button" data-nav="${escapeHtml(buildWorkbenchTabHref(tab))}" class="inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-medium transition ${className}"><span>${escapeHtml(workbenchTabLabels[tab])}</span><span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${formatCount(counts[tab])}</span></button>`
-          })
-          .join('')}
-      </div>
-    </section>
-  `
-}
-
 function renderLifecycleStatusBadge(row: FeiTicketWorkbenchRow): string {
   const className =
     row.tab === 'WAIT_FIRST'
@@ -1318,8 +1278,10 @@ function renderSpreadingLifecycleStatusBadge(row: FeiTicketSpreadingWorkbenchRow
 
 function renderSpreadingWorkbenchRowActions(row: FeiTicketSpreadingWorkbenchRow): string {
   const detailHref = buildStandaloneSpreadingHref(row)
+  const allPrintHref = buildSpreadingPrintPreviewHref(row.detailRows, 'all')
   return `
     <div class="flex flex-wrap gap-1.5">
+      <button type="button" data-nav="${escapeHtml(allPrintHref)}" class="inline-flex min-h-8 items-center rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700">全部打印</button>
       <button type="button" data-nav="${escapeHtml(detailHref)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">部位菲票明细</button>
     </div>
   `
@@ -1376,7 +1338,7 @@ function renderFeiTicketWorkbenchCard(row: FeiTicketSpreadingWorkbenchRow): stri
           <p><span class="text-slate-400">打印人：</span><span class="font-medium text-slate-800">${escapeHtml(row.printedBy || '待打印')}</span></p>
           <p><span class="text-slate-400">状态：</span><span class="font-medium text-slate-800">${escapeHtml(row.printStatusLabel)}</span></p>
         </div>
-        <div class="xl:w-[176px]">${renderSpreadingWorkbenchRowActions(row)}</div>
+        <div class="xl:w-[216px]">${renderSpreadingWorkbenchRowActions(row)}</div>
       </div>
     </article>
   `
@@ -1473,14 +1435,11 @@ function renderListPage(): string {
   const summaryAction = renderReturnToSummaryButton()
   const detailRows = buildFeiTicketWorkbenchRows(bundle)
   const rows = buildFeiTicketSpreadingWorkbenchRows(detailRows)
-  const activeTab = getWorkbenchActiveTab()
-  const visibleRows = rows.filter((row) => row.tab === activeTab)
   const body = `
     ${renderFilterArea()}
-    ${renderWorkbenchTabs(activeTab, rows)}
-    ${visibleRows.length
-      ? `<section class="space-y-2">${visibleRows.map((row) => renderFeiTicketWorkbenchCard(row)).join('')}</section>`
-      : '<section class="rounded-lg border bg-white px-6 py-10 text-center text-sm text-slate-500 shadow-sm">当前页签暂无铺布单菲票。</section>'}
+    ${rows.length
+      ? `<section class="space-y-2">${rows.map((row) => renderFeiTicketWorkbenchCard(row)).join('')}</section>`
+      : '<section class="rounded-lg border bg-white px-6 py-10 text-center text-sm text-slate-500 shadow-sm">暂无铺布单菲票。</section>'}
   `
 
   return renderPrintablePageShell(`
