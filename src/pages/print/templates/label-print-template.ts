@@ -34,12 +34,11 @@ import {
 
 type AnyFeiTicket = Record<string, any>
 
-type LabelKind = 'fei' | 'fei-reprint' | 'fei-void' | 'transfer-bag' | 'cutting-order' | 'handover'
+type LabelKind = 'fei' | 'fei-reprint' | 'transfer-bag' | 'cutting-order' | 'handover'
 
 const TEMPLATE_BY_DOCUMENT: Record<string, string> = {
   FEI_TICKET_LABEL: 'FEI_TICKET_LABEL',
   FEI_TICKET_REPRINT_LABEL: 'FEI_TICKET_REPRINT_LABEL',
-  FEI_TICKET_VOID_LABEL: 'FEI_TICKET_VOID_LABEL',
   TRANSFER_BAG_LABEL: 'TRANSFER_BAG_LABEL',
   CUTTING_ORDER_QR_LABEL: 'CUTTING_ORDER_QR_LABEL',
   HANDOVER_QR_LABEL: 'HANDOVER_QR_LABEL',
@@ -141,10 +140,10 @@ function resolveFeiTicketTargetRoute(record: AnyFeiTicket): string {
   return `/fcs/craft/cutting/fei-tickets?feiTicketId=${encodeURIComponent(id)}`
 }
 
-function feiQr(record: AnyFeiTicket, documentType: PrintDocumentType, mode: PrintMode, isVoid = false): PrintQrCode {
+function feiQr(record: AnyFeiTicket): PrintQrCode {
   const projection = buildFeiTicketLabelPrintProjection(record)
   const value = projection.qrDisplayValue
-  return { title: '菲票二维码', value, description: isVoid ? '扫码查看作废记录' : '扫码查看菲票', sizeMm: 30 }
+  return { title: '菲票二维码', value, description: '扫码查看菲票', sizeMm: 30 }
 }
 
 function resolveFeiPrintVersion(record: AnyFeiTicket, mode: PrintMode): string {
@@ -179,10 +178,9 @@ function needsWideFeiLabel(item: PrintLabelItem): boolean {
 function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput, mode: PrintMode): PrintLabelItem {
   const documentType = input.documentType
   const isWoolTicket = record.ticketSourceType === 'WOOL_PART_PANEL'
-  const isVoid = documentType === 'FEI_TICKET_VOID_LABEL' || record.status === 'VOIDED'
   const isReprint = documentType === 'FEI_TICKET_REPRINT_LABEL'
   const ticketNo = toText(record.ticketNo || record.feiTicketNo)
-  const title = isVoid ? '菲票作废标识' : isReprint ? '菲票补打标签' : isWoolTicket ? '毛织菲票' : '菲票'
+  const title = isReprint ? '菲票补打标签' : isWoolTicket ? '毛织菲票' : '菲票'
   const printProjection = buildFeiTicketLabelPrintProjection(record)
   const version = resolveFeiPrintVersion(record, mode)
   const maxCraftPrintLines = printProjection.templateSize === '15cm x 10cm' ? 4 : 2
@@ -214,8 +212,8 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
     labelSubtitle: '',
     labelFields: baseFields,
     labelWarnings: [],
-    qrCode: feiQr(record, documentType, mode, isVoid),
-    isVoid,
+    qrCode: feiQr(record),
+    isVoid: false,
     isReprint,
     printMode: undefined,
   }
@@ -284,7 +282,6 @@ function buildBaseLabelDocument(input: PrintDocumentBuildInput, options: {
 
 function resolveFeiMode(documentType: PrintDocumentType): PrintMode {
   if (documentType === 'FEI_TICKET_REPRINT_LABEL') return '补打'
-  if (documentType === 'FEI_TICKET_VOID_LABEL') return '作废'
   return '首次打印'
 }
 
@@ -299,10 +296,8 @@ export function buildFeiTicketLabelPrintDocument(input: PrintDocumentBuildInput)
       : 'LABEL_100_100'
   const isWoolTicket = records.some((record) => record.ticketSourceType === 'WOOL_PART_PANEL')
   return buildBaseLabelDocument(input, {
-    title: isWoolTicket && mode === '首次打印' ? '毛织菲票标签' : mode === '补打' ? '菲票补打标签' : mode === '作废' ? '菲票作废标识' : '菲票标签',
-    subtitle: mode === '作废'
-      ? '已作废 · 不可流转'
-      : mode === '补打'
+    title: isWoolTicket && mode === '首次打印' ? '毛织菲票标签' : mode === '补打' ? '菲票补打标签' : '菲票标签',
+    subtitle: mode === '补打'
       ? '补打标签'
         : isWoolTicket
           ? '毛织菲票。'
@@ -317,7 +312,6 @@ export function buildFeiTicketLabelPrintDocument(input: PrintDocumentBuildInput)
 }
 
 export const buildFeiTicketReprintLabelPrintDocument = buildFeiTicketLabelPrintDocument
-export const buildFeiTicketVoidLabelPrintDocument = buildFeiTicketLabelPrintDocument
 
 export function buildTransferBagLabelPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
   const projection = buildTransferBagsProjection()

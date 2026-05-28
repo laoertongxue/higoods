@@ -224,14 +224,6 @@ export const renderCraftCuttingFeiTicketReprintPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/fei-tickets'),
   'renderCraftCuttingFeiTicketReprintPage',
 )
-export const renderCraftCuttingFeiTicketRecordsPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/fei-tickets'),
-  'renderCraftCuttingFeiTicketRecordsPage',
-)
-export const renderCraftCuttingFeiTicketVoidPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/fei-tickets'),
-  'renderCraftCuttingFeiTicketVoidPage',
-)
 export const renderCraftCuttingFeiTicketsPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/fei-tickets'),
   'renderCraftCuttingFeiTicketsPage',

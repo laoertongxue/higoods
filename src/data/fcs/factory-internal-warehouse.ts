@@ -1435,41 +1435,72 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
 
   const onboardingWaitProcessWarehouse = waitProcessWarehouseMap.get(ONBOARDING_CUTTING_FACTORY_ID)
   if (onboardingWaitProcessWarehouse) {
-    const location = pickWarehouseLocation(onboardingWaitProcessWarehouse, 'CUT-260306-101-01', '已入库')
-    inboundRecords.push({
-      inboundRecordId: 'INB-ONBOARD-CUT-260306-101-01',
-      inboundRecordNo: 'RK-CUT-260306-101-01',
-      warehouseId: onboardingWaitProcessWarehouse.warehouseId,
-      warehouseName: onboardingWaitProcessWarehouse.warehouseName,
-      factoryId: ONBOARDING_CUTTING_FACTORY_ID,
-      factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
-      factoryKind: 'CENTRAL_CUTTING',
-      processCode: 'CUT_PANEL',
-      processName: '裁床',
-      sourceRecordId: 'PICKUP-CUT-260306-101-01',
-      sourceRecordNo: 'LL-CUT-260306-101-01',
-      sourceRecordType: 'MATERIAL_PICKUP',
-      sourceObjectName: '中央仓-中转仓',
-      taskId: 'CUT-260306-101-01',
-      taskNo: 'CUT-260306-101-01',
-      itemKind: '面料',
-      itemName: 'Black 弹力斜纹主面料',
-      materialSku: 'tdv_demand_SPU_2024_010-bom-black-stretch-twill',
-      fabricColor: 'Black',
-      sizeCode: '整匹',
-      fabricRollNo: 'ROLL-CUT-101-01',
-      expectedQty: 1320,
-      receivedQty: 1320,
-      differenceQty: 0,
-      unit: '米',
-      receiverName: '裁床仓管',
-      receivedAt: '2026-04-20 09:30:00',
-      areaName: location.areaName,
-      shelfNo: location.shelfNo,
-      locationNo: location.locationNo,
-      status: '已入库',
-      photoList: [],
-      remark: 'PDA 扫码入仓演示数据',
+    ;[
+      {
+        inboundRecordId: 'INB-ONBOARD-CUT-260306-101-01',
+        inboundRecordNo: 'RK-CUT-260306-101-01',
+        sourceRecordId: 'PICKUP-CUT-260306-101-01',
+        sourceRecordNo: 'LL-CUT-260306-101-01',
+        taskId: 'CUT-260306-101-01',
+        taskNo: 'CUT-260306-101-01',
+        itemName: 'Black 弹力斜纹主面料',
+        materialSku: 'tdv_demand_SPU_2024_010-bom-black-stretch-twill',
+        fabricColor: 'Black',
+        fabricRollNo: 'ROLL-CUT-101-01',
+        expectedQty: 1320,
+        receivedQty: 1320,
+      },
+      {
+        inboundRecordId: 'INB-ONBOARD-CUT-260306-101-02',
+        inboundRecordNo: 'RK-CUT-260306-101-02',
+        sourceRecordId: 'PICKUP-CUT-260306-101-02',
+        sourceRecordNo: 'LL-CUT-260306-101-02',
+        taskId: 'CUT-260306-101-02',
+        taskNo: 'CUT-260306-101-02',
+        itemName: 'Charcoal 弹力斜纹主面料',
+        materialSku: 'tdv_demand_SPU_2024_010-bom-charcoal-stretch-twill',
+        fabricColor: 'Charcoal',
+        fabricRollNo: 'ROLL-CUT-101-02',
+        expectedQty: 900,
+        receivedQty: 900,
+      },
+    ].forEach((item) => {
+      const location = pickWarehouseLocation(onboardingWaitProcessWarehouse, item.taskId, '已入库')
+      inboundRecords.push({
+        inboundRecordId: item.inboundRecordId,
+        inboundRecordNo: item.inboundRecordNo,
+        warehouseId: onboardingWaitProcessWarehouse.warehouseId,
+        warehouseName: onboardingWaitProcessWarehouse.warehouseName,
+        factoryId: ONBOARDING_CUTTING_FACTORY_ID,
+        factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
+        factoryKind: 'CENTRAL_CUTTING',
+        processCode: 'CUT_PANEL',
+        processName: '裁床',
+        sourceRecordId: item.sourceRecordId,
+        sourceRecordNo: item.sourceRecordNo,
+        sourceRecordType: 'MATERIAL_PICKUP',
+        sourceObjectName: '中央仓-中转仓',
+        taskId: item.taskId,
+        taskNo: item.taskNo,
+        itemKind: '面料',
+        itemName: item.itemName,
+        materialSku: item.materialSku,
+        fabricColor: item.fabricColor,
+        sizeCode: '整匹',
+        fabricRollNo: item.fabricRollNo,
+        expectedQty: item.expectedQty,
+        receivedQty: item.receivedQty,
+        differenceQty: 0,
+        unit: '米',
+        receiverName: '裁床仓管',
+        receivedAt: '2026-04-20 09:30:00',
+        areaName: location.areaName,
+        shelfNo: location.shelfNo,
+        locationNo: location.locationNo,
+        status: '已入库',
+        photoList: [],
+        remark: 'PDA 扫码入仓演示数据',
+      })
     })
   }
 
@@ -1542,41 +1573,62 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
 
   const onboardingWaitHandoverWarehouse = waitHandoverWarehouseMap.get(ONBOARDING_CUTTING_FACTORY_ID)
   if (onboardingWaitHandoverWarehouse) {
-    const location = pickWarehouseLocation(onboardingWaitHandoverWarehouse, 'PB-ONBOARD-001', '待交出')
-    waitHandoverStockItems.push({
-      stockItemId: 'WHS-ONBOARD-PB-001-FEI-001',
-      warehouseId: onboardingWaitHandoverWarehouse.warehouseId,
-      factoryId: ONBOARDING_CUTTING_FACTORY_ID,
-      factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
-      factoryKind: 'CENTRAL_CUTTING',
-      warehouseName: onboardingWaitHandoverWarehouse.warehouseName,
-      processCode: 'CUT_PANEL',
-      processName: '裁床',
-      taskId: 'PB-ONBOARD-001',
-      taskNo: 'PB-ONBOARD-001',
-      productionOrderId: 'PO-202603-0004',
-      productionOrderNo: 'PO-202603-0004',
-      itemKind: '裁片',
-      itemName: '前片待交出',
-      materialSku: 'tdv_demand_SPU_2024_010-bom-black-stretch-twill',
-      partName: '前片',
-      fabricColor: 'Black',
-      sizeCode: 'M',
-      feiTicketNo: 'FT-ONBOARD-001',
-      transferBagNo: 'TB-ONBOARD-001',
-      completedQty: 80,
-      lossQty: 0,
-      waitHandoverQty: 80,
-      unit: '片',
-      receiverKind: '后道工厂',
-      receiverName: '后道工厂',
-      areaName: location.areaName,
-      shelfNo: location.shelfNo,
-      locationNo: location.locationNo,
-      locationText: location.locationText,
-      status: '待交出',
-      photoList: [],
-      remark: '菲票入仓演示库存',
+    ;[
+      {
+        stockItemId: 'WHS-ONBOARD-PB-001-FEI-001',
+        itemName: '前片待交出',
+        partName: '前片',
+        feiTicketNo: 'FT-ONBOARD-001',
+        transferBagNo: 'TB-ONBOARD-001',
+        completedQty: 80,
+        waitHandoverQty: 80,
+      },
+      {
+        stockItemId: 'WHS-ONBOARD-PB-001-FEI-002',
+        itemName: '后片待交出',
+        partName: '后片',
+        feiTicketNo: 'FT-ONBOARD-002',
+        transferBagNo: 'TB-ONBOARD-001',
+        completedQty: 80,
+        waitHandoverQty: 80,
+      },
+    ].forEach((item) => {
+      const location = pickWarehouseLocation(onboardingWaitHandoverWarehouse, item.feiTicketNo, '待交出')
+      waitHandoverStockItems.push({
+        stockItemId: item.stockItemId,
+        warehouseId: onboardingWaitHandoverWarehouse.warehouseId,
+        factoryId: ONBOARDING_CUTTING_FACTORY_ID,
+        factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
+        factoryKind: 'CENTRAL_CUTTING',
+        warehouseName: onboardingWaitHandoverWarehouse.warehouseName,
+        processCode: 'CUT_PANEL',
+        processName: '裁床',
+        taskId: 'PB-ONBOARD-001',
+        taskNo: 'PB-ONBOARD-001',
+        productionOrderId: 'PO-202603-0004',
+        productionOrderNo: 'PO-202603-0004',
+        itemKind: '裁片',
+        itemName: item.itemName,
+        materialSku: 'tdv_demand_SPU_2024_010-bom-black-stretch-twill',
+        partName: item.partName,
+        fabricColor: 'Black',
+        sizeCode: 'M',
+        feiTicketNo: item.feiTicketNo,
+        transferBagNo: item.transferBagNo,
+        completedQty: item.completedQty,
+        lossQty: 0,
+        waitHandoverQty: item.waitHandoverQty,
+        unit: '片',
+        receiverKind: '后道工厂',
+        receiverName: '后道工厂',
+        areaName: location.areaName,
+        shelfNo: location.shelfNo,
+        locationNo: location.locationNo,
+        locationText: location.locationText,
+        status: '待交出',
+        photoList: [],
+        remark: '菲票入仓演示库存',
+      })
     })
   }
 
@@ -1706,6 +1758,195 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
       remark: '存在差异待确认',
     },
   ]
+  const onboardingProcessStockItems = waitProcessStockItems
+    .filter((item) => item.factoryId === ONBOARDING_CUTTING_FACTORY_ID)
+    .slice(0, 2)
+  const onboardingHandoverStockItems = waitHandoverStockItems
+    .filter((item) => item.factoryId === ONBOARDING_CUTTING_FACTORY_ID)
+    .slice(0, 2)
+  const buildOnboardingProcessLines = (
+    orderId: string,
+    countedQtyList: Array<number | undefined>,
+  ): FactoryWarehouseStocktakeLine[] =>
+    onboardingProcessStockItems.map((item, index) => {
+      const countedQty = countedQtyList[index]
+      const line = buildStocktakeLineFromWaitProcess(orderId, item)
+      const differenceQty = typeof countedQty === 'number' ? roundQty(countedQty - line.bookQty) : undefined
+      return {
+        ...line,
+        lineId: `${orderId}-${item.stockItemId}`,
+        stocktakeOrderId: orderId,
+        countedQty,
+        differenceQty,
+        differenceReason:
+          typeof differenceQty === 'number' && differenceQty > 0
+            ? '现场多出一卷已补录'
+            : typeof differenceQty === 'number' && differenceQty < 0
+              ? '现场短少一卷待复核'
+              : '',
+        status: countedQty === undefined ? '未盘' : differenceQty === 0 ? '已盘' : '差异',
+        reviewStatus: countedQty !== undefined && differenceQty !== 0 ? '待审核' : undefined,
+        photoList: countedQty !== undefined && differenceQty !== 0 ? ['/placeholder.svg'] : [],
+      }
+    })
+  const buildOnboardingHandoverLines = (
+    orderId: string,
+    countedQtyList: Array<number | undefined>,
+  ): FactoryWarehouseStocktakeLine[] =>
+    onboardingHandoverStockItems.map((item, index) => {
+      const countedQty = countedQtyList[index]
+      const line = buildStocktakeLineFromWaitHandover(orderId, item)
+      const differenceQty = typeof countedQty === 'number' ? roundQty(countedQty - line.bookQty) : undefined
+      return {
+        ...line,
+        lineId: `${orderId}-${item.stockItemId}`,
+        stocktakeOrderId: orderId,
+        countedQty,
+        differenceQty,
+        differenceReason:
+          typeof differenceQty === 'number' && differenceQty > 0
+            ? '菲票实物多出，待生成盘盈单'
+            : typeof differenceQty === 'number' && differenceQty < 0
+              ? '暂存袋漏扫，待生成盘亏单'
+              : '',
+        status: countedQty === undefined ? '未盘' : differenceQty === 0 ? '已盘' : '差异',
+        reviewStatus: countedQty !== undefined && differenceQty !== 0 ? '待审核' : undefined,
+        photoList: countedQty !== undefined && differenceQty !== 0 ? ['/placeholder.svg'] : [],
+      }
+    })
+
+  if (onboardingWaitProcessWarehouse && onboardingProcessStockItems.length > 0) {
+    const inProgressOrderId = 'STO-ONBOARD-PDA-001'
+    const pendingOrderId = 'STO-ONBOARD-PDA-002'
+    const completedOrderId = 'STO-ONBOARD-PDA-003'
+    const cancelledOrderId = 'STO-ONBOARD-PDA-004'
+    const completedAdjustedLines = buildOnboardingProcessLines(
+      completedOrderId,
+      onboardingProcessStockItems.map((item, index) => (index === 0 ? item.receivedQty + 8 : item.receivedQty)),
+    )
+    completedAdjustedLines.forEach((line) => {
+      if ((line.differenceQty ?? 0) !== 0) {
+        line.reviewStatus = '已调整'
+        line.adjustedAt = '2026-04-20 16:20:00'
+        line.adjustmentOrderId = `ADJ-${line.lineId.replace(/[^A-Za-z0-9]/g, '').slice(-12)}`
+      }
+    })
+
+    stocktakeOrders.push(
+      {
+        stocktakeOrderId: inProgressOrderId,
+        stocktakeOrderNo: 'PD-CUT-034-001',
+        factoryId: ONBOARDING_CUTTING_FACTORY_ID,
+        factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
+        warehouseId: onboardingWaitProcessWarehouse.warehouseId,
+        warehouseName: onboardingWaitProcessWarehouse.warehouseName,
+        warehouseKind: 'WAIT_PROCESS',
+        stocktakeScope: '全盘',
+        stocktakeMethod: '全盘',
+        isBlindStocktake: true,
+        ownerNames: ['申请人3', '裁床仓管'],
+        plannedAt: '2026-04-20 14:00:00',
+        status: '盘点中',
+        createdBy: '申请人3',
+        createdAt: '2026-04-20 13:50:00',
+        startedAt: '2026-04-20 14:00:00',
+        lineList: buildOnboardingProcessLines(inProgressOrderId, onboardingProcessStockItems.map(() => undefined)),
+        remark: 'PDA 盲盘演示单',
+      },
+      {
+        stocktakeOrderId: pendingOrderId,
+        stocktakeOrderNo: 'PD-CUT-034-002',
+        factoryId: ONBOARDING_CUTTING_FACTORY_ID,
+        factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
+        warehouseId: onboardingWaitProcessWarehouse.warehouseId,
+        warehouseName: onboardingWaitProcessWarehouse.warehouseName,
+        warehouseKind: 'WAIT_PROCESS',
+        stocktakeScope: '全盘',
+        stocktakeMethod: '全盘',
+        isBlindStocktake: false,
+        ownerNames: ['申请人3', '仓库主管'],
+        plannedAt: '2026-04-20 15:00:00',
+        status: '待确认',
+        createdBy: '申请人3',
+        createdAt: '2026-04-20 14:45:00',
+        startedAt: '2026-04-20 15:00:00',
+        completedAt: '2026-04-20 15:40:00',
+        lineList: buildOnboardingProcessLines(
+          pendingOrderId,
+          onboardingProcessStockItems.map((item, index) => item.receivedQty + (index === 0 ? 15 : -20)),
+        ),
+        remark: '待加工仓盘盈盘亏待审核',
+      },
+      {
+        stocktakeOrderId: completedOrderId,
+        stocktakeOrderNo: 'PD-CUT-034-003',
+        factoryId: ONBOARDING_CUTTING_FACTORY_ID,
+        factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
+        warehouseId: onboardingWaitProcessWarehouse.warehouseId,
+        warehouseName: onboardingWaitProcessWarehouse.warehouseName,
+        warehouseKind: 'WAIT_PROCESS',
+        stocktakeScope: '全盘',
+        stocktakeMethod: '全盘',
+        isBlindStocktake: false,
+        ownerNames: ['仓库主管'],
+        plannedAt: '2026-04-20 16:00:00',
+        status: '已完成',
+        createdBy: '仓库主管',
+        createdAt: '2026-04-20 15:50:00',
+        startedAt: '2026-04-20 16:00:00',
+        completedAt: '2026-04-20 16:25:00',
+        lineList: completedAdjustedLines,
+        remark: '盘盈已调整演示单',
+      },
+      {
+        stocktakeOrderId: cancelledOrderId,
+        stocktakeOrderNo: 'PD-CUT-034-004',
+        factoryId: ONBOARDING_CUTTING_FACTORY_ID,
+        factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
+        warehouseId: onboardingWaitProcessWarehouse.warehouseId,
+        warehouseName: onboardingWaitProcessWarehouse.warehouseName,
+        warehouseKind: 'WAIT_PROCESS',
+        stocktakeScope: '全盘',
+        stocktakeMethod: '全盘',
+        isBlindStocktake: true,
+        ownerNames: ['裁床仓管'],
+        plannedAt: '2026-04-21 09:00:00',
+        status: '已取消',
+        createdBy: '裁床仓管',
+        createdAt: '2026-04-21 08:50:00',
+        lineList: buildOnboardingProcessLines(cancelledOrderId, onboardingProcessStockItems.map(() => undefined)),
+        remark: '演示取消盘点单',
+      },
+    )
+  }
+
+  if (onboardingWaitHandoverWarehouse && onboardingHandoverStockItems.length > 0) {
+    const handoverOrderId = 'STO-ONBOARD-PDA-005'
+    stocktakeOrders.push({
+      stocktakeOrderId: handoverOrderId,
+      stocktakeOrderNo: 'PD-CUT-034-005',
+      factoryId: ONBOARDING_CUTTING_FACTORY_ID,
+      factoryName: ONBOARDING_CUTTING_FACTORY_NAME,
+      warehouseId: onboardingWaitHandoverWarehouse.warehouseId,
+      warehouseName: onboardingWaitHandoverWarehouse.warehouseName,
+      warehouseKind: 'WAIT_HANDOVER',
+      stocktakeScope: '全盘',
+      stocktakeMethod: '全盘',
+      isBlindStocktake: false,
+      ownerNames: ['申请人3', '裁床仓管'],
+      plannedAt: '2026-04-21 10:00:00',
+      status: '待确认',
+      createdBy: '申请人3',
+      createdAt: '2026-04-21 09:50:00',
+      startedAt: '2026-04-21 10:00:00',
+      completedAt: '2026-04-21 10:30:00',
+      lineList: buildOnboardingHandoverLines(
+        handoverOrderId,
+        onboardingHandoverStockItems.map((item, index) => item.waitHandoverQty + (index === 0 ? -3 : 2)),
+      ),
+      remark: '待交出仓菲票盘点演示单',
+    })
+  }
   const stocktakeDifferenceReviews: FactoryWarehouseStocktakeDifferenceReview[] = []
   const adjustmentOrders: FactoryWarehouseAdjustmentOrder[] = []
   stocktakeOrders
@@ -1720,6 +1961,53 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
           stocktakeDifferenceReviews.push(review)
         })
     })
+  stocktakeOrders.forEach((order) => {
+    order.lineList
+      .filter((line) => line.reviewStatus === '已调整' && line.adjustmentOrderId && (line.differenceQty ?? 0) !== 0)
+      .forEach((line) => {
+        const review = buildStocktakeDifferenceReview(order, line, line.adjustedAt || order.completedAt || nowTimestamp())
+        review.reviewStatus = '已调整'
+        review.adjustmentOrderId = line.adjustmentOrderId
+        review.reviewedBy = '仓库主管'
+        review.reviewedAt = line.adjustedAt || order.completedAt
+        review.reviewRemark = line.differenceReason || '盘点差异已审核并调整库存'
+        stocktakeDifferenceReviews.push(review)
+        adjustmentOrders.unshift({
+          adjustmentOrderId: line.adjustmentOrderId as string,
+          adjustmentOrderNo: `${(line.differenceQty ?? 0) > 0 ? 'PY' : 'PK'}-${order.stocktakeOrderNo.replace(/[^A-Za-z0-9]/g, '').slice(-8)}-${String(adjustmentOrders.length + 1).padStart(3, '0')}`,
+          adjustmentType: (line.differenceQty ?? 0) > 0 ? '盘盈单' : '盘亏单',
+          sourceStocktakeOrderId: order.stocktakeOrderId,
+          sourceStocktakeOrderNo: order.stocktakeOrderNo,
+          sourceLineId: line.lineId,
+          reviewId: review.reviewId,
+          warehouseId: order.warehouseId,
+          warehouseName: order.warehouseName,
+          factoryId: order.factoryId,
+          factoryName: order.factoryName,
+          warehouseKind: order.warehouseKind,
+          stockItemId: line.stockItemId,
+          itemKind: line.itemKind,
+          itemName: line.itemName,
+          materialSku: line.materialSku,
+          partName: line.partName,
+          fabricColor: line.fabricColor,
+          sizeCode: line.sizeCode,
+          feiTicketNo: line.feiTicketNo,
+          transferBagNo: line.transferBagNo,
+          fabricRollNo: line.fabricRollNo,
+          bookQty: line.bookQty,
+          countedQty: roundQty(line.countedQty ?? 0),
+          adjustmentQty: roundQty(line.differenceQty ?? 0),
+          unit: line.unit,
+          status: '已完成',
+          createdAt: review.createdAt,
+          createdBy: '仓库主管',
+          executedAt: line.adjustedAt || order.completedAt,
+          executedBy: '仓库主管',
+          remark: '盘点差异审核通过后生成库存调整单据',
+        })
+      })
+  })
 
   return {
     warehouses,

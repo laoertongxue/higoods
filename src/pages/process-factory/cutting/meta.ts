@@ -22,10 +22,8 @@ export type CuttingCanonicalPageKey =
   | 'fei-tickets'
   | 'fei-ticket-detail'
   | 'fei-ticket-printed'
-  | 'fei-ticket-records'
   | 'fei-ticket-print'
   | 'fei-ticket-reprint'
-  | 'fei-ticket-void'
   | 'warehouse-management-wait-process'
   | 'warehouse-management-wait-handover'
   | 'fabric-warehouse'
@@ -206,7 +204,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '菲票详情',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看打印单元、菲票码与打印记录。',
+    shortDescription: '查看打印单元与菲票码。',
   },
   'fei-ticket-printed': {
     key: 'fei-ticket-printed',
@@ -216,17 +214,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '已打印菲票',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看已打印菲票与作废记录。',
-  },
-  'fei-ticket-records': {
-    key: 'fei-ticket-records',
-    canonicalPath: '/fcs/craft/cutting/fei-ticket-records',
-    aliases: [],
-    menuGroupTitle: '裁后处理',
-    pageTitle: '菲票打印记录',
-    pageSubtitle: '',
-    isPlaceholder: false,
-    shortDescription: '查看打印流水。',
+    shortDescription: '查看已打印菲票。',
   },
   'fei-ticket-print': {
     key: 'fei-ticket-print',
@@ -247,16 +235,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '补打菲票。',
-  },
-  'fei-ticket-void': {
-    key: 'fei-ticket-void',
-    canonicalPath: '/fcs/craft/cutting/fei-ticket-void',
-    aliases: [],
-    menuGroupTitle: '裁后处理',
-    pageTitle: '作废菲票',
-    pageSubtitle: '',
-    isPlaceholder: false,
-    shortDescription: '作废单张菲票。',
   },
   'warehouse-management-wait-process': {
     key: 'warehouse-management-wait-process',

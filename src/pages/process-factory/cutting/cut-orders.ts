@@ -1525,7 +1525,6 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
               { label: '打印状态', value: printableStatusMeta ? printableStatusMeta.label : '暂无可打印对象', tone: 'strong' },
               { label: '应打菲票数', value: printableUnit ? `${formatCount(printableUnit.requiredTicketCount)} 张` : '0 张' },
               { label: '有效已打印数', value: printableUnit ? `${formatCount(printableUnit.validPrintedTicketCount)} 张` : '0 张' },
-              { label: '已作废数', value: printableUnit ? `${formatCount(printableUnit.voidedTicketCount)} 张` : '0 张' },
               { label: '需补打数', value: printableUnit ? `${formatCount(printableUnit.missingTicketCount)} 张` : '0 张' },
               { label: '最近打印时间', value: printableUnit?.lastPrintedAt || '未打印' },
               { label: '最近打印人', value: printableUnit?.lastPrintedBy || '未打印' },
@@ -1546,13 +1545,6 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
                       cutOrderId: printableUnit.cutOrderId,
                       cutOrderNo: printableUnit.cutOrderNo,
                     }))}">查看已打印菲票</button>
-                    <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('fei-ticket-records'), {
-                      printableUnitId: printableUnit.printableUnitId,
-                      printableUnitNo: printableUnit.printableUnitNo,
-                      printableUnitType: printableUnit.printableUnitType,
-                      cutOrderId: printableUnit.cutOrderId,
-                      cutOrderNo: printableUnit.cutOrderNo,
-                    }))}">查看打印记录</button>
                   `
                   : ''
               }

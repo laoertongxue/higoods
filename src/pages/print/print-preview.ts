@@ -34,7 +34,6 @@ function inferSourceType(documentType: PrintDocumentType, handoverRecordId: stri
   if (documentType === 'SUPPLEMENT_MATERIAL_SLIP') return 'SUPPLEMENT_MATERIAL_RECORD'
   if (documentType === 'FEI_TICKET_LABEL') return 'FEI_TICKET_RECORD'
   if (documentType === 'FEI_TICKET_REPRINT_LABEL') return 'FEI_TICKET_RECORD'
-  if (documentType === 'FEI_TICKET_VOID_LABEL') return 'FEI_TICKET_RECORD'
   if (documentType === 'TRANSFER_BAG_LABEL') return 'TRANSFER_BAG_RECORD'
   if (documentType === 'CUTTING_ORDER_QR_LABEL') return 'CUTTING_ORDER_RECORD'
   if (documentType === 'HANDOVER_QR_LABEL') return 'HANDOVER_RECORD'

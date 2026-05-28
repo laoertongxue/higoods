@@ -18,7 +18,6 @@ import {
   getCurrentFactoryWarehouseByKind,
   getMobileWarehouseSearchParams,
   getMobileWarehouseRuntimeContext,
-  renderCompactFieldList,
   renderMobilePageEmptyState,
   renderSectionFilterChips,
   renderStatusPill,
@@ -491,16 +490,17 @@ function renderStocktakeDetailPage(order: ReturnType<typeof getRows>[number]): s
       <div class="flex items-start justify-between gap-3 px-1">
         <div class="min-w-0">
           <div class="text-lg font-semibold text-foreground">盘点详情</div>
-          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(order.stocktakeOrderNo)} · ${escapeHtml(order.warehouseName)} · ${order.isBlindStocktake ? '盲盘' : '非盲盘'}</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">
+            ${escapeHtml(order.stocktakeOrderNo)} · ${escapeHtml(order.warehouseName)} · ${escapeHtml(order.stocktakeMethod || order.stocktakeScope)} · ${order.isBlindStocktake ? '盲盘' : '非盲盘'}
+          </div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">
+            责任人：${escapeHtml((order.ownerNames?.length ? order.ownerNames : [order.createdBy]).join('、'))} ·
+            盘点时间：${escapeHtml(order.plannedAt ? order.plannedAt.slice(0, 16).replace('T', ' ') : '-')} ·
+            ${escapeHtml(buildStocktakeOrderSummary(order))}
+          </div>
         </div>
         <button type="button" class="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium" data-pda-warehouse-action="close-stocktake-detail">返回列表</button>
       </div>
-      ${renderCompactFieldList([
-        ['盘点方式', order.stocktakeMethod || order.stocktakeScope],
-        ['责任人', (order.ownerNames?.length ? order.ownerNames : [order.createdBy]).join('、')],
-        ['盘点时间', order.plannedAt ? order.plannedAt.slice(0, 16).replace('T', ' ') : '-'],
-        ['盘点结果', buildStocktakeOrderSummary(order)],
-      ])}
       <section class="space-y-3">
         <div class="flex items-center justify-between gap-3">
           <div class="text-sm font-semibold text-foreground">盘点对象明细</div>
@@ -587,7 +587,7 @@ function renderStocktakeDetailPage(order: ReturnType<typeof getRows>[number]): s
       </section>
       <div class="sticky bottom-0 border-t bg-background py-3">
         <div class="flex gap-2">
-          <button type="button" class="flex-1 rounded-xl border px-3 py-2.5 text-sm" data-pda-warehouse-action="close-stocktake-detail">返回</button>
+          <button type="button" class="flex-1 rounded-xl border px-3 py-2.5 text-sm" data-pda-warehouse-action="close-stocktake-detail">返回列表</button>
           ${order.status === '盘点中' ? `<button type="button" class="flex-1 rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground" data-pda-warehouse-action="complete-stocktake" data-order-id="${escapeAttr(order.stocktakeOrderId)}">完成盘点</button>` : `<div class="flex-1 rounded-xl border px-3 py-2.5 text-center text-sm text-muted-foreground">${order.status === '待确认' ? '已提交差异待审核' : escapeHtml(order.status)}</div>`}
         </div>
       </div>
@@ -600,9 +600,10 @@ export function renderPdaWarehouseStocktakePage(): string {
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse')
   const mode = getWarehouseToolMode()
   const modeMeta = MODE_OPTIONS.find((item) => item.value === mode) || MODE_OPTIONS[0]
+  const isStocktakeDetail = mode === 'stocktake' && Boolean(state.selectedOrderId)
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${renderWarehouseQueryPageHeader(modeMeta.title, modeMeta.description)}
+      ${isStocktakeDetail ? '' : renderWarehouseQueryPageHeader(modeMeta.title, modeMeta.description)}
       ${mode === 'stocktake' ? renderStocktakePanel() : renderInventorySearchPanel(mode)}
     </div>
   `

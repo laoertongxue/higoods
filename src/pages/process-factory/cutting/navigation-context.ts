@@ -332,7 +332,6 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
 
   if (target === 'feiTickets') {
     if (context.printableUnitId || context.printableUnitNo) {
-      if (context.focusTab === 'records') return getCanonicalCuttingPath('fei-ticket-records')
       if (context.focusTab === 'printed' || context.ticketId || context.ticketNo) return getCanonicalCuttingPath('fei-ticket-printed')
       if (context.autoOpenDetail) return getCanonicalCuttingPath('fei-ticket-detail')
     }

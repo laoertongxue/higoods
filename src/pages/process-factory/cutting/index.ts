@@ -22,10 +22,8 @@ export {
   renderCraftCuttingFeiTicketsPage,
   renderCraftCuttingFeiTicketDetailPage,
   renderCraftCuttingFeiTicketPrintedPage,
-  renderCraftCuttingFeiTicketRecordsPage,
   renderCraftCuttingFeiTicketPrintPage,
   renderCraftCuttingFeiTicketReprintPage,
-  renderCraftCuttingFeiTicketVoidPage,
 } from './fei-tickets.ts'
 export {
   renderCraftCuttingSampleWarehouseDetailPage,

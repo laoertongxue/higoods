@@ -10,7 +10,6 @@ export type PrintDocumentType =
   | 'SUPPLEMENT_MATERIAL_SLIP'
   | 'FEI_TICKET_LABEL'
   | 'FEI_TICKET_REPRINT_LABEL'
-  | 'FEI_TICKET_VOID_LABEL'
   | 'TRANSFER_BAG_LABEL'
   | 'CUTTING_ORDER_QR_LABEL'
   | 'HANDOVER_QR_LABEL'
@@ -96,7 +95,7 @@ export interface PrintDifferenceBlock {
   minRows?: number
 }
 
-export type PrintMode = '首次打印' | '继续打印' | '补打' | '作废' | '普通打印'
+export type PrintMode = '首次打印' | '继续打印' | '补打' | '普通打印'
 export type PrintLabelLayout = '单张标签' | 'A4 多列标签' | 'A4 多行标签'
 
 export interface PrintLabelItem {

@@ -54,20 +54,6 @@ export const FEI_TICKET_DEMO_CASE_IDS = {
     sampleTicketNo: 'FT-CUT-260301-005-01-001',
     sampleTicketId: 'ticket-CUT-260301-005-01-001-v1',
   },
-  CASE_D: {
-    printableUnitId: 'cut-order:CUT-260301-005-01',
-    printableUnitNo: 'CUT-260301-005-01',
-    voidedTicketNo: 'FT-CUT-260301-005-01-001',
-    voidedTicketId: 'ticket-CUT-260301-005-01-001-v1',
-  },
-  CASE_E: {
-    printableUnitId: 'cut-order:CUT-260301-005-01',
-    printableUnitNo: 'CUT-260301-005-01',
-    originalTicketNo: 'FT-CUT-260301-005-01-001',
-    originalTicketId: 'ticket-CUT-260301-005-01-001-v1',
-    replacementTicketNo: 'FT-CUT-260301-005-01-001-V2',
-    replacementTicketId: 'ticket-CUT-260301-005-01-001-v2',
-  },
 } as const
 
 export type FeiTicketsContextType = 'cut-order' | 'marker-plan'
@@ -79,8 +65,8 @@ export type FeiTicketStatusKey =
   | 'REPRINTED'
   | 'PENDING_SUPPLEMENT'
 
-export type FeiTicketPrintJobStatus = 'PRINTED' | 'REPRINTED' | 'CANCELLED'
-export type FeiTicketOperationType = 'FIRST_PRINT' | 'REPRINT' | 'VOID'
+export type FeiTicketPrintJobStatus = 'PRINTED' | 'REPRINTED'
+export type FeiTicketOperationType = 'FIRST_PRINT' | 'REPRINT'
 
 export interface FeiTicketsContext {
   contextType: FeiTicketsContextType
@@ -674,8 +660,8 @@ function createSeedPrintJob(options: {
     printableUnitType: options.printableUnitType,
     operationType: options.operationType,
     reason: options.reason || '',
-    printerName: options.operationType === 'VOID' ? '' : 'Zebra ZT411',
-    templateName: options.operationType === 'VOID' ? '' : '裁片菲票标准模板',
+    printerName: 'Zebra ZT411',
+    templateName: '裁片菲票标准模板',
     ticketRecordIds: options.ticketRecordIds,
     fromTicketId: options.fromTicketId || '',
     toTicketId: options.toTicketId || '',
@@ -1549,7 +1535,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
     const seedRecords = getGeneratedFeiRecordsByCutOrderId(thirdOwner.cutOrderId).slice(0, 2)
     if (seedRecords.length) {
       const printJob = createSeedPrintJob({
-        printJobId: buildFeiPrintJobId(printedAt, thirdOwner.cutOrderId, 'void-base'),
+        printJobId: buildFeiPrintJobId(printedAt, thirdOwner.cutOrderId, 'printed-base'),
         printJobNo: 'FEI-PJ-DEMO-C-001',
         owner: thirdOwner,
         ...scope,
@@ -1558,33 +1544,13 @@ export function buildSystemSeedFeiTicketLedger(options: {
         printedBy: '打票员-赵宁',
         printedAt,
         ticketRecordIds: seedRecords.map((item) => item.feiTicketId),
-        note: '正式菲票主源作废演示。',
-      })
-      const firstRecord = createSeedTicketRecord({
-        owner: thirdOwner,
-        sequenceNo: 1,
-        version: 1,
-        printedAt,
-        printedBy: printJob.printedBy,
-        printJobId: printJob.printJobId,
-        ...scope,
-        quantity: seedRecords[0].qty,
-        partName: seedRecords[0].partName,
-        size: seedRecords[0].skuSize,
-        processTags: seedRecords[0].secondaryCrafts,
+        note: '正式菲票首次打印演示。',
       })
       ticketRecords.push(
-        {
-          ...firstRecord,
-          status: 'VOIDED',
-          voidedAt: '2026-03-24 08:45',
-          voidedBy: '打票员-赵宁',
-          voidReason: '二维码污损，待补打。',
-        },
-        ...seedRecords.slice(1).map((seed, index) =>
+        ...seedRecords.map((seed, index) =>
           createSeedTicketRecord({
             owner: thirdOwner,
-            sequenceNo: index + 2,
+            sequenceNo: index + 1,
             version: 1,
             printedAt,
             printedBy: printJob.printedBy,
@@ -1597,23 +1563,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
           }),
         ),
       )
-      printJobs.push(
-        printJob,
-        createSeedPrintJob({
-          printJobId: buildFeiPrintJobId('2026-03-24 08:45', thirdOwner.cutOrderId, 'void'),
-          printJobNo: 'FEI-PJ-DEMO-C-002',
-          owner: thirdOwner,
-          ...scope,
-          operationType: 'VOID',
-          status: 'CANCELLED',
-          printedBy: '打票员-赵宁',
-          printedAt: '2026-03-24 08:45',
-          ticketRecordIds: [seedRecords[0].feiTicketId],
-          fromTicketId: seedRecords[0].feiTicketId,
-          reason: '二维码污损，待补打。',
-          note: '正式菲票对象作废后仍保留主归属。',
-        }),
-      )
+      printJobs.push(printJob)
     }
   }
 
@@ -1662,15 +1612,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
         processTags: unique([...seedRecords[0].secondaryCrafts, '替代票']),
       })
       ticketRecords.push(
-        {
-          ...originalRecord,
-          status: 'VOIDED',
-          voidedAt: replacementAt,
-          voidedBy: '打票员-刘芸',
-          voidReason: '原票污损，已补打替代。',
-          replacementTicketId: replacementRecord.ticketRecordId,
-          replacementTicketNo: replacementRecord.ticketNo,
-        },
+        originalRecord,
         ...seedRecords.slice(1).map((seed, index) =>
           createSeedTicketRecord({
             owner: fourthOwner,
@@ -1691,22 +1633,8 @@ export function buildSystemSeedFeiTicketLedger(options: {
       printJobs.push(
         firstPrintJob,
         createSeedPrintJob({
-          printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.cutOrderId, 'replace-void'),
-          printJobNo: 'FEI-PJ-DEMO-D-002',
-          owner: fourthOwner,
-          ...scope,
-          operationType: 'VOID',
-          status: 'CANCELLED',
-          printedBy: '打票员-刘芸',
-          printedAt: replacementAt,
-          ticketRecordIds: [originalRecord.ticketRecordId],
-          fromTicketId: originalRecord.ticketRecordId,
-          reason: '原票污损，为替代票让位。',
-          note: '正式菲票对象作废动作。',
-        }),
-        createSeedPrintJob({
           printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.cutOrderId, 'replace-reprint'),
-          printJobNo: 'FEI-PJ-DEMO-D-003',
+          printJobNo: 'FEI-PJ-DEMO-D-002',
           owner: fourthOwner,
           ...scope,
           operationType: 'REPRINT',
@@ -1937,12 +1865,6 @@ export interface ExecutePrintableUnitPrintResult {
   nextJobs: FeiTicketPrintJob[]
 }
 
-export interface VoidTicketCardResult {
-  voidJob: FeiTicketPrintJob
-  nextRecords: FeiTicketLabelRecord[]
-  nextJobs: FeiTicketPrintJob[]
-}
-
 interface PrintableUnitSourceOwner {
   owner: CutOrderTicketOwner
   row: CutOrderRow
@@ -1962,7 +1884,7 @@ const printableUnitStatusMetaMap: Record<PrintableUnitStatus, PrintableUnitStatu
   NEED_REPRINT: {
     label: '需补打',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '曾发生作废或替换，当前有效菲票数不足，需要补打。',
+    detailText: '当前有效菲票数不足，需要补打。',
   },
 }
 
@@ -2684,9 +2606,7 @@ export function buildTicketPrintRecords(options: {
     .map((job) => ({
       recordId: job.printJobId,
       printableUnitId: options.unit.printableUnitId,
-      operationType: job.operationType === 'VOID'
-        ? 'VOID'
-        : job.operationType === 'REPRINT' || job.status === 'REPRINTED'
+      operationType: job.operationType === 'REPRINT' || job.status === 'REPRINTED'
           ? 'REPRINT'
           : 'FIRST_PRINT',
       ticketIds: job.ticketRecordIds || [],
@@ -2747,7 +2667,7 @@ function nextPrintJobNo(existingJobs: FeiTicketPrintJob[], nowText: string): str
   return buildPrintJobNo(existingJobs, nowText)
 }
 
-function selectVoidSourceRecord(
+function selectReprintSourceRecord(
   detail: TicketSplitDetail,
   ticketRecords: FeiTicketLabelRecord[],
   explicitFromTicketId?: string,
@@ -2764,13 +2684,12 @@ function selectVoidSourceRecord(
 
   return (
     findDetailSourceRecord(detail, ticketRecords).find(
-      (record) => isFeiTicketRecordVoided(record) && !record.replacementTicketId,
+      (record) => !isFeiTicketRecordVoided(record) && !record.replacementTicketId,
     ) || null
   )
 }
 
 function operationTypeToStatus(operationType: FeiTicketOperationType): FeiTicketPrintJobStatus {
-  if (operationType === 'VOID') return 'CANCELLED'
   if (operationType === 'REPRINT') return 'REPRINTED'
   return 'PRINTED'
 }
@@ -2815,7 +2734,7 @@ export function executePrintableUnitPrint(options: {
     const currentVersion = Math.max(0, ...relatedRecords.map((record) => record.version ?? record.reprintCount + 1))
     const nextVersion = currentVersion + 1
     const ticketRecordId = buildTicketRecordId(detail.sourceCutOrderId, detail.sequenceNo, nextVersion)
-    const fromRecord = selectVoidSourceRecord(detail, Array.from(nextRecordsMap.values()), options.fromTicketId)
+    const fromRecord = selectReprintSourceRecord(detail, Array.from(nextRecordsMap.values()), options.fromTicketId)
     const nextRecord = attachQrSnapshotToRecord(
       {
         ...createEmptyPreviewRecord(
@@ -2932,75 +2851,5 @@ export function executePrintableUnitPrint(options: {
       return leftVersion - rightVersion
     }),
     nextJobs: [printJob, ...options.printJobs].sort((left, right) => comparePrintedAtDesc(left.printedAt, right.printedAt)),
-  }
-}
-
-export function canVoidTicketCard(record: FeiTicketLabelRecord | null): {
-  allowed: boolean
-  reason: string
-} {
-  if (!record) return { allowed: false, reason: '未找到目标菲票。' }
-  if (isFeiTicketRecordVoided(record)) return { allowed: false, reason: '该菲票已作废，不能重复作废。' }
-  if (record.downstreamLocked) return { allowed: false, reason: record.downstreamLockedReason || '该菲票已被下游引用，当前禁止作废。' }
-  return { allowed: true, reason: '' }
-}
-
-export function voidTicketCard(options: {
-  recordId: string
-  ticketRecords: FeiTicketLabelRecord[]
-  printJobs: FeiTicketPrintJob[]
-  operator: string
-  operatedAt: string
-  reason: string
-  remark: string
-  printableUnit?: PrintableUnit | null
-}): VoidTicketCardResult | null {
-  const target = options.ticketRecords.find((record) => record.ticketRecordId === options.recordId) || null
-  const validation = canVoidTicketCard(target)
-  if (!target || !validation.allowed) return null
-
-  const nextRecords = options.ticketRecords.map((record) =>
-    record.ticketRecordId === options.recordId
-      ? {
-          ...record,
-          status: 'VOIDED' as const,
-          voidedAt: options.operatedAt,
-          voidedBy: options.operator,
-          voidReason: options.reason,
-        }
-      : record,
-  )
-
-  const voidJob: FeiTicketPrintJob = {
-    printJobId: buildFeiPrintJobId(options.operatedAt, target.cutOrderId, 'void'),
-    printJobNo: nextPrintJobNo(options.printJobs, options.operatedAt),
-    ownerType: 'cut-order',
-    cutOrderIds: [target.cutOrderId],
-    cutOrderNos: [target.cutOrderNo],
-    sourceContextType: target.sourceContextType,
-    sourceMarkerPlanId: target.sourceMarkerPlanId,
-    sourceMarkerPlanNo: target.sourceMarkerPlanNo,
-    totalTicketCount: 1,
-    status: 'CANCELLED',
-    printedBy: options.operator,
-    printedAt: options.operatedAt,
-    note: options.remark || options.reason,
-    printableUnitId: options.printableUnit?.printableUnitId,
-    printableUnitNo: options.printableUnit?.printableUnitNo,
-    printableUnitType: options.printableUnit?.printableUnitType,
-    operationType: 'VOID',
-    reason: options.reason,
-    printerName: '',
-    templateName: '',
-    ticketRecordIds: [target.ticketRecordId],
-    fromTicketId: target.ticketRecordId,
-    toTicketId: '',
-    remark: options.remark,
-  }
-
-  return {
-    voidJob,
-    nextRecords,
-    nextJobs: [voidJob, ...options.printJobs].sort((left, right) => comparePrintedAtDesc(left.printedAt, right.printedAt)),
   }
 }

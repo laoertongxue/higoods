@@ -72,8 +72,6 @@ import {
   renderCraftCuttingFeiTicketPrintedPage,
   renderCraftCuttingFeiTicketPrintPage,
   renderCraftCuttingFeiTicketReprintPage,
-  renderCraftCuttingFeiTicketRecordsPage,
-  renderCraftCuttingFeiTicketVoidPage,
   renderCraftCuttingFeiTicketsPage,
   renderCraftCuttingCutOrdersPage,
   renderCraftCuttingCutOrderDetailPage,
@@ -257,11 +255,8 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/fei-tickets': () => renderCraftCuttingFeiTicketsPage(),
     '/fcs/craft/cutting/fei-ticket-detail': () => renderCraftCuttingFeiTicketDetailPage(),
     '/fcs/craft/cutting/fei-ticket-printed': () => renderCraftCuttingFeiTicketPrintedPage(),
-    '/fcs/craft/cutting/fei-ticket-records': () => renderCraftCuttingFeiTicketRecordsPage(),
     '/fcs/craft/cutting/fei-ticket-print': () => renderCraftCuttingFeiTicketPrintPage(),
     '/fcs/craft/cutting/fei-ticket-reprint': () => renderCraftCuttingFeiTicketReprintPage(),
-    '/fcs/craft/cutting/fei-ticket-void': () => renderCraftCuttingFeiTicketVoidPage(),
-    '/fcs/craft/cutting/fei-tickets/print-records': () => renderCraftCuttingFeiTicketRecordsPage(),
     '/fcs/craft/cutting/sample-warehouse': () => renderCraftCuttingSampleWarehousePage(),
     '/fcs/craft/cutting/warehouse-management/wait-process': () => renderCraftCuttingWarehouseManagementWaitProcessPage(),
     '/fcs/craft/cutting/warehouse-management/wait-handover': () => renderCraftCuttingWarehouseManagementWaitHandoverPage(),
@@ -367,10 +362,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/craft\/cutting\/fei-tickets\/([^/]+)\/reprint$/,
       render: () => renderCraftCuttingFeiTicketReprintPage(),
-    },
-    {
-      pattern: /^\/fcs\/craft\/cutting\/fei-tickets\/([^/]+)\/void$/,
-      render: () => renderCraftCuttingFeiTicketVoidPage(),
     },
     {
       pattern: /^\/fcs\/craft\/cutting\/fei-tickets\/([^/]+)$/,

@@ -120,9 +120,9 @@ export function buildSupplementMaterialSlipPrintLink(sourceId: string): string {
   })
 }
 
-export function buildFeiTicketLabelPrintLink(sourceId: string, mode: 'first' | 'reprint' | 'void' = 'first'): string {
+export function buildFeiTicketLabelPrintLink(sourceId: string, mode: 'first' | 'reprint' = 'first'): string {
   const documentType: PrintDocumentType =
-    mode === 'reprint' ? 'FEI_TICKET_REPRINT_LABEL' : mode === 'void' ? 'FEI_TICKET_VOID_LABEL' : 'FEI_TICKET_LABEL'
+    mode === 'reprint' ? 'FEI_TICKET_REPRINT_LABEL' : 'FEI_TICKET_LABEL'
   return buildUnifiedPrintPreviewLink({
     documentType,
     sourceType: 'FEI_TICKET_RECORD',
