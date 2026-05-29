@@ -15,167 +15,248 @@ function ensureFile(rel: string, errors: string[]): void {
   if (!fs.existsSync(abs(rel))) errors.push(`缺少文件：${rel}`)
 }
 
+function ensureAbsentFile(rel: string, errors: string[]): void {
+  if (fs.existsSync(abs(rel))) errors.push(`旧 PDA writeback 文件仍未退场：${rel}`)
+}
+
 function checkContains(rel: string, pattern: string | RegExp, errors: string[], message: string): void {
+  if (!fs.existsSync(abs(rel))) {
+    errors.push(`检查目标文件不存在：${rel}`)
+    return
+  }
   const content = read(rel)
   const matched = typeof pattern === 'string' ? content.includes(pattern) : pattern.test(content)
   if (!matched) errors.push(`${message} [${rel}]`)
 }
 
 function checkAbsent(rel: string, pattern: string | RegExp, errors: string[], message: string): void {
+  if (!fs.existsSync(abs(rel))) {
+    errors.push(`检查目标文件不存在：${rel}`)
+    return
+  }
   const content = read(rel)
   const matched = typeof pattern === 'string' ? content.includes(pattern) : pattern.test(content)
   if (matched) errors.push(`${message} [${rel}]`)
+}
+
+function walkSourceFiles(dirRel: string): string[] {
+  const dir = abs(dirRel)
+  if (!fs.existsSync(dir)) return []
+  const entries = fs.readdirSync(dir, { withFileTypes: true })
+  return entries.flatMap((entry) => {
+    const full = path.join(dir, entry.name)
+    const rel = path.relative(root, full)
+    if (entry.isDirectory()) return walkSourceFiles(rel)
+    return /\.(ts|tsx|js|jsx)$/.test(entry.name) ? [rel] : []
+  })
+}
+
+function checkNoLegacyBridgeReferences(errors: string[]): void {
+  const forbidden = [
+    'writePdaPickupToFcs',
+    'writePdaSpreadingToFcs',
+    'writePdaInboundToFcs',
+    'writePdaHandoverToFcs',
+    'writePdaReplenishmentFeedbackToFcs',
+    'pda-cutting-writeback-inputs',
+    'pda-execution-writeback-ledger',
+    'pda-spreading-writeback',
+    'pda-execution-writeback-model',
+    'pda-writeback-model',
+  ]
+  const sourceFiles = [
+    ...walkSourceFiles('src/pages'),
+    ...walkSourceFiles('src/data'),
+    ...walkSourceFiles('src/domain'),
+  ]
+  sourceFiles.forEach((file) => {
+    const content = read(file)
+    forbidden.forEach((needle) => {
+      if (content.includes(needle)) {
+        errors.push(`正式源码仍引用旧 PDA writeback 口径：${needle} [${file}]`)
+      }
+    })
+  })
 }
 
 function main(): void {
   const errors: string[] = []
 
   const requiredFiles = [
+    'src/data/fcs/cutting/cutting-runtime-event-ledger.ts',
     'src/data/fcs/pda-cutting-execution-source.ts',
-    'src/data/fcs/pda-cutting-writeback-inputs.ts',
-    'src/data/fcs/cutting/pda-execution-writeback-ledger.ts',
-    'src/data/fcs/cutting/pda-spreading-writeback.ts',
+    'src/data/fcs/pda-cutting-runtime-action-inputs.ts',
+    'src/pages/pda-cutting-task-detail.ts',
+    'src/pages/pda-warehouse-wait-process.ts',
+    'src/pages/pda-cutting-spreading.ts',
+    'src/pages/pda-cutting-inbound.ts',
+    'src/pages/pda-cutting-handover.ts',
+    'src/pages/pda-cutting-replenishment-feedback.ts',
     'src/pages/pda-cutting-task-projection.ts',
-    'src/pages/pda-cutting-pickup-projection.ts',
     'src/pages/pda-cutting-spreading-projection.ts',
     'src/pages/pda-cutting-inbound-projection.ts',
     'src/pages/pda-cutting-handover-projection.ts',
     'src/pages/pda-cutting-replenishment-projection.ts',
+    'src/pages/process-factory/cutting/wait-handover-runtime.ts',
   ]
   requiredFiles.forEach((file) => ensureFile(file, errors))
 
   const retiredFiles = [
+    'src/pages/pda-cutting-pickup.ts',
+    'src/pages/pda-cutting-pickup-projection.ts',
+    'src/data/fcs/pda-cutting-writeback-inputs.ts',
+    'src/data/fcs/cutting/pda-execution-writeback-ledger.ts',
+    'src/data/fcs/cutting/pda-spreading-writeback.ts',
+    'src/domain/cutting-pda-writeback/bridge.ts',
     'src/data/fcs/pda-cutting-special.ts',
     'src/pages/process-factory/cutting/pda-execution-writeback-model.ts',
     'src/pages/process-factory/cutting/pda-writeback-model.ts',
   ]
-  retiredFiles.forEach((file) => {
-    if (fs.existsSync(abs(file))) errors.push(`旧 PDA 文件仍未退场：${file}`)
-  })
+  retiredFiles.forEach((file) => ensureAbsentFile(file, errors))
 
-  const pageFiles = [
-    'src/pages/pda-cutting-task-detail.ts',
-    'src/pages/pda-cutting-pickup.ts',
-    'src/pages/pda-cutting-spreading.ts',
-    'src/pages/pda-cutting-inbound.ts',
-    'src/pages/pda-cutting-handover.ts',
-    'src/pages/pda-cutting-replenishment-feedback.ts',
-  ]
+  checkNoLegacyBridgeReferences(errors)
 
-  pageFiles.forEach((file) => {
-    checkAbsent(file, 'pda-cutting-special', errors, 'PDA 页面仍直接依赖旧平行 special 源')
-    checkAbsent(file, 'readSelectedCutPieceOrderNoFromLocation', errors, 'PDA 页面仍以 legacy cutPieceOrderNo 作为主锚点')
-    checkAbsent(file, 'focusCutPieceOrderNo', errors, 'PDA 页面仍以 legacy focusCutPieceOrderNo 作为主锚点')
-    checkAbsent(file, 'data-cut-piece-order-no', errors, 'PDA 页面仍以 legacy 裁片单 data 属性作为主锚点')
-    checkAbsent(file, 'appendPickupWritebackRecord', errors, 'PDA 页面仍直接写入 pickup ledger')
-    checkAbsent(file, 'appendInboundWritebackRecord', errors, 'PDA 页面仍直接写入 inbound ledger')
-    checkAbsent(file, 'appendHandoverWritebackRecord', errors, 'PDA 页面仍直接写入 handover ledger')
-    checkAbsent(file, 'appendReplenishmentFeedbackWritebackRecord', errors, 'PDA 页面仍直接写入 replenishment ledger')
-    checkAbsent(file, 'localStorage', errors, 'PDA 页面不应直接落写本地 storage 主记录')
-  })
-
-  checkContains('src/pages/pda-cutting-task-detail.ts', "from './pda-cutting-task-detail-helpers'", errors, 'PDA 任务详情页缺少正式 task projection/helper')
-  checkContains('src/pages/pda-cutting-pickup.ts', "from './pda-cutting-pickup-projection'", errors, '裁床领料页缺少正式 projection')
-  checkContains('src/pages/pda-cutting-spreading.ts', "from './pda-cutting-spreading-projection'", errors, 'PDA 铺布页缺少正式 projection')
-  checkContains('src/pages/pda-cutting-inbound.ts', "from './pda-cutting-inbound-projection'", errors, 'PDA 入仓页缺少正式 projection')
-  checkContains('src/pages/pda-cutting-handover.ts', "from './pda-cutting-handover-projection'", errors, 'PDA 交接页缺少正式 projection')
-  checkContains('src/pages/pda-cutting-replenishment-feedback.ts', "from './pda-cutting-replenishment-projection'", errors, 'PDA 补料反馈页缺少正式 projection')
-  checkContains('src/pages/pda-cutting-spreading.ts', 'selectedTargetKey', errors, 'PDA 铺布页缺少铺布对象选择步骤')
-  checkContains('src/pages/pda-cutting-spreading.ts', 'data-pda-cut-spreading-field="planUnitId"', errors, 'PDA 铺布页缺少计划单元必选字段')
-  checkContains('src/pages/pda-cutting-spreading.ts', 'reuse-last-layer-count', errors, 'PDA 铺布页缺少沿用上次层数按钮')
-  checkContains('src/pages/pda-cutting-spreading.ts', 'reuse-last-head-tail', errors, 'PDA 铺布页缺少沿用上次头尾按钮')
-  checkAbsent('src/pages/pda-cutting-spreading.ts', 'restore-last-values', errors, 'PDA 铺布页仍保留旧的泛化复用按钮')
-  checkContains('src/pages/pda-cutting-spreading.ts', 'handoverToAccountId', errors, 'PDA 铺布页缺少换班接手人字段')
-  checkAbsent('src/pages/pda-cutting-spreading.ts', 'data-pda-cut-spreading-field="enteredBy"', errors, 'PDA 铺布页仍允许 enteredBy 手填')
-  checkContains('src/pages/pda-cutting-spreading.ts', '继续当前铺布', errors, 'PDA 铺布页缺少普通工人的 session 执行文案')
-  checkContains('src/pages/pda-cutting-spreading.ts', '按唛架开始铺布', errors, 'PDA 铺布页缺少普通工人的 marker 执行文案')
-  checkContains('src/data/fcs/pda-cutting-execution-source.ts', "'manual-entry'", errors, 'PDA 铺布目标缺少异常补录兜底类型')
-  checkContains('src/data/fcs/pda-cutting-execution-source.ts', 'canAccessManualSpreadingEntry', errors, 'PDA 铺布目标缺少异常补录权限收口')
-  checkAbsent('src/data/fcs/pda-cutting-execution-source.ts', "targetType: 'context'", errors, 'PDA 铺布目标仍暴露 context-only 创建')
-  checkContains('src/data/fcs/pda-cutting-execution-source.ts', 'FOLD_NORMAL', errors, 'PDA 铺布模式未补齐 FOLD_NORMAL')
-  checkContains('src/data/fcs/pda-cutting-execution-source.ts', 'FOLD_HIGH_LOW', errors, 'PDA 铺布模式未补齐 FOLD_HIGH_LOW')
-
-  const bridgeTargets = [
-    ['src/pages/pda-cutting-pickup.ts', 'writePdaPickupToFcs'],
-    ['src/pages/pda-cutting-spreading.ts', 'writePdaSpreadingToFcs'],
-    ['src/pages/pda-cutting-inbound.ts', 'writePdaInboundToFcs'],
-    ['src/pages/pda-cutting-handover.ts', 'writePdaHandoverToFcs'],
-    ['src/pages/pda-cutting-replenishment-feedback.ts', 'writePdaReplenishmentFeedbackToFcs'],
-  ] as const
-
-  bridgeTargets.forEach(([file, bridgeFn]) => {
-    checkContains(file, bridgeFn, errors, `PDA 页面未通过正式写回桥提交：${bridgeFn}`)
-    checkContains(file, 'resolvePdaCuttingWritebackIdentity', errors, 'PDA 页面未通过统一 identity 适配器')
-    checkContains(file, 'resolvePdaCuttingWritebackOperator', errors, 'PDA 页面未通过统一 operator 适配器')
-    checkContains(file, 'buildPdaCuttingWritebackSource', errors, 'PDA 页面未通过统一 source 适配器')
-  })
-
-  const operatorFiles = [
-    'src/domain/cutting-pda-writeback/bridge.ts',
-    'src/data/fcs/pda-cutting-writeback-inputs.ts',
-    'src/data/fcs/cutting/pda-execution-writeback-ledger.ts',
-  ]
-  operatorFiles.forEach((file) => {
-    checkAbsent(file, /operatorAccountId\s*=\s*operatorName/g, errors, '仍存在 operatorAccountId = operatorName 的伪账号逻辑')
-    checkContains(file, 'operatorAccountId', errors, '操作人实体字段缺失')
-    checkContains(file, 'operatorFactoryId', errors, '操作人工厂字段缺失')
-  })
-
-  const noBareDateNowFiles = [
-    'src/pages/pda-cutting-pickup.ts',
-    'src/pages/pda-cutting-spreading.ts',
-    'src/pages/pda-cutting-inbound.ts',
-    'src/pages/pda-cutting-handover.ts',
-    'src/pages/pda-cutting-replenishment-feedback.ts',
-    'src/data/fcs/pda-cutting-writeback-inputs.ts',
-    'src/domain/cutting-pda-writeback/bridge.ts',
-    'src/data/fcs/cutting/pda-spreading-writeback.ts',
-  ]
-  noBareDateNowFiles.forEach((file) => {
-    checkAbsent(file, 'Date.now(', errors, 'PDA 写回链仍使用裸 Date.now() 作为业务 ID / 主流水生成')
-  })
-
-  const noLegacySourceRefs = [
-    'src/domain/cutting-pda-writeback/bridge.ts',
-    'src/data/fcs/pda-cutting-execution-source.ts',
-    'src/data/fcs/cutting/runtime-inputs.ts',
-  ]
-  noLegacySourceRefs.forEach((file) => {
-    checkAbsent(file, 'pda-cutting-special', errors, '仍有正式源继续依赖旧 pda-cutting-special')
-    checkAbsent(file, 'pda-execution-writeback-model', errors, '仍有正式源继续依赖旧页面 writeback ledger model')
-    checkAbsent(file, 'pda-writeback-model', errors, '仍有正式源继续依赖旧页面 writeback inbox model')
-  })
-
-  checkAbsent('src/pages/pda-cutting-integration-map.ts', 'focusCutPieceOrderNo', errors, 'integration map 仍透出旧 focusCutPieceOrderNo')
-  checkAbsent('src/pages/pda-cutting-integration-map.ts', 'cutPieceOrderNo', errors, 'integration map 仍透出旧 cutPieceOrderNo')
-  checkAbsent('src/pages/pda-cutting-nav-context.ts', "params.set('cutPieceOrderNo'", errors, 'nav context 不应继续写出 legacy cutPieceOrderNo 参数')
-  checkAbsent('src/pages/pda-cutting-nav-context.ts', "params.set('focusCutPieceOrderNo'", errors, 'nav context 不应继续写出 legacy focusCutPieceOrderNo 参数')
-  checkAbsent('src/data/fcs/pda-cutting-execution-source.ts', "params.set('cutPieceOrderNo'", errors, 'execution route builder 不应继续写出 legacy cutPieceOrderNo 参数')
-
-  checkContains('src/data/fcs/pda-cutting-writeback-inputs.ts', 'buildPdaCuttingWritebackId', errors, '统一写回 ID 生成器缺失')
-  checkContains('src/domain/cutting-pda-writeback/bridge.ts', 'validateIdentity', errors, '写回桥 identity 校验缺失')
-  checkContains('src/domain/cutting-pda-writeback/bridge.ts', 'executionOrderId', errors, '写回桥未校验正式执行对象')
+  const eventLedger = 'src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
   ;[
-    'spreadingSessionId',
-    'markerId',
-    'markerNo',
-    'planUnitId',
-    'spreadingMode',
-    'recordType',
-    'occurredAt',
-    'rollWritebackItemId',
-    'actualSpreadLengthM',
-    'headLossM',
-    'tailLossM',
-    'spreadLayerCount',
-    'handoverToAccountId',
-    'handoverToName',
-  ].forEach((field) => {
-    checkContains('src/domain/cutting-pda-writeback/bridge.ts', field, errors, `PDA 铺布桥缺少字段：${field}`)
-    checkContains('src/data/fcs/cutting/pda-spreading-writeback.ts', field, errors, `PDA 铺布写回模型缺少字段：${field}`)
+    'export type CuttingRuntimeEventType',
+    'export interface CuttingRuntimeEvent',
+    'export function appendCuttingRuntimeEvent',
+    'export function listCuttingRuntimeEvents',
+    'export function listCuttingRuntimeEventsByType',
+    'export function listCuttingRuntimeEventsByInventoryScope',
+    'export function listRuntimePdaExecutionEventProjections',
+    'PdaRuntimeEventProjectionBase',
+    'PdaPickupEventRecord',
+    'PdaCutPieceInboundEventRecord',
+    'PdaCutPieceHandoverEventRecord',
+    'PdaReplenishmentFeedbackEventRecord',
+  ].forEach((needle) => {
+    checkContains(eventLedger, needle, errors, `统一事件账缺少导出或投影：${needle}`)
   })
-  checkContains('src/data/fcs/cutting/pda-spreading-writeback.ts', 'findTargetSession', errors, 'PDA 铺布写回缺少 session 优先级匹配函数')
-  checkContains('src/data/fcs/cutting/pda-spreading-writeback.ts', 'rollRecordId', errors, 'PDA 铺布写回未把操作人绑定到具体卷')
+
+  ;[
+    '中转仓配料完成通知',
+    '中转仓领料',
+    '待加工仓扫码入仓',
+    '待加工仓加工领料',
+    '待加工仓回收入仓',
+    '裁片单开工',
+    '开始铺布',
+    '完成铺布',
+    '开始裁剪',
+    '完成裁剪',
+    '菲票入仓暂存',
+    '待交出仓分拣装袋',
+    '新增交出记录',
+    '特殊工艺交出',
+    '特殊工艺回仓',
+    '补料反馈',
+  ].forEach((eventType) => {
+    checkContains(eventLedger, eventType, errors, `统一事件账缺少事件类型：${eventType}`)
+  })
+
+  ;[
+    'TransferPrepReadyPayload',
+    'TransferPickupPayload',
+    'WaitProcessInboundPayload',
+    'WaitProcessIssuePayload',
+    'WaitProcessReturnPayload',
+    'StartWorkPayload',
+    'FinishSpreadingPayload',
+    'FinishCuttingPayload',
+    'FeiTicketInboundPayload',
+    'HandoverSortingBaggingPayload',
+    'HandoverRecordSubmitPayload',
+    'SpecialCraftHandoverPayload',
+    'SpecialCraftReturnPayload',
+    'ReplenishmentFeedbackPayload',
+  ].forEach((payloadType) => {
+    checkContains(eventLedger, payloadType, errors, `统一事件账缺少 payload 类型：${payloadType}`)
+  })
+
+  const directRuntimeWriterPages = [
+    'src/pages/pda-cutting-task-detail.ts',
+    'src/pages/pda-warehouse-wait-process.ts',
+    'src/pages/pda-cutting-spreading.ts',
+    'src/pages/pda-cutting-replenishment-feedback.ts',
+  ]
+  directRuntimeWriterPages.forEach((file) => {
+    checkContains(file, 'appendCuttingRuntimeEvent', errors, 'PDA 页面未直接写入统一裁床事件账')
+    checkContains(file, 'cutting-runtime-event-ledger', errors, 'PDA 页面未接入统一裁床事件账模块')
+  })
+
+  const waitHandoverRuntime = 'src/pages/process-factory/cutting/wait-handover-runtime.ts'
+  ;[
+    'appendWaitHandoverInboundEvent',
+    'appendWaitHandoverSortingBaggingEvent',
+    'appendWaitHandoverHandoverRecordEvent',
+    'appendWaitHandoverSpecialCraftHandoverEvent',
+    'appendWaitHandoverSpecialCraftReturnEvent',
+    'appendCuttingRuntimeEvent',
+  ].forEach((needle) => {
+    checkContains(waitHandoverRuntime, needle, errors, `待交出仓 runtime 缺少事件账适配：${needle}`)
+  })
+
+  checkContains('src/pages/pda-cutting-inbound.ts', 'appendWaitHandoverInboundEvent', errors, 'PDA 菲票入仓未通过待交出仓 runtime 写事件账')
+  checkContains('src/pages/pda-cutting-handover.ts', 'appendWaitHandoverSortingBaggingEvent', errors, 'PDA 二次分拣/装袋未通过待交出仓 runtime 写事件账')
+  checkContains('src/pages/pda-cutting-handover.ts', 'appendWaitHandoverHandoverRecordEvent', errors, 'PDA 交出记录未通过待交出仓 runtime 写事件账')
+  checkContains('src/pages/pda-cutting-handover.ts', 'appendWaitHandoverSpecialCraftHandoverEvent', errors, 'PDA 特殊工艺交出未通过待交出仓 runtime 写事件账')
+  checkContains('src/pages/pda-cutting-handover.ts', 'appendWaitHandoverSpecialCraftReturnEvent', errors, 'PDA 特殊工艺回仓未通过待交出仓 runtime 写事件账')
+
+  checkContains('src/pages/pda-cutting-task-detail.ts', "'裁片单开工'", errors, 'PDA 开工动作未记录裁片单开工事件')
+  checkContains('src/pages/pda-warehouse-wait-process.ts', "'中转仓领料'", errors, 'PDA 待加工仓缺少中转仓领料事件')
+  checkContains('src/pages/pda-warehouse-wait-process.ts', "'待加工仓扫码入仓'", errors, 'PDA 待加工仓缺少扫码入仓事件')
+  checkContains('src/pages/pda-warehouse-wait-process.ts', "'待加工仓加工领料'", errors, 'PDA 待加工仓缺少加工领料事件')
+  checkContains('src/pages/pda-warehouse-wait-process.ts', "'待加工仓回收入仓'", errors, 'PDA 待加工仓缺少回收入仓事件')
+  checkContains('src/pages/pda-cutting-spreading.ts', "'开始铺布'", errors, 'PDA 铺布页缺少开始铺布事件')
+  checkContains('src/pages/pda-cutting-spreading.ts', "'完成铺布'", errors, 'PDA 铺布页缺少完成铺布事件')
+  checkContains('src/pages/pda-cutting-spreading.ts', "'开始裁剪'", errors, 'PDA 裁剪页缺少开始裁剪事件')
+  checkContains('src/pages/pda-cutting-spreading.ts', "'完成裁剪'", errors, 'PDA 裁剪页缺少完成裁剪事件')
+  checkContains('src/pages/pda-cutting-replenishment-feedback.ts', "'补料反馈'", errors, 'PDA 补料反馈页缺少补料反馈事件')
+
+  checkContains('src/pages/pda-cutting-spreading.ts', 'outputLines', errors, 'PDA 裁剪完成必须按实际裁剪产出明细写入')
+  checkContains('src/pages/pda-cutting-spreading.ts', 'partCode', errors, 'PDA 实际裁剪产出缺少部位编码')
+  checkContains('src/pages/pda-cutting-spreading.ts', 'partName', errors, 'PDA 实际裁剪产出缺少部位名称')
+  checkContains('src/pages/pda-cutting-spreading.ts', 'actualPieceQty', errors, 'PDA 实际裁剪产出缺少实际裁片数量')
+  checkAbsent('src/pages/pda-cutting-spreading.ts', '整床裁片', errors, 'PDA 裁剪完成仍存在整床裁片兜底文案')
+
+  ;[
+    'src/pages/process-factory/cutting/warehouse-hub.ts',
+    'src/pages/process-factory/cutting/cut-piece-warehouse-model.ts',
+    'src/pages/process-factory/cutting/production-progress-model.ts',
+    'src/pages/process-factory/cutting/replenishment-model.ts',
+    'src/pages/process-factory/cutting/material-prep-model.ts',
+    'src/data/fcs/cutting/generated-fei-tickets.ts',
+    'src/data/fcs/cutting/spreading-differences.ts',
+  ].forEach((file) => {
+    checkContains(file, 'cutting-runtime-event-ledger', errors, 'Web 投影未读取统一裁床事件账')
+  })
+
+  checkContains('src/data/fcs/cutting/generated-fei-tickets.ts', 'FinishCuttingPayload', errors, '菲票生成未读取完成裁剪实际产出 payload')
+  checkContains('src/data/fcs/cutting/generated-fei-tickets.ts', 'outputLines', errors, '菲票生成未按铺布单实际产出明细生成')
+  checkContains('src/data/fcs/cutting/spreading-differences.ts', "listCuttingRuntimeEventsByType('完成铺布')", errors, '铺布差异未读取完成铺布事件')
+  checkContains('src/data/fcs/cutting/spreading-differences.ts', "listCuttingRuntimeEventsByType('完成裁剪')", errors, '裁剪差异未读取完成裁剪事件')
+
+  ;[
+    'readSelectedCutPieceOrderNoFromLocation',
+    'focusCutPieceOrderNo',
+    'data-cut-piece-order-no',
+    'appendPickupWritebackRecord',
+    'appendInboundWritebackRecord',
+    'appendHandoverWritebackRecord',
+    'appendReplenishmentFeedbackWritebackRecord',
+  ].forEach((legacyText) => {
+    ;[
+      'src/pages/pda-cutting-task-detail.ts',
+      'src/pages/pda-warehouse-wait-process.ts',
+      'src/pages/pda-cutting-spreading.ts',
+      'src/pages/pda-cutting-inbound.ts',
+      'src/pages/pda-cutting-handover.ts',
+      'src/pages/pda-cutting-replenishment-feedback.ts',
+    ].forEach((file) => {
+      checkAbsent(file, legacyText, errors, `PDA 页面仍有旧写回/旧裁片单锚点：${legacyText}`)
+    })
+  })
 
   if (errors.length) {
     console.error('check-cutting-pda-projection-writeback failed:')

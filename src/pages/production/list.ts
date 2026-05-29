@@ -4,5 +4,6 @@ export {
   renderProductionPlanPage,
   renderProductionDeliveryWarehousePage,
   renderProductionChangesPage,
+  renderProductionChangeDetailPage,
   renderProductionStatusPage,
 } from './core'

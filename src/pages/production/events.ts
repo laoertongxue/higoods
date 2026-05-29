@@ -8,9 +8,6 @@ import {
   type ProductionDemand,
   type ProductionOrder,
   type ProductionOrderStatus,
-  type ProductionChangeType,
-  type ProductionChangeStatus,
-  type ProductionOrderChange,
   type ProductionState,
   type FactoryTier,
   type FactoryType,
@@ -23,7 +20,6 @@ import {
   type MaterialMode,
   type AuditLog,
   productionOrderStatusConfig,
-  changeAllowedNext,
   lifecycleAllowedNext,
   getFilteredDemands,
   listOrdersFromDemandGeneratableDemands,
@@ -37,9 +33,8 @@ import {
   PAGE_SIZE,
   PLAN_EMPTY_FORM,
   DELIVERY_EMPTY_FORM,
-  CHANGE_CREATE_EMPTY_FORM,
-  CHANGE_STATUS_EMPTY_FORM,
-  nextChangeId,
+  TECH_PACK_VERSION_CHANGE_EMPTY_FORM,
+  PRODUCTION_PATCH_EMPTY_FORM,
   addMaterialToDraft,
   restoreMaterialDraftSuggestion,
   confirmMaterialRequestDraft,
@@ -57,6 +52,14 @@ import {
   performDemandGenerate,
   performOrdersFromDemandGenerate,
 } from './demand-domain'
+import {
+  submitProductionOrderPatch,
+  submitProductionOrderTechPackChange,
+  voidProductionOrderPatch,
+  type ChangeEffectiveMode,
+  type PatchEffectivePoint,
+  type ProductionPatchType,
+} from '../../data/fcs/production-tech-pack-change-domain'
 
 function openCurrentTechPackEntry(spuCode: string): void {
   const info = getDemandCurrentTechPackInfo({ spuCode })
@@ -338,64 +341,116 @@ function updateProductionField(
     return
   }
 
-  if (field === 'changesKeyword') {
-    state.changesKeyword = value
+  if (field === 'techPackChangeKeyword') {
+    state.techPackChangeKeyword = value
     return
   }
 
-  if (field === 'changesTypeFilter') {
-    state.changesTypeFilter = value as 'ALL' | ProductionChangeType
+  if (field === 'techPackChangeCurrentVersionFilter') {
+    state.techPackChangeCurrentVersionFilter = value
     return
   }
 
-  if (field === 'changesStatusFilter') {
-    state.changesStatusFilter = value as 'ALL' | ProductionChangeStatus
+  if (field === 'techPackChangeNewVersionFilter') {
+    state.techPackChangeNewVersionFilter = value as ProductionState['techPackChangeNewVersionFilter']
     return
   }
 
-  if (field === 'changesCreateProductionOrderId') {
-    state.changesCreateForm.productionOrderId = value
+  if (field === 'techPackChangePatchFilter') {
+    state.techPackChangePatchFilter = value as ProductionState['techPackChangePatchFilter']
     return
   }
 
-  if (field === 'changesCreateType') {
-    state.changesCreateForm.changeType = value as ProductionChangeType | ''
+  if (field === 'techPackChangeStatusFilter') {
+    state.techPackChangeStatusFilter = value
     return
   }
 
-  if (field === 'changesCreateBeforeValue') {
-    state.changesCreateForm.beforeValue = value
+  if (field === 'techPackChangeModuleFilter') {
+    state.techPackChangeModuleFilter = value
     return
   }
 
-  if (field === 'changesCreateAfterValue') {
-    state.changesCreateForm.afterValue = value
+  if (field === 'techPackChangeProgressFilter') {
+    state.techPackChangeProgressFilter = value
     return
   }
 
-  if (field === 'changesCreateImpactScope') {
-    state.changesCreateForm.impactScopeZh = value
+  if (field === 'techPackChangeOwnerFilter') {
+    state.techPackChangeOwnerFilter = value
     return
   }
 
-  if (field === 'changesCreateReason') {
-    state.changesCreateForm.reason = value
+  if (field === 'techPackChangePublishIgnoreReason') {
+    state.techPackChangePublishIgnoreReason = value
     return
   }
 
-  if (field === 'changesCreateRemark') {
-    state.changesCreateForm.remark = value
+  if (field === 'techPackChangeTargetVersionId') {
+    state.techPackChangeVersionForm.targetVersionId = value
     return
   }
 
-  if (field === 'changesStatusNext') {
-    state.changesStatusForm.nextStatus = value as ProductionChangeStatus | ''
-    state.changesStatusError = ''
+  if (field === 'techPackChangeVersionReason') {
+    state.techPackChangeVersionForm.reason = value
+    state.techPackChangeVersionError = ''
     return
   }
 
-  if (field === 'changesStatusRemark') {
-    state.changesStatusForm.remark = value
+  if (field === 'techPackChangeEffectiveMode') {
+    state.techPackChangeVersionForm.effectiveMode = value
+    return
+  }
+
+  if (field === 'techPackChangeVersionNote') {
+    state.techPackChangeVersionForm.note = value
+    return
+  }
+
+  if (field === 'techPackChangeVersionConfirmed') {
+    state.techPackChangeVersionForm.confirmed = checked
+    state.techPackChangeVersionError = ''
+    return
+  }
+
+  if (field === 'productionPatchType') {
+    state.productionPatchForm.patchType = value
+    return
+  }
+
+  if (field === 'productionPatchEffectivePoint') {
+    state.productionPatchForm.effectivePoint = value
+    return
+  }
+
+  if (field === 'productionPatchReason') {
+    state.productionPatchForm.reason = value
+    state.productionPatchError = ''
+    return
+  }
+
+  if (field === 'productionPatchContentText') {
+    state.productionPatchForm.contentText = value
+    state.productionPatchError = ''
+    return
+  }
+
+  const productionPatchScopeFieldMap: Partial<Record<string, keyof typeof state.productionPatchForm>> = {
+    productionPatchColor: 'color',
+    productionPatchSize: 'size',
+    productionPatchMaterial: 'material',
+    productionPatchPart: 'part',
+    productionPatchProcessNode: 'processNode',
+    productionPatchFactory: 'factory',
+    productionPatchCutOrder: 'cutOrder',
+    productionPatchMarkerPlan: 'markerPlan',
+    productionPatchSpreadingOrder: 'spreadingOrder',
+    productionPatchProcessOrder: 'processOrder',
+  }
+  const productionPatchScopeField = productionPatchScopeFieldMap[field]
+  if (productionPatchScopeField) {
+    state.productionPatchForm[productionPatchScopeField] = value
+    state.productionPatchError = ''
     return
   }
 
@@ -491,6 +546,219 @@ export function handleProductionEvent(target: HTMLElement): boolean {
 
     state.ordersActionMenuId = null
     openAppRoute(`/fcs/production/orders/${orderId}`, `po-${orderId}`, `生产单管理 ${orderId}`)
+    return true
+  }
+
+  if (action === 'open-production-change-detail') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    state.techPackChangeDetailTab = 'relation'
+    openAppRoute(`/fcs/production/changes/${orderId}`, `po-change-${orderId}`, `生产单变更 ${orderId}`)
+    return true
+  }
+
+  if (action === 'open-production-change-history') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    state.techPackChangeDetailTab = 'logs'
+    openAppRoute(`/fcs/production/changes/${orderId}`, `po-change-${orderId}`, `生产单变更 ${orderId}`)
+    return true
+  }
+
+  if (action === 'switch-tech-pack-change-detail-tab') {
+    const tab = actionNode.dataset.tab as ProductionState['techPackChangeDetailTab'] | undefined
+    if (!tab) return true
+    state.techPackChangeDetailTab = tab
+    return true
+  }
+
+  if (action === 'open-change-module-landing') {
+    const moduleName = actionNode.dataset.moduleLabel
+    const landingId = actionNode.dataset.landingId
+    showPlanMessage(landingId ? `已打开模块落地标识：${landingId}${moduleName ? ` / ${moduleName}` : ''}` : '已打开模块落地标识')
+    return true
+  }
+
+  if (action === 'open-change-module-log') {
+    const orderId = actionNode.dataset.orderId
+    state.techPackChangeDetailTab = 'logs'
+    if (orderId) {
+      openAppRoute(`/fcs/production/changes/${orderId}`, `po-change-${orderId}`, `生产单变更 ${orderId}`)
+    }
+    showPlanMessage('已切换到该模块相关操作日志')
+    return true
+  }
+
+  if (action === 'open-tech-pack-publish-guide') {
+    state.techPackChangePublishGuideOpen = true
+    return true
+  }
+
+  if (action === 'close-tech-pack-publish-guide') {
+    state.techPackChangePublishGuideOpen = false
+    state.techPackChangePublishIgnoreReason = ''
+    showPlanMessage('已进入生产单变更')
+    return true
+  }
+
+  if (action === 'generate-tech-pack-evaluation-todo') {
+    state.techPackChangePublishGuideOpen = false
+    state.techPackChangePublishIgnoreReason = ''
+    showPlanMessage('生产单评估待办已生成')
+    return true
+  }
+
+  if (action === 'mark-tech-pack-publish-ignore') {
+    if (!state.techPackChangePublishIgnoreReason) {
+      showPlanMessage('请选择本次不处理原因', 'error')
+      return true
+    }
+    state.techPackChangePublishGuideOpen = false
+    showPlanMessage(`已记录不处理原因：${state.techPackChangePublishIgnoreReason}`)
+    state.techPackChangePublishIgnoreReason = ''
+    return true
+  }
+
+  if (action === 'refresh-tech-pack-change-status') {
+    showPlanMessage('版本状态已刷新')
+    return true
+  }
+
+  if (action === 'export-tech-pack-change') {
+    showPlanMessage('已生成生产单变更导出任务')
+    return true
+  }
+
+  if (action === 'open-tech-pack-version-change') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    state.techPackChangeVersionDialogOrderId = orderId
+    state.techPackChangeVersionForm = { ...TECH_PACK_VERSION_CHANGE_EMPTY_FORM }
+    state.techPackChangeVersionError = ''
+    return true
+  }
+
+  if (action === 'close-tech-pack-version-change') {
+    state.techPackChangeVersionDialogOrderId = null
+    state.techPackChangeVersionForm = { ...TECH_PACK_VERSION_CHANGE_EMPTY_FORM }
+    state.techPackChangeVersionError = ''
+    return true
+  }
+
+  if (action === 'submit-tech-pack-version-change') {
+    const orderId = state.techPackChangeVersionDialogOrderId
+    if (!orderId) return true
+    if (!state.techPackChangeVersionForm.confirmed) {
+      state.techPackChangeVersionError = '请先确认版本差异与当前生产进度'
+      return true
+    }
+    try {
+      const request = submitProductionOrderTechPackChange({
+        productionOrderId: orderId,
+        targetVersionId: state.techPackChangeVersionForm.targetVersionId || 'LATEST',
+        reason: state.techPackChangeVersionForm.reason,
+        effectiveMode: state.techPackChangeVersionForm.effectiveMode as ChangeEffectiveMode,
+        note: state.techPackChangeVersionForm.note,
+        operatorName: currentUser.name,
+      })
+      state.techPackChangeVersionDialogOrderId = null
+      state.techPackChangeVersionForm = { ...TECH_PACK_VERSION_CHANGE_EMPTY_FORM }
+      state.techPackChangeVersionError = ''
+      showPlanMessage(`版本关系变更申请已提交：${request.changeRequestNo}`)
+    } catch (error) {
+      state.techPackChangeVersionError = error instanceof Error ? error.message : '提交版本关系变更失败'
+    }
+    return true
+  }
+
+  if (action === 'open-production-patch') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    state.productionPatchDialogOrderId = orderId
+    state.productionPatchForm = { ...PRODUCTION_PATCH_EMPTY_FORM }
+    state.productionPatchError = ''
+    return true
+  }
+
+  if (action === 'close-production-patch') {
+    state.productionPatchDialogOrderId = null
+    state.productionPatchForm = { ...PRODUCTION_PATCH_EMPTY_FORM }
+    state.productionPatchError = ''
+    return true
+  }
+
+  if (action === 'save-production-patch-draft') {
+    showPlanMessage('补丁草稿已暂存')
+    return true
+  }
+
+  if (action === 'view-production-patch') {
+    const patchId = actionNode.dataset.patchId
+    showPlanMessage(patchId ? `已打开补丁详情：${patchId}` : '已打开补丁详情')
+    return true
+  }
+
+  if (action === 'void-production-patch') {
+    const patchId = actionNode.dataset.patchId
+    if (!patchId) return true
+    try {
+      const patch = voidProductionOrderPatch(patchId, currentUser.name)
+      showPlanMessage(`生产单补丁已作废：${patch.patchNo}`)
+    } catch (error) {
+      showPlanMessage(error instanceof Error ? error.message : '作废生产单补丁失败', 'error')
+    }
+    return true
+  }
+
+  if (action === 'open-production-patch-notice') {
+    const orderId = actionNode.dataset.orderId
+    state.techPackChangeDetailTab = 'notice'
+    if (orderId) {
+      openAppRoute(`/fcs/production/changes/${orderId}`, `po-change-${orderId}`, `生产单变更 ${orderId}`)
+    }
+    return true
+  }
+
+  if (action === 'resend-production-change-notice') {
+    const noticeId = actionNode.dataset.noticeId
+    showPlanMessage(noticeId ? `飞书通知已重发：${noticeId}` : '飞书通知已重发')
+    return true
+  }
+
+  if (action === 'submit-production-patch') {
+    const orderId = state.productionPatchDialogOrderId
+    if (!orderId) return true
+    const scopeText = [
+      state.productionPatchForm.color,
+      state.productionPatchForm.size,
+      state.productionPatchForm.material,
+      state.productionPatchForm.part,
+      state.productionPatchForm.processNode,
+      state.productionPatchForm.factory,
+      state.productionPatchForm.cutOrder,
+      state.productionPatchForm.markerPlan,
+      state.productionPatchForm.spreadingOrder,
+      state.productionPatchForm.processOrder,
+    ]
+      .filter(Boolean)
+      .join(' / ')
+    try {
+      const patch = submitProductionOrderPatch({
+        productionOrderId: orderId,
+        patchType: state.productionPatchForm.patchType as ProductionPatchType,
+        effectivePoint: state.productionPatchForm.effectivePoint as PatchEffectivePoint,
+        scopeText,
+        contentText: state.productionPatchForm.contentText,
+        reason: state.productionPatchForm.reason,
+        operatorName: currentUser.name,
+      })
+      state.productionPatchDialogOrderId = null
+      state.productionPatchForm = { ...PRODUCTION_PATCH_EMPTY_FORM }
+      state.productionPatchError = ''
+      showPlanMessage(`生产单补丁已提交：${patch.patchNo}`)
+    } catch (error) {
+      state.productionPatchError = error instanceof Error ? error.message : '提交生产单补丁失败'
+    }
     return true
   }
 
@@ -1098,126 +1366,6 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'open-changes-create') {
-    state.changesCreateOpen = true
-    return true
-  }
-
-  if (action === 'close-changes-create') {
-    state.changesCreateOpen = false
-    return true
-  }
-
-  if (action === 'save-changes-create') {
-    const errors: Record<string, string> = {}
-
-    if (!state.changesCreateForm.productionOrderId) {
-      errors.productionOrderId = '请选择生产单'
-    }
-    if (!state.changesCreateForm.changeType) {
-      errors.changeType = '请选择变更类型'
-    }
-    if (!state.changesCreateForm.reason.trim()) {
-      errors.reason = '变更原因不能为空'
-    }
-
-    state.changesCreateErrors = errors
-    if (Object.keys(errors).length > 0) return true
-
-    const targetOrder = state.orders.find(
-      (order) => order.productionOrderId === state.changesCreateForm.productionOrderId,
-    )
-    if (!targetOrder) {
-      showPlanMessage(`创建失败：生产单 ${state.changesCreateForm.productionOrderId} 不存在`, 'error')
-      return true
-    }
-
-    const now = toTimestamp()
-    const month = now.slice(0, 7).replace('-', '')
-    const existingIds = new Set(state.changes.map((change) => change.changeId))
-    const changeId = nextChangeId(month, existingIds)
-
-    const changeType = state.changesCreateForm.changeType as ProductionChangeType
-
-    const newChange: ProductionOrderChange = {
-      changeId,
-      productionOrderId: state.changesCreateForm.productionOrderId,
-      changeType,
-      beforeValue: state.changesCreateForm.beforeValue || undefined,
-      afterValue: state.changesCreateForm.afterValue || undefined,
-      impactScopeZh: state.changesCreateForm.impactScopeZh || undefined,
-      reason: state.changesCreateForm.reason,
-      remark: state.changesCreateForm.remark || undefined,
-      status: 'DRAFT',
-      createdAt: now,
-      createdBy: currentUser.name,
-    }
-
-    state.changes = [...state.changes, newChange]
-    state.changesCreateOpen = false
-    state.changesCreateForm = { ...CHANGE_CREATE_EMPTY_FORM }
-    state.changesCreateErrors = {}
-    showPlanMessage(`生产单变更已创建：${changeId}`)
-    return true
-  }
-
-  if (action === 'open-changes-status') {
-    const changeId = actionNode.dataset.changeId
-    const currentStatus = actionNode.dataset.currentStatus as ProductionChangeStatus | undefined
-
-    if (!changeId || !currentStatus) return true
-
-    state.changesStatusOpen = true
-    state.changesStatusTarget = { changeId, currentStatus }
-    state.changesStatusForm = { ...CHANGE_STATUS_EMPTY_FORM }
-    state.changesStatusError = ''
-    return true
-  }
-
-  if (action === 'close-changes-status') {
-    state.changesStatusOpen = false
-    return true
-  }
-
-  if (action === 'save-changes-status') {
-    if (!state.changesStatusTarget || !state.changesStatusForm.nextStatus) {
-      state.changesStatusError = '请选择目标状态'
-      return true
-    }
-
-    const target = state.changes.find((change) => change.changeId === state.changesStatusTarget?.changeId)
-    if (!target) {
-      state.changesStatusError = `变更单 ${state.changesStatusTarget.changeId} 不存在`
-      return true
-    }
-
-    const allowed = changeAllowedNext[target.status]
-    if (!allowed.includes(state.changesStatusForm.nextStatus)) {
-      state.changesStatusError = '当前变更状态不允许切换到目标状态'
-      return true
-    }
-
-    const now = toTimestamp()
-
-    state.changes = state.changes.map((change) => {
-      if (change.changeId !== state.changesStatusTarget?.changeId) return change
-      return {
-        ...change,
-        status: state.changesStatusForm.nextStatus as ProductionChangeStatus,
-        remark: state.changesStatusForm.remark || change.remark,
-        updatedAt: now,
-        updatedBy: currentUser.name,
-      }
-    })
-
-    state.changesStatusOpen = false
-    state.changesStatusTarget = null
-    state.changesStatusForm = { ...CHANGE_STATUS_EMPTY_FORM }
-    state.changesStatusError = ''
-    showPlanMessage('变更状态已更新')
-    return true
-  }
-
   if (action === 'open-status-change') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
@@ -1371,8 +1519,9 @@ export function isProductionDialogOpen(): boolean {
     state.materialDraftAddDraftId !== null ||
     state.planEditOrderId !== null ||
     state.deliveryEditOrderId !== null ||
-    state.changesCreateOpen ||
-    state.changesStatusOpen ||
+    state.techPackChangeVersionDialogOrderId !== null ||
+    state.productionPatchDialogOrderId !== null ||
+    state.techPackChangePublishGuideOpen ||
     state.statusDialogOpen ||
     state.detailLogsOpen ||
     state.detailSimulateOpen ||

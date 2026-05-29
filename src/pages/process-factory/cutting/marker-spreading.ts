@@ -231,6 +231,7 @@ type SpreadingDraftField =
   | 'note'
   | 'status'
 type SpreadingRollField =
+  | 'markerUnitKey'
   | 'planUnitId'
   | 'rollNo'
   | 'materialSku'
@@ -1157,6 +1158,61 @@ function renderSpreadingEditTabNav(activeTab: SpreadingEditTabKey): string {
 
 function buildSpreadingPlanUnitLabel(planUnit: SpreadingPlanUnit): string {
   return buildSpreadingPlanUnitProjectionLabel(planUnit)
+}
+
+function isHighLowSpreadingPlanUnit(planUnit: SpreadingPlanUnit | null | undefined): boolean {
+  return Boolean(planUnit && (planUnit.sourceType === 'high-low-row' || planUnit.stepLabel))
+}
+
+function buildSpreadingPlanUnitMarkerNo(planUnit: SpreadingPlanUnit | null | undefined, session: Partial<SpreadingSession>): string {
+  return planUnit?.sourceBedNo || session.sourceBedNo || session.markerNo || session.markerPlanNo || planUnit?.sourceLineId || '待补唛架号'
+}
+
+function buildSpreadingPlanUnitMarkerLabel(planUnit: SpreadingPlanUnit | null | undefined, session: Partial<SpreadingSession>): string {
+  if (!planUnit) return '待补'
+  const markerNo = buildSpreadingPlanUnitMarkerNo(planUnit, session)
+  if (isHighLowSpreadingPlanUnit(planUnit)) return markerNo
+  const detail = [planUnit.color, planUnit.materialSku, `${formatQty(planUnit.garmentQtyPerUnit || 0)}件/层`].filter(Boolean).join(' / ')
+  return detail ? `${markerNo} / ${detail}` : markerNo
+}
+
+interface SpreadingMarkerUnitOption {
+  key: string
+  label: string
+  requiresStep: boolean
+  units: SpreadingPlanUnit[]
+}
+
+function buildSpreadingMarkerUnitOptions(
+  planUnits: SpreadingPlanUnit[] | undefined,
+  session: Partial<SpreadingSession>,
+): SpreadingMarkerUnitOption[] {
+  const options = new Map<string, SpreadingMarkerUnitOption>()
+
+  ;(planUnits || []).forEach((unit) => {
+    const requiresStep = isHighLowSpreadingPlanUnit(unit)
+    const markerNo = buildSpreadingPlanUnitMarkerNo(unit, session)
+    const key = requiresStep
+      ? `high-low:${unit.sourceBedId || unit.sourceBedNo || markerNo}`
+      : `marker-unit:${unit.planUnitId}`
+    const label = requiresStep ? markerNo : buildSpreadingPlanUnitMarkerLabel(unit, session)
+    const existing = options.get(key)
+    if (existing) {
+      existing.units.push(unit)
+      return
+    }
+    options.set(key, { key, label, requiresStep, units: [unit] })
+  })
+
+  return [...options.values()]
+}
+
+function findSpreadingMarkerUnitOptionByPlanUnit(
+  options: SpreadingMarkerUnitOption[],
+  planUnit: SpreadingPlanUnit | null,
+): SpreadingMarkerUnitOption | null {
+  if (!planUnit) return null
+  return options.find((option) => option.units.some((unit) => unit.planUnitId === planUnit.planUnitId)) || null
 }
 
 function renderTextInput(label: string, value: string, attrs: string, placeholder = '请输入'): string {
@@ -4300,7 +4356,8 @@ function renderSpreadingDetailPage(): string {
           <table class="w-full text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th class="px-3 py-3">阶梯/唛架项</th>
+                <th class="px-3 py-3">唛架号</th>
+                <th class="px-3 py-3">阶梯</th>
                 <th class="px-3 py-3">卷号</th>
                 <th class="px-3 py-3">面料</th>
                 <th class="px-3 py-3">颜色</th>
@@ -4323,13 +4380,15 @@ function renderSpreadingDetailPage(): string {
                   ? session.rolls
                       .map((roll) => {
                         const planUnit = findSpreadingPlanUnitById(session.planUnits, roll.planUnitId)
+                        const requiresStep = isHighLowSpreadingPlanUnit(planUnit)
                         const garmentQtyPerUnit = planUnit?.garmentQtyPerUnit || 0
                         const usableLength = computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength)
                         const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength)
                         const actualCutGarmentQty = computeRollActualCutGarmentQty(roll.layerCount, garmentQtyPerUnit)
                         return `
                           <tr class="border-b align-top">
-                            <td class="px-3 py-3">${escapeHtml(planUnit ? buildSpreadingPlanUnitLabel(planUnit) : '待补')}</td>
+                            <td class="px-3 py-3">${escapeHtml(buildSpreadingPlanUnitMarkerLabel(planUnit, session))}</td>
+                            <td class="px-3 py-3">${escapeHtml(requiresStep ? planUnit?.stepLabel || '待补' : '不适用')}</td>
                             <td class="px-3 py-3">${escapeHtml(roll.rollNo || '待补')}</td>
                             <td class="px-3 py-3">${renderMaterialIdentityBlock({
                               materialSku: planUnit?.materialSku || roll.materialSku || '—',
@@ -4353,7 +4412,7 @@ function renderSpreadingDetailPage(): string {
                         `
                       })
                       .join('')
-                  : '<tr><td colspan="15" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录。</td></tr>'
+                  : '<tr><td colspan="16" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录。</td></tr>'
               }
             </tbody>
           </table>
@@ -4785,7 +4844,8 @@ function renderSpreadingEditPage(): string {
           <table class="w-full text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th class="px-3 py-3">阶梯/唛架项</th>
+                <th class="px-3 py-3">唛架号</th>
+                <th class="px-3 py-3">阶梯</th>
                 <th class="px-3 py-3">卷号</th>
                 <th class="px-3 py-3">面料</th>
                 <th class="px-3 py-3">颜色</th>
@@ -4809,6 +4869,9 @@ function renderSpreadingEditPage(): string {
                   ? draft.rolls
                       .map((roll, index) => {
                         const planUnit = findSpreadingPlanUnitById(draft.planUnits, roll.planUnitId)
+                        const markerUnitOptions = buildSpreadingMarkerUnitOptions(draft.planUnits, draft)
+                        const selectedMarkerOption = findSpreadingMarkerUnitOptionByPlanUnit(markerUnitOptions, planUnit)
+                        const requiresStep = Boolean(selectedMarkerOption?.requiresStep)
                         const garmentQtyPerUnit = planUnit?.garmentQtyPerUnit || 0
                         const usableLength = computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength)
                         const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength)
@@ -4816,15 +4879,27 @@ function renderSpreadingEditPage(): string {
                         return `
                           <tr class="border-b align-top">
                             <td class="px-3 py-3">
-                                <select class="h-8 w-52 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="planUnitId">
-                                <option value="">请选择阶梯/唛架项</option>
-                                ${(draft.planUnits || [])
+                              <select class="h-8 w-52 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="markerUnitKey">
+                                <option value="">请选择唛架号</option>
+                                ${markerUnitOptions
                                   .map(
-                                    (unit) =>
-                                      `<option value="${escapeHtml(unit.planUnitId)}" ${unit.planUnitId === (roll.planUnitId || '') ? 'selected' : ''}>${escapeHtml(buildSpreadingPlanUnitLabel(unit))}</option>`,
+                                    (option) =>
+                                      `<option value="${escapeHtml(option.key)}" ${option.key === (selectedMarkerOption?.key || '') ? 'selected' : ''}>${escapeHtml(option.label)}</option>`,
                                   )
                                   .join('')}
                               </select>
+                            </td>
+                            <td class="px-3 py-3">
+                              <select class="h-8 w-36 rounded-md border px-2.5 text-sm ${requiresStep ? '' : 'bg-muted/40 text-muted-foreground'}" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="planUnitId" ${requiresStep ? 'aria-required="true"' : 'disabled'}>
+                                <option value="">${requiresStep ? '请选择阶梯' : '无需选择'}</option>
+                                ${(selectedMarkerOption?.units || [])
+                                  .map(
+                                    (unit) =>
+                                      `<option value="${escapeHtml(unit.planUnitId)}" ${unit.planUnitId === (roll.planUnitId || '') ? 'selected' : ''}>${escapeHtml(unit.stepLabel || buildSpreadingPlanUnitLabel(unit))}</option>`,
+                                  )
+                                  .join('')}
+                              </select>
+                              ${requiresStep ? '<p class="mt-1 text-[11px] text-amber-700">高低层必选</p>' : ''}
                             </td>
                             <td class="px-3 py-3"><input type="text" value="${escapeHtml(roll.rollNo)}" class="h-8 w-36 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="rollNo" /></td>
                             <td class="px-3 py-3 text-muted-foreground">${renderMaterialIdentityBlock({
@@ -4855,7 +4930,7 @@ function renderSpreadingEditPage(): string {
                         `
                       })
                       .join('')
-                  : '<tr><td colspan="16" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录并绑定阶梯/唛架项。</td></tr>'
+                  : '<tr><td colspan="17" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录并绑定唛架号；高低层模式需选择阶梯。</td></tr>'
               }
             </tbody>
           </table>
@@ -6632,6 +6707,15 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     const roll = state.spreadingDraft.rolls[index]
     if (Number.isNaN(index) || !field || !roll) return false
     const value = (spreadingRollFieldNode as HTMLInputElement | HTMLSelectElement).value
+
+    if (field === 'markerUnitKey') {
+      const markerOption = buildSpreadingMarkerUnitOptions(state.spreadingDraft.planUnits, state.spreadingDraft).find(
+        (option) => option.key === value,
+      )
+      roll.planUnitId = markerOption?.units[0]?.planUnitId || ''
+      syncDraftRollFromPlanUnit(state.spreadingDraft, roll)
+      return true
+    }
 
     if (field === 'planUnitId') {
       roll.planUnitId = value

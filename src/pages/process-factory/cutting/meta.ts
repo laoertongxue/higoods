@@ -154,7 +154,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '唛架方案详情',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看唛架方案、床次和图片。',
+    shortDescription: '查看唛架方案、床次和需求匹配。',
   },
   'marker-edit': {
     key: 'marker-edit',

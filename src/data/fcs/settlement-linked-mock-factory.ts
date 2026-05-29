@@ -292,6 +292,8 @@ function buildDemandSnapshot(factoryIndex: number, orderIndex: number, totalQty:
     demandId: `DEM-LINK-2026-${String(factoryIndex * 10 + orderIndex + 1).padStart(4, '0')}`,
     spuCode: `SPU-LINK-${String(factoryIndex + 1).padStart(2, '0')}${String(orderIndex + 1).padStart(2, '0')}`,
     spuName: `联动对账款式-${factoryIndex + 1}-${orderIndex + 1}`,
+    buyerName: factoryIndex % 2 === 0 ? '宋雨' : '何佳',
+    merchandiserName: orderIndex % 2 === 0 ? '陈静' : '林晓',
     priority: orderIndex % 2 === 0 ? 'HIGH' : 'NORMAL',
     requiredDeliveryDate,
     constraintsNote: '用于对账与结算链路串联演示',

@@ -82,7 +82,14 @@ type RuntimeStartReadiness =
   | 'NO_RUNTIME_TASK'
 
 function isCuttingReceiveReady(status: string): boolean {
-  return status.includes('来料已入仓') || status.includes('已回执') || status.includes('已领取')
+  return [
+    '来料已入仓',
+    '已领料入仓',
+    '来料已入待加工仓',
+    '已入待加工仓',
+    '已回执',
+    '已领取',
+  ].some((label) => status.includes(label))
 }
 
 function getCuttingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo | null {

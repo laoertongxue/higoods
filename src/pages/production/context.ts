@@ -62,13 +62,7 @@ import {
 import {
   initialStatementDrafts,
   initialSettlementBatches,
-  initialProductionOrderChanges,
 } from '../../data/fcs/store-domain-settlement-seeds'
-import type {
-  ProductionOrderChange,
-  ProductionChangeType,
-  ProductionChangeStatus,
-} from '../../data/fcs/store-domain-settlement-types'
 import {
   addMaterialToDraft,
   confirmMaterialRequestDraft,
@@ -126,25 +120,44 @@ interface DeliveryForm {
   deliveryWarehouseRemark: string
 }
 
-interface ChangeCreateForm {
-  productionOrderId: string
-  changeType: ProductionChangeType | ''
-  beforeValue: string
-  afterValue: string
-  impactScopeZh: string
+type TechPackChangeDetailTab =
+  | 'relation'
+  | 'diff'
+  | 'progress'
+  | 'restriction'
+  | 'module-landing'
+  | 'patch'
+  | 'notice'
+  | 'logs'
+
+interface TechPackVersionChangeForm {
+  targetVersionId: string
   reason: string
-  remark: string
+  effectiveMode: string
+  note: string
+  confirmed: boolean
 }
 
-interface ChangeStatusForm {
-  nextStatus: ProductionChangeStatus | ''
-  remark: string
+interface ProductionPatchForm {
+  patchType: string
+  color: string
+  size: string
+  material: string
+  part: string
+  processNode: string
+  factory: string
+  cutOrder: string
+  markerPlan: string
+  spreadingOrder: string
+  processOrder: string
+  effectivePoint: string
+  reason: string
+  contentText: string
 }
 
 interface ProductionState {
   demands: ProductionDemand[]
   orders: ProductionOrder[]
-  changes: ProductionOrderChange[]
 
   demandKeyword: string
   demandStatusFilter: ProductionDemand['demandStatus'] | 'ALL'
@@ -201,16 +214,23 @@ interface ProductionState {
   deliveryEditOrderId: string | null
   deliveryForm: DeliveryForm
 
-  changesKeyword: string
-  changesTypeFilter: 'ALL' | ProductionChangeType
-  changesStatusFilter: 'ALL' | ProductionChangeStatus
-  changesCreateOpen: boolean
-  changesCreateForm: ChangeCreateForm
-  changesCreateErrors: Record<string, string>
-  changesStatusOpen: boolean
-  changesStatusTarget: { changeId: string; currentStatus: ProductionChangeStatus } | null
-  changesStatusForm: ChangeStatusForm
-  changesStatusError: string
+  techPackChangeKeyword: string
+  techPackChangeCurrentVersionFilter: 'ALL' | string
+  techPackChangeNewVersionFilter: 'ALL' | 'YES' | 'NO'
+  techPackChangePatchFilter: 'ALL' | 'ACTIVE' | 'PENDING' | 'NONE'
+  techPackChangeStatusFilter: 'ALL' | string
+  techPackChangeModuleFilter: 'ALL' | string
+  techPackChangeProgressFilter: 'ALL' | string
+  techPackChangeOwnerFilter: 'ALL' | string
+  techPackChangeDetailTab: TechPackChangeDetailTab
+  techPackChangeVersionDialogOrderId: string | null
+  techPackChangeVersionForm: TechPackVersionChangeForm
+  techPackChangeVersionError: string
+  productionPatchDialogOrderId: string | null
+  productionPatchForm: ProductionPatchForm
+  productionPatchError: string
+  techPackChangePublishGuideOpen: boolean
+  techPackChangePublishIgnoreReason: string
 
   statusKeyword: string
   statusFilter: 'ALL' | LifecycleStatus
@@ -249,19 +269,29 @@ const DELIVERY_EMPTY_FORM: DeliveryForm = {
   deliveryWarehouseRemark: '',
 }
 
-const CHANGE_CREATE_EMPTY_FORM: ChangeCreateForm = {
-  productionOrderId: '',
-  changeType: '',
-  beforeValue: '',
-  afterValue: '',
-  impactScopeZh: '',
+const TECH_PACK_VERSION_CHANGE_EMPTY_FORM: TechPackVersionChangeForm = {
+  targetVersionId: '',
   reason: '',
-  remark: '',
+  effectiveMode: 'IMMEDIATE_AFTER_APPROVAL',
+  note: '',
+  confirmed: false,
 }
 
-const CHANGE_STATUS_EMPTY_FORM: ChangeStatusForm = {
-  nextStatus: '',
-  remark: '',
+const PRODUCTION_PATCH_EMPTY_FORM: ProductionPatchForm = {
+  patchType: 'MATERIAL_REPLACEMENT',
+  color: '',
+  size: '',
+  material: '',
+  part: '',
+  processNode: '',
+  factory: '',
+  cutOrder: '',
+  markerPlan: '',
+  spreadingOrder: '',
+  processOrder: '',
+  effectivePoint: 'FROM_NOW',
+  reason: '',
+  contentText: '',
 }
 
 const demandStatusConfig: Record<ProductionDemand['demandStatus'], { label: string; className: string }> = {
@@ -318,35 +348,6 @@ const taskStatusClass: Record<RuntimeProcessTask['status'], string> = {
   CANCELLED: 'bg-gray-100 text-gray-600',
 }
 
-const changeTypeLabels: Record<ProductionChangeType, string> = {
-  QTY_CHANGE: '数量变更',
-  DATE_CHANGE: '日期变更',
-  FACTORY_CHANGE: '工厂变更',
-  STYLE_CHANGE: '款式信息变更',
-  OTHER: '其他',
-}
-
-const changeStatusLabels: Record<ProductionChangeStatus, string> = {
-  DRAFT: '草稿',
-  PENDING: '待处理',
-  DONE: '已完成',
-  CANCELLED: '已取消',
-}
-
-const changeStatusClass: Record<ProductionChangeStatus, string> = {
-  DRAFT: 'bg-slate-100 text-slate-700',
-  PENDING: 'bg-blue-100 text-blue-700',
-  DONE: 'bg-white text-slate-700',
-  CANCELLED: 'bg-red-100 text-red-700',
-}
-
-const changeAllowedNext: Record<ProductionChangeStatus, ProductionChangeStatus[]> = {
-  DRAFT: ['PENDING', 'CANCELLED'],
-  PENDING: ['DONE', 'CANCELLED'],
-  DONE: [],
-  CANCELLED: [],
-}
-
 const lifecycleAllowedNext: Record<LifecycleStatus, LifecycleStatus[]> = {
   DRAFT: ['PLANNED'],
   PLANNED: ['RELEASED'],
@@ -397,30 +398,6 @@ function cloneOrder(order: ProductionOrder): ProductionOrder {
   }
 }
 
-function cloneChange(change: ProductionOrderChange): ProductionOrderChange {
-  return {
-    ...change,
-  }
-}
-
-function normalizeSeedChanges(
-  seedChanges: ProductionOrderChange[],
-  orders: ProductionOrder[],
-): ProductionOrderChange[] {
-  if (orders.length === 0) return seedChanges.map(cloneChange)
-
-  return seedChanges.map((change, index) => {
-    const hasOrder = orders.some((order) => order.productionOrderId === change.productionOrderId)
-    if (hasOrder) return cloneChange(change)
-
-    const replacementOrder = orders[index % orders.length]
-    return {
-      ...cloneChange(change),
-      productionOrderId: replacementOrder.productionOrderId,
-    }
-  })
-}
-
 function toTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
@@ -430,18 +407,6 @@ let productionCoreLocalSeq = 0
 function nextLocalEntityId(prefix: string, width = 6): string {
   productionCoreLocalSeq += 1
   return `${prefix}-${String(productionCoreLocalSeq).padStart(width, '0')}`
-}
-
-function nextChangeId(month: string, existingIds: Set<string>): string {
-  const prefix = `CHG-${month}-`
-  let max = 0
-  existingIds.forEach((id) => {
-    if (!id.startsWith(prefix)) return
-    const tail = Number(id.slice(prefix.length))
-    if (Number.isFinite(tail) && tail > max) max = tail
-  })
-  const next = max + 1
-  return `${prefix}${String(next).padStart(4, '0')}`
 }
 
 function showPlanMessage(message: string, tone: 'success' | 'error' = 'success'): void {
@@ -1276,11 +1241,6 @@ function getProcessTaskById(taskId: string): RuntimeProcessTask | null {
   return getRuntimeTaskById(taskId)
 }
 
-function getChangeById(changeId: string | null): ProductionOrderChange | null {
-  if (!changeId) return null
-  return state.changes.find((change) => change.changeId === changeId) ?? null
-}
-
 function openAppRoute(pathname: string, key?: string, title?: string): void {
   if (key && title) {
     appStore.openTab({
@@ -1569,8 +1529,10 @@ function closeAllProductionDialogs(): void {
   state.materialDraftAddSelections = new Set<string>()
   state.planEditOrderId = null
   state.deliveryEditOrderId = null
-  state.changesCreateOpen = false
-  state.changesStatusOpen = false
+  state.techPackChangeVersionDialogOrderId = null
+  state.productionPatchDialogOrderId = null
+  state.techPackChangePublishGuideOpen = false
+  state.techPackChangePublishIgnoreReason = ''
   state.statusDialogOpen = false
   state.detailLogsOpen = false
   state.detailSimulateOpen = false
@@ -1581,7 +1543,6 @@ function closeAllProductionDialogs(): void {
 const state: ProductionState = {
   demands: productionDemands.map(cloneDemand),
   orders: productionOrders.map(cloneOrder),
-  changes: normalizeSeedChanges(initialProductionOrderChanges, productionOrders),
 
   demandKeyword: '',
   demandStatusFilter: 'ALL',
@@ -1638,16 +1599,23 @@ const state: ProductionState = {
   deliveryEditOrderId: null,
   deliveryForm: { ...DELIVERY_EMPTY_FORM },
 
-  changesKeyword: '',
-  changesTypeFilter: 'ALL',
-  changesStatusFilter: 'ALL',
-  changesCreateOpen: false,
-  changesCreateForm: { ...CHANGE_CREATE_EMPTY_FORM },
-  changesCreateErrors: {},
-  changesStatusOpen: false,
-  changesStatusTarget: null,
-  changesStatusForm: { ...CHANGE_STATUS_EMPTY_FORM },
-  changesStatusError: '',
+  techPackChangeKeyword: '',
+  techPackChangeCurrentVersionFilter: 'ALL',
+  techPackChangeNewVersionFilter: 'ALL',
+  techPackChangePatchFilter: 'ALL',
+  techPackChangeStatusFilter: 'ALL',
+  techPackChangeModuleFilter: 'ALL',
+  techPackChangeProgressFilter: 'ALL',
+  techPackChangeOwnerFilter: 'ALL',
+  techPackChangeDetailTab: 'relation',
+  techPackChangeVersionDialogOrderId: null,
+  techPackChangeVersionForm: { ...TECH_PACK_VERSION_CHANGE_EMPTY_FORM },
+  techPackChangeVersionError: '',
+  productionPatchDialogOrderId: null,
+  productionPatchForm: { ...PRODUCTION_PATCH_EMPTY_FORM },
+  productionPatchError: '',
+  techPackChangePublishGuideOpen: false,
+  techPackChangePublishIgnoreReason: '',
 
   statusKeyword: '',
   statusFilter: 'ALL',
@@ -1689,11 +1657,11 @@ export type {
   FactoryType,
   RuntimeProcessTask,
   RuntimeTaskSplitGroupSnapshot,
-  ProductionOrderChange,
-  ProductionChangeType,
-  ProductionChangeStatus,
   MaterialRequestDraft,
   MaterialMode,
+  TechPackChangeDetailTab,
+  TechPackVersionChangeForm,
+  ProductionPatchForm,
 }
 
 export {
@@ -1728,7 +1696,6 @@ export {
   initialAllocationByTaskId,
   initialStatementDrafts,
   initialSettlementBatches,
-  initialProductionOrderChanges,
   addMaterialToDraft,
   confirmMaterialRequestDraft,
   getMaterialDraftIndicatorsByOrder,
@@ -1749,8 +1716,8 @@ export {
   currentUser,
   PLAN_EMPTY_FORM,
   DELIVERY_EMPTY_FORM,
-  CHANGE_CREATE_EMPTY_FORM,
-  CHANGE_STATUS_EMPTY_FORM,
+  TECH_PACK_VERSION_CHANGE_EMPTY_FORM,
+  PRODUCTION_PATCH_EMPTY_FORM,
   demandStatusConfig,
   demandTechPackStatusConfig,
   demandPriorityConfig,
@@ -1758,19 +1725,12 @@ export {
   lifecycleStatusClass,
   taskStatusLabel,
   taskStatusClass,
-  changeTypeLabels,
-  changeStatusLabels,
-  changeStatusClass,
-  changeAllowedNext,
   lifecycleAllowedNext,
   keyProcessKeywords,
   cloneDemand,
   cloneOrder,
-  cloneChange,
-  normalizeSeedChanges,
   toTimestamp,
   nextLocalEntityId,
-  nextChangeId,
   showPlanMessage,
   includesKeyword,
   safeText,
@@ -1809,7 +1769,6 @@ export {
   getDemandById,
   getOrderById,
   getProcessTaskById,
-  getChangeById,
   openAppRoute,
   getDemandFactoryOptions,
   getAvailableDemandTypes,

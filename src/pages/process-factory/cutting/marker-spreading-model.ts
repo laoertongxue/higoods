@@ -2613,6 +2613,18 @@ export function validateSpreadingCompletion(options: {
     messages.push('存在卷记录尚未绑定床次项，当前不能完成铺布。')
   }
 
+  const highLowMode = session.spreadingMode === 'high_low' || session.spreadingMode === 'fold_high_low'
+  const planUnits = session.planUnits || []
+  const highLowStepMissing = rolls.some((roll) => {
+    const linkedPlanUnit = planUnits.find((unit) => unit.planUnitId === roll.planUnitId) || null
+    const rollNeedsStep = highLowMode || linkedPlanUnit?.sourceType === 'high-low-row' || Boolean(linkedPlanUnit?.stepLabel)
+    if (!rollNeedsStep) return false
+    return !linkedPlanUnit || linkedPlanUnit.sourceType !== 'high-low-row' || !String(linkedPlanUnit.stepLabel || '').trim()
+  })
+  if (highLowStepMissing) {
+    messages.push('高低层 / 对折高低层模式的卷记录必须选择阶梯，当前不能完成铺布。')
+  }
+
   if (markerTotalPieces <= 0) {
     messages.push('当前缺少单层成衣件数，无法准确推导裁剪成衣件数，不能完成铺布。')
   }

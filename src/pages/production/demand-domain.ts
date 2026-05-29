@@ -66,6 +66,14 @@ function renderDemandDetailDrawer(): string {
                 <p>${escapeHtml(demand.spuName)}</p>
               </div>
               <div>
+                <p class="text-xs text-muted-foreground">款式买手</p>
+                <p>${escapeHtml(demand.buyerName)}</p>
+              </div>
+              <div>
+                <p class="text-xs text-muted-foreground">生产跟单</p>
+                <p>${escapeHtml(demand.merchandiserName)}</p>
+              </div>
+              <div>
                 <p class="text-xs text-muted-foreground">需求总量</p>
                 <p class="font-medium">${demand.requiredQtyTotal.toLocaleString()}</p>
               </div>
@@ -596,6 +604,9 @@ export function renderProductionDemandInboxPage(): string {
                             <p class="max-w-[160px] truncate" title="${escapeHtml(demand.spuName)}">${escapeHtml(
                               demand.spuName,
                             )}</p>
+                            <p class="mt-1 text-xs text-muted-foreground">买手：${escapeHtml(
+                              demand.buyerName,
+                            )} · 跟单：${escapeHtml(demand.merchandiserName)}</p>
                           </td>
                           <td class="px-3 py-3">${renderBadge(
                             demandPriorityConfig[demand.priority].label,

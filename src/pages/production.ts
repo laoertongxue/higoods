@@ -4,6 +4,7 @@ export {
   renderProductionPlanPage,
   renderProductionDeliveryWarehousePage,
   renderProductionChangesPage,
+  renderProductionChangeDetailPage,
   renderProductionStatusPage,
 } from './production/list'
 

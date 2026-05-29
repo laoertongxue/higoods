@@ -24,6 +24,7 @@ import {
   renderCapacityOverviewPage,
   renderCapacityPoliciesPage,
   renderCapacityRiskPage,
+  renderProductionChangeDetailPage,
   renderProductionChangesPage,
   renderProductionCraftDictPage,
   renderProductionDemandInboxPage,
@@ -258,6 +259,10 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/fei-ticket-print': () => renderCraftCuttingFeiTicketPrintPage(),
     '/fcs/craft/cutting/fei-ticket-reprint': () => renderCraftCuttingFeiTicketReprintPage(),
     '/fcs/craft/cutting/sample-warehouse': () => renderCraftCuttingSampleWarehousePage(),
+    '/fcs/craft/cutting/warehouse': () =>
+      renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓'),
+    '/fcs/craft/cutting/warehouse-management': () =>
+      renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓'),
     '/fcs/craft/cutting/warehouse-management/wait-process': () => renderCraftCuttingWarehouseManagementWaitProcessPage(),
     '/fcs/craft/cutting/warehouse-management/wait-handover': () => renderCraftCuttingWarehouseManagementWaitHandoverPage(),
     '/fcs/craft/cutting/handover-orders': () => renderCraftCuttingHandoverOrdersPage(),
@@ -410,6 +415,10 @@ export const routes: RouteRegistry = {
           buildDeductionEntryHrefByBasisId(decodeURIComponent(match[1])),
           '正在跳转到关联质检记录',
         ),
+    },
+    {
+      pattern: /^\/fcs\/production\/changes\/([^/]+)$/,
+      render: (match) => renderProductionChangeDetailPage(match[1]),
     },
     {
       pattern: /^\/fcs\/production\/orders\/([^/]+)$/,

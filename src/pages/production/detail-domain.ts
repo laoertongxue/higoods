@@ -541,6 +541,12 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
             <div class="col-span-2"><p class="text-xs text-muted-foreground">SPU名称</p><p>${escapeHtml(
               order.demandSnapshot.spuName,
             )}</p></div>
+            <div><p class="text-xs text-muted-foreground">款式买手</p><p>${escapeHtml(
+              order.demandSnapshot.buyerName,
+            )}</p></div>
+            <div><p class="text-xs text-muted-foreground">生产跟单</p><p>${escapeHtml(
+              order.demandSnapshot.merchandiserName,
+            )}</p></div>
             <div><p class="text-xs text-muted-foreground">总数量</p><p>${totalQty.toLocaleString()}</p></div>
             <div><p class="text-xs text-muted-foreground">交付日期</p><p>${escapeHtml(
               safeText(order.demandSnapshot.requiredDeliveryDate),
@@ -666,6 +672,12 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
           <div><p class="text-xs text-muted-foreground">SPU编码</p><p class="font-mono">${escapeHtml(
             order.demandSnapshot.spuCode,
           )}</p></div>
+          <div><p class="text-xs text-muted-foreground">款式买手</p><p>${escapeHtml(
+            order.demandSnapshot.buyerName,
+          )}</p></div>
+          <div><p class="text-xs text-muted-foreground">生产跟单</p><p>${escapeHtml(
+            order.demandSnapshot.merchandiserName,
+          )}</p></div>
           <div><p class="text-xs text-muted-foreground">优先级</p><p>${escapeHtml(
             order.demandSnapshot.priority,
           )}</p></div>
@@ -679,6 +691,7 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
             <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-2 text-left font-medium">需求编号</th>
+                <th class="px-3 py-2 text-left font-medium">买手 / 跟单</th>
                 <th class="px-3 py-2 text-left font-medium">SKU编码</th>
                 <th class="px-3 py-2 text-left font-medium">尺码</th>
                 <th class="px-3 py-2 text-left font-medium">颜色</th>
@@ -691,6 +704,10 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
                   ({ snapshot, sku }) => `
                     <tr class="border-b last:border-0">
                       <td class="px-3 py-2 font-mono text-xs">${escapeHtml(snapshot.demandId)}</td>
+                      <td class="px-3 py-2 text-xs">
+                        <div>买手：${escapeHtml(snapshot.buyerName)}</div>
+                        <div class="text-muted-foreground">跟单：${escapeHtml(snapshot.merchandiserName)}</div>
+                      </td>
                       <td class="px-3 py-2 font-mono text-xs">${escapeHtml(sku.skuCode)}</td>
                       <td class="px-3 py-2">${escapeHtml(sku.size)}</td>
                       <td class="px-3 py-2">${escapeHtml(sku.color)}</td>
@@ -700,7 +717,7 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
                 )
                 .join('')}
               <tr>
-                <td colspan="4" class="px-3 py-2 font-medium">合计</td>
+                <td colspan="5" class="px-3 py-2 font-medium">合计</td>
                 <td class="px-3 py-2 text-right font-medium">${sourceDemandTotalQty.toLocaleString()}</td>
               </tr>
             </tbody>

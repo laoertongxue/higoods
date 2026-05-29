@@ -12,8 +12,9 @@ export function isProductionDialogOpen(): boolean {
     state.materialDraftAddDraftId !== null ||
     state.planEditOrderId !== null ||
     state.deliveryEditOrderId !== null ||
-    state.changesCreateOpen ||
-    state.changesStatusOpen ||
+    state.techPackChangeVersionDialogOrderId !== null ||
+    state.productionPatchDialogOrderId !== null ||
+    state.techPackChangePublishGuideOpen ||
     state.statusDialogOpen ||
     state.detailLogsOpen ||
     state.detailSimulateOpen ||

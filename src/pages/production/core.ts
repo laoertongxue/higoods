@@ -16,6 +16,7 @@ export {
 
 export {
   renderProductionChangesPage,
+  renderProductionChangeDetailPage,
 } from './changes-domain'
 
 export {

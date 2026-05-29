@@ -65,6 +65,10 @@ export const renderProductionChangesPage = createAsyncRenderer(
   () => import('../pages/production'),
   'renderProductionChangesPage',
 )
+export const renderProductionChangeDetailPage = createAsyncRenderer(
+  () => import('../pages/production'),
+  'renderProductionChangeDetailPage',
+)
 export const renderProductionCraftDictPage = createAsyncRenderer(
   () => import('../pages/production-craft-dict'),
   'renderProductionCraftDictPage',

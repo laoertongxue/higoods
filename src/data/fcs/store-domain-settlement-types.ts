@@ -159,31 +159,6 @@ export type FeishuPaymentApprovalStatus =
   | 'REJECTED'
   | 'CANCELED'
 
-export type ProductionChangeType =
-  | 'QTY_CHANGE'
-  | 'DATE_CHANGE'
-  | 'FACTORY_CHANGE'
-  | 'STYLE_CHANGE'
-  | 'OTHER'
-
-export type ProductionChangeStatus = 'DRAFT' | 'PENDING' | 'DONE' | 'CANCELLED'
-
-export interface ProductionOrderChange {
-  changeId: string
-  productionOrderId: string
-  changeType: ProductionChangeType
-  beforeValue?: string
-  afterValue?: string
-  impactScopeZh?: string
-  reason: string
-  status: ProductionChangeStatus
-  remark?: string
-  createdAt: string
-  createdBy: string
-  updatedAt?: string
-  updatedBy?: string
-}
-
 export interface PrepaymentBatchStatementItem {
   statementId: string
   statementNo?: string

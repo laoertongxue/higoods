@@ -1,14 +1,13 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
-import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
 import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
   getPdaTaskFlowTaskById,
   isCuttingSpecialTask,
-  listPdaTaskFlowTasks,
+  listPdaCuttingExecutionRowsByTaskId,
   resolvePdaTaskDetailPath,
   resolvePdaTaskExecPath,
 } from '../data/fcs/pda-cutting-execution-source.ts'
@@ -373,6 +372,10 @@ function getFilteredTasks(
     tasks = tasks.filter((task) => getTaskStartDueInfo(task).startRiskStatus === 'DUE_SOON')
   }
 
+  if (activeTab === 'NOT_STARTED') {
+    tasks = sortNotStartedTasks(tasks)
+  }
+
   const keyword = state.searchKeyword.trim()
   if (!keyword) return tasks
 
@@ -408,7 +411,7 @@ function getTaskStatusLabel(task: ProcessTask): string {
 function renderTaskStatusBadge(task: ProcessTask): string {
   return `
     <span class="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
-      状态：${escapeHtml(getTaskStatusLabel(task))}
+      执行：${escapeHtml(getTaskStatusLabel(task))}
     </span>
   `
 }
@@ -426,6 +429,97 @@ function buildPdaExecTasksByStatus(acceptedTasks: ProcessTask[]): Record<TaskSta
   }
 
   return tasksByStatus
+}
+
+type CuttingExecutionRow = ReturnType<typeof listPdaCuttingExecutionRowsByTaskId>[number]
+
+function getPrimaryCuttingExecutionRow(task: ProcessTask): CuttingExecutionRow | null {
+  if (!isCuttingSpecialTask(task)) return null
+  return listPdaCuttingExecutionRowsByTaskId(task.taskId)[0] ?? null
+}
+
+function joinDisplayParts(parts: Array<string | undefined | null>): string {
+  return parts.map((part) => String(part || '').trim()).filter(Boolean).join(' · ')
+}
+
+function getStartConditionLabel(prereq: ReturnType<typeof getStartPrerequisite>): string {
+  if (prereq.met) return '可开工'
+  if (/领料|收货|入仓|来料/.test(prereq.blocker)) return '待领料确认'
+  if (/绑定/.test(prereq.blocker)) return '待绑定裁片单'
+  if (/执行明细|同步/.test(prereq.blocker)) return '待执行明细同步'
+  if (/上游|连续流转/.test(prereq.blocker)) return '待前置完成'
+  return '待前置完成'
+}
+
+function getNotStartedPrimaryAction(
+  task: ProcessTask,
+  prereq: ReturnType<typeof getStartPrerequisite>,
+): { label: string; icon: string; action: 'go-start' | 'go-prerequisite'; className: string } {
+  if (prereq.met) {
+    return {
+      label: isCuttingSpecialTask(task) ? '进入裁片任务' : '开工',
+      icon: 'play',
+      action: 'go-start',
+      className: 'bg-primary text-primary-foreground hover:bg-primary/90',
+    }
+  }
+
+  if (isCuttingSpecialTask(task) && /领料|入仓|来料/.test(prereq.blocker)) {
+    return {
+      label: '去交接确认',
+      icon: 'arrow-left-right',
+      action: 'go-prerequisite',
+      className: 'border border-amber-300 text-amber-700 hover:bg-amber-50',
+    }
+  }
+
+  if (isCuttingSpecialTask(task) && /绑定/.test(prereq.blocker)) {
+    return {
+      label: '处理绑定',
+      icon: 'link',
+      action: 'go-prerequisite',
+      className: 'border border-amber-300 text-amber-700 hover:bg-amber-50',
+    }
+  }
+
+  return {
+    label: '查看前置状态',
+    icon: 'eye',
+    action: 'go-prerequisite',
+    className: 'border border-amber-300 text-amber-700 hover:bg-amber-50',
+  }
+}
+
+function getNotStartedSortRank(task: ProcessTask): number {
+  const prereq = getStartPrerequisite(task)
+  const startInfo = getTaskStartDueInfo(task)
+  if (prereq.met && startInfo.startRiskStatus === 'OVERDUE') return 0
+  if (prereq.met && startInfo.startRiskStatus === 'DUE_SOON') return 1
+  if (prereq.met) return 2
+  if (/领料|收货|入仓|来料/.test(prereq.blocker)) return 3
+  if (/绑定/.test(prereq.blocker)) return 4
+  return 5
+}
+
+function compareOptionalDate(left?: string, right?: string): number {
+  const leftMs = left ? parseDateMs(left) : Number.POSITIVE_INFINITY
+  const rightMs = right ? parseDateMs(right) : Number.POSITIVE_INFINITY
+  if (Number.isNaN(leftMs) && Number.isNaN(rightMs)) return 0
+  if (Number.isNaN(leftMs)) return 1
+  if (Number.isNaN(rightMs)) return -1
+  return leftMs - rightMs
+}
+
+function sortNotStartedTasks(tasks: ProcessTask[]): ProcessTask[] {
+  return [...tasks].sort((left, right) => {
+    const rankDiff = getNotStartedSortRank(left) - getNotStartedSortRank(right)
+    if (rankDiff !== 0) return rankDiff
+    const leftDeadline = (left as ProcessTask & { taskDeadline?: string }).taskDeadline
+    const rightDeadline = (right as ProcessTask & { taskDeadline?: string }).taskDeadline
+    const deadlineDiff = compareOptionalDate(leftDeadline, rightDeadline)
+    if (deadlineDiff !== 0) return deadlineDiff
+    return getTaskDisplayNo(left).localeCompare(getTaskDisplayNo(right), 'zh-Hans-CN')
+  })
 }
 
 function getPdaExecEmptyStateText(acceptedTasks: ProcessTask[]): string {
@@ -473,14 +567,35 @@ function renderNotStartedCard(task: ProcessTask): string {
   const displayProcessName = getTaskProcessDisplayName(task)
   const qtyDisplayMeta = resolveTaskQtyDisplayMeta(task, displayProcessName)
   const prereq = getStartPrerequisite(task)
-  const deadline = getDeadlineStatus(
-    (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
-    task.finishedAt,
-  )
+  const taskDeadline = (task as ProcessTask & { taskDeadline?: string }).taskDeadline
+  const deadline = getDeadlineStatus(taskDeadline, task.finishedAt)
   const startInfo = getTaskStartDueInfo(task)
   const startRule = getTaskStartRuleState(task)
   const startDueAt = startInfo.startDueAt || '—'
   const dueSourceText = formatStartDueSourceText(startInfo.startDueSource, startRule.dueHours)
+  const cuttingRow = getPrimaryCuttingExecutionRow(task)
+  const startConditionLabel = getStartConditionLabel(prereq)
+  const primaryAction = getNotStartedPrimaryAction(task, prereq)
+  const title = cuttingRow
+    ? `${task.productionOrderId}｜${cuttingRow.executionOrderNo}`
+    : getTaskDisplayNo(task)
+  const subtitle = cuttingRow
+    ? joinDisplayParts([
+        getTaskDisplayNo(task),
+        cuttingRow.cutOrderNo ? `裁片单 ${cuttingRow.cutOrderNo}` : '裁片单待绑定',
+        cuttingRow.markerPlanNo ? `唛架 ${cuttingRow.markerPlanNo}` : '',
+      ])
+    : getTaskRootNo(task)
+  const materialText = cuttingRow
+    ? joinDisplayParts([
+        cuttingRow.materialAlias || cuttingRow.materialSku,
+        cuttingRow.colorLabel,
+        cuttingRow.materialTypeLabel,
+      ]) || '待确认'
+    : ''
+  const quantityText = cuttingRow
+    ? `${task.qty.toLocaleString('zh-CN')} 片`
+    : qtyDisplayMeta.valueText
   const startRiskNote =
     startInfo.startRiskStatus === 'DUE_SOON' && typeof startInfo.remainingMs === 'number'
       ? `距开工时限不足 ${formatRemainingHours(startInfo.remainingMs)} 小时，请尽快补齐开工信息`
@@ -491,8 +606,11 @@ function renderNotStartedCard(task: ProcessTask): string {
   return `
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
-        <div class="flex items-center justify-between gap-2">
-          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <div class="truncate text-sm font-semibold">${escapeHtml(title)}</div>
+            <div class="mt-0.5 truncate text-[11px] text-muted-foreground">${escapeHtml(subtitle)}</div>
+          </div>
           <div class="flex shrink-0 items-center gap-1.5">
             ${renderTaskStatusBadge(task)}
             ${renderSourceBadge(task.assignmentMode)}
@@ -500,21 +618,36 @@ function renderNotStartedCard(task: ProcessTask): string {
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <div class="text-muted-foreground">生产单号</div>
-          <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
-          <div class="text-muted-foreground">原始任务</div>
-          <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
-          <div class="text-muted-foreground">当前工序</div>
-          <div class="font-medium">${escapeHtml(displayProcessName)}</div>
-          <div class="text-muted-foreground">当前工厂</div>
-          <div class="font-medium">${escapeHtml(formatFactoryDisplayName(task.assignedFactoryName, task.assignedFactoryId))}</div>
-          <div class="text-muted-foreground">${escapeHtml(qtyDisplayMeta.label)}</div>
-          <div class="font-medium">${escapeHtml(qtyDisplayMeta.valueText)}</div>
           ${
-            (task as ProcessTask & { taskDeadline?: string }).taskDeadline
+            cuttingRow
+              ? `
+                  <div class="text-muted-foreground">当前工序</div>
+                  <div class="font-medium">${escapeHtml(displayProcessName)}</div>
+                  <div class="text-muted-foreground">裁片执行单</div>
+                  <div class="truncate font-medium">${escapeHtml(cuttingRow.executionOrderNo)}</div>
+                  <div class="text-muted-foreground">裁片单</div>
+                  <div class="truncate font-medium">${escapeHtml(cuttingRow.cutOrderNo || '待绑定')}</div>
+                  <div class="text-muted-foreground">唛架</div>
+                  <div class="truncate font-medium">${escapeHtml(cuttingRow.markerPlanNo || '待确认')}</div>
+                  <div class="text-muted-foreground">面料</div>
+                  <div class="truncate font-medium">${escapeHtml(materialText)}</div>
+                `
+              : `
+                  <div class="text-muted-foreground">生产单号</div>
+                  <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
+                  <div class="text-muted-foreground">原始任务</div>
+                  <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
+                  <div class="text-muted-foreground">当前工序</div>
+                  <div class="font-medium">${escapeHtml(displayProcessName)}</div>
+                `
+          }
+          <div class="text-muted-foreground">数量</div>
+          <div class="font-medium">${escapeHtml(quantityText)}</div>
+          ${
+            taskDeadline
               ? `
                   <div class="text-muted-foreground">任务截止</div>
-                  <div class="font-medium ${deadline ? deadline.textClass : ''}">${escapeHtml((task as ProcessTask & { taskDeadline?: string }).taskDeadline || '')}</div>
+                  <div class="font-medium ${deadline && deadline.label !== '正常' ? deadline.textClass : ''}">${escapeHtml(taskDeadline || '')}</div>
                 `
               : ''
           }
@@ -536,15 +669,12 @@ function renderNotStartedCard(task: ProcessTask): string {
         <div class="space-y-0.5 rounded-md border px-3 py-2 text-xs ${toClassName(
           prereq.met ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50',
         )}">
-          <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
-            <span class="text-muted-foreground">前置条件</span>
-            <span class="font-medium">${escapeHtml(prereq.conditionLabel)}</span>
-            <span class="text-muted-foreground">当前状态</span>
-            <span class="font-medium ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.statusLabel)}</span>
-            <span class="text-muted-foreground">来源方</span>
-            <span class="font-medium">裁床领料</span>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-muted-foreground">开工条件</span>
+            <span class="rounded px-1.5 py-0.5 font-medium ${prereq.met ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">${escapeHtml(startConditionLabel)}</span>
           </div>
-          <p class="mt-1 ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.hint)}</p>
+          <p class="mt-1 font-medium ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.statusLabel)}</p>
+          <p class="mt-1 text-muted-foreground">${escapeHtml(prereq.hint)}</p>
         </div>
 
         ${
@@ -554,40 +684,16 @@ function renderNotStartedCard(task: ProcessTask): string {
         }
 
         <div class="flex gap-2 pt-1">
-          ${
-            prereq.met
-              ? `
-                  <button
-                    class="inline-flex h-7 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
-                    data-pda-exec-action="go-start"
-                    data-task-id="${escapeHtml(task.taskId)}"
-                  >
-                    <i data-lucide="play" class="mr-1 h-3 w-3"></i>
-                    开工
-                  </button>
-                `
-              : `
-                  <button
-                    class="inline-flex h-7 cursor-not-allowed items-center rounded-md bg-muted px-3 text-xs text-muted-foreground opacity-70"
-                    type="button"
-                    disabled
-                    title="${escapeHtml(prereq.blocker)}"
-                  >
-                    <i data-lucide="play" class="mr-1 h-3 w-3"></i>
-                    开工
-                  </button>
-                  <span class="inline-flex min-h-7 items-center rounded-md bg-amber-50 px-2 text-xs text-amber-700">
-                    原因：${escapeHtml(prereq.blocker)}
-                  </span>
-                  <button
-                    class="inline-flex h-7 items-center rounded-md border border-amber-300 px-3 text-xs text-amber-700 hover:bg-amber-50"
-                    data-pda-exec-action="go-warehouse"
-                  >
-                    <i data-lucide="arrow-left-right" class="mr-1 h-3 w-3"></i>
-                    查看来料状态
-                  </button>
-                `
-          }
+          <button
+            class="inline-flex min-h-8 items-center rounded-md px-3 text-xs font-medium ${primaryAction.className}"
+            data-pda-exec-action="${primaryAction.action}"
+            data-task-id="${escapeHtml(task.taskId)}"
+          >
+            <i data-lucide="${primaryAction.icon}" class="mr-1 h-3 w-3"></i>
+            ${escapeHtml(primaryAction.label)}
+          </button>
+
+          ${!prereq.met ? `<span class="inline-flex min-h-8 flex-1 items-center rounded-md bg-amber-50 px-2 text-xs text-amber-700">原因：${escapeHtml(prereq.blocker)}</span>` : ''}
 
           <button
             class="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted"
@@ -896,7 +1002,7 @@ export function renderPdaExecPage(): string {
           <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
           <input
             class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm"
-            placeholder="搜索任务号 / 加工单号 / 生产单号 / 工厂"
+            placeholder="搜索任务号 / 加工单号 / 生产单号"
             data-pda-exec-field="searchKeyword"
             value="${escapeHtml(state.searchKeyword)}"
           />
@@ -983,6 +1089,14 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     if (taskId) {
       const targetPath = resolvePdaTaskExecPath(taskId, appStore.getState().pathname)
       appStore.navigate(targetPath.includes('/fcs/pda/cutting/') ? targetPath : appendExecDetailAction(targetPath, 'start'))
+    }
+    return true
+  }
+
+  if (action === 'go-prerequisite') {
+    const taskId = actionNode.dataset.taskId
+    if (taskId) {
+      appStore.navigate(resolvePdaTaskExecPath(taskId, appStore.getState().pathname))
     }
     return true
   }

@@ -33,6 +33,8 @@ export function buildProductionOrderDemandSnapshot(demand: ProductionDemand): De
     demandId: demand.demandId,
     spuCode: demand.spuCode,
     spuName: demand.spuName,
+    buyerName: demand.buyerName,
+    merchandiserName: demand.merchandiserName,
     priority: demand.priority,
     requiredDeliveryDate: demand.requiredDeliveryDate,
     constraintsNote: demand.constraintsNote,

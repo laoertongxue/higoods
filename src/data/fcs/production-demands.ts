@@ -21,6 +21,8 @@ export interface ProductionDemand {
   imageUrl: string
   category?: string
   marketScopes: string[]
+  buyerName: string
+  merchandiserName: string
   priority: Priority
   demandStatus: DemandStatus
   // 需求侧只展示当前生效技术包版本信息，不直接承载 FCS 快照入口。
@@ -36,10 +38,47 @@ export interface ProductionDemand {
   updatedAt: string
 }
 
-function createDemandSeed(input: Omit<ProductionDemand, 'requiredQtyTotal'> & { requiredQtyTotal?: number }): ProductionDemand {
+interface ProductionDemandPersonnel {
+  buyerName: string
+  merchandiserName: string
+}
+
+const personnelBySpu: Record<string, ProductionDemandPersonnel> = {
+  'SPU-2024-001': { buyerName: '宋雨', merchandiserName: '陈静' },
+  'SPU-2024-002': { buyerName: '何佳', merchandiserName: '林晓' },
+  'SPU-2024-003': { buyerName: '廖敏', merchandiserName: '周敏' },
+  'SPU-2024-004': { buyerName: '许晴', merchandiserName: '陈静' },
+  'SPU-2024-005': { buyerName: '宋雨', merchandiserName: '林晓' },
+  'SPU-2024-006': { buyerName: '何佳', merchandiserName: '周敏' },
+  'SPU-2024-007': { buyerName: '廖敏', merchandiserName: '陈静' },
+  'SPU-2024-008': { buyerName: '许晴', merchandiserName: '林晓' },
+  'SPU-2024-009': { buyerName: '宋雨', merchandiserName: '周敏' },
+  'SPU-2024-010': { buyerName: '廖敏', merchandiserName: '陈静' },
+  'SPU-2024-011': { buyerName: '何佳', merchandiserName: '林晓' },
+  'SPU-2024-012': { buyerName: '许晴', merchandiserName: '周敏' },
+  'SPU-2024-013': { buyerName: '宋雨', merchandiserName: '陈静' },
+  'SPU-2024-014': { buyerName: '廖敏', merchandiserName: '林晓' },
+  'SPU-2024-015': { buyerName: '何佳', merchandiserName: '周敏' },
+  'SPU-2024-016': { buyerName: '许晴', merchandiserName: '陈静' },
+  'SPU-2024-017': { buyerName: '宋雨', merchandiserName: '林晓' },
+}
+
+function resolveDemandPersonnel(input: Pick<ProductionDemand, 'spuCode'> & Partial<ProductionDemandPersonnel>): ProductionDemandPersonnel {
+  return {
+    buyerName: input.buyerName ?? personnelBySpu[input.spuCode]?.buyerName ?? '待指定买手',
+    merchandiserName: input.merchandiserName ?? personnelBySpu[input.spuCode]?.merchandiserName ?? '待指定跟单',
+  }
+}
+
+function createDemandSeed(
+  input: Omit<ProductionDemand, 'requiredQtyTotal' | 'buyerName' | 'merchandiserName'> &
+    Partial<ProductionDemandPersonnel> & { requiredQtyTotal?: number },
+): ProductionDemand {
   const requiredQtyTotal = input.requiredQtyTotal ?? input.skuLines.reduce((sum, line) => sum + line.qty, 0)
+  const personnel = resolveDemandPersonnel(input)
   return {
     ...input,
+    ...personnel,
     requiredQtyTotal,
   }
 }

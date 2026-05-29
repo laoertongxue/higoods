@@ -202,6 +202,14 @@ function renderOrderDemandSnapshotDrawer(): string {
               <p>${escapeHtml(order.demandSnapshot.spuName)}</p>
             </div>
             <div>
+              <p class="text-xs text-muted-foreground">款式买手</p>
+              <p>${escapeHtml(order.demandSnapshot.buyerName)}</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground">生产跟单</p>
+              <p>${escapeHtml(order.demandSnapshot.merchandiserName)}</p>
+            </div>
+            <div>
               <p class="text-xs text-muted-foreground">优先级</p>
               <p>${escapeHtml(order.demandSnapshot.priority)}</p>
             </div>
@@ -968,14 +976,17 @@ export function renderProductionOrdersPage(): string {
                               }">${escapeHtml(order.productionOrderId)}</button>
                             </td>
                             <td class="px-3 py-3 font-mono text-sm text-muted-foreground">${escapeHtml(order.legacyOrderNo)}</td>
-                            <td class="px-3 py-3">
-                              <div class="text-sm">
-                                <div class="font-mono">${escapeHtml(order.demandSnapshot.spuCode)}</div>
-                                <div class="max-w-[150px] truncate text-xs text-muted-foreground" title="${escapeHtml(order.demandSnapshot.spuName)}">
-                                  ${escapeHtml(order.demandSnapshot.spuName)}
-                                </div>
-                              </div>
-                            </td>
+	                            <td class="px-3 py-3">
+	                              <div class="text-sm">
+	                                <div class="font-mono">${escapeHtml(order.demandSnapshot.spuCode)}</div>
+	                                <div class="max-w-[150px] truncate text-xs text-muted-foreground" title="${escapeHtml(order.demandSnapshot.spuName)}">
+	                                  ${escapeHtml(order.demandSnapshot.spuName)}
+	                                </div>
+	                                <div class="mt-1 text-xs text-muted-foreground">
+	                                  买手：${escapeHtml(order.demandSnapshot.buyerName)} · 跟单：${escapeHtml(order.demandSnapshot.merchandiserName)}
+	                                </div>
+	                              </div>
+	                            </td>
                             <td class="px-3 py-3">
                               ${renderBadge(getOrderListStatusDisplay(order).label, getOrderListStatusDisplay(order).color)}
                             </td>

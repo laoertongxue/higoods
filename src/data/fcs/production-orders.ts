@@ -65,6 +65,8 @@ export interface DemandSnapshot {
   demandId: string
   spuCode: string
   spuName: string
+  buyerName: string
+  merchandiserName: string
   priority: string
   requiredDeliveryDate: string | null
   constraintsNote: string
@@ -343,11 +345,15 @@ function buildMergedProductionOrderDemandSnapshot(demands: ProductionDemand[]): 
   }
 
   const demandIds = demands.map((demand) => demand.demandId)
+  const buyerNames = Array.from(new Set(demands.map((demand) => demand.buyerName).filter(Boolean)))
+  const merchandiserNames = Array.from(new Set(demands.map((demand) => demand.merchandiserName).filter(Boolean)))
 
   return {
     demandId: demands.length === 1 ? primary.demandId : demandIds.join('、'),
     spuCode: sameSpu ? primary.spuCode : '多款合并',
     spuName: sameSpu ? primary.spuName : '多款合并生产单',
+    buyerName: buyerNames.join('、') || '待指定买手',
+    merchandiserName: merchandiserNames.join('、') || '待指定跟单',
     priority: resolveMergedPriority(demands),
     requiredDeliveryDate: resolveMergedDeliveryDate(demands),
     constraintsNote: '',
