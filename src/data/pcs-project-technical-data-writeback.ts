@@ -3,6 +3,10 @@ import {
 } from './pcs-tech-pack-version-log-repository.ts'
 import { canPublishTechnicalVersionByReview } from './pcs-tech-pack-review.ts'
 import {
+  formatTechPackDesignRequirementBlockMessage,
+  validateTechPackDesignRequirement,
+} from './pcs-tech-pack-design-requirement.ts'
+import {
   activateTechPackVersionForStyle,
 } from './pcs-tech-pack-version-activation.ts'
 import {
@@ -115,6 +119,17 @@ export function publishTechnicalDataVersion(
   const record = getTechnicalDataVersionById(technicalVersionId)
   if (!record) throw new Error('未找到技术包版本。')
   if (record.versionStatus !== 'DRAFT') throw new Error('只有草稿技术包版本才能发布。')
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  if (!content) throw new Error('未找到技术包内容，无法发布。')
+  const designRequirement = validateTechPackDesignRequirement({
+    bomItems: content.bomItems,
+    patternDesigns: content.patternDesigns,
+  })
+  const designMessage = formatTechPackDesignRequirementBlockMessage(
+    designRequirement,
+    '发布前请先补齐花型设计',
+  )
+  if (designMessage) throw new Error(designMessage)
   if (record.missingItemCodes.length > 0) {
     throw new Error(`核心域未补全，暂不能发布：${record.missingItemNames.join('、')}`)
   }

@@ -47,6 +47,7 @@ import {
   getTechnicalDataVersionContent,
 } from '../../data/pcs-technical-data-version-repository.ts'
 import { canEditTechnicalModule } from '../../data/pcs-tech-pack-review.ts'
+import { validateTechPackDesignRequirement } from '../../data/pcs-tech-pack-design-requirement.ts'
 import type { TechnicalModuleKey, TechnicalReviewNodeKey } from '../../data/pcs-technical-data-version-types.ts'
 import { listPartTemplateRecords, type PartTemplateRecord } from '../../data/pcs-part-template-library.ts'
 import {
@@ -4241,9 +4242,10 @@ function syncProcessCostRows(): void {
 function getChecklist(): ChecklistItem[] {
   if (!state.techPack) return []
 
-  const hasDesignRequirement = state.bomItems.some(
-    (item) => item.printRequirement && item.printRequirement !== '无',
-  )
+  const designRequirement = validateTechPackDesignRequirement({
+    bomItems: state.bomItems,
+    patternDesigns: state.techPack.patternDesigns,
+  })
   const currentRecord = state.currentTechnicalVersionId
     ? getTechnicalDataVersionById(state.currentTechnicalVersionId)
     : null
@@ -4265,8 +4267,8 @@ function getChecklist(): ChecklistItem[] {
     {
       key: 'design',
       label: '花型设计',
-      required: hasDesignRequirement,
-      done: state.techPack.patternDesigns.length > 0,
+      required: designRequirement.required,
+      done: designRequirement.valid,
     },
   ]
 }

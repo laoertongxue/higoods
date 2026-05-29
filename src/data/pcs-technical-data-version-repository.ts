@@ -1,5 +1,9 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
+import {
+  hasTechPackPrintRequirement,
+  validateTechPackDesignRequirement,
+} from './pcs-tech-pack-design-requirement.ts'
 import type {
   TechPackSourceTaskType,
   TechPackVersionChangeScope,
@@ -335,6 +339,105 @@ function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVe
   }
 }
 
+function normalizeIdSegment(input: string): string {
+  return input.trim().replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-')
+}
+
+function buildAutoRepairedDesignPreviewDataUrl(fileName: string, side: 'FRONT' | 'INSIDE'): string {
+  const title = side === 'FRONT' ? 'FRONT PRINT' : 'INSIDE PRINT'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="#f8fafc"/><rect x="22" y="22" width="276" height="156" rx="16" fill="#ffffff" stroke="#cbd5e1"/><text x="160" y="92" text-anchor="middle" font-size="22" fill="#334155" font-family="Arial, sans-serif">${title}</text><text x="160" y="124" text-anchor="middle" font-size="13" fill="#64748b" font-family="Arial, sans-serif">${fileName}</text></svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
+function buildAutoRepairedPatternDesign(input: {
+  technicalVersionId: string
+  bomItemId: string
+  side: 'FRONT' | 'INSIDE'
+  uploadedAt: string
+}): TechnicalPatternDesign {
+  const sideText = input.side === 'FRONT' ? '正面' : '里面'
+  const fileSide = input.side === 'FRONT' ? 'front' : 'inside'
+  const id = `${input.technicalVersionId}-auto-design-${normalizeIdSegment(input.bomItemId)}-${fileSide}`
+  const fileName = `${input.technicalVersionId}-${normalizeIdSegment(input.bomItemId)}-${fileSide}-print.png`
+  const imageUrl = buildAutoRepairedDesignPreviewDataUrl(fileName, input.side)
+  return {
+    id,
+    name: `${sideText}印花设计图`,
+    designSideType: input.side,
+    fileName,
+    originalFileName: fileName,
+    imageUrl,
+    previewThumbnailDataUrl: imageUrl,
+    uploadedAt: input.uploadedAt,
+  }
+}
+
+function shouldRepairCompletedDesignRequirement(record: TechnicalDataVersionRecord): boolean {
+  const versionStatus = normalizeVersionStatus(record.versionStatus)
+  const merchandiserReview = normalizeReviewNode('MERCHANDISER', record.merchandiserReview)
+  return (
+    versionStatus === 'PUBLISHED' ||
+    versionStatus === 'ARCHIVED' ||
+    merchandiserReview.status === '审核-已通过'
+  )
+}
+
+function repairCompletedDesignRequirementContent(
+  content: TechnicalDataVersionContent,
+  record: TechnicalDataVersionRecord | undefined,
+): TechnicalDataVersionContent {
+  if (!record || !shouldRepairCompletedDesignRequirement(record)) return content
+
+  const validation = validateTechPackDesignRequirement({
+    bomItems: content.bomItems,
+    patternDesigns: content.patternDesigns,
+  })
+  if (!validation.required || validation.valid) return content
+
+  const uploadedAt = record.publishedAt || record.updatedAt || record.createdAt || nowText()
+  const designById = new Map(content.patternDesigns.map((item) => [item.id, item]))
+  const repairedDesigns = clonePatternDesigns(content.patternDesigns)
+  const repairedBomItems = content.bomItems.map((item, index) => {
+    if (!hasTechPackPrintRequirement(item.printRequirement)) return { ...item }
+
+    const bomItemId = item.id || `bom-${index + 1}`
+    const nextItem: TechnicalBomItem = {
+      ...item,
+      printSideMode: item.printSideMode === 'DOUBLE' ? 'DOUBLE' : 'SINGLE',
+    }
+
+    const ensureDesign = (side: 'FRONT' | 'INSIDE'): string => {
+      const currentId = side === 'FRONT' ? nextItem.frontPatternDesignId : nextItem.insidePatternDesignId
+      const currentDesign = currentId ? designById.get(currentId) : undefined
+      if (currentDesign?.designSideType === side) return currentDesign.id
+
+      const repairedDesign = buildAutoRepairedPatternDesign({
+        technicalVersionId: content.technicalVersionId,
+        bomItemId,
+        side,
+        uploadedAt,
+      })
+      const existing = designById.get(repairedDesign.id)
+      if (!existing) {
+        repairedDesigns.push(repairedDesign)
+        designById.set(repairedDesign.id, repairedDesign)
+      }
+      return repairedDesign.id
+    }
+
+    nextItem.frontPatternDesignId = ensureDesign('FRONT')
+    if (nextItem.printSideMode === 'DOUBLE') nextItem.insidePatternDesignId = ensureDesign('INSIDE')
+    else nextItem.insidePatternDesignId = undefined
+    return nextItem
+  })
+
+  return {
+    ...content,
+    bomItems: repairedBomItems,
+    patternDesigns: repairedDesigns,
+  }
+}
+
 function getDomainStatus(count: number, versionStatus: TechnicalVersionStatus): TechnicalDomainStatus {
   if (count <= 0) return 'EMPTY'
   return versionStatus === 'PUBLISHED' ? 'COMPLETE' : 'DRAFT'
@@ -373,6 +476,15 @@ export function buildTechnicalDataDerivedState(
   const colorMaterialMappingCount = content.colorMaterialMappings.length
   const designAssetCount = content.patternDesigns.length
   const attachmentCount = content.attachments.length
+  const designRequirement = validateTechPackDesignRequirement({
+    bomItems: content.bomItems,
+    patternDesigns: content.patternDesigns,
+  })
+  const designDomainCount = designRequirement.required
+    ? designRequirement.valid
+      ? Math.max(designAssetCount, 1)
+      : 0
+    : designAssetCount
 
   let completenessScore = 0
   const missingItemCodes: string[] = []
@@ -385,7 +497,7 @@ export function buildTechnicalDataDerivedState(
   else missingItemCodes.push('PROCESS')
   if (gradingRuleCount > 0) completenessScore += 15
   else missingItemCodes.push('GRADING')
-  if (designAssetCount > 0) completenessScore += 15
+  if (!designRequirement.required || designRequirement.valid) completenessScore += 15
   else missingItemCodes.push('DESIGN')
   if (colorMaterialMappingCount > 0) completenessScore += 10
   else missingItemCodes.push('COLOR_MATERIAL')
@@ -397,7 +509,7 @@ export function buildTechnicalDataDerivedState(
     gradingStatus: getDomainStatus(gradingRuleCount, versionStatus),
     qualityStatus: getDomainStatus(qualityRuleCount, versionStatus),
     colorMaterialStatus: getDomainStatus(colorMaterialMappingCount, versionStatus),
-    designStatus: getDomainStatus(designAssetCount, versionStatus),
+    designStatus: getDomainStatus(designDomainCount, versionStatus),
     attachmentStatus: getDomainStatus(attachmentCount, versionStatus),
     bomItemCount,
     patternFileCount,
@@ -527,20 +639,30 @@ function hydrateSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): Technical
     contentMap.set(content.technicalVersionId, content)
   })
 
-  const records = Array.isArray(snapshot.records) ? snapshot.records.map((item) => normalizeRecord(item, contentMap)) : []
+  let records = Array.isArray(snapshot.records) ? snapshot.records.map((item) => normalizeRecord(item, contentMap)) : []
+
+  const recordById = new Map(records.map((record) => [record.technicalVersionId, record]))
+  const repairedContents = contents.map((content) =>
+    repairCompletedDesignRequirementContent(content, recordById.get(content.technicalVersionId)),
+  )
+  const repairedContentMap = new Map<string, TechnicalDataVersionContent>()
+  repairedContents.forEach((content) => {
+    repairedContentMap.set(content.technicalVersionId, content)
+  })
+  records = records.map((record) => normalizeRecord(record, repairedContentMap))
 
   records.forEach((record) => {
-    if (!contentMap.has(record.technicalVersionId)) {
+    if (!repairedContentMap.has(record.technicalVersionId)) {
       const content = createEmptyContent(record.technicalVersionId)
-      contentMap.set(record.technicalVersionId, content)
-      contents.push(content)
+      repairedContentMap.set(record.technicalVersionId, content)
+      repairedContents.push(content)
     }
   })
 
   return {
     version: TECHNICAL_VERSION_STORE_VERSION,
     records: records.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    contents,
+    contents: repairedContents,
     pendingItems: Array.isArray(snapshot.pendingItems) ? snapshot.pendingItems.map(normalizePendingItem) : [],
   }
 }

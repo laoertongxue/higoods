@@ -7,6 +7,7 @@ import {
 import {
   activateTechPackVersionForStyle,
   createManualTechnicalDataVersionDraftFromCurrent,
+  publishTechnicalDataVersion,
 } from '../data/pcs-project-technical-data-writeback.ts'
 import {
   listProjectChannelProductsSnapshot,
@@ -1661,6 +1662,8 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
             <div class="flex flex-wrap gap-2">
               <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}/technical-data/${escapeHtml(item.technicalVersionId)}">查看版本</button>
               <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-product-archive-action="open-tech-pack-version-logs" data-version-id="${escapeHtml(item.technicalVersionId)}">查看版本日志</button>
+              ${item.reviewStage !== '未提交审核' ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}/technical-data/${escapeHtml(item.technicalVersionId)}?reviewDetail=1">查看审核详情</button>` : ''}
+              ${item.canPublish ? `<button type="button" class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs text-white hover:bg-blue-700" data-pcs-product-archive-action="publish-tech-pack-version" data-version-id="${escapeHtml(item.technicalVersionId)}">发布新版本</button>` : ''}
               ${item.canActivate ? `<button type="button" class="inline-flex h-8 items-center rounded-md bg-slate-900 px-3 text-xs text-white hover:bg-slate-800" data-pcs-product-archive-action="activate-tech-pack-version" data-style-id="${escapeHtml(style.styleId)}" data-version-id="${escapeHtml(item.technicalVersionId)}">启用为当前生效版本</button>` : ''}
             </div>
           </td>
@@ -2749,6 +2752,20 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
         state.notice = '已启用当前生效技术包版本。'
       } catch (error) {
         state.notice = error instanceof Error ? error.message : '启用当前生效技术包版本失败。'
+      }
+      return true
+    }
+    case 'publish-tech-pack-version': {
+      const technicalVersionId = actionNode.dataset.versionId || ''
+      if (!technicalVersionId) {
+        state.notice = '未找到需要发布的技术包版本。'
+        return true
+      }
+      try {
+        const record = publishTechnicalDataVersion(technicalVersionId, '当前用户')
+        state.notice = `已发布技术包新版本 ${record.versionLabel}。`
+      } catch (error) {
+        state.notice = error instanceof Error ? error.message : '发布技术包新版本失败。'
       }
       return true
     }

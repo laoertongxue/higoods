@@ -48,6 +48,11 @@ function resolveSeedScenario(seed: ProductionDemandTechPackSeed): SeedScenario {
   return 'DEFAULT'
 }
 
+function buildDemoDesignPreviewDataUrl(fileName: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="#f8fafc"/><rect x="22" y="22" width="276" height="156" rx="16" fill="#ffffff" stroke="#cbd5e1"/><text x="160" y="92" text-anchor="middle" font-size="22" fill="#334155" font-family="Arial, sans-serif">PRINT DESIGN</text><text x="160" y="124" text-anchor="middle" font-size="13" fill="#64748b" font-family="Arial, sans-serif">${fileName}</text></svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
 function buildSpecialCraftConfig(craftCode: string, craftName: string, selectedTargetObject = '裁片部位') {
   return {
     processCode: 'SPECIAL_CRAFT',
@@ -430,6 +435,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
 function buildProject018Content(technicalVersionId: string): TechnicalDataVersionContent {
   const bomItemId = `${technicalVersionId}-bom-main`
   const patternId = `${technicalVersionId}-pattern-main`
+  const frontDesignId = `${technicalVersionId}-design-front-main`
+  const frontDesignFileName = 'SPU-2026-018-front-print.png'
   const skuCodes = ['SPU-2026-018-S-MULTI', 'SPU-2026-018-M-MULTI', 'SPU-2026-018-L-MULTI']
   const pieceRows = [
     { id: `${patternId}-front`, name: '前片', count: 1 },
@@ -550,6 +557,7 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
         shrinkRequirement: '否',
         washRequirement: '否',
         printSideMode: 'SINGLE',
+        frontPatternDesignId: frontDesignId,
         applicableSkuCodes: [...skuCodes],
         linkedPatternIds: [patternId],
         usageProcessCodes: ['CUT_PANEL', 'SEW'],
@@ -593,7 +601,18 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
         })),
       },
     ],
-    patternDesigns: [],
+    patternDesigns: [
+      {
+        id: frontDesignId,
+        name: 'Multi 正面印花设计图',
+        designSideType: 'FRONT',
+        fileName: frontDesignFileName,
+        originalFileName: frontDesignFileName,
+        imageUrl: buildDemoDesignPreviewDataUrl(frontDesignFileName),
+        previewThumbnailDataUrl: buildDemoDesignPreviewDataUrl(frontDesignFileName),
+        uploadedAt: '2026-04-07 17:20',
+      },
+    ],
     attachments: [],
     legacyCompatibleCostPayload: {},
   }

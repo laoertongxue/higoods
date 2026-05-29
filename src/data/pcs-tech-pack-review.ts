@@ -1,8 +1,13 @@
 import {
   getTechnicalDataVersionById,
+  getTechnicalDataVersionContent,
   updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
 import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
+import {
+  formatTechPackDesignRequirementBlockMessage,
+  validateTechPackDesignRequirement,
+} from './pcs-tech-pack-design-requirement.ts'
 import {
   getLegacyTechPackReviewer,
   getTechPackReviewerById,
@@ -496,11 +501,23 @@ function sendReviewNotificationSafely(input: {
   }
 }
 
+function assertDesignRequirementSatisfied(technicalVersionId: string, prefix: string): void {
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  if (!content) throw new Error('未找到技术包内容，无法校验花型设计。')
+  const validation = validateTechPackDesignRequirement({
+    bomItems: content.bomItems,
+    patternDesigns: content.patternDesigns,
+  })
+  const message = formatTechPackDesignRequirementBlockMessage(validation, prefix)
+  if (message) throw new Error(message)
+}
+
 export function submitTechPackFirstStageReview(
   technicalVersionId: string,
   input: string | SubmitTechPackReviewInput = '当前用户',
 ): TechnicalDataVersionRecord {
   const record = requireDraftRecord(technicalVersionId)
+  assertDesignRequirementSatisfied(technicalVersionId, '提交审核前请先补齐花型设计')
   const legacyMode = typeof input === 'string'
   const operator = normalizeOperator(legacyMode ? input : input.operator, legacyMode ? input : '当前用户')
   const buyerReviewer = resolveReviewerForNode(
@@ -633,6 +650,9 @@ export function approveTechPackReview(
     (snapshot.buyerReview.status !== '审核-已通过' || snapshot.patternMakerReview.status !== '审核-已通过')
   ) {
     throw new Error('买手和版师审核都通过后，才能进入跟单复核。')
+  }
+  if (nodeKey === 'MERCHANDISER') {
+    assertDesignRequirementSatisfied(technicalVersionId, '跟单无法审核通过')
   }
   const reviewedAt = nowText()
   const node = withReviewDiffSnapshot(

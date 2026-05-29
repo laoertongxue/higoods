@@ -6,12 +6,17 @@ import {
   renderStatusBadge,
   renderTabHeader,
   isTechPackModuleReadOnly,
+  appStore,
   currentUser,
   state,
 } from './context.ts'
 import { getStyleArchiveById } from '../../data/pcs-style-archive-repository.ts'
 import { getTechnicalDataVersionById } from '../../data/pcs-technical-data-version-repository.ts'
 import { listPatternAssetsForTechPackVersions } from '../../data/pcs-pattern-library-archive-linkage.ts'
+import {
+  formatTechPackDesignRequirementBlockMessage,
+  validateTechPackDesignRequirement,
+} from '../../data/pcs-tech-pack-design-requirement.ts'
 import {
   canPublishTechnicalVersionByReview,
   getTechnicalReviewPendingReviewerText,
@@ -61,13 +66,43 @@ function renderReleaseDialog(): string {
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
       <section class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">发布技术包版本</h3>
+          <h3 class="text-lg font-semibold">发布技术包新版本</h3>
         </header>
         <footer class="flex items-center justify-end gap-2 px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-release">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-tech-action="confirm-release">确认发布</button>
+          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-tech-action="confirm-release">确认发布新版本</button>
         </footer>
       </section>
+    </div>
+  `
+}
+
+function getCurrentDesignRequirementValidation(): ReturnType<typeof validateTechPackDesignRequirement> {
+  return validateTechPackDesignRequirement({
+    bomItems: state.bomItems,
+    patternDesigns: state.techPack?.patternDesigns ?? [],
+  })
+}
+
+function renderDesignRequirementCheckBlock(): string {
+  const validation = getCurrentDesignRequirementValidation()
+  const className = !validation.required
+    ? 'border-slate-200 bg-slate-50 text-slate-700'
+    : validation.valid
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : 'border-red-200 bg-red-50 text-red-700'
+  const statusText = !validation.required ? '非必填' : validation.valid ? '已通过' : '未通过'
+  const issueRows = validation.issues
+    .map((item) => `<li>${escapeHtml(item.message)}</li>`)
+    .join('')
+  return `
+    <div class="rounded-lg border px-4 py-3 text-sm ${className}">
+      <div class="flex items-center justify-between gap-3">
+        <span class="font-medium">花型设计复核</span>
+        <span class="rounded border bg-white/70 px-2 py-0.5 text-xs">${escapeHtml(statusText)}</span>
+      </div>
+      <p class="mt-1 text-xs leading-5">${escapeHtml(validation.summaryText)}</p>
+      ${issueRows ? `<ul class="mt-2 list-disc space-y-1 pl-5 text-xs">${issueRows}</ul>` : ''}
     </div>
   `
 }
@@ -109,6 +144,7 @@ function renderTechPackSummary(): string {
   const sourceSummary = buildTechPackVersionSourceTaskSummary(record)
   const isCurrent = style?.currentTechPackVersionId === record.technicalVersionId
   const patternAssets = listPatternAssetsForTechPackVersions([record])
+  const patternDesignCount = state.techPack?.patternDesigns.length ?? 0
   return `
     <div class="ml-10 mt-2 grid gap-2 text-sm text-muted-foreground md:grid-cols-3">
       <div>技术包状态：${renderStatusBadge(state.techPack?.status || 'DRAFT')}</div>
@@ -117,7 +153,7 @@ function renderTechPackSummary(): string {
       ${renderGarmentDifficultyField(record)}
       <div>关联花型库资产：<span class="font-medium text-foreground">${patternAssets.length > 0 ? escapeHtml(patternAssets.map((item) => item.pattern_code).join('、')) : '未关联'}</span></div>
       <div>归档状态：<span class="font-medium text-foreground">${record.archiveCollectedFlag ? '已归档' : '未归档'}</span></div>
-      <div>当前花型资产：<span class="font-medium text-foreground">${patternAssets.length} 个</span></div>
+      <div>当前花型图：<span class="font-medium text-foreground">${patternDesignCount} 张</span></div>
     </div>
   `
 }
@@ -201,6 +237,7 @@ function renderReviewSubmitDialog(): string {
           <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
             提交前请确认物料清单、核价、纸样管理、款色用料对应、工序工艺、放码规则、花型设计等内容已维护完整。审核中和审核通过的模块将锁定，不允许修改。
           </div>
+          ${renderDesignRequirementCheckBlock()}
           <div class="grid gap-2 rounded-lg border bg-muted/20 px-4 py-3">
             <div class="font-medium text-foreground">固定审核人</div>
             <div class="text-muted-foreground">买手审核：<span class="font-medium text-foreground">${escapeHtml(reviewers.buyerReviewer.reviewerName)}</span></div>
@@ -389,12 +426,33 @@ function renderReviewStatusSummary(record: NonNullable<ReturnType<typeof getTech
   `
 }
 
+function renderReviewDetailEntryButton(): string {
+  return `
+    <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted" data-tech-action="open-review-detail-drawer">
+      <i data-lucide="clipboard-check" class="mr-2 h-4 w-4"></i>
+      查看审核详情
+    </button>
+  `
+}
+
+function shouldOpenReviewDetailDrawerFromRoute(): boolean {
+  const pathname = appStore.getState().pathname
+  const queryStart = pathname.indexOf('?')
+  if (queryStart < 0) return false
+  const queryText = pathname.slice(queryStart + 1).split('#')[0] || ''
+  return new URLSearchParams(queryText).get('reviewDetail') === '1'
+}
+
 function renderTechPackHeaderReviewAction(input: {
   record: NonNullable<ReturnType<typeof getTechnicalDataVersionById>> | null
   hasIncomplete: boolean
 }): string {
-  if (!input.record || input.record.versionStatus !== 'DRAFT') return ''
+  if (!input.record) return ''
   const review = normalizeTechnicalReviewSnapshot(input.record)
+  const hasReviewFlow = review.reviewStage !== '未提交审核' || Boolean(input.record.reviewSubmittedAt)
+  if (input.record.versionStatus !== 'DRAFT') {
+    return hasReviewFlow ? renderReviewDetailEntryButton() : ''
+  }
   if (review.reviewStage === '未提交审核') {
     return `
       <button type="button" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-tech-action="submit-review">
@@ -405,20 +463,24 @@ function renderTechPackHeaderReviewAction(input: {
   }
   if (canPublishTechnicalVersionByReview(input.record)) {
     const disabled = input.hasIncomplete ? 'pointer-events-none opacity-50' : ''
+    const designMessage = formatTechPackDesignRequirementBlockMessage(
+      getCurrentDesignRequirementValidation(),
+      '发布前请先补齐花型设计',
+    )
+    const disabledTitle = designMessage || (input.hasIncomplete ? '核心域未补全，暂不可发布' : '')
     return `
-      <button type="button" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 ${disabled}" data-tech-action="open-release" title="${input.hasIncomplete ? '核心域未补全，暂不可发布' : ''}">
+      ${renderReviewStatusSummary(input.record)}
+      ${renderReviewDetailEntryButton()}
+      <button type="button" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 ${disabled}" data-tech-action="open-release" title="${escapeHtml(disabledTitle)}">
         <i data-lucide="check" class="mr-2 h-4 w-4"></i>
-        发布版本
+        发布新版本
       </button>
     `
   }
   if (review.reviewStage === '第一阶段并行审核' || review.reviewStage === '跟单复核') {
     return `
       ${renderReviewStatusSummary(input.record)}
-      <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted" data-tech-action="open-review-detail-drawer">
-        <i data-lucide="clipboard-check" class="mr-2 h-4 w-4"></i>
-        查看审核详情
-      </button>
+      ${renderReviewDetailEntryButton()}
     `
   }
   return ''
@@ -437,11 +499,23 @@ function renderReviewDetailDrawer(): string {
     record.versionStatus === 'DRAFT' && review.reviewStage !== '未提交审核'
       ? renderNodeActions(review.patternMakerReview)
       : ''
+  const designRequirement = getCurrentDesignRequirementValidation()
+  const merchandiserReturnAttrs = isCurrentUserAssigned(review.merchandiserReview)
+    ? ''
+    : ' disabled aria-disabled="true" title="仅指定审核人可处理"'
+  const merchandiserRecoveryActions =
+    record.versionStatus === 'DRAFT' &&
+    review.reviewStage === '待发布' &&
+    review.merchandiserReview.status === '审核-已通过' &&
+    designRequirement.required &&
+    !designRequirement.valid
+      ? renderReviewButton('return-review-first-stage', '打回补齐花型设计', 'MERCHANDISER', 'danger', merchandiserReturnAttrs)
+      : ''
   const merchandiserActions =
     record.versionStatus === 'DRAFT' &&
     review.buyerReview.status === '审核-已通过' &&
     review.patternMakerReview.status === '审核-已通过'
-      ? renderNodeActions(review.merchandiserReview)
+      ? renderNodeActions(review.merchandiserReview) || merchandiserRecoveryActions
       : ''
   return `
     <div class="fixed inset-0 z-[60] bg-black/35" data-dialog-backdrop="true" data-tech-review-layer="detail-drawer">
@@ -521,6 +595,7 @@ function renderReviewNodeCard(input: {
         <div>差异：<span class="font-medium text-foreground">${escapeHtml(diff.summaryText || input.node.diffSummaryText || '未生成差异快照')}</span></div>
         <div>飞书提醒：<span class="font-medium text-foreground">${escapeHtml(input.node.lastFeishuNotifyStatus || '未发送')}</span>${input.node.lastFeishuNotifyAt ? ` · ${escapeHtml(input.node.lastFeishuNotifyAt)}` : ''}${latestNotification?.failedReason ? ` · ${escapeHtml(latestNotification.failedReason)}` : ''}</div>
       </div>
+      ${input.node.nodeKey === 'MERCHANDISER' ? `<div class="mt-3">${renderDesignRequirementCheckBlock()}</div>` : ''}
       <div class="mt-3 flex flex-wrap gap-2">
         <button type="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-tech-action="open-review-diff" data-review-node="${escapeHtml(input.node.nodeKey)}">查看差异</button>
         <button type="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-tech-action="open-review-notifications" data-review-node="${escapeHtml(input.node.nodeKey)}">查看飞书记录</button>
@@ -599,6 +674,12 @@ export function renderTechPackPage(
   const checklist = getChecklist()
   const hasIncomplete = checklist.some((item) => item.required && !item.done)
   const currentRecord = state.currentTechnicalVersionId ? getTechnicalDataVersionById(state.currentTechnicalVersionId) : null
+  if (currentRecord && shouldOpenReviewDetailDrawerFromRoute()) {
+    const review = normalizeTechnicalReviewSnapshot(currentRecord)
+    if (review.reviewStage !== '未提交审核' || currentRecord.reviewSubmittedAt) {
+      state.reviewDetailDrawerOpen = true
+    }
+  }
   return `
     <div data-tech-pack-page-root="true" class="space-y-4">
       <header class="flex items-start justify-between">

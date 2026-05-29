@@ -22,6 +22,10 @@ import {
   startTechPackReview,
   submitTechPackFirstStageReview,
 } from '../../data/pcs-tech-pack-review.ts'
+import {
+  formatTechPackDesignRequirementBlockMessage,
+  validateTechPackDesignRequirement,
+} from '../../data/pcs-tech-pack-design-requirement.ts'
 import { getFixedTechPackReviewers } from '../../data/pcs-tech-pack-reviewer-directory.ts'
 import type {
   TechnicalGarmentDifficultyGrade,
@@ -159,6 +163,15 @@ const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'open-design-file-picker': 'DESIGN',
   'save-design': 'DESIGN',
   'delete-design': 'DESIGN',
+}
+
+function validateCurrentDesignRequirement(prefix: string): string {
+  if (!state.techPack) return ''
+  const validation = validateTechPackDesignRequirement({
+    bomItems: state.bomItems,
+    patternDesigns: state.techPack.patternDesigns,
+  })
+  return formatTechPackDesignRequirementBlockMessage(validation, prefix)
 }
 
 function getTechPackFieldModuleKey(field: string): TechnicalModuleKey | null {
@@ -2365,6 +2378,24 @@ function performRelease(): void {
   state.releaseDialogOpen = false
 }
 
+function closeReviewDetailDrawer(): void {
+  state.reviewDetailDrawerOpen = false
+  const pathname = appStore.getState().pathname
+  const queryStart = pathname.indexOf('?')
+  if (queryStart < 0) return
+
+  const path = pathname.slice(0, queryStart)
+  const queryAndHash = pathname.slice(queryStart + 1)
+  const [queryText, hashText = ''] = queryAndHash.split('#')
+  const params = new URLSearchParams(queryText)
+  if (!params.has('reviewDetail')) return
+
+  params.delete('reviewDetail')
+  const nextQuery = params.toString()
+  const nextPathname = `${path}${nextQuery ? `?${nextQuery}` : ''}${hashText ? `#${hashText}` : ''}`
+  appStore.navigate(nextPathname, { historyMode: 'replace' })
+}
+
 export function handleTechPackEvent(target: HTMLElement): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-tech-field]')
   if (
@@ -2489,6 +2520,12 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'confirm-submit-review') {
     if (!state.currentTechnicalVersionId) return true
+    syncTechPackToStore()
+    const designMessage = validateCurrentDesignRequirement('提交审核前请先补齐花型设计')
+    if (designMessage) {
+      state.compatibilityMessage = designMessage
+      return true
+    }
     const reviewers = getFixedTechPackReviewers({
       styleId: state.currentStyleId || '',
       technicalVersionId: state.currentTechnicalVersionId,
@@ -2512,7 +2549,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'close-review-detail-drawer') {
-    state.reviewDetailDrawerOpen = false
+    closeReviewDetailDrawer()
     return true
   }
   if (action === 'start-review') {
@@ -2570,6 +2607,14 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
           opinion: state.reviewActionOpinion,
         })
       } else if (state.reviewActionType === 'approve') {
+        if (state.reviewActionNodeKey === 'MERCHANDISER') {
+          syncTechPackToStore()
+          const designMessage = validateCurrentDesignRequirement('跟单无法审核通过')
+          if (designMessage) {
+            state.compatibilityMessage = designMessage
+            return true
+          }
+        }
         approveTechPackReview(
           state.currentTechnicalVersionId,
           state.reviewActionNodeKey,
