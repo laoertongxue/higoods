@@ -3,8 +3,7 @@ import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
-  serializeFeiTicketRecordsStorage,
-} from './fei-tickets-model.ts'
+} from '../../../data/fcs/cutting/storage/fei-tickets-storage.ts'
 import {
   paginateItems,
   renderCompactKpiCard,
@@ -21,7 +20,9 @@ import {
 } from './warehouse-shared.ts'
 import {
   buildCuttingTraceabilityId,
+  parseCuttingTraceQr,
 } from '../../../data/fcs/cutting/qr-codes.ts'
+import { parseCarrierQrValue } from '../../../data/fcs/cutting/transfer-bag-runtime.ts'
 import { buildTransferBagLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
@@ -39,10 +40,6 @@ import {
 import {
   buildTransferBagsProjection,
 } from './transfer-bags-projection.ts'
-import {
-  resolveCarrierScanInput,
-  resolveFeiTicketScanInput,
-} from './traceability-projection-helpers.ts'
 import {
   buildBagUsageAuditTrail,
   buildTransferBagCarrierManagementProjection,
@@ -100,6 +97,9 @@ type TransferBagListTab = 'masters' | 'inbound' | 'handover' | 'recovery' | 'abn
 type TransferBagDetailTab = 'basic' | 'current' | 'history' | 'items' | 'recovery' | 'logs'
 type TransferBagBaggingStepId = 'scan' | 'review' | 'handover'
 type TransferBagBaggingStepState = 'pending' | 'active' | 'done' | 'locked'
+type TransferBagsProjection = ReturnType<typeof buildTransferBagsProjection>
+type TransferBagCarrierManagementProjection = ReturnType<typeof buildTransferBagCarrierManagementProjection>
+type TransferBagCarrierMasterRecord = TransferBagCarrierManagementProjection['masterRecords'][number]
 
 type FeedbackTone = 'success' | 'warning'
 
@@ -214,6 +214,43 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
+function serializeTransferBagTicketRecordsStorage(records: TransferBagsProjection['ticketRecords']): string {
+  return JSON.stringify(records)
+}
+
+function resolveCarrierScanInput(input: string, store: TransferBagStore): TransferBagMaster | null {
+  const normalized = input.trim()
+  if (!normalized) return null
+  const parsed = parseCarrierQrValue(normalized)
+  if (parsed) {
+    return (
+      store.masters.find((item) => item.carrierId === parsed.carrierId) ||
+      store.masters.find((item) => item.carrierCode === parsed.carrierCode) ||
+      null
+    )
+  }
+  return store.masters.find((item) => item.carrierCode === normalized) || null
+}
+
+function resolveFeiTicketScanInput(input: string, ticketRecords: TransferBagsProjection['ticketRecords']) {
+  const normalized = input.trim()
+  if (!normalized) return null
+  const parsed = parseCuttingTraceQr(normalized)
+  if (parsed?.codeType === 'FEI_TICKET') {
+    return (
+      ticketRecords.find((item) => item.ticketRecordId === parsed.feiTicketId) ||
+      ticketRecords.find((item) => item.ticketNo === parsed.feiTicketNo) ||
+      null
+    )
+  }
+  return (
+    ticketRecords.find((item) => item.ticketNo === normalized) ||
+    ticketRecords.find((item) => item.qrSerializedValue === normalized) ||
+    ticketRecords.find((item) => item.qrValue === normalized) ||
+    null
+  )
+}
+
 function hasExplicitUsageContext(prefilter: TransferBagPrefilter | null): boolean {
   return Boolean(prefilter?.usageId || prefilter?.usageNo)
 }
@@ -282,8 +319,27 @@ function hasResolverLookupContext(prefilter: TransferBagPrefilter | null): boole
   )
 }
 
+let projectionVersion = 0
+let projectionCache: { version: number; projection: TransferBagsProjection } | null = null
+let carrierManagementProjectionCache:
+  | {
+      version: number
+      projection: TransferBagCarrierManagementProjection
+      masterRecordMap: Record<string, TransferBagCarrierMasterRecord>
+    }
+  | null = null
+
+function invalidateTransferBagProjectionCache(): void {
+  projectionVersion += 1
+  projectionCache = null
+  carrierManagementProjectionCache = null
+}
+
 function getProjection() {
-  return buildTransferBagsProjection(undefined, state.store)
+  if (projectionCache?.version === projectionVersion) return projectionCache.projection
+  const projection = buildTransferBagsProjection(undefined, state.store)
+  projectionCache = { version: projectionVersion, projection }
+  return projection
 }
 
 function hydrateStore(): TransferBagStore {
@@ -353,13 +409,21 @@ function getReturnViewModel() {
 }
 
 function getCarrierManagementProjection() {
-  return buildTransferBagCarrierManagementProjection(state.store, getViewModel())
+  if (carrierManagementProjectionCache?.version === projectionVersion) return carrierManagementProjectionCache.projection
+  const projection = buildTransferBagCarrierManagementProjection(state.store, getViewModel())
+  carrierManagementProjectionCache = {
+    version: projectionVersion,
+    projection,
+    masterRecordMap: Object.fromEntries(projection.masterRecords.map((item) => [item.bagCode, item])),
+  }
+  return projection
 }
 
 function persistStore(): void {
+  invalidateTransferBagProjectionCache()
   localStorage.setItem(CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY, serializeTransferBagStorage(state.store))
   const nextTicketRecords = getProjection().ticketRecords
-  localStorage.setItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, serializeFeiTicketRecordsStorage(nextTicketRecords))
+  localStorage.setItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, serializeTransferBagTicketRecordsStorage(nextTicketRecords))
 }
 
 function persistSelectedTicketIds(): void {
@@ -483,8 +547,9 @@ function findMatchingMasters(prefilter: TransferBagPrefilter | null, viewModel =
   return matchedBagIds.size ? viewModel.masters.filter((item) => matchedBagIds.has(item.bagId)) : []
 }
 
-function getCarrierMasterRecordMap(): Record<string, ReturnType<typeof getCarrierManagementProjection>['masterRecords'][number]> {
-  return Object.fromEntries(getCarrierManagementProjection().masterRecords.map((item) => [item.bagCode, item]))
+function getCarrierMasterRecordMap(): Record<string, TransferBagCarrierMasterRecord> {
+  if (carrierManagementProjectionCache?.version !== projectionVersion) getCarrierManagementProjection()
+  return carrierManagementProjectionCache?.masterRecordMap || {}
 }
 
 function matchesMasterStatusFilter(
@@ -496,12 +561,11 @@ function matchesMasterStatusFilter(
   return carrierRecordsByBagCode[item.bagCode]?.currentStatus === filter
 }
 
-function getMasterBaseItems() {
+function getMasterBaseItems(carrierRecordsByBagCode = getCarrierMasterRecordMap()) {
   const keyword = state.masterKeyword.trim().toLowerCase()
   const locationKeyword = state.masterLocationKeyword.trim().toLowerCase()
   const boundObjectKeyword = state.masterBoundObjectKeyword.trim().toLowerCase()
   const matchedMasterIds = state.prefilter ? new Set(findMatchingMasters(state.prefilter).map((item) => item.bagId)) : null
-  const carrierRecordsByBagCode = getCarrierMasterRecordMap()
   return getViewModel().masters.filter((item) => {
     if (matchedMasterIds && matchedMasterIds.size && !matchedMasterIds.has(item.bagId)) return false
     const carrierRecord = carrierRecordsByBagCode[item.bagCode]
@@ -526,8 +590,7 @@ function getMasterBaseItems() {
   })
 }
 
-function getFilteredMasters(baseItems = getMasterBaseItems()) {
-  const carrierRecordsByBagCode = getCarrierMasterRecordMap()
+function getFilteredMasters(baseItems = getMasterBaseItems(), carrierRecordsByBagCode = getCarrierMasterRecordMap()) {
   return baseItems.filter((item) => matchesMasterStatusFilter(item, state.masterStatus, carrierRecordsByBagCode))
 }
 
@@ -536,13 +599,15 @@ function resetMasterPagination(): void {
 }
 
 function getPagedMasters() {
-  const baseItems = getMasterBaseItems()
-  const filteredItems = getFilteredMasters(baseItems)
+  const carrierRecordsByBagCode = getCarrierMasterRecordMap()
+  const baseItems = getMasterBaseItems(carrierRecordsByBagCode)
+  const filteredItems = getFilteredMasters(baseItems, carrierRecordsByBagCode)
   const pageSlice = paginateItems(filteredItems, state.masterPage, state.masterPageSize)
   state.masterPage = pageSlice.page
   return {
     baseItems,
     filteredItems,
+    carrierRecordsByBagCode,
     pageSlice,
   }
 }
@@ -1522,9 +1587,9 @@ function renderLandingBanner(): string {
 function renderListHeaderActions(): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="new-master">新增中转袋</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="focus-scan-query">扫码查询</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="set-list-tab" data-tab="abnormal">异常登记</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fast-page-render="true" data-transfer-bags-action="new-master">新增中转袋</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fast-page-render="true" data-transfer-bags-action="focus-scan-query">扫码查询</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fast-page-render="true" data-transfer-bags-action="set-list-tab" data-tab="abnormal">异常登记</button>
     </div>
   `
 }
@@ -1541,12 +1606,13 @@ function renderMasterQuickFilterBar(): string {
           value="${escapeHtml(state.masterKeyword)}"
           placeholder="袋码 / 规格 / 当前装载"
           class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          data-fast-page-render="true"
           data-transfer-bags-master-field="keyword"
         />
       </label>
       <label class="space-y-2">
         <span class="text-sm font-medium text-foreground">当前状态</span>
-        <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-master-field="status">
+        <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-fast-page-render="true" data-transfer-bags-master-field="status">
           <option value="ALL" ${state.masterStatus === 'ALL' ? 'selected' : ''}>全部状态</option>
           ${statusOptions
             .map((status) => `<option value="${escapeHtml(status)}" ${state.masterStatus === status ? 'selected' : ''}>${escapeHtml(status)}</option>`)
@@ -1555,7 +1621,7 @@ function renderMasterQuickFilterBar(): string {
       </label>
       <label class="space-y-2">
         <span class="text-sm font-medium text-foreground">使用阶段</span>
-        <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-master-field="useStage">
+        <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-fast-page-render="true" data-transfer-bags-master-field="useStage">
           <option value="ALL" ${state.masterUseStage === 'ALL' ? 'selected' : ''}>全部阶段</option>
           ${stageOptions
             .map((stage) => `<option value="${escapeHtml(stage)}" ${state.masterUseStage === stage ? 'selected' : ''}>${escapeHtml(stage)}</option>`)
@@ -1569,6 +1635,7 @@ function renderMasterQuickFilterBar(): string {
           value="${escapeHtml(state.masterLocationKeyword)}"
           placeholder="工厂 / 仓库 / 库位"
           class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          data-fast-page-render="true"
           data-transfer-bags-master-field="location"
         />
       </label>
@@ -1579,6 +1646,7 @@ function renderMasterQuickFilterBar(): string {
           value="${escapeHtml(state.masterBoundObjectKeyword)}"
           placeholder="使用记录 / 交出单 / 接收对象"
           class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          data-fast-page-render="true"
           data-transfer-bags-master-field="boundObject"
         />
       </label>
@@ -1610,6 +1678,7 @@ function renderTransferBagListTabs(): string {
                 role="tab"
                 aria-selected="${selected ? 'true' : 'false'}"
                 class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${selected ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'}"
+                data-fast-page-render="true"
                 data-transfer-bags-action="set-list-tab"
                 data-tab="${tab.key}"
               >
@@ -2045,9 +2114,8 @@ function renderCutPieceSortingTaskPanel(): string {
 }
 
 function renderMasterSection(): string {
-  const { filteredItems, pageSlice } = getPagedMasters()
+  const { filteredItems, pageSlice, carrierRecordsByBagCode } = getPagedMasters()
   const items = pageSlice.items
-  const carrierRecordsByBagCode = getCarrierMasterRecordMap()
   return `
     <div class="space-y-3" role="tabpanel" aria-label="中转袋档案">
       <section class="rounded-lg border bg-card">
@@ -2162,6 +2230,7 @@ function renderMasterSection(): string {
             actionAttr: 'data-transfer-bags-action',
             pageAction: 'set-master-page',
             pageSizeAttr: 'data-transfer-bags-master-page-size',
+            extraAttrs: 'data-fast-page-render="true"',
             pageSizeOptions: [10, 20, 50],
           })}`}
       </section>

@@ -10,6 +10,7 @@ type DispatchBoardPageModule = typeof import('./pages/dispatch-board')
 type FactoryProfilePageModule = typeof import('./pages/factory-profile')
 type CraftCuttingMarkerPlanPageModule = typeof import('./pages/process-factory/cutting/marker-plan')
 type CraftCuttingMarkerSpreadingPageModule = typeof import('./pages/process-factory/cutting/marker-spreading')
+type CraftCuttingTransferBagsPageModule = typeof import('./pages/process-factory/cutting/transfer-bags')
 type CraftPrintingWarehousePageModule = typeof import('./pages/process-factory/printing/warehouse')
 type CraftDyeingWarehousePageModule = typeof import('./pages/process-factory/dyeing/warehouse')
 type FactoryWarehouseSharedModule = typeof import('./pages/process-factory/shared/warehouse-standard')
@@ -25,6 +26,7 @@ let dispatchBoardPageModulePromise: Promise<DispatchBoardPageModule> | null = nu
 let factoryProfilePageModulePromise: Promise<FactoryProfilePageModule> | null = null
 let craftCuttingMarkerPlanPageModulePromise: Promise<CraftCuttingMarkerPlanPageModule> | null = null
 let craftCuttingMarkerSpreadingPageModulePromise: Promise<CraftCuttingMarkerSpreadingPageModule> | null = null
+let craftCuttingTransferBagsPageModulePromise: Promise<CraftCuttingTransferBagsPageModule> | null = null
 let craftPrintingWarehousePageModulePromise: Promise<CraftPrintingWarehousePageModule> | null = null
 let craftDyeingWarehousePageModulePromise: Promise<CraftDyeingWarehousePageModule> | null = null
 let factoryWarehouseSharedModulePromise: Promise<FactoryWarehouseSharedModule> | null = null
@@ -104,6 +106,16 @@ function getCraftCuttingMarkerSpreadingPageModule(): Promise<CraftCuttingMarkerS
     })
   }
   return craftCuttingMarkerSpreadingPageModulePromise
+}
+
+function getCraftCuttingTransferBagsPageModule(): Promise<CraftCuttingTransferBagsPageModule> {
+  if (!craftCuttingTransferBagsPageModulePromise) {
+    craftCuttingTransferBagsPageModulePromise = import('./pages/process-factory/cutting/transfer-bags').catch((error) => {
+      craftCuttingTransferBagsPageModulePromise = null
+      throw error
+    })
+  }
+  return craftCuttingTransferBagsPageModulePromise
 }
 
 function getCraftPrintingWarehousePageModule(): Promise<CraftPrintingWarehousePageModule> {
@@ -305,6 +317,10 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
   ) {
     const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
     return markerSpreadingPage.handleCraftCuttingMarkerSpreadingEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/craft/cutting/transfer-bags')) {
+    const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
+    return transferBagsPage.handleCraftCuttingTransferBagsEvent(eventTarget)
   }
 
   const handlerSystem = getCurrentHandlerSystem(pathname)
@@ -515,6 +531,14 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     if (normalizedPathname === '/fcs/craft/dyeing/wait-handover-warehouse') {
       const dyeingWarehousePage = await getCraftDyeingWarehousePageModule()
       return dyeingWarehousePage.renderCraftDyeingWaitHandoverWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/transfer-bags') {
+      const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
+      return transferBagsPage.renderCraftCuttingTransferBagsPage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/transfer-bag-detail') {
+      const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
+      return transferBagsPage.renderCraftCuttingTransferBagDetailPage()
     }
     if (normalizedPathname === '/fcs/print/preview') {
       const printPreviewPage = await getPrintPreviewPageModule()
@@ -1133,7 +1157,7 @@ root.addEventListener('input', async (event) => {
   if (await dispatchPageEvent(target)) {
     if (shouldSkipInputRerender(target)) return
     const nextPathname = appStore.getState().pathname
-    if (shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+    if (target.closest<HTMLElement>('[data-fast-page-render]') || shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
       await renderPageContentOnlyWithFocusRestore(focusSnapshot)
     } else {
       await renderWithFocusRestore(focusSnapshot)
@@ -1155,7 +1179,7 @@ root.addEventListener('compositionend', async (event) => {
   if (await dispatchPageEvent(target)) {
     if (shouldSkipInputRerender(target)) return
     const nextPathname = appStore.getState().pathname
-    if (shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+    if (target.closest<HTMLElement>('[data-fast-page-render]') || shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
       await renderPageContentOnlyWithFocusRestore(focusSnapshot)
     } else {
       await renderWithFocusRestore(focusSnapshot)
@@ -1172,7 +1196,7 @@ root.addEventListener('change', async (event) => {
   if (await dispatchPageEvent(target)) {
     if (shouldSkipChangeRerender(target)) return
     const nextPathname = appStore.getState().pathname
-    if (shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+    if (target.closest<HTMLElement>('[data-fast-page-render]') || shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
       await renderPageContentOnlyWithFocusRestore(focusSnapshot)
     } else {
       await renderWithFocusRestore(focusSnapshot)

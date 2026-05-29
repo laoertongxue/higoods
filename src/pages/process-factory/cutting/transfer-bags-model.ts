@@ -2318,6 +2318,7 @@ export function buildTransferBagViewModel(options: {
   markerPlanSources: MarkerPlanSourceRecord[]
   store: TransferBagStore
   spreadingStore?: MarkerSpreadingStore
+  includeStageDerived?: boolean
 }): TransferBagViewModel {
   void options.markerPlanSources
   const spreadingTraceAnchors = options.spreadingStore ? buildSpreadingTraceAnchors(options.spreadingStore) : []
@@ -2592,7 +2593,8 @@ export function buildTransferBagViewModel(options: {
     usageItem.bindingItems = bindingsByUsageId[usageItem.usageId] || []
   })
 
-  const stageLedgerItems = buildTransferBagStageLedgerItems(usageItems)
+  const includeStageDerived = options.includeStageDerived ?? true
+  const stageLedgerItems = includeStageDerived ? buildTransferBagStageLedgerItems(usageItems) : []
   const handoverStageItems = stageLedgerItems.filter((item) => item.stage === 'HANDOVER_PACKING')
   const stageSummary: TransferBagStageSummary = {
     inboundTempCount: stageLedgerItems.filter((item) => item.stage === 'INBOUND_TEMP').length,
@@ -2600,7 +2602,7 @@ export function buildTransferBagViewModel(options: {
     handoverRelationOkCount: handoverStageItems.filter((item) => item.relationOk).length,
     handoverRelationMissingCount: handoverStageItems.filter((item) => !item.relationOk).length,
   }
-  const sortingTasks = buildCutPieceSortingTasks(usageItems)
+  const sortingTasks = includeStageDerived ? buildCutPieceSortingTasks(usageItems) : []
   const sortingTaskSummary: CutPieceSortingTaskSummary = {
     taskCount: sortingTasks.length,
     pendingCount: sortingTasks.filter((task) => task.status === '待分拣').length,
