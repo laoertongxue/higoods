@@ -2363,7 +2363,7 @@ function renderPackDialog(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING'): string {
                 <label class="space-y-2">
                   <span class="text-sm font-medium text-foreground">绑定对象类型</span>
                   <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-pack-draft-field="boundObjectType">
-                    ${['车缝任务', '特殊工艺交出单', '仓库交出单', '其他'].map((item) => `<option value="${escapeHtml(item)}" ${state.packDraft.boundObjectType === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+                    ${['车缝任务', '特殊工艺交出单'].map((item) => `<option value="${escapeHtml(item)}" ${state.packDraft.boundObjectType === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
                   </select>
                 </label>
                 <label class="space-y-2">
