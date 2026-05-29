@@ -141,15 +141,31 @@ interface TechPackVersionChangeForm {
 interface ProductionPatchForm {
   patchType: string
   color: string
+  targetColor: string
   size: string
   material: string
+  targetMaterial: string
+  usageValue: string
+  targetUsageValue: string
   part: string
   processNode: string
+  processFrom: string
+  processTo: string
   factory: string
   cutOrder: string
   markerPlan: string
   spreadingOrder: string
   processOrder: string
+  patternFile: string
+  targetPatternFile: string
+  sizeRule: string
+  targetSizeRule: string
+  colorMaterialMapping: string
+  targetColorMaterialMapping: string
+  costItem: string
+  targetCostValue: string
+  artworkFile: string
+  targetArtworkFile: string
   effectivePoint: string
   reason: string
   contentText: string
@@ -230,7 +246,9 @@ interface ProductionState {
   productionPatchForm: ProductionPatchForm
   productionPatchError: string
   techPackChangePublishGuideOpen: boolean
+  techPackChangePublishGuideBatchId: string
   techPackChangePublishIgnoreReason: string
+  techPackChangeModuleLandingId: string
 
   statusKeyword: string
   statusFilter: 'ALL' | LifecycleStatus
@@ -280,15 +298,31 @@ const TECH_PACK_VERSION_CHANGE_EMPTY_FORM: TechPackVersionChangeForm = {
 const PRODUCTION_PATCH_EMPTY_FORM: ProductionPatchForm = {
   patchType: 'MATERIAL_REPLACEMENT',
   color: '',
+  targetColor: '',
   size: '',
   material: '',
+  targetMaterial: '',
+  usageValue: '',
+  targetUsageValue: '',
   part: '',
   processNode: '',
+  processFrom: '',
+  processTo: '',
   factory: '',
   cutOrder: '',
   markerPlan: '',
   spreadingOrder: '',
   processOrder: '',
+  patternFile: '',
+  targetPatternFile: '',
+  sizeRule: '',
+  targetSizeRule: '',
+  colorMaterialMapping: '',
+  targetColorMaterialMapping: '',
+  costItem: '',
+  targetCostValue: '',
+  artworkFile: '',
+  targetArtworkFile: '',
   effectivePoint: 'FROM_NOW',
   reason: '',
   contentText: '',
@@ -1532,7 +1566,9 @@ function closeAllProductionDialogs(): void {
   state.techPackChangeVersionDialogOrderId = null
   state.productionPatchDialogOrderId = null
   state.techPackChangePublishGuideOpen = false
+  state.techPackChangePublishGuideBatchId = ''
   state.techPackChangePublishIgnoreReason = ''
+  state.techPackChangeModuleLandingId = ''
   state.statusDialogOpen = false
   state.detailLogsOpen = false
   state.detailSimulateOpen = false
@@ -1615,7 +1651,9 @@ const state: ProductionState = {
   productionPatchForm: { ...PRODUCTION_PATCH_EMPTY_FORM },
   productionPatchError: '',
   techPackChangePublishGuideOpen: false,
+  techPackChangePublishGuideBatchId: '',
   techPackChangePublishIgnoreReason: '',
+  techPackChangeModuleLandingId: '',
 
   statusKeyword: '',
   statusFilter: 'ALL',

@@ -53,6 +53,12 @@ import {
   performOrdersFromDemandGenerate,
 } from './demand-domain'
 import {
+  getProductionOrderTechPackRelation,
+  listSelectableTechPackVersionsByOrder,
+  getLatestPendingProductionTechPackPublishEvaluationBatch,
+  ignoreProductionTechPackPublishEvaluationBatch,
+  markProductionTechPackPublishEvaluationEntered,
+  markProductionTechPackPublishEvaluationTodo,
   submitProductionOrderPatch,
   submitProductionOrderTechPackChange,
   voidProductionOrderPatch,
@@ -60,6 +66,128 @@ import {
   type PatchEffectivePoint,
   type ProductionPatchType,
 } from '../../data/fcs/production-tech-pack-change-domain'
+
+function getDefaultTechPackChangeTargetVersionId(productionOrderId: string): string {
+  const relation = getProductionOrderTechPackRelation(productionOrderId)
+  const options = listSelectableTechPackVersionsByOrder(productionOrderId)
+  return (
+    options.find((item) => item.versionId === relation?.latestPublishedTechPackVersionId)?.versionId ||
+    options[0]?.versionId ||
+    ''
+  )
+}
+
+function getDefaultProductionPatchEffectivePoint(patchType: string): string {
+  if (patchType === 'COSTING_OVERRIDE') return 'SETTLEMENT_ONLY'
+  if (patchType === 'PATTERN_OVERRIDE') return 'FROM_NEXT_MARKER_PLAN'
+  if (patchType === 'PROCESS_OVERRIDE') return 'FROM_NEXT_AUX_PROCESS'
+  if (patchType === 'ARTWORK_OVERRIDE') return 'FROM_NEXT_PRINTING'
+  if (patchType === 'MATERIAL_REPLACEMENT' || patchType === 'MATERIAL_USAGE_ADJUSTMENT' || patchType === 'COLOR_MATERIAL_MAPPING_OVERRIDE') return 'FROM_NEXT_PICKUP'
+  return 'FROM_NOW'
+}
+
+function buildProductionPatchScopeText(): string {
+  const form = state.productionPatchForm
+  return [
+    form.color && `颜色：${form.color}`,
+    form.size && `尺码：${form.size}`,
+    form.material && `物料：${form.material}`,
+    form.part && `部位：${form.part}`,
+    form.processNode && `工序节点：${form.processNode}`,
+    form.factory && `工厂：${form.factory}`,
+    form.cutOrder && `裁片单：${form.cutOrder}`,
+    form.markerPlan && `唛架方案：${form.markerPlan}`,
+    form.spreadingOrder && `铺布单：${form.spreadingOrder}`,
+    form.processOrder && `工艺单：${form.processOrder}`,
+  ].filter(Boolean).join(' / ')
+}
+
+function buildProductionPatchContentText(): string {
+  const form = state.productionPatchForm
+  const type = form.patchType as ProductionPatchType
+  const lines: string[] = []
+  if (type === 'MATERIAL_REPLACEMENT') {
+    lines.push(`原物料：${form.material || '未选择'}${form.color ? ` / ${form.color}` : ''}`)
+    lines.push(`替代物料：${form.targetMaterial || '未选择'}${form.targetColor ? ` / ${form.targetColor}` : ''}`)
+  } else if (type === 'MATERIAL_USAGE_ADJUSTMENT') {
+    lines.push(`物料：${form.material || '未选择'}${form.color ? ` / ${form.color}` : ''}`)
+    lines.push(`用量：${form.usageValue || '未选择'} → ${form.targetUsageValue || '未选择'}`)
+  } else if (type === 'PATTERN_OVERRIDE') {
+    lines.push(`纸样文件：${form.patternFile || '未选择'} → ${form.targetPatternFile || '未选择'}`)
+    lines.push(`影响部位：${form.part || '未选择'}${form.size ? ` / 尺码 ${form.size}` : ''}`)
+  } else if (type === 'PROCESS_OVERRIDE') {
+    lines.push(`工序：${form.processFrom || form.processNode || '未选择'} → ${form.processTo || '未选择'}`)
+    lines.push(`承接工厂：${form.factory || '未指定'}`)
+  } else if (type === 'SIZE_RULE_OVERRIDE') {
+    lines.push(`放码规则：${form.sizeRule || '未选择'} → ${form.targetSizeRule || '未选择'}`)
+    lines.push(`影响尺码：${form.size || '未指定'}${form.part ? ` / 部位 ${form.part}` : ''}`)
+  } else if (type === 'COLOR_MATERIAL_MAPPING_OVERRIDE') {
+    lines.push(`款色用料：${form.colorMaterialMapping || form.material || '未选择'} → ${form.targetColorMaterialMapping || form.targetMaterial || '未选择'}`)
+    lines.push(`影响颜色：${form.color || '未指定'}`)
+  } else if (type === 'COSTING_OVERRIDE') {
+    lines.push(`核价项：${form.costItem || '未选择'} → ${form.targetCostValue || '未填写'}`)
+  } else if (type === 'ARTWORK_OVERRIDE') {
+    lines.push(`花型：${form.artworkFile || '未选择'} → ${form.targetArtworkFile || '未选择'}`)
+    lines.push(`影响颜色 / 部位：${[form.color, form.part].filter(Boolean).join(' / ') || '未指定'}`)
+  }
+  if (form.contentText.trim()) lines.push(`补充说明：${form.contentText.trim()}`)
+  return lines.filter((line) => !line.includes('未选择') || form.patchType === 'OTHER_PRODUCTION_OVERRIDE').join('；')
+}
+
+function validateProductionPatchForm(): string {
+  const form = state.productionPatchForm
+  const type = form.patchType as ProductionPatchType
+  if (!form.reason.trim()) return '请填写补丁原因。'
+
+  const missing: string[] = []
+  const requireField = (value: string, label: string): void => {
+    if (!value.trim()) missing.push(label)
+  }
+
+  if (type === 'MATERIAL_REPLACEMENT') {
+    requireField(form.material, '原物料 SKU')
+    requireField(form.color, '原物料颜色')
+    requireField(form.targetMaterial, '替代物料 SKU')
+    requireField(form.targetColor, '替代物料颜色')
+    requireField(form.contentText, '替代原因')
+  } else if (type === 'MATERIAL_USAGE_ADJUSTMENT') {
+    requireField(form.material, '物料 SKU')
+    requireField(form.usageValue, '原用量')
+    requireField(form.targetUsageValue, '新用量')
+    requireField(form.contentText, '调整原因')
+  } else if (type === 'PATTERN_OVERRIDE') {
+    requireField(form.patternFile, '原纸样文件')
+    requireField(form.targetPatternFile, '新纸样文件')
+    requireField(form.part, '影响部位')
+  } else if (type === 'PROCESS_OVERRIDE') {
+    requireField(form.processFrom, '原工序 / 原流向')
+    requireField(form.processTo, '新工序 / 新流向')
+    requireField(form.processNode, '生效工序节点')
+  } else if (type === 'SIZE_RULE_OVERRIDE') {
+    requireField(form.sizeRule, '原放码规则')
+    requireField(form.targetSizeRule, '新放码规则')
+    requireField(form.part, '影响部位')
+  } else if (type === 'COLOR_MATERIAL_MAPPING_OVERRIDE') {
+    requireField(form.colorMaterialMapping, '原款色用料对应')
+    requireField(form.targetColorMaterialMapping, '新款色用料对应')
+    requireField(form.color, '影响颜色')
+  } else if (type === 'COSTING_OVERRIDE') {
+    requireField(form.costItem, '原核价项')
+    requireField(form.targetCostValue, '新核价值')
+    requireField(form.contentText, '调整原因')
+  } else if (type === 'ARTWORK_OVERRIDE') {
+    requireField(form.artworkFile, '原花型文件')
+    requireField(form.targetArtworkFile, '新花型文件')
+    requireField(form.part, '花型位置')
+  } else {
+    requireField(form.contentText, '补丁内容')
+  }
+
+  if (missing.length > 0) return `请先完善：${missing.join('、')}。`
+  if (!buildProductionPatchScopeText().trim()) return '请至少明确一个补丁影响范围。'
+  if (!buildProductionPatchContentText().trim()) return '补丁内容不能为空。'
+  return ''
+}
 
 function openCurrentTechPackEntry(spuCode: string): void {
   const info = getDemandCurrentTechPackInfo({ spuCode })
@@ -414,7 +542,11 @@ function updateProductionField(
   }
 
   if (field === 'productionPatchType') {
-    state.productionPatchForm.patchType = value
+    state.productionPatchForm = {
+      ...PRODUCTION_PATCH_EMPTY_FORM,
+      patchType: value,
+      effectivePoint: getDefaultProductionPatchEffectivePoint(value),
+    }
     return
   }
 
@@ -437,15 +569,31 @@ function updateProductionField(
 
   const productionPatchScopeFieldMap: Partial<Record<string, keyof typeof state.productionPatchForm>> = {
     productionPatchColor: 'color',
+    productionPatchTargetColor: 'targetColor',
     productionPatchSize: 'size',
     productionPatchMaterial: 'material',
+    productionPatchTargetMaterial: 'targetMaterial',
+    productionPatchUsageValue: 'usageValue',
+    productionPatchTargetUsageValue: 'targetUsageValue',
     productionPatchPart: 'part',
     productionPatchProcessNode: 'processNode',
+    productionPatchProcessFrom: 'processFrom',
+    productionPatchProcessTo: 'processTo',
     productionPatchFactory: 'factory',
     productionPatchCutOrder: 'cutOrder',
     productionPatchMarkerPlan: 'markerPlan',
     productionPatchSpreadingOrder: 'spreadingOrder',
     productionPatchProcessOrder: 'processOrder',
+    productionPatchPatternFile: 'patternFile',
+    productionPatchTargetPatternFile: 'targetPatternFile',
+    productionPatchSizeRule: 'sizeRule',
+    productionPatchTargetSizeRule: 'targetSizeRule',
+    productionPatchColorMaterialMapping: 'colorMaterialMapping',
+    productionPatchTargetColorMaterialMapping: 'targetColorMaterialMapping',
+    productionPatchCostItem: 'costItem',
+    productionPatchTargetCostValue: 'targetCostValue',
+    productionPatchArtworkFile: 'artworkFile',
+    productionPatchTargetArtworkFile: 'targetArtworkFile',
   }
   const productionPatchScopeField = productionPatchScopeFieldMap[field]
   if (productionPatchScopeField) {
@@ -573,9 +721,14 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-change-module-landing') {
-    const moduleName = actionNode.dataset.moduleLabel
     const landingId = actionNode.dataset.landingId
-    showPlanMessage(landingId ? `已打开模块落地标识：${landingId}${moduleName ? ` / ${moduleName}` : ''}` : '已打开模块落地标识')
+    if (!landingId) return true
+    state.techPackChangeModuleLandingId = landingId
+    return true
+  }
+
+  if (action === 'close-change-module-landing') {
+    state.techPackChangeModuleLandingId = ''
     return true
   }
 
@@ -590,21 +743,33 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-tech-pack-publish-guide') {
+    const latestBatch = getLatestPendingProductionTechPackPublishEvaluationBatch()
     state.techPackChangePublishGuideOpen = true
+    state.techPackChangePublishGuideBatchId = latestBatch?.batchId || ''
     return true
   }
 
   if (action === 'close-tech-pack-publish-guide') {
+    if (state.techPackChangePublishGuideBatchId) {
+      markProductionTechPackPublishEvaluationEntered(state.techPackChangePublishGuideBatchId, currentUser.name)
+    }
     state.techPackChangePublishGuideOpen = false
+    state.techPackChangePublishGuideBatchId = ''
     state.techPackChangePublishIgnoreReason = ''
     showPlanMessage('已进入生产单变更')
+    openAppRoute('/fcs/production/changes')
     return true
   }
 
   if (action === 'generate-tech-pack-evaluation-todo') {
+    if (state.techPackChangePublishGuideBatchId) {
+      markProductionTechPackPublishEvaluationTodo(state.techPackChangePublishGuideBatchId, currentUser.name)
+    }
     state.techPackChangePublishGuideOpen = false
+    state.techPackChangePublishGuideBatchId = ''
     state.techPackChangePublishIgnoreReason = ''
     showPlanMessage('生产单评估待办已生成')
+    openAppRoute('/fcs/production/changes')
     return true
   }
 
@@ -613,9 +778,18 @@ export function handleProductionEvent(target: HTMLElement): boolean {
       showPlanMessage('请选择本次不处理原因', 'error')
       return true
     }
+    if (state.techPackChangePublishGuideBatchId) {
+      ignoreProductionTechPackPublishEvaluationBatch(
+        state.techPackChangePublishGuideBatchId,
+        state.techPackChangePublishIgnoreReason,
+        currentUser.name,
+      )
+    }
     state.techPackChangePublishGuideOpen = false
+    state.techPackChangePublishGuideBatchId = ''
     showPlanMessage(`已记录不处理原因：${state.techPackChangePublishIgnoreReason}`)
     state.techPackChangePublishIgnoreReason = ''
+    openAppRoute('/fcs/production/changes')
     return true
   }
 
@@ -653,9 +827,11 @@ export function handleProductionEvent(target: HTMLElement): boolean {
       return true
     }
     try {
+      const targetVersionId =
+        state.techPackChangeVersionForm.targetVersionId || getDefaultTechPackChangeTargetVersionId(orderId)
       const request = submitProductionOrderTechPackChange({
         productionOrderId: orderId,
-        targetVersionId: state.techPackChangeVersionForm.targetVersionId || 'LATEST',
+        targetVersionId,
         reason: state.techPackChangeVersionForm.reason,
         effectiveMode: state.techPackChangeVersionForm.effectiveMode as ChangeEffectiveMode,
         note: state.techPackChangeVersionForm.note,
@@ -664,6 +840,8 @@ export function handleProductionEvent(target: HTMLElement): boolean {
       state.techPackChangeVersionDialogOrderId = null
       state.techPackChangeVersionForm = { ...TECH_PACK_VERSION_CHANGE_EMPTY_FORM }
       state.techPackChangeVersionError = ''
+      state.techPackChangeDetailTab = 'logs'
+      openAppRoute(`/fcs/production/changes/${orderId}`, `po-change-${orderId}`, `生产单变更 ${orderId}`)
       showPlanMessage(`版本关系变更申请已提交：${request.changeRequestNo}`)
     } catch (error) {
       state.techPackChangeVersionError = error instanceof Error ? error.message : '提交版本关系变更失败'
@@ -674,8 +852,25 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   if (action === 'open-production-patch') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
+    state.techPackChangeVersionDialogOrderId = null
+    state.techPackChangeVersionError = ''
     state.productionPatchDialogOrderId = orderId
-    state.productionPatchForm = { ...PRODUCTION_PATCH_EMPTY_FORM }
+    state.productionPatchForm = {
+      ...PRODUCTION_PATCH_EMPTY_FORM,
+      effectivePoint: getDefaultProductionPatchEffectivePoint(PRODUCTION_PATCH_EMPTY_FORM.patchType),
+    }
+    state.productionPatchError = ''
+    return true
+  }
+
+  if (action === 'set-production-patch-type') {
+    const patchType = actionNode.dataset.patchType
+    if (!patchType) return true
+    state.productionPatchForm = {
+      ...PRODUCTION_PATCH_EMPTY_FORM,
+      patchType,
+      effectivePoint: getDefaultProductionPatchEffectivePoint(patchType),
+    }
     state.productionPatchError = ''
     return true
   }
@@ -728,27 +923,20 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   if (action === 'submit-production-patch') {
     const orderId = state.productionPatchDialogOrderId
     if (!orderId) return true
-    const scopeText = [
-      state.productionPatchForm.color,
-      state.productionPatchForm.size,
-      state.productionPatchForm.material,
-      state.productionPatchForm.part,
-      state.productionPatchForm.processNode,
-      state.productionPatchForm.factory,
-      state.productionPatchForm.cutOrder,
-      state.productionPatchForm.markerPlan,
-      state.productionPatchForm.spreadingOrder,
-      state.productionPatchForm.processOrder,
-    ]
-      .filter(Boolean)
-      .join(' / ')
+    const formError = validateProductionPatchForm()
+    if (formError) {
+      state.productionPatchError = formError
+      return true
+    }
+    const scopeText = buildProductionPatchScopeText()
+    const contentText = buildProductionPatchContentText()
     try {
       const patch = submitProductionOrderPatch({
         productionOrderId: orderId,
         patchType: state.productionPatchForm.patchType as ProductionPatchType,
         effectivePoint: state.productionPatchForm.effectivePoint as PatchEffectivePoint,
         scopeText,
-        contentText: state.productionPatchForm.contentText,
+        contentText,
         reason: state.productionPatchForm.reason,
         operatorName: currentUser.name,
       })

@@ -16,6 +16,9 @@ import {
   saveTechnicalDataVersionRecordMeta,
 } from '../../data/pcs-project-technical-data-writeback.ts'
 import {
+  createProductionTechPackPublishEvaluationBatch,
+} from '../../data/fcs/production-tech-pack-change-domain.ts'
+import {
   approveTechPackReview,
   rejectTechPackReview,
   returnTechPackReviewToFirstStage,
@@ -104,6 +107,32 @@ import type {
 } from './context.ts'
 
 const PATTERN_IMAGE_PREVIEW_MODAL_ID = 'tech-pack-pattern-image-preview-modal'
+
+function openProductionChangeEvaluationFromPublishedVersion(
+  record: ReturnType<typeof publishTechnicalDataVersion>,
+): string {
+  const batch = createProductionTechPackPublishEvaluationBatch({
+    technicalVersionId: record.technicalVersionId,
+    technicalVersionCode: record.technicalVersionCode,
+    versionLabel: record.versionLabel,
+    styleId: record.styleId,
+    styleCode: record.styleCode,
+    styleName: record.styleName,
+    publishedAt: record.publishedAt || record.updatedAt,
+    publishedBy: record.publishedBy || record.updatedBy || currentUser.name,
+    changeSummary: record.changeSummary,
+  })
+  if (batch.affectedOrders.length === 0) {
+    return `已发布技术包版本 ${record.versionLabel}，当前没有关联旧版本生产单需要评估。`
+  }
+  appStore.openTab({
+    key: `production-change-${batch.batchId}`,
+    title: '生产单变更',
+    href: `/fcs/production/changes?publishBatchId=${encodeURIComponent(batch.batchId)}`,
+    closable: true,
+  })
+  return `已发布技术包版本 ${record.versionLabel}，已生成 ${batch.affectedOrders.length} 个生产单评估入口。`
+}
 
 const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'open-add-bom': 'BOM',
@@ -2353,7 +2382,7 @@ function performRelease(): void {
         lastUpdatedAt: record.updatedAt,
         lastUpdatedBy: record.updatedBy,
       }
-      state.compatibilityMessage = ''
+      state.compatibilityMessage = openProductionChangeEvaluationFromPublishedVersion(record)
     } catch (error) {
       state.compatibilityMessage = error instanceof Error ? error.message : '发布技术包版本失败'
     }

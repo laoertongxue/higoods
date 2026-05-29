@@ -10,6 +10,9 @@ import {
   publishTechnicalDataVersion,
 } from '../data/pcs-project-technical-data-writeback.ts'
 import {
+  createProductionTechPackPublishEvaluationBatch,
+} from '../data/fcs/production-tech-pack-change-domain.ts'
+import {
   listProjectChannelProductsSnapshot,
 } from '../data/pcs-channel-product-project-repository.ts'
 import type { ProjectChannelProductRecord } from '../data/pcs-channel-product-project-repository.ts'
@@ -315,6 +318,30 @@ const state: ProductArchivePageState = {
   imagePreview: createDefaultImagePreviewState(),
   manualTechPackVersion: createDefaultManualTechPackVersionState(),
   versionLogDialog: createDefaultVersionLogDialogState(),
+}
+
+function openProductionChangeEvaluationFromProductArchive(record: TechnicalDataVersionRecord): string {
+  const batch = createProductionTechPackPublishEvaluationBatch({
+    technicalVersionId: record.technicalVersionId,
+    technicalVersionCode: record.technicalVersionCode,
+    versionLabel: record.versionLabel,
+    styleId: record.styleId,
+    styleCode: record.styleCode,
+    styleName: record.styleName,
+    publishedAt: record.publishedAt || record.updatedAt,
+    publishedBy: record.publishedBy || record.updatedBy || '当前用户',
+    changeSummary: record.changeSummary,
+  })
+  if (batch.affectedOrders.length === 0) {
+    return `已发布技术包新版本 ${record.versionLabel}，当前没有关联旧版本生产单需要评估。`
+  }
+  appStore.openTab({
+    key: `production-change-${batch.batchId}`,
+    title: '生产单变更',
+    href: `/fcs/production/changes?publishBatchId=${encodeURIComponent(batch.batchId)}`,
+    closable: true,
+  })
+  return `已发布技术包新版本 ${record.versionLabel}，已生成 ${batch.affectedOrders.length} 个生产单评估入口。`
 }
 
 function resetSkuCreateState(): void {
@@ -2763,7 +2790,7 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       }
       try {
         const record = publishTechnicalDataVersion(technicalVersionId, '当前用户')
-        state.notice = `已发布技术包新版本 ${record.versionLabel}。`
+        state.notice = openProductionChangeEvaluationFromProductArchive(record)
       } catch (error) {
         state.notice = error instanceof Error ? error.message : '发布技术包新版本失败。'
       }

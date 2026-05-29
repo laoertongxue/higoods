@@ -252,6 +252,42 @@ export interface ProductionChangeModuleLanding {
   lastLog: string
 }
 
+export type ProductionTechPackPublishEvaluationStatus =
+  | '待评估'
+  | '已生成待办'
+  | '已记录不处理'
+  | '已进入生产单变更'
+
+export interface ProductionTechPackPublishEvaluationAffectedOrder {
+  productionOrderId: string
+  productionOrderNo: string
+  currentTechPackVersionId: string
+  currentTechPackVersionNo: string
+  latestPublishedTechPackVersionId: string
+  latestPublishedTechPackVersionNo: string
+  progressSummary: string[]
+  patchSummary: string
+  evaluationStatus: string
+}
+
+export interface ProductionTechPackPublishEvaluationBatch {
+  batchId: string
+  technicalVersionId: string
+  technicalVersionCode: string
+  versionLabel: string
+  styleId: string
+  spuCode: string
+  styleName: string
+  publishedAt: string
+  publishedBy: string
+  diffModules: TechPackChangeModule[]
+  affectedOrders: ProductionTechPackPublishEvaluationAffectedOrder[]
+  status: ProductionTechPackPublishEvaluationStatus
+  ignoreReason: string
+  createdAt: string
+  updatedAt: string
+}
+
 export const techPackChangeModuleLabels: Record<TechPackChangeModule, string> = {
   BOM: '物料清单',
   PATTERN: '纸样管理',
@@ -579,14 +615,46 @@ let relations: ProductionOrderTechPackRelation[] = [
     progressSummary: ['配料：已完成', '领料：已完成', '菲票：已打印 24 张', '车缝：已交出 35%'],
     restrictionSummary: ['已打印菲票', '已交出车缝厂'],
   },
+  {
+    relationId: 'TPR-PO-202604-0018',
+    productionOrderId: 'PO-202604-0018',
+    productionOrderNo: 'PO-202604-0018',
+    spuId: 'style_seed_project_018',
+    spuCode: 'SPU-2026-018',
+    styleName: '设计款印花阔腿连体裤',
+    colorCount: 1,
+    sizeCount: 3,
+    deliveryDate: '2026-06-18',
+    buyerName: '李娜',
+    merchandiserName: '陈静',
+    currentTechPackVersionId: 'tdv_seed_project_018_base',
+    currentTechPackVersionNo: '正式版 V1.0',
+    frozenSnapshotId: 'TPS-20260407-0018',
+    frozenAt: '2026-04-08 09:30',
+    frozenBy: '生产单创建冻结',
+    relationStatus: 'CURRENT',
+    latestPublishedTechPackVersionId: 'tdv_seed_project_018_base',
+    latestPublishedTechPackVersionNo: '正式版 V1.0',
+    latestPublishedAt: '2026-04-07 17:20',
+    publishedVersionCount: 1,
+    hasNewerPublishedVersion: false,
+    activePatchCount: 0,
+    pendingPatchCount: 0,
+    historyPatchCount: 0,
+    latestChangeRecordId: '',
+    updatedAt: '2026-05-29 12:20',
+    diffSummary: [
+      { module: 'BOM', count: 0 },
+      { module: 'PATTERN', count: 0 },
+      { module: 'DESIGN', count: 0 },
+    ],
+    progressSummary: ['配料：已配 35%', '领料：已领 20%', '印花：未开始', '裁片：未开始'],
+    restrictionSummary: ['已生成配料任务但未领料完成'],
+  },
 ]
 
-let diffSnapshots: TechPackVersionDiffSnapshot[] = relations.map((relation) => ({
-  diffSnapshotId: `DIFF-${relation.productionOrderId}`,
-  productionOrderId: relation.productionOrderId,
-  fromTechPackVersionNo: relation.currentTechPackVersionNo,
-  toTechPackVersionNo: relation.latestPublishedTechPackVersionNo,
-  items: [
+function buildTechPackDiffItemsForRelation(relation: ProductionOrderTechPackRelation): TechPackVersionDiffItem[] {
+  return [
     {
       diffItemId: `DIFF-${relation.productionOrderId}-BOM-1`,
       module: 'BOM',
@@ -638,7 +706,15 @@ let diffSnapshots: TechPackVersionDiffSnapshot[] = relations.map((relation) => (
         summary.count > 0 &&
         (!item.diffItemId.endsWith('-BOM-2') || summary.count > 1),
     ),
-  ),
+  )
+}
+
+let diffSnapshots: TechPackVersionDiffSnapshot[] = relations.map((relation) => ({
+  diffSnapshotId: `DIFF-${relation.productionOrderId}`,
+  productionOrderId: relation.productionOrderId,
+  fromTechPackVersionNo: relation.currentTechPackVersionNo,
+  toTechPackVersionNo: relation.latestPublishedTechPackVersionNo,
+  items: buildTechPackDiffItemsForRelation(relation),
 }))
 
 let progressSnapshots: ProductionProgressSnapshot[] = relations.map((relation) => ({
@@ -993,6 +1069,98 @@ function nowText(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
 }
 
+const PUBLISH_EVALUATION_STORAGE_KEY = 'higood-fcs-production-tech-pack-publish-evaluations-v1'
+
+let publishEvaluationMemory: ProductionTechPackPublishEvaluationBatch[] | null = null
+
+function canUseStorage(): boolean {
+  return (
+    typeof localStorage !== 'undefined' &&
+    typeof localStorage.getItem === 'function' &&
+    typeof localStorage.setItem === 'function'
+  )
+}
+
+function normalizeDiffModules(modules: TechPackChangeModule[] | undefined): TechPackChangeModule[] {
+  const fallback: TechPackChangeModule[] = ['BOM', 'PATTERN', 'DESIGN']
+  const source = Array.isArray(modules) && modules.length > 0 ? modules : fallback
+  return source.filter((module, index, items) => items.indexOf(module) === index)
+}
+
+function normalizePublishEvaluationBatch(
+  batch: Partial<ProductionTechPackPublishEvaluationBatch>,
+): ProductionTechPackPublishEvaluationBatch {
+  const createdAt = batch.createdAt || batch.publishedAt || nowText()
+  const status: ProductionTechPackPublishEvaluationStatus =
+    batch.status === '已生成待办' ||
+    batch.status === '已记录不处理' ||
+    batch.status === '已进入生产单变更'
+      ? batch.status
+      : '待评估'
+  return {
+    batchId: batch.batchId || `PEB-${String(batch.technicalVersionId || createdAt).replace(/[^a-zA-Z0-9_-]/g, '-')}`,
+    technicalVersionId: batch.technicalVersionId || '',
+    technicalVersionCode: batch.technicalVersionCode || '',
+    versionLabel: batch.versionLabel || '',
+    styleId: batch.styleId || '',
+    spuCode: batch.spuCode || '',
+    styleName: batch.styleName || '',
+    publishedAt: batch.publishedAt || createdAt,
+    publishedBy: batch.publishedBy || '当前用户',
+    diffModules: normalizeDiffModules(batch.diffModules),
+    affectedOrders: Array.isArray(batch.affectedOrders)
+      ? batch.affectedOrders.map((item) => ({
+          productionOrderId: item.productionOrderId || '',
+          productionOrderNo: item.productionOrderNo || '',
+          currentTechPackVersionId: item.currentTechPackVersionId || '',
+          currentTechPackVersionNo: item.currentTechPackVersionNo || '',
+          latestPublishedTechPackVersionId: item.latestPublishedTechPackVersionId || batch.technicalVersionId || '',
+          latestPublishedTechPackVersionNo:
+            item.latestPublishedTechPackVersionNo || `正式版 ${batch.versionLabel || ''}`.trim(),
+          progressSummary: Array.isArray(item.progressSummary) ? [...item.progressSummary] : [],
+          patchSummary: item.patchSummary || '生效中 0 / 待审核 0',
+          evaluationStatus: item.evaluationStatus || status,
+        }))
+      : [],
+    status,
+    ignoreReason: batch.ignoreReason || '',
+    createdAt,
+    updatedAt: batch.updatedAt || createdAt,
+  }
+}
+
+function loadPublishEvaluationBatches(): ProductionTechPackPublishEvaluationBatch[] {
+  if (publishEvaluationMemory) return clone(publishEvaluationMemory)
+  if (!canUseStorage()) {
+    publishEvaluationMemory = []
+    return []
+  }
+
+  try {
+    const raw = localStorage.getItem(PUBLISH_EVALUATION_STORAGE_KEY)
+    if (!raw) {
+      publishEvaluationMemory = []
+      return []
+    }
+    const parsed = JSON.parse(raw) as unknown
+    publishEvaluationMemory = Array.isArray(parsed)
+      ? parsed.map((item) => normalizePublishEvaluationBatch(item as Partial<ProductionTechPackPublishEvaluationBatch>))
+      : []
+    localStorage.setItem(PUBLISH_EVALUATION_STORAGE_KEY, JSON.stringify(publishEvaluationMemory))
+    return clone(publishEvaluationMemory)
+  } catch {
+    publishEvaluationMemory = []
+    return []
+  }
+}
+
+function persistPublishEvaluationBatches(batches: ProductionTechPackPublishEvaluationBatch[]): void {
+  publishEvaluationMemory = batches.map(normalizePublishEvaluationBatch)
+  if (canUseStorage()) {
+    localStorage.setItem(PUBLISH_EVALUATION_STORAGE_KEY, JSON.stringify(publishEvaluationMemory))
+  }
+}
+
 function nextSequence(prefix: string, items: Array<{ [key: string]: string }>, idKey: string): string {
   const max = items.reduce((value, item) => {
     const id = item[idKey] || ''
@@ -1004,10 +1172,8 @@ function nextSequence(prefix: string, items: Array<{ [key: string]: string }>, i
 }
 
 function getVersionOptionsForRelation(relation: ProductionOrderTechPackRelation): TechPackVersionOption[] {
-  const configured = publishedTechPackVersionOptionsBySpu[relation.spuCode]
-  if (configured?.length) return configured
-
-  return [
+  const configured = publishedTechPackVersionOptionsBySpu[relation.spuCode] ?? []
+  const runtimeOptions: TechPackVersionOption[] = [
     {
       versionId: relation.currentTechPackVersionId,
       versionNo: relation.currentTechPackVersionNo,
@@ -1020,7 +1186,10 @@ function getVersionOptionsForRelation(relation: ProductionOrderTechPackRelation)
       publishedAt: relation.latestPublishedAt,
       publishedBy: relation.merchandiserName,
     },
-  ].filter((item, index, options) => options.findIndex((option) => option.versionId === item.versionId) === index)
+  ]
+  return [...configured, ...runtimeOptions].filter(
+    (item, index, options) => options.findIndex((option) => option.versionId === item.versionId) === index,
+  )
 }
 
 function resolveTargetVersion(
@@ -1034,22 +1203,299 @@ function resolveTargetVersion(
   return options.find((item) => item.versionId === targetVersionId) ?? null
 }
 
+function formatPublishedVersionNo(versionLabel: string, technicalVersionCode: string): string {
+  const label = versionLabel.trim()
+  if (label) return `正式版 ${label}`
+  return technicalVersionCode || '正式版'
+}
+
+function getEvaluationDiffSummary(modules: TechPackChangeModule[]): Array<{ module: TechPackChangeModule; count: number }> {
+  return normalizeDiffModules(modules).map((module) => ({
+    module,
+    count: module === 'BOM' ? 2 : 1,
+  }))
+}
+
+function getEvaluationBatchesByOrder(productionOrderId: string): ProductionTechPackPublishEvaluationBatch[] {
+  return loadPublishEvaluationBatches().filter((batch) =>
+    batch.affectedOrders.some((item) => item.productionOrderId === productionOrderId),
+  )
+}
+
+function buildRelationFromEvaluation(
+  batch: ProductionTechPackPublishEvaluationBatch,
+  affectedOrder: ProductionTechPackPublishEvaluationAffectedOrder,
+): ProductionOrderTechPackRelation | null {
+  const base = relations.find((item) => item.productionOrderId === affectedOrder.productionOrderId)
+  if (!base) return null
+
+  const ignored = batch.status === '已记录不处理'
+  return {
+    ...base,
+    relationStatus: ignored ? 'CURRENT' : 'NEW_VERSION_UNEVALUATED',
+    latestPublishedTechPackVersionId: batch.technicalVersionId,
+    latestPublishedTechPackVersionNo: affectedOrder.latestPublishedTechPackVersionNo,
+    latestPublishedAt: batch.publishedAt,
+    publishedVersionCount: Math.max(base.publishedVersionCount + 1, 2),
+    hasNewerPublishedVersion: !ignored,
+    activePatchCount: base.activePatchCount,
+    pendingPatchCount: base.pendingPatchCount,
+    historyPatchCount: base.historyPatchCount,
+    updatedAt: batch.updatedAt,
+    diffSummary: ignored ? base.diffSummary.map((item) => ({ ...item, count: 0 })) : getEvaluationDiffSummary(batch.diffModules),
+    progressSummary: affectedOrder.progressSummary.length > 0 ? affectedOrder.progressSummary : base.progressSummary,
+  }
+}
+
+function getEvaluationRelations(): ProductionOrderTechPackRelation[] {
+  return loadPublishEvaluationBatches()
+    .flatMap((batch) =>
+      batch.affectedOrders
+        .map((affectedOrder) => buildRelationFromEvaluation(batch, affectedOrder))
+        .filter((item): item is ProductionOrderTechPackRelation => Boolean(item)),
+    )
+}
+
+function getRelationsWithEvaluations(): ProductionOrderTechPackRelation[] {
+  const byOrder = new Map<string, ProductionOrderTechPackRelation>()
+  relations.forEach((relation) => byOrder.set(relation.productionOrderId, relation))
+  getEvaluationRelations().forEach((relation) => byOrder.set(relation.productionOrderId, relation))
+  return [...byOrder.values()]
+}
+
+function getRelationWithEvaluation(productionOrderId: string): ProductionOrderTechPackRelation | null {
+  return getRelationsWithEvaluations().find((item) => item.productionOrderId === productionOrderId) ?? null
+}
+
+function ensureMutableRelationWithEvaluation(productionOrderId: string): ProductionOrderTechPackRelation | null {
+  const base = relations.find((item) => item.productionOrderId === productionOrderId)
+  const evaluated = getRelationWithEvaluation(productionOrderId)
+  if (!base || !evaluated) return base ?? null
+  Object.assign(base, evaluated)
+  return base
+}
+
+function buildPublishEvaluationNoticeRows(productionOrderId: string): ProductionChangeFeishuNotice[] {
+  return getEvaluationBatchesByOrder(productionOrderId).flatMap((batch) =>
+    batch.status === '已记录不处理'
+      ? []
+      : [
+          {
+            noticeId: `NT-${batch.batchId}-${productionOrderId}-ASSESS`,
+            notifyBatchId: `NTB-${batch.batchId}`,
+            productionOrderId,
+            triggerEvent: '新正式技术包发布需评估',
+            receiverName: '跟单负责人 / 模块责任人',
+            receiverRole: '生产单变更评估',
+            module: 'COMMON',
+            sendStatus: '已发送',
+            sentAt: batch.createdAt,
+            messageId: `om_${batch.batchId.toLowerCase()}_${productionOrderId.toLowerCase()}`,
+          },
+        ],
+  )
+}
+
+function buildPublishEvaluationLogRows(productionOrderId: string): ProductionChangeOperationLog[] {
+  return getEvaluationBatchesByOrder(productionOrderId).flatMap((batch) => {
+    const affectedOrder = batch.affectedOrders.find((item) => item.productionOrderId === productionOrderId)
+    const rows: ProductionChangeOperationLog[] = [
+      {
+        logId: `LOG-${batch.batchId}-${productionOrderId}-CREATED`,
+        productionOrderId,
+        operatedAt: batch.createdAt,
+        operatorName: batch.publishedBy,
+        operationType: '技术包发布生成评估批次',
+        operationObject: batch.batchId,
+        beforeText: affectedOrder?.currentTechPackVersionNo || '-',
+        afterText: affectedOrder?.latestPublishedTechPackVersionNo || batch.versionLabel,
+        remark: `新正式技术包 ${batch.technicalVersionCode} 发布，生产单需要评估版本关系或生产补丁。`,
+      },
+    ]
+    if (batch.status === '已生成待办') {
+      rows.push({
+        logId: `LOG-${batch.batchId}-${productionOrderId}-TODO`,
+        productionOrderId,
+        operatedAt: batch.updatedAt,
+        operatorName: batch.publishedBy,
+        operationType: '生成生产单评估待办',
+        operationObject: batch.batchId,
+        beforeText: '待评估',
+        afterText: '已生成待办',
+        remark: '已为该生产单生成版本关系评估待办。',
+      })
+    }
+    if (batch.status === '已记录不处理') {
+      rows.push({
+        logId: `LOG-${batch.batchId}-${productionOrderId}-IGNORE`,
+        productionOrderId,
+        operatedAt: batch.updatedAt,
+        operatorName: batch.publishedBy,
+        operationType: '记录发布评估不处理',
+        operationObject: batch.batchId,
+        beforeText: '待评估',
+        afterText: '已记录不处理',
+        remark: batch.ignoreReason || '未填写原因',
+      })
+    }
+    if (batch.status === '已进入生产单变更') {
+      rows.push({
+        logId: `LOG-${batch.batchId}-${productionOrderId}-ENTERED`,
+        productionOrderId,
+        operatedAt: batch.updatedAt,
+        operatorName: batch.publishedBy,
+        operationType: '进入生产单变更',
+        operationObject: batch.batchId,
+        beforeText: '待评估',
+        afterText: '已进入生产单变更',
+        remark: '已从发布引导进入生产单变更工作台继续判断。',
+      })
+    }
+    return rows
+  })
+}
+
+export function listProductionTechPackPublishEvaluationBatches(): ProductionTechPackPublishEvaluationBatch[] {
+  return loadPublishEvaluationBatches()
+}
+
+export function getProductionTechPackPublishEvaluationBatch(
+  batchId: string,
+): ProductionTechPackPublishEvaluationBatch | null {
+  return loadPublishEvaluationBatches().find((item) => item.batchId === batchId) ?? null
+}
+
+export function getLatestPendingProductionTechPackPublishEvaluationBatch():
+  | ProductionTechPackPublishEvaluationBatch
+  | null {
+  return (
+    loadPublishEvaluationBatches()
+      .filter((item) => item.affectedOrders.length > 0 && item.status !== '已记录不处理')
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+  )
+}
+
+export function createProductionTechPackPublishEvaluationBatch(input: {
+  technicalVersionId: string
+  technicalVersionCode: string
+  versionLabel: string
+  styleId: string
+  styleCode: string
+  styleName: string
+  publishedAt: string
+  publishedBy: string
+  changeSummary?: string
+}): ProductionTechPackPublishEvaluationBatch {
+  const batches = loadPublishEvaluationBatches()
+  const existing = batches.find((item) => item.technicalVersionId === input.technicalVersionId)
+  if (existing) return clone(existing)
+
+  const latestPublishedTechPackVersionNo = formatPublishedVersionNo(input.versionLabel, input.technicalVersionCode)
+  const affectedOrders = relations
+    .filter((relation) => relation.spuCode === input.styleCode || relation.spuId === input.styleId)
+    .filter((relation) => relation.currentTechPackVersionId !== input.technicalVersionId)
+    .map<ProductionTechPackPublishEvaluationAffectedOrder>((relation) => ({
+      productionOrderId: relation.productionOrderId,
+      productionOrderNo: relation.productionOrderNo,
+      currentTechPackVersionId: relation.currentTechPackVersionId,
+      currentTechPackVersionNo: relation.currentTechPackVersionNo,
+      latestPublishedTechPackVersionId: input.technicalVersionId,
+      latestPublishedTechPackVersionNo,
+      progressSummary: relation.progressSummary,
+      patchSummary: `生效中 ${relation.activePatchCount} / 待审核 ${relation.pendingPatchCount}`,
+      evaluationStatus: '待评估',
+    }))
+  const batch = normalizePublishEvaluationBatch({
+    batchId: `PEB-${input.technicalVersionId.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
+    technicalVersionId: input.technicalVersionId,
+    technicalVersionCode: input.technicalVersionCode,
+    versionLabel: input.versionLabel,
+    styleId: input.styleId,
+    spuCode: input.styleCode,
+    styleName: input.styleName,
+    publishedAt: input.publishedAt,
+    publishedBy: input.publishedBy,
+    diffModules: input.changeSummary?.includes('核价') ? ['BOM', 'COST'] : ['BOM', 'PATTERN', 'DESIGN'],
+    affectedOrders,
+    status: '待评估',
+    createdAt: input.publishedAt,
+    updatedAt: input.publishedAt,
+  })
+  persistPublishEvaluationBatches([batch, ...batches])
+  return clone(batch)
+}
+
+export function markProductionTechPackPublishEvaluationTodo(batchId: string, operatorName: string): ProductionTechPackPublishEvaluationBatch | null {
+  const batches = loadPublishEvaluationBatches()
+  const index = batches.findIndex((item) => item.batchId === batchId)
+  if (index < 0) return null
+  const updatedAt = nowText()
+  batches[index] = normalizePublishEvaluationBatch({
+    ...batches[index],
+    status: '已生成待办',
+    affectedOrders: batches[index].affectedOrders.map((item) => ({ ...item, evaluationStatus: '已生成待办' })),
+    publishedBy: operatorName || batches[index].publishedBy,
+    updatedAt,
+  })
+  persistPublishEvaluationBatches(batches)
+  return clone(batches[index])
+}
+
+export function markProductionTechPackPublishEvaluationEntered(batchId: string, operatorName: string): ProductionTechPackPublishEvaluationBatch | null {
+  const batches = loadPublishEvaluationBatches()
+  const index = batches.findIndex((item) => item.batchId === batchId)
+  if (index < 0) return null
+  const current = batches[index]
+  if (current.status === '已记录不处理' || current.status === '已生成待办') return clone(current)
+  const updatedAt = nowText()
+  batches[index] = normalizePublishEvaluationBatch({
+    ...current,
+    status: '已进入生产单变更',
+    affectedOrders: current.affectedOrders.map((item) => ({ ...item, evaluationStatus: '已进入生产单变更' })),
+    publishedBy: operatorName || current.publishedBy,
+    updatedAt,
+  })
+  persistPublishEvaluationBatches(batches)
+  return clone(batches[index])
+}
+
+export function ignoreProductionTechPackPublishEvaluationBatch(
+  batchId: string,
+  reason: string,
+  operatorName: string,
+): ProductionTechPackPublishEvaluationBatch | null {
+  const batches = loadPublishEvaluationBatches()
+  const index = batches.findIndex((item) => item.batchId === batchId)
+  if (index < 0) return null
+  const updatedAt = nowText()
+  batches[index] = normalizePublishEvaluationBatch({
+    ...batches[index],
+    status: '已记录不处理',
+    ignoreReason: reason,
+    affectedOrders: batches[index].affectedOrders.map((item) => ({ ...item, evaluationStatus: '已记录不处理' })),
+    publishedBy: operatorName || batches[index].publishedBy,
+    updatedAt,
+  })
+  persistPublishEvaluationBatches(batches)
+  return clone(batches[index])
+}
+
 export function listProductionOrderTechPackRelations(): ProductionOrderTechPackRelation[] {
-  return clone(relations)
+  return clone(getRelationsWithEvaluations())
 }
 
 export function getProductionOrderTechPackRelation(productionOrderId: string): ProductionOrderTechPackRelation | null {
-  const relation = relations.find((item) => item.productionOrderId === productionOrderId)
+  const relation = getRelationWithEvaluation(productionOrderId)
   return relation ? clone(relation) : null
 }
 
 export function listPublishedTechPackVersionsByOrder(productionOrderId: string): TechPackVersionOption[] {
-  const relation = relations.find((item) => item.productionOrderId === productionOrderId)
+  const relation = getRelationWithEvaluation(productionOrderId)
   return relation ? clone(getVersionOptionsForRelation(relation)) : []
 }
 
 export function listSelectableTechPackVersionsByOrder(productionOrderId: string): TechPackVersionOption[] {
-  const relation = relations.find((item) => item.productionOrderId === productionOrderId)
+  const relation = getRelationWithEvaluation(productionOrderId)
   if (!relation) return []
   return clone(
     getVersionOptionsForRelation(relation).filter(
@@ -1065,8 +1511,11 @@ export function getTechPackVersionDiffSnapshot(
   const snapshot = diffSnapshots.find((item) => item.productionOrderId === productionOrderId)
   if (!snapshot) return null
   const copied = clone(snapshot)
+  const relation = getRelationWithEvaluation(productionOrderId)
+  if (relation) {
+    copied.items = buildTechPackDiffItemsForRelation(relation)
+  }
   if (targetVersionId) {
-    const relation = relations.find((item) => item.productionOrderId === productionOrderId)
     const targetVersion = relation ? resolveTargetVersion(relation, targetVersionId) : null
     if (targetVersion) {
       copied.toTechPackVersionNo = targetVersion.versionNo
@@ -1094,11 +1543,17 @@ export function listProductionPatchesByOrder(productionOrderId: string): Product
 }
 
 export function listProductionChangeNoticesByOrder(productionOrderId: string): ProductionChangeFeishuNotice[] {
-  return clone(notices.filter((item) => item.productionOrderId === productionOrderId))
+  return clone([
+    ...buildPublishEvaluationNoticeRows(productionOrderId),
+    ...notices.filter((item) => item.productionOrderId === productionOrderId),
+  ])
 }
 
 export function listProductionChangeOperationLogsByOrder(productionOrderId: string): ProductionChangeOperationLog[] {
-  return clone(operationLogs.filter((item) => item.productionOrderId === productionOrderId))
+  return clone([
+    ...buildPublishEvaluationLogRows(productionOrderId),
+    ...operationLogs.filter((item) => item.productionOrderId === productionOrderId),
+  ])
 }
 
 function getModuleLandingLogText(
@@ -1121,7 +1576,7 @@ function getModuleLandingLogText(
 }
 
 export function listProductionChangeModuleLandingsByOrder(productionOrderId: string): ProductionChangeModuleLanding[] {
-  const relation = relations.find((item) => item.productionOrderId === productionOrderId)
+  const relation = getRelationWithEvaluation(productionOrderId)
   if (!relation) return []
 
   const modules = new Set<TechPackChangeModule>()
@@ -1199,7 +1654,7 @@ export function submitProductionOrderTechPackChange(input: {
   note?: string
   operatorName: string
 }): ProductionOrderTechPackChangeRequest {
-  const relation = relations.find((item) => item.productionOrderId === input.productionOrderId)
+  const relation = ensureMutableRelationWithEvaluation(input.productionOrderId)
   if (!relation) throw new Error('未找到生产单技术包版本关系。')
   if (!input.targetVersionId) throw new Error('请选择目标正式技术包版本。')
   if (!input.reason.trim()) throw new Error('申请原因不能为空。')
@@ -1283,7 +1738,7 @@ export function submitProductionOrderPatch(input: {
   reason: string
   operatorName: string
 }): ProductionOrderPatch {
-  const relation = relations.find((item) => item.productionOrderId === input.productionOrderId)
+  const relation = ensureMutableRelationWithEvaluation(input.productionOrderId)
   if (!relation) throw new Error('未找到生产单技术包版本关系。')
   if (!input.reason.trim()) throw new Error('补丁原因不能为空。')
   if (!input.scopeText.trim()) throw new Error('请至少明确一个补丁影响范围。')
