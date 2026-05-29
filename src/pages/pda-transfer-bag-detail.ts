@@ -30,7 +30,10 @@ export function renderPdaTransferBagDetailPage(routeBagNo?: string): string {
             <h1 class="text-lg font-semibold">中转袋详情</h1>
             <p class="mt-1 text-xs text-muted-foreground">扫袋后可查看袋内全部明细；裁床厂未交出前可调整，交出后只读。</p>
           </div>
-          <span class="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] text-primary">${escapeHtml(summary?.bagStatus || bag?.packStatus || '待装袋')}</span>
+          <div class="flex shrink-0 flex-col items-end gap-2">
+            <span class="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] text-primary">${escapeHtml(summary?.bagStatus || bag?.packStatus || '待装袋')}</span>
+            <button type="button" class="rounded-lg border bg-white px-2.5 py-1 text-[11px] text-primary shadow-sm" data-nav="/fcs/craft/cutting/transfer-bags?action=new-master">新建中转袋</button>
+          </div>
         </div>
         <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
           <div><span class="text-muted-foreground">中转袋号：</span>${escapeHtml(summary?.transferBagNo || bagNo || '暂无数据')}</div>
@@ -41,6 +44,13 @@ export function renderPdaTransferBagDetailPage(routeBagNo?: string): string {
           <div><span class="text-muted-foreground">当前状态：</span>${escapeHtml(summary?.bagStatus || bag?.packStatus || '待装袋')}</div>
           <div><span class="text-muted-foreground">内容项数：</span>${escapeHtml(String(summary?.contentSummary.contentItemCount ?? bag?.contentItemCount ?? 0))}</div>
           <div><span class="text-muted-foreground">菲票数量：</span>${escapeHtml(String(summary?.contentSummary.feiTicketCount ?? bag?.contentFeiTicketCount ?? 0))}</div>
+        </div>
+        <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
+          <button type="button" class="rounded-lg bg-primary px-3 py-2 font-medium text-primary-foreground">扫码装袋</button>
+          <button type="button" class="rounded-lg border bg-white px-3 py-2 font-medium text-foreground">完成装袋</button>
+          <button type="button" class="rounded-lg border bg-white px-3 py-2 font-medium text-foreground">移除菲票</button>
+          <button type="button" class="rounded-lg border bg-white px-3 py-2 font-medium text-foreground">按袋回写</button>
+          <button type="button" class="rounded-lg border bg-white px-3 py-2 font-medium text-foreground">按菲票回写</button>
         </div>
       </section>
 

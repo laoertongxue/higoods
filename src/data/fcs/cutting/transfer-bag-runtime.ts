@@ -73,6 +73,11 @@ export interface TransferCarrierRecord {
   carrierCode: string
   carrierType: TransferCarrierType
   bagType: string
+  bagName?: string
+  bagSpec?: string
+  bagMaterial?: string
+  ownershipFactoryId?: string
+  ownershipFactoryName?: string
   capacity: number
   reusable: boolean
   currentStatus: string
@@ -83,7 +88,11 @@ export interface TransferCarrierRecord {
   currentOwnerTaskId: string
   note: string
   qrPayload: ReturnType<typeof encodeCarrierQr>['payload']
+  qrMeta?: ReturnType<typeof encodeCarrierQr>['payload']
   qrValue: string
+  enabled?: boolean
+  createdAt?: string
+  createdBy?: string
 }
 
 export interface TransferCarrierCycleRecord {
@@ -96,6 +105,20 @@ export interface TransferCarrierCycleRecord {
   sewingTaskNo: string
   sewingFactoryId: string
   sewingFactoryName: string
+  boundObjectType?: string
+  boundObjectId?: string
+  boundObjectNo?: string
+  receiverType?: string
+  receiverId?: string
+  receiverName?: string
+  sourceWarehouseId?: string
+  sourceWarehouseName?: string
+  warehouseArea?: string
+  locationCode?: string
+  signedBy?: string
+  signedPieceQty?: number
+  returnWarehouseName?: string
+  returnedBy?: string
   styleCode: string
   spuCode: string
   skuSummary: string
@@ -198,6 +221,7 @@ export interface TransferBagRuntimeStore {
   reuseCycles: Array<Record<string, unknown>>
   closureResults: Array<Record<string, unknown>>
   returnAuditTrail: Array<Record<string, unknown>>
+  abnormalRecords: Array<Record<string, unknown>>
 }
 
 function emptyStore(): TransferBagRuntimeStore {
@@ -213,6 +237,7 @@ function emptyStore(): TransferBagRuntimeStore {
     reuseCycles: [],
     closureResults: [],
     returnAuditTrail: [],
+    abnormalRecords: [],
   }
 }
 
@@ -542,7 +567,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       carrierType: 'bag',
       capacity: 22,
       currentStatus: 'IDLE',
-      currentLocation: '裁片仓 A 区复用待命位',
+      currentLocation: '裁片仓 A 区空袋待命位',
       note: '有历史周转记录，当前已回到待命状态。',
     }),
     buildCarrierRecord({
@@ -561,7 +586,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       capacity: 18,
       currentStatus: 'IDLE',
       currentLocation: '后道运输通道',
-      note: '已发出待签收的口袋样例。',
+      note: '已交出待回收的口袋样例。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-bag-006',
@@ -569,8 +594,8 @@ export function buildSystemSeedTransferBagRuntime(options: {
       carrierType: 'bag',
       capacity: 20,
       currentStatus: 'IDLE',
-      currentLocation: '车缝一厂签收区',
-      note: '已签收待回收的口袋样例。',
+      currentLocation: '车缝一厂待回收区',
+      note: '已交出待回收的口袋样例。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-bag-007',
@@ -587,7 +612,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       carrierType: 'bag',
       capacity: 24,
       currentStatus: 'IDLE',
-      currentLocation: '裁片仓复用待命区',
+      currentLocation: '裁片仓空袋待命区',
       note: '已关闭并重新释放的口袋。',
     }),
     buildCarrierRecord({
@@ -595,18 +620,18 @@ export function buildSystemSeedTransferBagRuntime(options: {
       carrierCode: 'BAG-A-009',
       carrierType: 'bag',
       capacity: 20,
-      currentStatus: 'WAITING_CLEANING',
-      currentLocation: '中转袋清洁区',
-      note: '上一轮回收后待清洁。',
+      currentStatus: 'IDLE',
+      currentLocation: '裁片仓空袋待命区',
+      note: '上一轮回收有异常记录，当前可继续使用。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-bag-010',
       carrierCode: 'BAG-A-010',
       carrierType: 'bag',
       capacity: 20,
-      currentStatus: 'WAITING_REPAIR',
-      currentLocation: '中转袋维修区',
-      note: '袋体边角破损，待维修确认。',
+      currentStatus: 'IDLE',
+      currentLocation: '裁片仓空袋待命区',
+      note: '袋体边角破损已记录，当前可继续使用。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-bag-011',
@@ -614,8 +639,8 @@ export function buildSystemSeedTransferBagRuntime(options: {
       carrierType: 'bag',
       capacity: 16,
       currentStatus: 'DISABLED',
-      currentLocation: '停用待报废区',
-      note: '袋体报废停用，仅保留追溯记录。',
+      currentLocation: '报废区',
+      note: '袋体报废，仅保留追溯记录。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-box-001',
@@ -642,7 +667,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       capacity: 28,
       currentStatus: 'IDLE',
       currentLocation: '后道运输通道',
-      note: '整箱发出的样例。',
+      note: '整箱交出的样例。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-bag-012',
@@ -660,7 +685,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       capacity: 22,
       currentStatus: 'IDLE',
       currentLocation: '裁片仓 D 区待发位',
-      note: '待发出前的多款号混装样例。',
+      note: '待交出前的多款号混装样例。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-bag-014',
@@ -816,7 +841,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     cleanlinessStatus?: 'CLEAN' | 'DIRTY'
     damageType?: string
     repairNeeded?: boolean
-    reusableDecision?: 'REUSABLE' | 'WAITING_CLEANING' | 'WAITING_REPAIR' | 'DISABLED'
+    reusableDecision?: 'REUSABLE' | 'DISABLED'
     inspectedAt?: string
     inspectedBy?: string
     conditionNote?: string
@@ -1016,7 +1041,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     masterStatus: 'IDLE',
     currentLocation: '裁片仓 A 区待命位',
     ticketCount: 2,
-    note: 'BAG-A-001 上一轮周转已完整闭环，可继续复用。',
+    note: 'BAG-A-001 上一轮周转已完整闭环，可继续使用。',
     finishedPackingAt: '2026-03-12 09:05',
     manifestAt: '2026-03-12 09:10',
     dispatchAt: '2026-03-12 09:28',
@@ -1049,7 +1074,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     operator: '周转装袋员-陈亮',
     cycleStatus: 'CLOSED',
     masterStatus: 'IDLE',
-    currentLocation: '裁片仓 A 区复用待命位',
+    currentLocation: '裁片仓 A 区空袋待命位',
     ticketCount: 2,
     note: 'BAG-A-001 第二轮历史周转已关闭，形成最近回收记录。',
     finishedPackingAt: '2026-03-20 09:20',
@@ -1098,7 +1123,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     operator: '周转装袋员-赵敏',
     cycleStatus: 'CLOSED',
     masterStatus: 'IDLE',
-    currentLocation: '裁片仓 A 区复用待命位',
+    currentLocation: '裁片仓 A 区空袋待命位',
     ticketCount: 2,
     note: '历史已完成的周转周期。',
     finishedPackingAt: '2026-03-18 09:05',
@@ -1142,7 +1167,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     masterStatus: 'IN_USE',
     currentLocation: '后道运输通道',
     ticketCount: 2,
-    note: '已发出，等待接收方签收。',
+    note: '已交出，等待中转袋回收。',
     finishedPackingAt: '2026-03-24 10:55',
     manifestAt: '2026-03-24 11:00',
     dispatchAt: '2026-03-24 11:20',
@@ -1157,9 +1182,9 @@ export function buildSystemSeedTransferBagRuntime(options: {
     operator: '周转装袋员-周燕',
     cycleStatus: 'WAITING_RETURN',
     masterStatus: 'IN_USE',
-    currentLocation: '车缝一厂签收区',
+    currentLocation: '车缝一厂待回收区',
     ticketCount: 2,
-    note: '已签收，等待回收。',
+    note: '已交出，等待回收。',
     finishedPackingAt: '2026-03-24 09:20',
     manifestAt: '2026-03-24 09:28',
     dispatchAt: '2026-03-24 09:40',
@@ -1202,7 +1227,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     operator: '周转装袋员-吴婷',
     cycleStatus: 'CLOSED',
     masterStatus: 'IDLE',
-    currentLocation: '裁片仓复用待命区',
+    currentLocation: '裁片仓空袋待命区',
     ticketCount: 2,
     note: '上轮周转已完整关闭。',
     finishedPackingAt: '2026-03-19 09:30',
@@ -1231,10 +1256,10 @@ export function buildSystemSeedTransferBagRuntime(options: {
     startedAt: '2026-03-17 10:20',
     operator: '周转装袋员-邵伟',
     cycleStatus: 'EXCEPTION_CLOSED',
-    masterStatus: 'WAITING_CLEANING',
-    currentLocation: '中转袋清洁区',
+    masterStatus: 'IDLE',
+    currentLocation: '裁片仓空袋待命区',
     ticketCount: 1,
-    note: '回收后发现袋体较脏，需先清洁。',
+    note: '回收后发现袋体较脏，已记录异常。',
     finishedPackingAt: '2026-03-17 10:38',
     manifestAt: '2026-03-17 10:45',
     dispatchAt: '2026-03-17 11:00',
@@ -1247,15 +1272,15 @@ export function buildSystemSeedTransferBagRuntime(options: {
     receivedBy: '回收验收员-张秀',
     inspectedAt: '2026-03-17 17:40',
     inspectedBy: '回收验收员-张秀',
-    reusableDecision: 'WAITING_CLEANING',
+    reusableDecision: 'REUSABLE',
     cleanlinessStatus: 'DIRTY',
     conditionStatus: 'GOOD',
     closedAt: '2026-03-17 17:55',
     closedBy: '周转班长-韩涛',
     closureStatus: 'EXCEPTION_CLOSED',
-    nextBagStatus: 'WAITING_CLEANING',
-    closureReason: '袋体待清洁，暂不释放到空闲池。',
-    warningMessages: ['待完成清洁后再释放使用。'],
+    nextBagStatus: 'IDLE',
+    closureReason: '袋体异常已记录，关闭后恢复可用。',
+    warningMessages: ['袋况异常已记录。'],
   })
 
   addSeedCycle({
@@ -1264,10 +1289,10 @@ export function buildSystemSeedTransferBagRuntime(options: {
     startedAt: '2026-03-16 14:10',
     operator: '周转装袋员-孙杰',
     cycleStatus: 'EXCEPTION_CLOSED',
-    masterStatus: 'WAITING_REPAIR',
-    currentLocation: '中转袋维修区',
+    masterStatus: 'IDLE',
+    currentLocation: '裁片仓空袋待命区',
     ticketCount: 1,
-    note: '袋体边角破损，需要维修确认。',
+    note: '袋体边角破损，已记录异常。',
     finishedPackingAt: '2026-03-16 14:25',
     manifestAt: '2026-03-16 14:30',
     dispatchAt: '2026-03-16 14:50',
@@ -1280,16 +1305,16 @@ export function buildSystemSeedTransferBagRuntime(options: {
     receivedBy: '回收验收员-陈静',
     inspectedAt: '2026-03-16 18:55',
     inspectedBy: '回收验收员-陈静',
-    reusableDecision: 'WAITING_REPAIR',
+    reusableDecision: 'REUSABLE',
     conditionStatus: 'MINOR_DAMAGE',
     damageType: '底角开线',
     repairNeeded: true,
     closedAt: '2026-03-16 19:10',
     closedBy: '周转班长-韩涛',
     closureStatus: 'EXCEPTION_CLOSED',
-    nextBagStatus: 'WAITING_REPAIR',
-    closureReason: '袋体需维修后再决定是否复用。',
-    warningMessages: ['维修确认前不可再次装袋。'],
+    nextBagStatus: 'IDLE',
+    closureReason: '袋体破损已记录，关闭后恢复可用。',
+    warningMessages: ['袋况异常已记录。'],
   })
 
   addSeedCycle({
@@ -1299,9 +1324,9 @@ export function buildSystemSeedTransferBagRuntime(options: {
     operator: '周转装袋员-徐敏',
     cycleStatus: 'EXCEPTION_CLOSED',
     masterStatus: 'DISABLED',
-    currentLocation: '停用待报废区',
+    currentLocation: '报废区',
     ticketCount: 1,
-    note: '袋体严重破损，已停用。',
+    note: '袋体严重破损，已报废。',
     finishedPackingAt: '2026-03-15 08:32',
     manifestAt: '2026-03-15 08:38',
     dispatchAt: '2026-03-15 08:55',
@@ -1324,8 +1349,8 @@ export function buildSystemSeedTransferBagRuntime(options: {
     closedBy: '周转班长-韩涛',
     closureStatus: 'EXCEPTION_CLOSED',
     nextBagStatus: 'DISABLED',
-    closureReason: '袋体报废停用，不再进入复用链路。',
-    warningMessages: ['已转入报废停用状态。'],
+    closureReason: '袋体报废，不再进入流转。',
+    warningMessages: ['已转入报废状态。'],
   })
 
   addSeedCycle({
@@ -1378,7 +1403,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     masterStatus: 'IN_USE',
     currentLocation: '后道运输通道',
     ticketCount: 2,
-    note: '整箱已发出，等待签收。',
+    note: '整箱已交出，等待回收。',
     finishedPackingAt: '2026-03-24 08:08',
     manifestAt: '2026-03-24 08:10',
     dispatchAt: '2026-03-24 08:25',
@@ -1424,7 +1449,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     masterStatus: 'IN_USE',
     currentLocation: '裁片仓 D 区待发位',
     ticketCount: 2,
-    note: '多款号混装完成，等待发出。',
+    note: '多款号混装完成，等待交出。',
     finishedPackingAt: '2026-03-24 13:30',
     manifestAt: '2026-03-24 13:36',
   })
@@ -1456,6 +1481,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     reuseCycles,
     closureResults,
     returnAuditTrail,
+    abnormalRecords: [],
   }
 }
 
@@ -1532,6 +1558,7 @@ export function deserializeTransferBagRuntimeStorage(raw: string | null): Transf
       reuseCycles: Array.isArray(parsed.reuseCycles) ? parsed.reuseCycles : [],
       closureResults: Array.isArray(parsed.closureResults) ? parsed.closureResults : [],
       returnAuditTrail: Array.isArray(parsed.returnAuditTrail) ? parsed.returnAuditTrail : [],
+      abnormalRecords: Array.isArray(parsed.abnormalRecords) ? parsed.abnormalRecords : [],
     }
   } catch {
     return emptyStore()
@@ -1563,6 +1590,7 @@ export function mergeTransferBagRuntimeStores(seed: TransferBagRuntimeStore, sto
     reuseCycles: mergeById(seed.reuseCycles, stored.reuseCycles, 'cycleSummaryId'),
     closureResults: mergeById(seed.closureResults, stored.closureResults, 'closureId'),
     returnAuditTrail: mergeById(seed.returnAuditTrail, stored.returnAuditTrail, 'auditTrailId'),
+    abnormalRecords: mergeById(seed.abnormalRecords, stored.abnormalRecords, 'abnormalId'),
   }
 }
 

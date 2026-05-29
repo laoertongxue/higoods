@@ -87,6 +87,8 @@ export interface CarrierQrPayload extends CuttingQrPayloadBase<'CARRIER'> {
   carrierCode: string
   carrierType: 'bag' | 'box'
   cycleId: string
+  ownershipFactoryId?: string
+  ownershipFactoryName?: string
 }
 
 export type CuttingTraceabilityQrPayload = CutOrderQrPayload | FeiTicketQrPayload | CarrierQrPayload
@@ -271,6 +273,8 @@ export function buildCarrierQrPayload(input: {
   carrierType: 'bag' | 'box'
   cycleId: string
   issuedAt: string
+  ownershipFactoryId?: string
+  ownershipFactoryName?: string
 }): CarrierQrPayload {
   return {
     codeType: 'CARRIER',
@@ -280,5 +284,7 @@ export function buildCarrierQrPayload(input: {
     carrierCode: input.carrierCode,
     carrierType: input.carrierType,
     cycleId: input.cycleId,
+    ownershipFactoryId: input.ownershipFactoryId,
+    ownershipFactoryName: input.ownershipFactoryName,
   }
 }

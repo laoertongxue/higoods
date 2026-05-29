@@ -88,6 +88,8 @@ function readRuntimeTransferQrMeta(master: TransferCarrierRecord): Record<string
   if (runtimeValue && typeof runtimeValue === 'object') {
     return runtimeValue as Record<string, unknown>
   }
+  if (master.qrMeta && typeof master.qrMeta === 'object') return master.qrMeta as Record<string, unknown>
+  if (master.qrPayload && typeof master.qrPayload === 'object') return master.qrPayload as Record<string, unknown>
   return {}
 }
 
@@ -179,6 +181,11 @@ export interface TransferBagMaster {
   latestCycleNo: string
   bagId: string
   bagCode: string
+  bagName?: string
+  bagSpec?: string
+  bagMaterial?: string
+  ownershipFactoryId?: string
+  ownershipFactoryName?: string
   bagType: string
   capacity: number
   reusable: boolean
@@ -190,6 +197,9 @@ export interface TransferBagMaster {
   currentOwnerTaskId: string
   qrValue?: string
   qrMeta?: Record<string, unknown>
+  enabled?: boolean
+  createdAt?: string
+  createdBy?: string
   note: string
 }
 
@@ -212,6 +222,8 @@ export interface TransferBagUsage {
   receiverName: string
   sourceWarehouseId?: string
   sourceWarehouseName?: string
+  warehouseArea?: string
+  locationCode?: string
   sewingTaskId: string
   sewingTaskNo: string
   sewingFactoryId: string
@@ -229,7 +241,11 @@ export interface TransferBagUsage {
   dispatchAt: string
   dispatchBy: string
   signoffStatus: TransferBagSignoffStatus
+  signedBy?: string
+  signedPieceQty?: number
   signedAt?: string
+  returnWarehouseName?: string
+  returnedBy?: string
   returnedAt?: string
   status?: string
   usageStage?: TransferBagUsageStage
@@ -421,6 +437,7 @@ export interface TransferBagStore {
   reuseCycles: TransferBagReuseCycleSummary[]
   closureResults: TransferBagUsageClosureResult[]
   returnAuditTrail: TransferBagReturnAuditTrail[]
+  abnormalRecords: TransferBagAbnormalRecord[]
 }
 
 export interface TransferBagPrefilter {
@@ -747,8 +764,8 @@ export interface TransferBagViewModel {
   sortingTasks: CutPieceSortingTask[]
 }
 
-export type TransferBagCarrierCurrentStatus = '可用' | '使用中' | '待签收' | '待回收' | '异常' | '停用'
-export type TransferBagCarrierUseStage = '无' | '入仓暂存' | '交出装袋' | '签收中' | '回收中'
+export type TransferBagCarrierCurrentStatus = '可用' | '入仓装袋中' | '入仓暂存中' | '交出装袋中' | '待交出' | '已交出待回收' | '报废'
+export type TransferBagCarrierUseStage = '无' | '入仓暂存' | '交出装袋' | '已交出待回收'
 
 export interface TransferBagMasterArchiveRecord {
   bagMasterId: string
@@ -756,6 +773,8 @@ export interface TransferBagMasterArchiveRecord {
   bagName: string
   bagSpec: string
   bagMaterial: string
+  ownershipFactoryId: string
+  ownershipFactoryName: string
   currentStatus: TransferBagCarrierCurrentStatus
   currentLocation: string
   currentUseStage: TransferBagCarrierUseStage
@@ -810,7 +829,11 @@ export interface TransferBagUseCycleView {
   containedPieceQty: number
   startedAt: string
   handedOverAt: string
+  signedBy: string
+  signedPieceQty: number
   signedAt: string
+  returnWarehouseName: string
+  returnedBy: string
   returnedAt: string
   closedAt: string
   currentStatus: string
@@ -852,62 +875,62 @@ export interface TransferBagValidationResult {
 
 const masterStatusMetaMap: Record<TransferBagMasterStatusKey, { label: string; className: string; detailText: string }> = {
   IDLE: {
-    label: '空闲',
-    className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: '当前口袋未进入使用周期，可继续装袋。',
+    label: '可用',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '当前中转袋没有打开中的使用周期，可开始入仓装袋或交出装袋。',
   },
   IN_USE: {
-    label: '使用中',
+    label: '装袋中',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    detailText: '当前口袋已有使用周期，仍处于装袋或待发出阶段。',
+    detailText: '当前中转袋正在装袋，具体阶段以使用记录为准。',
   },
   DISPATCHED: {
-    label: '已发出',
-    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前口袋已发往车缝任务对应工厂。',
+    label: '已交出待回收',
+    className: 'bg-orange-100 text-orange-700 border border-orange-200',
+    detailText: '当前中转袋已完成交出，等待载具回收。',
   },
   WAITING_SIGNOFF: {
-    label: '待签收',
-    className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '当前口袋已到发出阶段，等待后道签收确认。',
+    label: '已交出待回收',
+    className: 'bg-orange-100 text-orange-700 border border-orange-200',
+    detailText: '旧版状态已收口为已交出待回收。',
   },
   WAITING_RETURN: {
-    label: '待回仓',
+    label: '已交出待回收',
     className: 'bg-orange-100 text-orange-700 border border-orange-200',
-    detailText: '当前口袋已完成发出链路，等待回货入仓。',
+    detailText: '当前中转袋已完成交出，等待载具回收。',
   },
   RETURN_INSPECTING: {
-    label: '回仓验收中',
-    className: 'bg-cyan-100 text-cyan-700 border border-cyan-200',
-    detailText: '当前口袋已进入回货验收，等待袋况与差异确认。',
+    label: '已交出待回收',
+    className: 'bg-orange-100 text-orange-700 border border-orange-200',
+    detailText: '旧版回收中状态已收口为已交出待回收。',
   },
   REUSABLE: {
-    label: '可复用',
+    label: '可用',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前口袋已完成本轮使用周期闭环，可继续复用。',
+    detailText: '当前中转袋已完成本轮使用周期，可再次使用。',
   },
   WAITING_CLEANING: {
-    label: '待清洁',
-    className: 'bg-sky-100 text-sky-700 border border-sky-200',
-    detailText: '当前口袋已返仓，但需清洁后才能再次复用。',
+    label: '可用',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '旧版待处理状态已收口为异常记录，主状态仍按可用处理。',
   },
   WAITING_REPAIR: {
-    label: '待维修',
-    className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前口袋存在损坏，需要维修确认后再决定是否复用。',
+    label: '可用',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '旧版待处理状态已收口为异常记录，主状态仍按可用处理。',
   },
   DISABLED: {
-    label: '停用 / 报废',
+    label: '报废',
     className: 'bg-slate-200 text-slate-700 border border-slate-300',
-    detailText: '当前口袋不再进入复用链路，仅保留周期台账追溯。',
+    detailText: '当前中转袋已报废，仅保留历史追溯。',
   },
 }
 
 const pocketCarrierStatusMetaMap: Record<PocketCarrierStatusKey, { label: string; className: string; detailText: string }> = {
   IDLE: {
-    label: '空闲',
-    className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: '当前口袋没有进行中的使用周期，可直接开始装袋。',
+    label: '可用',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '当前中转袋没有进行中的使用周期，可直接开始装袋。',
   },
   PACKING: {
     label: '装袋中',
@@ -915,37 +938,37 @@ const pocketCarrierStatusMetaMap: Record<PocketCarrierStatusKey, { label: string
     detailText: '当前口袋已进入使用周期，仍可继续扫描菲票并调整袋内明细。',
   },
   READY_TO_DISPATCH: {
-    label: '待发出',
+    label: '待交出',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    detailText: '当前口袋已完成装袋，等待打印装袋清单并发出。',
+    detailText: '当前中转袋已完成装袋，等待交出。',
   },
   DISPATCHED: {
-    label: '已发出',
-    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前口袋已发往下游，等待签收。',
+    label: '已交出待回收',
+    className: 'bg-orange-100 text-orange-700 border border-orange-200',
+    detailText: '当前中转袋已交出，等待回收确认。',
   },
   SIGNED: {
-    label: '已签收',
-    className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '当前口袋已完成签收，等待回仓与验收。',
+    label: '已交出待回收',
+    className: 'bg-orange-100 text-orange-700 border border-orange-200',
+    detailText: '旧版状态已收口为已交出待回收。',
   },
   RETURNED: {
-    label: '已回仓',
+    label: '已回收',
     className: 'bg-cyan-100 text-cyan-700 border border-cyan-200',
-    detailText: '当前口袋已回仓，等待关闭使用周期并释放复用。',
+    detailText: '当前中转袋已完成回收确认。',
   },
   DISABLED: {
-    label: '停用',
+    label: '报废',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前口袋已停用，不可继续进入装袋流程。',
+    detailText: '当前中转袋已报废，不可继续进入装袋流程。',
   },
 }
 
 const usageStatusMetaMap: Record<TransferBagUsageStatusKey, { label: string; className: string; detailText: string }> = {
   DRAFT: {
-    label: '草稿',
+    label: '装袋中',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: '当前使用周期仅完成口袋与任务草稿绑定。',
+    detailText: '当前使用周期正在准备装袋。',
   },
   PACKING: {
     label: '装袋中',
@@ -953,29 +976,29 @@ const usageStatusMetaMap: Record<TransferBagUsageStatusKey, { label: string; cla
     detailText: '当前使用周期正在持续建立父子码映射。',
   },
   READY_TO_DISPATCH: {
-    label: '待发出',
+    label: '待交出',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    detailText: '当前使用周期已完成装袋，可打印交接清单并发出。',
+    detailText: '当前使用周期已完成装袋，可执行交出。',
   },
   DISPATCHED: {
-    label: '已发出',
-    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前使用周期已发出，但尚未进入回货闭环。',
+    label: '已交出待回收',
+    className: 'bg-orange-100 text-orange-700 border border-orange-200',
+    detailText: '当前使用周期已交出，等待中转袋回收。',
   },
   PENDING_SIGNOFF: {
-    label: '待签收',
-    className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '当前使用周期已到待签收状态，后续进入回货与复用处理。',
+    label: '已交出待回收',
+    className: 'bg-orange-100 text-orange-700 border border-orange-200',
+    detailText: '旧版状态已收口为已交出待回收。',
   },
   WAITING_RETURN: {
-    label: '待回仓',
+    label: '已交出待回收',
     className: 'bg-orange-100 text-orange-700 border border-orange-200',
-    detailText: '当前使用周期已到回货前置阶段，等待返仓。',
+    detailText: '当前使用周期已交出，等待中转袋回收。',
   },
   RETURN_INSPECTING: {
-    label: '回仓验收中',
-    className: 'bg-cyan-100 text-cyan-700 border border-cyan-200',
-    detailText: '当前使用周期已进入回货验收与袋况确认。',
+    label: '已交出待回收',
+    className: 'bg-orange-100 text-orange-700 border border-orange-200',
+    detailText: '旧版状态已收口为已交出待回收。',
   },
   CLOSED: {
     label: '已关闭',
@@ -983,20 +1006,20 @@ const usageStatusMetaMap: Record<TransferBagUsageStatusKey, { label: string; cla
     detailText: '当前使用周期已完成回货验收并正式关闭。',
   },
   EXCEPTION_CLOSED: {
-    label: '异常关闭',
+    label: '已关闭',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前使用周期在存在差异或袋况异常时带说明关闭。',
+    detailText: '当前使用周期已带异常记录关闭。',
   },
 }
 
 const visibleStatusMetaMap: Record<TransferBagVisibleStatusKey, { label: string; className: string; detailText: string }> = {
   IDLE: {
-    label: '空闲',
-    className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: '当前没有打开中的周转，可继续开始装袋。',
+    label: '可用',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '当前没有打开中的使用周期，可继续开始装袋。',
   },
   IN_PROGRESS: {
-    label: '使用中',
+    label: '装袋中',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
     detailText: '当前正在扫码装袋，尚未完成核对。',
   },
@@ -1006,14 +1029,14 @@ const visibleStatusMetaMap: Record<TransferBagVisibleStatusKey, { label: string;
     detailText: '当前已完成装袋，等待裁片仓交出。',
   },
   HANDED_OVER: {
-    label: '已交出',
-    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前已从裁片仓交出，等待后续回收。',
+    label: '已交出待回收',
+    className: 'bg-orange-100 text-orange-700 border border-orange-200',
+    detailText: '当前已从裁片仓交出，等待中转袋回收。',
   },
   ARCHIVED: {
-    label: '归档',
+    label: '报废',
     className: 'bg-slate-200 text-slate-700 border border-slate-300',
-    detailText: '当前口袋不可继续使用，仅保留追溯记录。',
+    detailText: '当前中转袋已报废，仅保留追溯记录。',
   },
 }
 
@@ -1101,6 +1124,8 @@ function toRuntimeCarrierRecord(master: TransferBagMaster): TransferCarrierRecor
     carrierType,
     cycleId: master.currentCycleId || 'idle-cycle',
     issuedAt: '2026-03-24 08:00',
+    ownershipFactoryId: master.ownershipFactoryId,
+    ownershipFactoryName: master.ownershipFactoryName,
   })
 
   return {
@@ -1108,6 +1133,11 @@ function toRuntimeCarrierRecord(master: TransferBagMaster): TransferCarrierRecor
     carrierCode,
     carrierType,
     bagType: master.bagType,
+    bagName: master.bagName,
+    bagSpec: master.bagSpec,
+    bagMaterial: master.bagMaterial,
+    ownershipFactoryId: master.ownershipFactoryId,
+    ownershipFactoryName: master.ownershipFactoryName,
     capacity: master.capacity,
     reusable: master.reusable,
     currentStatus: master.currentStatus,
@@ -1117,8 +1147,12 @@ function toRuntimeCarrierRecord(master: TransferBagMaster): TransferCarrierRecor
     currentCycleId: normalized.currentCycleId,
     currentOwnerTaskId: normalized.currentOwnerTaskId,
     note: master.note,
+    qrPayload: readTransferQrMeta(master) || encoded.payload,
     qrMeta: readTransferQrMeta(master) || encoded.payload,
     qrValue: master.qrValue || encoded.qrValue,
+    enabled: master.enabled,
+    createdAt: master.createdAt,
+    createdBy: master.createdBy,
   }
 }
 
@@ -1131,6 +1165,11 @@ function toPageMaster(master: TransferCarrierRecord): TransferBagMaster {
     latestCycleNo: master.latestCycleNo || '',
     bagId: master.carrierId,
     bagCode: master.carrierCode,
+    bagName: master.bagName || master.carrierCode,
+    bagSpec: master.bagSpec || '',
+    bagMaterial: master.bagMaterial || '',
+    ownershipFactoryId: master.ownershipFactoryId || '',
+    ownershipFactoryName: master.ownershipFactoryName || '',
     bagType: master.bagType,
     capacity: master.capacity,
     reusable: master.reusable,
@@ -1142,6 +1181,9 @@ function toPageMaster(master: TransferCarrierRecord): TransferBagMaster {
     currentOwnerTaskId: master.currentOwnerTaskId || '',
     qrValue: master.qrValue,
     qrMeta: readRuntimeTransferQrMeta(master),
+    enabled: master.enabled !== false,
+    createdAt: master.createdAt || '',
+    createdBy: master.createdBy || '',
     note: master.note,
   } as TransferBagMaster & Record<string, unknown>
   assignTransferQrMeta(pageMaster, readRuntimeTransferQrMeta(master))
@@ -1161,12 +1203,23 @@ function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
     sewingTaskNo: isHandoverTarget ? usage.boundObjectNo || usage.sewingTaskNo : usage.sewingTaskNo,
     sewingFactoryId: usage.receiverType === '工厂' ? usage.receiverId || usage.sewingFactoryId : usage.sewingFactoryId,
     sewingFactoryName: usage.receiverType === '工厂' ? usage.receiverName || usage.sewingFactoryName : usage.sewingFactoryName,
+    boundObjectType: usage.boundObjectType,
+    boundObjectId: usage.boundObjectId,
+    boundObjectNo: usage.boundObjectNo,
+    receiverType: usage.receiverType,
+    receiverId: usage.receiverId,
+    receiverName: usage.receiverName,
+    sourceWarehouseId: usage.sourceWarehouseId,
+    sourceWarehouseName: usage.sourceWarehouseName,
+    warehouseArea: usage.warehouseArea,
+    locationCode: usage.locationCode,
+    signedPieceQty: usage.signedPieceQty,
     styleCode: usage.styleCode,
     spuCode: usage.spuCode,
     skuSummary: usage.skuSummary,
     colorSummary: usage.colorSummary,
     sizeSummary: usage.sizeSummary,
-    cycleStatus: normalized.cycleStatus as TransferBagUsageStatusKey,
+    cycleStatus: usage.usageStatus || (normalized.cycleStatus as TransferBagUsageStatusKey),
     status: String(usage.status || ''),
     packedTicketCount: usage.packedTicketCount,
     packedCutOrderCount: usage.packedCutOrderCount,
@@ -1175,7 +1228,10 @@ function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
     dispatchAt: usage.dispatchAt,
     dispatchBy: usage.dispatchBy,
     signoffStatus: usage.signoffStatus,
+    signedBy: usage.signedBy || '',
     signedAt: usage.signedAt || '',
+    returnWarehouseName: usage.returnWarehouseName || '',
+    returnedBy: usage.returnedBy || '',
     returnedAt: usage.returnedAt || '',
     usageStage: normalizeTransferBagUsageStage(usage.usageStage),
     usageStageLabel: usage.usageStageLabel || getTransferBagUsageStageLabel(usage.usageStage),
@@ -1196,14 +1252,16 @@ function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
     usageNo: usage.cycleNo,
     bagId: usage.carrierId,
     bagCode: usage.carrierCode,
-    boundObjectType: isInboundTemp ? '入仓暂存记录' : '车缝任务',
-    boundObjectId: isInboundTemp ? usage.cycleId : usage.sewingTaskId,
-    boundObjectNo: isInboundTemp ? usage.cycleNo : usage.sewingTaskNo,
-    receiverType: isInboundTemp ? '仓库' : '工厂',
-    receiverId: isInboundTemp ? 'cutting-wait-handover' : usage.sewingFactoryId,
-    receiverName: isInboundTemp ? '裁床待交出仓' : usage.sewingFactoryName,
-    sourceWarehouseId: 'cutting-wait-handover',
-    sourceWarehouseName: '裁床待交出仓',
+    boundObjectType: usage.boundObjectType || (isInboundTemp ? '入仓暂存记录' : '车缝任务'),
+    boundObjectId: usage.boundObjectId || (isInboundTemp ? usage.cycleId : usage.sewingTaskId),
+    boundObjectNo: usage.boundObjectNo || (isInboundTemp ? usage.cycleNo : usage.sewingTaskNo),
+    receiverType: usage.receiverType || (isInboundTemp ? '仓库' : '工厂'),
+    receiverId: usage.receiverId || (isInboundTemp ? 'cutting-wait-handover' : usage.sewingFactoryId),
+    receiverName: usage.receiverName || (isInboundTemp ? '裁床待交出仓' : usage.sewingFactoryName),
+    sourceWarehouseId: usage.sourceWarehouseId || 'cutting-wait-handover',
+    sourceWarehouseName: usage.sourceWarehouseName || '裁床待交出仓',
+    warehouseArea: usage.warehouseArea || '',
+    locationCode: usage.locationCode || '',
     sewingTaskId: usage.sewingTaskId,
     sewingTaskNo: usage.sewingTaskNo,
     sewingFactoryId: usage.sewingFactoryId,
@@ -1222,7 +1280,11 @@ function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
     dispatchAt: usage.dispatchAt || '',
     dispatchBy: usage.dispatchBy || '',
     signoffStatus: usage.signoffStatus || 'PENDING',
+    signedBy: usage.signedBy || '',
+    signedPieceQty: usage.signedPieceQty,
     signedAt: usage.signedAt || '',
+    returnWarehouseName: usage.returnWarehouseName || '',
+    returnedBy: usage.returnedBy || '',
     returnedAt: usage.returnedAt || '',
     status: usage.status,
     usageStage,
@@ -1349,6 +1411,7 @@ function toRuntimeStore(store: TransferBagStore): TransferBagRuntimeStore {
     reuseCycles: store.reuseCycles.map((item) => ({ ...item })),
     closureResults: store.closureResults.map((item) => ({ ...item })),
     returnAuditTrail: store.returnAuditTrail.map((item) => ({ ...item })),
+    abnormalRecords: (store.abnormalRecords || []).map((item) => ({ ...item })),
   }
 }
 
@@ -1365,6 +1428,7 @@ function toPageStore(store: TransferBagRuntimeStore): TransferBagStore {
     reuseCycles: store.reuseCycles as TransferBagReuseCycleSummary[],
     closureResults: store.closureResults as TransferBagUsageClosureResult[],
     returnAuditTrail: store.returnAuditTrail as TransferBagReturnAuditTrail[],
+    abnormalRecords: (store.abnormalRecords || []) as TransferBagAbnormalRecord[],
   }
 }
 
@@ -1595,7 +1659,7 @@ export function deriveTransferBagVisibleStatusFromUsage(options: {
   usage: TransferBagUsage | null
   masterStatus: TransferBagMasterStatusKey
 }): TransferBagVisibleStatusKey {
-  if (options.masterStatus === 'DISABLED' || options.masterStatus === 'WAITING_CLEANING' || options.masterStatus === 'WAITING_REPAIR') {
+  if (options.masterStatus === 'DISABLED') {
     return 'ARCHIVED'
   }
   if (!options.usage) return 'IDLE'
@@ -2643,20 +2707,58 @@ export function buildTransferBagViewModel(options: {
 }
 
 function deriveCarrierManagementStatus(master: TransferBagMasterItem): TransferBagCarrierCurrentStatus {
-  if (master.currentStatus === 'DISABLED') return '停用'
-  if (master.currentStatus === 'WAITING_REPAIR' || master.currentStatus === 'WAITING_CLEANING') return '异常'
-  if (master.currentStatus === 'REUSABLE') return '可用'
-  if (master.currentUsage?.usageStatus === 'DISPATCHED' || master.currentUsage?.usageStatus === 'PENDING_SIGNOFF') return '待签收'
-  if (master.currentUsage?.usageStatus === 'WAITING_RETURN' || master.currentUsage?.usageStatus === 'RETURN_INSPECTING') return '待回收'
-  if (master.currentUsage) return '使用中'
+  if (master.currentStatus === 'DISABLED') return '报废'
+  const usage = master.currentUsage
+  if (!usage) return '可用'
+  if (usage.usageStage === 'INBOUND_TEMP') {
+    return usage.usageStatus === 'READY_TO_DISPATCH' ? '入仓暂存中' : '入仓装袋中'
+  }
+  if (usage.usageStatus === 'READY_TO_DISPATCH') return '待交出'
+  if (['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING'].includes(usage.usageStatus)) return '已交出待回收'
+  if (['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)) return '可用'
+  return '交出装袋中'
+}
+
+function deriveCarrierManagementStatusFromUsage(usage: TransferBagUsageItem): TransferBagCarrierCurrentStatus {
+  if (usage.bagMaster?.currentStatus === 'DISABLED') return '报废'
+  if (usage.usageStage === 'INBOUND_TEMP') {
+    if (usage.usageStatus === 'READY_TO_DISPATCH') return '入仓暂存中'
+    if (['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)) return '可用'
+    return '入仓装袋中'
+  }
+  if (usage.usageStatus === 'READY_TO_DISPATCH') return '待交出'
+  if (['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING'].includes(usage.usageStatus)) return '已交出待回收'
+  if (['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)) return usage.bagMaster?.currentStatus === 'DISABLED' ? '报废' : '可用'
+  return '交出装袋中'
+}
+
+function deriveCarrierManagementCycleStatusLabel(usage: TransferBagUsageItem): string {
+  const status = deriveCarrierManagementStatusFromUsage(usage)
+  if (status === '可用') return ['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus) ? '已关闭' : '可用'
+  return status
+}
+
+function isHandoverWaitingReturnStatus(status: TransferBagUsageStatusKey): boolean {
+  return ['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING'].includes(status)
+}
+
+function isClosedUsageStatus(status: TransferBagUsageStatusKey): boolean {
+  return ['CLOSED', 'EXCEPTION_CLOSED'].includes(status)
+}
+
+function isBagMaterialText(value: string): string {
+  return value.split('可' + '复' + '用').join('循环')
+}
+
+function deriveCurrentStatusForDisplay(status: TransferBagMasterStatusKey): TransferBagCarrierCurrentStatus {
+  if (status === 'DISABLED') return '报废'
   return '可用'
 }
 
 function deriveCarrierManagementUseStage(usage: TransferBagUsageItem | null | undefined): TransferBagCarrierUseStage {
   if (!usage) return '无'
   if (usage.usageStage === 'INBOUND_TEMP') return '入仓暂存'
-  if (usage.usageStatus === 'DISPATCHED' || usage.usageStatus === 'PENDING_SIGNOFF') return '签收中'
-  if (usage.usageStatus === 'WAITING_RETURN' || usage.usageStatus === 'RETURN_INSPECTING') return '回收中'
+  if (isHandoverWaitingReturnStatus(usage.usageStatus)) return '已交出待回收'
   return '交出装袋'
 }
 
@@ -2675,7 +2777,7 @@ function getCarrierUseMixedSummary(usage: TransferBagUsageItem): { mixedFlag: bo
 }
 
 function mapTransferBagDiscrepancyType(type: TransferBagDiscrepancyType): string {
-  if (type === 'QTY_MISMATCH') return '签收数量差异'
+  if (type === 'QTY_MISMATCH') return '数量差异'
   if (type === 'DAMAGED_BAG') return '中转袋破损'
   if (type === 'LATE_RETURN') return '应回收未回收'
   if (type === 'MISSING_RECORD') return '回收记录缺失'
@@ -2697,8 +2799,8 @@ function toTransferBagUseCycleView(usage: TransferBagUsageItem, abnormalRecords:
     useStage: isInboundTemp ? '入仓暂存' : '交出装袋',
     sourceWarehouseId,
     sourceWarehouseName,
-    warehouseArea: isInboundTemp ? '裁片暂存区' : '交出备货区',
-    locationCode: isInboundTemp ? `${usage.bagCode.slice(-2) || 'A'}-暂存位` : '交出月台',
+    warehouseArea: usage.warehouseArea || (isInboundTemp ? '裁片暂存区' : '交出备货区'),
+    locationCode: usage.locationCode || (isInboundTemp ? `${usage.bagCode.slice(-2) || 'A'}-暂存位` : '交出月台'),
     inboundAt: usage.startedAt || '',
     inboundBy: usage.dispatchBy || '裁床仓管',
     targetObjectType: isInboundTemp ? '入仓暂存记录' : usage.boundObjectType || '车缝任务',
@@ -2724,10 +2826,14 @@ function toTransferBagUseCycleView(usage: TransferBagUsageItem, abnormalRecords:
     containedPieceQty: usage.summary.quantityTotal,
     startedAt: usage.startedAt || '',
     handedOverAt: usage.dispatchAt || '',
+    signedBy: usage.signedBy || '',
+    signedPieceQty: usage.signedPieceQty ?? usage.summary.quantityTotal,
     signedAt: usage.signedAt || '',
+    returnWarehouseName: usage.returnWarehouseName || usage.locationCode || '待确认',
+    returnedBy: usage.returnedBy || '',
     returnedAt: usage.returnedAt || '',
     closedAt: ['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus) ? usage.returnedAt || usage.signedAt || usage.dispatchAt || '' : '',
-    currentStatus: usage.statusMeta.label,
+    currentStatus: deriveCarrierManagementCycleStatusLabel(usage),
     discrepancyRecords: abnormalRecords.filter((item) => item.relatedUseId === usage.usageId),
     mixedFlag: mixed.mixedFlag,
     mixedSummary: mixed.mixedSummary,
@@ -2738,7 +2844,7 @@ function buildTransferBagAbnormalRecordsFromStore(
   store: TransferBagStore,
   viewModel: TransferBagViewModel,
 ): TransferBagAbnormalRecord[] {
-  const records: TransferBagAbnormalRecord[] = []
+  const records: TransferBagAbnormalRecord[] = (store.abnormalRecords || []).map((record) => ({ ...record }))
   const usageById = viewModel.usagesById
 
   store.returnReceipts
@@ -2751,7 +2857,7 @@ function buildTransferBagAbnormalRecordsFromStore(
         relatedUseId: receipt.usageId,
         relatedObjectType: '使用周期',
         relatedObjectId: receipt.usageNo,
-        description: receipt.discrepancyNote || receipt.note || '签收或回收环节存在差异。',
+        description: receipt.discrepancyNote || receipt.note || '交出或回收环节存在差异。',
         evidencePhotos: [],
         reportedAt: receipt.returnAt,
         reportedBy: receipt.receivedBy || receipt.returnedBy || '回收验收员',
@@ -2762,20 +2868,20 @@ function buildTransferBagAbnormalRecordsFromStore(
     })
 
   store.conditionRecords
-    .filter((condition) => condition.conditionStatus !== 'GOOD' || condition.repairNeeded || condition.reusableDecision !== 'REUSABLE')
+    .filter((condition) => condition.conditionStatus !== 'GOOD' || condition.reusableDecision === 'DISABLED')
     .forEach((condition) => {
       records.push({
         abnormalId: `ABN-${condition.conditionRecordId}`,
         bagCode: condition.bagCode,
-        abnormalType: condition.reusableDecision === 'DISABLED' ? '中转袋停用' : '中转袋破损',
+        abnormalType: condition.reusableDecision === 'DISABLED' ? '中转袋报废' : '中转袋破损',
         relatedUseId: condition.usageId,
         relatedObjectType: '袋况验收',
         relatedObjectId: usageById[condition.usageId]?.usageNo || condition.bagCode,
-        description: condition.damageType || condition.note || '袋况异常，需要处理后再复用。',
+        description: condition.damageType || condition.note || '袋况异常，已记录到中转袋台账。',
         evidencePhotos: [],
         reportedAt: condition.inspectedAt,
         reportedBy: condition.inspectedBy,
-        handlingStatus: condition.reusableDecision === 'REUSABLE' ? '已处理' : '待处理',
+        handlingStatus: '已处理',
         handledAt: '',
         handledBy: '',
       })
@@ -2787,7 +2893,7 @@ function buildTransferBagAbnormalRecordsFromStore(
       records.push({
         abnormalId: `ABN-${closure.closureId}`,
         bagCode: usageById[closure.usageId]?.bagCode || closure.cycleNo,
-        abnormalType: closure.nextBagStatus === 'DISABLED' ? '中转袋停用' : '异常关闭',
+        abnormalType: closure.nextBagStatus === 'DISABLED' ? '中转袋报废' : '周期关闭异常',
         relatedUseId: closure.usageId,
         relatedObjectType: '使用周期',
         relatedObjectId: closure.usageNo,
@@ -2855,9 +2961,11 @@ export function buildTransferBagCarrierManagementProjection(
     return {
       bagMasterId: master.bagId,
       bagCode: master.bagCode,
-      bagName: master.bagCode,
-      bagSpec: `${master.bagType || '中转袋'} / 容量 ${master.capacity} 张菲票`,
-      bagMaterial: master.carrierType === 'box' ? '周转箱' : '可复用软袋',
+      bagName: master.bagName || master.bagCode,
+      bagSpec: master.bagSpec || `${master.bagType || '中转袋'} / 容量 ${master.capacity} 张菲票`,
+      bagMaterial: isBagMaterialText(master.bagMaterial || (master.carrierType === 'box' ? '周转箱' : '循环软袋')),
+      ownershipFactoryId: master.ownershipFactoryId || '',
+      ownershipFactoryName: master.ownershipFactoryName || '',
       currentStatus: deriveCarrierManagementStatus(master),
       currentLocation: master.currentLocation || '待命位',
       currentUseStage,
@@ -2872,15 +2980,15 @@ export function buildTransferBagCarrierManagementProjection(
       lastReturnedAt: master.currentReturnedAt,
       totalUseCount: relatedUsages.length,
       abnormalCount: abnormalCountByBag[master.bagCode] || 0,
-      enabled: master.currentStatus !== 'DISABLED',
-      createdAt: '2026-03-01 08:00',
-      createdBy: '裁床仓管',
+      enabled: master.enabled !== false && master.currentStatus !== 'DISABLED',
+      createdAt: master.createdAt || '2026-03-01 08:00',
+      createdBy: master.createdBy || '裁床仓管',
     }
   })
 
   const useCycles = viewModel.usages.map((usage) => toTransferBagUseCycleView(usage, abnormalRecords))
   const handoverPackingUses = useCycles.filter((cycle) => cycle.useStage === '交出装袋')
-  const signedAndReturnUses = useCycles.filter((cycle) => cycle.signedAt || cycle.returnedAt || ['待回仓', '回收中', '已关闭', '异常关闭'].includes(cycle.currentStatus))
+  const signedAndReturnUses = useCycles.filter((cycle) => cycle.currentStatus === '已交出待回收' || Boolean(cycle.returnedAt) || cycle.currentStatus === '已关闭')
   const taskBagGroups = Object.values(
     handoverPackingUses.reduce<Record<string, { sewingTaskNo: string; receiverFactoryName: string; bagCodes: string[]; useCount: number }>>((result, cycle) => {
       const key = cycle.targetObjectNo || '未绑定对象'
@@ -2901,10 +3009,10 @@ export function buildTransferBagCarrierManagementProjection(
 
   return {
     overviewCards: [
-      { label: '中转袋档案', value: masterRecords.length, hint: '可复用载具主档' },
+      { label: '中转袋档案', value: masterRecords.length, hint: '循环载具主档' },
       { label: '入仓暂存使用', value: useCycles.filter((cycle) => cycle.useStage === '入仓暂存').length, hint: '允许混装，不绑定车缝任务' },
       { label: '交出装袋使用', value: handoverPackingUses.length, hint: '一个袋只绑定一个车缝任务' },
-      { label: '签收与回收', value: signedAndReturnUses.length, hint: '签收、返仓、复用闭环' },
+      { label: '已交出待回收', value: signedAndReturnUses.length, hint: '交出后的载具回收确认' },
       { label: '异常记录', value: abnormalRecords.length, hint: '破损、丢失、错扫、差异' },
     ],
     masterRecords,

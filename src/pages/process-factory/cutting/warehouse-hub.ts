@@ -3261,7 +3261,7 @@ function renderInboundTempBagArea(bags: InboundTempBag[], inventoryRecords: Inbo
       <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 class="text-base font-semibold">入仓暂存袋</h3>
-          <p class="mt-1 text-xs text-muted-foreground">裁剪后打完菲票先扫码入仓暂存；此阶段允许不同生产单、SKU、颜色、尺码、部位和特殊工艺要求混装。</p>
+          <p class="mt-1 text-xs text-muted-foreground">裁剪后打完菲票先扫码入仓暂存；中转袋正式支持混装，允许不同生产单、SKU、颜色、尺码、部位和特殊工艺要求混装。</p>
         </div>
         <div class="text-xs text-muted-foreground">已形成库存：${escapeHtml(formatPieceQty(totalInventoryQty))}</div>
       </div>
@@ -3429,7 +3429,10 @@ function renderHandoverPickingArea(projection: HandoverPickingTaskProjection): s
           <h3 class="text-base font-semibold">待交出仓分拣装袋</h3>
           <p class="mt-1 text-xs text-muted-foreground">车缝任务分配后，从裁床待交出仓已有菲票 / 裁片库存中按车缝任务分拣并装入中转袋。</p>
         </div>
-        <button type="button" class="rounded-md border bg-background px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', 'sorting'))}">打开分拣装袋任务</button>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="rounded-md border bg-background px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', 'sorting'))}">打开分拣装袋任务</button>
+          <button type="button" class="rounded-md border bg-background px-3 py-1.5 text-xs hover:bg-muted" data-nav="/fcs/craft/cutting/transfer-bags">打印袋码</button>
+        </div>
       </div>
       <dl class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div class="rounded-md border bg-background px-3 py-2">
