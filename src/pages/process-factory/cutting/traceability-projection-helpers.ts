@@ -394,6 +394,14 @@ function ensureTraceabilityBagFirstSeed(options: {
       usageNo,
       bagId: bag.bagId,
       bagCode: bag.bagCode,
+      boundObjectType: '入仓暂存记录',
+      boundObjectId: usageId,
+      boundObjectNo: usageNo,
+      receiverType: '仓库',
+      receiverId: 'cutting-wait-handover',
+      receiverName: '裁床待交出仓',
+      sourceWarehouseId: 'cutting-wait-handover',
+      sourceWarehouseName: '裁床待交出仓',
       sewingTaskId: '',
       sewingTaskNo: '',
       sewingFactoryId: '',
@@ -413,9 +421,7 @@ function ensureTraceabilityBagFirstSeed(options: {
       signoffStatus: 'PENDING',
       usageStage: 'INBOUND_TEMP',
       usageStageLabel: '入仓暂存',
-      note: session!.sourceWritebackId
-        ? `由 ${sessionNo}（工厂端回写 ${session!.sourceWritebackId}）完成后自动补齐入仓暂存袋链路。`
-        : `由 ${sessionNo} 完成后自动补齐入仓暂存袋链路。`,
+      note: `由 ${sessionNo} 完成后自动补齐入仓暂存袋链路。`,
     }
 
     const bindings: TransferBagItemBinding[] = tickets.map((ticket, ticketIndex) => ({
@@ -448,9 +454,7 @@ function ensureTraceabilityBagFirstSeed(options: {
       boundBy: operatorName,
       operator: operatorName,
       status: 'BOUND',
-      note: traceAnchor?.sourceWritebackId
-        ? `由 ${sessionNo}（工厂端回写 ${traceAnchor.sourceWritebackId}）形成入仓暂存袋绑定。`
-        : `由 ${sessionNo} 形成入仓暂存袋绑定。`,
+      note: `由 ${sessionNo} 形成入仓暂存袋绑定。`,
     }))
     const audit = buildBagUsageAuditTrail({
       usageId: usage.usageId,

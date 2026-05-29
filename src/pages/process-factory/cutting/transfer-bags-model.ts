@@ -204,6 +204,14 @@ export interface TransferBagUsage {
   usageNo: string
   bagId: string
   bagCode: string
+  boundObjectType: string
+  boundObjectId: string
+  boundObjectNo: string
+  receiverType: string
+  receiverId: string
+  receiverName: string
+  sourceWarehouseId?: string
+  sourceWarehouseName?: string
   sewingTaskId: string
   sewingTaskNo: string
   sewingFactoryId: string
@@ -739,7 +747,7 @@ export interface TransferBagViewModel {
   sortingTasks: CutPieceSortingTask[]
 }
 
-export type TransferBagCarrierCurrentStatus = '可用' | '使用中' | '待回收' | '已回收' | '异常' | '停用'
+export type TransferBagCarrierCurrentStatus = '可用' | '使用中' | '待签收' | '待回收' | '异常' | '停用'
 export type TransferBagCarrierUseStage = '无' | '入仓暂存' | '交出装袋' | '签收中' | '回收中'
 
 export interface TransferBagMasterArchiveRecord {
@@ -769,16 +777,27 @@ export interface TransferBagMasterArchiveRecord {
 
 export interface TransferBagUseCycleView {
   bagUseId: string
+  bagUseNo: string
   bagMasterId: string
   bagCode: string
   useStage: '入仓暂存' | '交出装袋'
   sourceWarehouseId: string
   sourceWarehouseName: string
+  warehouseArea: string
+  locationCode: string
+  inboundAt: string
+  inboundBy: string
   targetObjectType: string
   targetObjectId: string
   targetObjectNo: string
   receiverFactoryId: string
   receiverFactoryName: string
+  receiverType: string
+  receiverId: string
+  receiverName: string
+  containedProductionOrderCount: number
+  containedCutOrderCount: number
+  containedMaterialQty: number
   containedFeiTickets: Array<{
     feiTicketId: string
     feiTicketNo: string
@@ -1131,16 +1150,17 @@ function toPageMaster(master: TransferCarrierRecord): TransferBagMaster {
 
 function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
   const normalized = normalizeTransferCarrierCycleRecord(usage as unknown as Record<string, unknown>)
+  const isHandoverTarget = usage.boundObjectType === '车缝任务' || usage.usageStage === 'HANDOVER_PACKING'
   return {
     cycleId: normalized.cycleId,
     cycleNo: normalized.cycleNo,
     carrierId: normalized.carrierId,
     carrierCode: normalized.carrierCode,
     carrierType: normalized.carrierType,
-    sewingTaskId: usage.sewingTaskId,
-    sewingTaskNo: usage.sewingTaskNo,
-    sewingFactoryId: usage.sewingFactoryId,
-    sewingFactoryName: usage.sewingFactoryName,
+    sewingTaskId: isHandoverTarget ? usage.boundObjectId || usage.sewingTaskId : usage.sewingTaskId,
+    sewingTaskNo: isHandoverTarget ? usage.boundObjectNo || usage.sewingTaskNo : usage.sewingTaskNo,
+    sewingFactoryId: usage.receiverType === '工厂' ? usage.receiverId || usage.sewingFactoryId : usage.sewingFactoryId,
+    sewingFactoryName: usage.receiverType === '工厂' ? usage.receiverName || usage.sewingFactoryName : usage.sewingFactoryName,
     styleCode: usage.styleCode,
     spuCode: usage.spuCode,
     skuSummary: usage.skuSummary,
@@ -1165,6 +1185,7 @@ function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
 
 function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
   const usageStage = normalizeTransferBagUsageStage(usage.usageStage)
+  const isInboundTemp = usageStage === 'INBOUND_TEMP'
   return {
     cycleId: usage.cycleId,
     cycleNo: usage.cycleNo,
@@ -1175,6 +1196,14 @@ function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
     usageNo: usage.cycleNo,
     bagId: usage.carrierId,
     bagCode: usage.carrierCode,
+    boundObjectType: isInboundTemp ? '入仓暂存记录' : '车缝任务',
+    boundObjectId: isInboundTemp ? usage.cycleId : usage.sewingTaskId,
+    boundObjectNo: isInboundTemp ? usage.cycleNo : usage.sewingTaskNo,
+    receiverType: isInboundTemp ? '仓库' : '工厂',
+    receiverId: isInboundTemp ? 'cutting-wait-handover' : usage.sewingFactoryId,
+    receiverName: isInboundTemp ? '裁床待交出仓' : usage.sewingFactoryName,
+    sourceWarehouseId: 'cutting-wait-handover',
+    sourceWarehouseName: '裁床待交出仓',
     sewingTaskId: usage.sewingTaskId,
     sewingTaskNo: usage.sewingTaskNo,
     sewingFactoryId: usage.sewingFactoryId,
@@ -2371,12 +2400,19 @@ export function buildTransferBagViewModel(options: {
       const bagMaster = options.store.masters.find((item) => item.bagId === usage.bagId) ?? null
       const sewingTask = sewingTasksById[usage.sewingTaskId] ?? null
       const usageStage = normalizeTransferBagUsageStage(usage.usageStage)
+      const isInboundTemp = usageStage === 'INBOUND_TEMP'
+      const boundObjectType = usage.boundObjectType || (isInboundTemp ? '入仓暂存记录' : '车缝任务')
+      const boundObjectId = usage.boundObjectId || (isInboundTemp ? usage.usageId : usage.sewingTaskId)
+      const boundObjectNo = usage.boundObjectNo || (isInboundTemp ? usage.usageNo : usage.sewingTaskNo)
+      const receiverType = usage.receiverType || (isInboundTemp ? '仓库' : '工厂')
+      const receiverId = usage.receiverId || (isInboundTemp ? usage.sourceWarehouseId || 'cutting-wait-handover' : usage.sewingFactoryId)
+      const receiverName = usage.receiverName || (isInboundTemp ? usage.sourceWarehouseName || '裁床待交出仓' : usage.sewingFactoryName)
       const sewingFactoryName =
-        usageStage === 'INBOUND_TEMP'
+        isInboundTemp
           ? '待车缝任务分配'
           : resolveTransferBagFactoryName(
-              usage.sewingFactoryId || sewingTask?.sewingFactoryId,
-              usage.sewingFactoryName || sewingTask?.sewingFactoryName,
+              receiverId || usage.sewingFactoryId || sewingTask?.sewingFactoryId,
+              receiverName || usage.sewingFactoryName || sewingTask?.sewingFactoryName,
             )
       const pocketStatusKey = mapUsageStatusToPocketCarrierStatus({
         usage,
@@ -2386,6 +2422,14 @@ export function buildTransferBagViewModel(options: {
         ...usage,
         usageStage,
         usageStageLabel: usage.usageStageLabel || getTransferBagUsageStageLabel(usageStage),
+        boundObjectType,
+        boundObjectId,
+        boundObjectNo,
+        receiverType,
+        receiverId,
+        receiverName,
+        sourceWarehouseId: usage.sourceWarehouseId || 'cutting-wait-handover',
+        sourceWarehouseName: usage.sourceWarehouseName || '裁床待交出仓',
         sewingFactoryName,
         statusMeta: deriveTransferBagUsageStatus(usage.usageStatus),
         visibleStatusKey: deriveTransferBagVisibleStatusFromUsage({
@@ -2599,7 +2643,8 @@ export function buildTransferBagViewModel(options: {
 function deriveCarrierManagementStatus(master: TransferBagMasterItem): TransferBagCarrierCurrentStatus {
   if (master.currentStatus === 'DISABLED') return '停用'
   if (master.currentStatus === 'WAITING_REPAIR' || master.currentStatus === 'WAITING_CLEANING') return '异常'
-  if (master.currentStatus === 'REUSABLE') return '已回收'
+  if (master.currentStatus === 'REUSABLE') return '可用'
+  if (master.currentUsage?.usageStatus === 'DISPATCHED' || master.currentUsage?.usageStatus === 'PENDING_SIGNOFF') return '待签收'
   if (master.currentUsage?.usageStatus === 'WAITING_RETURN' || master.currentUsage?.usageStatus === 'RETURN_INSPECTING') return '待回收'
   if (master.currentUsage) return '使用中'
   return '可用'
@@ -2623,7 +2668,7 @@ function getCarrierUseMixedSummary(usage: TransferBagUsageItem): { mixedFlag: bo
     mixedFlag,
     mixedSummary: usage.usageStage === 'INBOUND_TEMP'
       ? `涉及 ${productionOrderCount} 个生产单 / ${cutOrderCount} 张裁片单 / ${partCount} 个部位 / ${sizeCount} 个尺码`
-      : `绑定 ${usage.sewingTaskNo || '待补车缝任务'}，${usage.summary.ticketCount} 张菲票`,
+      : `绑定 ${usage.boundObjectNo || usage.sewingTaskNo || '待补绑定对象'}，${usage.summary.ticketCount} 张菲票`,
   }
 }
 
@@ -2637,18 +2682,34 @@ function mapTransferBagDiscrepancyType(type: TransferBagDiscrepancyType): string
 
 function toTransferBagUseCycleView(usage: TransferBagUsageItem, abnormalRecords: TransferBagAbnormalRecord[]): TransferBagUseCycleView {
   const mixed = getCarrierUseMixedSummary(usage)
+  const productionOrderCount = usage.productionOrderNos.length
+  const cutOrderCount = usage.cutOrderNos.length
+  const sourceWarehouseId = usage.sourceWarehouseId || 'cutting-wait-handover'
+  const sourceWarehouseName = usage.sourceWarehouseName || '裁床待交出仓'
+  const isInboundTemp = usage.usageStage === 'INBOUND_TEMP'
   return {
     bagUseId: usage.usageId,
+    bagUseNo: usage.usageNo,
     bagMasterId: usage.bagId,
     bagCode: usage.bagCode,
-    useStage: usage.usageStage === 'INBOUND_TEMP' ? '入仓暂存' : '交出装袋',
-    sourceWarehouseId: 'cutting-wait-handover',
-    sourceWarehouseName: '裁床待交出仓',
-    targetObjectType: usage.usageStage === 'INBOUND_TEMP' ? '' : '车缝任务',
-    targetObjectId: usage.usageStage === 'INBOUND_TEMP' ? '' : usage.sewingTaskId,
-    targetObjectNo: usage.usageStage === 'INBOUND_TEMP' ? '' : usage.sewingTaskNo,
-    receiverFactoryId: usage.usageStage === 'INBOUND_TEMP' ? '' : usage.sewingFactoryId,
-    receiverFactoryName: usage.usageStage === 'INBOUND_TEMP' ? '暂不绑定接收对象' : usage.sewingFactoryName,
+    useStage: isInboundTemp ? '入仓暂存' : '交出装袋',
+    sourceWarehouseId,
+    sourceWarehouseName,
+    warehouseArea: isInboundTemp ? '裁片暂存区' : '交出备货区',
+    locationCode: isInboundTemp ? `${usage.bagCode.slice(-2) || 'A'}-暂存位` : '交出月台',
+    inboundAt: usage.startedAt || '',
+    inboundBy: usage.dispatchBy || '裁床仓管',
+    targetObjectType: isInboundTemp ? '入仓暂存记录' : usage.boundObjectType || '车缝任务',
+    targetObjectId: isInboundTemp ? usage.usageId : usage.boundObjectId || usage.sewingTaskId,
+    targetObjectNo: isInboundTemp ? usage.usageNo : usage.boundObjectNo || usage.sewingTaskNo,
+    receiverFactoryId: isInboundTemp ? '' : usage.receiverId || usage.sewingFactoryId,
+    receiverFactoryName: isInboundTemp ? '暂不绑定接收对象' : usage.receiverName || usage.sewingFactoryName,
+    receiverType: isInboundTemp ? '仓库' : usage.receiverType || '工厂',
+    receiverId: isInboundTemp ? sourceWarehouseId : usage.receiverId || usage.sewingFactoryId,
+    receiverName: isInboundTemp ? sourceWarehouseName : usage.receiverName || usage.sewingFactoryName,
+    containedProductionOrderCount: productionOrderCount,
+    containedCutOrderCount: cutOrderCount,
+    containedMaterialQty: usage.summary.quantityTotal,
     containedFeiTickets: usage.bindingItems.map((binding) => ({
       feiTicketId: binding.feiTicketId,
       feiTicketNo: binding.ticketNo,
@@ -2707,7 +2768,7 @@ function buildTransferBagAbnormalRecordsFromStore(
         abnormalType: condition.reusableDecision === 'DISABLED' ? '中转袋停用' : '中转袋破损',
         relatedUseId: condition.usageId,
         relatedObjectType: '袋况验收',
-        relatedObjectId: condition.conditionRecordId,
+        relatedObjectId: usageById[condition.usageId]?.usageNo || condition.bagCode,
         description: condition.damageType || condition.note || '袋况异常，需要处理后再复用。',
         evidencePhotos: [],
         reportedAt: condition.inspectedAt,
@@ -2783,12 +2844,12 @@ export function buildTransferBagCarrierManagementProjection(
       ? ''
       : currentUseStage === '入仓暂存'
         ? '入仓暂存记录'
-        : '车缝任务'
+        : currentUsage.boundObjectType || '车缝任务'
     const currentBoundObjectNo = !currentUsage
       ? ''
       : currentUseStage === '入仓暂存'
         ? currentUsage.usageNo
-        : currentUsage.sewingTaskNo || currentUsage.usageNo
+        : currentUsage.boundObjectNo || currentUsage.sewingTaskNo || currentUsage.usageNo
     return {
       bagMasterId: master.bagId,
       bagCode: master.bagCode,
@@ -2800,7 +2861,7 @@ export function buildTransferBagCarrierManagementProjection(
       currentUseStage,
       currentUseId: currentUsage?.usageId || '',
       currentBoundObjectType,
-      currentBoundObjectId: currentUseStage === '入仓暂存' ? currentUsage?.usageId || '' : currentUsage?.sewingTaskId || '',
+      currentBoundObjectId: currentUseStage === '入仓暂存' ? currentUsage?.usageId || '' : currentUsage?.boundObjectId || currentUsage?.sewingTaskId || '',
       currentBoundObjectNo,
       currentFeiTicketCount: master.packedTicketCount,
       currentPieceQty: master.currentTotalPieceCount,
@@ -2820,11 +2881,11 @@ export function buildTransferBagCarrierManagementProjection(
   const signedAndReturnUses = useCycles.filter((cycle) => cycle.signedAt || cycle.returnedAt || ['待回仓', '回收中', '已关闭', '异常关闭'].includes(cycle.currentStatus))
   const taskBagGroups = Object.values(
     handoverPackingUses.reduce<Record<string, { sewingTaskNo: string; receiverFactoryName: string; bagCodes: string[]; useCount: number }>>((result, cycle) => {
-      const key = cycle.targetObjectNo || '未绑定车缝任务'
+      const key = cycle.targetObjectNo || '未绑定对象'
       if (!result[key]) {
         result[key] = {
           sewingTaskNo: key,
-          receiverFactoryName: cycle.receiverFactoryName,
+          receiverFactoryName: cycle.receiverName,
           bagCodes: [],
           useCount: 0,
         }
