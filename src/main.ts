@@ -312,6 +312,7 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
   }
   if (
     pathname.startsWith('/fcs/craft/cutting/spreading') ||
+    pathname.startsWith('/fcs/craft/cutting/marker-spreading') ||
     pathname.startsWith('/fcs/craft/cutting/spreading-create') ||
     pathname.startsWith('/fcs/craft/cutting/spreading-detail')
   ) {
@@ -385,6 +386,7 @@ async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
 
 async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
   const pathname = appStore.getState().pathname || ''
+  if (!pathname.startsWith('/pcs')) return false
   if (pathname.startsWith('/fcs/pda')) return false
 
   try {
@@ -539,6 +541,26 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     if (normalizedPathname === '/fcs/craft/cutting/transfer-bag-detail') {
       const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
       return transferBagsPage.renderCraftCuttingTransferBagDetailPage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/spreading-list') {
+      const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+      return markerSpreadingPage.renderCraftCuttingSpreadingListPage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/spreading-create') {
+      const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+      return markerSpreadingPage.renderCraftCuttingSpreadingCreatePage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/spreading-detail') {
+      const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+      return markerSpreadingPage.renderCraftCuttingSpreadingDetailPage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/spreading-edit') {
+      const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+      return markerSpreadingPage.renderCraftCuttingSpreadingEditPage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/marker-spreading') {
+      const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+      return markerSpreadingPage.renderCraftCuttingMarkerSpreadingPage()
     }
     if (normalizedPathname === '/fcs/print/preview') {
       const printPreviewPage = await getPrintPreviewPageModule()

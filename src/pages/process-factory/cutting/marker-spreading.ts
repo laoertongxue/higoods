@@ -338,6 +338,31 @@ interface SupervisorSpreadingRow extends SpreadingListRow {
   cuttingStatusFormula: string
 }
 
+interface SpreadingPageBaseData {
+  rows: MarkerSpreadingProjection['rows']
+  rowsById: MarkerSpreadingProjection['rowsById']
+  markerPlanSources: MarkerSpreadingProjection['markerPlanSources']
+  markerPlanSourcesById: MarkerSpreadingProjection['markerPlanSourcesById']
+  store: ReturnType<typeof buildMarkerSpreadingPrototypeStore>
+  projection: MarkerSpreadingProjection
+  viewModel: ReturnType<typeof buildMarkerSpreadingViewModel>
+  supervisorRows: SupervisorSpreadingRow[]
+  webSummariesBySessionId: Record<string, ReturnType<typeof resolveWebSpreadingSummary>>
+}
+
+let pageDataCacheVersion = 0
+let pageBaseDataCache: {
+  querySignature: string
+  prefilterSignature: string
+  version: number
+  data: SpreadingPageBaseData
+} | null = null
+
+function invalidateSpreadingPageDataCache(): void {
+  pageDataCacheVersion += 1
+  pageBaseDataCache = null
+}
+
 function getSpreadingDataSourceLabel(source: 'ALL' | 'PC' | typeof MOBILE_SOURCE_CHANNEL): string {
   if (source === 'PC') return '电脑录入'
   if (source === MOBILE_SOURCE_CHANNEL) return '移动录入'
@@ -1299,6 +1324,7 @@ function renderListTextInput(label: string, value: string, attrs: string, placeh
         value="${escapeHtml(value)}"
         placeholder="${escapeHtml(placeholder)}"
         class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        data-fast-page-render="true"
         ${attrs}
       />
     </label>
@@ -1314,7 +1340,7 @@ function renderListSelect(
   return `
     <label class="space-y-2">
       <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
-      <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" ${attrs}>
+      <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-fast-page-render="true" ${attrs}>
         ${options
           .map(
             (option) =>
@@ -2061,6 +2087,7 @@ function resolveSpreadingDerivedState(session: SpreadingSession): {
 }
 
 function persistMarkerSpreadingStore(store: ReturnType<typeof readMarkerSpreadingPrototypeData>['store']): void {
+  invalidateSpreadingPageDataCache()
   localStorage.setItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY, serializeMarkerSpreadingStorage(store))
 }
 
@@ -2264,8 +2291,22 @@ function buildSupervisorSpreadingRows(baseRows: SpreadingListRow[]): SupervisorS
   })
 }
 
-function getPageData() {
+function getPrefilterSignature(): string {
+  return JSON.stringify(state.prefilter ?? {})
+}
+
+function getPageBaseData(): SpreadingPageBaseData {
   syncStateFromPath()
+  const prefilterSignature = getPrefilterSignature()
+  if (
+    pageBaseDataCache &&
+    pageBaseDataCache.querySignature === state.querySignature &&
+    pageBaseDataCache.prefilterSignature === prefilterSignature &&
+    pageBaseDataCache.version === pageDataCacheVersion
+  ) {
+    return pageBaseDataCache.data
+  }
+
   const projection = buildMarkerSpreadingProjection({
     prefilter: state.prefilter,
     includeCreateSources: false,
@@ -2289,6 +2330,33 @@ function getPageData() {
     markerRecords: store.markers,
   })
   const supervisorRows = buildSupervisorSpreadingRows(baseRows)
+  const webSummariesBySessionId = Object.fromEntries(
+    supervisorRows.map((row) => [row.spreadingSessionId, resolveWebSpreadingSummary(row, projection)]),
+  )
+  const data = {
+    rows: projection.rows,
+    rowsById: projection.rowsById,
+    markerPlanSources: projection.markerPlanSources,
+    markerPlanSourcesById: projection.markerPlanSourcesById,
+    store,
+    projection,
+    viewModel,
+    supervisorRows,
+    webSummariesBySessionId,
+  }
+
+  pageBaseDataCache = {
+    querySignature: state.querySignature,
+    prefilterSignature,
+    version: pageDataCacheVersion,
+    data,
+  }
+  return data
+}
+
+function getPageData() {
+  const baseData = getPageBaseData()
+  const { supervisorRows } = baseData
   const nonStageFilteredRows = supervisorRows.filter((row) => {
     if (state.prefilter?.productionOrderNo && !row.productionOrderNos.includes(state.prefilter.productionOrderNo)) {
       return false
@@ -2357,13 +2425,7 @@ function getPageData() {
     state.activeTab === 'ALL' ? nonStageFilteredRows : nonStageFilteredRows.filter((row) => row.mainStageKey === state.activeTab)
 
   return {
-    rows: projection.rows,
-    rowsById: projection.rowsById,
-    markerPlanSources: projection.markerPlanSources,
-    markerPlanSourcesById: projection.markerPlanSourcesById,
-    store,
-    projection,
-    viewModel,
+    ...baseData,
     spreadingRows,
     stageCounts,
   }
@@ -2519,7 +2581,7 @@ function renderFilterArea(): string {
         ${renderListTextInput('生产单 / 裁片单', state.contextNoFilter, 'data-cutting-spreading-list-field="context-no"', '')}
         ${renderListTextInput('款式 / SPU', state.styleSpuFilter, 'data-cutting-spreading-list-field="style-spu"', '')}
         ${renderListTextInput('裁床', state.markerNoFilter, 'data-cutting-spreading-list-field="marker-no"', '裁床名称 / 唛架方案')}
-        <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-cutting-marker-action="clear-filters">重置筛选</button>
+        <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-fast-page-render="true" data-cutting-marker-action="clear-filters">重置筛选</button>
       </div>
     `, '', 'data-testid="cutting-spreading-list-filters"')
 }
@@ -2536,6 +2598,7 @@ function renderListTabs(pageData = getPageData()): string {
               <button
                 type="button"
                 class="rounded-md border px-3 py-1.5 text-sm leading-5 ${active ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
+                data-fast-page-render="true"
                 data-cutting-marker-action="switch-spreading-list-tab"
                 data-list-tab="${tab.value}"
               >
@@ -2589,7 +2652,11 @@ function renderSpreadingListCuttingAction(row: SupervisorSpreadingRow): string {
 const SPREADING_LIST_GRID_CLASS =
   'xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)_minmax(0,1.45fr)_minmax(0,0.9fr)_minmax(0,0.85fr)_minmax(0,0.85fr)_minmax(0,0.85fr)_minmax(0,0.78fr)_minmax(0,0.86fr)]'
 
-function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: MarkerSpreadingProjection): string {
+function renderSpreadingTable(
+  rows: SupervisorSpreadingRow[],
+  projection: MarkerSpreadingProjection,
+  webSummariesBySessionId: Record<string, ReturnType<typeof resolveWebSpreadingSummary>> = {},
+): string {
   if (!rows.length) {
     return '<section class="rounded-lg border border-dashed bg-card px-4 py-6 text-center text-sm text-muted-foreground" data-cutting-spreading-main-card="true">当前筛选范围内暂无铺布记录。</section>'
   }
@@ -2616,7 +2683,7 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[], projection: Marker
       <div class="divide-y">
         ${rows
           .map((row) => {
-            const summary = resolveWebSpreadingSummary(row, projection)
+            const summary = webSummariesBySessionId[row.spreadingSessionId] || resolveWebSpreadingSummary(row, projection)
             const markerNos = row.session.sourceBedNo || row.session.markerNo || row.sourceMarkerLabel
             const pattern = summary.order?.patternIdentity || null
             const pda = summary.pda
@@ -2724,7 +2791,7 @@ function renderSpreadingSupervisorListPage(): string {
       ${renderListStats(pageData)}
       ${renderListTabs(pageData)}
       ${renderFilterArea()}
-      ${renderSpreadingTable(filteredRows, pageData.projection)}
+      ${renderSpreadingTable(filteredRows, pageData.projection, pageData.webSummariesBySessionId)}
     </div>
   `
 }
