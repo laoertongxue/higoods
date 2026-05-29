@@ -2879,7 +2879,18 @@ function buildTransferBagScrapRecordsFromStore(
       })
     })
 
-  return records.sort((left, right) => right.reportedAt.localeCompare(left.reportedAt, 'zh-CN'))
+  return uniqueTransferBagScrapRecordsByBag(records)
+}
+
+function uniqueTransferBagScrapRecordsByBag(records: TransferBagScrapRecord[]): TransferBagScrapRecord[] {
+  const latestByBagCode = records
+    .filter((record) => record.bagCode && [record.scrapType, record.description].filter(Boolean).join(' / ').includes('报废'))
+    .sort((left, right) => right.reportedAt.localeCompare(left.reportedAt, 'zh-CN'))
+    .reduce<Map<string, TransferBagScrapRecord>>((result, record) => {
+      if (!result.has(record.bagCode)) result.set(record.bagCode, record)
+      return result
+    }, new Map())
+  return Array.from(latestByBagCode.values())
 }
 
 export function buildTransferBagCarrierManagementProjection(
