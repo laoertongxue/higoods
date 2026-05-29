@@ -150,7 +150,7 @@ export type TransferBagUsageStatusKey =
   | 'WAITING_RETURN'
   | 'RETURN_INSPECTING'
   | 'CLOSED'
-  | 'EXCEPTION_CLOSED'
+  | 'SCRAP_CLOSED'
 export type TransferBagSignoffStatus = 'PENDING' | 'WAITING' | 'SIGNED'
 export type TransferBagDiscrepancyType = 'NONE' | 'QTY_MISMATCH' | 'DAMAGED_BAG' | 'LATE_RETURN' | 'MISSING_RECORD'
 export type TransferBagConditionStatus = 'GOOD' | 'MINOR_DAMAGE' | 'SEVERE_DAMAGE'
@@ -409,7 +409,7 @@ export interface TransferBagUsageClosureResult {
   usageNo: string
   closedAt: string
   closedBy: string
-  closureStatus: 'CLOSED' | 'EXCEPTION_CLOSED'
+  closureStatus: 'CLOSED' | 'SCRAP_CLOSED'
   nextBagStatus: TransferBagMasterStatusKey
   reason: string
   warningMessages: string[]
@@ -437,7 +437,7 @@ export interface TransferBagStore {
   reuseCycles: TransferBagReuseCycleSummary[]
   closureResults: TransferBagUsageClosureResult[]
   returnAuditTrail: TransferBagReturnAuditTrail[]
-  abnormalRecords: TransferBagAbnormalRecord[]
+  scrapRecords: TransferBagScrapRecord[]
 }
 
 export interface TransferBagPrefilter {
@@ -788,7 +788,7 @@ export interface TransferBagMasterArchiveRecord {
   lastSignedAt: string
   lastReturnedAt: string
   totalUseCount: number
-  abnormalCount: number
+  scrapCount: number
   enabled: boolean
   createdAt: string
   createdBy: string
@@ -837,15 +837,15 @@ export interface TransferBagUseCycleView {
   returnedAt: string
   closedAt: string
   currentStatus: string
-  discrepancyRecords: TransferBagAbnormalRecord[]
+  discrepancyRecords: TransferBagScrapRecord[]
   mixedFlag: boolean
   mixedSummary: string
 }
 
-export interface TransferBagAbnormalRecord {
-  abnormalId: string
+export interface TransferBagScrapRecord {
+  scrapRecordId: string
   bagCode: string
-  abnormalType: string
+  scrapType: string
   relatedUseId: string
   relatedObjectType: string
   relatedObjectId: string
@@ -864,7 +864,7 @@ export interface TransferBagCarrierManagementProjection {
   inboundTempUses: TransferBagUseCycleView[]
   handoverPackingUses: TransferBagUseCycleView[]
   signedAndReturnUses: TransferBagUseCycleView[]
-  abnormalRecords: TransferBagAbnormalRecord[]
+  scrapRecords: TransferBagScrapRecord[]
   taskBagGroups: Array<{ sewingTaskNo: string; receiverFactoryName: string; bagCodes: string[]; useCount: number }>
 }
 
@@ -912,12 +912,12 @@ const masterStatusMetaMap: Record<TransferBagMasterStatusKey, { label: string; c
   WAITING_CLEANING: {
     label: '可用',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '旧版待处理状态已收口为异常记录，主状态仍按可用处理。',
+    detailText: '旧版待处理状态已收口为报废记录，主状态仍按可用处理。',
   },
   WAITING_REPAIR: {
     label: '可用',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '旧版待处理状态已收口为异常记录，主状态仍按可用处理。',
+    detailText: '旧版待处理状态已收口为报废记录，主状态仍按可用处理。',
   },
   DISABLED: {
     label: '报废',
@@ -1005,10 +1005,10 @@ const usageStatusMetaMap: Record<TransferBagUsageStatusKey, { label: string; cla
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
     detailText: '当前使用周期已完成回货验收并正式关闭。',
   },
-  EXCEPTION_CLOSED: {
+  SCRAP_CLOSED: {
     label: '已关闭',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前使用周期已带异常记录关闭。',
+    detailText: '当前使用周期已按报废关闭。',
   },
 }
 
@@ -1106,7 +1106,7 @@ function toPageUsageStatus(status: string | undefined): TransferBagUsageStatusKe
     normalized === 'WAITING_RETURN' ||
     normalized === 'RETURN_INSPECTING' ||
     normalized === 'CLOSED' ||
-    normalized === 'EXCEPTION_CLOSED'
+    normalized === 'SCRAP_CLOSED'
   ) {
     return normalized
   }
@@ -1411,7 +1411,7 @@ function toRuntimeStore(store: TransferBagStore): TransferBagRuntimeStore {
     reuseCycles: store.reuseCycles.map((item) => ({ ...item })),
     closureResults: store.closureResults.map((item) => ({ ...item })),
     returnAuditTrail: store.returnAuditTrail.map((item) => ({ ...item })),
-    abnormalRecords: (store.abnormalRecords || []).map((item) => ({ ...item })),
+    scrapRecords: (store.scrapRecords || []).map((item) => ({ ...item })),
   }
 }
 
@@ -1428,7 +1428,7 @@ function toPageStore(store: TransferBagRuntimeStore): TransferBagStore {
     reuseCycles: store.reuseCycles as TransferBagReuseCycleSummary[],
     closureResults: store.closureResults as TransferBagUsageClosureResult[],
     returnAuditTrail: store.returnAuditTrail as TransferBagReturnAuditTrail[],
-    abnormalRecords: (store.abnormalRecords || []) as TransferBagAbnormalRecord[],
+    scrapRecords: (store.scrapRecords || []) as TransferBagScrapRecord[],
   }
 }
 
@@ -1673,7 +1673,7 @@ export function deriveTransferBagVisibleStatusFromUsage(options: {
     return 'HANDED_OVER'
   }
   if (options.usage.usageStatus === 'CLOSED') return 'IDLE'
-  if (options.usage.usageStatus === 'EXCEPTION_CLOSED') return 'ARCHIVED'
+  if (options.usage.usageStatus === 'SCRAP_CLOSED') return 'ARCHIVED'
   return 'IN_PROGRESS'
 }
 
@@ -1688,7 +1688,7 @@ export function deriveTransferBagVisibleStatusFromMaster(options: {
 }
 
 export function isTransferBagUsageActiveStatus(status: TransferBagUsageStatusKey): boolean {
-  return status !== 'CLOSED' && status !== 'EXCEPTION_CLOSED'
+  return status !== 'CLOSED' && status !== 'SCRAP_CLOSED'
 }
 
 export function mapUsageStatusToPocketCarrierStatus(options: {
@@ -1701,7 +1701,7 @@ export function mapUsageStatusToPocketCarrierStatus(options: {
   if (options.usage.usageStatus === 'DISPATCHED' || options.usage.usageStatus === 'PENDING_SIGNOFF') return 'DISPATCHED'
   if (options.usage.usageStatus === 'WAITING_RETURN') return 'SIGNED'
   if (options.usage.usageStatus === 'RETURN_INSPECTING') return 'RETURNED'
-  if (options.usage.usageStatus === 'CLOSED' || options.usage.usageStatus === 'EXCEPTION_CLOSED') {
+  if (options.usage.usageStatus === 'CLOSED' || options.usage.usageStatus === 'SCRAP_CLOSED') {
     return options.masterStatus === 'DISABLED' ? 'DISABLED' : 'IDLE'
   }
   return 'PACKING'
@@ -2715,7 +2715,7 @@ function deriveCarrierManagementStatus(master: TransferBagMasterItem): TransferB
   }
   if (usage.usageStatus === 'READY_TO_DISPATCH') return '待交出'
   if (['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING'].includes(usage.usageStatus)) return '已交出待回收'
-  if (['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)) return '可用'
+  if (['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus)) return '可用'
   return '交出装袋中'
 }
 
@@ -2723,18 +2723,18 @@ function deriveCarrierManagementStatusFromUsage(usage: TransferBagUsageItem): Tr
   if (usage.bagMaster?.currentStatus === 'DISABLED') return '报废'
   if (usage.usageStage === 'INBOUND_TEMP') {
     if (usage.usageStatus === 'READY_TO_DISPATCH') return '入仓暂存中'
-    if (['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)) return '可用'
+    if (['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus)) return '可用'
     return '入仓装袋中'
   }
   if (usage.usageStatus === 'READY_TO_DISPATCH') return '待交出'
   if (['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING'].includes(usage.usageStatus)) return '已交出待回收'
-  if (['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)) return usage.bagMaster?.currentStatus === 'DISABLED' ? '报废' : '可用'
+  if (['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus)) return usage.bagMaster?.currentStatus === 'DISABLED' ? '报废' : '可用'
   return '交出装袋中'
 }
 
 function deriveCarrierManagementCycleStatusLabel(usage: TransferBagUsageItem): string {
   const status = deriveCarrierManagementStatusFromUsage(usage)
-  if (status === '可用') return ['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus) ? '已关闭' : '可用'
+  if (status === '可用') return ['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus) ? '已关闭' : '可用'
   return status
 }
 
@@ -2743,7 +2743,7 @@ function isHandoverWaitingReturnStatus(status: TransferBagUsageStatusKey): boole
 }
 
 function isClosedUsageStatus(status: TransferBagUsageStatusKey): boolean {
-  return ['CLOSED', 'EXCEPTION_CLOSED'].includes(status)
+  return ['CLOSED', 'SCRAP_CLOSED'].includes(status)
 }
 
 function isBagMaterialText(value: string): string {
@@ -2776,15 +2776,7 @@ function getCarrierUseMixedSummary(usage: TransferBagUsageItem): { mixedFlag: bo
   }
 }
 
-function mapTransferBagDiscrepancyType(type: TransferBagDiscrepancyType): string {
-  if (type === 'QTY_MISMATCH') return '数量差异'
-  if (type === 'DAMAGED_BAG') return '中转袋破损'
-  if (type === 'LATE_RETURN') return '应回收未回收'
-  if (type === 'MISSING_RECORD') return '回收记录缺失'
-  return '其他异常'
-}
-
-function toTransferBagUseCycleView(usage: TransferBagUsageItem, abnormalRecords: TransferBagAbnormalRecord[]): TransferBagUseCycleView {
+function toTransferBagUseCycleView(usage: TransferBagUsageItem, scrapRecords: TransferBagScrapRecord[]): TransferBagUseCycleView {
   const mixed = getCarrierUseMixedSummary(usage)
   const productionOrderCount = usage.productionOrderNos.length
   const cutOrderCount = usage.cutOrderNos.length
@@ -2832,52 +2824,32 @@ function toTransferBagUseCycleView(usage: TransferBagUsageItem, abnormalRecords:
     returnWarehouseName: usage.returnWarehouseName || usage.locationCode || '待确认',
     returnedBy: usage.returnedBy || '',
     returnedAt: usage.returnedAt || '',
-    closedAt: ['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus) ? usage.returnedAt || usage.signedAt || usage.dispatchAt || '' : '',
+    closedAt: ['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus) ? usage.returnedAt || usage.signedAt || usage.dispatchAt || '' : '',
     currentStatus: deriveCarrierManagementCycleStatusLabel(usage),
-    discrepancyRecords: abnormalRecords.filter((item) => item.relatedUseId === usage.usageId),
+    discrepancyRecords: scrapRecords.filter((item) => item.relatedUseId === usage.usageId),
     mixedFlag: mixed.mixedFlag,
     mixedSummary: mixed.mixedSummary,
   }
 }
 
-function buildTransferBagAbnormalRecordsFromStore(
+function buildTransferBagScrapRecordsFromStore(
   store: TransferBagStore,
   viewModel: TransferBagViewModel,
-): TransferBagAbnormalRecord[] {
-  const records: TransferBagAbnormalRecord[] = (store.abnormalRecords || []).map((record) => ({ ...record }))
+): TransferBagScrapRecord[] {
+  const records: TransferBagScrapRecord[] = (store.scrapRecords || []).map((record) => ({ ...record }))
   const usageById = viewModel.usagesById
 
-  store.returnReceipts
-    .filter((receipt) => receipt.discrepancyType !== 'NONE')
-    .forEach((receipt) => {
-      records.push({
-        abnormalId: `ABN-${receipt.returnReceiptId}`,
-        bagCode: receipt.bagCode,
-        abnormalType: mapTransferBagDiscrepancyType(receipt.discrepancyType),
-        relatedUseId: receipt.usageId,
-        relatedObjectType: '使用周期',
-        relatedObjectId: receipt.usageNo,
-        description: receipt.discrepancyNote || receipt.note || '交出或回收环节存在差异。',
-        evidencePhotos: [],
-        reportedAt: receipt.returnAt,
-        reportedBy: receipt.receivedBy || receipt.returnedBy || '回收验收员',
-        handlingStatus: '已记录',
-        handledAt: '',
-        handledBy: '',
-      })
-    })
-
   store.conditionRecords
-    .filter((condition) => condition.conditionStatus !== 'GOOD' || condition.reusableDecision === 'DISABLED')
+    .filter((condition) => condition.reusableDecision === 'DISABLED')
     .forEach((condition) => {
       records.push({
-        abnormalId: `ABN-${condition.conditionRecordId}`,
+        scrapRecordId: `SCRAP-${condition.conditionRecordId}`,
         bagCode: condition.bagCode,
-        abnormalType: condition.reusableDecision === 'DISABLED' ? '中转袋报废' : '中转袋破损',
+        scrapType: '中转袋报废',
         relatedUseId: condition.usageId,
         relatedObjectType: '袋况验收',
         relatedObjectId: usageById[condition.usageId]?.usageNo || condition.bagCode,
-        description: condition.damageType || condition.note || '袋况异常，已记录到中转袋台账。',
+        description: condition.damageType || condition.note || '袋况已记录到中转袋台账。',
         evidencePhotos: [],
         reportedAt: condition.inspectedAt,
         reportedBy: condition.inspectedBy,
@@ -2888,16 +2860,16 @@ function buildTransferBagAbnormalRecordsFromStore(
     })
 
   store.closureResults
-    .filter((closure) => closure.closureStatus === 'EXCEPTION_CLOSED')
+    .filter((closure) => closure.closureStatus === 'SCRAP_CLOSED' && closure.nextBagStatus === 'DISABLED')
     .forEach((closure) => {
       records.push({
-        abnormalId: `ABN-${closure.closureId}`,
+        scrapRecordId: `SCRAP-${closure.closureId}`,
         bagCode: usageById[closure.usageId]?.bagCode || closure.cycleNo,
-        abnormalType: closure.nextBagStatus === 'DISABLED' ? '中转袋报废' : '周期关闭异常',
+        scrapType: '中转袋报废',
         relatedUseId: closure.usageId,
         relatedObjectType: '使用周期',
         relatedObjectId: closure.usageNo,
-        description: closure.reason || closure.warningMessages.join('；') || '本次使用周期异常关闭。',
+        description: closure.reason || closure.warningMessages.join('；') || '本次使用周期已关闭。',
         evidencePhotos: [],
         reportedAt: closure.closedAt,
         reportedBy: closure.closedBy,
@@ -2907,25 +2879,6 @@ function buildTransferBagAbnormalRecordsFromStore(
       })
     })
 
-  const handoverUsage = viewModel.usages.find((usage) => usage.usageStage === 'HANDOVER_PACKING' && usage.sewingTaskNo)
-  if (handoverUsage) {
-    records.push({
-      abnormalId: `ABN-MULTI-TASK-${handoverUsage.usageId}`,
-      bagCode: handoverUsage.bagCode,
-      abnormalType: '一个袋尝试绑定多个车缝任务',
-      relatedUseId: handoverUsage.usageId,
-      relatedObjectType: '交出装袋校验',
-      relatedObjectId: handoverUsage.usageNo,
-      description: '交出装袋阶段拦截同一中转袋绑定多个车缝任务；该袋本轮只保留当前车缝任务。',
-      evidencePhotos: [],
-      reportedAt: handoverUsage.startedAt || handoverUsage.dispatchAt || '',
-      reportedBy: '中转袋页面校验',
-      handlingStatus: '已拦截',
-      handledAt: handoverUsage.startedAt || '',
-      handledBy: '中转袋页面校验',
-    })
-  }
-
   return records.sort((left, right) => right.reportedAt.localeCompare(left.reportedAt, 'zh-CN'))
 }
 
@@ -2933,8 +2886,8 @@ export function buildTransferBagCarrierManagementProjection(
   store: TransferBagStore,
   viewModel: TransferBagViewModel,
 ): TransferBagCarrierManagementProjection {
-  const abnormalRecords = buildTransferBagAbnormalRecordsFromStore(store, viewModel)
-  const abnormalCountByBag = abnormalRecords.reduce<Record<string, number>>((result, record) => {
+  const scrapRecords = buildTransferBagScrapRecordsFromStore(store, viewModel)
+  const scrapCountByBag = scrapRecords.reduce<Record<string, number>>((result, record) => {
     result[record.bagCode] = (result[record.bagCode] || 0) + 1
     return result
   }, {})
@@ -2979,14 +2932,14 @@ export function buildTransferBagCarrierManagementProjection(
       lastSignedAt: master.currentSignedAt,
       lastReturnedAt: master.currentReturnedAt,
       totalUseCount: relatedUsages.length,
-      abnormalCount: abnormalCountByBag[master.bagCode] || 0,
+      scrapCount: scrapCountByBag[master.bagCode] || 0,
       enabled: master.enabled !== false && master.currentStatus !== 'DISABLED',
       createdAt: master.createdAt || '2026-03-01 08:00',
       createdBy: master.createdBy || '裁床仓管',
     }
   })
 
-  const useCycles = viewModel.usages.map((usage) => toTransferBagUseCycleView(usage, abnormalRecords))
+  const useCycles = viewModel.usages.map((usage) => toTransferBagUseCycleView(usage, scrapRecords))
   const handoverPackingUses = useCycles.filter((cycle) => cycle.useStage === '交出装袋')
   const signedAndReturnUses = useCycles.filter((cycle) => cycle.currentStatus === '已交出待回收' || Boolean(cycle.returnedAt) || cycle.currentStatus === '已关闭')
   const taskBagGroups = Object.values(
@@ -3013,13 +2966,13 @@ export function buildTransferBagCarrierManagementProjection(
       { label: '入仓暂存使用', value: useCycles.filter((cycle) => cycle.useStage === '入仓暂存').length, hint: '允许混装，不绑定车缝任务' },
       { label: '交出装袋使用', value: handoverPackingUses.length, hint: '一个袋只绑定一个车缝任务' },
       { label: '已交出待回收', value: signedAndReturnUses.length, hint: '交出后的载具回收确认' },
-      { label: '异常记录', value: abnormalRecords.length, hint: '破损、丢失、错扫、差异' },
+      { label: '报废记录', value: scrapRecords.filter((record) => [record.scrapType, record.description].filter(Boolean).join(' / ').includes('报废')).length, hint: '仅统计报废记录' },
     ],
     masterRecords,
     inboundTempUses: useCycles.filter((cycle) => cycle.useStage === '入仓暂存'),
     handoverPackingUses,
     signedAndReturnUses,
-    abnormalRecords,
+    scrapRecords,
     taskBagGroups,
   }
 }

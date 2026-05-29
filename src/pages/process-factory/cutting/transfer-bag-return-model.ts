@@ -32,7 +32,7 @@ interface ReturnDecisionMeta {
   detailText: string
 }
 
-interface ReturnExceptionMeta {
+interface ReturnDiscrepancyMeta {
   label: string
   className: string
   detailText: string
@@ -44,7 +44,7 @@ export interface TransferBagReturnUsageItem extends TransferBagUsageItem {
   latestConditionRecord: TransferBagConditionRecord | null
   latestClosureResult: TransferBagUsageClosureResult | null
   returnEligibility: TransferBagValidationResult
-  returnExceptionMeta: ReturnExceptionMeta | null
+  returnDiscrepancyMeta: ReturnDiscrepancyMeta | null
 }
 
 export interface TransferBagReuseCycleItem extends TransferBagReuseCycleSummary {
@@ -58,7 +58,7 @@ export interface TransferBagConditionDecisionItem extends TransferBagConditionRe
   latestUsage: TransferBagUsage | null
   bagMaster: TransferBagMaster | null
   decisionMeta: ReturnDecisionMeta
-  returnExceptionMeta: ReturnExceptionMeta | null
+  returnDiscrepancyMeta: ReturnDiscrepancyMeta | null
 }
 
 export interface TransferBagReturnViewModel {
@@ -79,17 +79,17 @@ export interface TransferBagReturnViewModel {
   conditionItems: TransferBagConditionDecisionItem[]
 }
 
-const discrepancyMetaMap: Record<TransferBagDiscrepancyType, ReturnExceptionMeta | null> = {
+const discrepancyMetaMap: Record<TransferBagDiscrepancyType, ReturnDiscrepancyMeta | null> = {
   NONE: null,
   QTY_MISMATCH: {
-    label: '数量异常',
+    label: '数量差异',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
     detailText: '回收数量与交出清单不一致，需要留痕说明。',
   },
   DAMAGED_BAG: {
     label: '口袋损坏',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '回收时发现中转袋损坏，需要记录异常或报废。',
+    detailText: '回收时发现中转袋损坏，需要登记报废。',
   },
   LATE_RETURN: {
     label: '迟归还',
@@ -217,7 +217,7 @@ export function closeTransferBagUsageCycle(options: {
   })
   const warningMessages: string[] = []
   if (options.receipt.discrepancyType !== 'NONE') {
-    warningMessages.push('本次回收存在差异，已生成异常记录。')
+    warningMessages.push('本次回收存在差异，已生成回收差异记录。')
   }
   if (decision.nextBagStatus !== 'REUSABLE') {
     warningMessages.push(`当前中转袋关闭后进入“${decision.label}”状态。`)
@@ -230,7 +230,7 @@ export function closeTransferBagUsageCycle(options: {
     usageNo: options.usage.cycleNo,
     closedAt: options.nowText,
     closedBy: options.closedBy,
-    closureStatus: warningMessages.length ? 'EXCEPTION_CLOSED' : 'CLOSED',
+    closureStatus: warningMessages.length ? 'SCRAP_CLOSED' : 'CLOSED',
     nextBagStatus: decision.nextBagStatus,
     reason: warningMessages.length ? '当前使用周期在存在差异或报废结果的前提下完成关闭。' : '当前使用周期已完成回收确认并正式关闭。',
     warningMessages,
@@ -251,7 +251,7 @@ export function buildReuseCycleSummary(options: {
   )
   const latestUsage = relatedUsages[0]
   const latestClosure = relatedClosures[0]
-  const openUsage = relatedUsages.find((item) => !['CLOSED', 'EXCEPTION_CLOSED'].includes(item.usageStatus))
+  const openUsage = relatedUsages.find((item) => !['CLOSED', 'SCRAP_CLOSED'].includes(item.usageStatus))
   const latestCycleId = latestUsage?.cycleId ? latestUsage.cycleId : options.bag.latestCycleId
   const latestCycleNo = latestUsage?.cycleNo ? latestUsage.cycleNo : options.bag.latestCycleNo
   const currentOpenCycleId = openUsage?.cycleId ? openUsage.cycleId : ''
@@ -278,7 +278,7 @@ export function buildReuseCycleSummary(options: {
   }
 }
 
-export function buildReturnExceptionMeta(discrepancyType: TransferBagDiscrepancyType): ReturnExceptionMeta | null {
+export function buildReturnDiscrepancyMeta(discrepancyType: TransferBagDiscrepancyType): ReturnDiscrepancyMeta | null {
   return discrepancyMetaMap[discrepancyType] ?? null
 }
 
@@ -347,7 +347,7 @@ export function buildTransferBagReturnViewModel(options: {
           bag: usage.bagMaster,
           latestClosureResult,
         }),
-        returnExceptionMeta: buildReturnExceptionMeta(latestReturnReceipt?.discrepancyType || 'NONE'),
+        returnDiscrepancyMeta: buildReturnDiscrepancyMeta(latestReturnReceipt?.discrepancyType || 'NONE'),
       }
     })
     .sort((left, right) => right.cycleNo.localeCompare(left.cycleNo, 'zh-CN'))
@@ -385,7 +385,7 @@ export function buildTransferBagReturnViewModel(options: {
         repairNeeded: record.repairNeeded,
         reusableDecision: record.reusableDecision,
       }),
-      returnExceptionMeta: buildReturnExceptionMeta(
+      returnDiscrepancyMeta: buildReturnDiscrepancyMeta(
         sortByLatest(returnReceiptsByUsageId[record.cycleId] || [], 'returnAt')[0]?.discrepancyType || 'NONE',
       ),
     }))
@@ -394,7 +394,7 @@ export function buildTransferBagReturnViewModel(options: {
     summary: {
       waitingReturnUsageCount: waitingReturnUsages.filter((item) => ['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN'].includes(item.usageStatus)).length,
       inspectingUsageCount: waitingReturnUsages.filter((item) => item.usageStatus === 'RETURN_INSPECTING').length,
-      closedUsageCount: waitingReturnUsages.filter((item) => ['CLOSED', 'EXCEPTION_CLOSED'].includes(item.usageStatus)).length,
+      closedUsageCount: waitingReturnUsages.filter((item) => ['CLOSED', 'SCRAP_CLOSED'].includes(item.usageStatus)).length,
       reusableBagCount: reuseCycles.filter((item) => item.currentReusableStatus === 'REUSABLE').length,
       waitingCleaningBagCount: reuseCycles.filter((item) => item.currentReusableStatus === 'WAITING_CLEANING').length,
       waitingRepairBagCount: reuseCycles.filter((item) => item.currentReusableStatus === 'WAITING_REPAIR').length,

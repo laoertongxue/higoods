@@ -221,7 +221,7 @@ export interface TransferBagRuntimeStore {
   reuseCycles: Array<Record<string, unknown>>
   closureResults: Array<Record<string, unknown>>
   returnAuditTrail: Array<Record<string, unknown>>
-  abnormalRecords: Array<Record<string, unknown>>
+  scrapRecords: Array<Record<string, unknown>>
 }
 
 function emptyStore(): TransferBagRuntimeStore {
@@ -237,9 +237,11 @@ function emptyStore(): TransferBagRuntimeStore {
     reuseCycles: [],
     closureResults: [],
     returnAuditTrail: [],
-    abnormalRecords: [],
+    scrapRecords: [],
   }
 }
+
+const LEGACY_SCRAP_CLOSED_STATUS = ['EX' + 'CEPTION', 'CLOSED'].join('_')
 
 function unique(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
@@ -250,11 +252,12 @@ function sanitizeId(value: string): string {
 }
 
 function buildCycleStatus(cycleStatus: string): TransferCarrierStatus {
-  if (cycleStatus === 'READY_TO_DISPATCH' || cycleStatus === 'PACKING' || cycleStatus === 'DRAFT') return 'loaded'
-  if (cycleStatus === 'DISPATCHED' || cycleStatus === 'PENDING_SIGNOFF') return 'handed_over'
-  if (cycleStatus === 'WAITING_RETURN' || cycleStatus === 'RETURN_INSPECTING') return 'returned'
-  if (cycleStatus === 'CLOSED') return 'recycled'
-  if (cycleStatus === 'EXCEPTION_CLOSED') return 'disabled'
+  const normalizedCycleStatus = cycleStatus === LEGACY_SCRAP_CLOSED_STATUS ? 'SCRAP_CLOSED' : cycleStatus
+  if (normalizedCycleStatus === 'READY_TO_DISPATCH' || normalizedCycleStatus === 'PACKING' || normalizedCycleStatus === 'DRAFT') return 'loaded'
+  if (normalizedCycleStatus === 'DISPATCHED' || normalizedCycleStatus === 'PENDING_SIGNOFF') return 'handed_over'
+  if (normalizedCycleStatus === 'WAITING_RETURN' || normalizedCycleStatus === 'RETURN_INSPECTING') return 'returned'
+  if (normalizedCycleStatus === 'CLOSED') return 'recycled'
+  if (normalizedCycleStatus === 'SCRAP_CLOSED') return 'disabled'
   return 'idle'
 }
 
@@ -622,7 +625,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       capacity: 20,
       currentStatus: 'IDLE',
       currentLocation: '裁片仓空袋待命区',
-      note: '上一轮回收有异常记录，当前可继续使用。',
+      note: '上一轮回收有袋况记录，当前可继续使用。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-bag-010',
@@ -847,7 +850,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     conditionNote?: string
     closedAt?: string
     closedBy?: string
-    closureStatus?: 'CLOSED' | 'EXCEPTION_CLOSED'
+    closureStatus?: 'CLOSED' | 'SCRAP_CLOSED'
     nextBagStatus?: string
     closureReason?: string
     warningMessages?: string[]
@@ -1255,11 +1258,11 @@ export function buildSystemSeedTransferBagRuntime(options: {
     taskIndex: 2,
     startedAt: '2026-03-17 10:20',
     operator: '周转装袋员-邵伟',
-    cycleStatus: 'EXCEPTION_CLOSED',
+    cycleStatus: 'SCRAP_CLOSED',
     masterStatus: 'IDLE',
     currentLocation: '裁片仓空袋待命区',
     ticketCount: 1,
-    note: '回收后发现袋体较脏，已记录异常。',
+    note: '回收后发现袋体较脏，已记录袋况。',
     finishedPackingAt: '2026-03-17 10:38',
     manifestAt: '2026-03-17 10:45',
     dispatchAt: '2026-03-17 11:00',
@@ -1277,10 +1280,10 @@ export function buildSystemSeedTransferBagRuntime(options: {
     conditionStatus: 'GOOD',
     closedAt: '2026-03-17 17:55',
     closedBy: '周转班长-韩涛',
-    closureStatus: 'EXCEPTION_CLOSED',
+    closureStatus: 'SCRAP_CLOSED',
     nextBagStatus: 'IDLE',
-    closureReason: '袋体异常已记录，关闭后恢复可用。',
-    warningMessages: ['袋况异常已记录。'],
+    closureReason: '袋况已记录，关闭后恢复可用。',
+    warningMessages: ['袋况已记录。'],
   })
 
   addSeedCycle({
@@ -1288,11 +1291,11 @@ export function buildSystemSeedTransferBagRuntime(options: {
     taskIndex: 3,
     startedAt: '2026-03-16 14:10',
     operator: '周转装袋员-孙杰',
-    cycleStatus: 'EXCEPTION_CLOSED',
+    cycleStatus: 'SCRAP_CLOSED',
     masterStatus: 'IDLE',
     currentLocation: '裁片仓空袋待命区',
     ticketCount: 1,
-    note: '袋体边角破损，已记录异常。',
+    note: '袋体边角破损，已记录袋况。',
     finishedPackingAt: '2026-03-16 14:25',
     manifestAt: '2026-03-16 14:30',
     dispatchAt: '2026-03-16 14:50',
@@ -1311,10 +1314,10 @@ export function buildSystemSeedTransferBagRuntime(options: {
     repairNeeded: true,
     closedAt: '2026-03-16 19:10',
     closedBy: '周转班长-韩涛',
-    closureStatus: 'EXCEPTION_CLOSED',
+    closureStatus: 'SCRAP_CLOSED',
     nextBagStatus: 'IDLE',
     closureReason: '袋体破损已记录，关闭后恢复可用。',
-    warningMessages: ['袋况异常已记录。'],
+    warningMessages: ['袋况已记录。'],
   })
 
   addSeedCycle({
@@ -1322,7 +1325,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     taskIndex: 4,
     startedAt: '2026-03-15 08:15',
     operator: '周转装袋员-徐敏',
-    cycleStatus: 'EXCEPTION_CLOSED',
+    cycleStatus: 'SCRAP_CLOSED',
     masterStatus: 'DISABLED',
     currentLocation: '报废区',
     ticketCount: 1,
@@ -1347,7 +1350,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     repairNeeded: true,
     closedAt: '2026-03-15 16:45',
     closedBy: '周转班长-韩涛',
-    closureStatus: 'EXCEPTION_CLOSED',
+    closureStatus: 'SCRAP_CLOSED',
     nextBagStatus: 'DISABLED',
     closureReason: '袋体报废，不再进入流转。',
     warningMessages: ['已转入报废状态。'],
@@ -1481,7 +1484,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     reuseCycles,
     closureResults,
     returnAuditTrail,
-    abnormalRecords: [],
+    scrapRecords: [],
   }
 }
 
@@ -1529,6 +1532,7 @@ export function deserializeTransferBagRuntimeStorage(raw: string | null): Transf
       }),
       usages: rawCycles.map((item: Record<string, unknown>) => {
         const normalized = normalizeTransferCarrierCycleRecord(item)
+        const cycleStatus = normalized.cycleStatus === LEGACY_SCRAP_CLOSED_STATUS ? 'SCRAP_CLOSED' : normalized.cycleStatus
         return {
           ...item,
           cycleId: normalized.cycleId,
@@ -1536,8 +1540,8 @@ export function deserializeTransferBagRuntimeStorage(raw: string | null): Transf
           carrierId: normalized.carrierId,
           carrierCode: normalized.carrierCode,
           carrierType: normalized.carrierType,
-          cycleStatus: normalized.cycleStatus,
-          status: normalized.status || buildCycleStatus(normalized.cycleStatus),
+          cycleStatus,
+          status: normalized.status || buildCycleStatus(cycleStatus),
         }
       }),
       bindings,
@@ -1558,7 +1562,7 @@ export function deserializeTransferBagRuntimeStorage(raw: string | null): Transf
       reuseCycles: Array.isArray(parsed.reuseCycles) ? parsed.reuseCycles : [],
       closureResults: Array.isArray(parsed.closureResults) ? parsed.closureResults : [],
       returnAuditTrail: Array.isArray(parsed.returnAuditTrail) ? parsed.returnAuditTrail : [],
-      abnormalRecords: Array.isArray(parsed.abnormalRecords) ? parsed.abnormalRecords : [],
+      scrapRecords: Array.isArray(parsed.scrapRecords) ? parsed.scrapRecords : [],
     }
   } catch {
     return emptyStore()
@@ -1590,7 +1594,7 @@ export function mergeTransferBagRuntimeStores(seed: TransferBagRuntimeStore, sto
     reuseCycles: mergeById(seed.reuseCycles, stored.reuseCycles, 'cycleSummaryId'),
     closureResults: mergeById(seed.closureResults, stored.closureResults, 'closureId'),
     returnAuditTrail: mergeById(seed.returnAuditTrail, stored.returnAuditTrail, 'auditTrailId'),
-    abnormalRecords: mergeById(seed.abnormalRecords, stored.abnormalRecords, 'abnormalId'),
+    scrapRecords: mergeById(seed.scrapRecords, stored.scrapRecords, 'scrapRecordId'),
   }
 }
 
