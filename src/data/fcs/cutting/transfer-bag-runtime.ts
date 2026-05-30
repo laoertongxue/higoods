@@ -1035,6 +1035,55 @@ export function buildSystemSeedTransferBagRuntime(options: {
     return cycle
   }
 
+  function generateSyntheticPrintedTickets(
+    count: number,
+    cutOrderRows: TransferBagSeedCutOrderRowLike[],
+  ): TransferBagSeedTicketLike[] {
+    const styles = ['HG-ST001', 'HG-ST002', 'HG-ST003', 'HG-ST004', 'HG-ST005']
+    const spuCodes = ['SPU-A01', 'SPU-B02', 'SPU-C03', 'SPU-D04', 'SPU-E05']
+    const fabricColors = ['黑色', '藏青', '酒红', '白色', '灰色']
+    const sizes = ['S', 'M', 'L', 'XL', '2XL']
+    const partNames = ['前片', '后片', '袖片', '领片', '门襟', '袋布', '贴边', '里衬']
+    const result: TransferBagSeedTicketLike[] = []
+    for (let i = 0; i < count; i++) {
+      const cutOrder = cutOrderRows[i % cutOrderRows.length]!
+      result.push({
+        feiTicketId: `fei-ticket-syn-${String(i + 1).padStart(3, '0')}`,
+        feiTicketNo: `FT-${String(i + 1).padStart(5, '0')}`,
+        sourceSpreadingSessionId: '',
+        sourceSpreadingSessionNo: '',
+        sourceMarkerId: '',
+        sourceMarkerNo: '',
+        sourceWritebackId: '',
+        cutOrderId: cutOrder.cutOrderId,
+        cutOrderNo: cutOrder.cutOrderNo,
+        productionOrderNo: cutOrder.productionOrderNo,
+        markerPlanNo: '',
+        styleCode: styles[i % styles.length],
+        spuCode: spuCodes[i % spuCodes.length],
+        fabricRollNo: '',
+        fabricColor: fabricColors[i % fabricColors.length],
+        color: fabricColors[i % fabricColors.length],
+        size: sizes[i % sizes.length],
+        partCode: `PART-${partNames[i % partNames.length]}`,
+        partName: partNames[i % partNames.length],
+        bundleNo: `BND-${String(i + 1).padStart(3, '0')}`,
+        qty: Math.floor(Math.random() * 20) + 5,
+        actualCutPieceQty: 0,
+        garmentQty: 0,
+        materialSku: `SKU-${styles[i % styles.length]}-${sizes[i % sizes.length]}`,
+        sourceContextType: 'SYNTHETIC',
+        status: 'PRINTED',
+      })
+    }
+    return result
+  }
+
+  if (printedTickets.length === 0 && options.cutOrderRows.length > 0) {
+    const synthetic = generateSyntheticPrintedTickets(40, options.cutOrderRows)
+    printedTickets.push(...synthetic)
+  }
+
   addSeedCycle({
     masterIndex: 0,
     taskIndex: 1,
