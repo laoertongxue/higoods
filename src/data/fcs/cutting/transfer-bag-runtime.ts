@@ -1472,6 +1472,54 @@ export function buildSystemSeedTransferBagRuntime(options: {
     note: '入仓暂存袋：允许不同生产单、SKU、部位菲票临时混装，车缝任务分配后再分拣装袋。',
   })
 
+  // ---------- BAG-A-002：补充历史 + 活跃周期 ----------
+  addSeedCycle({
+    masterIndex: 1,
+    taskIndex: 0,
+    startedAt: '2026-03-13 10:10',
+    operator: '周转装袋员-赵敏',
+    cycleStatus: 'CLOSED',
+    masterStatus: 'IDLE',
+    currentLocation: '裁片仓 A 区待命位',
+    ticketCount: 3,
+    note: 'BAG-A-002 第一轮周转已闭环，装袋内容含多部位裁片。',
+    finishedPackingAt: '2026-03-13 10:35',
+    manifestAt: '2026-03-13 10:40',
+    dispatchAt: '2026-03-13 11:05',
+    dispatchBy: '周转装袋员-赵敏',
+    signoffStatus: 'SIGNED',
+    signedAt: '2026-03-13 13:40',
+    returnedAt: '2026-03-13 17:10',
+    returnAt: '2026-03-13 17:15',
+    returnWarehouseName: '裁片仓 A 区回收点',
+    returnedBy: '车缝返还员-李娜',
+    receivedBy: '回收验收员-陈静',
+    returnNote: '本次回收登记完整，袋内菲票与裁片件数一致。',
+    inspectedAt: '2026-03-13 17:30',
+    inspectedBy: '回收验收员-陈静',
+    reusableDecision: 'REUSABLE',
+    conditionStatus: 'GOOD',
+    cleanlinessStatus: 'CLEAN',
+    conditionNote: '袋况正常，可直接继续使用。',
+    closedAt: '2026-03-13 17:45',
+    closedBy: '周转班长-韩涛',
+    closureStatus: 'CLOSED',
+    nextBagStatus: 'IDLE',
+    closureReason: '回收验收通过，口袋释放为空闲。',
+  })
+
+  addSeedCycle({
+    masterIndex: 1,
+    taskIndex: 2,
+    startedAt: '2026-03-24 09:30',
+    operator: '周转装袋员-陈亮',
+    cycleStatus: 'PACKING',
+    masterStatus: 'IN_USE',
+    currentLocation: '裁片仓 A 区装袋位',
+    ticketCount: 2,
+    note: 'BAG-A-002 第二轮周转进行中，装入车缝款号对应裁片。',
+  })
+
   return {
     masters,
     usages,

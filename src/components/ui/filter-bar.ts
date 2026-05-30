@@ -4,19 +4,7 @@ import type { FilterBarConfig, SearchInputConfig, SelectConfig, ButtonConfig, Ac
 import { toActionAttr, toFilterAttr } from './types.ts'
 import { renderSelect } from './form.ts'
 import { renderButton } from './button.ts'
-
-/**
- * HTML 转义
- */
-function escapeHtml(str: string): string {
-  if (typeof str !== 'string') return String(str ?? '')
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
+import { escapeHtml } from '../../utils.ts'
 
 // ============ 搜索输入框 ============
 

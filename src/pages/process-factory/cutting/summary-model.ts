@@ -458,7 +458,7 @@ export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, Cutting
     label: '仓储 / 交接问题',
     className: 'bg-orange-100 text-orange-700 border border-orange-200',
     detailText: '待入仓、待交接、待回仓或袋况异常。',
-    actionHint: '去中转袋流转',
+    actionHint: '去中转袋管理',
   },
   SPECIAL_PROCESS: {
     key: 'SPECIAL_PROCESS',
@@ -511,7 +511,7 @@ function summarizeWarehouseStatus(options: {
 }
 
 function summarizeBagUsageStatus(usages: TransferBagUsageItem[], returnUsages: TransferBagReturnUsageItem[]): string {
-  if (!usages.length && !returnUsages.length) return '未进入中转袋流转'
+  if (!usages.length && !returnUsages.length) return '未进入中转袋管理'
   const waitingDispatch = usages.filter((usage) => usage.usageStatus === 'READY_TO_DISPATCH').length
   const waitingReturn = returnUsages.filter((usage) => ['WAITING_RETURN', 'RETURN_INSPECTING'].includes(usage.usageStatus)).length
   const closed = returnUsages.filter((usage) => ['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)).length

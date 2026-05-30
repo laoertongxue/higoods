@@ -2,24 +2,11 @@
 
 import type { TableColumn, TableOptions, ActionConfig } from './types.ts'
 import { toActionAttr, toDataPrefix } from './types.ts'
-
-/**
- * HTML 转义
- */
-function escapeHtml(str: string): string {
-  if (typeof str !== 'string') return String(str ?? '')
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
+import { escapeHtml } from '../../utils.ts'
 
 // ============ 基础样式 ============
 
 const TABLE_BASE_CLASSES = 'w-full caption-bottom text-sm'
-const TABLE_HEADER_CLASSES = 'h-10 px-4 text-left align-middle font-medium text-muted-foreground'
 const TABLE_CELL_CLASSES = 'p-4 align-middle'
 const TABLE_ROW_CLASSES = 'border-b transition-colors'
 
@@ -48,7 +35,7 @@ export function renderTable<T>(
     return `
       <div class="relative w-full overflow-auto">
         <table class="${tableClass}">
-          ${renderTableHeader(columns, cellPadding)}
+          ${renderTableHeader(columns, compact)}
           <tbody>
             <tr>
               <td colspan="${columns.length}" class="h-24 text-center text-muted-foreground">
@@ -68,7 +55,7 @@ export function renderTable<T>(
   return `
     <div class="relative w-full overflow-auto">
       <table class="${tableClass}">
-        ${renderTableHeader(columns, cellPadding)}
+        ${renderTableHeader(columns, compact)}
         <tbody>
           ${rows}
         </tbody>
@@ -80,7 +67,7 @@ export function renderTable<T>(
 /**
  * 渲染表格头
  */
-export function renderTableHeader<T>(columns: TableColumn<T>[], cellPadding = 'p-4'): string {
+export function renderTableHeader<T>(columns: TableColumn<T>[], compact = false): string {
   const headers = columns
     .map(col => {
       const width = col.width ? `width: ${col.width};` : ''
@@ -88,8 +75,8 @@ export function renderTableHeader<T>(columns: TableColumn<T>[], cellPadding = 'p
       const style = width || minWidth ? `style="${width}${minWidth}"` : ''
       const align = col.align || 'left'
       const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left'
-      const headerClass = `${TABLE_HEADER_CLASSES} ${alignClass} ${col.className || ''}`
-        .replace('p-4', cellPadding)
+      const paddingClass = compact ? 'px-3 py-1' : 'px-4 py-2'
+      const headerClass = `h-10 ${paddingClass} text-left align-middle font-medium ${alignClass} ${col.className || ''}`
       
       let sortIcon = ''
       if (col.sortable) {
@@ -101,8 +88,8 @@ export function renderTableHeader<T>(columns: TableColumn<T>[], cellPadding = 'p
     .join('')
 
   return `
-    <thead class="[&_tr]:border-b">
-      <tr class="border-b transition-colors hover:bg-muted/50">
+    <thead>
+      <tr class="border-b bg-muted/40 text-left">
         ${headers}
       </tr>
     </thead>
@@ -300,7 +287,7 @@ export function renderSimpleTable(
   const cellPadding = compact ? 'p-2' : 'p-4'
 
   const headerHtml = headers
-    .map(h => `<th class="${TABLE_HEADER_CLASSES.replace('p-4', cellPadding)}">${escapeHtml(h)}</th>`)
+    .map(h => `<th class="h-10 ${compact ? 'px-3 py-1' : 'px-4 py-2'} text-left align-middle font-medium">${escapeHtml(h)}</th>`)
     .join('')
 
   const rowsHtml = rows

@@ -8,18 +8,7 @@ import type {
   FormFieldConfig,
 } from './types.ts'
 import { toFieldAttr, toFilterAttr } from './types.ts'
-
-/**
- * HTML 转义
- */
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
+import { escapeHtml } from '../../utils.ts'
 
 // ============ 基础样式 ============
 

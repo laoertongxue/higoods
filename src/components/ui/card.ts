@@ -2,19 +2,7 @@
 
 import type { KpiCardConfig, InfoCardConfig, ActionConfig } from './types.ts'
 import { toActionAttr } from './types.ts'
-
-/**
- * HTML 转义
- */
-function escapeHtml(str: string): string {
-  if (typeof str !== 'string') return String(str ?? '')
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
+import { escapeHtml } from '../../utils.ts'
 
 // ============ 基础样式 ============
 

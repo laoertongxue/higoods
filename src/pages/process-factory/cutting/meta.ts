@@ -294,7 +294,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '中转袋流转',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看中转袋流转状态、筛选对象并进入详情。',
+    shortDescription: '管理中转袋主档、查看流转状态并进入详情。',
   },
   'transfer-bag-detail': {
     key: 'transfer-bag-detail',

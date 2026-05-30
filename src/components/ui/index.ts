@@ -23,14 +23,28 @@ export * from './form.ts'
 // ============ 导航组件 ============
 export * from './pagination.ts'
 export * from './filter-bar.ts'
+export * from './tabs.ts'
+
+// ============ 反馈组件 ============
+export * from './toast.ts'
+export * from './steps.ts'
+
+// ============ 交互组件 ============
+export * from './dropdown.ts'
+export * from './collapse.ts'
+export * from './tooltip.ts'
+
+// ============ 加载与进度 ============
+export * from './progress.ts'
+export * from './skeleton.ts'
 
 // ============ 便捷导入 ============
 // 组件使用示例：
-// import { renderDrawer, renderTable, renderButton } from '../components/ui'
-// 
+// import { renderDrawer, renderTable, renderButton, renderTabs, renderToast } from '../components/ui'
+//
 // 或按类别导入：
 // import * as UI from '../components/ui'
 // UI.renderDrawer(...)
 
 // ============ 版本信息 ============
-export const UI_VERSION = '1.0.0'
+export const UI_VERSION = '1.2.0'
