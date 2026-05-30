@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HiGood 项目架构图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a2e;
+    padding: 40px 20px;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 8px; }
+  .subtitle { color: #666; margin-bottom: 32px; font-size: 14px; }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    padding: 32px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+  .card h2 { font-size: 20px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #e8e8e8; }
+  .mermaid { display: flex; justify-content: center; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px;
+    font-size: 13px; color: #555;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>HiGood 服装制造供应链原型平台 — 架构图</h1>
+  <p class="subtitle">基于 TypeScript + Vite + Tailwind CSS 的自研 SPA 原型系统</p>
+
+  <!-- 整体架构 -->
+  <div class="card">
+    <h2>一、整体分层架构</h2>
+    <div class="mermaid">
+graph TB
+    subgraph Entry["🔵 入口层"]
+        index["📄 index.html"]
+        main["⚡ main.ts\n启动 · 全局事件委托"]
+    end
+
+    subgraph Router["🟢 路由层"]
+        routes["🔀 router/routes.ts · resolvePage()"]
+        fcs_r["routes-fcs.ts"]
+        pcs_r["routes-pcs.ts"]
+        pda_r["routes-pda.ts"]
+        renderers["route-renderers.ts"]
+    end
+
+    subgraph Shell["🟡 外壳层"]
+        shell_c["🧩 components/shell.ts\n侧栏 · 标签页 · 布局"]
+        ui_c["🔧 components/ui/\nButton Badge Card\nDialog Drawer Table\nForm FilterBar Pagination"]
+    end
+
+    subgraph Pages["🟠 页面层 (~90+ 模块)"]
+        direction LR
+        workbench["📊 workbench"]
+        cutting["✂️ 裁床 (~70)"]
+        printing["🖨️ 印花"]
+        dyeing["🎨 染色"]
+        special["🔩 特种工艺"]
+        pda_p["📱 PDA (~30)"]
+        pcs_p["📐 PCS (~15)"]
+        factory_p["🏭 工厂管理"]
+        print_p["🖼️ 打印预览"]
+        settlement_p["💰 结算"]
+    end
+
+    subgraph Domain["🔴 领域层 (DDD)"]
+        cutting_core["cutting-core\nRegistry + Repository"]
+        cutting_platform["cutting-platform\nAdapter + Mock"]
+        cutting_settlement["cutting-settlement"]
+        cutting_exception["cutting-exception"]
+        pickup["pickup"]
+    end
+
+    subgraph Data["🟣 数据层"]
+        shell_config["app-shell-config.ts\n菜单 · 导航 · 标签"]
+        fcs_data["data/fcs/ (~100 文件)\n生产 · 工艺 · 质检\n结算 · 产能 · 工厂"]
+        pcs_data["data/pcs-*.ts (~50 文件)\n项目 · 样板 · 工艺单 · 测试"]
+    end
+
+    subgraph State["🟤 状态层"]
+        store["state/store.ts\nAppStore 单例\npathname · tabs · sidebar"]
+        domain_store["fcs-claim-dispute-store"]
+    end
+
+    subgraph Handlers["⚫ 事件处理层"]
+        fcs_h["main-handlers/\nfcs-handlers.ts"]
+        pcs_h["main-handlers/\npcs-handlers.ts"]
+        pda_h["main-handlers/\npda-handlers.ts"]
+    end
+
+    subgraph Infra["⚪ 工程化基础设施"]
+        scripts["📋 校验脚本 (~95)\ncheck:cutting:* · check:pda-*\ncheck:quality-* · check:menu-*"]
+        tests["🧪 E2E 测试 (~70)\nPlaywright · Chromium\ncutting · pda · pcs · factory"]
+        vite_i["⚙️ vite.config.ts\n构建 · 手动分 chunk"]
+        vercel_i["🚀 vercel.json\nSPA Rewrite 部署"]
+    end
+
+    index --> main
+    main --> store
+    main --> fcs_h
+    main --> pcs_h
+    main --> pda_h
+    main --> routes
+
+    routes --> fcs_r
+    routes --> pcs_r
+    routes --> pda_r
+    routes --> renderers
+
+    fcs_r --> Pages
+    pcs_r --> Pages
+    pda_r --> Pages
+
+    shell_c --> ui_c
+    Pages --> shell_c
+
+    cutting --> Domain
+    Pages --> Data
+    Domain --> Data
+    fcs_h --> Data
+    pcs_h --> Data
+    pda_h --> Data
+    store --> Data
+
+    Infra -.-> Pages
+    Infra -.-> Domain
+    Infra -.-> Data
+    </div>
+  </div>
+
+  <!-- 数据流 -->
+  <div class="card">
+    <h2>二、运行时数据流</h2>
+    <div class="mermaid">
+sequenceDiagram
+    participant User as 👤 用户
+    participant DOM as 🌐 #app
+    participant Main as ⚡ main.ts
+    participant Handler as 🎯 Handler (FCS/PCS/PDA)
+    participant Data as 🗄️ data/ (Mock)
+    participant Store as 📦 AppStore
+    participant Router as 🔀 resolvePage()
+    participant Page as 📄 renderXxxPage()
+
+    User->>DOM: 点击 / 输入 / 提交
+    DOM->>Main: 事件冒泡 (click/input/submit)
+    Main->>Handler: 按路径前缀分派
+
+    alt 需要修改数据
+        Handler->>Data: 读写 Mock 数据
+        Data-->>Handler: 更新结果
+    end
+
+    Handler->>Store: 更新状态 (pathname/tabs)
+    Store->>Router: 通知路径变更
+    Router->>Page: 调用对应 render 函数
+    Page-->>Router: 返回 HTML 字符串
+    Router-->>DOM: root.innerHTML 挂载
+    DOM-->>User: 页面重新渲染
+    </div>
+  </div>
+
+  <!-- 裁床领域详图 -->
+  <div class="card">
+    <h2>三、裁床 (Cutting) 领域架构 — DDD 最佳实践</h2>
+    <div class="mermaid">
+graph LR
+    subgraph Pages["📄 页面层"]
+        c_overview["裁床总览"]
+        c_marker["唛架计划"]
+        c_spread["铺布任务"]
+        c_transfer["转移袋"]
+        c_progress["生产进度"]
+        c_replenish["补数管理"]
+        c_cutorder["裁单"]
+        c_fabric["面料仓"]
+        c_special["特种工艺"]
+    end
+
+    subgraph Domain["🔴 领域层"]
+        core["cutting-core\n━━━━━━━━\nTypes · Registry\nRepository\n双向查找缓存"]
+        platform["cutting-platform\n━━━━━━━━\n视图适配器\nMock 数据"]
+        settlement["cutting-settlement\n━━━━━━━━\n结算类型\n结算辅助"]
+        exception["cutting-exception\n━━━━━━━━\n异常类型\n异常辅助"]
+        warehouse["cutting-warehouse-\nwriteback\n━━━━━━━━\n仓库回写桥接"]
+        runtime["fcs-cutting-runtime\n━━━━━━━━\n运行时快照"]
+        truth["fcs-cutting-\npiece-truth\n━━━━━━━━\n裁片真相"]
+        pu["pickup\n━━━━━━━━\n领料适配器"]
+    end
+
+    subgraph Data["🗄️ 数据源"]
+        prod_orders["production-orders.ts"]
+        cut_orders["cut-orders.ts"]
+        marker_sources["marker-sources.ts"]
+        cutting_tasks["cutting-tasks.ts"]
+        pda_executions["pda-executions.ts"]
+    end
+
+    c_overview --> core
+    c_marker --> core
+    c_spread --> core
+    c_transfer --> core
+    c_progress --> core
+    c_replenish --> core
+    c_cutorder --> core
+    c_fabric --> core
+    c_special --> core
+
+    core --> platform
+    core --> settlement
+    core --> exception
+    core --> warehouse
+    core --> runtime
+    core --> truth
+    core --> pu
+
+    core --> Data
+    platform --> Data
+    </div>
+  </div>
+
+  <!-- Vite 构建分块 -->
+  <div class="card">
+    <h2>四、Vite 构建分块策略</h2>
+    <div class="mermaid">
+graph LR
+    src["📁 src/"]
+
+    src --> vendor_l["📦 vendor-lucide\n(lucide icons)"]
+    src --> vendor["📦 vendor\n(React/QR/Utils)"]
+    src --> shell["🧩 app-shell\n(shell + ui components)"]
+    src --> routes_all["🔀 app-routes\n(core router)"]
+    src --> routes_fcs["🔀 app-routes-fcs\n(FCS routes + pages)"]
+    src --> routes_pcs["🔀 app-routes-pcs\n(PCS routes + pages)"]
+    src --> routes_pda["🔀 app-routes-pda\n(PDA routes + pages)"]
+
+    vendor_l --> dist["📁 dist/"]
+    vendor --> dist
+    shell --> dist
+    routes_all --> dist
+    routes_fcs --> dist
+    routes_pcs --> dist
+    routes_pda --> dist
+
+    dist --> vercel["🚀 Vercel SPA"]
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#4CAF50"></div> 按系统维度拆分为独立 chunk，按需加载</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2196F3"></div> chunkSizeWarningLimit 设为 3200KB</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FF9800"></div> vercel.json 配置 SPA rewrite 规则</div>
+    </div>
+  </div>
+
+</div>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+    sequence: { useMaxWidth: true }
+  });
+</script>
+</body>
+</html>

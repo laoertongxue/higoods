@@ -82,7 +82,7 @@ async function submitLogin(): Promise<void> {
     renderImmediatePdaExecLoading()
   }
 
-  const officialResult = await authenticateFactoryPdaUserByCredentials(loginId, password)
+  const officialResult = authenticateFactoryPdaUserByCredentials(loginId, password)
   if (!officialResult.error && officialResult.user) {
     const session = createPdaSessionFromUser(officialResult.user)
     clearFactoryOnboardingApplicantSession()

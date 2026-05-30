@@ -486,26 +486,81 @@ export function normalizePdaPassword(password: string): string {
   return password.trim()
 }
 
-function getPdaSubtleCrypto(): SubtleCrypto {
-  if (globalThis.crypto?.subtle) return globalThis.crypto.subtle
-  throw new Error('当前环境不支持密码摘要。')
+// =============================================
+// 纯 JS SHA-256 实现 — 不依赖 Web Crypto API
+// 在任何 HTTP/HTTPS/file 环境下均可运行
+// =============================================
+const SHA256_K: number[] = [
+  0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+  0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+  0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+  0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+  0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+  0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+  0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+  0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
+]
+
+function sha256Uint8Array(message: Uint8Array): Uint8Array {
+  const rotr = (x: number, n: number): number => (x >>> n) | (x << (32 - n))
+  const ch = (x: number, y: number, z: number): number => (x & y) ^ (~x & z)
+  const maj = (x: number, y: number, z: number): number => (x & y) ^ (x & z) ^ (y & z)
+  const bsig0 = (x: number): number => rotr(x, 2) ^ rotr(x, 13) ^ rotr(x, 22)
+  const bsig1 = (x: number): number => rotr(x, 6) ^ rotr(x, 11) ^ rotr(x, 25)
+  const ssig0 = (x: number): number => rotr(x, 7) ^ rotr(x, 18) ^ (x >>> 3)
+  const ssig1 = (x: number): number => rotr(x, 17) ^ rotr(x, 19) ^ (x >>> 10)
+
+  const bitLen = message.length * 8
+  const padLen = (message.length + 9 + 63) & ~63
+  const padded = new Uint8Array(padLen)
+  padded.set(message)
+  padded[message.length] = 0x80
+
+  const view = new DataView(padded.buffer)
+  view.setUint32(padLen - 4, bitLen, false)
+
+  const H = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19])
+
+  for (let offset = 0; offset < padLen; offset += 64) {
+    const W = new Uint32Array(64)
+    for (let t = 0; t < 16; t++) {
+      W[t] = view.getUint32(offset + t * 4, false)
+    }
+    for (let t = 16; t < 64; t++) {
+      W[t] = (ssig1(W[t - 2]) + W[t - 7] + ssig0(W[t - 15]) + W[t - 16]) >>> 0
+    }
+    let [a, b, c, d, e, f, g, h] = H
+    for (let t = 0; t < 64; t++) {
+      const T1 = (h + bsig1(e) + ch(e, f, g) + SHA256_K[t] + W[t]) >>> 0
+      const T2 = (bsig0(a) + maj(a, b, c)) >>> 0
+      h = g; g = f; f = e; e = (d + T1) >>> 0
+      d = c; c = b; b = a; a = (T1 + T2) >>> 0
+    }
+    H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0; H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0
+    H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0; H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0
+  }
+
+  const result = new Uint8Array(32)
+  const rView = new DataView(result.buffer)
+  for (let i = 0; i < 8; i++) rView.setUint32(i * 4, H[i], false)
+  return result
 }
 
-export async function hashPdaPassword(rawPassword: string): Promise<string> {
+export function sha256Hex(text: string): string {
+  const bytes = new TextEncoder().encode(text)
+  const hash = sha256Uint8Array(bytes)
+  return Array.from(hash).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+export function hashPdaPassword(rawPassword: string): string {
   const normalizedPassword = normalizePdaPassword(rawPassword)
-  const digest = await getPdaSubtleCrypto().digest(
-    'SHA-256',
-    new TextEncoder().encode(normalizedPassword),
-  )
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
+  return sha256Hex(normalizedPassword)
 }
 
-export async function verifyPdaPassword(rawPassword: string, passwordHash: string): Promise<boolean> {
+export function verifyPdaPassword(rawPassword: string, passwordHash: string): boolean {
   const normalizedHash = String(passwordHash || '').trim().toLowerCase()
   if (!normalizedHash) return false
-  const nextHash = await hashPdaPassword(rawPassword)
+  const nextHash = hashPdaPassword(rawPassword)
   return nextHash === normalizedHash
 }
 
@@ -759,7 +814,7 @@ function validateGlobalUniqueLoginId(loginId: string, excludeUserId?: string): v
   }
 }
 
-export async function createFactoryPdaUser(input: {
+export function createFactoryPdaUser(input: {
   factoryId: string
   name: string
   loginId: string
@@ -778,7 +833,7 @@ export async function createFactoryPdaUser(input: {
   }
 
   validateGlobalUniqueLoginId(loginId)
-  const passwordHash = await hashPdaPassword(password)
+  const passwordHash = hashPdaPassword(password)
 
   const now = nowTimestamp()
   const user: FactoryPdaUser = {
@@ -798,7 +853,7 @@ export async function createFactoryPdaUser(input: {
   return clonePdaUser(user)
 }
 
-export async function resetFactoryPdaUserPassword(
+export function resetFactoryPdaUserPassword(
   userId: string,
   rawPassword: string,
   updatedBy = 'ADMIN',
@@ -811,7 +866,7 @@ export async function resetFactoryPdaUserPassword(
     throw new Error('请输入登录密码')
   }
 
-  const passwordHash = await hashPdaPassword(password)
+  const passwordHash = hashPdaPassword(password)
   const updated: FactoryPdaUser = {
     ...current,
     passwordHash,
@@ -928,7 +983,7 @@ export async function upsertOfficialFactoryAdminFromOnboarding(input: {
 
   const users = ensurePdaUserStore()
   const existingByLogin = users.find((user) => normalizePdaLoginId(user.loginId) === normalizePdaLoginId(loginId))
-  const passwordHash = existingByLogin?.passwordHash || await hashPdaPassword(rawPassword || '123456')
+  const passwordHash = existingByLogin?.passwordHash || hashPdaPassword(rawPassword || '123456')
   const userId = existingByLogin?.userId || `PDAU-${input.createdFactory.id}-ADMIN`
   const officialUser: FactoryPdaUser = {
     ...(existingByLogin || {
@@ -1043,7 +1098,7 @@ export function authenticateFactoryPdaUserByLoginId(loginId: string): {
   }
 }
 
-export async function authenticateFactoryPdaUserByCredentials(
+export function authenticateFactoryPdaUserByCredentials(
   loginId: string,
   rawPassword: string,
 ): Promise<{
@@ -1058,7 +1113,7 @@ export async function authenticateFactoryPdaUserByCredentials(
     }
   }
 
-  const passwordValid = await verifyPdaPassword(rawPassword, loginResult.user.passwordHash)
+  const passwordValid = verifyPdaPassword(rawPassword, loginResult.user.passwordHash)
   if (!passwordValid) {
     return {
       user: null,

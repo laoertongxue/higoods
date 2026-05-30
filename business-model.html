@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HiGood 业务模型 — 实体关联与链路分析</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #f5f5f5;
+    color: #1a1a2e;
+    padding: 32px 24px;
+    line-height: 1.7;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  .subtitle { color: #777; margin-bottom: 28px; font-size: 14px; }
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .card h2 { font-size: 18px; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
+  .card h3 { font-size: 15px; margin: 16px 0 8px; color: #444; }
+  .mermaid { display: flex; justify-content: center; margin: 12px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; }
+  th { background: #f0f4f8; padding: 8px 10px; text-align: left; font-weight: 600; border-bottom: 2px solid #d0d7de; }
+  td { padding: 7px 10px; border-bottom: 1px solid #e8e8e8; vertical-align: top; }
+  tr:hover td { background: #fafbfc; }
+  .flow-step { display: flex; gap: 12px; align-items: flex-start; margin: 10px 0; }
+  .flow-step .num { 
+    width: 28px; height: 28px; border-radius: 50%; background: #1677ff; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .flow-step .desc { flex: 1; }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 0 2px;
+  }
+  .tag-blue { background: #e6f4ff; color: #1677ff; }
+  .tag-green { background: #f6ffed; color: #52c41a; }
+  .tag-orange { background: #fff7e6; color: #fa8c16; }
+  .tag-red { background: #fff1f0; color: #ff4d4f; }
+  .tag-purple { background: #f9f0ff; color: #722ed1; }
+  .tag-cyan { background: #e6fffb; color: #13c2c2; }
+  .entity-card {
+    border: 1px solid #e8e8e8; border-radius: 8px; padding: 16px; margin: 12px 0;
+    background: #fafafa;
+  }
+  .entity-card .name { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+  .entity-card .field { font-size: 13px; color: #555; margin: 3px 0; }
+  .entity-card .field strong { color: #333; }
+  .highlight { background: #fffbe6; padding: 1px 4px; border-radius: 3px; font-weight: 600; }
+  hr { border: none; border-top: 1px solid #eee; margin: 16px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🧵 HiGood 服装制造供应链 — 业务模型分析</h1>
+  <p class="subtitle">核心业务实体、关联链路、状态流转</p>
+
+  <!-- ============ 一、核心实体关系全景图 ============ -->
+  <div class="card">
+    <h2>一、核心业务实体关系全景</h2>
+    <div class="mermaid">
+erDiagram
+    ProductionDemand ||--o| ProductionOrder : "转换为"
+    TechPack ||--o{ ProductionOrderTechPackSnapshot : "冻结为快照"
+    ProductionOrderTechPackSnapshot ||--|| ProductionOrder : "挂载到"
+    ProductionOrder ||--o{ GeneratedCutOrder : "拆解为"
+    GeneratedCutOrder }o--|| MarkerPlan : "分组建唛架"
+    MarkerPlan ||--o{ CutPieceOrder : "生成裁片单"
+    CutPieceOrder ||--o{ PdaCutPieceExecution : "PDA执行"
+    ProcessTask ||--o{ PdaCutPieceExecution : "驱动"
+
+    ProductionDemand {
+        string demandId "需求单ID"
+        string spuCode "SPU编码"
+        string buyerName "买手"
+        string priority "优先级 URGENT|HIGH|NORMAL"
+        string techPackStatus "技术包状态"
+        string productionOrderId "关联生产单ID"
+    }
+
+    TechPack {
+        string spuCode "SPU编码"
+        string versionLabel "版本 v1.0"
+        string status "DRAFT|ENABLED|DISABLED"
+        int completenessScore "完整度 0-100"
+        array patternFiles "纸样文件"
+        array bomItems "BOM物料清单"
+        array processes "工序列表"
+        array sizeTable "尺码表"
+        array colorMaterialMappings "颜色-物料映射"
+    }
+
+    ProductionOrderTechPackSnapshot {
+        string snapshotId "快照ID"
+        string productionOrderId "生产单ID"
+        string versionLabel "版本标签"
+        array bomItems "BOM快照"
+        array patternFiles "纸样快照"
+        array processEntries "工序快照"
+        array cutPieceParts "裁片部位快照"
+    }
+
+    ProductionOrder {
+        string productionOrderId "生产单ID"
+        string demandId "需求单ID"
+        string status "DRAFT→ASSIGNING→EXECUTING→COMPLETED"
+        string mainFactoryId "主工厂ID"
+        string planStartDate "计划开始"
+        object techPackSnapshot "技术包快照"
+        object demandSnapshot "需求快照"
+    }
+
+    GeneratedCutOrder {
+        string cutOrderId "裁单ID"
+        string productionOrderId "生产单ID"
+        string materialSku "物料SKU"
+        string materialColor "物料颜色"
+        string materialType "物料类型 PRINT|DYE|SOLID|LINING"
+        string patternFileId "纸样文件ID"
+        string markerPlanId "唛架ID"
+        int requiredQty "需求数量"
+    }
+
+    MarkerPlan {
+        string markerPlanId "唛架ID"
+        array sourceCutOrderIds "来源裁单ID列表"
+        array sourceProductionOrderIds "来源生产单ID列表"
+    }
+
+    CutPieceOrder {
+        string cutPieceOrderNo "裁片单号"
+        string cutOrderId "裁单ID"
+        string productionOrderId "生产单ID"
+        string markerPlanId "唛架ID"
+        string configStatus "配料状态"
+        string currentStage "当前阶段 配料→执行→入仓"
+    }
+
+    ProcessTask {
+        string taskId "任务ID"
+        string productionOrderId "生产单ID"
+        string processCode "工序代码"
+        string stage "工序阶段 PREP|CUTTING|SEWING|POST|SPECIAL"
+        string status "NOT_STARTED|IN_PROGRESS|DONE"
+        string assignmentMode "派单模式 DIRECT|BIDDING"
+    }
+
+    PdaCutPieceExecution {
+        string taskId "任务ID"
+        string executionOrderId "执行单ID"
+        string productionOrderId "生产单ID"
+        string cutOrderId "裁单ID"
+        string markerPlanId "唛架ID"
+    }
+    </div>
+  </div>
+
+  <!-- ============ 二、链路总览 ============ -->
+  <div class="card">
+    <h2>二、核心业务链路：从需求到裁片入仓</h2>
+    <div class="mermaid">
+flowchart TD
+    subgraph Phase1["阶段一：计划与创建"]
+        A["📋 生产需求单<br/>ProductionDemand<br/>demandId + spuCode"]
+        B["📐 技术包<br/>TechPack<br/>纸样+BOM+工序+尺码+颜色映射"]
+        C["📦 生产单<br/>ProductionOrder<br/>冻结技术包快照 + 需求快照"]
+    end
+
+    subgraph Phase2["阶段二：任务拆解"]
+        D["✂️ 裁单<br/>GeneratedCutOrder<br/>按 物料×纸样×门幅 拆解"]
+        E["🗺️ 唛架方案<br/>MarkerPlan<br/>同SPU裁单分组排唛架"]
+        F["📋 裁片单<br/>CutPieceOrder<br/>配料→执行→入仓"]
+    end
+
+    subgraph Phase3["阶段三：工序派单"]
+        G["🏭 工序任务<br/>ProcessTask<br/>直派 DIRECTION / 竞价 BIDDING"]
+        H["👷 PDA执行<br/>领料→铺布→补料→交接→入仓"]
+    end
+
+    A -->|"验证技术包已发布<br/>validDemandTechPackOrderLink"| B
+    B -->|"冻结版本快照<br/>buildProductionOrderTechPackSnapshot"| C
+    C -->|"遍历 demandSnapshot.skuLines<br/>× techPack.colorMaterialMappings<br/>按 (物料SKU + 纸样ID + 门幅) 分组"| D
+    D -->|"同SPU的多个裁单<br/>按纸样分组建唛架"| E
+    E -->|"回写 markerPlanId 到裁单<br/>生成裁片单"| F
+    C -->|"按工艺工序<br/>生成任务"| G
+    F -->|"PDA用户接收任务<br/>领料确认→铺布→入仓"| H
+    G -->|"驱动"| H
+
+    style Phase1 fill:#e6f4ff,stroke:#1677ff
+    style Phase2 fill:#f6ffed,stroke:#52c41a
+    style Phase3 fill:#fff7e6,stroke:#fa8c16
+    </div>
+  </div>
+
+  <!-- ============ 三、关键实体详解 ============ -->
+  <div class="card">
+    <h2>三、关键业务实体详解</h2>
+
+    <!-- 技术包 -->
+    <div class="entity-card">
+      <div class="name">📐 技术包 TechPack <span class="tag tag-purple">核心引擎</span></div>
+      <p style="font-size:13px;color:#777;margin-bottom:8px;">技术包是生产最核心的"配方"，定义了"用什么材料、按什么纸样、经过什么工序、做成什么尺码"。</p>
+      <table>
+        <tr><th>数据域</th><th>内容</th><th>用途</th></tr>
+        <tr>
+          <td><strong>纸样文件</strong> PatternFiles</td>
+          <td>裁片部位（前片/后片/领口/袖口…）、尺码范围、颜色分配、门幅(cm)、排料长度(m)、捆条配置</td>
+          <td>确定<span class="highlight">裁单应该裁哪些部位</span>，门幅决定唛架排布</td>
+        </tr>
+        <tr>
+          <td><strong>BOM物料清单</strong> BomItems</td>
+          <td>面料/辅料名称、规格、单位消耗量、损耗率、印花/染色要求、适用的SKU范围</td>
+          <td>确定<span class="highlight">用什么料、用多少、是否需特殊处理</span></td>
+        </tr>
+        <tr>
+          <td><strong>颜色-物料映射</strong> ColorMaterialMappings</td>
+          <td>将具体颜色绑定到具体物料SKU、关联纸样ID和裁片部位、每单位片数</td>
+          <td><span class="highlight">裁单生成的直接依据</span>：每条映射产生一条裁单</td>
+        </tr>
+        <tr>
+          <td><strong>工艺工序</strong> ProcessEntries</td>
+          <td>工序代码、工艺代码、标准工时(SAM)、是否特种工艺、派单粒度(整单/颜色/SKU/明细)</td>
+          <td>确定<span class="highlight">生产任务如何拆解和派单</span></td>
+        </tr>
+        <tr>
+          <td><strong>尺码表</strong> SizeTable</td>
+          <td>每个SKU的S/M/L/XL等尺码的具体测量值</td>
+          <td><span class="highlight">唛架尺码配比</span>的依据</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 生产单 -->
+    <div class="entity-card">
+      <div class="name">📦 生产单 ProductionOrder <span class="tag tag-blue">枢纽实体</span></div>
+      <p style="font-size:13px;color:#777;margin-bottom:8px;">生产单是连接需求、技术包、工厂、任务的核心枢纽。</p>
+      <div class="mermaid">
+stateDiagram-v2
+    [*] --> DRAFT: 创建
+    DRAFT --> WAIT_TECH_PACK_RELEASE: 技术包未就绪
+    WAIT_TECH_PACK_RELEASE --> READY_FOR_BREAKDOWN: 技术包发布
+    READY_FOR_BREAKDOWN --> WAIT_ASSIGNMENT: 任务待拆解
+    WAIT_ASSIGNMENT --> ASSIGNING: 开始派单
+    ASSIGNING --> EXECUTING: 工厂确认开工
+    EXECUTING --> COMPLETED: 全部完成
+    ASSIGNING --> ON_HOLD: 挂起
+    EXECUTING --> ON_HOLD: 挂起
+    ON_HOLD --> ASSIGNING: 恢复
+    ON_HOLD --> EXECUTING: 恢复
+    DRAFT --> CANCELLED: 取消
+    WAIT_TECH_PACK_RELEASE --> CANCELLED: 取消
+      </div>
+      <p style="margin-top:8px;"><strong>核心快照机制：</strong>创建生产单时，技术包被"冻结"为 <code>ProductionOrderTechPackSnapshot</code>，确保<strong>生产过程中技术包即使后续更新也不会影响已开工的生产单</strong>。快照包含 BOM、纸样、工序、尺码、颜色映射、裁片部位的完整副本。</p>
+    </div>
+
+    <!-- 裁单 -->
+    <div class="entity-card">
+      <div class="name">✂️ 裁单 GeneratedCutOrder <span class="tag tag-green">派生实体</span></div>
+      <p style="font-size:13px;color:#777;margin-bottom:8px;">裁单从生产单自动派生，每一条 = 一个(物料SKU + 纸样文件 + 门幅)的组合。</p>
+      <p><strong>关键关联：</strong></p>
+      <p><code>cutOrderId</code> → <code>productionOrderId</code>（来源生产单）</p>
+      <p><code>materialSku + materialColor + materialType</code> → BOM物料</p>
+      <p><code>patternFileId + patternVersion + effectiveWidthText</code> → 纸样+门幅</p>
+      <p><code>markerPlanId</code> → 唛架（初始为空，排唛架后回写）</p>
+      <p><strong>物料类型 <code>materialType</code>：</strong> <span class="tag tag-blue">PRINT 印花料</span> <span class="tag tag-cyan">DYE 染色料</span> <span class="tag tag-orange">SOLID 本色料</span> <span class="tag tag-purple">LINING 里料</span></p>
+    </div>
+
+    <!-- 唛架 -->
+    <div class="entity-card">
+      <div class="name">🗺️ 唛架 MarkerPlan <span class="tag tag-cyan">分组容器</span></div>
+      <p style="font-size:13px;color:#777;margin-bottom:8px;">唛架是一个分组概念，将同SPU下多个裁单按纸样分组编排到一个排料方案中。</p>
+      <p><strong>关键关联：</strong></p>
+      <p><code>markerPlanId</code> → <code>sourceCutOrderIds[]</code>（多个裁单共用同一个唛架方案）</p>
+      <p><code>markerPlanId</code> → <code>sourceProductionOrderIds[]</code>（来自哪些生产单）</p>
+      <p><strong>唛架信息（反映在裁片单）：</strong>尺码配比(sizeMix)、总片数(totalPieces)、净长(netLength)、每片消耗(perPieceConsumption)</p>
+    </div>
+  </div>
+
+  <!-- ============ 四、裁床领域完整链路 ============ -->
+  <div class="card">
+    <h2>四、裁床领域：裁单 → 唛架 → 裁片单 → PDA 执行 完整链路</h2>
+    <div class="mermaid">
+flowchart LR
+    subgraph CO["✂️ 裁单 CutOrderRef"]
+        co_id["cutOrderId"]
+        co_po["productionOrderId"]
+        co_mat["materialSku + color"]
+        co_pat["patternFileId + 门幅"]
+        co_mp["activeMarkerPlanId"]
+    end
+
+    subgraph MP["🗺️ 唛架 MarkerPlanSourceRef"]
+        mp_id["markerPlanId"]
+        mp_cos["sourceCutOrderIds[]"]
+        mp_pos["sourceProductionOrderIds[]"]
+    end
+
+    subgraph CP["📋 裁片单 CutPieceOrderRecord"]
+        cp_no["cutPieceOrderNo"]
+        cp_co["cutOrderId"]
+        cp_mp["markerPlanId"]
+        cp_stage["currentStage"]
+        cp_config["configStatus 配料状态"]
+        cp_receive["receiveStatus 领料状态"]
+        cp_spread["spreadingRecords 铺布记录"]
+    end
+
+    subgraph PDA["👷 PDA执行 PdaCutPieceExecutionRef"]
+        pda_task["taskId"]
+        pda_exec["executionOrderId"]
+        pda_po["productionOrderId"]
+        pda_co["cutOrderId"]
+        pda_mp["markerPlanId"]
+    end
+
+    CO -->|"sourceCutOrderIds 包含"| MP
+    MP -->|"markerPlanId 回写"| CO
+    MP -->|"生成"| CP
+    CO -->|"cutOrderId"| CP
+    CP -->|"生成执行"| PDA
+    </div>
+
+    <hr>
+
+    <h3>裁片单阶段流转</h3>
+    <div class="mermaid">
+stateDiagram-v2
+    state "待维护排唛架方案" as s0
+    state "待中转仓配料" as s1
+    state "裁片执行中" as s2
+    state "待入仓" as s3
+    state "已入仓" as s4
+    state "菲票已生成" as s5
+    state "已关闭" as s6
+
+    s0 --> s1: configStatus → PARTIAL
+    s1 --> s2: configStatus → CONFIGURED
+    s2 --> s3: 裁片裁剪完成
+    s3 --> s4: PDA入仓确认<br/>hasInboundRecord = true
+    s4 --> s5: 菲票打印
+    s4 --> s6: 关闭(来料不足等)
+    s5 --> s6: 关闭
+
+    note right of s2: receiveStatus<br/>NOT_RECEIVED → PARTIAL → RECEIVED
+    note right of s3: hasSpreadingRecord = true<br/>cutRatio = 1
+    </div>
+  </div>
+
+  <!-- ============ 五、PDA 执行链 ============ -->
+  <div class="card">
+    <h2>五、PDA 手持终端执行动作链</h2>
+    <div class="mermaid">
+sequenceDiagram
+    participant W as 🏭 工厂工人(PDA)
+    participant S as 📱 PDA页面
+    participant D as 🗄️ 数据层
+    participant T as 📦 AppStore
+
+    Note over W,T: 阶段一：领料
+    W->>S: 扫描裁片单二维码
+    S->>D: 查询 CutPieceOrder (by cutPieceOrderNo)
+    D-->>S: 裁片单详情(物料/裁单/唛架)
+    W->>S: 确认领料 + 录入长度
+    S->>D: PICKUP_CONFIRM<br/>更新 receiveStatus
+    D-->>S: 领料完成
+
+    Note over W,T: 阶段二：铺布
+    W->>S: 录入铺布记录(层数/实际长度)
+    S->>D: CUTTING_SPREADING_SAVE<br/>追加 spreadingRecords
+    D-->>S: 铺布记录保存成功
+
+    Note over W,T: 阶段三：补料(可选)
+    W->>S: 发现面料不足，提交补料
+    S->>D: CUTTING_REPLENISHMENT_FEEDBACK<br/>创建补料记录
+    D-->>S: 补料需求已上报
+
+    Note over W,T: 阶段四：入仓
+    W->>S: 裁剪完成，确认入仓
+    S->>D: CUTTING_INBOUND_CONFIRM<br/>hasInboundRecord = true
+    D-->>S: 入仓完成<br/>currentStage → "已入仓"
+
+    Note over W,T: 阶段五：交接
+    W->>S: 确认交接给下游
+    S->>D: CUTTING_HANDOVER_CONFIRM
+    D-->>S: 交接完成
+    </div>
+  </div>
+
+  <!-- ============ 六、工序任务派单 ============ -->
+  <div class="card">
+    <h2>六、工序任务派单模式</h2>
+    <div class="mermaid">
+flowchart TD
+    PO["📦 生产单<br/>含 techPackSnapshot.processEntries"]
+    PO --> TASK["生成 ProcessTask"]
+
+    TASK --> MODE{"派单模式<br/>assignmentMode"}
+    MODE -->|"DIRECT 直派"| DIRECT["直接指定工厂<br/>assignedFactoryId"]
+    MODE -->|"BIDDING 竞价"| BID["发布竞价<br/>工厂报价→选中→派单"]
+
+    DIRECT --> ASSIGNED["已派单<br/>ASSIGNED"]
+    BID --> AWARDED["已定标<br/>AWARDED"]
+
+    ASSIGNED --> START["工厂开工<br/>task.status → IN_PROGRESS"]
+    AWARDED --> START
+
+    START --> MILESTONE{"关键节点上报<br/>milestoneRequired?"}
+    MILESTONE -->|"是"| REPORT["里程碑上报<br/>milestoneStatus → REPORTED"]
+    MILESTONE -->|"否"| CONTINUE["继续执行"]
+
+    START --> BLOCK{"遇到问题?"}
+    BLOCK -->|"缺料/产能/质量/设备"| PAUSE["暂停上报<br/>task.status → BLOCKED<br/>pauseStatus → REPORTED"]
+    PAUSE -->|"平台跟进恢复"| START
+
+    CONTINUE --> FINISH["完工<br/>task.status → DONE"]
+    REPORT --> FINISH
+    </div>
+
+    <table>
+      <tr><th>工序阶段 ProcessStage</th><th>说明</th><th>示例</th></tr>
+      <tr><td><span class="tag tag-purple">PREP</span></td><td>准备阶段</td><td>面料检验、预缩</td></tr>
+      <tr><td><span class="tag tag-blue">CUTTING</span></td><td>裁剪阶段</td><td>铺布、裁剪、分包</td></tr>
+      <tr><td><span class="tag tag-cyan">SEWING</span></td><td>缝制阶段</td><td>平缝、包边、锁眼</td></tr>
+      <tr><td><span class="tag tag-orange">POST</span></td><td>后整阶段</td><td>整烫、检验、包装</td></tr>
+      <tr><td><span class="tag tag-red">SPECIAL</span></td><td>特种工艺</td><td>印花、染色、绣花、压褶</td></tr>
+    </table>
+
+    <h3>派单粒度 assignmentGranularity</h3>
+    <table>
+      <tr><th>粒度</th><th>含义</th><th>适用场景</th></tr>
+      <tr><td><span class="highlight">ORDER</span></td><td>整单派单</td><td>一个工厂承接整张生产单的该工序</td></tr>
+      <tr><td><span class="highlight">COLOR</span></td><td>按颜色派单</td><td>不同颜色交给不同工厂</td></tr>
+      <tr><td><span class="highlight">SKU</span></td><td>按SKU派单</td><td>不同款式交给不同工厂</td></tr>
+      <tr><td><span class="highlight">DETAIL</span></td><td>按明细行派单</td><td>最细粒度，每个SKU+颜色独立派单</td></tr>
+    </table>
+  </div>
+
+  <!-- ============ 七、状态与风险 ============ -->
+  <div class="card">
+    <h2>七、裁床风险标记</h2>
+    <table>
+      <tr><th>风险标记</th><th>含义</th><th>触发条件</th></tr>
+      <tr><td><span class="tag tag-orange">PENDING_REVIEW</span></td><td>待审核</td><td>铺布记录需要审核</td></tr>
+      <tr><td><span class="tag tag-orange">PARTIAL_CONFIG</span></td><td>部分配置</td><td>配料尚未完成</td></tr>
+      <tr><td><span class="tag tag-red">RECEIVE_DIFF</span></td><td>领料差异</td><td>实际领料与需求不一致</td></tr>
+      <tr><td><span class="tag tag-red">REPLENISH_PENDING</span></td><td>补料待处理</td><td>PDA提交了补料申请但未处理</td></tr>
+      <tr><td><span class="tag tag-red">INBOUND_PENDING</span></td><td>入仓待处理</td><td>裁剪完成但未确认入仓</td></tr>
+      <tr><td><span class="tag tag-red">SHIP_URGENT</span></td><td>出货紧急</td><td>生产进度落后于出货计划</td></tr>
+    </table>
+  </div>
+
+  <!-- ============ 八、CuttingCoreRegistry 索引 ============ -->
+  <div class="card">
+    <h2>八、CuttingCoreRegistry — 内存中的多维度索引</h2>
+    <p style="font-size:13px;color:#777;margin-bottom:12px;">这是裁床域最核心的数据结构。它将生产单、裁单、唛架、裁片任务、PDA执行全部加载到内存中，建立双向索引，实现 O(1) 的关联查询。</p>
+    <div class="mermaid">
+flowchart TD
+    subgraph REG["CuttingCoreRegistry"]
+        A["productionOrdersById / ByNo"]
+        B["cutOrdersById / ByNo"]
+        C["markerPlanSourcesById / ByNo"]
+        D["cuttingTasksById / ByNo"]
+        E["pdaExecutionsByTaskAndOrder"]
+        F["pdaExecutionsByCutOrderId"]
+    end
+
+    A -->|"productionOrderId"| B
+    B -->|"activeMarkerPlanSourceId<br/>markerPlanIds[]"| C
+    C -->|"sourceCutOrderIds[]<br/>sourceProductionOrderIds[]"| B
+    C --> D
+    D --> F
+    B --> F
+    A --> E
+    A --> D
+    </div>
+    <p style="margin-top:10px;font-size:13px;"><strong>反向查询能力：</strong>给定一个裁单ID，可以通过 Registry 查到它属于哪个生产单、关联哪些唛架方案、对应的 PDA 执行记录。给定一个生产单ID，可以查到下属所有裁单、所有唛架、所有 PDA 执行。</p>
+  </div>
+
+  <!-- ============ 九、PCS产品端 ============ -->
+  <div class="card">
+    <h2>九、PCS 产品协同端关联（补充）</h2>
+    <p style="font-size:13px;color:#777;margin-bottom:12px;">PCS 是产品的"研制"端，产出技术包等交付物，与 FCS 的"生产"端形成上下游关系。</p>
+    <div class="mermaid">
+flowchart LR
+    subgraph PCS["PCS 产品协同端"]
+        PROJECT["📁 项目 Project<br/>产品研发项目"]
+        STYLE["👗 款式档案 Style<br/>SPU编码 + 款式信息"]
+        PATTERN["📐 样板库<br/>纸样文件存储"]
+        TECH_PACK["📋 技术包 TechPack<br/>BOM + 纸样 + 工序 + 尺码"]
+        SAMPLE["🧪 样品管理<br/>开发样→产前样→船样"]
+    end
+
+    subgraph FCS["FCS 工厂生产端"]
+        DEMAND["📋 生产需求单"]
+        PO["📦 生产单<br/>冻结技术包快照"]
+        CUT["✂️ 裁单 → 唛架 → 裁片"]
+    end
+
+    PROJECT --> STYLE
+    STYLE --> TECH_PACK
+    PATTERN --> TECH_PACK
+    SAMPLE --> TECH_PACK
+    TECH_PACK -->|"发布 ENABLED"| DEMAND
+    DEMAND -->|"转换为<br/>冻结技术包快照"| PO
+    </div>
+    <p style="margin-top:10px;font-size:13px;">PCS 产出技术包 → FCS 消费技术包创建生产单 → 生产单冻结技术包快照以保证版本一致性。这是 PCS 和 FCS 两个子系统之间最核心的集成点。</p>
+  </div>
+
+</div>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+    sequence: { useMaxWidth: true },
+    er: { useMaxWidth: true }
+  });
+</script>
+</body>
+</html>

@@ -571,7 +571,7 @@ async function createPdaUser(factoryId: string): Promise<void> {
 
   const selectedRole = activeRoles.find((item) => item.roleId === roleId) ?? activeRoles[0]
   try {
-    await createFactoryPdaUser({
+    createFactoryPdaUser({
       factoryId,
       name,
       loginId,
@@ -645,7 +645,7 @@ async function submitPdaResetPassword(factoryId: string): Promise<void> {
   }
 
   try {
-    await resetFactoryPdaUserPassword(userId, state.pdaResetPasswordValue, 'ADMIN')
+    resetFactoryPdaUserPassword(userId, state.pdaResetPasswordValue, 'ADMIN')
   } catch (error) {
     setPdaError(error instanceof Error ? error.message : '重置密码失败。')
     requestFactoryRender()
