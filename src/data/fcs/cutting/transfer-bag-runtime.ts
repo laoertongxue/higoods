@@ -730,6 +730,19 @@ export function buildSystemSeedTransferBagRuntime(options: {
   const returnAuditTrail: Array<Record<string, unknown>> = []
   const printedTickets = options.ticketRecords.filter((ticket) => ticket.status === 'PRINTED')
   let ticketCursor = 0
+  const seedCutOrderRows =
+    options.cutOrderRows.length > 0
+      ? options.cutOrderRows
+      : [
+          { cutOrderId: 'co-syn-001', cutOrderNo: 'CO-SYN-001', productionOrderNo: 'PO-SYN-001', styleCode: 'HG-ST001', spuCode: 'SPU-A01', color: '黑色', materialSku: 'SKU-001' },
+          { cutOrderId: 'co-syn-002', cutOrderNo: 'CO-SYN-002', productionOrderNo: 'PO-SYN-002', styleCode: 'HG-ST002', spuCode: 'SPU-B02', color: '藏青', materialSku: 'SKU-002' },
+          { cutOrderId: 'co-syn-003', cutOrderNo: 'CO-SYN-003', productionOrderNo: 'PO-SYN-003', styleCode: 'HG-ST003', spuCode: 'SPU-C03', color: '酒红', materialSku: 'SKU-003' },
+        ]
+
+  if (printedTickets.length < 72) {
+    const synthetic = generateSyntheticPrintedTickets(72 - printedTickets.length, seedCutOrderRows, printedTickets.length)
+    printedTickets.push(...synthetic)
+  }
 
   function pickTickets(count: number): TransferBagSeedTicketLike[] {
     if (!printedTickets.length || count <= 0) return []
@@ -1038,6 +1051,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
   function generateSyntheticPrintedTickets(
     count: number,
     cutOrderRows: TransferBagSeedCutOrderRowLike[],
+    startIndex = 0,
   ): TransferBagSeedTicketLike[] {
     const styles = ['HG-ST001', 'HG-ST002', 'HG-ST003', 'HG-ST004', 'HG-ST005']
     const spuCodes = ['SPU-A01', 'SPU-B02', 'SPU-C03', 'SPU-D04', 'SPU-E05']
@@ -1046,10 +1060,11 @@ export function buildSystemSeedTransferBagRuntime(options: {
     const partNames = ['前片', '后片', '袖片', '领片', '门襟', '袋布', '贴边', '里衬']
     const result: TransferBagSeedTicketLike[] = []
     for (let i = 0; i < count; i++) {
+      const sequence = startIndex + i + 1
       const cutOrder = cutOrderRows[i % cutOrderRows.length]!
       result.push({
-        feiTicketId: `fei-ticket-syn-${String(i + 1).padStart(3, '0')}`,
-        feiTicketNo: `FT-${String(i + 1).padStart(5, '0')}`,
+        feiTicketId: `fei-ticket-syn-${String(sequence).padStart(3, '0')}`,
+        feiTicketNo: `FT-${String(sequence).padStart(5, '0')}`,
         sourceSpreadingSessionId: '',
         sourceSpreadingSessionNo: '',
         sourceMarkerId: '',
@@ -1067,21 +1082,16 @@ export function buildSystemSeedTransferBagRuntime(options: {
         size: sizes[i % sizes.length],
         partCode: `PART-${partNames[i % partNames.length]}`,
         partName: partNames[i % partNames.length],
-        bundleNo: `BND-${String(i + 1).padStart(3, '0')}`,
-        qty: Math.floor(Math.random() * 20) + 5,
-        actualCutPieceQty: 0,
-        garmentQty: 0,
+        bundleNo: `BND-${String(sequence).padStart(3, '0')}`,
+        qty: 96 + ((sequence % 5) * 16),
+        actualCutPieceQty: 96 + ((sequence % 5) * 16),
+        garmentQty: 96 + ((sequence % 5) * 16),
         materialSku: `SKU-${styles[i % styles.length]}-${sizes[i % sizes.length]}`,
         sourceContextType: 'SYNTHETIC',
         status: 'PRINTED',
       })
     }
     return result
-  }
-
-  if (printedTickets.length === 0 && options.cutOrderRows.length > 0) {
-    const synthetic = generateSyntheticPrintedTickets(40, options.cutOrderRows)
-    printedTickets.push(...synthetic)
   }
 
   addSeedCycle({
