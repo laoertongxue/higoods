@@ -154,6 +154,18 @@ function formatLength(value: number): string {
   return `${Number(value || 0).toFixed(2)} 米`
 }
 
+function formatLedgerEventListSummary(eventIds: string[]): string {
+  const count = eventIds.map((value) => value.trim()).filter(Boolean).length
+  if (!count) return '无直接变更'
+  return `已关联 ${count} 条`
+}
+
+function formatLedgerEventDetailSummary(eventIds: string[]): string {
+  const count = eventIds.map((value) => value.trim()).filter(Boolean).length
+  if (!count) return '无直接变更'
+  return `已关联 ${count} 条数量账事件，内部流水号不在页面直接展示`
+}
+
 function buildViewModel() {
   return buildReplenishmentProjection({
     reviews: state.reviews,
@@ -552,8 +564,8 @@ function renderTable(rows: ReplenishmentSuggestionRow[]): string {
                               ${row.review?.reviewResult ? renderTag(formatReplenishmentReviewResultLabel(row.review.reviewResult), normalizeReplenishmentReviewResult(row.review.reviewResult) === '仅记录差异' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700') : ''}
                             </div>
                             <div class="mt-2 flex flex-wrap gap-2">${renderNextOptionTags(row)}</div>
-                            <div class="mt-1 text-xs text-muted-foreground">后续动作：${escapeHtml(item.nextAction || row.nextActionLabel)}</div>
-                            <div class="mt-1 text-xs text-muted-foreground">数量账事件：${escapeHtml(item.linkedLedgerEventIds.length ? item.linkedLedgerEventIds.join(' / ') : '无直接变更')}</div>
+                            <div class="mt-1 max-w-full break-words text-xs leading-5 text-muted-foreground">后续动作：${escapeHtml(item.nextAction || row.nextActionLabel)}</div>
+                            <div class="mt-1 max-w-full break-words text-xs leading-5 text-muted-foreground">数量账事件：${escapeHtml(formatLedgerEventListSummary(item.linkedLedgerEventIds))}</div>
                           </td>
                           <td class="px-4 py-3 align-top">
                             ${renderRowActions(row)}
@@ -962,7 +974,7 @@ function renderLedgerImpactSection(row: ReplenishmentSuggestionRow): string {
             </tr>
             <tr>
               <td class="px-3 py-2 text-xs text-muted-foreground">数量账事件</td>
-              <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(item.linkedLedgerEventIds.join(' / ') || '无直接变更')}</td>
+              <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(formatLedgerEventDetailSummary(item.linkedLedgerEventIds))}</td>
             </tr>
           </tbody>
         </table>

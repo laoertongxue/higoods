@@ -27,7 +27,7 @@ import {
 } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   appendWaitHandoverHandoverRecordEvent,
-  appendWaitHandoverSortingBaggingEvent,
+  appendWaitHandoverBaggingConfirmEvent,
   appendWaitHandoverSpecialCraftHandoverEvent,
   appendWaitHandoverSpecialCraftReturnEvent,
   runtimeEventHasWaitHandoverTicket,
@@ -158,9 +158,10 @@ function matchesScannedValue(value: string, candidates: Array<string | undefined
   return candidates.some((candidate) => candidate && normalizeScanValue(candidate) === normalized)
 }
 
-function readSortingBaggingTaskIdFromLocation(): string {
+function readBaggingConfirmTaskIdFromLocation(): string {
   if (typeof window === 'undefined') return ''
-  return new URLSearchParams(window.location.search).get('sortingTaskId') || ''
+  const params = new URLSearchParams(window.location.search)
+  return params.get('baggingConfirmTaskId') || ''
 }
 
 function readPdaCuttingHandoverActionFromLocation(): string {
@@ -169,8 +170,8 @@ function readPdaCuttingHandoverActionFromLocation(): string {
 }
 
 function findPdaPickingTaskForCurrentRoute(projection: HandoverPickingTaskProjection): HandoverPickingTaskProjection['tasks'][number] | undefined {
-  const sortingTaskId = readSortingBaggingTaskIdFromLocation()
-  return projection.tasks.find((item) => item.pickingTaskId === sortingTaskId || item.pickingTaskNo === sortingTaskId) || projection.tasks[0]
+  const baggingConfirmTaskId = readBaggingConfirmTaskIdFromLocation()
+  return projection.tasks.find((item) => item.pickingTaskId === baggingConfirmTaskId || item.pickingTaskNo === baggingConfirmTaskId) || projection.tasks[0]
 }
 
 function renderPdaScanInput(label: string, field: keyof HandoverFormState, value: string, placeholder: string): string {
@@ -214,25 +215,25 @@ function validatePickingScans(
     }
   | { ok: false; message: string } {
   if (!matchesScannedValue(form.pickingTaskScan, [task.pickingTaskNo, task.pickingTaskId])) {
-    return { ok: false, message: '请先扫描当前分拣装袋任务码。' }
+    return { ok: false, message: '请先扫描当前交出装袋确认任务码。' }
   }
 
   const sourceBag = task.tempBagSources.find((item) => matchesScannedValue(form.sourceBagScan, [item.tempBagCode]))
-  if (!sourceBag) return { ok: false, message: '来源入仓暂存袋不属于当前分拣装袋任务。' }
+  if (!sourceBag) return { ok: false, message: '来源入仓暂存袋不属于当前交出装袋确认任务。' }
 
   const item = task.allocatedInventoryItems.find((ticket) => matchesScannedValue(form.pickingFeiTicketScan, [ticket.feiTicketNo, ticket.feiTicketId]))
-  if (!item) return { ok: false, message: '该菲票不属于当前分拣装袋任务。' }
+  if (!item) return { ok: false, message: '该菲票不属于当前交出装袋确认任务。' }
   if (item.tempBagCode && item.tempBagCode !== sourceBag.tempBagCode) {
     return { ok: false, message: '该菲票不在已扫描的来源入仓暂存袋中。' }
   }
   if (item.specialCraftReturnStatus !== '不需要特殊工艺' && item.specialCraftReturnStatus !== '已回仓') {
-    return { ok: false, message: '该菲票特殊工艺未回仓，不能分拣装袋给车缝任务。' }
+    return { ok: false, message: '该菲票特殊工艺未回仓，不能交出装袋确认给车缝任务。' }
   }
   if (task.pickedItems.some((picked) => picked.feiTicketId === item.feiTicketId)) {
-    return { ok: false, message: '该菲票已在当前任务中完成分拣装袋。' }
+    return { ok: false, message: '该菲票已在当前任务中完成交出装袋确认。' }
   }
-  if (runtimeEventHasTicket('待交出仓分拣装袋', item.feiTicketId)) {
-    return { ok: false, message: '该菲票已有分拣装袋事件，不能重复分拣装袋。' }
+  if (runtimeEventHasTicket('交出装袋确认', item.feiTicketId)) {
+    return { ok: false, message: '该菲票已有交出装袋确认事件，不能重复交出装袋确认。' }
   }
 
   const targetTransferBagCode = normalizeScanValue(form.targetBagScan)
@@ -248,7 +249,7 @@ function validatePickingScans(
 
 function renderPdaPickingFlow(projection: HandoverPickingTaskProjection, taskId: string, form: HandoverFormState): string {
   const task = findPdaPickingTaskForCurrentRoute(projection)
-  if (!task) return renderPdaCuttingEmptyState('暂无待交出仓分拣装袋任务', '')
+  if (!task) return renderPdaCuttingEmptyState('暂无待交出仓交出装袋确认任务', '')
   const pickedQty = task.pickedItems.reduce((total, item) => total + item.pickedQty, 0)
   const shortageLabel = task.shortageItems
     .slice(0, 2)
@@ -261,7 +262,7 @@ function renderPdaPickingFlow(projection: HandoverPickingTaskProjection, taskId:
   return `
     <div class="space-y-3 text-xs">
       <div class="rounded-xl border bg-muted/20 px-3 py-3">
-        <div class="text-muted-foreground">当前分拣装袋任务</div>
+        <div class="text-muted-foreground">当前交出装袋确认任务</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(task.pickingTaskNo)}</div>
         <div class="mt-1 text-muted-foreground">车缝任务：${escapeHtml(task.sewingTaskNo)}</div>
         <div class="mt-1 text-muted-foreground">来源袋：${escapeHtml(task.tempBagSources.map((item) => item.tempBagCode).join('、') || '待扫描')}</div>
@@ -276,13 +277,13 @@ function renderPdaPickingFlow(projection: HandoverPickingTaskProjection, taskId:
       <div class="rounded-xl border px-3 py-3">
         <div class="font-medium text-foreground">扫码顺序</div>
         <div class="mt-2 grid grid-cols-2 gap-2 text-muted-foreground">
-          <div>1. 扫分拣装袋任务码</div>
+          <div>1. 扫交出装袋确认任务码</div>
           <div>2. 扫来源入仓暂存袋</div>
           <div>3. 扫菲票</div>
           <div>4. 扫目标中转袋</div>
         </div>
         <div class="mt-3 grid gap-2">
-          ${renderPdaScanInput('分拣装袋任务码', 'pickingTaskScan', form.pickingTaskScan, task.pickingTaskNo)}
+          ${renderPdaScanInput('交出装袋确认任务码', 'pickingTaskScan', form.pickingTaskScan, task.pickingTaskNo)}
           ${renderPdaScanInput('来源入仓暂存袋', 'sourceBagScan', form.sourceBagScan, task.tempBagSources[0]?.tempBagCode || '扫来源袋码')}
           ${renderPdaScanInput('菲票码', 'pickingFeiTicketScan', form.pickingFeiTicketScan, task.allocatedInventoryItems[0]?.feiTicketNo || '扫菲票码')}
           ${renderPdaScanInput('目标中转袋', 'targetBagScan', form.targetBagScan, task.targetTransferBags[0]?.bagCode || '扫目标袋码')}
@@ -306,14 +307,11 @@ function renderPdaPickingFlow(projection: HandoverPickingTaskProjection, taskId:
       >
         确认装袋
       </button>
-      <button class="inline-flex min-h-9 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
-        上报异常
-      </button>
     </div>
   `
 }
 
-function appendPdaSortingBaggingEvent(
+function appendPdaBaggingConfirmEvent(
   projection: HandoverPickingTaskProjection,
   task: HandoverPickingTaskProjection['tasks'][number],
   form: HandoverFormState,
@@ -324,11 +322,11 @@ function appendPdaSortingBaggingEvent(
 
   const now = new Date().toISOString()
   const pickedQty = validation.item.pieceQty
-  appendWaitHandoverSortingBaggingEvent({
+  appendWaitHandoverBaggingConfirmEvent({
     source: 'PDA',
     operator: {
       operatorName,
-      operatorRole: '裁片仓分拣员',
+      operatorRole: '裁片仓装袋确认员',
     },
     pickingTaskId: task.pickingTaskId,
     pickingTaskNo: task.pickingTaskNo,
@@ -344,7 +342,7 @@ function appendPdaSortingBaggingEvent(
     occurredAt: now,
   })
 
-  return `已同步分拣装袋：${validation.item.feiTicketNo}，目标袋 ${validation.targetTransferBagCode}。`
+  return `已同步交出装袋确认：${validation.item.feiTicketNo}，目标袋 ${validation.targetTransferBagCode}。`
 }
 
 function findHandoverRecordForDraft(draft: PdaHandoverRecordDraftProjection): HandoverRecord | undefined {
@@ -597,10 +595,10 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   const context = buildPdaCuttingExecutionContext(taskId, 'handover')
   const detail = context.detail
   const routeAction = readPdaCuttingHandoverActionFromLocation()
-  const isSortingBaggingAction = routeAction === 'sorting-bagging'
-  const pageTitle = isSortingBaggingAction ? '分拣装袋扫码' : '交出记录扫码'
-  const pageActiveTab = isSortingBaggingAction ? 'warehouse' : 'handover'
-  const sortingBaggingBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=sorting-bagging'
+  const isBaggingConfirmAction = routeAction === 'handover-bagging-confirm'
+  const pageTitle = isBaggingConfirmAction ? '交出装袋确认扫码' : '交出记录扫码'
+  const pageActiveTab = isBaggingConfirmAction ? 'warehouse' : 'handover'
+  const baggingConfirmBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=handover-bagging-confirm'
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
@@ -609,7 +607,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
       subtitle: '',
       activeTab: pageActiveTab,
       body: '',
-      backHref: isSortingBaggingAction ? sortingBaggingBackHref : context.backHref,
+      backHref: isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref,
     })
   }
 
@@ -621,22 +619,22 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
       activeTab: pageActiveTab,
       body: renderPdaCuttingOrderSelectionPrompt(
         detail,
-        isSortingBaggingAction ? sortingBaggingBackHref : context.backHref,
+        isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref,
         context.selectionNotice || undefined,
       ),
-      backHref: isSortingBaggingAction ? sortingBaggingBackHref : context.backHref,
+      backHref: isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref,
     })
   }
 
   const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
-  const pageBackHref = form.backHrefOverride || (isSortingBaggingAction ? sortingBaggingBackHref : context.backHref)
+  const pageBackHref = form.backHrefOverride || (isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref)
   const universalDraft = buildPdaUniversalHandoverRecordDraft()
   const specialCraftDraft = buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001')
 
-  if (isSortingBaggingAction) {
+  if (isBaggingConfirmAction) {
     const body = `
-      ${renderPdaCuttingExecutionHero('分拣装袋', detail)}
-      ${renderPdaCuttingSection('分拣装袋扫码', '', renderPdaPickingFlow(buildPdaHandoverPickingProjection(), taskId, form))}
+      ${renderPdaCuttingExecutionHero('交出装袋确认', detail)}
+      ${renderPdaCuttingSection('交出装袋确认扫码', '', renderPdaPickingFlow(buildPdaHandoverPickingProjection(), taskId, form))}
     `
 
     return renderPdaCuttingPageLayout({
@@ -742,16 +740,13 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
       >
         确认回仓
       </button>
-      <button class="inline-flex min-h-9 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
-        上报异常
-      </button>
     </div>
   `
 
   const body = `
     ${renderPdaCuttingExecutionHero('新增交出记录', detail)}
     ${renderPdaCuttingSection('当前情况', '', renderHandoverStatus(detail))}
-    ${renderPdaCuttingSection('待交出仓分拣装袋', '', renderPdaPickingFlow(buildPdaHandoverPickingProjection(), taskId, form))}
+    ${renderPdaCuttingSection('待交出仓交出装袋确认', '', renderPdaPickingFlow(buildPdaHandoverPickingProjection(), taskId, form))}
     ${renderPdaCuttingSection('特殊工艺交出', '', specialCraftSection)}
     ${renderPdaCuttingSection('新增交出记录', '', confirmSection)}
     ${renderPdaCuttingSection('最近交出记录', '', renderHandoverHistory(detail))}
@@ -836,10 +831,10 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
     const projection = buildPdaHandoverPickingProjection()
     const task = findPdaPickingTaskForCurrentRoute(projection)
     if (!task) {
-      form.feedbackMessage = '当前没有待交出仓分拣装袋任务。'
+      form.feedbackMessage = '当前没有待交出仓交出装袋确认任务。'
       return true
     }
-    form.feedbackMessage = appendPdaSortingBaggingEvent(projection, task, form, form.operatorName.trim() || '裁片仓分拣员')
+    form.feedbackMessage = appendPdaBaggingConfirmEvent(projection, task, form, form.operatorName.trim() || '裁片仓装袋确认员')
     return true
   }
 

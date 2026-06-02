@@ -225,7 +225,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
   if (!detail) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '入仓扫码',
+      title: '入仓暂存装袋',
       subtitle: '',
       activeTab: 'exec',
       body: '',
@@ -236,7 +236,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
   if (context.requiresCutPieceOrderSelection) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '入仓扫码',
+      title: '入仓暂存装袋',
       subtitle: '',
       activeTab: 'exec',
       body: renderPdaCuttingOrderSelectionPrompt(detail, context.backHref, context.selectionNotice || undefined),
@@ -250,8 +250,8 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
   const confirmSection = `
     <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
       <label class="block space-y-1">
-        <span class="text-muted-foreground">暂存袋 / 周转箱码</span>
-        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="carrierCode" value="${escapeHtml(form.carrierCode)}" placeholder="扫描或输入暂存袋码" />
+        <span class="text-muted-foreground">中转袋二维码 / 袋码</span>
+        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="carrierCode" value="${escapeHtml(form.carrierCode)}" placeholder="扫描中转袋二维码，或输入袋码" />
       </label>
       <label class="block space-y-1">
         <span class="text-muted-foreground">菲票 / 裁片码</span>
@@ -261,7 +261,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
         加入菲票
       </button>
       <label class="block space-y-1">
-        <span class="text-muted-foreground">区域</span>
+        <span class="text-muted-foreground">库区</span>
         <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="zoneCode">
           ${['A', 'B', 'C'].map((item) => `<option value="${item}" ${form.zoneCode === item ? 'selected' : ''}>${item} 区</option>`).join('')}
         </select>
@@ -272,7 +272,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
       </label>
       ${renderScannedTickets(form)}
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
-        <div class="text-muted-foreground">本次入仓预览</div>
+        <div class="text-muted-foreground">本次装袋预览</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.carrierCode || '待扫袋码')} / ${form.scannedTicketNos.length} 张菲票</div>
         <div class="mt-1 text-muted-foreground">${escapeHtml(form.zoneCode)} 区 / ${escapeHtml(form.locationLabel || '待填写位置')} / 入仓暂存袋允许混装</div>
       </div>
@@ -283,22 +283,22 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
           返回裁片任务
         </button>
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-inbound-action="confirm" data-task-id="${escapeHtml(taskId)}">
-          提交入仓
+          确认入仓暂存装袋
         </button>
       </div>
     </div>
   `
 
   const body = `
-    ${renderPdaCuttingExecutionHero('入仓扫码', detail)}
+    ${renderPdaCuttingExecutionHero('入仓暂存装袋', detail)}
     ${renderPdaCuttingSection('当前情况', '', renderInboundStatus(detail))}
-    ${renderPdaCuttingSection('入仓扫码', '', confirmSection)}
+    ${renderPdaCuttingSection('入仓暂存装袋', '', confirmSection)}
     ${renderPdaCuttingSection('最近入仓记录', '', renderInboundHistory(detail))}
   `
 
   return renderPdaCuttingPageLayout({
     taskId,
-    title: '入仓扫码',
+    title: '入仓暂存装袋',
     subtitle: '',
     activeTab: 'exec',
     body,
@@ -378,7 +378,7 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
       return true
     }
     if (!form.carrierCode.trim()) {
-      form.feedbackMessage = '请先扫描入仓暂存袋袋码。'
+      form.feedbackMessage = '请先扫描中转袋二维码或袋码。'
       return true
     }
     if (!form.scannedTicketNos.length) {
@@ -409,7 +409,7 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
     form.scanCode = ''
     form.inboundQty = ''
     form.scannedTicketNos = []
-    form.feedbackMessage = `入仓已提交，已形成裁床待交出仓库存：${inboundQty} 片。`
+    form.feedbackMessage = `入仓暂存装袋已确认，已形成裁床待交出仓库存：${inboundQty} 片。`
     form.syncStatus = '已同步'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,

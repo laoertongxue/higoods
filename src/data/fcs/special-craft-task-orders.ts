@@ -425,9 +425,29 @@ interface SpecialCraftTaskStore {
 }
 
 const PART_NAMES = ['前片', '后片', '袖片', '领片', '门襟', '裤身片', '侧片']
-const MIN_TASK_ORDER_COUNT_PER_OPERATION = 5
-const LINKED_DEMO_STATUSES: SpecialCraftTaskStatus[] = ['待领料', '已入待加工仓', '加工中', '待交出', '已交出']
-const LINKED_DEMO_ABNORMALS: SpecialCraftTaskAbnormalStatus[] = ['无异常', '无异常', '设备异常', '无异常', '无异常']
+const MIN_TASK_ORDER_COUNT_PER_OPERATION = 9
+const LINKED_DEMO_STATUSES: SpecialCraftTaskStatus[] = [
+  '待领料',
+  '已入待加工仓',
+  '加工中',
+  '已完成',
+  '待交出',
+  '已交出',
+  '已回写',
+  '差异',
+  '异议中',
+]
+const LINKED_DEMO_ABNORMALS: SpecialCraftTaskAbnormalStatus[] = [
+  '无异常',
+  '无异常',
+  '设备异常',
+  '无异常',
+  '无异常',
+  '无异常',
+  '无异常',
+  '数量差异',
+  '数量差异',
+]
 let specialCraftTaskStore: SpecialCraftTaskStore | null = null
 
 function formatDay(offsetDays = 0): string {
@@ -615,13 +635,13 @@ function buildLinkedDemoTaskSeed(input: {
   const pieceCountPerGarment = operation.targetObject === '成衣半成品' ? 1 : patternContext.pieceCountPerGarment
   const planQty = roundQty(orderLine.qty * pieceCountPerGarment)
   const receivedQty = status === '待领料' ? 0 : roundQty(planQty - (abnormalStatus === '无异常' ? 0 : Math.max(1, Math.round(planQty * 0.01))))
-  const completedQty = ['已完成', '待交出', '已交出', '已回写'].includes(status)
+  const completedQty = ['已完成', '待交出', '已交出', '已回写', '差异', '异议中'].includes(status)
     ? receivedQty
     : status === '加工中'
       ? roundQty(Math.max(receivedQty * 0.45, 0))
       : 0
   const lossQty = roundQty(Math.max(receivedQty - completedQty, 0))
-  const waitHandoverQty = ['待交出', '已交出', '已回写'].includes(status) ? completedQty : 0
+  const waitHandoverQty = ['待交出', '已交出', '已回写', '差异', '异议中'].includes(status) ? completedQty : 0
   const targetObject = operation.targetObject
   const demandLine: SpecialCraftTaskDemandLine = {
     demandLineId: `${taskOrderId}-LINE-01`,

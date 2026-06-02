@@ -88,10 +88,10 @@ assert(!fs.existsSync(repoPath('src/pages/process-factory/cutting/warehouse-mana
 assert(!fs.existsSync(repoPath('src/pages/process-factory/cutting/warehouse-management.helpers.ts')), '不得复活旧 warehouse-management.helpers.ts')
 
 const waitProcessHtml = renderCraftCuttingWarehouseManagementWaitProcessPage()
-;['库存明细', '待领料', '中转仓领料', '扫码入仓', '加工领料', '回收入仓', '库区库位'].forEach((item) =>
+;['库存明细', '中转仓领料', '加工领料', '回收入仓', '库区库位'].forEach((item) =>
   assertIncludes(waitProcessHtml, item, `裁床待加工仓缺少仓库页签或动作：${item}`),
 )
-;['待交出仓裁片库存', '回写差异', '新增交出记录'].forEach((item) =>
+;['待领料', '待交出仓裁片库存', '回写差异', '新增交出记录'].forEach((item) =>
   assertNotIncludes(waitProcessHtml, item, `裁床待加工仓不得承接待交出仓内容：${item}`),
 )
 
@@ -100,7 +100,7 @@ const waitHandoverHtml = renderCraftCuttingWarehouseManagementWaitHandoverPage()
 ;[
   '库存明细',
   '入仓暂存装袋',
-  '交出装袋',
+  '交出装袋确认',
   '特殊工艺回仓',
   '库区库位',
   '菲票 / 来源',
@@ -108,7 +108,7 @@ const waitHandoverHtml = renderCraftCuttingWarehouseManagementWaitHandoverPage()
   '袋码 / 库位',
   '查看流水',
   'data-wait-handover-action="open-inbound"',
-  'data-wait-handover-action="open-sorting-bagging"',
+  'data-wait-handover-action="open-handover-bagging-confirm"',
 ].forEach((item) => assertIncludes(waitHandoverHtml, item, `裁床待交出仓缺少仓库页签或动作：${item}`))
 assertOrdered(
   waitHandoverHtml,
@@ -135,9 +135,9 @@ assertOrdered(
 appStore.syncFromBrowser('/fcs/craft/cutting/warehouse-management/wait-handover?tab=handover-bagging')
 const waitHandoverBaggingHtml = renderCraftCuttingWarehouseManagementWaitHandoverPage()
 ;[
-  '交出装袋记录',
+  '交出装袋确认记录',
   '交出确认</button>',
-].forEach((item) => assertIncludes(waitHandoverBaggingHtml, item, `交出装袋页缺少行内交出确认能力：${item}`))
+].forEach((item) => assertIncludes(waitHandoverBaggingHtml, item, `交出装袋确认页缺少行内交出确认能力：${item}`))
 ;['交出装袋汇总', '交出确认记录汇总', '交出差异提示'].forEach((item) =>
   assertNotIncludes(waitHandoverBaggingHtml, item, `交出装袋页不应继续展示红框汇总块：${item}`),
 )
@@ -162,7 +162,7 @@ const hubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
   'renderCompactKpiCard',
   'handleCraftCuttingWaitHandoverEvent',
   'appendWaitHandoverInboundEvent',
-  'appendWaitHandoverSortingBaggingEvent',
+  'appendWaitHandoverBaggingConfirmEvent',
   'appendWaitHandoverHandoverRecordEvent',
   "source: 'WEB'",
 ].forEach((item) => assertIncludes(hubSource, item, `hub 页缺少待交出仓仓库化能力：${item}`))
@@ -170,20 +170,38 @@ const hubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
   assertNotIncludes(hubSource, item, `待交出仓不应继续使用旧标准入口结构：${item}`),
 )
 
+const pdaWarehouseSource = read('src/pages/pda-warehouse.ts')
+;["title: '中转仓领料'", "title: '入仓暂存装袋'", "title: '交出装袋确认'"].forEach((item) =>
+  assertIncludes(pdaWarehouseSource, item, `PDA 仓管首页缺少统一仓管入口：${item}`),
+)
+;["title: '待领料'", "title: '扫码入仓'", "title: '领料入仓'", "title: '菲票入仓'", "title: '交出'", "title: '接收回写'"].forEach((item) =>
+  assertNotIncludes(pdaWarehouseSource, item, `PDA 仓管首页不得继续展示旧入口：${item}`),
+)
+
+const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
+;["title: '中转仓领料'", "'处理中转仓领料、加工领料和回收入仓。'", 'data-pda-warehouse-field="cutting-pickup-area"', 'data-pda-warehouse-field="cutting-pickup-location"'].forEach((item) =>
+  assertIncludes(pdaWaitProcessSource, item, `PDA 裁床待加工仓缺少统一仓管文案：${item}`),
+)
+assertNotIncludes(pdaWaitProcessSource, "title: '扫码入仓'", 'PDA 裁床待加工仓不得继续展示“扫码入仓”入口')
+assertNotIncludes(pdaWaitProcessSource, "title: '领料入仓'", 'PDA 裁床待加工仓不得继续展示“领料入仓”入口')
+
 const pdaWaitHandoverSource = read('src/pages/pda-warehouse-wait-handover.ts')
-;['裁床待交出仓', '扫码入仓', '分拣装袋', '交出'].forEach((item) =>
+;['裁床待交出仓', "title: '入仓暂存装袋'", "title: '交出装袋确认'", '去交出装袋确认'].forEach((item) =>
   assertIncludes(pdaWaitHandoverSource, item, `PDA 裁床待交出仓缺少动作：${item}`),
 )
 assertIncludes(pdaWaitHandoverSource, 'buildWaitHandoverRuntimeProjection', 'PDA 裁床待交出仓必须读取同一事实账投影')
 ;['cutting-wh-sort', `action=${'reb'}${'agging'}`].forEach((item) =>
   assertNotIncludes(pdaWaitHandoverSource, item, `PDA 裁床待交出仓不得保留提示式假操作：${item}`),
 )
+;["title: '菲票入仓'", "title: '交出'", "title: '接收回写'", '查看接收回写'].forEach((item) =>
+  assertNotIncludes(pdaWaitHandoverSource, item, `PDA 裁床待交出仓不得继续展示旧动作：${item}`),
+)
 assertNotIncludes(pdaWaitHandoverSource, '裁床交出仓', 'PDA 不应显示旧名称“裁床交出仓”')
 
 const waitHandoverRuntimeSource = read('src/pages/process-factory/cutting/wait-handover-runtime.ts')
 ;[
   'appendWaitHandoverInboundEvent',
-  'appendWaitHandoverSortingBaggingEvent',
+  'appendWaitHandoverBaggingConfirmEvent',
   'appendWaitHandoverHandoverRecordEvent',
   'buildWaitHandoverRuntimeProjection',
   'listWaitHandoverRuntimeEvents',

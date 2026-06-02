@@ -23,7 +23,7 @@ export type CuttingRuntimeEventType =
   | '开始裁剪'
   | '完成裁剪'
   | '菲票入仓暂存'
-  | '待交出仓分拣装袋'
+  | '交出装袋确认'
   | '新增交出记录'
   | '特殊工艺交出'
   | '特殊工艺回仓'
@@ -102,6 +102,8 @@ export interface TransferPickupPayload {
   unit: '米'
   rollCount: number
   rollNos: string[]
+  warehouseArea?: string
+  locationCode?: string
   pickupBy: string
   pickupAt: string
   hasDifference: boolean
@@ -232,9 +234,9 @@ export interface FeiTicketInboundPayload {
   mixedFlag: boolean
 }
 
-export interface HandoverSortingBaggingPayload {
-  sortingBaggingRecordId: string
-  sortingBaggingRecordNo: string
+export interface HandoverBaggingConfirmPayload {
+  baggingConfirmRecordId: string
+  baggingConfirmRecordNo: string
   pickingTaskId: string
   pickingTaskNo: string
   sewingTaskId: string
@@ -346,7 +348,7 @@ export type CuttingRuntimeEventPayload =
   | FinishSpreadingPayload
   | FinishCuttingPayload
   | FeiTicketInboundPayload
-  | HandoverSortingBaggingPayload
+  | HandoverBaggingConfirmPayload
   | HandoverRecordSubmitPayload
   | SpecialCraftHandoverPayload
   | SpecialCraftReturnPayload
@@ -495,7 +497,7 @@ function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
     '开始裁剪',
     '完成裁剪',
     '菲票入仓暂存',
-    '待交出仓分拣装袋',
+    '交出装袋确认',
     '新增交出记录',
     '特殊工艺交出',
     '特殊工艺回仓',
@@ -569,7 +571,7 @@ function eventTypeCode(eventType: CuttingRuntimeEventType): string {
     开始裁剪: 'CUT-START',
     完成裁剪: 'CUT-FINISH',
     菲票入仓暂存: 'TICKET-IN',
-    待交出仓分拣装袋: 'SORT-BAG',
+    交出装袋确认: 'BAG-CONFIRM',
     新增交出记录: 'HANDOVER',
     特殊工艺交出: 'CRAFT-OUT',
     特殊工艺回仓: 'CRAFT-IN',

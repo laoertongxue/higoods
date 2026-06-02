@@ -244,7 +244,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '裁床待加工仓',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '管理裁床面料库存、中转仓领料、扫码入仓、加工领料、回收入仓和库区库位。',
+    shortDescription: '管理裁床面料库存、中转仓领料、加工领料、回收入仓和库区库位。',
   },
   'warehouse-management-wait-handover': {
     key: 'warehouse-management-wait-handover',

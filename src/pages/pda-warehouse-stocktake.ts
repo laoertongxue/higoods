@@ -1,9 +1,13 @@
 import {
+  approveAndExecuteFactoryWarehouseStocktakeDifferenceReview,
   completeFactoryWarehouseStocktakeOrder,
   createFactoryWarehouseStocktakeOrder,
   listFactoryWaitHandoverStockItems,
   listFactoryWaitProcessStockItems,
+  listFactoryWarehouseAdjustmentOrders,
   listFactoryWarehouseAdjustmentOrdersByStocktake,
+  listFactoryWarehouseInboundRecords,
+  listFactoryWarehouseOutboundRecords,
   listFactoryWarehouseStocktakeDifferenceReviewsByOrder,
   listFactoryWarehouseStocktakeOrders,
   updateFactoryWarehouseStocktakeLine,
@@ -31,6 +35,8 @@ type StocktakeView = '盘点记录' | '盘盈单' | '盘亏单'
 interface StocktakeState {
   status: StocktakeFilter
   view: StocktakeView
+  inventoryQuery: string
+  selectedInventoryId: string | null
   selectedOrderId: string | null
   createDialogOpen: boolean
   createWarehouseKind: 'WAIT_PROCESS' | 'WAIT_HANDOVER'
@@ -42,6 +48,8 @@ interface StocktakeState {
 const state: StocktakeState = {
   status: '全部',
   view: '盘点记录',
+  inventoryQuery: '',
+  selectedInventoryId: null,
   selectedOrderId: null,
   createDialogOpen: false,
   createWarehouseKind: 'WAIT_PROCESS',
@@ -96,6 +104,8 @@ function getRows() {
 
 type InventoryQueryRow = {
   id: string
+  stockItemId: string
+  warehouseKind: 'WAIT_PROCESS' | 'WAIT_HANDOVER'
   warehouseName: string
   warehouseShortName: string
   itemName: string
@@ -106,6 +116,19 @@ type InventoryQueryRow = {
   unit: string
   locationText: string
   status: string
+}
+
+type InventoryFlowRow = {
+  id: string
+  type: string
+  qtyText: string
+  qtyTone: 'increase' | 'decrease' | 'neutral'
+  sourceNo: string
+  locationText: string
+  operatorName: string
+  operatedAt: string
+  status: string
+  remark: string
 }
 
 function renderWarehouseQueryPageHeader(title: string, description: string): string {
@@ -131,7 +154,7 @@ function getWaitProcessSourceText(item: {
   sourceObjectKind: string
   sourceObjectName: string
 }): string {
-  if (item.sourceRecordType === 'MATERIAL_PICKUP') return `扫码入仓 · 来自${item.sourceObjectKind}`
+  if (item.sourceRecordType === 'MATERIAL_PICKUP') return `领料记录 · 来自${item.sourceObjectKind}`
   if (item.sourceRecordType === 'HANDOVER_RECEIVE') return `接收入仓 · 来自${item.sourceObjectKind}`
   if (item.sourceRecordType === 'TRANSFER_RECEIVE') return `流转入仓 · 来自${item.sourceObjectKind}`
   if (item.sourceRecordType === 'STOCKTAKE_ADJUSTMENT') return '盘点调整 · 库存调整单'
@@ -160,6 +183,8 @@ function buildInventoryQueryRows(): InventoryQueryRow[] {
   const waitProcessItems = (hasScopedRows ? scopedWaitProcessItems : allWaitProcessItems.slice(0, 4))
     .map((item) => ({
       id: item.stockItemId,
+      stockItemId: item.stockItemId,
+      warehouseKind: 'WAIT_PROCESS' as const,
       warehouseName: item.warehouseName,
       warehouseShortName: '待加工仓',
       itemName: item.itemName,
@@ -174,6 +199,8 @@ function buildInventoryQueryRows(): InventoryQueryRow[] {
   const waitHandoverItems = (hasScopedRows ? scopedWaitHandoverItems : allWaitHandoverItems.slice(0, 4))
     .map((item) => ({
       id: item.stockItemId,
+      stockItemId: item.stockItemId,
+      warehouseKind: 'WAIT_HANDOVER' as const,
       warehouseName: item.warehouseName,
       warehouseShortName: '待交出仓',
       itemName: item.itemName,
@@ -186,6 +213,23 @@ function buildInventoryQueryRows(): InventoryQueryRow[] {
       status: item.status,
     }))
   return [...waitProcessItems, ...waitHandoverItems].slice(0, 8)
+}
+
+function filterInventoryQueryRows(rows: InventoryQueryRow[], keyword: string): InventoryQueryRow[] {
+  const normalized = keyword.trim().toLowerCase()
+  if (!normalized) return rows
+  return rows.filter((row) => [
+    row.warehouseName,
+    row.warehouseShortName,
+    row.itemName,
+    row.itemKind,
+    row.code,
+    row.sourceText,
+    row.locationText,
+    row.status,
+    `${row.qty}`,
+    row.unit,
+  ].some((value) => String(value || '').toLowerCase().includes(normalized)))
 }
 
 function renderInventoryQueryResultCard(row: InventoryQueryRow, mode: WarehouseToolMode, index: number): string {
@@ -209,19 +253,139 @@ function renderInventoryQueryResultCard(row: InventoryQueryRow, mode: WarehouseT
         <div>库位：${escapeHtml(row.locationText || '待确认')}</div>
         <div class="col-span-2 truncate">来源：${escapeHtml(row.sourceText)}</div>
       </div>
-      <button type="button" class="mt-3 w-full rounded-xl border px-3 py-2 text-xs font-medium text-foreground">
+      <button
+        type="button"
+        class="mt-3 w-full rounded-xl border px-3 py-2 text-xs font-medium text-foreground"
+        data-pda-warehouse-action="open-inventory-flow"
+        data-stock-item-id="${escapeAttr(row.stockItemId)}"
+      >
         查看库存流水
       </button>
     </article>
   `
 }
 
+function buildInventoryFlowRows(row: InventoryQueryRow): InventoryFlowRow[] {
+  const adjustmentOrders = listFactoryWarehouseAdjustmentOrders().filter((item) => item.stockItemId === row.stockItemId)
+  const adjustmentIds = new Set(adjustmentOrders.map((item) => item.adjustmentOrderId))
+  const inboundRows: InventoryFlowRow[] = listFactoryWarehouseInboundRecords()
+    .filter((item) => item.generatedStockItemId === row.stockItemId)
+    .map((item) => {
+      const isStocktakeAdjustment = item.sourceRecordType === 'STOCKTAKE_ADJUSTMENT'
+      return {
+        id: item.inboundRecordId,
+        type: isStocktakeAdjustment ? '盘盈库存调整' : '入仓记录',
+        qtyText: `+${item.receivedQty} ${item.unit}`,
+        qtyTone: 'increase',
+        sourceNo: item.sourceRecordNo,
+        locationText: `${item.areaName} / ${item.shelfNo} / ${item.locationNo}`,
+        operatorName: item.receiverName,
+        operatedAt: item.receivedAt,
+        status: item.status,
+        remark: item.remark || (isStocktakeAdjustment ? '盘点后盘盈入库调整' : '入仓后形成库存'),
+      } satisfies InventoryFlowRow
+    })
+  const outboundRows: InventoryFlowRow[] = listFactoryWarehouseOutboundRecords()
+    .filter((item) =>
+      item.relatedWaitHandoverStockItemId === row.stockItemId
+      || (item.outboundRecordId.startsWith('OUT-') && adjustmentIds.has(item.outboundRecordId.replace(/^OUT-/, ''))),
+    )
+    .map((item) => {
+      const isStocktakeAdjustment = item.remark?.includes('盘亏审核通过')
+      return {
+        id: item.outboundRecordId,
+        type: isStocktakeAdjustment ? '盘亏库存调整' : '出库记录',
+        qtyText: `-${item.outboundQty} ${item.unit}`,
+        qtyTone: 'decrease',
+        sourceNo: item.outboundRecordNo,
+        locationText: item.relatedWaitHandoverStockItemId ? row.locationText : '盘点调整',
+        operatorName: item.operatorName,
+        operatedAt: item.outboundAt,
+        status: item.status,
+        remark: item.remark || (isStocktakeAdjustment ? '盘点后盘亏出库调整' : '交出后形成出库流水'),
+      } satisfies InventoryFlowRow
+    })
+  const adjustmentFallbackRows: InventoryFlowRow[] = adjustmentOrders
+    .filter((item) => !inboundRows.some((rowItem) => rowItem.id === `INB-${item.adjustmentOrderId}`))
+    .filter((item) => !outboundRows.some((rowItem) => rowItem.id === `OUT-${item.adjustmentOrderId}`))
+    .map((item) => ({
+      id: item.adjustmentOrderId,
+      type: item.adjustmentQty > 0 ? '盘盈库存调整' : '盘亏库存调整',
+      qtyText: `${item.adjustmentQty > 0 ? '+' : '-'}${Math.abs(item.adjustmentQty)} ${item.unit}`,
+      qtyTone: item.adjustmentQty > 0 ? 'increase' : 'decrease',
+      sourceNo: item.adjustmentOrderNo,
+      locationText: row.locationText,
+      operatorName: item.executedBy || item.createdBy,
+      operatedAt: item.executedAt || item.createdAt,
+      status: item.status,
+      remark: item.status === '已完成' ? '盘点差异已调整库存' : '盘点差异待执行库存调整',
+    }))
+  return [...inboundRows, ...outboundRows, ...adjustmentFallbackRows].sort((left, right) => right.operatedAt.localeCompare(left.operatedAt))
+}
+
+function renderInventoryFlowDialog(rows: InventoryQueryRow[]): string {
+  const row = rows.find((item) => item.stockItemId === state.selectedInventoryId)
+  if (!row) return ''
+  const flowRows = buildInventoryFlowRows(row)
+  return `
+    <div class="fixed inset-0 z-[120]">
+      <button type="button" class="absolute inset-0 bg-black/40" data-pda-warehouse-action="close-inventory-flow"></button>
+      <section class="absolute inset-x-4 bottom-4 max-h-[78vh] overflow-y-auto rounded-3xl border bg-background p-4 shadow-2xl">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="text-lg font-semibold text-foreground">库存流水</div>
+            <div class="mt-1 text-xs leading-5 text-muted-foreground">
+              ${escapeHtml(row.warehouseShortName)} · ${escapeHtml(row.itemName)} · ${escapeHtml(row.code)}
+            </div>
+            <div class="mt-1 text-xs text-muted-foreground">当前库位：${escapeHtml(row.locationText || '待确认')}</div>
+          </div>
+          <button type="button" class="shrink-0 rounded-full border px-3 py-1 text-xs" data-pda-warehouse-action="close-inventory-flow">关闭</button>
+        </div>
+        <div class="mt-4 space-y-3">
+          ${
+            flowRows.length
+              ? flowRows.map((item) => `
+                  <article class="rounded-2xl border bg-card px-4 py-3 text-xs text-muted-foreground">
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="text-sm font-semibold text-foreground">${escapeHtml(item.type)}</div>
+                        <div class="mt-1">${escapeHtml(item.sourceNo)}</div>
+                      </div>
+                      <div class="rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        item.qtyTone === 'increase'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : item.qtyTone === 'decrease'
+                            ? 'bg-rose-50 text-rose-700'
+                            : 'bg-muted text-muted-foreground'
+                      }">${escapeHtml(item.qtyText)}</div>
+                    </div>
+                    <div class="mt-3 grid grid-cols-2 gap-2">
+                      <div>库位：${escapeHtml(item.locationText || '-')}</div>
+                      <div>状态：${escapeHtml(item.status)}</div>
+                      <div>操作人：${escapeHtml(item.operatorName || '-')}</div>
+                      <div>时间：${escapeHtml(item.operatedAt || '-')}</div>
+                      <div class="col-span-2">说明：${escapeHtml(item.remark || '-')}</div>
+                    </div>
+                  </article>
+                `).join('')
+              : renderMobilePageEmptyState('暂无库存流水', '入仓、交出或盘点调整后会形成库存流水。')
+          }
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderInventorySearchPanel(mode: WarehouseToolMode): string {
-  const rows = buildInventoryQueryRows()
+  const rows = filterInventoryQueryRows(buildInventoryQueryRows(), state.inventoryQuery)
   const inputLabel = mode === 'scan' ? '扫描码' : '关键词'
   const inputPlaceholder = mode === 'scan' ? '扫描物料码 / 菲票码 / 载具码 / 库位码' : '输入物料、菲票、载具、库位'
   const resultTitle = mode === 'scan' ? '扫码结果' : '查询结果'
-  const resultDescription = mode === 'scan' ? '演示扫到第一条库存对象后展示的当前库存。' : '演示按关键词查询后的库存对象。'
+  const resultDescription = state.inventoryQuery.trim()
+    ? `已按“${state.inventoryQuery.trim()}”筛选当前库存。`
+    : mode === 'scan'
+      ? '扫描后展示匹配到的当前库存对象。'
+      : '输入关键词后展示匹配到的当前库存对象。'
   return `
     <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
       <label class="text-xs font-medium text-muted-foreground">
@@ -229,6 +393,8 @@ function renderInventorySearchPanel(mode: WarehouseToolMode): string {
         <input
           class="mt-2 h-11 w-full rounded-xl border bg-background px-3 text-sm"
           placeholder="${escapeAttr(inputPlaceholder)}"
+          value="${escapeAttr(state.inventoryQuery)}"
+          data-pda-warehouse-field="inventory-query"
         />
       </label>
       <button type="button" class="mt-3 h-11 w-full rounded-xl bg-primary text-sm font-medium text-primary-foreground">${mode === 'scan' ? '确认扫码查询' : '查询'}</button>
@@ -244,9 +410,10 @@ function renderInventorySearchPanel(mode: WarehouseToolMode): string {
       ${
         rows.length
           ? rows.map((row, index) => renderInventoryQueryResultCard(row, mode, index)).join('')
-          : renderMobilePageEmptyState('暂无库存记录', '扫码入仓或回收入仓后会在这里显示。')
+          : renderMobilePageEmptyState('暂无库存记录', '中转仓领料、回收入仓或交出装袋确认后会在这里显示。')
       }
     </section>
+    ${renderInventoryFlowDialog(rows)}
   `
 }
 
@@ -485,6 +652,8 @@ function renderStocktakePanel(): string {
 
 function renderStocktakeDetailPage(order: ReturnType<typeof getRows>[number]): string {
   const adjustments = listFactoryWarehouseAdjustmentOrdersByStocktake(order.stocktakeOrderId)
+  const reviews = listFactoryWarehouseStocktakeDifferenceReviewsByOrder(order.stocktakeOrderId)
+  const pendingReviewByLineId = new Map(reviews.filter((item) => item.reviewStatus === '待审核').map((item) => [item.lineId, item]))
   return `
     <section class="space-y-4">
       <div class="flex items-start justify-between gap-3 px-1">
@@ -507,8 +676,9 @@ function renderStocktakeDetailPage(order: ReturnType<typeof getRows>[number]): s
           <span class="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">${order.lineList.length} 条</span>
         </div>
           ${order.lineList
-            .map(
-              (line) => `
+            .map((line) => {
+              const pendingReview = pendingReviewByLineId.get(line.lineId)
+              return `
                 <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0 flex-1">
@@ -559,9 +729,21 @@ function renderStocktakeDetailPage(order: ReturnType<typeof getRows>[number]): s
                     </label>
                   </div>
                   <div class="mt-2 text-xs text-muted-foreground">差异数量：${escapeHtml(buildWarehouseDifferenceText(line.differenceQty))}</div>
+                  ${
+                    order.status === '待确认' && pendingReview
+                      ? `<button
+                          type="button"
+                          class="mt-3 w-full rounded-xl bg-primary px-3 py-2.5 text-xs font-medium text-primary-foreground"
+                          data-pda-warehouse-action="confirm-stocktake-adjustment"
+                          data-review-id="${escapeAttr(pendingReview.reviewId)}"
+                        >确认差异并调整库存</button>`
+                      : line.reviewStatus
+                        ? `<div class="mt-3 rounded-xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">差异处理状态：${escapeHtml(line.reviewStatus)}</div>`
+                        : ''
+                  }
                 </article>
-              `,
-            )
+              `
+            })
             .join('')}
       </section>
       <section class="space-y-3">
@@ -574,7 +756,10 @@ function renderStocktakeDetailPage(order: ReturnType<typeof getRows>[number]): s
                     <article class="rounded-2xl border bg-card px-4 py-3 text-xs text-muted-foreground">
                       <div class="flex items-center justify-between gap-3">
                         <div class="font-semibold text-foreground">${escapeHtml(item.adjustmentOrderNo)}</div>
-                        ${renderStatusPill(item.adjustmentType || '库存调整')}
+                        <div class="flex items-center gap-2">
+                          ${renderStatusPill(item.adjustmentType || '库存调整')}
+                          ${renderStatusPill(item.status)}
+                        </div>
                       </div>
                       <div class="mt-2">对象：${escapeHtml(item.materialSku || item.partName || item.itemName)}</div>
                       <div class="mt-1">库存 / 盘点：${escapeHtml(`${item.bookQty} / ${item.countedQty} ${item.unit}`)}，差异：${escapeHtml(`${item.adjustmentQty} ${item.unit}`)}</div>
@@ -621,6 +806,14 @@ export function handlePdaWarehouseStocktakeEvent(target: HTMLElement): boolean {
     state.createDialogOpen = false
     return true
   }
+  if (action === 'open-inventory-flow' && actionNode.dataset.stockItemId) {
+    state.selectedInventoryId = actionNode.dataset.stockItemId
+    return true
+  }
+  if (action === 'close-inventory-flow') {
+    state.selectedInventoryId = null
+    return true
+  }
   if (action === 'create-stocktake') {
     const runtime = getPdaRuntimeContext()
     const warehouse = getCurrentFactoryWarehouseByKind(state.createWarehouseKind)
@@ -648,6 +841,14 @@ export function handlePdaWarehouseStocktakeEvent(target: HTMLElement): boolean {
   }
   if (action === 'complete-stocktake' && actionNode.dataset.orderId) {
     completeFactoryWarehouseStocktakeOrder(actionNode.dataset.orderId)
+    return true
+  }
+  if (action === 'confirm-stocktake-adjustment' && actionNode.dataset.reviewId) {
+    const runtime = getPdaRuntimeContext()
+    approveAndExecuteFactoryWarehouseStocktakeDifferenceReview({
+      reviewId: actionNode.dataset.reviewId,
+      operatorName: runtime?.userName || '仓库主管',
+    })
     return true
   }
 
@@ -681,6 +882,10 @@ export function handlePdaWarehouseStocktakeEvent(target: HTMLElement): boolean {
   }
   if (field === 'stocktake-planned-at') {
     state.createPlannedAt = value
+    return true
+  }
+  if (field === 'inventory-query') {
+    state.inventoryQuery = value
     return true
   }
   if ((field === 'stocktake-counted-qty' || field === 'stocktake-difference-reason') && fieldNode) {

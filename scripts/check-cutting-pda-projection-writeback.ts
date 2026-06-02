@@ -146,7 +146,7 @@ function main(): void {
     '开始裁剪',
     '完成裁剪',
     '菲票入仓暂存',
-    '待交出仓分拣装袋',
+    '交出装袋确认',
     '新增交出记录',
     '特殊工艺交出',
     '特殊工艺回仓',
@@ -165,7 +165,7 @@ function main(): void {
     'FinishSpreadingPayload',
     'FinishCuttingPayload',
     'FeiTicketInboundPayload',
-    'HandoverSortingBaggingPayload',
+    'HandoverBaggingConfirmPayload',
     'HandoverRecordSubmitPayload',
     'SpecialCraftHandoverPayload',
     'SpecialCraftReturnPayload',
@@ -188,7 +188,7 @@ function main(): void {
   const waitHandoverRuntime = 'src/pages/process-factory/cutting/wait-handover-runtime.ts'
   ;[
     'appendWaitHandoverInboundEvent',
-    'appendWaitHandoverSortingBaggingEvent',
+    'appendWaitHandoverBaggingConfirmEvent',
     'appendWaitHandoverHandoverRecordEvent',
     'appendWaitHandoverSpecialCraftHandoverEvent',
     'appendWaitHandoverSpecialCraftReturnEvent',
@@ -198,7 +198,7 @@ function main(): void {
   })
 
   checkContains('src/pages/pda-cutting-inbound.ts', 'appendWaitHandoverInboundEvent', errors, 'PDA 菲票入仓未通过待交出仓 runtime 写事件账')
-  checkContains('src/pages/pda-cutting-handover.ts', 'appendWaitHandoverSortingBaggingEvent', errors, 'PDA 二次分拣/装袋未通过待交出仓 runtime 写事件账')
+  checkContains('src/pages/pda-cutting-handover.ts', 'appendWaitHandoverBaggingConfirmEvent', errors, 'PDA 交出装袋确认未通过待交出仓 runtime 写事件账')
   checkContains('src/pages/pda-cutting-handover.ts', 'appendWaitHandoverHandoverRecordEvent', errors, 'PDA 交出记录未通过待交出仓 runtime 写事件账')
   checkContains('src/pages/pda-cutting-handover.ts', 'appendWaitHandoverSpecialCraftHandoverEvent', errors, 'PDA 特殊工艺交出未通过待交出仓 runtime 写事件账')
   checkContains('src/pages/pda-cutting-handover.ts', 'appendWaitHandoverSpecialCraftReturnEvent', errors, 'PDA 特殊工艺回仓未通过待交出仓 runtime 写事件账')

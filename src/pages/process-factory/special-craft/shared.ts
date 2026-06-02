@@ -167,14 +167,18 @@ export function renderSpecialCraftPageLayout(input: {
   description: string
   activeSubNav: SubNavKey
   content: string
+  actionsHtml?: string
 }): string {
-  const { title, description, content } = input
+  const { title, description, content, actionsHtml } = input
 
   return `
     <div class="space-y-4">
-      <header class="space-y-1">
-        <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(title)}</h1>
-        ${description ? `<p class="text-sm text-muted-foreground">${escapeHtml(description)}</p>` : ''}
+      <header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="space-y-1">
+          <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(title)}</h1>
+          ${description ? `<p class="text-sm text-muted-foreground">${escapeHtml(description)}</p>` : ''}
+        </div>
+        ${actionsHtml ? `<div class="shrink-0">${actionsHtml}</div>` : ''}
       </header>
       ${content}
     </div>

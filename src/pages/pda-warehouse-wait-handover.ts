@@ -1,8 +1,11 @@
 import {
   listFactoryWaitHandoverStockItems,
+  type FactoryWaitHandoverStockItem,
   updateWaitHandoverStockLocation,
 } from '../data/fcs/factory-internal-warehouse.ts'
+import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import { listAuxiliaryCraftTaskOrders } from '../data/fcs/special-craft-task-orders.ts'
 import type { PostFinishingWaitHandoverWarehouseRecord } from '../data/fcs/post-finishing-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
@@ -53,7 +56,7 @@ import { escapeHtml } from '../utils'
 import { getSpecialCraftFeiTicketSummary } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 
 type WaitHandoverFilter = '全部' | '待交出' | '已交出' | '已回写' | '差异' | '异议中'
-type CuttingWaitHandoverActionKey = 'inbound' | 'sorting-bagging' | 'handover' | 'writeback'
+type CuttingWaitHandoverActionKey = 'inbound' | 'handover-bagging-confirm'
 
 interface CuttingWaitHandoverCardAction {
   label: string
@@ -69,6 +72,18 @@ interface WaitHandoverState {
   shelfNo: string
   locationNo: string
   remark: string
+  auxiliaryFinishScan: string
+  auxiliaryFinishQty: string
+  auxiliaryFinishLossQty: string
+  auxiliaryFinishArea: string
+  auxiliaryFinishShelf: string
+  auxiliaryFinishLocation: string
+  auxiliaryHandoverScan: string
+  auxiliaryHandoverQty: string
+  auxiliaryHandoverReceiver: string
+  auxiliaryHandoverArea: string
+  auxiliaryHandoverShelf: string
+  auxiliaryHandoverLocation: string
 }
 
 const state: WaitHandoverState = {
@@ -79,6 +94,18 @@ const state: WaitHandoverState = {
   shelfNo: '',
   locationNo: '',
   remark: '',
+  auxiliaryFinishScan: '',
+  auxiliaryFinishQty: '',
+  auxiliaryFinishLossQty: '',
+  auxiliaryFinishArea: '',
+  auxiliaryFinishShelf: '',
+  auxiliaryFinishLocation: '',
+  auxiliaryHandoverScan: '',
+  auxiliaryHandoverQty: '',
+  auxiliaryHandoverReceiver: '',
+  auxiliaryHandoverArea: '',
+  auxiliaryHandoverShelf: '',
+  auxiliaryHandoverLocation: '',
 }
 
 const FILTERS: Array<{ value: WaitHandoverFilter; label: string }> = [
@@ -100,29 +127,153 @@ const CUTTING_WAIT_HANDOVER_ACTIONS: Array<{
 }> = [
   {
     key: 'inbound',
-    title: '菲票入仓',
-    desc: '加工完成后扫暂存袋和菲票，确认库区库位、菲票数量和裁片数量。',
-    primaryLabel: '开始菲票入仓',
+    title: '入仓暂存装袋',
+    desc: '扫中转袋和菲票，确认库区库位、菲票数量和裁片数量。',
+    primaryLabel: '开始入仓暂存装袋',
   },
   {
-    key: 'sorting-bagging',
-    title: '分拣装袋',
-    desc: '按车缝任务从入仓暂存袋扫描菲票，并装入目标中转袋。',
-    primaryLabel: '进入分拣装袋',
-  },
-  {
-    key: 'handover',
-    title: '交出',
-    desc: '扫交出单、中转袋和菲票，提交给下游工厂或仓库。',
-    primaryLabel: '开始交出',
-  },
-  {
-    key: 'writeback',
-    title: '接收回写',
-    desc: '查看接收方回写的数量、差异和异议，确认后续处理。',
-    primaryLabel: '查看接收回写',
+    key: 'handover-bagging-confirm',
+    title: '交出装袋确认',
+    desc: '按车缝任务扫描中转袋和菲票，确认装袋并形成交出记录。',
+    primaryLabel: '进入交出装袋确认',
   },
 ]
+
+type AuxiliaryWaitHandoverAction = 'finish-inbound' | 'handover-confirm'
+
+function isAuxiliaryCraftRuntime(): boolean {
+  const runtime = getMobileWarehouseRuntimeContext()
+  if (!runtime) return false
+  const factory = getFactoryMasterRecordById(runtime.factoryId)
+  return factory?.factoryType === 'CENTRAL_AUX'
+}
+
+function getAuxiliaryWaitHandoverRows(ignoreStatus = false): FactoryWaitHandoverStockItem[] {
+  const runtime = getMobileWarehouseRuntimeContext()
+  if (!runtime) return []
+  listAuxiliaryCraftTaskOrders()
+  return listFactoryWaitHandoverStockItems()
+    .filter((item) => item.factoryId === runtime.factoryId && Boolean(item.craftName))
+    .filter((item) => (ignoreStatus || state.status === '全部' ? true : item.status === state.status))
+}
+
+function getAuxiliaryWaitHandoverAction(value?: string | null): AuxiliaryWaitHandoverAction | null {
+  return value === 'finish-inbound' || value === 'handover-confirm' ? value : null
+}
+
+function getAuxiliaryWaitHandoverSample(): FactoryWaitHandoverStockItem | undefined {
+  return getAuxiliaryWaitHandoverRows(true)[0]
+}
+
+function ensureAuxiliaryWaitHandoverDraft(action: AuxiliaryWaitHandoverAction): FactoryWaitHandoverStockItem | undefined {
+  const sample = getAuxiliaryWaitHandoverSample()
+  if (!sample) return undefined
+  if (action === 'finish-inbound') {
+    state.auxiliaryFinishScan ||= sample.taskNo || sample.stockItemId
+    state.auxiliaryFinishQty ||= String(sample.completedQty)
+    state.auxiliaryFinishLossQty ||= String(sample.lossQty)
+    state.auxiliaryFinishArea ||= sample.areaName
+    state.auxiliaryFinishShelf ||= sample.shelfNo
+    state.auxiliaryFinishLocation ||= sample.locationNo
+  } else {
+    state.auxiliaryHandoverScan ||= sample.handoverOrderNo || sample.taskNo || sample.stockItemId
+    state.auxiliaryHandoverQty ||= String(sample.waitHandoverQty || sample.completedQty)
+    state.auxiliaryHandoverReceiver ||= sample.receiverName
+    state.auxiliaryHandoverArea ||= sample.areaName
+    state.auxiliaryHandoverShelf ||= sample.shelfNo
+    state.auxiliaryHandoverLocation ||= sample.locationNo
+  }
+  return sample
+}
+
+function renderAuxiliaryWaitHandoverActionCards(activeAction?: AuxiliaryWaitHandoverAction | null): string {
+  const actions: Array<{ key: AuxiliaryWaitHandoverAction; title: string; desc: string }> = [
+    { key: 'finish-inbound', title: '完工入仓', desc: '确认加工完成数量、损耗和库位。' },
+    { key: 'handover-confirm', title: '交出确认', desc: '确认接收方和数量，形成交出记录。' },
+  ]
+  return `
+    <section class="grid grid-cols-2 gap-2">
+      ${actions.map((item) => `
+        <button
+          type="button"
+          class="rounded-2xl border px-4 py-4 text-left shadow-sm ${activeAction === item.key ? 'border-primary bg-primary/5' : 'bg-card'}"
+          data-nav="/fcs/pda/warehouse/wait-handover?action=${escapeAttr(item.key)}"
+        >
+          <div class="text-sm font-semibold text-foreground">${escapeHtml(item.title)}</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(item.desc)}</div>
+        </button>
+      `).join('')}
+    </section>
+  `
+}
+
+function renderAuxiliaryWaitHandoverPositionFields(action: AuxiliaryWaitHandoverAction): string {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  if (!warehouse) return ''
+  const options = getWarehousePositionOptions(warehouse.warehouseId)
+  const areaValue = action === 'finish-inbound' ? state.auxiliaryFinishArea : state.auxiliaryHandoverArea
+  const shelfValue = action === 'finish-inbound' ? state.auxiliaryFinishShelf : state.auxiliaryHandoverShelf
+  const locationValue = action === 'finish-inbound' ? state.auxiliaryFinishLocation : state.auxiliaryHandoverLocation
+  const fieldPrefix = action === 'finish-inbound' ? 'auxiliary-finish' : 'auxiliary-handover'
+  const shelfOptions = options.shelfOptionsByArea[areaValue] || []
+  const locationOptions = options.locationOptionsByShelf[shelfValue] || []
+  return `
+    <div class="grid grid-cols-1 gap-3">
+      <label class="block space-y-1.5">
+        <span class="text-xs font-medium text-muted-foreground">库区</span>
+        <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="${fieldPrefix}-area">
+          ${options.areaOptions.map((option) => `<option value="${escapeAttr(option.value)}" ${option.value === areaValue ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="block space-y-1.5">
+        <span class="text-xs font-medium text-muted-foreground">货架</span>
+        <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="${fieldPrefix}-shelf">
+          ${shelfOptions.map((option) => `<option value="${escapeAttr(option.value)}" ${option.value === shelfValue ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="block space-y-1.5">
+        <span class="text-xs font-medium text-muted-foreground">库位</span>
+        <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="${fieldPrefix}-location">
+          ${locationOptions.map((option) => `<option value="${escapeAttr(option.value)}" ${option.value === locationValue ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+  `
+}
+
+function updateAuxiliaryWaitHandoverArea(action: AuxiliaryWaitHandoverAction, value: string): void {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  const options = warehouse ? getWarehousePositionOptions(warehouse.warehouseId) : null
+  const nextShelf = options?.shelfOptionsByArea[value]?.[0]?.value || ''
+  const nextLocation = options?.locationOptionsByShelf[nextShelf]?.[0]?.value || ''
+  if (action === 'finish-inbound') {
+    state.auxiliaryFinishArea = value
+    state.auxiliaryFinishShelf = nextShelf
+    state.auxiliaryFinishLocation = nextLocation
+  } else {
+    state.auxiliaryHandoverArea = value
+    state.auxiliaryHandoverShelf = nextShelf
+    state.auxiliaryHandoverLocation = nextLocation
+  }
+}
+
+function updateAuxiliaryWaitHandoverShelf(action: AuxiliaryWaitHandoverAction, value: string): void {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  const options = warehouse ? getWarehousePositionOptions(warehouse.warehouseId) : null
+  const nextLocation = options?.locationOptionsByShelf[value]?.[0]?.value || ''
+  if (action === 'finish-inbound') {
+    state.auxiliaryFinishShelf = value
+    state.auxiliaryFinishLocation = nextLocation
+  } else {
+    state.auxiliaryHandoverShelf = value
+    state.auxiliaryHandoverLocation = nextLocation
+  }
+}
+
+function updateAuxiliaryWaitHandoverLocation(action: AuxiliaryWaitHandoverAction, value: string): void {
+  if (action === 'finish-inbound') state.auxiliaryFinishLocation = value
+  else state.auxiliaryHandoverLocation = value
+}
 
 function getFirstCuttingTaskId(): string {
   return listPdaCuttingTaskSourceRecords()[0]?.taskId || 'CUTTING-DEMO'
@@ -134,22 +285,17 @@ function getCuttingWaitHandoverAction(value?: string | null): typeof CUTTING_WAI
 
 function getCuttingWaitHandoverActionRoute(actionKey: CuttingWaitHandoverActionKey, firstTaskId: string): string {
   if (actionKey === 'inbound') return `/fcs/pda/cutting/inbound/${firstTaskId}`
-  const actionQuery = actionKey === 'sorting-bagging'
-    ? 'sorting-bagging'
-    : actionKey === 'handover'
-      ? 'handover'
-      : 'writeback'
-  return `/fcs/pda/cutting/handover/${firstTaskId}?action=${actionQuery}`
+  return `/fcs/pda/cutting/handover/${firstTaskId}?action=handover-bagging-confirm`
 }
 
-function buildCuttingSortingBaggingProjection(inboundTempBags: InboundTempBag[]): HandoverPickingTaskProjection {
+function buildCuttingBaggingConfirmProjection(inboundTempBags: InboundTempBag[]): HandoverPickingTaskProjection {
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
   return buildHandoverPickingTaskProjectionFromAllocationProjection(
     buildSewingTaskAllocationProjectionFromInventory(inboundInventoryRecords),
   )
 }
 
-function renderCuttingSortingBaggingTaskCard(
+function renderCuttingBaggingConfirmTaskCard(
   task: HandoverPickingTaskProjection['tasks'][number],
   firstTaskId: string,
 ): string {
@@ -157,7 +303,7 @@ function renderCuttingSortingBaggingTaskCard(
   const availableQty = task.allocatedInventoryItems.reduce((sum, item) => sum + item.pieceQty, 0)
   const packedQty = task.targetTransferBags.reduce((sum, bag) => sum + bag.totalPieceQty, 0)
   const skuCount = new Set(task.allocatedInventoryItems.map((item) => `${item.size}-${item.partCode}`)).size || task.allocatedInventoryItems.length
-  const route = `/fcs/pda/cutting/handover/${firstTaskId}?action=sorting-bagging&sortingTaskId=${escapeAttr(task.pickingTaskId)}`
+  const route = `/fcs/pda/cutting/handover/${firstTaskId}?action=handover-bagging-confirm&baggingConfirmTaskId=${escapeAttr(task.pickingTaskId)}`
   return `
     <article class="rounded-lg border bg-card p-3">
       <div class="flex items-start justify-between gap-2">
@@ -165,7 +311,7 @@ function renderCuttingSortingBaggingTaskCard(
           <div class="truncate text-sm font-semibold text-foreground">${escapeHtml(task.pickingTaskNo)}</div>
           <div class="mt-1 text-xs text-muted-foreground">车缝任务：${escapeHtml(task.sewingTaskNo)}</div>
         </div>
-        ${renderStatusPill(task.taskStatus === '待分拣' ? '待分拣装袋' : task.taskStatus)}
+        ${renderStatusPill(task.taskStatus === '待分拣' ? '待交出装袋确认' : task.taskStatus)}
       </div>
       <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         <div><span class="text-muted-foreground">车缝厂：</span>${escapeHtml(task.receiverFactoryName)}</div>
@@ -183,23 +329,23 @@ function renderCuttingSortingBaggingTaskCard(
         class="mt-3 inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground"
         data-nav="${route}"
       >
-        进入分拣装袋
+        进入交出装袋确认
       </button>
     </article>
   `
 }
 
-function renderCuttingSortingBaggingTaskList(
+function renderCuttingBaggingConfirmTaskList(
   projection: HandoverPickingTaskProjection,
   firstTaskId: string,
 ): string {
   return `
     <section class="space-y-3">
-      <div class="px-1 text-base font-semibold text-foreground">分拣装袋任务</div>
+      <div class="px-1 text-base font-semibold text-foreground">交出装袋确认任务</div>
       ${
         projection.tasks.length
-          ? projection.tasks.map((task) => renderCuttingSortingBaggingTaskCard(task, firstTaskId)).join('')
-          : renderMobilePageEmptyState('暂无分拣装袋任务', '车缝任务分配并有裁片入仓后，会按车缝任务生成分拣装袋任务。')
+          ? projection.tasks.map((task) => renderCuttingBaggingConfirmTaskCard(task, firstTaskId)).join('')
+          : renderMobilePageEmptyState('暂无交出装袋确认任务', '车缝任务分配并有裁片入仓后，会按车缝任务生成交出装袋确认任务。')
       }
     </section>
   `
@@ -238,6 +384,115 @@ function renderCuttingWaitHandoverSubpageHeader(title: string, description: stri
       </button>
     </div>
   `
+}
+
+function renderAuxiliaryWaitHandoverActionPage(action: AuxiliaryWaitHandoverAction): string {
+  const sample = ensureAuxiliaryWaitHandoverDraft(action)
+  const isFinishInbound = action === 'finish-inbound'
+  const title = isFinishInbound ? '完工入仓' : '交出确认'
+  const scanValue = isFinishInbound ? state.auxiliaryFinishScan : state.auxiliaryHandoverScan
+  const qtyValue = isFinishInbound ? state.auxiliaryFinishQty : state.auxiliaryHandoverQty
+  return `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-xl font-semibold leading-tight text-foreground">${escapeHtml(title)}</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(sample ? `${sample.craftName || '辅助工艺'} · ${sample.itemName}` : '暂无可用演示记录')}</div>
+        </div>
+        <button type="button" class="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium" data-nav="/fcs/pda/warehouse">返回仓管</button>
+      </section>
+      ${renderAuxiliaryWaitHandoverActionCards(action)}
+      <section class="space-y-3 rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">${isFinishInbound ? '加工任务 / 完工单' : '交出单 / 加工任务'}</span>
+          <input
+            class="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+            value="${escapeAttr(scanValue)}"
+            placeholder="扫码或输入单号"
+            data-pda-warehouse-field="${isFinishInbound ? 'auxiliary-finish-scan' : 'auxiliary-handover-scan'}"
+          />
+        </label>
+        <label class="block space-y-1.5">
+          <span class="text-xs font-medium text-muted-foreground">${isFinishInbound ? '完工数量' : '交出数量'}（${escapeHtml(sample?.unit || '件')}）</span>
+          <input
+            class="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+            inputmode="decimal"
+            value="${escapeAttr(qtyValue)}"
+            data-pda-warehouse-field="${isFinishInbound ? 'auxiliary-finish-qty' : 'auxiliary-handover-qty'}"
+          />
+        </label>
+        ${
+          isFinishInbound
+            ? `<label class="block space-y-1.5">
+                <span class="text-xs font-medium text-muted-foreground">损耗数量（${escapeHtml(sample?.unit || '件')}）</span>
+                <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.auxiliaryFinishLossQty)}" data-pda-warehouse-field="auxiliary-finish-loss-qty" />
+              </label>`
+            : `<label class="block space-y-1.5">
+                <span class="text-xs font-medium text-muted-foreground">接收方</span>
+                <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" value="${escapeAttr(state.auxiliaryHandoverReceiver)}" data-pda-warehouse-field="auxiliary-handover-receiver" />
+              </label>`
+        }
+        ${renderAuxiliaryWaitHandoverPositionFields(action)}
+        <button type="button" class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-auxiliary-${isFinishInbound ? 'finish' : 'handover'}">
+          ${escapeHtml(isFinishInbound ? '确认完工入仓' : '确认交出')}
+        </button>
+      </section>
+    </div>
+  `
+}
+
+function renderAuxiliaryWaitHandoverPage(): string {
+  const activeAction = getAuxiliaryWaitHandoverAction(getMobileWarehouseSearchParams().get('action'))
+  if (activeAction) {
+    const title = activeAction === 'finish-inbound' ? '完工入仓' : '交出确认'
+    return renderPdaFrame(renderAuxiliaryWaitHandoverActionPage(activeAction), 'warehouse', { headerTitle: title, disableTodoAutoOpen: true })
+  }
+  const runtime = getMobileWarehouseRuntimeContext()
+  const rows = getAuxiliaryWaitHandoverRows()
+  const content = `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      ${runtime ? renderWarehouseSummaryHeader('辅助工艺待交出仓', '完工入仓生成待交出库存，交出确认后形成交出记录。', runtime.overview) : ''}
+      ${renderAuxiliaryWaitHandoverActionCards()}
+      ${renderSectionFilterChips(state.status, FILTERS, 'wait-handover-status')}
+      <section class="space-y-3">
+        ${
+          rows.length > 0
+            ? rows.map((row) => `
+              <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-semibold text-foreground">${escapeHtml(row.taskNo || row.stockItemId)}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.craftName || '辅助工艺')} · ${escapeHtml(row.handoverOrderNo || '待交出')}</div>
+                  </div>
+                  ${renderStatusPill(row.status)}
+                </div>
+                <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                  <div>库存对象：${escapeHtml(row.itemName)} / ${escapeHtml(row.materialSku || row.partName || '-')}</div>
+                  <div>生产单：${escapeHtml(row.productionOrderNo || '-')}</div>
+                  <div>菲票 / 中转袋：${escapeHtml(row.feiTicketNo || '-')} / ${escapeHtml(row.transferBagNo || '-')}</div>
+                  <div>完工 / 损耗：${row.completedQty} / ${row.lossQty} ${escapeHtml(row.unit)}</div>
+                  <div>待交出 / 回写：${row.waitHandoverQty} / ${row.receiverWrittenQty ?? '-'} ${escapeHtml(row.unit)}</div>
+                  <div>接收方：${escapeHtml(row.receiverName || '-')}</div>
+                  <div>交出记录：${escapeHtml(row.handoverRecordNo || '待提交')}</div>
+                  <div>库区 / 货架 / 库位：${escapeHtml(row.areaName)} / ${escapeHtml(row.shelfNo)} / ${escapeHtml(row.locationNo)}</div>
+                  <div>差异 / 异议：${escapeHtml(buildWarehouseDifferenceText(row.differenceQty))}${row.objectionStatus ? ` · ${escapeHtml(row.objectionStatus)}` : ''}</div>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-2">
+                  <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-handover-detail" data-stock-item-id="${escapeAttr(row.stockItemId)}">查看</button>
+                  <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-handover?action=finish-inbound">完工入仓</button>
+                  <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-handover?action=handover-confirm">交出确认</button>
+                  <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-handover-location" data-stock-item-id="${escapeAttr(row.stockItemId)}">调整位置</button>
+                </div>
+              </article>
+            `).join('')
+            : renderMobilePageEmptyState('暂无辅助工艺待交出仓记录', '完工入仓后会形成待交出库存。')
+        }
+      </section>
+      ${renderDetailDrawer()}
+      ${renderLocationDialog()}
+    </div>
+  `
+  return renderPdaFrame(content, 'warehouse', { headerTitle: '辅助工艺待交出仓', disableTodoAutoOpen: true })
 }
 
 function renderCuttingWaitHandoverCardAction(action?: CuttingWaitHandoverCardAction): string {
@@ -312,9 +567,9 @@ function renderCuttingInboundBagItem(bag: InboundTempBag, action?: CuttingWaitHa
         </div>
         <div class="flex items-center gap-2 py-0.5 text-xs">
           <span class="shrink-0 text-muted-foreground">流向：</span>
-          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">菲票入仓</span>
+          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">入仓暂存装袋</span>
           <i data-lucide="arrow-right" class="h-3 w-3 shrink-0 text-muted-foreground"></i>
-          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">分拣装袋</span>
+          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">交出装袋确认</span>
         </div>
         <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
           <div>混装：<span class="font-medium">${escapeHtml(bag.mixedFlag ? bag.mixedSummary : '未混装')}</span></div>
@@ -431,65 +686,34 @@ function renderCuttingWaitHandoverActionPreview(
         ${runtimeProjection.ticketCandidates.slice(0, 4).map((ticket) => renderCuttingTicketCandidate(ticket, cardAction)).join('') || renderMobilePageEmptyState('暂无待入仓菲票', '裁剪完成并确认菲票后，会出现在这里。')}
       </section>
       <section class="space-y-3">
-        <div class="px-1 text-base font-semibold text-foreground">最近入仓结果</div>
-        ${inboundTempBags.slice(0, 2).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无入仓结果', '完成菲票入仓后，会形成入仓暂存袋。')}
+        <div class="px-1 text-base font-semibold text-foreground">最近入仓暂存装袋结果</div>
+        ${inboundTempBags.slice(0, 2).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无入仓暂存装袋结果', '完成入仓暂存装袋后，会形成入仓暂存袋。')}
       </section>
     `
   }
-  if (actionKey === 'sorting-bagging') {
-    const pickingProjection = buildCuttingSortingBaggingProjection(inboundTempBags)
+  if (actionKey === 'handover-bagging-confirm') {
+    const pickingProjection = buildCuttingBaggingConfirmProjection(inboundTempBags)
     return `
-      ${renderCuttingSortingBaggingTaskList(pickingProjection, firstTaskId)}
+      ${renderCuttingBaggingConfirmTaskList(pickingProjection, firstTaskId)}
       <section class="space-y-3">
-        <div class="px-1 text-base font-semibold text-foreground">最近分拣装袋</div>
-        ${runtimeProjection.sortingBaggingEvents.slice(0, 5).map((event) => renderCuttingRuntimeEventItem(event, cardAction)).join('') || renderMobilePageEmptyState('暂无分拣装袋记录', '进入任务后扫码来源暂存袋、菲票和目标中转袋。')}
+        <div class="px-1 text-base font-semibold text-foreground">最近交出装袋确认</div>
+        ${runtimeProjection.baggingConfirmEvents.slice(0, 5).map((event) => renderCuttingRuntimeEventItem(event, cardAction)).join('') || renderMobilePageEmptyState('暂无交出装袋确认记录', '进入任务后扫码来源暂存袋、菲票和目标中转袋。')}
       </section>
     `
   }
-  if (actionKey === 'handover') {
-    const sourceEvents = runtimeProjection.sortingBaggingEvents.length ? runtimeProjection.sortingBaggingEvents : runtimeProjection.runtimeEvents.filter((event) => event.eventType === '菲票入仓暂存')
-    return `
-      <section class="space-y-3">
-        <div class="px-1 text-base font-semibold text-foreground">可交出载具</div>
-        ${sourceEvents.slice(0, 5).map((event) => renderCuttingRuntimeEventItem(event, cardAction)).join('') || renderCuttingWaitHandoverStarterCard(action, cardAction, {
-          objectLabel: '交出对象',
-          objectText: '扫描交出单、中转袋或菲票',
-          fromText: '分拣装袋',
-          toText: '交出',
-          summaryLeft: '交出单：待扫描',
-          summaryRight: '接收方：待确认',
-        })}
-      </section>
-    `
-  }
-  return `
-    <section class="space-y-3">
-      <div class="px-1 text-base font-semibold text-foreground">接收回写记录</div>
-      ${runtimeProjection.handoverRecordEvents.slice(0, 5).map((event) => renderCuttingRuntimeEventItem(event, cardAction)).join('') || renderMobilePageEmptyState('暂无接收回写', '交出记录提交后，接收方回写数量和差异。')}
-    </section>
-  `
+  return ''
 }
 
 function renderCuttingWaitHandoverNextActions(actionKey: CuttingWaitHandoverActionKey): string {
   const actions = actionKey === 'inbound'
     ? [
-        { label: '去分拣装袋', route: '/fcs/pda/warehouse/wait-handover?scope=cutting&action=sorting-bagging' },
+        { label: '去交出装袋确认', route: '/fcs/pda/warehouse/wait-handover?scope=cutting&action=handover-bagging-confirm' },
         { label: '返回裁床待交出仓', route: '/fcs/pda/warehouse/wait-handover?scope=cutting' },
       ]
-    : actionKey === 'sorting-bagging'
-        ? [
-            { label: '去交出', route: '/fcs/pda/warehouse/wait-handover?scope=cutting&action=handover' },
-            { label: '返回裁床待交出仓', route: '/fcs/pda/warehouse/wait-handover?scope=cutting' },
-          ]
-        : actionKey === 'handover'
-          ? [
-              { label: '查看接收回写', route: '/fcs/pda/warehouse/wait-handover?scope=cutting&action=writeback' },
-              { label: '返回裁床待交出仓', route: '/fcs/pda/warehouse/wait-handover?scope=cutting' },
-            ]
-          : [
-              { label: '返回裁床待交出仓', route: '/fcs/pda/warehouse/wait-handover?scope=cutting' },
-              { label: '返回仓管', route: '/fcs/pda/warehouse' },
-            ]
+    : [
+        { label: '返回裁床待交出仓', route: '/fcs/pda/warehouse/wait-handover?scope=cutting' },
+        { label: '返回仓管', route: '/fcs/pda/warehouse' },
+      ]
   return `
     <section class="space-y-2">
       <div class="px-1 text-base font-semibold text-foreground">后续操作</div>
@@ -554,7 +778,7 @@ function renderCuttingWaitHandoverPage(): string {
       ${renderCuttingWarehouseSwitch('wait-handover')}
       ${renderCuttingWaitHandoverActionCards(activeAction)}
       <section class="space-y-3">
-        ${inboundTempBags.slice(0, 5).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无入仓暂存袋', '菲票扫码入仓后，会进入裁床待交出仓。')}
+        ${inboundTempBags.slice(0, 5).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无入仓暂存袋', '完成入仓暂存装袋后，会进入裁床待交出仓。')}
       </section>
     </div>
   `, 'warehouse', { headerTitle: '裁床待交出仓', disableTodoAutoOpen: true })
@@ -850,6 +1074,7 @@ export function renderPdaWarehouseWaitHandoverPage(): string {
   if (getMobileWarehouseSearchParams().get('scope') === 'cutting') return renderCuttingWaitHandoverPage()
   if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingWaitHandoverPage()
   if (runtime.factoryId === OWN_WOOL_FACTORY_ID) return renderWoolWaitHandoverPage()
+  if (isAuxiliaryCraftRuntime()) return renderAuxiliaryWaitHandoverPage()
 
   const rows = getRows()
   const content = `
@@ -929,6 +1154,33 @@ export function renderPdaWarehouseWaitHandoverPage(): string {
 export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
+  if (action === 'confirm-auxiliary-finish' || action === 'confirm-auxiliary-handover') {
+    const actionKey: AuxiliaryWaitHandoverAction = action === 'confirm-auxiliary-finish' ? 'finish-inbound' : 'handover-confirm'
+    const scanValue = actionKey === 'finish-inbound' ? state.auxiliaryFinishScan : state.auxiliaryHandoverScan
+    const qtyValue = Number(actionKey === 'finish-inbound' ? state.auxiliaryFinishQty : state.auxiliaryHandoverQty)
+    const areaValue = actionKey === 'finish-inbound' ? state.auxiliaryFinishArea : state.auxiliaryHandoverArea
+    const locationValue = actionKey === 'finish-inbound' ? state.auxiliaryFinishLocation : state.auxiliaryHandoverLocation
+    if (!scanValue.trim()) {
+      window.alert('请先扫码或输入单号。')
+      return true
+    }
+    if (!Number.isFinite(qtyValue) || qtyValue <= 0) {
+      window.alert('请输入大于 0 的数量。')
+      return true
+    }
+    if (actionKey === 'handover-confirm' && !state.auxiliaryHandoverReceiver.trim()) {
+      window.alert('请输入接收方。')
+      return true
+    }
+    if (!areaValue || !locationValue) {
+      window.alert('请选择库区库位。')
+      return true
+    }
+    const actionLabel = actionKey === 'finish-inbound' ? '完工入仓' : '交出确认'
+    window.alert(`${actionLabel}已记录为演示数据。`)
+    window.location.href = '/fcs/pda/warehouse/wait-handover'
+    return true
+  }
   if (action === 'open-wait-handover-detail' && actionNode.dataset.stockItemId) {
     state.detailId = actionNode.dataset.stockItemId
     return true
@@ -983,6 +1235,54 @@ export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolea
   }
   if (field === 'wait-handover-remark') {
     state.remark = value
+    return true
+  }
+  if (field === 'auxiliary-finish-scan') {
+    state.auxiliaryFinishScan = value
+    return true
+  }
+  if (field === 'auxiliary-finish-qty') {
+    state.auxiliaryFinishQty = value
+    return true
+  }
+  if (field === 'auxiliary-finish-loss-qty') {
+    state.auxiliaryFinishLossQty = value
+    return true
+  }
+  if (field === 'auxiliary-finish-area') {
+    updateAuxiliaryWaitHandoverArea('finish-inbound', value)
+    return true
+  }
+  if (field === 'auxiliary-finish-shelf') {
+    updateAuxiliaryWaitHandoverShelf('finish-inbound', value)
+    return true
+  }
+  if (field === 'auxiliary-finish-location') {
+    updateAuxiliaryWaitHandoverLocation('finish-inbound', value)
+    return true
+  }
+  if (field === 'auxiliary-handover-scan') {
+    state.auxiliaryHandoverScan = value
+    return true
+  }
+  if (field === 'auxiliary-handover-qty') {
+    state.auxiliaryHandoverQty = value
+    return true
+  }
+  if (field === 'auxiliary-handover-receiver') {
+    state.auxiliaryHandoverReceiver = value
+    return true
+  }
+  if (field === 'auxiliary-handover-area') {
+    updateAuxiliaryWaitHandoverArea('handover-confirm', value)
+    return true
+  }
+  if (field === 'auxiliary-handover-shelf') {
+    updateAuxiliaryWaitHandoverShelf('handover-confirm', value)
+    return true
+  }
+  if (field === 'auxiliary-handover-location') {
+    updateAuxiliaryWaitHandoverLocation('handover-confirm', value)
     return true
   }
   return false

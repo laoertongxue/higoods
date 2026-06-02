@@ -248,7 +248,7 @@ export function getMobileWarehouseSearchParams(): URLSearchParams {
 }
 
 export function getWaitProcessSourceActionLabel(item: Pick<FactoryWaitProcessStockItem, 'sourceRecordType'>): string {
-  return item.sourceRecordType === 'HANDOVER_RECEIVE' ? '交出接收' : '领料确认'
+  return item.sourceRecordType === 'HANDOVER_RECEIVE' ? '交出接收' : '领料记录'
 }
 
 export function getWaitProcessSourceStatusLabel(item: Pick<FactoryWaitProcessStockItem, 'status'>): string {

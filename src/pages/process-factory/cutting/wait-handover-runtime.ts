@@ -7,7 +7,7 @@ import {
   type CuttingRuntimeEventSource,
   type FeiTicketInboundPayload,
   type HandoverRecordSubmitPayload,
-  type HandoverSortingBaggingPayload,
+  type HandoverBaggingConfirmPayload,
   type SpecialCraftHandoverPayload,
   type SpecialCraftReturnPayload,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
@@ -58,7 +58,7 @@ export interface WaitHandoverRuntimeProjection {
   inboundTempBags: InboundTempBag[]
   inboundInventoryRecords: InboundTempBagInventoryRecord[]
   ticketCandidates: GeneratedFeiTicketSourceRecord[]
-  sortingBaggingEvents: CuttingRuntimeEvent[]
+  baggingConfirmEvents: CuttingRuntimeEvent[]
   handoverRecordEvents: CuttingRuntimeEvent[]
 }
 
@@ -188,7 +188,7 @@ export function buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket: Tran
 export function listWaitHandoverRuntimeEvents(): CuttingRuntimeEvent[] {
   const events = [
     ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓'),
-    ...listCuttingRuntimeEventsByType('待交出仓分拣装袋'),
+    ...listCuttingRuntimeEventsByType('交出装袋确认'),
     ...listCuttingRuntimeEventsByType('新增交出记录'),
     ...listCuttingRuntimeEventsByType('特殊工艺交出'),
     ...listCuttingRuntimeEventsByType('特殊工艺回仓'),
@@ -264,7 +264,7 @@ export function buildRuntimeInboundTempBagsFromWaitHandoverEvents(
             ),
         mixedSummary: buildMixedSummary(containedFeiTickets),
         discrepancyRecords: [],
-        nextSortingStatus: '未绑定车缝任务，待后续分配后再分拣装袋',
+        nextSortingStatus: '未绑定车缝任务，待后续分配后再交出装袋确认',
         remark: `菲票入仓 / ${event.eventStatus}`,
       } satisfies InboundTempBag
     })
@@ -281,7 +281,7 @@ export function buildWaitHandoverRuntimeProjection(generatedTickets = listSpread
     inboundTempBags,
     inboundInventoryRecords,
     ticketCandidates: generatedTickets.filter((ticket) => !inboundTicketIds.has(ticket.feiTicketId)),
-    sortingBaggingEvents: runtimeEvents.filter((event) => event.eventType === '待交出仓分拣装袋'),
+    baggingConfirmEvents: runtimeEvents.filter((event) => event.eventType === '交出装袋确认'),
     handoverRecordEvents: runtimeEvents.filter((event) => event.eventType === '新增交出记录'),
   }
 }
@@ -361,7 +361,7 @@ export function appendWaitHandoverInboundEvent(input: {
   })
 }
 
-export function appendWaitHandoverSortingBaggingEvent(input: {
+export function appendWaitHandoverBaggingConfirmEvent(input: {
   source: CuttingRuntimeEventSource
   operator: WaitHandoverRuntimeOperator
   pickingTaskId: string
@@ -375,13 +375,13 @@ export function appendWaitHandoverSortingBaggingEvent(input: {
   occurredAt?: string
 }) {
   const occurredAt = input.occurredAt || new Date().toISOString()
-  const recordId = `${input.source}-SORT-BAG-${input.pickingTaskId}-${Date.now()}`
+  const recordId = `${input.source}-BAG-CONFIRM-${input.pickingTaskId}-${Date.now()}`
   const totalPieceQty = input.tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
   const ticketIds = input.tickets.map((ticket) => ticket.feiTicketId).filter(Boolean)
   const ticketNos = input.tickets.map((ticket) => ticket.feiTicketNo).filter(Boolean)
-  const payload: HandoverSortingBaggingPayload = {
-    sortingBaggingRecordId: recordId,
-    sortingBaggingRecordNo: `SBG-${compactDate(occurredAt)}-${input.pickingTaskNo}`,
+  const payload: HandoverBaggingConfirmPayload = {
+    baggingConfirmRecordId: recordId,
+    baggingConfirmRecordNo: `SBG-${compactDate(occurredAt)}-${input.pickingTaskNo}`,
     pickingTaskId: input.pickingTaskId,
     pickingTaskNo: input.pickingTaskNo,
     sewingTaskId: input.sewingTaskId,
@@ -404,13 +404,13 @@ export function appendWaitHandoverSortingBaggingEvent(input: {
     bagBindingRule: '一个中转袋只能绑定一个车缝任务',
   }
   return appendCuttingRuntimeEvent({
-    eventType: '待交出仓分拣装袋',
+    eventType: '交出装袋确认',
     eventSource: input.source,
     eventStatus: '已同步',
     occurredAt,
     operatorId: input.operator.operatorId,
     operatorName: input.operator.operatorName,
-    operatorRole: input.operator.operatorRole || '裁片仓分拣员',
+    operatorRole: input.operator.operatorRole || '裁片仓装袋确认员',
     refs: {
       feiTicketIds: payload.containedFeiTicketIds,
       feiTicketNos: payload.containedFeiTicketNos,

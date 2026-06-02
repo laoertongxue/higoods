@@ -257,7 +257,7 @@ export function renderPdaWarehouseInboundRecordsPage(): string {
   const rows = getRows()
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${renderWarehouseSummaryHeader('入库记录', '待领料确认和交出接收后，自动生成入库记录。', runtime.overview)}
+      ${renderWarehouseSummaryHeader('入库记录', '中转仓领料、回收入仓或交接接收后，自动生成入库记录。', runtime.overview)}
       ${renderSectionFilterChips(state.status, FILTERS, 'inbound-status')}
       <section class="space-y-3">
         ${
@@ -313,7 +313,7 @@ export function renderPdaWarehouseInboundRecordsPage(): string {
                   `,
                 )
                 .join('')
-            : renderMobilePageEmptyState('暂无入库记录', '待领料确认或交出接收后，会自动生成入库记录。')
+            : renderMobilePageEmptyState('暂无入库记录', '中转仓领料、回收入仓或交接接收后，会自动生成入库记录。')
         }
       </section>
       ${renderDetailDrawer()}
