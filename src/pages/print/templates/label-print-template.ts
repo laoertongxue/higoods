@@ -90,6 +90,10 @@ function joinLabelLines(lines: string[], maxLines: number): string {
   return hiddenCount ? `${visible.join('；')}；另 ${hiddenCount} 项见二维码` : visible.join('；')
 }
 
+function stripFeiTicketLabelPrefix(value: string): string {
+  return value.replace(/^(裁片数量|部位数量|编号范围|编号区间|本票裁片)：/, '')
+}
+
 function listFeiRecords(documentType?: PrintDocumentType): AnyFeiTicket[] {
   const projection = buildFeiTicketPrintProjection()
   const projected = (projection.ticketRecords || []) as AnyFeiTicket[]
@@ -188,22 +192,27 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
   const craftPrintValue = craftLines.length
     ? `${printProjection.hasSpecialCraftLabel}：${joinLabelLines(craftLines, maxCraftPrintLines)}`
     : printProjection.hasSpecialCraftLabel
+  const handoverCraftValue = joinLabelLines(printProjection.specialCraftHandoverLines, maxCraftPrintLines)
 
   const baseFields = fields([
+    { label: '菲票标题', value: printProjection.titleLabel, emphasis: true },
     { label: '菲票号', value: printProjection.feiTicketNo || ticketNo, emphasis: true },
     { label: '生产单', value: printProjection.productionOrderNo },
     { label: isWoolTicket ? '毛织单' : '裁片单', value: printProjection.cutOrderNo, emphasis: true },
     { label: 'SPU', value: printProjection.spuCode },
+    { label: '面料', value: printProjection.materialDisplayLabel, emphasis: true },
     { label: '颜色', value: printProjection.color },
-    { label: '尺码', value: printProjection.size },
-    { label: '部位', value: printProjection.partName },
-    { label: '裁片数量', value: printProjection.pieceQtyLabel.replace(/^裁片数量：/, ''), emphasis: true },
-    { label: '编号范围', value: printProjection.pieceSequenceLabel.replace(/^编号范围：/, ''), emphasis: true },
+    { label: '尺码', value: printProjection.businessSizeLabel, emphasis: true },
+    { label: '部位', value: printProjection.partName, emphasis: true },
+    { label: '部位数量', value: stripFeiTicketLabelPrefix(printProjection.partQuantityLabel), emphasis: true },
+    { label: '本票裁片', value: stripFeiTicketLabelPrefix(printProjection.actualCutPieceQtyLabel) },
+    { label: '编号区间', value: stripFeiTicketLabelPrefix(printProjection.pieceSequenceLabel), emphasis: true },
+    { label: '适用SKU', value: printProjection.applicableSkuLabel, emphasis: true },
     { label: '唛架方案', value: printProjection.markerPlanNo },
-    { label: '唛架编号', value: printProjection.markerNumber },
-    { label: '铺布单', value: printProjection.spreadingOrderNo },
+    { label: '唛架编号+铺布单号', value: printProjection.markerSpreadingLabel, emphasis: true },
     { label: '版本', value: version },
     { label: '特殊工艺', value: craftPrintValue },
+    { label: '特殊工艺交出', value: handoverCraftValue },
     { label: '承接工厂', value: joinLabelLines(printProjection.receiverFactoryDisplayLines, maxCraftPrintLines) },
   ])
 
@@ -211,6 +220,7 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
     labelTitle: title,
     labelSubtitle: '',
     labelFields: baseFields,
+    labelBusinessLayout: 'FEI_TICKET_BUSINESS',
     labelWarnings: [],
     qrCode: feiQr(record),
     isVoid: false,
@@ -486,6 +496,19 @@ function renderField(field: PrintField): string {
   `
 }
 
+function getLabelFieldValue(item: PrintLabelItem, label: string, fallback = '—'): string {
+  return toText(item.labelFields.find((field) => field.label === label)?.value, fallback)
+}
+
+function renderFeiBusinessCell(label: string, value: string, options: { className?: string; emphasis?: boolean } = {}): string {
+  return `
+    <div class="fei-ticket-business-cell ${options.className || ''}">
+      <span>${escapeHtml(label)}</span>
+      <strong class="${options.emphasis ? 'fei-ticket-business-emphasis' : ''}">${escapeHtml(value || '—')}</strong>
+    </div>
+  `
+}
+
 function renderBarcode(barcode?: PrintBarcode): string {
   if (!barcode) return ''
   return `
@@ -496,7 +519,40 @@ function renderBarcode(barcode?: PrintBarcode): string {
   `
 }
 
+function renderFeiTicketBusinessLabelItem(item: PrintLabelItem, paperType: PrintPaperType): string {
+  const qr = item.qrCode
+  return `
+    <section class="print-label-card fei-ticket-business-card ${item.isVoid ? 'print-label-card-void' : ''} ${item.isReprint ? 'print-label-card-reprint' : ''} label-paper-${paperType.toLowerCase().replace(/_/g, '-')}">
+      <div class="fei-ticket-business-title">${escapeHtml(getLabelFieldValue(item, '菲票标题', item.labelTitle))}</div>
+      <div class="fei-ticket-business-body">
+        <div class="fei-ticket-business-grid">
+          ${renderFeiBusinessCell('面料', getLabelFieldValue(item, '面料'))}
+          ${renderFeiBusinessCell('唛架编号+铺布单号', getLabelFieldValue(item, '唛架编号+铺布单号'), { emphasis: true })}
+          ${renderFeiBusinessCell('部位', getLabelFieldValue(item, '部位'), { emphasis: true })}
+          ${renderFeiBusinessCell('尺码', getLabelFieldValue(item, '尺码'), { emphasis: true })}
+          ${renderFeiBusinessCell('部位数量', getLabelFieldValue(item, '部位数量'), { emphasis: true })}
+          ${renderFeiBusinessCell('编号区间', getLabelFieldValue(item, '编号区间'), { emphasis: true })}
+          ${renderFeiBusinessCell('适用SKU', getLabelFieldValue(item, '适用SKU'), { className: 'fei-ticket-business-span-2' })}
+          ${renderFeiBusinessCell('特殊工艺', getLabelFieldValue(item, '特殊工艺交出', getLabelFieldValue(item, '特殊工艺')), { className: 'fei-ticket-business-span-2' })}
+          ${renderFeiBusinessCell('承接工厂', getLabelFieldValue(item, '承接工厂'), { className: 'fei-ticket-business-span-2' })}
+          ${renderFeiBusinessCell('菲票号', getLabelFieldValue(item, '菲票号'), { emphasis: true })}
+          ${renderFeiBusinessCell('本票裁片', getLabelFieldValue(item, '本票裁片'))}
+        </div>
+        <aside class="fei-ticket-business-qr-panel">
+          <div class="fei-ticket-business-qr">
+            ${qr ? renderRealQrPlaceholder({ value: qr.value, size: 112, title: qr.title, label: qr.title }) : ''}
+          </div>
+          <div class="fei-ticket-business-qr-title">菲票二维码</div>
+          <div class="fei-ticket-business-qr-desc">${escapeHtml(getLabelFieldValue(item, '版本', 'V1'))} / 扫码查看菲票</div>
+        </aside>
+      </div>
+    </section>
+  `
+}
+
 function renderLabelItem(item: PrintLabelItem, paperType: PrintPaperType): string {
+  if (item.labelBusinessLayout === 'FEI_TICKET_BUSINESS') return renderFeiTicketBusinessLabelItem(item, paperType)
+
   const qr = item.qrCode
   return `
     <section class="print-label-card ${item.isVoid ? 'print-label-card-void' : ''} ${item.isReprint ? 'print-label-card-reprint' : ''} label-paper-${paperType.toLowerCase().replace(/_/g, '-')}">

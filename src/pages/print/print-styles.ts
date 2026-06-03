@@ -382,6 +382,113 @@ export function renderUnifiedPrintStyles(): string {
         border-style: dashed;
       }
 
+      .fei-ticket-business-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        padding: 2mm;
+        border: 1px solid #111827;
+        overflow: hidden;
+      }
+
+      .fei-ticket-business-title {
+        border: 1px solid #111827;
+        border-bottom: 0;
+        padding: 2mm;
+        font-size: 16px;
+        font-weight: 800;
+        line-height: 1.12;
+      }
+
+      .fei-ticket-business-body {
+        display: grid;
+        grid-template-columns: 1fr 32mm;
+        border: 1px solid #111827;
+      }
+
+      .label-paper-label-150-100 .fei-ticket-business-body {
+        grid-template-columns: 1fr 36mm;
+      }
+
+      .fei-ticket-business-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .fei-ticket-business-cell {
+        min-height: 11mm;
+        border-right: 1px solid #111827;
+        border-bottom: 1px solid #111827;
+        padding: 1.4mm;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+
+      .fei-ticket-business-span-2 {
+        grid-column: span 2;
+      }
+
+      .fei-ticket-business-cell span {
+        color: #374151;
+        font-size: 8px;
+        font-weight: 600;
+        line-height: 1.1;
+      }
+
+      .fei-ticket-business-cell strong {
+        margin-left: 1mm;
+        color: #111827;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1.08;
+        overflow-wrap: anywhere;
+      }
+
+      .fei-ticket-business-cell strong.fei-ticket-business-emphasis {
+        font-size: 12px;
+      }
+
+      .fei-ticket-business-qr-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1mm;
+        padding: 1.5mm;
+        text-align: center;
+      }
+
+      .fei-ticket-business-qr {
+        display: flex;
+        min-height: 31mm;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #111827;
+      }
+
+      .fei-ticket-business-qr svg {
+        height: 29mm;
+        width: 29mm;
+      }
+
+      .label-paper-label-150-100 .fei-ticket-business-qr svg {
+        height: 33mm;
+        width: 33mm;
+      }
+
+      .fei-ticket-business-qr-title {
+        color: #111827;
+        font-size: 8px;
+        font-weight: 700;
+      }
+
+      .fei-ticket-business-qr-desc {
+        color: #64748b;
+        font-size: 7px;
+        line-height: 1.15;
+      }
+
       .print-label-header {
         display: flex;
         align-items: flex-start;

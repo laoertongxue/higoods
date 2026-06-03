@@ -5,7 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 const repoRoot = process.cwd()
-const SAMPLE_FIVE_DIM_TITLE = '卷A - 红色 - M - 袖子 - 15'
+const SAMPLE_FIVE_DIM_TITLE = '卷A - 红色 - M - 袖子 - 配套1-15 - 15'
 
 function abs(rel: string): string {
   return path.join(repoRoot, rel)
@@ -45,7 +45,7 @@ function main(): void {
     'bundleQty',
     'bundleNo',
     'assemblyGroupKey',
-    "sourceBasisType: 'SPREADING_RESULT' | 'HISTORICAL_FALLBACK'",
+    'FEI_TICKET_SOURCE_BASIS_TYPE',
     'listSpreadingPieceOutputLines',
   ].forEach((token) => {
     assertIncludes(feiSource, token, `铺布产出矩阵缺少字段或入口：${token}`)
@@ -59,6 +59,10 @@ function main(): void {
     'fabricColor',
     'bundleNo',
     'bundleQty',
+    'applicableSkuCodes',
+    'applicableSkuLabel',
+    'partQuantityPerGarment',
+    'businessSizeLabel',
     'actualCutPieceQty',
     'assemblyGroupKey',
     'siblingPartTicketNos',
@@ -67,16 +71,15 @@ function main(): void {
   })
 
   ;[
-    "fabricRollNo = '卷A'",
-    "fabricColor = '红色'",
-    "const sizeCode = 'M'",
-    "const bundleNo = 'BUNDLE-001'",
-    "const bundleQty = 15",
-    "partName: '前片'",
-    "partName: '后片'",
-    "partName: '袖子'",
+    'normalizeBusinessText(roll.rollNo',
+    'normalizeBusinessText(line.color || roll.color',
+    'normalizeBusinessText(sizeRow.size',
+    'buildBundleNo(sizeIndex)',
+    'findPieceRowsForSku(sourceRecord, sizeRow.skuCode)',
+    'resolveApplicableSkuCodes(sourceRecord, sizeRow.skuCode',
+    'resolvePartQuantityPerGarment(pieceRowsForSku)',
   ].forEach((token) => {
-    assertIncludes(feiSource, token, `缺少同组示例：${token}`)
+    assertIncludes(feiSource, token, `缺少铺布产出正式字段推导：${token}`)
   })
 
   ;[
@@ -86,24 +89,23 @@ function main(): void {
     '尺码',
     '裁片部位',
     '数量',
-    '扎号',
-    '同组裁片',
   ].forEach((token) => {
     assert(spreadingPage.includes(token), `铺布页面缺少业务文案：${token}`)
   })
 
   ;[
     '菲票二维码',
+    '适用SKU',
+    '部位数量',
+    '编号区间',
+    '唛架编号+铺布单号',
     '面料卷号',
     '布料颜色',
     '裁片部位',
-    '同组裁片',
-    '查看同组',
     '当前存在缺少五维字段的菲票，不能打印。',
     '是否需要特殊工艺',
     '特殊工艺',
     '特殊工艺任务',
-    '发料状态',
     '回仓状态',
     '当前所在',
     '中转单号',
@@ -138,17 +140,16 @@ function main(): void {
   assertIncludes(read('scripts/check-cutting-fei-ticket-assembly.ts'), SAMPLE_FIVE_DIM_TITLE, '缺少现场五维标题示例')
   assertIncludes(
     read('src/pages/process-factory/cutting/fei-tickets-model.ts'),
-    'return `${record.fabricRollNo} - ${record.fabricColor} - ${record.size} - ${record.partName} - ${formatQty(record.quantity)}`',
+    "return `${record.fabricRollNo} - ${record.fabricColor} - ${record.size} - ${record.partName} - ${pieceSetText || '待补扎号'} - ${formatQty(record.quantity)}`",
     `五维打印标题未按“${SAMPLE_FIVE_DIM_TITLE}”格式拼装`,
   )
 
   ;[
-    '同组裁片',
     '面料卷号',
     '布料颜色',
     '尺码',
     '裁片部位',
-    '扎号',
+    '菲票',
   ].forEach((token) => {
     assert(transferBagsPage.includes(token), `中转袋页面缺少同组裁片追溯字段：${token}`)
   })
@@ -165,6 +166,10 @@ function main(): void {
     'bundleNo',
     'bundleQty',
     'actualCutPieceQty',
+    'applicableSkuCodes',
+    'applicableSkuLabel',
+    'partQuantityPerGarment',
+    'businessSizeLabel',
     'assemblyGroupKey',
   ].forEach((token) => {
     assertIncludes(qrPayloadSource, token, `菲票二维码 payload 缺少字段：${token}`)

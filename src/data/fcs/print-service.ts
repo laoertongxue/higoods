@@ -102,6 +102,7 @@ export interface PrintLabelItem {
   labelTitle: string
   labelSubtitle?: string
   labelFields: PrintField[]
+  labelBusinessLayout?: 'FEI_TICKET_BUSINESS'
   labelWarnings?: string[]
   qrCode?: PrintQrCode
   barcode?: PrintBarcode

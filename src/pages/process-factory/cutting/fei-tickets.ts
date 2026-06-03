@@ -2512,8 +2512,32 @@ function renderSpreadingStandaloneDetailSections(row: FeiTicketSpreadingWorkbenc
   `
 }
 
+function buildFeiTicketPrintRecordLike(row: FeiTicketWorkbenchRow): Record<string, unknown> {
+  if (!row.record) return row.generated
+  return {
+    ...row.generated,
+    ...row.record,
+    specialCrafts: row.generated.specialCrafts?.length ? row.generated.specialCrafts : row.record.specialCrafts,
+    pieceSequenceRange: row.generated.pieceSequenceRange || row.record.pieceSequenceRange,
+    pieceSequenceLabel: row.generated.pieceSequenceLabel || row.record.pieceSequenceLabel,
+    applicableSkuCodes: row.generated.applicableSkuCodes,
+    applicableSkuLabel: row.generated.applicableSkuLabel,
+    assemblyGroupKey: row.generated.assemblyGroupKey,
+    siblingPartTicketNos: row.generated.siblingPartTicketNos,
+    garmentInstanceNo: row.generated.garmentInstanceNo,
+    layerCount: row.generated.layerCount,
+    businessSizeLabel: row.generated.businessSizeLabel,
+    partQuantityPerGarment: row.generated.partQuantityPerGarment,
+    materialIdentity: row.generated.materialIdentity,
+    patternIdentity: row.generated.patternIdentity,
+    markerNumber: row.generated.markerNumber,
+    spreadingOrderNo: row.generated.spreadingOrderNo,
+    sourceTechPackSpuCode: row.generated.sourceTechPackSpuCode,
+  }
+}
+
 function renderStandaloneDetailSections(row: FeiTicketWorkbenchRow): string {
-  const recordLike = row.record || row.generated
+  const recordLike = buildFeiTicketPrintRecordLike(row)
   const printProjection = buildFeiTicketLabelPrintProjection(recordLike)
   const actualOutputBusinessLines = buildFeiActualOutputBusinessLines(row)
   const qrBusinessTraceLines = buildFeiQrBusinessTraceLines(row, printProjection)
@@ -2620,43 +2644,52 @@ function renderTemplateSizeSelector(row: FeiTicketWorkbenchRow, activeSize: FeiT
   return `<div class="flex flex-wrap gap-2">${sizes.map((size) => `<button type="button" data-nav="${escapeHtml(`${buildStandaloneFeiTicketHref(row.ticketId, '/print')}?size=${encodeURIComponent(size)}`)}" class="inline-flex min-h-9 items-center rounded-md border px-3 text-sm font-medium ${size === activeSize ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}">${escapeHtml(size)}</button>`).join('')}</div>`
 }
 
+function stripFeiTicketLabelPrefix(value: string): string {
+  return value.replace(/^(裁片数量|部位数量|编号范围|编号区间|本票裁片)：/, '')
+}
+
+function renderFeiTicketLabelCell(label: string, value: string, options: { className?: string; strong?: boolean } = {}): string {
+  return `
+    <div class="min-h-[11mm] border-b border-r border-slate-900 p-[1.4mm] ${options.className || ''}">
+      <span class="text-[8px] font-medium text-slate-700">${escapeHtml(label)}</span>
+      <strong class="ml-1 break-words ${options.strong ? 'text-[12px]' : 'text-[10px]'} leading-tight text-slate-950">${escapeHtml(value || '—')}</strong>
+    </div>
+  `
+}
+
 function renderLabelPreviewCard(row: FeiTicketWorkbenchRow, templateSize: FeiTicketTemplateSize): string {
-  const projection = buildFeiTicketLabelPrintProjection(row.record || row.generated, { templateSize })
-  const fields = [
-    ['菲票号', projection.feiTicketNo],
-    ['生产单', projection.productionOrderNo],
-    ['裁片单', projection.cutOrderNo],
-    ['SPU', projection.spuCode],
-    ['颜色', projection.color],
-    ['尺码', projection.size],
-    ['部位', projection.partName],
-    ['裁片数量', projection.pieceQtyLabel.replace(/^裁片数量：/, '')],
-    ['编号范围', projection.pieceSequenceLabel.replace(/^编号范围：/, '')],
-    ['唛架方案', projection.markerPlanNo],
-    ['唛架编号', projection.markerNumber],
-    ['铺布单', projection.spreadingOrderNo],
-    ['版本', projection.versionLabel],
-    ['特殊工艺', projection.hasSpecialCraftLabel === '有特殊工艺' ? `${projection.hasSpecialCraftLabel}：${joinCompactLines(projection.specialCraftDisplayLines, templateSize === '15cm x 10cm' ? 4 : 2)}` : projection.hasSpecialCraftLabel],
-    ['承接工厂', joinCompactLines(projection.receiverFactoryDisplayLines, templateSize === '15cm x 10cm' ? 4 : 2)],
-  ]
+  const projection = buildFeiTicketLabelPrintProjection(buildFeiTicketPrintRecordLike(row), { templateSize })
+  const maxPrintLines = templateSize === '15cm x 10cm' ? 4 : 2
+  const specialCraftText = joinCompactLines(projection.specialCraftHandoverLines, maxPrintLines)
+  const receiverFactoryText = joinCompactLines(projection.receiverFactoryDisplayLines, maxPrintLines)
   const paperClass = templateSize === '15cm x 10cm' ? 'w-[150mm] min-h-[100mm]' : 'w-[100mm] min-h-[100mm]'
+  const qrSize = templateSize === '15cm x 10cm' ? 132 : 116
   return `
     <div class="overflow-hidden rounded-lg border bg-slate-50 p-4">
       <div class="${paperClass} max-w-full rounded-md border border-slate-900 bg-white p-[2mm] text-slate-900 shadow-sm">
-        <div class="flex items-start justify-between gap-2 border-b border-slate-900 pb-[2mm]">
-          <div>
-            <div class="text-sm font-extrabold">菲票</div>
-            <div class="mt-1 text-[8px] text-slate-500">${escapeHtml(projection.feiTicketNo)}</div>
+        <div class="border border-slate-900">
+          <div class="border-b border-slate-900 px-[2mm] py-[2mm] text-[16px] font-extrabold leading-tight">
+            ${escapeHtml(projection.titleLabel)}
           </div>
-          <div class="border border-slate-900 px-2 py-1 text-[9px] font-bold">${escapeHtml(projection.versionLabel)}</div>
-        </div>
-        <div class="mt-[2mm] grid gap-[2mm] ${templateSize === '15cm x 10cm' ? 'grid-cols-[1fr_34mm]' : 'grid-cols-[1fr_30mm]'}">
-          <div class="grid ${templateSize === '15cm x 10cm' ? 'grid-cols-3' : 'grid-cols-2'} gap-x-[2mm] gap-y-[1mm]">
-            ${fields.map(([label, value]) => `<div class="min-w-0 border-b border-slate-300 pb-[0.5mm]"><span class="block text-[7px] text-slate-500">${escapeHtml(label)}</span><strong class="block break-words text-[8px] leading-tight">${escapeHtml(value || '—')}</strong></div>`).join('')}
-          </div>
-          <div class="text-center">
-            <div class="flex min-h-[30mm] items-center justify-center border border-slate-900">${renderRealQrPlaceholder({ value: projection.qrDisplayValue, size: templateSize === '15cm x 10cm' ? 128 : 112, title: '菲票二维码', label: `菲票 ${row.ticketNo}` })}</div>
-            <div class="mt-1 text-[7px] text-slate-500">扫码查看菲票</div>
+          <div class="grid ${templateSize === '15cm x 10cm' ? 'grid-cols-[1fr_36mm]' : 'grid-cols-[1fr_32mm]'}">
+            <div class="grid grid-cols-2">
+              ${renderFeiTicketLabelCell('面料', projection.materialDisplayLabel)}
+              ${renderFeiTicketLabelCell('唛架编号+铺布单号', projection.markerSpreadingLabel, { strong: true })}
+              ${renderFeiTicketLabelCell('部位', projection.partName, { strong: true })}
+              ${renderFeiTicketLabelCell('尺码', projection.businessSizeLabel, { strong: true })}
+              ${renderFeiTicketLabelCell('部位数量', stripFeiTicketLabelPrefix(projection.partQuantityLabel), { strong: true })}
+              ${renderFeiTicketLabelCell('编号区间', stripFeiTicketLabelPrefix(projection.pieceSequenceLabel), { strong: true })}
+              ${renderFeiTicketLabelCell('适用SKU', projection.applicableSkuLabel, { className: 'col-span-2' })}
+              ${renderFeiTicketLabelCell('特殊工艺', specialCraftText, { className: 'col-span-2' })}
+              ${renderFeiTicketLabelCell('承接工厂', receiverFactoryText, { className: 'col-span-2' })}
+              ${renderFeiTicketLabelCell('菲票号', projection.feiTicketNo, { strong: true })}
+              ${renderFeiTicketLabelCell('本票裁片', stripFeiTicketLabelPrefix(projection.actualCutPieceQtyLabel))}
+            </div>
+            <div class="flex flex-col items-center justify-center gap-[1.5mm] border-l border-slate-900 p-[1.5mm] text-center">
+              <div class="flex min-h-[31mm] w-full items-center justify-center border border-slate-900">${renderRealQrPlaceholder({ value: projection.qrDisplayValue, size: qrSize, title: '菲票二维码', label: `菲票 ${row.ticketNo}` })}</div>
+              <div class="text-[8px] font-semibold text-slate-800">菲票二维码</div>
+              <div class="break-all text-[7px] leading-tight text-slate-500">${escapeHtml(projection.versionLabel)} / 扫码查看菲票</div>
+            </div>
           </div>
         </div>
       </div>

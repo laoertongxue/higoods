@@ -21,21 +21,29 @@ export interface FeiTicketLabelPrintProjection {
   qrPayload: FeiTicketQrPayload
   qrDisplayValue: string
   feiTicketNo: string
+  titleLabel: string
   productionOrderNo: string
   cutOrderNo: string
   spuCode: string
+  materialDisplayLabel: string
   color: string
   size: string
+  businessSizeLabel: string
   partName: string
+  partQuantityLabel: string
+  actualCutPieceQtyLabel: string
+  applicableSkuLabel: string
   pieceQtyLabel: string
   pieceSequenceLabel: string
   markerPlanNo: string
   markerNumber: string
   spreadingOrderNo: string
+  markerSpreadingLabel: string
   versionLabel: string
   hasSpecialCraftLabel: string
   specialCraftDisplayLines: string[]
   receiverFactoryDisplayLines: string[]
+  specialCraftHandoverLines: string[]
   templateSize: FeiTicketTemplateSize
 }
 
@@ -79,12 +87,14 @@ function resolvePieceSequenceRange(record: FeiTicketPrintRecordLike): {
   label: string
   startNo: number
   endNo: number
+  layerCount: number
 } {
   const range = record.pieceSequenceRange || null
   return {
     label: normalizeText(record.pieceSequenceLabel || range?.rangeLabel, '不可生成'),
     startNo: normalizePositiveNumber(range?.startNo, 0),
     endNo: normalizePositiveNumber(range?.endNo, 0),
+    layerCount: normalizePositiveNumber(record.layerCount ?? range?.actualLayerCount ?? range?.endNo, 0),
   }
 }
 
@@ -97,8 +107,25 @@ function shouldUseWideTemplate(projection: Omit<FeiTicketLabelPrintProjection, '
     projection.partName,
     ...projection.specialCraftDisplayLines,
     ...projection.receiverFactoryDisplayLines,
-  ].some((value) => value.length > 24)
-  return longText || projection.specialCraftDisplayLines.length > 2 || projection.receiverFactoryDisplayLines.length > 2
+  ].some((value) => value.length > 36)
+  return longText || projection.specialCraftDisplayLines.length > 3 || projection.receiverFactoryDisplayLines.length > 3
+}
+
+function normalizeTextList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => normalizeText(item)).filter(Boolean)
+}
+
+function joinDisplayLines(lines: string[], fallback = '无'): string {
+  const values = lines.map((line) => normalizeText(line)).filter(Boolean)
+  return values.length ? values.join(' / ') : fallback
+}
+
+function resolveMaterialDisplayLabel(record: FeiTicketPrintRecordLike, qrPayload: FeiTicketQrPayload): string {
+  const identity = record.materialIdentity || {}
+  const materialName = normalizeText(identity.materialName || identity.materialAlias || record.materialName || record.materialSku || qrPayload.materialSku, '面料')
+  const materialColor = normalizeText(identity.materialColor || record.fabricColor || qrPayload.fabricColor || qrPayload.color)
+  return materialColor ? `${materialName}--${materialColor}` : materialName
 }
 
 export function buildFeiTicketLabelPrintProjection(
@@ -111,6 +138,29 @@ export function buildFeiTicketLabelPrintProjection(
   const pieceSequence = resolvePieceSequenceRange(record)
   const pieceQty = normalizePositiveNumber(record.quantity ?? record.actualCutPieceQty ?? record.qty, 0)
   const garmentQty = normalizePositiveNumber(record.garmentQty ?? record.quantity ?? record.qty, pieceQty)
+  const garmentInstanceNo = normalizePositiveNumber(record.garmentInstanceNo ?? record.pieceSetNoStart, 1)
+  const layerCount = normalizePositiveNumber(record.layerCount ?? record.pieceSequenceRange?.actualLayerCount ?? pieceSequence.layerCount, pieceSequence.endNo)
+  const applicableSkuCodes = normalizeTextList(record.applicableSkuCodes)
+  const applicableSkuLabel = normalizeText(record.applicableSkuLabel, joinDisplayLines(applicableSkuCodes, normalizeText(record.garmentSkuId || record.skuCode || record.spuCode || record.sourceTechPackSpuCode, 'SKU 待补')))
+  const assemblyGroupKey = normalizeText(
+    record.assemblyGroupKey,
+    [
+      normalizeText(record.cutOrderNo || record.sourceCutOrderNo),
+      normalizeText(record.fabricRollNo),
+      normalizeText(record.fabricColor || record.color || record.skuColor),
+      normalizeText(record.skuSize || record.size),
+      normalizeText(record.bundleNo),
+    ].filter(Boolean).join('::'),
+  )
+  const siblingPartTicketNos = normalizeTextList(record.siblingPartTicketNos)
+  const partQuantityPerGarment = normalizePositiveNumber(
+    record.partQuantityPerGarment ?? record.pieceCountPerGarment ?? record.patternIdentity?.piecePartNames?.length,
+    0,
+  )
+  const businessSizeLabel = normalizeText(
+    record.businessSizeLabel,
+    [normalizeText(record.size || record.skuSize, '尺码待补'), garmentInstanceNo, layerCount || pieceSequence.endNo].filter(Boolean).join('-'),
+  )
   const versionLabel = resolveVersionLabel(record)
   const qrPayload = buildFeiTicketQrPayload({
     feiTicketId: compactQrText(record.feiTicketId || record.ticketRecordId, normalizeText(record.feiTicketNo || record.ticketNo)),
@@ -136,6 +186,10 @@ export function buildFeiTicketLabelPrintProjection(
     materialSku: normalizeText(record.materialSku),
     garmentSkuId: compactQrText(record.garmentSkuId || record.skuCode, `${normalizeText(record.spuCode || record.sourceTechPackSpuCode)}-${normalizeText(record.size || record.skuSize)}`),
     garmentColor: normalizeText(record.garmentColor || record.color || record.skuColor),
+    applicableSkuCodes,
+    applicableSkuLabel,
+    assemblyGroupKey,
+    siblingPartTicketNos,
     pieceScope: Array.isArray(record.pieceScope) ? record.pieceScope : [normalizeText(record.partName || record.pieceGroup)],
     pieceGroup: normalizeText(record.pieceGroup || record.partName),
     bundleScope: normalizeText(record.bundleScope || record.bundleNo),
@@ -143,6 +197,10 @@ export function buildFeiTicketLabelPrintProjection(
     skuSize: normalizeText(record.skuSize || record.size),
     partCode: normalizeText(record.partCode || record.partName),
     partName: normalizeText(record.partName || record.pieceGroup),
+    garmentInstanceNo,
+    layerCount,
+    businessSizeLabel,
+    partQuantityPerGarment,
     pieceQty,
     garmentQty,
     pieceSequenceLabel: pieceSequence.label,
@@ -168,21 +226,29 @@ export function buildFeiTicketLabelPrintProjection(
     qrPayload,
     qrDisplayValue: JSON.stringify(qrPayload),
     feiTicketNo: qrPayload.feiTicketNo,
+    titleLabel: `SPU:${qrPayload.spuCode || 'SPU 待补'} - ${qrPayload.productionOrderNo || '生产单待补'}`,
     productionOrderNo: qrPayload.productionOrderNo,
     cutOrderNo: qrPayload.cutOrderNo,
     spuCode: qrPayload.spuCode,
+    materialDisplayLabel: resolveMaterialDisplayLabel(record, qrPayload),
     color: qrPayload.color,
     size: qrPayload.size,
+    businessSizeLabel: qrPayload.businessSizeLabel,
     partName: qrPayload.partName,
+    partQuantityLabel: qrPayload.partQuantityPerGarment > 0 ? `部位数量：${formatPrintQty(qrPayload.partQuantityPerGarment, '个')}` : '部位数量：待补',
+    actualCutPieceQtyLabel: `本票裁片：${formatPrintQty(qrPayload.actualCutPieceQty || qrPayload.pieceQty, '片')}`,
+    applicableSkuLabel: qrPayload.applicableSkuLabel,
     pieceQtyLabel: `裁片数量：${formatPrintQty(qrPayload.pieceQty, '片')}`,
-    pieceSequenceLabel: qrPayload.pieceSequenceLabel ? `编号范围：${qrPayload.pieceSequenceLabel}` : '编号范围：不可生成',
+    pieceSequenceLabel: qrPayload.pieceSequenceLabel ? `编号区间：${qrPayload.pieceSequenceLabel}` : '编号区间：不可生成',
     markerPlanNo: qrPayload.markerPlanNo,
     markerNumber: qrPayload.markerNumber,
     spreadingOrderNo: qrPayload.spreadingOrderNo,
+    markerSpreadingLabel: [qrPayload.markerNumber, qrPayload.spreadingOrderNo].filter(Boolean).join('-') || qrPayload.markerPlanNo,
     versionLabel,
     hasSpecialCraftLabel: qrPayload.hasSpecialCraft ? '有特殊工艺' : '无特殊工艺',
     specialCraftDisplayLines: specialCrafts.length ? specialCrafts.map((craft) => `${craft.craftType} / ${craft.craftCategory}`) : ['无'],
     receiverFactoryDisplayLines: specialCrafts.length ? specialCrafts.map((craft) => `${craft.craftType}：${craft.receiverFactoryName || '承接工厂待补充'}`) : ['无'],
+    specialCraftHandoverLines: specialCrafts.length ? specialCrafts.map((craft) => `${craft.craftType}：${craft.receiverFactoryName || '承接工厂待补充'}`) : ['无'],
   }
   return {
     ...baseProjection,

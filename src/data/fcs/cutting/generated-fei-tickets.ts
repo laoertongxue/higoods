@@ -177,10 +177,16 @@ export interface SpreadingPieceOutputLine {
   materialSku: string
   garmentSkuId: string
   garmentColor: string
+  applicableSkuCodes: string[]
+  applicableSkuLabel: string
+  assemblyGroupKey: string
+  siblingPartTicketNos: string[]
   sizeCode: string
   partCode: string
   partName: string
   partInstanceNo: string
+  garmentInstanceNo: number
+  partQuantityPerGarment: number
   pieceCountPerGarment: number
   bundleNo: string
   bundleQty: number
@@ -221,6 +227,10 @@ export interface GeneratedFeiTicketSourceRecord {
   patternIdentity: CuttingPatternIdentity
   garmentSkuId: string
   garmentColor: string
+  applicableSkuCodes: string[]
+  applicableSkuLabel: string
+  assemblyGroupKey: string
+  siblingPartTicketNos: string[]
   pieceScope: string[]
   pieceGroup: string
   bundleScope: string
@@ -230,6 +240,10 @@ export interface GeneratedFeiTicketSourceRecord {
   partCode: string
   partName: string
   partInstanceNo: string
+  garmentInstanceNo: number
+  layerCount: number
+  businessSizeLabel: string
+  partQuantityPerGarment: number
   bundleNo: string
   bundleQty: number
   pieceSetNoStart: number
@@ -1132,6 +1146,38 @@ function findPieceRowsForSku(
   return matched.length ? matched : pieceRows
 }
 
+function resolveApplicableSkuCodes(
+  sourceRecord: GeneratedCutOrderSourceRecord,
+  skuCode: string,
+  pieceRows: GeneratedCutOrderPieceRow[],
+): string[] {
+  const fromPieceRows = unique(pieceRows.flatMap((row) => row.applicableSkuCodes || []).map(normalizeText).filter(Boolean))
+  if (fromPieceRows.length) return fromPieceRows
+  const scopedSkuCodes = sourceRecord.skuScopeLines.map((line) => normalizeText(line.skuCode)).filter(Boolean)
+  if (scopedSkuCodes.length) return unique(scopedSkuCodes)
+  return [normalizeText(skuCode)].filter(Boolean)
+}
+
+function formatApplicableSkuLabel(skuCodes: string[], fallback: string): string {
+  const normalized = skuCodes.map(normalizeText).filter(Boolean)
+  if (!normalized.length) return normalizeText(fallback) || 'SKU 待补'
+  if (normalized.length <= 2) return normalized.join(' / ')
+  return `${normalized.slice(0, 2).join(' / ')} 等 ${normalized.length} 个 SKU`
+}
+
+function resolvePartQuantityPerGarment(pieceRows: GeneratedCutOrderPieceRow[]): number {
+  const total = pieceRows.reduce((sum, row) => sum + Math.max(Number(row.pieceCountPerUnit || 0), 0), 0)
+  return Math.max(total, 1)
+}
+
+function buildBusinessSizeLabel(size: string, garmentInstanceNo: number, layerCount: number): string {
+  return [
+    normalizeText(size) || '尺码待补',
+    Math.max(garmentInstanceNo || 1, 1),
+    Math.max(layerCount || 0, 0) || '层数待补',
+  ].join('-')
+}
+
 function listSessionSourceRecords(
   session: SpreadingSession,
   sourceRecords: GeneratedCutOrderSourceRecord[],
@@ -1274,7 +1320,19 @@ function buildSpreadingPieceOutputLinesFromSessions(
           const pieceSetNoEnd = Math.max(sizeRow.garmentQty, 1)
           const pieceSetNoRange = formatPieceSetRange(pieceSetNoStart, pieceSetNoEnd)
           const baseMarkerMode = normalizePieceSequenceMarkerMode(session.sourceBedMode || session.spreadingMode)
-          findPieceRowsForSku(sourceRecord, sizeRow.skuCode)
+          const pieceRowsForSku = findPieceRowsForSku(sourceRecord, sizeRow.skuCode)
+          const applicableSkuCodes = resolveApplicableSkuCodes(sourceRecord, sizeRow.skuCode, pieceRowsForSku)
+          const applicableSkuLabel = formatApplicableSkuLabel(applicableSkuCodes, sizeRow.skuCode)
+          const partQuantityPerGarment = resolvePartQuantityPerGarment(pieceRowsForSku)
+          const layerCount = Math.max(Number(roll.layerCount || 0), 0)
+          const assemblyGroupKey = [
+            sourceRecord.cutOrderNo,
+            normalizeBusinessText(roll.rollNo, '待补卷号'),
+            normalizeBusinessText(line.color || roll.color, '待补颜色'),
+            normalizeBusinessText(sizeRow.size, '均码'),
+            bundleNo,
+          ].join('::')
+          pieceRowsForSku
             .filter((pieceRow) => Boolean(normalizeText(pieceRow.partCode) || normalizeText(pieceRow.partName)))
             .forEach((pieceRow, partIndex) => {
             const pieceRepeatCount = Math.max(Number(pieceRow.pieceCountPerUnit || 0), 1)
@@ -1308,10 +1366,16 @@ function buildSpreadingPieceOutputLinesFromSessions(
                 materialSku: normalizeBusinessText(line.materialSku, sourceRecord.materialSku),
                 garmentSkuId: normalizeBusinessText(sizeRow.skuCode, sourceRecord.cutOrderNo),
                 garmentColor: normalizeBusinessText(sizeRow.color, line.color || roll.color || '待补颜色'),
+                applicableSkuCodes,
+                applicableSkuLabel,
+                assemblyGroupKey,
+                siblingPartTicketNos: [],
                 sizeCode: normalizeBusinessText(sizeRow.size, '均码'),
                 partCode,
                 partName,
                 partInstanceNo: partInstanceLabel,
+                garmentInstanceNo: pieceSetNoStart,
+                partQuantityPerGarment,
                 pieceCountPerGarment: 1,
                 bundleNo,
                 bundleQty: Math.max(sizeRow.garmentQty, 1),
@@ -1319,7 +1383,7 @@ function buildSpreadingPieceOutputLinesFromSessions(
                 pieceSetNoEnd,
                 pieceSetNoRange,
                 bundleTicketType: '扎束菲票',
-                layerCount: Math.max(Number(roll.layerCount || 0), 0),
+                layerCount,
                 markerMode: baseMarkerMode,
                 sizeGroupId: derivePieceSequenceSizeGroupId(sizeRow.size, baseMarkerMode),
                 actualCutPieceQty: Math.max(sizeRow.garmentQty, 1),
@@ -1368,6 +1432,18 @@ function buildRuntimeActualOutputLinesFromEvents(
         const actualQty = Math.max(Number(line.actualPieceQty || 0), 1)
         const partCode = line.partCode || line.partName
         const partName = line.partName || line.partCode
+        const garmentSkuId = `${sourceRecord.spuCode}-${line.size}`
+        const pieceRowsForSku = findPieceRowsForSku(sourceRecord, garmentSkuId)
+        const applicableSkuCodes = resolveApplicableSkuCodes(sourceRecord, garmentSkuId, pieceRowsForSku)
+        const applicableSkuLabel = formatApplicableSkuLabel(applicableSkuCodes, garmentSkuId)
+        const partQuantityPerGarment = resolvePartQuantityPerGarment(pieceRowsForSku)
+        const assemblyGroupKey = [
+          sourceRecord.cutOrderNo,
+          event.eventNo,
+          line.color || sourceRecord.colorScope[0] || '待补颜色',
+          line.size,
+          buildBundleNo(index),
+        ].join('::')
         return {
           outputLineId: line.outputId || `${event.eventId}__${sequence}`,
           spreadingSessionId: payload.spreadingOrderId || event.refs.spreadingOrderId || '',
@@ -1385,12 +1461,18 @@ function buildRuntimeActualOutputLinesFromEvents(
           fabricRollNo: event.eventNo,
           fabricColor: line.color || sourceRecord.colorScope[0] || '待补颜色',
           materialSku: event.material?.materialSku || sourceRecord.materialSku,
-          garmentSkuId: `${sourceRecord.spuCode}-${line.size}`,
+          garmentSkuId,
           garmentColor: line.color || sourceRecord.colorScope[0] || '待补颜色',
+          applicableSkuCodes,
+          applicableSkuLabel,
+          assemblyGroupKey,
+          siblingPartTicketNos: [],
           sizeCode: line.size,
           partCode,
           partName,
           partInstanceNo: '',
+          garmentInstanceNo: 1,
+          partQuantityPerGarment,
           pieceCountPerGarment: 1,
           bundleNo: buildBundleNo(index),
           bundleQty: actualQty,
@@ -1652,6 +1734,8 @@ function buildFeiRecordsFromSpreadingSessions(
     const currentCraftStage = secondaryCrafts[0] || ''
     const specialCraftDisplayLabel = formatFeiTicketSpecialCraftDisplayLabel(specialCrafts)
     const pieceSequence = buildPieceSequenceRange(line, sequenceNo, line.createdAt)
+    const layerCount = Math.max(line.layerCount || pieceSequence.range?.actualLayerCount || 0, 0)
+    const businessSizeLabel = buildBusinessSizeLabel(line.sizeCode, line.garmentInstanceNo, layerCount)
     const encoded = encodeFeiTicketQr({
       feiTicketId,
       feiTicketNo,
@@ -1676,6 +1760,10 @@ function buildFeiRecordsFromSpreadingSessions(
       materialSku: line.materialSku,
       garmentSkuId: line.garmentSkuId,
       garmentColor: line.garmentColor,
+      applicableSkuCodes: line.applicableSkuCodes,
+      applicableSkuLabel: line.applicableSkuLabel,
+      assemblyGroupKey: line.assemblyGroupKey,
+      siblingPartTicketNos: line.siblingPartTicketNos,
       pieceScope,
       pieceGroup,
       bundleScope,
@@ -1683,6 +1771,10 @@ function buildFeiRecordsFromSpreadingSessions(
       skuSize: line.sizeCode,
       partCode: line.partCode,
       partName: line.partName,
+      garmentInstanceNo: line.garmentInstanceNo,
+      layerCount,
+      businessSizeLabel,
+      partQuantityPerGarment: line.partQuantityPerGarment,
       pieceQty: line.actualCutPieceQty,
       garmentQty: Math.max(line.actualCutGarmentQty, 1),
       pieceSequenceLabel: pieceSequence.label,
@@ -1732,6 +1824,10 @@ function buildFeiRecordsFromSpreadingSessions(
       patternIdentity,
       garmentSkuId: line.garmentSkuId,
       garmentColor: line.garmentColor,
+      applicableSkuCodes: [...line.applicableSkuCodes],
+      applicableSkuLabel: line.applicableSkuLabel,
+      assemblyGroupKey: line.assemblyGroupKey,
+      siblingPartTicketNos: [...line.siblingPartTicketNos],
       pieceScope,
       pieceGroup,
       bundleScope,
@@ -1741,6 +1837,10 @@ function buildFeiRecordsFromSpreadingSessions(
       partCode: line.partCode,
       partName: line.partName,
       partInstanceNo: line.partInstanceNo,
+      garmentInstanceNo: line.garmentInstanceNo,
+      layerCount,
+      businessSizeLabel,
+      partQuantityPerGarment: line.partQuantityPerGarment,
       bundleNo: line.bundleNo,
       bundleQty: line.bundleQty,
       pieceSetNoStart: line.pieceSetNoStart,
@@ -1774,7 +1874,27 @@ function buildFeiRecordsFromSpreadingSessions(
     } satisfies GeneratedFeiTicketSourceRecord
   })
 
-  return records
+  const ticketNosByAssemblyGroup = new Map<string, string[]>()
+  records.forEach((record) => {
+    const current = ticketNosByAssemblyGroup.get(record.assemblyGroupKey) || []
+    current.push(record.feiTicketNo)
+    ticketNosByAssemblyGroup.set(record.assemblyGroupKey, current)
+  })
+
+  return records.map((record) => {
+    const siblingPartTicketNos = (ticketNosByAssemblyGroup.get(record.assemblyGroupKey) || [])
+      .filter((ticketNo) => ticketNo && ticketNo !== record.feiTicketNo)
+    const encoded = encodeFeiTicketQr({
+      ...record.qrPayload,
+      siblingPartTicketNos,
+    })
+    return {
+      ...record,
+      siblingPartTicketNos,
+      qrPayload: encoded.payload,
+      qrValue: encoded.qrValue,
+    }
+  })
 }
 
 interface GeneratedFeiTicketDataset {
@@ -1901,12 +2021,16 @@ function cloneGeneratedFeiRecord(record: GeneratedFeiTicketSourceRecord): Genera
       piecePartCodes: [...record.patternIdentity.piecePartCodes],
       piecePartNames: [...record.patternIdentity.piecePartNames],
     },
+    applicableSkuCodes: [...record.applicableSkuCodes],
+    siblingPartTicketNos: [...record.siblingPartTicketNos],
     pieceScope: [...record.pieceScope],
     secondaryCrafts: [...record.secondaryCrafts],
     specialCrafts: record.specialCrafts.map((craft) => ({ ...craft })),
     pieceSequenceRange: record.pieceSequenceRange ? { ...record.pieceSequenceRange } : null,
     qrPayload: {
       ...record.qrPayload,
+      applicableSkuCodes: [...record.qrPayload.applicableSkuCodes],
+      siblingPartTicketNos: [...record.qrPayload.siblingPartTicketNos],
       pieceScope: [...record.qrPayload.pieceScope],
       secondaryCrafts: [...record.qrPayload.secondaryCrafts],
     },

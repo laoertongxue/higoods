@@ -48,6 +48,10 @@ export interface FeiTicketQrPayload extends CuttingQrPayloadBase<'FEI_TICKET'> {
   materialSku: string
   garmentSkuId: string
   garmentColor: string
+  applicableSkuCodes: string[]
+  applicableSkuLabel: string
+  assemblyGroupKey: string
+  siblingPartTicketNos: string[]
   pieceScope: string[]
   pieceGroup: string
   bundleScope: string
@@ -55,6 +59,10 @@ export interface FeiTicketQrPayload extends CuttingQrPayloadBase<'FEI_TICKET'> {
   skuSize: string
   partCode: string
   partName: string
+  garmentInstanceNo: number
+  layerCount: number
+  businessSizeLabel: string
+  partQuantityPerGarment: number
   pieceQty: number
   garmentQty: number
   pieceSequenceLabel: string
@@ -170,6 +178,10 @@ export function buildFeiTicketQrPayload(input: {
   materialSku: string
   garmentSkuId: string
   garmentColor: string
+  applicableSkuCodes?: string[]
+  applicableSkuLabel?: string
+  assemblyGroupKey?: string
+  siblingPartTicketNos?: string[]
   pieceScope: string[]
   pieceGroup: string
   bundleScope: string
@@ -177,6 +189,10 @@ export function buildFeiTicketQrPayload(input: {
   skuSize: string
   partCode: string
   partName: string
+  garmentInstanceNo?: number
+  layerCount?: number
+  businessSizeLabel?: string
+  partQuantityPerGarment?: number
   pieceQty?: number
   garmentQty?: number
   pieceSequenceLabel?: string
@@ -232,6 +248,10 @@ export function buildFeiTicketQrPayload(input: {
     materialSku: input.materialSku,
     garmentSkuId: input.garmentSkuId,
     garmentColor: input.garmentColor,
+    applicableSkuCodes: [...(input.applicableSkuCodes?.length ? input.applicableSkuCodes : [input.garmentSkuId].filter(Boolean))],
+    applicableSkuLabel: input.applicableSkuLabel || (input.applicableSkuCodes?.length ? input.applicableSkuCodes.join(' / ') : input.garmentSkuId),
+    assemblyGroupKey: input.assemblyGroupKey || [input.cutOrderNo, input.fabricRollNo, input.fabricColor, input.skuSize, input.bundleNo].filter(Boolean).join('::'),
+    siblingPartTicketNos: [...(input.siblingPartTicketNos || [])],
     pieceScope: [...input.pieceScope],
     pieceGroup: input.pieceGroup,
     bundleScope: input.bundleScope,
@@ -239,6 +259,10 @@ export function buildFeiTicketQrPayload(input: {
     skuSize: input.skuSize,
     partCode: input.partCode,
     partName: input.partName,
+    garmentInstanceNo: Math.max(input.garmentInstanceNo || 1, 1),
+    layerCount: Math.max(input.layerCount || input.pieceSequenceEndNo || 0, 0),
+    businessSizeLabel: input.businessSizeLabel || [input.size || input.skuSize, input.garmentInstanceNo || 1, input.layerCount || input.pieceSequenceEndNo || 0].filter(Boolean).join('-'),
+    partQuantityPerGarment: Math.max(input.partQuantityPerGarment || 0, 0),
     pieceQty: Math.max(input.pieceQty ?? input.actualCutPieceQty ?? input.qty, 0),
     garmentQty: Math.max(input.garmentQty ?? input.qty ?? input.actualCutPieceQty, 0),
     pieceSequenceLabel: input.pieceSequenceLabel || '',

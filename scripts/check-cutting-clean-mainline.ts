@@ -162,6 +162,8 @@ function assertFeiTicketChain(): void {
   assertEvery(tickets, (ticket) => ticket.sourceBasisType === 'ACTUAL_CUTTING_OUTPUT', '菲票必须只基于实际裁剪产出')
   assertEvery(tickets, (ticket) => ticket.actualCutPieceQty > 0 && ticket.sourceOutputLineId && ticket.productionOrderNo && ticket.cutOrderNo && ticket.sourceMarkerPlanNo && ticket.spreadingOrderNo, '菲票追溯字段或实际裁片数量不完整')
   assertEvery(tickets, (ticket) => Boolean(ticket.materialIdentity?.materialSku && ticket.patternIdentity?.patternFileId), '菲票必须带面料和纸样身份')
+  assertEvery(tickets, (ticket) => ticket.applicableSkuCodes.length > 0 && Boolean(ticket.applicableSkuLabel), '菲票必须带适用 SKU')
+  assertEvery(tickets, (ticket) => ticket.partQuantityPerGarment > 0 && Boolean(ticket.businessSizeLabel), '菲票必须带业务尺码组合和部位数量')
   assert(tickets.some((ticket) => ticket.hasSpecialCraft && ticket.specialCrafts.length > 0), '缺少特殊工艺菲票')
   assert(tickets.some((ticket) => !ticket.hasSpecialCraft), '缺少无特殊工艺菲票')
   tickets.filter((ticket) => ticket.hasSpecialCraft).forEach((ticket) => {
@@ -192,8 +194,10 @@ function assertFeiTicketChain(): void {
   const printProjection = buildFeiTicketLabelPrintProjection(tickets.find((ticket) => ticket.hasSpecialCraft) || tickets[0])
   assert(printProjection.qrPayload.payloadVersion, '菲票二维码 payload 缺少版本号')
   assert(printProjection.qrPayload.feiTicketNo && printProjection.qrPayload.productionOrderNo && printProjection.qrPayload.cutOrderNo && printProjection.qrPayload.spreadingOrderNo, '菲票二维码 payload 缺少追踪字段')
+  assert(printProjection.qrPayload.applicableSkuLabel && printProjection.qrPayload.partQuantityPerGarment > 0 && printProjection.qrPayload.businessSizeLabel, '菲票二维码 payload 缺少适用 SKU、部位数量或业务尺码组合')
+  assert(printProjection.titleLabel.startsWith('SPU:') && printProjection.materialDisplayLabel && printProjection.markerSpreadingLabel, '菲票打印投影缺少业务方版式标题或关键字段')
   assert(printProjection.specialCraftDisplayLines.length > 0 && printProjection.receiverFactoryDisplayLines.length > 0, '菲票打印投影缺少特殊工艺或承接工厂')
-  assert(printProjection.pieceSequenceLabel.includes('编号范围'), '菲票打印投影缺少编号范围')
+  assert(printProjection.pieceSequenceLabel.includes('编号区间'), '菲票打印投影缺少编号区间')
   assert.equal(printProjection.templateSize, '10cm x 10cm', '菲票默认打印模板必须是 10cm x 10cm')
 }
 
