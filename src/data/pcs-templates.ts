@@ -6,7 +6,6 @@ import type {
 } from './pcs-project-definition-normalizer.ts'
 import { getPcsWorkItemDefinition } from './pcs-work-items.ts'
 import {
-  buildBuiltinProjectTemplateMatrix,
   getProjectTemplateSchema,
   listProjectTemplateSchemas,
   type PcsProjectTemplateStyleType,
@@ -30,9 +29,6 @@ export interface ProjectTemplate {
   nodes: ProjectTemplateNodeDefinition[]
   pendingNodes: ProjectTemplatePendingNode[]
 }
-
-const REQUIRED_TEMPLATE_TERMINAL_NODE_CODE = 'SAMPLE_RETURN_HANDLE'
-const REQUIRED_TEMPLATE_TERMINAL_NODE_NAME = '样衣退回处理'
 
 function nowText(): string {
   const now = new Date()
@@ -74,64 +70,11 @@ function cloneTemplate(template: ProjectTemplate): ProjectTemplate {
   }
 }
 
-function hasRequiredTemplateTerminalNode(template: ProjectTemplate): boolean {
-  return template.nodes.some(
-    (node) =>
-      node.workItemTypeCode === REQUIRED_TEMPLATE_TERMINAL_NODE_CODE &&
-      node.workItemTypeName === REQUIRED_TEMPLATE_TERMINAL_NODE_NAME,
-  )
-}
-
 function buildTemplateVersion(updatedAt: string): string {
   return updatedAt
 }
 
-function buildContractTemplateStore(): ProjectTemplate[] {
-  return buildBuiltinProjectTemplateMatrix()
-    .map((item) => ({
-      id: item.templateId,
-      name: item.templateName,
-      styleType: [...item.styleTypes],
-      creator: item.creator,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-      status: item.status,
-      description: item.description,
-      scenario: item.scenario,
-      stages: item.stages.map((stage) => ({
-        templateStageId: stage.templateStageId,
-        templateId: item.templateId,
-        phaseCode: stage.phaseCode,
-        phaseName: stage.phaseName,
-        phaseOrder: stage.phaseOrder,
-        requiredFlag: stage.requiredFlag,
-        description: stage.description,
-      })),
-      nodes: item.nodes.map((node) => ({
-        templateNodeId: node.templateNodeId,
-        templateId: item.templateId,
-        templateStageId: node.templateStageId,
-        phaseCode: node.phaseCode,
-        phaseName: node.phaseName,
-        workItemId: node.workItemId,
-        workItemTypeCode: node.workItemTypeCode,
-        workItemTypeName: node.workItemTypeName,
-        sequenceNo: node.sequenceNo,
-        enabledFlag: true,
-        requiredFlag: node.requiredFlag,
-        multiInstanceFlag: node.multiInstanceFlag,
-        roleOverrideCodes: [],
-        roleOverrideNames: [],
-        note: node.note,
-        sourceWorkItemUpdatedAt: node.sourceWorkItemUpdatedAt,
-        templateVersion: item.updatedAt,
-      })),
-      pendingNodes: [],
-    }))
-    .filter(hasRequiredTemplateTerminalNode)
-}
-
-let templateStore: ProjectTemplate[] = buildContractTemplateStore()
+let templateStore: ProjectTemplate[] = []
 
 function normalizeStructuredTemplate(template: ProjectTemplate): ProjectTemplate {
   const orderedStages = template.stages

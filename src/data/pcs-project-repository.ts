@@ -45,8 +45,8 @@ import type {
 } from './pcs-project-types.ts'
 import type { TemplateStyleType } from './pcs-templates.ts'
 
-const PROJECT_STORAGE_KEY = 'higood-pcs-project-store-v2'
-const PROJECT_STORE_VERSION = 2
+const PROJECT_STORAGE_KEY = 'higood-pcs-project-store-v3-empty'
+const PROJECT_STORE_VERSION = 3
 
 const PROJECT_TYPES = ['商品开发', '快反上新', '改版开发', '设计研发'] as const
 const PROJECT_SOURCE_TYPES = ['企划提案', '渠道反馈', '测款沉淀', '历史复用', '外部灵感'] as const
