@@ -195,7 +195,7 @@ function buildFeiQrBusinessTraceLines(
     qr.color ? `颜色 ${qr.color}` : '',
     qr.size ? `尺码 ${qr.size}` : '',
     qr.partName ? `部位 ${qr.partName}` : '',
-    qr.pieceSequenceLabel ? `编号范围 ${qr.pieceSequenceLabel}` : '',
+    qr.pieceSequenceLabel ? `编号区间 ${qr.pieceSequenceLabel}` : '',
   ].filter(Boolean).join(' · ')
   const craftLine = row.hasSpecialCraft
     ? `特殊工艺 ${joinCompactLines(row.specialCraftLines, 3)}；承接工厂 ${joinCompactLines(row.receiverFactoryLines, 3)}`
@@ -2652,7 +2652,7 @@ function renderFeiTicketLabelCell(label: string, value: string, options: { class
   return `
     <div class="min-h-[11mm] border-b border-r border-slate-900 p-[1.4mm] ${options.className || ''}">
       <span class="text-[8px] font-medium text-slate-700">${escapeHtml(label)}</span>
-      <strong class="ml-1 break-words ${options.strong ? 'text-[12px]' : 'text-[10px]'} leading-tight text-slate-950">${escapeHtml(value || '—')}</strong>
+      <strong class="ml-1 break-words ${options.strong ? 'text-[15px] font-black' : 'text-[10.5px] font-extrabold'} leading-tight text-slate-950">${escapeHtml(value || '—')}</strong>
     </div>
   `
 }
@@ -2660,28 +2660,26 @@ function renderFeiTicketLabelCell(label: string, value: string, options: { class
 function renderLabelPreviewCard(row: FeiTicketWorkbenchRow, templateSize: FeiTicketTemplateSize): string {
   const projection = buildFeiTicketLabelPrintProjection(buildFeiTicketPrintRecordLike(row), { templateSize })
   const maxPrintLines = templateSize === '15cm x 10cm' ? 4 : 2
-  const specialCraftText = joinCompactLines(projection.specialCraftHandoverLines, maxPrintLines)
-  const receiverFactoryText = joinCompactLines(projection.receiverFactoryDisplayLines, maxPrintLines)
+  const specialCraftHandoverText = joinCompactLines(projection.specialCraftHandoverLines, maxPrintLines)
   const paperClass = templateSize === '15cm x 10cm' ? 'w-[150mm] min-h-[100mm]' : 'w-[100mm] min-h-[100mm]'
   const qrSize = templateSize === '15cm x 10cm' ? 132 : 116
   return `
     <div class="overflow-hidden rounded-lg border bg-slate-50 p-4">
       <div class="${paperClass} max-w-full rounded-md border border-slate-900 bg-white p-[2mm] text-slate-900 shadow-sm">
         <div class="border border-slate-900">
-          <div class="border-b border-slate-900 px-[2mm] py-[2mm] text-[16px] font-extrabold leading-tight">
+          <div class="border-b border-slate-900 px-[2mm] py-[2.2mm] text-[22px] font-black leading-none">
             ${escapeHtml(projection.titleLabel)}
           </div>
           <div class="grid ${templateSize === '15cm x 10cm' ? 'grid-cols-[1fr_36mm]' : 'grid-cols-[1fr_32mm]'}">
             <div class="grid grid-cols-2">
-              ${renderFeiTicketLabelCell('面料', projection.materialDisplayLabel)}
+              ${renderFeiTicketLabelCell('面料 / 颜色', projection.materialWithColorLabel, { strong: true })}
               ${renderFeiTicketLabelCell('唛架编号+铺布单号', projection.markerSpreadingLabel, { strong: true })}
               ${renderFeiTicketLabelCell('部位', projection.partName, { strong: true })}
               ${renderFeiTicketLabelCell('尺码', projection.businessSizeLabel, { strong: true })}
               ${renderFeiTicketLabelCell('部位数量', stripFeiTicketLabelPrefix(projection.partQuantityLabel), { strong: true })}
               ${renderFeiTicketLabelCell('编号区间', stripFeiTicketLabelPrefix(projection.pieceSequenceLabel), { strong: true })}
               ${renderFeiTicketLabelCell('适用SKU', projection.applicableSkuLabel, { className: 'col-span-2' })}
-              ${renderFeiTicketLabelCell('特殊工艺', specialCraftText, { className: 'col-span-2' })}
-              ${renderFeiTicketLabelCell('承接工厂', receiverFactoryText, { className: 'col-span-2' })}
+              ${renderFeiTicketLabelCell('特殊工艺 / 承接工厂', specialCraftHandoverText, { className: 'col-span-2', strong: true })}
               ${renderFeiTicketLabelCell('菲票号', projection.feiTicketNo, { strong: true })}
               ${renderFeiTicketLabelCell('本票裁片', stripFeiTicketLabelPrefix(projection.actualCutPieceQtyLabel))}
             </div>

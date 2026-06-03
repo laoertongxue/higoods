@@ -394,10 +394,10 @@ export function renderUnifiedPrintStyles(): string {
       .fei-ticket-business-title {
         border: 1px solid #111827;
         border-bottom: 0;
-        padding: 2mm;
-        font-size: 16px;
+        padding: 2.2mm 2mm;
+        font-size: 21px;
         font-weight: 800;
-        line-height: 1.12;
+        line-height: 1.04;
       }
 
       .fei-ticket-business-body {
@@ -438,14 +438,15 @@ export function renderUnifiedPrintStyles(): string {
       .fei-ticket-business-cell strong {
         margin-left: 1mm;
         color: #111827;
-        font-size: 10px;
+        font-size: 10.5px;
         font-weight: 800;
         line-height: 1.08;
         overflow-wrap: anywhere;
       }
 
       .fei-ticket-business-cell strong.fei-ticket-business-emphasis {
-        font-size: 12px;
+        font-size: 13.5px;
+        font-weight: 900;
       }
 
       .fei-ticket-business-qr-panel {

@@ -201,6 +201,7 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
     { label: isWoolTicket ? '毛织单' : '裁片单', value: printProjection.cutOrderNo, emphasis: true },
     { label: 'SPU', value: printProjection.spuCode },
     { label: '面料', value: printProjection.materialDisplayLabel, emphasis: true },
+    { label: '面料/颜色', value: printProjection.materialWithColorLabel, emphasis: true },
     { label: '颜色', value: printProjection.color },
     { label: '尺码', value: printProjection.businessSizeLabel, emphasis: true },
     { label: '部位', value: printProjection.partName, emphasis: true },
@@ -214,6 +215,7 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
     { label: '特殊工艺', value: craftPrintValue },
     { label: '特殊工艺交出', value: handoverCraftValue },
     { label: '承接工厂', value: joinLabelLines(printProjection.receiverFactoryDisplayLines, maxCraftPrintLines) },
+    { label: '特殊工艺 / 承接工厂', value: handoverCraftValue },
   ])
 
   return {
@@ -526,15 +528,14 @@ function renderFeiTicketBusinessLabelItem(item: PrintLabelItem, paperType: Print
       <div class="fei-ticket-business-title">${escapeHtml(getLabelFieldValue(item, '菲票标题', item.labelTitle))}</div>
       <div class="fei-ticket-business-body">
         <div class="fei-ticket-business-grid">
-          ${renderFeiBusinessCell('面料', getLabelFieldValue(item, '面料'))}
+          ${renderFeiBusinessCell('面料 / 颜色', getLabelFieldValue(item, '面料/颜色', getLabelFieldValue(item, '面料')), { emphasis: true })}
           ${renderFeiBusinessCell('唛架编号+铺布单号', getLabelFieldValue(item, '唛架编号+铺布单号'), { emphasis: true })}
           ${renderFeiBusinessCell('部位', getLabelFieldValue(item, '部位'), { emphasis: true })}
           ${renderFeiBusinessCell('尺码', getLabelFieldValue(item, '尺码'), { emphasis: true })}
           ${renderFeiBusinessCell('部位数量', getLabelFieldValue(item, '部位数量'), { emphasis: true })}
           ${renderFeiBusinessCell('编号区间', getLabelFieldValue(item, '编号区间'), { emphasis: true })}
           ${renderFeiBusinessCell('适用SKU', getLabelFieldValue(item, '适用SKU'), { className: 'fei-ticket-business-span-2' })}
-          ${renderFeiBusinessCell('特殊工艺', getLabelFieldValue(item, '特殊工艺交出', getLabelFieldValue(item, '特殊工艺')), { className: 'fei-ticket-business-span-2' })}
-          ${renderFeiBusinessCell('承接工厂', getLabelFieldValue(item, '承接工厂'), { className: 'fei-ticket-business-span-2' })}
+          ${renderFeiBusinessCell('特殊工艺 / 承接工厂', getLabelFieldValue(item, '特殊工艺 / 承接工厂', getLabelFieldValue(item, '特殊工艺交出', getLabelFieldValue(item, '特殊工艺'))), { className: 'fei-ticket-business-span-2', emphasis: true })}
           ${renderFeiBusinessCell('菲票号', getLabelFieldValue(item, '菲票号'), { emphasis: true })}
           ${renderFeiBusinessCell('本票裁片', getLabelFieldValue(item, '本票裁片'))}
         </div>

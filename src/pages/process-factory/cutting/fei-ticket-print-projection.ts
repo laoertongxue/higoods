@@ -26,6 +26,7 @@ export interface FeiTicketLabelPrintProjection {
   cutOrderNo: string
   spuCode: string
   materialDisplayLabel: string
+  materialWithColorLabel: string
   color: string
   size: string
   businessSizeLabel: string
@@ -128,6 +129,14 @@ function resolveMaterialDisplayLabel(record: FeiTicketPrintRecordLike, qrPayload
   return materialColor ? `${materialName}--${materialColor}` : materialName
 }
 
+function appendMaterialColorLabel(materialLabel: string, colorLabel: string): string {
+  const material = normalizeText(materialLabel, '面料待补')
+  const color = normalizeText(colorLabel)
+  if (!color) return material
+  if (material.includes(color)) return material
+  return `${material} / 颜色：${color}`
+}
+
 export function buildFeiTicketLabelPrintProjection(
   record: FeiTicketPrintRecordLike,
   options: {
@@ -222,6 +231,8 @@ export function buildFeiTicketLabelPrintProjection(
     issuedAt: normalizeText(record.issuedAt || record.createdAt || record.printedAt, new Date().toISOString()),
     currentCraftStage: normalizeText(record.currentCraftStage || specialCrafts[0]?.craftType),
   })
+  const materialDisplayLabel = resolveMaterialDisplayLabel(record, qrPayload)
+  const materialWithColorLabel = appendMaterialColorLabel(materialDisplayLabel, qrPayload.fabricColor || qrPayload.color)
   const baseProjection = {
     qrPayload,
     qrDisplayValue: JSON.stringify(qrPayload),
@@ -230,7 +241,8 @@ export function buildFeiTicketLabelPrintProjection(
     productionOrderNo: qrPayload.productionOrderNo,
     cutOrderNo: qrPayload.cutOrderNo,
     spuCode: qrPayload.spuCode,
-    materialDisplayLabel: resolveMaterialDisplayLabel(record, qrPayload),
+    materialDisplayLabel,
+    materialWithColorLabel,
     color: qrPayload.color,
     size: qrPayload.size,
     businessSizeLabel: qrPayload.businessSizeLabel,
