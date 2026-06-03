@@ -25,6 +25,14 @@ export const routes: RouteRegistry = {
     '/pcs/channels/products/store': () => renderers.renderPcsChannelProductListPage(),
     '/pcs/channels/stores': () => renderers.renderPcsChannelStoreListPage(),
     '/pcs/channels/stores/sync': () => renderers.renderPcsChannelStoreSyncPage(),
+    '/pcs/samples': () => renderRouteRedirect('/pcs/samples/inventory', '正在跳转到样衣库存'),
+    '/pcs/samples/inventory': () => renderers.renderPcsSampleInventoryPage(),
+    '/pcs/samples/application': () => renderers.renderPcsSampleApplicationPage(),
+    '/pcs/samples/transfer': () => renderers.renderPcsSampleTransferPage(),
+    '/pcs/samples/return': () => renderers.renderPcsSampleReturnPage(),
+    '/pcs/samples/ledger': () => renderers.renderPcsSampleLedgerPage(),
+    '/pcs/samples/ledger/stocktake': () => renderers.renderPcsSampleStocktakePage(),
+    '/pcs/samples/view': () => renderers.renderPcsSampleViewPage(),
     '/pcs/samples/first-sample': () => renderers.renderPcsFirstSampleTaskPage(),
     '/pcs/samples/first-order': () => renderers.renderPcsFirstOrderSampleTaskPage(),
     '/pcs/patterns': () => renderers.renderPcsPlateMakingTaskPage(),
@@ -124,6 +132,10 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/pcs\/samples\/first-order\/([^/]+)$/,
       render: (match) => renderers.renderPcsFirstOrderSampleTaskDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/samples\/detail\/([^/]+)$/,
+      render: (match) => renderers.renderPcsSampleDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/pattern-library\/([^/]+)$/,

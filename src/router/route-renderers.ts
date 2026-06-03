@@ -234,6 +234,38 @@ export const renderPcsFirstOrderSampleTaskDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-tasks'),
   'renderPcsFirstOrderSampleTaskDetailPage',
 )
+export const renderPcsSampleInventoryPage = createAsyncRenderer(
+  () => import('../pages/pcs-sample-management'),
+  'renderPcsSampleInventoryPage',
+)
+export const renderPcsSampleApplicationPage = createAsyncRenderer(
+  () => import('../pages/pcs-sample-management'),
+  'renderPcsSampleApplicationPage',
+)
+export const renderPcsSampleTransferPage = createAsyncRenderer(
+  () => import('../pages/pcs-sample-management'),
+  'renderPcsSampleTransferPage',
+)
+export const renderPcsSampleReturnPage = createAsyncRenderer(
+  () => import('../pages/pcs-sample-management'),
+  'renderPcsSampleReturnPage',
+)
+export const renderPcsSampleLedgerPage = createAsyncRenderer(
+  () => import('../pages/pcs-sample-management'),
+  'renderPcsSampleLedgerPage',
+)
+export const renderPcsSampleStocktakePage = createAsyncRenderer(
+  () => import('../pages/pcs-sample-management'),
+  'renderPcsSampleStocktakePage',
+)
+export const renderPcsSampleViewPage = createAsyncRenderer(
+  () => import('../pages/pcs-sample-management'),
+  'renderPcsSampleViewPage',
+)
+export const renderPcsSampleDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-sample-management'),
+  'renderPcsSampleDetailPage',
+)
 export const renderCapabilityPage = createAsyncRenderer(() => import('../pages/capability'), 'renderCapabilityPage')
 export const renderFactoryStatusPage = createAsyncRenderer(() => import('../pages/factory-status'), 'renderFactoryStatusPage')
 export const renderFactoryPerformancePage = createAsyncRenderer(() => import('../pages/factory-performance'), 'renderFactoryPerformancePage')

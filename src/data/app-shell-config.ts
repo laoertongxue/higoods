@@ -172,6 +172,20 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           ],
         },
         {
+          key: 'pcs-menu-samples',
+          title: '样衣管理',
+          icon: 'PackageSearch',
+          children: [
+            { key: 'pcs-sample-inventory', title: '样衣库存', icon: 'Package', href: '/pcs/samples/inventory' },
+            { key: 'pcs-sample-application', title: '样衣使用申请', icon: 'ClipboardList', href: '/pcs/samples/application' },
+            { key: 'pcs-sample-transfer', title: '样衣流转记录', icon: 'Truck', href: '/pcs/samples/transfer' },
+            { key: 'pcs-sample-return', title: '样衣退货与处理', icon: 'RotateCcw', href: '/pcs/samples/return' },
+            { key: 'pcs-sample-ledger', title: '样衣台账', icon: 'BookOpen', href: '/pcs/samples/ledger' },
+            { key: 'pcs-sample-stocktake', title: '盘点差异追踪', icon: 'ScanLine', href: '/pcs/samples/ledger/stocktake' },
+            { key: 'pcs-sample-view', title: '样衣视图', icon: 'LayoutGrid', href: '/pcs/samples/view' },
+          ],
+        },
+        {
           key: 'pcs-menu-products',
           title: '商品档案',
           icon: 'Archive',

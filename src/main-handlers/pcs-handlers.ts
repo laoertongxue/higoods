@@ -177,6 +177,17 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     closeActions: [{ datasetKey: 'pcsProjectAction', value: 'close-dialogs' }],
   },
   {
+    cacheKey: 'pcs-sample-management',
+    matches: (pathname) =>
+      isExactOrNestedPath(pathname, '/pcs/samples') &&
+      !isAnyExactOrNestedPath(pathname, ['/pcs/samples/first-sample', '/pcs/samples/first-order']),
+    importModule: () => import('../pages/pcs-sample-management'),
+    eventExport: 'handlePcsSampleManagementEvent',
+    inputExport: 'handlePcsSampleManagementInput',
+    dialogExport: 'isPcsSampleManagementDialogOpen',
+    closeActions: [{ datasetKey: 'pcsSampleAction', value: 'close-drawers' }],
+  },
+  {
     cacheKey: 'pcs-engineering-tasks',
     matches: (pathname) =>
       isAnyExactOrNestedPath(pathname, [
