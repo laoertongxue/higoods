@@ -5,7 +5,10 @@ import {
 } from '../data/fcs/factory-internal-warehouse.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
-import { listAuxiliaryCraftTaskOrders } from '../data/fcs/special-craft-task-orders.ts'
+import {
+  listAuxiliaryCraftTaskOrders,
+  listSpecialTypeCraftTaskOrders,
+} from '../data/fcs/special-craft-task-orders.ts'
 import type { PostFinishingWaitHandoverWarehouseRecord } from '../data/fcs/post-finishing-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
@@ -165,17 +168,32 @@ const CUTTING_WAIT_HANDOVER_ACTIONS: Array<{
 type AuxiliaryWaitHandoverAction = 'finish-inbound' | 'handover-confirm'
 type WoolWaitHandoverAction = 'finish-inbound' | 'handover-confirm'
 
-function isAuxiliaryCraftRuntime(): boolean {
+function getCraftWarehouseRuntimeLabel(): '辅助工艺' | '特种工艺' | null {
   const runtime = getMobileWarehouseRuntimeContext()
-  if (!runtime) return false
+  if (!runtime) return null
   const factory = getFactoryMasterRecordById(runtime.factoryId)
-  return factory?.factoryType === 'CENTRAL_AUX'
+  if (factory?.factoryType === 'CENTRAL_AUX') return '辅助工艺'
+  if (factory?.factoryType === 'CENTRAL_SPECIAL') return '特种工艺'
+  return null
+}
+
+function isCraftWarehouseRuntime(): boolean {
+  return Boolean(getCraftWarehouseRuntimeLabel())
+}
+
+function ensureCraftWarehouseMockData(): void {
+  const runtimeLabel = getCraftWarehouseRuntimeLabel()
+  if (runtimeLabel === '辅助工艺') {
+    listAuxiliaryCraftTaskOrders()
+  } else if (runtimeLabel === '特种工艺') {
+    listSpecialTypeCraftTaskOrders()
+  }
 }
 
 function getAuxiliaryWaitHandoverRows(ignoreStatus = false): FactoryWaitHandoverStockItem[] {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return []
-  listAuxiliaryCraftTaskOrders()
+  ensureCraftWarehouseMockData()
   return listFactoryWaitHandoverStockItems()
     .filter((item) => item.factoryId === runtime.factoryId && Boolean(item.craftName))
     .filter((item) => (ignoreStatus || state.status === '全部' ? true : item.status === state.status))
@@ -412,6 +430,7 @@ function renderCuttingWaitHandoverSubpageHeader(title: string, description: stri
 
 function renderAuxiliaryWaitHandoverActionPage(action: AuxiliaryWaitHandoverAction): string {
   const sample = ensureAuxiliaryWaitHandoverDraft(action)
+  const runtimeLabel = getCraftWarehouseRuntimeLabel() || '工艺'
   const isFinishInbound = action === 'finish-inbound'
   const title = isFinishInbound ? '完工入仓' : '交出确认'
   const scanValue = isFinishInbound ? state.auxiliaryFinishScan : state.auxiliaryHandoverScan
@@ -421,7 +440,7 @@ function renderAuxiliaryWaitHandoverActionPage(action: AuxiliaryWaitHandoverActi
       <section class="flex items-start justify-between gap-3">
         <div>
           <div class="text-xl font-semibold leading-tight text-foreground">${escapeHtml(title)}</div>
-          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(sample ? `${sample.craftName || '辅助工艺'} · ${sample.itemName}` : '暂无可用演示记录')}</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(sample ? `${sample.craftName || runtimeLabel} · ${sample.itemName}` : '暂无可用演示记录')}</div>
         </div>
         <button type="button" class="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium" data-nav="/fcs/pda/warehouse">返回仓管</button>
       </section>
@@ -472,10 +491,11 @@ function renderAuxiliaryWaitHandoverPage(): string {
     return renderPdaFrame(renderAuxiliaryWaitHandoverActionPage(activeAction), 'warehouse', { headerTitle: title, disableTodoAutoOpen: true })
   }
   const runtime = getMobileWarehouseRuntimeContext()
+  const runtimeLabel = getCraftWarehouseRuntimeLabel() || '工艺'
   const rows = getAuxiliaryWaitHandoverRows()
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${runtime ? renderWarehouseSummaryHeader('辅助工艺待交出仓', '完工入仓生成待交出库存，交出确认后形成交出记录。', runtime.overview) : ''}
+      ${runtime ? renderWarehouseSummaryHeader(`${runtimeLabel}待交出仓`, '完工入仓生成待交出库存，交出确认后形成交出记录。', runtime.overview) : ''}
       ${renderAuxiliaryWaitHandoverActionCards()}
       ${renderSectionFilterChips(state.status, FILTERS, 'wait-handover-status')}
       <section class="space-y-3">
@@ -486,7 +506,7 @@ function renderAuxiliaryWaitHandoverPage(): string {
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0 flex-1">
                     <div class="text-sm font-semibold text-foreground">${escapeHtml(row.taskNo || row.stockItemId)}</div>
-                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.craftName || '辅助工艺')} · ${escapeHtml(row.handoverOrderNo || '待交出')}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.craftName || runtimeLabel)} · ${escapeHtml(row.handoverOrderNo || '待交出')}</div>
                   </div>
                   ${renderStatusPill(row.status)}
                 </div>
@@ -509,14 +529,14 @@ function renderAuxiliaryWaitHandoverPage(): string {
                 </div>
               </article>
             `).join('')
-            : renderMobilePageEmptyState('暂无辅助工艺待交出仓记录', '完工入仓后会形成待交出库存。')
+            : renderMobilePageEmptyState(`暂无${runtimeLabel}待交出仓记录`, '完工入仓后会形成待交出库存。')
         }
       </section>
       ${renderDetailDrawer()}
       ${renderLocationDialog()}
     </div>
   `
-  return renderPdaFrame(content, 'warehouse', { headerTitle: '辅助工艺待交出仓', disableTodoAutoOpen: true })
+  return renderPdaFrame(content, 'warehouse', { headerTitle: `${runtimeLabel}待交出仓`, disableTodoAutoOpen: true })
 }
 
 function renderCuttingWaitHandoverCardAction(action?: CuttingWaitHandoverCardAction): string {
@@ -1281,7 +1301,7 @@ export function renderPdaWarehouseWaitHandoverPage(): string {
   if (getMobileWarehouseSearchParams().get('scope') === 'cutting') return renderCuttingWaitHandoverPage()
   if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingWaitHandoverPage()
   if (runtime.factoryId === OWN_WOOL_FACTORY_ID) return renderWoolWaitHandoverPage()
-  if (isAuxiliaryCraftRuntime()) return renderAuxiliaryWaitHandoverPage()
+  if (isCraftWarehouseRuntime()) return renderAuxiliaryWaitHandoverPage()
 
   const rows = getRows()
   const content = `

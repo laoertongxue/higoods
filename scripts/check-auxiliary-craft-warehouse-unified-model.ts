@@ -92,7 +92,7 @@ for (const [action, label] of [
 }
 
 const pdaWarehouseSource = src('src/pages/pda-warehouse.ts')
-for (const label of ['isAuxiliaryCraftWarehouseRuntime', '接收入仓', '加工领料', '回收入仓', '完工入仓', '交出确认']) {
+for (const label of ['isCraftWarehouseRuntime', 'CENTRAL_AUX', '接收入仓', '加工领料', '回收入仓', '完工入仓', '交出确认']) {
   assert.ok(pdaWarehouseSource.includes(label), `PDA 仓管首页缺少辅助工艺入口：${label}`)
 }
 

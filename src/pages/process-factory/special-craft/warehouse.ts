@@ -27,7 +27,10 @@ import {
   listWaitHandoverWarehouseRecords,
   listWaitProcessWarehouseRecords,
 } from '../../../data/fcs/process-warehouse-domain.ts'
-import { listAuxiliaryCraftTaskOrders } from '../../../data/fcs/special-craft-task-orders.ts'
+import {
+  listAuxiliaryCraftTaskOrders,
+  listSpecialTypeCraftTaskOrders,
+} from '../../../data/fcs/special-craft-task-orders.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   paginateItems,
@@ -640,6 +643,7 @@ function renderAuxiliaryWaitProcessHeaderActions(domainSlug: string): string {
           </button>
         `)
         .join('')}
+      <button type="button" class="h-10 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/warehouse">PDA 现场扫码</button>
     </div>
   `
 }
@@ -682,6 +686,7 @@ function renderAuxiliaryActionSelect(label: string, options: Array<{ value: stri
 function renderAuxiliaryWarehouseActionDialog(input: {
   domainSlug: string
   mode: SpecialCraftWarehousePageMode
+  domainTitlePrefix: string
   waitProcessItems: FactoryWaitProcessStockItem[]
   inboundRecords: FactoryWarehouseInboundRecord[]
   waitHandoverItems: FactoryWaitHandoverStockItem[]
@@ -696,7 +701,7 @@ function renderAuxiliaryWarehouseActionDialog(input: {
   const closeHref = escapeHtml(buildAuxiliaryWarehouseHref(input.domainSlug, input.mode, { action: null }))
   const waitProcessOptions = input.waitProcessItems.slice(0, 24).map((item) => ({
     value: item.stockItemId,
-    label: `${item.sourceRecordNo} / ${item.craftName || '辅助工艺'} / ${formatNumber(item.receivedQty)} ${item.unit}`,
+    label: `${item.sourceRecordNo} / ${item.craftName || input.domainTitlePrefix} / ${formatNumber(item.receivedQty)} ${item.unit}`,
   }))
   const inboundOptions = input.inboundRecords.slice(0, 24).map((item) => ({
     value: item.inboundRecordId,
@@ -704,7 +709,7 @@ function renderAuxiliaryWarehouseActionDialog(input: {
   }))
   const waitHandoverOptions = input.waitHandoverItems.slice(0, 24).map((item) => ({
     value: item.stockItemId,
-    label: `${item.taskNo || item.stockItemId} / ${item.craftName || '辅助工艺'} / ${formatNumber(item.waitHandoverQty || item.completedQty)} ${item.unit}`,
+    label: `${item.taskNo || item.stockItemId} / ${item.craftName || input.domainTitlePrefix} / ${formatNumber(item.waitHandoverQty || item.completedQty)} ${item.unit}`,
   }))
   const areaOptions = Array.from(
     new Set([
@@ -735,7 +740,7 @@ function renderAuxiliaryWarehouseActionDialog(input: {
         renderAuxiliaryActionTextField('接收数量', '例如 120'),
         renderAuxiliaryActionSelect('入库库区', areaOptions),
         renderAuxiliaryActionSelect('入库库位', locationOptions),
-        renderAuxiliaryActionTextField('接收人', '默认当前仓管', '辅助工艺仓管'),
+        renderAuxiliaryActionTextField('接收人', '默认当前仓管', `${input.domainTitlePrefix}仓管`),
       ],
     },
     'process-issue': {
@@ -1135,8 +1140,13 @@ function renderSpecialCraftDomainWarehousePageByMode(
   const craftNames = buildDomainCraftNameSet(operations)
   const meta = specialCraftWarehouseDomainMeta[domain]
   const isAuxiliaryDomain = domain === 'AUXILIARY_CRAFT_FACTORY'
+  const isSpecialTypeDomain = domain === 'SPECIAL_CRAFT_FACTORY'
+  const isUnifiedCraftWarehouseDomain = isAuxiliaryDomain || isSpecialTypeDomain
   if (isAuxiliaryDomain) {
     listAuxiliaryCraftTaskOrders()
+  }
+  if (isSpecialTypeDomain) {
+    listSpecialTypeCraftTaskOrders()
   }
   const allWaitProcessRecords = mode === 'wait-process'
     ? filterSpecialCraftRecordsByDomain(
@@ -1166,16 +1176,16 @@ function renderSpecialCraftDomainWarehousePageByMode(
   const handoverRecords = mode === 'wait-handover'
     ? allHandoverRecords.filter((record) => recordMatchesWarehouseState(record, state))
     : []
-  const auxiliaryAllWaitProcessItems = isAuxiliaryDomain
+  const auxiliaryAllWaitProcessItems = isUnifiedCraftWarehouseDomain
     ? filterUnifiedRecordsByDomain(listFactoryWaitProcessStockItems(), craftNames)
     : []
-  const auxiliaryAllWaitHandoverItems = isAuxiliaryDomain
+  const auxiliaryAllWaitHandoverItems = isUnifiedCraftWarehouseDomain
     ? filterUnifiedRecordsByDomain(listFactoryWaitHandoverStockItems(), craftNames)
     : []
-  const auxiliaryAllInboundRecords = isAuxiliaryDomain
+  const auxiliaryAllInboundRecords = isUnifiedCraftWarehouseDomain
     ? filterUnifiedRecordsByDomain(listFactoryWarehouseInboundRecords(), craftNames)
     : []
-  const auxiliaryAllOutboundRecords = isAuxiliaryDomain
+  const auxiliaryAllOutboundRecords = isUnifiedCraftWarehouseDomain
     ? filterUnifiedRecordsByDomain(listFactoryWarehouseOutboundRecords(), craftNames)
     : []
   const auxiliaryWaitProcessItems = auxiliaryAllWaitProcessItems.filter((record) => unifiedRecordMatchesWarehouseState(record, state))
@@ -1191,7 +1201,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
   const auxiliaryNodeSourceRecords = auxiliaryActiveRecords.length ? auxiliaryActiveRecords : auxiliaryAllFilterRecords
   const auxiliaryNodeFactoryIds = new Set(auxiliaryNodeSourceRecords.map((record) => getFilterRecordFactory(record).factoryId).filter(Boolean))
   const auxiliaryNodeKeyword = state.keyword.trim().toLowerCase()
-  const auxiliaryNodeRows = isAuxiliaryDomain
+  const auxiliaryNodeRows = isUnifiedCraftWarehouseDomain
     ? listFactoryWarehouseNodeRows()
       .filter((row) => auxiliaryNodeFactoryIds.has(row.factoryId))
       .filter((row) => state.factoryId === '全部' || row.factoryId === state.factoryId)
@@ -1202,7 +1212,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
       })
     : []
   const activeRecords = mode === 'wait-process' ? waitProcessRecords : waitHandoverRecords
-  const metricRecordLength = isAuxiliaryDomain ? auxiliaryActiveRecords.length : activeRecords.length
+  const metricRecordLength = isUnifiedCraftWarehouseDomain ? auxiliaryActiveRecords.length : activeRecords.length
   const locationRows = buildDomainLocationRows(operations, mode).filter((row) => {
     if (state.operationName !== '全部' && row.operationName !== state.operationName) return false
     if (state.physicalAreaName !== '全部' && row.physicalAreaName !== state.physicalAreaName) return false
@@ -1212,13 +1222,13 @@ function renderSpecialCraftDomainWarehousePageByMode(
       .some((token) => token.toLowerCase().includes(normalized))
   })
   const title = mode === 'wait-process' ? `${meta.titlePrefix}待加工仓` : `${meta.titlePrefix}待交出仓`
-  const totalQty = isAuxiliaryDomain
+  const totalQty = isUnifiedCraftWarehouseDomain
     ? auxiliaryActiveRecords.reduce((sum, record) => sum + ('receivedQty' in record ? record.receivedQty : record.waitHandoverQty || record.completedQty), 0)
     : activeRecords.reduce((sum, record) => sum + record.availableObjectQty, 0)
-  const factoryCount = isAuxiliaryDomain
+  const factoryCount = isUnifiedCraftWarehouseDomain
     ? new Set(auxiliaryActiveRecords.map((record) => record.factoryId).filter(Boolean)).size
     : new Set(activeRecords.map((record) => record.targetFactoryId).filter(Boolean)).size
-  const productionOrderCount = isAuxiliaryDomain
+  const productionOrderCount = isUnifiedCraftWarehouseDomain
     ? new Set(auxiliaryActiveRecords.map((record) => record.productionOrderNo).filter(Boolean)).size
     : new Set(activeRecords.map((record) => record.sourceProductionOrderNo).filter(Boolean)).size
 
@@ -1235,7 +1245,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
     </section>
   `
 
-  if (isAuxiliaryDomain) {
+  if (isUnifiedCraftWarehouseDomain) {
     const renderFilteredTable = (tableHtml: string): string => `
       <section class="space-y-4">
         ${renderWarehouseFilters(domainSlug, mode, state, operations, auxiliaryAllFilterRecords)}
@@ -1260,6 +1270,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
     const actionDialog = renderAuxiliaryWarehouseActionDialog({
       domainSlug,
       mode,
+      domainTitlePrefix: meta.titlePrefix,
       waitProcessItems: auxiliaryAllWaitProcessItems,
       inboundRecords: auxiliaryAllInboundRecords,
       waitHandoverItems: auxiliaryAllWaitHandoverItems,
@@ -1518,7 +1529,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
     content: `
       <div class="space-y-3">
         ${metrics}
-        ${renderWarehouseFilters(domainSlug, mode, state, operations, isAuxiliaryDomain ? auxiliaryAllFilterRecords : activeAllRecords)}
+        ${renderWarehouseFilters(domainSlug, mode, state, operations, isUnifiedCraftWarehouseDomain ? auxiliaryAllFilterRecords : activeAllRecords)}
         ${renderWarehouseStateBar(domainSlug, mode, state)}
         ${renderFactoryWarehouseStandardTabs(tabs, `special-craft-${domainSlug}-${mode}-warehouse-tabs`)}
       </div>

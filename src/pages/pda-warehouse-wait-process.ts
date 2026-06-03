@@ -5,7 +5,10 @@ import {
 } from '../data/fcs/factory-internal-warehouse.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
-import { listAuxiliaryCraftTaskOrders } from '../data/fcs/special-craft-task-orders.ts'
+import {
+  listAuxiliaryCraftTaskOrders,
+  listSpecialTypeCraftTaskOrders,
+} from '../data/fcs/special-craft-task-orders.ts'
 import type { PostFinishingWaitProcessWarehouseRecord } from '../data/fcs/post-finishing-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
@@ -186,17 +189,32 @@ const CUTTING_RECEIVE_LOCATIONS = [
 type AuxiliaryWaitProcessAction = 'receive' | 'issue' | 'return'
 type WoolWaitProcessAction = 'receive' | 'issue' | 'return'
 
-function isAuxiliaryCraftRuntime(): boolean {
+function getCraftWarehouseRuntimeLabel(): '辅助工艺' | '特种工艺' | null {
   const runtime = getMobileWarehouseRuntimeContext()
-  if (!runtime) return false
+  if (!runtime) return null
   const factory = getFactoryMasterRecordById(runtime.factoryId)
-  return factory?.factoryType === 'CENTRAL_AUX'
+  if (factory?.factoryType === 'CENTRAL_AUX') return '辅助工艺'
+  if (factory?.factoryType === 'CENTRAL_SPECIAL') return '特种工艺'
+  return null
+}
+
+function isCraftWarehouseRuntime(): boolean {
+  return Boolean(getCraftWarehouseRuntimeLabel())
+}
+
+function ensureCraftWarehouseMockData(): void {
+  const runtimeLabel = getCraftWarehouseRuntimeLabel()
+  if (runtimeLabel === '辅助工艺') {
+    listAuxiliaryCraftTaskOrders()
+  } else if (runtimeLabel === '特种工艺') {
+    listSpecialTypeCraftTaskOrders()
+  }
 }
 
 function getAuxiliaryWaitProcessRows(ignoreStatus = false): FactoryWaitProcessStockItem[] {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return []
-  listAuxiliaryCraftTaskOrders()
+  ensureCraftWarehouseMockData()
   return listFactoryWaitProcessStockItems()
     .filter((item) => item.factoryId === runtime.factoryId && Boolean(item.craftName))
     .filter((item) => (ignoreStatus || state.status === '全部' ? true : item.status === state.status))
@@ -349,6 +367,7 @@ function updateAuxiliaryWaitProcessLocation(action: AuxiliaryWaitProcessAction, 
 
 function renderAuxiliaryWaitProcessActionPage(action: AuxiliaryWaitProcessAction): string {
   const sample = ensureAuxiliaryWaitProcessDraft(action)
+  const runtimeLabel = getCraftWarehouseRuntimeLabel() || '工艺'
   const title = action === 'receive' ? '接收入仓' : action === 'issue' ? '加工领料' : '回收入仓'
   const scanValue = action === 'receive'
     ? state.auxiliaryReceiveScan
@@ -367,7 +386,7 @@ function renderAuxiliaryWaitProcessActionPage(action: AuxiliaryWaitProcessAction
       <section class="flex items-start justify-between gap-3">
         <div>
           <div class="text-xl font-semibold leading-tight text-foreground">${escapeHtml(title)}</div>
-          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(sample ? `${sample.craftName || '辅助工艺'} · ${sample.itemName}` : '暂无可用演示记录')}</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(sample ? `${sample.craftName || runtimeLabel} · ${sample.itemName}` : '暂无可用演示记录')}</div>
         </div>
         <button type="button" class="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium" data-nav="/fcs/pda/warehouse">返回仓管</button>
       </section>
@@ -397,10 +416,11 @@ function renderAuxiliaryWaitProcessPage(): string {
     return renderPdaFrame(renderAuxiliaryWaitProcessActionPage(activeAction), 'warehouse', { headerTitle: title, disableTodoAutoOpen: true })
   }
   const runtime = getMobileWarehouseRuntimeContext()
+  const runtimeLabel = getCraftWarehouseRuntimeLabel() || '工艺'
   const rows = getAuxiliaryWaitProcessRows()
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${runtime ? renderWarehouseSummaryHeader('辅助工艺待加工仓', '接收入仓后进入待加工仓，加工领料扣减，退回物走回收入仓。', runtime.overview) : ''}
+      ${runtime ? renderWarehouseSummaryHeader(`${runtimeLabel}待加工仓`, '接收入仓后进入待加工仓，加工领料扣减，退回物走回收入仓。', runtime.overview) : ''}
       ${renderAuxiliaryWaitProcessActionCards()}
       ${renderSectionFilterChips(state.status, FILTERS, 'wait-process-status')}
       <section class="space-y-3">
@@ -411,7 +431,7 @@ function renderAuxiliaryWaitProcessPage(): string {
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0 flex-1">
                     <div class="text-sm font-semibold text-foreground">${escapeHtml(row.sourceRecordNo)}</div>
-                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.craftName || '辅助工艺')} · ${escapeHtml(row.taskNo || row.productionOrderNo || '-')}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.craftName || runtimeLabel)} · ${escapeHtml(row.taskNo || row.productionOrderNo || '-')}</div>
                   </div>
                   ${renderStatusPill(row.status)}
                 </div>
@@ -432,14 +452,14 @@ function renderAuxiliaryWaitProcessPage(): string {
                 </div>
               </article>
             `).join('')
-            : renderMobilePageEmptyState('暂无辅助工艺待加工仓记录', '接收入仓后会形成待加工仓库存。')
+            : renderMobilePageEmptyState(`暂无${runtimeLabel}待加工仓记录`, '接收入仓后会形成待加工仓库存。')
         }
       </section>
       ${renderDetailDrawer()}
       ${renderLocationDialog()}
     </div>
   `
-  return renderPdaFrame(content, 'warehouse', { headerTitle: '辅助工艺待加工仓', disableTodoAutoOpen: true })
+  return renderPdaFrame(content, 'warehouse', { headerTitle: `${runtimeLabel}待加工仓`, disableTodoAutoOpen: true })
 }
 
 function formatCuttingWaitProcessQty(qty: number, unit = '米'): string {
@@ -1860,7 +1880,7 @@ export function renderPdaWarehouseWaitProcessPage(): string {
   if (getMobileWarehouseSearchParams().get('scope') === 'cutting') return renderCuttingWaitProcessPage()
   if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingWaitProcessPage()
   if (runtime.factoryId === OWN_WOOL_FACTORY_ID) return renderWoolWaitProcessPage()
-  if (isAuxiliaryCraftRuntime()) return renderAuxiliaryWaitProcessPage()
+  if (isCraftWarehouseRuntime()) return renderAuxiliaryWaitProcessPage()
 
   const rows = getRows()
   const content = `

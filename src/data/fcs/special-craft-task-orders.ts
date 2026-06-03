@@ -1445,6 +1445,259 @@ function buildLinkedSupplementTaskOrders(
   return supplements
 }
 
+function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
+  itemKind: FactoryWaitProcessStockItem['itemKind']
+  itemName: string
+  unit: string
+  materialSku?: string
+  receiverKind: FactoryWaitHandoverStockItem['receiverKind']
+  receiverName: string
+  sourceObjectName: string
+} {
+  const operation = getSpecialCraftOperationById(taskOrder.operationId)
+  const isElastic = taskOrder.craftName.includes('橡筋')
+  if (isElastic) {
+    return {
+      itemKind: '辅料',
+      itemName: '定长橡筋',
+      unit: '条',
+      materialSku: taskOrder.materialSku || `ELASTIC-${taskOrder.sizeCode || 'STD'}`,
+      receiverKind: '中转仓',
+      receiverName: '辅料中转仓',
+      sourceObjectName: '辅料仓',
+    }
+  }
+  if (taskOrder.targetObject === '成衣半成品') {
+    return {
+      itemKind: '成衣半成品',
+      itemName: `${taskOrder.craftName}半成品`,
+      unit: taskOrder.unit || '件',
+      materialSku: taskOrder.materialSku,
+      receiverKind: operation?.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
+      receiverName: operation?.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
+      sourceObjectName: '上游工厂交出',
+    }
+  }
+  return {
+    itemKind: '裁片',
+    itemName: `${taskOrder.partName || '裁片'}${taskOrder.craftName}`,
+    unit: taskOrder.unit || '片',
+    materialSku: taskOrder.materialSku,
+    receiverKind: operation?.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
+    receiverName: operation?.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
+    sourceObjectName: '裁床待交出仓',
+  }
+}
+
+function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTaskOrder[]): void {
+  const specialTypeTaskOrders = taskOrders.filter((taskOrder) => taskOrder.managementDomain === 'SPECIAL_CRAFT_FACTORY')
+  if (!specialTypeTaskOrders.length) return
+
+  specialTypeTaskOrders.forEach((taskOrder, index) => {
+    const factory = mockFactories.find((item) => item.id === taskOrder.factoryId)
+    if (!factory) return
+    const profile = getSpecialTypeWarehouseProfile(taskOrder)
+
+    if (shouldCreateInboundRecord(taskOrder.status)) {
+      const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_PROCESS')
+      const position = pickWarehousePosition(
+        warehouse,
+        taskOrder.status === '差异' || taskOrder.abnormalStatus === '数量差异' ? '异常区' : 'A区',
+        index + 1,
+      )
+      const receivedQty = roundQty(taskOrder.receivedQty || taskOrder.planQty)
+      const differenceQty = roundQty(receivedQty - taskOrder.planQty)
+      const inboundRecord = upsertFactoryWarehouseInboundRecord({
+        inboundRecordId: `SC-INB-${taskOrder.taskOrderId}`,
+        inboundRecordNo: `RK-${taskOrder.taskOrderNo}`,
+        warehouseId: warehouse.warehouseId,
+        warehouseName: warehouse.warehouseName,
+        factoryId: taskOrder.factoryId,
+        factoryName: taskOrder.factoryName,
+        factoryKind: factory.factoryType,
+        processCode: taskOrder.processCode,
+        processName: taskOrder.processName,
+        craftCode: taskOrder.craftCode,
+        craftName: taskOrder.craftName,
+        sourceRecordId: `SPC-SRC-${taskOrder.taskOrderId}`,
+        sourceRecordNo: `LL-${taskOrder.taskOrderNo}`,
+        sourceRecordType: profile.itemKind === '成衣半成品' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
+        sourceObjectName: profile.sourceObjectName,
+        taskId: taskOrder.sourceTaskId,
+        taskNo: taskOrder.sourceTaskNo,
+        itemKind: profile.itemKind,
+        itemName: profile.itemName,
+        materialSku: profile.materialSku,
+        partName: taskOrder.partName,
+        fabricColor: taskOrder.fabricColor,
+        sizeCode: taskOrder.sizeCode,
+        feiTicketNo: taskOrder.feiTicketNos[0],
+        transferBagNo: taskOrder.transferBagNos[0],
+        fabricRollNo: taskOrder.fabricRollNos[0],
+        expectedQty: taskOrder.planQty,
+        receivedQty,
+        differenceQty,
+        unit: profile.unit,
+        receiverName: factory.contact || '特种工艺仓管',
+        receivedAt: taskOrder.createdAt,
+        areaName: position.areaName,
+        shelfNo: position.shelfNo,
+        locationNo: position.locationNo,
+        status: differenceQty !== 0 ? '差异待处理' : '已入库',
+        abnormalReason: differenceQty !== 0 ? '数量不符' : undefined,
+        photoList: differenceQty !== 0 ? ['special-craft-diff-proof.jpg'] : [],
+        remark: '特种工艺接收入仓 mock',
+      })
+
+      if (shouldCreateWaitProcessRecord(taskOrder.status)) {
+        upsertFactoryWaitProcessStockItem({
+          ...buildFactoryWaitProcessStockItemFromInboundRecord(inboundRecord),
+          stockItemId: `SC-WPS-${taskOrder.taskOrderId}`,
+          productionOrderId: taskOrder.productionOrderId,
+          productionOrderNo: taskOrder.productionOrderNo,
+          taskId: taskOrder.sourceTaskId,
+          taskNo: taskOrder.sourceTaskNo,
+          status: differenceQty !== 0 || taskOrder.status === '异常' ? '差异待处理' : '已入待加工仓',
+          remark: taskOrder.status === '加工中' ? '加工领料中' : '特种工艺待加工库存',
+        })
+      }
+    }
+
+    if (shouldCreatePendingWaitHandoverRecord(taskOrder.status)) {
+      const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_HANDOVER')
+      const position = pickWarehousePosition(warehouse, 'B区', index + 3)
+      upsertFactoryWaitHandoverStockItem({
+        stockItemId: `SC-WHS-${taskOrder.taskOrderId}`,
+        warehouseId: warehouse.warehouseId,
+        factoryId: taskOrder.factoryId,
+        factoryName: taskOrder.factoryName,
+        factoryKind: factory.factoryType,
+        warehouseName: warehouse.warehouseName,
+        processCode: taskOrder.processCode,
+        processName: taskOrder.processName,
+        craftCode: taskOrder.craftCode,
+        craftName: taskOrder.craftName,
+        taskId: taskOrder.sourceTaskId,
+        taskNo: taskOrder.sourceTaskNo,
+        productionOrderId: taskOrder.productionOrderId,
+        productionOrderNo: taskOrder.productionOrderNo,
+        itemKind: profile.itemKind,
+        itemName: profile.itemName,
+        materialSku: profile.materialSku,
+        partName: taskOrder.partName,
+        fabricColor: taskOrder.fabricColor,
+        sizeCode: taskOrder.sizeCode,
+        feiTicketNo: taskOrder.feiTicketNos[0],
+        transferBagNo: taskOrder.transferBagNos[0],
+        fabricRollNo: taskOrder.fabricRollNos[0],
+        completedQty: roundQty(taskOrder.completedQty || taskOrder.planQty),
+        lossQty: roundQty(taskOrder.lossQty),
+        waitHandoverQty: roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty || taskOrder.planQty),
+        unit: profile.unit,
+        receiverKind: profile.receiverKind,
+        receiverName: profile.receiverName,
+        handoverOrderId: taskOrder.taskOrderId,
+        handoverOrderNo: `JCD-${taskOrder.taskOrderNo}`,
+        areaName: position.areaName,
+        shelfNo: position.shelfNo,
+        locationNo: position.locationNo,
+        locationText: position.locationText,
+        status: '待交出',
+        photoList: [],
+        remark: '特种工艺完工入仓 mock',
+      })
+    }
+
+    if (shouldCreateOutboundRecord(taskOrder.status)) {
+      const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_HANDOVER')
+      const position = pickWarehousePosition(
+        warehouse,
+        taskOrder.status === '差异' || taskOrder.status === '异议中' ? '异常区' : '待确认区',
+        index + 5,
+      )
+      const outboundQty = roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty || taskOrder.planQty)
+      const receiverWrittenQty =
+        taskOrder.status === '已回写'
+          ? outboundQty
+          : taskOrder.status === '差异'
+            ? roundQty(Math.max(outboundQty - Math.min(5, outboundQty), 0))
+            : taskOrder.status === '异议中'
+              ? roundQty(Math.max(outboundQty - Math.min(3, outboundQty), 0))
+              : undefined
+      const differenceQty = typeof receiverWrittenQty === 'number' ? roundQty(receiverWrittenQty - outboundQty) : undefined
+      const outboundRecord = upsertFactoryWarehouseOutboundRecord({
+        outboundRecordId: `SC-OUT-${taskOrder.taskOrderId}`,
+        outboundRecordNo: `CK-${taskOrder.taskOrderNo}`,
+        warehouseId: warehouse.warehouseId,
+        warehouseName: warehouse.warehouseName,
+        factoryId: taskOrder.factoryId,
+        factoryName: taskOrder.factoryName,
+        factoryKind: factory.factoryType,
+        processCode: taskOrder.processCode,
+        processName: taskOrder.processName,
+        craftCode: taskOrder.craftCode,
+        craftName: taskOrder.craftName,
+        sourceTaskId: taskOrder.sourceTaskId,
+        sourceTaskNo: taskOrder.sourceTaskNo,
+        handoverOrderId: taskOrder.taskOrderId,
+        handoverOrderNo: `JCD-${taskOrder.taskOrderNo}`,
+        handoverRecordId: `JH-${taskOrder.taskOrderId}`,
+        handoverRecordNo: `JH-${taskOrder.taskOrderNo}`,
+        handoverRecordQrValue: `JHQR-${taskOrder.taskOrderId}`,
+        receiverKind: profile.receiverKind,
+        receiverName: profile.receiverName,
+        itemKind: profile.itemKind,
+        itemName: profile.itemName,
+        materialSku: profile.materialSku,
+        partName: taskOrder.partName,
+        fabricColor: taskOrder.fabricColor,
+        sizeCode: taskOrder.sizeCode,
+        feiTicketNo: taskOrder.feiTicketNos[0],
+        transferBagNo: taskOrder.transferBagNos[0],
+        fabricRollNo: taskOrder.fabricRollNos[0],
+        outboundQty,
+        receiverWrittenQty,
+        differenceQty,
+        unit: profile.unit,
+        operatorName: factory.contact || '特种工艺仓管',
+        outboundAt: taskOrder.updatedAt || taskOrder.createdAt,
+        status:
+          taskOrder.status === '已交出'
+            ? '已出库'
+            : taskOrder.status === '已回写'
+              ? '已回写'
+              : taskOrder.status === '差异'
+                ? '差异'
+                : '异议中',
+        abnormalReason: taskOrder.status === '差异' ? '接收数量差异' : taskOrder.status === '异议中' ? '接收方发起异议' : undefined,
+        photoList: taskOrder.status === '差异' || taskOrder.status === '异议中' ? ['special-craft-handover-proof.jpg'] : [],
+        remark: '特种工艺交出确认 mock',
+      })
+      upsertFactoryWaitHandoverStockItem({
+        ...buildFactoryWaitHandoverStockItemFromOutboundRecord(outboundRecord),
+        stockItemId: `SC-WHS-${taskOrder.taskOrderId}`,
+        productionOrderId: taskOrder.productionOrderId,
+        productionOrderNo: taskOrder.productionOrderNo,
+        areaName: position.areaName,
+        shelfNo: position.shelfNo,
+        locationNo: position.locationNo,
+        locationText: position.locationText,
+        status:
+          taskOrder.status === '已交出'
+            ? '已交出'
+            : taskOrder.status === '已回写'
+              ? '已回写'
+              : taskOrder.status === '差异'
+                ? '差异'
+                : '异议中',
+        differenceQty,
+        objectionStatus: taskOrder.status === '异议中' ? '异议中' : undefined,
+        remark: '特种工艺交出记录 mock',
+      })
+    }
+  })
+}
+
 function normalizeGeneratedTaskOrderForMobile(taskOrder: SpecialCraftTaskOrder): SpecialCraftTaskOrder {
   const sourceTaskNo = taskOrder.sourceTaskNo || `TASK-${taskOrder.taskOrderNo}`
   const sourceTaskId = taskOrder.sourceTaskId || sourceTaskNo
@@ -1654,6 +1907,7 @@ function ensureStore(): SpecialCraftTaskStore {
     const generationErrors = generatedResults.flatMap((item) => item.errors)
     const supplementalTaskOrders = buildLinkedSupplementTaskOrders(generatedTaskOrders)
     const taskOrders = [...generatedTaskOrders, ...supplementalTaskOrders]
+    ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders)
 
     const workOrderBuild = buildWorkOrdersFromTaskOrders(taskOrders)
     specialCraftTaskStore = {

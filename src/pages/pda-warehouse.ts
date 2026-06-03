@@ -37,9 +37,9 @@ function isWoolWarehouseRuntime(runtime: NonNullable<ReturnType<typeof getMobile
   return runtime.factoryId === OWN_WOOL_FACTORY_ID || factory?.factoryType === 'CENTRAL_WOOL' || runtime.factoryName.includes('毛织')
 }
 
-function isAuxiliaryCraftWarehouseRuntime(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): boolean {
+function isCraftWarehouseRuntime(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): boolean {
   const factory = getFactoryMasterRecordById(runtime.factoryId)
-  return factory?.factoryType === 'CENTRAL_AUX'
+  return factory?.factoryType === 'CENTRAL_AUX' || factory?.factoryType === 'CENTRAL_SPECIAL'
 }
 
 function getWaitHandoverInboundShortcut(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): Pick<WarehouseShortcut, 'title' | 'subtitle'> {
@@ -155,7 +155,7 @@ function renderWaitProcessActions(runtime: NonNullable<ReturnType<typeof getMobi
           route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'return' }),
         },
       ]
-  } else if (isAuxiliaryCraftWarehouseRuntime(runtime)) {
+  } else if (isCraftWarehouseRuntime(runtime)) {
     waitProcessActions = [
       {
         title: '接收入仓',
@@ -223,7 +223,7 @@ function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMob
       ...buildPendingTone(handoverCount),
     },
   ]
-  } else if (isAuxiliaryCraftWarehouseRuntime(runtime)) {
+  } else if (isCraftWarehouseRuntime(runtime)) {
     waitHandoverActions = [
       {
         title: '完工入仓',
