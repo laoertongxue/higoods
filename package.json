@@ -60,6 +60,7 @@
     "check:menu-visibility-test-factory-and-default-views": "tsx scripts/check-menu-visibility-test-factory-and-default-views.ts",
     "check:factory-internal-warehouse-model": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-internal-warehouse-model.ts",
     "check:factory-mobile-app-redesign": "tsx scripts/check-factory-mobile-app-redesign.ts",
+    "check:wool-warehouse-unified-model": "tsx scripts/check-wool-warehouse-unified-model.ts",
     "check:mobile-execution-writeback": "tsx scripts/check-mobile-execution-writeback.ts",
     "check:process-warehouse-unification": "tsx scripts/check-process-warehouse-unification.ts",
     "check:handover-writeback-difference-unification": "tsx scripts/check-handover-writeback-difference-unification.ts",

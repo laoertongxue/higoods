@@ -27,7 +27,15 @@ import {
 } from './shared'
 import { renderWarehouseFlowButton, type FactoryWarehouseFlowLine } from '../shared/warehouse-standard.ts'
 
-type WoolWarehouseTab = 'inventory' | 'receipts' | 'usage' | 'handouts' | 'inbounds' | 'locations'
+type WoolWarehouseTab =
+  | 'inventory'
+  | 'receipts'
+  | 'usage'
+  | 'returns'
+  | 'handouts'
+  | 'inbounds'
+  | 'handover-confirm'
+  | 'locations'
 
 function getMode(): WoolWarehouseMode {
   return appStore.getState().pathname.includes('wait-handover') ? 'wait-handover' : 'wait-process'
@@ -37,8 +45,8 @@ function getCurrentTab(mode: WoolWarehouseMode): WoolWarehouseTab {
   const [, queryString = ''] = (appStore.getState().pathname || '').split('?')
   const requested = new URLSearchParams(queryString).get('tab') as WoolWarehouseTab | null
   const allowed = mode === 'wait-process'
-    ? ['inventory', 'receipts', 'usage', 'locations']
-    : ['inventory', 'handouts', 'inbounds', 'locations']
+    ? ['inventory', 'receipts', 'usage', 'returns', 'locations']
+    : ['inventory', 'inbounds', 'handover-confirm', 'handouts', 'locations']
   return requested && allowed.includes(requested) ? requested : 'inventory'
 }
 
@@ -66,15 +74,17 @@ function buildWarehouseLink(mode: WoolWarehouseMode, overrides: Record<string, s
 function renderTabs(mode: WoolWarehouseMode, activeTab: WoolWarehouseTab): string {
   const tabs = mode === 'wait-process'
     ? [
-        { key: 'inventory', label: '库存' },
-        { key: 'receipts', label: '领料记录' },
-        { key: 'usage', label: '加工用料记录' },
+        { key: 'inventory', label: '库存明细' },
+        { key: 'receipts', label: '领料入仓' },
+        { key: 'usage', label: '加工领料' },
+        { key: 'returns', label: '回收入仓' },
         { key: 'locations', label: '库区库位' },
       ]
     : [
-        { key: 'inventory', label: '库存' },
+        { key: 'inventory', label: '库存明细' },
+        { key: 'inbounds', label: '完工入仓' },
+        { key: 'handover-confirm', label: '交出确认' },
         { key: 'handouts', label: '交出记录' },
-        { key: 'inbounds', label: '加工入仓记录' },
         { key: 'locations', label: '库区库位' },
       ]
   return `
@@ -105,8 +115,29 @@ function renderSummary(mode: WoolWarehouseMode): string {
       ${renderMetricCard(mode === 'wait-process' ? '待加工库存' : '待交出库存', `${formatNumber(qty)} ${primaryUnit}`, '当前可用库存')}
       ${renderMetricCard('库存项目', `${inventory.length} 条`, `${activeCount} 条有库存`)}
       ${renderMetricCard('库区库位', `${locations.length} 个`, '支持新增、编辑、删除')}
-      ${renderMetricCard('流水记录', `${inventory.reduce((sum, item) => sum + item.flowRecords.length, 0)} 条`, mode === 'wait-process' ? '领料 + 用料 + 回收' : '入仓 + 交出')}
+      ${renderMetricCard('流水记录', `${inventory.reduce((sum, item) => sum + item.flowRecords.length, 0)} 条`, mode === 'wait-process' ? '领料入仓 + 加工领料 + 回收入仓' : '完工入仓 + 交出确认')}
     </section>
+  `
+}
+
+function renderWaitProcessHeaderActions(): string {
+  return `
+    <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
+      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-wool-action="open-yarn-receipt-dialog">领料入仓</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-wool-action="open-yarn-issue-dialog">加工领料</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-wool-action="open-yarn-recovery-dialog">回收入仓</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/warehouse">PDA 现场扫码</button>
+    </div>
+  `
+}
+
+function renderWaitHandoverHeaderActions(): string {
+  return `
+    <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
+      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-wool-action="open-finish-inbound-dialog">完工入仓</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-wool-action="open-handover-confirm-dialog">交出确认</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/warehouse">PDA 现场扫码</button>
+    </div>
   `
 }
 
@@ -221,15 +252,15 @@ function renderInventoryTab(mode: WoolWarehouseMode): string {
       mode === 'wait-process' ? 'waitProcessInventoryPage' : 'waitHandoverInventoryPage',
       '条库存',
     )
-  return `${renderSection('库存', table)}${renderInventoryDetailDialog(mode, items)}`
+  return `${renderSection('库存明细', table)}${renderInventoryDetailDialog(mode, items)}`
 }
 
 function renderReceiptsTab(): string {
   const records = listWoolWaitProcessReceiptRecords()
   return renderSection(
-    '领料记录',
+    '领料入仓记录',
     renderPaginatedTable(
-      ['领料单', '毛织单号', '生产单', '来源', '纱线 SKU', '应收重量', '实收重量', '差异', '库区库位', '照片视频', '确认时间', '状态'],
+      ['领料入仓单', '毛织单号', '生产单', '来源', '纱线 SKU', '应入重量', '实入重量', '差异', '库区库位', '照片视频', '确认时间', '状态'],
       records,
       (record) => `
       <tr class="border-b last:border-b-0">
@@ -257,9 +288,9 @@ function renderReceiptsTab(): string {
 function renderUsageTab(): string {
   const records = listWoolWaitProcessUsageRecords()
   return renderSection(
-    '加工用料记录',
+    '加工领料记录',
     renderPaginatedTable(
-      ['用料单', '记录类型', '毛织单号', '生产单', '纱线 SKU', '重量', '对应节点', '操作人', '操作时间', '状态'],
+      ['领料记录', '记录类型', '毛织单号', '生产单', '纱线 SKU', '领料重量', '对应节点', '操作人', '操作时间', '状态'],
       records,
       (record) => `
       <tr class="border-b last:border-b-0">
@@ -278,6 +309,34 @@ function renderUsageTab(): string {
       'min-w-[1320px]',
       'waitProcessUsagePage',
       '条用料记录',
+    ),
+  )
+}
+
+function renderReturnsTab(): string {
+  const returnRecords = listWoolWarehouseInventory('wait-process')
+    .flatMap((item) => item.flowRecords.map((flow) => ({ item, flow })))
+    .filter(({ flow }) => flow.flowType === '回收入仓')
+  return renderSection(
+    '回收入仓记录',
+    renderPaginatedTable(
+      ['回收记录', '纱线 SKU', '纱线', '回收重量', '关联对象', '操作人', '回收时间', '说明'],
+      returnRecords,
+      ({ item, flow }) => `
+      <tr class="border-b last:border-b-0">
+        <td class="px-3 py-3 font-medium">${escapeHtml(flow.sourceNo)}</td>
+        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(item.yarnSku || '-')}</td>
+        <td class="px-3 py-3">${escapeHtml(`${item.itemName} / ${item.itemSpec}`)}</td>
+        <td class="px-3 py-3">${formatQty(Math.abs(flow.qty), flow.unit)}</td>
+        <td class="px-3 py-3">${escapeHtml(item.woolOrderNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(flow.operatorName)}</td>
+        <td class="px-3 py-3">${escapeHtml(flow.operatedAt)}</td>
+        <td class="px-3 py-3">${escapeHtml(flow.remark)}</td>
+      </tr>
+      `,
+      'min-w-[1180px]',
+      'waitProcessReturnsPage',
+      '条回收入仓记录',
     ),
   )
 }
@@ -311,9 +370,9 @@ function renderHandoutsTab(): string {
 function renderInboundsTab(): string {
   const records = listWoolWaitHandoverInboundRecords()
   return renderSection(
-    '加工入仓记录',
+    '完工入仓记录',
     renderPaginatedTable(
-      ['入仓单', '毛织单号', '生产单', '类型', '入仓对象', '入仓数量', '操作人', '入仓时间', '状态'],
+      ['完工入仓单', '毛织单号', '生产单', '类型', '入仓对象', '入仓数量', '操作人', '入仓时间', '状态'],
       records,
       (record) => `
       <tr class="border-b last:border-b-0">
@@ -331,6 +390,41 @@ function renderInboundsTab(): string {
       'min-w-[1200px]',
       'waitHandoverInboundsPage',
       '条入仓记录',
+    ),
+  )
+}
+
+function renderHandoverConfirmTab(): string {
+  const items = listWoolWarehouseInventory('wait-handover')
+  return renderSection(
+    '交出确认',
+    renderPaginatedTable(
+      ['待交出库存', '类型', '毛织加工单', '生产单', '接收对象', '可交出数量', '库区库位', '状态', '操作'],
+      items,
+      (item) => `
+      <tr class="border-b align-top last:border-b-0">
+        <td class="px-3 py-3">
+          <div class="font-medium">${escapeHtml(item.itemName)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.itemSpec)}</div>
+        </td>
+        <td class="px-3 py-3">${renderBadge(WOOL_KIND_LABEL[item.kind], item.kind === 'PART_PANEL' ? 'info' : 'muted')}</td>
+        <td class="px-3 py-3">${escapeHtml(item.woolOrderNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(item.productionOrderNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(item.flowRecords.find((flow) => flow.flowType === '交出出仓')?.remark.replace(/^.*交出给/, '') || '待确认')}</td>
+        <td class="px-3 py-3 font-medium">${formatQty(item.currentQty, item.unit)}</td>
+        <td class="px-3 py-3">${escapeHtml(item.locationText)}</td>
+        <td class="px-3 py-3">${renderBadge(item.currentQty > 0 ? '待交出' : item.statusText, item.currentQty > 0 ? 'warning' : 'success')}</td>
+        <td class="px-3 py-3">
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-action="open-handover-confirm-dialog" data-wool-order-id="${escapeHtml(item.woolOrderId)}">交出确认</button>
+            ${renderInventoryDetailButton('wait-handover', item)}
+          </div>
+        </td>
+      </tr>
+      `,
+      'min-w-[1320px]',
+      'waitHandoverConfirmPage',
+      '条待交出库存',
     ),
   )
 }
@@ -418,8 +512,10 @@ function renderLocationsTab(mode: WoolWarehouseMode): string {
 function renderActiveTab(mode: WoolWarehouseMode, activeTab: WoolWarehouseTab): string {
   if (activeTab === 'receipts') return renderReceiptsTab()
   if (activeTab === 'usage') return renderUsageTab()
+  if (activeTab === 'returns') return renderReturnsTab()
   if (activeTab === 'handouts') return renderHandoutsTab()
   if (activeTab === 'inbounds') return renderInboundsTab()
+  if (activeTab === 'handover-confirm') return renderHandoverConfirmTab()
   if (activeTab === 'locations') return renderLocationsTab(mode)
   return renderInventoryTab(mode)
 }
@@ -445,9 +541,7 @@ function renderWoolWarehousePage(mode = getMode()): string {
       ${renderPageHeader(
         title,
         subtitle,
-        mode === 'wait-process'
-          ? '<div class="flex flex-wrap gap-2"><button type="button" class="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted" data-wool-action="open-yarn-receipt-dialog">扫码收货</button><button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-wool-action="open-yarn-recovery-dialog">回收入仓</button></div>'
-          : '',
+        mode === 'wait-process' ? renderWaitProcessHeaderActions() : renderWaitHandoverHeaderActions(),
       )}
       ${renderSummary(mode)}
       ${renderTabs(mode, activeTab)}

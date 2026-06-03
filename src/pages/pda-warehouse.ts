@@ -52,8 +52,8 @@ function getWaitHandoverInboundShortcut(runtime: NonNullable<ReturnType<typeof g
   }
   if (isWoolWarehouseRuntime(runtime)) {
     return {
-      title: '整件入仓',
-      subtitle: '整件毛织完成后扫码入待交出仓。',
+      title: '完工入仓',
+      subtitle: '整件毛织按件、部位毛织片按片入待交出仓。',
     }
   }
   if (factory?.factoryType === 'CENTRAL_PRINT' || factory?.factoryType === 'CENTRAL_DYE') {
@@ -174,11 +174,30 @@ function renderWaitProcessActions(runtime: NonNullable<ReturnType<typeof getMobi
         route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'return' }),
       },
     ]
+  } else if (isWoolWarehouseRuntime(runtime)) {
+    waitProcessActions = [
+      {
+        title: '领料入仓',
+        subtitle: '确认纱线重量和库区库位。',
+        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'receive' }),
+        ...buildPendingTone(pickupCount),
+      },
+      {
+        title: '加工领料',
+        subtitle: '从待加工仓领出纱线给横机使用。',
+        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'issue' }),
+      },
+      {
+        title: '回收入仓',
+        subtitle: '毛织剩余纱线回收入仓。',
+        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'return' }),
+      },
+    ]
   } else {
     waitProcessActions = [
         {
-          title: isWoolWarehouseRuntime(runtime) ? '回收入仓' : '查看待加工仓',
-          subtitle: isWoolWarehouseRuntime(runtime) ? '毛织剩余纱线回收入仓。' : '查看当前待加工库存和流水。',
+          title: '查看待加工仓',
+          subtitle: '查看当前待加工库存和流水。',
           route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime),
         },
       ]
@@ -214,6 +233,20 @@ function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMob
       {
         title: '交出确认',
         subtitle: '确认接收方和数量，形成交出记录。',
+        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'handover-confirm' }),
+        ...buildPendingTone(handoverCount),
+      },
+    ]
+  } else if (isWoolWarehouseRuntime(runtime)) {
+    waitHandoverActions = [
+      {
+        title: inboundShortcut.title,
+        subtitle: inboundShortcut.subtitle,
+        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'finish-inbound' }),
+      },
+      {
+        title: '交出确认',
+        subtitle: '确认接收方和数量，形成毛织交出记录。',
         route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'handover-confirm' }),
         ...buildPendingTone(handoverCount),
       },

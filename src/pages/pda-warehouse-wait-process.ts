@@ -12,13 +12,19 @@ import {
   listPostFinishingWaitProcessWarehouseRecords,
 } from '../data/fcs/post-finishing-domain.ts'
 import {
+  completeWoolPickupHead,
+  confirmWoolWaitProcessScanReceipt,
   getWoolWorkOrderById,
   getWoolYarnUsageSummary,
+  listWoolWaitProcessScanReceipts,
   listWoolWaitProcessReceiptRecords,
   listWoolWaitProcessUsageRecords,
   listWoolWorkOrders,
   listWoolWarehouseInventory,
+  listWoolWarehouseLocations,
   recoverWoolYarnToWaitProcessWarehouse,
+  scheduleWoolMachines,
+  updateWoolWorkOrderNodeStatus,
 } from '../data/fcs/wool-task-domain.ts'
 import {
   listMaterialLedgerProjections,
@@ -104,6 +110,13 @@ interface WaitProcessState {
   woolReturnSourceOrderId: string
   woolReturnSelectedOrderId: string
   woolReturnQty: string
+  woolReceiveScan: string
+  woolReceiveQty: string
+  woolReceiveLocationId: string
+  woolIssueOrderId: string
+  woolIssueQty: string
+  woolIssueLocationId: string
+  woolReturnLocationId: string
 }
 
 const state: WaitProcessState = {
@@ -148,6 +161,13 @@ const state: WaitProcessState = {
   woolReturnSourceOrderId: '',
   woolReturnSelectedOrderId: '',
   woolReturnQty: '',
+  woolReceiveScan: '',
+  woolReceiveQty: '',
+  woolReceiveLocationId: '',
+  woolIssueOrderId: '',
+  woolIssueQty: '',
+  woolIssueLocationId: '',
+  woolReturnLocationId: '',
 }
 
 const FILTERS: Array<{ value: WaitProcessFilter; label: string }> = [
@@ -164,6 +184,7 @@ const CUTTING_RECEIVE_LOCATIONS = [
 ]
 
 type AuxiliaryWaitProcessAction = 'receive' | 'issue' | 'return'
+type WoolWaitProcessAction = 'receive' | 'issue' | 'return'
 
 function isAuxiliaryCraftRuntime(): boolean {
   const runtime = getMobileWarehouseRuntimeContext()
@@ -1487,6 +1508,190 @@ function renderPostFinishingWaitProcessPage(): string {
   return renderPdaFrame(content, 'warehouse', { headerTitle: '后道待加工仓', disableTodoAutoOpen: true })
 }
 
+function getWoolWaitProcessAction(value?: string | null): WoolWaitProcessAction | null {
+  return value === 'receive' || value === 'issue' || value === 'return' ? value : null
+}
+
+function getWoolWaitProcessLocations() {
+  return listWoolWarehouseLocations('wait-process')
+}
+
+function ensureWoolReceiveDraft(): void {
+  const receipt = listWoolWaitProcessScanReceipts().find((item) => item.lines.some((line) => line.currentReceivedWeightKg <= 0)) || listWoolWaitProcessScanReceipts()[0]
+  const line = receipt?.lines[0]
+  const location = getWoolWaitProcessLocations()[0]
+  state.woolReceiveScan ||= receipt?.qrCode || receipt?.receiptNo || ''
+  state.woolReceiveQty ||= String(line?.plannedWeightKg || 0)
+  state.woolReceiveLocationId ||= location?.locationId || ''
+}
+
+function ensureWoolIssueDraft(): void {
+  const inventory = listWoolWarehouseInventory('wait-process')
+  const first = inventory.find((item) => item.currentQty > 0) || inventory[0]
+  const order = first ? getWoolWorkOrderById(first.woolOrderId) : listWoolWorkOrders()[0]
+  const location = getWoolWaitProcessLocations()[0]
+  state.woolIssueOrderId ||= order?.woolOrderId || ''
+  state.woolIssueQty ||= String(Math.max(Math.round((first?.currentQty || order?.yarnReceipt.receivedWeightKg || 1) * 0.8 * 100) / 100, 0.1))
+  state.woolIssueLocationId ||= location?.locationId || ''
+}
+
+function ensureWoolReturnActionDraft(): void {
+  const sourceOrder = getWoolWorkOrderById(state.woolReturnSourceOrderId) || listWoolWorkOrders()[0]
+  const location = getWoolWaitProcessLocations()[0]
+  if (sourceOrder && !state.woolReturnSourceOrderId) openWoolReturnDraft(sourceOrder.woolOrderId)
+  state.woolReturnLocationId ||= location?.locationId || ''
+}
+
+function renderWoolWaitProcessActionCards(activeAction?: WoolWaitProcessAction | null): string {
+  const actions: Array<{ key: WoolWaitProcessAction; title: string; desc: string }> = [
+    { key: 'receive', title: '领料入仓', desc: '确认纱线重量和库区库位。' },
+    { key: 'issue', title: '加工领料', desc: '从待加工仓领出纱线给横机使用。' },
+    { key: 'return', title: '回收入仓', desc: '毛织剩余纱线回收入仓。' },
+  ]
+  return `
+    <section class="grid grid-cols-1 gap-2">
+      ${actions.map((item) => `
+        <button
+          type="button"
+          class="rounded-2xl border px-4 py-4 text-left shadow-sm ${activeAction === item.key ? 'border-primary bg-primary/5' : 'bg-card'}"
+          data-nav="/fcs/pda/warehouse/wait-process?action=${escapeAttr(item.key)}"
+        >
+          <div class="text-base font-semibold text-foreground">${escapeHtml(item.title)}</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(item.desc)}</div>
+        </button>
+      `).join('')}
+    </section>
+  `
+}
+
+function renderWoolLocationSelect(field: string, value: string): string {
+  const locations = getWoolWaitProcessLocations()
+  return `
+    <label class="block space-y-1.5">
+      <span class="text-xs font-medium text-muted-foreground">库区库位</span>
+      <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="${escapeAttr(field)}">
+        ${locations.map((location) => `
+          <option value="${escapeAttr(location.locationId)}" ${location.locationId === value ? 'selected' : ''}>
+            ${escapeHtml(`${location.areaName} / ${location.locationCode}`)}
+          </option>
+        `).join('')}
+      </select>
+    </label>
+  `
+}
+
+function ensureWoolOrderScheduledForPdaIssue(orderId: string, yarnUsageWeightKg: number): void {
+  let order = getWoolWorkOrderById(orderId)
+  if (!order) return
+  if (order.status === 'WAIT_PICKUP' || order.status === 'PICKUP_IN_PROGRESS' || order.status === 'WAIT_ACCEPT') {
+    completeWoolPickupHead(orderId, 'PDA 毛织仓管')
+    order = getWoolWorkOrderById(orderId)
+  }
+  if (order?.status === 'WAIT_MACHINE_SCHEDULE') {
+    scheduleWoolMachines(orderId, 'PDA 毛织仓管')
+    order = getWoolWorkOrderById(orderId)
+  }
+  if (order?.status === 'MACHINE_SCHEDULED') {
+    updateWoolWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'PDA 毛织仓管', undefined, { yarnUsageWeightKg })
+  }
+}
+
+function renderWoolWaitProcessActionPage(action: WoolWaitProcessAction): string {
+  if (action === 'receive') ensureWoolReceiveDraft()
+  if (action === 'issue') ensureWoolIssueDraft()
+  if (action === 'return') ensureWoolReturnActionDraft()
+  const title = action === 'receive' ? '领料入仓' : action === 'issue' ? '加工领料' : '回收入仓'
+  const receipt = listWoolWaitProcessScanReceipts().find((item) => item.qrCode === state.woolReceiveScan || item.receiptNo === state.woolReceiveScan) || listWoolWaitProcessScanReceipts()[0]
+  const issueOptions = listWoolWorkOrders().slice(0, 24).map((order) => `
+    <option value="${escapeAttr(order.woolOrderId)}" ${order.woolOrderId === state.woolIssueOrderId ? 'selected' : ''}>
+      ${escapeHtml(`${order.woolOrderNo} / ${order.yarnReceipt.yarnSku} / ${order.status}`)}
+    </option>
+  `).join('')
+  const returnSourceOrder = getWoolWorkOrderById(state.woolReturnSourceOrderId)
+  const returnSelectedOrder = state.woolReturnSelectedOrderId ? getWoolWorkOrderById(state.woolReturnSelectedOrderId) : undefined
+  const returnActiveOrder = returnSelectedOrder || returnSourceOrder
+  const returnOptions = action === 'return' ? listWoolReturnDocumentOptions(state.woolReturnSourceOrderId) : []
+  const returnCurrentOption = returnOptions.find((item) => item.woolOrderId === (returnActiveOrder?.woolOrderId || ''))
+  const returnSourceText = returnSourceOrder
+    ? `${returnSourceOrder.woolOrderNo} / ${returnSourceOrder.productionOrderNo}`
+    : '未识别来源毛织加工单'
+  const returnYarnText = returnActiveOrder
+    ? `${returnActiveOrder.yarnReceipt.yarnSku} / ${returnActiveOrder.yarnReceipt.yarnName} / ${returnActiveOrder.yarnReceipt.colorName}`
+    : '请选择或保留当前来源'
+  return `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-xl font-semibold leading-tight text-foreground">${escapeHtml(title)}</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">毛织待加工仓只处理纱线，库存单位固定为 kg。</div>
+        </div>
+        <button type="button" class="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium" data-nav="/fcs/pda/warehouse">返回仓管</button>
+      </section>
+      ${renderWoolWaitProcessActionCards(action)}
+      <section class="space-y-3 rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        ${
+          action === 'receive'
+            ? `
+              <label class="block space-y-1.5">
+                <span class="text-xs font-medium text-muted-foreground">毛织领料单 / 二维码</span>
+                <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" value="${escapeAttr(state.woolReceiveScan)}" data-pda-warehouse-field="wool-receive-scan" />
+              </label>
+              <div class="rounded-xl bg-muted/50 px-3 py-3 text-xs leading-5 text-muted-foreground">
+                ${escapeHtml(receipt ? `${receipt.receiptNo} / ${receipt.sourceName} / ${receipt.lines[0]?.yarnSku || '-'}` : '暂无待领料入仓记录')}
+              </div>
+              <label class="block space-y-1.5">
+                <span class="text-xs font-medium text-muted-foreground">实入重量（kg）</span>
+                <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.woolReceiveQty)}" data-pda-warehouse-field="wool-receive-qty" />
+              </label>
+              ${renderWoolLocationSelect('wool-receive-location', state.woolReceiveLocationId)}
+              <button type="button" class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-wool-receive">确认领料入仓</button>
+            `
+            : action === 'issue'
+              ? `
+                <label class="block space-y-1.5">
+                  <span class="text-xs font-medium text-muted-foreground">毛织加工单</span>
+                  <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="wool-issue-order">${issueOptions}</select>
+                </label>
+                <label class="block space-y-1.5">
+                  <span class="text-xs font-medium text-muted-foreground">领料重量（kg）</span>
+                  <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.woolIssueQty)}" data-pda-warehouse-field="wool-issue-qty" />
+                </label>
+                ${renderWoolLocationSelect('wool-issue-location', state.woolIssueLocationId)}
+                <button type="button" class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-wool-issue">确认加工领料</button>
+              `
+              : `
+                <div class="space-y-1.5">
+                  <div class="text-xs font-medium text-muted-foreground">回收来源</div>
+                  <div class="rounded-xl bg-muted/50 px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(returnSourceText)}</div>
+                </div>
+                <label class="block space-y-1.5">
+                  <span class="text-xs font-medium text-muted-foreground">关联毛织加工单（可选）</span>
+                  <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="wool-return-selected-order">
+                    <option value="">不关联加工单</option>
+                    ${returnOptions.map((order) => `
+                      <option value="${escapeAttr(order.woolOrderId)}" ${order.woolOrderId === state.woolReturnSelectedOrderId ? 'selected' : ''}>
+                        ${escapeHtml(`${order.woolOrderNo} / ${order.productionOrderNo} / ${order.yarnSku}`)}
+                      </option>
+                    `).join('')}
+                  </select>
+                </label>
+                <div class="rounded-xl bg-muted/50 px-3 py-3 text-xs leading-5 text-muted-foreground">
+                  <div class="font-semibold text-foreground">${escapeHtml(returnYarnText)}</div>
+                  <div class="mt-1">可回收参考：损耗 ${escapeHtml(String(returnCurrentOption?.lossWeightKg || 0))} kg / 已回收 ${escapeHtml(String(returnCurrentOption?.recoveredWeightKg || 0))} kg</div>
+                </div>
+                <label class="block space-y-1.5">
+                  <span class="text-xs font-medium text-muted-foreground">回收重量（kg）</span>
+                  <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.woolReturnQty)}" data-pda-warehouse-field="wool-return-qty" />
+                </label>
+                ${renderWoolLocationSelect('wool-return-location', state.woolReturnLocationId)}
+                <button type="button" class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-wool-return">确认回收入仓</button>
+              `
+        }
+      </section>
+    </div>
+  `
+}
+
 function listWoolReturnDocumentOptions(sourceOrderId: string): Array<{
   woolOrderId: string
   woolOrderNo: string
@@ -1587,6 +1792,11 @@ function renderWoolReturnDraftPage(): string {
 }
 
 function renderWoolWaitProcessPage(): string {
+  const activeAction = getWoolWaitProcessAction(getMobileWarehouseSearchParams().get('action'))
+  if (activeAction) {
+    const title = activeAction === 'receive' ? '毛织领料入仓' : activeAction === 'issue' ? '毛织加工领料' : '毛织回收入仓'
+    return renderPdaFrame(renderWoolWaitProcessActionPage(activeAction), 'warehouse', { headerTitle: title, disableTodoAutoOpen: true })
+  }
   if (state.woolReturnSourceOrderId) {
     return renderPdaFrame(renderWoolReturnDraftPage(), 'warehouse', { headerTitle: '毛织回收入仓', disableTodoAutoOpen: true })
   }
@@ -1608,6 +1818,7 @@ function renderWoolWaitProcessPage(): string {
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${usage.length}</div><div class="text-muted-foreground">用料</div></div>
         </div>
       </section>
+      ${renderWoolWaitProcessActionCards()}
       <section class="space-y-3">
         ${inventory.map((item) => `
           <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
@@ -1960,8 +2171,68 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       window.alert('请输入大于 0 的重量。')
       return true
     }
+    if (!state.woolReturnLocationId) {
+      window.alert('请选择库区库位。')
+      return true
+    }
     recoverWoolYarnToWaitProcessWarehouse(order.woolOrderId, Math.round(recoveredWeightKg * 100) / 100, '工厂端仓管')
     clearWoolReturnDraft()
+    state.woolReturnLocationId = ''
+    return true
+  }
+  if (action === 'confirm-wool-receive') {
+    const receipt = listWoolWaitProcessScanReceipts().find((item) => item.qrCode === state.woolReceiveScan || item.receiptNo === state.woolReceiveScan) || listWoolWaitProcessScanReceipts()[0]
+    const line = receipt?.lines[0]
+    const location = getWoolWaitProcessLocations().find((item) => item.locationId === state.woolReceiveLocationId) || getWoolWaitProcessLocations()[0]
+    const qty = Number(state.woolReceiveQty)
+    if (!receipt || !line) {
+      window.alert('暂无可领料入仓的毛织领料单。')
+      return true
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      window.alert('请输入大于 0 的实入重量。')
+      return true
+    }
+    if (!location) {
+      window.alert('请选择库区库位。')
+      return true
+    }
+    confirmWoolWaitProcessScanReceipt({
+      receiptNo: receipt.receiptNo,
+      receiverName: 'PDA 毛织仓管',
+      lines: [{
+        receiptLineId: line.receiptLineId,
+        actualWeightKg: Math.round(qty * 100) / 100,
+        areaId: location.areaId,
+        locationId: location.locationId,
+        evidenceText: 'PDA 现场扫码确认领料入仓。',
+      }],
+    })
+    state.woolReceiveScan = ''
+    state.woolReceiveQty = ''
+    state.woolReceiveLocationId = ''
+    window.location.href = '/fcs/pda/warehouse/wait-process'
+    return true
+  }
+  if (action === 'confirm-wool-issue') {
+    const qty = Number(state.woolIssueQty)
+    if (!state.woolIssueOrderId) {
+      window.alert('请选择毛织加工单。')
+      return true
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      window.alert('请输入大于 0 的领料重量。')
+      return true
+    }
+    if (!state.woolIssueLocationId) {
+      window.alert('请选择库区库位。')
+      return true
+    }
+    ensureWoolOrderScheduledForPdaIssue(state.woolIssueOrderId, Math.round(qty * 100) / 100)
+    state.woolIssueOrderId = ''
+    state.woolIssueQty = ''
+    state.woolIssueLocationId = ''
+    window.location.href = '/fcs/pda/warehouse/wait-process'
     return true
   }
   if (action === 'confirm-auxiliary-receive' || action === 'confirm-auxiliary-issue' || action === 'confirm-auxiliary-return') {
@@ -2135,6 +2406,39 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   }
   if (field === 'wool-return-qty') {
     state.woolReturnQty = value
+    return true
+  }
+  if (field === 'wool-return-location') {
+    state.woolReturnLocationId = value
+    return true
+  }
+  if (field === 'wool-receive-scan') {
+    state.woolReceiveScan = value
+    return true
+  }
+  if (field === 'wool-receive-qty') {
+    state.woolReceiveQty = value
+    return true
+  }
+  if (field === 'wool-receive-location') {
+    state.woolReceiveLocationId = value
+    return true
+  }
+  if (field === 'wool-issue-order') {
+    state.woolIssueOrderId = value
+    const order = getWoolWorkOrderById(value)
+    if (order) {
+      const usage = getWoolYarnUsageSummary(order)
+      state.woolIssueQty = String(Math.round((usage.processingUsageWeightKg || order.yarnReceipt.receivedWeightKg || order.yarnReceipt.plannedWeightKg) * 100) / 100)
+    }
+    return true
+  }
+  if (field === 'wool-issue-qty') {
+    state.woolIssueQty = value
+    return true
+  }
+  if (field === 'wool-issue-location') {
+    state.woolIssueLocationId = value
     return true
   }
   if (field === 'auxiliary-receive-scan') {

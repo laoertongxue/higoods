@@ -395,6 +395,9 @@ function promptKgValue(label: string, currentValue = 0, allowZero = true): numbe
 
 const WOOL_YARN_RECOVERY_MODAL_ID = 'wool-yarn-recovery-modal'
 const WOOL_YARN_RECEIPT_MODAL_ID = 'wool-yarn-receipt-modal'
+const WOOL_YARN_ISSUE_MODAL_ID = 'wool-yarn-issue-modal'
+const WOOL_FINISH_INBOUND_MODAL_ID = 'wool-finish-inbound-modal'
+const WOOL_HANDOVER_CONFIRM_MODAL_ID = 'wool-handover-confirm-modal'
 const WOOL_WAREHOUSE_FORM_MODAL_ID = 'wool-warehouse-form-modal'
 
 function removeWoolYarnRecoveryDialog(): void {
@@ -403,6 +406,18 @@ function removeWoolYarnRecoveryDialog(): void {
 
 function removeWoolYarnReceiptDialog(): void {
   document.getElementById(WOOL_YARN_RECEIPT_MODAL_ID)?.remove()
+}
+
+function removeWoolYarnIssueDialog(): void {
+  document.getElementById(WOOL_YARN_ISSUE_MODAL_ID)?.remove()
+}
+
+function removeWoolFinishInboundDialog(): void {
+  document.getElementById(WOOL_FINISH_INBOUND_MODAL_ID)?.remove()
+}
+
+function removeWoolHandoverConfirmDialog(): void {
+  document.getElementById(WOOL_HANDOVER_CONFIRM_MODAL_ID)?.remove()
 }
 
 function removeWoolWarehouseFormDialog(): void {
@@ -757,7 +772,8 @@ function openWoolYarnReceiptDialog(): void {
       <section class="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border bg-background shadow-2xl">
         <header class="flex items-start justify-between gap-3 border-b px-4 py-3">
           <div>
-            <h2 class="text-base font-semibold">扫码收货</h2>
+            <h2 class="text-base font-semibold">领料入仓</h2>
+            <p class="mt-1 text-xs text-muted-foreground">扫描毛织领料单或二维码，确认纱线重量并选择库区库位。</p>
           </div>
           <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-receipt-action="close">关闭</button>
         </header>
@@ -797,7 +813,7 @@ function openWoolYarnReceiptDialog(): void {
         </div>
         <footer class="flex justify-end gap-2 border-t px-4 py-3">
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-wool-receipt-action="close">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-wool-receipt-action="submit">收货确认</button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-wool-receipt-action="submit">确认领料入仓</button>
         </footer>
       </section>
     </div>
@@ -866,7 +882,7 @@ function openWoolYarnReceiptDialog(): void {
           lines,
         })
         removeWoolYarnReceiptDialog()
-        window.alert(`已生成 ${created.length} 条纱线收货入仓记录。`)
+        window.alert(`已生成 ${created.length} 条纱线领料入仓记录。`)
         const currentPath = appStore.getState().pathname || '/fcs/craft/wool/wait-process-warehouse'
         const [path, query = ''] = currentPath.split('?')
         const params = new URLSearchParams(query)
@@ -877,6 +893,293 @@ function openWoolYarnReceiptDialog(): void {
       } catch (error) {
         window.alert(error instanceof Error ? error.message : '收货确认失败。')
       }
+    }
+  })
+}
+
+function getWoolOrderLabel(order: WoolWorkOrder): string {
+  return `${order.woolOrderNo} / ${WOOL_STATUS_LABEL[order.status]} / ${order.yarnReceipt.yarnSku} / ${formatQty(order.completedQty || order.plannedQty, order.qtyUnit)}`
+}
+
+function getSelectedWoolOrderFromModal(modal: HTMLElement, fieldName: string): WoolWorkOrder | undefined {
+  const orderId = modal.querySelector<HTMLSelectElement>(`[data-${fieldName}-field="woolOrderId"]`)?.value || ''
+  return listWoolWorkOrders().find((order) => order.woolOrderId === orderId)
+}
+
+function ensureWoolOrderScheduledForIssue(orderId: string, yarnUsageWeightKg: number): WoolWorkOrder | undefined {
+  let order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
+  if (!order) return undefined
+  if (order.status === 'WAIT_ACCEPT') {
+    acceptWoolWorkOrder(orderId, 'Web端仓管')
+    order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
+  }
+  if (order?.status === 'WAIT_PICKUP' || order?.status === 'PICKUP_IN_PROGRESS') {
+    completeWoolPickupHead(orderId, 'Web端仓管')
+    order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
+  }
+  if (order?.status === 'WAIT_MACHINE_SCHEDULE') {
+    scheduleWoolMachines(orderId, 'Web端仓管')
+    order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
+  }
+  if (order?.status === 'MACHINE_SCHEDULED') {
+    updateWoolWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'Web端仓管', undefined, { yarnUsageWeightKg })
+  }
+  return listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
+}
+
+function advanceWoolOrderToWarehouseInbound(orderId: string): WoolWorkOrder | undefined {
+  for (let index = 0; index < 12; index += 1) {
+    const order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
+    if (!order) return undefined
+    if (['WAIT_FEI_TICKET', 'FEI_TICKET_PRINTED', 'WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'COMPLETED'].includes(order.status)) return order
+    if (order.status === 'WAIT_ACCEPT') {
+      acceptWoolWorkOrder(orderId, 'Web端仓管')
+      continue
+    }
+    if (order.status === 'WAIT_PICKUP' || order.status === 'PICKUP_IN_PROGRESS') {
+      completeWoolPickupHead(orderId, 'Web端仓管')
+      continue
+    }
+    if (order.status === 'WAIT_MACHINE_SCHEDULE') {
+      scheduleWoolMachines(orderId, 'Web端仓管')
+      continue
+    }
+    if (order.status === 'MACHINE_SCHEDULED') {
+      const usage = getWoolYarnUsageSummary(order)
+      updateWoolWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'Web端仓管', undefined, {
+        yarnUsageWeightKg: usage.processingUsageWeightKg || order.yarnReceipt.receivedWeightKg || order.yarnReceipt.plannedWeightKg,
+      })
+      continue
+    }
+    if (order.status === 'FLAT_WOOL') {
+      updateWoolWorkOrderNodeStatus(orderId, '横机成片', '已完成', 'Web端仓管')
+      continue
+    }
+    if (order.status === 'WAIT_LINKING') {
+      updateWoolWorkOrderNodeStatus(orderId, '缝盘', '进行中', 'Web端仓管')
+      continue
+    }
+    if (order.status === 'LINKING') {
+      const usage = getWoolYarnUsageSummary(order)
+      updateWoolWorkOrderNodeStatus(orderId, '缝盘', '已完成', 'Web端仓管', undefined, {
+        yarnLossWeightKg: usage.linkingLossWeightKg || Math.max((usage.processingUsageWeightKg || order.yarnReceipt.plannedWeightKg) * 0.015, 0.1),
+      })
+      continue
+    }
+    if (order.status === 'WAIT_IRONING') {
+      updateWoolWorkOrderNodeStatus(orderId, '熨烫', '进行中', 'Web端仓管')
+      continue
+    }
+    if (order.status === 'IRONING') {
+      updateWoolWorkOrderNodeStatus(orderId, '熨烫', '已完成', 'Web端仓管')
+      continue
+    }
+    if (order.status === 'WAIT_PACKING') {
+      updateWoolWorkOrderNodeStatus(orderId, '包装', order.needsPackaging ? '进行中' : '已跳过', 'Web端仓管')
+      continue
+    }
+    if (order.status === 'PACKING') {
+      updateWoolWorkOrderNodeStatus(orderId, '包装', '已完成', 'Web端仓管')
+      continue
+    }
+    return order
+  }
+  return listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
+}
+
+function openWoolYarnIssueDialog(): void {
+  removeWoolYarnIssueDialog()
+  const orders = listWoolWorkOrders()
+  const first = orders.find((order) => ['WAIT_MACHINE_SCHEDULE', 'MACHINE_SCHEDULED', 'FLAT_WOOL'].includes(order.status)) || orders[0]
+  const options = orders.slice(0, 36).map((order) => `<option value="${escapeHtml(order.woolOrderId)}">${escapeHtml(getWoolOrderLabel(order))}</option>`).join('')
+  const defaultQty = first ? getWoolYarnUsageSummary(first).processingUsageWeightKg || first.yarnReceipt.receivedWeightKg || first.yarnReceipt.plannedWeightKg : 0
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="${WOOL_YARN_ISSUE_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <section class="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
+          <div>
+            <h2 class="text-base font-semibold">加工领料</h2>
+            <p class="mt-1 text-xs text-muted-foreground">从毛织待加工仓领出纱线给横机成片使用，单位为 kg。</p>
+          </div>
+          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-issue-action="close">关闭</button>
+        </header>
+        <div class="grid gap-3 p-4 md:grid-cols-2">
+          <label class="text-sm md:col-span-2">
+            <span class="text-xs text-muted-foreground">毛织加工单 / 纱线 *</span>
+            <select class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" data-wool-issue-field="woolOrderId">${options}</select>
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">领料重量（kg）*</span>
+            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" step="0.01" value="${escapeHtml(String(Math.round(defaultQty * 100) / 100))}" data-wool-issue-field="qty" />
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">领料人</span>
+            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="毛织仓管" data-wool-issue-field="operatorName" />
+          </label>
+          <label class="text-sm md:col-span-2">
+            <span class="text-xs text-muted-foreground">加工用途</span>
+            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="横机成片领料" />
+          </label>
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-4 py-3">
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-wool-issue-action="close">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-wool-issue-action="submit">确认加工领料</button>
+        </footer>
+      </section>
+    </div>
+  `)
+  const modal = document.getElementById(WOOL_YARN_ISSUE_MODAL_ID)
+  if (!modal) return
+  modal.addEventListener('click', (event) => {
+    const action = (event.target as HTMLElement).closest<HTMLElement>('[data-wool-issue-action]')?.dataset.woolIssueAction
+    if (!action) return
+    if (action === 'close') {
+      removeWoolYarnIssueDialog()
+      return
+    }
+    if (action === 'submit') {
+      const order = getSelectedWoolOrderFromModal(modal, 'wool-issue')
+      const qty = Number(modal.querySelector<HTMLInputElement>('[data-wool-issue-field="qty"]')?.value || 0)
+      if (!order) {
+        window.alert('请选择毛织加工单。')
+        return
+      }
+      if (!Number.isFinite(qty) || qty <= 0) {
+        window.alert('请输入大于 0 的领料重量。')
+        return
+      }
+      ensureWoolOrderScheduledForIssue(order.woolOrderId, Math.round(qty * 100) / 100)
+      removeWoolYarnIssueDialog()
+      window.alert('加工领料已记录。')
+      appStore.navigate('/fcs/craft/wool/wait-process-warehouse?tab=usage&refreshAt=' + Date.now(), { historyMode: 'replace' })
+    }
+  })
+}
+
+function openWoolFinishInboundDialog(): void {
+  removeWoolFinishInboundDialog()
+  const orders = listWoolWorkOrders()
+  const options = orders.slice(0, 36).map((order) => `<option value="${escapeHtml(order.woolOrderId)}">${escapeHtml(getWoolOrderLabel(order))}</option>`).join('')
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="${WOOL_FINISH_INBOUND_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <section class="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
+          <div>
+            <h2 class="text-base font-semibold">完工入仓</h2>
+            <p class="mt-1 text-xs text-muted-foreground">整件毛织按件入仓；部位毛织片按片入仓，后续可按菲票交出。</p>
+          </div>
+          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-finish-action="close">关闭</button>
+        </header>
+        <div class="grid gap-3 p-4 md:grid-cols-2">
+          <label class="text-sm md:col-span-2">
+            <span class="text-xs text-muted-foreground">毛织加工单 *</span>
+            <select class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" data-wool-finish-field="woolOrderId">${options}</select>
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">入仓库区</span>
+            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="毛织待交出仓 A 区" />
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">入仓库位</span>
+            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="KWH-A-01" />
+          </label>
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-4 py-3">
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-wool-finish-action="close">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-wool-finish-action="submit">确认完工入仓</button>
+        </footer>
+      </section>
+    </div>
+  `)
+  const modal = document.getElementById(WOOL_FINISH_INBOUND_MODAL_ID)
+  if (!modal) return
+  modal.addEventListener('click', (event) => {
+    const action = (event.target as HTMLElement).closest<HTMLElement>('[data-wool-finish-action]')?.dataset.woolFinishAction
+    if (!action) return
+    if (action === 'close') {
+      removeWoolFinishInboundDialog()
+      return
+    }
+    if (action === 'submit') {
+      const order = getSelectedWoolOrderFromModal(modal, 'wool-finish')
+      if (!order) {
+        window.alert('请选择毛织加工单。')
+        return
+      }
+      const next = advanceWoolOrderToWarehouseInbound(order.woolOrderId)
+      removeWoolFinishInboundDialog()
+      window.alert(next?.kind === 'PART_PANEL' ? '部位毛织片已完工入仓。' : '整件毛织已完工入仓。')
+      appStore.navigate('/fcs/craft/wool/wait-handover-warehouse?tab=inbounds&refreshAt=' + Date.now(), { historyMode: 'replace' })
+    }
+  })
+}
+
+function openWoolHandoverConfirmDialog(preferredOrderId = ''): void {
+  removeWoolHandoverConfirmDialog()
+  const inventory = listWoolWarehouseInventory('wait-handover')
+  const seen = new Set<string>()
+  const options = inventory
+    .filter((item) => {
+      if (seen.has(item.woolOrderId)) return false
+      seen.add(item.woolOrderId)
+      return true
+    })
+    .map((item) => `<option value="${escapeHtml(item.woolOrderId)}" ${item.woolOrderId === preferredOrderId ? 'selected' : ''}>${escapeHtml(`${item.woolOrderNo} / ${item.inventoryObjectType} / ${formatQty(item.currentQty, item.unit)} / ${item.locationText}`)}</option>`)
+    .join('')
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="${WOOL_HANDOVER_CONFIRM_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <section class="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
+          <div>
+            <h2 class="text-base font-semibold">交出确认</h2>
+            <p class="mt-1 text-xs text-muted-foreground">确认待交出库存、接收对象和数量，形成毛织交出记录。</p>
+          </div>
+          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-handover-action="close">关闭</button>
+        </header>
+        <div class="grid gap-3 p-4 md:grid-cols-2">
+          <label class="text-sm md:col-span-2">
+            <span class="text-xs text-muted-foreground">待交出库存 *</span>
+            <select class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" data-wool-handover-field="woolOrderId">${options || '<option value="">暂无待交出库存</option>'}</select>
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">接收对象</span>
+            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="后道工厂 / 裁床待交出仓" data-wool-handover-field="receiver" />
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">交出人</span>
+            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="毛织仓管" />
+          </label>
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-4 py-3">
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-wool-handover-action="close">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-wool-handover-action="submit">确认交出</button>
+        </footer>
+      </section>
+    </div>
+  `)
+  const modal = document.getElementById(WOOL_HANDOVER_CONFIRM_MODAL_ID)
+  if (!modal) return
+  modal.addEventListener('click', (event) => {
+    const action = (event.target as HTMLElement).closest<HTMLElement>('[data-wool-handover-action]')?.dataset.woolHandoverAction
+    if (!action) return
+    if (action === 'close') {
+      removeWoolHandoverConfirmDialog()
+      return
+    }
+    if (action === 'submit') {
+      const order = getSelectedWoolOrderFromModal(modal, 'wool-handover')
+      if (!order) {
+        window.alert('请选择待交出库存。')
+        return
+      }
+      const ready = advanceWoolOrderToWarehouseInbound(order.woolOrderId)
+      if (ready?.status === 'WAIT_FEI_TICKET') {
+        markWoolFeiTicketsPrinted(order.woolOrderId, 'Web端仓管')
+      }
+      submitWoolHandover(order.woolOrderId, 'Web端仓管')
+      removeWoolHandoverConfirmDialog()
+      window.alert('交出确认已生成毛织交出记录。')
+      appStore.navigate('/fcs/craft/wool/wait-handover-warehouse?tab=handouts&refreshAt=' + Date.now(), { historyMode: 'replace' })
     }
   })
 }
@@ -1099,6 +1402,21 @@ export async function handleCraftWoolEvent(target: HTMLElement): Promise<boolean
 
   if (action === 'open-yarn-receipt-dialog') {
     openWoolYarnReceiptDialog()
+    return true
+  }
+
+  if (action === 'open-yarn-issue-dialog') {
+    openWoolYarnIssueDialog()
+    return true
+  }
+
+  if (action === 'open-finish-inbound-dialog') {
+    openWoolFinishInboundDialog()
+    return true
+  }
+
+  if (action === 'open-handover-confirm-dialog') {
+    openWoolHandoverConfirmDialog(actionNode.dataset.woolOrderId || '')
     return true
   }
 
