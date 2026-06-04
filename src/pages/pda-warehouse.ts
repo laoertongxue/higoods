@@ -222,6 +222,11 @@ function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMob
       route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'handover-bagging-confirm' }),
       ...buildPendingTone(handoverCount),
     },
+    {
+      title: '菲票打编号',
+      subtitle: '扫菲票查看编号范围，完成后才能入仓暂存和装袋。',
+      route: '/fcs/pda/cutting/fei-ticket-numbering',
+    },
   ]
   } else if (isCraftWarehouseRuntime(runtime)) {
     waitHandoverActions = [

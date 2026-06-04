@@ -19,6 +19,8 @@ export {
   renderCraftCuttingFeiTicketPrintedPage,
   renderCraftCuttingFeiTicketPrintPage,
   renderCraftCuttingFeiTicketReprintPage,
+  renderCraftCuttingFeiTicketNumberingPage,
+  renderCraftCuttingFeiTicketNumberingSummaryPage,
   renderCraftCuttingCutOrdersPage,
   renderCraftCuttingSampleWarehousePage,
   renderCraftCuttingWarehouseManagementWaitProcessPage,

@@ -10,6 +10,10 @@ import {
   type GeneratedFeiTicketSourceRecord,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import {
+  getFeiTicketNumberingStatus,
+  validateFeiTicketNumberingBeforeBagging,
+} from '../../../data/fcs/cutting/fei-ticket-numbering.ts'
+import {
   listHandoverRecords,
   type SpecialCraftHandoverGroup,
   type SpecialCraftReturnInventoryRecord,
@@ -2599,6 +2603,11 @@ function submitWaitHandoverInbound(dialog: HTMLElement): boolean {
     window.alert(`${String(record.feiTicketNo || record.ticketNo || duplicatedTicket.feiTicketId)} 已入仓，不能重复入仓。`)
     return true
   }
+  const unnumberedTicket = tickets.find((ticket) => !validateFeiTicketNumberingBeforeBagging(ticket).ok)
+  if (unnumberedTicket) {
+    window.alert(validateFeiTicketNumberingBeforeBagging(unnumberedTicket).reason)
+    return true
+  }
   const bagCode = readWaitHandoverWebField(dialog, 'bagCode') || 'WEB-TEMP-BAG-001'
   appendWaitHandoverInboundEvent({
     source: 'WEB',
@@ -2636,6 +2645,19 @@ function submitWaitHandoverBaggingConfirm(dialog: HTMLElement): boolean {
   const duplicatedTicket = selection.items.find((item) => runtimeEventHasWaitHandoverTicket('交出装袋确认', item.feiTicketId))
   if (duplicatedTicket) {
     window.alert(`${duplicatedTicket.feiTicketNo} 已有交出装袋确认记录，不能重复交出装袋确认。`)
+    return true
+  }
+  const unnumberedTicket = selection.items.find((item) => !validateFeiTicketNumberingBeforeBagging({
+    feiTicketId: item.feiTicketId,
+    feiTicketNo: item.feiTicketNo,
+    partName: item.partName,
+  }).ok)
+  if (unnumberedTicket) {
+    window.alert(validateFeiTicketNumberingBeforeBagging({
+      feiTicketId: unnumberedTicket.feiTicketId,
+      feiTicketNo: unnumberedTicket.feiTicketNo,
+      partName: unnumberedTicket.partName,
+    }).reason)
     return true
   }
   const targetTransferBagCode = readWaitHandoverWebField(dialog, 'targetTransferBagCode')
@@ -3287,6 +3309,7 @@ function buildWaitHandoverWorkbenchProjection(options: {
       nextActionHref: '/fcs/craft/cutting/fei-tickets',
       evidenceLines: [
         '已打印菲票，等待裁床待交出仓确认入仓。',
+        `打编号状态：${getFeiTicketNumberingStatus(ticket)}`,
         `来源铺布单：${generatedTicketsByNo[ticket.ticketNo]?.spreadingOrderNo || ticket.sourceSpreadingSessionNo}`,
       ],
     }),

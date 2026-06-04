@@ -34,6 +34,7 @@ import {
 import {
   getFactoryMasterRecordById,
 } from '../../../data/fcs/factory-master-store.ts'
+import { validateFeiTicketNumberingBeforeBagging } from '../../../data/fcs/cutting/fei-ticket-numbering.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../../../data/fcs/factory-mock-data.ts'
 import { FEI_TICKET_DEMO_CASE_IDS, type FeiTicketLabelRecord } from './fei-tickets-model.ts'
 import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
@@ -1873,6 +1874,15 @@ export function validateTicketBindingEligibility(options: {
   }
   if (!options.ticket.cutOrderId || !options.ticket.cutOrderNo) {
     return { ok: false, reason: '当前菲票缺少裁片单 owner，不能进入中转袋。' }
+  }
+  const numberingValidation = validateFeiTicketNumberingBeforeBagging({
+    feiTicketId: options.ticket.feiTicketId || options.ticket.ticketRecordId,
+    feiTicketNo: options.ticket.ticketNo,
+    partName: options.ticket.partName,
+    pieceSequenceLabel: options.ticket.pieceSequenceLabel,
+  })
+  if (!numberingValidation.ok) {
+    return { ok: false, reason: numberingValidation.reason }
   }
 
   const sameUsageBinding = options.bindings.find(

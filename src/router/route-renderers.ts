@@ -460,6 +460,10 @@ export const renderPdaCuttingHandoverPage = createAsyncRenderer(
   () => import('../pages/pda-cutting-handover'),
   'renderPdaCuttingHandoverPage',
 )
+export const renderPdaCuttingFeiTicketNumberingPage = createAsyncRenderer(
+  () => import('../pages/pda-cutting-fei-ticket-numbering'),
+  'renderPdaCuttingFeiTicketNumberingPage',
+)
 export const renderPdaCuttingReplenishmentFeedbackPage = createAsyncRenderer(
   () => import('../pages/pda-cutting-replenishment-feedback'),
   'renderPdaCuttingReplenishmentFeedbackPage',
@@ -515,6 +519,14 @@ export const renderCraftCuttingSpreadingEditPage = createAsyncRenderer(
 export const renderCraftCuttingFeiTicketsPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/fei-tickets'),
   'renderCraftCuttingFeiTicketsPage',
+)
+export const renderCraftCuttingFeiTicketNumberingPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/fei-ticket-numbering'),
+  'renderCraftCuttingFeiTicketNumberingPage',
+)
+export const renderCraftCuttingFeiTicketNumberingSummaryPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/fei-ticket-numbering'),
+  'renderCraftCuttingFeiTicketNumberingSummaryPage',
 )
 export const renderCraftCuttingFeiTicketDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/fei-tickets'),

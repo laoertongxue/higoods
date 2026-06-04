@@ -49,6 +49,10 @@ import {
   type GeneratedFeiTicketSourceRecord,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import {
+  getFeiTicketNumberingStatus,
+  type FeiTicketNumberingStatus,
+} from '../../../data/fcs/cutting/fei-ticket-numbering.ts'
+import {
   getSpecialCraftFeiTicketSummary,
   listCuttingSpecialCraftFeiTicketBindings,
 } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
@@ -222,6 +226,25 @@ const ticketCardStatusMeta: Record<TicketCard['status'], { label: string; classN
   VOIDED: {
     label: '不可用',
     className: 'border border-slate-200 bg-slate-100 text-slate-600',
+  },
+}
+
+const feiTicketNumberingStatusMeta: Record<FeiTicketNumberingStatus, { label: string; className: string }> = {
+  已完成: {
+    label: '已完成',
+    className: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+  },
+  未打编号: {
+    label: '未打编号',
+    className: 'border border-amber-200 bg-amber-50 text-amber-700',
+  },
+  免打编号: {
+    label: '免打编号',
+    className: 'border border-slate-200 bg-slate-50 text-slate-600',
+  },
+  缺少编号区间: {
+    label: '缺少编号区间',
+    className: 'border border-rose-200 bg-rose-50 text-rose-700',
   },
 }
 
@@ -579,6 +602,20 @@ function renderStatusBadge(status: PrintableUnitStatus): string {
 
 function renderTicketStatusBadge(status: TicketCard['status']): string {
   return renderBadge(ticketCardStatusMeta[status].label, ticketCardStatusMeta[status].className)
+}
+
+function getTicketCardNumberingStatus(ticket: TicketCard): FeiTicketNumberingStatus {
+  return getFeiTicketNumberingStatus({
+    feiTicketId: ticket.ticketId,
+    feiTicketNo: ticket.ticketNo,
+    partName: ticket.partName,
+    pieceSequenceRange: ticket.pieceSequenceRange,
+  })
+}
+
+function renderFeiTicketNumberingStatusBadge(status: FeiTicketNumberingStatus): string {
+  const meta = feiTicketNumberingStatusMeta[status]
+  return renderBadge(meta.label, meta.className)
 }
 
 function renderStatusTab(status: 'ALL' | PrintableUnitStatus, label: string, count: number, active: boolean): string {
@@ -1945,6 +1982,7 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
   const specialCraftSummary = getSpecialCraftFeiTicketSummary(ticket.ticketNo)
   const panel = getCurrentSearchParams().get('panel') || 'qr'
   const fiveDimTitle = buildFeiTicketFiveDimTitle(ticket)
+  const numberingStatus = getTicketCardNumberingStatus(ticket)
   const title = panel === 'preview' ? '打印预览' : '菲票码预览'
   const body =
     panel === 'preview'
@@ -1992,6 +2030,10 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                 <div>
                   <p class="text-sm text-slate-500">部位裁片编号范围</p>
                   <div class="mt-1 text-sm">${renderPieceSequenceSummary(ticket)}</div>
+                </div>
+                <div>
+                  <p class="text-sm text-slate-500">打编号状态</p>
+                  <div class="mt-1">${renderFeiTicketNumberingStatusBadge(numberingStatus)}</div>
                 </div>
                 <div>
                   <p class="text-sm text-slate-500">数量 / 裁片数</p>
@@ -2060,6 +2102,7 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                 </div>
                 <div>扎号：${escapeHtml(ticket.bundleNo || '暂无数据')}</div>
                 <div>配套编号：${escapeHtml(ticket.pieceSetNoRange || '暂无数据')}</div>
+                <div>打编号状态：${escapeHtml(numberingStatus)}</div>
               </div>
             </div>
           </div>
@@ -2085,6 +2128,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
           <th class="px-3 py-3 text-left font-medium">扎号</th>
           <th class="px-3 py-3 text-left font-medium">配套编号</th>
           <th class="px-3 py-3 text-left font-medium">部位裁片编号范围</th>
+          <th class="px-3 py-3 text-left font-medium">打编号状态</th>
           <th class="px-3 py-3 text-left font-medium">是否需要特殊工艺</th>
           <th class="px-3 py-3 text-left font-medium">特殊工艺</th>
           <th class="px-3 py-3 text-left font-medium">特殊工艺顺序</th>
@@ -2123,6 +2167,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
           .map((ticket) => {
             const specialCraftSummary = getSpecialCraftFeiTicketSummary(ticket.ticketNo)
             const sewingDispatchSummary = findCuttingSewingDispatchByFeiTicketNo(ticket.ticketNo)
+            const numberingStatus = getTicketCardNumberingStatus(ticket)
             const actions =
               [
                     { label: '查看菲票码', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'first') },
@@ -2168,6 +2213,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.bundleNo || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.pieceSetNoRange || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${renderPieceSequenceSummary(ticket)}</td>
+                <td class="px-3 py-3">${renderFeiTicketNumberingStatusBadge(numberingStatus)}</td>
                 <td class="px-3 py-3 text-slate-700">${ticket.hasSpecialCraft ? '是' : '无'}</td>
                 <td class="px-3 py-3 text-slate-700">${renderSpecialCraftSummary(ticket.specialCrafts)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.specialCrafts.map((craft) => craft.craftType).join(' → ') || '无')}</td>

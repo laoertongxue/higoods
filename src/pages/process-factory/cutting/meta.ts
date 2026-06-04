@@ -24,6 +24,7 @@ export type CuttingCanonicalPageKey =
   | 'fei-ticket-printed'
   | 'fei-ticket-print'
   | 'fei-ticket-reprint'
+  | 'fei-ticket-numbering'
   | 'warehouse-management-wait-process'
   | 'warehouse-management-wait-handover'
   | 'fabric-warehouse'
@@ -235,6 +236,16 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '补打菲票。',
+  },
+  'fei-ticket-numbering': {
+    key: 'fei-ticket-numbering',
+    canonicalPath: '/fcs/craft/cutting/fei-ticket-numbering',
+    aliases: [],
+    menuGroupTitle: '裁后处理',
+    pageTitle: '菲票打编号',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '扫码记录员工给普通部位菲票完成的编号区间和计件数量。',
   },
   'warehouse-management-wait-process': {
     key: 'warehouse-management-wait-process',

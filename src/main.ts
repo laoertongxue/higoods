@@ -1130,6 +1130,16 @@ root.addEventListener('click', async (event) => {
     }
   }
 
+  const pdaTicketNumberingActionNode = target.closest<HTMLElement>('[data-pda-ticket-numbering-action]')
+  if (pdaTicketNumberingActionNode) {
+    event.preventDefault()
+    const pdaTicketNumberingPage = await import('./pages/pda-cutting-fei-ticket-numbering')
+    if (pdaTicketNumberingPage.handlePdaCuttingFeiTicketNumberingEvent(pdaTicketNumberingActionNode)) {
+      await renderWithFocusRestore(focusSnapshot)
+      return
+    }
+  }
+
   const directNavNode = target.closest<HTMLElement>('[data-nav]')
   if (directNavNode?.dataset.nav && !hasDatasetAction(directNavNode)) {
     event.preventDefault()

@@ -17,6 +17,7 @@ import {
   renderPdaTransferBagDetailPage,
   renderPdaCuttingExecutionUnitPage,
   renderPdaCuttingHandoverPage,
+  renderPdaCuttingFeiTicketNumberingPage,
   renderPdaCuttingInboundPage,
   renderPdaCuttingReplenishmentFeedbackPage,
   renderPdaCuttingSpreadingPage,
@@ -61,6 +62,7 @@ export const routes: RouteRegistry = {
     '/fcs/pda/warehouse/inbound-records': () => renderPdaWarehouseInboundRecordsPage(),
     '/fcs/pda/warehouse/outbound-records': () => renderPdaWarehouseOutboundRecordsPage(),
     '/fcs/pda/warehouse/stocktake': () => renderPdaWarehouseStocktakePage(),
+    '/fcs/pda/cutting/fei-ticket-numbering': () => renderPdaCuttingFeiTicketNumberingPage(),
     '/fcs/pda/settlement': () => renderPdaSettlementPage(),
   },
   dynamicRoutes: [

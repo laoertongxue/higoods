@@ -26,6 +26,10 @@ export {
   renderCraftCuttingFeiTicketReprintPage,
 } from './fei-tickets.ts'
 export {
+  renderCraftCuttingFeiTicketNumberingPage,
+  renderCraftCuttingFeiTicketNumberingSummaryPage,
+} from './fei-ticket-numbering.ts'
+export {
   renderCraftCuttingSampleWarehouseDetailPage,
   renderCraftCuttingSampleWarehousePage,
 } from './sample-warehouse.ts'

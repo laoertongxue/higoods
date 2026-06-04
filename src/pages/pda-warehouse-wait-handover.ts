@@ -68,7 +68,7 @@ import { escapeHtml } from '../utils'
 import { getSpecialCraftFeiTicketSummary } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 
 type WaitHandoverFilter = '全部' | '待交出' | '已交出' | '已回写' | '差异' | '异议中'
-type CuttingWaitHandoverActionKey = 'inbound' | 'handover-bagging-confirm'
+type CuttingWaitHandoverActionKey = 'numbering' | 'inbound' | 'handover-bagging-confirm'
 
 interface CuttingWaitHandoverCardAction {
   label: string
@@ -151,6 +151,12 @@ const CUTTING_WAIT_HANDOVER_ACTIONS: Array<{
   desc: string
   primaryLabel: string
 }> = [
+  {
+    key: 'numbering',
+    title: '菲票打编号',
+    desc: '扫菲票查看编号范围，完成实体打编号后记录员工计件数量。',
+    primaryLabel: '开始菲票打编号',
+  },
   {
     key: 'inbound',
     title: '入仓暂存装袋',
@@ -326,6 +332,7 @@ function getCuttingWaitHandoverAction(value?: string | null): typeof CUTTING_WAI
 }
 
 function getCuttingWaitHandoverActionRoute(actionKey: CuttingWaitHandoverActionKey, firstTaskId: string): string {
+  if (actionKey === 'numbering') return '/fcs/pda/cutting/fei-ticket-numbering'
   if (actionKey === 'inbound') return `/fcs/pda/cutting/inbound/${firstTaskId}`
   return `/fcs/pda/cutting/handover/${firstTaskId}?action=handover-bagging-confirm`
 }

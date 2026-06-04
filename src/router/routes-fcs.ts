@@ -73,6 +73,8 @@ import {
   renderCraftCuttingFeiTicketPrintedPage,
   renderCraftCuttingFeiTicketPrintPage,
   renderCraftCuttingFeiTicketReprintPage,
+  renderCraftCuttingFeiTicketNumberingPage,
+  renderCraftCuttingFeiTicketNumberingSummaryPage,
   renderCraftCuttingFeiTicketsPage,
   renderCraftCuttingCutOrdersPage,
   renderCraftCuttingCutOrderDetailPage,
@@ -258,6 +260,8 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/fei-ticket-printed': () => renderCraftCuttingFeiTicketPrintedPage(),
     '/fcs/craft/cutting/fei-ticket-print': () => renderCraftCuttingFeiTicketPrintPage(),
     '/fcs/craft/cutting/fei-ticket-reprint': () => renderCraftCuttingFeiTicketReprintPage(),
+    '/fcs/craft/cutting/fei-ticket-numbering': () => renderCraftCuttingFeiTicketNumberingPage(),
+    '/fcs/craft/cutting/fei-ticket-numbering/summary': () => renderCraftCuttingFeiTicketNumberingSummaryPage(),
     '/fcs/craft/cutting/sample-warehouse': () => renderCraftCuttingSampleWarehousePage(),
     '/fcs/craft/cutting/warehouse': () =>
       renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓'),

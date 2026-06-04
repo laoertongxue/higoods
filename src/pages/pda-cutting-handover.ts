@@ -20,6 +20,7 @@ import {
   resolvePdaCuttingRuntimeIdentity,
   resolvePdaCuttingRuntimeOperator,
 } from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
+import { validateFeiTicketNumberingBeforeBagging } from '../data/fcs/cutting/fei-ticket-numbering.ts'
 import {
   type HandoverRecordSubmitPayload,
   type SpecialCraftHandoverPayload,
@@ -226,6 +227,12 @@ function validatePickingScans(
   if (item.tempBagCode && item.tempBagCode !== sourceBag.tempBagCode) {
     return { ok: false, message: '该菲票不在已扫描的来源入仓暂存袋中。' }
   }
+  const numberingValidation = validateFeiTicketNumberingBeforeBagging({
+    feiTicketId: item.feiTicketId,
+    feiTicketNo: item.feiTicketNo,
+    partName: item.partName,
+  })
+  if (!numberingValidation.ok) return { ok: false, message: numberingValidation.reason }
   if (item.specialCraftReturnStatus !== '不需要特殊工艺' && item.specialCraftReturnStatus !== '已回仓') {
     return { ok: false, message: '该菲票特殊工艺未回仓，不能交出装袋确认给车缝任务。' }
   }
@@ -371,6 +378,13 @@ function validateUniversalHandoverScans(
   if (bag.containedFeiTicketIds.length && !bag.containedFeiTicketIds.includes(ticket.feiTicketId)) {
     return { ok: false, message: '该菲票不在已扫描的交出中转袋中。' }
   }
+  const numberingValidation = validateFeiTicketNumberingBeforeBagging({
+    feiTicketId: ticket.feiTicketId,
+    feiTicketNo: ticket.feiTicketNo,
+    partName: ticket.partName,
+    pieceSequenceLabel: ticket.pieceSequenceLabel,
+  })
+  if (!numberingValidation.ok) return { ok: false, message: numberingValidation.reason }
   if (runtimeEventHasTicket('新增交出记录', ticket.feiTicketId)) {
     return { ok: false, message: '该菲票已有交出记录事件，不能重复交出。' }
   }

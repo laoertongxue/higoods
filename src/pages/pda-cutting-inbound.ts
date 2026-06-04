@@ -9,6 +9,7 @@ import {
   resolvePdaCuttingRuntimeIdentity,
   resolvePdaCuttingRuntimeOperator,
 } from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
+import { validateFeiTicketNumberingBeforeBagging } from '../data/fcs/cutting/fei-ticket-numbering.ts'
 import {
   appendWaitHandoverInboundEvent,
   buildWaitHandoverRuntimeTicketFromTransferCandidate,
@@ -149,6 +150,13 @@ function validateInboundScan(form: InboundFormState, scanCode: string): { ok: bo
   if (!ticket) return { ok: false, reason: '菲票不存在，不能入仓。', ticket: null }
   if (ticket.ticketStatus === 'VOIDED' || ticket.printStatus === 'VOIDED') return { ok: false, reason: '菲票已作废，不能入仓。', ticket }
   if (ticket.printStatus === 'WAIT_PRINT' && ticket.ticketStatus !== 'PRINTED') return { ok: false, reason: '菲票未打印，不能入仓。', ticket }
+  const numberingValidation = validateFeiTicketNumberingBeforeBagging({
+    feiTicketId: ticket.feiTicketId || ticket.ticketRecordId,
+    feiTicketNo: ticket.ticketNo,
+    partName: ticket.partName,
+    pieceSequenceLabel: ticket.pieceSequenceLabel,
+  })
+  if (!numberingValidation.ok) return { ok: false, reason: numberingValidation.reason, ticket }
   if (form.scannedTicketNos.includes(ticket.ticketNo)) return { ok: false, reason: `${ticket.ticketNo} 已扫描，本次入仓不能重复。`, ticket }
   return { ok: true, reason: '', ticket }
 }

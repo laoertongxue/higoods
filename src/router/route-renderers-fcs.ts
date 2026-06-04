@@ -232,6 +232,14 @@ export const renderCraftCuttingFeiTicketsPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/fei-tickets'),
   'renderCraftCuttingFeiTicketsPage',
 )
+export const renderCraftCuttingFeiTicketNumberingPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/fei-ticket-numbering'),
+  'renderCraftCuttingFeiTicketNumberingPage',
+)
+export const renderCraftCuttingFeiTicketNumberingSummaryPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/fei-ticket-numbering'),
+  'renderCraftCuttingFeiTicketNumberingSummaryPage',
+)
 export const renderCraftCuttingCutOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cut-orders'),
   'renderCraftCuttingCutOrdersPage',

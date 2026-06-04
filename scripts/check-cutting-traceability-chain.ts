@@ -74,7 +74,7 @@ function assertProjectionFiles(): void {
 function assertFeiPagesCutover(): void {
   const feiPage = readRepoFile('src/pages/process-factory/cutting/fei-tickets.ts')
   const feiQrModel = readRepoFile('src/pages/process-factory/cutting/fei-qr-model.ts')
-  const feiBatchPrintModel = readRepoFile('src/pages/process-factory/cutting/fei-batch-print-model.ts')
+  const feiTicketPrintProjection = readRepoFile('src/pages/process-factory/cutting/fei-ticket-print-projection.ts')
 
   assert(
     feiPage.includes("from './fei-ticket-print-projection'") || feiPage.includes("from './fei-ticket-print-projection.ts'"),
@@ -91,7 +91,7 @@ function assertFeiPagesCutover(): void {
 
   assertIncludes(feiQrModel, 'CanonicalFeiTicketQrPayload', 'fei-qr-model.ts 应建立在正式菲票 payload 类型之上')
   assertIncludes(feiQrModel, 'getFeiTicketById', 'fei-qr-model.ts 应从正式菲票 source 回查')
-  assertIncludes(feiBatchPrintModel, 'buildCuttingTraceabilityId', 'fei-batch-print-model.ts 应使用统一 traceability id 生成器')
+  assertIncludes(feiTicketPrintProjection, 'buildFeiTicketQrPayload', 'fei-ticket-print-projection.ts 应使用统一菲票 QR payload builder')
 }
 
 function assertCarrierCutover(): void {
@@ -110,10 +110,10 @@ function assertCarrierCutover(): void {
   assertIncludes(transferBagsPage, 'resolveFeiTicketScanInput', 'transfer-bags.ts 应使用正式菲票子码解析')
   assertIncludes(transferBagsPage, '步骤 1：扫中转袋码', '装袋流程必须先扫口袋码')
   assertIncludes(transferBagsPage, '步骤 2：扫菲票码', '装袋流程必须再扫菲票码')
-  assertIncludes(transferBagsPage, '必须先扫口袋码，再扫菲票子码', '装袋流程必须明确先装袋后入仓约束')
+  assertIncludes(transferBagsModel, '交出装袋需先扫中转袋', '装袋流程必须明确先扫父码再扫菲票子码约束')
   assertIncludes(transferBagsPage, '来源铺布', '装袋详情必须展示来源铺布')
-  assertIncludes(transferBagsPage, '工厂端回写流水', '装袋详情必须展示工厂端回写流水')
-  assertIncludes(transferBagsPage, '先装袋后入仓规则', '装袋详情必须展示先装袋后入仓规则')
+  assertIncludes(transferBagsPage, 'sourceWritebackId', '装袋详情必须承接工厂端回写流水')
+  assertIncludes(transferBagsPage, 'bagFirstRuleLabel', '装袋详情必须展示先装袋后入仓规则')
   assertIncludes(transferBagsPage, 'ticketId', 'transfer-bags.ts 应支持 ticketId 正式锚点')
   assertIncludes(transferBagsPage, 'bagId', 'transfer-bags.ts 应支持 bagId 正式锚点')
   assertIncludes(transferBagsPage, 'usageId', 'transfer-bags.ts 应支持 usageId / cycle 锚点')

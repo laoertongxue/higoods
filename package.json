@@ -105,6 +105,7 @@
     "check:cutting-pda-projection-writeback": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-pda-projection-writeback.ts",
     "check:cutting-traceability-chain": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-traceability-chain.ts",
     "check:cutting-fei-ticket-assembly": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-fei-ticket-assembly.ts",
+    "check:cutting-fei-ticket-numbering": "tsx scripts/check-cutting-fei-ticket-numbering.ts",
     "check:cutting-special-craft-dispatch-return": "tsx scripts/check-cutting-special-craft-dispatch-return.ts",
     "check:cutting-sewing-dispatch": "tsx scripts/check-cutting-sewing-dispatch.ts",
     "check:cutting-clean-mainline": "tsx scripts/check-cutting-clean-mainline.ts",

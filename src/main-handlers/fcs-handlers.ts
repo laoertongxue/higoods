@@ -153,6 +153,7 @@ import {
   isCraftCuttingMarkerSpreadingDialogOpen,
 } from '../pages/process-factory/cutting/marker-spreading'
 import { handleCraftCuttingFeiTicketsEvent } from '../pages/process-factory/cutting/fei-tickets'
+import { handleCraftCuttingFeiTicketNumberingEvent } from '../pages/process-factory/cutting/fei-ticket-numbering'
 import {
   handleCraftCuttingCutOrdersEvent,
   isCraftCuttingCutOrdersDialogOpen,
@@ -283,6 +284,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleCraftCuttingMarkerPlanEvent(target) ||
     await handleCraftCuttingMarkerSpreadingEvent(target) ||
     await handleCraftCuttingFeiTicketsEvent(target) ||
+    await handleCraftCuttingFeiTicketNumberingEvent(target) ||
     await handleCraftCuttingWaitProcessEvent(target) ||
     await handleCraftCuttingWaitHandoverEvent(target) ||
     await handleCraftCuttingSampleWarehouseEvent(target) ||
