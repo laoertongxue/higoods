@@ -106,6 +106,7 @@ const domesticFlow: PcsProjectWorkItemCode[] = [
   'PROJECT_INIT',
   'SAMPLE_ACQUIRE',
   'SAMPLE_INBOUND_CHECK',
+  'FEASIBILITY_REVIEW',
   'CHANNEL_PRODUCT_LISTING',
   'LIVE_TEST',
   'VIDEO_TEST',
@@ -120,6 +121,7 @@ const wanlongFlow: PcsProjectWorkItemCode[] = [
   'SAMPLE_ACQUIRE',
   'REVISION_TASK',
   'SAMPLE_INBOUND_CHECK',
+  'FEASIBILITY_REVIEW',
   'CHANNEL_PRODUCT_LISTING',
   'LIVE_TEST',
   'VIDEO_TEST',
@@ -268,11 +270,18 @@ function buildSampleCode(kind: TemplateKind, index: number): string {
   return `SAMPLE-SIX-${kind === 'wanlong' ? 'WL' : 'CG'}-${String(index).padStart(3, '0')}`
 }
 
-function buildSkuPurchaseQty(kind: TemplateKind, index: number, fixture: SixFlowCaseFixture): string[] {
-  const prefix = kind === 'wanlong' ? 'WL' : 'CG'
+function buildSampleCodes(kind: TemplateKind, index: number, quantity: number): string[] {
+  const baseCode = buildSampleCode(kind, index)
+  const safeQuantity = Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1
+  if (safeQuantity === 1) return [baseCode]
+  return Array.from({ length: safeQuantity }, (_, sampleIndex) => `${baseCode}-${String(sampleIndex + 1).padStart(2, '0')}`)
+}
+
+function buildSamplePurchaseSpecQty(kind: TemplateKind, _index: number, fixture: SixFlowCaseFixture): string[] {
+  const sourceLabel = kind === 'wanlong' ? '万隆打样' : '外采样衣'
   return fixture.sizeNames.map((sizeName, sizeIndex) => {
     const qty = kind === 'wanlong' ? 2 : sizeIndex === 0 ? 1 : 2
-    return `${prefix}-${String(index).padStart(3, '0')}-${fixture.colorName}-${sizeName}：采购 ${qty} 件，单价 ${fixture.samplePrice} RMB`
+    return `${sourceLabel} / ${fixture.colorName} / ${sizeName}：采购 ${qty} 件，单价 ${fixture.samplePrice} RMB`
   })
 }
 
@@ -1043,17 +1052,7 @@ function assertRichFlowData(
   expectPayloadFields(
     acquirePayload,
     kind === 'wanlong'
-      ? [
-          'sampleSourceType',
-          'purchaseSupplierName',
-          'sampleUnitPrice',
-          'freightAmount',
-          'receiverName',
-          'saleType',
-          'targetRegionCodes',
-          'needTransitFlag',
-          'skuPurchaseQty',
-        ]
+      ? ['sampleSourceType', 'sampleSupplierId']
       : [
           'sampleSourceType',
           'purchaseSupplierName',
@@ -1064,7 +1063,7 @@ function assertRichFlowData(
           'saleType',
           'targetRegionCodes',
           'needTransitFlag',
-          'skuPurchaseQty',
+          'samplePurchaseSpecQty',
         ],
     '样衣获取',
   )
@@ -1091,9 +1090,16 @@ function assertRichFlowData(
   const inboundPayload = getInlinePayload(projectId, 'SAMPLE_INBOUND_CHECK')
   expectPayloadFields(
     inboundPayload,
-    ['sampleCode', 'receivedQty', 'receivedAt', 'sampleImageIds', 'qualityCheckResult', 'testableFlag', 'checkResult'],
+    ['sampleInboundLines', 'receivedQty', 'generatedSampleCodes', 'receivedAt', 'sampleImageIds', 'qualityCheckResult', 'checkResult'],
     '样衣结果核对',
   )
+  const feasibilityPayload = getInlinePayload(projectId, 'FEASIBILITY_REVIEW')
+  expectPayloadFields(
+    feasibilityPayload,
+    ['reviewConclusion', 'reviewRisk'],
+    '初步可行性判断',
+  )
+  expectEqual(feasibilityPayload.reviewConclusion, '进入测款', '初步可行性判断应明确进入测款后再上架')
 
   const channelProduct = listProjectChannelProductsByProjectId(projectId)[0]
   ensure(channelProduct, '商品上架后应存在渠道店铺商品')
@@ -1188,14 +1194,6 @@ function runOneFlow(
       ? {
           sampleSourceType: '委托打样',
           sampleSupplierId: 'SUP-WANLONG',
-          purchaseSupplierName: '万隆改版打样组',
-          sampleUnitPrice: fixture.samplePrice,
-          freightAmount: 0,
-          receiverName: '万隆样衣间 - Sari',
-          saleType: '预售',
-          targetRegionCodes: ['ID'],
-          needTransitFlag: false,
-          skuPurchaseQty: buildSkuPurchaseQty(kind, index, fixture),
         }
       : {
           sampleSourceType: '外采',
@@ -1208,7 +1206,7 @@ function runOneFlow(
           saleType: '预售',
           targetRegionCodes: ['ID', 'MY'],
           needTransitFlag: false,
-          skuPurchaseQty: buildSkuPurchaseQty(kind, index, fixture),
+          samplePurchaseSpecQty: buildSamplePurchaseSpecQty(kind, index, fixture),
         },
     operatorName,
     {
@@ -1235,39 +1233,68 @@ function runOneFlow(
   }
 
   const sampleImageIds = createSampleEvidenceImages(project.projectId, index, operatorName)
-  const sampleCode = buildSampleCode(kind, index)
+  const receivedQty = kind === 'wanlong' ? 2 : 1
+  const sampleCodes = buildSampleCodes(kind, index, receivedQty)
+  const sampleCode = sampleCodes[0]
+  const inboundLine = `${fixture.colorName} / ${fixture.sizeNames.join('/')}：实收 ${receivedQty} 件`
   completeInlineNode(
     project.projectId,
     'SAMPLE_INBOUND_CHECK',
     {
-      sampleCode,
-      arrivalTime: '2026-06-04 10:05',
-      receivedQty: kind === 'wanlong' ? 2 : 1,
+      sampleInboundLines: [inboundLine],
+      receivedQty,
+      generatedSampleCodes: sampleCodes,
       receivedAt: '2026-06-04 10:05',
       sampleImageIds,
       qualityCheckResult: '通过',
-      testableFlag: true,
       checkResult:
         kind === 'wanlong'
-          ? '样衣已收到，腰线、袖口、面料和设计稿要求均已核对，可进入商品上架测款。'
-          : '样衣已收到，颜色、尺码、吊牌和面料手感与采购要求一致，可进入商品上架测款。',
+          ? '样衣已收到，腰线、袖口、面料和设计稿要求均已核对，实物到样完整。'
+          : '样衣已收到，颜色、尺码、吊牌和面料手感与采购要求一致，实物到样完整。',
     },
     operatorName,
     {
-      sampleIds: [sampleCode],
+      sampleIds: sampleCodes,
       warehouseLocation: kind === 'wanlong' ? '万隆样衣架 A-03' : '广州样衣仓 C-12',
       receiver: '朝群',
       inboundRequestNo: `IN-SIX-${String(index).padStart(3, '0')}`,
-      sampleQuantity: kind === 'wanlong' ? 2 : 1,
+      sampleQuantity: receivedQty,
       colorCode: fixture.colorName,
       sizeCombination: fixture.sizeNames.join('/'),
       expressCompany: kind === 'wanlong' ? '万隆内部送样' : '顺丰速运',
       trackingNumber: kind === 'wanlong' ? `WL-SAMPLE-${index}` : `SF${202606040000 + index}`,
       arrivalPhotos: sampleImageIds,
       inboundVoucher: `VOUCHER-SIX-${String(index).padStart(3, '0')}`,
+      sampleAssets: sampleCodes.map((code) => ({
+        sampleCode: code,
+        specText: `${fixture.colorName} / ${fixture.sizeNames.join('/')}`,
+        colorName: fixture.colorName,
+        sizeName: fixture.sizeNames.join('/'),
+        sourceLine: inboundLine,
+      })),
       approvalStatus: '已核对',
       approver: project.ownerName,
       currentHandler: operatorName,
+    },
+  )
+
+  completeInlineNode(
+    project.projectId,
+    'FEASIBILITY_REVIEW',
+    {
+      reviewConclusion: '进入测款',
+      reviewRisk:
+        kind === 'wanlong'
+          ? '改版样衣实物已到位，版型调整和面料表现满足本轮测款要求，进入商品上架与市场测款。'
+          : '采购样衣实物已到位，图片表现、面料手感和目标价格带匹配，进入商品上架与市场测款。',
+    },
+    operatorName,
+    {
+      evaluationDimension: ['实物完整性', '版型表现', '价格带匹配', '测款潜力'],
+      judgmentDescription: '到样核对通过后完成初步可行性判断，本轮进入测款。',
+      evaluationParticipants: [project.ownerName, operatorName],
+      approvalStatus: '已确认',
+      approver: project.ownerName,
     },
   )
 

@@ -32,6 +32,7 @@ import { validateProjectNodeCompletion } from './pcs-project-data-consistency.ts
 import {
   completeDecisionNodeWithResult,
   isProjectDecisionWorkItemCode,
+  type ProjectDecisionResult,
 } from './pcs-project-decision-flow-service.ts'
 
 export interface ProjectFlowActionResult {
@@ -561,7 +562,7 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
       return completeDecisionNodeWithResult(
         input.projectId,
         input.projectNodeId,
-        decisionValue as '通过' | '不通过' | '继续测试',
+        decisionValue as ProjectDecisionResult,
         operatorName,
         decisionNote,
         businessDate,

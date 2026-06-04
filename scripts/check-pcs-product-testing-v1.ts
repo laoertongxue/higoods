@@ -24,6 +24,7 @@ const domesticFlow: PcsProjectWorkItemCode[] = [
   'PROJECT_INIT',
   'SAMPLE_ACQUIRE',
   'SAMPLE_INBOUND_CHECK',
+  'FEASIBILITY_REVIEW',
   'CHANNEL_PRODUCT_LISTING',
   'LIVE_TEST',
   'VIDEO_TEST',
@@ -38,6 +39,7 @@ const wanlongFlow: PcsProjectWorkItemCode[] = [
   'SAMPLE_ACQUIRE',
   'REVISION_TASK',
   'SAMPLE_INBOUND_CHECK',
+  'FEASIBILITY_REVIEW',
   'CHANNEL_PRODUCT_LISTING',
   'LIVE_TEST',
   'VIDEO_TEST',
@@ -122,7 +124,7 @@ assertIncludesAll(workItemCodes, Array.from(new Set([...domesticFlow, ...wanlong
 
 assertIncludesAll(
   fieldKeys('SAMPLE_ACQUIRE'),
-  ['purchaseSupplierName', 'sampleLink', 'freightAmount', 'receiverName', 'saleType', 'targetRegionCodes', 'needTransitFlag', 'skuPurchaseQty'],
+  ['purchaseSupplierName', 'sampleLink', 'freightAmount', 'receiverName', 'saleType', 'targetRegionCodes', 'needTransitFlag', 'samplePurchaseSpecQty'],
   '样衣获取字段未覆盖样衣来源和采购样衣要素',
 )
 assert.deepEqual(
@@ -142,8 +144,18 @@ assertIncludesAll(
 )
 assertIncludesAll(
   fieldKeys('SAMPLE_INBOUND_CHECK'),
-  ['sampleCode', 'receivedQty', 'receivedAt', 'sampleImageIds', 'qualityCheckResult', 'testableFlag', 'checkResult'],
-  '样衣结果核对字段未覆盖到样核对和可测判断',
+  ['sampleInboundLines', 'receivedQty', 'generatedSampleCodes', 'receivedAt', 'sampleImageIds', 'qualityCheckResult', 'checkResult'],
+  '样衣结果核对字段未覆盖到样登记、样衣编号和实物核对',
+)
+assert.deepEqual(
+  fieldOptions('FEASIBILITY_REVIEW', 'reviewConclusion'),
+  ['进入测款', '样衣退回', '重新改版出样衣'],
+  '初步可行性判断必须明确进入测款、样衣退回或重新改版出样衣',
+)
+assertIncludesAll(
+  fieldKeys('FEASIBILITY_REVIEW'),
+  ['reviewConclusion', 'reviewRisk'],
+  '初步可行性判断字段未覆盖结论和判断说明',
 )
 assertIncludesAll(
   fieldKeys('SAMPLE_RETURN_HANDLE'),

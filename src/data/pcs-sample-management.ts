@@ -1,3 +1,5 @@
+import { listProjectInlineNodeRecordsByWorkItemType } from './pcs-project-inline-node-record-repository.ts'
+
 export type PcsSampleStatus =
   | '在库可用'
   | '预占锁定'
@@ -875,12 +877,82 @@ export const PCS_SAMPLE_STOCKTAKE_DIFFS: PcsSampleStocktakeDiff[] = [
   },
 ]
 
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean)
+  if (typeof value === 'string') {
+    return value
+      .split(/[、,\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function getSampleAssetText(asset: unknown, key: string): string {
+  if (!asset || typeof asset !== 'object') return ''
+  const value = (asset as Record<string, unknown>)[key]
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function buildGeneratedSampleRecords(): PcsSampleRecord[] {
+  return listProjectInlineNodeRecordsByWorkItemType('SAMPLE_INBOUND_CHECK').flatMap((record) => {
+    const payload = record.payload as Record<string, unknown>
+    const detailSnapshot = record.detailSnapshot as Record<string, unknown>
+    const generatedCodes = asStringArray(payload.generatedSampleCodes).length > 0
+      ? asStringArray(payload.generatedSampleCodes)
+      : asStringArray(detailSnapshot.sampleIds)
+    const sampleAssets = Array.isArray(detailSnapshot.sampleAssets) ? detailSnapshot.sampleAssets : []
+    const sourceLines = asStringArray(payload.sampleInboundLines)
+    const qualityCheckResult = String(payload.qualityCheckResult || '').trim()
+    const available = qualityCheckResult === '通过'
+
+    return generatedCodes.map((sampleCode, index) => {
+      const asset = sampleAssets[index]
+      const sourceLine = getSampleAssetText(asset, 'sourceLine') || sourceLines[index] || sourceLines[0] || '到样实物'
+      const specText = getSampleAssetText(asset, 'specText') || sourceLine
+      const colorName = getSampleAssetText(asset, 'colorName') || '-'
+      const sizeName = getSampleAssetText(asset, 'sizeName') || '-'
+
+      return {
+        sampleId: `project-${record.recordId}-${sampleCode}`.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        sampleCode,
+        name: `${record.projectName} · ${specText}`,
+        imageUrl: `https://placehold.co/96x128?text=${encodeURIComponent(sampleCode)}`,
+        category: '项目样衣',
+        size: sizeName,
+        color: colorName,
+        material: '待补充',
+        templateType: '商品项目到样',
+        projectId: record.projectId,
+        projectCode: record.projectCode,
+        projectName: record.projectName,
+        relatedWorkItemName: record.workItemTypeName || '样衣结果核对',
+        status: available ? '在库可用' : '待处置',
+        availability: available ? '可申请' : '不可申请',
+        responsibleSite: '深圳样衣间',
+        currentLocation: String(detailSnapshot.warehouseLocation || '深圳样衣间'),
+        locationDetail: `由${record.projectCode}样衣结果核对生成`,
+        occupancyType: '无',
+        occupiedBy: '',
+        occupiedFor: '',
+        occupiedUntil: '',
+        transit: null,
+        anomaly: qualityCheckResult === '不通过'
+          ? { type: '核对不通过', level: '中', since: record.businessDate, note: String(payload.checkResult || '样衣结果核对不通过') }
+          : null,
+        updatedAt: record.updatedAt || record.businessDate,
+        updatedBy: record.updatedBy || record.ownerName,
+      } satisfies PcsSampleRecord
+    })
+  })
+}
+
 export function listPcsSampleRecords(): PcsSampleRecord[] {
-  return [...PCS_SAMPLE_RECORDS]
+  return [...buildGeneratedSampleRecords(), ...PCS_SAMPLE_RECORDS]
 }
 
 export function getPcsSampleById(sampleId: string): PcsSampleRecord | null {
-  return PCS_SAMPLE_RECORDS.find((item) => item.sampleId === sampleId || item.sampleCode === sampleId) ?? null
+  return listPcsSampleRecords().find((item) => item.sampleId === sampleId || item.sampleCode === sampleId) ?? null
 }
 
 export function listPcsSampleRequests(): PcsSampleUseRequest[] {

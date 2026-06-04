@@ -47,16 +47,15 @@ const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, s
     'saleType',
     'targetRegionCodes',
     'needTransitFlag',
-    'skuPurchaseQty',
+    'samplePurchaseSpecQty',
   ],
   SAMPLE_INBOUND_CHECK: [
-    'sampleCode',
-    'arrivalTime',
+    'sampleInboundLines',
     'receivedQty',
+    'generatedSampleCodes',
     'receivedAt',
     'sampleImageIds',
     'qualityCheckResult',
-    'testableFlag',
     'checkResult',
   ],
   FEASIBILITY_REVIEW: ['reviewConclusion', 'reviewRisk'],
@@ -137,6 +136,7 @@ const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTyp
     'trackingNumber',
     'arrivalPhotos',
     'inboundVoucher',
+    'sampleAssets',
     'approvalStatus',
     'approver',
     'currentHandler',
@@ -412,11 +412,6 @@ function hydrateSnapshot(
     version: INLINE_NODE_RECORD_STORE_VERSION,
     records: cleanedRecords
       .map((record) => normalizeRecord(record as PcsProjectInlineNodeRecord))
-      .filter((record) => {
-        if (record.workItemTypeCode !== 'FEASIBILITY_REVIEW') return true
-        const project = getProjectById(record.projectId)
-        return project?.templateId !== 'TPL-003'
-      })
       .sort(compareRecords),
   }
 }
@@ -550,6 +545,7 @@ export function saveProjectInlineNodeFieldEntry(
   )
   const businessDate =
     (typeof input.businessDate === 'string' && input.businessDate.trim()) ||
+    (typeof normalizedValues.receivedAt === 'string' && normalizedValues.receivedAt.trim()) ||
     (typeof normalizedValues.arrivalTime === 'string' && normalizedValues.arrivalTime.trim()) ||
     timestamp
   const missingRequiredFields = contract.fieldDefinitions

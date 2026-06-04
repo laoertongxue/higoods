@@ -63,6 +63,7 @@ export interface SampleAcquirePayload {
   sampleSupplierId: string
   sampleLink: string
   sampleUnitPrice: string | number
+  samplePurchaseSpecQty?: string[]
 }
 
 export interface SampleAcquireDetailSnapshot {
@@ -84,13 +85,24 @@ export interface SampleAcquireDetailSnapshot {
 }
 
 export interface SampleInboundCheckPayload {
-  sampleCode: string
-  arrivalTime: string
+  sampleInboundLines: string[]
+  receivedQty: number
+  generatedSampleCodes: string[]
+  receivedAt: string
+  sampleImageIds: string[]
+  qualityCheckResult: string
   checkResult: string
 }
 
 export interface SampleInboundCheckDetailSnapshot {
   sampleIds?: string[]
+  sampleAssets?: Array<{
+    sampleCode: string
+    specText: string
+    colorName?: string
+    sizeName?: string
+    sourceLine?: string
+  }>
   warehouseLocation?: string
   receiver?: string
   inboundRequestNo?: string

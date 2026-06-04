@@ -854,6 +854,8 @@ function shouldBypassClickDispatch(target: Element): boolean {
 }
 
 function shouldSkipInputRerender(target: Element): boolean {
+  if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
+
   const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
   if (techFieldNode) {
     const field = techFieldNode.dataset.techField || ''
@@ -1172,6 +1174,7 @@ root.addEventListener('input', async (event) => {
   const previousPathname = appStore.getState().pathname
 
   if (await dispatchPcsInputEvent(target)) {
+    if (shouldSkipInputRerender(target)) return
     await renderWithFocusRestore(focusSnapshot)
     return
   }
@@ -1194,6 +1197,7 @@ root.addEventListener('compositionend', async (event) => {
   const previousPathname = appStore.getState().pathname
 
   if (await dispatchPcsInputEvent(target)) {
+    if (shouldSkipInputRerender(target)) return
     await renderWithFocusRestore(focusSnapshot)
     return
   }

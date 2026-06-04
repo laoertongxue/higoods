@@ -33,7 +33,9 @@ for (const workItemCode of ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLU
   const expectedOptions =
     workItemCode === 'TEST_CONCLUSION'
       ? ['通过', '不通过', '继续测试']
-      : ['通过', '不通过']
+      : workItemCode === 'FEASIBILITY_REVIEW'
+        ? ['进入测款', '样衣退回', '重新改版出样衣']
+        : ['通过', '不通过']
   assertCheck(
     JSON.stringify((decisionField?.options || []).map((item) => item.value)) === JSON.stringify(expectedOptions),
     `${workItemCode} 决策结果应为 ${expectedOptions.join(' / ')}`,

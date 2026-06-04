@@ -649,6 +649,12 @@ function getRecordCode(projectCode: string, workItemTypeCode: string): string {
   return `INR-${tail}-${suffixMap[workItemTypeCode] || 'REC'}-001`
 }
 
+function buildScenarioSampleCodes(baseSampleCode: string, quantity: number): string[] {
+  const safeQuantity = Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1
+  if (safeQuantity === 1) return [baseSampleCode]
+  return Array.from({ length: safeQuantity }, (_, index) => `${baseSampleCode}-${String(index + 1).padStart(2, '0')}`)
+}
+
 function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode): EarlyPhaseRecordSeed {
   const scenario = PROJECT_SCENARIOS[projectCode]
   const timePlan = NODE_TIME_PLAN[workItemTypeCode]
@@ -687,6 +693,7 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
   }
 
   if (workItemTypeCode === 'SAMPLE_INBOUND_CHECK') {
+    const sampleCodes = buildScenarioSampleCodes(scenario.sampleCode, scenario.sampleQuantity)
     return {
       projectCode,
       workItemTypeCode,
@@ -695,15 +702,27 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
       sourceDocCode: `SRC-${projectCode.slice(-3)}-001`,
       businessDate,
       payload: {
-        sampleCode: scenario.sampleCode,
+        sampleInboundLines: [`${scenario.colorCode} / ${scenario.sizeCombination}：实收 ${scenario.sampleQuantity} 件`],
+        receivedQty: scenario.sampleQuantity,
+        generatedSampleCodes: sampleCodes,
+        receivedAt: businessDate,
+        sampleImageIds: [],
+        qualityCheckResult: '通过',
         checkResult: '样衣结果与项目输入核对一致',
       },
       detailSnapshot: {
-        sampleIds: [scenario.sampleCode],
+        sampleIds: sampleCodes,
         receiver: scenario.receiver,
         sampleQuantity: scenario.sampleQuantity,
         colorCode: scenario.colorCode,
         sizeCombination: scenario.sizeCombination,
+        sampleAssets: sampleCodes.map((sampleCode) => ({
+          sampleCode,
+          specText: `${scenario.colorCode} / ${scenario.sizeCombination}`,
+          colorName: scenario.colorCode,
+          sizeName: scenario.sizeCombination,
+          sourceLine: `${scenario.colorCode} / ${scenario.sizeCombination}：实收 ${scenario.sampleQuantity} 件`,
+        })),
       },
     }
   }
@@ -717,7 +736,7 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
       sourceDocCode: `REV-${projectCode.slice(-3)}-001`,
       businessDate,
       payload: {
-        reviewConclusion: '通过',
+        reviewConclusion: '进入测款',
         reviewRisk: scenario.reviewRisk,
       },
       detailSnapshot: {
@@ -1121,6 +1140,7 @@ function buildGenericInlineSeed(
   }
 
   if (node.workItemTypeCode === 'SAMPLE_INBOUND_CHECK') {
+    const sampleCodes = buildScenarioSampleCodes(sampleCode, 1)
     return {
       projectCode,
       workItemTypeCode: 'SAMPLE_INBOUND_CHECK',
@@ -1129,15 +1149,27 @@ function buildGenericInlineSeed(
       sourceDocCode: `SRC-${projectCode.slice(-3)}-GEN`,
       businessDate,
       payload: {
-        sampleCode,
+        sampleInboundLines: ['默认色 / M：实收 1 件'],
+        receivedQty: 1,
+        generatedSampleCodes: sampleCodes,
+        receivedAt: businessDate,
+        sampleImageIds: [],
+        qualityCheckResult: '通过',
         checkResult: '样衣结果与项目输入核对一致',
       },
       detailSnapshot: {
-        sampleIds: [sampleCode],
+        sampleIds: sampleCodes,
         receiver: project.ownerName,
         sampleQuantity: 1,
         colorCode: '默认色',
         sizeCombination: 'M',
+        sampleAssets: sampleCodes.map((sampleCode) => ({
+          sampleCode,
+          specText: '默认色 / M',
+          colorName: '默认色',
+          sizeName: 'M',
+          sourceLine: '默认色 / M：实收 1 件',
+        })),
       },
     }
   }
@@ -1151,7 +1183,7 @@ function buildGenericInlineSeed(
       sourceDocCode: `REV-${projectCode.slice(-3)}-GEN`,
       businessDate,
       payload: {
-        reviewConclusion: '通过',
+        reviewConclusion: '进入测款',
         reviewRisk: node.currentIssueText || '暂无显著风险',
       },
       detailSnapshot: {

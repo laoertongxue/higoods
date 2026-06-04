@@ -1739,8 +1739,17 @@ const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCod
     'saleType',
     'targetRegionCodes',
     'needTransitFlag',
+    'samplePurchaseSpecQty',
   ],
-  SAMPLE_INBOUND_CHECK: ['sampleCode', 'arrivalTime', 'checkResult'],
+  SAMPLE_INBOUND_CHECK: [
+    'sampleInboundLines',
+    'receivedQty',
+    'generatedSampleCodes',
+    'receivedAt',
+    'sampleImageIds',
+    'qualityCheckResult',
+    'checkResult',
+  ],
   FEASIBILITY_REVIEW: ['reviewConclusion', 'reviewRisk'],
   SAMPLE_SHOOT_FIT: [
     'shootPlan',
@@ -3091,7 +3100,10 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
 
 function formatDraftFieldValue(type: PcsProjectNodeFieldGroupDefinition['fields'][number]['type'], value: unknown): string {
   if (value == null) return ''
-  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean).join('、')
+  if (Array.isArray(value)) {
+    const separator = type === 'table' ? '\n' : '、'
+    return value.map((item) => String(item).trim()).filter(Boolean).join(separator)
+  }
   if (typeof value === 'boolean') return value ? 'true' : 'false'
   const text = String(value)
   if (type === 'date') return text.slice(0, 10)
@@ -3120,6 +3132,12 @@ function normalizeDraftFieldValue(
     if (trimmed === 'true' || trimmed === '是') return true
     if (trimmed === 'false' || trimmed === '否') return false
     return trimmed
+  }
+  if (field.type === 'table') {
+    return trimmed
+      .split(/\n/)
+      .map((item) => item.trim())
+      .filter(Boolean)
   }
   if (field.type === 'multi-select' || field.type === 'reference-multi' || field.type === 'user-multi-select') {
     return trimmed
@@ -3153,7 +3171,7 @@ function deriveRecordSummaryNote(workItemTypeCode: string, values: Record<string
     case 'SAMPLE_ACQUIRE':
       return pickFirst('sampleSupplierId', 'sampleLink', 'sampleSourceType') || '已登记样衣来源。'
     case 'SAMPLE_INBOUND_CHECK':
-      return pickFirst('checkResult', 'sampleCode') || '已登记样衣结果核对。'
+      return pickFirst('checkResult', 'generatedSampleCodes', 'sampleInboundLines') || '已登记样衣结果核对。'
     case 'FEASIBILITY_REVIEW':
       return pickFirst('reviewRisk', 'reviewConclusion') || '已更新可行性判断。'
     case 'SAMPLE_SHOOT_FIT':
@@ -3175,6 +3193,14 @@ function deriveRecordSummaryNote(workItemTypeCode: string, values: Record<string
   }
 }
 
+function buildQuickRecordPayload(
+  _project: PcsProjectRecord,
+  _node: PcsProjectNodeRecord,
+  _input: { businessDate: string; note: string },
+): { values: Record<string, unknown>; detailSnapshot: Record<string, unknown> } | null {
+  return null
+}
+
 function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeViewModel): Omit<RecordDialogState, 'open'> {
   const businessDate = (node.latestRecord?.businessDate || '').slice(0, 10) || todayText()
   const editableKeys = getInlineEditableFieldKeys(node.node.workItemTypeCode)
@@ -3182,6 +3208,7 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
   const values = Object.fromEntries(
     groups
       .flatMap((group) => group.fields)
+      .filter((field) => isProjectTemplateFieldVisible(project, node, field))
       .filter((field) => !field.readonly && editableKeys.has(field.fieldKey))
       .map((field) => {
         const rawValue = node.latestRecord?.payload?.[field.fieldKey] ?? getNodeFieldValue(project, node, field.fieldKey) ?? ''
@@ -3273,6 +3300,8 @@ function hasNodeFieldValue(value: unknown): boolean {
 
 type ProjectNodeFormalField = PcsProjectNodeFieldGroupDefinition['fields'][number]
 
+const DELEGATED_SAMPLE_ACQUIRE_FIELD_KEYS = new Set(['sampleSourceType', 'sampleSupplierId'])
+
 function getTemplateLockedSampleSourceTypeByTemplate(templateId: string, templateName: string): SampleSourceType | '' {
   if (templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID || templateName.includes('国内采购样衣测款')) {
     return '外采'
@@ -3287,14 +3316,42 @@ function getTemplateLockedSampleSourceType(project: PcsProjectRecord): SampleSou
   return getTemplateLockedSampleSourceTypeByTemplate(project.templateId, project.templateName)
 }
 
+function getProjectSampleAcquireSourceType(project: PcsProjectRecord, node: ProjectNodeViewModel): SampleSourceType | '' {
+  const lockedSourceType = getTemplateLockedSampleSourceType(project)
+  if (lockedSourceType) return lockedSourceType
+  const value = String(getNodeFieldValue(project, node, 'sampleSourceType') || '').trim()
+  return value === '外采' || value === '委托打样' ? value : ''
+}
+
+function isProjectTemplateFieldVisible(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  field: ProjectNodeFormalField,
+): boolean {
+  if (node.node.workItemTypeCode !== 'SAMPLE_ACQUIRE') return true
+  const sampleSourceType = getProjectSampleAcquireSourceType(project, node)
+  if (sampleSourceType !== '委托打样') return true
+  return DELEGATED_SAMPLE_ACQUIRE_FIELD_KEYS.has(field.fieldKey)
+}
+
 function applyProjectTemplateFieldPolicy(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
   field: ProjectNodeFormalField,
 ): ProjectNodeFormalField {
-  if (node.node.workItemTypeCode !== 'SAMPLE_ACQUIRE' || field.fieldKey !== 'sampleSourceType') return field
-
+  if (node.node.workItemTypeCode !== 'SAMPLE_ACQUIRE') return field
   const lockedSourceType = getTemplateLockedSampleSourceType(project)
+
+  if (field.fieldKey === 'sampleSupplierId' && lockedSourceType === '委托打样') {
+    return {
+      ...field,
+      label: '承接方',
+      businessLogic: '万隆改版出样衣由改版任务承接，样衣获取只记录承接打样方。',
+    }
+  }
+
+  if (field.fieldKey !== 'sampleSourceType') return field
+
   if (!lockedSourceType) {
     return {
       ...field,
@@ -3328,10 +3385,12 @@ function getTemplateLockedFieldValue(
 
 function buildNodeCompletionValues(project: PcsProjectRecord, node: ProjectNodeViewModel): Record<string, unknown> {
   return Object.fromEntries(
-    node.contract.fieldDefinitions.map((field) => [
-      field.fieldKey,
-      getTemplateLockedFieldValue(project, node, field, getNodeFieldValue(project, node, field.fieldKey)),
-    ]),
+    node.contract.fieldDefinitions
+      .filter((field) => isProjectTemplateFieldVisible(project, node, field))
+      .map((field) => [
+        field.fieldKey,
+        getTemplateLockedFieldValue(project, node, field, getNodeFieldValue(project, node, field.fieldKey)),
+      ]),
   )
 }
 
@@ -3342,6 +3401,7 @@ function canCompleteProjectNode(project: PcsProjectRecord, node: ProjectNodeView
   const hasMissingRequiredField =
     shouldValidateRequiredFields &&
     node.contract.fieldDefinitions
+      .filter((field) => isProjectTemplateFieldVisible(project, node, field))
       .filter((field) => !field.readonly && field.required)
       .some((field) => !hasNodeFieldValue(values[field.fieldKey]))
 
@@ -3439,7 +3499,7 @@ function renderFormalFieldControl(
 ): string {
   const baseClass =
     'w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
-  const commonAttrs = `data-pcs-project-field="formal-field" data-field-key="${escapeHtml(field.fieldKey)}" ${disabled ? 'disabled' : ''}`
+  const commonAttrs = `data-pcs-project-field="formal-field" data-field-key="${escapeHtml(field.fieldKey)}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''}`
 
   if (field.type === 'multi-select' && field.options && field.options.length > 0) {
     const selectedValues = new Set(getDraftStringArray(value))
@@ -3483,6 +3543,12 @@ function renderFormalFieldControl(
   if (field.type === 'textarea') {
     return `
       <textarea class="min-h-[112px] ${baseClass} py-2" placeholder="${escapeHtml(field.placeholder || `请输入${field.label}`)}" ${commonAttrs}>${escapeHtml(value)}</textarea>
+    `
+  }
+
+  if (field.type === 'table') {
+    return `
+      <textarea class="min-h-[112px] ${baseClass} py-2" placeholder="${escapeHtml(field.placeholder || '例如：黑色 / M：采购 2 件')}" ${commonAttrs}>${escapeHtml(value)}</textarea>
     `
   }
 
@@ -6217,11 +6283,16 @@ function renderFieldGroupValues(
   node: ProjectNodeViewModel,
   showHeader = true,
 ): string {
+  const fields = group.fields
+    .filter((field) => isProjectTemplateFieldVisible(project, node, field))
+    .map((field) => applyProjectTemplateFieldPolicy(project, node, field))
+  if (fields.length === 0) return ''
+
   return `
     <section class="space-y-3">
       ${showHeader ? `<h3 class="text-sm font-semibold text-slate-900">${escapeHtml(group.groupTitle)}</h3>` : ''}
       <div class="grid gap-3 md:grid-cols-2">
-        ${group.fields
+        ${fields
           .map((field) => {
             return `
               <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
@@ -6250,6 +6321,7 @@ function renderEditableFieldGroups(
   return groups
     .map((group) => {
       const items = group.fields
+        .filter((rawField) => isProjectTemplateFieldVisible(project, node, rawField))
         .map((rawField) => {
           const field = applyProjectTemplateFieldPolicy(project, node, rawField)
           const editable = !field.readonly && editableKeys.has(field.fieldKey)
@@ -6276,6 +6348,8 @@ function renderEditableFieldGroups(
           `
         })
         .join('')
+
+      if (!items) return ''
 
       return `
         <section class="space-y-3">
@@ -6326,13 +6400,16 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
 
   const draft = getNodeRecordDraft(project, node)
   const recordMode = node.contract.runtimeType === 'execute' && node.definition?.workItemNature === '执行类' && node.node.multiInstanceFlag
+  const saveDraftButton = recordMode
+    ? ''
+    : '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="save-formal-fields">保存正式字段</button>'
 
   return `
     <section class="space-y-4">
       <div class="flex flex-wrap justify-end gap-3">
         <label class="space-y-1">
           <span class="text-xs text-slate-500">业务日期</span>
-          <input type="date" class="h-10 w-[180px] rounded-md border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.businessDate)}" data-pcs-project-field="record-business-date" />
+          <input type="date" class="h-10 w-[180px] rounded-md border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.businessDate)}" data-pcs-project-field="record-business-date" data-skip-page-rerender="true" />
         </label>
       </div>
       ${renderEditableFieldGroups(project, node, draft)}
@@ -6341,7 +6418,7 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
           ? ''
           : `
             <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
-              <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="save-formal-fields">${recordMode ? '新增正式记录' : '保存正式字段'}</button>
+              ${saveDraftButton}
               <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="save-formal-fields-and-complete">保存并流转节点</button>
             </div>
           `
@@ -6670,7 +6747,7 @@ function renderDecisionNodeSection(project: PcsProjectRecord, node: ProjectNodeV
     <section class="space-y-4">
       <article class="rounded-lg border border-amber-200 bg-amber-50 p-4">
         <h3 class="text-sm font-semibold text-amber-900">决策节点</h3>
-        <p class="mt-2 text-sm leading-6 text-amber-800">当前节点只保留“做出决策”操作。提交结果后，系统会根据决策结果自动流转到下一个节点，或进入样衣退回处理。</p>
+        <p class="mt-2 text-sm leading-6 text-amber-800">当前节点只保留“做出决策”操作。提交结果后，系统会根据决策结果自动进入下一节点、样衣退回处理、继续测试或重新改版出样衣。</p>
       </article>
       ${renderReadonlyFieldSection(project, node)}
     </section>
@@ -6714,12 +6791,12 @@ function renderWorkItemRecordDialog(project: PcsProjectRecord, node: ProjectNode
   if (!state.recordDialog.open || !node) return ''
   const draft = getNodeRecordDraft(project, node)
   return renderModalShell(
-    '新增正式记录',
+    '补充正式记录',
     `为「${node.node.workItemTypeName}」补充一条项目内正式记录。`,
     `
       <label class="space-y-1">
         <span class="text-xs text-slate-500">业务日期</span>
-        <input type="date" class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.businessDate)}" data-pcs-project-field="record-business-date" />
+        <input type="date" class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.businessDate)}" data-pcs-project-field="record-business-date" data-skip-page-rerender="true" />
       </label>
       ${renderEditableFieldGroups(project, node, { ...draft, open: true }, true)}
     `,
@@ -6926,6 +7003,40 @@ function setRecordDraftState(
     values: patch.values ? { ...draft.values, ...patch.values } : draft.values,
   }
   return state.recordDialog
+}
+
+function readFormalFieldDomDraft(): { businessDate: string; values: Record<string, unknown> } {
+  if (typeof document === 'undefined') return { businessDate: '', values: {} }
+  const values: Record<string, unknown> = {}
+  document.querySelectorAll<HTMLElement>('[data-pcs-project-field="formal-field"][data-field-key]').forEach((fieldNode) => {
+    const fieldKey = fieldNode.dataset.fieldKey
+    if (!fieldKey) return
+    if (fieldNode instanceof HTMLSelectElement && fieldNode.multiple) {
+      values[fieldKey] = Array.from(fieldNode.selectedOptions).map((option) => option.value)
+      return
+    }
+    if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement) {
+      values[fieldKey] = fieldNode.value
+    }
+  })
+  const businessDateNode = document.querySelector<HTMLInputElement>('[data-pcs-project-field="record-business-date"]')
+  return {
+    businessDate: businessDateNode?.value || '',
+    values,
+  }
+}
+
+function syncRecordDraftFromDom(project: PcsProjectRecord, node: ProjectNodeViewModel): void {
+  const domDraft = readFormalFieldDomDraft()
+  if (!domDraft.businessDate && Object.keys(domDraft.values).length === 0) return
+  const patch: Partial<RecordDialogState> = {
+    open: state.recordDialog.open,
+    values: domDraft.values,
+  }
+  if (domDraft.businessDate) {
+    patch.businessDate = domDraft.businessDate
+  }
+  setRecordDraftState(project, node, patch)
 }
 
 function applyCreateSelection(field: 'brand' | 'owner' | 'team' | 'styleCode' | 'sampleSupplier', id: string): void {
@@ -7541,6 +7652,71 @@ export function handlePcsProjectsInput(target: Element): boolean {
   return false
 }
 
+function getInboundLineReceivedQty(line: string): number {
+  const labeledMatch = line.match(/(?:实收|收到|到样|数量|qty)[:：]?\s*(\d+)/i)
+  const pieceMatch = line.match(/(\d+)\s*(?:件|pcs|pieces|piece)/i)
+  const qty = Number(labeledMatch?.[1] || pieceMatch?.[1] || 1)
+  return Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 1
+}
+
+function getInboundLineSpecParts(line: string): { specText: string; colorName: string; sizeName: string } {
+  const specText = line
+    .replace(/(?:实收|收到|到样|数量|qty)[:：]?\s*\d+\s*(?:件|pcs|pieces|piece)?/i, '')
+    .replace(/\d+\s*(?:件|pcs|pieces|piece)/i, '')
+    .replace(/[，,；;]+$/g, '')
+    .trim()
+  const parts = specText
+    .split(/[\/|｜]/)
+    .map((item) => item.replace(/[：:].*$/g, '').trim())
+    .filter(Boolean)
+  return {
+    specText: specText || line.trim(),
+    colorName: parts[0] || '',
+    sizeName: parts[1] || '',
+  }
+}
+
+function buildInboundSampleCode(project: PcsProjectRecord, index: number): string {
+  const projectCode = (project.projectCode || project.projectId || 'PROJECT')
+    .replace(/^PRJ-/, '')
+    .replace(/[^0-9A-Za-z-]/g, '')
+  return `SMP-${projectCode}-${String(index).padStart(2, '0')}`
+}
+
+function buildSampleInboundDerivedValues(
+  project: PcsProjectRecord,
+  values: Record<string, unknown>,
+): {
+  sampleInboundLines: string[]
+  receivedQty: number
+  generatedSampleCodes: string[]
+  sampleAssets: Array<{ sampleCode: string; specText: string; colorName: string; sizeName: string; sourceLine: string }>
+} {
+  const sampleInboundLines = getDraftStringArray(values.sampleInboundLines)
+  const sampleAssets: Array<{ sampleCode: string; specText: string; colorName: string; sizeName: string; sourceLine: string }> = []
+
+  sampleInboundLines.forEach((line) => {
+    const qty = getInboundLineReceivedQty(line)
+    const specParts = getInboundLineSpecParts(line)
+    for (let index = 0; index < qty; index += 1) {
+      sampleAssets.push({
+        sampleCode: buildInboundSampleCode(project, sampleAssets.length + 1),
+        specText: specParts.specText,
+        colorName: specParts.colorName,
+        sizeName: specParts.sizeName,
+        sourceLine: line,
+      })
+    }
+  })
+
+  return {
+    sampleInboundLines,
+    receivedQty: sampleAssets.length,
+    generatedSampleCodes: sampleAssets.map((item) => item.sampleCode),
+    sampleAssets,
+  }
+}
+
 function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewModel, draft: RecordDialogState): {
   businessDate: string
   values: Record<string, unknown>
@@ -7554,12 +7730,14 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
   const readonlyPayloadKeys = new Set(
     groups
       .flatMap((group) => group.fields)
+      .filter((field) => isProjectTemplateFieldVisible(project, node, field))
       .filter((field) => field.readonly && editableKeys.has(field.fieldKey))
       .map((field) => field.fieldKey),
   )
   const normalizedEditableValues = Object.fromEntries(
     groups
       .flatMap((group) => group.fields)
+      .filter((field) => isProjectTemplateFieldVisible(project, node, field))
       .filter((field) => !field.readonly && editableKeys.has(field.fieldKey))
       .map((field) => [field.fieldKey, normalizeDraftFieldValue(field, draft.values[field.fieldKey] ?? '')]),
   )
@@ -7580,6 +7758,7 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
     ...readonlySeedValues,
     ...normalizedEditableValues,
   }
+  const derivedDetailSnapshot: Record<string, unknown> = {}
 
   if (node.node.workItemTypeCode === 'TEST_DATA_SUMMARY') {
     const aggregate = getProjectTestingAggregate(project.projectId)
@@ -7594,6 +7773,18 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
     values.currencyBreakdownLines = aggregate.currencyBreakdownLines
   }
 
+  if (node.node.workItemTypeCode === 'SAMPLE_INBOUND_CHECK') {
+    const inbound = buildSampleInboundDerivedValues(project, values)
+    values.sampleInboundLines = inbound.sampleInboundLines
+    values.receivedQty = inbound.receivedQty
+    values.generatedSampleCodes = inbound.generatedSampleCodes
+    Object.assign(derivedDetailSnapshot, {
+      sampleIds: inbound.generatedSampleCodes,
+      sampleQuantity: inbound.receivedQty,
+      sampleAssets: inbound.sampleAssets,
+    })
+  }
+
   if (node.node.workItemTypeCode === 'TEST_CONCLUSION') {
     const conclusion = String(values.conclusion || '').trim()
     Object.assign(values, buildTestConclusionOutcomeValues(project, node, conclusion, draft.businessDate || todayText()))
@@ -7602,8 +7793,10 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
   const missingRequiredLabels = getMissingRequiredFieldLabels(node.node, values)
   const businessRuleErrors = getBusinessRuleValidationErrors(project, node, values)
   const businessDate =
-    typeof values.arrivalTime === 'string' && values.arrivalTime.trim()
-      ? values.arrivalTime
+    typeof values.receivedAt === 'string' && values.receivedAt.trim()
+      ? values.receivedAt
+      : typeof values.arrivalTime === 'string' && values.arrivalTime.trim()
+        ? values.arrivalTime
       : `${draft.businessDate || todayText()} 10:00`
 
   return {
@@ -7611,6 +7804,7 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
     values,
     detailSnapshot: {
       ...(quickPayload?.detailSnapshot || {}),
+      ...derivedDetailSnapshot,
     },
     missingRequiredLabels,
     businessRuleErrors,
@@ -7619,8 +7813,14 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
 }
 
 function saveFormalRecord(input: { completeAfterSave?: boolean; closeAfterSave?: boolean } = {}): void {
-  const projectId = state.recordDialog.projectId || state.workItem.projectId || state.detail.projectId || ''
-  const projectNodeId = state.recordDialog.projectNodeId || state.workItem.projectNodeId || state.detail.selectedNodeId || ''
+  const activeProjectId = state.workItem.projectId || state.detail.projectId || ''
+  const activeProjectNodeId = state.workItem.projectNodeId || state.detail.selectedNodeId || ''
+  const projectId = state.recordDialog.open
+    ? state.recordDialog.projectId || activeProjectId
+    : activeProjectId || state.recordDialog.projectId
+  const projectNodeId = state.recordDialog.open
+    ? state.recordDialog.projectNodeId || activeProjectNodeId
+    : activeProjectNodeId || state.recordDialog.projectNodeId
   if (!projectId || !projectNodeId) {
     closeAllDialogs()
     return
@@ -7632,6 +7832,7 @@ function saveFormalRecord(input: { completeAfterSave?: boolean; closeAfterSave?:
     return
   }
 
+  syncRecordDraftFromDom(context.project, context.node)
   const draft = getNodeRecordDraft(context.project, context.node)
   const payload = buildFormalSaveInput(context.project, context.node, draft)
   if (payload.businessRuleErrors.length > 0) {
