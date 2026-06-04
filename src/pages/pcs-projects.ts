@@ -1736,8 +1736,6 @@ const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCod
     'sampleUnitPrice',
     'freightAmount',
     'receiverName',
-    'saleType',
-    'targetRegionCodes',
     'needTransitFlag',
     'samplePurchaseSpecQty',
   ],
@@ -3111,10 +3109,98 @@ function formatDraftFieldValue(type: PcsProjectNodeFieldGroupDefinition['fields'
   return text
 }
 
+type SamplePurchaseSpecQtyRow = {
+  colorName: string
+  sizeName: string
+  quantity: string
+}
+
+function normalizeSamplePurchaseSpecQtyRow(row: Partial<SamplePurchaseSpecQtyRow>): SamplePurchaseSpecQtyRow {
+  return {
+    colorName: String(row.colorName || '').trim(),
+    sizeName: String(row.sizeName || '').trim(),
+    quantity: String(row.quantity || '').trim(),
+  }
+}
+
+function isSamplePurchaseSpecQtyRowFilled(row: SamplePurchaseSpecQtyRow): boolean {
+  return Boolean(row.colorName || row.sizeName || row.quantity)
+}
+
+function parseSamplePurchaseSpecQtyLine(line: string): SamplePurchaseSpecQtyRow {
+  const text = line.trim()
+  if (!text) return { colorName: '', sizeName: '', quantity: '' }
+  const canonicalMatch = text.match(/^(.+?)\s*[\/|｜]\s*(.+?)\s*[：:]\s*(?:采购)?\s*([0-9.]+)\s*件?$/)
+  if (canonicalMatch) {
+    return normalizeSamplePurchaseSpecQtyRow({
+      colorName: canonicalMatch[1],
+      sizeName: canonicalMatch[2],
+      quantity: canonicalMatch[3],
+    })
+  }
+  const simpleParts = text
+    .replace(/件$/g, '')
+    .split(/[\/|｜,，\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return normalizeSamplePurchaseSpecQtyRow({
+    colorName: simpleParts[0] || text,
+    sizeName: simpleParts[1] || '',
+    quantity: simpleParts[2] || '',
+  })
+}
+
+function parseSamplePurchaseSpecQtyRows(value: unknown, keepEmpty = false): SamplePurchaseSpecQtyRow[] {
+  const rows: SamplePurchaseSpecQtyRow[] = []
+  if (Array.isArray(value)) {
+    value.forEach((item) => {
+      if (typeof item === 'object' && item !== null) {
+        const row = normalizeSamplePurchaseSpecQtyRow(item as Partial<SamplePurchaseSpecQtyRow>)
+        if (keepEmpty || isSamplePurchaseSpecQtyRowFilled(row)) rows.push(row)
+        return
+      }
+      const row = parseSamplePurchaseSpecQtyLine(String(item || ''))
+      if (keepEmpty || isSamplePurchaseSpecQtyRowFilled(row)) rows.push(row)
+    })
+    return rows
+  }
+  if (typeof value !== 'string') return rows
+  const text = value.trim()
+  if (!text) return rows
+  if (text.startsWith('[')) {
+    try {
+      return parseSamplePurchaseSpecQtyRows(JSON.parse(text), keepEmpty)
+    } catch {
+      // Fall through to line parsing for partially pasted text.
+    }
+  }
+  text.split(/\n/).forEach((line) => {
+    const row = parseSamplePurchaseSpecQtyLine(line)
+    if (keepEmpty || isSamplePurchaseSpecQtyRowFilled(row)) rows.push(row)
+  })
+  return rows
+}
+
+function formatSamplePurchaseSpecQtyLine(row: SamplePurchaseSpecQtyRow): string {
+  const colorName = row.colorName || '-'
+  const sizeName = row.sizeName || '-'
+  const quantity = row.quantity || '0'
+  return `${colorName} / ${sizeName}：采购 ${quantity} 件`
+}
+
+function normalizeSamplePurchaseSpecQtyValue(value: unknown): string[] {
+  return parseSamplePurchaseSpecQtyRows(value)
+    .filter((row) => row.colorName && row.sizeName && row.quantity)
+    .map(formatSamplePurchaseSpecQtyLine)
+}
+
 function normalizeDraftFieldValue(
   field: PcsProjectNodeFieldGroupDefinition['fields'][number],
   value: unknown,
 ): unknown {
+  if (field.fieldKey === 'samplePurchaseSpecQty') {
+    return normalizeSamplePurchaseSpecQtyValue(value)
+  }
   if (Array.isArray(value)) {
     return value.map((item) => String(item).trim()).filter(Boolean)
   }
@@ -3492,6 +3578,65 @@ function getBusinessRuleValidationErrors(
   return errors
 }
 
+function renderSamplePurchaseSpecQtyControl(value: string, disabled: boolean, baseClass: string): string {
+  const sourceRows = parseSamplePurchaseSpecQtyRows(value, true)
+  const rows = Array.from({ length: Math.max(sourceRows.length, 3) }, (_, index) =>
+    sourceRows[index] || { colorName: '', sizeName: '', quantity: '' },
+  )
+  const inputClass = `${baseClass} h-9 border-slate-200 bg-white`
+
+  return `
+    <div class="overflow-hidden rounded-md border border-slate-200" data-pcs-sample-purchase-spec="true">
+      <table class="w-full table-fixed text-left text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500">
+          <tr>
+            <th class="w-[34%] px-3 py-2 font-medium">颜色</th>
+            <th class="w-[34%] px-3 py-2 font-medium">尺码</th>
+            <th class="w-[20%] px-3 py-2 font-medium">数量</th>
+            <th class="w-[12%] px-3 py-2 text-right font-medium">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 bg-white">
+          ${rows
+            .map(
+              (row, index) => `
+                <tr data-pcs-sample-spec-row="${index}">
+                  <td class="px-3 py-2">
+                    <input type="text" class="${inputClass}" value="${escapeHtml(row.colorName)}" placeholder="例如：黑色" data-pcs-sample-spec-field="colorName" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
+                  </td>
+                  <td class="px-3 py-2">
+                    <input type="text" class="${inputClass}" value="${escapeHtml(row.sizeName)}" placeholder="例如：M" data-pcs-sample-spec-field="sizeName" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
+                  </td>
+                  <td class="px-3 py-2">
+                    <input type="number" min="0" step="1" class="${inputClass}" value="${escapeHtml(row.quantity)}" placeholder="2" data-pcs-sample-spec-field="quantity" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
+                  </td>
+                  <td class="px-3 py-2 text-right">
+                    ${
+                      disabled
+                        ? '-'
+                        : `<button type="button" class="inline-flex h-8 items-center rounded-md px-2 text-xs text-slate-500 hover:bg-slate-100" data-pcs-project-action="remove-sample-purchase-spec-row" data-row-index="${index}">删除</button>`
+                    }
+                  </td>
+                </tr>
+              `,
+            )
+            .join('')}
+        </tbody>
+      </table>
+      ${
+        disabled
+          ? ''
+          : `
+            <div class="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              <span>保存后将格式化为“颜色 / 尺码：采购 N 件”。</span>
+              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-100" data-pcs-project-action="add-sample-purchase-spec-row">添加规格</button>
+            </div>
+          `
+      }
+    </div>
+  `
+}
+
 function renderFormalFieldControl(
   field: PcsProjectNodeFieldGroupDefinition['fields'][number],
   value: string,
@@ -3547,6 +3692,9 @@ function renderFormalFieldControl(
   }
 
   if (field.type === 'table') {
+    if (field.fieldKey === 'samplePurchaseSpecQty') {
+      return renderSamplePurchaseSpecQtyControl(value, disabled, baseClass)
+    }
     return `
       <textarea class="min-h-[112px] ${baseClass} py-2" placeholder="${escapeHtml(field.placeholder || '例如：黑色 / M：采购 2 件')}" ${commonAttrs}>${escapeHtml(value)}</textarea>
     `
@@ -6988,6 +7136,35 @@ function getCurrentProjectNodeContext(): { project: PcsProjectRecord; node: Proj
   return getProjectNodeContext(projectId, projectNodeId)
 }
 
+function readSamplePurchaseSpecRowsFromDom(keepEmpty = false): SamplePurchaseSpecQtyRow[] {
+  if (typeof document === 'undefined') return []
+  const rows: SamplePurchaseSpecQtyRow[] = []
+  document.querySelectorAll<HTMLElement>('[data-pcs-sample-purchase-spec="true"] [data-pcs-sample-spec-row]').forEach((rowNode) => {
+    const readValue = (fieldKey: keyof SamplePurchaseSpecQtyRow): string =>
+      rowNode.querySelector<HTMLInputElement>(`[data-pcs-sample-spec-field="${fieldKey}"]`)?.value || ''
+    const row = normalizeSamplePurchaseSpecQtyRow({
+      colorName: readValue('colorName'),
+      sizeName: readValue('sizeName'),
+      quantity: readValue('quantity'),
+    })
+    if (keepEmpty || isSamplePurchaseSpecQtyRowFilled(row)) rows.push(row)
+  })
+  return rows
+}
+
+function updateSamplePurchaseSpecRowsFromDom(updater: (rows: SamplePurchaseSpecQtyRow[]) => SamplePurchaseSpecQtyRow[]): void {
+  const context = getCurrentProjectNodeContext()
+  if (!context) return
+  const domRows = readSamplePurchaseSpecRowsFromDom(true)
+  syncRecordDraftFromDom(context.project, context.node)
+  const rows = updater(domRows)
+  setRecordDraftState(context.project, context.node, {
+    values: {
+      samplePurchaseSpecQty: JSON.stringify(rows),
+    },
+  })
+}
+
 function setRecordDraftState(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
@@ -7019,6 +7196,9 @@ function readFormalFieldDomDraft(): { businessDate: string; values: Record<strin
       values[fieldKey] = fieldNode.value
     }
   })
+  if (document.querySelector('[data-pcs-sample-purchase-spec="true"]')) {
+    values.samplePurchaseSpecQty = JSON.stringify(readSamplePurchaseSpecRowsFromDom(false))
+  }
   const businessDateNode = document.querySelector<HTMLInputElement>('[data-pcs-project-field="record-business-date"]')
   return {
     businessDate: businessDateNode?.value || '',
@@ -8640,6 +8820,15 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   }
   if (action === 'switch-work-item-tab') {
     state.workItem.activeTab = normalizeWorkItemTab(actionNode.dataset.tab ?? null)
+    return true
+  }
+  if (action === 'add-sample-purchase-spec-row') {
+    updateSamplePurchaseSpecRowsFromDom((rows) => [...rows, { colorName: '', sizeName: '', quantity: '' }])
+    return true
+  }
+  if (action === 'remove-sample-purchase-spec-row') {
+    const rowIndex = Number.parseInt(actionNode.dataset.rowIndex ?? '', 10)
+    updateSamplePurchaseSpecRowsFromDom((rows) => rows.filter((_, index) => index !== rowIndex))
     return true
   }
   if (action === 'save-formal-fields') {

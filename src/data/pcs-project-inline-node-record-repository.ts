@@ -44,8 +44,6 @@ const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, s
     'purchaseSupplierName',
     'freightAmount',
     'receiverName',
-    'saleType',
-    'targetRegionCodes',
     'needTransitFlag',
     'samplePurchaseSpecQty',
   ],

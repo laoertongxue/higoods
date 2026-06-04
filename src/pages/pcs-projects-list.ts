@@ -3,7 +3,6 @@ import {
   listProjectListRecords,
   type PcsProjectListRecord,
 } from '../data/pcs-project-list-store.ts'
-import { seedPcsProductTestingSixFlowValidationData } from '../data/pcs-product-testing-six-flow-validation-seed.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
 type ProjectListViewMode = 'list' | 'grid'
@@ -51,61 +50,6 @@ const initialState: ProjectListState = {
 
 const state: { list: ProjectListState } = {
   list: { ...initialState },
-}
-
-let sixFlowSeedAppliedKey = ''
-let sixFlowAutoSeedApplied = false
-
-function getSixFlowSeedQueryKey(): string {
-  if (typeof window === 'undefined') return ''
-  const params = new URLSearchParams(window.location.search)
-  const enabled = params.get('sixFlowSeed') === '1' || params.get('sixFlowValidationData') === '1'
-  if (!enabled) return ''
-  return params.get('sixFlowSeedRun') || params.get('seedRun') || window.location.href
-}
-
-function applySixFlowSeedFromQuery(): void {
-  const seedKey = getSixFlowSeedQueryKey()
-  if (!seedKey || sixFlowSeedAppliedKey === seedKey) return
-  sixFlowSeedAppliedKey = seedKey
-
-  try {
-    seedPcsProductTestingSixFlowValidationData({
-      reset: true,
-      operatorName: '六轮验收页面落库',
-    })
-    state.list = {
-      ...initialState,
-      search: '六轮验收',
-      sortBy: 'updatedAt',
-      currentPage: 1,
-      pageSize: 8,
-    }
-  } catch (error) {
-    console.error('六轮验收数据写入失败', error)
-  }
-}
-
-function applySixFlowSeedForEmptyBrowserList(): void {
-  if (sixFlowAutoSeedApplied) return
-  if (typeof window === 'undefined') return
-  if (window.location.pathname !== '/pcs/projects') return
-  if (listProjectListRecords().length > 0) return
-
-  sixFlowAutoSeedApplied = true
-  try {
-    seedPcsProductTestingSixFlowValidationData({
-      reset: true,
-      operatorName: '六轮验收页面落库',
-    })
-    state.list = {
-      ...initialState,
-      sortBy: 'updatedAt',
-      currentPage: 1,
-    }
-  } catch (error) {
-    console.error('六轮验收数据写入失败', error)
-  }
 }
 
 function getProjectStatusBadgeClass(status: PcsProjectListRecord['projectStatus']): string {
@@ -544,8 +488,6 @@ function renderHeader(): string {
 }
 
 export async function renderPcsProjectListPage(): Promise<string> {
-  applySixFlowSeedFromQuery()
-  applySixFlowSeedForEmptyBrowserList()
   const { filtered, totalPages, paged } = getPagedProjects()
 
   return `
