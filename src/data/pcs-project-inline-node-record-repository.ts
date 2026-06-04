@@ -36,8 +36,37 @@ export interface SaveProjectInlineNodeFieldEntryInput {
 }
 
 const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, string[]> = {
-  SAMPLE_ACQUIRE: ['sampleSourceType', 'sampleSupplierId', 'sampleLink', 'sampleUnitPrice'],
-  SAMPLE_INBOUND_CHECK: ['sampleCode', 'arrivalTime', 'checkResult'],
+  SAMPLE_ACQUIRE: [
+    'sampleSourceType',
+    'sampleSupplierId',
+    'sampleLink',
+    'sampleUnitPrice',
+    'purchaseSupplierName',
+    'freightAmount',
+    'receiverName',
+    'saleType',
+    'targetRegionCodes',
+    'needTransitFlag',
+    'skuPurchaseQty',
+    'baseProductCode',
+    'expectedNewSpuCode',
+    'requestedSampleQty',
+    'revisionDirection',
+    'materialRequirement',
+    'printRequirement',
+    'paperPatternRequirement',
+    'designDraftRequirement',
+  ],
+  SAMPLE_INBOUND_CHECK: [
+    'sampleCode',
+    'arrivalTime',
+    'receivedQty',
+    'receivedAt',
+    'sampleImageIds',
+    'qualityCheckResult',
+    'testableFlag',
+    'checkResult',
+  ],
   FEASIBILITY_REVIEW: ['reviewConclusion', 'reviewRisk'],
   SAMPLE_SHOOT_FIT: [
     'shootPlan',
@@ -74,10 +103,16 @@ const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, s
     'linkedStyleCode',
     'invalidatedChannelProductId',
     'nextActionType',
+    'productPositioningConclusion',
+    'stockGrade',
+    'continueTestFlag',
+    'downShelfFlag',
+    'returnDestination',
+    'nextTestPlan',
     'conclusionLegacyValue',
     'migrationNote',
   ],
-  SAMPLE_RETURN_HANDLE: ['returnResult'],
+  SAMPLE_RETURN_HANDLE: ['handleType', 'destination', 'handledQty', 'handledBy', 'handledAt', 'returnResult'],
 }
 
 const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, string[]> = {
@@ -202,7 +237,12 @@ const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTyp
 }
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
+  return (
+    typeof localStorage !== 'undefined' &&
+    typeof localStorage.getItem === 'function' &&
+    typeof localStorage.setItem === 'function' &&
+    typeof localStorage.removeItem === 'function'
+  )
 }
 
 function nowText(): string {

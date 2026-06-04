@@ -59,6 +59,10 @@ export const routes: RouteRegistry = {
     '/pcs/materials/yarn/new': () => renderers.renderPcsYarnArchiveCreatePage(),
     '/pcs/materials/consumable': () => renderers.renderPcsConsumableArchiveListPage(),
     '/pcs/materials/consumable/new': () => renderers.renderPcsConsumableArchiveCreatePage(),
+    '/pcs/materials/packaging': () => renderers.renderPcsPackagingArchiveListPage(),
+    '/pcs/materials/packaging/new': () => renderers.renderPcsPackagingArchiveCreatePage(),
+    '/pcs/materials/parts': () => renderers.renderPcsPartsArchiveListPage(),
+    '/pcs/materials/parts/new': () => renderers.renderPcsPartsArchiveCreatePage(),
     '/pcs/settings/cost-parameters': () => renderRouteRedirect('/pcs/settings/config-workspace', '系统设置已收口到基础配置'),
     '/pcs/settings/config-workspace': () => renderers.renderPcsConfigWorkspacePage(),
     '/pcs/settings/template-center': () => renderRouteRedirect('/pcs/settings/config-workspace', '系统设置已收口到基础配置'),
@@ -158,7 +162,7 @@ export const routes: RouteRegistry = {
       render: (match) => renderers.renderPcsSpecificationDetailPage(match[1]),
     },
     {
-      pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable)\/([^/]+)$/,
+      pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|packaging|parts)\/([^/]+)$/,
       render: (match) => renderers.renderPcsMaterialArchiveDetailPage(match[1], match[2]),
     },
     {

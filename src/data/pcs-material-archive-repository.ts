@@ -12,13 +12,15 @@ import type {
 } from './pcs-material-archive-types.ts'
 
 const MATERIAL_ARCHIVE_STORAGE_KEY = 'higood-pcs-material-archive-store-v2'
-const MATERIAL_ARCHIVE_STORE_VERSION = 2
+const MATERIAL_ARCHIVE_STORE_VERSION = 3
 
 const MATERIAL_CATEGORY_OPTIONS: Record<MaterialArchiveKind, string[]> = {
   fabric: ['毛织布', '梭织布', '经编布', '里布', '网布', '牛仔布'],
   accessory: ['花边辅料', '纽扣', '拉链', '刺绣辅料', '松紧带', '装饰件'],
   yarn: ['车缝线', '包缝线', '绣花线', '织带线'],
-  consumable: ['包装耗材', '吊牌', '胶袋', '贴纸', '辅助耗材'],
+  consumable: ['裁剪耗材', '车缝耗材', '清洁耗材', '辅助耗材'],
+  packaging: ['吊牌', '包装袋', '贴纸', '纸卡', '包装盒', '防潮包'],
+  parts: ['裁床配件', '缝纫机配件', '熨烫设备配件', '检针设备配件', '通用设备配件'],
 }
 
 const MATERIAL_SKU_SPEC_META: Record<
@@ -51,8 +53,20 @@ const MATERIAL_SKU_SPEC_META: Record<
   consumable: {
     primaryLabel: '颜色',
     secondaryLabel: '规格',
-    primaryPlaceholder: '例如：透明 / 白色',
-    secondaryPlaceholder: '例如：35×45cm / 中号 / 大号',
+    primaryPlaceholder: '例如：白色 / 蓝色 / 通用',
+    secondaryPlaceholder: '例如：24mm×50m / 标准卷',
+  },
+  packaging: {
+    primaryLabel: '颜色 / 版面',
+    secondaryLabel: '规格',
+    primaryPlaceholder: '例如：白卡黑字 / 透明 / 品牌标准版',
+    secondaryPlaceholder: '例如：55×90mm / 35×45cm / 500PCS/包',
+  },
+  parts: {
+    primaryLabel: '适配设备',
+    secondaryLabel: '型号 / 规格',
+    primaryPlaceholder: '例如：裁床 / 平车 / 熨烫台',
+    secondaryPlaceholder: '例如：10英寸 / DBx1 11号 / 通用款',
   },
 }
 
@@ -90,6 +104,11 @@ function cloneSnapshot(snapshot: MaterialArchiveStoreSnapshot): MaterialArchiveS
     usageRecords: snapshot.usageRecords.map(cloneUsageRecord),
     logRecords: snapshot.logRecords.map(cloneLogRecord),
   }
+}
+
+function appendMissingByKey<T>(records: T[], seedRecords: T[], getKey: (item: T) => string): T[] {
+  const existingKeys = new Set(records.map(getKey))
+  return [...records, ...seedRecords.filter((item) => !existingKeys.has(getKey(item)))]
 }
 
 function nowText(): string {
@@ -347,28 +366,80 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
     {
       materialId: 'material_consumable_001',
       kind: 'consumable',
-      materialCode: 'PACK-35X45',
-      materialName: '独立包装袋 35×45cm',
-      materialNameEn: 'Poly Bag 35x45cm',
-      categoryName: '包装耗材',
-      specSummary: '透明标准袋',
-      composition: 'PE',
-      processTags: ['包装', '出货耗材'],
-      widthText: '35×45cm',
+      materialCode: 'CONS-TAPE-001',
+      materialName: '裁剪定位纸胶带',
+      materialNameEn: 'Cutting Positioning Masking Tape',
+      categoryName: '裁剪耗材',
+      specSummary: '白色 / 24mm×50m',
+      composition: '纸基胶带',
+      processTags: ['裁剪辅助', '低值耗材'],
+      widthText: '24mm×50m',
       gramWeightText: '-',
+      pricingUnit: '卷',
+      mainImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg',
+      galleryImageUrls: ['https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg'],
+      status: 'ACTIVE',
+      skuCount: 1,
+      usedStyleCount: 2,
+      usedTechPackCount: 2,
+      barcodeTemplateCode: 'CONS-TAPE-001-WHT',
+      remark: '车间裁剪定位、临时标记使用的低值耗材，不归入服装包材。',
+      createdAt: '2026-04-12 18:10',
+      createdBy: '系统初始化',
+      updatedAt: '2026-04-16 09:48',
+      updatedBy: '系统同步',
+    },
+    {
+      materialId: 'material_packaging_001',
+      kind: 'packaging',
+      materialCode: 'PKG-HANGTAG-001',
+      materialName: '品牌吊牌 55×90mm',
+      materialNameEn: 'Brand Hangtag 55x90mm',
+      categoryName: '吊牌',
+      specSummary: '白卡黑字 / 黑色棉绳',
+      composition: '350g 白卡纸',
+      processTags: ['包材', '吊牌', '出货包装'],
+      widthText: '55×90mm',
+      gramWeightText: '350g',
       pricingUnit: 'PCS',
       mainImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg',
       galleryImageUrls: ['https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg'],
       status: 'ACTIVE',
       skuCount: 1,
-      usedStyleCount: 5,
-      usedTechPackCount: 5,
-      barcodeTemplateCode: 'PACK-35X45-CLR',
-      remark: '作为技术包 BOM 的标准包装耗材统一维护。',
-      createdAt: '2026-04-12 18:10',
+      usedStyleCount: 4,
+      usedTechPackCount: 4,
+      barcodeTemplateCode: 'PKG-HANGTAG-STD',
+      remark: '服装出货包装使用的标准吊牌，独立于生产辅料和车间耗材维护。',
+      createdAt: '2026-04-13 10:20',
       createdBy: '系统初始化',
-      updatedAt: '2026-04-16 09:48',
+      updatedAt: '2026-04-16 10:05',
       updatedBy: '系统同步',
+    },
+    {
+      materialId: 'material_parts_001',
+      kind: 'parts',
+      materialCode: 'PART-CUT-KNIFE-10IN',
+      materialName: '裁床直刀 10英寸',
+      materialNameEn: 'Cutting Machine Straight Knife 10in',
+      categoryName: '裁床配件',
+      specSummary: '10英寸 / 高碳钢 / 通用直刀机',
+      composition: '高碳钢',
+      processTags: ['裁床', '刀片', '设备配件'],
+      widthText: '10英寸',
+      gramWeightText: '-',
+      pricingUnit: 'PCS',
+      mainImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/291197a6d0717c9d8832fff8b329299e.jpg',
+      galleryImageUrls: ['https://file.higood.id/higood_live/proudcts/2026/04/16/291197a6d0717c9d8832fff8b329299e.jpg'],
+      status: 'ACTIVE',
+      skuCount: 1,
+      usedStyleCount: 0,
+      usedTechPackCount: 0,
+      barcodeTemplateCode: 'PART-CUT-KNIFE-10IN',
+      remark: '生产车间设备使用的维修配件，用于裁床日常更换和备件管理。',
+      createdAt: '2026-04-14 11:30',
+      createdBy: '系统初始化',
+      updatedAt: '2026-04-16 10:12',
+      updatedBy: '设备管理员',
     },
   ]
 
@@ -712,26 +783,74 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
     {
       materialSkuId: 'material_consumable_001_sku_001',
       materialId: 'material_consumable_001',
-      materialCode: 'PACK-35X45',
-      materialSkuCode: 'PACK-35X45-CLR',
-      materialName: '独立包装袋 35×45cm',
-      colorName: '透明',
-      specName: '35×45cm',
-      sizeName: '常规',
+      materialCode: 'CONS-TAPE-001',
+      materialSkuCode: 'CONS-TAPE-001-WHT',
+      materialName: '裁剪定位纸胶带',
+      colorName: '白色',
+      specName: '24mm×50m',
+      sizeName: '标准卷',
       skuImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg',
       costPrice: 0.45,
       freightCost: 0.02,
-      pricingUnit: 'PCS',
+      pricingUnit: '卷',
       weightKg: 0.02,
-      lengthCm: 35,
-      widthCm: 45,
-      heightCm: 1,
-      barcode: 'PACK-35X45-CLR',
+      lengthCm: 5,
+      widthCm: 5,
+      heightCm: 2,
+      barcode: 'CONS-TAPE-001-WHT',
       status: 'ACTIVE',
       createdAt: '2026-04-12 18:10',
       createdBy: '系统初始化',
       updatedAt: '2026-04-16 09:48',
       updatedBy: '系统同步',
+    },
+    {
+      materialSkuId: 'material_packaging_001_sku_001',
+      materialId: 'material_packaging_001',
+      materialCode: 'PKG-HANGTAG-001',
+      materialSkuCode: 'PKG-HANGTAG-STD',
+      materialName: '品牌吊牌 55×90mm',
+      colorName: '白卡黑字',
+      specName: '55×90mm',
+      sizeName: '标准版',
+      skuImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg',
+      costPrice: 0.18,
+      freightCost: 0.01,
+      pricingUnit: 'PCS',
+      weightKg: 0.01,
+      lengthCm: 9,
+      widthCm: 5.5,
+      heightCm: 0.1,
+      barcode: 'PKG-HANGTAG-STD',
+      status: 'ACTIVE',
+      createdAt: '2026-04-13 10:20',
+      createdBy: '系统初始化',
+      updatedAt: '2026-04-16 10:05',
+      updatedBy: '系统同步',
+    },
+    {
+      materialSkuId: 'material_parts_001_sku_001',
+      materialId: 'material_parts_001',
+      materialCode: 'PART-CUT-KNIFE-10IN',
+      materialSkuCode: 'PART-CUT-KNIFE-10IN-STD',
+      materialName: '裁床直刀 10英寸',
+      colorName: '裁床',
+      specName: '10英寸直刀',
+      sizeName: '通用款',
+      skuImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/291197a6d0717c9d8832fff8b329299e.jpg',
+      costPrice: 68,
+      freightCost: 4.5,
+      pricingUnit: 'PCS',
+      weightKg: 0.18,
+      lengthCm: 25,
+      widthCm: 3,
+      heightCm: 0.3,
+      barcode: 'PART-CUT-KNIFE-10IN-STD',
+      status: 'ACTIVE',
+      createdAt: '2026-04-14 11:30',
+      createdBy: '系统初始化',
+      updatedAt: '2026-04-16 10:12',
+      updatedBy: '设备管理员',
     },
   ]
 
@@ -749,11 +868,12 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
     buildUsageRecord('material_yarn_001', 1, { styleCode: 'SPU-SHIRT-086', consumptionText: '1 卷/批', updatedAt: '2026-04-16 09:42' }),
     buildUsageRecord('material_yarn_001', 2, { styleCode: 'SPU-JACKET-085', consumptionText: '1 卷/批', updatedAt: '2026-04-16 09:42' }),
     buildUsageRecord('material_yarn_001', 3, { styleCode: 'SPU-2024-017', consumptionText: '1 卷/批', updatedAt: '2026-04-16 09:42' }),
-    buildUsageRecord('material_consumable_001', 0, { styleCode: 'SPU-2024-001', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 09:48' }),
-    buildUsageRecord('material_consumable_001', 1, { styleCode: 'SPU-2024-005', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 09:48' }),
-    buildUsageRecord('material_consumable_001', 2, { styleCode: 'SPU-SHIRT-086', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 09:48' }),
-    buildUsageRecord('material_consumable_001', 3, { styleCode: 'SPU-JACKET-085', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 09:48' }),
-    buildUsageRecord('material_consumable_001', 4, { styleCode: 'SPU-2026-018', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 09:48' }),
+    buildUsageRecord('material_consumable_001', 0, { styleCode: 'SPU-2024-001', consumptionText: '1 卷/批', updatedAt: '2026-04-16 09:48' }),
+    buildUsageRecord('material_consumable_001', 1, { styleCode: 'SPU-2024-005', consumptionText: '1 卷/批', updatedAt: '2026-04-16 09:48' }),
+    buildUsageRecord('material_packaging_001', 0, { styleCode: 'SPU-2024-001', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 10:05' }),
+    buildUsageRecord('material_packaging_001', 1, { styleCode: 'SPU-2024-005', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 10:05' }),
+    buildUsageRecord('material_packaging_001', 2, { styleCode: 'SPU-SHIRT-086', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 10:05' }),
+    buildUsageRecord('material_packaging_001', 3, { styleCode: 'SPU-JACKET-085', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 10:05' }),
   ]
 
   const logRecords: MaterialLogRecord[] = records.flatMap((record, index) => [
@@ -785,12 +905,18 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
 }
 
 function hydrateSnapshot(snapshot: MaterialArchiveStoreSnapshot): MaterialArchiveStoreSnapshot {
+  const seedSnapshot = buildSeedSnapshot()
+  const records = Array.isArray(snapshot.records) ? snapshot.records.map(normalizeRecord) : []
+  const skuRecords = Array.isArray(snapshot.skuRecords) ? snapshot.skuRecords.map(normalizeSkuRecord) : []
+  const usageRecords = Array.isArray(snapshot.usageRecords) ? snapshot.usageRecords.map(normalizeUsageRecord) : []
+  const logRecords = Array.isArray(snapshot.logRecords) ? snapshot.logRecords.map(normalizeLogRecord) : []
+
   return {
     version: MATERIAL_ARCHIVE_STORE_VERSION,
-    records: Array.isArray(snapshot.records) ? snapshot.records.map(normalizeRecord) : [],
-    skuRecords: Array.isArray(snapshot.skuRecords) ? snapshot.skuRecords.map(normalizeSkuRecord) : [],
-    usageRecords: Array.isArray(snapshot.usageRecords) ? snapshot.usageRecords.map(normalizeUsageRecord) : [],
-    logRecords: Array.isArray(snapshot.logRecords) ? snapshot.logRecords.map(normalizeLogRecord) : [],
+    records: appendMissingByKey(records, seedSnapshot.records, (item) => item.materialId),
+    skuRecords: appendMissingByKey(skuRecords, seedSnapshot.skuRecords, (item) => item.materialSkuId),
+    usageRecords: appendMissingByKey(usageRecords, seedSnapshot.usageRecords, (item) => item.usageId),
+    logRecords: appendMissingByKey(logRecords, seedSnapshot.logRecords, (item) => item.logId),
   }
 }
 
@@ -841,7 +967,15 @@ function persistSnapshot(snapshot: MaterialArchiveStoreSnapshot): void {
 }
 
 function buildMaterialCode(kind: MaterialArchiveKind, name: string): string {
-  const prefix = kind === 'fabric' ? 'FAB' : kind === 'accessory' ? 'ACC' : kind === 'yarn' ? 'YARN' : 'CONS'
+  const prefixMap: Record<MaterialArchiveKind, string> = {
+    fabric: 'FAB',
+    accessory: 'ACC',
+    yarn: 'YARN',
+    consumable: 'CONS',
+    packaging: 'PKG',
+    parts: 'PART',
+  }
+  const prefix = prefixMap[kind]
   const normalized = name
     .replace(/[^\w\u4e00-\u9fa5]+/g, '')
     .slice(0, 8)

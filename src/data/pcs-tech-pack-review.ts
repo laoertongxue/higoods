@@ -64,26 +64,53 @@ const REVIEW_NODE_META: Record<
 
 export const TECH_PACK_REVIEW_MODULES: Record<TechnicalReviewNodeKey, TechnicalModuleKey[]> = {
   BUYER: ['BOM', 'COST'],
-  PATTERN_MAKER: ['PATTERN', 'COLOR_MATERIAL_MAPPING'],
-  MERCHANDISER: ['PROCESS', 'SIZE', 'DESIGN', 'QUALITY'],
+  PATTERN_MAKER: ['PATTERN'],
+  MERCHANDISER: ['MATERIAL_PATTERN_LINK', 'COLOR_MATERIAL_MAPPING', 'PROCESS', 'SIZE', 'DESIGN', 'QUALITY'],
 }
 
 const MODULE_OWNER: Partial<Record<TechnicalModuleKey, TechnicalReviewNodeKey>> = {
   BOM: 'BUYER',
   COST: 'BUYER',
   PATTERN: 'PATTERN_MAKER',
-  COLOR_MATERIAL_MAPPING: 'PATTERN_MAKER',
+  MATERIAL_PATTERN_LINK: 'MERCHANDISER',
+  COLOR_MATERIAL_MAPPING: 'MERCHANDISER',
   PROCESS: 'MERCHANDISER',
   SIZE: 'MERCHANDISER',
   DESIGN: 'MERCHANDISER',
+  ATTACHMENT: 'MERCHANDISER',
   QUALITY: 'MERCHANDISER',
 }
 
 const REVIEW_SCOPE_TEXT: Record<TechnicalReviewNodeKey, string> = {
   BUYER: '物料清单、核价',
-  PATTERN_MAKER: '纸样管理、款色用料对应',
-  MERCHANDISER: '剩余部分、整体复核',
+  PATTERN_MAKER: '纸样池',
+  MERCHANDISER: '物料&纸样关联管理、款色用料对应、剩余部分、整体复核',
 }
+
+export const TECH_PACK_REVIEW_MODULE_LABELS: Record<TechnicalModuleKey, string> = {
+  BOM: '物料清单',
+  COST: '核价',
+  PATTERN: '纸样池',
+  MATERIAL_PATTERN_LINK: '物料&纸样关联管理',
+  COLOR_MATERIAL_MAPPING: '款色用料对应',
+  PROCESS: '工序工艺',
+  SIZE: '放码规则',
+  DESIGN: '花型设计',
+  ATTACHMENT: '附件',
+  QUALITY: '质量规则/整体复核',
+}
+
+export const TECH_PACK_REVIEW_REWORK_MODULES: TechnicalModuleKey[] = [
+  'BOM',
+  'COST',
+  'PATTERN',
+  'MATERIAL_PATTERN_LINK',
+  'COLOR_MATERIAL_MAPPING',
+  'PROCESS',
+  'SIZE',
+  'DESIGN',
+  'QUALITY',
+]
 
 let reviewLogSequence = 0
 
@@ -108,6 +135,30 @@ function assertOpinionRequired(opinion: string, actionLabel: string): string {
   const trimmed = opinion.trim()
   if (!trimmed) throw new Error(`请填写${actionLabel}意见。`)
   return trimmed
+}
+
+function normalizeModuleKeys(moduleKeys: TechnicalModuleKey[] | undefined): TechnicalModuleKey[] {
+  if (!Array.isArray(moduleKeys)) return []
+  const validKeys = new Set<TechnicalModuleKey>(TECH_PACK_REVIEW_REWORK_MODULES)
+  return [...new Set(moduleKeys.filter((moduleKey) => validKeys.has(moduleKey)))]
+}
+
+function normalizeNodeKeys(nodeKeys: TechnicalReviewNodeKey[] | undefined): TechnicalReviewNodeKey[] {
+  if (!Array.isArray(nodeKeys)) return []
+  const validKeys = new Set<TechnicalReviewNodeKey>(['BUYER', 'PATTERN_MAKER', 'MERCHANDISER'])
+  return [...new Set(nodeKeys.filter((nodeKey) => validKeys.has(nodeKey)))]
+}
+
+function formatModuleLabels(moduleKeys: TechnicalModuleKey[]): string {
+  return moduleKeys.map((moduleKey) => TECH_PACK_REVIEW_MODULE_LABELS[moduleKey] || moduleKey).join('、')
+}
+
+function formatNodeRoles(nodeKeys: TechnicalReviewNodeKey[]): string {
+  return nodeKeys.map((nodeKey) => REVIEW_NODE_META[nodeKey].reviewerRole).join('、')
+}
+
+export function resolveReviewNodeKeysByModules(moduleKeys: TechnicalModuleKey[]): TechnicalReviewNodeKey[] {
+  return [...new Set(normalizeModuleKeys(moduleKeys).map((moduleKey) => getTechnicalModuleReviewOwner(moduleKey)))]
 }
 
 function resolveReviewerForNode(nodeKey: TechnicalReviewNodeKey, reviewerId: string): TechPackReviewer {
@@ -284,6 +335,7 @@ export function normalizeTechnicalReviewSnapshot(
   | 'reviewSubmittedAt'
   | 'reviewSubmittedBy'
   | 'returnedFromMerchandiserFlag'
+  | 'reviewUnlockedModuleKeys'
 > {
   const buyerReview = normalizeTechnicalReviewNode('BUYER', record.buyerReview)
   const patternMakerReview = normalizeTechnicalReviewNode('PATTERN_MAKER', record.patternMakerReview)
@@ -302,6 +354,7 @@ export function normalizeTechnicalReviewSnapshot(
     reviewSubmittedAt: record.reviewSubmittedAt || '',
     reviewSubmittedBy: record.reviewSubmittedBy || '',
     returnedFromMerchandiserFlag: Boolean(record.returnedFromMerchandiserFlag),
+    reviewUnlockedModuleKeys: normalizeModuleKeys(record.reviewUnlockedModuleKeys),
   }
 }
 
@@ -329,6 +382,8 @@ export function canEditTechnicalModule(
   moduleKey: TechnicalModuleKey,
 ): boolean {
   if (record.versionStatus !== 'DRAFT') return false
+  const unlockedModuleKeys = normalizeModuleKeys(record.reviewUnlockedModuleKeys)
+  if (unlockedModuleKeys.length > 0 && !unlockedModuleKeys.includes(moduleKey)) return false
   const nodes = getTechnicalReviewNodes(record)
   if (isTechnicalReviewNodeLocked(nodes.MERCHANDISER.status)) return false
   const owner = getTechnicalModuleReviewOwner(moduleKey)
@@ -421,7 +476,8 @@ export function getTechnicalReviewStatusText(record: Partial<TechnicalDataVersio
   if (snapshot.reviewStage === '未提交审核') return '待提交审核'
   if (snapshot.reviewStage === '待发布') return '审核通过，待发布'
   if (snapshot.merchandiserReview.status === '审核-未通过' && snapshot.returnedFromMerchandiserFlag) {
-    return '跟单已打回，待买手、版师复审'
+    const pendingRoles = getTechnicalReviewPendingRoles(record)
+    return pendingRoles.length > 0 ? `跟单已打回，待${pendingRoles.join('、')}复审` : '跟单已打回，待跟单复核'
   }
   if (snapshot.merchandiserReview.status === '审核中') return '跟单复核中'
   if (snapshot.reviewStage === '跟单复核') return '待跟单复核'
@@ -553,6 +609,7 @@ export function submitTechPackFirstStageReview(
     reviewSubmittedAt: submittedAt,
     reviewSubmittedBy: operator.name,
     returnedFromMerchandiserFlag: false,
+    reviewUnlockedModuleKeys: [],
     updatedAt: submittedAt,
     updatedBy: operator.name,
   })
@@ -677,7 +734,7 @@ export function approveTechPackReview(
       ? { patternMakerReview: node }
       : { merchandiserReview: node }),
     ...(nodeKey === 'MERCHANDISER'
-      ? { reviewStage: '待发布' as const, returnedFromMerchandiserFlag: false }
+      ? { reviewStage: '待发布' as const, returnedFromMerchandiserFlag: false, reviewUnlockedModuleKeys: [] }
       : firstStagePassed
       ? {
           reviewStage: '跟单复核' as const,
@@ -762,63 +819,212 @@ export function returnTechPackReviewToFirstStage(
   opinion = '',
   operatorInput: string | TechPackReviewOperator = '当前用户',
 ): TechnicalDataVersionRecord {
+  return returnTechPackReviewByModules(
+    technicalVersionId,
+    TECH_PACK_REVIEW_REWORK_MODULES,
+    opinion,
+    operatorInput,
+  )
+}
+
+function resetReviewNodeForRework(input: {
+  record: TechnicalDataVersionRecord
+  nodeKey: TechnicalReviewNodeKey
+  currentNode: TechnicalReviewNode
+  returnedAt: string
+  operatorName: string
+}): TechnicalReviewNode {
+  return withReviewDiffSnapshot(
+    input.record,
+    normalizeTechnicalReviewNode(input.nodeKey, {
+      ...input.currentNode,
+      status: '待审核',
+      assignedAt: input.currentNode.assignedAt || input.returnedAt,
+      assignedBy: input.currentNode.assignedBy || input.operatorName,
+      reviewedBy: '',
+      reviewedAt: '',
+      startedOpinion: '',
+      opinion: '',
+    }),
+  )
+}
+
+function resetMerchandiserForRework(input: {
+  record: TechnicalDataVersionRecord
+  currentNode: TechnicalReviewNode
+  returnedAt: string
+  operatorName: string
+  opinion: string
+}): TechnicalReviewNode {
+  return withReviewDiffSnapshot(
+    input.record,
+    normalizeTechnicalReviewNode('MERCHANDISER', {
+      ...input.currentNode,
+      status: '审核-未通过',
+      reviewedBy: input.operatorName,
+      reviewedAt: input.returnedAt,
+      startedOpinion: '',
+      opinion: input.opinion,
+    }),
+  )
+}
+
+function buildReworkReviewPatch(input: {
+  record: TechnicalDataVersionRecord
+  snapshot: ReturnType<typeof normalizeTechnicalReviewSnapshot>
+  targetNodeKeys: TechnicalReviewNodeKey[]
+  unlockedModuleKeys: TechnicalModuleKey[]
+  returnedAt: string
+  operatorName: string
+  opinion: string
+}): Partial<TechnicalDataVersionRecord> {
+  const targets = new Set(input.targetNodeKeys)
+  const hasFirstStageRework = targets.has('BUYER') || targets.has('PATTERN_MAKER')
+  return {
+    reviewStage: hasFirstStageRework ? '第一阶段并行审核' : '跟单复核',
+    buyerReview: targets.has('BUYER')
+      ? resetReviewNodeForRework({
+          record: input.record,
+          nodeKey: 'BUYER',
+          currentNode: input.snapshot.buyerReview,
+          returnedAt: input.returnedAt,
+          operatorName: input.operatorName,
+        })
+      : input.snapshot.buyerReview,
+    patternMakerReview: targets.has('PATTERN_MAKER')
+      ? resetReviewNodeForRework({
+          record: input.record,
+          nodeKey: 'PATTERN_MAKER',
+          currentNode: input.snapshot.patternMakerReview,
+          returnedAt: input.returnedAt,
+          operatorName: input.operatorName,
+        })
+      : input.snapshot.patternMakerReview,
+    merchandiserReview: resetMerchandiserForRework({
+      record: input.record,
+      currentNode: input.snapshot.merchandiserReview,
+      returnedAt: input.returnedAt,
+      operatorName: input.operatorName,
+      opinion: input.opinion,
+    }),
+    returnedFromMerchandiserFlag: true,
+    reviewUnlockedModuleKeys: input.unlockedModuleKeys,
+    updatedAt: input.returnedAt,
+    updatedBy: input.operatorName,
+  }
+}
+
+function sendReworkNotifications(input: {
+  technicalVersionId: string
+  targetNodeKeys: TechnicalReviewNodeKey[]
+  createdBy: string
+}): void {
+  const targets = new Set(input.targetNodeKeys)
+  const firstStageTargets = (['BUYER', 'PATTERN_MAKER'] as TechnicalReviewNodeKey[]).filter((nodeKey) =>
+    targets.has(nodeKey),
+  )
+  const notifyTargets = firstStageTargets.length > 0 ? firstStageTargets : (['MERCHANDISER'] as TechnicalReviewNodeKey[])
+  notifyTargets.forEach((nodeKey) => {
+    sendReviewNotificationSafely({
+      technicalVersionId: input.technicalVersionId,
+      nodeKey,
+      notificationType: '打回复审',
+      createdBy: input.createdBy,
+    })
+  })
+}
+
+export function returnTechPackReviewByModules(
+  technicalVersionId: string,
+  moduleKeys: TechnicalModuleKey[],
+  opinion = '',
+  operatorInput: string | TechPackReviewOperator = '当前用户',
+): TechnicalDataVersionRecord {
   const record = requireDraftRecord(technicalVersionId)
   const operator = normalizeOperator(operatorInput)
   const reviewOpinion = assertOpinionRequired(opinion || '', '打回')
   const snapshot = normalizeTechnicalReviewSnapshot(record)
+  if (snapshot.reviewStage !== '跟单复核') throw new Error('只有跟单复核阶段可以按模块打回复审。')
   assertAssignedReviewer(snapshot.merchandiserReview, operator)
+  const unlockedModuleKeys = normalizeModuleKeys(moduleKeys)
+  if (unlockedModuleKeys.length === 0) throw new Error('请选择需要重审的模块。')
   const returnedAt = nowText()
-  const buyerReviewer = snapshot.buyerReview.assignedReviewerId
-    ? resolveReviewerForNode('BUYER', snapshot.buyerReview.assignedReviewerId)
-    : getLegacyTechPackReviewer('买手')
-  const patternReviewer = snapshot.patternMakerReview.assignedReviewerId
-    ? resolveReviewerForNode('PATTERN_MAKER', snapshot.patternMakerReview.assignedReviewerId)
-    : getLegacyTechPackReviewer('版师')
-  const buyerReview = withReviewDiffSnapshot(
-    record,
-    buildAssignedReviewNode('BUYER', '待审核', buyerReviewer, returnedAt, operator.name),
-  )
-  const patternMakerReview = withReviewDiffSnapshot(
-    record,
-    buildAssignedReviewNode('PATTERN_MAKER', '待审核', patternReviewer, returnedAt, operator.name),
-  )
-  const merchandiserReview = withReviewDiffSnapshot(
-    record,
-    normalizeTechnicalReviewNode('MERCHANDISER', {
-      ...snapshot.merchandiserReview,
-      status: '审核-未通过',
-      reviewedBy: operator.name,
-      reviewedAt: returnedAt,
+  const targetNodeKeys = normalizeNodeKeys([
+    ...resolveReviewNodeKeysByModules(unlockedModuleKeys),
+    'MERCHANDISER',
+  ])
+  const nextRecord = saveReviewPatch(technicalVersionId, {
+    ...buildReworkReviewPatch({
+      record,
+      snapshot,
+      targetNodeKeys,
+      unlockedModuleKeys,
+      returnedAt,
+      operatorName: operator.name,
       opinion: reviewOpinion,
     }),
-  )
-  const nextRecord = saveReviewPatch(technicalVersionId, {
-    reviewStage: '第一阶段并行审核',
-    buyerReview,
-    patternMakerReview,
-    merchandiserReview,
-    returnedFromMerchandiserFlag: true,
-    updatedAt: returnedAt,
-    updatedBy: operator.name,
   })
   appendReviewLog({
     record: nextRecord,
     logType: '跟单打回第一阶段',
-    changeText: `跟单复核打回买手、版师重新审核。原因：${reviewOpinion}`,
+    changeText: `跟单复核打回${formatNodeRoles(targetNodeKeys)}重新审核，重审模块：${formatModuleLabels(unlockedModuleKeys)}。原因：${reviewOpinion}`,
     operatorName: operator.name,
     createdAt: returnedAt,
   })
-  sendReviewNotificationSafely({
+  sendReworkNotifications({
     technicalVersionId,
-    nodeKey: 'BUYER',
-    notificationType: '打回复审',
     createdBy: operator.name,
+    targetNodeKeys,
   })
-  sendReviewNotificationSafely({
+  return getTechnicalDataVersionById(technicalVersionId) || nextRecord
+}
+
+export function reopenTechPackReviewForRoles(
+  technicalVersionId: string,
+  nodeKeys: TechnicalReviewNodeKey[],
+  opinion = '',
+  operatorInput: string | TechPackReviewOperator = '当前用户',
+): TechnicalDataVersionRecord {
+  const record = requireDraftRecord(technicalVersionId)
+  const operator = normalizeOperator(operatorInput)
+  const reviewOpinion = assertOpinionRequired(opinion || '', '重审')
+  const snapshot = normalizeTechnicalReviewSnapshot(record)
+  if (snapshot.reviewStage !== '待发布') throw new Error('只有审核通过、待发布状态可以发起待发布重审。')
+
+  const requestedNodeKeys = normalizeNodeKeys(nodeKeys)
+  if (requestedNodeKeys.length === 0) throw new Error('请选择需要重审的角色。')
+
+  const hasFirstStageRework = requestedNodeKeys.includes('BUYER') || requestedNodeKeys.includes('PATTERN_MAKER')
+  const targetNodeKeys = normalizeNodeKeys([
+    ...requestedNodeKeys,
+    ...(hasFirstStageRework ? (['MERCHANDISER'] as TechnicalReviewNodeKey[]) : []),
+  ])
+  const unlockedModuleKeys = normalizeModuleKeys(
+    requestedNodeKeys.flatMap((nodeKey) => TECH_PACK_REVIEW_MODULES[nodeKey] ?? []),
+  )
+  const returnedAt = nowText()
+  const nextRecord = saveReviewPatch(technicalVersionId, {
+    ...buildReworkReviewPatch({
+      record,
+      snapshot,
+      targetNodeKeys,
+      unlockedModuleKeys,
+      returnedAt,
+      operatorName: operator.name,
+      opinion: reviewOpinion,
+    }),
+  })
+  appendReviewLog({
+    record: nextRecord,
+    logType: '跟单打回第一阶段',
+    changeText: `待发布技术包发起${formatNodeRoles(requestedNodeKeys)}重审，需复核角色：${formatNodeRoles(targetNodeKeys)}，开放模块：${formatModuleLabels(unlockedModuleKeys)}。原因：${reviewOpinion}`,
+    operatorName: operator.name,
+    createdAt: returnedAt,
+  })
+  sendReworkNotifications({
     technicalVersionId,
-    nodeKey: 'PATTERN_MAKER',
-    notificationType: '打回复审',
     createdBy: operator.name,
+    targetNodeKeys,
   })
   return getTechnicalDataVersionById(technicalVersionId) || nextRecord
 }

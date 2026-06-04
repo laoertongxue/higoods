@@ -35,7 +35,7 @@ function buildProjectDraft() {
   draft.styleType = template.styleType[0]
   draft.yearTag = catalog.yearTags[0]
   draft.priceRangeLabel = catalog.priceRanges[0]
-  draft.targetChannelCodes = ['tiktok-shop']
+  draft.targetChannelCodes = ['tiktok']
   draft.ownerId = owner.id
   draft.ownerName = owner.name
   draft.teamId = team.id

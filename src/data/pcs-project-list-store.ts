@@ -1,6 +1,6 @@
 import { getProjectStoreSnapshot } from './pcs-project-repository.ts'
+import { getPcsChannelNamesByCodes, normalizePcsChannelCodes } from './pcs-channel-options.ts'
 
-export type ProjectListStyleType = '基础款' | '快时尚款' | '改版款' | '设计款'
 export type ProjectListStatus = '已立项' | '进行中' | '已终止' | '已归档'
 export type ProjectListRiskStatus = '正常' | '延期'
 export type ProjectListNodeStatus = '未开始' | '进行中' | '待确认' | '已完成' | '已取消' | '-'
@@ -9,7 +9,6 @@ export interface PcsProjectListRecord {
   projectId: string
   projectCode: string
   projectName: string
-  styleType: ProjectListStyleType
   categoryName: string
   subCategoryName: string
   styleTagNames: string[]
@@ -51,13 +50,6 @@ interface ProjectStoreSnapshot {
   version?: number
   projects?: ProjectSnapshotRecord[]
   nodes?: ProjectSnapshotNodeRecord[]
-}
-
-const CHANNEL_NAME_MAP: Record<string, string> = {
-  'tiktok-shop': '抖音商城',
-  shopee: '虾皮',
-  lazada: '来赞达',
-  'wechat-mini-program': '微信小程序',
 }
 
 function nowText(): string {
@@ -147,11 +139,10 @@ function buildRuntimeRecord(project: ProjectSnapshotRecord, snapshot: ProjectSto
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    styleType: project.styleType,
     categoryName: project.categoryName,
     subCategoryName: project.subCategoryName,
     styleTagNames: [...(project.styleTagNames || [])],
-    targetChannelCodes: [...(project.targetChannelCodes || [])],
+    targetChannelCodes: normalizePcsChannelCodes(project.targetChannelCodes || []),
     projectStatus: project.projectStatus,
     currentPhaseName: project.currentPhaseName || '-',
     ownerName: project.ownerName || '-',
@@ -179,7 +170,7 @@ function readMergedSnapshot(): ProjectStoreSnapshot | null {
 }
 
 export function getChannelNamesByCodes(channelCodes: string[]): string[] {
-  return channelCodes.map((code) => CHANNEL_NAME_MAP[code] || code)
+  return getPcsChannelNamesByCodes(channelCodes)
 }
 
 export function listProjectListRecords(): PcsProjectListRecord[] {

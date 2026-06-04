@@ -43,7 +43,7 @@ assert.ok(listingNode, '演示项目应存在渠道商品上架节点')
 const createListingResult = createProjectChannelProductFromListingNode(
   demoProject!.projectId,
   {
-    targetChannelCode: 'tiktok-shop',
+    targetChannelCode: 'tiktok',
     targetStoreId: 'store-tiktok-01',
     listingTitle: '项目节点实例注册中心回归验证款',
     defaultPriceAmount: 299,
@@ -111,7 +111,7 @@ const created = createProject(
     styleCodeId: styleCode?.id || 'style-001',
     styleCodeName: styleCode?.name || '1-Casul Shirt-18-30休闲衬衫',
     styleType: '基础款',
-    targetChannelCodes: [catalog.channelOptions[0]?.code || 'tiktok-shop'],
+    targetChannelCodes: [catalog.channelOptions[0]?.code || 'tiktok'],
     priceRangeLabel: '￥199-299',
     ownerId: owner?.id || 'owner-zl',
     ownerName: owner?.name || '张丽',

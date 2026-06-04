@@ -12,14 +12,19 @@ import {
   updateProjectTemplate,
   type ProjectTemplate,
   type TemplateStatusCode,
-  type TemplateStyleType,
 } from '../data/pcs-templates.ts'
 import type {
   ProjectTemplateNodeDefinition,
   ProjectTemplatePendingNode,
   ProjectTemplateStageDefinition,
 } from '../data/pcs-project-definition-normalizer.ts'
-import { buildBuiltinProjectTemplateMatrix, listProjectTemplateSchemas } from '../data/pcs-project-domain-contract.ts'
+import {
+  buildBuiltinProjectTemplateMatrix,
+  DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
+  getProjectTemplateSchema,
+  WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
+  type PcsProjectTemplateId,
+} from '../data/pcs-project-domain-contract.ts'
 import { getPcsWorkItemDefinition, listSelectableTemplateWorkItems } from '../data/pcs-work-items.ts'
 import { buildTemplateBusinessSummary, buildTemplateTripletNote, getTemplateNodeEditRule } from '../data/pcs-template-domain-view-model.ts'
 
@@ -28,7 +33,6 @@ type TemplateEditorMode = 'create' | 'edit'
 
 interface TemplateListState {
   search: string
-  styleType: string
   status: TemplateStatusFilter
 }
 
@@ -36,8 +40,8 @@ interface TemplateEditorState {
   routeKey: string
   mode: TemplateEditorMode
   templateId: string | null
+  schemaTemplateId: PcsProjectTemplateId
   templateName: string
-  styleType: TemplateStyleType
   description: string
   status: TemplateStatusCode
   stages: ProjectTemplateStageDefinition[]
@@ -57,12 +61,10 @@ interface TemplatePageState {
   editor: TemplateEditorState
 }
 
-const STYLE_TYPE_OPTIONS: TemplateStyleType[] = ['基础款', '快时尚款', '改版款', '设计款']
 const STATUS_FILTER_OPTIONS: TemplateStatusFilter[] = ['全部状态', '启用', '停用']
 
 const initialListState: TemplateListState = {
   search: '',
-  styleType: '全部款式类型',
   status: '全部状态',
 }
 
@@ -71,8 +73,8 @@ function createEmptyEditorState(): TemplateEditorState {
     routeKey: '',
     mode: 'create',
     templateId: null,
+    schemaTemplateId: DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
     templateName: '',
-    styleType: '基础款',
     description: '',
     status: 'active',
     stages: [],
@@ -130,30 +132,24 @@ function getCurrentQueryParams(): URLSearchParams {
   return new URLSearchParams(search)
 }
 
-function normalizeStyleType(value: string | null): TemplateStyleType | null {
-  return STYLE_TYPE_OPTIONS.find((item) => item === value) ?? null
-}
-
-function getSchemaByStyleType(styleType: TemplateStyleType) {
-  return listProjectTemplateSchemas().find((item) => item.styleTypes.includes(styleType)) ?? null
+function resolveSchemaTemplateId(templateId: string | null | undefined, templateName = ''): PcsProjectTemplateId {
+  if (templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID || templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID) {
+    return templateId
+  }
+  return templateName.includes('万隆') ? WANLONG_REVISION_SAMPLE_TEMPLATE_ID : DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID
 }
 
 function createExpandedStageMap(stages: ProjectTemplateStageDefinition[]): Record<string, boolean> {
   return Object.fromEntries(stages.map((stage) => [stage.phaseCode, true]))
 }
 
-function buildRecommendedDraft(styleType: TemplateStyleType): {
+function buildRecommendedDraft(templateId: PcsProjectTemplateId): {
   stages: ProjectTemplateStageDefinition[]
   nodes: ProjectTemplateNodeDefinition[]
 } {
-  const schema = getSchemaByStyleType(styleType)
-  if (!schema) {
-    throw new Error(`未找到款式类型 ${styleType} 的正式模板矩阵。`)
-  }
-
-  const matrix = buildBuiltinProjectTemplateMatrix().find((item) => item.templateId === schema.templateId)
+  const matrix = buildBuiltinProjectTemplateMatrix().find((item) => item.templateId === templateId)
   if (!matrix) {
-    throw new Error(`未找到模板 ${schema.templateId} 的正式阶段矩阵。`)
+    throw new Error(`未找到模板 ${templateId} 的正式阶段矩阵。`)
   }
 
   const stages = matrix.stages.map((stage) => ({
@@ -167,7 +163,7 @@ function buildRecommendedDraft(styleType: TemplateStyleType): {
   }))
 
   const nodes = matrix.nodes.map((node) => {
-    const rule = getTemplateNodeEditRule(styleType, node.workItemTypeCode)
+    const rule = getTemplateNodeEditRule(templateId, node.workItemTypeCode)
     return {
       templateNodeId: '',
       templateId: '',
@@ -196,8 +192,8 @@ function setEditorDraft(input: {
   routeKey: string
   mode: TemplateEditorMode
   templateId: string | null
+  schemaTemplateId: PcsProjectTemplateId
   templateName: string
-  styleType: TemplateStyleType
   description: string
   status: TemplateStatusCode
   stages: ProjectTemplateStageDefinition[]
@@ -208,8 +204,8 @@ function setEditorDraft(input: {
     routeKey: input.routeKey,
     mode: input.mode,
     templateId: input.templateId,
+    schemaTemplateId: input.schemaTemplateId,
     templateName: input.templateName,
-    styleType: input.styleType,
     description: input.description,
     status: input.status,
     stages: input.stages.map(cloneStage),
@@ -243,8 +239,8 @@ function ensureEditorState(mode: TemplateEditorMode, templateId?: string): void 
       routeKey,
       mode,
       templateId: template.id,
+      schemaTemplateId: resolveSchemaTemplateId(template.id, template.name),
       templateName: template.name,
-      styleType: template.styleType[0] ?? '基础款',
       description: template.description,
       status: template.status,
       stages: template.stages,
@@ -254,14 +250,14 @@ function ensureEditorState(mode: TemplateEditorMode, templateId?: string): void 
     return
   }
 
-  const preferredStyleType = normalizeStyleType(queryParams.get('styleType')) ?? '基础款'
-  const recommendedDraft = buildRecommendedDraft(preferredStyleType)
+  const preferredTemplateId = resolveSchemaTemplateId(queryParams.get('templateId'))
+  const recommendedDraft = buildRecommendedDraft(preferredTemplateId)
   setEditorDraft({
     routeKey,
     mode,
     templateId: null,
+    schemaTemplateId: preferredTemplateId,
     templateName: '',
-    styleType: preferredStyleType,
     description: '',
     status: 'active',
     stages: recommendedDraft.stages,
@@ -270,9 +266,9 @@ function ensureEditorState(mode: TemplateEditorMode, templateId?: string): void 
   })
 }
 
-function applyRecommendedDraft(styleType: TemplateStyleType): void {
-  const recommendedDraft = buildRecommendedDraft(styleType)
-  state.editor.styleType = styleType
+function applyRecommendedDraft(templateId: PcsProjectTemplateId): void {
+  const recommendedDraft = buildRecommendedDraft(templateId)
+  state.editor.schemaTemplateId = templateId
   state.editor.stages = recommendedDraft.stages
   state.editor.nodes = recommendedDraft.nodes
   state.editor.pendingNodes = []
@@ -292,10 +288,8 @@ function getFilteredTemplates(): ProjectTemplate[] {
     const matchesKeyword =
       keyword.length === 0 ||
       [template.id, template.name, template.creator, template.description].join(' ').toLowerCase().includes(keyword)
-    const matchesStyleType =
-      state.list.styleType === '全部款式类型' || template.styleType.includes(state.list.styleType as TemplateStyleType)
     const matchesStatus = state.list.status === '全部状态' || getStatusLabel(template.status) === state.list.status
-    return matchesKeyword && matchesStyleType && matchesStatus
+    return matchesKeyword && matchesStatus
   })
 }
 
@@ -371,7 +365,7 @@ function getEditorStage(phaseCode: string): ProjectTemplateStageDefinition | nul
 }
 
 function getStageSelectorItems(phaseCode: string) {
-  const schema = getSchemaByStyleType(state.editor.styleType)
+  const schema = getProjectTemplateSchema(state.editor.schemaTemplateId)
   const phaseSchema = schema?.phaseSchemas.find((item) => item.phaseCode === phaseCode)
   const allowedCodes = new Set(phaseSchema?.nodeCodes ?? [])
   return listSelectableTemplateWorkItems(phaseCode)
@@ -400,7 +394,7 @@ function renderListHeader(): string {
       <div>
         <p class="text-xs text-slate-500">商品中心 / 模板配置</p>
         <h1 class="mt-2 text-2xl font-semibold text-slate-900">商品项目模板</h1>
-        <p class="mt-1 text-sm text-slate-500">管理商品项目模板，快速生成标准化流程结构。</p>
+        <p class="mt-1 text-sm text-slate-500">当前保留国内采购样衣测款、万隆改版出样衣测款两套正式业务模板。</p>
       </div>
     </header>
   `
@@ -409,7 +403,7 @@ function renderListHeader(): string {
 function renderListFilters(): string {
   return `
     <section class="rounded-lg border bg-white p-4">
-      <div class="grid gap-4 md:grid-cols-4">
+      <div class="grid gap-4 md:grid-cols-3">
         <label class="space-y-1">
           <span class="text-xs text-slate-500">搜索模板名称</span>
           <input
@@ -418,16 +412,6 @@ function renderListFilters(): string {
             value="${escapeHtml(state.list.search)}"
             data-pcs-template-field="list-search"
           />
-        </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">适用款式类型</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-template-field="list-styleType">
-            <option value="全部款式类型" ${state.list.styleType === '全部款式类型' ? 'selected' : ''}>全部款式类型</option>
-            ${STYLE_TYPE_OPTIONS.map(
-              (option) =>
-                `<option value="${escapeHtml(option)}" ${state.list.styleType === option ? 'selected' : ''}>${escapeHtml(option)}</option>`,
-            ).join('')}
-          </select>
         </label>
         <label class="space-y-1">
           <span class="text-xs text-slate-500">状态</span>
@@ -456,7 +440,6 @@ function renderListTable(): string {
           <thead class="bg-slate-50">
             <tr class="border-b border-slate-200 text-left text-slate-600">
               <th class="px-4 py-3 font-medium">模板名称</th>
-              <th class="px-4 py-3 font-medium">适用款式类型</th>
               <th class="px-4 py-3 text-center font-medium">阶段数量</th>
               <th class="px-4 py-3 text-center font-medium">工作项数量</th>
               <th class="px-4 py-3 font-medium">创建人</th>
@@ -470,9 +453,9 @@ function renderListTable(): string {
               templates.length === 0
                 ? `
                   <tr>
-                    <td colspan="8" class="px-4 py-16 text-center">
+                    <td colspan="7" class="px-4 py-16 text-center">
                       <p class="text-sm font-medium text-slate-700">未找到符合条件的模板</p>
-                      <p class="mt-1 text-xs text-slate-500">可以调整搜索词、款式类型或状态后重新查看。</p>
+                      <p class="mt-1 text-xs text-slate-500">可以调整搜索词或状态后重新查看。</p>
                     </td>
                   </tr>
                 `
@@ -483,16 +466,6 @@ function renderListTable(): string {
                           <td class="px-4 py-3 align-top">
                             <button type="button" class="text-left text-sm font-medium text-blue-700 hover:underline" data-nav="/pcs/templates/${escapeHtml(template.id)}">${escapeHtml(template.name)}</button>
                             <p class="mt-1 text-xs text-slate-400">${escapeHtml(template.id)}</p>
-                          </td>
-                          <td class="px-4 py-3 align-top">
-                            <div class="flex flex-wrap gap-1.5">
-                              ${template.styleType
-                                .map(
-                                  (item) =>
-                                    `<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(item)}</span>`,
-                                )
-                                .join('')}
-                            </div>
                           </td>
                           <td class="px-4 py-3 text-center align-top text-slate-700">${countTemplateStages(template)}</td>
                           <td class="px-4 py-3 text-center align-top text-slate-700">${countTemplateWorkItems(template)}</td>
@@ -534,7 +507,6 @@ function renderDetailSummary(template: ProjectTemplate): string {
 
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      ${renderBaseInfoCard('适用款式类型', template.styleType.join(' / '))}
       ${renderBaseInfoCard('阶段数量', String(countTemplateStages(template)))}
       ${renderBaseInfoCard('工作项数量', String(countTemplateWorkItems(template)))}
       ${renderBaseInfoCard('状态', getStatusLabel(template.status))}
@@ -717,7 +689,7 @@ function renderFieldTemplateBadges(workItemId: string): string {
 
 function renderEditorNodeCard(node: ProjectTemplateNodeDefinition): string {
   const definition = getPcsWorkItemDefinition(node.workItemId)
-  const editRule = getTemplateNodeEditRule(state.editor.styleType, node.workItemTypeCode as never)
+  const editRule = getTemplateNodeEditRule(state.editor.schemaTemplateId, node.workItemTypeCode as never)
 
   return `
     <article class="rounded-lg bg-slate-50 p-4">
@@ -984,12 +956,6 @@ export function renderPcsTemplateDetailPage(templateId: string): string {
               <p class="text-xs text-slate-500">项目模板管理 / 详情</p>
               <div class="mt-2 flex flex-wrap items-center gap-2">
                 <h1 class="text-2xl font-semibold text-slate-900">${escapeHtml(template.name)}</h1>
-                ${template.styleType
-                  .map(
-                    (item) =>
-                      `<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(item)}</span>`,
-                  )
-                  .join('')}
                 <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getStatusBadgeClass(template.status)}">${escapeHtml(getStatusLabel(template.status))}</span>
               </div>
             </div>
@@ -1078,7 +1044,6 @@ function saveEditorDraft(): void {
   try {
     const payload = {
       name: templateName,
-      styleType: [state.editor.styleType],
       description: state.editor.description,
       status: state.editor.status,
       stages: state.editor.stages.map(cloneStage),
@@ -1129,11 +1094,6 @@ export function handlePcsTemplatesInput(target: Element): boolean {
     return true
   }
 
-  if (field === 'list-styleType' && fieldNode instanceof HTMLSelectElement) {
-    state.list.styleType = fieldNode.value
-    return true
-  }
-
   if (field === 'list-status' && fieldNode instanceof HTMLSelectElement) {
     state.list.status = fieldNode.value as TemplateStatusFilter
     return true
@@ -1142,16 +1102,6 @@ export function handlePcsTemplatesInput(target: Element): boolean {
   if (field === 'editor-name' && fieldNode instanceof HTMLInputElement) {
     state.editor.templateName = fieldNode.value
     state.editor.error = null
-    return true
-  }
-
-  if (field === 'editor-styleType' && fieldNode instanceof HTMLSelectElement) {
-    const nextStyleType = normalizeStyleType(fieldNode.value)
-    if (!nextStyleType) return true
-    if (state.editor.styleType !== nextStyleType) {
-      applyRecommendedDraft(nextStyleType)
-      state.notice = `已切换为「${nextStyleType}」正式模板矩阵。`
-    }
     return true
   }
 
@@ -1331,7 +1281,7 @@ export function handlePcsTemplatesEvent(target: HTMLElement): boolean {
       const definition = getPcsWorkItemDefinition(workItemId)
       if (!definition) return
       sequenceNo += 1
-      const editRule = getTemplateNodeEditRule(state.editor.styleType, definition.workItemTypeCode as never)
+      const editRule = getTemplateNodeEditRule(state.editor.schemaTemplateId, definition.workItemTypeCode as never)
       state.editor.nodes = [
         ...state.editor.nodes,
         {

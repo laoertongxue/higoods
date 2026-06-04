@@ -204,6 +204,8 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pcs-accessory-list', title: '辅料档案', icon: 'Paperclip', href: '/pcs/materials/accessory' },
             { key: 'pcs-yarn-list', title: '纱线档案', icon: 'CircleDot', href: '/pcs/materials/yarn' },
             { key: 'pcs-consumable-list', title: '耗材档案', icon: 'Package', href: '/pcs/materials/consumable' },
+            { key: 'pcs-packaging-list', title: '包材档案', icon: 'Tags', href: '/pcs/materials/packaging' },
+            { key: 'pcs-parts-list', title: '配件档案', icon: 'Scissors', href: '/pcs/materials/parts' },
           ],
         },
         {

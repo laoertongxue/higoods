@@ -1,14 +1,16 @@
 import {
+  DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
   getProjectTemplateSchema,
   getProjectWorkItemContract,
-  listProjectTemplateSchemas,
+  WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
+  type PcsProjectTemplateId,
   type PcsProjectWorkItemCode,
 } from './pcs-project-domain-contract.ts'
 import type {
   ProjectTemplateNodeDefinition,
   ProjectTemplateStageDefinition,
 } from './pcs-project-definition-normalizer.ts'
-import type { ProjectTemplate, TemplateStyleType } from './pcs-templates.ts'
+import type { ProjectTemplate } from './pcs-templates.ts'
 
 export type TemplateBusinessClosureStatus = '完整闭环' | '仅测款不转档' | '配置异常'
 
@@ -42,25 +44,34 @@ export interface TemplateBusinessSummary {
   }>
 }
 
-const OPTIONAL_NODE_RULES: Record<TemplateStyleType, Partial<Record<PcsProjectWorkItemCode, TemplateNodeEditRule>>> = {
-  基础款: {},
-  快时尚款: {},
-  改版款: {},
-  设计款: {
-    PATTERN_ARTWORK_TASK: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
-    FIRST_ORDER_SAMPLE: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
+const optionalVideoTestRule: TemplateNodeEditRule = {
+  optional: true,
+  allowDisable: true,
+  allowReorder: true,
+  allowRequiredSwitch: true,
+}
+
+const OPTIONAL_NODE_RULES: Record<PcsProjectTemplateId, Partial<Record<PcsProjectWorkItemCode, TemplateNodeEditRule>>> = {
+  [DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID]: {
+    VIDEO_TEST: optionalVideoTestRule,
+  },
+  [WANLONG_REVISION_SAMPLE_TEMPLATE_ID]: {
+    VIDEO_TEST: optionalVideoTestRule,
   },
 }
 
 const REQUIRED_TEMPLATE_TERMINAL_NODE_CODE: PcsProjectWorkItemCode = 'SAMPLE_RETURN_HANDLE'
 const REQUIRED_TEMPLATE_TERMINAL_NODE_NAME = '样衣退回处理'
 
-function getPrimaryStyleType(styleType: TemplateStyleType[]): TemplateStyleType | null {
-  return styleType[0] ?? null
-}
-
 function listActiveNodes(nodes: ProjectTemplateNodeDefinition[]): ProjectTemplateNodeDefinition[] {
   return nodes.filter((item) => item.enabledFlag !== false)
+}
+
+function resolveSchemaTemplateId(templateId: string, templateName = ''): PcsProjectTemplateId {
+  if (templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID || templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID) {
+    return templateId
+  }
+  return templateName.includes('万隆') ? WANLONG_REVISION_SAMPLE_TEMPLATE_ID : DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID
 }
 
 function listPhaseNodeCodes(
@@ -74,11 +85,12 @@ function listPhaseNodeCodes(
 }
 
 export function getTemplateNodeEditRule(
-  styleType: TemplateStyleType,
+  templateId: string,
   workItemTypeCode: PcsProjectWorkItemCode,
 ): TemplateNodeEditRule {
+  const schemaTemplateId = resolveSchemaTemplateId(templateId)
   return (
-    OPTIONAL_NODE_RULES[styleType]?.[workItemTypeCode] ?? {
+    OPTIONAL_NODE_RULES[schemaTemplateId]?.[workItemTypeCode] ?? {
       optional: false,
       allowDisable: false,
       allowReorder: false,
@@ -88,14 +100,11 @@ export function getTemplateNodeEditRule(
 }
 
 export function validateTemplateBusinessIntegrity(input: {
-  styleType: TemplateStyleType
+  templateId: string
   stages: ProjectTemplateStageDefinition[]
   nodes: ProjectTemplateNodeDefinition[]
 }): TemplateBusinessIssue[] {
-  const schema = listProjectTemplateSchemas().find((item) => item.styleTypes.includes(input.styleType))
-  if (!schema) {
-    return [{ code: 'MISSING_SCHEMA', message: `未找到适用款式类型 ${input.styleType} 的正式模板矩阵。` }]
-  }
+  const schema = getProjectTemplateSchema(resolveSchemaTemplateId(input.templateId))
 
   const issues: TemplateBusinessIssue[] = []
   const expectedPhaseCodes = schema.phaseSchemas.map((item) => item.phaseCode)
@@ -119,7 +128,7 @@ export function validateTemplateBusinessIntegrity(input: {
       })
     }
     const missingRequired = allowedCodes.filter((code) => {
-      const rule = getTemplateNodeEditRule(input.styleType, code)
+      const rule = getTemplateNodeEditRule(schema.templateId, code)
       return !rule.optional && !activeCodes.includes(code)
     })
     if (missingRequired.length > 0) {
@@ -175,17 +184,13 @@ export function validateTemplateBusinessIntegrity(input: {
 }
 
 export function buildTemplateBusinessSummary(template: ProjectTemplate): TemplateBusinessSummary {
-  const styleType = getPrimaryStyleType(template.styleType)
-  const schema = styleType
-    ? listProjectTemplateSchemas().find((item) => item.styleTypes.includes(styleType))
-    : null
-  const issues = styleType
-    ? validateTemplateBusinessIntegrity({
-        styleType,
-        stages: template.stages,
-        nodes: template.nodes,
-      })
-    : [{ code: 'MISSING_STYLE_TYPE', message: '模板缺少适用款式类型。' }]
+  const schemaTemplateId = resolveSchemaTemplateId(template.id, template.name)
+  const schema = getProjectTemplateSchema(schemaTemplateId)
+  const issues = validateTemplateBusinessIntegrity({
+    templateId: schemaTemplateId,
+    stages: template.stages,
+    nodes: template.nodes,
+  })
 
   const activeNodes = listActiveNodes(template.nodes)
   const activeCodes = new Set(activeNodes.map((item) => item.workItemTypeCode as PcsProjectWorkItemCode))
@@ -244,12 +249,8 @@ export function buildTemplateBusinessSummary(template: ProjectTemplate): Templat
   }
 }
 
-export function buildTemplateRecommendedDraft(styleType: TemplateStyleType) {
-  const schema = listProjectTemplateSchemas().find((item) => item.styleTypes.includes(styleType))
-  if (!schema) {
-    throw new Error(`未找到适用款式类型 ${styleType} 的推荐模板。`)
-  }
-  return getProjectTemplateSchema(schema.templateId)
+export function buildTemplateRecommendedDraft(templateId: string) {
+  return getProjectTemplateSchema(resolveSchemaTemplateId(templateId))
 }
 
 export function buildTemplateTripletNote(): string {

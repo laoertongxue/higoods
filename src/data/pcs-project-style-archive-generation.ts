@@ -58,7 +58,6 @@ export interface StyleArchiveGenerationInput {
 const STYLE_ARCHIVE_REQUIRED_FIELDS: StyleArchiveFormalizationField[] = [
   { key: 'styleName', label: '款式名称' },
   { key: 'styleNumber', label: '款号' },
-  { key: 'styleType', label: '款式类型' },
   { key: 'categoryName', label: '一级类目' },
   { key: 'subCategoryName', label: '二级类目' },
   { key: 'brandName', label: '品牌' },
@@ -281,7 +280,7 @@ export function generateStyleArchiveFromProjectNode(
       styleName: project.projectName,
       styleNameEn: '',
       styleNumber: project.styleNumber || identity.styleCode,
-      styleType: project.styleType,
+      productType: '成衣',
       sourceProjectId: project.projectId,
       sourceProjectCode: project.projectCode,
       sourceProjectName: project.projectName,

@@ -10,18 +10,14 @@ import {
 
 const listHtml = renderPcsChannelStoreListPage()
 assert.match(listHtml, /渠道店铺管理/)
-assert.match(listHtml, /提现账号管理/)
 assert.match(listHtml, /新建店铺/)
-assert.match(listHtml, /IDN-Store-A/)
+assert.match(listHtml, /TikTok 印尼主店/)
 assert.match(listHtml, /\/pcs\/channels\/stores\/ST-001/)
 
 const detailHtml = renderPcsChannelStoreDetailPage('ST-001')
-assert.match(detailHtml, /上架策略/)
-assert.match(detailHtml, /授权与连接/)
-assert.match(detailHtml, /提现账号绑定/)
-assert.match(detailHtml, /同步与数据/)
-assert.match(detailHtml, /日志与附件/)
-assert.match(detailHtml, /商品项目引用 ID/)
+assert.match(detailHtml, /店铺基础信息/)
+assert.match(detailHtml, /团队与责任/)
+assert.match(detailHtml, /项目引用信息/)
 assert.match(detailHtml, /store-tiktok-01/)
 
 const syncHtml = renderPcsChannelStoreSyncPage()

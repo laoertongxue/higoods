@@ -6,19 +6,19 @@ import type {
 } from './pcs-project-definition-normalizer.ts'
 import { getPcsWorkItemDefinition } from './pcs-work-items.ts'
 import {
+  buildBuiltinProjectTemplateMatrix,
+  DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
   getProjectTemplateSchema,
-  listProjectTemplateSchemas,
-  type PcsProjectTemplateStyleType,
+  WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
+  type PcsProjectTemplateId,
 } from './pcs-project-domain-contract.ts'
 import { validateTemplateBusinessIntegrity } from './pcs-template-domain-view-model.ts'
 
 export type TemplateStatusCode = 'active' | 'inactive'
-export type TemplateStyleType = PcsProjectTemplateStyleType
 
 export interface ProjectTemplate {
   id: string
   name: string
-  styleType: TemplateStyleType[]
   creator: string
   createdAt: string
   updatedAt: string
@@ -63,7 +63,6 @@ function clonePendingNode(node: ProjectTemplatePendingNode): ProjectTemplatePend
 function cloneTemplate(template: ProjectTemplate): ProjectTemplate {
   return {
     ...template,
-    styleType: [...template.styleType],
     stages: template.stages.map(cloneStage),
     nodes: template.nodes.map(cloneNode),
     pendingNodes: template.pendingNodes.map(clonePendingNode),
@@ -193,20 +192,70 @@ function normalizeTemplateNodesForSave(
     })
 }
 
-function getSchemaByStyleType(styleType: TemplateStyleType): ReturnType<typeof getProjectTemplateSchema> {
-  const schema = listProjectTemplateSchemas().find((item) => item.styleTypes.includes(styleType))
-  if (!schema) {
-    throw new Error(`未找到适用款式类型的正式模板矩阵：${styleType}`)
+function buildOfficialTemplateStore(): ProjectTemplate[] {
+  return buildBuiltinProjectTemplateMatrix().map((matrix) =>
+    normalizeStructuredTemplate({
+      id: matrix.templateId,
+      name: matrix.templateName,
+      creator: matrix.creator,
+      createdAt: matrix.createdAt,
+      updatedAt: matrix.updatedAt,
+      status: matrix.status,
+      description: matrix.description,
+      scenario: matrix.scenario,
+      stages: matrix.stages.map((stage) => ({
+        templateStageId: stage.templateStageId,
+        templateId: matrix.templateId,
+        phaseCode: stage.phaseCode,
+        phaseName: stage.phaseName,
+        phaseOrder: stage.phaseOrder,
+        requiredFlag: stage.requiredFlag,
+        description: stage.description,
+      })),
+      nodes: matrix.nodes.map((node) => ({
+        templateNodeId: node.templateNodeId,
+        templateId: matrix.templateId,
+        templateStageId: node.templateStageId,
+        phaseCode: node.phaseCode,
+        phaseName: node.phaseName,
+        workItemId: node.workItemId,
+        workItemTypeCode: node.workItemTypeCode,
+        workItemTypeName: node.workItemTypeName,
+        sequenceNo: node.sequenceNo,
+        enabledFlag: true,
+        requiredFlag: node.requiredFlag,
+        multiInstanceFlag: node.multiInstanceFlag,
+        roleOverrideCodes: [],
+        roleOverrideNames: [],
+        note: node.note,
+        sourceWorkItemUpdatedAt: node.sourceWorkItemUpdatedAt,
+        templateVersion: matrix.updatedAt,
+      })),
+      pendingNodes: [],
+    }),
+  )
+}
+
+templateStore = buildOfficialTemplateStore()
+
+function resolveSchemaTemplateId(templateId: string, templateName = ''): PcsProjectTemplateId {
+  if (templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID || templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID) {
+    return templateId
   }
-  return getProjectTemplateSchema(schema.templateId)
+  return templateName.includes('万隆') ? WANLONG_REVISION_SAMPLE_TEMPLATE_ID : DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID
 }
 
 function assertTemplateMatchesSchema(
-  styleType: TemplateStyleType,
+  templateId: string,
+  templateName: string,
   stages: ProjectTemplateStageDefinition[],
   nodes: ProjectTemplateNodeDefinition[],
 ): void {
-  const issues = validateTemplateBusinessIntegrity({ styleType, stages, nodes })
+  const issues = validateTemplateBusinessIntegrity({
+    templateId: resolveSchemaTemplateId(templateId, templateName),
+    stages,
+    nodes,
+  })
   if (issues.length > 0) {
     throw new Error(issues[0].message)
   }
@@ -247,7 +296,6 @@ export function hasTemplatePendingNodes(template: ProjectTemplate): boolean {
 
 export function createProjectTemplate(input: {
   name: string
-  styleType: TemplateStyleType[]
   description: string
   status?: TemplateStatusCode
   stages: ProjectTemplateStageDefinition[]
@@ -255,28 +303,24 @@ export function createProjectTemplate(input: {
   pendingNodes?: ProjectTemplatePendingNode[]
   creator?: string
 }): ProjectTemplate {
-  const styleType = input.styleType[0]
-  if (!styleType) {
-    throw new Error('请选择适用款式类型。')
-  }
-
   const id = nextTemplateId()
   const now = nowText()
   const templateVersion = buildTemplateVersion(now)
   const stages = normalizeTemplateStagesForSave(id, input.stages)
   const nodes = normalizeTemplateNodesForSave(id, templateVersion, stages, input.nodes)
-  assertTemplateMatchesSchema(styleType, stages, nodes)
+  const name = input.name.trim()
+  const schemaTemplateId = resolveSchemaTemplateId(id, name)
+  assertTemplateMatchesSchema(id, name, stages, nodes)
 
   const created: ProjectTemplate = {
     id,
-    name: input.name.trim(),
-    styleType: [styleType],
+    name,
     creator: input.creator?.trim() || '当前用户',
     createdAt: now,
     updatedAt: now,
     status: input.status ?? 'active',
     description: input.description.trim() || '商品项目模板说明待补充。',
-    scenario: getSchemaByStyleType(styleType).scenario,
+    scenario: getProjectTemplateSchema(schemaTemplateId).scenario,
     stages,
     nodes,
     pendingNodes: (input.pendingNodes ?? []).map((item) => ({ ...item, templateId: id, templateVersion })),
@@ -291,7 +335,6 @@ export function updateProjectTemplate(
   templateId: string,
   input: {
     name: string
-    styleType: TemplateStyleType[]
     description: string
     status?: TemplateStatusCode
     stages: ProjectTemplateStageDefinition[]
@@ -302,23 +345,19 @@ export function updateProjectTemplate(
   const existing = templateStore.find((item) => item.id === templateId)
   if (!existing) return null
 
-  const styleType = input.styleType[0]
-  if (!styleType) {
-    throw new Error('请选择适用款式类型。')
-  }
-
   const updatedAt = nowText()
   const templateVersion = buildTemplateVersion(updatedAt)
   const stages = normalizeTemplateStagesForSave(templateId, input.stages)
   const nodes = normalizeTemplateNodesForSave(templateId, templateVersion, stages, input.nodes)
-  assertTemplateMatchesSchema(styleType, stages, nodes)
+  const name = input.name.trim()
+  const schemaTemplateId = resolveSchemaTemplateId(templateId, name || existing.name)
+  assertTemplateMatchesSchema(templateId, name || existing.name, stages, nodes)
 
   const updated: ProjectTemplate = normalizeStructuredTemplate({
     ...existing,
-    name: input.name.trim(),
-    styleType: [styleType],
+    name,
     description: input.description.trim(),
-    scenario: getSchemaByStyleType(styleType).scenario,
+    scenario: getProjectTemplateSchema(schemaTemplateId).scenario,
     status: input.status ?? existing.status,
     updatedAt,
     stages,
@@ -360,7 +399,6 @@ export function copyProjectTemplate(templateId: string): ProjectTemplate | null 
 
   return createProjectTemplate({
     name: `${source.name}-副本`,
-    styleType: [...source.styleType],
     description: source.description,
     status: 'inactive',
     stages: duplicatedStages,

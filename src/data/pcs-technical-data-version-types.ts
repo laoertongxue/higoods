@@ -23,6 +23,7 @@ export type TechnicalModuleKey =
   | 'BOM'
   | 'COST'
   | 'PATTERN'
+  | 'MATERIAL_PATTERN_LINK'
   | 'COLOR_MATERIAL_MAPPING'
   | 'PROCESS'
   | 'SIZE'
@@ -490,6 +491,7 @@ export interface TechnicalDataVersionRecord {
   reviewSubmittedAt?: string
   reviewSubmittedBy?: string
   returnedFromMerchandiserFlag?: boolean
+  reviewUnlockedModuleKeys?: TechnicalModuleKey[]
   bomStatus: TechnicalDomainStatus
   patternStatus: TechnicalDomainStatus
   processStatus: TechnicalDomainStatus

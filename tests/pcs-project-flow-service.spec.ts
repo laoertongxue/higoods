@@ -65,7 +65,7 @@ const created = createProject(
     styleCodeName: styleCode?.name || '1-Casul Shirt-18-30休闲衬衫',
     styleType: '基础款',
     priceRangeLabel: '￥199-299',
-    targetChannelCodes: [catalog.channelOptions[0]?.code || 'tiktok-shop'],
+    targetChannelCodes: [catalog.channelOptions[0]?.code || 'tiktok'],
     ownerId: owner?.id || 'owner-zl',
     ownerName: owner?.name || '张丽',
     teamId: team?.id || 'team-plan',

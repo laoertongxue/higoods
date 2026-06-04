@@ -561,7 +561,7 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
       return completeDecisionNodeWithResult(
         input.projectId,
         input.projectNodeId,
-        decisionValue as '通过' | '淘汰',
+        decisionValue as '通过' | '不通过' | '继续测试',
         operatorName,
         decisionNote,
         businessDate,

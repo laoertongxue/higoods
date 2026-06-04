@@ -111,9 +111,21 @@ const KIND_META: Record<
   },
   consumable: {
     label: '耗材档案',
-    description: '沉淀包装袋、吊牌等出货耗材，并建立 BOM 引用。',
+    description: '沉淀裁剪、车缝、清洁等车间通用低值耗材。',
     createLabel: '新建耗材',
-    unitOptions: ['PCS', '套', '箱'],
+    unitOptions: ['卷', 'PCS', '套', '箱'],
+  },
+  packaging: {
+    label: '包材档案',
+    description: '沉淀吊牌、包装袋、贴纸等服装出货包装用物料。',
+    createLabel: '新建包材',
+    unitOptions: ['PCS', '套', '包', '箱'],
+  },
+  parts: {
+    label: '配件档案',
+    description: '沉淀裁床裁刀等生产车间设备使用的配件与备件。',
+    createLabel: '新建配件',
+    unitOptions: ['PCS', '套', '把', '盒'],
   },
 }
 
@@ -156,6 +168,8 @@ function createDefaultState(): MaterialArchivePageState {
       accessory: { search: '', status: 'all' },
       yarn: { search: '', status: 'all' },
       consumable: { search: '', status: 'all' },
+      packaging: { search: '', status: 'all' },
+      parts: { search: '', status: 'all' },
     },
     detail: {
       materialId: null,
@@ -514,7 +528,7 @@ function renderCreateDrawer(): string {
         ${renderFormField('条码模板编码', renderTextInput('create-barcode-template-code', state.create.barcodeTemplateCode, '例如：FAB-COTTON-180-WHT'))}
       </div>
       <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField('门幅 / 尺寸', renderTextInput('create-width-text', state.create.widthText, '例如：180cm / 20.5cm / 35×45cm'))}
+        ${renderFormField('门幅 / 尺寸', renderTextInput('create-width-text', state.create.widthText, '例如：180cm / 55×90mm / 10英寸'))}
         ${renderFormField('克重', renderTextInput('create-gram-weight-text', state.create.gramWeightText, '例如：180g/m²'))}
       </div>
       ${renderFormField('主图链接', renderTextInput('create-main-image-url', state.create.mainImageUrl, '输入图片 URL'))}
@@ -1034,13 +1048,13 @@ function submitSkuEditor(): void {
 }
 
 function updateFilterField(field: string, value: string): boolean {
-  const searchMatch = field.match(/^filter-search-(fabric|accessory|yarn|consumable)$/)
+  const searchMatch = field.match(/^filter-search-(fabric|accessory|yarn|consumable|packaging|parts)$/)
   if (searchMatch) {
     const kind = searchMatch[1] as MaterialArchiveKind
     state.filters[kind].search = value
     return true
   }
-  const statusMatch = field.match(/^filter-status-(fabric|accessory|yarn|consumable)$/)
+  const statusMatch = field.match(/^filter-status-(fabric|accessory|yarn|consumable|packaging|parts)$/)
   if (statusMatch) {
     const kind = statusMatch[1] as MaterialArchiveKind
     state.filters[kind].status = (value || 'all') as 'all' | MaterialArchiveStatus
@@ -1240,6 +1254,26 @@ export function renderPcsConsumableArchiveCreatePage(): string {
   resetCreateState('consumable')
   state.create.open = true
   return renderListPage('consumable')
+}
+
+export function renderPcsPackagingArchiveListPage(): string {
+  return renderListPage('packaging')
+}
+
+export function renderPcsPackagingArchiveCreatePage(): string {
+  resetCreateState('packaging')
+  state.create.open = true
+  return renderListPage('packaging')
+}
+
+export function renderPcsPartsArchiveListPage(): string {
+  return renderListPage('parts')
+}
+
+export function renderPcsPartsArchiveCreatePage(): string {
+  resetCreateState('parts')
+  state.create.open = true
+  return renderListPage('parts')
 }
 
 export function renderPcsMaterialArchiveDetailPage(kind: MaterialArchiveKind, materialId: string): string {

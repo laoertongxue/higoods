@@ -1665,8 +1665,10 @@ interface TechPackPageState {
   reviewDiffDialogNodeKey: TechnicalReviewNodeKey | null
   reviewNotificationDialogNodeKey: TechnicalReviewNodeKey | null
   reviewActionNodeKey: TechnicalReviewNodeKey | null
-  reviewActionType: 'start' | 'approve' | 'reject' | 'return' | null
+  reviewActionType: 'start' | 'approve' | 'reject' | 'return' | 'return-modules' | 'reopen-role' | null
   reviewActionOpinion: string
+  reviewReturnModuleKeys: TechnicalModuleKey[]
+  reviewReopenNodeKeys: TechnicalReviewNodeKey[]
   addPatternDialogOpen: boolean
   addBomDialogOpen: boolean
   addTechniqueDialogOpen: boolean
@@ -1782,6 +1784,8 @@ const state: TechPackPageState = {
   reviewActionNodeKey: null,
   reviewActionType: null,
   reviewActionOpinion: '',
+  reviewReturnModuleKeys: [],
+  reviewReopenNodeKeys: [],
   addPatternDialogOpen: false,
   addBomDialogOpen: false,
   addTechniqueDialogOpen: false,
@@ -3627,9 +3631,92 @@ function buildPatternName(input: {
   return `纸样${fallbackIndex + 1}`
 }
 
+function clonePatternPieceRowsForAssociation(pieceRows: PatternPieceRow[], patternId: string, linkedBomItemId: string): PatternPieceRow[] {
+  return normalizePatternPieceRows(
+    pieceRows.map((row) => ({
+      ...row,
+      applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+      colorAllocations: row.colorAllocations.map((allocation) => ({
+        ...allocation,
+        skuCodes: [...(allocation.skuCodes ?? [])],
+      })),
+      colorPieceQuantities: [...(row.colorPieceQuantities ?? [])],
+      specialCrafts: row.specialCrafts.map((craft) => ({ ...craft })),
+      candidatePartNames: [...(row.candidatePartNames ?? [])],
+      rawTextLabels: [...(row.rawTextLabels ?? [])],
+    })),
+    patternId,
+    linkedBomItemId,
+  )
+}
+
+function inheritPatternPackageTechnicalFields(items: PatternItem[]): PatternItem[] {
+  const packageById = new Map(items.filter((item) => item.recordKind === 'PACKAGE').map((item) => [item.id, item]))
+  return items.map((item) => {
+    if (item.recordKind === 'PACKAGE') return item
+    const sourcePackage = item.sourcePatternPackageId ? packageById.get(item.sourcePatternPackageId) : null
+    if (!sourcePackage) return item
+
+    const pieceRows = clonePatternPieceRowsForAssociation(sourcePackage.pieceRows, item.id, item.linkedBomItemId)
+    const pieceInstances = generatePieceInstancesFromColorQuantities({
+      id: item.id,
+      pieceRows,
+      pieceInstances: item.pieceInstances,
+    })
+    const pieceInstanceSummary = summarizePieceInstances(pieceInstances)
+    const totalPieceCount = calculatePatternTotalPieceQty(pieceRows)
+
+    return {
+      ...item,
+      name: sourcePackage.name,
+      type: sourcePackage.type,
+      image: sourcePackage.image,
+      file: sourcePackage.file,
+      widthCm: sourcePackage.widthCm,
+      markerLengthM: sourcePackage.markerLengthM,
+      totalPieceCount,
+      patternTotalPieceQty: totalPieceCount,
+      isWoolted: sourcePackage.isWoolted,
+      prjFile: sourcePackage.prjFile ? { ...sourcePackage.prjFile } : null,
+      markerImage: sourcePackage.markerImage ? { ...sourcePackage.markerImage } : null,
+      dxfFile: sourcePackage.dxfFile ? { ...sourcePackage.dxfFile } : null,
+      rulFile: sourcePackage.rulFile ? { ...sourcePackage.rulFile } : null,
+      bindingStrips: normalizePatternBindingStrips(sourcePackage.bindingStrips),
+      pieceInstances,
+      ...pieceInstanceSummary,
+      patternMaterialType: sourcePackage.patternMaterialType,
+      patternMaterialTypeLabel: sourcePackage.patternMaterialTypeLabel,
+      patternFileMode: sourcePackage.patternFileMode,
+      parseStatus: sourcePackage.parseStatus,
+      parseStatusLabel: sourcePackage.parseStatusLabel,
+      parseError: sourcePackage.parseError,
+      parsedAt: sourcePackage.parsedAt,
+      dxfFileName: sourcePackage.dxfFileName,
+      dxfFileSize: sourcePackage.dxfFileSize,
+      dxfLastModified: sourcePackage.dxfLastModified,
+      rulFileName: sourcePackage.rulFileName,
+      rulFileSize: sourcePackage.rulFileSize,
+      rulLastModified: sourcePackage.rulLastModified,
+      singlePatternFileName: sourcePackage.singlePatternFileName,
+      singlePatternFileSize: sourcePackage.singlePatternFileSize,
+      singlePatternFileLastModified: sourcePackage.singlePatternFileLastModified,
+      dxfEncoding: sourcePackage.dxfEncoding,
+      rulEncoding: sourcePackage.rulEncoding,
+      rulSizeList: [...sourcePackage.rulSizeList],
+      rulSampleSize: sourcePackage.rulSampleSize,
+      patternSoftwareName: sourcePackage.patternSoftwareName,
+      selectedSizeCodes: [...sourcePackage.selectedSizeCodes],
+      sizeRange: sourcePackage.sizeRange,
+      pieceRows,
+      sourcePatternPackageId: sourcePackage.id,
+      sourcePatternPackageName: sourcePackage.name,
+    }
+  })
+}
+
 function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
   if (techPack.patternFiles.length === 0) {
-    return ensurePatternPoolDemoPackages(
+    return inheritPatternPackageTechnicalFields(ensurePatternPoolDemoPackages(
       ensurePatternStatusDemoCoverage(DEFAULT_PATTERN_ITEMS.map((item) => ({
         ...item,
         recordKind: item.recordKind ?? 'MATERIAL_ASSOCIATION',
@@ -3662,10 +3749,10 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         })),
       })), techPack.bomItems),
       techPack.bomItems,
-    )
+    ))
   }
 
-  return ensurePatternPoolDemoPackages(ensurePatternStatusDemoCoverage(techPack.patternFiles.map((item, index) => {
+  return inheritPatternPackageTechnicalFields(ensurePatternPoolDemoPackages(ensurePatternStatusDemoCoverage(techPack.patternFiles.map((item, index) => {
     const patternId = item.id || `PAT-${index + 1}`
     const linkedBom =
       techPack.bomItems.find((bom) => bom.id === item.linkedBomItemId)
@@ -3781,7 +3868,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       uploadedAt: item.rulLastModified || item.uploadedAt,
       uploadedBy: item.uploadedBy,
     })
-    const bindingStrips = recordKind === 'PACKAGE' ? [] : normalizePatternBindingStrips(item.bindingStrips)
+    const bindingStrips = normalizePatternBindingStrips(item.bindingStrips)
     const pieceInstances = recordKind === 'PACKAGE'
       ? []
       : generatePieceInstancesFromColorQuantities({
@@ -3817,9 +3904,9 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       linkedMaterialAlias: recordKind === 'PACKAGE' ? '' : item.linkedMaterialAlias || '',
       linkedMaterialSku: recordKind === 'PACKAGE' ? '' : item.linkedMaterialSku || linkedBom?.id || '',
       // 门幅单位固定 cm
-      widthCm: recordKind === 'PACKAGE' ? 0 : Number.isFinite(item.widthCm) && Number(item.widthCm) > 0 ? Number(item.widthCm) : 142 + index,
+      widthCm: Number.isFinite(item.widthCm) && Number(item.widthCm) > 0 ? Number(item.widthCm) : 142 + index,
       // 排料长度单位固定 m
-      markerLengthM: recordKind === 'PACKAGE' ? 0 : Number.isFinite(item.markerLengthM) ? Number(item.markerLengthM) : 0,
+      markerLengthM: Number.isFinite(item.markerLengthM) ? Number(item.markerLengthM) : 0,
       // totalPieceCount 固定语义：裁片总片数
       totalPieceCount:
         Number.isFinite(item.totalPieceCount) && Number(item.totalPieceCount) > 0
@@ -3887,7 +3974,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       sourcePatternPackageId: item.sourcePatternPackageId,
       sourcePatternPackageName: item.sourcePatternPackageName,
     }
-  }), techPack.bomItems), techPack.bomItems)
+  }), techPack.bomItems), techPack.bomItems))
 }
 
 function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
@@ -4616,6 +4703,8 @@ function closeAllDialogs(): void {
   state.reviewActionNodeKey = null
   state.reviewActionType = null
   state.reviewActionOpinion = ''
+  state.reviewReturnModuleKeys = []
+  state.reviewReopenNodeKeys = []
   state.addPatternDialogOpen = false
   state.addBomDialogOpen = false
   state.addTechniqueDialogOpen = false

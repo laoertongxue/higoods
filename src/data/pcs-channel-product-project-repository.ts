@@ -70,6 +70,11 @@ import {
   validateChannelListingSpecLinesForCreate,
   validateChannelListingSpecLinesForUpload,
 } from './pcs-channel-listing-spec-utils.ts'
+import {
+  DEFAULT_PCS_CHANNEL_CODE,
+  getPcsChannelNameByCode,
+  normalizePcsChannelCode,
+} from './pcs-channel-options.ts'
 
 export type ProjectChannelProductScenario =
   | 'MEASURING'
@@ -80,7 +85,7 @@ export type ProjectChannelProductScenario =
   | 'STYLE_ACTIVE'
   | 'HISTORY_INVALIDATED'
 
-export type ProjectTestingConclusion = '' | '通过' | '淘汰'
+export type ProjectTestingConclusion = '' | '通过' | '不通过' | '继续测试'
 export type UpstreamSyncResult = '待执行' | '成功' | '失败'
 
 export interface ProjectChannelProductRecord extends PcsProjectChannelProductRecord {
@@ -239,6 +244,12 @@ export interface ProjectTestingSummaryAggregate {
 export interface ProjectTestingConclusionPayload {
   conclusion: Exclude<ProjectTestingConclusion, ''>
   note: string
+  productPositioningConclusion?: string
+  stockGrade?: string
+  continueTestFlag?: boolean
+  downShelfFlag?: boolean
+  returnDestination?: string
+  nextTestPlan?: string
 }
 
 export interface ProjectChannelProductWriteResult {
@@ -338,20 +349,15 @@ function getChannelMeta(channelCode: string, storeId = ''): {
   channelName: string
   storeName: string
 } {
-  if (channelCode === 'shopee') {
-    return { channelName: '虾皮', storeName: resolvePcsStoreDisplayName(storeId, channelCode) }
+  const normalizedChannelCode = normalizePcsChannelCode(channelCode) || DEFAULT_PCS_CHANNEL_CODE
+  return {
+    channelName: getPcsChannelNameByCode(normalizedChannelCode),
+    storeName: resolvePcsStoreDisplayName(storeId, normalizedChannelCode),
   }
-  if (channelCode === 'lazada') {
-    return { channelName: '来赞达', storeName: resolvePcsStoreDisplayName(storeId, channelCode) }
-  }
-  if (channelCode === 'wechat-mini-program') {
-    return { channelName: '微信小程序', storeName: resolvePcsStoreDisplayName(storeId, channelCode) }
-  }
-  return { channelName: '抖音商城', storeName: resolvePcsStoreDisplayName(storeId, channelCode) }
 }
 
 function getDefaultStoreId(channelCode: string): string {
-  return getDefaultPcsStoreIdByChannel(channelCode) || 'store-tiktok-01'
+  return getDefaultPcsStoreIdByChannel(channelCode) || getDefaultPcsStoreIdByChannel(DEFAULT_PCS_CHANNEL_CODE)
 }
 
 function resolveListingPayload(
@@ -359,7 +365,10 @@ function resolveListingPayload(
   payload: ProjectChannelProductListingPayload,
 ): ResolvedProjectChannelProductListingPayload {
   const project = getProjectById(projectId)
-  const targetChannelCode = payload.targetChannelCode || project?.targetChannelCodes[0] || 'tiktok-shop'
+  const targetChannelCode =
+    normalizePcsChannelCode(payload.targetChannelCode) ||
+    normalizePcsChannelCode(project?.targetChannelCodes[0]) ||
+    DEFAULT_PCS_CHANNEL_CODE
   const targetStoreId = payload.targetStoreId || getDefaultStoreId(targetChannelCode)
   const channelMeta = getChannelMeta(targetChannelCode, targetStoreId)
   const defaultPriceAmount =
@@ -404,7 +413,7 @@ function buildTestingStatusText(seed: ChannelSeed): string {
   if (seed.scenario === 'MEASURING') return '已完成上架，正在测款'
   if (seed.scenario === 'FAILED_ADJUST') return '历史测款结论待重新确认，当前渠道店铺商品已作废'
   if (seed.scenario === 'FAILED_PAUSED') return '历史测款结论待重新确认，当前渠道店铺商品已作废'
-  if (seed.scenario === 'FAILED_ELIMINATED') return '测款结论为淘汰，当前渠道店铺商品已作废'
+  if (seed.scenario === 'FAILED_ELIMINATED') return '测款结论为不通过，当前渠道店铺商品已作废'
   if (seed.scenario === 'STYLE_PENDING_TECH') return '测款通过，已生成款式档案，待启用技术包'
   if (seed.scenario === 'STYLE_ACTIVE') return '测款通过，已关联款式档案并完成上游最终更新'
   return '历史测款渠道店铺商品，已失效'
@@ -838,7 +847,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-005',
       sequence: '01',
       scenario: 'MEASURING',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '法式优雅衬衫连衣裙测款款',
       listingPrice: 239,
@@ -858,7 +867,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-001',
       sequence: '01',
       scenario: 'FAILED_ADJUST',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '印尼风格碎花连衣裙第一轮测款款',
       listingPrice: 259,
@@ -881,7 +890,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-001',
       sequence: '02',
       scenario: 'HISTORY_INVALIDATED',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '印尼风格碎花连衣裙历史重测款',
       listingPrice: 269,
@@ -899,8 +908,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-008',
       sequence: '01',
       scenario: 'FAILED_ELIMINATED',
-      channelCode: 'wechat-mini-program',
-      storeId: 'store-mini-program-01',
+      channelCode: 'independent-site',
+      storeId: 'store-independent-01',
       listingTitle: '商务休闲西装外套测款款',
       listingPrice: 399,
       currency: 'CNY',
@@ -909,8 +918,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-12 11:30',
       updatedAt: '2026-03-16 15:20',
       invalidatedAt: '2026-03-16 15:20',
-      conclusion: '淘汰',
-      invalidatedReason: '测款结论为淘汰，当前渠道店铺商品已作废。',
+      conclusion: '不通过',
+      invalidatedReason: '测款结论为不通过，当前渠道店铺商品已作废。',
       upstreamSyncNote: '项目已终止，不再创建款式档案。',
       upstreamSyncLog: '项目已终止，不再创建款式档案。',
     },
@@ -938,7 +947,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-002',
       sequence: '01',
       scenario: 'STYLE_ACTIVE',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '百搭纯色基础短袖正式款',
       listingPrice: 129,
@@ -1028,8 +1037,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-012',
       sequence: '01',
       scenario: 'STYLE_PENDING_TECH',
-      channelCode: 'wechat-mini-program',
-      storeId: 'store-mini-program-01',
+      channelCode: 'independent-site',
+      storeId: 'store-independent-01',
       listingTitle: '快反撞色卫衣套装正式候选款',
       listingPrice: 199,
       currency: 'CNY',
@@ -1050,7 +1059,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-013',
       sequence: '01',
       scenario: 'STYLE_PENDING_TECH',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '设计款户外轻量夹克正式候选款',
       listingPrice: 369,
@@ -1074,7 +1083,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-014',
       sequence: '01',
       scenario: 'STYLE_ACTIVE',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '快反商务修身长袖衬衫正式款',
       listingPrice: 219,
@@ -1124,7 +1133,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-016',
       sequence: '01',
       scenario: 'FAILED_ADJUST',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '基础款波点雪纺连衣裙第一轮测款款',
       listingPrice: 249,
@@ -1170,7 +1179,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-018',
       sequence: '01',
       scenario: 'FAILED_ADJUST',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '设计款印花阔腿连体裤测款款',
       listingPrice: 359,
@@ -1195,8 +1204,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-019',
       sequence: '01',
       scenario: 'FAILED_PAUSED',
-      channelCode: 'wechat-mini-program',
-      storeId: 'store-mini-program-01',
+      channelCode: 'independent-site',
+      storeId: 'store-independent-01',
       listingTitle: '基础款毛织开衫测款款',
       listingPrice: 179,
       currency: 'CNY',
@@ -1216,7 +1225,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-020',
       sequence: '01',
       scenario: 'FAILED_PAUSED',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '快反 POLO 衫测款款',
       listingPrice: 169,
@@ -1260,7 +1269,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-022',
       sequence: '01',
       scenario: 'FAILED_PAUSED',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '设计款民族印花半裙测款款',
       listingPrice: 269,
@@ -1281,7 +1290,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-023',
       sequence: '01',
       scenario: 'FAILED_ELIMINATED',
-      channelCode: 'tiktok-shop',
+      channelCode: 'tiktok',
       storeId: 'store-tiktok-01',
       listingTitle: '基础款男装休闲夹克测款款',
       listingPrice: 289,
@@ -1291,8 +1300,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-25 08:50',
       updatedAt: '2026-04-05 11:10',
       invalidatedAt: '2026-04-05 11:10',
-      conclusion: '淘汰',
-      invalidatedReason: '测款结论为淘汰，当前渠道店铺商品已作废。',
+      conclusion: '不通过',
+      invalidatedReason: '测款结论为不通过，当前渠道店铺商品已作废。',
       linkedLiveLineId: 'LS-20260405-023__item-001',
       linkedLiveLineCode: 'LS-20260405-023-L01',
       upstreamSyncNote: '项目已终止，不再创建款式档案。',
@@ -1302,8 +1311,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       projectCode: 'PRJ-20251216-024',
       sequence: '01',
       scenario: 'FAILED_ELIMINATED',
-      channelCode: 'wechat-mini-program',
-      storeId: 'store-mini-program-01',
+      channelCode: 'independent-site',
+      storeId: 'store-independent-01',
       listingTitle: '快反居家套装测款款',
       listingPrice: 159,
       currency: 'CNY',
@@ -1312,8 +1321,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-26 10:20',
       updatedAt: '2026-04-05 16:20',
       invalidatedAt: '2026-04-05 16:20',
-      conclusion: '淘汰',
-      invalidatedReason: '测款结论为淘汰，当前渠道店铺商品已作废。',
+      conclusion: '不通过',
+      invalidatedReason: '测款结论为不通过，当前渠道店铺商品已作废。',
       linkedLiveLineId: 'LS-20260405-024__item-001',
       linkedLiveLineCode: 'LS-20260405-024-L01',
       linkedVideoRecordId: 'SV-PJT-024',
@@ -1335,8 +1344,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-26 15:50',
       updatedAt: '2026-04-06 09:50',
       invalidatedAt: '2026-04-06 09:50',
-      conclusion: '淘汰',
-      invalidatedReason: '测款结论为淘汰，当前渠道店铺商品已作废。',
+      conclusion: '不通过',
+      invalidatedReason: '测款结论为不通过，当前渠道店铺商品已作废。',
       linkedLiveLineId: 'LS-20260406-025__item-001',
       linkedLiveLineCode: 'LS-20260406-025-L01',
       upstreamSyncNote: '项目已终止，不再进入款式档案链路。',
@@ -1723,7 +1732,7 @@ function buildSummaryText(
   if (!currentRecord.conclusion && currentRecord.channelProductStatus === '已作废') {
     return `${multiInstancePrefix}当前渠道店铺商品已作废，历史测款结论待重新确认。`
   }
-  if (currentRecord.conclusion === '淘汰') {
+  if (currentRecord.conclusion === '不通过') {
     return `${multiInstancePrefix}当前渠道店铺商品已作废，当前项目已进入样衣退回处理。`
   }
   if (currentRecord.channelProductStatus === '已作废') {
@@ -1879,21 +1888,7 @@ function getChannelDisplayName(channelCode: string): string {
 function normalizeTestingSourceChannelCode(channelLabel: string): string {
   const normalized = channelLabel.trim().toLowerCase()
   if (!normalized) return ''
-  if (
-    normalized === '抖音' ||
-    normalized === '抖音商城' ||
-    normalized === 'tiktok' ||
-    normalized === 'tiktok shop' ||
-    normalized === 'tiktok-shop'
-  ) {
-    return 'tiktok-shop'
-  }
-  if (normalized === '虾皮' || normalized === 'shopee') return 'shopee'
-  if (normalized === '微信小程序' || normalized === '微信视频号' || normalized === 'wechat-mini-program') {
-    return 'wechat-mini-program'
-  }
-  if (normalized === '来赞达' || normalized === 'lazada') return 'lazada'
-  return ''
+  return normalizePcsChannelCode(normalized)
 }
 
 function parseTestingSourceChannelLabel(channelLabel: string): {
@@ -2369,11 +2364,17 @@ function buildTestingConclusionInlineRecord(
       conclusion: payload.conclusion,
       conclusionNote: payload.note,
       linkedChannelProductCode: primaryChannelProduct.channelProductCode,
-      invalidationPlanned: payload.conclusion !== '通过',
+      invalidationPlanned: payload.conclusion === '不通过',
       linkedStyleId: branchDetail.linkedStyleId || '',
       linkedStyleCode: branchDetail.linkedStyleCode || '',
       invalidatedChannelProductId: branchDetail.invalidatedChannelProductId || '',
       nextActionType: branchDetail.nextActionType || '',
+      productPositioningConclusion: payload.productPositioningConclusion || '',
+      stockGrade: payload.stockGrade || '',
+      continueTestFlag: payload.continueTestFlag ?? payload.conclusion === '继续测试',
+      downShelfFlag: payload.downShelfFlag ?? payload.conclusion === '不通过',
+      returnDestination: payload.returnDestination || '',
+      nextTestPlan: payload.nextTestPlan || '',
     },
     detailSnapshot: {
       summaryRecordId: summaryRecord?.recordId || '',
@@ -2498,7 +2499,7 @@ function activateTestingConclusionDecisionNode(
       pendingActionType: '结论判定',
       pendingActionText: '当前待确认：测款结论判定',
       latestResultType: '待结论判定',
-      latestResultText: '请确认测款结论：通过或淘汰。',
+      latestResultText: '请确认测款结论：通过、不通过或继续测试。',
       updatedAt: timestamp,
     },
     operatorName,
@@ -3211,8 +3212,8 @@ export function submitProjectTestingConclusion(
   payload: ProjectTestingConclusionPayload,
   operatorName = '当前用户',
 ): ProjectChannelProductWriteResult {
-  if (payload.conclusion !== '通过' && payload.conclusion !== '淘汰') {
-    return { ok: false, message: '测款结论判定只允许选择通过或淘汰。', record: null }
+  if (!['通过', '不通过', '继续测试'].includes(payload.conclusion)) {
+    return { ok: false, message: '测款结论判定只允许选择通过、不通过或继续测试。', record: null }
   }
 
   const project = getProjectById(projectId)
@@ -3321,15 +3322,78 @@ export function submitProjectTestingConclusion(
     }
   }
 
+  if (payload.conclusion === '继续测试') {
+    const nextRecords = targetRecords.map((record) => {
+      const nextRecord: ProjectChannelProductRecord = {
+        ...record,
+        ...testingLinkPatch,
+        scenario: 'MEASURING',
+        conclusion: '继续测试',
+        invalidatedReason: '',
+        channelProductStatus:
+          record.channelProductStatus === '已生效' ? '已生效' : '已上架待测款',
+        updatedAt: timestamp,
+        testingStatusText: '测款结论为继续测试，等待补充测款数据',
+        upstreamSyncNote: note,
+        upstreamSyncLog: `${timestamp} ${note}`,
+      }
+      replaceRecord(nextRecord, operatorName)
+      return nextRecord
+    })
+    const latestRecord = getCurrentChannelProduct(nextRecords) || nextRecords[0]
+    updateProjectCurrentPhase(projectId, 'PHASE_03', operatorName)
+    updateProjectNodeRecord(
+      projectId,
+      conclusionNode.projectNodeId,
+      {
+        latestInstanceId: latestRecord.channelProductId,
+        latestInstanceCode: latestRecord.channelProductCode,
+        latestResultType: '继续测试',
+        latestResultText: note,
+        pendingActionType: '继续测试',
+        pendingActionText: '请补充直播测款或短视频测款数据后重新汇总。',
+        updatedAt: timestamp,
+      },
+      operatorName,
+    )
+    buildTestingConclusionInlineRecord(
+      project,
+      conclusionNode.projectNodeId,
+      payload,
+      nextRecords,
+      summaryRecord,
+      {
+        nextActionType: '继续测试',
+      },
+      [],
+      operatorName,
+      timestamp,
+    )
+    try {
+      completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '继续测试', operatorName, note, timestamp)
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : '测款结论流转失败。',
+        record: latestRecord,
+      }
+    }
+    return {
+      ok: true,
+      message: '已提交继续测试结论，当前渠道店铺商品保留，项目已回到测款执行补充数据。',
+      record: latestRecord,
+    }
+  }
+
   const nextRecords = targetRecords.map((record) =>
     invalidateChannelProductRecord(
       { ...record, ...testingLinkPatch },
       {
         scenario: 'FAILED_ELIMINATED',
-        conclusion: '淘汰',
+        conclusion: '不通过',
         reason: note,
-        testingStatusText: '测款结论为淘汰，当前渠道店铺商品已作废',
-        upstreamNote: '测款结论为淘汰，当前项目进入样衣退回处理。',
+        testingStatusText: '测款结论为不通过，当前渠道店铺商品已作废',
+        upstreamNote: '测款结论为不通过，当前项目进入样衣退回处理。',
       },
       operatorName,
     ),
@@ -3341,7 +3405,7 @@ export function submitProjectTestingConclusion(
     {
       latestInstanceId: latestRecord.channelProductId,
       latestInstanceCode: latestRecord.channelProductCode,
-      latestResultType: '测款淘汰',
+      latestResultType: '测款不通过',
       latestResultText: note,
       pendingActionType: '样衣退回处理',
       pendingActionText: '请完成样衣退回处理。',
@@ -3371,7 +3435,7 @@ export function submitProjectTestingConclusion(
     timestamp,
   )
   try {
-    completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '淘汰', operatorName, note, timestamp)
+    completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '不通过', operatorName, note, timestamp)
   } catch (error) {
     return {
       ok: false,
@@ -3383,8 +3447,8 @@ export function submitProjectTestingConclusion(
     ok: true,
     message:
       nextRecords.length > 1
-        ? `已提交淘汰结论，已作废 ${nextRecords.length} 个渠道店铺商品实例，当前项目已进入样衣退回处理。`
-        : '已提交淘汰结论，当前项目已进入样衣退回处理。',
+        ? `已提交不通过结论，已作废 ${nextRecords.length} 个渠道店铺商品实例，当前项目已进入样衣退回处理。`
+        : '已提交不通过结论，当前项目已进入样衣退回处理。',
     record: latestRecord,
   }
 }
@@ -3475,7 +3539,7 @@ export function bindStyleArchiveToProjectChannelProduct(
 
 export function markProjectChannelProductConclusion(
   projectId: string,
-  conclusion: '淘汰',
+  conclusion: '不通过',
   operatorName = '当前用户',
 ): ProjectChannelProductRecord | null {
   const targetRecords = listValidChannelProducts(listProjectChannelProductsByProjectId(projectId))
@@ -3490,7 +3554,7 @@ export function markProjectChannelProductConclusion(
       invalidatedReason: `测款结论为${conclusion}，当前渠道店铺商品已作废。`,
       invalidatedAt: timestamp,
       updatedAt: timestamp,
-      testingStatusText: '测款结论为淘汰，当前渠道店铺商品已作废',
+      testingStatusText: '测款结论为不通过，当前渠道店铺商品已作废',
       upstreamSyncNote: '测款未通过，停止后续渠道更新。',
       upstreamSyncLog: `测款结论为${conclusion}，停止后续渠道更新。`,
     }

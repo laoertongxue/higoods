@@ -1,3 +1,5 @@
+import { DEFAULT_PCS_CHANNEL_CODE, normalizePcsChannelCode } from './pcs-channel-options.ts'
+
 export interface PcsChannelStoreMasterRecord {
   masterStoreId: string
   storeName: string
@@ -10,23 +12,23 @@ export interface PcsChannelStoreMasterRecord {
 const STORE_MASTER_RECORDS: PcsChannelStoreMasterRecord[] = [
   {
     masterStoreId: 'ST-001',
-    storeName: 'IDN-Store-A',
-    channelCode: 'tiktok-shop',
+    storeName: 'TikTok 印尼主店',
+    channelCode: 'tiktok',
     pricingCurrency: 'IDR',
     settlementCurrency: 'IDR',
     linkedProjectStoreIds: ['store-tiktok-01'],
   },
   {
     masterStoreId: 'ST-002',
-    storeName: 'VN-Store-B',
-    channelCode: 'tiktok-shop',
+    storeName: 'TikTok 越南店',
+    channelCode: 'tiktok',
     pricingCurrency: 'VND',
     settlementCurrency: 'VND',
     linkedProjectStoreIds: ['store-tiktok-02'],
   },
   {
     masterStoreId: 'ST-003',
-    storeName: 'MY-Store-C',
+    storeName: '虾皮马来西亚店',
     channelCode: 'shopee',
     pricingCurrency: 'MYR',
     settlementCurrency: 'USD',
@@ -34,19 +36,11 @@ const STORE_MASTER_RECORDS: PcsChannelStoreMasterRecord[] = [
   },
   {
     masterStoreId: 'ST-005',
-    storeName: 'Global-Store',
-    channelCode: 'wechat-mini-program',
+    storeName: '独立站主站',
+    channelCode: 'independent-site',
     pricingCurrency: 'USD',
     settlementCurrency: 'USD',
-    linkedProjectStoreIds: ['store-mini-program-01'],
-  },
-  {
-    masterStoreId: 'ST-006',
-    storeName: 'PH-Lazada-Store',
-    channelCode: 'lazada',
-    pricingCurrency: 'PHP',
-    settlementCurrency: 'PHP',
-    linkedProjectStoreIds: ['store-lazada-01'],
+    linkedProjectStoreIds: ['store-independent-01'],
   },
 ]
 
@@ -58,13 +52,7 @@ function cloneRecord(record: PcsChannelStoreMasterRecord): PcsChannelStoreMaster
 }
 
 function normalizeChannelCode(channelCode: string): string {
-  const normalized = channelCode.trim().toLowerCase()
-  if (!normalized) return ''
-  if (normalized === 'tiktok' || normalized === 'tiktok-shop' || normalized === '抖音商城') return 'tiktok-shop'
-  if (normalized === 'shopee' || normalized === '虾皮') return 'shopee'
-  if (normalized === 'wechat-mini-program' || normalized === '微信小程序') return 'wechat-mini-program'
-  if (normalized === 'lazada' || normalized === '来赞达') return 'lazada'
-  return normalized
+  return normalizePcsChannelCode(channelCode)
 }
 
 function findFallbackRecordByChannel(channelCode: string): PcsChannelStoreMasterRecord | null {
@@ -118,7 +106,7 @@ export function resolvePcsStoreCurrency(
   if (record) return record.settlementCurrency
   const normalized = normalizeChannelCode(channelCode)
   if (normalized === 'shopee') return 'USD'
-  if (normalized === 'wechat-mini-program') return 'USD'
-  if (normalized === 'lazada') return 'PHP'
+  if (normalized === 'independent-site') return 'USD'
+  if (normalized === DEFAULT_PCS_CHANNEL_CODE) return 'IDR'
   return 'IDR'
 }

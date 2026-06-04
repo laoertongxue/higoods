@@ -6,7 +6,7 @@ export interface StyleArchiveShellRecord {
   styleName: string
   styleNameEn: string
   styleNumber: string
-  styleType: string
+  productType: string
   sourceProjectId: string
   sourceProjectCode: string
   sourceProjectName: string

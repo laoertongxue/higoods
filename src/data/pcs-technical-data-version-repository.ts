@@ -16,6 +16,7 @@ import type {
   TechnicalDataVersionStoreSnapshot,
   TechnicalDomainStatus,
   TechnicalGarmentDifficultyGrade,
+  TechnicalModuleKey,
   TechnicalReviewNode,
   TechnicalReviewNodeKey,
   TechnicalReviewNodeStatus,
@@ -217,6 +218,23 @@ function normalizeGarmentDifficultyGrade(value: unknown): TechnicalGarmentDiffic
   return value === 'A' || value === 'A+' || value === 'A++' || value === 'B' || value === 'C' || value === 'D'
     ? value
     : 'B'
+}
+
+function normalizeTechnicalModuleKeys(value: unknown): TechnicalModuleKey[] {
+  if (!Array.isArray(value)) return []
+  const validKeys = new Set<TechnicalModuleKey>([
+    'BOM',
+    'COST',
+    'PATTERN',
+    'MATERIAL_PATTERN_LINK',
+    'COLOR_MATERIAL_MAPPING',
+    'PROCESS',
+    'SIZE',
+    'DESIGN',
+    'ATTACHMENT',
+    'QUALITY',
+  ])
+  return [...new Set(value.filter((item): item is TechnicalModuleKey => validKeys.has(item as TechnicalModuleKey)))]
 }
 
 const REVIEW_NODE_META: Record<
@@ -550,6 +568,7 @@ function applyDerivedFields(
     reviewSubmittedAt: record.reviewSubmittedAt || '',
     reviewSubmittedBy: record.reviewSubmittedBy || '',
     returnedFromMerchandiserFlag: Boolean(record.returnedFromMerchandiserFlag),
+    reviewUnlockedModuleKeys: normalizeTechnicalModuleKeys(record.reviewUnlockedModuleKeys),
     ...derived,
     linkedRevisionTaskIds: [...(record.linkedRevisionTaskIds ?? [])],
     linkedPatternTaskIds: [...(record.linkedPatternTaskIds ?? [])],

@@ -71,7 +71,7 @@ const skuArchiveCountBefore = listSkuArchives().length
 const emptySpecResult = createProjectChannelProductFromListingNode(
   project!.projectId,
   {
-    targetChannelCode: 'tiktok-shop',
+    targetChannelCode: 'tiktok',
     targetStoreId: 'store-tiktok-01',
     listingTitle: '无规格明细批次',
     defaultPriceAmount: 199,
@@ -87,7 +87,7 @@ assert.match(emptySpecResult.message, /至少一条规格明细/, '应明确提�
 const createResult = createProjectChannelProductFromListingNode(
   project!.projectId,
   {
-    targetChannelCode: 'tiktok-shop',
+    targetChannelCode: 'tiktok',
     targetStoreId: 'store-tiktok-01',
     listingTitle: '多规格款式上架批次',
     defaultPriceAmount: 199,

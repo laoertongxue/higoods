@@ -4,6 +4,7 @@ import {
   getLiveSessionItems,
   listLiveSessions,
 } from './pcs-testing.ts'
+import { getPcsChannelNameByCode, normalizePcsChannelCode } from './pcs-channel-options.ts'
 import type { LiveProductLine, LiveSessionRecord, LiveTestingStoreSnapshot } from './pcs-live-testing-types.ts'
 
 const LIVE_TESTING_STORAGE_KEY = 'higood-pcs-live-testing-store-v1'
@@ -12,7 +13,12 @@ const LIVE_TESTING_STORE_VERSION = 1
 let memorySnapshot: LiveTestingStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
+  return (
+    typeof localStorage !== 'undefined' &&
+    typeof localStorage.getItem === 'function' &&
+    typeof localStorage.setItem === 'function' &&
+    typeof localStorage.removeItem === 'function'
+  )
 }
 
 function cloneSession(session: LiveSessionRecord): LiveSessionRecord {
@@ -49,13 +55,24 @@ function parseSkuCodeSegments(skuCode: string): { colorCode: string; sizeCode: s
   return { colorCode: '', sizeCode: '' }
 }
 
+function formatLiveChannelName(liveAccount: string): string {
+  const rawAccount = liveAccount.trim()
+  const channelCode = normalizePcsChannelCode(rawAccount)
+  const channelName = getPcsChannelNameByCode(channelCode)
+  if (!channelName) return rawAccount || 'TikTok / 未填写直播账号'
+  const accountName = rawAccount.startsWith(channelName)
+    ? rawAccount.slice(channelName.length).replace(/^[\s/／-]+/, '').trim()
+    : rawAccount
+  return `${channelName} / ${accountName || '未填写直播账号'}`
+}
+
 function buildSeedSnapshot(): LiveTestingStoreSnapshot {
   const sessions = listLiveSessions()
   const sessionRecords: LiveSessionRecord[] = sessions.map((session) => ({
     liveSessionId: session.id,
     liveSessionCode: session.id,
     sessionTitle: session.title,
-    channelName: session.liveAccount,
+    channelName: formatLiveChannelName(session.liveAccount),
     hostName: session.anchor,
     sessionStatus: SESSION_STATUS_META[session.status].label,
     businessDate: toBusinessDate(session.startAt),
@@ -141,7 +158,7 @@ function buildSeedSnapshot(): LiveTestingStoreSnapshot {
       liveSessionId: 'LS-20260331-017',
       liveSessionCode: 'LS-20260331-017',
       sessionTitle: '牛仔机车短外套改版测款',
-      channelName: 'Shopee / 改版测款直播间',
+      channelName: '虾皮 / 改版测款直播间',
       hostName: '达人-Lia',
       sessionStatus: '已关账',
       businessDate: '2026-03-31',
@@ -183,7 +200,7 @@ function buildSeedSnapshot(): LiveTestingStoreSnapshot {
       liveSessionId: 'LS-20260404-021',
       liveSessionCode: 'LS-20260404-021',
       sessionTitle: '都市西装马甲复盘直播',
-      channelName: 'Shopee / 改版直播间',
+      channelName: '虾皮 / 改版直播间',
       hostName: '达人-Mika',
       sessionStatus: '已关账',
       businessDate: '2026-04-04',
@@ -225,7 +242,7 @@ function buildSeedSnapshot(): LiveTestingStoreSnapshot {
       liveSessionId: 'LS-20260405-024',
       liveSessionCode: 'LS-20260405-024',
       sessionTitle: '居家套装双渠道复盘直播',
-      channelName: '微信小程序 / 居家品类直播间',
+      channelName: '独立站 / 居家品类直播间',
       hostName: '家播-小溪',
       sessionStatus: '已关账',
       businessDate: '2026-04-05',
@@ -246,7 +263,7 @@ function buildSeedSnapshot(): LiveTestingStoreSnapshot {
       liveSessionId: 'LS-20260406-025',
       liveSessionCode: 'LS-20260406-025',
       sessionTitle: '毛织背心淘汰复盘直播',
-      channelName: 'Shopee / 男装快反直播间',
+      channelName: '虾皮 / 男装快反直播间',
       hostName: '达人-Ken',
       sessionStatus: '已关账',
       businessDate: '2026-04-06',

@@ -4,8 +4,9 @@ import type { ChannelListingImageRecord } from './pcs-channel-listing-image-type
 import type { ProjectNodeStatus } from './pcs-project-types.ts'
 
 export type PcsProjectPhaseCode = 'PHASE_01' | 'PHASE_02' | 'PHASE_03' | 'PHASE_04' | 'PHASE_05'
-export type PcsProjectTemplateStyleType = '基础款' | '快时尚款' | '改版款' | '设计款'
 export type PcsProjectTemplateId = 'TPL-001' | 'TPL-002' | 'TPL-003' | 'TPL-004'
+export const DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-001'
+export const WANLONG_REVISION_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-003'
 export type PcsProjectSourceType = '企划提案' | '渠道反馈' | '测款沉淀' | '历史复用' | '外部灵感'
 export type PcsSampleSourceType = '外采' | '自打样' | '委托打样'
 export type PcsProjectPriorityLevel = '高' | '中' | '低'
@@ -25,6 +26,7 @@ export type PcsProjectWorkItemCode =
   | 'TEST_DATA_SUMMARY'
   | 'TEST_CONCLUSION'
   | 'STYLE_ARCHIVE_CREATE'
+  | 'REVISION_TASK'
   | 'PATTERN_TASK'
   | 'PATTERN_ARTWORK_TASK'
   | 'FIRST_SAMPLE'
@@ -193,7 +195,6 @@ export interface PcsProjectTemplatePhaseSchema {
 export interface PcsProjectTemplateSchema {
   templateId: PcsProjectTemplateId
   templateName: string
-  styleTypes: PcsProjectTemplateStyleType[]
   creator: string
   createdAt: string
   updatedAt: string
@@ -636,15 +637,15 @@ const projectInitFields = [
         label: '项目类型',
         type: 'select',
         sourceKind: '系统生成',
-        sourceRef: 'styleType -> projectType 映射',
+        sourceRef: '项目模板 -> projectType 映射',
         meaning: '项目开发类型快照',
-        logic: '项目类型由款式类型自动映射生成，保留到主记录和 PROJECT_INIT 合同中。',
+        logic: '项目类型由所选业务模板自动映射生成，保留到主记录和 PROJECT_INIT 合同中。',
         required: false,
         readonly: true,
         options: [
           { value: '商品开发', label: '商品开发' },
-          { value: '快反上新', label: '快反上新' },
           { value: '改版开发', label: '改版开发' },
+          { value: '快反上新', label: '快反上新' },
           { value: '设计研发', label: '设计研发' },
         ],
       },
@@ -673,21 +674,6 @@ const projectInitFields = [
         meaning: '决定项目阶段和节点矩阵的模板',
         logic: '只能选择正式模板，不允许脱离模板自由拼装。',
         placeholder: '请选择项目模板',
-      },
-      {
-        key: 'styleType',
-        label: '款式类型',
-        type: 'select',
-        sourceKind: '固定枚举',
-        sourceRef: '模板款式类型',
-        meaning: '驱动项目模板与项目类型映射的款式类型',
-        logic: '款式类型决定默认模板和项目类型，是立项的正式字段之一。',
-        options: [
-          { value: '基础款', label: '基础款' },
-          { value: '快时尚款', label: '快时尚款' },
-          { value: '改版款', label: '改版款' },
-          { value: '设计款', label: '设计款' },
-        ],
       },
     ],
   }),
@@ -1097,7 +1083,7 @@ const sampleAcquireFields = [
   ...groupFields({
     id: 'sample-acquire-main',
     title: '样衣来源',
-    description: '记录样衣获取方式和来源信息。',
+    description: '记录样衣获取方式和来源信息；国内采购记录采购要素，万隆改版记录改版出样衣需求。',
     fields: [
       {
         key: 'sampleSourceType',
@@ -1113,9 +1099,47 @@ const sampleAcquireFields = [
           { value: '委托打样', label: '委托打样' },
         ],
       },
-      { key: 'sampleSupplierId', label: '来源方', type: 'single-select', sourceKind: '样衣供应商主数据', sourceRef: '样衣供应商主数据', meaning: '样衣供应方', logic: '仅在需要供应方时填写。', required: false },
-      { key: 'sampleLink', label: '外采链接', type: 'url', sourceKind: '本地主数据', sourceRef: '样衣来源表单', meaning: '外采链接地址', logic: '当来源方式为外采时，外采链接和样衣单价至少填写一项。', required: false, conditionalRequired: 'sampleSourceType=外采' },
+      { key: 'sampleSupplierId', label: '来源方', type: 'single-select', sourceKind: '样衣供应商主数据', sourceRef: '样衣供应商主数据', meaning: '样衣供应方', logic: '国内采购样衣填供应商；万隆改版出样衣可填版房或内部承接方。', required: false },
+      { key: 'purchaseSupplierName', label: '供应商名称', type: 'text', sourceKind: '本地主数据', sourceRef: '样衣来源表单', meaning: '采购样衣供应商文本快照', logic: '当供应商不在主数据中时保留手填名称，便于先跑业务。', required: false },
+      { key: 'sampleLink', label: '采购地址 / 外采链接', type: 'url', sourceKind: '本地主数据', sourceRef: '样衣来源表单', meaning: '采购样衣地址或外采链接', logic: '国内采购样衣测款通过手动建项目录入来源链接，不依赖旧系统转运批次导入。', required: false, conditionalRequired: 'sampleSourceType=外采' },
       { key: 'sampleUnitPrice', label: '样衣单价', type: 'number', sourceKind: '本地主数据', sourceRef: '样衣来源表单', meaning: '外采或委托成本参考', logic: '当来源方式为外采时，外采链接和样衣单价至少填写一项。', required: false, conditionalRequired: 'sampleSourceType=外采' },
+      { key: 'freightAmount', label: '运费', type: 'number', sourceKind: '本地主数据', sourceRef: '采购样品弹窗.运费', meaning: '采购样衣运费', logic: '承接老系统采购样品弹窗中的运费字段，作为样衣获取成本信息。', required: false },
+      { key: 'receiverName', label: '收件人', type: 'text', sourceKind: '本地主数据', sourceRef: '采购样品弹窗.收件人', meaning: '采购样衣收件人', logic: '记录采购样衣寄送到谁，便于后续样衣管理追踪。', required: false },
+      { key: 'saleType', label: '售卖类型', type: 'single-select', sourceKind: '固定枚举', sourceRef: '采购样品弹窗.售卖类型', meaning: '采购样衣对应的售卖业务类型', logic: '保留预售、备货、KOL样衣、虾皮样品、基础款、国内做货等老系统可解释选项。', required: false, options: [
+        { value: '预售', label: '预售' },
+        { value: '备货', label: '备货' },
+        { value: 'KOL样衣', label: 'KOL样衣' },
+        { value: '虾皮样品', label: '虾皮样品' },
+        { value: '基础款', label: '基础款' },
+        { value: '国内做货', label: '国内做货' },
+      ] },
+      { key: 'targetRegionCodes', label: '区域', type: 'multi-select', sourceKind: '固定枚举', sourceRef: '采购样品弹窗.区域', meaning: '样衣计划测款或销售区域', logic: '可多选 ID、CN、TH、VN、PH、SA、MY、SG 等区域。', required: false, options: [
+        { value: 'ID', label: 'ID' },
+        { value: 'CN', label: 'CN' },
+        { value: 'TH', label: 'TH' },
+        { value: 'VN', label: 'VN' },
+        { value: 'PH', label: 'PH' },
+        { value: 'SA', label: 'SA' },
+        { value: 'MY', label: 'MY' },
+        { value: 'SG', label: 'SG' },
+      ] },
+      { key: 'needTransitFlag', label: '是否需要转运', type: 'boolean', sourceKind: '本地主数据', sourceRef: '采购样品弹窗.需要转运', meaning: '样衣是否需要转运', logic: '只记录采购样衣是否需要转运，不做旧系统转运批次导入。', required: false },
+      { key: 'skuPurchaseQty', label: 'SKU采购数量', type: 'table', sourceKind: '本地主数据', sourceRef: '采购样品弹窗.sku列表', meaning: '按 SKU 记录采购数量', logic: '用于承接老系统按 SKU 填采购数量的业务动作；当前原型只做字段承接。', required: false },
+    ],
+  }),
+  ...groupFields({
+    id: 'sample-acquire-revision',
+    title: '改版出样衣需求',
+    description: '万隆改版出样衣项目前置记录旧款、参考款和改版方向，后续由改版任务实际产出样衣。',
+    fields: [
+      { key: 'baseProductCode', label: '旧商品 / 参考款编码', type: 'text', sourceKind: '本地主数据', sourceRef: '改版样衣来源', meaning: '改版基于的旧商品或参考款', logic: '手动建项目时录入，不依赖旧系统商品结构对接。', required: false },
+      { key: 'expectedNewSpuCode', label: '新 SPU 期望', type: 'text', sourceKind: '本地主数据', sourceRef: '改版详情.新 SPU', meaning: '改版后期望形成的新 SPU', logic: '仅作为改版出样衣需求，不直接生成商品主档。', required: false },
+      { key: 'requestedSampleQty', label: '样衣数量', type: 'number', sourceKind: '本地主数据', sourceRef: '改版详情.样衣数量', meaning: '本次改版期望出样衣数量', logic: '后续改版任务创建时应承接该数量。', required: false },
+      { key: 'revisionDirection', label: '改版方向', type: 'textarea', sourceKind: '本地主数据', sourceRef: '改版详情.修改建议', meaning: '本次改版业务方向', logic: '记录业务希望怎么改，后续 REVISION_TASK 再拆为工程执行内容。', required: false },
+      { key: 'materialRequirement', label: '面辅料要求', type: 'textarea', sourceKind: '本地主数据', sourceRef: '改版详情.上传纸样图片/面料部分', meaning: '改版涉及的面料辅料要求', logic: '只记录需求，具体面辅料明细在改版任务中维护。', required: false },
+      { key: 'printRequirement', label: '印花需求', type: 'textarea', sourceKind: '本地主数据', sourceRef: '改版详情.印花需求', meaning: '改版涉及的印花要求', logic: '只记录需求，具体花型任务或花型库沉淀后续处理。', required: false },
+      { key: 'paperPatternRequirement', label: '纸样要求', type: 'textarea', sourceKind: '本地主数据', sourceRef: '改版详情.纸样文件', meaning: '改版涉及的纸样要求', logic: '改版任务或制版任务后续承接纸样执行。', required: false },
+      { key: 'designDraftRequirement', label: '设计稿要求', type: 'textarea', sourceKind: '本地主数据', sourceRef: '改版详情.新图设计稿', meaning: '改版涉及的设计稿要求', logic: '改版任务后续上传或关联设计稿。', required: false },
     ],
   }),
 ]
@@ -1124,10 +1148,19 @@ const sampleInboundFields = [
   ...groupFields({
     id: 'sample-inbound-main',
     title: '样衣结果核对',
-    description: '登记样衣结果已形成、编号和核对结果。',
+    description: '登记样衣是否已经收到、是否符合来源要求、是否可以进入测款。',
     fields: [
-      { key: 'sampleCode', label: '结果编号', type: 'text', sourceKind: '样衣结果', sourceRef: '样衣结果或系统生成', meaning: '本次样衣结果编号', logic: '结果编号可由系统生成，也可在提交样衣结果时填写。', placeholder: '请输入结果编号' },
-      { key: 'checkResult', label: '核对结果', type: 'textarea', sourceKind: '本地主数据', sourceRef: '样衣结果核对', meaning: '样衣核对结论', logic: '核对结果用于进入后续评估。', placeholder: '请输入核对结果' },
+      { key: 'sampleCode', label: '样衣编号', type: 'text', sourceKind: '样衣结果', sourceRef: '样衣结果或系统生成', meaning: '本次样衣编号', logic: '样衣编号可由系统生成，也可在样衣结果核对时填写。', placeholder: '请输入样衣编号' },
+      { key: 'receivedQty', label: '收到数量', type: 'number', sourceKind: '本地主数据', sourceRef: '样衣结果核对', meaning: '实际收到的样衣数量', logic: '用于和样衣获取或改版任务中的计划数量核对。', required: false },
+      { key: 'receivedAt', label: '收到时间', type: 'datetime', sourceKind: '本地主数据', sourceRef: '样衣结果核对', meaning: '样衣实际收到时间', logic: '样衣到样后补录，供项目进度和样衣库存追踪。', required: false },
+      { key: 'sampleImageIds', label: '样衣图片', type: 'image-list', sourceKind: '样衣结果', sourceRef: '样衣图片结果池', meaning: '收到样衣后的图片证据', logic: '样衣图片进入项目图片结果池，可供上架、款式档案和样衣管理引用。', required: false },
+      { key: 'qualityCheckResult', label: '质量核对结果', type: 'single-select', sourceKind: '固定枚举', sourceRef: '样衣核对结果', meaning: '样衣质量是否符合进入测款要求', logic: '通过代表可继续准备上架；不通过应退回或重新出样；需补充代表暂不能测款。', options: [
+        { value: '通过', label: '通过' },
+        { value: '不通过', label: '不通过' },
+        { value: '需补充', label: '需补充' },
+      ] },
+      { key: 'testableFlag', label: '是否可测款', type: 'boolean', sourceKind: '本地主数据', sourceRef: '样衣结果核对', meaning: '当前样衣是否可以进入测款', logic: '只有可测款的样衣才应进入商品上架与测款执行。', required: false },
+      { key: 'checkResult', label: '核对说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '样衣结果核对', meaning: '样衣核对说明', logic: '说明样衣是否完整、是否符合采购或改版要求、是否存在尺码/颜色/质量差异。', placeholder: '请输入核对说明' },
     ],
   }),
 ]
@@ -1145,10 +1178,10 @@ const feasibilityFields = [
         sourceKind: '固定枚举',
         sourceRef: '可行性结论',
         meaning: '是否继续推进项目',
-        logic: '通过代表继续推进，淘汰代表转入样衣退回处理。',
+        logic: '通过代表继续推进，不通过代表转入样衣退回处理。',
         options: [
           { value: '通过', label: '通过' },
-          { value: '淘汰', label: '淘汰' },
+          { value: '不通过', label: '不通过' },
         ],
         required: true,
       },
@@ -1189,10 +1222,10 @@ const sampleConfirmFields = [
         sourceKind: '固定枚举',
         sourceRef: '样衣确认结果',
         meaning: '是否通过样衣确认',
-        logic: '通过时进入下一个节点，淘汰时进入样衣退回处理。',
+        logic: '通过时进入下一个节点，不通过时进入样衣退回处理。',
         options: [
           { value: '通过', label: '通过' },
-          { value: '淘汰', label: '淘汰' },
+          { value: '不通过', label: '不通过' },
         ],
         required: true,
       },
@@ -1374,7 +1407,7 @@ const conclusionFields = [
   ...groupFields({
     id: 'test-conclusion-main',
     title: '测款结论',
-    description: '测款结论决定项目继续推进，或转入样衣退回处理。',
+    description: '测款结论必须明确通过、不通过或继续测试，并决定是否进入大货准备、继续测款或收尾处理。',
     fields: [
       {
         key: 'conclusion',
@@ -1383,16 +1416,40 @@ const conclusionFields = [
         sourceKind: '固定枚举',
         sourceRef: '测款结论',
         meaning: '项目继续与否的正式结论',
-        logic: '通过时进入模板中的下一个工作项；淘汰时进入样衣退回处理。',
+        logic: '通过时进入款式档案和后续开发；不通过时转入下架/样衣处理；继续测试时返回测款执行补充数据。',
         options: [
           { value: '通过', label: '通过' },
-          { value: '淘汰', label: '淘汰' },
+          { value: '不通过', label: '不通过' },
+          { value: '继续测试', label: '继续测试' },
         ],
         required: true,
       },
+      { key: 'productPositioningConclusion', label: '产品定位', type: 'single-select', sourceKind: '固定枚举', sourceRef: '测款结论.产品定位', meaning: '测款后的商品定位判断', logic: '将老系统备货等级和业务判断转成可读的商品定位。', required: false, options: [
+        { value: '爆款', label: '爆款' },
+        { value: '数据款', label: '数据款' },
+        { value: '滞销款', label: '滞销款' },
+      ] },
+      { key: 'stockGrade', label: '备货等级', type: 'single-select', sourceKind: '固定枚举', sourceRef: '测款结论.备货等级', meaning: '测款后的备货等级', logic: '用于决定是否进入大货备货以及备货强度。', required: false, options: [
+        { value: 'A', label: 'A' },
+        { value: 'B', label: 'B' },
+        { value: 'C', label: 'C' },
+        { value: 'D', label: 'D' },
+        { value: 'E', label: 'E' },
+        { value: 'F', label: 'F' },
+      ] },
+      { key: 'continueTestFlag', label: '是否继续测试', type: 'boolean', sourceKind: '系统生成', sourceRef: '测款结论', meaning: '是否需要继续测款', logic: '当结论为继续测试时应为是，并要求填写下一轮测试计划。', required: false },
+      { key: 'downShelfFlag', label: '是否下架', type: 'boolean', sourceKind: '系统生成', sourceRef: '测款结论', meaning: '当前渠道店铺商品是否需要下架或作废', logic: '结论不通过时通常需要下架；继续测试时不应自动下架。', required: false },
+      { key: 'returnDestination', label: '退回去向', type: 'single-select', sourceKind: '固定枚举', sourceRef: '测款结论.退回去向', meaning: '不通过或收尾时样衣的建议去向', logic: '为后续 SAMPLE_RETURN_HANDLE 提供默认去向。', required: false, options: [
+        { value: '退回供应商', label: '退回供应商' },
+        { value: '退回版房', label: '退回版房' },
+        { value: '样衣库存留样', label: '样衣库存留样' },
+        { value: '清仓处理', label: '清仓处理' },
+        { value: '报废处理', label: '报废处理' },
+      ] },
+      { key: 'nextTestPlan', label: '下一轮测试计划', type: 'textarea', sourceKind: '本地主数据', sourceRef: '测款结论.继续测试', meaning: '继续测试时的下一步计划', logic: '结论为继续测试时必须说明测试渠道、测试方式和期望补充的数据。', required: false, conditionalRequired: 'conclusion=继续测试' },
       { key: 'conclusionNote', label: '结论说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '测款结论', meaning: '测款结论说明', logic: '必须补充结论说明，供后续节点和回写使用。' },
       { key: 'linkedChannelProductCode', label: '来源渠道店铺商品编码', type: 'text', sourceKind: '项目来源', sourceRef: '商品上架实例', meaning: '当前测款结论对应的渠道店铺商品编码', logic: '从商品上架节点回读，只读。', readonly: true },
-      { key: 'invalidationPlanned', label: '是否计划作废', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论计算', meaning: '结论是否触发渠道店铺商品作废', logic: '当结论不是通过时系统计算为 true。', readonly: true },
+      { key: 'invalidationPlanned', label: '是否计划作废', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论计算', meaning: '结论是否触发渠道店铺商品作废', logic: '当结论为不通过时系统计算为 true；继续测试不直接作废。', readonly: true },
     ],
   }),
   ...groupFields({
@@ -1403,7 +1460,7 @@ const conclusionFields = [
       { key: 'linkedStyleId', label: '关联款式档案ID', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案关联回写', meaning: '测款通过后关联的款式档案ID', logic: '通过分支如已建立款式档案关系则回写 styleId，只读。', readonly: true, required: false },
       { key: 'linkedStyleCode', label: '关联款式档案编码', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案关联回写', meaning: '测款通过后关联的款式档案编码', logic: '通过分支如已建立款式档案关系则回写 styleCode，只读。', readonly: true, required: false },
       { key: 'invalidatedChannelProductId', label: '作废渠道店铺商品ID', type: 'text', sourceKind: '上游实例回写', sourceRef: '渠道店铺商品作废回写', meaning: '本次测款结论直接作废的渠道店铺商品ID', logic: '当结论不是通过时，系统回写本次主作废渠道店铺商品ID，只读。', readonly: true, required: false },
-      { key: 'nextActionType', label: '后续动作类型', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论分支流转', meaning: '本次测款结论后的下一步主动作', logic: '系统按结论自动计算，例如生成款式档案或样衣退回处理，只读。', readonly: true },
+      { key: 'nextActionType', label: '后续动作类型', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论分支流转', meaning: '本次测款结论后的下一步主动作', logic: '系统按结论自动计算，例如生成款式档案、返回测款执行或样衣退回处理，只读。', readonly: true },
     ],
   }),
 ]
@@ -1836,46 +1893,70 @@ const returnHandleFields = [
   ...groupFields({
     id: 'return-handle-main',
     title: '退回处理',
-    description: '记录样衣退回、报废或处置结果。',
+    description: '记录样衣退回、入库留样、清仓、寄回或报废等处置结果。',
     fields: [
-      { key: 'returnResult', label: '处理结果', type: 'textarea', sourceKind: '本地主数据', sourceRef: '退回处理', meaning: '退回、报废或处置结果', logic: '提交退回处理时必填。' },
-    ],
-  }),
-]
+      { key: 'handleType', label: '处理方式', type: 'single-select', sourceKind: '固定枚举', sourceRef: '样衣退回处理.处理方式', meaning: '样衣最终处理方式', logic: '承接测款结论中的退回去向，允许在收尾时确认。', options: [
+        { value: '退样', label: '退样' },
+        { value: '入库留样', label: '入库留样' },
+        { value: '清仓处理', label: '清仓处理' },
+        { value: '寄回', label: '寄回' },
+        { value: '报废处理', label: '报废处理' },
+      ] },
+      { key: 'destination', label: '处理去向', type: 'text', sourceKind: '本地主数据', sourceRef: '样衣退回处理.去向', meaning: '退样、寄回或入库位置', logic: '记录具体供应商、版房、样衣库位或清仓去向。', required: false },
+      { key: 'handledQty', label: '处理数量', type: 'number', sourceKind: '本地主数据', sourceRef: '样衣退回处理.数量', meaning: '本次实际处理的样衣数量', logic: '允许分批处理，多次记录时按数量汇总。', required: false },
+	      { key: 'handledBy', label: '处理人', type: 'text', sourceKind: '本地组织主数据', sourceRef: '样衣退回处理.处理人', meaning: '本次处理确认人', logic: '提交处理结果时记录。', required: false },
+	      { key: 'handledAt', label: '处理时间', type: 'datetime', sourceKind: '本地主数据', sourceRef: '样衣退回处理.处理时间', meaning: '实际完成样衣处理的时间', logic: '用于项目收尾审计。', required: false },
+	      { key: 'returnResult', label: '处理结果说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '退回处理', meaning: '退回、报废或处置结果', logic: '提交退回处理时必填。' },
+	    ],
+	  }),
+	  ...groupFields({
+	    id: 'return-handle-detail',
+	    title: '退回单据',
+	    description: '补充样衣退回收件方、地址、退货日期和单据编号。',
+	    fields: [
+	      { key: 'returnRecipient', label: '退回收件方', type: 'text', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.detailSnapshot.returnRecipient', meaning: '样衣退回或寄回的收件方', logic: '保存退回处理时从详情快照回显。', readonly: true, required: false },
+	      { key: 'returnDepartment', label: '处理部门', type: 'text', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.detailSnapshot.returnDepartment', meaning: '负责处理样衣收尾的部门', logic: '保存退回处理时从详情快照回显。', readonly: true, required: false },
+	      { key: 'returnAddress', label: '退回地址', type: 'textarea', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.detailSnapshot.returnAddress', meaning: '样衣寄回地址或处置地点', logic: '保存退回处理时从详情快照回显。', readonly: true, required: false },
+	      { key: 'returnDate', label: '退回日期', type: 'date', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.detailSnapshot.returnDate', meaning: '计划或实际退回日期', logic: '保存退回处理时从详情快照回显。', readonly: true, required: false },
+	      { key: 'sampleCode', label: '样衣编号', type: 'text', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.detailSnapshot.sampleCode', meaning: '本次处理的样衣编号', logic: '保存退回处理时从详情快照回显。', readonly: true, required: false },
+	      { key: 'returnDocCode', label: '退回单号', type: 'text', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.detailSnapshot.returnDocCode', meaning: '样衣退回处理单据编号', logic: '保存退回处理时从详情快照回显。', readonly: true, required: false },
+	    ],
+	  }),
+	]
 
 export const PCS_PROJECT_PHASE_CONTRACTS: PcsProjectPhaseContract[] = [
   {
     phaseCode: 'PHASE_01',
-    phaseName: '立项获取',
+    phaseName: '立项与样衣获取',
     phaseOrder: 1,
-    description: '完成商品项目立项、样衣获取和样衣结果核对。',
+    description: '完成商品项目立项并明确样衣来源。',
     defaultOpenFlag: true,
-    businessScenario: '完成项目立项、样衣来源确认和样衣结果已形成准备，为后续评估提供正式输入。',
-    whyExists: '项目必须先完成立项、样衣来源确定和样衣结果核对，后续评估和测款才有真实输入。',
+    businessScenario: '完成项目立项、样衣来源确认和样衣获取需求记录，为后续出样、核对和测款提供正式输入。',
+    whyExists: '项目必须先完成立项并明确样衣来源，后续改版任务、样衣核对和测款才有真实输入。',
     entryConditions: ['创建商品项目并选定正式模板。'],
-    exitConditions: ['样衣来源已登记；若模板包含样衣结果核对，则样衣结果已完成核对。'],
+    exitConditions: ['样衣来源已登记；若是国内采购样衣，采购来源信息已记录；若是万隆改版样衣，改版出样需求已明确。'],
   },
   {
     phaseCode: 'PHASE_02',
-    phaseName: '样衣与评估',
+    phaseName: '样衣形成与商品准备',
     phaseOrder: 2,
-    description: '完成样衣可行性判断、拍摄试穿、确认、核价和定价。',
+    description: '承接采购样衣到样核对、改版任务出样和商品上架准备。',
     defaultOpenFlag: true,
-    businessScenario: '围绕样衣是否值得继续投入，完成评估、确认、核价和定价。',
-    whyExists: '样衣是否值得继续投入必须在测款前确认，且商品上架必须建立在核价和定价完成之上。',
-    entryConditions: ['PHASE_01 已完成，样衣来源和结果核对信息已就绪。'],
-    exitConditions: ['样衣确认结果已明确；核价与定价满足商品上架前置条件。'],
+    businessScenario: '国内采购样衣在本阶段完成样衣结果核对和商品上架准备；万隆改版样衣在本阶段先创建改版任务，产出样衣后再核对。',
+    whyExists: '测款前必须确认样衣真实存在且可测，改版出样还必须先落到工程开发与打样管理的改版任务。',
+    entryConditions: ['PHASE_01 已完成，样衣来源或改版出样需求已就绪。'],
+    exitConditions: ['样衣已完成结果核对；若需要商品上架准备，则渠道店铺商品已准备进入测款。'],
   },
   {
     phaseCode: 'PHASE_03',
-    phaseName: '商品上架与市场测款',
+    phaseName: '市场测款与结论',
     phaseOrder: 3,
-    description: '先完成商品上架，再承接短视频、直播和测款结论判定。',
+    description: '执行直播测款和可选短视频测款，汇总数据并形成测款结论。',
     defaultOpenFlag: true,
-    businessScenario: '先生成渠道店铺商品并完成上架，再结合直播或短视频事实形成正式测款结论。',
-    whyExists: '直播测款和短视频测款不能脱离商品上架存在，必须先有渠道店铺商品和上游渠道商品编码。',
-    entryConditions: ['样衣确认已通过；样衣核价与样衣定价已完成。'],
-    exitConditions: ['商品上架已完成；测款结论已产出。'],
+    businessScenario: '结合直播测款和短视频测款事实形成订单、曝光、CTR、价格、测试标签等汇总，并产出通过、不通过或继续测试的正式结论。',
+    whyExists: '测款总归要有结果，否则无法决定能不能做大货、是否继续测试或是否下架处理。',
+    entryConditions: ['样衣已核对为可测；渠道店铺商品已准备好或已上架。'],
+    exitConditions: ['测款数据已汇总；测款结论已产出。'],
   },
   {
     phaseCode: 'PHASE_04',
@@ -2072,7 +2153,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['读取样衣结果核对结果。'],
     downstreamChanges: ['为样衣拍摄与试穿、样衣确认提供前置判断'],
-    businessRules: ['结论必须明确为通过或淘汰'],
+    businessRules: ['结论必须明确为通过或不通过'],
     systemConstraints: ['样衣未到位不能提交可行性结论'],
   },
   {
@@ -2140,7 +2221,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['读取可行性判断和试穿反馈。'],
     downstreamChanges: ['样衣确认通过时解锁商品上架与市场测款'],
-    businessRules: ['确认结果必须明确为通过或淘汰'],
+    businessRules: ['确认结果必须明确为通过或不通过'],
     systemConstraints: ['样衣未确认通过，不允许进入商品上架和测款'],
   },
   {
@@ -2382,8 +2463,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionKey: 'submit-test-conclusion',
         actionName: '提交测款结论',
         preconditions: ['测款数据汇总已完成'],
-        effects: ['记录结论', '通过时解锁下一个工作项', '淘汰时作废当前渠道店铺商品并转入样衣退回处理', '正式回写款式档案、渠道店铺商品与后续动作字段'],
-        writebackRules: ['通过：进入模板中的下一个工作项，并回写 linkedStyleId、linkedStyleCode、nextActionType', '淘汰：作废当前渠道店铺商品，取消中间未完成节点，并回写 invalidatedChannelProductId、nextActionType=样衣退回处理'],
+        effects: ['记录结论', '通过时解锁款式档案与后续开发', '不通过时下架或作废当前渠道店铺商品并转入样衣处理', '继续测试时返回测款执行补充数据', '正式回写款式档案、渠道店铺商品与后续动作字段'],
+        writebackRules: ['通过：进入款式档案创建，并回写 linkedStyleId、linkedStyleCode、nextActionType', '不通过：作废或下架当前渠道店铺商品，取消中间未完成节点，并回写 invalidatedChannelProductId、nextActionType=样衣退回处理', '继续测试：保留渠道店铺商品，回到直播测款或短视频测款补充测试记录，并回写 nextActionType=继续测试'],
       },
     ],
     statusDefinitions: [
@@ -2393,9 +2474,9 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '已取消', entryConditions: ['节点取消'], exitConditions: ['无'], businessMeaning: '测款结论不再继续。' },
     ],
     upstreamChanges: ['读取测款数据汇总和商品上架实例。'],
-    downstreamChanges: ['通过时解锁款式档案创建', '淘汰时回写渠道店铺商品作废并转入样衣退回处理'],
-    businessRules: ['结论必须明确为通过或淘汰', '测款结论正式记录必须承接款式档案、渠道店铺商品作废和样衣退回处理等真实结果'],
-    systemConstraints: ['结论不是通过时，当前渠道店铺商品必须作废', 'nextActionType 以及各类后果字段均由系统按分支自动生成，不允许手工篡改'],
+    downstreamChanges: ['通过时解锁款式档案创建', '不通过时回写渠道店铺商品作废或下架并转入样衣退回处理', '继续测试时回到测款执行补充数据'],
+    businessRules: ['结论必须明确为通过、不通过或继续测试', '测款结论正式记录必须承接款式档案、渠道店铺商品作废或继续测试和样衣退回处理等真实结果'],
+    systemConstraints: ['结论不通过时，当前渠道店铺商品必须作废或下架', '结论为继续测试时不得自动作废当前渠道店铺商品', 'nextActionType 以及各类后果字段均由系统按分支自动生成，不允许手工篡改'],
   },
   {
     workItemId: 'WI-014',
@@ -2661,82 +2742,44 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
 
 export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
   {
-    templateId: 'TPL-001',
-    templateName: '基础款 - 完整测款转档模板',
-    styleTypes: ['基础款'],
+    templateId: DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
+    templateName: '国内采购样衣测款项目',
     creator: '系统管理员',
-    createdAt: '2025-01-01 09:00',
+    createdAt: '2026-06-04 09:00',
     updatedAt: CONTRACT_TIMESTAMP,
     status: 'active',
-    scenario: '基础款、需要样衣完整评估、双渠道测款、测款通过后进入完整款式档案与技术包链路。',
-    description: '完整覆盖样衣获取、样衣评估、商品上架、双渠道测款、款式档案、技术包和项目收尾。',
+    scenario: '业务从商品列表手动创建国内采购样衣测款项目，记录采购样衣来源，到样核对后准备商品上架，再通过直播测款和可选短视频测款形成结论。',
+    description: '覆盖手动立项、国内采购样衣获取、样衣结果核对、商品上架准备、市场测款、测款结论、款式档案和样衣处理。',
     phaseSchemas: [
-      { phaseCode: 'PHASE_01', whyExists: '先完成立项、样衣获取和样衣结果核对，后续评估才有真实输入。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'] },
-      { phaseCode: 'PHASE_02', whyExists: '完整评估样衣可行性、拍摄试穿、确认、核价和定价。', nodeCodes: ['FEASIBILITY_REVIEW', 'SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
-      { phaseCode: 'PHASE_03', whyExists: '先有商品上架，再跑短视频和直播双测款，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'VIDEO_TEST', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案和开发推进链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'REVISION_TASK', 'PATTERN_TASK', 'FIRST_SAMPLE'] },
+      { phaseCode: 'PHASE_01', whyExists: '先手动创建商品项目，并记录采购样衣的供应商、采购地址、运费、收件人、区域和 SKU 采购数量。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
+      { phaseCode: 'PHASE_02', whyExists: '采购样衣到样后先核对是否可测，再准备渠道店铺商品进入测款。', nodeCodes: ['SAMPLE_INBOUND_CHECK', 'CHANNEL_PRODUCT_LISTING'] },
+      { phaseCode: 'PHASE_03', whyExists: '直播测款是当前主测款方式，短视频测款作为可选补充，最终必须形成测款结论。', nodeCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
+      { phaseCode: 'PHASE_04', whyExists: '测款通过后沉淀款式档案，作为大货或后续开发的承接对象。', nodeCodes: ['STYLE_ARCHIVE_CREATE'] },
       { phaseCode: 'PHASE_05', whyExists: '项目结束时要明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
   {
-    templateId: 'TPL-002',
-    templateName: '快时尚款 - 直播快反模板',
-    styleTypes: ['快时尚款'],
+    templateId: WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
+    templateName: '万隆改版出样衣测款项目',
     creator: '系统管理员',
-    createdAt: '2025-01-01 09:00',
+    createdAt: '2026-06-04 09:00',
     updatedAt: CONTRACT_TIMESTAMP,
     status: 'active',
-    scenario: '快反上新，以直播测款为主，强调速度，但测款通过后仍必须进入正式款式档案和技术包链路。',
-    description: '保留快反节奏，但不再跳过款式档案和技术包链路。',
+    scenario: '业务基于旧款或参考款手动创建万隆改版出样衣测款项目，先记录改版出样需求，再通过工程开发与打样管理的改版任务产出样衣，样衣核对后进入测款。',
+    description: '覆盖手动立项、改版出样需求、改版任务、样衣结果核对、商品上架、市场测款、测款结论、款式档案和样衣处理。',
     phaseSchemas: [
-      { phaseCode: 'PHASE_01', whyExists: '快反项目仍要先立项并明确样衣来源。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
-      { phaseCode: 'PHASE_02', whyExists: '快反项目压缩评估动作，但样衣拍摄试穿、确认、核价和定价不能省略。', nodeCodes: ['FEASIBILITY_REVIEW', 'SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
-      { phaseCode: 'PHASE_03', whyExists: '直播测款前必须先完成商品上架，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后仍必须生成款式档案并继续开发链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'REVISION_TASK', 'PATTERN_TASK'] },
-      { phaseCode: 'PHASE_05', whyExists: '快反项目结束时仍需明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
-    ],
-  },
-  {
-    templateId: 'TPL-003',
-    templateName: '改版款 - 改版测款转档模板',
-    styleTypes: ['改版款'],
-    creator: '系统管理员',
-    createdAt: '2025-01-01 09:00',
-    updatedAt: CONTRACT_TIMESTAMP,
-    status: 'active',
-    scenario: '已有商品改版、快速确认是否值得继续。',
-    description: '保留改版项目节奏，但测款通过后必须进入正式款式档案与转档链路。',
-    phaseSchemas: [
-      { phaseCode: 'PHASE_01', whyExists: '改版项目仍需立项、样衣来源和样衣结果核对。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'] },
-      { phaseCode: 'PHASE_02', whyExists: '围绕改版样衣完成确认和核价。', nodeCodes: ['SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW'] },
-      { phaseCode: 'PHASE_03', whyExists: '直播测款前必须先完成商品上架，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案和首版样衣推进。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'REVISION_TASK', 'FIRST_SAMPLE'] },
-      { phaseCode: 'PHASE_05', whyExists: '项目结束时仍需明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
-    ],
-  },
-  {
-    templateId: 'TPL-004',
-    templateName: '设计款 - 设计验证模板',
-    styleTypes: ['设计款'],
-    creator: '系统管理员',
-    createdAt: '2025-01-01 09:00',
-    updatedAt: CONTRACT_TIMESTAMP,
-    status: 'active',
-    scenario: '设计研发、内容种草、直播验证、花型、制版、首单样链路更完整。',
-    description: '设计款保留内容验证和更完整的开发链路，但仍必须先上架再测款。',
-    phaseSchemas: [
-      { phaseCode: 'PHASE_01', whyExists: '设计项目仍需先立项、样衣来源和样衣结果核对。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'] },
-      { phaseCode: 'PHASE_02', whyExists: '设计项目保留拍摄试穿、确认、核价和定价。', nodeCodes: ['SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
-      { phaseCode: 'PHASE_03', whyExists: '设计款内容验证和直播验证都必须建立在商品上架之后。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'VIDEO_TEST', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案、改版、制版、花型、首版样和首单样完整链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'REVISION_TASK', 'PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE'] },
-      { phaseCode: 'PHASE_05', whyExists: '设计项目结束时同样需要明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
+      { phaseCode: 'PHASE_01', whyExists: '先手动创建商品项目，并记录旧商品、参考款、新 SPU 期望、样衣数量和改版方向。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
+      { phaseCode: 'PHASE_02', whyExists: '改版出样衣必须先创建改版任务，由工程开发与打样管理产出样衣，之后再核对样衣结果。', nodeCodes: ['REVISION_TASK', 'SAMPLE_INBOUND_CHECK'] },
+      { phaseCode: 'PHASE_03', whyExists: '改版样衣核对可测后，先准备渠道店铺商品，再执行直播测款和可选短视频测款，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
+      { phaseCode: 'PHASE_04', whyExists: '测款通过后沉淀款式档案，进入大货或后续开发承接。', nodeCodes: ['STYLE_ARCHIVE_CREATE'] },
+      { phaseCode: 'PHASE_05', whyExists: '项目结束时同样需要明确样衣退回、入库留样、清仓、寄回或报废处理。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
 ]
 
 export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[] = [
   { fieldKey: 'projectName', fieldLabel: '项目名称', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '项目名称由当前页面表单录入，属于本地主数据。' },
-  { fieldKey: 'projectType', fieldLabel: '项目类型', sourceKind: '系统生成', sourceRef: 'styleType -> projectType 映射', reason: '项目类型由款式类型自动映射生成，属于正式主记录字段而不是临时页面变量。' },
+  { fieldKey: 'projectType', fieldLabel: '项目类型', sourceKind: '系统生成', sourceRef: '业务模板 -> projectType 映射', reason: '项目类型由所选业务模板自动映射生成，属于正式主记录字段而不是临时页面变量。' },
   { fieldKey: 'templateId', fieldLabel: '项目模板', sourceKind: '模板管理', sourceRef: '项目模板管理', reason: '项目模板来自模板管理，不属于配置工作台。' },
   { fieldKey: 'projectSourceType', fieldLabel: '项目来源类型', sourceKind: '固定枚举', sourceRef: '项目来源类型', reason: '项目来源类型沿用当前可解释的固定业务枚举。' },
   { fieldKey: 'categoryId', fieldLabel: '品类', sourceKind: '配置工作台', sourceRef: 'categories', reason: '项目品类统一来自配置工作台品类维度。' },
@@ -2747,7 +2790,6 @@ export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[]
   { fieldKey: 'brandName', fieldLabel: '品牌名称快照', sourceKind: '配置工作台', sourceRef: 'brands', reason: '品牌名称快照由配置工作台品牌名称回写，供详情和导出直接使用。' },
   { fieldKey: 'styleCodeId', fieldLabel: '风格编号', sourceKind: '配置工作台', sourceRef: 'styleCodes', reason: '风格编号统一来自配置工作台风格编号维度，不再要求手填。' },
   { fieldKey: 'styleCodeName', fieldLabel: '风格编号名称快照', sourceKind: '配置工作台', sourceRef: 'styleCodes', reason: '风格编号名称快照由配置工作台 styleCodes 回写，供详情和导出直接使用。' },
-  { fieldKey: 'styleType', fieldLabel: '款式类型', sourceKind: '固定枚举', sourceRef: '模板款式类型', reason: '款式类型沿用模板款式类型固定枚举，并参与项目类型映射。' },
   { fieldKey: 'yearTag', fieldLabel: '年份', sourceKind: '系统生成', sourceRef: '当前年份默认值', reason: '年份字段由创建草稿默认写入当前年份，并回写项目主记录。' },
   { fieldKey: 'seasonTags', fieldLabel: '季节标签', sourceKind: '固定枚举', sourceRef: '季节标签', reason: '季节标签沿用当前项目创建表单固定枚举。' },
   { fieldKey: 'styleTags', fieldLabel: '风格标签快照', sourceKind: '配置工作台', sourceRef: 'styles', reason: 'styleTags 与 styleTagNames 统一由配置工作台风格维度沉淀，用于兼容不同页面读取口径。' },
@@ -2964,7 +3006,6 @@ export function listProjectWorkItemFieldGroups(
 export function listProjectTemplateSchemas(): PcsProjectTemplateSchema[] {
   return PCS_PROJECT_TEMPLATE_SCHEMAS.map((item) => ({
     ...item,
-    styleTypes: [...item.styleTypes],
     phaseSchemas: item.phaseSchemas.map((phase) => ({ ...phase, nodeCodes: [...phase.nodeCodes] })),
   }))
 }
@@ -2994,10 +3035,13 @@ export function buildBuiltinProjectWorkItemConfigs(): WorkItemTemplateConfig[] {
   return PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => createWorkItemConfig(item))
 }
 
+function isOptionalProjectTemplateNode(workItemTypeCode: PcsProjectWorkItemCode): boolean {
+  return workItemTypeCode === 'VIDEO_TEST'
+}
+
 export function buildBuiltinProjectTemplateMatrix(): Array<{
   templateId: PcsProjectTemplateId
   templateName: string
-  styleTypes: PcsProjectTemplateStyleType[]
   creator: string
   createdAt: string
   updatedAt: string
@@ -3055,7 +3099,7 @@ export function buildBuiltinProjectTemplateMatrix(): Array<{
           workItemTypeCode: workItem.workItemTypeCode,
           workItemTypeName: workItem.workItemTypeName,
           sequenceNo: index + 1,
-          requiredFlag: true,
+          requiredFlag: !isOptionalProjectTemplateNode(workItem.workItemTypeCode),
           multiInstanceFlag: workItem.capabilities.canMultiInstance,
           note: workItem.scenario,
           sourceWorkItemUpdatedAt: CONTRACT_TIMESTAMP,
@@ -3067,7 +3111,6 @@ export function buildBuiltinProjectTemplateMatrix(): Array<{
     return {
       templateId: schema.templateId,
       templateName: schema.templateName,
-      styleTypes: [...schema.styleTypes],
       creator: schema.creator,
       createdAt: schema.createdAt,
       updatedAt: schema.updatedAt,

@@ -49,7 +49,7 @@ upsertProjectImageAssets([listingImage])
 const createResult = createProjectChannelProductFromListingNode(
   project!.projectId,
   {
-    targetChannelCode: 'tiktok-shop',
+    targetChannelCode: 'tiktok',
     targetStoreId: 'store-tiktok-01',
     listingTitle: '上传并确认完成的多规格批次',
     defaultPriceAmount: 219,

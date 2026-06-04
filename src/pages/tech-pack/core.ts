@@ -22,6 +22,8 @@ import {
   getTechnicalReviewPendingReviewerText,
   getTechnicalReviewStatusText,
   normalizeTechnicalReviewSnapshot,
+  TECH_PACK_REVIEW_MODULE_LABELS,
+  TECH_PACK_REVIEW_REWORK_MODULES,
 } from '../../data/pcs-tech-pack-review.ts'
 import {
   buildTechPackVersionSourceTaskSummary,
@@ -29,6 +31,7 @@ import {
 import { listTechPackVersionLogsByVersionId } from '../../data/pcs-tech-pack-version-log-repository.ts'
 import {
   TECHNICAL_GARMENT_DIFFICULTY_GRADES,
+  type TechnicalModuleKey,
   type TechnicalReviewNode,
   type TechnicalReviewNodeKey,
 } from '../../data/pcs-technical-data-version-types.ts'
@@ -257,6 +260,8 @@ function renderReviewSubmitDialog(): string {
 function getReviewActionTitle(): string {
   if (state.reviewActionType === 'approve') return '填写审核通过意见'
   if (state.reviewActionType === 'reject') return '填写审核不通过意见'
+  if (state.reviewActionType === 'return-modules') return '选择需要打回复审的模块'
+  if (state.reviewActionType === 'reopen-role') return '发起待发布重审'
   if (state.reviewActionType === 'return') return '填写打回复审原因'
   return '开始审核'
 }
@@ -265,19 +270,27 @@ function getReviewActionDescription(): string {
   if (state.reviewActionType === 'start') {
     return '该操作只将节点置为审核中，不产生通过或不通过结论。'
   }
+  if (state.reviewActionType === 'return-modules') {
+    return '跟单复核中发现问题时，可指定某个模块或全部模块重新维护和审核。'
+  }
+  if (state.reviewActionType === 'reopen-role') {
+    return '审核通过待发布时，可指定买手、版师或跟单对应范围重新维护和审核。'
+  }
   return '审核结论和审核意见必填，系统会同步写入审核节点和版本日志。'
 }
 
 function getReviewActionOpinionPlaceholder(): string {
   if (state.reviewActionType === 'start') return '请输入开始审核说明'
-  if (state.reviewActionType === 'return') return '请输入打回复审原因'
+  if (state.reviewActionType === 'return' || state.reviewActionType === 'return-modules') return '请输入打回复审原因'
+  if (state.reviewActionType === 'reopen-role') return '请输入待发布重审原因'
   return '请输入审核意见'
 }
 
 function getReviewActionConfirmLabel(): string {
   if (state.reviewActionType === 'approve') return '确认通过'
   if (state.reviewActionType === 'reject') return '确认不通过'
-  if (state.reviewActionType === 'return') return '确认打回'
+  if (state.reviewActionType === 'return' || state.reviewActionType === 'return-modules') return '确认打回'
+  if (state.reviewActionType === 'reopen-role') return '确认发起重审'
   return '确认开始'
 }
 
@@ -291,7 +304,13 @@ function renderReviewActionConclusion(): string {
     `
   }
   const isApprove = state.reviewActionType === 'approve'
-  const conclusionText = isApprove ? '通过' : state.reviewActionType === 'return' ? '不通过 · 打回上一阶段' : '不通过'
+  const conclusionText = isApprove
+    ? '通过'
+    : state.reviewActionType === 'return' || state.reviewActionType === 'return-modules'
+      ? '不通过 · 指定模块复审'
+      : state.reviewActionType === 'reopen-role'
+        ? '待发布重审'
+        : '不通过'
   const className = isApprove
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
     : 'border-red-200 bg-red-50 text-red-700'
@@ -300,6 +319,67 @@ function renderReviewActionConclusion(): string {
       <div class="text-xs opacity-80">审核结论</div>
       <div class="mt-1 font-semibold">${escapeHtml(conclusionText)}</div>
     </div>
+  `
+}
+
+function renderReviewModuleSelector(): string {
+  if (state.reviewActionType !== 'return-modules') return ''
+  const selectedSet = new Set(state.reviewReturnModuleKeys)
+  const allSelected = TECH_PACK_REVIEW_REWORK_MODULES.every((moduleKey) => selectedSet.has(moduleKey))
+  return `
+    <section class="space-y-3 rounded-lg border bg-muted/10 p-3">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h4 class="text-sm font-medium">需要重审的模块</h4>
+          <p class="mt-1 text-xs text-muted-foreground">选择买手或版师范围时，系统会自动追加跟单复核。</p>
+        </div>
+        <label class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
+          <input type="checkbox" data-tech-field="review-return-all-modules" value="ALL" ${allSelected ? 'checked' : ''} />
+          全部重审
+        </label>
+      </div>
+      <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+        ${TECH_PACK_REVIEW_REWORK_MODULES
+          .map((moduleKey: TechnicalModuleKey) => `
+            <label class="flex items-start gap-2 rounded-md border bg-background px-3 py-2 text-sm">
+              <input type="checkbox" class="mt-1" data-tech-field="review-return-module" value="${escapeHtml(moduleKey)}" ${selectedSet.has(moduleKey) ? 'checked' : ''} />
+              <span>
+                <span class="font-medium">${escapeHtml(TECH_PACK_REVIEW_MODULE_LABELS[moduleKey])}</span>
+                <span class="mt-0.5 block text-xs text-muted-foreground">${escapeHtml(moduleKey === 'PATTERN' ? '版师维护，需版师和跟单再审' : moduleKey === 'BOM' || moduleKey === 'COST' ? '买手维护，需买手和跟单再审' : '跟单维护，只需跟单再审')}</span>
+              </span>
+            </label>
+          `)
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderReviewRoleSelector(): string {
+  if (state.reviewActionType !== 'reopen-role') return ''
+  const selected = state.reviewReopenNodeKeys[0] || ''
+  const options: Array<{ nodeKey: TechnicalReviewNodeKey; label: string; desc: string }> = [
+    { nodeKey: 'BUYER', label: '买手', desc: '买手维护范围重审，买手和跟单都要再审一次。' },
+    { nodeKey: 'PATTERN_MAKER', label: '版师', desc: '版师维护范围重审，版师和跟单都要再审一次。' },
+    { nodeKey: 'MERCHANDISER', label: '跟单', desc: '跟单维护范围重审，只需要跟单再审一次。' },
+  ]
+  return `
+    <section class="space-y-3 rounded-lg border bg-muted/10 p-3">
+      <h4 class="text-sm font-medium">指定重审角色</h4>
+      <div class="grid grid-cols-1 gap-2">
+        ${options
+          .map((option) => `
+            <label class="flex items-start gap-2 rounded-md border bg-background px-3 py-2 text-sm">
+              <input type="radio" class="mt-1" name="review-reopen-role" data-tech-field="review-reopen-role" value="${escapeHtml(option.nodeKey)}" ${selected === option.nodeKey ? 'checked' : ''} />
+              <span>
+                <span class="font-medium">${escapeHtml(option.label)}</span>
+                <span class="mt-0.5 block text-xs text-muted-foreground">${escapeHtml(option.desc)}</span>
+              </span>
+            </label>
+          `)
+          .join('')}
+      </div>
+    </section>
   `
 }
 
@@ -315,6 +395,8 @@ function renderReviewActionDialog(): string {
         </header>
         <div class="space-y-4 px-6 py-5">
           ${renderReviewActionConclusion()}
+          ${renderReviewModuleSelector()}
+          ${renderReviewRoleSelector()}
           <textarea class="min-h-28 w-full rounded-md border px-3 py-2 text-sm" data-tech-field="review-action-opinion" placeholder="${escapeHtml(getReviewActionOpinionPlaceholder())}">${escapeHtml(state.reviewActionOpinion)}</textarea>
         </div>
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
@@ -503,19 +585,23 @@ function renderReviewDetailDrawer(): string {
   const merchandiserReturnAttrs = isCurrentUserAssigned(review.merchandiserReview)
     ? ''
     : ' disabled aria-disabled="true" title="仅指定审核人可处理"'
-  const merchandiserRecoveryActions =
+  const pendingPublishReopenActions =
     record.versionStatus === 'DRAFT' &&
     review.reviewStage === '待发布' &&
-    review.merchandiserReview.status === '审核-已通过' &&
-    designRequirement.required &&
-    !designRequirement.valid
-      ? renderReviewButton('return-review-first-stage', '打回补齐花型设计', 'MERCHANDISER', 'danger', merchandiserReturnAttrs)
+    review.merchandiserReview.status === '审核-已通过'
+      ? renderReviewButton(
+          'reopen-pending-publish-review',
+          designRequirement.required && !designRequirement.valid ? '打回补齐花型设计' : '发起待发布重审',
+          'MERCHANDISER',
+          'danger',
+          merchandiserReturnAttrs,
+        )
       : ''
   const merchandiserActions =
     record.versionStatus === 'DRAFT' &&
     review.buyerReview.status === '审核-已通过' &&
     review.patternMakerReview.status === '审核-已通过'
-      ? renderNodeActions(review.merchandiserReview) || merchandiserRecoveryActions
+      ? renderNodeActions(review.merchandiserReview) || pendingPublishReopenActions
       : ''
   return `
     <div class="fixed inset-0 z-[60] bg-black/35" data-dialog-backdrop="true" data-tech-review-layer="detail-drawer">
@@ -545,7 +631,7 @@ function renderReviewDetailDrawer(): string {
             })}
             ${renderReviewNodeCard({
               title: '版师审核',
-              scope: '纸样管理、款色用料对应',
+              scope: '纸样池',
               node: review.patternMakerReview,
               actions: patternActions,
               technicalVersionId: record.technicalVersionId,
@@ -553,7 +639,7 @@ function renderReviewDetailDrawer(): string {
             })}
             ${renderReviewNodeCard({
               title: '跟单审核',
-              scope: '剩余部分、整体复核',
+              scope: '物料&纸样关联管理、款色用料对应、剩余部分、整体复核',
               node: review.merchandiserReview,
               actions: merchandiserActions,
               technicalVersionId: record.technicalVersionId,
@@ -628,7 +714,7 @@ function renderNodeActions(node: TechnicalReviewNode): string {
     if (nodeKey === 'MERCHANDISER') {
       return [
         renderReviewButton('approve-review', '跟单复核通过', nodeKey, 'primary', disabled),
-        renderReviewButton('return-review-first-stage', '打回买手、版师复审', nodeKey, 'danger', disabled),
+        renderReviewButton('return-review-modules', '选择模块打回复审', nodeKey, 'danger', disabled),
       ].join('')
     }
     return [

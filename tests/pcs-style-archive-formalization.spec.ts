@@ -188,7 +188,7 @@ updateStyleArchive(generated.style!.styleId, {
   seasonTags: ['夏季'],
   styleTags: ['基础', '轻通勤'],
   targetAudienceTags: ['18-30岁女性'],
-  targetChannelCodes: ['抖音商城', '虾皮'],
+  targetChannelCodes: ['tiktok', 'shopee'],
   priceRangeLabel: '¥199-399',
   mainImageUrl: '/placeholder.svg',
   sellingPointText: '轻薄垂感，适合夏季快反上新。',

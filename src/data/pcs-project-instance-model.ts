@@ -189,7 +189,6 @@ function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProj
   addField(fields, labelMap.get('projectType') || '项目类型', project.projectType, 'projectType')
   addField(fields, labelMap.get('projectSourceType') || '项目来源类型', project.projectSourceType, 'projectSourceType')
   addField(fields, labelMap.get('templateId') || '项目模板', `${project.templateName} / ${project.templateVersion}`, 'templateId')
-  addField(fields, labelMap.get('styleType') || '款式类型', project.styleType, 'styleType')
   addField(fields, labelMap.get('categoryId') || '品类', project.categoryName, 'categoryId')
   addField(fields, labelMap.get('categoryName') || '品类名称快照', project.categoryName, 'categoryName')
   addField(fields, labelMap.get('subCategoryId') || '二级品类', project.subCategoryName || project.subCategoryId, 'subCategoryId')

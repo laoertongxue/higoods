@@ -73,7 +73,7 @@ assert.equal(markedReference?.usageScopes.includes('商品上架'), true, '确�
 const createResult = createProjectChannelProductFromListingNode(
   project!.projectId,
   {
-    targetChannelCode: 'tiktok-shop',
+    targetChannelCode: 'tiktok',
     targetStoreId: 'store-tiktok-01',
     listingTitle: '带图片的款式上架批次',
     defaultPriceAmount: 219,

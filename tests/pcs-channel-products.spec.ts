@@ -19,7 +19,7 @@ assert.match(listHtml, /规格数量/, '列表应展示规格数量列')
 assert.match(listHtml, /上游款式商品编号/, '列表应展示上游款式商品编号列')
 assert.match(listHtml, /CP-216015-01/, '列表应渲染截图中的渠道商品编码')
 assert.match(listHtml, /PRJ-20251216-015/, '列表应渲染来源项目编码')
-assert.match(listHtml, /Shopee \/ 虾皮马来西亚店/, '列表应渲染渠道店铺名称')
+assert.match(listHtml, /虾皮 \/ 虾皮马来西亚店/, '列表应渲染渠道店铺名称')
 assert.match(listHtml, /链路状态/, '列表应展示链路状态列')
 assert.match(listHtml, /测款通过，已关联款式档案并完成上游最终更新/, '列表应渲染链路状态内容')
 

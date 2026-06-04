@@ -1209,7 +1209,7 @@ function renderCreateDrawer(): string {
               <div class="grid gap-4 md:grid-cols-2">
                 <label class="space-y-1">
                   <span class="text-xs text-slate-500">${requiredLabel('直播账号')}</span>
-                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.liveAccount)}" placeholder="TikTok IDN Store-A" data-pcs-live-testing-field="create-live-account" />
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.liveAccount)}" placeholder="TikTok 印尼主店" data-pcs-live-testing-field="create-live-account" />
                 </label>
                 <label class="space-y-1">
                   <span class="text-xs text-slate-500">${requiredLabel('主播')}</span>
@@ -1458,7 +1458,7 @@ function renderReconcileTab(): string {
       <section class="rounded-lg border bg-white p-4">
         <div class="mb-4">
           <h2 class="text-lg font-semibold text-slate-900">数据导入</h2>
-          <p class="mt-1 text-sm text-slate-500">支持从 TikTok / Shopee 后台导出的文件补录曝光、点击、下单和支付表现。</p>
+          <p class="mt-1 text-sm text-slate-500">支持从 TikTok / 虾皮 后台导出的文件补录曝光、点击、下单和支付表现。</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">

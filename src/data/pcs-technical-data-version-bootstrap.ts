@@ -72,6 +72,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
   const allSkuCodes = demand.skuLines.map((line) => line.skuCode)
   const colors = Array.from(new Set(demand.skuLines.map((line) => line.color)))
   const bomItemId = `${seed.technicalVersionId}-bom-main`
+  const patternPackageId = `${seed.technicalVersionId}-pattern-package-main`
   const patternId = `${seed.technicalVersionId}-pattern-main`
   const buildPieceRows = (pieces: Array<{
     id: string
@@ -351,7 +352,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     technicalVersionId: seed.technicalVersionId,
     patternFiles: [
       {
-        id: patternId,
+        id: patternPackageId,
+        recordKind: 'PACKAGE',
         patternName: isWoolScenario ? `${demand.spuCode} 毛织纸样` : `${demand.spuCode} 正式纸样`,
         patternCategory: isWoolScenario ? '结构片' : '主体片',
         patternMaterialType,
@@ -368,7 +370,69 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         patternMakerInfoStatus: '已完成',
         maintainerStepStatus: '已完成',
         selectedSizeCodes: Array.from(new Set(demand.skuLines.map((line) => line.size))),
+        linkedBomItemId: '',
+        widthCm: isWoolScenario ? 120 : 150,
+        markerLengthM: isWoolScenario ? 0.8 : 1.35,
+        bindingStrips: isWoolScenario
+          ? []
+          : [
+              {
+                bindingStripId: `${patternPackageId}-binding-1`,
+                bindingStripName: '领口捆条',
+                relatedPieceId: '',
+                relatedPieceName: '领口',
+                lengthCm: 42,
+                widthCm: 3.2,
+                stripCount: 1,
+                relatedMaterialId: '',
+                relatedMaterialName: '',
+                note: '捆条归属纸样包，关联该纸样的物料均需制作。',
+              },
+            ],
+        totalPieceCount: pieceRows.reduce((sum, row) => sum + row.count, 0),
+        isWoolted: isWoolScenario ? '是' : '否',
+        pieceRows,
+      },
+      {
+        id: patternId,
+        recordKind: 'MATERIAL_ASSOCIATION',
+        patternName: isWoolScenario ? `${demand.spuCode} 毛织纸样` : `${demand.spuCode} 正式纸样`,
+        patternCategory: isWoolScenario ? '结构片' : '主体片',
+        patternMaterialType,
+        patternMaterialTypeLabel,
+        patternFileMode: 'SINGLE_FILE',
+        fileName: patternFileName,
+        fileUrl: `local://demand-tech-pack/${demand.spuCode}/pattern`,
+        uploadedAt: demand.updatedAt,
+        uploadedBy: '生产需求单',
+        singlePatternFileName: patternFileName,
+        parseStatus: isWoolScenario ? 'NOT_REQUIRED' : 'PARSED',
+        parseStatusLabel: isWoolScenario ? '无需解析' : '已解析',
+        merchandiserInfoStatus: '已填写',
+        patternMakerInfoStatus: '已解析',
+        maintainerStepStatus: '已完成',
+        selectedSizeCodes: Array.from(new Set(demand.skuLines.map((line) => line.size))),
         linkedBomItemId: bomItemId,
+        sourcePatternPackageId: patternPackageId,
+        sourcePatternPackageName: isWoolScenario ? `${demand.spuCode} 毛织纸样` : `${demand.spuCode} 正式纸样`,
+        widthCm: isWoolScenario ? 120 : 150,
+        markerLengthM: isWoolScenario ? 0.8 : 1.35,
+        bindingStrips: isWoolScenario
+          ? []
+          : [
+              {
+                bindingStripId: `${patternPackageId}-binding-1`,
+                bindingStripName: '领口捆条',
+                relatedPieceId: '',
+                relatedPieceName: '领口',
+                lengthCm: 42,
+                widthCm: 3.2,
+                stripCount: 1,
+                relatedMaterialId: '',
+                relatedMaterialName: '',
+                note: '继承自纸样包。',
+              },
+            ],
         totalPieceCount: pieceRows.reduce((sum, row) => sum + row.count, 0),
         isWoolted: isWoolScenario ? '是' : '否',
         pieceRows,
@@ -434,6 +498,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
 
 function buildProject018Content(technicalVersionId: string): TechnicalDataVersionContent {
   const bomItemId = `${technicalVersionId}-bom-main`
+  const patternPackageId = `${technicalVersionId}-pattern-package-main`
   const patternId = `${technicalVersionId}-pattern-main`
   const frontDesignId = `${technicalVersionId}-design-front-main`
   const frontDesignFileName = 'SPU-2026-018-front-print.png'
@@ -448,8 +513,9 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
     technicalVersionId,
     patternFiles: [
       {
-        id: patternId,
-        patternName: 'SPU-2026-018 连体裤正式纸样',
+        id: patternPackageId,
+        recordKind: 'PACKAGE',
+        patternName: 'SPU-2026-018 连体裤纸样包',
         patternCategory: '主体片',
         patternMaterialType: 'WOVEN',
         patternMaterialTypeLabel: '布料纸样',
@@ -465,8 +531,80 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
         patternMakerInfoStatus: '已完成',
         maintainerStepStatus: '已完成',
         selectedSizeCodes: ['S', 'M', 'L'],
-        linkedBomItemId: bomItemId,
+        linkedBomItemId: '',
+        widthCm: 150,
+        markerLengthM: 1.42,
+        bindingStrips: [
+          {
+            bindingStripId: `${patternPackageId}-binding-waist`,
+            bindingStripName: '腰头捆条',
+            relatedPieceId: `${patternId}-waist`,
+            relatedPieceName: '腰头',
+            lengthCm: 88,
+            widthCm: 4.2,
+            stripCount: 1,
+            relatedMaterialId: '',
+            relatedMaterialName: '',
+            note: '捆条归属纸样包，关联该纸样包的物料均需制作。',
+          },
+        ],
         totalPieceCount: pieceRows.reduce((sum, row) => sum + row.count, 0),
+        isWoolted: '否',
+        pieceRows: pieceRows.map((piece) => ({
+          ...piece,
+          applicableSkuCodes: [...skuCodes],
+          colorAllocations: [
+            {
+              id: `${piece.id}-color-1`,
+              colorName: 'Multi',
+              colorCode: 'MULTI',
+              skuCodes: [...skuCodes],
+              pieceCount: piece.count,
+            },
+          ],
+          sourceType: 'MANUAL',
+        })),
+      },
+      {
+        id: patternId,
+        recordKind: 'MATERIAL_ASSOCIATION',
+        patternName: 'SPU-2026-018 连体裤纸样包',
+        patternCategory: '主体片',
+        patternMaterialType: 'WOVEN',
+        patternMaterialTypeLabel: '布料纸样',
+        patternFileMode: 'SINGLE_FILE',
+        fileName: 'SPU-2026-018-P1.dxf',
+        fileUrl: 'local://engineering/PT-20260407-018/pattern.dxf',
+        uploadedAt: '2026-04-07 17:20',
+        uploadedBy: '制版任务',
+        singlePatternFileName: 'SPU-2026-018-P1.dxf',
+        parseStatus: 'PARSED',
+        parseStatusLabel: '已解析',
+        merchandiserInfoStatus: '已填写',
+        patternMakerInfoStatus: '已解析',
+        maintainerStepStatus: '已完成',
+        selectedSizeCodes: ['S', 'M', 'L'],
+        linkedBomItemId: bomItemId,
+        sourcePatternPackageId: patternPackageId,
+        sourcePatternPackageName: 'SPU-2026-018 连体裤纸样包',
+        widthCm: 150,
+        markerLengthM: 1.42,
+        bindingStrips: [
+          {
+            bindingStripId: `${patternPackageId}-binding-waist`,
+            bindingStripName: '腰头捆条',
+            relatedPieceId: `${patternId}-waist`,
+            relatedPieceName: '腰头',
+            lengthCm: 88,
+            widthCm: 4.2,
+            stripCount: 1,
+            relatedMaterialId: '',
+            relatedMaterialName: '',
+            note: '继承自纸样包。',
+          },
+        ],
+        totalPieceCount: pieceRows.reduce((sum, row) => sum + row.count, 0),
+        isWoolted: '否',
         pieceRows: pieceRows.map((piece) => ({
           ...piece,
           applicableSkuCodes: [...skuCodes],

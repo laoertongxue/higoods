@@ -467,7 +467,7 @@ function inferPlatformCode(record: string): VideoPlatformCode {
   const matched = (Object.entries(VIDEO_PLATFORM_META) as Array<[VideoPlatformCode, { label: string }]>).find(
     ([, meta]) => record.includes(meta.label),
   )
-  return matched?.[0] ?? 'OTHER'
+  return matched?.[0] ?? 'TIKTOK'
 }
 
 function inferAccountingStatus(
@@ -1276,7 +1276,7 @@ function renderCreateDrawer(): string {
                 </label>
                 <label class="space-y-1">
                   <span class="text-xs text-slate-500">${requiredLabel('发布账号')}</span>
-                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.account)}" placeholder="IDN-Store-A" data-pcs-video-testing-field="create-account" />
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.account)}" placeholder="TikTok 印尼主店" data-pcs-video-testing-field="create-account" />
                 </label>
                 <label class="space-y-1">
                   <span class="text-xs text-slate-500">${requiredLabel('达人 / 运营')}</span>

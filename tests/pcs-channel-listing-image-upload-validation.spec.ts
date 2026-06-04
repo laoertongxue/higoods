@@ -26,7 +26,7 @@ assert.ok(secondProject, '应存在 PRJ-20251216-022 演示项目')
 const noImageResult = createProjectChannelProductFromListingNode(
   project!.projectId,
   {
-    targetChannelCode: 'tiktok-shop',
+    targetChannelCode: 'tiktok',
     targetStoreId: 'store-tiktok-01',
     listingTitle: '无图片批次',
     defaultPriceAmount: 229,

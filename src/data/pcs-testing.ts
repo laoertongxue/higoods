@@ -86,7 +86,7 @@ export interface VideoRecord {
   title: string
   status: SessionStatus
   purposes: VideoPurpose[]
-  platform: 'TIKTOK' | 'DOUYIN' | 'KUAISHOU' | 'OTHER'
+  platform: 'TIKTOK' | 'SHOPEE' | 'INDEPENDENT_SITE'
   account: string
   creator: string
   publishedAt: string | null
@@ -178,9 +178,8 @@ export const VIDEO_PURPOSE_META: Record<VideoPurpose, PurposeMeta> = {
 
 export const VIDEO_PLATFORM_META: Record<VideoRecord['platform'], StatusMeta> = {
   TIKTOK: { label: 'TikTok', color: 'bg-black text-white' },
-  DOUYIN: { label: '抖音', color: 'bg-slate-800 text-white' },
-  KUAISHOU: { label: '快手', color: 'bg-orange-500 text-white' },
-  OTHER: { label: '其他', color: 'bg-slate-100 text-slate-700' },
+  SHOPEE: { label: '虾皮', color: 'bg-orange-100 text-orange-700' },
+  INDEPENDENT_SITE: { label: '独立站', color: 'bg-blue-100 text-blue-700' },
 }
 
 const LIVE_SESSION_SEED: LiveSession[] = [
@@ -189,7 +188,7 @@ const LIVE_SESSION_SEED: LiveSession[] = [
     title: 'TikTok IDN 新款测试专场',
     status: 'RECONCILING',
     purposes: ['TEST', 'SELL'],
-    liveAccount: 'TikTok IDN Store-A',
+    liveAccount: 'TikTok 印尼主店',
     anchor: '家播-小N',
     startAt: '2026-01-22 19:00',
     endAt: '2026-01-22 22:30',
@@ -217,7 +216,7 @@ const LIVE_SESSION_SEED: LiveSession[] = [
     title: '周末清仓专场',
     status: 'COMPLETED',
     purposes: ['CLEARANCE', 'SELL'],
-    liveAccount: 'Shopee MY Store-B',
+    liveAccount: '虾皮马来西亚店',
     anchor: '达人-Lily',
     startAt: '2026-01-21 14:00',
     endAt: '2026-01-21 18:00',
@@ -245,7 +244,7 @@ const LIVE_SESSION_SEED: LiveSession[] = [
     title: '春季新款首播',
     status: 'COMPLETED',
     purposes: ['SOFT_LAUNCH', 'TEST'],
-    liveAccount: 'TikTok IDN Store-A',
+    liveAccount: 'TikTok 印尼主店',
     anchor: '家播-小美',
     startAt: '2026-01-20 20:00',
     endAt: '2026-01-20 23:00',
@@ -273,7 +272,7 @@ const LIVE_SESSION_SEED: LiveSession[] = [
     title: '日常带货场',
     status: 'DRAFT',
     purposes: ['SELL'],
-    liveAccount: 'TikTok VN Store-C',
+    liveAccount: 'TikTok 越南店',
     anchor: '家播-阿强',
     startAt: '2026-01-23 19:00',
     endAt: null,
@@ -301,7 +300,7 @@ const LIVE_SESSION_SEED: LiveSession[] = [
     title: '复播追单专场',
     status: 'RECONCILING',
     purposes: ['RESTOCK', 'SELL'],
-    liveAccount: 'Shopee ID Store-D',
+    liveAccount: '虾皮 ID Store-D',
     anchor: '达人-Mike',
     startAt: '2026-01-18 15:00',
     endAt: '2026-01-18 19:00',
@@ -329,7 +328,7 @@ const LIVE_SESSION_SEED: LiveSession[] = [
     title: '内容种草场',
     status: 'COMPLETED',
     purposes: ['CONTENT'],
-    liveAccount: 'TikTok IDN Store-A',
+    liveAccount: 'TikTok 印尼主店',
     anchor: '达人-Sarah',
     startAt: '2026-01-17 14:00',
     endAt: '2026-01-17 16:00',
@@ -476,7 +475,7 @@ const VIDEO_RECORD_SEED: VideoRecord[] = [
     status: 'COMPLETED',
     purposes: ['PROMOTION', 'SALES'],
     platform: 'TIKTOK',
-    account: 'IDN-Store-A',
+    account: 'TikTok 印尼主店',
     creator: 'KOL-Blue',
     publishedAt: '2026-01-23 11:30',
     owner: '张三',
@@ -498,8 +497,8 @@ const VIDEO_RECORD_SEED: VideoRecord[] = [
     title: '办公室穿搭OOTD分享',
     status: 'RECONCILING',
     purposes: ['SEEDING', 'TEST'],
-    platform: 'DOUYIN',
-    account: 'CN-Brand-Official',
+    platform: 'SHOPEE',
+    account: '虾皮马来西亚店',
     creator: '达人-小美',
     publishedAt: '2026-01-22 18:00',
     owner: '李四',
@@ -522,7 +521,7 @@ const VIDEO_RECORD_SEED: VideoRecord[] = [
     status: 'RECONCILING',
     purposes: ['TEST'],
     platform: 'TIKTOK',
-    account: 'IDN-Store-B',
+    account: 'TikTok 印尼主店',
     creator: 'KOL-Sunny',
     publishedAt: '2026-01-21 14:30',
     owner: '王五',
@@ -544,8 +543,8 @@ const VIDEO_RECORD_SEED: VideoRecord[] = [
     title: '年货节预热视频',
     status: 'COMPLETED',
     purposes: ['TEASER', 'PROMOTION'],
-    platform: 'KUAISHOU',
-    account: 'KS-Official',
+    platform: 'INDEPENDENT_SITE',
+    account: '独立站主站',
     creator: '运营-小张',
     publishedAt: '2026-01-20 10:00',
     owner: '赵六',
@@ -568,7 +567,7 @@ const VIDEO_RECORD_SEED: VideoRecord[] = [
     status: 'DRAFT',
     purposes: ['SOFT_LAUNCH'],
     platform: 'TIKTOK',
-    account: 'IDN-Store-A',
+    account: 'TikTok 印尼主店',
     creator: 'KOL-Blue',
     publishedAt: null,
     owner: '张三',

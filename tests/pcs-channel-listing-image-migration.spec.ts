@@ -22,7 +22,7 @@ assert.ok(project, '应存在 PRJ-20251216-015 演示项目')
 const createResult = createProjectChannelProductFromListingNode(
   project!.projectId,
   {
-    targetChannelCode: 'tiktok-shop',
+    targetChannelCode: 'tiktok',
     targetStoreId: 'store-tiktok-01',
     listingTitle: '旧图片链接迁移批次',
     defaultPriceAmount: 209,

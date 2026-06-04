@@ -105,7 +105,7 @@ interface ProductArchivePageState {
     styleId: string
     styleName: string
     styleNumber: string
-    styleType: string
+    productType: string
     categoryName: string
     subCategoryName: string
     brandName: string
@@ -246,7 +246,7 @@ function createDefaultStyleCompletionState(): ProductArchivePageState['styleComp
     styleId: '',
     styleName: '',
     styleNumber: '',
-    styleType: '',
+    productType: '',
     categoryName: '',
     subCategoryName: '',
     brandName: '',
@@ -1123,7 +1123,7 @@ function openStyleCompletionDrawer(style: StyleArchiveShellRecord): void {
     styleId: style.styleId,
     styleName: style.styleName,
     styleNumber: style.styleNumber,
-    styleType: style.styleType,
+    productType: style.productType,
     categoryName: style.categoryName,
     subCategoryName: style.subCategoryName,
     brandName: style.brandName,
@@ -1251,7 +1251,7 @@ function renderStyleCompletionDrawer(): string {
       <div class="grid gap-4 md:grid-cols-2">
         ${renderControlledTextField('款式名称', 'style-completion-style-name', state.styleCompletion.styleName, '填写款式名称', true)}
         ${renderControlledTextField('款号', 'style-completion-style-number', state.styleCompletion.styleNumber, '填写款号', true)}
-        ${renderControlledTextField('款式类型', 'style-completion-style-type', state.styleCompletion.styleType, '例如：基础款 / 快时尚款', true)}
+        ${renderControlledTextField('商品类型', 'style-completion-product-type', state.styleCompletion.productType, '例如：成衣', true)}
         ${renderControlledTextField('品牌', 'style-completion-brand-name', state.styleCompletion.brandName, '填写品牌', true)}
         ${renderControlledTextField('一级类目', 'style-completion-category-name', state.styleCompletion.categoryName, '填写一级类目', true)}
         ${renderControlledTextField('二级类目', 'style-completion-sub-category-name', state.styleCompletion.subCategoryName, '填写二级类目', true)}
@@ -1329,7 +1329,7 @@ function submitStyleCompletion(): void {
       : {
           styleName: state.styleCompletion.styleName.trim(),
           styleNumber: state.styleCompletion.styleNumber.trim(),
-          styleType: state.styleCompletion.styleType.trim(),
+          productType: state.styleCompletion.productType.trim(),
           categoryName: state.styleCompletion.categoryName.trim(),
           subCategoryName: state.styleCompletion.subCategoryName.trim(),
           brandName: state.styleCompletion.brandName.trim(),
@@ -2640,8 +2640,8 @@ export function handlePcsProductArchiveInput(target: Element): boolean {
     case 'style-completion-style-number':
       state.styleCompletion.styleNumber = value
       return true
-    case 'style-completion-style-type':
-      state.styleCompletion.styleType = value
+    case 'style-completion-product-type':
+      state.styleCompletion.productType = value
       return true
     case 'style-completion-category-name':
       state.styleCompletion.categoryName = value

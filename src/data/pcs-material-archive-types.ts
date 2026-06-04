@@ -1,4 +1,4 @@
-export type MaterialArchiveKind = 'fabric' | 'accessory' | 'yarn' | 'consumable'
+export type MaterialArchiveKind = 'fabric' | 'accessory' | 'yarn' | 'consumable' | 'packaging' | 'parts'
 export type MaterialArchiveStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED'
 
 export interface MaterialArchiveRecord {

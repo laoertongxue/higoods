@@ -12,7 +12,7 @@ import { validateProjectNodeCompletion } from './pcs-project-data-consistency.ts
 import type { PcsProjectNodeRecord, PcsProjectViewRecord, ProjectNodeStatus } from './pcs-project-types.ts'
 
 const DECISION_WORK_ITEM_CODES = ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION'] as const
-const DECISION_RESULT_OPTIONS = ['通过', '淘汰'] as const
+const DECISION_RESULT_OPTIONS = ['通过', '不通过', '继续测试'] as const
 
 export type ProjectDecisionWorkItemCode = (typeof DECISION_WORK_ITEM_CODES)[number]
 export type ProjectDecisionResult = (typeof DECISION_RESULT_OPTIONS)[number]
@@ -125,7 +125,7 @@ export function isProjectDecisionWorkItemCode(workItemTypeCode: string): workIte
 
 function assertDecisionResult(result: string): asserts result is ProjectDecisionResult {
   if (!(DECISION_RESULT_OPTIONS as readonly string[]).includes(result)) {
-    throw new Error('决策结果只能是通过或淘汰')
+    throw new Error('决策结果只能是通过、不通过或继续测试')
   }
 }
 
@@ -207,7 +207,7 @@ export function routeProjectToSampleReturnHandle(
 ): ProjectDecisionFlowResult {
   const decisionNode = getProjectNodeRecordById(projectId, decisionNodeId)
   if (!decisionNode) {
-    throw new Error('未找到对应决策节点，不能执行淘汰流转。')
+    throw new Error('未找到对应决策节点，不能执行不通过流转。')
   }
   const validation = validateProjectNodeCompletion(projectId, decisionNodeId)
   if (!validation.ok) {
@@ -226,19 +226,19 @@ export function routeProjectToSampleReturnHandle(
     throw new Error('当前项目缺少样衣退回处理工作项，请先修复项目模板或项目节点')
   }
   const sampleReturnNode = sampleReturnNodes[0]
-  const resultText = buildResultText(decisionNode.workItemTypeName, '淘汰', note)
+  const resultText = buildResultText(decisionNode.workItemTypeName, '不通过', note)
 
   updateProjectNodeRecord(
     projectId,
     decisionNodeId,
     {
       currentStatus: '已完成',
-      latestResultType: '淘汰',
+      latestResultType: '不通过',
       latestResultText: resultText,
       pendingActionType: '已完成',
       pendingActionText: '当前决策已完成',
       updatedAt: timestamp,
-      lastEventType: '淘汰',
+      lastEventType: '不通过',
       lastEventTime: timestamp,
     },
     operatorName,
@@ -257,12 +257,12 @@ export function routeProjectToSampleReturnHandle(
       node.projectNodeId,
       {
         currentStatus: '已取消',
-        latestResultType: '淘汰跳过',
-        latestResultText: note.trim() || '前序决策结果为淘汰，当前节点不再执行。',
+        latestResultType: '不通过跳过',
+        latestResultText: note.trim() || '前序决策结果为不通过，当前节点不再执行。',
         pendingActionType: '已取消',
         pendingActionText: '已进入样衣退回处理',
         updatedAt: timestamp,
-        lastEventType: '淘汰跳过',
+        lastEventType: '不通过跳过',
         lastEventTime: timestamp,
       },
       operatorName,
@@ -276,7 +276,7 @@ export function routeProjectToSampleReturnHandle(
     {
       currentStatus: '进行中',
       latestResultType: '待样衣退回处理',
-      latestResultText: note.trim() || '决策结果为淘汰，已进入样衣退回处理。',
+      latestResultText: note.trim() || '决策结果为不通过，已进入样衣退回处理。',
       pendingActionType: '样衣退回处理',
       pendingActionText: '请完成样衣退回处理',
       updatedAt: timestamp,
@@ -307,6 +307,84 @@ export function advanceDecisionNodeEliminated(
   return routeProjectToSampleReturnHandle(projectId, projectNodeId, operatorName, note, timestamp)
 }
 
+export function routeProjectToAdditionalTesting(
+  projectId: string,
+  decisionNodeId: string,
+  operatorName = '当前用户',
+  note = '',
+  timestamp = nowText(),
+): ProjectDecisionFlowResult {
+  const decisionNode = getProjectNodeRecordById(projectId, decisionNodeId)
+  if (!decisionNode) {
+    throw new Error('未找到对应决策节点，不能执行继续测试流转。')
+  }
+  const validation = validateProjectNodeCompletion(projectId, decisionNodeId)
+  if (!validation.ok) {
+    return {
+      ok: false,
+      message: validation.message,
+      project: validation.project,
+      node: validation.node,
+      nextNode: null,
+    }
+  }
+
+  const nodes = listProjectNodes(projectId)
+  const nextTestingNode =
+    nodes.find((item) => item.workItemTypeCode === 'LIVE_TEST') ||
+    nodes.find((item) => item.workItemTypeCode === 'VIDEO_TEST') ||
+    null
+  if (!nextTestingNode) {
+    throw new Error('当前项目缺少直播测款或短视频测款工作项，不能回到继续测试。')
+  }
+
+  const resultText = buildResultText(decisionNode.workItemTypeName, '继续测试', note)
+  updateProjectNodeRecord(
+    projectId,
+    decisionNodeId,
+    {
+      currentStatus: '已完成',
+      latestResultType: '继续测试',
+      latestResultText: resultText,
+      pendingActionType: '已完成',
+      pendingActionText: '当前决策已完成',
+      updatedAt: timestamp,
+      lastEventType: '继续测试',
+      lastEventTime: timestamp,
+    },
+    operatorName,
+  )
+  syncProjectNodeInstanceRuntime(projectId, decisionNodeId, operatorName, timestamp)
+
+  updateProjectNodeRecord(
+    projectId,
+    nextTestingNode.projectNodeId,
+    {
+      currentStatus: '进行中',
+      latestResultType: '继续测试',
+      latestResultText: note.trim() || '测款结论为继续测试，需补充测款数据。',
+      pendingActionType: '继续测试',
+      pendingActionText: '请补充直播测款或短视频测款数据后重新汇总。',
+      updatedAt: timestamp,
+      lastEventType: '继续测试',
+      lastEventTime: timestamp,
+    },
+    operatorName,
+  )
+  syncProjectNodeInstanceRuntime(projectId, nextTestingNode.projectNodeId, operatorName, timestamp)
+
+  syncProjectLifecycleAfterDecision(projectId, operatorName, timestamp)
+  updateProjectRecord(projectId, { projectStatus: '进行中', updatedAt: timestamp }, operatorName)
+
+  return {
+    ok: true,
+    message: '当前工作项已完成，已回到测款执行补充数据。',
+    project: getProjectById(projectId),
+    node: getProjectNodeRecordById(projectId, decisionNodeId),
+    nextNode: getProjectNodeRecordById(projectId, nextTestingNode.projectNodeId),
+  }
+}
+
 export function completeDecisionNodeWithResult(
   projectId: string,
   projectNodeId: string,
@@ -325,6 +403,9 @@ export function completeDecisionNodeWithResult(
   }
   if (result === '通过') {
     return advanceDecisionNodePassed(projectId, projectNodeId, operatorName, note, timestamp)
+  }
+  if (result === '继续测试') {
+    return routeProjectToAdditionalTesting(projectId, projectNodeId, operatorName, note, timestamp)
   }
   return advanceDecisionNodeEliminated(projectId, projectNodeId, operatorName, note, timestamp)
 }

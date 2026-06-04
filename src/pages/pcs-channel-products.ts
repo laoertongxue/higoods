@@ -32,17 +32,12 @@ function listDisplayRecords(): ProjectChannelProductRecord[] {
 }
 
 function getChannelLabel(channelCode: string): string {
-  if (channelCode === 'shopee') return 'Shopee'
-  if (channelCode === 'wechat-mini-program') return '微信小程序'
-  if (channelCode === 'lazada') return 'Lazada'
-  return 'TikTok Shop'
+  if (channelCode === 'shopee') return '虾皮'
+  if (channelCode === 'independent-site') return '独立站'
+  return 'TikTok'
 }
 
 function getStoreLabel(record: ProjectChannelProductRecord): string {
-  if (record.storeId === 'store-shopee-01') return '虾皮马来西亚店'
-  if (record.storeId === 'store-mini-program-01') return '微信小程序商城'
-  if (record.storeId === 'store-lazada-01') return 'Lazada 菲律宾店'
-  if (record.storeId === 'store-tiktok-01') return '抖音商城旗舰店'
   return record.storeName || '-'
 }
 

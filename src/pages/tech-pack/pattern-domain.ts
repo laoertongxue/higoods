@@ -684,7 +684,8 @@ export function renderPatternTab(): string {
       },
     ]),
   )
-  const readonly = isTechPackModuleReadOnly('PATTERN')
+  const packageReadonly = isTechPackModuleReadOnly('PATTERN')
+  const associationReadonly = isTechPackModuleReadOnly('MATERIAL_PATTERN_LINK')
   const patternPackages = state.patternItems.filter((item) => item.recordKind === 'PACKAGE')
   const materialPatternLinks = state.patternItems.filter((item) => item.recordKind !== 'PACKAGE')
 
@@ -692,7 +693,7 @@ export function renderPatternTab(): string {
     <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="pattern-management-page">
       <header class="flex items-center justify-between border-b px-4 py-3">
         <h3 class="text-base font-semibold">纸样管理</h3>
-        ${readonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern-package">
+        ${packageReadonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern-package">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
           添加纸样包
         </button>`}
@@ -717,7 +718,7 @@ export function renderPatternTab(): string {
                         </div>
                         <div class="flex items-center gap-1">
                           ${renderPatternFileBadge(item.patternMaterialTypeLabel || '暂无数据')}
-                          ${readonly ? '' : `<button
+                          ${packageReadonly ? '' : `<button
                             type="button"
                             class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted"
                             data-tech-action="edit-pattern"
@@ -735,7 +736,7 @@ export function renderPatternTab(): string {
                           >
                             <i data-lucide="eye" class="h-4 w-4"></i>
                           </button>
-                          ${readonly ? '' : `<button
+                          ${packageReadonly ? '' : `<button
                             type="button"
                             class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50"
                             data-tech-action="delete-pattern"
@@ -747,6 +748,16 @@ export function renderPatternTab(): string {
                         </div>
                       </div>
                       <div class="mt-3 space-y-2 text-xs">
+                        <div class="grid grid-cols-2 gap-2 rounded-md bg-muted/20 p-2">
+                          <div>
+                            <div class="text-muted-foreground">规格</div>
+                            <div class="mt-1 font-medium">${escapeHtml(formatPatternSpec(item.widthCm, item.markerLengthM))}</div>
+                          </div>
+                          <div>
+                            <div class="text-muted-foreground">捆条</div>
+                            <div class="mt-1 font-medium">${escapeHtml(renderBindingStripCount(item.bindingStrips.length))}</div>
+                          </div>
+                        </div>
                         <div>
                           <div class="mb-1 text-muted-foreground">技术文件</div>
                           ${renderPatternTechnicalFileLinks(item)}
@@ -768,7 +779,7 @@ export function renderPatternTab(): string {
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <h4 class="text-sm font-semibold">物料&纸样关联管理</h4>
-          ${readonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern" data-testid="pattern-create-button">
+          ${associationReadonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern" data-testid="pattern-create-button">
             <i data-lucide="link" class="mr-2 h-4 w-4"></i>
             按物料关联纸样
           </button>`}
@@ -830,13 +841,13 @@ export function renderPatternTab(): string {
                           </td>
                           <td class="px-3 py-2">
                             <div class="flex items-center gap-1">
-                              ${readonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-pattern" data-pattern-id="${item.id}">
+                              ${associationReadonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-pattern" data-pattern-id="${item.id}">
                                 <i data-lucide="edit-2" class="h-4 w-4"></i>
                               </button>`}
                               <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="open-pattern-detail" data-pattern-id="${item.id}">
                                 <i data-lucide="eye" class="h-4 w-4"></i>
                               </button>
-                              ${readonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-pattern" data-pattern-id="${item.id}">
+                              ${associationReadonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-pattern" data-pattern-id="${item.id}">
                                 <i data-lucide="trash-2" class="h-4 w-4"></i>
                               </button>`}
                             </div>
@@ -964,19 +975,13 @@ export function renderPatternDialog(): string {
               `
               : ''
           }
-          ${
-            pattern.recordKind === 'PACKAGE'
-              ? ''
-              : `
-                <div class="space-y-2">
-                  <div class="flex items-center justify-between">
-                    <h5 class="text-sm font-medium">捆条</h5>
-                    <span class="text-xs text-muted-foreground">长度和宽度单位：cm</span>
-                  </div>
-                  ${renderPatternBindingStripDetail(pattern)}
-                </div>
-              `
-          }
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h5 class="text-sm font-medium">捆条</h5>
+              <span class="text-xs text-muted-foreground">长度和宽度单位：cm</span>
+            </div>
+            ${renderPatternBindingStripDetail(pattern)}
+          </div>
           <div class="space-y-2">
             <div class="flex items-center justify-between">
               <h5 class="text-sm font-medium">裁片明细</h5>
@@ -1492,24 +1497,17 @@ void renderPatternFormDialogLegacy
 
 export function renderPatternFormDialog(): string {
   if (!state.addPatternDialogOpen) return ''
-  if (isTechPackModuleReadOnly('PATTERN')) return ''
+  const purposeModuleKey = state.patternFormPurpose === 'PACKAGE' ? 'PATTERN' : 'MATERIAL_PATTERN_LINK'
+  if (isTechPackModuleReadOnly(purposeModuleKey)) return ''
 
   const bomOptions = state.bomItems
   const isWoven = state.newPattern.patternMaterialType !== 'WOOL'
-  const activeStep = state.patternMaintenanceStep
-  const selectedBom = state.newPattern.linkedBomItemId
-    ? state.bomItems.find((item) => item.id === state.newPattern.linkedBomItemId)
-    : null
   const parseButtonLabel =
     state.newPattern.patternParsing
       ? '解析中'
       : state.newPattern.parseStatus === 'PARSED'
         ? '重新解析'
         : '解析纸样'
-  const stepButtonClass = (step: 'MERCHANDISER' | 'PATTERN_MAKER') =>
-    activeStep === step
-      ? 'border-blue-500 bg-blue-50 text-blue-700'
-      : 'border-border bg-background text-muted-foreground hover:bg-muted'
   const patternPackageOptions = state.patternItems.filter((item) => item.recordKind === 'PACKAGE')
 
   if (state.patternFormPurpose === 'PACKAGE') {
@@ -1553,6 +1551,17 @@ export function renderPatternFormDialog(): string {
                     </select>
                   </label>
                 </div>
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <label class="space-y-1">
+                    <span class="text-sm">门幅（cm） <span class="text-red-500">*</span></span>
+                    <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-width-cm" value="${escapeHtml(String(state.newPattern.widthCm || ''))}" placeholder="门幅" />
+                  </label>
+                  <label class="space-y-1">
+                    <span class="text-sm">排料长度（m） <span class="text-red-500">*</span></span>
+                    <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-marker-length-m" value="${escapeHtml(String(state.newPattern.markerLengthM || ''))}" placeholder="排料长度" />
+                  </label>
+                </div>
+                ${renderPatternBindingStripEditor()}
                 ${
                   isWoven
                     ? `
@@ -1688,10 +1697,6 @@ export function renderPatternFormDialog(): string {
           }
         </label>
         <label class="space-y-1">
-          <span class="text-sm">门幅（cm） <span class="text-red-500">*</span></span>
-          <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-width-cm" value="${escapeHtml(String(state.newPattern.widthCm || ''))}" placeholder="门幅" />
-        </label>
-        <label class="space-y-1">
           <span class="text-sm">物料别名</span>
           <input class="w-full rounded-md border px-3 py-2 text-sm ${state.newPattern.linkedBomItemId ? '' : 'bg-muted text-muted-foreground'}" data-tech-field="new-pattern-linked-material-alias" value="${escapeHtml(state.newPattern.linkedMaterialAlias || '')}" placeholder="例：主面料 / 前片面料" ${state.newPattern.linkedBomItemId ? '' : 'disabled'} />
         </label>
@@ -1730,53 +1735,24 @@ export function renderPatternFormDialog(): string {
             <div class="text-xs text-muted-foreground">纸样分类</div>
             <div class="mt-1">${renderTextValue(state.newPattern.type)}</div>
           </div>
-        </div>
-      </div>
-    </section>
-  `
-
-  const makerPanel = `
-    <section class="space-y-4" data-testid="pattern-step-maker-panel">
-      <div class="rounded-lg border bg-muted/20 p-3 text-sm">
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
           <div>
-            <div class="text-xs text-muted-foreground">纸样名称</div>
-            <div class="mt-1">${renderTextValue(state.newPattern.name)}</div>
+            <div class="text-xs text-muted-foreground">规格（门幅 × 排料长度）</div>
+            <div class="mt-1">${escapeHtml(formatPatternSpec(state.newPattern.widthCm, state.newPattern.markerLengthM))}</div>
           </div>
           <div>
-            <div class="text-xs text-muted-foreground">纸样类型</div>
-            <div class="mt-1">${escapeHtml(state.newPattern.patternMaterialTypeLabel)}</div>
+            <div class="text-xs text-muted-foreground">捆条数量</div>
+            <div class="mt-1">${escapeHtml(renderBindingStripCount(state.newPattern.bindingStrips.length))}</div>
           </div>
           <div>
-            <div class="text-xs text-muted-foreground">门幅（cm）</div>
-            <div class="mt-1">${renderTextValue(state.newPattern.widthCm)}</div>
-          </div>
-          <div>
-            <div class="text-xs text-muted-foreground">关联物料</div>
-            <div class="mt-1">${escapeHtml(selectedBom ? `${selectedBom.materialName} · ${selectedBom.materialCode}` : '未关联')}</div>
-          </div>
-          <div>
-            <div class="text-xs text-muted-foreground">物料别名</div>
-            <div class="mt-1">${renderTextValue(state.newPattern.linkedMaterialAlias)}</div>
+            <div class="text-xs text-muted-foreground">裁片总片数</div>
+            <div class="mt-1">${escapeHtml(String(calculatePatternTotalPieceQty(state.newPattern.pieceRows)))} 片</div>
           </div>
         </div>
       </div>
-      <label class="block space-y-1">
-        <span class="text-sm">排料长度（m） <span class="text-red-500">*</span></span>
-        <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-marker-length-m" value="${escapeHtml(String(state.newPattern.markerLengthM || ''))}" placeholder="排料长度" />
-      </label>
-      ${renderPatternBindingStripEditor()}
       <section class="space-y-2 rounded-md border p-3">
         <div class="flex items-center justify-between">
           <h4 class="text-sm font-medium">裁片明细</h4>
-          ${
-            isWoven
-              ? ''
-              : `<button type="button" class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted" data-tech-action="add-new-pattern-piece-row">
-                  <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
-                  新增裁片
-                </button>`
-          }
+          <span class="text-xs text-muted-foreground">继承自纸样包，跟单在此维护适用颜色、颜色片数和逐片特殊工艺。</span>
         </div>
         ${renderPatternPieceEditorTable(isWoven)}
       </section>
@@ -1785,21 +1761,13 @@ export function renderPatternFormDialog(): string {
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true" data-testid="pattern-two-step-dialog">
+      <section class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true" data-testid="pattern-association-dialog">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">${state.editPatternItemId ? '编辑物料&纸样关联' : '按物料关联纸样'}</h3>
-          <div class="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-muted/30 p-1">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm ${stepButtonClass('MERCHANDISER')}" data-tech-action="switch-pattern-maintenance-step" data-pattern-step="MERCHANDISER" data-testid="pattern-step-merchandiser">跟单基础信息</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm ${stepButtonClass('PATTERN_MAKER')}" data-tech-action="switch-pattern-maintenance-step" data-pattern-step="PATTERN_MAKER" data-testid="pattern-step-maker">版师技术信息</button>
-          </div>
         </header>
         <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <div class="space-y-4">
-            <input id="tech-pack-pattern-prj-input" type="file" accept=".prj,.PRJ" data-tech-field="new-pattern-prj-file" class="hidden" />
-            <input id="tech-pack-marker-image-input" type="file" accept=".png,.jpg,.jpeg,.webp" data-tech-field="new-pattern-marker-image-file" class="hidden" />
-            <input id="tech-pack-pattern-dxf-input" type="file" accept=".dxf,.DXF" data-tech-field="new-pattern-dxf-file" class="hidden" />
-            <input id="tech-pack-pattern-rul-input" type="file" accept=".rul,.RUL" data-tech-field="new-pattern-rul-file" class="hidden" />
-            ${activeStep === 'MERCHANDISER' ? merchandiserPanel : makerPanel}
+            ${merchandiserPanel}
             ${
               state.newPattern.parseError
                 ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">${escapeHtml(state.newPattern.parseError)}</div>`
@@ -1810,17 +1778,7 @@ export function renderPatternFormDialog(): string {
         </div>
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-pattern">取消</button>
-          ${
-            activeStep === 'MERCHANDISER'
-              ? `
-                <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="save-pattern-merchandiser-step">保存</button>
-                <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-tech-action="save-pattern-and-go-maker">保存并进入版师技术信息</button>
-              `
-              : `
-                <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="switch-pattern-maintenance-step" data-pattern-step="MERCHANDISER">返回跟单基础信息</button>
-                <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-tech-action="save-pattern-maker-step">保存</button>
-              `
-          }
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-tech-action="save-pattern-merchandiser-step">保存</button>
         </footer>
       </section>
     </div>
@@ -1853,7 +1811,8 @@ function renderPieceInstanceAssignmentList(instance: (typeof state.newPattern.pi
 
 export function renderPieceInstanceSpecialCraftDialog(): string {
   if (!state.pieceInstanceCraftDialogOpen || !state.activePieceInstanceSourcePieceId) return ''
-  if (isTechPackModuleReadOnly('PATTERN')) return ''
+  const moduleKey = state.patternFormPurpose === 'ASSOCIATION' ? 'MATERIAL_PATTERN_LINK' : 'PATTERN'
+  if (isTechPackModuleReadOnly(moduleKey)) return ''
   const instances = getPieceInstancesBySourcePieceId(state.activePieceInstanceSourcePieceId)
   const activeInstance =
     instances.find((instance) => instance.pieceInstanceId === state.activePieceInstanceId)

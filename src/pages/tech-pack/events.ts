@@ -20,7 +20,9 @@ import {
 } from '../../data/fcs/production-tech-pack-change-domain.ts'
 import {
   approveTechPackReview,
+  reopenTechPackReviewForRoles,
   rejectTechPackReview,
+  returnTechPackReviewByModules,
   returnTechPackReviewToFirstStage,
   startTechPackReview,
   submitTechPackFirstStageReview,
@@ -147,13 +149,11 @@ const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'reset-color-mapping-suggestion': 'COLOR_MATERIAL_MAPPING',
   'add-mapping-line': 'COLOR_MATERIAL_MAPPING',
   'delete-mapping-line': 'COLOR_MATERIAL_MAPPING',
-  'open-add-pattern': 'PATTERN',
+  'open-add-pattern': 'MATERIAL_PATTERN_LINK',
   'open-add-pattern-package': 'PATTERN',
-  'edit-pattern': 'PATTERN',
-  'delete-pattern': 'PATTERN',
-  'switch-pattern-maintenance-step': 'PATTERN',
-  'save-pattern-merchandiser-step': 'PATTERN',
-  'save-pattern-and-go-maker': 'PATTERN',
+  'switch-pattern-maintenance-step': 'MATERIAL_PATTERN_LINK',
+  'save-pattern-merchandiser-step': 'MATERIAL_PATTERN_LINK',
+  'save-pattern-and-go-maker': 'MATERIAL_PATTERN_LINK',
   'add-pattern-binding-strip': 'PATTERN',
   'delete-pattern-binding-strip': 'PATTERN',
   'confirm-pattern-duplicate-warning': 'PATTERN',
@@ -219,6 +219,18 @@ function getTechPackFieldModuleKey(field: string): TechnicalModuleKey | null {
     return 'COLOR_MATERIAL_MAPPING'
   }
   if (normalized.startsWith('new-pattern-') || normalized.startsWith('piece-instance-')) {
+    if (
+      state.patternFormPurpose === 'ASSOCIATION' &&
+      (
+        normalized === 'new-pattern-linked-bom-item' ||
+        normalized === 'new-pattern-linked-material-alias' ||
+        normalized === 'new-pattern-source-package' ||
+        normalized.startsWith('new-pattern-piece-') ||
+        normalized.startsWith('piece-instance-')
+      )
+    ) {
+      return 'MATERIAL_PATTERN_LINK'
+    }
     return 'PATTERN'
   }
   if (normalized.startsWith('new-technique-') || normalized.startsWith('tech-')) return 'PROCESS'
@@ -227,8 +239,30 @@ function getTechPackFieldModuleKey(field: string): TechnicalModuleKey | null {
   return null
 }
 
-function getTechPackActionModuleKey(action: string): TechnicalModuleKey | null {
-  return TECH_PACK_ACTION_MODULE_MAP[action.trim()] ?? null
+function getTechPackActionModuleKey(action: string, actionNode?: HTMLElement): TechnicalModuleKey | null {
+  const normalized = action.trim()
+  if (normalized === 'edit-pattern' || normalized === 'delete-pattern') {
+    const patternId = actionNode?.dataset.patternId || ''
+    const pattern = state.patternItems.find((item) => item.id === patternId)
+    return pattern?.recordKind === 'PACKAGE' ? 'PATTERN' : 'MATERIAL_PATTERN_LINK'
+  }
+  if (
+    state.patternFormPurpose === 'ASSOCIATION' &&
+    (
+      normalized === 'toggle-pattern-piece-color' ||
+      normalized === 'open-pattern-piece-template-dialog' ||
+      normalized === 'select-pattern-template' ||
+      normalized === 'add-new-pattern-piece-row' ||
+      normalized === 'delete-new-pattern-piece-row' ||
+      normalized === 'open-piece-instance-special-craft-dialog' ||
+      normalized === 'add-piece-instance-special-craft' ||
+      normalized === 'delete-piece-instance-special-craft' ||
+      normalized === 'apply-piece-instance-craft-to-same-color'
+    )
+  ) {
+    return 'MATERIAL_PATTERN_LINK'
+  }
+  return TECH_PACK_ACTION_MODULE_MAP[normalized] ?? null
 }
 
 function isTechPackFieldReadOnly(field: string): boolean {
@@ -934,9 +968,7 @@ function validatePatternMerchandiserStep(): string | null {
   }
 
   if (!state.newPattern.linkedBomItemId.trim()) return '请选择关联物料'
-  if (!Number.isFinite(Number(state.newPattern.widthCm)) || Number(state.newPattern.widthCm) <= 0) {
-    return '门幅必须大于 0'
-  }
+  if (!state.newPattern.sourcePatternPackageId.trim()) return '请选择关联纸样'
   if (!state.newPattern.name.trim()) return '请选择关联纸样'
   if (!String(state.newPattern.type || '').trim()) return '请选择纸样分类'
   if (state.newPattern.patternMaterialType === 'UNKNOWN') return '请选择纸样类型'
@@ -944,8 +976,15 @@ function validatePatternMerchandiserStep(): string | null {
 }
 
 function validatePatternMakerStep(): string | null {
-  const firstStepError = validatePatternMerchandiserStep()
-  if (firstStepError) return firstStepError
+  if (state.patternFormPurpose !== 'PACKAGE') {
+    return validatePatternMerchandiserStep()
+  }
+  if (!state.newPattern.name.trim()) return '请填写纸样名称'
+  if (!String(state.newPattern.type || '').trim()) return '请选择纸样分类'
+  if (state.newPattern.patternMaterialType === 'UNKNOWN') return '请选择纸样类型'
+  if (!Number.isFinite(Number(state.newPattern.widthCm)) || Number(state.newPattern.widthCm) <= 0) {
+    return '门幅必须大于 0'
+  }
   if (!Number.isFinite(Number(state.newPattern.markerLengthM)) || Number(state.newPattern.markerLengthM) <= 0) {
     return '排料长度必须大于 0'
   }
@@ -967,6 +1006,8 @@ function validatePatternMakerStep(): string | null {
 function validatePatternPackage(): string | null {
   const baseError = validatePatternMerchandiserStep()
   if (baseError) return baseError
+  const technicalError = validatePatternMakerStep()
+  if (technicalError) return technicalError
   if (state.newPattern.patternMaterialType === 'WOOL') {
     if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) return '请上传毛织纸样 Zip 文件'
     if (!hasFileExtension(state.newPattern.singlePatternFileName || state.newPattern.file, ['.zip'])) return '毛织纸样包只能上传 Zip 文件'
@@ -1033,7 +1074,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
   )
   const sizeRange = selectedSizeCodes.join(' / ')
   const linkedBom = state.bomItems.find((item) => item.id === state.newPattern.linkedBomItemId) || null
-  const bindingStrips = isPatternPackage ? [] : normalizePatternBindingStrips(state.newPattern.bindingStrips)
+  const bindingStrips = normalizePatternBindingStrips(state.newPattern.bindingStrips)
   const normalizedPatternMaterialType =
     state.newPattern.patternMaterialType === 'UNKNOWN'
       ? 'WOVEN'
@@ -1083,8 +1124,8 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
     linkedMaterialName: isPatternPackage ? '' : linkedBom?.materialName || state.newPattern.linkedMaterialName,
     linkedMaterialAlias: isPatternPackage ? '' : state.newPattern.linkedMaterialAlias?.trim() || '',
     linkedMaterialSku: isPatternPackage ? '' : linkedBom?.materialCode || state.newPattern.linkedMaterialSku,
-    widthCm: isPatternPackage ? 0 : state.newPattern.widthCm,
-    markerLengthM: isPatternPackage ? 0 : state.newPattern.markerLengthM,
+    widthCm: state.newPattern.widthCm,
+    markerLengthM: state.newPattern.markerLengthM,
     totalPieceCount,
     patternTotalPieceQty: totalPieceCount,
     isWoolted: state.newPattern.patternMaterialType === 'WOOL' ? '是' as const : '否' as const,
@@ -1202,7 +1243,9 @@ function refreshPieceInstanceSpecialCraftDom(): void {
     if (existingDialog) {
       existingDialog.outerHTML = dialogHtml
     } else {
-      const host = document.querySelector('[data-testid="pattern-two-step-dialog"]')?.parentElement
+      const host =
+        document.querySelector('[data-testid="pattern-association-dialog"]')?.parentElement ||
+        document.querySelector('[data-testid="pattern-two-step-dialog"]')?.parentElement
       host?.insertAdjacentHTML('beforeend', dialogHtml)
     }
   } else {
@@ -1328,9 +1371,6 @@ function applyPatternPackageToAssociation(patternPackageId: string): void {
   const linkedMaterialName = state.newPattern.linkedMaterialName
   const linkedMaterialAlias = state.newPattern.linkedMaterialAlias
   const linkedMaterialSku = state.newPattern.linkedMaterialSku
-  const widthCm = state.newPattern.widthCm
-  const markerLengthM = state.newPattern.markerLengthM
-  const bindingStrips = normalizePatternBindingStrips(state.newPattern.bindingStrips)
   const currentPieceRows = state.newPattern.pieceRows
   const currentPieceInstances = state.newPattern.pieceInstances
 
@@ -1341,9 +1381,6 @@ function applyPatternPackageToAssociation(patternPackageId: string): void {
     linkedMaterialName,
     linkedMaterialAlias,
     linkedMaterialSku,
-    widthCm,
-    markerLengthM,
-    bindingStrips,
     sourcePatternPackageId: selectedPackage.id,
     sourcePatternPackageName: selectedPackage.name,
     duplicateConfirmed: false,
@@ -1375,6 +1412,31 @@ function handleTechPackField(
 
   if (field === 'review-action-opinion') {
     state.reviewActionOpinion = value
+    return true
+  }
+
+  if (field === 'review-return-module') {
+    const moduleKey = value as TechnicalModuleKey
+    const nextKeys = new Set(state.reviewReturnModuleKeys)
+    if (checked) nextKeys.add(moduleKey)
+    else nextKeys.delete(moduleKey)
+    state.reviewReturnModuleKeys = [...nextKeys]
+    return true
+  }
+
+  if (field === 'review-return-all-modules') {
+    state.reviewReturnModuleKeys = checked
+      ? ['BOM', 'COST', 'PATTERN', 'MATERIAL_PATTERN_LINK', 'COLOR_MATERIAL_MAPPING', 'PROCESS', 'SIZE', 'DESIGN', 'QUALITY']
+      : []
+    return true
+  }
+
+  if (field === 'review-reopen-role') {
+    const nodeKey = value as TechnicalReviewNodeKey
+    state.reviewReopenNodeKeys =
+      nodeKey === 'BUYER' || nodeKey === 'PATTERN_MAKER' || nodeKey === 'MERCHANDISER'
+        ? [nodeKey]
+        : []
     return true
   }
 
@@ -2616,6 +2678,27 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.reviewActionNodeKey = 'MERCHANDISER'
     state.reviewActionType = 'return'
     state.reviewActionOpinion = ''
+    state.reviewReturnModuleKeys = ['BOM', 'COST', 'PATTERN', 'MATERIAL_PATTERN_LINK', 'COLOR_MATERIAL_MAPPING', 'PROCESS', 'SIZE', 'DESIGN', 'QUALITY']
+    state.reviewActionDialogOpen = true
+    state.compatibilityMessage = ''
+    return true
+  }
+  if (action === 'return-review-modules') {
+    if (!state.currentTechnicalVersionId) return true
+    state.reviewActionNodeKey = 'MERCHANDISER'
+    state.reviewActionType = 'return-modules'
+    state.reviewActionOpinion = ''
+    state.reviewReturnModuleKeys = []
+    state.reviewActionDialogOpen = true
+    state.compatibilityMessage = ''
+    return true
+  }
+  if (action === 'reopen-pending-publish-review') {
+    if (!state.currentTechnicalVersionId) return true
+    state.reviewActionNodeKey = 'MERCHANDISER'
+    state.reviewActionType = 'reopen-role'
+    state.reviewActionOpinion = ''
+    state.reviewReopenNodeKeys = []
     state.reviewActionDialogOpen = true
     state.compatibilityMessage = ''
     return true
@@ -2625,6 +2708,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.reviewActionNodeKey = null
     state.reviewActionType = null
     state.reviewActionOpinion = ''
+    state.reviewReturnModuleKeys = []
+    state.reviewReopenNodeKeys = []
     return true
   }
   if (action === 'confirm-review-action') {
@@ -2657,6 +2742,20 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
           state.reviewActionOpinion,
           currentUser,
         )
+      } else if (state.reviewActionType === 'return-modules') {
+        returnTechPackReviewByModules(
+          state.currentTechnicalVersionId,
+          state.reviewReturnModuleKeys,
+          state.reviewActionOpinion,
+          currentUser,
+        )
+      } else if (state.reviewActionType === 'reopen-role') {
+        reopenTechPackReviewForRoles(
+          state.currentTechnicalVersionId,
+          state.reviewReopenNodeKeys,
+          state.reviewActionOpinion,
+          currentUser,
+        )
       } else {
         returnTechPackReviewToFirstStage(
           state.currentTechnicalVersionId,
@@ -2668,6 +2767,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       state.reviewActionNodeKey = null
       state.reviewActionType = null
       state.reviewActionOpinion = ''
+      state.reviewReturnModuleKeys = []
+      state.reviewReopenNodeKeys = []
       state.compatibilityMessage = ''
     } catch (error) {
       state.compatibilityMessage = error instanceof Error ? error.message : '审核操作失败'
@@ -2712,7 +2813,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (!isReadonlySafeAction) return true
   }
 
-  const lockedModuleKey = getTechPackActionModuleKey(action)
+  const lockedModuleKey = getTechPackActionModuleKey(action, actionNode)
   if (lockedModuleKey && isTechPackModuleReadOnly(lockedModuleKey)) return true
 
   if (action === 'open-release') {
@@ -2793,8 +2894,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       return true
     }
     state.newPattern.parseError = ''
-    updatePatternMaintainerStatuses('待版师维护')
-    if (!savePatternFromTwoStep('待版师维护')) return true
+    updatePatternMaintainerStatuses('已完成')
+    if (!savePatternFromTwoStep('已完成')) return true
     state.addPatternDialogOpen = false
     closePatternTemplateDialog(false)
     resetPatternForm()

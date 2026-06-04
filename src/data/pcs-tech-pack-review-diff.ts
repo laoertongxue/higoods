@@ -13,8 +13,8 @@ import type {
 
 const REVIEW_DIFF_SCOPE: Record<TechnicalReviewNodeKey, string> = {
   BUYER: '物料清单、核价',
-  PATTERN_MAKER: '纸样管理、款色用料对应',
-  MERCHANDISER: '剩余部分、整体复核',
+  PATTERN_MAKER: '纸样池',
+  MERCHANDISER: '物料&纸样关联管理、款色用料对应、剩余部分、整体复核',
 }
 
 function nowText(): string {
@@ -79,14 +79,19 @@ function scopeItems(content: TechnicalDataVersionContent, nodeKey: TechnicalRevi
   }
   if (nodeKey === 'PATTERN_MAKER') {
     return [
-      { scope: '纸样管理', items: content.patternFiles },
-      { scope: '款色用料对应', items: content.colorMaterialMappings },
+      { scope: '纸样池', items: content.patternFiles.filter((item) => item.recordKind === 'PACKAGE') },
     ]
   }
   return [
+    {
+      scope: '物料&纸样关联管理',
+      items: content.patternFiles.filter((item) => item.recordKind !== 'PACKAGE'),
+    },
+    { scope: '款色用料对应', items: content.colorMaterialMappings },
     { scope: '工序工艺', items: content.processEntries },
     { scope: '放码规则', items: content.sizeTable },
     { scope: '花型设计', items: content.patternDesigns },
+    { scope: '质量规则', items: content.qualityRules },
   ]
 }
 

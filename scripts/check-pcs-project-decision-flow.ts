@@ -30,9 +30,13 @@ for (const workItemCode of ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLU
     ['reviewConclusion', 'confirmResult', 'conclusion'].includes(field.fieldKey),
   )
   assertCheck(Boolean(decisionField), `${workItemCode} 必须存在决策字段`)
+  const expectedOptions =
+    workItemCode === 'TEST_CONCLUSION'
+      ? ['通过', '不通过', '继续测试']
+      : ['通过', '不通过']
   assertCheck(
-    JSON.stringify((decisionField?.options || []).map((item) => item.value)) === JSON.stringify(['通过', '淘汰']),
-    `${workItemCode} 决策结果只允许通过 / 淘汰`,
+    JSON.stringify((decisionField?.options || []).map((item) => item.value)) === JSON.stringify(expectedOptions),
+    `${workItemCode} 决策结果应为 ${expectedOptions.join(' / ')}`,
   )
   assertCheck(decisionField?.required === true, `${workItemCode} 决策字段必须必填`)
 }
@@ -54,9 +58,10 @@ assertCheck(
 
 assertCheck(decisionFlowSource.includes('completeDecisionNodeWithResult'), '统一决策流转服务必须存在 completeDecisionNodeWithResult')
 assertCheck(decisionFlowSource.includes('routeProjectToSampleReturnHandle'), '统一决策流转服务必须存在 routeProjectToSampleReturnHandle')
-assertCheck(decisionFlowSource.includes('SAMPLE_RETURN_HANDLE'), '淘汰流转必须进入样衣退回处理')
+assertCheck(decisionFlowSource.includes('SAMPLE_RETURN_HANDLE'), '不通过流转必须进入样衣退回处理')
+assertCheck(decisionFlowSource.includes('routeProjectToAdditionalTesting'), '继续测试流转必须回到测款执行补充数据')
 
-assertCheck(!/projectStatus:\s*'已终止'/.test(decisionFlowSource), '决策流转服务不应在淘汰时直接把项目写为已终止')
+assertCheck(!/projectStatus:\s*'已终止'/.test(decisionFlowSource), '决策流转服务不应在不通过时直接把项目写为已终止')
 assertCheck(migrationSource.includes('LEGACY_DECISION_RESULTS'), '旧决策迁移函数必须存在')
 assertCheck(read('src/data/pcs-project-repository.ts').includes('migrateProjectDecisionSnapshot'), '项目仓储必须调用旧决策迁移函数')
 

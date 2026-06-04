@@ -14,7 +14,7 @@ export const PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES = [
 export type PcsProjectInlineNodeRecordWorkItemTypeCode =
   (typeof PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES)[number]
 
-export type ProjectDecisionResult = '' | '通过' | '淘汰'
+export type ProjectDecisionResult = '' | '通过' | '不通过' | '继续测试'
 
 export interface PcsProjectInlineNodeRef {
   refModule: string

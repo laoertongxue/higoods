@@ -86,7 +86,7 @@ assert.equal(costReviewResult.ok, true, '应能完成样衣核价并进入商品
 const createResult = createProjectChannelProductFromListingNode(
   project!.projectId,
   {
-    targetChannelCode: 'tiktok-shop',
+    targetChannelCode: 'tiktok',
     targetStoreId: 'store-tiktok-01',
     listingTitle: '待测款上架批次',
     defaultPriceAmount: 239,

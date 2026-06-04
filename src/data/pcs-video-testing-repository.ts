@@ -7,7 +7,12 @@ const VIDEO_TESTING_STORE_VERSION = 1
 let memorySnapshot: VideoTestingStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
+  return (
+    typeof localStorage !== 'undefined' &&
+    typeof localStorage.getItem === 'function' &&
+    typeof localStorage.setItem === 'function' &&
+    typeof localStorage.removeItem === 'function'
+  )
 }
 
 function cloneRecord(record: VideoTestRecord): VideoTestRecord {
@@ -36,6 +41,15 @@ function parseSkuCodeSegments(skuCode: string): { colorCode: string; sizeCode: s
   return { colorCode: '', sizeCode: '' }
 }
 
+function formatVideoChannelName(platform: keyof typeof VIDEO_PLATFORM_META, account: string): string {
+  const channelName = VIDEO_PLATFORM_META[platform].label
+  const rawAccount = account.trim()
+  const accountName = rawAccount.startsWith(channelName)
+    ? rawAccount.slice(channelName.length).replace(/^[\s/／-]+/, '').trim()
+    : rawAccount
+  return `${channelName} / ${accountName || '未填写发布账号'}`
+}
+
 function buildSeedSnapshot(): VideoTestingStoreSnapshot {
   const baseRecords = listVideoRecords().map((record) => {
     const firstItem = getVideoItems(record.id)[0] ?? null
@@ -45,7 +59,7 @@ function buildSeedSnapshot(): VideoTestingStoreSnapshot {
       videoRecordId: record.id,
       videoRecordCode: record.id,
       videoTitle: record.title,
-      channelName: `${VIDEO_PLATFORM_META[record.platform].label} / ${record.account}`,
+      channelName: formatVideoChannelName(record.platform, record.account),
       businessDate: toBusinessDate(record.publishedAt ?? record.updatedAt),
       publishedAt: record.publishedAt ?? '',
       recordStatus: record.status === 'RECONCILING' ? '核对中' : record.status === 'COMPLETED' ? '已关账' : record.status === 'CANCELLED' ? '已取消' : '草稿',
@@ -69,7 +83,7 @@ function buildSeedSnapshot(): VideoTestingStoreSnapshot {
       videoRecordId: 'SV-PJT-011',
       videoRecordCode: 'SV-PJT-011',
       videoTitle: '基础轻甜印花连衣裙短视频测款',
-      channelName: '抖音 / 女装测款号',
+      channelName: 'TikTok / 女装测款号',
       businessDate: '2026-04-03',
       publishedAt: '2026-04-03 12:30',
       recordStatus: '已关账',
@@ -111,7 +125,7 @@ function buildSeedSnapshot(): VideoTestingStoreSnapshot {
       videoRecordId: 'SV-PJT-015',
       videoRecordCode: 'SV-PJT-015',
       videoTitle: '设计款中式结饰上衣短视频复盘',
-      channelName: '抖音 / 设计验证号',
+      channelName: 'TikTok / 设计验证号',
       businessDate: '2026-04-06',
       publishedAt: '2026-04-06 10:40',
       recordStatus: '已关账',
@@ -132,7 +146,7 @@ function buildSeedSnapshot(): VideoTestingStoreSnapshot {
       videoRecordId: 'SV-PJT-018',
       videoRecordCode: 'SV-PJT-018',
       videoTitle: '设计款印花阔腿连体裤改版测款',
-      channelName: '抖音 / 设计验证号',
+      channelName: 'TikTok / 设计验证号',
       businessDate: '2026-04-01',
       publishedAt: '2026-04-01 17:00',
       recordStatus: '已关账',
@@ -153,7 +167,7 @@ function buildSeedSnapshot(): VideoTestingStoreSnapshot {
       videoRecordId: 'SV-PJT-019',
       videoRecordCode: 'SV-PJT-019',
       videoTitle: '基础款毛织开衫测款复盘',
-      channelName: '抖音 / 基础款内容号',
+      channelName: 'TikTok / 基础款内容号',
       businessDate: '2026-04-02',
       publishedAt: '2026-04-02 14:00',
       recordStatus: '已关账',
@@ -195,7 +209,7 @@ function buildSeedSnapshot(): VideoTestingStoreSnapshot {
       videoRecordId: 'SV-PJT-024',
       videoRecordCode: 'SV-PJT-024',
       videoTitle: '快反居家套装双渠道测款复盘',
-      channelName: '微信视频号 / 居家内容号',
+      channelName: '独立站 / 居家内容号',
       businessDate: '2026-04-05',
       publishedAt: '2026-04-05 17:30',
       recordStatus: '已关账',

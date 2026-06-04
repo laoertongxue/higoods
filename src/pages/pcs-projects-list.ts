@@ -2,8 +2,8 @@ import {
   getChannelNamesByCodes,
   listProjectListRecords,
   type PcsProjectListRecord,
-  type ProjectListStyleType,
 } from '../data/pcs-project-list-store.ts'
+import { seedPcsProductTestingSixFlowValidationData } from '../data/pcs-product-testing-six-flow-validation-seed.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
 type ProjectListViewMode = 'list' | 'grid'
@@ -12,7 +12,6 @@ type ProjectDateRange = '全部时间' | '今天' | '最近一周' | '最近一�
 
 interface ProjectListState {
   search: string
-  styleType: string
   status: string
   owner: string
   phase: string
@@ -31,14 +30,12 @@ interface ProjectListViewModel {
   channelNames: string[]
 }
 
-const STYLE_TYPE_OPTIONS: Array<'全部' | ProjectListStyleType> = ['全部', '基础款', '快时尚款', '改版款', '设计款']
 const PROJECT_STATUS_OPTIONS = ['全部', '已立项', '进行中', '已终止', '已归档']
 const RISK_STATUS_OPTIONS = ['全部', '正常', '延期']
 const DATE_RANGE_OPTIONS: ProjectDateRange[] = ['全部时间', '今天', '最近一周', '最近一月']
 
 const initialState: ProjectListState = {
   search: '',
-  styleType: '全部',
   status: '全部',
   owner: '全部负责人',
   phase: '全部阶段',
@@ -56,18 +53,43 @@ const state: { list: ProjectListState } = {
   list: { ...initialState },
 }
 
+let sixFlowSeedAppliedKey = ''
+
+function getSixFlowSeedQueryKey(): string {
+  if (typeof window === 'undefined') return ''
+  const params = new URLSearchParams(window.location.search)
+  const enabled = params.get('sixFlowSeed') === '1' || params.get('sixFlowValidationData') === '1'
+  if (!enabled) return ''
+  return params.get('sixFlowSeedRun') || params.get('seedRun') || window.location.href
+}
+
+function applySixFlowSeedFromQuery(): void {
+  const seedKey = getSixFlowSeedQueryKey()
+  if (!seedKey || sixFlowSeedAppliedKey === seedKey) return
+  sixFlowSeedAppliedKey = seedKey
+
+  try {
+    seedPcsProductTestingSixFlowValidationData({
+      reset: true,
+      operatorName: '六轮验收页面落库',
+    })
+    state.list = {
+      ...initialState,
+      search: '六轮验收',
+      sortBy: 'updatedAt',
+      currentPage: 1,
+      pageSize: 8,
+    }
+  } catch (error) {
+    console.error('六轮验收数据写入失败', error)
+  }
+}
+
 function getProjectStatusBadgeClass(status: PcsProjectListRecord['projectStatus']): string {
   if (status === '已立项') return 'bg-blue-100 text-blue-700'
   if (status === '进行中') return 'bg-emerald-100 text-emerald-700'
   if (status === '已终止') return 'bg-rose-100 text-rose-700'
   return 'bg-slate-100 text-slate-600'
-}
-
-function getStyleTypeBadgeClass(styleType: ProjectListStyleType): string {
-  if (styleType === '快时尚款') return 'border-blue-200 bg-blue-50 text-blue-700'
-  if (styleType === '改版款') return 'border-amber-200 bg-amber-50 text-amber-700'
-  if (styleType === '设计款') return 'border-violet-200 bg-violet-50 text-violet-700'
-  return 'border-emerald-200 bg-emerald-50 text-emerald-700'
 }
 
 function buildProjectListViewModels(): ProjectListViewModel[] {
@@ -104,7 +126,6 @@ function getFilteredProjects(): ProjectListViewModel[] {
   return buildProjectListViewModels()
     .filter((item) => {
       const project = item.project
-      if (state.list.styleType !== '全部' && project.styleType !== state.list.styleType) return false
       if (state.list.status !== '全部' && project.projectStatus !== state.list.status) return false
       if (state.list.owner !== '全部负责人' && project.ownerName !== state.list.owner) return false
       if (state.list.phase !== '全部阶段' && (project.currentPhaseName || '-') !== state.list.phase) return false
@@ -248,17 +269,6 @@ function renderToolbar(filteredCount: number, projects: ProjectListViewModel[]):
       </div>
       <div class="mt-4 flex flex-wrap items-center gap-4">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="text-xs text-slate-500">款式类型</span>
-          ${STYLE_TYPE_OPTIONS.map(
-            (option) => `
-              <button type="button" class="${toClassName(
-                'inline-flex h-8 items-center rounded-md px-3 text-xs',
-                state.list.styleType === option ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-              )}" data-pcs-project-list-action="set-style-filter" data-value="${escapeHtml(option)}">${escapeHtml(option)}</button>
-            `,
-          ).join('')}
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs text-slate-500">状态</span>
           ${PROJECT_STATUS_OPTIONS.map(
             (option) => `
@@ -345,7 +355,6 @@ function renderProjectTable(projects: ProjectListViewModel[], totalPages: number
               <th class="px-4 py-3 font-medium">操作</th>
               <th class="px-4 py-3 font-medium min-w-[260px]">项目名称</th>
               <th class="px-4 py-3 font-medium">项目编码</th>
-              <th class="px-4 py-3 font-medium">款式类型</th>
               <th class="px-4 py-3 font-medium">分类</th>
               <th class="px-4 py-3 font-medium">风格</th>
               <th class="px-4 py-3 font-medium">当前阶段</th>
@@ -360,7 +369,7 @@ function renderProjectTable(projects: ProjectListViewModel[], totalPages: number
               projects.length === 0
                 ? `
                   <tr>
-                    <td colspan="11" class="px-4 py-16 text-center">
+                    <td colspan="10" class="px-4 py-16 text-center">
                       <p class="text-sm font-medium text-slate-700">暂无符合条件的商品项目</p>
                       <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/projects/create">新建商品项目</button>
                     </td>
@@ -381,7 +390,6 @@ function renderProjectTable(projects: ProjectListViewModel[], totalPages: number
                             </div>
                           </td>
                           <td class="px-4 py-3 text-slate-500">${escapeHtml(item.project.projectCode)}</td>
-                          <td class="px-4 py-3"><span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getStyleTypeBadgeClass(item.project.styleType)}">${escapeHtml(item.project.styleType)}</span></td>
                           <td class="px-4 py-3">
                             <p class="text-slate-700">${escapeHtml(item.project.categoryName)}</p>
                             <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.project.subCategoryName || '-')}</p>
@@ -447,7 +455,6 @@ function renderProjectGrid(projects: ProjectListViewModel[], totalPages: number)
                         <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getProjectStatusBadgeClass(item.project.projectStatus)}">${escapeHtml(item.project.projectStatus)}</span>
                       </div>
                       <div class="mt-4 flex flex-wrap gap-2">
-                        <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getStyleTypeBadgeClass(item.project.styleType)}">${escapeHtml(item.project.styleType)}</span>
                         <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(item.project.categoryName)}</span>
                         ${item.project.pendingDecisionFlag ? '<span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">待决策</span>' : ''}
                       </div>
@@ -488,6 +495,7 @@ function renderHeader(): string {
 }
 
 export async function renderPcsProjectListPage(): Promise<string> {
+  applySixFlowSeedFromQuery()
   const { filtered, totalPages, paged } = getPagedProjects()
 
   return `
@@ -550,11 +558,6 @@ export function handlePcsProjectListEvent(target: HTMLElement): boolean {
   }
   if (action === 'toggle-advanced') {
     state.list.advancedOpen = !state.list.advancedOpen
-    return true
-  }
-  if (action === 'set-style-filter') {
-    state.list.styleType = actionNode.dataset.value || '全部'
-    state.list.currentPage = 1
     return true
   }
   if (action === 'set-status-filter') {

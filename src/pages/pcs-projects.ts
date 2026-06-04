@@ -45,11 +45,11 @@ import {
   countTemplateWorkItems,
   getProjectTemplateById,
   type ProjectTemplate,
-  type TemplateStyleType,
 } from '../data/pcs-templates.ts'
 import { getPcsWorkItemDefinition } from '../data/pcs-work-items.ts'
 import { buildProjectClosureViewModel } from '../data/pcs-project-closure-view-model.ts'
 import {
+  WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
   getProjectWorkItemContract,
   getProjectWorkItemContractById,
   getProjectPhaseContract,
@@ -75,6 +75,7 @@ import type { ProjectRelationRecord } from '../data/pcs-project-relation-types.t
 import {
   repairChannelListingNodeInstanceConsistency,
 } from '../data/pcs-channel-product-project-repository.ts'
+import { DEFAULT_PCS_CHANNEL_CODE, normalizePcsChannelCode, normalizePcsChannelCodes } from '../data/pcs-channel-options.ts'
 import type {
   ProjectChannelProductListingPayload,
   ProjectChannelProductRecord,
@@ -151,7 +152,6 @@ type EngineeringTaskCreateType = '' | 'REVISION_TASK' | 'PATTERN_TASK' | 'PATTER
 
 interface ProjectListState {
   search: string
-  styleType: string
   status: string
   owner: string
   phase: string
@@ -413,7 +413,6 @@ interface ProjectListViewModel {
   channelNames: string[]
 }
 
-const STYLE_TYPE_OPTIONS: Array<'全部' | TemplateStyleType> = ['全部', '基础款', '快时尚款', '改版款', '设计款']
 const PROJECT_STATUS_OPTIONS = [
   { value: '全部', label: '全部' },
   { value: '已立项', label: '已立项' },
@@ -461,7 +460,6 @@ const REVISION_SCOPE_OPTIONS = [
 
 const initialListState: ProjectListState = {
   search: '',
-  styleType: '全部',
   status: '全部',
   owner: '全部负责人',
   phase: '全部阶段',
@@ -1054,18 +1052,26 @@ function parseDateValue(value: string): number {
 function formatValue(value: unknown): string {
   if (value == null || value === '') return '-'
   if (Array.isArray(value)) {
-    const items = value.map((item) => String(item).trim()).filter(Boolean)
+    const items = value.map((item) => formatValue(item)).filter((item) => item && item !== '-')
     return items.length > 0 ? items.join('、') : '-'
   }
   if (typeof value === 'boolean') return value ? '是' : '否'
   if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('zh-CN') : '-'
-  if (typeof value === 'object') return escapeHtml(JSON.stringify(value))
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => {
+        const text = formatValue(item)
+        return text && text !== '-' ? `${key}：${text}` : ''
+      })
+      .filter(Boolean)
+    return entries.length > 0 ? entries.join('；') : '-'
+  }
   return String(value).trim() || '-'
 }
 
 function renderReadonlyValue(value: unknown): string {
   if (Array.isArray(value)) {
-    const items = value.map((item) => String(item).trim()).filter(Boolean)
+    const items = value.map((item) => formatValue(item)).filter((item) => item && item !== '-')
     if (items.length === 0) {
       return '<span>-</span>'
     }
@@ -1797,7 +1803,7 @@ function parseProjectRelationNoteMeta(note: string | null | undefined): Record<s
 }
 
 function getFirstTargetChannelCode(project: PcsProjectRecord): string {
-  return project.targetChannelCodes[0] || 'tiktok-shop'
+  return normalizePcsChannelCode(project.targetChannelCodes[0]) || DEFAULT_PCS_CHANNEL_CODE
 }
 
 function getChannelDisplayName(channelCode: string): string {
@@ -1820,6 +1826,11 @@ function listPcsChannelStores() {
       channelCode: record.channelCode,
     })),
   )
+}
+
+function listProjectTargetChannelCodes(project: PcsProjectRecord): string[] {
+  const normalizedCodes = normalizePcsChannelCodes(project.targetChannelCodes)
+  return normalizedCodes.length > 0 ? normalizedCodes : [DEFAULT_PCS_CHANNEL_CODE]
 }
 
 function getStyleArchiveStatusText(status: string): string {
@@ -1939,7 +1950,8 @@ function buildTechPackVersionDiffSummary(
 
 function getTestConclusionNextActionType(decision: string): string {
   if (decision === '通过') return '生成款式档案'
-  if (decision === '淘汰') return '样衣退回处理'
+  if (decision === '不通过') return '样衣退回处理'
+  if (decision === '继续测试') return '继续测试'
   return ''
 }
 
@@ -1960,7 +1972,7 @@ function buildTestConclusionOutcomeValues(
 
   return {
     linkedChannelProductCode,
-    invalidationPlanned: decision ? decision !== '通过' : false,
+    invalidationPlanned: decision === '不通过',
     linkedStyleId:
       decision === '通过'
         ? String(overrides.linkedStyleId ?? getNodeFieldValue(project, node, 'linkedStyleId') ?? project.linkedStyleId ?? '')
@@ -1970,7 +1982,7 @@ function buildTestConclusionOutcomeValues(
         ? String(overrides.linkedStyleCode ?? getNodeFieldValue(project, node, 'linkedStyleCode') ?? project.linkedStyleCode ?? '')
         : '',
     invalidatedChannelProductId:
-      decision && decision !== '通过'
+      decision === '不通过'
         ? String(overrides.invalidatedChannelProductId ?? currentChannelProduct?.sourceObjectId ?? '')
         : '',
     nextActionType: String(overrides.nextActionType ?? getTestConclusionNextActionType(decision)),
@@ -2316,7 +2328,7 @@ function renderChannelListingCreateBatchSection(
         <label class="space-y-1">
           <span class="text-xs text-slate-500">渠道</span>
           <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-target-channel">
-            ${(project.targetChannelCodes.length > 0 ? project.targetChannelCodes : ['tiktok-shop'])
+            ${listProjectTargetChannelCodes(project)
               .map((channelCode) => `<option value="${escapeHtml(channelCode)}" ${channelCode === draft.targetChannelCode ? 'selected' : ''}>${escapeHtml(getChannelDisplayName(channelCode))}</option>`)
               .join('')}
           </select>
@@ -2400,7 +2412,7 @@ function getChannelListingCreateSuggestion(project: PcsProjectRecord): ProjectCh
   const records = listProjectChannelProductsByProjectIdSafe(project.projectId).filter(
     (item) => item.channelProductStatus !== '已作废',
   )
-  const targetChannelCodes = project.targetChannelCodes.length > 0 ? project.targetChannelCodes : ['tiktok-shop']
+  const targetChannelCodes = listProjectTargetChannelCodes(project)
   const usedKeys = new Set(records.map((item) => `${item.channelCode}::${item.storeId}`))
 
   for (const channelCode of targetChannelCodes) {
@@ -2415,7 +2427,7 @@ function getChannelListingCreateSuggestion(project: PcsProjectRecord): ProjectCh
     }
   }
 
-  const fallbackChannelCode = targetChannelCodes[0] || 'tiktok-shop'
+  const fallbackChannelCode = targetChannelCodes[0] || DEFAULT_PCS_CHANNEL_CODE
   return {
     targetChannelCode: fallbackChannelCode,
     targetStoreId: getDefaultPcsStoreIdByChannel(fallbackChannelCode),
@@ -2450,7 +2462,7 @@ function getChannelListingDraft(project: PcsProjectRecord, node: ProjectNodeView
   const currencyCode =
     resolvePcsStoreCurrency(suggestion.targetStoreId || '', suggestion.targetChannelCode || '') || 'CNY'
   const draft: ChannelListingDraft = {
-    targetChannelCode: suggestion.targetChannelCode || 'tiktok-shop',
+    targetChannelCode: suggestion.targetChannelCode || DEFAULT_PCS_CHANNEL_CODE,
     targetStoreId: suggestion.targetStoreId || '',
     listingTitle: `${project.projectName} 测款渠道商品`,
     listingDescription: '',
@@ -2753,7 +2765,6 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     priorityLevel: project.priorityLevel,
     remark: project.remark,
     subCategoryName: project.subCategoryName,
-    styleType: project.styleType,
     priceRangeLabel: project.priceRangeLabel,
     priceRange: project.priceRangeLabel,
     projectAlbumUrls: project.projectAlbumUrls,
@@ -3016,6 +3027,16 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
       nodeRelationMeta.reuseAsFirstOrderBasisNote ||
       detailSnapshot.reuseAsFirstOrderBasisNote ||
       '',
+  }
+  if (node.node.workItemTypeCode === 'LIVE_TEST' || node.node.workItemTypeCode === 'VIDEO_TEST') {
+    const relationValue = nodeRelationMeta[fieldKey]
+    if (hasNodeFieldValue(relationValue)) return relationValue
+    const payloadValue = payload[fieldKey]
+    if (hasNodeFieldValue(payloadValue)) return payloadValue
+    const snapshotValue = detailSnapshot[fieldKey]
+    if (hasNodeFieldValue(snapshotValue)) return snapshotValue
+    const projectValue = projectValues[fieldKey]
+    if (hasNodeFieldValue(projectValue)) return projectValue
   }
   if (node.node.workItemTypeCode === 'FIRST_SAMPLE') {
     const formalValue = projectValues[fieldKey]
@@ -3375,10 +3396,13 @@ function renderFormalFieldControl(
   return `<input type="text" class="h-10 ${baseClass}" value="${escapeHtml(value)}" placeholder="${escapeHtml(field.placeholder || `请输入${field.label}`)}" ${commonAttrs} />`
 }
 
-function getProjectTypeLabel(styleType: TemplateStyleType): PcsProjectCreateDraft['projectType'] {
-  if (styleType === '快时尚款') return '快反上新'
-  if (styleType === '改版款') return '改版开发'
-  if (styleType === '设计款') return '设计研发'
+function getProjectTypeLabelByTemplate(template: ProjectTemplate | null): PcsProjectCreateDraft['projectType'] {
+  if (template?.id === WANLONG_REVISION_SAMPLE_TEMPLATE_ID || template?.name.includes('万隆改版')) {
+    return '改版开发'
+  }
+  if (template?.name.includes('国内采购样衣测款')) {
+    return '商品开发'
+  }
   return '商品开发'
 }
 
@@ -4146,10 +4170,6 @@ function buildProjectTaskOwnerOptions(project: PcsProjectRecord, node: PcsProjec
   return [...names].sort((left, right) => left.localeCompare(right)).map((name) => ({ value: name, label: name }))
 }
 
-function getTemplateByStyleType(styleType: TemplateStyleType): ProjectTemplate | null {
-  return listActiveProjectTemplates().find((template) => template.styleType.includes(styleType)) ?? null
-}
-
 function isNodeUnlocked(
   project: PcsProjectViewRecord,
   orderedNodes: PcsProjectNodeRecord[],
@@ -4349,14 +4369,12 @@ function getFilteredProjectViewModels(): ProjectListViewModel[] {
           project.subCategoryName,
           project.ownerName,
           project.currentPhaseName,
-          project.styleType,
           project.styleTagNames.join(' '),
         ]
           .join(' ')
           .toLowerCase()
           .includes(keyword)
 
-      const matchesStyleType = state.list.styleType === '全部' || project.styleType === state.list.styleType
       const matchesStatus = state.list.status === '全部' || project.projectStatus === state.list.status
       const matchesOwner = owner === '全部负责人' || project.ownerName === owner
       const matchesPhase = phase === '全部阶段' || item.currentPhase?.phase.phaseName === phase
@@ -4365,7 +4383,6 @@ function getFilteredProjectViewModels(): ProjectListViewModel[] {
       const matchesPendingDecision = !state.list.pendingDecisionOnly || Boolean(item.pendingDecisionNode)
       return (
         matchesKeyword &&
-        matchesStyleType &&
         matchesStatus &&
         matchesOwner &&
         matchesPhase &&
@@ -4413,8 +4430,7 @@ function buildProjectPhaseOptions(projects: ProjectListViewModel[]): string[] {
 function ensureCreateState(): void {
   if (state.create.routeKey === 'create') return
   const catalog = getProjectCreateCatalog()
-  const defaultStyleType: TemplateStyleType = '基础款'
-  const template = getTemplateByStyleType(defaultStyleType)
+  const template = listActiveProjectTemplates()[0] ?? null
   const category = catalog.categories[0]
   const child = category?.children[0]
   const owner = catalog.owners[0]
@@ -4428,10 +4444,9 @@ function ensureCreateState(): void {
     referenceImages: [],
     draft: {
       ...createEmptyProjectDraft(),
-      projectType: getProjectTypeLabel(defaultStyleType),
+      projectType: getProjectTypeLabelByTemplate(template),
       projectSourceType: catalog.projectSourceTypes[0] ?? '',
       templateId: template?.id ?? '',
-      styleType: defaultStyleType,
       categoryId: category?.id ?? '',
       categoryName: category?.name ?? '',
       subCategoryId: child?.id ?? '',
@@ -4467,8 +4482,7 @@ function hasCreateDraftChanges(): boolean {
       draft.collaboratorIds.length > 0 ||
       draft.priceRangeLabel.trim() ||
       state.create.referenceImages.length > 0 ||
-      draft.targetChannelCodes.length !== 2 ||
-      draft.styleType !== '基础款',
+      draft.targetChannelCodes.length !== 2,
   )
 }
 
@@ -4515,13 +4529,6 @@ function getProjectStatusBadgeClass(status: PcsProjectRecord['projectStatus']): 
   if (status === '进行中') return 'bg-emerald-100 text-emerald-700'
   if (status === PROJECT_STATUS_TERMINATED) return 'bg-rose-100 text-rose-700'
   return 'bg-slate-100 text-slate-600'
-}
-
-function getStyleTypeBadgeClass(styleType: TemplateStyleType): string {
-  if (styleType === '快时尚款') return 'border-blue-200 bg-blue-50 text-blue-700'
-  if (styleType === '改版款') return 'border-amber-200 bg-amber-50 text-amber-700'
-  if (styleType === '设计款') return 'border-violet-200 bg-violet-50 text-violet-700'
-  return 'border-emerald-200 bg-emerald-50 text-emerald-700'
 }
 
 function getNodeStatusBadgeClass(status: ProjectNodeStatus | '未解锁'): string {
@@ -4635,17 +4642,6 @@ function renderListToolbar(filteredCount: number, phaseOptions: string[]): strin
       </div>
       <div class="mt-4 flex flex-wrap items-center gap-4">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="text-xs text-slate-500">款式类型</span>
-          ${STYLE_TYPE_OPTIONS.map(
-            (option) => `
-              <button type="button" class="${toClassName(
-                'inline-flex h-8 items-center rounded-md px-3 text-xs',
-                state.list.styleType === option ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-              )}" data-pcs-project-action="set-style-filter" data-value="${escapeHtml(option)}">${escapeHtml(option)}</button>
-            `,
-          ).join('')}
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs text-slate-500">状态</span>
           ${PROJECT_STATUS_OPTIONS.map(
             (option) => `
@@ -4732,7 +4728,6 @@ function renderProjectListTable(projects: ProjectListViewModel[], totalPages: nu
               <th class="px-4 py-3 font-medium">操作</th>
               <th class="px-4 py-3 font-medium min-w-[260px]">项目名称</th>
               <th class="px-4 py-3 font-medium">项目编码</th>
-              <th class="px-4 py-3 font-medium">款式类型</th>
               <th class="px-4 py-3 font-medium">分类</th>
               <th class="px-4 py-3 font-medium">风格</th>
               <th class="px-4 py-3 font-medium">当前阶段</th>
@@ -4747,7 +4742,7 @@ function renderProjectListTable(projects: ProjectListViewModel[], totalPages: nu
               projects.length === 0
                 ? `
                   <tr>
-                    <td colspan="11" class="px-4 py-16 text-center">
+                    <td colspan="10" class="px-4 py-16 text-center">
                       <p class="text-sm font-medium text-slate-700">暂无符合条件的商品项目</p>
                       <p class="mt-1 text-xs text-slate-500">可以修改筛选条件，或直接创建一个新的商品项目。</p>
                       <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/projects/create">新建商品项目</button>
@@ -4773,7 +4768,6 @@ function renderProjectListTable(projects: ProjectListViewModel[], totalPages: nu
                             </div>
                           </td>
                           <td class="px-4 py-3 text-slate-500">${escapeHtml(item.project.projectCode)}</td>
-                          <td class="px-4 py-3"><span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getStyleTypeBadgeClass(item.project.styleType)}">${escapeHtml(item.project.styleType)}</span></td>
                           <td class="px-4 py-3">
                             <p class="text-slate-700">${escapeHtml(item.project.categoryName)}</p>
                             <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.project.subCategoryName || '-')}</p>
@@ -4839,7 +4833,6 @@ function renderProjectGrid(projects: ProjectListViewModel[], totalPages: number)
                         <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getProjectStatusBadgeClass(item.project.projectStatus)}">${escapeHtml(getProjectStatusDisplayText(item.project.projectStatus))}</span>
                       </div>
                       <div class="mt-4 flex flex-wrap gap-2">
-                        <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getStyleTypeBadgeClass(item.project.styleType)}">${escapeHtml(item.project.styleType)}</span>
                         <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(item.project.categoryName)}</span>
                         ${item.pendingDecisionNode ? '<span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">待决策</span>' : ''}
                       </div>
@@ -4903,7 +4896,7 @@ function renderTemplatePreview(template: ProjectTemplate | null): string {
   if (!template) {
     return `
       <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-        当前没有可用模板，请先到模板管理中启用对应款式类型的项目模板。
+        当前没有可用业务模板，请先到模板管理中启用国内采购样衣测款或万隆改版出样衣测款项目模板。
       </div>
     `
   }
@@ -4966,10 +4959,12 @@ function renderCreatePage(): string {
   const catalog = getProjectCreateCatalog()
   const draft = state.create.draft
   const categoryChildren = getProjectCategoryChildren(draft.categoryId)
-  const templateOptions = listActiveProjectTemplates().filter((template) =>
-    draft.styleType ? template.styleType.includes(draft.styleType as TemplateStyleType) : true,
-  )
-  const selectedTemplate = draft.templateId ? getProjectTemplateById(draft.templateId) : templateOptions[0] ?? null
+  const templateOptions = listActiveProjectTemplates()
+  const selectedTemplate = templateOptions.find((template) => template.id === draft.templateId) ?? templateOptions[0] ?? null
+  if (selectedTemplate && draft.templateId !== selectedTemplate.id) {
+    draft.templateId = selectedTemplate.id
+    draft.projectType = getProjectTypeLabelByTemplate(selectedTemplate)
+  }
   const audienceTags = getCreateDraftAudienceTags(draft)
   const errorCard = state.create.error
     ? `<section class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">${escapeHtml(state.create.error)}</section>`
@@ -5002,35 +4997,10 @@ function renderCreatePage(): string {
             <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="例如：2026夏季宽松基础T恤" value="${escapeHtml(draft.projectName)}" data-pcs-project-field="create-project-name" />
           </label>
 
-          <div class="space-y-3">
-            <div>
-              <span class="text-sm font-medium text-slate-900">款式类型 <span class="text-rose-500">*</span></span>
-            </div>
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              ${catalog.styleTypes
-                .map(
-                  (styleType) => `
-                    <button type="button" class="${toClassName(
-                      'rounded-lg border p-4 text-left transition',
-                      draft.styleType === styleType
-                        ? 'border-blue-500 bg-blue-50 shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50',
-                    )}" data-pcs-project-action="select-style-type" data-style-type="${escapeHtml(styleType)}">
-                      <div class="flex items-center justify-between gap-2">
-                        <span class="text-sm font-semibold text-slate-900">${escapeHtml(styleType)}</span>
-                        <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getStyleTypeBadgeClass(styleType)}">${escapeHtml(getProjectTypeLabel(styleType) || '')}</span>
-                      </div>
-                    </button>
-                  `,
-                )
-                .join('')}
-            </div>
-          </div>
-
           <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label class="space-y-1">
               <span class="text-xs text-slate-500">项目类型</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none" value="${escapeHtml(draft.projectType || getProjectTypeLabel((draft.styleType || '基础款') as TemplateStyleType))}" readonly />
+              <input class="h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none" value="${escapeHtml(draft.projectType || getProjectTypeLabelByTemplate(selectedTemplate))}" readonly />
             </label>
             <label class="space-y-1">
               <span class="text-xs text-slate-500">项目来源 <span class="text-rose-500">*</span></span>
@@ -5066,7 +5036,7 @@ function renderCreatePage(): string {
               </select>
             </label>
             <label class="space-y-1">
-              <span class="text-xs text-slate-500">项目模板 <span class="text-rose-500">*</span></span>
+              <span class="text-xs text-slate-500">业务模板 <span class="text-rose-500">*</span></span>
               <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-template">
                 ${templateOptions
                   .map(
@@ -5358,8 +5328,6 @@ function renderProjectHeader(viewModel: ProjectViewModel): string {
             <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
               <span>${escapeHtml(viewModel.project.categoryName)}</span>
               <span>·</span>
-              <span>${escapeHtml(viewModel.project.styleType)}</span>
-              <span>·</span>
               <span>${escapeHtml(viewModel.project.styleTagNames.join('、') || '未设置风格标签')}</span>
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
@@ -5471,6 +5439,46 @@ function isEngineeringTaskPolicyCode(code: string): code is EngineeringTaskField
   return code === 'REVISION_TASK' || code === 'PATTERN_TASK' || code === 'PATTERN_ARTWORK_TASK'
 }
 
+function getEngineeringTaskSnapshotFields(
+  code: EngineeringTaskFieldPolicyCode,
+  policy: ReturnType<typeof getEngineeringTaskFieldPolicy>,
+): Array<{ fieldKey: string; label: string }> {
+  const baseFields = policy.createRequiredFields
+  if (code !== 'REVISION_TASK') return baseFields
+
+  const extraFields: Array<{ fieldKey: string; label: string }> = [
+    { fieldKey: 'participantNames', label: '参与人' },
+    { fieldKey: 'revisionVersion', label: '改版版次' },
+    { fieldKey: 'targetStyleCodeCandidate', label: '新款候选编码' },
+    { fieldKey: 'targetStyleNameCandidate', label: '新款候选名称' },
+    { fieldKey: 'sampleQty', label: '样衣数量' },
+    { fieldKey: 'stylePreference', label: '风格偏好' },
+    { fieldKey: 'patternMakerName', label: '打版人' },
+    { fieldKey: 'revisionSuggestionRichText', label: '修改建议' },
+    { fieldKey: 'paperPrintAt', label: '纸样打印时间' },
+    { fieldKey: 'deliveryAddress', label: '寄送地址' },
+    { fieldKey: 'patternArea', label: '打版区域' },
+    { fieldKey: 'materialAdjustmentLines', label: '面辅料变化' },
+    { fieldKey: 'newPatternSpuCode', label: '新花型 SPU' },
+    { fieldKey: 'patternChangeNote', label: '纸样变更说明' },
+    { fieldKey: 'patternPieceImageIds', label: '唛架图片' },
+    { fieldKey: 'patternFileIds', label: '纸样文件' },
+    { fieldKey: 'mainImageIds', label: '主图图片' },
+    { fieldKey: 'designDraftImageIds', label: '设计稿图片' },
+    { fieldKey: 'linkedTechPackVersionCode', label: '技术包版本编码' },
+    { fieldKey: 'linkedTechPackVersionLabel', label: '技术包版本名称' },
+    { fieldKey: 'generatedNewTechPackVersionAt', label: '技术包生成时间' },
+    { fieldKey: 'liveRetestSummary', label: '回直播验证说明' },
+  ]
+
+  const seen = new Set<string>()
+  return [...baseFields, ...extraFields].filter((field) => {
+    if (seen.has(field.fieldKey)) return false
+    seen.add(field.fieldKey)
+    return true
+  })
+}
+
 function formatEngineeringTaskBasicFieldValue(task: Record<string, unknown> | null, fieldKey: string): string {
   if (!task) return '-'
 
@@ -5510,7 +5518,36 @@ function formatEngineeringTaskBasicFieldValue(task: Record<string, unknown> | nu
     return String(task.patternMakerName || task.ownerName || '').trim() || '-'
   }
 
-  if (fieldKey === 'demandImageIds' || fieldKey === 'evidenceImageUrls') {
+  if (fieldKey === 'materialAdjustmentLines') {
+    const lines = Array.isArray(task.materialAdjustmentLines) ? task.materialAdjustmentLines : []
+    const text = lines
+      .map((line) => {
+        if (!line || typeof line !== 'object') return ''
+        const item = line as Record<string, unknown>
+        const parts = [
+          String(item.materialName || '').trim(),
+          String(item.materialSku || '').trim(),
+          item.quantity ? `${item.quantity} 件` : '',
+          item.amount ? `合计 ${item.amount}` : '',
+          String(item.printRequirement || item.note || '').trim(),
+        ].filter(Boolean)
+        return parts.join(' / ')
+      })
+      .filter(Boolean)
+    return text.join('；') || '-'
+  }
+
+  if (
+    fieldKey === 'demandImageIds' ||
+    fieldKey === 'evidenceImageUrls' ||
+    fieldKey === 'baseStyleImageIds' ||
+    fieldKey === 'targetStyleImageIds' ||
+    fieldKey === 'newPatternImageIds' ||
+    fieldKey === 'patternPieceImageIds' ||
+    fieldKey === 'patternFileIds' ||
+    fieldKey === 'mainImageIds' ||
+    fieldKey === 'designDraftImageIds'
+  ) {
     const values = Array.isArray(task[fieldKey]) ? task[fieldKey].map((item) => String(item ?? '').trim()).filter(Boolean) : []
     return values.length > 0 ? `${values.length} 张` : '-'
   }
@@ -5552,7 +5589,7 @@ function resolveEngineeringTaskBasicSnapshot(
     taskStatus,
     updatedAt,
     taskExists: Boolean(task),
-    fields: policy.createRequiredFields.map((field) => ({
+    fields: getEngineeringTaskSnapshotFields(node.node.workItemTypeCode, policy).map((field) => ({
       label: field.label,
       value: formatEngineeringTaskBasicFieldValue(task, field.fieldKey),
     })),
@@ -6106,9 +6143,12 @@ function renderEditableFieldGroups(
       const items = group.fields
         .map((field) => {
           const editable = !field.readonly && editableKeys.has(field.fieldKey)
+          const savedValue = getNodeFieldValue(project, node, field.fieldKey)
+          const draftValue = draft.values[field.fieldKey]
+          const effectiveDraftValue = hasNodeFieldValue(draftValue) ? draftValue : savedValue
           const value = editable
-            ? formatDraftFieldValue(field.type, draft.values[field.fieldKey] ?? '')
-            : formatDraftFieldValue(field.type, getNodeFieldValue(project, node, field.fieldKey))
+            ? formatDraftFieldValue(field.type, effectiveDraftValue ?? '')
+            : formatDraftFieldValue(field.type, savedValue)
 
           return `
             <div class="space-y-1 rounded-md border border-slate-200 bg-white p-3">
@@ -6481,13 +6521,13 @@ function renderWorkItemAudit(viewModel: ProjectViewModel, node: ProjectNodeViewM
 
 function getDecisionOptions(node: ProjectNodeViewModel): string[] {
   const meta = getDecisionFieldMeta(node.node.workItemTypeCode)
-  if (!meta) return ['通过', '淘汰']
+  if (!meta) return ['通过', '不通过']
   const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
   const valueField = groups.flatMap((group) => group.fields).find((field) => field.fieldKey === meta.valueFieldKey)
   if (valueField?.options?.length) {
     return valueField.options.map((item) => item.value)
   }
-  return ['通过', '淘汰']
+  return ['通过', '不通过']
 }
 
 function isDecisionNode(node: ProjectNodeViewModel): boolean {
@@ -6867,6 +6907,7 @@ export function handlePcsProjectsInput(target: Element): boolean {
   }
   if (field === 'create-template' && fieldNode instanceof HTMLSelectElement) {
     state.create.draft.templateId = fieldNode.value
+    state.create.draft.projectType = getProjectTypeLabelByTemplate(getProjectTemplateById(fieldNode.value))
     return true
   }
   if (field === 'create-brand' && fieldNode instanceof HTMLSelectElement) {
@@ -7623,11 +7664,6 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     state.list.advancedOpen = !state.list.advancedOpen
     return true
   }
-  if (action === 'set-style-filter') {
-    state.list.styleType = actionNode.dataset.value || '全部'
-    state.list.currentPage = 1
-    return true
-  }
   if (action === 'set-status-filter') {
     state.list.status = actionNode.dataset.value || '全部'
     state.list.currentPage = 1
@@ -7672,16 +7708,6 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     if (!projectId) return true
     const result = archiveProject(projectId, '当前用户')
     state.notice = result.message
-    return true
-  }
-  if (action === 'select-style-type') {
-    const styleType = actionNode.dataset.styleType as TemplateStyleType | undefined
-    if (!styleType) return true
-    const template = getTemplateByStyleType(styleType)
-    state.create.draft.styleType = styleType
-    state.create.draft.projectType = getProjectTypeLabel(styleType)
-    state.create.draft.templateId = template?.id ?? ''
-    state.create.error = null
     return true
   }
   if (action === 'toggle-style-tag') {

@@ -148,7 +148,7 @@ export const STYLE_ARCHIVE_CONTROLLED_FIELD_RULES: ControlledFieldRuleGroup[] = 
     fields: [
       '款式名称',
       '款号',
-      '款式类型',
+      '商品类型',
       '品牌',
       '一级类目',
       '二级类目',
@@ -169,7 +169,7 @@ export const STYLE_ARCHIVE_CONTROLLED_FIELD_RULES: ControlledFieldRuleGroup[] = 
     fields: [
       '款式名称',
       '款号',
-      '款式类型',
+      '商品类型',
       '品牌',
       '一级类目',
       '二级类目',
