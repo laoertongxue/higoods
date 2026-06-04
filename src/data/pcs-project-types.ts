@@ -5,7 +5,7 @@ export type LegacyProjectNodeStatus = ProjectNodeStatus | '待决策' | '未解�
 export type ProjectPriorityLevel = '高' | '中' | '低'
 export type ProjectType = '商品开发' | '快反上新' | '改版开发' | '设计研发'
 export type ProjectSourceType = '企划提案' | '渠道反馈' | '测款沉淀' | '历史复用' | '外部灵感'
-export type SampleSourceType = '外采' | '自打样' | '委托打样'
+export type SampleSourceType = '外采' | '委托打样'
 export type ProjectRiskStatus = '正常' | '延期'
 export type ProjectMarketTestWorkItemTypeCode = 'LIVE_TEST' | 'VIDEO_TEST'
 

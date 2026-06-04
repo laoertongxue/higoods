@@ -39,6 +39,7 @@ import type {
   PcsProjectViewRecord,
   ProjectNodeStatus,
   ProjectSimpleOption,
+  SampleSourceType,
 } from '../data/pcs-project-types.ts'
 import {
   countTemplateStages,
@@ -49,6 +50,7 @@ import {
 import { getPcsWorkItemDefinition } from '../data/pcs-work-items.ts'
 import { buildProjectClosureViewModel } from '../data/pcs-project-closure-view-model.ts'
 import {
+  DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
   WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
   getProjectWorkItemContract,
   getProjectWorkItemContractById,
@@ -3175,6 +3177,10 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
         ]
       }),
   )
+  const lockedSampleSourceType = getTemplateLockedSampleSourceType(project)
+  if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE' && lockedSampleSourceType) {
+    values.sampleSourceType = lockedSampleSourceType
+  }
 
   return {
     projectId: project.projectId,
@@ -3249,9 +3255,67 @@ function hasNodeFieldValue(value: unknown): boolean {
   return String(value).trim() !== ''
 }
 
+type ProjectNodeFormalField = PcsProjectNodeFieldGroupDefinition['fields'][number]
+
+function getTemplateLockedSampleSourceTypeByTemplate(templateId: string, templateName: string): SampleSourceType | '' {
+  if (templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID || templateName.includes('国内采购样衣测款')) {
+    return '外采'
+  }
+  if (templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID || templateName.includes('万隆改版')) {
+    return '委托打样'
+  }
+  return ''
+}
+
+function getTemplateLockedSampleSourceType(project: PcsProjectRecord): SampleSourceType | '' {
+  return getTemplateLockedSampleSourceTypeByTemplate(project.templateId, project.templateName)
+}
+
+function applyProjectTemplateFieldPolicy(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  field: ProjectNodeFormalField,
+): ProjectNodeFormalField {
+  if (node.node.workItemTypeCode !== 'SAMPLE_ACQUIRE' || field.fieldKey !== 'sampleSourceType') return field
+
+  const lockedSourceType = getTemplateLockedSampleSourceType(project)
+  if (!lockedSourceType) {
+    return {
+      ...field,
+      options: field.options || [],
+      businessLogic: '样衣来源方式按业务模板约束；当前仅允许国内采购外采或万隆委托打样。',
+    }
+  }
+
+  return {
+    ...field,
+    required: true,
+    options: [{ value: lockedSourceType, label: lockedSourceType }],
+    businessLogic:
+      lockedSourceType === '外采'
+        ? '国内采购样衣测款项目的样衣来源固定为外采。'
+        : '万隆改版出样衣测款项目的样衣来源固定为委托打样，由改版任务产出样衣。',
+  }
+}
+
+function getTemplateLockedFieldValue(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  field: ProjectNodeFormalField,
+  value: unknown,
+): unknown {
+  if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE' && field.fieldKey === 'sampleSourceType') {
+    return getTemplateLockedSampleSourceType(project) || value
+  }
+  return value
+}
+
 function buildNodeCompletionValues(project: PcsProjectRecord, node: ProjectNodeViewModel): Record<string, unknown> {
   return Object.fromEntries(
-    node.contract.fieldDefinitions.map((field) => [field.fieldKey, getNodeFieldValue(project, node, field.fieldKey)]),
+    node.contract.fieldDefinitions.map((field) => [
+      field.fieldKey,
+      getTemplateLockedFieldValue(project, node, field, getNodeFieldValue(project, node, field.fieldKey)),
+    ]),
   )
 }
 
@@ -3277,6 +3341,7 @@ function getBusinessRuleValidationErrors(
   const errors: string[] = []
 
   if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE') {
+    const lockedSourceType = getTemplateLockedSampleSourceType(project)
     const sampleSourceType = String(values.sampleSourceType || '').trim()
     const sampleLink = String(values.sampleLink || '').trim()
     const sampleUnitPrice = values.sampleUnitPrice
@@ -3284,6 +3349,9 @@ function getBusinessRuleValidationErrors(
       typeof sampleUnitPrice === 'number'
         ? Number.isFinite(sampleUnitPrice)
         : String(sampleUnitPrice || '').trim() !== ''
+    if (lockedSourceType && sampleSourceType !== lockedSourceType) {
+      errors.push(`当前项目模板的样衣来源方式固定为${lockedSourceType}，不能选择${sampleSourceType || '其他来源'}。`)
+    }
     if (sampleSourceType === '外采' && !sampleLink && !hasUnitPrice) {
       errors.push('样衣来源方式为外采时，外采链接和样衣单价至少填写一项。')
     }
@@ -3358,9 +3426,10 @@ function renderFormalFieldControl(
   const commonAttrs = `data-pcs-project-field="formal-field" data-field-key="${escapeHtml(field.fieldKey)}" ${disabled ? 'disabled' : ''}`
 
   if ((field.type === 'select' || field.type === 'single-select') && field.options && field.options.length > 0) {
+    const showPlaceholder = !(field.fieldKey === 'sampleSourceType' && field.options.length === 1)
     return `
       <select class="h-10 ${baseClass}" ${commonAttrs}>
-        <option value="">请选择${escapeHtml(field.label)}</option>
+        ${showPlaceholder ? `<option value="">请选择${escapeHtml(field.label)}</option>` : ''}
         ${field.options
           .map(
             (option) =>
@@ -6141,10 +6210,11 @@ function renderEditableFieldGroups(
   return groups
     .map((group) => {
       const items = group.fields
-        .map((field) => {
+        .map((rawField) => {
+          const field = applyProjectTemplateFieldPolicy(project, node, rawField)
           const editable = !field.readonly && editableKeys.has(field.fieldKey)
-          const savedValue = getNodeFieldValue(project, node, field.fieldKey)
-          const draftValue = draft.values[field.fieldKey]
+          const savedValue = getTemplateLockedFieldValue(project, node, field, getNodeFieldValue(project, node, field.fieldKey))
+          const draftValue = getTemplateLockedFieldValue(project, node, field, draft.values[field.fieldKey])
           const effectiveDraftValue = hasNodeFieldValue(draftValue) ? draftValue : savedValue
           const value = editable
             ? formatDraftFieldValue(field.type, effectiveDraftValue ?? '')
@@ -6160,7 +6230,7 @@ function renderEditableFieldGroups(
               ${
                 editable
                   ? renderFormalFieldControl(field, value, disabled)
-                  : `<div class="min-h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700">${renderReadonlyValue(getNodeFieldValue(project, node, field.fieldKey))}</div>`
+                  : `<div class="min-h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700">${renderReadonlyValue(savedValue)}</div>`
               }
             </div>
           `
@@ -6906,8 +6976,10 @@ export function handlePcsProjectsInput(target: Element): boolean {
     return true
   }
   if (field === 'create-template' && fieldNode instanceof HTMLSelectElement) {
+    const template = getProjectTemplateById(fieldNode.value)
     state.create.draft.templateId = fieldNode.value
-    state.create.draft.projectType = getProjectTypeLabelByTemplate(getProjectTemplateById(fieldNode.value))
+    state.create.draft.projectType = getProjectTypeLabelByTemplate(template)
+    state.create.draft.sampleSourceType = getTemplateLockedSampleSourceTypeByTemplate(fieldNode.value, template?.name || '')
     return true
   }
   if (field === 'create-brand' && fieldNode instanceof HTMLSelectElement) {
@@ -7449,6 +7521,10 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
       .filter((field) => !field.readonly && editableKeys.has(field.fieldKey))
       .map((field) => [field.fieldKey, normalizeDraftFieldValue(field, draft.values[field.fieldKey] ?? '')]),
   )
+  const lockedSampleSourceType = getTemplateLockedSampleSourceType(project)
+  if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE' && lockedSampleSourceType) {
+    normalizedEditableValues.sampleSourceType = lockedSampleSourceType
+  }
   const summaryNote = draft.note.trim() || deriveRecordSummaryNote(node.node.workItemTypeCode, normalizedEditableValues)
   const quickPayload = buildQuickRecordPayload(project, node.node, {
     businessDate: draft.businessDate || todayText(),

@@ -51,6 +51,11 @@ function fieldKeys(workItemTypeCode: PcsProjectWorkItemCode): string[] {
   return getProjectWorkItemContract(workItemTypeCode).fieldDefinitions.map((field) => field.fieldKey)
 }
 
+function fieldOptions(workItemTypeCode: PcsProjectWorkItemCode, fieldKey: string): string[] {
+  const field = getProjectWorkItemContract(workItemTypeCode).fieldDefinitions.find((item) => item.fieldKey === fieldKey)
+  return field?.options?.map((option) => option.value) ?? []
+}
+
 function assertIncludesAll(actual: string[], expected: string[], message: string): void {
   const missing = expected.filter((item) => !actual.includes(item))
   assert.deepEqual(missing, [], message)
@@ -119,6 +124,16 @@ assertIncludesAll(
   fieldKeys('SAMPLE_ACQUIRE'),
   ['purchaseSupplierName', 'sampleLink', 'freightAmount', 'receiverName', 'saleType', 'targetRegionCodes', 'needTransitFlag', 'skuPurchaseQty', 'baseProductCode', 'expectedNewSpuCode', 'requestedSampleQty', 'revisionDirection'],
   '样衣获取字段未覆盖采购样衣和改版出样衣需求',
+)
+assert.deepEqual(
+  fieldOptions('SAMPLE_ACQUIRE', 'sampleSourceType'),
+  ['外采', '委托打样'],
+  '样衣获取来源方式只能保留业务模板允许的外采/委托打样',
+)
+assert.deepEqual(
+  getProjectCreateCatalog().sampleSourceTypes,
+  ['外采', '委托打样'],
+  '创建目录不得再提供业务模板外的样衣来源方式',
 )
 assertIncludesAll(
   fieldKeys('REVISION_TASK'),

@@ -8,7 +8,7 @@ export type PcsProjectTemplateId = 'TPL-001' | 'TPL-002' | 'TPL-003' | 'TPL-004'
 export const DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-001'
 export const WANLONG_REVISION_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-003'
 export type PcsProjectSourceType = '企划提案' | '渠道反馈' | '测款沉淀' | '历史复用' | '外部灵感'
-export type PcsSampleSourceType = '外采' | '自打样' | '委托打样'
+export type PcsSampleSourceType = '外采' | '委托打样'
 export type PcsProjectPriorityLevel = '高' | '中' | '低'
 
 export type PcsProjectWorkItemCode =
@@ -1092,10 +1092,9 @@ const sampleAcquireFields = [
         sourceKind: '固定枚举',
         sourceRef: '样衣来源方式',
         meaning: '本次样衣的来源方式',
-        logic: '仅保留外采、自打样、委托打样三类来源。',
+        logic: '样衣来源方式由业务模板锁定：国内采购样衣测款固定外采，万隆改版出样衣测款固定委托打样。',
         options: [
           { value: '外采', label: '外采' },
-          { value: '自打样', label: '自打样' },
           { value: '委托打样', label: '委托打样' },
         ],
       },
@@ -2085,8 +2084,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['继承商品项目主记录。'],
     downstreamChanges: ['为样衣结果核对提供来源上下文'],
-    businessRules: ['外采场景必须补齐外采链接或样衣单价之一'],
-    systemConstraints: ['来源方式只保留外采、自打样、委托打样'],
+    businessRules: ['国内采购样衣测款项目来源方式固定为外采；万隆改版出样衣测款项目来源方式固定为委托打样', '外采场景必须补齐外采链接或样衣单价之一'],
+    systemConstraints: ['来源方式由项目模板锁定，不允许在样衣获取节点自由切换来源类型'],
   },
   {
     workItemId: 'WI-003',
