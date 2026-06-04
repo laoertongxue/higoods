@@ -234,6 +234,29 @@ function renderProjectProgress(project: ProjectListViewModel): string {
   `
 }
 
+function renderProjectCoverImage(item: ProjectListViewModel, variant: 'table' | 'card'): string {
+  const imageUrl = item.project.mainImageUrl.trim()
+  const imageClass =
+    variant === 'table'
+      ? 'h-16 w-12 rounded-md object-cover ring-1 ring-slate-200'
+      : 'h-52 w-full rounded-md object-cover ring-1 ring-slate-200'
+  const loadingMode = variant === 'table' ? 'eager' : 'lazy'
+  const fallbackClass =
+    variant === 'table'
+      ? 'h-16 w-12 rounded-md bg-slate-100 text-[10px]'
+      : 'h-52 w-full rounded-md bg-slate-100 text-sm'
+
+  if (imageUrl) {
+    return `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.project.projectName)}" class="${imageClass}" loading="${loadingMode}" referrerpolicy="no-referrer" />`
+  }
+
+  return `
+    <div class="${fallbackClass} flex items-center justify-center border border-dashed border-slate-200 text-slate-400">
+      图片
+    </div>
+  `
+}
+
 function renderPagination(totalPages: number): string {
   if (totalPages <= 1) return ''
   const pages = new Set<number>([1, totalPages, state.list.currentPage, state.list.currentPage - 1, state.list.currentPage + 1])
@@ -377,6 +400,7 @@ function renderProjectTable(projects: ProjectListViewModel[], totalPages: number
             <tr class="border-b border-slate-200 text-left text-slate-600">
               <th class="px-4 py-3 font-medium">操作</th>
               <th class="px-4 py-3 font-medium min-w-[260px]">项目名称</th>
+              <th class="px-4 py-3 font-medium">图片</th>
               <th class="px-4 py-3 font-medium">项目编码</th>
               <th class="px-4 py-3 font-medium">分类</th>
               <th class="px-4 py-3 font-medium">风格</th>
@@ -392,7 +416,7 @@ function renderProjectTable(projects: ProjectListViewModel[], totalPages: number
               projects.length === 0
                 ? `
                   <tr>
-                    <td colspan="10" class="px-4 py-16 text-center">
+                    <td colspan="11" class="px-4 py-16 text-center">
                       <p class="text-sm font-medium text-slate-700">暂无符合条件的商品项目</p>
                       <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/projects/create">新建商品项目</button>
                     </td>
@@ -412,6 +436,7 @@ function renderProjectTable(projects: ProjectListViewModel[], totalPages: number
                               ${item.project.pendingDecisionFlag ? '<span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">待决策</span>' : ''}
                             </div>
                           </td>
+                          <td class="px-4 py-3">${renderProjectCoverImage(item, 'table')}</td>
                           <td class="px-4 py-3 text-slate-500">${escapeHtml(item.project.projectCode)}</td>
                           <td class="px-4 py-3">
                             <p class="text-slate-700">${escapeHtml(item.project.categoryName)}</p>
@@ -470,7 +495,8 @@ function renderProjectGrid(projects: ProjectListViewModel[], totalPages: number)
                 .map(
                   (item) => `
                     <article class="rounded-lg border bg-white p-4">
-                      <div class="flex items-start justify-between gap-3">
+                      ${renderProjectCoverImage(item, 'card')}
+                      <div class="mt-4 flex items-start justify-between gap-3">
                         <div>
                           <button type="button" class="text-left text-base font-semibold text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.project.projectId)}">${escapeHtml(item.project.projectName)}</button>
                           <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.project.projectCode)}</p>

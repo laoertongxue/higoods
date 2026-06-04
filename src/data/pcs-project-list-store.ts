@@ -1,4 +1,5 @@
 import { getProjectStoreSnapshot } from './pcs-project-repository.ts'
+import { listProjectImageAssets } from './pcs-project-image-repository.ts'
 import { getPcsChannelNamesByCodes, normalizePcsChannelCodes } from './pcs-channel-options.ts'
 
 export type ProjectListStatus = '已立项' | '进行中' | '已终止' | '已归档'
@@ -11,6 +12,8 @@ export interface PcsProjectListRecord {
   projectName: string
   categoryName: string
   subCategoryName: string
+  brandName: string
+  mainImageUrl: string
   styleTagNames: string[]
   targetChannelCodes: string[]
   projectStatus: ProjectListStatus
@@ -28,6 +31,7 @@ export interface PcsProjectListRecord {
 
 interface ProjectSnapshotRecord extends Omit<PcsProjectListRecord, 'progressDone' | 'progressTotal' | 'nextWorkItemName' | 'nextWorkItemStatus' | 'pendingDecisionFlag' | 'riskStatus' | 'riskReason'> {
   currentPhaseCode?: string
+  projectAlbumUrls?: string[]
 }
 
 interface ProjectSnapshotNodeRecord {
@@ -107,6 +111,17 @@ function getTerminationReason(nodes: ProjectSnapshotNodeRecord[]): string {
   return terminationNode?.latestResultText || terminationNode?.currentIssueText || ''
 }
 
+function getProjectMainImageUrl(project: ProjectSnapshotRecord): string {
+  const imageAssets = listProjectImageAssets(project.projectId).filter((record) => record.imageUrl.trim())
+  const preferredAsset =
+    imageAssets.find((record) => record.mainFlag && record.sourceNodeCode === 'CHANNEL_PRODUCT_LISTING') ||
+    imageAssets.find((record) => record.sourceNodeCode === 'CHANNEL_PRODUCT_LISTING') ||
+    imageAssets.find((record) => record.mainFlag) ||
+    imageAssets[0]
+
+  return preferredAsset?.imageUrl || project.projectAlbumUrls?.find((imageUrl) => imageUrl.trim()) || ''
+}
+
 function buildRuntimeRecord(project: ProjectSnapshotRecord, snapshot: ProjectStoreSnapshot): PcsProjectListRecord {
   const nodes = getOrderedProjectNodes(snapshot, project.projectId)
   const progressDone = nodes.filter((node) => node.currentStatus === '已完成').length
@@ -141,6 +156,8 @@ function buildRuntimeRecord(project: ProjectSnapshotRecord, snapshot: ProjectSto
     projectName: project.projectName,
     categoryName: project.categoryName,
     subCategoryName: project.subCategoryName,
+    brandName: project.brandName || '-',
+    mainImageUrl: getProjectMainImageUrl(project),
     styleTagNames: [...(project.styleTagNames || [])],
     targetChannelCodes: normalizePcsChannelCodes(project.targetChannelCodes || []),
     projectStatus: project.projectStatus,
