@@ -54,6 +54,7 @@ const state: { list: ProjectListState } = {
 }
 
 let sixFlowSeedAppliedKey = ''
+let sixFlowAutoSeedApplied = false
 
 function getSixFlowSeedQueryKey(): string {
   if (typeof window === 'undefined') return ''
@@ -79,6 +80,28 @@ function applySixFlowSeedFromQuery(): void {
       sortBy: 'updatedAt',
       currentPage: 1,
       pageSize: 8,
+    }
+  } catch (error) {
+    console.error('六轮验收数据写入失败', error)
+  }
+}
+
+function applySixFlowSeedForEmptyBrowserList(): void {
+  if (sixFlowAutoSeedApplied) return
+  if (typeof window === 'undefined') return
+  if (window.location.pathname !== '/pcs/projects') return
+  if (listProjectListRecords().length > 0) return
+
+  sixFlowAutoSeedApplied = true
+  try {
+    seedPcsProductTestingSixFlowValidationData({
+      reset: true,
+      operatorName: '六轮验收页面落库',
+    })
+    state.list = {
+      ...initialState,
+      sortBy: 'updatedAt',
+      currentPage: 1,
     }
   } catch (error) {
     console.error('六轮验收数据写入失败', error)
@@ -496,6 +519,7 @@ function renderHeader(): string {
 
 export async function renderPcsProjectListPage(): Promise<string> {
   applySixFlowSeedFromQuery()
+  applySixFlowSeedForEmptyBrowserList()
   const { filtered, totalPages, paged } = getPagedProjects()
 
   return `
