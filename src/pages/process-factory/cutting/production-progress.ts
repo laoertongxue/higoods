@@ -80,6 +80,7 @@ import {
   type HandoverOrder,
   type HandoverRecord,
 } from '../../../data/fcs/cutting/handover-orders.ts'
+import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 
 type ProductionProgressQuickFilter = 'URGENT_ONLY' | 'PREP_DELAY' | 'CLAIM_EXCEPTION' | 'CUTTING_ACTIVE'
 type ProductionProgressQuickFilterExtended =
@@ -207,6 +208,7 @@ interface ProductionOrderChainCutOrder {
   handoverOrders: HandoverOrder[]
   handoverRecords: HandoverRecord[]
   differences: ReturnType<typeof listSpreadingDifferencesByProductionOrder>
+  bindingProcessOrders: ReturnType<typeof buildBindingProcessOrders>
   closeRecord: ReturnType<typeof buildCutOrderCloseRecordLookup>[string] | null
   mainStatusLabel: string
   closeReasonText: string
@@ -219,6 +221,7 @@ interface ProductionOrderChain {
   handoverOrders: HandoverOrder[]
   handoverRecords: HandoverRecord[]
   differences: ReturnType<typeof listSpreadingDifferencesByProductionOrder>
+  bindingProcessOrders: ReturnType<typeof buildBindingProcessOrders>
 }
 
 const state: ProductionProgressPageState = {
@@ -432,6 +435,11 @@ function buildProductionOrderChain(row: ProductionProgressRow): ProductionOrderC
       record.relatedProductionOrderIds.includes(row.productionOrderNo),
   )
   const differences = listSpreadingDifferencesByProductionOrder(row.productionOrderId)
+  const bindingProcessOrders = buildBindingProcessOrders().filter(
+    (order) =>
+      order.sourceProductionOrderId === row.productionOrderId ||
+      order.sourceProductionOrderNo === row.productionOrderNo,
+  )
   const closeRecordLookup = buildCutOrderCloseRecordLookup()
   const transferBags = listCuttingSewingTransferBags().filter((bag) => bag.productionOrderId === row.productionOrderId)
   const inventoryItems = listAvailableCutPieceInventoryForSewingDispatch({ productionOrderId: row.productionOrderId })
@@ -442,6 +450,7 @@ function buildProductionOrderChain(row: ProductionProgressRow): ProductionOrderC
     handoverOrders,
     handoverRecords,
     differences,
+    bindingProcessOrders,
     cutOrders: row.sourceOrderProgressLines.map((source) => {
       const ledgerLines = buildMaterialQuantityLedgerLines(row, source.cutOrderNo, source.materialSku)
       const cutOrderSpreadingOrders = spreadingOrders.filter((order) =>
@@ -460,6 +469,9 @@ function buildProductionOrderChain(row: ProductionProgressRow): ProductionOrderC
         (difference) =>
           (difference.cutOrderIds.includes(source.cutOrderId) || difference.cutOrderNos.includes(source.cutOrderNo)) &&
           (!source.materialSku || difference.materialSku === source.materialSku),
+      )
+      const cutOrderBindingProcessOrders = bindingProcessOrders.filter((order) =>
+        matchesCutOrder(source, [order.sourceCutOrderId, order.sourceCutOrderNo]),
       )
       const cutOrderTransferBags = transferBags.filter((bag) =>
         matchesCutOrder(source, [...bag.cuttingOrderIds, ...bag.cuttingOrderNos]),
@@ -492,6 +504,7 @@ function buildProductionOrderChain(row: ProductionProgressRow): ProductionOrderC
         handoverOrders: cutOrderHandoverOrders,
         handoverRecords: cutOrderHandoverRecords,
         differences: cutOrderDifferences,
+        bindingProcessOrders: cutOrderBindingProcessOrders,
         closeRecord,
         mainStatusLabel: isClosed ? '已关闭' : row.currentStage.label,
         closeReasonText: closeRecord?.closeReasonText || row.closeReasonText || row.closeReason || '',
@@ -1767,6 +1780,14 @@ function renderProductionChainCutOrdersTab(row: ProductionProgressRow, chain: Pr
               ? chain.cutOrders
                   .map((item) => {
                     const ledger = item.ledgerLines[0] || buildEmptyMaterialQuantityLedger(item.source.materialSku)
+                    const bindingProcessSummary = item.bindingProcessOrders.length
+                      ? item.bindingProcessOrders
+                          .map(
+                            (order) =>
+                              `${order.bindingOrderNo} ${order.status} · ${order.bindingSpecificationCount} 种规格 · ${order.plannedTotalLength.toFixed(2)} m`,
+                          )
+                          .join('；')
+                      : '暂无'
                     return `
                       <article class="rounded-lg border bg-background p-3">
                         ${renderChainCutOrderHeader(item)}
@@ -1776,6 +1797,7 @@ function renderProductionChainCutOrdersTab(row: ProductionProgressRow, chain: Pr
                             <div>承接 SKU：${formatQty(item.source.skuCount)} 个</div>
                             <div>实际裁剪：${escapeHtml(item.source.currentStateLabel || '暂无')}</div>
                             <div>唛架方案：${escapeHtml(item.markerPlanNos.join('、') || '暂无')}</div>
+                            <div>捆条加工：${escapeHtml(bindingProcessSummary)}</div>
                           </div>
                           <div>
                             ${renderMaterialLedgerLine(ledger, [
@@ -2087,6 +2109,26 @@ function renderProductionChainDifferenceCloseTab(chain: ProductionOrderChain): s
 
 function renderProductionChainSampleCraftTab(row: ProductionProgressRow): string {
   const specialCraftSummary = getCuttingSpecialCraftReturnStatusByProductionOrders([row.productionOrderId]).get(row.productionOrderId)
+  const bindingProcessOrders = buildBindingProcessOrders().filter(
+    (order) =>
+      order.sourceProductionOrderId === row.productionOrderId ||
+      order.sourceProductionOrderNo === row.productionOrderNo,
+  )
+  const bindingPlannedLength = bindingProcessOrders.reduce((sum, order) => sum + order.plannedTotalLength, 0)
+  const bindingActualLength = bindingProcessOrders.reduce((sum, order) => sum + order.actualTotalLength, 0)
+  const bindingFeiTicketCount = new Set(
+    bindingProcessOrders.flatMap((order) => order.bindingDetails.map((detail) => detail.feiTicketNo).filter(Boolean)),
+  ).size
+  const bindingDifferenceCount = bindingProcessOrders.filter((order) => order.differenceStatus === '有差异').length
+  const bindingLines = bindingProcessOrders.length
+    ? [
+        `加工单 ${formatQty(bindingProcessOrders.length)} 单`,
+        `计划长度 ${bindingPlannedLength.toFixed(2)} m`,
+        `实际长度 ${bindingActualLength.toFixed(2)} m`,
+        `差异 ${formatQty(bindingDifferenceCount)} 单`,
+        `菲票 ${formatQty(bindingFeiTicketCount)} 张`,
+      ]
+    : []
   const craftLines = specialCraftSummary
     ? [
         `需要特殊工艺菲票 ${formatQty(specialCraftSummary.totalNeedSpecialCraftFeiTickets)} 张`,
@@ -2108,7 +2150,11 @@ function renderProductionChainSampleCraftTab(row: ProductionProgressRow): string
           </div>
           <div>
             <div class="mb-2 text-sm font-medium">捆条加工</div>
-            ${renderChainEmpty('捆条加工异常和产出在捆条加工单中维护，本页只作为生产单链路入口。')}
+            ${
+              bindingLines.length
+                ? renderStackedLines(bindingLines.map(escapeHtml), '当前生产单暂无捆条加工单。')
+                : renderChainEmpty('当前生产单暂无捆条加工单。')
+            }
           </div>
         </div>
       </section>

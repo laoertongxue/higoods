@@ -101,7 +101,12 @@ export interface SampleInboundCheckDetailSnapshot {
     specText: string
     colorName?: string
     sizeName?: string
+    plannedQty?: number
+    receivedQty?: number
+    arrivalStatus?: string
     sourceLine?: string
+    imageId?: string
+    imageUrl?: string
   }>
   warehouseLocation?: string
   receiver?: string

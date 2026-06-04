@@ -351,6 +351,12 @@ export interface MarkerPlan {
   manualUnitUsage: number | null
   finalUnitUsage: number
   plannedSpreadLength: number
+  bindingStripReservedLength?: number
+  bindingStripReservedLengthFormula?: string
+  materialTotalUsageLength?: number
+  materialTotalUsageLengthFormula?: string
+  bindingStripWorkOrderIds?: string[]
+  bindingStripRequirementSummary?: string
   plannedLayerCount: number
   imageCount: number
   allocationStatus: MarkerAllocationStatusKey

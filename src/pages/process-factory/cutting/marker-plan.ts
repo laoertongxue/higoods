@@ -1888,6 +1888,12 @@ function renderPlanTopInfo(
     'plannedSpreadLengthFormula' in plan
       ? plan.plannedSpreadLengthFormula
       : buildMarkerPlannedSpreadLengthFormula(plan)
+  const bindingStripReservedLength = Number(plan.bindingStripReservedLength || 0)
+  const bindingStripReservedLengthFormula = plan.bindingStripReservedLengthFormula || `${formatNumber(bindingStripReservedLength, 2)} m`
+  const materialTotalUsageLength = Number(plan.materialTotalUsageLength || (plan.plannedSpreadLength + bindingStripReservedLength))
+  const materialTotalUsageLengthFormula =
+    plan.materialTotalUsageLengthFormula ||
+    `${formatNumber(materialTotalUsageLength, 2)} m = 普通铺布 ${formatNumber(plan.plannedSpreadLength, 2)} m + 捆条加工 ${formatNumber(bindingStripReservedLength, 2)} m`
   const demandMatchSummary = getPlanDemandMatchSummary(plan)
   const demandMatchMeta = getDemandMatchStatusMeta(demandMatchSummary.status)
   const confirmationMeta = getConfirmationStatusMeta(plan.confirmationStatus)
@@ -1928,6 +1934,8 @@ function renderPlanTopInfo(
     { label: '系统单件成衣用量（m/件）', value: `${formatNumber(plan.systemUnitUsage, 3)} m/件`, formula: systemUnitUsageFormula },
     { label: '最终单件成衣用量（m/件）', value: `${formatNumber(plan.finalUnitUsage, 3)} m/件`, formula: finalUnitUsageFormula },
     { label: '计划铺布总长度（m）', value: `${formatNumber(plan.plannedSpreadLength, 2)} m`, formula: plannedSpreadLengthFormula },
+    { label: '捆条加工长度（m）', value: `${formatNumber(bindingStripReservedLength, 2)} m`, formula: bindingStripReservedLengthFormula },
+    { label: '物料总用量（m）', value: `${formatNumber(materialTotalUsageLength, 2)} m`, formula: materialTotalUsageLengthFormula },
   ]
   const statusItems = [
     ['需求匹配', renderStatusBadge(demandMatchMeta.label, demandMatchMeta.className)],
@@ -2685,7 +2693,7 @@ function renderLayoutDecisionReference(plan: MarkerPlan, context: MarkerPlanCont
     ? sourceRows.reduce((total, row) => total + safeNumber(row.materialQuantityLedger.availableQty), 0)
     : lockRows.reduce((total, row) => total + safeNumber(row.availableQty), 0)
   const currentLockQty = lockRows.reduce((total, row) => total + safeNumber(row.lockedQty), 0)
-  const plannedUsageQty = safeNumber(plan.plannedSpreadLength)
+  const plannedUsageQty = safeNumber(plan.materialTotalUsageLength || plan.plannedSpreadLength)
   const afterUsageQty = availableQty - plannedUsageQty
   const afterUsageTone = afterUsageQty >= 0
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -2736,7 +2744,8 @@ function renderLayoutDecisionReference(plan: MarkerPlan, context: MarkerPlanCont
         <article class="rounded-lg border bg-background p-3">
           <div class="text-xs font-medium text-muted-foreground">本次唛架用量校验</div>
           <div class="mt-2 grid gap-2 text-xs">
-            <div class="flex justify-between gap-3"><span class="text-muted-foreground">计划铺布总长度</span><span class="font-semibold">${formatNumber(plannedUsageQty, 2)} m</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">物料总用量</span><span class="font-semibold">${formatNumber(plannedUsageQty, 2)} m</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">其中捆条加工</span><span class="font-semibold">${formatNumber(plan.bindingStripReservedLength || 0, 2)} m</span></div>
             <div class="flex justify-between gap-3"><span class="text-muted-foreground">本次拟锁定数量</span><span class="font-semibold">${formatNumber(currentLockQty, 2)} ${escapeHtml(fallbackUnit)}</span></div>
             <div class="flex justify-between gap-3"><span class="text-muted-foreground">已锁定 / 已消耗</span><span class="font-semibold">${formatNumber(lockedQty, 2)} / ${formatNumber(consumedQty, 2)} ${escapeHtml(fallbackUnit)}</span></div>
             <div class="flex justify-between gap-3"><span class="text-muted-foreground">计划后参考余额</span><span class="font-semibold">${formatNumber(afterUsageQty, 2)} ${escapeHtml(fallbackUnit)}</span></div>
@@ -2795,6 +2804,8 @@ function renderLayoutTab(plan: MarkerPlan, context: MarkerPlanContextCandidate |
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         ${renderInputField('单次铺布固定损耗（m）', String(plan.singleSpreadFixedLoss || 0.06), 'singleSpreadFixedLoss', 'number')}
         ${renderReadonlyField('计划铺布总长度（m）', `${formatNumber(plan.plannedSpreadLength, 2)} m`, buildMarkerPlannedSpreadLengthFormula(plan))}
+        ${renderReadonlyField('捆条加工长度（m）', `${formatNumber(plan.bindingStripReservedLength || 0, 2)} m`, plan.bindingStripReservedLengthFormula || '')}
+        ${renderReadonlyField('物料总用量（m）', `${formatNumber(plan.materialTotalUsageLength || plan.plannedSpreadLength, 2)} m`, plan.materialTotalUsageLengthFormula || '')}
         ${renderReadonlyField('系统单件成衣用量（m/件）', `${formatNumber(plan.systemUnitUsage, 3)} m/件`, buildMarkerPlanSystemUnitUsageFormula(plan))}
         ${renderInputField('人工修正单件成衣用量（m/件）', plan.manualUnitUsage ? String(plan.manualUnitUsage) : '', 'manualUnitUsage', 'number')}
         ${renderReadonlyField('最终单件成衣用量（m/件）', `${formatNumber(plan.finalUnitUsage, 3)} m/件`, buildMarkerFinalUnitUsageFormula(plan.systemUnitUsage, plan.manualUnitUsage))}
@@ -3301,7 +3312,7 @@ function renderMarkerPlanDetailHeader(plan: MarkerPlanViewRow, context: MarkerPl
         <div class="grid w-full gap-2 text-xs text-muted-foreground sm:grid-cols-4 xl:w-auto xl:min-w-[520px]">
           ${renderMarkerPlanDetailMetric('唛架数量', `${formatCount(scheme.bedCount)} 个`, scheme.bedCount ? 'blue' : 'default')}
           ${renderMarkerPlanDetailMetric('方案成衣', `${formatCount(plan.totalPieces)} 件`, 'default')}
-          ${renderMarkerPlanDetailMetric('计划用量', `${formatNumber(plan.plannedSpreadLength, 2)} m`, 'default')}
+          ${renderMarkerPlanDetailMetric('物料总用量', `${formatNumber(plan.materialTotalUsageLength || plan.plannedSpreadLength, 2)} m`, 'default')}
           ${renderMarkerPlanDetailMetric('铺布单', spreadingOrders.length ? `${formatCount(spreadingOrders.length)} 张` : '待生成', spreadingOrders.length ? 'emerald' : 'amber')}
         </div>
       </div>
@@ -3376,6 +3387,8 @@ function renderMarkerPlanOverviewTab(plan: MarkerPlanViewRow, context: MarkerPla
         { label: '系统单件成衣用量', value: `${formatNumber(plan.systemUnitUsage, 3)} m/件`, formula: plan.systemUnitUsageFormula },
         { label: '最终单件成衣用量', value: `${formatNumber(plan.finalUnitUsage, 3)} m/件`, formula: plan.finalUnitUsageFormula },
         { label: '计划铺布总长度', value: `${formatNumber(plan.plannedSpreadLength, 2)} m`, formula: plan.plannedSpreadLengthFormula },
+        { label: '捆条加工长度', value: `${formatNumber(plan.bindingStripReservedLength || 0, 2)} m`, formula: plan.bindingStripReservedLengthFormula },
+        { label: '物料总用量', value: `${formatNumber(plan.materialTotalUsageLength || plan.plannedSpreadLength, 2)} m`, formula: plan.materialTotalUsageLengthFormula },
         { label: '需求匹配结果', value: matchSummary.status, tone: 'strong' },
         { label: '差异合计', value: `${formatSignedCount(matchSummary.diffTotalQty)} 件` },
       ]))}

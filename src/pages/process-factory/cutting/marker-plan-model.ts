@@ -22,6 +22,12 @@ import {
   type MarkerSpreadingLedgerSummary,
 } from './marker-spreading-model.ts'
 import {
+  buildBindingProcessOrders,
+  buildBindingStripMaterialTotalUsageFormula,
+  buildBindingStripReservedLengthFormula,
+  summarizeBindingStripRequirementsForCutOrders,
+} from './binding-strip-orders.ts'
+import {
   DEFAULT_SINGLE_SPREAD_FIXED_LOSS,
   MARKER_PLAN_STORAGE_KEY,
   MARKER_SIZE_CODES,
@@ -1509,6 +1515,14 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     : computeMarkerPlanSystemUnitUsage(netLength, totalPieces)
   const finalUnitUsage = computeMarkerPlanFinalUnitUsage(systemUnitUsage, plan.manualUnitUsage)
   const plannedSpreadLength = sum(beds.map((bed) => bed.spreadTotalLength))
+  const bindingStripRequirementSummary = summarizeBindingStripRequirementsForCutOrders(plan.cutOrderIds)
+  const bindingStripReservedLength = bindingStripRequirementSummary.totalRequiredLengthM
+  const materialTotalUsageLength = roundTo(plannedSpreadLength + bindingStripReservedLength, 2)
+  const bindingStripReservedLengthFormula = buildBindingStripReservedLengthFormula(bindingStripRequirementSummary)
+  const materialTotalUsageLengthFormula = buildBindingStripMaterialTotalUsageFormula(plannedSpreadLength, bindingStripReservedLength)
+  const bindingStripWorkOrderIds = buildBindingProcessOrders()
+    .filter((order) => plan.cutOrderIds.includes(order.sourceCutOrderId))
+    .map((order) => order.bindingOrderId)
   const allocationStatus = deriveMarkerAllocationStatus(sizeRatioRows, allocationRows)
   const mappingStatus = deriveMarkerMappingStatus(pieceExplosionRows)
   const layoutStatus: MarkerLayoutStatusKey = beds.length > 0 && beds.every((bed) => bed.readyForSpreading) ? 'done' : 'pending'
@@ -1542,6 +1556,17 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     systemUnitUsage,
     finalUnitUsage,
     plannedSpreadLength,
+    bindingStripReservedLength,
+    bindingStripReservedLengthFormula,
+    materialTotalUsageLength,
+    materialTotalUsageLengthFormula,
+    bindingStripWorkOrderIds,
+    bindingStripRequirementSummary: bindingStripRequirementSummary.widthSummaries
+      .map((item) => {
+        const minNote = item.minRequiredLengthApplied ? `（原算 ${formatNumber(item.rawRequiredLengthM, 2)} m，不足 4m 按 4m）` : ''
+        return `${item.materialSku} / ${item.bindingWidthCm}cm / ${formatNumber(item.requiredLengthM, 2)}m${minNote}`
+      })
+      .join('；'),
     schemeDemandRows,
     beds,
     sizeRatioRows,

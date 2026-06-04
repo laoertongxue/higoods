@@ -55,6 +55,7 @@ import {
 import { findCuttingSewingDispatchByFeiTicketNo } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import { buildSpecialCraftTaskDetailPath } from '../../../data/fcs/special-craft-operations.ts'
 import { buildFeiTicketLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
@@ -1563,6 +1564,87 @@ function renderListTable(bundle: FeiTicketsDataBundle): string {
   `
 }
 
+function formatBindingLength(value: number): string {
+  return `${Number(value || 0).toFixed(2)} m`
+}
+
+function renderBindingFeiTicketTable(): string {
+  const rows = buildBindingProcessOrders().flatMap((order) =>
+    order.bindingDetails.map((detail) => ({
+      order,
+      detail,
+    })),
+  )
+  if (!rows.length) return ''
+  return `
+    <section class="rounded-lg border bg-card" data-testid="binding-fei-ticket-workbench">
+      <div class="flex items-center justify-between border-b px-4 py-3">
+        <div>
+          <h2 class="text-sm font-semibold">捆条加工单菲票</h2>
+          <p class="mt-1 text-xs text-muted-foreground">按捆条加工单打印；一个宽度对应一张唯一菲票，不依赖铺布单。</p>
+        </div>
+        <div class="text-xs text-muted-foreground">共 ${formatCount(rows.length)} 张捆条菲票</div>
+      </div>
+      ${renderStickyTableScroller(
+        `
+          <table class="w-full min-w-[1180px] text-sm">
+            <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium">菲票号</th>
+                <th class="px-4 py-3 text-left font-medium">来源捆条加工单</th>
+                <th class="px-4 py-3 text-left font-medium">物料 / 宽度</th>
+                <th class="px-4 py-3 text-left font-medium">计划 / 实际长度</th>
+                <th class="px-4 py-3 text-left font-medium">流转状态</th>
+                <th class="px-4 py-3 text-left font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              ${rows.map(({ order, detail }) => `
+                <tr class="hover:bg-muted/20">
+                  <td class="px-4 py-3 align-top">
+                    <div class="font-medium text-blue-600">${escapeHtml(detail.feiTicketNo)}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">捆条菲票 / ${escapeHtml(detail.bindingStripName)}</div>
+                  </td>
+                  <td class="px-4 py-3 align-top">
+                    <a href="/fcs/craft/cutting/special-processes/${encodeURIComponent(order.bindingOrderId)}" data-nav="/fcs/craft/cutting/special-processes/${encodeURIComponent(order.bindingOrderId)}" class="font-medium text-blue-600 hover:underline">${escapeHtml(order.bindingOrderNo)}</a>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.sourceCutOrderNo)} / ${escapeHtml(order.sourceProductionOrderNo)}</div>
+                  </td>
+                  <td class="px-4 py-3 align-top">
+                    ${renderMaterialIdentityBlock({
+                      materialSku: order.materialIdentity.materialSku,
+                      materialLabel: order.materialIdentity.materialName,
+                      materialAlias: order.materialIdentity.materialAlias,
+                      materialImageUrl: order.materialIdentity.materialImageUrl,
+                    }, { compact: true, imageSizeClass: 'h-9 w-9' })}
+                    <div class="mt-1 text-xs text-muted-foreground">宽度 ${escapeHtml(`${detail.bindingWidth} cm`)}</div>
+                  </td>
+                  <td class="px-4 py-3 align-top text-xs text-muted-foreground">
+                    <div>计划 ${escapeHtml(formatBindingLength(detail.requiredLength))}</div>
+                    <div>实际 ${escapeHtml(detail.actualLength ? formatBindingLength(detail.actualLength) : '待回写')}</div>
+                  </td>
+                  <td class="px-4 py-3 align-top">
+                    <div class="flex flex-wrap gap-1">
+                      ${renderBadge(detail.printStatus, detail.printStatus === '已打印' ? 'border border-emerald-200 bg-emerald-50 text-emerald-700' : 'border border-amber-200 bg-amber-50 text-amber-700')}
+                      ${renderBadge(detail.inboundStatus, detail.inboundStatus === '已入仓' ? 'border border-emerald-200 bg-emerald-50 text-emerald-700' : 'border border-slate-200 bg-slate-50 text-slate-700')}
+                      ${renderBadge(detail.handoverStatus, detail.handoverStatus === '已交出' ? 'border border-emerald-200 bg-emerald-50 text-emerald-700' : 'border border-slate-200 bg-slate-50 text-slate-700')}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 align-top">
+                    <div class="flex flex-wrap gap-1.5">
+                      <button type="button" class="inline-flex min-h-8 items-center rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700" data-nav="/fcs/craft/cutting/special-processes/${encodeURIComponent(order.bindingOrderId)}">打印</button>
+                      <button type="button" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover?inventoryType=binding&materialSku=${encodeURIComponent(order.materialIdentity.materialSku)}&bindingWidth=${encodeURIComponent(String(detail.bindingWidth))}">查库存</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `,
+      )}
+    </section>
+  `
+}
+
 function renderListPage(): string {
   const bundle = getDataBundle()
   const pathname = getCurrentPathname()
@@ -1572,6 +1654,7 @@ function renderListPage(): string {
   const rows = buildFeiTicketSpreadingWorkbenchRows(detailRows)
   const body = `
     ${renderFilterArea()}
+    ${renderBindingFeiTicketTable()}
     ${renderFeiTicketWorkbenchTable(rows)}
   `
 

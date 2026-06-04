@@ -1,11 +1,19 @@
-import { listGeneratedCutOrderSourceRecords, type GeneratedCutOrderSourceRecord } from '../../../data/fcs/cutting/generated-cut-orders.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
+import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
+import {
+  buildBindingProcessOrders as buildProjectedBindingProcessOrders,
+  getBindingProcessOrderById,
+  type BindingStripRequirementSummary,
+} from './binding-strip-orders.ts'
 import type {
-  BindingProcessAbnormalItem,
-  BindingProcessMode,
+  BindingProcessDifferenceStatus,
+  BindingProcessHandoverStatus,
+  BindingProcessInboundStatus,
   BindingProcessOrder,
+  BindingProcessPrintStatus,
   BindingProcessStatus,
+  BindingStripWorkOrderDetail,
 } from './special-processes-model.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
@@ -14,383 +22,312 @@ const statusToneMap: Record<BindingProcessStatus, string> = {
   待加工: 'border-slate-200 bg-slate-50 text-slate-700',
   加工中: 'border-blue-200 bg-blue-50 text-blue-700',
   已完成: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  异常处理中: 'border-rose-200 bg-rose-50 text-rose-700',
-  已入库: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   已取消: 'border-zinc-200 bg-zinc-50 text-zinc-700',
 }
 
-const modeToneMap: Record<BindingProcessMode, string> = {
-  裁床内部加工: 'border-sky-200 bg-sky-50 text-sky-700',
-  外部承接工厂加工: 'border-violet-200 bg-violet-50 text-violet-700',
+const printToneMap: Record<BindingProcessPrintStatus, string> = {
+  未生成: 'border-slate-200 bg-slate-50 text-slate-700',
+  待打印: 'border-amber-200 bg-amber-50 text-amber-700',
+  已打印: 'border-emerald-200 bg-emerald-50 text-emerald-700',
 }
 
-function formatNumber(value: number): string {
+const inboundToneMap: Record<BindingProcessInboundStatus, string> = {
+  未入仓: 'border-slate-200 bg-slate-50 text-slate-700',
+  部分入仓: 'border-amber-200 bg-amber-50 text-amber-700',
+  已入仓: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+}
+
+const handoverToneMap: Record<BindingProcessHandoverStatus, string> = {
+  未装袋: 'border-slate-200 bg-slate-50 text-slate-700',
+  已装袋待交出: 'border-blue-200 bg-blue-50 text-blue-700',
+  已交出: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+}
+
+const differenceToneMap: Record<BindingProcessDifferenceStatus, string> = {
+  无差异: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  有差异: 'border-rose-200 bg-rose-50 text-rose-700',
+}
+
+export function buildBindingProcessOrders(): BindingProcessOrder[] {
+  return buildProjectedBindingProcessOrders()
+}
+
+function formatCount(value: number): string {
   return numberFormatter.format(Math.max(0, Number(value || 0)))
 }
 
-function formatLength(value: number): string {
-  return `${Number(value || 0).toFixed(1)} 米`
+function formatLength(value: number, fallback = '0.00 m'): string {
+  if (!Number.isFinite(Number(value))) return fallback
+  return `${Number(value || 0).toFixed(2)} m`
 }
 
-function formatRate(value: number): string {
-  return `${Number(value || 0).toFixed(1)}%`
+function renderMinRequiredLengthNote(detail: BindingStripWorkOrderDetail): string {
+  if (!detail.minRequiredLengthApplied) return ''
+  return `
+    <span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+      原算 ${escapeHtml(formatLength(detail.rawRequiredLength))}，不足 4m 按 4m
+    </span>
+  `
+}
+
+function renderOrderMinRequiredLengthNote(row: BindingProcessOrder): string {
+  const minDetails = row.bindingDetails.filter((detail) => detail.minRequiredLengthApplied)
+  if (!minDetails.length) return ''
+  const rawTotal = minDetails.reduce((sum, detail) => sum + detail.rawRequiredLength, 0)
+  return `
+    <div class="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+      ${formatCount(minDetails.length)} 个捆条规格原算 ${escapeHtml(formatLength(rawTotal))}，不足 4m 已按 4m 起算。
+    </div>
+  `
 }
 
 function renderBadge(label: string, className = 'border-slate-200 bg-slate-50 text-slate-700'): string {
   return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function buildMaterialIdentity(source: GeneratedCutOrderSourceRecord): BindingProcessOrder['materialIdentity'] {
-  return {
-    materialSku: source.materialIdentity?.materialSku || source.materialSku,
-    materialName: source.materialIdentity?.materialName || source.materialName || source.materialSku,
-    materialColor: source.materialIdentity?.materialColor || source.materialColor || '按裁片单',
-    materialAlias: source.materialIdentity?.materialAlias || source.materialAlias || '技术包别名待补',
-    materialImageUrl: source.materialIdentity?.materialImageUrl || source.materialImageUrl || '',
-    materialUnit: source.materialIdentity?.materialUnit || source.materialUnit || '米',
-  }
+function renderSummaryPill(label: string, value: string | number, className = 'border-slate-200 bg-white text-slate-700'): string {
+  return `<span class="inline-flex min-h-8 items-center gap-2 rounded-md border px-3 text-xs font-medium ${className}"><span>${escapeHtml(label)}</span><span class="font-semibold">${escapeHtml(String(value))}</span></span>`
 }
 
-function buildPatternIdentity(source: GeneratedCutOrderSourceRecord): BindingProcessOrder['patternIdentity'] {
-  const pattern = source.patternIdentity
-  return {
-    patternFileId: pattern?.patternFileId || source.patternIdentity?.patternFileName || `${source.cutOrderId}-pattern`,
-    patternFileName: pattern?.patternFileName || '纸样文件待补',
-    patternVersion: pattern?.patternVersion || '纸样版本待补',
-    patternKind: pattern?.patternKind || '布料纸样',
-    effectiveWidthText:
-      pattern?.effectiveWidthValue && pattern?.effectiveWidthUnit
-        ? `${pattern.effectiveWidthValue}${pattern.effectiveWidthUnit}`
-        : '有效幅宽待补',
-    piecePartNames: pattern?.piecePartNames?.length
-      ? pattern.piecePartNames
-      : source.pieceRows.map((piece) => piece.partName).filter(Boolean),
-  }
+function renderMetricCard(label: string, value: string, hint: string): string {
+  return `
+    <article class="rounded-lg border bg-background px-3 py-3">
+      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(value)}</div>
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(hint)}</div>
+    </article>
+  `
 }
 
-function buildAbnormalItems(seedKey: string, orderNo: string): BindingProcessAbnormalItem[] {
-  if (seedKey === 'actual-short') {
-    return [
-      {
-        abnormalId: `${orderNo}-ABN-LEN`,
-        abnormalType: '实际长度小于计划长度',
-        abnormalLevel: '需处理',
-        description: '实际捆条长度低于计划长度，需进入补料管理判断是否补料、补录或继续补排。',
-        targetModule: '补料管理',
-        handlingStatus: '待处理',
-        reportedAt: '2026-05-18 16:20',
-        reportedBy: '裁床组长 梁敏',
-      },
-    ]
-  }
-  if (seedKey === 'loss-high') {
-    return [
-      {
-        abnormalId: `${orderNo}-ABN-LOSS`,
-        abnormalType: '损耗率超阈值',
-        abnormalLevel: '紧急',
-        description: '损耗率超过 8% 原型阈值，需进入裁剪结果核查追踪来源面料和操作记录。',
-        targetModule: '裁剪结果核查',
-        handlingStatus: '待处理',
-        reportedAt: '2026-05-19 11:30',
-        reportedBy: '裁床核查员 周静',
-      },
-    ]
-  }
-  return []
+function renderListOverview(rows: BindingProcessOrder[]): string {
+  const totalRequired = rows.reduce((sum, row) => sum + row.plannedTotalLength, 0)
+  const totalActual = rows.reduce((sum, row) => sum + row.actualTotalLength, 0)
+  const minAppliedDetailCount = rows.flatMap((row) => row.bindingDetails).filter((detail) => detail.minRequiredLengthApplied).length
+  return `
+    <section class="rounded-lg border bg-card px-4 py-3" data-testid="cutting-binding-list-overview">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-foreground">捆条加工单列表</h2>
+          <p class="mt-1 text-xs text-muted-foreground">按物料+纸样生成加工单；每个宽度一张唯一捆条菲票，分批裁剪只写入本加工单；计划长度不足 4m 的捆条明细按 4m 起算。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${renderSummaryPill('全部', `${formatCount(rows.length)} 单`)}
+          ${renderSummaryPill('待加工', `${formatCount(rows.filter((row) => row.status === '待加工').length)} 单`)}
+          ${renderSummaryPill('加工中', `${formatCount(rows.filter((row) => row.status === '加工中').length)} 单`, 'border-blue-200 bg-blue-50 text-blue-700')}
+          ${renderSummaryPill('已完成', `${formatCount(rows.filter((row) => row.status === '已完成').length)} 单`, 'border-emerald-200 bg-emerald-50 text-emerald-700')}
+          ${renderSummaryPill('有差异', `${formatCount(rows.filter((row) => row.differenceStatus === '有差异').length)} 单`, 'border-rose-200 bg-rose-50 text-rose-700')}
+          ${renderSummaryPill('4m 起算', `${formatCount(minAppliedDetailCount)} 条`, 'border-amber-200 bg-amber-50 text-amber-700')}
+          ${renderSummaryPill('计划/实际', `${formatLength(totalRequired)} / ${formatLength(totalActual)}`)}
+        </div>
+      </div>
+    </section>
+  `
 }
 
-function buildBindingOrder(source: GeneratedCutOrderSourceRecord, index: number): BindingProcessOrder {
-  const seed = [
-    { mode: '裁床内部加工' as const, status: '已入库' as const, key: 'normal-inbound' },
-    { mode: '裁床内部加工' as const, status: '异常处理中' as const, key: 'actual-short' },
-    { mode: '裁床内部加工' as const, status: '异常处理中' as const, key: 'loss-high' },
-    { mode: '裁床内部加工' as const, status: '已完成' as const, key: 'done-pending-inbound' },
-    { mode: '外部承接工厂加工' as const, status: '待加工' as const, key: 'external-aux' },
-    { mode: '外部承接工厂加工' as const, status: '已完成' as const, key: 'external-returned' },
-    { mode: '裁床内部加工' as const, status: '加工中' as const, key: 'in-progress' },
-    { mode: '裁床内部加工' as const, status: '待加工' as const, key: 'pending' },
-  ][index % 8]
-
-  const plannedLength = 180 + index * 34
-  const bindingWidth = [1.2, 1.5, 1.8, 2.0][index % 4]
-  const plannedOutputQty = 540 + index * 90
-  const actualLength =
-    seed.key === 'actual-short'
-      ? plannedLength * 0.78
-      : seed.key === 'loss-high'
-        ? plannedLength * 0.96
-        : seed.mode === '外部承接工厂加工' && seed.key !== 'external-returned'
-          ? 0
-          : seed.status === '待加工'
-            ? 0
-            : plannedLength * 0.94
-  const lossLength =
-    seed.key === 'loss-high'
-      ? plannedLength * 0.13
-      : seed.key === 'actual-short'
-        ? plannedLength - actualLength
-        : seed.status === '待加工'
-          ? 0
-          : plannedLength - actualLength
-  const lossRate = plannedLength ? (lossLength / plannedLength) * 100 : 0
-  const abnormalItems = buildAbnormalItems(seed.key, `BT-${String(index + 1).padStart(3, '0')}`)
-  const bindingOrderId = `binding-${source.cutOrderId}-${index + 1}`
-  const bindingOrderNo = `BT-${String(source.productionOrderNo || source.productionOrderId).replace(/^PO-/, '')}-${String(index + 1).padStart(2, '0')}`
-  const isExternal = seed.mode === '外部承接工厂加工'
-
-  return {
-    bindingOrderId,
-    bindingOrderNo,
-    processType: '捆条',
-    processMode: seed.mode,
-    sourceCutOrderId: source.cutOrderId,
-    sourceCutOrderNo: source.cutOrderNo,
-    sourceProductionOrderId: source.productionOrderId,
-    sourceProductionOrderNo: source.productionOrderNo,
-    sourceSpreadingOrderId: `SPRD-${String(index + 1).padStart(3, '0')}`,
-    sourceSpreadingOrderNo: `铺布单-${String(index + 1).padStart(3, '0')}`,
-    sourceFeiTicketIds: [`fei-${source.cutOrderId}-${index + 1}`],
-    sourceFeiTicketNos: [`FT-${String(index + 1).padStart(4, '0')}`],
-    materialIdentity: buildMaterialIdentity(source),
-    patternIdentity: buildPatternIdentity(source),
-    bindingWidth,
-    plannedLength,
-    actualLength,
-    lossLength,
-    lossRate,
-    plannedOutputQty,
-    actualOutputQty: actualLength > 0 ? Math.round(plannedOutputQty * Math.min(actualLength / plannedLength, 1)) : 0,
-    unit: '米',
-    operatorName: isExternal ? '' : ['李秀兰', '陈芳', '周海', '郭敏'][index % 4],
-    startedAt: seed.status === '待加工' ? '' : `2026-05-${String(14 + index).padStart(2, '0')} 09:20`,
-    completedAt: ['已完成', '已入库'].includes(seed.status) ? `2026-05-${String(15 + index).padStart(2, '0')} 16:40` : '',
-    status: seed.status,
-    costItems: isExternal
-      ? []
-      : [
-          {
-            costItemId: `${bindingOrderId}-labor`,
-            costType: '人工',
-            amount: Math.round((actualLength || plannedLength) * 0.32),
-            unit: '元',
-            remark: '按实际加工长度估算',
-          },
-          {
-            costItemId: `${bindingOrderId}-loss`,
-            costType: '损耗',
-            amount: Math.round(lossLength * 1.8),
-            unit: '元',
-            remark: '按损耗长度估算',
-          },
-        ],
-    abnormalItems,
-    inboundInventoryRecordIds: seed.status === '已入库' || seed.key === 'external-returned' ? [`INV-BIND-${String(index + 1).padStart(3, '0')}`] : [],
-    linkedReplenishmentIds: abnormalItems.some((item) => item.targetModule === '补料管理') ? [`RP-BIND-${String(index + 1).padStart(3, '0')}`] : [],
-    linkedLedgerEventIds: abnormalItems.map((item) => `ledger:${bindingOrderId}:abnormal:${item.abnormalId}`),
-    linkedCheckItemIds: abnormalItems.some((item) => item.targetModule === '裁剪结果核查') ? [`CHECK-BIND-${String(index + 1).padStart(3, '0')}`] : [],
-    externalReceiverFactoryName:
-      seed.key === 'external-aux'
-        ? '辅助工艺厂 A'
-        : seed.key === 'external-returned'
-          ? '特种工艺厂 B'
-          : '',
-    externalHandoverOrderNo: isExternal ? `HO-SC-${String(index + 1).padStart(3, '0')}` : '',
-    externalHandoverRecordNo: isExternal ? `HR-SC-${String(index + 1).padStart(3, '0')}-01` : '',
-    externalReturnStatus: seed.key === 'external-returned' ? '已回仓' : seed.key === 'external-aux' ? '待回仓' : '',
-    remark: isExternal
-      ? '外部承接工厂加工不使用内部捆条加工单完成全流程，必须走通用交出单、交出记录和特殊工艺回仓。'
-      : '裁床内部捆条加工结果进入裁床待交出仓库存或对应裁片库存。',
-  }
-}
-
-export function buildBindingProcessOrders(): BindingProcessOrder[] {
-  return listGeneratedCutOrderSourceRecords().slice(0, 12).map(buildBindingOrder)
-}
-
-function getBindingOrderById(bindingOrderId?: string): BindingProcessOrder {
-  const rows = buildBindingProcessOrders()
-  return rows.find((row) => row.bindingOrderId === bindingOrderId) || rows[0]
+function renderListFilters(): string {
+  return `
+    <section class="rounded-lg border bg-card px-4 py-3" data-testid="cutting-binding-list-filters">
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <h2 class="text-sm font-semibold text-foreground">筛选条件</h2>
+        <button type="button" class="inline-flex min-h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-cutting-binding-action="refresh">刷新列表</button>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <label class="space-y-1 text-sm text-muted-foreground">
+          <span class="font-medium text-foreground">加工单 / 来源单</span>
+          <input class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="捆条单 / 裁片单 / 菲票" />
+        </label>
+        <label class="space-y-1 text-sm text-muted-foreground">
+          <span class="font-medium text-foreground">加工状态</span>
+          <select class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            ${['全部', '待加工', '加工中', '已完成', '已取消'].map((item) => `<option>${escapeHtml(item)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="space-y-1 text-sm text-muted-foreground">
+          <span class="font-medium text-foreground">菲票状态</span>
+          <select class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            ${['全部', '未生成', '待打印', '已打印'].map((item) => `<option>${escapeHtml(item)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="space-y-1 text-sm text-muted-foreground">
+          <span class="font-medium text-foreground">物料 / 宽度</span>
+          <input class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="物料 SKU / 捆条宽度" />
+        </label>
+        <label class="space-y-1 text-sm text-muted-foreground">
+          <span class="font-medium text-foreground">差异状态</span>
+          <select class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            ${['全部', '无差异', '有差异'].map((item) => `<option>${escapeHtml(item)}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+    </section>
+  `
 }
 
 function renderSourceSummary(row: BindingProcessOrder): string {
   return `
     <div class="space-y-1 text-xs text-muted-foreground">
       <p><span class="text-foreground">生产单：</span>${escapeHtml(row.sourceProductionOrderNo)}</p>
-      <p><span class="text-foreground">来源裁片单：</span>${escapeHtml(row.sourceCutOrderNo)}</p>
-      <p><span class="text-foreground">来源铺布单：</span>${escapeHtml(row.sourceSpreadingOrderNo)}</p>
-      <p><span class="text-foreground">菲票：</span>${escapeHtml(row.sourceFeiTicketNos.join(' / '))}</p>
+      <p><span class="text-foreground">裁片单：</span>${escapeHtml(row.sourceCutOrderNo)}</p>
+      <p><span class="text-foreground">唛架方案：</span>${escapeHtml(row.sourceMarkerPlanNo || '待确认后生成')}</p>
+      <p><span class="text-foreground">铺布关系：</span>不分摊到具体铺布单</p>
     </div>
   `
 }
 
 function renderPatternSummary(row: BindingProcessOrder): string {
   return `
-    <div class="mt-2 text-xs text-muted-foreground">
-      <p>纸样：${escapeHtml(row.patternIdentity.patternFileName)}</p>
-      <p class="mt-1">${escapeHtml([row.patternIdentity.patternVersion, row.patternIdentity.effectiveWidthText].filter(Boolean).join(' / '))}</p>
-      <p class="mt-1 line-clamp-2">部位：${escapeHtml(row.patternIdentity.piecePartNames.slice(0, 4).join('、') || '部位待补')}</p>
-    </div>
-  `
-}
-
-function renderProcessData(row: BindingProcessOrder): string {
-  return `
-    <div class="grid gap-1 text-xs text-muted-foreground">
-      <span>捆条宽度：${escapeHtml(`${row.bindingWidth} cm`)}</span>
-      <span>计划长度：${escapeHtml(formatLength(row.plannedLength))}</span>
-      <span>实际长度：${escapeHtml(row.actualLength ? formatLength(row.actualLength) : '待回写')}</span>
-      <span class="${row.lossRate > 8 ? 'font-medium text-rose-600' : ''}">损耗：${escapeHtml(formatLength(row.lossLength))} / ${escapeHtml(formatRate(row.lossRate))}</span>
-      <span>实际产出数量：${escapeHtml(`${formatNumber(row.actualOutputQty)} 米`)}</span>
-    </div>
-  `
-}
-
-function renderFollowupSummary(row: BindingProcessOrder): string {
-  if (row.processMode === '外部承接工厂加工') {
-    return `
-      <div class="space-y-1 text-xs text-muted-foreground">
-        <p>外部流程：走特殊工艺交出</p>
-        <p>承接工厂：${escapeHtml(row.externalReceiverFactoryName || '承接工厂待补')}</p>
-        <p>通用交出单：${escapeHtml(row.externalHandoverOrderNo || '待生成')}</p>
-        <p>交出记录：${escapeHtml(row.externalHandoverRecordNo || '待生成')}</p>
-        <p>回仓状态：${escapeHtml(row.externalReturnStatus || '待回仓')}</p>
-      </div>
-    `
-  }
-  return `
     <div class="space-y-1 text-xs text-muted-foreground">
-      <p>入库状态：${escapeHtml(row.inboundInventoryRecordIds.length ? '已进入裁床待交出仓库存' : row.status === '已完成' ? '待入库' : '未完成')}</p>
-      <p>库存记录：${escapeHtml(row.inboundInventoryRecordIds.join(' / ') || '暂无')}</p>
-      <p>补料关联：${escapeHtml(row.linkedReplenishmentIds.join(' / ') || '无')}</p>
-      <p>核查关联：${escapeHtml(row.linkedCheckItemIds.join(' / ') || '无')}</p>
+      <p class="font-medium text-foreground">${escapeHtml(row.patternIdentity.patternFileName)}</p>
+      <p>${escapeHtml(row.patternIdentity.patternVersion)} / 门幅 ${escapeHtml(`${row.doorWidthCm} cm`)}</p>
+      <p>纸样包：${escapeHtml(row.sourcePatternPackageName || '纸样包待补')}</p>
+      <p class="line-clamp-2">部位：${escapeHtml(row.patternIdentity.piecePartNames.slice(0, 4).join('、') || '部位待补')}</p>
     </div>
   `
 }
 
-function renderAbnormalSummary(row: BindingProcessOrder): string {
-  if (!row.abnormalItems.length) return renderBadge('无异常', 'border-emerald-200 bg-emerald-50 text-emerald-700')
-  return row.abnormalItems
-    .map((item) => renderBadge(`${item.abnormalType} / ${item.targetModule}`, item.abnormalLevel === '紧急' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-amber-200 bg-amber-50 text-amber-700'))
+function renderDetailChips(row: BindingProcessOrder): string {
+  return row.bindingDetails
+    .map((detail) => `
+      <span class="inline-flex flex-col gap-0.5 rounded-md border bg-muted/20 px-2 py-1 text-xs text-muted-foreground">
+        <span>${escapeHtml(`${detail.bindingWidth} cm`)} / ${escapeHtml(formatLength(detail.requiredLength))}</span>
+        ${detail.minRequiredLengthApplied ? `<span class="text-[11px] text-amber-700">原算 ${escapeHtml(formatLength(detail.rawRequiredLength))}，4m 起算</span>` : ''}
+      </span>
+    `)
     .join('')
 }
 
-function renderOrderCard(row: BindingProcessOrder): string {
-  const detailHref = `/fcs/craft/cutting/special-processes/${encodeURIComponent(row.bindingOrderId)}`
+function renderProcessSummary(row: BindingProcessOrder): string {
   return `
-    <article class="rounded-lg border bg-card p-4">
-      <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-        <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-2">
-            ${renderBadge(row.status, statusToneMap[row.status])}
-            ${renderBadge(row.processMode, modeToneMap[row.processMode])}
-          </div>
-          <p class="mt-2 font-semibold text-foreground">${escapeHtml(row.bindingOrderNo)}</p>
-          <p class="mt-1 text-xs text-muted-foreground">加工单不改变裁片单主状态</p>
-        </div>
-        <div class="min-w-0">
-          <p class="text-xs font-medium text-muted-foreground">来源对象</p>
-          <div class="mt-2">${renderSourceSummary(row)}</div>
-        </div>
-        <div class="min-w-0">
-          ${renderMaterialIdentityBlock(
-            {
-              materialSku: row.materialIdentity.materialSku,
-              materialLabel: row.materialIdentity.materialName,
-              materialAlias: row.materialIdentity.materialAlias,
-              materialImageUrl: row.materialIdentity.materialImageUrl,
-            },
-            { compact: true, imageSizeClass: 'h-9 w-9' },
-          )}
-          <p class="mt-1 text-xs text-muted-foreground">颜色：${escapeHtml(row.materialIdentity.materialColor)}</p>
-          ${renderPatternSummary(row)}
-        </div>
-        <div class="min-w-0">
-          <p class="text-xs font-medium text-muted-foreground">加工数据</p>
-          <div class="mt-2">${renderProcessData(row)}</div>
-        </div>
-        <div class="min-w-0">
-          <p class="text-xs font-medium text-muted-foreground">后续与异常</p>
-          <div class="mt-2 flex flex-wrap gap-1">${renderAbnormalSummary(row)}</div>
-          <div class="mt-2">${renderFollowupSummary(row)}</div>
-        </div>
-        <div class="flex shrink-0 flex-col gap-2">
-          <a href="${escapeHtml(detailHref)}" data-nav="${escapeHtml(detailHref)}" class="rounded-md border px-3 py-2 text-center text-xs hover:bg-muted">查看</a>
-          ${
-            row.processMode === '裁床内部加工'
-              ? `
-                <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-cutting-binding-action="start" data-row-id="${escapeHtml(row.bindingOrderId)}">开始加工</button>
-                <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-cutting-binding-action="complete" data-row-id="${escapeHtml(row.bindingOrderId)}">完成加工</button>
-                <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-cutting-binding-action="inbound" data-row-id="${escapeHtml(row.bindingOrderId)}">入库</button>
-              `
-              : `
-                <a href="/fcs/craft/cutting/handover-orders" data-nav="/fcs/craft/cutting/handover-orders" class="rounded-md border px-3 py-2 text-center text-xs hover:bg-muted">查看交出单</a>
-                <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-cutting-binding-action="external-boundary" data-row-id="${escapeHtml(row.bindingOrderId)}">边界说明</button>
-              `
-          }
-          <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-cutting-binding-action="abnormal" data-row-id="${escapeHtml(row.bindingOrderId)}">记录异常</button>
-        </div>
-      </div>
-    </article>
+    <div class="space-y-1 text-xs text-muted-foreground">
+      <p><span class="text-foreground">规格数：</span>${formatCount(row.bindingSpecificationCount)} 种</p>
+      <p><span class="text-foreground">计划长度：</span>${escapeHtml(formatLength(row.plannedTotalLength))}</p>
+      <p><span class="text-foreground">累计实际：</span>${escapeHtml(row.actualTotalLength ? formatLength(row.actualTotalLength) : '待回写')}</p>
+      ${renderOrderMinRequiredLengthNote(row)}
+      <div class="mt-1 flex max-w-[18rem] flex-wrap gap-1">${renderDetailChips(row)}</div>
+    </div>
   `
 }
 
-function renderKpi(label: string, value: string | number, hint: string, valueClass = 'text-foreground'): string {
+function renderFlowSummary(row: BindingProcessOrder): string {
   return `
-    <article class="rounded-lg border bg-card p-4">
-      <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
-      <p class="mt-2 text-2xl font-semibold ${valueClass}">${escapeHtml(String(value))}</p>
-      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(hint)}</p>
-    </article>
+    <div class="space-y-1 text-xs text-muted-foreground">
+      <p>菲票：${escapeHtml(row.sourceFeiTicketNos.join(' / ') || '待生成')}</p>
+      <div class="flex flex-wrap gap-1">
+        ${renderBadge(row.printStatus, printToneMap[row.printStatus])}
+        ${renderBadge(row.inboundStatus, inboundToneMap[row.inboundStatus])}
+        ${renderBadge(row.handoverStatus, handoverToneMap[row.handoverStatus])}
+      </div>
+      <p>库存查询维度：物料 + 捆条宽度</p>
+    </div>
+  `
+}
+
+function renderDifferenceSummary(row: BindingProcessOrder): string {
+  if (!row.differenceRecords.length) return renderBadge('无差异', differenceToneMap['无差异'])
+  return `
+    <div class="space-y-1">
+      ${renderBadge('有差异', differenceToneMap['有差异'])}
+      <p class="text-xs text-muted-foreground">${escapeHtml(row.differenceRecords.map((item) => `${item.differenceType} ${formatLength(item.differenceLength)}`).join('；'))}</p>
+    </div>
+  `
+}
+
+function renderOrderActions(row: BindingProcessOrder): string {
+  const detailHref = `/fcs/craft/cutting/special-processes/${encodeURIComponent(row.bindingOrderId)}`
+  return `
+    <div class="flex min-w-[10rem] flex-wrap gap-1.5">
+      <a href="${escapeHtml(detailHref)}" data-nav="${escapeHtml(detailHref)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">查看</a>
+      <button type="button" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50" data-cutting-binding-action="record-cutting" data-row-id="${escapeHtml(row.bindingOrderId)}">记录裁剪</button>
+      <button type="button" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50" data-cutting-binding-action="finish" data-row-id="${escapeHtml(row.bindingOrderId)}">结束加工</button>
+      <button type="button" class="inline-flex min-h-8 items-center rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700" data-cutting-binding-action="print-ticket" data-row-id="${escapeHtml(row.bindingOrderId)}">打印菲票</button>
+    </div>
+  `
+}
+
+function renderOrderTableRow(row: BindingProcessOrder): string {
+  return `
+    <tr class="hover:bg-muted/20">
+      <td class="px-4 py-3 align-top">
+        <a href="/fcs/craft/cutting/special-processes/${encodeURIComponent(row.bindingOrderId)}" data-nav="/fcs/craft/cutting/special-processes/${encodeURIComponent(row.bindingOrderId)}" class="font-medium text-blue-600 hover:underline">${escapeHtml(row.bindingOrderNo)}</a>
+        <div class="mt-2 flex flex-wrap gap-1.5">
+          ${renderBadge(row.status, statusToneMap[row.status])}
+          ${renderBadge(row.differenceStatus, differenceToneMap[row.differenceStatus])}
+        </div>
+      </td>
+      <td class="px-4 py-3 align-top">${renderSourceSummary(row)}</td>
+      <td class="px-4 py-3 align-top">
+        ${renderMaterialIdentityBlock(
+          {
+            materialSku: row.materialIdentity.materialSku,
+            materialLabel: row.materialIdentity.materialName,
+            materialAlias: row.materialIdentity.materialAlias,
+            materialImageUrl: row.materialIdentity.materialImageUrl,
+          },
+          { compact: true, imageSizeClass: 'h-9 w-9' },
+        )}
+        <p class="mt-1 text-xs text-muted-foreground">颜色：${escapeHtml(row.materialIdentity.materialColor)}</p>
+      </td>
+      <td class="px-4 py-3 align-top">${renderPatternSummary(row)}</td>
+      <td class="px-4 py-3 align-top">${renderProcessSummary(row)}</td>
+      <td class="px-4 py-3 align-top">${renderFlowSummary(row)}</td>
+      <td class="px-4 py-3 align-top">${renderDifferenceSummary(row)}</td>
+      <td class="px-4 py-3 align-top">${renderOrderActions(row)}</td>
+    </tr>
+  `
+}
+
+function renderOrderTable(rows: BindingProcessOrder[]): string {
+  if (!rows.length) {
+    return '<section class="rounded-lg border border-dashed bg-card px-4 py-10 text-center text-sm text-muted-foreground">当前筛选范围内暂无捆条加工单。</section>'
+  }
+
+  return `
+    <section class="rounded-lg border bg-card" data-testid="cutting-binding-list-table">
+      <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
+        <h2 class="text-sm font-semibold">捆条加工单</h2>
+        <div class="text-xs text-muted-foreground">共 ${formatCount(rows.length)} 条加工单</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[1480px] text-sm">
+          <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium">加工单</th>
+              <th class="px-4 py-3 text-left font-medium">来源对象</th>
+              <th class="px-4 py-3 text-left font-medium">物料</th>
+              <th class="px-4 py-3 text-left font-medium">纸样</th>
+              <th class="px-4 py-3 text-left font-medium">捆条明细</th>
+              <th class="px-4 py-3 text-left font-medium">菲票 / 入仓 / 交出</th>
+              <th class="px-4 py-3 text-left font-medium">差异</th>
+              <th class="px-4 py-3 text-left font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${rows.map(renderOrderTableRow).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
   `
 }
 
 export function renderCraftCuttingSpecialProcessesPage(): string {
   const rows = buildBindingProcessOrders()
-  const internalRows = rows.filter((row) => row.processMode === '裁床内部加工')
-  const externalRows = rows.filter((row) => row.processMode === '外部承接工厂加工')
-  const abnormalRows = rows.filter((row) => row.abnormalItems.length > 0)
-  const inboundRows = rows.filter((row) => row.inboundInventoryRecordIds.length > 0)
-  const totalActualOutput = internalRows.reduce((sum, row) => sum + row.actualOutputQty, 0)
+  const meta = getCanonicalCuttingMeta('/fcs/craft/cutting/special-processes', 'special-processes')
 
   return `
-    <section class="space-y-5 p-6">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 class="text-2xl font-semibold text-foreground">捆条加工单</h1>
-          <p class="mt-1 text-sm text-muted-foreground">裁床内部捆条加工独立管理；外部承接工厂加工继续走通用交出单、交出记录和特殊工艺回仓。</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <a href="/fcs/craft/cutting/replenishment?sourceType=binding" data-nav="/fcs/craft/cutting/replenishment?sourceType=binding" class="rounded-md border px-3 py-2 text-sm hover:bg-muted">查看补料管理</a>
-          <a href="/fcs/craft/cutting/summary?checkType=捆条异常" data-nav="/fcs/craft/cutting/summary?checkType=捆条异常" class="rounded-md border px-3 py-2 text-sm hover:bg-muted">查看核查项</a>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-binding-action="refresh">刷新</button>
-        </div>
-      </div>
-
-      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        ${renderKpi('内部加工单', `${formatNumber(internalRows.length)} 单`, '裁床内部完成，不走通用交出单', 'text-sky-700')}
-        ${renderKpi('外部特殊工艺交出', `${formatNumber(externalRows.length)} 单`, '外部捆条必须走通用交出', 'text-violet-700')}
-        ${renderKpi('异常处理中', `${formatNumber(abnormalRows.length)} 单`, '进入补料管理或裁剪结果核查', 'text-rose-600')}
-        ${renderKpi('已入库产出', `${formatNumber(inboundRows.length)} 单`, '产出进入裁床待交出仓库存', 'text-emerald-600')}
-        ${renderKpi('实际产出数量', `${formatNumber(totalActualOutput)} 米`, '来自内部捆条加工回写', 'text-slate-900')}
-      </section>
-
-      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        ${['待加工', '加工中', '已完成', '异常处理中', '已入库']
-          .map((status) => {
-            const count = rows.filter((row) => row.status === status).length
-            return `<div class="rounded-lg border bg-muted/20 px-3 py-2 text-sm"><span class="font-medium text-foreground">${escapeHtml(status)}</span><span class="ml-2 text-muted-foreground">${formatNumber(count)} 单</span></div>`
-          })
-          .join('')}
-      </section>
-
-      <section class="space-y-3">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-base font-semibold text-foreground">内部加工与外部交出边界</h2>
-          <span class="text-xs text-muted-foreground">主列表使用复合列展示，1440px 下不依赖横向滚动。</span>
-        </div>
-        ${rows.map(renderOrderCard).join('')}
-      </section>
+    <section class="space-y-3 p-4">
+      ${renderCuttingPageHeader(meta, {
+        actionsHtml: `
+          <div class="flex flex-wrap gap-2">
+            <a href="/fcs/craft/cutting/fei-tickets" data-nav="/fcs/craft/cutting/fei-tickets" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">打印捆条菲票</a>
+            <a href="/fcs/craft/cutting/warehouse-management/wait-handover?inventoryType=binding" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover?inventoryType=binding" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">查捆条库存</a>
+            <button type="button" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50" data-cutting-binding-action="refresh">刷新</button>
+          </div>
+        `,
+      })}
+      ${renderListOverview(rows)}
+      ${renderListFilters()}
+      ${renderOrderTable(rows)}
     </section>
   `
 }
@@ -413,49 +350,145 @@ function renderDetailSection(title: string, body: string): string {
   `
 }
 
+function renderDetailRows(details: BindingStripWorkOrderDetail[]): string {
+  return `
+    <div class="overflow-x-auto rounded-lg border">
+      <table class="w-full min-w-[1040px] text-sm">
+        <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-3">规格</th>
+            <th class="px-3 py-3">公式</th>
+            <th class="px-3 py-3">计划 / 实际</th>
+            <th class="px-3 py-3">菲票</th>
+            <th class="px-3 py-3">流转</th>
+            <th class="px-3 py-3">差异</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y">
+          ${details.map((detail) => `
+            <tr>
+              <td class="px-3 py-3">
+                <div class="font-medium text-foreground">${escapeHtml(detail.bindingStripName)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${detail.bindingWidth} cm / ${detail.bindingStripNo}`)}</div>
+              </td>
+              <td class="px-3 py-3 text-xs text-muted-foreground">
+                <div>${escapeHtml(detail.formulaText)}</div>
+                <div class="mt-1">${renderMinRequiredLengthNote(detail)}</div>
+              </td>
+              <td class="px-3 py-3 text-xs text-muted-foreground">
+                <div>原算：${escapeHtml(formatLength(detail.rawRequiredLength))}</div>
+                <div>计划：${escapeHtml(formatLength(detail.requiredLength))}</div>
+                <div>实际：${escapeHtml(detail.actualLength ? formatLength(detail.actualLength) : '待回写')}</div>
+              </td>
+              <td class="px-3 py-3">
+                <div class="font-medium text-blue-600">${escapeHtml(detail.feiTicketNo)}</div>
+                <div class="mt-1">${renderBadge(detail.printStatus, printToneMap[detail.printStatus])}</div>
+              </td>
+              <td class="px-3 py-3">
+                <div class="flex flex-wrap gap-1">
+                  ${renderBadge(detail.inboundStatus, inboundToneMap[detail.inboundStatus])}
+                  ${renderBadge(detail.handoverStatus, handoverToneMap[detail.handoverStatus])}
+                </div>
+              </td>
+              <td class="px-3 py-3">${renderBadge(detail.differenceStatus, differenceToneMap[detail.differenceStatus])}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderCuttingRecords(row: BindingProcessOrder): string {
+  if (!row.cuttingRecords.length) {
+    return '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">尚未记录本次裁剪，当前为待加工。</div>'
+  }
+  return `
+    <div class="grid gap-3 md:grid-cols-2">
+      ${row.cuttingRecords.map((record) => `
+        <article class="rounded-lg border bg-background p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="text-sm font-medium text-foreground">${escapeHtml(`${record.bindingWidth} cm / ${formatLength(record.actualLength)}`)}</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(record.operatedAt)}</div>
+          </div>
+          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(record.operatorName)} · ${escapeHtml(record.remark || '无备注')}</div>
+        </article>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderDifferenceRecords(row: BindingProcessOrder): string {
+  if (!row.differenceRecords.length) {
+    return '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">当前加工单暂无差异记录。</div>'
+  }
+  return `
+    <div class="grid gap-3 md:grid-cols-2">
+      ${row.differenceRecords.map((record) => `
+        <article class="rounded-lg border bg-background p-3">
+          <div class="flex flex-wrap items-center gap-2">
+            ${renderBadge(record.differenceType, 'border-rose-200 bg-rose-50 text-rose-700')}
+            <span class="text-xs text-muted-foreground">${escapeHtml(record.recordedAt)}</span>
+          </div>
+          <div class="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
+            <div>计划：${escapeHtml(formatLength(record.plannedLength))}</div>
+            <div>实际：${escapeHtml(formatLength(record.actualLength))}</div>
+            <div>差异：${escapeHtml(formatLength(record.differenceLength))}</div>
+          </div>
+          <p class="mt-2 text-sm text-foreground">${escapeHtml(record.reason)}</p>
+        </article>
+      `).join('')}
+    </div>
+  `
+}
+
 export function renderCraftCuttingSpecialProcessDetailPage(bindingOrderId?: string): string {
-  const row = getBindingOrderById(bindingOrderId)
+  const row = getBindingProcessOrderById(bindingOrderId)
   const backHref = '/fcs/craft/cutting/special-processes'
+  if (!row) {
+    return `
+      <section class="space-y-5 p-6">
+        <a href="${backHref}" data-nav="${backHref}" class="text-sm text-blue-700 hover:underline">返回捆条加工单</a>
+        <div class="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">未找到捆条加工单。</div>
+      </section>
+    `
+  }
+
   return `
     <section class="space-y-5 p-6">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <a href="${backHref}" data-nav="${backHref}" class="text-sm text-blue-700 hover:underline">返回捆条加工单</a>
           <h1 class="mt-2 text-2xl font-semibold text-foreground">捆条加工单详情</h1>
-          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.bindingOrderNo)} · ${escapeHtml(row.processMode)}</p>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.bindingOrderNo)} · ${escapeHtml(row.sourceCutOrderNo)} · 不关联具体铺布单</p>
         </div>
         <div class="flex flex-wrap gap-2">
           ${renderBadge(row.status, statusToneMap[row.status])}
-          ${renderBadge(row.processMode, modeToneMap[row.processMode])}
+          ${renderBadge(row.printStatus, printToneMap[row.printStatus])}
+          ${renderBadge(row.inboundStatus, inboundToneMap[row.inboundStatus])}
+          ${renderBadge(row.handoverStatus, handoverToneMap[row.handoverStatus])}
         </div>
       </div>
 
-      ${renderDetailSection(
-        '基本信息',
-        `<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          ${renderDetailMetric('加工单号', row.bindingOrderNo)}
-          ${renderDetailMetric('加工方式', row.processMode)}
-          ${renderDetailMetric('加工状态', row.status)}
-          ${renderDetailMetric('操作人', row.operatorName || row.externalReceiverFactoryName || '待安排')}
-          ${renderDetailMetric('开始时间', row.startedAt || '待开始')}
-          ${renderDetailMetric('完成时间', row.completedAt || '待完成')}
-          ${renderDetailMetric('产出单位', row.unit)}
-          ${renderDetailMetric('备注', row.remark)}
-        </div>`,
-      )}
+      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${renderMetricCard('捆条规格', `${formatCount(row.bindingSpecificationCount)} 种`, '一个宽度对应一张唯一捆条菲票')}
+        ${renderMetricCard('计划总长度', formatLength(row.plannedTotalLength), '公式：长度×宽度÷门幅×1.3；不足 4m 按 4m')}
+        ${renderMetricCard('累计实际长度', row.actualTotalLength ? formatLength(row.actualTotalLength) : '待回写', '来自分批裁剪记录累计')}
+        ${renderMetricCard('差异状态', row.differenceStatus, '只记录差异，不设置异常处理中主状态')}
+      </section>
 
       ${renderDetailSection(
         '来源对象',
         `<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           ${renderDetailMetric('来源生产单', row.sourceProductionOrderNo)}
           ${renderDetailMetric('来源裁片单', row.sourceCutOrderNo)}
-          ${renderDetailMetric('来源铺布单', row.sourceSpreadingOrderNo)}
-          ${renderDetailMetric('来源菲票', row.sourceFeiTicketNos.join(' / '))}
+          ${renderDetailMetric('来源唛架方案', row.sourceMarkerPlanNo || '待确认后生成')}
+          ${renderDetailMetric('铺布单关系', '不分摊到具体铺布单')}
         </div>`,
       )}
 
       ${renderDetailSection(
-        '面料与纸样',
+        '物料与纸样',
         `<div class="grid gap-4 xl:grid-cols-2">
           <div>
             ${renderMaterialIdentityBlock(
@@ -471,83 +504,45 @@ export function renderCraftCuttingSpecialProcessDetailPage(bindingOrderId?: stri
           </div>
           <div class="text-sm text-muted-foreground">
             <p class="font-medium text-foreground">${escapeHtml(row.patternIdentity.patternFileName)}</p>
-            <p class="mt-1">${escapeHtml(row.patternIdentity.patternVersion)} / ${escapeHtml(row.patternIdentity.effectiveWidthText)}</p>
+            <p class="mt-1">${escapeHtml(row.patternIdentity.patternVersion)} / 门幅 ${escapeHtml(`${row.doorWidthCm} cm`)}</p>
+            <p class="mt-1">纸样包：${escapeHtml(row.sourcePatternPackageName || '纸样包待补')}</p>
             <p class="mt-1">部位集合：${escapeHtml(row.patternIdentity.piecePartNames.join('、') || '部位待补')}</p>
           </div>
         </div>`,
       )}
 
+      ${renderDetailSection('捆条明细', renderDetailRows(row.bindingDetails))}
+      ${renderDetailSection('分批裁剪记录', renderCuttingRecords(row))}
+      ${renderDetailSection('差异记录', renderDifferenceRecords(row))}
       ${renderDetailSection(
-        '加工参数',
-        `<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          ${renderDetailMetric('捆条宽度', `${row.bindingWidth} cm`)}
-          ${renderDetailMetric('计划长度', formatLength(row.plannedLength))}
-          ${renderDetailMetric('计划产出数量', `${formatNumber(row.plannedOutputQty)} 米`)}
-          ${renderDetailMetric('加工方式边界', row.processMode === '裁床内部加工' ? '内部加工单承接' : '走特殊工艺交出')}
-          ${renderDetailMetric('是否影响裁片单主状态', '不影响')}
-        </div>`,
-      )}
-
-      ${renderDetailSection(
-        '实际产出',
+        '菲票 / 入仓 / 装袋交出',
         `<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          ${renderDetailMetric('实际长度', row.actualLength ? formatLength(row.actualLength) : '待回写')}
-          ${renderDetailMetric('实际产出数量', `${formatNumber(row.actualOutputQty)} 米`)}
-          ${renderDetailMetric('损耗长度', formatLength(row.lossLength))}
-          ${renderDetailMetric('损耗率', formatRate(row.lossRate))}
+          ${renderDetailMetric('捆条菲票', row.sourceFeiTicketNos.join(' / ') || '待生成')}
+          ${renderDetailMetric('入仓状态', row.inboundStatus)}
+          ${renderDetailMetric('交出状态', row.handoverStatus)}
+          ${renderDetailMetric('库存查询', `${row.materialIdentity.materialSku} + ${row.bindingDetails.map((detail) => `${detail.bindingWidth}cm`).join(' / ')}`)}
         </div>`,
       )}
+    </section>
+  `
+}
 
-      ${renderDetailSection(
-        '损耗与异常',
-        row.abnormalItems.length
-          ? `<div class="grid gap-3 md:grid-cols-2">
-              ${row.abnormalItems
-                .map(
-                  (item) => `
-                    <article class="rounded-lg border bg-muted/20 p-3">
-                      <div class="flex flex-wrap gap-2">
-                        ${renderBadge(item.abnormalType, item.abnormalLevel === '紧急' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-amber-200 bg-amber-50 text-amber-700')}
-                        ${renderBadge(item.targetModule, 'border-blue-200 bg-blue-50 text-blue-700')}
-                      </div>
-                      <p class="mt-2 text-sm text-foreground">${escapeHtml(item.description)}</p>
-                      <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(item.reportedAt)} / ${escapeHtml(item.reportedBy)} / ${escapeHtml(item.handlingStatus)}</p>
-                    </article>
-                  `,
-                )
-                .join('')}
-            </div>`
-          : '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">当前加工单暂无损耗异常。</div>',
-      )}
-
-      ${renderDetailSection(
-        '成本记录',
-        row.costItems.length
-          ? `<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">${row.costItems
-              .map((item) => renderDetailMetric(`${item.costType}成本`, `${formatNumber(item.amount)} ${item.unit} / ${item.remark}`))
-              .join('')}</div>`
-          : '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">外部承接工厂成本由交出和回仓链路承接，本页不重复维护。</div>',
-      )}
-
-      ${renderDetailSection(
-        '入库记录',
-        `<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          ${renderDetailMetric('入库状态', row.inboundInventoryRecordIds.length ? '已进入裁床待交出仓库存' : row.status === '已完成' ? '待入库' : '未形成入库')}
-          ${renderDetailMetric('库存记录', row.inboundInventoryRecordIds.join(' / ') || '暂无')}
-          ${renderDetailMetric('库存来源', row.inboundInventoryRecordIds.length ? '捆条加工' : '待加工完成')}
-          ${renderDetailMetric('后续可参与', row.inboundInventoryRecordIds.length ? '车缝任务分配和交出' : '待入库后参与')}
-        </div>`,
-      )}
-
-      ${renderDetailSection(
-        '补料或核查关联',
-        `<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          ${renderDetailMetric('补料管理', row.linkedReplenishmentIds.join(' / ') || '无')}
-          ${renderDetailMetric('裁剪结果核查', row.linkedCheckItemIds.join(' / ') || '无')}
-          ${renderDetailMetric('外部交出单', row.externalHandoverOrderNo || '内部加工不适用')}
-          ${renderDetailMetric('特殊工艺回仓', row.externalReturnStatus || '内部加工不适用')}
-        </div>`,
-      )}
+export function renderBindingStripRequirementPrompt(summary: BindingStripRequirementSummary): string {
+  if (!summary.lines.length) return ''
+  return `
+    <section class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900" data-testid="binding-strip-spreading-confirmation">
+      <div class="font-medium">该物料有捆条加工单，生成铺布单前请确认捆条明细。</div>
+      <div class="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        ${summary.widthSummaries.map((item) => `
+          <div class="rounded-md border border-amber-200 bg-white/80 px-2 py-2 text-xs">
+            <div class="font-medium text-foreground">${escapeHtml(item.materialSku)} / ${escapeHtml(`${item.bindingWidthCm} cm`)}</div>
+            ${item.minRequiredLengthApplied ? `<div class="mt-1 text-amber-700">原算 ${escapeHtml(formatLength(item.rawRequiredLengthM))}，不足 4m 按 4m</div>` : ''}
+            <div class="mt-1 text-muted-foreground">总长度 ${escapeHtml(formatLength(item.requiredLengthM))}</div>
+            <div class="mt-1 text-muted-foreground">菲票 ${escapeHtml(item.ticketNos.join(' / ') || '待打印')}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="mt-2 text-xs text-amber-800">铺布单不分摊捆条长度；捆条加工单独记录裁剪、入仓暂存和装袋交出；不足 4m 的捆条明细已按 4m 起算。</div>
     </section>
   `
 }
@@ -580,24 +575,16 @@ export function handleCraftCuttingSpecialProcessesEvent(target: HTMLElement): bo
     showBindingToast('捆条加工单已刷新')
     return true
   }
-  if (action === 'start') {
-    showBindingToast('已记录开始加工动作')
+  if (action === 'record-cutting') {
+    showBindingToast('已记录本次裁剪入口；实际长度按规格累计到捆条加工单')
     return true
   }
-  if (action === 'complete') {
-    showBindingToast('已记录完成加工动作，实际产出待核对')
+  if (action === 'finish') {
+    showBindingToast('结束加工时如未达计划长度，必须记录差异原因')
     return true
   }
-  if (action === 'inbound') {
-    showBindingToast('捆条产出已标记进入裁床待交出仓库存')
-    return true
-  }
-  if (action === 'abnormal') {
-    showBindingToast('捆条异常已进入补料管理或裁剪结果核查')
-    return true
-  }
-  if (action === 'external-boundary') {
-    showBindingToast('外部捆条必须走通用交出单和特殊工艺回仓')
+  if (action === 'print-ticket') {
+    showBindingToast('捆条菲票按每个宽度唯一生成')
     return true
   }
   return false

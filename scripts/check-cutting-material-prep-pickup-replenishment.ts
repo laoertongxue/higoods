@@ -113,11 +113,11 @@ function main(): void {
     )
   })
   assert(
-    replenishmentPage.includes('差异处理项') && replenishmentPage.includes('审核建议'),
+    replenishmentPage.includes('差异处理项') && replenishmentPage.includes('处理结果'),
     '补料页面缺少差异处理工作台文案',
   )
   assert(
-    replenishmentPage.includes('待审核') || replenishmentModel.includes('WAIT_APPROVAL'),
+    replenishmentPage.includes('待处理') || replenishmentModel.includes('待审核'),
     '补料页面未体现待审核状态',
   )
   assert(
@@ -130,7 +130,7 @@ function main(): void {
     read('src/pages/process-factory/cutting/cut-piece-warehouse-model.ts'),
     read('src/pages/process-factory/cutting/cut-piece-warehouse-projection.ts'),
   ].join('\n')
-  ;['裁片库存', '裁床待交出仓', '裁片 A 区', '中转袋暂存区', '待交出仓配料'].forEach((snippet) => {
+  ;['裁片库存', '裁床待交出仓', '裁片 A 区', '中转袋暂存区', '待交出仓裁片库存'].forEach((snippet) => {
     assert(cutPieceWarehousePage.includes(snippet), `裁片仓页面缺少关键文案：${snippet}`)
   })
   ;['货架', '托盘', joinText(['库存', '三态']), joinText(['完整 ', 'WMS']), joinText(['WMS', '入库'])].forEach((snippet) => {

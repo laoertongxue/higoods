@@ -25,6 +25,7 @@ import {
   computeUsableLength,
   computeUsageSummary,
   buildRollHandoverViewModel,
+  buildSpreadingSessionOperationLogs,
   buildSpreadingHandoverListSummary,
   createEmptyStore,
   createOperatorRecordDraft,
@@ -689,6 +690,7 @@ function createSeedSession(
       note: 'prototype：无需补料',
     }
   }
+  session.operationLogs = buildSpreadingSessionOperationLogs(session)
   if (profile.status === 'DONE') {
     session.completionLinkage = {
       completedAt: session.updatedAt,

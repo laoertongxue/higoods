@@ -89,6 +89,7 @@ import {
   type CutOrderCloseRecord,
 } from '../../../data/fcs/cutting/cut-order-close-records'
 import { cuttingMaterialLedgerEventTypeLabels } from '../../../data/fcs/cutting/material-ledger.ts'
+import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 
 type FilterField =
   | 'keyword'
@@ -1838,10 +1839,25 @@ function buildCutOrderDetailView(row: CutOrderRow, viewModel = getViewModel()) {
       .map((item) => ({ ...item })),
     ['updatedAt', 'reviewedAt', 'createdAt'],
   )
+  const bindingProcessRows = buildBindingProcessOrders()
+    .filter((item) => item.sourceCutOrderId === row.cutOrderId || item.sourceCutOrderNo === row.cutOrderNo)
+    .map((item) => ({
+      ...item,
+      processNo: item.bindingOrderNo,
+      processType: '捆条加工单',
+      statusLabel: item.status,
+      quantity: item.plannedTotalLength,
+      pieceQty: item.actualTotalLength,
+      unit: '米',
+      updatedAt: item.completedAt || item.startedAt || '',
+    }))
   const specialProcessRows = sortRecordsByLatest(
-    (sources.specialProcessView.rows as Array<Record<string, any>>)
-      .filter((item) => ticketRecords.length > 0 && isObjectLinkedToCutOrder(item, row))
-      .map((item) => ({ ...item })),
+    [
+      ...(sources.specialProcessView.rows as Array<Record<string, any>>)
+        .filter((item) => isObjectLinkedToCutOrder(item, row))
+        .map((item) => ({ ...item })),
+      ...bindingProcessRows,
+    ],
     ['updatedAt', 'returnedAt', 'createdAt'],
   )
   const siblingRows = viewModel.rows.filter(

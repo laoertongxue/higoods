@@ -3194,12 +3194,166 @@ function normalizeSamplePurchaseSpecQtyValue(value: unknown): string[] {
     .map(formatSamplePurchaseSpecQtyLine)
 }
 
+type SampleInboundLineRow = {
+  colorName: string
+  sizeName: string
+  plannedQty: string
+  receivedQty: string
+  arrivalStatus: string
+  remark: string
+}
+
+const SAMPLE_INBOUND_STATUS_OPTIONS = ['到齐', '少到', '多到', '错色错码', '待补齐']
+
+function normalizeQtyText(value: unknown): string {
+  const text = String(value ?? '').trim()
+  if (!text) return ''
+  const numberText = text.match(/\d+(?:\.\d+)?/)?.[0] || ''
+  if (!numberText) return ''
+  const number = Number(numberText)
+  return Number.isFinite(number) && number >= 0 ? String(Math.floor(number)) : ''
+}
+
+function getQtyNumber(value: unknown): number {
+  const text = normalizeQtyText(value)
+  if (!text) return 0
+  const number = Number(text)
+  return Number.isFinite(number) ? number : 0
+}
+
+function normalizeSampleInboundLineRow(row: Partial<SampleInboundLineRow>): SampleInboundLineRow {
+  return {
+    colorName: String(row.colorName || '').trim(),
+    sizeName: String(row.sizeName || '').trim(),
+    plannedQty: normalizeQtyText(row.plannedQty),
+    receivedQty: normalizeQtyText(row.receivedQty),
+    arrivalStatus: String(row.arrivalStatus || '').trim(),
+    remark: String(row.remark || '').trim(),
+  }
+}
+
+function isSampleInboundLineRowFilled(row: SampleInboundLineRow): boolean {
+  return Boolean(row.colorName || row.sizeName || row.plannedQty || row.receivedQty || row.arrivalStatus || row.remark)
+}
+
+function deriveSampleInboundArrivalStatus(row: SampleInboundLineRow): string {
+  if (row.arrivalStatus) return row.arrivalStatus
+  const plannedQty = getQtyNumber(row.plannedQty)
+  const receivedQty = getQtyNumber(row.receivedQty)
+  if (receivedQty <= 0) return '待补齐'
+  if (plannedQty <= 0 || receivedQty === plannedQty) return '到齐'
+  if (receivedQty < plannedQty) return '少到'
+  return '多到'
+}
+
+function parseSampleInboundLine(line: string): SampleInboundLineRow {
+  const text = line.trim()
+  if (!text) return normalizeSampleInboundLineRow({})
+  const colorSizeMatch = text.match(/^(.+?)\s*[\/|｜]\s*([^：:，,；;]+)(?:[：:，,；;]|$)/)
+  const plannedMatch = text.match(/(?:计划|采购|应收)\s*(\d+(?:\.\d+)?)\s*件?/)
+  const receivedMatch = text.match(/(?:实收|收到|到样)\s*(\d+(?:\.\d+)?)\s*件?/)
+  const statusMatch = text.match(/状态\s*([^，,；;]+)/)
+  const remarkMatch = text.match(/(?:备注|说明)\s*([^，,；;]+)/)
+  if (colorSizeMatch) {
+    return normalizeSampleInboundLineRow({
+      colorName: colorSizeMatch[1],
+      sizeName: colorSizeMatch[2],
+      plannedQty: plannedMatch?.[1] || '',
+      receivedQty: receivedMatch?.[1] || '',
+      arrivalStatus: statusMatch?.[1] || '',
+      remark: remarkMatch?.[1] || '',
+    })
+  }
+  const simpleParts = text
+    .replace(/件$/g, '')
+    .split(/[\/|｜,，\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return normalizeSampleInboundLineRow({
+    colorName: simpleParts[0] || text,
+    sizeName: simpleParts[1] || '',
+    plannedQty: plannedMatch?.[1] || '',
+    receivedQty: receivedMatch?.[1] || simpleParts[2] || '',
+    arrivalStatus: statusMatch?.[1] || '',
+    remark: remarkMatch?.[1] || '',
+  })
+}
+
+function parseSampleInboundLineRows(value: unknown, keepEmpty = false): SampleInboundLineRow[] {
+  const rows: SampleInboundLineRow[] = []
+  if (Array.isArray(value)) {
+    value.forEach((item) => {
+      if (typeof item === 'object' && item !== null) {
+        const row = normalizeSampleInboundLineRow(item as Partial<SampleInboundLineRow>)
+        if (keepEmpty || isSampleInboundLineRowFilled(row)) rows.push(row)
+        return
+      }
+      const row = parseSampleInboundLine(String(item || ''))
+      if (keepEmpty || isSampleInboundLineRowFilled(row)) rows.push(row)
+    })
+    return rows
+  }
+  if (typeof value !== 'string') return rows
+  const text = value.trim()
+  if (!text) return rows
+  if (text.startsWith('[')) {
+    try {
+      return parseSampleInboundLineRows(JSON.parse(text), keepEmpty)
+    } catch {
+      // Fall through to line parsing for pasted text.
+    }
+  }
+  text.split(/\n/).forEach((line) => {
+    const row = parseSampleInboundLine(line)
+    if (keepEmpty || isSampleInboundLineRowFilled(row)) rows.push(row)
+  })
+  return rows
+}
+
+function formatSampleInboundLine(row: SampleInboundLineRow): string {
+  const normalized = normalizeSampleInboundLineRow(row)
+  const colorName = normalized.colorName || '-'
+  const sizeName = normalized.sizeName || '-'
+  const plannedQty = normalized.plannedQty || '0'
+  const receivedQty = normalized.receivedQty || '0'
+  const arrivalStatus = deriveSampleInboundArrivalStatus(normalized)
+  const remark = normalized.remark ? `，备注 ${normalized.remark}` : ''
+  return `${colorName} / ${sizeName}：计划 ${plannedQty} 件，实收 ${receivedQty} 件，状态 ${arrivalStatus}${remark}`
+}
+
+function normalizeSampleInboundLineValue(value: unknown): string[] {
+  return parseSampleInboundLineRows(value)
+    .filter((row) => row.colorName && row.sizeName && (row.plannedQty || row.receivedQty || row.arrivalStatus || row.remark))
+    .map(formatSampleInboundLine)
+}
+
+function buildSampleInboundPlanRows(project: PcsProjectRecord): SampleInboundLineRow[] {
+  const acquireNode = listProjectNodes(project.projectId).find((item) => item.workItemTypeCode === 'SAMPLE_ACQUIRE')
+  const acquireRecord = acquireNode ? getLatestProjectInlineNodeRecord(acquireNode.projectNodeId) : null
+  const purchaseRows = parseSamplePurchaseSpecQtyRows(
+    acquireRecord?.payload?.samplePurchaseSpecQty ?? acquireRecord?.detailSnapshot?.samplePurchaseSpecQty ?? '',
+  )
+  return purchaseRows.map((row) =>
+    normalizeSampleInboundLineRow({
+      colorName: row.colorName,
+      sizeName: row.sizeName,
+      plannedQty: row.quantity,
+      receivedQty: '',
+      arrivalStatus: '',
+      remark: '',
+    }),
+  )
+}
+
 function normalizeDraftFieldValue(
   field: PcsProjectNodeFieldGroupDefinition['fields'][number],
   value: unknown,
 ): unknown {
   if (field.fieldKey === 'samplePurchaseSpecQty') {
     return normalizeSamplePurchaseSpecQtyValue(value)
+  }
+  if (field.fieldKey === 'sampleInboundLines') {
+    return normalizeSampleInboundLineValue(value)
   }
   if (Array.isArray(value)) {
     return value.map((item) => String(item).trim()).filter(Boolean)
@@ -3297,7 +3451,15 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
       .filter((field) => isProjectTemplateFieldVisible(project, node, field))
       .filter((field) => !field.readonly && editableKeys.has(field.fieldKey))
       .map((field) => {
-        const rawValue = node.latestRecord?.payload?.[field.fieldKey] ?? getNodeFieldValue(project, node, field.fieldKey) ?? ''
+        let rawValue = node.latestRecord?.payload?.[field.fieldKey] ?? getNodeFieldValue(project, node, field.fieldKey) ?? ''
+        if (
+          node.node.workItemTypeCode === 'SAMPLE_INBOUND_CHECK' &&
+          field.fieldKey === 'sampleInboundLines' &&
+          !hasNodeFieldValue(rawValue)
+        ) {
+          const planRows = buildSampleInboundPlanRows(project)
+          rawValue = planRows.length > 0 ? JSON.stringify(planRows) : ''
+        }
         return [
           field.fieldKey,
           shouldKeepDraftArrayValue(node.node.workItemTypeCode, field.fieldKey, field.type)
@@ -3409,6 +3571,10 @@ function getProjectSampleAcquireSourceType(project: PcsProjectRecord, node: Proj
   return value === '外采' || value === '委托打样' ? value : ''
 }
 
+function projectHasRevisionTask(project: PcsProjectRecord): boolean {
+  return listProjectNodes(project.projectId).some((item) => item.workItemTypeCode === 'REVISION_TASK')
+}
+
 function isProjectTemplateFieldVisible(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
@@ -3425,6 +3591,17 @@ function applyProjectTemplateFieldPolicy(
   node: ProjectNodeViewModel,
   field: ProjectNodeFormalField,
 ): ProjectNodeFormalField {
+  if (node.node.workItemTypeCode === 'FEASIBILITY_REVIEW' && field.fieldKey === 'reviewConclusion') {
+    const hasRevisionTask = projectHasRevisionTask(project)
+    return {
+      ...field,
+      options: (field.options || []).filter((option) => hasRevisionTask || option.value !== '重新改版出样衣'),
+      businessLogic: hasRevisionTask
+        ? '当前项目存在改版任务，可选择进入测款、样衣退回或重新改版出样衣。'
+        : '当前项目没有改版任务，只能选择进入测款或样衣退回。',
+    }
+  }
+
   if (node.node.workItemTypeCode !== 'SAMPLE_ACQUIRE') return field
   const lockedSourceType = getTemplateLockedSampleSourceType(project)
 
@@ -3516,6 +3693,14 @@ function getBusinessRuleValidationErrors(
     }
     if (sampleSourceType === '外采' && !sampleLink && !hasUnitPrice) {
       errors.push('样衣来源方式为外采时，外采链接和样衣单价至少填写一项。')
+    }
+  }
+
+  if (node.node.workItemTypeCode === 'SAMPLE_INBOUND_CHECK') {
+    const receivedQty = Number(values.receivedQty || 0)
+    const sampleInboundLines = parseSampleInboundLineRows(values.sampleInboundLines)
+    if (sampleInboundLines.length === 0 || !(receivedQty > 0)) {
+      errors.push('样衣结果核对至少需要登记 1 件实际收到的样衣。')
     }
   }
 
@@ -3637,14 +3822,173 @@ function renderSamplePurchaseSpecQtyControl(value: string, disabled: boolean, ba
   `
 }
 
+function renderSampleInboundLineControl(value: string, disabled: boolean, baseClass: string): string {
+  const sourceRows = parseSampleInboundLineRows(value, true)
+  const rows = Array.from({ length: Math.max(sourceRows.length, 3) }, (_, index) =>
+    sourceRows[index] || normalizeSampleInboundLineRow({}),
+  )
+  const inputClass = `${baseClass} h-9 border-slate-200 bg-white`
+  const statusOptions = ['', ...SAMPLE_INBOUND_STATUS_OPTIONS]
+
+  return `
+    <div class="overflow-hidden rounded-md border border-slate-200" data-pcs-sample-inbound-lines="true">
+      <table class="w-full table-fixed text-left text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500">
+          <tr>
+            <th class="w-[16%] px-3 py-2 font-medium">颜色</th>
+            <th class="w-[14%] px-3 py-2 font-medium">尺码</th>
+            <th class="w-[12%] px-3 py-2 font-medium">计划数</th>
+            <th class="w-[12%] px-3 py-2 font-medium">实收数</th>
+            <th class="w-[12%] px-3 py-2 font-medium">差异</th>
+            <th class="w-[16%] px-3 py-2 font-medium">状态</th>
+            <th class="w-[12%] px-3 py-2 font-medium">备注</th>
+            <th class="w-[6%] px-3 py-2 text-right font-medium">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 bg-white">
+          ${rows
+            .map((row, index) => {
+              const plannedQty = getQtyNumber(row.plannedQty)
+              const receivedQty = getQtyNumber(row.receivedQty)
+              const diffQty = receivedQty - plannedQty
+              const diffText = row.plannedQty || row.receivedQty ? (diffQty === 0 ? '无差异' : `${diffQty > 0 ? '+' : ''}${diffQty}`) : '-'
+              return `
+                <tr data-pcs-sample-inbound-row="${index}">
+                  <td class="px-3 py-2">
+                    <input type="text" class="${inputClass}" value="${escapeHtml(row.colorName)}" placeholder="黑色" data-pcs-sample-inbound-field="colorName" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
+                  </td>
+                  <td class="px-3 py-2">
+                    <input type="text" class="${inputClass}" value="${escapeHtml(row.sizeName)}" placeholder="M" data-pcs-sample-inbound-field="sizeName" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
+                  </td>
+                  <td class="px-3 py-2">
+                    <input type="number" min="0" step="1" class="${inputClass}" value="${escapeHtml(row.plannedQty)}" placeholder="2" data-pcs-sample-inbound-field="plannedQty" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
+                  </td>
+                  <td class="px-3 py-2">
+                    <input type="number" min="0" step="1" class="${inputClass}" value="${escapeHtml(row.receivedQty)}" placeholder="2" data-pcs-sample-inbound-field="receivedQty" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
+                  </td>
+                  <td class="px-3 py-2 text-xs font-medium ${diffQty === 0 ? 'text-emerald-600' : diffQty > 0 ? 'text-amber-600' : 'text-rose-600'}">
+                    ${escapeHtml(diffText)}
+                  </td>
+                  <td class="px-3 py-2">
+                    <select class="${inputClass}" data-pcs-sample-inbound-field="arrivalStatus" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''}>
+                      ${statusOptions
+                        .map(
+                          (option) =>
+                            `<option value="${escapeHtml(option)}" ${row.arrivalStatus === option ? 'selected' : ''}>${escapeHtml(option || '自动判断')}</option>`,
+                        )
+                        .join('')}
+                    </select>
+                  </td>
+                  <td class="px-3 py-2">
+                    <input type="text" class="${inputClass}" value="${escapeHtml(row.remark)}" placeholder="差异说明" data-pcs-sample-inbound-field="remark" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
+                  </td>
+                  <td class="px-3 py-2 text-right">
+                    ${
+                      disabled
+                        ? '-'
+                        : `<button type="button" class="inline-flex h-8 items-center rounded-md px-2 text-xs text-slate-500 hover:bg-slate-100" data-pcs-project-action="remove-sample-inbound-row" data-row-index="${index}">删除</button>`
+                    }
+                  </td>
+                </tr>
+              `
+            })
+            .join('')}
+        </tbody>
+      </table>
+      ${
+        disabled
+          ? ''
+          : `
+            <div class="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              <span>实收数用于生成样衣编号并写入样衣库存；未收到的规格不生成样衣。</span>
+              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-100" data-pcs-project-action="add-sample-inbound-row">添加到样规格</button>
+            </div>
+          `
+      }
+    </div>
+  `
+}
+
+function resolveProjectImageItems(projectId: string, imageIds: string[]): PcsProjectImageAssetViewModel[] {
+  return imageIds
+    .map((imageId) => findProjectImageViewModelById(projectId, imageId))
+    .filter((item): item is PcsProjectImageAssetViewModel => Boolean(item))
+}
+
+function renderSampleInboundImageControl(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  value: string,
+  disabled: boolean,
+): string {
+  const imageIds = getDraftStringArray(value)
+  const images = resolveProjectImageItems(project.projectId, imageIds)
+  const editable = !disabled && canEditProjectNodeFields(node)
+
+  return `
+    <div class="space-y-3" data-pcs-sample-inbound-images="true">
+      <input type="hidden" data-pcs-project-field="formal-field" data-field-key="sampleImageIds" data-skip-page-rerender="true" value="${escapeHtml(imageIds.join('\n'))}" ${disabled ? 'disabled' : ''} />
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-xs text-slate-500">用于记录实际收到样衣的图片凭证，保存后会关联到生成的样衣库存。</p>
+        ${
+          editable
+            ? `
+              <label class="inline-flex h-9 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
+                上传样衣图片
+                <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="sample-inbound-images" />
+              </label>
+            `
+            : ''
+        }
+      </div>
+      ${
+        images.length === 0
+          ? '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂未上传样衣图片</div>'
+          : `
+            <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+              ${images
+                .map(
+                  (image) => `
+                    <article class="rounded-lg border border-slate-200 bg-white p-3">
+                      <button type="button" class="block h-40 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.previewTitle)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
+                        <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
+                      </button>
+                      <div class="mt-3 space-y-2">
+                        <div>
+                          <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
+                          <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.imageType)} · ${escapeHtml(image.imageStatus)}</p>
+                        </div>
+                        ${
+                          editable
+                            ? `<button type="button" class="inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2 text-[11px] text-rose-600 hover:bg-rose-50" data-pcs-project-action="remove-sample-inbound-image" data-image-id="${escapeHtml(image.imageId)}">移除图片</button>`
+                            : ''
+                        }
+                      </div>
+                    </article>
+                  `,
+                )
+                .join('')}
+            </div>
+          `
+      }
+    </div>
+  `
+}
+
 function renderFormalFieldControl(
   field: PcsProjectNodeFieldGroupDefinition['fields'][number],
   value: string,
   disabled: boolean,
+  project?: PcsProjectRecord,
+  node?: ProjectNodeViewModel,
 ): string {
   const baseClass =
     'w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
   const commonAttrs = `data-pcs-project-field="formal-field" data-field-key="${escapeHtml(field.fieldKey)}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''}`
+
+  if (field.type === 'image-list' && field.fieldKey === 'sampleImageIds' && project && node) {
+    return renderSampleInboundImageControl(project, node, value, disabled)
+  }
 
   if (field.type === 'multi-select' && field.options && field.options.length > 0) {
     const selectedValues = new Set(getDraftStringArray(value))
@@ -3694,6 +4038,9 @@ function renderFormalFieldControl(
   if (field.type === 'table') {
     if (field.fieldKey === 'samplePurchaseSpecQty') {
       return renderSamplePurchaseSpecQtyControl(value, disabled, baseClass)
+    }
+    if (field.fieldKey === 'sampleInboundLines') {
+      return renderSampleInboundLineControl(value, disabled, baseClass)
     }
     return `
       <textarea class="min-h-[112px] ${baseClass} py-2" placeholder="${escapeHtml(field.placeholder || '例如：黑色 / M：采购 2 件')}" ${commonAttrs}>${escapeHtml(value)}</textarea>
@@ -3966,6 +4313,44 @@ async function appendProjectInitReferenceImages(project: PcsProjectRecord, files
   const compatRefs = listProjectReferenceImages(project.projectId).map((item) => buildProjectImageCompatRef(item))
   updateProjectAlbumUrls(project.projectId, compatRefs, '当前用户')
   state.notice = '参考图片已更新。'
+  window.dispatchEvent(new Event('higood:request-render'))
+}
+
+async function appendSampleInboundImages(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  files: File[],
+): Promise<void> {
+  if (!files.length) return
+  syncRecordDraftFromDom(project, node)
+  const draft = getNodeRecordDraft(project, node)
+  const currentImageIds = getDraftStringArray(draft.values.sampleImageIds)
+  const timestamp = new Date().toISOString()
+  const created = await createProjectImageAssetRecordsFromFiles(
+    project,
+    files,
+    (file, index) => ({
+      imageName: file.name || `样衣到样图 ${currentImageIds.length + index + 1}`,
+      imageType: '样衣到样图',
+      sourceNodeCode: 'SAMPLE_INBOUND_CHECK',
+      sourceRecordId: node.latestRecord?.recordId || node.node.projectNodeId,
+      sourceType: '样衣结果核对',
+      usageScopes: ['样衣结果核对', '样衣管理', '项目资料归档'],
+      imageStatus: '待核对',
+      mainFlag: false,
+      sortNo: currentImageIds.length + index + 1,
+    }),
+    '当前用户',
+    timestamp,
+  )
+  upsertProjectImageAssets(created)
+  setRecordDraftState(project, node, {
+    open: state.recordDialog.open,
+    values: {
+      sampleImageIds: [...currentImageIds, ...created.map((item) => item.imageId)],
+    },
+  })
+  state.notice = `已上传 ${created.length} 张样衣图片。`
   window.dispatchEvent(new Event('higood:request-render'))
 }
 
@@ -6479,9 +6864,14 @@ function renderEditableFieldGroups(
           const value = editable
             ? formatDraftFieldValue(field.type, effectiveDraftValue ?? '')
             : formatDraftFieldValue(field.type, savedValue)
+          const spanFullWidth =
+            field.type === 'table' ||
+            field.type === 'image-list' ||
+            field.fieldKey === 'sampleInboundLines' ||
+            field.fieldKey === 'samplePurchaseSpecQty'
 
           return `
-            <div class="space-y-1 rounded-md border border-slate-200 bg-white p-3">
+            <div class="space-y-1 rounded-md border border-slate-200 bg-white p-3 ${spanFullWidth && !compact ? 'md:col-span-2' : ''}">
               <div class="flex items-center gap-2">
                 <p class="text-xs font-medium text-slate-600">${escapeHtml(field.label)}</p>
                 ${field.required ? '<span class="rounded bg-rose-50 px-1.5 py-0.5 text-[11px] text-rose-600">必填</span>' : ''}
@@ -6489,8 +6879,10 @@ function renderEditableFieldGroups(
               </div>
               ${
                 editable
-                  ? renderFormalFieldControl(field, value, disabled)
-                  : `<div class="min-h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700">${renderReadonlyValue(savedValue)}</div>`
+                  ? renderFormalFieldControl(field, value, disabled, project, node)
+                  : field.type === 'image-list' && field.fieldKey === 'sampleImageIds'
+                    ? renderSampleInboundImageControl(project, node, value, true)
+                    : `<div class="min-h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700">${renderReadonlyValue(savedValue)}</div>`
               }
             </div>
           `
@@ -7165,6 +7557,42 @@ function updateSamplePurchaseSpecRowsFromDom(updater: (rows: SamplePurchaseSpecQ
   })
 }
 
+function readSampleInboundLineRowsFromDom(keepEmpty = false): SampleInboundLineRow[] {
+  if (typeof document === 'undefined') return []
+  const rows: SampleInboundLineRow[] = []
+  document.querySelectorAll<HTMLElement>('[data-pcs-sample-inbound-lines="true"] [data-pcs-sample-inbound-row]').forEach((rowNode) => {
+    const readValue = (fieldKey: keyof SampleInboundLineRow): string => {
+      const fieldNode = rowNode.querySelector<HTMLInputElement | HTMLSelectElement>(
+        `[data-pcs-sample-inbound-field="${fieldKey}"]`,
+      )
+      return fieldNode?.value || ''
+    }
+    const row = normalizeSampleInboundLineRow({
+      colorName: readValue('colorName'),
+      sizeName: readValue('sizeName'),
+      plannedQty: readValue('plannedQty'),
+      receivedQty: readValue('receivedQty'),
+      arrivalStatus: readValue('arrivalStatus'),
+      remark: readValue('remark'),
+    })
+    if (keepEmpty || isSampleInboundLineRowFilled(row)) rows.push(row)
+  })
+  return rows
+}
+
+function updateSampleInboundLineRowsFromDom(updater: (rows: SampleInboundLineRow[]) => SampleInboundLineRow[]): void {
+  const context = getCurrentProjectNodeContext()
+  if (!context) return
+  const domRows = readSampleInboundLineRowsFromDom(true)
+  syncRecordDraftFromDom(context.project, context.node)
+  const rows = updater(domRows)
+  setRecordDraftState(context.project, context.node, {
+    values: {
+      sampleInboundLines: JSON.stringify(rows),
+    },
+  })
+}
+
 function setRecordDraftState(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
@@ -7198,6 +7626,9 @@ function readFormalFieldDomDraft(): { businessDate: string; values: Record<strin
   })
   if (document.querySelector('[data-pcs-sample-purchase-spec="true"]')) {
     values.samplePurchaseSpecQty = JSON.stringify(readSamplePurchaseSpecRowsFromDom(false))
+  }
+  if (document.querySelector('[data-pcs-sample-inbound-lines="true"]')) {
+    values.sampleInboundLines = JSON.stringify(readSampleInboundLineRowsFromDom(false))
   }
   const businessDateNode = document.querySelector<HTMLInputElement>('[data-pcs-project-field="record-business-date"]')
   return {
@@ -7380,6 +7811,21 @@ export function handlePcsProjectsInput(target: Element): boolean {
       window.dispatchEvent(new Event('higood:request-render'))
     })
     fieldNode.value = ''
+    return true
+  }
+  if (field === 'sample-inbound-images' && fieldNode instanceof HTMLInputElement) {
+    const files = Array.from(fieldNode.files || [])
+    fieldNode.value = ''
+    if (!files.length) return true
+    const context = getCurrentProjectNodeContext()
+    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_INBOUND_CHECK' || !canEditProjectNodeFields(context.node)) {
+      state.notice = '当前节点暂不可上传样衣图片。'
+      return true
+    }
+    void appendSampleInboundImages(context.project, context.node, files).catch((error) => {
+      state.notice = error instanceof Error ? error.message : '上传样衣图片失败。'
+      window.dispatchEvent(new Event('higood:request-render'))
+    })
     return true
   }
   if (field === 'channel-listing-supplement-images' && fieldNode instanceof HTMLInputElement) {
@@ -7832,35 +8278,24 @@ export function handlePcsProjectsInput(target: Element): boolean {
   return false
 }
 
-function getInboundLineReceivedQty(line: string): number {
-  const labeledMatch = line.match(/(?:实收|收到|到样|数量|qty)[:：]?\s*(\d+)/i)
-  const pieceMatch = line.match(/(\d+)\s*(?:件|pcs|pieces|piece)/i)
-  const qty = Number(labeledMatch?.[1] || pieceMatch?.[1] || 1)
-  return Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 1
-}
-
-function getInboundLineSpecParts(line: string): { specText: string; colorName: string; sizeName: string } {
-  const specText = line
-    .replace(/(?:实收|收到|到样|数量|qty)[:：]?\s*\d+\s*(?:件|pcs|pieces|piece)?/i, '')
-    .replace(/\d+\s*(?:件|pcs|pieces|piece)/i, '')
-    .replace(/[，,；;]+$/g, '')
-    .trim()
-  const parts = specText
-    .split(/[\/|｜]/)
-    .map((item) => item.replace(/[：:].*$/g, '').trim())
-    .filter(Boolean)
-  return {
-    specText: specText || line.trim(),
-    colorName: parts[0] || '',
-    sizeName: parts[1] || '',
-  }
-}
-
 function buildInboundSampleCode(project: PcsProjectRecord, index: number): string {
   const projectCode = (project.projectCode || project.projectId || 'PROJECT')
     .replace(/^PRJ-/, '')
     .replace(/[^0-9A-Za-z-]/g, '')
   return `SMP-${projectCode}-${String(index).padStart(2, '0')}`
+}
+
+type SampleInboundAssetDraft = {
+  sampleCode: string
+  specText: string
+  colorName: string
+  sizeName: string
+  plannedQty: number
+  receivedQty: number
+  arrivalStatus: string
+  sourceLine: string
+  imageId?: string
+  imageUrl?: string
 }
 
 function buildSampleInboundDerivedValues(
@@ -7870,21 +8305,32 @@ function buildSampleInboundDerivedValues(
   sampleInboundLines: string[]
   receivedQty: number
   generatedSampleCodes: string[]
-  sampleAssets: Array<{ sampleCode: string; specText: string; colorName: string; sizeName: string; sourceLine: string }>
+  sampleAssets: SampleInboundAssetDraft[]
 } {
-  const sampleInboundLines = getDraftStringArray(values.sampleInboundLines)
-  const sampleAssets: Array<{ sampleCode: string; specText: string; colorName: string; sizeName: string; sourceLine: string }> = []
+  const rows = parseSampleInboundLineRows(values.sampleInboundLines)
+  const sampleInboundLines = rows.map(formatSampleInboundLine)
+  const sampleImageIds = getDraftStringArray(values.sampleImageIds)
+  const sampleAssets: SampleInboundAssetDraft[] = []
 
-  sampleInboundLines.forEach((line) => {
-    const qty = getInboundLineReceivedQty(line)
-    const specParts = getInboundLineSpecParts(line)
-    for (let index = 0; index < qty; index += 1) {
+  rows.forEach((row) => {
+    const plannedQty = getQtyNumber(row.plannedQty)
+    const receivedQty = getQtyNumber(row.receivedQty)
+    const sourceLine = formatSampleInboundLine(row)
+    const arrivalStatus = deriveSampleInboundArrivalStatus(row)
+    for (let index = 0; index < receivedQty; index += 1) {
+      const imageId = sampleImageIds[sampleAssets.length % Math.max(sampleImageIds.length, 1)] || ''
+      const image = imageId ? findProjectImageViewModelById(project.projectId, imageId) : null
       sampleAssets.push({
         sampleCode: buildInboundSampleCode(project, sampleAssets.length + 1),
-        specText: specParts.specText,
-        colorName: specParts.colorName,
-        sizeName: specParts.sizeName,
-        sourceLine: line,
+        specText: `${row.colorName || '-'} / ${row.sizeName || '-'}`,
+        colorName: row.colorName,
+        sizeName: row.sizeName,
+        plannedQty,
+        receivedQty: 1,
+        arrivalStatus,
+        sourceLine,
+        ...(imageId ? { imageId } : {}),
+        ...(image?.imageUrl ? { imageUrl: image.imageUrl } : {}),
       })
     }
   })
@@ -8746,6 +9192,24 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     state.notice = '参考图片已删除。'
     return true
   }
+  if (action === 'remove-sample-inbound-image') {
+    const imageId = actionNode.dataset.imageId || ''
+    const context = getCurrentProjectNodeContext()
+    if (!imageId || !context || context.node.node.workItemTypeCode !== 'SAMPLE_INBOUND_CHECK' || !canEditProjectNodeFields(context.node)) {
+      state.notice = '当前节点暂不可移除样衣图片。'
+      return true
+    }
+    syncRecordDraftFromDom(context.project, context.node)
+    const draft = getNodeRecordDraft(context.project, context.node)
+    setRecordDraftState(context.project, context.node, {
+      open: state.recordDialog.open,
+      values: {
+        sampleImageIds: getDraftStringArray(draft.values.sampleImageIds).filter((item) => item !== imageId),
+      },
+    })
+    state.notice = '样衣图片已移除。'
+    return true
+  }
   if (action === 'set-sample-shoot-image-usage') {
     const imageId = actionNode.dataset.imageId || ''
     const usage = actionNode.dataset.usage || ''
@@ -8829,6 +9293,15 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   if (action === 'remove-sample-purchase-spec-row') {
     const rowIndex = Number.parseInt(actionNode.dataset.rowIndex ?? '', 10)
     updateSamplePurchaseSpecRowsFromDom((rows) => rows.filter((_, index) => index !== rowIndex))
+    return true
+  }
+  if (action === 'add-sample-inbound-row') {
+    updateSampleInboundLineRowsFromDom((rows) => [...rows, normalizeSampleInboundLineRow({})])
+    return true
+  }
+  if (action === 'remove-sample-inbound-row') {
+    const rowIndex = Number.parseInt(actionNode.dataset.rowIndex ?? '', 10)
+    updateSampleInboundLineRowsFromDom((rows) => rows.filter((_, index) => index !== rowIndex))
     return true
   }
   if (action === 'save-formal-fields') {

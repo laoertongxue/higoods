@@ -33,6 +33,7 @@ export type SpreadingSourceChannel = 'MANUAL' | 'PDA_WRITEBACK' | 'MIXED'
 export type SpreadingOperatorActionType = '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
 export type SpreadingPricingMode = '按件计价' | '按长度计价' | '按层计价'
 export type SpreadingWarningLevel = '低' | '中' | '高'
+export type SpreadingOperationStatusType = '铺布状态' | '裁剪状态'
 export type SpreadingSuggestedAction = '无需补料' | '差异处理' | '数据不足，待补录' | '存在异常差异，需人工确认'
 export const MARKER_SIZE_KEYS = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'onesize', 'plusonesize'] as const
 export type MarkerSizeKey = (typeof MARKER_SIZE_KEYS)[number]
@@ -487,6 +488,17 @@ export interface SpreadingCompletionLinkage {
   note: string
 }
 
+export interface SpreadingOperationLog {
+  logId: string
+  occurredAt: string
+  operatorName: string
+  statusType: SpreadingOperationStatusType
+  actionLabel: string
+  fromStatusLabel: string
+  toStatusLabel: string
+  remark: string
+}
+
 export interface SpreadingCompletionValidationResult {
   allowed: boolean
   messages: string[]
@@ -598,6 +610,7 @@ export interface SpreadingSession {
   updatedFromPdaAt: string
   rolls: SpreadingRollRecord[]
   operators: SpreadingOperatorRecord[]
+  operationLogs?: SpreadingOperationLog[]
 }
 
 export interface SpreadingMarkerBedIdentitySource {
@@ -885,7 +898,7 @@ const spreadingCuttingStatusMeta: Record<SpreadingCuttingStatusKey, { label: str
     detailText: '当前正在裁剪。',
   },
   CUTTING_DONE: {
-    label: '已裁剪',
+    label: '裁剪完成',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
     detailText: '裁剪已完成。',
   },
@@ -918,7 +931,7 @@ export const spreadingOrderStatusMeta: Record<SpreadingOrderStatusKey, { label: 
     detailText: '当前裁剪正在执行。',
   },
   CUT_DONE: {
-    label: '已裁剪',
+    label: '裁剪完成',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
     detailText: '裁剪已完成。',
   },
@@ -931,11 +944,13 @@ export const spreadingOrderStatusMeta: Record<SpreadingOrderStatusKey, { label: 
 
 export function resolveSpreadingOrderStatusFromSession(session: SpreadingSession | null | undefined): SpreadingOrderStatusKey {
   if (!session) return 'WAITING_SPREADING'
-  if (session.cuttingStatus === 'CUTTING_DONE') return 'CUT_DONE'
-  if (session.cuttingStatus === 'CUTTING') return 'CUTTING'
-  if (session.cuttingStatus === 'WAITING_CUTTING') return 'WAITING_CUTTING'
   if (session.status === 'IN_PROGRESS') return 'SPREADING'
-  if (session.status === 'DONE') return 'SPREAD_DONE'
+  if (session.status === 'DONE') {
+    if (session.cuttingStatus === 'CUTTING_DONE') return 'CUT_DONE'
+    if (session.cuttingStatus === 'CUTTING') return 'CUTTING'
+    if (session.cuttingStatus === 'WAITING_CUTTING') return 'WAITING_CUTTING'
+    return 'WAITING_CUTTING'
+  }
   return 'WAITING_SPREADING'
 }
 
@@ -3259,6 +3274,156 @@ export function deriveSpreadingCuttingStatus(status: SpreadingCuttingStatusKey):
   return createSummaryMeta(status, meta.label, meta.className, meta.detailText)
 }
 
+export function getSpreadingStatusLabel(status: SpreadingStatusKey | undefined): string {
+  return status ? deriveSpreadingListStatus(status).label : '无'
+}
+
+export function getSpreadingCuttingStatusLabel(status: SpreadingCuttingStatusKey | undefined): string {
+  return status ? deriveSpreadingCuttingStatus(status).label : '无'
+}
+
+export function createSpreadingOperationLog(options: {
+  logId?: string
+  occurredAt: string
+  operatorName?: string
+  statusType: SpreadingOperationStatusType
+  actionLabel: string
+  fromStatusLabel: string
+  toStatusLabel: string
+  remark?: string
+}): SpreadingOperationLog {
+  const fallbackId = [
+    'spreading-operation-log',
+    options.statusType,
+    options.actionLabel,
+    options.occurredAt,
+    options.fromStatusLabel,
+    options.toStatusLabel,
+  ]
+    .join('-')
+    .replace(/[^\w\u4e00-\u9fa5-]+/g, '-')
+
+  return {
+    logId: options.logId || fallbackId,
+    occurredAt: options.occurredAt,
+    operatorName: options.operatorName || '系统',
+    statusType: options.statusType,
+    actionLabel: options.actionLabel,
+    fromStatusLabel: options.fromStatusLabel,
+    toStatusLabel: options.toStatusLabel,
+    remark: options.remark || '',
+  }
+}
+
+export function normalizeSpreadingOperationLogs(logs: unknown): SpreadingOperationLog[] {
+  if (!Array.isArray(logs)) return []
+  return logs
+    .map((item, index) => {
+      const raw = item as Partial<SpreadingOperationLog>
+      const occurredAt = raw.occurredAt || ''
+      const statusType = raw.statusType === '裁剪状态' ? '裁剪状态' : '铺布状态'
+      const actionLabel = raw.actionLabel || '状态变更'
+      const fromStatusLabel = raw.fromStatusLabel || '无'
+      const toStatusLabel = raw.toStatusLabel || '无'
+      return createSpreadingOperationLog({
+        logId: raw.logId || `spreading-operation-log-${index + 1}`,
+        occurredAt,
+        operatorName: raw.operatorName || '系统',
+        statusType,
+        actionLabel,
+        fromStatusLabel,
+        toStatusLabel,
+        remark: raw.remark || '',
+      })
+    })
+    .filter((item) => item.occurredAt && item.actionLabel)
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt, 'zh-CN'))
+}
+
+export function buildSpreadingSessionOperationLogs(session: Partial<SpreadingSession>): SpreadingOperationLog[] {
+  const logs: SpreadingOperationLog[] = []
+  const createdAt = session.createdAt || session.updatedAt || nowText()
+  const actualStartAt = session.actualStartAt || ''
+  const actualEndAt = session.actualEndAt || ''
+  const cuttingStatus = session.status === 'DONE' ? session.cuttingStatus || 'WAITING_CUTTING' : undefined
+
+  logs.push(createSpreadingOperationLog({
+    logId: `${session.spreadingSessionId || 'spreading'}-created`,
+    occurredAt: createdAt,
+    operatorName: session.ownerName || '系统',
+    statusType: '铺布状态',
+    actionLabel: '创建铺布单',
+    fromStatusLabel: '无',
+    toStatusLabel: getSpreadingStatusLabel('DRAFT'),
+    remark: '铺布单创建后进入待铺布。',
+  }))
+
+  if (session.status === 'IN_PROGRESS' || session.status === 'DONE') {
+    logs.push(createSpreadingOperationLog({
+      logId: `${session.spreadingSessionId || 'spreading'}-start-spreading`,
+      occurredAt: actualStartAt || session.updatedAt || createdAt,
+      operatorName: session.ownerName || '铺布主管',
+      statusType: '铺布状态',
+      actionLabel: '开始铺布',
+      fromStatusLabel: getSpreadingStatusLabel('DRAFT'),
+      toStatusLabel: getSpreadingStatusLabel('IN_PROGRESS'),
+      remark: '现场开始执行铺布。',
+    }))
+  }
+
+  if (session.status === 'DONE') {
+    const completedAt = actualEndAt || session.updatedAt || createdAt
+    logs.push(createSpreadingOperationLog({
+      logId: `${session.spreadingSessionId || 'spreading'}-finish-spreading`,
+      occurredAt: completedAt,
+      operatorName: session.ownerName || '铺布主管',
+      statusType: '铺布状态',
+      actionLabel: '完成铺布',
+      fromStatusLabel: getSpreadingStatusLabel('IN_PROGRESS'),
+      toStatusLabel: getSpreadingStatusLabel('DONE'),
+      remark: '铺布完成后才生成裁剪状态。',
+    }))
+    logs.push(createSpreadingOperationLog({
+      logId: `${session.spreadingSessionId || 'spreading'}-waiting-cutting`,
+      occurredAt: session.cuttingStatusUpdatedAt || completedAt,
+      operatorName: session.ownerName || '系统',
+      statusType: '裁剪状态',
+      actionLabel: '生成裁剪状态',
+      fromStatusLabel: '无',
+      toStatusLabel: getSpreadingCuttingStatusLabel('WAITING_CUTTING'),
+      remark: '铺布状态为已铺布后，裁剪状态进入待裁剪。',
+    }))
+  }
+
+  if (cuttingStatus === 'CUTTING' || cuttingStatus === 'CUTTING_DONE') {
+    logs.push(createSpreadingOperationLog({
+      logId: `${session.spreadingSessionId || 'spreading'}-start-cutting`,
+      occurredAt: session.cuttingStartedAt || session.cuttingStatusUpdatedAt || session.updatedAt || createdAt,
+      operatorName: session.ownerName || '裁剪主管',
+      statusType: '裁剪状态',
+      actionLabel: '裁剪',
+      fromStatusLabel: getSpreadingCuttingStatusLabel('WAITING_CUTTING'),
+      toStatusLabel: getSpreadingCuttingStatusLabel('CUTTING'),
+      remark: '开始裁剪铺布单。',
+    }))
+  }
+
+  if (cuttingStatus === 'CUTTING_DONE') {
+    logs.push(createSpreadingOperationLog({
+      logId: `${session.spreadingSessionId || 'spreading'}-finish-cutting`,
+      occurredAt: session.cuttingFinishedAt || session.cuttingStatusUpdatedAt || session.updatedAt || createdAt,
+      operatorName: session.ownerName || '裁剪主管',
+      statusType: '裁剪状态',
+      actionLabel: '完成裁剪',
+      fromStatusLabel: getSpreadingCuttingStatusLabel('CUTTING'),
+      toStatusLabel: getSpreadingCuttingStatusLabel('CUTTING_DONE'),
+      remark: '铺布单裁剪完成。',
+    }))
+  }
+
+  return normalizeSpreadingOperationLogs(logs)
+}
+
 export function deriveSpreadingSupervisorStage(options: {
   status: SpreadingStatusKey
   pendingReplenishmentConfirmation: boolean
@@ -3640,6 +3805,7 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                 })
               : []
             const rollSummary = summarizeSpreadingRolls(rolls)
+            const operationLogs = normalizeSpreadingOperationLogs(session.operationLogs)
             return {
               ...session,
               contextType: session.contextType === 'marker-plan' ? 'marker-plan' : 'cut-order',
@@ -3740,6 +3906,7 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                   }
                 : undefined,
               prototypeLifecycleOverrides: session.prototypeLifecycleOverrides || null,
+              operationLogs: operationLogs.length ? operationLogs : buildSpreadingSessionOperationLogs(session),
             }
           })
         : [],
@@ -4007,6 +4174,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
   }))
   const summary = summarizeSpreadingRolls(rollsWithOperatorNames)
   const operatorAmountSummary = summarizeSpreadingOperatorAmounts(normalizedOperators, markerTotalPieces, session.unitPrice)
+  const operationLogs = normalizeSpreadingOperationLogs(session.operationLogs)
   const normalized: SpreadingSession = {
     ...session,
     rolls: rollsWithOperatorNames,
@@ -4064,6 +4232,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     updatedFromPdaAt: session.updatedFromPdaAt || '',
     planUnits: session.planUnits || [],
     prototypeLifecycleOverrides: session.prototypeLifecycleOverrides || null,
+    operationLogs: operationLogs.length ? operationLogs : buildSpreadingSessionOperationLogs(session),
   }
 
   return {

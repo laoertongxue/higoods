@@ -29,7 +29,6 @@ function main(): void {
   const pdaPageFile = 'src/pages/pda-cutting-spreading.ts'
   const spreadingListTest = 'tests/cutting-marker-spreading-list.spec.ts'
   const spreadingListTabsTest = 'tests/cutting-marker-spreading-list-tabs.spec.ts'
-  const spreadingCrossModuleTest = 'tests/cutting-marker-spreading-cross-module-navigation.spec.ts'
   const spreadingDetailEditTest = 'tests/cutting-marker-spreading-detail-edit.spec.ts'
   const spreadingEditorActionsTest = 'tests/cutting-marker-spreading-editor-actions.spec.ts'
   const pdaTest = 'tests/cutting-pda-spreading.spec.ts'
@@ -42,7 +41,6 @@ function main(): void {
   assertFileExists(submitActionsFile)
   assertFileExists(spreadingListTest)
   assertFileExists(spreadingListTabsTest)
-  assertFileExists(spreadingCrossModuleTest)
   assertFileExists(spreadingDetailEditTest)
   assertFileExists(spreadingEditorActionsTest)
   assertFileExists(pdaTest)
@@ -53,6 +51,8 @@ function main(): void {
     'renderWorkbenchStateBar(',
     'renderCompactKpiCard(',
     'renderStickyTableScroller(',
+    "renderListSelect('裁片状态'",
+    'data-cutting-spreading-list-field="cutting-status"',
     "data-cutting-marker-action=\"create-spreading\"",
     "data-cutting-marker-action=\"open-spreading-detail\"",
     "data-cutting-marker-action=\"open-spreading-edit\"",
@@ -60,9 +60,24 @@ function main(): void {
   ].forEach((token) => {
     assert(pageSource.includes(token), `${pageFile} 缺少关键铺布页面能力：${token}`)
   })
+  ;[
+    "label: '待裁剪'",
+    "label: '裁剪中'",
+    "label: '裁剪完成'",
+    "row.mainStageKey !== 'DONE' || row.cuttingStatusKey !== state.cuttingStatusFilter",
+    '<div class="text-muted-foreground">-</div>',
+  ].forEach((token) => {
+    assert(pageSource.includes(token), `${pageFile} 缺少裁片状态筛选或展示规则：${token}`)
+  })
+  ;[
+    'data-testid="cutting-spreading-stage-tabs"',
+    'switch-spreading-list-tab',
+    'data-list-tab=',
+  ].forEach((token) => {
+    assert(!pageSource.includes(token), `${pageFile} 不应继续保留铺布状态快速筛选标签：${token}`)
+  })
 
   ;[
-    '唛架记录',
     'data-cutting-marker-action="open-marker-detail"',
     'data-cutting-marker-action="open-marker-edit"',
     'data-cutting-marker-action="create-marker"',
@@ -107,11 +122,11 @@ function main(): void {
   assert(!pageSource.includes("if (nextStatus === 'DONE') return completeCurrentSpreading()"), `${pageFile} 不应允许通过普通状态流转直接完成铺布`)
 
   ;[
-    'operatorActionType',
-    'handoverFlag',
+    'operatorAccountId',
+    'handoverToAccountId',
     'handoverNote',
     'recordType',
-    'data-pda-cut-spreading-field="recordType"',
+    "const recordType = actionLabel === '完成铺布' ? '完成铺布' : '开始铺布'",
     'data-pda-cut-spreading-field="spreadingMode"',
   ].forEach((token) => {
     assert(pdaSource.includes(token), `${pdaPageFile} 缺少 PDA 铺布录入闭环字段：${token}`)

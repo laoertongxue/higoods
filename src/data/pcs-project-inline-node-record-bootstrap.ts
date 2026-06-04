@@ -702,12 +702,12 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
       sourceDocCode: `SRC-${projectCode.slice(-3)}-001`,
       businessDate,
       payload: {
-        sampleInboundLines: [`${scenario.colorCode} / ${scenario.sizeCombination}：实收 ${scenario.sampleQuantity} 件`],
+        sampleInboundLines: [`${scenario.colorCode} / ${scenario.sizeCombination}：计划 ${scenario.sampleQuantity} 件，实收 ${scenario.sampleQuantity} 件，状态 到齐`],
         receivedQty: scenario.sampleQuantity,
         generatedSampleCodes: sampleCodes,
         receivedAt: businessDate,
         sampleImageIds: [],
-        qualityCheckResult: '通过',
+        qualityCheckResult: '到样完整',
         checkResult: '样衣结果与项目输入核对一致',
       },
       detailSnapshot: {
@@ -721,7 +721,10 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
           specText: `${scenario.colorCode} / ${scenario.sizeCombination}`,
           colorName: scenario.colorCode,
           sizeName: scenario.sizeCombination,
-          sourceLine: `${scenario.colorCode} / ${scenario.sizeCombination}：实收 ${scenario.sampleQuantity} 件`,
+          plannedQty: scenario.sampleQuantity,
+          receivedQty: 1,
+          arrivalStatus: '到齐',
+          sourceLine: `${scenario.colorCode} / ${scenario.sizeCombination}：计划 ${scenario.sampleQuantity} 件，实收 ${scenario.sampleQuantity} 件，状态 到齐`,
         })),
       },
     }
@@ -1149,12 +1152,12 @@ function buildGenericInlineSeed(
       sourceDocCode: `SRC-${projectCode.slice(-3)}-GEN`,
       businessDate,
       payload: {
-        sampleInboundLines: ['默认色 / M：实收 1 件'],
+        sampleInboundLines: ['默认色 / M：计划 1 件，实收 1 件，状态 到齐'],
         receivedQty: 1,
         generatedSampleCodes: sampleCodes,
         receivedAt: businessDate,
         sampleImageIds: [],
-        qualityCheckResult: '通过',
+        qualityCheckResult: '到样完整',
         checkResult: '样衣结果与项目输入核对一致',
       },
       detailSnapshot: {
@@ -1168,7 +1171,10 @@ function buildGenericInlineSeed(
           specText: '默认色 / M',
           colorName: '默认色',
           sizeName: 'M',
-          sourceLine: '默认色 / M：实收 1 件',
+          plannedQty: 1,
+          receivedQty: 1,
+          arrivalStatus: '到齐',
+          sourceLine: '默认色 / M：计划 1 件，实收 1 件，状态 到齐',
         })),
       },
     }

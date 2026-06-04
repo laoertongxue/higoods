@@ -35,8 +35,8 @@ import {
   type SewingTaskAllocationInventoryRecord,
 } from '../src/data/fcs/cutting/sewing-dispatch.ts'
 import { buildSpreadingReplenishmentHandlingObjects, listSpreadingDifferences } from '../src/data/fcs/cutting/spreading-differences.ts'
+import { buildBindingProcessOrders } from '../src/pages/process-factory/cutting/binding-strip-orders.ts'
 import { buildFeiTicketLabelPrintProjection } from '../src/pages/process-factory/cutting/fei-ticket-print-projection.ts'
-import { buildBindingProcessOrders } from '../src/pages/process-factory/cutting/special-processes.ts'
 import {
   buildInboundTempBagInventoryRecords,
   buildInboundTempBagsFromTransferBagViewModel,
@@ -358,10 +358,22 @@ function assertDifferencesReplenishmentCloseAndBinding(): void {
   assertEvery(closeRecords, (record) => Boolean(record.ledgerSnapshotBeforeClose && record.openImpactItems.length > 0 && record.linkedLedgerEventIds.length > 0), '关闭记录必须有关闭前数量账快照、影响项和事件')
 
   const bindingOrders = buildBindingProcessOrders()
-  assert(bindingOrders.some((order) => order.processMode === '裁床内部加工' && order.status === '已入库'), '缺少内部捆条完成入库场景')
-  assert(bindingOrders.some((order) => order.processMode === '外部承接工厂加工' && order.externalHandoverOrderNo && order.externalReturnStatus), '外部捆条必须走特殊工艺交出和回仓')
-  bindingOrders.filter((order) => order.abnormalItems.length > 0).forEach((order) => {
-    assert(order.linkedReplenishmentIds.length > 0 || order.linkedLedgerEventIds.length > 0 || order.linkedCheckItemIds.length > 0, `捆条异常必须进入补料、数量账或核查：${order.bindingOrderNo}`)
+  const allowedBindingStatuses = ['待加工', '加工中', '已完成', '已取消'] as const
+  assert(bindingOrders.length > 0, '缺少捆条加工单')
+  assertEvery(bindingOrders, (order) => allowedBindingStatuses.includes(order.status), '捆条加工单主状态只能表达加工生命周期')
+  assert(bindingOrders.some((order) => order.status === '待加工'), '缺少待加工捆条加工单')
+  assert(bindingOrders.some((order) => order.status === '加工中' && order.cuttingRecords.length > 0), '缺少分次裁剪中的捆条加工单')
+  assert(bindingOrders.some((order) => order.status === '已完成' && order.cuttingRecords.length > 1), '缺少多次完成裁剪的捆条加工单')
+  assert(bindingOrders.some((order) => order.bindingDetails.length > 1), '缺少同一加工单多种宽度规格的捆条明细')
+  assert(bindingOrders.some((order) => order.differenceStatus === '有差异' && order.differenceRecords.length > 0), '缺少仅记录差异的捆条加工单')
+  assert(bindingOrders.some((order) => order.inboundStatus === '已入仓'), '缺少捆条入仓派生状态')
+  assert(bindingOrders.some((order) => order.handoverStatus === '已装袋待交出' || order.handoverStatus === '已交出'), '缺少捆条装袋交出派生状态')
+  assertEvery(bindingOrders, (order) => !order.sourceSpreadingOrderId && !order.sourceSpreadingOrderNo, '捆条加工单不应绑定具体铺布单')
+  bindingOrders.forEach((order) => {
+    assertEvery(order.bindingDetails, (detail) => Boolean(detail.bindingWidth > 0 && detail.requiredLength > 0 && detail.feiTicketNo), `捆条明细必须带宽度、计划长度和唯一菲票：${order.bindingOrderNo}`)
+  })
+  bindingOrders.filter((order) => order.differenceRecords.length > 0).forEach((order) => {
+    assert(order.linkedReplenishmentIds.length > 0 || order.linkedLedgerEventIds.length > 0 || order.linkedCheckItemIds.length > 0, `捆条差异必须进入补料、数量账或核查：${order.bindingOrderNo}`)
   })
 }
 

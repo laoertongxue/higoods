@@ -14,36 +14,24 @@ const modelPath = path.join(
 )
 
 const productionHeaders = [
-  '紧急程度',
-  '生产单号',
-  '款号 / SPU',
-  '下单件数',
-  '计划发货日期',
-  '配料进展',
-  '领料进展',
-  '裁片单数',
-  '当前进展',
-  '部位差异',
-  '风险提示',
+  '生产单',
+  '交期 / 数量',
+  '裁片单概况',
+  '数量账摘要',
+  '唛架 / 铺布',
+  '菲票 / 入仓',
+  '交出 / 风险',
   '操作',
 ] as const
 
 const cutOrderHeaders = [
-  '裁片单号',
-  '生产单号',
-  '款号 / SPU',
-  '面料 SKU',
-  '工厂',
-  '关联数量',
-  '计划发货日期',
-  '紧急程度',
-  '配料',
-  '领料',
-  '裁剪',
-  '菲票',
-  '特殊工艺回仓',
-  '裁片交出',
-  '当前阻塞',
+  '裁片单',
+  '生产单与款式',
+  '面料 / 纸样',
+  '数量账',
+  '主状态与判断',
+  '作业关系',
+  '交出 / 缺口',
   '操作',
 ] as const
 
@@ -80,10 +68,9 @@ function main(): void {
   )
 
   assert(modelSource.includes("type ProductionProgressViewDimension = 'CUT_ORDER' | 'PRODUCTION_ORDER'"), '裁床进度模型缺少 CUT_ORDER / PRODUCTION_ORDER 双维度定义')
-  assert(source.includes("viewDimension: 'CUT_ORDER'"), '裁床进度默认视图必须是裁片单维度')
-  assert(source.includes('renderViewDimensionSwitch'), '裁床进度缺少展示维度切换')
-  assert(source.includes('裁片单维度'), '裁床进度缺少裁片单维度文案')
-  assert(source.includes('生产单维度'), '裁床进度缺少生产单维度文案')
+  assert(source.includes("viewDimension: 'PRODUCTION_ORDER'"), '裁床进度默认视图必须是生产单维度')
+  assert(source.includes('生产单列表'), '裁床进度缺少生产单列表文案')
+  assert(source.includes('裁片单主表'), '裁床进度缺少裁片单主表文案')
   assert(source.includes('renderCutOrderTable'), '裁床进度缺少裁片单维度表格')
   assert(source.includes('renderProductionOrderTable'), '裁床进度缺少生产单维度表格')
   assert(source.includes('renderMainTable'), '裁床进度缺少双维度统一入口')
@@ -95,13 +82,16 @@ function main(): void {
   assert(source.includes('transferBagCombinedWritebackStatus'), '裁床进度缺少 Step 4 综合回写状态消费')
   assert(source.includes('transferBagBagDifferenceCount'), '裁床进度缺少袋级差异消费')
   assert(source.includes('transferBagFeiTicketDifferenceCount'), '裁床进度缺少菲票级差异消费')
+  assert(source.includes('bindingProcessOrders'), '生产单总览缺少捆条加工单链路数据')
+  assert(source.includes('捆条加工：'), '生产单裁片单卡片缺少捆条加工展示')
+  assert(source.includes('当前生产单暂无捆条加工单'), '生产单特殊工艺页签缺少捆条加工空状态')
 
   console.log(
     [
       '裁床进度列与默认维度检查通过',
       `生产单维度列数：${actualProductionHeaders.length}`,
       `裁片单维度列数：${actualCutOrderHeaders.length}`,
-      '默认维度：CUT_ORDER',
+      '默认维度：PRODUCTION_ORDER',
     ].join('\n'),
   )
 }

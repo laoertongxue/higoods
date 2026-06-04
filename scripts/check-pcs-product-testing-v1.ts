@@ -177,6 +177,20 @@ assertIncludesAll(
   ['sampleInboundLines', 'receivedQty', 'generatedSampleCodes', 'receivedAt', 'sampleImageIds', 'qualityCheckResult', 'checkResult'],
   '样衣结果核对字段未覆盖到样登记、样衣编号和实物核对',
 )
+const sampleInboundContract = getProjectWorkItemContract('SAMPLE_INBOUND_CHECK')
+assert.equal(sampleInboundContract.phaseCode, 'PHASE_02', '样衣结果核对必须归属样衣形成与商品准备阶段')
+const sampleInboundLinesField = sampleInboundContract.fieldDefinitions.find((field) => field.fieldKey === 'sampleInboundLines')
+assert.equal(sampleInboundLinesField?.type, 'table', '样衣结果核对应按颜色、尺码、计划数、实收数结构化登记')
+assert.match(sampleInboundLinesField?.businessLogic || '', /实收件数生成样衣资产编号/, '样衣编号必须由实收数量生成')
+const qualityCheckResultField = sampleInboundContract.fieldDefinitions.find((field) => field.fieldKey === 'qualityCheckResult')
+assert.equal(qualityCheckResultField?.required, true, '到样核对结果必须为完成节点时必填')
+assert.deepEqual(
+  qualityCheckResultField?.options?.map((option) => option.value),
+  ['到样完整', '到样有差异', '待补齐'],
+  '样衣结果核对只记录到样完整、到样有差异或待补齐',
+)
+const checkResultField = sampleInboundContract.fieldDefinitions.find((field) => field.fieldKey === 'checkResult')
+assert.equal(checkResultField?.required, true, '核对说明必须为完成节点时必填')
 assert.deepEqual(
   fieldOptions('FEASIBILITY_REVIEW', 'reviewConclusion'),
   ['进入测款', '样衣退回', '重新改版出样衣'],

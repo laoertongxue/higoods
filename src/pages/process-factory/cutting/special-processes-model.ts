@@ -45,7 +45,11 @@ export type SpecialProcessFollowupActionStatus = 'PENDING' | 'DONE' | 'SKIPPED'
 export type SpecialProcessReadinessLevel = 'READY' | 'RESERVED'
 export type SpecialProcessIntegrationLevel = 'EXECUTION' | 'PLACEHOLDER'
 export type BindingProcessMode = '裁床内部加工' | '外部承接工厂加工'
-export type BindingProcessStatus = '待加工' | '加工中' | '已完成' | '异常处理中' | '已入库' | '已取消'
+export type BindingProcessStatus = '待加工' | '加工中' | '已完成' | '已取消'
+export type BindingProcessPrintStatus = '未生成' | '待打印' | '已打印'
+export type BindingProcessInboundStatus = '未入仓' | '部分入仓' | '已入仓'
+export type BindingProcessHandoverStatus = '未装袋' | '已装袋待交出' | '已交出'
+export type BindingProcessDifferenceStatus = '无差异' | '有差异'
 
 export interface BindingProcessMaterialIdentity {
   materialSku: string
@@ -84,6 +88,56 @@ export interface BindingProcessAbnormalItem {
   reportedBy: string
 }
 
+export interface BindingStripCuttingRecord {
+  recordId: string
+  detailId: string
+  bindingStripId: string
+  bindingWidth: number
+  actualLength: number
+  operatorName: string
+  operatedAt: string
+  remark: string
+}
+
+export interface BindingStripDifferenceRecord {
+  differenceId: string
+  detailId: string
+  bindingStripId: string
+  differenceType: '短裁差异' | '超裁差异' | '手动结束差异'
+  plannedLength: number
+  actualLength: number
+  differenceLength: number
+  reason: string
+  recordedBy: string
+  recordedAt: string
+}
+
+export interface BindingStripWorkOrderDetail {
+  detailId: string
+  bindingStripId: string
+  bindingStripNo: string
+  bindingStripName: string
+  bindingWidth: number
+  sourceLengthCm: number
+  doorWidthCm: number
+  rawRequiredLength: number
+  requiredLength: number
+  minRequiredLength: number
+  minRequiredLengthApplied: boolean
+  actualLength: number
+  differenceLength: number
+  printStatus: BindingProcessPrintStatus
+  inboundStatus: BindingProcessInboundStatus
+  handoverStatus: BindingProcessHandoverStatus
+  differenceStatus: BindingProcessDifferenceStatus
+  feiTicketId: string
+  feiTicketNo: string
+  inventoryRecordIds: string[]
+  cuttingRecords: BindingStripCuttingRecord[]
+  differenceRecords: BindingStripDifferenceRecord[]
+  formulaText: string
+}
+
 export interface BindingProcessOrder {
   bindingOrderId: string
   bindingOrderNo: string
@@ -93,17 +147,25 @@ export interface BindingProcessOrder {
   sourceCutOrderNo: string
   sourceProductionOrderId: string
   sourceProductionOrderNo: string
+  sourceMarkerPlanId: string
+  sourceMarkerPlanNo: string
   sourceSpreadingOrderId: string
   sourceSpreadingOrderNo: string
   sourceFeiTicketIds: string[]
   sourceFeiTicketNos: string[]
   materialIdentity: BindingProcessMaterialIdentity
   patternIdentity: BindingProcessPatternIdentity
+  sourcePatternPackageId: string
+  sourcePatternPackageName: string
+  doorWidthCm: number
+  bindingSpecificationCount: number
   bindingWidth: number
   plannedLength: number
   actualLength: number
   lossLength: number
   lossRate: number
+  plannedTotalLength: number
+  actualTotalLength: number
   plannedOutputQty: number
   actualOutputQty: number
   unit: string
@@ -111,6 +173,13 @@ export interface BindingProcessOrder {
   startedAt: string
   completedAt: string
   status: BindingProcessStatus
+  printStatus: BindingProcessPrintStatus
+  inboundStatus: BindingProcessInboundStatus
+  handoverStatus: BindingProcessHandoverStatus
+  differenceStatus: BindingProcessDifferenceStatus
+  bindingDetails: BindingStripWorkOrderDetail[]
+  cuttingRecords: BindingStripCuttingRecord[]
+  differenceRecords: BindingStripDifferenceRecord[]
   costItems: BindingProcessCostItem[]
   abnormalItems: BindingProcessAbnormalItem[]
   inboundInventoryRecordIds: string[]

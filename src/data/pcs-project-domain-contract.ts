@@ -1116,17 +1116,17 @@ const sampleInboundFields = [
     title: '样衣结果核对',
     description: '核对实际到样数量和明细，按收到的实物生成样衣资产编号；只确认样衣是否真实到位，不承担是否进入测款的业务决策。',
     fields: [
-      { key: 'sampleInboundLines', label: '到样明细 / 样衣登记明细', type: 'table', sourceKind: '本地主数据', sourceRef: '样衣结果核对.到样明细', meaning: '按实际收到的样衣实物记录规格和数量', logic: '样衣编号不提前手填；先记录实际收到的颜色、尺码、规格和件数，保存时按实收件数生成样衣资产编号。', required: true, placeholder: '例如：黑色 / M：实收 2 件' },
+      { key: 'sampleInboundLines', label: '到样明细 / 样衣登记明细', type: 'table', sourceKind: '本地主数据', sourceRef: '样衣结果核对.到样明细', meaning: '按实际收到的样衣实物记录颜色、尺码、计划数量、实收数量和差异', logic: '样衣编号不提前手填；先承接上游计划行，登记实际收到的颜色、尺码和件数，保存时按实收件数生成样衣资产编号。', required: true, placeholder: '例如：黑色 / M：计划 2 件，实收 2 件' },
       { key: 'receivedQty', label: '实际收到总数', type: 'number', sourceKind: '系统计算', sourceRef: '到样明细', meaning: '按到样明细汇总的实际收到件数', logic: '根据到样明细中的实收数量自动汇总，用于和样衣获取或改版任务中的计划数量核对。', required: false, readonly: true },
       { key: 'generatedSampleCodes', label: '生成样衣编号', type: 'table', sourceKind: '系统生成', sourceRef: '样衣库存', meaning: '本次核对后生成的样衣资产编号清单', logic: '每一件实际收到的样衣生成一个编号，并作为样衣管理模块的样衣库存资产标识。', required: false, readonly: true },
       { key: 'receivedAt', label: '收到时间', type: 'datetime', sourceKind: '本地主数据', sourceRef: '样衣结果核对', meaning: '样衣实际收到时间', logic: '样衣到样后补录，供项目进度和样衣库存追踪。', required: false },
       { key: 'sampleImageIds', label: '样衣图片', type: 'image-list', sourceKind: '样衣结果', sourceRef: '样衣图片结果池', meaning: '收到样衣后的图片证据', logic: '样衣图片进入项目图片结果池，可供上架、款式档案和样衣管理引用。', required: false },
-      { key: 'qualityCheckResult', label: '到样核对结果', type: 'single-select', sourceKind: '固定枚举', sourceRef: '样衣核对结果', meaning: '样衣实物到位和基础质量核对结果', logic: '用于记录实物是否完整、是否有明显质量或规格异常；是否进入测款由后续初步可行性判断决定。', options: [
-        { value: '通过', label: '通过' },
-        { value: '不通过', label: '不通过' },
-        { value: '需补充', label: '需补充' },
+      { key: 'qualityCheckResult', label: '到样核对结果', type: 'single-select', sourceKind: '固定枚举', sourceRef: '样衣核对结果', meaning: '样衣实物到位和基础质量核对结果', logic: '只记录到样是否完整和是否存在实物差异；是否进入测款由后续初步可行性判断决定。', required: true, options: [
+        { value: '到样完整', label: '到样完整' },
+        { value: '到样有差异', label: '到样有差异' },
+        { value: '待补齐', label: '待补齐' },
       ] },
-      { key: 'checkResult', label: '核对说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '样衣结果核对', meaning: '样衣核对说明', logic: '说明样衣是否完整、是否符合采购或改版要求、是否存在尺码/颜色/质量差异，作为后续初步可行性判断的输入。', placeholder: '请输入核对说明' },
+      { key: 'checkResult', label: '核对说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '样衣结果核对', meaning: '样衣核对说明', logic: '说明样衣是否完整、是否符合采购或改版要求、是否存在尺码/颜色/质量差异，作为后续初步可行性判断的输入。', required: true, placeholder: '请输入核对说明' },
     ],
   }),
 ]
@@ -2059,7 +2059,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     workItemId: 'WI-003',
     workItemTypeCode: 'SAMPLE_INBOUND_CHECK',
     workItemTypeName: '样衣结果核对',
-    phaseCode: 'PHASE_01',
+    phaseCode: 'PHASE_02',
     workItemNature: '执行类',
     runtimeType: 'execute',
     categoryName: '样衣准备',

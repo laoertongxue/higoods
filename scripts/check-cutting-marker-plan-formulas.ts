@@ -41,6 +41,11 @@ import {
   type MarkerHighLowMatrixCell,
   type MarkerPieceExplosionRow,
 } from '../src/pages/process-factory/cutting/marker-plan-domain.ts'
+import {
+  buildBindingStripRequiredLengthFormula,
+  calculateBindingStripRawRequiredLengthM,
+  calculateBindingStripRequiredLengthM,
+} from '../src/pages/process-factory/cutting/binding-strip-orders.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -325,6 +330,13 @@ function main(): void {
     modeDetailLines: [],
     singleSpreadFixedLoss: 0.06,
   })
+  const bindingRawRequiredLength = calculateBindingStripRawRequiredLengthM(500, 4, 100)
+  const bindingRequiredLength = calculateBindingStripRequiredLengthM(500, 4, 100)
+  const bindingRequiredFormula = buildBindingStripRequiredLengthFormula(500, 4, 100)
+  assert(bindingRawRequiredLength === 0.26, `捆条原始长度计算错误，期望 0.26，实际 ${bindingRawRequiredLength}`)
+  assert(bindingRequiredLength === 4, `捆条长度不足 4m 时必须按 4m 计算，实际 ${bindingRequiredLength}`)
+  assert(bindingRequiredFormula.includes('× 1.3'), '捆条长度公式必须体现固定损耗补偿 1.3')
+  assert(bindingRequiredFormula.includes('不足 4m'), '捆条长度公式必须体现不足 4m 按 4m 起算')
 
   ;[
     totalPiecesFormula,
@@ -341,6 +353,7 @@ function main(): void {
     explodedPieceFormula,
     skuExplodedPieceFormula,
     plannedSpreadFormula,
+    bindingRequiredFormula,
   ].forEach((formula, index) => {
     assert(Boolean(formula && formula.trim() && formula.includes('=')), `公式字符串缺失或为空，第 ${index + 1} 条`)
   })
@@ -351,6 +364,8 @@ function main(): void {
       `唛架成衣件数（件）：${totalPieces}`,
       `系统单件成衣用量（m/件）：${systemUnitUsage}`,
       `高低层矩阵成衣件数（件）：${matrixTotal}`,
+      `捆条原算长度样例（m）：${bindingRawRequiredLength}`,
+      `捆条计划长度样例（m）：${bindingRequiredLength}`,
       `模式数：${modeKeys.size}`,
     ].join('\n'),
   )

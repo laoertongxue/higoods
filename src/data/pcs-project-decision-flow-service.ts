@@ -415,19 +415,26 @@ export function routeProjectToRevisionTask(
   const nodes = listProjectNodes(projectId)
   const revisionNode = nodes.find((item) => item.workItemTypeCode === 'REVISION_TASK')
   if (!revisionNode) {
-    throw new Error('当前项目缺少改版任务工作项，不能回到重新改版出样衣。')
+    return {
+      ok: false,
+      message: '当前项目模板没有改版任务，不能选择重新改版出样衣。',
+      project: getProjectById(projectId),
+      node: decisionNode,
+      nextNode: null,
+    }
   }
-
+  const sampleInboundNodes = nodes.filter((item) => item.workItemTypeCode === 'SAMPLE_INBOUND_CHECK')
   const resultText = buildResultText(decisionNode.workItemTypeName, '重新改版出样衣', note)
+
   updateProjectNodeRecord(
     projectId,
     decisionNodeId,
     {
-      currentStatus: '已完成',
+      currentStatus: '未开始',
       latestResultType: '重新改版出样衣',
       latestResultText: resultText,
-      pendingActionType: '已完成',
-      pendingActionText: '当前决策已完成',
+      pendingActionType: '等待重新到样',
+      pendingActionText: '改版任务重新出样并完成样衣结果核对后，再次进行初步可行性判断。',
       updatedAt: timestamp,
       lastEventType: '重新改版出样衣',
       lastEventTime: timestamp,
@@ -453,12 +460,31 @@ export function routeProjectToRevisionTask(
   )
   syncProjectNodeInstanceRuntime(projectId, revisionNode.projectNodeId, operatorName, timestamp)
 
+  sampleInboundNodes.forEach((sampleInboundNode) => {
+    updateProjectNodeRecord(
+      projectId,
+      sampleInboundNode.projectNodeId,
+      {
+        currentStatus: '未开始',
+        latestResultType: '等待重新到样',
+        latestResultText: '改版任务重新出样后，需要重新登记实际收到的样衣。',
+        pendingActionType: '等待重新到样',
+        pendingActionText: '等待改版任务完成后重新核对样衣。',
+        updatedAt: timestamp,
+        lastEventType: '重新改版出样衣',
+        lastEventTime: timestamp,
+      },
+      operatorName,
+    )
+    syncProjectNodeInstanceRuntime(projectId, sampleInboundNode.projectNodeId, operatorName, timestamp)
+  })
+
   syncProjectLifecycleAfterDecision(projectId, operatorName, timestamp)
   updateProjectRecord(projectId, { projectStatus: '进行中', updatedAt: timestamp }, operatorName)
 
   return {
     ok: true,
-    message: '当前工作项已完成，已回到改版任务重新出样。',
+    message: '已回到改版任务重新出样；重新到样后需要再次核对样衣并做初步可行性判断。',
     project: getProjectById(projectId),
     node: getProjectNodeRecordById(projectId, decisionNodeId),
     nextNode: getProjectNodeRecordById(projectId, revisionNode.projectNodeId),

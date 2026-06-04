@@ -904,7 +904,8 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
     const sampleAssets = Array.isArray(detailSnapshot.sampleAssets) ? detailSnapshot.sampleAssets : []
     const sourceLines = asStringArray(payload.sampleInboundLines)
     const qualityCheckResult = String(payload.qualityCheckResult || '').trim()
-    const available = qualityCheckResult === '通过'
+    const isCompleteInbound = qualityCheckResult === '通过' || qualityCheckResult === '到样完整'
+    const isPendingSupplement = qualityCheckResult === '待补齐'
 
     return generatedCodes.map((sampleCode, index) => {
       const asset = sampleAssets[index]
@@ -912,12 +913,13 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
       const specText = getSampleAssetText(asset, 'specText') || sourceLine
       const colorName = getSampleAssetText(asset, 'colorName') || '-'
       const sizeName = getSampleAssetText(asset, 'sizeName') || '-'
+      const imageUrl = getSampleAssetText(asset, 'imageUrl') || `https://placehold.co/96x128?text=${encodeURIComponent(sampleCode)}`
 
       return {
         sampleId: `project-${record.recordId}-${sampleCode}`.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
         sampleCode,
         name: `${record.projectName} · ${specText}`,
-        imageUrl: `https://placehold.co/96x128?text=${encodeURIComponent(sampleCode)}`,
+        imageUrl,
         category: '项目样衣',
         size: sizeName,
         color: colorName,
@@ -927,8 +929,8 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
         projectCode: record.projectCode,
         projectName: record.projectName,
         relatedWorkItemName: record.workItemTypeName || '样衣结果核对',
-        status: available ? '在库可用' : '待处置',
-        availability: available ? '可申请' : '不可申请',
+        status: isPendingSupplement ? '在途待签收' : '在库可用',
+        availability: isCompleteInbound ? '可申请' : '需审批',
         responsibleSite: '深圳样衣间',
         currentLocation: String(detailSnapshot.warehouseLocation || '深圳样衣间'),
         locationDetail: `由${record.projectCode}样衣结果核对生成`,
@@ -937,8 +939,8 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
         occupiedFor: '',
         occupiedUntil: '',
         transit: null,
-        anomaly: qualityCheckResult === '不通过'
-          ? { type: '核对不通过', level: '中', since: record.businessDate, note: String(payload.checkResult || '样衣结果核对不通过') }
+        anomaly: qualityCheckResult === '到样有差异' || qualityCheckResult === '待补齐' || qualityCheckResult === '不通过'
+          ? { type: '到样差异', level: '中', since: record.businessDate, note: String(payload.checkResult || '样衣结果核对存在差异') }
           : null,
         updatedAt: record.updatedAt || record.businessDate,
         updatedBy: record.updatedBy || record.ownerName,
