@@ -1046,14 +1046,13 @@ function assertRichFlowData(
       ? [
           'sampleSourceType',
           'purchaseSupplierName',
-          'baseProductCode',
-          'expectedNewSpuCode',
-          'requestedSampleQty',
-          'revisionDirection',
-          'materialRequirement',
-          'printRequirement',
-          'paperPatternRequirement',
-          'designDraftRequirement',
+          'sampleUnitPrice',
+          'freightAmount',
+          'receiverName',
+          'saleType',
+          'targetRegionCodes',
+          'needTransitFlag',
+          'skuPurchaseQty',
         ]
       : [
           'sampleSourceType',
@@ -1197,14 +1196,6 @@ function runOneFlow(
           targetRegionCodes: ['ID'],
           needTransitFlag: false,
           skuPurchaseQty: buildSkuPurchaseQty(kind, index, fixture),
-          baseProductCode: `OLD-WL-${String(index).padStart(3, '0')}`,
-          expectedNewSpuCode: `${buildStyleNo(kind, index)}-REV`,
-          requestedSampleQty: 2,
-          revisionDirection: '基于旧款做版型、面料和袖口细节调整后由万隆出样衣。',
-          materialRequirement: `120g 轻薄雪纺，${fixture.colorName} 色系，手感更软垂。`,
-          printRequirement: '小碎花数码印，图案缩小 8%，颜色降低 10% 饱和度。',
-          paperPatternRequirement: '腰线下调 2cm，胸围放量 1.5cm，袖口收窄 1cm。',
-          designDraftRequirement: '保留旧款主图氛围，新增正面、侧面和细节设计稿。',
         }
       : {
           sampleSourceType: '外采',

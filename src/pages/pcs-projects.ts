@@ -1728,7 +1728,18 @@ function getDecisionFieldMeta(
 }
 
 const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, string[]> = {
-  SAMPLE_ACQUIRE: ['sampleSourceType', 'sampleSupplierId', 'sampleLink', 'sampleUnitPrice'],
+  SAMPLE_ACQUIRE: [
+    'sampleSourceType',
+    'sampleSupplierId',
+    'purchaseSupplierName',
+    'sampleLink',
+    'sampleUnitPrice',
+    'freightAmount',
+    'receiverName',
+    'saleType',
+    'targetRegionCodes',
+    'needTransitFlag',
+  ],
   SAMPLE_INBOUND_CHECK: ['sampleCode', 'arrivalTime', 'checkResult'],
   FEASIBILITY_REVIEW: ['reviewConclusion', 'reviewRisk'],
   SAMPLE_SHOOT_FIT: [
@@ -3105,6 +3116,11 @@ function normalizeDraftFieldValue(
     const parsed = Number(trimmed)
     return Number.isFinite(parsed) ? parsed : trimmed
   }
+  if (field.type === 'boolean') {
+    if (trimmed === 'true' || trimmed === '是') return true
+    if (trimmed === 'false' || trimmed === '否') return false
+    return trimmed
+  }
   if (field.type === 'multi-select' || field.type === 'reference-multi' || field.type === 'user-multi-select') {
     return trimmed
       .split(/[、,，\n]/)
@@ -3424,6 +3440,30 @@ function renderFormalFieldControl(
   const baseClass =
     'w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
   const commonAttrs = `data-pcs-project-field="formal-field" data-field-key="${escapeHtml(field.fieldKey)}" ${disabled ? 'disabled' : ''}`
+
+  if (field.type === 'multi-select' && field.options && field.options.length > 0) {
+    const selectedValues = new Set(getDraftStringArray(value))
+    return `
+      <select multiple class="min-h-[112px] ${baseClass} py-2" ${commonAttrs}>
+        ${field.options
+          .map(
+            (option) =>
+              `<option value="${escapeHtml(option.value)}" ${selectedValues.has(option.value) ? 'selected' : ''}>${escapeHtml(option.label)}</option>`,
+          )
+          .join('')}
+      </select>
+    `
+  }
+
+  if (field.type === 'boolean') {
+    return `
+      <select class="h-10 ${baseClass}" ${commonAttrs}>
+        <option value="">请选择${escapeHtml(field.label)}</option>
+        <option value="true" ${value === 'true' ? 'selected' : ''}>是</option>
+        <option value="false" ${value === 'false' ? 'selected' : ''}>否</option>
+      </select>
+    `
+  }
 
   if ((field.type === 'select' || field.type === 'single-select') && field.options && field.options.length > 0) {
     const showPlaceholder = !(field.fieldKey === 'sampleSourceType' && field.options.length === 1)
@@ -7202,7 +7242,9 @@ export function handlePcsProjectsInput(target: Element): boolean {
     const fieldKey = fieldNode.dataset.fieldKey
     if (!context || !fieldKey) return true
     const value =
-      fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement
+      fieldNode instanceof HTMLSelectElement && fieldNode.multiple
+        ? Array.from(fieldNode.selectedOptions).map((option) => option.value)
+        : fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement
         ? fieldNode.value
         : ''
     setRecordDraftState(context.project, context.node, {

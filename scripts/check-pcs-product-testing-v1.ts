@@ -122,8 +122,8 @@ assertIncludesAll(workItemCodes, Array.from(new Set([...domesticFlow, ...wanlong
 
 assertIncludesAll(
   fieldKeys('SAMPLE_ACQUIRE'),
-  ['purchaseSupplierName', 'sampleLink', 'freightAmount', 'receiverName', 'saleType', 'targetRegionCodes', 'needTransitFlag', 'skuPurchaseQty', 'baseProductCode', 'expectedNewSpuCode', 'requestedSampleQty', 'revisionDirection'],
-  '样衣获取字段未覆盖采购样衣和改版出样衣需求',
+  ['purchaseSupplierName', 'sampleLink', 'freightAmount', 'receiverName', 'saleType', 'targetRegionCodes', 'needTransitFlag', 'skuPurchaseQty'],
+  '样衣获取字段未覆盖样衣来源和采购样衣要素',
 )
 assert.deepEqual(
   fieldOptions('SAMPLE_ACQUIRE', 'sampleSourceType'),
@@ -137,7 +137,7 @@ assert.deepEqual(
 )
 assertIncludesAll(
   fieldKeys('REVISION_TASK'),
-  ['baseStyleCode', 'revisionScopeNames', 'sampleQty', 'revisionSuggestionRichText', 'patternFileIds', 'designDraftImageIds', 'ownerName', 'dueAt'],
+  ['baseStyleCode', 'targetStyleCodeCandidate', 'revisionScopeNames', 'sampleQty', 'stylePreference', 'revisionSuggestionRichText', 'materialAdjustmentLines', 'newPatternSpuCode', 'patternChangeNote', 'patternFileIds', 'designDraftImageIds', 'ownerName', 'dueAt'],
   '改版任务字段未覆盖工程开发与打样承接信息',
 )
 assertIncludesAll(

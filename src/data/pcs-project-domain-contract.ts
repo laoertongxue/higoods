@@ -1083,7 +1083,7 @@ const sampleAcquireFields = [
   ...groupFields({
     id: 'sample-acquire-main',
     title: '样衣来源',
-    description: '记录样衣获取方式和来源信息；国内采购记录采购要素，万隆改版记录改版出样衣需求。',
+    description: '记录样衣获取方式和来源信息；国内采购记录采购要素，万隆改版只确认由改版任务产出样衣。',
     fields: [
       {
         key: 'sampleSourceType',
@@ -1124,21 +1124,6 @@ const sampleAcquireFields = [
       ] },
       { key: 'needTransitFlag', label: '是否需要转运', type: 'boolean', sourceKind: '本地主数据', sourceRef: '采购样品弹窗.需要转运', meaning: '样衣是否需要转运', logic: '只记录采购样衣是否需要转运，不做旧系统转运批次导入。', required: false },
       { key: 'skuPurchaseQty', label: 'SKU采购数量', type: 'table', sourceKind: '本地主数据', sourceRef: '采购样品弹窗.sku列表', meaning: '按 SKU 记录采购数量', logic: '用于承接老系统按 SKU 填采购数量的业务动作；当前原型只做字段承接。', required: false },
-    ],
-  }),
-  ...groupFields({
-    id: 'sample-acquire-revision',
-    title: '改版出样衣需求',
-    description: '万隆改版出样衣项目前置记录旧款、参考款和改版方向，后续由改版任务实际产出样衣。',
-    fields: [
-      { key: 'baseProductCode', label: '旧商品 / 参考款编码', type: 'text', sourceKind: '本地主数据', sourceRef: '改版样衣来源', meaning: '改版基于的旧商品或参考款', logic: '手动建项目时录入，不依赖旧系统商品结构对接。', required: false },
-      { key: 'expectedNewSpuCode', label: '新 SPU 期望', type: 'text', sourceKind: '本地主数据', sourceRef: '改版详情.新 SPU', meaning: '改版后期望形成的新 SPU', logic: '仅作为改版出样衣需求，不直接生成商品主档。', required: false },
-      { key: 'requestedSampleQty', label: '样衣数量', type: 'number', sourceKind: '本地主数据', sourceRef: '改版详情.样衣数量', meaning: '本次改版期望出样衣数量', logic: '后续改版任务创建时应承接该数量。', required: false },
-      { key: 'revisionDirection', label: '改版方向', type: 'textarea', sourceKind: '本地主数据', sourceRef: '改版详情.修改建议', meaning: '本次改版业务方向', logic: '记录业务希望怎么改，后续 REVISION_TASK 再拆为工程执行内容。', required: false },
-      { key: 'materialRequirement', label: '面辅料要求', type: 'textarea', sourceKind: '本地主数据', sourceRef: '改版详情.上传纸样图片/面料部分', meaning: '改版涉及的面料辅料要求', logic: '只记录需求，具体面辅料明细在改版任务中维护。', required: false },
-      { key: 'printRequirement', label: '印花需求', type: 'textarea', sourceKind: '本地主数据', sourceRef: '改版详情.印花需求', meaning: '改版涉及的印花要求', logic: '只记录需求，具体花型任务或花型库沉淀后续处理。', required: false },
-      { key: 'paperPatternRequirement', label: '纸样要求', type: 'textarea', sourceKind: '本地主数据', sourceRef: '改版详情.纸样文件', meaning: '改版涉及的纸样要求', logic: '改版任务或制版任务后续承接纸样执行。', required: false },
-      { key: 'designDraftRequirement', label: '设计稿要求', type: 'textarea', sourceKind: '本地主数据', sourceRef: '改版详情.新图设计稿', meaning: '改版涉及的设计稿要求', logic: '改版任务后续上传或关联设计稿。', required: false },
     ],
   }),
 ]
@@ -1930,10 +1915,10 @@ export const PCS_PROJECT_PHASE_CONTRACTS: PcsProjectPhaseContract[] = [
     phaseOrder: 1,
     description: '完成商品项目立项并明确样衣来源。',
     defaultOpenFlag: true,
-    businessScenario: '完成项目立项、样衣来源确认和样衣获取需求记录，为后续出样、核对和测款提供正式输入。',
+    businessScenario: '完成项目立项并确认样衣来源，为后续采购样衣核对或改版任务出样提供正式输入。',
     whyExists: '项目必须先完成立项并明确样衣来源，后续改版任务、样衣核对和测款才有真实输入。',
     entryConditions: ['创建商品项目并选定正式模板。'],
-    exitConditions: ['样衣来源已登记；若是国内采购样衣，采购来源信息已记录；若是万隆改版样衣，改版出样需求已明确。'],
+    exitConditions: ['样衣来源已登记；若是国内采购样衣，采购来源信息已记录；若是万隆改版样衣，来源已确认为改版任务出样。'],
   },
   {
     phaseCode: 'PHASE_02',
@@ -1943,7 +1928,7 @@ export const PCS_PROJECT_PHASE_CONTRACTS: PcsProjectPhaseContract[] = [
     defaultOpenFlag: true,
     businessScenario: '国内采购样衣在本阶段完成样衣结果核对和商品上架准备；万隆改版样衣在本阶段先创建改版任务，产出样衣后再核对。',
     whyExists: '测款前必须确认样衣真实存在且可测，改版出样还必须先落到工程开发与打样管理的改版任务。',
-    entryConditions: ['PHASE_01 已完成，样衣来源或改版出样需求已就绪。'],
+    entryConditions: ['PHASE_01 已完成，样衣来源已确认。'],
     exitConditions: ['样衣已完成结果核对；若需要商品上架准备，则渠道店铺商品已准备进入测款。'],
   },
   {
@@ -2764,11 +2749,11 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
     createdAt: '2026-06-04 09:00',
     updatedAt: CONTRACT_TIMESTAMP,
     status: 'active',
-    scenario: '业务基于旧款或参考款手动创建万隆改版出样衣测款项目，先记录改版出样需求，再通过工程开发与打样管理的改版任务产出样衣，样衣核对后进入测款。',
-    description: '覆盖手动立项、改版出样需求、改版任务、样衣结果核对、商品上架、市场测款、测款结论、款式档案和样衣处理。',
+    scenario: '业务基于旧款或参考款手动创建万隆改版出样衣测款项目，先确认样衣由改版任务出样，再通过工程开发与打样管理的改版任务承接改版需求并产出样衣，样衣核对后进入测款。',
+    description: '覆盖手动立项、样衣来源确认、改版任务、样衣结果核对、商品上架、市场测款、测款结论、款式档案和样衣处理。',
     phaseSchemas: [
-      { phaseCode: 'PHASE_01', whyExists: '先手动创建商品项目，并记录旧商品、参考款、新 SPU 期望、样衣数量和改版方向。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
-      { phaseCode: 'PHASE_02', whyExists: '改版出样衣必须先创建改版任务，由工程开发与打样管理产出样衣，之后再核对样衣结果。', nodeCodes: ['REVISION_TASK', 'SAMPLE_INBOUND_CHECK'] },
+      { phaseCode: 'PHASE_01', whyExists: '先手动创建商品项目，并确认该项目样衣来源为万隆改版任务出样。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
+      { phaseCode: 'PHASE_02', whyExists: '改版出样衣需求由改版任务承接，工程开发与打样管理产出样衣后，再核对样衣结果。', nodeCodes: ['REVISION_TASK', 'SAMPLE_INBOUND_CHECK'] },
       { phaseCode: 'PHASE_03', whyExists: '改版样衣核对可测后，先准备渠道店铺商品，再执行直播测款和可选短视频测款，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
       { phaseCode: 'PHASE_04', whyExists: '测款通过后沉淀款式档案，进入大货或后续开发承接。', nodeCodes: ['STYLE_ARCHIVE_CREATE'] },
       { phaseCode: 'PHASE_05', whyExists: '项目结束时同样需要明确样衣退回、入库留样、清仓、寄回或报废处理。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
