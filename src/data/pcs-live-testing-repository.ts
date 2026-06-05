@@ -12,6 +12,29 @@ const LIVE_TESTING_STORE_VERSION = 1
 
 let memorySnapshot: LiveTestingStoreSnapshot | null = null
 
+export interface CreateLiveTestingRecordInput {
+  projectId: string
+  projectCode: string
+  sessionTitle: string
+  channelName: string
+  hostName: string
+  startedAt: string
+  endedAt: string
+  ownerName?: string
+  note?: string
+  productTitle: string
+  styleCode: string
+  spuCode: string
+  skuCode: string
+  colorCode?: string
+  sizeCode?: string
+  exposureQty: number
+  clickQty: number
+  cartQty?: number
+  orderQty: number
+  gmvAmount: number
+}
+
 function canUseStorage(): boolean {
   return (
     typeof localStorage !== 'undefined' &&
@@ -42,6 +65,37 @@ function cloneSnapshot(snapshot: LiveTestingStoreSnapshot): LiveTestingStoreSnap
 
 function toBusinessDate(value: string | null | undefined): string {
   return value?.slice(0, 10) ?? ''
+}
+
+function nowText(): string {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
+function todayCompact(): string {
+  const now = new Date()
+  return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+}
+
+function persistSnapshot(snapshot: LiveTestingStoreSnapshot): LiveTestingStoreSnapshot {
+  memorySnapshot = hydrateSnapshot(snapshot)
+  if (canUseStorage()) {
+    localStorage.setItem(LIVE_TESTING_STORAGE_KEY, JSON.stringify(memorySnapshot))
+  }
+  return cloneSnapshot(memorySnapshot)
+}
+
+function buildNextSessionId(snapshot: LiveTestingStoreSnapshot): string {
+  const prefix = `LS-${todayCompact()}-`
+  const existingIds = new Set(snapshot.sessions.map((item) => item.liveSessionId))
+  let sequence = snapshot.sessions.filter((item) => item.liveSessionId.startsWith(prefix)).length + 1
+  let sessionId = `${prefix}${String(sequence).padStart(3, '0')}`
+  while (existingIds.has(sessionId)) {
+    sequence += 1
+    sessionId = `${prefix}${String(sequence).padStart(3, '0')}`
+  }
+  return sessionId
 }
 
 function parseSkuCodeSegments(skuCode: string): { colorCode: string; sizeCode: string } {
@@ -590,11 +644,72 @@ export function getLiveProductLineById(liveLineId: string): LiveProductLine | nu
   return line ? cloneLine(line) : null
 }
 
+export function createLiveTestingRecord(input: CreateLiveTestingRecordInput): {
+  session: LiveSessionRecord
+  productLine: LiveProductLine
+} {
+  const snapshot = loadSnapshot()
+  const sessionId = buildNextSessionId(snapshot)
+  const timestamp = nowText()
+  const businessDate = toBusinessDate(input.startedAt) || todayCompact().replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')
+  const ownerName = input.ownerName?.trim() || '当前用户'
+  const session: LiveSessionRecord = {
+    liveSessionId: sessionId,
+    liveSessionCode: sessionId,
+    sessionTitle: input.sessionTitle.trim(),
+    channelName: input.channelName.trim(),
+    hostName: input.hostName.trim(),
+    sessionStatus: '已关账',
+    businessDate,
+    startedAt: input.startedAt.trim(),
+    endedAt: input.endedAt.trim(),
+    ownerName,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    purposes: ['测款'],
+    itemCount: 1,
+    testItemCount: 1,
+    testAccountingStatus: 'NONE',
+    gmvAmount: input.gmvAmount,
+    note: input.note?.trim() || '',
+    legacyProjectRef: input.projectCode,
+    legacyProjectId: input.projectId,
+  }
+  const productLine: LiveProductLine = {
+    liveLineId: `${sessionId}__item-001`,
+    liveLineCode: `${sessionId}-L01`,
+    liveSessionId: sessionId,
+    liveSessionCode: sessionId,
+    lineNo: 1,
+    productTitle: input.productTitle.trim(),
+    styleCode: input.styleCode.trim(),
+    spuCode: input.spuCode.trim(),
+    skuCode: input.skuCode.trim(),
+    colorCode: input.colorCode?.trim() || parseSkuCodeSegments(input.skuCode).colorCode,
+    sizeCode: input.sizeCode?.trim() || parseSkuCodeSegments(input.skuCode).sizeCode,
+    exposureQty: input.exposureQty,
+    clickQty: input.clickQty,
+    cartQty: input.cartQty,
+    orderQty: input.orderQty,
+    gmvAmount: input.gmvAmount,
+    businessDate,
+    ownerName,
+    sessionStatus: '已关账',
+    legacyProjectRef: input.projectCode,
+    legacyProjectId: input.projectId,
+  }
+  persistSnapshot({
+    ...snapshot,
+    sessions: [session, ...snapshot.sessions],
+    productLines: [productLine, ...snapshot.productLines],
+  })
+  return {
+    session: cloneSession(session),
+    productLine: cloneLine(productLine),
+  }
+}
+
 export function resetLiveTestingRepository(): void {
   const snapshot = buildSeedSnapshot()
-  memorySnapshot = snapshot
-  if (canUseStorage()) {
-    localStorage.removeItem(LIVE_TESTING_STORAGE_KEY)
-    localStorage.setItem(LIVE_TESTING_STORAGE_KEY, JSON.stringify(snapshot))
-  }
+  persistSnapshot(snapshot)
 }

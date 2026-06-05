@@ -571,7 +571,7 @@ function resolveLiveRelationObject(relation: ProjectRelationRecord): ResolvedRel
     session?.id && itemId
       ? getLiveSessionItems(session.id).find((item) => item.id === itemId) || null
       : null
-  const cartValue = liveItem?.cart ?? Math.max(line?.orderQty ?? 0, Math.round((line?.clickQty ?? 0) * 0.18))
+  const cartValue = liveItem?.cart ?? line?.cartQty ?? Math.max(line?.orderQty ?? 0, Math.round((line?.clickQty ?? 0) * 0.18))
   const clickRateValue =
     (line?.exposureQty ?? 0) > 0 ? `${(((line?.clickQty ?? 0) / (line?.exposureQty ?? 1)) * 100).toFixed(1)}%` : ''
   const fields: PcsProjectInstanceField[] = []

@@ -590,7 +590,7 @@ export function closeFcsDialogsOnEscape(): boolean {
 
   if (isCraftCuttingSpecialProcessesDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.specialProcessAction = 'close-overlay'
+    fakeButton.dataset.cuttingBindingAction = 'close-overlay'
     handleCraftCuttingSpecialProcessesEvent(fakeButton)
     return true
   }

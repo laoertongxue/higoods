@@ -16,6 +16,7 @@ export interface LiveSessionRecord {
   testItemCount: number
   testAccountingStatus: string
   gmvAmount: number | null
+  note?: string
   legacyProjectRef: string | null
   legacyProjectId: string | null
 }
@@ -34,6 +35,7 @@ export interface LiveProductLine {
   sizeCode: string
   exposureQty: number
   clickQty: number
+  cartQty?: number
   orderQty: number
   gmvAmount: number
   businessDate: string

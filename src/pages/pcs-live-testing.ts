@@ -15,6 +15,7 @@ import {
   type SessionStatus,
 } from '../data/pcs-testing.ts'
 import {
+  createLiveTestingRecord,
   getLiveSessionRecordById,
   listLiveProductLinesBySession,
   listLiveSessionRecords,
@@ -282,11 +283,6 @@ function nowText(): string {
   const hh = String(now.getHours()).padStart(2, '0')
   const mi = String(now.getMinutes()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
-}
-
-function todayCompact(): string {
-  const now = new Date()
-  return `${String(now.getFullYear())}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
 }
 
 function toNumber(value: string, fallback = 0): number {
@@ -591,7 +587,7 @@ function buildSessionItemsFromLines(sessionId: string, startedAt: string, testIt
       segmentEnd: buildSegmentTime(startedAt, index * 22 + 18),
       exposure: line.exposureQty,
       click: line.clickQty,
-      cart: Math.max(line.orderQty, Math.round(line.clickQty * 0.18)),
+      cart: line.cartQty ?? Math.max(line.orderQty, Math.round(line.clickQty * 0.18)),
       order: line.orderQty,
       pay: Math.max(line.orderQty - 1, 0),
       gmv: line.gmvAmount,
@@ -656,7 +652,7 @@ function buildSessionFromRepository(sessionId: string): SessionViewModel | null 
     clickTotal: base?.clickTotal ?? sum(items.map((item) => item.click)),
     cartTotal: base?.cartTotal ?? sum(items.map((item) => item.cart)),
     isTestAccountingEnabled: base?.isTestAccountingEnabled ?? getAccountingCodeByValue(record.testAccountingStatus) !== 'NONE',
-    note: base?.note ?? '',
+    note: base?.note ?? record.note ?? '',
     createdAt: base?.createdAt ?? record.createdAt,
     updatedAt: base?.updatedAt ?? record.updatedAt,
     completedBy: base?.status === 'COMPLETED' ? '系统演示' : null,
@@ -679,8 +675,8 @@ function inferSite(channelName: string): string {
 }
 
 function ensureSessionStore(): void {
-  if (sessionStore.size > 0) return
   listLiveSessionRecords().forEach((record) => {
+    if (sessionStore.has(record.liveSessionId)) return
     const session = buildSessionFromRepository(record.liveSessionId)
     if (session) {
       sessionStore.set(session.id, session)
@@ -1965,85 +1961,40 @@ function createSession(): void {
     return
   }
   const project = getProjectById(resolvedProject.projectId) ?? findProjectByCode(resolvedProject.projectCode)
-  const sessionId = `LS-${todayCompact()}-${String(sessionStore.size + 1).padStart(3, '0')}`
-  const purposes = ['测款项目']
   const exposure = toNumber(draft.exposure, 0)
   const click = toNumber(draft.click, 0)
   const cart = toNumber(draft.cart, 0)
   const order = toNumber(draft.order, 0)
   const gmv = toNumber(draft.gmv, 0)
-  const productRef = project?.styleCodeName || project?.styleNumber || resolvedProject.projectCode
-  const session: SessionViewModel = {
-    id: sessionId,
-    title: draft.title.trim(),
-    status: 'COMPLETED',
-    purposes,
-    liveAccount: draft.liveAccount.trim(),
-    anchor: draft.anchor.trim(),
-    startAt: draft.startAt.trim(),
-    endAt: draft.endAt.trim(),
-    owner: '当前用户',
-    operator: '-',
-    recorder: '当前用户',
-    reviewer: '-',
-    site: '-',
-    itemCount: 1,
-    testItemCount: 1,
-    testAccountingStatus: 'NONE',
-    sampleCount: 0,
-    gmvTotal: gmv,
-    orderTotal: order,
-    exposureTotal: exposure,
-    clickTotal: click,
-    cartTotal: cart,
-    isTestAccountingEnabled: false,
-    note: draft.note.trim(),
-    createdAt: nowText(),
-    updatedAt: nowText(),
-    completedBy: '当前用户',
-    completedAt: nowText(),
-    accountedBy: null,
-    accountedAt: null,
-    items: [
-      {
-        id: `${sessionId}-ITEM-001`,
-        liveLineId: null,
-        liveLineCode: null,
-        intent: 'TEST',
-        projectRef: resolvedProject.projectCode,
-        relatedProjectId: resolvedProject.projectId,
-        productRef,
-        productName: project?.projectName || resolvedProject.projectCode,
-        sku: '-',
-        styleCode: project?.styleCodeName || '',
-        segmentStart: '',
-        segmentEnd: '',
-        exposure,
-        click,
-        cart,
-        order,
-        pay: order,
-        gmv,
-        listPrice: 0,
-        payPrice: 0,
-        recommendation: null,
-        recommendationReason: null,
-        evidence: [],
-        decisionLink: buildDecisionLink(resolvedProject.projectId),
-      },
-    ],
-    samples: [],
-    logs: [
-      {
-        time: nowText(),
-        action: '创建直播测款记录',
-        user: '当前用户',
-        detail: `已为项目 ${resolvedProject.projectCode} 记录直播测款结果。`,
-      },
-    ],
+  const styleCode = project?.styleNumber || project?.styleCodeName || resolvedProject.projectCode
+  const created = createLiveTestingRecord({
+    projectId: resolvedProject.projectId,
+    projectCode: resolvedProject.projectCode,
+    sessionTitle: draft.title,
+    channelName: draft.liveAccount,
+    hostName: draft.anchor,
+    startedAt: draft.startAt,
+    endedAt: draft.endAt,
+    ownerName: '当前用户',
+    note: draft.note,
+    productTitle: project?.projectName || resolvedProject.projectCode,
+    styleCode,
+    spuCode: styleCode,
+    skuCode: `${styleCode}-TEST`,
+    exposureQty: exposure,
+    clickQty: click,
+    cartQty: cart,
+    orderQty: order,
+    gmvAmount: gmv,
+  })
+  const relationResult = replaceLiveProductLineProjectRelations(created.productLine.liveLineId, [resolvedProject.projectId], '当前用户')
+  const persistedSession = buildSessionFromRepository(created.session.liveSessionId)
+  if (persistedSession) {
+    sessionStore.set(persistedSession.id, persistedSession)
   }
-  sessionStore.set(sessionId, session)
-  state.notice = `直播测款「${session.title}」已创建。`
+  state.notice = relationResult.errors.length
+    ? `直播测款「${created.session.sessionTitle}」已创建；项目关系未完全回写：${relationResult.errors.join('；')}`
+    : `直播测款「${created.session.sessionTitle}」已创建。`
   closeAllDialogs()
   resetCreateDraft()
 }

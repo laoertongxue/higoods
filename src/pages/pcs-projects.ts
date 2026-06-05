@@ -138,6 +138,15 @@ import {
 import type { SampleChainMode } from '../data/pcs-first-order-sample-types.ts'
 import { findStyleArchiveByProjectId } from '../data/pcs-style-archive-repository.ts'
 import {
+  createLiveTestingRecord,
+  getLiveSessionRecordById,
+  listLiveProductLines,
+} from '../data/pcs-live-testing-repository.ts'
+import type { LiveProductLine, LiveSessionRecord } from '../data/pcs-live-testing-types.ts'
+import {
+  replaceLiveProductLineProjectRelations,
+} from '../data/pcs-project-relation-repository.ts'
+import {
   appendSampleShootImages,
   listSampleShootImageAssets,
   removeSampleShootImage,
@@ -330,6 +339,23 @@ interface StyleArchiveImageDraft {
   styleGalleryImageIds: string[]
 }
 
+interface LiveTestingCreateDraft {
+  open: boolean
+  projectId: string
+  projectNodeId: string
+  title: string
+  liveAccount: string
+  anchor: string
+  startAt: string
+  endAt: string
+  exposure: string
+  click: string
+  cart: string
+  order: string
+  gmv: string
+  note: string
+}
+
 interface ProjectPageState {
   list: ProjectListState
   create: ProjectCreateState
@@ -345,6 +371,8 @@ interface ProjectPageState {
   imagePreview: ProjectImagePreviewState
   channelListingDrafts: Record<string, ChannelListingDraft>
   styleArchiveImageDrafts: Record<string, StyleArchiveImageDraft>
+  liveTestingCreateDraft: LiveTestingCreateDraft
+  liveTestingSelectedLineIds: Record<string, string>
 }
 
 interface ProjectNodeViewModel {
@@ -486,6 +514,25 @@ function createEmptyRecordDialogState(): RecordDialogState {
   }
 }
 
+function createEmptyLiveTestingCreateDraft(): LiveTestingCreateDraft {
+  return {
+    open: false,
+    projectId: '',
+    projectNodeId: '',
+    title: '',
+    liveAccount: '',
+    anchor: '',
+    startAt: '',
+    endAt: '',
+    exposure: '',
+    click: '',
+    cart: '',
+    order: '',
+    gmv: '',
+    note: '',
+  }
+}
+
 function createEmptyRevisionTaskCreateDraft(): RevisionTaskCreateDraft {
   return {
     title: '',
@@ -621,6 +668,8 @@ const state: ProjectPageState = {
   },
   channelListingDrafts: {},
   styleArchiveImageDrafts: {},
+  liveTestingCreateDraft: createEmptyLiveTestingCreateDraft(),
+  liveTestingSelectedLineIds: {},
 }
 
 type ProjectRelationRepositoryModule = Pick<
@@ -1039,6 +1088,39 @@ function todayText(): string {
   return nowText().slice(0, 10)
 }
 
+function toMetricNumber(value: string | number | null | undefined): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  const parsed = Number.parseFloat(String(value || '').trim())
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function formatMetricNumber(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '-'
+  return value.toLocaleString('zh-CN')
+}
+
+function formatLiveTestPercent(numerator: number, denominator: number): string {
+  if (!(denominator > 0)) return '-'
+  return `${((numerator / denominator) * 100).toFixed(1)}%`
+}
+
+function buildDefaultLiveTestingDraft(project: PcsProjectRecord, node: ProjectNodeViewModel): LiveTestingCreateDraft {
+  const channelName = getChannelDisplayName(getFirstTargetChannelCode(project))
+  const date = todayText()
+  return {
+    ...createEmptyLiveTestingCreateDraft(),
+    open: true,
+    projectId: project.projectId,
+    projectNodeId: node.node.projectNodeId,
+    title: `${project.projectName}直播测款`,
+    liveAccount: `${channelName} / 测款直播间`,
+    anchor: '',
+    startAt: `${date} 19:00`,
+    endAt: `${date} 21:00`,
+    note: '',
+  }
+}
+
 function getCurrentQueryParams(): URLSearchParams {
   const [, search = ''] = appStore.getState().pathname.split('?')
   return new URLSearchParams(search)
@@ -1107,6 +1189,9 @@ function getTestingCreateMeta(
   if (node.displayStatus === '未解锁' || node.node.currentStatus === '已取消') {
     return null
   }
+  if (node.node.currentStatus === '已完成') {
+    return null
+  }
 
   const projectRef = encodeURIComponent(project.projectCode)
   if (node.node.workItemTypeCode === 'LIVE_TEST') {
@@ -1130,6 +1215,10 @@ function renderTestingCreateAction(
     tone === 'primary'
       ? 'inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700'
       : 'inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50'
+
+  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+    return `<button type="button" class="${className}" data-pcs-project-action="open-live-testing-create">${escapeHtml(meta.label)}</button>`
+  }
 
   return `<button type="button" class="${className}" data-nav="${escapeHtml(meta.route)}">${escapeHtml(meta.label)}</button>`
 }
@@ -2690,6 +2779,289 @@ function getProjectTestingAggregate(projectId: string): {
   return getProjectTestingSummaryAggregateSafe(projectId)
 }
 
+function listProjectLiveTestingLines(project: PcsProjectRecord): Array<{
+  line: LiveProductLine
+  session: LiveSessionRecord | null
+  instance: PcsProjectInstanceItem | null
+}> {
+  const instanceModel = getProjectInstanceModelSafe(project.projectId)
+  const relationInstances =
+    instanceModel?.instances.filter(
+      (instance) =>
+        instance.workItemTypeCode === 'LIVE_TEST' &&
+        instance.moduleName === '直播' &&
+        instance.objectType === '直播商品明细',
+    ) || []
+  const relationLineIds = new Set(relationInstances.map((instance) => instance.sourceLineId || instance.instanceId).filter(Boolean))
+  const relationLineMap = new Map(
+    relationInstances.map((instance) => [instance.sourceLineId || instance.instanceId, instance] as const),
+  )
+  return listLiveProductLines()
+    .filter(
+      (line) =>
+        relationLineIds.has(line.liveLineId) ||
+        line.legacyProjectId === project.projectId ||
+        line.legacyProjectRef === project.projectCode ||
+        line.legacyProjectRef === project.projectId,
+    )
+    .sort((a, b) => `${b.businessDate} ${b.liveLineCode}`.localeCompare(`${a.businessDate} ${a.liveLineCode}`))
+    .map((line) => ({
+      line,
+      session: getLiveSessionRecordById(line.liveSessionId),
+      instance: relationLineMap.get(line.liveLineId) || null,
+    }))
+}
+
+function hasProjectLiveTestingRecord(project: PcsProjectRecord): boolean {
+  return listProjectLiveTestingLines(project).length > 0
+}
+
+function getLiveTestingSelectionKey(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  return `${project.projectId}::${node.node.projectNodeId}`
+}
+
+function renderLiveTestingRecordDetail(row: {
+  line: LiveProductLine
+  session: LiveSessionRecord | null
+  instance: PcsProjectInstanceItem | null
+}): string {
+  const line = row.line
+  const session = row.session
+  const rows = row.instance?.fields.length
+    ? row.instance.fields.map((field) => ({ label: field.fieldLabel, value: formatValue(field.fieldValue) }))
+    : [
+        { label: '直播测款编号', value: line.liveSessionCode },
+        { label: '直播挂车明细', value: line.liveLineCode },
+        { label: '测款标题', value: session?.sessionTitle || line.productTitle },
+        { label: '直播账号', value: session?.channelName || '-' },
+        { label: '主播', value: session?.hostName || '-' },
+        { label: '开播时间', value: session?.startedAt || '-' },
+        { label: '下播时间', value: session?.endedAt || '-' },
+        { label: '曝光', value: formatMetricNumber(line.exposureQty) },
+        { label: '点击', value: formatMetricNumber(line.clickQty) },
+        { label: '点击率', value: formatLiveTestPercent(line.clickQty, line.exposureQty) },
+        { label: '加购', value: formatMetricNumber(line.cartQty ?? Math.max(line.orderQty, Math.round(line.clickQty * 0.18))) },
+        { label: '订单', value: formatMetricNumber(line.orderQty) },
+        { label: 'GMV', value: formatMetricNumber(line.gmvAmount) },
+        { label: '备注', value: session?.note || '-' },
+      ]
+
+  return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="text-base font-semibold text-slate-900">直播测款详情</h3>
+          <p class="mt-1 text-xs text-slate-500">${escapeHtml(line.liveLineCode)} / ${escapeHtml(line.productTitle)}</p>
+        </div>
+        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/testing/live/${encodeURIComponent(line.liveSessionId)}">打开直播测款</button>
+      </div>
+      <div class="mt-4 grid gap-3 md:grid-cols-2">
+        ${rows
+          .map(
+            (item) => `
+              <div class="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs text-slate-500">${escapeHtml(item.label)}</p>
+                <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(item.value)}</p>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderLiveTestingRecordList(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  rows: Array<{ line: LiveProductLine; session: LiveSessionRecord | null; instance: PcsProjectInstanceItem | null }>,
+): string {
+  const selectedLineId = state.liveTestingSelectedLineIds[getLiveTestingSelectionKey(project, node)] || rows[0]?.line.liveLineId || ''
+  const selectedRow = rows.find((item) => item.line.liveLineId === selectedLineId) || null
+  return `
+    <section class="rounded-lg border bg-white">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-4">
+        <div>
+          <h3 class="text-base font-semibold text-slate-900">直播测款记录</h3>
+          <p class="mt-1 text-xs text-slate-500">一条直播测款记录对应当前商品项目的一次正式测款事实，可新增多条。</p>
+        </div>
+        <span class="text-sm text-slate-500">共 ${escapeHtml(String(rows.length))} 条</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <thead class="bg-slate-50 text-xs text-slate-500">
+            <tr>
+              <th class="px-4 py-3">直播测款</th>
+              <th class="px-4 py-3">直播账号 / 主播</th>
+              <th class="px-4 py-3">时间</th>
+              <th class="px-4 py-3">曝光 / 点击</th>
+              <th class="px-4 py-3">订单 / GMV</th>
+              <th class="px-4 py-3 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${rows
+              .map(({ line, session }) => {
+                const selected = line.liveLineId === selectedLineId
+                return `
+                  <tr class="${selected ? 'bg-blue-50/60' : 'bg-white hover:bg-slate-50'}">
+                    <td class="px-4 py-3">
+                      <p class="font-medium text-slate-900">${escapeHtml(session?.sessionTitle || line.productTitle)}</p>
+                      <p class="mt-1 text-xs text-slate-500">${escapeHtml(line.liveSessionCode)} / ${escapeHtml(line.liveLineCode)}</p>
+                    </td>
+                    <td class="px-4 py-3">
+                      <p class="text-slate-900">${escapeHtml(session?.channelName || '-')}</p>
+                      <p class="mt-1 text-xs text-slate-500">${escapeHtml(session?.hostName || '-')}</p>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600">
+                      <p>${escapeHtml(session?.startedAt || line.businessDate)}</p>
+                      <p class="mt-1 text-xs text-slate-500">${escapeHtml(session?.endedAt || '-')}</p>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600">
+                      <p>${escapeHtml(formatMetricNumber(line.exposureQty))} / ${escapeHtml(formatMetricNumber(line.clickQty))}</p>
+                      <p class="mt-1 text-xs text-slate-500">CTR ${escapeHtml(formatLiveTestPercent(line.clickQty, line.exposureQty))}</p>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600">
+                      <p>${escapeHtml(formatMetricNumber(line.orderQty))} 单</p>
+                      <p class="mt-1 text-xs text-slate-500">GMV ${escapeHtml(formatMetricNumber(line.gmvAmount))}</p>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <button type="button" class="inline-flex h-8 items-center rounded-md border ${selected ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'} px-3 text-xs" data-pcs-project-action="select-live-testing-record" data-live-line-id="${escapeHtml(line.liveLineId)}">${selected ? '当前详情' : '查看详情'}</button>
+                    </td>
+                  </tr>
+                `
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    ${
+      selectedRow
+        ? renderLiveTestingRecordDetail(selectedRow)
+        : '<section class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">点击上方任一直播测款记录，可在商品项目内查看该记录详情。</section>'
+    }
+  `
+}
+
+function renderLiveTestingNodeWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const rows = listProjectLiveTestingLines(project)
+  const completed = node.node.currentStatus === '已完成'
+  if (rows.length === 0) {
+    return `
+      <section class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-slate-900">尚未新增直播测款记录</h3>
+            <p class="mt-1 text-sm text-slate-500">新增并保留至少 1 条直播测款记录后，才可以完成本工作项。</p>
+          </div>
+          ${renderTestingCreateAction(project, node)}
+        </div>
+      </section>
+    `
+  }
+
+  return `
+    <div class="space-y-4">
+      ${renderLiveTestingRecordList(project, node, rows)}
+      ${
+        completed
+          ? '<section class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">直播测款工作项已完成。</section>'
+          : `
+            <section class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
+              <button type="button" class="inline-flex h-9 items-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700" data-pcs-project-action="complete-live-testing-work-item">完成本工作项</button>
+            </section>
+          `
+      }
+    </div>
+  `
+}
+
+function renderLiveTestingCreateDrawer(): string {
+  const draft = state.liveTestingCreateDraft
+  if (!draft.open) return ''
+  const context = getProjectNodeContext(draft.projectId, draft.projectNodeId)
+  const project = context?.project || null
+  const inputClass = 'h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+  const label = (text: string) => `${escapeHtml(text)} <span class="text-rose-500">*</span>`
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button type="button" class="absolute inset-0 bg-slate-900/35" data-pcs-project-action="close-dialogs" aria-label="关闭新增直播测款"></button>
+      <section class="relative z-10 flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border bg-white shadow-2xl">
+        <div class="flex items-start justify-between gap-3 border-b px-6 py-4">
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900">新增直播测款记录</h3>
+            <p class="mt-1 text-sm text-slate-500">${escapeHtml(project?.projectCode || '')} ${escapeHtml(project?.projectName || '')}</p>
+          </div>
+          <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="close-dialogs">关闭</button>
+        </div>
+        <div class="max-h-[80vh] overflow-y-auto px-6 py-5">
+          <div class="grid gap-5 lg:grid-cols-2">
+            <section class="space-y-4">
+              <h4 class="text-sm font-semibold text-slate-900">基础信息</h4>
+              <label class="space-y-1">
+                <span class="text-xs text-slate-500">${label('测款标题')}</span>
+                <input class="${inputClass}" value="${escapeHtml(draft.title)}" data-pcs-project-field="live-test-create-title" data-skip-page-rerender="true" placeholder="请输入直播测款标题" />
+              </label>
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">${label('直播账号')}</span>
+                  <input class="${inputClass}" value="${escapeHtml(draft.liveAccount)}" data-pcs-project-field="live-test-create-live-account" data-skip-page-rerender="true" placeholder="例如：TikTok / 印尼主店" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">${label('主播')}</span>
+                  <input class="${inputClass}" value="${escapeHtml(draft.anchor)}" data-pcs-project-field="live-test-create-anchor" data-skip-page-rerender="true" placeholder="请输入主播" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">${label('开播时间')}</span>
+                  <input class="${inputClass}" value="${escapeHtml(draft.startAt)}" data-pcs-project-field="live-test-create-start-at" data-skip-page-rerender="true" placeholder="2026-06-05 19:00" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">${label('下播时间')}</span>
+                  <input class="${inputClass}" value="${escapeHtml(draft.endAt)}" data-pcs-project-field="live-test-create-end-at" data-skip-page-rerender="true" placeholder="2026-06-05 21:00" />
+                </label>
+              </div>
+            </section>
+            <section class="space-y-4">
+              <h4 class="text-sm font-semibold text-slate-900">测款结果</h4>
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">${label('曝光')}</span>
+                  <input type="number" min="0" class="${inputClass}" value="${escapeHtml(draft.exposure)}" data-pcs-project-field="live-test-create-exposure" data-skip-page-rerender="true" placeholder="请输入曝光" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">${label('点击')}</span>
+                  <input type="number" min="0" class="${inputClass}" value="${escapeHtml(draft.click)}" data-pcs-project-field="live-test-create-click" data-skip-page-rerender="true" placeholder="请输入点击" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">${label('加购')}</span>
+                  <input type="number" min="0" class="${inputClass}" value="${escapeHtml(draft.cart)}" data-pcs-project-field="live-test-create-cart" data-skip-page-rerender="true" placeholder="请输入加购" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">${label('订单')}</span>
+                  <input type="number" min="0" class="${inputClass}" value="${escapeHtml(draft.order)}" data-pcs-project-field="live-test-create-order" data-skip-page-rerender="true" placeholder="请输入订单" />
+                </label>
+                <label class="space-y-1 md:col-span-2">
+                  <span class="text-xs text-slate-500">${label('GMV')}</span>
+                  <input type="number" min="0" class="${inputClass}" value="${escapeHtml(draft.gmv)}" data-pcs-project-field="live-test-create-gmv" data-skip-page-rerender="true" placeholder="请输入 GMV" />
+                </label>
+              </div>
+              <label class="space-y-1">
+                <span class="text-xs text-slate-500">${label('备注')}</span>
+                <textarea class="min-h-[112px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="live-test-create-note" data-skip-page-rerender="true" placeholder="补充直播场次、异常或判断说明">${escapeHtml(draft.note)}</textarea>
+              </label>
+            </section>
+          </div>
+        </div>
+        <div class="flex flex-wrap justify-end gap-2 border-t px-6 py-4">
+          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="close-dialogs">取消</button>
+          <button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="save-live-testing-record">保留记录</button>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function formatFirstOrderSamplePlanLinesForDisplay(value: unknown): string {
   if (!Array.isArray(value)) return String(value || '').trim()
   return value
@@ -3737,6 +4109,9 @@ function buildNodeCompletionValues(project: PcsProjectRecord, node: ProjectNodeV
 
 function canCompleteProjectNode(project: PcsProjectRecord, node: ProjectNodeViewModel): boolean {
   if (!node.unlocked) return false
+  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+    return hasProjectLiveTestingRecord(project)
+  }
   const values = buildNodeCompletionValues(project, node)
   const shouldValidateRequiredFields = !PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.workItemTypeCode)
   const hasMissingRequiredField =
@@ -6689,6 +7064,10 @@ function renderProjectNodeInlineContent(project: PcsProjectRecord, node: Project
     return renderChannelListingNodeWorkspace(project, node)
   }
 
+  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+    return renderLiveTestingNodeWorkspace(project, node)
+  }
+
   if (node.node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE') {
     return renderStyleArchiveCreateWorkspace(project, node)
   }
@@ -6880,6 +7259,7 @@ function renderProjectDetailPage(projectId: string): string {
       ${renderProjectTerminateDialog()}
       ${renderDetailDecisionDialog(viewModel, selectedNode)}
       ${renderEngineeringTaskCreateDialog()}
+      ${renderLiveTestingCreateDrawer()}
       ${renderProjectImagePreviewModal()}
     </div>
   `
@@ -7071,6 +7451,10 @@ function renderWorkItemTabs(viewModel: ProjectViewModel, node: ProjectNodeViewMo
 function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   if (isChannelListingNode(node)) {
     return renderChannelListingNodeWorkspace(project, node)
+  }
+
+  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+    return renderLiveTestingNodeWorkspace(project, node)
   }
 
   if (node.node.workItemTypeCode === 'FIRST_SAMPLE') {
@@ -7538,6 +7922,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
       ${renderWorkItemRecordDialog(viewModel.project, node)}
       ${renderProjectTerminateDialog()}
       ${renderEngineeringTaskCreateDialog()}
+      ${renderLiveTestingCreateDrawer()}
       ${renderProjectImagePreviewModal()}
     </div>
   `
@@ -7590,6 +7975,7 @@ function closeAllDialogs(): void {
   }
   state.recordDialog = createEmptyRecordDialogState()
   state.engineeringCreateDialog = createEmptyEngineeringTaskCreateDialogState()
+  state.liveTestingCreateDraft = createEmptyLiveTestingCreateDraft()
 }
 
 function getProjectNodeContext(projectId: string, projectNodeId: string): { project: PcsProjectRecord; node: ProjectNodeViewModel } | null {
@@ -8069,6 +8455,26 @@ export function handlePcsProjectsInput(target: Element): boolean {
   }
   if (field === 'decision-note' && fieldNode instanceof HTMLTextAreaElement) {
     state.decisionDialog.note = fieldNode.value
+    return true
+  }
+  const liveTestingCreateFields: Record<
+    string,
+    'title' | 'liveAccount' | 'anchor' | 'startAt' | 'endAt' | 'exposure' | 'click' | 'cart' | 'order' | 'gmv' | 'note'
+  > = {
+    'live-test-create-title': 'title',
+    'live-test-create-live-account': 'liveAccount',
+    'live-test-create-anchor': 'anchor',
+    'live-test-create-start-at': 'startAt',
+    'live-test-create-end-at': 'endAt',
+    'live-test-create-exposure': 'exposure',
+    'live-test-create-click': 'click',
+    'live-test-create-cart': 'cart',
+    'live-test-create-order': 'order',
+    'live-test-create-gmv': 'gmv',
+    'live-test-create-note': 'note',
+  }
+  if (field in liveTestingCreateFields && (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement)) {
+    state.liveTestingCreateDraft[liveTestingCreateFields[field]] = fieldNode.value
     return true
   }
   if (field === 'record-business-date' && fieldNode instanceof HTMLInputElement) {
@@ -8724,6 +9130,114 @@ function saveQuickRecord(): void {
   saveFormalRecord({ closeAfterSave: true })
 }
 
+function validateLiveTestingCreateDraft(draft: LiveTestingCreateDraft): string | null {
+  const missingFields: string[] = []
+  const requireText = (value: string, label: string): void => {
+    if (!value.trim()) missingFields.push(label)
+  }
+  const requirePositive = (value: string, label: string): void => {
+    if (!(toMetricNumber(value) > 0)) missingFields.push(label)
+  }
+  requireText(draft.title, '测款标题')
+  requireText(draft.liveAccount, '直播账号')
+  requireText(draft.anchor, '主播')
+  requireText(draft.startAt, '开播时间')
+  requireText(draft.endAt, '下播时间')
+  requirePositive(draft.exposure, '曝光')
+  requirePositive(draft.click, '点击')
+  requirePositive(draft.cart, '加购')
+  requirePositive(draft.order, '订单')
+  requirePositive(draft.gmv, 'GMV')
+  requireText(draft.note, '备注')
+  if (missingFields.length > 0) {
+    return `请完整填写直播测款必填字段，且指标需大于 0：${missingFields.join('、')}。`
+  }
+  const startTime = parseDateValue(draft.startAt)
+  const endTime = parseDateValue(draft.endAt)
+  if (startTime && endTime && endTime <= startTime) {
+    return '直播测款下播时间必须晚于开播时间。'
+  }
+  return null
+}
+
+function openLiveTestingCreateDrawer(): void {
+  const context = getCurrentProjectNodeContext()
+  if (!context || context.node.node.workItemTypeCode !== 'LIVE_TEST') {
+    state.notice = '当前节点不是直播测款。'
+    return
+  }
+  if (context.node.displayStatus === '未解锁' || context.node.node.currentStatus === '已取消') {
+    state.notice = '当前直播测款节点尚不可新增记录。'
+    return
+  }
+  state.liveTestingCreateDraft = buildDefaultLiveTestingDraft(context.project, context.node)
+}
+
+function saveProjectLiveTestingRecord(): void {
+  const draft = state.liveTestingCreateDraft
+  const context = getProjectNodeContext(draft.projectId, draft.projectNodeId)
+  if (!draft.open || !context || context.node.node.workItemTypeCode !== 'LIVE_TEST') {
+    state.notice = '未找到当前直播测款节点。'
+    return
+  }
+  const validationMessage = validateLiveTestingCreateDraft(draft)
+  if (validationMessage) {
+    state.notice = validationMessage
+    return
+  }
+  const project = context.project
+  const styleCode = project.styleNumber || project.styleCodeName || project.projectCode
+  const created = createLiveTestingRecord({
+    projectId: project.projectId,
+    projectCode: project.projectCode,
+    sessionTitle: draft.title,
+    channelName: draft.liveAccount,
+    hostName: draft.anchor,
+    startedAt: draft.startAt,
+    endedAt: draft.endAt,
+    ownerName: project.ownerName || '当前用户',
+    note: draft.note,
+    productTitle: project.projectName,
+    styleCode,
+    spuCode: styleCode,
+    skuCode: `${styleCode}-TEST`,
+    exposureQty: toMetricNumber(draft.exposure),
+    clickQty: toMetricNumber(draft.click),
+    cartQty: toMetricNumber(draft.cart),
+    orderQty: toMetricNumber(draft.order),
+    gmvAmount: toMetricNumber(draft.gmv),
+  })
+  const relationResult = replaceLiveProductLineProjectRelations(created.productLine.liveLineId, [project.projectId], '当前用户')
+  state.liveTestingSelectedLineIds[getLiveTestingSelectionKey(project, context.node)] = created.productLine.liveLineId
+  state.notice = relationResult.errors.length
+    ? `直播测款记录已保留；项目关系未完全回写：${relationResult.errors.join('；')}`
+    : '直播测款记录已保留。'
+  state.liveTestingCreateDraft = createEmptyLiveTestingCreateDraft()
+}
+
+function completeLiveTestingWorkItem(): void {
+  const context = getCurrentProjectNodeContext()
+  if (!context || context.node.node.workItemTypeCode !== 'LIVE_TEST') {
+    state.notice = '当前节点不是直播测款。'
+    return
+  }
+  const blocker = getProjectNodeSequenceBlocker(context.project.projectId, context.node.node.projectNodeId)
+  if (blocker) {
+    state.notice = `请先填写并完成前序工作项：${blocker.workItemTypeName}`
+    return
+  }
+  if (!canCompleteProjectNode(context.project, context.node)) {
+    state.notice = '请先新增至少 1 条直播测款记录。'
+    return
+  }
+  const result = markProjectNodeCompletedAndUnlockNext(context.project.projectId, context.node.node.projectNodeId, {
+    operatorName: '当前用户',
+    resultType: '直播测款完成',
+    resultText: '直播测款记录已形成，进入后续测款节点。',
+  })
+  state.notice = result.message
+}
+
 export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pcs-project-action]')
   if (!actionNode) return false
@@ -8937,6 +9451,26 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     const projectNodeId = actionNode.dataset.projectNodeId
     if (!projectNodeId) return true
     state.detail.selectedNodeId = projectNodeId
+    return true
+  }
+  if (action === 'open-live-testing-create') {
+    openLiveTestingCreateDrawer()
+    return true
+  }
+  if (action === 'save-live-testing-record') {
+    saveProjectLiveTestingRecord()
+    return true
+  }
+  if (action === 'select-live-testing-record') {
+    const context = getCurrentProjectNodeContext()
+    const lineId = actionNode.dataset.liveLineId || ''
+    if (context && lineId) {
+      state.liveTestingSelectedLineIds[getLiveTestingSelectionKey(context.project, context.node)] = lineId
+    }
+    return true
+  }
+  if (action === 'complete-live-testing-work-item') {
+    completeLiveTestingWorkItem()
     return true
   }
   if (action === 'add-channel-listing-spec-line') {

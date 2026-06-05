@@ -17,6 +17,7 @@ import type {
 } from './special-processes-model.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
+const BINDING_ACTION_MODAL_ID = 'cutting-binding-action-modal'
 
 const statusToneMap: Record<BindingProcessStatus, string> = {
   待加工: 'border-slate-200 bg-slate-50 text-slate-700',
@@ -203,14 +204,23 @@ function renderDifferenceSummary(row: BindingProcessOrder): string {
   `
 }
 
+function buildBindingFeiTicketListHref(row: BindingProcessOrder): string {
+  const params = new URLSearchParams({
+    printObjectType: 'BINDING_STRIP_ORDER',
+    keyword: row.bindingOrderNo,
+  })
+  return `/fcs/craft/cutting/fei-tickets?${params.toString()}`
+}
+
 function renderOrderActions(row: BindingProcessOrder): string {
   const detailHref = `/fcs/craft/cutting/special-processes/${encodeURIComponent(row.bindingOrderId)}`
+  const printHref = buildBindingFeiTicketListHref(row)
   return `
     <div class="flex min-w-[10rem] flex-wrap gap-1.5">
       <a href="${escapeHtml(detailHref)}" data-nav="${escapeHtml(detailHref)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">查看</a>
       <button type="button" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50" data-cutting-binding-action="record-cutting" data-row-id="${escapeHtml(row.bindingOrderId)}">记录裁剪</button>
       <button type="button" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50" data-cutting-binding-action="finish" data-row-id="${escapeHtml(row.bindingOrderId)}">结束加工</button>
-      <button type="button" class="inline-flex min-h-8 items-center rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700" data-cutting-binding-action="print-ticket" data-row-id="${escapeHtml(row.bindingOrderId)}">打印菲票</button>
+      <button type="button" class="inline-flex min-h-8 items-center rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(printHref)}">打印菲票</button>
     </div>
   `
 }
@@ -536,30 +546,172 @@ function showBindingToast(message: string): void {
   }, 1800)
 }
 
+function removeBindingActionModal(): void {
+  document.getElementById(BINDING_ACTION_MODAL_ID)?.remove()
+}
+
+function renderRecordCuttingDialog(row: BindingProcessOrder): string {
+  return `
+    <div class="fixed inset-0 z-[130]" id="${BINDING_ACTION_MODAL_ID}" data-cutting-binding-dialog="record-cutting">
+      <button type="button" class="absolute inset-0 bg-black/45" data-skip-page-rerender="true" data-cutting-binding-action="close-overlay" aria-label="关闭弹窗"></button>
+      <div class="absolute inset-x-4 top-10 mx-auto max-w-4xl rounded-xl border bg-background shadow-xl">
+        <div class="flex items-start justify-between gap-3 border-b px-5 py-4">
+          <div>
+            <h2 class="text-lg font-semibold text-foreground">记录裁剪</h2>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.bindingOrderNo)} · 按捆条宽度分规格回写实际裁剪长度</p>
+          </div>
+          <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-binding-action="close-overlay">关闭</button>
+        </div>
+        <div class="max-h-[70vh] overflow-y-auto px-5 py-4">
+          <div class="grid gap-3 md:grid-cols-3">
+            ${renderDetailMetric('来源裁片单', row.sourceCutOrderNo)}
+            ${renderDetailMetric('计划总长度', formatLength(row.plannedTotalLength))}
+            ${renderDetailMetric('已记录实际', row.actualTotalLength ? formatLength(row.actualTotalLength) : '待回写')}
+          </div>
+          <div class="mt-4 overflow-x-auto rounded-lg border">
+            <table class="w-full min-w-[760px] text-sm">
+              <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+                <tr>
+                  <th class="px-3 py-3">捆条规格</th>
+                  <th class="px-3 py-3">计划长度</th>
+                  <th class="px-3 py-3">本次裁剪长度</th>
+                  <th class="px-3 py-3">操作员工</th>
+                  <th class="px-3 py-3">备注</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y">
+                ${row.bindingDetails.map((detail) => `
+                  <tr>
+                    <td class="px-3 py-3">
+                      <div class="font-medium text-foreground">${escapeHtml(detail.bindingStripName)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${detail.bindingWidth} cm / ${detail.feiTicketNo}`)}</div>
+                    </td>
+                    <td class="px-3 py-3 text-xs text-muted-foreground">
+                      <div>计划：${escapeHtml(formatLength(detail.requiredLength))}</div>
+                      <div>已记：${escapeHtml(detail.actualLength ? formatLength(detail.actualLength) : '待回写')}</div>
+                    </td>
+                    <td class="px-3 py-3">
+                      <input data-skip-page-rerender="true" class="h-9 w-28 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(String(detail.actualLength || detail.requiredLength || 0))}" />
+                      <span class="ml-1 text-xs text-muted-foreground">m</span>
+                    </td>
+                    <td class="px-3 py-3">
+                      <input data-skip-page-rerender="true" class="h-9 w-32 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(row.operatorName || 'Budi Santoso')}" />
+                    </td>
+                    <td class="px-3 py-3">
+                      <input data-skip-page-rerender="true" class="h-9 w-44 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="本次裁剪备注" />
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+            记录裁剪只回写捆条加工单自身的分批裁剪记录，不分摊到具体铺布单。
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 border-t px-5 py-4">
+          <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-binding-action="close-overlay">取消</button>
+          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cutting-binding-action="submit-record-cutting">确认记录裁剪</button>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderFinishDialog(row: BindingProcessOrder): string {
+  const differenceLength = Math.max(row.plannedTotalLength - row.actualTotalLength, 0)
+  return `
+    <div class="fixed inset-0 z-[130]" id="${BINDING_ACTION_MODAL_ID}" data-cutting-binding-dialog="finish">
+      <button type="button" class="absolute inset-0 bg-black/45" data-skip-page-rerender="true" data-cutting-binding-action="close-overlay" aria-label="关闭弹窗"></button>
+      <div class="absolute inset-x-4 top-12 mx-auto max-w-3xl rounded-xl border bg-background shadow-xl">
+        <div class="flex items-start justify-between gap-3 border-b px-5 py-4">
+          <div>
+            <h2 class="text-lg font-semibold text-foreground">结束加工</h2>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.bindingOrderNo)} · 结束后按当前实际长度形成加工结果</p>
+          </div>
+          <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-binding-action="close-overlay">关闭</button>
+        </div>
+        <div class="space-y-4 px-5 py-4">
+          <div class="grid gap-3 md:grid-cols-3">
+            ${renderDetailMetric('计划总长度', formatLength(row.plannedTotalLength))}
+            ${renderDetailMetric('累计实际长度', row.actualTotalLength ? formatLength(row.actualTotalLength) : '待回写')}
+            ${renderDetailMetric('差异长度', differenceLength ? formatLength(differenceLength) : '无差异')}
+          </div>
+          <div class="rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground">
+            <div class="font-medium text-foreground">结束规则</div>
+            <p class="mt-1">如果累计实际长度小于计划长度，需要记录差异原因；系统只记录差异，不新增“异常处理中”等加工主状态。</p>
+          </div>
+          <label class="block space-y-1 text-sm">
+            <span class="font-medium text-foreground">结束说明 / 差异原因</span>
+            <textarea data-skip-page-rerender="true" class="min-h-24 w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="例如：短裁 0.20m，主管确认手动结束。">${differenceLength ? `短裁 ${formatLength(differenceLength)}，需记录差异原因。` : '实际长度已满足计划，确认结束加工。'}</textarea>
+          </label>
+        </div>
+        <div class="flex justify-end gap-2 border-t px-5 py-4">
+          <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-binding-action="close-overlay">取消</button>
+          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cutting-binding-action="submit-finish">确认结束加工</button>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function openBindingActionModal(row: BindingProcessOrder, action: 'record-cutting' | 'finish'): void {
+  removeBindingActionModal()
+  const wrapper = document.createElement('div')
+  wrapper.innerHTML = action === 'record-cutting'
+    ? renderRecordCuttingDialog(row)
+    : renderFinishDialog(row)
+  const modal = wrapper.firstElementChild
+  if (modal) {
+    modal.addEventListener('click', (event) => {
+      const eventTarget = event.target
+      if (!(eventTarget instanceof HTMLElement)) return
+      if (!eventTarget.closest('[data-cutting-binding-action]')) return
+      event.preventDefault()
+      handleCraftCuttingSpecialProcessesEvent(eventTarget)
+    })
+    document.body.appendChild(modal)
+  }
+}
+
 export function handleCraftCuttingSpecialProcessesEvent(target: HTMLElement): boolean {
   const button = target.closest<HTMLElement>('[data-cutting-binding-action]')
   if (!button) return false
 
   const action = button.dataset.cuttingBindingAction
+  if (action === 'close-overlay') {
+    removeBindingActionModal()
+    return true
+  }
+  if (action === 'submit-record-cutting') {
+    removeBindingActionModal()
+    showBindingToast('本次裁剪记录已暂存到捆条加工单')
+    return true
+  }
+  if (action === 'submit-finish') {
+    removeBindingActionModal()
+    showBindingToast('捆条加工已结束，差异只进入差异记录')
+    return true
+  }
   if (action === 'refresh') {
     showBindingToast('捆条加工单已刷新')
     return true
   }
   if (action === 'record-cutting') {
-    showBindingToast('已记录本次裁剪入口；实际长度按规格累计到捆条加工单')
+    const row = getBindingProcessOrderById(button.dataset.rowId)
+    if (row) openBindingActionModal(row, 'record-cutting')
+    else showBindingToast('未找到对应捆条加工单')
     return true
   }
   if (action === 'finish') {
-    showBindingToast('结束加工时如未达计划长度，必须记录差异原因')
-    return true
-  }
-  if (action === 'print-ticket') {
-    showBindingToast('捆条菲票按每个宽度唯一生成')
+    const row = getBindingProcessOrderById(button.dataset.rowId)
+    if (row) openBindingActionModal(row, 'finish')
+    else showBindingToast('未找到对应捆条加工单')
     return true
   }
   return false
 }
 
 export function isCraftCuttingSpecialProcessesDialogOpen(): boolean {
-  return false
+  return Boolean(document.getElementById(BINDING_ACTION_MODAL_ID))
 }
