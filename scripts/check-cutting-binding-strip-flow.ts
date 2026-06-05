@@ -47,6 +47,7 @@ function main(): void {
   assert(requirementLines.length > 0, '缺少从纸样包派生的捆条需求')
   assert(requirementLines.every((line) => line.materialSku && line.patternFileId && line.bindingWidthCm > 0 && line.requiredLengthM > 0), '捆条需求必须按物料+纸样+宽度落数据')
   assert(requirementLines.some((line) => line.rawRequiredLengthM > 0 && line.minRequiredLengthApplied && line.requiredLengthM === 4), '捆条 mock 数据必须展示不足 4m 按 4m 起算')
+  assert(requirementLines.some((line) => line.rawRequiredLengthM >= 4 && !line.minRequiredLengthApplied && line.requiredLengthM === line.rawRequiredLengthM), '捆条 mock 数据必须展示超过 4m 按公式结果计算')
 
   const orders = buildBindingProcessOrders()
   const allowedMainStatuses = new Set(['待加工', '加工中', '已完成', '已取消'])
@@ -61,6 +62,7 @@ function main(): void {
   assert(detailTicketNos.length > 0, '捆条明细缺少菲票号')
   assert.equal(new Set(detailTicketNos).size, detailTicketNos.length, '每个捆条宽度规格必须有唯一菲票号')
   assert(orders.some((order) => order.bindingDetails.some((detail) => detail.minRequiredLengthApplied && detail.rawRequiredLength > 0 && detail.requiredLength === 4)), '捆条加工单计划长度必须承接 4m 起算规则')
+  assert(orders.some((order) => order.bindingDetails.some((detail) => detail.rawRequiredLength >= 4 && !detail.minRequiredLengthApplied && detail.requiredLength === detail.rawRequiredLength)), '捆条加工单计划长度必须覆盖不触发 4m 起算的场景')
   assert(orders.some((order) => new Set(order.bindingDetails.map((detail) => detail.bindingWidth)).size > 1), '缺少同一加工单多规格捆条明细')
   assert(orders.some((order) => order.status === '加工中' && order.cuttingRecords.length > 0), '缺少加工中分批裁剪记录')
   assert(orders.some((order) => order.status === '已完成' && order.cuttingRecords.length > 1), '缺少多次裁剪后完成的记录')
@@ -74,6 +76,7 @@ function main(): void {
   assert(fallbackOrders.length > 0, '上游裁片单投影为空时，捆条加工单必须有部署兜底演示数据')
   assert(fallbackOrders.some((order) => order.remark.includes('部署环境兜底演示数据')), '兜底捆条加工单必须标注数据来源')
   assert(fallbackOrders.some((order) => order.bindingDetails.some((detail) => detail.minRequiredLengthApplied && detail.requiredLength === 4)), '兜底捆条加工单必须展示不足 4m 按 4m 起算')
+  assert(fallbackOrders.some((order) => order.bindingDetails.some((detail) => detail.rawRequiredLength >= 4 && !detail.minRequiredLengthApplied)), '兜底捆条加工单必须展示超过 4m 按公式结果计算')
 
   const firstOrder = orders[0]
   const summary = summarizeBindingStripRequirementsForCutOrders([firstOrder.sourceCutOrderId])

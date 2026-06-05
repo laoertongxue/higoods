@@ -186,8 +186,23 @@ function augmentBindingStripsForDemo(
   source: GeneratedCutOrderSourceRecord,
   sourceIndex: number,
 ): TechnicalPatternBindingStrip[] {
-  if (sourceIndex !== 0 || strips.length !== 1) return strips
   const seed = strips[0]
+  if (!seed || strips.length !== 1) return strips
+  const highVolumeDemoLengthByCutOrderNo: Record<string, number> = {
+    'CUT-260303-007-01': 18000,
+    'CUT-260304-008-01': 26000,
+  }
+  const highVolumeLengthCm = highVolumeDemoLengthByCutOrderNo[source.cutOrderNo]
+  if (highVolumeLengthCm) {
+    return [
+      {
+        ...seed,
+        lengthCm: highVolumeLengthCm,
+        remark: '演示批量捆条需求：公式结果超过 4m，按实际公式结果计算。',
+      },
+    ]
+  }
+  if (sourceIndex !== 0) return strips
   return [
     seed,
     {
@@ -539,7 +554,7 @@ function buildFallbackBindingProcessOrders(): BindingProcessOrder[] {
           bindingStripId: 'fallback-binding-35',
           bindingStripNo: 'BIND-01',
           bindingStripName: '袖口捆条',
-          bindingLengthCm: 76,
+          bindingLengthCm: 18000,
           bindingWidthCm: 3.5,
         }),
       ],
@@ -566,7 +581,7 @@ function buildFallbackBindingProcessOrders(): BindingProcessOrder[] {
           bindingStripId: 'fallback-binding-28',
           bindingStripNo: 'BIND-01',
           bindingStripName: '下摆捆条',
-          bindingLengthCm: 180,
+          bindingLengthCm: 25000,
           bindingWidthCm: 2.8,
         }),
       ],
