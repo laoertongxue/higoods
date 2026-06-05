@@ -333,7 +333,6 @@ function buildCarrierRecord(input: {
     carrierId: input.carrierId,
     carrierCode: input.carrierCode,
     carrierType: input.carrierType,
-    cycleId: input.currentCycleId || 'idle-cycle',
     issuedAt,
   })
   return {
@@ -1770,7 +1769,7 @@ export function buildSpreadingDrivenTransferBagTraceMatrix(
 export function parseCarrierQrValue(value: string): {
   carrierId: string
   carrierCode: string
-  cycleId: string
+  cycleId?: string
 } | null {
   const payload = parseCuttingTraceQr(value)
   if (!payload || payload.codeType !== 'CARRIER') return null

@@ -130,7 +130,7 @@ export function summarizeTraceabilityPayload(payload: CuttingTraceabilityQrPaylo
     return {
       codeTypeLabel: payload.carrierType === 'bag' ? '中转袋父码' : '周转箱父码',
       primaryNo: payload.carrierCode,
-      relationSummary: `周期 ${payload.cycleId}`,
+      relationSummary: payload.cycleId ? `周期 ${payload.cycleId}` : '中转袋档案',
       schemaVersion: payload.version,
     }
   }

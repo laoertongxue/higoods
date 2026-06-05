@@ -94,7 +94,7 @@ export interface CarrierQrPayload extends CuttingQrPayloadBase<'CARRIER'> {
   carrierId: string
   carrierCode: string
   carrierType: 'bag' | 'box'
-  cycleId: string
+  cycleId?: string
   ownershipFactoryId?: string
   ownershipFactoryName?: string
 }
@@ -125,7 +125,7 @@ export function deserializeCuttingQrPayload(value: string): CuttingTraceabilityQ
       return parsed as FeiTicketQrPayload
     }
     if (parsed.codeType === 'CARRIER') {
-      if (!parsed.carrierId || !parsed.carrierCode || !parsed.cycleId) return null
+      if (!parsed.carrierId || !parsed.carrierCode) return null
       return parsed as CarrierQrPayload
     }
     return null
@@ -295,7 +295,7 @@ export function buildCarrierQrPayload(input: {
   carrierId: string
   carrierCode: string
   carrierType: 'bag' | 'box'
-  cycleId: string
+  cycleId?: string
   issuedAt: string
   ownershipFactoryId?: string
   ownershipFactoryName?: string
@@ -307,7 +307,7 @@ export function buildCarrierQrPayload(input: {
     carrierId: input.carrierId,
     carrierCode: input.carrierCode,
     carrierType: input.carrierType,
-    cycleId: input.cycleId,
+    ...(input.cycleId ? { cycleId: input.cycleId } : {}),
     ownershipFactoryId: input.ownershipFactoryId,
     ownershipFactoryName: input.ownershipFactoryName,
   }

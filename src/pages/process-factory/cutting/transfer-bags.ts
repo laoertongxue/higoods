@@ -46,7 +46,6 @@ import {
   buildBagUsageAuditTrail,
   buildTransferBagCarrierManagementProjection,
   buildTransferBagParentChildSummary,
-  createTransferBagDispatchManifest,
   createTransferBagUsageDraft,
   CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
   CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY,
@@ -1353,7 +1352,6 @@ function saveMasterDraft(): boolean {
     carrierId,
     carrierCode: bagCode,
     carrierType,
-    cycleId: 'idle-cycle',
     issuedAt: now,
     ownershipFactoryId: state.masterDraft.ownershipFactoryId,
     ownershipFactoryName,
@@ -1842,11 +1840,13 @@ function resolveSourceReturnAction(): { label: string; href: string } | null {
 
 function resolveFormalBagQrValue(item: TransferBagMasterItem | null): string {
   if (!item) return ''
-  return item.qrValue || getSourceMaster(item.bagId)?.qrValue || ''
+  return buildTransferBagArchiveQrValue(item) || buildTransferBagArchiveQrValue(getSourceMaster(item.bagId))
 }
 
 function resolveUsageBagQrValue(usage: TransferBagUsageItem): string {
-  return usage.bagMaster?.qrValue || getViewModel().mastersById[usage.bagId]?.qrValue || getSourceMaster(usage.bagId)?.qrValue || ''
+  return buildTransferBagArchiveQrValue(usage.bagMaster)
+    || buildTransferBagArchiveQrValue(getViewModel().mastersById[usage.bagId])
+    || buildTransferBagArchiveQrValue(getSourceMaster(usage.bagId))
 }
 
 function getTransferBagQrValueByBagCode(bagCode: string): string {
@@ -1854,7 +1854,23 @@ function getTransferBagQrValueByBagCode(bagCode: string): string {
   if (!normalizedBagCode) return ''
   const masterItem = getViewModel().masters.find((item) => item.bagCode === normalizedBagCode || item.carrierCode === normalizedBagCode) || null
   const sourceMaster = state.store.masters.find((item) => item.bagCode === normalizedBagCode || item.carrierCode === normalizedBagCode) || null
-  return masterItem?.qrValue || sourceMaster?.qrValue || ''
+  return buildTransferBagArchiveQrValue(masterItem) || buildTransferBagArchiveQrValue(sourceMaster)
+}
+
+function buildTransferBagArchiveQrValue(master: (Partial<TransferBagMaster> & Partial<TransferBagMasterItem>) | null | undefined): string {
+  if (!master) return ''
+  const carrierId = master.carrierId || master.bagId || ''
+  const carrierCode = master.carrierCode || master.bagCode || ''
+  if (!carrierId || !carrierCode) return ''
+  const carrierType = master.carrierType === 'box' || master.bagType === 'box' || master.bagType === '周转箱' ? 'box' : 'bag'
+  return encodeCarrierQr({
+    carrierId,
+    carrierCode,
+    carrierType,
+    issuedAt: master.createdAt || '2026-03-24 08:00',
+    ownershipFactoryId: master.ownershipFactoryId || '',
+    ownershipFactoryName: master.ownershipFactoryName || '',
+  }).qrValue
 }
 
 function renderTransferBagQrCell(bagCode: string, size = 64): string {
@@ -1883,11 +1899,12 @@ function renderMasterStatusActions(options: {
   detailHref: string
   historyHref: string
 }): string {
-  const { currentStatus, detailHref, historyHref } = options
+  const { item, currentStatus, detailHref, historyHref } = options
   void currentStatus
   const actionButtons: string[] = [
     `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>`,
     `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(historyHref)}">查看使用周期</button>`,
+    `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildTransferBagLabelPrintLink(item.bagId))}">打印中转袋二维码</button>`,
   ]
 
   return actionButtons.join('')
@@ -2229,7 +2246,7 @@ function renderNewMasterDialog(): string {
           <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" value="${escapeHtml(state.masterDraft.note)}" data-transfer-bags-master-draft-field="note" />
         </label>
       </div>
-      <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">保存后会生成正式中转袋二维码，二维码包含袋码、载具类型、当前周期和归属工厂信息。</div>
+      <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">保存后会生成正式中转袋档案二维码，二维码只包含袋码、载具类型和所属工厂等主档信息。</div>
     `,
     '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-transfer-bags-action="save-master">保存中转袋</button>',
   )
@@ -3557,7 +3574,7 @@ function renderUsageLedgerSection(): string {
                         <td class="px-4 py-3">
                           <div class="flex flex-wrap gap-2">
                             <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="select-usage" data-usage-id="${escapeHtml(item.usageId)}">查看详情</button>
-                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(item.usageId)}">打印二维码</button>
+                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(item.usageId)}">打印中转袋二维码</button>
                             <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(item.usageId)}">标记交出</button>
                           </div>
                         </td>
@@ -5489,33 +5506,20 @@ function printManifest(usageId: string | undefined): boolean {
   if (!usageId) return false
   const usage = getViewModel().usagesById[usageId]
   if (!usage) return false
-  const bindings = getViewModel().bindingsByUsageId[usageId] || []
-  if (!bindings.length) {
-    setFeedback('warning', `${usage.usageNo} 还没有装入任何菲票，不能打印流转清单。`)
-    return true
-  }
-
-  const manifest = createTransferBagDispatchManifest({
-    usage,
-    summary: buildTransferBagParentChildSummary(bindings),
-    nowText: nowText(),
-    createdBy: '中转袋工作台',
-  })
-  state.store.manifests.push(manifest)
   state.store.auditTrail.push(
     buildBagUsageAuditTrail({
       usageId,
-      action: '打印装袋清单',
-      actionAt: manifest.createdAt,
-      actionBy: manifest.createdBy,
-      note: `${usage.bagCode} 当前已打印装袋清单。`,
+      action: '打印中转袋档案二维码',
+      actionAt: nowText(),
+      actionBy: '中转袋工作台',
+      note: `${usage.bagCode} 已进入中转袋档案二维码打印预览。`,
     }),
   )
   refreshDerivedState()
   persistStore()
 
-  appStore.navigate(buildTransferBagLabelPrintLink(usageId))
-  setFeedback('success', `${usage.usageNo} 的中转袋二维码已进入统一打印预览。`)
+  appStore.navigate(buildTransferBagLabelPrintLink(usage.bagId || usage.bagCode))
+  setFeedback('success', `${usage.bagCode} 的中转袋档案二维码已进入统一打印预览。`)
   return true
 }
 

@@ -1123,7 +1123,6 @@ function toRuntimeCarrierRecord(master: TransferBagMaster): TransferCarrierRecor
     carrierId,
     carrierCode,
     carrierType,
-    cycleId: master.currentCycleId || 'idle-cycle',
     issuedAt: '2026-03-24 08:00',
     ownershipFactoryId: master.ownershipFactoryId,
     ownershipFactoryName: master.ownershipFactoryName,

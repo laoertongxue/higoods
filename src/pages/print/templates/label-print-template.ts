@@ -327,53 +327,62 @@ export const buildFeiTicketReprintLabelPrintDocument = buildFeiTicketLabelPrintD
 
 export function buildTransferBagLabelPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
   const projection = buildTransferBagsProjection()
-  const usage = projection.viewModel.usagesById[input.sourceId]
-    || projection.viewModel.usages.find((item) => item.usageNo === input.sourceId || item.bagId === input.sourceId || item.bagCode === input.sourceId)
-    || projection.viewModel.usages[0]
-  const master = usage ? projection.viewModel.mastersById[usage.bagId] : projection.viewModel.masters[0]
-  const usageExtra = usage as (typeof usage & { returnReceiptNo?: string; returnedFinishedQty?: number; returnStatusLabel?: string })
+  const matchedMaster = projection.viewModel.mastersById[input.sourceId]
+    || projection.viewModel.masters.find((item) =>
+      item.bagId === input.sourceId
+      || item.bagCode === input.sourceId
+      || item.carrierId === input.sourceId
+      || item.carrierCode === input.sourceId,
+    )
+    || null
+  const matchedUsage = projection.viewModel.usagesById[input.sourceId]
+    || projection.viewModel.usages.find((item) => item.usageNo === input.sourceId)
+    || matchedMaster?.currentUsage
+    || null
+  const usage = matchedUsage
+  const master = matchedMaster || (usage ? projection.viewModel.mastersById[usage.bagId] : null) || projection.viewModel.masters[0]
   const carrierTypeLabel = master?.bagType === 'box' || master?.carrierType === 'box' ? '周转箱' : '中转袋'
-  const bindings = usage ? projection.viewModel.bindingsByUsageId[usage.usageId] || [] : []
-  const sourceId = usage?.usageId || master?.bagId || input.sourceId
-  const businessNo = usage?.usageNo || master?.bagCode || sourceId
+  const sourceId = master?.bagId || master?.carrierId || input.sourceId
+  const businessNo = master?.bagCode || master?.carrierCode || sourceId
+  const ownershipFactoryName = master?.ownershipFactoryName || '裁床厂'
   const qrValue = buildPrintQrPayload({
     documentType: 'TRANSFER_BAG_LABEL',
     sourceType: 'TRANSFER_BAG_RECORD',
     sourceId,
     businessNo,
-    targetRoute: `/fcs/craft/cutting/transfer-bags?transferBagId=${encodeURIComponent(master?.bagId || '')}&usageId=${encodeURIComponent(usage?.usageId || '')}`,
+    targetRoute: `/fcs/craft/cutting/transfer-bags?transferBagId=${encodeURIComponent(sourceId)}&bagCode=${encodeURIComponent(businessNo)}`,
     printVersionNo: 'V1',
     extra: {
-      carrierCode: master?.bagCode || usage?.bagCode || '',
-      bagCode: master?.bagCode || usage?.bagCode || '',
+      carrierId: master?.carrierId || master?.bagId || sourceId,
+      carrierCode: businessNo,
+      bagCode: businessNo,
+      carrierType: master?.carrierType || (carrierTypeLabel === '周转箱' ? 'box' : 'bag'),
+      ownershipFactoryId: master?.ownershipFactoryId || '',
+      ownershipFactoryName,
     },
   })
   const item: PrintLabelItem = {
     labelTitle: `${carrierTypeLabel}二维码`,
-    labelSubtitle: '扫码查看载具与菲票绑定',
+    labelSubtitle: '扫码查看中转袋档案',
     labelFields: fields([
       { label: '载具类型', value: carrierTypeLabel, emphasis: true },
-      { label: '载具编码', value: master?.bagCode || usage?.bagCode, emphasis: true },
-      { label: '当前使用周期', value: usage?.usageNo || usage?.usageId },
-      { label: '当前归属任务', value: usage?.sewingTaskNo || '待绑定车缝任务' },
-      { label: '当前归属工厂', value: usage?.sewingFactoryName || '待绑定工厂' },
-      { label: '绑定菲票数量', value: formatPrintQty(bindings.length || usage?.packedTicketCount, '张'), emphasis: true },
-      { label: '绑定裁片数量', value: formatPrintQty(bindings.reduce((sum, binding) => sum + Number(binding.actualCutPieceQty || binding.qty || 0), 0), '片'), emphasis: true },
-      { label: '当前状态', value: usage?.statusMeta?.label || master?.visibleStatusMeta?.label || '待装袋' },
-      { label: '车缝任务号', value: usage?.sewingTaskNo || '未绑定' },
-      { label: '车缝工厂', value: usage?.sewingFactoryName || '未绑定' },
-      { label: '回仓任务', value: usageExtra?.returnReceiptNo || '待回仓' },
-      { label: '成衣件数', value: usageExtra?.returnedFinishedQty ? formatPrintQty(usageExtra.returnedFinishedQty, '件') : '待回仓' },
-      { label: '回仓状态', value: usageExtra?.returnStatusLabel || '待回仓' },
+      { label: '中转袋编号', value: businessNo, emphasis: true },
+      { label: '所属工厂', value: ownershipFactoryName, emphasis: true },
+      { label: '容量', value: master?.capacity ? `${master.capacity} 张菲票` : '' },
+      { label: '规格', value: master?.bagSpec },
+      { label: '材质', value: master?.bagMaterial },
+      { label: '是否启用', value: master?.enabled === false ? '停用' : '启用' },
+      { label: '是否可复用', value: master?.reusable === false ? '不可复用' : '可复用' },
+      { label: '建档时间', value: master?.createdAt },
     ]),
-    labelWarnings: ['一个载具在单次使用周期内只归属一个车缝任务。'],
-    qrCode: { title: '载具二维码', value: qrValue, description: '扫码查看载具与菲票绑定', sizeMm: 32 },
-    barcode: { title: '载具条码', value: buildPrintBarcodePayload({ documentType: 'TRANSFER_BAG_LABEL', sourceType: 'TRANSFER_BAG_RECORD', sourceId, businessNo }), description: businessNo },
+    labelWarnings: ['本码只代表中转袋档案，不代表当前流转记录。'],
+    qrCode: { title: '中转袋档案二维码', value: qrValue, description: '扫码查看中转袋档案', sizeMm: 32 },
+    barcode: { title: '中转袋档案条码', value: buildPrintBarcodePayload({ documentType: 'TRANSFER_BAG_LABEL', sourceType: 'TRANSFER_BAG_RECORD', sourceId, businessNo }), description: businessNo },
     printMode: '普通打印',
   }
   return buildBaseLabelDocument(input, {
     title: `${carrierTypeLabel}二维码`,
-    subtitle: '载具标签用于绑定多个菲票并追溯车缝任务与回仓。',
+    subtitle: '中转袋档案标签用于识别载具主档。',
     templateCode: 'TRANSFER_BAG_LABEL',
     sourceType: 'TRANSFER_BAG_RECORD',
     paperType: 'LABEL_100_60',
