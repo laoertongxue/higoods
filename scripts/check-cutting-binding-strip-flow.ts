@@ -101,6 +101,8 @@ function main(): void {
   })
   const bindingPrintHtml = renderLabelPrintTemplate(bindingPrintDoc)
   assertIncludes(bindingPrintHtml, '捆条菲票标签', '捆条菲票打印预览缺少文档标题')
+  assertIncludes(bindingPrintHtml, 'SPU:', '捆条菲票标签头部必须参考裁片部位菲票展示 SPU')
+  assertIncludes(bindingPrintHtml, printableBindingOrder.sourceProductionOrderNo, '捆条菲票标签头部必须展示生产单号')
   assertIncludes(bindingPrintHtml, '捆条宽度', '捆条菲票打印预览缺少捆条宽度')
   assertIncludes(bindingPrintHtml, '计划长度', '捆条菲票打印预览缺少计划长度')
   assertIncludes(bindingPrintHtml, '实际长度', '捆条菲票打印预览缺少实际长度')

@@ -85,7 +85,21 @@ function generatedTicketToRecord(ticket: AnyFeiTicket): AnyFeiTicket {
   }
 }
 
+function resolveBindingStripSpuCode(order: ReturnType<typeof buildBindingProcessOrders>[number]): string {
+  const candidates = [
+    order.sourcePatternPackageName,
+    order.patternIdentity.patternFileName,
+    order.patternIdentity.patternFileId,
+    order.materialIdentity.materialSku,
+  ]
+  const matched = candidates
+    .map((item) => String(item || '').match(/SPU[-_]\d{4}[-_]\d{3}/i)?.[0])
+    .find(Boolean)
+  return matched ? matched.replace(/_/g, '-').toUpperCase() : ''
+}
+
 function bindingDetailToFeiRecord(order: ReturnType<typeof buildBindingProcessOrders>[number], detail: AnyFeiTicket): AnyFeiTicket {
+  const spuCode = resolveBindingStripSpuCode(order)
   return {
     ticketSourceType: 'BINDING_STRIP',
     ticketRecordId: detail.feiTicketId,
@@ -114,7 +128,9 @@ function bindingDetailToFeiRecord(order: ReturnType<typeof buildBindingProcessOr
     markerPlanId: order.sourceMarkerPlanId,
     markerPlanNo: order.sourceMarkerPlanNo,
     sourceMarkerPlanNo: order.sourceMarkerPlanNo,
-    sourceTechPackSpuCode: order.patternIdentity.patternFileName || order.sourcePatternPackageName,
+    spuCode,
+    styleCode: spuCode,
+    sourceTechPackSpuCode: spuCode || order.sourcePatternPackageName || order.patternIdentity.patternFileName,
     materialSku: order.materialIdentity.materialSku,
     materialName: order.materialIdentity.materialName,
     fabricColor: order.materialIdentity.materialColor,
@@ -262,7 +278,7 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
 
   const baseFields = isBindingTicket
     ? fields([
-        { label: '菲票标题', value: '捆条菲票', emphasis: true },
+        { label: '菲票标题', value: printProjection.titleLabel, emphasis: true },
         { label: '菲票号', value: printProjection.feiTicketNo || ticketNo, emphasis: true },
         { label: '捆条加工单', value: record.bindingOrderNo, emphasis: true },
         { label: '生产单', value: printProjection.productionOrderNo },
@@ -607,7 +623,9 @@ function renderFeiBusinessCell(label: string, value: string, options: { classNam
 }
 
 function isBindingStripFeiLabelItem(item: PrintLabelItem): boolean {
-  return getLabelFieldValue(item, '菲票标题', item.labelTitle) === '捆条菲票'
+  return item.labelTitle === '捆条菲票'
+    || getLabelFieldValue(item, '菲票标题', item.labelTitle) === '捆条菲票'
+    || item.labelFields.some((field) => field.label === '捆条加工单' || field.label === '捆条宽度')
 }
 
 function renderBindingStripFeiBusinessLabelItem(item: PrintLabelItem, paperType: PrintPaperType): string {
