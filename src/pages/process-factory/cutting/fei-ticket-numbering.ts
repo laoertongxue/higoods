@@ -17,6 +17,8 @@ import {
   renderCuttingPageHeader,
 } from './meta.ts'
 
+type PeriodMode = 'day' | 'week' | 'month'
+
 interface PageState {
   keyword: string
   operatorName: string
@@ -27,6 +29,10 @@ interface PageState {
   feedback: string
   scanResult: FeiTicketNumberingScanResult | null
   isScanDialogOpen: boolean
+  summaryPeriod: PeriodMode
+  summaryDate: string
+  summaryWeek: string
+  summaryMonth: string
 }
 
 interface NumberingRow {
@@ -55,9 +61,11 @@ const state: PageState = {
   feedback: '',
   scanResult: null,
   isScanDialogOpen: false,
+  summaryPeriod: 'week',
+  summaryDate: '',
+  summaryWeek: '',
+  summaryMonth: '',
 }
-
-type PeriodMode = 'week' | 'month'
 
 interface OperatorPeriodSummary {
   operatorId: string
@@ -367,6 +375,10 @@ function getIsoWeekInfo(value: Date): { key: string; label: string } {
 
 function getPeriodInfo(completedAt: string, mode: PeriodMode): { key: string; label: string } {
   const date = parseCompletedDate(completedAt)
+  if (mode === 'day') {
+    const key = formatDate(date)
+    return { key, label: key }
+  }
   if (mode === 'month') {
     const key = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`
     return { key, label: `${date.getFullYear()} 年 ${pad2(date.getMonth() + 1)} 月` }
@@ -374,10 +386,27 @@ function getPeriodInfo(completedAt: string, mode: PeriodMode): { key: string; la
   return getIsoWeekInfo(date)
 }
 
-function buildOperatorPeriodSummaries(mode: PeriodMode): OperatorPeriodSummary[] {
+function getSummaryStateField(mode: PeriodMode): 'summaryDate' | 'summaryWeek' | 'summaryMonth' {
+  if (mode === 'day') return 'summaryDate'
+  if (mode === 'month') return 'summaryMonth'
+  return 'summaryWeek'
+}
+
+function resolveDefaultSummaryPeriodValue(mode: PeriodMode): string {
+  const latestRecord = filterFeiTicketNumberingRecords({ status: '已完成' })[0]
+  return latestRecord ? getPeriodInfo(latestRecord.completedAt, mode).key : ''
+}
+
+function getSummaryPeriodValue(mode: PeriodMode): string {
+  const field = getSummaryStateField(mode)
+  return state[field] || resolveDefaultSummaryPeriodValue(mode)
+}
+
+function buildOperatorPeriodSummaries(mode: PeriodMode, selectedPeriodKey = getSummaryPeriodValue(mode)): OperatorPeriodSummary[] {
   const map = new Map<string, OperatorPeriodSummary>()
   filterFeiTicketNumberingRecords({ status: '已完成' }).forEach((record) => {
     const period = getPeriodInfo(record.completedAt, mode)
+    if (selectedPeriodKey && period.key !== selectedPeriodKey) return
     const key = `${record.operatorName}|${period.key}`
     const current = map.get(key) || {
       operatorId: record.operatorId,
@@ -394,23 +423,78 @@ function buildOperatorPeriodSummaries(mode: PeriodMode): OperatorPeriodSummary[]
     map.set(key, current)
   })
   return Array.from(map.values()).sort((left, right) =>
+    right.numberCount - left.numberCount ||
+    right.ticketCount - left.ticketCount ||
+    right.latestCompletedAt.localeCompare(left.latestCompletedAt, 'zh-CN') ||
     left.operatorName.localeCompare(right.operatorName, 'zh-CN') ||
-    right.periodKey.localeCompare(left.periodKey, 'zh-CN') ||
-    right.numberCount - left.numberCount,
+    right.periodKey.localeCompare(left.periodKey, 'zh-CN'),
   )
 }
 
-function renderOperatorPeriodSummaryTable(title: string, rows: OperatorPeriodSummary[]): string {
+function periodModeLabel(mode: PeriodMode): string {
+  if (mode === 'day') return '按日'
+  if (mode === 'month') return '按月'
+  return '按周'
+}
+
+function renderSummaryPeriodFilters(activeMode: PeriodMode): string {
+  const modes: Array<{ mode: PeriodMode; label: string }> = [
+    { mode: 'day', label: '按日' },
+    { mode: 'week', label: '按周' },
+    { mode: 'month', label: '按月' },
+  ]
+  return `
+    <div class="inline-flex overflow-hidden rounded-md border bg-background">
+      ${modes.map((item) => `
+        <button
+          type="button"
+          class="h-9 px-4 text-sm ${activeMode === item.mode ? 'bg-blue-600 text-white' : 'text-foreground hover:bg-muted'}"
+          data-fei-ticket-numbering-action="set-summary-period"
+          data-period-mode="${escapeHtml(item.mode)}"
+        >${escapeHtml(item.label)}</button>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderSummaryPeriodPicker(mode: PeriodMode): string {
+  const field = getSummaryStateField(mode)
+  const value = getSummaryPeriodValue(mode)
+  const inputMeta: Record<PeriodMode, { label: string; type: string }> = {
+    day: { label: '选择日期', type: 'date' },
+    week: { label: '选择周', type: 'week' },
+    month: { label: '选择月份', type: 'month' },
+  }
+  const meta = inputMeta[mode]
+  return `
+    <label class="flex items-center gap-2 text-sm">
+      <span class="whitespace-nowrap text-muted-foreground">${escapeHtml(meta.label)}</span>
+      <input
+        type="${escapeHtml(meta.type)}"
+        class="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        value="${escapeHtml(value)}"
+        data-skip-page-rerender="true"
+        data-fei-ticket-numbering-field="${escapeHtml(field)}"
+      />
+    </label>
+  `
+}
+
+function renderOperatorPeriodSummaryTable(rows: OperatorPeriodSummary[], mode: PeriodMode): string {
   const totalTickets = rows.reduce((sum, row) => sum + row.ticketCount, 0)
   const totalNumbers = rows.reduce((sum, row) => sum + row.numberCount, 0)
   return `
     <section class="overflow-hidden rounded-lg border bg-card">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
         <div>
-          <h2 class="text-base font-semibold text-foreground">${escapeHtml(title)}</h2>
-          <p class="mt-1 text-xs text-muted-foreground">按员工姓名升序，同一员工按最近周期优先排序。</p>
+          <h2 class="text-base font-semibold text-foreground">员工统计排行</h2>
+          <p class="mt-1 text-xs text-muted-foreground">当前维度：${escapeHtml(periodModeLabel(mode))}。按编号数量从高到低排序。</p>
         </div>
-        <div class="text-xs text-muted-foreground">${formatNumber(totalTickets)} 张菲票 / ${formatNumber(totalNumbers)} 个编号</div>
+        <div class="flex flex-wrap items-center justify-end gap-3">
+          <div class="text-xs text-muted-foreground">${formatNumber(totalTickets)} 张菲票 / ${formatNumber(totalNumbers)} 个编号</div>
+          ${renderSummaryPeriodFilters(mode)}
+          ${renderSummaryPeriodPicker(mode)}
+        </div>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
@@ -453,9 +537,11 @@ export function renderCraftCuttingFeiTicketNumberingPage(): string {
     <div class="space-y-4">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: `
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-fei-ticket-numbering-action="open-scan-dialog">扫码打编号</button>
-          <a href="/fcs/craft/cutting/fei-ticket-numbering/summary" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center rounded-md border px-3 py-2 text-sm hover:bg-muted">员工计件汇总</a>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/pda/cutting/fei-ticket-numbering">打开 PDA 打编号</button>
+          <div class="flex flex-wrap items-center justify-end gap-2">
+            <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-fei-ticket-numbering-action="open-scan-dialog">扫码打编号</button>
+            <a href="/fcs/craft/cutting/fei-ticket-numbering/summary" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center rounded-md border px-3 py-2 text-sm hover:bg-muted">员工计件汇总</a>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/pda/cutting/fei-ticket-numbering">打开 PDA 打编号</button>
+          </div>
         `,
       })}
       ${renderKpiCards(rows)}
@@ -468,10 +554,7 @@ export function renderCraftCuttingFeiTicketNumberingPage(): string {
 
 export function renderCraftCuttingFeiTicketNumberingSummaryPage(): string {
   const meta = getCanonicalCuttingMeta('fei-ticket-numbering')
-  const records = filterFeiTicketNumberingRecords({ status: '已完成' })
-  const summaries = summarizeFeiTicketNumberingByOperator(records)
-  const totalNumbers = records.reduce((sum, record) => sum + record.numberCount, 0)
-  const topOperator = summaries[0]
+  const mode = state.summaryPeriod
   return `
     <div class="space-y-4">
       ${renderCuttingPageHeader({
@@ -482,25 +565,7 @@ export function renderCraftCuttingFeiTicketNumberingSummaryPage(): string {
       }, {
         actionsHtml: '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/cutting/fei-ticket-numbering">返回菲票打编号</button>',
       })}
-      <section class="grid gap-3 md:grid-cols-3">
-        <article class="rounded-lg border bg-card p-4">
-          <div class="text-xs text-muted-foreground">完成菲票</div>
-          <div class="mt-2 text-xl font-semibold text-foreground">${formatNumber(records.length)} 张</div>
-          <div class="mt-1 text-xs text-muted-foreground">仅统计已完成打编号的普通部位菲票</div>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <div class="text-xs text-muted-foreground">完成编号</div>
-          <div class="mt-2 text-xl font-semibold text-foreground">${formatNumber(totalNumbers)} 个</div>
-          <div class="mt-1 text-xs text-muted-foreground">用于员工计件工资核对</div>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <div class="text-xs text-muted-foreground">最高计件员工</div>
-          <div class="mt-2 text-xl font-semibold text-foreground">${escapeHtml(topOperator?.operatorName || '-')}</div>
-          <div class="mt-1 text-xs text-muted-foreground">${topOperator ? `${topOperator.ticketCount} 张 / ${formatNumber(topOperator.numberCount)} 个编号` : '暂无记录'}</div>
-        </article>
-      </section>
-      ${renderOperatorPeriodSummaryTable('按周汇总', buildOperatorPeriodSummaries('week'))}
-      ${renderOperatorPeriodSummaryTable('按月汇总', buildOperatorPeriodSummaries('month'))}
+      ${renderOperatorPeriodSummaryTable(buildOperatorPeriodSummaries(mode), mode)}
     </div>
   `
 }
@@ -534,6 +599,14 @@ export function handleCraftCuttingFeiTicketNumberingEvent(target: Element): bool
 
   if (action === 'close-scan-dialog') {
     state.isScanDialogOpen = false
+    return true
+  }
+
+  if (action === 'set-summary-period') {
+    const mode = actionNode.dataset.periodMode
+    if (mode === 'day' || mode === 'week' || mode === 'month') {
+      state.summaryPeriod = mode
+    }
     return true
   }
 
