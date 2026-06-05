@@ -3246,6 +3246,32 @@ function deriveSampleInboundArrivalStatus(row: SampleInboundLineRow): string {
   return '多到'
 }
 
+function getSampleInboundDiffView(plannedValue: unknown, receivedValue: unknown): {
+  text: string
+  toneClass: string
+  autoStatusLabel: string
+} {
+  const plannedQtyText = normalizeQtyText(plannedValue)
+  const receivedQtyText = normalizeQtyText(receivedValue)
+  if (!plannedQtyText && !receivedQtyText) {
+    return {
+      text: '-',
+      toneClass: 'text-slate-400',
+      autoStatusLabel: '自动判断',
+    }
+  }
+  const diffQty = getQtyNumber(plannedQtyText) - getQtyNumber(receivedQtyText)
+  return {
+    text: diffQty === 0 ? '无差异' : String(diffQty),
+    toneClass: diffQty === 0 ? 'text-emerald-600' : diffQty > 0 ? 'text-rose-600' : 'text-amber-600',
+    autoStatusLabel: `自动判断：${deriveSampleInboundArrivalStatus({
+      plannedQty: plannedQtyText,
+      receivedQty: receivedQtyText,
+      arrivalStatus: '',
+    })}`,
+  }
+}
+
 function parseSampleInboundLine(line: string): SampleInboundLineRow {
   const text = line.trim()
   if (!text) return normalizeSampleInboundLineRow({})
@@ -3848,10 +3874,7 @@ function renderSampleInboundLineControl(value: string, disabled: boolean, baseCl
         <tbody class="divide-y divide-slate-100 bg-white">
           ${rows
             .map((row, index) => {
-              const plannedQty = getQtyNumber(row.plannedQty)
-              const receivedQty = getQtyNumber(row.receivedQty)
-              const diffQty = receivedQty - plannedQty
-              const diffText = row.plannedQty || row.receivedQty ? (diffQty === 0 ? '无差异' : `${diffQty > 0 ? '+' : ''}${diffQty}`) : '-'
+              const diffView = getSampleInboundDiffView(row.plannedQty, row.receivedQty)
               return `
                 <tr data-pcs-sample-inbound-row="${index}">
                   <td class="px-3 py-2">
@@ -3866,15 +3889,15 @@ function renderSampleInboundLineControl(value: string, disabled: boolean, baseCl
                   <td class="px-3 py-2">
                     <input type="number" min="0" step="1" class="${inputClass}" value="${escapeHtml(row.receivedQty)}" placeholder="2" data-pcs-sample-inbound-field="receivedQty" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
                   </td>
-                  <td class="px-3 py-2 text-xs font-medium ${diffQty === 0 ? 'text-emerald-600' : diffQty > 0 ? 'text-amber-600' : 'text-rose-600'}">
-                    ${escapeHtml(diffText)}
+                  <td class="px-3 py-2 text-xs font-medium ${diffView.toneClass}" data-pcs-sample-inbound-diff="true">
+                    ${escapeHtml(diffView.text)}
                   </td>
                   <td class="px-3 py-2">
                     <select class="${inputClass}" data-pcs-sample-inbound-field="arrivalStatus" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''}>
                       ${statusOptions
                         .map(
                           (option) =>
-                            `<option value="${escapeHtml(option)}" ${row.arrivalStatus === option ? 'selected' : ''}>${escapeHtml(option || '自动判断')}</option>`,
+                            `<option value="${escapeHtml(option)}" ${option === '' ? 'data-pcs-sample-inbound-auto-status="true"' : ''} ${row.arrivalStatus === option ? 'selected' : ''}>${escapeHtml(option || diffView.autoStatusLabel)}</option>`,
                         )
                         .join('')}
                     </select>
@@ -7580,6 +7603,35 @@ function readSampleInboundLineRowsFromDom(keepEmpty = false): SampleInboundLineR
   return rows
 }
 
+function updateSampleInboundRowDerivedView(rowNode: HTMLElement): void {
+  const readValue = (fieldKey: keyof SampleInboundLineRow): string => {
+    const fieldNode = rowNode.querySelector<HTMLInputElement | HTMLSelectElement>(
+      `[data-pcs-sample-inbound-field="${fieldKey}"]`,
+    )
+    return fieldNode?.value || ''
+  }
+  const diffView = getSampleInboundDiffView(readValue('plannedQty'), readValue('receivedQty'))
+  const diffNode = rowNode.querySelector<HTMLElement>('[data-pcs-sample-inbound-diff="true"]')
+  if (diffNode) {
+    diffNode.textContent = diffView.text
+    diffNode.className = `px-3 py-2 text-xs font-medium ${diffView.toneClass}`
+  }
+  const autoStatusOption = rowNode.querySelector<HTMLOptionElement>('[data-pcs-sample-inbound-auto-status="true"]')
+  if (autoStatusOption) {
+    autoStatusOption.textContent = diffView.autoStatusLabel
+  }
+}
+
+function updateSampleInboundDerivedViewFromInput(target: Element): boolean {
+  const fieldNode = target.closest<HTMLElement>('[data-pcs-sample-inbound-field]')
+  if (!fieldNode) return false
+  const rowNode = fieldNode.closest<HTMLElement>('[data-pcs-sample-inbound-row]')
+  if (rowNode) {
+    updateSampleInboundRowDerivedView(rowNode)
+  }
+  return true
+}
+
 function updateSampleInboundLineRowsFromDom(updater: (rows: SampleInboundLineRow[]) => SampleInboundLineRow[]): void {
   const context = getCurrentProjectNodeContext()
   if (!context) return
@@ -7683,6 +7735,8 @@ function applyCreateSelection(field: 'brand' | 'owner' | 'team' | 'styleCode' | 
 }
 
 export function handlePcsProjectsInput(target: Element): boolean {
+  if (updateSampleInboundDerivedViewFromInput(target)) return true
+
   const fieldNode = target.closest<HTMLElement>('[data-pcs-project-field]')
   if (!fieldNode) return false
   const field = fieldNode.dataset.pcsProjectField
