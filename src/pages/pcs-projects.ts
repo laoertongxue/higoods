@@ -2084,6 +2084,7 @@ function resolveUsableChannelListingImagePoolItems(projectId: string): PcsProjec
 function buildChannelListingBatchImageIds(draft: ChannelListingDraft): string[] {
   return [...new Set([
     draft.listingMainImageId,
+    ...draft.listingImageIds,
     ...draft.specLines.map((line) => line.productImageId),
   ].filter(Boolean))]
 }
@@ -2138,6 +2139,52 @@ function resolveChannelListingRecordImage(record: ProjectChannelProductRecord): 
     imageUrl: listingMain.imageUrl,
     imageName: listingMain.imageName,
   }
+}
+
+function isChannelListingRecordReadyForWorkItemComplete(record: ProjectChannelProductRecord): boolean {
+  if (record.channelProductStatus === '已作废') return false
+  return (
+    record.listingBatchStatus === '已上传待确认' ||
+    record.listingBatchStatus === '已完成' ||
+    record.channelProductStatus === '已上架待测款' ||
+    record.channelProductStatus === '已生效'
+  )
+}
+
+function listChannelListingActiveRecords(projectId: string): ProjectChannelProductRecord[] {
+  return listProjectChannelProductsByProjectIdSafe(projectId).filter((item) => item.channelProductStatus !== '已作废')
+}
+
+function canCompleteChannelListingWorkItem(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+): boolean {
+  if (!node.unlocked || node.node.currentStatus === '已完成' || node.node.currentStatus === '已取消') return false
+  return listChannelListingActiveRecords(project.projectId).some(isChannelListingRecordReadyForWorkItemComplete)
+}
+
+function getChannelListingWorkItemCompleteNotice(project: PcsProjectRecord): string {
+  const activeRecords = listChannelListingActiveRecords(project.projectId)
+  if (activeRecords.length === 0) {
+    return '请先创建渠道店铺商品，并上传到渠道后再完成商品上架工作项。'
+  }
+  if (!activeRecords.some(isChannelListingRecordReadyForWorkItemComplete)) {
+    return '当前已有渠道店铺商品，但还未上传到渠道；请先点击“上传到渠道”。'
+  }
+  return ''
+}
+
+function renderChannelListingCompleteAction(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  variant: 'primary' | 'soft' = 'primary',
+): string {
+  if (!canCompleteChannelListingWorkItem(project, node)) return ''
+  const className =
+    variant === 'soft'
+      ? 'inline-flex h-9 items-center rounded-md border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 hover:bg-emerald-100'
+      : 'inline-flex h-9 items-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700'
+  return `<button type="button" class="${className}" data-pcs-project-action="complete-channel-listing-work-item">完成本工作项</button>`
 }
 
 function renderChannelListingSpecImageCell(
@@ -2309,7 +2356,7 @@ function renderChannelListingImagePoolSection(
                           ${
                             usable
                               ? `<button type="button" class="inline-flex h-8 items-center rounded-md border ${isMain ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'} px-3 text-xs font-medium" data-pcs-project-action="set-channel-listing-main-image" data-image-id="${escapeHtml(image.imageId)}">${isMain ? '当前主图' : '设为主图'}</button>`
-                              : `<button type="button" class="inline-flex h-8 items-center rounded-md border border-amber-200 bg-amber-50 px-3 text-xs font-medium text-amber-700 hover:bg-amber-100" data-pcs-project-action="confirm-channel-listing-pool-image" data-image-id="${escapeHtml(image.imageId)}">确认可用于上架</button>`
+                              : `<button type="button" class="inline-flex h-8 items-center rounded-md border border-amber-200 bg-amber-50 px-3 text-xs font-medium text-amber-700 hover:bg-amber-100" data-pcs-project-action="confirm-add-channel-listing-image" data-image-id="${escapeHtml(image.imageId)}">确认可用于上架</button>`
                           }
                           ${
                             canDelete
@@ -2566,14 +2613,13 @@ function renderChannelListingNodeWorkspace(project: PcsProjectRecord, node: Proj
   )
   const latestCompletedRecord = completedRecords[0] || uploadedRecords[0] || null
   const targetChannels = getChannelNamesByCodes(project.targetChannelCodes)
+  const nodeCompleted = node.node.currentStatus === '已完成'
+  const canCreateListingBatch = node.unlocked && !nodeCompleted && node.node.currentStatus !== '已取消'
 
   return `
     <div class="space-y-4">
       <section class="rounded-lg border bg-white p-4">
-        <div class="flex items-center justify-between gap-3">
-          <h3 class="text-base font-semibold text-slate-900">项目级策略</h3>
-          <span class="text-xs text-slate-500">${escapeHtml(node.displayStatus)}</span>
-        </div>
+        <h3 class="text-base font-semibold text-slate-900">项目级策略</h3>
         <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <article class="rounded-lg border border-slate-200 bg-slate-50 p-4 md:col-span-2">
             <p class="text-xs text-slate-500">目标上架渠道</p>
@@ -2609,8 +2655,14 @@ function renderChannelListingNodeWorkspace(project: PcsProjectRecord, node: Proj
         </div>
       </section>
       ${renderChannelListingUploadedProductsSection(project, records)}
-      ${renderChannelListingImagePoolSection(project, node, draft)}
-      ${renderChannelListingCreateBatchSection(project, node, draft)}
+      ${
+        canCreateListingBatch
+          ? `
+            ${renderChannelListingImagePoolSection(project, node, draft)}
+            ${renderChannelListingCreateBatchSection(project, node, draft)}
+          `
+          : ''
+      }
     </div>
   `
 }
@@ -6795,7 +6847,7 @@ function renderProjectDetailPage(projectId: string): string {
                     <div class="flex flex-wrap gap-2">
                       ${
                         isChannelListingNode(selectedNode)
-                          ? ''
+                          ? renderChannelListingCompleteAction(viewModel.project, selectedNode, 'soft')
                           : isDecisionNode(selectedNode)
                           ? `${
                               canOpenDecisionAction(selectedNode)
@@ -7449,7 +7501,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
           <div class="flex flex-wrap gap-2">
             ${
               isChannelListingNode(node)
-                ? ''
+                ? renderChannelListingCompleteAction(viewModel.project, node, 'primary')
                 : isDecisionNode(node)
                 ? `${
                     canOpenDecisionAction(node)
@@ -8055,6 +8107,7 @@ export function handlePcsProjectsInput(target: Element): boolean {
   }
   if (
     field.startsWith('channel-listing-') &&
+    field !== 'channel-listing-spec-product-image' &&
     field !== 'channel-listing-spec-color' &&
     field !== 'channel-listing-spec-size' &&
     field !== 'channel-listing-spec-print' &&
@@ -8115,6 +8168,7 @@ export function handlePcsProjectsInput(target: Element): boolean {
     }
   }
   if (
+    field === 'channel-listing-spec-product-image' ||
     field === 'channel-listing-spec-color' ||
     field === 'channel-listing-spec-size' ||
     field === 'channel-listing-spec-print' ||
@@ -8127,13 +8181,30 @@ export function handlePcsProjectsInput(target: Element): boolean {
     const specIndex = Number(fieldNode.dataset.specIndex || '-1')
     if (!context || !isChannelListingNode(context.node) || specIndex < 0) return true
     const draft = getChannelListingDraft(context.project, context.node)
-    const nextSpecLines = [...draft.specLines]
+    const nextSpecLines = draft.specLines.map((line) => ({ ...line }))
     const currentLine = nextSpecLines[specIndex]
     if (!currentLine) return true
     const value =
       fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement
         ? fieldNode.value
         : ''
+    if (field === 'channel-listing-spec-product-image') {
+      const selectedImage = findChannelListingPoolImage(context.project.projectId, value)
+      currentLine.productImageId = selectedImage?.imageId || ''
+      currentLine.productImageUrl = selectedImage?.imageUrl || ''
+      currentLine.productImageName = selectedImage?.imageName || ''
+      const nextDraft: ChannelListingDraft = {
+        ...draft,
+        specLines: nextSpecLines,
+        listingMainImageId: draft.listingMainImageId || currentLine.productImageId,
+      }
+      updateChannelListingDraft(context.project, context.node, {
+        specLines: nextSpecLines,
+        listingImageIds: buildChannelListingBatchImageIds(nextDraft),
+        listingMainImageId: nextDraft.listingMainImageId,
+      })
+      return true
+    }
     if (field === 'channel-listing-spec-color') currentLine.colorName = value
     if (field === 'channel-listing-spec-size') currentLine.sizeName = value
     if (field === 'channel-listing-spec-print') currentLine.printName = value
@@ -8897,14 +8968,18 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     })
     return true
   }
-  if (action === 'add-channel-listing-image' || action === 'confirm-add-channel-listing-image') {
+  if (
+    action === 'add-channel-listing-image' ||
+    action === 'confirm-add-channel-listing-image' ||
+    action === 'confirm-channel-listing-pool-image'
+  ) {
     const context = getCurrentProjectNodeContext()
     const imageId = actionNode.dataset.imageId || ''
     if (!context || !isChannelListingNode(context.node) || !imageId) {
       state.notice = '未找到待加入的上架图片。'
       return true
     }
-    if (action === 'confirm-add-channel-listing-image') {
+    if (action !== 'add-channel-listing-image') {
       const updated = markProjectImageAssetUsableForListing(imageId, '当前用户')
       if (!updated) {
         state.notice = '未找到待确认的图片资产。'
@@ -8920,7 +8995,7 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
       listingImageIds: [...draft.listingImageIds, imageId],
       listingMainImageId: draft.listingMainImageId || imageId,
     })
-    state.notice = action === 'confirm-add-channel-listing-image' ? '图片已确认可用于上架并加入当前批次。' : '图片已加入当前上架批次。'
+    state.notice = action === 'add-channel-listing-image' ? '图片已加入当前上架批次。' : '图片已确认可用于上架并加入当前批次。'
     return true
   }
   if (action === 'add-style-archive-image' || action === 'confirm-add-style-archive-image') {
@@ -9026,6 +9101,64 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     })
     return true
   }
+  if (action === 'clear-channel-listing-spec-image') {
+    const context = getCurrentProjectNodeContext()
+    const specIndex = Number(actionNode.dataset.specIndex || '-1')
+    if (!context || !isChannelListingNode(context.node) || specIndex < 0) {
+      state.notice = '未找到待清除图片的规格明细。'
+      return true
+    }
+    const draft = getChannelListingDraft(context.project, context.node)
+    const nextSpecLines = draft.specLines.map((line, index) =>
+      index === specIndex
+        ? {
+            ...line,
+            productImageId: '',
+            productImageUrl: '',
+            productImageName: '',
+          }
+        : { ...line },
+    )
+    updateChannelListingDraft(context.project, context.node, {
+      specLines: nextSpecLines,
+      listingImageIds: buildChannelListingBatchImageIds({
+        ...draft,
+        specLines: nextSpecLines,
+      }),
+    })
+    return true
+  }
+  if (action === 'delete-channel-listing-pool-image') {
+    const context = getCurrentProjectNodeContext()
+    const imageId = actionNode.dataset.imageId || ''
+    if (!context || !isChannelListingNode(context.node) || !imageId) {
+      state.notice = '未找到待删除的商品图片。'
+      return true
+    }
+    const draft = getChannelListingDraft(context.project, context.node)
+    removeProjectImageAsset(imageId)
+    const nextSpecLines = draft.specLines.map((line) =>
+      line.productImageId === imageId
+        ? {
+            ...line,
+            productImageId: '',
+            productImageUrl: '',
+            productImageName: '',
+          }
+        : { ...line },
+    )
+    const nextImageIds = draft.listingImageIds.filter((item) => item !== imageId)
+    updateChannelListingDraft(context.project, context.node, {
+      specLines: nextSpecLines,
+      listingImageIds: nextImageIds,
+      listingMainImageId:
+        draft.listingMainImageId === imageId
+          ? nextImageIds[0] || nextSpecLines.find((line) => line.productImageId)?.productImageId || ''
+          : draft.listingMainImageId,
+    })
+    state.notice = '商品图片已删除，并已清理规格明细中的引用。'
+    return true
+  }
   if (action === 'set-channel-listing-main-image') {
     const context = getCurrentProjectNodeContext()
     const imageId = actionNode.dataset.imageId || ''
@@ -9034,11 +9167,12 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
       return true
     }
     const draft = getChannelListingDraft(context.project, context.node)
-    if (!draft.listingImageIds.includes(imageId)) {
-      state.notice = '当前图片不在上架图片集合中。'
-      return true
-    }
-    updateChannelListingDraft(context.project, context.node, { listingMainImageId: imageId })
+    updateChannelListingDraft(context.project, context.node, {
+      listingImageIds: draft.listingImageIds.includes(imageId)
+        ? draft.listingImageIds
+        : [...draft.listingImageIds, imageId],
+      listingMainImageId: imageId,
+    })
     return true
   }
   if (action === 'move-channel-listing-image-up' || action === 'move-channel-listing-image-down') {
@@ -9080,9 +9214,12 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
         defaultPriceAmount: Number(draft.defaultPriceAmount || '0'),
         currencyCode: draft.currencyCode,
         listingMainImageId: draft.listingMainImageId,
-        listingImageIds: draft.listingImageIds,
+        listingImageIds: buildChannelListingBatchImageIds(draft),
         listingRemark: draft.listingRemark,
         specLines: draft.specLines.map((line) => ({
+          productImageId: line.productImageId,
+          productImageUrl: line.productImageUrl,
+          productImageName: line.productImageName,
           colorName: line.colorName.trim(),
           sizeName: line.sizeName.trim(),
           printName: line.printName.trim(),
@@ -9117,6 +9254,25 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
       return true
     }
     const result = markProjectChannelProductListingCompletedSafe(channelProductId, '当前用户')
+    state.notice = result.message
+    return true
+  }
+  if (action === 'complete-channel-listing-work-item') {
+    const context = getCurrentProjectNodeContext()
+    if (!context || !isChannelListingNode(context.node)) {
+      state.notice = '当前节点不是商品上架。'
+      return true
+    }
+    const blocker = getProjectNodeSequenceBlocker(context.project.projectId, context.node.node.projectNodeId)
+    if (blocker) {
+      state.notice = `请先填写并完成前序工作项：${blocker.workItemTypeName}`
+      return true
+    }
+    if (!canCompleteChannelListingWorkItem(context.project, context.node)) {
+      state.notice = getChannelListingWorkItemCompleteNotice(context.project) || '当前商品上架工作项暂不能完成。'
+      return true
+    }
+    const result = completeProjectChannelListingNodeSafe(context.project.projectId, '当前用户')
     state.notice = result.message
     return true
   }

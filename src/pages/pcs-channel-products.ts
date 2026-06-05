@@ -21,13 +21,65 @@ const PREFERRED_PROJECT_ORDER = [
   'PRJ-20251216-011',
 ]
 
-function listDisplayRecords(): ProjectChannelProductRecord[] {
+interface ChannelStoreSpuRow {
+  rowKey: string
+  channelCode: string
+  channelName: string
+  storeId: string
+  storeName: string
+  spuCode: string
+  records: ProjectChannelProductRecord[]
+  currentRecord: ProjectChannelProductRecord
+  specLineCount: number
+  uploadedSpecLineCount: number
+  stockQty: number
+}
+
+function resolveSpuCode(record: ProjectChannelProductRecord): string {
+  return (
+    record.upstreamProductId ||
+    record.upstreamChannelProductCode ||
+    record.styleCode ||
+    record.channelProductCode ||
+    '-'
+  )
+}
+
+function buildChannelStoreSpuRows(records: ProjectChannelProductRecord[]): ChannelStoreSpuRow[] {
+  const rowMap = new Map<string, ProjectChannelProductRecord[]>()
+  records.forEach((record) => {
+    const rowKey = [record.channelCode, record.storeId, resolveSpuCode(record)].join('::')
+    rowMap.set(rowKey, [...(rowMap.get(rowKey) || []), record])
+  })
+
+  return Array.from(rowMap.entries()).map(([rowKey, rowRecords]) => {
+    const sortedRecords = rowRecords.slice().sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    const currentRecord =
+      sortedRecords.find((item) => item.channelProductStatus !== '已作废') ||
+      sortedRecords[0]
+    return {
+      rowKey,
+      channelCode: currentRecord.channelCode,
+      channelName: currentRecord.channelName || getChannelLabel(currentRecord.channelCode),
+      storeId: currentRecord.storeId,
+      storeName: getStoreLabel(currentRecord),
+      spuCode: resolveSpuCode(currentRecord),
+      records: sortedRecords,
+      currentRecord,
+      specLineCount: sortedRecords.reduce((total, item) => total + (item.specLineCount || item.specLines.length || 0), 0),
+      uploadedSpecLineCount: sortedRecords.reduce((total, item) => total + (item.uploadedSpecLineCount || 0), 0),
+      stockQty: currentRecord.specLines.reduce((total, line) => total + (Number(line.stockQty) || 0), 0),
+    }
+  })
+}
+
+function listDisplayRows(): ChannelStoreSpuRow[] {
   const priority = new Map(PREFERRED_PROJECT_ORDER.map((code, index) => [code, index]))
-  return [...listProjectChannelProducts()].sort((left, right) => {
-    const leftPriority = priority.get(left.projectCode) ?? Number.MAX_SAFE_INTEGER
-    const rightPriority = priority.get(right.projectCode) ?? Number.MAX_SAFE_INTEGER
+  return buildChannelStoreSpuRows(listProjectChannelProducts()).sort((left, right) => {
+    const leftPriority = priority.get(left.currentRecord.projectCode) ?? Number.MAX_SAFE_INTEGER
+    const rightPriority = priority.get(right.currentRecord.projectCode) ?? Number.MAX_SAFE_INTEGER
     if (leftPriority !== rightPriority) return leftPriority - rightPriority
-    return right.updatedAt.localeCompare(left.updatedAt)
+    return right.currentRecord.updatedAt.localeCompare(left.currentRecord.updatedAt)
   })
 }
 
@@ -128,36 +180,43 @@ function getListingMainImage(record: ProjectChannelProductRecord): {
   return null
 }
 
-function renderListRow(record: ProjectChannelProductRecord): string {
+function renderListRow(row: ChannelStoreSpuRow): string {
+  const record = row.currentRecord
   const detailHref = `/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}`
   const projectHref = `/pcs/projects/${encodeURIComponent(record.projectId)}`
   const mainImage = getListingMainImage(record)
 
   return `
     <tr class="border-t border-slate-200 align-top">
-      <td class="px-4 py-4 text-[15px] font-semibold text-slate-900">${escapeHtml(record.channelProductCode)}</td>
-      <td class="px-4 py-4">
-        <button type="button" class="text-left text-[15px] font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(projectHref)}">${escapeHtml(record.projectCode)}</button>
-        <div class="mt-1 max-w-[156px] text-xs leading-5 text-slate-500">${escapeHtml(record.projectName)}</div>
-      </td>
-      <td class="px-4 py-4">
-        <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(record.listingBatchCode || record.channelProductCode)}</div>
-        <div class="mt-1 text-xs leading-5 text-slate-500">${escapeHtml(record.listingInstanceCode || '-')}</div>
-      </td>
-      <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(`${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)}`)}</td>
-      <td class="px-4 py-4">
-        <div class="max-w-[220px] text-[15px] leading-6 text-slate-900">${escapeHtml(record.styleListingTitle || record.listingTitle || '-')}</div>
-      </td>
       <td class="px-4 py-4">
         ${
           mainImage
-            ? `<button type="button" class="group block h-16 w-16 overflow-hidden rounded-lg border border-slate-200 bg-slate-50" data-nav="${escapeHtml(detailHref)}"><img src="${escapeHtml(mainImage.url)}" alt="${escapeHtml(mainImage.title)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
-            : '<div class="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-slate-200 text-[11px] text-slate-400">暂无主图</div>'
+            ? `<button type="button" class="group block h-16 w-16 overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-nav="${escapeHtml(detailHref)}"><img src="${escapeHtml(mainImage.url)}" alt="${escapeHtml(mainImage.title)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
+            : '<div class="flex h-16 w-16 items-center justify-center rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400">暂无主图</div>'
         }
       </td>
-      <td class="px-4 py-4">${renderSpecLineSummary(record)}</td>
-      <td class="px-4 py-4">${renderBusinessStatusBadge(record)}</td>
+      <td class="px-4 py-4">
+        <div class="text-[15px] font-semibold leading-6 text-slate-900">${escapeHtml(row.spuCode)}</div>
+        <div class="mt-1 text-xs leading-5 text-slate-500">来源批次：${escapeHtml(record.listingBatchCode || record.channelProductCode)}</div>
+        <button type="button" class="mt-1 text-left text-xs font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(projectHref)}">${escapeHtml(record.projectCode)}</button>
+      </td>
+      <td class="px-4 py-4">
+        <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(`${getChannelLabel(row.channelCode)} / ${row.storeName}`)}</div>
+        <div class="mt-1 text-xs leading-5 text-slate-500">${escapeHtml(record.channelName || row.channelName)}</div>
+      </td>
+      <td class="px-4 py-4">
+        <div class="max-w-[260px] text-[15px] leading-6 text-slate-900">${escapeHtml(record.styleListingTitle || record.listingTitle || '-')}</div>
+      </td>
       <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(record.upstreamProductId || record.upstreamChannelProductCode || '-')}</td>
+      <td class="px-4 py-4">
+        <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(String(row.stockQty))}</div>
+        <div class="mt-1 text-xs leading-5 text-slate-500">规格 ${escapeHtml(String(row.specLineCount))} 条 / 已上传 ${escapeHtml(String(row.uploadedSpecLineCount))} 条</div>
+      </td>
+      <td class="px-4 py-4">
+        <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(`${record.defaultPriceAmount || record.listingPrice || '-'} ${record.currencyCode || record.currency || ''}`.trim())}</div>
+        <div class="mt-1 text-xs leading-5 text-slate-500">默认售价</div>
+      </td>
+      <td class="px-4 py-4">${renderBusinessStatusBadge(record)}</td>
       <td class="px-4 py-4">
         <div class="max-w-[200px] text-xs leading-5 text-slate-500">${escapeHtml(getLinkageDescription(record))}</div>
       </td>
@@ -165,6 +224,7 @@ function renderListRow(record: ProjectChannelProductRecord): string {
       <td class="px-4 py-4">
         <div class="flex flex-col items-end gap-2">
           <button type="button" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="${escapeHtml(detailHref)}">详情</button>
+          <button type="button" class="inline-flex h-8 items-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700 hover:bg-blue-100" data-nav="${escapeHtml(detailHref)}">查看SKU</button>
           <button type="button" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="${escapeHtml(projectHref)}">查看项目</button>
         </div>
       </td>
@@ -212,7 +272,7 @@ function renderSpecLineRows(record: ProjectChannelProductRecord): string {
 }
 
 export function renderPcsChannelProductListPage(): string {
-  const records = listDisplayRecords()
+  const rows = listDisplayRows()
 
   return `
     <div class="p-4">
@@ -220,12 +280,12 @@ export function renderPcsChannelProductListPage(): string {
         <div class="border-b border-slate-200 px-5 py-4">
           <div class="flex items-start justify-between gap-4">
             <div>
-              <h1 class="text-[22px] font-semibold text-slate-900">渠道商品上架批次</h1>
-              <p class="mt-1 text-sm text-slate-500">按项目渠道上架批次查看款式、店铺、规格明细与上游回填结果。</p>
+              <h1 class="text-[22px] font-semibold text-slate-900">渠道店铺商品</h1>
+              <p class="mt-1 text-sm text-slate-500">按渠道、店铺、SPU 查看店铺商品、规格 SKU、库存、价格和上游回填结果。</p>
             </div>
             <div class="rounded-xl bg-slate-50 px-3 py-2 text-right">
               <div class="text-xs text-slate-500">当前记录</div>
-              <div class="mt-1 text-[18px] font-semibold text-slate-900">${records.length}</div>
+              <div class="mt-1 text-[18px] font-semibold text-slate-900">${rows.length}</div>
             </div>
           </div>
         </div>
@@ -233,22 +293,25 @@ export function renderPcsChannelProductListPage(): string {
           <table class="min-w-[1600px] table-fixed">
             <thead class="bg-slate-50 text-left text-[13px] font-semibold text-slate-500">
               <tr>
-                <th class="w-[132px] px-4 py-3">批次编码</th>
-                <th class="w-[176px] px-4 py-3">来源项目</th>
-                <th class="w-[220px] px-4 py-3">来源商品上架批次</th>
+                <th class="w-[112px] px-4 py-3">Cover</th>
+                <th class="w-[240px] px-4 py-3">SPU / 来源</th>
                 <th class="w-[235px] px-4 py-3">渠道 / 店铺</th>
-              <th class="w-[220px] px-4 py-3">上架标题</th>
-                <th class="w-[110px] px-4 py-3">上架主图</th>
-                <th class="w-[132px] px-4 py-3">规格数量</th>
-                <th class="w-[120px] px-4 py-3">上架状态</th>
-                <th class="w-[160px] px-4 py-3">上游款式商品编号</th>
+                <th class="w-[280px] px-4 py-3">商品标题</th>
+                <th class="w-[180px] px-4 py-3">平台商品 ID</th>
+                <th class="w-[150px] px-4 py-3">库存 / SKU</th>
+                <th class="w-[150px] px-4 py-3">Price</th>
+                <th class="w-[130px] px-4 py-3">Status</th>
                 <th class="w-[260px] px-4 py-3">链路状态</th>
-                <th class="w-[130px] px-4 py-3">更新时间</th>
-                <th class="w-[110px] px-4 py-3 text-right">操作</th>
+                <th class="w-[130px] px-4 py-3">Push / Update Time</th>
+                <th class="w-[120px] px-4 py-3 text-right">OP</th>
               </tr>
             </thead>
             <tbody>
-              ${records.map((record) => renderListRow(record)).join('')}
+              ${
+                rows.length === 0
+                  ? '<tr><td colspan="11" class="px-4 py-10 text-center text-sm text-slate-500">暂无渠道店铺商品</td></tr>'
+                  : rows.map((row) => renderListRow(row)).join('')
+              }
             </tbody>
           </table>
         </div>
@@ -264,7 +327,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
     return `
       <div class="p-4">
         <section class="rounded-[20px] border border-slate-200 bg-white px-6 py-8 shadow-sm">
-          <h1 class="text-2xl font-semibold text-slate-900">未找到渠道商品上架批次</h1>
+          <h1 class="text-2xl font-semibold text-slate-900">未找到渠道店铺商品</h1>
           <p class="mt-3 text-sm text-slate-500">请返回列表重新选择。</p>
           <button type="button" class="mt-6 inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products">
             返回列表
@@ -292,9 +355,9 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
               <button type="button" class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>返回列表
               </button>
-              <div class="mt-3 text-xs text-slate-500">商品档案 / 渠道商品上架批次</div>
+              <div class="mt-3 text-xs text-slate-500">商品档案 / 渠道店铺商品</div>
               <div class="mt-2 flex flex-wrap items-center gap-2">
-                <h1 class="text-[20px] font-semibold text-slate-900">${escapeHtml(record.listingBatchCode || record.channelProductCode)}</h1>
+                <h1 class="text-[20px] font-semibold text-slate-900">${escapeHtml(resolveSpuCode(record))}</h1>
                 ${renderBusinessStatusBadge(record)}
               </div>
               <div class="mt-2 text-sm text-slate-500">${escapeHtml(`${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)} ｜ ${record.styleListingTitle || record.listingTitle || '-'}`)}</div>
@@ -312,6 +375,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
             <div class="mt-4 space-y-3">
               ${renderDetailField('来源项目', record.projectCode)}
               ${renderDetailField('项目名称', record.projectName)}
+              ${renderDetailField('SPU / 平台商品 ID', resolveSpuCode(record))}
               ${renderDetailField('来源商品上架批次', record.listingInstanceCode || record.channelProductCode)}
               ${renderDetailField('来源工作项节点', record.projectNodeId)}
               ${renderDetailField('渠道 / 店铺', `${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)}`)}
@@ -428,7 +492,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
               <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(record.styleCode || '—')}</div>
             </div>
             <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div class="text-sm text-slate-500">渠道商品批次编码</div>
+              <div class="text-sm text-slate-500">渠道店铺商品编码</div>
               <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(record.channelProductCode)}</div>
             </div>
             <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">

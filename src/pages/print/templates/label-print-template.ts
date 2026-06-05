@@ -25,6 +25,7 @@ import {
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import { listWoolFeiTicketPrintRecords } from '../../../data/fcs/wool-task-domain.ts'
 import { getCuttingCutOrderTaskPrintSourceById } from '../../../data/fcs/cutting-task-print-source.ts'
+import { buildBindingProcessOrders } from '../../process-factory/cutting/binding-strip-orders.ts'
 import { buildTransferBagsProjection } from '../../process-factory/cutting/transfer-bags-projection.ts'
 import {
   getProcessHandoverRecordById,
@@ -84,6 +85,69 @@ function generatedTicketToRecord(ticket: AnyFeiTicket): AnyFeiTicket {
   }
 }
 
+function bindingDetailToFeiRecord(order: ReturnType<typeof buildBindingProcessOrders>[number], detail: AnyFeiTicket): AnyFeiTicket {
+  return {
+    ticketSourceType: 'BINDING_STRIP',
+    ticketRecordId: detail.feiTicketId,
+    feiTicketId: detail.feiTicketId,
+    ticketNo: detail.feiTicketNo,
+    feiTicketNo: detail.feiTicketNo,
+    bindingOrderId: order.bindingOrderId,
+    bindingOrderNo: order.bindingOrderNo,
+    bindingStripName: detail.bindingStripName,
+    bindingStripNo: detail.bindingStripNo,
+    bindingWidth: detail.bindingWidth,
+    bindingWidthLabel: `${detail.bindingWidth} cm`,
+    requiredLength: detail.requiredLength,
+    requiredLengthLabel: `${Number(detail.requiredLength || 0).toFixed(2)} m`,
+    actualLength: detail.actualLength,
+    actualLengthLabel: detail.actualLength ? `${Number(detail.actualLength || 0).toFixed(2)} m` : '待回写',
+    partName: detail.bindingStripName,
+    size: `${detail.bindingWidth} cm`,
+    businessSizeLabel: `${detail.bindingWidth} cm`,
+    quantity: detail.requiredLength,
+    qty: detail.requiredLength,
+    productionOrderId: order.sourceProductionOrderId,
+    productionOrderNo: order.sourceProductionOrderNo,
+    cutOrderId: order.sourceCutOrderId,
+    cutOrderNo: order.sourceCutOrderNo,
+    markerPlanId: order.sourceMarkerPlanId,
+    markerPlanNo: order.sourceMarkerPlanNo,
+    sourceMarkerPlanNo: order.sourceMarkerPlanNo,
+    sourceTechPackSpuCode: order.patternIdentity.patternFileName || order.sourcePatternPackageName,
+    materialSku: order.materialIdentity.materialSku,
+    materialName: order.materialIdentity.materialName,
+    fabricColor: order.materialIdentity.materialColor,
+    color: order.materialIdentity.materialColor,
+    materialIdentity: {
+      materialSku: order.materialIdentity.materialSku,
+      materialName: order.materialIdentity.materialName,
+      materialAlias: order.materialIdentity.materialAlias,
+      materialColor: order.materialIdentity.materialColor,
+      materialImageUrl: order.materialIdentity.materialImageUrl,
+    },
+    patternIdentity: {
+      patternFileName: order.patternIdentity.patternFileName || order.sourcePatternPackageName,
+      patternVersion: order.patternIdentity.patternVersion,
+    },
+    issuedAt: order.startedAt || order.completedAt,
+    version: 1,
+    printVersionNo: 'V1',
+    hasSpecialCraft: false,
+    specialCrafts: [],
+  }
+}
+
+function listBindingFeiRecords(): AnyFeiTicket[] {
+  return buildBindingProcessOrders().flatMap((order) =>
+    order.status === '已取消'
+      ? []
+      : order.bindingDetails
+        .filter((detail) => detail.printStatus !== '未生成')
+        .map((detail) => bindingDetailToFeiRecord(order, detail)),
+  )
+}
+
 function joinLabelLines(lines: string[], maxLines: number): string {
   const visible = lines.filter(Boolean).slice(0, maxLines)
   const hiddenCount = Math.max(lines.filter(Boolean).length - visible.length, 0)
@@ -99,8 +163,9 @@ function listFeiRecords(documentType?: PrintDocumentType): AnyFeiTicket[] {
   const projected = (projection.ticketRecords || []) as AnyFeiTicket[]
   const generated = listSpreadingResultGeneratedFeiTickets().map(generatedTicketToRecord)
   const wool = listWoolFeiTicketPrintRecords()
+  const binding = listBindingFeiRecords()
   const cuttingRecords = documentType === 'FEI_TICKET_LABEL' ? generated : [...projected, ...generated]
-  return uniqueBy([...cuttingRecords, ...wool], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
+  return uniqueBy([...cuttingRecords, ...binding, ...wool], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
 }
 
 function findFeiRecord(sourceId: string, documentType?: PrintDocumentType): AnyFeiTicket | null {
@@ -182,9 +247,10 @@ function needsWideFeiLabel(item: PrintLabelItem): boolean {
 function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput, mode: PrintMode): PrintLabelItem {
   const documentType = input.documentType
   const isWoolTicket = record.ticketSourceType === 'WOOL_PART_PANEL'
+  const isBindingTicket = record.ticketSourceType === 'BINDING_STRIP'
   const isReprint = documentType === 'FEI_TICKET_REPRINT_LABEL'
   const ticketNo = toText(record.ticketNo || record.feiTicketNo)
-  const title = isReprint ? '菲票补打标签' : isWoolTicket ? '毛织菲票' : '菲票'
+  const title = isReprint ? '菲票补打标签' : isBindingTicket ? '捆条菲票' : isWoolTicket ? '毛织菲票' : '菲票'
   const printProjection = buildFeiTicketLabelPrintProjection(record)
   const version = resolveFeiPrintVersion(record, mode)
   const maxCraftPrintLines = printProjection.templateSize === '15cm x 10cm' ? 4 : 2
@@ -194,29 +260,44 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
     : printProjection.hasSpecialCraftLabel
   const handoverCraftValue = joinLabelLines(printProjection.specialCraftHandoverLines, maxCraftPrintLines)
 
-  const baseFields = fields([
-    { label: '菲票标题', value: printProjection.titleLabel, emphasis: true },
-    { label: '菲票号', value: printProjection.feiTicketNo || ticketNo, emphasis: true },
-    { label: '生产单', value: printProjection.productionOrderNo },
-    { label: isWoolTicket ? '毛织单' : '裁片单', value: printProjection.cutOrderNo, emphasis: true },
-    { label: 'SPU', value: printProjection.spuCode },
-    { label: '面料', value: printProjection.materialDisplayLabel, emphasis: true },
-    { label: '面料/颜色', value: printProjection.materialWithColorLabel, emphasis: true },
-    { label: '颜色', value: printProjection.color },
-    { label: '尺码', value: printProjection.businessSizeLabel, emphasis: true },
-    { label: '部位', value: printProjection.partName, emphasis: true },
-    { label: '部位数量', value: stripFeiTicketLabelPrefix(printProjection.partQuantityLabel), emphasis: true },
-    { label: '本票裁片', value: stripFeiTicketLabelPrefix(printProjection.actualCutPieceQtyLabel) },
-    { label: '编号区间', value: stripFeiTicketLabelPrefix(printProjection.pieceSequenceLabel), emphasis: true },
-    { label: '适用SKU', value: printProjection.applicableSkuLabel, emphasis: true },
-    { label: '唛架方案', value: printProjection.markerPlanNo },
-    { label: '唛架编号+铺布单号', value: printProjection.markerSpreadingLabel, emphasis: true },
-    { label: '版本', value: version },
-    { label: '特殊工艺', value: craftPrintValue },
-    { label: '特殊工艺交出', value: handoverCraftValue },
-    { label: '承接工厂', value: joinLabelLines(printProjection.receiverFactoryDisplayLines, maxCraftPrintLines) },
-    { label: '特殊工艺 / 承接工厂', value: handoverCraftValue },
-  ])
+  const baseFields = isBindingTicket
+    ? fields([
+        { label: '菲票标题', value: '捆条菲票', emphasis: true },
+        { label: '菲票号', value: printProjection.feiTicketNo || ticketNo, emphasis: true },
+        { label: '捆条加工单', value: record.bindingOrderNo, emphasis: true },
+        { label: '生产单', value: printProjection.productionOrderNo },
+        { label: '裁片单', value: printProjection.cutOrderNo, emphasis: true },
+        { label: '面料/颜色', value: printProjection.materialWithColorLabel, emphasis: true },
+        { label: '捆条名称', value: record.bindingStripName || printProjection.partName, emphasis: true },
+        { label: '捆条宽度', value: record.bindingWidthLabel || printProjection.businessSizeLabel, emphasis: true },
+        { label: '计划长度', value: record.requiredLengthLabel, emphasis: true },
+        { label: '实际长度', value: record.actualLengthLabel },
+        { label: '纸样', value: record.patternIdentity?.patternFileName || printProjection.spuCode },
+        { label: '版本', value: version },
+      ])
+    : fields([
+        { label: '菲票标题', value: printProjection.titleLabel, emphasis: true },
+        { label: '菲票号', value: printProjection.feiTicketNo || ticketNo, emphasis: true },
+        { label: '生产单', value: printProjection.productionOrderNo },
+        { label: isWoolTicket ? '毛织单' : '裁片单', value: printProjection.cutOrderNo, emphasis: true },
+        { label: 'SPU', value: printProjection.spuCode },
+        { label: '面料', value: printProjection.materialDisplayLabel, emphasis: true },
+        { label: '面料/颜色', value: printProjection.materialWithColorLabel, emphasis: true },
+        { label: '颜色', value: printProjection.color },
+        { label: '尺码', value: printProjection.businessSizeLabel, emphasis: true },
+        { label: '部位', value: printProjection.partName, emphasis: true },
+        { label: '部位数量', value: stripFeiTicketLabelPrefix(printProjection.partQuantityLabel), emphasis: true },
+        { label: '本票裁片', value: stripFeiTicketLabelPrefix(printProjection.actualCutPieceQtyLabel) },
+        { label: '编号区间', value: stripFeiTicketLabelPrefix(printProjection.pieceSequenceLabel), emphasis: true },
+        { label: '适用SKU', value: printProjection.applicableSkuLabel, emphasis: true },
+        { label: '唛架方案', value: printProjection.markerPlanNo },
+        { label: '唛架编号+铺布单号', value: printProjection.markerSpreadingLabel, emphasis: true },
+        { label: '版本', value: version },
+        { label: '特殊工艺', value: craftPrintValue },
+        { label: '特殊工艺交出', value: handoverCraftValue },
+        { label: '承接工厂', value: joinLabelLines(printProjection.receiverFactoryDisplayLines, maxCraftPrintLines) },
+        { label: '特殊工艺 / 承接工厂', value: handoverCraftValue },
+      ])
 
   return {
     labelTitle: title,
@@ -307,10 +388,15 @@ export function buildFeiTicketLabelPrintDocument(input: PrintDocumentBuildInput)
       ? 'LABEL_150_100'
       : 'LABEL_100_100'
   const isWoolTicket = records.some((record) => record.ticketSourceType === 'WOOL_PART_PANEL')
+  const isBindingTicket = records.some((record) => record.ticketSourceType === 'BINDING_STRIP')
+  const bindingOrderId = toText(records.find((record) => record.ticketSourceType === 'BINDING_STRIP')?.bindingOrderId, '')
+  const bindingRouteToken = bindingOrderId.startsWith('binding:') ? bindingOrderId : `binding:${bindingOrderId}`
   return buildBaseLabelDocument(input, {
-    title: isWoolTicket && mode === '首次打印' ? '毛织菲票标签' : mode === '补打' ? '菲票补打标签' : '菲票标签',
+    title: isBindingTicket && mode === '首次打印' ? '捆条菲票标签' : isWoolTicket && mode === '首次打印' ? '毛织菲票标签' : mode === '补打' ? '菲票补打标签' : '菲票标签',
     subtitle: mode === '补打'
       ? '补打标签'
+        : isBindingTicket
+          ? '捆条菲票。'
         : isWoolTicket
           ? '毛织菲票。'
           : '菲票。',
@@ -319,7 +405,7 @@ export function buildFeiTicketLabelPrintDocument(input: PrintDocumentBuildInput)
     paperType,
     mode,
     labelItems: items,
-    returnHref: isWoolTicket ? '/fcs/craft/wool/fei-tickets' : '/fcs/craft/cutting/fei-tickets',
+    returnHref: isBindingTicket && bindingOrderId ? `/fcs/craft/cutting/fei-tickets/${encodeURIComponent(bindingRouteToken)}` : isWoolTicket ? '/fcs/craft/wool/fei-tickets' : '/fcs/craft/cutting/fei-tickets',
   })
 }
 
@@ -520,6 +606,40 @@ function renderFeiBusinessCell(label: string, value: string, options: { classNam
   `
 }
 
+function isBindingStripFeiLabelItem(item: PrintLabelItem): boolean {
+  return getLabelFieldValue(item, '菲票标题', item.labelTitle) === '捆条菲票'
+}
+
+function renderBindingStripFeiBusinessLabelItem(item: PrintLabelItem, paperType: PrintPaperType): string {
+  const qr = item.qrCode
+  return `
+    <section class="print-label-card fei-ticket-business-card ${item.isVoid ? 'print-label-card-void' : ''} ${item.isReprint ? 'print-label-card-reprint' : ''} label-paper-${paperType.toLowerCase().replace(/_/g, '-')}">
+      <div class="fei-ticket-business-title">${escapeHtml(getLabelFieldValue(item, '菲票标题', item.labelTitle))}</div>
+      <div class="fei-ticket-business-body">
+        <div class="fei-ticket-business-grid">
+          ${renderFeiBusinessCell('捆条加工单', getLabelFieldValue(item, '捆条加工单'), { emphasis: true })}
+          ${renderFeiBusinessCell('生产单', getLabelFieldValue(item, '生产单'))}
+          ${renderFeiBusinessCell('裁片单', getLabelFieldValue(item, '裁片单'), { emphasis: true })}
+          ${renderFeiBusinessCell('面料 / 颜色', getLabelFieldValue(item, '面料/颜色'), { className: 'fei-ticket-business-span-2', emphasis: true })}
+          ${renderFeiBusinessCell('捆条名称', getLabelFieldValue(item, '捆条名称'), { emphasis: true })}
+          ${renderFeiBusinessCell('捆条宽度', getLabelFieldValue(item, '捆条宽度'), { emphasis: true })}
+          ${renderFeiBusinessCell('计划长度', getLabelFieldValue(item, '计划长度'), { emphasis: true })}
+          ${renderFeiBusinessCell('实际长度', getLabelFieldValue(item, '实际长度'))}
+          ${renderFeiBusinessCell('纸样', getLabelFieldValue(item, '纸样'), { className: 'fei-ticket-business-span-2' })}
+          ${renderFeiBusinessCell('菲票号', getLabelFieldValue(item, '菲票号'), { emphasis: true })}
+        </div>
+        <aside class="fei-ticket-business-qr-panel">
+          <div class="fei-ticket-business-qr">
+            ${qr ? renderRealQrPlaceholder({ value: qr.value, size: 112, title: qr.title, label: qr.title }) : ''}
+          </div>
+          <div class="fei-ticket-business-qr-title">捆条菲票二维码</div>
+          <div class="fei-ticket-business-qr-desc">${escapeHtml(getLabelFieldValue(item, '版本', 'V1'))} / 扫码查看捆条菲票</div>
+        </aside>
+      </div>
+    </section>
+  `
+}
+
 function renderBarcode(barcode?: PrintBarcode): string {
   if (!barcode) return ''
   return `
@@ -531,6 +651,8 @@ function renderBarcode(barcode?: PrintBarcode): string {
 }
 
 function renderFeiTicketBusinessLabelItem(item: PrintLabelItem, paperType: PrintPaperType): string {
+  if (isBindingStripFeiLabelItem(item)) return renderBindingStripFeiBusinessLabelItem(item, paperType)
+
   const qr = item.qrCode
   return `
     <section class="print-label-card fei-ticket-business-card ${item.isVoid ? 'print-label-card-void' : ''} ${item.isReprint ? 'print-label-card-reprint' : ''} label-paper-${paperType.toLowerCase().replace(/_/g, '-')}">

@@ -12,6 +12,10 @@ import {
   listBindingStripRequirementLines,
   summarizeBindingStripRequirementsForCutOrders,
 } from '../src/pages/process-factory/cutting/binding-strip-orders.ts'
+import {
+  buildFeiTicketLabelPrintDocument,
+  renderLabelPrintTemplate,
+} from '../src/pages/print/templates/label-print-template.ts'
 
 const ROOT = process.cwd()
 
@@ -84,6 +88,27 @@ function main(): void {
   assert(summary.widthSummaries.length > 0, '按物料+宽度汇总捆条需求失败')
   assert(summary.minRequiredLengthApplied, '按裁片单汇总必须保留 4m 起算提示')
 
+  const printableBindingOrder = orders.find((order) => order.bindingDetails.some((detail) => detail.printStatus !== '未生成'))
+  assert(printableBindingOrder, '缺少可打印的捆条菲票明细')
+  const bindingPrintSourceId = printableBindingOrder.bindingDetails
+    .filter((detail) => detail.printStatus !== '未生成')
+    .map((detail) => detail.feiTicketId)
+    .join(',')
+  const bindingPrintDoc = buildFeiTicketLabelPrintDocument({
+    documentType: 'FEI_TICKET_LABEL',
+    sourceType: 'FEI_TICKET_RECORD',
+    sourceId: bindingPrintSourceId,
+  })
+  const bindingPrintHtml = renderLabelPrintTemplate(bindingPrintDoc)
+  assertIncludes(bindingPrintHtml, '捆条菲票标签', '捆条菲票打印预览缺少文档标题')
+  assertIncludes(bindingPrintHtml, '捆条宽度', '捆条菲票打印预览缺少捆条宽度')
+  assertIncludes(bindingPrintHtml, '计划长度', '捆条菲票打印预览缺少计划长度')
+  assertIncludes(bindingPrintHtml, '实际长度', '捆条菲票打印预览缺少实际长度')
+  assertNotIncludes(bindingPrintHtml, '编号区间', '捆条菲票打印预览不允许回退为部位菲票字段')
+  assertNotIncludes(bindingPrintHtml, '部位数量', '捆条菲票打印预览不允许展示普通裁片字段')
+  assertNotIncludes(bindingPrintHtml, '适用SKU', '捆条菲票打印预览不允许展示普通裁片字段')
+  assertNotIncludes(bindingPrintHtml, '特殊工艺 / 承接工厂', '捆条菲票打印预览不允许展示普通裁片字段')
+
   const specialProcessModel = read('src/pages/process-factory/cutting/special-processes-model.ts')
   const specialProcessPage = read('src/pages/process-factory/cutting/special-processes.ts')
   const markerSpreadingPage = read('src/pages/process-factory/cutting/marker-spreading.ts')
@@ -103,8 +128,20 @@ function main(): void {
   assertIncludes(markerPlanPage, '捆条加工长度', '唛架方案缺少捆条加工长度')
   assertIncludes(markerPlanPage, '物料总用量', '唛架方案缺少包含捆条的物料总用量')
   assertIncludes(read('src/pages/process-factory/cutting/binding-strip-orders.ts'), '不足 4m 的捆条明细已按 4m 起算', '唛架方案捆条公式缺少 4m 起算说明')
-  assertIncludes(feiTicketsPage, 'binding-fei-ticket-workbench', '菲票打印页面缺少捆条加工单打印入口')
-  assertIncludes(feiTicketsPage, '捆条加工单菲票', '菲票打印页面缺少捆条菲票列表标题')
+  assertIncludes(feiTicketsPage, 'fei-ticket-print-workbench', '菲票打印页面必须使用统一菲票打印列表')
+  assertIncludes(feiTicketsPage, '菲票打印列表', '菲票打印页面缺少统一列表标题')
+  assertIncludes(feiTicketsPage, 'SPREADING_ORDER', '菲票打印对象类型缺少铺布单')
+  assertIncludes(feiTicketsPage, 'BINDING_STRIP_ORDER', '菲票打印对象类型缺少捆条加工单')
+  assertIncludes(feiTicketsPage, '全部打印', '菲票打印列表操作必须包含全部打印')
+  assertIncludes(feiTicketsPage, '菲票明细', '菲票打印列表操作必须包含菲票明细')
+  assertNotIncludes(feiTicketsPage, 'binding-fei-ticket-workbench', '菲票打印页面不允许保留独立捆条菲票区块')
+  assertNotIncludes(feiTicketsPage, 'renderBindingFeiTicketTable', '菲票打印页面不允许继续渲染独立捆条表')
+  assertNotIncludes(feiTicketsPage, '查库存', '菲票打印页面不允许出现捆条查库存操作')
+  assertNotIncludes(feiTicketsPage, '流转状态', '菲票打印页面不允许把捆条入仓/装袋/交出作为打印列表状态')
+  assertNotIncludes(feiTicketsPage, '部位菲票明细', '菲票打印列表操作文案必须统一为菲票明细')
+  assertIncludes(read('src/pages/print/templates/label-print-template.ts'), 'BINDING_STRIP', '打印模板缺少捆条菲票字段切换')
+  assertIncludes(read('src/pages/print/templates/label-print-template.ts'), '捆条宽度', '捆条菲票打印模板缺少捆条宽度')
+  assertIncludes(read('src/pages/print/templates/label-print-template.ts'), '计划长度', '捆条菲票打印模板缺少计划长度')
   assertIncludes(cutOrdersPage, '捆条加工单', '裁片单详情缺少捆条加工单信息')
   assertIncludes(productionProgressPage, 'bindingProcessOrders', '裁床总览缺少捆条加工单链路数据')
   assertIncludes(productionProgressPage, '捆条加工：', '裁床总览裁片单卡片缺少捆条加工展示')
