@@ -6714,7 +6714,7 @@ function renderProjectOverviewCard(viewModel: ProjectViewModel): string {
 
 function renderDetailDecisionDialog(viewModel: ProjectViewModel, selectedNode: ProjectNodeViewModel | null): string {
   if (!state.decisionDialog.open || state.decisionDialog.source !== 'detail' || !selectedNode) return ''
-  const options = getDecisionOptions(selectedNode)
+  const options = getDecisionOptions(viewModel.project, selectedNode)
 
   return renderModalShell(
     selectedNode.node.workItemTypeCode === 'TEST_CONCLUSION' ? '测款结论判定' : '节点决策',
@@ -7269,13 +7269,19 @@ function renderWorkItemAudit(viewModel: ProjectViewModel, node: ProjectNodeViewM
   `
 }
 
-function getDecisionOptions(node: ProjectNodeViewModel): string[] {
+function getDecisionOptions(project: PcsProjectRecord, node: ProjectNodeViewModel): string[] {
   const meta = getDecisionFieldMeta(node.node.workItemTypeCode)
   if (!meta) return ['通过', '不通过']
   const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
   const valueField = groups.flatMap((group) => group.fields).find((field) => field.fieldKey === meta.valueFieldKey)
   if (valueField?.options?.length) {
-    return valueField.options.map((item) => item.value)
+    return valueField.options
+      .map((item) => item.value)
+      .filter((option) =>
+        node.node.workItemTypeCode !== 'FEASIBILITY_REVIEW' ||
+        option !== '重新改版出样衣' ||
+        projectHasRevisionTask(project),
+      )
   }
   return ['通过', '不通过']
 }
@@ -7306,20 +7312,21 @@ function getManualCompleteBlockedNotice(node: ProjectNodeViewModel): string {
 }
 
 function renderDecisionNodeSection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const decisionOptionsText = getDecisionOptions(project, node).join('、')
   return `
     <section class="space-y-4">
       <article class="rounded-lg border border-amber-200 bg-amber-50 p-4">
         <h3 class="text-sm font-semibold text-amber-900">决策节点</h3>
-        <p class="mt-2 text-sm leading-6 text-amber-800">当前节点只保留“做出决策”操作。提交结果后，系统会根据决策结果自动进入下一节点、样衣退回处理、继续测试或重新改版出样衣。</p>
+        <p class="mt-2 text-sm leading-6 text-amber-800">当前节点只保留“做出决策”操作。当前可选结果：${escapeHtml(decisionOptionsText || '通过、不通过')}。</p>
       </article>
       ${renderReadonlyFieldSection(project, node)}
     </section>
   `
 }
 
-function renderWorkItemDecisionDialog(node: ProjectNodeViewModel | null): string {
+function renderWorkItemDecisionDialog(project: PcsProjectRecord, node: ProjectNodeViewModel | null): string {
   if (!state.decisionDialog.open || state.decisionDialog.source !== 'work-item' || !node) return ''
-  const options = getDecisionOptions(node)
+  const options = getDecisionOptions(project, node)
   return renderModalShell(
     node.node.workItemTypeCode === 'TEST_CONCLUSION' ? '测款结论判定' : '节点决策',
     `请确认「${node.node.workItemTypeName}」的处理结果。`,
@@ -7475,7 +7482,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
               : renderWorkItemAudit(viewModel, node)
       }
 
-      ${renderWorkItemDecisionDialog(node)}
+      ${renderWorkItemDecisionDialog(viewModel.project, node)}
       ${renderWorkItemRecordDialog(viewModel.project, node)}
       ${renderProjectTerminateDialog()}
       ${renderEngineeringTaskCreateDialog()}
@@ -8575,20 +8582,20 @@ function openDecisionDialog(source: DecisionDialogSource): void {
     return
   }
   const draft = getNodeRecordDraft(context.project, context.node)
-  const options = getDecisionOptions(context.node)
+  const options = getDecisionOptions(context.project, context.node)
   const decisionFieldMeta = getDecisionFieldMeta(context.node.node.workItemTypeCode)
+  const savedValue = String(
+    (decisionFieldMeta ? context.node.latestRecord?.payload?.[decisionFieldMeta.valueFieldKey] : '') ||
+      (decisionFieldMeta ? draft.values[decisionFieldMeta.valueFieldKey] : '') ||
+      '',
+  )
+  const nextValue = options.includes(savedValue) ? savedValue : options[0] || ''
   state.decisionDialog = {
     open: true,
     source,
     projectId,
     projectNodeId,
-    value:
-      String(
-        (decisionFieldMeta ? context.node.latestRecord?.payload?.[decisionFieldMeta.valueFieldKey] : '') ||
-          (decisionFieldMeta ? draft.values[decisionFieldMeta.valueFieldKey] : '') ||
-          options[0] ||
-          '通过',
-      ) || '通过',
+    value: nextValue,
     note:
       String(
         (decisionFieldMeta ? context.node.latestRecord?.payload?.[decisionFieldMeta.noteFieldKey] : '') ||
@@ -8614,6 +8621,12 @@ function confirmDecision(): void {
   const note = dialog.note.trim() || `${context.node.node.workItemTypeName}已判定为${dialog.value}。`
   const decisionFieldMeta = getDecisionFieldMeta(context.node.node.workItemTypeCode)
   if (!decisionFieldMeta) {
+    closeAllDialogs()
+    return
+  }
+  const options = getDecisionOptions(context.project, context.node)
+  if (!options.includes(dialog.value)) {
+    state.notice = '当前项目模板不支持该决策结果，请重新选择。'
     closeAllDialogs()
     return
   }
