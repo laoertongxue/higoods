@@ -20,6 +20,7 @@ export type CuttingCanonicalPageKey =
   | 'spreading-detail'
   | 'spreading-edit'
   | 'fei-tickets'
+  | 'binding-fei-tickets'
   | 'fei-ticket-detail'
   | 'fei-ticket-printed'
   | 'fei-ticket-print'
@@ -192,10 +193,20 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/fei-tickets',
     aliases: [],
     menuGroupTitle: '裁后处理',
-    pageTitle: '菲票打印',
+    pageTitle: '部位菲票打印',
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '按铺布单查看部位菲票明细、打印状态、特殊工艺、承接工厂和编号范围。',
+  },
+  'binding-fei-tickets': {
+    key: 'binding-fei-tickets',
+    canonicalPath: '/fcs/craft/cutting/binding-fei-tickets',
+    aliases: [],
+    menuGroupTitle: '裁后处理',
+    pageTitle: '捆条菲票打印',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '按捆条加工单查看捆条菲票明细、打印状态和打印入口。',
   },
   'fei-ticket-detail': {
     key: 'fei-ticket-detail',

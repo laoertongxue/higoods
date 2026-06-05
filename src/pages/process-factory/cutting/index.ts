@@ -20,6 +20,7 @@ export {
 } from './marker-spreading.ts'
 export {
   renderCraftCuttingFeiTicketsPage,
+  renderCraftCuttingBindingFeiTicketsPage,
   renderCraftCuttingFeiTicketDetailPage,
   renderCraftCuttingFeiTicketPrintedPage,
   renderCraftCuttingFeiTicketPrintPage,

@@ -15,6 +15,7 @@ export {
   renderCraftCuttingSpreadingDetailPage,
   renderCraftCuttingSpreadingEditPage,
   renderCraftCuttingFeiTicketsPage,
+  renderCraftCuttingBindingFeiTicketsPage,
   renderCraftCuttingFeiTicketDetailPage,
   renderCraftCuttingFeiTicketPrintedPage,
   renderCraftCuttingFeiTicketPrintPage,

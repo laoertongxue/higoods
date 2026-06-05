@@ -209,7 +209,7 @@ function buildBindingFeiTicketListHref(row: BindingProcessOrder): string {
     printObjectType: 'BINDING_STRIP_ORDER',
     keyword: row.bindingOrderNo,
   })
-  return `/fcs/craft/cutting/fei-tickets?${params.toString()}`
+  return `/fcs/craft/cutting/binding-fei-tickets?${params.toString()}`
 }
 
 function renderOrderActions(row: BindingProcessOrder): string {
@@ -300,7 +300,7 @@ export function renderCraftCuttingSpecialProcessesPage(): string {
       ${renderCuttingPageHeader(meta, {
         actionsHtml: `
           <div class="flex flex-wrap gap-2">
-            <a href="/fcs/craft/cutting/fei-tickets" data-nav="/fcs/craft/cutting/fei-tickets" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">打印捆条菲票</a>
+            <a href="/fcs/craft/cutting/binding-fei-tickets" data-nav="/fcs/craft/cutting/binding-fei-tickets" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">打印捆条菲票</a>
             <a href="/fcs/craft/cutting/warehouse-management/wait-handover?inventoryType=binding" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover?inventoryType=binding" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">查捆条库存</a>
             <button type="button" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50" data-cutting-binding-action="refresh">刷新</button>
           </div>
