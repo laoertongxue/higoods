@@ -23,6 +23,10 @@ function assertIncludes(source: string, needle: string, message: string): void {
   assert(source.includes(needle), `${message}：缺少 ${needle}`)
 }
 
+function assertNotIncludes(source: string, needle: string, message: string): void {
+  assert(!source.includes(needle), `${message}：不应包含 ${needle}`)
+}
+
 function main(): void {
   const rawRequiredLength = calculateBindingStripRawRequiredLengthM(500, 4, 100)
   const requiredLength = calculateBindingStripRequiredLengthM(500, 4, 100)
@@ -66,6 +70,11 @@ function main(): void {
   assert(orders.some((order) => order.inboundStatus === '已入仓' || order.inboundStatus === '部分入仓'), '缺少捆条入仓派生状态')
   assert(orders.some((order) => order.handoverStatus === '已装袋待交出' || order.handoverStatus === '已交出'), '缺少捆条装袋交出派生状态')
 
+  const fallbackOrders = buildBindingProcessOrders([])
+  assert(fallbackOrders.length > 0, '上游裁片单投影为空时，捆条加工单必须有部署兜底演示数据')
+  assert(fallbackOrders.some((order) => order.remark.includes('部署环境兜底演示数据')), '兜底捆条加工单必须标注数据来源')
+  assert(fallbackOrders.some((order) => order.bindingDetails.some((detail) => detail.minRequiredLengthApplied && detail.requiredLength === 4)), '兜底捆条加工单必须展示不足 4m 按 4m 起算')
+
   const firstOrder = orders[0]
   const summary = summarizeBindingStripRequirementsForCutOrders([firstOrder.sourceCutOrderId])
   assert(summary.totalRequiredLengthM > 0, '按裁片单汇总捆条需求失败')
@@ -82,8 +91,8 @@ function main(): void {
 
   assert(!/BindingProcessStatus = [^\n]*异常处理中/.test(specialProcessModel), '捆条加工主状态不能包含异常处理中')
   assert(!/BindingProcessStatus = [^\n]*已入仓/.test(specialProcessModel), '捆条加工主状态不能把入仓当加工状态')
-  assertIncludes(specialProcessPage, '捆条加工单列表', '捆条加工单页面缺少同模块列表页标题')
-  assertIncludes(specialProcessPage, '按物料+纸样生成加工单', '捆条加工单页面缺少生成维度说明')
+  assertNotIncludes(specialProcessPage, 'data-testid="cutting-binding-list-overview"', '捆条加工单页面顶部汇总块已要求删除')
+  assertNotIncludes(specialProcessPage, '捆条加工单列表', '捆条加工单页面顶部说明标题已要求删除')
   assertIncludes(specialProcessPage, '不足 4m 按 4m', '捆条加工单页面缺少 4m 起算提示')
   assertIncludes(markerSpreadingPage, 'binding-strip-spreading-confirmation', '创建铺布单第二步缺少捆条二次确认提示')
   assertIncludes(markerSpreadingPage, 'window.confirm', '确认生成铺布单缺少捆条二次确认')

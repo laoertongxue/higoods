@@ -444,6 +444,222 @@ function buildAbnormalCompatibilityItems(
   }))
 }
 
+function buildFallbackRequirementLine(
+  overrides: Partial<BindingStripRequirementLine> & Pick<BindingStripRequirementLine, 'cutOrderId' | 'cutOrderNo' | 'bindingStripId' | 'bindingStripNo' | 'bindingStripName' | 'bindingLengthCm' | 'bindingWidthCm'>,
+): BindingStripRequirementLine {
+  const doorWidthCm = overrides.doorWidthCm ?? 150
+  const lengthMeta = buildBindingStripRequirementLengthMeta(overrides.bindingLengthCm, overrides.bindingWidthCm, doorWidthCm)
+  return {
+    requirementId: overrides.requirementId || `binding-req:fallback:${slugToken(overrides.cutOrderId)}:${slugToken(overrides.bindingStripId)}`,
+    cutOrderId: overrides.cutOrderId,
+    cutOrderNo: overrides.cutOrderNo,
+    productionOrderId: overrides.productionOrderId || 'po-260302-004',
+    productionOrderNo: overrides.productionOrderNo || 'PO-260302-004',
+    markerPlanId: overrides.markerPlanId || 'mkp-260302-004',
+    markerPlanNo: overrides.markerPlanNo || 'MKP-260302-004',
+    materialSku: overrides.materialSku || 'tdv_demand_SPU_2024_010-bom-black-stretch-twill',
+    materialName: overrides.materialName || 'Black 弹力斜纹主面料',
+    materialColor: overrides.materialColor || 'Black',
+    materialAlias: overrides.materialAlias || '待补 · 技术包别名：主面料',
+    materialImageUrl: overrides.materialImageUrl || '/mock/fabrics/fabric-blue-print.svg',
+    materialUnit: overrides.materialUnit || '米',
+    patternFileId: overrides.patternFileId || 'SPU-2024-010-main-pattern',
+    patternFileName: overrides.patternFileName || 'SPU-2024-010 正式纸样',
+    patternVersion: overrides.patternVersion || 'v1.0',
+    patternKind: overrides.patternKind || '布料纸样',
+    patternPackageId: overrides.patternPackageId || 'SPU-2024-010',
+    patternPackageName: overrides.patternPackageName || 'SPU-2024-010 正式纸样',
+    doorWidthCm,
+    bindingStripId: overrides.bindingStripId,
+    bindingStripNo: overrides.bindingStripNo,
+    bindingStripName: overrides.bindingStripName,
+    bindingLengthCm: overrides.bindingLengthCm,
+    bindingWidthCm: overrides.bindingWidthCm,
+    rawRequiredLengthM: lengthMeta.rawRequiredLengthM,
+    requiredLengthM: lengthMeta.requiredLengthM,
+    minRequiredLengthM: lengthMeta.minRequiredLengthM,
+    minRequiredLengthApplied: lengthMeta.minRequiredLengthApplied,
+    formulaText: buildBindingStripRequiredLengthFormula(overrides.bindingLengthCm, overrides.bindingWidthCm, doorWidthCm),
+  }
+}
+
+function buildFallbackBindingProcessOrders(): BindingProcessOrder[] {
+  const rows = [
+    {
+      source: {
+        cutOrderId: 'fallback-cut-260302-004-01',
+        cutOrderNo: 'CUT-260302-004-01',
+        productionOrderId: 'po-260302-004',
+        productionOrderNo: 'PO-260302-004',
+        markerPlanId: 'mkp-260302-004',
+        markerPlanNo: 'MKP-260302-004',
+      },
+      orderNo: 'BT-260302-004-01-01',
+      status: '加工中' as BindingProcessStatus,
+      details: [
+        buildFallbackRequirementLine({
+          cutOrderId: 'fallback-cut-260302-004-01',
+          cutOrderNo: 'CUT-260302-004-01',
+          bindingStripId: 'fallback-binding-32',
+          bindingStripNo: 'BIND-01',
+          bindingStripName: '门襟斜纹捆条',
+          bindingLengthCm: 42,
+          bindingWidthCm: 3.2,
+        }),
+        buildFallbackRequirementLine({
+          cutOrderId: 'fallback-cut-260302-004-01',
+          cutOrderNo: 'CUT-260302-004-01',
+          bindingStripId: 'fallback-binding-40',
+          bindingStripNo: 'BIND-02',
+          bindingStripName: '领口斜纹捆条',
+          bindingLengthCm: 58,
+          bindingWidthCm: 4,
+        }),
+      ],
+    },
+    {
+      source: {
+        cutOrderId: 'fallback-cut-260306-101-01',
+        cutOrderNo: 'CUT-260306-101-01',
+        productionOrderId: 'po-260306-101',
+        productionOrderNo: 'PO-260306-101',
+        markerPlanId: 'mkp-260306-101',
+        markerPlanNo: 'MKP-260306-101',
+      },
+      orderNo: 'BT-260306-101-01-02',
+      status: '已完成' as BindingProcessStatus,
+      details: [
+        buildFallbackRequirementLine({
+          cutOrderId: 'fallback-cut-260306-101-01',
+          cutOrderNo: 'CUT-260306-101-01',
+          productionOrderId: 'po-260306-101',
+          productionOrderNo: 'PO-260306-101',
+          markerPlanId: 'mkp-260306-101',
+          markerPlanNo: 'MKP-260306-101',
+          bindingStripId: 'fallback-binding-35',
+          bindingStripNo: 'BIND-01',
+          bindingStripName: '袖口捆条',
+          bindingLengthCm: 76,
+          bindingWidthCm: 3.5,
+        }),
+      ],
+    },
+    {
+      source: {
+        cutOrderId: 'fallback-cut-260306-102-01',
+        cutOrderNo: 'CUT-260306-102-01',
+        productionOrderId: 'po-260306-102',
+        productionOrderNo: 'PO-260306-102',
+        markerPlanId: 'mkp-260306-102',
+        markerPlanNo: 'MKP-260306-102',
+      },
+      orderNo: 'BT-260306-102-01-03',
+      status: '待加工' as BindingProcessStatus,
+      details: [
+        buildFallbackRequirementLine({
+          cutOrderId: 'fallback-cut-260306-102-01',
+          cutOrderNo: 'CUT-260306-102-01',
+          productionOrderId: 'po-260306-102',
+          productionOrderNo: 'PO-260306-102',
+          markerPlanId: 'mkp-260306-102',
+          markerPlanNo: 'MKP-260306-102',
+          bindingStripId: 'fallback-binding-28',
+          bindingStripNo: 'BIND-01',
+          bindingStripName: '下摆捆条',
+          bindingLengthCm: 180,
+          bindingWidthCm: 2.8,
+        }),
+      ],
+    },
+  ]
+
+  return rows.map((row, orderIndex) => {
+    const details = row.details.map((line, detailIndex) => buildDetail(line, row.orderNo, orderIndex, detailIndex, row.status))
+    const cuttingRecords = details.flatMap((detail) => detail.cuttingRecords)
+    const differenceRecords = details.flatMap((detail) => detail.differenceRecords)
+    const plannedTotalLength = roundTo(details.reduce((sum, detail) => sum + detail.requiredLength, 0), 2)
+    const actualTotalLength = roundTo(details.reduce((sum, detail) => sum + detail.actualLength, 0), 2)
+    const lossLength = roundTo(Math.max(plannedTotalLength - actualTotalLength, 0), 2)
+    const printStatus = aggregateStatus(details.map((detail) => detail.printStatus), '已打印', '待打印', '未生成')
+    const inboundStatus = aggregateStatus(details.map((detail) => detail.inboundStatus), '已入仓', '部分入仓', '未入仓')
+    const handoverStatus = aggregateStatus(details.map((detail) => detail.handoverStatus), '已交出', '已装袋待交出', '未装袋')
+    const differenceStatus: BindingProcessDifferenceStatus = differenceRecords.length ? '有差异' : '无差异'
+    const firstLine = row.details[0]
+    const firstDetail = details[0]
+    const orderDraft: Omit<BindingProcessOrder, 'abnormalItems'> = {
+      bindingOrderId: `binding:fallback:${slugToken(row.orderNo)}`,
+      bindingOrderNo: row.orderNo,
+      processType: '捆条',
+      processMode: '裁床内部加工',
+      sourceCutOrderId: row.source.cutOrderId,
+      sourceCutOrderNo: row.source.cutOrderNo,
+      sourceProductionOrderId: row.source.productionOrderId,
+      sourceProductionOrderNo: row.source.productionOrderNo,
+      sourceMarkerPlanId: row.source.markerPlanId,
+      sourceMarkerPlanNo: row.source.markerPlanNo,
+      sourceSpreadingOrderId: '',
+      sourceSpreadingOrderNo: '',
+      sourceFeiTicketIds: details.map((detail) => detail.feiTicketId),
+      sourceFeiTicketNos: details.map((detail) => detail.feiTicketNo),
+      materialIdentity: {
+        materialSku: firstLine.materialSku,
+        materialName: firstLine.materialName,
+        materialColor: firstLine.materialColor,
+        materialAlias: firstLine.materialAlias,
+        materialImageUrl: firstLine.materialImageUrl,
+        materialUnit: firstLine.materialUnit,
+      },
+      patternIdentity: {
+        patternFileId: firstLine.patternFileId,
+        patternFileName: firstLine.patternFileName,
+        patternVersion: firstLine.patternVersion,
+        patternKind: firstLine.patternKind,
+        effectiveWidthText: `${firstLine.doorWidthCm}cm`,
+        piecePartNames: ['前片', '后片', '袖片'],
+      },
+      sourcePatternPackageId: firstLine.patternPackageId,
+      sourcePatternPackageName: firstLine.patternPackageName,
+      doorWidthCm: firstLine.doorWidthCm,
+      bindingSpecificationCount: details.length,
+      bindingWidth: firstDetail.bindingWidth,
+      plannedLength: firstDetail.requiredLength,
+      actualLength: firstDetail.actualLength,
+      lossLength,
+      lossRate: plannedTotalLength ? roundTo((lossLength / plannedTotalLength) * 100, 1) : 0,
+      plannedTotalLength,
+      actualTotalLength,
+      plannedOutputQty: plannedTotalLength,
+      actualOutputQty: actualTotalLength,
+      unit: '米',
+      operatorName: cuttingRecords[0]?.operatorName || '',
+      startedAt: cuttingRecords[cuttingRecords.length - 1]?.operatedAt || '',
+      completedAt: row.status === '已完成' ? cuttingRecords[0]?.operatedAt || '' : '',
+      status: row.status,
+      printStatus,
+      inboundStatus,
+      handoverStatus,
+      differenceStatus,
+      bindingDetails: details,
+      cuttingRecords,
+      differenceRecords,
+      costItems: [],
+      inboundInventoryRecordIds: details.flatMap((detail) => detail.inventoryRecordIds),
+      linkedReplenishmentIds: [],
+      linkedLedgerEventIds: differenceRecords.map((item) => `ledger:fallback:${row.orderNo}:${item.differenceId}`),
+      linkedCheckItemIds: differenceRecords.map((item) => `CHECK-${item.differenceId}`),
+      externalReceiverFactoryName: '',
+      externalHandoverOrderNo: '',
+      externalHandoverRecordNo: '',
+      externalReturnStatus: '',
+      remark: '部署环境兜底演示数据：当上游裁片单投影暂未取到时，仍展示捆条加工单核心链路。',
+    }
+    return {
+      ...orderDraft,
+      abnormalItems: buildAbnormalCompatibilityItems(orderDraft),
+    }
+  })
+}
+
 export function buildBindingProcessOrders(
   sourceRecords: GeneratedCutOrderSourceRecord[] = listGeneratedCutOrderSourceRecords(),
 ): BindingProcessOrder[] {
@@ -452,7 +668,7 @@ export function buildBindingProcessOrders(
     requirementsByCutOrder.set(line.cutOrderId, [...(requirementsByCutOrder.get(line.cutOrderId) || []), line])
   })
 
-  return sourceRecords
+  const orders = sourceRecords
     .map((source, sourceIndex) => {
       const lines = requirementsByCutOrder.get(source.cutOrderId) || []
       if (!lines.length) return null
@@ -544,6 +760,8 @@ export function buildBindingProcessOrders(
       }
     })
     .filter((order): order is BindingProcessOrder => Boolean(order))
+
+  return orders.length ? orders : buildFallbackBindingProcessOrders()
 }
 
 export function getBindingProcessOrderById(bindingOrderId?: string): BindingProcessOrder | null {

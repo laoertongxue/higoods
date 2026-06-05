@@ -85,10 +85,6 @@ function renderBadge(label: string, className = 'border-slate-200 bg-slate-50 te
   return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function renderSummaryPill(label: string, value: string | number, className = 'border-slate-200 bg-white text-slate-700'): string {
-  return `<span class="inline-flex min-h-8 items-center gap-2 rounded-md border px-3 text-xs font-medium ${className}"><span>${escapeHtml(label)}</span><span class="font-semibold">${escapeHtml(String(value))}</span></span>`
-}
-
 function renderMetricCard(label: string, value: string, hint: string): string {
   return `
     <article class="rounded-lg border bg-background px-3 py-3">
@@ -96,31 +92,6 @@ function renderMetricCard(label: string, value: string, hint: string): string {
       <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(value)}</div>
       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(hint)}</div>
     </article>
-  `
-}
-
-function renderListOverview(rows: BindingProcessOrder[]): string {
-  const totalRequired = rows.reduce((sum, row) => sum + row.plannedTotalLength, 0)
-  const totalActual = rows.reduce((sum, row) => sum + row.actualTotalLength, 0)
-  const minAppliedDetailCount = rows.flatMap((row) => row.bindingDetails).filter((detail) => detail.minRequiredLengthApplied).length
-  return `
-    <section class="rounded-lg border bg-card px-4 py-3" data-testid="cutting-binding-list-overview">
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 class="text-sm font-semibold text-foreground">捆条加工单列表</h2>
-          <p class="mt-1 text-xs text-muted-foreground">按物料+纸样生成加工单；每个宽度一张唯一捆条菲票，分批裁剪只写入本加工单；计划长度不足 4m 的捆条明细按 4m 起算。</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          ${renderSummaryPill('全部', `${formatCount(rows.length)} 单`)}
-          ${renderSummaryPill('待加工', `${formatCount(rows.filter((row) => row.status === '待加工').length)} 单`)}
-          ${renderSummaryPill('加工中', `${formatCount(rows.filter((row) => row.status === '加工中').length)} 单`, 'border-blue-200 bg-blue-50 text-blue-700')}
-          ${renderSummaryPill('已完成', `${formatCount(rows.filter((row) => row.status === '已完成').length)} 单`, 'border-emerald-200 bg-emerald-50 text-emerald-700')}
-          ${renderSummaryPill('有差异', `${formatCount(rows.filter((row) => row.differenceStatus === '有差异').length)} 单`, 'border-rose-200 bg-rose-50 text-rose-700')}
-          ${renderSummaryPill('4m 起算', `${formatCount(minAppliedDetailCount)} 条`, 'border-amber-200 bg-amber-50 text-amber-700')}
-          ${renderSummaryPill('计划/实际', `${formatLength(totalRequired)} / ${formatLength(totalActual)}`)}
-        </div>
-      </div>
-    </section>
   `
 }
 
@@ -325,7 +296,6 @@ export function renderCraftCuttingSpecialProcessesPage(): string {
           </div>
         `,
       })}
-      ${renderListOverview(rows)}
       ${renderListFilters()}
       ${renderOrderTable(rows)}
     </section>
