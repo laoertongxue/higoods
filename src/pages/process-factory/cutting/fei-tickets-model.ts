@@ -124,7 +124,7 @@ export interface CutOrderTicketOwner {
   ticketCountBasisLabel: string
   ticketCountBasisDetail: string
   currentStageLabel: string
-  cuttableStateLabel: string
+  sourceStageLabel: string
   riskLabels: string[]
   latestActionText: string
   qrReservedPayload: FeiQrReservedPayload
@@ -521,7 +521,7 @@ function createSeedOwnerFromRow(options: {
     ticketCountBasisLabel: '待实际裁剪产出',
     ticketCountBasisDetail: '当前尚未形成实际裁剪产出，不能生成菲票。',
     currentStageLabel: options.row.currentStage.label,
-    cuttableStateLabel: options.row.cuttableState.label,
+    sourceStageLabel: options.row.currentStage.label,
     riskLabels: options.row.riskTags.map((tag) => tag.label),
     latestActionText: options.row.latestActionText,
     qrReservedPayload: {
@@ -1249,7 +1249,7 @@ export function buildFeiTicketsViewModel(options: {
       ticketCountBasisLabel: ticketCountBasis.basisLabel,
       ticketCountBasisDetail: ticketCountBasis.detailText,
       currentStageLabel: row.currentStage.label,
-      cuttableStateLabel: row.cuttableState.label,
+      sourceStageLabel: row.currentStage.label,
       riskLabels: row.riskTags.map((tag) => tag.label),
       latestActionText: row.latestActionText,
       qrReservedPayload: {

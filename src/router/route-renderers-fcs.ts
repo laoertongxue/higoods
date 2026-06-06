@@ -208,10 +208,6 @@ export const renderCraftWorkbenchOverviewPage = createAsyncRenderer(
   () => import('../pages/process-factory/workbench/overview'),
   'renderCraftWorkbenchOverviewPage',
 )
-export const renderCraftCuttingCuttablePoolPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/cuttable-pool'),
-  'renderCraftCuttingCuttablePoolPage',
-)
 export const renderCraftCuttingFeiTicketDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/fei-tickets'),
   'renderCraftCuttingFeiTicketDetailPage',

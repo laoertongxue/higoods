@@ -8,6 +8,7 @@ import {
   listGeneratedCutOrderSourceRecords,
 } from './generated-cut-orders.ts'
 import {
+  CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY,
   listMarkerPlanCutOrderSourceRecords,
 } from './marker-plan-source.ts'
 import { cuttingOrderProgressRecords } from './order-progress.ts'
@@ -53,10 +54,6 @@ import {
   CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
   deserializeTransferBagStorage,
 } from './storage/transfer-bags-storage.ts'
-import {
-  CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY,
-  deserializeMarkerPlanSourceStorage,
-} from './storage/marker-plan-source-storage.ts'
 import {
   CUTTING_MARKER_PLAN_LOCK_LEDGER_STORAGE_KEY,
   deserializeMarkerPlanLockLedger,
@@ -183,8 +180,20 @@ export function readCuttingRuntimeEventState() {
   )
 }
 
+function deserializeStoredMarkerPlanSourceLedger(raw: string | null): Array<Record<string, unknown>> {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed)
+      ? parsed.filter((record): record is Record<string, unknown> => Boolean(record && typeof record === 'object'))
+      : []
+  } catch {
+    return []
+  }
+}
+
 export function readCuttingStoredMarkerPlanSourceLedger() {
-  return deserializeMarkerPlanSourceStorage(
+  return deserializeStoredMarkerPlanSourceLedger(
     readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY),
   )
 }

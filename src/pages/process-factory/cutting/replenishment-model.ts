@@ -60,7 +60,6 @@ export type ReplenishmentFollowupActionType =
 export type ReplenishmentFollowupActionStatus = 'PENDING' | 'CONFIRMED' | 'SKIPPED' | 'DONE'
 export type ReplenishmentFollowupTargetPageKey =
   | 'materialPrep'
-  | 'cuttablePool'
   | 'cutOrders'
   | 'markerSpreading'
   | 'markerPlanSources'
@@ -380,7 +379,6 @@ export interface ReplenishmentPrefilter {
 export interface ReplenishmentNavigationPayload {
   markerSpreading: Record<string, string | undefined>
   materialPrep: Record<string, string | undefined>
-  cuttablePool: Record<string, string | undefined>
   cutOrders: Record<string, string | undefined>
   markerPlanSources: Record<string, string | undefined>
   summary: Record<string, string | undefined>
@@ -797,7 +795,6 @@ function buildReplenishmentNavigationPayload(
   return {
     markerSpreading: { cutOrderId, cutOrderNo, markerPlanId, markerPlanNo, productionOrderId, productionOrderNo, materialSku },
     materialPrep: { cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, materialSku },
-    cuttablePool: { cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, markerPlanId, markerPlanNo, materialSku },
     cutOrders: { cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, markerPlanId, markerPlanNo, materialSku },
     markerPlanSources: { markerPlanId, markerPlanNo, cutOrderId, cutOrderNo, productionOrderId, productionOrderNo, materialSku },
     summary: { cutOrderId, cutOrderNo, markerPlanId, markerPlanNo, productionOrderId, productionOrderNo, materialSku },
@@ -806,7 +803,6 @@ function buildReplenishmentNavigationPayload(
 
 function buildActionTargetPath(targetPageKey: ReplenishmentFollowupTargetPageKey): string {
   if (targetPageKey === 'materialPrep') return '/fcs/craft/cutting/warehouse-management/wait-process'
-  if (targetPageKey === 'cuttablePool') return '/fcs/craft/cutting/cuttable-pool'
   if (targetPageKey === 'cutOrders') return '/fcs/craft/cutting/cut-orders'
   if (targetPageKey === 'markerSpreading') return '/fcs/craft/cutting/spreading-list'
   if (targetPageKey === 'markerPlanSources') return '/fcs/craft/cutting/marker-list'
@@ -1894,7 +1890,6 @@ function normalizeFollowupTargetPageKey(
   const candidate = String(value || '')
   if (
     candidate === 'materialPrep' ||
-    candidate === 'cuttablePool' ||
     candidate === 'cutOrders' ||
     candidate === 'markerSpreading' ||
     candidate === 'markerPlanSources'
@@ -1903,7 +1898,7 @@ function normalizeFollowupTargetPageKey(
   }
   if (actionType === 'CREATE_PENDING_PREP') return 'materialPrep'
   if (actionType === 'SUPPLEMENT_BACKFILL') return 'markerSpreading'
-  if (actionType === 'REPLAN_MARKER') return 'cuttablePool'
+  if (actionType === 'REPLAN_MARKER') return 'markerPlanSources'
   return 'cutOrders'
 }
 

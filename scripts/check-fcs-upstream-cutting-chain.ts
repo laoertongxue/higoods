@@ -97,7 +97,7 @@ function ensureGeneratedCutOrdersTraceable(): void {
 
 function ensureOrderProgressIsProjectionOnly(): void {
   const orderProgressContent = readRepoFile('src/data/fcs/cutting/order-progress.ts')
-  assert(orderProgressContent.includes("import { productionOrders } from '../production-orders.ts'"), 'order-progress.ts 没有基于 productionOrders 构建投影')
+  assert(orderProgressContent.includes('listCuttingProductionOrdersWithFormalTechPack'), 'order-progress.ts 没有基于正式技术包生产单构建投影')
   assert(orderProgressContent.includes('listGeneratedCutOrderSourceRecords'), 'order-progress.ts 没有消费 generated cut order source')
   assert(!orderProgressContent.includes('cutOrderId: line.cutPieceOrderNo'), 'order-progress.ts 仍然把 cutPieceOrderNo 当裁片单 id')
   assert(!orderProgressContent.includes('cutOrderNo: line.cutPieceOrderNo'), 'order-progress.ts 仍然把 cutPieceOrderNo 当裁片单号')
@@ -108,11 +108,9 @@ function ensureOrderProgressIsProjectionOnly(): void {
 
 function ensureConsumersUseGeneratedCutOrderSource(): void {
   const cutOrdersModel = readRepoFile('src/pages/process-factory/cutting/cut-orders-model.ts')
-  const cuttablePoolModel = readRepoFile('src/pages/process-factory/cutting/cuttable-pool-model.ts')
   const pieceTruth = readRepoFile('src/domain/fcs-cutting-piece-truth/index.ts')
 
   assert(cutOrdersModel.includes('listGeneratedCutOrderSourceRecords'), 'cut-orders-model.ts 仍未改成消费 generated cut orders')
-  assert(cuttablePoolModel.includes('listGeneratedCutOrderSourceRecords'), 'cuttable-pool-model.ts 仍未改成消费 generated cut orders')
   assert(!pieceTruth.includes('|| materialLine.cutPieceOrderNo'), 'piece-truth 仍在把 cutPieceOrderNo 当裁片单 fallback')
 }
 

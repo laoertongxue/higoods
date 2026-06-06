@@ -469,7 +469,7 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         sourceObjectId: 'WMS-PREP-260306-101-05-01',
         occurredAt: '2026-03-16 09:05',
         operatorName: '中转仓 周敏',
-        remark: '同生产单、同纸样、同幅宽的可排唛架验证数据。',
+        remark: '同生产单、同纸样、同幅宽的唛架组合验证数据。',
       }),
       buildEvent(record, 'CUTTING_CLAIMED', 260, {
         eventId: `ledger:${record.cutOrderId}:claim:001`,
@@ -511,7 +511,7 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         sourceObjectId: 'WMS-PREP-260307-102-03-01',
         occurredAt: '2026-03-16 09:30',
         operatorName: '中转仓 周敏',
-        remark: '跨生产单、同 SPU、同纸样、同幅宽的可排唛架验证数据。',
+        remark: '跨生产单、同 SPU、同纸样、同幅宽的唛架组合验证数据。',
       }),
       buildEvent(record, 'CUTTING_CLAIMED', 280, {
         eventId: `ledger:${record.cutOrderId}:claim:001`,

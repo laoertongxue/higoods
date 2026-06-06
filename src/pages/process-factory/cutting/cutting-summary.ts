@@ -1021,7 +1021,7 @@ function buildCuttingResultCheckItems(
         cutOrder: primaryCutOrder,
       })
 
-      if ((replenishment.nextActionLabel || '').includes('可排唛架') || (replenishment.reviewResultLabel || '').includes('继续补排')) {
+      if ((replenishment.nextActionLabel || '').includes('补排') || (replenishment.reviewResultLabel || '').includes('继续补排')) {
         pushItem(row, {
           checkItemId: `check-replan-${replenishment.suggestionId}`,
           checkType: '补排待处理',
@@ -1035,10 +1035,10 @@ function buildCuttingResultCheckItems(
           feiTicketNo: '',
           handoverOrderId: '',
           handoverRecordId: '',
-          problemText: '补料审核指向继续补排，需要回到可排唛架裁片单确认余额和组合规则。',
+          problemText: '补料审核指向继续补排，需要回到唛架方案确认组合规则。',
           impactText: '未处理前可能影响后续唛架方案和铺布单安排。',
-          suggestedAction: '去可排唛架裁片单',
-          actionRoute: buildCheckRoute(row, 'cuttablePool'),
+          suggestedAction: '去唛架方案',
+          actionRoute: buildCheckRoute(row, 'markerPlanSources'),
           handlingStatus: '待处理',
           ownerRole: '裁前计划',
           ownerName: '唛架计划员',
@@ -1065,7 +1065,7 @@ function buildCuttingResultCheckItems(
         handoverOrderId: '',
         handoverRecordId: '',
         problemText: `裁片单已关闭，关闭原因：${cutOrder.closeReasonText || cutOrder.closeReason || '未填写'}`,
-        impactText: '关闭后不再进入可排唛架，也不再要求继续配料或领料；历史菲票、库存和交出记录仍可追溯。',
+        impactText: '关闭后不再要求继续配料或领料；历史菲票、库存和交出记录仍可追溯。',
         suggestedAction: '查看关闭记录',
         actionRoute: buildCheckRoute(row, 'cutOrders', { cutOrderId: cutOrder.cutOrderId, cutOrderNo: cutOrder.cutOrderNo }),
         handlingStatus: '待处理',

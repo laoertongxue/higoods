@@ -1700,7 +1700,7 @@ function buildPlanViewRow(
     sourceCutOrderCountText: `${sourceCutOrderCount} 张`,
     sourceProductionOrderCountText: `${sourceProductionOrderCount} 单`,
     referenceWarningText: isReferencedBySpreading
-      ? '当前方案唛架已被铺布引用。若修改配比、分配、唛架结构，请从可排唛架裁片单重新创建方案。'
+      ? '当前方案唛架已被铺布引用。若修改配比、分配、唛架结构，请从裁片单重新创建方案。'
       : '',
     isReferencedBySpreading,
     skuTypeCountText: `${explosionSummary.skuTypeCount}`,

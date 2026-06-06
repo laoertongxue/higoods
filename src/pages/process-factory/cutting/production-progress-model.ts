@@ -204,10 +204,6 @@ export interface ProductionProgressRow {
     productionOrderId: string
     productionOrderNo: string
   }
-  filterPayloadForCuttablePool: {
-    productionOrderId: string
-    productionOrderNo: string
-  }
   filterPayloadForSummary: {
     productionOrderId: string
     productionOrderNo: string
@@ -1158,10 +1154,6 @@ export function buildProductionProgressRows(
         productionOrderNo: record.productionOrderNo,
       },
       filterPayloadForMaterialPrep: {
-        productionOrderId: record.productionOrderId,
-        productionOrderNo: record.productionOrderNo,
-      },
-      filterPayloadForCuttablePool: {
         productionOrderId: record.productionOrderId,
         productionOrderNo: record.productionOrderNo,
       },

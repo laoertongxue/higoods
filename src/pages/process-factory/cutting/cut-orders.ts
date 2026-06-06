@@ -42,7 +42,6 @@ import {
   findCutOrderByPrefilter,
   formatCutOrderCurrency,
   cutOrderStageMeta,
-  cutOrderVisibleCuttableMeta,
   type CutOrderFilters,
   type CutOrderPrefilter,
   type CutOrderRow,
@@ -97,7 +96,6 @@ type FilterField =
   | 'styleKeyword'
   | 'materialSku'
   | 'currentStage'
-  | 'cuttableState'
   | 'inBatch'
   | 'hasAvailableBalance'
   | 'hasCloseReason'
@@ -109,7 +107,6 @@ const FIELD_TO_FILTER_KEY: Record<FilterField, keyof CutOrderFilters> = {
   styleKeyword: 'styleKeyword',
   materialSku: 'materialSku',
   currentStage: 'currentStage',
-  cuttableState: 'cuttableState',
   inBatch: 'inBatch',
   hasAvailableBalance: 'hasAvailableBalance',
   hasCloseReason: 'hasCloseReason',
@@ -121,7 +118,6 @@ const initialFilters: CutOrderFilters = {
   styleKeyword: '',
   materialSku: '',
   currentStage: 'ALL',
-  cuttableState: 'ALL',
   inBatch: 'ALL',
   hasAvailableBalance: 'ALL',
   hasCloseReason: 'ALL',
@@ -468,11 +464,10 @@ function buildStatsCards(rows: CutOrderRow[]): string {
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       ${renderCompactKpiCard('裁片单总数', stats.totalCount, '当前筛选范围', 'text-slate-900')}
-      ${renderCompactKpiCard('可排唛架数', stats.cuttableCount, '已开工、有领料记录、有可用余额、未被方案锁定', 'text-emerald-600')}
-      ${renderCompactKpiCard('唛架方案占用数', stats.inBatchCount, '草稿或有效唛架方案占用余额', 'text-violet-600')}
+      ${renderCompactKpiCard('唛架方案占用数', stats.inBatchCount, '草稿或有效唛架方案占用记录', 'text-violet-600')}
       ${renderCompactKpiCard('有可用余额数', stats.availableBalanceCount, '裁床可用面料余额大于 0', 'text-blue-600')}
       ${renderCompactKpiCard('已关闭数', stats.closedCount, '已填写关闭原因', 'text-zinc-600')}
-      ${renderCompactKpiCard('未产生领料记录数', stats.noClaimRecordCount, '可排唛架判断原因', 'text-amber-600')}
+      ${renderCompactKpiCard('未产生领料记录数', stats.noClaimRecordCount, '裁床尚未形成领料数量账', 'text-amber-600')}
     </section>
   `
 }
@@ -543,7 +538,6 @@ function getFilterLabels(): string[] {
   if (state.filters.styleKeyword) labels.push(`款号 / SPU：${state.filters.styleKeyword}`)
   if (state.filters.materialSku) labels.push(`面料：${state.filters.materialSku}`)
   if (state.filters.currentStage !== 'ALL') labels.push(`裁片单主状态：${cutOrderStageMeta[state.filters.currentStage].label}`)
-  if (state.filters.cuttableState !== 'ALL') labels.push(`可排唛架判断：${cutOrderVisibleCuttableMeta[state.filters.cuttableState].label}`)
   if (state.filters.inBatch === 'IN_MARKER_PLAN') labels.push('仅看有唛架方案占用')
   if (state.filters.inBatch === 'NOT_IN_MARKER_PLAN') labels.push('仅看无唛架方案占用')
   if (state.filters.hasAvailableBalance === 'YES') labels.push('可用余额：大于 0')
@@ -637,11 +631,6 @@ function renderFilterArea(): string {
         ${renderFilterSelect('裁片单主状态', 'currentStage', state.filters.currentStage, [
           { value: 'ALL', label: '全部状态' },
           ...Object.entries(cutOrderStageMeta).map(([value, meta]) => ({ value, label: meta.label })),
-        ])}
-        ${renderFilterSelect('可排唛架判断', 'cuttableState', state.filters.cuttableState, [
-          { value: 'ALL', label: '全部' },
-          { value: 'CUTTABLE', label: cutOrderVisibleCuttableMeta.CUTTABLE.label },
-          { value: 'NOT_CUTTABLE', label: cutOrderVisibleCuttableMeta.NOT_CUTTABLE.label },
         ])}
         ${renderFilterSelect('唛架方案占用', 'inBatch', state.filters.inBatch, [
           { value: 'ALL', label: '全部' },
@@ -923,7 +912,7 @@ function renderCutOrderClosePage(): string {
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold">关闭裁片单：${escapeHtml(row.cutOrderNo)}</h2>
-            <p class="mt-1 text-sm text-muted-foreground">关闭后不再进入可排唛架，不再要求继续配料或领料；历史记录保留追溯。</p>
+            <p class="mt-1 text-sm text-muted-foreground">关闭后不再要求继续配料或领料；历史记录保留追溯。</p>
           </div>
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('cut-orders'), { cutOrderId: row.cutOrderId, cutOrderNo: row.cutOrderNo }))}">返回裁片单</button>
@@ -1014,11 +1003,6 @@ function renderStatusCell(row: CutOrderRow): string {
         ${row.closeReason ? `<p class="text-xs leading-5 text-muted-foreground">关闭原因：${escapeHtml(row.closeReasonText || row.closeReason)}</p>` : ''}
       </div>
       <div class="space-y-1 text-xs text-muted-foreground">
-        <div class="flex flex-wrap gap-1">
-          <span class="w-full text-xs text-muted-foreground">可排唛架判断</span>
-        ${renderBadge(row.visibleCuttableStatus.label, row.visibleCuttableStatus.className)}
-        </div>
-        ${row.cuttableState.key === 'CUTTABLE' ? '' : `<p>不满足原因：${escapeHtml(row.cuttableState.reasonText)}</p>`}
         ${lockSource ? `<p>当前锁定来源：${escapeHtml(lockSource)}</p>` : ''}
       </div>
       ${renderBatchSummary(row)}
@@ -1408,20 +1392,17 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
       ${renderCutOrderSampleSection(row)}
 
       ${renderDetailSection(
-        '主状态与判断关系',
+        '主状态与唛架关系',
         `
           <div class="space-y-3">
             <div class="flex flex-wrap gap-2">
               <span class="w-full text-xs text-muted-foreground">裁片单主状态</span>
               ${renderBadge(row.currentStage.label, row.currentStage.className)}
-              <span class="mt-2 w-full text-xs text-muted-foreground">可排唛架判断</span>
-              ${renderBadge(row.visibleCuttableStatus.label, row.visibleCuttableStatus.className)}
             </div>
             ${row.closeReason ? `<p class="text-sm"><span class="text-muted-foreground">关闭原因：</span>${escapeHtml(row.closeReasonText || row.closeReason)}</p>` : ''}
             ${row.closedAt ? `<p class="text-sm"><span class="text-muted-foreground">关闭时间：</span>${escapeHtml(row.closedAt)}</p>` : ''}
             ${row.closedBy ? `<p class="text-sm"><span class="text-muted-foreground">关闭人：</span>${escapeHtml(row.closedBy)}</p>` : ''}
             <div class="space-y-2 text-sm">
-              <p><span class="text-muted-foreground">不满足原因：</span>${escapeHtml(row.cuttableState.key === 'CUTTABLE' ? '满足可排唛架条件' : row.cuttableState.reasonText)}</p>
               <p><span class="text-muted-foreground">当前锁定来源：</span>${escapeHtml(row.activeMarkerPlanNo || row.latestMarkerPlanNo || '无')}</p>
               <div class="flex flex-wrap items-center gap-1">
                 <span class="text-muted-foreground">风险：</span>
@@ -1936,7 +1917,6 @@ function renderCutOrderOverviewTab(view: ReturnType<typeof buildCutOrderDetailVi
             { label: '裁片单号', value: row.cutOrderNo, tone: 'strong' },
             { label: '来源生产单', value: row.productionOrderNo },
             { label: '主状态', value: row.currentStageLabel, tone: 'strong' },
-            { label: '可排唛架判断', value: row.visibleCuttableStatus.label },
             { label: '可用余额', value: formatMaterialLedgerQty(row.availableQty, row.availableUnit || row.materialUnit), tone: 'strong' },
             { label: '当前锁定来源', value: row.activeMarkerPlanNo || row.latestMarkerPlanNo || '无' },
           ])}
@@ -2005,7 +1985,7 @@ function renderCutOrderMarkerPlanTab(view: ReturnType<typeof buildCutOrderDetail
             <div>
               <div class="text-xs text-muted-foreground">本裁片单</div>
               <div>${escapeHtml(sourceItem?.cutOrderNo || view.row.cutOrderNo)}</div>
-              <div class="text-xs text-muted-foreground">${escapeHtml(sourceItem?.cuttableStateLabel || view.row.visibleCuttableStatus.label)}</div>
+              <div class="text-xs text-muted-foreground">${escapeHtml(sourceItem?.sourceStageLabel || view.row.currentStageLabel)}</div>
             </div>
             <div>
               <div class="text-xs text-muted-foreground">时间</div>
@@ -2203,7 +2183,6 @@ function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel(
             <div class="mt-1 flex flex-wrap items-center gap-2">
               <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(row.cutOrderNo)}</h1>
               ${renderBadge(row.currentStageLabel, row.currentStage.className)}
-              ${renderBadge(row.visibleCuttableStatus.label, row.visibleCuttableStatus.className)}
             </div>
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.productionOrderNo)} · ${escapeHtml(row.materialSku)} · ${escapeHtml(row.patternFileName)} · ${escapeHtml(row.effectiveWidthText)}</p>
             ${row.closeReason ? `<p class="mt-1 text-sm text-amber-700">关闭原因：${escapeHtml(row.closeReasonText || row.closeReason)}</p>` : ''}
@@ -2543,7 +2522,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
     })
     state.closeDraft.feedback = {
       tone: 'success',
-      message: '已关闭裁片单并记录关闭原因；该裁片单不会进入可排唛架，历史菲票、库存和交出记录仍保留。',
+      message: '已关闭裁片单并记录关闭原因；历史菲票、库存和交出记录仍保留。',
     }
     return true
   }

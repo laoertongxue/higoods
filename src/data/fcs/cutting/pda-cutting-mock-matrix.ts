@@ -370,7 +370,7 @@ export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
     unit: '米',
     acceptDeadline: '2026-03-18 09:30:00',
     taskDeadline: '2026-03-20 18:00:00',
-    taskSummaryNote: '裁床已开工且已消耗完本次领料，用于验证可用余额为 0 时不能进入可排唛架。',
+    taskSummaryNote: '裁床已开工且已消耗完本次领料，用于验证可用余额为 0 的数量账场景。',
     acceptedAt: '2026-03-18 08:35:00',
     acceptedBy: '裁床组长',
     startedAt: '2026-03-18 09:15:00',

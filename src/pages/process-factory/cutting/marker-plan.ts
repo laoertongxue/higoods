@@ -5,12 +5,7 @@ import {
   buildMarkerPlanProjection,
 } from './marker-plan-projection.ts'
 import { buildMarkerSpreadingProjection } from './marker-spreading-projection.ts'
-import { buildCuttablePoolProjection } from './cuttable-pool-projection.ts'
-import type { CuttableCutOrderItem } from './cuttable-pool-model.ts'
 import { spreadingOrderStatusMeta, type SpreadingOrder } from './marker-spreading-model.ts'
-import {
-  buildMaterialLedgerProjectionMap,
-} from '../../../data/fcs/cutting/material-ledger.ts'
 import {
   listStoredMarkerPlanLockLedger,
   saveStoredMarkerPlanLockLedger,
@@ -482,64 +477,57 @@ function buildContextKeysFromCutOrderIds(cutOrderIds: string[]): string[] {
   return cutOrderIds.map((cutOrderId) => `cut-order:${cutOrderId}`)
 }
 
-function getCuttableItemsById(): Record<string, CuttableCutOrderItem> {
-  return buildCuttablePoolProjection().viewModel.itemsById
-}
-
-function buildSourceLockRowsFromItems(items: CuttableCutOrderItem[]): MarkerPlanSourceCutOrderLockRow[] {
-  return items.map((item) => ({
-    cutOrderId: item.cutOrderId,
-    cutOrderNo: item.cutOrderNo,
-    productionOrderId: item.productionOrderId,
-    productionOrderNo: item.productionOrderNo,
-    spuCode: item.spuCode,
-    styleCode: item.styleCode,
-    materialSku: item.materialIdentity.materialSku || item.materialSku,
-    materialName: item.materialIdentity.materialName || item.materialName || item.materialLabel,
-    materialColor: item.materialIdentity.materialColor || item.materialColor,
-    materialAlias: item.materialIdentity.materialAlias || item.materialAlias,
-    materialImageUrl: item.materialIdentity.materialImageUrl || item.materialImageUrl,
-    patternFileId: item.patternIdentity.patternFileId || item.patternFileId,
-    patternFileName: item.patternIdentity.patternFileName || item.patternFileName,
-    patternVersion: item.patternIdentity.patternVersion || item.patternVersion,
-    effectiveWidthText: item.effectiveWidthText,
-    piecePartNames: [...(item.patternIdentity.piecePartNames || [])],
-    availableQty: safeNumber(item.availableQty),
-    lockedQty: safeNumber(item.availableQty),
-    unit: item.availableUnit || item.materialUnit || '米',
-    historyCombinationGroup: item.historyCombinationGroup || '新组合',
-  }))
-}
-
 function buildSourceLockRowsFromSelectedCutOrders(cutOrderIds: string[]): {
   ok: boolean
   message: string
   rows: MarkerPlanSourceCutOrderLockRow[]
 } {
-  const itemsById = getCuttableItemsById()
-  const items = cutOrderIds.map((cutOrderId) => itemsById[cutOrderId] || null)
-  const missingIds = cutOrderIds.filter((cutOrderId, index) => !items[index])
+  const contextMap = getContextMap(getViewModel())
+  const contexts = buildContextKeysFromCutOrderIds(cutOrderIds)
+    .map((contextKey) => contextMap[contextKey] || null)
+    .filter((context): context is MarkerPlanContextCandidate => Boolean(context))
+  const contextCutOrderIds = new Set(contexts.flatMap((context) => context.cutOrderIds))
+  const missingIds = cutOrderIds.filter((cutOrderId) => !contextCutOrderIds.has(cutOrderId))
   if (missingIds.length) {
     return {
       ok: false,
-      message: '部分裁片单已经不再满足新建唛架条件，请重新选择裁片单。',
+      message: '部分裁片单在当前裁片单列表中无法恢复，请重新选择裁片单。',
       rows: [],
     }
   }
-  const rows = buildSourceLockRowsFromItems(items.filter((item): item is CuttableCutOrderItem => Boolean(item)))
-  const emptyBalanceRows = rows.filter((row) => safeNumber(row.lockedQty) <= 0)
-  if (emptyBalanceRows.length) {
-    return {
-      ok: false,
-      message: `裁片单 ${emptyBalanceRows.map((row) => row.cutOrderNo).join(' / ')} 可用余额不足，不能创建唛架方案。`,
-      rows: [],
-    }
-  }
+  const sourceRows = new Map<string, { context: MarkerPlanContextCandidate; row: MarkerPlanContextCandidate['sourceCutOrderRows'][number] }>()
+  contexts.forEach((context) => {
+    context.sourceCutOrderRows.forEach((row) => {
+      if (!sourceRows.has(row.cutOrderId)) sourceRows.set(row.cutOrderId, { context, row })
+    })
+  })
+  const rows = Array.from(sourceRows.values()).map(({ context, row }) => ({
+    cutOrderId: row.cutOrderId,
+    cutOrderNo: row.cutOrderNo,
+    productionOrderId: row.productionOrderId,
+    productionOrderNo: row.productionOrderNo,
+    spuCode: row.spuCode,
+    styleCode: row.styleCode,
+    materialSku: row.materialSku,
+    materialName: row.materialName || row.materialLabel,
+    materialColor: row.materialColor || row.color,
+    materialAlias: row.materialAlias,
+    materialImageUrl: row.materialImageUrl,
+    patternFileId: row.patternFileId,
+    patternFileName: row.patternFileName,
+    patternVersion: row.patternVersion,
+    effectiveWidthText: row.effectiveWidthText,
+    piecePartNames: [...row.piecePartNames],
+    availableQty: safeNumber(row.materialQuantityLedger.availableQty),
+    lockedQty: Math.max(safeNumber(row.materialQuantityLedger.availableQty), 0),
+    unit: row.materialQuantityLedger.unit || row.availableUnit || row.materialUnit || '米',
+    historyCombinationGroup: context.markerPlanGroupKey || row.latestMarkerPlanNo || '新组合',
+  }))
   return { ok: true, message: '', rows }
 }
 
 function validateSourceCutOrderCombination(rows: MarkerPlanSourceCutOrderLockRow[]): { ok: boolean; message: string } {
-  if (!rows.length) return { ok: false, message: '请先选择可排唛架裁片单。' }
+  if (!rows.length) return { ok: false, message: '请先选择裁片单。' }
   const unique = (values: string[]) => Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)))
   if (unique(rows.map((row) => row.spuCode)).length > 1) {
     return { ok: false, message: 'SPU 不一致，不能进入同一个唛架方案。' }
@@ -575,34 +563,12 @@ function findExistingUnconfirmedDraftForSelection(cutOrderIds: string[]): Marker
   }) || null
 }
 
-function getActiveDraftLockQty(planId: string, cutOrderId: string): number {
-  return listStoredMarkerPlanLockLedger()
-    .filter((record) =>
-      record.markerPlanDraftId === planId
-      && record.cutOrderId === cutOrderId
-      && record.lockStatus === '草稿锁定',
-    )
-    .reduce((total, record) => total + safeNumber(record.lockedQty), 0)
-}
-
 function validateDraftLockRows(plan: MarkerPlan): { ok: boolean; message: string } {
   const rows = plan.sourceCutOrderLockRows || []
   if (!rows.length) {
     return parseRoute().kind === 'CREATE'
       ? { ok: false, message: '缺少来源裁片单清单，请先选择裁片单。' }
       : { ok: true, message: '' }
-  }
-  const ledgerMap = buildMaterialLedgerProjectionMap()
-  const invalidRow = rows.find((row) => {
-    const projection = ledgerMap[row.cutOrderId] || ledgerMap[row.cutOrderNo]
-    const availableForThisPlan = safeNumber(projection?.availableQty) + getActiveDraftLockQty(plan.id, row.cutOrderId)
-    return safeNumber(row.lockedQty) <= 0 || safeNumber(row.lockedQty) > availableForThisPlan
-  })
-  if (invalidRow) {
-    return {
-      ok: false,
-      message: `裁片单 ${invalidRow.cutOrderNo} 本次拟锁定数量超过当前可用余额，请重新选择裁片单。`,
-    }
   }
   return { ok: true, message: '' }
 }
@@ -683,27 +649,23 @@ function getContextMap(viewModel = getViewModel()): Record<string, MarkerPlanCon
 
 function getSelectedDrawerContexts(viewModel = getViewModel()): MarkerPlanContextCandidate[] {
   const contextMap = getContextMap(viewModel)
-  const selectableContextKeys = new Set(getSelectableMarkerSourceContexts(viewModel).map((context) => context.contextKey))
+  const cutOrderContextKeys = new Set(getMarkerPlanCutOrderContexts(viewModel).map((context) => context.contextKey))
   return state.selectedContextKeys
     .map((contextKey) => contextMap[contextKey] || null)
     .filter((context): context is MarkerPlanContextCandidate => Boolean(context))
-    .filter((context) => selectableContextKeys.has(context.contextKey))
+    .filter((context) => cutOrderContextKeys.has(context.contextKey))
 }
 
 function getContextSpuCodes(contexts: MarkerPlanContextCandidate[]): string[] {
   return Array.from(new Set(contexts.map((context) => String(context.spuCode || '').trim()).filter(Boolean)))
 }
 
-function isSelectableMarkerSourceContext(context: MarkerPlanContextCandidate): boolean {
-  return (
-    context.contextType === 'cut-order' &&
-    context.sourceCutOrderRows.length > 0 &&
-    context.sourceCutOrderRows.every((row) => row.cuttableState.key === 'CUTTABLE')
-  )
+function isMarkerPlanCutOrderContext(context: MarkerPlanContextCandidate): boolean {
+  return context.contextType === 'cut-order' && context.sourceCutOrderRows.length > 0
 }
 
-function getSelectableMarkerSourceContexts(viewModel = getViewModel()): MarkerPlanContextCandidate[] {
-  return viewModel.pendingContexts.filter(isSelectableMarkerSourceContext)
+function getMarkerPlanCutOrderContexts(viewModel = getViewModel()): MarkerPlanContextCandidate[] {
+  return viewModel.contexts.filter(isMarkerPlanCutOrderContext)
 }
 
 function filterMarkerSourceContextsByKeyword(contexts: MarkerPlanContextCandidate[]): MarkerPlanContextCandidate[] {
@@ -726,13 +688,17 @@ function filterMarkerSourceContextsByKeyword(contexts: MarkerPlanContextCandidat
 }
 
 function validateMarkerPlanSourceSelection(contexts: MarkerPlanContextCandidate[]): { ok: boolean; message: string } {
-  if (!contexts.length) return { ok: false, message: '请先选择可排唛架裁片单。' }
-  if (contexts.some((context) => !isSelectableMarkerSourceContext(context))) {
-    return { ok: false, message: '只能选择可排唛架裁片单进入唛架方案。' }
+  if (!contexts.length) return { ok: false, message: '请先选择裁片单。' }
+  if (contexts.some((context) => !isMarkerPlanCutOrderContext(context))) {
+    return { ok: false, message: '只能选择裁片单进入唛架方案。' }
   }
   const spuCodes = getContextSpuCodes(contexts)
   if (spuCodes.length > 1) {
-    return { ok: false, message: `所选可排唛架裁片单属于多个 SPU：${spuCodes.join(' / ')}，不能进入下一步。` }
+    return { ok: false, message: `所选裁片单属于多个 SPU：${spuCodes.join(' / ')}，不能进入下一步。` }
+  }
+  const markerPlanGroupKeys = Array.from(new Set(contexts.map((context) => String(context.markerPlanGroupKey || '').trim()).filter(Boolean)))
+  if (markerPlanGroupKeys.length > 1) {
+    return { ok: false, message: '所选裁片单的 SPU、纸样、版本、幅宽或历史组合组不一致，不能进入同一个唛架方案。' }
   }
   return { ok: true, message: '' }
 }
@@ -743,8 +709,8 @@ function syncContextDrawerSelectionDom(viewModel = getViewModel()): void {
   const selectedSpuCodes = getContextSpuCodes(selectedContexts)
   const selectionValidation = validateMarkerPlanSourceSelection(selectedContexts)
   const selectedSummary = selectedContexts.length
-    ? `已选 ${selectedContexts.length} 个可排唛架裁片单${selectedSpuCodes.length === 1 ? `，SPU：${selectedSpuCodes[0]}` : ''}`
-    : '请先选择可排唛架裁片单'
+    ? `已选 ${selectedContexts.length} 个裁片单${selectedSpuCodes.length === 1 ? `，SPU：${selectedSpuCodes[0]}` : ''}`
+    : '请先选择裁片单'
   const summaryNode = document.querySelector<HTMLElement>('[data-marker-plan-selection-summary]')
   const messageNode = document.querySelector<HTMLElement>('[data-marker-plan-selection-message]')
   const confirmButton = document.querySelector<HTMLButtonElement>('[data-marker-plan-action="confirm-context-create"]')
@@ -1799,7 +1765,7 @@ function resolveCurrentPlan(viewModel = getViewModel(), planId = ''): MarkerPlan
 function validateDraftForCompletion(): { ok: true } | { ok: false; tab: MarkerPlanTabKey; message: string } {
   const plan = state.draftPlan
   if (!plan) {
-    return { ok: false, tab: 'basic', message: '请先选择可排唛架裁片单，再确认唛架方案。' }
+    return { ok: false, tab: 'basic', message: '请先选择裁片单，再确认唛架方案。' }
   }
   if (plan.totalPieces <= 0) {
     return { ok: false, tab: 'basic', message: '请先补齐尺码成衣件数（件），确保方案成衣件数（件）大于 0。' }
@@ -2145,7 +2111,7 @@ function renderCreateStepNav(plan: MarkerPlan | null): string {
 }
 
 function renderCreateCutOrderSelectionStep(viewModel = getViewModel()): string {
-  const contexts = filterMarkerSourceContextsByKeyword(getSelectableMarkerSourceContexts(viewModel))
+  const contexts = filterMarkerSourceContextsByKeyword(getMarkerPlanCutOrderContexts(viewModel))
   const selectedContexts = getSelectedDrawerContexts(viewModel)
   const selectedKeys = new Set(state.selectedContextKeys)
   const selectedSpuCodes = getContextSpuCodes(selectedContexts)
@@ -2164,7 +2130,7 @@ function renderCreateCutOrderSelectionStep(viewModel = getViewModel()): string {
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 class="text-sm font-semibold">选择裁片单</h3>
-          <p class="mt-1 text-xs text-muted-foreground">只展示当前满足新建唛架条件的裁片单，后续步骤会继续校验 SPU、纸样、版本、幅宽和历史组合组。</p>
+          <p class="mt-1 text-xs text-muted-foreground">展示当前所有裁片单，后续步骤会继续校验 SPU、纸样、版本、幅宽和历史组合组。</p>
         </div>
         ${renderStatusBadge(selectedSummary, validation.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700')}
       </div>
@@ -2247,7 +2213,7 @@ function renderCreateCutOrderSelectionStep(viewModel = getViewModel()): string {
               </label>
             `
           }).join('')
-          : '<div class="rounded-lg border border-dashed px-3 py-8 text-center text-xs text-muted-foreground md:col-span-2 xl:col-span-3">暂无满足新建唛架条件的裁片单。</div>'}
+          : '<div class="rounded-lg border border-dashed px-3 py-8 text-center text-xs text-muted-foreground md:col-span-2 xl:col-span-3">当前暂无裁片单。</div>'}
       </div>
     </section>
   `
@@ -4276,7 +4242,7 @@ export function renderCraftCuttingMarkerPlanDetailPage(id?: string): string {
 function persistDraftPlan(): MarkerPlan | null {
   const context = getDraftContext(getViewModel())
   if (!state.draftPlan || !context) {
-    setFeedback('warning', '请先选择可排唛架裁片单，再保存唛架方案。')
+    setFeedback('warning', '请先选择裁片单，再保存唛架方案。')
     return null
   }
   const lockValidation = validateDraftLockRows(state.draftPlan)
@@ -4310,7 +4276,7 @@ function saveDraftPlan(stayOnPage = true, successMessage?: string): boolean {
     appStore.navigate(buildDetailPath(nextPlan.id))
     return true
   }
-  setFeedback('success', successMessage || `已创建草稿 ${nextPlan.markerNo}，已锁定来源裁片单可用余额。`)
+  setFeedback('success', successMessage || `已创建草稿 ${nextPlan.markerNo}，已记录来源裁片单。`)
   return true
 }
 
@@ -4337,7 +4303,7 @@ function completeDraftPlan(): boolean {
   }
   upsertStoredPlan(confirmedPlan)
   state.draftPlan = confirmedPlan
-  setFeedback('success', `已确认唛架方案 ${nextPlan.markerNo}，草稿锁定已转为有效锁定。`)
+  setFeedback('success', `已确认唛架方案 ${nextPlan.markerNo}，来源裁片单记录已确认。`)
   return true
 }
 
@@ -4355,7 +4321,7 @@ function cancelDraftPlan(): boolean {
   releaseDraftLocksForPlan(nextPlan)
   upsertStoredPlan(nextPlan)
   state.draftPlan = nextPlan
-  setFeedback('success', `已取消草稿 ${nextPlan.markerNo}，来源裁片单锁定余额已释放。`)
+  setFeedback('success', `已取消草稿 ${nextPlan.markerNo}，来源裁片单记录已释放。`)
   return true
 }
 
@@ -4392,11 +4358,6 @@ function handleAction(action: string, node: HTMLElement): boolean {
     state.contextKeyword = ''
     state.selectedContextKeys = []
     appStore.navigate(CREATE_PATH)
-    return true
-  }
-
-  if (action === 'go-cuttable-pool') {
-    appStore.navigate(getCanonicalCuttingPath('cuttable-pool'))
     return true
   }
 

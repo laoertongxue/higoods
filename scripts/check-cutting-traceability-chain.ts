@@ -86,7 +86,6 @@ function assertFeiPagesCutover(): void {
   assertIncludes(feiPage, 'productionOrderId', 'fei-tickets.ts 应透传 productionOrderId')
   assertIncludes(feiPage, 'materialSku', 'fei-tickets.ts 应透传 materialSku')
   assertNotIncludes(feiPage, 'cuttingOrderProgressRecords', 'fei-tickets.ts 不应继续直接依赖旧 progress 源')
-  assertNotIncludes(feiPage, 'buildCuttablePoolViewModel', 'fei-tickets.ts 不应继续依赖旧 cuttable pool model')
   assertNotIncludes(feiPage, 'buildSystemSeedFeiTicketLedger(', 'fei-tickets.ts 不应直接把 page seed 当正式菲票主源')
 
   assertIncludes(feiQrModel, 'CanonicalFeiTicketQrPayload', 'fei-qr-model.ts 应建立在正式菲票 payload 类型之上')

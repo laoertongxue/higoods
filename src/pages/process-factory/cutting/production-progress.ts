@@ -160,9 +160,9 @@ interface CutOrderDimensionRow {
   closeReasonText: string
   closeReason: string
   closedAt: string
-  cuttableLabel: string
-  cuttableClassName: string
-  cuttableReasonText: string
+  markerSourceLabel: string
+  markerSourceClassName: string
+  markerSourceDetailText: string
   markerRelationText: string
   operationResultText: string
   feiTicketLabel: string
@@ -610,20 +610,22 @@ function buildCutOrderDimensionRows(rows: ProductionProgressRow[]): CutOrderDime
       const isClosed = Boolean(closeRecord || row.closeReason || row.closedAt || row.rawStageText.includes('已关闭'))
       const mainStatusLabel = isClosed ? '已关闭' : row.currentStage.label
       const mainStatusClassName = isClosed ? 'bg-zinc-100 text-zinc-700' : row.currentStage.className
-      const cuttable = !isClosed && row.currentStage.label === '已开工' && quantityLedger.cuttingClaimedQty > 0 && quantityLedger.availableQty > 0
-      const cuttableReasonText = isClosed
+      const markerSourceDetailText = isClosed
         ? closeReasonText || closeReason || '该裁片单已关闭'
         : quantityLedger.cuttingClaimedQty <= 0
-          ? '无领料记录'
+          ? '尚未形成裁床领料数量账'
           : row.currentStage.label !== '已开工'
             ? '未开工'
             : quantityLedger.availableQty <= 0
               ? '可用余额为 0'
-              : '满足可排唛架条件'
+              : '可用于唛架方案编排'
       const markerRelationText =
         quantityLedger.markerLockedQty > 0
           ? `已锁定 ${formatMaterialLedgerQty(quantityLedger.markerLockedQty, quantityLedger.unit)}`
           : snapshot?.markerProgress.status || '无唛架方案占用'
+      const markerSourceLabel = quantityLedger.markerLockedQty > 0 || markerRelationText !== '无唛架方案占用'
+        ? '已关联唛架'
+        : '待建唛架'
       const operationResultText = [
         `实际裁剪：${sourceLine.currentStateLabel}`,
         `菲票：${snapshot?.feiTicketProgress.status || '待生成'}`,
@@ -652,9 +654,9 @@ function buildCutOrderDimensionRows(rows: ProductionProgressRow[]): CutOrderDime
         closeReasonText,
         closeReason,
         closedAt,
-        cuttableLabel: cuttable ? '可排唛架' : '不可排唛架',
-        cuttableClassName: cuttable ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700',
-        cuttableReasonText,
+        markerSourceLabel,
+        markerSourceClassName: markerSourceLabel === '已关联唛架' ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700',
+        markerSourceDetailText,
         markerRelationText,
         operationResultText,
         feiTicketLabel: snapshot?.feiTicketProgress.status || '待生成',
@@ -2698,9 +2700,9 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
                             <td class="px-4 py-3">
                               <div class="space-y-2">
                                 ${renderBadge(item.mainStatusLabel, item.mainStatusClassName)}
-                                ${renderBadge(item.cuttableLabel, item.cuttableClassName)}
+                                ${renderBadge(item.markerSourceLabel, item.markerSourceClassName)}
                                 <div class="text-xs leading-5 text-muted-foreground">
-                                  <div>判断原因：${escapeHtml(item.cuttableReasonText)}</div>
+                                  <div>唛架提示：${escapeHtml(item.markerSourceDetailText)}</div>
                                   ${item.closeReason ? `<div>关闭原因：${escapeHtml(item.closeReasonText || item.closeReason)}</div>` : ''}
                                 </div>
                               </div>
@@ -2904,8 +2906,6 @@ function navigateToRecordTarget(recordId: string | undefined, key: CuttingCanoni
         ? row.filterPayloadForMarkerSpreading
         : key === 'fei-tickets'
           ? row.filterPayloadForFeiTickets
-      : key === 'cuttable-pool'
-        ? row.filterPayloadForCuttablePool
         : key === 'summary'
           ? row.filterPayloadForSummary
           : row.filterPayloadForCutOrders
@@ -2920,9 +2920,7 @@ function navigateToRecordTarget(recordId: string | undefined, key: CuttingCanoni
       ? 'summary'
       : key === 'cut-orders'
         ? 'cutOrders'
-        : key === 'cuttable-pool'
-            ? 'cuttablePool'
-            : key === 'spreading-list' || key === 'marker-spreading'
+        : key === 'spreading-list' || key === 'marker-spreading'
               ? 'markerSpreading'
               : key === 'marker-list'
                 ? 'markerPlan'
@@ -3012,10 +3010,6 @@ export function handleCraftCuttingProductionProgressEvent(target: Element): bool
     return true
   }
 
-  if (action === 'go-cuttable-pool') {
-    return navigateToRecordTarget(actionNode.dataset.recordId, 'cuttable-pool')
-  }
-
   if (action === 'go-marker-spreading') {
     return navigateToRecordTarget(actionNode.dataset.recordId, 'spreading-list')
   }
@@ -3026,11 +3020,6 @@ export function handleCraftCuttingProductionProgressEvent(target: Element): bool
 
   if (action === 'go-summary') {
     return navigateToRecordTarget(actionNode.dataset.recordId, 'summary')
-  }
-
-  if (action === 'go-cuttable-pool-index') {
-    appStore.navigate(getCanonicalCuttingPath('cuttable-pool'))
-    return true
   }
 
   if (action === 'go-summary-index') {

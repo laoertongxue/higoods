@@ -62,11 +62,6 @@ function buildMarkerPlanSourceMarkerPlanSourceItems(
         materialLabel: row.materialLabel,
         currentStage: row.currentStageLabel,
         markerPlanOccupancyStatus: row.activeMarkerPlanId ? 'IN_MARKER_PLAN' : 'AVAILABLE',
-        cuttableState: {
-          label: row.cuttableState.label,
-          selectable: row.cuttableState.selectable,
-          key: row.cuttableState.key,
-        },
         markerPlanGroupKey: `${row.styleCode}::${row.materialSku}`,
         markerPlanNo: record.markerPlanNo,
       })),

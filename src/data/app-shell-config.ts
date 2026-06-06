@@ -406,7 +406,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'PackageSearch',
           children: [
             { key: 'pfos-cutting-cut-orders', title: '裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/cut-orders' },
-            { key: 'pfos-cutting-cuttable-pool', title: '可排唛架裁片单', icon: 'CalendarClock', href: '/fcs/craft/cutting/cuttable-pool' },
             { key: 'pfos-cutting-marker-list', title: '唛架方案', icon: 'Layers', href: '/fcs/craft/cutting/marker-list' },
           ],
         },

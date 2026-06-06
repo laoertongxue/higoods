@@ -2,7 +2,6 @@ export { renderCraftWorkbenchOverviewPage } from './workbench/overview'
 
 export {
   renderCraftCuttingProductionProgressPage,
-  renderCraftCuttingCuttablePoolPage,
   renderCraftCuttingMarkerListPage,
   renderCraftCuttingMarkerCreatePage,
   renderCraftCuttingMarkerPlanEditPage,

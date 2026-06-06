@@ -7,7 +7,6 @@ import { escapeHtml } from '../../../utils.ts'
 
 export type CuttingCanonicalPageKey =
   | 'production-progress'
-  | 'cuttable-pool'
   | 'cut-orders'
   | 'cut-order-close'
   | 'marker-list'
@@ -68,16 +67,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     isPlaceholder: false,
     shortDescription: '按生产单查看裁床主链路、数量账和待处理事项。',
   },
-  'cuttable-pool': {
-    key: 'cuttable-pool',
-    canonicalPath: '/fcs/craft/cutting/cuttable-pool',
-    aliases: [],
-    menuGroupTitle: '裁前准备',
-    pageTitle: '可排唛架裁片单',
-    pageSubtitle: '',
-    isPlaceholder: false,
-    shortDescription: '查看可进入唛架方案的裁片单。',
-  },
   'cut-orders': {
     key: 'cut-orders',
     canonicalPath: '/fcs/craft/cutting/cut-orders',
@@ -116,7 +105,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '新建唛架方案',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '从可排唛架裁片单新建唛架方案。',
+    shortDescription: '从裁片单新建唛架方案。',
   },
   'spreading-list': {
     key: 'spreading-list',

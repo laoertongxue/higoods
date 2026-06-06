@@ -41,11 +41,6 @@ const WEB_PAGES: Array<{ path: string; title: string; required: string[]; forbid
     required: ['未开工', '已开工', '已关闭', '需求用量', '中转仓已配数量', '裁床已领数量', '可用余额', '面料', '纸样'],
   },
   {
-    path: '/fcs/craft/cutting/cuttable-pool',
-    title: '可排唛架裁片单',
-    required: ['新建唛架方案', '可用余额', '纸样', '历史组合组'],
-  },
-  {
     path: '/fcs/craft/cutting/marker-list',
     title: '唛架方案',
     required: ['来源裁片单', '唛架编号', '计划数量', '计划用量', '锁定数量'],

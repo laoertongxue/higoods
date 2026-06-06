@@ -2,7 +2,6 @@ export { renderCraftCuttingProductionProgressPage } from './production-progress.
 export { renderCraftCuttingCutOrdersPage } from './cut-orders.ts'
 export { renderCraftCuttingReplenishmentPage } from './replenishment.ts'
 export { renderCraftCuttingSummaryPage } from './cutting-summary.ts'
-export { renderCraftCuttingCuttablePoolPage } from './cuttable-pool.ts'
 export {
   renderCraftCuttingMarkerListPage,
   renderCraftCuttingMarkerCreatePage,

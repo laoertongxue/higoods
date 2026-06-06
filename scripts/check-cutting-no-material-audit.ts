@@ -8,16 +8,20 @@ const fileChecks: Array<{
   forbidden: string[]
 }> = [
   {
-    file: 'src/pages/process-factory/cutting/material-prep.ts',
+    file: 'src/pages/process-factory/cutting/material-prep-model.ts',
+    forbidden: ['面料审核', 'materialAuditStatus', '审核：'],
+  },
+  {
+    file: 'src/pages/process-factory/cutting/material-prep-projection.ts',
+    forbidden: ['面料审核', 'materialAuditStatus', '审核：'],
+  },
+  {
+    file: 'src/pages/process-factory/cutting/material-prep.helpers.ts',
     forbidden: ['面料审核', 'materialAuditStatus', '审核：'],
   },
   {
     file: 'src/pages/process-factory/cutting/production-progress.ts',
     forbidden: ['面料审核', 'materialAuditSummary', 'auditStatus'],
-  },
-  {
-    file: 'src/pages/process-factory/cutting/cuttable-pool.ts',
-    forbidden: ['面料审核', 'materialAuditStatus', 'auditStatus'],
   },
   {
     file: 'src/pages/process-factory/cutting/cut-orders-model.ts',

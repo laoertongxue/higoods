@@ -14,7 +14,6 @@ export type CuttingPageContextKey =
   | 'cut-piece-warehouse'
   | 'fabric-warehouse'
   |  'marker-list'
-  | 'cuttable-pool'
 
 export type CuttingNavigationTarget =
   | 'summary'
@@ -31,7 +30,6 @@ export type CuttingNavigationTarget =
   | 'cutPieceWarehouse'
   | 'fabricWarehouse'
   | 'markerPlanSources'
-  | 'cuttablePool'
 
 export interface CuttingDrillContext {
   sourcePageKey?: CuttingPageContextKey
@@ -88,7 +86,6 @@ const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
   'cut-piece-warehouse': '裁片仓',
   'fabric-warehouse': '裁床仓',
    'marker-list': '唛架方案',
-  'cuttable-pool': '可排唛架裁片单',
 }
 
 const actionLabelMap: Record<CuttingNavigationTarget, string> = {
@@ -106,7 +103,6 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
   cutPieceWarehouse: '去裁片仓',
   fabricWarehouse: '去裁床仓',
   markerPlanSources: '去唛架方案',
-  cuttablePool: '去可排唛架裁片单',
 }
 
 const blockerSectionLabelMap: Record<string, string> = {
@@ -324,7 +320,6 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   if (target === 'cutPieceWarehouse') return getCanonicalCuttingPath('cut-piece-warehouse')
   if (target === 'fabricWarehouse') return getCanonicalCuttingPath('fabric-warehouse')
   if (target === 'markerPlanSources') return getCanonicalCuttingPath('marker-list')
-  if (target === 'cuttablePool') return getCanonicalCuttingPath('cuttable-pool')
 
   if (target === 'markerSpreading') {
     return getCanonicalCuttingPath('spreading-list')

@@ -1,7 +1,3 @@
-import type { CuttableCutOrderItem } from './cuttable-pool-model.ts'
-
-export const CUTTING_SELECTED_IDS_STORAGE_KEY = 'cuttingSelectedCutOrderIds'
-export const CUTTING_SELECTED_MARKER_PLAN_GROUP_KEY_STORAGE_KEY = 'cuttingSelectedMarkerPlanKey'
 export const CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY = 'cuttingMarkerPlanSourceLedger'
 
 export type MarkerPlanSourceStatus = 'DRAFT' | 'READY' | 'CUTTING' | 'DONE' | 'CANCELLED'
@@ -29,7 +25,7 @@ export interface MarkerPlanSourceItem {
   materialCategory: string
   materialLabel: string
   currentStage: string
-  cuttableStateLabel: string
+  sourceStageLabel: string
   sourceMarkerPlaningKey: string
 }
 
@@ -47,7 +43,7 @@ export interface MarkerPlanSourceRecord {
   plannedCuttingGroup: string
   plannedCuttingDate: string
   note: string
-  createdFrom: 'cuttable-pool' | 'system-seed'
+  createdFrom: 'cut-order' | 'system-seed'
   createdAt: string
   updatedAt: string
   items: MarkerPlanSourceItem[]
@@ -82,27 +78,8 @@ export interface MarkerPlanCutOrderSourceItem {
   materialLabel: string
   currentStage: string
   markerPlanOccupancyStatus: string
-  cuttableState: {
-    label: string
-    selectable: boolean
-    key?: string
-  }
   markerPlanGroupKey: string
   markerPlanNo: string
-}
-
-export interface HydratedIncomingMarkerPlanSelection {
-  items: MarkerPlanCutOrderSourceItem[]
-  requestedIds: string[]
-  missingIds: string[]
-  markerPlanGroupKey: string | null
-}
-
-export interface MarkerPlanSourceValidationResult {
-  ok: boolean
-  reasons: string[]
-  markerPlanGroupKey: string | null
-  occupiedMarkerPlanNo?: string
 }
 
 export interface MarkerPlanSourceProductionOrderGroup {
@@ -146,10 +123,6 @@ function buildMaterialSkuSummary(materialSkus: string[]): string {
   return uniqueStrings(materialSkus).join(' / ')
 }
 
-function isActiveMarkerPlanSourceStatus(status: MarkerPlanSourceStatus): boolean {
-  return status !== 'DONE' && status !== 'CANCELLED'
-}
-
 function markerPlanRecordFromItems(options: {
   markerPlanId: string
   markerPlanNo: string
@@ -159,7 +132,7 @@ function markerPlanRecordFromItems(options: {
   plannedCuttingGroup: string
   plannedCuttingDate: string
   note: string
-  createdFrom: 'cuttable-pool' | 'system-seed'
+  createdFrom: 'cut-order' | 'system-seed'
   createdAt: string
   updatedAt: string
 }): MarkerPlanSourceRecord {
@@ -181,7 +154,7 @@ function markerPlanRecordFromItems(options: {
     materialCategory: item.materialCategory,
     materialLabel: item.materialLabel,
     currentStage: item.currentStage,
-    cuttableStateLabel: item.cuttableState.label,
+    sourceStageLabel: item.currentStage,
     sourceMarkerPlaningKey: item.markerPlanGroupKey,
   }))
 
@@ -250,106 +223,6 @@ export function buildSystemSeedMarkerPlanSources(items: MarkerPlanCutOrderSource
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt, 'zh-CN'))
 }
 
-export function hydrateIncomingSelectedCutOrders(
-  itemsById: Record<string, MarkerPlanCutOrderSourceItem>,
-  storage: Pick<Storage, 'getItem'>,
-): HydratedIncomingMarkerPlanSelection {
-  let requestedIds: string[] = []
-  const rawIds = storage.getItem(CUTTING_SELECTED_IDS_STORAGE_KEY)
-  const markerPlanGroupKey = storage.getItem(CUTTING_SELECTED_MARKER_PLAN_GROUP_KEY_STORAGE_KEY)
-
-  if (rawIds) {
-    try {
-      const parsed = JSON.parse(rawIds)
-      if (Array.isArray(parsed)) {
-        requestedIds = parsed.filter((value): value is string => typeof value === 'string')
-      }
-    } catch {
-      requestedIds = []
-    }
-  }
-
-  const items: MarkerPlanCutOrderSourceItem[] = []
-  const missingIds: string[] = []
-
-  for (const id of requestedIds) {
-    const item = itemsById[id]
-    if (item) {
-      items.push(item)
-    } else {
-      missingIds.push(id)
-    }
-  }
-
-  return {
-    items,
-    requestedIds,
-    missingIds,
-    markerPlanGroupKey: markerPlanGroupKey || null,
-  }
-}
-
-export function validateIncomingMarkerPlanSelection(
-  incoming: HydratedIncomingMarkerPlanSelection,
-  ledger: MarkerPlanSourceRecord[],
-): MarkerPlanSourceValidationResult {
-  const reasons: string[] = []
-
-  if (!incoming.requestedIds.length) {
-    reasons.push('当前没有收到来自可排唛架裁片单页的裁片单选择结果。')
-  }
-
-  if (incoming.missingIds.length) {
-    reasons.push('部分裁片单在当前页面无法恢复，请返回可排唛架裁片单重新选择。')
-  }
-
-  if (!incoming.items.length) {
-    return {
-      ok: false,
-      reasons,
-      markerPlanGroupKey: incoming.markerPlanGroupKey,
-    }
-  }
-
-  const markerPlanGroupKeys = uniqueStrings(incoming.items.map((item) => item.markerPlanGroupKey))
-  if (incoming.markerPlanGroupKey && markerPlanGroupKeys.length === 1 && markerPlanGroupKeys[0] !== incoming.markerPlanGroupKey) {
-    reasons.push('当前输入的唛架组合范围与裁片单实际组合范围不一致。')
-  }
-
-  if (markerPlanGroupKeys.length !== 1) {
-    reasons.push('当前待建唛架方案仅支持同 SPU、同纸样文件、同有效幅宽、同历史组合组的裁片单。')
-  }
-
-  const blockedItem = incoming.items.find((item) => item.cuttableState.key !== 'CUTTABLE')
-  if (blockedItem) {
-    reasons.push(`${blockedItem.cutOrderNo} 当前状态为“${blockedItem.cuttableState.label}”，不能创建唛架方案。`)
-  }
-
-  const occupiedLookup = new Map<string, string>()
-  for (const markerPlan of ledger) {
-    if (!isActiveMarkerPlanSourceStatus(markerPlan.status)) continue
-    for (const item of markerPlan.items) {
-      occupiedLookup.set(item.cutOrderId, markerPlan.markerPlanNo)
-    }
-  }
-  const occupiedItem = incoming.items.find((item) => occupiedLookup.has(item.cutOrderId))
-  if (occupiedItem) {
-    reasons.push(`${occupiedItem.cutOrderNo} 当前可用余额已被唛架方案 ${occupiedLookup.get(occupiedItem.cutOrderId)} 锁定，不能重复锁定。`)
-  }
-
-  const spuKeys = uniqueStrings(incoming.items.map((item) => item.spuCode || item.styleCode))
-  if (spuKeys.length !== 1) {
-    reasons.push('当前待建唛架方案只允许同 SPU 裁片单进入同一唛架方案。')
-  }
-
-  return {
-    ok: reasons.length === 0,
-    reasons,
-    markerPlanGroupKey: markerPlanGroupKeys[0] ?? incoming.markerPlanGroupKey,
-    occupiedMarkerPlanNo: occupiedItem ? occupiedLookup.get(occupiedItem.cutOrderId) : undefined,
-  }
-}
-
 export function summarizeIncomingMarkerPlanSelection(items: MarkerPlanCutOrderSourceItem[]): MarkerPlanSourceSummary {
   const productionOrderIds = uniqueStrings(items.map((item) => item.productionOrderId))
   const styleCodes = uniqueStrings(items.map((item) => item.styleCode))
@@ -366,7 +239,7 @@ export function summarizeIncomingMarkerPlanSelection(items: MarkerPlanCutOrderSo
     markerPlanGroupKey: items[0]?.markerPlanGroupKey ?? '',
     materialSkuSummary: buildMaterialSkuSummary(items.map((item) => item.materialSku)),
     urgencySummary: urgencies.join(' / ') || '常规',
-    riskSummary: riskTokens.join(' / ') || '唛架方案条件校验通过',
+    riskSummary: riskTokens.join(' / ') || '唛架方案组合校验通过',
   }
 }
 
@@ -390,7 +263,7 @@ export function createMarkerPlanSourceDraft(options: {
   form: MarkerPlanSourceDraftForm
   status: MarkerPlanSourceStatus
   existingMarkerPlans: MarkerPlanSourceRecord[]
-  createdFrom?: 'cuttable-pool' | 'system-seed'
+  createdFrom?: 'cut-order' | 'system-seed'
   now?: Date
 }): MarkerPlanSourceRecord {
   const now = options.now ?? new Date()
@@ -407,58 +280,9 @@ export function createMarkerPlanSourceDraft(options: {
     plannedCuttingGroup: options.form.plannedCuttingGroup.trim(),
     plannedCuttingDate: options.form.plannedCuttingDate,
     note: options.form.note.trim(),
-    createdFrom: options.createdFrom ?? 'cuttable-pool',
+    createdFrom: options.createdFrom ?? 'cut-order',
     createdAt: toDateTimeString(now),
     updatedAt: toDateTimeString(now),
-  })
-}
-
-export function mapCuttableItemsToMarkerPlanCutOrderSourceItems(
-  items: CuttableCutOrderItem[],
-): MarkerPlanCutOrderSourceItem[] {
-  return items.map((item) => ({
-    id: item.id,
-    cutOrderId: item.cutOrderId,
-    cutOrderNo: item.cutOrderNo,
-    productionOrderId: item.productionOrderId,
-    productionOrderNo: item.productionOrderNo,
-    styleCode: item.styleCode,
-    spuCode: item.spuCode,
-    styleName: item.styleName,
-    urgencyLabel: item.urgencyLabel,
-    plannedShipDate: item.plannedShipDate,
-    plannedShipDateDisplay: item.plannedShipDateDisplay,
-    materialSku: item.materialSku,
-    materialCategory: item.materialCategory,
-    materialLabel: item.materialLabel,
-    currentStage: item.currentStage.label,
-    markerPlanOccupancyStatus: item.markerPlanOccupancyStatus,
-    cuttableState: {
-      key: item.cuttableState.key,
-      label: item.cuttableState.label,
-      selectable: item.cuttableState.selectable,
-    },
-    markerPlanGroupKey: item.markerPlanGroupKey,
-    markerPlanNo: item.markerPlanNo,
-  }))
-}
-
-export function createReadyMarkerPlanSourceFromCuttableSelection(options: {
-  items: CuttableCutOrderItem[]
-  existingMarkerPlans: MarkerPlanSourceRecord[]
-  now?: Date
-}): MarkerPlanSourceRecord {
-  return createMarkerPlanSourceDraft({
-    items: mapCuttableItemsToMarkerPlanCutOrderSourceItems(options.items),
-    form: {
-      plannedCuttingGroup: '',
-      plannedCuttingDate: '',
-      note: '',
-    },
-    status: 'READY',
-    existingMarkerPlans: options.existingMarkerPlans,
-    createdFrom: 'cuttable-pool',
-    now: options.now,
   })
 }
 

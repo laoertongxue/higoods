@@ -49,7 +49,6 @@ export type CuttingCheckSourceObjectType =
 
 export type CuttingCheckActionTarget =
   | 'productionProgress'
-  | 'cuttablePool'
   | 'markerPlanSources'
   | 'cutOrders'
   | 'materialPrep'

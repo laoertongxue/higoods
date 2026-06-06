@@ -356,20 +356,20 @@ function syncCapacityStateFromRoute(): void {
 }
 
 function renderCapacityRouteContextBanner(page: 'overview' | 'constraints'): string {
-  if (state.routeContext.source !== 'cuttable-pool') return ''
+  if (state.routeContext.source !== 'cut-orders') return ''
 
   if (page === 'overview') {
     const summary = state.routeContext.keyword
-      ? `来自可排唛架裁片单：已带入关键词 ${state.routeContext.keyword}`
+      ? `来自裁片单：已带入关键词 ${state.routeContext.keyword}`
       : state.routeContext.orderIds.length
-        ? `来自可排唛架裁片单：已带入 ${state.routeContext.orderIds.length} 个生产单`
-        : '来自可排唛架裁片单'
+        ? `来自裁片单：已带入 ${state.routeContext.orderIds.length} 个生产单`
+        : '来自裁片单'
     return `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">${escapeHtml(summary)}</div>`
   }
 
   const summary = state.routeContext.orderIds.length
-    ? `来自可排唛架裁片单：已带入 ${state.routeContext.orderIds.length} 个生产单约束上下文`
-    : '来自可排唛架裁片单'
+    ? `来自裁片单：已带入 ${state.routeContext.orderIds.length} 个生产单约束上下文`
+    : '来自裁片单'
 
   return `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">${escapeHtml(summary)}</div>`
 }

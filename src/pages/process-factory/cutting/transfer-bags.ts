@@ -1819,7 +1819,6 @@ function resolveSourceReturnAction(): { label: string; href: string } | null {
     'cut-piece-warehouse': 'cutPieceWarehouse',
     'fabric-warehouse': 'fabricWarehouse',
      'marker-list': 'markerPlanSources',
-    'cuttable-pool': 'cuttablePool',
   }
 
   const target = sourceTargetMap[sourcePageKey]

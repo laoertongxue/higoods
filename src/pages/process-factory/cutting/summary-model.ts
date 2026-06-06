@@ -92,7 +92,6 @@ export interface CuttingSummaryIssueMeta {
 
 export interface CuttingSummaryNavigationPayload {
   productionProgress: Record<string, string | undefined>
-  cuttablePool: Record<string, string | undefined>
   markerPlanSources: Record<string, string | undefined>
   cutOrders: Record<string, string | undefined>
   materialPrep: Record<string, string | undefined>
@@ -665,7 +664,7 @@ function buildSummarySourceObjects(options: {
     sourceLabel: '裁片单',
     sourceId: item.cutOrderId,
     sourceNo: item.cutOrderNo,
-    statusLabel: `${item.currentStage.label} / ${item.cuttableState.label}`,
+    statusLabel: item.currentStage.label,
     materialSku: item.materialSku,
     materialAlias: item.materialAlias || '',
     materialImageUrl: item.materialImageUrl || '',
@@ -793,10 +792,6 @@ export function buildSummaryNavigationPayload(options: {
   return {
     productionProgress: {
       productionOrderNo: options.productionOrderNo,
-    },
-    cuttablePool: {
-      productionOrderNo: options.productionOrderNo,
-      styleCode: options.styleCode || undefined,
     },
     markerPlanSources: {
       markerPlanNo: firstMarkerPlanSourceNo,
@@ -1183,7 +1178,7 @@ export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData
       nodeType: 'cut-order',
       nodeLabel: row.cutOrderNo,
       relatedIds: [row.cutOrderId, row.cutOrderNo],
-      status: `${row.currentStage.label} / ${row.cuttableState.label}`,
+      status: row.currentStage.label,
       children: [...markerPlanNodes, ...ticketNodes, ...bagNodes],
     }
   })

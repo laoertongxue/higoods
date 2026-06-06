@@ -143,7 +143,6 @@ import {
   handleCraftCuttingProductionProgressEvent,
   isCraftCuttingProductionProgressDialogOpen,
 } from '../pages/process-factory/cutting/production-progress'
-import { handleCraftCuttingCuttablePoolEvent } from '../pages/process-factory/cutting/cuttable-pool'
 import {
   handleCraftCuttingMarkerPlanEvent,
   isCraftCuttingMarkerPlanDialogOpen,
@@ -280,7 +279,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleProgressCuttingExceptionCenterEvent(target) ||
     await handleCuttingSettlementInputEvent(target) ||
     await handleCraftCuttingProductionProgressEvent(target) ||
-    await handleCraftCuttingCuttablePoolEvent(target) ||
     await handleCraftCuttingMarkerPlanEvent(target) ||
     await handleCraftCuttingMarkerSpreadingEvent(target) ||
     await handleCraftCuttingFeiTicketsEvent(target) ||

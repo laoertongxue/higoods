@@ -82,7 +82,7 @@ function buildSourceMarkerPlanSourceItems(source: {
     materialCategory: row.materialCategory,
     materialLabel: row.materialLabel,
     currentStage: row.currentStage.label,
-    cuttableStateLabel: row.cuttableState.label,
+    sourceStageLabel: row.currentStage.label,
     sourceMarkerPlaningKey: `${row.styleCode}::${row.materialSku}`,
   }))
 }
