@@ -1,3 +1,8 @@
+import type {
+  CuttingTaskAssigneeType,
+  CuttingTaskExecutionRoute,
+} from '../../../data/fcs/cutting/cutting-task-routing.ts'
+
 export const MARKER_PLAN_STORAGE_KEY = 'cuttingMarkerPlanLedger'
 export const DEFAULT_SINGLE_SPREAD_FIXED_LOSS = 0.06
 
@@ -333,6 +338,28 @@ export interface MarkerPlan {
   markerPlanNo: string
   productionOrderIds: string[]
   productionOrderNos: string[]
+  cuttingTaskIds?: string[]
+  cuttingTaskNos?: string[]
+  isCrossTask?: boolean
+  taskLockGroupId?: string
+  taskLockStatusLabel?: string
+  taskLockSummary?: string
+  cuttingTaskAssigneeFactoryIds?: string[]
+  cuttingTaskAssigneeFactoryNames?: string[]
+  cuttingTaskAssigneeTypes?: CuttingTaskAssigneeType[]
+  cuttingTaskAssignmentStatusLabels?: string[]
+  executionRoute?: CuttingTaskExecutionRoute
+  executionRouteLabel?: string
+  voidReason?: string
+  voidedAt?: string
+  voidedBy?: string
+  operationLogs?: Array<{
+    id: string
+    action: string
+    detail: string
+    at: string
+    by: string
+  }>
   styleCode: string
   spuCode: string
   styleName: string

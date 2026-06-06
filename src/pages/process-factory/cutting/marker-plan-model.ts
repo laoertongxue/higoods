@@ -2,6 +2,13 @@ import {
   listGeneratedCutOrderSourceRecords,
   type GeneratedCutOrderSourceRecord,
 } from '../../../data/fcs/cutting/generated-cut-orders.ts'
+import {
+  getCuttingTaskAssignmentStatusLabel,
+  resolveCombinedCuttingTaskRoute,
+  type CuttingTaskAssigneeType,
+  type CuttingTaskExecutionRoute,
+  type CuttingTaskLink,
+} from '../../../data/fcs/cutting/cutting-task-routing.ts'
 import { findStyleArchiveByCode } from '../../../data/pcs-style-archive-repository.ts'
 import {
   getCurrentTechPackVersionByStyleId,
@@ -105,6 +112,111 @@ function sum(values: number[]): number {
   return values.reduce((total, value) => total + safeNumber(value), 0)
 }
 
+function normalizeText(value: string | null | undefined): string {
+  return String(value || '').trim()
+}
+
+function sanitizeTaskLockToken(value: string): string {
+  return normalizeText(value)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function uniqueLinksByTaskId(links: CuttingTaskLink[]): CuttingTaskLink[] {
+  const seen = new Set<string>()
+  return links.filter((link) => {
+    const key = normalizeText(link.cuttingTaskId || link.cuttingTaskNo)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function getTaskLockGroupId(taskIds: string[]): string {
+  const normalizedIds = uniqueStrings(taskIds).sort((left, right) => left.localeCompare(right, 'zh-CN'))
+  if (normalizedIds.length <= 1) return ''
+  return `CTL-${normalizedIds.map(sanitizeTaskLockToken).join('-')}`
+}
+
+function buildTaskLockSummary(input: {
+  taskNos: string[]
+  isCrossTask: boolean
+  routeLabel: string
+  assigneeFactoryNames: string[]
+}): string {
+  if (!input.taskNos.length) return '未关联裁片任务'
+  if (!input.isCrossTask) return `单任务排唛架：${input.taskNos[0]}，${input.routeLabel}`
+  const assigneeText = input.assigneeFactoryNames.length ? `当前承接方：${input.assigneeFactoryNames.join(' / ')}` : '承接方待定'
+  return `跨任务锁定：${input.taskNos.length} 个裁片任务后续必须分配给同一裁剪承接工厂；${assigneeText}`
+}
+
+function buildTaskRouteInfoFromLinks(links: CuttingTaskLink[]) {
+  const uniqueLinks = uniqueLinksByTaskId(links)
+  const route = resolveCombinedCuttingTaskRoute(uniqueLinks)
+  const cuttingTaskIds = uniqueLinks.map((link) => link.cuttingTaskId)
+  const cuttingTaskNos = uniqueLinks.map((link) => link.cuttingTaskNo)
+  const cuttingTaskAssigneeTypes = uniqueStrings(uniqueLinks.map((link) => link.cuttingTaskAssigneeType)) as CuttingTaskAssigneeType[]
+  const isCrossTask = cuttingTaskIds.length > 1
+  const taskLockGroupId = getTaskLockGroupId(cuttingTaskIds)
+  const taskLockStatusLabel =
+    route.executionRoute === 'CONFLICT'
+      ? '承接方冲突'
+      : isCrossTask
+        ? '已锁定同一承接方'
+        : '单任务'
+  const taskLockSummary = buildTaskLockSummary({
+    taskNos: cuttingTaskNos,
+    isCrossTask,
+    routeLabel: route.executionRouteLabel,
+    assigneeFactoryNames: route.assigneeFactoryNames,
+  })
+
+  return {
+    cuttingTaskIds,
+    cuttingTaskNos,
+    isCrossTask,
+    taskLockGroupId,
+    taskLockStatusLabel,
+    taskLockSummary,
+    cuttingTaskAssigneeFactoryIds: route.assigneeFactoryIds,
+    cuttingTaskAssigneeFactoryNames: route.assigneeFactoryNames,
+    cuttingTaskAssigneeTypes,
+    cuttingTaskAssignmentStatusLabels: route.assignmentStatusLabels,
+    executionRoute: route.executionRoute,
+    executionRouteLabel: route.executionRouteLabel,
+  }
+}
+
+function buildTaskLinksFromCutOrderRows(rows: CutOrderRow[]): CuttingTaskLink[] {
+  return rows.map((row) => ({
+    cuttingTaskId: row.cuttingTaskId,
+    cuttingTaskNo: row.cuttingTaskNo,
+    cuttingTaskAssignmentStatus: row.cuttingTaskAssignmentStatus as CuttingTaskLink['cuttingTaskAssignmentStatus'],
+    cuttingTaskAssigneeFactoryId: row.cuttingTaskAssigneeFactoryId,
+    cuttingTaskAssigneeFactoryName: row.cuttingTaskAssigneeFactoryName,
+    cuttingTaskAssigneeType: row.cuttingTaskAssigneeType,
+    executionRoute: row.executionRoute,
+    executionRouteLabel: row.executionRouteLabel,
+  }))
+}
+
+function buildTaskRouteInfoFromContexts(contexts: MarkerPlanContextCandidate[]) {
+  const links: CuttingTaskLink[] = contexts.flatMap((context) =>
+    context.cuttingTaskIds.map((taskId, index) => ({
+      cuttingTaskId: taskId,
+      cuttingTaskNo: context.cuttingTaskNos[index] || taskId,
+      cuttingTaskAssignmentStatus: 'UNASSIGNED',
+      cuttingTaskAssigneeFactoryId: context.cuttingTaskAssigneeFactoryIds[index] || context.cuttingTaskAssigneeFactoryIds[0] || '',
+      cuttingTaskAssigneeFactoryName: context.cuttingTaskAssigneeFactoryNames[index] || context.cuttingTaskAssigneeFactoryNames[0] || '',
+      cuttingTaskAssigneeType: context.cuttingTaskAssigneeTypes[index] || 'UNASSIGNED',
+      executionRoute: context.executionRoute,
+      executionRouteLabel: context.executionRouteLabel,
+    })),
+  )
+  return buildTaskRouteInfoFromLinks(links)
+}
+
 function nowText(input = new Date()): string {
   const year = input.getFullYear()
   const month = `${input.getMonth() + 1}`.padStart(2, '0')
@@ -192,6 +304,18 @@ export interface MarkerPlanContextCandidate {
   markerPlanNo: string
   productionOrderIds: string[]
   productionOrderNos: string[]
+  cuttingTaskIds: string[]
+  cuttingTaskNos: string[]
+  isCrossTask: boolean
+  taskLockGroupId: string
+  taskLockStatusLabel: string
+  taskLockSummary: string
+  cuttingTaskAssigneeFactoryIds: string[]
+  cuttingTaskAssigneeFactoryNames: string[]
+  cuttingTaskAssigneeTypes: CuttingTaskAssigneeType[]
+  cuttingTaskAssignmentStatusLabels: string[]
+  executionRoute: CuttingTaskExecutionRoute
+  executionRouteLabel: string
   styleCode: string
   spuCode: string
   styleName: string
@@ -282,6 +406,9 @@ export interface MarkerPlanViewRow extends MarkerPlan {
   balanceRows: MarkerPlanBalanceSummaryRow[]
   explosionSummary: MarkerPlanExplosionSummary
   demandMatchSummary: MarkerDemandMatchSummary
+  executionRouteLabel: string
+  taskLockSummary: string
+  taskLockStatusLabel: string
 }
 
 export interface MarkerPlanViewModel {
@@ -520,7 +647,7 @@ function buildCutOrderContextCandidate(input: {
   const defaultSizeRatioRows = sourceGeneratedRows.length
     ? buildSizeRatioRowsFromSourceRecords(sourceGeneratedRows)
     : createEmptySizeRatioRows()
-  const sourceFactoryName = input.productionRow?.assignedFactoryName || '待补工厂'
+  const sourceFactoryName = input.row.cuttingTaskAssigneeFactoryName || '承接方待定'
   const sourceShipDate = input.productionRow?.plannedShipDateDisplay || input.row.plannedShipDate || ''
   const sourceUrgencyLabel = input.productionRow?.urgency.label || input.row.urgencyLabel || '常规'
   const colorSummary = uniqueStrings([
@@ -531,6 +658,7 @@ function buildCutOrderContextCandidate(input: {
   const techPackStatusLabel = buildFormalTechPackStatusLabel([formalTechPackSnapshot])
   const prepStatusLabel = buildContextPrepStatusLabel([input.row])
   const prepClaimSummaryText = buildContextPrepClaimSummaryText([input.row])
+  const taskRouteInfo = buildTaskRouteInfoFromLinks(buildTaskLinksFromCutOrderRows([input.row]))
   const markerPlanGroupKey = buildMarkerPlanCombinationGroupKey({
     styleCode: input.row.styleCode,
     spuCode: input.row.spuCode,
@@ -558,6 +686,7 @@ function buildCutOrderContextCandidate(input: {
     markerPlanNo: '',
     productionOrderIds: [input.row.productionOrderId],
     productionOrderNos: [input.row.productionOrderNo],
+    ...taskRouteInfo,
     styleCode: input.row.styleCode,
     spuCode: input.row.spuCode,
     styleName: input.row.styleName,
@@ -611,6 +740,7 @@ function buildMarkerPlanSourceContextCandidate(input: {
   const techPackStatusLabel = buildFormalTechPackStatusLabel(formalTechPackSnapshots)
   const prepStatusLabel = buildContextPrepStatusLabel(sourceCutOrderRows)
   const prepClaimSummaryText = buildContextPrepClaimSummaryText(sourceCutOrderRows)
+  const taskRouteInfo = buildTaskRouteInfoFromLinks(buildTaskLinksFromCutOrderRows(sourceCutOrderRows))
   const markerPlanGroupKey = input.batch.markerPlanGroupKey || buildMarkerPlanCombinationGroupKey({
     styleCode: input.batch.styleCode || sourceCutOrderRows[0]?.styleCode || '',
     spuCode: input.batch.spuCode || sourceCutOrderRows[0]?.spuCode || '',
@@ -633,11 +763,12 @@ function buildMarkerPlanSourceContextCandidate(input: {
     markerPlanNo: input.batch.markerPlanNo,
     productionOrderIds: uniqueStrings(sourceCutOrderRows.map((row) => row.productionOrderId)),
     productionOrderNos: uniqueStrings(sourceCutOrderRows.map((row) => row.productionOrderNo)),
+    ...taskRouteInfo,
     styleCode: input.batch.styleCode || sourceCutOrderRows[0]?.styleCode || '',
     spuCode: input.batch.spuCode || sourceCutOrderRows[0]?.spuCode || '',
     styleName: input.batch.styleName || sourceCutOrderRows[0]?.styleName || '',
     techPackSpu: uniqueStrings(formalTechPackSnapshots.map((snapshot) => snapshot.styleCode))[0] || sourceCutOrderRows[0]?.spuCode || '',
-    sourceFactoryName: getContextFactoryName(productionRows),
+    sourceFactoryName: taskRouteInfo.cuttingTaskAssigneeFactoryNames.join(' / ') || getContextFactoryName(productionRows),
     sourceShipDate: getContextShipDate(productionRows),
     sourceUrgencyLabel: getContextUrgencyLabel(productionRows),
     materialSkuSummary: input.batch.materialSkuSummary || uniqueStrings(sourceCutOrderRows.map((row) => row.materialSku)).join(' / '),
@@ -711,6 +842,7 @@ export function buildCombinedMarkerPlanContextCandidate(
   const contextNos = selectedContexts.map((context) => context.contextNo).filter(Boolean)
   const techPackStatusLabels = uniqueStrings(selectedContexts.map((context) => context.techPackStatusLabel))
   const prepStatusLabels = uniqueStrings(selectedContexts.map((context) => context.prepStatusLabel))
+  const taskRouteInfo = buildTaskRouteInfoFromContexts(selectedContexts)
 
   return {
     id: `combined-${selectedContexts.map((context) => context.id).join('-')}`,
@@ -725,20 +857,12 @@ export function buildCombinedMarkerPlanContextCandidate(
     markerPlanNo: uniqueStrings(markerPlanSourceContexts.map((context) => context.markerPlanNo)).join(' / '),
     productionOrderIds,
     productionOrderNos,
+    ...taskRouteInfo,
     styleCode: styleCodes[0] || '',
     spuCode: spuCodes[0] || '',
     styleName: styleNames[0] || '',
     techPackSpu: uniqueStrings(selectedContexts.map((context) => context.techPackSpu))[0] || spuCodes[0] || '',
-    sourceFactoryName: getContextFactoryName(
-      selectedContexts.flatMap((context) =>
-        context.productionOrderIds.map((productionOrderId) => ({
-          productionOrderId,
-          assignedFactoryName: context.sourceFactoryName,
-          plannedShipDateDisplay: context.sourceShipDate,
-          urgency: { label: context.sourceUrgencyLabel, sortWeight: 0 },
-        } as ProductionProgressRow)),
-      ),
-    ),
+    sourceFactoryName: taskRouteInfo.cuttingTaskAssigneeFactoryNames.join(' / ') || '承接方待定',
     sourceShipDate: getContextShipDate(selectedContexts.map((context) => ({ plannedShipDateDisplay: context.sourceShipDate }))),
     sourceUrgencyLabel: uniqueStrings(selectedContexts.map((context) => context.sourceUrgencyLabel))[0] || '常规',
     materialSkuSummary,
@@ -1577,6 +1701,26 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     pieceExplosionRows,
     materialAliasSummary: plan.materialAliasSummary || context.materialAliasSummary || '',
     materialImageUrl: plan.materialImageUrl || context.materialImageUrl || '',
+    cuttingTaskIds: plan.cuttingTaskIds?.length ? [...plan.cuttingTaskIds] : [...context.cuttingTaskIds],
+    cuttingTaskNos: plan.cuttingTaskNos?.length ? [...plan.cuttingTaskNos] : [...context.cuttingTaskNos],
+    isCrossTask: Boolean(plan.isCrossTask ?? context.isCrossTask),
+    taskLockGroupId: plan.taskLockGroupId || context.taskLockGroupId,
+    taskLockStatusLabel: plan.taskLockStatusLabel || context.taskLockStatusLabel,
+    taskLockSummary: plan.taskLockSummary || context.taskLockSummary,
+    cuttingTaskAssigneeFactoryIds: plan.cuttingTaskAssigneeFactoryIds?.length
+      ? [...plan.cuttingTaskAssigneeFactoryIds]
+      : [...context.cuttingTaskAssigneeFactoryIds],
+    cuttingTaskAssigneeFactoryNames: plan.cuttingTaskAssigneeFactoryNames?.length
+      ? [...plan.cuttingTaskAssigneeFactoryNames]
+      : [...context.cuttingTaskAssigneeFactoryNames],
+    cuttingTaskAssigneeTypes: plan.cuttingTaskAssigneeTypes?.length
+      ? [...plan.cuttingTaskAssigneeTypes]
+      : [...context.cuttingTaskAssigneeTypes],
+    cuttingTaskAssignmentStatusLabels: plan.cuttingTaskAssignmentStatusLabels?.length
+      ? [...plan.cuttingTaskAssignmentStatusLabels]
+      : [...context.cuttingTaskAssignmentStatusLabels],
+    executionRoute: plan.executionRoute || context.executionRoute,
+    executionRouteLabel: plan.executionRouteLabel || context.executionRouteLabel,
     imageCount: plan.imageRecords.length,
     schemeImageStatus,
     allocationStatus,
@@ -1707,6 +1851,9 @@ function buildPlanViewRow(
     balanceRows: buildBalanceRows(hydrated),
     explosionSummary,
     demandMatchSummary,
+    executionRouteLabel: hydrated.executionRouteLabel || context.executionRouteLabel,
+    taskLockSummary: hydrated.taskLockSummary || context.taskLockSummary,
+    taskLockStatusLabel: hydrated.taskLockStatusLabel || context.taskLockStatusLabel,
   }
 }
 
@@ -1768,6 +1915,18 @@ function createPlanFromContext(options: {
     markerPlanNo: options.context.markerPlanNo,
     productionOrderIds: [...options.context.productionOrderIds],
     productionOrderNos: [...options.context.productionOrderNos],
+    cuttingTaskIds: [...options.context.cuttingTaskIds],
+    cuttingTaskNos: [...options.context.cuttingTaskNos],
+    isCrossTask: options.context.isCrossTask,
+    taskLockGroupId: options.context.taskLockGroupId,
+    taskLockStatusLabel: options.context.taskLockStatusLabel,
+    taskLockSummary: options.context.taskLockSummary,
+    cuttingTaskAssigneeFactoryIds: [...options.context.cuttingTaskAssigneeFactoryIds],
+    cuttingTaskAssigneeFactoryNames: [...options.context.cuttingTaskAssigneeFactoryNames],
+    cuttingTaskAssigneeTypes: [...options.context.cuttingTaskAssigneeTypes],
+    cuttingTaskAssignmentStatusLabels: [...options.context.cuttingTaskAssignmentStatusLabels],
+    executionRoute: options.context.executionRoute,
+    executionRouteLabel: options.context.executionRouteLabel,
     styleCode: options.context.styleCode,
     spuCode: options.context.spuCode,
     styleName: options.context.styleName,
@@ -1813,6 +1972,17 @@ function createPlanFromContext(options: {
     modeDetailLines: [],
     pieceExplosionRows: [],
     imageRecords: [],
+    operationLogs: [
+      {
+        id: `log-${planId}-created`,
+        action: '创建草稿',
+        detail: options.context.isCrossTask
+          ? `跨 ${options.context.cuttingTaskNos.length} 个裁片任务创建唛架草稿，后续需锁定同一裁剪承接工厂。`
+          : `按裁片任务 ${options.context.cuttingTaskNos[0] || '待补'} 创建唛架草稿。`,
+        at: nowText(now),
+        by: '计划员-陈静',
+      },
+    ],
     lastVisitedTab: 'basic',
   }
   return hydrateMarkerPlan(plan, options.context)
@@ -1867,16 +2037,28 @@ type SeedVariantKey = 'ready' | 'unbalanced' | 'mapping' | 'layout' | 'image' | 
 function buildSeedVariants(contexts: MarkerPlanContextCandidate[]): Array<{ context: MarkerPlanContextCandidate; mode: MarkerPlanModeKey; variant: SeedVariantKey }> {
   const modes: MarkerPlanModeKey[] = ['normal', 'high_low', 'fold_normal', 'fold_high_low']
   const variants: SeedVariantKey[] = ['ready', 'layout', 'ready', 'ready', 'ready', 'manual']
+  const crossTaskPair = contexts.find((context) => context.spuCode === 'SPU-2024-010' && context.productionOrderNos.includes('PO-202603-0004'))
+    ? [
+        contexts.find((context) => context.spuCode === 'SPU-2024-010' && context.productionOrderNos.includes('PO-202603-0004')),
+        contexts.find((context) => context.spuCode === 'SPU-2024-010' && context.productionOrderNos.includes('PO-202603-0102')),
+      ].filter((context): context is MarkerPlanContextCandidate => Boolean(context))
+    : []
+  const crossTaskContext = crossTaskPair.length === 2
+    ? buildCombinedMarkerPlanContextCandidate(crossTaskPair)
+    : null
   const preferredContexts = contexts.filter((context) => context.contextType === 'cut-order' && context.spuCode !== 'SPU-2024-010')
   const uniqueContexts = preferredContexts.filter(
     (context, index, all) => all.findIndex((item) => item.contextKey === context.contextKey) === index,
   )
 
-  return uniqueContexts.slice(0, 8).map((context, index) => ({
+  const regularSeeds = uniqueContexts.slice(0, 8).map((context, index) => ({
     context,
     mode: modes[index % modes.length],
     variant: variants[index % variants.length],
   }))
+  return crossTaskContext
+    ? [{ context: crossTaskContext, mode: 'normal' as MarkerPlanModeKey, variant: 'ready' as SeedVariantKey }, ...regularSeeds]
+    : regularSeeds
 }
 
 function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: MarkerPlanContextCandidate): MarkerPlan {
@@ -2097,7 +2279,7 @@ function mergePlans(seed: MarkerPlan[], stored: MarkerPlan[]): MarkerPlan[] {
   const merged = new Map<string, MarkerPlan>()
   seed.forEach((plan) => merged.set(plan.id, plan))
   stored.forEach((plan) => {
-    if (plan.id.startsWith('seed-marker-plan-')) return
+    if (plan.id.startsWith('seed-marker-plan-') && plan.status !== 'CANCELED') return
     merged.set(plan.id, plan)
   })
   return Array.from(merged.values()).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))

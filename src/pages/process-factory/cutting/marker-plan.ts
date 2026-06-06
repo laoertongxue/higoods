@@ -438,6 +438,11 @@ function upsertStoredPlan(plan: MarkerPlan): void {
   writeStoredPlans(next)
 }
 
+function removeStoredPlan(planId: string): void {
+  if (!planId) return
+  writeStoredPlans(readStoredPlans().filter((item) => item.id !== planId))
+}
+
 function getProjection() {
   const markerPlanStorage = localStorage.getItem(getMarkerPlanStorageKey()) || ''
   const spreadingStorage = localStorage.getItem('cuttingMarkerSpreadingLedger') || ''
@@ -610,7 +615,7 @@ function upsertDraftLockRows(plan: MarkerPlan): void {
   saveStoredMarkerPlanLockLedger(nextRecords)
 }
 
-function releaseDraftLocksForPlan(plan: MarkerPlan, releaseReason = '取消草稿'): void {
+function releaseDraftLocksForPlan(plan: MarkerPlan, releaseReason = '删除草稿'): void {
   const now = nowText()
   const nextRecords = listStoredMarkerPlanLockLedger().map((record) => {
     if (record.markerPlanDraftId !== plan.id || record.lockStatus !== '草稿锁定') return record
@@ -700,6 +705,15 @@ function validateMarkerPlanSourceSelection(contexts: MarkerPlanContextCandidate[
   if (markerPlanGroupKeys.length > 1) {
     return { ok: false, message: '所选裁片单的 SPU、纸样、版本、幅宽或历史组合组不一致，不能进入同一个唛架方案。' }
   }
+  const assigneeFactoryIds = Array.from(
+    new Set(contexts.flatMap((context) => context.cuttingTaskAssigneeFactoryIds || []).filter(Boolean)),
+  )
+  if (assigneeFactoryIds.length > 1) {
+    return { ok: false, message: '所选裁片单来源裁片任务已分配给不同承接工厂，不能进入同一个唛架方案。' }
+  }
+  if (contexts.some((context) => context.executionRoute === 'CONFLICT')) {
+    return { ok: false, message: '所选裁片单存在承接方冲突，请先处理任务分配后再创建唛架方案。' }
+  }
   return { ok: true, message: '' }
 }
 
@@ -715,7 +729,12 @@ function syncContextDrawerSelectionDom(viewModel = getViewModel()): void {
   const messageNode = document.querySelector<HTMLElement>('[data-marker-plan-selection-message]')
   const confirmButton = document.querySelector<HTMLButtonElement>('[data-marker-plan-action="confirm-context-create"]')
   summaryNode && (summaryNode.textContent = selectedSummary)
-  messageNode && (messageNode.textContent = selectionValidation.ok ? '可继续编辑唛架。' : selectionValidation.message)
+  const crossTaskSelected = selectedContexts.length > 1 && new Set(selectedContexts.flatMap((context) => context.cuttingTaskIds || [])).size > 1
+  messageNode && (messageNode.textContent = selectionValidation.ok
+    ? crossTaskSelected
+      ? '可继续编辑唛架。当前为跨裁片任务方案，确认后这些裁片任务必须分配给同一个裁剪承接工厂。'
+      : '可继续编辑唛架。'
+    : selectionValidation.message)
   if (confirmButton) confirmButton.disabled = !selectionValidation.ok
   document.querySelectorAll<HTMLElement>('[data-marker-plan-context-row]').forEach((row) => {
     const contextKey = row.dataset.contextKey || ''
@@ -1660,6 +1679,7 @@ function renderSelectField(
 }
 
 function renderPlanHeaderActions(route: MarkerPlanRouteKind, plan: MarkerPlan | MarkerPlanViewRow | null): string {
+  const canGoSpreading = Boolean(plan && plan.readyForSpreading && plan.status !== 'CANCELED' && plan.executionRoute === 'OWN_CUTTING')
   if (route === 'LIST') {
     return `
       <div class="flex flex-wrap items-center gap-2">
@@ -1674,7 +1694,7 @@ function renderPlanHeaderActions(route: MarkerPlanRouteKind, plan: MarkerPlan | 
     return `
       <div class="flex flex-wrap items-center gap-2">
         ${renderActionButton('返回唛架方案', 'data-marker-plan-action="go-list"')}
-        ${renderActionButton('取消草稿', 'data-marker-plan-action="cancel-plan"', 'secondary', !plan)}
+        ${renderActionButton('删除草稿', 'data-marker-plan-action="delete-draft"', 'secondary', !plan)}
       </div>
     `
   }
@@ -1686,8 +1706,8 @@ function renderPlanHeaderActions(route: MarkerPlanRouteKind, plan: MarkerPlan | 
         ${renderActionButton('保存草稿', 'data-marker-plan-action="save-draft"', 'secondary', !plan)}
         ${renderActionButton('确认唛架方案', 'data-marker-plan-action="complete-plan"', 'primary', !plan)}
         ${renderActionButton('保存并留在当前页', 'data-marker-plan-action="save-plan"', 'secondary', !plan)}
-        ${renderActionButton('作废', 'data-marker-plan-action="cancel-plan"', 'secondary', !plan)}
-        ${renderActionButton('交给铺布', `data-marker-plan-action="go-spreading"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'primary', !plan || !plan.readyForSpreading || plan.status === 'CANCELED')}
+        ${renderActionButton(plan?.confirmationStatus === '已确认' ? '作废方案' : '删除草稿', `data-marker-plan-action="${plan?.confirmationStatus === '已确认' ? 'cancel-plan' : 'delete-draft'}"`, 'secondary', !plan)}
+        ${renderActionButton('交给铺布', `data-marker-plan-action="go-spreading"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'primary', !canGoSpreading)}
       </div>
     `
   }
@@ -1695,7 +1715,7 @@ function renderPlanHeaderActions(route: MarkerPlanRouteKind, plan: MarkerPlan | 
   return `
     <div class="flex flex-wrap items-center gap-2">
       ${renderActionButton('返回列表', 'data-marker-plan-action="go-list"')}
-      ${renderActionButton('交给铺布', `data-marker-plan-action="go-spreading"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'primary', !plan || !plan.readyForSpreading)}
+      ${renderActionButton('交给铺布', `data-marker-plan-action="go-spreading"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'primary', !canGoSpreading)}
       ${renderActionButton('去裁片单', `data-marker-plan-action="go-cut-orders"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'secondary', !plan || !plan.cutOrderIds.length)}
       ${plan?.markerPlanId ? renderActionButton('去唛架方案', `data-marker-plan-action="go-marker-plan" data-plan-id="${escapeHtml(plan.id)}"`, 'secondary') : ''}
       ${renderActionButton('去生产单总览', `data-marker-plan-action="go-production-progress"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'secondary', !plan)}
@@ -2121,7 +2141,9 @@ function renderCreateCutOrderSelectionStep(viewModel = getViewModel()): string {
     : '未选择'
   const message = selectedContexts.length
     ? validation.ok
-      ? '选择有效，可进入下一步确认组合规则。'
+      ? new Set(selectedContexts.flatMap((context) => context.cuttingTaskIds || [])).size > 1
+        ? '选择有效。当前为跨裁片任务方案，确认后这些裁片任务必须分配给同一个裁剪承接工厂。'
+        : '选择有效，可进入下一步确认组合规则。'
       : validation.message
     : '第一步先选择要进入唛架方案的裁片单。'
 
@@ -2183,6 +2205,7 @@ function renderCreateCutOrderSelectionStep(viewModel = getViewModel()): string {
                       <div>
                         <div class="font-semibold text-blue-700">${escapeHtml(context.contextNo)}</div>
                         <div class="mt-0.5 text-xs text-muted-foreground">生产单：${escapeHtml(context.productionOrderNos.join(' / ') || '—')}</div>
+                        <div class="mt-0.5 text-xs text-muted-foreground">裁片任务：${escapeHtml(context.cuttingTaskNos.join(' / ') || '待补')}</div>
                       </div>
                       <span class="rounded-full border bg-white px-2 py-0.5 text-[11px]">${escapeHtml(context.sourceUrgencyLabel || '普通')}</span>
                     </div>
@@ -2194,6 +2217,14 @@ function renderCreateCutOrderSelectionStep(viewModel = getViewModel()): string {
                       <div class="rounded-md border bg-white/70 px-2 py-2">
                         <div class="text-muted-foreground">可用余额</div>
                         <div class="mt-1 font-medium text-foreground">${availableText}</div>
+                      </div>
+                      <div class="rounded-md border bg-white/70 px-2 py-2">
+                        <div class="text-muted-foreground">执行去向</div>
+                        <div class="mt-1 font-medium text-foreground">${escapeHtml(context.executionRouteLabel || '待分配承接方')}</div>
+                      </div>
+                      <div class="rounded-md border bg-white/70 px-2 py-2">
+                        <div class="text-muted-foreground">承接方</div>
+                        <div class="mt-1 font-medium text-foreground">${escapeHtml(context.cuttingTaskAssigneeFactoryNames.join(' / ') || '待分配')}</div>
                       </div>
                     </div>
                     <div class="rounded-md border bg-white/70 p-2">
@@ -3337,8 +3368,11 @@ function renderMarkerPlanOverviewTab(plan: MarkerPlanViewRow, context: MarkerPla
       ${renderMarkerPlanDetailSection('当前概览', renderMarkerPlanDetailInfoGrid([
         { label: '方案编号', value: plan.markerNo, tone: 'strong' },
         { label: '来源类型', value: getPlanSourceTypeText(plan) },
+        { label: '来源裁片任务', value: plan.cuttingTaskNos?.join(' / ') || '—', tone: plan.isCrossTask ? 'strong' : undefined },
         { label: '来源裁片单', value: getPlanSourceNoText(plan) },
         { label: '来源生产单', value: plan.productionOrderNos.join(' / ') || '—' },
+        { label: '承接方锁定', value: plan.taskLockSummary || '—', tone: plan.isCrossTask ? 'strong' : undefined },
+        { label: '执行去向', value: plan.executionRouteLabel || '待分配承接方', tone: plan.executionRoute === 'OWN_CUTTING' ? 'strong' : undefined },
         { label: '款号 / SPU', value: `${plan.styleCode || '-'} / ${plan.spuCode || '-'}` },
         { label: '技术包', value: getPlanTechPackText(plan) },
         { label: '面料 / 颜色', value: `${plan.materialSkuSummary || '—'} / ${plan.colorSummary || '—'}` },
@@ -3358,6 +3392,25 @@ function renderMarkerPlanOverviewTab(plan: MarkerPlanViewRow, context: MarkerPla
         { label: '需求匹配结果', value: matchSummary.status, tone: 'strong' },
         { label: '差异合计', value: `${formatSignedCount(matchSummary.diffTotalQty)} 件` },
       ]))}
+      ${renderMarkerPlanDetailSection('方案流转记录', `
+        <div class="space-y-2 text-sm">
+          ${plan.status === 'CANCELED'
+            ? `<div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">作废原因：${escapeHtml(plan.voidReason || '未填写')}；作废人：${escapeHtml(plan.voidedBy || '—')}；作废时间：${escapeHtml(plan.voidedAt || '—')}</div>`
+            : ''}
+          ${(plan.operationLogs || []).length
+            ? `<div class="rounded-lg border bg-background">
+                ${(plan.operationLogs || []).map((log) => `
+                  <div class="grid gap-2 border-b px-3 py-2 last:border-b-0 md:grid-cols-[8rem_minmax(0,1fr)_8rem_9rem]">
+                    <div class="font-medium">${escapeHtml(log.action)}</div>
+                    <div class="text-muted-foreground">${escapeHtml(log.detail)}</div>
+                    <div class="text-muted-foreground">${escapeHtml(log.by)}</div>
+                    <div class="text-muted-foreground">${escapeHtml(log.at)}</div>
+                  </div>
+                `).join('')}
+              </div>`
+            : '<div class="rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">暂无方案操作日志。</div>'}
+        </div>
+      `)}
       ${renderMarkerPlanDetailSection('关联入口', `
         <div class="flex flex-wrap gap-2">
           ${plan.cutOrderNos.map((cutOrderNo, index) =>
@@ -3474,7 +3527,7 @@ function renderMarkerPlanSourceLockTab(plan: MarkerPlanViewRow, context: MarkerP
           { label: '余额影响', value: lockSummary.balanceImpactText, tone: 'strong' },
         ])}
         ${lockSummary.releaseRecords.length
-          ? `<div class="mt-4 rounded-lg border bg-background px-3 py-3 text-xs text-muted-foreground">${lockSummary.releaseRecords.map((record) => `${escapeHtml(record.cutOrderNo)}：释放 ${formatNumber(record.releasedQty || record.lockedQty, 2)} ${escapeHtml(record.unit)}，${escapeHtml(record.releaseReason || '取消草稿')}`).join('；')}</div>`
+          ? `<div class="mt-4 rounded-lg border bg-background px-3 py-3 text-xs text-muted-foreground">${lockSummary.releaseRecords.map((record) => `${escapeHtml(record.cutOrderNo)}：释放 ${formatNumber(record.releasedQty || record.lockedQty, 2)} ${escapeHtml(record.unit)}，${escapeHtml(record.releaseReason || '删除草稿')}`).join('；')}</div>`
           : ''}
       `, '按来源裁片单具体数量锁定')}
     </div>
@@ -3679,19 +3732,21 @@ function renderStats(viewModel = getViewModel()): string {
   const plans = viewModel.plans
   const readyCount = plans.filter((plan) => plan.readyForSpreading).length
   const diffCount = getPlanListTabCount('DEMAND_DIFF', plans)
-  const waitingConfirmCount = getPlanListTabCount('WAITING_CONFIRM', plans)
+  const crossTaskCount = plans.filter((plan) => plan.isCrossTask).length
+  const ownRouteCount = plans.filter((plan) => plan.executionRoute === 'OWN_CUTTING').length
+  const pdaRouteCount = plans.filter((plan) => plan.executionRoute === 'FACTORY_PDA').length
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="marker-plan-list-stats">
-      ${renderCompactKpiCard('方案总数', plans.length, `可交接 ${readyCount}`, 'text-slate-900', `全部 ${plans.length} 个方案`)}
-      ${renderCompactKpiCard('待排唛架', getPlanListTabCount('WAITING_LAYOUT', plans), '唛架未完成', 'text-blue-600', `${getPlanListTabCount('WAITING_LAYOUT', plans)} 个方案`)}
-      ${renderCompactKpiCard('需求差异', diffCount, `待确认 ${waitingConfirmCount}`, 'text-amber-600', `${diffCount} 个方案`)}
-      ${renderCompactKpiCard('可交接铺布', readyCount, '已确认方案', 'text-emerald-600', `${readyCount} 个方案`)}
+      ${renderCompactKpiCard('裁片任务覆盖', viewModel.contexts.length, `已建方案 ${plans.length}`, 'text-slate-900', `待排 ${viewModel.pendingContexts.length} 个裁片单上下文`)}
+      ${renderCompactKpiCard('跨任务方案', crossTaskCount, '锁定同一承接方', 'text-blue-600', `${crossTaskCount} 个方案`)}
+      ${renderCompactKpiCard('我方执行', ownRouteCount, `可交接 ${readyCount}`, 'text-emerald-600', `${ownRouteCount} 个方案进入 PFOS 链路`)}
+      ${renderCompactKpiCard('三方 PDA', pdaRouteCount, `差异 ${diffCount}`, 'text-amber-600', `${pdaRouteCount} 个方案不生成我方铺布单`)}
     </section>
   `
 }
 
 function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): string {
-  const tableTitle = exceptionOnly ? '异常待处理方案' : '唛架方案'
+  const tableTitle = exceptionOnly ? '异常待处理方案' : '排唛架工作台'
   const countText = `共 ${rows.length} 个方案`
   return `
     <section class="rounded-lg border bg-card [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2" data-testid="${exceptionOnly ? 'marker-plan-exception-list' : 'marker-plan-list-table'}" data-marker-plan-main-card="true">
@@ -3705,14 +3760,14 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
         <table class="w-full table-fixed text-left text-sm">
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
-              <th class="w-[9rem] px-2 py-1 font-medium">唛架方案</th>
-              <th class="w-[10rem] px-2 py-1 font-medium">SPU / 纸样</th>
-              <th class="w-[16rem] px-2 py-1 font-medium">面料</th>
-              <th class="w-[9rem] px-2 py-1 font-medium">来源裁片单</th>
-              <th class="w-[7rem] px-2 py-1 font-medium">唛架编号</th>
+              <th class="w-[10rem] px-2 py-1 font-medium">裁片任务 / 方案</th>
+              <th class="w-[10rem] px-2 py-1 font-medium">生产单 / SPU</th>
+              <th class="w-[15rem] px-2 py-1 font-medium">面料 / 纸样</th>
+              <th class="w-[9rem] px-2 py-1 font-medium">裁片单</th>
+              <th class="w-[9rem] px-2 py-1 font-medium">承接方锁定</th>
+              <th class="w-[8rem] px-2 py-1 font-medium">执行去向</th>
               <th class="w-[8rem] px-2 py-1 font-medium">计划数量 / 用量</th>
-              <th class="w-[8rem] px-2 py-1 font-medium">锁定数量</th>
-              <th class="w-[8rem] px-2 py-1 font-medium">最近操作</th>
+              <th class="w-[8rem] px-2 py-1 font-medium">风险提示</th>
               <th class="w-[6rem] px-2 py-1 font-medium">操作</th>
             </tr>
           </thead>
@@ -3725,9 +3780,28 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                       const matchMeta = getDemandMatchStatusMeta(row.demandMatchSummary.status)
                       const confirmationMeta = getConfirmationStatusMeta(row.confirmationStatus)
                       const sourceRows = getSourceLockRows(row)
-                      const lockedQty = sourceRows.reduce((total, item) => total + safeNumber(item.lockedQty), 0)
-                      const lockedUnit = sourceRows[0]?.unit || '米'
                       const firstSource = sourceRows[0]
+                      const routeBadgeClass =
+                        row.executionRoute === 'OWN_CUTTING'
+                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                          : row.executionRoute === 'FACTORY_PDA'
+                            ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                            : row.executionRoute === 'CONFLICT'
+                              ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                      const lockBadgeClass = row.isCrossTask
+                        ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                        : 'bg-slate-100 text-slate-700 border border-slate-200'
+                      const riskText =
+                        row.executionRoute === 'CONFLICT'
+                          ? '承接方冲突，需先处理任务分配。'
+                          : row.executionRoute === 'FACTORY_PDA'
+                            ? '三方工厂执行，不生成我方铺布单。'
+                            : row.executionRoute === 'UNASSIGNED'
+                              ? '等待裁片任务分配承接方。'
+                              : row.isCrossTask
+                                ? '跨任务锁定，后续必须同厂承接。'
+                                : '无'
                       return `
                       <tr class="border-t align-top ${exceptionOnly ? 'cursor-pointer hover:bg-muted/10' : ''}" ${
                         exceptionOnly
@@ -3735,16 +3809,17 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                           : ''
                       }>
                         <td class="px-2 py-1">
-                          <div class="font-medium">${escapeHtml(row.markerNo)}</div>
+                          <div class="font-medium">${escapeHtml(row.cuttingTaskNos?.slice(0, 2).join(' / ') || '待关联裁片任务')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.markerNo)}</div>
                           <div class="mt-1 flex flex-wrap gap-1">${renderStatusBadge(row.statusMeta.label, row.statusMeta.className)}${renderStatusBadge(confirmationMeta.label, confirmationMeta.className)}</div>
                         </td>
                         <td class="px-2 py-1">
-                          <div class="font-medium">${escapeHtml(`${row.styleCode || '-'} / ${row.spuCode || '-'}`)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(firstSource?.patternFileName || firstSource?.patternFileId || row.styleName || '—')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(firstSource ? `${firstSource.patternVersion || '—'} / ${firstSource.effectiveWidthText || '—'}` : getPlanTechPackText(row))}</div>
+                          <div class="font-medium">${escapeHtml(row.productionOrderSummary || '—')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${row.styleCode || '-'} / ${row.spuCode || '-'}`)}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.styleName || '—')}</div>
                         </td>
-                        <td class="w-[16rem] px-2 py-1">
-                          <div class="w-full max-w-[16rem]">
+                        <td class="w-[15rem] px-2 py-1">
+                          <div class="w-full max-w-[15rem]">
                             ${renderMaterialIdentityBlock({
                               materialSku: row.materialSkuSummary || '—',
                               materialLabel: row.materialSkuSummary || '—',
@@ -3752,16 +3827,22 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                               materialImageUrl: row.materialImageUrl,
                             }, { compact: true })}
                           </div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.colorSummary || '—')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(firstSource?.patternFileName || firstSource?.patternFileId || '—')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(firstSource ? `${firstSource.patternVersion || '—'} / ${firstSource.effectiveWidthText || '—'}` : getPlanTechPackText(row))}</div>
                         </td>
                         <td class="px-2 py-1">
                           <div class="font-medium">${formatCount(row.cutOrderNos.length || sourceRows.length)} 个</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.cutOrderNos.slice(0, 3).join(' / ') || getPlanSourceNoText(row))}${row.cutOrderNos.length > 3 ? ' ...' : ''}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">生产单：${escapeHtml(row.productionOrderSummary || '—')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">部位：${escapeHtml(firstSource?.piecePartNames?.join(' / ') || '—')}</div>
                         </td>
                         <td class="px-2 py-1">
-                          <div class="font-medium">${escapeHtml(getPlanBedCountText(row))}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(getPlanBedModeText(row))}</div>
+                          <div class="flex flex-wrap gap-1">${renderStatusBadge(row.taskLockStatusLabel || '单任务', lockBadgeClass)}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.taskLockSummary || '—')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.cuttingTaskAssigneeFactoryNames?.join(' / ') || '承接方待定')}</div>
+                        </td>
+                        <td class="px-2 py-1">
+                          <div>${renderStatusBadge(row.executionRouteLabel || '待分配承接方', routeBadgeClass)}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(getPlanBedCountText(row))}</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(getPlanSpreadingStatusText(row))}</div>
                         </td>
                         <td class="px-2 py-1">
@@ -3770,19 +3851,17 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                           <div class="mt-1">${renderStatusBadge(matchMeta.label, matchMeta.className)}</div>
                         </td>
                         <td class="px-2 py-1">
-                          <div class="font-medium">${lockedQty > 0 ? `${formatNumber(lockedQty, 2)} ${escapeHtml(lockedUnit)}` : '—'}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">来源裁片单可用余额锁定</div>
-                        </td>
-                        <td class="px-2 py-1">
-                          <div>${escapeHtml(row.updatedAt || '—')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.updatedBy || '—')}</div>
+                          <div class="text-xs">${escapeHtml(riskText)}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.updatedAt || '—')}</div>
                         </td>
                         <td class="px-2 py-1">
                           <div class="flex flex-wrap gap-1.5">
                             ${renderActionButton('查看', `data-marker-plan-action="go-detail" data-plan-id="${escapeHtml(row.id)}"${exceptionOnly ? ` data-tab-key="${problemTab}"` : ''}`)}
                             ${row.status === 'READY_FOR_SPREADING' ? '' : renderActionButton('编辑', `data-marker-plan-action="go-edit" data-plan-id="${escapeHtml(row.id)}"${exceptionOnly ? ` data-tab-key="${problemTab}"` : ''}`)}
                             ${row.confirmationStatus === '已确认' ? '' : renderActionButton('确认唛架方案', `data-marker-plan-action="complete-plan" data-plan-id="${escapeHtml(row.id)}"`, 'primary')}
-                            ${row.status === 'CANCELED' ? '' : renderActionButton('取消草稿', `data-marker-plan-action="cancel-plan" data-plan-id="${escapeHtml(row.id)}"`, 'secondary')}
+                            ${row.status === 'CANCELED' ? '' : row.confirmationStatus === '已确认'
+                              ? renderActionButton('作废方案', `data-marker-plan-action="cancel-plan" data-plan-id="${escapeHtml(row.id)}"`, 'secondary')
+                              : renderActionButton('删除草稿', `data-marker-plan-action="delete-draft" data-plan-id="${escapeHtml(row.id)}"`, 'secondary')}
                           </div>
                         </td>
                       </tr>
@@ -3853,7 +3932,7 @@ function renderEditBoundaryNotice(plan: MarkerPlanViewRow | null): string {
     <section class="rounded-lg border ${confirmed ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-blue-100 bg-blue-50 text-blue-700'} px-3 py-3 text-sm" data-testid="marker-plan-edit-boundary">
       ${confirmed
         ? '已确认方案不允许直接修改来源裁片单和锁定数量；如需变更，请按后续版本化规则处理。'
-        : '编辑页只能维护唛架模式、唛架编号、计划层数、计划数量、计划用量、尺码配比和备注；来源裁片单需取消草稿后重新选择。'}
+        : '编辑页只能维护唛架模式、唛架编号、计划层数、计划数量、计划用量、尺码配比和备注；来源裁片单需删除草稿后重新选择。'}
     </section>
   `
 }
@@ -3873,6 +3952,7 @@ function renderCreateSourceSummary(
         <h3 class="text-sm font-semibold">${escapeHtml(title)}</h3>
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${renderReadonlyField('来源裁片任务', plan.cuttingTaskNos?.join(' / ') || context?.cuttingTaskNos.join(' / ') || '待补')}
         ${renderReadonlyField('裁片单', sourceNo)}
         ${renderReadonlyField('款号 / SPU', `${plan.styleCode || '-'} / ${plan.spuCode || '-'}`)}
         ${renderReadonlyField('来源生产单号', productionNo)}
@@ -3888,6 +3968,8 @@ function renderCreateSourceSummary(
         </article>
         ${renderReadonlyField('技术包', context?.techPackStatusLabel || '待选择')}
         ${renderReadonlyField('需求总件数', `${formatCount(plan.totalPieces)} 件`)}
+        ${renderReadonlyField('承接方锁定', plan.taskLockSummary || context?.taskLockSummary || '单任务')}
+        ${renderReadonlyField('执行去向', plan.executionRouteLabel || context?.executionRouteLabel || '待分配承接方')}
       </div>
       <div class="mt-4 rounded-lg border" data-testid="marker-plan-source-cut-order-list">
         <div class="border-b bg-muted/30 px-3 py-2 text-sm font-semibold">来源裁片单清单</div>
@@ -4025,7 +4107,7 @@ function renderMarkerPlanLockSummary(plan: MarkerPlan | MarkerPlanViewRow): stri
       </div>
       ${lockSummary.releaseRecords.length
         ? `<div class="mt-3 rounded-lg border bg-background px-3 py-3 text-xs text-muted-foreground">
-            ${lockSummary.releaseRecords.map((record) => `${escapeHtml(record.cutOrderNo)}：释放 ${formatNumber(record.releasedQty || record.lockedQty, 2)} ${escapeHtml(record.unit)}，${escapeHtml(record.releaseReason || '取消草稿')}`).join('；')}
+            ${lockSummary.releaseRecords.map((record) => `${escapeHtml(record.cutOrderNo)}：释放 ${formatNumber(record.releasedQty || record.lockedQty, 2)} ${escapeHtml(record.unit)}，${escapeHtml(record.releaseReason || '删除草稿')}`).join('；')}
           </div>`
         : ''}
     </section>
@@ -4281,12 +4363,33 @@ function saveDraftPlan(stayOnPage = true, successMessage?: string): boolean {
 }
 
 function completeDraftPlan(): boolean {
+  if (state.draftPlan?.executionRoute === 'CONFLICT') {
+    setFeedback('warning', '当前方案来源裁片任务存在承接方冲突，不能确认唛架方案。')
+    return true
+  }
+  if (state.draftPlan?.isCrossTask) {
+    const confirmed = window.confirm('当前方案包含多个裁片任务。确认后，这些裁片任务后续必须分配给同一个裁剪承接工厂。是否继续确认？')
+    if (!confirmed) return true
+  }
+  const confirmedAt = nowText()
   if (state.draftPlan) {
     state.draftPlan = {
       ...state.draftPlan,
       confirmationStatus: '已确认',
       confirmedBy: '计划员-陈静',
-      confirmedAt: nowText(),
+      confirmedAt,
+      operationLogs: [
+        ...(state.draftPlan.operationLogs || []),
+        {
+          id: `log-${state.draftPlan.id}-confirmed-${Date.now()}`,
+          action: '确认唛架方案',
+          detail: state.draftPlan.isCrossTask
+            ? '跨任务唛架方案已确认，来源裁片任务锁定同一裁剪承接工厂。'
+            : '唛架方案已确认。',
+          at: confirmedAt,
+          by: '计划员-陈静',
+        },
+      ],
       lastVisitedTab: state.activeTab,
     }
   }
@@ -4297,8 +4400,8 @@ function completeDraftPlan(): boolean {
     ...nextPlan,
     confirmationStatus: '已确认' as MarkerPlanConfirmationStatusKey,
     confirmedBy: '计划员-陈静',
-    confirmedAt: nowText(),
-    updatedAt: nowText(),
+    confirmedAt,
+    updatedAt: confirmedAt,
     updatedBy: '计划员-陈静',
   }
   upsertStoredPlan(confirmedPlan)
@@ -4309,19 +4412,68 @@ function completeDraftPlan(): boolean {
 
 function cancelDraftPlan(): boolean {
   if (!state.draftPlan) return false
+  const isConfirmedPlan = state.draftPlan.confirmationStatus === '已确认'
+  const spreadingOrders = getSpreadingOrdersForMarkerPlan(state.draftPlan.id)
+  const activeSpreadingOrders = spreadingOrders.filter((order) => order.status !== 'CANCELED')
+  if (isConfirmedPlan && activeSpreadingOrders.length) {
+    setFeedback('warning', `当前方案已生成 ${activeSpreadingOrders.length} 张铺布单，需先作废或删除未开始铺布单；已进入执行中的铺布单不允许作废方案。`)
+    return true
+  }
+  const voidReason = isConfirmedPlan
+    ? window.prompt('请输入作废原因。已确认方案作废后不能再生成铺布单。', '计划调整，重新排唛架')
+    : '删除草稿'
+  if (isConfirmedPlan && !String(voidReason || '').trim()) {
+    setFeedback('warning', '作废已确认方案必须填写作废原因。')
+    return true
+  }
   const context = getDraftContext(getViewModel())
+  const now = nowText()
   const canceledPlan = {
     ...state.draftPlan,
     status: 'CANCELED' as MarkerPlanStatusKey,
     readyForSpreading: false,
-    updatedAt: nowText(),
+    voidReason: String(voidReason || '删除草稿').trim(),
+    voidedAt: now,
+    voidedBy: '计划员-陈静',
+    operationLogs: [
+      ...(state.draftPlan.operationLogs || []),
+      {
+        id: `log-${state.draftPlan.id}-void-${Date.now()}`,
+        action: isConfirmedPlan ? '作废方案' : '删除草稿',
+        detail: isConfirmedPlan
+          ? `作废原因：${String(voidReason || '').trim()}`
+          : '取消未确认草稿并释放来源裁片单锁定。',
+        at: now,
+        by: '计划员-陈静',
+      },
+    ],
+    updatedAt: now,
     updatedBy: '计划员-陈静',
   }
   const nextPlan = context ? hydrateMarkerPlan(canceledPlan, context) : canceledPlan
   releaseDraftLocksForPlan(nextPlan)
   upsertStoredPlan(nextPlan)
   state.draftPlan = nextPlan
-  setFeedback('success', `已取消草稿 ${nextPlan.markerNo}，来源裁片单记录已释放。`)
+  setFeedback('success', isConfirmedPlan ? `已作废唛架方案 ${nextPlan.markerNo}。` : `已删除草稿 ${nextPlan.markerNo}，来源裁片单记录已释放。`)
+  return true
+}
+
+function deleteDraftPlan(): boolean {
+  if (!state.draftPlan) return false
+  if (state.draftPlan.confirmationStatus === '已确认') {
+    setFeedback('warning', '已确认方案不能删除，只能按规则作废。')
+    return true
+  }
+  const spreadingOrders = getSpreadingOrdersForMarkerPlan(state.draftPlan.id)
+  if (spreadingOrders.some((order) => order.status !== 'CANCELED')) {
+    setFeedback('warning', '当前草稿已有铺布引用，不能删除。')
+    return true
+  }
+  releaseDraftLocksForPlan(state.draftPlan, '删除草稿')
+  removeStoredPlan(state.draftPlan.id)
+  const markerNo = state.draftPlan.markerNo
+  state.draftPlan = null
+  setFeedback('success', `已删除草稿 ${markerNo}，来源裁片单锁定已释放。`)
   return true
 }
 
@@ -4387,6 +4539,10 @@ function handleAction(action: string, node: HTMLElement): boolean {
     const plan = resolveCurrentPlan(viewModel, planId)
     if (!plan) {
       setFeedback('warning', '请先选择一个唛架方案。')
+      return true
+    }
+    if (plan.executionRoute !== 'OWN_CUTTING') {
+      setFeedback('warning', `当前方案执行去向为「${plan.executionRouteLabel || '待分配承接方'}」，不能生成我方裁床厂铺布单。`)
       return true
     }
     appStore.navigate(buildMarkerPlanGoSpreadingPath(plan))
@@ -4560,6 +4716,11 @@ function handleAction(action: string, node: HTMLElement): boolean {
 
   if (action === 'save-draft') {
     return saveDraftPlan(true)
+  }
+
+  if (action === 'delete-draft') {
+    if (node.dataset.planId && !loadPlanAsDraftForAction(viewModel, node.dataset.planId)) return true
+    return deleteDraftPlan()
   }
 
   if (action === 'save-and-view-detail') {

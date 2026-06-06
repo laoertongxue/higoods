@@ -486,7 +486,11 @@ function buildConfirmedPlanSpreadingArtifacts(
   const spreadingOrders = new Map<string, SpreadingOrder>()
 
   planProjection.viewModel.plans
-    .filter((plan) => plan.confirmationStatus === '已确认' && plan.status !== 'CANCELED')
+    .filter((plan) =>
+      plan.confirmationStatus === '已确认'
+      && plan.status !== 'CANCELED'
+      && plan.executionRoute === 'OWN_CUTTING',
+    )
     .forEach((plan) => {
       const context = findMarkerPlanContextForPlan(planProjection.viewModel.contexts, plan)
       if (!context) return

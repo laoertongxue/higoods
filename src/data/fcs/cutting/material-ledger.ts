@@ -139,7 +139,7 @@ function buildLockLedgerEvents(records = listStoredMarkerPlanLockLedger()): Cutt
         sourceObjectType: 'MARKER_PLAN_DRAFT',
         occurredAt: record.releasedAt || record.lockedAt,
         operatorName: record.releasedBy || record.operatorName,
-        remark: record.releaseReason || '取消草稿，释放来源裁片单锁定余额。',
+        remark: record.releaseReason || '删除草稿，释放来源裁片单锁定余额。',
       },
     ]
   })

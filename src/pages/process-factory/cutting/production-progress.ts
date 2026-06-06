@@ -1797,6 +1797,9 @@ function renderProductionChainCutOrdersTab(row: ProductionProgressRow, chain: Pr
                           <div>${renderMaterialIdentityBlock(ledger.materialIdentity, { compact: true, imageSizeClass: 'h-9 w-9', showCategory: false })}</div>
                           <div class="text-xs leading-5 text-muted-foreground">
                             <div>承接 SKU：${formatQty(item.source.skuCount)} 个</div>
+                            <div>裁片任务：${escapeHtml(item.source.cuttingTaskNo || '待补')}</div>
+                            <div>执行去向：${escapeHtml(item.source.executionRouteLabel || '待分配承接方')}</div>
+                            <div>承接方：${escapeHtml(item.source.cuttingTaskAssigneeFactoryName || '待分配')}</div>
                             <div>实际裁剪：${escapeHtml(item.source.currentStateLabel || '暂无')}</div>
                             <div>唛架方案：${escapeHtml(item.markerPlanNos.join('、') || '暂无')}</div>
                             <div>捆条加工：${escapeHtml(bindingProcessSummary)}</div>

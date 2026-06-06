@@ -9,6 +9,10 @@ import {
   listGeneratedCutOrderSourceRecords,
   type GeneratedCutOrderSourceRecord,
 } from '../../../data/fcs/cutting/generated-cut-orders.ts'
+import type {
+  CuttingTaskAssigneeType,
+  CuttingTaskExecutionRoute,
+} from '../../../data/fcs/cutting/cutting-task-routing.ts'
 import {
   buildMaterialLedgerProjectionMap,
   type MaterialLedgerProjection,
@@ -87,6 +91,14 @@ export interface CutOrderRow {
   cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
+  cuttingTaskId: string
+  cuttingTaskNo: string
+  cuttingTaskAssignmentStatus: string
+  cuttingTaskAssigneeFactoryId: string
+  cuttingTaskAssigneeFactoryName: string
+  cuttingTaskAssigneeType: CuttingTaskAssigneeType
+  executionRoute: CuttingTaskExecutionRoute
+  executionRouteLabel: string
   assignedFactoryId: string
   assignedFactoryName: string
   styleCode: string
@@ -507,8 +519,16 @@ function createRow(
     cutOrderNo: source.cutOrderNo,
     productionOrderId: source.productionOrderId,
     productionOrderNo: source.productionOrderNo,
-    assignedFactoryId: '',
-    assignedFactoryName: progressRow?.assignedFactoryName || '',
+    cuttingTaskId: source.cuttingTaskId,
+    cuttingTaskNo: source.cuttingTaskNo,
+    cuttingTaskAssignmentStatus: source.cuttingTaskAssignmentStatus,
+    cuttingTaskAssigneeFactoryId: source.cuttingTaskAssigneeFactoryId,
+    cuttingTaskAssigneeFactoryName: source.cuttingTaskAssigneeFactoryName,
+    cuttingTaskAssigneeType: source.cuttingTaskAssigneeType,
+    executionRoute: source.executionRoute,
+    executionRouteLabel: source.executionRouteLabel,
+    assignedFactoryId: source.cuttingTaskAssigneeFactoryId,
+    assignedFactoryName: source.cuttingTaskAssigneeFactoryName || progressRow?.assignedFactoryName || '',
     styleCode: effectiveRecord.styleCode,
     spuCode: effectiveRecord.spuCode,
     styleName: effectiveRecord.styleName,

@@ -232,7 +232,7 @@ function getCuttingSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSou
     workOrderNo: cutOrderNo,
     cuttingOrderNo: cutOrderNo,
     sourceIds: uniqueStrings([cutOrderId, ...(taskLike.cutOrderIds || [])]),
-    sourceNos: uniqueStrings([cutOrderNo, ...(taskLike.cutOrderNos || [])]),
+    sourceNos: uniqueStrings([cutOrderNo, task.taskNo, task.rootTaskNo, ...(taskLike.cutOrderNos || [])]),
     productionOrderNo,
     materialSku: normalizeString(detail?.materialSku || taskLike.materialSku),
     markerPlanNo,

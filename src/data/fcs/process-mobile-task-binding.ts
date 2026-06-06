@@ -1,5 +1,6 @@
 import { buildFcsCuttingDomainSnapshot } from '../../domain/fcs-cutting-runtime/index.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import { listGeneratedCutOrderSourceRecords } from './cutting/generated-cut-orders.ts'
 import {
   getDyeWorkOrderById,
   listDyeWorkOrders,
@@ -37,6 +38,10 @@ import {
   type SpecialCraftTaskOrder,
   type SpecialCraftTaskWorkOrder,
 } from './special-craft-task-orders.ts'
+
+function uniqueStrings(values: Array<string | undefined | null>): string[] {
+  return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)))
+}
 
 export type BindingReasonCode =
   | 'OK'
@@ -273,6 +278,85 @@ function isSpecialCraftTask(task: ProcessTask): boolean {
   return getMobileTaskProcessType(task) === 'SPECIAL_CRAFT'
 }
 
+function listThirdPartyCuttingMarkerPreconditionTasks(existingTaskIds: Set<string>): ProcessTask[] {
+  const groups = new Map<string, ReturnType<typeof listGeneratedCutOrderSourceRecords>>()
+  listGeneratedCutOrderSourceRecords()
+    .filter((record) => record.executionRoute === 'FACTORY_PDA')
+    .forEach((record) => {
+      const key = record.cuttingTaskId || record.productionOrderId
+      groups.set(key, [...(groups.get(key) || []), record])
+    })
+
+  return Array.from(groups.entries())
+    .filter(([taskId]) => !existingTaskIds.has(taskId))
+    .map(([taskId, rows], index) => {
+      const first = rows[0]
+      const taskNo = first.cuttingTaskNo || taskId
+      return {
+        taskId,
+        taskNo,
+        productionOrderId: first.productionOrderId,
+        seq: 1,
+        processCode: 'PROC_CUT',
+        processNameZh: '裁片',
+        stage: 'CUTTING',
+        qty: rows.reduce((total, row) => total + Number(row.requiredQty || 0), 0),
+        qtyUnit: '件',
+        assignmentMode: 'DIRECT',
+        assignmentStatus: 'ASSIGNED',
+        ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['CUTTING'] },
+        assignedFactoryId: first.cuttingTaskAssigneeFactoryId,
+        assignedFactoryName: first.cuttingTaskAssigneeFactoryName,
+        qcPoints: ['按我方唛架方案裁剪', '裁后数量回传'],
+        attachments: [],
+        status: 'NOT_STARTED',
+        acceptanceStatus: 'ACCEPTED',
+        acceptedAt: '2026-04-03 10:05',
+        acceptedBy: first.cuttingTaskAssigneeFactoryName,
+        taskDeadline: '2026-04-08 18:00',
+        dispatchedAt: '2026-04-03 10:00',
+        dispatchedBy: '裁床计划',
+        dispatchRemark: '三方裁片任务：我方裁床厂统一排唛架后，作为工厂端 PDA 执行前置信息。',
+        processBusinessCode: 'CUT_PANEL',
+        processBusinessName: '裁片',
+        craftName: '三方裁片',
+        rootTaskNo: taskNo,
+        createdAt: '2026-04-03 10:00',
+        updatedAt: '2026-04-03 10:00',
+        auditLogs: [
+          {
+            id: `AL-${taskId}-marker-precondition`,
+            action: 'MARKER_PRECONDITION_READY',
+            detail: `已同步我方排唛架前置信息，关联 ${rows.length} 张裁片单。`,
+            at: '2026-04-03 10:00',
+            by: '系统',
+          },
+        ],
+        productionOrderNo: first.productionOrderNo,
+        cutOrderIds: uniqueStrings(rows.map((row) => row.cutOrderId)),
+        cutOrderNos: uniqueStrings(rows.map((row) => row.cutOrderNo)),
+        markerPlanNos: ['待我方唛架方案确认'],
+        materialSku: uniqueStrings(rows.map((row) => row.materialSku)).join(' / '),
+        spuCode: first.spuCode,
+        spuName: first.styleName,
+        mockReceiveSummary: '三方工厂按裁片任务接单，按唛架方案准备裁剪。',
+        mockExecutionSummary: '执行前需查看我方裁床厂排好的唛架方案；不生成我方铺布单。',
+        mockHandoverSummary: '若三方只做裁片，按任务交出回我方裁片厂；若三方继续车缝/后道，则产出为成衣。',
+      } satisfies ProcessTask & {
+        productionOrderNo: string
+        cutOrderIds: string[]
+        cutOrderNos: string[]
+        markerPlanNos: string[]
+        materialSku: string
+        spuCode: string
+        spuName: string
+        mockReceiveSummary: string
+        mockExecutionSummary: string
+        mockHandoverSummary: string
+      }
+    })
+}
+
 export function listPdaMobileExecutionTasks(): ProcessTask[] {
   listPrintWorkOrders()
   listDyeWorkOrders()
@@ -292,7 +376,9 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
   const existingWithSpecial = new Set([...existingWithWool, ...specialCraftTasks.map((task) => task.taskId)])
   const postTasks = listPostFinishingMobileExecutionTasks()
     .filter((task) => !existingWithSpecial.has(task.taskId))
-  return [...baseTasks, ...genericProcessTasks, ...woolTasks, ...specialCraftTasks, ...postTasks]
+  const existingWithPost = new Set([...existingWithSpecial, ...postTasks.map((task) => task.taskId)])
+  const thirdPartyCuttingTasks = listThirdPartyCuttingMarkerPreconditionTasks(existingWithPost)
+  return [...baseTasks, ...genericProcessTasks, ...woolTasks, ...specialCraftTasks, ...postTasks, ...thirdPartyCuttingTasks]
 }
 
 export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | null {

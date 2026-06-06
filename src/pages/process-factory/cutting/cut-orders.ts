@@ -1062,6 +1062,8 @@ function renderTable(rows: CutOrderRow[]): string {
                                 ${escapeHtml(row.cutOrderNo)}
                               </button>
                               <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.relationSummary)}</p>
+                              <p class="mt-1 text-xs text-muted-foreground">裁片任务：${escapeHtml(row.cuttingTaskNo || '待补')}</p>
+                              <p class="mt-1 text-xs text-muted-foreground">执行去向：${escapeHtml(row.executionRouteLabel || '待分配承接方')}</p>
                             </td>
                             <td class="px-4 py-3 align-top">${renderProductionStyleCell(row)}</td>
                             <td class="px-4 py-3 align-top">
@@ -1915,7 +1917,10 @@ function renderCutOrderOverviewTab(view: ReturnType<typeof buildCutOrderDetailVi
           </div>
           ${renderInfoGrid([
             { label: '裁片单号', value: row.cutOrderNo, tone: 'strong' },
+            { label: '来源裁片任务', value: row.cuttingTaskNo || '待补', tone: 'strong' },
             { label: '来源生产单', value: row.productionOrderNo },
+            { label: '承接方', value: row.cuttingTaskAssigneeFactoryName || '待分配' },
+            { label: '执行去向', value: row.executionRouteLabel || '待分配承接方', tone: row.executionRoute === 'OWN_CUTTING' ? 'strong' : undefined },
             { label: '主状态', value: row.currentStageLabel, tone: 'strong' },
             { label: '可用余额', value: formatMaterialLedgerQty(row.availableQty, row.availableUnit || row.materialUnit), tone: 'strong' },
             { label: '当前锁定来源', value: row.activeMarkerPlanNo || row.latestMarkerPlanNo || '无' },

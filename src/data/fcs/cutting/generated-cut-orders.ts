@@ -5,6 +5,11 @@ import {
 } from '../production-orders.ts'
 import type { TechnicalBomItem, TechnicalColorMaterialMappingLine } from '../../pcs-technical-data-version-types.ts'
 import type { ProductionOrderTechPackSnapshot, TechPackBomItemSnapshot } from '../production-tech-pack-snapshot-types.ts'
+import {
+  resolveCuttingTaskLink,
+  type CuttingTaskAssigneeType,
+  type CuttingTaskExecutionRoute,
+} from './cutting-task-routing.ts'
 import type { CuttingMaterialIdentity, CuttingMaterialType, CuttingPatternIdentity } from './types.ts'
 
 export interface GeneratedCutOrderPieceRow {
@@ -29,6 +34,14 @@ export interface GeneratedCutOrderSourceRecord {
   generationKey: string
   productionOrderId: string
   productionOrderNo: string
+  cuttingTaskId: string
+  cuttingTaskNo: string
+  cuttingTaskAssignmentStatus: string
+  cuttingTaskAssigneeFactoryId: string
+  cuttingTaskAssigneeFactoryName: string
+  cuttingTaskAssigneeType: CuttingTaskAssigneeType
+  executionRoute: CuttingTaskExecutionRoute
+  executionRouteLabel: string
   spuCode: string
   styleId: string
   styleCode: string
@@ -472,6 +485,10 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
     }
     const requiredQty = skuScopeLines.reduce((sum, item) => sum + item.plannedQty, 0)
     const productionOrderNo = resolveProductionOrderNo(order)
+    const cuttingTaskLink = resolveCuttingTaskLink({
+      productionOrderId: order.productionOrderId,
+      productionOrderNo,
+    })
     return {
       cutOrderId: makeStableCutOrderId({
         productionOrderNo,
@@ -482,6 +499,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
       generationKey: bucket.generationKey,
       productionOrderId: order.productionOrderId,
       productionOrderNo,
+      ...cuttingTaskLink,
       spuCode: order.demandSnapshot.spuCode,
       styleId: normalizeText(techPack.styleId),
       styleCode: normalizeText(techPack.styleCode) || order.demandSnapshot.spuCode,

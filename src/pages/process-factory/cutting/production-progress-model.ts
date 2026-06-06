@@ -118,6 +118,9 @@ export interface ProductionProgressPartDifferenceSummary {
 export interface ProductionProgressSourceOrderProgressLine {
   cutOrderId: string
   cutOrderNo: string
+  cuttingTaskNo: string
+  executionRouteLabel: string
+  cuttingTaskAssigneeFactoryName: string
   materialSku: string
   materialName: string
   materialColor: string
@@ -861,11 +864,19 @@ function buildSourceOrderProgressLines(
   cutOrderRequirementMap: Map<string, { requiredPieceQty: number; skuCodes: Set<string> }>,
   truth: ProductionPieceTruthResult,
 ): ProductionProgressSourceOrderProgressLine[] {
+  const generatedByCutOrderNo = new Map(
+    listGeneratedCutOrderSourceRecords()
+      .filter((item) => item.productionOrderId === record.productionOrderId || item.productionOrderNo === record.productionOrderNo)
+      .map((item) => [item.cutOrderNo, item]),
+  )
   const grouped = new Map<
     string,
     {
       cutOrderNo: string
       cutOrderId: string
+      cuttingTaskNo: string
+      executionRouteLabel: string
+      cuttingTaskAssigneeFactoryName: string
       materialSku: string
       materialName: string
       materialColor: string
@@ -893,11 +904,15 @@ function buildSourceOrderProgressLines(
       materialSku: materialLine.materialSku,
     })
     const requirement = cutOrderRequirementMap.get(key)
+    const generatedRecord = generatedByCutOrderNo.get(cutOrderNo)
     const current =
       grouped.get(key) ||
       {
         cutOrderNo,
         cutOrderId,
+        cuttingTaskNo: generatedRecord?.cuttingTaskNo || '',
+        executionRouteLabel: generatedRecord?.executionRouteLabel || '待分配承接方',
+        cuttingTaskAssigneeFactoryName: generatedRecord?.cuttingTaskAssigneeFactoryName || '',
         materialSku: materialLine.materialSku,
         materialName: materialLine.materialIdentity?.materialName || materialLine.materialLabel || materialLine.materialSku,
         materialColor: materialLine.materialIdentity?.materialColor || materialLine.color || '',
@@ -945,6 +960,9 @@ function buildSourceOrderProgressLines(
       return {
         cutOrderId: row.cutOrderId,
         cutOrderNo: row.cutOrderNo,
+        cuttingTaskNo: row.cuttingTaskNo,
+        executionRouteLabel: row.executionRouteLabel,
+        cuttingTaskAssigneeFactoryName: row.cuttingTaskAssigneeFactoryName,
         materialSku: row.materialSku,
         materialName: row.materialName,
         materialColor: row.materialColor,
@@ -966,9 +984,13 @@ function buildSourceOrderProgressLines(
     ? lines
     : truth.cutOrderRows.map((row) => {
         const materialLine = record.materialLines.find((line) => line.materialSku === row.materialSku)
+        const generatedRecord = generatedByCutOrderNo.get(row.cutOrderNo)
         return {
           cutOrderId: materialLine?.cutOrderId || row.cutOrderNo,
           cutOrderNo: row.cutOrderNo,
+          cuttingTaskNo: generatedRecord?.cuttingTaskNo || '',
+          executionRouteLabel: generatedRecord?.executionRouteLabel || '待分配承接方',
+          cuttingTaskAssigneeFactoryName: generatedRecord?.cuttingTaskAssigneeFactoryName || '',
           materialSku: row.materialSku,
           materialName: materialLine?.materialIdentity?.materialName || materialLine?.materialLabel || row.materialSku,
           materialColor: materialLine?.materialIdentity?.materialColor || materialLine?.color || '',
