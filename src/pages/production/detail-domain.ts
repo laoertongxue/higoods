@@ -21,6 +21,7 @@ import {
   assignmentProgressStatusConfig,
   demandTechPackStatusConfig,
   taskStatusLabel,
+  taskStatusClass,
   legalEntities,
   lifecycleStatusLabel,
   getOrderById,
@@ -42,6 +43,10 @@ import {
   formatProductionOrderMainFactoryName,
   isProductionOrderMainFactoryPending,
 } from './context.ts'
+import {
+  listRuntimeExecutionTasksByOrder,
+  type RuntimeProcessTask,
+} from '../../data/fcs/runtime-process-tasks.ts'
 import {
   getOrderMergedAuditLogs,
   renderMaterialDraftDrawer,
@@ -104,6 +109,163 @@ function formatPostTaskQty(value: number | undefined, unit = '件'): string {
 
 function getOrderPostFinishingTask(order: ProductionOrder): PostFinishingTaskView | undefined {
   return getPostFinishingTaskByProductionOrder(order.productionOrderId)
+}
+
+const assignmentStatusLabel: Record<RuntimeProcessTask['assignmentStatus'], string> = {
+  UNASSIGNED: '待分配',
+  ASSIGNING: '竞价中',
+  ASSIGNED: '已派单',
+  BIDDING: '竞价中',
+  AWARDED: '已中标',
+}
+
+const assignmentStatusClass: Record<RuntimeProcessTask['assignmentStatus'], string> = {
+  UNASSIGNED: 'bg-amber-100 text-amber-700',
+  ASSIGNING: 'bg-blue-100 text-blue-700',
+  ASSIGNED: 'bg-green-100 text-green-700',
+  BIDDING: 'bg-blue-100 text-blue-700',
+  AWARDED: 'bg-emerald-100 text-emerald-700',
+}
+
+const qtyUnitLabel: Record<string, string> = {
+  PIECE: '件',
+  BUNDLE: '扎',
+  METER: '米',
+}
+
+function formatAssignmentQty(task: RuntimeProcessTask): string {
+  const qty = Number(task.scopeQty || task.qty || 0)
+  const unit = qtyUnitLabel[task.qtyUnit] || task.qtyUnit || ''
+  return `${qty.toLocaleString('zh-CN')} ${unit}`.trim()
+}
+
+function getAssignmentModeLabel(task: RuntimeProcessTask): string {
+  return task.assignmentMode === 'BIDDING' ? '竞价' : '派单'
+}
+
+function findAssignmentAuditAt(task: RuntimeProcessTask, action: string): string {
+  return task.auditLogs?.find((log) => log.action === action)?.at || ''
+}
+
+function getAssignmentIssuedAt(task: RuntimeProcessTask): string {
+  if (task.assignmentMode === 'DIRECT') return safeText(task.dispatchedAt)
+  return safeText(findAssignmentAuditAt(task, 'BIDDING_START') || task.dispatchedAt)
+}
+
+function getAssignmentFactoryText(task: RuntimeProcessTask): string {
+  if (task.assignedFactoryName || task.assignedFactoryId) {
+    return [task.assignedFactoryName, task.assignedFactoryId].filter(Boolean).join(' / ')
+  }
+  if (task.assignmentStatus === 'UNASSIGNED') return '待分配'
+  if (task.assignmentMode === 'BIDDING') return task.assignmentStatus === 'AWARDED' ? '已中标，工厂待回写' : '竞价中待定标'
+  return '待工厂确认'
+}
+
+function getAssignmentConfirmAtText(task: RuntimeProcessTask): string {
+  if (task.assignmentMode === 'BIDDING') {
+    return task.awardedAt
+      ? `中标：${task.awardedAt}`
+      : task.tenderId
+        ? `待中标 / ${task.tenderId}`
+        : '待发起竞价'
+  }
+
+  if (task.acceptedAt) return `接单：${task.acceptedAt}`
+  if (task.acceptanceStatus === 'REJECTED') return '已拒单'
+  if (task.assignmentStatus === 'ASSIGNED') return '待接单'
+  return '待派单'
+}
+
+function getAssignmentStartText(task: RuntimeProcessTask): string {
+  if (task.startedAt) return task.startedAt
+  if (task.startDueAt) return `待开工 / 要求 ${task.startDueAt}`
+  return '未开工'
+}
+
+function getAssignmentDeadlineText(task: RuntimeProcessTask): string {
+  const lines = [
+    task.assignmentMode === 'DIRECT' && task.acceptDeadline ? `接单截止 ${task.acceptDeadline}` : '',
+    task.assignmentMode === 'BIDDING' && task.biddingDeadline ? `竞价截止 ${task.biddingDeadline}` : '',
+    task.taskDeadline ? `任务截止 ${task.taskDeadline}` : '',
+    task.dispatchRemark ? `备注：${task.dispatchRemark}` : '',
+  ].filter(Boolean)
+  return lines.length ? lines.join('；') : '-'
+}
+
+function renderOrderAssignmentFactoryDetailTable(order: ProductionOrder): string {
+  const tasks = listRuntimeExecutionTasksByOrder(order.productionOrderId)
+    .sort((a, b) => {
+      if (a.seq !== b.seq) return a.seq - b.seq
+      return (a.taskNo || a.taskId).localeCompare(b.taskNo || b.taskId)
+    })
+
+  return `
+    <section class="rounded-lg border bg-card p-4 space-y-3">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 class="text-base font-semibold">工序工艺分配工厂明细</h3>
+          <p class="mt-1 text-xs text-muted-foreground">按生产单下的执行工序 / 工艺单展示分配方式、分配时间、承接工厂、接单或中标、开工与截止节点。</p>
+        </div>
+        <span class="text-xs text-muted-foreground">共 ${tasks.length} 条工序工艺单</span>
+      </div>
+
+      <div class="overflow-x-auto rounded-md border">
+        <table class="min-w-[1180px] w-full text-sm">
+          <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">工序 / 工艺单</th>
+              <th class="px-3 py-2 text-left font-medium">分配方式</th>
+              <th class="px-3 py-2 text-left font-medium">分配时间</th>
+              <th class="px-3 py-2 text-left font-medium">工厂</th>
+              <th class="px-3 py-2 text-left font-medium">接单 / 中标时间</th>
+              <th class="px-3 py-2 text-left font-medium">开工时间</th>
+              <th class="px-3 py-2 text-left font-medium">数量 / 范围</th>
+              <th class="px-3 py-2 text-left font-medium">截止与说明</th>
+              <th class="px-3 py-2 text-left font-medium">执行状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              tasks.length === 0
+                ? renderEmptyRow(9, '暂无工序工艺单')
+                : tasks
+                    .map((task) => {
+                      const processLabel = task.isSpecialCraft && task.craftName
+                        ? `${task.processBusinessName || task.processNameZh} / ${task.craftName}`
+                        : task.craftName && task.craftName !== task.processNameZh
+                          ? `${task.processBusinessName || task.processNameZh} / ${task.craftName}`
+                          : task.processBusinessName || task.processNameZh || task.processCode
+                      return `
+                        <tr class="border-b align-top last:border-0">
+                          <td class="px-3 py-3">
+                            <div class="font-medium">${escapeHtml(processLabel)}</div>
+                            <div class="mt-0.5 font-mono text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</div>
+                            <div class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(task.isSplitResult ? `拆分结果：${task.splitGroupId || '-'}` : task.isSplitSource ? '拆分来源任务' : '原始任务')}</div>
+                          </td>
+                          <td class="px-3 py-3">
+                            <div>${renderBadge(getAssignmentModeLabel(task), task.assignmentMode === 'BIDDING' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700')}</div>
+                            <div class="mt-1">${renderBadge(assignmentStatusLabel[task.assignmentStatus], assignmentStatusClass[task.assignmentStatus])}</div>
+                          </td>
+                          <td class="px-3 py-3 whitespace-nowrap">${escapeHtml(getAssignmentIssuedAt(task))}</td>
+                          <td class="px-3 py-3 min-w-[180px]">${escapeHtml(getAssignmentFactoryText(task))}</td>
+                          <td class="px-3 py-3 min-w-[180px]">${escapeHtml(getAssignmentConfirmAtText(task))}</td>
+                          <td class="px-3 py-3 min-w-[160px]">${escapeHtml(getAssignmentStartText(task))}</td>
+                          <td class="px-3 py-3 min-w-[160px]">
+                            <div>${escapeHtml(formatAssignmentQty(task))}</div>
+                            <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(task.scopeLabel || '-')}</div>
+                          </td>
+                          <td class="px-3 py-3 min-w-[240px] text-xs text-muted-foreground">${escapeHtml(getAssignmentDeadlineText(task))}</td>
+                          <td class="px-3 py-3">${renderBadge(taskStatusLabel[task.status], taskStatusClass[task.status])}</td>
+                        </tr>
+                      `
+                    })
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
 }
 
 function renderOrderPostFinishingMetricCard(order: ProductionOrder): string {
@@ -804,10 +966,7 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
           </section>
         </div>
 
-        <section class="rounded-lg border bg-card p-4 space-y-2">
-          <h3 class="text-base font-semibold">拆分事件与结果</h3>
-          ${renderSplitEventList(breakdown.splitEvents, 6)}
-        </section>
+        ${renderOrderAssignmentFactoryDetailTable(order)}
       </div>
     `
   }
