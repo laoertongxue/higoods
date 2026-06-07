@@ -75,7 +75,7 @@ type MarkerPlanListTab = 'ALL' | 'WAITING_LAYOUT' | 'DEMAND_DIFF' | 'WAITING_CON
 type MarkerPlanDetailTabKey = 'overview' | 'source-lock' | 'beds' | 'material' | 'spreading' | 'demand' | 'system-log'
 type MarkerPlanListFilterField = 'keyword' | 'contextNo' | 'markerNo' | 'contextType' | 'mode' | 'status' | 'ready'
 type MarkerPlanCreateStepKey = 'source' | 'combination' | 'layout' | 'match'
-type MarkerPlanContextField = 'contextKeyword'
+type MarkerPlanContextField = 'contextKeyword' | 'contextPageSize'
 type MarkerPlanBasicField =
   | 'markerNo'
   | 'markerMode'
@@ -129,6 +129,8 @@ interface MarkerPlanPageState {
   draftPlan: MarkerPlan | null
   contextDrawerOpen: boolean
   contextKeyword: string
+  contextPage: number
+  contextPageSize: number
   selectedContextKeys: string[]
   mappingDrawerOpen: boolean
   mappingTargetRowId: string
@@ -154,6 +156,8 @@ const state: MarkerPlanPageState = {
   draftPlan: null,
   contextDrawerOpen: false,
   contextKeyword: '',
+  contextPage: 1,
+  contextPageSize: 5,
   selectedContextKeys: [],
   mappingDrawerOpen: false,
   mappingTargetRowId: '',
@@ -175,6 +179,7 @@ const CREATE_PATH = '/fcs/craft/cutting/marker-create'
 const EDIT_BASE_PATH = '/fcs/craft/cutting/marker-edit'
 const DETAIL_BASE_PATH = '/fcs/craft/cutting/marker-detail'
 const MARKER_PLAN_TOP_INFO_OFFSET_VAR = '--marker-plan-top-info-offset'
+const CREATE_CONTEXT_PAGE_SIZE_OPTIONS = [5, 10, 20] as const
 
 let markerPlanTopInfoResizeObserver: ResizeObserver | null = null
 let markerPlanStickyResizeBound = false
@@ -1469,6 +1474,7 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
     state.activeTab = 'basic'
     state.activeCreateStep = 'source'
     state.contextDrawerOpen = false
+    state.contextPage = 1
     state.selectedContextKeys = []
     state.mappingDrawerOpen = false
     state.mappingTargetRowId = ''
@@ -1485,6 +1491,7 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
       state.activeTab = resolvedTab || existingDraft.lastVisitedTab || 'basic'
       state.activeCreateStep = requestedCreateStep || getCreateStepFromActiveTab(state.activeTab)
       state.contextDrawerOpen = false
+      state.contextPage = 1
       state.selectedContextKeys = buildContextKeysFromCutOrderIds(existingDraft.cutOrderIds)
       state.mappingDrawerOpen = false
       state.mappingTargetRowId = ''
@@ -1516,6 +1523,7 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
       state.activeTab = resolvedTab || 'basic'
       state.activeCreateStep = requestedCreateStep || getCreateStepFromActiveTab(state.activeTab)
       state.contextDrawerOpen = false
+      state.contextPage = 1
       state.selectedContextKeys = contexts.map((context) => context.contextKey)
       state.mappingDrawerOpen = false
       state.mappingTargetRowId = ''
@@ -1527,6 +1535,7 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
     state.activeTab = 'basic'
     state.activeCreateStep = requestedCreateStep || 'source'
     state.contextDrawerOpen = false
+    state.contextPage = 1
     state.selectedContextKeys = []
     state.mappingDrawerOpen = false
     state.mappingTargetRowId = ''
@@ -2128,12 +2137,95 @@ function renderCreateStepNav(plan: MarkerPlan | null): string {
   `
 }
 
+function getContextDisplayColors(context: MarkerPlanContextCandidate): string {
+  const sourceValues = [
+    context.colorSummary,
+    ...context.sourceCutOrderRows.flatMap((row) => [row.materialColor, row.color]),
+  ]
+  const normalized = splitDisplayText(sourceValues.join(' / '))
+    .filter((value) => !isMissingPrototypeText(value))
+  if (normalized.length) return Array.from(new Set(normalized)).join(' / ')
+
+  const skuText = `${context.materialSkuSummary} ${context.styleName}`.toLowerCase()
+  if (skuText.includes('black')) return 'Black'
+  if (skuText.includes('charcoal') || skuText.includes('grey') || skuText.includes('gray')) return 'Grey'
+  if (skuText.includes('navy')) return 'Navy'
+  if (skuText.includes('khaki')) return 'Khaki'
+  if (skuText.includes('beige')) return 'Beige'
+  if (skuText.includes('cream')) return 'Cream'
+  if (skuText.includes('white')) return 'White'
+  if (skuText.includes('green')) return 'Green'
+  return '主色'
+}
+
+function getContextDisplayMaterialAlias(context: MarkerPlanContextCandidate): string {
+  const cleaned = normalizeMaterialAliasText(context.materialAliasSummary)
+  if (cleaned) return cleaned
+  const skuText = `${context.materialSkuSummary} ${context.styleName}`.toLowerCase()
+  if (skuText.includes('毛织') || skuText.includes('wool') || skuText.includes('rajut') || skuText.includes('sweater')) return '毛织用纱线'
+  if (skuText.includes('lining') || skuText.includes('里布')) return '里布'
+  if (skuText.includes('twill')) return '弹力斜纹主面料'
+  if (skuText.includes('canvas')) return '帆布主面料'
+  return '主面料'
+}
+
+function getContextMaterialImageUrl(context: MarkerPlanContextCandidate, colorText: string): string {
+  const imageUrl = String(context.materialImageUrl || '').trim()
+  if (imageUrl && !imageUrl.includes('placeholder') && !imageUrl.startsWith('data:image/svg')) return imageUrl
+  return buildFabricSwatchDataUrl(colorText || context.materialSkuSummary)
+}
+
+function renderCreateContextPagination(total: number, currentPage: number, pageSize: number, from: number, to: number): string {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const prevDisabled = currentPage <= 1
+  const nextDisabled = currentPage >= totalPages
+  const rangeText = total > 0 ? `，当前 ${from}-${to}` : ''
+  return `
+    <footer class="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-3">
+      <p class="text-xs text-muted-foreground">共 ${total} 个裁片单${rangeText}</p>
+      <div class="flex flex-wrap items-center gap-2">
+        <select class="h-8 rounded-md border bg-background px-2 text-xs" data-marker-plan-context-field="contextPageSize">
+          ${CREATE_CONTEXT_PAGE_SIZE_OPTIONS.map((size) => `<option value="${size}" ${size === pageSize ? 'selected' : ''}>${size} 条/页</option>`).join('')}
+        </select>
+        <button
+          type="button"
+          class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${prevDisabled ? 'cursor-not-allowed opacity-60' : ''}"
+          data-marker-plan-action="prev-context-page"
+          ${prevDisabled ? 'disabled' : ''}
+        >
+          上一页
+        </button>
+        <span class="text-xs text-muted-foreground">${currentPage} / ${totalPages}</span>
+        <button
+          type="button"
+          class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${nextDisabled ? 'cursor-not-allowed opacity-60' : ''}"
+          data-marker-plan-action="next-context-page"
+          ${nextDisabled ? 'disabled' : ''}
+        >
+          下一页
+        </button>
+      </div>
+    </footer>
+  `
+}
+
 function renderCreateCutOrderSelectionStep(viewModel = getViewModel()): string {
   const contexts = filterMarkerSourceContextsByKeyword(getMarkerPlanCutOrderContexts(viewModel))
   const selectedContexts = getSelectedDrawerContexts(viewModel)
   const selectedKeys = new Set(state.selectedContextKeys)
   const selectedSpuCodes = getContextSpuCodes(selectedContexts)
   const validation = validateMarkerPlanSourceSelection(selectedContexts)
+  const pageSize = CREATE_CONTEXT_PAGE_SIZE_OPTIONS.includes(state.contextPageSize as (typeof CREATE_CONTEXT_PAGE_SIZE_OPTIONS)[number])
+    ? state.contextPageSize
+    : 5
+  const totalPages = Math.max(1, Math.ceil(contexts.length / pageSize))
+  const currentPage = Math.min(Math.max(state.contextPage, 1), totalPages)
+  state.contextPage = currentPage
+  state.contextPageSize = pageSize
+  const startIndex = (currentPage - 1) * pageSize
+  const pageContexts = contexts.slice(startIndex, startIndex + pageSize)
+  const pageFrom = contexts.length ? startIndex + 1 : 0
+  const pageTo = contexts.length ? Math.min(startIndex + pageContexts.length, contexts.length) : 0
   const selectedSummary = selectedContexts.length
     ? `已选 ${selectedContexts.length} 个裁片单${selectedSpuCodes.length === 1 ? `，SPU：${selectedSpuCodes[0]}` : ''}`
     : '未选择'
@@ -2176,73 +2268,87 @@ function renderCreateCutOrderSelectionStep(viewModel = getViewModel()): string {
         ${escapeHtml(message)}
       </div>
 
-      <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        ${contexts.length
-          ? contexts.map((context) => {
+      <div class="mt-4 overflow-hidden rounded-lg border">
+        ${renderStickyTableScroller(`
+          <table class="w-full table-fixed text-left text-sm">
+            <thead class="bg-muted/40 text-xs text-muted-foreground">
+              <tr>
+                <th class="w-[11rem] px-3 py-2 font-medium">裁片单</th>
+                <th class="w-[12rem] px-3 py-2 font-medium">生产单 / SPU</th>
+                <th class="w-[17rem] px-3 py-2 font-medium">物料 / 纸样</th>
+                <th class="w-[7rem] px-3 py-2 font-medium">可用余额</th>
+                <th class="w-[9rem] px-3 py-2 font-medium">执行去向</th>
+                <th class="w-[10rem] px-3 py-2 font-medium">承接方</th>
+                <th class="w-[8rem] px-3 py-2 font-medium">备料 / 优先级</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pageContexts.length
+                ? pageContexts.map((context) => {
             const selected = selectedKeys.has(context.contextKey)
             const firstRow = context.sourceCutOrderRows[0]
+            const displayColors = getContextDisplayColors(context)
+            const displayAlias = getContextDisplayMaterialAlias(context)
+            const materialImageUrl = getContextMaterialImageUrl(context, displayColors)
             const availableText = firstRow
-              ? `${formatNumber(firstRow.availableQty, 2)} ${escapeHtml(firstRow.availableUnit || firstRow.materialUnit || '米')}`
+              ? `${formatNumber(firstRow.availableQty, 2)} ${firstRow.availableUnit || firstRow.materialUnit || '米'}`
               : '—'
             return `
-              <label
-                class="block rounded-lg border p-3 text-sm transition ${selected ? 'border-blue-300 bg-blue-50/70' : 'bg-background hover:border-blue-200 hover:bg-blue-50/30'}"
+              <tr
+                class="cursor-pointer border-t align-top transition ${selected ? 'bg-blue-50/70' : 'bg-background hover:bg-blue-50/30'}"
                 data-marker-plan-context-row
+                data-marker-plan-action="toggle-context-row"
                 data-context-key="${escapeHtml(context.contextKey)}"
               >
-                <div class="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    class="mt-1 h-4 w-4 rounded border"
-                    data-marker-plan-action="select-context"
-                    data-context-key="${escapeHtml(context.contextKey)}"
-                    ${selected ? 'checked' : ''}
-                  />
-                  <div class="min-w-0 flex-1 space-y-2">
-                    <div class="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <div class="font-semibold text-blue-700">${escapeHtml(context.contextNo)}</div>
-                        <div class="mt-0.5 text-xs text-muted-foreground">生产单：${escapeHtml(context.productionOrderNos.join(' / ') || '—')}</div>
-                        <div class="mt-0.5 text-xs text-muted-foreground">裁片任务：${escapeHtml(context.cuttingTaskNos.join(' / ') || '待补')}</div>
-                      </div>
-                      <span class="rounded-full border bg-white px-2 py-0.5 text-[11px]">${escapeHtml(context.sourceUrgencyLabel || '普通')}</span>
-                    </div>
-                    <div class="grid gap-2 text-xs sm:grid-cols-2">
-                      <div class="rounded-md border bg-white/70 px-2 py-2">
-                        <div class="text-muted-foreground">SPU / 款式</div>
-                        <div class="mt-1 font-medium text-foreground">${escapeHtml(context.spuCode || '—')} / ${escapeHtml(context.styleName || '—')}</div>
-                      </div>
-                      <div class="rounded-md border bg-white/70 px-2 py-2">
-                        <div class="text-muted-foreground">可用余额</div>
-                        <div class="mt-1 font-medium text-foreground">${availableText}</div>
-                      </div>
-                      <div class="rounded-md border bg-white/70 px-2 py-2">
-                        <div class="text-muted-foreground">执行去向</div>
-                        <div class="mt-1 font-medium text-foreground">${escapeHtml(context.executionRouteLabel || '待分配承接方')}</div>
-                      </div>
-                      <div class="rounded-md border bg-white/70 px-2 py-2">
-                        <div class="text-muted-foreground">承接方</div>
-                        <div class="mt-1 font-medium text-foreground">${escapeHtml(context.cuttingTaskAssigneeFactoryNames.join(' / ') || '待分配')}</div>
-                      </div>
-                    </div>
-                    <div class="rounded-md border bg-white/70 p-2">
-                      ${renderMaterialIdentityBlock({
-                        materialSku: context.materialSkuSummary || '—',
-                        materialLabel: context.materialSkuSummary || '—',
-                        materialAlias: context.materialAliasSummary || '',
-                        materialImageUrl: context.materialImageUrl || '',
-                      }, { compact: true })}
-                      <div class="mt-1 text-xs text-muted-foreground">颜色：${escapeHtml(context.colorSummary || '—')}</div>
-                    </div>
-                    <div class="text-xs text-muted-foreground">
-                      纸样：${escapeHtml(firstRow?.patternFileName || firstRow?.patternFileId || '—')} / 版本：${escapeHtml(firstRow?.patternVersion || '—')} / 有效幅宽：${escapeHtml(firstRow?.effectiveWidthText || '—')}
+                <td class="px-3 py-2">
+                  <div class="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      class="mt-1 h-4 w-4 rounded border"
+                      data-marker-plan-action="select-context"
+                      data-context-key="${escapeHtml(context.contextKey)}"
+                      ${selected ? 'checked' : ''}
+                    />
+                    <div class="min-w-0">
+                      <div class="font-semibold text-blue-700">${escapeHtml(context.contextNo)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">任务：${escapeHtml(context.cuttingTaskNos.join(' / ') || '待分配任务')}</div>
                     </div>
                   </div>
-                </div>
-              </label>
+                </td>
+                <td class="px-3 py-2">
+                  <div class="font-medium">${escapeHtml(context.productionOrderNos.join(' / ') || '—')}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(context.spuCode || '—')} / ${escapeHtml(context.styleName || '—')}</div>
+                </td>
+                <td class="px-3 py-2">
+                  ${renderMaterialIdentityBlock({
+                    materialSku: context.materialSkuSummary || '—',
+                    materialLabel: context.materialSkuSummary || '—',
+                    materialColor: displayColors,
+                    materialAlias: displayAlias,
+                    materialImageUrl,
+                  }, { compact: true })}
+                  <div class="mt-1 text-xs text-muted-foreground">
+                    纸样：${escapeHtml(firstRow?.patternFileName || firstRow?.patternFileId || '—')} / ${escapeHtml(firstRow?.patternVersion || '—')} / ${escapeHtml(firstRow?.effectiveWidthText || '—')}
+                  </div>
+                </td>
+                <td class="px-3 py-2 font-medium">${escapeHtml(availableText)}</td>
+                <td class="px-3 py-2">
+                  <div class="font-medium">${escapeHtml(context.executionRouteLabel || '待分配承接方')}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(context.cuttingTaskAssignmentStatusLabels.join(' / ') || '待确认')}</div>
+                </td>
+                <td class="px-3 py-2">${escapeHtml(context.cuttingTaskAssigneeFactoryNames.join(' / ') || '待分配')}</td>
+                <td class="px-3 py-2">
+                  <div>${escapeHtml(context.prepStatusLabel || '待备料')}</div>
+                  <div class="mt-1 inline-flex rounded-full border bg-background px-2 py-0.5 text-[11px]">${escapeHtml(context.sourceUrgencyLabel || '普通')}</div>
+                </td>
+              </tr>
             `
           }).join('')
-          : '<div class="rounded-lg border border-dashed px-3 py-8 text-center text-xs text-muted-foreground md:col-span-2 xl:col-span-3">当前暂无裁片单。</div>'}
+          : '<tr><td colspan="7" class="px-3 py-8 text-center text-xs text-muted-foreground">当前暂无裁片单。</td></tr>'}
+            </tbody>
+          </table>
+        `)}
+        ${renderCreateContextPagination(contexts.length, currentPage, pageSize, pageFrom, pageTo)}
       </div>
     </section>
   `
@@ -4211,7 +4317,6 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                           <div class="font-medium">${escapeHtml(row.cuttingTaskNos?.slice(0, 2).join(' / ') || '待关联裁片任务')}</div>
                           <div class="mt-1 text-xs text-muted-foreground">裁片单：${formatCount(row.cutOrderNos.length || sourceRows.length)} 个</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.cutOrderNos.slice(0, 3).join(' / ') || getPlanSourceNoText(row))}${row.cutOrderNos.length > 3 ? ' ...' : ''}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">部位：${escapeHtml(firstSource?.piecePartNames?.join(' / ') || '—')}</div>
                         </td>
                         <td class="px-2 py-1">
                           <div class="flex flex-wrap gap-1">${renderStatusBadge(getPlanLockShortLabel(row), lockBadgeClass)}</div>
@@ -4885,6 +4990,7 @@ function handleAction(action: string, node: HTMLElement): boolean {
     state.draftPlan = null
     state.contextDrawerOpen = false
     state.contextKeyword = ''
+    state.contextPage = 1
     state.selectedContextKeys = []
     appStore.navigate(CREATE_PATH)
     return true
@@ -5007,6 +5113,7 @@ function handleAction(action: string, node: HTMLElement): boolean {
 
   if (action === 'close-context-drawer') {
     state.contextDrawerOpen = false
+    state.contextPage = 1
     state.selectedContextKeys = []
     removeContextDrawerDom()
     return false
@@ -5022,6 +5129,15 @@ function handleAction(action: string, node: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'toggle-context-row') {
+    const contextKey = node.dataset.contextKey || ''
+    if (!contextKey) return false
+    state.selectedContextKeys = state.selectedContextKeys.includes(contextKey)
+      ? state.selectedContextKeys.filter((item) => item !== contextKey)
+      : Array.from(new Set([...state.selectedContextKeys, contextKey]))
+    return true
+  }
+
   if (action === 'remove-selected-context') {
     const contextKey = node.dataset.contextKey || ''
     if (!contextKey) return false
@@ -5031,6 +5147,18 @@ function handleAction(action: string, node: HTMLElement): boolean {
 
   if (action === 'clear-selected-contexts') {
     state.selectedContextKeys = []
+    return true
+  }
+
+  if (action === 'prev-context-page') {
+    state.contextPage = Math.max(1, state.contextPage - 1)
+    return true
+  }
+
+  if (action === 'next-context-page') {
+    const contexts = filterMarkerSourceContextsByKeyword(getMarkerPlanCutOrderContexts(viewModel))
+    const totalPages = Math.max(1, Math.ceil(contexts.length / state.contextPageSize))
+    state.contextPage = Math.min(totalPages, state.contextPage + 1)
     return true
   }
 
@@ -5337,9 +5465,18 @@ export function handleCraftCuttingMarkerPlanEvent(target: Element): boolean {
   const contextFieldNode = target.closest<HTMLElement>('[data-marker-plan-context-field]')
   if (contextFieldNode) {
     const field = contextFieldNode.dataset.markerPlanContextField as MarkerPlanContextField | undefined
-    const input = contextFieldNode as HTMLInputElement
+    const input = contextFieldNode as HTMLInputElement | HTMLSelectElement
     if (field === 'contextKeyword') {
       state.contextKeyword = input.value
+      state.contextPage = 1
+      return true
+    }
+    if (field === 'contextPageSize') {
+      const nextPageSize = Number(input.value)
+      state.contextPageSize = CREATE_CONTEXT_PAGE_SIZE_OPTIONS.includes(nextPageSize as (typeof CREATE_CONTEXT_PAGE_SIZE_OPTIONS)[number])
+        ? nextPageSize
+        : 5
+      state.contextPage = 1
       return true
     }
   }
