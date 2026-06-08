@@ -290,12 +290,11 @@ function buildProjectedRecord(
     closeReason: profile.closeReason,
     ledgerSnapshotBeforeClose: profile.closeReason
       ? {
-          requiredMaterialQty: materialLines.reduce((sum, line) => sum + Number(line.configuredLength || 0), 0),
-          transferWarehouseAllocatedQty: materialLines.reduce((sum, line) => sum + Number(line.configuredLength || 0), 0),
-          cuttingClaimedQty: materialLines.reduce((sum, line) => sum + Number(line.receivedLength || 0), 0),
-          markerLockedQty: 0,
-          spreadingConsumedQty: materialLines.reduce((sum, line) => sum + Number(line.receivedLength || 0), 0) * 0.68,
-          availableQty: 0,
+	          requiredMaterialQty: materialLines.reduce((sum, line) => sum + Number(line.configuredLength || 0), 0),
+	          transferWarehouseAllocatedQty: materialLines.reduce((sum, line) => sum + Number(line.configuredLength || 0), 0),
+	          cuttingClaimedQty: materialLines.reduce((sum, line) => sum + Number(line.receivedLength || 0), 0),
+	          spreadingConsumedQty: materialLines.reduce((sum, line) => sum + Number(line.receivedLength || 0), 0) * 0.68,
+	          availableQty: 0,
           unit: '米',
         }
       : undefined,

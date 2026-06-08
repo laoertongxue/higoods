@@ -197,6 +197,15 @@ function formatLength(value: number): string {
   return `${Number(value || 0).toFixed(2)} 米`
 }
 
+function formatMaterialQty(value: number, unit = '米'): string {
+  return `${Number(value || 0).toFixed(2)} ${unit || '米'}`
+}
+
+function renderMaterialReadinessBadge(target: PdaCuttingSpreadingTarget): string {
+  const readiness = target.materialReadiness
+  return `<span class="inline-flex rounded-xl border px-2 py-0.5 text-[11px] font-medium ${readiness.statusClassName}">${escapeHtml(readiness.statusLabel)}</span>`
+}
+
 function buildCuttingActualOutputLines(
   target: PdaCuttingSpreadingTarget,
   actualCutQty: number,
@@ -411,6 +420,18 @@ function renderTargetSummary(target: PdaCuttingSpreadingTarget | null): string {
       <div data-pda-cut-spreading-field="spreadingMode"><div class="text-muted-foreground">唛架模式</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(getSpreadingModeLabel(target.spreadingMode))}</div></div>
       <div><div class="text-muted-foreground">裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.cutOrderNo || '—')}</div></div>
       <div><div class="text-muted-foreground">唛架方案</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.markerPlanNo || '—')}</div></div>
+      <div class="sm:col-span-2 rounded-xl border bg-muted/20 px-2 py-1.5">
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-muted-foreground">铺布物料状态</div>
+          ${renderMaterialReadinessBadge(target)}
+        </div>
+        <div class="mt-1 grid grid-cols-3 gap-1 text-[11px]">
+          <div><div class="text-muted-foreground">计划</div><div class="font-semibold text-foreground">${escapeHtml(formatMaterialQty(target.materialReadiness.plannedUsageQty, target.materialReadiness.unit))}</div></div>
+          <div><div class="text-muted-foreground">可用</div><div class="font-semibold text-foreground">${escapeHtml(formatMaterialQty(target.materialReadiness.availableQty, target.materialReadiness.unit))}</div></div>
+          <div><div class="text-muted-foreground">缺口</div><div class="font-semibold ${target.materialReadiness.shortageQty > 0 ? 'text-rose-600' : 'text-emerald-700'}">${escapeHtml(formatMaterialQty(target.materialReadiness.shortageQty, target.materialReadiness.unit))}</div></div>
+        </div>
+        <div class="mt-1 text-[11px] leading-4 text-muted-foreground">${escapeHtml(target.materialReadiness.reasonText)}</div>
+      </div>
       <div class="sm:col-span-2">
         <div class="mb-1 text-muted-foreground">面料信息</div>
         ${renderMaterialIdentityBlock(
@@ -607,17 +628,29 @@ function renderFormInner(
   `
 }
 
-function renderSubmitBar(taskId: string, form: SpreadingFormState, pageBackHref: string, actionLabel: string): string {
+function renderSubmitBar(
+  taskId: string,
+  form: SpreadingFormState,
+  pageBackHref: string,
+  actionLabel: string,
+  selectedTarget: PdaCuttingSpreadingTarget | null,
+): string {
+  void form
+  const disabledByMaterial = actionLabel === '开始铺布' && selectedTarget !== null && !selectedTarget.materialReadiness.canStartSpreading
+  const submitClassName = disabledByMaterial
+    ? 'inline-flex min-h-6 items-center justify-center rounded-xl bg-muted px-2 py-1 text-xs font-medium text-muted-foreground opacity-70'
+    : 'inline-flex min-h-6 items-center justify-center rounded-xl bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:opacity-90'
   return `
-    <div class="sticky bottom-0 z-10 rounded-xl border bg-background/95 px-1.5 py-1 backdrop-blur" data-testid="pda-cutting-spreading-submit-bar">
+    <div class="sticky bottom-0 z-10 rounded-xl border bg-background/95 px-1.5 py-1 backdrop-blur" data-testid="pda-cutting-spreading-submit-bar" data-pda-cut-spreading-submit-shell="${escapeHtml(taskId)}">
       <div class="grid grid-cols-[0.9fr_1.1fr] gap-1">
         <button class="inline-flex min-h-6 items-center justify-center rounded-xl border px-2 py-1 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}" data-pda-cut-spreading-back="true">
           返回
         </button>
-        <button class="inline-flex min-h-6 items-center justify-center rounded-xl bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-spreading-action="submit" data-task-id="${escapeHtml(taskId)}">
+        <button class="${submitClassName}" data-pda-cut-spreading-action="submit" data-task-id="${escapeHtml(taskId)}" ${disabledByMaterial ? 'disabled aria-disabled="true"' : ''}>
           ${escapeHtml(actionLabel)}
         </button>
       </div>
+      ${disabledByMaterial ? `<div class="mt-1 text-center text-[11px] text-muted-foreground">${escapeHtml(selectedTarget?.materialReadiness.reasonText || '')}</div>` : ''}
       <button class="mt-1 inline-flex min-h-6 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100" data-nav="${escapeHtml(`/fcs/pda/cutting/replenishment-feedback/${encodeURIComponent(taskId)}?returnTo=${encodeURIComponent(pageBackHref)}`)}">
         上报异常
       </button>
@@ -634,6 +667,12 @@ function syncSpreadingFormDom(taskId: string, executionOrderId?: string | null, 
   const form = getState(taskId, executionOrderId, executionOrderNo)
   const pageBackHref = form.backHrefOverride || context.backHref
   root.innerHTML = renderFormInner(taskId, context.detail, form)
+  const actionLabel = getPrimaryActionLabel(context.detail)
+  const selectedTarget = getSelectedTarget(context.detail, form.selectedTargetKey)
+  const submitShell = document.querySelector<HTMLElement>(`[data-pda-cut-spreading-submit-shell="${taskId}"]`)
+  if (submitShell) {
+    submitShell.outerHTML = renderSubmitBar(taskId, form, pageBackHref, actionLabel, selectedTarget)
+  }
 }
 
 export function renderPdaCuttingSpreadingPage(taskId: string): string {
@@ -669,6 +708,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
   const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
   const pageBackHref = form.backHrefOverride || context.backHref
   const actionLabel = getPrimaryActionLabel(detail)
+  const selectedTargetForSubmit = getSelectedTarget(detail, form.selectedTargetKey)
 
   if (actionLabel === '去领料' || actionLabel === '开工') {
     const isPickup = actionLabel === '去领料'
@@ -723,7 +763,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
   const body = `
     <div class="space-y-1.5">
       ${renderLatestSummary(detail)}
-      ${renderSubmitBar(taskId, form, pageBackHref, actionLabel)}
+      ${renderSubmitBar(taskId, form, pageBackHref, actionLabel, selectedTargetForSubmit)}
       <div data-task-id="${escapeHtml(taskId)}" data-pda-cut-spreading-root="${escapeHtml(taskId)}">${renderFormInner(taskId, detail, form)}</div>
     </div>
   `
@@ -899,6 +939,13 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     }
     const actionLabel = getPrimaryActionLabel(detail)
     const operator = resolveCurrentOperator(taskId, detail)
+
+    if (actionLabel === '开始铺布' && !selectedTarget.materialReadiness.canStartSpreading) {
+      form.feedbackMessage = selectedTarget.materialReadiness.reasonText
+      form.feedbackTone = 'warning'
+      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+      return true
+    }
 
     if (isCuttingAction(actionLabel)) {
       const actualCutQty = Number(form.actualCutQty || '0') || 0

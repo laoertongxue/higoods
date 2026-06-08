@@ -1387,7 +1387,7 @@ function getFactoryOptions(): Array<{ id: string; name: string }> {
 
 function getEffectiveTasks(): DispatchTask[] {
   syncDispatchCapacityUsageLedger()
-  return listRuntimeProcessTasks().filter((task) => isRuntimeTaskExecutionTask(task))
+  return listRuntimeProcessTasks().filter((task) => isRuntimeTaskExecutionTask(task) && !isRuntimeSewingTask(task))
 }
 
 function getFilteredRows(keyword: string): DispatchTask[] {

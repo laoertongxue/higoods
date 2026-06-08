@@ -490,11 +490,6 @@ function buildProductionOrderChain(row: ProductionProgressRow): ProductionOrderC
         ledgerLines,
         prepEvents: getLedgerEventsForTypes(ledgerLines, ['TRANSFER_WAREHOUSE_ALLOCATED']),
         claimEvents: getLedgerEventsForTypes(ledgerLines, ['CUTTING_CLAIMED']),
-        lockEvents: getLedgerEventsForTypes(ledgerLines, [
-          'MARKER_DRAFT_LOCKED',
-          'MARKER_DRAFT_RELEASED',
-          'MARKER_CONFIRMED_LOCKED',
-        ]),
         consumeEvents: getLedgerEventsForTypes(ledgerLines, ['SPREADING_ACTUAL_CONSUMED', 'CUTTING_RETURNED', 'LEDGER_ADJUSTED']),
         markerPlanNos,
         spreadingOrders: cutOrderSpreadingOrders,
@@ -562,7 +557,6 @@ function buildEmptyMaterialQuantityLedger(materialSku: string): MaterialQuantity
     requiredMaterialQty: 0,
     transferWarehouseAllocatedQty: 0,
     cuttingClaimedQty: 0,
-    markerLockedQty: 0,
     spreadingConsumedQty: 0,
     returnedQty: 0,
     adjustmentQty: 0,
@@ -619,11 +613,8 @@ function buildCutOrderDimensionRows(rows: ProductionProgressRow[]): CutOrderDime
             : quantityLedger.availableQty <= 0
               ? '可用余额为 0'
               : '可用于唛架方案编排'
-      const markerRelationText =
-        quantityLedger.markerLockedQty > 0
-          ? `已锁定 ${formatMaterialLedgerQty(quantityLedger.markerLockedQty, quantityLedger.unit)}`
-          : snapshot?.markerProgress.status || '无唛架方案占用'
-      const markerSourceLabel = quantityLedger.markerLockedQty > 0 || markerRelationText !== '无唛架方案占用'
+      const markerRelationText = snapshot?.markerProgress.status || '无唛架方案'
+      const markerSourceLabel = markerRelationText !== '无唛架方案'
         ? '已关联唛架'
         : '待建唛架'
       const operationResultText = [
@@ -1217,7 +1208,6 @@ function renderPrepProgressCell(row: ProductionProgressRow): string {
       [
         ['需求用量', 'requiredMaterialQty'],
         ['中转仓已配数量', 'transferWarehouseAllocatedQty'],
-        ['已锁定数量', 'markerLockedQty'],
       ],
     ),
   )
@@ -1326,7 +1316,6 @@ function renderMaterialProgressSection(row: ProductionProgressRow): string {
               <th class="px-4 py-3 text-left font-medium">需求用量</th>
               <th class="px-4 py-3 text-left font-medium">中转仓已配数量</th>
               <th class="px-4 py-3 text-left font-medium">裁床已领数量</th>
-              <th class="px-4 py-3 text-left font-medium">已锁定数量</th>
               <th class="px-4 py-3 text-left font-medium">已消耗数量</th>
               <th class="px-4 py-3 text-left font-medium">可用余额</th>
             </tr>
@@ -1339,12 +1328,11 @@ function renderMaterialProgressSection(row: ProductionProgressRow): string {
                       (line) => `
                         <tr class="border-b last:border-b-0 align-top">
                           <td class="px-4 py-3">${renderMaterialIdentityBlock(line.materialIdentity, { compact: true, imageSizeClass: 'h-9 w-9' })}</td>
-                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.requiredMaterialQty, line.unit))}</td>
-                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.transferWarehouseAllocatedQty, line.unit))}</td>
-                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.cuttingClaimedQty, line.unit))}</td>
-                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.markerLockedQty, line.unit))}</td>
-                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.spreadingConsumedQty, line.unit))}</td>
-                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.availableQty, line.unit))}</td>
+	                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.requiredMaterialQty, line.unit))}</td>
+	                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.transferWarehouseAllocatedQty, line.unit))}</td>
+	                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.cuttingClaimedQty, line.unit))}</td>
+	                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.spreadingConsumedQty, line.unit))}</td>
+	                          <td class="px-4 py-3 font-medium tabular-nums">${escapeHtml(formatMaterialLedgerQty(line.availableQty, line.unit))}</td>
                         </tr>
                       `,
                     )
@@ -1806,11 +1794,10 @@ function renderProductionChainCutOrdersTab(row: ProductionProgressRow, chain: Pr
                           </div>
                           <div>
                             ${renderMaterialLedgerLine(ledger, [
-                              ['需求用量', 'requiredMaterialQty'],
-                              ['裁床已领数量', 'cuttingClaimedQty'],
-                              ['已锁定数量', 'markerLockedQty'],
-                              ['已消耗数量', 'spreadingConsumedQty'],
-                              ['可用余额', 'availableQty'],
+	                              ['需求用量', 'requiredMaterialQty'],
+	                              ['裁床已领数量', 'cuttingClaimedQty'],
+	                              ['已消耗数量', 'spreadingConsumedQty'],
+	                              ['可用余额', 'availableQty'],
                             ])}
                           </div>
                         </div>
@@ -1890,18 +1877,12 @@ function renderProductionChainMarkerSpreadingTab(chain: ProductionOrderChain): s
                         ${item.spreadingOrders.length ? `<div class="space-y-2">${item.spreadingOrders.map(renderOrder).join('')}</div>` : renderChainEmpty('暂无铺布单。')}
                       </div>
                     </div>
-                    ${item.lockEvents.length || item.consumeEvents.length ? `
-                      <div class="mt-3 grid gap-3 lg:grid-cols-2">
-                        <div>
-                          <div class="mb-2 text-sm font-medium">唛架锁定流水</div>
-                          ${renderLedgerEventList(item.lockEvents, '暂无锁定流水。')}
-                        </div>
-                        <div>
-                          <div class="mb-2 text-sm font-medium">消耗 / 回收流水</div>
-                          ${renderLedgerEventList(item.consumeEvents, '暂无消耗或回收流水。')}
-                        </div>
-                      </div>
-                    ` : ''}
+	                    ${item.consumeEvents.length ? `
+	                      <div class="mt-3">
+	                          <div class="mb-2 text-sm font-medium">消耗 / 回收流水</div>
+	                          ${renderLedgerEventList(item.consumeEvents, '暂无消耗或回收流水。')}
+	                      </div>
+	                    ` : ''}
                   </article>
                 `)
                 .join('')
@@ -2482,23 +2463,22 @@ function renderProductionOrderLedgerSummaryCell(row: ProductionProgressRow): str
   const ledgerLines = buildMaterialQuantityLedgerLines(row)
   const summary = ledgerLines.reduce(
     (result, line) => {
-      result.required += line.requiredMaterialQty
-      result.allocated += line.transferWarehouseAllocatedQty
-      result.claimed += line.cuttingClaimedQty
-      result.locked += line.markerLockedQty
-      result.consumed += line.spreadingConsumedQty
-      result.available += line.availableQty
+	      result.required += line.requiredMaterialQty
+	      result.allocated += line.transferWarehouseAllocatedQty
+	      result.claimed += line.cuttingClaimedQty
+	      result.consumed += line.spreadingConsumedQty
+	      result.available += line.availableQty
       result.unit = result.unit || line.unit
       return result
     },
-    { required: 0, allocated: 0, claimed: 0, locked: 0, consumed: 0, available: 0, unit: '米' },
+	    { required: 0, allocated: 0, claimed: 0, consumed: 0, available: 0, unit: '米' },
   )
   return `
     <div class="space-y-1 text-xs leading-5">
       <div class="flex justify-between gap-2"><span class="text-muted-foreground">需求</span><span class="font-medium">${escapeHtml(formatMaterialLedgerQty(summary.required, summary.unit))}</span></div>
       <div class="flex justify-between gap-2"><span class="text-muted-foreground">中转仓已配</span><span class="font-medium">${escapeHtml(formatMaterialLedgerQty(summary.allocated, summary.unit))}</span></div>
       <div class="flex justify-between gap-2"><span class="text-muted-foreground">裁床已领</span><span class="font-medium">${escapeHtml(formatMaterialLedgerQty(summary.claimed, summary.unit))}</span></div>
-      <div class="flex justify-between gap-2"><span class="text-muted-foreground">锁定 / 消耗</span><span class="font-medium">${escapeHtml(`${formatMaterialLedgerQty(summary.locked, summary.unit)} / ${formatMaterialLedgerQty(summary.consumed, summary.unit)}`)}</span></div>
+	      <div class="flex justify-between gap-2"><span class="text-muted-foreground">已消耗</span><span class="font-medium">${escapeHtml(formatMaterialLedgerQty(summary.consumed, summary.unit))}</span></div>
       <div class="flex justify-between gap-2"><span class="text-muted-foreground">可用余额</span><span class="font-semibold text-emerald-700">${escapeHtml(formatMaterialLedgerQty(summary.available, summary.unit))}</span></div>
     </div>
   `
@@ -2692,11 +2672,10 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
                             </td>
                             <td class="px-4 py-3">
                               ${renderMaterialLedgerLine(item.quantityLedger, [
-                                ['需求用量', 'requiredMaterialQty'],
-                                ['中转仓已配数量', 'transferWarehouseAllocatedQty'],
-                                ['裁床已领数量', 'cuttingClaimedQty'],
-                                ['已锁定数量', 'markerLockedQty'],
-                                ['已消耗数量', 'spreadingConsumedQty'],
+	                                ['需求用量', 'requiredMaterialQty'],
+	                                ['中转仓已配数量', 'transferWarehouseAllocatedQty'],
+	                                ['裁床已领数量', 'cuttingClaimedQty'],
+	                                ['已消耗数量', 'spreadingConsumedQty'],
                                 ['可用余额', 'availableQty'],
                               ])}
                             </td>

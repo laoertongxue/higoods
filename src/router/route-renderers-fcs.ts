@@ -166,6 +166,10 @@ export const renderPaymentSyncPage = createAsyncRenderer(() => import('../pages/
 export const renderStatementsPage = createAsyncRenderer(() => import('../pages/statements'), 'renderStatementsPage')
 export const renderAdjustmentsPage = createAsyncRenderer(() => import('../pages/adjustments'), 'renderAdjustmentsPage')
 export const renderDispatchBoardPage = createAsyncRenderer(() => import('../pages/dispatch-board'), 'renderDispatchBoardPage')
+export const renderSewingDispatchWorkbenchPage = createAsyncRenderer(
+  () => import('../pages/sewing-dispatch-workbench'),
+  'renderSewingDispatchWorkbenchPage',
+)
 export const renderDispatchTendersPage = createAsyncRenderer(
   () => import('../pages/dispatch-tenders'),
   'renderDispatchTendersPage',

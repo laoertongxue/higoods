@@ -289,7 +289,8 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '任务分配',
           icon: 'LayoutGrid',
           children: [
-            { key: 'dispatch-board', title: '任务分配', icon: 'LayoutGrid', href: '/fcs/dispatch/board' },
+            { key: 'dispatch-non-sewing', title: '非车缝任务分配', icon: 'LayoutGrid', href: '/fcs/dispatch/non-sewing' },
+            { key: 'dispatch-sewing-workbench', title: '车缝分配工作台', icon: 'Shirt', href: '/fcs/dispatch/sewing' },
             { key: 'dispatch-tenders', title: '招标单管理', icon: 'Gavel', href: '/fcs/dispatch/tenders' },
           ],
         },

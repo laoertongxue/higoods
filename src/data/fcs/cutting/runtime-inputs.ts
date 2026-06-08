@@ -55,10 +55,6 @@ import {
   deserializeTransferBagStorage,
 } from './storage/transfer-bags-storage.ts'
 import {
-  CUTTING_MARKER_PLAN_LOCK_LEDGER_STORAGE_KEY,
-  deserializeMarkerPlanLockLedger,
-} from './marker-plan-lock-ledger.ts'
-import {
   CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
   deserializeCuttingWarehouseWritebackStorage,
 } from './warehouse-writeback-ledger.ts'
@@ -85,7 +81,6 @@ const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
   CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY,
   CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY,
-  CUTTING_MARKER_PLAN_LOCK_LEDGER_STORAGE_KEY,
   CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
   CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY,
   CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
@@ -198,12 +193,6 @@ export function readCuttingStoredMarkerPlanSourceLedger() {
   )
 }
 
-export function readCuttingStoredMarkerPlanLockLedger() {
-  return deserializeMarkerPlanLockLedger(
-    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MARKER_PLAN_LOCK_LEDGER_STORAGE_KEY),
-  )
-}
-
 export function readCuttingWarehouseWritebackRuntimeState() {
   const store = deserializeCuttingWarehouseWritebackStorage(
     readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY),
@@ -228,7 +217,6 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
     markerPlanSourceState: {
       sourceRecords: listMarkerPlanCutOrderSourceRecords(),
       storedRecords: readCuttingStoredMarkerPlanSourceLedger().map((record) => ({ ...record })),
-      lockRecords: readCuttingStoredMarkerPlanLockLedger().map((record) => ({ ...record })),
     },
     progressRecords: cuttingOrderProgressRecords.map((record) => ({
       ...record,

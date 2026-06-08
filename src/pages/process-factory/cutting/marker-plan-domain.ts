@@ -411,11 +411,11 @@ export interface MarkerPlan {
   modeDetailLines: MarkerModeDetailLine[]
   pieceExplosionRows: MarkerPieceExplosionRow[]
   imageRecords: MarkerImageRecord[]
-  sourceCutOrderLockRows?: MarkerPlanSourceCutOrderLockRow[]
+  selectedSourceCutOrderRows?: MarkerPlanSourceCutOrderRow[]
   lastVisitedTab?: MarkerPlanTabKey
 }
 
-export interface MarkerPlanSourceCutOrderLockRow {
+export interface MarkerPlanSourceCutOrderRow {
   cutOrderId: string
   cutOrderNo: string
   productionOrderId: string
@@ -433,7 +433,6 @@ export interface MarkerPlanSourceCutOrderLockRow {
   effectiveWidthText: string
   piecePartNames: string[]
   availableQty: number
-  lockedQty: number
   unit: string
   historyCombinationGroup: string
 }

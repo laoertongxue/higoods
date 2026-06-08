@@ -4252,15 +4252,21 @@ function buildMaterialCostRows(bomItems: BomItemRow[], techPack: TechPack): Mate
 function buildProcessCostRows(techniques: TechniqueItem[], techPack: TechPack): ProcessCostRow[] {
   const costByProcessId = new Map((techPack.processCostItems ?? []).map((item) => [item.processId, item]))
 
-  return techniques.map((item) => ({
-    id: item.id,
-    stage: item.stage,
-    process: item.process,
-    technique: item.technique,
-    price: String(costByProcessId.get(item.id)?.price ?? ''),
-    currency: costByProcessId.get(item.id)?.currency || '人民币',
-    unit: costByProcessId.get(item.id)?.unit || '人民币/件',
-  }))
+  return techniques
+    .filter((item) => shouldIncludeTechniqueInProcessCost(item))
+    .map((item) => ({
+      id: item.id,
+      stage: item.stage,
+      process: item.process,
+      technique: item.technique,
+      price: String(costByProcessId.get(item.id)?.price ?? ''),
+      currency: costByProcessId.get(item.id)?.currency || '人民币',
+      unit: costByProcessId.get(item.id)?.unit || '人民币/件',
+    }))
+}
+
+function shouldIncludeTechniqueInProcessCost(item: Pick<TechniqueItem, 'stageCode'>): boolean {
+  return item.stageCode !== 'PREP'
 }
 
 function buildCustomCostRows(techPack: TechPack): CustomCostRow[] {
@@ -4303,27 +4309,29 @@ function syncMaterialCostRows(): void {
 function syncProcessCostRows(): void {
   const currentById = new Map(state.processCostRows.map((row) => [row.id, row]))
 
-  state.processCostRows = state.techniques.map((item) => {
-    const current = currentById.get(item.id)
-    if (!current) {
+  state.processCostRows = state.techniques
+    .filter((item) => shouldIncludeTechniqueInProcessCost(item))
+    .map((item) => {
+      const current = currentById.get(item.id)
+      if (!current) {
+        return {
+          id: item.id,
+          stage: item.stage,
+          process: item.process,
+          technique: item.technique,
+          price: '',
+          currency: '人民币',
+          unit: '人民币/件',
+        }
+      }
+
       return {
-        id: item.id,
+        ...current,
         stage: item.stage,
         process: item.process,
         technique: item.technique,
-        price: '',
-        currency: '人民币',
-        unit: '人民币/件',
       }
-    }
-
-    return {
-      ...current,
-      stage: item.stage,
-      process: item.process,
-      technique: item.technique,
-    }
-  })
+    })
 }
 
 function getChecklist(): ChecklistItem[] {

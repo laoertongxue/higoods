@@ -3,19 +3,12 @@ import {
   type GeneratedCutOrderSourceRecord,
 } from './generated-cut-orders.ts'
 import { cuttingOrderProgressRecords } from './order-progress.ts'
-import {
-  listStoredMarkerPlanLockLedger,
-  type MarkerPlanMaterialLockRecord,
-} from './marker-plan-lock-ledger.ts'
 import type { CuttingMaterialIdentity, CuttingPatternIdentity } from './types.ts'
 
 export type CuttingMaterialLedgerEventType =
   | 'TRANSFER_WAREHOUSE_ALLOCATED'
   | 'CUTTING_CLAIMED'
   | 'CUTTING_WAIT_PROCESS_INBOUNDED'
-  | 'MARKER_DRAFT_LOCKED'
-  | 'MARKER_DRAFT_RELEASED'
-  | 'MARKER_CONFIRMED_LOCKED'
   | 'SPREADING_ACTUAL_CONSUMED'
   | 'CUTTING_RETURNED'
   | 'LEDGER_ADJUSTED'
@@ -24,9 +17,6 @@ export const cuttingMaterialLedgerEventTypeLabels: Record<CuttingMaterialLedgerE
   TRANSFER_WAREHOUSE_ALLOCATED: '中转仓配料',
   CUTTING_CLAIMED: '裁床领料',
   CUTTING_WAIT_PROCESS_INBOUNDED: '扫码入仓',
-  MARKER_DRAFT_LOCKED: '唛架草稿锁定',
-  MARKER_DRAFT_RELEASED: '草稿取消释放',
-  MARKER_CONFIRMED_LOCKED: '唛架确认锁定',
   SPREADING_ACTUAL_CONSUMED: '铺布实际消耗',
   CUTTING_RETURNED: '裁床退料',
   LEDGER_ADJUSTED: '差异调整',
@@ -37,8 +27,6 @@ export type CuttingMaterialLedgerSourceObjectType =
   | 'WMS_PREP_RECORD'
   | 'PDA_PICKUP_RECORD'
   | 'WAIT_PROCESS_INBOUND_RECORD'
-  | 'MARKER_PLAN_DRAFT'
-  | 'MARKER_PLAN'
   | 'SPREADING_SESSION'
   | 'RETURN_RECORD'
   | 'ADJUSTMENT_RECORD'
@@ -74,7 +62,6 @@ export interface MaterialLedgerProjection {
   requiredMaterialQty: number
   transferWarehouseAllocatedQty: number
   cuttingClaimedQty: number
-  markerLockedQty: number
   spreadingConsumedQty: number
   returnedQty: number
   adjustmentQty: number
@@ -94,54 +81,6 @@ function uniqueByEventId(events: CuttingMaterialLedgerEvent[]): CuttingMaterialL
     if (!event.eventId || seen.has(event.eventId)) return false
     seen.add(event.eventId)
     return true
-  })
-}
-
-function buildLockLedgerEvents(records = listStoredMarkerPlanLockLedger()): CuttingMaterialLedgerEvent[] {
-  return records.flatMap((record) => {
-    const baseEvent: CuttingMaterialLedgerEvent = {
-      eventId: `ledger:${record.cutOrderId}:marker-lock:${record.lockId}`,
-      cutOrderId: record.cutOrderId,
-      cutOrderNo: record.cutOrderNo,
-      productionOrderId: record.productionOrderId,
-      productionOrderNo: record.productionOrderNo,
-      materialSku: record.materialSku,
-      materialName: record.materialName,
-      materialColor: record.materialColor,
-      materialAlias: record.materialAlias,
-      patternFileId: record.patternFileId,
-      quantity: roundQty(record.lockedQty),
-      unit: record.unit,
-      eventType: record.lockStatus === '有效锁定' ? 'MARKER_CONFIRMED_LOCKED' : 'MARKER_DRAFT_LOCKED',
-      sourceObjectType: record.lockStatus === '有效锁定' ? 'MARKER_PLAN' : 'MARKER_PLAN_DRAFT',
-      sourceObjectId: record.markerPlanDraftId,
-      occurredAt: record.confirmedAt || record.lockedAt,
-      operatorName: record.confirmedBy || record.operatorName,
-      remark: record.lockStatus === '有效锁定' ? '草稿确认后转为有效唛架锁定。' : '唛架方案草稿锁定来源裁片单可用余额。',
-    }
-
-    if (record.lockStatus !== '已释放') return [baseEvent]
-
-    return [
-      {
-        ...baseEvent,
-        eventType: 'MARKER_DRAFT_LOCKED',
-        sourceObjectType: 'MARKER_PLAN_DRAFT',
-        occurredAt: record.lockedAt,
-        operatorName: record.operatorName,
-        remark: '唛架方案草稿曾锁定来源裁片单可用余额。',
-      },
-      {
-        ...baseEvent,
-        eventId: `ledger:${record.cutOrderId}:marker-release:${record.lockId}`,
-        quantity: roundQty(record.releasedQty || record.lockedQty),
-        eventType: 'MARKER_DRAFT_RELEASED',
-        sourceObjectType: 'MARKER_PLAN_DRAFT',
-        occurredAt: record.releasedAt || record.lockedAt,
-        operatorName: record.releasedBy || record.operatorName,
-        remark: record.releaseReason || '删除草稿，释放来源裁片单锁定余额。',
-      },
-    ]
   })
 }
 
@@ -246,14 +185,6 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         operatorName: '裁床 李明',
         remark: '口袋布纸样首次领料。',
       }),
-      buildEvent(record, 'MARKER_DRAFT_LOCKED', 120, {
-        eventId: `ledger:${record.cutOrderId}:draft-lock:001`,
-        sourceObjectType: 'MARKER_PLAN_DRAFT',
-        sourceObjectId: 'MK-DRAFT-260306-101-03',
-        occurredAt: '2026-03-12 14:20',
-        operatorName: '唛架员 陈玲',
-        remark: '草稿唛架锁定口袋布可用余额。',
-      }),
       buildEvent(record, 'SPREADING_ACTUAL_CONSUMED', 80, {
         eventId: `ledger:${record.cutOrderId}:consume:001`,
         sourceObjectType: 'SPREADING_SESSION',
@@ -299,30 +230,6 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         operatorName: '裁床 李明',
         remark: '第二次领料用于补排。',
       }),
-      buildEvent(record, 'MARKER_DRAFT_LOCKED', 120, {
-        eventId: `ledger:${record.cutOrderId}:draft-lock:001`,
-        sourceObjectType: 'MARKER_PLAN_DRAFT',
-        sourceObjectId: 'MK-DRAFT-260306-101-01-A',
-        occurredAt: '2026-03-10 15:00',
-        operatorName: '唛架员 陈玲',
-        remark: '草稿方案锁定部分面料。',
-      }),
-      buildEvent(record, 'MARKER_DRAFT_LOCKED', 180, {
-        eventId: `ledger:${record.cutOrderId}:draft-lock:002`,
-        sourceObjectType: 'MARKER_PLAN_DRAFT',
-        sourceObjectId: 'MK-DRAFT-260306-101-01-B',
-        occurredAt: '2026-03-16 09:30',
-        operatorName: '唛架员 陈玲',
-        remark: '补排草稿继续锁定剩余可用余额，用于验证全量草稿锁定不可进入。',
-      }),
-      buildEvent(record, 'MARKER_CONFIRMED_LOCKED', 180, {
-        eventId: `ledger:${record.cutOrderId}:confirmed-lock:001`,
-        sourceObjectType: 'MARKER_PLAN',
-        sourceObjectId: 'MB-030101-01',
-        occurredAt: '2026-03-14 14:00',
-        operatorName: '唛架员 陈玲',
-        remark: '确认唛架后锁定待铺布用量。',
-      }),
       buildEvent(record, 'SPREADING_ACTUAL_CONSUMED', 180, {
         eventId: `ledger:${record.cutOrderId}:consume:001`,
         sourceObjectType: 'SPREADING_SESSION',
@@ -367,22 +274,6 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         occurredAt: '2026-03-12 10:35',
         operatorName: '裁床 李明',
         remark: '155cm 幅宽版本首次领料。',
-      }),
-      buildEvent(record, 'MARKER_DRAFT_LOCKED', 200, {
-        eventId: `ledger:${record.cutOrderId}:draft-lock:001`,
-        sourceObjectType: 'MARKER_PLAN_DRAFT',
-        sourceObjectId: 'MK-DRAFT-260306-101-04',
-        occurredAt: '2026-03-12 13:20',
-        operatorName: '唛架员 陈玲',
-        remark: '草稿方案临时锁定。',
-      }),
-      buildEvent(record, 'MARKER_DRAFT_RELEASED', 200, {
-        eventId: `ledger:${record.cutOrderId}:draft-release:001`,
-        sourceObjectType: 'MARKER_PLAN_DRAFT',
-        sourceObjectId: 'MK-DRAFT-260306-101-04',
-        occurredAt: '2026-03-12 15:10',
-        operatorName: '唛架员 陈玲',
-        remark: '草稿取消，释放锁定数量。',
       }),
     ]
   }
@@ -547,7 +438,6 @@ export function listCuttingMaterialLedgerEvents(): CuttingMaterialLedgerEvent[] 
       const scenarioEvents = buildPrompt2ScenarioEvents(record)
       return scenarioEvents.length ? scenarioEvents : buildProgressDrivenEvents(record)
       }),
-      ...buildLockLedgerEvents(),
     ],
   )
 
@@ -574,15 +464,6 @@ function buildProjection(record: GeneratedCutOrderSourceRecord, events: CuttingM
       .filter((event) => event.eventType === 'CUTTING_CLAIMED')
       .reduce((sum, event) => sum + Number(event.quantity || 0), 0),
   )
-  const lockedQty = roundQty(
-    events.reduce((sum, event) => {
-      if (event.eventType === 'MARKER_DRAFT_LOCKED' || event.eventType === 'MARKER_CONFIRMED_LOCKED') {
-        return sum + Number(event.quantity || 0)
-      }
-      if (event.eventType === 'MARKER_DRAFT_RELEASED') return sum - Number(event.quantity || 0)
-      return sum
-    }, 0),
-  )
   const spreadingConsumedQty = roundQty(
     events
       .filter((event) => event.eventType === 'SPREADING_ACTUAL_CONSUMED')
@@ -598,9 +479,8 @@ function buildProjection(record: GeneratedCutOrderSourceRecord, events: CuttingM
       .filter((event) => event.eventType === 'LEDGER_ADJUSTED')
       .reduce((sum, event) => sum + Number(event.quantity || 0), 0),
   )
-  const markerLockedQty = Math.max(lockedQty, 0)
   const availableQty = roundQty(
-    Math.max(cuttingClaimedQty - markerLockedQty - spreadingConsumedQty - returnedQty + adjustmentQty, 0),
+    Math.max(cuttingClaimedQty - spreadingConsumedQty - returnedQty + adjustmentQty, 0),
   )
   const latestClaimEvent =
     events
@@ -622,7 +502,6 @@ function buildProjection(record: GeneratedCutOrderSourceRecord, events: CuttingM
     requiredMaterialQty: estimateRequiredMaterialQty(record),
     transferWarehouseAllocatedQty,
     cuttingClaimedQty,
-    markerLockedQty,
     spreadingConsumedQty,
     returnedQty,
     adjustmentQty,

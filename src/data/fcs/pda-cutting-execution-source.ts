@@ -17,6 +17,10 @@ import { listPdaGenericProcessTasks } from './pda-task-mock-factory.ts'
 import { listWoolMobileProcessTasks } from './wool-task-domain.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import {
+  resolveSpreadingMaterialReadiness,
+  type SpreadingMaterialReadiness,
+} from './cutting/spreading-material-readiness.ts'
+import {
   getPdaCuttingTaskScenarioByTaskId,
   listPdaCuttingSpreadingPresetExecutions,
 } from './cutting/pda-cutting-task-scenarios.ts'
@@ -227,6 +231,7 @@ export interface PdaCuttingSpreadingTarget {
   materialImageUrl?: string
   colorSummary: string
   importedFromMarker: boolean
+  materialReadiness: SpreadingMaterialReadiness
   planUnits: PdaCuttingSpreadingPlanUnitOption[]
 }
 
@@ -1006,55 +1011,79 @@ function mapMarkerPlanModeToSpreadingMode(mode: 'normal' | 'high_low' | 'fold_no
   return 'NORMAL'
 }
 
+function sumPlanUnitSpreadLength(planUnits: PdaCuttingSpreadingPlanUnitOption[]): number {
+  return Number(planUnits.reduce((sum, unit) => sum + Math.max(Number(unit.plannedSpreadLengthM || 0), 0), 0).toFixed(2))
+}
+
+function resolvePdaTargetMaterialReadiness(
+  execution: PdaCuttingExecutionSourceRecord,
+  planUnits: PdaCuttingSpreadingPlanUnitOption[],
+): SpreadingMaterialReadiness {
+  return resolveSpreadingMaterialReadiness({
+    sourceCutOrderIds: [execution.cutOrderId].filter(Boolean),
+    sourceCutOrderNos: [execution.cutOrderNo].filter(Boolean),
+    plannedMaterialUsage: sumPlanUnitSpreadLength(planUnits),
+    plannedMaterialUsageUnit: '米',
+  })
+}
+
 function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCuttingSpreadingTarget[] {
   const sessions = listSessionsForExecution(snapshot, execution)
-  const sessionTargets = sessions.map((session) => ({
-    targetKey: `session:${session.spreadingSessionId}`,
-    targetType: 'session' as const,
-    spreadingSessionId: session.spreadingSessionId,
-    markerId: session.markerId || '',
-    markerNo: session.markerNo || '',
-    sourceMarkerLabel:
-      session.sourceSchemeNo && (session.sourceBedNo || session.markerNo)
-        ? `${session.sourceSchemeNo} / ${session.sourceBedNo || session.markerNo}`
-        : session.markerNo || session.sourceMarkerNo || session.sessionNo || '待关联唛架编号',
-    spreadingMode: mapSpreadingModeKey(session.spreadingMode),
-    title: session.sessionNo || `铺布对象 ${session.spreadingSessionId.slice(-6)}`,
-    contextLabel: '继续当前铺布',
-    statusLabel: session.status === 'DONE' ? '已完成' : session.status === 'IN_PROGRESS' ? '进行中' : session.status === 'TO_FILL' ? '待补录' : '草稿',
-    cutOrderNo: execution.cutOrderNo || '',
-    markerPlanNo: execution.markerPlanNo || '',
-    productionOrderNo: execution.productionOrderNo || '',
-    materialSku: execution.materialSku || '',
-    materialAlias: execution.materialAlias || '',
-    materialImageUrl: execution.materialImageUrl || '',
-    colorSummary: session.colorSummary || '',
-    importedFromMarker: Boolean(session.importedFromMarker),
-    planUnits: (session.planUnits?.length ? session.planUnits : undefined)?.map((unit) => toSpreadingPlanUnitOption(unit, execution)) || buildFallbackPlanUnitsFromSession(session, execution),
-  }))
+  const sessionTargets = sessions.map((session) => {
+    const planUnits = (session.planUnits?.length ? session.planUnits : undefined)?.map((unit) => toSpreadingPlanUnitOption(unit, execution)) || buildFallbackPlanUnitsFromSession(session, execution)
+    return {
+      targetKey: `session:${session.spreadingSessionId}`,
+      targetType: 'session' as const,
+      spreadingSessionId: session.spreadingSessionId,
+      markerId: session.markerId || '',
+      markerNo: session.markerNo || '',
+      sourceMarkerLabel:
+        session.sourceSchemeNo && (session.sourceBedNo || session.markerNo)
+          ? `${session.sourceSchemeNo} / ${session.sourceBedNo || session.markerNo}`
+          : session.markerNo || session.sourceMarkerNo || session.sessionNo || '待关联唛架编号',
+      spreadingMode: mapSpreadingModeKey(session.spreadingMode),
+      title: session.sessionNo || `铺布对象 ${session.spreadingSessionId.slice(-6)}`,
+      contextLabel: '继续当前铺布',
+      statusLabel: session.status === 'DONE' ? '已完成' : session.status === 'IN_PROGRESS' ? '进行中' : session.status === 'TO_FILL' ? '待补录' : '草稿',
+      cutOrderNo: execution.cutOrderNo || '',
+      markerPlanNo: execution.markerPlanNo || '',
+      productionOrderNo: execution.productionOrderNo || '',
+      materialSku: execution.materialSku || '',
+      materialAlias: execution.materialAlias || '',
+      materialImageUrl: execution.materialImageUrl || '',
+      colorSummary: session.colorSummary || '',
+      importedFromMarker: Boolean(session.importedFromMarker),
+      materialReadiness: resolvePdaTargetMaterialReadiness(execution, planUnits),
+      planUnits,
+    }
+  })
   if (sessionTargets.length) return sessionTargets
 
-  const canonicalTargets = listCanonicalMarkerPlansForExecution(snapshot, execution).map((plan) => ({
-    targetKey: `marker-plan:${plan.id}`,
-    targetType: 'session' as const,
-    spreadingSessionId: '',
-    markerId: plan.id,
-    markerNo: plan.markerNo || plan.contextNo || '',
-    sourceMarkerLabel: plan.markerNo || plan.contextNo || '待关联唛架编号',
-    spreadingMode: mapMarkerPlanModeToSpreadingMode(plan.markerMode),
-    title: plan.markerNo || plan.contextNo || `铺布对象 ${execution.executionOrderNo}`,
-    contextLabel: '待铺布',
-    statusLabel: '待铺布',
-    cutOrderNo: execution.cutOrderNo || '',
-    markerPlanNo: plan.markerPlanNo || execution.markerPlanNo || '',
-    productionOrderNo: execution.productionOrderNo || '',
-    materialSku: execution.materialSku || plan.sourceMaterialSku || '',
-    materialAlias: execution.materialAlias || plan.materialAliasSummary || '',
-    materialImageUrl: execution.materialImageUrl || plan.materialImageUrl || '',
-    colorSummary: plan.colorSummary || '',
-    importedFromMarker: true,
-    planUnits: buildPlanUnitsFromCanonicalPlan(plan, execution),
-  }))
+  const canonicalTargets = listCanonicalMarkerPlansForExecution(snapshot, execution).map((plan) => {
+    const planUnits = buildPlanUnitsFromCanonicalPlan(plan, execution)
+    return {
+      targetKey: `marker-plan:${plan.id}`,
+      targetType: 'session' as const,
+      spreadingSessionId: '',
+      markerId: plan.id,
+      markerNo: plan.markerNo || plan.contextNo || '',
+      sourceMarkerLabel: plan.markerNo || plan.contextNo || '待关联唛架编号',
+      spreadingMode: mapMarkerPlanModeToSpreadingMode(plan.markerMode),
+      title: plan.markerNo || plan.contextNo || `铺布对象 ${execution.executionOrderNo}`,
+      contextLabel: '待铺布',
+      statusLabel: '待铺布',
+      cutOrderNo: execution.cutOrderNo || '',
+      markerPlanNo: plan.markerPlanNo || execution.markerPlanNo || '',
+      productionOrderNo: execution.productionOrderNo || '',
+      materialSku: execution.materialSku || plan.sourceMaterialSku || '',
+      materialAlias: execution.materialAlias || plan.materialAliasSummary || '',
+      materialImageUrl: execution.materialImageUrl || plan.materialImageUrl || '',
+      colorSummary: plan.colorSummary || '',
+      importedFromMarker: true,
+      materialReadiness: resolvePdaTargetMaterialReadiness(execution, planUnits),
+      planUnits,
+    }
+  })
   if (canonicalTargets.length) return canonicalTargets
 
   if (!isPdaSequenceMockTask(execution.taskId)) return []
@@ -1078,6 +1107,7 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
     materialImageUrl: execution.materialImageUrl || fallbackUnit.materialImageUrl || '',
     colorSummary: fallbackUnit.color || '',
     importedFromMarker: true,
+    materialReadiness: resolvePdaTargetMaterialReadiness(execution, [fallbackUnit]),
     planUnits: [fallbackUnit],
   }]
 }

@@ -56,6 +56,7 @@ import {
   renderStatementsPage,
   renderAdjustmentsPage,
   renderDispatchBoardPage,
+  renderSewingDispatchWorkbenchPage,
   renderDispatchTendersPage,
   renderProgressBoardPage,
   renderProgressCuttingDetailPage,
@@ -220,7 +221,9 @@ export const routes: RouteRegistry = {
     '/fcs/settlement/history': () => renderHistoryPage(),
     '/fcs/settlement/cutting-input': () =>
       renderRouteRedirect('/fcs/craft/cutting/settlement-scoring', '正在跳转到裁片结算评分'),
-    '/fcs/dispatch/board': () => renderDispatchBoardPage(),
+    '/fcs/dispatch/board': () => renderRouteRedirect('/fcs/dispatch/non-sewing', '正在跳转到非车缝任务分配'),
+    '/fcs/dispatch/non-sewing': () => renderDispatchBoardPage(),
+    '/fcs/dispatch/sewing': () => renderSewingDispatchWorkbenchPage(),
     '/fcs/dispatch/tenders': () => renderDispatchTendersPage(),
     '/fcs/dispatch/exceptions': () => renderProgressExceptionsPage(),
     '/fcs/progress/board': () => renderProgressBoardPage(),

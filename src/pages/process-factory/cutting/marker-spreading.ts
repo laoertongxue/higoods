@@ -101,6 +101,11 @@ import {
 } from './marker-spreading-utils.ts'
 import { listSpreadingPieceOutputLines } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import {
+  resolveSpreadingMaterialReadiness,
+  resolveSpreadingOrderMaterialReadiness,
+  type SpreadingMaterialReadiness,
+} from '../../../data/fcs/cutting/spreading-material-readiness.ts'
+import {
   buildMarkerSpreadingProjection,
   buildSpreadingPlanUnitProjectionLabel,
   type SpreadingCreateSourceRow,
@@ -724,6 +729,10 @@ function formatLength(value: number): string {
   return `${Number(value || 0).toFixed(2)} 米`
 }
 
+function formatMaterialQty(value: number, unit = '米'): string {
+  return `${Number(value || 0).toFixed(2)} ${unit || '米'}`
+}
+
 function formatQty(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(Math.max(value || 0, 0))
 }
@@ -914,6 +923,14 @@ function resolveWebSpreadingSummary(
   const pda = resolvePdaRuntimeEventSummary(session)
   const statusKey = resolveSpreadingOrderStatusFromSession(session)
   const status = spreadingOrderStatusMeta[statusKey]
+  const materialReadiness = order
+    ? resolveSpreadingOrderMaterialReadiness(order)
+    : resolveSpreadingMaterialReadiness({
+        sourceCutOrderIds: session.cutOrderIds,
+        sourceCutOrderNos: [],
+        plannedMaterialUsage: plannedUsage,
+        plannedMaterialUsageUnit: '米',
+      })
   const needsReview =
     pda.statusLabel === '同步失败' ||
     row.hasVariance ||
@@ -925,6 +942,7 @@ function resolveWebSpreadingSummary(
     order,
     statusKey,
     status,
+    materialReadiness,
     plannedLayerCount,
     actualLayerCount,
     plannedUsage,
@@ -937,6 +955,27 @@ function resolveWebSpreadingSummary(
     pda,
     needsReview,
   }
+}
+
+function resolveSpreadingSessionMaterialReadiness(
+  session: SpreadingSession,
+  projection: MarkerSpreadingProjection = buildMarkerSpreadingProjection(),
+): SpreadingMaterialReadiness {
+  const order = projection.spreadingOrders.find((item) =>
+    item.spreadingOrderId === session.spreadingSessionId ||
+    item.spreadingOrderNo === session.sessionNo ||
+    item.linkedPdaTaskId === session.sourceWritebackId,
+  )
+  if (order) return resolveSpreadingOrderMaterialReadiness(order)
+  const plannedUsage =
+    Math.max(Number(session.theoreticalSpreadTotalLength || 0), 0) ||
+    (session.planUnits || []).reduce((sum, unit) => sum + Math.max(Number(unit.plannedSpreadLengthM || 0), 0), 0) ||
+    Math.max(Number(session.configuredLengthTotal || 0), 0)
+  return resolveSpreadingMaterialReadiness({
+    sourceCutOrderIds: session.cutOrderIds,
+    plannedMaterialUsage: plannedUsage,
+    plannedMaterialUsageUnit: '米',
+  })
 }
 
 function formatSignedNumber(value: number, unit = ''): string {
@@ -1046,6 +1085,78 @@ function hasCuttingTableScheduleConflictInDrafts(
 
 function renderTag(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium leading-4 ${className}">${escapeHtml(label)}</span>`
+}
+
+function renderMaterialReadinessBadge(readiness: SpreadingMaterialReadiness): string {
+  return renderStatusBadge(readiness.statusLabel, readiness.statusClassName)
+}
+
+function renderMaterialReadinessInline(readiness: SpreadingMaterialReadiness): string {
+  return `
+    <div class="space-y-1">
+      ${renderMaterialReadinessBadge(readiness)}
+      <div class="text-xs leading-5 text-muted-foreground">
+        计划 ${escapeHtml(formatMaterialQty(readiness.plannedUsageQty, readiness.unit))}；
+        可用 ${escapeHtml(formatMaterialQty(readiness.availableQty, readiness.unit))}
+        ${readiness.shortageQty > 0 ? `；缺口 ${escapeHtml(formatMaterialQty(readiness.shortageQty, readiness.unit))}` : ''}
+      </div>
+    </div>
+  `
+}
+
+function renderMaterialReadinessDetail(readiness: SpreadingMaterialReadiness): string {
+  const sourceRowsHtml = readiness.sourceRows.length
+    ? `
+      <div class="mt-3 overflow-auto rounded-lg border">
+        <table class="w-full min-w-[760px] text-xs">
+          <thead class="bg-muted/40 text-left text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2">来源裁片单</th>
+              <th class="px-3 py-2">面料</th>
+              <th class="px-3 py-2">裁床已领</th>
+              <th class="px-3 py-2">已消耗</th>
+              <th class="px-3 py-2">可用余额</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${readiness.sourceRows.map((row) => `
+              <tr class="border-t align-top">
+                <td class="px-3 py-2">
+                  <div class="font-medium text-foreground">${escapeHtml(row.cutOrderNo || '待补')}</div>
+                  <div class="mt-0.5 text-muted-foreground">${escapeHtml(row.productionOrderNo || '—')}</div>
+                </td>
+                <td class="px-3 py-2">
+                  <div class="font-medium text-foreground">${escapeHtml(row.materialSku || row.materialName || '待补')}</div>
+                  <div class="mt-0.5 text-muted-foreground">${escapeHtml([row.materialColor, row.materialName].filter(Boolean).join(' / ') || '—')}</div>
+                </td>
+                <td class="px-3 py-2">${escapeHtml(formatMaterialQty(row.claimedQty, row.unit))}</td>
+                <td class="px-3 py-2">${escapeHtml(formatMaterialQty(row.consumedQty, row.unit))}</td>
+                <td class="px-3 py-2 font-semibold text-foreground">${escapeHtml(formatMaterialQty(row.availableQty, row.unit))}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `
+    : '<div class="mt-3 rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">暂无来源裁片单物料账。</div>'
+
+  return `
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-background px-3 py-3">
+        <div>
+          <div class="text-xs text-muted-foreground">铺布物料状态</div>
+          <div class="mt-1">${renderMaterialReadinessBadge(readiness)}</div>
+          <div class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(readiness.reasonText)}</div>
+        </div>
+        <div class="grid min-w-[260px] gap-2 text-xs sm:grid-cols-3">
+          <div><div class="text-muted-foreground">计划用量</div><div class="mt-0.5 font-semibold text-foreground">${escapeHtml(formatMaterialQty(readiness.plannedUsageQty, readiness.unit))}</div></div>
+          <div><div class="text-muted-foreground">可用余额</div><div class="mt-0.5 font-semibold text-foreground">${escapeHtml(formatMaterialQty(readiness.availableQty, readiness.unit))}</div></div>
+          <div><div class="text-muted-foreground">缺口</div><div class="mt-0.5 font-semibold ${readiness.shortageQty > 0 ? 'text-rose-600' : 'text-emerald-700'}">${escapeHtml(formatMaterialQty(readiness.shortageQty, readiness.unit))}</div></div>
+        </div>
+      </div>
+      ${sourceRowsHtml}
+    </div>
+  `
 }
 
 function renderSection(title: string, body: string): string {
@@ -2830,6 +2941,7 @@ function renderSpreadingTable(
                     ['计划用量', formatLength(summary.plannedUsage)],
                     ['计划数量', `${formatQty(summary.plannedQty)} 件`],
                   ])}
+                  <div class="mt-2">${renderMaterialReadinessInline(summary.materialReadiness)}</div>
                 </div>
                 <div class="min-w-0">
                   ${renderCompactMetricLines([
@@ -4344,7 +4456,10 @@ function renderSpreadingDetailPage(): string {
             <div class="text-sm font-semibold text-blue-600">${escapeHtml(session.sessionNo || '待补铺布单号')}</div>
             <div class="mt-1 text-xs text-muted-foreground">唛架方案：${escapeHtml(session.sourceSchemeNo || row.markerPlanNo || '待关联')} / 唛架编号：${escapeHtml(session.sourceBedNo || session.markerNo || row.sourceMarkerLabel || '待补')}</div>
           </div>
-          <div class="flex flex-wrap gap-2">${renderStatusBadge(webSummary.status.label, webSummary.status.className)}</div>
+          <div class="flex flex-wrap gap-2">
+            ${renderStatusBadge(webSummary.status.label, webSummary.status.className)}
+            ${renderMaterialReadinessBadge(webSummary.materialReadiness)}
+          </div>
         </div>
         <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div class="rounded-md border bg-background px-3 py-3">
@@ -4389,6 +4504,7 @@ function renderSpreadingDetailPage(): string {
           { label: '唛架图片', value: webSummary.order?.markerImageUrl || linkedMarker?.markerImageUrl || '待上传' },
         ])}
       `)}
+      ${renderSection('铺布物料状态', renderMaterialReadinessDetail(webSummary.materialReadiness))}
       ${renderSection('实际信息', `
         ${renderInfoGrid([
           { label: '实铺层数', value: `${formatQty(webSummary.actualLayerCount)} 层`, formula: buildLayerSumFormula(webSummary.actualLayerCount, session.rolls.map((roll) => roll.layerCount)) },
@@ -4433,6 +4549,7 @@ function renderSpreadingDetailPage(): string {
             <div><div class="text-[11px] text-muted-foreground">裁片单 / 唛架方案</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(linkedCutOrderNos.join(' / ') || session.markerPlanNo || '—')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">生产单</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(productionOrderNos.join(' / ') || '—')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">模式</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(deriveSpreadingModeMeta(session.spreadingMode).label)}</div></div>
+            <div><div class="text-[11px] text-muted-foreground">铺布物料状态</div><div class="mt-1">${renderMaterialReadinessBadge(webSummary.materialReadiness)}</div></div>
             <div><div class="text-[11px] text-muted-foreground">铺布状态</div><div class="mt-1">${renderStatusBadge(lifecycleState.mainStageLabel, lifecycleState.mainStageClassName)}</div></div>
             <div><div class="text-[11px] text-muted-foreground">裁剪状态</div><div class="mt-1">${lifecycleState.cuttingStatusLabel ? renderStatusBadge(lifecycleState.cuttingStatusLabel, lifecycleState.cuttingStatusClassName) : '<span class="text-xs text-muted-foreground">铺布完成后生成</span>'}</div></div>
           </div>
@@ -4442,6 +4559,9 @@ function renderSpreadingDetailPage(): string {
           </div>
         </div>
         ${session.status === 'DRAFT' ? `<div class="rounded-lg border bg-blue-50/40 px-3 py-3">${renderStartSpreadingControls(session.spreadingSessionId, session.cuttingTableId, session.ownerAccountId)}</div>` : ''}
+        <div class="rounded-lg border bg-background px-3 py-3">
+          ${renderMaterialReadinessDetail(webSummary.materialReadiness)}
+        </div>
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <div class="rounded-md border bg-background px-3 py-3">${renderValueWithFormula(`${formatQty(plannedLayerTotal)} 层`, `${formatQty(plannedLayerTotal)} 层 = 唛架方案计划层数`)}<div class="mt-1 text-[11px] text-muted-foreground">计划层数</div></div>
           <div class="rounded-md border bg-background px-3 py-3">${renderValueWithFormula(`${formatQty(actualLayerTotal)} 层`, buildLayerSumFormula(actualLayerTotal, session.rolls.map((roll) => roll.layerCount)))}<div class="mt-1 text-[11px] text-muted-foreground">实铺层数</div></div>
@@ -4458,6 +4578,8 @@ function renderSpreadingDetailPage(): string {
     renderSection(
       '执行摘要',
       `
+        ${renderMaterialReadinessDetail(materialReadiness)}
+        <div class="mt-3">
         ${renderInfoGrid([
           {
             label: '计划层数',
@@ -4904,6 +5026,7 @@ function renderSpreadingEditPage(): string {
   const actualLayerTotal = Math.max(Number(rollSummary.totalLayers || draft.actualLayers || 0), 0)
   const plannedUsageLengthM = theoreticalSpreadTotalLength || plannedSpreadLengthM
   const actualUsageLengthM = rollSummary.totalActualLength
+  const materialReadiness = resolveSpreadingSessionMaterialReadiness(draft)
 
   const renderTopInfo = (): string => `
     <section class="rounded-lg border bg-card px-2 py-1.5">
@@ -4915,6 +5038,7 @@ function renderSpreadingEditPage(): string {
             <div><div class="text-[11px] text-muted-foreground">裁片单 / 唛架方案</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(linkedCutOrderNos.join(' / ') || draft.markerPlanNo || '—')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">生产单</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(productionOrderNos.join(' / ') || '—')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">模式</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(deriveSpreadingModeMeta(draft.spreadingMode).label)}</div></div>
+            <div><div class="text-[11px] text-muted-foreground">铺布物料状态</div><div class="mt-1">${renderMaterialReadinessBadge(materialReadiness)}</div></div>
             <div><div class="text-[11px] text-muted-foreground">铺布状态</div><div class="mt-1">${renderStatusBadge(lifecycleState.mainStageLabel, lifecycleState.mainStageClassName)}</div></div>
             <div><div class="text-[11px] text-muted-foreground">裁剪状态</div><div class="mt-1">${lifecycleState.cuttingStatusLabel ? renderStatusBadge(lifecycleState.cuttingStatusLabel, lifecycleState.cuttingStatusClassName) : '<span class="text-xs text-muted-foreground">铺布完成后生成</span>'}</div></div>
           </div>
@@ -4930,6 +5054,9 @@ function renderSpreadingEditPage(): string {
           <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(formatLength(actualUsageLengthM), buildSumFormula(actualUsageLengthM, draft.rolls.map((roll) => roll.actualLength), 2))}<div class="mt-0.5 text-[11px] text-muted-foreground">实际用量</div></div>
           <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(`${formatQty(varianceSummary?.plannedCutGarmentQty || 0)} 件`, varianceSummary?.plannedCutGarmentQtyFormula || buildTheoreticalActualCutQtyFormula(varianceSummary?.plannedCutGarmentQty || 0, draft.plannedLayers || 0, markerTotalPieces))}<div class="mt-0.5 text-[11px] text-muted-foreground">计划数量</div></div>
           <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(`${formatQty(varianceSummary?.actualCutGarmentQty || 0)} 件`, varianceSummary?.actualCutGarmentQtyFormula || buildQtySumFormula(0, []))}<div class="mt-0.5 text-[11px] text-muted-foreground">实际裁剪数量</div></div>
+        </div>
+        <div class="rounded-md border bg-background px-2.5 py-2 text-xs text-muted-foreground">
+          <span class="font-medium text-foreground">物料校验：</span>${escapeHtml(materialReadiness.reasonText)}
         </div>
         ${draft.status === 'DRAFT' ? `<div class="rounded-lg border bg-blue-50/40 px-3 py-3">${renderStartSpreadingControls(draft.spreadingSessionId, draft.cuttingTableId, draft.ownerAccountId)}</div>` : ''}
       </div>
@@ -5003,6 +5130,7 @@ function renderSpreadingEditPage(): string {
             formula: varianceSummary?.varianceLengthFormula || buildDifferenceFormula(varianceSummary?.varianceLength || 0, varianceSummary?.claimedLengthTotal || 0, rollSummary.totalActualLength, 2),
           },
         ])}
+        </div>
         <div class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
           ${renderReadonlyField('裁床', draft.cuttingTableName || draft.cuttingTableNo || '—')}
           ${renderReadonlyField('实际开始时间', formatScheduleDateTime(draft.actualStartAt))}
@@ -5426,7 +5554,7 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
             <th class="px-3 py-3">颜色</th>
             <th class="px-3 py-3">唛架编号数量</th>
             <th class="px-3 py-3">计划件数</th>
-            <th class="px-3 py-3">可铺布状态</th>
+            <th class="px-3 py-3">铺布物料状态</th>
           </tr>
         </thead>
         <tbody>
@@ -5436,6 +5564,12 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
                 row.markerId === state.selectedCreateMarkerId ||
                 row.sourceBedId === state.selectedCreateMarkerId ||
                 row.sourceSchemeId === state.selectedCreateMarkerId
+              const readiness = resolveSpreadingMaterialReadiness({
+                sourceCutOrderIds: row.cutOrderIds,
+                sourceCutOrderNos: row.cutOrderNos,
+                plannedMaterialUsage: groupRows.reduce((sum, item) => sum + Math.max(Number(item.plannedSpreadLengthM || 0), 0), 0),
+                plannedMaterialUsageUnit: '米',
+              })
               return `
                 <tr class="border-b align-top ${selected ? 'bg-blue-50/40' : ''}">
                   <td class="px-3 py-3">
@@ -5457,7 +5591,7 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
                   <td class="px-3 py-3">${escapeHtml(row.colorSummary || '待补')}</td>
                   <td class="px-3 py-3">${escapeHtml(`${formatQty(groupRows.length)} 个`)}</td>
                   <td class="px-3 py-3">${escapeHtml(`${formatQty(totalQty)} 件`)}</td>
-                  <td class="px-3 py-3">${renderTag('可铺布', 'bg-emerald-100 text-emerald-700 border border-emerald-200')}</td>
+                  <td class="px-3 py-3">${renderMaterialReadinessInline(readiness)}</td>
                 </tr>
               `
             })
@@ -5536,18 +5670,26 @@ function renderSpreadingCreateConfirmStep(): string {
               <th class="px-3 py-3">唛架方案</th>
               <th class="px-3 py-3">唛架编号</th>
               <th class="px-3 py-3">状态</th>
+              <th class="px-3 py-3">铺布物料状态</th>
               <th class="px-3 py-3">计划数量</th>
             </tr>
           </thead>
           <tbody>
             ${selectedSchemeRows
               .map((row, index) => {
+                const readiness = resolveSpreadingMaterialReadiness({
+                  sourceCutOrderIds: row.cutOrderIds,
+                  sourceCutOrderNos: row.cutOrderNos,
+                  plannedMaterialUsage: row.plannedSpreadLengthM,
+                  plannedMaterialUsageUnit: '米',
+                })
                 return `
                   <tr class="border-b align-top">
                     <td class="px-3 py-3 font-medium text-foreground">铺布单 ${index + 1}</td>
                     <td class="px-3 py-3">${escapeHtml(row.sourceSchemeNo || '待补')}</td>
                     <td class="px-3 py-3">${escapeHtml(row.sourceBedNo || row.markerNo || '待补')}</td>
                     <td class="px-3 py-3">${renderTag('待铺布', 'bg-slate-100 text-slate-700 border border-slate-200')}</td>
+                    <td class="px-3 py-3">${renderMaterialReadinessInline(readiness)}</td>
                     <td class="px-3 py-3">${escapeHtml(`${formatQty(row.plannedCutGarmentQty)} 件`)}</td>
                   </tr>
                 `
@@ -5556,7 +5698,7 @@ function renderSpreadingCreateConfirmStep(): string {
           </tbody>
           <tfoot class="bg-muted/20 text-sm font-medium">
             <tr>
-              <td class="px-3 py-3" colspan="4">合计</td>
+              <td class="px-3 py-3" colspan="5">合计</td>
               <td class="px-3 py-3">${escapeHtml(`${formatQty(totalQty)} 件`)}</td>
             </tr>
           </tfoot>
@@ -6447,6 +6589,11 @@ function startSpreadingSession(
     state.feedback = { tone: 'warning', message: '当前铺布已完成，不能重新开始铺布。' }
     return true
   }
+  const materialReadiness = resolveSpreadingSessionMaterialReadiness(session)
+  if (!materialReadiness.canStartSpreading) {
+    state.feedback = { tone: 'warning', message: materialReadiness.reasonText }
+    return true
+  }
   const cuttingTableId = startConfig.cuttingTableId || session.cuttingTableId || ''
   const ownerAccountId = startConfig.ownerAccountId || session.ownerAccountId || ''
   if (!cuttingTableId || !ownerAccountId) {
@@ -7199,6 +7346,18 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
       }
       state.feedback = { tone: 'warning', message: '开始铺布前必须选择裁床和负责人。' }
       return true
+    }
+    const session = getStoredSpreadingSession(actionNode.dataset.sessionId)
+    if (session) {
+      const materialReadiness = resolveSpreadingSessionMaterialReadiness(session)
+      if (!materialReadiness.canStartSpreading) {
+        if (inlineFeedback) {
+          inlineFeedback.classList.remove('hidden')
+          inlineFeedback.textContent = materialReadiness.reasonText
+        }
+        state.feedback = { tone: 'warning', message: materialReadiness.reasonText }
+        return true
+      }
     }
     if (inlineFeedback) {
       inlineFeedback.classList.add('hidden')

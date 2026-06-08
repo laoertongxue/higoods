@@ -1,6 +1,5 @@
 import type { GeneratedCutOrderSourceRecord } from '../../data/fcs/cutting/generated-cut-orders.ts'
 import type { MarkerPlanCutOrderSourceRecord } from '../../data/fcs/cutting/marker-plan-source.ts'
-import type { MarkerPlanMaterialLockRecord } from '../../data/fcs/cutting/marker-plan-lock-ledger.ts'
 import type {
   CutPieceWarehouseRecord,
   CuttingFabricStockRecord,
@@ -57,7 +56,6 @@ export interface CuttingRuntimeEventLedgerInput {
 export interface CuttingMarkerPlanSourceRuntimeInput {
   sourceRecords: MarkerPlanCutOrderSourceRecord[]
   storedRecords: Array<Record<string, unknown>>
-  lockRecords: MarkerPlanMaterialLockRecord[]
 }
 
 export interface CuttingWarehouseRuntimeInput {

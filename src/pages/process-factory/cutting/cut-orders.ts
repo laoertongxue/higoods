@@ -164,7 +164,7 @@ const cutOrderDemoScenarioNos = new Set([
   // 只保留裁片单页面需要演示的关键业务场景，避免大量重复 mock 干扰阅读。
   'CUT-260308-081-01', // 未开工：无配料、无领料、无唛架
   'CUT-260306-101-05', // 已开工未排唛架：只有配料 / 领料 / 入仓记录
-  'CUT-260306-101-01', // 已排唛架：有唛架锁定、铺布和后续记录
+  'CUT-260306-101-01', // 已排唛架：有唛架、铺布和后续记录
   'CUT-260306-101-02', // 历史唛架后仍有可用余额
   'CUT-260307-102-01', // 已裁剪：有菲票和差异记录
   'CUT-260306-101-04', // 已关闭：有关闭原因和影响项
@@ -322,7 +322,6 @@ function renderMaterialLedgerGrid(row: CutOrderRow): string {
     ['需求用量', ledger.requiredMaterialQty],
     ['中转仓已配数量', ledger.transferWarehouseAllocatedQty],
     ['裁床已领数量', ledger.cuttingClaimedQty],
-    ['已锁定数量', ledger.markerLockedQty],
     ['已消耗数量', ledger.spreadingConsumedQty],
     ['可用余额', ledger.availableQty],
   ] as const
@@ -726,7 +725,6 @@ function renderQuantityCell(row: CutOrderRow): string {
         <div>需求用量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.requiredMaterialQty, ledger.unit))}</span></div>
         <div>中转仓已配数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.transferWarehouseAllocatedQty, ledger.unit))}</span></div>
         <div>裁床已领数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.cuttingClaimedQty, ledger.unit))}</span></div>
-        <div>已锁定数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.markerLockedQty, ledger.unit))}</span></div>
         <div>已消耗数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.spreadingConsumedQty, ledger.unit))}</span></div>
         <div>可用余额：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.availableQty, ledger.unit))}</span></div>
       </div>
@@ -805,10 +803,6 @@ function buildCloseImpactContext(row: CutOrderRow): {
   )
   const pendingSpecialCraftCount = specialProcessRows.filter((item) => !/已回仓|已关闭|已取消/.test(item.statusMeta?.label || '')).length
   const pendingSpecialCraftSummary = pendingSpecialCraftCount ? `${pendingSpecialCraftCount} 单未回仓` : ''
-  const draftLocks = row.currentLocks.filter((lock) => lock.lockType === '草稿唛架锁定')
-  const draftMarkerLockSummary = draftLocks.length
-    ? `${draftLocks.length} 条 / ${formatMaterialLedgerQty(draftLocks.reduce((sum, lock) => sum + Number(lock.lockedQty || 0), 0), row.availableUnit || row.materialUnit)}`
-    : ''
   const markerSpreadingCounts = buildMarkerSpreadingCountsByCutOrder(row.cutOrderId)
   const feiTicketCount = sources.feiViewModel.ticketRecords.filter(
     (ticket) => ticket.cutOrderId === row.cutOrderId || ticket.cutOrderNo === row.cutOrderNo,
@@ -822,7 +816,6 @@ function buildCloseImpactContext(row: CutOrderRow): {
       inventorySummary,
       pendingSpecialCraftSummary,
       pendingHandoverSummary,
-      draftMarkerLockSummary,
     }),
     inventorySummary: inventorySummary || '0 片',
     pendingSpecialCraftSummary: pendingSpecialCraftSummary || '0 片',
@@ -838,7 +831,6 @@ function renderCloseLedgerSnapshot(snapshot: NonNullable<CutOrderCloseRecord['le
     ['需求用量', snapshot.requiredMaterialQty],
     ['中转仓已配数量', snapshot.transferWarehouseAllocatedQty],
     ['裁床已领数量', snapshot.cuttingClaimedQty],
-    ['已锁定数量', snapshot.markerLockedQty],
     ['已消耗数量', snapshot.spreadingConsumedQty],
     ['可用余额', snapshot.availableQty],
   ] as const
@@ -994,7 +986,7 @@ function renderCutOrderClosePage(): string {
 }
 
 function renderStatusCell(row: CutOrderRow): string {
-  const lockSource = row.activeMarkerPlanNo || row.latestMarkerPlanNo
+  const markerPlanSource = row.activeMarkerPlanNo || row.latestMarkerPlanNo
   return `
     <div class="space-y-2">
       <div class="space-y-1">
@@ -1003,7 +995,7 @@ function renderStatusCell(row: CutOrderRow): string {
         ${row.closeReason ? `<p class="text-xs leading-5 text-muted-foreground">关闭原因：${escapeHtml(row.closeReasonText || row.closeReason)}</p>` : ''}
       </div>
       <div class="space-y-1 text-xs text-muted-foreground">
-        ${lockSource ? `<p>当前锁定来源：${escapeHtml(lockSource)}</p>` : ''}
+        ${markerPlanSource ? `<p>当前唛架方案：${escapeHtml(markerPlanSource)}</p>` : ''}
       </div>
       ${renderBatchSummary(row)}
     </div>
@@ -1405,7 +1397,7 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
             ${row.closedAt ? `<p class="text-sm"><span class="text-muted-foreground">关闭时间：</span>${escapeHtml(row.closedAt)}</p>` : ''}
             ${row.closedBy ? `<p class="text-sm"><span class="text-muted-foreground">关闭人：</span>${escapeHtml(row.closedBy)}</p>` : ''}
             <div class="space-y-2 text-sm">
-              <p><span class="text-muted-foreground">当前锁定来源：</span>${escapeHtml(row.activeMarkerPlanNo || row.latestMarkerPlanNo || '无')}</p>
+              <p><span class="text-muted-foreground">当前唛架方案：</span>${escapeHtml(row.activeMarkerPlanNo || row.latestMarkerPlanNo || '无')}</p>
               <div class="flex flex-wrap items-center gap-1">
                 <span class="text-muted-foreground">风险：</span>
                 ${
@@ -1923,7 +1915,7 @@ function renderCutOrderOverviewTab(view: ReturnType<typeof buildCutOrderDetailVi
             { label: '执行去向', value: row.executionRouteLabel || '待分配承接方', tone: row.executionRoute === 'OWN_CUTTING' ? 'strong' : undefined },
             { label: '主状态', value: row.currentStageLabel, tone: 'strong' },
             { label: '可用余额', value: formatMaterialLedgerQty(row.availableQty, row.availableUnit || row.materialUnit), tone: 'strong' },
-            { label: '当前锁定来源', value: row.activeMarkerPlanNo || row.latestMarkerPlanNo || '无' },
+            { label: '当前唛架方案', value: row.activeMarkerPlanNo || row.latestMarkerPlanNo || '无' },
           ])}
         </div>
       `)}
@@ -1953,7 +1945,6 @@ function renderCutOrderMaterialFlowTab(view: ReturnType<typeof buildCutOrderDeta
     { title: '中转仓配料记录', types: ['TRANSFER_WAREHOUSE_ALLOCATED'], empty: '暂无中转仓配料记录。' },
     { title: '裁床领料记录', types: ['CUTTING_CLAIMED'], empty: '暂无裁床领料记录。' },
     { title: '扫码入仓记录', types: ['CUTTING_WAIT_PROCESS_INBOUNDED'], empty: '暂无扫码入仓记录。' },
-    { title: '唛架锁定 / 释放流水', types: ['MARKER_DRAFT_LOCKED', 'MARKER_DRAFT_RELEASED', 'MARKER_CONFIRMED_LOCKED'], empty: '暂无唛架锁定或释放流水。' },
     { title: '加工用料 / 铺布消耗', types: ['SPREADING_ACTUAL_CONSUMED'], empty: '暂无加工用料或铺布消耗记录。' },
     { title: '回收入仓 / 调整', types: ['CUTTING_RETURNED', 'LEDGER_ADJUSTED'], empty: '暂无回收入仓或调整记录。' },
   ]
@@ -2007,14 +1998,6 @@ function renderCutOrderMarkerPlanTab(view: ReturnType<typeof buildCutOrderDetail
           </div>
         `
       }))}
-      ${renderDetailSection('当前锁定流水', renderCompactRecordList(view.row.currentLocks, '当前没有草稿或有效唛架锁定。', (lock) => `
-        <div class="grid gap-3 px-3 py-3 text-sm md:grid-cols-4">
-          <div><div class="text-xs text-muted-foreground">锁定类型</div><div class="font-medium">${escapeHtml(lock.lockType)}</div></div>
-          <div><div class="text-xs text-muted-foreground">唛架方案</div><div>${escapeHtml(lock.markerPlanId || '待补')}</div></div>
-          <div><div class="text-xs text-muted-foreground">锁定数量</div><div class="font-semibold">${escapeHtml(formatMaterialLedgerQty(lock.lockedQty, lock.unit))}</div></div>
-          <div><div class="text-xs text-muted-foreground">锁定 ID</div><div class="truncate" title="${escapeHtml(lock.lockId)}">${escapeHtml(lock.lockId)}</div></div>
-        </div>
-      `))}
     </div>
   `
 }
@@ -2192,9 +2175,8 @@ function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel(
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.productionOrderNo)} · ${escapeHtml(row.materialSku)} · ${escapeHtml(row.patternFileName)} · ${escapeHtml(row.effectiveWidthText)}</p>
             ${row.closeReason ? `<p class="mt-1 text-sm text-amber-700">关闭原因：${escapeHtml(row.closeReasonText || row.closeReason)}</p>` : ''}
           </div>
-          <div class="grid gap-2 text-right text-xs text-muted-foreground sm:grid-cols-4 sm:text-left">
+          <div class="grid gap-2 text-right text-xs text-muted-foreground sm:grid-cols-3 sm:text-left">
             <div class="rounded-lg border px-3 py-2"><div>裁床已领</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(formatMaterialLedgerQty(row.claimedQty, row.availableUnit))}</div></div>
-            <div class="rounded-lg border px-3 py-2"><div>已锁定</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(formatMaterialLedgerQty(row.lockedQty, row.availableUnit))}</div></div>
             <div class="rounded-lg border px-3 py-2"><div>已消耗</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(formatMaterialLedgerQty(row.consumedQty, row.availableUnit))}</div></div>
             <div class="rounded-lg border px-3 py-2"><div>可用余额</div><div class="mt-1 text-sm font-semibold text-blue-600">${escapeHtml(formatMaterialLedgerQty(row.availableQty, row.availableUnit))}</div></div>
           </div>

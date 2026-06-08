@@ -286,8 +286,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             {
               id: `${seed.technicalVersionId}-process-cut`,
               entryType: 'PROCESS_BASELINE' as const,
-              stageCode: 'PREP' as const,
-              stageName: '裁前准备',
+              stageCode: 'PROD' as const,
+              stageName: '生产阶段',
               processCode: 'CUT_PANEL',
               processName: '裁片',
               assignmentGranularity: 'ORDER' as const,
@@ -626,8 +626,8 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
       {
         id: `${technicalVersionId}-process-cut`,
         entryType: 'PROCESS_BASELINE',
-        stageCode: 'PREP',
-        stageName: '裁前准备',
+        stageCode: 'PROD',
+        stageName: '生产阶段',
         processCode: 'CUT_PANEL',
         processName: '裁片',
         assignmentGranularity: 'ORDER',

@@ -31,6 +31,7 @@ import {
   confirmTaskBlock,
 } from './actions.ts'
 import { buildTaskRouteCardPrintLink } from '../../data/fcs/fcs-route-links.ts'
+import { isRuntimeSewingTask } from '../../data/fcs/runtime-process-tasks.ts'
 
 function updateField(field: string, node: HTMLElement): void {
   if (field === 'keyword' && node instanceof HTMLInputElement) {
@@ -145,7 +146,11 @@ function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'task-action-dispatch' && taskId && poId) {
-    openLinkedPage('任务分配', `/fcs/dispatch/board?po=${encodeURIComponent(poId)}&taskId=${encodeURIComponent(taskId)}`)
+    const task = getTaskById(taskId)
+    const path = task && isRuntimeSewingTask(task)
+      ? `/fcs/dispatch/sewing?po=${encodeURIComponent(poId)}&taskId=${encodeURIComponent(taskId)}`
+      : `/fcs/dispatch/non-sewing?po=${encodeURIComponent(poId)}&taskId=${encodeURIComponent(taskId)}`
+    openLinkedPage(task && isRuntimeSewingTask(task) ? '车缝分配工作台' : '非车缝任务分配', path)
     state.taskActionMenuId = null
     return true
   }
@@ -170,7 +175,7 @@ function handleOrderAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'order-action-dispatch') {
-    openLinkedPage('任务分配', `/fcs/dispatch/board?po=${encodeURIComponent(orderId)}`)
+    openLinkedPage('车缝分配工作台', `/fcs/dispatch/sewing?po=${encodeURIComponent(orderId)}`)
     state.orderActionMenuId = null
     return true
   }

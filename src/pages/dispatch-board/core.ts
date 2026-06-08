@@ -164,7 +164,7 @@ function renderAutoAssignMessage(): string {
   }
 
   const skippedBadges = [
-    feedback.skippedSewingCount > 0 ? `车缝任务跳过 ${feedback.skippedSewingCount} 条` : '',
+    feedback.skippedSewingCount > 0 ? `不适用任务跳过 ${feedback.skippedSewingCount} 条` : '',
     feedback.skippedMissingConfigCount > 0 ? `未启用或未配置工厂跳过 ${feedback.skippedMissingConfigCount} 条` : '',
     feedback.skippedFailedCount > 0 ? `分配失败 ${feedback.skippedFailedCount} 条` : '',
   ].filter(Boolean)
@@ -212,7 +212,7 @@ function renderAutoDispatchConfigDialog(rows: DispatchTask[]): string {
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-lg font-semibold">自动分配配置</h3>
-              <span class="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">车缝任务不参与自动分配</span>
+              <span class="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">仅当前页任务参与</span>
             </div>
             <p class="mt-1 text-sm text-muted-foreground">非车缝任务命中配置后，按整任务、技术包核价的工序工艺价、直接派单自动分配；分配时间即工厂接单确认时间。</p>
           </div>
@@ -319,8 +319,8 @@ function renderDispatchBoardInner(): string {
     <div class="space-y-4">
       <header class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 class="text-2xl font-bold">任务分配</h1>
-          <p class="mt-0.5 text-sm text-muted-foreground">对任务进行直接派单、竞价或暂不分配处理；车缝任务分配时确认生产单主工厂，非车缝任务可按配置自动直接派单。</p>
+          <h1 class="text-2xl font-bold">非车缝任务分配</h1>
+          <p class="mt-0.5 text-sm text-muted-foreground">承接印花、染色、裁片、辅助工艺、特种工艺、后道等非车缝任务的直接派单、竞价和暂不分配处理；车缝请进入车缝分配工作台。</p>
         </div>
         ${renderAutoDispatchToolbar()}
       </header>

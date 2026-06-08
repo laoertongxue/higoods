@@ -43,7 +43,7 @@ const WEB_PAGES: Array<{ path: string; title: string; required: string[]; forbid
   {
     path: '/fcs/craft/cutting/marker-list',
     title: '唛架方案',
-    required: ['来源裁片单', '唛架编号', '计划数量', '计划用量', '锁定数量'],
+    required: ['来源裁片单', '唛架编号', '计划数量', '计划用量', '可用库存'],
     forbidden: ['来源类型'],
   },
   {

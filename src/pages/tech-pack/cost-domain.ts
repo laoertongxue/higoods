@@ -23,6 +23,7 @@ export function renderCostTab(): string {
     0,
   )
   const grandTotal = materialTotal + processTotal + customTotal
+  const absorbedPreparationCount = state.techniques.filter((item) => item.stageCode === 'PREP').length
 
   return `
     <div class="space-y-6">
@@ -96,9 +97,12 @@ export function renderCostTab(): string {
               </tr>
             </thead>
             <tbody>
-              ${state.processCostRows
-                .map(
-                  (row) => `
+              ${
+                state.processCostRows.length === 0
+                  ? '<tr><td colspan="7" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无需单独维护的工序标准成本</td></tr>'
+                  : state.processCostRows
+                      .map(
+                        (row) => `
                     <tr class="border-b last:border-0">
                       <td class="px-3 py-2">${escapeHtml(row.stage)}</td>
                       <td class="px-3 py-2">${escapeHtml(row.process)}</td>
@@ -123,10 +127,18 @@ export function renderCostTab(): string {
                       <td class="px-3 py-2 text-right font-medium">${(Number.parseFloat(row.price) || 0).toFixed(2)}</td>
                     </tr>
                   `,
-                )
-                .join('')}
+                      )
+                      .join('')
+              }
             </tbody>
           </table>
+          ${
+            absorbedPreparationCount > 0
+              ? `<div class="mt-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                  ${absorbedPreparationCount} 个准备阶段工序已按物料成本口径处理，不在工序标准成本中重复维护。
+                </div>`
+              : ''
+          }
         </div>
       </section>
 

@@ -140,7 +140,6 @@ export interface CutOrderRow {
   availableQty: number
   availableUnit: string
   claimedQty: number
-  lockedQty: number
   consumedQty: number
   markerPlanIds: string[]
   markerPlanNos: string[]
@@ -351,7 +350,6 @@ function buildCutOrderMaterialQuantityLedger(
     requiredMaterialQty: 0,
     transferWarehouseAllocatedQty: 0,
     cuttingClaimedQty: 0,
-    markerLockedQty: 0,
     spreadingConsumedQty: 0,
     returnedQty: 0,
     adjustmentQty: 0,
@@ -568,7 +566,6 @@ function createRow(
     availableQty: materialQuantityLedger.availableQty,
     availableUnit: materialQuantityLedger.unit,
     claimedQty: materialQuantityLedger.cuttingClaimedQty,
-    lockedQty: materialQuantityLedger.markerLockedQty,
     consumedQty: materialQuantityLedger.spreadingConsumedQty,
     markerPlanIds,
     markerPlanNos,

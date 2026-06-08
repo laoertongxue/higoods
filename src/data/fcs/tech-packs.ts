@@ -4,6 +4,8 @@ import {
   getSpecialCraftTargetObjectLabel,
   getProcessCraftByCode,
   getProcessDefinitionByCode,
+  getProcessStageByCode,
+  listPreparationProcesses,
   normalizeSpecialCraftTargetObjectLabel,
   listProcessCraftDefinitions,
   type OutputValueUnit,
@@ -830,9 +832,40 @@ function fallbackDetailDimensions(
   return ['PATTERN', 'MATERIAL_SKU']
 }
 
-export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): TechPackProcessEntry {
-  const processDef = getProcessDefinitionByCode(entry.processCode)
+const preparationProcessByCode = new Map(listPreparationProcesses().map((item) => [item.processCode, item]))
+
+function resolveProcessEntryDictionaryFields(entry: TechPackProcessEntry): Pick<
+  TechPackProcessEntry,
+  'stageCode' | 'stageName' | 'processCode' | 'processName' | 'craftCode' | 'craftName'
+> {
   const craftDef = entry.craftCode ? getProcessCraftByCode(entry.craftCode) : undefined
+  const resolvedProcessCode = craftDef?.processCode || entry.processCode
+  const processDef = getProcessDefinitionByCode(resolvedProcessCode)
+    || getProcessDefinitionByCode(entry.processCode)
+  const preparationProcess = preparationProcessByCode.get(resolvedProcessCode)
+    || preparationProcessByCode.get(entry.processCode)
+  const stageCode = (craftDef?.stageCode
+    || processDef?.stageCode
+    || preparationProcess?.processStage
+    || entry.stageCode) as TechPackProcessEntry['stageCode']
+
+  return {
+    stageCode,
+    stageName:
+      getProcessStageByCode(stageCode)?.stageName
+      || preparationProcess?.processStageName
+      || entry.stageName,
+    processCode: processDef?.processCode || preparationProcess?.processCode || resolvedProcessCode,
+    processName: processDef?.processName || preparationProcess?.processName || entry.processName,
+    craftCode: craftDef?.craftCode || entry.craftCode,
+    craftName: craftDef?.craftName || entry.craftName,
+  }
+}
+
+export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): TechPackProcessEntry {
+  const craftDef = entry.craftCode ? getProcessCraftByCode(entry.craftCode) : undefined
+  const dictionaryFields = resolveProcessEntryDictionaryFields(entry)
+  const processDef = getProcessDefinitionByCode(dictionaryFields.processCode)
   const referenceOutputValueUnitLabel = craftDef
     ? OUTPUT_VALUE_UNIT_LABEL[craftDef.referenceOutputValueUnit]
     : undefined
@@ -891,6 +924,7 @@ export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): Te
 
   return {
     ...entry,
+    ...dictionaryFields,
     assignmentGranularity: resolvedGranularity,
     ruleSource: resolvedRuleSource,
     detailSplitMode: resolvedSplitMode,

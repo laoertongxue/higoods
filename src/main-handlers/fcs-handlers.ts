@@ -98,6 +98,10 @@ import {
   isDispatchBoardDialogOpen,
 } from '../pages/dispatch-board'
 import {
+  handleSewingDispatchWorkbenchEvent,
+  isSewingDispatchWorkbenchDialogOpen,
+} from '../pages/sewing-dispatch-workbench'
+import {
   handleDispatchTendersEvent,
   isDispatchTendersDialogOpen,
 } from '../pages/dispatch-tenders'
@@ -265,6 +269,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleMaterialStatementsEvent(target) ||
     await handlePaymentSyncEvent(target) ||
     await handleHistoryEvent(target) ||
+    await handleSewingDispatchWorkbenchEvent(target) ||
     await handleDispatchBoardEvent(target) ||
     await handleDispatchTendersEvent(target) ||
     await handleProgressBoardEvent(target) ||
@@ -452,6 +457,15 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.dispatchAction = 'close-dialog'
     handleDispatchBoardEvent(fakeButton)
+    return true
+  }
+
+  if (isSewingDispatchWorkbenchDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.sewingDispatchAction = 'close-detail'
+    handleSewingDispatchWorkbenchEvent(fakeButton)
+    fakeButton.dataset.sewingDispatchAction = 'close-dispatch'
+    handleSewingDispatchWorkbenchEvent(fakeButton)
     return true
   }
 

@@ -18,6 +18,7 @@ import {
   type UiCaseStatus,
 } from './context'
 import { getClaimDisputeByCaseId, updateClaimDisputePlatformHandling } from '../../state/fcs-claim-dispute-store'
+import { isRuntimeSewingTask } from '../../data/fcs/runtime-process-tasks'
 import {
   getPdaPickupDisputeByCaseId,
   updatePdaPickupDisputePlatformHandling,
@@ -245,7 +246,11 @@ function handleRowAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'row-reassign') {
     const taskId = actionNode.dataset.taskId || ''
     const orderId = actionNode.dataset.orderId || ''
-    openLinkedPage('任务分配', `/fcs/dispatch/board?taskId=${encodeURIComponent(taskId)}&po=${encodeURIComponent(orderId)}`)
+    const task = getTaskById(taskId)
+    const path = task && isRuntimeSewingTask(task)
+      ? `/fcs/dispatch/sewing?taskId=${encodeURIComponent(taskId)}&po=${encodeURIComponent(orderId)}`
+      : `/fcs/dispatch/non-sewing?taskId=${encodeURIComponent(taskId)}&po=${encodeURIComponent(orderId)}`
+    openLinkedPage(task && isRuntimeSewingTask(task) ? '车缝分配工作台' : '非车缝任务分配', path)
     state.rowActionMenuCaseId = null
     return true
   }
@@ -540,7 +545,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'goto-tender') {
     const tenderId = actionNode.dataset.tenderId
     if (tenderId) {
-      openLinkedPage('任务分配', `/fcs/dispatch/board?tenderId=${encodeURIComponent(tenderId)}`)
+      openLinkedPage('招标单管理', `/fcs/dispatch/tenders?tenderId=${encodeURIComponent(tenderId)}`)
     }
     return true
   }

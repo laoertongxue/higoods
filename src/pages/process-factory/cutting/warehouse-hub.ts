@@ -210,12 +210,6 @@ function getWaitProcessEventSourceLabel(event: CuttingMaterialLedgerEvent): stri
       return `中转仓领料：${event.cutOrderNo}`
     case 'WAIT_PROCESS_INBOUND_RECORD':
       return `中转仓领料入库：${event.cutOrderNo}`
-    case 'MARKER_PLAN_DRAFT':
-      return event.eventType === 'MARKER_DRAFT_RELEASED'
-        ? `草稿释放：${event.cutOrderNo}`
-        : `草稿锁定：${event.cutOrderNo}`
-    case 'MARKER_PLAN':
-      return `唛架确认锁定：${event.cutOrderNo}`
     case 'SPREADING_SESSION':
       return `加工领料：${getReadableWaitProcessSourceObject(event.sourceObjectId, event.cutOrderNo)}`
     case 'RETURN_RECORD':
@@ -411,7 +405,6 @@ function buildRuntimeFallbackLedgerRow(event: CuttingRuntimeEvent): MaterialLedg
     requiredMaterialQty: 0,
     transferWarehouseAllocatedQty: 0,
     cuttingClaimedQty: 0,
-    markerLockedQty: 0,
     spreadingConsumedQty: 0,
     returnedQty: 0,
     adjustmentQty: 0,
@@ -448,8 +441,8 @@ function mergeRuntimeWaitProcessEventsIntoLedgerRows(rows: MaterialLedgerProject
     const returnQty = convertedEvents
       .filter((event) => event.eventType === 'CUTTING_RETURNED')
       .reduce((sum, event) => sum + event.quantity, 0)
-    const runtimeHasInventory = inboundQty + issueQty + returnQty > 0
-    const runtimeAvailableQty = Math.max(inboundQty + returnQty - issueQty - row.markerLockedQty, 0)
+    const runtimeHasInventory = pickupQty + issueQty + returnQty > 0
+    const runtimeAvailableQty = Math.max(row.availableQty + pickupQty + returnQty - issueQty, 0)
     const mergedEvents = [...convertedEvents, ...row.events]
       .filter((event, index, all) => all.findIndex((item) => item.eventId === event.eventId) === index)
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt, 'zh-CN'))
@@ -481,7 +474,7 @@ function mergeRuntimeWaitProcessEventsIntoLedgerRows(rows: MaterialLedgerProject
         cuttingClaimedQty: converted.eventType === 'CUTTING_CLAIMED' ? qty : 0,
         spreadingConsumedQty: converted.eventType === 'SPREADING_ACTUAL_CONSUMED' ? qty : 0,
         returnedQty: converted.eventType === 'CUTTING_RETURNED' ? qty : 0,
-        availableQty: converted.eventType === 'CUTTING_WAIT_PROCESS_INBOUNDED' || converted.eventType === 'CUTTING_RETURNED' ? qty : 0,
+	        availableQty: converted.eventType === 'CUTTING_CLAIMED' || converted.eventType === 'CUTTING_WAIT_PROCESS_INBOUNDED' || converted.eventType === 'CUTTING_RETURNED' ? qty : 0,
         latestClaimEvent: converted.eventType === 'CUTTING_CLAIMED' ? converted : null,
         events: [converted],
       }
@@ -497,7 +490,6 @@ function buildWaitProcessMaterialLedgerSummary() {
   const requiredQty = rows.reduce((sum, item) => sum + Number(item.requiredMaterialQty || 0), 0)
   const configuredQty = rows.reduce((sum, item) => sum + Number(item.transferWarehouseAllocatedQty || 0), 0)
   const claimedQty = rows.reduce((sum, item) => sum + Number(item.cuttingClaimedQty || 0), 0)
-  const lockedQty = rows.reduce((sum, item) => sum + Number(item.markerLockedQty || 0), 0)
   const consumedQty = rows.reduce((sum, item) => sum + Number(item.spreadingConsumedQty || 0), 0)
   const availableQty = rows.reduce((sum, item) => sum + Number(item.availableQty || 0), 0)
   const latestClaimEvent = rows
@@ -509,7 +501,6 @@ function buildWaitProcessMaterialLedgerSummary() {
     requiredQty,
     configuredQty,
     claimedQty,
-    lockedQty,
     consumedQty,
     availableQty,
     unit,
@@ -540,23 +531,19 @@ function buildWaitProcessInventoryItems(rows: MaterialLedgerProjection[]): WaitP
       left.cutOrderNo.localeCompare(right.cutOrderNo, 'zh-CN'),
     )
     .map((row) => {
-      const inboundQty = getWaitProcessInboundQty(row)
+      const inboundQty = row.cuttingClaimedQty
       const statusLabel =
         inboundQty <= 0
-          ? '未入待加工仓'
+          ? '未领料'
           : row.availableQty <= 0
             ? '无可用余额'
-            : row.markerLockedQty > 0
-              ? '部分锁定'
-              : '在库可用'
+            : '在库可用'
       const statusClassName =
         statusLabel === '在库可用'
           ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-          : statusLabel === '部分锁定'
-            ? 'border-blue-200 bg-blue-50 text-blue-700'
-            : statusLabel === '无可用余额'
-              ? 'border-slate-200 bg-slate-50 text-slate-600'
-              : 'border-amber-200 bg-amber-50 text-amber-700'
+          : statusLabel === '无可用余额'
+            ? 'border-slate-200 bg-slate-50 text-slate-600'
+            : 'border-amber-200 bg-amber-50 text-amber-700'
       return {
         row,
         statusLabel,
@@ -799,7 +786,6 @@ function renderWaitProcessInventoryDetailDialog(items: WaitProcessInventoryItem[
 function renderWaitProcessQtyLines(row: MaterialLedgerProjection): string {
   const lines: Array<[string, string, string?]> = [
     ['裁床已领数量', formatMaterialQtyWithRolls(row.cuttingClaimedQty, row.unit), 'text-slate-900'],
-    ['已锁定数量', formatMaterialQtyWithRolls(row.markerLockedQty, row.unit), 'text-blue-700'],
     ['已消耗数量', formatMaterialQtyWithRolls(row.spreadingConsumedQty, row.unit), 'text-slate-700'],
     ['可用余额', formatMaterialQtyWithRolls(row.availableQty, row.unit), row.availableQty > 0 ? 'text-emerald-700' : 'text-slate-500'],
   ]
@@ -1064,7 +1050,7 @@ function renderWaitProcessFilterPanel(options: {
     options.tabKey === 'inventory'
       ? [
           renderWaitProcessFilterInput('面料 / 裁片单', 'q', options.filters.keyword, '面料 SKU、名称、颜色、技术包别名、裁片单'),
-          renderWaitProcessFilterSelect('库存状态', 'stockStatus', options.filters.stockStatus, ['全部', '在库可用', '部分锁定', '无可用余额', '未入待加工仓']),
+	          renderWaitProcessFilterSelect('库存状态', 'stockStatus', options.filters.stockStatus, ['全部', '在库可用', '无可用余额', '未领料']),
           renderWaitProcessFilterSelect('库区', 'locationArea', options.filters.locationArea, locationOptions),
         ]
       : [
@@ -4681,7 +4667,7 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
 
   return renderHubShell({
     metaKey: 'warehouse-management-wait-process',
-    description: '基于裁片单数量账查看裁床已领面料库存、锁定、消耗和可用余额。',
+	    description: '基于裁片单数量账查看裁床已领面料库存、消耗和可用余额。',
     kpis: '',
     tabs: renderWaitProcessTabs(activeTab),
     content: `${activeContent}${renderWaitProcessWarehouseActionDialog(inventoryItems)}`,

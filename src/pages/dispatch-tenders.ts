@@ -1105,7 +1105,7 @@ function renderRow(tender: TenderRow): string {
               ? `<button class="h-7 whitespace-nowrap rounded-md border border-purple-200 px-2 text-xs text-purple-700 hover:bg-purple-50" data-tender-action="open-view" data-tender-id="${escapeHtml(tender.tenderId)}">定标处理</button>`
               : ''
           }
-          <button class="h-7 whitespace-nowrap rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/dispatch/board">任务分配</button>
+          <button class="h-7 whitespace-nowrap rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/dispatch/non-sewing">非车缝任务分配</button>
         </div>
       </td>
     </tr>

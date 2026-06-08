@@ -121,7 +121,6 @@ export interface CuttingOrderProgressRecord {
     requiredMaterialQty: number
     transferWarehouseAllocatedQty: number
     cuttingClaimedQty: number
-    markerLockedQty: number
     spreadingConsumedQty: number
     availableQty: number
     unit: string

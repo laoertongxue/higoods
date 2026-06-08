@@ -18,7 +18,6 @@ export interface CutOrderCloseImpactItem {
     | 'INVENTORY'
     | 'PENDING_SPECIAL_CRAFT'
     | 'OPEN_HANDOVER'
-    | 'DRAFT_MARKER_LOCK'
   label: string
   value: string
   detailText: string
@@ -76,7 +75,6 @@ export function buildCutOrderLedgerSnapshotBeforeClose(
       requiredMaterialQty: 0,
       transferWarehouseAllocatedQty: 0,
       cuttingClaimedQty: 0,
-      markerLockedQty: 0,
       spreadingConsumedQty: 0,
       availableQty: 0,
       unit: '米',
@@ -87,7 +85,6 @@ export function buildCutOrderLedgerSnapshotBeforeClose(
     requiredMaterialQty: roundQty(projection.requiredMaterialQty),
     transferWarehouseAllocatedQty: roundQty(projection.transferWarehouseAllocatedQty),
     cuttingClaimedQty: roundQty(projection.cuttingClaimedQty),
-    markerLockedQty: roundQty(projection.markerLockedQty),
     spreadingConsumedQty: roundQty(projection.spreadingConsumedQty),
     availableQty: roundQty(projection.availableQty),
     unit: projection.unit || projection.materialIdentity.materialUnit || '米',
@@ -104,7 +101,6 @@ export function buildCutOrderCloseImpactItems(input: {
   inventorySummary?: string
   pendingSpecialCraftSummary?: string
   pendingHandoverSummary?: string
-  draftMarkerLockSummary?: string
 }): CutOrderCloseImpactItem[] {
   const unit = input.ledgerSnapshot.unit || '米'
   const availableQty = Number(input.ledgerSnapshot.availableQty || 0)
@@ -144,13 +140,6 @@ export function buildCutOrderCloseImpactItems(input: {
       detailText: input.pendingHandoverSummary ? '关闭不影响交出单和交出记录继续追溯。' : '当前未发现未关闭交出记录。',
       severity: input.pendingHandoverSummary ? 'warning' : 'info',
     },
-    {
-      impactKey: 'DRAFT_MARKER_LOCK',
-      label: '仍有草稿唛架方案锁定',
-      value: input.draftMarkerLockSummary || '0 条',
-      detailText: input.draftMarkerLockSummary ? '关闭后该裁片单不可再被新唛架方案拉入，草稿锁定保留为历史影响提示。' : '当前无草稿锁定。',
-      severity: input.draftMarkerLockSummary ? 'critical' : 'info',
-    },
   ]
 }
 
@@ -186,7 +175,6 @@ function normalizeCloseRecord(item: unknown): CutOrderCloseRecord | null {
       requiredMaterialQty: roundQty(Number(snapshot.requiredMaterialQty || 0)),
       transferWarehouseAllocatedQty: roundQty(Number(snapshot.transferWarehouseAllocatedQty || 0)),
       cuttingClaimedQty: roundQty(Number(snapshot.cuttingClaimedQty || 0)),
-      markerLockedQty: roundQty(Number(snapshot.markerLockedQty || 0)),
       spreadingConsumedQty: roundQty(Number(snapshot.spreadingConsumedQty || 0)),
       availableQty: roundQty(Number(snapshot.availableQty || 0)),
       unit: String(snapshot.unit || '米'),
@@ -265,7 +253,6 @@ function buildSeedCloseRecord(input: {
   inventorySummary?: string
   pendingSpecialCraftSummary?: string
   pendingHandoverSummary?: string
-  draftMarkerLockSummary?: string
 }): CutOrderCloseRecord | null {
   const source = getGeneratedCutOrderSourceRecordById(input.cutOrderNo)
   if (!source) return null
@@ -291,7 +278,6 @@ function buildSeedCloseRecord(input: {
       inventorySummary: input.inventorySummary,
       pendingSpecialCraftSummary: input.pendingSpecialCraftSummary,
       pendingHandoverSummary: input.pendingHandoverSummary,
-      draftMarkerLockSummary: input.draftMarkerLockSummary,
     }),
     remainingInventorySummary: input.inventorySummary || '0 片',
     pendingSpecialCraftSummary: input.pendingSpecialCraftSummary || '0 片',
@@ -335,7 +321,6 @@ export function listSystemCutOrderCloseRecords(): CutOrderCloseRecord[] {
       pendingDifferenceCount: 1,
       inventorySummary: '120 片',
       pendingHandoverSummary: '2 条',
-      draftMarkerLockSummary: '1 条',
     }),
   ].filter((record): record is CutOrderCloseRecord => record !== null)
 }

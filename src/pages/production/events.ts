@@ -1350,7 +1350,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
     state.ordersActionMenuId = null
-    openAppRoute(`/fcs/dispatch/board?po=${orderId}`, `dispatch-center-${orderId}`, '任务分配')
+    openAppRoute(`/fcs/dispatch/non-sewing?po=${orderId}`, `dispatch-center-${orderId}`, '非车缝任务分配')
     return true
   }
 
@@ -1358,7 +1358,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
     state.ordersActionMenuId = null
-    openAppRoute(`/fcs/dispatch/board?po=${orderId}`, `dispatch-board-${orderId}`, '分配看板')
+    openAppRoute(`/fcs/dispatch/sewing?po=${orderId}`, `dispatch-sewing-${orderId}`, '车缝分配工作台')
     return true
   }
 

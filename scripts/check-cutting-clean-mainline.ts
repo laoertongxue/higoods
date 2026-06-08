@@ -135,24 +135,20 @@ function assertCutOrderAndMaterialLedger(): void {
   assertEvery(cutOrders, (row) => row.generationKey.includes(String(row.materialSku).toLowerCase()) && row.generationKey.includes(String(row.patternIdentity.patternFileId).toLowerCase()) && row.generationKey.includes(String(row.patternIdentity.effectiveWidthValue)), '裁片单 generationKey 必须包含面料、纸样和有效幅宽')
 
   const eventTypes = Array.from(new Set(listCuttingMaterialLedgerEvents().map((event) => event.eventType)))
-  ;[
-    'TRANSFER_WAREHOUSE_ALLOCATED',
-    'CUTTING_CLAIMED',
-    'MARKER_DRAFT_LOCKED',
-    'MARKER_DRAFT_RELEASED',
-    'MARKER_CONFIRMED_LOCKED',
-    'SPREADING_ACTUAL_CONSUMED',
-  ].forEach((type) => assertIncludes(eventTypes, type, '数量账事件类型不完整'))
+	  ;[
+	    'TRANSFER_WAREHOUSE_ALLOCATED',
+	    'CUTTING_CLAIMED',
+	    'SPREADING_ACTUAL_CONSUMED',
+	  ].forEach((type) => assertIncludes(eventTypes, type, '数量账事件类型不完整'))
 
-  const projections = listMaterialLedgerProjections()
-  assert(projections.some((row) => row.cuttingClaimedQty > 0), '数量账缺少裁床领料事实')
-  assert(projections.some((row) => row.markerLockedQty > 0), '数量账缺少按数量锁定事实')
-  assert(projections.some((row) => row.spreadingConsumedQty > 0), '数量账缺少实际消耗事实')
-  projections.forEach((row) => {
-    const expected = Math.max(row.cuttingClaimedQty - row.markerLockedQty - row.spreadingConsumedQty - row.returnedQty + row.adjustmentQty, 0)
-    assert.equal(row.availableQty, expected, `可用余额公式错误：${row.cutOrderNo}`)
-    assert(row.unit, `数量账缺少单位：${row.cutOrderNo}`)
-  })
+	  const projections = listMaterialLedgerProjections()
+	  assert(projections.some((row) => row.cuttingClaimedQty > 0), '数量账缺少裁床领料事实')
+	  assert(projections.some((row) => row.spreadingConsumedQty > 0), '数量账缺少实际消耗事实')
+	  projections.forEach((row) => {
+	    const expected = Math.max(row.cuttingClaimedQty - row.spreadingConsumedQty - row.returnedQty + row.adjustmentQty, 0)
+	    assert.equal(row.availableQty, expected, `可用余额公式错误：${row.cutOrderNo}`)
+	    assert(row.unit, `数量账缺少单位：${row.cutOrderNo}`)
+	  })
 }
 
 function assertFeiTicketChain(): void {

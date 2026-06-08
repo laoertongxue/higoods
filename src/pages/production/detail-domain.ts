@@ -1129,9 +1129,14 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           )}">拆解任务</button>
           <button class="rounded-md border px-3 py-2 text-sm ${
             canAssign ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
-          }" title="${escapeHtml(assignDisabledReason)}" data-nav="/fcs/dispatch/board?po=${escapeHtml(
+          }" title="${escapeHtml(assignDisabledReason)}" data-nav="/fcs/dispatch/non-sewing?po=${escapeHtml(
             order.productionOrderId,
-          )}">去分配</button>
+          )}">非车缝分配</button>
+          <button class="rounded-md border px-3 py-2 text-sm ${
+            canAssign ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
+          }" title="${escapeHtml(assignDisabledReason)}" data-nav="/fcs/dispatch/sewing?po=${escapeHtml(
+            order.productionOrderId,
+          )}">车缝分配</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(
             order.productionOrderId,
           )}">查看技术包快照</button>
