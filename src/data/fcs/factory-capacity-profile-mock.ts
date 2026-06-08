@@ -7,10 +7,10 @@ import {
   listProcessStages,
   listProcessesByStageCode,
   type ProcessCraftDictRow,
-  type SamCurrentFieldKey,
+  type OutputValueCurrentFieldKey,
 } from './process-craft-dict.ts'
-import { getFactorySupplyFormulaTemplate, type FactorySupplyFormulaTemplate } from './process-craft-sam-explainer.ts'
-import { getSamBusinessFieldLabel } from './sam-field-display.ts'
+import { getFactorySupplyFormulaTemplate, type FactorySupplyFormulaTemplate } from './process-craft-output-value-explainer.ts'
+import { getOutputValueBusinessFieldLabel } from './output-value-field-display.ts'
 import type { FactoryOnboardingApplication } from './factory-onboarding-domain.ts'
 import type {
   Factory,
@@ -105,7 +105,7 @@ export interface FactoryCapacityComputationLine {
 
 export interface FactoryCapacityComputedResult {
   template: FactorySupplyFormulaTemplate
-  missingFieldKeys: SamCurrentFieldKey[]
+  missingFieldKeys: OutputValueCurrentFieldKey[]
   resultValue: number | null
   lines: FactoryCapacityComputationLine[]
 }
@@ -168,7 +168,7 @@ function cloneProfile(profile: FactoryCapacityProfile): FactoryCapacityProfile {
     machineTotalCount: profile.machineTotalCount,
     capabilityItems: profile.capabilityItems.map((item) => ({ ...item })),
     machineItems: profile.machineItems.map((item) => ({ ...item })),
-    defaultDailyAvailablePublishedSam: profile.defaultDailyAvailablePublishedSam,
+    defaultDailyOutputValue: profile.defaultDailyOutputValue,
     calculationStatus: profile.calculationStatus,
     calculationNotes: profile.calculationNotes,
     createdAt: profile.createdAt,
@@ -238,9 +238,9 @@ function createEmptyProfile(factoryId: string): FactoryCapacityProfile {
     machineTotalCount: factory?.machineTotalCount || 0,
     capabilityItems,
     machineItems,
-    defaultDailyAvailablePublishedSam: 0,
+    defaultDailyOutputValue: 0,
     calculationStatus: '待补充产能字段',
-    calculationNotes: '入驻资料已生成产能档案初始数据，默认日可供给发布工时 SAM 待补充字段后计算。',
+    calculationNotes: '入驻资料已生成产能档案初始数据，默认日可供给产值 待补充字段后计算。',
     createdAt: now,
     updatedAt: now,
     entries: [],
@@ -270,7 +270,7 @@ function getBaseSeed(factoryId: string, craftCode: string): number {
 }
 
 function buildDefaultFieldValue(
-  key: SamCurrentFieldKey,
+  key: OutputValueCurrentFieldKey,
   row: ProcessCraftDictRow,
   factoryId: string,
 ): FactoryCapacityFieldValue {
@@ -282,16 +282,16 @@ function buildDefaultFieldValue(
     case 'deviceShiftMinutes':
       return 480 + (seed % 2) * 60
     case 'deviceEfficiencyValue':
-      if (row.samCalcMode === 'BATCH') return Number((0.7 + (seed % 4) * 0.05).toFixed(2))
-      if (row.samCalcMode === 'CONTINUOUS') return Number((0.72 + (seed % 6) * 0.03).toFixed(2))
+      if (row.outputValueCalcMode === 'BATCH') return Number((0.7 + (seed % 4) * 0.05).toFixed(2))
+      if (row.outputValueCalcMode === 'CONTINUOUS') return Number((0.72 + (seed % 6) * 0.03).toFixed(2))
       return Number((0.68 + (seed % 7) * 0.04).toFixed(2))
     case 'staffCount':
       return 4 + (seed % 9)
     case 'staffShiftMinutes':
       return 420 + (seed % 2) * 60
     case 'staffEfficiencyValue':
-      if (row.samCalcMode === 'BATCH') return Number((0.75 + (seed % 5) * 0.03).toFixed(2))
-      if (row.samCalcMode === 'CONTINUOUS') return Number((0.78 + (seed % 4) * 0.03).toFixed(2))
+      if (row.outputValueCalcMode === 'BATCH') return Number((0.75 + (seed % 5) * 0.03).toFixed(2))
+      if (row.outputValueCalcMode === 'CONTINUOUS') return Number((0.78 + (seed % 4) * 0.03).toFixed(2))
       return Number((0.8 + (seed % 4) * 0.03).toFixed(2))
     case 'batchLoadCapacity':
       return 100 + (seed % 90)
@@ -309,19 +309,19 @@ function buildDefaultFieldValue(
 }
 
 function buildDefaultValues(
-  fieldKeys: SamCurrentFieldKey[],
+  fieldKeys: OutputValueCurrentFieldKey[],
   row: ProcessCraftDictRow,
   factoryId: string,
-): Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>> {
-  return fieldKeys.reduce<Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>>((result, key) => {
+): Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>> {
+  return fieldKeys.reduce<Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>>>((result, key) => {
     result[key] = buildDefaultFieldValue(key, row, factoryId)
     return result
   }, {})
 }
 
 function getSeedNumericValue(
-  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
-  key: SamCurrentFieldKey,
+  values: Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>>,
+  key: OutputValueCurrentFieldKey,
 ): number {
   const rawValue = values[key]
   const numericValue = Number(rawValue)
@@ -532,9 +532,9 @@ function normalizeEntry(
   factoryId: string,
   preserveEmptyValues = false,
 ): FactoryCapacityEntry {
-  const baseValues = buildDefaultValues(row.samCurrentFieldKeys, row, factoryId)
+  const baseValues = buildDefaultValues(row.outputValueCurrentFieldKeys, row, factoryId)
   const existingValues = existingEntry?.values ?? {}
-  const nextValues = row.samCurrentFieldKeys.reduce<Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>>(
+  const nextValues = row.outputValueCurrentFieldKeys.reduce<Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>>>(
     (result, key) => {
       const hasOwnField = Object.prototype.hasOwnProperty.call(existingValues, key)
       result[key] = hasCapacityFieldValue(existingValues[key]) || (preserveEmptyValues && hasOwnField) ? existingValues[key] : baseValues[key]
@@ -610,7 +610,7 @@ function mapOnboardingConditionToEquipmentStatus(condition: string): FactoryCapa
 }
 
 function buildInitialEntryFromRow(row: ProcessCraftDictRow): FactoryCapacityEntry {
-  const emptyValues = row.samCurrentFieldKeys.reduce<Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>>((result, key) => {
+  const emptyValues = row.outputValueCurrentFieldKeys.reduce<Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>>>((result, key) => {
     result[key] = ''
     return result
   }, {})
@@ -618,7 +618,7 @@ function buildInitialEntryFromRow(row: ProcessCraftDictRow): FactoryCapacityEntr
     processCode: row.processCode,
     craftCode: row.craftCode,
     values: emptyValues,
-    note: '入驻资料已生成产能档案初始数据，默认日可供给发布工时 SAM 待补充字段后计算。',
+    note: '入驻资料已生成产能档案初始数据，默认日可供给产值 待补充字段后计算。',
   }
 }
 
@@ -650,7 +650,7 @@ export function createInitialCapacityProfileFromOnboarding(application: FactoryO
       processCode: item.processCode,
       craftCode: item.craftCode,
       values: {},
-      note: '入驻资料已生成产能档案初始数据，默认日可供给发布工时 SAM 待补充字段后计算。',
+      note: '入驻资料已生成产能档案初始数据，默认日可供给产值 待补充字段后计算。',
     }
   })
   const equipments = application.machines.map((item) => ({
@@ -683,9 +683,9 @@ export function createInitialCapacityProfileFromOnboarding(application: FactoryO
     machineTotalCount: application.machineTotalCount,
     capabilityItems,
     machineItems,
-    defaultDailyAvailablePublishedSam: 0,
+    defaultDailyOutputValue: 0,
     calculationStatus: '待补充产能字段',
-    calculationNotes: '入驻资料已生成产能档案初始数据，默认日可供给发布工时 SAM 待补充字段后计算。',
+    calculationNotes: '入驻资料已生成产能档案初始数据，默认日可供给产值 待补充字段后计算。',
     createdAt: now,
     updatedAt: now,
     entries,
@@ -717,13 +717,13 @@ export function listFactoryCapacityEntries(factoryId: string): FactoryCapacityRe
       if (!entry) return null
       const nextEntry = cloneEntry(entry)
       const equipmentSummary = getFactoryCapacityEquipmentSummary(factoryId, row.processCode, row.craftCode)
-      if (row.samCurrentFieldKeys.includes('deviceCount')) {
+      if (row.outputValueCurrentFieldKeys.includes('deviceCount')) {
         nextEntry.values.deviceCount = equipmentSummary.countableEquipmentCount
       }
-      if (row.samCurrentFieldKeys.includes('deviceShiftMinutes')) {
+      if (row.outputValueCurrentFieldKeys.includes('deviceShiftMinutes')) {
         nextEntry.values.deviceShiftMinutes = Number(equipmentSummary.averageSingleShiftMinutes.toFixed(2))
       }
-      if (row.samCurrentFieldKeys.includes('deviceEfficiencyValue')) {
+      if (row.outputValueCurrentFieldKeys.includes('deviceEfficiencyValue')) {
         nextEntry.values.deviceEfficiencyValue = Number(equipmentSummary.weightedEfficiencyValue.toFixed(4))
       }
       return {
@@ -856,8 +856,8 @@ export function replaceFactoryCapacityProfileEntries(factoryId: string, entries:
 }
 
 function getNumericValue(
-  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
-  key: SamCurrentFieldKey,
+  values: Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>>,
+  key: OutputValueCurrentFieldKey,
 ): number | null {
   const value = values[key]
   if (value === undefined || value === null || String(value).trim() === '') return null
@@ -865,7 +865,7 @@ function getNumericValue(
   return Number.isFinite(numericValue) ? numericValue : null
 }
 
-function isEquipmentLinkedField(key: SamCurrentFieldKey): boolean {
+function isEquipmentLinkedField(key: OutputValueCurrentFieldKey): boolean {
   return key === 'deviceCount' || key === 'deviceShiftMinutes' || key === 'deviceEfficiencyValue'
 }
 
@@ -873,20 +873,20 @@ function formatResultNumber(value: number): string {
   return Number(value.toFixed(2)).toString()
 }
 
-function formatNamedNumber(key: SamCurrentFieldKey, value: number): string {
-  return `${getSamBusinessFieldLabel(key)}（${formatResultNumber(value)}）`
+function formatNamedNumber(key: OutputValueCurrentFieldKey, value: number): string {
+  return `${getOutputValueBusinessFieldLabel(key)}（${formatResultNumber(value)}）`
 }
 
 export function computeFactoryCapacityEntryResult(
   row: ProcessCraftDictRow,
-  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
+  values: Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>>,
   equipmentSummary?: FactoryCapacityEquipmentSummary,
 ): FactoryCapacityComputedResult {
   const template = getFactorySupplyFormulaTemplate(row.craftName)
   const deviceCountFromArchive = equipmentSummary?.countableEquipmentCount ?? 0
   const deviceShiftMinutesFromArchive = equipmentSummary?.averageSingleShiftMinutes ?? 0
   const deviceEfficiencyFromArchive = equipmentSummary?.weightedEfficiencyValue ?? 0
-  const missingFieldKeys = row.samCurrentFieldKeys.filter((key) => {
+  const missingFieldKeys = row.outputValueCurrentFieldKeys.filter((key) => {
     if (!equipmentSummary || !isEquipmentLinkedField(key)) {
       return getNumericValue(values, key) === null
     }
@@ -900,7 +900,7 @@ export function computeFactoryCapacityEntryResult(
       lines: [
         {
           label: '待补充字段',
-          expression: `请先补齐：${missingFieldKeys.map((key) => getSamBusinessFieldLabel(key)).join('、')}`,
+          expression: `请先补齐：${missingFieldKeys.map((key) => getOutputValueBusinessFieldLabel(key)).join('、')}`,
           result: null,
         },
       ],
@@ -927,7 +927,7 @@ export function computeFactoryCapacityEntryResult(
           result: baseCapacity,
         },
         {
-          label: '默认日可供给发布工时 SAM',
+          label: '默认日可供给产值',
           expression: `基础日能力（${formatResultNumber(baseCapacity)}）× ${formatNamedNumber('efficiencyFactor', efficiencyFactor)}`,
           result: resultValue,
         },
@@ -988,7 +988,7 @@ export function computeFactoryCapacityEntryResult(
           result: baseCapacity,
         },
         {
-          label: '默认日可供给发布工时 SAM',
+          label: '默认日可供给产值',
           expression: `（基础日能力（${formatResultNumber(baseCapacity)}） - ${formatNamedNumber('setupMinutes', setupMinutes)} - ${formatNamedNumber('switchMinutes', switchMinutes)}）× ${formatNamedNumber('efficiencyFactor', efficiencyFactor)}`,
           result: resultValue,
         },
@@ -1035,7 +1035,7 @@ export function computeFactoryCapacityEntryResult(
         result: baseCapacity,
       },
       {
-        label: '默认日可供给发布工时 SAM',
+        label: '默认日可供给产值',
         expression: `（基础日能力（${formatResultNumber(baseCapacity)}） - ${formatNamedNumber('setupMinutes', setupMinutes)} - ${formatNamedNumber('switchMinutes', switchMinutes)}）× ${formatNamedNumber('efficiencyFactor', efficiencyFactor)}`,
         result: resultValue,
       },
@@ -1047,7 +1047,7 @@ export function updateFactoryCapacityEntryValue(
   factoryId: string,
   processCode: string,
   craftCode: string,
-  fieldKey: SamCurrentFieldKey,
+  fieldKey: OutputValueCurrentFieldKey,
   value: FactoryCapacityFieldValue,
 ): void {
   const profile = ensureProfile(factoryId)
@@ -1084,7 +1084,7 @@ export function calculateFactoryCapacityCompletion(factoryId: string): number {
   let filledFields = 0
 
   entries.forEach(({ row, entry }) => {
-    row.samCurrentFieldKeys.forEach((fieldKey) => {
+    row.outputValueCurrentFieldKeys.forEach((fieldKey) => {
       totalFields += 1
       if (hasCapacityFieldValue(entry.values[fieldKey])) {
         filledFields += 1
@@ -1098,7 +1098,7 @@ export function calculateFactoryCapacityCompletion(factoryId: string): number {
 
 function getEntryNumericValue(
   entry: FactoryCapacityEntry,
-  fieldKey: SamCurrentFieldKey,
+  fieldKey: OutputValueCurrentFieldKey,
 ): number | undefined {
   const value = entry.values[fieldKey]
   if (value === undefined || value === null || String(value).trim() === '') return undefined
@@ -1259,9 +1259,9 @@ export function auditFactoryCapacityProfile(factoryId: string): FactoryCapacityA
       return
     }
 
-    const actualKeys = Object.keys(entry.values) as SamCurrentFieldKey[]
-    const missingKeys = row.samCurrentFieldKeys.filter((key) => !actualKeys.includes(key))
-    const unexpectedKeys = actualKeys.filter((key) => !row.samCurrentFieldKeys.includes(key))
+    const actualKeys = Object.keys(entry.values) as OutputValueCurrentFieldKey[]
+    const missingKeys = row.outputValueCurrentFieldKeys.filter((key) => !actualKeys.includes(key))
+    const unexpectedKeys = actualKeys.filter((key) => !row.outputValueCurrentFieldKeys.includes(key))
 
     if (missingKeys.length) {
       issues.push({

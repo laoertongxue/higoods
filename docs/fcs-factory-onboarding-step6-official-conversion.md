@@ -50,10 +50,10 @@ FactoryOnboardingApplication 到 FactoryProfile 的关键映射：
 - `machineTotalCount`
 - `capabilityItems`
 - `machineItems`
-- `defaultDailyAvailablePublishedSam = 0`
+- `defaultDailyOutputValue = 0`
 - `calculationStatus = 待补充产能字段`
 
-如果缺少完整产能计算字段，不按机器数量或人数乱算默认日可供给发布工时 SAM，也不生成产能当前状态、白班、夜班或按周默认供给能力。
+如果缺少完整产能计算字段，不按机器数量或人数乱算默认日可供给产值，也不生成产能当前状态、白班、夜班或按周默认供给能力。
 
 ## PDA 与派单规则
 

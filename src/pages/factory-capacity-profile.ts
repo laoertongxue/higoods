@@ -26,15 +26,15 @@ import {
   type FactoryType,
 } from '../data/fcs/factory-types'
 import {
-  SAM_CALC_MODE_LABEL,
+  OUTPUT_VALUE_CALC_MODE_LABEL,
   getCapacityProcessCraftOptions,
   getProcessDefinitionByCode,
   listProcessStages,
   listProcessesByStageCode,
   type ProcessCraftDictRow,
-  type SamCurrentFieldKey,
+  type OutputValueCurrentFieldKey,
 } from '../data/fcs/process-craft-dict'
-import { getSamBusinessFieldDescription, getSamBusinessFieldLabel } from '../data/fcs/sam-field-display'
+import { getOutputValueBusinessFieldDescription, getOutputValueBusinessFieldLabel } from '../data/fcs/output-value-field-display'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 
@@ -634,8 +634,8 @@ function renderTopReadonlyInfo(factory: Factory): string {
         ${renderFieldValue('工厂状态', factoryStatusConfig[factory.status].label)}
         ${renderFieldValue('联系人', factory.contact)}
         ${renderFieldValue('来源入驻申请编号', profile.sourceApplicationNo || '既有工厂档案')}
-        ${renderFieldValue('默认日可供给发布工时 SAM', `${profile.defaultDailyAvailablePublishedSam}`)}
-        ${renderFieldValue('SAM 计算状态', profile.calculationStatus)}
+        ${renderFieldValue('默认日可供给产值', `${profile.defaultDailyOutputValue}`)}
+        ${renderFieldValue('产值 计算状态', profile.calculationStatus)}
         ${renderFieldValue('有效工人数量', `${profile.effectiveWorkerCount}`)}
         ${renderFieldValue('机器数量', `${profile.machineTotalCount}`)}
         ${renderFieldValue('匹配工厂类型', getInferredFactoryTypeLabel(profile.factoryType))}
@@ -655,18 +655,18 @@ function formatCapacityValue(value: FactoryCapacityFieldValue | undefined): stri
   return value === undefined || value === null ? '' : String(value)
 }
 
-function getCurrentPhaseFieldLabel(fieldKey: SamCurrentFieldKey): string {
+function getCurrentPhaseFieldLabel(fieldKey: OutputValueCurrentFieldKey): string {
   if (fieldKey === 'deviceCount') return '设备数量（来自设备档案）'
   if (fieldKey === 'deviceShiftMinutes') return '单班时长（来自设备档案）'
   if (fieldKey === 'deviceEfficiencyValue') return '效率（来自设备档案）'
-  return getSamBusinessFieldLabel(fieldKey)
+  return getOutputValueBusinessFieldLabel(fieldKey)
 }
 
-function getCurrentPhaseFieldDescription(fieldKey: SamCurrentFieldKey): string {
-  return getSamBusinessFieldDescription(fieldKey)
+function getCurrentPhaseFieldDescription(fieldKey: OutputValueCurrentFieldKey): string {
+  return getOutputValueBusinessFieldDescription(fieldKey)
 }
 
-function isEquipmentLinkedField(fieldKey: SamCurrentFieldKey): boolean {
+function isEquipmentLinkedField(fieldKey: OutputValueCurrentFieldKey): boolean {
   return fieldKey === 'deviceCount' || fieldKey === 'deviceShiftMinutes' || fieldKey === 'deviceEfficiencyValue'
 }
 
@@ -688,7 +688,7 @@ function renderCurrentFieldControl(
   factoryId: string,
   processCode: string,
   craftCode: string,
-  fieldKey: SamCurrentFieldKey,
+  fieldKey: OutputValueCurrentFieldKey,
   value: FactoryCapacityFieldValue | undefined,
 ): string {
   if (state.detailMode === 'detail' || isEquipmentLinkedField(fieldKey)) {
@@ -727,7 +727,7 @@ function renderCurrentFieldControl(
 function renderCalculationLines(
   factoryId: string,
   row: ProcessCraftDictRow,
-  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
+  values: Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>>,
 ): string {
   const result = computeFactoryCapacityEntryResult(
     row,
@@ -757,7 +757,7 @@ function renderCalculationLines(
 function renderCapacityEntryCard(
   factoryId: string,
   row: ProcessCraftDictRow,
-  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
+  values: Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>>,
 ): string {
   const equipmentSummary = buildEquipmentSummary(factoryId, row.processCode, row.craftCode)
   const result = computeFactoryCapacityEntryResult(row, values, equipmentSummary)
@@ -769,7 +769,7 @@ function renderCapacityEntryCard(
         <div>
           <p class="text-sm font-medium text-foreground">${escapeHtml(row.craftName)}</p>
           <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.processName)} · ${escapeHtml(
-            SAM_CALC_MODE_LABEL[row.samCalcMode],
+            OUTPUT_VALUE_CALC_MODE_LABEL[row.outputValueCalcMode],
           )}</p>
         </div>
         <span class="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">系统自动计算结果</span>
@@ -779,7 +779,7 @@ function renderCapacityEntryCard(
         <section class="space-y-3 rounded-xl bg-slate-50 px-4 py-4" data-capacity-fields-panel="${row.craftCode}">
           <p class="text-xs font-medium text-amber-700">当前阶段字段</p>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            ${row.samCurrentFieldKeys
+            ${row.outputValueCurrentFieldKeys
               .map((fieldKey) =>
                 renderCurrentFieldControl(factoryId, row.processCode, row.craftCode, fieldKey, values[fieldKey]),
               )
@@ -789,13 +789,13 @@ function renderCapacityEntryCard(
 
         <section class="space-y-4" data-capacity-results-panel="${row.craftCode}">
           <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4" data-capacity-result-block="${row.craftCode}">
-            <p class="text-xs font-medium text-blue-700">默认日可供给发布工时 SAM</p>
+            <p class="text-xs font-medium text-blue-700">默认日可供给产值</p>
             <p class="mt-2 text-2xl font-semibold text-foreground" data-capacity-result-value="${row.craftCode}">${escapeHtml(resultText)}</p>
           </div>
           <div class="space-y-2 rounded-xl bg-slate-50 px-4 py-4" data-capacity-formula-panel="${row.craftCode}">
             <p class="text-xs font-medium text-foreground">当前阶段公式</p>
             <div class="mt-2 space-y-1 text-sm text-muted-foreground">
-              ${row.samCurrentFormulaLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
+              ${row.outputValueCurrentFormulaLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
             </div>
           </div>
         </section>
@@ -805,7 +805,7 @@ function renderCapacityEntryCard(
         <section class="space-y-2 rounded-xl bg-slate-50 px-4 py-4" data-capacity-explanation-panel="${row.craftCode}">
           <p class="text-xs font-medium text-foreground">字段说明</p>
           <div class="mt-2 space-y-2 text-sm text-muted-foreground">
-            ${row.samCurrentExplanationLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
+            ${row.outputValueCurrentExplanationLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
           </div>
         </section>
         <section class="space-y-2 rounded-xl bg-slate-50 px-4 py-4" data-capacity-calculation-panel="${row.craftCode}">
@@ -939,7 +939,7 @@ function resolveEquipmentTypeByAbilities(abilityValues: string[]): FactoryCapaci
 function updateDraftEntryValue(
   processCode: string,
   craftCode: string,
-  fieldKey: SamCurrentFieldKey,
+  fieldKey: OutputValueCurrentFieldKey,
   value: FactoryCapacityFieldValue,
 ): void {
   const targetEntry = state.draftEntries.find(
@@ -1123,7 +1123,7 @@ export function handleFactoryCapacityProfileEvent(target: HTMLElement): boolean 
   if (draftField instanceof HTMLInputElement && state.activeFactoryId && state.detailMode === 'edit') {
     const processCode = draftField.dataset.capacityDraftProcessCode
     const craftCode = draftField.dataset.capacityDraftCraftCode
-    const fieldKey = draftField.dataset.capacityDraftFieldKey as SamCurrentFieldKey | undefined
+    const fieldKey = draftField.dataset.capacityDraftFieldKey as OutputValueCurrentFieldKey | undefined
     if (!processCode || !craftCode || !fieldKey) return true
     updateDraftEntryValue(processCode, craftCode, fieldKey, normalizeCapacityValue(draftField.value))
     return true

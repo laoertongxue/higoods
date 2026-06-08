@@ -510,7 +510,7 @@ function buildFallbackEvidence(record: VideoRecordViewModel): EvidenceAsset[] {
 
 function buildFallbackSamples(record: VideoRecordViewModel): LiveSample[] {
   return record.items.slice(0, Math.max(1, Math.min(3, record.items.length))).map((item, index) => ({
-    id: `${record.id}-SAM-${String(index + 1).padStart(3, '0')}`,
+    id: `${record.id}-SMP-${String(index + 1).padStart(3, '0')}`,
     name: `${item.productName} / ${item.productRef}`,
     site: '深圳样衣间',
     status: index === 0 ? '使用中' : '已归还',

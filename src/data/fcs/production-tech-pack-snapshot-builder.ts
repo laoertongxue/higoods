@@ -190,8 +190,8 @@ function buildDefaultPostFinishingProcessEntry(snapshotId: string): TechnicalPro
     isSpecialCraft: false,
     sourceType: 'DICT',
     triggerSource: '技术包默认后道工序',
-    standardTimeMinutes: 0,
-    timeUnit: '分钟/件',
+    outputValuePerUnit: 0,
+    outputValueUnit: '产值/件',
     difficulty: 'MEDIUM',
     remark: '所有生产单默认包含后道工序，质检完成后由质检人员判断是否生成后道单。',
   }

@@ -2,7 +2,7 @@ import {
   state,
   candidateFactories,
   createDispatchCapacityEvaluationContext,
-  createDispatchStandardTimeEvaluationContext,
+  createDispatchOutputValueEvaluationContext,
   getTaskById,
   getTaskAllocatableGroups,
   supportsDetailAssignment,
@@ -24,18 +24,18 @@ import {
   priceStatusClass,
   getPriceStatus,
   emptyCreateTenderForm,
-  formatPublishedSamNumber,
+  formatOutputValueNumber,
   escapeHtml,
-  resolveAllocatableGroupPublishedSam,
+  resolveAllocatableGroupOutputValue,
   resolveAllocatableGroupFactoryCapacityConstraint,
-  resolveAllocatableGroupFactoryStandardTimeJudgement,
-  resolveTaskPublishedSam,
-  resolveTaskFactoryStandardTimeJudgement,
+  resolveAllocatableGroupFactoryOutputValueJudgement,
+  resolveTaskOutputValue,
+  resolveTaskFactoryOutputValueJudgement,
   resolveTenderFactoryCapacityConstraint,
-  resolveTenderFactoryStandardTimeJudgement,
+  resolveTenderFactoryOutputValueJudgement,
   syncDispatchCapacityUsageLedger,
   type DispatchCapacityConstraintSnapshot,
-  type DispatchStandardTimeJudgementSnapshot,
+  type DispatchOutputValueJudgementSnapshot,
   type DispatchTask,
 } from './context.ts'
 
@@ -44,7 +44,7 @@ function getConstraintTone(snapshot: DispatchCapacityConstraintSnapshot | null):
   if (snapshot.status === 'PAUSED' || snapshot.status === 'OVERLOADED') {
     return 'border-red-200 bg-red-50 text-red-700'
   }
-  if (snapshot.status === 'TIGHT' || snapshot.status === 'DATE_INCOMPLETE' || snapshot.status === 'SAM_MISSING') {
+  if (snapshot.status === 'TIGHT' || snapshot.status === 'DATE_INCOMPLETE' || snapshot.status === 'VALUE_MISSING') {
     return 'border-amber-200 bg-amber-50 text-amber-700'
   }
   return 'border-green-200 bg-green-50 text-green-700'
@@ -55,28 +55,28 @@ function renderConstraintBadge(snapshot: DispatchCapacityConstraintSnapshot | nu
   return `<span class="inline-flex rounded border px-1.5 py-0 text-[10px] ${getConstraintTone(snapshot)}">${escapeHtml(snapshot.statusLabel)}</span>`
 }
 
-function getStandardTimeJudgementTone(snapshot: DispatchStandardTimeJudgementSnapshot | null): string {
+function getOutputValueJudgementTone(snapshot: DispatchOutputValueJudgementSnapshot | null): string {
   if (!snapshot) return 'border-slate-200 bg-slate-50 text-slate-600'
   if (snapshot.status === 'EXCEEDS_WINDOW') return 'border-red-200 bg-red-50 text-red-700'
-  if (snapshot.status === 'RISK' || snapshot.status === 'DATE_INCOMPLETE' || snapshot.status === 'SAM_MISSING') {
+  if (snapshot.status === 'RISK' || snapshot.status === 'DATE_INCOMPLETE' || snapshot.status === 'VALUE_MISSING') {
     return 'border-amber-200 bg-amber-50 text-amber-700'
   }
   return 'border-green-200 bg-green-50 text-green-700'
 }
 
-function renderStandardTimeJudgementBlock(
-  snapshot: DispatchStandardTimeJudgementSnapshot | null,
+function renderOutputValueJudgementBlock(
+  snapshot: DispatchOutputValueJudgementSnapshot | null,
   options?: {
     compact?: boolean
     testId?: string
   },
 ): string {
   if (!snapshot) {
-    return `<div class="rounded border border-dashed px-2 py-1 text-[10px] text-muted-foreground"${options?.testId ? ` data-${options.testId}="empty"` : ''}>待选择后显示标准工时判断</div>`
+    return `<div class="rounded border border-dashed px-2 py-1 text-[10px] text-muted-foreground"${options?.testId ? ` data-${options.testId}="empty"` : ''}>待选择后显示产值判断</div>`
   }
 
-  const tone = getStandardTimeJudgementTone(snapshot)
-  const estimatedDaysText = snapshot.estimatedDays != null ? `${formatPublishedSamNumber(snapshot.estimatedDays)} 天` : '--'
+  const tone = getOutputValueJudgementTone(snapshot)
+  const estimatedDaysText = snapshot.estimatedDays != null ? `${formatOutputValueNumber(snapshot.estimatedDays)} 天` : '--'
   const windowText = snapshot.windowDays > 0 ? `未来 ${snapshot.windowDays} 天` : '未来 0 天'
 
   if (options?.compact) {
@@ -87,11 +87,11 @@ function renderStandardTimeJudgementBlock(
           <span>${escapeHtml(windowText)}</span>
         </div>
         <div class="mt-1 grid gap-x-3 gap-y-1 sm:grid-cols-2">
-          <span>总供给：${formatPublishedSamNumber(snapshot.windowSupplySam)} 标准工时</span>
-          <span>已占用：${formatPublishedSamNumber(snapshot.windowCommittedSam)} 标准工时</span>
-          <span>已冻结：${formatPublishedSamNumber(snapshot.windowFrozenSam)} 标准工时</span>
-          <span>剩余：${formatPublishedSamNumber(snapshot.windowRemainingSam)} 标准工时</span>
-          <span>当前任务：${formatPublishedSamNumber(snapshot.taskDemandSam)} 标准工时</span>
+          <span>总供给：${formatOutputValueNumber(snapshot.windowSupplyValue)} 产值</span>
+          <span>已占用：${formatOutputValueNumber(snapshot.windowCommittedValue)} 产值</span>
+          <span>已冻结：${formatOutputValueNumber(snapshot.windowFrozenValue)} 产值</span>
+          <span>剩余：${formatOutputValueNumber(snapshot.windowRemainingValue)} 产值</span>
+          <span>当前任务：${formatOutputValueNumber(snapshot.taskDemandValue)} 产值</span>
           <span>预计消耗：${escapeHtml(estimatedDaysText)}</span>
         </div>
         <p class="mt-1 leading-5">${escapeHtml([snapshot.reason, snapshot.fallbackRuleLabel, snapshot.note].filter(Boolean).join(' '))}</p>
@@ -107,13 +107,13 @@ function renderStandardTimeJudgementBlock(
       </div>
       <div class="mt-1 grid gap-x-3 gap-y-1 sm:grid-cols-2">
         <span>窗口：${escapeHtml(windowText)}</span>
-        <span>总供给：${formatPublishedSamNumber(snapshot.windowSupplySam)} 标准工时</span>
-        <span>已占用：${formatPublishedSamNumber(snapshot.windowCommittedSam)} 标准工时</span>
-        <span>已冻结：${formatPublishedSamNumber(snapshot.windowFrozenSam)} 标准工时</span>
-        <span>窗口剩余：${formatPublishedSamNumber(snapshot.windowRemainingSam)} 标准工时</span>
-        <span>当前任务：${formatPublishedSamNumber(snapshot.taskDemandSam)} 标准工时</span>
+        <span>总供给：${formatOutputValueNumber(snapshot.windowSupplyValue)} 产值</span>
+        <span>已占用：${formatOutputValueNumber(snapshot.windowCommittedValue)} 产值</span>
+        <span>已冻结：${formatOutputValueNumber(snapshot.windowFrozenValue)} 产值</span>
+        <span>窗口剩余：${formatOutputValueNumber(snapshot.windowRemainingValue)} 产值</span>
+        <span>当前任务：${formatOutputValueNumber(snapshot.taskDemandValue)} 产值</span>
         <span>预计消耗：${escapeHtml(estimatedDaysText)}</span>
-        <span>日供给：${formatPublishedSamNumber(snapshot.dailySupplySam)} 标准工时</span>
+        <span>日供给：${formatOutputValueNumber(snapshot.dailySupplyValue)} 产值</span>
       </div>
       ${
         snapshot.fallbackRuleLabel || snapshot.note
@@ -185,7 +185,7 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
   const selectedPoolIds = Array.from(state.createTenderForm.selectedPool)
   const shouldEvaluateTenderPool = selectedPoolIds.length > 0
   const evaluationContext = shouldEvaluateTenderPool ? createDispatchCapacityEvaluationContext() : undefined
-  const samEvaluationContext = shouldEvaluateTenderPool ? createDispatchStandardTimeEvaluationContext() : undefined
+  const outputValueEvaluationContext = shouldEvaluateTenderPool ? createDispatchOutputValueEvaluationContext() : undefined
   const selectedPoolFactories = selectedPoolIds
     .map((factoryId) => candidateFactories.find((factory) => factory.id === factoryId))
     .filter((factory): factory is (typeof candidateFactories)[number] => Boolean(factory))
@@ -195,20 +195,20 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
       resolveTenderFactoryCapacityConstraint(task, factory.id, factory.name, constraintGroups, evaluationContext),
     ]),
   )
-  const candidateFactorySamJudgements = new Map(
+  const candidateFactoryOutputValueJudgements = new Map(
     selectedPoolFactories.map((factory) => [
       factory.id,
-      resolveTenderFactoryStandardTimeJudgement(task, factory.id, constraintGroups, samEvaluationContext),
+      resolveTenderFactoryOutputValueJudgement(task, factory.id, constraintGroups, outputValueEvaluationContext),
     ]),
   )
-  const taskSam = resolveTaskPublishedSam(task)
-  const unitSamText =
-    taskSam.publishedSamPerUnit && taskSam.publishedSamUnit
-      ? `${formatPublishedSamNumber(taskSam.publishedSamPerUnit)} ${escapeHtml(taskSam.publishedSamUnit)}`
+  const taskOutputValue = resolveTaskOutputValue(task)
+  const unitOutputValueText =
+    taskOutputValue.outputValuePerUnit && taskOutputValue.outputValueUnit
+      ? `${formatOutputValueNumber(taskOutputValue.outputValuePerUnit)} ${escapeHtml(taskOutputValue.outputValueUnit)}`
       : '--'
-  const totalSamText =
-    taskSam.publishedSamTotal != null && taskSam.publishedSamUnit
-      ? `${formatPublishedSamNumber(taskSam.publishedSamTotal)} ${escapeHtml(taskSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
+  const totalOutputValueText =
+    taskOutputValue.outputValueTotal != null && taskOutputValue.outputValueUnit
+      ? `${formatOutputValueNumber(taskOutputValue.outputValueTotal)} ${escapeHtml(taskOutputValue.outputValueUnit.replace(/^产值\//, '产值'))}`
       : '--'
 
   const minValid = state.createTenderForm.minPrice !== '' && Number.isFinite(minPrice) && minPrice > 0
@@ -276,8 +276,8 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序</span><span class="font-mono text-xs">${escapeHtml(task.processNameZh)}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">执行范围</span><span class="font-mono text-xs">${escapeHtml(formatScopeLabel(task))}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${task.scopeQty} ${escapeHtml(task.qtyUnit === 'PIECE' ? '件' : task.qtyUnit)}</span></div>
-            <div class="flex items-center justify-between gap-2 text-sm" data-tender-task-sam="per-unit"><span class="text-muted-foreground">单位标准工时</span><span class="font-mono text-xs">${unitSamText}</span></div>
-            <div class="flex items-center justify-between gap-2 text-sm" data-tender-task-sam="total"><span class="text-muted-foreground">任务总标准工时</span><span class="font-mono text-xs text-blue-700">${totalSamText}</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm" data-tender-task-outputValue="per-unit"><span class="text-muted-foreground">单位产值</span><span class="font-mono text-xs">${unitOutputValueText}</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm" data-tender-task-outputValue="total"><span class="text-muted-foreground">任务总产值</span><span class="font-mono text-xs text-blue-700">${totalOutputValueText}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序标准价</span><span class="font-mono text-xs">${std.price.toLocaleString()} ${escapeHtml(std.currency)}/${escapeHtml(std.unit)}</span></div>
           </div>
 
@@ -294,7 +294,7 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                         <tr class="border-b bg-muted/40 text-xs">
                           <th class="px-3 py-2 text-left font-medium">分配单元</th>
                           <th class="px-3 py-2 text-left font-medium">数量</th>
-                          <th class="px-3 py-2 text-left font-medium">当前明细总标准工时</th>
+                          <th class="px-3 py-2 text-left font-medium">当前明细总产值</th>
                           <th class="px-3 py-2 text-left font-medium">维度说明</th>
                         </tr>
                       </thead>
@@ -304,23 +304,23 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                             const dimensionsText = Object.entries(group.dimensions)
                               .map(([key, value]) => `${key}:${value}`)
                               .join('；')
-                            const groupSam = resolveAllocatableGroupPublishedSam(task, group)
-                            const groupUnitSamText =
-                              groupSam.publishedSamPerUnit && groupSam.publishedSamUnit
-                                ? `${formatPublishedSamNumber(groupSam.publishedSamPerUnit)} ${escapeHtml(groupSam.publishedSamUnit)}`
+                            const groupOutputValue = resolveAllocatableGroupOutputValue(task, group)
+                            const groupUnitOutputValueText =
+                              groupOutputValue.outputValuePerUnit && groupOutputValue.outputValueUnit
+                                ? `${formatOutputValueNumber(groupOutputValue.outputValuePerUnit)} ${escapeHtml(groupOutputValue.outputValueUnit)}`
                                 : '--'
-                            const groupTotalSamText =
-                              groupSam.publishedSamTotal != null && groupSam.publishedSamUnit
-                                ? `${formatPublishedSamNumber(groupSam.publishedSamTotal)} ${escapeHtml(groupSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
+                            const groupTotalOutputValueText =
+                              groupOutputValue.outputValueTotal != null && groupOutputValue.outputValueUnit
+                                ? `${formatOutputValueNumber(groupOutputValue.outputValueTotal)} ${escapeHtml(groupOutputValue.outputValueUnit.replace(/^产值\//, '产值'))}`
                                 : '--'
                             return `
                               <tr class="border-b last:border-b-0" data-tender-group="${escapeHtml(group.groupKey)}">
                                 <td class="px-3 py-2">${escapeHtml(group.groupLabel)}</td>
                                 <td class="px-3 py-2 font-mono text-xs">${group.qty} 件</td>
-                                <td class="px-3 py-2 text-xs" data-tender-group-sam="${escapeHtml(group.groupKey)}">
+                                <td class="px-3 py-2 text-xs" data-tender-group-outputValue="${escapeHtml(group.groupKey)}">
                                   <div class="space-y-1">
-                                    <div><span class="text-muted-foreground">单位标准工时：</span><span class="font-medium">${groupUnitSamText}</span></div>
-                                    <div><span class="text-muted-foreground">当前明细总标准工时：</span><span class="font-medium text-blue-700">${groupTotalSamText}</span></div>
+                                    <div><span class="text-muted-foreground">单位产值：</span><span class="font-medium">${groupUnitOutputValueText}</span></div>
+                                    <div><span class="text-muted-foreground">当前明细总产值：</span><span class="font-medium text-blue-700">${groupTotalOutputValueText}</span></div>
                                   </div>
                                 </td>
                                 <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(dimensionsText || '-')}</td>
@@ -351,7 +351,7 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
 	                .map((factory) => {
 	                  const selected = state.createTenderForm.selectedPool.has(factory.id)
 	                  const constraint = selected ? candidateFactoryConstraints.get(factory.id) ?? null : null
-                    const samJudgement = selected ? candidateFactorySamJudgements.get(factory.id) ?? null : null
+                    const outputValueJudgement = selected ? candidateFactoryOutputValueJudgements.get(factory.id) ?? null : null
 	                  const disabled = false
                     const detailStatusBlocks = selected && detailMode
                       ? detailGroups
@@ -385,19 +385,19 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                           })
                           .join('')
                       : ''
-                    const detailSamBlocks = selected && detailMode
+                    const detailOutputValueBlocks = selected && detailMode
                       ? detailGroups
                           .map((group) => {
-                            const groupJudgement = resolveAllocatableGroupFactoryStandardTimeJudgement(
+                            const groupJudgement = resolveAllocatableGroupFactoryOutputValueJudgement(
                               task,
                               group,
                               factory.id,
-                              samEvaluationContext,
+                              outputValueEvaluationContext,
                             )
                             return `
-                              <div data-tender-factory-group-sam="${escapeHtml(`${factory.id}:${group.groupKey}`)}">
+                              <div data-tender-factory-group-outputValue="${escapeHtml(`${factory.id}:${group.groupKey}`)}">
                                 <div class="mb-1 text-[10px] font-medium text-muted-foreground">${escapeHtml(group.groupLabel)}</div>
-                                ${renderStandardTimeJudgementBlock(groupJudgement, {
+                                ${renderOutputValueJudgementBlock(groupJudgement, {
                                   compact: true,
                                   testId: `tender-factory-group-judgement-${factory.id}-${group.groupKey}`,
                                 })}
@@ -432,8 +432,8 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                                 ? `<div class="mt-1 text-[10px] leading-5 ${constraint.hardBlocked ? 'text-red-700' : constraint.warning ? 'text-amber-700' : 'text-muted-foreground'}">${escapeHtml(constraint.reason)}</div>`
                                 : ''
                             }
-                            <div class="mt-1" data-tender-factory-sam="${escapeHtml(factory.id)}">
-                              ${renderStandardTimeJudgementBlock(samJudgement, {
+                            <div class="mt-1" data-tender-factory-outputValue="${escapeHtml(factory.id)}">
+                              ${renderOutputValueJudgementBlock(outputValueJudgement, {
                                 compact: true,
                                 testId: `tender-factory-judgement-${factory.id}`,
                               })}
@@ -444,8 +444,8 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                                 : ''
                             }
                             ${
-                              detailSamBlocks
-                                ? `<div class="mt-2 space-y-2 rounded border border-dashed px-2 py-2">${detailSamBlocks}</div>`
+                              detailOutputValueBlocks
+                                ? `<div class="mt-2 space-y-2 rounded border border-dashed px-2 py-2">${detailOutputValueBlocks}</div>`
                                 : ''
                             }
 	                      </span>
@@ -578,21 +578,21 @@ function renderViewTenderSheet(task: DispatchTask | null): string {
   if (!tender) return ''
 
   const std = getStandardPrice(task)
-  const tenderSam = {
-    publishedSamPerUnit: tender.publishedSamPerUnit,
-    publishedSamUnit: tender.publishedSamUnit,
-    publishedSamTotal: tender.publishedSamTotal,
+  const tenderOutputValue = {
+    outputValuePerUnit: tender.outputValuePerUnit,
+    outputValueUnit: tender.outputValueUnit,
+    outputValueTotal: tender.outputValueTotal,
   }
-  const taskSam = resolveTaskPublishedSam(task)
-  const viewUnitSamText =
-    (tenderSam.publishedSamPerUnit ?? taskSam.publishedSamPerUnit) &&
-    (tenderSam.publishedSamUnit ?? taskSam.publishedSamUnit)
-      ? `${formatPublishedSamNumber(tenderSam.publishedSamPerUnit ?? taskSam.publishedSamPerUnit)} ${escapeHtml((tenderSam.publishedSamUnit ?? taskSam.publishedSamUnit) as string)}`
+  const taskOutputValue = resolveTaskOutputValue(task)
+  const viewUnitOutputValueText =
+    (tenderOutputValue.outputValuePerUnit ?? taskOutputValue.outputValuePerUnit) &&
+    (tenderOutputValue.outputValueUnit ?? taskOutputValue.outputValueUnit)
+      ? `${formatOutputValueNumber(tenderOutputValue.outputValuePerUnit ?? taskOutputValue.outputValuePerUnit)} ${escapeHtml((tenderOutputValue.outputValueUnit ?? taskOutputValue.outputValueUnit) as string)}`
       : '--'
-  const resolvedSamUnit = tenderSam.publishedSamUnit ?? taskSam.publishedSamUnit
-  const viewTotalSamText =
-    (tenderSam.publishedSamTotal ?? taskSam.publishedSamTotal) != null && resolvedSamUnit
-      ? `${formatPublishedSamNumber(tenderSam.publishedSamTotal ?? taskSam.publishedSamTotal)} ${escapeHtml(resolvedSamUnit.replace(/^分钟\//, '分钟'))}`
+  const resolvedOutputValueUnit = tenderOutputValue.outputValueUnit ?? taskOutputValue.outputValueUnit
+  const viewTotalOutputValueText =
+    (tenderOutputValue.outputValueTotal ?? taskOutputValue.outputValueTotal) != null && resolvedOutputValueUnit
+      ? `${formatOutputValueNumber(tenderOutputValue.outputValueTotal ?? taskOutputValue.outputValueTotal)} ${escapeHtml(resolvedOutputValueUnit.replace(/^产值\//, '产值'))}`
       : '--'
 
   const tenderId = tender.tenderId
@@ -646,8 +646,8 @@ function renderViewTenderSheet(task: DispatchTask | null): string {
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序</span><span class="font-mono text-xs">${escapeHtml(task.processNameZh)}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">执行范围</span><span class="font-mono text-xs">${escapeHtml(formatScopeLabel(task))}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${task.scopeQty} 件</span></div>
-            <div class="flex items-center justify-between gap-2 text-sm" data-view-tender-sam="per-unit"><span class="text-muted-foreground">单位标准工时</span><span class="font-mono text-xs">${viewUnitSamText}</span></div>
-            <div class="flex items-center justify-between gap-2 text-sm" data-view-tender-sam="total"><span class="text-muted-foreground">任务总标准工时</span><span class="font-mono text-xs text-blue-700">${viewTotalSamText}</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm" data-view-tender-outputValue="per-unit"><span class="text-muted-foreground">单位产值</span><span class="font-mono text-xs">${viewUnitOutputValueText}</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm" data-view-tender-outputValue="total"><span class="text-muted-foreground">任务总产值</span><span class="font-mono text-xs text-blue-700">${viewTotalOutputValueText}</span></div>
           </div>
 
           <div class="space-y-1.5">
@@ -817,7 +817,7 @@ function confirmCreateTender(): void {
   if (!valid) return
 
   const std = getStandardPrice(task)
-  const taskSam = resolveTaskPublishedSam(task)
+  const taskOutputValue = resolveTaskOutputValue(task)
   const selectedPoolIds = Array.from(state.createTenderForm.selectedPool)
   const isSewingTask = isRuntimeSewingTask(task)
   const selectedMainFactory = candidateFactories.find((factory) => factory.id === state.createTenderForm.mainFactoryId)
@@ -863,7 +863,7 @@ function confirmCreateTender(): void {
       const biddingDeadline = fromDateTimeLocal(state.createTenderForm.biddingDeadline)
       const taskDeadline = fromDateTimeLocal(state.createTenderForm.taskDeadline)
       const childTask = getTaskById(childTaskId)
-      const childTaskSam = resolveTaskPublishedSam(childTask)
+      const childTaskOutputValue = resolveTaskOutputValue(childTask)
 
       state.tenderState[childTaskId] = {
         taskId: childTaskId,
@@ -880,10 +880,10 @@ function confirmCreateTender(): void {
         standardPrice: std.price,
         remark: state.createTenderForm.remark,
         createdAt: nowTimestamp(),
-        publishedSamPerUnit: childTaskSam.publishedSamPerUnit,
-        publishedSamUnit: childTaskSam.publishedSamUnit,
-        publishedSamTotal: childTaskSam.publishedSamTotal,
-        publishedSamDifficulty: childTaskSam.publishedSamDifficulty,
+        outputValuePerUnit: childTaskOutputValue.outputValuePerUnit,
+        outputValueUnit: childTaskOutputValue.outputValueUnit,
+        outputValueTotal: childTaskOutputValue.outputValueTotal,
+        outputValueDifficulty: childTaskOutputValue.outputValueDifficulty,
         quotedCount: 0,
         participatingFactoryIds: [],
         mainFactoryId: isSewingTask ? state.createTenderForm.mainFactoryId : undefined,
@@ -896,10 +896,10 @@ function confirmCreateTender(): void {
           tenderId: childTenderId,
           biddingDeadline,
           taskDeadline,
-          publishedSamPerUnit: childTaskSam.publishedSamPerUnit,
-          publishedSamUnit: childTaskSam.publishedSamUnit,
-          publishedSamTotal: childTaskSam.publishedSamTotal,
-          publishedSamDifficulty: childTaskSam.publishedSamDifficulty,
+          outputValuePerUnit: childTaskOutputValue.outputValuePerUnit,
+          outputValueUnit: childTaskOutputValue.outputValueUnit,
+          outputValueTotal: childTaskOutputValue.outputValueTotal,
+          outputValueDifficulty: childTaskOutputValue.outputValueDifficulty,
           mainFactoryId: isSewingTask ? state.createTenderForm.mainFactoryId : undefined,
           mainFactoryName: isSewingTask ? selectedMainFactory?.name : undefined,
         },
@@ -927,10 +927,10 @@ function confirmCreateTender(): void {
     standardPrice: std.price,
     remark: state.createTenderForm.remark,
     createdAt: nowTimestamp(),
-    publishedSamPerUnit: taskSam.publishedSamPerUnit,
-    publishedSamUnit: taskSam.publishedSamUnit,
-    publishedSamTotal: taskSam.publishedSamTotal,
-    publishedSamDifficulty: taskSam.publishedSamDifficulty,
+    outputValuePerUnit: taskOutputValue.outputValuePerUnit,
+    outputValueUnit: taskOutputValue.outputValueUnit,
+    outputValueTotal: taskOutputValue.outputValueTotal,
+    outputValueDifficulty: taskOutputValue.outputValueDifficulty,
     quotedCount: 0,
     participatingFactoryIds: [],
     mainFactoryId: isSewingTask ? state.createTenderForm.mainFactoryId : undefined,
@@ -943,10 +943,10 @@ function confirmCreateTender(): void {
       tenderId: state.createTenderForm.tenderId,
       biddingDeadline: fromDateTimeLocal(state.createTenderForm.biddingDeadline),
       taskDeadline: fromDateTimeLocal(state.createTenderForm.taskDeadline),
-      publishedSamPerUnit: taskSam.publishedSamPerUnit,
-      publishedSamUnit: taskSam.publishedSamUnit,
-      publishedSamTotal: taskSam.publishedSamTotal,
-      publishedSamDifficulty: taskSam.publishedSamDifficulty,
+      outputValuePerUnit: taskOutputValue.outputValuePerUnit,
+      outputValueUnit: taskOutputValue.outputValueUnit,
+      outputValueTotal: taskOutputValue.outputValueTotal,
+      outputValueDifficulty: taskOutputValue.outputValueDifficulty,
       mainFactoryId: isSewingTask ? state.createTenderForm.mainFactoryId : undefined,
       mainFactoryName: isSewingTask ? selectedMainFactory?.name : undefined,
     },

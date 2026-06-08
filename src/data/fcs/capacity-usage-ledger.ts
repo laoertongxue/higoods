@@ -14,9 +14,9 @@ import {
 import {
   CAPACITY_DATE_INCOMPLETE_NOTE,
   CAPACITY_TIGHT_THRESHOLD_RATIO,
-  calculateCapacityRemainingStandardHours,
+  calculateCapacityRemainingValue,
 } from './capacity-rules.ts'
-import type { AcceptanceStatus, PublishedSamDifficulty, TaskAuditLog } from './process-tasks.ts'
+import type { AcceptanceStatus, OutputValueDifficulty, TaskAuditLog } from './process-tasks.ts'
 
 export type CapacityUsageSourceType =
   | 'DIRECT_PENDING_ACCEPT'
@@ -36,7 +36,7 @@ export interface CapacityFreeze {
   craftCode: string
   taskId: string
   allocationUnitId?: string
-  standardSamTotal: number
+  outputValueTotal: number
   windowStartDate?: string
   windowEndDate?: string
   sourceType: FreezeSourceType
@@ -55,7 +55,7 @@ export interface CapacityCommitment {
   craftCode: string
   taskId: string
   allocationUnitId?: string
-  standardSamTotal: number
+  outputValueTotal: number
   windowStartDate?: string
   windowEndDate?: string
   sourceType: CommitmentSourceType
@@ -88,8 +88,8 @@ export interface CapacityUsageTaskLike {
   acceptanceStatus?: AcceptanceStatus
   assignedFactoryId?: string
   assignedFactoryName?: string
-  publishedSamTotal?: number
-  publishedSamDifficulty?: PublishedSamDifficulty
+  outputValueTotal?: number
+  outputValueDifficulty?: OutputValueDifficulty
   startDueAt?: string
   taskDeadline?: string
   acceptDeadline?: string
@@ -107,7 +107,7 @@ export interface CapacityUsageAllocationUnitInput {
   processCode: string
   craftCode: string
   allocationUnitId?: string
-  standardSamTotal: number
+  outputValueTotal: number
   windowStartDate?: string
   windowEndDate?: string
   note?: string
@@ -128,22 +128,22 @@ export interface CapacityUsageAggregateResult {
   commitmentCount: number
 }
 
-export type CapacityStandardTimeJudgementStatus =
+export type CapacityOutputValueJudgementStatus =
   | 'CAPABLE'
   | 'RISK'
   | 'EXCEEDS_WINDOW'
   | 'DATE_INCOMPLETE'
-  | 'SAM_MISSING'
+  | 'VALUE_MISSING'
 
-export const CAPACITY_STANDARD_TIME_JUDGEMENT_LABEL: Record<CapacityStandardTimeJudgementStatus, string> = {
+export const CAPACITY_OUTPUT_VALUE_JUDGEMENT_LABEL: Record<CapacityOutputValueJudgementStatus, string> = {
   CAPABLE: '当前窗口内可承载',
   RISK: '风险偏高',
   EXCEEDS_WINDOW: '超过当前窗口可承载能力',
   DATE_INCOMPLETE: '日期不足，无法准确判断',
-  SAM_MISSING: '缺少标准工时',
+  VALUE_MISSING: '缺少产值',
 }
 
-export interface CapacityStandardTimeWindowSnapshot {
+export interface CapacityOutputValueWindowSnapshot {
   windowStartDate?: string
   windowEndDate?: string
   windowDays: number
@@ -153,22 +153,22 @@ export interface CapacityStandardTimeWindowSnapshot {
   note?: string
 }
 
-export interface CapacityStandardTimeJudgement {
+export interface CapacityOutputValueJudgement {
   factoryId: string
   processCode: string
   craftCode: string
   windowStartDate?: string
   windowEndDate?: string
   windowDays: number
-  dailySupplySam?: number
-  windowSupplySam?: number
-  windowCommittedSam?: number
-  windowFrozenSam?: number
-  windowRemainingSam?: number
-  taskDemandSam?: number
+  dailySupplyValue?: number
+  windowSupplyValue?: number
+  windowCommittedValue?: number
+  windowFrozenValue?: number
+  windowRemainingValue?: number
+  taskDemandValue?: number
   estimatedDays?: number
   exceedsWindow: boolean
-  status: CapacityStandardTimeJudgementStatus
+  status: CapacityOutputValueJudgementStatus
   reason: string
   note?: string
   dateIncomplete: boolean
@@ -176,7 +176,7 @@ export interface CapacityStandardTimeJudgement {
   fallbackRuleLabel?: string
 }
 
-export interface CapacityStandardTimeEvaluationContext {
+export interface CapacityOutputValueEvaluationContext {
   today: Date
   activeFreezes: CapacityFreeze[]
   activeCommitments: CapacityCommitment[]
@@ -258,13 +258,13 @@ function normalizeDateKey(value: string | undefined): string | undefined {
   return formatDateKey(toDayStart(parsed))
 }
 
-function normalizeSam(value: number | undefined): number | undefined {
+function normalizeOutputValue(value: number | undefined): number | undefined {
   const numeric = Number(value)
   if (!Number.isFinite(numeric) || numeric <= 0) return undefined
   return Math.round(numeric * 1000) / 1000
 }
 
-function roundSam(value: number): number {
+function roundOutputValue(value: number): number {
   return Math.round(value * 1000) / 1000
 }
 
@@ -447,7 +447,7 @@ function countInclusiveDays(start: Date, end: Date): number {
   return Math.floor(distance / (24 * 60 * 60 * 1000)) + 1
 }
 
-export function createCapacityStandardTimeEvaluationContext(now: Date = new Date()): CapacityStandardTimeEvaluationContext {
+export function createCapacityOutputValueEvaluationContext(now: Date = new Date()): CapacityOutputValueEvaluationContext {
   return {
     today: toDayStart(now),
     activeFreezes: listCapacityFreezes({ status: 'ACTIVE' }),
@@ -456,10 +456,10 @@ export function createCapacityStandardTimeEvaluationContext(now: Date = new Date
   }
 }
 
-export function resolveCapacityStandardTimeWindow(
+export function resolveCapacityOutputValueWindow(
   task: CapacityUsageTaskLike,
   now: Date = new Date(),
-): CapacityStandardTimeWindowSnapshot {
+): CapacityOutputValueWindowSnapshot {
   const today = toDayStart(now)
   const startCandidate = pickFirstValidDate(task, JUDGEMENT_START_CANDIDATES)
   const deadlineCandidate = pickFirstValidDate(task, JUDGEMENT_DEADLINE_CANDIDATES)
@@ -516,7 +516,7 @@ export function resolveCapacityStandardTimeWindow(
     windowDays: 0,
     dateIncomplete: true,
     usesFallbackRule: false,
-    note: '日期不足，无法准确判断工时窗口。',
+    note: '日期不足，无法准确判断产值窗口。',
   }
 }
 
@@ -529,9 +529,9 @@ function isSameUsageUnit(
   return (row.allocationUnitId ?? '') === (allocationUnitId ?? '')
 }
 
-function doesUsageOverlapStandardTimeWindow(
+function doesUsageOverlapOutputValueWindow(
   row: Pick<CapacityFreeze | CapacityCommitment, 'windowStartDate' | 'windowEndDate'>,
-  window: CapacityStandardTimeWindowSnapshot,
+  window: CapacityOutputValueWindowSnapshot,
 ): boolean {
   if (!window.windowStartDate || !window.windowEndDate) return false
   if (!row.windowStartDate && !row.windowEndDate) return true
@@ -543,8 +543,8 @@ function doesUsageOverlapStandardTimeWindow(
   return rowEnd.getTime() >= windowStart.getTime() && rowStart.getTime() <= windowEnd.getTime()
 }
 
-function resolveFactoryDailySupplySam(
-  context: CapacityStandardTimeEvaluationContext,
+function resolveFactoryDailySupplyValue(
+  context: CapacityOutputValueEvaluationContext,
   factoryId: string,
   processCode: string,
   craftCode: string,
@@ -553,12 +553,12 @@ function resolveFactoryDailySupplySam(
   const cached = context.dailySupplyCache.get(cacheKey)
   if (cached != null) return cached
 
-  let dailySupplySam = 0
+  let dailySupplyValue = 0
   try {
     const entry = listFactoryCapacityEntries(factoryId).find(
       ({ row }) => row.processCode === processCode && row.craftCode === craftCode,
     )
-    dailySupplySam = roundSam(
+    dailySupplyValue = roundOutputValue(
       Math.max(
         entry
           ? (computeFactoryCapacityEntryResult(
@@ -571,25 +571,25 @@ function resolveFactoryDailySupplySam(
       ),
     )
   } catch {
-    dailySupplySam = 0
+    dailySupplyValue = 0
   }
-  context.dailySupplyCache.set(cacheKey, dailySupplySam)
-  return dailySupplySam
+  context.dailySupplyCache.set(cacheKey, dailySupplyValue)
+  return dailySupplyValue
 }
 
-export function resolveFactoryTaskStandardTimeJudgement(input: {
+export function resolveFactoryTaskOutputValueJudgement(input: {
   task: CapacityUsageTaskLike
   factoryId: string
-  standardSamTotal?: number
+  outputValueTotal?: number
   allocationUnitId?: string
-  evaluationContext?: CapacityStandardTimeEvaluationContext
-}): CapacityStandardTimeJudgement {
-  const context = input.evaluationContext ?? createCapacityStandardTimeEvaluationContext()
+  evaluationContext?: CapacityOutputValueEvaluationContext
+}): CapacityOutputValueJudgement {
+  const context = input.evaluationContext ?? createCapacityOutputValueEvaluationContext()
   const identity = resolveUsageIdentity(input.task)
-  const taskDemandSam = normalizeSam(input.standardSamTotal ?? input.task.publishedSamTotal)
-  const window = resolveCapacityStandardTimeWindow(input.task, context.today)
+  const taskDemandValue = normalizeOutputValue(input.outputValueTotal ?? input.task.outputValueTotal)
+  const window = resolveCapacityOutputValueWindow(input.task, context.today)
 
-  if (!taskDemandSam) {
+  if (!taskDemandValue) {
     return {
       factoryId: input.factoryId,
       processCode: identity.processCode,
@@ -597,10 +597,10 @@ export function resolveFactoryTaskStandardTimeJudgement(input: {
       windowStartDate: window.windowStartDate,
       windowEndDate: window.windowEndDate,
       windowDays: window.windowDays,
-      taskDemandSam: undefined,
+      taskDemandValue: undefined,
       exceedsWindow: false,
-      status: 'SAM_MISSING',
-      reason: '当前任务缺少可用的总标准工时，无法完成工时判断。',
+      status: 'VALUE_MISSING',
+      reason: '当前任务缺少可用的总产值，无法完成产值判断。',
       note: window.note,
       dateIncomplete: window.dateIncomplete,
       usesFallbackRule: window.usesFallbackRule,
@@ -616,10 +616,10 @@ export function resolveFactoryTaskStandardTimeJudgement(input: {
       windowStartDate: window.windowStartDate,
       windowEndDate: window.windowEndDate,
       windowDays: window.windowDays,
-      taskDemandSam,
+      taskDemandValue,
       exceedsWindow: false,
       status: 'DATE_INCOMPLETE',
-      reason: '日期不足，无法准确判断工时窗口。',
+      reason: '日期不足，无法准确判断产值窗口。',
       note: window.note,
       dateIncomplete: true,
       usesFallbackRule: window.usesFallbackRule,
@@ -627,54 +627,54 @@ export function resolveFactoryTaskStandardTimeJudgement(input: {
     }
   }
 
-  const dailySupplySam = resolveFactoryDailySupplySam(context, input.factoryId, identity.processCode, identity.craftCode)
+  const dailySupplyValue = resolveFactoryDailySupplyValue(context, input.factoryId, identity.processCode, identity.craftCode)
   const relevantFreezes = context.activeFreezes.filter((item) => {
     if (item.factoryId !== input.factoryId) return false
     if (item.processCode !== identity.processCode || item.craftCode !== identity.craftCode) return false
     if (isSameUsageUnit(item, input.task.taskId, input.allocationUnitId)) return false
-    return doesUsageOverlapStandardTimeWindow(item, window)
+    return doesUsageOverlapOutputValueWindow(item, window)
   })
   const relevantCommitments = context.activeCommitments.filter((item) => {
     if (item.factoryId !== input.factoryId) return false
     if (item.processCode !== identity.processCode || item.craftCode !== identity.craftCode) return false
     if (isSameUsageUnit(item, input.task.taskId, input.allocationUnitId)) return false
-    return doesUsageOverlapStandardTimeWindow(item, window)
+    return doesUsageOverlapOutputValueWindow(item, window)
   })
 
-  const windowSupplySam = roundSam(dailySupplySam * window.windowDays)
-  const windowCommittedSam = roundSam(relevantCommitments.reduce((sum, item) => sum + item.standardSamTotal, 0))
-  const windowFrozenSam = roundSam(relevantFreezes.reduce((sum, item) => sum + item.standardSamTotal, 0))
-  const windowRemainingSam = calculateCapacityRemainingStandardHours({
-    supplyStandardHours: windowSupplySam,
-    committedStandardHours: windowCommittedSam,
-    frozenStandardHours: windowFrozenSam,
+  const windowSupplyValue = roundOutputValue(dailySupplyValue * window.windowDays)
+  const windowCommittedValue = roundOutputValue(relevantCommitments.reduce((sum, item) => sum + item.outputValueTotal, 0))
+  const windowFrozenValue = roundOutputValue(relevantFreezes.reduce((sum, item) => sum + item.outputValueTotal, 0))
+  const windowRemainingValue = calculateCapacityRemainingValue({
+    supplyValue: windowSupplyValue,
+    committedValue: windowCommittedValue,
+    frozenValue: windowFrozenValue,
   })
-  const estimatedDays = dailySupplySam > 0 ? roundSam(taskDemandSam / dailySupplySam) : undefined
-  const projectedRemainingSam = calculateCapacityRemainingStandardHours({
-    supplyStandardHours: windowRemainingSam,
-    committedStandardHours: taskDemandSam,
-    frozenStandardHours: 0,
+  const estimatedDays = dailySupplyValue > 0 ? roundOutputValue(taskDemandValue / dailySupplyValue) : undefined
+  const projectedRemainingValue = calculateCapacityRemainingValue({
+    supplyValue: windowRemainingValue,
+    committedValue: taskDemandValue,
+    frozenValue: 0,
   })
 
-  let status: CapacityStandardTimeJudgementStatus = 'CAPABLE'
-  let reason = `未来 ${window.windowDays} 天共可提供 ${windowSupplySam} 标准工时，当前任务消耗 ${taskDemandSam} 标准工时。`
+  let status: CapacityOutputValueJudgementStatus = 'CAPABLE'
+  let reason = `未来 ${window.windowDays} 天共可提供 ${windowSupplyValue} 产值，当前任务消耗 ${taskDemandValue} 产值。`
 
-  if (dailySupplySam <= 0) {
+  if (dailySupplyValue <= 0) {
     status = 'EXCEEDS_WINDOW'
-    reason = '该工厂当前工序/工艺没有可用的默认日可供给标准工时，无法承载当前任务。'
+    reason = '该工厂当前工序/工艺没有可用的默认日可供给产值，无法承载当前任务。'
   } else if (window.windowDays <= 0) {
     status = 'EXCEEDS_WINDOW'
     reason = '当前任务截止时间已早于今天，未来窗口已结束，无法在窗口内继续承载。'
-  } else if (windowRemainingSam < taskDemandSam) {
+  } else if (windowRemainingValue < taskDemandValue) {
     status = 'EXCEEDS_WINDOW'
-    reason = `未来 ${window.windowDays} 天剩余 ${windowRemainingSam} 标准工时，小于当前任务需要的 ${taskDemandSam} 标准工时。`
+    reason = `未来 ${window.windowDays} 天剩余 ${windowRemainingValue} 产值，小于当前任务需要的 ${taskDemandValue} 产值。`
   } else if (
-    windowSupplySam > 0 &&
-    projectedRemainingSam >= 0 &&
-    projectedRemainingSam / windowSupplySam < CAPACITY_TIGHT_THRESHOLD_RATIO
+    windowSupplyValue > 0 &&
+    projectedRemainingValue >= 0 &&
+    projectedRemainingValue / windowSupplyValue < CAPACITY_TIGHT_THRESHOLD_RATIO
   ) {
     status = 'RISK'
-    reason = `当前任务落入后，窗口仅剩 ${projectedRemainingSam} 标准工时，低于窗口供给的 20%，存在排期风险。`
+    reason = `当前任务落入后，窗口仅剩 ${projectedRemainingValue} 产值，低于窗口供给的 20%，存在排期风险。`
   }
 
   return {
@@ -684,12 +684,12 @@ export function resolveFactoryTaskStandardTimeJudgement(input: {
     windowStartDate: window.windowStartDate,
     windowEndDate: window.windowEndDate,
     windowDays: window.windowDays,
-    dailySupplySam,
-    windowSupplySam,
-    windowCommittedSam,
-    windowFrozenSam,
-    windowRemainingSam,
-    taskDemandSam,
+    dailySupplyValue,
+    windowSupplyValue,
+    windowCommittedValue,
+    windowFrozenValue,
+    windowRemainingValue,
+    taskDemandValue,
     estimatedDays,
     exceedsWindow: status === 'EXCEEDS_WINDOW',
     status,
@@ -749,31 +749,107 @@ function seedInitialCapacityUsageRecords(): void {
         processCode: 'BUTTON_ATTACH',
         craftCode: 'CRAFT_032768',
         taskId: 'TASKGEN-202603-0002-005__ORDER',
-        standardSamTotal: 9000,
+        outputValueTotal: 9000,
         windowStartDate: '2026-03-18',
         windowEndDate: '2026-04-10',
         sourceType: 'DIRECT_ACCEPTED',
         status: 'ACTIVE',
-        note: '已落厂可承载样例：用于任务工时风险里的可承载任务。',
+        note: '已落厂可承载样例：用于任务产值风险里的可承载任务。',
       },
     },
     {
       id: buildCommitmentId({
         sourceType: 'DIRECT_ACCEPTED',
-        factoryId: 'ID-F011',
+        factoryId: 'ID-F004',
         taskId: 'TASKGEN-202603-0015-002__ORDER',
       }),
       record: {
-        factoryId: 'ID-F011',
-        processCode: 'SEW',
-        craftCode: 'CRAFT_262145',
+        factoryId: 'ID-F004',
+        processCode: 'CUT_PANEL',
+        craftCode: 'CRAFT_000016',
         taskId: 'TASKGEN-202603-0015-002__ORDER',
-        standardSamTotal: 1400,
+        outputValueTotal: 770,
         windowStartDate: '2026-04-12',
         windowEndDate: '2026-04-12',
         sourceType: 'DIRECT_ACCEPTED',
         status: 'ACTIVE',
         note: '已落厂紧张样例：配合背景占用验证窗口余量不足 20%。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'ID-F004',
+        taskId: 'CAPACITY-BG-CUTPANEL-TIGHT',
+      }),
+      record: {
+        factoryId: 'ID-F004',
+        processCode: 'CUT_PANEL',
+        craftCode: 'CRAFT_000016',
+        taskId: 'CAPACITY-BG-CUTPANEL-TIGHT',
+        outputValueTotal: 300,
+        windowStartDate: '2026-04-12',
+        windowEndDate: '2026-04-12',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '背景占用：用于任务产值风险里的紧张任务样例。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'ID-F004',
+        taskId: 'CAPACITY-BOTTLENECK-OVERLOAD',
+      }),
+      record: {
+        factoryId: 'ID-F004',
+        processCode: 'CUT_PANEL',
+        craftCode: 'CRAFT_000001',
+        taskId: 'CAPACITY-BOTTLENECK-OVERLOAD',
+        outputValueTotal: 2000,
+        windowStartDate: '2026-06-08',
+        windowEndDate: '2026-06-08',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '背景占用：用于当前窗口工艺瓶颈榜的超载天数样例。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'ID-F004',
+        taskId: 'CAPACITY-BOTTLENECK-TIGHT',
+      }),
+      record: {
+        factoryId: 'ID-F004',
+        processCode: 'CUT_PANEL',
+        craftCode: 'CRAFT_000016',
+        taskId: 'CAPACITY-BOTTLENECK-TIGHT',
+        outputValueTotal: 1100,
+        windowStartDate: '2026-06-09',
+        windowEndDate: '2026-06-09',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '背景占用：用于当前窗口工艺瓶颈榜的紧张天数样例。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'FAC-SPC-TEMPLATE-PROCESS',
+        taskId: 'TASKGEN-202603-0015-004__ORDER',
+      }),
+      record: {
+        factoryId: 'FAC-SPC-TEMPLATE-PROCESS',
+        processCode: 'SPECIAL_CRAFT',
+        craftCode: 'CRAFT_3000006',
+        taskId: 'TASKGEN-202603-0015-004__ORDER',
+        outputValueTotal: 1260,
+        windowStartDate: '2026-04-15',
+        windowEndDate: '2026-04-15',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '已落厂可承载样例：用于任务产值风险里的可承载任务。',
       },
     },
     {
@@ -787,7 +863,7 @@ function seedInitialCapacityUsageRecords(): void {
         processCode: 'SEW',
         craftCode: 'CRAFT_262144',
         taskId: 'TASKGEN-202603-0004-001__ORDER',
-        standardSamTotal: 42000,
+        outputValueTotal: 42000,
         windowStartDate: '2026-04-10',
         windowEndDate: '2026-04-10',
         sourceType: 'TENDER_AWARDED',
@@ -806,7 +882,7 @@ function seedInitialCapacityUsageRecords(): void {
         processCode: 'SEW',
         craftCode: 'CRAFT_262144',
         taskId: 'TASKGEN-202603-0008-001__ORDER',
-        standardSamTotal: 12000,
+        outputValueTotal: 12000,
         windowStartDate: '2026-04-11',
         windowEndDate: '2026-04-11',
         sourceType: 'DIRECT_ACCEPTED',
@@ -825,7 +901,7 @@ function seedInitialCapacityUsageRecords(): void {
         processCode: 'BUTTON_ATTACH',
         craftCode: 'CRAFT_032768',
         taskId: 'CAPACITY-BG-BTNATTACH-TIGHT',
-        standardSamTotal: 14400,
+        outputValueTotal: 14400,
         windowStartDate: '2026-03-18',
         windowEndDate: '2026-04-10',
         sourceType: 'DIRECT_ACCEPTED',
@@ -844,7 +920,7 @@ function seedInitialCapacityUsageRecords(): void {
         processCode: 'BUTTON_ATTACH',
         craftCode: 'CRAFT_032768',
         taskId: 'CAPACITY-BG-BTNATTACH-WHOLE-TIGHT',
-        standardSamTotal: 55200,
+        outputValueTotal: 55200,
         windowStartDate: '2026-03-18',
         windowEndDate: '2026-04-10',
         sourceType: 'DIRECT_ACCEPTED',
@@ -863,12 +939,12 @@ function seedInitialCapacityUsageRecords(): void {
         processCode: 'SEW',
         craftCode: 'CRAFT_262145',
         taskId: 'CAPACITY-BG-SEW-RISK-TIGHT',
-        standardSamTotal: 500,
+        outputValueTotal: 1900,
         windowStartDate: '2026-04-12',
         windowEndDate: '2026-04-12',
         sourceType: 'DIRECT_ACCEPTED',
         status: 'ACTIVE',
-        note: '背景占用：用于任务工时风险里的紧张任务样例。',
+        note: '背景占用：用于任务产值风险里的紧张任务样例。',
       },
     },
     {
@@ -882,7 +958,7 @@ function seedInitialCapacityUsageRecords(): void {
         processCode: 'SEW',
         craftCode: 'CRAFT_262145',
         taskId: 'CAPACITY-BG-SEW-DETAIL-TIGHT',
-        standardSamTotal: 500,
+        outputValueTotal: 500,
         windowStartDate: '2026-04-12',
         windowEndDate: '2026-04-12',
         sourceType: 'DIRECT_ACCEPTED',
@@ -907,7 +983,7 @@ function seedInitialCapacityUsageRecords(): void {
         processCode: 'SEW',
         craftCode: 'CRAFT_262144',
         taskId: 'TASKGEN-202603-0003-001__ORDER',
-        standardSamTotal: 72000,
+        outputValueTotal: 72000,
         windowStartDate: '2026-04-12',
         windowEndDate: '2026-04-12',
         sourceType: 'TENDER_PARTICIPATING',
@@ -933,14 +1009,14 @@ function buildUsageInputFromTask(
   factoryId: string,
   options?: {
     allocationUnitId?: string
-    standardSamTotal?: number
+    outputValueTotal?: number
     windowStartDate?: string
     windowEndDate?: string
     note?: string
   },
 ): CapacityUsageAllocationUnitInput | null {
-  const standardSamTotal = normalizeSam(options?.standardSamTotal ?? task.publishedSamTotal)
-  if (!standardSamTotal) return null
+  const outputValueTotal = normalizeOutputValue(options?.outputValueTotal ?? task.outputValueTotal)
+  if (!outputValueTotal) return null
   const identity = resolveCapacityUsageTaskIdentity(task)
   if (!identity) return null
   const window = resolveCapacityUsageWindow(task)
@@ -950,7 +1026,7 @@ function buildUsageInputFromTask(
     processCode: identity.processCode,
     craftCode: identity.craftCode,
     allocationUnitId: options?.allocationUnitId,
-    standardSamTotal,
+    outputValueTotal,
     windowStartDate: normalizeDateKey(options?.windowStartDate) ?? window.windowStartDate,
     windowEndDate: normalizeDateKey(options?.windowEndDate) ?? window.windowEndDate,
     note: appendUsageNote(window.note, options?.note),
@@ -962,7 +1038,7 @@ export function createFreezeFromDirectDispatch(
   input: {
     factoryId: string
     allocationUnitId?: string
-    standardSamTotal?: number
+    outputValueTotal?: number
     windowStartDate?: string
     windowEndDate?: string
     note?: string
@@ -982,7 +1058,7 @@ export function createFreezeFromDirectDispatch(
     craftCode: usageInput.craftCode,
     taskId: usageInput.taskId,
     allocationUnitId: usageInput.allocationUnitId,
-    standardSamTotal: usageInput.standardSamTotal,
+    outputValueTotal: usageInput.outputValueTotal,
     windowStartDate: usageInput.windowStartDate,
     windowEndDate: usageInput.windowEndDate,
     sourceType: 'DIRECT_PENDING_ACCEPT',
@@ -998,7 +1074,7 @@ export function createFreezeFromTenderParticipation(
   input: {
     factoryId: string
     allocationUnitId?: string
-    standardSamTotal?: number
+    outputValueTotal?: number
     windowStartDate?: string
     windowEndDate?: string
     note?: string
@@ -1018,7 +1094,7 @@ export function createFreezeFromTenderParticipation(
     craftCode: usageInput.craftCode,
     taskId: usageInput.taskId,
     allocationUnitId: usageInput.allocationUnitId,
-    standardSamTotal: usageInput.standardSamTotal,
+    outputValueTotal: usageInput.outputValueTotal,
     windowStartDate: usageInput.windowStartDate,
     windowEndDate: usageInput.windowEndDate,
     sourceType: 'TENDER_PARTICIPATING',
@@ -1034,7 +1110,7 @@ export function releaseFreeze(input: {
   task: CapacityUsageTaskLike
   factoryId: string
   allocationUnitId?: string
-  standardSamTotal?: number
+  outputValueTotal?: number
   windowStartDate?: string
   windowEndDate?: string
   note?: string
@@ -1055,7 +1131,7 @@ export function releaseFreeze(input: {
     craftCode: usageInput.craftCode,
     taskId: usageInput.taskId,
     allocationUnitId: usageInput.allocationUnitId,
-    standardSamTotal: usageInput.standardSamTotal,
+    outputValueTotal: usageInput.outputValueTotal,
     windowStartDate: usageInput.windowStartDate,
     windowEndDate: usageInput.windowEndDate,
     sourceType: input.sourceType,
@@ -1070,7 +1146,7 @@ export function convertFreezeToCommitment(input: {
   task: CapacityUsageTaskLike
   factoryId: string
   allocationUnitId?: string
-  standardSamTotal?: number
+  outputValueTotal?: number
   windowStartDate?: string
   windowEndDate?: string
   note?: string
@@ -1093,7 +1169,7 @@ export function convertFreezeToCommitment(input: {
     craftCode: usageInput.craftCode,
     taskId: usageInput.taskId,
     allocationUnitId: usageInput.allocationUnitId,
-    standardSamTotal: usageInput.standardSamTotal,
+    outputValueTotal: usageInput.outputValueTotal,
     windowStartDate: usageInput.windowStartDate,
     windowEndDate: usageInput.windowEndDate,
     sourceType: input.freezeSourceType,
@@ -1115,7 +1191,7 @@ export function convertFreezeToCommitment(input: {
     craftCode: usageInput.craftCode,
     taskId: usageInput.taskId,
     allocationUnitId: usageInput.allocationUnitId,
-    standardSamTotal: usageInput.standardSamTotal,
+    outputValueTotal: usageInput.outputValueTotal,
     windowStartDate: usageInput.windowStartDate,
     windowEndDate: usageInput.windowEndDate,
     sourceType: input.commitmentSourceType,
@@ -1141,7 +1217,7 @@ export function syncDirectTaskCapacityUsage(task: CapacityUsageTaskLike): void {
       factoryId: task.assignedFactoryId,
       freezeSourceType: 'DIRECT_PENDING_ACCEPT',
       commitmentSourceType: 'DIRECT_ACCEPTED',
-      note: '工厂已接单，冻结标准工时转为正式占用。',
+      note: '工厂已接单，冻结产值转为正式占用。',
     })
     return
   }
@@ -1151,14 +1227,14 @@ export function syncDirectTaskCapacityUsage(task: CapacityUsageTaskLike): void {
       sourceType: 'DIRECT_PENDING_ACCEPT',
       task,
       factoryId: task.assignedFactoryId,
-      note: '工厂未接单，释放冻结标准工时。',
+      note: '工厂未接单，释放冻结产值。',
     })
     return
   }
 
   createFreezeFromDirectDispatch(task, {
     factoryId: task.assignedFactoryId,
-    note: '直接派单已发起，工厂待接单，先冻结标准工时。',
+    note: '直接派单已发起，工厂待接单，先冻结产值。',
   })
 }
 
@@ -1186,7 +1262,7 @@ export function syncTenderParticipationCapacityUsage(
           factoryId,
           freezeSourceType: 'TENDER_PARTICIPATING',
           commitmentSourceType: 'TENDER_AWARDED',
-          note: '竞价已中标，冻结标准工时转为正式占用。',
+          note: '竞价已中标，冻结产值转为正式占用。',
         })
         continue
       }
@@ -1196,8 +1272,8 @@ export function syncTenderParticipationCapacityUsage(
         task,
         factoryId,
         note: tender.awardedFactoryId
-          ? '竞价未中标，释放冻结标准工时。'
-          : '竞价已结束但未确认中标工厂，释放冻结标准工时。',
+          ? '竞价未中标，释放冻结产值。'
+          : '竞价已结束但未确认中标工厂，释放冻结产值。',
       })
     }
     return
@@ -1207,8 +1283,8 @@ export function syncTenderParticipationCapacityUsage(
     createFreezeFromTenderParticipation(task, {
       factoryId,
       note: tender.status === 'AWAIT_AWARD'
-        ? '工厂已参与报价，待定标期间冻结标准工时。'
-        : '工厂已参与当前招标，先冻结标准工时。',
+        ? '工厂已参与报价，待定标期间冻结产值。'
+        : '工厂已参与当前招标，先冻结产值。',
     })
   }
 }
@@ -1279,7 +1355,7 @@ function doesWindowMatch(
   return true
 }
 
-export function aggregateFactorySamUsage(filters?: {
+export function aggregateFactoryOutputValueUsage(filters?: {
   factoryId?: string
   processCode?: string
   craftCode?: string
@@ -1299,10 +1375,10 @@ export function aggregateFactorySamUsage(filters?: {
 
   return {
     freezeTotal: Math.round(
-      freezes.reduce((sum, item) => sum + item.standardSamTotal, 0) * 1000,
+      freezes.reduce((sum, item) => sum + item.outputValueTotal, 0) * 1000,
     ) / 1000,
     commitmentTotal: Math.round(
-      commitments.reduce((sum, item) => sum + item.standardSamTotal, 0) * 1000,
+      commitments.reduce((sum, item) => sum + item.outputValueTotal, 0) * 1000,
     ) / 1000,
     freezeCount: freezes.length,
     commitmentCount: commitments.length,

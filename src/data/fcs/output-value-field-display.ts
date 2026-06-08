@@ -1,12 +1,12 @@
-import type { SamCurrentFieldKey, SamFactoryFieldKey } from './process-craft-dict.ts'
+import type { OutputValueCurrentFieldKey, OutputValueFactoryFieldKey } from './process-craft-dict.ts'
 
-export interface SamBusinessFieldDisplayDefinition {
-  key: SamFactoryFieldKey
+export interface OutputValueBusinessFieldDisplayDefinition {
+  key: OutputValueFactoryFieldKey
   label: string
   description: string
 }
 
-export const SAM_BUSINESS_FIELD_DISPLAY_DICT: Record<SamFactoryFieldKey, SamBusinessFieldDisplayDefinition> = {
+export const OUTPUT_VALUE_BUSINESS_FIELD_DISPLAY_DICT: Record<OutputValueFactoryFieldKey, OutputValueBusinessFieldDisplayDefinition> = {
   deviceCount: {
     key: 'deviceCount',
     label: '设备数量',
@@ -79,10 +79,10 @@ export const SAM_BUSINESS_FIELD_DISPLAY_DICT: Record<SamFactoryFieldKey, SamBusi
   },
 }
 
-export function getSamBusinessFieldLabel(key: SamFactoryFieldKey | SamCurrentFieldKey): string {
-  return SAM_BUSINESS_FIELD_DISPLAY_DICT[key].label
+export function getOutputValueBusinessFieldLabel(key: OutputValueFactoryFieldKey | OutputValueCurrentFieldKey): string {
+  return OUTPUT_VALUE_BUSINESS_FIELD_DISPLAY_DICT[key].label
 }
 
-export function getSamBusinessFieldDescription(key: SamFactoryFieldKey | SamCurrentFieldKey): string {
-  return SAM_BUSINESS_FIELD_DISPLAY_DICT[key].description
+export function getOutputValueBusinessFieldDescription(key: OutputValueFactoryFieldKey | OutputValueCurrentFieldKey): string {
+  return OUTPUT_VALUE_BUSINESS_FIELD_DISPLAY_DICT[key].description
 }

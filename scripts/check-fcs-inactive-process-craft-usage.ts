@@ -22,7 +22,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const RETIRED_PROCESS_CODES = ['WASHING', ...removedLegacyProcessCodes] as const
 const SAFE_SOURCE_FILES = new Set([
   'src/data/fcs/process-craft-dict.ts',
-  'src/data/fcs/process-craft-sam-explainer.ts',
+  'src/data/fcs/process-craft-output-value-explainer.ts',
   'src/pages/production-craft-dict.ts',
 ])
 

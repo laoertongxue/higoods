@@ -43,8 +43,8 @@ test('基础连接工艺已进入字典，并沿工厂档案能力链进入产�
   const baseConnectRow = processCraftDictRows.find((row) => row.craftName === '基础连接')
   expect(baseConnectRow).toBeTruthy()
   expect(baseConnectRow?.processCode).toBe('SEW')
-  expect(baseConnectRow?.samCalcMode).toBe('DISCRETE')
-  expect(baseConnectRow?.samConstraintSource).toBe('STAFF')
+  expect(baseConnectRow?.outputValueCalcMode).toBe('DISCRETE')
+  expect(baseConnectRow?.outputValueConstraintSource).toBe('STAFF')
 
   const masterFactories = listFactoryMasterRecords()
   const factoriesWithBaseConnect = masterFactories.filter((factory) =>
@@ -117,7 +117,7 @@ test('基础连接工艺已进入字典，并沿工厂档案能力链进入产�
   await expect(baseConnectCard).toContainText('人员标准效率值')
   await expect(baseConnectCard).toContainText('工厂效率系数')
   await expect(baseConnectCard).not.toContainText('设备数量')
-  await expect(baseConnectCard).toContainText('默认日可供给发布工时 SAM')
+  await expect(baseConnectCard).toContainText('默认日可供给产值')
   await expect(baseConnectCard).toContainText('当前输入值代入后的计算过程')
 
   const quyaCard = sewingDrawer.locator('[data-capacity-entry-card]').filter({ hasText: '曲牙' }).first()

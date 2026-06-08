@@ -35,7 +35,7 @@ import {
 import {
   getRuntimeAssignmentSummaryByOrder,
   getRuntimeBiddingSummaryByOrder,
-  getRuntimeOrderStandardTimeTotal,
+  getRuntimeOrderOutputValueTotal,
   getRuntimeTaskById,
   getRuntimeTaskCountByOrder,
   listRuntimeExecutionTasksByOrder,
@@ -45,7 +45,7 @@ import {
   type RuntimeTaskSplitGroupSnapshot,
 } from '../../data/fcs/runtime-process-tasks'
 import {
-  resolveTaskStandardTimeSnapshot,
+  resolveTaskOutputValueSnapshot,
 } from '../../data/fcs/process-tasks'
 import { summarizeTaskDetailRows } from '../../data/fcs/task-detail-rows'
 import {
@@ -636,23 +636,23 @@ interface OrderTaskBreakdownSnapshot {
   lastBreakdownBy: string
 }
 
-interface OrderStandardTimeBreakdownRow {
+interface OrderOutputValueBreakdownRow {
   taskId: string
   taskNo: string
   taskLabel: string
   processLabel: string
   qty: number
   detailRowCount: number
-  standardTimePerUnit?: number
-  standardTimeUnit?: string
-  totalStandardTime?: number
+  outputValuePerUnit?: number
+  outputValueUnit?: string
+  totalOutputValue?: number
   isSplitResult: boolean
 }
 
-interface OrderStandardTimeSnapshot {
-  totalStandardTime?: number
+interface OrderOutputValueSnapshot {
+  totalOutputValue?: number
   taskCount: number
-  breakdownRows: OrderStandardTimeBreakdownRow[]
+  breakdownRows: OrderOutputValueBreakdownRow[]
 }
 
 function getRuntimeTaskTypeLabel(task: RuntimeProcessTask): string {
@@ -666,25 +666,25 @@ function getTaskDetailRows(task: RuntimeProcessTask) {
   return task.detailRows ?? []
 }
 
-function formatStandardTimeMinutes(value: number | undefined): string {
+function formatOutputValue(value: number | undefined): string {
   if (!Number.isFinite(value) || Number(value) <= 0) return '--'
-  return `${Number(value).toLocaleString()} 分钟`
+  return `${Number(value).toLocaleString()} 产值`
 }
 
-function formatStandardTimePerUnit(value: number | undefined): string {
+function formatOutputValuePerUnit(value: number | undefined): string {
   if (!Number.isFinite(value) || Number(value) <= 0) return '--'
   return Number(value).toLocaleString()
 }
 
-function getOrderStandardTimeSnapshot(order: ProductionOrder): OrderStandardTimeSnapshot {
+function getOrderOutputValueSnapshot(order: ProductionOrder): OrderOutputValueSnapshot {
   const runtimeTasks = listRuntimeExecutionTasksByOrder(order.productionOrderId)
     .sort((a, b) => {
       if (a.seq !== b.seq) return a.seq - b.seq
       return (a.taskNo || a.taskId).localeCompare(b.taskNo || b.taskId)
     })
 
-  const breakdownRows = runtimeTasks.map<OrderStandardTimeBreakdownRow>((task) => {
-    const standardTime = resolveTaskStandardTimeSnapshot(task)
+  const breakdownRows = runtimeTasks.map<OrderOutputValueBreakdownRow>((task) => {
+    const outputValue = resolveTaskOutputValueSnapshot(task)
     const processLabel = task.isSpecialCraft && task.craftName
       ? `${task.processBusinessName || task.processNameZh} / ${task.craftName}`
       : task.processBusinessName || task.processNameZh || task.processCode
@@ -696,15 +696,15 @@ function getOrderStandardTimeSnapshot(order: ProductionOrder): OrderStandardTime
       processLabel,
       qty: task.scopeQty || task.qty,
       detailRowCount: getTaskDetailRows(task).length,
-      standardTimePerUnit: standardTime.standardTimePerUnit,
-      standardTimeUnit: standardTime.standardTimeUnit,
-      totalStandardTime: standardTime.totalStandardTime,
+      outputValuePerUnit: outputValue.outputValuePerUnit,
+      outputValueUnit: outputValue.outputValueUnit,
+      totalOutputValue: outputValue.totalOutputValue,
       isSplitResult: Boolean(task.isSplitResult),
     }
   })
 
   return {
-    totalStandardTime: getRuntimeOrderStandardTimeTotal(order.productionOrderId),
+    totalOutputValue: getRuntimeOrderOutputValueTotal(order.productionOrderId),
     taskCount: breakdownRows.length,
     breakdownRows,
   }
@@ -1722,14 +1722,14 @@ export {
   legalEntities,
   getRuntimeAssignmentSummaryByOrder,
   getRuntimeBiddingSummaryByOrder,
-  getRuntimeOrderStandardTimeTotal,
+  getRuntimeOrderOutputValueTotal,
   getRuntimeTaskById,
   getRuntimeTaskCountByOrder,
   listRuntimeExecutionTasksByOrder,
   listRuntimeTaskSplitGroupsByOrder,
   listRuntimeTasksByOrder,
   summarizeTaskDetailRows,
-  resolveTaskStandardTimeSnapshot,
+  resolveTaskOutputValueSnapshot,
   initialDeductionBasisItems,
   initialAllocationByTaskId,
   initialStatementDrafts,
@@ -1779,9 +1779,9 @@ export {
   getRuntimeTaskTypeLabel,
   getTaskDetailRows,
   getOrderTaskBreakdownSnapshot,
-  formatStandardTimeMinutes,
-  formatStandardTimePerUnit,
-  getOrderStandardTimeSnapshot,
+  formatOutputValue,
+  formatOutputValuePerUnit,
+  getOrderOutputValueSnapshot,
   renderStatCard,
   renderEmptyRow,
   parseOrderSuffix,

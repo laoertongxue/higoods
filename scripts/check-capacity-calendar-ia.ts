@@ -23,7 +23,7 @@ function main(): void {
 
   const titles = capacityMenus.children.map((item) => item.title)
   assert(
-    JSON.stringify(titles) === JSON.stringify(['供需总览', '工厂日历', '任务工时风险', '工艺瓶颈与待分配', '暂停例外']),
+    JSON.stringify(titles) === JSON.stringify(['供需总览', '工厂日历', '任务产值风险', '工艺瓶颈与待分配', '暂停例外']),
     `产能日历菜单名称或顺序不正确：${titles.join(' / ')}`,
   )
 

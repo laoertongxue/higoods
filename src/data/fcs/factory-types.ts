@@ -1,4 +1,4 @@
-import type { SamCurrentFieldKey } from './process-craft-dict'
+import type { OutputValueCurrentFieldKey } from './process-craft-dict'
 import type {
   FactoryInferredTypeCode,
   FactoryOnboardingIdentityFile,
@@ -148,7 +148,7 @@ export interface FactoryFormData {
 export interface FactoryCapacityEntry {
   processCode: string
   craftCode: string
-  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>
+  values: Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>>
   note: string
 }
 
@@ -179,7 +179,7 @@ export interface FactoryCapacityProfile {
     linkedCraftName: string
     condition: string
   }>
-  defaultDailyAvailablePublishedSam: number
+  defaultDailyOutputValue: number
   calculationStatus: string
   calculationNotes: string
   createdAt: string

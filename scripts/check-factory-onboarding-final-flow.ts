@@ -519,7 +519,7 @@ const officialUser = findFactoryPdaUserByLoginId(conversion.application.adminAcc
 assert(officialUser?.roleName === '工厂管理员' && officialUser.loginId === conversion.application.adminAccount.loginId && officialUser.isTemporary === false, '管理员账号未正确转正式')
 assert(conversion.capacityProfile.sourceApplicationId === conversion.application.applicationId, '产能档案缺少 sourceApplicationId')
 assert(conversion.capacityProfile.capabilityItems.length > 0 && conversion.capacityProfile.machineItems.length > 0, '产能档案缺少能力或机器明细')
-assert(conversion.capacityProfile.defaultDailyAvailablePublishedSam === 0 && conversion.capacityProfile.calculationStatus === '待补充产能字段', '产能档案 SAM 缺省规则不正确')
+assert(conversion.capacityProfile.defaultDailyOutputValue === 0 && conversion.capacityProfile.calculationStatus === '待补充产能字段', '产能档案 产值 缺省规则不正确')
 assert(!('currentStatus' in conversion.capacityProfile) && !('dayShift' in conversion.capacityProfile) && !('nightShift' in conversion.capacityProfile) && !('weeklyDefaultSupply' in conversion.capacityProfile), '产能档案不应生成当前状态、班次或周默认供给')
 
 // 第九类：平台与 PDA 权限

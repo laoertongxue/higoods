@@ -108,7 +108,7 @@ test('产能档案初始数据', async ({ page }) => {
   await expect(page.locator('body')).toContainText('机器数量')
   await expect(page.locator('body')).toContainText('工序工艺能力')
   await expect(page.locator('body')).toContainText('机器明细')
-  await expect(page.locator('body')).toContainText('默认日可供给发布工时 SAM')
+  await expect(page.locator('body')).toContainText('默认日可供给产值')
   await expect(page.locator('body')).toContainText('待补充产能字段')
 
   const profile = await page.evaluate(async ({ factoryId }) => {
@@ -116,7 +116,7 @@ test('产能档案初始数据', async ({ page }) => {
     return capacity.listFactoryCapacityProfiles().find((item) => item.factoryId === factoryId)
   }, { factoryId: result.factoryId })
   expect(profile?.sourceApplicationId).toBe('FOA-0031')
-  expect(profile?.defaultDailyAvailablePublishedSam).toBe(0)
+  expect(profile?.defaultDailyOutputValue).toBe(0)
   expect(profile?.calculationStatus).toBe('待补充产能字段')
 })
 

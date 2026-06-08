@@ -33,7 +33,7 @@ import {
   type TaskRiskFlag,
   type ProcessTask,
 } from './context.ts'
-import { resolveTaskStandardTimeSnapshot } from '../../data/fcs/process-tasks.ts'
+import { resolveTaskOutputValueSnapshot } from '../../data/fcs/process-tasks.ts'
 import {
   buildTaskDeliveryCardPrintLink,
   buildTaskRouteCardPrintLink,
@@ -44,12 +44,12 @@ import {
 } from '../../data/fcs/process-platform-status-adapter.ts'
 import { listPlatformProcessResultViews, type PlatformProcessResultView } from '../../data/fcs/platform-process-result-view.ts'
 
-function formatStandardTimeMinutes(value: number | undefined): string {
+function formatOutputValue(value: number | undefined): string {
   if (!Number.isFinite(value) || Number(value) <= 0) return '--'
-  return `${Number(value).toLocaleString()} 分钟`
+  return `${Number(value).toLocaleString()} 产值`
 }
 
-function formatStandardTimePerUnit(value: number | undefined): string {
+function formatOutputValuePerUnit(value: number | undefined): string {
   if (!Number.isFinite(value) || Number(value) <= 0) return '--'
   return Number(value).toLocaleString()
 }
@@ -780,7 +780,7 @@ function renderTaskDrawer(): string {
   const tender = taskTenderId ? getTenderById(taskTenderId) : undefined
   const taskRisks = getTaskRisks(task)
   const taskHandoverSummary = getTaskHandoverSummary(task.taskId)
-  const standardTime = resolveTaskStandardTimeSnapshot(task)
+  const outputValue = resolveTaskOutputValueSnapshot(task)
   const platformStatus = getPlatformStatusForRuntimeTask(task)
   const activeTab = task.status === 'BLOCKED' ? state.taskDetailTab : state.taskDetailTab === 'block' ? 'basic' : state.taskDetailTab
 
@@ -865,16 +865,16 @@ function renderTaskDrawer(): string {
                     <p>${task.assignmentMode === 'DIRECT' ? '派单' : '竞价'}</p>
                   </div>
                   <div>
-                    <p class="text-xs text-muted-foreground">单位标准工时</p>
-                    <p>${escapeHtml(formatStandardTimePerUnit(standardTime.standardTimePerUnit))}</p>
+                    <p class="text-xs text-muted-foreground">单位产值</p>
+                    <p>${escapeHtml(formatOutputValuePerUnit(outputValue.outputValuePerUnit))}</p>
                   </div>
                   <div>
-                    <p class="text-xs text-muted-foreground">工时单位</p>
-                    <p>${escapeHtml(standardTime.standardTimeUnit || '--')}</p>
+                    <p class="text-xs text-muted-foreground">产值单位</p>
+                    <p>${escapeHtml(outputValue.outputValueUnit || '--')}</p>
                   </div>
                   <div>
-                    <p class="text-xs text-muted-foreground">任务总标准工时</p>
-                    <p>${escapeHtml(formatStandardTimeMinutes(standardTime.totalStandardTime))}</p>
+                    <p class="text-xs text-muted-foreground">任务总产值</p>
+                    <p>${escapeHtml(formatOutputValue(outputValue.totalOutputValue))}</p>
                   </div>
                   ${
                     task.difficulty

@@ -444,18 +444,18 @@ const LIVE_ITEM_SEED: Record<string, LiveSessionItem[]> = {
 
 const LIVE_SAMPLE_SEED: Record<string, LiveSample[]> = {
   'LS-20260122-001': [
-    { id: 'SAM-001', name: '印尼风格碎花连衣裙-M红', site: '雅加达', status: '使用中', location: '直播间A', holder: '小N' },
-    { id: 'SAM-002', name: '波西米亚风半身裙-L蓝', site: '雅加达', status: '使用中', location: '直播间A', holder: '小N' },
-    { id: 'SAM-003', name: '基础款白色T恤-M白', site: '雅加达', status: '使用中', location: '直播间A', holder: '小N' },
+    { id: 'SMP-001', name: '印尼风格碎花连衣裙-M红', site: '雅加达', status: '使用中', location: '直播间A', holder: '小N' },
+    { id: 'SMP-002', name: '波西米亚风半身裙-L蓝', site: '雅加达', status: '使用中', location: '直播间A', holder: '小N' },
+    { id: 'SMP-003', name: '基础款白色T恤-M白', site: '雅加达', status: '使用中', location: '直播间A', holder: '小N' },
     {
-      id: 'SAM-004',
+      id: 'SMP-004',
       name: '牛仔短裤夏季款-S牛仔蓝',
       site: '雅加达',
       status: '使用中',
       location: '直播间A',
       holder: '小N',
     },
-    { id: 'SAM-005', name: '复古皮夹克-L黑', site: '雅加达', status: '可用', location: '仓库B-3', holder: '-' },
+    { id: 'SMP-005', name: '复古皮夹克-L黑', site: '雅加达', status: '可用', location: '仓库B-3', holder: '-' },
   ],
 }
 
@@ -644,8 +644,8 @@ const VIDEO_EVIDENCE_SEED: Record<string, EvidenceAsset[]> = {
 
 const VIDEO_SAMPLE_SEED: Record<string, LiveSample[]> = {
   'SV-20260122-008': [
-    { id: 'SAM-211', name: '办公室衬衫样衣-M', site: '深圳样衣间', status: '已归还', location: '样衣仓A-2', holder: '样衣管理员' },
-    { id: 'SAM-212', name: '西装半裙样衣-S', site: '深圳样衣间', status: '使用中', location: '拍摄棚B', holder: '达人-小美' },
+    { id: 'SMP-211', name: '办公室衬衫样衣-M', site: '深圳样衣间', status: '已归还', location: '样衣仓A-2', holder: '样衣管理员' },
+    { id: 'SMP-212', name: '西装半裙样衣-S', site: '深圳样衣间', status: '使用中', location: '拍摄棚B', holder: '达人-小美' },
   ],
 }
 

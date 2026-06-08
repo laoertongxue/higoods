@@ -9,11 +9,11 @@ import {
   type CapacityCalendarTaskConstraintResult,
 } from '../../data/fcs/capacity-calendar.ts'
 import {
-  aggregateFactorySamUsage,
-  CAPACITY_STANDARD_TIME_JUDGEMENT_LABEL,
-  createCapacityStandardTimeEvaluationContext,
+  aggregateFactoryOutputValueUsage,
+  CAPACITY_OUTPUT_VALUE_JUDGEMENT_LABEL,
+  createCapacityOutputValueEvaluationContext,
   createFreezeFromDirectDispatch,
-  resolveFactoryTaskStandardTimeJudgement,
+  resolveFactoryTaskOutputValueJudgement,
   convertFreezeToCommitment,
   listActiveCommitmentsByFactory,
   listActiveFreezesByFactory,
@@ -22,8 +22,8 @@ import {
   releaseFreeze,
   syncDirectTaskCapacityUsage,
   syncTenderParticipationCapacityUsage,
-  type CapacityStandardTimeEvaluationContext,
-  type CapacityStandardTimeJudgement,
+  type CapacityOutputValueEvaluationContext,
+  type CapacityOutputValueJudgement,
   type CapacityTenderParticipationSnapshot,
 } from '../../data/fcs/capacity-usage-ledger.ts'
 import {
@@ -37,8 +37,8 @@ import {
   isRuntimeTaskExecutionTask,
   listRuntimeTaskAllocatableGroups,
   listRuntimeProcessTasks,
-  resolveRuntimeAllocatableGroupPublishedSam,
-  resolveRuntimeTaskPublishedSam,
+  resolveRuntimeAllocatableGroupOutputValue,
+  resolveRuntimeTaskOutputValue,
   setRuntimeTaskAssignMode,
   upsertRuntimeTaskTender,
   validateRuntimeBatchDispatchSelection,
@@ -162,10 +162,10 @@ interface MockTender {
   maxPrice: number
   currency: string
   unit: string
-  publishedSamPerUnit?: number
-  publishedSamUnit?: string
-  publishedSamTotal?: number
-  publishedSamDifficulty?: DispatchTask['publishedSamDifficulty']
+  outputValuePerUnit?: number
+  outputValueUnit?: string
+  outputValueTotal?: number
+  outputValueDifficulty?: DispatchTask['outputValueDifficulty']
   participatingFactoryIds?: string[]
   mainFactoryId?: string
   mainFactoryName?: string
@@ -189,10 +189,10 @@ interface LocalTender {
   standardPrice: number
   remark: string
   createdAt: string
-  publishedSamPerUnit?: number
-  publishedSamUnit?: string
-  publishedSamTotal?: number
-  publishedSamDifficulty?: DispatchTask['publishedSamDifficulty']
+  outputValuePerUnit?: number
+  outputValueUnit?: string
+  outputValueTotal?: number
+  outputValueDifficulty?: DispatchTask['outputValueDifficulty']
   quotedCount?: number
   currentMaxPrice?: number
   currentMinPrice?: number
@@ -204,18 +204,18 @@ interface LocalTender {
   awardedPrice?: number
 }
 
-interface DispatchPublishedSamSnapshot {
-  publishedSamPerUnit?: number
-  publishedSamUnit?: string
-  publishedSamTotal?: number
-  publishedSamDifficulty?: DispatchTask['publishedSamDifficulty']
+interface DispatchOutputValueSnapshot {
+  outputValuePerUnit?: number
+  outputValueUnit?: string
+  outputValueTotal?: number
+  outputValueDifficulty?: DispatchTask['outputValueDifficulty']
 }
 
 interface DispatchCapacityConstraintSnapshot extends CapacityCalendarTaskConstraintResult {
   statusLabel: string
 }
 
-interface DispatchStandardTimeJudgementSnapshot extends CapacityStandardTimeJudgement {
+interface DispatchOutputValueJudgementSnapshot extends CapacityOutputValueJudgement {
   statusLabel: string
 }
 
@@ -260,7 +260,7 @@ const candidateFactories: CandidateFactory[] = [
     id: 'ID-F024',
     name: '三宝垄微型车缝厂',
     processTags: ['车缝', '钉扣'],
-    capacitySummary: '默认日供给 2122.52 标准工时',
+    capacitySummary: '默认日供给 2122.52 产值',
     performanceSummary: '近3月良品率 87%',
     settlementStatus: '结算正常',
   },
@@ -268,7 +268,7 @@ const candidateFactories: CandidateFactory[] = [
     id: 'ID-F017',
     name: 'CV Satellite Surabaya Selatan',
     processTags: ['车缝', '特殊工艺'],
-    capacitySummary: '默认日供给 3290.4 标准工时',
+    capacitySummary: '默认日供给 3290.4 产值',
     performanceSummary: '近3月良品率 94%',
     settlementStatus: '结算正常',
   },
@@ -276,7 +276,7 @@ const candidateFactories: CandidateFactory[] = [
     id: 'ID-F011',
     name: '玛琅卫星工厂A',
     processTags: ['车缝', '后整'],
-    capacitySummary: '默认日供给 726.872 标准工时',
+    capacitySummary: '默认日供给 726.872 产值',
     performanceSummary: '近3月良品率 87%',
     settlementStatus: '结算正常',
   },
@@ -697,20 +697,20 @@ function openAppRoute(pathname: string, key?: string, title?: string): void {
   appStore.navigate(pathname)
 }
 
-function resolveTaskPublishedSam(task: DispatchTask | null): DispatchPublishedSamSnapshot {
+function resolveTaskOutputValue(task: DispatchTask | null): DispatchOutputValueSnapshot {
   if (!task) return {}
-  return resolveRuntimeTaskPublishedSam(task)
+  return resolveRuntimeTaskOutputValue(task)
 }
 
-function resolveAllocatableGroupPublishedSam(
+function resolveAllocatableGroupOutputValue(
   task: DispatchTask | null,
   group: RuntimeTaskAllocatableGroup | null,
-): DispatchPublishedSamSnapshot {
+): DispatchOutputValueSnapshot {
   if (!task || !group) return {}
-  return resolveRuntimeAllocatableGroupPublishedSam(task, group)
+  return resolveRuntimeAllocatableGroupOutputValue(task, group)
 }
 
-function formatPublishedSamNumber(value: number | undefined): string {
+function formatOutputValueNumber(value: number | undefined): string {
   if (!Number.isFinite(value) || value == null) return '--'
   return Number(value).toLocaleString('zh-CN', {
     minimumFractionDigits: 0,
@@ -733,7 +733,7 @@ function describeDispatchCapacityConstraintDecision(snapshot: DispatchCapacityCo
   if (snapshot.status === 'OVERLOADED') return '当前窗口超载，不可选'
   if (snapshot.status === 'TIGHT') return '当前窗口紧张，可选但需预警'
   if (snapshot.status === 'DATE_INCOMPLETE') return '日期不足，仅提示无法完全校验'
-  if (snapshot.status === 'SAM_MISSING') return '工时缺失，仅提示无法完全校验'
+  if (snapshot.status === 'VALUE_MISSING') return '产值缺失，仅提示无法完全校验'
   return '当前窗口正常，可正常承接'
 }
 
@@ -743,7 +743,7 @@ function compareDispatchCapacityConstraintPriority(status: CapacityCalendarConst
     OVERLOADED: 5,
     TIGHT: 4,
     DATE_INCOMPLETE: 3,
-    SAM_MISSING: 3,
+    VALUE_MISSING: 3,
     NORMAL: 2,
   }
   return order[status]
@@ -753,28 +753,28 @@ function createDispatchCapacityEvaluationContext(): CapacityCalendarEvaluationCo
   return createCapacityCalendarEvaluationContext()
 }
 
-function createDispatchStandardTimeEvaluationContext(): CapacityStandardTimeEvaluationContext {
+function createDispatchOutputValueEvaluationContext(): CapacityOutputValueEvaluationContext {
   syncDispatchCapacityUsageLedger()
-  return createCapacityStandardTimeEvaluationContext()
+  return createCapacityOutputValueEvaluationContext()
 }
 
-function toDispatchStandardTimeJudgementSnapshot(
-  result: CapacityStandardTimeJudgement,
-): DispatchStandardTimeJudgementSnapshot {
+function toDispatchOutputValueJudgementSnapshot(
+  result: CapacityOutputValueJudgement,
+): DispatchOutputValueJudgementSnapshot {
   return {
     ...result,
-    statusLabel: CAPACITY_STANDARD_TIME_JUDGEMENT_LABEL[result.status],
+    statusLabel: CAPACITY_OUTPUT_VALUE_JUDGEMENT_LABEL[result.status],
   }
 }
 
-function resolveTaskFactoryStandardTimeJudgement(
+function resolveTaskFactoryOutputValueJudgement(
   task: DispatchTask | null,
   factoryId: string,
-  evaluationContext: CapacityStandardTimeEvaluationContext = createDispatchStandardTimeEvaluationContext(),
-): DispatchStandardTimeJudgementSnapshot | null {
+  evaluationContext: CapacityOutputValueEvaluationContext = createDispatchOutputValueEvaluationContext(),
+): DispatchOutputValueJudgementSnapshot | null {
   if (!task || !factoryId) return null
-  return toDispatchStandardTimeJudgementSnapshot(
-    resolveFactoryTaskStandardTimeJudgement({
+  return toDispatchOutputValueJudgementSnapshot(
+    resolveFactoryTaskOutputValueJudgement({
       task,
       factoryId,
       evaluationContext,
@@ -782,42 +782,42 @@ function resolveTaskFactoryStandardTimeJudgement(
   )
 }
 
-function resolveAllocatableGroupFactoryStandardTimeJudgement(
+function resolveAllocatableGroupFactoryOutputValueJudgement(
   task: DispatchTask | null,
   group: RuntimeTaskAllocatableGroup | null,
   factoryId: string,
-  evaluationContext: CapacityStandardTimeEvaluationContext = createDispatchStandardTimeEvaluationContext(),
-): DispatchStandardTimeJudgementSnapshot | null {
+  evaluationContext: CapacityOutputValueEvaluationContext = createDispatchOutputValueEvaluationContext(),
+): DispatchOutputValueJudgementSnapshot | null {
   if (!task || !group || !factoryId) return null
-  const groupSam = resolveRuntimeAllocatableGroupPublishedSam(task, group)
-  return toDispatchStandardTimeJudgementSnapshot(
-    resolveFactoryTaskStandardTimeJudgement({
+  const groupOutputValue = resolveRuntimeAllocatableGroupOutputValue(task, group)
+  return toDispatchOutputValueJudgementSnapshot(
+    resolveFactoryTaskOutputValueJudgement({
       task,
       factoryId,
-      standardSamTotal: groupSam.publishedSamTotal,
+      outputValueTotal: groupOutputValue.outputValueTotal,
       allocationUnitId: group.groupKey,
       evaluationContext,
     }),
   )
 }
 
-function summarizeDispatchStandardTimeJudgements(
-  results: DispatchStandardTimeJudgementSnapshot[],
+function summarizeDispatchOutputValueJudgements(
+  results: DispatchOutputValueJudgementSnapshot[],
   extraReason?: string,
-): DispatchStandardTimeJudgementSnapshot | null {
+): DispatchOutputValueJudgementSnapshot | null {
   if (results.length === 0) return null
-  const priority: Record<DispatchStandardTimeJudgementSnapshot['status'], number> = {
+  const priority: Record<DispatchOutputValueJudgementSnapshot['status'], number> = {
     EXCEEDS_WINDOW: 5,
     DATE_INCOMPLETE: 4,
-    SAM_MISSING: 4,
+    VALUE_MISSING: 4,
     RISK: 3,
     CAPABLE: 2,
   }
-  const worst = results.reduce<DispatchStandardTimeJudgementSnapshot>((current, item) => {
+  const worst = results.reduce<DispatchOutputValueJudgementSnapshot>((current, item) => {
     if (priority[item.status] !== priority[current.status]) {
       return priority[item.status] > priority[current.status] ? item : current
     }
-    return (item.windowRemainingSam ?? 0) < (current.windowRemainingSam ?? 0) ? item : current
+    return (item.windowRemainingValue ?? 0) < (current.windowRemainingValue ?? 0) ? item : current
   }, results[0])
   return {
     ...worst,
@@ -908,22 +908,22 @@ function resolveTenderFactoryCapacityConstraint(
   return summarizeDispatchCapacityConstraints(groupedResults, '按明细模式当前按各分配单元取最严结果。')
 }
 
-function resolveTenderFactoryStandardTimeJudgement(
+function resolveTenderFactoryOutputValueJudgement(
   task: DispatchTask | null,
   factoryId: string,
   detailGroups: RuntimeTaskAllocatableGroup[] = [],
-  evaluationContext: CapacityStandardTimeEvaluationContext = createDispatchStandardTimeEvaluationContext(),
-): DispatchStandardTimeJudgementSnapshot | null {
+  evaluationContext: CapacityOutputValueEvaluationContext = createDispatchOutputValueEvaluationContext(),
+): DispatchOutputValueJudgementSnapshot | null {
   if (!task || !factoryId) return null
   if (detailGroups.length === 0) {
-    return resolveTaskFactoryStandardTimeJudgement(task, factoryId, evaluationContext)
+    return resolveTaskFactoryOutputValueJudgement(task, factoryId, evaluationContext)
   }
 
   const groupedResults = detailGroups
-    .map((group) => resolveAllocatableGroupFactoryStandardTimeJudgement(task, group, factoryId, evaluationContext))
-    .filter((item): item is DispatchStandardTimeJudgementSnapshot => Boolean(item))
+    .map((group) => resolveAllocatableGroupFactoryOutputValueJudgement(task, group, factoryId, evaluationContext))
+    .filter((item): item is DispatchOutputValueJudgementSnapshot => Boolean(item))
 
-  return summarizeDispatchStandardTimeJudgements(groupedResults, '按明细模式当前按各分配单元分别判断，并展示最严结果。')
+  return summarizeDispatchOutputValueJudgements(groupedResults, '按明细模式当前按各分配单元分别判断，并展示最严结果。')
 }
 
 function getSelectableTenderFactoryIds(
@@ -970,7 +970,7 @@ export function syncDispatchCapacityUsageLedger(): void {
     syncTenderParticipationCapacityUsage(task, snapshot)
   }
 
-  // 历史 mock 里有一批已定标任务没有独立招标对象快照；这里按“已中标且已落厂”补齐占用工时。
+  // 历史 mock 里有一批已定标任务没有独立招标对象快照；这里按“已中标且已落厂”补齐产值占用。
   for (const task of runtimeTasks) {
     if (task.assignmentMode !== 'BIDDING' || task.assignmentStatus !== 'AWARDED') continue
     if (!task.assignedFactoryId) continue
@@ -985,15 +985,15 @@ export function syncDispatchCapacityUsageLedger(): void {
   }
 }
 
-function attachTenderPublishedSam<T extends MockTender | LocalTender>(tender: T, task: DispatchTask): T {
-  const sam = resolveTaskPublishedSam(task)
-  if (!sam.publishedSamPerUnit || !sam.publishedSamUnit) return tender
+function attachTenderOutputValue<T extends MockTender | LocalTender>(tender: T, task: DispatchTask): T {
+  const outputValue = resolveTaskOutputValue(task)
+  if (!outputValue.outputValuePerUnit || !outputValue.outputValueUnit) return tender
   return {
     ...tender,
-    publishedSamPerUnit: tender.publishedSamPerUnit ?? sam.publishedSamPerUnit,
-    publishedSamUnit: tender.publishedSamUnit ?? sam.publishedSamUnit,
-    publishedSamTotal: tender.publishedSamTotal ?? sam.publishedSamTotal,
-    publishedSamDifficulty: tender.publishedSamDifficulty ?? sam.publishedSamDifficulty,
+    outputValuePerUnit: tender.outputValuePerUnit ?? outputValue.outputValuePerUnit,
+    outputValueUnit: tender.outputValueUnit ?? outputValue.outputValueUnit,
+    outputValueTotal: tender.outputValueTotal ?? outputValue.outputValueTotal,
+    outputValueDifficulty: tender.outputValueDifficulty ?? outputValue.outputValueDifficulty,
   }
 }
 
@@ -1004,12 +1004,12 @@ function getMockTender(task: DispatchTask): MockTender | undefined {
       item.taskId === task.baseTaskId ||
       (task.tenderId ? item.tenderId === task.tenderId : false),
   )
-  return tender ? attachTenderPublishedSam(tender, task) : undefined
+  return tender ? attachTenderOutputValue(tender, task) : undefined
 }
 
 function getEffectiveTender(task: DispatchTask): MockTender | LocalTender | undefined {
   const local = state.tenderState[task.taskId]
-  if (local) return attachTenderPublishedSam(local, task)
+  if (local) return attachTenderOutputValue(local, task)
   return getMockTender(task)
 }
 
@@ -1498,7 +1498,7 @@ function getDispatchDialogValidation(tasks: DispatchTask[]): {
 
 export {
   appStore,
-  aggregateFactorySamUsage,
+  aggregateFactoryOutputValueUsage,
   applyRuntimeDirectDispatchMeta,
   productionOrders,
   batchDispatchRuntimeTasks,
@@ -1552,20 +1552,20 @@ export {
   getEffectiveTender,
   hasTender,
   describeDispatchCapacityConstraintDecision,
-  resolveTaskPublishedSam,
-  resolveAllocatableGroupPublishedSam,
+  resolveTaskOutputValue,
+  resolveAllocatableGroupOutputValue,
   createDispatchCapacityEvaluationContext,
-  createDispatchStandardTimeEvaluationContext,
+  createDispatchOutputValueEvaluationContext,
   resolveTaskFactoryCapacityConstraint,
-  resolveTaskFactoryStandardTimeJudgement,
+  resolveTaskFactoryOutputValueJudgement,
   resolveAllocatableGroupFactoryCapacityConstraint,
-  resolveAllocatableGroupFactoryStandardTimeJudgement,
+  resolveAllocatableGroupFactoryOutputValueJudgement,
   resolveTenderFactoryCapacityConstraint,
-  resolveTenderFactoryStandardTimeJudgement,
+  resolveTenderFactoryOutputValueJudgement,
   summarizeDispatchCapacityConstraints,
-  summarizeDispatchStandardTimeJudgements,
+  summarizeDispatchOutputValueJudgements,
   getSelectableTenderFactoryIds,
-  formatPublishedSamNumber,
+  formatOutputValueNumber,
   calcRemaining,
   deriveAssignPath,
   deriveAssignResult,
@@ -1609,13 +1609,13 @@ export type {
   KanbanCol,
   MockTender,
   LocalTender,
-  DispatchPublishedSamSnapshot,
+  DispatchOutputValueSnapshot,
   TenderState,
   CandidateFactory,
   DeadlineStatus,
   PriceStatus,
   DispatchCapacityConstraintSnapshot,
-  DispatchStandardTimeJudgementSnapshot,
+  DispatchOutputValueJudgementSnapshot,
   DispatchView,
   AssignmentOperateMode,
   DirectDispatchForm,

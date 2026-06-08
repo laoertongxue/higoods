@@ -141,24 +141,24 @@ P2 只处理以下范围：
 - `machineTotalCount`
 - `capabilityItems`
 - `machineItems`
-- `defaultDailyAvailablePublishedSam`
+- `defaultDailyOutputValue`
 - `calculationStatus`
 - `calculationNotes`
 - `createdAt`
 - `updatedAt`
 
-### 4.2 默认日可供给发布工时 SAM 规则
+### 4.2 默认日可供给产值 规则
 
-当前阶段不乱算 SAM：
+当前阶段不乱算 产值：
 - 如果字典缺少足够计算字段，则：
-  - `defaultDailyAvailablePublishedSam = 0`
+  - `defaultDailyOutputValue = 0`
   - `calculationStatus = 待补充产能字段`
-  - `calculationNotes = 入驻资料已生成产能档案初始数据，默认日可供给发布工时 SAM 待补充字段后计算。`
+  - `calculationNotes = 入驻资料已生成产能档案初始数据，默认日可供给产值 待补充字段后计算。`
 
 ### 4.3 明确禁止
 
-- 不人工乱填 SAM
-- 不按机器数量随意估算 SAM
+- 不人工乱填 产值
+- 不按机器数量随意估算 产值
 - 不生成产能“当前状态”
 - 不生成白班 / 夜班
 - 不生成按周默认供给能力

@@ -107,13 +107,13 @@ function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
     assignmentStatus: runtimeTask.assignmentStatus,
     ownerSuggestion: { kind: 'MAIN_FACTORY' },
     qcPoints: [],
-    stdTimeMinutes: runtimeTask.publishedSamPerUnit ?? runtimeTask.stdTimeMinutes,
+    taskOutputValue: runtimeTask.outputValuePerUnit ?? runtimeTask.taskOutputValue,
     difficulty: runtimeTask.difficulty,
-    publishedSamPerUnit: runtimeTask.publishedSamPerUnit,
-    publishedSamUnit: runtimeTask.publishedSamUnit,
-    publishedSamTotal: runtimeTask.publishedSamTotal,
-    publishedSamDifficulty: runtimeTask.publishedSamDifficulty,
-    publishedSamSource: runtimeTask.publishedSamSource,
+    outputValuePerUnit: runtimeTask.outputValuePerUnit,
+    outputValueUnit: runtimeTask.outputValueUnit,
+    outputValueTotal: runtimeTask.outputValueTotal,
+    outputValueDifficulty: runtimeTask.outputValueDifficulty,
+    outputValueSource: runtimeTask.outputValueSource,
     attachments: [],
     status: runtimeTask.status,
     assignedFactoryId: runtimeTask.assignedFactoryId,
@@ -215,13 +215,13 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.qty = runtimeTask.scopeQty || runtimeTask.qty
   task.qtyUnit = runtimeTask.qtyUnit
   task.dependsOnTaskIds = [...runtimeTask.dependsOnTaskIds]
-  task.stdTimeMinutes = runtimeTask.publishedSamPerUnit ?? runtimeTask.stdTimeMinutes
+  task.taskOutputValue = runtimeTask.outputValuePerUnit ?? runtimeTask.taskOutputValue
   task.difficulty = runtimeTask.difficulty
-  task.publishedSamPerUnit = runtimeTask.publishedSamPerUnit
-  task.publishedSamUnit = runtimeTask.publishedSamUnit
-  task.publishedSamTotal = runtimeTask.publishedSamTotal
-  task.publishedSamDifficulty = runtimeTask.publishedSamDifficulty
-  task.publishedSamSource = runtimeTask.publishedSamSource
+  task.outputValuePerUnit = runtimeTask.outputValuePerUnit
+  task.outputValueUnit = runtimeTask.outputValueUnit
+  task.outputValueTotal = runtimeTask.outputValueTotal
+  task.outputValueDifficulty = runtimeTask.outputValueDifficulty
+  task.outputValueSource = runtimeTask.outputValueSource
   task.stageCode = runtimeTask.stageCode
   task.stageName = runtimeTask.stageName
   task.processBusinessCode = runtimeTask.processBusinessCode

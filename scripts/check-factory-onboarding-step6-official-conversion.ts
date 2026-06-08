@@ -97,7 +97,7 @@ assertIncludes(capacityPath, [
   'sourceApplicationId',
   'capabilityItems',
   'machineItems',
-  'defaultDailyAvailablePublishedSam: 0',
+  'defaultDailyOutputValue: 0',
   "calculationStatus: '待补充产能字段'",
 ])
 assertNotIncludes(pdaRoutesPath, ["'/fcs/pda/login'", '"/fcs/pda/login"'])
@@ -147,7 +147,7 @@ assert(result.createdFactory.effectiveWorkerCount === target.effectiveWorkerCoun
 assert(result.capacityProfile.sourceApplicationId === target.applicationId, '产能档案必须包含 sourceApplicationId')
 assert(result.capacityProfile.capabilityItems.length > 0, '产能档案必须包含 capabilityItems')
 assert(result.capacityProfile.machineItems.length > 0, '产能档案必须包含 machineItems')
-assert(result.capacityProfile.defaultDailyAvailablePublishedSam === 0, '缺字段时 defaultDailyAvailablePublishedSam 必须为 0')
+assert(result.capacityProfile.defaultDailyOutputValue === 0, '缺字段时 defaultDailyOutputValue 必须为 0')
 assert(result.capacityProfile.calculationStatus === '待补充产能字段', '缺字段时 calculationStatus 必须为待补充产能字段')
 assert(!('currentStatus' in result.capacityProfile), '不得生成产能当前状态')
 assert(!('dayShift' in result.capacityProfile), '不得生成白班')

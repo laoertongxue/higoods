@@ -53,7 +53,7 @@ import { listPartTemplateRecords, type PartTemplateRecord } from '../../data/pcs
 import {
   DETAIL_SPLIT_DIMENSION_LABEL,
   DETAIL_SPLIT_MODE_LABEL,
-  PUBLISHED_SAM_UNIT_LABEL,
+  OUTPUT_VALUE_UNIT_LABEL,
   PROCESS_ASSIGNMENT_GRANULARITY_LABEL,
   PROCESS_DOC_TYPE_LABEL,
   RULE_SOURCE_LABEL,
@@ -121,12 +121,12 @@ type TechniqueItem = {
   linkedBomItemIds?: string[]
   linkedPatternIds?: string[]
   triggerSource: string
-  standardTime: number
-  timeUnit: string
-  referencePublishedSamValue: number | null
-  referencePublishedSamUnit: string
-  referencePublishedSamUnitLabel: string
-  referencePublishedSamNote: string
+  outputValue: number
+  outputValueUnit: string
+  referenceOutputValueValue: number | null
+  referenceOutputValueUnit: string
+  referenceOutputValueUnitLabel: string
+  referenceOutputValueNote: string
   difficulty: '简单' | '中等' | '困难'
   remark: string
   source: '字典引用'
@@ -171,10 +171,10 @@ type CraftOption = {
   isSpecialCraft: boolean
   supportedTargetObjects?: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
-  referencePublishedSamValue: number
-  referencePublishedSamUnit: string
-  referencePublishedSamUnitLabel: string
-  referencePublishedSamNote: string
+  referenceOutputValueValue: number
+  referenceOutputValueUnit: string
+  referenceOutputValueUnitLabel: string
+  referenceOutputValueNote: string
 }
 
 type BomItemRow = {
@@ -712,10 +712,10 @@ const craftOptions: CraftOption[] = listProcessCraftDefinitions()
       supportedTargetObjectLabels: item.isSpecialCraft
         ? getSpecialCraftSupportedTargetObjectLabels(item.supportedTargetObjects)
         : undefined,
-      referencePublishedSamValue: item.referencePublishedSamValue,
-      referencePublishedSamUnit: item.referencePublishedSamUnit,
-      referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[item.referencePublishedSamUnit],
-      referencePublishedSamNote: item.referencePublishedSamNote,
+      referenceOutputValueValue: item.referenceOutputValueValue,
+      referenceOutputValueUnit: item.referenceOutputValueUnit,
+      referenceOutputValueUnitLabel: OUTPUT_VALUE_UNIT_LABEL[item.referenceOutputValueUnit],
+      referenceOutputValueNote: item.referenceOutputValueNote,
     }
   })
   .sort((a, b) => a.craftName.localeCompare(b.craftName, 'zh-Hans-CN'))
@@ -1540,12 +1540,12 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     triggerSource: 'BOM上存在印花要求',
-    standardTime: 10,
-    timeUnit: '分钟/件',
-    referencePublishedSamValue: null,
-    referencePublishedSamUnit: '',
-    referencePublishedSamUnitLabel: '',
-    referencePublishedSamNote: '工序级准备项',
+    outputValue: 10,
+    outputValueUnit: '产值/件',
+    referenceOutputValueValue: null,
+    referenceOutputValueUnit: '',
+    referenceOutputValueUnitLabel: '',
+    referenceOutputValueNote: '工序级准备项',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
@@ -1567,12 +1567,12 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     triggerSource: '',
-    standardTime: 6,
-    timeUnit: '分钟/件',
-    referencePublishedSamValue: 0.6,
-    referencePublishedSamUnit: 'MINUTE_PER_PIECE',
-    referencePublishedSamUnitLabel: '分钟/件',
-    referencePublishedSamNote: '普通复杂度',
+    outputValue: 6,
+    outputValueUnit: '产值/件',
+    referenceOutputValueValue: 0.6,
+    referenceOutputValueUnit: 'VALUE_PER_PIECE',
+    referenceOutputValueUnitLabel: '产值/件',
+    referenceOutputValueNote: '普通复杂度',
     difficulty: '简单',
     remark: '',
     source: '字典引用',
@@ -1594,12 +1594,12 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     triggerSource: '',
-    standardTime: 12,
-    timeUnit: '分钟/件',
-    referencePublishedSamValue: 1.4,
-    referencePublishedSamUnit: 'MINUTE_PER_PIECE',
-    referencePublishedSamUnitLabel: '分钟/件',
-    referencePublishedSamNote: '普通复杂度',
+    outputValue: 12,
+    outputValueUnit: '产值/件',
+    referenceOutputValueValue: 1.4,
+    referenceOutputValueUnit: 'VALUE_PER_PIECE',
+    referenceOutputValueUnitLabel: '产值/件',
+    referenceOutputValueNote: '普通复杂度',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
@@ -1621,12 +1621,12 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     triggerSource: '技术包默认后道工序',
-    standardTime: 0,
-    timeUnit: '分钟/件',
-    referencePublishedSamValue: null,
-    referencePublishedSamUnit: '',
-    referencePublishedSamUnitLabel: '',
-    referencePublishedSamNote: '工序级后道项',
+    outputValue: 0,
+    outputValueUnit: '产值/件',
+    referenceOutputValueValue: null,
+    referenceOutputValueUnit: '',
+    referenceOutputValueUnitLabel: '',
+    referenceOutputValueNote: '工序级后道项',
     difficulty: '中等',
     remark: '所有生产单默认包含后道工序，质检完成后由质检人员判断是否生成后道单。',
     source: '字典引用',
@@ -1728,8 +1728,8 @@ interface TechPackPageState {
     assignmentGranularity: TechPackAssignmentGranularity
     detailSplitMode: TechPackDetailSplitMode
     detailSplitDimensions: TechPackDetailSplitDimension[]
-    standardTime: string
-    timeUnit: string
+    outputValue: string
+    outputValueUnit: string
     difficulty: TechniqueItem['difficulty']
     remark: string
   }
@@ -1830,8 +1830,8 @@ const state: TechPackPageState = {
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
-    standardTime: '',
-    timeUnit: '分钟/件',
+    outputValue: '',
+    outputValueUnit: '产值/件',
     difficulty: '中等',
     remark: '',
   },
@@ -2116,30 +2116,30 @@ function getWoolEntryMeta(craftName: string): Pick<
 
 function getTechniqueReferenceMetaByCraftCode(craftCode: string): Pick<
   TechniqueItem,
-  | 'referencePublishedSamValue'
-  | 'referencePublishedSamUnit'
-  | 'referencePublishedSamUnitLabel'
-  | 'referencePublishedSamNote'
+  | 'referenceOutputValueValue'
+  | 'referenceOutputValueUnit'
+  | 'referenceOutputValueUnitLabel'
+  | 'referenceOutputValueNote'
 > {
   const craft = craftCode ? getProcessCraftByCode(craftCode) : undefined
   if (!craft) {
     return {
-      referencePublishedSamValue: null,
-      referencePublishedSamUnit: '',
-      referencePublishedSamUnitLabel: '',
-      referencePublishedSamNote: '工序级准备项',
+      referenceOutputValueValue: null,
+      referenceOutputValueUnit: '',
+      referenceOutputValueUnitLabel: '',
+      referenceOutputValueNote: '工序级准备项',
     }
   }
 
   return {
-    referencePublishedSamValue: craft.referencePublishedSamValue,
-    referencePublishedSamUnit: craft.referencePublishedSamUnit,
-    referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[craft.referencePublishedSamUnit],
-    referencePublishedSamNote: normalizeReferencePublishedSamNote(craft.referencePublishedSamNote),
+    referenceOutputValueValue: craft.referenceOutputValueValue,
+    referenceOutputValueUnit: craft.referenceOutputValueUnit,
+    referenceOutputValueUnitLabel: OUTPUT_VALUE_UNIT_LABEL[craft.referenceOutputValueUnit],
+    referenceOutputValueNote: normalizeReferenceOutputValueNote(craft.referenceOutputValueNote),
   }
 }
 
-function normalizeReferencePublishedSamNote(value: string | null | undefined): string {
+function normalizeReferenceOutputValueNote(value: string | null | undefined): string {
   const normalized = String(value || '').trim()
   if (!normalized) return ''
   if (normalized.includes('平台理论参考值')) return '普通复杂度'
@@ -4069,22 +4069,22 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     linkedBomItemIds: normalizedEntry.linkedBomItemIds ? [...normalizedEntry.linkedBomItemIds] : undefined,
     linkedPatternIds: normalizedEntry.linkedPatternIds ? [...normalizedEntry.linkedPatternIds] : undefined,
     triggerSource: normalizedEntry.triggerSource || '',
-    standardTime: Number.isFinite(normalizedEntry.standardTimeMinutes)
-      ? Number(normalizedEntry.standardTimeMinutes)
+    outputValue: Number.isFinite(normalizedEntry.outputValuePerUnit)
+      ? Number(normalizedEntry.outputValuePerUnit)
       : 0,
-    timeUnit:
-      normalizedEntry.referencePublishedSamUnitLabel ||
-      normalizedEntry.timeUnit ||
-      '分钟/件',
-    referencePublishedSamValue:
-      normalizedEntry.referencePublishedSamValue ?? referenceMeta.referencePublishedSamValue,
-    referencePublishedSamUnit:
-      normalizedEntry.referencePublishedSamUnit ?? referenceMeta.referencePublishedSamUnit,
-    referencePublishedSamUnitLabel:
-      normalizedEntry.referencePublishedSamUnitLabel ??
-      referenceMeta.referencePublishedSamUnitLabel,
-    referencePublishedSamNote: normalizeReferencePublishedSamNote(
-      normalizedEntry.referencePublishedSamNote ?? referenceMeta.referencePublishedSamNote,
+    outputValueUnit:
+      normalizedEntry.referenceOutputValueUnitLabel ||
+      normalizedEntry.outputValueUnit ||
+      '产值/件',
+    referenceOutputValueValue:
+      normalizedEntry.referenceOutputValueValue ?? referenceMeta.referenceOutputValueValue,
+    referenceOutputValueUnit:
+      normalizedEntry.referenceOutputValueUnit ?? referenceMeta.referenceOutputValueUnit,
+    referenceOutputValueUnitLabel:
+      normalizedEntry.referenceOutputValueUnitLabel ??
+      referenceMeta.referenceOutputValueUnitLabel,
+    referenceOutputValueNote: normalizeReferenceOutputValueNote(
+      normalizedEntry.referenceOutputValueNote ?? referenceMeta.referenceOutputValueNote,
     ),
     difficulty: mapDifficultyToZh(normalizedEntry.difficulty || 'MEDIUM'),
     remark: normalizedEntry.remark || '',
@@ -4158,12 +4158,12 @@ function buildTechniquesFromTechPack(
           supportedTargetObjects: craft.isSpecialCraft ? [...craft.supportedTargetObjects] : undefined,
           supportedTargetObjectLabels,
           triggerSource: '',
-          standardTime: item.timeMinutes,
-          timeUnit: referenceMeta.referencePublishedSamUnitLabel || '分钟/件',
-          referencePublishedSamValue: referenceMeta.referencePublishedSamValue,
-          referencePublishedSamUnit: referenceMeta.referencePublishedSamUnit,
-          referencePublishedSamUnitLabel: referenceMeta.referencePublishedSamUnitLabel,
-          referencePublishedSamNote: referenceMeta.referencePublishedSamNote,
+          outputValue: item.outputValue,
+          outputValueUnit: referenceMeta.referenceOutputValueUnitLabel || '产值/件',
+          referenceOutputValueValue: referenceMeta.referenceOutputValueValue,
+          referenceOutputValueUnit: referenceMeta.referenceOutputValueUnit,
+          referenceOutputValueUnitLabel: referenceMeta.referenceOutputValueUnitLabel,
+          referenceOutputValueNote: referenceMeta.referenceOutputValueNote,
           difficulty: mapDifficultyToZh(item.difficulty),
           remark: '',
           source: '字典引用',
@@ -4191,12 +4191,12 @@ function buildTechniquesFromTechPack(
           taskTypeMode: processDef.taskTypeMode,
           isSpecialCraft: false,
           triggerSource: processDef.triggerSource || '',
-          standardTime: item.timeMinutes,
-          timeUnit: '分钟/件',
-          referencePublishedSamValue: null,
-          referencePublishedSamUnit: '',
-          referencePublishedSamUnitLabel: '',
-          referencePublishedSamNote: '工序级准备项',
+          outputValue: item.outputValue,
+          outputValueUnit: '产值/件',
+          referenceOutputValueValue: null,
+          referenceOutputValueUnit: '',
+          referenceOutputValueUnitLabel: '',
+          referenceOutputValueNote: '工序级准备项',
           difficulty: mapDifficultyToZh(item.difficulty),
           remark: '',
           source: '字典引用',
@@ -4220,12 +4220,12 @@ function buildTechniquesFromTechPack(
         taskTypeMode: 'PROCESS',
         isSpecialCraft: false,
         triggerSource: '',
-        standardTime: item.timeMinutes,
-        timeUnit: '分钟/件',
-        referencePublishedSamValue: null,
-        referencePublishedSamUnit: '',
-        referencePublishedSamUnitLabel: '',
-        referencePublishedSamNote: '工序级准备项',
+        outputValue: item.outputValue,
+        outputValueUnit: '产值/件',
+        referenceOutputValueValue: null,
+        referenceOutputValueUnit: '',
+        referenceOutputValueUnitLabel: '',
+        referenceOutputValueNote: '工序级准备项',
         difficulty: mapDifficultyToZh(item.difficulty),
         remark: '',
         source: '字典引用',
@@ -4542,7 +4542,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       id: item.id,
       seq: index + 1,
       name: item.technique,
-      timeMinutes: Number(item.standardTime) || 0,
+      outputValue: Number(item.outputValue) || 0,
       difficulty: mapDifficultyToEnum(item.difficulty),
       qcPoint: '',
     })),
@@ -4575,8 +4575,8 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       supportedTargetObjects: item.supportedTargetObjects ? [...item.supportedTargetObjects] : undefined,
       supportedTargetObjectLabels: item.supportedTargetObjectLabels ? [...item.supportedTargetObjectLabels] : undefined,
       triggerSource: item.triggerSource || undefined,
-      standardTimeMinutes: Number(item.standardTime) || 0,
-      timeUnit: item.timeUnit,
+      outputValuePerUnit: Number(item.outputValue) || 0,
+      outputValueUnit: item.outputValueUnit,
       difficulty: mapDifficultyToEnum(item.difficulty),
       remark: item.remark || undefined,
       sourceType: item.sourceType,
@@ -4844,8 +4844,8 @@ function resetTechniqueForm(): void {
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
-    standardTime: '',
-    timeUnit: '分钟/件',
+    outputValue: '',
+    outputValueUnit: '产值/件',
     difficulty: '中等',
     remark: '',
   }

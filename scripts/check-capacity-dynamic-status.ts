@@ -64,7 +64,7 @@ function main(): void {
   }
 
   assert(pageSource.includes('当前状态'), '产能日历页面仍未接入“当前状态”展示')
-  assert(pageSource.includes('暂停任务数'), '任务工时风险页未接入暂停动态状态')
+  assert(pageSource.includes('暂停任务数'), '任务产值风险页未接入暂停动态状态')
   assert(pageSource.includes('紧张天数'), '工艺瓶颈页未接入紧张天数')
   assert(pageSource.includes('暂停天数'), '工艺瓶颈页未接入暂停天数')
   assert(pageSource.includes('当日暂停工厂数'), '日期瓶颈页未接入当日暂停工厂数')
@@ -82,8 +82,8 @@ function main(): void {
 
   assert(!profilePageSource.includes('buildCapacityStatusBadge('), '动态状态不应放回产能档案页面')
   assert(!profileDataSource.includes('CapacityCalendarStatus'), '动态状态不应放回产能档案 mock')
-  assert(!dataSource.includes('复盘工时'), '不应引入复盘工时字段或说明')
-  assert(!dataSource.includes('replaySam'), '不应引入复盘工时 SAM 逻辑')
+  assert(!dataSource.includes('复盘产值'), '不应引入复盘产值字段或说明')
+  assert(!dataSource.includes('replayOutputValue'), '不应引入复盘产值逻辑')
 
   const comparison = buildCapacityCalendarData().comparisonRows
   const comparisonCounts = comparison.reduce<Record<string, number>>((acc, row) => {
@@ -107,12 +107,12 @@ function main(): void {
   assert(bottleneck.craftRows.some((row) => row.overloadDayCount > 0), '工艺瓶颈榜缺少超载天数样例')
   assert(bottleneck.craftRows.some((row) => row.tightDayCount > 0), '工艺瓶颈榜缺少紧张天数样例')
   assert(bottleneck.craftRows.some((row) => row.pausedDayCount > 0), '工艺瓶颈榜缺少暂停天数样例')
-  assert(bottleneck.craftRows.some((row) => row.unallocatedSam > 0), '工艺瓶颈榜缺少待分配标准工时样例')
-  assert(bottleneck.craftRows.some((row) => row.unscheduledSam > 0), '工艺瓶颈榜缺少未排期标准工时样例')
+  assert(bottleneck.craftRows.some((row) => row.unallocatedValue > 0), '工艺瓶颈榜缺少待分配产值样例')
+  assert(bottleneck.craftRows.some((row) => row.unscheduledValue > 0), '工艺瓶颈榜缺少未排期产值样例')
   assert(bottleneck.dateRows.some((row) => row.pausedFactoryCount > 0), '日期瓶颈榜缺少暂停工厂样例')
   assert(bottleneck.dateRows.some((row) => row.tightCraftCount > 0), '日期瓶颈榜缺少紧张工艺样例')
   assert(bottleneck.dateRows.some((row) => row.overloadedFactoryCount > 0), '日期瓶颈榜缺少超载工厂样例')
-  assert(bottleneck.dateRows.some((row) => row.unallocatedSam > 0), '日期瓶颈榜缺少待分配标准工时样例')
+  assert(bottleneck.dateRows.some((row) => row.unallocatedValue > 0), '日期瓶颈榜缺少待分配产值样例')
 
   const executionTasks = listRuntimeProcessTasks().filter((task) => isRuntimeTaskExecutionTask(task))
   const capacityContext = createDispatchCapacityEvaluationContext()

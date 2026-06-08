@@ -64,16 +64,16 @@ async function assertSheetContent(sheet: Locator, expectedFormula: string): Prom
   await expect(currentSection).toContainText('当前阶段公式')
   await expect(currentSection).toContainText('当前阶段说明')
   await expect(currentSection).toContainText('当前阶段示例')
-  await expect(currentSection).toContainText('默认日可供给发布工时 SAM 是系统根据当前阶段字段自动算出来的结果字段')
+  await expect(currentSection).toContainText('默认日可供给产值 是系统根据当前阶段字段自动算出来的结果字段')
   await expect(currentSection).toContainText(expectedFormula)
   await expect(currentSection).toContainText('某工厂做')
   await expect(currentSection).not.toContainText('这批任务')
-  await expect(currentSection).not.toContainText('任务总 SAM')
+  await expect(currentSection).not.toContainText('任务总 产值')
   for (const fieldKey of INTERNAL_FIELD_KEYS) {
     await expect(currentSection).not.toContainText(fieldKey)
   }
 
-  const currentFieldGroups = await currentSection.getByTestId('sam-field-group').count()
+  const currentFieldGroups = await currentSection.getByTestId('outputValue-field-group').count()
   expect(currentFieldGroups).toBeGreaterThan(0)
   expect(currentFieldGroups).toBeLessThanOrEqual(3)
 }

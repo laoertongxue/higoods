@@ -2,7 +2,7 @@ import {
   state,
   validateRuntimeBatchDispatchSelection,
   createDispatchCapacityEvaluationContext,
-  createDispatchStandardTimeEvaluationContext,
+  createDispatchOutputValueEvaluationContext,
   getTaskAllocatableGroups,
   supportsDetailAssignment,
   dispatchRuntimeTaskByDetailGroups,
@@ -21,24 +21,24 @@ import {
   getAutoDispatchConfigKeyFromTask,
   emptyDispatchForm,
   describeDispatchCapacityConstraintDecision,
-  formatPublishedSamNumber,
+  formatOutputValueNumber,
   fromDateTimeLocal,
   nowTimestamp,
   escapeHtml,
   formatScopeLabel,
   formatTaskNo,
   createFreezeFromDirectDispatch,
-  resolveAllocatableGroupPublishedSam,
+  resolveAllocatableGroupOutputValue,
   resolveAllocatableGroupFactoryCapacityConstraint,
-  resolveAllocatableGroupFactoryStandardTimeJudgement,
-  resolveTaskPublishedSam,
+  resolveAllocatableGroupFactoryOutputValueJudgement,
+  resolveTaskOutputValue,
   resolveTaskFactoryCapacityConstraint,
-  resolveTaskFactoryStandardTimeJudgement,
+  resolveTaskFactoryOutputValueJudgement,
   syncDispatchCapacityUsageLedger,
   type RuntimeTaskAllocatableGroup,
   type RuntimeTaskAllocatableGroupAssignment,
   type DispatchCapacityConstraintSnapshot,
-  type DispatchStandardTimeJudgementSnapshot,
+  type DispatchOutputValueJudgementSnapshot,
   type DispatchTask,
 } from './context.ts'
 
@@ -108,7 +108,7 @@ function getConstraintTone(snapshot: DispatchCapacityConstraintSnapshot | null):
   if (snapshot.status === 'PAUSED') return 'border-red-200 bg-red-50 text-red-700'
   if (snapshot.status === 'OVERLOADED') return 'border-red-200 bg-red-50 text-red-700'
   if (snapshot.status === 'TIGHT') return 'border-amber-200 bg-amber-50 text-amber-700'
-  if (snapshot.status === 'DATE_INCOMPLETE' || snapshot.status === 'SAM_MISSING') {
+  if (snapshot.status === 'DATE_INCOMPLETE' || snapshot.status === 'VALUE_MISSING') {
     return 'border-amber-200 bg-amber-50 text-amber-700'
   }
   return 'border-green-200 bg-green-50 text-green-700'
@@ -134,17 +134,17 @@ function renderCapacityConstraintSummary(
   `
 }
 
-function getStandardTimeJudgementTone(snapshot: DispatchStandardTimeJudgementSnapshot | null): string {
+function getOutputValueJudgementTone(snapshot: DispatchOutputValueJudgementSnapshot | null): string {
   if (!snapshot) return 'border-slate-200 bg-slate-50 text-slate-600'
   if (snapshot.status === 'EXCEEDS_WINDOW') return 'border-red-200 bg-red-50 text-red-700'
-  if (snapshot.status === 'RISK' || snapshot.status === 'DATE_INCOMPLETE' || snapshot.status === 'SAM_MISSING') {
+  if (snapshot.status === 'RISK' || snapshot.status === 'DATE_INCOMPLETE' || snapshot.status === 'VALUE_MISSING') {
     return 'border-amber-200 bg-amber-50 text-amber-700'
   }
   return 'border-green-200 bg-green-50 text-green-700'
 }
 
-function renderStandardTimeJudgementSummary(
-  snapshot: DispatchStandardTimeJudgementSnapshot | null,
+function renderOutputValueJudgementSummary(
+  snapshot: DispatchOutputValueJudgementSnapshot | null,
   placeholder: string,
   testId?: string,
 ): string {
@@ -152,8 +152,8 @@ function renderStandardTimeJudgementSummary(
     return `<div class="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground"${testId ? ` data-${testId}="empty"` : ''}>${escapeHtml(placeholder)}</div>`
   }
 
-  const tone = getStandardTimeJudgementTone(snapshot)
-  const estimatedDaysText = snapshot.estimatedDays != null ? `${formatPublishedSamNumber(snapshot.estimatedDays)} 天` : '--'
+  const tone = getOutputValueJudgementTone(snapshot)
+  const estimatedDaysText = snapshot.estimatedDays != null ? `${formatOutputValueNumber(snapshot.estimatedDays)} 天` : '--'
   const windowText = snapshot.windowDays > 0 ? `未来 ${snapshot.windowDays} 天` : '未来 0 天'
 
   return `
@@ -164,13 +164,13 @@ function renderStandardTimeJudgementSummary(
       </div>
       <div class="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <div><span class="text-muted-foreground">窗口天数：</span><span class="font-medium">${escapeHtml(windowText)}</span></div>
-        <div><span class="text-muted-foreground">窗口总供给：</span><span class="font-medium">${formatPublishedSamNumber(snapshot.windowSupplySam)} 标准工时</span></div>
-        <div><span class="text-muted-foreground">已占用：</span><span class="font-medium">${formatPublishedSamNumber(snapshot.windowCommittedSam)} 标准工时</span></div>
-        <div><span class="text-muted-foreground">已冻结：</span><span class="font-medium">${formatPublishedSamNumber(snapshot.windowFrozenSam)} 标准工时</span></div>
-        <div><span class="text-muted-foreground">窗口剩余：</span><span class="font-medium">${formatPublishedSamNumber(snapshot.windowRemainingSam)} 标准工时</span></div>
-        <div><span class="text-muted-foreground">当前任务：</span><span class="font-medium">${formatPublishedSamNumber(snapshot.taskDemandSam)} 标准工时</span></div>
+        <div><span class="text-muted-foreground">窗口总供给：</span><span class="font-medium">${formatOutputValueNumber(snapshot.windowSupplyValue)} 产值</span></div>
+        <div><span class="text-muted-foreground">已占用：</span><span class="font-medium">${formatOutputValueNumber(snapshot.windowCommittedValue)} 产值</span></div>
+        <div><span class="text-muted-foreground">已冻结：</span><span class="font-medium">${formatOutputValueNumber(snapshot.windowFrozenValue)} 产值</span></div>
+        <div><span class="text-muted-foreground">窗口剩余：</span><span class="font-medium">${formatOutputValueNumber(snapshot.windowRemainingValue)} 产值</span></div>
+        <div><span class="text-muted-foreground">当前任务：</span><span class="font-medium">${formatOutputValueNumber(snapshot.taskDemandValue)} 产值</span></div>
         <div><span class="text-muted-foreground">预计消耗：</span><span class="font-medium">${escapeHtml(estimatedDaysText)}</span></div>
-        <div><span class="text-muted-foreground">日供给：</span><span class="font-medium">${formatPublishedSamNumber(snapshot.dailySupplySam)} 标准工时</span></div>
+        <div><span class="text-muted-foreground">日供给：</span><span class="font-medium">${formatOutputValueNumber(snapshot.dailySupplyValue)} 产值</span></div>
       </div>
       ${
         snapshot.fallbackRuleLabel || snapshot.note
@@ -370,8 +370,8 @@ function confirmDirectDispatch(): void {
 
       assignmentsByTaskId.set(assignment.taskId, {
         ...current,
-        publishedSamTotal:
-          (current.publishedSamTotal ?? 0) + (assignment.publishedSamTotal ?? 0),
+        outputValueTotal:
+          (current.outputValueTotal ?? 0) + (assignment.outputValueTotal ?? 0),
       })
     }
 
@@ -388,10 +388,10 @@ function confirmDirectDispatch(): void {
         dispatchPriceCurrency: validation.stdCurrency,
         dispatchPriceUnit: validation.stdUnit,
         priceDiffReason: state.dispatchForm.priceDiffReason,
-        publishedSamPerUnit: assignment.publishedSamPerUnit,
-        publishedSamUnit: assignment.publishedSamUnit,
-        publishedSamTotal: assignment.publishedSamTotal,
-        publishedSamDifficulty: assignment.publishedSamDifficulty,
+        outputValuePerUnit: assignment.outputValuePerUnit,
+        outputValueUnit: assignment.outputValueUnit,
+        outputValueTotal: assignment.outputValueTotal,
+        outputValueDifficulty: assignment.outputValueDifficulty,
         writeBackMainFactory: isRuntimeSewingTask(singleTask)
           ? assignment.taskId === mainFactoryResultAssignment?.taskId
           : undefined,
@@ -403,7 +403,7 @@ function confirmDirectDispatch(): void {
       createFreezeFromDirectDispatch(resolvedTask, {
         factoryId: assignment.factoryId,
         allocationUnitId: assignment.allocationUnitId,
-        standardSamTotal: assignment.publishedSamTotal,
+        outputValueTotal: assignment.outputValueTotal,
         note: assignment.allocationUnitId
           ? '按明细直接派单后，分配单元进入待接单冻结。'
           : '直接派单后进入待接单冻结。',
@@ -463,7 +463,7 @@ function renderDetailDispatchMode(
   groups: RuntimeTaskAllocatableGroup[],
   factoryOptions: Array<{ id: string; name: string }>,
   evaluationContext?: ReturnType<typeof createDispatchCapacityEvaluationContext>,
-  samEvaluationContext?: ReturnType<typeof createDispatchStandardTimeEvaluationContext>,
+  outputValueEvaluationContext?: ReturnType<typeof createDispatchOutputValueEvaluationContext>,
 ): string {
   const assignmentGranularity = task.assignmentGranularity ?? 'ORDER'
   const isSewingTask = isRuntimeSewingTask(task)
@@ -491,7 +491,7 @@ function renderDetailDispatchMode(
             <tr class="border-b bg-muted/40 text-xs">
               <th class="px-3 py-2 text-left font-medium">分配单元</th>
               <th class="px-3 py-2 text-left font-medium">数量</th>
-              <th class="px-3 py-2 text-left font-medium">当前明细总标准工时</th>
+              <th class="px-3 py-2 text-left font-medium">当前明细总产值</th>
               <th class="px-3 py-2 text-left font-medium">维度说明</th>
               ${isSewingTask ? '<th class="px-3 py-2 text-left font-medium">生产单主工厂</th>' : ''}
               <th class="px-3 py-2 text-left font-medium">目标工厂</th>
@@ -504,7 +504,7 @@ function renderDetailDispatchMode(
                 const dimensionsText = Object.entries(group.dimensions)
                   .map(([key, value]) => `${key}:${value}`)
                   .join('；')
-                const groupSam = resolveAllocatableGroupPublishedSam(task, group)
+                const groupOutputValue = resolveAllocatableGroupOutputValue(task, group)
                 const selectedFactoryId = selectedFactory?.factoryId ?? ''
                 const selectedConstraint = selectedFactoryId
                   ? resolveAllocatableGroupFactoryCapacityConstraint(
@@ -515,31 +515,31 @@ function renderDetailDispatchMode(
                       evaluationContext,
                     )
                   : null
-                const selectedSamJudgement = selectedFactoryId
-                  ? resolveAllocatableGroupFactoryStandardTimeJudgement(
+                const selectedOutputValueJudgement = selectedFactoryId
+                  ? resolveAllocatableGroupFactoryOutputValueJudgement(
                       task,
                       group,
                       selectedFactoryId,
-                      samEvaluationContext,
+                      outputValueEvaluationContext,
                     )
                   : null
-                const unitSamText =
-                  groupSam.publishedSamPerUnit && groupSam.publishedSamUnit
-                    ? `${formatPublishedSamNumber(groupSam.publishedSamPerUnit)} ${escapeHtml(groupSam.publishedSamUnit)}`
+                const unitOutputValueText =
+                  groupOutputValue.outputValuePerUnit && groupOutputValue.outputValueUnit
+                    ? `${formatOutputValueNumber(groupOutputValue.outputValuePerUnit)} ${escapeHtml(groupOutputValue.outputValueUnit)}`
                     : '--'
-                const totalSamText =
-                  groupSam.publishedSamTotal != null && groupSam.publishedSamUnit
-                    ? `${formatPublishedSamNumber(groupSam.publishedSamTotal)} ${escapeHtml(groupSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
+                const totalOutputValueText =
+                  groupOutputValue.outputValueTotal != null && groupOutputValue.outputValueUnit
+                    ? `${formatOutputValueNumber(groupOutputValue.outputValueTotal)} ${escapeHtml(groupOutputValue.outputValueUnit.replace(/^产值\//, '产值'))}`
                     : '--'
 
                 return `
                   <tr class="border-b last:border-b-0" data-dispatch-group="${escapeHtml(group.groupKey)}">
                     <td class="px-3 py-2">${escapeHtml(group.groupLabel)}</td>
                     <td class="px-3 py-2 font-mono text-xs">${group.qty} 件</td>
-                    <td class="px-3 py-2 text-xs" data-dispatch-group-sam="${escapeHtml(group.groupKey)}">
+                    <td class="px-3 py-2 text-xs" data-dispatch-group-outputValue="${escapeHtml(group.groupKey)}">
                         <div class="space-y-1">
-                          <div><span class="text-muted-foreground">单位标准工时：</span><span class="font-medium">${unitSamText}</span></div>
-                          <div><span class="text-muted-foreground">当前明细总标准工时：</span><span class="font-medium text-blue-700">${totalSamText}</span></div>
+                          <div><span class="text-muted-foreground">单位产值：</span><span class="font-medium">${unitOutputValueText}</span></div>
+                          <div><span class="text-muted-foreground">当前明细总产值：</span><span class="font-medium text-blue-700">${totalOutputValueText}</span></div>
                         </div>
                       </td>
                       <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(dimensionsText || '-')}</td>
@@ -570,10 +570,10 @@ function renderDetailDispatchMode(
                             '选择工厂后，将按该分配单元的任务日期窗口校验产能日历状态。',
                           )}
                         </div>
-                        <div class="mt-2" data-dispatch-group-sam-judgement="${escapeHtml(group.groupKey)}">
-                          ${renderStandardTimeJudgementSummary(
-                            selectedSamJudgement,
-                            '选择工厂后，将显示该分配单元在未来窗口内的标准工时判断。',
+                        <div class="mt-2" data-dispatch-group-outputValue-judgement="${escapeHtml(group.groupKey)}">
+                          ${renderOutputValueJudgementSummary(
+                            selectedOutputValueJudgement,
+                            '选择工厂后，将显示该分配单元在未来窗口内的产值判断。',
                           )}
                         </div>
                       </td>
@@ -600,13 +600,13 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
   const detailMode = detailSupported && state.dispatchForm.mode === 'DETAIL'
   const groups = detailSupported ? getDirectDispatchGroups(refTask) : []
   const detailAssignments = detailMode ? getDirectDispatchAssignments(groups) : []
-  const taskSam = !isBatch ? resolveTaskPublishedSam(refTask) : {}
+  const taskOutputValue = !isBatch ? resolveTaskOutputValue(refTask) : {}
   const hasSelectedTaskFactory = !isBatch && Boolean(state.dispatchForm.factoryId)
   const hasSelectedDetailFactory =
     detailMode && groups.some((group) => Boolean(state.dispatchForm.factoryByGroupKey[group.groupKey]?.factoryId))
   const shouldEvaluateFactoryCapacity = hasSelectedTaskFactory || hasSelectedDetailFactory
   const evaluationContext = shouldEvaluateFactoryCapacity ? createDispatchCapacityEvaluationContext() : undefined
-  const samEvaluationContext = shouldEvaluateFactoryCapacity ? createDispatchStandardTimeEvaluationContext() : undefined
+  const outputValueEvaluationContext = shouldEvaluateFactoryCapacity ? createDispatchOutputValueEvaluationContext() : undefined
   const selectedTaskConstraint =
     !isBatch && state.dispatchForm.factoryId
       ? resolveTaskFactoryCapacityConstraint(
@@ -616,9 +616,9 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
           evaluationContext,
         )
       : null
-  const selectedTaskSamJudgement =
+  const selectedTaskOutputValueJudgement =
     !isBatch && state.dispatchForm.factoryId
-      ? resolveTaskFactoryStandardTimeJudgement(refTask, state.dispatchForm.factoryId, samEvaluationContext)
+      ? resolveTaskFactoryOutputValueJudgement(refTask, state.dispatchForm.factoryId, outputValueEvaluationContext)
       : null
   const detailBlocked =
     detailMode &&
@@ -634,13 +634,13 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
       )
       return Boolean(constraint?.hardBlocked)
     })
-  const unitSamText =
-    taskSam.publishedSamPerUnit && taskSam.publishedSamUnit
-      ? `${formatPublishedSamNumber(taskSam.publishedSamPerUnit)} ${escapeHtml(taskSam.publishedSamUnit)}`
+  const unitOutputValueText =
+    taskOutputValue.outputValuePerUnit && taskOutputValue.outputValueUnit
+      ? `${formatOutputValueNumber(taskOutputValue.outputValuePerUnit)} ${escapeHtml(taskOutputValue.outputValueUnit)}`
       : '--'
-  const totalSamText =
-    taskSam.publishedSamTotal != null && taskSam.publishedSamUnit
-      ? `${formatPublishedSamNumber(taskSam.publishedSamTotal)} ${escapeHtml(taskSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
+  const totalOutputValueText =
+    taskOutputValue.outputValueTotal != null && taskOutputValue.outputValueUnit
+      ? `${formatOutputValueNumber(taskOutputValue.outputValueTotal)} ${escapeHtml(taskOutputValue.outputValueUnit.replace(/^产值\//, '产值'))}`
       : '--'
   const selectionError =
     state.dispatchDialogError ??
@@ -681,8 +681,8 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">工序</span><span class="font-mono text-xs">${escapeHtml(refTask.processNameZh)}</span></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">执行范围</span><span class="font-mono text-xs">${escapeHtml(formatScopeLabel(refTask))}</span></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${refTask.scopeQty} 件</span></div>
-                  <div class="flex justify-between gap-2" data-dispatch-task-sam="per-unit"><span class="text-muted-foreground">单位标准工时</span><span class="font-mono text-xs">${unitSamText}</span></div>
-                  <div class="flex justify-between gap-2" data-dispatch-task-sam="total"><span class="text-muted-foreground">任务总标准工时</span><span class="font-mono text-xs text-blue-700">${totalSamText}</span></div>
+                  <div class="flex justify-between gap-2" data-dispatch-task-outputValue="per-unit"><span class="text-muted-foreground">单位产值</span><span class="font-mono text-xs">${unitOutputValueText}</span></div>
+                  <div class="flex justify-between gap-2" data-dispatch-task-outputValue="total"><span class="text-muted-foreground">任务总产值</span><span class="font-mono text-xs text-blue-700">${totalOutputValueText}</span></div>
                 </div>`
           }
 
@@ -716,7 +716,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
 
           ${
             detailMode
-              ? renderDetailDispatchMode(refTask, groups, factoryOptions, evaluationContext, samEvaluationContext)
+              ? renderDetailDispatchMode(refTask, groups, factoryOptions, evaluationContext, outputValueEvaluationContext)
               : `<div class="space-y-1.5">
                   <label class="text-sm font-medium">${includesSewingTask ? '承接工厂 / 生产单主工厂' : '承接工厂'} <span class="text-red-500">*</span></label>
                   <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-dispatch-field="dispatch.factoryId">
@@ -736,12 +736,12 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
                         : '选择工厂后，将按当前任务日期窗口校验产能日历状态。',
                     )}
                   </div>
-                  <div data-dispatch-task-sam-judgement="selected-factory">
-                    ${renderStandardTimeJudgementSummary(
-                      selectedTaskSamJudgement,
+                  <div data-dispatch-task-outputValue-judgement="selected-factory">
+                    ${renderOutputValueJudgementSummary(
+                      selectedTaskOutputValueJudgement,
                       isBatch
-                        ? '批量派单当前不逐任务做未来窗口标准工时判断。'
-                        : '选择工厂后，将显示未来窗口内的可用标准工时、冻结、占用与预计消耗天数。',
+                        ? '批量派单当前不逐任务做未来窗口产值判断。'
+                        : '选择工厂后，将显示未来窗口内的可用产值、冻结、占用与预计消耗天数。',
                     )}
                   </div>
                 </div>`

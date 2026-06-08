@@ -428,7 +428,7 @@ function toLower(value: string | undefined | null): string {
   return (value ?? '').toLowerCase()
 }
 
-function formatSamValue(value: number): string {
+function formatOutputValue(value: number): string {
   if (!Number.isFinite(value)) return '--'
   return Number(value).toLocaleString('zh-CN', {
     minimumFractionDigits: 0,
@@ -468,7 +468,7 @@ function renderCapacityComparisonTable(rows: CapacityCalendarComparisonRow[], ke
 
   return visibleRows
     .map((row) => {
-      const balanceClass = row.remainingSam < 0 ? 'text-red-600' : 'text-green-700'
+      const balanceClass = row.remainingValue < 0 ? 'text-red-600' : 'text-green-700'
 
       return `
         <tr
@@ -485,10 +485,10 @@ function renderCapacityComparisonTable(rows: CapacityCalendarComparisonRow[], ke
             <div>${escapeHtml(row.processName)}</div>
             <div class="text-xs text-muted-foreground">${escapeHtml(row.craftName)}</div>
           </td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.supplySam))}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.committedSam))}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.frozenSam))}</td>
-          <td class="px-3 py-3 text-right text-sm font-medium ${balanceClass}">${escapeHtml(formatSamValue(row.remainingSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.supplyValue))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.committedValue))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.frozenValue))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${balanceClass}">${escapeHtml(formatOutputValue(row.remainingValue))}</td>
           <td class="px-3 py-3 text-sm">
             <div>${renderCapacityStatusBadge(row.status)}</div>
             <div class="mt-1 max-w-[220px] text-xs leading-5 text-muted-foreground">${escapeHtml(row.statusReason)}</div>
@@ -531,7 +531,7 @@ function renderUnallocatedRows(rows: CapacityCalendarUnallocatedRow[], keyword: 
           <div>${escapeHtml(row.processName)}</div>
           <div class="text-xs text-muted-foreground">${escapeHtml(row.craftName)}</div>
         </td>
-        <td class="px-3 py-3 text-right text-sm font-medium text-orange-700">${escapeHtml(formatSamValue(row.demandSam))}</td>
+        <td class="px-3 py-3 text-right text-sm font-medium text-orange-700">${escapeHtml(formatOutputValue(row.demandValue))}</td>
         <td class="px-3 py-3 text-center text-sm">${row.taskCount}</td>
         <td class="px-3 py-3 text-sm text-muted-foreground">${escapeHtml(row.assignmentStatuses.join(' / '))}</td>
       </tr>
@@ -573,7 +573,7 @@ function renderUnscheduledRows(rows: CapacityCalendarUnscheduledRow[], keyword: 
           <div class="text-xs text-muted-foreground">${escapeHtml(row.craftName)}</div>
         </td>
         <td class="px-3 py-3 text-sm">${escapeHtml(row.factoryName)}</td>
-        <td class="px-3 py-3 text-right text-sm font-medium text-amber-700">${escapeHtml(formatSamValue(row.standardSamTotal))}</td>
+        <td class="px-3 py-3 text-right text-sm font-medium text-amber-700">${escapeHtml(formatOutputValue(row.outputValueTotal))}</td>
         <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(row.reason)}</td>
       </tr>
     `)
@@ -627,7 +627,7 @@ function renderFactoryCalendarMainTable(rows: FactoryCalendarRow[], selectedRowK
   return pagedRows
     .map((row) => {
       const isActive = row.rowKey === selectedRowKey
-      const balanceClass = row.remainingSam < 0 ? 'text-red-600' : row.remainingSam === 0 ? 'text-amber-700' : 'text-green-700'
+      const balanceClass = row.remainingValue < 0 ? 'text-red-600' : row.remainingValue === 0 ? 'text-amber-700' : 'text-green-700'
 
       return `
         <tr
@@ -638,10 +638,10 @@ function renderFactoryCalendarMainTable(rows: FactoryCalendarRow[], selectedRowK
           <td class="px-3 py-3 text-sm">${escapeHtml(row.date)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.supplySam))}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.committedSam))}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.frozenSam))}</td>
-          <td class="px-3 py-3 text-right text-sm font-medium ${balanceClass}">${escapeHtml(formatSamValue(row.remainingSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.supplyValue))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.committedValue))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.frozenValue))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${balanceClass}">${escapeHtml(formatOutputValue(row.remainingValue))}</td>
           <td class="px-3 py-3 text-sm">
             <div>${renderCapacityStatusBadge(row.status)}</div>
             <div class="mt-1 max-w-[220px] text-xs leading-5 text-muted-foreground">${escapeHtml(row.statusReason)}</div>
@@ -666,7 +666,7 @@ function renderFactoryCalendarSourceTable(sources: FactoryCalendarSourceRow[], e
           <tr>
             <th class="px-3 py-2 text-left font-medium">任务编号</th>
             <th class="px-3 py-2 text-left font-medium">生产单号</th>
-            <th class="px-3 py-2 text-right font-medium">标准工时</th>
+            <th class="px-3 py-2 text-right font-medium">产值</th>
             <th class="px-3 py-2 text-left font-medium">时间窗口</th>
             <th class="px-3 py-2 text-left font-medium">对象类型</th>
             <th class="px-3 py-2 text-left font-medium">来源说明</th>
@@ -682,8 +682,8 @@ function renderFactoryCalendarSourceTable(sources: FactoryCalendarSourceRow[], e
                 </td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(source.productionOrderId)}</td>
                 <td class="px-3 py-3 text-right text-sm">
-                  <div class="font-medium text-foreground">${escapeHtml(formatSamValue(source.standardSamTotal))}</div>
-                  <div class="text-[11px] text-muted-foreground">当日计入 ${escapeHtml(formatSamValue(source.dailySam))}</div>
+                  <div class="font-medium text-foreground">${escapeHtml(formatOutputValue(source.outputValueTotal))}</div>
+                  <div class="text-[11px] text-muted-foreground">当日计入 ${escapeHtml(formatOutputValue(source.dailyValue))}</div>
                 </td>
                 <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(source.windowText)}</td>
                 <td class="px-3 py-3 text-sm">
@@ -726,12 +726,12 @@ function renderFactoryCalendarDetailPanel(
 
       <div class="grid gap-3 sm:grid-cols-2" data-testid="factory-calendar-detail-summary">
         <div class="rounded-xl bg-slate-50/90 px-4 py-3">
-          <p class="text-xs text-muted-foreground">供给标准工时</p>
-          <p class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(formatSamValue(selectedRow.supplySam))}</p>
+          <p class="text-xs text-muted-foreground">供给产值</p>
+          <p class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(formatOutputValue(selectedRow.supplyValue))}</p>
         </div>
         <div class="rounded-xl bg-slate-50/90 px-4 py-3">
-          <p class="text-xs text-muted-foreground">剩余标准工时</p>
-          <p class="mt-1 text-lg font-semibold ${selectedRow.remainingSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(selectedRow.remainingSam))}</p>
+          <p class="text-xs text-muted-foreground">剩余产值</p>
+          <p class="mt-1 text-lg font-semibold ${selectedRow.remainingValue < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatOutputValue(selectedRow.remainingValue))}</p>
         </div>
       </div>
 
@@ -1028,7 +1028,7 @@ export function renderCapacityOverviewPage(): string {
     comparison: {
       title: '工厂供需明细',
       description:
-        '按 日期 / 工厂 / 工序 / 工艺 聚合。已占用只消费占用工时对象，已冻结只消费冻结工时对象，剩余 = 供给 - 已占用 - 已冻结。',
+        '按 日期 / 工厂 / 工序 / 工艺 聚合。已占用只消费占用对象，已冻结只消费冻结对象，剩余 = 供给 - 已占用 - 已冻结。',
       panel: `
         <div class="rounded-md border" data-capacity-overview-panel="comparison">
           <div class="flex items-center justify-between border-b bg-muted/30 px-4 py-3">
@@ -1065,12 +1065,12 @@ export function renderCapacityOverviewPage(): string {
     },
     unallocated: {
       title: '待分配需求',
-      description: '只看尚未稳定落到工厂、但已经具备标准工时和日期窗口的需求池，不会错误扣减具体工厂。',
+      description: '只看尚未稳定落到工厂、但已经具备产值和日期窗口的需求池，不会错误扣减具体工厂。',
       panel: `
         <div class="rounded-md border" data-capacity-overview-panel="unallocated">
           <div class="border-b bg-muted/30 px-4 py-3">
             <h2 class="text-sm font-semibold text-foreground">待分配需求</h2>
-            <p class="mt-1 text-xs text-muted-foreground">只统计未形成冻结/占用对象、但仍有总标准工时且可落日的任务需求。</p>
+            <p class="mt-1 text-xs text-muted-foreground">只统计未形成冻结/占用对象、但仍有总产值且可落日的任务需求。</p>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -1091,12 +1091,12 @@ export function renderCapacityOverviewPage(): string {
     },
     unscheduled: {
       title: '未排期需求',
-      description: '只看总标准工时已存在、但还缺少可用日期或窗口的需求池，避免被静默忽略或强行落到今天。',
+      description: '只看总产值已存在、但还缺少可用日期或窗口的需求池，避免被静默忽略或强行落到今天。',
       panel: `
         <div class="rounded-md border" data-capacity-overview-panel="unscheduled">
           <div class="border-b bg-muted/30 px-4 py-3">
             <h2 class="text-sm font-semibold text-foreground">未排期需求</h2>
-            <p class="mt-1 text-xs text-muted-foreground">总标准工时已存在，但缺少可用日期 / 窗口，因此当前不会被静默忽略，也不会强行落到今天。</p>
+            <p class="mt-1 text-xs text-muted-foreground">总产值已存在，但缺少可用日期 / 窗口，因此当前不会被静默忽略，也不会强行落到今天。</p>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -1134,12 +1134,12 @@ export function renderCapacityOverviewPage(): string {
       ${renderPageHint('当前页把工厂事实、待分配需求、未排期需求拆到独立 Tab 查看；供给仍来自产能档案自动计算结果。')}
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6" data-capacity-supply-demand-summary>
-        ${renderMetricStatCard('供给总量（标准工时）', formatSamValue(calendar.summary.supplyTotal))}
-        ${renderMetricStatCard('已占用总量（标准工时）', formatSamValue(calendar.summary.committedTotal))}
-        ${renderMetricStatCard('已冻结总量（标准工时）', formatSamValue(calendar.summary.frozenTotal), calendar.summary.frozenTotal > 0 ? 'text-amber-700' : '')}
-        ${renderMetricStatCard('剩余总量（标准工时）', formatSamValue(calendar.summary.remainingTotal), calendar.summary.remainingTotal < 0 ? 'text-red-600' : 'text-green-700')}
-        ${renderMetricStatCard('待分配需求总量（标准工时）', formatSamValue(calendar.summary.unallocatedTotal), calendar.summary.unallocatedTotal > 0 ? 'text-orange-700' : '')}
-        ${renderMetricStatCard('未排期需求总量（标准工时）', formatSamValue(calendar.summary.unscheduledTotal), calendar.summary.unscheduledTotal > 0 ? 'text-amber-700' : '')}
+        ${renderMetricStatCard('供给总量（产值）', formatOutputValue(calendar.summary.supplyTotal))}
+        ${renderMetricStatCard('已占用总量（产值）', formatOutputValue(calendar.summary.committedTotal))}
+        ${renderMetricStatCard('已冻结总量（产值）', formatOutputValue(calendar.summary.frozenTotal), calendar.summary.frozenTotal > 0 ? 'text-amber-700' : '')}
+        ${renderMetricStatCard('剩余总量（产值）', formatOutputValue(calendar.summary.remainingTotal), calendar.summary.remainingTotal < 0 ? 'text-red-600' : 'text-green-700')}
+        ${renderMetricStatCard('待分配需求总量（产值）', formatOutputValue(calendar.summary.unallocatedTotal), calendar.summary.unallocatedTotal > 0 ? 'text-orange-700' : '')}
+        ${renderMetricStatCard('未排期需求总量（产值）', formatOutputValue(calendar.summary.unscheduledTotal), calendar.summary.unscheduledTotal > 0 ? 'text-amber-700' : '')}
       </section>
 
       <section class="rounded-lg border bg-card px-4 py-4 text-sm" data-capacity-calendar-rules>
@@ -1148,8 +1148,8 @@ export function renderCapacityOverviewPage(): string {
           <p class="text-muted-foreground">开始/结束窗口按 ${escapeHtml(calendar.windowPriority.start.join(' > '))} 和 ${escapeHtml(calendar.windowPriority.end.join(' > '))} 配对成功时均摊到窗口内每日；只有单日期时整笔落到该日，缺日期则进入未排期需求。</p>
         </div>
         ${
-          calendar.missingSamRows.length > 0
-            ? `<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">当前仍有 ${calendar.missingSamRows.length} 条任务缺少可用总标准工时字段，未参与供需对比，避免被静默吞掉。</div>`
+          calendar.missingOutputValueRows.length > 0
+            ? `<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">当前仍有 ${calendar.missingOutputValueRows.length} 条任务缺少可用总产值字段，未参与供需对比，避免被静默吞掉。</div>`
             : ''
         }
       </section>
@@ -1204,8 +1204,8 @@ function renderRiskConclusionBadge(conclusion: CapacityRiskTaskRow['conclusion']
   return renderBadge(labelMap[conclusion], tone)
 }
 
-function renderRiskSamValue(value?: number): string {
-  return value == null ? '—' : formatSamValue(value)
+function renderRiskOutputValue(value?: number): string {
+  return value == null ? '—' : formatOutputValue(value)
 }
 
 function renderRiskFactoryCell(row: CapacityRiskTaskRow): string {
@@ -1242,7 +1242,7 @@ function renderRiskWindowText(row: CapacityRiskTaskRow): string {
 
 function renderRiskTaskTable(rows: CapacityRiskTaskRow[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="13" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无任务工时风险数据</td></tr>'
+    return '<tr><td colspan="13" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无任务产值风险数据</td></tr>'
   }
 
   return rows
@@ -1253,12 +1253,12 @@ function renderRiskTaskTable(rows: CapacityRiskTaskRow[]): string {
         <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
         <td class="px-3 py-3">${renderRiskFactoryCell(row)}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.totalStandardTime))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.totalOutputValue))}</td>
         <td class="px-3 py-3">${renderRiskWindowText(row)}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(renderRiskSamValue(row.windowSupplySam))}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(renderRiskSamValue(row.otherCommittedSam))}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(renderRiskSamValue(row.otherFrozenSam))}</td>
-        <td class="px-3 py-3 text-right text-sm font-medium ${row.remainingAfterCurrentSam != null && row.remainingAfterCurrentSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(renderRiskSamValue(row.remainingAfterCurrentSam))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(renderRiskOutputValue(row.windowSupplyValue))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(renderRiskOutputValue(row.otherCommittedValue))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(renderRiskOutputValue(row.otherFrozenValue))}</td>
+        <td class="px-3 py-3 text-right text-sm font-medium ${row.remainingAfterCurrentValue != null && row.remainingAfterCurrentValue < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(renderRiskOutputValue(row.remainingAfterCurrentValue))}</td>
         <td class="px-3 py-3">${renderRiskConclusionBadge(row.conclusion)}</td>
         <td class="max-w-[280px] px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(row.reason)}</td>
       </tr>
@@ -1268,18 +1268,18 @@ function renderRiskTaskTable(rows: CapacityRiskTaskRow[]): string {
 
 function renderRiskOrderTable(rows: CapacityRiskOrderRow[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="10" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无生产单工时风险数据</td></tr>'
+    return '<tr><td colspan="10" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无生产单产值风险数据</td></tr>'
   }
 
   return rows
     .map((row) => `
       <tr class="border-b last:border-0">
         <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.productionOrderId)}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.totalStandardTime))}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.allocatedStandardTime))}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.frozenPendingStandardTime))}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unallocatedStandardTime))}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unscheduledStandardTime))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.totalOutputValue))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.allocatedOutputValue))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.frozenPendingOutputValue))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.unallocatedOutputValue))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.unscheduledOutputValue))}</td>
         <td class="px-3 py-3 text-center text-sm">${row.taskCount}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(row.mainRiskProcessName && row.mainRiskCraftName ? `${row.mainRiskProcessName} / ${row.mainRiskCraftName}` : '—')}</td>
         <td class="px-3 py-3">${renderRiskConclusionBadge(row.highestRiskConclusion)}</td>
@@ -1318,8 +1318,8 @@ export function renderCapacityRiskPage(): string {
     <div class="space-y-6" data-capacity-risk-page>
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 class="text-2xl font-semibold tracking-tight text-balance">任务工时风险</h1>
-          <p class="mt-1 text-sm text-muted-foreground">当前页统一按标准工时窗口判断：已落厂看窗口可承载余量，已冻结待确认、未落厂、未排期分别单独归类。</p>
+          <h1 class="text-2xl font-semibold tracking-tight text-balance">任务产值风险</h1>
+          <p class="mt-1 text-sm text-muted-foreground">当前页统一按产值窗口判断：已落厂看窗口可承载余量，已冻结待确认、未落厂、未排期分别单独归类。</p>
         </div>
         <p class="text-sm text-muted-foreground">当前筛选下 ${filteredTaskRows.length} 条任务 / ${filteredOrderRows.length} 张生产单</p>
       </header>
@@ -1383,12 +1383,12 @@ export function renderCapacityRiskPage(): string {
                       <th class="px-3 py-2 text-left font-medium">工序</th>
                       <th class="px-3 py-2 text-left font-medium">工艺</th>
                       <th class="px-3 py-2 text-left font-medium">当前工厂 / 当前承接对象</th>
-                      <th class="px-3 py-2 text-right font-medium">任务总标准工时</th>
+                      <th class="px-3 py-2 text-right font-medium">任务总产值</th>
                       <th class="px-3 py-2 text-left font-medium">窗口起止日期</th>
-                      <th class="px-3 py-2 text-right font-medium">窗口供给标准工时</th>
-                      <th class="px-3 py-2 text-right font-medium">其他已占用标准工时</th>
-                      <th class="px-3 py-2 text-right font-medium">其他已冻结标准工时</th>
-                      <th class="px-3 py-2 text-right font-medium">当前任务计入后剩余标准工时</th>
+                      <th class="px-3 py-2 text-right font-medium">窗口供给产值</th>
+                      <th class="px-3 py-2 text-right font-medium">其他已占用产值</th>
+                      <th class="px-3 py-2 text-right font-medium">其他已冻结产值</th>
+                      <th class="px-3 py-2 text-right font-medium">当前任务计入后剩余产值</th>
                       <th class="px-3 py-2 text-left font-medium">风险结论</th>
                       <th class="px-3 py-2 text-left font-medium">风险原因</th>
                     </tr>
@@ -1403,11 +1403,11 @@ export function renderCapacityRiskPage(): string {
                   <thead class="border-b bg-muted/40 text-muted-foreground">
                     <tr>
                       <th class="px-3 py-2 text-left font-medium">生产单号</th>
-                      <th class="px-3 py-2 text-right font-medium">生产单总标准工时</th>
-                      <th class="px-3 py-2 text-right font-medium">已落厂标准工时</th>
-                      <th class="px-3 py-2 text-right font-medium">已冻结待确认标准工时</th>
-                      <th class="px-3 py-2 text-right font-medium">未落厂标准工时</th>
-                      <th class="px-3 py-2 text-right font-medium">未排期标准工时</th>
+                      <th class="px-3 py-2 text-right font-medium">生产单总产值</th>
+                      <th class="px-3 py-2 text-right font-medium">已落厂产值</th>
+                      <th class="px-3 py-2 text-right font-medium">已冻结待确认产值</th>
+                      <th class="px-3 py-2 text-right font-medium">未落厂产值</th>
+                      <th class="px-3 py-2 text-right font-medium">未排期产值</th>
                       <th class="px-3 py-2 text-center font-medium">任务数</th>
                       <th class="px-3 py-2 text-left font-medium">主要风险工序 / 工艺</th>
                       <th class="px-3 py-2 text-left font-medium">最高风险结论</th>
@@ -1430,8 +1430,8 @@ function filterBottleneckCraftRows(rows: CapacityBottleneckCraftRow[], keyword: 
     [
       row.processName,
       row.craftName,
-      formatSamValue(row.windowSupplySam),
-      formatSamValue(row.windowRemainingSam),
+      formatOutputValue(row.windowSupplyValue),
+      formatOutputValue(row.windowRemainingValue),
     ].some((value) => includesKeyword(toLower(value), keyword)),
   )
 }
@@ -1488,12 +1488,12 @@ function summarizeFilteredBottleneckData(input: {
   unscheduledRows: CapacityBottleneckUnscheduledTaskRow[]
 }) {
   return {
-    bottleneckCraftCount: input.craftRows.filter((row) => row.windowRemainingSam < 0).length,
+    bottleneckCraftCount: input.craftRows.filter((row) => row.windowRemainingValue < 0).length,
     overloadedDateCount: input.dateRows.filter((row) => row.overloadedCraftCount > 0).length,
-    unallocatedTotal: input.unallocatedRows.reduce((sum, row) => sum + row.totalStandardTime, 0),
-    unscheduledTotal: input.unscheduledRows.reduce((sum, row) => sum + row.totalStandardTime, 0),
-    maxDailyGapSam: input.dateRows.reduce((max, row) => Math.max(max, row.maxGapSam), 0),
-    maxCraftGapSam: input.craftRows.reduce((max, row) => Math.max(max, row.maxGapSam), 0),
+    unallocatedTotal: input.unallocatedRows.reduce((sum, row) => sum + row.totalOutputValue, 0),
+    unscheduledTotal: input.unscheduledRows.reduce((sum, row) => sum + row.totalOutputValue, 0),
+    maxDailyGapValue: input.dateRows.reduce((max, row) => Math.max(max, row.maxGapValue), 0),
+    maxCraftGapValue: input.craftRows.reduce((max, row) => Math.max(max, row.maxGapValue), 0),
   }
 }
 
@@ -1505,23 +1505,23 @@ function renderBottleneckCraftTable(rows: CapacityBottleneckCraftRow[], selected
   return rows
     .map((row) => {
       const selected = row.rowKey === selectedRowKey
-      const remainingClass = row.windowRemainingSam < 0 ? 'text-red-600' : 'text-green-700'
-      const gapClass = row.maxGapSam > 0 ? 'text-red-600' : 'text-muted-foreground'
+      const remainingClass = row.windowRemainingValue < 0 ? 'text-red-600' : 'text-green-700'
+      const gapClass = row.maxGapValue > 0 ? 'text-red-600' : 'text-muted-foreground'
       return `
         <tr class="border-b last:border-0 ${selected ? 'bg-blue-50/60' : ''}" data-bottleneck-craft-row="${escapeHtml(row.rowKey)}">
           <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
           <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.craftName)}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.windowSupplySam))}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.windowCommittedSam))}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.windowFrozenSam))}</td>
-          <td class="px-3 py-3 text-right text-sm font-medium ${remainingClass}">${escapeHtml(formatSamValue(row.windowRemainingSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.windowSupplyValue))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.windowCommittedValue))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.windowFrozenValue))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${remainingClass}">${escapeHtml(formatOutputValue(row.windowRemainingValue))}</td>
           <td class="px-3 py-3 text-center text-sm">${row.overloadDayCount}</td>
           <td class="px-3 py-3 text-center text-sm">${row.tightDayCount}</td>
           <td class="px-3 py-3 text-center text-sm">${row.pausedDayCount}</td>
           <td class="px-3 py-3 text-center text-sm">${row.factoryCount}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unallocatedSam))}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unscheduledSam))}</td>
-          <td class="px-3 py-3 text-right text-sm font-medium ${gapClass}">${escapeHtml(formatSamValue(row.maxGapSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.unallocatedValue))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.unscheduledValue))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${gapClass}">${escapeHtml(formatOutputValue(row.maxGapValue))}</td>
           <td class="px-3 py-3 text-right">
             <button
               data-capacity-action="open-bottleneck-craft-detail"
@@ -1545,21 +1545,21 @@ function renderBottleneckDateTable(rows: CapacityBottleneckDateRow[], selectedDa
   return rows
     .map((row) => {
       const selected = row.date === selectedDate
-      const remainingClass = row.remainingSam < 0 ? 'text-red-600' : 'text-green-700'
-      const gapClass = row.maxGapSam > 0 ? 'text-red-600' : 'text-muted-foreground'
+      const remainingClass = row.remainingValue < 0 ? 'text-red-600' : 'text-green-700'
+      const gapClass = row.maxGapValue > 0 ? 'text-red-600' : 'text-muted-foreground'
       return `
         <tr class="border-b last:border-0 ${selected ? 'bg-blue-50/60' : ''}" data-bottleneck-date-row="${escapeHtml(row.date)}">
           <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.date)}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.supplySam))}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.committedSam))}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.frozenSam))}</td>
-          <td class="px-3 py-3 text-right text-sm font-medium ${remainingClass}">${escapeHtml(formatSamValue(row.remainingSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.supplyValue))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.committedValue))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.frozenValue))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${remainingClass}">${escapeHtml(formatOutputValue(row.remainingValue))}</td>
           <td class="px-3 py-3 text-center text-sm">${row.overloadedFactoryCount}</td>
           <td class="px-3 py-3 text-center text-sm">${row.overloadedCraftCount}</td>
           <td class="px-3 py-3 text-center text-sm">${row.pausedFactoryCount}</td>
           <td class="px-3 py-3 text-center text-sm">${row.tightCraftCount}</td>
-          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unallocatedSam))}</td>
-          <td class="px-3 py-3 text-right text-sm font-medium ${gapClass}">${escapeHtml(formatSamValue(row.maxGapSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.unallocatedValue))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${gapClass}">${escapeHtml(formatOutputValue(row.maxGapValue))}</td>
           <td class="px-3 py-3 text-right">
             <button
               data-capacity-action="open-bottleneck-date-detail"
@@ -1611,7 +1611,7 @@ function renderBottleneckUnallocatedTable(rows: CapacityBottleneckUnallocatedTas
           <th class="px-3 py-2 text-left font-medium">生产单号</th>
           <th class="px-3 py-2 text-left font-medium">工序</th>
           <th class="px-3 py-2 text-left font-medium">工艺</th>
-          <th class="px-3 py-2 text-right font-medium">任务总标准工时</th>
+          <th class="px-3 py-2 text-right font-medium">任务总产值</th>
           <th class="px-3 py-2 text-left font-medium">日期窗口</th>
           <th class="px-3 py-2 text-left font-medium">当前分配阶段</th>
           <th class="px-3 py-2 text-center font-medium">已冻结工厂数</th>
@@ -1627,7 +1627,7 @@ function renderBottleneckUnallocatedTable(rows: CapacityBottleneckUnallocatedTas
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
-                <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.totalStandardTime))}</td>
+                <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.totalOutputValue))}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.windowText)}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.assignmentStatusLabel)}</td>
                 <td class="px-3 py-3 text-center text-sm">${row.frozenFactoryCount}</td>
@@ -1658,7 +1658,7 @@ function renderBottleneckUnscheduledTable(rows: CapacityBottleneckUnscheduledTas
           <th class="px-3 py-2 text-left font-medium">生产单号</th>
           <th class="px-3 py-2 text-left font-medium">工序</th>
           <th class="px-3 py-2 text-left font-medium">工艺</th>
-          <th class="px-3 py-2 text-right font-medium">任务总标准工时</th>
+          <th class="px-3 py-2 text-right font-medium">任务总产值</th>
           <th class="px-3 py-2 text-left font-medium">缺失日期原因</th>
           <th class="px-3 py-2 text-left font-medium">说明</th>
         </tr>
@@ -1672,7 +1672,7 @@ function renderBottleneckUnscheduledTable(rows: CapacityBottleneckUnscheduledTas
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
-                <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.totalStandardTime))}</td>
+                <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.totalOutputValue))}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.reason)}</td>
                 <td class="max-w-[260px] px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(row.note)}</td>
               </tr>
@@ -1689,7 +1689,7 @@ function renderBottleneckCraftDetailPanel(row: CapacityBottleneckCraftRow): stri
     <section class="rounded-md border bg-card" data-bottleneck-craft-detail>
       <div class="border-b bg-muted/30 px-4 py-3">
         <h3 class="text-sm font-semibold text-foreground">${escapeHtml(formatCapacityScopeText(row.processName, row.craftName))}</h3>
-        <p class="mt-1 text-xs text-muted-foreground">窗口总供给 ${escapeHtml(formatSamValue(row.windowSupplySam))} / 已占用 ${escapeHtml(formatSamValue(row.windowCommittedSam))} / 已冻结 ${escapeHtml(formatSamValue(row.windowFrozenSam))} / 剩余 ${escapeHtml(formatSamValue(row.windowRemainingSam))}</p>
+        <p class="mt-1 text-xs text-muted-foreground">窗口总供给 ${escapeHtml(formatOutputValue(row.windowSupplyValue))} / 已占用 ${escapeHtml(formatOutputValue(row.windowCommittedValue))} / 已冻结 ${escapeHtml(formatOutputValue(row.windowFrozenValue))} / 剩余 ${escapeHtml(formatOutputValue(row.windowRemainingValue))}</p>
       </div>
       <div class="space-y-4 p-4">
         <section class="space-y-2">
@@ -1711,10 +1711,10 @@ function renderBottleneckCraftDetailPanel(row: CapacityBottleneckCraftRow): stri
                     (dateRow) => `
                       <tr class="border-b last:border-0">
                         <td class="px-3 py-3 text-sm">${escapeHtml(dateRow.date)}</td>
-                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(dateRow.supplySam))}</td>
-                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(dateRow.committedSam))}</td>
-                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(dateRow.frozenSam))}</td>
-                        <td class="px-3 py-3 text-right text-sm font-medium ${dateRow.remainingSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(dateRow.remainingSam))}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(dateRow.supplyValue))}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(dateRow.committedValue))}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(dateRow.frozenValue))}</td>
+                        <td class="px-3 py-3 text-right text-sm font-medium ${dateRow.remainingValue < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatOutputValue(dateRow.remainingValue))}</td>
                       </tr>
                     `,
                   )
@@ -1742,10 +1742,10 @@ function renderBottleneckCraftDetailPanel(row: CapacityBottleneckCraftRow): stri
                     (factoryRow) => `
                       <tr class="border-b last:border-0">
                         <td class="px-3 py-3 text-sm">${escapeHtml(factoryRow.factoryName)}</td>
-                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(factoryRow.supplySam))}</td>
-                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(factoryRow.committedSam))}</td>
-                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(factoryRow.frozenSam))}</td>
-                        <td class="px-3 py-3 text-right text-sm font-medium ${factoryRow.remainingSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(factoryRow.remainingSam))}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(factoryRow.supplyValue))}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(factoryRow.committedValue))}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(factoryRow.frozenValue))}</td>
+                        <td class="px-3 py-3 text-right text-sm font-medium ${factoryRow.remainingValue < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatOutputValue(factoryRow.remainingValue))}</td>
                       </tr>
                     `,
                   )
@@ -1764,7 +1764,7 @@ function renderBottleneckDateDetailPanel(row: CapacityBottleneckDateRow): string
     <section class="rounded-md border bg-card" data-bottleneck-date-detail>
       <div class="border-b bg-muted/30 px-4 py-3">
         <h3 class="text-sm font-semibold text-foreground">${escapeHtml(row.date)}</h3>
-        <p class="mt-1 text-xs text-muted-foreground">当日供给 ${escapeHtml(formatSamValue(row.supplySam))} / 已占用 ${escapeHtml(formatSamValue(row.committedSam))} / 已冻结 ${escapeHtml(formatSamValue(row.frozenSam))} / 剩余 ${escapeHtml(formatSamValue(row.remainingSam))}</p>
+        <p class="mt-1 text-xs text-muted-foreground">当日供给 ${escapeHtml(formatOutputValue(row.supplyValue))} / 已占用 ${escapeHtml(formatOutputValue(row.committedValue))} / 已冻结 ${escapeHtml(formatOutputValue(row.frozenValue))} / 剩余 ${escapeHtml(formatOutputValue(row.remainingValue))}</p>
       </div>
       <div class="overflow-x-auto p-4">
         <table class="w-full text-sm">
@@ -1791,10 +1791,10 @@ function renderBottleneckDateDetailPanel(row: CapacityBottleneckDateRow): string
                           <td class="px-3 py-3 text-sm">${escapeHtml(detail.factoryName)}</td>
                           <td class="px-3 py-3 text-sm">${escapeHtml(detail.processName)}</td>
                           <td class="px-3 py-3 text-sm">${escapeHtml(detail.craftName)}</td>
-                          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(detail.supplySam))}</td>
-                          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(detail.committedSam))}</td>
-                          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(detail.frozenSam))}</td>
-                          <td class="px-3 py-3 text-right text-sm font-medium ${detail.remainingSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(detail.remainingSam))}</td>
+                          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(detail.supplyValue))}</td>
+                          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(detail.committedValue))}</td>
+                          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(detail.frozenValue))}</td>
+                          <td class="px-3 py-3 text-right text-sm font-medium ${detail.remainingValue < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatOutputValue(detail.remainingValue))}</td>
                           <td class="px-3 py-3 text-center text-sm">${detail.committedTaskCount}</td>
                           <td class="px-3 py-3 text-center text-sm">${detail.frozenTaskCount}</td>
                         </tr>
@@ -1846,17 +1846,17 @@ export function renderCapacityBottleneckPage(): string {
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 class="text-2xl font-semibold tracking-tight text-balance">工艺瓶颈与待分配</h1>
-          <p class="mt-1 text-sm text-muted-foreground">当前页只看标准工时主线：工艺瓶颈看供给、已占用、已冻结与剩余；待分配和未排期需求单独留在需求池中，不会错误扣到具体工厂。</p>
+          <p class="mt-1 text-sm text-muted-foreground">当前页只看产值主线：工艺瓶颈看供给、已占用、已冻结与剩余；待分配和未排期需求单独留在需求池中，不会错误扣到具体工厂。</p>
         </div>
       </header>
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6" data-bottleneck-kpis>
         ${renderStatCard('瓶颈工艺数', summary.bottleneckCraftCount)}
         ${renderStatCard('超载日期数', summary.overloadedDateCount)}
-        ${renderMetricStatCard('待分配标准工时总量', formatSamValue(summary.unallocatedTotal), summary.unallocatedTotal > 0 ? 'text-orange-700' : '')}
-        ${renderMetricStatCard('未排期标准工时总量', formatSamValue(summary.unscheduledTotal), summary.unscheduledTotal > 0 ? 'text-amber-700' : '')}
-        ${renderMetricStatCard('最大单日缺口', formatSamValue(summary.maxDailyGapSam), summary.maxDailyGapSam > 0 ? 'text-red-600' : '')}
-        ${renderMetricStatCard('最大工艺缺口', formatSamValue(summary.maxCraftGapSam), summary.maxCraftGapSam > 0 ? 'text-red-600' : '')}
+        ${renderMetricStatCard('待分配产值总量', formatOutputValue(summary.unallocatedTotal), summary.unallocatedTotal > 0 ? 'text-orange-700' : '')}
+        ${renderMetricStatCard('未排期产值总量', formatOutputValue(summary.unscheduledTotal), summary.unscheduledTotal > 0 ? 'text-amber-700' : '')}
+        ${renderMetricStatCard('最大单日缺口', formatOutputValue(summary.maxDailyGapValue), summary.maxDailyGapValue > 0 ? 'text-red-600' : '')}
+        ${renderMetricStatCard('最大工艺缺口', formatOutputValue(summary.maxCraftGapValue), summary.maxCraftGapValue > 0 ? 'text-red-600' : '')}
       </section>
 
       <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -1907,16 +1907,16 @@ export function renderCapacityBottleneckPage(): string {
                         <tr>
                           <th class="px-3 py-2 text-left font-medium">工序</th>
                           <th class="px-3 py-2 text-left font-medium">工艺</th>
-                          <th class="px-3 py-2 text-right font-medium">窗口总供给标准工时</th>
-                          <th class="px-3 py-2 text-right font-medium">窗口总已占用标准工时</th>
-                          <th class="px-3 py-2 text-right font-medium">窗口总已冻结标准工时</th>
-                          <th class="px-3 py-2 text-right font-medium">窗口总剩余标准工时</th>
+                          <th class="px-3 py-2 text-right font-medium">窗口总供给产值</th>
+                          <th class="px-3 py-2 text-right font-medium">窗口总已占用产值</th>
+                          <th class="px-3 py-2 text-right font-medium">窗口总已冻结产值</th>
+                          <th class="px-3 py-2 text-right font-medium">窗口总剩余产值</th>
                           <th class="px-3 py-2 text-center font-medium">超载天数</th>
                           <th class="px-3 py-2 text-center font-medium">紧张天数</th>
                           <th class="px-3 py-2 text-center font-medium">暂停天数</th>
                           <th class="px-3 py-2 text-center font-medium">涉及工厂数</th>
-                          <th class="px-3 py-2 text-right font-medium">待分配标准工时</th>
-                          <th class="px-3 py-2 text-right font-medium">未排期标准工时</th>
+                          <th class="px-3 py-2 text-right font-medium">待分配产值</th>
+                          <th class="px-3 py-2 text-right font-medium">未排期产值</th>
                           <th class="px-3 py-2 text-right font-medium">最大缺口</th>
                           <th class="px-3 py-2 text-right font-medium">操作</th>
                         </tr>
@@ -1934,22 +1934,22 @@ export function renderCapacityBottleneckPage(): string {
                   <div class="rounded-md border">
                     <div class="border-b bg-muted/30 px-4 py-3">
                       <h2 class="text-sm font-semibold text-foreground">日期瓶颈榜</h2>
-                      <p class="mt-1 text-xs text-muted-foreground">按 日期 聚合全部工厂、全部工艺的标准工时供给、已占用、已冻结、剩余、待分配与最大缺口。</p>
+                      <p class="mt-1 text-xs text-muted-foreground">按 日期 聚合全部工厂、全部工艺的产值供给、已占用、已冻结、剩余、待分配与最大缺口。</p>
                     </div>
                     <div class="overflow-x-auto">
                       <table class="w-full text-sm" data-bottleneck-date-table>
                         <thead class="border-b bg-muted/40 text-muted-foreground">
                           <tr>
                             <th class="px-3 py-2 text-left font-medium">日期</th>
-                            <th class="px-3 py-2 text-right font-medium">当日总供给标准工时</th>
-                            <th class="px-3 py-2 text-right font-medium">当日总已占用标准工时</th>
-                            <th class="px-3 py-2 text-right font-medium">当日总已冻结标准工时</th>
-                            <th class="px-3 py-2 text-right font-medium">当日总剩余标准工时</th>
+                            <th class="px-3 py-2 text-right font-medium">当日总供给产值</th>
+                            <th class="px-3 py-2 text-right font-medium">当日总已占用产值</th>
+                            <th class="px-3 py-2 text-right font-medium">当日总已冻结产值</th>
+                            <th class="px-3 py-2 text-right font-medium">当日总剩余产值</th>
                             <th class="px-3 py-2 text-center font-medium">当日超载工厂数</th>
                             <th class="px-3 py-2 text-center font-medium">当日超载工艺数</th>
                             <th class="px-3 py-2 text-center font-medium">当日暂停工厂数</th>
                             <th class="px-3 py-2 text-center font-medium">当日紧张工艺数</th>
-                            <th class="px-3 py-2 text-right font-medium">当日待分配标准工时</th>
+                            <th class="px-3 py-2 text-right font-medium">当日待分配产值</th>
                             <th class="px-3 py-2 text-right font-medium">当日最大缺口</th>
                             <th class="px-3 py-2 text-right font-medium">操作</th>
                           </tr>
@@ -1971,7 +1971,7 @@ export function renderCapacityBottleneckPage(): string {
                   )}
                   ${renderBottleneckDemandTableSection(
                     '未排期需求',
-                    '已有标准工时但缺少有效日期窗口的任务会单独列出，不会被强行落到某一天。',
+                    '已有产值但缺少有效日期窗口的任务会单独列出，不会被强行落到某一天。',
                     renderBottleneckUnscheduledTable(filteredUnscheduledRows),
                     'bottleneck-unscheduled-section',
                   )}
@@ -2007,10 +2007,10 @@ export function renderCapacityConstraintsPage(): string {
   const scopedCraftKeys = new Set(scopedRows.map((row) => `${row.processCode}::${row.craftCode}`))
   const scopedSummary = state.routeContext.orderIds.length
     ? {
-        supplyTotal: scopedRows.reduce((sum, row) => sum + row.supplySam, 0),
-        committedTotal: scopedRows.reduce((sum, row) => sum + row.committedSam, 0),
-        frozenTotal: scopedRows.reduce((sum, row) => sum + row.frozenSam, 0),
-        remainingTotal: scopedRows.reduce((sum, row) => sum + row.remainingSam, 0),
+        supplyTotal: scopedRows.reduce((sum, row) => sum + row.supplyValue, 0),
+        committedTotal: scopedRows.reduce((sum, row) => sum + row.committedValue, 0),
+        frozenTotal: scopedRows.reduce((sum, row) => sum + row.frozenValue, 0),
+        remainingTotal: scopedRows.reduce((sum, row) => sum + row.remainingValue, 0),
         craftCount: scopedCraftKeys.size,
         taskCount: scopedTaskIds.size,
         normalCount: scopedRows.filter((row) => row.status === 'NORMAL').length,
@@ -2054,13 +2054,13 @@ export function renderCapacityConstraintsPage(): string {
 
       ${renderCapacityRouteContextBanner('constraints')}
 
-      <p class="text-sm text-muted-foreground" data-testid="capacity-constraints-hint">当前页展示选定工厂在窗口内各工序 / 工艺的标准工时供需事实，待分配需求不扣到工厂。</p>
+      <p class="text-sm text-muted-foreground" data-testid="capacity-constraints-hint">当前页展示选定工厂在窗口内各工序 / 工艺的产值供需事实，待分配需求不扣到工厂。</p>
 
       <section class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6" data-testid="capacity-constraints-kpis">
-        ${renderMetricStatCard('窗口总供给标准工时', formatSamValue(scopedSummary.supplyTotal))}
-        ${renderMetricStatCard('窗口已占用标准工时', formatSamValue(scopedSummary.committedTotal), scopedSummary.committedTotal > 0 ? 'text-blue-700' : '')}
-        ${renderMetricStatCard('窗口已冻结标准工时', formatSamValue(scopedSummary.frozenTotal), scopedSummary.frozenTotal > 0 ? 'text-amber-700' : '')}
-        ${renderMetricStatCard('窗口剩余标准工时', formatSamValue(scopedSummary.remainingTotal), scopedSummary.remainingTotal < 0 ? 'text-red-600' : 'text-green-700')}
+        ${renderMetricStatCard('窗口总供给产值', formatOutputValue(scopedSummary.supplyTotal))}
+        ${renderMetricStatCard('窗口已占用产值', formatOutputValue(scopedSummary.committedTotal), scopedSummary.committedTotal > 0 ? 'text-blue-700' : '')}
+        ${renderMetricStatCard('窗口已冻结产值', formatOutputValue(scopedSummary.frozenTotal), scopedSummary.frozenTotal > 0 ? 'text-amber-700' : '')}
+        ${renderMetricStatCard('窗口剩余产值', formatOutputValue(scopedSummary.remainingTotal), scopedSummary.remainingTotal < 0 ? 'text-red-600' : 'text-green-700')}
         ${renderStatCard('覆盖工艺数', scopedSummary.craftCount)}
         ${renderStatCard('涉及任务数', scopedSummary.taskCount)}
       </section>
@@ -2115,7 +2115,7 @@ export function renderCapacityConstraintsPage(): string {
           <section class="overflow-hidden rounded-xl border bg-card" data-testid="factory-calendar-table-section">
             <div class="border-b bg-muted/20 px-4 py-3">
               <h2 class="text-sm font-semibold text-foreground">每日供需主表</h2>
-              <p class="mt-1 text-xs text-muted-foreground">按日期、工序、工艺查看窗口内每日供给、占用、冻结与剩余标准工时。</p>
+              <p class="mt-1 text-xs text-muted-foreground">按日期、工序、工艺查看窗口内每日供给、占用、冻结与剩余产值。</p>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm" data-factory-calendar-table>
@@ -2124,10 +2124,10 @@ export function renderCapacityConstraintsPage(): string {
                     <th class="px-3 py-2 text-left font-medium">日期</th>
                     <th class="px-3 py-2 text-left font-medium">工序</th>
                     <th class="px-3 py-2 text-left font-medium">工艺</th>
-                    <th class="px-3 py-2 text-right font-medium">供给标准工时</th>
-                    <th class="px-3 py-2 text-right font-medium">已占用标准工时</th>
-                    <th class="px-3 py-2 text-right font-medium">已冻结标准工时</th>
-                    <th class="px-3 py-2 text-right font-medium">剩余标准工时</th>
+                    <th class="px-3 py-2 text-right font-medium">供给产值</th>
+                    <th class="px-3 py-2 text-right font-medium">已占用产值</th>
+                    <th class="px-3 py-2 text-right font-medium">已冻结产值</th>
+                    <th class="px-3 py-2 text-right font-medium">剩余产值</th>
                     <th class="px-3 py-2 text-left font-medium">当前状态</th>
                     <th class="px-3 py-2 text-center font-medium">占用任务数</th>
                     <th class="px-3 py-2 text-center font-medium">冻结任务数</th>
@@ -2352,8 +2352,8 @@ export function renderCapacityPoliciesPage(): string {
           ${renderBadge('当前阶段仅支持暂停', 'outline')}
         </div>
         <ul class="mt-4 space-y-2 text-sm text-muted-foreground">
-          <li>1. 供给来自产能档案自动计算的默认日可供给标准工时。</li>
-          <li>2. 需求来自任务总标准工时。</li>
+          <li>1. 供给来自产能档案自动计算的默认日可供给产值。</li>
+          <li>2. 需求来自任务总产值。</li>
           <li>3. 剩余 = 供给 - 已占用 - 已冻结。</li>
           <li>4. 待分配需求不会提前扣到具体工厂。</li>
           <li>5. 当前阶段人工动态例外只支持整厂、工序、工艺三级暂停。</li>

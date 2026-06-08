@@ -6,8 +6,8 @@ import {
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks.ts'
 import {
-  resolveTaskStandardTimeSnapshot,
-  sumTaskStandardTimeTotals,
+  resolveTaskOutputValueSnapshot,
+  sumTaskOutputValueTotals,
 } from '../data/fcs/process-tasks.ts'
 import { getTaskStartRuleState } from '../data/fcs/pda-start-link.ts'
 import { getTaskMilestoneState } from '../data/fcs/pda-exec-link.ts'
@@ -37,7 +37,7 @@ interface OrderRow {
   order: ProductionOrder
   tasks: RuntimeProcessTask[]
   sorted: RuntimeProcessTask[]
-  orderTotalStandardTime?: number
+  orderTotalOutputValue?: number
   mainCount: number
   subCount: number
   dyeCount: number
@@ -365,9 +365,9 @@ function renderSpecialCraftTaskSection(keyword: string): string {
   `
 }
 
-function formatStandardTimeMinutes(value: number | undefined): string {
+function formatOutputValue(value: number | undefined): string {
   if (!Number.isFinite(value) || Number(value) <= 0) return '--'
-  return `${Number(value).toLocaleString()} 分钟`
+  return `${Number(value).toLocaleString()} 产值`
 }
 
 function getTaskDetailRows(task: RuntimeProcessTask) {
@@ -584,7 +584,7 @@ function getOrderRows(
         order,
         tasks,
         sorted,
-        orderTotalStandardTime: sumTaskStandardTimeTotals(executionTasks),
+        orderTotalOutputValue: sumTaskOutputValueTotals(executionTasks),
         mainCount,
         subCount,
         dyeCount,
@@ -608,7 +608,7 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
             <th class="px-3 py-2 text-left font-medium">生产单号</th>
             <th class="px-3 py-2 text-left font-medium">主工厂</th>
             <th class="px-3 py-2 text-center font-medium">任务总数</th>
-            <th class="px-3 py-2 text-left font-medium">总标准工时</th>
+            <th class="px-3 py-2 text-left font-medium">总产值</th>
             <th class="px-3 py-2 text-center font-medium">当前生产流程</th>
             <th class="px-3 py-2 text-center font-medium">相关流程</th>
             <th class="min-w-[320px] px-3 py-2 text-left font-medium">任务流程</th>
@@ -621,7 +621,7 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
             orderRows.length === 0
               ? '<tr><td colspan="9" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
               : orderRows
-                  .map(({ order, tasks, orderTotalStandardTime, mainCount, subCount, dyeCount, materialCount, qcCount, splitGroupCount, splitResultCount, splitSourceCount, executionTaskCount, chain }) => {
+                  .map(({ order, tasks, orderTotalOutputValue, mainCount, subCount, dyeCount, materialCount, qcCount, splitGroupCount, splitResultCount, splitSourceCount, executionTaskCount, chain }) => {
                     const prepSummary =
                       tasks.length === 0
                         ? '—'
@@ -644,7 +644,7 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
                         </td>
                         <td class="px-3 py-3 text-sm">${escapeHtml(order.mainFactorySnapshot?.name ?? '—')}</td>
                         <td class="px-3 py-3 text-center text-sm">${tasks.length}</td>
-                        <td class="px-3 py-3 text-sm font-medium">${escapeHtml(formatStandardTimeMinutes(orderTotalStandardTime))}</td>
+                        <td class="px-3 py-3 text-sm font-medium">${escapeHtml(formatOutputValue(orderTotalOutputValue))}</td>
                         <td class="px-3 py-3 text-center">
                           <span class="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${mainCount}</span>
                         </td>
@@ -732,7 +732,7 @@ function renderAllTasksTable(
             <th class="px-3 py-2 text-left font-medium">任务ID</th>
             <th class="px-3 py-2 text-left font-medium">任务名称</th>
             <th class="px-3 py-2 text-left font-medium">生产单号</th>
-            <th class="px-3 py-2 text-left font-medium">总标准工时</th>
+            <th class="px-3 py-2 text-left font-medium">总产值</th>
             <th class="px-3 py-2 text-left font-medium">前置任务</th>
             <th class="px-3 py-2 text-left font-medium">后置任务</th>
             <th class="px-3 py-2 text-left font-medium">链路类型</th>
@@ -757,14 +757,14 @@ function renderAllTasksTable(
                       : 'bg-slate-50 text-slate-700 border-slate-200'
                     const chainTypeLabel = hasDye ? '相关流程' : '当前生产流程'
                     const displayName = taskDisplayName(task)
-                    const standardTime = resolveTaskStandardTimeSnapshot(task)
-                    const standardTimeText = task.isSplitSource
+                    const outputValue = resolveTaskOutputValueSnapshot(task)
+                    const outputValueText = task.isSplitSource
                       ? '拆分来源任务'
-                      : formatStandardTimeMinutes(standardTime.totalStandardTime)
-                    const standardTimeHint = task.isSplitSource
+                      : formatOutputValue(outputValue.totalOutputValue)
+                    const outputValueHint = task.isSplitSource
                       ? '以子任务重算结果为准'
-                      : standardTime.standardTimePerUnit && standardTime.standardTimeUnit
-                        ? `单位标准工时 ${standardTime.standardTimePerUnit.toLocaleString()} ${standardTime.standardTimeUnit}`
+                      : outputValue.outputValuePerUnit && outputValue.outputValueUnit
+                        ? `单位产值 ${outputValue.outputValuePerUnit.toLocaleString()} ${outputValue.outputValueUnit}`
                         : '—'
 
                     return `
@@ -787,8 +787,8 @@ function renderAllTasksTable(
                         </td>
                         <td class="px-3 py-2 font-mono text-xs text-muted-foreground">${escapeHtml(task.productionOrderId || '—')}</td>
                         <td class="px-3 py-2 text-sm">
-                          <div class="${task.isSplitSource ? 'text-muted-foreground' : 'font-medium'}">${escapeHtml(standardTimeText)}</div>
-                          <div class="text-[11px] text-muted-foreground">${escapeHtml(standardTimeHint)}</div>
+                          <div class="${task.isSplitSource ? 'text-muted-foreground' : 'font-medium'}">${escapeHtml(outputValueText)}</div>
+                          <div class="text-[11px] text-muted-foreground">${escapeHtml(outputValueHint)}</div>
                         </td>
                         <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(prevNames(task, orderTasks))}</td>
                         <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(nextNames(task, orderTasks))}</td>

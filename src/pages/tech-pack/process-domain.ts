@@ -92,8 +92,8 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
     `
     : ''
   const referenceValueText =
-    item.referencePublishedSamValue !== null && item.referencePublishedSamUnitLabel
-      ? `${item.referencePublishedSamValue} ${item.referencePublishedSamUnitLabel}`
+    item.referenceOutputValueValue !== null && item.referenceOutputValueUnitLabel
+      ? `${item.referenceOutputValueValue} ${item.referenceOutputValueUnitLabel}`
       : '暂无平台参考'
   const targetObjectText =
     item.isSpecialCraft && item.selectedTargetObject
@@ -109,7 +109,7 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
             <span class="text-sm font-semibold">${escapeHtml(item.technique)}</span>
             <span class="rounded border border-slate-200 bg-background px-2 py-0.5 text-[11px] font-medium text-slate-700">${escapeHtml(item.process)}</span>
             ${targetObjectText}
-            <span class="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">当前款发布工时 SAM 基线</span>
+            <span class="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">当前款产值 基线</span>
           </div>
           ${autoSourceText}
           ${removalConfirm}
@@ -140,11 +140,11 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
           </div>
           <div>
             <span class="text-muted-foreground">默认推荐单位</span>
-            <p class="mt-1 font-medium text-slate-800">${escapeHtml(item.referencePublishedSamUnitLabel || item.timeUnit || '-')}</p>
+            <p class="mt-1 font-medium text-slate-800">${escapeHtml(item.referenceOutputValueUnitLabel || item.outputValueUnit || '-')}</p>
           </div>
           <div>
             <span class="text-muted-foreground">参考说明</span>
-            <p class="mt-1 leading-5 text-slate-700">${escapeHtml(item.referencePublishedSamNote)}</p>
+            <p class="mt-1 leading-5 text-slate-700">${escapeHtml(item.referenceOutputValueNote)}</p>
           </div>
         </div>
       </div>
@@ -153,8 +153,8 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
           readonly
             ? `
               <div class="space-y-1">
-                <span class="text-xs text-muted-foreground">当前款发布工时 SAM 基线</span>
-                <p class="font-medium text-slate-800">${escapeHtml(String(item.standardTime || '-'))} ${escapeHtml(item.timeUnit || item.referencePublishedSamUnitLabel || '')}</p>
+                <span class="text-xs text-muted-foreground">当前款产值 基线</span>
+                <p class="font-medium text-slate-800">${escapeHtml(String(item.outputValue || '-'))} ${escapeHtml(item.outputValueUnit || item.referenceOutputValueUnitLabel || '')}</p>
               </div>
               <div class="space-y-1">
                 <span class="text-xs text-muted-foreground">难度辅助说明</span>
@@ -167,17 +167,17 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
             `
             : `
               <label class="space-y-1">
-                <span class="text-xs text-muted-foreground">当前款发布工时 SAM 基线</span>
+                <span class="text-xs text-muted-foreground">当前款产值 基线</span>
                 <div class="flex items-center gap-2">
                   <input
                     type="number"
                     class="h-8 w-28 rounded-md border px-2 text-sm"
-                    value="${item.standardTime}"
-                    data-tech-field="tech-standard-time"
+                    value="${item.outputValue}"
+                    data-tech-field="tech-output-value"
                     data-tech-id="${item.id}"
                   />
                   <span class="inline-flex h-8 items-center rounded-md border bg-background px-3 text-xs font-medium text-slate-700">
-                    ${escapeHtml(item.timeUnit || item.referencePublishedSamUnitLabel || '-')}
+                    ${escapeHtml(item.outputValueUnit || item.referenceOutputValueUnitLabel || '-')}
                   </span>
                 </div>
               </label>
@@ -302,8 +302,8 @@ export function renderAddTechniqueDialog(): string {
   const woolDownstream = selectedCraft?.craftName === '部位毛织' ? '裁床待交出仓' : '后道工厂'
   const draftReferenceMeta = getTechniqueReferenceMetaByCraftCode(state.newTechnique.craftCode)
   const draftReferenceText =
-    draftReferenceMeta.referencePublishedSamValue !== null && draftReferenceMeta.referencePublishedSamUnitLabel
-      ? `${draftReferenceMeta.referencePublishedSamValue} ${draftReferenceMeta.referencePublishedSamUnitLabel}`
+    draftReferenceMeta.referenceOutputValueValue !== null && draftReferenceMeta.referenceOutputValueUnitLabel
+      ? `${draftReferenceMeta.referenceOutputValueValue} ${draftReferenceMeta.referenceOutputValueUnitLabel}`
       : '暂无平台参考'
 
   return `
@@ -399,24 +399,24 @@ export function renderAddTechniqueDialog(): string {
               </div>
               <div>
                 <span class="text-muted-foreground">默认推荐单位</span>
-                <p class="mt-1 font-medium text-slate-800">${escapeHtml(draftReferenceMeta.referencePublishedSamUnitLabel || '-')}</p>
+                <p class="mt-1 font-medium text-slate-800">${escapeHtml(draftReferenceMeta.referenceOutputValueUnitLabel || '-')}</p>
               </div>
               <div>
                 <span class="text-muted-foreground">说明</span>
-                <p class="mt-1 leading-5 text-slate-700">${escapeHtml(draftReferenceMeta.referencePublishedSamNote)}</p>
+                <p class="mt-1 leading-5 text-slate-700">${escapeHtml(draftReferenceMeta.referenceOutputValueNote)}</p>
               </div>
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <label class="space-y-1">
-              <span class="text-sm">当前款发布工时 SAM 基线</span>
-              <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-standard-time" value="${escapeHtml(state.newTechnique.standardTime)}" placeholder="0" />
+              <span class="text-sm">当前款产值 基线</span>
+              <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-output-value" value="${escapeHtml(state.newTechnique.outputValue)}" placeholder="0" />
             </label>
             <label class="space-y-1">
-              <span class="text-sm">默认推荐发布工时单位</span>
+              <span class="text-sm">默认推荐产值单位</span>
               <div class="w-full rounded-md border bg-muted/20 px-3 py-2 text-sm text-slate-700">
-                ${escapeHtml(state.newTechnique.timeUnit || draftReferenceMeta.referencePublishedSamUnitLabel || '-')}
+                ${escapeHtml(state.newTechnique.outputValueUnit || draftReferenceMeta.referenceOutputValueUnitLabel || '-')}
               </div>
             </label>
           </div>

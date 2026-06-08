@@ -46,7 +46,7 @@ const requiredCommands = [
   'check:statistics-dashboard-real-data',
   'check:factory-handover-warehouse-linkage',
   'check:production-craft-dict-page',
-  'check:process-craft-sam-rules',
+  'check:process-craft-output-value-rules',
   'check:process-craft-final-taxonomy',
   'check:fcs-inactive-process-craft-usage',
   'check:factory-capacity-profile',

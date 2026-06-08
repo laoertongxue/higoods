@@ -446,7 +446,7 @@ function buildDefaultSamples(session: {
   items: SessionItemViewModel[]
 }): LiveSample[] {
   return session.items.slice(0, Math.max(1, Math.min(4, session.items.length))).map((item, index) => ({
-    id: `${session.id}-SAM-${String(index + 1).padStart(3, '0')}`,
+    id: `${session.id}-SMP-${String(index + 1).padStart(3, '0')}`,
     name: `${item.productName} / ${item.sku}`,
     site: session.site || '深圳',
     status: index === 0 ? '使用中' : '可用',

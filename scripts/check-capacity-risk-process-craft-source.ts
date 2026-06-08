@@ -37,21 +37,21 @@ function main(): void {
   const removedCraftNameSet = new Set(removedLegacyCraftNames)
 
   const riskSectionMatch = pageSource.match(/export function renderCapacityRiskPage\(\): string \{[\s\S]*?function filterBottleneckCraftRows/)
-  assert(riskSectionMatch, '未找到任务工时风险页面渲染函数')
+  assert(riskSectionMatch, '未找到任务产值风险页面渲染函数')
   const riskSection = riskSectionMatch[0]
 
-  assert(!/const\s+processOptions\s*=\s*\[/.test(riskSection), '任务工时风险页仍存在页面本地硬编码 processOptions 数组')
-  assert(!/const\s+craftOptions\s*=\s*\[/.test(riskSection), '任务工时风险页仍存在页面本地硬编码 craftOptions 数组')
-  assert(dataSource.includes('getActiveProcessOptions()'), '任务工时风险工序下拉未从工序工艺字典 helper 生成')
-  assert(dataSource.includes('getActiveCraftOptionsByProcess()'), '任务工时风险工艺下拉未从工序工艺字典 helper 生成')
-  assert(dataSource.includes('assertProcessCraftExists('), '任务工时风险数据未在构建时校验工序工艺字典')
+  assert(!/const\s+processOptions\s*=\s*\[/.test(riskSection), '任务产值风险页仍存在页面本地硬编码 processOptions 数组')
+  assert(!/const\s+craftOptions\s*=\s*\[/.test(riskSection), '任务产值风险页仍存在页面本地硬编码 craftOptions 数组')
+  assert(dataSource.includes('getActiveProcessOptions()'), '任务产值风险工序下拉未从工序工艺字典 helper 生成')
+  assert(dataSource.includes('getActiveCraftOptionsByProcess()'), '任务产值风险工艺下拉未从工序工艺字典 helper 生成')
+  assert(dataSource.includes('assertProcessCraftExists('), '任务产值风险数据未在构建时校验工序工艺字典')
   assert(
     riskSection.includes('state.riskProcessCode ? item.processCode === state.riskProcessCode : true'),
-    '任务工时风险页切换工序后，工艺下拉未限定为当前工序',
+    '任务产值风险页切换工序后，工艺下拉未限定为当前工序',
   )
   assert(
     /filter === 'risk-process-code'[\s\S]*?state\.riskProcessCode = value[\s\S]*?state\.riskCraftCode = ''/.test(pageSource),
-    '任务工时风险页切换工序后未重置工艺筛选',
+    '任务产值风险页切换工序后未重置工艺筛选',
   )
 
   const activeProcessMap = new Map(getActiveProcessOptions().map((item) => [item.processCode, item.processName] as const))
@@ -59,11 +59,11 @@ function main(): void {
 
   assert(
     riskData.processOptions.every((option) => activeProcessMap.get(option.value) === option.label),
-    '任务工时风险工序筛选项存在工序工艺字典之外的值',
+    '任务产值风险工序筛选项存在工序工艺字典之外的值',
   )
   assert(
     riskData.craftOptions.every((option) => activeCraftMap.get(option.value) === option.label),
-    '任务工时风险工艺筛选项存在工序工艺字典之外的值',
+    '任务产值风险工艺筛选项存在工序工艺字典之外的值',
   )
 
   for (const processOption of riskData.processOptions) {
@@ -73,17 +73,17 @@ function main(): void {
     const scopedCraftOptions = riskData.craftOptions.filter((item) => item.processCode === processOption.value)
     assert(
       scopedCraftOptions.every((item) => allowedCraftKeys.has(item.value)),
-      `任务工时风险在工序 ${processOption.label} 下仍展示了字典外工艺`,
+      `任务产值风险在工序 ${processOption.label} 下仍展示了字典外工艺`,
     )
   }
 
   assert(
     riskData.taskRows.every((row) => Boolean(row.processCode)),
-    '任务工时风险数据存在缺少 processCode 的行',
+    '任务产值风险数据存在缺少 processCode 的行',
   )
   assert(
     riskData.taskRows.every((row) => Boolean(row.craftCode)),
-    '任务工时风险数据存在缺少 craftCode 的行',
+    '任务产值风险数据存在缺少 craftCode 的行',
   )
   assert(
     riskData.taskRows.every((row) => {
@@ -92,11 +92,11 @@ function main(): void {
         && resolved.processName === row.processName
         && resolved.craftName === row.craftName
     }),
-    '任务工时风险列表中的工序 / 工艺显示名未完全来自工序工艺字典',
+    '任务产值风险列表中的工序 / 工艺显示名未完全来自工序工艺字典',
   )
   assert(
     !riskData.taskRows.some((row) => row.processCode === 'POST_FINISHING' && row.craftCode === 'POST_FINISHING'),
-    '任务工时风险中仍存在“后道 / 后道”自造组合',
+    '任务产值风险中仍存在“后道 / 后道”自造组合',
   )
   assert(
     !riskData.taskRows.some((row) =>
@@ -104,7 +104,7 @@ function main(): void {
       || removedLegacyProcessCodes.includes(row.processCode)
       || removedCraftNameSet.has(row.craftName)
     ),
-    '任务工时风险中仍存在已删除旧口径',
+    '任务产值风险中仍存在已删除旧口径',
   )
 
   ;[
@@ -118,11 +118,11 @@ function main(): void {
     '节点等待',
     '排染缸',
   ].forEach((token) => {
-    assert(!riskSection.includes(token), `任务工时风险页仍展示专属细维度：${token}`)
+    assert(!riskSection.includes(token), `任务产值风险页仍展示专属细维度：${token}`)
   })
 
-  assert(!includesRemovedPseudoCraft(riskSection), '任务工时风险页仍硬编码已删除伪特殊工艺')
-  assert(!riskSection.includes('裁片 - 定位裁'), '任务工时风险页仍保留“裁片 - 定位裁”固定样例')
+  assert(!includesRemovedPseudoCraft(riskSection), '任务产值风险页仍硬编码已删除伪特殊工艺')
+  assert(!riskSection.includes('裁片 - 定位裁'), '任务产值风险页仍保留“裁片 - 定位裁”固定样例')
 
   assert(!new RegExp([String.raw`\b${joinText(['axi', 'os'])}\b`, String.raw`(^|[^\w])${joinText(['fet', 'ch\\('])}`, String.raw`\b${joinText(['api', 'Client'])}\b`, joinText(['/', 'api', '/'])].join('|')).test(pageSource + dataSource), '本次范围内出现接口改造')
   assert(!new RegExp([String.raw`\b${joinText(['i1', '8n'])}\b`, String.raw`\b${joinText(['use', 'Translation'])}\b`, String.raw`\b${joinText(['loc', 'ales'])}\b`, String.raw`\b${joinText(['trans', 'lations'])}\b`].join('|')).test(pageSource + dataSource + packageSource), '本次范围内出现多语言改造')
@@ -136,7 +136,7 @@ function main(): void {
     joinText(['自动', '排程']),
   ].join('|')).test(pageSource + dataSource + packageSource), '本次范围内出现 WMS / AI 排程越界')
 
-  console.log('任务工时风险工序工艺来源检查通过：筛选、列表与风险数据均已收口到工序工艺字典。')
+  console.log('任务产值风险工序工艺来源检查通过：筛选、列表与风险数据均已收口到工序工艺字典。')
 }
 
 main()

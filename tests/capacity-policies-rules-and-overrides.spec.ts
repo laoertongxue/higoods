@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
-const CAPACITY_MENU_TITLES = ['供需总览', '工厂日历', '任务工时风险', '工艺瓶颈与待分配', '暂停例外']
+const CAPACITY_MENU_TITLES = ['供需总览', '工厂日历', '任务产值风险', '工艺瓶颈与待分配', '暂停例外']
 
 async function getSelectedOptionText(select: Locator): Promise<string> {
   return ((await select.locator('option:checked').textContent()) ?? '').trim()
@@ -118,7 +118,7 @@ test('产能日历菜单与供需总览已收口成统一标题和三 Tab 结构
   await page.goto('/fcs/capacity/constraints')
   await expect(page.getByRole('heading', { name: '工厂日历', exact: true })).toBeVisible()
   await page.goto('/fcs/capacity/risk')
-  await expect(page.getByRole('heading', { name: '任务工时风险', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '任务产值风险', exact: true })).toBeVisible()
   await page.goto('/fcs/capacity/bottleneck')
   await expect(page.getByRole('heading', { name: '工艺瓶颈与待分配', exact: true })).toBeVisible()
 
@@ -131,7 +131,7 @@ test('暂停例外页已收口成轻量规则提示加唯一人工入口主表�
   await page.goto('/fcs/capacity/policies')
 
   await expect(page.locator('h1').filter({ hasText: '暂停例外' })).toBeVisible()
-  await expect(page.getByTestId('capacity-policies-tips-section')).toContainText('供给来自产能档案自动计算的默认日可供给标准工时')
+  await expect(page.getByTestId('capacity-policies-tips-section')).toContainText('供给来自产能档案自动计算的默认日可供给产值')
   await expect(page.getByTestId('capacity-policies-tips-section')).toContainText('当前阶段人工动态例外只支持整厂、工序、工艺三级暂停')
   await expect(page.getByTestId('capacity-policies-overrides-section')).toContainText('暂停例外')
   await expect(page.getByRole('button', { name: '新增暂停例外' })).toBeVisible()

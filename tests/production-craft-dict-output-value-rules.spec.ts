@@ -42,8 +42,8 @@ async function assertCurrentStageSection(sheet: Locator): Promise<Locator> {
   await expect(currentSection).toContainText('当前阶段公式')
   await expect(currentSection).toContainText('当前阶段说明')
   await expect(currentSection).toContainText('当前阶段示例')
-  await expect(currentSection).toContainText('默认日可供给发布工时 SAM')
-  await expect(currentSection.locator('[data-testid="sam-field-item"]')).not.toHaveCount(0)
+  await expect(currentSection).toContainText('默认日可供给产值')
+  await expect(currentSection.locator('[data-testid="output-value-field-item"]')).not.toHaveCount(0)
   await expect(currentSection).not.toContainText('undefined')
   for (const fieldKey of INTERNAL_FIELD_KEYS) {
     await expect(currentSection).not.toContainText(fieldKey)
@@ -89,7 +89,7 @@ test('工艺详情弹窗展示标准完整口径与当前阶段口径，并覆�
   const machineButton = await openCraftDetail(page, '机打扣')
   currentSection = await assertCurrentStageSection(machineButton)
   await expect(currentSection).toContainText('设备侧日能力 = 设备数量 × 单台默认日有效分钟 × 设备标准效率值')
-  await expect(currentSection).toContainText('默认日可供给发布工时 SAM')
+  await expect(currentSection).toContainText('默认日可供给产值')
   await closeCraftDetail(page)
 
   await expectNoPageErrors(errors)

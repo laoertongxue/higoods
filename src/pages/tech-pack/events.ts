@@ -1953,8 +1953,8 @@ function handleTechPackField(
       assignmentGranularity: 'ORDER',
       detailSplitMode: 'COMPOSITE',
       detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
-      standardTime: '',
-      timeUnit: '分钟/件',
+      outputValue: '',
+      outputValueUnit: '产值/件',
       difficulty: '中等',
       packagingRequired: false,
       remark: '',
@@ -1980,8 +1980,8 @@ function handleTechPackField(
       assignmentGranularity: option?.assignmentGranularity ?? 'ORDER',
       detailSplitMode: option?.detailSplitMode ?? 'COMPOSITE',
       detailSplitDimensions: [...(option?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'])],
-      standardTime: option?.processCode === 'DYE' ? '10' : option ? '12' : '',
-      timeUnit: option?.processCode === 'DYE' ? '分钟/件' : '分钟/件',
+      outputValue: option?.processCode === 'DYE' ? '10' : option ? '12' : '',
+      outputValueUnit: option?.processCode === 'DYE' ? '产值/件' : '产值/件',
       difficulty: option?.processCode === 'DYE' ? '中等' : option ? '中等' : state.newTechnique.difficulty,
     }
     return true
@@ -1997,8 +1997,8 @@ function handleTechPackField(
       craftCode: value,
       selectedTargetObject,
       packagingRequired: craft?.craftName === '整件毛织' ? state.newTechnique.packagingRequired : false,
-      standardTime: craft ? String(craft.referencePublishedSamValue) : state.newTechnique.standardTime,
-      timeUnit: craft ? craft.referencePublishedSamUnitLabel : state.newTechnique.timeUnit,
+      outputValue: craft ? String(craft.referenceOutputValueValue) : state.newTechnique.outputValue,
+      outputValueUnit: craft ? craft.referenceOutputValueUnitLabel : state.newTechnique.outputValueUnit,
     }
     return true
   }
@@ -2034,12 +2034,12 @@ function handleTechPackField(
     state.newTechnique.detailSplitDimensions = Array.from(current)
     return true
   }
-  if (field === 'new-technique-standard-time') {
-    state.newTechnique.standardTime = value
+  if (field === 'new-technique-output-value') {
+    state.newTechnique.outputValue = value
     return true
   }
-  if (field === 'new-technique-time-unit') {
-    state.newTechnique.timeUnit = value
+  if (field === 'new-technique-output-value-unit') {
+    state.newTechnique.outputValueUnit = value
     return true
   }
   if (field === 'new-technique-difficulty') {
@@ -2100,19 +2100,19 @@ function handleTechPackField(
     return true
   }
 
-  if (field === 'tech-standard-time') {
+  if (field === 'tech-output-value') {
     const techId = node.dataset.techId
     if (!techId) return true
     updateTechnique(techId, (item) => ({
       ...item,
-      standardTime: Number.parseFloat(value) || 0,
+      outputValue: Number.parseFloat(value) || 0,
     }))
     return true
   }
-  if (field === 'tech-time-unit') {
+  if (field === 'tech-output-value-unit') {
     const techId = node.dataset.techId
     if (!techId) return true
-    updateTechnique(techId, (item) => ({ ...item, timeUnit: value }))
+    updateTechnique(techId, (item) => ({ ...item, outputValueUnit: value }))
     return true
   }
   if (field === 'tech-difficulty') {
@@ -3638,8 +3638,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       assignmentGranularity: target.assignmentGranularity,
       detailSplitMode: target.detailSplitMode,
       detailSplitDimensions: [...target.detailSplitDimensions],
-      standardTime: String(target.standardTime || ''),
-      timeUnit: target.timeUnit,
+      outputValue: String(target.outputValue || ''),
+      outputValueUnit: target.outputValueUnit,
       difficulty: target.difficulty,
       remark: target.remark,
     }
@@ -3729,8 +3729,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       supportedTargetObjects: effectiveMeta.supportedTargetObjects ? [...effectiveMeta.supportedTargetObjects] : undefined,
       supportedTargetObjectLabels: effectiveMeta.supportedTargetObjectLabels ? [...effectiveMeta.supportedTargetObjectLabels] : undefined,
       triggerSource: effectiveMeta.triggerSource,
-      standardTime: Number.parseFloat(state.newTechnique.standardTime) || 0,
-      timeUnit: state.newTechnique.timeUnit,
+      outputValue: Number.parseFloat(state.newTechnique.outputValue) || 0,
+      outputValueUnit: state.newTechnique.outputValueUnit,
       difficulty: state.newTechnique.difficulty,
       remark: state.newTechnique.remark,
       source: '字典引用',

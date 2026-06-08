@@ -437,7 +437,7 @@ function renderProcessTab(rows: TechnicalProcessEntry[]): string {
             <th class="px-3 py-2 text-left font-medium">作用对象</th>
             <th class="px-3 py-2 text-left font-medium">完成交出</th>
             <th class="px-3 py-2 text-left font-medium">执行要求</th>
-            <th class="px-3 py-2 text-left font-medium">标准工时</th>
+            <th class="px-3 py-2 text-left font-medium">产值</th>
           </tr>
         </thead>
         <tbody>
@@ -456,7 +456,7 @@ function renderProcessTab(rows: TechnicalProcessEntry[]): string {
                   row.requiresFeiTicket ? '打印毛织菲票' : '',
                   row.packagingRequired ? '毛织厂包装' : '',
                 ].filter(Boolean).map((item) => escapeHtml(item)).join(' / ') || '—'}</td>
-                <td class="px-3 py-2">${row.standardTimeMinutes ? `${escapeHtml(String(row.standardTimeMinutes))} ${escapeHtml(row.timeUnit || '分钟/件')}` : '暂无数据'}</td>
+                <td class="px-3 py-2">${row.outputValuePerUnit ? `${escapeHtml(String(row.outputValuePerUnit))} ${escapeHtml(row.outputValueUnit || '产值/件')}` : '暂无数据'}</td>
               </tr>
             `)
             .join('')}

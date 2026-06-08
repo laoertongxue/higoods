@@ -29,7 +29,7 @@ export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BI
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
 export type QtyUnit = 'PIECE' | 'BUNDLE' | 'METER'
 export type TaskDifficulty = 'EASY' | 'MEDIUM' | 'HARD'
-export type PublishedSamDifficulty = 'LOW' | 'MEDIUM' | 'HIGH'
+export type OutputValueDifficulty = 'LOW' | 'MEDIUM' | 'HIGH'
 export type BlockReason = 'MATERIAL' | 'CAPACITY' | 'QUALITY' | 'TECH' | 'EQUIPMENT' | 'OTHER' | 'ALLOCATION_GATE'
 export type AcceptanceStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
 export type MilestoneStatus = 'PENDING' | 'REPORTED'
@@ -53,10 +53,10 @@ export type TaskHandoverStatus =
   | 'OBJECTION_PROCESSING'
   | 'CLOSED'
 
-export interface TaskStandardTimeSnapshot {
-  standardTimePerUnit?: number
-  standardTimeUnit?: string
-  totalStandardTime?: number
+export interface TaskOutputValueSnapshot {
+  outputValuePerUnit?: number
+  outputValueUnit?: string
+  totalOutputValue?: number
 }
 
 export interface TaskAuditLog {
@@ -97,13 +97,13 @@ export interface ProcessTask {
   assignedFactoryId?: string
   tenderId?: string
   qcPoints: string[]
-  stdTimeMinutes?: number
+  taskOutputValue?: number
   difficulty?: TaskDifficulty
-  publishedSamPerUnit?: number
-  publishedSamUnit?: string
-  publishedSamTotal?: number
-  publishedSamDifficulty?: PublishedSamDifficulty
-  publishedSamSource?: 'TECH_PACK_PROCESS_ENTRY'
+  outputValuePerUnit?: number
+  outputValueUnit?: string
+  outputValueTotal?: number
+  outputValueDifficulty?: OutputValueDifficulty
+  outputValueSource?: 'TECH_PACK_PROCESS_ENTRY'
   attachments: TaskAttachment[]
   status: TaskStatus
   // 直接派单信息
@@ -240,10 +240,10 @@ export interface ProcessTask {
 // 说明：这里仍然保持“整单工序任务”语义，运行时按 SKU/COLOR/ORDER 展开由 runtime-process-tasks.ts 负责。
 const GENERATED_TASK_CREATED_AT = '2026-03-01 00:00:00'
 const PROCESS_TASK_MOCK_PRODUCTION_ORDER_IDS = ['PO-202603-0001', 'PO-202603-0005', 'PO-202603-084']
-const DEFAULT_PUBLISHED_SAM_UNIT_BY_QTY_UNIT: Record<QtyUnit, string> = {
-  PIECE: '分钟/件',
-  BUNDLE: '分钟/打',
-  METER: '分钟/米',
+const DEFAULT_OUTPUT_VALUE_UNIT_BY_QTY_UNIT: Record<QtyUnit, string> = {
+  PIECE: '产值/件',
+  BUNDLE: '产值/打',
+  METER: '产值/米',
 }
 
 function pickProcessTaskMocks(tasks: ProcessTask[]): ProcessTask[] {
@@ -265,89 +265,89 @@ function pickProcessTaskMocks(tasks: ProcessTask[]): ProcessTask[] {
     }))
 }
 
-function roundPublishedSam(value: number): number {
+function roundOutputValue(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0
   return Math.round(value * 1000) / 1000
 }
 
-function normalizeStandardTimeValue(value: number | undefined): number | undefined {
+function normalizeOutputValueValue(value: number | undefined): number | undefined {
   const normalized = Number(value)
   if (!Number.isFinite(normalized) || normalized <= 0) return undefined
-  return roundPublishedSam(normalized)
+  return roundOutputValue(normalized)
 }
 
-export function resolvePublishedSamMeasureQty(input: {
+export function resolveOutputValueMeasureQty(input: {
   qty: number
   detailRows?: TaskDetailRow[]
-  publishedSamUnit?: string
+  outputValueUnit?: string
 }): number {
   const qty = Math.max(input.qty, 0)
   const detailRows = input.detailRows ?? []
-  const normalizedUnit = input.publishedSamUnit?.trim() || '分钟/件'
-  const detailQty = roundPublishedSam(
+  const normalizedUnit = input.outputValueUnit?.trim() || '产值/件'
+  const detailQty = roundOutputValue(
     detailRows.reduce((sum, row) => sum + (Number.isFinite(row.qty) ? row.qty : 0), 0),
   )
 
-  if (normalizedUnit === '分钟/打') {
-    return roundPublishedSam(qty / 12)
+  if (normalizedUnit === '产值/打') {
+    return roundOutputValue(qty / 12)
   }
 
-  if (normalizedUnit === '分钟/米') {
-    return detailQty > 0 ? detailQty : roundPublishedSam(qty)
+  if (normalizedUnit === '产值/米') {
+    return detailQty > 0 ? detailQty : roundOutputValue(qty)
   }
 
-  if (normalizedUnit === '分钟/批') {
+  if (normalizedUnit === '产值/批') {
     if (detailRows.length > 0) return detailRows.length
     return qty > 0 ? 1 : 0
   }
 
-  return roundPublishedSam(qty)
+  return roundOutputValue(qty)
 }
 
-export function calculatePublishedSamTotal(input: {
+export function calculateOutputValueTotal(input: {
   qty: number
   detailRows?: TaskDetailRow[]
-  publishedSamPerUnit?: number
-  publishedSamUnit?: string
+  outputValuePerUnit?: number
+  outputValueUnit?: string
 }): number {
-  const publishedSamPerUnit = Number.isFinite(input.publishedSamPerUnit)
-    ? Number(input.publishedSamPerUnit)
+  const outputValuePerUnit = Number.isFinite(input.outputValuePerUnit)
+    ? Number(input.outputValuePerUnit)
     : 0
-  if (publishedSamPerUnit <= 0) return 0
-  const measureQty = resolvePublishedSamMeasureQty(input)
-  return roundPublishedSam(measureQty * publishedSamPerUnit)
+  if (outputValuePerUnit <= 0) return 0
+  const measureQty = resolveOutputValueMeasureQty(input)
+  return roundOutputValue(measureQty * outputValuePerUnit)
 }
 
-export function resolveTaskStandardTimeSnapshot(task: Pick<
+export function resolveTaskOutputValueSnapshot(task: Pick<
   ProcessTask,
-  'qty' | 'detailRows' | 'stdTimeMinutes' | 'publishedSamPerUnit' | 'publishedSamUnit' | 'publishedSamTotal'
->): TaskStandardTimeSnapshot {
-  const standardTimePerUnit = normalizeStandardTimeValue(
-    Number.isFinite(task.publishedSamPerUnit) ? Number(task.publishedSamPerUnit) : task.stdTimeMinutes,
+  'qty' | 'detailRows' | 'taskOutputValue' | 'outputValuePerUnit' | 'outputValueUnit' | 'outputValueTotal'
+>): TaskOutputValueSnapshot {
+  const outputValuePerUnit = normalizeOutputValueValue(
+    Number.isFinite(task.outputValuePerUnit) ? Number(task.outputValuePerUnit) : task.taskOutputValue,
   )
-  const standardTimeUnit = standardTimePerUnit ? task.publishedSamUnit?.trim() || '分钟/件' : undefined
+  const outputValueUnit = outputValuePerUnit ? task.outputValueUnit?.trim() || '产值/件' : undefined
   const fallbackTotal =
-    standardTimePerUnit && standardTimeUnit
-      ? calculatePublishedSamTotal({
+    outputValuePerUnit && outputValueUnit
+      ? calculateOutputValueTotal({
           qty: Math.max(task.qty, 0),
           detailRows: task.detailRows,
-          publishedSamPerUnit: standardTimePerUnit,
-          publishedSamUnit: standardTimeUnit,
+          outputValuePerUnit: outputValuePerUnit,
+          outputValueUnit: outputValueUnit,
         })
       : undefined
 
   return {
-    standardTimePerUnit,
-    standardTimeUnit,
-    totalStandardTime: normalizeStandardTimeValue(task.publishedSamTotal) ?? normalizeStandardTimeValue(fallbackTotal),
+    outputValuePerUnit,
+    outputValueUnit,
+    totalOutputValue: normalizeOutputValueValue(task.outputValueTotal) ?? normalizeOutputValueValue(fallbackTotal),
   }
 }
 
-export function sumTaskStandardTimeTotals(
+export function sumTaskOutputValueTotals(
   tasks: Array<
     Pick<
       ProcessTask,
-      'qty' | 'detailRows' | 'stdTimeMinutes' | 'publishedSamPerUnit' | 'publishedSamUnit' | 'publishedSamTotal'
+      'qty' | 'detailRows' | 'taskOutputValue' | 'outputValuePerUnit' | 'outputValueUnit' | 'outputValueTotal'
     >
   >,
 ): number | undefined {
@@ -355,50 +355,50 @@ export function sumTaskStandardTimeTotals(
   let hasValue = false
 
   for (const task of tasks) {
-    const snapshot = resolveTaskStandardTimeSnapshot(task)
-    if (snapshot.totalStandardTime === undefined) continue
-    total += snapshot.totalStandardTime
+    const snapshot = resolveTaskOutputValueSnapshot(task)
+    if (snapshot.totalOutputValue === undefined) continue
+    total += snapshot.totalOutputValue
     hasValue = true
   }
 
-  return hasValue ? roundPublishedSam(total) : undefined
+  return hasValue ? roundOutputValue(total) : undefined
 }
 
-function mapPublishedSamDifficultyToTaskDifficulty(value: PublishedSamDifficulty): TaskDifficulty {
+function mapOutputValueDifficultyToTaskDifficulty(value: OutputValueDifficulty): TaskDifficulty {
   if (value === 'LOW') return 'EASY'
   if (value === 'HIGH') return 'HARD'
   return 'MEDIUM'
 }
 
-function mapTaskDifficultyToPublishedSamDifficulty(value: TaskDifficulty | undefined): PublishedSamDifficulty {
+function mapTaskDifficultyToOutputValueDifficulty(value: TaskDifficulty | undefined): OutputValueDifficulty {
   if (value === 'EASY') return 'LOW'
   if (value === 'HARD') return 'HIGH'
   return 'MEDIUM'
 }
 
-export function ensureProcessTaskPublishedSam(task: ProcessTask): ProcessTask {
-  const publishedSamPerUnit = Number.isFinite(task.publishedSamPerUnit)
-    ? Number(task.publishedSamPerUnit)
-    : Number.isFinite(task.stdTimeMinutes)
-      ? Number(task.stdTimeMinutes)
+export function ensureProcessTaskOutputValue(task: ProcessTask): ProcessTask {
+  const outputValuePerUnit = Number.isFinite(task.outputValuePerUnit)
+    ? Number(task.outputValuePerUnit)
+    : Number.isFinite(task.taskOutputValue)
+      ? Number(task.taskOutputValue)
       : 0
-  const publishedSamUnit = task.publishedSamUnit?.trim()
-    || DEFAULT_PUBLISHED_SAM_UNIT_BY_QTY_UNIT[task.qtyUnit]
-    || '分钟/件'
-  const publishedSamDifficulty = task.publishedSamDifficulty || mapTaskDifficultyToPublishedSamDifficulty(task.difficulty)
-  const publishedSamTotal = calculatePublishedSamTotal({
+  const outputValueUnit = task.outputValueUnit?.trim()
+    || DEFAULT_OUTPUT_VALUE_UNIT_BY_QTY_UNIT[task.qtyUnit]
+    || '产值/件'
+  const outputValueDifficulty = task.outputValueDifficulty || mapTaskDifficultyToOutputValueDifficulty(task.difficulty)
+  const outputValueTotal = calculateOutputValueTotal({
     qty: Math.max(task.qty, 0),
     detailRows: task.detailRows,
-    publishedSamPerUnit,
-    publishedSamUnit,
+    outputValuePerUnit,
+    outputValueUnit,
   })
 
-  task.stdTimeMinutes = publishedSamPerUnit
-  task.publishedSamPerUnit = publishedSamPerUnit
-  task.publishedSamUnit = publishedSamUnit
-  task.publishedSamTotal = publishedSamTotal
-  task.publishedSamDifficulty = publishedSamDifficulty
-  task.difficulty = task.difficulty || mapPublishedSamDifficultyToTaskDifficulty(publishedSamDifficulty)
+  task.taskOutputValue = outputValuePerUnit
+  task.outputValuePerUnit = outputValuePerUnit
+  task.outputValueUnit = outputValueUnit
+  task.outputValueTotal = outputValueTotal
+  task.outputValueDifficulty = outputValueDifficulty
+  task.difficulty = task.difficulty || mapOutputValueDifficultyToTaskDifficulty(outputValueDifficulty)
 
   return task
 }
@@ -523,14 +523,14 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         taskId,
         artifact,
       })
-      const publishedSamPerUnit = artifact.publishedSamPerUnit
-      const publishedSamUnit = artifact.publishedSamUnit
-      const publishedSamDifficulty = artifact.publishedSamDifficulty
-      const publishedSamTotal = calculatePublishedSamTotal({
+      const outputValuePerUnit = artifact.outputValuePerUnit
+      const outputValueUnit = artifact.outputValueUnit
+      const outputValueDifficulty = artifact.outputValueDifficulty
+      const outputValueTotal = calculateOutputValueTotal({
         qty: Math.max(artifact.orderQty, 0),
         detailRows,
-        publishedSamPerUnit,
-        publishedSamUnit,
+        outputValuePerUnit,
+        outputValueUnit,
       })
       const isWool = artifact.processCode === 'WOOL'
       const woolTaskType = isWool ? resolveWoolTaskType(artifact) : undefined
@@ -558,13 +558,13 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         assignedFactoryId: isWool ? OWN_WOOL_FACTORY_ID : undefined,
         assignedFactoryName: isWool ? OWN_WOOL_FACTORY_NAME : undefined,
         qcPoints: [],
-        stdTimeMinutes: publishedSamPerUnit,
-        difficulty: mapPublishedSamDifficultyToTaskDifficulty(publishedSamDifficulty),
-        publishedSamPerUnit,
-        publishedSamUnit,
-        publishedSamTotal,
-        publishedSamDifficulty,
-        publishedSamSource: artifact.publishedSamSource,
+        taskOutputValue: outputValuePerUnit,
+        difficulty: mapOutputValueDifficultyToTaskDifficulty(outputValueDifficulty),
+        outputValuePerUnit,
+        outputValueUnit,
+        outputValueTotal,
+        outputValueDifficulty,
+        outputValueSource: artifact.outputValueSource,
         attachments: [],
         status: isWool ? 'IN_PROGRESS' : 'NOT_STARTED',
         acceptanceStatus: isWool ? 'ACCEPTED' : undefined,
@@ -691,7 +691,7 @@ function createInitialProcessTasks(): ProcessTask[] {
   // processTasks 仅作为“任务单兼容层”，主来源必须是统一生成引擎的 TASK 产物。
   // 字典中每个活跃工艺至少保留 3 条由生产单 + 技术包快照派生的 mock。
   if (!generatedTasks.length) return []
-  return generatedTasks.map((task) => ensureProcessTaskPublishedSam(task))
+  return generatedTasks.map((task) => ensureProcessTaskOutputValue(task))
 }
 
 export const processTasks: ProcessTask[] = createInitialProcessTasks()
@@ -720,10 +720,10 @@ export function generateTaskId(orderId: string, seq: number): string {
 
 // 添加任务
 export function addTask(task: ProcessTask): void {
-  processTasks.push(ensureProcessTaskPublishedSam(task))
+  processTasks.push(ensureProcessTaskOutputValue(task))
 }
 
 // 批量添加任务
 export function addTasks(tasks: ProcessTask[]): void {
-  processTasks.push(...tasks.map((task) => ensureProcessTaskPublishedSam(task)))
+  processTasks.push(...tasks.map((task) => ensureProcessTaskOutputValue(task)))
 }

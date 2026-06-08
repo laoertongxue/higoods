@@ -41,8 +41,8 @@ test('工厂日历页已继续收平且详情区保持附属说明角色', async
   await expect(page.getByRole('heading', { name: '工厂日历', exact: true })).toBeVisible()
   await expect(header).toContainText('当前窗口')
 
-  await expect(hint).toHaveText('当前页展示选定工厂在窗口内各工序 / 工艺的标准工时供需事实，待分配需求不扣到工厂。')
-  await expect(hint).not.toContainText('供给来自产能档案自动计算结果，已占用来自占用工时对象，已冻结来自冻结工时对象')
+  await expect(hint).toHaveText('当前页展示选定工厂在窗口内各工序 / 工艺的产值供需事实，待分配需求不扣到工厂。')
+  await expect(hint).not.toContainText('供给来自产能档案自动计算结果，已占用来自占用对象，已冻结来自冻结对象')
 
   const hintClass = (await hint.getAttribute('class')) ?? ''
   expect(hintClass).not.toContain('rounded')
@@ -55,7 +55,7 @@ test('工厂日历页已继续收平且详情区保持附属说明角色', async
 
   await expect(main).toBeVisible()
   await expect(tableSection).toContainText('每日供需主表')
-  await expect(tableSection).toContainText('按日期、工序、工艺查看窗口内每日供给、占用、冻结与剩余标准工时。')
+  await expect(tableSection).toContainText('按日期、工序、工艺查看窗口内每日供给、占用、冻结与剩余产值。')
   await expect(page.getByTestId('factory-calendar-count-rule-note')).toBeVisible()
 
   const detailClass = (await detailPanel.getAttribute('class')) ?? ''

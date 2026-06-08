@@ -83,7 +83,7 @@ test('后道工厂菜单页面可访问且数据串联', async ({ page }) => {
   await expect(page.getByText('复检确认成衣件数')).toBeVisible()
 })
 
-test('工厂档案不展示后道 SAM 节点为接单能力', async ({ page }) => {
+test('工厂档案不展示后道 产值 节点为接单能力', async ({ page }) => {
   await page.goto('/fcs/factories/profile')
   await expect(page.getByText('后道接单能力口径')).toBeVisible()
   await expect(page.getByText('专门后道工厂固定具备后道、质检、复检')).toBeVisible()

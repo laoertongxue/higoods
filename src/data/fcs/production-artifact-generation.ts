@@ -82,10 +82,10 @@ export interface GeneratedTaskArtifact extends GeneratedProductionArtifactBase {
   taskScope: 'EXTERNAL_TASK' | 'POST_ROLLUP_TASK'
   rolledUpChildProcessCodes?: string[]
   rolledUpChildProcessNames?: string[]
-  publishedSamPerUnit: number
-  publishedSamUnit: string
-  publishedSamDifficulty: 'LOW' | 'MEDIUM' | 'HIGH'
-  publishedSamSource: 'TECH_PACK_PROCESS_ENTRY'
+  outputValuePerUnit: number
+  outputValueUnit: string
+  outputValueDifficulty: 'LOW' | 'MEDIUM' | 'HIGH'
+  outputValueSource: 'TECH_PACK_PROCESS_ENTRY'
 }
 
 export type GeneratedProductionArtifact = GeneratedDemandArtifact | GeneratedTaskArtifact
@@ -132,10 +132,10 @@ interface ResolvedEntryContext {
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
   isSpecialCraft: boolean
-  publishedSamPerUnit: number
-  publishedSamUnit: string
-  publishedSamDifficulty: 'LOW' | 'MEDIUM' | 'HIGH'
-  publishedSamSource: 'TECH_PACK_PROCESS_ENTRY'
+  outputValuePerUnit: number
+  outputValueUnit: string
+  outputValueDifficulty: 'LOW' | 'MEDIUM' | 'HIGH'
+  outputValueSource: 'TECH_PACK_PROCESS_ENTRY'
   entryIndex: number
 }
 
@@ -190,11 +190,11 @@ export function getDictionaryCraftMockSource(craftCode: string, mockIndex: numbe
   return getMockSourceForCraft(craftIndex, mockIndex)
 }
 
-function toPublishedSamUnitLabel(unit: ProcessCraftDefinition['referencePublishedSamUnit']): string {
-  if (unit === 'MINUTE_PER_BATCH') return '分钟/批'
-  if (unit === 'MINUTE_PER_METER') return '分钟/米'
-  if (unit === 'MINUTE_PER_DOZEN') return '分钟/打'
-  return '分钟/件'
+function toOutputValueUnitLabel(unit: ProcessCraftDefinition['referenceOutputValueUnit']): string {
+  if (unit === 'VALUE_PER_BATCH') return '产值/批'
+  if (unit === 'VALUE_PER_METER') return '产值/米'
+  if (unit === 'VALUE_PER_DOZEN') return '产值/打'
+  return '产值/件'
 }
 
 function toCoverageSortKey(definition: ProcessCraftDefinition, mockIndex: number): string {
@@ -301,10 +301,10 @@ function buildDictionaryCoverageTaskArtifact(
     taskTypeCode: definition.craftCode,
     taskTypeLabel: definition.craftName,
     taskScope: definition.processRole === 'INTERNAL_CAPACITY_NODE' ? 'POST_ROLLUP_TASK' : 'EXTERNAL_TASK',
-    publishedSamPerUnit: definition.referencePublishedSamValue,
-    publishedSamUnit: toPublishedSamUnitLabel(definition.referencePublishedSamUnit),
-    publishedSamDifficulty: 'MEDIUM',
-    publishedSamSource: 'TECH_PACK_PROCESS_ENTRY',
+    outputValuePerUnit: definition.referenceOutputValueValue,
+    outputValueUnit: toOutputValueUnitLabel(definition.referenceOutputValueUnit),
+    outputValueDifficulty: 'MEDIUM',
+    outputValueSource: 'TECH_PACK_PROCESS_ENTRY',
   }
 }
 
@@ -380,11 +380,11 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
           ? (['GARMENT_COLOR', 'MATERIAL_SKU'] as DetailSplitDimension[])
           : (['PATTERN', 'MATERIAL_SKU'] as DetailSplitDimension[])
   const resolvedRuleSource = entry.ruleSource || craftDefinition?.ruleSource || fallbackRuleSource
-  const publishedSamPerUnit = Number.isFinite(entry.standardTimeMinutes)
-    ? Number(entry.standardTimeMinutes)
+  const outputValuePerUnit = Number.isFinite(entry.outputValuePerUnit)
+    ? Number(entry.outputValuePerUnit)
     : 0
-  const publishedSamUnit = entry.timeUnit?.trim() || '分钟/件'
-  const publishedSamDifficulty = entry.difficulty || 'MEDIUM'
+  const outputValueUnit = entry.outputValueUnit?.trim() || '产值/件'
+  const outputValueDifficulty = entry.difficulty || 'MEDIUM'
 
   return {
     orderId,
@@ -422,10 +422,10 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
     defaultDocType: entry.defaultDocType || processDefinition?.defaultDocType || craftDefinition?.defaultDocType || 'TASK',
     taskTypeMode: entry.taskTypeMode || processDefinition?.taskTypeMode || craftDefinition?.taskTypeMode || 'PROCESS',
     isSpecialCraft: entry.isSpecialCraft ?? craftDefinition?.isSpecialCraft ?? false,
-    publishedSamPerUnit,
-    publishedSamUnit,
-    publishedSamDifficulty,
-    publishedSamSource: 'TECH_PACK_PROCESS_ENTRY',
+    outputValuePerUnit,
+    outputValueUnit,
+    outputValueDifficulty,
+    outputValueSource: 'TECH_PACK_PROCESS_ENTRY',
     entryIndex,
   }
 }
@@ -505,10 +505,10 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     taskTypeCode,
     taskTypeLabel,
     taskScope: 'EXTERNAL_TASK',
-    publishedSamPerUnit: context.publishedSamPerUnit,
-    publishedSamUnit: context.publishedSamUnit,
-    publishedSamDifficulty: context.publishedSamDifficulty,
-    publishedSamSource: context.publishedSamSource,
+    outputValuePerUnit: context.outputValuePerUnit,
+    outputValueUnit: context.outputValueUnit,
+    outputValueDifficulty: context.outputValueDifficulty,
+    outputValueSource: context.outputValueSource,
     sortKey: buildSortKey(context),
   }
 }
@@ -539,10 +539,10 @@ function shouldRollupToPostFinishing(context: ResolvedEntryContext): boolean {
 }
 
 function mergeTaskDifficulty(
-  left: GeneratedTaskArtifact['publishedSamDifficulty'],
-  right: GeneratedTaskArtifact['publishedSamDifficulty'],
-): GeneratedTaskArtifact['publishedSamDifficulty'] {
-  const score: Record<GeneratedTaskArtifact['publishedSamDifficulty'], number> = {
+  left: GeneratedTaskArtifact['outputValueDifficulty'],
+  right: GeneratedTaskArtifact['outputValueDifficulty'],
+): GeneratedTaskArtifact['outputValueDifficulty'] {
+  const score: Record<GeneratedTaskArtifact['outputValueDifficulty'], number> = {
     LOW: 1,
     MEDIUM: 2,
     HIGH: 3,
@@ -568,13 +568,13 @@ function createPostFinishingRollupArtifact(
     return result
   }, [])
 
-  const publishedSamPerUnit = childContexts.length > 0
-    ? childContexts.reduce((sum, item) => sum + Math.max(item.publishedSamPerUnit, 0), 0)
-    : directPostArtifact?.publishedSamPerUnit || baseContext.publishedSamPerUnit
+  const outputValuePerUnit = childContexts.length > 0
+    ? childContexts.reduce((sum, item) => sum + Math.max(item.outputValuePerUnit, 0), 0)
+    : directPostArtifact?.outputValuePerUnit || baseContext.outputValuePerUnit
 
-  const publishedSamDifficulty = childContexts.reduce<GeneratedTaskArtifact['publishedSamDifficulty']>(
-    (level, item) => mergeTaskDifficulty(level, item.publishedSamDifficulty),
-    directPostArtifact?.publishedSamDifficulty || baseContext.publishedSamDifficulty,
+  const outputValueDifficulty = childContexts.reduce<GeneratedTaskArtifact['outputValueDifficulty']>(
+    (level, item) => mergeTaskDifficulty(level, item.outputValueDifficulty),
+    directPostArtifact?.outputValueDifficulty || baseContext.outputValueDifficulty,
   )
 
   const postContext: ResolvedEntryContext = {
@@ -600,9 +600,9 @@ function createPostFinishingRollupArtifact(
     defaultDocType: processDefinition.defaultDocType,
     taskTypeMode: processDefinition.taskTypeMode,
     isSpecialCraft: false,
-    publishedSamPerUnit,
-    publishedSamUnit: directPostArtifact?.publishedSamUnit || baseContext.publishedSamUnit,
-    publishedSamDifficulty,
+    outputValuePerUnit,
+    outputValueUnit: directPostArtifact?.outputValueUnit || baseContext.outputValueUnit,
+    outputValueDifficulty,
   }
 
   return {
@@ -612,9 +612,9 @@ function createPostFinishingRollupArtifact(
     taskScope: 'POST_ROLLUP_TASK',
     rolledUpChildProcessCodes: rolledUpChildren.map((item) => item.code),
     rolledUpChildProcessNames: rolledUpChildren.map((item) => item.name),
-    publishedSamPerUnit,
-    publishedSamUnit: directPostArtifact?.publishedSamUnit || baseContext.publishedSamUnit,
-    publishedSamDifficulty,
+    outputValuePerUnit,
+    outputValueUnit: directPostArtifact?.outputValueUnit || baseContext.outputValueUnit,
+    outputValueDifficulty,
   }
 }
 

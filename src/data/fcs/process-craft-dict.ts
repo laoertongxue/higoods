@@ -3,7 +3,7 @@ import {
   getFactorySupplyFormulaGuideByTemplate,
   getFactorySupplyFormulaTemplate,
   type FactorySupplyFormulaTemplate,
-} from './process-craft-sam-explainer.ts'
+} from './process-craft-output-value-explainer.ts'
 
 export type ProcessAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
 export type CraftStageCode = 'PREP' | 'PROD' | 'POST'
@@ -26,16 +26,16 @@ export type SpecialCraftVisibleFactoryType =
   | 'SATELLITE_FINISHING'
   | 'CENTRAL_DENIM_WASH'
   | 'CENTRAL_CUTTING'
-export type SamCalcMode = 'DISCRETE' | 'CONTINUOUS' | 'BATCH'
-export type SamInputUnit = 'PIECE' | 'METER' | 'KG' | 'BATCH'
-export type PublishedSamUnit =
-  | 'MINUTE_PER_PIECE'
-  | 'MINUTE_PER_BATCH'
-  | 'MINUTE_PER_METER'
-  | 'MINUTE_PER_DOZEN'
+export type OutputValueCalcMode = 'DISCRETE' | 'CONTINUOUS' | 'BATCH'
+export type OutputValueInputUnit = 'PIECE' | 'METER' | 'KG' | 'BATCH'
+export type OutputValueUnit =
+  | 'VALUE_PER_PIECE'
+  | 'VALUE_PER_BATCH'
+  | 'VALUE_PER_METER'
+  | 'VALUE_PER_DOZEN'
 export type CapacityConstraintSource = 'DEVICE' | 'STAFF' | 'BOTH'
-export type SamFactoryFieldGroup = 'DEVICE' | 'STAFF' | 'ADJUSTMENT'
-export type SamFactoryFieldKey =
+export type OutputValueFactoryFieldGroup = 'DEVICE' | 'STAFF' | 'ADJUSTMENT'
+export type OutputValueFactoryFieldKey =
   | 'deviceCount'
   | 'deviceShiftMinutes'
   | 'deviceEfficiencyValue'
@@ -51,15 +51,15 @@ export type SamFactoryFieldKey =
   | 'switchMinutes'
   | 'efficiencyFactor'
 
-export type SamCurrentFieldKey = Exclude<
-  SamFactoryFieldKey,
+export type OutputValueCurrentFieldKey = Exclude<
+  OutputValueFactoryFieldKey,
   'deviceEfficiencyUnit' | 'staffEfficiencyUnit' | 'batchLoadUnit'
 >
 
-export interface SamFactoryFieldDefinition {
-  key: SamFactoryFieldKey
+export interface OutputValueFactoryFieldDefinition {
+  key: OutputValueFactoryFieldKey
   label: string
-  group: SamFactoryFieldGroup
+  group: OutputValueFactoryFieldGroup
   description: string
 }
 
@@ -94,19 +94,19 @@ export interface ProcessDefinition {
   description?: string
   triggerSource?: string
   defaultDocLabel: string
-  samEnabled: boolean
-  samCalcMode: SamCalcMode
-  samDefaultInputUnit: SamInputUnit
-  samConstraintSource: CapacityConstraintSource
-  samIdealFieldKeys: SamFactoryFieldKey[]
-  samIdealReason: string
-  samCurrentFieldKeys: SamCurrentFieldKey[]
-  samCurrentFormulaLines: string[]
-  samCurrentExplanationLines: string[]
-  samCurrentExampleLines: string[]
-  samCurrentReason: string
-  samFactoryFieldKeys: SamFactoryFieldKey[]
-  samReason: string
+  outputValueEnabled: boolean
+  outputValueCalcMode: OutputValueCalcMode
+  outputValueDefaultInputUnit: OutputValueInputUnit
+  outputValueConstraintSource: CapacityConstraintSource
+  outputValueIdealFieldKeys: OutputValueFactoryFieldKey[]
+  outputValueIdealReason: string
+  outputValueCurrentFieldKeys: OutputValueCurrentFieldKey[]
+  outputValueCurrentFormulaLines: string[]
+  outputValueCurrentExplanationLines: string[]
+  outputValueCurrentExampleLines: string[]
+  outputValueCurrentReason: string
+  outputValueFactoryFieldKeys: OutputValueFactoryFieldKey[]
+  outputValueReason: string
 }
 
 export interface ProcessCraftDefinition {
@@ -138,24 +138,24 @@ export interface ProcessCraftDefinition {
   supportedTargetObjects: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
   visibleFactoryTypes: SpecialCraftVisibleFactoryType[]
-  referencePublishedSamValue: number
-  referencePublishedSamUnit: PublishedSamUnit
-  referencePublishedSamNote: string
+  referenceOutputValueValue: number
+  referenceOutputValueUnit: OutputValueUnit
+  referenceOutputValueNote: string
   carrySuggestion: string
   remark?: string
-  samEnabled: boolean
-  samCalcMode?: SamCalcMode
-  samDefaultInputUnit?: SamInputUnit
-  samConstraintSource?: CapacityConstraintSource
-  samIdealFieldKeys?: SamFactoryFieldKey[]
-  samIdealReason?: string
-  samCurrentFieldKeys?: SamCurrentFieldKey[]
-  samCurrentFormulaLines?: string[]
-  samCurrentExplanationLines?: string[]
-  samCurrentExampleLines?: string[]
-  samCurrentReason?: string
-  samFactoryFieldKeys?: SamFactoryFieldKey[]
-  samReason?: string
+  outputValueEnabled: boolean
+  outputValueCalcMode?: OutputValueCalcMode
+  outputValueDefaultInputUnit?: OutputValueInputUnit
+  outputValueConstraintSource?: CapacityConstraintSource
+  outputValueIdealFieldKeys?: OutputValueFactoryFieldKey[]
+  outputValueIdealReason?: string
+  outputValueCurrentFieldKeys?: OutputValueCurrentFieldKey[]
+  outputValueCurrentFormulaLines?: string[]
+  outputValueCurrentExplanationLines?: string[]
+  outputValueCurrentExampleLines?: string[]
+  outputValueCurrentReason?: string
+  outputValueFactoryFieldKeys?: OutputValueFactoryFieldKey[]
+  outputValueReason?: string
 }
 
 export interface LegacyCraftMappingDefinition {
@@ -273,10 +273,10 @@ export type ProcessCraftDictRow = {
   defaultDocument: string
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
-  referencePublishedSamValue: number
-  referencePublishedSamUnit: PublishedSamUnit
-  referencePublishedSamUnitLabel: string
-  referencePublishedSamNote: string
+  referenceOutputValueValue: number
+  referenceOutputValueUnit: OutputValueUnit
+  referenceOutputValueUnitLabel: string
+  referenceOutputValueNote: string
   processAssignmentGranularity: ProcessAssignmentGranularity
   processAssignmentGranularityLabel: string
   processDetailSplitMode: DetailSplitMode
@@ -286,25 +286,25 @@ export type ProcessCraftDictRow = {
   remark?: string
   processNote?: string
   triggerSource?: string
-  samEnabled: boolean
-  samCalcMode: SamCalcMode
-  samCalcModeLabel: string
-  samDefaultInputUnit: SamInputUnit
-  samDefaultInputUnitLabel: string
-  samConstraintSource: CapacityConstraintSource
-  samConstraintSourceLabel: string
-  samIdealFieldKeys: SamFactoryFieldKey[]
-  samIdealFieldText: string
-  samIdealReason: string
-  samCurrentFieldKeys: SamCurrentFieldKey[]
-  samCurrentFieldText: string
-  samCurrentFormulaLines: string[]
-  samCurrentExplanationLines: string[]
-  samCurrentExampleLines: string[]
-  samCurrentReason: string
-  samFactoryFieldKeys: SamFactoryFieldKey[]
-  samFactoryFieldText: string
-  samReason: string
+  outputValueEnabled: boolean
+  outputValueCalcMode: OutputValueCalcMode
+  outputValueCalcModeLabel: string
+  outputValueDefaultInputUnit: OutputValueInputUnit
+  outputValueDefaultInputUnitLabel: string
+  outputValueConstraintSource: CapacityConstraintSource
+  outputValueConstraintSourceLabel: string
+  outputValueIdealFieldKeys: OutputValueFactoryFieldKey[]
+  outputValueIdealFieldText: string
+  outputValueIdealReason: string
+  outputValueCurrentFieldKeys: OutputValueCurrentFieldKey[]
+  outputValueCurrentFieldText: string
+  outputValueCurrentFormulaLines: string[]
+  outputValueCurrentExplanationLines: string[]
+  outputValueCurrentExampleLines: string[]
+  outputValueCurrentReason: string
+  outputValueFactoryFieldKeys: OutputValueFactoryFieldKey[]
+  outputValueFactoryFieldText: string
+  outputValueReason: string
 }
 
 export const PROCESS_ASSIGNMENT_GRANULARITY_LABEL: Record<ProcessAssignmentGranularity, string> = {
@@ -764,24 +764,24 @@ export const TASK_TYPE_MODE_LABEL: Record<TaskTypeMode, string> = {
   CRAFT: '按工艺',
 }
 
-export const SAM_CALC_MODE_LABEL: Record<SamCalcMode, string> = {
+export const OUTPUT_VALUE_CALC_MODE_LABEL: Record<OutputValueCalcMode, string> = {
   DISCRETE: '离散型',
   CONTINUOUS: '连续型',
   BATCH: '批次型',
 }
 
-export const SAM_INPUT_UNIT_LABEL: Record<SamInputUnit, string> = {
+export const OUTPUT_VALUE_INPUT_UNIT_LABEL: Record<OutputValueInputUnit, string> = {
   PIECE: '按件录入',
   METER: '按米录入',
   KG: '按公斤录入',
   BATCH: '按批次录入',
 }
 
-export const PUBLISHED_SAM_UNIT_LABEL: Record<PublishedSamUnit, string> = {
-  MINUTE_PER_PIECE: '分钟/件',
-  MINUTE_PER_BATCH: '分钟/批',
-  MINUTE_PER_METER: '分钟/米',
-  MINUTE_PER_DOZEN: '分钟/打',
+export const OUTPUT_VALUE_UNIT_LABEL: Record<OutputValueUnit, string> = {
+  VALUE_PER_PIECE: '产值/件',
+  VALUE_PER_BATCH: '产值/批',
+  VALUE_PER_METER: '产值/米',
+  VALUE_PER_DOZEN: '产值/打',
 }
 
 export const CAPACITY_CONSTRAINT_SOURCE_LABEL: Record<CapacityConstraintSource, string> = {
@@ -790,13 +790,13 @@ export const CAPACITY_CONSTRAINT_SOURCE_LABEL: Record<CapacityConstraintSource, 
   BOTH: '设备+人员共同约束',
 }
 
-export const SAM_FACTORY_FIELD_GROUP_LABEL: Record<SamFactoryFieldGroup, string> = {
+export const OUTPUT_VALUE_FACTORY_FIELD_GROUP_LABEL: Record<OutputValueFactoryFieldGroup, string> = {
   DEVICE: '设备',
   STAFF: '人员',
   ADJUSTMENT: '调整',
 }
 
-export const SAM_FACTORY_FIELD_ORDER: SamFactoryFieldKey[] = [
+export const OUTPUT_VALUE_FACTORY_FIELD_ORDER: OutputValueFactoryFieldKey[] = [
   'deviceCount',
   'deviceShiftMinutes',
   'batchLoadCapacity',
@@ -813,7 +813,7 @@ export const SAM_FACTORY_FIELD_ORDER: SamFactoryFieldKey[] = [
   'efficiencyFactor',
 ]
 
-export const SAM_FACTORY_FIELD_DICT: Record<SamFactoryFieldKey, SamFactoryFieldDefinition> = {
+export const OUTPUT_VALUE_FACTORY_FIELD_DICT: Record<OutputValueFactoryFieldKey, OutputValueFactoryFieldDefinition> = {
   deviceCount: {
     key: 'deviceCount',
     label: '设备数量',
@@ -900,20 +900,20 @@ export const SAM_FACTORY_FIELD_DICT: Record<SamFactoryFieldKey, SamFactoryFieldD
   },
 }
 
-type ProcessSamRule = {
-  samEnabled: boolean
-  samCalcMode: SamCalcMode
-  samDefaultInputUnit: SamInputUnit
-  samConstraintSource: CapacityConstraintSource
-  samIdealFieldKeys: SamFactoryFieldKey[]
-  samIdealReason: string
+type ProcessOutputValueRule = {
+  outputValueEnabled: boolean
+  outputValueCalcMode: OutputValueCalcMode
+  outputValueDefaultInputUnit: OutputValueInputUnit
+  outputValueConstraintSource: CapacityConstraintSource
+  outputValueIdealFieldKeys: OutputValueFactoryFieldKey[]
+  outputValueIdealReason: string
 }
 
-type CraftSamRuleOverride = Partial<Pick<ProcessSamRule, 'samCalcMode' | 'samDefaultInputUnit' | 'samConstraintSource' | 'samIdealFieldKeys' | 'samIdealReason'>> & {
-  samEnabled?: boolean
+type CraftOutputValueRuleOverride = Partial<Pick<ProcessOutputValueRule, 'outputValueCalcMode' | 'outputValueDefaultInputUnit' | 'outputValueConstraintSource' | 'outputValueIdealFieldKeys' | 'outputValueIdealReason'>> & {
+  outputValueEnabled?: boolean
 }
 
-const POST_PROCESS_FIELD_KEYS: SamFactoryFieldKey[] = [
+const POST_PROCESS_FIELD_KEYS: OutputValueFactoryFieldKey[] = [
   'deviceCount',
   'deviceShiftMinutes',
   'deviceEfficiencyValue',
@@ -927,7 +927,7 @@ const POST_PROCESS_FIELD_KEYS: SamFactoryFieldKey[] = [
   'efficiencyFactor',
 ]
 
-const BATCH_PROCESS_FIELD_KEYS: SamFactoryFieldKey[] = [
+const BATCH_PROCESS_FIELD_KEYS: OutputValueFactoryFieldKey[] = [
   'deviceCount',
   'deviceShiftMinutes',
   'batchLoadCapacity',
@@ -942,7 +942,7 @@ const BATCH_PROCESS_FIELD_KEYS: SamFactoryFieldKey[] = [
   'efficiencyFactor',
 ]
 
-const STAFF_ONLY_FIELD_KEYS: SamFactoryFieldKey[] = [
+const STAFF_ONLY_FIELD_KEYS: OutputValueFactoryFieldKey[] = [
   'staffCount',
   'staffShiftMinutes',
   'staffEfficiencyValue',
@@ -972,268 +972,268 @@ function resolveProcessCurrentTemplate(processCode: string): FactorySupplyFormul
   return PROCESS_CURRENT_TEMPLATE_BY_CODE[processCode] ?? 'A'
 }
 
-const PROCESS_SAM_RULES: Record<string, ProcessSamRule> = {
+const PROCESS_OUTPUT_VALUE_RULES: Record<string, ProcessOutputValueRule> = {
   PRINT: {
-    samEnabled: true,
-    samCalcMode: 'CONTINUOUS',
-    samDefaultInputUnit: 'METER',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '印花能力受机台速度、单班有效分钟、操作人数、换版换色准备时间共同影响，平台完整理解该工艺时还需要保留设备/人员效率单位作为口径说明。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'CONTINUOUS',
+    outputValueDefaultInputUnit: 'METER',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '印花能力受机台速度、单班有效分钟、操作人数、换版换色准备时间共同影响，平台完整理解该工艺时还需要保留设备/人员效率单位作为口径说明。',
   },
   DYE: {
-    samEnabled: true,
-    samCalcMode: 'BATCH',
-    samDefaultInputUnit: 'KG',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
-    samIdealReason: '染色是典型批次型能力，完整建模时既要看设备装载量和循环时长，也要保留装载量单位与人员效率单位作为解释口径。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'BATCH',
+    outputValueDefaultInputUnit: 'KG',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '染色是典型批次型能力，完整建模时既要看设备装载量和循环时长，也要保留装载量单位与人员效率单位作为解释口径。',
   },
   CUT_PANEL: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '裁片既受裁床等设备数量影响，也受铺布和裁剪班组人数影响，完整口径还要保留设备/人员效率单位解释设备节拍与人工效率。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '裁片既受裁床等设备数量影响，也受铺布和裁剪班组人数影响，完整口径还要保留设备/人员效率单位解释设备节拍与人工效率。',
   },
   EMBROIDERY: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '绣花供给能力受设备、人数和准备损耗共同影响，完整口径保留效率单位是为了明确设备速度与人工产出说明。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '绣花供给能力受设备、人数和准备损耗共同影响，完整口径保留效率单位是为了明确设备速度与人工产出说明。',
   },
   PLEATING: {
-    samEnabled: true,
-    samCalcMode: 'CONTINUOUS',
-    samDefaultInputUnit: 'METER',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '压褶属于连续推进型能力，完整口径除了设备和人员数值，还需要保留效率单位说明连续推进速度的解释口径。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'CONTINUOUS',
+    outputValueDefaultInputUnit: 'METER',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '压褶属于连续推进型能力，完整口径除了设备和人员数值，还需要保留效率单位说明连续推进速度的解释口径。',
   },
   WOOL: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '毛织供给能力同时受横机机台、操作人、纱线准备和换色换款准备影响，完整口径需要保留设备、人员与准备时间字段。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '毛织供给能力同时受横机机台、操作人、纱线准备和换色换款准备影响，完整口径需要保留设备、人员与准备时间字段。',
   },
   SEW: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'STAFF',
-    samIdealFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
-    samIdealReason: '普通车缝的基础供给能力主要由可用人力与单位时间产出决定，完整口径仍保留人员效率单位用于解释人工效率口径。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'STAFF',
+    outputValueIdealFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
+    outputValueIdealReason: '普通车缝的基础供给能力主要由可用人力与单位时间产出决定，完整口径仍保留人员效率单位用于解释人工效率口径。',
   },
   SPECIAL_CRAFT: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '特殊工艺工序只是容器；完整口径仍保留设备/人员/准备时间及单位字段，但真正的供给规则要在工艺级明确。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '特殊工艺工序只是容器；完整口径仍保留设备/人员/准备时间及单位字段，但真正的供给规则要在工艺级明确。',
   },
   SHRINKING: {
-    samEnabled: true,
-    samCalcMode: 'BATCH',
-    samDefaultInputUnit: 'KG',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
-    samIdealReason: '缩水属于批次型能力，完整口径要同时保留装载量单位和人员效率单位，便于解释批次设备能力与人工能力。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'BATCH',
+    outputValueDefaultInputUnit: 'KG',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '缩水属于批次型能力，完整口径要同时保留装载量单位和人员效率单位，便于解释批次设备能力与人工能力。',
   },
   WASHING: {
-    samEnabled: true,
-    samCalcMode: 'BATCH',
-    samDefaultInputUnit: 'KG',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
-    samIdealReason: '洗水属于准备阶段面料批次处理，完整口径要保留装载量、循环时间、人员与设备配置。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'BATCH',
+    outputValueDefaultInputUnit: 'KG',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '洗水属于准备阶段面料批次处理，完整口径要保留装载量、循环时间、人员与设备配置。',
   },
   POST_FINISHING: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '后道对外任务按子节点汇总产能，完整口径需保留设备、人员与准备时间字段，便于解释后道整体供给节拍。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '后道对外任务按子节点汇总产能，完整口径需保留设备、人员与准备时间字段，便于解释后道整体供给节拍。',
   },
   BUTTONHOLE: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '开扣眼既受设备数量与效率影响，也受操作人与调机时间影响，完整口径需要保留设备与人员效率单位说明。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '开扣眼既受设备数量与效率影响，也受操作人与调机准备影响，完整口径需要保留设备与人员效率单位说明。',
   },
   BUTTON_ATTACH: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samDefaultInputUnit: 'PIECE',
-    samIdealReason: '装扣子既包含人工动作，也可能依赖专机与调机，完整口径需要保留设备、人员与准备时间字段。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'DISCRETE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueIdealReason: '装扣子既包含人工动作，也可能依赖专机与调机，完整口径需要保留设备、人员与准备时间字段。',
   },
   IRONING: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '熨烫既需要工位或设备，也需要稳定的人力投入，完整口径保留设备和人员效率单位用于解释节拍来源。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '熨烫既需要工位或设备，也需要稳定的人力投入，完整口径保留设备和人员效率单位用于解释节拍来源。',
   },
   PACKAGING: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '包装产能节点需要同时考虑工位、设备与人员投入，完整口径保留设备、人员与准备时间字段以解释真实供给能力。',
+    outputValueEnabled: true,
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '包装产能节点需要同时考虑工位、设备与人员投入，完整口径保留设备、人员与准备时间字段以解释真实供给能力。',
   },
 }
 
-const CRAFT_SAM_RULE_OVERRIDES_BY_LEGACY_VALUE: Record<number, CraftSamRuleOverride> = {
+const CRAFT_OUTPUT_VALUE_RULE_OVERRIDES_BY_LEGACY_VALUE: Record<number, CraftOutputValueRuleOverride> = {
   262144: {
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '曲牙虽然归在车缝工序下，但对专机与调机有明显依赖，完整口径必须保留设备、人员与准备时间字段。',
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '曲牙虽然归在车缝工序下，但对专机与调机有明显依赖，完整口径必须保留设备、人员与准备时间字段。',
   },
   8: {
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '打揽通常依赖专机和操作人配合，完整口径需要保留设备、人员和准备时间字段。',
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '打揽通常依赖专机和操作人配合，完整口径需要保留设备、人员和准备时间字段。',
   },
   32: {
-    samCalcMode: 'CONTINUOUS',
-    samDefaultInputUnit: 'METER',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '打条能力按连续长度推进，完整口径必须保留设备/人员效率单位来解释速度口径。',
+    outputValueCalcMode: 'CONTINUOUS',
+    outputValueDefaultInputUnit: 'METER',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '打条能力按连续长度推进，完整口径必须保留设备/人员效率单位来解释速度口径。',
   },
   64: {
-    samCalcMode: 'CONTINUOUS',
-    samDefaultInputUnit: 'METER',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '激光切能力受设备速度、有效分钟和调版时间影响明显，完整口径需要保留设备与人员效率说明。',
+    outputValueCalcMode: 'CONTINUOUS',
+    outputValueDefaultInputUnit: 'METER',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '激光切能力受设备速度、有效分钟和调版时间影响明显，完整口径需要保留设备与人员效率说明。',
   },
   8192: {
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '烫画多为设备与操作协同，完整口径需要保留设备、人员与准备时间字段。',
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '烫画多为设备与操作协同，完整口径需要保留设备、人员与准备时间字段。',
   },
   16384: {
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '直喷供给能力受设备打印效率与校机准备时间影响明显，完整口径需要保留设备、人员与准备时间字段。',
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '直喷供给能力受设备打印效率与校机准备时间影响明显，完整口径需要保留设备、人员与准备时间字段。',
   },
   128: {
-    samCalcMode: 'BATCH',
-    samDefaultInputUnit: 'KG',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
-    samIdealReason: '洗水按批次处理，供给能力取决于设备装载量、循环时间和人员配置。',
+    outputValueCalcMode: 'BATCH',
+    outputValueDefaultInputUnit: 'KG',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '洗水按批次处理，供给能力取决于设备装载量、循环时间和人员配置。',
   },
   131072: {
-    samCalcMode: 'CONTINUOUS',
-    samDefaultInputUnit: 'METER',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '捆条按长度推进，完整口径需要保留设备/人员效率说明和准备时间字段。',
+    outputValueCalcMode: 'CONTINUOUS',
+    outputValueDefaultInputUnit: 'METER',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '捆条按长度推进，完整口径需要保留设备/人员效率说明和准备时间字段。',
   },
   256: {
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'STAFF',
-    samIdealFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
-    samIdealReason: '手缝扣主要受人工数量与单位时间产出影响，完整口径保留人员效率单位即可。',
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'STAFF',
+    outputValueIdealFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
+    outputValueIdealReason: '手缝扣主要受人工数量与单位时间产出影响，完整口径保留人员效率单位即可。',
   },
   512: {
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '机打扣依赖专机与操作人共同产出，完整口径需要保留设备、人员与准备时间字段。',
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '机打扣依赖专机与操作人共同产出，完整口径需要保留设备、人员与准备时间字段。',
   },
   1024: {
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '四爪扣需要设备模具与人员操作配合，完整口径需要保留设备、人员与准备时间字段。',
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '四爪扣需要设备模具与人员操作配合，完整口径需要保留设备、人员与准备时间字段。',
   },
   32768: {
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '布包扣通常不是纯人工简单动作，完整口径需要保留设备、人员与准备时间字段。',
+    outputValueCalcMode: 'DISCRETE',
+    outputValueDefaultInputUnit: 'PIECE',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '布包扣通常不是纯人工简单动作，完整口径需要保留设备、人员与准备时间字段。',
   },
 }
 
-const REFERENCE_PUBLISHED_SAM_BY_CRAFT_NAME: Record<
+const REFERENCE_OUTPUT_VALUE_BY_CRAFT_NAME: Record<
   string,
-  { value: number; unit: PublishedSamUnit }
+  { value: number; unit: OutputValueUnit }
 > = {
-  丝网印: { value: 1.2, unit: 'MINUTE_PER_METER' },
-  数码印: { value: 1.5, unit: 'MINUTE_PER_METER' },
-  匹染: { value: 80, unit: 'MINUTE_PER_BATCH' },
-  色织: { value: 95, unit: 'MINUTE_PER_BATCH' },
-  普通裁: { value: 0.5, unit: 'MINUTE_PER_PIECE' },
-  定位裁: { value: 0.6, unit: 'MINUTE_PER_PIECE' },
-  激光定位裁: { value: 0.65, unit: 'MINUTE_PER_PIECE' },
-  定向裁: { value: 0.55, unit: 'MINUTE_PER_PIECE' },
-  绣花: { value: 1.8, unit: 'MINUTE_PER_PIECE' },
-  贝壳绣: { value: 2.4, unit: 'MINUTE_PER_PIECE' },
-  曲牙绣: { value: 1.6, unit: 'MINUTE_PER_PIECE' },
-  一字贝绣花: { value: 2.1, unit: 'MINUTE_PER_PIECE' },
-  压褶: { value: 0.8, unit: 'MINUTE_PER_METER' },
-  基础连接: { value: 0.9, unit: 'MINUTE_PER_PIECE' },
-  曲牙: { value: 1.4, unit: 'MINUTE_PER_PIECE' },
-  打揽: { value: 1.1, unit: 'MINUTE_PER_PIECE' },
-  打条: { value: 0.75, unit: 'MINUTE_PER_METER' },
-  激光切: { value: 1.0, unit: 'MINUTE_PER_METER' },
-  模板工序: { value: 0.9, unit: 'MINUTE_PER_PIECE' },
-  激光开袋: { value: 1.2, unit: 'MINUTE_PER_PIECE' },
-  '特种车缝（花样机）': { value: 1.3, unit: 'MINUTE_PER_PIECE' },
-  烫画: { value: 0.7, unit: 'MINUTE_PER_PIECE' },
-  整件毛织: { value: 18, unit: 'MINUTE_PER_PIECE' },
-  部位毛织: { value: 2.5, unit: 'MINUTE_PER_PIECE' },
-  直喷: { value: 0.85, unit: 'MINUTE_PER_PIECE' },
-  捆条: { value: 0.95, unit: 'MINUTE_PER_METER' },
-  橡筋定长切割: { value: 0.4, unit: 'MINUTE_PER_METER' },
-  缩水: { value: 65, unit: 'MINUTE_PER_BATCH' },
-  洗水: { value: 75, unit: 'MINUTE_PER_BATCH' },
-  开扣眼: { value: 0.35, unit: 'MINUTE_PER_PIECE' },
-  手缝扣: { value: 0.5, unit: 'MINUTE_PER_PIECE' },
-  机打扣: { value: 0.28, unit: 'MINUTE_PER_PIECE' },
-  四爪扣: { value: 0.32, unit: 'MINUTE_PER_PIECE' },
-  布包扣: { value: 0.45, unit: 'MINUTE_PER_PIECE' },
-  熨烫: { value: 0.4, unit: 'MINUTE_PER_PIECE' },
-  包装: { value: 0.3, unit: 'MINUTE_PER_PIECE' },
+  丝网印: { value: 1.2, unit: 'VALUE_PER_METER' },
+  数码印: { value: 1.5, unit: 'VALUE_PER_METER' },
+  匹染: { value: 80, unit: 'VALUE_PER_BATCH' },
+  色织: { value: 95, unit: 'VALUE_PER_BATCH' },
+  普通裁: { value: 0.5, unit: 'VALUE_PER_PIECE' },
+  定位裁: { value: 0.6, unit: 'VALUE_PER_PIECE' },
+  激光定位裁: { value: 0.65, unit: 'VALUE_PER_PIECE' },
+  定向裁: { value: 0.55, unit: 'VALUE_PER_PIECE' },
+  绣花: { value: 1.8, unit: 'VALUE_PER_PIECE' },
+  贝壳绣: { value: 2.4, unit: 'VALUE_PER_PIECE' },
+  曲牙绣: { value: 1.6, unit: 'VALUE_PER_PIECE' },
+  一字贝绣花: { value: 2.1, unit: 'VALUE_PER_PIECE' },
+  压褶: { value: 0.8, unit: 'VALUE_PER_METER' },
+  基础连接: { value: 0.9, unit: 'VALUE_PER_PIECE' },
+  曲牙: { value: 1.4, unit: 'VALUE_PER_PIECE' },
+  打揽: { value: 1.1, unit: 'VALUE_PER_PIECE' },
+  打条: { value: 0.75, unit: 'VALUE_PER_METER' },
+  激光切: { value: 1.0, unit: 'VALUE_PER_METER' },
+  模板工序: { value: 0.9, unit: 'VALUE_PER_PIECE' },
+  激光开袋: { value: 1.2, unit: 'VALUE_PER_PIECE' },
+  '特种车缝（花样机）': { value: 1.3, unit: 'VALUE_PER_PIECE' },
+  烫画: { value: 0.7, unit: 'VALUE_PER_PIECE' },
+  整件毛织: { value: 18, unit: 'VALUE_PER_PIECE' },
+  部位毛织: { value: 2.5, unit: 'VALUE_PER_PIECE' },
+  直喷: { value: 0.85, unit: 'VALUE_PER_PIECE' },
+  捆条: { value: 0.95, unit: 'VALUE_PER_METER' },
+  橡筋定长切割: { value: 0.4, unit: 'VALUE_PER_METER' },
+  缩水: { value: 65, unit: 'VALUE_PER_BATCH' },
+  洗水: { value: 75, unit: 'VALUE_PER_BATCH' },
+  开扣眼: { value: 0.35, unit: 'VALUE_PER_PIECE' },
+  手缝扣: { value: 0.5, unit: 'VALUE_PER_PIECE' },
+  机打扣: { value: 0.28, unit: 'VALUE_PER_PIECE' },
+  四爪扣: { value: 0.32, unit: 'VALUE_PER_PIECE' },
+  布包扣: { value: 0.45, unit: 'VALUE_PER_PIECE' },
+  熨烫: { value: 0.4, unit: 'VALUE_PER_PIECE' },
+  包装: { value: 0.3, unit: 'VALUE_PER_PIECE' },
 }
 
-function getReferencePublishedSamNote(unit: PublishedSamUnit): string {
-  if (unit === 'MINUTE_PER_BATCH') {
-    return '平台理论参考值，适用于普通复杂度与常规批量；技术包可结合设备装载和批量规模调整当前款发布工时 SAM 基线。'
+function getReferenceOutputValueNote(unit: OutputValueUnit): string {
+  if (unit === 'VALUE_PER_BATCH') {
+    return '平台理论参考值，适用于普通复杂度与常规批量；技术包可结合设备装载和批量规模调整当前款产值 基线。'
   }
 
-  if (unit === 'MINUTE_PER_METER') {
-    return '平台理论参考值，适用于普通复杂度；技术包可结合门幅、图案长度和工艺难度调整当前款发布工时 SAM 基线。'
+  if (unit === 'VALUE_PER_METER') {
+    return '平台理论参考值，适用于普通复杂度；技术包可结合门幅、图案长度和工艺难度调整当前款产值 基线。'
   }
 
-  return '平台理论参考值，适用于普通复杂度；技术包可结合款式结构和加工难度调整当前款发布工时 SAM 基线。'
+  return '平台理论参考值，适用于普通复杂度；技术包可结合款式结构和加工难度调整当前款产值 基线。'
 }
 
 const PROCESS_SYSTEM_CODE_MAP: Record<string, string> = {
@@ -1431,19 +1431,19 @@ const processDefinitionSeeds: Array<
     | 'taskTypeMode'
     | 'isSpecialCraftContainer'
     | 'defaultDocLabel'
-    | 'samEnabled'
-    | 'samCalcMode'
-    | 'samDefaultInputUnit'
-    | 'samConstraintSource'
-    | 'samIdealFieldKeys'
-    | 'samIdealReason'
-    | 'samCurrentFieldKeys'
-    | 'samCurrentFormulaLines'
-    | 'samCurrentExplanationLines'
-    | 'samCurrentExampleLines'
-    | 'samCurrentReason'
-    | 'samFactoryFieldKeys'
-    | 'samReason'
+    | 'outputValueEnabled'
+    | 'outputValueCalcMode'
+    | 'outputValueDefaultInputUnit'
+    | 'outputValueConstraintSource'
+    | 'outputValueIdealFieldKeys'
+    | 'outputValueIdealReason'
+    | 'outputValueCurrentFieldKeys'
+    | 'outputValueCurrentFormulaLines'
+    | 'outputValueCurrentExplanationLines'
+    | 'outputValueCurrentExampleLines'
+    | 'outputValueCurrentReason'
+    | 'outputValueFactoryFieldKeys'
+    | 'outputValueReason'
   > & {
     defaultDocument: string
   }
@@ -1733,24 +1733,24 @@ function formatDetailSplitDimensions(dimensions: DetailSplitDimension[]): string
   return dimensions.map((dimension) => DETAIL_SPLIT_DIMENSION_LABEL[dimension]).join(' + ')
 }
 
-function orderSamFactoryFieldKeys(keys: SamFactoryFieldKey[]): SamFactoryFieldKey[] {
+function orderOutputValueFactoryFieldKeys(keys: OutputValueFactoryFieldKey[]): OutputValueFactoryFieldKey[] {
   const keySet = new Set(keys)
-  return SAM_FACTORY_FIELD_ORDER.filter((key) => keySet.has(key))
+  return OUTPUT_VALUE_FACTORY_FIELD_ORDER.filter((key) => keySet.has(key))
 }
 
-export function listSamFactoryFieldDefinitions(keys?: SamFactoryFieldKey[]): SamFactoryFieldDefinition[] {
-  const orderedKeys = keys ? orderSamFactoryFieldKeys(keys) : [...SAM_FACTORY_FIELD_ORDER]
-  return orderedKeys.map((key) => SAM_FACTORY_FIELD_DICT[key])
+export function listOutputValueFactoryFieldDefinitions(keys?: OutputValueFactoryFieldKey[]): OutputValueFactoryFieldDefinition[] {
+  const orderedKeys = keys ? orderOutputValueFactoryFieldKeys(keys) : [...OUTPUT_VALUE_FACTORY_FIELD_ORDER]
+  return orderedKeys.map((key) => OUTPUT_VALUE_FACTORY_FIELD_DICT[key])
 }
 
-export function getSamFactoryFieldDefinitionByKey(
-  key: SamFactoryFieldKey,
-): SamFactoryFieldDefinition {
-  return SAM_FACTORY_FIELD_DICT[key]
+export function getOutputValueFactoryFieldDefinitionByKey(
+  key: OutputValueFactoryFieldKey,
+): OutputValueFactoryFieldDefinition {
+  return OUTPUT_VALUE_FACTORY_FIELD_DICT[key]
 }
 
-function formatSamFactoryFieldText(keys: SamFactoryFieldKey[]): string {
-  return listSamFactoryFieldDefinitions(keys)
+function formatOutputValueFactoryFieldText(keys: OutputValueFactoryFieldKey[]): string {
+  return listOutputValueFactoryFieldDefinitions(keys)
     .map((item) => item.label)
     .join('、')
 }
@@ -1759,7 +1759,7 @@ export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.ma
   const defaultDocType = toProcessDocType(seed.defaultDocument)
   const isSpecialCraftContainer = seed.processCode === 'SPECIAL_CRAFT'
   const defaultRule = resolveProcessDefaultRule(seed.processCode)
-  const samRule = PROCESS_SAM_RULES[seed.processCode]
+  const outputValueRule = PROCESS_OUTPUT_VALUE_RULES[seed.processCode]
   const currentGuide = getFactorySupplyFormulaGuideByTemplate(
     resolveProcessCurrentTemplate(seed.processCode),
     seed.processName,
@@ -1788,19 +1788,19 @@ export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.ma
     description: seed.description,
     triggerSource: seed.triggerSource,
     defaultDocLabel: PROCESS_DOC_TYPE_LABEL[defaultDocType],
-    samEnabled: samRule.samEnabled,
-    samCalcMode: samRule.samCalcMode,
-    samDefaultInputUnit: samRule.samDefaultInputUnit,
-    samConstraintSource: samRule.samConstraintSource,
-    samIdealFieldKeys: [...samRule.samIdealFieldKeys],
-    samIdealReason: samRule.samIdealReason,
-    samCurrentFieldKeys: [...currentGuide.currentFieldKeys],
-    samCurrentFormulaLines: [...currentGuide.currentFormulaLines],
-    samCurrentExplanationLines: [...currentGuide.currentExplanationLines],
-    samCurrentExampleLines: [...currentGuide.currentExampleLines],
-    samCurrentReason: currentGuide.currentReason,
-    samFactoryFieldKeys: [...currentGuide.currentFieldKeys],
-    samReason: currentGuide.currentReason,
+    outputValueEnabled: outputValueRule.outputValueEnabled,
+    outputValueCalcMode: outputValueRule.outputValueCalcMode,
+    outputValueDefaultInputUnit: outputValueRule.outputValueDefaultInputUnit,
+    outputValueConstraintSource: outputValueRule.outputValueConstraintSource,
+    outputValueIdealFieldKeys: [...outputValueRule.outputValueIdealFieldKeys],
+    outputValueIdealReason: outputValueRule.outputValueIdealReason,
+    outputValueCurrentFieldKeys: [...currentGuide.currentFieldKeys],
+    outputValueCurrentFormulaLines: [...currentGuide.currentFormulaLines],
+    outputValueCurrentExplanationLines: [...currentGuide.currentExplanationLines],
+    outputValueCurrentExampleLines: [...currentGuide.currentExampleLines],
+    outputValueCurrentReason: currentGuide.currentReason,
+    outputValueFactoryFieldKeys: [...currentGuide.currentFieldKeys],
+    outputValueReason: currentGuide.currentReason,
   }
 })
 
@@ -1972,14 +1972,14 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
   .sort((a, b) => a.legacyValue - b.legacyValue)
   .map((item) => {
     const process = processDefinitionByCode.get(item.processCode)
-    const referencePublishedSam = REFERENCE_PUBLISHED_SAM_BY_CRAFT_NAME[item.craftName]
-    const samOverride = CRAFT_SAM_RULE_OVERRIDES_BY_LEGACY_VALUE[item.legacyValue]
+    const referenceOutputValue = REFERENCE_OUTPUT_VALUE_BY_CRAFT_NAME[item.craftName]
+    const outputValueOverride = CRAFT_OUTPUT_VALUE_RULE_OVERRIDES_BY_LEGACY_VALUE[item.legacyValue]
     const processCurrentTemplate = resolveProcessCurrentTemplate(item.processCode)
     const craftCurrentTemplate = getFactorySupplyFormulaTemplate(item.craftName)
     const craftCurrentGuide = getFactorySupplyFormulaGuide(item.craftName)
     const targetObjectInfo = resolveProcessCraftTargetObject(item)
     const managementDomainInfo = resolveProcessCraftManagementDomain(item)
-    if (!referencePublishedSam) {
+    if (!referenceOutputValue) {
       throw new Error(`缺少工艺理论参考值配置：${item.craftName}`)
     }
     const inheritedRule: ProcessDefaultRule = {
@@ -2036,29 +2036,29 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
         resolveSpecialCraftSupportedTargetObjects(item),
       ),
       visibleFactoryTypes: resolveSpecialCraftVisibleFactoryTypes(item),
-      referencePublishedSamValue: referencePublishedSam.value,
-      referencePublishedSamUnit: referencePublishedSam.unit,
-      referencePublishedSamNote: getReferencePublishedSamNote(referencePublishedSam.unit),
+      referenceOutputValueValue: referenceOutputValue.value,
+      referenceOutputValueUnit: referenceOutputValue.unit,
+      referenceOutputValueNote: getReferenceOutputValueNote(referenceOutputValue.unit),
       carrySuggestion: CARRY_SUGGESTION_BY_PROCESS_CODE[item.processCode] ?? '工艺匹配工厂优先',
       remark: item.remark,
-      samEnabled: samOverride?.samEnabled ?? true,
-      samCalcMode: samOverride?.samCalcMode,
-      samDefaultInputUnit: samOverride?.samDefaultInputUnit,
-      samConstraintSource: samOverride?.samConstraintSource,
-      samIdealFieldKeys: samOverride?.samIdealFieldKeys ? [...samOverride.samIdealFieldKeys] : undefined,
-      samIdealReason: samOverride?.samIdealReason,
-      samCurrentFieldKeys:
+      outputValueEnabled: outputValueOverride?.outputValueEnabled ?? true,
+      outputValueCalcMode: outputValueOverride?.outputValueCalcMode,
+      outputValueDefaultInputUnit: outputValueOverride?.outputValueDefaultInputUnit,
+      outputValueConstraintSource: outputValueOverride?.outputValueConstraintSource,
+      outputValueIdealFieldKeys: outputValueOverride?.outputValueIdealFieldKeys ? [...outputValueOverride.outputValueIdealFieldKeys] : undefined,
+      outputValueIdealReason: outputValueOverride?.outputValueIdealReason,
+      outputValueCurrentFieldKeys:
         craftCurrentTemplate === processCurrentTemplate ? undefined : [...craftCurrentGuide.currentFieldKeys],
-      samCurrentFormulaLines:
+      outputValueCurrentFormulaLines:
         craftCurrentTemplate === processCurrentTemplate ? undefined : [...craftCurrentGuide.currentFormulaLines],
-      samCurrentExplanationLines:
+      outputValueCurrentExplanationLines:
         craftCurrentTemplate === processCurrentTemplate ? undefined : [...craftCurrentGuide.currentExplanationLines],
-      samCurrentExampleLines:
+      outputValueCurrentExampleLines:
         craftCurrentTemplate === processCurrentTemplate ? undefined : [...craftCurrentGuide.currentExampleLines],
-      samCurrentReason: craftCurrentTemplate === processCurrentTemplate ? undefined : craftCurrentGuide.currentReason,
-      samFactoryFieldKeys:
+      outputValueCurrentReason: craftCurrentTemplate === processCurrentTemplate ? undefined : craftCurrentGuide.currentReason,
+      outputValueFactoryFieldKeys:
         craftCurrentTemplate === processCurrentTemplate ? undefined : [...craftCurrentGuide.currentFieldKeys],
-      samReason: craftCurrentTemplate === processCurrentTemplate ? undefined : craftCurrentGuide.currentReason,
+      outputValueReason: craftCurrentTemplate === processCurrentTemplate ? undefined : craftCurrentGuide.currentReason,
     }
   })
 
@@ -2385,23 +2385,23 @@ export function isSpecialCraftByCraftCode(craftCode: string): boolean {
   return processCraftByCode.get(craftCode)?.isSpecialCraft ?? false
 }
 
-export interface ResolvedProcessCraftSamRule {
-  samEnabled: boolean
-  samCalcMode: SamCalcMode
-  samDefaultInputUnit: SamInputUnit
-  samConstraintSource: CapacityConstraintSource
-  samIdealFieldKeys: SamFactoryFieldKey[]
-  samIdealReason: string
-  samCurrentFieldKeys: SamCurrentFieldKey[]
-  samCurrentFormulaLines: string[]
-  samCurrentExplanationLines: string[]
-  samCurrentExampleLines: string[]
-  samCurrentReason: string
+export interface ResolvedProcessCraftOutputValueRule {
+  outputValueEnabled: boolean
+  outputValueCalcMode: OutputValueCalcMode
+  outputValueDefaultInputUnit: OutputValueInputUnit
+  outputValueConstraintSource: CapacityConstraintSource
+  outputValueIdealFieldKeys: OutputValueFactoryFieldKey[]
+  outputValueIdealReason: string
+  outputValueCurrentFieldKeys: OutputValueCurrentFieldKey[]
+  outputValueCurrentFormulaLines: string[]
+  outputValueCurrentExplanationLines: string[]
+  outputValueCurrentExampleLines: string[]
+  outputValueCurrentReason: string
 }
 
-export function getResolvedProcessCraftSamRuleByCode(
+export function getResolvedProcessCraftOutputValueRuleByCode(
   craftCode: string,
-): ResolvedProcessCraftSamRule | undefined {
+): ResolvedProcessCraftOutputValueRule | undefined {
   const craft = processCraftByCode.get(craftCode)
   if (!craft) return undefined
   const process = processDefinitionByCode.get(craft.processCode)
@@ -2409,25 +2409,25 @@ export function getResolvedProcessCraftSamRuleByCode(
   const currentGuide = getFactorySupplyFormulaGuide(craft.craftName)
 
   return {
-    samEnabled: craft.samEnabled ?? process.samEnabled,
-    samCalcMode: craft.samCalcMode ?? process.samCalcMode,
-    samDefaultInputUnit: craft.samDefaultInputUnit ?? process.samDefaultInputUnit,
-    samConstraintSource: craft.samConstraintSource ?? process.samConstraintSource,
-    samIdealFieldKeys: orderSamFactoryFieldKeys(craft.samIdealFieldKeys ?? process.samIdealFieldKeys),
-    samIdealReason: craft.samIdealReason ?? process.samIdealReason,
-    samCurrentFieldKeys: orderSamFactoryFieldKeys(
-      (craft.samCurrentFieldKeys ?? process.samCurrentFieldKeys) as SamFactoryFieldKey[],
-    ) as SamCurrentFieldKey[],
-    samCurrentFormulaLines: craft.samCurrentFormulaLines
-      ? [...craft.samCurrentFormulaLines]
+    outputValueEnabled: craft.outputValueEnabled ?? process.outputValueEnabled,
+    outputValueCalcMode: craft.outputValueCalcMode ?? process.outputValueCalcMode,
+    outputValueDefaultInputUnit: craft.outputValueDefaultInputUnit ?? process.outputValueDefaultInputUnit,
+    outputValueConstraintSource: craft.outputValueConstraintSource ?? process.outputValueConstraintSource,
+    outputValueIdealFieldKeys: orderOutputValueFactoryFieldKeys(craft.outputValueIdealFieldKeys ?? process.outputValueIdealFieldKeys),
+    outputValueIdealReason: craft.outputValueIdealReason ?? process.outputValueIdealReason,
+    outputValueCurrentFieldKeys: orderOutputValueFactoryFieldKeys(
+      (craft.outputValueCurrentFieldKeys ?? process.outputValueCurrentFieldKeys) as OutputValueFactoryFieldKey[],
+    ) as OutputValueCurrentFieldKey[],
+    outputValueCurrentFormulaLines: craft.outputValueCurrentFormulaLines
+      ? [...craft.outputValueCurrentFormulaLines]
       : [...currentGuide.currentFormulaLines],
-    samCurrentExplanationLines: craft.samCurrentExplanationLines
-      ? [...craft.samCurrentExplanationLines]
+    outputValueCurrentExplanationLines: craft.outputValueCurrentExplanationLines
+      ? [...craft.outputValueCurrentExplanationLines]
       : [...currentGuide.currentExplanationLines],
-    samCurrentExampleLines: craft.samCurrentExampleLines
-      ? [...craft.samCurrentExampleLines]
+    outputValueCurrentExampleLines: craft.outputValueCurrentExampleLines
+      ? [...craft.outputValueCurrentExampleLines]
       : [...currentGuide.currentExampleLines],
-    samCurrentReason: craft.samCurrentReason ?? process.samCurrentReason,
+    outputValueCurrentReason: craft.outputValueCurrentReason ?? process.outputValueCurrentReason,
   }
 }
 
@@ -2438,21 +2438,21 @@ export const allProcessCraftDictRows: ProcessCraftDictRow[] = allProcessCraftDef
   const processDetailSplitMode = process?.detailSplitMode ?? 'COMPOSITE'
   const processDetailSplitDimensions = [...(process?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'])]
   const parentProcess = item.parentProcessCode ? processDefinitionByCode.get(item.parentProcessCode) : undefined
-  const samRule =
-    getResolvedProcessCraftSamRuleByCode(item.craftCode) ??
+  const outputValueRule =
+    getResolvedProcessCraftOutputValueRuleByCode(item.craftCode) ??
     ({
-      samEnabled: true,
-      samCalcMode: 'DISCRETE',
-      samDefaultInputUnit: 'PIECE',
-      samConstraintSource: 'STAFF',
-      samIdealFieldKeys: ['staffCount', 'staffShiftMinutes', 'staffEfficiencyValue', 'staffEfficiencyUnit', 'efficiencyFactor'],
-      samIdealReason: '',
-      samCurrentFieldKeys: ['staffCount', 'staffShiftMinutes', 'staffEfficiencyValue', 'efficiencyFactor'],
-      samCurrentFormulaLines: [],
-      samCurrentExplanationLines: [],
-      samCurrentExampleLines: [],
-      samCurrentReason: '',
-    } satisfies ResolvedProcessCraftSamRule)
+      outputValueEnabled: true,
+      outputValueCalcMode: 'DISCRETE',
+      outputValueDefaultInputUnit: 'PIECE',
+      outputValueConstraintSource: 'STAFF',
+      outputValueIdealFieldKeys: ['staffCount', 'staffShiftMinutes', 'staffEfficiencyValue', 'staffEfficiencyUnit', 'efficiencyFactor'],
+      outputValueIdealReason: '',
+      outputValueCurrentFieldKeys: ['staffCount', 'staffShiftMinutes', 'staffEfficiencyValue', 'efficiencyFactor'],
+      outputValueCurrentFormulaLines: [],
+      outputValueCurrentExplanationLines: [],
+      outputValueCurrentExampleLines: [],
+      outputValueCurrentReason: '',
+    } satisfies ResolvedProcessCraftOutputValueRule)
   return {
     craftCode: item.craftCode,
     craftName: item.craftName,
@@ -2498,10 +2498,10 @@ export const allProcessCraftDictRows: ProcessCraftDictRow[] = allProcessCraftDef
     defaultDocument: PROCESS_DOC_TYPE_LABEL[item.defaultDocType],
     defaultDocType: item.defaultDocType,
     taskTypeMode: item.taskTypeMode,
-    referencePublishedSamValue: item.referencePublishedSamValue,
-    referencePublishedSamUnit: item.referencePublishedSamUnit,
-    referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[item.referencePublishedSamUnit],
-    referencePublishedSamNote: item.referencePublishedSamNote,
+    referenceOutputValueValue: item.referenceOutputValueValue,
+    referenceOutputValueUnit: item.referenceOutputValueUnit,
+    referenceOutputValueUnitLabel: OUTPUT_VALUE_UNIT_LABEL[item.referenceOutputValueUnit],
+    referenceOutputValueNote: item.referenceOutputValueNote,
     processAssignmentGranularity,
     processAssignmentGranularityLabel:
       PROCESS_ASSIGNMENT_GRANULARITY_LABEL[processAssignmentGranularity],
@@ -2512,25 +2512,25 @@ export const allProcessCraftDictRows: ProcessCraftDictRow[] = allProcessCraftDef
     remark: item.remark,
     processNote: process?.description,
     triggerSource: process?.triggerSource,
-    samEnabled: samRule.samEnabled,
-    samCalcMode: samRule.samCalcMode,
-    samCalcModeLabel: SAM_CALC_MODE_LABEL[samRule.samCalcMode],
-    samDefaultInputUnit: samRule.samDefaultInputUnit,
-    samDefaultInputUnitLabel: SAM_INPUT_UNIT_LABEL[samRule.samDefaultInputUnit],
-    samConstraintSource: samRule.samConstraintSource,
-    samConstraintSourceLabel: CAPACITY_CONSTRAINT_SOURCE_LABEL[samRule.samConstraintSource],
-    samIdealFieldKeys: [...samRule.samIdealFieldKeys],
-    samIdealFieldText: formatSamFactoryFieldText(samRule.samIdealFieldKeys),
-    samIdealReason: samRule.samIdealReason,
-    samCurrentFieldKeys: [...samRule.samCurrentFieldKeys],
-    samCurrentFieldText: formatSamFactoryFieldText(samRule.samCurrentFieldKeys as SamFactoryFieldKey[]),
-    samCurrentFormulaLines: [...samRule.samCurrentFormulaLines],
-    samCurrentExplanationLines: [...samRule.samCurrentExplanationLines],
-    samCurrentExampleLines: [...samRule.samCurrentExampleLines],
-    samCurrentReason: samRule.samCurrentReason,
-    samFactoryFieldKeys: [...samRule.samCurrentFieldKeys],
-    samFactoryFieldText: formatSamFactoryFieldText(samRule.samCurrentFieldKeys as SamFactoryFieldKey[]),
-    samReason: samRule.samCurrentReason,
+    outputValueEnabled: outputValueRule.outputValueEnabled,
+    outputValueCalcMode: outputValueRule.outputValueCalcMode,
+    outputValueCalcModeLabel: OUTPUT_VALUE_CALC_MODE_LABEL[outputValueRule.outputValueCalcMode],
+    outputValueDefaultInputUnit: outputValueRule.outputValueDefaultInputUnit,
+    outputValueDefaultInputUnitLabel: OUTPUT_VALUE_INPUT_UNIT_LABEL[outputValueRule.outputValueDefaultInputUnit],
+    outputValueConstraintSource: outputValueRule.outputValueConstraintSource,
+    outputValueConstraintSourceLabel: CAPACITY_CONSTRAINT_SOURCE_LABEL[outputValueRule.outputValueConstraintSource],
+    outputValueIdealFieldKeys: [...outputValueRule.outputValueIdealFieldKeys],
+    outputValueIdealFieldText: formatOutputValueFactoryFieldText(outputValueRule.outputValueIdealFieldKeys),
+    outputValueIdealReason: outputValueRule.outputValueIdealReason,
+    outputValueCurrentFieldKeys: [...outputValueRule.outputValueCurrentFieldKeys],
+    outputValueCurrentFieldText: formatOutputValueFactoryFieldText(outputValueRule.outputValueCurrentFieldKeys as OutputValueFactoryFieldKey[]),
+    outputValueCurrentFormulaLines: [...outputValueRule.outputValueCurrentFormulaLines],
+    outputValueCurrentExplanationLines: [...outputValueRule.outputValueCurrentExplanationLines],
+    outputValueCurrentExampleLines: [...outputValueRule.outputValueCurrentExampleLines],
+    outputValueCurrentReason: outputValueRule.outputValueCurrentReason,
+    outputValueFactoryFieldKeys: [...outputValueRule.outputValueCurrentFieldKeys],
+    outputValueFactoryFieldText: formatOutputValueFactoryFieldText(outputValueRule.outputValueCurrentFieldKeys as OutputValueFactoryFieldKey[]),
+    outputValueReason: outputValueRule.outputValueCurrentReason,
   }
 })
 

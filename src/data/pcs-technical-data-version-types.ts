@@ -349,12 +349,12 @@ export interface TechnicalProcessEntry {
   manualFieldsTouched?: boolean
   requiresRemovalConfirmation?: boolean
   linkageStatus?: '已生成' | '待确认'
-  standardTimeMinutes?: number
-  timeUnit?: string
-  referencePublishedSamValue?: number
-  referencePublishedSamUnit?: string
-  referencePublishedSamUnitLabel?: string
-  referencePublishedSamNote?: string
+  outputValuePerUnit?: number
+  outputValueUnit?: string
+  referenceOutputValueValue?: number
+  referenceOutputValueUnit?: string
+  referenceOutputValueUnitLabel?: string
+  referenceOutputValueNote?: string
   difficulty?: 'LOW' | 'MEDIUM' | 'HIGH'
   remark?: string
 }
@@ -447,7 +447,7 @@ export interface TechnicalQualityRule {
   id: string
   checkItem: string
   standardText: string
-  samplingRule: string
+  outputValueplingRule: string
   note: string
 }
 

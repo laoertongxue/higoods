@@ -64,7 +64,7 @@ function buildProcessEntry(craftName: string, selectedTargetObject: SpecialCraft
     supportedTargetObjectLabels: [...craft.supportedTargetObjectLabels],
     detailSplitDimensions: [],
     assignmentGranularity: 'ORDER',
-    standardTimeMinutes: 1,
+    outputValuePerUnit: 1,
     difficulty: 'MEDIUM',
     qcPoint: '',
     remark: '',

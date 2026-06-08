@@ -346,7 +346,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'capacity-overview', title: '供需总览', icon: 'LineChart', href: '/fcs/capacity/overview' },
             { key: 'capacity-constraints', title: '工厂日历', icon: 'Filter', href: '/fcs/capacity/constraints' },
-            { key: 'capacity-risk', title: '任务工时风险', icon: 'TrendingUp', href: '/fcs/capacity/risk' },
+            { key: 'capacity-risk', title: '任务产值风险', icon: 'TrendingUp', href: '/fcs/capacity/risk' },
             { key: 'capacity-bottleneck', title: '工艺瓶颈与待分配', icon: 'AlertOctagon', href: '/fcs/capacity/bottleneck' },
             { key: 'capacity-policies', title: '暂停例外', icon: 'Settings2', href: '/fcs/capacity/policies' },
           ],

@@ -63,6 +63,17 @@ const capacityCalendarOverrides: CapacityCalendarOverrideRecord[] = [
     reason: '卫星工厂线体检修',
     note: '用于验证当前窗口内暂停会进入工厂日历、风险页、瓶颈页，并在任务分配里禁用工厂。',
   },
+  {
+    id: 'CAP-OVR-0006',
+    factoryId: 'ID-F004',
+    processCode: 'CUT_PANEL',
+    craftCode: 'CRAFT_000016',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+    overrideType: 'PAUSE',
+    reason: '裁床设备保养',
+    note: '用于验证当前窗口内暂停会进入工艺瓶颈榜和日期瓶颈榜。',
+  },
 ]
 
 export interface CapacityCalendarOverrideInput {

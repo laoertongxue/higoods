@@ -8,8 +8,8 @@ import {
   listCutPiecePartCrafts,
   listCuttingCrafts,
   listFabricCrafts,
-  SAM_FACTORY_FIELD_GROUP_LABEL,
-  listSamFactoryFieldDefinitions,
+  OUTPUT_VALUE_FACTORY_FIELD_GROUP_LABEL,
+  listOutputValueFactoryFieldDefinitions,
   listPreparationProcesses,
   listProcessCraftDictRows,
   listSpecialTypeCrafts,
@@ -18,8 +18,8 @@ import {
   type ModernSpecialCraftDefinition,
   type ProcessCraftDictRow,
 } from '../data/fcs/process-craft-dict'
-import { getFactorySupplyFormulaGuide } from '../data/fcs/process-craft-sam-explainer'
-import { getSamBusinessFieldDescription, getSamBusinessFieldLabel } from '../data/fcs/sam-field-display'
+import { getFactorySupplyFormulaGuide } from '../data/fcs/process-craft-output-value-explainer'
+import { getOutputValueBusinessFieldDescription, getOutputValueBusinessFieldLabel } from '../data/fcs/output-value-field-display'
 import { type ProcessAssignmentGranularity } from '../data/fcs/process-types'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
@@ -90,11 +90,11 @@ function renderCompactDetailFields(fields: Array<[string, string]>): string {
   `
 }
 
-function renderSamFieldGroups(fieldKeys: ProcessCraftDictRow['samIdealFieldKeys']): string {
+function renderOutputValueFieldGroups(fieldKeys: ProcessCraftDictRow['outputValueIdealFieldKeys']): string {
   const groups = ['DEVICE', 'STAFF', 'ADJUSTMENT'].map((group) => ({
     group,
-    label: SAM_FACTORY_FIELD_GROUP_LABEL[group as keyof typeof SAM_FACTORY_FIELD_GROUP_LABEL],
-    fields: listSamFactoryFieldDefinitions(fieldKeys).filter((field) => field.group === group),
+    label: OUTPUT_VALUE_FACTORY_FIELD_GROUP_LABEL[group as keyof typeof OUTPUT_VALUE_FACTORY_FIELD_GROUP_LABEL],
+    fields: listOutputValueFactoryFieldDefinitions(fieldKeys).filter((field) => field.group === group),
   }))
 
   return `
@@ -103,15 +103,15 @@ function renderSamFieldGroups(fieldKeys: ProcessCraftDictRow['samIdealFieldKeys'
         .filter((group) => group.fields.length > 0)
         .map(
           (group) => `
-            <div class="rounded-md border bg-muted/20 px-3 py-2" data-testid="sam-field-group">
+            <div class="rounded-md border bg-muted/20 px-3 py-2" data-testid="output-value-field-group">
               <p class="text-xs font-semibold text-slate-700">${escapeHtml(group.label)}</p>
               <div class="mt-2 space-y-1.5">
                 ${group.fields
                   .map(
                     (field) => `
-                      <p class="text-[11px] leading-4 text-slate-700" data-testid="sam-field-item">
-                        <span class="font-medium">${escapeHtml(getSamBusinessFieldLabel(field.key))}：</span>
-                        <span class="text-muted-foreground">${escapeHtml(getSamBusinessFieldDescription(field.key))}</span>
+                      <p class="text-[11px] leading-4 text-slate-700" data-testid="output-value-field-item">
+                        <span class="font-medium">${escapeHtml(getOutputValueBusinessFieldLabel(field.key))}：</span>
+                        <span class="text-muted-foreground">${escapeHtml(getOutputValueBusinessFieldDescription(field.key))}</span>
                       </p>
                     `,
                   )
@@ -149,7 +149,7 @@ function renderCraftBasicPanel(row: ProcessCraftDictRow): string {
   `
 }
 
-function renderIdealSamPanel(row: ProcessCraftDictRow): string {
+function renderIdealOutputValuePanel(row: ProcessCraftDictRow): string {
   const formulaGuide = getFactorySupplyFormulaGuide(row.craftName)
 
   return `
@@ -157,10 +157,10 @@ function renderIdealSamPanel(row: ProcessCraftDictRow): string {
       <p class="text-sm font-semibold">标准完整口径</p>
       <div class="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
         ${[
-          ['是否纳入产能管理', row.samEnabled ? '是' : '否'],
-          ['SAM 核算方式', row.samCalcModeLabel],
-          ['默认录入口径', row.samDefaultInputUnitLabel],
-          ['能力约束来源', row.samConstraintSourceLabel],
+          ['是否纳入产能管理', row.outputValueEnabled ? '是' : '否'],
+          ['产值 核算方式', row.outputValueCalcModeLabel],
+          ['默认录入口径', row.outputValueDefaultInputUnitLabel],
+          ['能力约束来源', row.outputValueConstraintSourceLabel],
         ]
           .map(
             ([label, value]) => `
@@ -182,12 +182,12 @@ function renderIdealSamPanel(row: ProcessCraftDictRow): string {
 
       <div class="space-y-2">
         <p class="text-xs font-medium text-muted-foreground">理想完整字段</p>
-        ${renderSamFieldGroups(row.samIdealFieldKeys)}
+        ${renderOutputValueFieldGroups(row.outputValueIdealFieldKeys)}
       </div>
 
       <div class="rounded-md bg-muted/20 px-3 py-2">
         <p class="text-xs font-medium text-muted-foreground">理想完整说明</p>
-        <p class="mt-1 text-xs leading-5 text-slate-700">${escapeHtml(row.samIdealReason)}</p>
+        <p class="mt-1 text-xs leading-5 text-slate-700">${escapeHtml(row.outputValueIdealReason)}</p>
         <p class="mt-2 text-xs leading-5 text-slate-600">
           当前阶段口径不是另一套独立规则，而是从这套完整口径里收敛出来的最小必要字段集合。
         </p>
@@ -204,12 +204,12 @@ function renderCurrentStagePanel(row: ProcessCraftDictRow): string {
       <p class="text-sm font-semibold">当前阶段口径</p>
       <div class="rounded-md bg-amber-50 px-3 py-3">
         <p class="text-xs font-medium text-amber-700">当前阶段最小必要字段</p>
-        <p class="mt-1 text-xs leading-5 text-slate-700">${escapeHtml(row.samCurrentReason)}</p>
+        <p class="mt-1 text-xs leading-5 text-slate-700">${escapeHtml(row.outputValueCurrentReason)}</p>
       </div>
 
       <div class="space-y-2">
         <p class="text-xs font-medium text-muted-foreground">当前阶段最小必要字段</p>
-        ${renderSamFieldGroups(row.samCurrentFieldKeys)}
+        ${renderOutputValueFieldGroups(row.outputValueCurrentFieldKeys)}
       </div>
 
       <div class="grid gap-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
@@ -217,7 +217,7 @@ function renderCurrentStagePanel(row: ProcessCraftDictRow): string {
           <div class="rounded-md bg-slate-50 px-3 py-3">
             <p class="text-xs font-medium text-muted-foreground">当前阶段公式</p>
             <div class="mt-1 space-y-1 text-sm font-medium leading-6 text-slate-800">
-              ${row.samCurrentFormulaLines
+              ${row.outputValueCurrentFormulaLines
                 .map(
                   (line) => `
                     <p>${escapeHtml(line)}</p>
@@ -230,7 +230,7 @@ function renderCurrentStagePanel(row: ProcessCraftDictRow): string {
           <div class="space-y-2">
             <p class="text-xs font-medium text-muted-foreground">当前阶段说明</p>
             <div class="grid gap-x-4 gap-y-1 text-xs leading-5 text-slate-700 sm:grid-cols-2">
-              ${row.samCurrentExplanationLines
+              ${row.outputValueCurrentExplanationLines
                 .map(
                   (line) => `
                     <p>${escapeHtml(line)}</p>
@@ -245,7 +245,7 @@ function renderCurrentStagePanel(row: ProcessCraftDictRow): string {
           <div class="rounded-md bg-blue-50 px-3 py-3">
             <p class="text-xs font-medium text-blue-700">当前阶段示例</p>
             <div class="mt-2 space-y-1 text-sm leading-6 text-slate-800">
-              ${row.samCurrentExampleLines
+              ${row.outputValueCurrentExampleLines
                 .map(
                   (line) => `
                     <p>${escapeHtml(line)}</p>
@@ -258,7 +258,7 @@ function renderCurrentStagePanel(row: ProcessCraftDictRow): string {
           <div class="rounded-md bg-amber-50 px-3 py-3">
             <p class="text-xs font-medium text-amber-700">结果字段说明</p>
             <p class="mt-1 text-xs leading-5 text-slate-700">
-              默认日可供给发布工时 SAM 是系统根据当前阶段字段自动算出来的结果字段，不是工厂人工录入字段。
+              默认日可供给产值 是系统根据当前阶段字段自动算出来的结果字段，不是工厂人工录入字段。
             </p>
             <p class="mt-2 text-xs leading-5 text-slate-700">
               ${escapeHtml(formulaGuide.currentReason)}
@@ -270,14 +270,14 @@ function renderCurrentStagePanel(row: ProcessCraftDictRow): string {
   `
 }
 
-function renderCraftReferenceSamPanel(row: ProcessCraftDictRow): string {
+function renderCraftReferenceOutputValuePanel(row: ProcessCraftDictRow): string {
   return `
-    <section class="rounded-md border bg-blue-50/60 p-4" data-testid="craft-reference-sam-section">
+    <section class="rounded-md border bg-blue-50/60 p-4" data-testid="craft-reference-outputValue-section">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p class="text-sm font-semibold text-slate-900">工艺理论标准（参考）</p>
           <p class="mt-1 text-xs leading-5 text-slate-600">
-            这里给的是平台参考值，用于技术包维护当前款发布工时 SAM 基线，不代表当前款最终值。
+            这里给的是平台参考值，用于技术包维护当前款产值 基线，不代表当前款最终值。
           </p>
         </div>
         <span class="rounded-full border border-blue-200 bg-white px-2 py-0.5 text-[11px] font-medium text-blue-700">
@@ -287,21 +287,21 @@ function renderCraftReferenceSamPanel(row: ProcessCraftDictRow): string {
 
       <div class="mt-4 grid gap-x-4 gap-y-3 sm:grid-cols-3">
         <div class="min-w-0">
-          <p class="text-[11px] font-medium text-muted-foreground">理论参考发布工时</p>
+          <p class="text-[11px] font-medium text-muted-foreground">理论参考产值</p>
           <p class="mt-1 break-words text-sm leading-5 text-slate-700">
-            ${escapeHtml(`${row.referencePublishedSamValue} ${row.referencePublishedSamUnitLabel}`)}
+            ${escapeHtml(`${row.referenceOutputValueValue} ${row.referenceOutputValueUnitLabel}`)}
           </p>
         </div>
         <div class="min-w-0">
-          <p class="text-[11px] font-medium text-muted-foreground">默认推荐发布工时单位</p>
+          <p class="text-[11px] font-medium text-muted-foreground">默认推荐产值单位</p>
           <p class="mt-1 break-words text-sm leading-5 text-slate-700">
-            ${escapeHtml(row.referencePublishedSamUnitLabel)}
+            ${escapeHtml(row.referenceOutputValueUnitLabel)}
           </p>
         </div>
         <div class="min-w-0">
           <p class="text-[11px] font-medium text-muted-foreground">参考说明</p>
           <p class="mt-1 break-words text-sm leading-5 text-slate-700">
-            ${escapeHtml(row.referencePublishedSamNote)}
+            ${escapeHtml(row.referenceOutputValueNote)}
           </p>
         </div>
       </div>
@@ -430,7 +430,7 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
           </div>
         </section>
 
-        ${renderCraftReferenceSamPanel(row)}
+        ${renderCraftReferenceOutputValuePanel(row)}
 
         <section class="rounded-md border bg-background" data-testid="craft-dict-detail-panel">
           <div class="flex flex-wrap gap-2 border-b px-4 py-3" data-testid="craft-dict-detail-tabs">
@@ -462,7 +462,7 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
               state.detailTab === 'BASIC'
                 ? renderCraftBasicPanel(row)
                 : state.detailTab === 'IDEAL'
-                  ? renderIdealSamPanel(row)
+                  ? renderIdealOutputValuePanel(row)
                   : renderCurrentStagePanel(row)
             }
           </div>

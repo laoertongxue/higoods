@@ -85,7 +85,7 @@ assert(pageSource.includes("if (state.detailMode === 'detail' || isEquipmentLink
 assert(!/数码印[\s\S]{0,80}>4</.test(pageSource), '页面仍存在数码印设备数量硬编码为 4 的风险')
 
 ;['打印机编号', '打印速度', '染缸编号', '染缸容量', '待送货量', '待审核量', '节点等待', '排染缸'].forEach((token) => {
-  assert(!capacityPageSource.includes(token), `任务工时风险页仍展示专属细维度：${token}`)
+  assert(!capacityPageSource.includes(token), `任务产值风险页仍展示专属细维度：${token}`)
 })
 
 assert(!capacityPageSource.includes('裁片 - 定位裁'), '工艺瓶颈榜仍固定展示“裁片 - 定位裁”右侧卡片')

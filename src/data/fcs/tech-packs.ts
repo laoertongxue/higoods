@@ -1,12 +1,12 @@
 import {
-  PUBLISHED_SAM_UNIT_LABEL,
+  OUTPUT_VALUE_UNIT_LABEL,
   getSpecialCraftSupportedTargetObjectLabels,
   getSpecialCraftTargetObjectLabel,
   getProcessCraftByCode,
   getProcessDefinitionByCode,
   normalizeSpecialCraftTargetObjectLabel,
   listProcessCraftDefinitions,
-  type PublishedSamUnit,
+  type OutputValueUnit,
   type DetailSplitDimension,
   type DetailSplitMode,
   type RuleSource,
@@ -246,7 +246,7 @@ export interface TechPackProcess {
   id: string
   seq: number
   name: string
-  timeMinutes: number
+  outputValue: number
   difficulty: 'LOW' | 'MEDIUM' | 'HIGH'
   qcPoint: string
 }
@@ -300,12 +300,12 @@ export interface TechPackProcessEntry {
   manualFieldsTouched?: boolean
   requiresRemovalConfirmation?: boolean
   linkageStatus?: '已生成' | '待确认'
-  standardTimeMinutes?: number
-  timeUnit?: string
-  referencePublishedSamValue?: number
-  referencePublishedSamUnit?: PublishedSamUnit
-  referencePublishedSamUnitLabel?: string
-  referencePublishedSamNote?: string
+  outputValuePerUnit?: number
+  outputValueUnit?: string
+  referenceOutputValueValue?: number
+  referenceOutputValueUnit?: OutputValueUnit
+  referenceOutputValueUnitLabel?: string
+  referenceOutputValueNote?: string
   difficulty?: 'LOW' | 'MEDIUM' | 'HIGH'
   remark?: string
 }
@@ -522,7 +522,7 @@ const processCraftByName = new Map(
 function createCraftProcessEntry(
   id: string,
   craftName: string,
-  standardTimeMinutes: number,
+  outputValuePerUnit: number,
   difficulty: NonNullable<TechPackProcessEntry['difficulty']>,
   remark?: string,
   selectedTargetObject?: TechPackSpecialCraftTargetObject,
@@ -564,12 +564,12 @@ function createCraftProcessEntry(
     supportedTargetObjects: craft.isSpecialCraft ? [...craft.supportedTargetObjects] : undefined,
     supportedTargetObjectLabels: craft.isSpecialCraft ? [...supportedTargetObjectLabels] : undefined,
     visibleFactoryTypes: craft.isSpecialCraft ? [...craft.visibleFactoryTypes] : undefined,
-    standardTimeMinutes,
-    timeUnit: PUBLISHED_SAM_UNIT_LABEL[craft.referencePublishedSamUnit],
-    referencePublishedSamValue: craft.referencePublishedSamValue,
-    referencePublishedSamUnit: craft.referencePublishedSamUnit,
-    referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[craft.referencePublishedSamUnit],
-    referencePublishedSamNote: craft.referencePublishedSamNote,
+    outputValuePerUnit,
+    outputValueUnit: OUTPUT_VALUE_UNIT_LABEL[craft.referenceOutputValueUnit],
+    referenceOutputValueValue: craft.referenceOutputValueValue,
+    referenceOutputValueUnit: craft.referenceOutputValueUnit,
+    referenceOutputValueUnitLabel: OUTPUT_VALUE_UNIT_LABEL[craft.referenceOutputValueUnit],
+    referenceOutputValueNote: craft.referenceOutputValueNote,
     difficulty,
     remark,
   }
@@ -833,8 +833,8 @@ function fallbackDetailDimensions(
 export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): TechPackProcessEntry {
   const processDef = getProcessDefinitionByCode(entry.processCode)
   const craftDef = entry.craftCode ? getProcessCraftByCode(entry.craftCode) : undefined
-  const referencePublishedSamUnitLabel = craftDef
-    ? PUBLISHED_SAM_UNIT_LABEL[craftDef.referencePublishedSamUnit]
+  const referenceOutputValueUnitLabel = craftDef
+    ? OUTPUT_VALUE_UNIT_LABEL[craftDef.referenceOutputValueUnit]
     : undefined
 
   const inheritedGranularity = (processDef?.assignmentGranularity ??
@@ -895,14 +895,14 @@ export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): Te
     ruleSource: resolvedRuleSource,
     detailSplitMode: resolvedSplitMode,
     detailSplitDimensions: resolvedSplitDimensions,
-    timeUnit:
-      entry.entryType === 'CRAFT' && referencePublishedSamUnitLabel
-        ? referencePublishedSamUnitLabel
-        : entry.timeUnit,
-    referencePublishedSamValue: craftDef?.referencePublishedSamValue,
-    referencePublishedSamUnit: craftDef?.referencePublishedSamUnit,
-    referencePublishedSamUnitLabel,
-    referencePublishedSamNote: craftDef?.referencePublishedSamNote,
+    outputValueUnit:
+      entry.entryType === 'CRAFT' && referenceOutputValueUnitLabel
+        ? referenceOutputValueUnitLabel
+        : entry.outputValueUnit,
+    referenceOutputValueValue: craftDef?.referenceOutputValueValue,
+    referenceOutputValueUnit: craftDef?.referenceOutputValueUnit,
+    referenceOutputValueUnitLabel,
+    referenceOutputValueNote: craftDef?.referenceOutputValueNote,
     selectedTargetObject,
     supportedTargetObjects,
     supportedTargetObjectLabels,
