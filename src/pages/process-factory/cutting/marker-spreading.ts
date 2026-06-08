@@ -104,6 +104,7 @@ import {
   resolveSpreadingMaterialReadiness,
   resolveSpreadingOrderMaterialReadiness,
   type SpreadingMaterialReadiness,
+  type SpreadingMaterialReadinessStatusKey,
 } from '../../../data/fcs/cutting/spreading-material-readiness.ts'
 import {
   buildMarkerSpreadingProjection,
@@ -177,6 +178,7 @@ type ContextTypeFilter = 'ALL' | 'cut-order' | 'marker-plan'
 type BooleanFilter = 'ALL' | 'YES' | 'NO'
 type SpreadingStageFilter = 'ALL' | SpreadingListStatusKey
 type SpreadingCuttingStatusFilter = 'ALL' | SpreadingCuttingStatusKey
+type SpreadingMaterialReadinessFilter = 'ALL' | SpreadingMaterialReadinessStatusKey
 const MOBILE_SOURCE_CHANNEL = 'PDA' as const
 const MOBILE_WRITEBACK_CHANNEL = 'PDA_WRITEBACK' as const
 
@@ -292,6 +294,7 @@ interface MarkerSpreadingPageState {
   markerModeFilter: MarkerModeFilter
   contextTypeFilter: ContextTypeFilter
   spreadingStageFilter: SpreadingStageFilter
+  materialReadinessFilter: SpreadingMaterialReadinessFilter
   cuttingStatusFilter: SpreadingCuttingStatusFilter
   sourceChannelFilter: SpreadingSourceFilter
   spreadingEditTab: SpreadingEditTabKey
@@ -408,6 +411,7 @@ const state: MarkerSpreadingPageState = {
   markerModeFilter: 'ALL',
   contextTypeFilter: 'ALL',
   spreadingStageFilter: 'ALL',
+  materialReadinessFilter: 'ALL',
   cuttingStatusFilter: 'ALL',
   sourceChannelFilter: 'ALL',
   spreadingEditTab: 'summary',
@@ -2339,6 +2343,7 @@ function syncStateFromPath(): void {
   state.contextTypeFilter = 'ALL'
   state.spreadingModeFilter = 'ALL'
   state.spreadingStageFilter = 'ALL'
+  state.materialReadinessFilter = 'ALL'
   state.cuttingStatusFilter = 'ALL'
   state.sourceChannelFilter = 'ALL'
   state.spreadingCompletionSelection = []
@@ -2613,6 +2618,10 @@ function getPageData() {
     if (state.spreadingStageFilter !== 'ALL' && row.mainStageKey !== state.spreadingStageFilter) {
       return false
     }
+    const materialReadiness = baseData.webSummariesBySessionId[row.spreadingSessionId]?.materialReadiness
+    if (state.materialReadinessFilter !== 'ALL' && materialReadiness?.statusKey !== state.materialReadinessFilter) {
+      return false
+    }
     if (state.cuttingStatusFilter !== 'ALL' && (row.mainStageKey !== 'DONE' || row.cuttingStatusKey !== state.cuttingStatusFilter)) {
       return false
     }
@@ -2719,12 +2728,22 @@ function getSpreadingCuttingStatusOptions(): Array<{ value: SpreadingCuttingStat
   ]
 }
 
+function getSpreadingMaterialReadinessOptions(): Array<{ value: SpreadingMaterialReadinessFilter; label: string }> {
+  return [
+    { value: 'ALL', label: '全部' },
+    { value: 'READY', label: '可铺布' },
+    { value: 'NOT_CLAIMED', label: '未领料' },
+    { value: 'SHORTAGE', label: '物料不足' },
+  ]
+}
+
 function buildSpreadingStageCountFormula(label: string): string {
   return `${label}数 = 铺布状态 = ${label} 的铺布单数`
 }
 
 function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename: string; rows: string[][] } {
   const tabLabel = getSpreadingStageLabel(state.spreadingStageFilter)
+  const summariesBySessionId = getPageBaseData().webSummariesBySessionId
   const now = new Date()
   const timestamp = [
     now.getFullYear(),
@@ -2741,6 +2760,7 @@ function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename:
       [
         '铺布编号',
         '铺布状态',
+        '铺布物料状态',
         '裁剪状态',
         '来源唛架编号',
         '裁床',
@@ -2762,6 +2782,7 @@ function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename:
       ...rows.map((row) => [
         row.sessionNo,
         row.mainStageLabel,
+        summariesBySessionId[row.spreadingSessionId]?.materialReadiness.statusLabel || '',
         row.cuttingStatusLabel,
         row.session.sourceBedNo || row.sourceMarkerLabel,
         row.session.cuttingTableName || row.session.cuttingTableNo || '未排程',
@@ -2786,12 +2807,13 @@ function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename:
 
 function renderFilterArea(): string {
   return renderStickyFilterShell(`
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(6,minmax(0,1fr))_auto] xl:items-end">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(7,minmax(0,1fr))_auto] xl:items-end">
         ${renderListTextInput('搜索', state.keyword, 'data-cutting-spreading-list-field="keyword"', '铺布单 / 唛架方案 / 唛架编号 / 生产单 / 款式')}
         ${renderListSelect('铺布状态', state.spreadingStageFilter, 'data-cutting-spreading-list-field="main-stage"', [
           { value: 'ALL', label: '全部' },
           ...getSpreadingStageOptions().filter((item) => item.value !== 'ALL'),
         ])}
+        ${renderListSelect('铺布物料状态', state.materialReadinessFilter, 'data-cutting-spreading-list-field="material-readiness"', getSpreadingMaterialReadinessOptions())}
         ${renderListSelect('裁片状态', state.cuttingStatusFilter, 'data-cutting-spreading-list-field="cutting-status"', getSpreadingCuttingStatusOptions())}
         ${renderListTextInput('生产单 / 裁片单', state.contextNoFilter, 'data-cutting-spreading-list-field="context-no"', '')}
         ${renderListTextInput('款式 / SPU', state.styleSpuFilter, 'data-cutting-spreading-list-field="style-spu"', '')}
@@ -2883,7 +2905,7 @@ function renderSpreadingTable(
         <div>来源</div>
         <div>面料</div>
         <div>纸样</div>
-        <div>计划</div>
+        <div>计划 / 物料状态</div>
         <div>实际</div>
         <div>差异</div>
         <div>PDA 执行记录</div>
@@ -6783,6 +6805,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     if (field === 'mode') state.spreadingModeFilter = value as MarkerModeFilter
     if (field === 'context') state.contextTypeFilter = value as ContextTypeFilter
     if (field === 'main-stage') state.spreadingStageFilter = value as SpreadingStageFilter
+    if (field === 'material-readiness') state.materialReadinessFilter = value as SpreadingMaterialReadinessFilter
     if (field === 'cutting-status') state.cuttingStatusFilter = value as SpreadingCuttingStatusFilter
     if (field === 'source-channel') state.sourceChannelFilter = value as SpreadingSourceFilter
     return true
@@ -7233,6 +7256,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     state.contextTypeFilter = 'ALL'
     state.spreadingModeFilter = 'ALL'
     state.spreadingStageFilter = 'ALL'
+    state.materialReadinessFilter = 'ALL'
     state.cuttingStatusFilter = 'ALL'
     state.sourceChannelFilter = 'ALL'
     return true

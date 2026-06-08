@@ -14,8 +14,6 @@ export type SpreadingMaterialReadinessStatusKey =
   | 'READY'
   | 'NOT_CLAIMED'
   | 'SHORTAGE'
-  | 'NO_AVAILABLE_BALANCE'
-  | 'USAGE_PENDING'
 
 export interface SpreadingMaterialReadinessSourceRow {
   cutOrderId: string
@@ -57,7 +55,6 @@ export interface SpreadingMaterialReadinessInput {
 const READY_CLASS = 'border-emerald-200 bg-emerald-50 text-emerald-700'
 const WARNING_CLASS = 'border-amber-200 bg-amber-50 text-amber-700'
 const DANGER_CLASS = 'border-rose-200 bg-rose-50 text-rose-700'
-const MUTED_CLASS = 'border-slate-200 bg-slate-50 text-slate-700'
 
 function roundQty(value: number): number {
   return Number(Number(value || 0).toFixed(2))
@@ -197,9 +194,9 @@ function buildReasonText(input: {
   const shortage = `${input.shortageQty.toFixed(2)} ${input.unit}`
   if (input.statusKey === 'READY') return `计划用量 ${planned}，当前可用 ${available}，可开始铺布。`
   if (input.statusKey === 'NOT_CLAIMED') return '来源裁片单尚未完成裁床领料，不能开始铺布。'
+  if (input.plannedUsageQty <= 0) return '铺布单缺少计划用量，不能开始铺布。'
   if (input.statusKey === 'SHORTAGE') return `计划用量 ${planned}，当前可用 ${available}，缺口 ${shortage}，不能开始铺布。`
-  if (input.statusKey === 'NO_AVAILABLE_BALANCE') return `来源裁片单已领料但无可用余额，不能开始铺布。`
-  return '铺布单缺少计划用量或来源物料账，不能判断是否可铺布。'
+  return ''
 }
 
 export function resolveSpreadingMaterialReadiness(
@@ -214,20 +211,14 @@ export function resolveSpreadingMaterialReadiness(
   const availableQty = roundQty(sourceRows.reduce((sum, row) => sum + Number(row.availableQty || 0), 0))
   const shortageQty = roundQty(Math.max(plannedUsageQty - availableQty, 0))
 
-  let statusKey: SpreadingMaterialReadinessStatusKey = 'USAGE_PENDING'
-  if (plannedUsageQty > 0 && sourceRows.length > 0) {
-    if (claimedQty <= 0) statusKey = 'NOT_CLAIMED'
-    else if (availableQty >= plannedUsageQty) statusKey = 'READY'
-    else if (availableQty > 0) statusKey = 'SHORTAGE'
-    else statusKey = 'NO_AVAILABLE_BALANCE'
-  }
+  let statusKey: SpreadingMaterialReadinessStatusKey = 'SHORTAGE'
+  if (claimedQty <= 0) statusKey = 'NOT_CLAIMED'
+  else if (plannedUsageQty > 0 && availableQty >= plannedUsageQty) statusKey = 'READY'
 
   const meta: Record<SpreadingMaterialReadinessStatusKey, { label: string; className: string }> = {
     READY: { label: '可铺布', className: READY_CLASS },
     NOT_CLAIMED: { label: '未领料', className: WARNING_CLASS },
     SHORTAGE: { label: '物料不足', className: DANGER_CLASS },
-    NO_AVAILABLE_BALANCE: { label: '无可用余额', className: DANGER_CLASS },
-    USAGE_PENDING: { label: '待确认用量', className: MUTED_CLASS },
   }
   const reasonText = buildReasonText({ statusKey, plannedUsageQty, availableQty, shortageQty, unit })
 
