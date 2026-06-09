@@ -6,6 +6,7 @@ import { appStore } from './state/store'
 type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
 type PdaHandlersModule = typeof import('./main-handlers/pda-handlers')
+type DispatchAcceptanceSlaPageModule = typeof import('./pages/dispatch-acceptance-sla')
 type DispatchBoardPageModule = typeof import('./pages/dispatch-board')
 type FactoryProfilePageModule = typeof import('./pages/factory-profile')
 type CraftCuttingMarkerPlanPageModule = typeof import('./pages/process-factory/cutting/marker-plan')
@@ -22,6 +23,7 @@ type RoutesModule = typeof import('./router/routes')
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
 let pdaHandlersModulePromise: Promise<PdaHandlersModule> | null = null
+let dispatchAcceptanceSlaPageModulePromise: Promise<DispatchAcceptanceSlaPageModule> | null = null
 let dispatchBoardPageModulePromise: Promise<DispatchBoardPageModule> | null = null
 let factoryProfilePageModulePromise: Promise<FactoryProfilePageModule> | null = null
 let craftCuttingMarkerPlanPageModulePromise: Promise<CraftCuttingMarkerPlanPageModule> | null = null
@@ -66,6 +68,16 @@ function getPdaHandlersModule(): Promise<PdaHandlersModule> {
     })
   }
   return pdaHandlersModulePromise
+}
+
+function getDispatchAcceptanceSlaPageModule(): Promise<DispatchAcceptanceSlaPageModule> {
+  if (!dispatchAcceptanceSlaPageModulePromise) {
+    dispatchAcceptanceSlaPageModulePromise = import('./pages/dispatch-acceptance-sla').catch((error) => {
+      dispatchAcceptanceSlaPageModulePromise = null
+      throw error
+    })
+  }
+  return dispatchAcceptanceSlaPageModulePromise
 }
 
 function getDispatchBoardPageModule(): Promise<DispatchBoardPageModule> {
@@ -295,6 +307,11 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
       console.error('工厂档案事件处理器加载失败，已降级为不处理', error)
       return false
     }
+  }
+
+  if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
+    const dispatchAcceptanceSlaPage = await getDispatchAcceptanceSlaPageModule()
+    return dispatchAcceptanceSlaPage.handleDispatchAcceptanceSlaEvent(eventTarget)
   }
 
   if (pathname.startsWith('/fcs/dispatch/board')) {

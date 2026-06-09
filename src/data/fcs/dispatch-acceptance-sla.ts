@@ -138,6 +138,9 @@ export interface DispatchAcceptanceSlaResolution {
   ruleSource: DispatchAcceptanceSlaRuleSource
   configId?: string
   overrideId?: string
+  ruleId?: string
+  ruleName?: string
+  ruleScopeLabel?: string
   processCode: string
   processName: string
   craftCode: string
@@ -149,6 +152,143 @@ export interface DispatchAcceptanceSlaResolution {
   acceptDeadline?: string
   autoAccept: boolean
   missingReason?: string
+}
+
+export interface DispatchAcceptanceSlaUnconfiguredFactoryRow {
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  factoryId: string
+  factoryName: string
+  factoryTier: FactoryTier
+  factoryTierName: string
+  factoryType: FactoryType
+  factoryTypeName: string
+  fallbackAcceptTimeoutHours: number
+  fallbackAcceptTimeoutText: string
+}
+
+export type DispatchAcceptanceSlaProcessScopeType =
+  | 'ALL_PROCESS_CRAFTS'
+  | 'PROCESS_ALL_CRAFTS'
+  | 'PROCESS_CRAFT'
+
+export type DispatchAcceptanceSlaFactoryScopeRuleType =
+  | 'ALL_FACTORIES'
+  | 'FACTORY_TIER'
+  | 'FACTORY_TYPE'
+  | 'FACTORIES'
+
+export interface DispatchAcceptanceSlaRule {
+  ruleId: string
+  ruleName: string
+  processScopeType: DispatchAcceptanceSlaProcessScopeType
+  processCode?: string
+  processName?: string
+  craftCode?: string
+  craftName?: string
+  factoryScopeType: DispatchAcceptanceSlaFactoryScopeRuleType
+  factoryTier?: FactoryTier
+  factoryTierName?: string
+  factoryType?: FactoryType
+  factoryTypeName?: string
+  factoryIds?: string[]
+  factoryNames?: string[]
+  acceptTimeoutHours: number
+  enabled: boolean
+  updatedBy: string
+  updatedAt: string
+  remark?: string
+  sourceConfigId?: string
+  sourceOverrideId?: string
+  sequence: number
+}
+
+export interface DispatchAcceptanceSlaRuleSaveInput {
+  ruleName?: string
+  processScopeType: DispatchAcceptanceSlaProcessScopeType
+  processCode?: string
+  processName?: string
+  craftCode?: string
+  craftName?: string
+  factoryScopeType: DispatchAcceptanceSlaFactoryScopeRuleType
+  factoryTier?: FactoryTier
+  factoryTierName?: string
+  factoryType?: FactoryType
+  factoryTypeName?: string
+  factoryIds?: string[]
+  factoryNames?: string[]
+  acceptTimeoutHours: number
+  enabled: boolean
+  updatedBy?: string
+  updatedAt?: string
+  remark?: string
+}
+
+export interface DispatchAcceptanceSlaRuleImpact {
+  matchedFactoryCount: number
+  matchedAbilityCount: number
+  effectiveAbilityCount: number
+  overriddenAbilityCount: number
+  protectedAbilityCount: number
+}
+
+export interface DispatchAcceptanceSlaFactoryAbilityEffectiveRow {
+  factoryId: string
+  factoryName: string
+  factoryTier: FactoryTier
+  factoryTierName: string
+  factoryType: FactoryType
+  factoryTypeName: string
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  acceptTimeoutHours: number | null
+  acceptTimeoutText: string
+  autoAccept: boolean
+  ruleSource: DispatchAcceptanceSlaRuleSource
+  ruleSourceLabel: string
+  ruleId?: string
+  ruleName?: string
+  ruleScopeLabel?: string
+  isUnconfigured: boolean
+  isFactorySpecific: boolean
+}
+
+export interface DispatchAcceptanceSlaFactoryPageRow {
+  factoryId: string
+  factoryName: string
+  factoryTier: FactoryTier
+  factoryTierName: string
+  factoryType: FactoryType
+  factoryTypeName: string
+  abilityRows: DispatchAcceptanceSlaFactoryAbilityEffectiveRow[]
+  abilityCount: number
+  autoAcceptCount: number
+  unconfiguredCount: number
+  factorySpecificRuleCount: number
+  timeoutSummary: Array<{ label: string; count: number }>
+  sourceSummary: Array<{ label: string; count: number }>
+  lastChangedAt: string
+  lastChangedBy: string
+}
+
+export interface DispatchAcceptanceSlaFactoryLog {
+  logId: string
+  factoryId: string
+  factoryName: string
+  updatedAt: string
+  updatedBy: string
+  action: string
+  processCraftLabel: string
+  beforeTimeoutText?: string
+  afterTimeoutText: string
+  ruleName: string
+  ruleScopeLabel: string
+  effective: boolean
+  reason: string
 }
 
 export const DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY = '系统自动接单'
@@ -415,6 +555,462 @@ const globalDefaultConfig: DispatchAcceptanceSlaGlobalDefaultConfig = {
   remark: '未命中工厂覆盖和工序工艺自定义规则时，统一按全局默认接单时效执行。',
 }
 
+let customRuleSequence = 1000
+const customDispatchAcceptanceSlaRules: DispatchAcceptanceSlaRule[] = []
+const ruleLogs: Array<{
+  logId: string
+  ruleId: string
+  ruleName: string
+  action: string
+  updatedAt: string
+  updatedBy: string
+  scopeLabel: string
+  impact: DispatchAcceptanceSlaRuleImpact
+}> = []
+const factoryEffectLogs: DispatchAcceptanceSlaFactoryLog[] = []
+
+function getRuleProcessScopeLabel(rule: Pick<
+  DispatchAcceptanceSlaRule,
+  'processScopeType' | 'processName' | 'processCode' | 'craftName' | 'craftCode'
+>): string {
+  if (rule.processScopeType === 'ALL_PROCESS_CRAFTS') return '全部工序工艺'
+  if (rule.processScopeType === 'PROCESS_ALL_CRAFTS') return `${rule.processName || rule.processCode || '未选择工序'} / ${DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_NAME}`
+  return `${rule.processName || rule.processCode || '未选择工序'} / ${rule.craftName || rule.craftCode || '未选择工艺'}`
+}
+
+function getRuleFactoryScopeLabel(rule: Pick<
+  DispatchAcceptanceSlaRule,
+  'factoryScopeType' | 'factoryTierName' | 'factoryTier' | 'factoryTypeName' | 'factoryType' | 'factoryNames' | 'factoryIds'
+>): string {
+  if (rule.factoryScopeType === 'ALL_FACTORIES') return DISPATCH_ACCEPTANCE_SLA_ALL_FACTORIES_NAME
+  if (rule.factoryScopeType === 'FACTORY_TIER') return rule.factoryTierName || formatFactoryTierName(rule.factoryTier)
+  if (rule.factoryScopeType === 'FACTORY_TYPE') return rule.factoryTypeName || formatFactoryTypeName(rule.factoryType)
+  const names = rule.factoryNames?.length ? rule.factoryNames : rule.factoryIds
+  return names?.length ? names.join('、') : '未选择工厂'
+}
+
+function getRuleScopeLabel(rule: DispatchAcceptanceSlaRule): string {
+  return `${getRuleProcessScopeLabel(rule)} × ${getRuleFactoryScopeLabel(rule)}`
+}
+
+function buildRuleName(rule: Pick<
+  DispatchAcceptanceSlaRuleSaveInput,
+  'ruleName' | 'processScopeType' | 'processName' | 'processCode' | 'craftName' | 'craftCode' | 'factoryScopeType' | 'factoryTierName' | 'factoryTier' | 'factoryTypeName' | 'factoryType' | 'factoryNames' | 'factoryIds'
+>): string {
+  if (rule.ruleName?.trim()) return rule.ruleName.trim()
+  return `${getRuleProcessScopeLabel(rule)} - ${getRuleFactoryScopeLabel(rule)}`
+}
+
+function mapOverrideScopeToRuleScope(override: DispatchAcceptanceSlaFactoryOverride): DispatchAcceptanceSlaFactoryScopeRuleType {
+  const scopeType = resolveOverrideScopeType(override)
+  if (scopeType === 'FACTORY') return 'FACTORIES'
+  if (scopeType === 'FACTORY_TIER') return 'FACTORY_TIER'
+  if (scopeType === 'FACTORY_TYPE') return 'FACTORY_TYPE'
+  return 'ALL_FACTORIES'
+}
+
+function buildRulesFromPresetConfigs(): DispatchAcceptanceSlaRule[] {
+  const rules: DispatchAcceptanceSlaRule[] = []
+  presetConfigs.forEach((config, configIndex) => {
+    rules.push({
+      ruleId: config.configId,
+      ruleName: `${config.processName} / ${config.craftName} 默认规则`,
+      processScopeType: isAllCraftsConfig(config.craftCode) ? 'PROCESS_ALL_CRAFTS' : 'PROCESS_CRAFT',
+      processCode: config.processCode,
+      processName: config.processName,
+      craftCode: isAllCraftsConfig(config.craftCode) ? undefined : config.craftCode,
+      craftName: isAllCraftsConfig(config.craftCode) ? DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_NAME : config.craftName,
+      factoryScopeType: 'ALL_FACTORIES',
+      acceptTimeoutHours: config.defaultAcceptTimeoutHours,
+      enabled: config.enabled,
+      updatedBy: config.updatedBy,
+      updatedAt: config.updatedAt,
+      remark: config.remark,
+      sourceConfigId: config.configId,
+      sequence: configIndex + 1,
+    })
+    config.factoryOverrides.forEach((override, overrideIndex) => {
+      const factoryScopeType = mapOverrideScopeToRuleScope(override)
+      rules.push({
+        ruleId: override.overrideId,
+        ruleName: `${config.processName} / ${config.craftName} - ${override.factoryName}`,
+        processScopeType: isAllCraftsConfig(config.craftCode) ? 'PROCESS_ALL_CRAFTS' : 'PROCESS_CRAFT',
+        processCode: config.processCode,
+        processName: config.processName,
+        craftCode: isAllCraftsConfig(config.craftCode) ? undefined : config.craftCode,
+        craftName: isAllCraftsConfig(config.craftCode) ? DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_NAME : config.craftName,
+        factoryScopeType,
+        factoryTier: override.factoryTier,
+        factoryTierName: override.factoryTierName,
+        factoryType: override.factoryType,
+        factoryTypeName: override.factoryTypeName,
+        factoryIds: factoryScopeType === 'FACTORIES' ? [override.factoryId] : undefined,
+        factoryNames: factoryScopeType === 'FACTORIES' ? [override.factoryName] : undefined,
+        acceptTimeoutHours: override.acceptTimeoutHours,
+        enabled: override.enabled,
+        updatedBy: override.updatedBy,
+        updatedAt: override.updatedAt,
+        remark: override.remark,
+        sourceConfigId: config.configId,
+        sourceOverrideId: override.overrideId,
+        sequence: 100 + configIndex * 10 + overrideIndex,
+      })
+    })
+  })
+  return rules
+}
+
+export function listDispatchAcceptanceSlaRules(): DispatchAcceptanceSlaRule[] {
+  return [...buildRulesFromPresetConfigs(), ...customDispatchAcceptanceSlaRules]
+    .map((rule) => ({
+      ...rule,
+      factoryIds: rule.factoryIds ? [...rule.factoryIds] : undefined,
+      factoryNames: rule.factoryNames ? [...rule.factoryNames] : undefined,
+    }))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.sequence - left.sequence)
+}
+
+function listExternalDispatchProcessCraftRows(): Array<{
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+}> {
+  return listProcessCraftDictRows()
+    .filter((row) => row.generatesExternalTask)
+    .map((row) => ({
+      processCode: row.processCode,
+      processName: row.processName,
+      craftCode: row.craftCode,
+      craftName: row.craftName,
+    }))
+}
+
+function ruleMatchesProcessCraft(
+  rule: DispatchAcceptanceSlaRule,
+  processCode: string,
+  craftCode: string,
+): boolean {
+  if (rule.processScopeType === 'ALL_PROCESS_CRAFTS') return true
+  if (rule.processCode !== processCode) return false
+  if (rule.processScopeType === 'PROCESS_ALL_CRAFTS') return true
+  return rule.craftCode === craftCode
+}
+
+function ruleMatchesFactory(
+  rule: DispatchAcceptanceSlaRule,
+  factory?: { id: string; code?: string; factoryTier: FactoryTier; factoryType: FactoryType },
+  factoryId?: string,
+): boolean {
+  if (rule.factoryScopeType === 'ALL_FACTORIES') return true
+  if (!factory && !factoryId) return false
+  if (rule.factoryScopeType === 'FACTORY_TIER') return Boolean(factory && factory.factoryTier === rule.factoryTier)
+  if (rule.factoryScopeType === 'FACTORY_TYPE') return Boolean(factory && factory.factoryType === rule.factoryType)
+  return Boolean(rule.factoryIds?.some((id) => id === factoryId || id === factory?.id || id === factory?.code))
+}
+
+function getRulePriority(rule: DispatchAcceptanceSlaRule): number {
+  const processWeight = rule.processScopeType === 'PROCESS_CRAFT'
+    ? 30
+    : rule.processScopeType === 'PROCESS_ALL_CRAFTS'
+      ? 20
+      : 10
+  const factoryWeight = rule.factoryScopeType === 'FACTORIES'
+    ? 300
+    : rule.factoryScopeType === 'FACTORY_TIER' || rule.factoryScopeType === 'FACTORY_TYPE'
+      ? 200
+      : 100
+  return factoryWeight + processWeight
+}
+
+function findFactoryById(factoryId?: string) {
+  if (!factoryId) return undefined
+  return listBusinessFactoryMasterRecords({ includeTestFactories: true })
+    .find((factory) => factory.id === factoryId || factory.code === factoryId)
+}
+
+function findEffectiveRuleForContext(
+  processCode: string,
+  craftCode: string,
+  factoryId?: string,
+  rules = listDispatchAcceptanceSlaRules(),
+): DispatchAcceptanceSlaRule | undefined {
+  const factory = findFactoryById(factoryId)
+  return rules
+    .filter((rule) => rule.enabled)
+    .filter((rule) => ruleMatchesProcessCraft(rule, processCode, craftCode))
+    .filter((rule) => ruleMatchesFactory(rule, factory, factoryId))
+    .sort((left, right) =>
+      getRulePriority(right) - getRulePriority(left)
+      || right.updatedAt.localeCompare(left.updatedAt)
+      || right.sequence - left.sequence,
+    )[0]
+}
+
+function getRuleSource(rule?: DispatchAcceptanceSlaRule): DispatchAcceptanceSlaRuleSource {
+  if (!rule) return 'GLOBAL_DEFAULT'
+  if (rule.factoryScopeType === 'FACTORIES') return 'FACTORY_OVERRIDE'
+  if (rule.factoryScopeType === 'ALL_FACTORIES') return 'PROCESS_CRAFT_DEFAULT'
+  return 'FACTORY_OVERRIDE'
+}
+
+function resolveFactoryAbilityRows(factoryId: string): DispatchAcceptanceSlaFactoryAbilityEffectiveRow[] {
+  const factory = findFactoryById(factoryId)
+  if (!factory) return []
+  return listExternalDispatchProcessCraftRows()
+    .filter((row) =>
+      getFactoryAbilityForDispatchAcceptance(row.processCode, row.craftCode)
+        .some((abilityFactory) => abilityFactory.id === factory.id || abilityFactory.id === factory.code),
+    )
+    .map((row) => {
+      const rule = findEffectiveRuleForContext(row.processCode, row.craftCode, factory.id)
+      const acceptTimeoutHours = rule?.acceptTimeoutHours ?? (globalDefaultConfig.enabled ? globalDefaultConfig.defaultAcceptTimeoutHours : null)
+      const ruleSource = getRuleSource(rule)
+      return {
+        factoryId: factory.id,
+        factoryName: factory.name,
+        factoryTier: factory.factoryTier,
+        factoryTierName: formatFactoryTierName(factory.factoryTier),
+        factoryType: factory.factoryType,
+        factoryTypeName: formatFactoryTypeName(factory.factoryType),
+        processCode: row.processCode,
+        processName: row.processName,
+        craftCode: row.craftCode,
+        craftName: row.craftName,
+        acceptTimeoutHours,
+        acceptTimeoutText: formatDispatchAcceptanceTimeout(acceptTimeoutHours),
+        autoAccept: acceptTimeoutHours === 0,
+        ruleSource,
+        ruleSourceLabel: rule ? getDispatchAcceptanceSlaRuleSourceLabel(ruleSource) : '全局默认',
+        ruleId: rule?.ruleId,
+        ruleName: rule?.ruleName || (globalDefaultConfig.enabled ? '全局兜底规则' : undefined),
+        ruleScopeLabel: rule ? getRuleScopeLabel(rule) : '全部工序工艺 × 全部工厂',
+        isUnconfigured: !rule,
+        isFactorySpecific: rule?.factoryScopeType === 'FACTORIES',
+      }
+    })
+}
+
+function summarizeBy<T>(rows: T[], getLabel: (row: T) => string): Array<{ label: string; count: number }> {
+  const counts = new Map<string, number>()
+  rows.forEach((row) => {
+    const label = getLabel(row)
+    counts.set(label, (counts.get(label) || 0) + 1)
+  })
+  return Array.from(counts.entries()).map(([label, count]) => ({ label, count }))
+}
+
+export function listDispatchAcceptanceSlaFactoryRows(): DispatchAcceptanceSlaFactoryPageRow[] {
+  return listBusinessFactoryMasterRecords({ includeTestFactories: true })
+    .map((factory) => {
+      const abilityRows = resolveFactoryAbilityRows(factory.id)
+      const latestRule = abilityRows
+        .map((row) => row.ruleId ? listDispatchAcceptanceSlaRules().find((rule) => rule.ruleId === row.ruleId) : undefined)
+        .filter((rule): rule is DispatchAcceptanceSlaRule => Boolean(rule))
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
+      return {
+        factoryId: factory.id,
+        factoryName: factory.name,
+        factoryTier: factory.factoryTier,
+        factoryTierName: formatFactoryTierName(factory.factoryTier),
+        factoryType: factory.factoryType,
+        factoryTypeName: formatFactoryTypeName(factory.factoryType),
+        abilityRows,
+        abilityCount: abilityRows.length,
+        autoAcceptCount: abilityRows.filter((row) => row.autoAccept).length,
+        unconfiguredCount: abilityRows.filter((row) => row.isUnconfigured).length,
+        factorySpecificRuleCount: abilityRows.filter((row) => row.isFactorySpecific).length,
+        timeoutSummary: summarizeBy(abilityRows, (row) => row.acceptTimeoutText),
+        sourceSummary: summarizeBy(abilityRows, (row) => row.ruleSourceLabel),
+        lastChangedAt: latestRule?.updatedAt || globalDefaultConfig.updatedAt,
+        lastChangedBy: latestRule?.updatedBy || globalDefaultConfig.updatedBy,
+      }
+    })
+    .filter((row) => row.abilityCount > 0)
+    .sort((left, right) =>
+      right.unconfiguredCount - left.unconfiguredCount
+      || right.factorySpecificRuleCount - left.factorySpecificRuleCount
+      || left.factoryName.localeCompare(right.factoryName),
+    )
+}
+
+export function listDispatchAcceptanceSlaFactoryAbilityRows(factoryId: string): DispatchAcceptanceSlaFactoryAbilityEffectiveRow[] {
+  return resolveFactoryAbilityRows(factoryId)
+}
+
+function buildRuleFromSaveInput(input: DispatchAcceptanceSlaRuleSaveInput, ruleId: string): DispatchAcceptanceSlaRule {
+  const now = input.updatedAt || nowTimestamp()
+  return {
+    ruleId,
+    ruleName: buildRuleName(input),
+    processScopeType: input.processScopeType,
+    processCode: input.processScopeType === 'ALL_PROCESS_CRAFTS' ? undefined : input.processCode,
+    processName: input.processScopeType === 'ALL_PROCESS_CRAFTS' ? undefined : input.processName,
+    craftCode: input.processScopeType === 'PROCESS_CRAFT' ? input.craftCode : undefined,
+    craftName: input.processScopeType === 'PROCESS_CRAFT' ? input.craftName : input.processScopeType === 'PROCESS_ALL_CRAFTS' ? DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_NAME : undefined,
+    factoryScopeType: input.factoryScopeType,
+    factoryTier: input.factoryScopeType === 'FACTORY_TIER' ? input.factoryTier : undefined,
+    factoryTierName: input.factoryScopeType === 'FACTORY_TIER' ? input.factoryTierName || formatFactoryTierName(input.factoryTier) : undefined,
+    factoryType: input.factoryScopeType === 'FACTORY_TYPE' ? input.factoryType : undefined,
+    factoryTypeName: input.factoryScopeType === 'FACTORY_TYPE' ? input.factoryTypeName || formatFactoryTypeName(input.factoryType) : undefined,
+    factoryIds: input.factoryScopeType === 'FACTORIES' ? [...(input.factoryIds || [])] : undefined,
+    factoryNames: input.factoryScopeType === 'FACTORIES' ? [...(input.factoryNames || [])] : undefined,
+    acceptTimeoutHours: input.acceptTimeoutHours,
+    enabled: input.enabled,
+    updatedBy: input.updatedBy || '当前用户',
+    updatedAt: now,
+    remark: input.remark?.trim() || undefined,
+    sequence: ruleId === '__DRAFT_RULE__' ? Number.MAX_SAFE_INTEGER : customRuleSequence++,
+  }
+}
+
+function buildAllAbilityRowsForImpact(rules = listDispatchAcceptanceSlaRules()): DispatchAcceptanceSlaFactoryAbilityEffectiveRow[] {
+  return listBusinessFactoryMasterRecords({ includeTestFactories: true })
+    .flatMap((factory) =>
+      listExternalDispatchProcessCraftRows()
+        .filter((row) =>
+          getFactoryAbilityForDispatchAcceptance(row.processCode, row.craftCode)
+            .some((abilityFactory) => abilityFactory.id === factory.id || abilityFactory.id === factory.code),
+        )
+        .map((row) => {
+          const rule = findEffectiveRuleForContext(row.processCode, row.craftCode, factory.id, rules)
+          const acceptTimeoutHours = rule?.acceptTimeoutHours ?? (globalDefaultConfig.enabled ? globalDefaultConfig.defaultAcceptTimeoutHours : null)
+          const ruleSource = getRuleSource(rule)
+          return {
+            factoryId: factory.id,
+            factoryName: factory.name,
+            factoryTier: factory.factoryTier,
+            factoryTierName: formatFactoryTierName(factory.factoryTier),
+            factoryType: factory.factoryType,
+            factoryTypeName: formatFactoryTypeName(factory.factoryType),
+            processCode: row.processCode,
+            processName: row.processName,
+            craftCode: row.craftCode,
+            craftName: row.craftName,
+            acceptTimeoutHours,
+            acceptTimeoutText: formatDispatchAcceptanceTimeout(acceptTimeoutHours),
+            autoAccept: acceptTimeoutHours === 0,
+            ruleSource,
+            ruleSourceLabel: rule ? getDispatchAcceptanceSlaRuleSourceLabel(ruleSource) : '全局默认',
+            ruleId: rule?.ruleId,
+            ruleName: rule?.ruleName || (globalDefaultConfig.enabled ? '全局兜底规则' : undefined),
+            ruleScopeLabel: rule ? getRuleScopeLabel(rule) : '全部工序工艺 × 全部工厂',
+            isUnconfigured: !rule,
+            isFactorySpecific: rule?.factoryScopeType === 'FACTORIES',
+          }
+        }),
+    )
+}
+
+export function previewDispatchAcceptanceSlaRuleImpact(input: DispatchAcceptanceSlaRuleSaveInput): DispatchAcceptanceSlaRuleImpact {
+  const draftRule = buildRuleFromSaveInput({ ...input, updatedAt: '9999-12-31 23:59:59' }, '__DRAFT_RULE__')
+  const beforeRules = listDispatchAcceptanceSlaRules()
+  const afterRules = [...beforeRules, draftRule]
+  const matchedRows = buildAllAbilityRowsForImpact(beforeRules).filter((row) => {
+    const factory = findFactoryById(row.factoryId)
+    return ruleMatchesProcessCraft(draftRule, row.processCode, row.craftCode)
+      && ruleMatchesFactory(draftRule, factory, row.factoryId)
+  })
+  const afterRows = buildAllAbilityRowsForImpact(afterRules)
+  const byKey = new Map(afterRows.map((row) => [`${row.factoryId}::${row.processCode}::${row.craftCode}`, row]))
+  const protectedAbilityCount = matchedRows.filter((row) => {
+    const currentRule = row.ruleId ? beforeRules.find((rule) => rule.ruleId === row.ruleId) : undefined
+    return Boolean(currentRule && currentRule.factoryScopeType === 'FACTORIES' && getRulePriority(currentRule) > getRulePriority(draftRule))
+  }).length
+  const effectiveAbilityCount = matchedRows.filter((row) =>
+    byKey.get(`${row.factoryId}::${row.processCode}::${row.craftCode}`)?.ruleId === draftRule.ruleId,
+  ).length
+  const matchedFactoryCount = new Set(matchedRows.map((row) => row.factoryId)).size
+  return {
+    matchedFactoryCount,
+    matchedAbilityCount: matchedRows.length,
+    effectiveAbilityCount,
+    overriddenAbilityCount: Math.max(0, matchedRows.length - effectiveAbilityCount),
+    protectedAbilityCount,
+  }
+}
+
+export function saveDispatchAcceptanceSlaRule(input: DispatchAcceptanceSlaRuleSaveInput): DispatchAcceptanceSlaRule {
+  const impact = previewDispatchAcceptanceSlaRuleImpact(input)
+  const beforeRows = buildAllAbilityRowsForImpact()
+  const rule = buildRuleFromSaveInput(input, `DAS-RULE-${String(customRuleSequence).padStart(4, '0')}`)
+  customDispatchAcceptanceSlaRules.push(rule)
+  const afterRows = buildAllAbilityRowsForImpact()
+  const beforeByKey = new Map(beforeRows.map((row) => [`${row.factoryId}::${row.processCode}::${row.craftCode}`, row]))
+  const afterByKey = new Map(afterRows.map((row) => [`${row.factoryId}::${row.processCode}::${row.craftCode}`, row]))
+  ruleLogs.push({
+    logId: `RULE-LOG-${ruleLogs.length + 1}`,
+    ruleId: rule.ruleId,
+    ruleName: rule.ruleName,
+    action: '新增规则',
+    updatedAt: rule.updatedAt,
+    updatedBy: rule.updatedBy,
+    scopeLabel: getRuleScopeLabel(rule),
+    impact,
+  })
+  beforeRows
+    .filter((row) => {
+      const factory = findFactoryById(row.factoryId)
+      return ruleMatchesProcessCraft(rule, row.processCode, row.craftCode)
+        && ruleMatchesFactory(rule, factory, row.factoryId)
+    })
+    .forEach((row) => {
+      const key = `${row.factoryId}::${row.processCode}::${row.craftCode}`
+      const before = beforeByKey.get(key)
+      const after = afterByKey.get(key)
+      if (!after) return
+      const effective = after.ruleId === rule.ruleId
+      const reason = effective
+        ? '规则已成为该工厂该工序工艺的最终接单时效'
+        : after.isFactorySpecific
+          ? '未生效：该工厂已有更高优先级的指定工厂规则'
+          : '未生效：被更高优先级规则覆盖'
+      factoryEffectLogs.push({
+        logId: `FACTORY-SLA-LOG-${factoryEffectLogs.length + 1}`,
+        factoryId: row.factoryId,
+        factoryName: row.factoryName,
+        updatedAt: rule.updatedAt,
+        updatedBy: rule.updatedBy,
+        action: effective ? '规则生效' : '规则未生效',
+        processCraftLabel: `${row.processName} / ${row.craftName}`,
+        beforeTimeoutText: before?.acceptTimeoutText,
+        afterTimeoutText: after.acceptTimeoutText,
+        ruleName: rule.ruleName,
+        ruleScopeLabel: getRuleScopeLabel(rule),
+        effective,
+        reason,
+      })
+    })
+  return { ...rule, factoryIds: rule.factoryIds ? [...rule.factoryIds] : undefined, factoryNames: rule.factoryNames ? [...rule.factoryNames] : undefined }
+}
+
+export function listDispatchAcceptanceSlaRuleLogs() {
+  return ruleLogs.map((log) => ({ ...log, impact: { ...log.impact } })).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+}
+
+export function listDispatchAcceptanceSlaFactoryLogs(factoryId: string): DispatchAcceptanceSlaFactoryLog[] {
+  const logs = factoryEffectLogs.filter((log) => log.factoryId === factoryId)
+  if (logs.length) return logs.map((log) => ({ ...log })).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+  return resolveFactoryAbilityRows(factoryId).slice(0, 8).map((row, index) => ({
+    logId: `FACTORY-SLA-CURRENT-${factoryId}-${index + 1}`,
+    factoryId: row.factoryId,
+    factoryName: row.factoryName,
+    updatedAt: row.ruleId
+      ? listDispatchAcceptanceSlaRules().find((rule) => rule.ruleId === row.ruleId)?.updatedAt || globalDefaultConfig.updatedAt
+      : globalDefaultConfig.updatedAt,
+    updatedBy: row.ruleId
+      ? listDispatchAcceptanceSlaRules().find((rule) => rule.ruleId === row.ruleId)?.updatedBy || globalDefaultConfig.updatedBy
+      : globalDefaultConfig.updatedBy,
+    action: '当前生效',
+    processCraftLabel: `${row.processName} / ${row.craftName}`,
+    afterTimeoutText: row.acceptTimeoutText,
+    ruleName: row.ruleName || '全局兜底规则',
+    ruleScopeLabel: row.ruleScopeLabel || '全部工序工艺 × 全部工厂',
+    effective: true,
+    reason: row.isUnconfigured ? '未命中自定义规则，当前按全局默认执行' : '当前最终生效规则',
+  })).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+}
+
 const factoryOverrideLogs: DispatchAcceptanceSlaFactoryOverrideLog[] = presetConfigs.flatMap((config) =>
   config.factoryOverrides.map((override, index) => ({
     logId: `LOG-${override.overrideId}-${index + 1}`,
@@ -448,11 +1044,35 @@ export function getDispatchAcceptanceSlaGlobalDefaultConfig(): DispatchAcceptanc
 export function saveDispatchAcceptanceSlaGlobalDefaultConfig(
   input: DispatchAcceptanceSlaGlobalDefaultSaveInput,
 ): DispatchAcceptanceSlaGlobalDefaultConfig {
+  const beforeRows = buildAllAbilityRowsForImpact()
   globalDefaultConfig.enabled = input.enabled
   globalDefaultConfig.defaultAcceptTimeoutHours = input.defaultAcceptTimeoutHours
   globalDefaultConfig.updatedBy = input.updatedBy || '当前用户'
   globalDefaultConfig.updatedAt = input.updatedAt || nowTimestamp()
   globalDefaultConfig.remark = input.remark?.trim() || undefined
+  const afterRows = buildAllAbilityRowsForImpact()
+  const afterByKey = new Map(afterRows.map((row) => [`${row.factoryId}::${row.processCode}::${row.craftCode}`, row]))
+  beforeRows
+    .filter((row) => row.isUnconfigured)
+    .forEach((before) => {
+      const after = afterByKey.get(`${before.factoryId}::${before.processCode}::${before.craftCode}`)
+      if (!after || before.acceptTimeoutText === after.acceptTimeoutText) return
+      factoryEffectLogs.push({
+        logId: `FACTORY-SLA-LOG-${factoryEffectLogs.length + 1}`,
+        factoryId: before.factoryId,
+        factoryName: before.factoryName,
+        updatedAt: globalDefaultConfig.updatedAt,
+        updatedBy: globalDefaultConfig.updatedBy,
+        action: '全局兜底变更',
+        processCraftLabel: `${before.processName} / ${before.craftName}`,
+        beforeTimeoutText: before.acceptTimeoutText,
+        afterTimeoutText: after.acceptTimeoutText,
+        ruleName: '全局兜底规则',
+        ruleScopeLabel: '全部工序工艺 × 全部工厂',
+        effective: true,
+        reason: '该工厂该工序工艺未命中自定义规则，随全局默认变化',
+      })
+    })
   return getDispatchAcceptanceSlaGlobalDefaultConfig()
 }
 
@@ -512,6 +1132,32 @@ export function listDispatchAcceptanceSlaCreateOptions(): DispatchAcceptanceSlaC
       processCraftLabel: `${row.processName} / ${row.craftName}`,
       coversAllCrafts: false,
     }))
+  return [...processOptions, ...craftOptions]
+}
+
+export function listDispatchAcceptanceSlaRuleProcessCraftOptions(): DispatchAcceptanceSlaCreateOption[] {
+  const externalRows = listExternalDispatchProcessCraftRows()
+  const processOptions = Array.from(
+    new Map(externalRows.map((row) => [row.processCode, row.processName])).entries(),
+  )
+    .map(([processCode, processName]) => ({
+      processCode,
+      processName,
+      craftCode: DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_CODE,
+      craftName: DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_NAME,
+      processCraftKey: getProcessCraftKey(processCode, DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_CODE),
+      processCraftLabel: `${processName} / ${DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_NAME}`,
+      coversAllCrafts: true,
+    }))
+  const craftOptions = externalRows.map((row) => ({
+    processCode: row.processCode,
+    processName: row.processName,
+    craftCode: row.craftCode,
+    craftName: row.craftName,
+    processCraftKey: getProcessCraftKey(row.processCode, row.craftCode),
+    processCraftLabel: `${row.processName} / ${row.craftName}`,
+    coversAllCrafts: false,
+  }))
   return [...processOptions, ...craftOptions]
 }
 
@@ -646,14 +1292,11 @@ export function resolveDispatchAcceptanceSlaForTask(
   const processName = task.processBusinessName || task.processNameZh || processCode
   const craftCode = normalizeCraftCode(task.craftCode)
   const craftName = normalizeCraftName(task.craftName)
-  const exactConfig = presetConfigs.find(
-    (item) => item.enabled && item.processCode === processCode && item.craftCode === craftCode,
-  )
-  const config = exactConfig ?? presetConfigs.find(
-    (item) => item.enabled && item.processCode === processCode && isAllCraftsConfig(item.craftCode),
-  )
+  const factory = findFactoryById(factoryId)
+  const resolvedFactoryName = factoryName || factory?.name
+  const rule = findEffectiveRuleForContext(processCode, craftCode, factory?.id || factoryId)
 
-  if (!config && !globalDefaultConfig.enabled) {
+  if (!rule && !globalDefaultConfig.enabled) {
     return {
       ruleSource: 'UNCONFIGURED',
       processCode,
@@ -661,7 +1304,7 @@ export function resolveDispatchAcceptanceSlaForTask(
       craftCode,
       craftName,
       factoryId,
-      factoryName,
+      factoryName: resolvedFactoryName,
       acceptTimeoutHours: null,
       enabled: false,
       autoAccept: false,
@@ -669,35 +1312,21 @@ export function resolveDispatchAcceptanceSlaForTask(
     }
   }
 
-  if (!config) {
-    const resolution: DispatchAcceptanceSlaResolution = {
-      ruleSource: 'GLOBAL_DEFAULT',
-      configId: globalDefaultConfig.configId,
-      processCode,
-      processName,
-      craftCode,
-      craftName,
-      factoryId,
-      factoryName,
-      acceptTimeoutHours: globalDefaultConfig.defaultAcceptTimeoutHours,
-      enabled: true,
-      autoAccept: globalDefaultConfig.defaultAcceptTimeoutHours === 0,
-    }
-    return dispatchedAt ? { ...resolution, acceptDeadline: buildDispatchAcceptanceDeadline(dispatchedAt, resolution) } : resolution
-  }
-
-  const override = findEffectiveOverrideForFactory(config.factoryOverrides, factoryId)
-  const acceptTimeoutHours = override?.acceptTimeoutHours ?? config.defaultAcceptTimeoutHours
+  const acceptTimeoutHours = rule?.acceptTimeoutHours ?? globalDefaultConfig.defaultAcceptTimeoutHours
+  const ruleSource = getRuleSource(rule)
   const resolution: DispatchAcceptanceSlaResolution = {
-    ruleSource: override ? 'FACTORY_OVERRIDE' : 'PROCESS_CRAFT_DEFAULT',
-    configId: config.configId,
-    overrideId: override?.overrideId,
-    processCode: config.processCode,
-    processName: config.processName,
-    craftCode: config.craftCode,
-    craftName: config.craftName,
-    factoryId,
-    factoryName,
+    ruleSource,
+    configId: rule?.sourceConfigId || (!rule ? globalDefaultConfig.configId : undefined),
+    overrideId: rule?.sourceOverrideId,
+    ruleId: rule?.ruleId || globalDefaultConfig.configId,
+    ruleName: rule?.ruleName || '全局兜底规则',
+    ruleScopeLabel: rule ? getRuleScopeLabel(rule) : '全部工序工艺 × 全部工厂',
+    processCode,
+    processName,
+    craftCode,
+    craftName,
+    factoryId: factory?.id || factoryId,
+    factoryName: resolvedFactoryName,
     acceptTimeoutHours,
     enabled: true,
     autoAccept: acceptTimeoutHours === 0,
@@ -715,8 +1344,8 @@ export function buildDispatchAcceptanceDeadline(
 }
 
 export function getDispatchAcceptanceSlaRuleSourceLabel(source: DispatchAcceptanceSlaRuleSource): string {
-  if (source === 'FACTORY_OVERRIDE') return '工厂覆盖'
-  if (source === 'PROCESS_CRAFT_DEFAULT') return '工序工艺默认'
+  if (source === 'FACTORY_OVERRIDE') return '工厂范围规则'
+  if (source === 'PROCESS_CRAFT_DEFAULT') return '工序工艺规则'
   if (source === 'GLOBAL_DEFAULT') return '全局默认'
   return '未配置'
 }
@@ -751,27 +1380,54 @@ export function listDispatchAcceptanceSlaPageRows(): Array<DispatchAcceptanceSla
   })
 }
 
-export function listDispatchAcceptanceSlaMissingProcessCraftRows(): Array<{
+export function listDispatchAcceptanceSlaMissingProcessCraftRows(input: { limit?: number } = {}): Array<{
   processCode: string
   processName: string
   craftCode: string
   craftName: string
 }> {
+  const limit = input.limit ?? 8
   const configuredKeys = new Set(presetConfigs.filter((item) => item.enabled).map((item) => getProcessCraftKey(item.processCode, item.craftCode)))
   const configuredAllCraftProcesses = new Set(
     presetConfigs
       .filter((item) => item.enabled && isAllCraftsConfig(item.craftCode))
       .map((item) => item.processCode),
   )
-  return listProcessCraftDictRows()
+  const rows = listProcessCraftDictRows()
     .filter((row) => row.generatesExternalTask)
     .filter((row) => !configuredAllCraftProcesses.has(row.processCode))
     .filter((row) => !configuredKeys.has(getProcessCraftKey(row.processCode, row.craftCode)))
-    .slice(0, 8)
     .map((row) => ({
       processCode: row.processCode,
       processName: row.processName,
       craftCode: row.craftCode,
       craftName: row.craftName,
     }))
+  return limit > 0 ? rows.slice(0, limit) : rows
+}
+
+export function listDispatchAcceptanceSlaUnconfiguredFactoryRows(): DispatchAcceptanceSlaUnconfiguredFactoryRow[] {
+  return listDispatchAcceptanceSlaFactoryRows()
+    .flatMap((factoryRow) => factoryRow.abilityRows.filter((row) => row.isUnconfigured))
+    .map((row) => ({
+      processCode: row.processCode,
+      processName: row.processName,
+      craftCode: row.craftCode,
+      craftName: row.craftName,
+      factoryId: row.factoryId,
+      factoryName: row.factoryName,
+      factoryTier: row.factoryTier,
+      factoryTierName: row.factoryTierName,
+      factoryType: row.factoryType,
+      factoryTypeName: row.factoryTypeName,
+      fallbackAcceptTimeoutHours: row.acceptTimeoutHours ?? globalDefaultConfig.defaultAcceptTimeoutHours,
+      fallbackAcceptTimeoutText: row.acceptTimeoutText,
+    }))
+    .sort((left, right) =>
+      left.processName.localeCompare(right.processName)
+      || left.craftName.localeCompare(right.craftName)
+      || left.factoryTierName.localeCompare(right.factoryTierName)
+      || left.factoryTypeName.localeCompare(right.factoryTypeName)
+      || left.factoryName.localeCompare(right.factoryName),
+    )
 }

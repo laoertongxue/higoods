@@ -202,6 +202,9 @@ import {
 
 export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
+    return handleDispatchAcceptanceSlaEvent(target)
+  }
   if (pathname.startsWith('/fcs/factories/profile')) {
     return handleFactoryPageEvent(target)
   }
