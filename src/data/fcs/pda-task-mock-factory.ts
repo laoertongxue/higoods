@@ -455,6 +455,12 @@ function nowLike(day: number, time: string): string {
   return `2026-03-${String(day).padStart(2, '0')} ${time}`
 }
 
+function relativeDateTime(hoursFromNow: number): string {
+  const date = new Date(Date.now() + hoursFromNow * 3600 * 1000)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
 function createTask(
   profile: GenericProcessProfile,
   index: number,
@@ -596,8 +602,10 @@ function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): 
   const baseOrderNo = orderNo(baseIndex)
   const pendingAcceptDeadline =
     profile.key === 'SEWING'
-      ? nowLike(28, '20:30:00')
-      : nowLike(29, '10:00:00')
+      ? relativeDateTime(8)
+      : profile.key === 'IRONING'
+        ? relativeDateTime(2)
+        : nowLike(29, '10:00:00')
   return [
     createTask(profile, baseIndex * 10 + 1, 'DIRECT_PENDING', {
       assignmentMode: 'DIRECT',

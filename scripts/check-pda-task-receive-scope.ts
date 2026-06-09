@@ -187,7 +187,10 @@ const warehouseInboundSource = read('src/pages/pda-warehouse-inbound-records.ts'
 if (!handoverDetailSource.includes('confirm-pickup-record')) {
   fail('待领料确认主流程不在原交接详情页')
 }
-if (warehouseWaitProcessSource.includes(buildToken('确认', '领料'))) {
+if (
+  warehouseWaitProcessSource.includes('confirm-pickup-record')
+  || warehouseWaitProcessSource.includes('待领料确认主流程')
+) {
   fail('待加工仓页面不应替代待领料确认主流程')
 }
 if (

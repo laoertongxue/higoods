@@ -24,6 +24,7 @@ import {
   OWN_WOOL_FACTORY_ID,
   OWN_WOOL_FACTORY_NAME,
 } from './factory-mock-data.ts'
+import type { DispatchAcceptanceSlaRuleSource } from './dispatch-acceptance-sla.ts'
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
@@ -126,6 +127,11 @@ export interface ProcessTask {
   acceptedAt?: string
   awardedAt?: string
   acceptedBy?: string
+  dispatchAcceptanceSlaConfigId?: string
+  dispatchAcceptanceSlaOverrideId?: string
+  dispatchAcceptanceSlaRuleSource?: DispatchAcceptanceSlaRuleSource
+  dispatchAcceptanceTimeoutHours?: number
+  dispatchAcceptanceSlaLabel?: string
   startDueAt?: string
   startDueSource?: 'ACCEPTED' | 'AWARDED'
   startRiskStatus?: 'NORMAL' | 'DUE_SOON' | 'OVERDUE'

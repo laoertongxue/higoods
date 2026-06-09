@@ -94,6 +94,10 @@ import {
 } from '../pages/payment-sync'
 import { handleHistoryEvent } from '../pages/history'
 import {
+  handleDispatchAcceptanceSlaEvent,
+  isDispatchAcceptanceSlaDialogOpen,
+} from '../pages/dispatch-acceptance-sla'
+import {
   handleDispatchBoardEvent,
   isDispatchBoardDialogOpen,
 } from '../pages/dispatch-board'
@@ -269,6 +273,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleMaterialStatementsEvent(target) ||
     await handlePaymentSyncEvent(target) ||
     await handleHistoryEvent(target) ||
+    await handleDispatchAcceptanceSlaEvent(target) ||
     await handleSewingDispatchWorkbenchEvent(target) ||
     await handleDispatchBoardEvent(target) ||
     await handleDispatchTendersEvent(target) ||
@@ -457,6 +462,13 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.dispatchAction = 'close-dialog'
     handleDispatchBoardEvent(fakeButton)
+    return true
+  }
+
+  if (isDispatchAcceptanceSlaDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.acceptanceSlaAction = 'close-dialog'
+    handleDispatchAcceptanceSlaEvent(fakeButton)
     return true
   }
 

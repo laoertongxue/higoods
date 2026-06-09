@@ -174,6 +174,10 @@ export const renderDispatchTendersPage = createAsyncRenderer(
   () => import('../pages/dispatch-tenders'),
   'renderDispatchTendersPage',
 )
+export const renderDispatchAcceptanceSlaPage = createAsyncRenderer(
+  () => import('../pages/dispatch-acceptance-sla'),
+  'renderDispatchAcceptanceSlaPage',
+)
 export const renderProgressBoardPage = createAsyncRenderer(() => import('../pages/progress-board'), 'renderProgressBoardPage')
 export const renderProgressCuttingDetailPage = createAsyncRenderer(
   () => import('../pages/progress-cutting-detail'),

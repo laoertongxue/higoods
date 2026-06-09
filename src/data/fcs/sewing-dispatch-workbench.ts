@@ -2,7 +2,9 @@ import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import type { TechPackCutPiecePartSnapshot } from './production-tech-pack-snapshot-types.ts'
 import {
+  applyRuntimeDirectDispatchMeta,
   dispatchRuntimeTaskByDetailGroups,
+  getRuntimeTaskById,
   isRuntimeSewingTask,
   isRuntimeTaskExecutionTask,
   listRuntimeProcessTasks,
@@ -10,6 +12,10 @@ import {
   type RuntimeProcessTask,
   type RuntimeTaskAllocatableGroup,
 } from './runtime-process-tasks.ts'
+import {
+  buildDispatchAcceptanceDeadline,
+  resolveDispatchAcceptanceSlaForTask,
+} from './dispatch-acceptance-sla.ts'
 import { indonesiaFactories } from './indonesia-factories.ts'
 import {
   listAvailableCutPieceInventoryForSewingDispatch,
@@ -195,6 +201,14 @@ const styleImageFallbackBySpu: Record<string, string> = {
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function addDays(value: string, days: number): string {
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const date = new Date(normalized)
+  if (Number.isNaN(date.getTime())) return value
+  date.setDate(date.getDate() + days)
+  return nowTimestamp(date)
 }
 
 function unique(values: string[]): string[] {
@@ -1001,10 +1015,18 @@ export function createSewingDispatchWorkbenchDraft(input: {
       rowsByTask.set(row.taskId, list)
     })
 
-    rowsByTask.forEach((taskRows, taskId) => {
+    for (const [taskId, taskRows] of rowsByTask.entries()) {
+      const sourceTask = getRuntimeTaskById(taskId)
+      if (!sourceTask) return { ok: false, message: '车缝任务不存在或已被移除。' }
+      const dispatchedAt = nowTimestamp()
+      const acceptanceSla = resolveDispatchAcceptanceSlaForTask(sourceTask, input.factoryId, input.factoryName, dispatchedAt)
+      if (acceptanceSla.ruleSource === 'UNCONFIGURED') {
+        return { ok: false, message: acceptanceSla.missingReason ?? '当前车缝工序工艺未配置接单时效。' }
+      }
+
       const allGroups = listRuntimeTaskAllocatableGroups(taskId)
       if (allGroups.length === taskRows.length && taskRows.every((row) => row.allocatableGroupKey)) {
-        dispatchRuntimeTaskByDetailGroups({
+        const result = dispatchRuntimeTaskByDetailGroups({
           taskId,
           by: input.by,
           assignments: taskRows
@@ -1015,8 +1037,52 @@ export function createSewingDispatchWorkbenchDraft(input: {
               factoryName: input.factoryName || '',
             })),
         })
+        if (!result.ok || !result.resultAssignments) {
+          return { ok: false, message: result.message ?? '车缝明细派单失败。' }
+        }
+
+        const assignmentsByTaskId = new Map<string, (typeof result.resultAssignments)[number]>()
+        for (const assignment of result.resultAssignments) {
+          const current = assignmentsByTaskId.get(assignment.taskId)
+          assignmentsByTaskId.set(assignment.taskId, current
+            ? {
+                ...current,
+                outputValueTotal: (current.outputValueTotal ?? 0) + (assignment.outputValueTotal ?? 0),
+              }
+            : { ...assignment })
+        }
+
+        for (const assignment of assignmentsByTaskId.values()) {
+          const assignmentTask = getRuntimeTaskById(assignment.taskId) ?? sourceTask
+          const assignmentSla = resolveDispatchAcceptanceSlaForTask(
+            assignmentTask,
+            assignment.factoryId,
+            assignment.factoryName,
+            dispatchedAt,
+          )
+          applyRuntimeDirectDispatchMeta({
+            taskId: assignment.taskId,
+            factoryId: assignment.factoryId,
+            factoryName: assignment.factoryName,
+            acceptDeadline: buildDispatchAcceptanceDeadline(dispatchedAt, assignmentSla),
+            taskDeadline: sourceTask.taskDeadline || addDays(dispatchedAt, 7),
+            remark: '车缝分配工作台直接派单',
+            by: input.by,
+            dispatchedAt,
+            autoAccept: assignmentSla.autoAccept,
+            acceptanceSla: assignmentSla,
+            dispatchPrice: sourceTask.dispatchPrice ?? sourceTask.standardPrice ?? 0,
+            dispatchPriceCurrency: sourceTask.dispatchPriceCurrency ?? sourceTask.standardPriceCurrency ?? 'IDR',
+            dispatchPriceUnit: sourceTask.dispatchPriceUnit ?? sourceTask.standardPriceUnit ?? '件',
+            priceDiffReason: '',
+            outputValuePerUnit: assignment.outputValuePerUnit,
+            outputValueUnit: assignment.outputValueUnit,
+            outputValueTotal: assignment.outputValueTotal,
+            outputValueDifficulty: assignment.outputValueDifficulty,
+          })
+        }
       }
-    })
+    }
   }
 
   const draft: SewingDispatchDraft = {

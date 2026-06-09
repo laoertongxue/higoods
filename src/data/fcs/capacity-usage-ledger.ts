@@ -1207,9 +1207,50 @@ function hasDetailDispatchAudit(task: Pick<CapacityUsageTaskLike, 'auditLogs'>):
   return Boolean(task.auditLogs?.some((log) => log.action === 'DETAIL_DISPATCH' || log.action === 'DETAIL_TENDER_SPLIT'))
 }
 
+export function syncDetailDirectTaskCapacityUsage(task: CapacityUsageTaskLike): void {
+  if (task.assignmentMode !== 'DIRECT') return
+  const freezes = [...capacityFreezes.values()].filter(
+    (freeze) =>
+      freeze.taskId === task.taskId
+      && freeze.sourceType === 'DIRECT_PENDING_ACCEPT'
+      && freeze.status === 'ACTIVE',
+  )
+  if (freezes.length === 0) return
+
+  for (const freeze of freezes) {
+    if (task.acceptanceStatus === 'ACCEPTED') {
+      convertFreezeToCommitment({
+        task,
+        factoryId: freeze.factoryId,
+        allocationUnitId: freeze.allocationUnitId,
+        outputValueTotal: freeze.outputValueTotal,
+        windowStartDate: freeze.windowStartDate,
+        windowEndDate: freeze.windowEndDate,
+        freezeSourceType: 'DIRECT_PENDING_ACCEPT',
+        commitmentSourceType: 'DIRECT_ACCEPTED',
+        note: '明细派单已接单，分配单元冻结产值转为正式占用。',
+      })
+    } else if (task.acceptanceStatus === 'REJECTED') {
+      releaseFreeze({
+        sourceType: 'DIRECT_PENDING_ACCEPT',
+        task,
+        factoryId: freeze.factoryId,
+        allocationUnitId: freeze.allocationUnitId,
+        outputValueTotal: freeze.outputValueTotal,
+        windowStartDate: freeze.windowStartDate,
+        windowEndDate: freeze.windowEndDate,
+        note: '明细派单未接单，释放分配单元冻结产值。',
+      })
+    }
+  }
+}
+
 export function syncDirectTaskCapacityUsage(task: CapacityUsageTaskLike): void {
   if (task.assignmentMode !== 'DIRECT' || !task.assignedFactoryId) return
-  if (task.isSplitResult || task.isSplitSource || hasDetailDispatchAudit(task)) return
+  if (task.isSplitResult || task.isSplitSource || hasDetailDispatchAudit(task)) {
+    syncDetailDirectTaskCapacityUsage(task)
+    return
+  }
 
   if (task.acceptanceStatus === 'ACCEPTED') {
     convertFreezeToCommitment({

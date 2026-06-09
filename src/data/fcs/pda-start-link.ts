@@ -11,6 +11,7 @@ import {
   type ExceptionCase,
 } from './store-domain-progress.ts'
 import {
+  applyPendingDispatchAutoAcceptance,
   getRuntimeTaskById,
   isRuntimeTaskExecutionTask,
   listRuntimeTasksByBaseTaskId,
@@ -606,6 +607,7 @@ function resolveStartOverdueException(exceptionCase: ExceptionCase, now: string)
 }
 
 export function syncPdaStartRiskAndExceptions(now: Date = new Date()): void {
+  applyPendingDispatchAutoAcceptance(nowTimestamp(now))
   const nowMs = now.getTime()
   const nowAt = nowTimestamp(now)
 

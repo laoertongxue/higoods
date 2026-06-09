@@ -15,6 +15,7 @@ import {
 import {
   listPostFinishingMobileExecutionTasks,
 } from './process-mobile-task-binding.ts'
+import { applyPendingDispatchAutoAcceptance } from './runtime-process-tasks.ts'
 
 export type FactoryMobileTodoType =
   | '待接单'
@@ -93,6 +94,7 @@ function resolveTodoStatus(task: PdaTaskFlowMock): FactoryMobileTodoStatus {
 }
 
 function buildTaskReceiveTodos(factoryId: string): FactoryMobileTodo[] {
+  applyPendingDispatchAutoAcceptance()
   return listPdaTaskFlowTasks()
     .filter(
       (task) =>

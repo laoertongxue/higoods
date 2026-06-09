@@ -41,6 +41,14 @@ import {
   type DispatchOutputValueJudgementSnapshot,
   type DispatchTask,
 } from './context.ts'
+import {
+  buildDispatchAcceptanceDeadline,
+  describeDispatchAcceptanceSlaResolution,
+  formatDispatchAcceptanceTimeout,
+  getDispatchAcceptanceSlaRuleSourceLabel,
+  resolveDispatchAcceptanceSlaForTask,
+  type DispatchAcceptanceSlaResolution,
+} from '../../data/fcs/dispatch-acceptance-sla.ts'
 
 function setTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
   setRuntimeTaskAssignMode(taskId, mode, by)
@@ -141,6 +149,72 @@ function getOutputValueJudgementTone(snapshot: DispatchOutputValueJudgementSnaps
     return 'border-amber-200 bg-amber-50 text-amber-700'
   }
   return 'border-green-200 bg-green-50 text-green-700'
+}
+
+function getAcceptanceSlaTone(resolution: DispatchAcceptanceSlaResolution | null): string {
+  if (!resolution || resolution.ruleSource === 'UNCONFIGURED') return 'border-amber-200 bg-amber-50 text-amber-700'
+  if (resolution.autoAccept) return 'border-green-200 bg-green-50 text-green-700'
+  if (resolution.ruleSource === 'FACTORY_OVERRIDE') return 'border-blue-200 bg-blue-50 text-blue-700'
+  return 'border-slate-200 bg-slate-50 text-slate-700'
+}
+
+function renderAcceptanceSlaItem(label: string, task: DispatchTask, factoryId?: string, factoryName?: string): string {
+  if (!factoryId || !factoryName) {
+    return `
+      <div class="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+        ${escapeHtml(label)}：请选择承接工厂后计算接单时效。
+      </div>
+    `
+  }
+  const dispatchedAt = nowTimestamp()
+  const resolution = resolveDispatchAcceptanceSlaForTask(task, factoryId, factoryName, dispatchedAt)
+  const deadlineText = resolution.ruleSource === 'UNCONFIGURED'
+    ? '未生成'
+    : buildDispatchAcceptanceDeadline(dispatchedAt, resolution)
+  return `
+    <div class="rounded-md border px-3 py-2 text-xs ${getAcceptanceSlaTone(resolution)}">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="font-medium">${escapeHtml(label)}</span>
+        <span class="rounded border bg-background/70 px-2 py-0.5">${escapeHtml(getDispatchAcceptanceSlaRuleSourceLabel(resolution.ruleSource))}</span>
+      </div>
+      <div class="mt-1 leading-5">${escapeHtml(describeDispatchAcceptanceSlaResolution(resolution))}</div>
+      <div class="mt-1 text-muted-foreground">预计接单截止：${escapeHtml(deadlineText)}；时效：${escapeHtml(formatDispatchAcceptanceTimeout(resolution.acceptTimeoutHours))}</div>
+    </div>
+  `
+}
+
+function renderAcceptanceSlaPreview(
+  tasks: DispatchTask[],
+  detailMode: boolean,
+  groups: RuntimeTaskAllocatableGroup[],
+): string {
+  const content = detailMode && tasks.length === 1
+    ? groups
+        .map((group) => {
+          const selected = state.dispatchForm.factoryByGroupKey[group.groupKey]
+          return renderAcceptanceSlaItem(group.groupLabel, tasks[0], selected?.factoryId, selected?.factoryName)
+        })
+        .join('')
+    : tasks
+        .map((task) =>
+          renderAcceptanceSlaItem(
+            tasks.length > 1 ? `${formatTaskNo(task)} · ${task.processNameZh}${task.craftName ? ` / ${task.craftName}` : ''}` : '整任务派单',
+            task,
+            state.dispatchForm.factoryId,
+            state.dispatchForm.factoryName,
+          ),
+        )
+        .join('')
+
+  return `
+    <div class="rounded-md border bg-muted/20 p-3 space-y-2">
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-sm font-medium">接单时效规则</p>
+        <a class="text-xs text-blue-600 hover:underline" href="/fcs/dispatch/acceptance-sla">查看配置</a>
+      </div>
+      ${content}
+    </div>
+  `
 }
 
 function renderOutputValueJudgementSummary(
@@ -303,12 +377,12 @@ function confirmDirectDispatch(): void {
 
   const validation = getDispatchDialogValidation(tasks)
   if (!validation.valid || validation.dispatchPrice == null) {
-    state.dispatchDialogError = '请先补齐派单必填信息'
+    state.dispatchDialogError = validation.acceptanceSlaMissingReason || '请先补齐派单必填信息'
     return
   }
 
-  const acceptDeadline = fromDateTimeLocal(state.dispatchForm.acceptDeadline)
   const taskDeadline = fromDateTimeLocal(state.dispatchForm.taskDeadline)
+  const dispatchedAt = nowTimestamp()
   const singleTask = tasks.length === 1 ? tasks[0] : null
   const groups = getDirectDispatchGroups(singleTask)
   const detailMode = Boolean(singleTask && supportsDetailAssignment(singleTask) && state.dispatchForm.mode === 'DETAIL')
@@ -328,6 +402,14 @@ function confirmDirectDispatch(): void {
         state.dispatchDialogError = '车缝任务按明细派单时必须指定一个分配单元作为生产单主工厂'
         return
       }
+    }
+
+    const missingSla = assignments
+      .map((assignment) => resolveDispatchAcceptanceSlaForTask(singleTask, assignment.factoryId, assignment.factoryName, dispatchedAt))
+      .find((resolution) => resolution.ruleSource === 'UNCONFIGURED')
+    if (missingSla) {
+      state.dispatchDialogError = missingSla.missingReason ?? '当前工序工艺未配置接单时效'
+      return
     }
 
     for (const group of groups) {
@@ -376,14 +458,24 @@ function confirmDirectDispatch(): void {
     }
 
     for (const assignment of assignmentsByTaskId.values()) {
+      const assignmentTask = getTaskById(assignment.taskId) ?? singleTask
+      const acceptanceSla = resolveDispatchAcceptanceSlaForTask(
+        assignmentTask,
+        assignment.factoryId,
+        assignment.factoryName,
+        dispatchedAt,
+      )
       applyRuntimeDirectDispatchMeta({
         taskId: assignment.taskId,
         factoryId: assignment.factoryId,
         factoryName: assignment.factoryName,
-        acceptDeadline,
+        acceptDeadline: buildDispatchAcceptanceDeadline(dispatchedAt, acceptanceSla),
         taskDeadline,
         remark: state.dispatchForm.remark,
         by: '跟单A',
+        dispatchedAt,
+        autoAccept: acceptanceSla.autoAccept,
+        acceptanceSla,
         dispatchPrice: validation.dispatchPrice,
         dispatchPriceCurrency: validation.stdCurrency,
         dispatchPriceUnit: validation.stdUnit,
@@ -438,7 +530,7 @@ function confirmDirectDispatch(): void {
     tasks.map((task) => task.taskId),
     state.dispatchForm.factoryId,
     state.dispatchForm.factoryName,
-    acceptDeadline,
+    '',
     taskDeadline,
     state.dispatchForm.remark,
     '跟单A',
@@ -643,8 +735,12 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
       ? `${formatOutputValueNumber(taskOutputValue.outputValueTotal)} ${escapeHtml(taskOutputValue.outputValueUnit.replace(/^产值\//, '产值'))}`
       : '--'
   const selectionError =
-    state.dispatchDialogError ??
-    (!selectionValidation.valid ? selectionValidation.reason ?? '批量派单条件不满足' : '')
+    state.dispatchDialogError
+    ?? (!validation.acceptanceSlaReady && validation.acceptanceSlaMissingReason
+      ? validation.acceptanceSlaMissingReason
+      : !selectionValidation.valid
+        ? selectionValidation.reason ?? '批量派单条件不满足'
+        : '')
   const detailMainFactorySelected =
     !detailMode ||
     !isRuntimeSewingTask(refTask) ||
@@ -748,9 +844,8 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
           }
 
           <div class="grid gap-4 md:grid-cols-2">
-            <div class="space-y-1.5">
-              <label class="text-sm font-medium">接单截止时间 <span class="text-red-500">*</span></label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" data-dispatch-field="dispatch.acceptDeadline" value="${escapeHtml(state.dispatchForm.acceptDeadline)}" />
+            <div class="md:col-span-2">
+              ${renderAcceptanceSlaPreview(tasks, detailMode, groups)}
             </div>
             <div class="space-y-1.5">
               <label class="text-sm font-medium">任务截止时间 <span class="text-red-500">*</span></label>

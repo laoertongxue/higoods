@@ -28,6 +28,14 @@ import {
   type TaskSplitFactoryBucket,
   type TaskAllocatableGroupAssignment,
 } from './task-split-dispatch.ts'
+import {
+  DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY,
+  buildDispatchAcceptanceDeadline,
+  describeDispatchAcceptanceSlaResolution,
+  resolveDispatchAcceptanceSlaForTask,
+  type DispatchAcceptanceSlaResolution,
+  type DispatchAcceptanceSlaRuleSource,
+} from './dispatch-acceptance-sla.ts'
 
 export type RuntimeTaskScopeType = ProcessAssignmentGranularity
 export type RuntimeExecutorKind = 'EXTERNAL_FACTORY' | 'WAREHOUSE_WORKSHOP'
@@ -106,6 +114,11 @@ interface RuntimeTaskOverride {
   acceptanceStatus?: AcceptanceStatus
   acceptedAt?: string
   acceptedBy?: string
+  dispatchAcceptanceSlaConfigId?: string
+  dispatchAcceptanceSlaOverrideId?: string
+  dispatchAcceptanceSlaRuleSource?: DispatchAcceptanceSlaRuleSource
+  dispatchAcceptanceTimeoutHours?: number
+  dispatchAcceptanceSlaLabel?: string
   tenderId?: string
   awardedAt?: string
   auditLogs?: TaskAuditLog[]
@@ -962,7 +975,7 @@ function ensureDispatchBoardSeedData(): void {
       assignedFactoryId: directFactorySeeds.cut.id,
       assignedFactoryName: directFactorySeeds.cut.name,
       acceptDeadline: '2026-06-03 12:00:00',
-      taskDeadline: '2026-06-08 18:00:00',
+      taskDeadline: '2026-06-12 18:00:00',
       dispatchedAt: '2026-03-19 10:00:00',
       dispatchedBy: '跟单A',
       dispatchPrice: 8600,
@@ -1975,6 +1988,7 @@ export function applyRuntimeDirectDispatchMeta(input: {
   priceDiffReason: string
   dispatchedAt?: string
   autoAccept?: boolean
+  acceptanceSla?: DispatchAcceptanceSlaResolution
   outputValuePerUnit?: number
   outputValueUnit?: string
   outputValueTotal?: number
@@ -1982,6 +1996,23 @@ export function applyRuntimeDirectDispatchMeta(input: {
   writeBackMainFactory?: boolean
 }): RuntimeProcessTask | null {
   const dispatchedAt = input.dispatchedAt ?? nowTimestamp()
+  const acceptanceSla =
+    input.acceptanceSla
+    ?? resolveDispatchAcceptanceSlaForTask(
+      getRuntimeTaskById(input.taskId) ?? {
+        processCode: '',
+        processNameZh: '',
+      },
+      input.factoryId,
+      input.factoryName,
+      dispatchedAt,
+    )
+  const acceptDeadline = input.acceptDeadline || buildDispatchAcceptanceDeadline(dispatchedAt, acceptanceSla)
+  const autoAccept = Boolean(input.autoAccept || acceptanceSla.autoAccept)
+  const acceptedBy = autoAccept ? DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY : undefined
+  const auditDetail = autoAccept
+    ? `${describeDispatchAcceptanceSlaResolution(acceptanceSla)}，派单后系统自动接单。`
+    : `${describeDispatchAcceptanceSlaResolution(acceptanceSla)}，已发起直接派单，待工厂确认。`
   const updated = updateRuntimeTaskWithAudit(
     input.taskId,
     {
@@ -1989,7 +2020,7 @@ export function applyRuntimeDirectDispatchMeta(input: {
       assignmentStatus: 'ASSIGNED',
       assignedFactoryId: input.factoryId,
       assignedFactoryName: input.factoryName,
-      acceptDeadline: input.acceptDeadline,
+      acceptDeadline,
       taskDeadline: input.taskDeadline,
       dispatchRemark: input.remark.trim() || undefined,
       dispatchedAt,
@@ -1998,16 +2029,21 @@ export function applyRuntimeDirectDispatchMeta(input: {
       dispatchPriceCurrency: input.dispatchPriceCurrency,
       dispatchPriceUnit: input.dispatchPriceUnit,
       priceDiffReason: input.priceDiffReason.trim() || undefined,
-      acceptanceStatus: input.autoAccept ? 'ACCEPTED' : 'PENDING',
-      acceptedAt: input.autoAccept ? dispatchedAt : undefined,
-      acceptedBy: input.autoAccept ? input.factoryName : undefined,
+      acceptanceStatus: autoAccept ? 'ACCEPTED' : 'PENDING',
+      acceptedAt: autoAccept ? dispatchedAt : undefined,
+      acceptedBy,
+      dispatchAcceptanceSlaConfigId: acceptanceSla.configId,
+      dispatchAcceptanceSlaOverrideId: acceptanceSla.overrideId,
+      dispatchAcceptanceSlaRuleSource: acceptanceSla.ruleSource,
+      dispatchAcceptanceTimeoutHours: acceptanceSla.acceptTimeoutHours ?? undefined,
+      dispatchAcceptanceSlaLabel: describeDispatchAcceptanceSlaResolution(acceptanceSla),
       outputValuePerUnit: input.outputValuePerUnit,
       outputValueUnit: input.outputValueUnit,
       outputValueTotal: input.outputValueTotal,
       outputValueDifficulty: input.outputValueDifficulty,
     },
     'DISPATCH',
-    input.autoAccept ? '自动分配直接派单，工厂已同步接单确认' : '已发起直接派单，待工厂确认',
+    auditDetail,
     input.by,
   )
 
@@ -2022,6 +2058,46 @@ export function applyRuntimeDirectDispatchMeta(input: {
   }
 
   return updated
+}
+
+function parseRuntimeDateLike(value: string): number {
+  if (!value) return Number.NaN
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  return new Date(normalized).getTime()
+}
+
+export function applyPendingDispatchAutoAcceptance(now: string = nowTimestamp()): {
+  acceptedCount: number
+  taskIds: string[]
+} {
+  const nowMs = parseRuntimeDateLike(now)
+  if (!Number.isFinite(nowMs)) return { acceptedCount: 0, taskIds: [] }
+
+  const acceptedTaskIds: string[] = []
+  for (const task of listRuntimeProcessTasks()) {
+    if (task.assignmentMode !== 'DIRECT') continue
+    if (task.assignmentStatus !== 'ASSIGNED') continue
+    if (task.acceptanceStatus !== 'PENDING') continue
+    if (!task.acceptDeadline) continue
+
+    const deadlineMs = parseRuntimeDateLike(task.acceptDeadline)
+    if (!Number.isFinite(deadlineMs) || deadlineMs > nowMs) continue
+
+    const updated = updateRuntimeTaskWithAudit(
+      task.taskId,
+      {
+        acceptanceStatus: 'ACCEPTED',
+        acceptedAt: now,
+        acceptedBy: DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY,
+      },
+      'AUTO_ACCEPT_BY_SLA',
+      `接单时效到期，系统自动接单。${task.dispatchAcceptanceSlaLabel || ''}`.trim(),
+      DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY,
+    )
+    if (updated) acceptedTaskIds.push(task.taskId)
+  }
+
+  return { acceptedCount: acceptedTaskIds.length, taskIds: acceptedTaskIds }
 }
 
 export function recomputeRuntimeTransitionsForOrder(productionOrderId: string): RuntimeProcessTask[] {

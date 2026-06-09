@@ -11,6 +11,13 @@ import {
   type SewingDispatchWorkbenchRow,
   type SewingDispatchWorkbenchTask,
 } from '../data/fcs/sewing-dispatch-workbench.ts'
+import { getRuntimeTaskById } from '../data/fcs/runtime-process-tasks.ts'
+import {
+  describeDispatchAcceptanceSlaResolution,
+  formatDispatchAcceptanceTimeout,
+  getDispatchAcceptanceSlaRuleSourceLabel,
+  resolveDispatchAcceptanceSlaForTask,
+} from '../data/fcs/dispatch-acceptance-sla.ts'
 
 type KitFilter = '全部' | SewingDispatchKitStatus
 type GapFilter = '全部' | SewingDispatchGapType
@@ -108,6 +115,39 @@ function getSelectedDispatchRows(tasks: SewingDispatchWorkbenchTask[] = listSewi
     .filter((task) => state.selectedTaskIds.has(task.taskId))
     .flatMap((task) => task.skuRows)
     .filter((row) => row.completeKitQty > 0)
+}
+
+function renderDispatchAcceptanceSlaPreview(rows: SewingDispatchWorkbenchRow[], factoryId: string, factoryName?: string): string {
+  if (!factoryId || !factoryName) {
+    return '<div class="mt-3 rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">选择车缝工厂后，将展示接单时效规则。</div>'
+  }
+  const taskIds = Array.from(new Set(rows.map((row) => row.taskId)))
+  const items = taskIds.map((taskId) => {
+    const task = getRuntimeTaskById(taskId)
+    if (!task) return ''
+    const resolution = resolveDispatchAcceptanceSlaForTask(task, factoryId, factoryName)
+    const tone = resolution.ruleSource === 'UNCONFIGURED'
+      ? 'border-amber-200 bg-amber-50 text-amber-700'
+      : resolution.autoAccept
+        ? 'border-green-200 bg-green-50 text-green-700'
+        : 'border-blue-200 bg-blue-50 text-blue-700'
+    return `
+      <div class="rounded-md border px-3 py-2 text-xs ${tone}">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="font-medium">${escapeHtml(task.taskNo || task.taskId)} · ${escapeHtml(task.processNameZh)}${task.craftName ? ` / ${escapeHtml(task.craftName)}` : ''}</span>
+          <span class="rounded border bg-background/70 px-2 py-0.5">${escapeHtml(getDispatchAcceptanceSlaRuleSourceLabel(resolution.ruleSource))}</span>
+        </div>
+        <div class="mt-1">${escapeHtml(describeDispatchAcceptanceSlaResolution(resolution))}</div>
+        <div class="mt-1 text-muted-foreground">时效：${escapeHtml(formatDispatchAcceptanceTimeout(resolution.acceptTimeoutHours))}</div>
+      </div>
+    `
+  }).filter(Boolean).join('')
+  return `
+    <div class="mt-3 rounded-md border bg-muted/20 p-3">
+      <div class="mb-2 text-sm font-medium">接单时效规则</div>
+      <div class="space-y-2">${items || '<div class="text-sm text-muted-foreground">暂无可计算的车缝任务。</div>'}</div>
+    </div>
+  `
 }
 
 function getGroupTone(group: SewingDispatchReadinessGroup): string {
@@ -796,7 +836,8 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
               </tbody>
             </table>
           </div>
-          ${state.dispatchActionType === '直接派单' && selectedFactory ? `<div class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">直接派单到：${escapeHtml(selectedFactory.name)}。若选中范围覆盖整任务所有 SKU，会同步调用现有明细派单逻辑。</div>` : ''}
+          ${state.dispatchActionType === '直接派单' && selectedFactory ? `<div class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">直接派单到：${escapeHtml(selectedFactory.name)}。若选中范围覆盖整任务所有 SKU，会同步调用现有明细派单逻辑并写入接单时效。</div>` : ''}
+          ${state.dispatchActionType === '直接派单' ? renderDispatchAcceptanceSlaPreview(selectedRows, state.dispatchFactoryId, selectedFactory?.name) : ''}
         </div>
         <footer class="flex justify-end gap-2 border-t px-5 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-sewing-dispatch-action="close-dispatch">取消</button>

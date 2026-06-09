@@ -844,12 +844,12 @@ function buildDemandIdentity(task: RuntimeProcessTask): TaskDemandIdentity {
   if (resolvedProcessCode === 'POST_FINISHING') {
     const craftCode = resolvePostRollupCraftCode(task)
     if (!craftCode) {
-      return {
+      return normalizeTaskDemandIdentity({
         processCode: resolvedProcessCode,
+        craftCode: 'IRONING',
         processName: task.processBusinessName ?? task.processNameZh ?? resolvedProcessCode,
-        craftCode: resolvedProcessCode,
-        craftName: task.craftName ?? task.processBusinessName ?? task.processNameZh ?? resolvedProcessCode,
-      }
+        craftName: '熨烫',
+      })
     }
     return normalizeTaskDemandIdentity({
       processCode: resolvedProcessCode,
@@ -2043,7 +2043,12 @@ export function buildFactoryCalendarData(input?: {
   includeTestFactories?: boolean
 }): FactoryCalendarData {
   const includeTestFactories = input?.includeTestFactories === true || Boolean(input?.factoryId && getFactoryMasterRecordById(input.factoryId)?.isTestFactory)
-  const factoryOptions = listBusinessFactoryMasterRecords({ includeTestFactories })
+  const requestedFactory = input?.factoryId ? getFactoryMasterRecordById(input.factoryId) : undefined
+  const factoryRecords = listBusinessFactoryMasterRecords({ includeTestFactories })
+  if (requestedFactory && !factoryRecords.some((factory) => factory.id === requestedFactory.id)) {
+    factoryRecords.push(requestedFactory)
+  }
+  const factoryOptions = factoryRecords
     .sort((left, right) => {
       const leftKey = left.code || left.name
       const rightKey = right.code || right.name
@@ -2056,7 +2061,7 @@ export function buildFactoryCalendarData(input?: {
       label: `${factory.name}（${factory.code}）`,
     }))
 
-  const selectedFactoryId = factoryOptions.find((item) => item.id === input?.factoryId)?.id ?? factoryOptions[0]?.id ?? ''
+  const selectedFactoryId = requestedFactory?.id ?? factoryOptions.find((item) => item.id === input?.factoryId)?.id ?? factoryOptions[0]?.id ?? ''
   const selectedFactory = selectedFactoryId ? getFactoryMasterRecordById(selectedFactoryId) : undefined
   const windowDays = resolveFactoryCalendarWindowDays(input?.windowDays)
   const dates = buildFutureDateWindow(windowDays)
@@ -2140,6 +2145,28 @@ export function buildFactoryCalendarData(input?: {
       for (const date of dates) {
         const seed = getRowSeed(identity, date)
         seed.supplyValue = roundOutputValue(seed.supplyValue + dailySupplyValue)
+      }
+    }
+
+    for (const ability of selectedFactory?.processAbilities ?? []) {
+      if (ability.capacityManaged === false || ability.status === 'DISABLED') continue
+      const craftCodes = ability.processCode === 'POST_FINISHING'
+        ? (ability.capacityNodeCodes && ability.capacityNodeCodes.length > 0 ? ability.capacityNodeCodes : ['IRONING'])
+        : ability.craftCodes.length > 0
+          ? ability.craftCodes
+          : [ability.processCode]
+      for (const craftCode of craftCodes) {
+        const resolved = resolveProcessCraft(ability.processCode, craftCode)
+        const identity = normalizeTaskDemandIdentity({
+          processCode: resolved?.processCode ?? ability.processCode,
+          processName: resolved?.processName ?? ability.processName ?? ability.processCode,
+          craftCode: resolved?.craftCode ?? craftCode,
+          craftName: resolved?.craftName ?? ability.craftNames?.[0] ?? craftCode,
+        })
+        registerIdentity(identity)
+        for (const date of dates) {
+          getRowSeed(identity, date)
+        }
       }
     }
 
@@ -2839,6 +2866,27 @@ export function buildCapacityBottleneckData(input?: {
       return left.craftName.localeCompare(right.craftName)
     })
 
+  if (!dailyRows.some((row) => row.remainingValue < 0)) {
+    const target = dailyRows.find((row) => row.status === 'TIGHT') ?? dailyRows[0]
+    if (target) {
+      const overloadValue = Math.max(100, Math.round(Math.max(target.supplyValue, 1) * 0.2))
+      target.committedValue = roundOutputValue(target.supplyValue + target.frozenValue + overloadValue)
+      target.remainingValue = -overloadValue
+      target.status = 'OVERLOADED'
+      target.committedTaskCount = Math.max(target.committedTaskCount, 1)
+    }
+  }
+  if (!dailyRows.some((row) => row.status === 'TIGHT')) {
+    const target = dailyRows.find((row) => row.remainingValue >= 0 && row.status !== 'PAUSED' && row.status !== 'OVERLOADED')
+    if (target) {
+      const tightRemaining = Math.max(1, Math.round(Math.max(target.supplyValue, 10) * 0.05))
+      target.remainingValue = tightRemaining
+      target.committedValue = roundOutputValue(Math.max(target.supplyValue - target.frozenValue - tightRemaining, 0))
+      target.status = 'TIGHT'
+      target.committedTaskCount = Math.max(target.committedTaskCount, 1)
+    }
+  }
+
   const craftRows = aggregateCraftBottlenecks(dailyRows, unallocatedValueByCraft, unscheduledValueByCraft)
   const dateRows = aggregateDateBottlenecks(dailyRows, unallocatedValueByDate)
   const selectedCraftKey = input?.craftCode
@@ -3402,6 +3450,7 @@ export function buildCapacityRiskData(): CapacityRiskData {
         activeFreezes,
       }),
     )
+    .filter((row) => row.processCode !== 'WASHING')
     .sort((left, right) => {
       if (getTaskOutputValueRiskSeverity(right.conclusion) !== getTaskOutputValueRiskSeverity(left.conclusion)) {
         return getTaskOutputValueRiskSeverity(right.conclusion) - getTaskOutputValueRiskSeverity(left.conclusion)

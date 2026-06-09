@@ -38,6 +38,7 @@ import {
   type SpecialCraftTaskOrder,
   type SpecialCraftTaskWorkOrder,
 } from './special-craft-task-orders.ts'
+import { applyPendingDispatchAutoAcceptance } from './runtime-process-tasks.ts'
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)))
@@ -358,6 +359,7 @@ function listThirdPartyCuttingMarkerPreconditionTasks(existingTaskIds: Set<strin
 }
 
 export function listPdaMobileExecutionTasks(): ProcessTask[] {
+  applyPendingDispatchAutoAcceptance()
   listPrintWorkOrders()
   listDyeWorkOrders()
 

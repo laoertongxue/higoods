@@ -27,6 +27,7 @@ import {
   acceptPostFinishingTask,
   rejectPostFinishingTask,
 } from '../data/fcs/post-finishing-domain.ts'
+import { DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY } from '../data/fcs/dispatch-acceptance-sla.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildPdaCuttingDirectExecEntryHref,
@@ -322,6 +323,14 @@ function renderField(label: string, value: string): string {
       <div class="font-medium">${escapeHtml(value)}</div>
     </div>
   `
+}
+
+function getAcceptanceStatusLabel(task: Pick<ProcessTask, 'acceptanceStatus' | 'acceptedBy'>): string {
+  if (task.acceptanceStatus === 'ACCEPTED') {
+    return task.acceptedBy === DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY ? '系统自动接单' : '已接单'
+  }
+  if (task.acceptanceStatus === 'REJECTED') return '已拒单'
+  return '待接单'
 }
 
 function renderCuttingTaskRollupCard(task: PdaReceiveTask): string {
@@ -693,7 +702,7 @@ function renderPdaTaskReceiveCuttingDetailPage(task: PdaReceiveTask): string {
               ${renderField('原始任务', getRootTaskDisplayNo(task))}
               ${renderField('当前工厂', factoryDisplayName)}
               ${renderField('指派方式', getAssignmentModeLabel(task.assignmentMode))}
-              ${renderField('接单状态', task.acceptanceStatus === 'ACCEPTED' ? '已接单' : task.acceptanceStatus === 'REJECTED' ? '已拒单' : '待接单')}
+              ${renderField('接单状态', getAcceptanceStatusLabel(task))}
               ${renderField('数量', `${task.qty} ${task.qtyUnit}`)}
               ${renderField('任务截止', task.taskDeadline || '-')}
               ${

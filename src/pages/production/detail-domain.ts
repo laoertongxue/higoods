@@ -44,9 +44,15 @@ import {
   isProductionOrderMainFactoryPending,
 } from './context.ts'
 import {
+  applyPendingDispatchAutoAcceptance,
   listRuntimeExecutionTasksByOrder,
   type RuntimeProcessTask,
 } from '../../data/fcs/runtime-process-tasks.ts'
+import {
+  DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY,
+  formatDispatchAcceptanceTimeout,
+  getDispatchAcceptanceSlaRuleSourceLabel,
+} from '../../data/fcs/dispatch-acceptance-sla.ts'
 import {
   getOrderMergedAuditLogs,
   renderMaterialDraftDrawer,
@@ -170,7 +176,11 @@ function getAssignmentConfirmAtText(task: RuntimeProcessTask): string {
         : '待发起竞价'
   }
 
-  if (task.acceptedAt) return `接单：${task.acceptedAt}`
+  if (task.acceptedAt) {
+    return task.acceptedBy === DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY
+      ? `自动接单：${task.acceptedAt}`
+      : `接单：${task.acceptedAt}`
+  }
   if (task.acceptanceStatus === 'REJECTED') return '已拒单'
   if (task.assignmentStatus === 'ASSIGNED') return '待接单'
   return '待派单'
@@ -185,6 +195,12 @@ function getAssignmentStartText(task: RuntimeProcessTask): string {
 function getAssignmentDeadlineText(task: RuntimeProcessTask): string {
   const lines = [
     task.assignmentMode === 'DIRECT' && task.acceptDeadline ? `接单截止 ${task.acceptDeadline}` : '',
+    task.assignmentMode === 'DIRECT' && task.dispatchAcceptanceTimeoutHours != null
+      ? `接单时效 ${formatDispatchAcceptanceTimeout(task.dispatchAcceptanceTimeoutHours)}`
+      : '',
+    task.assignmentMode === 'DIRECT' && task.dispatchAcceptanceSlaRuleSource
+      ? `规则 ${getDispatchAcceptanceSlaRuleSourceLabel(task.dispatchAcceptanceSlaRuleSource)}`
+      : '',
     task.assignmentMode === 'BIDDING' && task.biddingDeadline ? `竞价截止 ${task.biddingDeadline}` : '',
     task.taskDeadline ? `任务截止 ${task.taskDeadline}` : '',
     task.dispatchRemark ? `备注：${task.dispatchRemark}` : '',
@@ -193,6 +209,7 @@ function getAssignmentDeadlineText(task: RuntimeProcessTask): string {
 }
 
 function renderOrderAssignmentFactoryDetailTable(order: ProductionOrder): string {
+  applyPendingDispatchAutoAcceptance()
   const tasks = listRuntimeExecutionTasksByOrder(order.productionOrderId)
     .sort((a, b) => {
       if (a.seq !== b.seq) return a.seq - b.seq
