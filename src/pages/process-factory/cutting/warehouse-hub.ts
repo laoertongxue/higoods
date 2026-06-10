@@ -110,7 +110,7 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 }).format(value)
 }
 
-function formatLength(value: number, unit = '米'): string {
+function formatLength(value: number, unit = 'yard'): string {
   return `${formatNumber(value)} ${unit}`
 }
 
@@ -119,7 +119,7 @@ function estimateMaterialRollCount(quantity: number): number {
   return Math.max(Math.ceil(quantity / 280), 1)
 }
 
-function formatMaterialQtyWithRolls(quantity: number, unit = '米'): string {
+function formatMaterialQtyWithRolls(quantity: number, unit = 'yard'): string {
   return `${formatLength(quantity, unit)} / ${estimateMaterialRollCount(quantity)} 卷`
 }
 
@@ -383,7 +383,7 @@ function buildRuntimeFallbackLedgerRow(event: CuttingRuntimeEvent): MaterialLedg
       materialColor: event.material?.materialColor || runtimeString(payload.materialColor) || '待补',
       materialAlias: event.material?.materialAlias || '',
       materialImageUrl: '',
-      materialUnit: event.material?.unit || '米',
+      materialUnit: event.material?.unit || 'yard',
     },
     patternIdentity: event.pattern
       ? {
@@ -413,7 +413,7 @@ function buildRuntimeFallbackLedgerRow(event: CuttingRuntimeEvent): MaterialLedg
     returnedQty: 0,
     adjustmentQty: 0,
     availableQty: 0,
-    unit: event.inventoryEffect?.unit || event.material?.unit || '米',
+    unit: event.inventoryEffect?.unit || event.material?.unit || 'yard',
     latestClaimEvent: null,
     events: [],
   }
@@ -490,7 +490,7 @@ function mergeRuntimeWaitProcessEventsIntoLedgerRows(rows: MaterialLedgerProject
 
 function buildWaitProcessMaterialLedgerSummary() {
   const rows = mergeRuntimeWaitProcessEventsIntoLedgerRows(listMaterialLedgerProjections())
-  const unit = rows[0]?.unit || '米'
+  const unit = rows[0]?.unit || 'yard'
   const requiredQty = rows.reduce((sum, item) => sum + Number(item.requiredMaterialQty || 0), 0)
   const configuredQty = rows.reduce((sum, item) => sum + Number(item.transferWarehouseAllocatedQty || 0), 0)
   const claimedQty = rows.reduce((sum, item) => sum + Number(item.cuttingClaimedQty || 0), 0)
@@ -1175,8 +1175,20 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
     label: `${item.row.cutOrderNo} / ${item.row.materialIdentity.materialSku} / ${item.row.materialIdentity.materialColor}`,
   }))
   const selectedCutOrderId = prepContext?.line.cutOrderId || params.get('cutOrderId') || ''
-  const selectedArea = prepContext?.item.warehouseArea || ''
-  const selectedLocation = prepContext?.item.locationCode || ''
+  const selectedArea = prepContext?.line.materialType === '辅料'
+    ? '辅料暂存区'
+    : prepContext?.line.materialType === '纱线'
+      ? '纱线暂存区'
+      : prepContext?.line.materialType === '包材'
+        ? '包材暂存区'
+        : ''
+  const selectedLocation = prepContext?.line.materialType === '辅料'
+    ? 'ACC-TEMP-01'
+    : prepContext?.line.materialType === '纱线'
+      ? 'YRN-TEMP-01'
+      : prepContext?.line.materialType === '包材'
+        ? 'PKG-TEMP-01'
+        : ''
   const baseAreaOptions = Array.from(new Set([selectedArea, ...(areaOptions.length ? areaOptions : ['面料 A 区', '面料 B 区'])].filter(Boolean))).map((value) => ({ value, label: value }))
   const baseLocationOptions = Array.from(new Set([selectedLocation, ...(locationOptions.length ? locationOptions : ['FAB-A-01', 'FAB-B-02'])].filter(Boolean))).map((value) => ({ value, label: value }))
   const selectedMaterialOption = prepContext
@@ -1189,7 +1201,7 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
     new Map(
       [
         ...(selectedMaterialOption ? [selectedMaterialOption] : []),
-        ...(materialOptions.length ? materialOptions : [{ value: '', label: '扫描后带出面料' }]),
+        ...(materialOptions.length ? materialOptions : [{ value: '', label: '扫描后带出物料' }]),
       ].map((option) => [option.value, option]),
     ).values(),
   )
@@ -1202,7 +1214,7 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
       eventText: '确认后形成中转仓领料记录，并直接写入裁床待加工仓库区库位。',
       fields: [
         renderWaitProcessActionTextField('scanCode', '扫描中转仓配料单 / 裁片单', '扫中转仓配料单或裁片单二维码', prepContext?.record.prepRecordId || ''),
-        renderWaitProcessActionSelect('cutOrderId', '面料', baseMaterialOptions, selectedCutOrderId),
+        renderWaitProcessActionSelect('cutOrderId', '物料', baseMaterialOptions, selectedCutOrderId),
         renderWaitProcessActionTextField('quantity', '领料数量', '例如 300', prepContext ? String(prepContext.availableToPickupQty || prepContext.item.preparedQty) : ''),
         renderWaitProcessActionTextField('rollCount', '卷数', '例如 2', prepContext ? String(prepContext.item.rollCount) : ''),
         renderWaitProcessActionSelect('warehouseArea', '入库库区', baseAreaOptions, selectedArea),
@@ -1251,7 +1263,7 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
           <div>
             <h2 class="text-base font-semibold">${escapeHtml(current.title)}</h2>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(current.eventText)}</div>
-            ${prepContext ? `<div class="mt-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">已关联配料记录：${escapeHtml(prepContext.record.prepRecordId)} / 记录内物料：${escapeHtml(prepContext.line.materialSku)} / 可领 ${escapeHtml(String(prepContext.availableToPickupQty))} ${escapeHtml(prepContext.line.unit)}。提交后会写回领料记录并入裁床待加工仓。</div>` : ''}
+            ${prepContext ? `<div class="mt-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">已关联配料记录：${escapeHtml(prepContext.record.prepRecordId)} / 记录内物料 ${prepContext.items.length} 项 / 当前执行物料：${escapeHtml(prepContext.line.materialSku)} / 整条记录待领 ${escapeHtml(String(prepContext.totalAvailableToPickupQty))}。提交后会写回领料记录并入裁床待加工仓。</div>` : ''}
           </div>
           <span class="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">${escapeHtml(current.badge)}</span>
         </header>
@@ -1307,7 +1319,7 @@ function findWaitProcessActionItem(cutOrderId: string): WaitProcessInventoryItem
 }
 
 function buildRuntimeMaterialFromWaitProcessRow(row: MaterialLedgerProjection) {
-  const unit = row.unit === '片' || row.unit === '件' ? row.unit : '米'
+  const unit = row.unit === '片' || row.unit === '件' ? row.unit : 'yard'
   return {
     materialSku: row.materialIdentity.materialSku,
     materialName: row.materialIdentity.materialName,
@@ -1381,7 +1393,7 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
       prepLineId: prepLineId || undefined,
       prepRecordId: prepRecordId || undefined,
       pickupQty: quantity,
-      unit: '米',
+      unit: 'yard',
       rollCount,
       rollNos: [],
       warehouseArea,
@@ -1398,7 +1410,7 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
         inventoryScope: '裁床待加工仓',
         direction: 'IN',
         qty: quantity,
-        unit: '米',
+        unit: 'yard',
         rollCount,
         toWarehouseArea: warehouseArea,
         toLocationCode: locationCode,
@@ -1417,7 +1429,7 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
       spreadingOrderNo,
       materialSku: row.materialIdentity.materialSku,
       issuedQty: quantity,
-      unit: '米',
+      unit: 'yard',
       rollCount,
       rollNos: [],
       fromWarehouseArea: warehouseArea,
@@ -1434,7 +1446,7 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
         inventoryScope: '裁床待加工仓',
         direction: 'OUT',
         qty: quantity,
-        unit: '米',
+        unit: 'yard',
         rollCount,
         fromWarehouseArea: warehouseArea,
         fromLocationCode: locationCode,
@@ -1452,7 +1464,7 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
     spreadingOrderNo,
     materialSku: row.materialIdentity.materialSku,
     returnedQty: quantity,
-    unit: '米',
+    unit: 'yard',
     rollCount,
     rollNos: [],
     warehouseArea,
@@ -1469,7 +1481,7 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
       inventoryScope: '裁床待加工仓',
       direction: 'IN',
       qty: quantity,
-      unit: '米',
+      unit: 'yard',
       rollCount,
       toWarehouseArea: warehouseArea,
       toLocationCode: locationCode,

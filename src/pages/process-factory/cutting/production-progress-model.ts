@@ -62,6 +62,22 @@ export type ProductionProgressRiskKey =
   | 'PIECE_GAP'
 export type ProductionProgressSortKey = 'URGENCY_THEN_SHIP' | 'SHIP_DATE_ASC' | 'ORDER_QTY_DESC'
 export type ProductionProgressViewDimension = 'CUT_ORDER' | 'PRODUCTION_ORDER'
+export type ProductionProgressTimeCategoryKey =
+  | 'DEMAND_CREATED'
+  | 'PRODUCTION_ORDER_CREATED'
+  | 'CUTTING_TASK_ASSIGNED'
+  | 'MARKER_PLAN_CREATED'
+  | 'SPREADING_STARTED'
+  | 'COMPLETED'
+
+export interface ProductionProgressTimeGroup {
+  demandCreatedAt: string
+  productionOrderCreatedAt: string
+  cuttingTaskAssignedAt: string
+  markerPlanCreatedAt: string
+  spreadingStartedAt: string
+  completedAt: string
+}
 
 export interface ProductionProgressSummaryMeta<Key extends string> {
   key: Key
@@ -147,6 +163,7 @@ export interface ProductionProgressRow {
   spuCode: string
   styleCode: string
   styleName: string
+  spuImageUrl: string
   cuttingTaskNo: string
   assignedFactoryName: string
   urgency: {
@@ -231,6 +248,7 @@ export interface ProductionProgressRow {
   hasInboundRecord: boolean
   materialLines: CuttingMaterialLine[]
   keywordIndex: string[]
+  timeGroup: ProductionProgressTimeGroup
 }
 
 export interface ProductionProgressFilters {
@@ -244,6 +262,9 @@ export interface ProductionProgressFilters {
   receiveStatus: 'ALL' | ProductionProgressReceiveKey
   riskFilter: 'ALL' | 'ANY' | ProductionProgressRiskKey
   sortBy: ProductionProgressSortKey
+  timeRangeFrom: string
+  timeRangeTo: string
+  timeCategory: 'ALL' | ProductionProgressTimeCategoryKey
 }
 
 export interface ProductionProgressSummary {
@@ -297,6 +318,15 @@ export const riskMeta: Record<ProductionProgressRiskKey, { label: string; classN
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
   REPLENISH_PENDING: { label: '待补料', className: 'bg-purple-100 text-purple-700 border border-purple-200' },
   PIECE_GAP: { label: '裁片缺口', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
+}
+
+export const timeCategoryMeta: Record<ProductionProgressTimeCategoryKey, { label: string }> = {
+  DEMAND_CREATED: { label: '需求单创建时间' },
+  PRODUCTION_ORDER_CREATED: { label: '生产单生成时间' },
+  CUTTING_TASK_ASSIGNED: { label: '裁片任务分配时间' },
+  MARKER_PLAN_CREATED: { label: '拍唛架时间' },
+  SPREADING_STARTED: { label: '铺布时间' },
+  COMPLETED: { label: '完结时间' },
 }
 
 export const shipDeltaRangeMeta: Record<ProductionProgressShipDeltaRangeKey, { label: string }> = {
@@ -1124,6 +1154,7 @@ export function buildProductionProgressRows(
       spuCode: record.spuCode,
       styleCode: record.styleCode,
       styleName: record.styleName,
+      spuImageUrl: record.spuImageUrl || '',
       cuttingTaskNo: record.cuttingTaskNo,
       assignedFactoryName: record.assignedFactoryName,
       urgency,
@@ -1203,6 +1234,14 @@ export function buildProductionProgressRows(
       hasInboundRecord: record.hasInboundRecord,
       materialLines: record.materialLines,
       keywordIndex,
+      timeGroup: {
+        demandCreatedAt: record.demandCreatedAt || '',
+        productionOrderCreatedAt: record.productionOrderCreatedAt || '',
+        cuttingTaskAssignedAt: record.cuttingTaskAssignedAt || '',
+        markerPlanCreatedAt: record.markerPlanCreatedAt || '',
+        spreadingStartedAt: record.spreadingStartedAt || '',
+        completedAt: record.completedAt || record.closedAt || '',
+      },
     }
   })
 }
@@ -1258,6 +1297,28 @@ export function filterProductionProgressRows(rows: ProductionProgressRow[], filt
       filters.riskFilter === 'ALL' ||
       (filters.riskFilter === 'ANY' ? row.riskTags.length > 0 : row.riskTags.some((tag) => tag.key === filters.riskFilter))
 
+    const matchesTimeRange = (() => {
+      if (!filters.timeRangeFrom && !filters.timeRangeTo) return true
+      const fromMs = filters.timeRangeFrom ? new Date(filters.timeRangeFrom).getTime() : 0
+      const toMs = filters.timeRangeTo ? new Date(filters.timeRangeTo).getTime() + 86400000 : Infinity
+      const category = filters.timeCategory === 'ALL' ? null : filters.timeCategory
+      const timeValues = category
+        ? [row.timeGroup[category === 'DEMAND_CREATED' ? 'demandCreatedAt' : category === 'PRODUCTION_ORDER_CREATED' ? 'productionOrderCreatedAt' : category === 'CUTTING_TASK_ASSIGNED' ? 'cuttingTaskAssignedAt' : category === 'MARKER_PLAN_CREATED' ? 'markerPlanCreatedAt' : category === 'SPREADING_STARTED' ? 'spreadingStartedAt' : 'completedAt']]
+        : [
+            row.timeGroup.demandCreatedAt,
+            row.timeGroup.productionOrderCreatedAt,
+            row.timeGroup.cuttingTaskAssignedAt,
+            row.timeGroup.markerPlanCreatedAt,
+            row.timeGroup.spreadingStartedAt,
+            row.timeGroup.completedAt,
+          ]
+      return timeValues.some((value) => {
+        if (!value) return false
+        const timeMs = new Date(value).getTime()
+        return timeMs >= fromMs && timeMs < toMs
+      })
+    })()
+
     return (
       matchesKeyword &&
       matchesProductionOrder &&
@@ -1267,7 +1328,8 @@ export function filterProductionProgressRows(rows: ProductionProgressRow[], filt
       matchesCompletion &&
       matchesConfig &&
       matchesReceive &&
-      matchesRisk
+      matchesRisk &&
+      matchesTimeRange
     )
   })
 }

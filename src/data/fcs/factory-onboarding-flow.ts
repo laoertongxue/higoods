@@ -1235,6 +1235,10 @@ export function getPdaFactoryAccessState(): PdaFactoryAccessState {
 }
 
 export function ensurePdaAccessForRoute(targetRoute: string): { allowed: boolean; redirectPath?: string; reasonLabel?: string } {
+  if (!targetRoute.startsWith('/fcs/pda')) {
+    return { allowed: true }
+  }
+
   if (targetRoute.startsWith('/fcs/pda/auth/login') || targetRoute.startsWith('/fcs/pda/auth/onboarding')) {
     return { allowed: true }
   }

@@ -112,6 +112,13 @@ export interface CuttingOrderProgressRecord {
   cuttingTaskNo: string
   assignedFactoryName: string
   cuttingStage: string
+  demandCreatedAt: string
+  productionOrderCreatedAt: string
+  cuttingTaskAssignedAt: string
+  markerPlanCreatedAt: string
+  spreadingStartedAt: string
+  completedAt: string
+  spuImageUrl: string
   closeReasonCode?: 'MATERIAL_NO_MORE_ARRIVAL' | 'BUSINESS_STOP_RECUT' | 'FORCED_CLOSE' | 'STYLE_CANCELLED' | 'DEMAND_CANCELLED' | 'MATERIAL_REPLACED_UNUSED' | 'OTHER'
   closeReasonText?: string
   closedAt?: string

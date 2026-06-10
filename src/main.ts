@@ -12,6 +12,7 @@ type FactoryProfilePageModule = typeof import('./pages/factory-profile')
 type CraftCuttingMarkerPlanPageModule = typeof import('./pages/process-factory/cutting/marker-plan')
 type CraftCuttingMarkerSpreadingPageModule = typeof import('./pages/process-factory/cutting/marker-spreading')
 type CraftCuttingTransferBagsPageModule = typeof import('./pages/process-factory/cutting/transfer-bags')
+type WlsTransferMaterialPrepPageModule = typeof import('./pages/wls/transfer-material-prep')
 type CraftPrintingWarehousePageModule = typeof import('./pages/process-factory/printing/warehouse')
 type CraftDyeingWarehousePageModule = typeof import('./pages/process-factory/dyeing/warehouse')
 type FactoryWarehouseSharedModule = typeof import('./pages/process-factory/shared/warehouse-standard')
@@ -29,6 +30,7 @@ let factoryProfilePageModulePromise: Promise<FactoryProfilePageModule> | null = 
 let craftCuttingMarkerPlanPageModulePromise: Promise<CraftCuttingMarkerPlanPageModule> | null = null
 let craftCuttingMarkerSpreadingPageModulePromise: Promise<CraftCuttingMarkerSpreadingPageModule> | null = null
 let craftCuttingTransferBagsPageModulePromise: Promise<CraftCuttingTransferBagsPageModule> | null = null
+let wlsTransferMaterialPrepPageModulePromise: Promise<WlsTransferMaterialPrepPageModule> | null = null
 let craftPrintingWarehousePageModulePromise: Promise<CraftPrintingWarehousePageModule> | null = null
 let craftDyeingWarehousePageModulePromise: Promise<CraftDyeingWarehousePageModule> | null = null
 let factoryWarehouseSharedModulePromise: Promise<FactoryWarehouseSharedModule> | null = null
@@ -68,6 +70,16 @@ function getPdaHandlersModule(): Promise<PdaHandlersModule> {
     })
   }
   return pdaHandlersModulePromise
+}
+
+function getWlsTransferMaterialPrepPageModule(): Promise<WlsTransferMaterialPrepPageModule> {
+  if (!wlsTransferMaterialPrepPageModulePromise) {
+    wlsTransferMaterialPrepPageModulePromise = import('./pages/wls/transfer-material-prep').catch((error) => {
+      wlsTransferMaterialPrepPageModulePromise = null
+      throw error
+    })
+  }
+  return wlsTransferMaterialPrepPageModulePromise
 }
 
 function getDispatchAcceptanceSlaPageModule(): Promise<DispatchAcceptanceSlaPageModule> {
@@ -339,6 +351,10 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
   if (pathname.startsWith('/fcs/craft/cutting/transfer-bags')) {
     const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
     return transferBagsPage.handleCraftCuttingTransferBagsEvent(eventTarget)
+  }
+  if (pathname.startsWith('/wls/transfer-warehouse/material-prep')) {
+    const wlsMaterialPrepPage = await getWlsTransferMaterialPrepPageModule()
+    return wlsMaterialPrepPage.handleWlsTransferMaterialPrepEvent(eventTarget)
   }
 
   const handlerSystem = getCurrentHandlerSystem(pathname)

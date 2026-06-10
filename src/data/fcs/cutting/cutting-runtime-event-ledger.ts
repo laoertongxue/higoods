@@ -9,7 +9,7 @@ export type CuttingRuntimeEventSource = 'PDA' | 'WEB' | 'MOCK' | 'WMS'
 export type CuttingRuntimeEventStatus = '已记录' | '已同步' | '同步失败' | '已取消'
 export type CuttingRuntimeInventoryScope = '裁床待加工仓' | '裁床待交出仓'
 export type CuttingRuntimeInventoryDirection = 'IN' | 'OUT' | 'ADJUST'
-export type CuttingRuntimeQtyUnit = '米' | '片' | '件'
+export type CuttingRuntimeQtyUnit = 'yard' | '片' | '件'
 
 export type CuttingRuntimeEventType =
   | '中转仓配料完成通知'
@@ -87,7 +87,7 @@ export interface TransferPrepReadyPayload {
     materialColor: string
     materialAlias: string
     preparedQty: number
-    unit: '米'
+    unit: 'yard'
     rollCount: number
     expectedPickupAt?: string
   }>
@@ -102,7 +102,7 @@ export interface TransferPickupPayload {
   prepLineId?: string
   prepRecordId?: string
   pickupQty: number
-  unit: '米'
+  unit: 'yard'
   rollCount: number
   rollNos: string[]
   warehouseArea?: string
@@ -120,7 +120,7 @@ export interface WaitProcessInboundPayload {
   pickupRecordId: string
   materialSku: string
   receivedQty: number
-  unit: '米'
+  unit: 'yard'
   rollCount: number
   rollNos: string[]
   warehouseArea: string
@@ -138,7 +138,7 @@ export interface WaitProcessIssuePayload {
   spreadingOrderNo: string
   materialSku: string
   issuedQty: number
-  unit: '米'
+  unit: 'yard'
   rollCount: number
   rollNos: string[]
   fromWarehouseArea: string
@@ -155,7 +155,7 @@ export interface WaitProcessReturnPayload {
   spreadingOrderNo: string
   materialSku: string
   returnedQty: number
-  unit: '米'
+  unit: 'yard'
   rollCount: number
   rollNos: string[]
   warehouseArea: string
@@ -187,7 +187,7 @@ export interface FinishSpreadingPayload {
   actualMaterialUsage: number
   headLength: number
   tailLength: number
-  unit: '米'
+  unit: 'yard'
   rollNos: string[]
   operatorNames: string[]
   finishedAt: string
@@ -199,7 +199,7 @@ export interface FinishCuttingPayload {
   cuttingCompletedAt: string
   cuttingCompletedBy: string
   actualMaterialUsage: number
-  actualMaterialUsageUnit: '米'
+  actualMaterialUsageUnit: 'yard'
   outputLines: Array<{
     outputId: string
     color: string
@@ -452,7 +452,7 @@ function normalizeMaterial(raw: unknown): RuntimeMaterialSnapshot | undefined {
     materialName: toString(value.materialName),
     materialColor: toString(value.materialColor),
     materialAlias: toString(value.materialAlias),
-    unit: normalizeUnit(value.unit, '米'),
+    unit: normalizeUnit(value.unit, 'yard'),
   }
 }
 
@@ -472,7 +472,8 @@ function normalizePattern(raw: unknown): RuntimePatternSnapshot | undefined {
 
 function normalizeUnit(value: unknown, fallback: CuttingRuntimeQtyUnit): CuttingRuntimeQtyUnit {
   const text = toString(value)
-  return text === '米' || text === '片' || text === '件' ? text : fallback
+  if (text === '米') return 'yard'
+  return text === 'yard' || text === '片' || text === '件' ? text : fallback
 }
 
 function normalizeInventoryEffect(raw: unknown): RuntimeInventoryEffect | undefined {
@@ -486,7 +487,7 @@ function normalizeInventoryEffect(raw: unknown): RuntimeInventoryEffect | undefi
     inventoryScope: scope,
     direction,
     qty: toNumber(value.qty),
-    unit: normalizeUnit(value.unit, '米'),
+    unit: normalizeUnit(value.unit, 'yard'),
     rollCount: value.rollCount === undefined ? undefined : toNumber(value.rollCount),
     fromWarehouseArea: toString(value.fromWarehouseArea),
     fromLocationCode: toString(value.fromLocationCode),
@@ -832,7 +833,7 @@ function pdaProjectionBaseFromRuntimeEvent(
 }
 
 function formatRuntimeQtyText(qty: number, unit: string, rollCount?: number): string {
-  const qtyText = `${qty.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit || '米'}`
+  const qtyText = `${qty.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit || 'yard'}`
   return rollCount && rollCount > 0 ? `卷数 ${rollCount} 卷 / 长度 ${qtyText}` : qtyText
 }
 
@@ -851,7 +852,7 @@ function pickupEventRecordFromEvent(event: CuttingRuntimeEvent): PdaPickupEventR
   const payload = event.payload as TransferPickupPayload
   if (!payload?.pickupRecordId) return null
   const pickupQty = toNumber(payload.pickupQty)
-  const unit = payload.unit || '米'
+  const unit = payload.unit || 'yard'
   return {
     ...pdaProjectionBaseFromRuntimeEvent(event, 'CUTTING_TRANSFER_PICKUP', {
       runtimeEventId: event.eventId,

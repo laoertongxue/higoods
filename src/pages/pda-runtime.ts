@@ -45,7 +45,12 @@ export function getPdaRuntimeContext(): PdaRuntimeContext | null {
 }
 
 export function renderPdaLoginRedirect(title = '工厂入驻&登录'): string {
-  const redirect = ensurePdaAccessForRoute(appStore.getState().pathname || '/fcs/pda/exec')
+  const currentPath = appStore.getState().pathname || '/fcs/pda/exec'
+  if (!currentPath.split('?')[0].split('#')[0].startsWith('/fcs/pda')) {
+    return ''
+  }
+  const redirect = ensurePdaAccessForRoute(currentPath)
+  if (redirect.allowed) return ''
   return renderRouteRedirect(redirect.redirectPath || '/fcs/pda/auth/login', title)
 }
 

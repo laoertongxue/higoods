@@ -20,6 +20,14 @@ import type {
   CuttingUrgencyLevel,
 } from './types'
 
+function addDays(dateStr: string, days: number): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 interface CuttingDemoStageProfile {
   stageLabel: string
   closeReasonCode?: CuttingOrderProgressRecord['closeReasonCode']
@@ -256,6 +264,18 @@ function buildProjectedMaterialLine(
   }
 }
 
+function resolveSpuImage(spuCode: string, styleName: string): string {
+  const lower = styleName.toLowerCase()
+  if (lower.includes('kemeja') || lower.includes('shirt') || lower.includes('衬衫') || lower.includes('polo') || lower.includes('kaos') || lower.includes('t 恤') || lower.includes('t恤')) return '/shirt-sample.jpg'
+  if (lower.includes('dress') || lower.includes('rok') || lower.includes('裙') || lower.includes('连衣裙')) return '/dress-sample-1.jpg'
+  if (lower.includes('celana') || lower.includes('pants') || lower.includes('jogger') || lower.includes('裤')) return '/pants-sample.jpg'
+  if (lower.includes('jaket') || lower.includes('blazer') || lower.includes('hoodie') || lower.includes('jacket') || lower.includes('外套')) return '/jacket-sample.jpg'
+  if (lower.includes('cardigan') || lower.includes('毛衫') || lower.includes('开衫')) return '/cardigan-sample.jpg'
+  if (lower.includes('denim') || lower.includes('牛仔')) return '/denim-shorts-sample.jpg'
+  if (lower.includes('lace') || lower.includes('蕾丝')) return '/lace-dress-sample.jpg'
+  return '/placeholder.svg'
+}
+
 function buildProjectedRecord(
   order: ProductionOrder,
   generatedCutOrderRecords: GeneratedCutOrderSourceRecord[],
@@ -265,6 +285,14 @@ function buildProjectedRecord(
   const skuRequirementLines = buildSkuRequirementLines(order)
   const materialLines = generatedCutOrderRecords.map((generated) => buildProjectedMaterialLine(generated, profile))
   const updatedAt = order.updatedAt || order.createdAt
+
+  const demandCreatedAt = order.createdAt
+  const baseDate = demandCreatedAt.slice(0, 10)
+  const prodDate = addDays(baseDate, 1)
+  const taskAssignedDate = addDays(baseDate, 2)
+  const markerPlanDate = profile.hasSpreadingRecord ? addDays(baseDate, 3) : ''
+  const spreadingDate = profile.hasSpreadingRecord ? addDays(baseDate, 4) : ''
+  const completedDate = profile.stageLabel === '已关闭' ? (profile.closedAt || '') : (profile.stageLabel === '已开工' && profile.cutRatio >= 1 && profile.inboundRatio >= 1 ? addDays(baseDate, 5) : '')
 
   return {
     id: `cutting-op:${order.productionOrderId}`,
@@ -283,6 +311,13 @@ function buildProjectedRecord(
     cuttingTaskNo: `CUT-TASK-${order.productionOrderId.replace(/\D/g, '').slice(-6)}`,
     assignedFactoryName: order.mainFactorySnapshot?.name || TEST_FACTORY_NAME,
     cuttingStage: profile.stageLabel,
+    demandCreatedAt,
+    productionOrderCreatedAt: prodDate,
+    cuttingTaskAssignedAt: taskAssignedDate,
+    markerPlanCreatedAt: markerPlanDate,
+    spreadingStartedAt: spreadingDate,
+    completedAt: completedDate,
+    spuImageUrl: resolveSpuImage(order.demandSnapshot.spuCode, order.demandSnapshot.spuName),
     closeReasonCode: profile.closeReasonCode,
     closeReasonText: profile.closeReasonText,
     closedAt: profile.closedAt,

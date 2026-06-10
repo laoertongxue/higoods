@@ -19,6 +19,7 @@ import {
   shipDeltaRangeMeta,
   sortProductionProgressRows,
   stageMeta,
+  timeCategoryMeta,
   type ProductionProgressFilters,
   type ProductionProgressRow,
   type ProductionProgressSortKey,
@@ -100,6 +101,9 @@ type FilterField =
   | 'claim'
   | 'risk'
   | 'sort'
+  | 'time-from'
+  | 'time-to'
+  | 'time-category'
 
 const FIELD_TO_FILTER_KEY: Record<FilterField, keyof ProductionProgressFilters> = {
   keyword: 'keyword',
@@ -112,6 +116,9 @@ const FIELD_TO_FILTER_KEY: Record<FilterField, keyof ProductionProgressFilters> 
   claim: 'receiveStatus',
   risk: 'riskFilter',
   sort: 'sortBy',
+  'time-from': 'timeRangeFrom',
+  'time-to': 'timeRangeTo',
+  'time-category': 'timeCategory',
 }
 
 const initialFilters: ProductionProgressFilters = {
@@ -125,6 +132,9 @@ const initialFilters: ProductionProgressFilters = {
   receiveStatus: 'ALL',
   riskFilter: 'ALL',
   sortBy: 'URGENCY_THEN_SHIP',
+  timeRangeFrom: '',
+  timeRangeTo: '',
+  timeCategory: 'ALL',
 }
 
 interface ProductionProgressPageState {
@@ -861,6 +871,13 @@ function getFilterLabels(): string[] {
   if (state.filters.receiveStatus !== 'ALL') labels.push(`裁床领料：${receiveMeta[state.filters.receiveStatus].label}`)
   if (state.filters.riskFilter !== 'ALL') {
     labels.push(state.filters.riskFilter === 'ANY' ? '风险：只看有风险' : `风险：${riskMeta[state.filters.riskFilter].label}`)
+  }
+
+  if (state.filters.timeRangeFrom || state.filters.timeRangeTo) {
+    const catLabel = state.filters.timeCategory !== 'ALL' ? ` · ${timeCategoryMeta[state.filters.timeCategory as keyof typeof timeCategoryMeta]?.label || state.filters.timeCategory}` : ''
+    const fromLabel = state.filters.timeRangeFrom ? ` ${state.filters.timeRangeFrom}` : ' ...'
+    const toLabel = state.filters.timeRangeTo ? ` ${state.filters.timeRangeTo}` : ' ...'
+    labels.push(`时间${catLabel}：${fromLabel} ~ ${toLabel}`)
   }
 
   if (state.filters.sortBy !== 'URGENCY_THEN_SHIP') {
@@ -1658,6 +1675,7 @@ const PRODUCTION_PROGRESS_TABLE_HEADERS = [
   '唛架 / 铺布',
   '菲票 / 入仓',
   '交出 / 风险',
+  '时间',
   '操作',
 ] as const
 
@@ -2526,6 +2544,25 @@ function renderProductionOrderHandoverRiskCell(row: ProductionProgressRow, chain
   `
 }
 
+function renderProductionOrderTimeCell(row: ProductionProgressRow): string {
+  const t = row.timeGroup
+  return `
+    <div class="space-y-1 text-xs leading-5">
+      <div class="flex justify-between gap-2"><span class="text-muted-foreground">需求单创建</span><span class="font-medium">${escapeHtml(shortDate(t.demandCreatedAt))}</span></div>
+      <div class="flex justify-between gap-2"><span class="text-muted-foreground">生产单生成</span><span class="font-medium">${escapeHtml(shortDate(t.productionOrderCreatedAt))}</span></div>
+      <div class="flex justify-between gap-2"><span class="text-muted-foreground">裁片任务分配</span><span class="font-medium">${escapeHtml(shortDate(t.cuttingTaskAssignedAt))}</span></div>
+      <div class="flex justify-between gap-2"><span class="text-muted-foreground">拍唛架</span><span class="font-medium">${escapeHtml(shortDate(t.markerPlanCreatedAt) || '—')}</span></div>
+      <div class="flex justify-between gap-2"><span class="text-muted-foreground">铺布</span><span class="font-medium">${escapeHtml(shortDate(t.spreadingStartedAt) || '—')}</span></div>
+      <div class="flex justify-between gap-2"><span class="text-muted-foreground">完结</span><span class="font-medium">${escapeHtml(shortDate(t.completedAt) || '—')}</span></div>
+    </div>
+  `
+}
+
+function shortDate(value: string): string {
+  if (!value) return ''
+  return value.replace(/\d{2}:\d{2}:\d{2}/, '').trim() || value.slice(0, 10)
+}
+
 function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
   const pagination = paginateItems(rows, state.page, state.pageSize)
   const columnCount = PRODUCTION_PROGRESS_TABLE_HEADERS.length
@@ -2544,13 +2581,14 @@ function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
           <table class="w-full table-fixed text-sm" data-testid="cutting-production-progress-main-table">
             <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
               <tr>
-                <th class="w-[15%] px-4 py-3 text-left font-medium">生产单</th>
-                <th class="w-[11%] px-4 py-3 text-left font-medium">交期 / 数量</th>
-                <th class="w-[14%] px-4 py-3 text-left font-medium">裁片单概况</th>
-                <th class="w-[17%] px-4 py-3 text-left font-medium">数量账摘要</th>
-                <th class="w-[12%] px-4 py-3 text-left font-medium">唛架 / 铺布</th>
-                <th class="w-[12%] px-4 py-3 text-left font-medium">菲票 / 入仓</th>
-                <th class="w-[14%] px-4 py-3 text-left font-medium">交出 / 风险</th>
+                <th class="w-[13%] px-4 py-3 text-left font-medium">生产单</th>
+                <th class="w-[9%] px-4 py-3 text-left font-medium">交期 / 数量</th>
+                <th class="w-[12%] px-4 py-3 text-left font-medium">裁片单概况</th>
+                <th class="w-[14%] px-4 py-3 text-left font-medium">数量账摘要</th>
+                <th class="w-[10%] px-4 py-3 text-left font-medium">唛架 / 铺布</th>
+                <th class="w-[10%] px-4 py-3 text-left font-medium">菲票 / 入仓</th>
+                <th class="w-[12%] px-4 py-3 text-left font-medium">交出 / 风险</th>
+                <th class="w-[15%] px-4 py-3 text-left font-medium">时间</th>
                 <th class="w-[5%] px-4 py-3 text-left font-medium">操作</th>
               </tr>
             </thead>
@@ -2564,12 +2602,17 @@ function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
                           return `
                             <tr class="border-b last:border-b-0 align-top hover:bg-muted/20">
                               <td class="px-4 py-3">
-                                <button class="font-medium text-blue-600 hover:underline" data-nav="${escapeHtml(buildProductionProgressDetailPath(row.id))}">
-                                  ${escapeHtml(row.productionOrderNo)}
-                                </button>
-                                <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(row.styleCode || row.spuCode || '-')}</div>
-                                <div class="mt-1 line-clamp-2 text-xs text-muted-foreground">${escapeHtml(row.styleName || row.spuCode || '-')}</div>
-                                <div class="mt-2">${renderBadge(row.urgency.label, row.urgency.className)}</div>
+                                <div class="flex items-start gap-3">
+                                  <img src="${escapeHtml(row.spuImageUrl)}" alt="${escapeHtml(row.styleName || row.spuCode || '')}" class="h-14 w-14 shrink-0 rounded-md border object-cover" />
+                                  <div class="min-w-0">
+                                    <button class="font-medium text-blue-600 hover:underline" data-nav="${escapeHtml(buildProductionProgressDetailPath(row.id))}">
+                                      ${escapeHtml(row.productionOrderNo)}
+                                    </button>
+                                    <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(row.styleCode || row.spuCode || '-')}</div>
+                                    <div class="mt-1 line-clamp-2 text-xs text-muted-foreground">${escapeHtml(row.styleName || row.spuCode || '-')}</div>
+                                    <div class="mt-2">${renderBadge(row.urgency.label, row.urgency.className)}</div>
+                                  </div>
+                                </div>
                               </td>
                               <td class="px-4 py-3 text-xs leading-5">
                                 <div class="font-medium text-foreground">${escapeHtml(row.plannedShipDateDisplay)}</div>
@@ -2582,6 +2625,7 @@ function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
                               <td class="px-4 py-3">${renderProductionOrderMarkerSpreadingCell(chain)}</td>
                               <td class="px-4 py-3">${renderProductionOrderFeiWarehouseCell(row, chain)}</td>
                               <td class="px-4 py-3">${renderProductionOrderHandoverRiskCell(row, chain)}</td>
+                              <td class="px-4 py-3">${renderProductionOrderTimeCell(row)}</td>
                               <td class="px-4 py-3">
                                 <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildProductionProgressDetailPath(row.id))}">查看</button>
                               </td>
@@ -2841,6 +2885,33 @@ export function renderCraftCuttingProductionProgressPage(): string {
               { value: 'SHIP_URGENT', label: '临近发货' },
               { value: 'REPLENISH_PENDING', label: '待补料' },
               { value: 'PIECE_GAP', label: '裁片缺口' },
+            ])}
+            <div class="space-y-2 md:col-span-2 xl:col-span-3">
+              <span class="text-sm font-medium text-foreground">时间</span>
+              <div class="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value="${escapeHtml(state.filters.timeRangeFrom)}"
+                  class="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  data-cutting-progress-field="time-from"
+                />
+                <span class="text-sm text-muted-foreground">至</span>
+                <input
+                  type="date"
+                  value="${escapeHtml(state.filters.timeRangeTo)}"
+                  class="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  data-cutting-progress-field="time-to"
+                />
+              </div>
+            </div>
+            ${renderFilterSelect('时间类别', 'time-category', state.filters.timeCategory, [
+              { value: 'ALL', label: '全部时间点' },
+              { value: 'DEMAND_CREATED', label: '需求单创建时间' },
+              { value: 'PRODUCTION_ORDER_CREATED', label: '生产单生成时间' },
+              { value: 'CUTTING_TASK_ASSIGNED', label: '裁片任务分配时间' },
+              { value: 'MARKER_PLAN_CREATED', label: '拍唛架时间' },
+              { value: 'SPREADING_STARTED', label: '铺布时间' },
+              { value: 'COMPLETED', label: '完结时间' },
             ])}
             ${renderFilterSelect('排序', 'sort', state.filters.sortBy, [
               { value: 'URGENCY_THEN_SHIP', label: '默认：紧急程度 + 发货时间' },
