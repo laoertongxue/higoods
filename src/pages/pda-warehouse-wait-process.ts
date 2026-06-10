@@ -33,6 +33,10 @@ import {
   listMaterialLedgerProjections,
   type MaterialLedgerProjection,
 } from '../data/fcs/cutting/material-ledger.ts'
+import {
+  getMaterialPrepRecordContext,
+  listPdaTransferPickupCandidates,
+} from '../data/fcs/cutting/production-material-prep.ts'
 import { buildMarkerSpreadingProjection } from './process-factory/cutting/marker-spreading-projection.ts'
 import type { SpreadingOrder } from './process-factory/cutting/marker-spreading-model.ts'
 import {
@@ -80,6 +84,8 @@ interface WaitProcessState {
   locationNo: string
   remark: string
   cuttingPickupSourceNo: string
+  cuttingPickupPrepRecordId: string
+  cuttingPickupPrepLineId: string
   cuttingPickupWarehouseArea: string
   cuttingPickupLocationCode: string
   cuttingPickupQty: string
@@ -131,6 +137,8 @@ const state: WaitProcessState = {
   locationNo: '',
   remark: '',
   cuttingPickupSourceNo: '',
+  cuttingPickupPrepRecordId: '',
+  cuttingPickupPrepLineId: '',
   cuttingPickupWarehouseArea: '',
   cuttingPickupLocationCode: '',
   cuttingPickupQty: '',
@@ -686,12 +694,29 @@ function listCuttingPendingPickupRows(rows: MaterialLedgerProjection[]): Materia
 }
 
 function renderCuttingPendingPickupList(rows: MaterialLedgerProjection[]): string {
+  const pendingCandidates = listPdaTransferPickupCandidates()
   const pendingRows = listCuttingPendingPickupRows(rows)
   return `
     <section class="space-y-2">
       <div class="space-y-2">
-        ${pendingRows.length
-          ? pendingRows.map((row) => `
+        ${pendingCandidates.length
+          ? pendingCandidates.map((candidate) => `
+              <button
+                type="button"
+                class="w-full rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
+                data-pda-warehouse-action="cutting-wp-pickup"
+                data-source-no="${escapeAttr(candidate.cutOrderNo)}"
+                data-prep-record-id="${escapeAttr(candidate.prepRecordId)}"
+                data-prep-line-id="${escapeAttr(candidate.prepLineId)}"
+              >
+                <div class="text-xs font-medium text-muted-foreground">中转仓配料记录</div>
+                <div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(candidate.prepOrderNo)} / ${escapeHtml(candidate.cutOrderNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.materialSku)} · ${escapeHtml(candidate.materialName)} / ${escapeHtml(candidate.color)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">已确认配料：${escapeHtml(formatCuttingWaitProcessQty(candidate.preparedQty, candidate.unit))}，本次可领：${escapeHtml(formatCuttingWaitProcessQty(candidate.availableToPickupQty, candidate.unit))}</div>
+              </button>
+            `).join('')
+          : pendingRows.length
+            ? pendingRows.map((row) => `
               <button
                 type="button"
                 class="w-full rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
@@ -704,7 +729,7 @@ function renderCuttingPendingPickupList(rows: MaterialLedgerProjection[]): strin
                 <div class="mt-1 text-xs text-muted-foreground">按裁片任务已配：${escapeHtml(formatCuttingWaitProcessQty(row.transferWarehouseAllocatedQty, row.unit))}</div>
               </button>
             `).join('')
-          : '<div class="rounded-xl bg-muted/60 px-3 py-3 text-xs text-muted-foreground">暂无中转仓领料通知。</div>'}
+            : '<div class="rounded-xl bg-muted/60 px-3 py-3 text-xs text-muted-foreground">暂无中转仓领料通知。</div>'}
       </div>
     </section>
   `
@@ -770,20 +795,25 @@ function getCuttingWaitProcessActionFallbackRow(rows: MaterialLedgerProjection[]
   return listCuttingPendingPickupRows(rows)[0] || rows.find((row) => row.cuttingClaimedQty > 0) || rows[0]
 }
 
-function openCuttingPickupDraft(sourceNo?: string): void {
+function openCuttingPickupDraft(sourceNo?: string, prepRecordId?: string, prepLineId?: string): void {
   const rows = listMaterialLedgerProjections()
-  const row = findCuttingWaitProcessLedgerRow(sourceNo) || getCuttingWaitProcessActionFallbackRow(rows)
-  const defaultQty = row?.transferWarehouseAllocatedQty || 120
-  const defaultRollCount = defaultQty > 0 ? Math.max(Math.ceil(defaultQty / 280), 1) : 1
-  state.cuttingPickupSourceNo = row?.cutOrderNo || sourceNo || ''
-  state.cuttingPickupWarehouseArea = '面料 A 区'
-  state.cuttingPickupLocationCode = 'FAB-A-01'
+  const prepContext = prepRecordId ? getMaterialPrepRecordContext(prepRecordId, prepLineId || '') : null
+  const row = prepContext?.ledgerRow || findCuttingWaitProcessLedgerRow(sourceNo) || getCuttingWaitProcessActionFallbackRow(rows)
+  const defaultQty = prepContext?.availableToPickupQty || row?.transferWarehouseAllocatedQty || 120
+  const defaultRollCount = prepContext?.item.rollCount || (defaultQty > 0 ? Math.max(Math.ceil(defaultQty / 280), 1) : 1)
+  state.cuttingPickupSourceNo = prepContext?.line.cutOrderNo || row?.cutOrderNo || sourceNo || ''
+  state.cuttingPickupPrepRecordId = prepContext?.record.prepRecordId || ''
+  state.cuttingPickupPrepLineId = prepContext?.item.prepLineId || ''
+  state.cuttingPickupWarehouseArea = prepContext?.item.warehouseArea || '面料 A 区'
+  state.cuttingPickupLocationCode = prepContext?.item.locationCode || 'FAB-A-01'
   state.cuttingPickupQty = String(defaultQty)
   state.cuttingPickupRollCount = String(defaultRollCount)
 }
 
 function clearCuttingPickupDraft(): void {
   state.cuttingPickupSourceNo = ''
+  state.cuttingPickupPrepRecordId = ''
+  state.cuttingPickupPrepLineId = ''
   state.cuttingPickupWarehouseArea = ''
   state.cuttingPickupLocationCode = ''
   state.cuttingPickupQty = ''
@@ -801,12 +831,15 @@ function getCuttingPickupLocationOptions() {
 
 function renderCuttingPickupDraftPage(): string {
   const row = findCuttingWaitProcessLedgerRow(state.cuttingPickupSourceNo)
+  const prepContext = state.cuttingPickupPrepRecordId ? getMaterialPrepRecordContext(state.cuttingPickupPrepRecordId, state.cuttingPickupPrepLineId) : null
   const sourceNo = row?.cutOrderNo || state.cuttingPickupSourceNo
-  const materialText = row
+  const materialText = prepContext
+    ? `${prepContext.line.materialSku} · ${prepContext.line.materialName} / ${prepContext.line.color}`
+    : row
     ? `${row.materialIdentity.materialSku} · ${row.materialIdentity.materialName} / ${row.materialIdentity.materialColor || '待补颜色'}`
     : '请重新选择中转仓领料裁片任务'
-  const preparedQty = row ? formatCuttingWaitProcessQty(row.transferWarehouseAllocatedQty, row.unit) : '-'
-  const claimedQty = row ? formatCuttingWaitProcessQty(row.cuttingClaimedQty, row.unit) : '-'
+  const preparedQty = prepContext ? formatCuttingWaitProcessQty(prepContext.item.preparedQty, prepContext.line.unit) : row ? formatCuttingWaitProcessQty(row.transferWarehouseAllocatedQty, row.unit) : '-'
+  const claimedQty = prepContext ? formatCuttingWaitProcessQty(prepContext.pickedQty, prepContext.line.unit) : row ? formatCuttingWaitProcessQty(row.cuttingClaimedQty, row.unit) : '-'
   const options = getCuttingPickupLocationOptions()
   return `
     <section class="space-y-4">
@@ -816,6 +849,7 @@ function renderCuttingPickupDraftPage(): string {
           <div class="text-xs font-medium text-muted-foreground">裁片任务</div>
           <div class="mt-1 text-base font-semibold text-foreground">${escapeHtml(sourceNo || '未识别')}</div>
           <div class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(materialText)}</div>
+          ${prepContext ? `<div class="mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">配料单：${escapeHtml(prepContext.projection.order.prepOrderNo)} / 配料记录：${escapeHtml(prepContext.record.prepRecordId)} / 记录内物料：${escapeHtml(prepContext.line.materialSku)}</div>` : ''}
           <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
             <div>中转仓已配：${escapeHtml(preparedQty)}</div>
             <div>已领料：${escapeHtml(claimedQty)}</div>
@@ -1960,11 +1994,13 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   const action = actionNode?.dataset.pdaWarehouseAction
   if (action === 'cutting-wp-pickup') {
     const sourceNo = actionNode?.dataset.sourceNo
+    const prepRecordId = actionNode?.dataset.prepRecordId
+    const prepLineId = actionNode?.dataset.prepLineId
     if (!sourceNo) {
       window.location.href = '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup'
       return true
     }
-    openCuttingPickupDraft(sourceNo)
+    openCuttingPickupDraft(sourceNo, prepRecordId, prepLineId)
     return true
   }
   if (action === 'cancel-cutting-wp-pickup') {
@@ -1996,6 +2032,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     }
     const occurredAt = getCuttingRuntimeNowText()
     const rollNos = buildCuttingRollNos(sourceNo, rollCount)
+    const prepContext = state.cuttingPickupPrepRecordId ? getMaterialPrepRecordContext(state.cuttingPickupPrepRecordId, state.cuttingPickupPrepLineId) : null
     const inventoryEffect: RuntimeInventoryEffect = {
       inventoryScope: '裁床待加工仓',
       direction: 'IN',
@@ -2015,10 +2052,13 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       pattern: buildCuttingRuntimePatternSnapshot(row),
       inventoryEffect,
       payload: {
-        pickupRecordId: `pickup:${sourceNo}:${occurredAt}`,
+        pickupRecordId: prepContext ? `pickup:${prepContext.record.prepRecordId}:${prepContext.item.prepLineId}:${occurredAt}` : `pickup:${sourceNo}:${occurredAt}`,
         pickupRecordNo: `领料-${sourceNo}`,
-        prepNoticeId: `prep:${sourceNo}`,
-        prepOrderNo: sourceNo,
+        prepNoticeId: prepContext?.record.prepRecordId || `prep:${sourceNo}`,
+        prepOrderNo: prepContext?.projection.order.prepOrderNo || sourceNo,
+        prepOrderId: prepContext?.projection.order.prepOrderId,
+        prepLineId: prepContext?.line.prepLineId,
+        prepRecordId: prepContext?.record.prepRecordId,
         pickupQty: qty,
         unit: '米',
         rollCount,

@@ -98,6 +98,9 @@ export interface TransferPickupPayload {
   pickupRecordNo: string
   prepNoticeId: string
   prepOrderNo: string
+  prepOrderId?: string
+  prepLineId?: string
+  prepRecordId?: string
   pickupQty: number
   unit: '米'
   rollCount: number

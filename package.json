@@ -113,6 +113,7 @@
     "check:cutting-binding-strip-flow": "tsx scripts/check-cutting-binding-strip-flow.ts",
     "check:progress-statistics-linkage": "tsx scripts/check-progress-statistics-linkage.ts",
     "check:cutting-material-prep-pickup-replenishment": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-material-prep-pickup-replenishment.ts",
+    "check:material-prep-pickup-management": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-material-prep-pickup-management.ts",
     "check:cutting-marker-plan-formulas": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-marker-plan-formulas.ts",
     "check:cutting:all": "npm run check:cutting-sewing-dispatch && npm run check:progress-statistics-linkage && npm run check:cutting-material-prep-pickup-replenishment && npm run check:cutting-marker-plan-formulas && npm run check:cutting-binding-strip-flow && npm run check:cutting-clean-mainline",
     "check:cutting:playwright-preflight": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-playwright-preflight.ts",

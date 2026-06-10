@@ -61,7 +61,6 @@ const waitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
 const waitHandoverSource = read('src/pages/pda-warehouse-wait-handover.ts')
 const inboundSource = read('src/pages/pda-warehouse-inbound-records.ts')
 const outboundSource = read('src/pages/pda-warehouse-outbound-records.ts')
-const factoryWarehouseSource = read('src/pages/factory-internal-warehouse.ts')
 
 assertContains(packageSource, 'check:cutting-special-craft-dispatch-return', 'package.json 缺少裁床特殊工艺发料与回仓检查命令')
 
@@ -211,8 +210,6 @@ assertContains(flowSource, 'previous.specialCraftFlowStatus === \'已回仓\'', 
 ].forEach((token) => {
   assertContains(waitProcessSource + waitHandoverSource + inboundSource + outboundSource, token, `工厂端仓管页面缺少特殊工艺状态展示：${token}`)
 })
-
-assertContains(factoryWarehouseSource, buildToken('待交出仓'), 'Web 工厂仓库总览缺少待交出仓口径')
 
 ;[
   buildToken('直接发', '车', '缝'),

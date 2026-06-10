@@ -12,10 +12,6 @@ import {
   isFactoryCapacityProfileDialogOpen,
 } from '../pages/factory-capacity-profile'
 import {
-  handleFactoryInternalWarehouseEvent,
-  isFactoryInternalWarehouseDialogOpen,
-} from '../pages/factory-internal-warehouse'
-import {
   handleCapabilityEvent,
   handleCapabilitySubmit,
   isCapabilityDialogOpen,
@@ -255,7 +251,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleFactoryOnboardingEvent(target) ||
     await handleFactoryPageEvent(target) ||
     await handleFactoryCapacityProfileEvent(target) ||
-    await handleFactoryInternalWarehouseEvent(target) ||
     await handleCapabilityEvent(target) ||
     await handleFactoryStatusEvent(target) ||
     await handleFactoryPerformanceEvent(target) ||
@@ -320,13 +315,6 @@ export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
 
 export function closeFcsDialogsOnEscape(): boolean {
   if (closeFactoryWarehouseSharedDialogs()) {
-    return true
-  }
-
-  if (isFactoryInternalWarehouseDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.factoryWarehouseAction = 'close-detail'
-    handleFactoryInternalWarehouseEvent(fakeButton)
     return true
   }
 

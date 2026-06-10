@@ -250,7 +250,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'factories-onboarding', title: '工厂入驻管理', icon: 'ClipboardCheck', href: '/fcs/factories/onboarding' },
             { key: 'factories-profile', title: '工厂档案', icon: 'Factory', href: '/fcs/factories/profile' },
-            { key: 'factories-warehouse', title: '工厂仓库', icon: 'Warehouse', href: '/fcs/factory/warehouse' },
             { key: 'factories-capacity-profile', title: '工厂产能档案', icon: 'Gauge', href: '/fcs/factories/capacity-profile' },
             { key: 'factories-capability', title: '能力标签', icon: 'Tags', href: '/fcs/factories/capability' },
             { key: 'factories-settlement', title: '结算信息', icon: 'Receipt', href: '/fcs/factories/settlement' },
@@ -409,6 +408,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'pfos-cutting-cut-orders', title: '裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/cut-orders' },
             { key: 'pfos-cutting-marker-list', title: '唛架方案', icon: 'Layers', href: '/fcs/craft/cutting/marker-list' },
+            { key: 'pfos-cutting-pickup-management', title: '领料管理', icon: 'PackageCheck', href: '/fcs/craft/cutting/pickup-management' },
           ],
         },
         {
@@ -523,6 +523,17 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     ...specialCraftMenuGroups,
   ],
   wls: [
+    {
+      title: '中转仓管理',
+      items: [
+        {
+          key: 'wls-transfer-warehouse-material-prep',
+          title: '配料管理',
+          icon: 'PackageCheck',
+          href: '/wls/transfer-warehouse/material-prep',
+        },
+      ],
+    },
     {
       title: '仓储管理',
       items: [

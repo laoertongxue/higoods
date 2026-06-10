@@ -27,6 +27,9 @@ import {
   type CuttingMaterialLedgerEvent,
   type MaterialLedgerProjection,
 } from '../../../data/fcs/cutting/material-ledger.ts'
+import {
+  getMaterialPrepRecordContext,
+} from '../../../data/fcs/cutting/production-material-prep.ts'
 import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import {
   appendCuttingRuntimeEvent,
@@ -1145,12 +1148,12 @@ function renderWaitProcessActionTextField(field: string, label: string, placehol
   `
 }
 
-function renderWaitProcessActionSelect(field: string, label: string, options: Array<{ value: string; label: string }>): string {
+function renderWaitProcessActionSelect(field: string, label: string, options: Array<{ value: string; label: string }>, selectedValue = ''): string {
   return `
     <label class="block">
       <span class="text-xs font-medium text-slate-700">${escapeHtml(label)}</span>
       <select data-wait-process-field="${escapeHtml(field)}" class="mt-1 h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-blue-500">
-        ${options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('')}
+        ${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === selectedValue ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
       </select>
     </label>
   `
@@ -1160,6 +1163,10 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
   const action = getWarehouseSearchParams().get('warehouseAction') as WaitProcessWarehouseAction | null
   if (!action || !['claim', 'process-issue', 'return'].includes(action)) return ''
 
+  const params = getWarehouseSearchParams()
+  const prepRecordId = params.get('prepRecordId') || ''
+  const prepLineId = params.get('prepLineId') || ''
+  const prepContext = prepRecordId ? getMaterialPrepRecordContext(prepRecordId, prepLineId) : null
   const closeHref = escapeHtml(buildWaitProcessWarehouseActionHref(undefined))
   const areaOptions = Array.from(new Set(items.map((item) => item.locationLabel.split(' / ')[0]).filter(Boolean)))
   const locationOptions = Array.from(new Set(items.map((item) => item.locationLabel.split(' / ')[1]).filter(Boolean)))
@@ -1167,9 +1174,25 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
     value: item.row.cutOrderId,
     label: `${item.row.cutOrderNo} / ${item.row.materialIdentity.materialSku} / ${item.row.materialIdentity.materialColor}`,
   }))
-  const baseAreaOptions = (areaOptions.length ? areaOptions : ['面料 A 区', '面料 B 区']).map((value) => ({ value, label: value }))
-  const baseLocationOptions = (locationOptions.length ? locationOptions : ['FAB-A-01', 'FAB-B-02']).map((value) => ({ value, label: value }))
-  const baseMaterialOptions = materialOptions.length ? materialOptions : [{ value: '', label: '扫描后带出面料' }]
+  const selectedCutOrderId = prepContext?.line.cutOrderId || params.get('cutOrderId') || ''
+  const selectedArea = prepContext?.item.warehouseArea || ''
+  const selectedLocation = prepContext?.item.locationCode || ''
+  const baseAreaOptions = Array.from(new Set([selectedArea, ...(areaOptions.length ? areaOptions : ['面料 A 区', '面料 B 区'])].filter(Boolean))).map((value) => ({ value, label: value }))
+  const baseLocationOptions = Array.from(new Set([selectedLocation, ...(locationOptions.length ? locationOptions : ['FAB-A-01', 'FAB-B-02'])].filter(Boolean))).map((value) => ({ value, label: value }))
+  const selectedMaterialOption = prepContext
+    ? {
+        value: prepContext.line.cutOrderId,
+        label: `${prepContext.line.cutOrderNo} / ${prepContext.line.materialSku} / ${prepContext.line.color}`,
+      }
+    : null
+  const baseMaterialOptions = Array.from(
+    new Map(
+      [
+        ...(selectedMaterialOption ? [selectedMaterialOption] : []),
+        ...(materialOptions.length ? materialOptions : [{ value: '', label: '扫描后带出面料' }]),
+      ].map((option) => [option.value, option]),
+    ).values(),
+  )
 
   const config: Record<WaitProcessWarehouseAction, { title: string; badge: string; submitLabel: string; fields: string[]; eventText: string }> = {
     claim: {
@@ -1178,12 +1201,12 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
       submitLabel: '确认领料',
       eventText: '确认后形成中转仓领料记录，并直接写入裁床待加工仓库区库位。',
       fields: [
-        renderWaitProcessActionTextField('scanCode', '扫描中转仓配料单 / 裁片单', '扫中转仓配料单或裁片单二维码'),
-        renderWaitProcessActionSelect('cutOrderId', '面料', baseMaterialOptions),
-        renderWaitProcessActionTextField('quantity', '领料数量', '例如 300'),
-        renderWaitProcessActionTextField('rollCount', '卷数', '例如 2'),
-        renderWaitProcessActionSelect('warehouseArea', '入库库区', baseAreaOptions),
-        renderWaitProcessActionSelect('locationCode', '入库库位', baseLocationOptions),
+        renderWaitProcessActionTextField('scanCode', '扫描中转仓配料单 / 裁片单', '扫中转仓配料单或裁片单二维码', prepContext?.record.prepRecordId || ''),
+        renderWaitProcessActionSelect('cutOrderId', '面料', baseMaterialOptions, selectedCutOrderId),
+        renderWaitProcessActionTextField('quantity', '领料数量', '例如 300', prepContext ? String(prepContext.availableToPickupQty || prepContext.item.preparedQty) : ''),
+        renderWaitProcessActionTextField('rollCount', '卷数', '例如 2', prepContext ? String(prepContext.item.rollCount) : ''),
+        renderWaitProcessActionSelect('warehouseArea', '入库库区', baseAreaOptions, selectedArea),
+        renderWaitProcessActionSelect('locationCode', '入库库位', baseLocationOptions, selectedLocation),
         renderWaitProcessActionTextField('operatorName', '领料人', '默认当前操作人'),
       ],
     },
@@ -1228,10 +1251,14 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
           <div>
             <h2 class="text-base font-semibold">${escapeHtml(current.title)}</h2>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(current.eventText)}</div>
+            ${prepContext ? `<div class="mt-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">已关联配料记录：${escapeHtml(prepContext.record.prepRecordId)} / 记录内物料：${escapeHtml(prepContext.line.materialSku)} / 可领 ${escapeHtml(String(prepContext.availableToPickupQty))} ${escapeHtml(prepContext.line.unit)}。提交后会写回领料记录并入裁床待加工仓。</div>` : ''}
           </div>
           <span class="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">${escapeHtml(current.badge)}</span>
         </header>
         <div class="max-h-[68vh] overflow-y-auto p-4">
+          <input type="hidden" data-wait-process-field="prepRecordId" value="${escapeHtml(prepContext?.record.prepRecordId || '')}" />
+          <input type="hidden" data-wait-process-field="prepOrderId" value="${escapeHtml(prepContext?.projection.order.prepOrderId || '')}" />
+          <input type="hidden" data-wait-process-field="prepLineId" value="${escapeHtml(prepContext?.line.prepLineId || '')}" />
           <div class="grid gap-3 md:grid-cols-2">${current.fields.join('')}</div>
           <label class="mt-3 block">
             <span class="text-xs font-medium text-slate-700">备注</span>
@@ -1342,11 +1369,17 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
   }
 
   if (action === 'claim') {
+    const prepRecordId = readWaitProcessActionField(dialog, 'prepRecordId')
+    const prepOrderId = readWaitProcessActionField(dialog, 'prepOrderId')
+    const prepLineId = readWaitProcessActionField(dialog, 'prepLineId')
     const payload: TransferPickupPayload = {
-      pickupRecordId: `web-pickup:${row.cutOrderId}:${compactDate}`,
+      pickupRecordId: prepRecordId ? `web-pickup:${prepRecordId}:${compactDate}` : `web-pickup:${row.cutOrderId}:${compactDate}`,
       pickupRecordNo: `裁床领料-${compactDate.slice(-6)}`,
       prepNoticeId: readWaitProcessActionField(dialog, 'scanCode') || `prep:${row.cutOrderId}`,
       prepOrderNo: readWaitProcessActionField(dialog, 'scanCode') || row.cutOrderNo,
+      prepOrderId: prepOrderId || undefined,
+      prepLineId: prepLineId || undefined,
+      prepRecordId: prepRecordId || undefined,
       pickupQty: quantity,
       unit: '米',
       rollCount,

@@ -171,7 +171,6 @@ const requiredFiles = [
   'src/pages/progress-handover.ts',
   'src/pages/print/task-route-card.ts',
   'src/pages/print/task-delivery-card.ts',
-  'src/pages/factory-internal-warehouse.ts',
   'src/pages/factory-profile.ts',
   'src/pages/factory-capacity-profile.ts',
   'src/pages/process-factory/special-craft/shared.ts',
@@ -352,7 +351,6 @@ const routeSource =
   read('src/router/route-renderers.ts')
 ;[
   '/fcs/production/orders',
-  '/fcs/factory/warehouse',
   '/fcs/progress/board',
   '/fcs/progress/handover',
   '/fcs/print/task-route-card',

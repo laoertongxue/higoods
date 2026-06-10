@@ -147,7 +147,6 @@ function renderWaitProcessRows(view: DyeingWarehouseView): string {
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${buildDyeingWorkOrderDetailLink(item.sourceRecordId)}">查看染色加工单</button>
               ${renderWarehouseFlowButton(`${item.sourceRecordNo} 库存流水`, buildWaitProcessFlowLines(item))}
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.taskId ? buildTaskDetailLink(item.taskId) : ''}" ${item.taskId ? '' : 'disabled'}>打开移动端执行页</button>
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/factory/warehouse">调整位置</button>
             </div>
           </td>
         </tr>
@@ -180,7 +179,6 @@ function renderWaitHandoverRows(view: DyeingWarehouseView): string {
             <div class="flex flex-wrap gap-2">
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.handoverOrderId ? '' : 'disabled'}>打开移动端交出页</button>
               ${renderWarehouseFlowButton(`${item.taskNo || item.stockItemId} 库存流水`, buildWaitHandoverFlowLines(item))}
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/factory/warehouse">调整位置</button>
             </div>
           </td>
         </tr>

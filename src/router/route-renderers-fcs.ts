@@ -31,10 +31,6 @@ export const renderFactoryCapacityProfilePage = createAsyncRenderer(
   () => import('../pages/factory-capacity-profile'),
   'renderFactoryCapacityProfilePage',
 )
-export const renderFactoryInternalWarehousePage = createAsyncRenderer(
-  () => import('../pages/factory-internal-warehouse'),
-  'renderFactoryInternalWarehousePage',
-)
 export const renderFactoryPerformancePage = createAsyncRenderer(
   () => import('../pages/factory-performance'),
   'renderFactoryPerformancePage',
@@ -259,6 +255,14 @@ export const renderCraftCuttingCutOrderDetailPage = createAsyncRenderer(
 export const renderCraftCuttingCutOrderClosePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cut-orders'),
   'renderCraftCuttingCutOrderClosePage',
+)
+export const renderCraftCuttingPickupManagementPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/pickup-management'),
+  'renderCraftCuttingPickupManagementPage',
+)
+export const renderCraftCuttingPickupManagementDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/pickup-management'),
+  'renderCraftCuttingPickupManagementDetailPage',
 )
 export const renderCraftCuttingProductionProgressPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/production-progress'),

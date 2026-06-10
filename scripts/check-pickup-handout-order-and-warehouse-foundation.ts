@@ -81,7 +81,6 @@ const pageSources = [
   'src/pages/pda-handover.ts',
   'src/pages/pda-handover-detail.ts',
   'src/pages/pda-exec-detail.ts',
-  'src/pages/factory-internal-warehouse.ts',
   'src/pages/pda-warehouse.ts',
   'src/pages/pda-warehouse-stocktake.ts',
   'src/pages/pda-warehouse-inbound-records.ts',

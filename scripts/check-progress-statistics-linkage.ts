@@ -65,7 +65,6 @@ const productionDetailSource = read('src/pages/production/detail-domain.ts')
 const cuttingProgressSource = read('src/pages/process-factory/cutting/production-progress.ts')
 const cuttingProgressModelSource = read('src/pages/process-factory/cutting/production-progress-model.ts')
 const cuttingSummarySource = read('src/pages/process-factory/cutting/cutting-summary.ts')
-const factoryWarehouseSource = read('src/pages/factory-internal-warehouse.ts')
 const mobileWarehouseSource = read('src/pages/pda-warehouse-shared.ts') + read('src/data/fcs/factory-mobile-warehouse.ts')
 const sewingDispatchDataSource = read('src/data/fcs/cutting/sewing-dispatch.ts')
 const sewingDispatchSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
@@ -240,18 +239,18 @@ assertContains(linkageSource, 'receivedTransferBagCount', '统计联动必须消
 assertContains(linkageSource, 'receivedFeiTicketCount', '统计联动必须消费 Step 4 已收菲票字段')
 
 ;[
-  '待加工数量',
-  '待交出数量',
-  '今日入库',
-  '今日出库',
-  '入库差异',
-  '出库差异',
-  '盘点差异',
-  '待审核差异',
-  '已调整',
-  '超时未处理',
-  '异议中',
-].forEach((token) => assertContains(factoryWarehouseSource + mobileWarehouseSource, token, `仓库统计缺少：${token}`))
+  'waitProcessQty',
+  'waitHandoverQty',
+  'todayInboundQty',
+  'todayOutboundQty',
+  'inboundDifferenceCount',
+  'outboundDifferenceCount',
+  'stocktakeDifferenceCount',
+  'stocktakeWaitReviewCount',
+  'stocktakeAdjustedCount',
+  'overdueCount',
+  'objectionCount',
+].forEach((token) => assertContains(linkageSource + mobileWarehouseSource, token, `仓库统计缺少：${token}`))
 assertContains(linkageSource, 'stocktakeWaitReviewCount', '统计联动缺少待审核差异计数')
 assertContains(linkageSource, 'stocktakeAdjustedCount', '统计联动缺少已调整差异计数')
 assertContains(linkageSource, 'pickupCompletedOrderCount', '统计联动缺少已完成领料单计数')
@@ -278,7 +277,6 @@ const scopedSource = [
   cuttingProgressSource,
   cuttingSummarySource,
   specialCraftStatisticsSource,
-  factoryWarehouseSource,
   mobileWarehouseSource,
   sewingDispatchSource,
 ].join('\n')
