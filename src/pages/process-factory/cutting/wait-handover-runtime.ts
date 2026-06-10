@@ -532,6 +532,7 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       specialCraftId: input.specialCraftId,
       feiTicketIds: input.payload.returnedFeiTicketItems.map((item) => item.feiTicketId),
       feiTicketNos: input.payload.returnedFeiTicketItems.map((item) => item.feiTicketNo),
+      transferBagCode: input.payload.transferBagCode,
     },
     inventoryEffect: {
       inventoryScope: '裁床待交出仓',

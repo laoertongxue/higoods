@@ -44,6 +44,7 @@ import {
   buildSewingTaskAllocationProjectionFromInventory,
   type HandoverPickingTaskProjection,
 } from '../data/fcs/cutting/sewing-dispatch.ts'
+import { listHandoverRecords } from '../data/fcs/cutting/handover-orders.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildWarehouseDifferenceText,
@@ -68,7 +69,7 @@ import { escapeHtml } from '../utils'
 import { getSpecialCraftFeiTicketSummary } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 
 type WaitHandoverFilter = '全部' | '待交出' | '已交出' | '已回写' | '差异' | '异议中'
-type CuttingWaitHandoverActionKey = 'numbering' | 'inbound' | 'handover-bagging-confirm'
+type CuttingWaitHandoverActionKey = 'numbering' | 'inbound' | 'handover-bagging-confirm' | 'special-craft-return'
 
 interface CuttingWaitHandoverCardAction {
   label: string
@@ -168,6 +169,12 @@ const CUTTING_WAIT_HANDOVER_ACTIONS: Array<{
     title: '交出装袋确认',
     desc: '按车缝任务扫描中转袋和菲票，确认装袋并形成交出记录。',
     primaryLabel: '进入交出装袋确认',
+  },
+  {
+    key: 'special-craft-return',
+    title: '特殊工艺回仓',
+    desc: '有中转袋先扫中转袋，再扫菲票获取裁片部位，确认库区库位入仓。',
+    primaryLabel: '开始特殊工艺回仓',
   },
 ]
 
@@ -334,6 +341,7 @@ function getCuttingWaitHandoverAction(value?: string | null): typeof CUTTING_WAI
 function getCuttingWaitHandoverActionRoute(actionKey: CuttingWaitHandoverActionKey, firstTaskId: string): string {
   if (actionKey === 'numbering') return '/fcs/pda/cutting/fei-ticket-numbering'
   if (actionKey === 'inbound') return `/fcs/pda/cutting/inbound/${firstTaskId}`
+  if (actionKey === 'special-craft-return') return `/fcs/pda/cutting/handover/${firstTaskId}?action=special-craft-return`
   return `/fcs/pda/cutting/handover/${firstTaskId}?action=handover-bagging-confirm`
 }
 
@@ -395,6 +403,68 @@ function renderCuttingBaggingConfirmTaskList(
         projection.tasks.length
           ? projection.tasks.map((task) => renderCuttingBaggingConfirmTaskCard(task, firstTaskId)).join('')
           : renderMobilePageEmptyState('暂无交出装袋确认任务', '车缝任务分配并有裁片入仓后，会按车缝任务生成交出装袋确认任务。')
+      }
+    </section>
+  `
+}
+
+function renderCuttingSpecialCraftReturnCandidates(
+  runtimeProjection: WaitHandoverRuntimeProjection,
+  firstTaskId: string,
+  action: CuttingWaitHandoverCardAction,
+): string {
+  const returnedKeys = new Set(
+    runtimeProjection.runtimeEvents
+      .filter((event) => event.eventType === '特殊工艺回仓')
+      .flatMap((event) => (event.refs.feiTicketIds || []).map((feiTicketId) => `${feiTicketId}:${event.refs.specialCraftId || ''}`)),
+  )
+  const candidates = listHandoverRecords()
+    .filter((record) => record.handoverType === '特殊工艺交出' && record.specialCraftItems?.length)
+    .flatMap((record) =>
+      (record.specialCraftItems || []).map((craftItem) => {
+        const ticket = record.feiTicketItems.find((item) => item.feiTicketId === craftItem.feiTicketId)
+        const bag = record.transferBagUses.find((item) => item.containedFeiTicketIds.includes(craftItem.feiTicketId)) || record.transferBagUses[0]
+        return { record, craftItem, ticket, bag }
+      }),
+    )
+    .filter((item) => item.ticket)
+    .slice(0, 5)
+
+  return `
+    <section class="space-y-3">
+      <div class="px-1 text-base font-semibold text-foreground">待回仓菲票</div>
+      ${
+        candidates.length
+          ? candidates.map(({ record, craftItem, ticket, bag }) => {
+              const route = `/fcs/pda/cutting/handover/${firstTaskId}?action=special-craft-return`
+              const isReturned = returnedKeys.has(`${craftItem.feiTicketId}:${craftItem.specialCraftId}`)
+              return `
+                <article class="rounded-lg border bg-card p-3">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      <div class="truncate text-sm font-semibold text-foreground">${escapeHtml(ticket?.feiTicketNo || craftItem.feiTicketId)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">来源：${escapeHtml(record.handoverRecordNo)} / ${escapeHtml(bag?.bagCode || '无中转袋')}</div>
+                    </div>
+                    ${renderStatusPill(isReturned ? '已回仓' : '待回仓')}
+                  </div>
+                  <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div><span class="text-muted-foreground">裁片部位：</span>${escapeHtml(craftItem.partName)}</div>
+                    <div><span class="text-muted-foreground">尺码：</span>${escapeHtml(craftItem.size)}</div>
+                    <div><span class="text-muted-foreground">工艺：</span>${escapeHtml(craftItem.craftType)}</div>
+                    <div><span class="text-muted-foreground">应回：</span>${craftItem.pieceQty} 片</div>
+                  </div>
+                  <button
+                    type="button"
+                    class="mt-3 inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground"
+                    data-nav="${escapeAttr(route)}"
+                    title="${escapeHtml(action.hint)}"
+                  >
+                    ${escapeHtml(action.label)}
+                  </button>
+                </article>
+              `
+            }).join('')
+          : renderMobilePageEmptyState('暂无待回仓菲票', '特殊工艺交出后，先扫中转袋再扫菲票并入库区库位。')
       }
     </section>
   `
@@ -749,6 +819,16 @@ function renderCuttingWaitHandoverActionPreview(
       <section class="space-y-3">
         <div class="px-1 text-base font-semibold text-foreground">最近交出装袋确认</div>
         ${runtimeProjection.baggingConfirmEvents.slice(0, 5).map((event) => renderCuttingRuntimeEventItem(event, cardAction)).join('') || renderMobilePageEmptyState('暂无交出装袋确认记录', '进入任务后扫码来源暂存袋、菲票和目标中转袋。')}
+      </section>
+    `
+  }
+  if (actionKey === 'special-craft-return') {
+    const returnEvents = runtimeProjection.runtimeEvents.filter((event) => event.eventType === '特殊工艺回仓')
+    return `
+      ${renderCuttingSpecialCraftReturnCandidates(runtimeProjection, firstTaskId, cardAction)}
+      <section class="space-y-3">
+        <div class="px-1 text-base font-semibold text-foreground">最近特殊工艺回仓</div>
+        ${returnEvents.slice(0, 5).map((event) => renderCuttingRuntimeEventItem(event, cardAction)).join('') || renderMobilePageEmptyState('暂无特殊工艺回仓记录', '扫码回仓后，会写入裁床待交出仓库存。')}
       </section>
     `
   }

@@ -66,7 +66,9 @@ interface HandoverFormState {
   specialCraftOrderScan: string
   specialCraftBagScan: string
   specialCraftFeiTicketScan: string
+  specialCraftReturnBagScan: string
   specialCraftReturnFeiTicketScan: string
+  specialCraftReturnAreaScan: string
   specialCraftReturnLocationScan: string
   specialCraftReturnQty: string
 }
@@ -98,7 +100,9 @@ function getState(taskId: string, executionOrderId?: string | null, executionOrd
     specialCraftOrderScan: '',
     specialCraftBagScan: '',
     specialCraftFeiTicketScan: '',
+    specialCraftReturnBagScan: '',
     specialCraftReturnFeiTicketScan: '',
+    specialCraftReturnAreaScan: '',
     specialCraftReturnLocationScan: '',
     specialCraftReturnQty: '',
   }
@@ -524,8 +528,11 @@ function validateSpecialCraftReturnScans(
 ):
   | {
       ok: true
+      bag: HandoverRecord['transferBagUses'][number] | null
       craftItems: NonNullable<HandoverRecord['specialCraftItems']>
+      ticket: HandoverRecord['feiTicketItems'][number]
       ticketNo: string
+      warehouseArea: string
       locationCode: string
       returnedQty: number
     }
@@ -533,19 +540,30 @@ function validateSpecialCraftReturnScans(
   if (!matchesScannedValue(form.specialCraftOrderScan, [draft.handoverOrderNo, draft.handoverOrderId])) {
     return { ok: false, message: '请先扫描来源特殊工艺交出单。' }
   }
+  const bag = sourceRecord.transferBagUses.length
+    ? sourceRecord.transferBagUses.find((item) => matchesScannedValue(form.specialCraftReturnBagScan, [item.bagCode, item.bagUseId])) || null
+    : null
+  if (sourceRecord.transferBagUses.length && !bag) {
+    return { ok: false, message: '请先扫描回仓中转袋。' }
+  }
   const ticket = sourceRecord.feiTicketItems.find((item) => matchesScannedValue(form.specialCraftReturnFeiTicketScan, [item.feiTicketNo, item.feiTicketId]))
   if (!ticket) return { ok: false, message: '该菲票不属于当前特殊工艺交出记录。' }
+  if (bag?.containedFeiTicketIds.length && !bag.containedFeiTicketIds.includes(ticket.feiTicketId)) {
+    return { ok: false, message: '该菲票不在已扫描的回仓中转袋中。' }
+  }
   const craftItems = (sourceRecord.specialCraftItems || []).filter((item) => item.feiTicketId === ticket.feiTicketId)
   if (!craftItems.length) return { ok: false, message: '该菲票没有可回仓的特殊工艺明细。' }
   const expectedQty = craftItems.reduce((total, item) => total + item.pieceQty, 0)
   if (expectedQty <= 0) return { ok: false, message: '该菲票没有可回仓数量。' }
   const alreadyReturned = craftItems.find((item) => runtimeEventHasTicket('特殊工艺回仓', ticket.feiTicketId, item.specialCraftId))
   if (alreadyReturned) return { ok: false, message: '该菲票的当前特殊工艺已回仓，不能重复回仓。' }
+  const warehouseArea = normalizeScanValue(form.specialCraftReturnAreaScan)
+  if (!warehouseArea) return { ok: false, message: '请扫描或填写回仓库区。' }
   const locationCode = normalizeScanValue(form.specialCraftReturnLocationScan)
-  if (!locationCode) return { ok: false, message: '请扫描回仓库位。' }
+  if (!locationCode) return { ok: false, message: '请扫描或填写回仓库位。' }
   const returnedQty = Number(form.specialCraftReturnQty)
   if (!Number.isFinite(returnedQty) || returnedQty <= 0) return { ok: false, message: '请填写大于 0 的实回数量。' }
-  return { ok: true, craftItems, ticketNo: ticket.feiTicketNo, locationCode, returnedQty }
+  return { ok: true, bag, craftItems, ticket, ticketNo: ticket.feiTicketNo, warehouseArea, locationCode, returnedQty }
 }
 
 function appendPdaSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProjection, form: HandoverFormState, operatorName: string): string {
@@ -570,6 +588,9 @@ function appendPdaSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProjectio
       feiTicketId: item.feiTicketId,
       feiTicketNo: sourceRecord.feiTicketItems.find((ticket) => ticket.feiTicketId === item.feiTicketId)?.feiTicketNo || item.feiTicketId,
       specialCraftId: item.specialCraftId,
+      craftType: item.craftType,
+      partName: item.partName,
+      size: item.size,
       expectedQty: item.pieceQty,
       returnedQty,
       unit: '片' as const,
@@ -580,11 +601,16 @@ function appendPdaSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProjectio
     returnRecordId,
     returnRecordNo: `HG-${sourceRecord.handoverRecordNo}-PDA`,
     sourceHandoverOrderId: sourceRecord.handoverOrderId,
+    sourceHandoverOrderNo: sourceRecord.handoverOrderNo,
     sourceHandoverRecordId: sourceRecord.handoverRecordId,
+    sourceHandoverRecordNo: sourceRecord.handoverRecordNo,
     receiverFactoryId: craftItems[0].receiverFactoryId,
     receiverFactoryName: craftItems[0].receiverFactoryName,
+    transferBagCode: validation.bag?.bagCode,
+    warehouseName: '裁床待交出仓',
+    craftType: craftItems[0].craftType,
     returnedFeiTicketItems,
-    warehouseArea: '特殊工艺回仓区',
+    warehouseArea: validation.warehouseArea,
     locationCode: validation.locationCode,
     returnedAt: now,
     returnedBy: operatorName,
@@ -602,7 +628,78 @@ function appendPdaSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProjectio
     occurredAt: now,
   })
 
-  return `已同步特殊工艺回仓：${validation.ticketNo}，回仓 ${returnedQty} 片。`
+  return `已同步特殊工艺回仓：${validation.ticketNo} / ${validation.ticket.partName}，回仓 ${returnedQty} 片，入 ${validation.warehouseArea} / ${validation.locationCode}。`
+}
+
+function renderPdaSpecialCraftReturnFlow(
+  draft: PdaHandoverRecordDraftProjection,
+  sourceRecord: HandoverRecord | undefined,
+  taskId: string,
+  form: HandoverFormState,
+): string {
+  if (!sourceRecord || !sourceRecord.specialCraftItems?.length) {
+    return renderPdaCuttingEmptyState('暂无可回仓特殊工艺菲票', '特殊工艺交出后，回仓扫码任务会出现在这里。')
+  }
+  const scannedTicket = sourceRecord.feiTicketItems.find((item) =>
+    matchesScannedValue(form.specialCraftReturnFeiTicketScan, [item.feiTicketNo, item.feiTicketId]),
+  )
+  const ticket = scannedTicket || sourceRecord.feiTicketItems.find((item) =>
+    sourceRecord.specialCraftItems?.some((craft) => craft.feiTicketId === item.feiTicketId),
+  )
+  const craftItems = ticket ? sourceRecord.specialCraftItems.filter((item) => item.feiTicketId === ticket.feiTicketId) : []
+  const firstCraft = craftItems[0]
+  const sourceBag = sourceRecord.transferBagUses.find((item) =>
+    form.specialCraftReturnBagScan
+      ? matchesScannedValue(form.specialCraftReturnBagScan, [item.bagCode, item.bagUseId])
+      : item.containedFeiTicketIds.includes(ticket?.feiTicketId || ''),
+  ) || sourceRecord.transferBagUses[0]
+  const expectedQty = craftItems.reduce((total, item) => total + item.pieceQty, 0)
+  const returnStatus = firstCraft && ticket && runtimeEventHasTicket('特殊工艺回仓', ticket.feiTicketId, firstCraft.specialCraftId)
+    ? '已回仓'
+    : '待回仓'
+
+  return `
+    <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
+      <div class="rounded-xl border bg-violet-50 px-3 py-3 text-violet-900">
+        <div class="font-medium">特殊工艺回仓扫码</div>
+        <div class="mt-1 text-sm font-semibold">${escapeHtml(draft.handoverOrderNo)} / 来源记录 ${escapeHtml(sourceRecord.handoverRecordNo)}</div>
+        <div class="mt-1">有中转袋时先扫中转袋，再扫菲票获取裁片部位，最后扫库区库位并确认入仓。</div>
+      </div>
+      <div class="rounded-xl border px-3 py-3">
+        <div class="font-medium text-foreground">扫码顺序</div>
+        <div class="mt-2 grid grid-cols-2 gap-2 text-muted-foreground">
+          <div>1. 扫来源交出单</div>
+          <div>2. 扫回仓中转袋</div>
+          <div>3. 扫回仓菲票</div>
+          <div>4. 扫库区库位</div>
+        </div>
+        <div class="mt-3 grid gap-2">
+          ${renderPdaScanInput('来源特殊工艺交出单', 'specialCraftOrderScan', form.specialCraftOrderScan, draft.handoverOrderNo)}
+          ${renderPdaScanInput('回仓中转袋', 'specialCraftReturnBagScan', form.specialCraftReturnBagScan, sourceBag?.bagCode || '无中转袋则留空')}
+          ${renderPdaScanInput('回仓菲票', 'specialCraftReturnFeiTicketScan', form.specialCraftReturnFeiTicketScan, ticket?.feiTicketNo || '扫回仓菲票')}
+          ${renderPdaScanInput('回仓库区', 'specialCraftReturnAreaScan', form.specialCraftReturnAreaScan, '特殊工艺回仓区')}
+          ${renderPdaScanInput('回仓库位', 'specialCraftReturnLocationScan', form.specialCraftReturnLocationScan, 'SP-RETURN-01')}
+          ${renderPdaScanInput('实回数量', 'specialCraftReturnQty', form.specialCraftReturnQty, String(expectedQty || ticket?.pieceQty || '填写实回数量'))}
+        </div>
+      </div>
+      ${renderPdaCuttingSummaryGrid([
+        { label: '菲票', value: ticket?.feiTicketNo || '待扫描' },
+        { label: '裁片部位', value: ticket ? `${ticket.partName} / ${ticket.size}` : '待扫描菲票后获取' },
+        { label: '应回数量', value: expectedQty ? `${expectedQty} 片` : '待识别' },
+        { label: '回仓状态', value: returnStatus },
+        { label: '承接工厂', value: firstCraft?.receiverFactoryName || sourceRecord.receiverName },
+        { label: '回仓去向', value: `${form.specialCraftReturnAreaScan || '待扫库区'} / ${form.specialCraftReturnLocationScan || '待扫库位'}` },
+      ])}
+      ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, form.feedbackMessage.includes('已同步') ? 'success' : 'warning') : ''}
+      <button
+        class="inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+        data-pda-cut-handover-action="confirm-special-craft-return"
+        data-task-id="${escapeHtml(taskId)}"
+      >
+        确认特殊工艺回仓入仓
+      </button>
+    </div>
+  `
 }
 
 export function renderPdaCuttingHandoverPage(taskId: string): string {
@@ -610,9 +707,11 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   const detail = context.detail
   const routeAction = readPdaCuttingHandoverActionFromLocation()
   const isBaggingConfirmAction = routeAction === 'handover-bagging-confirm'
-  const pageTitle = isBaggingConfirmAction ? '交出装袋确认扫码' : '交出记录扫码'
-  const pageActiveTab = isBaggingConfirmAction ? 'warehouse' : 'handover'
+  const isSpecialCraftReturnAction = routeAction === 'special-craft-return'
+  const pageTitle = isSpecialCraftReturnAction ? '特殊工艺回仓扫码' : isBaggingConfirmAction ? '交出装袋确认扫码' : '交出记录扫码'
+  const pageActiveTab = isBaggingConfirmAction || isSpecialCraftReturnAction ? 'warehouse' : 'handover'
   const baggingConfirmBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=handover-bagging-confirm'
+  const specialCraftReturnBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=special-craft-return'
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
@@ -621,7 +720,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
       subtitle: '',
       activeTab: pageActiveTab,
       body: '',
-      backHref: isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref,
+      backHref: isSpecialCraftReturnAction ? specialCraftReturnBackHref : isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref,
     })
   }
 
@@ -633,22 +732,45 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
       activeTab: pageActiveTab,
       body: renderPdaCuttingOrderSelectionPrompt(
         detail,
-        isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref,
+        isSpecialCraftReturnAction ? specialCraftReturnBackHref : isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref,
         context.selectionNotice || undefined,
       ),
-      backHref: isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref,
+      backHref: isSpecialCraftReturnAction ? specialCraftReturnBackHref : isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref,
     })
   }
 
   const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
-  const pageBackHref = form.backHrefOverride || (isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref)
+  const pageBackHref = form.backHrefOverride || (isSpecialCraftReturnAction ? specialCraftReturnBackHref : isBaggingConfirmAction ? baggingConfirmBackHref : context.backHref)
   const universalDraft = buildPdaUniversalHandoverRecordDraft()
   const specialCraftDraft = buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001')
+  const specialCraftSourceRecord = findHandoverRecordForDraft(specialCraftDraft)
 
   if (isBaggingConfirmAction) {
     const body = `
       ${renderPdaCuttingExecutionHero('交出装袋确认', detail)}
       ${renderPdaCuttingSection('交出装袋确认扫码', '', renderPdaPickingFlow(buildPdaHandoverPickingProjection(), taskId, form))}
+    `
+
+    return renderPdaCuttingPageLayout({
+      taskId,
+      title: pageTitle,
+      subtitle: '',
+      activeTab: pageActiveTab,
+      body,
+      backHref: pageBackHref,
+      hideHeaderToolbar: true,
+      titleActionHtml: `
+        <button class="inline-flex items-center rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}">
+          返回
+        </button>
+      `,
+    })
+  }
+
+  if (isSpecialCraftReturnAction) {
+    const body = `
+      ${renderPdaCuttingExecutionHero('特殊工艺回仓', detail)}
+      ${renderPdaCuttingSection('扫码回仓入库', '', renderPdaSpecialCraftReturnFlow(specialCraftDraft, specialCraftSourceRecord, taskId, form))}
     `
 
     return renderPdaCuttingPageLayout({
@@ -728,7 +850,9 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
           ${renderPdaScanInput('特殊工艺交出单', 'specialCraftOrderScan', form.specialCraftOrderScan, specialCraftDraft.handoverOrderNo)}
           ${renderPdaScanInput('中转袋', 'specialCraftBagScan', form.specialCraftBagScan, '扫特殊工艺交出中转袋')}
           ${renderPdaScanInput('交出菲票', 'specialCraftFeiTicketScan', form.specialCraftFeiTicketScan, '扫交出菲票')}
+          ${renderPdaScanInput('回仓中转袋', 'specialCraftReturnBagScan', form.specialCraftReturnBagScan, specialCraftSourceRecord?.transferBagUses[0]?.bagCode || '扫回仓中转袋')}
           ${renderPdaScanInput('回仓菲票', 'specialCraftReturnFeiTicketScan', form.specialCraftReturnFeiTicketScan, '扫回仓菲票')}
+          ${renderPdaScanInput('回仓库区', 'specialCraftReturnAreaScan', form.specialCraftReturnAreaScan, '扫回仓库区')}
           ${renderPdaScanInput('回仓库位', 'specialCraftReturnLocationScan', form.specialCraftReturnLocationScan, '扫回仓库位')}
           ${renderPdaScanInput('实回数量', 'specialCraftReturnQty', form.specialCraftReturnQty, '填写实回数量')}
         </div>
@@ -737,7 +861,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
         { label: '本次工艺', value: '绣花' },
         { label: '承接工厂', value: specialCraftDraft.receiverName },
         { label: '同步状态', value: '已同步', hint: '提交后生成通用交出记录' },
-        { label: '后续回仓', value: '待回仓' },
+        { label: '后续回仓', value: '先扫中转袋再扫菲票' },
       ])}
       ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, form.feedbackMessage.includes('已同步') ? 'success' : 'warning') : ''}
       <button

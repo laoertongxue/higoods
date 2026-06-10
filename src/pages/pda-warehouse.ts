@@ -211,23 +211,28 @@ function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMob
   let waitHandoverActions: WarehouseShortcut[]
   if (isCuttingWarehouseRuntime(runtime)) {
     waitHandoverActions = [
-    {
-      title: inboundShortcut.title,
-      subtitle: inboundShortcut.subtitle,
-      route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'inbound' }),
-    },
-    {
-      title: '交出装袋确认',
-      subtitle: '扫中转袋和菲票，确认装袋并形成交出记录。',
-      route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'handover-bagging-confirm' }),
-      ...buildPendingTone(handoverCount),
-    },
-    {
-      title: '菲票打编号',
-      subtitle: '扫菲票查看编号范围，完成后才能入仓暂存和装袋。',
-      route: '/fcs/pda/cutting/fei-ticket-numbering',
-    },
-  ]
+      {
+        title: inboundShortcut.title,
+        subtitle: inboundShortcut.subtitle,
+        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'inbound' }),
+      },
+      {
+        title: '交出装袋确认',
+        subtitle: '扫中转袋和菲票，确认装袋并形成交出记录。',
+        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'handover-bagging-confirm' }),
+        ...buildPendingTone(handoverCount),
+      },
+      {
+        title: '特殊工艺回仓',
+        subtitle: '有袋先扫中转袋，再扫菲票和库区库位。',
+        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'special-craft-return' }),
+      },
+      {
+        title: '菲票打编号',
+        subtitle: '扫菲票查看编号范围，完成后才能入仓暂存和装袋。',
+        route: '/fcs/pda/cutting/fei-ticket-numbering',
+      },
+    ]
   } else if (isCraftWarehouseRuntime(runtime)) {
     waitHandoverActions = [
       {

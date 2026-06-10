@@ -307,13 +307,21 @@ export interface SpecialCraftReturnPayload {
   returnRecordId: string
   returnRecordNo: string
   sourceHandoverOrderId: string
+  sourceHandoverOrderNo?: string
   sourceHandoverRecordId: string
+  sourceHandoverRecordNo?: string
   receiverFactoryId: string
   receiverFactoryName: string
+  transferBagCode?: string
+  warehouseName?: string
+  craftType?: string
   returnedFeiTicketItems: Array<{
     feiTicketId: string
     feiTicketNo: string
     specialCraftId: string
+    craftType?: string
+    partName?: string
+    size?: string
     expectedQty: number
     returnedQty: number
     unit: '片'
