@@ -201,6 +201,7 @@ assert(lockedPageSource.includes('exitModalOpen') && lockedPageSource.includes('
 assert(lockedPageSource.includes('已识别生产确认单') && lockedPageSource.includes('reset-scan'), '扫码识别成功后必须展示紧凑确认单摘要并支持重新扫码')
 assert(!lockedPageSource.includes('填入计划数') && !lockedPageSource.includes('fill-planned-qty'), '交货信息区不得再展示填入计划数按钮')
 assert(lockedPageSource.includes('type="file"') && lockedPageSource.includes('accept="image/*"') && lockedPageSource.includes('evidenceImages'), '现场凭证必须支持上传真实图片')
+assert(lockedPageSource.includes('open-evidence-image-picker') && lockedPageSource.includes("document.getElementById('pda-sewing-self-return-evidence-images')?.click()"), '上传图片按钮必须真正触发文件选择器')
 assert(!lockedPageSource.includes('data-pda-sewing-self-return-field="evidenceText"'), '现场凭证不得再使用文本说明输入框')
 assert(lockedPageSource.includes('activatePdaSewingSelfReturnMode') && lockedPageSource.includes('clearPdaSewingSelfReturnMode'), '锁定页必须负责开启和退出 PDA 锁态')
 assert(pdaShellSource.includes('shouldBlockPdaRouteBySewingSelfReturnMode'), 'PDA 外壳必须拦截锁定模式下的普通页面')

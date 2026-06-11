@@ -149,17 +149,21 @@ function renderEvidenceImages(): string {
     <div class="space-y-2">
       <div class="flex items-center justify-between gap-3">
         <div class="text-xs font-medium text-slate-600">现场凭证图片</div>
-        <label class="inline-flex h-9 shrink-0 items-center justify-center rounded-xl border px-3 text-xs font-medium text-slate-700">
-          上传图片
-          <input
-            type="file"
-            class="sr-only"
-            accept="image/*"
-            multiple
-            capture="environment"
-            data-pda-sewing-self-return-field="evidenceImages"
-          />
-        </label>
+        <button
+          type="button"
+          class="inline-flex h-9 shrink-0 items-center justify-center rounded-xl border px-3 text-xs font-medium text-slate-700"
+          data-skip-page-rerender="true"
+          data-pda-sewing-self-return-action="open-evidence-image-picker"
+        >上传图片</button>
+        <input
+          id="pda-sewing-self-return-evidence-images"
+          type="file"
+          class="sr-only"
+          accept="image/*"
+          multiple
+          capture="environment"
+          data-pda-sewing-self-return-field="evidenceImages"
+        />
       </div>
       ${
         state.evidenceImages.length
@@ -459,6 +463,10 @@ export async function handlePdaSewingSelfReturnEvent(target: HTMLElement): Promi
   if (action === 'reset-scan') {
     state.scanValue = ''
     state.qtyBySkuLineId = {}
+    return true
+  }
+  if (action === 'open-evidence-image-picker') {
+    document.getElementById('pda-sewing-self-return-evidence-images')?.click()
     return true
   }
   if (action === 'resolve-scan') {
