@@ -113,7 +113,7 @@ function createContent(
     patternFiles: [
       {
         id: 'pattern-review-assignee-diff-1',
-        recordKind: 'MATERIAL_ASSOCIATION',
+        recordKind: 'PACKAGE',
         patternName,
         fileName: `${patternName}.dxf`,
         fileUrl: '#',

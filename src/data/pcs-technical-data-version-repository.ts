@@ -30,8 +30,8 @@ import type {
   TechnicalVersionStatus,
 } from './pcs-technical-data-version-types.ts'
 
-const TECHNICAL_VERSION_STORAGE_KEY = 'higood-pcs-technical-data-version-store-v3'
-const TECHNICAL_VERSION_STORE_VERSION = 3
+const TECHNICAL_VERSION_STORAGE_KEY = 'higood-pcs-technical-data-version-store-v4'
+const TECHNICAL_VERSION_STORE_VERSION = 4
 
 let memorySnapshot: TechnicalDataVersionStoreSnapshot | null = null
 
@@ -247,8 +247,12 @@ const REVIEW_NODE_META: Record<
 }
 
 function normalizeReviewNodeStatus(value: string | null | undefined): TechnicalReviewNodeStatus {
-  if (value === '审核中' || value === '审核-未通过' || value === '审核-已通过') return value
+  if (value === '无需审核' || value === '审核中' || value === '审核-未通过' || value === '审核-已通过') return value
   return '待审核'
+}
+
+function isFirstStageReviewComplete(node: Pick<TechnicalReviewNode, 'status'>): boolean {
+  return node.status === '审核-已通过' || node.status === '无需审核'
 }
 
 function normalizeReviewNode(
@@ -304,8 +308,8 @@ function deriveReviewStage(input: {
   if (input.versionStatus === 'PUBLISHED' || input.versionStatus === 'ARCHIVED') return '已发布'
   if (input.merchandiserReview.status === '审核-已通过') return '待发布'
   if (
-    input.buyerReview.status === '审核-已通过' &&
-    input.patternMakerReview.status === '审核-已通过'
+    isFirstStageReviewComplete(input.buyerReview) &&
+    isFirstStageReviewComplete(input.patternMakerReview)
   ) {
     return '跟单复核'
   }

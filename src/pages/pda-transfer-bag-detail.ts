@@ -49,8 +49,8 @@ export function renderPdaTransferBagDetailPage(routeBagNo?: string): string {
           <button type="button" class="rounded-lg bg-primary px-3 py-2 font-medium text-primary-foreground">扫码装袋</button>
           <button type="button" class="rounded-lg border bg-white px-3 py-2 font-medium text-foreground">完成装袋</button>
           <button type="button" class="rounded-lg border bg-white px-3 py-2 font-medium text-foreground">移除菲票</button>
-          <button type="button" class="rounded-lg border bg-white px-3 py-2 font-medium text-foreground">按袋回写</button>
-          <button type="button" class="rounded-lg border bg-white px-3 py-2 font-medium text-foreground">按菲票回写</button>
+          <button type="button" class="rounded-lg border bg-white px-3 py-2 font-medium text-foreground">按袋确认</button>
+          <button type="button" class="rounded-lg border bg-white px-3 py-2 font-medium text-foreground">按菲票确认</button>
         </div>
       </section>
 

@@ -21,6 +21,7 @@ import {
   canPublishTechnicalVersionByReview,
   getTechnicalReviewPendingReviewerText,
   getTechnicalReviewStatusText,
+  isTechnicalReviewNodeComplete,
   normalizeTechnicalReviewSnapshot,
   TECH_PACK_REVIEW_MODULE_LABELS,
   TECH_PACK_REVIEW_REWORK_MODULES,
@@ -106,6 +107,37 @@ function renderDesignRequirementCheckBlock(): string {
       </div>
       <p class="mt-1 text-xs leading-5">${escapeHtml(validation.summaryText)}</p>
       ${issueRows ? `<ul class="mt-2 list-disc space-y-1 pl-5 text-xs">${issueRows}</ul>` : ''}
+    </div>
+  `
+}
+
+function renderReviewSubmitScopePreview(record: NonNullable<ReturnType<typeof getTechnicalDataVersionById>> | null): string {
+  if (!record) return ''
+  const items: Array<{ label: string; scope: string; nodeKey: TechnicalReviewNodeKey }> = [
+    { label: '买手审核', scope: '物料清单、核价', nodeKey: 'BUYER' },
+    { label: '版师审核', scope: '纸样池', nodeKey: 'PATTERN_MAKER' },
+  ]
+  return `
+    <div class="grid gap-2 rounded-lg border bg-muted/20 px-4 py-3">
+      <div class="font-medium text-foreground">审核范围判断</div>
+      ${items
+        .map((item) => {
+          const diff = buildTechPackReviewDiffSnapshot(record, item.nodeKey)
+          const skipped = diff.diffStatus === '无差异'
+          const className = skipped
+            ? 'border-slate-200 bg-slate-50 text-slate-700'
+            : 'border-blue-100 bg-blue-50 text-blue-700'
+          return `
+            <div class="rounded-md border px-3 py-2 ${className}">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="font-medium">${escapeHtml(item.label)} · ${escapeHtml(item.scope)}</span>
+                <span class="rounded border bg-white/70 px-2 py-0.5 text-xs">${skipped ? '无需审核' : '需审核'}</span>
+              </div>
+              <p class="mt-1 text-xs leading-5">${escapeHtml(diff.summaryText || '未生成差异快照')}</p>
+            </div>
+          `
+        })
+        .join('')}
     </div>
   `
 }
@@ -233,14 +265,15 @@ function renderReviewSubmitDialog(): string {
       <section class="w-full max-w-xl rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">确认提交技术包审核</h3>
-          <p class="mt-1 text-sm text-muted-foreground">请再次确认技术包已维护齐全且正确。提交后将进入买手、版师并行审核。</p>
+          <p class="mt-1 text-sm text-muted-foreground">请再次确认技术包已维护齐全且正确。提交后将按差异判断进入审核或标记无需审核。</p>
           ${state.compatibilityMessage ? `<p class="mt-2 text-sm text-red-600">${escapeHtml(state.compatibilityMessage)}</p>` : ''}
         </header>
         <div class="space-y-4 px-6 py-5 text-sm">
           <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
-            提交前请确认物料清单、核价、纸样管理、款色用料对应、工序工艺、放码规则、花型设计等内容已维护完整。审核中和审核通过的模块将锁定，不允许修改。
+            提交前请确认物料清单、核价、纸样管理、款色用料对应、工序工艺、放码规则、花型设计等内容已维护完整。审核中、审核通过和无需审核的模块将锁定，不允许修改。
           </div>
           ${renderDesignRequirementCheckBlock()}
+          ${renderReviewSubmitScopePreview(record)}
           <div class="grid gap-2 rounded-lg border bg-muted/20 px-4 py-3">
             <div class="font-medium text-foreground">固定审核人</div>
             <div class="text-muted-foreground">买手审核：<span class="font-medium text-foreground">${escapeHtml(reviewers.buyerReviewer.reviewerName)}</span></div>
@@ -599,8 +632,8 @@ function renderReviewDetailDrawer(): string {
       : ''
   const merchandiserActions =
     record.versionStatus === 'DRAFT' &&
-    review.buyerReview.status === '审核-已通过' &&
-    review.patternMakerReview.status === '审核-已通过'
+    isTechnicalReviewNodeComplete(review.buyerReview) &&
+    isTechnicalReviewNodeComplete(review.patternMakerReview)
       ? renderNodeActions(review.merchandiserReview) || pendingPublishReopenActions
       : ''
   return `
@@ -664,6 +697,7 @@ function renderReviewNodeCard(input: {
   const notifications = listTechPackReviewNotificationsByNode(input.technicalVersionId, input.node.nodeKey)
   const canOperate = isCurrentUserAssigned(input.node)
   const latestNotification = notifications[0]
+  const noReview = input.node.status === '无需审核'
   return `
     <article class="rounded-lg border bg-muted/10 p-3">
       <div class="flex items-start justify-between gap-3">
@@ -674,12 +708,12 @@ function renderReviewNodeCard(input: {
         <span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(input.node.status)}</span>
       </div>
       <div class="mt-3 grid gap-2 text-xs text-muted-foreground">
-        <div>指定审核人：<span class="font-medium text-foreground">${escapeHtml(input.node.assignedReviewerName || '未指定')}</span>${canOperate ? '' : `<span class="ml-2 text-amber-600">仅 ${escapeHtml(input.node.assignedReviewerName || '-')} 可审核</span>`}</div>
+        <div>指定审核人：<span class="font-medium text-foreground">${escapeHtml(noReview ? '无需指定' : input.node.assignedReviewerName || '未指定')}</span>${canOperate || noReview ? '' : `<span class="ml-2 text-amber-600">仅 ${escapeHtml(input.node.assignedReviewerName || '-')} 可审核</span>`}</div>
         <div>审核时间：<span class="font-medium text-foreground">${escapeHtml(input.node.reviewedAt || '-')}</span></div>
         <div>开始说明：<span class="font-medium text-foreground">${escapeHtml(input.node.startedOpinion || '未填写')}</span></div>
         <div>审核意见：<span class="font-medium text-foreground">${escapeHtml(input.node.opinion || '未填写')}</span></div>
         <div>差异：<span class="font-medium text-foreground">${escapeHtml(diff.summaryText || input.node.diffSummaryText || '未生成差异快照')}</span></div>
-        <div>飞书提醒：<span class="font-medium text-foreground">${escapeHtml(input.node.lastFeishuNotifyStatus || '未发送')}</span>${input.node.lastFeishuNotifyAt ? ` · ${escapeHtml(input.node.lastFeishuNotifyAt)}` : ''}${latestNotification?.failedReason ? ` · ${escapeHtml(latestNotification.failedReason)}` : ''}</div>
+        <div>飞书提醒：<span class="font-medium text-foreground">${escapeHtml(noReview ? '无需发送' : input.node.lastFeishuNotifyStatus || '未发送')}</span>${!noReview && input.node.lastFeishuNotifyAt ? ` · ${escapeHtml(input.node.lastFeishuNotifyAt)}` : ''}${!noReview && latestNotification?.failedReason ? ` · ${escapeHtml(latestNotification.failedReason)}` : ''}</div>
       </div>
       ${input.node.nodeKey === 'MERCHANDISER' ? `<div class="mt-3">${renderDesignRequirementCheckBlock()}</div>` : ''}
       <div class="mt-3 flex flex-wrap gap-2">
@@ -708,7 +742,7 @@ function isCurrentUserAssigned(node: TechnicalReviewNode): boolean {
 
 function renderNodeActions(node: TechnicalReviewNode): string {
   const disabled = isCurrentUserAssigned(node) ? '' : ' disabled aria-disabled="true" title="仅指定审核人可处理"'
-  if (node.status === '审核-已通过') return ''
+  if (node.status === '审核-已通过' || node.status === '无需审核') return ''
   if (node.status === '审核中') {
     const nodeKey = node.nodeKey
     if (nodeKey === 'MERCHANDISER') {

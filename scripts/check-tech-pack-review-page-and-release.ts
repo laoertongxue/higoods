@@ -311,7 +311,7 @@ approveTechPackReview(technicalVersionId, 'MERCHANDISER', '整体复核通过', 
 const readyRecord = getTechnicalDataVersionById(technicalVersionId)
 assert.equal(readyRecord?.reviewStage, '待发布', '跟单审核通过后应进入待发布')
 const readyHtml = renderTechPackPage(styleCode, { styleId, technicalVersionId })
-assert.ok(readyHtml.includes('发布版本'), '全部审核通过后右上角才展示发布版本')
+assert.ok(readyHtml.includes('发布新版本'), '全部审核通过后右上角才展示发布新版本')
 
 const published = publishTechnicalDataVersion(technicalVersionId, '测试用户')
 assert.equal(published.versionStatus, 'PUBLISHED', '跟单审核通过后发布应成功')

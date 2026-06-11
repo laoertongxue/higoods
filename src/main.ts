@@ -17,8 +17,11 @@ type CraftPrintingWarehousePageModule = typeof import('./pages/process-factory/p
 type CraftDyeingWarehousePageModule = typeof import('./pages/process-factory/dyeing/warehouse')
 type FactoryWarehouseSharedModule = typeof import('./pages/process-factory/shared/warehouse-standard')
 type PrintPreviewPageModule = typeof import('./pages/print/print-preview')
+type PdaTaskReceivePageModule = typeof import('./pages/pda-task-receive')
 type PdaExecPageModule = typeof import('./pages/pda-exec')
+type PdaHandoverPageModule = typeof import('./pages/pda-handover')
 type PdaWarehousePageModule = typeof import('./pages/pda-warehouse')
+type PdaSettlementPageModule = typeof import('./pages/pda-settlement')
 type RoutesModule = typeof import('./router/routes')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
@@ -35,12 +38,16 @@ let craftPrintingWarehousePageModulePromise: Promise<CraftPrintingWarehousePageM
 let craftDyeingWarehousePageModulePromise: Promise<CraftDyeingWarehousePageModule> | null = null
 let factoryWarehouseSharedModulePromise: Promise<FactoryWarehouseSharedModule> | null = null
 let printPreviewPageModulePromise: Promise<PrintPreviewPageModule> | null = null
+let pdaTaskReceivePageModulePromise: Promise<PdaTaskReceivePageModule> | null = null
 let pdaExecPageModulePromise: Promise<PdaExecPageModule> | null = null
+let pdaHandoverPageModulePromise: Promise<PdaHandoverPageModule> | null = null
 let pdaWarehousePageModulePromise: Promise<PdaWarehousePageModule> | null = null
+let pdaSettlementPageModulePromise: Promise<PdaSettlementPageModule> | null = null
 let routesModulePromise: Promise<RoutesModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
 let nextStoreRenderMode: StoreRenderMode = 'full'
+let pdaMainTabPreloadStarted = false
 
 function getFcsHandlersModule(): Promise<FcsHandlersModule> {
   if (!fcsHandlersModulePromise) {
@@ -182,6 +189,16 @@ function getPrintPreviewPageModule(): Promise<PrintPreviewPageModule> {
   return printPreviewPageModulePromise
 }
 
+function getPdaTaskReceivePageModule(): Promise<PdaTaskReceivePageModule> {
+  if (!pdaTaskReceivePageModulePromise) {
+    pdaTaskReceivePageModulePromise = import('./pages/pda-task-receive').catch((error) => {
+      pdaTaskReceivePageModulePromise = null
+      throw error
+    })
+  }
+  return pdaTaskReceivePageModulePromise
+}
+
 function getPdaExecPageModule(): Promise<PdaExecPageModule> {
   if (!pdaExecPageModulePromise) {
     pdaExecPageModulePromise = import('./pages/pda-exec').catch((error) => {
@@ -190,6 +207,16 @@ function getPdaExecPageModule(): Promise<PdaExecPageModule> {
     })
   }
   return pdaExecPageModulePromise
+}
+
+function getPdaHandoverPageModule(): Promise<PdaHandoverPageModule> {
+  if (!pdaHandoverPageModulePromise) {
+    pdaHandoverPageModulePromise = import('./pages/pda-handover').catch((error) => {
+      pdaHandoverPageModulePromise = null
+      throw error
+    })
+  }
+  return pdaHandoverPageModulePromise
 }
 
 function getPdaWarehousePageModule(): Promise<PdaWarehousePageModule> {
@@ -202,6 +229,16 @@ function getPdaWarehousePageModule(): Promise<PdaWarehousePageModule> {
   return pdaWarehousePageModulePromise
 }
 
+function getPdaSettlementPageModule(): Promise<PdaSettlementPageModule> {
+  if (!pdaSettlementPageModulePromise) {
+    pdaSettlementPageModulePromise = import('./pages/pda-settlement').catch((error) => {
+      pdaSettlementPageModulePromise = null
+      throw error
+    })
+  }
+  return pdaSettlementPageModulePromise
+}
+
 function getRoutesModule(): Promise<RoutesModule> {
   if (!routesModulePromise) {
     routesModulePromise = import('./router/routes').catch((error) => {
@@ -210,6 +247,37 @@ function getRoutesModule(): Promise<RoutesModule> {
     })
   }
   return routesModulePromise
+}
+
+function getPdaMainTabModule(pathname: string): Promise<unknown> | null {
+  const normalizedPathname = pathname.split('?')[0].split('#')[0]
+  if (normalizedPathname === '/fcs/pda/task-receive') return getPdaTaskReceivePageModule()
+  if (normalizedPathname === '/fcs/pda/exec') return getPdaExecPageModule()
+  if (normalizedPathname === '/fcs/pda/handover') return getPdaHandoverPageModule()
+  if (normalizedPathname === '/fcs/pda/warehouse') return getPdaWarehousePageModule()
+  if (normalizedPathname === '/fcs/pda/settlement') return getPdaSettlementPageModule()
+  return null
+}
+
+function preloadPdaMainTabModule(pathname: string): void {
+  getPdaMainTabModule(pathname)?.catch((error) => {
+    console.warn('PDA 主 Tab 预加载失败', error)
+  })
+}
+
+function schedulePdaMainTabPreload(): void {
+  if (pdaMainTabPreloadStarted) return
+  pdaMainTabPreloadStarted = true
+
+  window.setTimeout(() => {
+    void Promise.allSettled([
+      getPdaTaskReceivePageModule(),
+      getPdaExecPageModule(),
+      getPdaHandoverPageModule(),
+      getPdaWarehousePageModule(),
+      getPdaSettlementPageModule(),
+    ])
+  }, 0)
 }
 
 function getCurrentHandlerSystem(pathname: string): 'pcs' | 'fcs' | 'pda' | 'all' {
@@ -543,13 +611,25 @@ function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    if (normalizedPathname === '/fcs/pda/task-receive') {
+      const pdaTaskReceivePage = await getPdaTaskReceivePageModule()
+      return pdaTaskReceivePage.renderPdaTaskReceivePage()
+    }
     if (normalizedPathname === '/fcs/pda/exec') {
       const pdaExecPage = await getPdaExecPageModule()
       return pdaExecPage.renderPdaExecPage()
     }
+    if (normalizedPathname === '/fcs/pda/handover') {
+      const pdaHandoverPage = await getPdaHandoverPageModule()
+      return pdaHandoverPage.renderPdaHandoverPage()
+    }
     if (normalizedPathname === '/fcs/pda/warehouse') {
       const pdaWarehousePage = await getPdaWarehousePageModule()
       return pdaWarehousePage.renderPdaWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/pda/settlement') {
+      const pdaSettlementPage = await getPdaSettlementPageModule()
+      return pdaSettlementPage.renderPdaSettlementPage()
     }
     if (normalizedPathname === '/fcs/craft/printing/wait-process-warehouse') {
       const printingWarehousePage = await getCraftPrintingWarehousePageModule()
@@ -621,7 +701,12 @@ async function render(): Promise<void> {
   }
 
   root.innerHTML = renderAppShell(state, pageContent)
-  hydrateIcons(root)
+  if (isPdaPath(state.pathname)) {
+    schedulePdaMainTabPreload()
+    queueMicrotask(() => hydrateIcons(root))
+  } else {
+    hydrateIcons(root)
+  }
   hydrateRealQRCodes(root)
   if (!dynamicModuleReloadScheduled) {
     clearPreloadReloadFlag()
@@ -844,6 +929,13 @@ function closeMobileSidebar(): void {
 }
 
 function navigateWithImmediateSidebar(pathname: string): void {
+  const currentPathname = appStore.getState().pathname
+  if (isPdaPath(currentPathname) || isPdaPath(pathname)) {
+    preloadPdaMainTabModule(pathname)
+    appStore.navigate(pathname)
+    return
+  }
+
   markNextStoreRenderAsSidebarOnly()
   appStore.navigate(pathname)
   closeMobileSidebar()

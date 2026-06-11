@@ -203,6 +203,45 @@ function withReviewDiffSnapshot(
   })
 }
 
+function shouldSkipReviewByDiff(node: TechnicalReviewNode): boolean {
+  return (node.nodeKey === 'BUYER' || node.nodeKey === 'PATTERN_MAKER') && node.diffStatus === '无差异'
+}
+
+function markReviewNodeAsNoReview(node: TechnicalReviewNode, submittedAt: string): TechnicalReviewNode {
+  return normalizeTechnicalReviewNode(node.nodeKey, {
+    ...node,
+    status: '无需审核',
+    reviewedBy: '系统判断',
+    reviewedAt: submittedAt,
+    startedOpinion: '',
+    opinion: '相对最新已发布版本无差异，提交时自动标记无需审核。',
+    lastFeishuNotifyStatus: '未发送',
+    lastFeishuNotifyAt: '',
+    lastFeishuNotifyRecordId: '',
+    todayFeishuNotifiedFlag: false,
+    todayFeishuNotifyAt: '',
+    feishuNotifyCount: 0,
+  })
+}
+
+function buildSubmittedReviewNode(input: {
+  record: TechnicalDataVersionRecord
+  nodeKey: TechnicalReviewNodeKey
+  reviewer: TechPackReviewer
+  submittedAt: string
+  operatorName: string
+}): TechnicalReviewNode {
+  const node = withReviewDiffSnapshot(
+    input.record,
+    buildAssignedReviewNode(input.nodeKey, '待审核', input.reviewer, input.submittedAt, input.operatorName),
+  )
+  return shouldSkipReviewByDiff(node) ? markReviewNodeAsNoReview(node, input.submittedAt) : node
+}
+
+export function isTechnicalReviewNodeComplete(node: Pick<TechnicalReviewNode, 'status'>): boolean {
+  return node.status === '审核-已通过' || node.status === '无需审核'
+}
+
 function assertAssignedReviewer(node: TechnicalReviewNode, operator: Required<TechPackReviewOperator>): void {
   if (!node.assignedReviewerId && !node.assignedReviewerName) return
   const matchedById = Boolean(operator.id && node.assignedReviewerId && operator.id === node.assignedReviewerId)
@@ -252,6 +291,7 @@ export function normalizeTechnicalReviewNode(
   const meta = REVIEW_NODE_META[nodeKey]
   const status =
     node?.status === '待审核' ||
+    node?.status === '无需审核' ||
     node?.status === '审核中' ||
     node?.status === '审核-未通过' ||
     node?.status === '审核-已通过'
@@ -308,8 +348,8 @@ function deriveReviewStage(input: {
   if (input.versionStatus === 'ARCHIVED') return '已发布'
   if (input.merchandiserReview.status === '审核-已通过') return '待发布'
   if (
-    input.buyerReview.status === '审核-已通过' &&
-    input.patternMakerReview.status === '审核-已通过'
+    isTechnicalReviewNodeComplete(input.buyerReview) &&
+    isTechnicalReviewNodeComplete(input.patternMakerReview)
   ) {
     return '跟单复核'
   }
@@ -370,7 +410,7 @@ export function getTechnicalReviewNodes(
 }
 
 export function isTechnicalReviewNodeLocked(status: TechnicalReviewNodeStatus): boolean {
-  return status === '审核中' || status === '审核-已通过'
+  return status === '无需审核' || status === '审核中' || status === '审核-已通过'
 }
 
 export function getTechnicalModuleReviewOwner(moduleKey: TechnicalModuleKey): TechnicalReviewNodeKey {
@@ -408,8 +448,8 @@ export function getTechnicalReviewPendingRoles(
     return snapshot.merchandiserReview.status === '审核-已通过' ? [] : ['跟单']
   }
   const roles: TechnicalReviewRole[] = []
-  if (snapshot.buyerReview.status !== '审核-已通过') roles.push('买手')
-  if (snapshot.patternMakerReview.status !== '审核-已通过') roles.push('版师')
+  if (!isTechnicalReviewNodeComplete(snapshot.buyerReview)) roles.push('买手')
+  if (!isTechnicalReviewNodeComplete(snapshot.patternMakerReview)) roles.push('版师')
   return roles
 }
 
@@ -444,8 +484,8 @@ export function getTechnicalReviewPendingReviewerInfos(
   }
 
   const pending: TechPackReviewPendingReviewerInfo[] = []
-  if (snapshot.buyerReview.status !== '审核-已通过') pending.push(buildInfo(snapshot.buyerReview, '买手'))
-  if (snapshot.patternMakerReview.status !== '审核-已通过') {
+  if (!isTechnicalReviewNodeComplete(snapshot.buyerReview)) pending.push(buildInfo(snapshot.buyerReview, '买手'))
+  if (!isTechnicalReviewNodeComplete(snapshot.patternMakerReview)) {
     pending.push(buildInfo(snapshot.patternMakerReview, '版师'))
   }
   return pending
@@ -589,20 +629,28 @@ export function submitTechPackFirstStageReview(
     legacyMode ? getLegacyTechPackReviewer('跟单').reviewerId : input.merchandiserReviewerId,
   )
   const submittedAt = nowText()
-  const buyerReview = withReviewDiffSnapshot(
+  const buyerReview = buildSubmittedReviewNode({
     record,
-    buildAssignedReviewNode('BUYER', '待审核', buyerReviewer, submittedAt, operator.name),
-  )
-  const patternMakerReview = withReviewDiffSnapshot(
+    nodeKey: 'BUYER',
+    reviewer: buyerReviewer,
+    submittedAt,
+    operatorName: operator.name,
+  })
+  const patternMakerReview = buildSubmittedReviewNode({
     record,
-    buildAssignedReviewNode('PATTERN_MAKER', '待审核', patternReviewer, submittedAt, operator.name),
-  )
+    nodeKey: 'PATTERN_MAKER',
+    reviewer: patternReviewer,
+    submittedAt,
+    operatorName: operator.name,
+  })
   const merchandiserReview = withReviewDiffSnapshot(
     record,
     buildAssignedReviewNode('MERCHANDISER', '待审核', merchandiserReviewer, submittedAt, operator.name),
   )
+  const firstStageComplete =
+    isTechnicalReviewNodeComplete(buyerReview) && isTechnicalReviewNodeComplete(patternMakerReview)
   const nextRecord = saveReviewPatch(technicalVersionId, {
-    reviewStage: '第一阶段并行审核',
+    reviewStage: firstStageComplete ? '跟单复核' : '第一阶段并行审核',
     buyerReview,
     patternMakerReview,
     merchandiserReview,
@@ -616,22 +664,30 @@ export function submitTechPackFirstStageReview(
   appendReviewLog({
     record: nextRecord,
     logType: '提交技术包审核',
-    changeText: `已提交技术包版本 ${nextRecord.versionLabel}，进入买手、版师并行审核。买手审核人：${buyerReviewer.reviewerName}；版师审核人：${patternReviewer.reviewerName}；跟单审核人：${merchandiserReviewer.reviewerName}。`,
+    changeText: `已提交技术包版本 ${nextRecord.versionLabel}。买手审核：${buyerReview.status === '无需审核' ? '无需审核' : `待 ${buyerReviewer.reviewerName} 审核`}；版师审核：${patternMakerReview.status === '无需审核' ? '无需审核' : `待 ${patternReviewer.reviewerName} 审核`}；跟单审核人：${merchandiserReviewer.reviewerName}。`,
     operatorName: operator.name,
     createdAt: submittedAt,
   })
-  sendReviewNotificationSafely({
-    technicalVersionId,
-    nodeKey: 'BUYER',
-    notificationType: '提交审核',
-    createdBy: operator.name,
+  ;([
+    ['BUYER', buyerReview],
+    ['PATTERN_MAKER', patternMakerReview],
+  ] as const).forEach(([nodeKey, node]) => {
+    if (node.status === '无需审核') return
+    sendReviewNotificationSafely({
+      technicalVersionId,
+      nodeKey,
+      notificationType: '提交审核',
+      createdBy: operator.name,
+    })
   })
-  sendReviewNotificationSafely({
-    technicalVersionId,
-    nodeKey: 'PATTERN_MAKER',
-    notificationType: '提交审核',
-    createdBy: operator.name,
-  })
+  if (firstStageComplete) {
+    sendReviewNotificationSafely({
+      technicalVersionId,
+      nodeKey: 'MERCHANDISER',
+      notificationType: '进入跟单复核',
+      createdBy: operator.name,
+    })
+  }
   return getTechnicalDataVersionById(technicalVersionId) || nextRecord
 }
 
@@ -649,11 +705,12 @@ export function startTechPackReview(
   const currentNode = getReviewNodeFromSnapshot(snapshot, nodeKey)
   assertAssignedReviewer(currentNode, operator)
   if (currentNode.status === '审核中') throw new Error('当前审核节点已在审核中。')
+  if (currentNode.status === '无需审核') throw new Error(`${currentNode.nodeName}无需审核，不能开始审核。`)
   if (currentNode.status === '审核-已通过') throw new Error('当前审核节点已通过，不能重复开始审核。')
   if (nodeKey === 'MERCHANDISER') {
     if (
-      snapshot.buyerReview.status !== '审核-已通过' ||
-      snapshot.patternMakerReview.status !== '审核-已通过'
+      !isTechnicalReviewNodeComplete(snapshot.buyerReview) ||
+      !isTechnicalReviewNodeComplete(snapshot.patternMakerReview)
     ) {
       throw new Error('买手和版师审核都通过后，才能进入跟单复核。')
     }
@@ -704,7 +761,7 @@ export function approveTechPackReview(
   if (currentNode.status !== '审核中') throw new Error('当前审核节点需先进入审核中。')
   if (
     nodeKey === 'MERCHANDISER' &&
-    (snapshot.buyerReview.status !== '审核-已通过' || snapshot.patternMakerReview.status !== '审核-已通过')
+    (!isTechnicalReviewNodeComplete(snapshot.buyerReview) || !isTechnicalReviewNodeComplete(snapshot.patternMakerReview))
   ) {
     throw new Error('买手和版师审核都通过后，才能进入跟单复核。')
   }
@@ -725,7 +782,7 @@ export function approveTechPackReview(
   const nextBuyer = nodeKey === 'BUYER' ? node : snapshot.buyerReview
   const nextPattern = nodeKey === 'PATTERN_MAKER' ? node : snapshot.patternMakerReview
   const firstStagePassed =
-    nextBuyer.status === '审核-已通过' && nextPattern.status === '审核-已通过'
+    isTechnicalReviewNodeComplete(nextBuyer) && isTechnicalReviewNodeComplete(nextPattern)
 
   const nextRecord = saveReviewPatch(technicalVersionId, {
     ...(nodeKey === 'BUYER'

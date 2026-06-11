@@ -49,14 +49,140 @@ function getRecordTitle(item: Record<string, unknown>, fallback: string): string
   )
 }
 
+function normalizeText(value: unknown): string {
+  return String(value ?? '').trim()
+}
+
+function normalizeNumber(value: unknown): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function normalizeStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map((item) => normalizeText(item)).filter(Boolean).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
+    : []
+}
+
+function normalizePieceRows(value: unknown): unknown[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((row) => {
+      const record = row && typeof row === 'object' ? (row as Record<string, unknown>) : {}
+      return {
+        name: normalizeText(record.name || record.partTemplateName || record.sourcePartName),
+        count: normalizeNumber(record.count || record.totalPieceQty || record.parsedQuantity),
+        applicableSkuCodes: normalizeStringList(record.applicableSkuCodes),
+        colorAllocations: Array.isArray(record.colorAllocations)
+          ? record.colorAllocations
+              .map((allocation) => {
+                const allocationRecord = allocation && typeof allocation === 'object' ? (allocation as Record<string, unknown>) : {}
+                return {
+                  colorName: normalizeText(allocationRecord.colorName),
+                  colorCode: normalizeText(allocationRecord.colorCode),
+                  pieceCount: normalizeNumber(allocationRecord.pieceCount),
+                  skuCodes: normalizeStringList(allocationRecord.skuCodes),
+                }
+              })
+              .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b), 'zh-Hans-CN'))
+          : [],
+      }
+    })
+    .filter((row) => row.name || row.count > 0)
+    .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b), 'zh-Hans-CN'))
+}
+
+function normalizeBindingStrips(value: unknown): unknown[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => {
+      const record = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+      return {
+        name: normalizeText(record.bindingStripName),
+        lengthCm: normalizeNumber(record.lengthCm),
+        widthCm: normalizeNumber(record.widthCm),
+        stripCount: normalizeNumber(record.stripCount),
+      }
+    })
+    .filter((item) => item.name || item.lengthCm > 0 || item.widthCm > 0 || item.stripCount > 0)
+    .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b), 'zh-Hans-CN'))
+}
+
+function normalizeReviewItem(scope: string, item: unknown): unknown {
+  if (!item || typeof item !== 'object') return item
+  const record = item as Record<string, unknown>
+
+  if (scope === '物料清单') {
+    return {
+      type: normalizeText(record.type),
+      name: normalizeText(record.name || record.materialName),
+      spec: normalizeText(record.spec),
+      colorLabel: normalizeText(record.colorLabel),
+      unitConsumption: normalizeNumber(record.unitConsumption || record.usage),
+      lossRate: normalizeNumber(record.lossRate),
+      printRequirement: normalizeText(record.printRequirement || '无'),
+      dyeRequirement: normalizeText(record.dyeRequirement || '无'),
+      shrinkRequirement: normalizeText(record.shrinkRequirement || '否'),
+      washRequirement: normalizeText(record.washRequirement || '否'),
+      printSideMode: normalizeText(record.printSideMode),
+      applicableSkuCodes: normalizeStringList(record.applicableSkuCodes),
+      usageProcessCodes: normalizeStringList(record.usageProcessCodes),
+    }
+  }
+
+  if (scope === '核价') {
+    return {
+      costScope: normalizeText(record.costScope),
+      bomItemId: normalizeText(record.bomItemId),
+      processId: normalizeText(record.processId),
+      name: normalizeText(record.name),
+      price: normalizeNumber(record.price),
+      currency: normalizeText(record.currency || '人民币'),
+      unit: normalizeText(record.unit),
+      remark: normalizeText(record.remark),
+    }
+  }
+
+  if (scope === '纸样池') {
+    return {
+      patternName: normalizeText(record.patternName || record.name),
+      patternCategory: normalizeText(record.patternCategory || record.type),
+      patternMaterialType: normalizeText(record.patternMaterialType),
+      patternFileMode: normalizeText(record.patternFileMode),
+      fileName: normalizeText(record.fileName || record.dxfFileName || record.singlePatternFileName),
+      dxfFileName: normalizeText(record.dxfFileName),
+      rulFileName: normalizeText(record.rulFileName),
+      singlePatternFileName: normalizeText(record.singlePatternFileName),
+      isWoolted: normalizeText(record.isWoolted),
+      selectedSizeCodes: normalizeStringList(record.selectedSizeCodes),
+      widthCm: normalizeNumber(record.widthCm),
+      markerLengthM: normalizeNumber(record.markerLengthM),
+      totalPieceCount: normalizeNumber(record.totalPieceCount || record.patternTotalPieceQty),
+      bindingStrips: normalizeBindingStrips(record.bindingStrips),
+      pieceRows: normalizePieceRows(record.pieceRows),
+    }
+  }
+
+  return item
+}
+
+function isEmptyGeneratedCostItem(item: unknown): boolean {
+  if (!item || typeof item !== 'object') return false
+  const record = item as Record<string, unknown>
+  const costScope = normalizeText(record.costScope)
+  if (costScope === 'customCostItems') return false
+  const price = normalizeNumber(record.price)
+  return price === 0 && Boolean(record.bomItemId || record.processId)
+}
+
 function normalizeItems(items: unknown[], scope: string): Map<string, { title: string; value: unknown }> {
   const map = new Map<string, { title: string; value: unknown }>()
-  items.forEach((item, index) => {
+  items.filter((item) => !isEmptyGeneratedCostItem(item)).forEach((item, index) => {
     const record = item && typeof item === 'object' ? (item as Record<string, unknown>) : { value: item }
     const id = String(record.id || record.bomItemId || record.processCode || record.colorCode || `${scope}-${index + 1}`)
     map.set(id, {
       title: getRecordTitle(record, `${scope}${index + 1}`),
-      value: item,
+      value: normalizeReviewItem(scope, item),
     })
   })
   return map

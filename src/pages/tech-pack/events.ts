@@ -2601,6 +2601,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'submit-review') {
+    if (state.currentTechnicalVersionId) syncTechPackToStore()
     state.reviewSubmitDialogOpen = true
     state.compatibilityMessage = ''
     return true

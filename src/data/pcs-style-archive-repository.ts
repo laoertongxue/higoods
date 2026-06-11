@@ -8,8 +8,8 @@ import type {
   StyleArchiveStoreSnapshot,
 } from './pcs-style-archive-types.ts'
 
-const STYLE_ARCHIVE_STORAGE_KEY = 'higood-pcs-style-archive-store-v2'
-const STYLE_ARCHIVE_STORE_VERSION = 2
+const STYLE_ARCHIVE_STORAGE_KEY = 'higood-pcs-style-archive-store-v3'
+const STYLE_ARCHIVE_STORE_VERSION = 3
 
 let memorySnapshot: StyleArchiveStoreSnapshot | null = null
 
@@ -128,11 +128,15 @@ function mergeMissingSeedData(snapshot: StyleArchiveStoreSnapshot): StyleArchive
   const existingPendingIds = new Set(snapshot.pendingItems.map((item) => item.pendingId))
   const patchedRecords = snapshot.records.map((record) => {
     const seeded = seedById.get(record.styleId)
-    if (!seeded?.currentTechPackVersionId || record.currentTechPackVersionId) return record
-    return {
+    if (!seeded) return record
+    const recordWithSeedVersionCount = {
       ...record,
-      techPackStatus: seeded.techPackStatus,
       techPackVersionCount: Math.max(record.techPackVersionCount || 0, seeded.techPackVersionCount || 0),
+    }
+    if (!seeded.currentTechPackVersionId || record.currentTechPackVersionId) return recordWithSeedVersionCount
+    return {
+      ...recordWithSeedVersionCount,
+      techPackStatus: seeded.techPackStatus,
       currentTechPackVersionId: seeded.currentTechPackVersionId,
       currentTechPackVersionCode: seeded.currentTechPackVersionCode,
       currentTechPackVersionLabel: seeded.currentTechPackVersionLabel,

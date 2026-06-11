@@ -1,5 +1,11 @@
 import { listPdaTaskFlowTasks, type PdaTaskFlowMock } from './pda-cutting-execution-source.ts'
-import { getPdaHandoutHeads, getPdaPickupHeads, listQuantityObjections } from './pda-handover-events.ts'
+import {
+  getPdaHandoutHeads,
+  getPdaPickupHeads,
+  getPdaPostFinishingHandoutHeads,
+  getPdaPostFinishingPickupHeads,
+  listQuantityObjections,
+} from './pda-handover-events.ts'
 import {
   listFactoryWarehouseInboundRecords,
   listFactoryWarehouseOutboundRecords,
@@ -270,8 +276,7 @@ function buildPickupTodos(factoryId: string): FactoryMobileTodo[] {
 }
 
 function buildPostFinishingPickupTodos(factoryId: string): FactoryMobileTodo[] {
-  return getPdaPickupHeads(factoryId)
-    .filter((head) => head.processBusinessCode === 'POST_FINISHING')
+  return getPdaPostFinishingPickupHeads()
     .map((head, index) => ({
       todoId: `todo-post-pickup-${head.handoverId}`,
       todoNo: `TD-PP-${String(index + 1).padStart(3, '0')}`,
@@ -314,8 +319,7 @@ function buildHandoutTodos(factoryId: string): FactoryMobileTodo[] {
 }
 
 function buildPostFinishingHandoutTodos(factoryId: string): FactoryMobileTodo[] {
-  return getPdaHandoutHeads(factoryId)
-    .filter((head) => head.processBusinessCode === 'POST_FINISHING')
+  return getPdaPostFinishingHandoutHeads()
     .map((head, index) => ({
       todoId: `todo-post-handout-${head.handoverId}`,
       todoNo: `TD-PH-${String(index + 1).padStart(3, '0')}`,

@@ -7,7 +7,7 @@ export const TECHNICAL_GARMENT_DIFFICULTY_GRADES: TechnicalGarmentDifficultyGrad
 
 export type TechnicalReviewNodeKey = 'BUYER' | 'PATTERN_MAKER' | 'MERCHANDISER'
 export type TechnicalReviewRole = '买手' | '版师' | '跟单'
-export type TechnicalReviewNodeStatus = '待审核' | '审核中' | '审核-未通过' | '审核-已通过'
+export type TechnicalReviewNodeStatus = '待审核' | '无需审核' | '审核中' | '审核-未通过' | '审核-已通过'
 export type TechnicalReviewStage = '未提交审核' | '第一阶段并行审核' | '跟单复核' | '待发布' | '已发布'
 export type TechnicalReviewDiffStatus = '无基线' | '无差异' | '有差异'
 export type TechnicalReviewDiffChangeType = '新增' | '删除' | '修改'

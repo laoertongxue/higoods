@@ -547,9 +547,11 @@ const headCompletionOverrides = new Map<
   { completionStatus: PdaHeadCompletionStatus; completedByWarehouseAt?: string }
 >()
 let cachedBuiltHeads: PdaHandoverHead[] | null = null
+let cachedPostFinishingBuiltHeads: PdaHandoverHead[] | null = null
 
 function invalidatePdaHandoverHeadCache(): void {
   cachedBuiltHeads = null
+  cachedPostFinishingBuiltHeads = null
 }
 
 function buildHandoverOrderNo(handoverOrderId: string): string {
@@ -3070,9 +3072,49 @@ function buildHeadsInternal(): PdaHandoverHead[] {
   return cachedBuiltHeads
 }
 
+function recomputePostFinishingHeadsInternal(): PdaHandoverHead[] {
+  const postFinishingPickupHeads = buildPostFinishingPickupHeads().map((head) => refreshPickupHeadSummary(head))
+  const postFinishingSelfReturnPickupHeads = buildPostFinishingSewingSelfReturnPickupHeads().map((head) => refreshPickupHeadSummary(head))
+  const postFinishingHandoutHeads = buildPostFinishingHandoutHeads().map((head) => refreshHandoutHeadSummary(head))
+  const addedHeads = Array.from(handoverHeadAdditions.values())
+    .filter((head) => head.factoryId === FULL_CAPABILITY_FACTORY_ID && head.processBusinessCode === 'POST_FINISHING')
+    .map((head) => (
+      head.headType === 'PICKUP'
+        ? refreshPickupHeadSummary(cloneHead(head))
+        : refreshHandoutHeadSummary(cloneHead(head))
+    ))
+
+  return [
+    ...postFinishingPickupHeads,
+    ...postFinishingSelfReturnPickupHeads,
+    ...postFinishingHandoutHeads,
+    ...addedHeads,
+  ]
+}
+
+function buildPostFinishingHeadsInternal(): PdaHandoverHead[] {
+  if (!cachedPostFinishingBuiltHeads) {
+    cachedPostFinishingBuiltHeads = recomputePostFinishingHeadsInternal()
+  }
+  return cachedPostFinishingBuiltHeads
+}
+
 function listHeadsSorted(factoryId?: string): PdaHandoverHead[] {
   return buildHeadsInternal()
     .filter((head) => !factoryId || head.factoryId === factoryId)
+    .sort((a, b) => {
+      const bTime = parseDateMs(b.lastRecordAt || b.completedByWarehouseAt || '')
+      const aTime = parseDateMs(a.lastRecordAt || a.completedByWarehouseAt || '')
+      const safeB = Number.isFinite(bTime) ? bTime : 0
+      const safeA = Number.isFinite(aTime) ? aTime : 0
+      return safeB - safeA
+    })
+    .map(cloneHead)
+}
+
+function listPostFinishingHeadsSorted(): PdaHandoverHead[] {
+  return buildPostFinishingHeadsInternal()
+    .slice()
     .sort((a, b) => {
       const bTime = parseDateMs(b.lastRecordAt || b.completedByWarehouseAt || '')
       const aTime = parseDateMs(a.lastRecordAt || a.completedByWarehouseAt || '')
@@ -3325,19 +3367,19 @@ export function getPdaHandoutHeads(factoryId?: string): PdaHandoverHead[] {
 }
 
 export function getPdaPostFinishingPickupHeads(): PdaHandoverHead[] {
-  return listHeadsSorted(FULL_CAPABILITY_FACTORY_ID).filter(
+  return listPostFinishingHeadsSorted().filter(
     (head) => head.headType === 'PICKUP' && head.completionStatus === 'OPEN' && head.processBusinessCode === 'POST_FINISHING',
   )
 }
 
 export function getPdaPostFinishingHandoutHeads(): PdaHandoverHead[] {
-  return listHeadsSorted(FULL_CAPABILITY_FACTORY_ID).filter(
+  return listPostFinishingHeadsSorted().filter(
     (head) => head.headType === 'HANDOUT' && head.completionStatus === 'OPEN' && head.processBusinessCode === 'POST_FINISHING',
   )
 }
 
 export function getPdaPostFinishingCompletedHeads(): PdaHandoverHead[] {
-  return listHeadsSorted(FULL_CAPABILITY_FACTORY_ID)
+  return listPostFinishingHeadsSorted()
     .filter((head) => head.completionStatus === 'COMPLETED' && head.processBusinessCode === 'POST_FINISHING')
     .sort((a, b) => parseDateMs(b.completedByWarehouseAt || '') - parseDateMs(a.completedByWarehouseAt || ''))
 }
@@ -3838,8 +3880,84 @@ export function upsertPdaHandoutRecordMock(record: PdaHandoverRecord): PdaHandov
   return findPdaHandoverRecord(record.recordId) ?? cloneRecord(record)
 }
 
+function isPostFinishingSewingSelfReturnHandoverSynced(
+  record: PostFinishingSewingSelfReturnRecord,
+  submittedQtyTotal: number,
+): boolean {
+  const head = handoverHeadAdditions.get(record.handoverOrderId)
+  if (!head || head.headType !== 'HANDOUT') return false
+  if (head.sourceDocNo !== record.productionConfirmationNo) return false
+  if (head.recordCount !== record.items.length || head.qtyExpectedTotal !== submittedQtyTotal) return false
+
+  const records = handoutRecordAdditions.get(record.handoverOrderId)
+  if (!records || records.length < record.items.length) return false
+
+  const syncedRecordIds = new Set(records.map((item) => item.recordId))
+  return record.items.every((item) => syncedRecordIds.has(item.handoverRecordId))
+}
+
+function buildPostFinishingSewingSelfReturnHandoutRecord(
+  record: PostFinishingSewingSelfReturnRecord,
+  item: PostFinishingSewingSelfReturnRecord['items'][number],
+  index: number,
+  handoverHead: PdaHandoverHead,
+): PdaHandoverRecord {
+  return {
+    recordId: item.handoverRecordId,
+    handoverRecordId: item.handoverRecordId,
+    handoverRecordNo: item.handoverRecordNo,
+    handoverId: record.handoverOrderId,
+    handoverOrderId: record.handoverOrderId,
+    taskId: handoverHead.taskId,
+    sourceTaskId: handoverHead.sourceTaskId,
+    sequenceNo: index + 1,
+    handoutObjectType: 'GARMENT',
+    objectType: 'SEMI_FINISHED_GARMENT',
+    handoutItemLabel: `${item.skuCode} / ${item.colorName} / ${item.sizeName} / ${item.submittedQty}${item.qtyUnit}`,
+    materialCode: item.skuCode,
+    materialName: '车缝成衣',
+    materialSpec: `${record.spuName} / ${item.colorName} / ${item.sizeName}`,
+    skuCode: item.skuCode,
+    skuColor: item.colorName,
+    skuSize: item.sizeName,
+    pieceName: '成衣',
+    garmentEquivalentQty: item.submittedQty,
+    plannedQty: item.submittedQty,
+    submittedQty: item.submittedQty,
+    qtyUnit: item.qtyUnit,
+    factorySubmittedAt: record.submittedAt,
+    factorySubmittedBy: `${record.submittedByName}（后道公共 PDA 现场登记）`,
+    factorySubmittedByKind: 'FACTORY',
+    factoryRemark: `车缝自助回货：${record.recordNo}；生产确认单：${record.productionConfirmationNo}；提交设备：${record.deviceFactoryName} 公共 PDA。`,
+    factoryProofFiles: [],
+    status: 'PENDING_WRITEBACK',
+    remark: '来源：后道公共 PDA 现场登记',
+  }
+}
+
+function savePostFinishingSewingSelfReturnHandoverMock(
+  handoverHead: PdaHandoverHead,
+  records: PdaHandoverRecord[],
+): void {
+  handoverHeadAdditions.set(handoverHead.handoverId, cloneHead(handoverHead))
+
+  const existingRecords = handoutRecordAdditions.get(handoverHead.handoverId) ?? []
+  const existingRecordById = new Map(existingRecords.map((record) => [record.recordId, record]))
+  const derivedRecordIds = new Set(records.map((record) => record.recordId))
+  const nextRecords = [
+    ...records.map((record) => cloneRecord(existingRecordById.get(record.recordId) ?? record)),
+    ...existingRecords.filter((record) => !derivedRecordIds.has(record.recordId)).map(cloneRecord),
+  ]
+  handoutRecordAdditions.set(handoverHead.handoverId, nextRecords)
+  invalidatePdaHandoverHeadCache()
+}
+
 export function syncPostFinishingSewingSelfReturnToPdaHandover(record: PostFinishingSewingSelfReturnRecord): PostFinishingSewingSelfReturnRecord {
   const submittedQtyTotal = sumBy(record.items, (item) => item.submittedQty)
+  if (isPostFinishingSewingSelfReturnHandoverSynced(record, submittedQtyTotal)) {
+    return record
+  }
+
   const handoverHead: PdaHandoverHead = {
     handoverId: record.handoverOrderId,
     handoverOrderId: record.handoverOrderId,
@@ -3895,41 +4013,10 @@ export function syncPostFinishingSewingSelfReturnToPdaHandover(record: PostFinis
     assignmentGranularityLabel: '整单',
     isSpecialCraft: false,
   }
-  upsertPdaHandoverHeadMock(handoverHead)
-
-  record.items.forEach((item, index) => {
-    upsertPdaHandoutRecordMock({
-      recordId: item.handoverRecordId,
-      handoverRecordId: item.handoverRecordId,
-      handoverRecordNo: item.handoverRecordNo,
-      handoverId: record.handoverOrderId,
-      handoverOrderId: record.handoverOrderId,
-      taskId: handoverHead.taskId,
-      sourceTaskId: handoverHead.sourceTaskId,
-      sequenceNo: index + 1,
-      handoutObjectType: 'GARMENT',
-      objectType: 'SEMI_FINISHED_GARMENT',
-      handoutItemLabel: `${item.skuCode} / ${item.colorName} / ${item.sizeName} / ${item.submittedQty}${item.qtyUnit}`,
-      materialCode: item.skuCode,
-      materialName: '车缝成衣',
-      materialSpec: `${record.spuName} / ${item.colorName} / ${item.sizeName}`,
-      skuCode: item.skuCode,
-      skuColor: item.colorName,
-      skuSize: item.sizeName,
-      pieceName: '成衣',
-      garmentEquivalentQty: item.submittedQty,
-      plannedQty: item.submittedQty,
-      submittedQty: item.submittedQty,
-      qtyUnit: item.qtyUnit,
-      factorySubmittedAt: record.submittedAt,
-      factorySubmittedBy: `${record.submittedByName}（后道公共 PDA 现场登记）`,
-      factorySubmittedByKind: 'FACTORY',
-      factoryRemark: `车缝自助回货：${record.recordNo}；生产确认单：${record.productionConfirmationNo}；提交设备：${record.deviceFactoryName} 公共 PDA。`,
-      factoryProofFiles: [],
-      status: 'PENDING_WRITEBACK',
-      remark: '来源：后道公共 PDA 现场登记',
-    })
-  })
+  savePostFinishingSewingSelfReturnHandoverMock(
+    handoverHead,
+    record.items.map((item, index) => buildPostFinishingSewingSelfReturnHandoutRecord(record, item, index, handoverHead)),
+  )
   return record
 }
 

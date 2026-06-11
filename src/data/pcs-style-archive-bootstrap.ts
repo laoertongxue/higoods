@@ -197,7 +197,7 @@ const EXTRA_STYLE_ARCHIVE_RECORDS: StyleArchiveShellRecord[] = [
     techPackStatus: '已启用',
     costPricingStatus: '未建立',
     specificationCount: 3,
-    techPackVersionCount: 1,
+    techPackVersionCount: 2,
     costVersionCount: 0,
     channelProductCount: 0,
     currentTechPackVersionId: 'tdv_seed_project_018_base',

@@ -26,7 +26,6 @@ import {
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
 } from './pda-runtime'
-import { ensureSpecialCraftFeiTicketFlowSeeded } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
   ensurePostFinishingSewingSelfReturnMockRecords,
@@ -44,6 +43,8 @@ const state: PdaHandoverState = {
   selectedFactoryId: '',
   activeTab: 'pickup',
 }
+
+let specialCraftSeedScheduled = false
 
 const TAB_CONFIG: Array<{ key: HandoverTab; label: string }> = [
   { key: 'pickup', label: '待领料' },
@@ -137,6 +138,22 @@ function getPickupPartyDisplay(head: PdaHandoverHead): {
 function getExecutorLabel(head: PdaHandoverHead): string {
   if (head.executorKind === 'WAREHOUSE_WORKSHOP') return '仓内后道'
   return '外部工厂'
+}
+
+function scheduleSpecialCraftHandoverSeed(): void {
+  if (specialCraftSeedScheduled || typeof window === 'undefined') return
+  specialCraftSeedScheduled = true
+
+  window.setTimeout(async () => {
+    try {
+      const module = await import('../data/fcs/cutting/special-craft-fei-ticket-flow.ts')
+      module.ensureSpecialCraftFeiTicketFlowSeeded()
+      window.dispatchEvent(new CustomEvent('higood:request-render'))
+    } catch (error) {
+      specialCraftSeedScheduled = false
+      console.warn('特殊工艺交接数据预热失败', error)
+    }
+  }, 0)
 }
 
 function getPickupSummaryMeta(head: PdaHandoverHead): { label: string; className: string; hint: string } {
@@ -512,11 +529,13 @@ export function renderPdaHandoverPage(): string {
     return renderPdaLoginRedirect()
   }
 
-  ensureSpecialCraftFeiTicketFlowSeeded()
   syncTabWithQuery()
   const selectedFactoryId = getCurrentFactoryId()
   const isPostFinishingFactory = selectedFactoryId === FULL_CAPABILITY_FACTORY_ID
   const canManageSewingSelfReturnMode = isPostFinishingFactory && runtime.roleId === 'ROLE_ADMIN'
+  if (!isPostFinishingFactory) {
+    scheduleSpecialCraftHandoverSeed()
+  }
   if (isPostFinishingFactory) {
     ensurePostFinishingSewingSelfReturnMockRecords()
   }
