@@ -1,4 +1,6 @@
 import {
+  ensurePostFinishingSewingSelfReturnMockRecords,
+  getPostFinishingWaitProcessReceiptConfirmStatus,
   listPostFinishingWarehouseAreas,
   listPostFinishingWarehouseLocations,
   listPostFinishingWaitHandoverWarehouseRecords,
@@ -19,13 +21,14 @@ import {
 } from './shared.ts'
 
 type Mode = 'wait-process' | 'wait-handover'
-type TabKey = 'inventory' | 'flow' | 'locations'
+type TabKey = 'inventory' | 'flow' | 'locations' | 'pending-self-return'
 type WarehouseRecord = PostFinishingWaitProcessWarehouseRecord | PostFinishingWaitHandoverWarehouseRecord
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'inventory', label: '库存' },
   { key: 'flow', label: '流水记录' },
   { key: 'locations', label: '库区库位' },
+  { key: 'pending-self-return', label: '待确认的车缝自助回货' },
 ]
 
 function basePath(mode: Mode): string {
@@ -40,9 +43,13 @@ function params(): URLSearchParams {
   return typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
 }
 
-function activeTab(): TabKey {
+function tabsForMode(mode: Mode): Array<{ key: TabKey; label: string }> {
+  return mode === 'wait-process' ? TABS : TABS.filter((tab) => tab.key !== 'pending-self-return')
+}
+
+function activeTab(mode: Mode): TabKey {
   const value = params().get('tab') as TabKey | null
-  return value && TABS.some((tab) => tab.key === value) ? value : 'inventory'
+  return value && tabsForMode(mode).some((tab) => tab.key === value) ? value : 'inventory'
 }
 
 function buildLink(mode: Mode, overrides: Record<string, string | number | undefined>): string {
@@ -64,6 +71,9 @@ function closeInventoryDetailDialogLink(mode: Mode): string {
 }
 
 function records(mode: Mode): WarehouseRecord[] {
+  if (mode === 'wait-process') {
+    ensurePostFinishingSewingSelfReturnMockRecords()
+  }
   return mode === 'wait-process' ? listPostFinishingWaitProcessWarehouseRecords() : listPostFinishingWaitHandoverWarehouseRecords()
 }
 
@@ -104,14 +114,18 @@ function metric(label: string, value: string, helper = ''): string {
 }
 
 function renderMetrics(input: WarehouseRecord[], mode: Mode): string {
-  const totalQty = input.reduce((sum, item) => sum + qty(item), 0)
-  const activeCount = input.filter((item) => qty(item) > 0).length
-  const flowCount = input.reduce((sum, item) => sum + item.flowRecords.length, 0)
+  const inventoryRecords = getInventoryRecords(input, mode)
+  const totalQty = inventoryRecords.reduce((sum, item) => sum + qty(item), 0)
+  const activeCount = inventoryRecords.filter((item) => qty(item) > 0).length
+  const pendingSelfReturnCount = mode === 'wait-process'
+    ? input.filter((item) => isWaitProcessRecord(item) && item.postSourceLabel === '车缝自助回货' && getPostFinishingWaitProcessReceiptConfirmStatus(item) === '待后道确认').length
+    : 0
+  const flowCount = inventoryRecords.reduce((sum, item) => sum + getVisibleFlowRecords(item, mode).length, 0)
   const locationCount = listPostFinishingWarehouseLocations(mode).length
   return `
     <section class="grid gap-3 md:grid-cols-4">
-      ${metric(mode === 'wait-process' ? '待加工库存' : '待交出库存', formatGarmentQty(totalQty), '当前可用库存')}
-      ${metric('库存项目', `${input.length} 条`, `${activeCount} 条有库存`)}
+      ${metric(mode === 'wait-process' ? '待加工库存' : '待交出库存', formatGarmentQty(totalQty), mode === 'wait-process' ? '当前可用库存，不含待后道确认' : '当前可用库存')}
+      ${metric('库存项目', `${inventoryRecords.length} 条`, mode === 'wait-process' ? `${activeCount} 条有可用库存，${pendingSelfReturnCount} 条待确认` : `${activeCount} 条有库存`)}
       ${metric('库区库位', `${locationCount} 个`, '支持新增、编辑、删除')}
       ${metric('流水记录', `${flowCount} 条`, mode === 'wait-process' ? '收货 + 质检 + 后道' : '复检入仓 + 交出出仓 + 接收回写')}
     </section>
@@ -121,7 +135,7 @@ function renderMetrics(input: WarehouseRecord[], mode: Mode): string {
 function renderTabs(mode: Mode, current: TabKey): string {
   return `
     <nav class="inline-flex flex-wrap gap-1 rounded-md bg-muted p-1">
-      ${TABS.map((tab) => `<button type="button" class="rounded px-3 py-1.5 text-sm ${tab.key === current ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}" data-nav="${escapeHtml(buildLink(mode, { tab: tab.key, page: 1 }))}">${escapeHtml(tab.label)}</button>`).join('')}
+      ${tabsForMode(mode).map((tab) => `<button type="button" class="rounded px-3 py-1.5 text-sm ${tab.key === current ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}" data-nav="${escapeHtml(buildLink(mode, { tab: tab.key, page: 1 }))}">${escapeHtml(tab.label)}</button>`).join('')}
     </nav>
   `
 }
@@ -131,7 +145,7 @@ function renderFilters(mode: Mode, input: WarehouseRecord[]): string {
   const factoryOptions = ['全部', ...Array.from(new Set(input.map((item) => item.managedPostFactoryName))).filter(Boolean)]
   return `
     <form class="rounded-lg border bg-card p-4" method="get" action="${escapeHtml(basePath(mode))}">
-      <input type="hidden" name="tab" value="${escapeHtml(activeTab())}" />
+      <input type="hidden" name="tab" value="${escapeHtml(activeTab(mode))}" />
       <input type="hidden" name="page" value="1" />
       <div class="grid gap-3 md:grid-cols-4">
         <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">关键词</span><input class="h-9 w-full rounded-md border px-3 text-sm" name="keyword" value="${escapeHtml(filters.keyword)}" placeholder="SKU / 生产单 / 单号" /></label>
@@ -282,12 +296,66 @@ function renderInventoryDetailDialog(mode: Mode, allRecords: WarehouseRecord[]):
   `
 }
 
+function isWaitProcessRecord(record: WarehouseRecord): record is PostFinishingWaitProcessWarehouseRecord {
+  return 'postSourceLabel' in record
+}
+
+function isSewingSelfReturnRecord(record: WarehouseRecord): record is PostFinishingWaitProcessWarehouseRecord {
+  return isWaitProcessRecord(record) && record.postSourceLabel === '车缝自助回货'
+}
+
+function isPendingSewingSelfReturnRecord(record: WarehouseRecord): record is PostFinishingWaitProcessWarehouseRecord {
+  return isSewingSelfReturnRecord(record) && getPostFinishingWaitProcessReceiptConfirmStatus(record) === '待后道确认'
+}
+
+function hasConfirmedSewingSelfReturnQty(record: WarehouseRecord): boolean {
+  if (!isSewingSelfReturnRecord(record)) return false
+  const status = getPostFinishingWaitProcessReceiptConfirmStatus(record)
+  return status === '已确认入库' || status === '数量差异待处理'
+}
+
+function getInventoryRecords(input: WarehouseRecord[], mode: Mode): WarehouseRecord[] {
+  if (mode !== 'wait-process') return input
+  return input.filter((record) => !isSewingSelfReturnRecord(record) || hasConfirmedSewingSelfReturnQty(record))
+}
+
+function getPendingSelfReturnRecords(input: WarehouseRecord[]): PostFinishingWaitProcessWarehouseRecord[] {
+  return input.filter(isPendingSewingSelfReturnRecord)
+}
+
+function getVisibleFlowRecords(record: WarehouseRecord, mode: Mode): PostFinishingWarehouseFlowRecord[] {
+  if (mode !== 'wait-process' || !isSewingSelfReturnRecord(record)) return record.flowRecords
+  const status = getPostFinishingWaitProcessReceiptConfirmStatus(record)
+  if (status === '待后道确认' || status === '已驳回') return []
+  return record.flowRecords.filter((flow) => flow.flowType === '后道确认入库')
+}
+
+function renderWaitProcessSourceCell(record: WarehouseRecord): string {
+  if (!isWaitProcessRecord(record)) return ''
+  const status = getPostFinishingWaitProcessReceiptConfirmStatus(record)
+  const submittedQty = record.submittedGarmentQty ?? record.inboundGarmentQty
+  const confirmedQty = record.confirmedGarmentQty ?? (status === '待后道确认' ? 0 : record.inboundGarmentQty)
+  return `
+    <td class="px-3 py-3 text-sm">
+      <div class="font-medium">${escapeHtml(record.postSourceLabel)}</div>
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(status)}</div>
+      ${
+        record.selfReturnRecordNo
+          ? `<div class="mt-1 font-mono text-xs text-blue-600">${escapeHtml(record.selfReturnRecordNo)}</div>`
+          : ''
+      }
+      <div class="mt-1 text-xs text-muted-foreground">登记 / 确认 / 可用：${submittedQty} / ${confirmedQty} / ${record.availableGarmentQty} ${escapeHtml(record.qtyUnit)}</div>
+    </td>
+  `
+}
+
 function renderInventoryRows(input: WarehouseRecord[], mode: Mode): string {
   return input.map((record) => `
     <tr class="align-top">
       <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.skuCode)}</td>
       <td class="px-3 py-3 text-sm"><div class="font-medium">${escapeHtml(record.spuName)}</div><div class="text-xs text-muted-foreground">${escapeHtml(record.colorName)} / ${escapeHtml(record.sizeName)}</div></td>
       <td class="px-3 py-3 text-sm font-medium">${formatGarmentQty(qty(record), record.qtyUnit)}</td>
+      ${mode === 'wait-process' ? renderWaitProcessSourceCell(record) : ''}
       <td class="px-3 py-3">
         <div class="flex flex-wrap gap-2">
           <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildLink(mode, { tab: 'inventory', inventoryDetail: record.warehouseRecordId }))}">库存明细</button>
@@ -299,7 +367,7 @@ function renderInventoryRows(input: WarehouseRecord[], mode: Mode): string {
 }
 
 function renderFlowRows(input: WarehouseRecord[], mode: Mode): string {
-  return input.flatMap((record) => record.flowRecords.map((flow: PostFinishingWarehouseFlowRecord) => `
+  return input.flatMap((record) => getVisibleFlowRecords(record, mode).map((flow: PostFinishingWarehouseFlowRecord) => `
     <tr class="align-top">
       <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.skuCode)}</td>
       <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceProductionOrderNo)}</td>
@@ -314,6 +382,41 @@ function renderFlowRows(input: WarehouseRecord[], mode: Mode): string {
       <td class="px-3 py-3 text-sm">${escapeHtml(flow.remark || '—')}</td>
     </tr>
   `)).join('')
+}
+
+function renderPendingSelfReturnRows(input: PostFinishingWaitProcessWarehouseRecord[]): string {
+  return input.map((record) => {
+    const submittedQty = record.submittedGarmentQty ?? record.inboundGarmentQty
+    return `
+      <tr class="align-top">
+        <td class="px-3 py-3">
+          <div class="font-mono text-xs font-medium text-blue-700">${escapeHtml(record.selfReturnRecordNo || record.warehouseRecordNo)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.sourceProductionOrderNo)} / ${escapeHtml(record.sourceTaskNo)}</div>
+        </td>
+        <td class="px-3 py-3 text-sm">
+          <div class="font-medium">${escapeHtml(record.postSourceLabel)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.managedPostFactoryName)}</div>
+        </td>
+        <td class="px-3 py-3">
+          <div class="font-mono text-xs">${escapeHtml(record.skuCode)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.colorName)} / ${escapeHtml(record.sizeName)}</div>
+        </td>
+        <td class="px-3 py-3 text-sm font-medium">${formatGarmentQty(submittedQty, record.qtyUnit)}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(record.areaName || '后道待加工仓')} / ${escapeHtml(record.locationCode || '默认库位')}</td>
+        <td class="px-3 py-3">
+          <span class="inline-flex rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">待后道确认</span>
+        </td>
+        <td class="px-3 py-3">
+          <button
+            type="button"
+            class="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
+            data-post-finishing-action="open-self-return-confirm"
+            data-self-return-record-id="${escapeHtml(record.selfReturnRecordId || '')}"
+          >确认入库</button>
+        </td>
+      </tr>
+    `
+  }).join('')
 }
 
 function renderWarehouseAreaRows(areas: PostFinishingWarehouseArea[]): string {
@@ -401,15 +504,20 @@ function renderSection(titleText: string, body: string, actionHtml = ''): string
 function renderPage(mode: Mode): string {
   const all = records(mode)
   const filtered = filterRows(all, mode)
-  const pagination = paginatePostRows(filtered, getPostListFilters())
-  const tab = activeTab()
+  const inventoryRecords = getInventoryRecords(filtered, mode)
+  const pendingSelfReturnRecords = mode === 'wait-process' ? getPendingSelfReturnRecords(filtered) : []
+  const paginationSource = activeTab(mode) === 'pending-self-return' ? pendingSelfReturnRecords : inventoryRecords
+  const pagination = paginatePostRows(paginationSource, getPostListFilters())
+  const tab = activeTab(mode)
   const body = tab === 'flow'
     ? table(['SKU', '生产单', '任务单', '流水号', '类型', '来源记录', '数量', '前后库存', '操作时间', '操作人', '备注'], renderFlowRows(pagination.rows, mode), 'min-w-[1560px]')
     : tab === 'locations'
       ? renderLocationsTab(mode)
-      : table(['SKU', '款式名称 / 颜色', '当前库存', '操作'],
+      : tab === 'pending-self-return'
+        ? table(['自助回货单', '来源 / 接收', 'SKU', '登记数量', '默认暂存库位', '状态', '操作'], renderPendingSelfReturnRows(pagination.rows as PostFinishingWaitProcessWarehouseRecord[]), 'min-w-[1280px]')
+      : table(mode === 'wait-process' ? ['SKU', '款式名称 / 颜色', '当前库存', '来源 / 确认状态', '操作'] : ['SKU', '款式名称 / 颜色', '当前库存', '操作'],
         renderInventoryRows(pagination.rows, mode),
-        'min-w-[1100px]',
+        mode === 'wait-process' ? 'min-w-[1320px]' : 'min-w-[1100px]',
       )
   return `
     <div class="space-y-4 p-4">
@@ -419,7 +527,7 @@ function renderPage(mode: Mode): string {
       ${renderFilters(mode, all)}
       ${tab === 'locations'
         ? body
-        : renderSection(tab === 'flow' ? '流水记录' : '库存', `${body}<div class="mt-4">${renderPostPagination(pagination)}</div>`)}
+        : renderSection(tab === 'flow' ? '流水记录' : tab === 'pending-self-return' ? '待确认的车缝自助回货' : '库存', `${body}<div class="mt-4">${renderPostPagination(pagination)}</div>`)}
       ${renderTaskSkuDialog(mode, all)}
       ${renderInventoryDetailDialog(mode, all)}
     </div>

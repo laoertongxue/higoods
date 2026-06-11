@@ -3654,19 +3654,23 @@ function findSewingSelfReturnSourceContext(payload: SewingSelfReturnScanPayload)
   ))
 }
 
-export function getPostFinishingSewingSelfReturnDemoScanValue(): string {
-  const context = SOURCE_CONTEXTS.find((item) => item.sourceFactoryType === '车缝厂')
-  if (!context) return ''
+function buildSewingSelfReturnScanValue(context: PostFinishingSourceContext, printVersionNo: string): string {
   return JSON.stringify({
     documentType: 'PRODUCTION_CONFIRMATION',
     sourceType: 'PRODUCTION_ORDER',
     sourceId: context.productionOrderId,
     businessNo: `PC-${context.productionOrderNo}`,
     targetRoute: `/fcs/production/orders/${context.productionOrderId}/confirmation-print`,
-    printVersionNo: 'PRINT-V1',
+    printVersionNo,
     isVoid: false,
     productionOrderNo: context.productionOrderNo,
   })
+}
+
+export function getPostFinishingSewingSelfReturnDemoScanValue(): string {
+  const context = SOURCE_CONTEXTS.find((item) => item.sourceFactoryType === '车缝厂')
+  if (!context) return ''
+  return buildSewingSelfReturnScanValue(context, 'PRINT-V1')
 }
 
 export function resolvePostFinishingSewingSelfReturnScan(scanValue: string): PostFinishingSewingSelfReturnScanResult {
@@ -3713,6 +3717,32 @@ export function resolvePostFinishingSewingSelfReturnScan(scanValue: string): Pos
 
 export function listPostFinishingSewingSelfReturnRecords(): PostFinishingSewingSelfReturnRecord[] {
   return readPostFinishingWarehouseStore().sewingSelfReturnRecords.map(cloneSewingSelfReturnRecord)
+}
+
+export function ensurePostFinishingSewingSelfReturnMockRecords(): PostFinishingSewingSelfReturnRecord[] {
+  const existingRecords = listPostFinishingSewingSelfReturnRecords()
+  if (existingRecords.length > 0) return existingRecords
+
+  SOURCE_CONTEXTS
+    .filter((context) => context.sourceFactoryType === '车缝厂')
+    .slice(0, 2)
+    .forEach((context, contextIndex) => {
+      createPostFinishingSewingSelfReturn({
+        scanValue: buildSewingSelfReturnScanValue(context, `PRINT-MOCK-${contextIndex + 1}`),
+        deliveryPersonName: contextIndex === 0 ? 'Andi / PT Indo Sewing Center' : 'Budi / PT Prima Tailor Jakarta',
+        deliveryPersonPhone: contextIndex === 0 ? '0812-3300-1001' : '0812-3300-2007',
+        evidenceText: contextIndex === 0 ? '现场已上传纸质确认单照片、外箱照片。' : '现场已上传签收照片。',
+        deviceFactoryId: FULL_CAPABILITY_FACTORY_ID,
+        deviceFactoryName: FULL_CAPABILITY_FACTORY_NAME,
+        deviceUserName: '后道管理员',
+        items: context.skuLines.map((line) => ({
+          skuLineId: line.skuLineId,
+          submittedQty: contextIndex === 0 ? line.plannedQty : Math.max(1, Math.round(line.plannedQty * 0.75)),
+        })),
+      })
+    })
+
+  return listPostFinishingSewingSelfReturnRecords()
 }
 
 export function getPostFinishingSewingSelfReturnRecord(recordIdOrNo: string): PostFinishingSewingSelfReturnRecord | undefined {

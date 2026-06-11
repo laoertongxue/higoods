@@ -38,10 +38,12 @@ import {
   FULL_CAPABILITY_FACTORY_ID,
   FULL_CAPABILITY_FACTORY_NAME,
   createPostFinishingSewingSelfReturn,
+  getPostFinishingWaitProcessReceiptConfirmStatus,
   listPostFinishingAvailableHandoverLines,
   listPostFinishingSewingSelfReturnRecords,
   listPostFinishingUpstreamHandovers,
   listPostFinishingWaitHandoverWarehouseRecords,
+  listPostFinishingWaitProcessWarehouseRecords,
   recordPostFinishingHandoverSubmission,
   writeBackPostFinishingHandoverSubmission,
   type PostFinishingSewingSelfReturnCreateInput,
@@ -357,6 +359,7 @@ export interface PdaHandoverHead {
   runtimeTaskId?: string
   sourceDocId?: string
   sourceDocNo?: string
+  pickupSourceType?: 'NORMAL' | 'SEWING_SELF_RETURN'
   scopeType?: RuntimeTaskScopeType
   scopeKey?: string
   scopeLabel?: string
@@ -495,7 +498,7 @@ export interface PdaPickupRecord {
   skuSize?: string
   pieceName?: string
   pickupMode: 'WAREHOUSE_DELIVERY' | 'FACTORY_PICKUP'
-  pickupModeLabel: '仓库配送到厂' | '工厂到仓自提'
+  pickupModeLabel: '仓库配送到厂' | '工厂到仓自提' | '车缝厂送达到厂'
   materialSummary: string
   qtyExpected: number
   qtyActual?: number
@@ -520,6 +523,10 @@ export interface PdaPickupRecord {
   followUpRemark?: string
   resolvedRemark?: string
   remark?: string
+  postFinishingSelfReturnRecordId?: string
+  postFinishingSelfReturnRecordNo?: string
+  postFinishingSelfReturnItemId?: string
+  postFinishingSelfReturnWarehouseRecordId?: string
 }
 
 export interface PdaHandoverSummary {
@@ -839,6 +846,10 @@ function buildPostFinishingPickupHeadId(handoverRecordNo: string): string {
   return `PKH-POST-${normalizeIdSegment(handoverRecordNo)}`
 }
 
+function buildPostFinishingSelfReturnPickupHeadId(recordNo: string): string {
+  return `PKH-POST-SELF-${normalizeIdSegment(recordNo)}`
+}
+
 function buildPostFinishingTaskIdFromOrderNo(productionOrderNo: string): string {
   return `POST-TASK-${productionOrderNo.replace(/^PO-/, '')}`
 }
@@ -875,6 +886,7 @@ function buildPostFinishingPickupHeads(): PdaHandoverHead[] {
       qtyDiffTotal: qtyExpectedTotal,
       sourceDocId: handover.handoverRecordId,
       sourceDocNo: handover.handoverRecordNo,
+      pickupSourceType: 'NORMAL',
       scopeLabel: `${handover.sourceFactoryType}交出成衣 ${handover.skuLines.length} 个 SKU`,
       executorKind: 'EXTERNAL_FACTORY',
       transitionFromPrev: 'SAME_FACTORY_CONTINUE',
@@ -892,8 +904,65 @@ function buildPostFinishingPickupHeads(): PdaHandoverHead[] {
   })
 }
 
+function buildPostFinishingSewingSelfReturnPickupHeads(): PdaHandoverHead[] {
+  return listPostFinishingSewingSelfReturnRecords()
+    .filter((record) => record.status !== '已驳回')
+    .map((record) => {
+      const submittedQtyTotal = sumBy(record.items, (item) => item.submittedQty)
+      const confirmedQtyTotal = sumBy(record.items, (item) => item.confirmedQty ?? 0)
+      return {
+        handoverId: buildPostFinishingSelfReturnPickupHeadId(record.recordNo),
+        headType: 'PICKUP',
+        qrCodeValue: record.productionConfirmationNo,
+        taskId: buildPostFinishingTaskIdFromOrderNo(record.productionOrderNo),
+        sourceTaskId: record.sourceTaskId || record.sourceTaskNo,
+        taskNo: record.sourceTaskNo || buildPostFinishingTaskIdFromOrderNo(record.productionOrderNo),
+        sourceTaskNo: record.sourceTaskNo,
+        rootTaskNo: record.sourceTaskNo,
+        productionOrderNo: record.productionOrderNo,
+        processName: '后道',
+        sourceFactoryId: record.sourceFactoryId,
+        sourceFactoryName: record.sourceFactoryName,
+        targetName: FULL_CAPABILITY_FACTORY_NAME,
+        targetKind: 'FACTORY',
+        qtyUnit: record.items[0]?.qtyUnit || '件',
+        factoryId: FULL_CAPABILITY_FACTORY_ID,
+        taskStatus: 'IN_PROGRESS',
+        summaryStatus: 'SUBMITTED',
+        recordCount: record.items.length,
+        pendingWritebackCount: record.status === '待后道确认' ? record.items.length : 0,
+        writtenBackQtyTotal: confirmedQtyTotal,
+        objectionCount: record.status === '数量差异待处理' ? 1 : 0,
+        completionStatus: 'OPEN',
+        qtyExpectedTotal: submittedQtyTotal,
+        qtyActualTotal: confirmedQtyTotal,
+        qtyDiffTotal: submittedQtyTotal - confirmedQtyTotal,
+        sourceDocId: record.recordId,
+        sourceDocNo: record.recordNo,
+        pickupSourceType: 'SEWING_SELF_RETURN',
+        scopeLabel: `车缝自助回货 ${record.items.length} 个 SKU`,
+        executorKind: 'EXTERNAL_FACTORY',
+        transitionFromPrev: 'SAME_FACTORY_CONTINUE',
+        transitionToNext: 'SAME_FACTORY_CONTINUE',
+        stageCode: 'POST',
+        stageName: '后道阶段',
+        processBusinessCode: 'POST_FINISHING',
+        processBusinessName: '后道',
+        taskTypeCode: 'POST_FINISHING',
+        taskTypeLabel: '后道任务',
+        assignmentGranularity: 'ORDER',
+        assignmentGranularityLabel: '整单',
+        isSpecialCraft: false,
+      } satisfies PdaHandoverHead
+    })
+}
+
 function isPostFinishingPickupHead(head: Pick<PdaHandoverHead, 'headType' | 'processBusinessCode' | 'sourceDocNo'>): boolean {
   return head.headType === 'PICKUP' && head.processBusinessCode === 'POST_FINISHING' && Boolean(head.sourceDocNo)
+}
+
+function isPostFinishingSewingSelfReturnPickupHead(head: Pick<PdaHandoverHead, 'headType' | 'processBusinessCode' | 'pickupSourceType'>): boolean {
+  return head.headType === 'PICKUP' && head.processBusinessCode === 'POST_FINISHING' && head.pickupSourceType === 'SEWING_SELF_RETURN'
 }
 
 function buildPostFinishingPickupRecords(head: PdaHandoverHead): PdaPickupRecord[] {
@@ -914,7 +983,7 @@ function buildPostFinishingPickupRecords(head: PdaHandoverHead): PdaPickupRecord
     skuSize: line.sizeName,
     pieceName: '成衣',
     pickupMode: 'WAREHOUSE_DELIVERY',
-    pickupModeLabel: '仓库配送到厂',
+    pickupModeLabel: '车缝厂送达到厂',
     materialSummary: `${handover.sourceFactoryName}交出 ${line.skuCode} / ${line.colorName} / ${line.sizeName}`,
     qtyExpected: line.plannedQty,
     qtyActual: 0,
@@ -927,6 +996,54 @@ function buildPostFinishingPickupRecords(head: PdaHandoverHead): PdaPickupRecord
     warehouseHandedBy: handover.sourceFactoryName,
     remark: `${handover.handoverRecordNo} / ${line.handoverLineId}`,
   }))
+}
+
+function buildPostFinishingSewingSelfReturnPickupRecords(head: PdaHandoverHead): PdaPickupRecord[] {
+  if (!isPostFinishingSewingSelfReturnPickupHead(head)) return []
+  const record = listPostFinishingSewingSelfReturnRecords().find((item) => item.recordId === head.sourceDocId || item.recordNo === head.sourceDocNo)
+  if (!record) return []
+  const warehouseRecords = listPostFinishingWaitProcessWarehouseRecords()
+  return record.items.map((item, index) => {
+    const warehouseRecord = warehouseRecords.find((row) => row.warehouseRecordId === item.warehouseRecordId)
+    const receiptStatus = warehouseRecord ? getPostFinishingWaitProcessReceiptConfirmStatus(warehouseRecord) : record.status
+    const confirmedQty = warehouseRecord?.confirmedGarmentQty ?? item.confirmedQty
+    const isConfirmed = receiptStatus === '已确认入库' || receiptStatus === '数量差异待处理'
+    const isRejected = receiptStatus === '已驳回'
+
+    return {
+      recordId: `PF-SELF-PICKUP-${normalizeIdSegment(item.warehouseRecordId)}`,
+      handoverId: head.handoverId,
+      taskId: head.taskId,
+      sequenceNo: index + 1,
+      materialCode: record.recordNo,
+      materialName: '车缝自助回货成衣',
+      materialSpec: `${record.spuCode} / ${item.colorName} / ${item.sizeName}`,
+      skuCode: item.skuCode,
+      skuColor: item.colorName,
+      skuSize: item.sizeName,
+      pieceName: '成衣',
+      pickupMode: 'WAREHOUSE_DELIVERY',
+      pickupModeLabel: '车缝厂送达到厂',
+      materialSummary: `${record.sourceFactoryName}自助回货 ${item.skuCode} / ${item.colorName} / ${item.sizeName}`,
+      qtyExpected: item.submittedQty,
+      qtyActual: isConfirmed ? confirmedQty ?? warehouseRecord?.availableGarmentQty ?? item.submittedQty : 0,
+      qtyUnit: item.qtyUnit,
+      submittedAt: record.submittedAt,
+      status: isRejected ? 'REJECTED' : isConfirmed ? 'RECEIVED' : 'PENDING_FACTORY_CONFIRM',
+      receivedAt: warehouseRecord?.confirmationAt,
+      qrCodeValue: `POST_FINISHING_SELF_RETURN_PICKUP|${record.recordNo}|${item.itemId}|${item.warehouseRecordId}`,
+      warehouseHandedQty: item.submittedQty,
+      warehouseHandedAt: record.submittedAt,
+      warehouseHandedBy: record.sourceFactoryName,
+      factoryConfirmedQty: isConfirmed ? confirmedQty ?? warehouseRecord?.availableGarmentQty ?? item.submittedQty : undefined,
+      factoryConfirmedAt: warehouseRecord?.confirmationAt,
+      remark: `车缝自助回货 ${record.recordNo} / 入库记录 ${item.warehouseRecordNo}`,
+      postFinishingSelfReturnRecordId: record.recordId,
+      postFinishingSelfReturnRecordNo: record.recordNo,
+      postFinishingSelfReturnItemId: item.itemId,
+      postFinishingSelfReturnWarehouseRecordId: item.warehouseRecordId,
+    } satisfies PdaPickupRecord
+  })
 }
 
 function buildPostFinishingHandoutHeads(): PdaHandoverHead[] {
@@ -2736,6 +2853,7 @@ function getPickupRecordsForHeadInternal(head: PdaHandoverHead): PdaPickupRecord
   const mockRecords = PDA_MOCK_PICKUP_RECORDS[head.handoverId]?.map(clonePickupRecord) ?? []
   const taskBoardSeedRecords = buildTaskBoardPickupRecordSeeds(head)
   const postFinishingPickupRecords = buildPostFinishingPickupRecords(head)
+  const postFinishingSelfReturnPickupRecords = buildPostFinishingSewingSelfReturnPickupRecords(head)
   const doc = head.sourceDocId ? (getWarehouseExecutionDocById(head.sourceDocId) as WarehouseIssueOrder | null) : null
   const baseRecords =
     mockRecords.length > 0
@@ -2744,6 +2862,8 @@ function getPickupRecordsForHeadInternal(head: PdaHandoverHead): PdaPickupRecord
         ? taskBoardSeedRecords
       : postFinishingPickupRecords.length > 0
         ? postFinishingPickupRecords
+      : postFinishingSelfReturnPickupRecords.length > 0
+        ? postFinishingSelfReturnPickupRecords
       : doc && doc.docType === 'ISSUE'
         ? doc.lines.map((line, index) => buildPickupLineRecord(head, doc, line, index))
         : []
@@ -2917,6 +3037,7 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
     .map((doc) => refreshHandoutHeadSummary(buildHandoutHeadFromReturn(doc)))
 
   const postFinishingPickupHeads = buildPostFinishingPickupHeads().map((head) => refreshPickupHeadSummary(head))
+  const postFinishingSelfReturnPickupHeads = buildPostFinishingSewingSelfReturnPickupHeads().map((head) => refreshPickupHeadSummary(head))
   const postFinishingHandoutHeads = buildPostFinishingHandoutHeads().map((head) => refreshHandoutHeadSummary(head))
 
   const mockHeads = PDA_MOCK_HANDOVER_HEADS.map((head) =>
@@ -2931,7 +3052,15 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
       : refreshHandoutHeadSummary(cloneHead(head)),
   )
 
-  return [...pickupHeads, ...handoutHeads, ...postFinishingPickupHeads, ...postFinishingHandoutHeads, ...mockHeads, ...addedHeads]
+  return [
+    ...pickupHeads,
+    ...handoutHeads,
+    ...postFinishingPickupHeads,
+    ...postFinishingSelfReturnPickupHeads,
+    ...postFinishingHandoutHeads,
+    ...mockHeads,
+    ...addedHeads,
+  ]
 }
 
 function buildHeadsInternal(): PdaHandoverHead[] {

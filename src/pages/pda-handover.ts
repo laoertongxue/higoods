@@ -29,6 +29,7 @@ import {
 import { ensureSpecialCraftFeiTicketFlowSeeded } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
+  ensurePostFinishingSewingSelfReturnMockRecords,
   listPostFinishingSewingSelfReturnRecords,
 } from '../data/fcs/post-finishing-domain.ts'
 
@@ -84,6 +85,53 @@ function renderPartyChip(kind: PdaHandoverHead['targetKind'], name: string): str
       <span>${escapeHtml(name)}</span>
     </span>
   `
+}
+
+function isPostFinishingPickupHead(head: PdaHandoverHead): boolean {
+  return head.headType === 'PICKUP' && head.processBusinessCode === 'POST_FINISHING' && head.targetKind === 'FACTORY'
+}
+
+function isCurrentPdaAdmin(): boolean {
+  return getPdaRuntimeContext()?.roleId === 'ROLE_ADMIN'
+}
+
+function isSewingSelfReturnPickupHead(head: PdaHandoverHead): boolean {
+  return isPostFinishingPickupHead(head) && head.pickupSourceType === 'SEWING_SELF_RETURN'
+}
+
+function getPickupSourceBadge(head: PdaHandoverHead): { label: string; className: string } {
+  if (isSewingSelfReturnPickupHead(head)) {
+    return {
+      label: '车缝自助回货',
+      className: 'border-blue-200 bg-blue-50 text-blue-700',
+    }
+  }
+  return {
+    label: '正常领料',
+    className: 'border-slate-200 bg-slate-50 text-slate-700',
+  }
+}
+
+function getPickupPartyDisplay(head: PdaHandoverHead): {
+  sourceLabel: string
+  sourceKind: PdaHandoverHead['targetKind']
+  targetLabel: string
+  targetKind: PdaHandoverHead['targetKind']
+} {
+  if (isPostFinishingPickupHead(head)) {
+    return {
+      sourceLabel: '来源车缝厂',
+      sourceKind: 'FACTORY',
+      targetLabel: '后道工厂',
+      targetKind: 'FACTORY',
+    }
+  }
+  return {
+    sourceLabel: '来源仓库',
+    sourceKind: 'WAREHOUSE',
+    targetLabel: '领料工厂',
+    targetKind: head.targetKind,
+  }
 }
 
 function getExecutorLabel(head: PdaHandoverHead): string {
@@ -227,14 +275,19 @@ function renderHandoutObjectBlock(head: PdaHandoverHead, compact = false): strin
 function renderOpenHeadCard(head: PdaHandoverHead): string {
   const meta = head.headType === 'PICKUP' ? getPickupSummaryMeta(head) : getHandoutSummaryMeta(head)
   const headLabel = head.headType === 'PICKUP' ? '领料单' : '交出单'
-  const actionLabel = head.headType === 'PICKUP' ? '查看来料单' : '查看交出单'
+  const selfReturnPickup = head.headType === 'PICKUP' && isSewingSelfReturnPickupHead(head)
+  const actionLabel = head.headType === 'PICKUP' ? (selfReturnPickup ? '确认回货' : '查看来料单') : '查看交出单'
 
   if (head.headType === 'PICKUP') {
+    const partyDisplay = getPickupPartyDisplay(head)
+    const sourceBadge = getPickupSourceBadge(head)
     const pickupHint =
       head.objectionCount > 0
         ? `有 ${head.objectionCount} 条记录在处理差异`
         : head.pendingWritebackCount > 0
-          ? `还有 ${head.pendingWritebackCount} 条记录待处理`
+          ? selfReturnPickup
+            ? `还有 ${head.pendingWritebackCount} 条车缝自助回货待确认`
+            : `还有 ${head.pendingWritebackCount} 条记录待处理`
           : '当前等待完成领料单'
 
     return `
@@ -247,6 +300,7 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
           <div class="flex items-center justify-between gap-2">
             <div class="flex min-w-0 items-center gap-1.5">
               <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${headLabel}</span>
+              <span class="inline-flex shrink-0 items-center rounded border px-1.5 py-0 text-[10px] ${sourceBadge.className}">${escapeHtml(sourceBadge.label)}</span>
               <span class="inline-flex shrink-0 items-center rounded border px-1.5 py-0 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
             </div>
             <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-muted-foreground"></i>
@@ -256,14 +310,15 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
             <div><span class="text-muted-foreground">任务编号：</span>${escapeHtml(head.taskNo)}</div>
             <div><span class="text-muted-foreground">生产单号：</span>${escapeHtml(head.productionOrderNo)}</div>
             <div class="col-span-2"><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
+            ${selfReturnPickup ? `<div class="col-span-2"><span class="text-muted-foreground">自助回货单：</span>${escapeHtml(head.sourceDocNo || '—')}</div>` : ''}
           </div>
 
           <div class="flex items-center gap-2 py-0.5 text-xs">
-            <span class="shrink-0 text-muted-foreground">来源仓库：</span>
-            ${renderPartyChip('WAREHOUSE', head.sourceFactoryName)}
+            <span class="shrink-0 text-muted-foreground">${partyDisplay.sourceLabel}：</span>
+            ${renderPartyChip(partyDisplay.sourceKind, head.sourceFactoryName)}
             <i data-lucide="arrow-right" class="h-3 w-3 shrink-0 text-muted-foreground"></i>
-            <span class="shrink-0 text-muted-foreground">领料工厂：</span>
-            ${renderPartyChip(head.targetKind, head.targetName)}
+            <span class="shrink-0 text-muted-foreground">${partyDisplay.targetLabel}：</span>
+            ${renderPartyChip(partyDisplay.targetKind, head.targetName)}
           </div>
 
           <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
@@ -423,7 +478,6 @@ function renderPostFinishingSewingSelfReturnPanel(): string {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h2 class="text-sm font-semibold text-blue-950">车缝现场交货登记模式</h2>
-          <p class="mt-1 text-xs leading-5 text-blue-700">后道管理员开启后，公共 PDA 只保留车缝厂扫码回货和管理员退出；下方保留车缝自助回货记录。</p>
         </div>
         <button
           type="button"
@@ -453,15 +507,20 @@ function renderPostFinishingSewingSelfReturnPanel(): string {
 }
 
 export function renderPdaHandoverPage(): string {
-  if (!getPdaRuntimeContext()) {
+  const runtime = getPdaRuntimeContext()
+  if (!runtime) {
     return renderPdaLoginRedirect()
   }
 
   ensureSpecialCraftFeiTicketFlowSeeded()
-  syncAllPostFinishingSewingSelfReturnHandoverRecords()
   syncTabWithQuery()
   const selectedFactoryId = getCurrentFactoryId()
   const isPostFinishingFactory = selectedFactoryId === FULL_CAPABILITY_FACTORY_ID
+  const canManageSewingSelfReturnMode = isPostFinishingFactory && runtime.roleId === 'ROLE_ADMIN'
+  if (isPostFinishingFactory) {
+    ensurePostFinishingSewingSelfReturnMockRecords()
+  }
+  syncAllPostFinishingSewingSelfReturnHandoverRecords()
   const pickupHeads = isPostFinishingFactory ? getPdaPostFinishingPickupHeads() : getPdaPickupHeads(selectedFactoryId)
   const handoutHeads = isPostFinishingFactory ? getPdaPostFinishingHandoutHeads() : getPdaHandoutHeads(selectedFactoryId)
   const doneHeads = isPostFinishingFactory ? getPdaPostFinishingCompletedHeads() : getPdaCompletedHeads(selectedFactoryId)
@@ -502,11 +561,10 @@ export function renderPdaHandoverPage(): string {
       </div>
 
       <div class="flex-1 space-y-3 overflow-y-auto p-4">
-        ${isPostFinishingFactory ? renderPostFinishingSewingSelfReturnPanel() : ''}
+        ${canManageSewingSelfReturnMode && state.activeTab === 'pickup' ? renderPostFinishingSewingSelfReturnPanel() : ''}
         ${
           state.activeTab === 'pickup'
             ? `
-              <p class="text-xs text-muted-foreground">仓库完成送料后生成领料记录；交付后确认数量或发起差异。</p>
               ${
                 pickupHeads.length === 0
                   ? renderEmptyState('暂无待处理领料单')
@@ -519,7 +577,7 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'handout'
             ? `
-              <p class="text-xs text-muted-foreground">${isPostFinishingFactory ? '后道交出记录由工厂发起，接收方确认实收成衣数量。' : '交出记录由工厂发起，接收方确认实收对象数量；裁床厂可看待装袋、装袋中、已装袋待交出，车缝厂可看待收中转袋、部分收货、差异。'}</p>
+              ${isPostFinishingFactory ? '' : '<p class="text-xs text-muted-foreground">交出记录由工厂发起，接收方确认实收对象数量；裁床厂可看待装袋、装袋中、已装袋待交出，车缝厂可看待收中转袋、部分收货、差异。</p>'}
               ${
                 handoutHeads.length === 0
                   ? renderEmptyState('暂无待处理交出单')
@@ -570,6 +628,10 @@ export function handlePdaHandoverEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-sewing-self-return-mode') {
+    if (!isCurrentPdaAdmin()) {
+      window.alert('只有后道工厂管理员可以开启车缝现场交货登记模式。')
+      return true
+    }
     appStore.navigate('/fcs/pda/handover/sewing-self-return')
     return true
   }

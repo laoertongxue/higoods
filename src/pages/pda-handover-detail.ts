@@ -69,6 +69,7 @@ import {
 } from '../data/fcs/cutting/sewing-dispatch.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
+  confirmPostFinishingSewingSelfReturnWarehouseRecord,
   confirmPostFinishingWarehouseReceipt,
   listPostFinishingWarehouseAreas,
   listPostFinishingWarehouseLocations,
@@ -477,7 +478,7 @@ function renderSectionCard(title: string, body: string): string {
 function renderPartyRow(label: string, kind: HandoverPartyKind, name: string): string {
   return `
     <div class="flex items-center gap-2 text-sm">
-      <span class="w-16 shrink-0 text-muted-foreground">${escapeHtml(label)}：</span>
+      <span class="w-20 shrink-0 text-muted-foreground">${escapeHtml(label)}：</span>
       <span class="inline-flex items-center gap-1">
         <i data-lucide="${kind === 'WAREHOUSE' ? 'warehouse' : 'factory'}" class="h-3.5 w-3.5 text-muted-foreground"></i>
         <span class="font-medium">${escapeHtml(name)}</span>
@@ -510,6 +511,40 @@ function parsePostFinishingPickupRecord(record: PdaPickupRecord): { handoverReco
   const [, handoverRecordNo, handoverLineId] = record.qrCodeValue.split('|')
   if (!handoverRecordNo || !handoverLineId) return null
   return { handoverRecordNo, handoverLineId }
+}
+
+function parsePostFinishingSelfReturnPickupRecord(record: PdaPickupRecord): { selfReturnRecordNo: string; itemId: string; warehouseRecordId: string } | null {
+  const prefix = 'POST_FINISHING_SELF_RETURN_PICKUP|'
+  if (!record.qrCodeValue.startsWith(prefix)) return null
+  const [, selfReturnRecordNo, itemId, warehouseRecordId] = record.qrCodeValue.split('|')
+  if (!selfReturnRecordNo || !itemId || !warehouseRecordId) return null
+  return { selfReturnRecordNo, itemId, warehouseRecordId }
+}
+
+function isPostFinishingPickupHead(head: PdaHandoverHead | undefined): boolean {
+  return Boolean(head && head.headType === 'PICKUP' && head.processBusinessCode === 'POST_FINISHING' && head.targetKind === 'FACTORY')
+}
+
+function getPickupPartyDisplay(head: PdaHandoverHead): {
+  sourceLabel: string
+  sourceKind: HandoverPartyKind
+  targetLabel: string
+  targetKind: HandoverPartyKind
+} {
+  if (isPostFinishingPickupHead(head)) {
+    return {
+      sourceLabel: '来源车缝厂',
+      sourceKind: 'FACTORY',
+      targetLabel: '后道工厂',
+      targetKind: 'FACTORY',
+    }
+  }
+  return {
+    sourceLabel: '来源仓库',
+    sourceKind: 'WAREHOUSE',
+    targetLabel: '领料工厂',
+    targetKind: head.targetKind,
+  }
 }
 
 function isPostFinishingHandoutHead(head: PdaHandoverHead | undefined): boolean {
@@ -565,6 +600,9 @@ function getPickupRecordStatusMeta(status: PdaPickupRecord['status']): { label: 
 function getPickupCurrentGuide(
   record: PdaPickupRecord,
 ): { title: string; hint: string; panelClass: string } {
+  const postFinishingPickup = parsePostFinishingPickupRecord(record)
+  const selfReturnPickup = parsePostFinishingSelfReturnPickupRecord(record)
+  const postFinishingSource = Boolean(postFinishingPickup || selfReturnPickup)
   if (record.status === 'PENDING_FACTORY_CONFIRM') {
     return {
       title: '当前等待你确认',
@@ -601,8 +639,8 @@ function getPickupCurrentGuide(
     }
   }
   return {
-    title: '当前等待仓库交付',
-    hint: '先查看记录与二维码。',
+    title: postFinishingSource ? '当前等待车缝厂送达' : '当前等待仓库交付',
+    hint: postFinishingSource ? '先查看记录与二维码，待车缝厂送达后再处理。' : '先查看记录与二维码。',
     panelClass: 'border-blue-200 bg-blue-50',
   }
 }
@@ -653,17 +691,22 @@ function renderPickupCurrentPanel(
   const finalQtyValue = formatPickupQty(record.finalResolvedQty, record.qtyUnit)
   const linkedInboundRecord = getLinkedInboundRecord(record.recordId)
   const postFinishingPickup = parsePostFinishingPickupRecord(record)
-  const linkedInboundLabel = linkedInboundRecord?.inboundRecordNo || (postFinishingPickup && record.status === 'RECEIVED' ? '后道待加工仓已入库' : '未入库')
+  const selfReturnPickup = parsePostFinishingSelfReturnPickupRecord(record)
+  const postFinishingSource = Boolean(postFinishingPickup || selfReturnPickup)
+  const linkedInboundLabel = linkedInboundRecord?.inboundRecordNo || (postFinishingSource && record.status === 'RECEIVED' ? '后道待加工仓已入库' : '未入库')
   const linkedInboundHref = linkedInboundRecord ? buildInboundRecordRoute(record.recordId) : ''
-  const sourceStatusLabel = postFinishingPickup && record.status === 'RECEIVED' ? '已入后道待加工仓' : getPickupWarehouseSourceStatus(record)
+  const sourceStatusLabel = postFinishingSource && record.status === 'RECEIVED' ? '已入后道待加工仓' : getPickupWarehouseSourceStatus(record)
+  const sourceQtyLabel = postFinishingSource ? '车缝厂交付数量' : '仓库交付数量'
+  const sourceTimeLabel = postFinishingSource ? '车缝厂交付时间' : '仓库交付时间'
+  const waitSourceText = postFinishingSource ? '待车缝厂送达' : '待仓库扫码交付'
   const shouldShowExpectedInPendingConfirm =
     typeof record.warehouseHandedQty === 'number' && record.warehouseHandedQty !== record.qtyExpected
 
   if (record.status === 'PENDING_FACTORY_CONFIRM') {
     return `
       <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2 ${shouldShowExpectedInPendingConfirm ? 'lg:grid-cols-3' : ''}">
-        ${renderPickupCurrentMetric('仓库交付数量', warehouseQtyValue, true)}
-        ${renderPickupCurrentMetric('仓库交付时间', record.warehouseHandedAt || '待仓库扫码交付')}
+        ${renderPickupCurrentMetric(sourceQtyLabel, warehouseQtyValue, true)}
+        ${renderPickupCurrentMetric(sourceTimeLabel, record.warehouseHandedAt || waitSourceText)}
         ${
           shouldShowExpectedInPendingConfirm
             ? renderPickupCurrentMetric('本次应领物料对象', expectedQtyValue)
@@ -712,7 +755,7 @@ function renderPickupCurrentPanel(
                       class="h-9 w-full rounded-md border bg-background px-3 text-sm"
                       value="${escapeHtml(detailState.pickupDisputeReason)}"
                       data-pda-handoverd-field="pickupDisputeReason"
-                      placeholder="例如：实际到货少于仓库交付数量"
+                      placeholder="${postFinishingSource ? '例如：实际到货少于车缝厂交付数量' : '例如：实际到货少于仓库交付数量'}"
                     />
                   </label>
                 </div>
@@ -806,7 +849,7 @@ function renderPickupCurrentPanel(
   if (record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING') {
     return `
       <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2 lg:grid-cols-3">
-        ${renderPickupCurrentMetric('仓库交付数量', warehouseQtyValue, true)}
+        ${renderPickupCurrentMetric(sourceQtyLabel, warehouseQtyValue, true)}
         ${renderPickupCurrentMetric('工厂申报数量', reportedQtyValue)}
         ${renderPickupCurrentMetric('异常单号', record.exceptionCaseId || '待生成')}
       </div>
@@ -851,7 +894,7 @@ function renderPickupCurrentPanel(
   if (record.status === 'REJECTED') {
     return `
       <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2">
-        ${renderPickupCurrentMetric('仓库交付数量', warehouseQtyValue, true)}
+        ${renderPickupCurrentMetric(sourceQtyLabel, warehouseQtyValue, true)}
         ${renderPickupCurrentMetric('本次应领物料对象', expectedQtyValue)}
       </div>
       <div class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
@@ -872,11 +915,11 @@ function renderPickupCurrentPanel(
       ${renderPickupCurrentMetric('本次应领物料对象', expectedQtyValue, true)}
       ${
         record.warehouseHandedAt
-          ? renderPickupCurrentMetric('仓库交付时间', record.warehouseHandedAt)
+          ? renderPickupCurrentMetric(sourceTimeLabel, record.warehouseHandedAt)
           : ''
       }
     </div>
-    <div class="pt-1 text-xs text-blue-700">当前先查看记录与二维码，待仓库交付后再处理。</div>
+    <div class="pt-1 text-xs text-blue-700">${postFinishingSource ? '当前先查看记录与二维码，待车缝厂送达后再处理。' : '当前先查看记录与二维码，待仓库交付后再处理。'}</div>
   `
 }
 
@@ -972,22 +1015,19 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
   const selected = detailState.selectedPickupRecordId === record.recordId
   const linkedInboundRecord = getLinkedInboundRecord(record.recordId)
   const postFinishingPickup = parsePostFinishingPickupRecord(record)
-  const linkedInboundLabel = linkedInboundRecord?.inboundRecordNo || (postFinishingPickup && record.status === 'RECEIVED' ? '后道待加工仓已入库' : '未入库')
+  const selfReturnPickup = parsePostFinishingSelfReturnPickupRecord(record)
+  const postFinishingSource = Boolean(postFinishingPickup || selfReturnPickup)
+  const linkedInboundLabel = linkedInboundRecord?.inboundRecordNo || (postFinishingSource && record.status === 'RECEIVED' ? '后道待加工仓已入库' : '未入库')
   const linkedInboundHref = linkedInboundRecord ? buildInboundRecordRoute(record.recordId) : ''
-  const sourceStatusLabel = postFinishingPickup && record.status === 'RECEIVED' ? '已入后道待加工仓' : getPickupWarehouseSourceStatus(record)
-  const materialSubject = [record.materialName, record.materialSpec].filter(Boolean).join(' · ')
-  const sceneChips = [
-    record.skuCode ? `SKU ${record.skuCode}` : '',
-    record.skuColor ? `颜色 ${record.skuColor}` : '',
-    record.skuSize ? `尺码 ${record.skuSize}` : '',
-    record.pieceName ? `裁片 ${record.pieceName}` : '',
-  ].filter(Boolean)
-  const sceneRemark = record.remark?.trim() ? record.remark : ''
+  const sourceStatusLabel = postFinishingSource && record.status === 'RECEIVED' ? '已入后道待加工仓' : getPickupWarehouseSourceStatus(record)
   const platformRemark =
     record.status === 'OBJECTION_PROCESSING' || record.status === 'OBJECTION_RESOLVED'
       ? (record.resolvedRemark || record.followUpRemark || '').trim()
       : ''
   const warehouseQtyValue = formatPickupQty(record.warehouseHandedQty, record.qtyUnit)
+  const sourceQtyLabel = postFinishingSource ? '车缝厂交付数量' : '仓库交付数量'
+  const sourceTimeLabel = postFinishingSource ? '车缝厂交付时间' : '仓库交付时间'
+  const skuLineQtyValue = formatPickupQty(record.warehouseHandedQty ?? record.qtyExpected, record.qtyUnit)
   const factoryQtyValue = typeof record.factoryConfirmedQty === 'number' ? formatPickupQty(record.factoryConfirmedQty, record.qtyUnit) : ''
   const finalQtyValue = typeof record.finalResolvedQty === 'number' ? formatPickupQty(record.finalResolvedQty, record.qtyUnit) : ''
   const specialCraftBinding = getSpecialCraftBindingByPickupRecordId(record.recordId)
@@ -997,7 +1037,7 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
     finalQtyValue ? renderFieldRow('最终确认数量', finalQtyValue, true) : '',
     renderFieldRow('入库记录', linkedInboundLabel, Boolean(linkedInboundRecord)),
     renderFieldRow('来源状态', sourceStatusLabel, sourceStatusLabel !== '未入库'),
-    record.warehouseHandedAt ? renderFieldRow('仓库交付时间', record.warehouseHandedAt) : '',
+    record.warehouseHandedAt ? renderFieldRow(sourceTimeLabel, record.warehouseHandedAt) : '',
     record.factoryConfirmedAt || record.receivedAt
       ? renderFieldRow('工厂确认时间', record.factoryConfirmedAt || record.receivedAt || '')
       : '',
@@ -1028,9 +1068,8 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
 
       <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         ${renderFieldRow('领料方式', record.pickupModeLabel)}
-        ${renderFieldRow('物料说明', record.materialSummary)}
         ${renderFieldRow('本次应领物料对象', formatPickupQty(record.qtyExpected, record.qtyUnit), true)}
-        ${renderFieldRow('仓库交付数量', warehouseQtyValue, true)}
+        ${renderFieldRow(sourceQtyLabel, warehouseQtyValue, true)}
       </div>
 
       ${
@@ -1044,27 +1083,24 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
           : ''
       }
 
-      ${
-        materialSubject || sceneChips.length > 0 || sceneRemark
-          ? `
-              <div class="h-px bg-border"></div>
-              <div class="space-y-2 text-xs text-muted-foreground">
-                ${materialSubject ? `<div><span class="font-medium">物料主体：</span>${escapeHtml(materialSubject)}</div>` : ''}
-                ${
-                  sceneChips.length > 0
-                    ? `<div class="flex flex-wrap gap-1.5">${sceneChips
-                        .map(
-                          (chip) =>
-                            `<span class="inline-flex items-center rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-muted-foreground">${escapeHtml(chip)}</span>`,
-                        )
-                        .join('')}</div>`
-                    : ''
-                }
-                ${sceneRemark ? `<div>备注：${escapeHtml(sceneRemark)}</div>` : ''}
-              </div>
-            `
-          : ''
-      }
+      <div class="h-px bg-border"></div>
+      <div class="space-y-1.5 text-xs">
+        <div class="font-medium text-muted-foreground">明细</div>
+        <div class="overflow-hidden rounded-md border bg-background">
+          <div class="grid grid-cols-[1.35fr_.7fr_.8fr_.7fr] gap-2 bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+            <div>SKU</div>
+            <div>尺码</div>
+            <div>颜色</div>
+            <div>数量</div>
+          </div>
+          <div class="grid grid-cols-[1.35fr_.7fr_.8fr_.7fr] gap-2 px-2.5 py-2 font-medium">
+            <div class="break-words">${escapeHtml(record.skuCode || '-')}</div>
+            <div>${escapeHtml(record.skuSize || '-')}</div>
+            <div>${escapeHtml(record.skuColor || '-')}</div>
+            <div>${escapeHtml(skuLineQtyValue)}</div>
+          </div>
+        </div>
+      </div>
 
       ${specialCraftSummary}
 
@@ -1091,7 +1127,7 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
             <span class="text-xs">${record.qrCodeValue ? '已绑定二维码' : '待生成二维码'}</span>
           </div>
         </div>
-        <p class="max-w-[220px] text-[11px] text-muted-foreground">仓库扫码对象固定为领料记录。</p>
+        <p class="max-w-[220px] text-[11px] text-muted-foreground">${postFinishingSource ? '后道确认对象固定为领料记录。' : '仓库扫码对象固定为领料记录。'}</p>
       </div>
 
       ${
@@ -1157,6 +1193,8 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
     : records[0]
   const currentRecordMeta = currentRecord ? getPickupRecordStatusMeta(currentRecord.status) : null
   const currentGuide = currentRecord ? getPickupCurrentGuide(currentRecord) : null
+  const partyDisplay = getPickupPartyDisplay(head)
+  const postFinishingPickup = isPostFinishingPickupHead(head)
   const showPickupDisputeForm =
     currentRecord &&
     currentRecord.status === 'PENDING_FACTORY_CONFIRM' &&
@@ -1176,8 +1214,8 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
         ${renderFieldRow('当前工序', head.processName)}
       </div>
       <div class="h-px bg-border"></div>
-      ${renderPartyRow('来源仓库', 'WAREHOUSE', head.sourceFactoryName)}
-      ${renderPartyRow('领料工厂', 'FACTORY', head.targetName)}
+      ${renderPartyRow(partyDisplay.sourceLabel, partyDisplay.sourceKind, head.sourceFactoryName)}
+      ${renderPartyRow(partyDisplay.targetLabel, partyDisplay.targetKind, head.targetName)}
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('累计领料记录', `${head.recordCount} 次`)}
@@ -1220,9 +1258,9 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
     )}
 
     ${renderSectionCard(
-      '仓库已生成的领料记录',
+      postFinishingPickup ? '车缝厂送达的领料记录' : '仓库已生成的领料记录',
       records.length === 0
-        ? '<div class="py-4 text-center text-xs text-muted-foreground">暂无仓库送料后的领料记录</div>'
+        ? `<div class="py-4 text-center text-xs text-muted-foreground">${postFinishingPickup ? '暂无车缝厂送达后的领料记录' : '暂无仓库送料后的领料记录'}</div>`
         : `<div class="space-y-2">${records.map((record) => renderPickupRecordItem(record)).join('')}</div>`,
     )}
 
@@ -1873,7 +1911,6 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
           <i data-lucide="${head.targetKind === 'WAREHOUSE' ? 'warehouse' : 'factory'}" class="h-3.5 w-3.5 text-primary"></i>
           <span class="font-medium text-primary">${escapeHtml(getReceiverDisplayName(head))}</span>
         </span>
-        <div class="ml-auto text-xs text-muted-foreground">${head.headType === 'PICKUP' ? '一个任务一个领料单' : '一个交出单可包含多条交出记录'}</div>
       </div>
 
       ${head.headType === 'PICKUP' ? renderPickupHeadDetail(head) : renderHandoutHeadDetail(head)}
@@ -2400,8 +2437,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       showPdaHandoverDetailToast('当前记录暂不可确认领料')
       return true
     }
+    const currentPostFinishingPickup = parsePostFinishingPickupRecord(currentRecord)
+    const currentSelfReturnPickup = parsePostFinishingSelfReturnPickupRecord(currentRecord)
     if (typeof currentRecord.warehouseHandedQty !== 'number' || currentRecord.warehouseHandedQty < 0) {
-      showPdaHandoverDetailToast('当前记录缺少仓库交付数量')
+      showPdaHandoverDetailToast(currentPostFinishingPickup || currentSelfReturnPickup ? '当前记录缺少车缝厂交付数量' : '当前记录缺少仓库交付数量')
       return true
     }
     const updated = confirmPdaPickupRecordReceived(recordId, {
@@ -2420,9 +2459,17 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       '工厂端移动应用',
     )
     const postFinishingPickup = parsePostFinishingPickupRecord(updated)
+    const selfReturnPickup = parsePostFinishingSelfReturnPickupRecord(updated)
     const isPrompt7Dispatch = isSpecialCraftDispatchPickupRecord(updated.recordId)
     try {
-      if (postFinishingPickup) {
+      if (selfReturnPickup) {
+        confirmPostFinishingSewingSelfReturnWarehouseRecord({
+          warehouseRecordId: selfReturnPickup.warehouseRecordId,
+          confirmedQty: updated.factoryConfirmedQty ?? updated.warehouseHandedQty ?? updated.qtyExpected,
+          confirmerName: '工厂端移动应用',
+          remark: 'PDA 交接待领料确认车缝自助回货。',
+        })
+      } else if (postFinishingPickup) {
         const area = listPostFinishingWarehouseAreas('wait-process')[0]
         if (!area) {
           showPdaHandoverDetailToast('请先维护后道待加工仓库区')
@@ -2465,7 +2512,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
         throw error
       }
     }
-    showPdaHandoverDetailToast(postFinishingPickup ? '已入后道待加工仓' : '已入待加工仓')
+    showPdaHandoverDetailToast(selfReturnPickup || postFinishingPickup ? '已入后道待加工仓' : '已入待加工仓')
     return true
   }
 

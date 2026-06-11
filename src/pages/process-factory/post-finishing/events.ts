@@ -1,8 +1,10 @@
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import {
+  confirmPostFinishingSewingSelfReturnReceipt,
   confirmPostFinishingWarehouseReceipt,
   deletePostFinishingWarehouseLocation,
+  getPostFinishingSewingSelfReturnRecord,
   listPostFinishingUpstreamHandovers,
   listPostFinishingWarehouseAreas,
   listPostFinishingWarehouseLocations,
@@ -19,6 +21,7 @@ import {
 
 const POST_FINISHING_WAREHOUSE_FORM_MODAL_ID = 'post-finishing-warehouse-form-modal'
 const POST_FINISHING_RECEIPT_MODAL_ID = 'post-finishing-receipt-modal'
+const POST_FINISHING_SELF_RETURN_CONFIRM_MODAL_ID = 'post-finishing-self-return-confirm-modal'
 
 function showPostFinishingToast(message: string): void {
   if (typeof document === 'undefined') return
@@ -44,6 +47,10 @@ function removePostFinishingWarehouseFormDialog(): void {
 
 function removePostFinishingReceiptDialog(): void {
   document.getElementById(POST_FINISHING_RECEIPT_MODAL_ID)?.remove()
+}
+
+function removePostFinishingSelfReturnConfirmDialog(): void {
+  document.getElementById(POST_FINISHING_SELF_RETURN_CONFIRM_MODAL_ID)?.remove()
 }
 
 function readWarehouseFormField(modal: HTMLElement, field: string): string {
@@ -405,6 +412,124 @@ function openPostFinishingReceiptDialog(): void {
   })
 }
 
+function openPostFinishingSelfReturnConfirmDialog(recordId: string): void {
+  removePostFinishingSelfReturnConfirmDialog()
+  const record = getPostFinishingSewingSelfReturnRecord(recordId)
+  if (!record) {
+    window.alert('未找到车缝自助回货记录。')
+    return
+  }
+  if (record.status !== '待后道确认') {
+    window.alert('当前车缝自助回货记录已处理。')
+    return
+  }
+
+  const rows = record.items.map((item) => `
+    <tr class="align-top" data-post-self-return-line-id="${escapeHtml(item.itemId)}">
+      <td class="px-3 py-3">
+        <div class="font-mono text-xs">${escapeHtml(item.skuCode)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div>
+      </td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(String(item.plannedQty))} ${escapeHtml(item.qtyUnit)}</td>
+      <td class="px-3 py-3 text-sm font-medium">${escapeHtml(String(item.submittedQty))} ${escapeHtml(item.qtyUnit)}</td>
+      <td class="px-3 py-3">
+        <input
+          class="h-9 w-28 rounded-md border bg-background px-3 text-sm font-medium"
+          type="number"
+          min="0"
+          step="1"
+          value="${escapeHtml(String(item.confirmedQty ?? item.submittedQty))}"
+          data-post-self-return-field="confirmedQty"
+        />
+      </td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.defaultAreaName)} / ${escapeHtml(record.defaultLocationCode)}</td>
+    </tr>
+  `).join('')
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="${POST_FINISHING_SELF_RETURN_CONFIRM_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <section class="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-start justify-between gap-3 border-b px-4 py-3">
+          <div>
+            <h2 class="text-base font-semibold">确认车缝自助回货入库</h2>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.recordNo)} / ${escapeHtml(record.productionOrderNo)} / ${escapeHtml(record.sourceTaskNo)}</div>
+          </div>
+          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-post-self-return-confirm-action="close">关闭</button>
+        </header>
+        <div class="space-y-4 overflow-y-auto p-4">
+          <div class="grid gap-3 rounded-lg border bg-slate-50 p-3 text-sm md:grid-cols-4">
+            <div><span class="text-xs text-muted-foreground">来源车缝厂</span><div class="mt-1">${escapeHtml(record.sourceFactoryName)}</div></div>
+            <div><span class="text-xs text-muted-foreground">接收后道工厂</span><div class="mt-1">${escapeHtml(record.managedPostFactoryName)}</div></div>
+            <div><span class="text-xs text-muted-foreground">送货人</span><div class="mt-1">${escapeHtml(record.submittedByName)}</div></div>
+            <div><span class="text-xs text-muted-foreground">默认暂存库位</span><div class="mt-1">${escapeHtml(record.defaultAreaName)} / ${escapeHtml(record.defaultLocationCode)}</div></div>
+          </div>
+          <div class="overflow-x-auto rounded-lg border">
+            <table class="min-w-[980px] w-full text-left text-sm">
+              <thead class="bg-slate-50 text-xs text-muted-foreground">
+                <tr>
+                  <th class="px-3 py-2 font-medium">SKU</th>
+                  <th class="px-3 py-2 font-medium">计划数</th>
+                  <th class="px-3 py-2 font-medium">登记数量</th>
+                  <th class="px-3 py-2 font-medium">后道确认数量</th>
+                  <th class="px-3 py-2 font-medium">入库库位</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <label class="block text-sm">
+            <span class="text-xs text-muted-foreground">确认备注</span>
+            <textarea class="mt-1 min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="如确认数量与登记数量不一致，请填写现场核对说明" data-post-self-return-field="remark"></textarea>
+          </label>
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-4 py-3">
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-post-self-return-confirm-action="close">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-post-self-return-confirm-action="submit">确认入库</button>
+        </footer>
+      </section>
+    </div>
+  `)
+
+  const modal = document.getElementById(POST_FINISHING_SELF_RETURN_CONFIRM_MODAL_ID)
+  if (!modal) return
+  modal.addEventListener('click', (event) => {
+    const actionNode = (event.target as HTMLElement).closest<HTMLElement>('[data-post-self-return-confirm-action]')
+    const action = actionNode?.dataset.postSelfReturnConfirmAction
+    if (!action) return
+    if (action === 'close') {
+      removePostFinishingSelfReturnConfirmDialog()
+      return
+    }
+    if (action === 'submit') {
+      const lineRows = Array.from(modal.querySelectorAll<HTMLElement>('[data-post-self-return-line-id]'))
+      const lines = lineRows.map((row) => {
+        const confirmedQty = Number(row.querySelector<HTMLInputElement>('[data-post-self-return-field="confirmedQty"]')?.value || 0)
+        return {
+          itemId: row.dataset.postSelfReturnLineId || '',
+          confirmedQty: Math.round(confirmedQty * 100) / 100,
+        }
+      })
+      if (lines.some((line) => !line.itemId || !Number.isFinite(line.confirmedQty) || line.confirmedQty < 0)) {
+        window.alert('请填写不小于 0 的后道确认数量。')
+        return
+      }
+      try {
+        const confirmed = confirmPostFinishingSewingSelfReturnReceipt({
+          recordId: record.recordId,
+          confirmerName: '后道仓管员',
+          remark: modal.querySelector<HTMLTextAreaElement>('[data-post-self-return-field="remark"]')?.value.trim(),
+          lines,
+        })
+        removePostFinishingSelfReturnConfirmDialog()
+        refreshCurrentPage()
+        showPostFinishingToast(`已确认 ${confirmed.recordNo} 入库。`)
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : '确认入库失败。')
+      }
+    }
+  })
+}
+
 export function handlePostFinishingEvent(target: HTMLElement): boolean {
   const dialogResult = handleProcessWebStatusActionDialogEvent(target, {
     toast: showPostFinishingToast,
@@ -426,6 +551,16 @@ export function handlePostFinishingEvent(target: HTMLElement): boolean {
 
   if (action === 'open-receipt-dialog') {
     openPostFinishingReceiptDialog()
+    return true
+  }
+
+  if (action === 'open-self-return-confirm') {
+    const recordId = actionNode.dataset.selfReturnRecordId
+    if (!recordId) {
+      window.alert('缺少车缝自助回货记录。')
+      return true
+    }
+    openPostFinishingSelfReturnConfirmDialog(recordId)
     return true
   }
 

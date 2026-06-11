@@ -314,6 +314,17 @@ export function renderPdaSewingSelfReturnPage(): string {
       </section>
     `
   }
+  if (runtime.roleId !== 'ROLE_ADMIN') {
+    return `
+      <section class="min-h-screen bg-slate-100 px-4 py-8">
+        <div class="mx-auto max-w-[480px] rounded-2xl border bg-white p-5 shadow-sm">
+          <h1 class="text-base font-semibold text-slate-950">无权进入</h1>
+          <p class="mt-2 text-sm leading-6 text-slate-500">只有当前后道工厂管理员可以开启车缝现场交货登记模式。</p>
+          <button type="button" class="mt-4 h-11 w-full rounded-xl bg-slate-950 text-sm font-semibold text-white" data-nav="/fcs/pda/handover">返回交接</button>
+        </div>
+      </section>
+    `
+  }
 
   activatePdaSewingSelfReturnMode({
     factoryId: runtime.factoryId,
