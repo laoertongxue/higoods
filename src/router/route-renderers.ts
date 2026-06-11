@@ -414,6 +414,10 @@ export const renderPdaHandoverDetailPage = createAsyncRenderer(
   () => import('../pages/pda-handover-detail'),
   'renderPdaHandoverDetailPage',
 )
+export const renderPdaSewingSelfReturnPage = createAsyncRenderer(
+  () => import('../pages/pda-sewing-self-return'),
+  'renderPdaSewingSelfReturnPage',
+)
 export const renderPdaTransferBagDetailPage = createAsyncRenderer(
   () => import('../pages/pda-transfer-bag-detail'),
   'renderPdaTransferBagDetailPage',

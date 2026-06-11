@@ -37,11 +37,15 @@ import {
 import {
   FULL_CAPABILITY_FACTORY_ID,
   FULL_CAPABILITY_FACTORY_NAME,
+  createPostFinishingSewingSelfReturn,
   listPostFinishingAvailableHandoverLines,
+  listPostFinishingSewingSelfReturnRecords,
   listPostFinishingUpstreamHandovers,
   listPostFinishingWaitHandoverWarehouseRecords,
   recordPostFinishingHandoverSubmission,
   writeBackPostFinishingHandoverSubmission,
+  type PostFinishingSewingSelfReturnCreateInput,
+  type PostFinishingSewingSelfReturnRecord,
   type PostFinishingUpstreamHandover,
   type PostFinishingWaitHandoverWarehouseRecord,
 } from './post-finishing-domain.ts'
@@ -3703,6 +3707,112 @@ export function upsertPdaHandoutRecordMock(record: PdaHandoverRecord): PdaHandov
   }
   saveHandoutRecord(record)
   return findPdaHandoverRecord(record.recordId) ?? cloneRecord(record)
+}
+
+export function syncPostFinishingSewingSelfReturnToPdaHandover(record: PostFinishingSewingSelfReturnRecord): PostFinishingSewingSelfReturnRecord {
+  const submittedQtyTotal = sumBy(record.items, (item) => item.submittedQty)
+  const handoverHead: PdaHandoverHead = {
+    handoverId: record.handoverOrderId,
+    handoverOrderId: record.handoverOrderId,
+    handoverOrderNo: record.handoverOrderNo,
+    headType: 'HANDOUT',
+    qrCodeValue: buildHandoverOrderQrValue(record.handoverOrderId),
+    handoverOrderQrValue: buildHandoverOrderQrValue(record.handoverOrderId),
+    taskId: record.sourceTaskId || record.sourceTaskNo,
+    sourceTaskId: record.sourceTaskId || record.sourceTaskNo,
+    taskNo: record.sourceTaskNo,
+    sourceTaskNo: record.sourceTaskNo,
+    rootTaskNo: record.sourceTaskNo,
+    productionOrderNo: record.productionOrderNo,
+    processName: '车缝',
+    sourceFactoryId: record.sourceFactoryId,
+    sourceFactoryName: record.sourceFactoryName,
+    targetName: record.managedPostFactoryName,
+    targetKind: 'FACTORY',
+    receiverKind: 'MANAGED_POST_FACTORY',
+    receiverId: record.managedPostFactoryId,
+    receiverName: record.managedPostFactoryName,
+    qtyUnit: record.items[0]?.qtyUnit || '件',
+    factoryId: record.sourceFactoryId || record.sourceFactoryName,
+    taskStatus: 'DONE',
+    summaryStatus: 'SUBMITTED',
+    handoverOrderStatus: 'WAIT_RECEIVER_WRITEBACK',
+    recordCount: record.items.length,
+    pendingWritebackCount: record.items.length,
+    submittedQtyTotal,
+    writtenBackQtyTotal: 0,
+    diffQtyTotal: 0,
+    objectionCount: 0,
+    plannedQty: submittedQtyTotal,
+    completionStatus: 'OPEN',
+    factoryMarkedComplete: true,
+    factoryMarkedCompleteAt: record.submittedAt,
+    qtyExpectedTotal: submittedQtyTotal,
+    qtyActualTotal: submittedQtyTotal,
+    qtyDiffTotal: 0,
+    sourceDocId: record.productionOrderId,
+    sourceDocNo: record.productionConfirmationNo,
+    scopeLabel: `车缝自助回货 ${record.items.length} 个 SKU`,
+    executorKind: 'EXTERNAL_FACTORY',
+    transitionFromPrev: 'SAME_FACTORY_CONTINUE',
+    transitionToNext: 'SAME_FACTORY_CONTINUE',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
+    processBusinessCode: 'SEW',
+    processBusinessName: '车缝',
+    taskTypeCode: 'SEW',
+    taskTypeLabel: '车缝任务',
+    assignmentGranularity: 'ORDER',
+    assignmentGranularityLabel: '整单',
+    isSpecialCraft: false,
+  }
+  upsertPdaHandoverHeadMock(handoverHead)
+
+  record.items.forEach((item, index) => {
+    upsertPdaHandoutRecordMock({
+      recordId: item.handoverRecordId,
+      handoverRecordId: item.handoverRecordId,
+      handoverRecordNo: item.handoverRecordNo,
+      handoverId: record.handoverOrderId,
+      handoverOrderId: record.handoverOrderId,
+      taskId: handoverHead.taskId,
+      sourceTaskId: handoverHead.sourceTaskId,
+      sequenceNo: index + 1,
+      handoutObjectType: 'GARMENT',
+      objectType: 'SEMI_FINISHED_GARMENT',
+      handoutItemLabel: `${item.skuCode} / ${item.colorName} / ${item.sizeName} / ${item.submittedQty}${item.qtyUnit}`,
+      materialCode: item.skuCode,
+      materialName: '车缝成衣',
+      materialSpec: `${record.spuName} / ${item.colorName} / ${item.sizeName}`,
+      skuCode: item.skuCode,
+      skuColor: item.colorName,
+      skuSize: item.sizeName,
+      pieceName: '成衣',
+      garmentEquivalentQty: item.submittedQty,
+      plannedQty: item.submittedQty,
+      submittedQty: item.submittedQty,
+      qtyUnit: item.qtyUnit,
+      factorySubmittedAt: record.submittedAt,
+      factorySubmittedBy: `${record.submittedByName}（后道公共 PDA 现场登记）`,
+      factorySubmittedByKind: 'FACTORY',
+      factoryRemark: `车缝自助回货：${record.recordNo}；生产确认单：${record.productionConfirmationNo}；提交设备：${record.deviceFactoryName} 公共 PDA。`,
+      factoryProofFiles: [],
+      status: 'PENDING_WRITEBACK',
+      remark: '来源：后道公共 PDA 现场登记',
+    })
+  })
+  return record
+}
+
+export function createPostFinishingSewingSelfReturnAndSyncHandover(
+  input: PostFinishingSewingSelfReturnCreateInput,
+): PostFinishingSewingSelfReturnRecord {
+  const record = createPostFinishingSewingSelfReturn(input)
+  return syncPostFinishingSewingSelfReturnToPdaHandover(record)
+}
+
+export function syncAllPostFinishingSewingSelfReturnHandoverRecords(): void {
+  listPostFinishingSewingSelfReturnRecords().forEach((record) => syncPostFinishingSewingSelfReturnToPdaHandover(record))
 }
 
 export function writeBackHandoverRecord(input: {

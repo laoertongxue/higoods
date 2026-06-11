@@ -2,6 +2,10 @@ import { getFactoryMobileTodoActionRoute, getFactoryMobileTodoCount, getFactoryM
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
 import { ensurePdaAccessForRoute, logoutPdaAccess } from '../data/fcs/factory-onboarding-flow.ts'
 import { findFactoryPdaRoleById } from '../data/fcs/store-domain-pda.ts'
+import {
+  PDA_SEWING_SELF_RETURN_MODE_ROUTE,
+  shouldBlockPdaRouteBySewingSelfReturnMode,
+} from '../data/fcs/pda-sewing-self-return-mode.ts'
 import { renderRouteRedirect } from '../router/route-utils'
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
@@ -346,6 +350,9 @@ export function renderPdaFrame(content: string, activeTab: PdaTabKey | null, opt
   const access = ensurePdaAccessForRoute(currentPath)
   if (!access.allowed) {
     return renderRouteRedirect(access.redirectPath || '/fcs/pda/auth/login', access.reasonLabel || '工厂入驻&登录')
+  }
+  if (shouldBlockPdaRouteBySewingSelfReturnMode(currentPath)) {
+    return renderRouteRedirect(PDA_SEWING_SELF_RETURN_MODE_ROUTE, '车缝现场交货登记模式')
   }
 
   syncTodoModalAutoOpen(Boolean(options.disableTodoAutoOpen))

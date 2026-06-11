@@ -11,6 +11,7 @@ import {
   getPdaPostFinishingHandoutHeads,
   getPdaPostFinishingPickupHeads,
   getPdaPickupHeads,
+  syncAllPostFinishingSewingSelfReturnHandoverRecords,
   type PdaHandoverHead,
 } from '../data/fcs/pda-handover-events'
 import {
@@ -26,7 +27,10 @@ import {
   renderPdaLoginRedirect,
 } from './pda-runtime'
 import { ensureSpecialCraftFeiTicketFlowSeeded } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
-import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-domain.ts'
+import {
+  FULL_CAPABILITY_FACTORY_ID,
+  listPostFinishingSewingSelfReturnRecords,
+} from '../data/fcs/post-finishing-domain.ts'
 
 type HandoverTab = 'pickup' | 'handout' | 'done'
 
@@ -411,12 +415,50 @@ function renderEmptyState(message: string): string {
   return `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(message)}</div>`
 }
 
+function renderPostFinishingSewingSelfReturnPanel(): string {
+  const records = listPostFinishingSewingSelfReturnRecords()
+  const pendingCount = records.filter((record) => record.status === '待后道确认').length
+  return `
+    <section class="rounded-2xl border border-blue-100 bg-blue-50/60 px-3 py-3 shadow-sm">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-semibold text-blue-950">车缝现场交货登记模式</h2>
+          <p class="mt-1 text-xs leading-5 text-blue-700">后道管理员开启后，公共 PDA 只保留车缝厂扫码回货和管理员退出；下方保留车缝自助回货记录。</p>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
+          data-pda-handover-action="open-sewing-self-return-mode"
+        >开启</button>
+      </div>
+      <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+        <div class="rounded-xl bg-white px-2 py-2"><div class="font-semibold">${records.length}</div><div class="text-blue-700">自助记录</div></div>
+        <div class="rounded-xl bg-white px-2 py-2"><div class="font-semibold">${pendingCount}</div><div class="text-blue-700">待确认</div></div>
+        <div class="rounded-xl bg-white px-2 py-2"><div class="font-semibold">固定</div><div class="text-blue-700">暂存库位</div></div>
+      </div>
+      <div class="mt-3 space-y-2">
+        ${records.slice(0, 3).map((record) => `
+          <div class="rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs leading-5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-medium text-blue-950">${escapeHtml(record.recordNo)}</span>
+              <span class="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">${escapeHtml(record.status)}</span>
+            </div>
+            <div class="mt-1 text-blue-700">${escapeHtml(record.sourceFactoryName)} · ${escapeHtml(record.productionOrderNo)} · ${record.items.length} 个 SKU</div>
+            <div class="text-blue-600">默认入库：${escapeHtml(record.defaultWarehouseName)} / ${escapeHtml(record.defaultAreaName)} / ${escapeHtml(record.defaultLocationCode)}</div>
+          </div>
+        `).join('') || '<div class="rounded-xl bg-white px-3 py-3 text-center text-xs text-blue-700">暂无车缝自助回货记录</div>'}
+      </div>
+    </section>
+  `
+}
+
 export function renderPdaHandoverPage(): string {
   if (!getPdaRuntimeContext()) {
     return renderPdaLoginRedirect()
   }
 
   ensureSpecialCraftFeiTicketFlowSeeded()
+  syncAllPostFinishingSewingSelfReturnHandoverRecords()
   syncTabWithQuery()
   const selectedFactoryId = getCurrentFactoryId()
   const isPostFinishingFactory = selectedFactoryId === FULL_CAPABILITY_FACTORY_ID
@@ -460,6 +502,7 @@ export function renderPdaHandoverPage(): string {
       </div>
 
       <div class="flex-1 space-y-3 overflow-y-auto p-4">
+        ${isPostFinishingFactory ? renderPostFinishingSewingSelfReturnPanel() : ''}
         ${
           state.activeTab === 'pickup'
             ? `
@@ -523,6 +566,11 @@ export function handlePdaHandoverEvent(target: HTMLElement): boolean {
       state.activeTab = tab
       appStore.navigate(`/fcs/pda/handover?tab=${tab}`)
     }
+    return true
+  }
+
+  if (action === 'open-sewing-self-return-mode') {
+    appStore.navigate('/fcs/pda/handover/sewing-self-return')
     return true
   }
 

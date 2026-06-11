@@ -68,6 +68,7 @@
     "check:statistics-dashboard-real-data": "tsx scripts/check-statistics-dashboard-real-data.ts",
     "check:post-finishing-factory-detail-actions": "tsx scripts/check-post-finishing-factory-detail-actions.ts",
     "check:post-finishing-flow-correction": "tsx scripts/check-post-finishing-flow-correction.ts",
+    "check:post-finishing-sewing-self-return": "tsx scripts/check-post-finishing-sewing-self-return.ts",
     "check:print-service-post-route-card": "tsx scripts/check-print-service-post-route-card.ts",
     "check:material-pickup-issue-supplement-print": "tsx scripts/check-material-pickup-issue-supplement-print.ts",
     "check:factory-handover-warehouse-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-handover-warehouse-linkage.ts",

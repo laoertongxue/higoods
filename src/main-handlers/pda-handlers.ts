@@ -11,6 +11,7 @@ import { handlePdaExecEvent } from '../pages/pda-exec'
 import { handlePdaExecDetailEvent } from '../pages/pda-exec-detail'
 import { handlePdaHandoverEvent } from '../pages/pda-handover'
 import { handlePdaHandoverDetailEvent } from '../pages/pda-handover-detail'
+import { handlePdaSewingSelfReturnEvent } from '../pages/pda-sewing-self-return'
 import { handlePdaSettlementEvent } from '../pages/pda-settlement'
 import { handlePdaWarehouseEvent } from '../pages/pda-warehouse'
 import { handlePdaWarehouseWaitProcessEvent } from '../pages/pda-warehouse-wait-process'
@@ -50,6 +51,7 @@ export async function dispatchPdaPageEvent(target: HTMLElement): Promise<boolean
     await handlePdaCuttingInboundEvent(target) ||
     await handlePdaCuttingHandoverEvent(target) ||
     await handlePdaCuttingReplenishmentFeedbackEvent(target) ||
+    await handlePdaSewingSelfReturnEvent(target) ||
     await handlePdaHandoverEvent(target) ||
     await handlePdaHandoverDetailEvent(target) ||
     await handlePdaSettlementEvent(target)

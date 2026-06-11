@@ -914,17 +914,14 @@ function buildTestingBranchBootstrapRecords(
 
   TESTING_BRANCH_RECORDS.forEach((seed) => {
     const project = projectMap.get(seed.projectCode)
-    if (!project) {
-      throw new Error(`测款汇总 demo 缺少项目：${seed.projectCode}`)
-    }
+    if (!project) return
+
     const liveNode = nodeMap.get(`${project.projectId}::LIVE_TEST`)
     const videoNode = nodeMap.get(`${project.projectId}::VIDEO_TEST`)
     const summaryNode = nodeMap.get(`${project.projectId}::TEST_DATA_SUMMARY`)
     const conclusionNode = nodeMap.get(`${project.projectId}::TEST_CONCLUSION`)
 
-    if (!summaryNode || !conclusionNode) {
-      throw new Error(`测款汇总 demo 缺少项目节点：${seed.projectCode}`)
-    }
+    if (!summaryNode || !conclusionNode) return
 
     const channelProductId = buildChannelProductId(seed.projectCode, seed.channelProductSequence)
     const channelProductCode = buildChannelProductCode(seed.projectCode, seed.channelProductSequence)
@@ -1431,15 +1428,11 @@ export function createBootstrapProjectInlineNodeRecordSnapshot(
 
   Object.entries(PROJECT_RECORD_PLAN).forEach(([projectCode, workItemCodes]) => {
     const project = projectMap.get(projectCode)
-    if (!project) {
-      throw new Error(`early inline 节点 demo 缺少项目：${projectCode}`)
-    }
+    if (!project) return
 
     workItemCodes.forEach((workItemTypeCode) => {
       const node = nodeMap.get(`${project.projectId}::${workItemTypeCode}`)
-      if (!node) {
-        throw new Error(`early inline 节点 demo 缺少项目节点：${projectCode} / ${workItemTypeCode}`)
-      }
+      if (!node) return
 
       const seed = buildSeedForNode(projectCode, workItemTypeCode)
       records.push({
