@@ -121,7 +121,6 @@ function renderScanBlock(result: PostFinishingSewingSelfReturnScanResult | null)
       <div class="flex items-start justify-between gap-3">
         <div>
           <h2 class="text-sm font-semibold text-slate-950">扫码识别生产确认单</h2>
-          <p class="mt-1 text-xs leading-5 text-slate-500">仅支持纸质生产确认单二维码，其他单据会被拦截。</p>
         </div>
         <i data-lucide="scan-line" class="h-5 w-5 text-slate-500"></i>
       </div>
