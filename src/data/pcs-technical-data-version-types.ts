@@ -125,6 +125,7 @@ export type TechnicalPatternInfoStatus = '未填写' | '已填写' | '待解析'
 export type TechnicalPatternPieceSourceType = 'PARSED_PATTERN' | 'MANUAL'
 export type TechnicalPatternCategory = '主体片' | '结构片' | '装饰片' | '其他'
 export type TechnicalPatternDesignSideType = 'FRONT' | 'INSIDE'
+export type TechnicalPatternBindingStripCuttingMethod = '斜切' | '直切' | '横切'
 
 export interface TechnicalPatternPieceColorAllocation {
   id: string
@@ -240,6 +241,7 @@ export interface TechnicalPatternBindingStrip {
   bindingStripName: string
   lengthCm: number
   widthCm: number
+  cuttingMethod?: TechnicalPatternBindingStripCuttingMethod
   relatedMaterialId?: string
   remark?: string
   createdBy?: string

@@ -42,6 +42,7 @@ export type CuttingCanonicalPageKey =
   | 'sewing-dispatch'
   | 'special-processes'
   | 'summary'
+  | 'statistics-ab-material'
 
 type CuttingPageKey = CuttingCanonicalPageKey
 
@@ -417,6 +418,16 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '聚合裁床主链路待处理问题，支持快速定位来源对象。',
+  },
+  'statistics-ab-material': {
+    key: 'statistics-ab-material',
+    canonicalPath: '/fcs/craft/cutting/statistics/ab-material',
+    aliases: [],
+    menuGroupTitle: '裁床统计',
+    pageTitle: '20天待发裁床AB料',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '按未来发货窗口统计SPU裁片送工厂缺口，并展开面料A、面料B、里布等裁剪属性齐套情况。',
   },
 }
 

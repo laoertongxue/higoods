@@ -300,6 +300,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'KanbanSquare',
           children: [
             { key: 'progress-board', title: '任务进度看板', icon: 'KanbanSquare', href: '/fcs/progress/board' },
+            { key: 'progress-production-orders', title: '生产单进度跟踪', icon: 'GitBranch', href: '/fcs/progress/production-orders' },
             { key: 'progress-exceptions', title: '异常定位与处理', icon: 'Search', href: '/fcs/progress/exceptions' },
             { key: 'progress-urge', title: '催办与通知', icon: 'BellRing', href: '/fcs/progress/urge' },
             { key: 'progress-handover', title: '交接链路追踪', icon: 'ScanLine', href: '/fcs/progress/handover' },
@@ -442,6 +443,14 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pfos-cutting-warehouse-wait-handover', title: '待交出仓', icon: 'Archive', href: '/fcs/craft/cutting/warehouse-management/wait-handover' },
             { key: 'pfos-cutting-handover-orders', title: '交出单', icon: 'ArrowLeftRight', href: '/fcs/craft/cutting/handover-orders' },
             { key: 'pfos-cutting-warehouse-sample', title: '样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/warehouse-management/sample-warehouse' },
+          ],
+        },
+        {
+          key: 'pfos-cutting-statistics',
+          title: '裁床统计',
+          icon: 'ChartBar',
+          children: [
+            { key: 'pfos-cutting-statistics-ab-material', title: '20天待发裁床AB料', icon: 'TableProperties', href: '/fcs/craft/cutting/statistics/ab-material' },
           ],
         },
       ],

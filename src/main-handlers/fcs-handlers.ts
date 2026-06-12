@@ -178,6 +178,7 @@ import {
   handleCraftCuttingSummaryEvent,
   isCraftCuttingSummaryDialogOpen,
 } from '../pages/process-factory/cutting/cutting-summary'
+import { handleCraftCuttingAbMaterialStatisticsEvent } from '../pages/process-factory/cutting/cutting-statistics-ab-material'
 import {
   handleCraftCuttingWaitHandoverEvent,
   handleCraftCuttingWaitProcessEvent,
@@ -204,6 +205,12 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
   }
   if (pathname.startsWith('/fcs/factories/profile')) {
     return handleFactoryPageEvent(target)
+  }
+  if (
+    pathname.startsWith('/fcs/craft/cutting/special-processes')
+    && target.closest('[data-cutting-binding-action]')
+  ) {
+    return handleCraftCuttingSpecialProcessesEvent(target)
   }
 
   const isPostFinishingRoute =
@@ -300,6 +307,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleCraftCuttingReplenishmentEvent(target) ||
     await handleCraftCuttingSpecialProcessesEvent(target) ||
     await handleCraftCuttingSummaryEvent(target) ||
+    await handleCraftCuttingAbMaterialStatisticsEvent(target) ||
     await handleDeductionAnalysisEvent(target) ||
     await handleDyePrintOrdersEvent(target) ||
     await handleTaskBreakdownEvent(target)

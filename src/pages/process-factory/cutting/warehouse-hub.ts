@@ -69,6 +69,7 @@ import {
   buildWaitHandoverRuntimeTicketFromGeneratedTicket,
   runtimeEventHasWaitHandoverTicket,
 } from './wait-handover-runtime.ts'
+import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 
 type WaitProcessTabKey = 'inventory' | 'claimRecords' | 'usage' | 'returns' | 'locations'
 type WaitProcessWarehouseAction = 'claim' | 'process-issue' | 'return'
@@ -4785,6 +4786,74 @@ function buildRuntimeHandoverTableProjection(
   }
 }
 
+function renderBindingInventoryQueryPage(): string {
+  const params = getWarehouseSearchParams()
+  const keyword = String(params.get('keyword') || params.get('materialSku') || '').trim().toLowerCase()
+  const orders = buildBindingProcessOrders()
+  const filteredOrders = keyword
+    ? orders.filter((order) =>
+        [
+          order.bindingOrderNo,
+          order.sourceProductionOrderNo,
+          order.sourceCutOrderNo,
+          order.materialIdentity.materialSku,
+          order.materialIdentity.materialName,
+          ...order.bindingDetails.flatMap((detail) => [
+            detail.bindingStripName,
+            detail.feiTicketNo,
+            String(detail.bindingWidth),
+            detail.cuttingMethod,
+          ]),
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(keyword)),
+      )
+    : orders
+  const details = filteredOrders.flatMap((order) => order.bindingDetails.map((detail) => ({ order, detail })))
+  const receivedMaterialLength = filteredOrders.reduce((sum, order) => sum + order.receivedMaterialLength, 0)
+  const actualTotalLength = filteredOrders.reduce((sum, order) => sum + order.actualTotalLength, 0)
+  const shortageCount = filteredOrders.filter((order) => order.sufficiencyStatus === '捆条不足').length
+  const rows = details.slice(0, 80).map(({ order, detail }) => [
+    order.bindingOrderNo,
+    `${order.sourceProductionOrderNo} / ${order.sourceCutOrderNo}`,
+    `${order.materialIdentity.materialSku} / ${order.materialIdentity.materialColor}`,
+    `${detail.bindingStripName} / ${detail.bindingWidth} cm / ${detail.cuttingMethod}`,
+    formatLength(detail.receivedMaterialLength, 'm'),
+    formatLength(detail.actualLength, 'm'),
+    `物料 + 捆条宽度：${detail.bindingWidth} cm`,
+    `${detail.sufficiencyStatus}${detail.shortageLength ? ` / 缺口 ${formatLength(detail.shortageLength, 'm')}` : ''}`,
+  ])
+
+  return renderHubShell({
+    metaKey: 'warehouse-management-wait-handover',
+    description: '捆条库存查询按物料 + 捆条宽度定位，不加载裁片待交出仓全量投影。',
+    kpis: [
+      renderCompactKpiCard('捆条加工单', filteredOrders.length, `共 ${orders.length} 单`, 'text-blue-600'),
+      renderCompactKpiCard('捆条规格', details.length, '一个规格一种切割方式', 'text-slate-700'),
+      renderCompactKpiCard('接收布料长度', formatLength(receivedMaterialLength, 'm'), '按捆条加工单累计', 'text-emerald-600'),
+      renderCompactKpiCard('实际完成总长度', formatLength(actualTotalLength, 'm'), '已记录裁剪累计', 'text-violet-600'),
+      renderCompactKpiCard('捆条不足', shortageCount, '按实际完成长度判断', 'text-rose-600'),
+    ].join(''),
+    tabs: `
+      <section class="rounded-lg border bg-card px-4 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="text-sm font-semibold text-foreground">捆条库存查询</div>
+            <div class="mt-1 text-xs text-muted-foreground">查询维度：物料 + 捆条宽度；来源：捆条加工单分规格记录。</div>
+          </div>
+          <button type="button" class="rounded-md border bg-background px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/cutting/special-processes">返回捆条加工单</button>
+        </div>
+      </section>
+    `,
+    content: renderHubTable(
+      ['加工单', '来源', '物料', '捆条规格', '接收布料长度', '实际完成总长度', '库存查询维度', '状态'],
+      rows,
+      '暂无捆条库存记录。',
+    ),
+    headerActions: '<button type="button" class="h-10 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-nav="/fcs/craft/cutting/special-processes">返回捆条加工单</button>',
+  })
+}
+
 function createWaitHandoverItemFromRuntimeEvent(
   event: CuttingRuntimeEvent,
   itemType: WaitHandoverWorkbenchItemType,
@@ -4919,6 +4988,10 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
 }
 
 export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string {
+  if (getWarehouseSearchParams().get('inventoryType') === 'binding') {
+    return renderBindingInventoryQueryPage()
+  }
+
   const generatedTickets = listSpreadingResultGeneratedFeiTickets()
   const runtimeWaitHandoverEvents = listRuntimeWaitHandoverEvents()
   const runtimeInboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeWaitHandoverEvents, generatedTickets)

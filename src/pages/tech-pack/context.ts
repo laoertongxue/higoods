@@ -546,12 +546,16 @@ function createPatternManagedFile(input: {
 }
 
 function createPatternBindingStrip(input: Partial<TechPackPatternBindingStrip> = {}, index = 0): TechPackPatternBindingStrip {
+  const cuttingMethod = ['斜切', '直切', '横切'].includes(String(input.cuttingMethod))
+    ? input.cuttingMethod
+    : '斜切'
   return {
     bindingStripId: input.bindingStripId || `BTS-${Date.now()}-${index + 1}`,
     bindingStripNo: input.bindingStripNo || `BT-${String(index + 1).padStart(3, '0')}`,
     bindingStripName: input.bindingStripName || '',
     lengthCm: Number.isFinite(Number(input.lengthCm)) ? Number(input.lengthCm) : 0,
     widthCm: Number.isFinite(Number(input.widthCm)) ? Number(input.widthCm) : 0,
+    cuttingMethod,
     relatedMaterialId: input.relatedMaterialId || '',
     remark: input.remark || '',
     createdBy: input.createdBy || currentUser.name,

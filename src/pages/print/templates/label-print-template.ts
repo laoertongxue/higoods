@@ -98,8 +98,15 @@ function resolveBindingStripSpuCode(order: ReturnType<typeof buildBindingProcess
   return matched ? matched.replace(/_/g, '-').toUpperCase() : ''
 }
 
+function resolveBindingStripCuttingLength(detail: AnyFeiTicket): number {
+  if (detail.cuttingMethod === '直切') return Number(detail.straightCutLength || detail.actualLength || 0)
+  if (detail.cuttingMethod === '横切') return Number(detail.crossCutLength || detail.actualLength || 0)
+  return Number(detail.biasCutLength || detail.actualLength || 0)
+}
+
 function bindingDetailToFeiRecord(order: ReturnType<typeof buildBindingProcessOrders>[number], detail: AnyFeiTicket): AnyFeiTicket {
   const spuCode = resolveBindingStripSpuCode(order)
+  const cuttingLength = resolveBindingStripCuttingLength(detail)
   return {
     ticketSourceType: 'BINDING_STRIP',
     ticketRecordId: detail.feiTicketId,
@@ -110,12 +117,29 @@ function bindingDetailToFeiRecord(order: ReturnType<typeof buildBindingProcessOr
     bindingOrderNo: order.bindingOrderNo,
     bindingStripName: detail.bindingStripName,
     bindingStripNo: detail.bindingStripNo,
+    cuttingMethod: detail.cuttingMethod,
+    cuttingMethodLabel: `${detail.cuttingMethod}（${detail.cuttingMethodIndonesian}）`,
     bindingWidth: detail.bindingWidth,
     bindingWidthLabel: `${detail.bindingWidth} cm`,
+    plannedGarmentQty: detail.plannedGarmentQty,
+    plannedGarmentQtyLabel: `${Number(detail.plannedGarmentQty || 0).toLocaleString('zh-CN')} 件`,
+    unitBindingLength: detail.unitBindingLength,
+    unitBindingLengthLabel: `${Number(detail.unitBindingLength || 0).toFixed(2)} m`,
+    plannedBindingLength: detail.plannedBindingLength,
+    plannedBindingLengthLabel: `${Number(detail.plannedBindingLength || 0).toFixed(2)} m`,
     requiredLength: detail.requiredLength,
     requiredLengthLabel: `${Number(detail.requiredLength || 0).toFixed(2)} m`,
+    receivedMaterialLength: detail.receivedMaterialLength,
+    receivedMaterialLengthLabel: detail.receivedMaterialLength ? `${Number(detail.receivedMaterialLength || 0).toFixed(2)} m` : '待记录',
     actualLength: detail.actualLength,
     actualLengthLabel: detail.actualLength ? `${Number(detail.actualLength || 0).toFixed(2)} m` : '待回写',
+    cuttingLength,
+    cuttingLengthLabel: cuttingLength ? `${cuttingLength.toFixed(2)} m` : '待记录',
+    actualRollCount: detail.actualRollCount,
+    actualRollCountLabel: detail.actualRollCount ? `${Number(detail.actualRollCount || 0).toLocaleString('zh-CN')} 卷` : '待记录',
+    recordedAt: detail.latestRecordedAt || '待记录',
+    sufficiencyStatus: detail.sufficiencyStatus,
+    shortageLengthLabel: detail.shortageLength ? `${Number(detail.shortageLength || 0).toFixed(2)} m` : '无缺口',
     partName: detail.bindingStripName,
     size: `${detail.bindingWidth} cm`,
     businessSizeLabel: `${detail.bindingWidth} cm`,
@@ -174,18 +198,16 @@ function stripFeiTicketLabelPrefix(value: string): string {
   return value.replace(/^(裁片数量|部位数量|编号范围|编号区间|本票裁片)：/, '')
 }
 
-function listFeiRecords(documentType?: PrintDocumentType): AnyFeiTicket[] {
-  const projection = buildFeiTicketPrintProjection()
-  const projected = (projection.ticketRecords || []) as AnyFeiTicket[]
+function listFeiRecords(documentType?: PrintDocumentType, bindingRecords = listBindingFeiRecords()): AnyFeiTicket[] {
   const generated = listSpreadingResultGeneratedFeiTickets().map(generatedTicketToRecord)
   const wool = listWoolFeiTicketPrintRecords()
-  const binding = listBindingFeiRecords()
-  const cuttingRecords = documentType === 'FEI_TICKET_LABEL' ? generated : [...projected, ...generated]
-  return uniqueBy([...cuttingRecords, ...binding, ...wool], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
+  const cuttingRecords = documentType === 'FEI_TICKET_LABEL'
+    ? generated
+    : [...((buildFeiTicketPrintProjection().ticketRecords || []) as AnyFeiTicket[]), ...generated]
+  return uniqueBy([...cuttingRecords, ...bindingRecords, ...wool], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
 }
 
-function findFeiRecord(sourceId: string, documentType?: PrintDocumentType): AnyFeiTicket | null {
-  const records = listFeiRecords(documentType)
+function findFeiRecordInRecords(records: AnyFeiTicket[], sourceId: string): AnyFeiTicket | null {
   return records.find((item) => [
     item.ticketRecordId,
     item.feiTicketId,
@@ -194,13 +216,22 @@ function findFeiRecord(sourceId: string, documentType?: PrintDocumentType): AnyF
   ].some((value) => value === sourceId)) || null
 }
 
+function findFeiRecord(sourceId: string, documentType?: PrintDocumentType): AnyFeiTicket | null {
+  const bindingRecords = listBindingFeiRecords()
+  return findFeiRecordInRecords(bindingRecords, sourceId)
+    || findFeiRecordInRecords(listFeiRecords(documentType, bindingRecords), sourceId)
+}
+
 function listFeiRecordsForSource(sourceId: string, documentType?: PrintDocumentType): AnyFeiTicket[] {
-  const records = listFeiRecords(documentType)
-  if (sourceId.includes(',')) {
-    const ids = sourceId.split(',').map((item) => item.trim()).filter(Boolean)
-    return ids.map((id) => findFeiRecord(id, documentType)).filter(Boolean) as AnyFeiTicket[]
-  }
-  const exact = findFeiRecord(sourceId, documentType)
+  const ids = sourceId.split(',').map((item) => item.trim()).filter(Boolean)
+  const bindingRecords = listBindingFeiRecords()
+  const bindingMatches = ids.map((id) => findFeiRecordInRecords(bindingRecords, id)).filter(Boolean) as AnyFeiTicket[]
+  if (ids.length > 0 && bindingMatches.length === ids.length) return bindingMatches
+
+  const records = listFeiRecords(documentType, bindingRecords)
+  if (ids.length > 1) return ids.map((id) => findFeiRecordInRecords(records, id)).filter(Boolean) as AnyFeiTicket[]
+
+  const exact = findFeiRecordInRecords(records, sourceId)
   if (exact) return [exact]
 
   const printableUnitKey = sourceId.startsWith('cut-order:') ? sourceId.replace(/^cut-order:/, '') : sourceId
@@ -283,11 +314,21 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
         { label: '捆条加工单', value: record.bindingOrderNo, emphasis: true },
         { label: '生产单', value: printProjection.productionOrderNo },
         { label: '裁片单', value: printProjection.cutOrderNo, emphasis: true },
-        { label: '面料/颜色', value: printProjection.materialWithColorLabel, emphasis: true },
         { label: '捆条名称', value: record.bindingStripName || printProjection.partName, emphasis: true },
+        { label: '切割方式', value: record.cuttingMethodLabel || record.cuttingMethod, emphasis: true },
         { label: '捆条宽度', value: record.bindingWidthLabel || printProjection.businessSizeLabel, emphasis: true },
-        { label: '计划长度', value: record.requiredLengthLabel, emphasis: true },
-        { label: '实际长度', value: record.actualLengthLabel },
+        { label: '实际完成总长度', value: record.actualLengthLabel, emphasis: true },
+        { label: '实切卷数', value: record.actualRollCountLabel },
+        { label: '面料/颜色', value: printProjection.materialWithColorLabel, emphasis: true },
+        { label: '计划数量', value: record.plannedGarmentQtyLabel },
+        { label: '单件捆条长度', value: record.unitBindingLengthLabel },
+        { label: '捆条需要长度', value: record.plannedBindingLengthLabel, emphasis: true },
+        { label: '需要布料长度', value: record.requiredLengthLabel, emphasis: true },
+        { label: '接收布料长度', value: record.receivedMaterialLengthLabel },
+        { label: '切割长度', value: record.cuttingLengthLabel },
+        { label: '结果判断', value: record.sufficiencyStatus },
+        { label: '缺口长度', value: record.shortageLengthLabel },
+        { label: '记录时间', value: record.recordedAt },
         { label: '纸样', value: record.patternIdentity?.patternFileName || printProjection.spuCode },
         { label: '版本', value: version },
       ])
@@ -640,9 +681,15 @@ function renderBindingStripFeiBusinessLabelItem(item: PrintLabelItem, paperType:
           ${renderFeiBusinessCell('裁片单', getLabelFieldValue(item, '裁片单'), { emphasis: true })}
           ${renderFeiBusinessCell('面料 / 颜色', getLabelFieldValue(item, '面料/颜色'), { className: 'fei-ticket-business-span-2', emphasis: true })}
           ${renderFeiBusinessCell('捆条名称', getLabelFieldValue(item, '捆条名称'), { emphasis: true })}
+          ${renderFeiBusinessCell('切割方式', getLabelFieldValue(item, '切割方式'), { emphasis: true })}
           ${renderFeiBusinessCell('捆条宽度', getLabelFieldValue(item, '捆条宽度'), { emphasis: true })}
-          ${renderFeiBusinessCell('计划长度', getLabelFieldValue(item, '计划长度'), { emphasis: true })}
-          ${renderFeiBusinessCell('实际长度', getLabelFieldValue(item, '实际长度'))}
+          ${renderFeiBusinessCell('捆条需要长度', getLabelFieldValue(item, '捆条需要长度'), { emphasis: true })}
+          ${renderFeiBusinessCell('需要布料长度', getLabelFieldValue(item, '需要布料长度'), { emphasis: true })}
+          ${renderFeiBusinessCell('接收布料长度', getLabelFieldValue(item, '接收布料长度'))}
+          ${renderFeiBusinessCell('实际完成总长度', getLabelFieldValue(item, '实际完成总长度'), { emphasis: true })}
+          ${renderFeiBusinessCell('切割长度', getLabelFieldValue(item, '切割长度'))}
+          ${renderFeiBusinessCell('实切卷数', getLabelFieldValue(item, '实切卷数'))}
+          ${renderFeiBusinessCell('记录时间', getLabelFieldValue(item, '记录时间'))}
           ${renderFeiBusinessCell('纸样', getLabelFieldValue(item, '纸样'), { className: 'fei-ticket-business-span-2' })}
           ${renderFeiBusinessCell('菲票号', getLabelFieldValue(item, '菲票号'), { emphasis: true })}
         </div>

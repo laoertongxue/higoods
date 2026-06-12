@@ -2120,6 +2120,16 @@ function renderProductionChainSampleCraftTab(row: ProductionProgressRow): string
   )
   const bindingPlannedLength = bindingProcessOrders.reduce((sum, order) => sum + order.plannedTotalLength, 0)
   const bindingActualLength = bindingProcessOrders.reduce((sum, order) => sum + order.actualTotalLength, 0)
+  const bindingRequiredMaterialLength = bindingProcessOrders.reduce((sum, order) => sum + order.requiredMaterialLength, 0)
+  const bindingShortageCount = bindingProcessOrders.filter((order) => order.sufficiencyStatus === '捆条不足').length
+  const bindingCuttingMethodSummary = [
+    ['直切', bindingProcessOrders.reduce((sum, order) => sum + order.straightCutLength, 0)],
+    ['横切', bindingProcessOrders.reduce((sum, order) => sum + order.crossCutLength, 0)],
+    ['斜切', bindingProcessOrders.reduce((sum, order) => sum + order.biasCutLength, 0)],
+  ]
+    .filter(([, value]) => Number(value) > 0)
+    .map(([label, value]) => `${label} ${Number(value).toFixed(2)} m`)
+    .join(' / ')
   const bindingFeiTicketCount = new Set(
     bindingProcessOrders.flatMap((order) => order.bindingDetails.map((detail) => detail.feiTicketNo).filter(Boolean)),
   ).size
@@ -2127,10 +2137,13 @@ function renderProductionChainSampleCraftTab(row: ProductionProgressRow): string
   const bindingLines = bindingProcessOrders.length
     ? [
         `加工单 ${formatQty(bindingProcessOrders.length)} 单`,
-        `计划长度 ${bindingPlannedLength.toFixed(2)} m`,
-        `实际长度 ${bindingActualLength.toFixed(2)} m`,
+        `捆条需要长度 ${bindingPlannedLength.toFixed(2)} m`,
+        `需要布料长度 ${bindingRequiredMaterialLength.toFixed(2)} m`,
+        `实际完成长度 ${bindingActualLength.toFixed(2)} m`,
+        `不足 ${formatQty(bindingShortageCount)} 单`,
         `差异 ${formatQty(bindingDifferenceCount)} 单`,
         `菲票 ${formatQty(bindingFeiTicketCount)} 张`,
+        bindingCuttingMethodSummary ? `切割方式 ${bindingCuttingMethodSummary}` : '切割方式待记录',
       ]
     : []
   const craftLines = specialCraftSummary

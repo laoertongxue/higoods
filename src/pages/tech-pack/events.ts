@@ -994,6 +994,8 @@ function validatePatternMakerStep(): string | null {
   if (invalidLengthStrip) return '捆条长度必须大于 0'
   const invalidWidthStrip = state.newPattern.bindingStrips.find((item) => !Number.isFinite(Number(item.widthCm)) || Number(item.widthCm) <= 0)
   if (invalidWidthStrip) return '捆条宽度必须大于 0'
+  const invalidCuttingMethodStrip = state.newPattern.bindingStrips.find((item) => !['斜切', '直切', '横切'].includes(String(item.cuttingMethod || '')))
+  if (invalidCuttingMethodStrip) return '请选择捆条切割方式'
   if (state.newPattern.patternMaterialType === 'WOVEN' && state.newPattern.pieceRows.length === 0) {
     return '布料纸样请先在纸样池解析部位信息'
   }
@@ -1695,6 +1697,14 @@ function handleTechPackField(
     const bindingStripId = node.dataset.bindingStripId
     state.newPattern.bindingStrips = normalizePatternBindingStrips(state.newPattern.bindingStrips.map((item) =>
       item.bindingStripId === bindingStripId ? { ...item, widthCm: Number(value) } : item,
+    ))
+    return true
+  }
+  if (field === 'new-pattern-binding-strip-cutting-method') {
+    const bindingStripId = node.dataset.bindingStripId
+    const cuttingMethod = ['斜切', '直切', '横切'].includes(value) ? value : '斜切'
+    state.newPattern.bindingStrips = normalizePatternBindingStrips(state.newPattern.bindingStrips.map((item) =>
+      item.bindingStripId === bindingStripId ? { ...item, cuttingMethod } : item,
     ))
     return true
   }

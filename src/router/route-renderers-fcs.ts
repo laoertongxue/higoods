@@ -207,6 +207,10 @@ export const renderProgressMilestoneConfigPage = createAsyncRenderer(
   () => import('../pages/progress-milestone-config'),
   'renderProgressMilestoneConfigPage',
 )
+export const renderProductionOrderProgressTrackingPage = createAsyncRenderer(
+  () => import('../pages/production-order-progress-tracking'),
+  'renderProductionOrderProgressTrackingPage',
+)
 export const renderProgressUrgePage = createAsyncRenderer(() => import('../pages/progress-urge'), 'renderProgressUrgePage')
 export const renderCraftWorkbenchOverviewPage = createAsyncRenderer(
   () => import('../pages/process-factory/workbench/overview'),
@@ -336,6 +340,10 @@ export const renderCraftCuttingSpreadingListPage = createAsyncRenderer(
 export const renderCraftCuttingSummaryPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cutting-summary'),
   'renderCraftCuttingSummaryPage',
+)
+export const renderCraftCuttingAbMaterialStatisticsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/cutting-statistics-ab-material'),
+  'renderCraftCuttingAbMaterialStatisticsPage',
 )
 export const renderCraftCuttingTransferBagDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/transfer-bags'),

@@ -190,6 +190,12 @@ function renderBindingStripCount(count: number): string {
   return `${count} 条`
 }
 
+function renderBindingStripCuttingMethodOptions(selected?: string): string {
+  return ['斜切', '直切', '横切']
+    .map((item) => `<option value="${escapeHtml(item)}" ${selected === item ? 'selected' : ''}>${escapeHtml(item)}</option>`)
+    .join('')
+}
+
 function renderPatternBindingStripEditor(): string {
   const rows = state.newPattern.bindingStrips
   return `
@@ -213,6 +219,7 @@ function renderPatternBindingStripEditor(): string {
                     <th class="px-2 py-1 text-left">捆条名称</th>
                     <th class="px-2 py-1 text-left">长度（cm）</th>
                     <th class="px-2 py-1 text-left">宽度（cm）</th>
+                    <th class="px-2 py-1 text-left">切割方式</th>
                     <th class="px-2 py-1 text-left">备注</th>
                     <th class="px-2 py-1 text-right">操作</th>
                   </tr>
@@ -229,6 +236,11 @@ function renderPatternBindingStripEditor(): string {
                       </td>
                       <td class="px-2 py-1">
                         <input type="number" min="0.1" step="0.1" class="h-8 w-24 rounded border px-2 text-right text-xs" data-tech-field="new-pattern-binding-strip-width-cm" data-binding-strip-id="${escapeHtml(row.bindingStripId)}" value="${escapeHtml(String(row.widthCm || ''))}" />
+                      </td>
+                      <td class="px-2 py-1">
+                        <select class="h-8 w-24 rounded border px-2 text-xs" data-tech-field="new-pattern-binding-strip-cutting-method" data-binding-strip-id="${escapeHtml(row.bindingStripId)}">
+                          ${renderBindingStripCuttingMethodOptions(row.cuttingMethod || '斜切')}
+                        </select>
                       </td>
                       <td class="px-2 py-1">
                         <input class="h-8 w-40 rounded border px-2 text-xs" data-tech-field="new-pattern-binding-strip-remark" data-binding-strip-id="${escapeHtml(row.bindingStripId)}" value="${escapeHtml(row.remark || '')}" placeholder="可选" />
@@ -261,6 +273,7 @@ function renderPatternBindingStripDetail(pattern: (typeof state.patternItems)[nu
           <th class="px-2 py-1 text-left">捆条名称</th>
           <th class="px-2 py-1 text-left">长度（cm）</th>
           <th class="px-2 py-1 text-left">宽度（cm）</th>
+          <th class="px-2 py-1 text-left">切割方式</th>
           <th class="px-2 py-1 text-left">备注</th>
         </tr>
       </thead>
@@ -271,6 +284,7 @@ function renderPatternBindingStripDetail(pattern: (typeof state.patternItems)[nu
             <td class="px-2 py-1">${renderTextValue(row.bindingStripName)}</td>
             <td class="px-2 py-1">${renderTextValue(row.lengthCm)}</td>
             <td class="px-2 py-1">${renderTextValue(row.widthCm)}</td>
+            <td class="px-2 py-1">${renderTextValue(row.cuttingMethod || '斜切')}</td>
             <td class="px-2 py-1">${renderTextValue(row.remark)}</td>
           </tr>
         `).join('')}

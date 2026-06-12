@@ -50,6 +50,9 @@ export type BindingProcessPrintStatus = '未生成' | '待打印' | '已打印'
 export type BindingProcessInboundStatus = '未入仓' | '部分入仓' | '已入仓'
 export type BindingProcessHandoverStatus = '未装袋' | '已装袋待交出' | '已交出'
 export type BindingProcessDifferenceStatus = '无差异' | '有差异'
+export type BindingStripCuttingMethod = '斜切' | '直切' | '横切'
+export type BindingStripSufficiencyStatus = '待记录' | '充足' | '捆条不足' | '有差异'
+export type BindingStripMaterialReceiveStatus = '未领料' | '已领料'
 
 export interface BindingProcessMaterialIdentity {
   materialSku: string
@@ -93,7 +96,13 @@ export interface BindingStripCuttingRecord {
   detailId: string
   bindingStripId: string
   bindingWidth: number
+  cuttingMethod: BindingStripCuttingMethod
+  receivedMaterialLength: number
   actualLength: number
+  straightCutLength: number
+  crossCutLength: number
+  biasCutLength: number
+  actualRollCount: number
   operatorName: string
   operatedAt: string
   remark: string
@@ -117,6 +126,11 @@ export interface BindingStripWorkOrderDetail {
   bindingStripId: string
   bindingStripNo: string
   bindingStripName: string
+  cuttingMethod: BindingStripCuttingMethod
+  cuttingMethodIndonesian: string
+  plannedGarmentQty: number
+  unitBindingLength: number
+  plannedBindingLength: number
   bindingWidth: number
   sourceLengthCm: number
   doorWidthCm: number
@@ -124,7 +138,15 @@ export interface BindingStripWorkOrderDetail {
   requiredLength: number
   minRequiredLength: number
   minRequiredLengthApplied: boolean
+  receivedMaterialLength: number
   actualLength: number
+  straightCutLength: number
+  crossCutLength: number
+  biasCutLength: number
+  actualRollCount: number
+  latestRecordedAt: string
+  sufficiencyStatus: BindingStripSufficiencyStatus
+  shortageLength: number
   differenceLength: number
   printStatus: BindingProcessPrintStatus
   inboundStatus: BindingProcessInboundStatus
@@ -160,6 +182,17 @@ export interface BindingProcessOrder {
   doorWidthCm: number
   bindingSpecificationCount: number
   bindingWidth: number
+  materialReceiveStatus: BindingStripMaterialReceiveStatus
+  materialShelfLocation: string
+  requiredMaterialLength: number
+  receivedMaterialLength: number
+  straightCutLength: number
+  crossCutLength: number
+  biasCutLength: number
+  actualRollCount: number
+  latestRecordedAt: string
+  sufficiencyStatus: BindingStripSufficiencyStatus
+  shortageLength: number
   plannedLength: number
   actualLength: number
   lossLength: number
@@ -229,6 +262,13 @@ export interface BindingStripProcessPayload {
   cutWidth: number
   expectedQty: number
   actualQty: number
+  receivedMaterialLength: number
+  actualTotalLength: number
+  straightCutLength: number
+  crossCutLength: number
+  biasCutLength: number
+  actualRollCount: number
+  recordedAt: string
   operatorName: string
   note: string
 }
@@ -461,6 +501,13 @@ function normalizeBindingStripPayload(record: unknown): BindingStripProcessPaylo
     cutWidth: Number(raw.cutWidth || 0),
     expectedQty: Number(raw.expectedQty || 0),
     actualQty: Number(raw.actualQty || 0),
+    receivedMaterialLength: Number(raw.receivedMaterialLength || 0),
+    actualTotalLength: Number(raw.actualTotalLength || raw.actualQty || 0),
+    straightCutLength: Number(raw.straightCutLength || 0),
+    crossCutLength: Number(raw.crossCutLength || 0),
+    biasCutLength: Number(raw.biasCutLength || 0),
+    actualRollCount: Number(raw.actualRollCount || 0),
+    recordedAt: typeof raw.recordedAt === 'string' ? raw.recordedAt : '',
     operatorName: typeof raw.operatorName === 'string' ? raw.operatorName : '',
     note: typeof raw.note === 'string' ? raw.note : '',
   }
@@ -601,6 +648,13 @@ export function createBindingStripProcessDraft(options: {
     cutWidth: 3.5,
     expectedQty: seed?.plannedQty || 0,
     actualQty: 0,
+    receivedMaterialLength: 0,
+    actualTotalLength: 0,
+    straightCutLength: 0,
+    crossCutLength: 0,
+    biasCutLength: 0,
+    actualRollCount: 0,
+    recordedAt: '',
     operatorName: '',
     note: '',
   }
@@ -801,6 +855,13 @@ function buildSystemSeedOrders(cutOrderRows: CutOrderRow[], markerPlanSources: M
       cutWidth: 3.2,
       expectedQty: Math.max(seedCutOrder.plannedQty, 20),
       actualQty: Math.max(seedCutOrder.plannedQty - 4, 0),
+      receivedMaterialLength: 28,
+      actualTotalLength: Math.max(seedCutOrder.plannedQty - 4, 0),
+      straightCutLength: 0,
+      crossCutLength: Math.max(seedCutOrder.plannedQty - 4, 0),
+      biasCutLength: 0,
+      actualRollCount: 2,
+      recordedAt: '2026-03-24 14:10',
       operatorName: '陈工',
       note: '首轮捆条已完成，待复核余量。',
     }

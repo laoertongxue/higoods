@@ -330,10 +330,10 @@ function main(): void {
     modeDetailLines: [],
     singleSpreadFixedLoss: 0.06,
   })
-  const bindingRawRequiredLength = calculateBindingStripRawRequiredLengthM(500, 4, 100)
-  const bindingRequiredLength = calculateBindingStripRequiredLengthM(500, 4, 100)
-  const bindingRequiredFormula = buildBindingStripRequiredLengthFormula(500, 4, 100)
-  assert(bindingRawRequiredLength === 0.26, `捆条原始长度计算错误，期望 0.26，实际 ${bindingRawRequiredLength}`)
+  const bindingRawRequiredLength = calculateBindingStripRawRequiredLengthM(720, 3, 133.7)
+  const bindingRequiredLength = calculateBindingStripRequiredLengthM(1, 3, 150)
+  const bindingRequiredFormula = buildBindingStripRequiredLengthFormula(1, 3, 150)
+  assert(bindingRawRequiredLength === 21, `捆条原始长度计算错误，期望 21，实际 ${bindingRawRequiredLength}`)
   assert(bindingRequiredLength === 4, `捆条长度不足 4m 时必须按 4m 计算，实际 ${bindingRequiredLength}`)
   assert(bindingRequiredFormula.includes('× 1.3'), '捆条长度公式必须体现固定损耗补偿 1.3')
   assert(bindingRequiredFormula.includes('不足 4m'), '捆条长度公式必须体现不足 4m 按 4m 起算')

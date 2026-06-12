@@ -1332,9 +1332,10 @@ function buildBindingPrintObjectRow(order: BindingProcessOrder): FeiTicketPrintO
       order.materialIdentity.materialAlias,
       order.materialIdentity.materialColor,
       ...details.map((detail) => `${detail.bindingWidth}cm`),
+      ...details.map((detail) => detail.cuttingMethod),
     ].filter(Boolean).join(' '),
     ticketCount: details.length,
-    totalQuantityLabel: `计划 ${formatBindingLength(order.plannedTotalLength)}`,
+    totalQuantityLabel: `捆条需要 ${formatBindingLength(order.plannedTotalLength)} / 需要布料 ${formatBindingLength(order.requiredMaterialLength)}`,
     printedCount,
     missingCount,
     printStatus,
@@ -1351,9 +1352,9 @@ function buildBindingPrintObjectRow(order: BindingProcessOrder): FeiTicketPrintO
     detailRows: details.map((detail) => ({
       ticketId: detail.feiTicketId,
       ticketNo: detail.feiTicketNo,
-      primaryLabel: `${detail.bindingStripName} / ${detail.bindingWidth} cm`,
-      secondaryLabel: `计划 ${formatBindingLength(detail.requiredLength)} / 实际 ${detail.actualLength ? formatBindingLength(detail.actualLength) : '待回写'}`,
-      quantityLabel: `${detail.bindingWidth} cm`,
+      primaryLabel: `${detail.bindingStripName} / ${detail.bindingWidth} cm / 切割方式：${detail.cuttingMethod}`,
+      secondaryLabel: `捆条需要 ${formatBindingLength(detail.plannedBindingLength)} / 实际完成 ${detail.actualLength ? formatBindingLength(detail.actualLength) : '待回写'} / 实切卷数：${detail.actualRollCount || 0} 卷`,
+      quantityLabel: `宽度：${detail.bindingWidth} cm`,
       printStatusLabel: detail.printStatus === '已打印' ? '已打印' : '待打印',
       printHref: buildBindingSinglePrintPreviewHref(detail),
     })),
@@ -1367,7 +1368,7 @@ function buildBindingPrintObjectRow(order: BindingProcessOrder): FeiTicketPrintO
       order.materialIdentity.materialName,
       order.materialIdentity.materialAlias,
       order.materialIdentity.materialColor,
-      ...details.flatMap((detail) => [detail.feiTicketNo, detail.bindingStripName, `${detail.bindingWidth}cm`]),
+      ...details.flatMap((detail) => [detail.feiTicketNo, detail.bindingStripName, `${detail.bindingWidth}cm`, detail.cuttingMethod]),
     ]),
     sourceOrder: order,
   }
@@ -1955,6 +1956,12 @@ function formatBindingLength(value: number): string {
   return `${Number(value || 0).toFixed(2)} m`
 }
 
+function resolveBindingDetailCuttingLength(detail: BindingStripWorkOrderDetail): number {
+  if (detail.cuttingMethod === '直切') return detail.straightCutLength || detail.actualLength || 0
+  if (detail.cuttingMethod === '横切') return detail.crossCutLength || detail.actualLength || 0
+  return detail.biasCutLength || detail.actualLength || 0
+}
+
 function renderPrintObjectStatusBadge(row: FeiTicketPrintObjectRow): string {
   const className =
     row.printStatus === 'WAITING_PRINT'
@@ -2077,7 +2084,6 @@ function renderBindingFeiTicketPrintTable(rows: FeiTicketPrintObjectRow[]): stri
 }
 
 function renderListPage(): string {
-  const bundle = getDataBundle()
   const pathname = getCurrentPathname()
   const mode = resolveFeiTicketListMode(pathname)
   const meta = mode === 'BINDING'
@@ -2086,7 +2092,7 @@ function renderListPage(): string {
   const summaryAction = renderReturnToSummaryButton()
   const rows = mode === 'BINDING'
     ? filterBindingFeiTicketPrintRows(buildBindingFeiTicketPrintRows())
-    : filterSpreadingFeiTicketPrintRows(buildSpreadingPrintObjectRows(buildFeiTicketWorkbenchRows(bundle)))
+    : filterSpreadingFeiTicketPrintRows(buildSpreadingPrintObjectRows(buildFeiTicketWorkbenchRows(getDataBundle())))
   const body = `
     ${renderFilterArea()}
     ${mode === 'BINDING'
@@ -3165,7 +3171,7 @@ function renderBindingStandaloneDetailSections(order: BindingProcessOrder): stri
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">来源生产单</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(order.sourceProductionOrderNo)}</p></div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">来源裁片单</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(order.sourceCutOrderNo)}</p></div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">应打菲票</p><p class="mt-1 text-sm font-semibold text-slate-900">${formatCount(details.length)} 张</p></div>
-        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">计划长度</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(formatBindingLength(order.plannedTotalLength))}</p></div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">捆条需要长度</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(formatBindingLength(order.plannedTotalLength))}</p></div>
       </div>
     `)}
     ${renderSectionCard('物料与纸样', '', `
@@ -3183,7 +3189,7 @@ function renderBindingStandaloneDetailSections(order: BindingProcessOrder): stri
     ${renderSectionCard('菲票明细', '', `
       <div class="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
         ${details.map((detail, index) => `
-          <article class="grid gap-3 p-3 text-sm xl:grid-cols-[3.5rem_1.1fr_0.9fr_1fr_1fr_0.9fr_auto] xl:items-start">
+          <article class="grid gap-3 p-3 text-sm xl:grid-cols-[3.5rem_1fr_0.9fr_0.9fr_1fr_1fr_0.9fr_auto] xl:items-start">
             <div class="text-xs font-semibold text-slate-400">#${formatCount(index + 1)}</div>
             <div>
               <p class="text-xs text-slate-500">菲票号</p>
@@ -3198,12 +3204,24 @@ function renderBindingStandaloneDetailSections(order: BindingProcessOrder): stri
               <p class="mt-1 font-semibold text-slate-900">${escapeHtml(`${detail.bindingWidth} cm`)}</p>
             </div>
             <div>
-              <p class="text-xs text-slate-500">计划 / 实际长度</p>
-              <p class="mt-1 font-semibold text-slate-900">${escapeHtml(formatBindingLength(detail.requiredLength))} / ${escapeHtml(detail.actualLength ? formatBindingLength(detail.actualLength) : '待回写')}</p>
+              <p class="text-xs text-slate-500">切割方式</p>
+              <p class="mt-1 font-semibold text-slate-900">${escapeHtml(detail.cuttingMethod)}</p>
+              <p class="mt-1 text-xs text-slate-500">${escapeHtml(detail.cuttingMethodIndonesian)}</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500">捆条需要 / 实际完成</p>
+              <p class="mt-1 font-semibold text-slate-900">${escapeHtml(formatBindingLength(detail.plannedBindingLength))} / ${escapeHtml(detail.actualLength ? formatBindingLength(detail.actualLength) : '待回写')}</p>
+              <p class="mt-1 text-xs text-slate-500">需要布料 ${escapeHtml(formatBindingLength(detail.requiredLength))} / 接收 ${escapeHtml(detail.receivedMaterialLength ? formatBindingLength(detail.receivedMaterialLength) : '待记录')}</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500">切割长度</p>
+              <p class="mt-1 font-semibold text-slate-900">${escapeHtml(`${detail.cuttingMethod} ${resolveBindingDetailCuttingLength(detail) ? formatBindingLength(resolveBindingDetailCuttingLength(detail)) : '待记录'}`)}</p>
+              <p class="mt-1 text-xs text-slate-500">实切卷数：${formatCount(detail.actualRollCount)} 卷</p>
             </div>
             <div>
               <p class="text-xs text-slate-500">打印状态</p>
               <div class="mt-1">${renderBindingTicketPrintedFlag(detail)}</div>
+              <p class="mt-1 text-xs text-slate-500">${escapeHtml(detail.sufficiencyStatus)}${detail.shortageLength ? ` / 缺口 ${escapeHtml(formatBindingLength(detail.shortageLength))}` : ''}</p>
             </div>
             <div class="flex flex-wrap gap-1.5 xl:justify-end">
               <button type="button" data-nav="${escapeHtml(buildBindingSinglePrintPreviewHref(detail))}" class="inline-flex min-h-8 items-center rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700">打印</button>

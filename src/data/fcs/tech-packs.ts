@@ -170,12 +170,15 @@ export interface TechPackPatternManagedFile {
   previewUrl?: string
 }
 
+export type TechPackPatternBindingStripCuttingMethod = '斜切' | '直切' | '横切'
+
 export interface TechPackPatternBindingStrip {
   bindingStripId: string
   bindingStripNo: string
   bindingStripName: string
   lengthCm: number
   widthCm: number
+  cuttingMethod?: TechPackPatternBindingStripCuttingMethod
   relatedMaterialId?: string
   remark?: string
   createdBy?: string

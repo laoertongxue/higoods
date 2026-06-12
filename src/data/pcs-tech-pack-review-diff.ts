@@ -101,6 +101,7 @@ function normalizeBindingStrips(value: unknown): unknown[] {
         name: normalizeText(record.bindingStripName),
         lengthCm: normalizeNumber(record.lengthCm),
         widthCm: normalizeNumber(record.widthCm),
+        cuttingMethod: normalizeText(record.cuttingMethod || '斜切'),
         stripCount: normalizeNumber(record.stripCount),
       }
     })
