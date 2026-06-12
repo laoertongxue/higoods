@@ -420,16 +420,14 @@ function renderProgressBar(value: number, tone: 'green' | 'blue' | 'orange' | 'p
 
 function renderMetricCard(card: MetricCard): string {
   return `
-    <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="flex items-center gap-4">
-        <div class="flex h-14 w-14 items-center justify-center rounded-full ${card.accent}">
-          ${renderIcon(card.icon, 'h-7 w-7 text-white')}
-        </div>
+    <article class="rounded-lg border bg-card p-4">
+      <div class="flex items-center justify-between gap-3">
         <div>
-          <p class="text-sm text-slate-500">${escapeHtml(card.label)}</p>
-          <p class="mt-1 text-3xl font-bold tracking-normal text-slate-900">${escapeHtml(card.value)}</p>
-          <p class="mt-1 text-xs text-slate-500">${escapeHtml(card.hint)}</p>
+          <p class="text-sm text-muted-foreground">${escapeHtml(card.label)}</p>
+          <p class="mt-1 text-2xl font-bold tracking-normal ${card.accent}">${escapeHtml(card.value)}</p>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(card.hint)}</p>
         </div>
+        ${renderIcon(card.icon, 'h-4 w-4 text-muted-foreground')}
       </div>
     </article>
   `
@@ -437,18 +435,24 @@ function renderMetricCard(card: MetricCard): string {
 
 function renderListHeader(): string {
   const metrics: MetricCard[] = [
-    { label: '进行中生产单', value: '268', hint: '环比上周 ↑ 12.8%', icon: 'ClipboardList', accent: 'bg-blue-600' },
-    { label: '临期生产单', value: '32', hint: '近7天交付　占12%', icon: 'PieChart', accent: 'bg-orange-400' },
-    { label: '延误生产单', value: '18', hint: '环比上周 ↑ 5', icon: 'TriangleAlert', accent: 'bg-red-500' },
-    { label: '今日新增', value: '15', hint: '昨日新增 18', icon: 'FilePlus2', accent: 'bg-emerald-500' },
-    { label: '待闭环异常', value: '27', hint: '较昨日 ↑ 3', icon: 'ShieldZap', accent: 'bg-violet-500' },
-    { label: '本周交付数量', value: '36,580', hint: '计划 42,000　完成 87%', icon: 'Package', accent: 'bg-blue-600' },
+    { label: '进行中生产单', value: '268', hint: '环比上周 ↑ 12.8%', icon: 'ClipboardList', accent: 'text-blue-600' },
+    { label: '临期生产单', value: '32', hint: '近7天交付　占12%', icon: 'PieChart', accent: 'text-orange-600' },
+    { label: '延误生产单', value: '18', hint: '环比上周 ↑ 5', icon: 'TriangleAlert', accent: 'text-red-600' },
+    { label: '今日新增', value: '15', hint: '昨日新增 18', icon: 'FilePlus2', accent: 'text-emerald-600' },
+    { label: '待闭环异常', value: '27', hint: '较昨日 ↑ 3', icon: 'ShieldZap', accent: 'text-violet-600' },
+    { label: '本周交付数量', value: '36,580', hint: '计划 42,000　完成 87%', icon: 'Package', accent: 'text-blue-600' },
   ]
   return `
     <header class="flex items-center justify-between gap-4">
-      <h1 class="text-2xl font-bold text-slate-950">生产单列表</h1>
+      <div>
+        <h1 class="flex items-center gap-2 text-xl font-semibold">
+          ${renderIcon('GitBranch', 'h-5 w-5')}
+          生产单进度跟踪
+        </h1>
+        <p class="text-sm text-muted-foreground">按生产单全生命周期追踪时间、数量、工单分支、交接质检与结算风险</p>
+      </div>
       <div class="flex items-center gap-2">
-        <button class="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+        <button class="inline-flex h-8 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           data-production-order-progress-action="open-modal"
           data-modal-title="新建生产单"
           data-modal-tone="blue"
@@ -456,7 +460,7 @@ function renderListHeader(): string {
           data-skip-page-rerender="true">
           ${renderIcon('Plus', 'h-4 w-4')}新建生产单
         </button>
-        <button class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        <button class="inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted"
           data-production-order-progress-action="open-modal"
           data-modal-title="导出生产单列表"
           data-modal-tone="green"
@@ -464,7 +468,7 @@ function renderListHeader(): string {
           data-skip-page-rerender="true">
           ${renderIcon('Download', 'h-4 w-4')}导出
         </button>
-        <button class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        <button class="inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted"
           data-production-order-progress-action="open-modal"
           data-modal-title="刷新完成"
           data-modal-tone="blue"
@@ -474,7 +478,7 @@ function renderListHeader(): string {
         </button>
       </div>
     </header>
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+    <section class="grid grid-cols-6 gap-4">
       ${metrics.map(renderMetricCard).join('')}
     </section>
   `
@@ -482,11 +486,11 @@ function renderListHeader(): string {
 
 function renderFilterInput(label: string, placeholder: string, icon?: string): string {
   return `
-    <label class="space-y-2">
-      <span class="text-sm font-medium text-slate-700">${escapeHtml(label)}</span>
+    <label class="space-y-1.5">
+      <span class="text-xs font-medium text-muted-foreground">${escapeHtml(label)}</span>
       <div class="relative">
-        <input class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 ${icon ? 'pr-9' : ''} text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="${escapeHtml(placeholder)}" data-skip-page-rerender="true" />
-        ${icon ? `<span class="absolute right-3 top-2.5 text-slate-400">${renderIcon(icon, 'h-4 w-4')}</span>` : ''}
+        <input class="h-9 w-full rounded-md border bg-background px-3 ${icon ? 'pr-9' : ''} text-sm outline-none focus:border-primary" placeholder="${escapeHtml(placeholder)}" data-skip-page-rerender="true" />
+        ${icon ? `<span class="absolute right-3 top-2.5 text-muted-foreground">${renderIcon(icon, 'h-4 w-4')}</span>` : ''}
       </div>
     </label>
   `
@@ -494,9 +498,9 @@ function renderFilterInput(label: string, placeholder: string, icon?: string): s
 
 function renderFilterSelect(label: string, values: string[]): string {
   return `
-    <label class="space-y-2">
-      <span class="text-sm font-medium text-slate-700">${escapeHtml(label)}</span>
-      <select class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-skip-page-rerender="true">
+    <label class="space-y-1.5">
+      <span class="text-xs font-medium text-muted-foreground">${escapeHtml(label)}</span>
+      <select class="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:border-primary" data-skip-page-rerender="true">
         ${values.map((item) => `<option>${escapeHtml(item)}</option>`).join('')}
       </select>
     </label>
@@ -505,8 +509,8 @@ function renderFilterSelect(label: string, values: string[]): string {
 
 function renderFilters(): string {
   return `
-    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
+    <section class="rounded-lg border bg-card p-4">
+      <div class="grid grid-cols-6 gap-3">
         ${renderFilterInput('生产单号', '请输入生产单号')}
         ${renderFilterInput('生产需求单', '请输入需求单号')}
         ${renderFilterInput('款式/SPU', '请输入款式或SPU')}
@@ -518,13 +522,13 @@ function renderFilters(): string {
         ${renderFilterInput('日期范围', '开始日期　~　结束日期', 'CalendarDays')}
         ${renderFilterSelect('是否含印花', ['全部', '是', '否'])}
         ${renderFilterSelect('是否含染色', ['全部', '是', '否'])}
-        <div class="flex items-end justify-end gap-3">
-          <button class="h-10 rounded-lg border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700"
+        <div class="flex items-end justify-end gap-2">
+          <button class="h-9 rounded-md border px-3 text-sm hover:bg-muted"
             data-production-order-progress-action="open-modal"
             data-modal-title="筛选已重置"
             data-modal-body="已恢复生产单列表默认筛选条件。"
             data-skip-page-rerender="true">重置</button>
-          <button class="h-10 rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white shadow-sm"
+          <button class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             data-production-order-progress-action="open-modal"
             data-modal-title="查询完成"
             data-modal-tone="blue"
@@ -540,7 +544,7 @@ function renderExpandedRow(order: ProductionOrderTrackingRecord): string {
   return `
     <tr class="bg-white" data-production-order-expanded-row="${escapeHtml(order.no)}">
       <td colspan="19" class="border-t border-slate-100 p-0">
-        <div class="mx-5 mb-4 rounded-xl border border-blue-100 bg-blue-50/40 p-5">
+        <div class="mx-4 mb-3 rounded-lg border bg-muted/20 p-4">
           <div class="grid gap-6 xl:grid-cols-[1fr_1.2fr_1.2fr_.8fr]">
             <div>
               <h3 class="text-sm font-semibold text-slate-800">生产单详情</h3>
@@ -606,49 +610,49 @@ function renderExpandedRow(order: ProductionOrderTrackingRecord): string {
 function renderOrderRow(order: ProductionOrderTrackingRecord, expandedNo: string): string {
   const expanded = expandedNo === order.no
   const row = `
-    <tr class="border-t border-slate-100 align-top hover:bg-slate-50" data-production-order-row="${escapeHtml(order.no)}">
-      <td class="px-4 py-4"><input type="checkbox" class="h-4 w-4 rounded border-slate-300" /></td>
-      <td class="px-3 py-4"><img src="${escapeHtml(order.imageUrl)}" class="h-16 w-12 rounded-md object-cover" alt="${escapeHtml(order.title)}" /></td>
-      <td class="px-3 py-4">
+    <tr class="border-b align-top hover:bg-muted/30" data-production-order-row="${escapeHtml(order.no)}">
+      <td class="px-3 py-3"><input type="checkbox" class="h-4 w-4 rounded border-slate-300" /></td>
+      <td class="px-3 py-3"><img src="${escapeHtml(order.imageUrl)}" class="h-14 w-11 rounded-md object-cover" alt="${escapeHtml(order.title)}" /></td>
+      <td class="px-3 py-3">
         <button class="font-semibold text-blue-600 hover:underline" data-nav="${escapeHtml(buildDetailHref(order.no))}">${escapeHtml(order.no)}</button>
         <p class="mt-1 text-xs text-slate-500">创建：2025-06-25</p>
         <p class="text-xs text-slate-500">更新：2025-06-25</p>
       </td>
-      <td class="px-3 py-4">
+      <td class="px-3 py-3">
         <p class="font-medium text-slate-900">${escapeHtml(order.title)}</p>
         <p class="mt-1 text-xs text-slate-500">渠道：${escapeHtml(order.channel)}</p>
         <p class="text-xs text-slate-500">季节：${escapeHtml(order.season)}</p>
       </td>
-      <td class="px-3 py-4">
+      <td class="px-3 py-3">
         <p class="font-medium text-slate-800">${escapeHtml(order.spu)}</p>
         <p class="text-xs text-slate-500">${escapeHtml(order.styleName)}</p>
       </td>
-      <td class="px-3 py-4 font-semibold tabular-nums text-slate-900">${formatNumber(order.quantity)} 件</td>
-      <td class="px-3 py-4">${renderStatusBadge(order.status)}</td>
-      <td class="px-3 py-4">
+      <td class="px-3 py-3 font-semibold tabular-nums text-slate-900">${formatNumber(order.quantity)} 件</td>
+      <td class="px-3 py-3">${renderStatusBadge(order.status)}</td>
+      <td class="px-3 py-3">
         <p class="font-medium text-slate-900">${escapeHtml(order.currentNode)}</p>
         <p class="text-xs text-slate-500">${escapeHtml(order.nodeIndexText)}</p>
       </td>
-      <td class="px-3 py-4"><div class="flex flex-col gap-1">${renderRiskTags(order)}</div></td>
-      <td class="px-3 py-4">
+      <td class="px-3 py-3"><div class="flex flex-col gap-1">${renderRiskTags(order)}</div></td>
+      <td class="px-3 py-3">
         <p class="font-medium text-slate-800">${escapeHtml(order.deliveryWarehouse)}</p>
         <p class="text-xs text-slate-500">广州成衣仓</p>
       </td>
-      <td class="px-3 py-4">
+      <td class="px-3 py-3">
         <p class="font-medium text-slate-800">${escapeHtml(order.factories[0])}</p>
         <p class="text-xs text-blue-600">+${Math.max(0, order.factories.length - 1)}</p>
       </td>
-      <td class="px-3 py-4">
+      <td class="px-3 py-3">
         <p class="font-medium text-slate-900">${escapeHtml(order.plannedDelivery)}</p>
         <p class="${order.dueText.includes('0') ? 'text-red-500' : 'text-slate-500'} text-xs">${escapeHtml(order.dueText)}</p>
       </td>
-      <td class="px-3 py-4">${renderProgressBar(order.progress.actual, 'green')}</td>
-      <td class="px-3 py-4">${renderProgressBar(order.progress.material, 'green')}</td>
-      <td class="px-3 py-4">${renderProgressBar(order.progress.cutting, 'green')}</td>
-      <td class="px-3 py-4">${renderProgressBar(order.progress.sewing, 'blue')}</td>
-      <td class="px-3 py-4">${renderProgressBar(order.progress.qc, 'orange')}</td>
-      <td class="px-3 py-4 font-medium text-slate-700">${escapeHtml(order.merchandiser)}</td>
-      <td class="px-3 py-4">
+      <td class="px-3 py-3">${renderProgressBar(order.progress.actual, 'green')}</td>
+      <td class="px-3 py-3">${renderProgressBar(order.progress.material, 'green')}</td>
+      <td class="px-3 py-3">${renderProgressBar(order.progress.cutting, 'green')}</td>
+      <td class="px-3 py-3">${renderProgressBar(order.progress.sewing, 'blue')}</td>
+      <td class="px-3 py-3">${renderProgressBar(order.progress.qc, 'orange')}</td>
+      <td class="px-3 py-3 font-medium text-slate-700">${escapeHtml(order.merchandiser)}</td>
+      <td class="px-3 py-3">
         <div class="flex items-center gap-3">
           <button class="text-sm font-medium text-blue-600" data-nav="${escapeHtml(buildDetailHref(order.no))}">详情</button>
           <button
@@ -668,8 +672,8 @@ function renderOrderRow(order: ProductionOrderTrackingRecord, expandedNo: string
 function renderOrderTable(): string {
   const expandedNo = getQueryParams().get('expanded') || orders[0].no
   return `
-    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3 text-sm">
+    <section class="overflow-hidden rounded-lg border bg-card">
+      <div class="flex items-center justify-between border-b px-4 py-3 text-sm">
         <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" class="h-4 w-4 rounded border-slate-300" />已选择 0 项</label>
         <div class="flex items-center gap-4 text-slate-500">
           <button class="inline-flex items-center gap-1"
@@ -690,28 +694,28 @@ function renderOrderTable(): string {
         </div>
       </div>
       <div class="overflow-x-auto">
-        <table class="min-w-[1780px] w-full text-left text-sm">
-          <thead class="bg-slate-50 text-xs font-semibold text-slate-500">
+        <table class="min-w-[1680px] w-full text-left text-sm">
+          <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
             <tr>
-              <th class="w-10 px-4 py-3"></th>
-              <th class="px-3 py-3">款式图</th>
-              <th class="px-3 py-3">生产单号</th>
-              <th class="px-3 py-3">标题</th>
-              <th class="px-3 py-3">款式/SPU</th>
-              <th class="px-3 py-3">生产数量</th>
-              <th class="px-3 py-3">当前状态</th>
-              <th class="px-3 py-3">当前节点</th>
-              <th class="px-3 py-3">风险等级</th>
-              <th class="px-3 py-3">交付仓</th>
-              <th class="px-3 py-3">涉及工厂</th>
-              <th class="px-3 py-3">计划交付</th>
-              <th class="px-3 py-3">实际进度</th>
-              <th class="px-3 py-3">配料进度</th>
-              <th class="px-3 py-3">裁床进度</th>
-              <th class="px-3 py-3">车缝进度</th>
-              <th class="px-3 py-3">质检/交出进度</th>
-              <th class="px-3 py-3">跟单员</th>
-              <th class="px-3 py-3">操作</th>
+              <th class="w-10 px-3 py-2 font-medium"></th>
+              <th class="px-3 py-2 font-medium">款式图</th>
+              <th class="px-3 py-2 font-medium">生产单号</th>
+              <th class="px-3 py-2 font-medium">标题</th>
+              <th class="px-3 py-2 font-medium">款式/SPU</th>
+              <th class="px-3 py-2 font-medium">生产数量</th>
+              <th class="px-3 py-2 font-medium">当前状态</th>
+              <th class="px-3 py-2 font-medium">当前节点</th>
+              <th class="px-3 py-2 font-medium">风险等级</th>
+              <th class="px-3 py-2 font-medium">交付仓</th>
+              <th class="px-3 py-2 font-medium">涉及工厂</th>
+              <th class="px-3 py-2 font-medium">计划交付</th>
+              <th class="px-3 py-2 font-medium">实际进度</th>
+              <th class="px-3 py-2 font-medium">配料进度</th>
+              <th class="px-3 py-2 font-medium">裁床进度</th>
+              <th class="px-3 py-2 font-medium">车缝进度</th>
+              <th class="px-3 py-2 font-medium">质检/交出进度</th>
+              <th class="px-3 py-2 font-medium">跟单员</th>
+              <th class="px-3 py-2 font-medium">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -719,7 +723,7 @@ function renderOrderTable(): string {
           </tbody>
         </table>
       </div>
-      <footer class="flex items-center justify-between border-t border-slate-100 px-5 py-4 text-sm text-slate-500">
+      <footer class="flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">
         <span>共 268 条</span>
         <div class="flex items-center gap-2">
           <button class="h-8 w-8 rounded-md border border-slate-200 text-slate-500" data-production-order-progress-action="open-modal" data-modal-title="上一页" data-modal-body="当前已经是第一页。" data-skip-page-rerender="true">${renderIcon('ChevronLeft', 'mx-auto h-4 w-4')}</button>
@@ -741,8 +745,8 @@ function renderOrderTable(): string {
 
 function renderListPage(): string {
   return `
-    <div class="min-h-screen bg-slate-50 p-5 text-slate-900" data-production-order-progress-root data-page-mode="list">
-      <div class="mx-auto max-w-[1840px] space-y-5">
+    <div class="space-y-4" data-production-order-progress-root data-page-mode="list">
+      <div class="space-y-4">
         ${renderListHeader()}
         ${renderFilters()}
         ${renderOrderTable()}
@@ -754,7 +758,7 @@ function renderListPage(): string {
 
 function renderCountdownCard(order: ProductionOrderTrackingRecord): string {
   return `
-    <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article class="rounded-lg border bg-card p-4">
       <p class="text-sm font-medium text-slate-600">交付倒计时</p>
       <div class="mt-2 flex items-end gap-2">
         <span class="text-5xl font-bold leading-none text-slate-950">24</span>
@@ -783,7 +787,7 @@ function renderOrderHero(order: ProductionOrderTrackingRecord, tab: TrackingTab)
   const values = tab === 'quantity' ? [82, 55, 36, 91] : tab === 'settlement' ? [82, 55, 36, 19] : [82, 55, 36, 19]
   const labels = labelMap[tab]
   return `
-    <article class="grid grid-cols-[112px_minmax(0,1fr)] gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm 2xl:grid-cols-[128px_minmax(0,1fr)_320px]">
+    <article class="grid grid-cols-[112px_minmax(0,1fr)] gap-4 rounded-lg border bg-card p-4 2xl:grid-cols-[128px_minmax(0,1fr)_320px]">
       <img src="${escapeHtml(order.imageUrl)}" class="h-32 w-28 rounded-lg object-cover" alt="${escapeHtml(order.title)}" />
       <div class="min-w-0">
         <div class="flex items-center gap-3">
@@ -805,7 +809,7 @@ function renderOrderHero(order: ProductionOrderTrackingRecord, tab: TrackingTab)
           <div class="min-w-0"><p class="text-slate-500">预计达成</p><p class="mt-1 truncate font-semibold text-slate-950">按当前节奏可准时</p></div>
         </div>
       </div>
-      <div class="col-span-2 space-y-3 rounded-lg border border-slate-100 bg-white p-4 2xl:col-span-1">
+      <div class="col-span-2 space-y-3 rounded-lg border bg-background p-4 2xl:col-span-1">
         ${labels.map((label, index) => `
           <div class="grid grid-cols-[90px_1fr_42px] items-center gap-3 text-sm">
             <span class="font-medium text-slate-700">${escapeHtml(label)}</span>
@@ -825,24 +829,24 @@ function renderDetailHeader(order: ProductionOrderTrackingRecord, tab: TrackingT
     <div class="space-y-3">
       <header class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <button class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50" data-nav="${BASE_PATH}">
+          <button class="flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-nav="${BASE_PATH}">
             ${renderIcon('ArrowLeft', 'h-4 w-4')}
           </button>
-          <h1 class="text-xl font-bold text-slate-950">生产单全生命周期跟踪 / ${escapeHtml(order.no)}</h1>
+          <h1 class="text-xl font-semibold">生产单全生命周期跟踪 / ${escapeHtml(order.no)}</h1>
         </div>
         <div class="flex items-center gap-2">
-          <button class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700"
+          <button class="inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted"
             data-production-order-progress-action="open-modal"
             data-modal-title="导出全生命周期跟踪"
             data-modal-tone="green"
             data-modal-body="${escapeHtml(order.no)} 的概览、时间、数量、工单、交接与结算数据已加入导出队列。"
             data-skip-page-rerender="true">${renderIcon('Download', 'h-4 w-4')}导出</button>
-          <button class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700"
+          <button class="inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted"
             data-production-order-progress-action="open-modal"
             data-modal-title="刷新完成"
             data-modal-body="已刷新当前生产单进度跟踪数据。"
             data-skip-page-rerender="true">${renderIcon('RefreshCw', 'h-4 w-4')}刷新</button>
-          <button class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700"
+          <button class="inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted"
             data-production-order-progress-action="open-modal"
             data-modal-title="更多操作"
             data-modal-body="可继续承接提醒跟单员、复制链接、打印进度报告等操作。"
@@ -853,10 +857,10 @@ function renderDetailHeader(order: ProductionOrderTrackingRecord, tab: TrackingT
         ${renderCountdownCard(order)}
         ${renderOrderHero(order, tab)}
       </section>
-      <nav class="flex items-center gap-7 rounded-xl border border-slate-200 bg-white px-5 shadow-sm" data-production-order-progress-tabs>
+      <nav class="flex items-center gap-6 rounded-lg border bg-card px-4" data-production-order-progress-tabs>
         ${TAB_ITEMS.map((item) => `
           <button
-            class="relative h-12 text-sm font-semibold ${item.key === tab ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'}"
+            class="relative h-10 text-sm font-medium ${item.key === tab ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}"
             data-production-order-progress-tab="${item.key}"
             data-production-order-progress-action="switch-tab"
             data-order-no="${escapeHtml(order.no)}"
@@ -872,12 +876,12 @@ function renderDetailHeader(order: ProductionOrderTrackingRecord, tab: TrackingT
   `
 }
 
-function renderSmallStat(label: string, value: string, hint: string, tone = 'text-slate-950'): string {
+function renderSmallStat(label: string, value: string, hint: string, tone = 'text-foreground'): string {
   return `
-    <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p class="text-sm text-slate-500">${escapeHtml(label)}</p>
+    <article class="rounded-lg border bg-card p-4">
+      <p class="text-sm text-muted-foreground">${escapeHtml(label)}</p>
       <p class="mt-2 text-2xl font-bold ${tone}">${escapeHtml(value)}</p>
-      <p class="mt-1 text-xs text-slate-500">${escapeHtml(hint)}</p>
+      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(hint)}</p>
     </article>
   `
 }
@@ -889,8 +893,8 @@ function renderOverviewMatrix(order: ProductionOrderTrackingRecord, selectedNode
   const lanes = ['主线', '印花链路', '染色链路', '物料链路', '裁床链路', '车缝链路', '后道链路']
   return `
     <section class="grid grid-cols-[minmax(0,1fr)_300px] gap-4">
-      <div class="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-lg font-bold text-slate-950">多泳道生命周期矩阵</h2>
+      <div class="min-w-0 rounded-lg border bg-card p-4">
+        <h2 class="text-base font-semibold">多泳道生命周期矩阵</h2>
         <div class="mt-4 overflow-x-auto">
           <div class="grid min-w-[1104px] gap-2" style="grid-template-columns:90px repeat(13, 78px);">
             <div></div>
@@ -902,7 +906,7 @@ function renderOverviewMatrix(order: ProductionOrderTrackingRecord, selectedNode
                 if (!node) return '<div class="h-[76px] rounded-lg border border-dashed border-slate-100"></div>'
                 return `
                   <button
-                    class="h-[76px] rounded-lg border p-2 text-left shadow-sm ${selected.id === node.id ? 'border-orange-400 bg-orange-50 ring-2 ring-orange-100' : 'border-slate-200 bg-white hover:border-blue-300'}"
+                    class="h-[76px] rounded-lg border bg-background p-2 text-left transition hover:bg-muted/40 ${selected.id === node.id ? 'border-orange-400 bg-orange-50 ring-2 ring-orange-100' : 'hover:border-blue-300'}"
                     data-production-order-progress-action="select-node"
                     data-order-no="${escapeHtml(order.no)}"
                     data-tab="overview"
@@ -919,8 +923,8 @@ function renderOverviewMatrix(order: ProductionOrderTrackingRecord, selectedNode
           </div>
         </div>
       </div>
-      <aside class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-lg font-bold text-slate-950">当前卡点详情</h2>
+      <aside class="rounded-lg border bg-card p-4">
+        <h2 class="text-base font-semibold">当前卡点详情</h2>
         <div class="mt-5 rounded-lg border border-orange-200 bg-orange-50 p-4">
           <div class="flex items-center justify-between">
             <p class="font-semibold text-slate-950">${escapeHtml(selected.label)} ${escapeHtml(selected.id)}</p>
@@ -961,8 +965,8 @@ function renderOverviewTab(order: ProductionOrderTrackingRecord, selectedNode?: 
         ${renderSmallStat('待处理数', '15 个', '含逾期 6 个', 'text-orange-600')}
       </section>
       ${renderOverviewMatrix(order, selectedNode)}
-      <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-lg font-bold text-slate-950">关键对象实时账</h2>
+      <section class="rounded-lg border bg-card p-4">
+        <h2 class="text-base font-semibold">关键对象实时账</h2>
         ${renderLedgerTable(['对象类型', '对象编号 / 批次', '版本 / 批次', '计划时间', '实际时间', '计划数量（件）', '实际数量（件）', '完成度', '状态', '差异（件）', '差异原因', '当前责任方', '操作'], [
           ['配料记录', 'M-240618-01', '批次01', '06-07 ~ 06-08', '06-07 ~ 06-08', '5,000', '5,000', '100%', '已完成', '0', '-', '印花厂 · 张三', '查看'],
           ['配料记录', 'M-240618-02', '批次02', '06-09 ~ 06-10', '06-09 ~ 进行中', '3,600', '3,200', '88.9%', '进行中', '-400', '到货延迟', '印花厂 · 张三', '查看'],
@@ -992,9 +996,9 @@ function renderTimelineTab(order: ProductionOrderTrackingRecord, selectedNode?: 
         ${renderSmallStat('关键延误节点数', '8 个', '占全部节点 22%', 'text-orange-600')}
       </section>
       <section class="grid grid-cols-[minmax(0,1fr)_330px] gap-4">
-        <div class="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="min-w-0 rounded-lg border bg-card p-4">
           <div class="flex items-center justify-between">
-            <h2 class="text-lg font-bold text-slate-950">生产全生命周期时间轴（计划 vs 实际）</h2>
+            <h2 class="text-base font-semibold">生产全生命周期时间轴（计划 vs 实际）</h2>
             <div class="flex items-center gap-4 text-xs text-slate-500">
               <span class="inline-flex items-center gap-1"><span class="h-2 w-4 rounded bg-emerald-500"></span>准时</span>
               <span class="inline-flex items-center gap-1"><span class="h-2 w-4 rounded bg-orange-500"></span>风险</span>
@@ -1016,7 +1020,7 @@ function renderTimelineTab(order: ProductionOrderTrackingRecord, selectedNode?: 
                   return `
                     <div class="relative h-20 border-b border-l border-slate-100" style="grid-column: span ${item.span};">
                       <button
-                        class="absolute left-1 right-1 top-3 rounded-md border px-3 py-2 text-left text-xs shadow-sm ${selected.id === item.id ? 'ring-2 ring-blue-300 ' : ''}${color}"
+                        class="absolute left-1 right-1 top-3 rounded-md border px-3 py-2 text-left text-xs ${selected.id === item.id ? 'ring-2 ring-blue-300 ' : ''}${color}"
                         data-production-order-progress-action="select-node"
                         data-order-no="${escapeHtml(order.no)}"
                         data-tab="timeline"
@@ -1034,8 +1038,8 @@ function renderTimelineTab(order: ProductionOrderTrackingRecord, selectedNode?: 
             </div>
           </div>
         </div>
-        <aside class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-lg font-bold text-slate-950">时间节点详情</h2>
+        <aside class="rounded-lg border bg-card p-4">
+          <h2 class="text-base font-semibold">时间节点详情</h2>
           <div class="mt-4 space-y-4 text-sm">
             ${badge(selected.status === '延误' ? '延误 +2天' : selected.status, selected.status === '延误' ? 'border-red-200 bg-red-50 text-red-600' : 'border-orange-200 bg-orange-50 text-orange-600')}
             <h3 class="text-base font-bold text-slate-950">${escapeHtml(selected.label)}</h3>
@@ -1074,8 +1078,8 @@ function renderTimelineTab(order: ProductionOrderTrackingRecord, selectedNode?: 
           </div>
         </aside>
       </section>
-      <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-lg font-bold text-slate-950">关键里程碑与节点里程账本</h2>
+      <section class="rounded-lg border bg-card p-4">
+        <h2 class="text-base font-semibold">关键里程碑与节点里程账本</h2>
         ${renderLedgerTable(['节点名称', '所属阶段', '计划开始', '计划结束', '实际开始', '实际结束', '偏差', '状态', '责任方', '影响范围'], [
           ['印花生产（噪喱 v1）', '印花', '2026-06-04', '2026-06-06', '2026-06-04', '2026-06-08', '+2 天', '延误', '印花2厂', '影响裁床、铺布、车缝'],
           ['配料批次3', '配料 / 领料', '2026-06-06', '2026-06-07', '2026-06-06', '2026-06-08', '+1 天', '风险', '物控部', '影响领料批次2-3'],
@@ -1103,13 +1107,13 @@ function renderQuantityTab(order: ProductionOrderTrackingRecord, selectedNode?: 
         ${renderSmallStat('数量差异/损耗', '440 件', '5.12%', 'text-red-600')}
       </section>
       <section class="grid grid-cols-[minmax(0,1fr)_330px] gap-4">
-        <div class="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-lg font-bold text-slate-950">数量流转全景图（单位：件）</h2>
+        <div class="min-w-0 rounded-lg border bg-card p-4">
+          <h2 class="text-base font-semibold">数量流转全景图（单位：件）</h2>
           <div class="mt-6 overflow-x-auto">
             <div class="flex min-w-[1380px] items-center gap-4">
               ${quantityFlow.map((node, index) => `
                 <button
-                  class="w-40 shrink-0 rounded-xl border p-4 text-left shadow-sm ${selected.id === node.id ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200 bg-white hover:border-blue-300'}"
+                  class="w-40 shrink-0 rounded-lg border bg-background p-4 text-left transition hover:bg-muted/40 ${selected.id === node.id ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100' : 'hover:border-blue-300'}"
                   data-production-order-progress-action="select-node"
                   data-order-no="${escapeHtml(order.no)}"
                   data-tab="quantity"
@@ -1130,8 +1134,8 @@ function renderQuantityTab(order: ProductionOrderTrackingRecord, selectedNode?: 
             </div>
           </div>
         </div>
-        <aside class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-lg font-bold text-slate-950">数量差异详情</h2>
+        <aside class="rounded-lg border bg-card p-4">
+          <h2 class="text-base font-semibold">数量差异详情</h2>
           <div class="mt-5 space-y-4 text-sm">
             <div class="flex items-center justify-between">
               <h3 class="text-base font-bold text-slate-950">${escapeHtml(selected.label)}</h3>
@@ -1161,8 +1165,8 @@ function renderQuantityTab(order: ProductionOrderTrackingRecord, selectedNode?: 
           </div>
         </aside>
       </section>
-      <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-lg font-bold text-slate-950">数量台账明细（按生命周期顺序）</h2>
+      <section class="rounded-lg border bg-card p-4">
+        <h2 class="text-base font-semibold">数量台账明细（按生命周期顺序）</h2>
         ${renderLedgerTable(['序号', '环节', '单据编号', '数量口径说明', '计划数量', '实际数量', '差异数量', '差异率', '良品率/损耗率', '差异原因分类', '关键备注', '记录时间', '操作'], [
           ['1', '配料记录', 'MR-240618-01', '按配料入仓数量', '8,600', '8,600', '0', '0.00%', '99.80%', '正常损耗', '染整克重偏差、缩水率', '06-11 09:18', '查看'],
           ['2', '领料记录', 'ISS-240618-01', '按车间实际领用数量', '8,600', '8,500', '-100', '-1.16%', '98.84%', '小片损耗', '领用报损', '06-11 10:05', '查看'],
@@ -1190,9 +1194,9 @@ function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?
         ${renderSmallStat('分支覆盖率', '92%', '较昨日 +3%')}
       </section>
       <section class="grid grid-cols-[minmax(0,1fr)_330px] gap-4">
-        <div class="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="min-w-0 rounded-lg border bg-card p-4">
           <div class="flex items-center justify-between">
-            <h2 class="text-lg font-bold text-slate-950">分支拓扑视图</h2>
+            <h2 class="text-base font-semibold">分支拓扑视图</h2>
             <div class="flex gap-2">
               <button class="h-8 rounded-md border border-slate-200 px-3 text-xs"
                 data-production-order-progress-action="open-modal"
@@ -1222,7 +1226,7 @@ function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?
                   <div class="flex items-center gap-4 overflow-hidden px-4 py-3">
                     ${workOrderNodes.filter((node) => node.lane === lane).map((node, index, list) => `
                       <button
-                        class="w-36 rounded-lg border px-3 py-2 text-left text-xs shadow-sm ${selected.id === node.id ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200 bg-white hover:border-blue-300'}"
+                        class="w-36 rounded-lg border bg-background px-3 py-2 text-left text-xs transition hover:bg-muted/40 ${selected.id === node.id ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100' : 'hover:border-blue-300'}"
                         data-production-order-progress-action="select-node"
                         data-order-no="${escapeHtml(order.no)}"
                         data-tab="workorders"
@@ -1241,8 +1245,8 @@ function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?
             </div>
           </div>
         </div>
-        <aside class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-lg font-bold text-slate-950">分支详情</h2>
+        <aside class="rounded-lg border bg-card p-4">
+          <h2 class="text-base font-semibold">分支详情</h2>
           <div class="mt-5 space-y-4 text-sm">
             <div class="flex items-center justify-between">
               <h3 class="text-base font-bold text-slate-950">${escapeHtml(selected.lane)} ${escapeHtml(selected.id)}</h3>
@@ -1274,8 +1278,8 @@ function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?
           </div>
         </aside>
       </section>
-      <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-lg font-bold text-slate-950">工单对象列表（共 78 条）</h2>
+      <section class="rounded-lg border bg-card p-4">
+        <h2 class="text-base font-semibold">工单对象列表（共 78 条）</h2>
         ${renderLedgerTable(['工单类型', '工单编号', '来源对象', '当前节点', '计划 / 实际时间', '数量', '状态', '当前责任方', '操作'], [
           ['印花工单', 'PF-240618-02', '印花需求 PF-240618-02', '印花生产', '06-16 08:00 ~ 06-18 18:00 / 06-16 09:12 ~ 进行中', '1,400 件', '生产中', '苏州印花厂（王建国）', '查看 | 转派 | 更多'],
           ['染色工单', 'DY-240618-02', '染色需求 DY-240618-02', '染色生产', '06-15 08:00 ~ 06-18 18:00 / 06-15 09:20 ~ 进行中', '4,000 米', '相回仓', '苏州染仓（李小涵）', '查看 | 转派 | 更多'],
@@ -1304,8 +1308,8 @@ function renderHandoverTab(order: ProductionOrderTrackingRecord, selectedNode?: 
         ${renderSmallStat('返工对象', '1 批次', '320 件', 'text-blue-600')}
       </section>
       <section class="grid grid-cols-[minmax(0,1fr)_330px] gap-4">
-        <div class="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-lg font-bold text-slate-950">交接事件时间线</h2>
+        <div class="min-w-0 rounded-lg border bg-card p-4">
+          <h2 class="text-base font-semibold">交接事件时间线</h2>
           <div class="mt-4 overflow-x-auto">
             <div class="grid min-w-[1250px]" style="grid-template-columns:110px repeat(5, 220px);">
               <div class="border border-slate-100 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600">阶段</div>
@@ -1318,7 +1322,7 @@ function renderHandoverTab(order: ProductionOrderTrackingRecord, selectedNode?: 
                   return `
                     <div class="relative h-24 border border-slate-100 p-2">
                       <button
-                        class="h-full w-full rounded-lg border px-3 py-2 text-left text-xs shadow-sm ${selected.id === event.id ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-100' : 'border-slate-200 bg-white hover:border-blue-300'}"
+                        class="h-full w-full rounded-lg border bg-background px-3 py-2 text-left text-xs transition hover:bg-muted/40 ${selected.id === event.id ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-100' : 'hover:border-blue-300'}"
                         data-production-order-progress-action="select-node"
                         data-order-no="${escapeHtml(order.no)}"
                         data-tab="handover"
@@ -1337,8 +1341,8 @@ function renderHandoverTab(order: ProductionOrderTrackingRecord, selectedNode?: 
             </div>
           </div>
         </div>
-        <aside class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-lg font-bold text-slate-950">交接 / 质检详情</h2>
+        <aside class="rounded-lg border bg-card p-4">
+          <h2 class="text-base font-semibold">交接 / 质检详情</h2>
           <div class="mt-5 space-y-4 text-sm">
             <div class="flex items-center justify-between">
               <h3 class="text-base font-bold text-slate-950">${escapeHtml(selected.id)}</h3>
@@ -1377,8 +1381,8 @@ function renderHandoverTab(order: ProductionOrderTrackingRecord, selectedNode?: 
           </div>
         </aside>
       </section>
-      <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-lg font-bold text-slate-950">交接与质检记录明细</h2>
+      <section class="rounded-lg border bg-card p-4">
+        <h2 class="text-base font-semibold">交接与质检记录明细</h2>
         ${renderLedgerTable(['记录类型', '编号', '来源对象', '交出方 / 质检方', '接收方 / 被检方', '时间', '交出数量', '接收数量', '差异', '质量结论', '状态', '处理结果'], [
           ['交出记录', 'HD-CUT-240618-02', '裁床', '裁床一组（CUT-01）', '车缝一组（SEW-01）', '2026-06-11 14:20', '2,000', '1,980', '-20', '--', '部分接收', '补接收完成'],
           ['交出记录', 'HD-SEW-240618-03', '车缝', '车缝一组（SEW-01）', '后道整烫组（FIN-01）', '2026-06-14 09:20', '2,000', '1,970', '-30', '部分合格', '差异异议', '待处理'],
@@ -1403,8 +1407,8 @@ function renderSettlementTab(_order: ProductionOrderTrackingRecord): string {
       </section>
       <section class="grid grid-cols-[minmax(0,1fr)_320px] gap-4">
         <div class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-          <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 class="text-lg font-bold text-slate-950">完成节点统计</h2>
+          <article class="rounded-lg border bg-card p-4">
+            <h2 class="text-base font-semibold">完成节点统计</h2>
             <div class="mt-5 flex items-center gap-6">
               <div class="flex h-36 w-36 items-center justify-center rounded-full" style="background:conic-gradient(#10b981 0 89%, #3b82f6 89% 94%, #ef4444 94% 100%);">
                 <div class="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white">
@@ -1419,8 +1423,8 @@ function renderSettlementTab(_order: ProductionOrderTrackingRecord): string {
               </div>
             </div>
           </article>
-          <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 class="text-lg font-bold text-slate-950">成本构成（预结算）</h2>
+          <article class="rounded-lg border bg-card p-4">
+            <h2 class="text-base font-semibold">成本构成（预结算）</h2>
             <div class="mt-5 grid grid-cols-[130px_1fr] gap-5">
               <div class="flex h-32 w-32 items-center justify-center rounded-full" style="background:conic-gradient(#3b82f6 0 51%, #10b981 51% 80%, #f97316 80% 88%, #94a3b8 88% 94%, #cbd5e1 94% 100%);">
                 <div class="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-white text-center">
@@ -1437,8 +1441,8 @@ function renderSettlementTab(_order: ProductionOrderTrackingRecord): string {
               </div>
             </div>
           </article>
-          <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 class="text-lg font-bold text-slate-950">质量扣款流程</h2>
+          <article class="rounded-lg border bg-card p-4">
+            <h2 class="text-base font-semibold">质量扣款流程</h2>
             <div class="mt-6 flex items-center justify-between text-xs text-slate-600">
               ${['发现问题', '供应商确认', '扣款评审', '财务入账'].map((step, index) => `
                 <div class="flex flex-1 items-center">
@@ -1457,8 +1461,8 @@ function renderSettlementTab(_order: ProductionOrderTrackingRecord): string {
               <div><p class="text-slate-500">已入账</p><p class="mt-1 font-bold">¥32,450</p></div>
             </div>
           </article>
-          <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 class="text-lg font-bold text-slate-950">异议处理进度</h2>
+          <article class="rounded-lg border bg-card p-4">
+            <h2 class="text-base font-semibold">异议处理进度</h2>
             <div class="mt-6 flex items-center justify-between text-xs">
               ${['已登记', '供应商处理', '复审中', '已关闭'].map((step) => `
                 <div class="text-center">
@@ -1474,8 +1478,8 @@ function renderSettlementTab(_order: ProductionOrderTrackingRecord): string {
               <div><p class="text-slate-500">已关闭</p><p class="mt-1 font-bold">3</p></div>
             </div>
           </article>
-          <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 class="text-lg font-bold text-slate-950">交期表现</h2>
+          <article class="rounded-lg border bg-card p-4">
+            <h2 class="text-base font-semibold">交期表现</h2>
             <div class="mt-4 space-y-4 text-sm">
               ${[
                 ['计划交付', '2026-06-25', 'w-[90%]'],
@@ -1491,8 +1495,8 @@ function renderSettlementTab(_order: ProductionOrderTrackingRecord): string {
               `).join('')}
             </div>
           </article>
-          <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 class="text-lg font-bold text-slate-950">主要异常原因排行</h2>
+          <article class="rounded-lg border bg-card p-4">
+            <h2 class="text-base font-semibold">主要异常原因排行</h2>
             <div class="mt-4 space-y-3 text-sm">
               ${[
                 ['面料辅料延期到货', '42.1%', 'w-[72%]'],
@@ -1511,9 +1515,9 @@ function renderSettlementTab(_order: ProductionOrderTrackingRecord): string {
             </div>
           </article>
         </div>
-        <aside class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <aside class="rounded-lg border bg-card p-4">
           <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold text-slate-950">复盘结论</h2>
+            <h2 class="text-lg font-semibold">复盘结论</h2>
             ${badge('达成', 'border-emerald-200 bg-emerald-50 text-emerald-700')}
           </div>
           <div class="mt-5 space-y-3">
@@ -1546,7 +1550,7 @@ function renderSettlementTab(_order: ProductionOrderTrackingRecord): string {
           </div>
         </aside>
       </section>
-      <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section class="rounded-lg border bg-card p-4">
         <div class="flex gap-6 border-b border-slate-100 text-sm font-semibold">
           <span class="border-b-2 border-blue-600 pb-3 text-blue-600">结算记录</span>
           <span class="pb-3 text-slate-500">质量扣款记录</span>
@@ -1568,13 +1572,13 @@ function renderLedgerTable(headers: string[], rows: string[][]): string {
   return `
     <div class="mt-4 overflow-x-auto">
       <table class="min-w-full text-left text-sm">
-        <thead class="bg-slate-50 text-xs font-semibold text-slate-500">
-          <tr>${headers.map((header) => `<th class="whitespace-nowrap border-b border-slate-100 px-4 py-3">${escapeHtml(header)}</th>`).join('')}</tr>
+        <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
+          <tr>${headers.map((header) => `<th class="whitespace-nowrap px-3 py-2 font-medium">${escapeHtml(header)}</th>`).join('')}</tr>
         </thead>
         <tbody>
           ${rows.map((row) => `
-            <tr class="border-b border-slate-100 last:border-b-0">
-              ${row.map((cell, index) => `<td class="whitespace-nowrap px-4 py-3 ${index === row.length - 1 ? 'font-medium text-blue-600' : cell.includes('-') && cell.includes('¥') ? 'text-red-600' : cell.startsWith('-') ? 'text-red-600' : 'text-slate-700'}">${escapeHtml(cell)}</td>`).join('')}
+            <tr class="border-b last:border-b-0">
+              ${row.map((cell, index) => `<td class="whitespace-nowrap px-3 py-3 ${index === row.length - 1 ? 'font-medium text-blue-600' : cell.includes('-') && cell.includes('¥') ? 'text-red-600' : cell.startsWith('-') ? 'text-red-600' : 'text-slate-700'}">${escapeHtml(cell)}</td>`).join('')}
             </tr>
           `).join('')}
         </tbody>
@@ -1596,12 +1600,12 @@ function renderDetailPage(): string {
   const order = getActiveOrder()
   const tab = getActiveTab()
   return `
-    <div class="min-h-screen bg-slate-50 p-4 text-slate-900"
+    <div class="space-y-4"
       data-production-order-progress-root
       data-page-mode="detail"
       data-order-no="${escapeHtml(order.no)}"
       data-active-tab="${tab}">
-      <div class="mx-auto max-w-[1840px] space-y-4">
+      <div class="space-y-4">
         ${renderDetailHeader(order, tab)}
         <div data-production-order-progress-tab-body>
           ${renderDetailBody(order, tab)}
@@ -1635,7 +1639,7 @@ function updateActiveTabNav(root: HTMLElement, tab: TrackingTab): void {
   const tabButtons = root.querySelectorAll<HTMLButtonElement>('[data-production-order-progress-tab]')
   tabButtons.forEach((button) => {
     const active = button.dataset.productionOrderProgressTab === tab
-    button.className = `relative h-12 text-sm font-semibold ${active ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'}`
+    button.className = `relative h-10 text-sm font-medium ${active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`
     button.querySelector('[data-tab-underline]')?.remove()
     if (active) {
       button.insertAdjacentHTML('beforeend', '<span data-tab-underline class="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-blue-600"></span>')
