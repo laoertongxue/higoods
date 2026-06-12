@@ -99,6 +99,9 @@ function resolveBindingStripSpuCode(order: ReturnType<typeof buildBindingProcess
 }
 
 function resolveBindingStripCuttingLength(detail: AnyFeiTicket): number {
+  const rollLength = Number(detail.rollLength || 0)
+  const rollCount = Number(detail.actualRollCount || 0)
+  if (rollLength > 0 && rollCount > 0) return Number((rollLength * rollCount).toFixed(2))
   if (detail.cuttingMethod === '直切') return Number(detail.straightCutLength || detail.actualLength || 0)
   if (detail.cuttingMethod === '横切') return Number(detail.crossCutLength || detail.actualLength || 0)
   return Number(detail.biasCutLength || detail.actualLength || 0)
@@ -133,8 +136,11 @@ function bindingDetailToFeiRecord(order: ReturnType<typeof buildBindingProcessOr
     receivedMaterialLengthLabel: detail.receivedMaterialLength ? `${Number(detail.receivedMaterialLength || 0).toFixed(2)} m` : '待记录',
     actualLength: detail.actualLength,
     actualLengthLabel: detail.actualLength ? `${Number(detail.actualLength || 0).toFixed(2)} m` : '待回写',
+    rollLength: detail.rollLength,
+    rollLengthLabel: detail.rollLength ? `${Number(detail.rollLength || 0).toFixed(2)} m/卷` : '待记录',
     cuttingLength,
     cuttingLengthLabel: cuttingLength ? `${cuttingLength.toFixed(2)} m` : '待记录',
+    cuttingLengthFormulaLabel: '切割长度 = 每卷长度 × 实切卷数',
     actualRollCount: detail.actualRollCount,
     actualRollCountLabel: detail.actualRollCount ? `${Number(detail.actualRollCount || 0).toLocaleString('zh-CN')} 卷` : '待记录',
     recordedAt: detail.latestRecordedAt || '待记录',
@@ -318,7 +324,9 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
         { label: '切割方式', value: record.cuttingMethodLabel || record.cuttingMethod, emphasis: true },
         { label: '捆条宽度', value: record.bindingWidthLabel || printProjection.businessSizeLabel, emphasis: true },
         { label: '实际完成总长度', value: record.actualLengthLabel, emphasis: true },
+        { label: '每卷长度', value: record.rollLengthLabel },
         { label: '实切卷数', value: record.actualRollCountLabel },
+        { label: '切割公式', value: record.cuttingLengthFormulaLabel },
         { label: '面料/颜色', value: printProjection.materialWithColorLabel, emphasis: true },
         { label: '计划数量', value: record.plannedGarmentQtyLabel },
         { label: '单件捆条长度', value: record.unitBindingLengthLabel },
@@ -687,6 +695,8 @@ function renderBindingStripFeiBusinessLabelItem(item: PrintLabelItem, paperType:
           ${renderFeiBusinessCell('需要布料长度', getLabelFieldValue(item, '需要布料长度'), { emphasis: true })}
           ${renderFeiBusinessCell('接收布料长度', getLabelFieldValue(item, '接收布料长度'))}
           ${renderFeiBusinessCell('实际完成总长度', getLabelFieldValue(item, '实际完成总长度'), { emphasis: true })}
+          ${renderFeiBusinessCell('每卷长度', getLabelFieldValue(item, '每卷长度'))}
+          ${renderFeiBusinessCell('切割公式', getLabelFieldValue(item, '切割公式'))}
           ${renderFeiBusinessCell('切割长度', getLabelFieldValue(item, '切割长度'))}
           ${renderFeiBusinessCell('实切卷数', getLabelFieldValue(item, '实切卷数'))}
           ${renderFeiBusinessCell('记录时间', getLabelFieldValue(item, '记录时间'))}

@@ -309,10 +309,10 @@ function renderDetailTable(rows: CuttingAbMaterialDetailRow[], page: number, pag
               <div class="text-xs text-muted-foreground">同一 SPU + 生产单号 + 颜色下，按实际裁剪数量最大值计算差异。</div>
             </div>
             <div class="overflow-x-auto">
-              <table class="w-full min-w-[1260px] text-left text-sm">
+              <table class="w-full min-w-[1160px] text-left text-sm">
                 <thead class="bg-muted/60 text-xs text-muted-foreground">
                   <tr>
-                    ${['SPU', '生产单号', '颜色', '物料', '关联技术包版本&纸样', '属性', '计划数量', '实际裁剪数量', '组内最大实际裁剪数量', '缺(实际−最大)', '状态', '最近裁剪时间', '裁床/工位'].map((head) => `<th class="px-3 py-2 font-medium">${escapeHtml(head)}</th>`).join('')}
+                    ${['SPU', '生产单号', '颜色', '物料', '关联技术包版本&纸样', '属性', '计划数量', '实际裁剪数量', '组内最大实际裁剪数量', '缺(实际−最大)', '状态', '最近裁剪时间'].map((head) => `<th class="px-3 py-2 font-medium">${escapeHtml(head)}</th>`).join('')}
                   </tr>
                 </thead>
                 <tbody>
@@ -330,7 +330,6 @@ function renderDetailTable(rows: CuttingAbMaterialDetailRow[], page: number, pag
                       <td class="px-3 py-3 font-semibold ${row.actualMinusGroupMaxQty < 0 ? 'text-rose-700' : 'text-emerald-700'}">${formatQty(row.actualMinusGroupMaxQty)}</td>
                       <td class="px-3 py-3">${renderStatus(row.status)}</td>
                       <td class="px-3 py-3">${escapeHtml(row.latestCutAt || '暂无裁剪')}</td>
-                      <td class="px-3 py-3">${escapeHtml(row.cuttingTableName)}</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -418,7 +417,7 @@ export function buildCuttingAbMaterialExcelHtml(filters: CuttingAbMaterialFilter
     ]),
   )
   const detailTable = renderExcelTable(
-    ['SPU', '生产单号', '颜色', '物料SKU', '物料名称', '技术包版本号', '纸样名称', '属性', '计划数量', '实际裁剪数量', '组内最大实际裁剪数量', '缺(实际−最大)', '状态', '最近裁剪时间', '数据更新时间', '裁床/工位'],
+    ['SPU', '生产单号', '颜色', '物料SKU', '物料名称', '技术包版本号', '纸样名称', '属性', '计划数量', '实际裁剪数量', '组内最大实际裁剪数量', '缺(实际−最大)', '状态', '最近裁剪时间', '数据更新时间'],
     report.detailRows.map((row) => [
       row.spuCode,
       row.productionOrderNo,
@@ -435,7 +434,6 @@ export function buildCuttingAbMaterialExcelHtml(filters: CuttingAbMaterialFilter
       row.status,
       row.latestCutAt,
       row.updatedAt,
-      row.cuttingTableName,
     ]),
   )
 

@@ -79,6 +79,10 @@ function estimateDisplayedRollCount(lengthM: number): number {
   return Math.max(Math.ceil(Number(lengthM) / 120), 1)
 }
 
+function roundLength(value: number): number {
+  return Number(Number(value || 0).toFixed(2))
+}
+
 function resolveCuttingMethodLength(
   item: Pick<BindingStripWorkOrderDetail | BindingStripCuttingRecord, 'cuttingMethod' | 'straightCutLength' | 'crossCutLength' | 'biasCutLength' | 'actualLength'>,
 ): number {
@@ -87,10 +91,34 @@ function resolveCuttingMethodLength(
   return item.biasCutLength || item.actualLength || 0
 }
 
-function formatCuttingMethodLength(
-  item: Pick<BindingStripWorkOrderDetail | BindingStripCuttingRecord, 'cuttingMethod' | 'straightCutLength' | 'crossCutLength' | 'biasCutLength' | 'actualLength'>,
+function resolveRollLength(
+  item: Pick<BindingStripWorkOrderDetail | BindingStripCuttingRecord, 'rollLength' | 'actualRollCount' | 'actualLength' | 'cuttingMethod' | 'straightCutLength' | 'crossCutLength' | 'biasCutLength'>,
+): number {
+  if (item.rollLength > 0) return item.rollLength
+  const rollCount = item.actualRollCount || estimateDisplayedRollCount(item.actualLength || resolveCuttingMethodLength(item))
+  if (!rollCount) return 0
+  return roundLength((item.actualLength || resolveCuttingMethodLength(item)) / rollCount)
+}
+
+function resolveCalculatedCuttingLength(
+  item: Pick<BindingStripWorkOrderDetail | BindingStripCuttingRecord, 'rollLength' | 'actualRollCount' | 'actualLength' | 'cuttingMethod' | 'straightCutLength' | 'crossCutLength' | 'biasCutLength'>,
+): number {
+  const rollLength = resolveRollLength(item)
+  const rollCount = item.actualRollCount || estimateDisplayedRollCount(item.actualLength || resolveCuttingMethodLength(item))
+  if (rollLength > 0 && rollCount > 0) return roundLength(rollLength * rollCount)
+  return resolveCuttingMethodLength(item)
+}
+
+function formatRollLength(
+  item: Pick<BindingStripWorkOrderDetail | BindingStripCuttingRecord, 'rollLength' | 'actualRollCount' | 'actualLength' | 'cuttingMethod' | 'straightCutLength' | 'crossCutLength' | 'biasCutLength'>,
 ): string {
-  return `切割长度：${formatRecordedLength(resolveCuttingMethodLength(item))}`
+  return `每卷长度：${formatRecordedLength(resolveRollLength(item))}`
+}
+
+function formatCuttingMethodLength(
+  item: Pick<BindingStripWorkOrderDetail | BindingStripCuttingRecord, 'rollLength' | 'actualRollCount' | 'cuttingMethod' | 'straightCutLength' | 'crossCutLength' | 'biasCutLength' | 'actualLength'>,
+): string {
+  return `切割长度：${formatRecordedLength(resolveCalculatedCuttingLength(item))}`
 }
 
 function renderMinRequiredLengthNote(detail: BindingStripWorkOrderDetail): string {
@@ -409,7 +437,9 @@ function renderDetailRows(details: BindingStripWorkOrderDetail[]): string {
               </td>
               <td class="px-3 py-3 text-xs text-muted-foreground">
                 <div>实际完成总长度：${escapeHtml(formatRecordedLength(detail.actualLength))}</div>
+                <div>${escapeHtml(formatRollLength(detail))}</div>
                 <div>${escapeHtml(formatCuttingMethodLength(detail))}</div>
+                <div class="text-[11px]">切割长度 = 每卷长度 × 实切卷数</div>
                 <div>实切卷数：${detail.actualRollCount ? `${formatCount(detail.actualRollCount)} 卷` : '待记录'}</div>
                 <div>记录时间：${escapeHtml(detail.latestRecordedAt || '待记录')}</div>
               </td>
@@ -452,8 +482,10 @@ function renderCuttingRecords(row: BindingProcessOrder): string {
           </div>
           <div class="mt-2 grid gap-1 text-xs text-muted-foreground md:grid-cols-2">
             <div>接收布料：${escapeHtml(formatLength(record.receivedMaterialLength))}</div>
+            <div>${escapeHtml(formatRollLength(record))}</div>
             <div>实切卷数：${formatCount(record.actualRollCount)} 卷</div>
             <div>${escapeHtml(formatCuttingMethodLength(record))}</div>
+            <div>公式：切割长度 = 每卷长度 × 实切卷数</div>
             <div>操作人：${escapeHtml(record.operatorName)}</div>
           </div>
           <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(record.remark || '无备注')}</div>
@@ -625,7 +657,7 @@ function renderRecordCuttingDialog(row: BindingProcessOrder): string {
         <div class="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <h2 class="text-lg font-semibold text-foreground">记录裁剪</h2>
-            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.bindingOrderNo)} · 按捆条规格记录接收布料、实际完成长度、对应切割长度和实切卷数</p>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.bindingOrderNo)} · 按捆条规格记录接收布料、每卷长度和实切卷数，切割长度自动计算</p>
           </div>
           <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-binding-action="close-overlay">关闭</button>
         </div>
@@ -637,70 +669,75 @@ function renderRecordCuttingDialog(row: BindingProcessOrder): string {
             ${renderDetailMetric('需要布料长度', formatLength(row.requiredMaterialLength))}
           </div>
           <div class="mt-4 overflow-x-auto rounded-lg border">
-            <table class="w-full min-w-[1120px] text-sm">
+            <table class="w-full min-w-[1160px] text-sm">
               <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
                   <th class="px-3 py-3">捆条规格</th>
                   <th class="px-3 py-3">切割方式</th>
                   <th class="px-3 py-3">计划数据</th>
                   <th class="px-3 py-3">接收布料长度</th>
-                  <th class="px-3 py-3">实际完成总长度</th>
-                  <th class="px-3 py-3">切割长度</th>
+                  <th class="px-3 py-3">每卷长度</th>
                   <th class="px-3 py-3">实切卷数</th>
+                  <th class="px-3 py-3">切割长度</th>
                   <th class="px-3 py-3">记录时间</th>
                   <th class="px-3 py-3">操作员工</th>
                   <th class="px-3 py-3">备注</th>
                 </tr>
               </thead>
               <tbody class="divide-y">
-                ${row.bindingDetails.map((detail) => `
-                  <tr>
-                    <td class="px-3 py-3">
-                      <div class="font-medium text-foreground">${escapeHtml(detail.bindingStripName)}</div>
-                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${detail.bindingWidth} cm / ${detail.feiTicketNo}`)}</div>
-                    </td>
-                    <td class="px-3 py-3 text-xs text-muted-foreground">
-                      <div class="font-medium text-foreground">${escapeHtml(detail.cuttingMethod)}</div>
-                      <div class="mt-1">${escapeHtml(detail.cuttingMethodIndonesian)}</div>
-                    </td>
-                    <td class="px-3 py-3 text-xs text-muted-foreground">
-                      <div>计划数量：${formatCount(detail.plannedGarmentQty)} 件</div>
-                      <div>单件捆条：${escapeHtml(formatLength(detail.unitBindingLength))}</div>
-                      <div>捆条需要：${escapeHtml(formatLength(detail.plannedBindingLength))}</div>
-                      <div>需要布料：${escapeHtml(formatLength(detail.requiredLength))}</div>
-                    </td>
-                    <td class="px-3 py-3">
-                      <input data-skip-page-rerender="true" class="h-9 w-24 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(String(detail.receivedMaterialLength || detail.requiredLength || 0))}" />
-                      <span class="ml-1 text-xs text-muted-foreground">m</span>
-                    </td>
-                    <td class="px-3 py-3">
-                      <input data-skip-page-rerender="true" class="h-9 w-24 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(String(detail.actualLength || detail.plannedBindingLength || 0))}" />
-                      <span class="ml-1 text-xs text-muted-foreground">m</span>
-                    </td>
-                    <td class="px-3 py-3">
-                      <input data-skip-page-rerender="true" class="h-9 w-24 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(String(resolveCuttingMethodLength(detail) || detail.actualLength || detail.plannedBindingLength || 0))}" />
-                      <span class="ml-1 text-xs text-muted-foreground">m</span>
-                      <div class="mt-1 text-xs text-muted-foreground">按该切割方式记录</div>
-                    </td>
-                    <td class="px-3 py-3">
-                      <input data-skip-page-rerender="true" class="h-9 w-20 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(String(detail.actualRollCount || estimateDisplayedRollCount(detail.actualLength || detail.plannedBindingLength)))}" />
-                    </td>
-                    <td class="px-3 py-3">
-                      <input data-skip-page-rerender="true" class="h-9 w-36 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(detail.latestRecordedAt || '2026-06-12 09:30')}" />
-                    </td>
-                    <td class="px-3 py-3">
-                      <input data-skip-page-rerender="true" class="h-9 w-32 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(row.operatorName || 'Budi Santoso')}" />
-                    </td>
-                    <td class="px-3 py-3">
-                      <input data-skip-page-rerender="true" class="h-9 w-44 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="本次裁剪备注" />
-                    </td>
-                  </tr>
-                `).join('')}
+                ${row.bindingDetails.map((detail) => {
+                  const rollCount = detail.actualRollCount || estimateDisplayedRollCount(detail.actualLength || detail.plannedBindingLength)
+                  const rollLength = resolveRollLength(detail) || (rollCount ? roundLength((detail.actualLength || detail.plannedBindingLength) / rollCount) : 0)
+                  const cuttingLength = roundLength(rollLength * rollCount)
+                  return `
+                    <tr data-binding-detail-row="${escapeHtml(detail.detailId)}">
+                      <td class="px-3 py-3">
+                        <div class="font-medium text-foreground">${escapeHtml(detail.bindingStripName)}</div>
+                        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${detail.bindingWidth} cm / ${detail.feiTicketNo}`)}</div>
+                      </td>
+                      <td class="px-3 py-3 text-xs text-muted-foreground">
+                        <div class="font-medium text-foreground">${escapeHtml(detail.cuttingMethod)}</div>
+                        <div class="mt-1">${escapeHtml(detail.cuttingMethodIndonesian)}</div>
+                      </td>
+                      <td class="px-3 py-3 text-xs text-muted-foreground">
+                        <div>计划数量：${formatCount(detail.plannedGarmentQty)} 件</div>
+                        <div>单件捆条：${escapeHtml(formatLength(detail.unitBindingLength))}</div>
+                        <div>捆条需要：${escapeHtml(formatLength(detail.plannedBindingLength))}</div>
+                        <div>需要布料：${escapeHtml(formatLength(detail.requiredLength))}</div>
+                      </td>
+                      <td class="px-3 py-3">
+                        <input data-skip-page-rerender="true" class="h-9 w-24 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(String(detail.receivedMaterialLength || detail.requiredLength || 0))}" />
+                        <span class="ml-1 text-xs text-muted-foreground">m</span>
+                      </td>
+                      <td class="px-3 py-3">
+                        <input data-skip-page-rerender="true" data-binding-roll-length="true" class="h-9 w-24 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(String(rollLength || 0))}" />
+                        <span class="ml-1 text-xs text-muted-foreground">m/卷</span>
+                      </td>
+                      <td class="px-3 py-3">
+                        <input data-skip-page-rerender="true" data-binding-roll-count="true" class="h-9 w-20 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(String(rollCount || 0))}" />
+                      </td>
+                      <td class="px-3 py-3">
+                        <div class="font-medium text-foreground"><span data-binding-cutting-length="true">${escapeHtml(cuttingLength.toFixed(2))}</span> m</div>
+                        <div class="mt-1 text-xs text-muted-foreground">切割长度 = 每卷长度 × 实切卷数</div>
+                        <div class="mt-1 text-xs text-muted-foreground">实际完成总长度同步取此值</div>
+                      </td>
+                      <td class="px-3 py-3">
+                        <input data-skip-page-rerender="true" class="h-9 w-36 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(detail.latestRecordedAt || '2026-06-12 09:30')}" />
+                      </td>
+                      <td class="px-3 py-3">
+                        <input data-skip-page-rerender="true" class="h-9 w-32 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value="${escapeHtml(row.operatorName || 'Budi Santoso')}" />
+                      </td>
+                      <td class="px-3 py-3">
+                        <input data-skip-page-rerender="true" class="h-9 w-44 rounded-md border px-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="本次裁剪备注" />
+                      </td>
+                    </tr>
+                  `
+                }).join('')}
               </tbody>
             </table>
           </div>
           <div class="mt-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-            记录裁剪只回写捆条加工单自身的分批裁剪记录；每个规格只维护一种切割方式，系统按实际完成总长度与捆条需要长度判断充足或捆条不足，并将录入结果带到菲票。
+            记录裁剪只回写捆条加工单自身的分批裁剪记录；每个规格只维护一种切割方式，系统按“切割长度 = 每卷长度 × 实切卷数”计算实际完成总长度，并将录入结果带到菲票。
           </div>
         </div>
         <div class="flex justify-end gap-2 border-t px-5 py-4">
@@ -749,6 +786,21 @@ function renderFinishDialog(row: BindingProcessOrder): string {
   `
 }
 
+function parseBindingNumberInput(input: HTMLInputElement | null): number {
+  if (!input) return 0
+  const value = Number(input.value)
+  return Number.isFinite(value) ? Math.max(value, 0) : 0
+}
+
+function updateBindingCalculatedCuttingLength(row: Element | null): void {
+  if (!row) return
+  const rollLength = parseBindingNumberInput(row.querySelector<HTMLInputElement>('[data-binding-roll-length]'))
+  const rollCount = parseBindingNumberInput(row.querySelector<HTMLInputElement>('[data-binding-roll-count]'))
+  const output = row.querySelector<HTMLElement>('[data-binding-cutting-length]')
+  if (!output) return
+  output.textContent = roundLength(rollLength * rollCount).toFixed(2)
+}
+
 function openBindingActionModal(row: BindingProcessOrder, action: 'record-cutting' | 'finish'): void {
   removeBindingActionModal()
   const wrapper = document.createElement('div')
@@ -765,6 +817,13 @@ function openBindingActionModal(row: BindingProcessOrder, action: 'record-cuttin
       event.stopPropagation()
       handleCraftCuttingSpecialProcessesEvent(eventTarget)
     })
+    modal.addEventListener('input', (event) => {
+      const eventTarget = event.target
+      if (!(eventTarget instanceof HTMLInputElement)) return
+      if (!eventTarget.matches('[data-binding-roll-length], [data-binding-roll-count]')) return
+      updateBindingCalculatedCuttingLength(eventTarget.closest('[data-binding-detail-row]'))
+    })
+    modal.querySelectorAll('[data-binding-detail-row]').forEach(updateBindingCalculatedCuttingLength)
     document.body.appendChild(modal)
   }
 }

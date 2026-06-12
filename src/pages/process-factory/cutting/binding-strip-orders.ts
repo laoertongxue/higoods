@@ -378,6 +378,21 @@ function estimateRollCount(actualLength: number): number {
   return Math.max(Math.ceil(actualLength / 120), 1)
 }
 
+function buildCuttingLengthByRolls(
+  method: BindingStripCuttingMethod,
+  targetLength: number,
+): Pick<BindingStripCuttingRecord, 'actualLength' | 'straightCutLength' | 'crossCutLength' | 'biasCutLength' | 'rollLength' | 'actualRollCount'> {
+  const actualRollCount = estimateRollCount(targetLength)
+  const rollLength = actualRollCount ? roundTo(targetLength / actualRollCount, 2) : 0
+  const actualLength = roundTo(rollLength * actualRollCount, 2)
+  return {
+    actualLength,
+    ...buildCutLengthBreakdown(method, actualLength),
+    rollLength,
+    actualRollCount,
+  }
+}
+
 function buildCuttingRecords(
   detailId: string,
   line: BindingStripRequirementLine,
@@ -390,8 +405,8 @@ function buildCuttingRecords(
   if (status === '加工中') {
     const firstLength = roundTo(line.plannedBindingLengthM * (detailIndex === 0 ? 0.32 : 0.22), 2)
     const secondLength = detailIndex === 0 ? roundTo(line.plannedBindingLengthM * 0.28, 2) : 0
-    const firstBreakdown = buildCutLengthBreakdown(line.cuttingMethod, firstLength)
-    const secondBreakdown = buildCutLengthBreakdown(line.cuttingMethod, secondLength)
+    const firstCuttingLength = buildCuttingLengthByRolls(line.cuttingMethod, firstLength)
+    const secondCuttingLength = buildCuttingLengthByRolls(line.cuttingMethod, secondLength)
     return [
       {
         recordId: `${detailId}-cut-01`,
@@ -400,9 +415,7 @@ function buildCuttingRecords(
         bindingWidth: line.bindingWidthCm,
         cuttingMethod: line.cuttingMethod,
         receivedMaterialLength: roundTo(line.requiredLengthM * 0.7, 2),
-        actualLength: firstLength,
-        ...firstBreakdown,
-        actualRollCount: estimateRollCount(firstLength),
+        ...firstCuttingLength,
         operatorName: '裁床组长 梁敏',
         operatedAt: `${baseAt} 09:20`,
         remark: `第一批${line.cuttingMethod}，按当前可用面料先做。`,
@@ -415,9 +428,7 @@ function buildCuttingRecords(
             bindingWidth: line.bindingWidthCm,
             cuttingMethod: line.cuttingMethod,
             receivedMaterialLength: roundTo(line.requiredLengthM * 0.3, 2),
-            actualLength: secondLength,
-            ...secondBreakdown,
-            actualRollCount: estimateRollCount(secondLength),
+            ...secondCuttingLength,
             operatorName: '裁床组员 陈芳',
             operatedAt: `${baseAt} 14:10`,
             remark: `第二批补做，剩余${line.cuttingMethod}长度继续加工。`,
@@ -429,8 +440,8 @@ function buildCuttingRecords(
   const actualRate = orderIndex % 5 === 2 ? 0.82 : 1
   const firstLength = roundTo(line.plannedBindingLengthM * Math.min(actualRate, 0.58), orderIndex % 5 === 2 ? 3 : 2)
   const secondLength = roundTo(Math.max(line.plannedBindingLengthM * actualRate - firstLength, 0), orderIndex % 5 === 2 ? 3 : 2)
-  const firstBreakdown = buildCutLengthBreakdown(line.cuttingMethod, firstLength)
-  const secondBreakdown = buildCutLengthBreakdown(line.cuttingMethod, secondLength)
+  const firstCuttingLength = buildCuttingLengthByRolls(line.cuttingMethod, firstLength)
+  const secondCuttingLength = buildCuttingLengthByRolls(line.cuttingMethod, secondLength)
   return [
     {
       recordId: `${detailId}-cut-01`,
@@ -439,9 +450,7 @@ function buildCuttingRecords(
       bindingWidth: line.bindingWidthCm,
       cuttingMethod: line.cuttingMethod,
       receivedMaterialLength: roundTo(line.requiredLengthM * 0.62, 2),
-      actualLength: firstLength,
-      ...firstBreakdown,
-      actualRollCount: estimateRollCount(firstLength),
+      ...firstCuttingLength,
       operatorName: '裁床组长 梁敏',
       operatedAt: `${baseAt} 09:10`,
       remark: `第一批${line.cuttingMethod}。`,
@@ -453,9 +462,7 @@ function buildCuttingRecords(
       bindingWidth: line.bindingWidthCm,
       cuttingMethod: line.cuttingMethod,
       receivedMaterialLength: roundTo(line.requiredLengthM * 0.38, 2),
-      actualLength: secondLength,
-      ...secondBreakdown,
-      actualRollCount: estimateRollCount(secondLength),
+      ...secondCuttingLength,
       operatorName: '裁床组员 陈芳',
       operatedAt: `${baseAt} 15:40`,
       remark: orderIndex % 5 === 2 ? '手动结束加工，本规格存在短裁差异。' : '本规格累计已完成。',
@@ -511,6 +518,7 @@ function buildDetail(
   const crossCutLength = roundTo(cuttingRecords.reduce((sum, record) => sum + record.crossCutLength, 0), 2)
   const biasCutLength = roundTo(cuttingRecords.reduce((sum, record) => sum + record.biasCutLength, 0), 2)
   const actualRollCount = cuttingRecords.reduce((sum, record) => sum + record.actualRollCount, 0)
+  const rollLength = actualRollCount ? roundTo(actualLength / actualRollCount, 2) : 0
   const shortageLength = roundTo(Math.max(line.plannedBindingLengthM - actualLength, 0), 2)
   const sufficiencyStatus = !actualLength
     ? '待记录'
@@ -545,6 +553,7 @@ function buildDetail(
     straightCutLength,
     crossCutLength,
     biasCutLength,
+    rollLength,
     actualRollCount,
     latestRecordedAt: cuttingRecords[cuttingRecords.length - 1]?.operatedAt || '',
     sufficiencyStatus,

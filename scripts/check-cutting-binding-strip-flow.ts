@@ -55,6 +55,10 @@ function assertUnderBudget(name: string, elapsedMs: number): void {
   )
 }
 
+function assertCloseTo(actual: number, expected: number, message: string): void {
+  assert(Math.abs(actual - expected) <= 0.01, `${message}：实际 ${actual.toFixed(2)}，期望 ${expected.toFixed(2)}`)
+}
+
 function main(): void {
   const rawRequiredLength = calculateBindingStripRawRequiredLengthM(720, 3, 133.7)
   const requiredLength = calculateBindingStripRequiredLengthM(1, 3, 150)
@@ -109,6 +113,11 @@ function main(): void {
   assert(orders.some((order) => new Set(order.bindingDetails.map((detail) => detail.bindingWidth)).size > 1), '缺少同一加工单多规格捆条明细')
   assert(orders.some((order) => order.status === '加工中' && order.cuttingRecords.length > 0), '缺少加工中分批裁剪记录')
   assert(orders.some((order) => order.status === '已完成' && order.cuttingRecords.length > 1), '缺少多次裁剪后完成的记录')
+  const recordedCuttingRows = orders.flatMap((order) => order.cuttingRecords)
+  assert(recordedCuttingRows.every((record) => record.rollLength > 0 && record.actualRollCount > 0), '每条捆条裁剪记录必须有每卷长度和实切卷数')
+  recordedCuttingRows.forEach((record) => {
+    assertCloseTo(record.actualLength, record.rollLength * record.actualRollCount, '捆条切割长度必须等于每卷长度 × 实切卷数')
+  })
   assert(orders.some((order) => order.differenceStatus === '有差异' && order.differenceRecords.some((record) => record.differenceType === '手动结束差异')), '缺少只记录差异的手动结束场景')
   assert(orders.every((order) => !order.sourceSpreadingOrderId && !order.sourceSpreadingOrderNo), '捆条加工单不应绑定具体铺布单')
   assert(orders.some((order) => order.printStatus === '已打印' || order.printStatus === '待打印'), '缺少捆条菲票打印派生状态')
@@ -171,6 +180,8 @@ function main(): void {
   assertIncludes(bindingPrintHtml, '需要布料长度', '捆条菲票打印预览缺少需要布料长度')
   assertIncludes(bindingPrintHtml, '接收布料长度', '捆条菲票打印预览缺少接收布料长度')
   assertIncludes(bindingPrintHtml, '实际完成总长度', '捆条菲票打印预览缺少实际完成总长度')
+  assertIncludes(bindingPrintHtml, '每卷长度', '捆条菲票打印预览缺少每卷长度')
+  assertIncludes(bindingPrintHtml, '切割公式', '捆条菲票打印预览缺少切割公式')
   assertIncludes(bindingPrintHtml, '切割长度', '捆条菲票打印预览缺少唯一切割长度')
   assertIncludes(bindingPrintHtml, '实切卷数', '捆条菲票打印预览缺少实切卷数')
   assertIncludes(bindingPrintHtml, '记录时间', '捆条菲票打印预览缺少记录时间')
@@ -204,7 +215,13 @@ function main(): void {
   assertIncludes(specialProcessPage, '需要布料长度', '捆条加工单页面缺少需要布料长度展示')
   assertIncludes(specialProcessPage, '接收布料长度', '捆条加工单页面缺少接收布料长度展示')
   assertIncludes(specialProcessPage, '实际完成总长度', '捆条加工单页面缺少实际完成总长度展示')
-  assertIncludes(specialProcessPage, '切割长度', '记录裁剪弹窗缺少唯一切割长度录入')
+  assertIncludes(specialProcessPage, '每卷长度', '记录裁剪弹窗缺少每卷长度录入')
+  assertIncludes(specialProcessPage, 'data-binding-roll-length', '记录裁剪弹窗每卷长度必须可局部录入')
+  assertIncludes(specialProcessPage, 'data-binding-roll-count', '记录裁剪弹窗实切卷数必须可局部录入')
+  assertIncludes(specialProcessPage, 'data-binding-cutting-length', '记录裁剪弹窗切割长度必须自动计算展示')
+  assertIncludes(specialProcessPage, '切割长度 = 每卷长度 × 实切卷数', '记录裁剪弹窗缺少切割长度计算公式')
+  assertIncludes(specialProcessPage, 'updateBindingCalculatedCuttingLength', '记录裁剪弹窗缺少每卷长度局部计算逻辑')
+  assertIncludes(specialProcessPage, '切割长度', '记录裁剪弹窗缺少唯一切割长度展示')
   assertNotIncludes(specialProcessPage, '<th class="px-3 py-3">直切长度</th>', '记录裁剪弹窗不允许展示直切长度列')
   assertNotIncludes(specialProcessPage, '<th class="px-3 py-3">横切长度</th>', '记录裁剪弹窗不允许展示横切长度列')
   assertNotIncludes(specialProcessPage, '<th class="px-3 py-3">斜切长度</th>', '记录裁剪弹窗不允许展示斜切长度列')
@@ -239,7 +256,8 @@ function main(): void {
   assertIncludes(feiTicketsPage, 'resolveFeiTicketListMode', '菲票打印页面必须按路由决定部位/捆条列表')
   assertIncludes(feiTicketsPage, 'BINDING_STRIP_ORDER', '菲票类型缺少捆条菲票过滤值')
   assertIncludes(feiTicketsPage, '切割方式：', '捆条菲票打印列表缺少切割方式标签')
-  assertIncludes(feiTicketsPage, '实切卷数：', '捆条菲票打印列表缺少实切卷数标签')
+  assertIncludes(feiTicketsPage, '每卷长度：', '捆条菲票打印列表缺少每卷长度标签')
+  assertIncludes(feiTicketsPage, '切割长度 = 每卷长度 × 实切卷数', '捆条菲票打印列表缺少切割长度计算公式')
   assertNotIncludes(feiTicketsPage, '菲票类型', '拆成两个菜单后页面内不应再提供菲票类型筛选')
   assertIncludes(feiTicketsPage, '全部打印', '菲票打印列表操作必须包含全部打印')
   assertIncludes(feiTicketsPage, '菲票明细', '菲票打印列表操作必须包含菲票明细')
@@ -253,6 +271,8 @@ function main(): void {
   assertIncludes(read('src/pages/print/templates/label-print-template.ts'), '捆条宽度', '捆条菲票打印模板缺少捆条宽度')
   assertIncludes(read('src/pages/print/templates/label-print-template.ts'), '切割方式', '捆条菲票打印模板缺少切割方式')
   assertIncludes(read('src/pages/print/templates/label-print-template.ts'), '实际完成总长度', '捆条菲票打印模板缺少实际完成总长度')
+  assertIncludes(read('src/pages/print/templates/label-print-template.ts'), '每卷长度', '捆条菲票打印模板缺少每卷长度')
+  assertIncludes(read('src/pages/print/templates/label-print-template.ts'), '切割公式', '捆条菲票打印模板缺少切割公式')
   assertIncludes(read('src/pages/print/templates/label-print-template.ts'), '切割长度', '捆条菲票打印模板缺少唯一切割长度')
   assertIncludes(read('src/pages/print/templates/label-print-template.ts'), '实切卷数', '捆条菲票打印模板缺少实切卷数')
   assertIncludes(read('src/pages/print/templates/label-print-template.ts'), 'findFeiRecordInRecords(bindingRecords', '捆条菲票打印预览必须先走捆条记录快路径')

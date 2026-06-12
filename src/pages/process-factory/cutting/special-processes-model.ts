@@ -102,6 +102,7 @@ export interface BindingStripCuttingRecord {
   straightCutLength: number
   crossCutLength: number
   biasCutLength: number
+  rollLength: number
   actualRollCount: number
   operatorName: string
   operatedAt: string
@@ -143,6 +144,7 @@ export interface BindingStripWorkOrderDetail {
   straightCutLength: number
   crossCutLength: number
   biasCutLength: number
+  rollLength: number
   actualRollCount: number
   latestRecordedAt: string
   sufficiencyStatus: BindingStripSufficiencyStatus
@@ -267,6 +269,7 @@ export interface BindingStripProcessPayload {
   straightCutLength: number
   crossCutLength: number
   biasCutLength: number
+  rollLength: number
   actualRollCount: number
   recordedAt: string
   operatorName: string
@@ -506,6 +509,7 @@ function normalizeBindingStripPayload(record: unknown): BindingStripProcessPaylo
     straightCutLength: Number(raw.straightCutLength || 0),
     crossCutLength: Number(raw.crossCutLength || 0),
     biasCutLength: Number(raw.biasCutLength || 0),
+    rollLength: Number(raw.rollLength || 0),
     actualRollCount: Number(raw.actualRollCount || 0),
     recordedAt: typeof raw.recordedAt === 'string' ? raw.recordedAt : '',
     operatorName: typeof raw.operatorName === 'string' ? raw.operatorName : '',
@@ -653,6 +657,7 @@ export function createBindingStripProcessDraft(options: {
     straightCutLength: 0,
     crossCutLength: 0,
     biasCutLength: 0,
+    rollLength: 0,
     actualRollCount: 0,
     recordedAt: '',
     operatorName: '',
@@ -849,18 +854,22 @@ function buildSystemSeedOrders(cutOrderRows: CutOrderRow[], markerPlanSources: M
       createdBy: '工艺专员 叶晓青',
       note: '捆条工艺已进入执行，可继续补录实际数量。',
     }
+    const actualTotalLength = Math.max(seedCutOrder.plannedQty - 4, 0)
+    const actualRollCount = 2
+    const rollLength = actualRollCount ? Number((actualTotalLength / actualRollCount).toFixed(2)) : 0
     const payload: BindingStripProcessPayload = {
       processOrderId: order.processOrderId,
       materialLength: 28,
       cutWidth: 3.2,
       expectedQty: Math.max(seedCutOrder.plannedQty, 20),
-      actualQty: Math.max(seedCutOrder.plannedQty - 4, 0),
+      actualQty: actualTotalLength,
       receivedMaterialLength: 28,
-      actualTotalLength: Math.max(seedCutOrder.plannedQty - 4, 0),
+      actualTotalLength,
       straightCutLength: 0,
-      crossCutLength: Math.max(seedCutOrder.plannedQty - 4, 0),
+      crossCutLength: actualTotalLength,
       biasCutLength: 0,
-      actualRollCount: 2,
+      rollLength,
+      actualRollCount,
       recordedAt: '2026-03-24 14:10',
       operatorName: '陈工',
       note: '首轮捆条已完成，待复核余量。',

@@ -1353,7 +1353,7 @@ function buildBindingPrintObjectRow(order: BindingProcessOrder): FeiTicketPrintO
       ticketId: detail.feiTicketId,
       ticketNo: detail.feiTicketNo,
       primaryLabel: `${detail.bindingStripName} / ${detail.bindingWidth} cm / 切割方式：${detail.cuttingMethod}`,
-      secondaryLabel: `捆条需要 ${formatBindingLength(detail.plannedBindingLength)} / 实际完成 ${detail.actualLength ? formatBindingLength(detail.actualLength) : '待回写'} / 实切卷数：${detail.actualRollCount || 0} 卷`,
+      secondaryLabel: `捆条需要 ${formatBindingLength(detail.plannedBindingLength)} / 每卷长度：${detail.rollLength ? formatBindingLength(detail.rollLength) : '待记录'} / 实切卷数：${detail.actualRollCount || 0} 卷`,
       quantityLabel: `宽度：${detail.bindingWidth} cm`,
       printStatusLabel: detail.printStatus === '已打印' ? '已打印' : '待打印',
       printHref: buildBindingSinglePrintPreviewHref(detail),
@@ -1956,7 +1956,15 @@ function formatBindingLength(value: number): string {
   return `${Number(value || 0).toFixed(2)} m`
 }
 
+function resolveBindingDetailRollLength(detail: BindingStripWorkOrderDetail): number {
+  if (detail.rollLength > 0) return detail.rollLength
+  if (!detail.actualRollCount) return 0
+  return Number((Number(detail.actualLength || 0) / detail.actualRollCount).toFixed(2))
+}
+
 function resolveBindingDetailCuttingLength(detail: BindingStripWorkOrderDetail): number {
+  const rollLength = resolveBindingDetailRollLength(detail)
+  if (rollLength > 0 && detail.actualRollCount > 0) return Number((rollLength * detail.actualRollCount).toFixed(2))
   if (detail.cuttingMethod === '直切') return detail.straightCutLength || detail.actualLength || 0
   if (detail.cuttingMethod === '横切') return detail.crossCutLength || detail.actualLength || 0
   return detail.biasCutLength || detail.actualLength || 0
@@ -3214,9 +3222,13 @@ function renderBindingStandaloneDetailSections(order: BindingProcessOrder): stri
               <p class="mt-1 text-xs text-slate-500">需要布料 ${escapeHtml(formatBindingLength(detail.requiredLength))} / 接收 ${escapeHtml(detail.receivedMaterialLength ? formatBindingLength(detail.receivedMaterialLength) : '待记录')}</p>
             </div>
             <div>
+              <p class="text-xs text-slate-500">每卷长度 / 实切卷数</p>
+              <p class="mt-1 font-semibold text-slate-900">${escapeHtml(`${resolveBindingDetailRollLength(detail) ? formatBindingLength(resolveBindingDetailRollLength(detail)) : '待记录'} / ${formatCount(detail.actualRollCount)} 卷`)}</p>
+              <p class="mt-1 text-xs text-slate-500">切割长度 = 每卷长度 × 实切卷数</p>
+            </div>
+            <div>
               <p class="text-xs text-slate-500">切割长度</p>
               <p class="mt-1 font-semibold text-slate-900">${escapeHtml(`${detail.cuttingMethod} ${resolveBindingDetailCuttingLength(detail) ? formatBindingLength(resolveBindingDetailCuttingLength(detail)) : '待记录'}`)}</p>
-              <p class="mt-1 text-xs text-slate-500">实切卷数：${formatCount(detail.actualRollCount)} 卷</p>
             </div>
             <div>
               <p class="text-xs text-slate-500">打印状态</p>
