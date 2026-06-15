@@ -35,6 +35,7 @@ import {
 } from './pcs-project-image-repository.ts'
 import {
   getLatestProjectInlineNodeRecord,
+  getLatestSampleCostReviewSalesPrice,
   upsertProjectInlineNodeRecord,
 } from './pcs-project-inline-node-record-repository.ts'
 import {
@@ -371,14 +372,21 @@ function resolveListingPayload(
     DEFAULT_PCS_CHANNEL_CODE
   const targetStoreId = payload.targetStoreId || getDefaultStoreId(targetChannelCode)
   const channelMeta = getChannelMeta(targetChannelCode, targetStoreId)
+  const sampleCostReviewPrice = getLatestSampleCostReviewSalesPrice(projectId)
   const defaultPriceAmount =
-    typeof payload.defaultPriceAmount === 'number' && Number.isFinite(payload.defaultPriceAmount)
+    sampleCostReviewPrice?.salesPrice ??
+    (typeof payload.defaultPriceAmount === 'number' && Number.isFinite(payload.defaultPriceAmount)
       ? payload.defaultPriceAmount
       : typeof payload.listingPrice === 'number' && Number.isFinite(payload.listingPrice)
         ? payload.listingPrice
       : typeof project?.sampleUnitPrice === 'number' && Number.isFinite(project.sampleUnitPrice)
         ? project.sampleUnitPrice
-        : 199
+        : 199)
+  const currencyCode =
+    sampleCostReviewPrice?.salesCurrency ||
+    payload.currencyCode?.trim() ||
+    payload.currency?.trim() ||
+    resolvePcsStoreCurrency(targetStoreId, targetChannelCode)
 
   return {
     targetChannelCode,
@@ -386,17 +394,20 @@ function resolveListingPayload(
     listingTitle: payload.listingTitle?.trim() || `${project?.projectName || '商品项目'} 测款渠道店铺商品`,
     listingDescription: payload.listingDescription?.trim() || '',
     defaultPriceAmount,
-    currencyCode:
-      payload.currencyCode?.trim() ||
-      payload.currency?.trim() ||
-      resolvePcsStoreCurrency(targetStoreId, targetChannelCode),
+    currencyCode,
     listingMainImageId: payload.listingMainImageId?.trim() || '',
     listingImageIds: [...(payload.listingImageIds || [])],
     listingImages: [...(payload.listingImages || [])],
     mainImageUrls: [...(payload.mainImageUrls || [])],
     detailImageUrls: [...(payload.detailImageUrls || [])],
     listingRemark: payload.listingRemark?.trim() || '',
-    specLines: [...(payload.specLines || [])],
+    specLines: sampleCostReviewPrice
+      ? (payload.specLines || []).map((line) => ({
+          ...line,
+          priceAmount: sampleCostReviewPrice.salesPrice,
+          currencyCode,
+        }))
+      : [...(payload.specLines || [])],
   }
 }
 
@@ -732,19 +743,22 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     seed.channelProductStatus === '待上传'
       ? ''
       : buildUpstreamCode(seed.projectCode, seed.sequence)
+  const sampleCostReviewPrice = getLatestSampleCostReviewSalesPrice(project.projectId)
+  const listingPrice = sampleCostReviewPrice?.salesPrice ?? seed.listingPrice
+  const currencyCode = sampleCostReviewPrice?.salesCurrency || resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency
   const baseSpecInputs: ChannelListingSpecLineInput[] = [
     {
       colorName: seed.sequence === '02' ? '米白' : '黑色',
       sizeName: 'M',
-      priceAmount: seed.listingPrice,
-      currencyCode: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
+      priceAmount: listingPrice,
+      currencyCode,
       stockQty: 30,
     },
     {
       colorName: seed.sequence === '02' ? '米白' : '黑色',
       sizeName: 'L',
-      priceAmount: seed.listingPrice,
-      currencyCode: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
+      priceAmount: listingPrice,
+      currencyCode,
       stockQty: 24,
     },
   ]
@@ -752,8 +766,8 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     listingBatchId: channelProductId,
     listingBatchCode: channelProductCode,
     projectCode: project.projectCode,
-    defaultPriceAmount: seed.listingPrice,
-    currencyCode: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
+    defaultPriceAmount: listingPrice,
+    currencyCode,
     specLines: baseSpecInputs,
   }).map((line) =>
     upstreamProductId
@@ -783,10 +797,10 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     styleListingTitle: seed.listingTitle,
     listingTitle: seed.listingTitle,
     listingDescription: '',
-    listingPrice: seed.listingPrice,
-    defaultPriceAmount: seed.listingPrice,
-    currency: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
-    currencyCode: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
+    listingPrice,
+    defaultPriceAmount: listingPrice,
+    currency: currencyCode,
+    currencyCode,
     listingMainImageId: '',
     listingImageIds: [],
     listingImageSource: '',
@@ -2430,7 +2444,6 @@ function ensureListingPrerequisites(projectId: string): string | null {
   const prerequisites = [
     { code: 'SAMPLE_CONFIRM', label: '样衣确认' },
     { code: 'SAMPLE_COST_REVIEW', label: '样衣核价' },
-    { code: 'SAMPLE_PRICING', label: '样衣定价' },
   ] as const
 
   for (const item of prerequisites) {
@@ -2438,6 +2451,10 @@ function ensureListingPrerequisites(projectId: string): string | null {
     if (node && node.currentStatus !== '已完成') {
       return `${item.label}尚未完成，不能创建渠道店铺商品。`
     }
+  }
+
+  if (!getLatestSampleCostReviewSalesPrice(projectId)) {
+    return '样衣核价销售价格尚未形成，不能创建渠道店铺商品。'
   }
 
   return null

@@ -51,6 +51,8 @@ interface MaterialArchivePageState {
     widthText: string
     gramWeightText: string
     pricingUnit: string
+    mainUnit: string
+    auxiliaryUnits: string[]
     mainImageUrl: string
     barcodeTemplateCode: string
     remark: string
@@ -95,37 +97,37 @@ const KIND_META: Record<
     label: '面料档案',
     description: '沉淀主布、里布等正式面料主档，并反查技术包引用。',
     createLabel: '新建面料',
-    unitOptions: ['米', 'Yard', '公斤'],
+    unitOptions: ['米', 'Yard', '公斤', '卷'],
   },
   accessory: {
     label: '辅料档案',
     description: '沉淀花边、纽扣、拉链等辅料主档及其 SKU 规格。',
     createLabel: '新建辅料',
-    unitOptions: ['PCS', '卷', '套'],
+    unitOptions: ['PCS', '米', '卷', '包', '条', '套'],
   },
   yarn: {
     label: '纱线档案',
     description: '沉淀车缝线、织带线等正式纱线与颜色规格。',
     createLabel: '新建纱线',
-    unitOptions: ['卷', 'PCS', '公斤'],
+    unitOptions: ['卷', '公斤', '筒', '箱', '米'],
   },
   consumable: {
     label: '耗材档案',
     description: '沉淀裁剪、车缝、清洁等车间通用低值耗材。',
     createLabel: '新建耗材',
-    unitOptions: ['卷', 'PCS', '套', '箱'],
+    unitOptions: ['卷', 'PCS', '箱', '米', '套'],
   },
   packaging: {
     label: '包材档案',
     description: '沉淀吊牌、包装袋、贴纸等服装出货包装用物料。',
     createLabel: '新建包材',
-    unitOptions: ['PCS', '套', '包', '箱'],
+    unitOptions: ['PCS', '包', '箱', '套'],
   },
   parts: {
     label: '配件档案',
     description: '沉淀裁床裁刀等生产车间设备使用的配件与备件。',
     createLabel: '新建配件',
-    unitOptions: ['PCS', '套', '把', '盒'],
+    unitOptions: ['PCS', '把', '盒', '套'],
   },
 }
 
@@ -187,6 +189,8 @@ function createDefaultState(): MaterialArchivePageState {
       widthText: '',
       gramWeightText: '',
       pricingUnit: 'PCS',
+      mainUnit: 'PCS',
+      auxiliaryUnits: [],
       mainImageUrl: '',
       barcodeTemplateCode: '',
       remark: '',
@@ -220,6 +224,8 @@ function resetCreateState(kind: MaterialArchiveKind): void {
     widthText: '',
     gramWeightText: '',
     pricingUnit: KIND_META[kind].unitOptions[0] || 'PCS',
+    mainUnit: KIND_META[kind].unitOptions[0] || 'PCS',
+    auxiliaryUnits: KIND_META[kind].unitOptions.slice(1, 4),
     mainImageUrl: '',
     barcodeTemplateCode: '',
     remark: '',
@@ -270,6 +276,33 @@ function renderSelect(
 
 function renderTextarea(field: string, value: string, placeholder: string): string {
   return `<textarea rows="4" placeholder="${escapeHtml(placeholder)}" data-pcs-material-archive-field="${escapeHtml(field)}" class="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400">${escapeHtml(value)}</textarea>`
+}
+
+function renderUnitTags(units: string[]): string {
+  const rows = units.filter(Boolean)
+  if (rows.length === 0) return '<span class="text-xs text-slate-400">-</span>'
+  return rows
+    .map((unit) => `<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(unit)}</span>`)
+    .join('')
+}
+
+function renderAuxiliaryUnitCheckboxes(kind: MaterialArchiveKind, mainUnit: string, selectedUnits: string[]): string {
+  const selected = new Set(selectedUnits)
+  const options = KIND_META[kind].unitOptions.filter((unit) => unit !== mainUnit)
+  return `
+    <div class="grid gap-2 sm:grid-cols-2">
+      ${options
+        .map(
+          (unit) => `
+            <label class="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
+              <input type="checkbox" ${selected.has(unit) ? 'checked' : ''} data-pcs-material-archive-field="create-auxiliary-unit" data-value="${escapeHtml(unit)}" />
+              <span>${escapeHtml(unit)}</span>
+            </label>
+          `,
+        )
+        .join('')}
+    </div>
+  `
 }
 
 function splitTags(value: string): string[] {
@@ -403,7 +436,7 @@ function getFilteredRecords(kind: MaterialArchiveKind): MaterialArchiveRecord[] 
   return listMaterialArchives(kind).filter((item) => {
     if (status !== 'all' && item.status !== status) return false
     if (!keyword) return true
-    return [item.materialCode, item.materialName, item.materialNameEn, item.categoryName, item.specSummary]
+    return [item.materialCode, item.materialName, item.materialNameEn, item.categoryName, item.specSummary, item.mainUnit, item.auxiliaryUnits.join(' ')]
       .join(' ')
       .toLowerCase()
       .includes(keyword)
@@ -463,7 +496,9 @@ function renderListTable(kind: MaterialArchiveKind, records: MaterialArchiveReco
           <td class="px-4 py-3 text-sm text-slate-700">
             <div>${escapeHtml(record.widthText || '-')}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(record.gramWeightText || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(record.pricingUnit || '-')}</div>
+            <div class="mt-1 text-xs text-slate-500">主单位：${escapeHtml(record.mainUnit || '-')}</div>
+            <div class="mt-1 flex flex-wrap gap-1">辅助：${renderUnitTags(record.auxiliaryUnits || [])}</div>
+            <div class="mt-1 text-xs text-slate-500">计价：${escapeHtml(record.pricingUnit || '-')}</div>
             <div class="mt-1 text-xs text-slate-500">条码模板：${escapeHtml(record.barcodeTemplateCode || '-')}</div>
           </td>
           <td class="px-4 py-3 text-sm text-slate-700">
@@ -519,7 +554,14 @@ function renderCreateDrawer(): string {
       ${renderFormField('外文名', renderTextInput('create-material-name-en', state.create.materialNameEn, '输入外文名'))}
       <div class="grid gap-4 md:grid-cols-2">
         ${renderFormField('分类', renderSelect('create-category-name', state.create.categoryName, categoryOptions, '请选择分类'), true)}
-        ${renderFormField('计价单位', renderSelect('create-pricing-unit', state.create.pricingUnit, meta.unitOptions.map((item) => ({ value: item, label: item })), '选择单位'), true)}
+        ${renderFormField('主单位', renderSelect('create-main-unit', state.create.mainUnit, meta.unitOptions.map((item) => ({ value: item, label: item })), '选择主单位'), true)}
+      </div>
+      ${renderFormField('辅助单位', renderAuxiliaryUnitCheckboxes(state.create.kind, state.create.mainUnit, state.create.auxiliaryUnits), true)}
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderFormField('计价单位', renderSelect('create-pricing-unit', state.create.pricingUnit, meta.unitOptions.map((item) => ({ value: item, label: item })), '选择计价单位'), true)}
+        <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">
+          主单位用于库存与需求主口径；辅助单位支持按多种采购 / 包装 / 换算口径维护。
+        </div>
       </div>
       ${renderFormField('规格摘要', renderTextInput('create-spec-summary', state.create.specSummary, '例如：white / black，180g'))}
       ${renderFormField('成分', renderTextInput('create-composition', state.create.composition, '例如：100% cotton'))}
@@ -737,6 +779,8 @@ function renderOverviewTab(material: MaterialArchiveRecord, skuRecords: Material
               <div><div class="text-xs text-slate-500">分类</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.categoryName || '-')}</div></div>
               <div><div class="text-xs text-slate-500">规格摘要</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.specSummary || '-')}</div></div>
               <div><div class="text-xs text-slate-500">成分</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.composition || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">主单位</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.mainUnit || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">辅助单位</div><div class="mt-1 flex flex-wrap gap-1">${renderUnitTags(material.auxiliaryUnits || [])}</div></div>
               <div><div class="text-xs text-slate-500">计价单位</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.pricingUnit || '-')}</div></div>
               <div><div class="text-xs text-slate-500">门幅 / 尺寸</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.widthText || '-')}</div></div>
               <div><div class="text-xs text-slate-500">克重</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.gramWeightText || '-')}</div></div>
@@ -993,6 +1037,15 @@ function submitCreate(): void {
     state.notice = '请先选择计价单位。'
     return
   }
+  if (!state.create.mainUnit.trim()) {
+    state.notice = '请先选择主单位。'
+    return
+  }
+  const auxiliaryUnits = [...new Set(state.create.auxiliaryUnits.map((unit) => unit.trim()).filter((unit) => unit && unit !== state.create.mainUnit.trim()))]
+  if (auxiliaryUnits.length === 0) {
+    state.notice = '请至少选择一个辅助单位。'
+    return
+  }
   const created = createMaterialArchive({
     kind: state.create.kind,
     materialName: state.create.materialName.trim(),
@@ -1004,6 +1057,8 @@ function submitCreate(): void {
     widthText: state.create.widthText.trim(),
     gramWeightText: state.create.gramWeightText.trim(),
     pricingUnit: state.create.pricingUnit.trim(),
+    mainUnit: state.create.mainUnit.trim(),
+    auxiliaryUnits,
     mainImageUrl: state.create.mainImageUrl.trim(),
     barcodeTemplateCode: state.create.barcodeTemplateCode.trim(),
     remark: state.create.remark.trim(),
@@ -1096,6 +1151,20 @@ export function handlePcsMaterialArchiveInput(target: Element): boolean {
     case 'create-gram-weight-text':
       state.create.gramWeightText = value
       return true
+    case 'create-main-unit':
+      state.create.mainUnit = value
+      state.create.auxiliaryUnits = state.create.auxiliaryUnits.filter((unit) => unit !== value)
+      if (!state.create.pricingUnit.trim()) {
+        state.create.pricingUnit = value
+      }
+      return true
+    case 'create-auxiliary-unit': {
+      const unit = fieldNode.dataset.value || value
+      state.create.auxiliaryUnits = checked
+        ? [...new Set([...state.create.auxiliaryUnits, unit])].filter((item) => item !== state.create.mainUnit)
+        : state.create.auxiliaryUnits.filter((item) => item !== unit)
+      return true
+    }
     case 'create-pricing-unit':
       state.create.pricingUnit = value
       return true

@@ -12,7 +12,7 @@ import type {
 } from './pcs-material-archive-types.ts'
 
 const MATERIAL_ARCHIVE_STORAGE_KEY = 'higood-pcs-material-archive-store-v2'
-const MATERIAL_ARCHIVE_STORE_VERSION = 3
+const MATERIAL_ARCHIVE_STORE_VERSION = 4
 
 const MATERIAL_CATEGORY_OPTIONS: Record<MaterialArchiveKind, string[]> = {
   fabric: ['毛织布', '梭织布', '经编布', '里布', '网布', '牛仔布'],
@@ -70,6 +70,15 @@ const MATERIAL_SKU_SPEC_META: Record<
   },
 }
 
+const MATERIAL_UNIT_DEFAULTS: Record<MaterialArchiveKind, { mainUnit: string; auxiliaryUnits: string[] }> = {
+  fabric: { mainUnit: '米', auxiliaryUnits: ['Yard', '公斤', '卷'] },
+  accessory: { mainUnit: 'PCS', auxiliaryUnits: ['米', '卷', '包'] },
+  yarn: { mainUnit: '卷', auxiliaryUnits: ['公斤', '筒', '箱'] },
+  consumable: { mainUnit: '卷', auxiliaryUnits: ['PCS', '箱', '米'] },
+  packaging: { mainUnit: 'PCS', auxiliaryUnits: ['包', '箱', '套'] },
+  parts: { mainUnit: 'PCS', auxiliaryUnits: ['把', '盒', '套'] },
+}
+
 let memorySnapshot: MaterialArchiveStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
@@ -79,8 +88,9 @@ function canUseStorage(): boolean {
 function cloneRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
   return {
     ...record,
-    processTags: [...record.processTags],
-    galleryImageUrls: [...record.galleryImageUrls],
+    processTags: Array.isArray(record.processTags) ? [...record.processTags] : [],
+    auxiliaryUnits: Array.isArray(record.auxiliaryUnits) ? [...record.auxiliaryUnits] : [],
+    galleryImageUrls: Array.isArray(record.galleryImageUrls) ? [...record.galleryImageUrls] : [],
   }
 }
 
@@ -121,7 +131,37 @@ function normalizeStatus(status: MaterialArchiveStatus): MaterialArchiveStatus {
   return status === 'INACTIVE' || status === 'ARCHIVED' ? status : 'ACTIVE'
 }
 
+function normalizeUnitText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function uniqueUnits(units: unknown[]): string[] {
+  const seen = new Set<string>()
+  return units
+    .map(normalizeUnitText)
+    .filter((unit) => {
+      if (!unit || seen.has(unit)) return false
+      seen.add(unit)
+      return true
+    })
+}
+
+function resolveMainUnit(record: MaterialArchiveRecord): string {
+  const defaults = MATERIAL_UNIT_DEFAULTS[record.kind]
+  return normalizeUnitText(record.mainUnit) || defaults?.mainUnit || normalizeUnitText(record.pricingUnit) || 'PCS'
+}
+
+function resolveAuxiliaryUnits(record: MaterialArchiveRecord, mainUnit: string): string[] {
+  const defaults = MATERIAL_UNIT_DEFAULTS[record.kind]
+  const rawUnits = Array.isArray(record.auxiliaryUnits) ? record.auxiliaryUnits : []
+  const baseUnits = rawUnits.length > 0 ? rawUnits : defaults?.auxiliaryUnits || []
+  const units = uniqueUnits([...baseUnits, record.pricingUnit]).filter((unit) => unit !== mainUnit)
+  const fallbackUnits = uniqueUnits(defaults?.auxiliaryUnits || []).filter((unit) => unit !== mainUnit)
+  return units.length > 0 ? units : fallbackUnits
+}
+
 function normalizeRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
+  const mainUnit = resolveMainUnit(record)
   return {
     ...cloneRecord(record),
     status: normalizeStatus(record.status),
@@ -131,6 +171,8 @@ function normalizeRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
     widthText: record.widthText || '-',
     gramWeightText: record.gramWeightText || '-',
     pricingUnit: record.pricingUnit || 'PCS',
+    mainUnit,
+    auxiliaryUnits: resolveAuxiliaryUnits(record, mainUnit),
     remark: record.remark || '',
     createdAt: record.createdAt || record.updatedAt || nowText(),
     createdBy: record.createdBy || '系统初始化',
@@ -210,6 +252,8 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       widthText: '155cm',
       gramWeightText: '90g',
       pricingUnit: 'Yard',
+      mainUnit: 'Yard',
+      auxiliaryUnits: ['米', '公斤', '卷'],
       mainImageUrl: 'https://pic.higood.live/uploads/proudcts/20260316/4595f8e168082d676f32f9b977984a2a.png',
       galleryImageUrls: ['https://pic.higood.live/uploads/proudcts/20260316/4595f8e168082d676f32f9b977984a2a.png'],
       status: 'ACTIVE',
@@ -236,6 +280,8 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       widthText: '180cm',
       gramWeightText: '180g/m²',
       pricingUnit: '米',
+      mainUnit: '米',
+      auxiliaryUnits: ['Yard', '公斤', '卷'],
       mainImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/c74d884c23376156c8dc13a5ff39d3fa.jpg',
       galleryImageUrls: [
         'https://file.higood.id/higood_live/proudcts/2026/04/16/c74d884c23376156c8dc13a5ff39d3fa.jpg',
@@ -265,6 +311,8 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       widthText: '4.5cm',
       gramWeightText: '-',
       pricingUnit: 'PCS',
+      mainUnit: 'PCS',
+      auxiliaryUnits: ['米', '卷', '包'],
       mainImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/13/8e7910031d7e27bed3951f0369555a83.png',
       galleryImageUrls: [
         'https://file.higood.id/higood_live/proudcts/2026/04/13/8e7910031d7e27bed3951f0369555a83.png',
@@ -295,6 +343,8 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       widthText: '20.5cm',
       gramWeightText: '-',
       pricingUnit: 'PCS',
+      mainUnit: 'PCS',
+      auxiliaryUnits: ['米', '卷', '包'],
       mainImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/13/23c0221901139951ff63a0071c75267c.gif',
       galleryImageUrls: ['https://file.higood.id/higood_live/proudcts/2026/04/13/23c0221901139951ff63a0071c75267c.gif'],
       status: 'ACTIVE',
@@ -321,6 +371,8 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       widthText: '130cm',
       gramWeightText: '-',
       pricingUnit: 'PCS',
+      mainUnit: 'PCS',
+      auxiliaryUnits: ['条', '米', '包'],
       mainImageUrl: 'https://pic.higood.live/uploads/proudcts/20260314/f5271db2483941df347bce4c5ee60d64.jpg',
       galleryImageUrls: [
         'https://pic.higood.live/uploads/proudcts/20260314/f5271db2483941df347bce4c5ee60d64.jpg',
@@ -350,6 +402,8 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       widthText: '-',
       gramWeightText: '-',
       pricingUnit: '卷',
+      mainUnit: '卷',
+      auxiliaryUnits: ['公斤', '筒', '箱'],
       mainImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/291197a6d0717c9d8832fff8b329299e.jpg',
       galleryImageUrls: ['https://file.higood.id/higood_live/proudcts/2026/04/16/291197a6d0717c9d8832fff8b329299e.jpg'],
       status: 'ACTIVE',
@@ -376,6 +430,8 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       widthText: '24mm×50m',
       gramWeightText: '-',
       pricingUnit: '卷',
+      mainUnit: '卷',
+      auxiliaryUnits: ['PCS', '箱', '米'],
       mainImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg',
       galleryImageUrls: ['https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg'],
       status: 'ACTIVE',
@@ -402,6 +458,8 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       widthText: '55×90mm',
       gramWeightText: '350g',
       pricingUnit: 'PCS',
+      mainUnit: 'PCS',
+      auxiliaryUnits: ['包', '箱', '套'],
       mainImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg',
       galleryImageUrls: ['https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg'],
       status: 'ACTIVE',
@@ -428,6 +486,8 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       widthText: '10英寸',
       gramWeightText: '-',
       pricingUnit: 'PCS',
+      mainUnit: 'PCS',
+      auxiliaryUnits: ['把', '盒', '套'],
       mainImageUrl: 'https://file.higood.id/higood_live/proudcts/2026/04/16/291197a6d0717c9d8832fff8b329299e.jpg',
       galleryImageUrls: ['https://file.higood.id/higood_live/proudcts/2026/04/16/291197a6d0717c9d8832fff8b329299e.jpg'],
       status: 'ACTIVE',
@@ -1087,6 +1147,8 @@ export function createMaterialArchive(input: {
   widthText: string
   gramWeightText: string
   pricingUnit: string
+  mainUnit?: string
+  auxiliaryUnits?: string[]
   mainImageUrl: string
   barcodeTemplateCode: string
   remark: string
@@ -1108,6 +1170,8 @@ export function createMaterialArchive(input: {
     widthText: input.widthText || '-',
     gramWeightText: input.gramWeightText || '-',
     pricingUnit: input.pricingUnit || 'PCS',
+    mainUnit: input.mainUnit || input.pricingUnit || MATERIAL_UNIT_DEFAULTS[input.kind].mainUnit,
+    auxiliaryUnits: input.auxiliaryUnits || MATERIAL_UNIT_DEFAULTS[input.kind].auxiliaryUnits,
     mainImageUrl: input.mainImageUrl || '',
     galleryImageUrls: input.mainImageUrl ? [input.mainImageUrl] : [],
     status: 'ACTIVE',

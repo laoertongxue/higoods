@@ -120,6 +120,7 @@
     "check:cutting:playwright-preflight": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-playwright-preflight.ts",
     "check:cutting:release": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-p2-delivery.ts",
     "check:project-cleanliness": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-project-cleanliness.ts",
+    "check:pcs-material-archive-units": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-material-archive-units.ts",
     "check:pcs-product-testing-v1": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-product-testing-v1.ts",
     "test:process-work-order-unification:e2e": "playwright test tests/process-work-order-unification.spec.ts",
     "test:process-warehouse-unification:e2e": "playwright test tests/process-warehouse-unification.spec.ts",

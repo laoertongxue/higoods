@@ -655,6 +655,150 @@ function buildScenarioSampleCodes(baseSampleCode: string, quantity: number): str
   return Array.from({ length: safeQuantity }, (_, index) => `${baseSampleCode}-${String(index + 1).padStart(2, '0')}`)
 }
 
+function roundAmount(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+function resolveNumber(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(/[^\d.-]/g, ''))
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return fallback
+}
+
+function resolveGarmentCategory(categoryName = ''): string {
+  if (/毛织|针织|毛衣|开衫/.test(categoryName)) return '毛织'
+  if (/拼接|组合|套装/.test(categoryName)) return '毛织&梭织'
+  return '梭织'
+}
+
+function resolveSalesPrice(input: {
+  finalPrice?: number
+  priceRange?: string
+  sampleUnitPrice: number
+}): number {
+  if (typeof input.finalPrice === 'number' && Number.isFinite(input.finalPrice) && input.finalPrice > 0) {
+    return input.finalPrice
+  }
+  const priceNumbers = String(input.priceRange || '')
+    .match(/\d+(\.\d+)?/g)
+    ?.map((item) => Number(item))
+    .filter((item) => Number.isFinite(item) && item > 0)
+  if (priceNumbers?.length) {
+    return Math.max(...priceNumbers)
+  }
+  return Math.max(99, Math.round(input.sampleUnitPrice * 1.85))
+}
+
+function buildSampleCostReviewSeed(input: {
+  projectCode: string
+  projectName: string
+  ownerName: string
+  brandName?: string
+  categoryName?: string
+  sampleUnitPrice: number
+  targetProductionCost?: number
+  actualSampleCost?: number
+  finalPrice?: number
+  priceRange?: string
+  costCompliance?: string
+  businessDate: string
+  sourceDocCode: string
+  latestResultText?: string
+}): { payload: Record<string, unknown>; detailSnapshot: Record<string, unknown> } {
+  const exchangeRate = 2200
+  const costTotal = roundAmount(resolveNumber(input.actualSampleCost, input.sampleUnitPrice || 99))
+  const targetProductionCost = roundAmount(resolveNumber(input.targetProductionCost, costTotal * 0.86))
+  const salesPrice = roundAmount(resolveSalesPrice({
+    finalPrice: input.finalPrice,
+    priceRange: input.priceRange,
+    sampleUnitPrice: costTotal,
+  }))
+  const materialCostCny = roundAmount(costTotal * 0.43)
+  const dyeingCostCny = roundAmount(costTotal * 0.08)
+  const auxiliaryCostCny = roundAmount(costTotal * 0.1)
+  const fixedProcessCostCny = roundAmount(costTotal * 0.12)
+  const sewingCostCny = roundAmount(costTotal * 0.19)
+  const optionalProcessCostCny = roundAmount(
+    costTotal - materialCostCny - dyeingCostCny - auxiliaryCostCny - fixedProcessCostCny - sewingCostCny,
+  )
+  const grossMarginRate = salesPrice > 0 ? roundAmount(((salesPrice - costTotal) / salesPrice) * 100) : 0
+  const garmentCategory = resolveGarmentCategory(input.categoryName)
+  const spuCode = `SPU-${input.projectCode.slice(-7).replace(/-/g, '')}`
+  const brandName = input.brandName || 'HiGood 选品'
+  const materialCostLines = [
+    `${garmentCategory}主面料 / 1.25 Yard / ¥${roundAmount(materialCostCny / 1.25)}/Yard / ¥${materialCostCny}`,
+    `里布及辅面 / 0.35 Yard / ¥${roundAmount(materialCostCny * 0.18)}/批 / 已计入物料成本`,
+  ]
+  const dyeingRuleLines = [
+    `${brandName}印染规则 / 1.14 米 / Rp ${Math.round(dyeingCostCny * exchangeRate).toLocaleString('zh-CN')} -> ¥${dyeingCostCny}`,
+  ]
+  const fixedProcessLines = [
+    `裁剪费 Rp ${Math.round(fixedProcessCostCny * exchangeRate * 0.35).toLocaleString('zh-CN')} -> ¥${roundAmount(fixedProcessCostCny * 0.35)}`,
+    `包装材料 Rp ${Math.round(fixedProcessCostCny * exchangeRate * 0.3).toLocaleString('zh-CN')} -> ¥${roundAmount(fixedProcessCostCny * 0.3)}`,
+    `仓库发货费 Rp ${Math.round(fixedProcessCostCny * exchangeRate * 0.35).toLocaleString('zh-CN')} -> ¥${roundAmount(fixedProcessCostCny * 0.35)}`,
+  ]
+  const optionalProcessLines = [
+    `定位裁 / Rp ${Math.round(optionalProcessCostCny * exchangeRate * 0.55).toLocaleString('zh-CN')} -> ¥${roundAmount(optionalProcessCostCny * 0.55)}`,
+    `洗水缩水 / Rp ${Math.round(optionalProcessCostCny * exchangeRate * 0.45).toLocaleString('zh-CN')} -> ¥${roundAmount(optionalProcessCostCny * 0.45)}`,
+  ]
+  const payload = {
+    spuCode,
+    productName: input.projectName,
+    buyerName: input.ownerName,
+    brandName,
+    garmentCategory,
+    exchangeRate,
+    materialCostLines,
+    materialCostCny,
+    dyeingRuleLines,
+    dyeingCostCny,
+    auxiliaryCostAmount: auxiliaryCostCny,
+    auxiliaryCostCurrency: 'RMB',
+    auxiliaryCostCny,
+    fixedProcessLines,
+    fixedProcessCostCny,
+    sewingCostAmount: sewingCostCny,
+    sewingCostCurrency: 'RMB',
+    sewingCostCny,
+    optionalProcessLines,
+    optionalProcessCostCny,
+    costTotal,
+    salesPrice,
+    salesCurrency: 'CNY',
+    grossMarginRate,
+    reviewStatus: grossMarginRate >= 25 ? '已核价' : '待复核',
+    costNote:
+      input.latestResultText ||
+      `样衣核价已完成，销售价格 ¥${salesPrice} 将作为商品上架默认售价；目标生产成本控制在 ¥${targetProductionCost} 以内。`,
+  }
+  return {
+    payload,
+    detailSnapshot: {
+      priceCheckNo: input.sourceDocCode,
+      costReviewedAt: input.businessDate,
+      costReviewer: input.ownerName,
+      ...payload,
+      materialSummary: `物料成本 ¥${materialCostCny}，印染费 ¥${dyeingCostCny}。`,
+      processSummary: `固定工序 ¥${fixedProcessCostCny}，车位费 ¥${sewingCostCny}，可选工序 ¥${optionalProcessCostCny}。`,
+      priceFormulaText: `总成本 ¥${costTotal}，销售价格 ¥${salesPrice}，毛利率 ${grossMarginRate}%。`,
+      actualSampleCost: costTotal,
+      targetProductionCost,
+      costVariance: roundAmount(costTotal - targetProductionCost),
+      costVariancePercentage:
+        targetProductionCost > 0 ? roundAmount(((costTotal - targetProductionCost) / targetProductionCost) * 100) : 0,
+      costCompliance: input.costCompliance || (grossMarginRate >= 25 ? '符合' : '需复核'),
+      costReviewNotes:
+        input.latestResultText ||
+        `从商品核价功能迁移为样衣核价记录，销售价格 ¥${salesPrice} 直接供商品上架使用。`,
+      proceedWithProduction: grossMarginRate >= 25,
+      decisionRationale: `商品上架售价按样衣核价销售价格 ¥${salesPrice} 执行。`,
+    },
+  }
+}
+
 function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode): EarlyPhaseRecordSeed {
   const scenario = PROJECT_SCENARIOS[projectCode]
   const timePlan = NODE_TIME_PLAN[workItemTypeCode]
@@ -801,7 +945,19 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
   }
 
   if (workItemTypeCode === 'SAMPLE_COST_REVIEW') {
-    const costVariance = scenario.actualSampleCost - scenario.targetProductionCost
+    const costReviewSeed = buildSampleCostReviewSeed({
+      projectCode,
+      projectName: scenario.sampleName,
+      ownerName: scenario.evaluationParticipants[0] || '成本专员',
+      sampleUnitPrice: scenario.sampleUnitPrice,
+      targetProductionCost: scenario.targetProductionCost,
+      actualSampleCost: scenario.actualSampleCost,
+      finalPrice: scenario.finalPrice,
+      priceRange: scenario.priceRange,
+      costCompliance: scenario.costCompliance,
+      businessDate,
+      sourceDocCode: `CST-${projectCode.slice(-3)}-001`,
+    })
     return {
       projectCode,
       workItemTypeCode,
@@ -809,16 +965,8 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
       sourceDocType: '样衣核价单',
       sourceDocCode: `CST-${projectCode.slice(-3)}-001`,
       businessDate,
-      payload: {
-        costTotal: scenario.actualSampleCost,
-        costNote: `样衣核价已完成，建议量产目标成本控制在 ${scenario.targetProductionCost} 元以内。`,
-      },
-      detailSnapshot: {
-        actualSampleCost: scenario.actualSampleCost,
-        targetProductionCost: scenario.targetProductionCost,
-        costVariance,
-        costCompliance: scenario.costCompliance,
-      },
+      payload: costReviewSeed.payload,
+      detailSnapshot: costReviewSeed.detailSnapshot,
     }
   }
 
@@ -1247,22 +1395,28 @@ function buildGenericInlineSeed(
   }
 
   if (node.workItemTypeCode === 'SAMPLE_COST_REVIEW') {
+    const sourceDocCode = `CST-${projectCode.slice(-3)}-GEN`
+    const costReviewSeed = buildSampleCostReviewSeed({
+      projectCode,
+      projectName: project.projectName,
+      ownerName: project.ownerName,
+      brandName: project.brandName,
+      categoryName: project.categoryName,
+      sampleUnitPrice: project.sampleUnitPrice || 99,
+      priceRange: project.priceRangeLabel,
+      businessDate,
+      sourceDocCode,
+      latestResultText: node.latestResultText || '',
+    })
     return {
       projectCode,
       workItemTypeCode: 'SAMPLE_COST_REVIEW',
       sourceModule: '成本核价',
       sourceDocType: '样衣核价单',
-      sourceDocCode: `CST-${projectCode.slice(-3)}-GEN`,
+      sourceDocCode,
       businessDate,
-      payload: {
-        costTotal: project.sampleUnitPrice || 99,
-        costNote: node.latestResultText || '样衣核价已完成。',
-      },
-      detailSnapshot: {
-        actualSampleCost: project.sampleUnitPrice || 99,
-        targetProductionCost: project.sampleUnitPrice || 89,
-        costCompliance: '基本符合',
-      },
+      payload: costReviewSeed.payload,
+      detailSnapshot: costReviewSeed.detailSnapshot,
     }
   }
 

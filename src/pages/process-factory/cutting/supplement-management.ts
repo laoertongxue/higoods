@@ -1,0 +1,1972 @@
+import { escapeHtml } from '../../../utils.ts'
+import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress.ts'
+import type {
+  CuttingMaterialLine,
+  CuttingOrderProgressRecord,
+  CuttingSkuRequirementLine,
+} from '../../../data/fcs/cutting/types.ts'
+import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
+import type { TechPackBomItemSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
+import type { TechnicalColorMaterialMappingLine } from '../../../data/pcs-technical-data-version-types.ts'
+import { buildProductionPieceTruth } from '../../../domain/fcs-cutting-piece-truth/index.ts'
+import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
+
+type SupplementSourceType = 'production-order' | 'cut-order'
+type SupplementFilterSourceType = 'ALL' | SupplementSourceType
+type SupplementRecordStatus = '已确认'
+type SupplementProcessKind = '印花' | '染色'
+type SupplementMaterialRole = '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
+type SupplementRoleSource = '物料-纸样关联别名' | '物料行继承别名' | '纸样辅助识别' | '顺序推断' | '未识别'
+type SupplementRoleConfirmStatus = '已确认' | '待确认'
+
+interface SupplementFilters {
+  sourceType: SupplementFilterSourceType
+  keyword: string
+}
+
+interface SupplementFeedback {
+  tone: 'success' | 'warning'
+  message: string
+}
+
+interface SupplementSizeColorRow {
+  key: string
+  skuCode: string
+  color: string
+  size: string
+  plannedQty: number
+  actualCutPieces: number
+  inboundPieces: number
+  completeSetQty: number
+  inboundSetQty: number
+  shortageQty: number
+  existingSupplementQty: number
+  suggestedSupplementQty: number
+  relatedCutOrderNos: string[]
+}
+
+interface SupplementMaterialDemand {
+  key: string
+  materialPatternMappingId: string
+  techPackVersionId: string
+  materialSku: string
+  materialName: string
+  materialTypeLabel: string
+  materialImageUrl: string
+  materialAlias: string
+  materialRole: SupplementMaterialRole
+  roleSource: SupplementRoleSource
+  roleConfirmStatus: SupplementRoleConfirmStatus
+  patternId: string
+  patternName: string
+  requiredQty: number
+  unit: string
+  printRequired: boolean
+  dyeRequired: boolean
+  processNote: string
+}
+
+interface SupplementMaterialPatternRef {
+  materialPatternMappingId: string
+  techPackVersionId: string
+  materialSku: string
+  materialName: string
+  materialImageUrl: string
+  materialTypeLabel: string
+  materialAlias: string
+  materialRole: SupplementMaterialRole
+  roleSource: SupplementRoleSource
+  roleConfirmStatus: SupplementRoleConfirmStatus
+  patternId: string
+  patternName: string
+  cutOrderNo: string
+  line: CuttingMaterialLine
+  mappingLine?: TechnicalColorMaterialMappingLine
+  bomItem?: TechPackBomItemSnapshot
+}
+
+interface SupplementAbAnalysisRow {
+  key: string
+  skuCode: string
+  color: string
+  size: string
+  plannedQty: number
+  benchmarkMaterial: SupplementMaterialPatternRef
+  shortageMaterial: SupplementMaterialPatternRef
+  benchmarkCutQty: number
+  currentRoleCutQty: number
+  differenceQty: number
+  shortageQty: number
+  existingSupplementQty: number
+  suggestedSupplementQty: number
+  relatedCutOrderNos: string[]
+  roleConfirmStatus: SupplementRoleConfirmStatus
+}
+
+interface SupplementLine extends SupplementSizeColorRow {
+  supplementQty: number
+  basis: SupplementAbAnalysisRow
+  isManualAdjusted: boolean
+  adjustReason: string
+}
+
+interface SupplementCandidate {
+  id: string
+  sourceType: SupplementSourceType
+  record: CuttingOrderProgressRecord
+  sourceNo: string
+  sourceTitle: string
+  sourceSubtitle: string
+  materialLines: CuttingMaterialLine[]
+  materialPatternRefs: SupplementMaterialPatternRef[]
+  sizeColorRows: SupplementSizeColorRow[]
+  abAnalysisRows: SupplementAbAnalysisRow[]
+  canInitiate: boolean
+  blockedReason: string
+}
+
+interface SupplementDraft {
+  candidateId: string
+  sourceType: SupplementSourceType
+  sourceNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  styleName: string
+  spuCode: string
+  reason: string
+  reasonDetail: string
+  lines: SupplementLine[]
+  materialDemands: SupplementMaterialDemand[]
+}
+
+interface SupplementRecord {
+  id: string
+  recordNo: string
+  status: SupplementRecordStatus
+  createdAt: string
+  createdBy: string
+  draft: SupplementDraft
+  printDemandNos: string[]
+  dyeDemandNos: string[]
+}
+
+interface SupplementProcessLink {
+  kind: SupplementProcessKind
+  demandNo: string
+  workOrderNo: string
+  materialSku: string
+  materialName: string
+  materialImageUrl: string
+  requiredQty: number
+  unit: string
+  demandStatus: string
+  workOrderStatus: string
+  factoryName: string
+  createdAt: string
+  linkedProductionOrderNo: string
+  processNote: string
+}
+
+interface SupplementManagementState {
+  filters: SupplementFilters
+  createSourcePickerOpen: boolean
+  activeCandidateId: string
+  activeRecordId: string
+  pendingConfirmDraft: SupplementDraft | null
+  records: SupplementRecord[]
+  feedback: SupplementFeedback | null
+}
+
+const state: SupplementManagementState = {
+  filters: {
+    sourceType: 'ALL',
+    keyword: '',
+  },
+  createSourcePickerOpen: false,
+  activeCandidateId: '',
+  activeRecordId: '',
+  pendingConfirmDraft: null,
+  records: [],
+  feedback: null,
+}
+
+let mockSupplementOrdersSeeded = false
+
+const sourceTypeLabels: Record<SupplementSourceType, string> = {
+  'production-order': '生产单',
+  'cut-order': '裁片单',
+}
+
+const numberFormatter = new Intl.NumberFormat('zh-CN')
+
+function formatInteger(value: number): string {
+  return numberFormatter.format(Math.max(Math.round(Number(value || 0)), 0))
+}
+
+function formatSignedInteger(value: number): string {
+  const rounded = Math.round(Number(value || 0))
+  return `${rounded > 0 ? '+' : ''}${numberFormatter.format(rounded)}`
+}
+
+function formatDecimal(value: number, digits = 1): string {
+  const rounded = Number(Number(value || 0).toFixed(digits))
+  return numberFormatter.format(rounded)
+}
+
+function normalizeText(value: unknown): string {
+  return String(value ?? '').trim()
+}
+
+function isClosedRecord(record: CuttingOrderProgressRecord): boolean {
+  return record.cuttingStage === '已关闭' || Boolean(record.closedAt || record.closeReason)
+}
+
+function getCutOrderNo(line: CuttingMaterialLine): string {
+  return line.cutOrderNo || line.cutPieceOrderNo || line.cutOrderId || ''
+}
+
+function getCutOrderId(line: CuttingMaterialLine): string {
+  return line.cutOrderId || line.cutOrderNo || line.cutPieceOrderNo || ''
+}
+
+function makeSizeColorKey(row: Pick<CuttingSkuRequirementLine, 'skuCode' | 'color' | 'size'>): string {
+  return [row.skuCode, row.color, row.size].map((item) => normalizeText(item)).join('::')
+}
+
+function makeCandidateId(sourceType: SupplementSourceType, record: CuttingOrderProgressRecord, cutOrderNo = ''): string {
+  return `${sourceType}:${record.id}:${cutOrderNo}`
+}
+
+function formatMaterialType(line: CuttingMaterialLine): string {
+  if (line.materialType === 'PRINT') return '印花面料'
+  if (line.materialType === 'DYE') return '染色面料'
+  if (line.materialType === 'LINING') return '里布'
+  return line.materialCategory || '面料'
+}
+
+function hasProcessRequirement(value: unknown): boolean {
+  const text = normalizeText(value)
+  if (!text) return false
+  return !['无', '否', '不需要', 'NONE', 'N/A', '-'].includes(text.toUpperCase())
+}
+
+function normalizeLossRate(value: number | undefined): number {
+  const raw = Number(value || 0)
+  if (!Number.isFinite(raw) || raw <= 0) return 0
+  return raw > 1 ? raw / 100 : raw
+}
+
+function getMaterialName(line: CuttingMaterialLine): string {
+  return (
+    normalizeText(line.materialIdentity?.materialName) ||
+    normalizeText(line.materialLabel) ||
+    normalizeText(line.materialAlias) ||
+    line.materialSku
+  )
+}
+
+function getSpuImageUrl(record: Pick<CuttingOrderProgressRecord, 'spuImageUrl' | 'styleName' | 'spuCode'>): string {
+  const existing = normalizeText(record.spuImageUrl)
+  if (existing && !existing.includes('placeholder') && !existing.startsWith('data:image/svg')) return existing
+  const text = `${record.styleName} ${record.spuCode}`.toLowerCase()
+  if (text.includes('jacket') || text.includes('夹克') || text.includes('外套')) return '/jacket-sample.jpg'
+  if (text.includes('dress') || text.includes('连衣裙')) return '/dress-sample-1.jpg'
+  if (text.includes('shirt') || text.includes('衬衫')) return '/shirt-sample.jpg'
+  if (text.includes('short')) return '/denim-shorts-sample.jpg'
+  if (text.includes('tshirt') || text.includes('t-shirt')) return '/tshirt-sample.jpg'
+  if (text.includes('cardigan') || text.includes('开衫')) return '/cardigan-sample.jpg'
+  return '/pants-sample.jpg'
+}
+
+function getMaterialImageUrl(line: CuttingMaterialLine): string {
+  const existing = normalizeText(line.materialImageUrl || line.materialIdentity?.materialImageUrl)
+  if (existing && !existing.includes('placeholder') && !existing.startsWith('data:image/svg')) return existing
+  const text = `${line.materialSku} ${line.materialType} ${line.materialCategory || ''} ${getMaterialName(line)}`.toLowerCase()
+  if (text.includes('lining') || text.includes('里布')) return '/materials/fabric-lining.jpg'
+  if (text.includes('contrast') || text.includes('拼接') || text.includes('配色')) return '/materials/fabric-contrast.jpg'
+  if (text.includes('button') || text.includes('纽扣')) return '/materials/accessory-button.jpg'
+  if (text.includes('zipper') || text.includes('拉链')) return '/materials/accessory-zipper.jpg'
+  if (text.includes('label') || text.includes('唛')) return '/materials/accessory-label.jpg'
+  if (text.includes('packing') || text.includes('包装')) return '/materials/packing-bag.jpg'
+  if (text.includes('yarn') || text.includes('纱线')) return '/materials/yarn-stitching.jpg'
+  return '/materials/fabric-main.jpg'
+}
+
+type MappingLineWithSupplementRole = TechnicalColorMaterialMappingLine & {
+  materialAlias?: string
+  materialRole?: SupplementMaterialRole
+}
+
+const aliasRoleRules: Array<{ role: SupplementMaterialRole; keywords: string[] }> = [
+  { role: '面料A', keywords: ['面料A', '物料A', '主面料', '主身面料', '大身面料', 'main fabric', '选择 A', '组合组 A'] },
+  { role: '面料B', keywords: ['面料B', '物料B', '拼接面料', '配色面料', '撞色面料', '口袋布', 'contrast fabric', '选择 B', '组合组 B'] },
+  { role: '面料C', keywords: ['面料C', '物料C', '第三面料', '选择 C', '组合组 C'] },
+  { role: '里布', keywords: ['里布', 'lining'] },
+  { role: '衬', keywords: ['衬布', '衬', 'interlining'] },
+  { role: '罗纹', keywords: ['罗纹', '螺纹', 'rib'] },
+  { role: '辅料', keywords: ['纽扣', '拉链', '辅料', 'button', 'zipper'] },
+  { role: '包材', keywords: ['包装', '包材', 'packing'] },
+]
+
+const inferredFabricRoles: SupplementMaterialRole[] = ['面料A', '面料B', '面料C']
+
+function textIncludes(text: string, keyword: string): boolean {
+  return text.toLowerCase().includes(keyword.toLowerCase())
+}
+
+function matchAliasRole(text: string): SupplementMaterialRole | null {
+  const normalized = normalizeText(text)
+  if (!normalized) return null
+  if (/(^|[^a-z0-9])a([^a-z0-9]|$)/i.test(normalized)) return '面料A'
+  if (/(^|[^a-z0-9])b([^a-z0-9]|$)/i.test(normalized)) return '面料B'
+  if (/(^|[^a-z0-9])c([^a-z0-9]|$)/i.test(normalized)) return '面料C'
+  return aliasRoleRules.find((rule) => rule.keywords.some((keyword) => textIncludes(normalized, keyword)))?.role || null
+}
+
+function resolveSupplementMaterialRole(options: {
+  mappingLine?: TechnicalColorMaterialMappingLine
+  materialLine: CuttingMaterialLine
+  bomItem?: TechPackBomItemSnapshot
+  sequence: number
+}): { role: SupplementMaterialRole; source: SupplementRoleSource; confirmStatus: SupplementRoleConfirmStatus; alias: string } {
+  const mappingLine = options.mappingLine as MappingLineWithSupplementRole | undefined
+  const mappingAlias = normalizeText(mappingLine?.materialAlias || mappingLine?.note)
+  const inheritedAlias = normalizeText(options.materialLine.materialAlias || options.materialLine.materialIdentity?.materialAlias || options.bomItem?.materialAlias)
+  const explicitMappingRole = mappingLine?.materialRole
+
+  if (explicitMappingRole && explicitMappingRole !== '未识别') {
+    return { role: explicitMappingRole, source: '物料-纸样关联别名', confirmStatus: '已确认', alias: mappingAlias || explicitMappingRole }
+  }
+
+  const mappingAliasRole = matchAliasRole(mappingAlias)
+  if (mappingAliasRole) {
+    return { role: mappingAliasRole, source: '物料-纸样关联别名', confirmStatus: '已确认', alias: mappingAlias }
+  }
+
+  const patternText = [
+    options.materialLine.patternIdentity?.patternFileName,
+    mappingLine?.patternName,
+    mappingLine?.pieceName,
+  ].filter(Boolean).join(' / ')
+  const patternRole = matchAliasRole(patternText)
+  if (patternRole) {
+    return { role: patternRole, source: '纸样辅助识别', confirmStatus: '待确认', alias: inheritedAlias || patternText }
+  }
+
+  const inheritedAliasRole = matchAliasRole(inheritedAlias)
+  if (inheritedAliasRole) {
+    return { role: inheritedAliasRole, source: '物料行继承别名', confirmStatus: '已确认', alias: inheritedAlias }
+  }
+
+  const materialTypeText = `${options.materialLine.materialType} ${options.materialLine.materialCategory || ''} ${mappingLine?.materialType || ''}`
+  if (textIncludes(materialTypeText, '面料') || options.materialLine.materialType === 'SOLID' || options.materialLine.materialType === 'PRINT' || options.materialLine.materialType === 'DYE') {
+    return {
+      role: inferredFabricRoles[options.sequence] || '未识别',
+      source: inferredFabricRoles[options.sequence] ? '顺序推断' : '未识别',
+      confirmStatus: '待确认',
+      alias: inheritedAlias || `顺序推断 ${options.sequence + 1}`,
+    }
+  }
+
+  return { role: '未识别', source: '未识别', confirmStatus: '待确认', alias: inheritedAlias || '未维护别名' }
+}
+
+function findMappingLine(
+  mappings: TechnicalColorMaterialMappingLine[],
+  materialLine: CuttingMaterialLine,
+): TechnicalColorMaterialMappingLine | undefined {
+  return findMappingLines(mappings, materialLine)[0]
+}
+
+function findMappingLines(
+  mappings: TechnicalColorMaterialMappingLine[],
+  materialLine: CuttingMaterialLine,
+): TechnicalColorMaterialMappingLine[] {
+  const materialSku = materialLine.materialSku.toLowerCase()
+  const materialName = getMaterialName(materialLine).toLowerCase()
+  const patternId = normalizeText(materialLine.patternIdentity?.patternFileId).toLowerCase()
+  const patternName = normalizeText(materialLine.patternIdentity?.patternFileName).toLowerCase()
+  const matched = mappings.filter((line) => {
+    const code = normalizeText(line.materialCode).toLowerCase()
+    const name = normalizeText(line.materialName).toLowerCase()
+    return Boolean(code && code === materialSku) || Boolean(name && (name === materialName || materialName.includes(name)))
+  })
+  const patternMatched = matched.filter((line) => {
+    const linePatternId = normalizeText(line.patternId).toLowerCase()
+    const linePatternName = normalizeText(line.patternName).toLowerCase()
+    return Boolean(patternId && linePatternId && patternId === linePatternId) || Boolean(patternName && linePatternName && (linePatternName === patternName || patternName.includes(linePatternName)))
+  })
+  return patternMatched.length ? patternMatched : matched
+}
+
+function enrichMappingLineWithSupplementAlias(
+  mappingLine: TechnicalColorMaterialMappingLine,
+  sequence: number,
+): MappingLineWithSupplementRole {
+  const enriched = mappingLine as MappingLineWithSupplementRole
+  if (normalizeText(enriched.materialAlias || enriched.note) || enriched.materialRole) return enriched
+  if (mappingLine.materialType !== '面料') return enriched
+  const role = inferredFabricRoles[sequence % inferredFabricRoles.length]
+  return {
+    ...mappingLine,
+    materialAlias: role.replace('面料', ''),
+    materialRole: role,
+  }
+}
+
+function findBomItem(
+  bomItems: TechPackBomItemSnapshot[],
+  mappings: TechnicalColorMaterialMappingLine[],
+  materialLine: CuttingMaterialLine,
+): TechPackBomItemSnapshot | undefined {
+  const mapping = findMappingLine(mappings, materialLine)
+  if (mapping?.bomItemId) {
+    const byMapping = bomItems.find((item) => item.id === mapping.bomItemId)
+    if (byMapping) return byMapping
+  }
+  const materialName = getMaterialName(materialLine).toLowerCase()
+  return bomItems.find((item) => {
+    const itemName = normalizeText(item.name).toLowerCase()
+    return Boolean(itemName && (itemName === materialName || materialName.includes(itemName) || itemName.includes(materialName)))
+  })
+}
+
+function shouldUseYard(line: CuttingMaterialLine, bomItem?: TechPackBomItemSnapshot): boolean {
+  const text = `${line.materialType} ${line.materialCategory || ''} ${bomItem?.type || ''} ${bomItem?.spec || ''}`.toLowerCase()
+  return line.materialType === 'PRINT' || line.materialType === 'DYE' || line.materialType === 'SOLID' || line.materialType === 'LINING' || text.includes('fabric') || text.includes('面料') || text.includes('里布')
+}
+
+function makeMaterialPatternMappingId(
+  snapshotVersionId: string,
+  materialLine: CuttingMaterialLine,
+  mappingLine?: TechnicalColorMaterialMappingLine,
+): string {
+  return mappingLine?.id || [
+    snapshotVersionId,
+    materialLine.materialSku,
+    materialLine.patternIdentity?.patternFileId || materialLine.patternIdentity?.patternFileName || 'pattern-pending',
+    getCutOrderNo(materialLine),
+  ].map((item) => normalizeText(item).replace(/\s+/g, '-')).join('::')
+}
+
+function buildMaterialPatternRefs(record: CuttingOrderProgressRecord, materialLines: CuttingMaterialLine[]): SupplementMaterialPatternRef[] {
+  const snapshot = getProductionOrderTechPackSnapshot(record.productionOrderId)
+  const snapshotVersionId = snapshot?.sourceTechPackVersionId || snapshot?.sourceTechPackVersionCode || snapshot?.versionLabel || record.productionOrderId
+  const mappingLines = snapshot?.colorMaterialMappings.flatMap((mapping) => mapping.lines) || []
+  const bomItems = snapshot?.bomItems || []
+
+  return materialLines.flatMap((materialLine, materialIndex) => {
+    const matchedMappings = findMappingLines(mappingLines, materialLine)
+    const sourceMappings = matchedMappings.length ? matchedMappings : [undefined]
+    const bomItem = findBomItem(bomItems, mappingLines, materialLine)
+
+    return sourceMappings.map((rawMappingLine, mappingIndex) => {
+      const mappingLine = rawMappingLine ? enrichMappingLineWithSupplementAlias(rawMappingLine, mappingIndex) : undefined
+      const role = resolveSupplementMaterialRole({ mappingLine, materialLine, bomItem, sequence: materialIndex + mappingIndex })
+      return {
+        materialPatternMappingId: makeMaterialPatternMappingId(snapshotVersionId, materialLine, mappingLine),
+        techPackVersionId: snapshotVersionId,
+        materialSku: materialLine.materialSku,
+        materialName: getMaterialName(materialLine),
+        materialImageUrl: getMaterialImageUrl(materialLine),
+        materialTypeLabel: mappingLine?.materialType || formatMaterialType(materialLine),
+        materialAlias: role.alias,
+        materialRole: role.role,
+        roleSource: role.source,
+        roleConfirmStatus: role.confirmStatus,
+        patternId: mappingLine?.pieceId || mappingLine?.patternId || materialLine.patternIdentity?.patternFileId || '',
+        patternName: mappingLine?.pieceName || mappingLine?.patternName || materialLine.patternIdentity?.patternFileName || '未关联纸样',
+        cutOrderNo: getCutOrderNo(materialLine),
+        line: materialLine,
+        mappingLine,
+        bomItem,
+      }
+    })
+  })
+}
+
+function materialRefAppliesToSizeColor(ref: SupplementMaterialPatternRef, row: Pick<SupplementSizeColorRow, 'key'>): boolean {
+  const scopedKeys = new Set((ref.line.skuScopeLines || []).map(makeSizeColorKey))
+  return scopedKeys.size === 0 || scopedKeys.has(row.key)
+}
+
+function getMaterialRefActualGarmentQty(ref: SupplementMaterialPatternRef, row: Pick<SupplementSizeColorRow, 'skuCode' | 'color' | 'size' | 'plannedQty' | 'completeSetQty'>): number {
+  const mappingPieceId = normalizeText(ref.mappingLine?.pieceId).toLowerCase()
+  const mappingPieceName = normalizeText(ref.mappingLine?.pieceName).toLowerCase()
+  const progressRows = (ref.line.pieceProgressLines || []).filter((piece) => {
+    if (piece.skuCode !== row.skuCode || piece.color !== row.color || piece.size !== row.size) return false
+    const partCode = normalizeText(piece.partCode).toLowerCase()
+    const partName = normalizeText(piece.partName).toLowerCase()
+    if (!mappingPieceId && !mappingPieceName) return true
+    return Boolean(mappingPieceId && partCode === mappingPieceId) || Boolean(mappingPieceName && (partName === mappingPieceName || partName.includes(mappingPieceName)))
+  })
+  if (progressRows.length) {
+    const pieceCount = Math.max(Number(ref.mappingLine?.pieceCountPerUnit || progressRows.length || 1), 1)
+    const actualPieces = progressRows.reduce((sum, piece) => sum + Number(piece.actualCutQty || 0), 0)
+    const actualGarments = Math.floor(actualPieces / pieceCount)
+    if (ref.materialRole === '面料B') {
+      const sizeGapMap: Record<string, number> = { S: 45, M: 30, L: -20, XL: -20 }
+      const gap = sizeGapMap[row.size] ?? Math.max(Math.round(actualGarments * 0.08), 12)
+      return Math.max(actualGarments - gap, 0)
+    }
+    if (ref.materialRole === '面料C') return Math.max(actualGarments - Math.max(Math.round(actualGarments * 0.05), 8), 0)
+    return actualGarments
+  }
+
+  const benchmark = Math.max(Number(row.completeSetQty || 0), Math.round(Number(row.plannedQty || 0) * 0.92))
+  if (ref.materialRole === '面料A') return benchmark
+  if (ref.materialRole === '面料B') {
+    const sizeGapMap: Record<string, number> = { S: 45, M: 30, L: -20, XL: -20 }
+    const gap = sizeGapMap[row.size] ?? Math.max(Math.round(benchmark * 0.08), 12)
+    return Math.max(benchmark - gap, 0)
+  }
+  if (ref.materialRole === '面料C') return Math.max(benchmark - Math.max(Math.round(benchmark * 0.05), 8), 0)
+  return benchmark
+}
+
+function getExistingSupplementQtyForBasis(record: CuttingOrderProgressRecord, row: Pick<SupplementAbAnalysisRow, 'skuCode' | 'color' | 'size' | 'shortageMaterial'>): number {
+  return state.records
+    .filter((item) => item.status === '已确认')
+    .filter((item) => item.draft.productionOrderId === record.productionOrderId)
+    .flatMap((item) => item.draft.lines)
+    .filter((line) =>
+      line.skuCode === row.skuCode &&
+      line.color === row.color &&
+      line.size === row.size &&
+      line.basis.shortageMaterial.materialPatternMappingId === row.shortageMaterial.materialPatternMappingId,
+    )
+    .reduce((sum, line) => sum + Number(line.supplementQty || 0), 0)
+}
+
+function getExistingSupplementQty(record: CuttingOrderProgressRecord, row: Pick<SupplementSizeColorRow, 'skuCode' | 'color' | 'size'>): number {
+  return state.records
+    .filter((item) => item.status === '已确认')
+    .filter((item) => item.draft.productionOrderId === record.productionOrderId)
+    .flatMap((item) => item.draft.lines)
+    .filter((line) => line.skuCode === row.skuCode && line.color === row.color && line.size === row.size)
+    .reduce((sum, line) => sum + Number(line.supplementQty || 0), 0)
+}
+
+function buildAbAnalysisRows(
+  record: CuttingOrderProgressRecord,
+  materialRefs: SupplementMaterialPatternRef[],
+  sizeColorRows: SupplementSizeColorRow[],
+): SupplementAbAnalysisRow[] {
+  const rows: SupplementAbAnalysisRow[] = []
+  sizeColorRows.forEach((sizeRow) => {
+    const refs = materialRefs.filter((ref) =>
+      ref.materialRole !== '未识别' &&
+      ['面料A', '面料B', '面料C', '里布'].includes(ref.materialRole) &&
+      materialRefAppliesToSizeColor(ref, sizeRow),
+    )
+    if (refs.length < 2) return
+    const benchmark = refs.find((ref) => ref.materialRole === '面料A') || refs[0]
+    const benchmarkCutQty = getMaterialRefActualGarmentQty(benchmark, sizeRow)
+    refs
+      .filter((ref) => ref.materialPatternMappingId !== benchmark.materialPatternMappingId)
+      .forEach((ref) => {
+        const currentRoleCutQty = getMaterialRefActualGarmentQty(ref, sizeRow)
+        const differenceQty = currentRoleCutQty - benchmarkCutQty
+        const shortageQty = Math.max(benchmarkCutQty - currentRoleCutQty, 0)
+        const analysisRowSeed = {
+          skuCode: sizeRow.skuCode,
+          color: sizeRow.color,
+          size: sizeRow.size,
+          shortageMaterial: ref,
+        }
+        const existingSupplementQty = getExistingSupplementQtyForBasis(record, analysisRowSeed)
+        const suggestedSupplementQty = Math.max(shortageQty - existingSupplementQty, 0)
+        if (shortageQty <= 0 && ref.roleConfirmStatus === '已确认') return
+        rows.push({
+          key: [
+            sizeRow.key,
+            benchmark.materialPatternMappingId,
+            ref.materialPatternMappingId,
+          ].join('::'),
+          skuCode: sizeRow.skuCode,
+          color: sizeRow.color,
+          size: sizeRow.size,
+          plannedQty: sizeRow.plannedQty,
+          benchmarkMaterial: benchmark,
+          shortageMaterial: ref,
+          benchmarkCutQty,
+          currentRoleCutQty,
+          differenceQty,
+          shortageQty,
+          existingSupplementQty,
+          suggestedSupplementQty,
+          relatedCutOrderNos: Array.from(new Set([benchmark.cutOrderNo, ref.cutOrderNo, ...sizeRow.relatedCutOrderNos].filter(Boolean))),
+          roleConfirmStatus: benchmark.roleConfirmStatus === '待确认' || ref.roleConfirmStatus === '待确认' ? '待确认' : '已确认',
+        })
+      })
+  })
+
+  return rows.sort((left, right) => right.shortageQty - left.shortageQty || left.color.localeCompare(right.color, 'zh-CN') || left.size.localeCompare(right.size, 'zh-CN'))
+}
+
+function buildBaseSkuRows(
+  record: CuttingOrderProgressRecord,
+  sourceType: SupplementSourceType,
+  materialLines: CuttingMaterialLine[],
+): CuttingSkuRequirementLine[] {
+  if (sourceType === 'production-order') {
+    return (record.skuRequirementLines || []).map((line) => ({ ...line }))
+  }
+
+  const grouped = new Map<string, CuttingSkuRequirementLine>()
+  materialLines.flatMap((line) => line.skuScopeLines || []).forEach((line) => {
+    const key = makeSizeColorKey(line)
+    const current = grouped.get(key)
+    grouped.set(key, {
+      skuCode: line.skuCode,
+      color: line.color,
+      size: line.size,
+      plannedQty: Math.max(Number(current?.plannedQty || 0), Number(line.plannedQty || 0)),
+    })
+  })
+  return Array.from(grouped.values())
+}
+
+function buildSizeColorRows(
+  record: CuttingOrderProgressRecord,
+  sourceType: SupplementSourceType,
+  materialLines: CuttingMaterialLine[],
+): SupplementSizeColorRow[] {
+  const cutOrderNos = new Set(materialLines.map(getCutOrderNo).filter(Boolean))
+  const truth = buildProductionPieceTruth(record)
+  const truthRows = truth.gapRows.filter((row) => sourceType === 'production-order' || cutOrderNos.has(row.cutOrderNo))
+  return buildBaseSkuRows(record, sourceType, materialLines).map((line) => {
+    const relatedTruthRows = truthRows.filter(
+      (row) => row.skuCode === line.skuCode && row.color === line.color && row.size === line.size,
+    )
+    const actualCutPieces = relatedTruthRows.reduce((sum, row) => sum + Number(row.actualCutQty || 0), 0)
+    const inboundPieces = relatedTruthRows.reduce((sum, row) => sum + Number(row.inboundQty || 0), 0)
+    const pieceRowsWithUnit = relatedTruthRows.filter((row) => Number(row.pieceCountPerUnit || 0) > 0)
+    const completeSetQty = pieceRowsWithUnit.length
+      ? Math.min(...pieceRowsWithUnit.map((row) => Math.floor(Number(row.actualCutQty || 0) / Math.max(Number(row.pieceCountPerUnit || 1), 1))))
+      : 0
+    const inboundSetQty = pieceRowsWithUnit.length
+      ? Math.min(...pieceRowsWithUnit.map((row) => Math.floor(Number(row.inboundQty || 0) / Math.max(Number(row.pieceCountPerUnit || 1), 1))))
+      : 0
+    const shortageQty = Math.max(Number(line.plannedQty || 0) - completeSetQty, 0)
+    const existingSupplementQty = getExistingSupplementQty(record, line)
+
+    return {
+      key: makeSizeColorKey(line),
+      skuCode: line.skuCode,
+      color: line.color,
+      size: line.size,
+      plannedQty: Number(line.plannedQty || 0),
+      actualCutPieces,
+      inboundPieces,
+      completeSetQty,
+      inboundSetQty,
+      shortageQty,
+      existingSupplementQty,
+      suggestedSupplementQty: Math.max(shortageQty - existingSupplementQty, 0),
+      relatedCutOrderNos: Array.from(new Set(relatedTruthRows.map((row) => row.cutOrderNo).filter(Boolean))),
+    }
+  })
+}
+
+function buildProductionCandidate(record: CuttingOrderProgressRecord): SupplementCandidate {
+  const materialLines = record.materialLines
+  const sizeColorRows = buildSizeColorRows(record, 'production-order', materialLines)
+  const materialPatternRefs = buildMaterialPatternRefs(record, materialLines)
+  const canInitiate = !isClosedRecord(record)
+  return {
+    id: makeCandidateId('production-order', record),
+    sourceType: 'production-order',
+    record,
+    sourceNo: record.productionOrderNo,
+    sourceTitle: `生产单 ${record.productionOrderNo}`,
+    sourceSubtitle: `关联裁片单 ${new Set(record.materialLines.map(getCutOrderNo).filter(Boolean)).size} 张`,
+    materialLines,
+    materialPatternRefs,
+    sizeColorRows,
+    abAnalysisRows: buildAbAnalysisRows(record, materialPatternRefs, sizeColorRows),
+    canInitiate,
+    blockedReason: canInitiate ? '' : '生产单下裁片链路已关闭，不能新增补料。',
+  }
+}
+
+function buildCutOrderCandidates(record: CuttingOrderProgressRecord): SupplementCandidate[] {
+  const grouped = new Map<string, CuttingMaterialLine[]>()
+  record.materialLines.forEach((line) => {
+    const cutOrderNo = getCutOrderNo(line)
+    if (!cutOrderNo) return
+    const current = grouped.get(cutOrderNo) || []
+    current.push(line)
+    grouped.set(cutOrderNo, current)
+  })
+
+  return Array.from(grouped.entries()).map(([cutOrderNo, materialLines]) => {
+    const canInitiate = !isClosedRecord(record)
+    const sizeColorRows = buildSizeColorRows(record, 'cut-order', materialLines)
+    const materialPatternRefs = buildMaterialPatternRefs(record, materialLines)
+    return {
+      id: makeCandidateId('cut-order', record, cutOrderNo),
+      sourceType: 'cut-order',
+      record,
+      sourceNo: cutOrderNo,
+      sourceTitle: `裁片单 ${cutOrderNo}`,
+      sourceSubtitle: `生产单 ${record.productionOrderNo}`,
+      materialLines,
+      materialPatternRefs,
+      sizeColorRows,
+      abAnalysisRows: buildAbAnalysisRows(record, materialPatternRefs, sizeColorRows),
+      canInitiate,
+      blockedReason: canInitiate ? '' : '裁片单已关闭，不能新增补料。',
+    }
+  })
+}
+
+function buildCandidates(): SupplementCandidate[] {
+  return cuttingOrderProgressRecords.flatMap((record) => [
+    buildProductionCandidate(record),
+    ...buildCutOrderCandidates(record),
+  ])
+}
+
+function getFilteredRecords(): SupplementRecord[] {
+  const keyword = state.filters.keyword.trim().toLowerCase()
+  return state.records
+    .filter((record) => state.filters.sourceType === 'ALL' || record.draft.sourceType === state.filters.sourceType)
+    .filter((record) => {
+      if (!keyword) return true
+      return [
+        record.recordNo,
+        record.draft.sourceNo,
+        record.draft.productionOrderNo,
+        record.draft.styleName,
+        record.draft.spuCode,
+        record.draft.reason,
+        record.draft.reasonDetail,
+        record.draft.materialDemands.map((item) => item.materialSku).join(' '),
+      ].join(' ').toLowerCase().includes(keyword)
+    })
+}
+
+function getSourcePickerCandidates(): SupplementCandidate[] {
+  const keyword = state.filters.keyword.trim().toLowerCase()
+  return buildCandidates()
+    .filter((item) => item.canInitiate)
+    .filter((item) => state.filters.sourceType === 'ALL' || item.sourceType === state.filters.sourceType)
+    .filter((item) => {
+      if (!keyword) return true
+      return [
+        item.sourceNo,
+        item.record.productionOrderNo,
+        item.record.spuCode,
+        item.record.styleName,
+      ].join(' ').toLowerCase().includes(keyword)
+    })
+    .sort((left, right) => right.abAnalysisRows.length - left.abAnalysisRows.length)
+    .slice(0, 12)
+}
+
+function summarizeCandidate(candidate: SupplementCandidate): {
+  plannedQty: number
+  completeSetQty: number
+  shortageQty: number
+  supplementingQty: number
+} {
+  return candidate.sizeColorRows.reduce(
+    (sum, row) => ({
+      plannedQty: sum.plannedQty + row.plannedQty,
+      completeSetQty: sum.completeSetQty + row.completeSetQty,
+      shortageQty: sum.shortageQty + row.shortageQty,
+      supplementingQty: sum.supplementingQty + row.existingSupplementQty,
+    }),
+    { plannedQty: 0, completeSetQty: 0, shortageQty: 0, supplementingQty: 0 },
+  )
+}
+
+function buildMaterialDemands(_candidate: SupplementCandidate, selectedLines: SupplementLine[]): SupplementMaterialDemand[] {
+  const grouped = new Map<string, SupplementMaterialDemand>()
+
+  selectedLines.forEach((line) => {
+    const ref = line.basis.shortageMaterial
+    const materialLine = ref.line
+    const supplementQty = Number(line.supplementQty || 0)
+    if (supplementQty <= 0) return
+
+    const bomItem = ref.bomItem
+    const unitConsumption = Math.max(Number(bomItem?.unitConsumption || 0), shouldUseYard(materialLine, bomItem) ? 0.42 : 1)
+    const requiredQty = supplementQty * unitConsumption * (1 + normalizeLossRate(bomItem?.lossRate))
+    const unit = shouldUseYard(materialLine, bomItem) ? 'yard' : '件'
+    const printRequired = materialLine.materialType === 'PRINT' || hasProcessRequirement(bomItem?.printRequirement)
+    const dyeRequired = materialLine.materialType === 'DYE' || hasProcessRequirement(bomItem?.dyeRequirement)
+    const key = `${ref.materialPatternMappingId}::${unit}`
+    const current = grouped.get(key)
+
+    grouped.set(key, {
+      key,
+      materialPatternMappingId: ref.materialPatternMappingId,
+      techPackVersionId: ref.techPackVersionId,
+      materialSku: ref.materialSku,
+      materialName: ref.materialName,
+      materialTypeLabel: ref.materialTypeLabel,
+      materialImageUrl: ref.materialImageUrl,
+      materialAlias: ref.materialAlias,
+      materialRole: ref.materialRole,
+      roleSource: ref.roleSource,
+      roleConfirmStatus: ref.roleConfirmStatus,
+      patternId: ref.patternId,
+      patternName: ref.patternName,
+      requiredQty: Number(((current?.requiredQty || 0) + requiredQty).toFixed(2)),
+      unit,
+      printRequired: Boolean(current?.printRequired || printRequired),
+      dyeRequired: Boolean(current?.dyeRequired || dyeRequired),
+      processNote: [
+        printRequired ? `印花：${normalizeText(bomItem?.printRequirement) || '按技术资料生成印花需求'}` : '',
+        dyeRequired ? `染色：${normalizeText(bomItem?.dyeRequirement) || '按技术资料生成染色需求'}` : '',
+      ].filter(Boolean).join('；') || '无需印花染色',
+    })
+  })
+
+  return Array.from(grouped.values())
+}
+
+function renderFeedback(): string {
+  if (!state.feedback) return ''
+  const className = state.feedback.tone === 'success'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+    : 'border-amber-200 bg-amber-50 text-amber-800'
+  return `
+    <div class="flex items-center justify-between rounded-lg border px-4 py-3 text-sm ${className}">
+      <span>${escapeHtml(state.feedback.message)}</span>
+      <button type="button" class="rounded px-2 py-1 text-xs hover:bg-black/5" data-cutting-supplement-action="clear-feedback">关闭</button>
+    </div>
+  `
+}
+
+function renderStatChip(label: string, value: number): string {
+  return `
+    <span class="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
+      <span class="text-muted-foreground">${escapeHtml(label)}：</span>
+      <span class="font-semibold tabular-nums">${formatInteger(value)}</span>
+    </span>
+  `
+}
+
+function renderFilters(): string {
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="grid gap-3 md:grid-cols-[180px_minmax(240px,1fr)_auto_auto] md:items-end">
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">补料对象</span>
+          <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="sourceType">
+            <option value="ALL"${state.filters.sourceType === 'ALL' ? ' selected' : ''}>全部</option>
+            <option value="production-order"${state.filters.sourceType === 'production-order' ? ' selected' : ''}>生产单</option>
+            <option value="cut-order"${state.filters.sourceType === 'cut-order' ? ' selected' : ''}>裁片单</option>
+          </select>
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">关键词</span>
+          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="keyword" value="${escapeHtml(state.filters.keyword)}" placeholder="补料单、生产单、裁片单、SPU、物料SKU" />
+        </label>
+        <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="apply-filters">筛选</button>
+        <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-cutting-supplement-action="reset-filters">重置</button>
+      </div>
+    </section>
+  `
+}
+
+function renderSourcePickerDialog(open: boolean): string {
+  if (!open) return ''
+  const candidates = getSourcePickerCandidates()
+  const rows = candidates.map((candidate) => {
+    const summary = summarizeCandidate(candidate)
+    const spuImageUrl = getSpuImageUrl(candidate.record)
+    const abShortageQty = candidate.abAnalysisRows.reduce((sum, row) => sum + Number(row.suggestedSupplementQty || 0), 0)
+    const materialImages = candidate.materialLines.slice(0, 4).map((line) => `
+      <img class="h-8 w-8 rounded border object-cover" src="${escapeHtml(getMaterialImageUrl(line))}" alt="${escapeHtml(line.materialSku)}" />
+    `).join('')
+    return `
+      <tr class="border-t align-top">
+        <td class="px-4 py-4">
+          <div class="font-semibold">${escapeHtml(sourceTypeLabels[candidate.sourceType])} ${escapeHtml(candidate.sourceNo)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.sourceSubtitle)}</div>
+        </td>
+        <td class="px-4 py-4">
+          <div class="flex items-start gap-3">
+            <img class="h-14 w-14 rounded-md border object-cover" src="${escapeHtml(spuImageUrl)}" alt="${escapeHtml(candidate.record.spuCode)}" />
+            <div>
+              <div class="font-semibold">${escapeHtml(candidate.record.styleName)}</div>
+              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.record.spuCode)} / ${escapeHtml(candidate.record.productionOrderNo)}</div>
+              <div class="mt-2 flex flex-wrap gap-1">${materialImages}</div>
+            </div>
+          </div>
+        </td>
+        <td class="px-4 py-4 text-sm">
+          <div>需求：<span class="font-medium tabular-nums">${formatInteger(summary.plannedQty)}</span> 件</div>
+          <div>齐套：<span class="font-medium tabular-nums text-emerald-700">${formatInteger(summary.completeSetQty)}</span> 件</div>
+          <div>缺口：<span class="font-medium tabular-nums ${summary.shortageQty > 0 ? 'text-amber-700' : 'text-emerald-700'}">${formatInteger(summary.shortageQty)}</span> 件</div>
+          <div>补料中：<span class="font-medium tabular-nums">${formatInteger(summary.supplementingQty)}</span> 件</div>
+          <div>AB缺口：<span class="font-medium tabular-nums ${abShortageQty > 0 ? 'text-rose-700' : 'text-emerald-700'}">${formatInteger(abShortageQty)}</span> 件</div>
+        </td>
+        <td class="px-4 py-4 text-sm">
+          <div>${escapeHtml(Array.from(new Set(candidate.materialLines.map(getCutOrderNo).filter(Boolean))).slice(0, 3).join('、') || '未关联')}</div>
+          <div class="mt-1 text-xs text-muted-foreground">物料 ${formatInteger(candidate.materialLines.length)} 行</div>
+        </td>
+        <td class="px-4 py-4">
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="select-candidate" data-candidate-id="${escapeHtml(candidate.id)}">选择并填写</button>
+        </td>
+      </tr>
+    `
+  }).join('')
+
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
+      <div class="flex max-h-[88vh] w-full max-w-6xl flex-col rounded-xl bg-background shadow-xl">
+        <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
+          <div>
+            <h2 class="text-lg font-semibold">新增补料</h2>
+            <p class="mt-1 text-sm text-muted-foreground">先选择补料对象，再按尺码 + 成衣颜色填写本次补料件数。</p>
+          </div>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-supplement-action="close-create">关闭</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-5">
+          <div class="overflow-x-auto rounded-lg border">
+            <table class="min-w-full text-left text-sm">
+              <thead class="bg-muted/50 text-xs text-muted-foreground">
+                <tr>
+                  <th class="px-4 py-3 font-medium">补料对象</th>
+                  <th class="px-4 py-3 font-medium">款式/SPU</th>
+                  <th class="px-4 py-3 font-medium">当前已裁与齐套</th>
+                  <th class="px-4 py-3 font-medium">关联裁片单</th>
+                  <th class="px-4 py-3 font-medium">操作</th>
+                </tr>
+              </thead>
+              <tbody>${rows || '<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="5">暂无可新增补料的生产单或裁片单。</td></tr>'}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderRoleBadge(role: SupplementMaterialRole, confirmStatus: SupplementRoleConfirmStatus): string {
+  const className = role === '面料A'
+    ? 'bg-blue-50 text-blue-700'
+    : role === '面料B'
+      ? 'bg-amber-50 text-amber-700'
+      : role === '未识别'
+        ? 'bg-zinc-100 text-zinc-600'
+        : 'bg-emerald-50 text-emerald-700'
+  return `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${className}">${escapeHtml(role)}${confirmStatus === '待确认' ? ' / 待确认' : ''}</span>`
+}
+
+function renderMaterialRefInline(ref: SupplementMaterialPatternRef): string {
+  return `
+    <div class="min-w-[240px]">
+      <div class="flex items-start gap-2">
+        <img class="h-9 w-9 rounded border object-cover" src="${escapeHtml(ref.materialImageUrl)}" alt="${escapeHtml(ref.materialSku)}" />
+        <div class="min-w-0">
+          <div class="truncate font-medium">${escapeHtml(ref.materialSku)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(ref.patternName)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">别名：${escapeHtml(ref.materialAlias)} / ${escapeHtml(ref.roleSource)}</div>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderDraftAbAnalysisTable(candidate: SupplementCandidate): string {
+  if (!candidate.abAnalysisRows.length) {
+    return `
+      <div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
+        当前对象没有可直接生成补料建议的 A/B 齐套缺口。请先核查技术包物料-纸样关联别名，或确认裁剪回写数据。
+      </div>
+    `
+  }
+
+  return `
+    <div class="overflow-auto rounded-lg border">
+      <table class="min-w-[1280px] text-left text-sm">
+        <thead class="bg-muted/50 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 font-medium">成衣颜色</th>
+            <th class="px-3 py-2 font-medium">尺码</th>
+            <th class="px-3 py-2 font-medium">基准角色</th>
+            <th class="px-3 py-2 font-medium">缺口角色</th>
+            <th class="px-3 py-2 font-medium">基准物料-纸样</th>
+            <th class="px-3 py-2 font-medium">缺口物料-纸样</th>
+            <th class="px-3 py-2 font-medium">基准实裁</th>
+            <th class="px-3 py-2 font-medium">当前实裁</th>
+            <th class="px-3 py-2 font-medium">差异</th>
+            <th class="px-3 py-2 font-medium">已发起</th>
+            <th class="px-3 py-2 font-medium">本次补料件数</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${candidate.abAnalysisRows.map((row) => `
+            <tr class="border-t align-top">
+              <td class="px-3 py-3">${escapeHtml(row.color)}</td>
+              <td class="px-3 py-3">${escapeHtml(row.size)}</td>
+              <td class="px-3 py-3">${renderRoleBadge(row.benchmarkMaterial.materialRole, row.benchmarkMaterial.roleConfirmStatus)}</td>
+              <td class="px-3 py-3">${renderRoleBadge(row.shortageMaterial.materialRole, row.shortageMaterial.roleConfirmStatus)}</td>
+              <td class="px-3 py-3">${renderMaterialRefInline(row.benchmarkMaterial)}</td>
+              <td class="px-3 py-3">${renderMaterialRefInline(row.shortageMaterial)}</td>
+              <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(row.benchmarkCutQty)} 件</td>
+              <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(row.currentRoleCutQty)} 件</td>
+              <td class="px-3 py-3 font-semibold tabular-nums ${row.differenceQty < 0 ? 'text-rose-700' : 'text-emerald-700'}">${formatSignedInteger(row.differenceQty)} 件</td>
+              <td class="px-3 py-3 tabular-nums">${formatInteger(row.existingSupplementQty)} 件</td>
+              <td class="px-3 py-3">
+                <input class="h-9 w-28 rounded-md border px-2 text-sm tabular-nums" type="number" min="0" max="${Math.max(row.suggestedSupplementQty, row.shortageQty)}" value="${row.suggestedSupplementQty > 0 ? formatInteger(row.suggestedSupplementQty).replace(/,/g, '') : '0'}" data-supplement-basis-qty-input data-basis-key="${escapeHtml(row.key)}" />
+                <div class="mt-1 text-[11px] text-muted-foreground">建议 ${formatInteger(row.suggestedSupplementQty)} 件</div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderDraftSizeTable(candidate: SupplementCandidate): string {
+  return `
+    <div class="overflow-auto rounded-lg border">
+      <table class="min-w-full text-left text-sm">
+        <thead class="bg-muted/50 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 font-medium">成衣颜色</th>
+            <th class="px-3 py-2 font-medium">尺码</th>
+            <th class="px-3 py-2 font-medium">需求件数</th>
+            <th class="px-3 py-2 font-medium">当前已裁片数</th>
+            <th class="px-3 py-2 font-medium">当前齐套件数</th>
+            <th class="px-3 py-2 font-medium">当前缺口</th>
+            <th class="px-3 py-2 font-medium">已发起补料</th>
+            <th class="px-3 py-2 font-medium">关联裁片单</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${candidate.sizeColorRows.map((row) => `
+            <tr class="border-t">
+              <td class="px-3 py-2">${escapeHtml(row.color)}</td>
+              <td class="px-3 py-2">${escapeHtml(row.size)}</td>
+              <td class="px-3 py-2 font-medium tabular-nums">${formatInteger(row.plannedQty)}</td>
+              <td class="px-3 py-2 tabular-nums">${formatInteger(row.actualCutPieces)} 片</td>
+              <td class="px-3 py-2 tabular-nums">${formatInteger(row.completeSetQty)} 件</td>
+              <td class="px-3 py-2 font-medium tabular-nums ${row.shortageQty > 0 ? 'text-amber-700' : 'text-emerald-700'}">${formatInteger(row.shortageQty)} 件</td>
+              <td class="px-3 py-2 tabular-nums">${formatInteger(row.existingSupplementQty)} 件</td>
+              <td class="px-3 py-2 text-xs">${escapeHtml(row.relatedCutOrderNos.join('、') || candidate.sourceNo)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderDraftDialog(candidate: SupplementCandidate | undefined): string {
+  if (!candidate) return ''
+  const summary = summarizeCandidate(candidate)
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6" data-supplement-draft-dialog>
+      <div class="flex max-h-[92vh] w-full max-w-6xl flex-col rounded-xl bg-background shadow-xl">
+        <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
+          <div>
+            <h2 class="text-lg font-semibold">新增补料</h2>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(candidate.sourceTitle)} / ${escapeHtml(candidate.record.productionOrderNo)} / ${escapeHtml(candidate.record.styleName)}</p>
+          </div>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-supplement-action="close-draft">关闭</button>
+        </div>
+        <div class="flex-1 space-y-4 overflow-y-auto p-5">
+          <section class="grid gap-3 md:grid-cols-4">
+            ${renderStatChip('需求', summary.plannedQty)}
+            ${renderStatChip('齐套', summary.completeSetQty)}
+            ${renderStatChip('缺口', summary.shortageQty)}
+            ${renderStatChip('补料中', summary.supplementingQty)}
+          </section>
+          <section class="rounded-lg border p-4">
+            <div class="mb-3 flex items-center justify-between">
+              <h3 class="font-semibold">当前已裁数据与齐套概览</h3>
+              <span class="text-xs text-muted-foreground">先看当前生产单 / 裁片单在尺码 + 成衣颜色下已裁和齐套情况。</span>
+            </div>
+            ${renderDraftSizeTable(candidate)}
+          </section>
+          <section class="rounded-lg border p-4">
+            <div class="mb-3 flex items-center justify-between">
+              <h3 class="font-semibold">AB料齐套缺口与本次补料数量</h3>
+              <span class="text-xs text-muted-foreground">A/B 来自物料-纸样关联别名；只对缺口角色反算物料需求。</span>
+            </div>
+            ${renderDraftAbAnalysisTable(candidate)}
+          </section>
+          <section class="grid gap-3 md:grid-cols-2">
+            <label class="space-y-1 text-sm">
+              <span class="text-muted-foreground">补料原因</span>
+              <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-supplement-reason>
+                <option value="">请选择</option>
+                <option value="裁片损耗">裁片损耗</option>
+                <option value="验片不良">验片不良</option>
+                <option value="尺码齐套不足">尺码齐套不足</option>
+                <option value="裁片单关闭前补齐">裁片单关闭前补齐</option>
+              </select>
+            </label>
+            <label class="space-y-1 text-sm">
+              <span class="text-muted-foreground">补料说明</span>
+              <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-supplement-reason-detail placeholder="说明为什么需要补料" />
+            </label>
+          </section>
+          <div class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" data-supplement-draft-error></div>
+        </div>
+        <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="close-draft">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="submit-draft" data-candidate-id="${escapeHtml(candidate.id)}">提交补料</button>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderDemandTable(demands: SupplementMaterialDemand[]): string {
+  return `
+    <div class="overflow-auto rounded-lg border">
+      <table class="min-w-[1120px] text-left text-sm">
+        <thead class="bg-muted/50 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 font-medium">物料</th>
+            <th class="px-3 py-2 font-medium">类别</th>
+            <th class="px-3 py-2 font-medium">别名/角色</th>
+            <th class="px-3 py-2 font-medium">纸样</th>
+            <th class="px-3 py-2 font-medium">系统反算用量</th>
+            <th class="px-3 py-2 font-medium">印花/染色</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${demands.map((item) => `
+            <tr class="border-t">
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-3">
+                  <img class="h-10 w-10 rounded border object-cover" src="${escapeHtml(item.materialImageUrl)}" alt="${escapeHtml(item.materialSku)}" />
+                  <div>
+                    <div class="font-medium">${escapeHtml(item.materialSku)}</div>
+                    <div class="text-xs text-muted-foreground">${escapeHtml(item.materialName)}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-3 py-2">${escapeHtml(item.materialTypeLabel)}</td>
+              <td class="px-3 py-2">
+                ${renderRoleBadge(item.materialRole, item.roleConfirmStatus)}
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialAlias)} / ${escapeHtml(item.roleSource)}</div>
+              </td>
+              <td class="px-3 py-2">
+                <div class="font-medium">${escapeHtml(item.patternName)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialPatternMappingId)}</div>
+              </td>
+              <td class="px-3 py-2 font-semibold tabular-nums">${formatDecimal(item.requiredQty)} ${escapeHtml(item.unit)}</td>
+              <td class="px-3 py-2">
+                <div class="flex flex-wrap gap-1">
+                  ${item.printRequired ? '<span class="rounded-full bg-violet-50 px-2 py-1 text-xs text-violet-700">生成印花需求</span>' : ''}
+                  ${item.dyeRequired ? '<span class="rounded-full bg-sky-50 px-2 py-1 text-xs text-sky-700">生成染色需求</span>' : ''}
+                  ${!item.printRequired && !item.dyeRequired ? '<span class="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">无需印染</span>' : ''}
+                </div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.processNote)}</div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderSupplementBasisTable(lines: SupplementLine[]): string {
+  return `
+    <div class="overflow-auto rounded-lg border">
+      <table class="min-w-[1280px] text-left text-sm">
+        <thead class="bg-muted/50 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 font-medium">成衣颜色</th>
+            <th class="px-3 py-2 font-medium">尺码</th>
+            <th class="px-3 py-2 font-medium">基准角色</th>
+            <th class="px-3 py-2 font-medium">缺口角色</th>
+            <th class="px-3 py-2 font-medium">基准物料-纸样</th>
+            <th class="px-3 py-2 font-medium">缺口物料-纸样</th>
+            <th class="px-3 py-2 font-medium">基准实裁</th>
+            <th class="px-3 py-2 font-medium">当前实裁</th>
+            <th class="px-3 py-2 font-medium">差异</th>
+            <th class="px-3 py-2 font-medium">本次补料</th>
+            <th class="px-3 py-2 font-medium">调整</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lines.map((line) => `
+            <tr class="border-t align-top">
+              <td class="px-3 py-3">${escapeHtml(line.color)}</td>
+              <td class="px-3 py-3">${escapeHtml(line.size)}</td>
+              <td class="px-3 py-3">${renderRoleBadge(line.basis.benchmarkMaterial.materialRole, line.basis.benchmarkMaterial.roleConfirmStatus)}</td>
+              <td class="px-3 py-3">${renderRoleBadge(line.basis.shortageMaterial.materialRole, line.basis.shortageMaterial.roleConfirmStatus)}</td>
+              <td class="px-3 py-3">${renderMaterialRefInline(line.basis.benchmarkMaterial)}</td>
+              <td class="px-3 py-3">${renderMaterialRefInline(line.basis.shortageMaterial)}</td>
+              <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(line.basis.benchmarkCutQty)} 件</td>
+              <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(line.basis.currentRoleCutQty)} 件</td>
+              <td class="px-3 py-3 font-semibold tabular-nums ${line.basis.differenceQty < 0 ? 'text-rose-700' : 'text-emerald-700'}">${formatSignedInteger(line.basis.differenceQty)} 件</td>
+              <td class="px-3 py-3 font-semibold tabular-nums">${formatInteger(line.supplementQty)} 件</td>
+              <td class="px-3 py-3 text-xs">
+                ${line.isManualAdjusted ? `<span class="text-amber-700">人工调整</span><div class="mt-1 text-muted-foreground">${escapeHtml(line.adjustReason)}</div>` : '<span class="text-muted-foreground">按建议</span>'}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderConfirmDialog(draft: SupplementDraft | null): string {
+  if (!draft) return ''
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
+      <div class="w-full max-w-5xl rounded-xl bg-background shadow-xl">
+        <div class="border-b px-5 py-4">
+          <h2 class="text-lg font-semibold">二次确认补料</h2>
+          <p class="mt-1 text-sm text-muted-foreground">确认后才会生成补料单；需要印花或染色的物料会挂到生产单 ${escapeHtml(draft.productionOrderNo)} 下。</p>
+        </div>
+        <div class="max-h-[72vh] space-y-4 overflow-y-auto p-5">
+          <section class="rounded-lg border p-4">
+            <div class="grid gap-3 md:grid-cols-4">
+              <div><div class="text-xs text-muted-foreground">发起对象</div><div class="mt-1 font-semibold">${escapeHtml(sourceTypeLabels[draft.sourceType])} ${escapeHtml(draft.sourceNo)}</div></div>
+              <div><div class="text-xs text-muted-foreground">生产单</div><div class="mt-1 font-semibold">${escapeHtml(draft.productionOrderNo)}</div></div>
+              <div><div class="text-xs text-muted-foreground">SPU</div><div class="mt-1 font-semibold">${escapeHtml(draft.spuCode)}</div></div>
+              <div><div class="text-xs text-muted-foreground">原因</div><div class="mt-1 font-semibold">${escapeHtml(draft.reason)}</div></div>
+            </div>
+            <p class="mt-3 text-sm text-muted-foreground">${escapeHtml(draft.reasonDetail)}</p>
+          </section>
+          <section>
+            <h3 class="mb-2 font-semibold">补料依据：AB料齐套缺口</h3>
+            ${renderSupplementBasisTable(draft.lines)}
+          </section>
+          <section>
+            <h3 class="mb-2 font-semibold">本次补料尺码与成衣颜色</h3>
+            <div class="overflow-auto rounded-lg border">
+              <table class="min-w-full text-left text-sm">
+                <thead class="bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">颜色</th><th class="px-3 py-2">尺码</th><th class="px-3 py-2">缺口角色</th><th class="px-3 py-2">当前缺口</th><th class="px-3 py-2">本次补料</th></tr></thead>
+                <tbody>
+                  ${draft.lines.map((line) => `
+                    <tr class="border-t">
+                      <td class="px-3 py-2">${escapeHtml(line.color)}</td>
+                      <td class="px-3 py-2">${escapeHtml(line.size)}</td>
+                      <td class="px-3 py-2">${renderRoleBadge(line.basis.shortageMaterial.materialRole, line.basis.shortageMaterial.roleConfirmStatus)}</td>
+                      <td class="px-3 py-2">${formatInteger(line.shortageQty)} 件</td>
+                      <td class="px-3 py-2 font-semibold tabular-nums">${formatInteger(line.supplementQty)} 件</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section>
+            <h3 class="mb-2 font-semibold">系统反算物料需求</h3>
+            ${renderDemandTable(draft.materialDemands)}
+          </section>
+        </div>
+        <div class="flex justify-end gap-2 border-t px-5 py-4">
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="return-draft">返回修改</button>
+          <button type="button" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700" data-cutting-supplement-action="confirm-supplement">确认生成补料单</button>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function formatMaterialDemandSummary(demands: SupplementMaterialDemand[]): string {
+  return demands
+    .slice(0, 3)
+    .map((item) => `${item.materialTypeLabel} ${formatDecimal(item.requiredQty)} ${item.unit}`)
+    .join('、') || '无'
+}
+
+function renderRecords(records: SupplementRecord[]): string {
+  return `
+    <section class="rounded-lg border bg-card">
+      <div class="flex items-center justify-between border-b px-4 py-3">
+        <h2 class="text-base font-semibold">补料单列表</h2>
+        <p class="text-xs text-muted-foreground">列表对象是补料单；新增补料填写后会弹窗确认。</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-muted/50 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-4 py-3 font-medium">补料单号</th>
+              <th class="px-4 py-3 font-medium">补料对象</th>
+              <th class="px-4 py-3 font-medium">补料数量</th>
+              <th class="px-4 py-3 font-medium">物料需求</th>
+              <th class="px-4 py-3 font-medium">印染需求</th>
+              <th class="px-4 py-3 font-medium">状态</th>
+              <th class="px-4 py-3 font-medium">创建</th>
+              <th class="px-4 py-3 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${records.map((record) => {
+              const totalQty = record.draft.lines.reduce((sum, line) => sum + line.supplementQty, 0)
+              const processNos = [...record.printDemandNos, ...record.dyeDemandNos]
+              const sourceRecord = getCandidateById(record.draft.candidateId)?.record
+              const spuImageUrl = sourceRecord ? getSpuImageUrl(sourceRecord) : '/pants-sample.jpg'
+              const materialImages = record.draft.materialDemands.slice(0, 3).map((item) => `
+                <img class="h-8 w-8 rounded border object-cover" src="${escapeHtml(item.materialImageUrl)}" alt="${escapeHtml(item.materialSku)}" />
+              `).join('')
+              return `
+                <tr class="border-t">
+                  <td class="px-4 py-3 font-semibold">${escapeHtml(record.recordNo)}</td>
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                      <img class="h-12 w-12 rounded-md border object-cover" src="${escapeHtml(spuImageUrl)}" alt="${escapeHtml(record.draft.spuCode)}" />
+                      <div>
+                        <div class="font-medium">${escapeHtml(sourceTypeLabels[record.draft.sourceType])} ${escapeHtml(record.draft.sourceNo)}</div>
+                        <div class="text-xs text-muted-foreground">${escapeHtml(record.draft.productionOrderNo)} / ${escapeHtml(record.draft.spuCode)}</div>
+                        <div class="text-xs text-muted-foreground">${escapeHtml(record.draft.styleName)}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 font-medium tabular-nums">${formatInteger(totalQty)} 件</td>
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                      <div class="flex flex-wrap gap-1">${materialImages}</div>
+                      <div>
+                        <div class="tabular-nums">${escapeHtml(formatMaterialDemandSummary(record.draft.materialDemands))}</div>
+                        <div class="mt-1 text-xs text-muted-foreground">${formatInteger(record.draft.materialDemands.length)} 种物料</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-xs">${escapeHtml(processNos.join('、') || '无')}</td>
+                  <td class="px-4 py-3"><span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">${escapeHtml(record.status)}</span></td>
+                  <td class="px-4 py-3">${escapeHtml(record.createdBy)}<div class="text-xs text-muted-foreground">${escapeHtml(record.createdAt)}</div></td>
+                  <td class="px-4 py-3">
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-supplement-action="open-detail" data-record-id="${escapeHtml(record.id)}">查看详情</button>
+                  </td>
+                </tr>
+              `
+            }).join('') || '<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="8">暂无补料单。</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function buildSupplementProcessLinks(record: SupplementRecord): SupplementProcessLink[] {
+  let printIndex = 0
+  let dyeIndex = 0
+
+  return record.draft.materialDemands.flatMap((item) => {
+    const links: SupplementProcessLink[] = []
+    if (item.printRequired) {
+      const demandNo = record.printDemandNos[printIndex] || `PR-${record.recordNo}-${String(printIndex + 1).padStart(2, '0')}`
+      printIndex += 1
+      links.push({
+        kind: '印花',
+        demandNo,
+        workOrderNo: demandNo.replace(/^PR-/, 'PWO-'),
+        materialSku: item.materialSku,
+        materialName: item.materialName,
+        materialImageUrl: item.materialImageUrl,
+        requiredQty: item.requiredQty,
+        unit: item.unit,
+        demandStatus: '已生成',
+        workOrderStatus: '待排产',
+        factoryName: '绍兴云彩印花厂',
+        createdAt: record.createdAt,
+        linkedProductionOrderNo: record.draft.productionOrderNo,
+        processNote: item.processNote,
+      })
+    }
+    if (item.dyeRequired) {
+      const demandNo = record.dyeDemandNos[dyeIndex] || `DY-${record.recordNo}-${String(dyeIndex + 1).padStart(2, '0')}`
+      dyeIndex += 1
+      links.push({
+        kind: '染色',
+        demandNo,
+        workOrderNo: demandNo.replace(/^DY-/, 'DWO-'),
+        materialSku: item.materialSku,
+        materialName: item.materialName,
+        materialImageUrl: item.materialImageUrl,
+        requiredQty: item.requiredQty,
+        unit: item.unit,
+        demandStatus: '已生成',
+        workOrderStatus: '加工中',
+        factoryName: '杭州恒源染整厂',
+        createdAt: record.createdAt,
+        linkedProductionOrderNo: record.draft.productionOrderNo,
+        processNote: item.processNote,
+      })
+    }
+    return links
+  })
+}
+
+function renderProcessLinksTable(record: SupplementRecord): string {
+  const links = buildSupplementProcessLinks(record)
+  if (!links.length) {
+    return '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">本补料单的物料无需印花、染色。</div>'
+  }
+
+  return `
+    <div class="overflow-auto rounded-lg border">
+      <table class="min-w-full text-left text-sm">
+        <thead class="bg-muted/50 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 font-medium">工艺</th>
+            <th class="px-3 py-2 font-medium">需求单</th>
+            <th class="px-3 py-2 font-medium">加工单</th>
+            <th class="px-3 py-2 font-medium">物料</th>
+            <th class="px-3 py-2 font-medium">数量</th>
+            <th class="px-3 py-2 font-medium">状态</th>
+            <th class="px-3 py-2 font-medium">加工工厂</th>
+            <th class="px-3 py-2 font-medium">关联生产单</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${links.map((link) => `
+            <tr class="border-t align-top">
+              <td class="px-3 py-3">
+                <span class="rounded-full ${link.kind === '印花' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'} px-2.5 py-1 text-xs font-medium">${escapeHtml(link.kind)}</span>
+              </td>
+              <td class="px-3 py-3">
+                <div class="font-semibold">${escapeHtml(link.demandNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(link.demandStatus)}</div>
+              </td>
+              <td class="px-3 py-3">
+                <div class="font-semibold">${escapeHtml(link.workOrderNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(link.workOrderStatus)}</div>
+              </td>
+              <td class="px-3 py-3">
+                <div class="flex items-center gap-3">
+                  <img class="h-10 w-10 rounded border object-cover" src="${escapeHtml(link.materialImageUrl)}" alt="${escapeHtml(link.materialSku)}" />
+                  <div>
+                    <div class="font-medium">${escapeHtml(link.materialSku)}</div>
+                    <div class="text-xs text-muted-foreground">${escapeHtml(link.materialName)}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(link.processNote)}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-3 py-3 font-semibold tabular-nums">${formatDecimal(link.requiredQty)} ${escapeHtml(link.unit)}</td>
+              <td class="px-3 py-3">
+                <div class="text-xs">需求：${escapeHtml(link.demandStatus)}</div>
+                <div class="mt-1 text-xs">加工：${escapeHtml(link.workOrderStatus)}</div>
+              </td>
+              <td class="px-3 py-3">${escapeHtml(link.factoryName)}</td>
+              <td class="px-3 py-3">
+                <div>${escapeHtml(link.linkedProductionOrderNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(link.createdAt)}</div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderSupplementDetailDialog(record: SupplementRecord | undefined): string {
+  if (!record) return ''
+  const totalQty = record.draft.lines.reduce((sum, line) => sum + line.supplementQty, 0)
+  const processLinks = buildSupplementProcessLinks(record)
+  const sourceRecord = getCandidateById(record.draft.candidateId)?.record
+  const spuImageUrl = sourceRecord ? getSpuImageUrl(sourceRecord) : '/pants-sample.jpg'
+
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
+      <div class="flex max-h-[92vh] w-full max-w-6xl flex-col rounded-xl bg-background shadow-xl">
+        <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
+          <div>
+            <h2 class="text-lg font-semibold">补料单详情</h2>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)} / ${escapeHtml(record.draft.productionOrderNo)} / ${escapeHtml(record.draft.styleName)}</p>
+          </div>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-supplement-action="close-detail">关闭</button>
+        </div>
+        <div class="flex-1 space-y-4 overflow-y-auto p-5">
+          <section class="rounded-lg border p-4">
+            <div class="flex flex-col gap-4 md:flex-row">
+              <div class="w-full md:w-36">
+                <img class="h-36 w-full rounded-lg border object-cover" src="${escapeHtml(spuImageUrl)}" alt="${escapeHtml(record.draft.spuCode)}" />
+                <div class="mt-2 text-xs text-muted-foreground">款式/SPU图</div>
+              </div>
+              <div class="grid flex-1 gap-4 md:grid-cols-4">
+                <div><div class="text-xs text-muted-foreground">补料单号</div><div class="mt-1 font-semibold">${escapeHtml(record.recordNo)}</div></div>
+                <div><div class="text-xs text-muted-foreground">状态</div><div class="mt-1"><span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">${escapeHtml(record.status)}</span></div></div>
+                <div><div class="text-xs text-muted-foreground">补料对象</div><div class="mt-1 font-semibold">${escapeHtml(sourceTypeLabels[record.draft.sourceType])} ${escapeHtml(record.draft.sourceNo)}</div></div>
+                <div><div class="text-xs text-muted-foreground">补料数量</div><div class="mt-1 font-semibold tabular-nums">${formatInteger(totalQty)} 件</div></div>
+                <div><div class="text-xs text-muted-foreground">生产单</div><div class="mt-1 font-semibold">${escapeHtml(record.draft.productionOrderNo)}</div></div>
+                <div><div class="text-xs text-muted-foreground">SPU</div><div class="mt-1 font-semibold">${escapeHtml(record.draft.spuCode)}</div></div>
+                <div><div class="text-xs text-muted-foreground">款式</div><div class="mt-1 font-semibold">${escapeHtml(record.draft.styleName)}</div></div>
+                <div><div class="text-xs text-muted-foreground">发起人</div><div class="mt-1 font-semibold">${escapeHtml(record.createdBy)}</div></div>
+                <div><div class="text-xs text-muted-foreground">创建时间</div><div class="mt-1 font-semibold">${escapeHtml(record.createdAt)}</div></div>
+              </div>
+            </div>
+            <div class="mt-4 rounded-md bg-muted/40 px-3 py-2 text-sm">
+              <span class="font-medium">补料原因：</span>${escapeHtml(record.draft.reason)}
+              <span class="ml-3 text-muted-foreground">${escapeHtml(record.draft.reasonDetail)}</span>
+            </div>
+	          </section>
+
+          <section>
+            <h3 class="mb-2 font-semibold">补料依据：AB料齐套缺口</h3>
+            ${renderSupplementBasisTable(record.draft.lines)}
+          </section>
+
+          <section>
+            <h3 class="mb-2 font-semibold">补料尺码与成衣颜色</h3>
+            <div class="overflow-auto rounded-lg border">
+              <table class="min-w-full text-left text-sm">
+                <thead class="bg-muted/50 text-xs text-muted-foreground">
+                  <tr>
+                    <th class="px-3 py-2 font-medium">成衣颜色</th>
+                    <th class="px-3 py-2 font-medium">尺码</th>
+                    <th class="px-3 py-2 font-medium">缺口角色</th>
+                    <th class="px-3 py-2 font-medium">需求件数</th>
+                    <th class="px-3 py-2 font-medium">已裁片数</th>
+                    <th class="px-3 py-2 font-medium">齐套件数</th>
+                    <th class="px-3 py-2 font-medium">当前缺口</th>
+                    <th class="px-3 py-2 font-medium">本次补料</th>
+                    <th class="px-3 py-2 font-medium">关联裁片单</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${record.draft.lines.map((line) => `
+	                    <tr class="border-t">
+	                      <td class="px-3 py-2">${escapeHtml(line.color)}</td>
+	                      <td class="px-3 py-2">${escapeHtml(line.size)}</td>
+	                      <td class="px-3 py-2">${renderRoleBadge(line.basis.shortageMaterial.materialRole, line.basis.shortageMaterial.roleConfirmStatus)}</td>
+	                      <td class="px-3 py-2 tabular-nums">${formatInteger(line.plannedQty)} 件</td>
+                      <td class="px-3 py-2 tabular-nums">${formatInteger(line.actualCutPieces)} 片</td>
+                      <td class="px-3 py-2 tabular-nums">${formatInteger(line.completeSetQty)} 件</td>
+                      <td class="px-3 py-2 tabular-nums">${formatInteger(line.shortageQty)} 件</td>
+                      <td class="px-3 py-2 font-semibold tabular-nums">${formatInteger(line.supplementQty)} 件</td>
+                      <td class="px-3 py-2 text-xs">${escapeHtml(line.relatedCutOrderNos.join('、') || record.draft.sourceNo)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section>
+            <h3 class="mb-2 font-semibold">系统反算物料需求</h3>
+            ${renderDemandTable(record.draft.materialDemands)}
+          </section>
+
+          <section>
+            <div class="mb-2 flex items-center justify-between">
+              <h3 class="font-semibold">印花 / 染色需求单与加工单</h3>
+              <span class="text-xs text-muted-foreground">共 ${formatInteger(processLinks.length)} 条印染链路</span>
+            </div>
+            ${renderProcessLinksTable(record)}
+          </section>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function getCandidateById(candidateId: string): SupplementCandidate | undefined {
+  return buildCandidates().find((candidate) => candidate.id === candidateId)
+}
+
+function getRecordById(recordId: string): SupplementRecord | undefined {
+  return state.records.find((record) => record.id === recordId)
+}
+
+function parsePositiveInteger(value: string | null | undefined): number {
+  const parsed = Number(value || 0)
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0
+  return Math.round(parsed)
+}
+
+function showDraftError(container: HTMLElement, message: string): void {
+  const node = container.querySelector<HTMLElement>('[data-supplement-draft-error]')
+  if (!node) return
+  node.textContent = message
+  node.classList.remove('hidden')
+}
+
+function buildDraftFromDialog(candidate: SupplementCandidate, container: HTMLElement): SupplementDraft | null {
+  const reason = normalizeText(container.querySelector<HTMLSelectElement>('[data-supplement-reason]')?.value)
+  const reasonDetail = normalizeText(container.querySelector<HTMLInputElement>('[data-supplement-reason-detail]')?.value)
+  if (!reason) {
+    showDraftError(container, '补料原因必须选择。')
+    return null
+  }
+  if (!reasonDetail) {
+    showDraftError(container, '补料说明必须填写。')
+    return null
+  }
+
+  const selectedLines = candidate.abAnalysisRows
+    .map((basis) => {
+      const input = container.querySelector<HTMLInputElement>(`[data-supplement-basis-qty-input][data-basis-key="${CSS.escape(basis.key)}"]`)
+      const sourceLine = candidate.sizeColorRows.find((line) => line.key === makeSizeColorKey(basis)) || {
+        key: makeSizeColorKey(basis),
+        skuCode: basis.skuCode,
+        color: basis.color,
+        size: basis.size,
+        plannedQty: basis.plannedQty,
+        actualCutPieces: basis.currentRoleCutQty,
+        inboundPieces: 0,
+        completeSetQty: basis.benchmarkCutQty,
+        inboundSetQty: 0,
+        shortageQty: basis.shortageQty,
+        existingSupplementQty: basis.existingSupplementQty,
+        suggestedSupplementQty: basis.suggestedSupplementQty,
+        relatedCutOrderNos: basis.relatedCutOrderNos,
+      }
+      const supplementQty = parsePositiveInteger(input?.value)
+      return {
+        ...sourceLine,
+        shortageQty: basis.shortageQty,
+        existingSupplementQty: basis.existingSupplementQty,
+        suggestedSupplementQty: basis.suggestedSupplementQty,
+        supplementQty,
+        basis,
+        isManualAdjusted: supplementQty > 0 && supplementQty !== basis.suggestedSupplementQty,
+        adjustReason: supplementQty > 0 && supplementQty !== basis.suggestedSupplementQty ? reasonDetail : '',
+      }
+    })
+    .filter((line) => line.supplementQty > 0)
+
+  if (!selectedLines.length) {
+    showDraftError(container, '本次补料件数至少填写一条 AB 齐套缺口行。')
+    return null
+  }
+
+  if (selectedLines.some((line) => line.isManualAdjusted) && !reasonDetail) {
+    showDraftError(container, '人工调整建议补料数量时必须填写补料说明。')
+    return null
+  }
+
+  const materialDemands = buildMaterialDemands(candidate, selectedLines)
+  if (!materialDemands.length) {
+    showDraftError(container, '当前补料行无法反算物料需求，请先核查裁片单物料映射。')
+    return null
+  }
+
+  return {
+    candidateId: candidate.id,
+    sourceType: candidate.sourceType,
+    sourceNo: candidate.sourceNo,
+    productionOrderId: candidate.record.productionOrderId,
+    productionOrderNo: candidate.record.productionOrderNo,
+    styleName: candidate.record.styleName,
+    spuCode: candidate.record.spuCode,
+    reason,
+    reasonDetail,
+    lines: selectedLines,
+    materialDemands,
+  }
+}
+
+function nowText(): string {
+  return '2026-03-25 16:20'
+}
+
+function buildSupplementRecordFromDraft(
+  draft: SupplementDraft,
+  options: {
+    sequence: number
+    status: SupplementRecordStatus
+    createdAt: string
+    createdBy: string
+  },
+): SupplementRecord {
+  const serial = String(options.sequence).padStart(3, '0')
+  const processSeed = draft.productionOrderNo.replace(/\D/g, '').slice(-6) || '260325'
+  const printDemandNos = draft.materialDemands
+    .filter((item) => item.printRequired)
+    .map((_, index) => `PR-SUP-${processSeed}-${String(index + 1).padStart(2, '0')}`)
+  const dyeDemandNos = draft.materialDemands
+    .filter((item) => item.dyeRequired)
+    .map((_, index) => `DY-SUP-${processSeed}-${String(index + 1).padStart(2, '0')}`)
+
+  return {
+    id: `supplement-${processSeed}-${serial}`,
+    recordNo: `SUP-${processSeed}-${serial}`,
+    status: options.status,
+    createdAt: options.createdAt,
+    createdBy: options.createdBy,
+    draft,
+    printDemandNos,
+    dyeDemandNos,
+  }
+}
+
+function buildSupplementRecord(draft: SupplementDraft): SupplementRecord {
+  return buildSupplementRecordFromDraft(draft, {
+    sequence: state.records.length + 1,
+    status: '已确认',
+    createdAt: nowText(),
+    createdBy: '裁床主管 周敏',
+  })
+}
+
+function buildMockDraft(
+  candidate: SupplementCandidate,
+  reason: string,
+  reasonDetail: string,
+  processProfile: 'none' | 'print-dye' = 'none',
+): SupplementDraft | null {
+  const lines = candidate.abAnalysisRows
+    .filter((basis) => basis.suggestedSupplementQty > 0 || basis.shortageQty > 0)
+    .slice(0, 2)
+    .map((basis) => ({
+      ...(candidate.sizeColorRows.find((line) => line.key === makeSizeColorKey(basis)) || {
+        key: makeSizeColorKey(basis),
+        skuCode: basis.skuCode,
+        color: basis.color,
+        size: basis.size,
+        plannedQty: basis.plannedQty,
+        actualCutPieces: basis.currentRoleCutQty,
+        inboundPieces: 0,
+        completeSetQty: basis.benchmarkCutQty,
+        inboundSetQty: 0,
+        shortageQty: basis.shortageQty,
+        existingSupplementQty: basis.existingSupplementQty,
+        suggestedSupplementQty: basis.suggestedSupplementQty,
+        relatedCutOrderNos: basis.relatedCutOrderNos,
+      }),
+      shortageQty: basis.shortageQty,
+      existingSupplementQty: basis.existingSupplementQty,
+      suggestedSupplementQty: basis.suggestedSupplementQty,
+      supplementQty: Math.max(Math.min(basis.suggestedSupplementQty || basis.shortageQty, 160), 1),
+      basis,
+      isManualAdjusted: false,
+      adjustReason: '',
+    }))
+  if (!lines.length) return null
+
+  const materialDemands = buildMaterialDemands(candidate, lines)
+  if (!materialDemands.length) return null
+  if (processProfile === 'print-dye') {
+    materialDemands[0] = {
+      ...materialDemands[0],
+      printRequired: true,
+      dyeRequired: true,
+      processNote: '补料面料需先补印花，再按生产单颜色要求补染色。',
+    }
+  }
+
+  return {
+    candidateId: candidate.id,
+    sourceType: candidate.sourceType,
+    sourceNo: candidate.sourceNo,
+    productionOrderId: candidate.record.productionOrderId,
+    productionOrderNo: candidate.record.productionOrderNo,
+    styleName: candidate.record.styleName,
+    spuCode: candidate.record.spuCode,
+    reason,
+    reasonDetail,
+    lines,
+    materialDemands,
+  }
+}
+
+function ensureMockSupplementOrders(): void {
+  if (mockSupplementOrdersSeeded) return
+  mockSupplementOrdersSeeded = true
+  if (state.records.length) return
+
+  const candidates = buildCandidates().filter((candidate) => candidate.canInitiate && candidate.abAnalysisRows.length > 0)
+  const pickedCandidates = [
+    candidates.find((candidate) => candidate.sourceType === 'cut-order'),
+    candidates.find((candidate) => candidate.sourceType === 'production-order'),
+  ].filter(Boolean) as SupplementCandidate[]
+  const drafts = pickedCandidates
+    .map((candidate, index) => buildMockDraft(
+      candidate,
+      index === 0 ? '裁片损耗' : '尺码齐套不足',
+      index === 0 ? '验片后发现左前片有破损，需要按裁片单新增补料。' : '生产单部分尺码齐套不足，需要补齐后续车缝用料。',
+      index === 0 ? 'none' : 'print-dye',
+    ))
+    .filter(Boolean) as SupplementDraft[]
+
+  state.records = drafts.map((draft, index) => buildSupplementRecordFromDraft(draft, {
+    sequence: index + 1,
+    status: '已确认',
+    createdAt: index === 0 ? '2026-03-25 15:40' : '2026-03-25 14:20',
+    createdBy: index === 0 ? '裁床主管 周敏' : '裁床组长 林洁',
+  }))
+}
+
+function setFiltersFromDom(): void {
+  const sourceType = document.querySelector<HTMLSelectElement>('[data-cutting-supplement-field="sourceType"]')?.value
+  const keyword = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="keyword"]')?.value
+  state.filters = {
+    sourceType: sourceType === 'production-order' || sourceType === 'cut-order' ? sourceType : 'ALL',
+    keyword: normalizeText(keyword),
+  }
+}
+
+export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
+  return Boolean(state.createSourcePickerOpen || state.activeCandidateId || state.activeRecordId || state.pendingConfirmDraft)
+}
+
+export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-cutting-supplement-action]')
+  const action = actionNode?.dataset.cuttingSupplementAction
+  if (!actionNode || !action) return false
+
+  if (action === 'clear-feedback') {
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'apply-filters') {
+    setFiltersFromDom()
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'reset-filters') {
+    state.filters = { sourceType: 'ALL', keyword: '' }
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'open-create') {
+    state.createSourcePickerOpen = true
+    state.activeCandidateId = ''
+    state.activeRecordId = ''
+    state.pendingConfirmDraft = null
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'close-create') {
+    state.createSourcePickerOpen = false
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'select-candidate') {
+    const candidateId = actionNode.dataset.candidateId || ''
+    const candidate = getCandidateById(candidateId)
+    if (!candidate || !candidate.canInitiate) {
+      state.feedback = { tone: 'warning', message: candidate?.blockedReason || '当前对象不能新增补料。' }
+      return true
+    }
+    state.createSourcePickerOpen = false
+    state.activeCandidateId = candidateId
+    state.activeRecordId = ''
+    state.pendingConfirmDraft = null
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'open-detail') {
+    const recordId = actionNode.dataset.recordId || ''
+    const record = getRecordById(recordId)
+    if (!record) {
+      state.feedback = { tone: 'warning', message: '未找到对应的补料单。' }
+      return true
+    }
+    state.activeRecordId = recordId
+    state.createSourcePickerOpen = false
+    state.activeCandidateId = ''
+    state.pendingConfirmDraft = null
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'close-detail') {
+    state.activeRecordId = ''
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'open-draft') {
+    const candidateId = actionNode.dataset.candidateId || ''
+    const candidate = getCandidateById(candidateId)
+    if (!candidate || !candidate.canInitiate) {
+      state.feedback = { tone: 'warning', message: candidate?.blockedReason || '当前对象不能新增补料。' }
+      return true
+    }
+    state.activeCandidateId = candidateId
+    state.activeRecordId = ''
+    state.pendingConfirmDraft = null
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'close-draft') {
+    state.activeCandidateId = ''
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'submit-draft') {
+    const candidateId = actionNode.dataset.candidateId || state.activeCandidateId
+    const candidate = getCandidateById(candidateId)
+    const container = actionNode.closest<HTMLElement>('[data-supplement-draft-dialog]')
+    if (!candidate || !container) return false
+    const draft = buildDraftFromDialog(candidate, container)
+    if (!draft) return false
+    state.pendingConfirmDraft = draft
+    state.activeCandidateId = ''
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'return-draft') {
+    state.activeCandidateId = state.pendingConfirmDraft?.candidateId || ''
+    state.pendingConfirmDraft = null
+    return true
+  }
+
+  if (action === 'confirm-supplement') {
+    if (!state.pendingConfirmDraft) return false
+    const record = buildSupplementRecord(state.pendingConfirmDraft)
+    state.records = [record, ...state.records]
+    state.pendingConfirmDraft = null
+    state.activeCandidateId = ''
+    state.createSourcePickerOpen = false
+    state.activeRecordId = record.id
+    state.feedback = { tone: 'success', message: `已二次确认并生成补料单 ${record.recordNo}。` }
+    return true
+  }
+
+  if (action === 'close-overlay') {
+    state.createSourcePickerOpen = false
+    state.activeCandidateId = ''
+    state.activeRecordId = ''
+    state.pendingConfirmDraft = null
+    return true
+  }
+
+  return false
+}
+
+export function renderCraftCuttingSupplementManagementPage(): string {
+  ensureMockSupplementOrders()
+  const records = getFilteredRecords()
+  const productionOrderCount = new Set(state.records.map((item) => item.draft.productionOrderNo)).size
+  const activeCandidate = state.activeCandidateId ? getCandidateById(state.activeCandidateId) : undefined
+  const activeRecord = state.activeRecordId ? getRecordById(state.activeRecordId) : undefined
+
+  return `
+    <div class="space-y-5 p-6">
+      ${renderCuttingPageHeader(getCanonicalCuttingMeta('supplement-management'), {
+        actionsHtml: `
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="open-create">新增补料</button>
+          </div>
+        `,
+      })}
+      <div class="text-sm text-muted-foreground">工艺工厂运营系统 / 裁床厂管理 / 裁后处理 / 补料管理</div>
+      ${renderFeedback()}
+      <section class="flex flex-wrap gap-2">
+        ${renderStatChip('补料单', state.records.length)}
+        ${renderStatChip('已确认', state.records.filter((item) => item.status === '已确认').length)}
+        ${renderStatChip('涉及生产单', productionOrderCount)}
+      </section>
+      ${renderFilters()}
+      ${renderRecords(records)}
+      ${renderSupplementDetailDialog(activeRecord)}
+      ${renderSourcePickerDialog(state.createSourcePickerOpen)}
+      ${renderDraftDialog(activeCandidate)}
+      ${renderConfirmDialog(state.pendingConfirmDraft)}
+    </div>
+  `
+}

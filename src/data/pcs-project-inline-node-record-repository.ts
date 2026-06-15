@@ -10,6 +10,7 @@ import { migrateProjectDecisionInlineRecords } from './pcs-project-decision-migr
 import {
   getProjectById,
   getProjectNodeRecordById,
+  getProjectNodeRecordByWorkItemTypeCode,
   getProjectNodeSequenceBlocker,
   updateProjectNodeRecord,
 } from './pcs-project-repository.ts'
@@ -34,6 +35,53 @@ export interface SaveProjectInlineNodeFieldEntryInput {
   recordStatus?: string
   sourceDocType?: string
 }
+
+const SAMPLE_COST_REVIEW_PAYLOAD_KEYS = [
+  'spuCode',
+  'productName',
+  'buyerName',
+  'brandName',
+  'garmentCategory',
+  'exchangeRate',
+  'materialCostLines',
+  'materialCostCny',
+  'dyeingRuleLines',
+  'dyeingCostCny',
+  'auxiliaryCostAmount',
+  'auxiliaryCostCurrency',
+  'auxiliaryCostCny',
+  'fixedProcessLines',
+  'fixedProcessCostCny',
+  'sewingCostAmount',
+  'sewingCostCurrency',
+  'sewingCostCny',
+  'optionalProcessLines',
+  'optionalProcessCostCny',
+  'costTotal',
+  'salesPrice',
+  'salesCurrency',
+  'grossMarginRate',
+  'reviewStatus',
+  'costNote',
+]
+
+const SAMPLE_COST_REVIEW_DETAIL_KEYS = [
+  'priceCheckNo',
+  'costReviewedAt',
+  'costReviewer',
+  ...SAMPLE_COST_REVIEW_PAYLOAD_KEYS,
+  'materialSummary',
+  'processSummary',
+  'priceFormulaText',
+  'actualSampleCost',
+  'targetProductionCost',
+  'costVariance',
+  'costVariancePercentage',
+  'costCompliance',
+  'costReviewNotes',
+  'proceedWithProduction',
+  'decisionRationale',
+]
 
 const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, string[]> = {
   SAMPLE_ACQUIRE: [
@@ -69,7 +117,7 @@ const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, s
     'styleArchiveCandidateImageIds',
   ],
   SAMPLE_CONFIRM: ['confirmResult', 'confirmNote'],
-  SAMPLE_COST_REVIEW: ['costTotal', 'costNote'],
+  SAMPLE_COST_REVIEW: SAMPLE_COST_REVIEW_PAYLOAD_KEYS,
   SAMPLE_PRICING: ['priceRange', 'pricingNote'],
   TEST_DATA_SUMMARY: [
     'summaryText',
@@ -163,16 +211,7 @@ const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTyp
     'proceedToNextStage',
     'confirmationNotes',
   ],
-  SAMPLE_COST_REVIEW: [
-    'actualSampleCost',
-    'targetProductionCost',
-    'costVariance',
-    'costVariancePercentage',
-    'costCompliance',
-    'costReviewNotes',
-    'proceedWithProduction',
-    'decisionRationale',
-  ],
+  SAMPLE_COST_REVIEW: SAMPLE_COST_REVIEW_DETAIL_KEYS,
   SAMPLE_PRICING: [
     'baseCost',
     'targetProfitMargin',
@@ -482,6 +521,40 @@ export function listProjectInlineNodeRecordsByWorkItemType(
 
 export function getLatestProjectInlineNodeRecord(projectNodeId: string): PcsProjectInlineNodeRecord | null {
   return listProjectInlineNodeRecordsByNode(projectNodeId)[0] || null
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value !== 'string') return null
+  const normalized = value.replace(/[^\d.-]/g, '').trim()
+  if (!normalized) return null
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function getLatestSampleCostReviewSalesPrice(projectId: string): {
+  salesPrice: number
+  salesCurrency: string
+  record: PcsProjectInlineNodeRecord
+} | null {
+  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_COST_REVIEW')
+  if (!node) return null
+  const record = getLatestProjectInlineNodeRecord(node.projectNodeId)
+  if (!record || record.workItemTypeCode !== 'SAMPLE_COST_REVIEW') return null
+
+  const payload = (record.payload || {}) as Record<string, unknown>
+  const detailSnapshot = (record.detailSnapshot || {}) as Record<string, unknown>
+  const salesPrice = toFiniteNumber(
+    payload.salesPrice ??
+      detailSnapshot.salesPrice,
+  )
+  if (!salesPrice || salesPrice <= 0) return null
+
+  return {
+    salesPrice,
+    salesCurrency: String(payload.salesCurrency || detailSnapshot.salesCurrency || 'CNY').trim() || 'CNY',
+    record,
+  }
 }
 
 export function upsertProjectInlineNodeRecord<T extends PcsProjectInlineNodeRecord>(record: T): T {

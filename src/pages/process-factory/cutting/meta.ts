@@ -41,6 +41,7 @@ export type CuttingCanonicalPageKey =
   | 'sewing-dispatch'
   | 'special-processes'
   | 'summary'
+  | 'supplement-management'
   | 'statistics-ab-material'
 
 type CuttingPageKey = CuttingCanonicalPageKey
@@ -407,6 +408,16 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '聚合裁床主链路待处理问题，支持快速定位来源对象。',
+  },
+  'supplement-management': {
+    key: 'supplement-management',
+    canonicalPath: '/fcs/craft/cutting/supplement-management',
+    aliases: [],
+    menuGroupTitle: '裁后处理',
+    pageTitle: '补料管理',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '按生产单或裁片单发起补料，先展示已裁齐套情况，再由系统反算物料需求并二次确认。',
   },
   'statistics-ab-material': {
     key: 'statistics-ab-material',

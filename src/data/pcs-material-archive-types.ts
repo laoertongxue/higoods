@@ -14,6 +14,8 @@ export interface MaterialArchiveRecord {
   widthText: string
   gramWeightText: string
   pricingUnit: string
+  mainUnit: string
+  auxiliaryUnits: string[]
   mainImageUrl: string
   galleryImageUrls: string[]
   status: MaterialArchiveStatus

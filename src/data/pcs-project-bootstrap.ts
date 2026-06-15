@@ -424,7 +424,7 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
       }
     })
 
-    const adjustedNodes = rawNodes.map((node) => {
+    let adjustedNodes = rawNodes.map((node) => {
       const phaseOrder = ['PHASE_01', 'PHASE_02', 'PHASE_03', 'PHASE_04', 'PHASE_05'].indexOf(node.phaseCode) + 1
       const seq = node.sequenceNo
       let nodeStatus: string
@@ -455,6 +455,26 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
         pendingActionText: nodeStatus === '进行中' ? `当前请处理：${node.workItemTypeName}` : nodeStatus === '未开始' ? '待开始执行' : '节点已完成',
       }
     })
+
+    const listingNodeStarted = adjustedNodes.some(
+      (node) => node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING' && node.currentStatus !== '未开始',
+    )
+    if (listingNodeStarted) {
+      adjustedNodes = adjustedNodes.map((node) => {
+        if (node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' || node.currentStatus === '已完成') return node
+        return {
+          ...node,
+          currentStatus: '已完成',
+          validInstanceCount: 1,
+          latestInstanceId: `${projectId}-instance-${pad(node.sequenceNo)}`,
+          latestInstanceCode: `${projectId}-实例-${pad(node.sequenceNo)}`,
+          latestResultType: '节点完成',
+          latestResultText: `${node.workItemTypeName}已完成。`,
+          pendingActionType: '已完成',
+          pendingActionText: '节点已完成',
+        }
+      })
+    }
 
     phases.push(...adjustedPhases)
     nodes.push(...adjustedNodes)

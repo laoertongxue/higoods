@@ -25,6 +25,7 @@ const domesticFlow: PcsProjectWorkItemCode[] = [
   'SAMPLE_ACQUIRE',
   'SAMPLE_INBOUND_CHECK',
   'FEASIBILITY_REVIEW',
+  'SAMPLE_COST_REVIEW',
   'CHANNEL_PRODUCT_LISTING',
   'LIVE_TEST',
   'VIDEO_TEST',
@@ -40,6 +41,7 @@ const wanlongFlow: PcsProjectWorkItemCode[] = [
   'REVISION_TASK',
   'SAMPLE_INBOUND_CHECK',
   'FEASIBILITY_REVIEW',
+  'SAMPLE_COST_REVIEW',
   'CHANNEL_PRODUCT_LISTING',
   'LIVE_TEST',
   'VIDEO_TEST',
@@ -121,8 +123,9 @@ assert.deepEqual(
 assert.equal(schemas.length, 2, '正式模板矩阵只应保留两套')
 assert.ok(!templates.some((item) => /快时尚款 -|设计款 -|完整测款转档|直播快反|设计验证/.test(item.name)), '模板列表不应保留旧四模板名称')
 
+const projectCountBeforeDemoSeed = listProjects().length
 ensurePcsProjectDemoDataReady()
-assert.equal(listProjects().length, 0, '清洁状态下不应自动注入商品项目 mock')
+assert.equal(listProjects().length, projectCountBeforeDemoSeed, '清洁状态下不应额外注入商品项目 mock')
 
 assert.deepEqual(flattenSchemaNodeCodes(DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID), domesticFlow, '国内采购样衣测款模板节点顺序不符合 v1.0')
 assert.deepEqual(flattenSchemaNodeCodes(WANLONG_REVISION_SAMPLE_TEMPLATE_ID), wanlongFlow, '万隆改版出样衣测款模板节点顺序不符合 v1.0')
@@ -201,6 +204,42 @@ assertIncludesAll(
   ['reviewConclusion', 'reviewRisk'],
   '初步可行性判断字段未覆盖结论和判断说明',
 )
+assertIncludesAll(
+  fieldKeys('SAMPLE_COST_REVIEW'),
+  [
+    'spuCode',
+    'productName',
+    'buyerName',
+    'brandName',
+    'garmentCategory',
+    'exchangeRate',
+    'materialCostLines',
+    'materialCostCny',
+    'dyeingRuleLines',
+    'dyeingCostCny',
+    'auxiliaryCostAmount',
+    'auxiliaryCostCurrency',
+    'auxiliaryCostCny',
+    'fixedProcessLines',
+    'fixedProcessCostCny',
+    'sewingCostAmount',
+    'sewingCostCurrency',
+    'sewingCostCny',
+    'optionalProcessLines',
+    'optionalProcessCostCny',
+    'costTotal',
+    'salesPrice',
+    'salesCurrency',
+    'grossMarginRate',
+    'reviewStatus',
+    'costNote',
+  ],
+  '样衣核价字段未完整承接商品核价功能',
+)
+const listingDefaultPriceField = getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING').fieldDefinitions.find(
+  (field) => field.fieldKey === 'defaultPriceAmount',
+)
+assert.equal(listingDefaultPriceField?.sourceRef, '样衣核价.销售价格', '商品上架默认售价必须来自样衣核价销售价格')
 assertIncludesAll(
   fieldKeys('SAMPLE_RETURN_HANDLE'),
   ['handleType', 'destination', 'handledQty', 'handledBy', 'handledAt', 'returnResult'],

@@ -65,6 +65,7 @@ import {
 } from '../data/pcs-engineering-task-field-policy.ts'
 import {
   getLatestProjectInlineNodeRecord,
+  getLatestSampleCostReviewSalesPrice,
   listProjectInlineNodeRecordsByNode,
   listProjectInlineNodeRecordsByProject,
 } from '../data/pcs-project-inline-node-record-repository.ts'
@@ -1850,7 +1851,34 @@ const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCod
     'styleArchiveCandidateImageIds',
   ],
   SAMPLE_CONFIRM: ['confirmResult', 'confirmNote'],
-  SAMPLE_COST_REVIEW: ['costTotal', 'costNote'],
+  SAMPLE_COST_REVIEW: [
+    'spuCode',
+    'productName',
+    'buyerName',
+    'brandName',
+    'garmentCategory',
+    'exchangeRate',
+    'materialCostLines',
+    'materialCostCny',
+    'dyeingRuleLines',
+    'dyeingCostCny',
+    'auxiliaryCostAmount',
+    'auxiliaryCostCurrency',
+    'auxiliaryCostCny',
+    'fixedProcessLines',
+    'fixedProcessCostCny',
+    'sewingCostAmount',
+    'sewingCostCurrency',
+    'sewingCostCny',
+    'optionalProcessLines',
+    'optionalProcessCostCny',
+    'costTotal',
+    'salesPrice',
+    'salesCurrency',
+    'grossMarginRate',
+    'reviewStatus',
+    'costNote',
+  ],
   SAMPLE_PRICING: ['priceRange', 'pricingNote'],
   TEST_DATA_SUMMARY: [
     'summaryText',
@@ -2473,6 +2501,14 @@ function renderChannelListingCreateBatchSection(
   const availableStores = listPcsChannelStores()
     .filter((item) => item.channelCode === draft.targetChannelCode)
     .sort((left, right) => left.storeName.localeCompare(right.storeName, 'zh-Hans-CN'))
+  const sampleCostReviewPrice = getLatestSampleCostReviewSalesPrice(project.projectId)
+  const priceReadonlyAttr = sampleCostReviewPrice ? 'readonly' : ''
+  const priceInputClass = sampleCostReviewPrice
+    ? 'h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none'
+    : 'h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500'
+  const specPriceInputClass = sampleCostReviewPrice
+    ? 'h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none'
+    : 'h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500'
 
   return `
     <section class="rounded-lg border bg-white p-4">
@@ -2507,11 +2543,11 @@ function renderChannelListingCreateBatchSection(
         </label>
         <label class="space-y-1">
           <span class="text-xs text-slate-500">默认售价</span>
-          <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.defaultPriceAmount)}" data-pcs-project-field="channel-listing-default-price" />
+          <input class="${priceInputClass}" value="${escapeHtml(draft.defaultPriceAmount)}" data-pcs-project-field="channel-listing-default-price" ${priceReadonlyAttr} />
         </label>
         <label class="space-y-1">
           <span class="text-xs text-slate-500">币种</span>
-          <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.currencyCode)}" data-pcs-project-field="channel-listing-currency" />
+          <input class="${priceInputClass}" value="${escapeHtml(draft.currencyCode)}" data-pcs-project-field="channel-listing-currency" ${priceReadonlyAttr} />
         </label>
         <label class="space-y-1 md:col-span-2">
           <span class="text-xs text-slate-500">上架备注</span>
@@ -2548,8 +2584,8 @@ function renderChannelListingCreateBatchSection(
                       <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.sizeName)}" data-pcs-project-field="channel-listing-spec-size" data-spec-index="${index}" /></td>
                       <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.printName)}" data-pcs-project-field="channel-listing-spec-print" data-spec-index="${index}" /></td>
                       <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.sellerSku)}" data-pcs-project-field="channel-listing-spec-seller-sku" data-spec-index="${index}" /></td>
-                      <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.priceAmount)}" data-pcs-project-field="channel-listing-spec-price" data-spec-index="${index}" /></td>
-                      <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.currencyCode)}" data-pcs-project-field="channel-listing-spec-currency" data-spec-index="${index}" /></td>
+                      <td class="px-3 py-2"><input class="${specPriceInputClass}" value="${escapeHtml(line.priceAmount)}" data-pcs-project-field="channel-listing-spec-price" data-spec-index="${index}" ${priceReadonlyAttr} /></td>
+                      <td class="px-3 py-2"><input class="${specPriceInputClass}" value="${escapeHtml(line.currencyCode)}" data-pcs-project-field="channel-listing-spec-currency" data-spec-index="${index}" ${priceReadonlyAttr} /></td>
                       <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.stockQty)}" data-pcs-project-field="channel-listing-spec-stock" data-spec-index="${index}" /></td>
                       <td class="px-3 py-2 text-right"><button type="button" class="inline-flex h-8 items-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs text-rose-700 hover:bg-rose-100" data-pcs-project-action="remove-channel-listing-spec-line" data-spec-index="${index}">删除</button></td>
                     </tr>
@@ -2615,19 +2651,28 @@ function getChannelListingDraft(project: PcsProjectRecord, node: ProjectNodeView
   if (existing) return existing
 
   const suggestion = getChannelListingCreateSuggestion(project)
+  const sampleCostReviewPrice = getLatestSampleCostReviewSalesPrice(project.projectId)
   const currencyCode =
-    resolvePcsStoreCurrency(suggestion.targetStoreId || '', suggestion.targetChannelCode || '') || 'CNY'
+    sampleCostReviewPrice?.salesCurrency ||
+    resolvePcsStoreCurrency(suggestion.targetStoreId || '', suggestion.targetChannelCode || '') ||
+    'CNY'
+  const defaultPriceAmount = String(sampleCostReviewPrice?.salesPrice ?? project.sampleUnitPrice ?? 199)
   const draft: ChannelListingDraft = {
     targetChannelCode: suggestion.targetChannelCode || DEFAULT_PCS_CHANNEL_CODE,
     targetStoreId: suggestion.targetStoreId || '',
     listingTitle: `${project.projectName} 测款渠道商品`,
     listingDescription: '',
-    defaultPriceAmount: project.sampleUnitPrice ? String(project.sampleUnitPrice) : '199',
+    defaultPriceAmount,
     currencyCode,
     listingRemark: '',
     listingMainImageId: '',
     listingImageIds: [],
-    specLines: [createEmptyChannelListingSpecDraft(currencyCode)],
+    specLines: [
+      {
+        ...createEmptyChannelListingSpecDraft(currencyCode),
+        priceAmount: defaultPriceAmount,
+      },
+    ],
   }
   state.channelListingDrafts[key] = draft
   return draft
@@ -3134,6 +3179,13 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
       ? resolvePcsStoreCurrency(currentStoreId, currentChannelCode)
       : currentChannelMeta.currency || nodeRelationMeta.currency || getDefaultChannelCurrency(currentChannelCode),
   )
+  const sampleCostReviewPrice = getLatestSampleCostReviewSalesPrice(project.projectId)
+  const currentListingPrice =
+    sampleCostReviewPrice?.salesPrice ||
+    currentChannelMeta.listingPrice ||
+    nodeRelationMeta.listingPrice ||
+    project.sampleUnitPrice ||
+    199
   const currentChannelProductCode = String(
     currentChannelMeta.channelProductCode || currentChannelProduct?.instanceCode || node.node.latestInstanceCode || '',
   )
@@ -3216,8 +3268,12 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     targetChannelCode: currentChannelName || defaultChannelName,
     targetStoreId: currentStoreName,
     listingTitle: currentChannelMeta.listingTitle || nodeRelationMeta.listingTitle || `${project.projectName} 测款渠道店铺商品`,
-    listingPrice: currentChannelMeta.listingPrice || nodeRelationMeta.listingPrice || project.sampleUnitPrice || 199,
-    currency: currentCurrency,
+    defaultPriceAmount: currentListingPrice,
+    listingPrice: currentListingPrice,
+    currency: sampleCostReviewPrice?.salesCurrency || currentCurrency,
+    currencyCode: sampleCostReviewPrice?.salesCurrency || currentCurrency,
+    salesPrice: sampleCostReviewPrice?.salesPrice,
+    salesCurrency: sampleCostReviewPrice?.salesCurrency,
     sampleSupplierId: project.sampleSupplierName || project.sampleSupplierId,
     sampleSupplierName: project.sampleSupplierName,
     sampleSourceType: project.sampleSourceType,
@@ -9481,7 +9537,13 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     }
     const draft = getChannelListingDraft(context.project, context.node)
     updateChannelListingDraft(context.project, context.node, {
-      specLines: [...draft.specLines, createEmptyChannelListingSpecDraft(draft.currencyCode || 'CNY')],
+      specLines: [
+        ...draft.specLines,
+        {
+          ...createEmptyChannelListingSpecDraft(draft.currencyCode || 'CNY'),
+          priceAmount: draft.defaultPriceAmount,
+        },
+      ],
     })
     return true
   }

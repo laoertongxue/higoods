@@ -183,11 +183,66 @@ export interface SampleConfirmDetailSnapshot {
 }
 
 export interface SampleCostReviewPayload {
+  spuCode: string
+  productName: string
+  buyerName: string
+  brandName: string
+  garmentCategory: string
+  exchangeRate: number | string
+  materialCostLines: string[]
+  materialCostCny: number | string
+  dyeingRuleLines: string[]
+  dyeingCostCny: number | string
+  auxiliaryCostAmount: number | string
+  auxiliaryCostCurrency: string
+  auxiliaryCostCny: number | string
+  fixedProcessLines: string[]
+  fixedProcessCostCny: number | string
+  sewingCostAmount: number | string
+  sewingCostCurrency: string
+  sewingCostCny: number | string
+  optionalProcessLines: string[]
+  optionalProcessCostCny: number | string
   costTotal: number | string
+  salesPrice: number | string
+  salesCurrency: string
+  grossMarginRate: number | string
+  reviewStatus: string
   costNote: string
 }
 
 export interface SampleCostReviewDetailSnapshot {
+  priceCheckNo?: string
+  costReviewedAt?: string
+  costReviewer?: string
+  spuCode?: string
+  productName?: string
+  buyerName?: string
+  brandName?: string
+  garmentCategory?: string
+  exchangeRate?: number | string
+  materialCostLines?: string[]
+  materialCostCny?: number | string
+  dyeingRuleLines?: string[]
+  dyeingCostCny?: number | string
+  auxiliaryCostAmount?: number | string
+  auxiliaryCostCurrency?: string
+  auxiliaryCostCny?: number | string
+  fixedProcessLines?: string[]
+  fixedProcessCostCny?: number | string
+  sewingCostAmount?: number | string
+  sewingCostCurrency?: string
+  sewingCostCny?: number | string
+  optionalProcessLines?: string[]
+  optionalProcessCostCny?: number | string
+  costTotal?: number | string
+  salesPrice?: number | string
+  salesCurrency?: string
+  grossMarginRate?: number | string
+  reviewStatus?: string
+  materialSummary?: string
+  processSummary?: string
+  priceFormulaText?: string
   actualSampleCost?: number | string
   targetProductionCost?: number | string
   costVariance?: number | string

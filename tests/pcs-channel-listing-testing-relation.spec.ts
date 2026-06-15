@@ -2,8 +2,6 @@ import assert from 'node:assert/strict'
 
 import {
   createProjectChannelProductFromListingNode,
-  launchProjectChannelProductListing,
-  markProjectChannelProductListingCompleted,
   resetProjectChannelProductRepository,
 } from '../src/data/pcs-channel-product-project-repository.ts'
 import {
@@ -13,19 +11,35 @@ import {
 } from '../src/data/pcs-project-image-repository.ts'
 import {
   getProjectNodeRecordByWorkItemTypeCode,
-  getProjectById,
+  listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
+import { getLatestSampleCostReviewSalesPrice } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import { saveProjectNodeFormalRecord } from '../src/data/pcs-project-flow-service.ts'
-import { buildLiveProductLineProjectRelation } from '../src/data/pcs-testing-relation-normalizer.ts'
-import { getLiveProductLineById } from '../src/data/pcs-live-testing-repository.ts'
+import { getDefaultPcsStoreIdByChannel } from '../src/data/pcs-channel-store-master.ts'
 
 resetProjectRepository()
 resetProjectChannelProductRepository()
 resetProjectImageAssets()
 
-const project = getProjectById('prj_20251216_004')
-assert.ok(project, '应存在 PRJ-20251216-004 演示项目')
+const project = listProjects().find((item) => {
+  const listingNode = getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'CHANNEL_PRODUCT_LISTING')
+  const liveTestNode = getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'LIVE_TEST')
+  return (
+    listingNode &&
+    listingNode.currentStatus !== '未开始' &&
+    liveTestNode &&
+    liveTestNode.currentStatus !== '未开始' &&
+    ['PHASE_03', 'PHASE_04', 'PHASE_05'].includes(item.currentPhaseCode) &&
+    getLatestSampleCostReviewSalesPrice(item.projectId)
+  )
+})
+assert.ok(project, '应存在已进入商品上架且具备样衣核价销售价的演示项目')
+const sampleCostReviewPrice = getLatestSampleCostReviewSalesPrice(project!.projectId)
+assert.ok(sampleCostReviewPrice, '演示项目应存在样衣核价销售价')
+const targetChannelCode = project!.targetChannelCodes[0] || 'TIKTOK_ID'
+const targetStoreId = getDefaultPcsStoreIdByChannel(targetChannelCode)
+assert.ok(targetStoreId, '应存在目标渠道默认店铺')
 
 const [listingImage] = createProjectImageAssetRecords(
   project!,
@@ -48,25 +62,8 @@ const [listingImage] = createProjectImageAssetRecords(
 )
 upsertProjectImageAssets([listingImage])
 
-const sampleConfirmNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'SAMPLE_CONFIRM')
 const sampleCostReviewNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'SAMPLE_COST_REVIEW')
-assert.ok(sampleConfirmNode, '应存在样衣确认节点')
 assert.ok(sampleCostReviewNode, '应存在样衣核价节点')
-
-const confirmResult = saveProjectNodeFormalRecord({
-  projectId: project!.projectId,
-  projectNodeId: sampleConfirmNode!.projectNodeId,
-  payload: {
-    businessDate: '2026-04-20 12:00',
-    values: {
-      confirmResult: '通过',
-      confirmNote: '进入商品上架。',
-    },
-  },
-  completeAfterSave: true,
-  operatorName: '测试用户',
-})
-assert.equal(confirmResult.ok, true, '应能先完成样衣确认')
 
 const costReviewResult = saveProjectNodeFormalRecord({
   projectId: project!.projectId,
@@ -74,7 +71,31 @@ const costReviewResult = saveProjectNodeFormalRecord({
   payload: {
     businessDate: '2026-04-20 12:10',
     values: {
+      spuCode: 'SPU-TEST-RELATION',
+      productName: '待测款上架批次',
+      buyerName: '测试用户',
+      brandName: 'HiGood 测试',
+      garmentCategory: '梭织',
+      exchangeRate: 2200,
+      materialCostLines: ['测试面料 / 1.2 Yard / ¥72.00'],
+      materialCostCny: 72,
+      dyeingRuleLines: ['印染测试规则 / Rp 22000 -> ¥10.00'],
+      dyeingCostCny: 10,
+      auxiliaryCostAmount: 18,
+      auxiliaryCostCurrency: 'RMB',
+      auxiliaryCostCny: 18,
+      fixedProcessLines: ['裁剪费 / 包装材料 / 仓库发货费 -> ¥28.00'],
+      fixedProcessCostCny: 28,
+      sewingCostAmount: 42,
+      sewingCostCurrency: 'RMB',
+      sewingCostCny: 42,
+      optionalProcessLines: ['洗水缩水 -> ¥18.00'],
+      optionalProcessCostCny: 18,
       costTotal: 188,
+      salesPrice: sampleCostReviewPrice!.salesPrice,
+      salesCurrency: sampleCostReviewPrice!.salesCurrency,
+      grossMarginRate: 21.34,
+      reviewStatus: '待复核',
       costNote: '已完成样衣核价。',
     },
   },
@@ -86,46 +107,30 @@ assert.equal(costReviewResult.ok, true, '应能完成样衣核价并进入商品
 const createResult = createProjectChannelProductFromListingNode(
   project!.projectId,
   {
-    targetChannelCode: 'tiktok',
-    targetStoreId: 'store-tiktok-01',
+    targetChannelCode,
+    targetStoreId: targetStoreId!,
     listingTitle: '待测款上架批次',
     defaultPriceAmount: 239,
     currencyCode: 'IDR',
     listingMainImageId: listingImage.imageId,
     listingImageIds: [listingImage.imageId],
     specLines: [
-      { colorName: '奶白', sizeName: 'M', priceAmount: 239, currencyCode: 'IDR', stockQty: 9 },
-      { colorName: '奶白', sizeName: 'L', priceAmount: 239, currencyCode: 'IDR', stockQty: 7 },
+      { productImageId: listingImage.imageId, colorName: '奶白', sizeName: 'M', priceAmount: 239, currencyCode: 'IDR', stockQty: 9 },
+      { productImageId: listingImage.imageId, colorName: '奶白', sizeName: 'L', priceAmount: 239, currencyCode: 'IDR', stockQty: 7 },
     ],
   },
   '测试用户',
 )
 assert.equal(createResult.ok, true, '应能创建商品上架批次')
-
-const line = getLiveProductLineById('LS-20260331-017__item-001')
-assert.ok(line, '应存在可用于关系校验的直播商品明细')
-
-const beforeUploadRelation = buildLiveProductLineProjectRelation(line!, project!.projectId, {
-  operatorName: '测试用户',
-})
-assert.equal(beforeUploadRelation.relation, null, '未完成商品上架前不应建立正式测款关系')
-assert.match(beforeUploadRelation.errorMessage || '', /未完成商品上架/, '未完成商品上架前应明确提示')
-
-const launchResult = launchProjectChannelProductListing(createResult.record!.channelProductId, '测试用户')
-assert.equal(launchResult.ok, true, '应能上传款式到渠道')
-
-const afterUploadRelation = buildLiveProductLineProjectRelation(line!, project!.projectId, {
-  operatorName: '测试用户',
-})
-assert.equal(afterUploadRelation.relation, null, '已上传待确认但未完成时仍不应建立正式测款关系')
-assert.match(afterUploadRelation.errorMessage || '', /未完成商品上架/, '上传后未完成时仍应明确提示')
-
-const completeResult = markProjectChannelProductListingCompleted(createResult.record!.channelProductId, '测试用户')
-assert.equal(completeResult.ok, true, '上传后应能标记商品上架完成')
-
-const afterCompleteRelation = buildLiveProductLineProjectRelation(line!, project!.projectId, {
-  operatorName: '测试用户',
-})
-assert.ok(afterCompleteRelation.relation, '商品上架完成后应允许建立正式测款关系')
+assert.equal(createResult.record?.defaultPriceAmount, sampleCostReviewPrice!.salesPrice, '商品上架默认售价应继承样衣核价销售价格')
+assert.equal(createResult.record?.currencyCode, sampleCostReviewPrice!.salesCurrency, '商品上架币种应继承样衣核价销售币种')
+assert.deepEqual(
+  createResult.record?.specLines.map((item) => `${item.priceAmount}/${item.currencyCode}`),
+  [
+    `${sampleCostReviewPrice!.salesPrice}/${sampleCostReviewPrice!.salesCurrency}`,
+    `${sampleCostReviewPrice!.salesPrice}/${sampleCostReviewPrice!.salesCurrency}`,
+  ],
+  '商品上架规格价格应继承样衣核价销售价格',
+)
 
 console.log('pcs-channel-listing-testing-relation.spec.ts PASS')

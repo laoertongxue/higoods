@@ -333,6 +333,10 @@ export const renderCraftCuttingSummaryPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cutting-summary'),
   'renderCraftCuttingSummaryPage',
 )
+export const renderCraftCuttingSupplementManagementPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/supplement-management'),
+  'renderCraftCuttingSupplementManagementPage',
+)
 export const renderCraftCuttingAbMaterialStatisticsPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cutting-statistics-ab-material'),
   'renderCraftCuttingAbMaterialStatisticsPage',
