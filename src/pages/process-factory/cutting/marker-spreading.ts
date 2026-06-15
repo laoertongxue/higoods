@@ -53,7 +53,7 @@ import {
   type MarkerSpreadingContext,
   type MarkerSpreadingPrefilter,
   type SpreadingPricingMode,
-  type SpreadingReplenishmentWarning,
+  type SpreadingVarianceWarning,
   type SpreadingOperatorRecord,
   type SpreadingOperatorAmountSummary,
   type SpreadingPlanUnit,
@@ -75,7 +75,7 @@ import {
   buildMarkerSpreadingCountsByCutOrder,
   buildSpreadingDetailViewModel,
   buildSpreadingListViewModel,
-  buildSpreadingReplenishmentWarning,
+  buildSpreadingVarianceWarning,
   buildMarkerWarningMessages,
   buildSpreadingHandoverListSummary,
   computeHighLowCuttingTotals,
@@ -1327,7 +1327,7 @@ function renderSpreadingEditTabNav(activeTab: SpreadingEditTabKey): string {
     { key: 'summary', label: '执行摘要' },
     { key: 'rolls', label: '卷记录' },
     { key: 'operators', label: '换班与人员' },
-    { key: 'variance', label: '差异与补料' },
+    { key: 'variance', label: '差异处理' },
     { key: 'logs', label: '操作日志' },
   ]
 
@@ -2462,7 +2462,7 @@ function buildSupervisorSpreadingRows(baseRows: SpreadingListRow[]): SupervisorS
       mainStageMeta.key === 'DONE'
         ? deriveSpreadingCuttingStatus(row.session.cuttingStatus || 'WAITING_CUTTING')
         : null
-    const shortageGarmentQty = row.replenishmentWarning?.shortageQty || 0
+    const shortageGarmentQty = row.varianceWarning?.shortageQty || 0
 
     return {
       ...row,
@@ -2473,17 +2473,17 @@ function buildSupervisorSpreadingRows(baseRows: SpreadingListRow[]): SupervisorS
           : `裁片单 ${row.cutOrderNos.join(' / ') || '待补'} / 生产单 ${row.productionOrderNos.join(' / ') || '待补'}`,
       productionOrderCount: row.productionOrderNos.length,
       plannedCutGarmentQtyFormula:
-        row.replenishmentWarning?.plannedCutGarmentQtyFormula ||
+        row.varianceWarning?.plannedCutGarmentQtyFormula ||
         `${formatQty(row.plannedCutGarmentQty)} 件 = Σ（计划层数 × 单层成衣件数）`,
       actualCutGarmentQtyFormula:
-        row.replenishmentWarning?.actualCutGarmentQtyFormula ||
+        row.varianceWarning?.actualCutGarmentQtyFormula ||
         buildQtySumFormula(
           row.actualCutGarmentQty,
           row.session.rolls.map((roll) => (roll.actualCutGarmentQty ?? roll.actualCutPieceQty) || 0),
         ),
       shortageGarmentQty,
       shortageGarmentQtyFormula:
-        row.replenishmentWarning?.shortageGarmentQtyFormula ||
+        row.varianceWarning?.shortageGarmentQtyFormula ||
         buildShortageQtyFormula(shortageGarmentQty, row.plannedCutGarmentQty, row.actualCutGarmentQty),
       spreadActualLengthFormula: buildSumFormula(row.spreadActualLengthM, row.session.rolls.map((roll) => roll.actualLength || 0), 2),
       dataSourceLabel,
@@ -2990,7 +2990,6 @@ function renderSpreadingTable(
                   <button type="button" class="w-full truncate whitespace-nowrap rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700 hover:bg-blue-100" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(row.spreadingSessionId)}">编辑铺布</button>
                   <button type="button" class="w-full truncate whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看 PDA</button>
                   ${renderSpreadingListCuttingAction(row)}
-                  <button type="button" class="w-full truncate whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(row.spreadingSessionId)}">处理差异</button>
                 </div>
               </article>
             `
@@ -3165,11 +3164,11 @@ function buildSpreadingCompletionTargetIds(session: SpreadingSession): string[] 
   return [...session.cutOrderIds]
 }
 
-function buildSpreadingReplenishmentPreview(
+function buildSpreadingVariancePreview(
   session: SpreadingSession,
   linkedCutOrderNos: string[],
   derived: ReturnType<typeof resolveSpreadingDerivedState>,
-): SpreadingReplenishmentWarning {
+): SpreadingVarianceWarning {
   const data = readMarkerSpreadingPrototypeData()
   const primaryRows = session.cutOrderIds.map((id) => data.rowsById[id]).filter(Boolean)
   const context =
@@ -3189,7 +3188,7 @@ function buildSpreadingReplenishmentPreview(
         }
       : null
 
-  const derivedWarning = buildSpreadingReplenishmentWarning({
+  const derivedWarning = buildSpreadingVarianceWarning({
     context,
     session,
     markerTotalPieces: derived.markerTotalPieces,
@@ -3199,13 +3198,12 @@ function buildSpreadingReplenishmentPreview(
     warningMessages: derived.warningMessages,
   })
 
-  return session.replenishmentWarning?.handled ? { ...derivedWarning, handled: true } : derivedWarning
+  return session.varianceWarning?.handled ? { ...derivedWarning, handled: true } : derivedWarning
 }
 
-function renderSpreadingReplenishmentSection(
+function renderSpreadingVarianceSection(
   session: SpreadingSession,
-  warning: SpreadingReplenishmentWarning,
-  actionLabel = '去补料管理',
+  warning: SpreadingVarianceWarning,
 ): string {
   const toneClass =
     warning.warningLevel === '高'
@@ -3215,7 +3213,7 @@ function renderSpreadingReplenishmentSection(
         : 'border-emerald-200 bg-emerald-50 text-emerald-700'
 
   return renderSection(
-    '补料预警区',
+    '差异提示区',
     `
         <div class="space-y-3">
           <div class="rounded-md border px-3 py-3 text-sm ${toneClass}">
@@ -3258,9 +3256,6 @@ function renderSpreadingReplenishmentSection(
           { label: '建议动作', value: warning.suggestedAction },
           { label: '判定依据', value: warning.suggestedActionRuleText },
         ])}
-        <div class="flex flex-wrap gap-2">
-          <button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">${escapeHtml(actionLabel)}</button>
-        </div>
       </div>
     `,
   )
@@ -4247,7 +4242,7 @@ function renderSpreadingDetailPage(): string {
   const markerTotalPieces = derived.markerTotalPieces
   const rollSummary = derived.rollSummary
   const varianceSummary = derived.varianceSummary
-  const replenishmentWarning = buildSpreadingReplenishmentPreview(session, detailView.linkedCutOrderNos, derived)
+  const varianceWarning = buildSpreadingVariancePreview(session, detailView.linkedCutOrderNos, derived)
   const lifecycleState = resolveSpreadingEditLifecycleState(session)
   const data = readMarkerSpreadingPrototypeData()
   const primaryRows = session.cutOrderIds.map((id) => data.rowsById[id]).filter(Boolean)
@@ -4435,7 +4430,6 @@ function renderSpreadingDetailPage(): string {
                       ${renderReadonlyField('计划值', `${formatQty(difference.plannedValue)} ${difference.unit}`)}
                       ${renderReadonlyField('实际值', `${formatQty(difference.actualValue)} ${difference.unit}`)}
                       ${renderReadonlyField('差异值', `${formatQty(Math.abs(difference.differenceValue))} ${difference.unit}`)}
-                      ${renderReadonlyField('关联补料处理', difference.linkedReplenishmentId)}
                     </div>
                     <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(difference.evidence.summary)}</p>
                   </article>
@@ -4454,7 +4448,7 @@ function renderSpreadingDetailPage(): string {
                   ${renderReadonlyField('用量差异', formatSignedLength(webSummary.usageDiff))}
                   ${renderReadonlyField('数量差异', formatSignedNumber(webSummary.qtyDiff, '件'))}
                 </div>
-                <p class="mt-2 text-xs text-muted-foreground">该铺布单存在计划与实际差异，允许提交现场数据，后续处理差异只选择发起布料或忽略。</p>
+                <p class="mt-2 text-xs text-muted-foreground">该铺布单存在计划与实际差异，允许提交现场数据并保留差异记录。</p>
               </article>
             `
           : '<div class="rounded-lg border border-dashed bg-background px-3 py-6 text-center text-sm text-muted-foreground">当前没有已生成的铺布或裁剪差异事项。</div>'
@@ -4468,7 +4462,6 @@ function renderSpreadingDetailPage(): string {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
           '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-list" data-tab="spreadings">返回铺布单</button>',
           `<button type="button" class="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(session.spreadingSessionId)}">编辑铺布</button>`,
-          `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">处理差异</button>`,
           `${row.markerPlanNo ? `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-marker-plan" data-session-id="${escapeHtml(row.spreadingSessionId)}">去来源唛架方案</button>` : ''}`,
         ])),
       })}
@@ -4551,7 +4544,6 @@ function renderSpreadingDetailPage(): string {
         ])}
         ${renderDifferenceCards()}
         <div class="mt-3 flex flex-wrap gap-2">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">进入差异处理</button>
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-cut-orders" data-session-id="${escapeHtml(session.spreadingSessionId)}">查看来源裁片单</button>
         </div>
       `)}
@@ -4830,7 +4822,7 @@ function renderSpreadingDetailPage(): string {
 
   const renderVarianceTab = (): string =>
     renderSection(
-      '差异与补料',
+      '差异处理',
       `
         ${renderInfoGrid([
           {
@@ -4866,9 +4858,8 @@ function renderSpreadingDetailPage(): string {
         ])}
         <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
           <h4 class="text-sm font-semibold text-foreground">差异处理项</h4>
-          <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">去补料管理</button>
         </div>
-        <details class="mt-2 rounded-md border bg-background" data-testid="cutting-spreading-detail-replenishment-fold" data-default-open="collapsed">
+        <details class="mt-2 rounded-md border bg-background" data-testid="cutting-spreading-detail-variance-fold" data-default-open="collapsed">
           <summary class="cursor-pointer px-2.5 py-1.5 text-sm font-medium text-foreground">差异处理摘要</summary>
           <div class="border-t overflow-auto">
           <table class="w-full min-w-full text-sm">
@@ -4884,13 +4875,12 @@ function renderSpreadingDetailPage(): string {
                 <th class="px-3 py-3">实际铺布长度（m）</th>
                 <th class="px-3 py-3">预警等级</th>
                 <th class="px-3 py-3">建议动作</th>
-                <th class="px-3 py-3">操作</th>
               </tr>
             </thead>
             <tbody>
               ${
-                replenishmentWarning.lines.length
-                  ? replenishmentWarning.lines
+                varianceWarning.lines.length
+                  ? varianceWarning.lines
                       .map((line) => {
                         const warningLevel = line.shortageGarmentQty > 0 || line.actualLengthTotal > line.claimedLengthTotal ? '高' : '低'
                         return `
@@ -4913,25 +4903,11 @@ function renderSpreadingDetailPage(): string {
                               warningLevel === '高' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200',
                             )}</td>
                             <td class="px-3 py-3">${renderValueWithFormula(line.suggestedAction, line.suggestedActionRuleText, 'text-sm text-foreground')}</td>
-                            <td class="px-3 py-3">
-                              <button
-                                type="button"
-                                class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted"
-                                data-cutting-marker-action="launch-line-replenishment"
-                                data-session-id="${escapeHtml(session.spreadingSessionId)}"
-                                data-cut-order-id="${escapeHtml(line.cutOrderId)}"
-                                data-cut-order-no="${escapeHtml(line.cutOrderNo)}"
-                                data-material-sku="${escapeHtml(line.materialSku)}"
-                                data-color="${escapeHtml(line.color || '')}"
-                              >
-                                发起补料
-                              </button>
-                            </td>
                           </tr>
                         `
                       })
                       .join('')
-                  : '<tr><td colspan="11" class="px-3 py-6 text-center text-xs text-muted-foreground">当前没有可展示的差异处理项。</td></tr>'
+                  : '<tr><td colspan="10" class="px-3 py-6 text-center text-xs text-muted-foreground">当前没有可展示的差异处理项。</td></tr>'
               }
             </tbody>
           </table>
@@ -5035,7 +5011,7 @@ function renderSpreadingEditPage(): string {
   const theoreticalActualCutPieceQty =
     varianceSummary?.theoreticalCutGarmentQty ??
     computeSessionPlannedCutGarmentQty(draft, markerTotalPieces)
-  const replenishmentWarning = buildSpreadingReplenishmentPreview(draft, linkedCutOrderNos, derived)
+  const varianceWarning = buildSpreadingVariancePreview(draft, linkedCutOrderNos, derived)
   const handoverSummaryByRollId = buildRollHandoverSummaryMap(draft, derived.markerTotalPieces)
   const lifecycleState = resolveSpreadingEditLifecycleState(draft)
   const plannedSpreadLengthM = (draft.planUnits || []).reduce((sum, unit) => sum + Math.max(Number(unit.plannedSpreadLengthM || 0), 0), 0)
@@ -5377,7 +5353,7 @@ function renderSpreadingEditPage(): string {
 
   const renderVarianceTab = (): string =>
     renderSection(
-      '差异与补料',
+      '差异处理',
       `
         ${renderInfoGrid([
           {
@@ -5413,9 +5389,8 @@ function renderSpreadingEditPage(): string {
         ])}
         <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2">
           <h4 class="text-sm font-semibold text-foreground">差异处理项</h4>
-          <button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(draft.spreadingSessionId)}">去补料管理</button>
         </div>
-        <details class="mt-2 rounded-md border bg-background" data-testid="cutting-spreading-edit-replenishment-fold" data-default-open="collapsed">
+        <details class="mt-2 rounded-md border bg-background" data-testid="cutting-spreading-edit-variance-fold" data-default-open="collapsed">
           <summary class="cursor-pointer px-3 py-3 text-sm font-medium text-foreground">差异处理摘要</summary>
           <div class="border-t overflow-auto">
           <table class="w-full min-w-full text-sm">
@@ -5431,13 +5406,12 @@ function renderSpreadingEditPage(): string {
                 <th class="px-3 py-3">实际铺布长度（m）</th>
                 <th class="px-3 py-3">预警等级</th>
                 <th class="px-3 py-3">建议动作</th>
-                <th class="px-3 py-3">操作</th>
               </tr>
             </thead>
             <tbody>
               ${
-                replenishmentWarning.lines.length
-                  ? replenishmentWarning.lines
+                varianceWarning.lines.length
+                  ? varianceWarning.lines
                       .map((line) => {
                         const warningLevel = line.shortageGarmentQty > 0 || line.actualLengthTotal > line.claimedLengthTotal ? '高' : '低'
                         return `
@@ -5460,25 +5434,11 @@ function renderSpreadingEditPage(): string {
                               warningLevel === '高' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200',
                             )}</td>
                             <td class="px-3 py-3">${renderValueWithFormula(line.suggestedAction, line.suggestedActionRuleText, 'text-sm text-foreground')}</td>
-                            <td class="px-3 py-3">
-                              <button
-                                type="button"
-                                class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted"
-                                data-cutting-marker-action="launch-line-replenishment"
-                                data-session-id="${escapeHtml(draft.spreadingSessionId)}"
-                                data-cut-order-id="${escapeHtml(line.cutOrderId)}"
-                                data-cut-order-no="${escapeHtml(line.cutOrderNo)}"
-                                data-material-sku="${escapeHtml(line.materialSku)}"
-                                data-color="${escapeHtml(line.color || '')}"
-                              >
-                                发起补料
-                              </button>
-                            </td>
                           </tr>
                         `
                       })
                       .join('')
-                  : '<tr><td colspan="11" class="px-3 py-6 text-center text-xs text-muted-foreground">当前没有可展示的差异处理项。</td></tr>'
+                  : '<tr><td colspan="10" class="px-3 py-6 text-center text-xs text-muted-foreground">当前没有可展示的差异处理项。</td></tr>'
               }
             </tbody>
           </table>
@@ -6309,7 +6269,7 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
     configuredLengthTotal: varianceSummary?.configuredLengthTotal || 0,
     claimedLengthTotal: varianceSummary?.claimedLengthTotal || 0,
     varianceLength: varianceSummary?.varianceLength || 0,
-    varianceNote: varianceSummary?.replenishmentHint || '当前尚未识别明显差异。',
+    varianceNote: varianceSummary?.varianceHint || '当前尚未识别明显差异。',
     warningMessages,
     importSource: draft.importSource || null,
     planLineItems: draft.planLineItems || [],
@@ -7401,50 +7361,6 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
   if (action === 'go-linked-cut-orders') return navigateFromSpreadingSession(actionNode.dataset.sessionId, 'cut-orders')
   if (action === 'go-linked-marker-plan') return navigateFromSpreadingSession(actionNode.dataset.sessionId,  'marker-list')
-
-  if (action === 'go-spreading-replenishment') {
-    const sessionId = actionNode.dataset.sessionId
-    if (!sessionId) return false
-    const row = getSpreadingRow(sessionId)
-    if (!row) return false
-    const context = buildCuttingDrillContext(row.replenishmentPayload, 'spreading-list', {
-      productionOrderNo: row.productionOrderNos[0] || undefined,
-      cutOrderNo: row.cutOrderNos[0] || undefined,
-      markerPlanId: row.markerPlanId || undefined,
-      markerPlanNo: row.markerPlanNo || undefined,
-      materialSku: row.materialSkuSummary?.split(' / ')[0] || undefined,
-      markerId: row.session.markerId || undefined,
-      markerNo: row.session.markerNo || undefined,
-      spreadingSessionId: row.spreadingSessionId,
-      spreadingSessionNo: row.session.sessionNo || undefined,
-      autoOpenDetail: true,
-    })
-    appStore.navigate(buildCuttingRouteWithContext('replenishment', context))
-    return true
-  }
-
-  if (action === 'launch-line-replenishment') {
-    const context = buildCuttingDrillContext(
-      {
-        cutOrderId: actionNode.dataset.cutOrderId,
-        cutOrderNo: actionNode.dataset.cutOrderNo,
-        materialSku: actionNode.dataset.materialSku,
-      },
-      'spreading-list',
-      {
-        markerId: state.spreadingDraft?.markerId || undefined,
-        markerNo: state.spreadingDraft?.markerNo || undefined,
-        autoOpenDetail: true,
-      },
-    )
-    appStore.navigate(
-      buildRouteWithQuery(getCanonicalCuttingPath('replenishment'), {
-        ...serializeCuttingDrillContext(context),
-        color: actionNode.dataset.color || undefined,
-      }),
-    )
-    return true
-  }
 
   if (action === 'go-spreading-fei-tickets') {
     const sessionId = actionNode.dataset.sessionId

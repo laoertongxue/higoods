@@ -322,7 +322,7 @@ function renderPdaPickingFlow(projection: HandoverPickingTaskProjection, taskId:
   `
 }
 
-function appendPdaBaggingConfirmEvent(
+function appendRuntimeBaggingConfirmEvent(
   projection: HandoverPickingTaskProjection,
   task: HandoverPickingTaskProjection['tasks'][number],
   form: HandoverFormState,
@@ -395,14 +395,14 @@ function validateUniversalHandoverScans(
   return { ok: true, bag, ticket }
 }
 
-function appendPdaUniversalHandoverEvent(draft: PdaHandoverRecordDraftProjection, form: HandoverFormState, operatorName: string): string {
+function appendRuntimeUniversalHandoverEvent(draft: PdaHandoverRecordDraftProjection, form: HandoverFormState, operatorName: string): string {
   const sourceRecord = findHandoverRecordForDraft(draft)
   if (!sourceRecord || !sourceRecord.feiTicketItems.length) return '当前交出单没有可提交的菲票明细。'
   const validation = validateUniversalHandoverScans(draft, sourceRecord, form)
   if (!validation.ok) return validation.message
 
   const now = new Date().toISOString()
-  const recordId = `PDA-HR-${draft.handoverOrderId}-${Date.now()}`
+  const recordId = `PDA-HR-${draft.handoverOrderId}-${now.replace(/\D/g, '')}`
   const recordNo = `${draft.handoverOrderNo}-PDA-${String(draft.nextRecordSequence).padStart(3, '0')}`
   const payload: HandoverRecordSubmitPayload = {
     handoverOrderId: draft.handoverOrderId,
@@ -475,7 +475,7 @@ function validateSpecialCraftHandoverScans(
   return { ok: true, bag, craftItems, ticketNo: ticket.feiTicketNo }
 }
 
-function appendPdaSpecialCraftHandoverEvent(draft: PdaHandoverRecordDraftProjection, form: HandoverFormState, operatorName: string): string {
+function appendRuntimeSpecialCraftHandoverEvent(draft: PdaHandoverRecordDraftProjection, form: HandoverFormState, operatorName: string): string {
   const sourceRecord = findHandoverRecordForDraft(draft)
   if (!sourceRecord || !sourceRecord.specialCraftItems?.length) return '当前特殊工艺交出单没有工艺明细。'
   const validation = validateSpecialCraftHandoverScans(draft, sourceRecord, form)
@@ -566,7 +566,7 @@ function validateSpecialCraftReturnScans(
   return { ok: true, bag, craftItems, ticket, ticketNo: ticket.feiTicketNo, warehouseArea, locationCode, returnedQty }
 }
 
-function appendPdaSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProjection, form: HandoverFormState, operatorName: string): string {
+function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProjection, form: HandoverFormState, operatorName: string): string {
   const sourceRecord = findHandoverRecordForDraft(draft)
   if (!sourceRecord || !sourceRecord.specialCraftItems?.length) return '当前特殊工艺交出单没有可回仓菲票。'
   const validation = validateSpecialCraftReturnScans(draft, sourceRecord, form)
@@ -574,7 +574,7 @@ function appendPdaSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProjectio
   const craftItems = validation.craftItems
 
   const now = new Date().toISOString()
-  const returnRecordId = `PDA-SCR-${sourceRecord.handoverRecordId}-${Date.now()}`
+  const returnRecordId = `PDA-SCR-${sourceRecord.handoverRecordId}-${now.replace(/\D/g, '')}`
   const expectedTotalQty = craftItems.reduce((total, item) => total + item.pieceQty, 0)
   let remainingReturnQty = validation.returnedQty
   const returnedFeiTicketItems = craftItems.map((item, index) => {
@@ -948,7 +948,7 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
       form.feedbackMessage = '当前执行对象或操作人无法识别，不能新增交出记录。'
       return true
     }
-    form.feedbackMessage = appendPdaUniversalHandoverEvent(
+    form.feedbackMessage = appendRuntimeUniversalHandoverEvent(
       buildPdaUniversalHandoverRecordDraft(),
       form,
       form.operatorName.trim() || operator.name || '交出操作员',
@@ -972,14 +972,14 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
       form.feedbackMessage = '当前没有待交出仓交出装袋确认任务。'
       return true
     }
-    form.feedbackMessage = appendPdaBaggingConfirmEvent(projection, task, form, form.operatorName.trim() || '裁片仓装袋确认员')
+    form.feedbackMessage = appendRuntimeBaggingConfirmEvent(projection, task, form, form.operatorName.trim() || '裁片仓装袋确认员')
     return true
   }
 
   if (action === 'confirm-special-craft-handover') {
     const form = getState(taskId, resolvedExecutionOrderId, resolvedExecutionOrderNo)
     syncHandoverFormFromControls(form)
-    form.feedbackMessage = appendPdaSpecialCraftHandoverEvent(
+    form.feedbackMessage = appendRuntimeSpecialCraftHandoverEvent(
       buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001'),
       form,
       form.operatorName.trim() || '特殊工艺交出员',
@@ -990,7 +990,7 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
   if (action === 'confirm-special-craft-return') {
     const form = getState(taskId, resolvedExecutionOrderId, resolvedExecutionOrderNo)
     syncHandoverFormFromControls(form)
-    form.feedbackMessage = appendPdaSpecialCraftReturnEvent(
+    form.feedbackMessage = appendRuntimeSpecialCraftReturnEvent(
       buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001'),
       form,
       form.operatorName.trim() || '特殊工艺回仓员',

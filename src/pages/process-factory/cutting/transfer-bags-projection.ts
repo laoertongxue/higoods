@@ -170,7 +170,6 @@ export function buildTransferBagsProjection(
     pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
     inboundEvents: snapshot.pdaExecutionState.inboundEvents as never[],
     handoverEvents: snapshot.pdaExecutionState.handoverEvents as never[],
-    replenishmentFeedbackEvents: snapshot.pdaExecutionState.replenishmentFeedbackEvents as never[],
   })
   const seedCutOrderRows = buildTransferBagCutOrderRows(snapshot, [], progressRows)
   const markerPlanSources = buildRuntimeMarkerPlanSourceRecords(snapshot, seedCutOrderRows)

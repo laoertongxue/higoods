@@ -499,37 +499,6 @@ test('PDA 入仓暂存袋结构化写入袋码、菲票和数量，Web 待交出
   await expectNoPageErrors(errors)
 })
 
-test('PDA 现场差异反馈写入统一事件账，Web 补料管理可读取', async ({ page }) => {
-  const errors = collectPageErrors(page)
-  await seedCuttingPdaSession(page)
-
-  await gotoPda(page, '/fcs/pda/cutting/replenishment-feedback/TASK-CUT-PDA-SYNC-FAIL-0310')
-  await expect(page.locator('body')).toContainText('现场差异反馈', { timeout: 30000 })
-  await page.locator('[data-pda-cut-replenishment-field="reasonLabel"]').selectOption('面料余额不足')
-  await page.locator('[data-pda-cut-replenishment-field="differenceQty"]').fill('18')
-  await page.locator('[data-pda-cut-replenishment-field="unit"]').selectOption('米')
-  await page.locator('[data-pda-cut-replenishment-field="note"]').fill('E2E-补料反馈-事件账')
-  await page.locator('[data-pda-cut-replenishment-field="photoProofCount"]').fill('2')
-  await page.locator('[data-pda-cut-replenishment-action="submit"]').click()
-  await expectRuntimeEvent(
-    page,
-    '补料反馈',
-    (event) => (event.payload as any)?.reasonLabel === '面料余额不足' && (event.payload as any)?.note?.includes('E2E-补料反馈-事件账'),
-  )
-
-  await verifyEventOnWebPage(
-    page,
-    '/fcs/craft/cutting/replenishment',
-    /补料管理|布料管理/,
-    '补料反馈',
-    (event) => (event.payload as any)?.note?.includes('E2E-补料反馈-事件账'),
-  )
-  await expect(page.locator('body')).toContainText('E2E-补料反馈-事件账', { timeout: 30000 })
-  await expect(page.locator('body')).toContainText('面料余额不足')
-
-  await expectNoPageErrors(errors)
-})
-
 test('PDA 分拣装袋、交出、特殊工艺交出和回仓均写入统一事件账，并能在 Web 回查', async ({ page }) => {
   test.setTimeout(120_000)
   const errors = collectPageErrors(page)

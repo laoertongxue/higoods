@@ -32,9 +32,6 @@ function pickRelevantPickupView(
 }
 
 function deriveOwner(type: CuttingExceptionType, row: PlatformCuttingOverviewRow): { role: CuttingExceptionOwnerRole; name: string } {
-  if (type === 'REPLENISHMENT_PENDING') {
-    return { role: 'PLATFORM', name: '平台裁片跟进岗' }
-  }
   if (type === 'MARKER_NOT_MAINTAINED' || type === 'SPREADING_DATA_INSUFFICIENT') {
     return { role: 'FIELD_EXECUTION', name: `${row.assignedFactoryName}现场执行` }
   }
@@ -50,8 +47,6 @@ function deriveSource(type: CuttingExceptionType): { layer: CuttingExceptionSour
       return { layer: 'PCS', page: 'CUT_PIECE_ORDER' }
     case 'SPREADING_DATA_INSUFFICIENT':
       return { layer: 'FACTORY_APP', page: 'PDA_SPREADING' }
-    case 'REPLENISHMENT_PENDING':
-      return { layer: 'PCS', page: 'REPLENISHMENT' }
     case 'INBOUND_PENDING':
     case 'ZONE_UNASSIGNED':
     case 'SAMPLE_OVERDUE':
@@ -66,13 +61,11 @@ function deriveSource(type: CuttingExceptionType): { layer: CuttingExceptionSour
 function deriveSuggestedRoute(type: CuttingExceptionType, row: PlatformCuttingOverviewRow): string {
   if (type === 'RECEIVE_DISCREPANCY' || type === 'MISSING_EVIDENCE') return row.routes.materialPrep
   if (type === 'MARKER_NOT_MAINTAINED' || type === 'SPREADING_DATA_INSUFFICIENT') return row.routes.cutOrders
-  if (type === 'REPLENISHMENT_PENDING') return row.routes.replenishment
   return row.routes.fabricWarehouse
 }
 
 function deriveRiskLevel(type: CuttingExceptionType, row: PlatformCuttingOverviewRow): CuttingExceptionRiskLevel {
   if (type === 'MISSING_EVIDENCE') return 'HIGH'
-  if (type === 'REPLENISHMENT_PENDING' && row.record.replenishmentSummary.highRiskCount > 0) return 'HIGH'
   if (type === 'RECEIVE_DISCREPANCY' && row.overallRiskLevel === 'HIGH') return 'HIGH'
   if (type === 'INBOUND_PENDING' && (row.urgencyLevel === 'AA' || row.urgencyLevel === 'A')) return 'HIGH'
   if (type === 'SAMPLE_OVERDUE' && row.record.sampleSummary.overdueReturnCount > 0) return 'HIGH'
@@ -84,7 +77,7 @@ function deriveRiskLevel(type: CuttingExceptionType, row: PlatformCuttingOvervie
 function deriveInitialStatus(type: CuttingExceptionType, row: PlatformCuttingOverviewRow): CuttingExceptionStatus {
   if (type === 'RECEIVE_DISCREPANCY' && row.hasPhotoEvidence) return 'WAITING_CONFIRM'
   if (type === 'ZONE_UNASSIGNED') return 'WAITING_CONFIRM'
-  if (type === 'REPLENISHMENT_PENDING' || type === 'HANDOVER_PENDING' || type === 'SAMPLE_OVERDUE') return 'IN_PROGRESS'
+  if (type === 'HANDOVER_PENDING' || type === 'SAMPLE_OVERDUE') return 'IN_PROGRESS'
   return 'OPEN'
 }
 
@@ -147,7 +140,6 @@ function buildCommonException(
     needsRecheck: view?.needsRecheck ?? row.pickupSummary.needsRecheck,
     pickupSummaryText: row.pickupSummaryText,
     executionSummaryText: row.executionSummaryText,
-    replenishmentSummaryText: row.replenishmentSummaryText,
     warehouseSummaryText: row.warehouseSummaryText,
     sampleSummaryText: row.sampleSummaryText,
     evidenceCount,
@@ -211,19 +203,6 @@ function buildExceptionsForRow(row: PlatformCuttingOverviewRow): CuttingExceptio
         latestActionAt: row.record.spreadingSummary.latestSpreadingAt || row.record.lastUpdatedAt,
         latestActionBy: row.record.spreadingSummary.latestSpreadingBy || '工厂端补录',
         suggestedAction: '回裁片单页补录铺布记录，确认卷号、层数、布头布尾和总长度。',
-      }),
-    )
-  }
-
-  if (row.record.replenishmentSummary.pendingReviewCount > 0 || row.record.replenishmentSummary.needMoreInfoCount > 0) {
-    rows.push(
-      buildCommonException(row, 'REPLENISHMENT_PENDING', rows.length + 1, latestView, {
-        triggerSummary: `补料建议待审核 ${row.record.replenishmentSummary.pendingReviewCount} 条，待补充说明 ${row.record.replenishmentSummary.needMoreInfoCount} 条。`,
-        evidenceSummary: `高风险补料 ${row.record.replenishmentSummary.highRiskCount} 条，已通过 ${row.record.replenishmentSummary.approvedCount} 条。`,
-        latestActionSummary: '补料链路仍待平台继续跟进',
-        latestActionAt: row.record.lastUpdatedAt,
-        latestActionBy: 'PCS 补料汇总',
-        suggestedAction: '回补料管理页处理待审核或待补充说明的建议。',
       }),
     )
   }

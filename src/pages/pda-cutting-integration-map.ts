@@ -39,12 +39,4 @@ export const PDA_CUTTING_INTEGRATION_MAP = [
     focusTarget: 'execution-order-card',
     refreshTargets: ['cutting-task-detail', 'task-receive-detail', 'task-list'],
   },
-  {
-    from: 'cutting-task-detail',
-    to: 'replenishment-feedback',
-    carry: ['taskId', 'executionOrderId', 'executionOrderNo', 'cutOrderId', 'cutOrderNo', 'markerPlanId', 'markerPlanNo', 'materialSku', 'returnTo', 'sourcePageKey', 'focusTaskId', 'focusExecutionOrderId', 'focusExecutionOrderNo', 'focusActionKey'],
-    returnsTo: 'cutting-task-detail',
-    focusTarget: 'execution-order-card',
-    refreshTargets: ['cutting-task-detail', 'task-receive-detail', 'task-list'],
-  },
 ] as const

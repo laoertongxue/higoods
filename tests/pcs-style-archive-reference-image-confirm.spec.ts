@@ -144,7 +144,7 @@ const result = generateStyleArchiveFromProjectNode(projectId, '测试用户', {
 assert.equal(result.ok, true, '项目参考图经人工选择后应可用于生成款式档案')
 const updatedImage = getProjectImageAssetById(referenceImage.imageId)
 assert.equal(updatedImage?.imageStatus, '可用于款式档案', '被选择的项目参考图应回写为可用于款式档案')
-assert.ok(updatedImage?.usageScopes.includes('款式档案'), '被选择的项目参考图应补入款式档案用途')
+assert.ok(updatedImage?.usageScopes.includes('款式档案'), '被选择的项目参考图应加入款式档案用途')
 assert.equal(result.style?.imageSource, '项目参考图', '图片来源应明确为项目参考图')
 
 console.log('pcs-style-archive-reference-image-confirm.spec.ts PASS')

@@ -104,7 +104,6 @@ function assertPdaFormalSourceSlimmed(): void {
     'src/pages/pda-cutting-spreading.ts',
     'src/pages/pda-cutting-inbound.ts',
     'src/pages/pda-cutting-handover.ts',
-    'src/pages/pda-cutting-replenishment-feedback.ts',
     'src/pages/pda-cutting-context.ts',
   ]
 

@@ -34,7 +34,6 @@ import {
   type PdaCutPieceHandoverEventRecord,
   type PdaCutPieceInboundEventRecord,
   type PdaPickupEventRecord,
-  type PdaReplenishmentFeedbackEventRecord,
 } from './cutting/cutting-runtime-event-ledger.ts'
 import { getLatestClaimDisputeByCutOrderNo } from '../../state/fcs-claim-dispute-store.ts'
 import {
@@ -47,8 +46,8 @@ import type { MarkerPlanViewRow } from '../../pages/process-factory/cutting/mark
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
 export type PdaTaskEntryMode = 'DEFAULT' | 'CUTTING_SPECIAL'
-export type PdaCuttingRouteKey = 'task' | 'unit' | 'spreading' | 'inbound' | 'handover' | 'replenishment-feedback'
-export type PdaCuttingCurrentStepCode = 'START' | 'PICKUP' | 'SPREADING' | 'REPLENISHMENT' | 'HANDOVER' | 'INBOUND' | 'DONE'
+export type PdaCuttingRouteKey = 'task' | 'unit' | 'spreading' | 'inbound' | 'handover'
+export type PdaCuttingCurrentStepCode = 'START' | 'PICKUP' | 'SPREADING' | 'HANDOVER' | 'INBOUND' | 'DONE'
 export type PdaSpreadingMode = 'NORMAL' | 'HIGH_LOW' | 'FOLD_NORMAL' | 'FOLD_HIGH_LOW'
 type PdaCuttingMobileStage =
   | 'WAIT_PICKUP'
@@ -157,7 +156,6 @@ export interface PdaCuttingTaskOrderLine {
   currentExecutionStatus: string
   currentInboundStatus: string
   currentHandoverStatus: string
-  replenishmentRiskLabel: string
   currentStateLabel: string
   currentStepCode: PdaCuttingCurrentStepCode
   currentStepLabel: string
@@ -285,18 +283,8 @@ export interface PdaCuttingHandoverRecord {
   note: string
 }
 
-export interface PdaCuttingReplenishmentFeedbackRecord {
-  executionOrderId: string
-  id: string
-  feedbackAt: string
-  operatorName: string
-  reasonLabel: string
-  note: string
-  photoProofCount: number
-}
-
 export interface PdaCuttingRecentAction {
-  actionType: 'PICKUP' | 'SPREADING' | 'INBOUND' | 'HANDOVER' | 'REPLENISHMENT'
+  actionType: 'PICKUP' | 'SPREADING' | 'INBOUND' | 'HANDOVER'
   actionTypeLabel: string
   operatedBy: string
   operatedAt: string
@@ -382,21 +370,12 @@ export interface PdaCuttingTaskDetailData {
   latestHandoverBy: string
   latestHandoverRecordNo: string
   handoverTargetLabel: string
-  replenishmentRiskSummary: string
-  latestReplenishmentFeedbackAt: string
-  latestReplenishmentFeedbackBy: string
-  latestReplenishmentFeedbackRecordNo: string
-  latestFeedbackAt: string
-  latestFeedbackBy: string
-  latestFeedbackReason: string
-  latestFeedbackNote: string
   recentActions: PdaCuttingRecentAction[]
   pickupLogs: PdaCuttingPickupLog[]
   spreadingTargets: PdaCuttingSpreadingTarget[]
   spreadingRecords: PdaCuttingSpreadingRecord[]
   inboundRecords: PdaCuttingInboundRecord[]
   handoverRecords: PdaCuttingHandoverRecord[]
-  replenishmentFeedbacks: PdaCuttingReplenishmentFeedbackRecord[]
   latestSyncStatus: string
   latestSyncSummary: string
 }
@@ -974,11 +953,6 @@ function getLatestHandover(snapshot: CuttingDomainSnapshot, execution: PdaCuttin
   return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.cutOrderId === execution.cutOrderId) ?? null
 }
 
-function getLatestReplenishment(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaReplenishmentFeedbackEventRecord | null {
-  const rows = snapshot.pdaExecutionState.replenishmentFeedbackEvents as unknown as PdaReplenishmentFeedbackEventRecord[]
-  return rows.find((item) => item.executionOrderId === execution.executionOrderId || item.cutOrderId === execution.cutOrderId) ?? null
-}
-
 function listSessionsForExecution(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): SpreadingSession[] {
   const store = getMarkerStore(snapshot)
   return (store.sessions || [])
@@ -1139,20 +1113,9 @@ function listOperatorsForExecution(snapshot: CuttingDomainSnapshot, execution: P
   )
 }
 
-function buildReplenishmentLabel(latestReplenishment: PdaReplenishmentFeedbackRecord | null): string {
-  if (!latestReplenishment) return '当前无现场差异'
-  if (latestReplenishment.lifecycleStatus === 'CLOSED') return `${latestReplenishment.reasonLabel}，已关闭`
-  if (latestReplenishment.lifecycleStatus === 'PENDING') return `${latestReplenishment.reasonLabel}，待工艺工厂跟进`
-  return `${latestReplenishment.reasonLabel}，已提交现场差异反馈`
-}
-
 function includesAny(value: string | undefined, keywords: string[]): boolean {
   if (!value) return false
   return keywords.some((keyword) => value.includes(keyword))
-}
-
-function hasPendingReplenishmentRisk(label: string): boolean {
-  return !includesAny(label, ['当前无现场差异', '暂无现场差异', '无需处理', '已关闭'])
 }
 
 function isReceiveCompleted(status: string): boolean {
@@ -1218,7 +1181,6 @@ function resolveCurrentState(line: {
   hasSpreading: boolean
   hasInbound: boolean
   hasHandover: boolean
-  replenishmentLabel: string
   hasException: boolean
 }): string {
   if (line.bindingState === 'UNBOUND') return '待绑定'
@@ -1232,7 +1194,6 @@ function resolveCurrentState(line: {
   if (line.currentExecutionStatus === '已铺布待裁剪') return '待裁剪'
   if (line.currentExecutionStatus === '裁剪中') return '裁剪中'
   if (line.currentExecutionStatus === '已裁剪') return '已裁剪'
-  if (line.replenishmentLabel.includes('待工艺工厂跟进')) return '现场差异待关注'
   return line.currentExecutionStatus || '待铺布'
 }
 
@@ -1240,15 +1201,12 @@ function resolvePrimaryExecutionRouteKey(input: {
   bindingState: 'BOUND' | 'UNBOUND'
   taskStatus: ProcessTask['status']
   currentStepCode: PdaCuttingCurrentStepCode
-  replenishmentLabel: string
   hasException: boolean
 }): Exclude<PdaCuttingRouteKey, 'task' | 'unit'> {
   if (input.bindingState === 'UNBOUND') return 'spreading'
   if (input.taskStatus === 'CANCELLED') return 'handover'
-  if (input.taskStatus === 'BLOCKED' && input.replenishmentLabel !== '当前无现场差异') return 'replenishment-feedback'
   if (input.currentStepCode === 'PICKUP') return 'spreading'
   if (input.currentStepCode === 'SPREADING') return 'spreading'
-  if (input.currentStepCode === 'REPLENISHMENT') return 'replenishment-feedback'
   if (input.currentStepCode === 'INBOUND') return 'inbound'
   if (input.currentStepCode === 'HANDOVER') return 'handover'
   return 'handover'
@@ -1407,7 +1365,6 @@ function buildSyncSummary(record: PdaCuttingStageEventRecord | null): string {
 
 function listRiskTips(line: {
   disputeSummary?: string
-  replenishmentLabel: string
   hasInbound: boolean
   hasHandover: boolean
 }): string[] {
@@ -1415,7 +1372,6 @@ function listRiskTips(line: {
   if (line.disputeSummary) tips.push(line.disputeSummary)
   if (!line.hasInbound) tips.push('当前尚未完成入仓扫码，后续仓务无法稳定回流。')
   if (!line.hasHandover) tips.push('当前尚未完成交接扫码，后道承接状态未闭环。')
-  if (line.replenishmentLabel !== '当前无现场差异') tips.push(line.replenishmentLabel)
   return unique(tips)
 }
 
@@ -1430,7 +1386,6 @@ function buildTaskOrderLine(
   const latestPickup = getLatestPickup(snapshot, execution)
   const latestInbound = getLatestInbound(snapshot, execution)
   const latestHandover = getLatestHandover(snapshot, execution)
-  const latestReplenishment = getLatestReplenishment(snapshot, execution)
   const sessions = listSessionsForExecution(snapshot, execution)
   const preset = getScenarioSpreadingPreset(execution)
   const stageActions = listRuntimeStageEventsByExecution(execution)
@@ -1496,11 +1451,9 @@ function buildTaskOrderLine(
                     : '已裁剪'
   const currentInboundStatus = latestInbound ? '已入仓' : '待入仓扫码'
   const currentHandoverStatus = latestHandover ? '已交接' : '待交接扫码'
-  const replenishmentRiskLabel = buildReplenishmentLabel(latestReplenishment)
   const hasException =
     currentReceiveStatus.includes('异议')
     || currentReceiveStatus.includes('差异')
-    || replenishmentRiskLabel.includes('待工艺工厂跟进')
     || execution.bindingState === 'UNBOUND'
     || currentExecutionStatus.includes('暂停')
     || currentExecutionStatus.includes('中止')
@@ -1516,14 +1469,12 @@ function buildTaskOrderLine(
     hasSpreading,
     hasInbound,
     hasHandover,
-    replenishmentLabel: replenishmentRiskLabel,
     hasException,
   })
   const primaryExecutionRouteKey = resolvePrimaryExecutionRouteKey({
     bindingState: execution.bindingState,
     taskStatus: scenario?.taskStatus || 'NOT_STARTED',
     currentStepCode,
-    replenishmentLabel: replenishmentRiskLabel,
     hasException,
   })
   const latestSyncStatus = latestStageAction?.syncStatus || (latestPickup ? '已同步' : '暂无提交')
@@ -1548,7 +1499,6 @@ function buildTaskOrderLine(
     currentExecutionStatus,
     currentInboundStatus,
     currentHandoverStatus,
-    replenishmentRiskLabel,
     currentStateLabel,
     currentStepCode,
     currentStepLabel,
@@ -1745,26 +1695,11 @@ function buildHandoverRecords(snapshot: CuttingDomainSnapshot, execution: PdaCut
   }]
 }
 
-function buildReplenishmentRecords(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCuttingReplenishmentFeedbackRecord[] {
-  const latestReplenishment = getLatestReplenishment(snapshot, execution)
-  if (!latestReplenishment) return []
-  return [{
-    executionOrderId: execution.executionOrderId,
-    id: latestReplenishment.runtimeEventId,
-    feedbackAt: latestReplenishment.submittedAt,
-    operatorName: latestReplenishment.operatorName,
-    reasonLabel: latestReplenishment.reasonLabel,
-    note: latestReplenishment.note,
-    photoProofCount: latestReplenishment.photoProofCount,
-  }]
-}
-
 function buildRecentActions(input: {
   pickupLogs: PdaCuttingPickupLog[]
   spreadingRecords: PdaCuttingSpreadingRecord[]
   inboundRecords: PdaCuttingInboundRecord[]
   handoverRecords: PdaCuttingHandoverRecord[]
-  replenishmentFeedbacks: PdaCuttingReplenishmentFeedbackRecord[]
 }): PdaCuttingRecentAction[] {
   const actions: PdaCuttingRecentAction[] = []
   const latestPickup = input.pickupLogs[0]
@@ -1805,16 +1740,6 @@ function buildRecentActions(input: {
       operatedBy: latestHandover.operatorName,
       operatedAt: latestHandover.handoverAt,
       summary: latestHandover.targetLabel,
-    })
-  }
-  const latestReplenishment = input.replenishmentFeedbacks[0]
-  if (latestReplenishment) {
-    actions.push({
-      actionType: 'REPLENISHMENT',
-      actionTypeLabel: '现场差异反馈',
-      operatedBy: latestReplenishment.operatorName,
-      operatedAt: latestReplenishment.feedbackAt,
-      summary: latestReplenishment.reasonLabel,
     })
   }
   return actions.sort((left, right) => right.operatedAt.localeCompare(left.operatedAt, 'zh-CN'))
@@ -2010,12 +1935,10 @@ export function getPdaCuttingTaskSnapshot(
   const spreadingRecords = buildSpreadingRecords(currentSnapshot, selectedExecutionRecord)
   const inboundRecords = buildInboundRecords(currentSnapshot, selectedExecutionRecord)
   const handoverRecords = buildHandoverRecords(currentSnapshot, selectedExecutionRecord)
-  const replenishmentFeedbacks = buildReplenishmentRecords(currentSnapshot, selectedExecutionRecord)
   const latestPickup = pickupLogs[0]
   const latestSpreading = spreadingRecords[0]
   const latestInbound = inboundRecords[0]
   const latestHandover = handoverRecords[0]
-  const latestReplenishment = replenishmentFeedbacks[0]
   const operators = listOperatorsForExecution(currentSnapshot, selectedExecutionRecord)
   const pickupDispute = selectedExecutionRecord.cutOrderNo
     ? getLatestClaimDisputeByCutOrderNo(selectedExecutionRecord.cutOrderNo)
@@ -2024,7 +1947,6 @@ export function getPdaCuttingTaskSnapshot(
     disputeSummary: pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
       ? `${pickupDispute.disputeReason}，待平台处理`
       : undefined,
-    replenishmentLabel: selectedLine.replenishmentRiskLabel,
     hasInbound: selectedLine.currentInboundStatus === '已入仓',
     hasHandover: selectedLine.currentHandoverStatus === '已交接',
   })
@@ -2090,7 +2012,7 @@ export function getPdaCuttingTaskSnapshot(
   })
   const currentOwnerName = task.assignedFactoryName || '工艺工厂裁片执行'
   const orderQty = originalRecord?.requiredQty || 0
-  const latestOperatorName = operators[0]?.operator.operatorName || latestPickup?.operatorName || latestInbound?.operatorName || latestHandover?.operatorName || latestReplenishment?.operatorName || '现场操作员'
+  const latestOperatorName = operators[0]?.operator.operatorName || latestPickup?.operatorName || latestInbound?.operatorName || latestHandover?.operatorName || '现场操作员'
 
   return {
     taskId,
@@ -2162,7 +2084,7 @@ export function getPdaCuttingTaskSnapshot(
     configuredQtyText,
     actualReceivedQtyText,
     discrepancyNote: latestPickup?.note || pickupDispute?.disputeNote || '当前无差异',
-    photoProofCount: latestPickup?.photoProofCount || latestReplenishment?.photoProofCount || pickupDispute?.evidenceCount || 0,
+    photoProofCount: latestPickup?.photoProofCount || pickupDispute?.evidenceCount || 0,
     markerSummary: spreadingRecords.length > 0 ? `${spreadingRecords.length} 条铺布记录` : '待铺布录入',
     hasMarkerImage: spreadingRecords.length > 0,
     latestSpreadingAt: latestSpreading?.enteredAt || '-',
@@ -2177,21 +2099,12 @@ export function getPdaCuttingTaskSnapshot(
     latestHandoverBy: latestHandover?.operatorName || '-',
     latestHandoverRecordNo: latestHandover?.id || '',
     handoverTargetLabel: latestHandover?.targetLabel || '待确定后道去向',
-    replenishmentRiskSummary: selectedLine.replenishmentRiskLabel,
-    latestReplenishmentFeedbackAt: latestReplenishment?.feedbackAt || '-',
-    latestReplenishmentFeedbackBy: latestReplenishment?.operatorName || '-',
-    latestReplenishmentFeedbackRecordNo: latestReplenishment?.id || '',
-    latestFeedbackAt: latestReplenishment?.feedbackAt || '-',
-    latestFeedbackBy: latestReplenishment?.operatorName || '-',
-    latestFeedbackReason: latestReplenishment?.reasonLabel || '',
-    latestFeedbackNote: latestReplenishment?.note || '',
-    recentActions: buildRecentActions({ pickupLogs, spreadingRecords, inboundRecords, handoverRecords, replenishmentFeedbacks }),
+    recentActions: buildRecentActions({ pickupLogs, spreadingRecords, inboundRecords, handoverRecords }),
     pickupLogs,
     spreadingTargets,
     spreadingRecords,
     inboundRecords,
     handoverRecords,
-    replenishmentFeedbacks,
     latestSyncStatus: selectedLine.latestSyncStatus,
     latestSyncSummary: selectedLine.latestSyncSummary,
   }
@@ -2220,9 +2133,7 @@ export function buildPdaCuttingRoute(taskId: string, routeKey: PdaCuttingRouteKe
           ? `/fcs/pda/cutting/spreading/${taskId}`
           : routeKey === 'inbound'
             ? `/fcs/pda/cutting/inbound/${taskId}`
-            : routeKey === 'handover'
-              ? `/fcs/pda/cutting/handover/${taskId}`
-              : `/fcs/pda/cutting/replenishment-feedback/${taskId}`
+            : `/fcs/pda/cutting/handover/${taskId}`
   const params = new URLSearchParams()
   if (options.returnTo?.trim()) params.set('returnTo', options.returnTo.trim())
   if (options.executionOrderId?.trim()) params.set('executionOrderId', options.executionOrderId.trim())

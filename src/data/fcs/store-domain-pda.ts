@@ -38,7 +38,6 @@ export type PermissionKey =
   | 'CUTTING_PICKUP_CONFIRM'
   | 'CUTTING_PICKUP_LENGTH_DISPUTE'
   | 'CUTTING_SPREADING_SAVE'
-  | 'CUTTING_REPLENISHMENT_FEEDBACK'
   | 'CUTTING_HANDOVER_CONFIRM'
   | 'CUTTING_INBOUND_CONFIRM'
   | 'PICKUP_CONFIRM'
@@ -65,7 +64,6 @@ export const allFactoryMobileAppPermissionKeys: PermissionKey[] = [
   'CUTTING_PICKUP_CONFIRM',
   'CUTTING_PICKUP_LENGTH_DISPUTE',
   'CUTTING_SPREADING_SAVE',
-  'CUTTING_REPLENISHMENT_FEEDBACK',
   'CUTTING_HANDOVER_CONFIRM',
   'CUTTING_INBOUND_CONFIRM',
   'PICKUP_CONFIRM',
@@ -347,7 +345,6 @@ export const permissionCatalog: PermissionCatalogItem[] = [
   { key: 'CUTTING_PICKUP_CONFIRM', nameZh: '确认领料', group: '裁片执行', descriptionZh: '允许在裁片执行中确认领料结果。' },
   { key: 'CUTTING_PICKUP_LENGTH_DISPUTE', nameZh: '提交领料长度异议', group: '裁片执行', descriptionZh: '允许在裁片执行中提交领料长度异议。' },
   { key: 'CUTTING_SPREADING_SAVE', nameZh: '保存铺布记录', group: '裁片执行', descriptionZh: '允许在裁片执行中保存铺布记录。' },
-  { key: 'CUTTING_REPLENISHMENT_FEEDBACK', nameZh: '提交补料反馈', group: '裁片执行', descriptionZh: '允许在裁片执行中提交补料反馈。' },
   { key: 'CUTTING_HANDOVER_CONFIRM', nameZh: '确认交接', group: '裁片执行', descriptionZh: '允许在裁片执行中确认裁片交接。' },
   { key: 'CUTTING_INBOUND_CONFIRM', nameZh: '确认入仓', group: '裁片执行', descriptionZh: '允许在裁片执行中确认入仓。' },
   { key: 'PICKUP_CONFIRM', nameZh: '领料确认', group: '交接', descriptionZh: '允许在交接模块中确认仓库回写的领料记录。' },

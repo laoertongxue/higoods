@@ -57,7 +57,6 @@ export type CutOrderRiskKey =
   | 'SHIP_URGENT'
   | 'DATE_MISSING'
   | 'STATUS_CONFLICT'
-  | 'REPLENISH_PENDING'
   | 'IN_MARKER_PLAN'
 
 export interface CutOrderSummaryMeta<Key extends string> {
@@ -78,7 +77,6 @@ export interface CutOrderNavigationPayload {
   materialPrep: Record<string, string | undefined>
   markerSpreading: Record<string, string | undefined>
   feiTickets: Record<string, string | undefined>
-  replenishment: Record<string, string | undefined>
   markerPlanSources: Record<string, string | undefined>
   sameProductionOrders: Record<string, string | undefined>
 }
@@ -212,7 +210,6 @@ export const cutOrderRiskMeta: Record<CutOrderRiskKey, { label: string; classNam
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
   DATE_MISSING: { label: '日期缺失', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
   STATUS_CONFLICT: { label: '状态不一致', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
-  REPLENISH_PENDING: { label: '待补料', className: 'bg-purple-100 text-purple-700 border border-purple-200' },
   IN_MARKER_PLAN: { label: '唛架方案占用', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
 }
 
@@ -319,7 +316,7 @@ export function deriveCutOrderStage(
   line: CuttingMaterialLine,
   startState: CutOrderStartState,
 ): CutOrderSummaryMeta<CutOrderStageKey> {
-  if (record.closeReason || record.closedAt || /已关闭|不再补裁/.test(record.cuttingStage)) {
+  if (record.closeReason || record.closedAt || /已关闭|不再继续裁剪/.test(record.cuttingStage)) {
     return createSummaryMeta('CLOSED', cutOrderStageMeta.CLOSED.label, cutOrderStageMeta.CLOSED.className, record.closeReason || '该裁片单已关闭，不再继续排唛架铺布裁剪。')
   }
 
@@ -371,7 +368,6 @@ export function summarizeCutOrderRisks(
   if (line.issueFlags.includes('RECEIVE_DIFF')) keys.add('CLAIM_EXCEPTION')
   if (!record.plannedShipDate) keys.add('DATE_MISSING')
   if (record.urgencyLevel === 'AA' || record.urgencyLevel === 'A') keys.add('SHIP_URGENT')
-  if (line.issueFlags.includes('REPLENISH_PENDING') || record.riskFlags.includes('REPLENISH_PENDING')) keys.add('REPLENISH_PENDING')
   if (batchParticipationCount > 0) keys.add('IN_MARKER_PLAN')
   if (/已完成/.test(record.cuttingStage) && !record.hasInboundRecord) keys.add('STATUS_CONFLICT')
 
@@ -414,11 +410,6 @@ export function buildCutOrderNavigationPayload(row: {
     feiTickets: {
       cutOrderId: row.cutOrderId,
       cutOrderNo: row.cutOrderNo,
-    },
-    replenishment: {
-      cutOrderId: row.cutOrderId,
-      cutOrderNo: row.cutOrderNo,
-      productionOrderNo: row.productionOrderNo,
     },
     markerPlanSources: {
       markerPlanId: row.activeMarkerPlanSourceId || undefined,

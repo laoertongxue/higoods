@@ -2,11 +2,6 @@
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
-import {
-  CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
-  deserializeReplenishmentPendingPrepStorage,
-  type ReplenishmentPendingPrepFollowupRecord,
-} from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
 import type { CuttingCanonicalPageKey } from './meta.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
@@ -89,7 +84,6 @@ type ProductionProgressQuickFilterExtended =
   | 'INCOMPLETE_ONLY'
   | 'GAP_ONLY'
   | 'MAPPING_MISSING'
-  | 'REPLENISH_GAP'
 type FilterField =
   | 'keyword'
   | 'production-order'
@@ -687,36 +681,6 @@ function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function readPendingPrepFollowups(): ReplenishmentPendingPrepFollowupRecord[] {
-  return deserializeReplenishmentPendingPrepStorage(
-    localStorage.getItem(CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY),
-  )
-}
-
-function getPendingPrepFollowupsForRow(row: ProductionProgressRow): ReplenishmentPendingPrepFollowupRecord[] {
-  const cutOrderIdSet = new Set(
-    row.sourceOrderProgressLines
-      .map((item) => item.cutOrderId)
-      .filter((value): value is string => Boolean(value)),
-  )
-  const cutOrderNoSet = new Set(
-    row.sourceOrderProgressLines
-      .map((item) => item.cutOrderNo)
-      .filter((value): value is string => Boolean(value)),
-  )
-
-  return readPendingPrepFollowups().filter(
-    (item) => cutOrderIdSet.has(item.cutOrderId) || cutOrderNoSet.has(item.cutOrderNo),
-  )
-}
-
-function buildPendingPrepSummaryText(row: ProductionProgressRow): string {
-  const followups = getPendingPrepFollowupsForRow(row)
-  if (!followups.length) return '当前无补料配料待处理'
-  const latest = followups[0]
-  return `补料配料待处理 ${followups.length} 条（来源铺布 ${latest?.sourceSpreadingSessionId || '待补'} / 来源差异处理 ${latest?.sourceReplenishmentRequestId || '待补'}）`
-}
-
 function buildRouteWithQuery(key: CuttingCanonicalPageKey, payload?: Record<string, string | undefined>): string {
   const pathname = getCanonicalCuttingPath(key)
   if (!payload) return pathname
@@ -787,9 +751,7 @@ function syncDrillContextFromPath(): void {
   if (state.drillContext?.productionOrderNo) {
     state.filters.productionOrderNo = state.drillContext.productionOrderNo
   }
-  if (state.drillContext?.blockerSection === 'REPLENISHMENT') {
-    state.activeQuickFilter = 'REPLENISH_GAP'
-  } else if (state.drillContext?.blockerSection === 'SPREADING') {
+  if (state.drillContext?.blockerSection === 'SPREADING') {
     state.activeQuickFilter = 'GAP_ONLY'
   } else if (state.drillContext?.blockerSection === 'MATERIAL_PREP') {
     state.activeQuickFilter = 'PREP_DELAY'
@@ -817,8 +779,6 @@ function applyQuickFilter(rows: ProductionProgressRow[]): ProductionProgressRow[
       return rows.filter((row) => row.hasPieceGap)
     case 'MAPPING_MISSING':
       return rows.filter((row) => row.hasMappingWarnings)
-    case 'REPLENISH_GAP':
-      return rows.filter((row) => row.hasPieceGap && row.riskTags.some((tag) => tag.key === 'REPLENISH_PENDING'))
     default:
       return rows
   }
@@ -838,7 +798,6 @@ function getQuickFilterLabel(filter: ProductionProgressQuickFilterExtended | nul
   if (filter === 'INCOMPLETE_ONLY') return '当前条件：未完成生产单'
   if (filter === 'GAP_ONLY') return '当前条件：有部位缺口'
   if (filter === 'MAPPING_MISSING') return '当前条件：映射缺失'
-  if (filter === 'REPLENISH_GAP') return '当前条件：待补料导致的缺口'
   return null
 }
 
@@ -896,8 +855,6 @@ function renderStatsCards(rows: ProductionProgressRow[]): string {
   const summary = buildProductionProgressSummary(rows)
   const differences = rows.flatMap((row) => listSpreadingDifferencesByProductionOrder(row.productionOrderId))
   const pendingDifferenceCount = differences.filter((difference) => difference.handlingStatus === '待处理').length
-  const pendingReplenishmentReviewCount = differences.filter((difference) => difference.handlingStatus !== '已处理').length
-  const handledReplenishmentReviewCount = differences.filter((difference) => difference.handlingStatus === '已处理').length
   const latestDifference = differences[0]
   const closedCutOrderCount = rows.filter((row) => Boolean(row.closeReason || row.closedAt || row.rawStageText.includes('已关闭'))).length
   const rowProductionNos = new Set(rows.map((row) => row.productionOrderNo))
@@ -914,8 +871,7 @@ function renderStatsCards(rows: ProductionProgressRow[]): string {
       ${renderCompactKpiCard('配料异常单', summary.prepExceptionCount, '配料数量不足', 'text-amber-600')}
       ${renderCompactKpiCard('领料差异单', summary.claimExceptionCount, '未产生领料记录或现场差异', 'text-orange-600')}
       ${renderCompactKpiCard('待处理差异', pendingDifferenceCount, '来自铺布 / 裁剪实际差异', pendingDifferenceCount ? 'text-rose-600' : 'text-emerald-600')}
-      ${renderCompactKpiCard('待审核补料', pendingReplenishmentReviewCount, '由审核结果决定是否补料', pendingReplenishmentReviewCount ? 'text-amber-600' : 'text-emerald-600')}
-      ${renderCompactKpiCard('已处理补料', handledReplenishmentReviewCount, '已形成审核结果', handledReplenishmentReviewCount ? 'text-emerald-600' : 'text-slate-500')}
+      ${renderCompactKpiCard('已处理差异', differences.filter((difference) => difference.handlingStatus === '已处理').length, '已形成处理结果', differences.some((difference) => difference.handlingStatus === '已处理') ? 'text-emerald-600' : 'text-slate-500')}
       ${renderCompactKpiCard('最近差异来源', latestDifference?.sourceType || '暂无差异', latestDifference?.differenceType || '当前筛选范围无差异', latestDifference ? 'text-blue-600' : 'text-slate-500')}
       ${renderCompactKpiCard('已关闭裁片单', closedCutOrderCount, '已记录关闭原因', closedCutOrderCount ? 'text-zinc-700' : 'text-slate-500')}
       ${renderCompactKpiCard('样衣异常', sampleAbnormalCount, '关联样衣版本、破损或待归还', sampleAbnormalCount ? 'text-rose-600' : 'text-slate-500')}
@@ -1282,15 +1238,13 @@ function resolveGapRowCutOrderNo(
 }
 
 function renderRiskCell(row: ProductionProgressRow): string {
-  const pendingPrepFollowups = getPendingPrepFollowupsForRow(row)
-  if (!row.riskTags.length && !pendingPrepFollowups.length) {
+  if (!row.riskTags.length) {
     return '<span class="text-xs text-muted-foreground">无风险</span>'
   }
 
   return `
     <div class="flex flex-wrap gap-1">
       ${row.riskTags.map((riskTag) => renderBadge(riskTag.label, riskTag.className)).join('')}
-      ${pendingPrepFollowups.length ? renderBadge(`补料配料待处理 ${pendingPrepFollowups.length} 条`, 'bg-amber-100 text-amber-700') : ''}
     </div>
   `
 }
@@ -1638,7 +1592,6 @@ function renderStageOverview(rows: ProductionProgressRow[]): string {
   const activeSpreadingCount = generatedSpreadingOrders.filter((order) => order.status === 'SPREADING').length
   const cutDoneCount = generatedSpreadingOrders.filter((order) => order.status === 'CUT_DONE').length
   const ticketCount = rows.filter((row) => row.pieceCompletionSummary.key !== 'NOT_STARTED').length
-  const replenishmentCount = rows.filter((row) => row.riskTags.some((tag) => tag.key === 'REPLENISH_PENDING')).length
   const warehouseCount = rows.filter((row) => row.hasInboundRecord).length
 
   const cards = [
@@ -1647,12 +1600,11 @@ function renderStageOverview(rows: ProductionProgressRow[]): string {
     { label: '唛架方案', value: `${markerCount} 个已确认` },
     { label: '铺布单', value: `${spreadingCount} 张，待铺布 ${waitingSpreadingCount} / 铺布中 ${activeSpreadingCount} / 已裁剪 ${cutDoneCount}` },
     { label: '菲票', value: `${ticketCount}/${total} 已生成` },
-    { label: '补料记录', value: replenishmentCount ? `${replenishmentCount} 条待处理` : '正常' },
     { label: '待交出仓库存', value: `${warehouseCount}/${total} 有入仓记录` },
   ]
 
   return `
-    <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
+    <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-6">
       ${cards
         .map(
           (card) => `
@@ -1701,7 +1653,6 @@ function renderProductionProgressSummarySection(row: ProductionProgressRow): str
       ${renderDetailSummaryItem('计划发货日期', row.plannedShipDateDisplay)}
       ${renderDetailSummaryItem('紧急程度', `${row.urgency.label} · ${row.shipCountdownText}`)}
       ${renderDetailSummaryItem('裁片单数', formatQty(row.cutOrderCount))}
-      ${renderDetailSummaryItem('补料配料待处理', buildPendingPrepSummaryText(row))}
     </section>
   `
 }
@@ -2061,7 +2012,7 @@ function renderProductionChainDifferenceCloseTab(chain: ProductionOrderChain): s
   return `
     <section class="rounded-lg border bg-card p-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <h3 class="text-sm font-semibold">差异 / 补料 / 关闭</h3>
+        <h3 class="text-sm font-semibold">差异 / 关闭</h3>
         <div class="flex flex-wrap gap-2">
           ${renderMetricChip('差异', String(chain.differences.length), chain.differences.length ? 'text-amber-700' : 'text-slate-700')}
           ${renderMetricChip('已关闭裁片单', String(chain.cutOrders.filter((item) => item.mainStatusLabel === '已关闭').length), 'text-zinc-700')}
@@ -2896,7 +2847,6 @@ export function renderCraftCuttingProductionProgressPage(): string {
               { value: 'ANY', label: '仅看有风险' },
               { value: 'CONFIG_DELAY', label: '中转仓滞后' },
               { value: 'SHIP_URGENT', label: '临近发货' },
-              { value: 'REPLENISH_PENDING', label: '待补料' },
               { value: 'PIECE_GAP', label: '裁片缺口' },
             ])}
             <div class="space-y-2 md:col-span-2 xl:col-span-3">

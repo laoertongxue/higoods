@@ -15,7 +15,6 @@ import { escapeHtml, formatDateTime } from '../utils'
 const productionProgressPath = getCanonicalCuttingPath('production-progress')
 const materialPrepPath = getCanonicalCuttingPath('warehouse-management-wait-process')
 const cutOrdersPath = getCanonicalCuttingPath('cut-orders')
-const replenishmentPath = getCanonicalCuttingPath('replenishment')
 const fabricWarehousePath = getCanonicalCuttingPath('fabric-warehouse')
 
 function normalizeRoute(route: string): string {
@@ -25,7 +24,6 @@ function normalizeRoute(route: string): string {
 function getCuttingRouteActionLabel(route: string): string {
   const normalizedRoute = normalizeRoute(route)
   if (normalizedRoute === materialPrepPath) return '去待加工仓'
-  if (normalizedRoute === replenishmentPath) return '去补料管理'
   if (normalizedRoute === cutOrdersPath) return '去裁片单'
   if (normalizedRoute === fabricWarehousePath) return '去裁床仓'
   if (normalizedRoute === productionProgressPath) return '去生产单进度'
@@ -150,11 +148,11 @@ function renderChainProgress(recordId: string): string {
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold text-foreground">链路进度摘要</h2>
-          <p class="mt-1 text-sm text-muted-foreground">按平台视角拆解配料 / 领料、裁片执行、补料、仓务和样衣五段摘要。</p>
+          <p class="mt-1 text-sm text-muted-foreground">按平台视角拆解配料 / 领料、裁片执行、仓务和样衣摘要。</p>
         </div>
         <span class="text-sm text-muted-foreground">${escapeHtml(detail.latestFactoryActionText)}</span>
       </div>
-      <div class="mt-4 grid gap-4 xl:grid-cols-5">
+      <div class="mt-4 grid gap-4 xl:grid-cols-4">
         ${detail.chainSections
           .map(
             (section) => `
@@ -243,36 +241,6 @@ function renderExecutionSection(recordId: string): string {
           <p class="text-xs text-muted-foreground">当前执行进度说明</p>
           <p class="mt-1 font-medium text-foreground">${escapeHtml(row.executionSummaryText)}</p>
           <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.platformStageSummary)}</p>
-        </article>
-      </div>
-    </section>
-  `
-}
-
-function renderReplenishmentSection(recordId: string): string {
-  const detail = buildPlatformCuttingDetailView(recordId)
-  if (!detail) return ''
-  const { row } = detail
-
-  return `
-    <section class="rounded-lg border bg-card p-5">
-      <h2 class="text-base font-semibold text-foreground">补料摘要</h2>
-      <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3 text-sm">
-        <article class="rounded-lg border bg-muted/20 p-4">
-          <p class="text-xs text-muted-foreground">补料建议</p>
-          <p class="mt-1 font-medium text-foreground">建议 ${row.record.replenishmentSummary.suggestionCount} 条</p>
-          <p class="mt-2 text-xs text-muted-foreground">待审核 ${row.record.replenishmentSummary.pendingReviewCount} · 已通过 ${row.record.replenishmentSummary.approvedCount} · 已驳回 ${row.record.replenishmentSummary.rejectedCount}</p>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-4">
-          <p class="text-xs text-muted-foreground">高风险与补充说明</p>
-          <p class="mt-1 font-medium text-foreground">高风险 ${row.record.replenishmentSummary.highRiskCount} 条</p>
-          <p class="mt-2 text-xs text-muted-foreground">待补充说明 ${row.record.replenishmentSummary.needMoreInfoCount} 条</p>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-4">
-          <p class="text-xs text-muted-foreground">影响摘要</p>
-          <div class="mt-2 flex flex-wrap gap-2">
-            ${row.record.replenishmentSummary.pendingPrepCount > 0 ? renderBadge('待WMS领料入仓', 'bg-amber-50 text-amber-700') : renderBadge('当前无补料待处理', 'bg-emerald-50 text-emerald-700')}
-          </div>
         </article>
       </div>
     </section>
@@ -372,7 +340,6 @@ function renderQuickLinks(): string {
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-production-progress">去生产单进度</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-material-prep">去待加工仓</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-cut-orders">去裁片单</button>
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-replenishment">去补料管理</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-fabric-warehouse">去裁床仓</button>
       </div>
     </section>
@@ -390,7 +357,6 @@ export function renderProgressCuttingDetailPage(recordId: string): string {
       ${renderChainProgress(recordId)}
       ${renderPickupSection(recordId)}
       ${renderExecutionSection(recordId)}
-      ${renderReplenishmentSection(recordId)}
       ${renderWarehouseSection(recordId)}
       ${renderIssueSection(recordId)}
       ${renderAttentionSection(recordId)}
@@ -428,11 +394,6 @@ export function handleProgressCuttingDetailEvent(target: Element): boolean {
 
   if (action === 'go-cut-orders') {
     appStore.navigate(cutOrdersPath)
-    return true
-  }
-
-  if (action === 'go-replenishment') {
-    appStore.navigate(replenishmentPath)
     return true
   }
 

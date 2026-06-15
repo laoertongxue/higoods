@@ -487,7 +487,7 @@ const COVERAGE_SEED_DEFINITIONS: CoverageSeedDefinition[] = [
     severity: 'S2',
     sourceType: 'TASK',
     summary: (context) => `${context.processLabel}配料数量不足`,
-    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）存在实际发料对象数量不足，当前需要补料。`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）存在实际发料对象数量不足，当前需要复核发料。`,
     tags: ['领料异常', '配料数量不足', '覆盖补齐'],
   },
   {

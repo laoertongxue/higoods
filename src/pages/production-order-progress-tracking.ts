@@ -187,7 +187,7 @@ const orders: ProductionOrderTrackingRecord[] = [
     craft: '圆领、平车、包装袋',
     progress: { actual: 68, material: 100, cutting: 80, sewing: 0, qc: 0 },
     alerts: [
-      { label: '裁床等待补料批次确认', time: '今天 10:20', tone: 'orange' },
+      { label: '裁床等待配料批次确认', time: '今天 10:20', tone: 'orange' },
       { label: '车缝产能尚未锁定', time: '昨天 18:02', tone: 'blue' },
     ],
   },
@@ -451,32 +451,6 @@ function renderListHeader(): string {
         </h1>
         <p class="text-sm text-muted-foreground">按生产单全生命周期追踪时间、数量、工单分支、交接质检与结算风险</p>
       </div>
-      <div class="flex items-center gap-2">
-        <button class="inline-flex h-8 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          data-production-order-progress-action="open-modal"
-          data-modal-title="新建生产单"
-          data-modal-tone="blue"
-          data-modal-body="已打开新建生产单入口。原型中展示关键入口响应，实际系统由生产单创建流程承接。"
-          data-skip-page-rerender="true">
-          ${renderIcon('Plus', 'h-4 w-4')}新建生产单
-        </button>
-        <button class="inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted"
-          data-production-order-progress-action="open-modal"
-          data-modal-title="导出生产单列表"
-          data-modal-tone="green"
-          data-modal-body="导出任务已模拟提交，当前筛选条件和展开信息会一并带出。"
-          data-skip-page-rerender="true">
-          ${renderIcon('Download', 'h-4 w-4')}导出
-        </button>
-        <button class="inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted"
-          data-production-order-progress-action="open-modal"
-          data-modal-title="刷新完成"
-          data-modal-tone="blue"
-          data-modal-body="已按当前筛选条件刷新列表数据。"
-          data-skip-page-rerender="true">
-          ${renderIcon('RefreshCw', 'h-4 w-4')}刷新
-        </button>
-      </div>
     </header>
     <section class="grid grid-cols-6 gap-4">
       ${metrics.map(renderMetricCard).join('')}
@@ -675,23 +649,6 @@ function renderOrderTable(): string {
     <section class="overflow-hidden rounded-lg border bg-card">
       <div class="flex items-center justify-between border-b px-4 py-3 text-sm">
         <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" class="h-4 w-4 rounded border-slate-300" />已选择 0 项</label>
-        <div class="flex items-center gap-4 text-slate-500">
-          <button class="inline-flex items-center gap-1"
-            data-production-order-progress-action="open-modal"
-            data-modal-title="表格设置"
-            data-modal-body="可调整列显示、列顺序和固定列。"
-            data-skip-page-rerender="true">${renderIcon('Settings2', 'h-4 w-4')}表格设置</button>
-          <button data-production-order-progress-action="open-modal"
-            data-modal-title="批量操作"
-            data-modal-body="请选择生产单后执行批量导出、批量提醒或批量分派。"
-            data-skip-page-rerender="true">批量操作 ${renderIcon('ChevronDown', 'inline h-4 w-4')}</button>
-          <button class="inline-flex items-center gap-1"
-            data-production-order-progress-action="open-modal"
-            data-modal-title="导出当前页"
-            data-modal-tone="green"
-            data-modal-body="当前页生产单数据已加入导出队列。"
-            data-skip-page-rerender="true">${renderIcon('Download', 'h-4 w-4')}导出当前页</button>
-        </div>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-[1680px] w-full text-left text-sm">
@@ -833,24 +790,6 @@ function renderDetailHeader(order: ProductionOrderTrackingRecord, tab: TrackingT
             ${renderIcon('ArrowLeft', 'h-4 w-4')}
           </button>
           <h1 class="text-xl font-semibold">生产单全生命周期跟踪 / ${escapeHtml(order.no)}</h1>
-        </div>
-        <div class="flex items-center gap-2">
-          <button class="inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted"
-            data-production-order-progress-action="open-modal"
-            data-modal-title="导出全生命周期跟踪"
-            data-modal-tone="green"
-            data-modal-body="${escapeHtml(order.no)} 的概览、时间、数量、工单、交接与结算数据已加入导出队列。"
-            data-skip-page-rerender="true">${renderIcon('Download', 'h-4 w-4')}导出</button>
-          <button class="inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted"
-            data-production-order-progress-action="open-modal"
-            data-modal-title="刷新完成"
-            data-modal-body="已刷新当前生产单进度跟踪数据。"
-            data-skip-page-rerender="true">${renderIcon('RefreshCw', 'h-4 w-4')}刷新</button>
-          <button class="inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted"
-            data-production-order-progress-action="open-modal"
-            data-modal-title="更多操作"
-            data-modal-body="可继续承接提醒跟单员、复制链接、打印进度报告等操作。"
-            data-skip-page-rerender="true">${renderIcon('MoreHorizontal', 'h-4 w-4')}更多${renderIcon('ChevronDown', 'h-4 w-4')}</button>
         </div>
       </header>
       <section class="grid gap-4 xl:grid-cols-[330px_1fr] 2xl:grid-cols-[340px_1fr]">

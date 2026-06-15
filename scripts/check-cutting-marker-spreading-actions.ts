@@ -56,7 +56,6 @@ function main(): void {
     "data-cutting-marker-action=\"create-spreading\"",
     "data-cutting-marker-action=\"open-spreading-detail\"",
     "data-cutting-marker-action=\"open-spreading-edit\"",
-    "data-cutting-marker-action=\"go-spreading-replenishment\"",
   ].forEach((token) => {
     assert(pageSource.includes(token), `${pageFile} 缺少关键铺布页面能力：${token}`)
   })

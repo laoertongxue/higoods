@@ -10,7 +10,6 @@ export function cloneCuttingSettlementInputViews(): CuttingSettlementInputView[]
       groupSummary: row.settlementInput.groupSummary.map((item) => ({ ...item })),
       pickupSummary: { ...row.settlementInput.pickupSummary },
       executionSummary: { ...row.settlementInput.executionSummary },
-      replenishmentSummary: { ...row.settlementInput.replenishmentSummary },
       warehouseSummary: { ...row.settlementInput.warehouseSummary },
       exceptionImpactSummary: { ...row.settlementInput.exceptionImpactSummary },
     },

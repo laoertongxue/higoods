@@ -19,7 +19,7 @@ export type PieceTruthMappingStatus =
 
 export type ProductionPieceTruthCompletionKey = 'COMPLETED' | 'IN_PROGRESS' | 'DATA_PENDING' | 'HAS_EXCEPTION'
 
-export type PieceTruthOverlaySourceType = 'PICKUP' | 'INBOUND' | 'HANDOVER' | 'REPLENISHMENT'
+export type PieceTruthOverlaySourceType = 'PICKUP' | 'INBOUND' | 'HANDOVER'
 
 export interface ProductionResolvedTechPackLink {
   status: 'MATCHED' | 'MISSING'
@@ -829,7 +829,6 @@ function buildGapStateRow(
   )
   const hasInboundSignal = relatedSignals.some((signal) => signal.sourceType === 'INBOUND')
   const hasHandoverSignal = relatedSignals.some((signal) => signal.sourceType === 'HANDOVER')
-  const hasReplenishmentSignal = relatedSignals.some((signal) => signal.sourceType === 'REPLENISHMENT')
   const actualCutQty = Number(actual?.actualCutQty || 0)
   const inboundQty = Number(actual?.inboundQty || 0)
   const gapCutQty = Math.max(row.requiredPieceQty - actualCutQty, 0)
@@ -838,9 +837,6 @@ function buildGapStateRow(
   if (gapCutQty > 0) {
     if (materialLine?.configStatus !== 'CONFIGURED' || materialLine?.receiveStatus !== 'RECEIVED') {
       return { currentStateLabel: '待WMS领料入仓', nextActionLabel: '去待加工仓' }
-    }
-    if (materialLine?.issueFlags.includes('REPLENISH_PENDING') || record.riskFlags.includes('REPLENISH_PENDING') || hasReplenishmentSignal) {
-      return { currentStateLabel: '待补料', nextActionLabel: '去补料管理' }
     }
     if (!record.hasSpreadingRecord) {
       return { currentStateLabel: '待铺布', nextActionLabel: '去唛架铺布' }
@@ -1178,8 +1174,8 @@ function buildNextActionLabel(result: {
   gapRows: PieceGapRow[]
   counts: ProductionPieceTruthCounts
 }): string {
-  if (result.mappingIssues.length > 0) return '去裁片单补映射'
-  if (result.dataIssues.length > 0) return '去生产单进度补数据'
+  if (result.mappingIssues.length > 0) return '去裁片单完善映射'
+  if (result.dataIssues.length > 0) return '去生产单进度完善数据'
 
   const priorityRow =
     result.gapRows.find((row) => row.mappingStatus !== 'MATCHED') ||

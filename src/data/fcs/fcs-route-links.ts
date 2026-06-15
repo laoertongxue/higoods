@@ -112,14 +112,6 @@ export function buildIssueSlipPrintLink(sourceId: string): string {
   })
 }
 
-export function buildSupplementMaterialSlipPrintLink(sourceId: string): string {
-  return buildUnifiedPrintPreviewLink({
-    documentType: 'SUPPLEMENT_MATERIAL_SLIP',
-    sourceType: 'SUPPLEMENT_MATERIAL_RECORD',
-    sourceId,
-  })
-}
-
 export function buildFeiTicketLabelPrintLink(sourceId: string, mode: 'first' | 'reprint' = 'first'): string {
   const documentType: PrintDocumentType =
     mode === 'reprint' ? 'FEI_TICKET_REPRINT_LABEL' : 'FEI_TICKET_LABEL'
@@ -288,10 +280,6 @@ export function buildFeiTicketLink(feiTicketId: string): string {
 
 export function buildTransferBagLink(transferBagId: string): string {
   return `/fcs/craft/cutting/transfer-bags?transferBagId=${encodeSegment(transferBagId)}`
-}
-
-export function buildReplenishmentLink(replenishmentId: string): string {
-  return `/fcs/craft/cutting/replenishment?replenishmentId=${encodeSegment(replenishmentId)}`
 }
 
 export function buildCapacityProfileLink(factoryId: string): string {

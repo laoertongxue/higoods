@@ -1809,7 +1809,6 @@ function resolveSourceReturnAction(): { label: string; href: string } | null {
   }
 
   const sourceTargetMap: Partial<Record<NonNullable<CuttingDrillContext['sourcePageKey']>, CuttingNavigationTarget>> = {
-    replenishment: 'replenishment',
     'special-processes': 'specialProcesses',
     'material-prep': 'materialPrep',
     'marker-spreading': 'markerSpreading',

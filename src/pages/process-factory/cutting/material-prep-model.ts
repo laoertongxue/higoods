@@ -22,11 +22,6 @@ import {
 import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
-  CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
-  deserializeReplenishmentPendingPrepStorage,
-  type ReplenishmentPendingPrepFollowupRecord,
-} from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
-import {
   canViewPrepQr,
   getPrepQrHiddenText,
   shouldDisplayQrByPrepStatus,
@@ -95,15 +90,13 @@ export interface MaterialPrepLineItem {
   shortageQty: number
   configuredRollCount: number
   claimedRollCount: number
-  sourceType?: 'PRINT_REVIEW' | 'DYE_REVIEW' | 'MANUAL' | 'REPLENISHMENT_PENDING_PREP'
+  sourceType?: 'PRINT_REVIEW' | 'DYE_REVIEW' | 'MANUAL'
   linePrepStatus: MaterialPrepSummaryMeta<CuttingConfigStatus>
   lineClaimStatus: MaterialPrepSummaryMeta<MaterialPrepClaimAggregateKey>
   hasClaimException: boolean
   note: string
   latestActionText: string
   sourceLabel?: string
-  replenishmentPendingPrepQty?: number
-  sourceReplenishmentRequestId?: string
   sourceSpreadingSessionId?: string
 }
 
@@ -167,10 +160,6 @@ export interface MaterialPrepRow {
   markerPlanNos: string[]
   markerPlanIds: string[]
   currentStageText: string
-  replenishmentPendingPrepItems: ReplenishmentPendingPrepFollowupRecord[]
-  replenishmentPendingPrepCount: number
-  replenishmentPendingPrepSummary: string
-  hasReplenishmentPendingPrep: boolean
   navigationPayload: MaterialPrepNavigationPayload
   keywordIndex: string[]
 }
@@ -747,10 +736,6 @@ function createRow(
     markerPlanNos: batchSummary.markerPlanNos,
     markerPlanIds: batchSummary.markerPlanIds,
     currentStageText: record.cuttingStage || '待补',
-    replenishmentPendingPrepItems: [],
-    replenishmentPendingPrepCount: 0,
-    replenishmentPendingPrepSummary: '当前无补料配料待处理',
-    hasReplenishmentPendingPrep: false,
     navigationPayload: buildMaterialPrepNavigationPayload({
       cutOrderId,
       cutOrderNo,
@@ -778,89 +763,6 @@ function createRow(
   }
 
   return recalculateMaterialPrepRow(baseRow, record, options)
-}
-
-function applyPendingPrepFollowupsToRow(
-  row: MaterialPrepRow,
-  followups: ReplenishmentPendingPrepFollowupRecord[],
-): MaterialPrepRow {
-  const matched = followups.filter(
-    (item) =>
-      item.cutOrderId === row.cutOrderId ||
-      item.cutOrderNo === row.cutOrderNo,
-  )
-  if (!matched.length) {
-    row.replenishmentPendingPrepItems = []
-    row.replenishmentPendingPrepCount = 0
-    row.replenishmentPendingPrepSummary = '当前无补料配料待处理'
-    row.hasReplenishmentPendingPrep = false
-    row.materialLineItems = row.materialLineItems.map((item) => ({
-        ...item,
-        sourceType:
-          item.sourceType === 'REPLENISHMENT_PENDING_PREP'
-            ? item.materialTypeName === '印花面料'
-              ? 'PRINT_REVIEW'
-              : item.materialTypeName === '染色面料'
-                ? 'DYE_REVIEW'
-                : 'MANUAL'
-            : item.sourceType,
-        sourceLabel:
-          item.sourceType === 'REPLENISHMENT_PENDING_PREP'
-            ? item.materialTypeName === '印花面料'
-              ? '印花加工单审核通过'
-              : item.materialTypeName === '染色面料'
-                ? '染色加工单审核通过'
-                : '手动配置'
-            : item.sourceLabel || '手动配置',
-        replenishmentPendingPrepQty: 0,
-        sourceReplenishmentRequestId: '',
-        sourceSpreadingSessionId: '',
-    }))
-    return row
-  }
-
-  row.replenishmentPendingPrepItems = matched
-  row.replenishmentPendingPrepCount = matched.length
-  row.replenishmentPendingPrepSummary = matched
-    .map(
-      (item) =>
-        `${item.materialSku} / ${item.color || row.color} · 缺口 ${formatQty(item.shortageGarmentQty)} 件 · 来源铺布 ${item.sourceSpreadingSessionId || '待补'} · 来源补料 ${item.sourceReplenishmentRequestId || '待补'}`,
-    )
-    .join('；')
-  row.hasReplenishmentPendingPrep = true
-  row.materialLineItems = row.materialLineItems.map((item) => {
-    const pendingItem = matched.find(
-      (followup) =>
-        followup.materialSku === item.materialSku && (!followup.color || followup.color === row.color),
-    )
-    if (!pendingItem) {
-      return {
-        ...item,
-        sourceType:
-          item.materialTypeName === '印花面料'
-            ? 'PRINT_REVIEW'
-            : item.materialTypeName === '染色面料'
-              ? 'DYE_REVIEW'
-              : 'MANUAL',
-        sourceLabel:
-          item.materialTypeName === '印花面料'
-            ? '印花加工单审核通过'
-            : item.materialTypeName === '染色面料'
-              ? '染色加工单审核通过'
-              : '手动配置',
-      }
-    }
-    return {
-      ...item,
-      sourceType: 'REPLENISHMENT_PENDING_PREP',
-      sourceLabel: '补料配料待处理',
-      replenishmentPendingPrepQty: pendingItem.shortageGarmentQty,
-      sourceReplenishmentRequestId: pendingItem.sourceReplenishmentRequestId,
-      sourceSpreadingSessionId: pendingItem.sourceSpreadingSessionId,
-      latestActionText: pendingItem.note || item.latestActionText,
-    }
-  })
-  return row
 }
 
 export function recalculateMaterialPrepRow(
@@ -964,16 +866,10 @@ export function buildMaterialPrepViewModel(
   ledger: MarkerPlanSourceRecord[] = [],
   options: {
     pickupEvents?: PdaPickupEventRecord[]
-    pendingPrepFollowups?: ReplenishmentPendingPrepFollowupRecord[]
     includeClaimDisputes?: boolean
   } = {},
 ): MaterialPrepViewModel {
   const pickupEvents = options.pickupEvents ?? listPdaPickupEvents(getBrowserLocalStorage() || undefined)
-  const pendingPrepFollowups =
-    options.pendingPrepFollowups ??
-    deserializeReplenishmentPendingPrepStorage(
-      getBrowserLocalStorage()?.getItem(CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY) || null,
-    )
   const pickupEventsByCutOrderNo = pickupEvents.reduce<Record<string, PdaPickupEventRecord[]>>((accumulator, item) => {
     accumulator[item.cutOrderNo] = accumulator[item.cutOrderNo] || []
     accumulator[item.cutOrderNo].push(item)
@@ -985,8 +881,7 @@ export function buildMaterialPrepViewModel(
         const row = createRow(record, line, ledger, {
           includeClaimDisputes: options.includeClaimDisputes,
         })
-        const hydratedRow = applyPdaPickupEventsToRow(row, pickupEventsByCutOrderNo[row.cutOrderNo] || [], record)
-        return applyPendingPrepFollowupsToRow(hydratedRow, pendingPrepFollowups)
+        return applyPdaPickupEventsToRow(row, pickupEventsByCutOrderNo[row.cutOrderNo] || [], record)
       }),
     )
     .sort((left, right) => {

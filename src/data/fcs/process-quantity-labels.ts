@@ -19,9 +19,9 @@ export type QtyPurpose =
   | '复检确认'
   | '质检通过'
   | '质检不合格'
-  | '申请补料'
+  | '申请追加'
   | '审核通过'
-  | '实发补料'
+  | '实发追加'
 
 export interface ProcessQuantityContext {
   processType?: ProcessQuantityProcessType

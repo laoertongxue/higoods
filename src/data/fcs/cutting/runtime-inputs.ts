@@ -31,14 +31,6 @@ import {
   deserializeMarkerSpreadingStorage,
 } from './marker-spreading-ledger.ts'
 import {
-  CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
-  CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
-  CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY,
-  deserializeReplenishmentActionsStorage,
-  deserializeReplenishmentImpactPlansStorage,
-  deserializeReplenishmentReviewsStorage,
-} from './storage/replenishment-storage.ts'
-import {
   CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY,
@@ -72,9 +64,6 @@ const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
   CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY,
   CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
-  CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY,
-  CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
-  CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_ORDERS_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY,
@@ -127,20 +116,6 @@ export function readCuttingTransferBagRuntimeState() {
   return {
     store: deserializeTransferBagStorage(
       readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY),
-    ),
-  }
-}
-
-export function readCuttingReplenishmentRuntimeState() {
-  return {
-    reviews: deserializeReplenishmentReviewsStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY),
-    ),
-    impactPlans: deserializeReplenishmentImpactPlansStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY),
-    ),
-    actions: deserializeReplenishmentActionsStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY),
     ),
   }
 }
@@ -205,7 +180,6 @@ export function readCuttingWarehouseWritebackRuntimeState() {
 
 export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
   const feiRuntimeState = readCuttingFeiRuntimeState()
-  const replenishmentRuntimeState = readCuttingReplenishmentRuntimeState()
   const specialProcessRuntimeState = readCuttingSpecialProcessRuntimeState()
   const pdaExecutionRuntimeState = readCuttingPdaExecutionRuntimeState()
   const runtimeEventState = readCuttingRuntimeEventState()
@@ -255,11 +229,6 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
     transferBagState: {
       store: readCuttingTransferBagRuntimeState().store as unknown as Record<string, unknown>,
     },
-    replenishmentState: {
-      reviews: replenishmentRuntimeState.reviews as Array<Record<string, unknown>>,
-      impactPlans: replenishmentRuntimeState.impactPlans as Array<Record<string, unknown>>,
-      actions: replenishmentRuntimeState.actions as Array<Record<string, unknown>>,
-    },
     specialProcessState: {
       orders: specialProcessRuntimeState.orders as Array<Record<string, unknown>>,
       bindingPayloads: specialProcessRuntimeState.bindingPayloads as Array<Record<string, unknown>>,
@@ -271,7 +240,6 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
       pickupEvents: pdaExecutionRuntimeState.pickupEvents as Array<Record<string, unknown>>,
       inboundEvents: pdaExecutionRuntimeState.inboundEvents as Array<Record<string, unknown>>,
       handoverEvents: pdaExecutionRuntimeState.handoverEvents as Array<Record<string, unknown>>,
-      replenishmentFeedbackEvents: pdaExecutionRuntimeState.replenishmentFeedbackEvents as Array<Record<string, unknown>>,
     },
     runtimeEventState: {
       events: runtimeEventState.events,

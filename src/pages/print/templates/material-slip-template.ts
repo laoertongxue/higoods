@@ -24,29 +24,25 @@ import {
   listCuttingSewingDispatchBatches,
   listCuttingSewingDispatchOrders,
 } from '../../../data/fcs/cutting/sewing-dispatch.ts'
-import { replenishmentSuggestionRecords } from '../../../data/fcs/cutting/replenishment.ts'
 
-type MaterialSlipKind = 'prep' | 'pickup' | 'issue' | 'supplement'
+type MaterialSlipKind = 'prep' | 'pickup' | 'issue'
 
 const TEMPLATE_BY_KIND: Record<MaterialSlipKind, string> = {
   prep: 'MATERIAL_PREP_SLIP',
   pickup: 'PICKUP_SLIP',
   issue: 'ISSUE_SLIP',
-  supplement: 'SUPPLEMENT_MATERIAL_SLIP',
 }
 
 const TITLE_BY_KIND: Record<MaterialSlipKind, string> = {
   prep: '配料单',
   pickup: '领料单',
   issue: '发料单',
-  supplement: '补料单',
 }
 
 const SOURCE_TYPE_BY_KIND: Record<MaterialSlipKind, PrintSourceType> = {
   prep: 'MATERIAL_PREP_RECORD',
   pickup: 'PICKUP_SLIP_RECORD',
   issue: 'ISSUE_SLIP_RECORD',
-  supplement: 'SUPPLEMENT_MATERIAL_RECORD',
 }
 
 function toText(value: string | number | undefined | null, fallback = '—'): string {
@@ -464,97 +460,6 @@ export function buildIssueSlipPrintDocument(input: PrintDocumentBuildInput): Pri
     footerFields: [
       { label: '交出单号', value: order.dispatchOrderNo },
       { label: '生产单', value: order.productionOrderNo },
-    ],
-    returnHref: targetRoute,
-  })
-}
-
-export function buildSupplementMaterialSlipPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
-  const record = replenishmentSuggestionRecords.find((item) => item.id === input.sourceId || item.replenishmentNo === input.sourceId)
-    || replenishmentSuggestionRecords[0]
-  if (!record) throw new Error('缺少补料单来源数据')
-
-  const targetRoute = `/fcs/craft/cutting/replenishment?suggestionId=${encodeURIComponent(record.id)}`
-  const approvedQty = record.reviewStatus === 'APPROVED' ? record.suggestedReplenishLength : 0
-
-  return buildBaseDocument({
-    buildInput: input,
-    kind: 'supplement',
-    sourceId: record.id,
-    title: '补料单',
-    subtitle: '用于记录因计划不足、损耗差异或执行异常产生的补料申请、审核和补发。',
-    headerFields: mapFields([
-      { label: '补料单号', value: record.replenishmentNo, emphasis: true },
-      { label: '来源生产单', value: record.productionOrderNo },
-      { label: '来源任务', value: record.cutPieceOrderNo },
-      { label: '补料类型', value: record.materialLabel },
-      { label: '补料状态', value: record.configStatus === 'CONFIGURED' ? '已补配' : '待补配' },
-      { label: '审核状态', value: record.reviewStatus === 'APPROVED' ? '审核通过' : record.reviewStatus === 'REJECTED' ? '审核驳回' : '待审核' },
-      { label: '打印时间', value: now() },
-      { label: '打印人', value: '补料专员' },
-    ]),
-    sections: [
-      {
-        sectionId: 'reason',
-        title: '补料原因区',
-        fields: mapFields([
-          { label: '补料原因', value: record.shortageReasonType === 'LENGTH_SHORTAGE' ? '面料长度缺口' : record.shortageReasonType === 'YIELD_RISK' ? '裁剪产出风险' : '现场差异复核' },
-          { label: '原需求对象数量', value: garmentQty(record.requiredQty) },
-          { label: '已配 / 已领 / 已用对象数量', value: `${materialQty(record.configuredLength)} / ${materialQty(record.receivedLength)} / ${materialQty(record.totalSpreadLength)}` },
-          { label: '缺口对象数量', value: `${garmentQty(record.gapQty)} / ${materialQty(record.suggestedReplenishLength)}` },
-          { label: '申请补料对象数量', value: materialQty(record.suggestedReplenishLength) },
-          { label: '审核通过对象数量', value: record.reviewStatus === 'APPROVED' ? materialQty(approvedQty) : '待审核' },
-          { label: '实发补料对象数量', value: record.configStatus === 'CONFIGURED' ? materialQty(record.configuredLength) : '待发料' },
-          { label: '责任说明', value: record.impactPreview.impactDescription },
-          { label: '备注', value: record.reviewComment || record.note },
-          { label: '缺口面料米数', value: materialQty(record.suggestedReplenishLength) },
-          { label: '申请补料面料米数', value: materialQty(record.suggestedReplenishLength) },
-          { label: '审核通过面料米数', value: record.reviewStatus === 'APPROVED' ? materialQty(approvedQty) : '待审核' },
-        ]),
-      },
-    ],
-    tables: [
-      {
-        tableId: 'supplement-lines',
-        title: '补料明细表',
-        headers: ['对象类型', '物料 / 裁片 / 辅料说明', '编码 / SKU', '颜色', '尺码', '部位', '批次号', '卷号 / 菲票号 / 包号', '申请补料对象数量', '审核通过对象数量', '实发补料对象数量', '单位', '仓位', '备注'],
-        rows: [[
-          '面料',
-          record.materialLabel,
-          record.materialSku,
-          record.markerSizeMixSummary,
-          '按唛架配比',
-          '裁片补料',
-          record.cutPieceOrderNo,
-          `${record.suggestedReplenishRollCount} 卷`,
-          materialQty(record.suggestedReplenishLength),
-          record.reviewStatus === 'APPROVED' ? materialQty(approvedQty) : '待审核',
-          record.configStatus === 'CONFIGURED' ? materialQty(record.configuredLength) : '待发料',
-          '米',
-          '补料待配区',
-          record.impactPreview.nextSuggestedActionText,
-        ]],
-        minRows: 5,
-      },
-    ],
-    qrDescription: '扫码查看补料申请与发料记录',
-    qrValue: makeQrValue({
-      documentType: 'SUPPLEMENT_MATERIAL_SLIP',
-      sourceId: record.id,
-      slipNo: record.replenishmentNo,
-      sourceProductionOrderNo: record.productionOrderNo,
-      targetRoute,
-    }),
-    signatureBlocks: [
-      { label: '申请人签字', signerRole: '申请人' },
-      { label: '审核人签字', signerRole: '审核人' },
-      { label: '发料人签字', signerRole: '发料人' },
-      { label: '接收人签字', signerRole: '接收人' },
-      { label: '备注', signerRole: '现场备注' },
-    ],
-    footerFields: [
-      { label: '补料单号', value: record.replenishmentNo },
-      { label: '来源裁片单', value: record.cutPieceOrderNo },
     ],
     returnHref: targetRoute,
   })

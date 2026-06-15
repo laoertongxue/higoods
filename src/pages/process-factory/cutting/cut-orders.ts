@@ -2,11 +2,6 @@
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
-  CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
-  deserializeReplenishmentPendingPrepStorage,
-  type ReplenishmentPendingPrepFollowupRecord,
-} from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
-import {
   buildCuttingOrderQrLabelPrintLink,
   buildTaskDetailLink,
   buildTaskRouteCardPrintLink,
@@ -88,6 +83,7 @@ import {
   type CutOrderCloseRecord,
 } from '../../../data/fcs/cutting/cut-order-close-records'
 import { cuttingMaterialLedgerEventTypeLabels } from '../../../data/fcs/cutting/material-ledger.ts'
+import { listSpreadingDifferences } from '../../../data/fcs/cutting/spreading-differences.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 
 type FilterField =
@@ -339,33 +335,6 @@ function renderMaterialLedgerGrid(row: CutOrderRow): string {
         .join('')}
     </div>
   `
-}
-
-function readPendingPrepFollowups(): ReplenishmentPendingPrepFollowupRecord[] {
-  return deserializeReplenishmentPendingPrepStorage(
-    localStorage.getItem(CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY),
-  )
-}
-
-function getPendingPrepFollowupsForCutOrder(row: Pick<CutOrderRow, 'cutOrderId' | 'cutOrderNo'>) {
-  return readPendingPrepFollowups().filter(
-    (item) =>
-      item.cutOrderId === row.cutOrderId ||
-      item.cutOrderNo === row.cutOrderNo,
-  )
-}
-
-function renderPendingPrepBadge(row: Pick<CutOrderRow, 'cutOrderId' | 'cutOrderNo'>): string {
-  const pendingPrepItems = getPendingPrepFollowupsForCutOrder(row)
-  if (!pendingPrepItems.length) return ''
-  return renderBadge(`补料配料待处理 ${pendingPrepItems.length} 条`, 'bg-amber-100 text-amber-700')
-}
-
-function buildPendingPrepSummaryText(row: Pick<CutOrderRow, 'cutOrderId' | 'cutOrderNo'>): string {
-  const pendingPrepItems = getPendingPrepFollowupsForCutOrder(row)
-  if (!pendingPrepItems.length) return '当前无补料配料待处理'
-  const latest = pendingPrepItems[0]
-  return `补料待处理 ${pendingPrepItems.length} 条，有领料记录后进入待加工仓；来源铺布 ${latest?.sourceSpreadingSessionId || '待补'}，来源补料单 ${latest?.sourceReplenishmentRequestId || '待补'}`
 }
 
 function isCutOrderInExecutionStage(row: CutOrderRow): boolean {
@@ -782,7 +751,7 @@ function buildCloseImpactContext(row: CutOrderRow): {
   pendingHandoverSummary: string
   markerSpreadingSummary: string
   feiTicketSummary: string
-  replenishmentSummary: string
+  differenceSummary: string
 } {
   const projection = getProjection()
   const sources = projection.sources
@@ -794,10 +763,10 @@ function buildCloseImpactContext(row: CutOrderRow): {
   const inventorySummary = inventoryQty > 0 ? `${formatCount(inventoryQty)} 片 / ${formatCount(warehouseItems.length)} 条库存` : ''
   const openHandoverItems = warehouseItems.filter((item) => !/已交出|已关闭|已取消/.test(item.handoffStatus?.label || ''))
   const pendingHandoverSummary = openHandoverItems.length ? `${openHandoverItems.length} 条` : ''
-  const replenishmentRows = sources.replenishmentView.rows.filter(
+  const differenceRows = listSpreadingDifferences({ sessions: sources.markerStore.sessions }).filter(
     (item) => item.cutOrderIds.includes(row.cutOrderId) || item.cutOrderNos.includes(row.cutOrderNo),
   )
-  const pendingReplenishmentCount = replenishmentRows.filter((item) => item.reviewStatusLabel !== '已处理' && item.reviewStatusLabel !== '已关闭').length
+  const pendingDifferenceCount = differenceRows.filter((item) => item.handlingStatus !== '已处理' && item.handlingStatus !== '仅记录').length
   const specialProcessRows = sources.specialProcessView.rows.filter(
     (item) => item.cutOrderIds.includes(row.cutOrderId) || item.cutOrderNos.includes(row.cutOrderNo),
   )
@@ -812,7 +781,7 @@ function buildCloseImpactContext(row: CutOrderRow): {
     ledgerSnapshot,
     impactItems: buildCutOrderCloseImpactItems({
       ledgerSnapshot,
-      pendingDifferenceCount: pendingReplenishmentCount,
+      pendingDifferenceCount,
       inventorySummary,
       pendingSpecialCraftSummary,
       pendingHandoverSummary,
@@ -822,7 +791,7 @@ function buildCloseImpactContext(row: CutOrderRow): {
     pendingHandoverSummary: pendingHandoverSummary || '0 条',
     markerSpreadingSummary: `${markerSpreadingCounts.markerCount} 个唛架方案 / ${markerSpreadingCounts.sessionCount} 张铺布单 / 实际裁剪 ${markerSpreadingCounts.statusSummary}`,
     feiTicketSummary: `${formatCount(feiTicketCount)} 张菲票`,
-    replenishmentSummary: `${formatCount(pendingReplenishmentCount)} 项待处理 / ${formatCount(replenishmentRows.length)} 项总记录`,
+    differenceSummary: `${formatCount(pendingDifferenceCount)} 项待处理 / ${formatCount(differenceRows.length)} 项总记录`,
   }
 }
 
@@ -888,12 +857,11 @@ function renderCutOrderClosePage(): string {
   }
 
   const params = getCurrentSearchParams()
-  const sourceReplenishmentId = params.get('suggestionId') || ''
   const sourceDifferenceId = params.get('sourceDifferenceId') || ''
   const impactContext = buildCloseImpactContext(row)
   const alreadyClosed = row.currentStage.key === 'CLOSED'
   const closeRecord = row.closeRecord
-  const sourceText = sourceReplenishmentId ? `补料审核 ${sourceReplenishmentId}` : '人工关闭'
+  const sourceText = sourceDifferenceId ? `差异确认 ${sourceDifferenceId}` : '人工关闭'
 
   return `
     <div class="space-y-4 p-4" data-testid="cut-order-close-page">
@@ -908,7 +876,6 @@ function renderCutOrderClosePage(): string {
           </div>
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('cut-orders'), { cutOrderId: row.cutOrderId, cutOrderNo: row.cutOrderNo }))}">返回裁片单</button>
-            ${sourceReplenishmentId ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('replenishment'), { suggestionId: sourceReplenishmentId }))}">返回补料管理</button>` : ''}
           </div>
         </div>
         <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -950,11 +917,11 @@ function renderCutOrderClosePage(): string {
                 </label>
                 <label class="space-y-2 md:col-span-2">
                   <span class="text-sm font-medium">关闭说明</span>
-                  <textarea class="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="说明为什么不再继续补排、补裁或等待面料" data-cutting-piece-close-field="closeDescription">${escapeHtml(state.closeDraft.closeDescription)}</textarea>
+                  <textarea class="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="说明为什么不再继续排唛架、继续裁剪或等待面料" data-cutting-piece-close-field="closeDescription">${escapeHtml(state.closeDraft.closeDescription)}</textarea>
                 </label>
               </div>
               <div class="mt-3 flex flex-wrap gap-2">
-                <button type="button" class="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-700" data-cutting-piece-action="submit-close-cut-order" data-record-id="${escapeHtml(row.id)}" data-source-replenishment-id="${escapeHtml(sourceReplenishmentId)}" data-source-difference-id="${escapeHtml(sourceDifferenceId)}">确认关闭裁片单</button>
+                <button type="button" class="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-700" data-cutting-piece-action="submit-close-cut-order" data-record-id="${escapeHtml(row.id)}" data-source-difference-id="${escapeHtml(sourceDifferenceId)}">确认关闭裁片单</button>
                 <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('cut-orders'), { cutOrderId: row.cutOrderId, cutOrderNo: row.cutOrderNo }))}">取消</button>
               </div>
             </section>
@@ -978,7 +945,7 @@ function renderCutOrderClosePage(): string {
           ${renderInfoCard('唛架 / 铺布', impactContext.markerSpreadingSummary)}
           ${renderInfoCard('菲票', impactContext.feiTicketSummary)}
           ${renderInfoCard('库存与交出', `${impactContext.inventorySummary}；未关闭交出记录 ${impactContext.pendingHandoverSummary}`)}
-          ${renderInfoCard('补料 / 特殊工艺', `${impactContext.replenishmentSummary}；特殊工艺 ${impactContext.pendingSpecialCraftSummary}`)}
+          ${renderInfoCard('差异 / 特殊工艺', `${impactContext.differenceSummary}；特殊工艺 ${impactContext.pendingSpecialCraftSummary}`)}
         </div>
       </section>
     </div>
@@ -1078,7 +1045,6 @@ function renderTable(rows: CutOrderRow[]): string {
                             <td class="px-4 py-3 align-top">
                               <div class="space-y-1">
                                 ${renderRiskTags(row.riskTags)}
-                                ${renderPendingPrepBadge(row)}
                               </div>
                             </td>
                             <td class="px-4 py-3 align-top">
@@ -1544,13 +1510,12 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
               { label: '是否已完成人员分摊', value: markerSpreadingCounts.hasOperatorAllocation ? '已形成按人分摊' : '待补录分摊' },
               { label: '人员金额摘要', value: `${formatCutOrderCurrency(markerSpreadingCounts.operatorAmountTotal)}` },
               { label: '人工调价', value: markerSpreadingCounts.hasManualAdjustedAmount ? '存在人工调整金额' : '当前未人工调整' },
-              { label: '补料预警', value: markerSpreadingCounts.hasReplenishmentWarning ? `有预警（${markerSpreadingCounts.warningLevelLabel}）` : '当前无明显预警' },
+              { label: '差异提示', value: markerSpreadingCounts.hasVarianceWarning ? `有预警（${markerSpreadingCounts.warningLevelLabel}）` : '当前无明显预警' },
               { label: '建议动作', value: markerSpreadingCounts.suggestedAction },
-              { label: '补料配料待处理', value: buildPendingPrepSummaryText(row) },
             ])}
             <div class="flex flex-wrap gap-2">
               ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-spreading" data-record-id="${escapeHtml(row.id)}">去铺布差异</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去待加工仓</button>
             </div>
           </div>
@@ -1583,7 +1548,7 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去待加工仓</button>
             ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
             ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-spreading" data-record-id="${escapeHtml(row.id)}">去铺布差异</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单总览</button>
           </div>
         `,
@@ -1636,7 +1601,7 @@ const cutOrderDetailTabs: Array<{ key: CutOrderDetailTabKey; label: string; desc
   { key: 'marker-plans', label: '唛架方案', description: '多次排唛架与锁定' },
   { key: 'spreading', label: '铺布裁剪', description: '多张铺布单与实裁' },
   { key: 'tickets-warehouse', label: '菲票入仓交出', description: '实际裁剪后的追踪' },
-  { key: 'differences', label: '差异补料', description: '差异与后续动作' },
+  { key: 'differences', label: '差异处理', description: '差异与后续动作' },
   { key: 'close', label: '关闭记录', description: '关闭原因和快照' },
 ]
 
@@ -1808,11 +1773,11 @@ function buildCutOrderDetailView(row: CutOrderRow, viewModel = getViewModel()) {
       .map((item) => ({ ...item })),
     ['inWarehouseAt', 'updatedAt'],
   )
-  const replenishmentRows = sortRecordsByLatest(
-    (sources.replenishmentView.rows as Array<Record<string, any>>)
-      .filter((item) => (materialEvents.length > 0 || markerPlanRecords.length > 0 || spreadingSessions.length > 0) && isObjectLinkedToCutOrder(item, row))
+  const differenceRows = sortRecordsByLatest(
+    listSpreadingDifferences({ sessions: spreadingSessions })
+      .filter((item) => item.cutOrderIds.includes(row.cutOrderId) || item.cutOrderNos.includes(row.cutOrderNo))
       .map((item) => ({ ...item })),
-    ['updatedAt', 'reviewedAt', 'createdAt'],
+    ['detectedAt'],
   )
   const bindingProcessRows = buildBindingProcessOrders()
     .filter((item) => item.sourceCutOrderId === row.cutOrderId || item.sourceCutOrderNo === row.cutOrderNo)
@@ -1846,7 +1811,7 @@ function buildCutOrderDetailView(row: CutOrderRow, viewModel = getViewModel()) {
     spreadingSessions,
     ticketRecords,
     warehouseItems,
-    replenishmentRows,
+    differenceRows,
     specialProcessRows,
     siblingRows,
   }
@@ -1934,7 +1899,7 @@ function renderCutOrderOverviewTab(view: ReturnType<typeof buildCutOrderDetailVi
         { label: '铺布记录', value: `${markerSpreadingCounts.sessionCount} 张铺布单 / 最近 ${markerSpreadingCounts.latestSessionNo}` },
         { label: '铺布裁剪进度', value: markerSpreadingCounts.statusSummary },
         { label: '菲票记录', value: `${view.ticketRecords.length} 条` },
-        { label: '补料差异', value: `${view.replenishmentRows.length} 条` },
+        { label: '执行差异', value: `${view.differenceRows.length} 条` },
       ]))}
     </div>
   `
@@ -2085,17 +2050,18 @@ function renderCutOrderTicketsWarehouseTab(view: ReturnType<typeof buildCutOrder
 function renderCutOrderDifferencesTab(view: ReturnType<typeof buildCutOrderDetailView>): string {
   return `
     <div class="space-y-4">
-      ${renderDetailSection('差异 / 补料处理', renderCompactRecordList(view.replenishmentRows, '暂无差异或补料处理记录。', (item) => `
+      ${renderDetailSection('差异记录', renderCompactRecordList(view.differenceRows, '暂无差异记录。', (item) => `
         <div class="grid gap-3 px-3 py-3 text-sm xl:grid-cols-[1.2fr_1.2fr_1fr_1fr_1fr_auto]">
-          <div><div class="font-semibold">${escapeHtml(formatUnknownText(item.replenishmentNo || item.replenishmentId))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.sourceType || item.differenceSource))}</div></div>
+          <div><div class="font-semibold">${escapeHtml(formatUnknownText(item.differenceId))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.sourceType || item.differenceSource))}</div></div>
           <div><div class="text-xs text-muted-foreground">差异</div><div>${escapeHtml(formatUnknownText(item.differenceType || item.problemText))}</div><div class="text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.differenceLevel || item.levelLabel))}</div></div>
           <div><div class="text-xs text-muted-foreground">计划 / 实际</div><div>${escapeHtml(formatUnknownNumber(item.plannedValue, item.unit))} / ${escapeHtml(formatUnknownNumber(item.actualValue, item.unit))}</div></div>
-          <div><div class="text-xs text-muted-foreground">处理结果</div><div>${escapeHtml(formatUnknownText(item.reviewResultLabel || item.reviewResult || item.resultLabel))}</div></div>
-          <div><div class="text-xs text-muted-foreground">后续动作</div><div>${escapeHtml(formatUnknownText(item.nextActionLabel || item.nextAction))}</div></div>
-          <div class="flex items-center justify-start xl:justify-end"><button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('replenishment'), {
+          <div><div class="text-xs text-muted-foreground">处理状态</div><div>${escapeHtml(formatUnknownText(item.handlingStatus))}</div></div>
+          <div><div class="text-xs text-muted-foreground">发现时间</div><div>${escapeHtml(formatUnknownText(item.detectedAt))}</div></div>
+          <div class="flex items-center justify-start xl:justify-end"><button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('spreading-list'), {
             cutOrderId: view.row.cutOrderId,
             cutOrderNo: view.row.cutOrderNo,
-          }))}">去补料管理</button></div>
+            spreadingOrderNo: item.spreadingOrderNo,
+          }))}">查看铺布单</button></div>
         </div>
       `))}
       ${renderDetailSection('特殊工艺关联', renderCompactRecordList(view.specialProcessRows, '暂无特殊工艺记录。', (item) => `
@@ -2184,7 +2150,7 @@ function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel(
         <div class="mt-4 flex flex-wrap gap-2">
           ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
           ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-spreading" data-record-id="${escapeHtml(row.id)}">去铺布差异</button>
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">${row.currentStage.key === 'CLOSED' ? '查看关闭记录' : '关闭裁片单'}</button>
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('cut-orders'))}">返回裁片单</button>
         </div>
@@ -2437,10 +2403,6 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
     return navigateToRecordTarget(actionNode.dataset.recordId, 'feiTickets')
   }
 
-  if (action === 'go-replenishment') {
-    return navigateToRecordTarget(actionNode.dataset.recordId, 'replenishment')
-  }
-
   if (action === 'go-close-cut-order') {
     const row = actionNode.dataset.recordId ? getViewModel().rowsById[actionNode.dataset.recordId] : null
     if (!row) return false
@@ -2485,8 +2447,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       closeDescription: state.closeDraft.closeDescription.trim(),
       closedAt,
       closedBy: state.closeDraft.closedBy.trim(),
-      closeSourceType: actionNode.dataset.sourceReplenishmentId ? '补料审核' : '人工关闭',
-      sourceReplenishmentId: actionNode.dataset.sourceReplenishmentId || undefined,
+      closeSourceType: actionNode.dataset.sourceDifferenceId ? '差异确认' : '人工关闭',
       sourceDifferenceId: actionNode.dataset.sourceDifferenceId || undefined,
       linkedLedgerEventIds: [`ledger:${row.cutOrderId}:close:close-${row.cutOrderId}`],
       ledgerSnapshotBeforeClose: impactContext.ledgerSnapshot,

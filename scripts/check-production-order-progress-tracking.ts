@@ -62,6 +62,13 @@ async function main(): Promise<void> {
     'data-production-order-progress-action="open-modal"',
     'data-skip-page-rerender="true"',
   ].forEach((text) => assertIncludes(listHtml, text, '列表页'))
+  ;[
+    '新建生产单',
+    '导出生产单列表',
+    '表格设置',
+    '批量操作',
+    '导出当前页',
+  ].forEach((text) => assert(!listHtml.includes(text), `列表页不应再展示红框操作入口「${text}」`))
 
   const overviewHtml = await renderAt('/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=overview')
   ;[
@@ -155,7 +162,12 @@ async function main(): Promise<void> {
 
   assert(typeof handleProductionOrderProgressEvent === 'function', '缺少生产单进度跟踪局部事件处理器')
   assert(!overviewHtml.includes('data-nav="/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=timeline"'), '详情页 Tab 不应使用路由跳转做轻交互')
-  assertIncludes(overviewHtml, 'data-modal-title="导出全生命周期跟踪"', '详情页弹窗')
+  ;[
+    '导出全生命周期跟踪',
+    '更多操作',
+    '已刷新当前生产单进度跟踪数据',
+  ].forEach((text) => assert(!overviewHtml.includes(text), `详情页不应再展示红框操作入口「${text}」`))
+  assertIncludes(overviewHtml, '查看详情', '详情页业务弹窗入口')
 
   console.log([
     '生产单进度跟踪验收通过',

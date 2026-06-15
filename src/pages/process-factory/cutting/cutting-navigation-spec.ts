@@ -10,12 +10,6 @@ export interface CuttingNavigationSpecItem {
 export const CUTTING_NAVIGATION_SPEC: CuttingNavigationSpecItem[] = [
   {
     sourcePageKey: 'cutting-summary',
-    target: 'replenishment',
-    carries: ['productionOrderNo', 'cutOrderNo', 'markerPlanNo', 'materialSku', 'suggestionId', 'autoOpenDetail'],
-    supportsAutoOpenDetail: true,
-  },
-  {
-    sourcePageKey: 'cutting-summary',
     target: 'specialProcesses',
     carries: ['productionOrderNo', 'cutOrderNo', 'markerPlanNo', 'materialSku', 'processOrderId', 'processOrderNo', 'autoOpenDetail'],
     supportsAutoOpenDetail: true,

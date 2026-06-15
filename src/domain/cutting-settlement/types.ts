@@ -15,7 +15,6 @@ export interface OperatorContributionSummary {
   spreadingActionCount: number
   inboundActionCount: number
   handoverActionCount: number
-  replenishmentFeedbackCount: number
   latestActionAt: string
   latestActionSummary: string
 }
@@ -62,16 +61,6 @@ export interface CuttingExecutionInputSummary {
   summaryText: string
 }
 
-export interface CuttingReplenishmentInputSummary {
-  suggestionCount: number
-  pendingReviewCount: number
-  approvedCount: number
-  rejectedCount: number
-  needMoreInfoCount: number
-  highRiskCount: number
-  summaryText: string
-}
-
 export interface CuttingWarehouseInputSummary {
   pendingInboundCount: number
   inboundedCount: number
@@ -114,7 +103,6 @@ export interface CuttingSettlementInput {
   groupSummary: GroupContributionSummary[]
   pickupSummary: CuttingPickupInputSummary
   executionSummary: CuttingExecutionInputSummary
-  replenishmentSummary: CuttingReplenishmentInputSummary
   warehouseSummary: CuttingWarehouseInputSummary
   exceptionImpactSummary: CuttingExceptionImpactSummary
   settlementFocusLevel: CuttingSettlementFocusLevel

@@ -3,7 +3,6 @@ export type CuttingExceptionType =
   | 'MISSING_EVIDENCE'
   | 'MARKER_NOT_MAINTAINED'
   | 'SPREADING_DATA_INSUFFICIENT'
-  | 'REPLENISHMENT_PENDING'
   | 'INBOUND_PENDING'
   | 'ZONE_UNASSIGNED'
   | 'SAMPLE_OVERDUE'
@@ -17,13 +16,11 @@ export type CuttingExceptionSourcePage =
   | 'ORDER_PROGRESS'
   | 'MATERIAL_PREP'
   | 'CUT_PIECE_ORDER'
-  | 'REPLENISHMENT'
   | 'WAREHOUSE'
   | 'PDA_PICKUP'
   | 'PDA_SPREADING'
   | 'PDA_INBOUND'
   | 'PDA_HANDOVER'
-  | 'PDA_REPLENISHMENT_FEEDBACK'
 
 export type CuttingExceptionRiskLevel = 'HIGH' | 'MEDIUM' | 'LOW'
 
@@ -66,7 +63,6 @@ export interface CuttingException {
   needsRecheck: boolean
   pickupSummaryText: string
   executionSummaryText: string
-  replenishmentSummaryText: string
   warehouseSummaryText: string
   sampleSummaryText: string
   evidenceCount: number

@@ -228,7 +228,7 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         sourceObjectId: 'PDA-PICK-260306-101-01-02',
         occurredAt: '2026-03-14 11:30',
         operatorName: '裁床 李明',
-        remark: '第二次领料用于补排。',
+        remark: '第二次领料用于继续排唛架。',
       }),
       buildEvent(record, 'SPREADING_ACTUAL_CONSUMED', 180, {
         eventId: `ledger:${record.cutOrderId}:consume:001`,

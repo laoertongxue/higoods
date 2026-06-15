@@ -4,7 +4,7 @@ import { DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES } from './cutting-table-r
 import {
   buildMarkerSeedDraft,
   buildMarkerSpreadingNavigationPayload,
-  buildSpreadingReplenishmentWarning,
+  buildSpreadingVarianceWarning,
   buildMarkerWarningMessages,
   buildSpreadingVarianceSummary,
   buildSpreadingWarningMessages,
@@ -46,7 +46,7 @@ import {
   summarizeSpreadingOperators,
   validateMarkerModeShape,
   buildOperatorAmountWarnings,
-  type SpreadingReplenishmentWarning,
+  type SpreadingVarianceWarning,
   type SpreadingSuggestedAction,
   type HighLowCuttingRow,
   type HighLowPatternRow,
@@ -79,7 +79,7 @@ import {
 
 export {
   buildMarkerSpreadingNavigationPayload,
-  buildSpreadingReplenishmentWarning,
+  buildSpreadingVarianceWarning,
   buildMarkerWarningMessages,
   buildSpreadingVarianceSummary,
   buildSpreadingWarningMessages,
@@ -212,13 +212,13 @@ export interface SpreadingListRow {
   operatorAllocationStatusLabel: string
   hasWarnings: boolean
   warningStatusLabel: string
-  hasReplenishmentWarning: boolean
-  replenishmentWarningLevel: string
-  replenishmentSuggestedAction: SpreadingSuggestedAction
-  pendingReplenishmentConfirmation: boolean
+  hasVarianceWarning: boolean
+  varianceWarningLevel: string
+  varianceSuggestedAction: SpreadingSuggestedAction
+  pendingVarianceConfirmation: boolean
   warningMessages: string[]
-  replenishmentWarning: SpreadingReplenishmentWarning | null
-  replenishmentPayload: Record<string, string | undefined>
+  varianceWarning: SpreadingVarianceWarning | null
+  variancePayload: Record<string, string | undefined>
   productionOrderNos: string[]
   statusLabel: string
   statusKey: SpreadingSession['status']
@@ -232,7 +232,7 @@ export interface SpreadingDetailViewModel {
   markerRecord: MarkerRecord | null
   warningMessages: string[]
   varianceSummary: NonNullable<ReturnType<typeof buildSpreadingVarianceSummary>> | null
-  replenishmentWarning: SpreadingReplenishmentWarning | null
+  varianceWarning: SpreadingVarianceWarning | null
   navigationPayload: ReturnType<typeof buildMarkerSpreadingNavigationPayload>
   linkedRollNos: Record<string, string>
   linkedCutOrderNos: string[]
@@ -405,7 +405,7 @@ const SEED_SESSION_MATRIX: SeedSessionProfile[][] = [
       cuttingStatus: 'CUTTING_DONE',
       plannedLayerCount: 40,
       actualLayerCounts: [24, 16],
-      scenarioNote: '第二次领料后补排唛架，继续按可用领料余额铺布裁剪。',
+      scenarioNote: '第二次领料后继续排唛架，继续按可用领料余额铺布裁剪。',
     },
   ],
   [
@@ -672,7 +672,7 @@ function createSeedSession(
   session.updatedAt = nowText(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T18:${String(profileIndex).padStart(2, '0')}:00`))
   if (profile.status === 'DONE') {
     session.cuttingStatusUpdatedAt = session.updatedAt
-    const warning = buildSpreadingReplenishmentWarning({
+    const warning = buildSpreadingVarianceWarning({
       context,
       session,
       markerTotalPieces: marker.totalPieces,
@@ -682,12 +682,12 @@ function createSeedSession(
       createdAt: session.updatedAt,
       note: '当前为 prototype 完成样例。',
     })
-    session.replenishmentWarning = {
+    session.varianceWarning = {
       ...warning,
-      suggestedAction: '无需补料',
+      suggestedAction: '无需处理',
       handled: true,
       shortageQty: 0,
-      note: 'prototype：无需补料',
+      note: 'prototype：无需处理',
     }
   }
   session.operationLogs = buildSpreadingSessionOperationLogs(session)
@@ -697,7 +697,7 @@ function createSeedSession(
       completedBy: profile.sourceChannel === 'PDA_WRITEBACK' ? '工厂端回写' : '现场主管',
       linkedCutOrderIds: [...context.cutOrderIds],
       linkedCutOrderNos: [...context.cutOrderNos],
-      generatedWarningId: session.replenishmentWarning?.warningId || `warning-${session.spreadingSessionId}`,
+      generatedWarningId: session.varianceWarning?.warningId || `warning-${session.spreadingSessionId}`,
       generatedWarning: false,
       note: '当前铺布已完成。',
     }
@@ -957,8 +957,8 @@ export function buildSpreadingListViewModel(options: {
         markerTotalPieces: markerRecord?.totalPieces || 0,
         claimedLengthTotal: varianceSummary?.claimedLengthTotal || 0,
       })
-      const replenishmentWarning =
-        buildSpreadingReplenishmentWarning({
+      const varianceWarning =
+        buildSpreadingVarianceWarning({
           context,
           session,
           markerTotalPieces: markerRecord?.totalPieces || 0,
@@ -967,7 +967,7 @@ export function buildSpreadingListViewModel(options: {
           materialAttr: cutOrderRows[0]?.materialLabel || cutOrderRows[0]?.materialCategory || '',
           warningMessages,
         })
-      const navigationPayload = buildMarkerSpreadingNavigationPayload(context, varianceSummary, replenishmentWarning)
+      const navigationPayload = buildMarkerSpreadingNavigationPayload(context, varianceSummary, varianceWarning)
       const completedCutOrderCount = getCompletedLinkedCutOrderIds(session).length
 
       return {
@@ -993,9 +993,9 @@ export function buildSpreadingListViewModel(options: {
         totalCalculatedUsableLength: session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength,
         totalRemainingLength: session.totalRemainingLength ?? rollSummary.totalRemainingLength,
         actualCutPieceQty: session.actualCutPieceQty || rollSummary.totalActualCutPieceQty,
-        plannedCutGarmentQty: varianceSummary?.plannedCutGarmentQty || replenishmentWarning.plannedCutGarmentQty,
-        theoreticalCutGarmentQty: varianceSummary?.theoreticalCutGarmentQty || replenishmentWarning.theoreticalCutGarmentQty,
-        actualCutGarmentQty: varianceSummary?.actualCutGarmentQty || replenishmentWarning.actualCutGarmentQty,
+        plannedCutGarmentQty: varianceSummary?.plannedCutGarmentQty || varianceWarning.plannedCutGarmentQty,
+        theoreticalCutGarmentQty: varianceSummary?.theoreticalCutGarmentQty || varianceWarning.theoreticalCutGarmentQty,
+        actualCutGarmentQty: varianceSummary?.actualCutGarmentQty || varianceWarning.actualCutGarmentQty,
         fabricRollCount: varianceSummary?.fabricRollCount || rolls.length,
         spreadLayerCount: varianceSummary?.spreadLayerCount || rollSummary.totalLayers,
         spreadActualLengthM: varianceSummary?.spreadActualLengthM || session.totalActualLength || rollSummary.totalActualLength,
@@ -1004,7 +1004,7 @@ export function buildSpreadingListViewModel(options: {
         configuredLengthTotal: varianceSummary?.configuredLengthTotal || session.configuredLengthTotal || 0,
         claimedLengthTotal: varianceSummary?.claimedLengthTotal || session.claimedLengthTotal || 0,
         varianceLength: varianceSummary?.varianceLength || session.varianceLength || 0,
-        varianceNote: varianceSummary?.replenishmentHint || session.varianceNote || '当前未识别明显差异。',
+        varianceNote: varianceSummary?.varianceHint || session.varianceNote || '当前未识别明显差异。',
         hasVariance: Math.abs(varianceSummary?.varianceLength || session.varianceLength || 0) > 0.01,
         differenceStatusLabel:
           Math.abs(varianceSummary?.varianceLength || session.varianceLength || 0) > 0.01
@@ -1031,15 +1031,15 @@ export function buildSpreadingListViewModel(options: {
             : operatorSummary.handoverRollCount > 0
               ? `已记录 ${operatorSummary.handoverRollCount} 卷交接`
               : '无提醒',
-        hasReplenishmentWarning:
-          replenishmentWarning.suggestedAction === '差异处理' || replenishmentWarning.suggestedAction === '存在异常差异，需人工确认',
-        replenishmentWarningLevel: replenishmentWarning.warningLevel,
-        replenishmentSuggestedAction: replenishmentWarning.suggestedAction,
-        pendingReplenishmentConfirmation:
-          !replenishmentWarning.handled && replenishmentWarning.suggestedAction !== '无需补料',
+        hasVarianceWarning:
+          varianceWarning.suggestedAction === '差异处理' || varianceWarning.suggestedAction === '存在异常差异，需人工确认',
+        varianceWarningLevel: varianceWarning.warningLevel,
+        varianceSuggestedAction: varianceWarning.suggestedAction,
+        pendingVarianceConfirmation:
+          !varianceWarning.handled && varianceWarning.suggestedAction !== '无需处理',
         warningMessages,
-        replenishmentWarning,
-        replenishmentPayload: navigationPayload.replenishment,
+        varianceWarning,
+        variancePayload: navigationPayload.variance,
         productionOrderNos: context?.productionOrderNos || uniqueStrings(cutOrderRows.map((row) => row.productionOrderNo)),
         statusLabel: session.status === 'DRAFT' ? '待铺布' : session.status === 'IN_PROGRESS' ? '铺布中' : session.status === 'DONE' ? '已铺布' : '待补录',
         statusKey: session.status,
@@ -1091,8 +1091,8 @@ export function buildSpreadingDetailViewModel(options: {
       buildRollHandoverViewModel(roll, operatorSummary.operatorsByRollId[roll.rollRecordId] || [], markerRecord?.totalPieces || 0),
     ]),
   )
-  const replenishmentWarning =
-    buildSpreadingReplenishmentWarning({
+  const varianceWarning =
+    buildSpreadingVarianceWarning({
       context,
       session,
       markerTotalPieces: markerRecord?.totalPieces || 0,
@@ -1106,8 +1106,8 @@ export function buildSpreadingDetailViewModel(options: {
     markerRecord,
     warningMessages,
     varianceSummary,
-    replenishmentWarning,
-    navigationPayload: buildMarkerSpreadingNavigationPayload(context, varianceSummary, replenishmentWarning),
+    varianceWarning,
+    navigationPayload: buildMarkerSpreadingNavigationPayload(context, varianceSummary, varianceWarning),
     linkedRollNos: Object.fromEntries(session.rolls.map((roll) => [roll.rollRecordId, roll.rollNo])),
     linkedCutOrderNos: cutOrderRows.map((item) => item.cutOrderNo),
     sortedOperators: operatorSummary.sortedOperators,
@@ -1210,7 +1210,7 @@ export function buildMarkerSpreadingCountsByCutOrder(cutOrderId: string): {
   statusSummary: string
   spreadingStatusLabel: string
   latestSessionNo: string
-  hasReplenishmentWarning: boolean
+  hasVarianceWarning: boolean
   warningLevelLabel: string
   suggestedAction: string
   hasOperatorAllocation: boolean
@@ -1233,7 +1233,7 @@ export function buildMarkerSpreadingCountsByCutOrder(cutOrderId: string): {
   const latestAmountSummary = latestSession
     ? summarizeSpreadingOperatorAmounts(latestSession.operators, latestMarkerTotalPieces, latestSession.unitPrice)
     : null
-  const latestWarning = latestSession?.replenishmentWarning || null
+  const latestWarning = latestSession?.varianceWarning || null
   const completedForCurrentOrder = linkedSessions.some((item) => getCompletedLinkedCutOrderIds(item).includes(cutOrderId))
   const spreadingStatusLabel = completedForCurrentOrder
     ? '已铺布'
@@ -1254,9 +1254,9 @@ export function buildMarkerSpreadingCountsByCutOrder(cutOrderId: string): {
         : '暂无铺布记录',
     spreadingStatusLabel,
     latestSessionNo: latestSession?.sessionNo || '暂无',
-    hasReplenishmentWarning: Boolean(latestWarning && latestWarning.suggestedAction !== '无需补料'),
+    hasVarianceWarning: Boolean(latestWarning && latestWarning.suggestedAction !== '无需处理'),
     warningLevelLabel: latestWarning?.warningLevel || '低',
-    suggestedAction: latestWarning?.suggestedAction || '无需补料',
+    suggestedAction: latestWarning?.suggestedAction || '无需处理',
     hasOperatorAllocation: Boolean(latestAmountSummary?.hasAnyAllocationData),
     operatorAmountTotal: latestAmountSummary?.totalDisplayAmount || 0,
     hasManualAdjustedAmount: Boolean(latestAmountSummary?.hasManualAdjustedAmount),
@@ -1278,7 +1278,7 @@ function createEmptyMarkerSpreadingCounts(row?: MaterialPrepRow) {
     statusSummary: '暂无铺布记录',
     spreadingStatusLabel: stageLabel,
     latestSessionNo: '暂无',
-    hasReplenishmentWarning: false,
+    hasVarianceWarning: false,
     warningLevelLabel: '低',
     suggestedAction,
     hasOperatorAllocation: false,

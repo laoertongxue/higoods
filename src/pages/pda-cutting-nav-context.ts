@@ -13,7 +13,6 @@ export type PdaCuttingNavPageKey =
   | 'spreading'
   | 'inbound'
   | 'handover'
-  | 'replenishment-feedback'
 
 export type PdaCuttingBackMode = 'list' | 'receive-detail' | 'task-detail' | 'execution-unit' | 'exec'
 
@@ -374,6 +373,5 @@ export function getPdaCuttingCompletedActionLabel(actionKey?: PdaCuttingActionKe
   if (actionKey === 'spreading') return '已保存铺布记录'
   if (actionKey === 'inbound') return '已确认入仓'
   if (actionKey === 'handover') return '已确认交接'
-  if (actionKey === 'replenishment-feedback') return '已提交现场差异反馈'
   return '已完成当前操作'
 }

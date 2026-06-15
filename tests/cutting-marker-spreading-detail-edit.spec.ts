@@ -16,9 +16,9 @@ test('铺布详情与编辑页展示 5 个 tabs、卷记录排版项绑定和保
   await page.getByRole('button', { name: '换班与人员' }).click()
   await expect(page.getByTestId('cutting-spreading-detail-operators-fold')).not.toHaveAttribute('open', '')
   await expect(page.getByTestId('cutting-spreading-detail-operators-fold')).toHaveAttribute('data-default-open', 'collapsed')
-  await page.getByRole('button', { name: '差异与补料' }).click()
-  await expect(page.getByTestId('cutting-spreading-detail-replenishment-fold')).not.toHaveAttribute('open', '')
-  await expect(page.getByTestId('cutting-spreading-detail-replenishment-fold')).toHaveAttribute('data-default-open', 'collapsed')
+  await page.getByRole('button', { name: '差异处理' }).click()
+  await expect(page.getByTestId('cutting-spreading-detail-variance-fold')).not.toHaveAttribute('open', '')
+  await expect(page.getByTestId('cutting-spreading-detail-variance-fold')).toHaveAttribute('data-default-open', 'collapsed')
 
   await page.getByRole('button', { name: '去编辑' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/spreading-edit\?/)
@@ -30,7 +30,7 @@ test('铺布详情与编辑页展示 5 个 tabs、卷记录排版项绑定和保
     '执行摘要',
     '卷记录',
     '换班与人员',
-    '差异与补料',
+    '差异处理',
     '完成与后续',
   ])
 
@@ -50,9 +50,9 @@ test('铺布详情与编辑页展示 5 个 tabs、卷记录排版项绑定和保
   await tabShell.getByRole('button', { name: '换班与人员' }).click()
   await expect(page.getByTestId('cutting-spreading-edit-operators-fold')).not.toHaveAttribute('open', '')
   await expect(page.getByTestId('cutting-spreading-edit-operators-fold')).toHaveAttribute('data-default-open', 'collapsed')
-  await tabShell.getByRole('button', { name: '差异与补料' }).click()
-  await expect(page.getByTestId('cutting-spreading-edit-replenishment-fold')).not.toHaveAttribute('open', '')
-  await expect(page.getByTestId('cutting-spreading-edit-replenishment-fold')).toHaveAttribute('data-default-open', 'collapsed')
+  await tabShell.getByRole('button', { name: '差异处理' }).click()
+  await expect(page.getByTestId('cutting-spreading-edit-variance-fold')).not.toHaveAttribute('open', '')
+  await expect(page.getByTestId('cutting-spreading-edit-variance-fold')).toHaveAttribute('data-default-open', 'collapsed')
   await tabShell.getByRole('button', { name: '完成与后续' }).click()
   await expect(page.getByText('当前后续动作').first()).toBeVisible()
 

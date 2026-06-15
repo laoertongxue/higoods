@@ -10,7 +10,6 @@ import {
 import { buildMaterialLedgerProjectionMap } from './material-ledger.ts'
 import {
   listCuttingRuntimeEventsByType,
-  listPdaReplenishmentFeedbackEvents,
   type CuttingRuntimeEvent,
 } from './cutting-runtime-event-ledger.ts'
 
@@ -69,35 +68,6 @@ export interface SpreadingDifference {
   detectedAt: string
   detectedBy: string
   handlingStatus: SpreadingDifferenceHandlingStatus
-  linkedReplenishmentId: string
-  linkedLedgerEventIds: string[]
-}
-
-export type ReplenishmentReviewResult = '需要补料' | '仅记录差异' | '关闭裁片单'
-
-export type ReplenishmentNextAction = '回到中转仓配料' | '无后续动作' | '关闭裁片单'
-
-export interface SpreadingReplenishmentHandlingObject {
-  replenishmentId: string
-  sourceDifferenceId: string
-  differenceSource: SpreadingDifferenceSourceType
-  differenceType: SpreadingDifferenceType
-  spreadingOrderId: string
-  cutOrderIds: string[]
-  productionOrderIds: string[]
-  materialSku: string
-  materialAlias: string
-  patternFileName: string
-  plannedValue: number
-  actualValue: number
-  differenceValue: number
-  unit: string
-  evidence: SpreadingDifferenceEvidence
-  reviewStatus: SpreadingDifferenceHandlingStatus
-  reviewResult: ReplenishmentReviewResult | ''
-  nextAction: ReplenishmentNextAction | ''
-  closeCutOrderRequired: boolean
-  closeReason: string
   linkedLedgerEventIds: string[]
 }
 
@@ -328,7 +298,6 @@ function createDifference(
     detectedAt: input.occurredAt || base.detectedAt,
     detectedBy: input.operatorName || base.detectedBy,
     handlingStatus: '待处理',
-    linkedReplenishmentId: `rep-diff-${differenceId}`,
     linkedLedgerEventIds: [ledgerEventId],
   }
 }
@@ -394,7 +363,7 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
         plannedValue: Math.max(order.plannedMaterialUsage - base.actualUsage, 0),
         actualValue: availableQty,
         unit: order.plannedMaterialUsageUnit || '米',
-        summary: '当前裁床可用余额不足以支撑后续计划，需要补料管理确认下一步。',
+        summary: '当前裁床可用余额不足以支撑后续计划，需要裁床管理确认下一步。',
       }))
     }
 
@@ -486,26 +455,6 @@ function buildDifferencesFromRuntimeStageEvents(orders: SpreadingOrder[]): Sprea
   })
 
   return [...spreadingDifferences, ...cuttingDifferences]
-}
-
-function buildDifferencesFromPdaFeedbacks(orders: SpreadingOrder[]): SpreadingDifference[] {
-  const fallbackOrder = orders[0]
-  if (!fallbackOrder) return []
-  return listPdaReplenishmentFeedbackEvents().map((record) => createDifference(fallbackOrder, null, {
-    suffix: `pda-feedback-${record.runtimeEventId}`,
-    sourceType: 'PDA 铺布记录',
-    sourceObjectId: record.runtimeEventId,
-    differenceType: record.reasonLabel.includes('余量') || record.reasonLabel.includes('不足') ? '面料余额不足' : '现场反馈',
-    differenceLevel: '需处理',
-    plannedValue: 1,
-    actualValue: 0,
-    unit: '项',
-    summary: `PDA 现场反馈：${record.reasonLabel}`,
-    operatorName: record.operatorName,
-    occurredAt: record.submittedAt,
-    note: record.note,
-    photoProofCount: record.photoProofCount,
-  }))
 }
 
 function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
@@ -707,7 +656,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
       summary: '领料时少领 60 米，差异仍影响后续用料。',
       operatorName: '裁床领料员',
       occurredAt: '2026-03-18 17:32',
-      note: '由领料差异延续到铺布阶段，需补料管理判断后续动作。',
+      note: '由领料差异延续到铺布阶段，需裁床管理判断后续动作。',
     }),
     ...(pb2440Order ? [
       createDifference(pb2440Order, null, {
@@ -768,7 +717,6 @@ export function listSpreadingDifferences(input?: {
   return uniqueByDifferenceId([
     ...buildDifferencesFromOrders(orders, sessions),
     ...buildDifferencesFromRuntimeStageEvents(orders),
-    ...buildDifferencesFromPdaFeedbacks(orders),
     ...buildSeedDifferences(orders),
   ]).sort((left, right) => right.detectedAt.localeCompare(left.detectedAt, 'zh-CN'))
 }
@@ -800,53 +748,4 @@ export function listSpreadingDifferencesByProductionOrder(
       difference.productionOrderIds.includes(productionOrderIdOrNo) ||
       difference.productionOrderNos.includes(productionOrderIdOrNo),
   )
-}
-
-function resolveReviewResultFromDifferenceType(differenceType: SpreadingDifferenceType): ReplenishmentReviewResult | '' {
-  if (differenceType === '面料余额不足') return '需要补料'
-  if (differenceType === '实际用量差异') return '需要补料'
-  if (differenceType === '实铺小于计划') return '需要补料'
-  if (differenceType === '实裁小于计划') return '需要补料'
-  if (differenceType === '卷记录异常') return '仅记录差异'
-  if (differenceType === '现场反馈') return '关闭裁片单'
-  return ''
-}
-
-function resolveNextActionFromReviewResult(reviewResult: ReplenishmentReviewResult | ''): ReplenishmentNextAction | '' {
-  if (reviewResult === '需要补料') return '回到中转仓配料'
-  if (reviewResult === '仅记录差异') return '无后续动作'
-  if (reviewResult === '关闭裁片单') return '关闭裁片单'
-  return ''
-}
-
-export function buildSpreadingReplenishmentHandlingObjects(
-  differences: SpreadingDifference[] = listSpreadingDifferences(),
-): SpreadingReplenishmentHandlingObject[] {
-  return differences.map((difference) => {
-    const reviewResult = resolveReviewResultFromDifferenceType(difference.differenceType)
-    const nextAction = resolveNextActionFromReviewResult(reviewResult)
-    return {
-      replenishmentId: difference.linkedReplenishmentId,
-      sourceDifferenceId: difference.differenceId,
-      differenceSource: difference.sourceType,
-      differenceType: difference.differenceType,
-      spreadingOrderId: difference.spreadingOrderId,
-      cutOrderIds: [...difference.cutOrderIds],
-      productionOrderIds: [...difference.productionOrderIds],
-      materialSku: difference.materialSku,
-      materialAlias: difference.materialAlias,
-      patternFileName: difference.patternFileName,
-      plannedValue: difference.plannedValue,
-      actualValue: difference.actualValue,
-      differenceValue: difference.differenceValue,
-      unit: difference.unit,
-      evidence: { ...difference.evidence },
-      reviewStatus: reviewResult ? '已处理' : difference.handlingStatus,
-      reviewResult,
-      nextAction,
-      closeCutOrderRequired: reviewResult === '关闭裁片单',
-      closeReason: reviewResult === '关闭裁片单' ? '现场确认剩余缺口不再继续排唛架铺布裁剪。' : '',
-      linkedLedgerEventIds: reviewResult === '仅记录差异' ? [] : [...difference.linkedLedgerEventIds],
-    }
-  })
 }

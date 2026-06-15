@@ -446,7 +446,7 @@ const seedProductionDemands: ProductionDemand[] = [
     demandId: 'DEM-202603-0085', legacyType: 'ID_PURCHASE', legacyOrderNo: '26031285', sourceSystem: 'NEW',
     spuCode: 'SPU-JACKET-085', spuName: '户外轻量夹克', imageUrl: '/placeholder.svg?height=80&width=80',
     category: 'Outerwear', marketScopes: ['ID'], priority: 'NORMAL', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.0',
-    requiredDeliveryDate: '2026-04-10', constraintsNote: '主布与内袋布拆分执行，存在补料风险。',
+    requiredDeliveryDate: '2026-04-10', constraintsNote: '主布与内袋布拆分执行，存在来料风险。',
     skuLines: [
       { skuCode: 'SKU-085-S-OLV', size: 'S', color: '军绿', qty: 1100 },
       { skuCode: 'SKU-085-M-OLV', size: 'M', color: '军绿', qty: 1200 },

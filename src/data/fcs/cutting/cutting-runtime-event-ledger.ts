@@ -27,7 +27,6 @@ export type CuttingRuntimeEventType =
   | '新增交出记录'
   | '特殊工艺交出'
   | '特殊工艺回仓'
-  | '补料反馈'
 
 export interface CuttingRuntimeRefs {
   productionOrderId?: string
@@ -336,19 +335,6 @@ export interface SpecialCraftReturnPayload {
   returnedBy: string
 }
 
-export interface ReplenishmentFeedbackPayload {
-  feedbackId: string
-  taskId?: string
-  taskNo?: string
-  executionOrderId?: string
-  executionOrderNo?: string
-  reasonLabel: string
-  differenceQty: number
-  unit: CuttingRuntimeQtyUnit
-  note: string
-  photoProofCount: number
-}
-
 export type CuttingRuntimeEventPayload =
   | TransferPrepReadyPayload
   | TransferPickupPayload
@@ -363,7 +349,6 @@ export type CuttingRuntimeEventPayload =
   | HandoverRecordSubmitPayload
   | SpecialCraftHandoverPayload
   | SpecialCraftReturnPayload
-  | ReplenishmentFeedbackPayload
   | Record<string, unknown>
 
 export interface CuttingRuntimeEvent {
@@ -513,7 +498,6 @@ function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
     '新增交出记录',
     '特殊工艺交出',
     '特殊工艺回仓',
-    '补料反馈',
   ].includes(value)
 }
 
@@ -587,7 +571,6 @@ function eventTypeCode(eventType: CuttingRuntimeEventType): string {
     新增交出记录: 'HANDOVER',
     特殊工艺交出: 'CRAFT-OUT',
     特殊工艺回仓: 'CRAFT-IN',
-    补料反馈: 'REPLENISH',
   }
   return map[eventType]
 }
@@ -746,19 +729,10 @@ export interface PdaCutPieceHandoverEventRecord extends PdaRuntimeEventProjectio
   note: string
 }
 
-export interface PdaReplenishmentFeedbackEventRecord extends PdaRuntimeEventProjectionBase {
-  reasonLabel: string
-  note: string
-  photoProofCount: number
-  lifecycleStatus?: 'SUBMITTED' | 'PENDING' | 'CLOSED'
-  lifecycleStatusLabel?: string
-}
-
 export interface PdaRuntimeEventProjectionStore {
   pickupEvents: PdaPickupEventRecord[]
   inboundEvents: PdaCutPieceInboundEventRecord[]
   handoverEvents: PdaCutPieceHandoverEventRecord[]
-  replenishmentFeedbackEvents: PdaReplenishmentFeedbackEventRecord[]
 }
 
 function sortRuntimeEventRecords<T extends { submittedAt: string }>(items: T[]): T[] {
@@ -915,25 +889,6 @@ function handoverEventRecordFromEvent(event: CuttingRuntimeEvent): PdaCutPieceHa
   }
 }
 
-function replenishmentFeedbackEventRecordFromEvent(event: CuttingRuntimeEvent): PdaReplenishmentFeedbackEventRecord | null {
-  const payload = event.payload as ReplenishmentFeedbackPayload
-  if (!payload?.feedbackId) return null
-  return {
-    ...pdaProjectionBaseFromRuntimeEvent(event, 'PDA_REPLENISHMENT_FEEDBACK_SUBMIT', {
-      runtimeEventId: event.eventId,
-      executionOrderId: payload.executionOrderId || event.refs.spreadingOrderId || '',
-      executionOrderNo: payload.executionOrderNo || event.refs.spreadingOrderNo || '',
-      taskId: payload.taskId || payload.executionOrderId || event.refs.cutOrderId || event.eventId,
-      taskNo: payload.taskNo || payload.executionOrderNo || event.refs.cutOrderNo || event.eventNo,
-    }),
-    reasonLabel: payload.reasonLabel || '现场反馈',
-    note: payload.note || '',
-    photoProofCount: toNumber(payload.photoProofCount),
-    lifecycleStatus: 'SUBMITTED',
-    lifecycleStatusLabel: event.eventStatus || '已同步',
-  }
-}
-
 export function listPdaPickupEvents(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PdaPickupEventRecord[] {
@@ -984,18 +939,6 @@ export function listPdaHandoverEvents(
   )
 }
 
-export function listPdaReplenishmentFeedbackEvents(
-  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
-): PdaReplenishmentFeedbackEventRecord[] {
-  return sortRuntimeEventRecords(
-    uniqueRuntimeEventRecords(
-      listCuttingRuntimeEventsByType('补料反馈', storage)
-        .map((event) => replenishmentFeedbackEventRecordFromEvent(event))
-        .filter((record): record is PdaReplenishmentFeedbackEventRecord => Boolean(record)),
-    ),
-  )
-}
-
 export function listRuntimePdaExecutionEventProjections(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PdaRuntimeEventProjectionStore {
@@ -1003,6 +946,5 @@ export function listRuntimePdaExecutionEventProjections(
     pickupEvents: listPdaPickupEvents(storage),
     inboundEvents: listPdaInboundEvents(storage),
     handoverEvents: listPdaHandoverEvents(storage),
-    replenishmentFeedbackEvents: listPdaReplenishmentFeedbackEvents(storage),
   }
 }

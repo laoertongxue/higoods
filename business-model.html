@@ -182,7 +182,7 @@ flowchart TD
 
     subgraph Phase3["阶段三：工序派单"]
         G["🏭 工序任务<br/>ProcessTask<br/>直派 DIRECTION / 竞价 BIDDING"]
-        H["👷 PDA执行<br/>领料→铺布→补料→交接→入仓"]
+        H["👷 PDA执行<br/>领料→铺布→交接→入仓"]
     end
 
     A -->|"验证技术包已发布<br/>validDemandTechPackOrderLink"| B
@@ -377,17 +377,12 @@ sequenceDiagram
     S->>D: CUTTING_SPREADING_SAVE<br/>追加 spreadingRecords
     D-->>S: 铺布记录保存成功
 
-    Note over W,T: 阶段三：补料(可选)
-    W->>S: 发现面料不足，提交补料
-    S->>D: CUTTING_REPLENISHMENT_FEEDBACK<br/>创建补料记录
-    D-->>S: 补料需求已上报
-
-    Note over W,T: 阶段四：入仓
+    Note over W,T: 阶段三：入仓
     W->>S: 裁剪完成，确认入仓
     S->>D: CUTTING_INBOUND_CONFIRM<br/>hasInboundRecord = true
     D-->>S: 入仓完成<br/>currentStage → "已入仓"
 
-    Note over W,T: 阶段五：交接
+    Note over W,T: 阶段四：交接
     W->>S: 确认交接给下游
     S->>D: CUTTING_HANDOVER_CONFIRM
     D-->>S: 交接完成
@@ -451,7 +446,6 @@ flowchart TD
       <tr><td><span class="tag tag-orange">PENDING_REVIEW</span></td><td>待审核</td><td>铺布记录需要审核</td></tr>
       <tr><td><span class="tag tag-orange">PARTIAL_CONFIG</span></td><td>部分配置</td><td>配料尚未完成</td></tr>
       <tr><td><span class="tag tag-red">RECEIVE_DIFF</span></td><td>领料差异</td><td>实际领料与需求不一致</td></tr>
-      <tr><td><span class="tag tag-red">REPLENISH_PENDING</span></td><td>补料待处理</td><td>PDA提交了补料申请但未处理</td></tr>
       <tr><td><span class="tag tag-red">INBOUND_PENDING</span></td><td>入仓待处理</td><td>裁剪完成但未确认入仓</td></tr>
       <tr><td><span class="tag tag-red">SHIP_URGENT</span></td><td>出货紧急</td><td>生产进度落后于出货计划</td></tr>
     </table>

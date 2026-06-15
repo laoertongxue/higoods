@@ -12,7 +12,7 @@ test('canonical 铺布列表可打开、状态 tabs 固定、旧 marker-spreadin
   const tabs = page.getByTestId('cutting-spreading-stage-tabs')
   await expect(tabs).toBeVisible()
 
-  for (const label of ['全部', '待开始', '铺布中', '待补料确认', '待打印菲票', '待装袋', '待入仓', '已完成']) {
+  for (const label of ['全部', '待开始', '铺布中', '待打印菲票', '待装袋', '待入仓', '已完成']) {
     await expect(tabs.getByRole('button', { name: new RegExp(`^${label}（`) })).toBeVisible()
   }
 
@@ -21,9 +21,6 @@ test('canonical 铺布列表可打开、状态 tabs 固定、旧 marker-spreadin
 
   await tabs.getByRole('button', { name: /铺布中（/ }).click()
   await expect(page.getByText('视图：铺布中')).toBeVisible()
-
-  await tabs.getByRole('button', { name: /待补料确认（/ }).click()
-  await expect(page.getByText('视图：待补料确认')).toBeVisible()
 
   await tabs.getByRole('button', { name: /全部（/ }).click()
   await expect(page.getByText('视图：全部')).toBeVisible()

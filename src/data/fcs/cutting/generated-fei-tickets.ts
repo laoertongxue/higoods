@@ -136,7 +136,7 @@ export interface CuttingActualOutput {
   actualMaterialUsageUnit: string
   cuttingCompletedAt: string
   cuttingCompletedBy: string
-  differenceHandlingStatus: '无差异' | '待处理' | '仅记录差异' | '继续补排' | '关闭裁片单' | '需要补录'
+  differenceHandlingStatus: '无差异' | '待处理' | '仅记录差异' | '继续排唛架' | '关闭裁片单' | '需要补录'
   canGenerateFeiTicket: boolean
   generatedFeiTicketIds: string[]
 }
@@ -414,7 +414,7 @@ function resolveDifferenceHandlingStatusForSession(session: SpreadingSession): C
   if (!differences.length) return '无差异'
   if (hasPendingBlockingDifference(differences)) return '待处理'
   if (differences.some((difference) => difference.handlingStatus === '仅记录')) return '仅记录差异'
-  return '继续补排'
+  return '继续排唛架'
 }
 
 function hasBlockingDifferenceForFeiGeneration(session: SpreadingSession): boolean {
@@ -795,9 +795,9 @@ function isReadyForFeiGeneration(session: SpreadingSession): boolean {
   if (session.cuttingStatus !== 'CUTTING_DONE') return false
   if (!hasActualCutOutput(session)) return false
   if (hasBlockingDifferenceForFeiGeneration(session)) return false
-  const warning = session.replenishmentWarning
+  const warning = session.varianceWarning
   if (!warning) return true
-  if (warning.suggestedAction === '无需补料') return true
+  if (warning.suggestedAction === '无需处理') return true
   return Boolean(warning.handled)
 }
 
@@ -980,7 +980,7 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
       completedBy: '现场主管',
       generatedWarning: false,
     },
-    replenishmentWarning: {
+    varianceWarning: {
       warningId: `warning-${sessionId}`,
       spreadingSessionId: sessionId,
       sessionNo,
@@ -994,7 +994,7 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
       shortageQty: 0,
       varianceLength: 0,
       warningLevel: '低',
-      suggestedAction: '无需补料',
+      suggestedAction: '无需处理',
       handled: true,
       lines: seedRecords.map((record, index) => ({
         lineId: `spread-warning-line-step12-${index + 1}`,
@@ -1067,7 +1067,7 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
       completedBy: '裁剪组长',
       generatedWarning: false,
     },
-    replenishmentWarning: {
+    varianceWarning: {
       warningId: `warning-${cleanSessionId}`,
       spreadingSessionId: cleanSessionId,
       sessionNo: cleanSessionNo,
@@ -1081,7 +1081,7 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
       shortageQty: 0,
       varianceLength: 0,
       warningLevel: '低',
-      suggestedAction: '无需补料',
+      suggestedAction: '无需处理',
       handled: true,
       lines: seedRecords.map((record, index) => ({
         lineId: `spread-warning-line-fei-ready-${index + 1}`,
@@ -1270,7 +1270,7 @@ function listOutputSourceLinesForSession(
   session: SpreadingSession,
   sourceRecords: GeneratedCutOrderSourceRecord[],
 ): SpreadingOutputSourceLine[] {
-  const warningLines = (session.replenishmentWarning?.lines || [])
+  const warningLines = (session.varianceWarning?.lines || [])
     .map((line) => ({
       cutOrderId: line.cutOrderId,
       cutOrderNo: line.cutOrderNo,
@@ -1327,7 +1327,7 @@ function buildSpreadingPieceOutputLinesFromSessions(
           const layerCount = Math.max(Number(roll.layerCount || 0), 0)
           const assemblyGroupKey = [
             sourceRecord.cutOrderNo,
-            normalizeBusinessText(roll.rollNo, '待补卷号'),
+            normalizeBusinessText(roll.rollNo, '待填卷号'),
             normalizeBusinessText(line.color || roll.color, '待补颜色'),
             normalizeBusinessText(sizeRow.size, '均码'),
             bundleNo,
@@ -1361,7 +1361,7 @@ function buildSpreadingPieceOutputLinesFromSessions(
                 productionOrderId: sourceRecord.productionOrderId,
                 productionOrderNo: sourceRecord.productionOrderNo,
                 fabricRollId: roll.rollRecordId,
-                fabricRollNo: normalizeBusinessText(roll.rollNo, '待补卷号'),
+                fabricRollNo: normalizeBusinessText(roll.rollNo, '待填卷号'),
                 fabricColor: normalizeBusinessText(line.color || roll.color, '待补颜色'),
                 materialSku: normalizeBusinessText(line.materialSku, sourceRecord.materialSku),
                 garmentSkuId: normalizeBusinessText(sizeRow.skuCode, sourceRecord.cutOrderNo),
@@ -1661,10 +1661,10 @@ export function listFeiTicketGenerationEligibilityRows(): FeiTicketGenerationEli
       }),
     },
     {
-      scenarioLabel: '差异已处理为继续补排',
+      scenarioLabel: '差异已处理为继续排唛架',
       output: cloneActualOutput(baseOutput, {
         outputId: `${baseOutput.outputId}__continue-recut`,
-        differenceHandlingStatus: '继续补排',
+        differenceHandlingStatus: '继续排唛架',
         generatedFeiTicketIds: [],
       }),
     },

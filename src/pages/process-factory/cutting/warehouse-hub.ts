@@ -4963,7 +4963,7 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
     <div class="flex justify-end rounded-lg border bg-card p-4">${renderWarehouseLocationToolbar('裁床待加工仓')}</div>
     ${renderLocationRows('裁床待加工仓', [
       ['裁床待加工仓', '面料 A 区', 'FAB-A-01', '待裁面料'],
-      ['裁床待加工仓', '面料 B 区', 'FAB-B-02', '补料 / 余料'],
+      ['裁床待加工仓', '面料 B 区', 'FAB-B-02', '余料'],
     ])}
   </section>`
   const activeContent =

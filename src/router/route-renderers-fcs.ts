@@ -297,14 +297,6 @@ export const renderCraftCuttingMarkerSpreadingPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/marker-spreading'),
   'renderCraftCuttingMarkerSpreadingPage',
 )
-export const renderCraftCuttingReplenishmentPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/replenishment'),
-  'renderCraftCuttingReplenishmentPage',
-)
-export const renderCraftCuttingReplenishmentDetailPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/replenishment'),
-  'renderCraftCuttingReplenishmentDetailPage',
-)
 export const renderCraftCuttingSampleWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/sample-warehouse'),
   'renderCraftCuttingSampleWarehousePage',

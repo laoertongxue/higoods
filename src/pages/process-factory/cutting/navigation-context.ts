@@ -2,7 +2,6 @@ import { getCanonicalCuttingPath } from './meta.ts'
 
 export type CuttingPageContextKey =
   | 'cutting-summary'
-  | 'replenishment'
   | 'special-processes'
   | 'material-prep'
   | 'spreading-list'
@@ -17,7 +16,6 @@ export type CuttingPageContextKey =
 
 export type CuttingNavigationTarget =
   | 'summary'
-  | 'replenishment'
   | 'specialProcesses'
   | 'materialPrep'
   | 'markerPlan'
@@ -51,8 +49,6 @@ export interface CuttingDrillContext {
   markerNo?: string
   spreadingSessionId?: string
   spreadingSessionNo?: string
-  suggestionId?: string
-  suggestionNo?: string
   processOrderId?: string
   processOrderNo?: string
   printableUnitId?: string
@@ -74,7 +70,6 @@ export type CuttingPrefilterPayload = Record<string, string | undefined>
 
 const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
   'cutting-summary': '裁剪结果核查',
-  replenishment: '补料管理',
   'special-processes': '特殊工艺',
   'material-prep': '裁床待加工仓',
   'spreading-list': '铺布单',
@@ -90,7 +85,6 @@ const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
 
 const actionLabelMap: Record<CuttingNavigationTarget, string> = {
   summary: '去裁剪结果核查',
-  replenishment: '去补料管理',
   specialProcesses: '去特殊工艺',
   materialPrep: '去裁床待加工仓',
   markerPlan: '去唛架',
@@ -108,7 +102,6 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
 const blockerSectionLabelMap: Record<string, string> = {
   MATERIAL_PREP: '配料/领料入仓',
   SPREADING: '铺布',
-  REPLENISHMENT: '补料',
   FEI_TICKETS: '打印菲票',
   WAREHOUSE_HANDOFF: '仓务交接',
   SPECIAL_PROCESS: '特殊工艺',
@@ -116,7 +109,7 @@ const blockerSectionLabelMap: Record<string, string> = {
 
 const issueTypeLabelMap: Record<string, string> = {
   MATERIAL_PREP: '配料/领料入仓',
-  SPREADING_REPLENISH: '唛架补料',
+  SPREADING_VARIANCE: '铺布差异',
   TICKET_QR: '打印菲票',
   WAREHOUSE_HANDOFF: '仓务交接',
   SPECIAL_PROCESS: '特殊工艺',
@@ -297,7 +290,6 @@ function buildRouteWithQuery(pathname: string, payload?: CuttingPrefilterPayload
 
 function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillContext): string {
   if (target === 'summary') return getCanonicalCuttingPath('summary')
-  if (target === 'replenishment') return getCanonicalCuttingPath('replenishment')
   if (target === 'specialProcesses') return getCanonicalCuttingPath('special-processes')
   if (target === 'materialPrep') return getCanonicalCuttingPath('warehouse-management-wait-process')
   if (target === 'markerPlan') {
@@ -363,7 +355,6 @@ export function buildCuttingDrillChipLabels(context: CuttingDrillContext | null)
     context.spreadingSessionNo ? `来源铺布：${context.spreadingSessionNo}` : '',
     context.printableUnitNo ? `打印单元：${context.printableUnitNo}` : '',
     context.ticketNo ? `菲票码：${context.ticketNo}` : '',
-    context.suggestionNo ? `补料建议：${context.suggestionNo}` : context.suggestionId ? `补料建议：${context.suggestionId}` : '',
     context.processOrderNo ? `工艺单：${context.processOrderNo}` : context.processOrderId ? `工艺单：${context.processOrderId}` : '',
     context.bagCode ? `中转袋码：${context.bagCode}` : '',
     context.usageNo ? `使用周期：${context.usageNo}` : '',

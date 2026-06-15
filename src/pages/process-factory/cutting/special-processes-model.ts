@@ -85,7 +85,7 @@ export interface BindingProcessAbnormalItem {
   abnormalType: string
   abnormalLevel: '提示' | '需处理' | '紧急'
   description: string
-  targetModule: '补料管理' | '裁剪结果核查'
+  targetModule: '裁剪结果核查'
   handlingStatus: '待处理' | '处理中' | '已处理'
   reportedAt: string
   reportedBy: string
@@ -218,7 +218,6 @@ export interface BindingProcessOrder {
   costItems: BindingProcessCostItem[]
   abnormalItems: BindingProcessAbnormalItem[]
   inboundInventoryRecordIds: string[]
-  linkedReplenishmentIds: string[]
   linkedLedgerEventIds: string[]
   linkedCheckItemIds: string[]
   externalReceiverFactoryName: string
@@ -371,7 +370,6 @@ export interface SpecialProcessFilters {
 export interface SpecialProcessNavigationPayload {
   cutOrders: Record<string, string | undefined>
   markerPlanSources: Record<string, string | undefined>
-  replenishment: Record<string, string | undefined>
   summary: Record<string, string | undefined>
   productionProgress: Record<string, string | undefined>
   cutPieceWarehouse: Record<string, string | undefined>
@@ -752,15 +750,6 @@ export function buildSpecialProcessNavigationPayload(
       markerPlanNo: order.markerPlanNo || undefined,
       cutOrderId,
       cutOrderNo: order.cutOrderNos[0] || undefined,
-    },
-    replenishment: {
-      cutOrderId,
-      cutOrderNo: order.cutOrderNos[0] || undefined,
-      productionOrderId,
-      productionOrderNo: order.productionOrderNos[0] || undefined,
-      markerPlanId: order.markerPlanId || undefined,
-      markerPlanNo: order.markerPlanNo || undefined,
-      materialSku: order.materialSku || undefined,
     },
     summary: {
       markerPlanId: order.markerPlanId || undefined,

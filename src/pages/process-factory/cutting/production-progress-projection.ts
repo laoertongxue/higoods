@@ -20,7 +20,6 @@ export function buildProductionProgressProjection(
     pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
     inboundEvents: snapshot.pdaExecutionState.inboundEvents as never[],
     handoverEvents: snapshot.pdaExecutionState.handoverEvents as never[],
-    replenishmentFeedbackEvents: snapshot.pdaExecutionState.replenishmentFeedbackEvents as never[],
   })
 
   return {

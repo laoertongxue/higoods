@@ -24,7 +24,6 @@ import { handlePdaCuttingExecutionUnitEvent } from '../pages/pda-cutting-executi
 import { handlePdaCuttingSpreadingEvent } from '../pages/pda-cutting-spreading'
 import { handlePdaCuttingInboundEvent } from '../pages/pda-cutting-inbound'
 import { handlePdaCuttingHandoverEvent } from '../pages/pda-cutting-handover'
-import { handlePdaCuttingReplenishmentFeedbackEvent } from '../pages/pda-cutting-replenishment-feedback'
 
 export async function dispatchPdaPageEvent(target: HTMLElement): Promise<boolean> {
   return (
@@ -50,7 +49,6 @@ export async function dispatchPdaPageEvent(target: HTMLElement): Promise<boolean
     await handlePdaCuttingSpreadingEvent(target) ||
     await handlePdaCuttingInboundEvent(target) ||
     await handlePdaCuttingHandoverEvent(target) ||
-    await handlePdaCuttingReplenishmentFeedbackEvent(target) ||
     await handlePdaSewingSelfReturnEvent(target) ||
     await handlePdaHandoverEvent(target) ||
     await handlePdaHandoverDetailEvent(target) ||

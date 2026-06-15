@@ -140,7 +140,6 @@ export function buildCuttingSettlementFocusBuckets(rows: CuttingSettlementInputV
     executionRows: pendingRows
       .filter(
         (row) =>
-          row.settlementInput.replenishmentSummary.highRiskCount > 0 ||
           row.settlementInput.warehouseSummary.pendingInboundCount > 0 ||
           row.settlementInput.warehouseSummary.waitingHandoverCount > 0,
       )

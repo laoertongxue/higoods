@@ -468,10 +468,6 @@ export const renderPdaCuttingFeiTicketNumberingPage = createAsyncRenderer(
   () => import('../pages/pda-cutting-fei-ticket-numbering'),
   'renderPdaCuttingFeiTicketNumberingPage',
 )
-export const renderPdaCuttingReplenishmentFeedbackPage = createAsyncRenderer(
-  () => import('../pages/pda-cutting-replenishment-feedback'),
-  'renderPdaCuttingReplenishmentFeedbackPage',
-)
 export const renderCraftWorkbenchOverviewPage = createAsyncRenderer(
   () => import('../pages/process-factory/workbench/overview'),
   'renderCraftWorkbenchOverviewPage',
@@ -563,10 +559,6 @@ export const renderCraftCuttingTransferBagsPage = createAsyncRenderer(
 export const renderCraftCuttingTransferBagDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/transfer-bags'),
   'renderCraftCuttingTransferBagDetailPage',
-)
-export const renderCraftCuttingReplenishmentPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/replenishment'),
-  'renderCraftCuttingReplenishmentPage',
 )
 export const renderCraftCuttingSpecialProcessesPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/special-processes'),

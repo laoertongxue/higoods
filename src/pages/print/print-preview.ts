@@ -30,7 +30,6 @@ function inferSourceType(documentType: PrintDocumentType, handoverRecordId: stri
   if (documentType === 'MATERIAL_PREP_SLIP') return 'MATERIAL_PREP_RECORD'
   if (documentType === 'PICKUP_SLIP') return 'PICKUP_SLIP_RECORD'
   if (documentType === 'ISSUE_SLIP') return 'ISSUE_SLIP_RECORD'
-  if (documentType === 'SUPPLEMENT_MATERIAL_SLIP') return 'SUPPLEMENT_MATERIAL_RECORD'
   if (documentType === 'FEI_TICKET_LABEL') return 'FEI_TICKET_RECORD'
   if (documentType === 'FEI_TICKET_REPRINT_LABEL') return 'FEI_TICKET_RECORD'
   if (documentType === 'TRANSFER_BAG_LABEL') return 'TRANSFER_BAG_RECORD'

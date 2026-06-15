@@ -11,7 +11,6 @@ import {
   buildPlatformIssueText,
   buildPlatformOverviewStats,
   buildPlatformPickupText,
-  buildPlatformReplenishmentText,
   buildPlatformWarehouseText,
   filterPlatformCuttingOverviewRows,
   hasPlatformOverviewFilters,
@@ -27,7 +26,6 @@ import { escapeHtml, formatDateTime } from '../utils'
 const productionProgressPath = getCanonicalCuttingPath('production-progress')
 const materialPrepPath = getCanonicalCuttingPath('warehouse-management-wait-process')
 const cutOrdersPath = getCanonicalCuttingPath('cut-orders')
-const replenishmentPath = getCanonicalCuttingPath('replenishment')
 const fabricWarehousePath = getCanonicalCuttingPath('fabric-warehouse')
 
 function normalizeRoute(route: string): string {
@@ -37,7 +35,6 @@ function normalizeRoute(route: string): string {
 function getCuttingRouteActionLabel(route: string): string {
   const normalizedRoute = normalizeRoute(route)
   if (normalizedRoute === materialPrepPath) return '去待加工仓'
-  if (normalizedRoute === replenishmentPath) return '去补料管理'
   if (normalizedRoute === cutOrdersPath) return '去裁片单'
   if (normalizedRoute === fabricWarehousePath) return '去裁床仓'
   if (normalizedRoute === productionProgressPath) return '去生产单进度'
@@ -153,11 +150,10 @@ function renderPageHeader(): string {
 function renderSummaryCards(): string {
   const summary = buildPlatformOverviewStats(getFilteredRows())
   return `
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       ${buildSummaryCard('进行中的裁片任务数', summary.inProgressCount, '仍处于现场执行或待确认阶段', 'text-slate-900')}
-      ${buildSummaryCard('高风险裁片任务数', summary.highRiskCount, '优先关注差异、补料和交期问题', 'text-rose-600')}
+      ${buildSummaryCard('高风险裁片任务数', summary.highRiskCount, '优先关注差异和交期问题', 'text-rose-600')}
       ${buildSummaryCard('待领料任务数', summary.pendingPickupCount, '裁片单主码领料仍未完成', 'text-sky-600')}
-      ${buildSummaryCard('待补料处理任务数', summary.pendingReplenishmentCount, '补料建议仍需平台跟进', 'text-violet-600')}
       ${buildSummaryCard('待入仓 / 待交接任务数', summary.pendingWarehouseOrHandoverCount, '仓务处理仍未完成', 'text-amber-600')}
       ${buildSummaryCard('需复核 / 有照片凭证任务数', summary.recheckOrPhotoCount, '需要核对差异和凭证', 'text-fuchsia-600')}
     </section>
@@ -195,7 +191,6 @@ function renderFocusSection(): string {
                       <div class="mt-3 flex flex-wrap gap-2">
                         ${row.hasReceiveRecheck ? renderBadge('领料差异待复核', 'bg-amber-50 text-amber-700') : ''}
                         ${row.hasPhotoEvidence ? renderBadge('已提交照片凭证', 'bg-blue-50 text-blue-700') : ''}
-                        ${row.hasPendingReplenishment ? renderBadge('待补料处理', 'bg-rose-50 text-rose-700') : ''}
                         ${row.hasPendingInbound ? renderBadge('待入仓', 'bg-violet-50 text-violet-700') : ''}
                         ${row.hasPendingHandover ? renderBadge('待交接', 'bg-fuchsia-50 text-fuchsia-700') : ''}
                         ${row.hasSampleRisk ? renderBadge('样衣风险', 'bg-slate-100 text-slate-700') : ''}
@@ -240,7 +235,6 @@ function renderFilterSection(): string {
           { value: 'ALL', label: '全部' },
           { value: 'PENDING_PICKUP', label: '待领料' },
           { value: 'EXECUTING', label: '执行中' },
-          { value: 'PENDING_REPLENISHMENT', label: '待补料' },
           { value: 'PENDING_INBOUND', label: '待入仓' },
           { value: 'PENDING_HANDOVER', label: '待交接' },
           { value: 'ALMOST_DONE', label: '已基本完成' },
@@ -299,7 +293,6 @@ function renderMainTable(): string {
                     <th class="px-3 py-3">当前阶段</th>
                     <th class="px-3 py-3">领料摘要</th>
                     <th class="px-3 py-3">执行摘要</th>
-                    <th class="px-3 py-3">补料摘要</th>
                     <th class="px-3 py-3">入仓 / 交接摘要</th>
                     <th class="px-3 py-3">风险 / 问题数</th>
                     <th class="px-3 py-3">建议动作</th>
@@ -351,12 +344,6 @@ function renderMainTable(): string {
                             </div>
                           </td>
                           <td class="px-3 py-4">
-                            <div class="text-sm text-foreground">${escapeHtml(buildPlatformReplenishmentText(row))}</div>
-                            <div class="mt-1 flex flex-wrap gap-1">
-                              ${row.hasPendingReplenishment ? renderBadge('待处理', 'bg-rose-50 text-rose-700') : renderBadge('已完成', 'bg-emerald-50 text-emerald-700')}
-                            </div>
-                          </td>
-                          <td class="px-3 py-4">
                             <div class="text-sm text-foreground">${escapeHtml(buildPlatformWarehouseText(row))}</div>
                             <div class="mt-1 flex flex-wrap gap-1">
                               ${row.hasPendingInbound ? renderBadge('待入仓', 'bg-violet-50 text-violet-700') : ''}
@@ -379,7 +366,6 @@ function renderMainTable(): string {
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-production-progress">去生产单进度</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-material-prep">去待加工仓</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-cut-orders">去裁片单</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-replenishment">去补料管理</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-fabric-warehouse">去裁床仓</button>
                             </div>
                           </td>
@@ -474,23 +460,6 @@ function renderSummaryDrawer(): string {
         </section>
 
         <section class="rounded-lg border p-4">
-          <h3 class="font-semibold text-foreground">补料摘要</h3>
-          <div class="mt-4 grid gap-4 md:grid-cols-2">
-            <div>
-              <p class="text-xs text-muted-foreground">补料建议</p>
-              <p class="mt-1 text-sm text-foreground">${escapeHtml(row.replenishmentSummaryText)}</p>
-            </div>
-            <div>
-              <p class="text-xs text-muted-foreground">平台关注</p>
-              <div class="mt-1 flex flex-wrap gap-2">
-                ${row.hasPendingReplenishment ? renderBadge('待补料处理', 'bg-rose-50 text-rose-700') : renderBadge('当前无补料阻断', 'bg-emerald-50 text-emerald-700')}
-                ${row.record.replenishmentSummary.pendingPrepCount > 0 ? renderBadge('待WMS领料入仓', 'bg-amber-50 text-amber-700') : ''}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="rounded-lg border p-4">
           <h3 class="font-semibold text-foreground">仓务摘要</h3>
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <div>
@@ -511,7 +480,6 @@ function renderSummaryDrawer(): string {
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-production-progress">去生产单进度</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-material-prep">去待加工仓</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-cut-orders">去裁片单</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-replenishment">去补料管理</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-fabric-warehouse">去裁床仓</button>
           </div>
         </section>
@@ -589,11 +557,6 @@ export function handleProgressCuttingOverviewEvent(target: Element): boolean {
 
   if (action === 'go-cut-orders') {
     navigateTo(cutOrdersPath)
-    return true
-  }
-
-  if (action === 'go-replenishment') {
-    navigateTo(replenishmentPath)
     return true
   }
 

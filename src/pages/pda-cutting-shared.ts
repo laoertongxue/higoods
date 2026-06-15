@@ -340,7 +340,6 @@ export function renderPdaCuttingQuickLinks(
     { label: '铺布录入', href: buildPdaCuttingRoute(taskId, 'spreading', options) },
     { label: '入仓扫码', href: buildPdaCuttingRoute(taskId, 'inbound', options) },
     { label: '交接扫码', href: buildPdaCuttingRoute(taskId, 'handover', options) },
-    { label: '现场差异反馈', href: buildPdaCuttingRoute(taskId, 'replenishment-feedback', options) },
   ].filter(Boolean) as Array<{ label: string; href: string }>
 
   return `

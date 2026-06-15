@@ -125,7 +125,7 @@ function findMaterialLine(
 }
 
 function getCurrentStage(progressRecord: CuttingOrderProgressRecord | undefined, line: CuttingMaterialLine | undefined): string {
-  if (progressRecord?.closeReason || progressRecord?.closedAt || /已关闭|不再补裁/.test(progressRecord?.cuttingStage || '')) return '已关闭'
+  if (progressRecord?.closeReason || progressRecord?.closedAt || /已关闭|不再继续裁剪/.test(progressRecord?.cuttingStage || '')) return '已关闭'
   if (line?.receiveStatus === 'RECEIVED') return '已开工'
   return '未开工'
 }

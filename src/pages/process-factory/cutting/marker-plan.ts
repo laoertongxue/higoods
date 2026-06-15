@@ -547,7 +547,7 @@ function validateSourceCutOrderCombination(rows: MarkerPlanSourceCutOrderRow[]):
   }
   const historyGroups = unique(rows.map((row) => row.historyCombinationGroup || '新组合'))
   if (historyGroups.length > 1) {
-    return { ok: false, message: '历史组合组不一致，补排时必须沿用原组合。' }
+    return { ok: false, message: '历史组合组不一致，重新排唛架时必须沿用原组合。' }
   }
   return { ok: true, message: '' }
 }

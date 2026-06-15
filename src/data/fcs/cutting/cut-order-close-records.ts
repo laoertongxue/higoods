@@ -8,7 +8,7 @@ import type { CuttingOrderProgressRecord } from './types.ts'
 export const CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY = 'cuttingCutOrderCloseRecords'
 
 export type CutOrderCloseReasonCode = NonNullable<CuttingOrderProgressRecord['closeReasonCode']>
-export type CutOrderCloseSourceType = '补料审核' | '人工关闭' | '生产单取消' | '款式取消' | '其他来源'
+export type CutOrderCloseSourceType = '差异确认' | '人工关闭' | '生产单取消' | '款式取消' | '其他来源'
 export type CutOrderCloseImpactSeverity = 'info' | 'warning' | 'critical'
 
 export interface CutOrderCloseImpactItem {
@@ -37,7 +37,6 @@ export interface CutOrderCloseRecord {
   closedAt: string
   closedBy: string
   closeSourceType: CutOrderCloseSourceType
-  sourceReplenishmentId?: string
   sourceDifferenceId?: string
   linkedLedgerEventIds: string[]
   ledgerSnapshotBeforeClose: NonNullable<CuttingOrderProgressRecord['ledgerSnapshotBeforeClose']>
@@ -51,7 +50,7 @@ export interface CutOrderCloseRecord {
 
 export const cutOrderCloseReasonOptions: Array<{ value: CutOrderCloseReasonCode; label: string }> = [
   { value: 'MATERIAL_NO_MORE_ARRIVAL', label: '面料不再到货' },
-  { value: 'BUSINESS_STOP_RECUT', label: '业务决定不再补裁' },
+  { value: 'BUSINESS_STOP_RECUT', label: '业务决定不再继续裁剪' },
   { value: 'FORCED_CLOSE', label: '强行完结' },
   { value: 'STYLE_CANCELLED', label: '款式取消' },
   { value: 'DEMAND_CANCELLED', label: '需求取消' },
@@ -116,7 +115,7 @@ export function buildCutOrderCloseImpactItems(input: {
       impactKey: 'PENDING_DIFFERENCE',
       label: '仍有待处理差异',
       value: `${Math.max(input.pendingDifferenceCount || 0, 0)} 项`,
-      detailText: (input.pendingDifferenceCount || 0) > 0 ? '关闭不会删除补料差异记录，后续仍可追溯。' : '当前无待处理差异。',
+      detailText: (input.pendingDifferenceCount || 0) > 0 ? '关闭不会删除差异记录，后续仍可追溯。' : '当前无待处理差异。',
       severity: (input.pendingDifferenceCount || 0) > 0 ? 'warning' : 'info',
     },
     {
@@ -163,10 +162,9 @@ function normalizeCloseRecord(item: unknown): CutOrderCloseRecord | null {
     closeDescription: String(raw.closeDescription || ''),
     closedAt: String(raw.closedAt || ''),
     closedBy: String(raw.closedBy || ''),
-    closeSourceType: (['补料审核', '人工关闭', '生产单取消', '款式取消', '其他来源'].includes(String(raw.closeSourceType || ''))
+    closeSourceType: (['差异确认', '人工关闭', '生产单取消', '款式取消', '其他来源'].includes(String(raw.closeSourceType || ''))
       ? raw.closeSourceType
       : '人工关闭') as CutOrderCloseSourceType,
-    sourceReplenishmentId: raw.sourceReplenishmentId ? String(raw.sourceReplenishmentId) : undefined,
     sourceDifferenceId: raw.sourceDifferenceId ? String(raw.sourceDifferenceId) : undefined,
     linkedLedgerEventIds: Array.isArray(raw.linkedLedgerEventIds)
       ? raw.linkedLedgerEventIds.map((value) => String(value || '')).filter(Boolean)
@@ -303,10 +301,10 @@ export function listSystemCutOrderCloseRecords(): CutOrderCloseRecord[] {
     buildSeedCloseRecord({
       cutOrderNo: 'CUT-260306-101-06',
       reasonCode: 'BUSINESS_STOP_RECUT',
-      description: '历史组合组 B 仅保留已裁出部分，业务决定不再补排。',
+      description: '历史组合组 B 仅保留已裁出部分，业务决定不再继续排唛架。',
       closedAt: '2026-03-27 15:20',
-      closedBy: '补料审核员 徐海宁',
-      sourceType: '补料审核',
+      closedBy: '差异确认员 徐海宁',
+      sourceType: '差异确认',
       pendingDifferenceCount: 2,
       inventorySummary: '72 片',
       pendingSpecialCraftSummary: '绣花后片 32 片未回仓',
@@ -314,7 +312,7 @@ export function listSystemCutOrderCloseRecords(): CutOrderCloseRecord[] {
     buildSeedCloseRecord({
       cutOrderNo: 'CUT-260307-102-03',
       reasonCode: 'FORCED_CLOSE',
-      description: '跨生产单同组补排不再继续，强行完结并保留交出记录。',
+      description: '跨生产单同组排唛架不再继续，强行完结并保留交出记录。',
       closedAt: '2026-03-28 18:10',
       closedBy: '生产经理 林悦',
       sourceType: '人工关闭',

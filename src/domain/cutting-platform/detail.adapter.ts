@@ -45,11 +45,9 @@ export function buildPlatformCuttingDetailView(recordId: string): PlatformCuttin
         ? '仓库配料'
         : issue.sourcePage === 'CUT_PIECE_ORDER'
           ? '裁片执行'
-          : issue.sourcePage === 'REPLENISHMENT'
-            ? '补料管理'
-            : issue.sourcePage === 'WAREHOUSE'
-              ? '裁床仓'
-              : '样衣流转',
+          : issue.sourcePage === 'WAREHOUSE'
+            ? '裁床仓'
+            : '样衣流转',
     description: issue.description,
     suggestedAction: issue.suggestedAction,
     suggestedRoute: issue.suggestedRoute,
@@ -70,6 +68,6 @@ export function buildPlatformCuttingDetailView(recordId: string): PlatformCuttin
     latestFactoryActionText,
     suggestedExceptionSeedCount: issues.filter((item) => item.level === 'HIGH' || item.title.includes('复核') || item.title.includes('差异')).length,
     suggestedSettlementAttention: row.pendingIssueCount > 0,
-    suggestedFactoryScoreAttention: row.overallRiskLevel === 'HIGH' || row.hasReceiveRecheck || row.hasPendingReplenishment,
+    suggestedFactoryScoreAttention: row.overallRiskLevel === 'HIGH' || row.hasReceiveRecheck,
   }
 }

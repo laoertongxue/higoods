@@ -24,7 +24,6 @@ export type SpreadingOrderStatusKey =
 export type SpreadingSupervisorStageKey =
   | 'WAITING_START'
   | 'IN_PROGRESS'
-  | 'WAITING_REPLENISHMENT'
   | 'WAITING_FEI_TICKET'
   | 'WAITING_BAGGING'
   | 'WAITING_WAREHOUSE'
@@ -34,7 +33,7 @@ export type SpreadingOperatorActionType = '开始铺布' | '中途交接' | '接
 export type SpreadingPricingMode = '按件计价' | '按长度计价' | '按层计价'
 export type SpreadingWarningLevel = '低' | '中' | '高'
 export type SpreadingOperationStatusType = '铺布状态' | '裁剪状态'
-export type SpreadingSuggestedAction = '无需补料' | '差异处理' | '数据不足，待补录' | '存在异常差异，需人工确认'
+export type SpreadingSuggestedAction = '无需处理' | '差异处理' | '数据不足，待补录' | '存在异常差异，需人工确认'
 export const MARKER_SIZE_KEYS = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'onesize', 'plusonesize'] as const
 export type MarkerSizeKey = (typeof MARKER_SIZE_KEYS)[number]
 export const DEFAULT_HIGH_LOW_PATTERN_KEYS = ['S*1', 'XL*1', 'L*1+plusonesize', 'M*1+onesize', '2XL'] as const
@@ -49,7 +48,6 @@ export interface MarkerSpreadingSummaryMeta<Key extends string> {
 
 export type SpreadingPrimaryActionKey =
   | 'COMPLETE_SPREADING'
-  | 'GO_REPLENISHMENT'
   | 'GO_FEI_TICKET'
   | 'GO_BAGGING'
   | 'GO_WAREHOUSE'
@@ -58,7 +56,7 @@ export type SpreadingPrimaryActionKey =
 export interface SpreadingPrimaryActionMeta {
   key: SpreadingPrimaryActionKey
   label: string
-  action: 'open-spreading-edit' | 'go-spreading-replenishment' | 'go-spreading-fei-tickets' | 'go-spreading-transfer-bags' | 'go-spreading-warehouse' | ''
+  action: 'open-spreading-edit' | 'go-spreading-fei-tickets' | 'go-spreading-transfer-bags' | 'go-spreading-warehouse' | ''
 }
 
 export interface MarkerSizeDistributionItem {
@@ -412,7 +410,7 @@ export interface SpreadingPlanUnit {
   }>
 }
 
-export interface SpreadingReplenishmentWarning {
+export interface SpreadingVarianceWarning {
   warningId: string
   sourceType: 'cut-order' | 'marker-plan' | 'spreading-session'
   sourceContextType: 'cut-order' | 'marker-plan'
@@ -442,7 +440,7 @@ export interface SpreadingReplenishmentWarning {
   varianceLengthFormula: string
   shortageGarmentQtyFormula: string
   suggestedActionRuleText: string
-  lines: SpreadingReplenishmentWarningLine[]
+  lines: SpreadingVarianceWarningLine[]
   requiredQty: number
   theoreticalCapacityQty: number
   actualCutQty: number
@@ -459,7 +457,7 @@ export interface SpreadingReplenishmentWarning {
   note: string
 }
 
-export interface SpreadingReplenishmentWarningLine {
+export interface SpreadingVarianceWarningLine {
   lineId: string
   cutOrderId: string
   cutOrderNo: string
@@ -593,14 +591,14 @@ export interface SpreadingSession {
   theoreticalCutGarmentQty?: number
   importAdjustmentRequired?: boolean
   importAdjustmentNote?: string
-  replenishmentWarning?: SpreadingReplenishmentWarning | null
+  varianceWarning?: SpreadingVarianceWarning | null
   completionLinkage?: SpreadingCompletionLinkage | null
   cuttingStatus?: SpreadingCuttingStatusKey
   cuttingStatusUpdatedAt?: string
   cuttingStartedAt?: string
   cuttingFinishedAt?: string
   prototypeLifecycleOverrides?: {
-    replenishmentStatusLabel?: '待补料确认' | '无需补料'
+    varianceStatusLabel?: '待差异确认' | '无差异'
     feiTicketStatusLabel?: '待打印菲票' | '已打印菲票'
     baggingStatusLabel?: '待装袋' | '已装袋'
     warehouseStatusLabel?: '待入仓' | '已入仓'
@@ -683,7 +681,7 @@ export interface SpreadingVarianceSummary {
   varianceLengthFormula: string
   shortageGarmentQtyFormula: string
   warningRuleText: string
-  replenishmentLines: SpreadingReplenishmentWarningLine[]
+  varianceLines: SpreadingVarianceWarningLine[]
   estimatedPieceCapacity: number
   requiredPieceQty: number
   actualCutPieceQtyTotal: number
@@ -693,7 +691,7 @@ export interface SpreadingVarianceSummary {
   actualCutGarmentQtyTotal: number
   shortageGarmentQty: number
   shortageIndicator: boolean
-  replenishmentHint: string
+  varianceHint: string
 }
 
 export interface SpreadingTraceAnchorMatchOptions {
@@ -711,7 +709,7 @@ export interface SpreadingOperatorSummary {
   rollParticipantNames: Record<string, string[]>
 }
 
-export interface ReplenishmentPreview {
+export interface VariancePreview {
   level: 'OK' | 'WATCH' | 'ALERT' | 'MISSING'
   label: string
   detailText: string
@@ -719,7 +717,7 @@ export interface ReplenishmentPreview {
 }
 
 export interface MarkerSpreadingNavigationPayload {
-  replenishment: Record<string, string | undefined>
+  variance: Record<string, string | undefined>
   feiTickets: Record<string, string | undefined>
   cutOrders: Record<string, string | undefined>
   markerPlanSources: Record<string, string | undefined>
@@ -968,11 +966,6 @@ const spreadingSupervisorStageMeta: Record<
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
     detailText: '当前铺布正在执行中，卷、层数或人员记录仍在持续录入。',
   },
-  WAITING_REPLENISHMENT: {
-    label: '待补料确认',
-    className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前铺布已完成，但补料差异仍待进入补料管理确认，审核通过后将回中转仓配料。',
-  },
   WAITING_FEI_TICKET: {
     label: '待打印菲票',
     className: 'bg-sky-100 text-sky-700 border border-sky-200',
@@ -999,9 +992,6 @@ export function resolveSpreadingPrimaryActionMeta(nextStepKey: SpreadingPrimaryA
   if (nextStepKey === 'COMPLETE_SPREADING') {
     return { key: nextStepKey, label: '去编辑继续铺布', action: 'open-spreading-edit' }
   }
-  if (nextStepKey === 'GO_REPLENISHMENT') {
-    return { key: nextStepKey, label: '去补料管理', action: 'go-spreading-replenishment' }
-  }
   if (nextStepKey === 'GO_FEI_TICKET') {
     return { key: nextStepKey, label: '去打印菲票', action: 'go-spreading-fei-tickets' }
   }
@@ -1016,7 +1006,6 @@ export function resolveSpreadingPrimaryActionMeta(nextStepKey: SpreadingPrimaryA
 
 export function resolveSpreadingPrimaryActionKeyByStage(stageKey: SpreadingSupervisorStageKey): SpreadingPrimaryActionKey | null {
   if (stageKey === 'WAITING_START' || stageKey === 'IN_PROGRESS') return 'COMPLETE_SPREADING'
-  if (stageKey === 'WAITING_REPLENISHMENT') return 'GO_REPLENISHMENT'
   if (stageKey === 'WAITING_FEI_TICKET') return 'GO_FEI_TICKET'
   if (stageKey === 'WAITING_BAGGING') return 'GO_BAGGING'
   if (stageKey === 'WAITING_WAREHOUSE') return 'GO_WAREHOUSE'
@@ -1685,7 +1674,7 @@ export function buildShortageQtyFormula(shortageQty: number, requiredQty: number
 
 function buildWarningRuleText(shortageGarmentQty: number, varianceLength: number, missingData: boolean): string {
   if (missingData) return '待补录 = 需求成衣件数、裁床已领长度、总实际铺布长度未补齐'
-  if (shortageGarmentQty > 0 || varianceLength < 0) return '差异处理 = 存在实际差异，需审核后决定补料、补录、补排、关闭或仅记录'
+  if (shortageGarmentQty > 0 || varianceLength < 0) return '差异处理 = 存在实际差异，需审核后决定补录、继续排唛架、关闭或仅记录'
   return '仅记录差异 = 当前差异不触发后续数量账事件'
 }
 
@@ -1738,12 +1727,12 @@ function buildPlanUnitMaterialIdentity(
   }
 }
 
-function buildSpreadingReplenishmentLines(options: {
+function buildSpreadingVarianceLines(options: {
   context: MarkerSpreadingContext | null
   plannedCutGarmentQty: number
   actualCutGarmentQty: number
   spreadActualLengthM: number
-}): SpreadingReplenishmentWarningLine[] {
+}): SpreadingVarianceWarningLine[] {
   if (!options.context) return []
 
   const grouped = new Map<
@@ -1797,7 +1786,7 @@ function buildSpreadingReplenishmentLines(options: {
     const actualLengthTotal = actualLengthList[index] || 0
     const shortageGarmentQty = computeShortageQty(requiredGarmentQty, actualCutGarmentQty)
     const suggestedAction: SpreadingSuggestedAction =
-      shortageGarmentQty > 0 || actualLengthTotal > row.claimedLengthTotal ? '差异处理' : '无需补料'
+      shortageGarmentQty > 0 || actualLengthTotal > row.claimedLengthTotal ? '差异处理' : '无需处理'
 
     return {
       lineId: `spread-warning-line-${row.cutOrderId}-${index + 1}`,
@@ -1817,7 +1806,7 @@ function buildSpreadingReplenishmentLines(options: {
       shortageGarmentQtyFormula: buildShortageQtyFormula(shortageGarmentQty, requiredGarmentQty, actualCutGarmentQty),
       suggestedActionRuleText:
         suggestedAction === '差异处理'
-          ? '差异处理 = 存在实际差异，需审核后决定补料、补录、补排、关闭或仅记录'
+          ? '差异处理 = 存在实际差异，需审核后决定补录、继续排唛架、关闭或仅记录'
           : '仅记录差异 = 当前差异不触发后续数量账事件',
     }
   })
@@ -1843,7 +1832,7 @@ export interface SpreadingCoreMetrics {
   varianceLengthFormula: string
   shortageGarmentQtyFormula: string
   warningRuleText: string
-  replenishmentLines: SpreadingReplenishmentWarningLine[]
+  varianceLines: SpreadingVarianceWarningLine[]
 }
 
 export function buildSpreadingCoreMetrics(options: {
@@ -1900,7 +1889,7 @@ export function buildSpreadingCoreMetrics(options: {
     varianceLengthFormula: buildDifferenceFormula(varianceLength, options.claimedLengthTotal, spreadActualLengthM, 2),
     shortageGarmentQtyFormula: buildShortageQtyFormula(shortageGarmentQty, plannedCutGarmentQty, actualCutGarmentQty),
     warningRuleText: buildWarningRuleText(shortageGarmentQty, varianceLength, missingData),
-    replenishmentLines: buildSpreadingReplenishmentLines({
+    varianceLines: buildSpreadingVarianceLines({
       context: options.context,
       plannedCutGarmentQty,
       actualCutGarmentQty,
@@ -1938,7 +1927,7 @@ export function deriveSpreadingSuggestedAction(options: {
   if (!requiredQty || !claimedLengthTotal || !actualLengthTotal) return '数据不足，待补录'
   if (computeShortageQty(requiredQty, actualCutQty) > 0 || varianceLength < 0) return '差异处理'
   if (warningMessages.length > 0) return '存在异常差异，需人工确认'
-  return '无需补料'
+  return '无需处理'
 }
 
 function nowText(input = new Date()): string {
@@ -2319,7 +2308,7 @@ export function createSpreadingDraftFromMarker(
     theoreticalActualCutPieceQty,
     importAdjustmentRequired: baseSession?.importAdjustmentRequired || false,
     importAdjustmentNote: baseSession?.importAdjustmentNote || '',
-    replenishmentWarning: baseSession?.replenishmentWarning || null,
+    varianceWarning: baseSession?.varianceWarning || null,
     completionLinkage: baseSession?.completionLinkage || null,
     prototypeLifecycleOverrides: baseSession?.prototypeLifecycleOverrides || null,
     sourceChannel: baseSession?.sourceChannel || 'MANUAL',
@@ -2520,7 +2509,7 @@ export function buildSpreadingImportSource(
   }
 }
 
-export function buildSpreadingReplenishmentWarning(options: {
+export function buildSpreadingVarianceWarning(options: {
   context?: MarkerSpreadingContext | null
   session: Partial<SpreadingSession>
   markerTotalPieces: number
@@ -2530,7 +2519,7 @@ export function buildSpreadingReplenishmentWarning(options: {
   createdAt?: string
   note?: string
   warningMessages?: string[]
-}): SpreadingReplenishmentWarning {
+}): SpreadingVarianceWarning {
   const session = options.session
   const claimedLengthTotal = Number(session.claimedLengthTotal || 0)
   const configuredLengthTotal = Number(session.configuredLengthTotal || 0)
@@ -2589,7 +2578,7 @@ export function buildSpreadingReplenishmentWarning(options: {
     varianceLengthFormula: coreMetrics.varianceLengthFormula,
     shortageGarmentQtyFormula: coreMetrics.shortageGarmentQtyFormula,
     suggestedActionRuleText: coreMetrics.warningRuleText,
-    lines: coreMetrics.replenishmentLines.map((line) => ({ ...line, suggestedAction })),
+    lines: coreMetrics.varianceLines.map((line) => ({ ...line, suggestedAction })),
     requiredQty: coreMetrics.plannedCutGarmentQty,
     theoreticalCapacityQty: coreMetrics.theoreticalCutGarmentQty,
     actualCutQty: coreMetrics.actualCutGarmentQty,
@@ -2603,7 +2592,7 @@ export function buildSpreadingReplenishmentWarning(options: {
     suggestedAction,
     handled: false,
     createdAt: options.createdAt || nowText(),
-    note: options.note || warningMessages[0] || '当前由铺布完成动作生成补料预警基础数据。',
+    note: options.note || warningMessages[0] || '当前由铺布完成动作生成差异提示基础数据。',
   }
 }
 
@@ -2671,7 +2660,7 @@ export function finalizeSpreadingCompletion(options: {
   now?: Date
 }): SpreadingSession {
   const completedAt = nowText(options.now)
-  const replenishmentWarning = buildSpreadingReplenishmentWarning({
+  const varianceWarning = buildSpreadingVarianceWarning({
     context: options.context || null,
     session: options.session,
     markerTotalPieces: options.markerTotalPieces,
@@ -2688,24 +2677,24 @@ export function finalizeSpreadingCompletion(options: {
     actualEndAt: options.session.actualEndAt || completedAt,
     cuttingStatus: options.session.cuttingStatus || 'WAITING_CUTTING',
     cuttingStatusUpdatedAt: options.session.cuttingStatusUpdatedAt || completedAt,
-    replenishmentWarning,
+    varianceWarning,
     completionLinkage: {
       completedAt,
       completedBy: options.completedBy || '铺布编辑页',
       linkedCutOrderIds: [...options.linkedCutOrderIds],
       linkedCutOrderNos: [...options.linkedCutOrderNos],
-      generatedWarningId: replenishmentWarning.warningId,
+      generatedWarningId: varianceWarning.warningId,
       generatedWarning: true,
       note:
-        replenishmentWarning.suggestedAction === '无需补料'
-          ? '当前铺布已完成，未触发明显补料预警。'
-          : `当前铺布已完成，并生成补料预警：${replenishmentWarning.suggestedAction}，建议进入补料管理确认后回中转仓配料。`,
+        varianceWarning.suggestedAction === '无需处理'
+          ? '当前铺布已完成，未触发明显差异提示。'
+          : `当前铺布已完成，并生成差异提示：${varianceWarning.suggestedAction}，建议复核差异后再继续。`,
     },
-    varianceLength: replenishmentWarning.varianceLength,
+    varianceLength: varianceWarning.varianceLength,
     varianceNote:
-      replenishmentWarning.suggestedAction === '无需补料'
+      varianceWarning.suggestedAction === '无需处理'
         ? '当前铺布已完成，差异未触发差异处理。'
-        : replenishmentWarning.suggestedAction,
+        : varianceWarning.suggestedAction,
   }
 }
 
@@ -3426,7 +3415,7 @@ export function buildSpreadingSessionOperationLogs(session: Partial<SpreadingSes
 
 export function deriveSpreadingSupervisorStage(options: {
   status: SpreadingStatusKey
-  pendingReplenishmentConfirmation: boolean
+  pendingVarianceConfirmation: boolean
   feiTicketReady: boolean
   baggingReady: boolean
   warehouseReady: boolean
@@ -3437,8 +3426,6 @@ export function deriveSpreadingSupervisorStage(options: {
     key = 'WAITING_START'
   } else if (options.status === 'IN_PROGRESS') {
     key = 'IN_PROGRESS'
-  } else if (options.pendingReplenishmentConfirmation) {
-    key = 'WAITING_REPLENISHMENT'
   } else if (!options.feiTicketReady) {
     key = 'WAITING_FEI_TICKET'
   } else if (!options.baggingReady) {
@@ -3476,13 +3463,13 @@ export function buildSpreadingVarianceSummary(
   })
   const shortageIndicator = coreMetrics.shortageGarmentQty > 0
 
-  let replenishmentHint = '当前铺布数据与领料数据基本匹配。'
+  let varianceHint = '当前铺布数据与领料数据基本匹配。'
   if (!session || !session.rolls.length) {
-    replenishmentHint = '当前尚未录入铺布卷数据，补料判断仍需补录后确认。'
+    varianceHint = '当前尚未录入铺布卷数据，差异判断仍需补录后确认。'
   } else if (shortageIndicator) {
-    replenishmentHint = '预计承载成衣件数低于计划裁剪成衣件数，建议进入补料管理确认后回中转仓配料。'
+    varianceHint = '预计承载成衣件数低于计划裁剪成衣件数，建议复核差异后再继续。'
   } else if (coreMetrics.varianceLength < 0) {
-    replenishmentHint = '总实际铺布长度超过裁床已领长度，建议复核差异并按需进入补料管理回中转仓配料。'
+    varianceHint = '总实际铺布长度超过裁床已领长度，建议复核差异并按需复核差异。'
   }
 
   return {
@@ -3507,7 +3494,7 @@ export function buildSpreadingVarianceSummary(
     varianceLengthFormula: coreMetrics.varianceLengthFormula,
     shortageGarmentQtyFormula: coreMetrics.shortageGarmentQtyFormula,
     warningRuleText: coreMetrics.warningRuleText,
-    replenishmentLines: coreMetrics.replenishmentLines,
+    varianceLines: coreMetrics.varianceLines,
     estimatedPieceCapacity: coreMetrics.theoreticalCutGarmentQty,
     requiredPieceQty: coreMetrics.plannedCutGarmentQty,
     actualCutPieceQtyTotal: coreMetrics.actualCutGarmentQty,
@@ -3517,7 +3504,7 @@ export function buildSpreadingVarianceSummary(
     actualCutGarmentQtyTotal: coreMetrics.actualCutGarmentQty,
     shortageGarmentQty: coreMetrics.shortageGarmentQty,
     shortageIndicator,
-    replenishmentHint,
+    varianceHint,
   }
 }
 
@@ -3583,12 +3570,12 @@ export function findSpreadingTraceAnchor(
   return matches[0] || null
 }
 
-export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | null): ReplenishmentPreview {
+export function buildVariancePreview(summary: SpreadingVarianceSummary | null): VariancePreview {
   if (!summary) {
     return {
       level: 'MISSING',
       label: '数据待补录',
-      detailText: '当前尚未形成上下文或铺布记录，无法生成补料预警。',
+      detailText: '当前尚未形成上下文或铺布记录，无法生成差异提示。',
       shortageIndicator: false,
     }
   }
@@ -3597,7 +3584,7 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
     return {
       level: 'MISSING',
       label: '数据待补录',
-      detailText: '当前方案计划裁剪成衣件数或铺布长度不足，需继续补录后再判断补料需求。',
+      detailText: '当前方案计划裁剪成衣件数或铺布长度不足，需继续补录后再判断差异处理需求。',
       shortageIndicator: false,
     }
   }
@@ -3605,8 +3592,8 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
   if (summary.shortageIndicator || summary.varianceLength < 0) {
     return {
       level: 'ALERT',
-      label: '可能需要补料',
-      detailText: summary.replenishmentHint,
+      label: '可能存在差异',
+      detailText: summary.varianceHint,
       shortageIndicator: true,
     }
   }
@@ -3615,7 +3602,7 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
     return {
       level: 'WATCH',
       label: '建议继续观察',
-      detailText: '当前可用长度与仓库领料长度接近，建议在进入补料前复核后续损耗。',
+      detailText: '当前可用长度与仓库领料长度接近，建议在继续流转前复核后续损耗。',
       shortageIndicator: false,
     }
   }
@@ -3677,7 +3664,7 @@ export function buildSpreadingWarningMessages(options: {
   })
 
   if (options.claimedLengthTotal > 0 && rollSummary.totalActualLength > options.claimedLengthTotal) {
-    warnings.push('总实际铺布长度超过裁床已领总长度，可能需要补料。')
+    warnings.push('总实际铺布长度超过裁床已领总长度，可能存在差异。')
   }
 
   if (!operators.length) {
@@ -3705,11 +3692,11 @@ export function buildSpreadingWarningMessages(options: {
 export function buildMarkerSpreadingNavigationPayload(
   context: MarkerSpreadingContext | null,
   varianceSummary: SpreadingVarianceSummary | null,
-  warning?: SpreadingReplenishmentWarning | null,
+  warning?: SpreadingVarianceWarning | null,
 ): MarkerSpreadingNavigationPayload {
   if (!context) {
     return {
-      replenishment: {},
+      variance: {},
       feiTickets: {},
       cutOrders: {},
       markerPlanSources: {},
@@ -3726,7 +3713,7 @@ export function buildMarkerSpreadingNavigationPayload(
     warning?.warningLevel === '高' ? 'high' : warning?.warningLevel === '中' ? 'medium' : warning?.warningLevel === '低' ? 'low' : undefined
 
   return {
-    replenishment: {
+    variance: {
       spreadingSessionId: warning?.spreadingSessionId,
       warningId: warning?.warningId,
       markerPlanNo: context.contextType === 'marker-plan' ? context.markerPlanNo || undefined : undefined,
@@ -3916,7 +3903,7 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
   }
 }
 
-export function updateSpreadingReplenishmentHandled(
+export function updateSpreadingVarianceHandled(
   store: MarkerSpreadingStore,
   spreadingSessionId: string,
   handled: boolean,
@@ -3925,11 +3912,11 @@ export function updateSpreadingReplenishmentHandled(
     ...store,
     sessions: store.sessions.map((session) => {
       if (session.spreadingSessionId !== spreadingSessionId) return session
-      if (!session.replenishmentWarning) return session
+      if (!session.varianceWarning) return session
       return {
         ...session,
-        replenishmentWarning: {
-          ...session.replenishmentWarning,
+        varianceWarning: {
+          ...session.varianceWarning,
           handled,
         },
       }

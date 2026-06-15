@@ -9,7 +9,6 @@ import type {
   CuttingFactoryScoreInput,
   CuttingInputReviewStatus,
   CuttingPickupInputSummary,
-  CuttingReplenishmentInputSummary,
   CuttingRecommendedScoreBand,
   CuttingScoreFocusLevel,
   CuttingSettlementFocusLevel,
@@ -69,18 +68,6 @@ function buildExecutionSummary(row: PlatformCuttingOverviewRow): CuttingExecutio
   }
 }
 
-function buildReplenishmentSummary(row: PlatformCuttingOverviewRow): CuttingReplenishmentInputSummary {
-  return {
-    suggestionCount: row.record.replenishmentSummary.suggestionCount,
-    pendingReviewCount: row.record.replenishmentSummary.pendingReviewCount,
-    approvedCount: row.record.replenishmentSummary.approvedCount,
-    rejectedCount: row.record.replenishmentSummary.rejectedCount,
-    needMoreInfoCount: row.record.replenishmentSummary.needMoreInfoCount,
-    highRiskCount: row.record.replenishmentSummary.highRiskCount,
-    summaryText: row.replenishmentSummaryText,
-  }
-}
-
 function buildWarehouseSummary(row: PlatformCuttingOverviewRow): CuttingWarehouseInputSummary {
   return {
     pendingInboundCount: row.record.warehouseSummary.cutPiecePendingInboundCount,
@@ -111,7 +98,6 @@ function buildExceptionImpactSummary(row: PlatformCuttingOverviewRow, exceptions
     return (
       item.exceptionType === 'RECEIVE_DISCREPANCY' ||
       item.exceptionType === 'MISSING_EVIDENCE' ||
-      item.exceptionType === 'REPLENISHMENT_PENDING' ||
       item.exceptionType === 'INBOUND_PENDING' ||
       item.exceptionType === 'HANDOVER_PENDING'
     )
@@ -166,7 +152,7 @@ function buildOperatorSummary(row: PlatformCuttingOverviewRow): OperatorContribu
     {
       operatorName: row.record.sampleSummary.latestSampleActionBy,
       latestActionAt: row.record.sampleSummary.latestSampleActionAt,
-      key: 'replenishment' as const,
+      key: 'sample' as const,
       latestActionSummary: row.record.sampleSummary.latestSampleActionAt ? '最近负责样衣与执行协同' : '',
     },
   ].filter((item) => item.operatorName)
@@ -183,7 +169,6 @@ function buildOperatorSummary(row: PlatformCuttingOverviewRow): OperatorContribu
         spreadingActionCount: 0,
         inboundActionCount: 0,
         handoverActionCount: 0,
-        replenishmentFeedbackCount: 0,
         latestActionAt: '-',
         latestActionSummary: '暂无动作摘要',
       }
@@ -192,7 +177,7 @@ function buildOperatorSummary(row: PlatformCuttingOverviewRow): OperatorContribu
     if (item.key === 'pickup') current.pickupActionCount += 1
     if (item.key === 'spreading') current.spreadingActionCount += 1
     if (item.key === 'inbound') current.inboundActionCount += 1
-    if (item.key === 'replenishment') current.replenishmentFeedbackCount += 1
+    if (item.key === 'sample') current.handoverActionCount += 1
 
     if ((item.latestActionAt || '-') >= current.latestActionAt) {
       current.latestActionAt = item.latestActionAt || '-'
@@ -221,14 +206,14 @@ function buildGroupSummary(row: PlatformCuttingOverviewRow, operators: OperatorC
 }
 
 function buildSettlementFocusLevel(row: PlatformCuttingOverviewRow, impact: CuttingExceptionImpactSummary): CuttingSettlementFocusLevel {
-  if (impact.highRiskExceptionCount > 0 || row.hasPendingReplenishment || row.hasReceiveRecheck) return 'HIGH_FOCUS'
+  if (impact.highRiskExceptionCount > 0 || row.hasReceiveRecheck) return 'HIGH_FOCUS'
   if (impact.hasSettlementImpact || row.hasPendingInbound || row.hasPendingHandover || row.pendingIssueCount > 0) return 'FOCUS'
   return 'NORMAL'
 }
 
 function buildScoreFocusLevel(row: PlatformCuttingOverviewRow, impact: CuttingExceptionImpactSummary): CuttingScoreFocusLevel {
   if (impact.highRiskExceptionCount > 0 || impact.insufficientEvidenceCount > 0 || impact.repeatedRecheckCount > 1) return 'HIGH_ATTENTION'
-  if (row.hasPendingReplenishment || row.hasSampleRisk || row.highRiskIssueCount > 0) return 'LOW_SCORE_RISK'
+  if (row.hasSampleRisk || row.highRiskIssueCount > 0) return 'LOW_SCORE_RISK'
   if (impact.hasScoreImpact || row.pendingIssueCount > 0) return 'WATCH'
   return 'NORMAL'
 }
@@ -283,7 +268,6 @@ export function buildPlatformCuttingSettlementInputViews(
       groupSummary,
       pickupSummary: buildPickupSummary(row),
       executionSummary: buildExecutionSummary(row),
-      replenishmentSummary: buildReplenishmentSummary(row),
       warehouseSummary: buildWarehouseSummary(row),
       exceptionImpactSummary: impact,
       settlementFocusLevel,

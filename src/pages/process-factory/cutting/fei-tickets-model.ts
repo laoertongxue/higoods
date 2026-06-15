@@ -92,7 +92,6 @@ export interface FeiNavigationPayload {
   cutOrders: Record<string, string | undefined>
   markerPlanSources: Record<string, string | undefined>
   markerSpreading: Record<string, string | undefined>
-  replenishment: Record<string, string | undefined>
   summary: Record<string, string | undefined>
   transferBags: Record<string, string | undefined>
 }
@@ -1135,11 +1134,6 @@ export function buildFeiNavigationPayload(
       markerPlanNo,
       cutOrderNo: owner.cutOrderNo,
       cutOrderId: owner.cutOrderId,
-    },
-    replenishment: {
-      markerPlanNo,
-      cutOrderNo: owner.cutOrderNo,
-      productionOrderNo: owner.productionOrderNo,
     },
     summary: {
       markerPlanNo,

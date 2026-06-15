@@ -13,8 +13,6 @@ export type FcsActionCode =
   | 'RECEIVER_WRITEBACK'
   | 'RAISE_QUANTITY_OBJECTION'
   | 'ACCEPT_DIFF'
-  | 'REVIEW_REPLENISHMENT'
-  | 'APPLY_REPLENISHMENT'
   | 'CONFIRM_PICKUP'
   | 'REJECT_PICKUP'
   | 'EXCEPTION_PICKUP'
@@ -29,8 +27,6 @@ const ACTION_ROLE_MAP: Record<FcsActionCode, FcsActionRole[]> = {
   RECEIVER_WRITEBACK: ['RECEIVER', 'PLATFORM'],
   RAISE_QUANTITY_OBJECTION: ['FACTORY', 'PLATFORM'],
   ACCEPT_DIFF: ['FACTORY', 'PLATFORM'],
-  REVIEW_REPLENISHMENT: ['CUTTING_LEAD', 'PLATFORM'],
-  APPLY_REPLENISHMENT: ['CUTTING_LEAD', 'PLATFORM'],
   CONFIRM_PICKUP: ['CUTTING_OPERATOR', 'PLATFORM'],
   REJECT_PICKUP: ['CUTTING_OPERATOR', 'PLATFORM'],
   EXCEPTION_PICKUP: ['CUTTING_OPERATOR', 'PLATFORM'],
@@ -79,10 +75,6 @@ export function canRaiseQuantityObjection(role: FcsActionRole): boolean {
 
 export function canAcceptDiffAction(role: FcsActionRole): boolean {
   return canRunFcsAction('ACCEPT_DIFF', role)
-}
-
-export function canReviewReplenishment(role: FcsActionRole): boolean {
-  return canRunFcsAction('REVIEW_REPLENISHMENT', role)
 }
 
 export function canConfigureFabricMaterial(role: FcsActionRole): boolean {

@@ -27,7 +27,6 @@ import {
   buildIssueSlipPrintDocument,
   buildMaterialPrepSlipPrintDocument,
   buildPickupSlipPrintDocument,
-  buildSupplementMaterialSlipPrintDocument,
   renderMaterialSlipTemplate,
 } from '../../pages/print/templates/material-slip-template.ts'
 import {
@@ -178,14 +177,6 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     render: renderMaterialSlipTemplate,
   },
   {
-    templateCode: 'SUPPLEMENT_MATERIAL_SLIP',
-    templateName: '补料单',
-    documentType: 'SUPPLEMENT_MATERIAL_SLIP',
-    supportedSourceTypes: ['SUPPLEMENT_MATERIAL_RECORD'],
-    buildDocument: buildSupplementMaterialSlipPrintDocument,
-    render: renderMaterialSlipTemplate,
-  },
-  {
     templateCode: 'TASK_DELIVERY_CARD',
     templateName: '任务交货卡',
     documentType: 'TASK_DELIVERY_CARD',
@@ -304,7 +295,6 @@ export const requiredPrintDocumentTypes: PrintDocumentType[] = [
   'MATERIAL_PREP_SLIP',
   'PICKUP_SLIP',
   'ISSUE_SLIP',
-  'SUPPLEMENT_MATERIAL_SLIP',
   'FEI_TICKET_LABEL',
   'FEI_TICKET_REPRINT_LABEL',
   'TRANSFER_BAG_LABEL',

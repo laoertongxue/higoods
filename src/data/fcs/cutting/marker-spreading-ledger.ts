@@ -7,7 +7,6 @@ import {
 import { readMarkerSpreadingPrototypeData } from '../../../pages/process-factory/cutting/marker-spreading-utils.ts'
 import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
 import { buildSpreadingDrivenFeiTicketTraceMatrix, listSpreadingResultGeneratedFeiTickets } from './generated-fei-tickets.ts'
-import { buildReplenishmentFlowTraceMatrix } from './replenishment.ts'
 import {
   buildSpreadingDrivenTransferBagTraceMatrix,
   buildSystemSeedTransferBagRuntime,
@@ -17,7 +16,7 @@ import { buildSpreadingDrivenWarehouseTraceMatrix } from './warehouse-runtime.ts
 export {
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
   buildSpreadingTraceAnchors,
-  buildReplenishmentPreview,
+  buildVariancePreview,
   createEmptyStore,
   deserializeMarkerSpreadingStorage,
   serializeMarkerSpreadingStorage,
@@ -40,7 +39,6 @@ export interface CuttingSpreadingFlowMatrixRow {
   stageKey:
     | 'WAITING_START'
     | 'IN_PROGRESS'
-    | 'WAITING_REPLENISHMENT'
     | 'WAITING_FEI_TICKET'
     | 'WAITING_BAGGING'
     | 'WAITING_WAREHOUSE'
@@ -55,8 +53,6 @@ export interface CuttingSpreadingFlowMatrixRow {
   cutOrderNos: string[]
   markerPlanId: string
   markerPlanNo: string
-  replenishmentRequestId: string
-  pendingPrepFollowupId: string
   feiTicketId: string
   bagId: string
   transferBatchId: string
@@ -124,9 +120,6 @@ function buildSeedTransferBagStore() {
 
 function resolveSessionStageKey(session: SpreadingSession, options: { hasFeiTicket: boolean; hasBagging: boolean; hasWarehouse: boolean }) {
   const lifecycleOverrides = session.prototypeLifecycleOverrides || null
-  const pendingReplenishmentConfirmation =
-    lifecycleOverrides?.replenishmentStatusLabel === '待补料确认'
-    || Boolean(session.replenishmentWarning && session.replenishmentWarning.suggestedAction !== '无需补料' && !session.replenishmentWarning.handled)
   const feiTicketReady =
     lifecycleOverrides?.feiTicketStatusLabel
       ? lifecycleOverrides.feiTicketStatusLabel === '已打印菲票'
@@ -142,7 +135,7 @@ function resolveSessionStageKey(session: SpreadingSession, options: { hasFeiTick
 
   return deriveSpreadingSupervisorStage({
     status: session.status,
-    pendingReplenishmentConfirmation,
+    pendingVarianceConfirmation: false,
     feiTicketReady,
     baggingReady,
     warehouseReady,
@@ -158,7 +151,7 @@ function gateDownstreamAnchorsByStage(
     warehouseRecordIds: string[]
   },
 ) {
-  if (stageKey === 'WAITING_START' || stageKey === 'IN_PROGRESS' || stageKey === 'WAITING_REPLENISHMENT') {
+  if (stageKey === 'WAITING_START' || stageKey === 'IN_PROGRESS') {
     return {
       feiTicketId: '',
       bagId: '',
@@ -202,13 +195,6 @@ export function buildCuttingSpreadingFlowMatrix(): CuttingSpreadingFlowMatrixRow
   const prototypeData = readMarkerSpreadingPrototypeData()
   const anchors = buildSpreadingTraceAnchors(prototypeData.store)
   const anchorBySessionId = new Map(anchors.map((item) => [item.spreadingSessionId, item] as const))
-  const replenishmentRows = buildReplenishmentFlowTraceMatrix()
-  const replenishmentRowsBySessionId = replenishmentRows.reduce<Record<string, typeof replenishmentRows>>((acc, row) => {
-    if (!row.sourceSpreadingSessionId) return acc
-    if (!acc[row.sourceSpreadingSessionId]) acc[row.sourceSpreadingSessionId] = []
-    acc[row.sourceSpreadingSessionId].push(row)
-    return acc
-  }, {})
   const feiRows = buildSpreadingDrivenFeiTicketTraceMatrix()
   const feiRowsBySessionId = feiRows.reduce<Record<string, typeof feiRows>>((acc, row) => {
     if (!row.sourceSpreadingSessionId) return acc
@@ -234,7 +220,6 @@ export function buildCuttingSpreadingFlowMatrix(): CuttingSpreadingFlowMatrixRow
   return prototypeData.store.sessions
     .map((session) => {
       const anchor = anchorBySessionId.get(session.spreadingSessionId) || null
-      const replenishment = replenishmentRowsBySessionId[session.spreadingSessionId] || []
       const fei = feiRowsBySessionId[session.spreadingSessionId] || []
       const transfer = transferRowsBySessionId[session.spreadingSessionId] || []
       const warehouse =
@@ -252,8 +237,8 @@ export function buildCuttingSpreadingFlowMatrix(): CuttingSpreadingFlowMatrixRow
       })
       const stageLabel = deriveSpreadingSupervisorStage({
         status: session.status,
-        pendingReplenishmentConfirmation: stageKey === 'WAITING_REPLENISHMENT',
-        feiTicketReady: !['WAITING_FEI_TICKET', 'WAITING_REPLENISHMENT', 'WAITING_START', 'IN_PROGRESS'].includes(stageKey),
+        pendingVarianceConfirmation: false,
+        feiTicketReady: !['WAITING_FEI_TICKET', 'WAITING_START', 'IN_PROGRESS'].includes(stageKey),
         baggingReady: ['WAITING_WAREHOUSE', 'DONE'].includes(stageKey),
         warehouseReady: stageKey === 'DONE',
       }).label
@@ -267,15 +252,9 @@ export function buildCuttingSpreadingFlowMatrix(): CuttingSpreadingFlowMatrixRow
         transferBatchIds: availableTransferBatchIds,
         warehouseRecordIds: availableWarehouseRecordIds,
       })
-      const pendingRows = replenishment.filter((item) => !item.pendingPrepFollowupId && item.reviewStatus !== 'REJECTED')
-      const approvedRows = replenishment.filter((item) => Boolean(item.pendingPrepFollowupId))
       const planUnitIds = uniqueStrings(session.rolls.map((item) => item.planUnitId))
       const rollRecordIds = uniqueStrings(session.rolls.map((item) => item.rollRecordId))
       const operatorRecordIds = uniqueStrings(session.operators.map((item) => item.operatorRecordId))
-      const fallbackReplenishmentRequestId =
-        stageKey === 'WAITING_REPLENISHMENT' && session.replenishmentWarning && !session.replenishmentWarning.handled
-          ? session.replenishmentWarning.warningId
-          : ''
 
       return {
         spreadingSessionId: session.spreadingSessionId,
@@ -302,24 +281,18 @@ export function buildCuttingSpreadingFlowMatrix(): CuttingSpreadingFlowMatrixRow
           || '',
         cutOrderIds: uniqueStrings([
           ...session.cutOrderIds,
-          ...replenishment.map((item) => item.cutOrderId),
           ...fei.map((item) => item.cutOrderId),
           ...transfer.map((item) => item.cutOrderId),
           ...warehouse.map((item) => item.cutOrderId),
         ]),
         cutOrderNos: uniqueStrings([
           ...(anchor?.cutOrderNos || []),
-          ...replenishment.map((item) => item.cutOrderNo),
           ...fei.map((item) => item.cutOrderNo),
           ...transfer.map((item) => item.cutOrderNo),
           ...warehouse.map((item) => item.cutOrderNo),
         ]),
-        markerPlanId: session.markerPlanId || replenishment[0]?.markerPlanId || '',
-        markerPlanNo: session.markerPlanNo || replenishment[0]?.markerPlanNo || '',
-        replenishmentRequestId:
-          (stageKey === 'WAITING_REPLENISHMENT' ? pendingRows[0] : pendingRows[0] || approvedRows[0])?.replenishmentRequestId
-          || fallbackReplenishmentRequestId,
-        pendingPrepFollowupId: approvedRows[0]?.pendingPrepFollowupId || '',
+        markerPlanId: session.markerPlanId || '',
+        markerPlanNo: session.markerPlanNo || '',
         feiTicketId: gatedAnchors.feiTicketId,
         bagId: gatedAnchors.bagId,
         transferBatchId: gatedAnchors.transferBatchId,

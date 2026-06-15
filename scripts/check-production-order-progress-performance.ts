@@ -94,7 +94,7 @@ async function main(): Promise<void> {
     await measureInteraction(
       page,
       '详情页弹窗打开',
-      () => page.locator('[data-modal-title="导出全生命周期跟踪"]').click(),
+      () => page.locator('[data-modal-title="关联数量记录"]').click(),
       () => page.waitForSelector('[data-production-order-progress-modal]'),
     ),
   ])

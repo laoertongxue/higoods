@@ -65,7 +65,6 @@ const requiredCommands = [
   'check:quality-deduction-platform',
   'check:production-confirmation',
   'check:task-print-cards-foundation',
-  'check:pfos-task-print-entry-spread',
   'check:process-factory-warehouse-menu-consolidation',
   'check:cutting-warehouse-management-switch',
   'check:task-card-entry-and-route-closure',
@@ -87,7 +86,6 @@ const requiredCommands = [
   'check:pickup-handout-order-and-warehouse-foundation',
   'check:transfer-bag-mobile-closed-loop',
   'check:menu-visibility-test-factory-and-default-views',
-  'check:cutting-material-prep-pickup-replenishment',
   'check:cutting-marker-spreading-actions',
   'check:cutting-traceability-chain',
   'check:cutting-source-provenance',
@@ -95,10 +93,8 @@ const requiredCommands = [
   'check:cutting-production-progress-columns',
   'check:cutting:all',
   'check:tech-pack-pattern-and-images',
-  'check:fcs-progress-and-routes',
   'check:menu-routes',
   'check:fcs-end-to-end',
-  'check:legacy-terminology-cleanup',
   'check:fcs-final-acceptance',
 ]
 
@@ -157,7 +153,6 @@ const requiredFiles = [
   'src/data/fcs/cutting/sewing-dispatch.ts',
   'src/data/fcs/progress-statistics-linkage.ts',
   'src/data/fcs/cutting/material-prep.ts',
-  'src/data/fcs/cutting/replenishment.ts',
   'src/pages/pda-exec-detail.ts',
   'src/pages/pda-shell.ts',
   'src/pages/pda-notify.ts',
@@ -186,7 +181,7 @@ const requiredFiles = [
   'src/pages/process-factory/cutting/warehouse-hub.ts',
   'src/pages/process-factory/cutting/warehouse-hub.ts',
   'src/pages/process-factory/cutting/warehouse-hub.ts',
-  'src/pages/process-factory/cutting/material-prep.ts',
+  'src/pages/process-factory/cutting/pickup-management.ts',
   'src/pages/fcs-production-tech-pack-snapshot.ts',
   'src/pages/progress-board.ts',
   'src/data/app-shell-config.ts',
@@ -194,7 +189,6 @@ const requiredFiles = [
   'src/router/route-renderers-fcs.ts',
   'scripts/check-menu-routes.mjs',
   'scripts/check-task-print-cards-foundation.ts',
-  'scripts/check-pfos-task-print-entry-spread.ts',
   'scripts/check-process-factory-warehouse-menu-consolidation.ts',
   'scripts/check-cutting-warehouse-management-switch.ts',
   'scripts/check-task-card-entry-and-route-closure.ts',
@@ -206,7 +200,6 @@ const requiredFiles = [
   'scripts/check-menu-visibility-test-factory-and-default-views.ts',
   'scripts/check-process-craft-final-taxonomy.ts',
   'scripts/check-fcs-final-acceptance.ts',
-  'docs/fcs-truth-source-final-acceptance.md',
   'docs/fcs-process-warehouse-unification.md',
   'docs/fcs-handover-writeback-and-difference-unification.md',
   'docs/fcs-statistics-dashboard-real-data.md',
@@ -278,14 +271,11 @@ const dyeingSource =
 const cuttingSource =
   read('src/pages/process-factory/cutting/fei-tickets.ts') +
   read('src/pages/process-factory/cutting/fei-ticket-print-projection.ts') +
-  read('src/pages/process-factory/cutting/material-prep.ts') +
-  read('src/pages/process-factory/cutting/replenishment.ts') +
-  read('src/pages/process-factory/cutting/cut-piece-warehouse.ts') +
-  read('src/pages/process-factory/cutting/fabric-warehouse.ts') +
+  read('src/pages/process-factory/cutting/pickup-management.ts') +
+  read('src/pages/process-factory/cutting/warehouse-hub.ts') +
   read('src/data/fcs/cutting/generated-fei-tickets.ts') +
-  read('src/data/fcs/cutting/material-prep.ts') +
-  read('src/data/fcs/cutting/replenishment.ts')
-;['fabricRollNo', 'fabricColor', 'sizeCode', 'partName', 'bundleQty', 'assemblyGroupKey', 'cutOrderQrValue', '补料建议', 'A区', 'B区', 'C区'].forEach((token) => {
+  read('src/data/fcs/cutting/material-prep.ts')
+;['fabricRollNo', 'fabricColor', 'sizeCode', 'partName', 'bundleQty', 'assemblyGroupKey', 'cutOrderQrValue', 'A区', 'B区', 'C区'].forEach((token) => {
   assert(cuttingSource.includes(token), `裁床口径缺少：${token}`)
 })
 ;[
@@ -325,7 +315,7 @@ const progressSource =
   read('src/pages/process-factory/dyeing/reports.ts') +
   read('src/pages/process-factory/cutting/production-progress.ts') +
   read('src/pages/process-factory/cutting/cutting-summary.ts')
-;['待交出', '待回写', '差异', '异议', '回货质检', '后道复检', '补料状态', '裁片仓状态'].forEach((token) => {
+;['待交出', '待回写', '差异', '异议', '回货质检', '后道复检', '裁片仓状态'].forEach((token) => {
   assert(progressSource.includes(token), `进度口径缺少：${token}`)
 })
 ;['打印任务流转卡', '打印任务交货卡'].forEach((token) => {
@@ -399,7 +389,7 @@ const forbiddenUiTerms = [
 const uiSource =
   read('src/pages/progress-exceptions/detail-domain.ts') +
   read('src/pages/process-factory/cutting/marker-spreading.ts') +
-  read('src/pages/process-factory/cutting/cut-piece-warehouse.ts') +
+  read('src/pages/process-factory/cutting/warehouse-hub.ts') +
   read('src/pages/process-factory/cutting/transfer-bags.ts') +
   read('src/pages/progress-milestone-config.ts')
 forbiddenUiTerms.forEach((token) => {

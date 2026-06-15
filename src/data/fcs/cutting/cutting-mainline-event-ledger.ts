@@ -6,13 +6,12 @@ import {
 } from './handover-orders.ts'
 import { listCuttingMaterialLedgerEvents } from './material-ledger.ts'
 import { listRuntimePdaExecutionEventProjections } from './cutting-runtime-event-ledger.ts'
-import { buildSpreadingReplenishmentHandlingObjects, listSpreadingDifferences } from './spreading-differences.ts'
+import { listSpreadingDifferences } from './spreading-differences.ts'
 
 export type CuttingMainlineLedgerEventStage =
   | '数量账'
   | 'PDA执行写回'
   | '铺布裁剪差异'
-  | '补料管理'
   | '裁片单关闭'
   | '菲票生成'
   | '交出记录'
@@ -49,7 +48,6 @@ function buildPdaRuntimeEvents(): CuttingMainlineLedgerEvent[] {
     ...store.pickupEvents,
     ...store.inboundEvents,
     ...store.handoverEvents,
-    ...store.replenishmentFeedbackEvents,
   ]
   if (!pdaEvents.length) {
     return [{
@@ -123,29 +121,12 @@ export function listCuttingMainlineLedgerEvents(): CuttingMainlineLedgerEvent[] 
     traceText: `${difference.spreadingOrderNo} / ${difference.differenceType} / ${difference.differenceValue} ${difference.unit}`,
   }))
 
-  const replenishmentEvents: CuttingMainlineLedgerEvent[] = buildSpreadingReplenishmentHandlingObjects().map((item) => ({
-    eventId: item.replenishmentId,
-    eventStage: '补料管理',
-    eventType: item.reviewResult || item.reviewStatus,
-    sourceObjectType: item.differenceSource,
-    sourceObjectId: item.sourceDifferenceId,
-    sourceObjectNo: item.spreadingOrderId,
-    productionOrderIds: item.productionOrderIds,
-    cutOrderIds: item.cutOrderIds,
-    occurredAt: item.evidence.occurredAt,
-    operatorName: item.evidence.operatorName,
-    quantity: item.differenceValue,
-    unit: item.unit,
-    ledgerEventIds: item.linkedLedgerEventIds,
-    traceText: `${item.differenceType} / ${item.reviewResult || item.reviewStatus} / ${item.nextAction || '待审核'}`,
-  }))
-
   const closeEvents: CuttingMainlineLedgerEvent[] = listCutOrderCloseRecords().map((record) => ({
     eventId: record.closeRecordId,
     eventStage: '裁片单关闭',
     eventType: record.closeReasonText,
     sourceObjectType: record.closeSourceType,
-    sourceObjectId: record.sourceReplenishmentId || record.sourceDifferenceId || record.cutOrderId,
+    sourceObjectId: record.sourceDifferenceId || record.cutOrderId,
     sourceObjectNo: record.closeRecordNo,
     productionOrderIds: compact([record.productionOrderId]),
     cutOrderIds: compact([record.cutOrderId]),
@@ -212,7 +193,6 @@ export function listCuttingMainlineLedgerEvents(): CuttingMainlineLedgerEvent[] 
     ...materialEvents,
     ...buildPdaRuntimeEvents(),
     ...differenceEvents,
-    ...replenishmentEvents,
     ...closeEvents,
     ...feiTicketEvents,
     ...handoverEvents,

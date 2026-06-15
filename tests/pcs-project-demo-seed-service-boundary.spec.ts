@@ -26,7 +26,7 @@ const linkedPageSources = [
 
 assert.ok(!projectPageSource.includes('function buildDemoDraft('), '项目页不应继续持有 demo 草稿构造函数')
 assert.ok(!projectPageSource.includes('function upsertDemoRelation('), '项目页不应继续持有 demo 关系写入函数')
-assert.ok(!projectPageSource.includes('function seedNodeStatus('), '项目页不应继续持有节点补数逻辑')
+assert.ok(!projectPageSource.includes('function seedNodeStatus('), '项目页不应继续持有节点造数逻辑')
 assert.ok(!projectPageSource.includes('function ensureProjectDemoData('), '项目页不应继续持有演示数据初始化逻辑')
 assert.ok(
   demoSeedServiceSource.includes('export function ensurePcsProjectDemoDataReady()'),

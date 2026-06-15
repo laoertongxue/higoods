@@ -36,7 +36,6 @@ export type CuttingCanonicalPageKey =
   | 'handover-orders'
   | 'handover-order-detail'
   | 'handover-record-detail'
-  | 'replenishment'
   | 'special-craft-dispatch'
   | 'special-craft-return'
   | 'sewing-dispatch'
@@ -358,16 +357,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看本次交出、累计交出、接收回写、差异和异议。',
-  },
-  replenishment: {
-    key: 'replenishment',
-    canonicalPath: '/fcs/craft/cutting/replenishment',
-    aliases: [],
-    menuGroupTitle: '裁后处理',
-    pageTitle: '补料管理',
-    pageSubtitle: '',
-    isPlaceholder: false,
-    shortDescription: '按实际差异审核补料、补录、补排、关闭或仅记录。',
   },
   'special-craft-dispatch': {
     key: 'special-craft-dispatch',

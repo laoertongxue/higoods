@@ -140,7 +140,6 @@ export function buildMarkerPlanSummaryBuildOptions(
     sampleWarehouseView: { rows: [], rowsById: {} } as never,
     transferBagView: { rows: [], rowsById: {} } as never,
     transferBagReturnView: { rows: [], rowsById: {} } as never,
-    replenishmentView: { rows: [], rowsById: {} } as never,
     specialProcessView: { rows: [], rowsById: {} } as never,
   }
 }

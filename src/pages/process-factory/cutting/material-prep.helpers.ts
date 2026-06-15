@@ -235,7 +235,7 @@ export function buildGroupRiskFlags(group: CuttingMaterialPrepGroup): string[] {
     if (line.receiveStatus !== 'RECEIVED') flags.add('领料记录待补')
     if (line.discrepancyStatus === 'RECHECK_REQUIRED') flags.add('待核对')
     if (line.discrepancyStatus === 'PHOTO_SUBMITTED') flags.add('已提交照片')
-    if (line.issueFlags.includes('待补料')) flags.add('待补料')
+    if (line.issueFlags.includes('待复核')) flags.add('待复核')
     if (line.issueFlags.includes('待入仓')) flags.add('待入仓')
   })
   return Array.from(flags)

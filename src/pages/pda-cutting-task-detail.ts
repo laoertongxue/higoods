@@ -153,7 +153,6 @@ function renderOrderLine(taskId: string, line: PdaCuttingTaskOrderLine, backHref
   const primaryAction = isStartAction
     ? `<button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" data-pda-cutting-task-action="start-work" data-task-id="${escapeHtml(taskId)}" data-execution-order-id="${escapeHtml(line.executionOrderId)}" data-execution-order-no="${escapeHtml(line.executionOrderNo)}">开工</button>`
     : `<button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" data-nav="${escapeHtml(actionHref)}">${escapeHtml(line.nextActionLabel)}</button>`
-  const exceptionLabel = line.currentStepCode === 'PICKUP' ? '领料差异' : '现场差异反馈'
   return `
     <article class="rounded-2xl border bg-card p-3 shadow-sm ${selected ? 'border-blue-300 ring-2 ring-blue-100' : ''}" data-pda-cutting-order-line="${escapeHtml(line.executionOrderId)}">
       <div class="flex items-start justify-between gap-2">
@@ -173,16 +172,6 @@ function renderOrderLine(taskId: string, line: PdaCuttingTaskOrderLine, backHref
         ${renderMiniField('同步状态', line.latestSyncStatus)}
       </div>
       ${primaryAction}
-      <button class="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700" data-nav="${escapeHtml(buildPdaCuttingRoute(taskId, 'replenishment-feedback', {
-        executionOrderId: line.executionOrderId,
-        executionOrderNo: line.executionOrderNo,
-        cutOrderId: line.cutOrderId,
-        cutOrderNo: line.cutOrderNo,
-        markerPlanId: line.markerPlanId,
-        markerPlanNo: line.markerPlanNo,
-        materialSku: line.materialSku,
-        returnTo: backHref,
-      }))}">${escapeHtml(exceptionLabel)}</button>
       <div class="mt-2 hidden rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs text-emerald-800" data-pda-cutting-task-feedback></div>
     </article>
   `

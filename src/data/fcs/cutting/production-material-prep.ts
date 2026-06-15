@@ -387,7 +387,7 @@ const standardMaterialTemplates: Record<MaterialPrepMaterialType, Array<{
   面料: [
     { code: 'fabric-main', name: '主身面料', imageUrl: '/materials/fabric-main.jpg', color: '按款色', spec: '150cm / 主面料', unit: 'yard', qtyRatio: 0.42, sourceType: '中转仓库存', progressStatus: '已到仓可配', progressDetail: '主面料按生产单 BOM 计算，库存到仓后优先配。' },
     { code: 'fabric-contrast', name: '拼接面料', imageUrl: '/materials/fabric-contrast.jpg', color: '配色', spec: '150cm / 配色面料', unit: 'yard', qtyRatio: 0.18, sourceType: '印花', progressStatus: '印花中', progressDetail: '配色面料需等印花回中转仓后继续配料。' },
-    { code: 'fabric-lining', name: '里布', imageUrl: '/materials/fabric-lining.jpg', color: '同色系', spec: '145cm / 里布', unit: 'yard', qtyRatio: 0.28, sourceType: '中转仓库存', progressStatus: '已到仓可配', progressDetail: '里布当前有部分库存，可安排补配。' },
+    { code: 'fabric-lining', name: '里布', imageUrl: '/materials/fabric-lining.jpg', color: '同色系', spec: '145cm / 里布', unit: 'yard', qtyRatio: 0.28, sourceType: '中转仓库存', progressStatus: '已到仓可配', progressDetail: '里布当前有部分库存，可安排继续配料。' },
   ],
   辅料: [
     { code: 'accessory-zipper', name: '拉链', imageUrl: '/materials/accessory-zipper.jpg', color: '同色', spec: 'YKK 18cm / 条', unit: '条', qtyRatio: 1, sourceType: '采购', progressStatus: '采购中', progressDetail: '拉链采购单已下，未全部入中转仓。' },
@@ -398,7 +398,7 @@ const standardMaterialTemplates: Record<MaterialPrepMaterialType, Array<{
     { code: 'yarn-stitching', name: '缝纫线', imageUrl: '/materials/yarn-stitching.jpg', color: '同色', spec: '40S/2 / 公斤', unit: '公斤', qtyRatio: 0.012, sourceType: '中转仓库存', progressStatus: '已到仓可配', progressDetail: '缝纫线按颜色配套，库存可先配。' },
   ],
   包材: [
-    { code: 'packing-bag', name: '包装袋/吊牌', imageUrl: '/materials/packing-bag.jpg', color: '透明/白卡', spec: '单件包装 / 套', unit: '套', qtyRatio: 1, sourceType: '采购', progressStatus: '采购中', progressDetail: '包装袋和吊牌采购中，到仓后补配。' },
+    { code: 'packing-bag', name: '包装袋/吊牌', imageUrl: '/materials/packing-bag.jpg', color: '透明/白卡', spec: '单件包装 / 套', unit: '套', qtyRatio: 1, sourceType: '采购', progressStatus: '采购中', progressDetail: '包装袋和吊牌采购中，到仓后配料。' },
   ],
 }
 
@@ -765,7 +765,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
         upstreamSourceType: '中转仓库存',
         upstreamProgressStatus: '已到仓可配',
         expectedAvailableAt: '2026-03-16 15:30',
-        upstreamProgressDetail: '此前已配 900 yard，今日中转仓又到 300 yard，可安排补配。',
+        upstreamProgressDetail: '此前已配 900 yard，今日中转仓又到 300 yard，可安排继续配料。',
       },
       {
         prepLineId: 'prep-line-po-0101-charcoal',

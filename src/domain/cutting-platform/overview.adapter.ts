@@ -34,7 +34,6 @@ import {
 export type PlatformCuttingOverviewStage =
   | 'PENDING_PICKUP'
   | 'EXECUTING'
-  | 'PENDING_REPLENISHMENT'
   | 'PENDING_INBOUND'
   | 'PENDING_HANDOVER'
   | 'ALMOST_DONE'
@@ -43,7 +42,6 @@ export interface PlatformCuttingOverviewRoutes {
   productionProgress: string
   materialPrep: string
   cutOrders: string
-  replenishment: string
   fabricWarehouse: string
 }
 
@@ -52,7 +50,6 @@ export type PlatformCuttingRuntimeRecordSnapshot = Pick<
   | 'cutPieceOrderCount'
   | 'markerSummary'
   | 'spreadingSummary'
-  | 'replenishmentSummary'
   | 'warehouseSummary'
   | 'sampleSummary'
   | 'lastUpdatedAt'
@@ -91,7 +88,6 @@ export interface PlatformCuttingOverviewRow {
   pickupAggregate: PlatformCuttingPickupAggregate
   pickupSummaryText: string
   executionSummaryText: string
-  replenishmentSummaryText: string
   warehouseSummaryText: string
   sampleSummaryText: string
   recentFactoryActionAt: string
@@ -106,7 +102,6 @@ export interface PlatformCuttingOverviewRow {
   issues: PlatformRuntimeIssue[]
   linkedPages: CuttingSummaryLinkedPageSummary[]
   nextActionSuggestions: string[]
-  hasPendingReplenishment: boolean
   hasReceiveRecheck: boolean
   hasPhotoEvidence: boolean
   hasExecutionStalled: boolean
@@ -175,16 +170,10 @@ interface RuntimeHandoverEvent extends RuntimeExecutionEvent {
   targetLabel: string
 }
 
-interface RuntimeReplenishmentFeedbackEvent extends RuntimeExecutionEvent {
-  reasonLabel: string
-  photoProofCount: number
-}
-
 const defaultRoutes: PlatformCuttingOverviewRoutes = {
   productionProgress: '/fcs/craft/cutting/production-progress',
   materialPrep: '/fcs/craft/cutting/warehouse-management/wait-process',
   cutOrders: '/fcs/craft/cutting/cut-orders',
-  replenishment: '/fcs/craft/cutting/replenishment',
   fabricWarehouse: '/fcs/craft/cutting/warehouse-management/wait-process?tab=fabric-warehouse',
 }
 
@@ -207,7 +196,6 @@ function buildRouteWithPayload(route: string, payload?: Record<string, string | 
 
 function getIssueSourceLabel(sourcePage: CuttingSummaryIssueSourcePage): string {
   if (sourcePage === 'MATERIAL_PREP') return '仓库配料'
-  if (sourcePage === 'REPLENISHMENT') return '补料管理'
   if (sourcePage === 'WAREHOUSE') return '裁床仓'
   if (sourcePage === 'SAMPLE') return '样衣流转'
   return '裁片执行'
@@ -268,13 +256,11 @@ function buildOverlaySignals(snapshot: CuttingDomainSnapshot, record: CuttingOrd
   const pickupEvents = snapshot.pdaExecutionState.pickupEvents as unknown as RuntimeExecutionEvent[]
   const inboundEvents = snapshot.pdaExecutionState.inboundEvents as unknown as RuntimeExecutionEvent[]
   const handoverEvents = snapshot.pdaExecutionState.handoverEvents as unknown as RuntimeExecutionEvent[]
-  const replenishmentFeedbackEvents = snapshot.pdaExecutionState.replenishmentFeedbackEvents as unknown as RuntimeExecutionEvent[]
 
   return [
     ...pickupEvents.filter(productionMatches).map((item) => toSignal('PICKUP', item)),
     ...inboundEvents.filter(productionMatches).map((item) => toSignal('INBOUND', item)),
     ...handoverEvents.filter(productionMatches).map((item) => toSignal('HANDOVER', item)),
-    ...replenishmentFeedbackEvents.filter(productionMatches).map((item) => toSignal('REPLENISHMENT', item)),
   ]
 }
 
@@ -335,7 +321,7 @@ function buildWarehouseRecordsWithOverlay(
       inboundStatus: 'PENDING_INBOUND',
       inboundAt: '',
       inboundBy: '',
-      pieceSummary: '待补数量',
+      pieceSummary: '待填数量',
       handoverStatus: 'WAITING_HANDOVER',
       handoverTarget: '',
       note: item.note || '',
@@ -406,23 +392,6 @@ function buildSampleSummary(snapshot: CuttingDomainSnapshot, record: CuttingOrde
   }
 }
 
-function buildReplenishmentSummary(snapshot: CuttingDomainSnapshot, record: CuttingOrderProgressRecord) {
-  const feedbacks = (snapshot.pdaExecutionState.replenishmentFeedbackEvents as unknown as RuntimeReplenishmentFeedbackEvent[])
-    .filter((item) => item.productionOrderId === record.productionOrderId || item.productionOrderNo === record.productionOrderNo)
-  const suggestionCount = Math.max(feedbacks.length, record.riskFlags.includes('REPLENISH_PENDING') ? 1 : 0)
-  const highRiskCount = feedbacks.filter((item) => /缺料|短缺|高风险/.test(item.reasonLabel || item.note || '')).length
-
-  return {
-    suggestionCount,
-    pendingReviewCount: feedbacks.length,
-    approvedCount: 0,
-    rejectedCount: 0,
-    needMoreInfoCount: 0,
-    highRiskCount,
-    pendingPrepCount: suggestionCount,
-  }
-}
-
 function buildLatestFactoryAction(
   pickupSummary: PlatformCuttingPickupSummary,
   markerSummary: PlatformCuttingRuntimeRecordSnapshot['markerSummary'],
@@ -475,7 +444,6 @@ function buildIssues(options: {
   pickupSummary: PlatformCuttingPickupSummary
   markerSummary: PlatformCuttingRuntimeRecordSnapshot['markerSummary']
   spreadingSummary: PlatformCuttingRuntimeRecordSnapshot['spreadingSummary']
-  replenishmentSummary: PlatformCuttingRuntimeRecordSnapshot['replenishmentSummary']
   warehouseSummary: PlatformCuttingRuntimeRecordSnapshot['warehouseSummary']
   sampleSummary: PlatformCuttingRuntimeRecordSnapshot['sampleSummary']
 }): PlatformRuntimeIssue[] {
@@ -514,18 +482,6 @@ function buildIssues(options: {
       sourcePage: 'CUT_PIECE_ORDER',
       suggestedAction: '回裁片单页补录铺布记录，补齐卷号、层数和总长度。',
       suggestedRoute: defaultRoutes.cutOrders,
-    })
-  }
-
-  if (options.replenishmentSummary.pendingReviewCount > 0 || options.replenishmentSummary.highRiskCount > 0) {
-    issues.push({
-      issueType: 'REPLENISHMENT_PENDING',
-      level: options.replenishmentSummary.highRiskCount > 0 ? 'HIGH' : 'MEDIUM',
-      title: '补料待跟进',
-      description: `当前有 ${options.replenishmentSummary.pendingReviewCount || options.replenishmentSummary.suggestionCount} 条补料反馈待收口。`,
-      sourcePage: 'REPLENISHMENT',
-      suggestedAction: '回补料管理页确认补料建议、影响范围和后续动作。',
-      suggestedRoute: defaultRoutes.replenishment,
     })
   }
 
@@ -584,7 +540,6 @@ function buildPlatformStageSummary(currentStage: PlatformCuttingOverviewStage, t
   const stageLabelMap: Record<PlatformCuttingOverviewStage, string> = {
     PENDING_PICKUP: '待领料',
     EXECUTING: '执行中',
-    PENDING_REPLENISHMENT: '待补料',
     PENDING_INBOUND: '待入仓',
     PENDING_HANDOVER: '待交接',
     ALMOST_DONE: '已基本完成',
@@ -614,12 +569,6 @@ function buildLinkedPages(row: PlatformCuttingOverviewRow): CuttingSummaryLinked
       summaryText: row.executionSummaryText,
     },
     {
-      pageKey: 'REPLENISHMENT',
-      pageLabel: '补料管理',
-      route: row.routes.replenishment,
-      summaryText: row.replenishmentSummaryText,
-    },
-    {
       pageKey: 'WAREHOUSE',
       pageLabel: '裁床仓',
       route: row.routes.fabricWarehouse,
@@ -639,7 +588,6 @@ function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderP
   const pickupAggregate = pickupPrepProjection.aggregate
   const pickupSummary = pickupPrepProjection.summary
   const { markerSummary, spreadingSummary } = buildMarkerAndSpreadingSummary(snapshot, cutOrderRefs, markerPlanSourceRefs)
-  const replenishmentSummary = buildReplenishmentSummary(snapshot, record)
   const warehouseSummary = buildWarehouseSummary(snapshot, record)
   const sampleSummary = buildSampleSummary(snapshot, record)
   const issues = buildIssues({
@@ -648,13 +596,11 @@ function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderP
     pickupSummary,
     markerSummary,
     spreadingSummary,
-    replenishmentSummary,
     warehouseSummary,
     sampleSummary,
   })
   const highRiskIssueCount = issues.filter((item) => item.level === 'HIGH').length
   const overallRiskLevel: CuttingSummaryRiskLevel = highRiskIssueCount > 0 ? 'HIGH' : issues.length > 0 ? 'MEDIUM' : 'LOW'
-  const hasPendingReplenishment = replenishmentSummary.pendingReviewCount > 0 || replenishmentSummary.highRiskCount > 0
   const hasExecutionStalled = markerSummary.pendingMarkerCount > 0 || spreadingSummary.pendingSpreadingCount > 0
   const hasPendingInbound = warehouseSummary.cutPiecePendingInboundCount > 0 || warehouseSummary.unassignedZoneCount > 0
   const hasPendingHandover = warehouseSummary.waitingHandoverCount > 0
@@ -662,21 +608,18 @@ function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderP
   const currentStage: PlatformCuttingOverviewStage =
     pickupAggregate.receiveSuccessCount === 0
       ? 'PENDING_PICKUP'
-      : hasPendingReplenishment
-        ? 'PENDING_REPLENISHMENT'
-        : hasPendingInbound
-          ? 'PENDING_INBOUND'
-          : hasPendingHandover
-            ? 'PENDING_HANDOVER'
-            : truth.completionState === 'COMPLETED' && !issues.length
-              ? 'ALMOST_DONE'
-              : 'EXECUTING'
+      : hasPendingInbound
+        ? 'PENDING_INBOUND'
+        : hasPendingHandover
+          ? 'PENDING_HANDOVER'
+          : truth.completionState === 'COMPLETED' && !issues.length
+            ? 'ALMOST_DONE'
+            : 'EXECUTING'
   const latestFactoryAction = buildLatestFactoryAction(pickupSummary, markerSummary, spreadingSummary, warehouseSummary, sampleSummary)
   const recordSnapshot: PlatformCuttingRuntimeRecordSnapshot = {
     cutPieceOrderCount: cutOrderRefs.length,
     markerSummary,
     spreadingSummary,
-    replenishmentSummary,
     warehouseSummary,
     sampleSummary,
     lastUpdatedAt: latestFactoryAction.at === '-' ? record.lastFieldUpdateAt || record.lastPickupScanAt || '' : latestFactoryAction.at,
@@ -692,9 +635,6 @@ function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderP
     ]).map((item) => item.toLowerCase()),
   }
   const executionSummaryText = `唛架已维护 ${markerSummary.markerMaintainedCount} / ${cutOrderRefs.length}，铺布 ${spreadingSummary.spreadingRecordCount} 条。`
-  const replenishmentSummaryText = hasPendingReplenishment
-    ? `待跟进 ${replenishmentSummary.pendingReviewCount || replenishmentSummary.suggestionCount} 条。`
-    : '当前无待跟进补料。'
   const warehouseSummaryText = `待入仓 ${warehouseSummary.cutPiecePendingInboundCount}，待交接 ${warehouseSummary.waitingHandoverCount}。`
   const sampleSummaryText = sampleSummary.sampleWaitingReturnCount > 0 || sampleSummary.overdueReturnCount > 0
     ? `待归还 ${sampleSummary.sampleWaitingReturnCount}，超期 ${sampleSummary.overdueReturnCount}。`
@@ -732,7 +672,6 @@ function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderP
     pickupAggregate,
     pickupSummaryText: `${pickupAggregate.materialReceiveSummaryText} · ${pickupSummary.latestResultLabel}`,
     executionSummaryText,
-    replenishmentSummaryText,
     warehouseSummaryText,
     sampleSummaryText,
     recentFactoryActionAt: latestFactoryAction.at,
@@ -750,7 +689,6 @@ function buildOverviewRow(snapshot: CuttingDomainSnapshot, record: CuttingOrderP
     issues,
     linkedPages: [],
     nextActionSuggestions: unique([truth.nextActionLabel, ...issues.map((item) => item.suggestedAction)].filter(Boolean)),
-    hasPendingReplenishment,
     hasReceiveRecheck: pickupSummary.needsRecheck,
     hasPhotoEvidence: pickupSummary.hasPhotoEvidence,
     hasExecutionStalled,

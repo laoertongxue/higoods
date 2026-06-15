@@ -36,19 +36,17 @@ function assertIncludes(rel: string, pattern: string, label: string): void {
 
 function main(): void {
   const pdaPages = [
-    { file: 'src/pages/pda-cutting-pickup.ts', bridge: 'writePdaPickupToFcs(' },
-    { file: 'src/pages/pda-cutting-spreading.ts', bridge: 'writePdaSpreadingToFcs(' },
-    { file: 'src/pages/pda-cutting-inbound.ts', bridge: 'writePdaInboundToFcs(' },
-    { file: 'src/pages/pda-cutting-handover.ts', bridge: 'writePdaHandoverToFcs(' },
-    { file: 'src/pages/pda-cutting-replenishment-feedback.ts', bridge: 'writePdaReplenishmentFeedbackToFcs(' },
+    'src/pages/pda-cutting-task-detail.ts',
+    'src/pages/pda-warehouse-wait-process.ts',
+    'src/pages/pda-cutting-spreading.ts',
+    'src/pages/pda-cutting-inbound.ts',
+    'src/pages/pda-cutting-handover.ts',
   ]
 
-  const cutPiecePage = 'src/pages/process-factory/cutting/cut-piece-warehouse.ts'
+  const cutPiecePage = 'src/pages/process-factory/cutting/warehouse-hub.ts'
   const samplePage = 'src/pages/process-factory/cutting/sample-warehouse.ts'
-  const pdaBridge = 'src/domain/cutting-pda-writeback/bridge.ts'
   const warehouseBridge = 'src/domain/cutting-warehouse-writeback/bridge.ts'
 
-  assertFileExists(pdaBridge)
   assertFileExists(warehouseBridge)
   assertFileExists('src/data/fcs/cutting/warehouse-writeback-ledger.ts')
   assertFileExists('src/data/fcs/cutting/warehouse-writeback-inputs.ts')
@@ -65,13 +63,18 @@ function main(): void {
     'record.latestActionBy =',
   ], '页面本地 mutation / 本地时间线追加')
 
-  assertIncludes(cutPiecePage, 'submitCutPieceWarehouseWriteback(', '正式裁片仓 bridge 调用')
+  assertIncludes(cutPiecePage, 'cutting-runtime-event-ledger', '正式裁片仓统一事件账模块')
+  assertIncludes(cutPiecePage, 'appendCuttingRuntimeEvent', '正式裁片仓统一事件账写入')
   assertIncludes(samplePage, 'submitSampleWarehouseWriteback(', '正式样衣仓 bridge 调用')
 
-  pdaPages.forEach(({ file, bridge }) => {
-    assertNoPatterns(file, ['Date.now(', 'pda-execution-writeback-ledger', 'appendPda'], '绕过 bridge 的业务写回逻辑')
-    assertIncludes(file, bridge, '正式 PDA bridge 调用')
-    assertIncludes(file, 'buildPdaCuttingWritebackSource(', '统一 writeback source')
+  pdaPages.forEach((file) => {
+    assertNoPatterns(file, ['Date.now(', 'pda-execution-writeback-ledger', 'appendPda'], '旧 PDA 写回逻辑')
+    if (file === 'src/pages/pda-cutting-inbound.ts' || file === 'src/pages/pda-cutting-handover.ts') {
+      assertIncludes(file, 'wait-handover-runtime', '待交出仓 runtime 统一事件账适配')
+    } else {
+      assertIncludes(file, 'cutting-runtime-event-ledger', '统一裁床事件账模块')
+      assertIncludes(file, 'appendCuttingRuntimeEvent', '统一裁床事件账写入')
+    }
   })
 
   const warehouseInputs = read('src/data/fcs/cutting/warehouse-writeback-inputs.ts')

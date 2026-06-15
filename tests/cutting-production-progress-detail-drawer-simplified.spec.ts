@@ -29,7 +29,7 @@ test('生产单进度详情抽屉按简化结构展示', async ({ page }) => {
   await expect(drawer.getByText('当前最主要差异对象', { exact: true })).toHaveCount(0)
   await expect(drawer.getByText('技术包', { exact: true })).toHaveCount(0)
   await expect(drawer.getByText('映射异常数', { exact: true })).toHaveCount(0)
-  await expect(drawer.getByText('数据待补数', { exact: true })).toHaveCount(0)
+  await expect(drawer.getByText('数据待完善数', { exact: true })).toHaveCount(0)
 
   const currentProgressSection = drawer.locator('section').filter({ hasText: '当前进展' }).first()
   await expect(currentProgressSection.getByText('颜色', { exact: true })).toHaveCount(0)

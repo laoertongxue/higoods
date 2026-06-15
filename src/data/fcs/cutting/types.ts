@@ -13,7 +13,6 @@ export type CuttingRiskFlag =
   | 'PENDING_REVIEW'
   | 'PARTIAL_CONFIG'
   | 'RECEIVE_DIFF'
-  | 'REPLENISH_PENDING'
   | 'INBOUND_PENDING'
   | 'SHIP_URGENT'
 

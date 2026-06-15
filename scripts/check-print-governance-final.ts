@@ -71,7 +71,6 @@ function main(): void {
     'MATERIAL_PREP_SLIP',
     'PICKUP_SLIP',
     'ISSUE_SLIP',
-    'SUPPLEMENT_MATERIAL_SLIP',
     'FEI_TICKET_LABEL',
     'FEI_TICKET_REPRINT_LABEL',
     'FEI_TICKET_VOID_LABEL',
@@ -233,7 +232,6 @@ function main(): void {
     'scripts/check-print-service-post-route-card.ts',
     'scripts/check-task-route-cards-unified-print.ts',
     'scripts/check-task-delivery-card-unified-print.ts',
-    'scripts/check-material-pickup-issue-supplement-print.ts',
     'scripts/check-label-print-unification.ts',
     'scripts/check-production-confirmation-print-unification.ts',
   ].forEach((path) => assert(existsSync(join(root, path)), `前置检查脚本缺失：${path}`))

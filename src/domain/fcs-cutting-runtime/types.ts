@@ -28,12 +28,6 @@ export interface CuttingTransferBagRuntimeInput {
   store: Record<string, unknown>
 }
 
-export interface CuttingReplenishmentRuntimeInput {
-  reviews: Array<Record<string, unknown>>
-  impactPlans: Array<Record<string, unknown>>
-  actions: Array<Record<string, unknown>>
-}
-
 export interface CuttingSpecialProcessRuntimeInput {
   orders: Array<Record<string, unknown>>
   bindingPayloads: Array<Record<string, unknown>>
@@ -46,7 +40,6 @@ export interface CuttingPdaExecutionRuntimeInput {
   pickupEvents: Array<Record<string, unknown>>
   inboundEvents: Array<Record<string, unknown>>
   handoverEvents: Array<Record<string, unknown>>
-  replenishmentFeedbackEvents: Array<Record<string, unknown>>
 }
 
 export interface CuttingRuntimeEventLedgerInput {
@@ -75,7 +68,6 @@ export interface CuttingRuntimeInputs {
   markerSpreadingState: CuttingMarkerStoreInput
   feiTicketState: CuttingFeiRuntimeInput
   transferBagState: CuttingTransferBagRuntimeInput
-  replenishmentState: CuttingReplenishmentRuntimeInput
   specialProcessState: CuttingSpecialProcessRuntimeInput
   pdaExecutionState: CuttingPdaExecutionRuntimeInput
   runtimeEventState: CuttingRuntimeEventLedgerInput

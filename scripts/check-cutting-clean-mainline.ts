@@ -34,7 +34,7 @@ import {
   buildSewingTaskAllocationProjectionFromInventory,
   type SewingTaskAllocationInventoryRecord,
 } from '../src/data/fcs/cutting/sewing-dispatch.ts'
-import { buildSpreadingReplenishmentHandlingObjects, listSpreadingDifferences } from '../src/data/fcs/cutting/spreading-differences.ts'
+import { listSpreadingDifferences } from '../src/data/fcs/cutting/spreading-differences.ts'
 import { buildBindingProcessOrders } from '../src/pages/process-factory/cutting/binding-strip-orders.ts'
 import { buildFeiTicketLabelPrintProjection } from '../src/pages/process-factory/cutting/fei-ticket-print-projection.ts'
 import {
@@ -100,7 +100,6 @@ function scanSourceForForbiddenTerms(): void {
     '未齐套不能交出',
     '齐套后才能交出',
     '特殊工艺未回仓不能交出',
-    '待补裁',
     'ledger-placeholder',
     '待审核后生成',
     '模拟回仓',
@@ -337,17 +336,12 @@ function assertHandoverAndSpecialCraft(): void {
   assert(returnInventory.some((record) => !record.specialCraftReadyForSewing), '仍有特殊工艺未回仓时必须阻止该菲票参与车缝分配')
 }
 
-function assertDifferencesReplenishmentCloseAndBinding(): void {
+function assertDifferencesCloseAndBinding(): void {
   const differences = listSpreadingDifferences()
   assertEvery(differences, (difference) => difference.linkedLedgerEventIds.length > 0, '铺布裁剪差异必须关联数量账事件')
   ;['面料余额不足', '实铺小于计划', '实际用量差异', '实裁小于计划', '现场反馈', '卷记录异常'].forEach((type) => {
     assert(differences.some((difference) => difference.differenceType === type), `缺少差异场景：${type}`)
   })
-
-  const replenishmentItems = buildSpreadingReplenishmentHandlingObjects()
-  assertEvery(replenishmentItems, (item) => item.reviewResult === '仅记录差异' ? item.linkedLedgerEventIds.length === 0 : item.linkedLedgerEventIds.length > 0, '补料处理对象必须按审核结果关联数量账事件')
-  assert(replenishmentItems.some((item) => item.reviewResult === '关闭裁片单' && item.closeReason), '关闭裁片单审核结果必须填写关闭原因')
-  assert(replenishmentItems.some((item) => item.reviewResult === '仅记录差异'), '缺少仅记录差异场景')
 
   const closeRecords = listCutOrderCloseRecords()
   assertEvery(closeRecords, (record) => Boolean(record.closeReasonCode && record.closeReasonText && record.closeDescription && record.closedAt && record.closedBy), '关闭记录必须有关闭原因、说明、人和时间')
@@ -369,13 +363,13 @@ function assertDifferencesReplenishmentCloseAndBinding(): void {
     assertEvery(order.bindingDetails, (detail) => Boolean(detail.bindingWidth > 0 && detail.requiredLength > 0 && detail.feiTicketNo), `捆条明细必须带宽度、计划长度和唯一菲票：${order.bindingOrderNo}`)
   })
   bindingOrders.filter((order) => order.differenceRecords.length > 0).forEach((order) => {
-    assert(order.linkedReplenishmentIds.length > 0 || order.linkedLedgerEventIds.length > 0 || order.linkedCheckItemIds.length > 0, `捆条差异必须进入补料、数量账或核查：${order.bindingOrderNo}`)
+    assert(order.linkedLedgerEventIds.length > 0 || order.linkedCheckItemIds.length > 0, `捆条差异必须进入数量账或核查：${order.bindingOrderNo}`)
   })
 }
 
 function assertMainlineTransactionLedger(): void {
   const summary = summarizeCuttingMainlineLedgerEvents()
-  const expectedStages = ['数量账', 'PDA执行写回', '铺布裁剪差异', '补料管理', '裁片单关闭', '菲票生成', '交出记录', '特殊工艺回仓'] as const
+  const expectedStages = ['数量账', 'PDA执行写回', '铺布裁剪差异', '裁片单关闭', '菲票生成', '交出记录', '特殊工艺回仓'] as const
   expectedStages.forEach((stage) => assert((summary.stageCounts[stage] || 0) > 0, `主链路事件账缺少阶段：${stage}`))
   const events = listCuttingMainlineLedgerEvents()
   assert(summary.totalEventCount > 50, '主链路事件账事件数量过少')
@@ -388,7 +382,7 @@ function main(): void {
   assertFeiTicketChain()
   assertWaitHandoverInventoryAndDispatch()
   assertHandoverAndSpecialCraft()
-  assertDifferencesReplenishmentCloseAndBinding()
+  assertDifferencesCloseAndBinding()
   assertMainlineTransactionLedger()
 
   console.log(
@@ -399,7 +393,7 @@ function main(): void {
         菲票生成与打印追踪: '通过',
         待交出仓库存与车缝分配: '通过',
         通用交出与特殊工艺回仓: '通过',
-        补料关闭捆条到账: '通过',
+        差异关闭捆条到账: '通过',
         主链路事件账: summarizeCuttingMainlineLedgerEvents(),
       },
       null,

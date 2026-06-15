@@ -22,7 +22,6 @@ export const platformCuttingUrgencyMeta: Record<CuttingUrgencyLevel, { label: st
 export const platformCuttingStageMeta: Record<PlatformCuttingOverviewStage, { label: string; className: string }> = {
   PENDING_PICKUP: { label: '待领料', className: 'bg-slate-100 text-slate-700' },
   EXECUTING: { label: '执行中', className: 'bg-sky-50 text-sky-700' },
-  PENDING_REPLENISHMENT: { label: '待补料', className: 'bg-rose-50 text-rose-700' },
   PENDING_INBOUND: { label: '待入仓', className: 'bg-violet-50 text-violet-700' },
   PENDING_HANDOVER: { label: '待交接', className: 'bg-fuchsia-50 text-fuchsia-700' },
   ALMOST_DONE: { label: '已基本完成', className: 'bg-emerald-50 text-emerald-700' },
@@ -76,7 +75,6 @@ export function buildPlatformOverviewStats(rows: PlatformCuttingOverviewRow[]) {
     inProgressCount: rows.filter((row) => row.currentStage !== 'ALMOST_DONE').length,
     highRiskCount: rows.filter((row) => row.overallRiskLevel === 'HIGH').length,
     pendingPickupCount: rows.filter((row) => row.currentStage === 'PENDING_PICKUP').length,
-    pendingReplenishmentCount: rows.filter((row) => row.currentStage === 'PENDING_REPLENISHMENT').length,
     pendingWarehouseOrHandoverCount: rows.filter((row) => row.currentStage === 'PENDING_INBOUND' || row.currentStage === 'PENDING_HANDOVER').length,
     recheckOrPhotoCount: rows.filter((row) => row.hasReceiveRecheck || row.hasPhotoEvidence).length,
   }
@@ -86,7 +84,6 @@ export function buildPlatformFocusRows(rows: PlatformCuttingOverviewRow[]): Plat
   return [...rows]
     .sort((left, right) => {
       const score = (row: PlatformCuttingOverviewRow): number => {
-        if (row.hasPendingReplenishment && row.overallRiskLevel === 'HIGH') return 0
         if (row.hasReceiveRecheck) return 1
         if (row.hasExecutionStalled) return 2
         if (row.hasPendingInbound) return 3
@@ -130,10 +127,6 @@ export function buildPlatformPickupText(row: PlatformCuttingOverviewRow): string
 
 export function buildPlatformExecutionText(row: PlatformCuttingOverviewRow): string {
   return `${row.executionSummaryText} · 最近动作 ${row.recentFactoryActionSource}`
-}
-
-export function buildPlatformReplenishmentText(row: PlatformCuttingOverviewRow): string {
-  return row.replenishmentSummaryText
 }
 
 export function buildPlatformWarehouseText(row: PlatformCuttingOverviewRow): string {

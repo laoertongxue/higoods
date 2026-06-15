@@ -192,7 +192,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     deadlineLabel: '领料要求时间',
     deadline: addHours(NOW, 8),
     statusLabel: '待领料',
-    riskNote: '首批物料可先领用，后续可继续补料',
+    riskNote: '首批物料可先领用，后续继续跟进来料',
     href: '/fcs/pda/handover/HOP-PDA-001',
   },
   {

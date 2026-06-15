@@ -421,7 +421,7 @@ export const pickupScenarioDifferenceSummaries: PickupScenarioDifferenceSummary[
     boundObjectType: 'CUT_PIECE_ORDER',
     qrMeaning: '裁片单级绑定，同一裁片单多次配料和重打印继续复用同一二维码',
     discrepancySupport: '强语义支持照片凭证、差异回执与后续专项动作摘要',
-    followUpActions: '后续进入领料、铺布、入仓、交接、补料专项能力',
+    followUpActions: '后续进入领料、铺布、入仓、交接专项能力',
   }),
 ]
 

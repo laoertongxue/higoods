@@ -277,9 +277,9 @@ function ensureTraceabilityBagFirstSeed(options: {
     .filter(
       (item) =>
         item.status === 'DONE' &&
-        (!item.replenishmentWarning ||
-          item.replenishmentWarning.suggestedAction === '无需补料' ||
-          item.replenishmentWarning.handled),
+        (!item.varianceWarning ||
+          item.varianceWarning.suggestedAction === '无需处理' ||
+          item.varianceWarning.handled),
     )
     .slice()
     .sort((left, right) => {

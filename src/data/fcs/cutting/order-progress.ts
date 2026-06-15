@@ -146,7 +146,7 @@ const DEMO_STAGE_PROFILES: CuttingDemoStageProfile[] = [
     closeReasonText: '面料不再到货',
     closedAt: '2026-03-24 17:40',
     closedBy: '裁床主管',
-    closeReason: '面料不再补入，业务确认剩余缺口不再继续排唛架铺布裁剪。',
+    closeReason: '面料不再到货，业务确认剩余缺口不再继续排唛架铺布裁剪。',
     reviewStatus: 'APPROVED',
     configStatus: 'CONFIGURED',
     receiveStatus: 'RECEIVED',
@@ -157,7 +157,7 @@ const DEMO_STAGE_PROFILES: CuttingDemoStageProfile[] = [
     cutRatio: 0.68,
     inboundRatio: 1,
     riskFlags: [],
-    latestActionText: '已由裁床主管关闭，剩余缺口不再补裁。',
+    latestActionText: '已由裁床主管关闭，剩余缺口不再继续裁剪。',
     lastOperatorName: '裁床主管',
   },
 ]

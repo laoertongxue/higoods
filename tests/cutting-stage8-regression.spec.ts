@@ -26,7 +26,6 @@ const OLD_VISIBLE_TEXTS = [
   '未齐套不能交出',
   '齐套后才能交出',
   '特殊工艺未回仓不能交出',
-  '待补裁',
 ]
 
 const WEB_PAGES: Array<{ path: string; title: string; required: string[]; forbidden?: string[] }> = [
@@ -56,11 +55,6 @@ const WEB_PAGES: Array<{ path: string; title: string; required: string[]; forbid
     path: '/fcs/craft/cutting/spreading-list',
     title: '铺布单',
     required: ['计划层数', '实铺层数', '计划用量', '实际用量', '实际裁剪数量', '最近同步'],
-  },
-  {
-    path: '/fcs/craft/cutting/replenishment',
-    title: '补料管理',
-    required: ['待审核差异', '需要补料', '需要补录', '继续补排', '关闭裁片单', '仅记录差异'],
   },
   {
     path: '/fcs/craft/cutting/fei-tickets',
@@ -93,7 +87,7 @@ const WEB_PAGES: Array<{ path: string; title: string; required: string[]; forbid
   {
     path: '/fcs/craft/cutting/summary',
     title: '裁剪结果核查',
-    required: ['待处理差异', '补料待审核', '已关闭裁片单', '交出后缺口', '特殊工艺未回仓', '样衣异常', '捆条异常'],
+    required: ['待处理差异', '已关闭裁片单', '交出后缺口', '特殊工艺未回仓', '样衣异常', '捆条异常'],
   },
   {
     path: '/fcs/craft/cutting/sample-warehouse',
@@ -381,10 +375,6 @@ test('阶段 8 PDA 裁床执行语义保持简洁并显示同步状态', async (
   await expect(page.locator('body')).toContainText('交出')
   await expect(page.locator('body')).toContainText('同步')
   await expect(page.locator('body')).not.toContainText('未齐套不能交出')
-
-  await gotoPda(page, '/fcs/pda/cutting/replenishment-feedback/TASK-CUT-PDA-SYNC-FAIL-0310')
-  await expect(page.locator('body')).toContainText('现场差异反馈')
-  await expect(page.locator('body')).toContainText('同步状态')
 
   expect(errors).toEqual([])
 })

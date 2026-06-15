@@ -162,10 +162,6 @@ import {
   isCraftCuttingCutOrdersDialogOpen,
 } from '../pages/process-factory/cutting/cut-orders'
 import {
-  handleCraftCuttingReplenishmentEvent,
-  isCraftCuttingReplenishmentDialogOpen,
-} from '../pages/process-factory/cutting/replenishment'
-import {
   handleCraftCuttingSpecialProcessesEvent,
   isCraftCuttingSpecialProcessesDialogOpen,
 } from '../pages/process-factory/cutting/special-processes'
@@ -304,7 +300,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleCraftCuttingPickupManagementEvent(target) ||
     await handleCraftCuttingSampleWarehouseEvent(target) ||
     await handleCraftCuttingTransferBagsEvent(target) ||
-    await handleCraftCuttingReplenishmentEvent(target) ||
     await handleCraftCuttingSpecialProcessesEvent(target) ||
     await handleCraftCuttingSummaryEvent(target) ||
     await handleCraftCuttingAbMaterialStatisticsEvent(target) ||
@@ -603,13 +598,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.sampleWarehouseAction = 'close-detail'
     handleCraftCuttingSampleWarehouseEvent(fakeButton)
-    return true
-  }
-
-  if (isCraftCuttingReplenishmentDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.cuttingReplenishAction = 'close-overlay'
-    handleCraftCuttingReplenishmentEvent(fakeButton)
     return true
   }
 

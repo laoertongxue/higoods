@@ -106,17 +106,9 @@ test('铺布列表页使用 supervisor 视图、主按钮 marker-first、行按�
   await expect(stageRow).toBeVisible()
   await expect(stageRow.getByRole('button', { name: '继续铺布' })).toBeVisible()
   await expect(stageRow.getByRole('button', { name: '查看详情' })).toBeVisible()
-  await expect(stageRow.getByRole('button', { name: '去补料管理' })).toHaveCount(0)
   await expect(stageRow.getByRole('button', { name: '去打印菲票' })).toHaveCount(0)
   await expect(stageRow.getByRole('button', { name: '去装袋' })).toHaveCount(0)
   await expect(stageRow.getByRole('button', { name: '去裁片仓' })).toHaveCount(0)
-
-  if ((await getStageCount(page, '待补料确认')) > 0) {
-    await (await getStageTab(page, '待补料确认')).click()
-    stageRow = tableBody.locator('tr').first()
-    await expect(stageRow.getByRole('button', { name: '查看详情' })).toBeVisible()
-    await expect(stageRow.getByRole('button', { name: '去补料管理' })).toBeVisible()
-  }
 
   if ((await getStageCount(page, '待打印菲票')) > 0) {
     await (await getStageTab(page, '待打印菲票')).click()
@@ -141,7 +133,6 @@ test('铺布列表页使用 supervisor 视图、主按钮 marker-first、行按�
     stageRow = tableBody.locator('tr').first()
     await expect(stageRow.getByRole('button', { name: '查看详情' })).toBeVisible()
     await expect(stageRow.getByRole('button', { name: '继续铺布' })).toHaveCount(0)
-    await expect(stageRow.getByRole('button', { name: '去补料管理' })).toHaveCount(0)
     await expect(stageRow.getByRole('button', { name: '去打印菲票' })).toHaveCount(0)
     await expect(stageRow.getByRole('button', { name: '去装袋' })).toHaveCount(0)
     await expect(stageRow.getByRole('button', { name: '去裁片仓' })).toHaveCount(0)

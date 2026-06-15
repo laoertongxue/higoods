@@ -112,7 +112,6 @@ export interface CuttingProgressSnapshot {
   markerProgress: CuttingProgressMetric
   spreadingProgress: CuttingProgressMetric
   cuttingProgress: CuttingProgressMetric
-  replenishmentProgress: CuttingProgressMetric
   feiTicketProgress: CuttingProgressMetric
   cutPieceWarehouseProgress: CuttingProgressMetric
   specialCraftDispatchProgress: CuttingProgressMetric
@@ -1202,7 +1201,6 @@ export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingPro
     markerProgress: metric(prepRows.length ? '已生成唛架' : '唛架未完成', prepRows.length, prepRows.length, 0, 0),
     spreadingProgress: metric(tickets.length ? '已铺布' : '铺布未完成', totalOrderQty(order), tickets.reduce((total, ticket) => total + ticket.garmentQty, 0), 0, 0),
     cuttingProgress: metric(resolveCuttingStatus(order), totalOrderQty(order), tickets.reduce((total, ticket) => total + ticket.garmentQty, 0), 0, resolveCuttingStatus(order) === '异常' ? 1 : 0),
-    replenishmentProgress: metric(prepRows.some((line) => line.issueFlags.includes('待补料')) ? '待补料' : '正常', prepRows.length, prepRows.filter((line) => !line.issueFlags.includes('待补料')).length, 0, prepRows.filter((line) => line.issueFlags.includes('待补料')).length),
     feiTicketProgress: metric(resolveFeiTicketStatus(order), prepRows.length || tickets.length, tickets.length, 0, 0),
     cutPieceWarehouseProgress: metric(resolveCuttingWaitHandoverStatus(order), tickets.length, listFactoryWaitHandoverStockItems().filter((item) => item.productionOrderId === order.productionOrderId).length, 0, 0),
     specialCraftDispatchProgress: metric(specialReturn.waitDispatchCount > 0 ? '待交出' : '已交出', specialReturn.totalNeedSpecialCraftFeiTickets, specialReturn.dispatchedCount, specialReturn.differenceCount, specialReturn.objectionCount),

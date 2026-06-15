@@ -12,7 +12,6 @@ import type {
   ProductionProgressRow,
   ProductionProgressStageKey,
 } from './production-progress-model.ts'
-import type { ReplenishmentSuggestionRow } from './replenishment-model.ts'
 import type { SpecialProcessRow } from './special-processes-model.ts'
 import type {
   TransferBagConditionDecisionItem,
@@ -23,7 +22,6 @@ import type { TransferBagUsageItem } from './transfer-bags-model.ts'
 export type CuttingCheckSectionKey =
   | 'MATERIAL_PREP'
   | 'SPREADING'
-  | 'REPLENISHMENT'
   | 'FEI_TICKETS'
   | 'WAREHOUSE_HANDOFF'
   | 'SPECIAL_PROCESS'
@@ -41,7 +39,6 @@ export type CuttingCheckCompletionKey = 'COMPLETED' | 'BLOCKED' | 'IN_PROGRESS' 
 export type CuttingCheckSourceObjectType =
   | 'CUT_ORDER'
   | 'MARKER_PLAN'
-  | 'REPLENISHMENT'
   | 'FEI_OWNER'
   | 'FEI_PRINT_JOB'
   | 'BAG_USAGE'
@@ -58,7 +55,6 @@ export type CuttingCheckActionTarget =
   | 'cutPieceWarehouse'
   | 'sampleWarehouse'
   | 'transferBags'
-  | 'replenishment'
   | 'specialProcesses'
   | 'summary'
 
@@ -134,7 +130,6 @@ export interface CuttingCheckBuildOptions {
   bagUsages: TransferBagUsageItem[]
   returnUsages: TransferBagReturnUsageItem[]
   conditionItems: TransferBagConditionDecisionItem[]
-  replenishments: ReplenishmentSuggestionRow[]
   specialProcesses: SpecialProcessRow[]
   navigationPayload: CuttingCheckNavigationPayloadMap
 }
@@ -153,7 +148,6 @@ export interface CuttingCheckResult {
 export const cuttingCheckSectionLabelMap: Record<CuttingCheckSectionKey, string> = {
   MATERIAL_PREP: '待加工仓',
   SPREADING: '唛架铺布',
-  REPLENISHMENT: '补料',
   FEI_TICKETS: '打印菲票',
   WAREHOUSE_HANDOFF: '仓务交接',
   SPECIAL_PROCESS: '特殊工艺',
@@ -180,7 +174,7 @@ export const cuttingCheckCompletionMetaMap: Record<CuttingCheckCompletionKey, Cu
   },
   DATA_PENDING: {
     key: 'DATA_PENDING',
-    label: '待补数据',
+    label: '待完善数据',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
     detailText: '当前真相源不足，暂时无法判定闭环。',
   },
@@ -211,7 +205,7 @@ const sectionStateMetaMap: Record<
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
   },
   DATA_PENDING: {
-    label: '待补数据',
+    label: '待完善数据',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
   },
 }
@@ -547,63 +541,6 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
   }
 }
 
-function buildReplenishmentSection(options: CuttingCheckBuildOptions): {
-  section: CuttingCheckSectionState
-  blockers: CuttingCheckBlockerItem[]
-} {
-  const blockingStatuses = new Set(['PENDING_REVIEW', 'PENDING_SUPPLEMENT', 'APPROVED_PENDING_ACTION', 'IN_ACTION'])
-  const blockers = options.replenishments
-    .filter((item) => blockingStatuses.has(item.statusMeta.key))
-    .map((item) =>
-      buildBlocker({
-        productionOrderId: options.productionRow.productionOrderId,
-        productionOrderNo: options.productionRow.productionOrderNo,
-        sectionKey: 'REPLENISHMENT',
-        severity: item.riskLevel === 'HIGH' ? 'HIGH' : item.riskLevel === 'MEDIUM' ? 'MEDIUM' : 'LOW',
-        title: `${item.suggestionNo} 待纠偏`,
-        sourceType: 'REPLENISHMENT',
-        sourceId: item.suggestionId,
-        sourceNo: item.suggestionNo,
-        sourceLabel: '补料建议',
-        materialSku: item.materialSku,
-        currentStateLabel: item.statusMeta.label,
-        blockerReason: item.blockingSummary,
-        navigationTarget: 'replenishment',
-        navigationPayload: item.navigationPayload.replenishment,
-        nextActionLabel: '去补料管理',
-      }),
-    )
-
-  const doneCount = options.replenishments.filter((item) =>
-    ['NO_ACTION', 'REJECTED', 'COMPLETED'].includes(item.statusMeta.key),
-  ).length
-
-  const stateKey: CuttingCheckSectionStateKey = !options.replenishments.length
-    ? 'NOT_APPLICABLE'
-    : blockers.length
-      ? 'BLOCKED'
-      : 'DONE'
-
-  return {
-    section: buildSectionState({
-      sectionKey: 'REPLENISHMENT',
-      stateKey,
-      blockerCount: blockers.length,
-      doneCount,
-      totalCount: options.replenishments.length,
-      detailText: !options.replenishments.length
-        ? '当前没有补料建议。'
-        : blockers.length
-          ? `当前有 ${blockers.length} 条补料建议仍未闭环。`
-          : '当前补料链路已闭环。',
-      navigationTarget: 'replenishment',
-      navigationPayload: options.navigationPayload.replenishment,
-      defaultActionLabel: '去补料管理',
-    }),
-    blockers,
-  }
-}
-
 function buildFeiTicketSection(options: CuttingCheckBuildOptions): {
   section: CuttingCheckSectionState
   blockers: CuttingCheckBlockerItem[]
@@ -625,7 +562,7 @@ function buildFeiTicketSection(options: CuttingCheckBuildOptions): {
           sourceNo: options.productionRow.productionOrderNo,
           sourceLabel: '打票主体',
           materialSku: '',
-          currentStateLabel: '待补数据',
+          currentStateLabel: '待完善数据',
           blockerReason: '当前应进入打印链路，但未找到可核查的打票主体。',
           navigationTarget: 'feiTickets',
           navigationPayload: options.navigationPayload.feiTickets,
@@ -671,10 +608,10 @@ function buildFeiTicketSection(options: CuttingCheckBuildOptions): {
         title: '菲票码版本缺失',
         sourceType: 'FEI_PRINT_JOB',
         sourceId: latestJob?.printJobId || `${options.productionRow.productionOrderId}-print-job-missing`,
-        sourceNo: latestJob?.printJobNo || '待补打印作业',
+        sourceNo: latestJob?.printJobNo || '待填打印作业',
         sourceLabel: '打印作业',
         materialSku: '',
-        currentStateLabel: '版本待补',
+        currentStateLabel: '版本待填',
         blockerReason: `当前有 ${schemaMissingRecords.length} 张菲票缺少版本信息。`,
         navigationTarget: 'feiTickets',
         navigationPayload: options.navigationPayload.feiTickets,
@@ -692,7 +629,7 @@ function buildFeiTicketSection(options: CuttingCheckBuildOptions): {
     stateKey = 'DATA_PENDING'
     detailText = '当前缺少打票主体，无法确认打印闭环。'
   } else if (blockers.length) {
-    stateKey = blockers.some((item) => item.currentStateLabel === '待补数据') ? 'DATA_PENDING' : 'BLOCKED'
+    stateKey = blockers.some((item) => item.currentStateLabel === '待完善数据') ? 'DATA_PENDING' : 'BLOCKED'
     detailText = `当前有 ${blockers.length} 个打印对象仍待处理。`
   }
 
@@ -994,7 +931,6 @@ function dedupeActions(actions: CuttingCheckNextAction[]): CuttingCheckNextActio
 export function buildCuttingCheckResult(options: CuttingCheckBuildOptions): CuttingCheckResult {
   const materialPrep = buildMaterialPrepSection(options)
   const spreading = buildSpreadingSection(options)
-  const replenishment = buildReplenishmentSection(options)
   const feiTickets = buildFeiTicketSection(options)
   const warehouse = buildWarehouseSection(options)
   const specialProcess = buildSpecialProcessSection(options)
@@ -1002,7 +938,6 @@ export function buildCuttingCheckResult(options: CuttingCheckBuildOptions): Cutt
   const sectionStates = [
     materialPrep.section,
     spreading.section,
-    replenishment.section,
     feiTickets.section,
     warehouse.section,
     specialProcess.section,
@@ -1011,7 +946,6 @@ export function buildCuttingCheckResult(options: CuttingCheckBuildOptions): Cutt
   const blockerItems = [
     ...materialPrep.blockers,
     ...spreading.blockers,
-    ...replenishment.blockers,
     ...feiTickets.blockers,
     ...warehouse.blockers,
     ...specialProcess.blockers,

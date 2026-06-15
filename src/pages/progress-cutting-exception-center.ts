@@ -27,7 +27,6 @@ import { escapeHtml, formatDateTime } from '../utils'
 const productionProgressPath = getCanonicalCuttingPath('production-progress')
 const materialPrepPath = getCanonicalCuttingPath('warehouse-management-wait-process')
 const cutOrdersPath = getCanonicalCuttingPath('cut-orders')
-const replenishmentPath = getCanonicalCuttingPath('replenishment')
 const fabricWarehousePath = getCanonicalCuttingPath('fabric-warehouse')
 
 function normalizeRoute(route: string): string {
@@ -37,7 +36,6 @@ function normalizeRoute(route: string): string {
 function getCuttingRouteActionLabel(route: string): string {
   const normalizedRoute = normalizeRoute(route)
   if (normalizedRoute === materialPrepPath) return '去待加工仓'
-  if (normalizedRoute === replenishmentPath) return '去补料管理'
   if (normalizedRoute === cutOrdersPath) return '去裁片单'
   if (normalizedRoute === fabricWarehousePath) return '去裁床仓'
   if (normalizedRoute === productionProgressPath) return '去生产单进度'
@@ -156,9 +154,6 @@ function getPriorityBuckets(rows: CuttingException[]) {
           (row.exceptionType === 'RECEIVE_DISCREPANCY' || row.exceptionType === 'MISSING_EVIDENCE'),
       )
       .slice(0, 3),
-    replenishmentRows: openRows
-      .filter((row) => row.exceptionType === 'REPLENISHMENT_PENDING')
-      .slice(0, 3),
     warehouseRows: openRows
       .filter(
         (row) =>
@@ -178,7 +173,6 @@ function getQuickRoutes(row: CuttingException) {
     { label: '去生产单进度', route: productionProgressPath },
     { label: '去待加工仓', route: materialPrepPath },
     { label: '去裁片单', route: cutOrdersPath },
-    { label: '去补料管理', route: replenishmentPath },
     { label: '去裁床仓', route: fabricWarehousePath },
     { label: getCuttingRouteActionLabel(row.suggestedRoute), route: row.suggestedRoute },
   ]
@@ -307,11 +301,10 @@ function renderSummaryCards(): string {
 
   return `
     <section>
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         ${buildSummaryCard('未关闭异常总数', summary.openCount, '平台当前仍需继续跟进', 'text-slate-900')}
-        ${buildSummaryCard('高风险异常数', summary.highRiskCount, '优先处理差异、补料和仓务阻断', 'text-rose-600')}
+        ${buildSummaryCard('高风险异常数', summary.highRiskCount, '优先处理差异和仓务阻断', 'text-rose-600')}
         ${buildSummaryCard('领料差异异常数', summary.receiveDiscrepancyCount, '需核对领料结果和配置差异', 'text-amber-600')}
-        ${buildSummaryCard('补料待审核异常数', summary.replenishmentPendingCount, '待平台继续跟进补料链路', 'text-fuchsia-600')}
         ${buildSummaryCard('未入仓 / 未分区异常数', summary.warehouseRiskCount, '仓内节奏和查找效率待补齐', 'text-violet-600')}
         ${buildSummaryCard('样衣超期异常数', summary.sampleOverdueCount, '样衣归还和可调用状态待核对', 'text-sky-600')}
       </div>
@@ -374,9 +367,8 @@ function renderFocusSection(): string {
         </div>
         <span class="text-sm text-muted-foreground">当前重点 ${topRows.length} 项</span>
       </div>
-      <div class="mt-4 grid gap-4 xl:grid-cols-4">
+      <div class="mt-4 grid gap-4 xl:grid-cols-3">
         ${renderFocusColumn('高风险领料 / 凭证异常', '优先核对差异、领料结果与照片凭证。', buckets.receiveRiskRows, '当前无高风险领料或凭证异常。')}
-        ${renderFocusColumn('补料待审核', '优先推动补料建议完成审核或补充说明。', buckets.replenishmentRows, '当前无待补料审核异常。')}
         ${renderFocusColumn('仓务待处理', '关注未入仓、未分区和待交接等仓务阻断。', buckets.warehouseRows, '当前无仓务待处理异常。')}
         ${renderFocusColumn('样衣风险', '关注样衣待归还、超期和可调用风险。', buckets.sampleRows, '当前无样衣风险异常。')}
       </div>
@@ -403,7 +395,6 @@ function renderFilterSection(): string {
           { value: 'MISSING_EVIDENCE', label: '无照片凭证' },
           { value: 'MARKER_NOT_MAINTAINED', label: '唛架未维护' },
           { value: 'SPREADING_DATA_INSUFFICIENT', label: '铺布数据不足' },
-          { value: 'REPLENISHMENT_PENDING', label: '补料待审核' },
           { value: 'INBOUND_PENDING', label: '未入仓' },
           { value: 'ZONE_UNASSIGNED', label: '未分区' },
           { value: 'SAMPLE_OVERDUE', label: '样衣未归还' },
@@ -531,7 +522,6 @@ function renderMainTable(): string {
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-production-progress">去生产单进度</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-material-prep">去待加工仓</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-cut-orders">去裁片单</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-replenishment">去补料管理</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-fabric-warehouse">去裁床仓</button>
                             </div>
                           </td>
@@ -667,10 +657,6 @@ function renderDetailDrawer(): string {
             <article class="rounded-lg border bg-muted/20 p-4">
               <p class="text-xs text-muted-foreground">唛架铺布摘要</p>
               <p class="mt-1 text-sm text-foreground">${escapeHtml(row.executionSummaryText)}</p>
-            </article>
-            <article class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">补料摘要</p>
-              <p class="mt-1 text-sm text-foreground">${escapeHtml(row.replenishmentSummaryText)}</p>
             </article>
             <article class="rounded-lg border bg-muted/20 p-4">
               <p class="text-xs text-muted-foreground">仓务 / 样衣摘要</p>
@@ -868,11 +854,6 @@ export function handleProgressCuttingExceptionCenterEvent(target: Element): bool
 
   if (action === 'go-cut-orders') {
     appStore.navigate(cutOrdersPath)
-    return true
-  }
-
-  if (action === 'go-replenishment') {
-    appStore.navigate(replenishmentPath)
     return true
   }
 

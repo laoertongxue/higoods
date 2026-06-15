@@ -425,7 +425,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '裁后处理',
           icon: 'PackageCheck',
           children: [
-            { key: 'pfos-cutting-replenishment', title: '补料管理', icon: 'ShieldAlert', href: '/fcs/craft/cutting/replenishment' },
             { key: 'pfos-cutting-binding-strip-orders', title: '捆条加工单', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
             { key: 'pfos-cutting-fei-tickets', title: '部位菲票打印', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
             { key: 'pfos-cutting-binding-fei-tickets', title: '捆条菲票打印', icon: 'TicketCheck', href: '/fcs/craft/cutting/binding-fei-tickets' },

@@ -651,9 +651,6 @@ function renderSubmitBar(
         </button>
       </div>
       ${disabledByMaterial ? `<div class="mt-1 text-center text-[11px] text-muted-foreground">${escapeHtml(selectedTarget?.materialReadiness.reasonText || '')}</div>` : ''}
-      <button class="mt-1 inline-flex min-h-6 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100" data-nav="${escapeHtml(`/fcs/pda/cutting/replenishment-feedback/${encodeURIComponent(taskId)}?returnTo=${encodeURIComponent(pageBackHref)}`)}">
-        上报异常
-      </button>
     </div>
   `
 }
@@ -722,7 +719,6 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
           <button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" ${isPickup ? `data-nav="${escapeHtml(`/fcs/pda/handover?tab=pickup&focusTaskId=${encodeURIComponent(taskId)}&returnTo=${encodeURIComponent(pageBackHref)}`)}"` : `data-pda-cut-spreading-action="start-work" data-task-id="${escapeHtml(taskId)}"`}>
             ${escapeHtml(actionLabel)}
           </button>
-          <button class="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700" data-nav="${escapeHtml(`/fcs/pda/cutting/replenishment-feedback/${encodeURIComponent(taskId)}?returnTo=${encodeURIComponent(pageBackHref)}`)}">上报异常</button>
           <div class="mt-2 hidden rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs text-emerald-800" data-pda-cutting-spreading-stage-feedback></div>
         </section>
       </section>
@@ -746,7 +742,6 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
           <div class="mt-1 text-lg font-semibold text-foreground">查看提交结果</div>
           <div class="mt-2 rounded-xl bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground">${escapeHtml(detail.latestSyncSummary)}</div>
           <button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" data-nav="${escapeHtml(pageBackHref)}">返回裁片任务</button>
-          <button class="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700" data-nav="${escapeHtml(`/fcs/pda/cutting/replenishment-feedback/${encodeURIComponent(taskId)}?returnTo=${encodeURIComponent(pageBackHref)}`)}">上报异常</button>
         </section>
       </section>
     `

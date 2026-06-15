@@ -169,7 +169,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
         discrepancyStatus: 'RECHECK_REQUIRED',
         discrepancyNote: '实领 8 卷，少于本次打印 10 卷，仓库已发起核对。',
         photoProofCount: 0,
-        issueFlags: ['待核对', '待补料'],
+        issueFlags: ['待核对', '待复核'],
         latestActionText: '部分领料：第 3 批来料已入待加工仓，8 卷待核对。',
         configBatches: [
           {
@@ -332,7 +332,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
     assignedFactoryName: TEST_FACTORY_NAME,
     cutPieceOrderCount: 2,
     configSummary: '主面料已完成，里布仍待中转仓配料。',
-    receiveSummary: '主料已入待加工仓成功，里布待仓库补配。',
+    receiveSummary: '主料已入待加工仓成功，里布待仓库继续配料。',
     riskFlags: ['待中转仓配料', '待来料'],
     materialLines: [
       {
@@ -356,7 +356,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
         printSlipStatus: 'PRINTED',
         qrStatus: 'GENERATED',
         qrCodeValue: 'CPQR-CP-202603-024-01',
-        qrVersionNote: '裁片单级二维码，补配时继续沿用。',
+        qrVersionNote: '裁片单级二维码，后续配料时继续沿用。',
         latestConfigBatchNo: 'CFG-024-02',
         latestPrintedAt: '2026-03-21 15:40',
         printCount: 2,

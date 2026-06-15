@@ -27,7 +27,6 @@ export {
   renderCraftCuttingWarehouseManagementWaitHandoverPage,
   renderCraftCuttingTransferBagsPage,
   renderCraftCuttingTransferBagDetailPage,
-  renderCraftCuttingReplenishmentPage,
   renderCraftCuttingSpecialProcessesPage,
   renderCraftCuttingSummaryPage,
 } from './cutting'

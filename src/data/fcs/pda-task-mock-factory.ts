@@ -281,7 +281,7 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
     handoverSourceName: 'PT Sinar Garment Indonesia',
     receiveHint: '包装待接单，需先确认包材批次。',
     blockedReason: 'MATERIAL',
-    blockedRemark: '吊牌补料延迟，包装线暂停切入。',
+    blockedRemark: '吊牌追加到料延迟，包装线暂停切入。',
   },
   {
     key: 'QC',
@@ -309,7 +309,7 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
     qtyBase: 640,
     priceBase: 1.6,
     spuName: '后整理返修批',
-    materialSummary: '成衣返修包 / 补料附件',
+    materialSummary: '成衣返修包 / 追加附件',
     handoverTargetName: '一号成衣仓',
     handoverTargetKind: 'WAREHOUSE',
     handoverSourceName: 'PT Sinar Garment Indonesia',

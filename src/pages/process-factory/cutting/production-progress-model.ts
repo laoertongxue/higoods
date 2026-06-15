@@ -22,11 +22,9 @@ import {
   listPdaPickupEvents,
   listPdaInboundEvents,
   listPdaHandoverEvents,
-  listPdaReplenishmentFeedbackEvents,
   type PdaCutPieceHandoverEventRecord,
   type PdaCutPieceInboundEventRecord,
   type PdaPickupEventRecord,
-  type PdaReplenishmentFeedbackEventRecord,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 
@@ -58,7 +56,6 @@ export type ProductionProgressShipDeltaRangeKey =
 export type ProductionProgressRiskKey =
   | 'CONFIG_DELAY'
   | 'SHIP_URGENT'
-  | 'REPLENISH_PENDING'
   | 'PIECE_GAP'
 export type ProductionProgressSortKey = 'URGENCY_THEN_SHIP' | 'SHIP_DATE_ASC' | 'ORDER_QTY_DESC'
 export type ProductionProgressViewDimension = 'CUT_ORDER' | 'PRODUCTION_ORDER'
@@ -316,7 +313,6 @@ export const pieceCompletionMeta: Record<ProductionPieceCompletionKey, { label: 
 export const riskMeta: Record<ProductionProgressRiskKey, { label: string; className: string }> = {
   CONFIG_DELAY: { label: '中转仓滞后', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
-  REPLENISH_PENDING: { label: '待补料', className: 'bg-purple-100 text-purple-700 border border-purple-200' },
   PIECE_GAP: { label: '裁片缺口', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
 }
 
@@ -558,8 +554,6 @@ function buildPieceTruthOverlaySignals(
   const pickupEvents = options.pickupEvents ?? listPdaPickupEvents(storage)
   const inboundEvents = options.inboundEvents ?? listPdaInboundEvents(storage)
   const handoverEvents = options.handoverEvents ?? listPdaHandoverEvents(storage)
-  const replenishmentFeedbackEvents =
-    options.replenishmentFeedbackEvents ?? listPdaReplenishmentFeedbackEvents(storage)
 
   return [
     ...pickupEvents
@@ -571,9 +565,6 @@ function buildPieceTruthOverlaySignals(
     ...handoverEvents
       .filter(productionOrderMatches)
       .map((item) => toSignal('HANDOVER', item)),
-    ...replenishmentFeedbackEvents
-      .filter(productionOrderMatches)
-      .map((item) => toSignal('REPLENISHMENT', item)),
   ]
 }
 
@@ -592,9 +583,7 @@ function buildProductionCompletionSummary(
       ? options.prepSummary.detailText
       : options.claimSummary.key !== 'RECEIVED'
         ? options.claimSummary.detailText
-        : options.record.riskFlags.includes('REPLENISH_PENDING')
-          ? '当前仍有待补料项，需继续处理。'
-          : undefined
+        : undefined
   const completionMeta = buildProductionPieceTruthCompletion(truth, {
     hasObjectException: Boolean(objectExceptionReason),
     hasObjectPending: Boolean(objectPendingReason),
@@ -625,9 +614,6 @@ function buildRiskTags(
 
   if (prepSummary.key !== 'CONFIGURED') {
     pushRisk('CONFIG_DELAY')
-  }
-  if (record.riskFlags.includes('REPLENISH_PENDING')) {
-    pushRisk('REPLENISH_PENDING')
   }
   if (pieceTruth.gapRows.some((row) => row.gapCutQty > 0 || row.gapInboundQty > 0)) {
     pushRisk('PIECE_GAP')
@@ -1091,7 +1077,6 @@ export interface ProductionProgressRuntimeOptions {
   pickupEvents?: PdaPickupEventRecord[]
   inboundEvents?: PdaCutPieceInboundEventRecord[]
   handoverEvents?: PdaCutPieceHandoverEventRecord[]
-  replenishmentFeedbackEvents?: PdaReplenishmentFeedbackEventRecord[]
 }
 
 export function buildProductionProgressRows(

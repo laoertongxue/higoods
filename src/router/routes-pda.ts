@@ -20,7 +20,6 @@ import {
   renderPdaCuttingHandoverPage,
   renderPdaCuttingFeiTicketNumberingPage,
   renderPdaCuttingInboundPage,
-  renderPdaCuttingReplenishmentFeedbackPage,
   renderPdaCuttingSpreadingPage,
   renderPdaCuttingTaskDetailPage,
   renderPdaWarehousePage,
@@ -99,10 +98,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/pda\/cutting\/handover\/([^/]+)$/,
       render: (match) => renderPdaCuttingHandoverPage(match[1]),
-    },
-    {
-      pattern: /^\/fcs\/pda\/cutting\/replenishment-feedback\/([^/]+)$/,
-      render: (match) => renderPdaCuttingReplenishmentFeedbackPage(match[1]),
     },
     {
       pattern: /^\/fcs\/pda\/quality\/([^/]+)$/,

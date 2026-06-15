@@ -22,14 +22,7 @@ function resolveRouteLabel(routeKey: PdaCuttingExecutionRouteKey): string {
   if (routeKey === 'spreading') return '按唛架方案铺布'
   if (routeKey === 'inbound') return '入裁片待交出仓'
   if (routeKey === 'handover') return '发起交出'
-  return '反馈异常'
-}
-
-function hasPendingReplenishment(line: PdaCuttingTaskOrderLine): boolean {
-  return (
-    Boolean(line.replenishmentRiskLabel) &&
-    !includesAny(line.replenishmentRiskLabel, ['当前无', '无补料', '暂无补料', '无需补料'])
-  )
+  return '执行'
 }
 
 function isReceiveCompleted(status: string): boolean {
@@ -52,7 +45,6 @@ function resolveCurrentStepLabel(stepCode: PdaCuttingCurrentStepCode): string {
   if (stepCode === 'START') return '待开工'
   if (stepCode === 'PICKUP') return '交接领料'
   if (stepCode === 'SPREADING') return '按唛架方案铺布'
-  if (stepCode === 'REPLENISHMENT') return '反馈异常'
   if (stepCode === 'INBOUND') return '入裁片待交出仓'
   if (stepCode === 'HANDOVER') return '发起交出'
   return '已完成'
@@ -62,7 +54,6 @@ function mapStepCodeToRouteKey(stepCode: PdaCuttingCurrentStepCode): PdaCuttingE
   if (stepCode === 'START') return null
   if (stepCode === 'PICKUP') return 'spreading'
   if (stepCode === 'SPREADING') return 'spreading'
-  if (stepCode === 'REPLENISHMENT') return 'replenishment-feedback'
   if (stepCode === 'HANDOVER') return 'handover'
   if (stepCode === 'INBOUND') return 'inbound'
   return null
@@ -72,7 +63,6 @@ export function resolvePdaCuttingTaskOrderCurrentStepCode(line: PdaCuttingTaskOr
   if (line.currentStepCode) return line.currentStepCode
   if (!isReceiveCompleted(line.currentReceiveStatus)) return 'PICKUP'
   if (!isSpreadingCompleted(line.currentExecutionStatus)) return 'SPREADING'
-  if (hasPendingReplenishment(line)) return 'REPLENISHMENT'
   if (!isInboundCompleted(line.currentInboundStatus)) return 'INBOUND'
   if (!isHandoverCompleted(line.currentHandoverStatus)) return 'HANDOVER'
   return 'DONE'
@@ -103,7 +93,6 @@ export function buildPdaCuttingTaskOrderActions(
     'spreading',
     'inbound',
     'handover',
-    'replenishment-feedback',
   ] as PdaCuttingExecutionRouteKey[]).map((routeKey) => ({
     key: routeKey,
     label: resolveRouteLabel(routeKey),

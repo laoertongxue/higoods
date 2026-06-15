@@ -15,7 +15,6 @@ import {
 export type CuttingSummaryStatus =
   | 'PENDING_PREP_CLOSURE'
   | 'PENDING_EXECUTION_CLOSURE'
-  | 'PENDING_REPLENISHMENT'
   | 'PENDING_WAREHOUSE_HANDOVER'
   | 'PENDING_SAMPLE_RETURN'
   | 'DONE_PENDING_REVIEW'
@@ -23,7 +22,7 @@ export type CuttingSummaryStatus =
 
 export type CuttingSummaryRiskLevel = 'HIGH' | 'MEDIUM' | 'LOW'
 export type CuttingSummaryUpdatedSource = 'PLATFORM' | 'PCS' | 'FACTORY_APP'
-export type CuttingSummaryIssueSourcePage = 'MATERIAL_PREP' | 'CUT_PIECE_ORDER' | 'REPLENISHMENT' | 'WAREHOUSE' | 'SAMPLE'
+export type CuttingSummaryIssueSourcePage = 'MATERIAL_PREP' | 'CUT_PIECE_ORDER' | 'WAREHOUSE' | 'SAMPLE'
 
 export interface CuttingSummaryMaterialSummary {
   configuredCount: number
@@ -55,16 +54,6 @@ export interface CuttingSummarySpreadingSummary {
   latestSpreadingAt: string
   latestSpreadingBy: string
   pendingSpreadingCount: number
-}
-
-export interface CuttingSummaryReplenishmentSummary {
-  suggestionCount: number
-  pendingReviewCount: number
-  approvedCount: number
-  rejectedCount: number
-  needMoreInfoCount: number
-  highRiskCount: number
-  pendingPrepCount: number
 }
 
 export interface CuttingSummaryWarehouseSummary {
@@ -99,7 +88,7 @@ export interface CuttingSummaryIssue {
 }
 
 export interface CuttingSummaryLinkedPageSummary {
-  pageKey: 'ORDER_PROGRESS' | 'MATERIAL_PREP' | 'CUT_PIECE_ORDER' | 'REPLENISHMENT' | 'WAREHOUSE'
+  pageKey: 'ORDER_PROGRESS' | 'MATERIAL_PREP' | 'CUT_PIECE_ORDER' | 'WAREHOUSE'
   pageLabel: string
   route: string
   summaryText: string
@@ -132,7 +121,6 @@ export interface CuttingSummaryRecord {
   receiveSummary: CuttingSummaryReceiveSummary
   markerSummary: CuttingSummaryMarkerSummary
   spreadingSummary: CuttingSummarySpreadingSummary
-  replenishmentSummary: CuttingSummaryReplenishmentSummary
   warehouseSummary: CuttingSummaryWarehouseSummary
   sampleSummary: CuttingSummarySampleSummary
   issueFlags: string[]
@@ -148,7 +136,7 @@ export interface CuttingSummaryFilters {
   urgencyLevel: 'ALL' | CuttingUrgencyLevel
   summaryStatus: 'ALL' | CuttingSummaryStatus
   riskLevel: 'ALL' | CuttingSummaryRiskLevel
-  issueSource: 'ALL' | 'PREP' | 'EXECUTION' | 'REPLENISHMENT' | 'WAREHOUSE' | 'SAMPLE'
+  issueSource: 'ALL' | 'PREP' | 'EXECUTION' | 'WAREHOUSE' | 'SAMPLE'
   pendingOnly: 'ALL' | 'PENDING_ONLY'
 }
 
@@ -192,7 +180,6 @@ function issueSourceMatches(
   if (filter === 'ALL') return true
   if (filter === 'PREP') return issue.sourcePage === 'MATERIAL_PREP'
   if (filter === 'EXECUTION') return issue.sourcePage === 'CUT_PIECE_ORDER'
-  if (filter === 'REPLENISHMENT') return issue.sourcePage === 'REPLENISHMENT'
   if (filter === 'WAREHOUSE') return issue.sourcePage === 'WAREHOUSE'
   return issue.sourcePage === 'SAMPLE'
 }
@@ -261,19 +248,6 @@ function buildSpreadingSummary(progressRecord: CuttingOrderProgressRecord): Cutt
   }
 }
 
-function buildReplenishmentSummary(progressRecord: CuttingOrderProgressRecord): CuttingSummaryReplenishmentSummary {
-  const pendingLines = progressRecord.materialLines.filter((item) => item.issueFlags.includes('REPLENISH_PENDING'))
-  return {
-    suggestionCount: pendingLines.length,
-    pendingReviewCount: pendingLines.length,
-    approvedCount: 0,
-    rejectedCount: 0,
-    needMoreInfoCount: 0,
-    highRiskCount: pendingLines.filter((item) => item.receiveStatus === 'PARTIAL' || item.materialType === 'PRINT').length,
-    pendingPrepCount: pendingLines.length,
-  }
-}
-
 function buildWarehouseSummary(records: CutPieceWarehouseRecord[]): CuttingSummaryWarehouseSummary {
   return {
     cuttingFabricStockNeedRecheckCount: 0,
@@ -301,12 +275,10 @@ function buildSampleSummary(records: SampleWarehouseRecord[]): CuttingSummarySam
 
 function buildPlatformStageSummary(args: {
   receiveSummary: CuttingSummaryReceiveSummary
-  replenishmentSummary: CuttingSummaryReplenishmentSummary
   warehouseSummary: CuttingSummaryWarehouseSummary
   sampleSummary: CuttingSummarySampleSummary
   spreadingSummary: CuttingSummarySpreadingSummary
 }): string {
-  if (args.replenishmentSummary.pendingReviewCount > 0) return '补料建议待审核，需先收口执行缺口。'
   if (args.warehouseSummary.cutPiecePendingInboundCount > 0 || args.warehouseSummary.unassignedZoneCount > 0) return '裁片仓入仓 / 分区仍待收口。'
   if (args.sampleSummary.sampleWaitingReturnCount > 0) return '样衣流转尚未收口，需继续回仓。'
   if (args.receiveSummary.receivedPartialCount > 0 || args.receiveSummary.notReceivedCount > 0) return '裁床领料入待加工仓仍在执行中。'
@@ -320,7 +292,6 @@ function buildIssues(args: {
   receiveSummary: CuttingSummaryReceiveSummary
   markerSummary: CuttingSummaryMarkerSummary
   spreadingSummary: CuttingSummarySpreadingSummary
-  replenishmentSummary: CuttingSummaryReplenishmentSummary
   warehouseSummary: CuttingSummaryWarehouseSummary
   sampleSummary: CuttingSummarySampleSummary
 }): CuttingSummaryIssue[] {
@@ -374,18 +345,6 @@ function buildIssues(args: {
     })
   }
 
-  if (args.replenishmentSummary.pendingReviewCount > 0) {
-    issues.push({
-      issueType: 'REPLENISH_PENDING',
-      level: args.replenishmentSummary.highRiskCount > 0 ? 'HIGH' : 'MEDIUM',
-      title: '补料建议待处理',
-      description: `当前仍有 ${args.replenishmentSummary.pendingReviewCount} 条补料提示待收口。`,
-      sourcePage: 'REPLENISHMENT',
-      suggestedAction: '返回补料页处理当前执行缺口。',
-      suggestedRoute: '/fcs/craft/cutting/replenishment',
-    })
-  }
-
   if (args.warehouseSummary.cutPiecePendingInboundCount > 0 || args.warehouseSummary.unassignedZoneCount > 0) {
     issues.push({
       issueType: 'WAREHOUSE_PENDING',
@@ -428,12 +387,10 @@ function buildOverallSummaryStatus(args: {
   receiveSummary: CuttingSummaryReceiveSummary
   markerSummary: CuttingSummaryMarkerSummary
   spreadingSummary: CuttingSummarySpreadingSummary
-  replenishmentSummary: CuttingSummaryReplenishmentSummary
   warehouseSummary: CuttingSummaryWarehouseSummary
   sampleSummary: CuttingSummarySampleSummary
   issues: CuttingSummaryIssue[]
 }): CuttingSummaryStatus {
-  if (args.replenishmentSummary.pendingReviewCount > 0 || args.replenishmentSummary.needMoreInfoCount > 0) return 'PENDING_REPLENISHMENT'
   if (args.sampleSummary.sampleWaitingReturnCount > 0 || args.sampleSummary.overdueReturnCount > 0) return 'PENDING_SAMPLE_RETURN'
   if (args.warehouseSummary.cutPiecePendingInboundCount > 0 || args.warehouseSummary.unassignedZoneCount > 0 || args.warehouseSummary.waitingHandoverCount > 0) return 'PENDING_WAREHOUSE_HANDOVER'
   if (args.markerSummary.pendingMarkerCount > 0 || args.spreadingSummary.pendingSpreadingCount > 0) return 'PENDING_EXECUTION_CLOSURE'
@@ -448,7 +405,6 @@ function buildLinkedPageSummary(args: {
   receiveSummary: CuttingSummaryReceiveSummary
   markerSummary: CuttingSummaryMarkerSummary
   spreadingSummary: CuttingSummarySpreadingSummary
-  replenishmentSummary: CuttingSummaryReplenishmentSummary
   warehouseSummary: CuttingSummaryWarehouseSummary
 }): CuttingSummaryLinkedPageSummary[] {
   return [
@@ -469,12 +425,6 @@ function buildLinkedPageSummary(args: {
       pageLabel: '裁片单',
       route: '/fcs/craft/cutting/cut-orders',
       summaryText: `唛架已维护 ${args.markerSummary.markerMaintainedCount}，铺布回写 ${args.spreadingSummary.spreadingRecordCount} 条`,
-    },
-    {
-      pageKey: 'REPLENISHMENT',
-      pageLabel: '补料管理',
-      route: '/fcs/craft/cutting/replenishment',
-      summaryText: `补料提示 ${args.replenishmentSummary.suggestionCount}，待处理 ${args.replenishmentSummary.pendingReviewCount}`,
     },
     {
       pageKey: 'WAREHOUSE',
@@ -535,17 +485,6 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
         latestSpreadingBy: '',
         pendingSpreadingCount: cutOrderSources.length,
       }
-  const replenishmentSummary = progressRecord
-    ? buildReplenishmentSummary(progressRecord)
-    : {
-        suggestionCount: 0,
-        pendingReviewCount: 0,
-        approvedCount: 0,
-        rejectedCount: 0,
-        needMoreInfoCount: 0,
-        highRiskCount: 0,
-        pendingPrepCount: 0,
-      }
   const warehouseSummary = buildWarehouseSummary(cutPieceWarehouseRecords)
   warehouseSummary.cuttingFabricStockNeedRecheckCount = fabricWarehouseRecords.filter((item) => item.fabricState === 'NEED_RECHECK').length
   const sampleSummary = buildSampleSummary(sampleWarehouseRecords)
@@ -555,7 +494,6 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
     receiveSummary,
     markerSummary,
     spreadingSummary,
-    replenishmentSummary,
     warehouseSummary,
     sampleSummary,
   })
@@ -570,7 +508,6 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
     receiveSummary,
     markerSummary,
     spreadingSummary,
-    replenishmentSummary,
     warehouseSummary,
     sampleSummary,
     issues,
@@ -582,7 +519,6 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
         receiveSummary,
         markerSummary,
         spreadingSummary,
-        replenishmentSummary,
         warehouseSummary,
       })
     : []
@@ -613,7 +549,6 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
     assignedFactoryName: progressRecord?.assignedFactoryName || order.mainFactorySnapshot.name,
     platformStageSummary: buildPlatformStageSummary({
       receiveSummary,
-      replenishmentSummary,
       warehouseSummary,
       sampleSummary,
       spreadingSummary,
@@ -630,7 +565,6 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
     receiveSummary,
     markerSummary,
     spreadingSummary,
-    replenishmentSummary,
     warehouseSummary,
     sampleSummary,
     issueFlags: buildIssueFlags(issues),
@@ -667,7 +601,6 @@ export function cloneCuttingSummaryRecords(): CuttingSummaryRecord[] {
     receiveSummary: { ...record.receiveSummary },
     markerSummary: { ...record.markerSummary },
     spreadingSummary: { ...record.spreadingSummary },
-    replenishmentSummary: { ...record.replenishmentSummary },
     warehouseSummary: { ...record.warehouseSummary },
     sampleSummary: { ...record.sampleSummary },
     issueFlags: [...record.issueFlags],

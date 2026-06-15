@@ -2,7 +2,7 @@ import type { CuttingSummaryIssue } from '../../data/fcs/cutting/cutting-summary
 import type { PlatformCuttingOverviewRow } from './overview.adapter'
 
 export interface PlatformCuttingChainSection {
-  key: 'pickup' | 'execution' | 'replenishment' | 'warehouse' | 'sample'
+  key: 'pickup' | 'execution' | 'warehouse' | 'sample'
   title: string
   statusLabel: string
   summaryText: string
@@ -25,7 +25,6 @@ export function buildPlatformCuttingDetailRoute(recordId: string): string {
 export function buildPlatformIssueSourceLabel(issue: CuttingSummaryIssue): string {
   if (issue.sourcePage === 'MATERIAL_PREP') return '仓库配料'
   if (issue.sourcePage === 'CUT_PIECE_ORDER') return '裁片执行'
-  if (issue.sourcePage === 'REPLENISHMENT') return '补料管理'
   if (issue.sourcePage === 'WAREHOUSE') return '仓库管理'
   return '样衣流转'
 }
@@ -64,20 +63,6 @@ export function buildPlatformChainSections(row: PlatformCuttingOverviewRow): Pla
       riskTags: [
         ...(row.record.markerSummary.pendingMarkerCount > 0 ? ['唛架待维护'] : []),
         ...(row.record.spreadingSummary.pendingSpreadingCount > 0 ? ['铺布待补录'] : []),
-      ],
-    },
-    {
-      key: 'replenishment',
-      title: '补料',
-      statusLabel: row.hasPendingReplenishment ? '待补料处理' : '当前无补料阻断',
-      summaryText: row.replenishmentSummaryText,
-      latestActionText:
-        row.record.replenishmentSummary.suggestionCount > 0
-          ? `待审核 ${row.record.replenishmentSummary.pendingReviewCount} · 已通过 ${row.record.replenishmentSummary.approvedCount}`
-          : '当前无补料建议',
-      riskTags: [
-        ...(row.record.replenishmentSummary.highRiskCount > 0 ? ['高风险补料'] : []),
-        ...(row.record.replenishmentSummary.pendingPrepCount > 0 ? ['待WMS领料入仓'] : []),
       ],
     },
     {
@@ -127,23 +112,23 @@ export function buildPlatformAttentionItems(row: PlatformCuttingOverviewRow): Pl
     })
   }
 
-  if (row.overallRiskLevel === 'HIGH' || row.record.replenishmentSummary.highRiskCount > 0) {
+  if (row.overallRiskLevel === 'HIGH') {
     items.push({
       key: 'quality-follow-up',
       title: '建议质量关注',
       level: 'HIGH',
-      description: '当前存在高风险问题或高风险补料建议，后续可能对质量判定与扣款产生影响。',
+      description: '当前存在高风险问题，后续可能对质量判定与扣款产生影响。',
       suggestedFollowUp: '在裁片收口前保留问题记录，供后续质量与扣款跟进使用。',
     })
   }
 
-  if (row.hasPendingReplenishment || row.hasPendingInbound || row.hasPendingHandover) {
+  if (row.hasPendingInbound || row.hasPendingHandover) {
     items.push({
       key: 'execution-stability',
       title: '建议关注工厂执行稳定性',
-      level: row.hasPendingReplenishment ? 'HIGH' : 'MEDIUM',
+      level: 'MEDIUM',
       description: '当前仍有关键节点未收口，可能继续拖累仓务节奏和后续工序安排。',
-      suggestedFollowUp: '优先处理补料、入仓和交接卡点，再判断是否需要升级平台跟进。',
+      suggestedFollowUp: '优先处理入仓和交接卡点，再判断是否需要升级平台跟进。',
     })
   }
 

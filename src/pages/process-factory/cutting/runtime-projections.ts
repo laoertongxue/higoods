@@ -15,12 +15,6 @@ import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
 import { buildMaterialPrepViewModel } from './material-prep-model.ts'
 import { buildCutOrderViewModel, type CutOrderRow } from './cut-orders-model.ts'
 import { buildProductionProgressRows } from './production-progress-model.ts'
-import {
-  buildReplenishmentViewModel,
-  type ReplenishmentFollowupAction,
-  type ReplenishmentImpactPlan,
-  type ReplenishmentReview,
-} from './replenishment-model.ts'
 import { buildSampleWarehouseViewModel } from './sample-warehouse-model.ts'
 import {
   buildSpecialProcessViewModel,
@@ -211,7 +205,6 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
     inboundEvents: snapshot.pdaExecutionState.inboundEvents as never[],
     handoverEvents: snapshot.pdaExecutionState.handoverEvents as never[],
-    replenishmentFeedbackEvents: snapshot.pdaExecutionState.replenishmentFeedbackEvents as never[],
   })
   const seedCutOrderRows = buildCutOrderRows(snapshot, [], progressRows)
   const markerPlanSources = buildRuntimeMarkerPlanSourceRecords(snapshot, seedCutOrderRows)
@@ -272,16 +265,6 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     baseViewModel: transferBagView,
   })
 
-  const replenishmentView = buildReplenishmentViewModel({
-    materialPrepRows,
-    cutOrderRows,
-    markerPlanSources,
-    markerStore,
-    reviews: snapshot.replenishmentState.reviews as unknown as ReplenishmentReview[],
-    impactPlans: snapshot.replenishmentState.impactPlans as unknown as ReplenishmentImpactPlan[],
-    actions: snapshot.replenishmentState.actions as unknown as ReplenishmentFollowupAction[],
-  })
-
   const specialProcessView = buildSpecialProcessViewModel({
     cutOrderRows,
     markerPlanSources,
@@ -304,7 +287,6 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     sampleWarehouseView,
     transferBagView,
     transferBagReturnView,
-    replenishmentView,
     specialProcessView,
   }
 }
@@ -316,14 +298,12 @@ export function mapCuttingDomainSnapshotToMarkerSpreadingBuildOptions(
     pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
     inboundEvents: snapshot.pdaExecutionState.inboundEvents as never[],
     handoverEvents: snapshot.pdaExecutionState.handoverEvents as never[],
-    replenishmentFeedbackEvents: snapshot.pdaExecutionState.replenishmentFeedbackEvents as never[],
   })
   const seedCutOrderRows = buildCutOrderRows(snapshot, [], progressRows)
   const markerPlanSources = buildRuntimeMarkerPlanSourceRecords(snapshot, seedCutOrderRows)
   const cutOrderRows = buildCutOrderRows(snapshot, markerPlanSources, progressRows)
   const materialPrepRows = buildMaterialPrepViewModel(snapshot.progressRecords, markerPlanSources, {
     pickupEvents: snapshot.pdaExecutionState.pickupEvents as never[],
-    pendingPrepFollowups: [],
     includeClaimDisputes: false,
   }).rows
 

@@ -23,12 +23,10 @@ import {
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks'
-import { buildReplenishmentProjection } from './process-factory/cutting/replenishment-projection'
 import {
   buildCutOrderLink,
   buildMaterialPrepLink,
   buildProductionOrderLink,
-  buildReplenishmentLink,
 } from '../data/fcs/fcs-route-links'
 
 type ExecutionStatusFilter = 'ALL' | 'NO_DOC' | WarehouseExecutionStatus
@@ -70,7 +68,6 @@ interface CuttingMaterialProgressRow {
   configuredLength: number
   receivedRollCount: number
   receivedLength: number
-  replenishmentStatusLabel: string
   cutOrderQrValue: string
   differenceText: string
 }
@@ -326,14 +323,6 @@ function getAggregatedSummary(rows: OrderExecutionRow[]): {
 }
 
 function buildCuttingMaterialProgressRows(poId?: string | null): CuttingMaterialProgressRow[] {
-  const replenishmentRows = buildReplenishmentProjection().viewModel.rows
-  const replenishmentMap = replenishmentRows.reduce<Record<string, string>>((accumulator, row) => {
-    row.cutOrderNos.forEach((cutOrderNo) => {
-      accumulator[cutOrderNo] = accumulator[cutOrderNo] || row.statusMeta.label
-    })
-    return accumulator
-  }, {})
-
   return cuttingMaterialPrepGroups
     .flatMap((group) =>
       group.materialLines.map((line) => ({
@@ -345,7 +334,6 @@ function buildCuttingMaterialProgressRows(poId?: string | null): CuttingMaterial
         configuredLength: line.configuredLength,
         receivedRollCount: line.receivedRollCount,
         receivedLength: line.receivedLength,
-        replenishmentStatusLabel: replenishmentMap[line.cutPieceOrderNo] || '暂无数据',
         cutOrderQrValue: line.cutOrderQrValue || line.qrCodeValue,
         differenceText:
           line.configuredRollCount === line.receivedRollCount
@@ -363,14 +351,13 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
   const configuredLengthTotal = rows.reduce((sum, row) => sum + row.configuredLength, 0)
   const claimedLengthTotal = rows.reduce((sum, row) => sum + row.receivedLength, 0)
   const diffCount = rows.filter((row) => row.differenceText !== '—').length
-  const replenishmentCount = rows.filter((row) => row.replenishmentStatusLabel !== '暂无数据').length
 
   return `
     <section class="space-y-4 rounded-lg border bg-card p-4">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold">配料进度</h2>
-          <p class="text-xs text-muted-foreground">按裁片单汇总中转仓配料数量、裁床领料数量、差异和补料</p>
+          <p class="text-xs text-muted-foreground">按裁片单汇总中转仓配料数量、裁床领料数量和差异</p>
         </div>
         <span class="text-xs text-muted-foreground">共 ${rows.length} 条</span>
       </div>
@@ -392,8 +379,8 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
           <p class="mt-2 text-xl font-semibold">${claimedLengthTotal}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 px-3 py-3">
-          <p class="text-xs text-muted-foreground">差异 / 补料</p>
-          <p class="mt-2 text-xl font-semibold ${diffCount > 0 ? 'text-red-600' : ''}">${diffCount} / ${replenishmentCount}</p>
+          <p class="text-xs text-muted-foreground">差异数量</p>
+          <p class="mt-2 text-xl font-semibold ${diffCount > 0 ? 'text-red-600' : ''}">${diffCount}</p>
         </article>
       </div>
       <div class="overflow-x-auto">
@@ -409,7 +396,6 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
               <th class="px-3 py-2 font-medium">裁床领料卷数</th>
               <th class="px-3 py-2 font-medium">裁床领料长度</th>
               <th class="px-3 py-2 font-medium">差异</th>
-              <th class="px-3 py-2 font-medium">补料处理</th>
               <th class="px-3 py-2 font-medium">裁片单二维码</th>
               <th class="px-3 py-2 text-right font-medium">操作</th>
             </tr>
@@ -419,7 +405,7 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
               rows.length === 0
                 ? `
                     <tr>
-                      <td colspan="12" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td>
+                      <td colspan="11" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td>
                     </tr>
                   `
                 : rows
@@ -435,14 +421,12 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
                           <td class="px-3 py-2">${row.receivedRollCount}</td>
                           <td class="px-3 py-2">${row.receivedLength}</td>
                           <td class="px-3 py-2">${escapeHtml(row.differenceText)}</td>
-                          <td class="px-3 py-2">${escapeHtml(row.replenishmentStatusLabel)}</td>
                           <td class="px-3 py-2 text-xs">${row.cutOrderQrValue ? '已绑定二维码' : '未生成'}</td>
                           <td class="px-3 py-2">
                             <div class="flex justify-end gap-2">
                               <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildProductionOrderLink(row.productionOrderNo))}">生产单</button>
                               <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildCutOrderLink(row.cutOrderNo))}">裁片单</button>
                               <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildMaterialPrepLink(row.cutOrderNo))}">配料</button>
-                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildReplenishmentLink(row.cutOrderNo))}">补料</button>
                             </div>
                           </td>
                         </tr>
@@ -624,7 +608,7 @@ function renderMaterialListView(): string {
             <i data-lucide="package-search" class="h-5 w-5"></i>
             领料/配料进度
           </h1>
-          <p class="text-sm text-muted-foreground">汇总裁床配料、领料、差异和补料状态</p>
+          <p class="text-sm text-muted-foreground">汇总裁床配料、领料和差异状态</p>
         </div>
       </div>
 

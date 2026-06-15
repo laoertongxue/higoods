@@ -22,7 +22,6 @@ export type CuttingPdaActionType =
   | 'SPREADING_RECORD'
   | 'INBOUND_CONFIRM'
   | 'HANDOVER_CONFIRM'
-  | 'REPLENISHMENT_FEEDBACK'
 
 export interface CuttingPdaRuntimeIdentityInput {
   taskId: string
