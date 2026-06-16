@@ -25,6 +25,12 @@ interface SupplementFilters {
   keyword: string
 }
 
+interface SupplementSourcePickerState {
+  sourceType: SupplementSourceType
+  keyword: string
+  selectedCandidateId: string
+}
+
 interface SupplementFeedback {
   tone: 'success' | 'warning'
   message: string
@@ -170,6 +176,7 @@ interface SupplementProcessLink {
 
 interface SupplementManagementState {
   filters: SupplementFilters
+  sourcePicker: SupplementSourcePickerState
   activeCandidateId: string
   activeRecordId: string
   pendingConfirmDraft: SupplementDraft | null
@@ -181,6 +188,11 @@ const state: SupplementManagementState = {
   filters: {
     sourceType: 'ALL',
     keyword: '',
+  },
+  sourcePicker: {
+    sourceType: 'production-order',
+    keyword: '',
+    selectedCandidateId: '',
   },
   activeCandidateId: '',
   activeRecordId: '',
@@ -203,11 +215,6 @@ const numberFormatter = new Intl.NumberFormat('zh-CN')
 
 function formatInteger(value: number): string {
   return numberFormatter.format(Math.max(Math.round(Number(value || 0)), 0))
-}
-
-function formatSignedInteger(value: number): string {
-  const rounded = Math.round(Number(value || 0))
-  return `${rounded > 0 ? '+' : ''}${numberFormatter.format(rounded)}`
 }
 
 function formatDecimal(value: number, digits = 1): string {
@@ -759,17 +766,20 @@ function getFilteredRecords(): SupplementRecord[] {
 }
 
 function getSourcePickerCandidates(): SupplementCandidate[] {
-  const keyword = state.filters.keyword.trim().toLowerCase()
+  const keyword = state.sourcePicker.keyword.trim().toLowerCase()
   return buildCandidates()
     .filter((item) => item.canInitiate)
-    .filter((item) => state.filters.sourceType === 'ALL' || item.sourceType === state.filters.sourceType)
+    .filter((item) => item.sourceType === state.sourcePicker.sourceType)
     .filter((item) => {
       if (!keyword) return true
       return [
         item.sourceNo,
+        item.sourceTitle,
+        item.sourceSubtitle,
         item.record.productionOrderNo,
         item.record.spuCode,
         item.record.styleName,
+        item.materialLines.map((line) => [getCutOrderNo(line), line.materialSku, line.materialName].join(' ')).join(' '),
       ].join(' ').toLowerCase().includes(keyword)
     })
     .sort((left, right) => right.abAnalysisRows.length - left.abAnalysisRows.length)
@@ -885,18 +895,44 @@ function renderFilters(): string {
 }
 
 function renderSourcePickerPage(): string {
+  const allCandidates = buildCandidates().filter((item) => item.canInitiate)
+  const productionOrderCount = allCandidates.filter((item) => item.sourceType === 'production-order').length
+  const cutOrderCount = allCandidates.filter((item) => item.sourceType === 'cut-order').length
   const candidates = getSourcePickerCandidates()
+  const selectedCandidate = candidates.find((candidate) => candidate.id === state.sourcePicker.selectedCandidateId)
+  const selectedSourceType = state.sourcePicker.sourceType
+  const sourceLabel = sourceTypeLabels[selectedSourceType]
+  const sourceColumnLabel = selectedSourceType === 'production-order' ? '生产单' : '裁片单'
+  const relatedColumnLabel = selectedSourceType === 'production-order' ? '关联裁片单' : '所属生产单'
+  const keywordPlaceholder = selectedSourceType === 'production-order'
+    ? '搜索生产单号、款式、SPU、关联裁片单'
+    : '搜索裁片单号、生产单号、款式、SPU'
   const rows = candidates.map((candidate) => {
     const summary = summarizeCandidate(candidate)
     const spuImageUrl = getSpuImageUrl(candidate.record)
-    const abShortageQty = candidate.abAnalysisRows.reduce((sum, row) => sum + Number(row.suggestedSupplementQty || 0), 0)
+    const actualCutQty = candidate.abAnalysisRows.reduce((sum, row) => sum + Number(row.currentRoleCutQty || 0), 0)
+    const suggestedSupplementQty = candidate.abAnalysisRows.reduce((sum, row) => sum + Number(row.suggestedSupplementQty || 0), 0)
+    const isSelected = state.sourcePicker.selectedCandidateId === candidate.id
     const materialImages = candidate.materialLines.slice(0, 4).map((line) => `
       <img class="h-8 w-8 rounded border object-cover" src="${escapeHtml(getMaterialImageUrl(line))}" alt="${escapeHtml(line.materialSku)}" />
     `).join('')
+    const relatedText = selectedSourceType === 'production-order'
+      ? Array.from(new Set(candidate.materialLines.map(getCutOrderNo).filter(Boolean))).slice(0, 4).join('、') || '未关联'
+      : candidate.record.productionOrderNo
     return `
-      <tr class="border-t align-top">
+      <tr class="border-t align-top ${isSelected ? 'bg-blue-50/40' : ''}">
+        <td class="w-12 px-4 py-4">
+          <input
+            class="h-4 w-4 rounded border"
+            type="checkbox"
+            aria-label="选择${escapeHtml(candidate.sourceTitle)}"
+            ${isSelected ? 'checked' : ''}
+            data-cutting-supplement-action="toggle-source-candidate"
+            data-candidate-id="${escapeHtml(candidate.id)}"
+          />
+        </td>
         <td class="px-4 py-4">
-          <div class="font-semibold">${escapeHtml(sourceTypeLabels[candidate.sourceType])} ${escapeHtml(candidate.sourceNo)}</div>
+          <div class="font-semibold">${escapeHtml(candidate.sourceTitle)}</div>
           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.sourceSubtitle)}</div>
         </td>
         <td class="px-4 py-4">
@@ -910,18 +946,14 @@ function renderSourcePickerPage(): string {
           </div>
         </td>
         <td class="px-4 py-4 text-sm">
-          <div>需求：<span class="font-medium tabular-nums">${formatInteger(summary.plannedQty)}</span> 件</div>
-          <div>齐套：<span class="font-medium tabular-nums text-emerald-700">${formatInteger(summary.completeSetQty)}</span> 件</div>
-          <div>缺口：<span class="font-medium tabular-nums ${summary.shortageQty > 0 ? 'text-amber-700' : 'text-emerald-700'}">${formatInteger(summary.shortageQty)}</span> 件</div>
-          <div>补料中：<span class="font-medium tabular-nums">${formatInteger(summary.supplementingQty)}</span> 件</div>
-          <div>AB缺口：<span class="font-medium tabular-nums ${abShortageQty > 0 ? 'text-rose-700' : 'text-emerald-700'}">${formatInteger(abShortageQty)}</span> 件</div>
+          <div>计划数量：<span class="font-medium tabular-nums">${formatInteger(summary.plannedQty)}</span> 件</div>
+          <div>实裁数据：<span class="font-medium tabular-nums">${formatInteger(actualCutQty)}</span> 件</div>
+          <div>已发起：<span class="font-medium tabular-nums">${formatInteger(summary.supplementingQty)}</span> 件</div>
+          <div>建议补料：<span class="font-medium tabular-nums">${formatInteger(suggestedSupplementQty)}</span> 件</div>
         </td>
         <td class="px-4 py-4 text-sm">
-          <div>${escapeHtml(Array.from(new Set(candidate.materialLines.map(getCutOrderNo).filter(Boolean))).slice(0, 3).join('、') || '未关联')}</div>
+          <div>${escapeHtml(relatedText)}</div>
           <div class="mt-1 text-xs text-muted-foreground">物料 ${formatInteger(candidate.materialLines.length)} 行</div>
-        </td>
-        <td class="px-4 py-4">
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="select-candidate" data-candidate-id="${escapeHtml(candidate.id)}">选择并填写</button>
         </td>
       </tr>
     `
@@ -931,48 +963,96 @@ function renderSourcePickerPage(): string {
     <section class="rounded-lg border bg-card">
       <div class="border-b px-5 py-4">
         <h2 class="text-lg font-semibold">选择补料对象</h2>
-        <p class="mt-1 text-sm text-muted-foreground">先选择生产单或裁片单，再按尺码 + 成衣颜色填写本次补料件数。</p>
+        <p class="mt-1 text-sm text-muted-foreground">先选择生产单或裁片单，搜索并勾选一条记录后进入下一步填写补料明细。</p>
+      </div>
+      <div class="space-y-4 border-b px-5 py-4">
+        <div class="inline-flex rounded-lg border bg-muted/30 p-1 text-sm">
+          <button
+            type="button"
+            class="rounded-md px-4 py-2 font-medium ${selectedSourceType === 'production-order' ? 'bg-background text-blue-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+            data-cutting-supplement-action="set-source-picker-type"
+            data-source-type="production-order"
+          >生产单 ${formatInteger(productionOrderCount)}</button>
+          <button
+            type="button"
+            class="rounded-md px-4 py-2 font-medium ${selectedSourceType === 'cut-order' ? 'bg-background text-blue-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+            data-cutting-supplement-action="set-source-picker-type"
+            data-source-type="cut-order"
+          >裁片单 ${formatInteger(cutOrderCount)}</button>
+        </div>
+        <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_auto_auto] md:items-end">
+          <label class="space-y-1 text-sm">
+            <span class="text-muted-foreground">${sourceLabel}搜索</span>
+            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="sourcePickerKeyword" value="${escapeHtml(state.sourcePicker.keyword)}" placeholder="${escapeHtml(keywordPlaceholder)}" />
+          </label>
+          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="apply-source-picker-search">搜索</button>
+          <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-cutting-supplement-action="reset-source-picker-search">重置</button>
+        </div>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
           <thead class="bg-muted/50 text-xs text-muted-foreground">
             <tr>
-              <th class="px-4 py-3 font-medium">补料对象</th>
+              <th class="w-12 px-4 py-3 font-medium">选择</th>
+              <th class="px-4 py-3 font-medium">${sourceColumnLabel}</th>
               <th class="px-4 py-3 font-medium">款式/SPU</th>
-              <th class="px-4 py-3 font-medium">当前已裁与齐套</th>
-              <th class="px-4 py-3 font-medium">关联裁片单</th>
-              <th class="px-4 py-3 font-medium">操作</th>
+              <th class="px-4 py-3 font-medium">补料参考数据</th>
+              <th class="px-4 py-3 font-medium">${relatedColumnLabel}</th>
             </tr>
           </thead>
-          <tbody>${rows || '<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="5">暂无可新增补料的生产单或裁片单。</td></tr>'}</tbody>
+          <tbody>${rows || `<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="5">暂无可新增补料的${sourceLabel}。</td></tr>`}</tbody>
         </table>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4">
+        <div class="text-sm text-muted-foreground">
+          ${selectedCandidate ? `已选择：${escapeHtml(selectedCandidate.sourceTitle)} / ${escapeHtml(selectedCandidate.record.styleName)}` : `请选择一条${sourceLabel}后进入下一步。`}
+        </div>
+        <button
+          type="button"
+          class="rounded-md px-4 py-2 text-sm font-medium ${selectedCandidate ? 'bg-blue-600 text-white hover:bg-blue-700' : 'cursor-not-allowed bg-muted text-muted-foreground'}"
+          ${selectedCandidate ? '' : 'disabled'}
+          data-cutting-supplement-action="source-picker-next"
+        >下一步</button>
       </div>
     </section>
   `
 }
 
-function renderRoleBadge(role: SupplementMaterialRole, confirmStatus: SupplementRoleConfirmStatus): string {
-  const className = role === '面料A'
+function renderMaterialAliasInfo(item: Pick<SupplementMaterialPatternRef | SupplementMaterialDemand, 'materialRole' | 'materialAlias'>): string {
+  const className = item.materialRole === '面料A'
     ? 'bg-blue-50 text-blue-700'
-    : role === '面料B'
+    : item.materialRole === '面料B'
       ? 'bg-amber-50 text-amber-700'
-      : role === '未识别'
+      : item.materialRole === '未识别'
         ? 'bg-zinc-100 text-zinc-600'
         : 'bg-emerald-50 text-emerald-700'
-  return `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${className}">${escapeHtml(role)}${confirmStatus === '待确认' ? ' / 待确认' : ''}</span>`
+  return `
+    <div class="space-y-1">
+      <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${className}">${escapeHtml(item.materialRole)}</span>
+      <div class="text-xs text-muted-foreground">技术包别名：${escapeHtml(item.materialAlias || item.materialRole)}</div>
+    </div>
+  `
 }
 
-function renderMaterialRefInline(ref: SupplementMaterialPatternRef): string {
+function renderSupplementMaterialInfo(ref: Pick<SupplementMaterialPatternRef | SupplementMaterialDemand, 'materialImageUrl' | 'materialName' | 'materialSku'>): string {
   return `
-    <div class="min-w-[240px]">
+    <div class="min-w-[230px]">
       <div class="flex items-start gap-2">
-        <img class="h-9 w-9 rounded border object-cover" src="${escapeHtml(ref.materialImageUrl)}" alt="${escapeHtml(ref.materialSku)}" />
+        <img class="h-10 w-10 rounded border object-cover" src="${escapeHtml(ref.materialImageUrl)}" alt="${escapeHtml(ref.materialSku)}" />
         <div class="min-w-0">
-          <div class="truncate font-medium">${escapeHtml(ref.materialSku)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(ref.patternName)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">别名：${escapeHtml(ref.materialAlias)} / ${escapeHtml(ref.roleSource)}</div>
+          <div class="truncate font-medium">${escapeHtml(ref.materialName || '未命名物料')}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(ref.materialSku || '未维护编码')}</div>
         </div>
       </div>
+    </div>
+  `
+}
+
+function renderSupplementPatternInfo(ref: Pick<SupplementMaterialPatternRef | SupplementMaterialDemand, 'techPackVersionId' | 'patternName'>): string {
+  return `
+    <div class="min-w-[210px]">
+      <div class="font-medium">${escapeHtml(ref.patternName || '未关联纸样')}</div>
+      <div class="mt-1 text-xs text-muted-foreground">技术包版：${escapeHtml(ref.techPackVersionId || '未关联')}</div>
     </div>
   `
 }
@@ -981,25 +1061,23 @@ function renderDraftAbAnalysisTable(candidate: SupplementCandidate): string {
   if (!candidate.abAnalysisRows.length) {
     return `
       <div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
-        当前对象没有可直接生成补料建议的 A/B 齐套缺口。请先核查技术包物料-纸样关联别名，或确认裁剪回写数据。
+        当前对象没有可直接生成补料建议的面料明细。请先核查技术包里的面料别名、物料信息、纸样信息，或确认裁剪回写数据。
       </div>
     `
   }
 
   return `
     <div class="overflow-auto rounded-lg border">
-      <table class="min-w-[1280px] text-left text-sm">
+      <table class="min-w-[1180px] text-left text-sm">
         <thead class="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-2 font-medium">成衣颜色</th>
             <th class="px-3 py-2 font-medium">尺码</th>
-            <th class="px-3 py-2 font-medium">基准角色</th>
-            <th class="px-3 py-2 font-medium">缺口角色</th>
-            <th class="px-3 py-2 font-medium">基准物料-纸样</th>
-            <th class="px-3 py-2 font-medium">缺口物料-纸样</th>
-            <th class="px-3 py-2 font-medium">基准实裁</th>
-            <th class="px-3 py-2 font-medium">当前实裁</th>
-            <th class="px-3 py-2 font-medium">差异</th>
+            <th class="px-3 py-2 font-medium">面料别名</th>
+            <th class="px-3 py-2 font-medium">物料信息</th>
+            <th class="px-3 py-2 font-medium">纸样信息</th>
+            <th class="px-3 py-2 font-medium">计划数量（件）</th>
+            <th class="px-3 py-2 font-medium">实裁数据（件）</th>
             <th class="px-3 py-2 font-medium">已发起</th>
             <th class="px-3 py-2 font-medium">本次补料件数</th>
           </tr>
@@ -1009,13 +1087,11 @@ function renderDraftAbAnalysisTable(candidate: SupplementCandidate): string {
             <tr class="border-t align-top">
               <td class="px-3 py-3">${escapeHtml(row.color)}</td>
               <td class="px-3 py-3">${escapeHtml(row.size)}</td>
-              <td class="px-3 py-3">${renderRoleBadge(row.benchmarkMaterial.materialRole, row.benchmarkMaterial.roleConfirmStatus)}</td>
-              <td class="px-3 py-3">${renderRoleBadge(row.shortageMaterial.materialRole, row.shortageMaterial.roleConfirmStatus)}</td>
-              <td class="px-3 py-3">${renderMaterialRefInline(row.benchmarkMaterial)}</td>
-              <td class="px-3 py-3">${renderMaterialRefInline(row.shortageMaterial)}</td>
-              <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(row.benchmarkCutQty)} 件</td>
+              <td class="px-3 py-3">${renderMaterialAliasInfo(row.shortageMaterial)}</td>
+              <td class="px-3 py-3">${renderSupplementMaterialInfo(row.shortageMaterial)}</td>
+              <td class="px-3 py-3">${renderSupplementPatternInfo(row.shortageMaterial)}</td>
+              <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(row.plannedQty)} 件</td>
               <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(row.currentRoleCutQty)} 件</td>
-              <td class="px-3 py-3 font-semibold tabular-nums ${row.differenceQty < 0 ? 'text-rose-700' : 'text-emerald-700'}">${formatSignedInteger(row.differenceQty)} 件</td>
               <td class="px-3 py-3 tabular-nums">${formatInteger(row.existingSupplementQty)} 件</td>
               <td class="px-3 py-3">
                 <input class="h-9 w-28 rounded-md border px-2 text-sm tabular-nums" type="number" min="0" max="${Math.max(row.suggestedSupplementQty, row.shortageQty)}" value="${row.suggestedSupplementQty > 0 ? formatInteger(row.suggestedSupplementQty).replace(/,/g, '') : '0'}" data-supplement-basis-qty-input data-basis-key="${escapeHtml(row.key)}" />
@@ -1029,44 +1105,11 @@ function renderDraftAbAnalysisTable(candidate: SupplementCandidate): string {
   `
 }
 
-function renderDraftSizeTable(candidate: SupplementCandidate): string {
-  return `
-    <div class="overflow-auto rounded-lg border">
-      <table class="min-w-full text-left text-sm">
-        <thead class="bg-muted/50 text-xs text-muted-foreground">
-          <tr>
-            <th class="px-3 py-2 font-medium">成衣颜色</th>
-            <th class="px-3 py-2 font-medium">尺码</th>
-            <th class="px-3 py-2 font-medium">需求件数</th>
-            <th class="px-3 py-2 font-medium">当前已裁片数</th>
-            <th class="px-3 py-2 font-medium">当前齐套件数</th>
-            <th class="px-3 py-2 font-medium">当前缺口</th>
-            <th class="px-3 py-2 font-medium">已发起补料</th>
-            <th class="px-3 py-2 font-medium">关联裁片单</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${candidate.sizeColorRows.map((row) => `
-            <tr class="border-t">
-              <td class="px-3 py-2">${escapeHtml(row.color)}</td>
-              <td class="px-3 py-2">${escapeHtml(row.size)}</td>
-              <td class="px-3 py-2 font-medium tabular-nums">${formatInteger(row.plannedQty)}</td>
-              <td class="px-3 py-2 tabular-nums">${formatInteger(row.actualCutPieces)} 片</td>
-              <td class="px-3 py-2 tabular-nums">${formatInteger(row.completeSetQty)} 件</td>
-              <td class="px-3 py-2 font-medium tabular-nums ${row.shortageQty > 0 ? 'text-amber-700' : 'text-emerald-700'}">${formatInteger(row.shortageQty)} 件</td>
-              <td class="px-3 py-2 tabular-nums">${formatInteger(row.existingSupplementQty)} 件</td>
-              <td class="px-3 py-2 text-xs">${escapeHtml(row.relatedCutOrderNos.join('、') || candidate.sourceNo)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `
-}
-
 function renderDraftPage(candidate: SupplementCandidate | undefined): string {
   if (!candidate) return ''
   const summary = summarizeCandidate(candidate)
+  const actualCutQty = candidate.abAnalysisRows.reduce((sum, row) => sum + Number(row.currentRoleCutQty || 0), 0)
+  const suggestedSupplementQty = candidate.abAnalysisRows.reduce((sum, row) => sum + Number(row.suggestedSupplementQty || 0), 0)
   return `
     <div class="space-y-4" data-supplement-draft-dialog>
       <section class="rounded-lg border bg-card">
@@ -1079,22 +1122,15 @@ function renderDraftPage(candidate: SupplementCandidate | undefined): string {
         </div>
         <div class="space-y-4 p-5">
           <section class="grid gap-3 md:grid-cols-4">
-            ${renderStatChip('需求', summary.plannedQty)}
-            ${renderStatChip('齐套', summary.completeSetQty)}
-            ${renderStatChip('缺口', summary.shortageQty)}
-            ${renderStatChip('补料中', summary.supplementingQty)}
+            ${renderStatChip('计划数量', summary.plannedQty)}
+            ${renderStatChip('实裁数据', actualCutQty)}
+            ${renderStatChip('已发起', summary.supplementingQty)}
+            ${renderStatChip('建议补料', suggestedSupplementQty)}
           </section>
           <section class="rounded-lg border p-4">
             <div class="mb-3 flex items-center justify-between">
-              <h3 class="font-semibold">当前已裁数据与齐套概览</h3>
-              <span class="text-xs text-muted-foreground">先看当前生产单 / 裁片单在尺码 + 成衣颜色下已裁和齐套情况。</span>
-            </div>
-            ${renderDraftSizeTable(candidate)}
-          </section>
-          <section class="rounded-lg border p-4">
-            <div class="mb-3 flex items-center justify-between">
-              <h3 class="font-semibold">AB料齐套缺口与本次补料数量</h3>
-              <span class="text-xs text-muted-foreground">A/B 来自物料-纸样关联别名；只对缺口角色反算物料需求。</span>
+              <h3 class="font-semibold">补料明细与本次补料件数</h3>
+              <span class="text-xs text-muted-foreground">按成衣颜色、尺码、面料别名、物料信息和纸样信息填写本次补料件数。</span>
             </div>
             ${renderDraftAbAnalysisTable(candidate)}
           </section>
@@ -1133,8 +1169,8 @@ function renderDemandTable(demands: SupplementMaterialDemand[]): string {
           <tr>
             <th class="px-3 py-2 font-medium">物料</th>
             <th class="px-3 py-2 font-medium">类别</th>
-            <th class="px-3 py-2 font-medium">别名/角色</th>
-            <th class="px-3 py-2 font-medium">纸样</th>
+            <th class="px-3 py-2 font-medium">面料别名</th>
+            <th class="px-3 py-2 font-medium">纸样信息</th>
             <th class="px-3 py-2 font-medium">系统反算用量</th>
             <th class="px-3 py-2 font-medium">印花/染色</th>
           </tr>
@@ -1152,14 +1188,8 @@ function renderDemandTable(demands: SupplementMaterialDemand[]): string {
                 </div>
               </td>
               <td class="px-3 py-2">${escapeHtml(item.materialTypeLabel)}</td>
-              <td class="px-3 py-2">
-                ${renderRoleBadge(item.materialRole, item.roleConfirmStatus)}
-                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialAlias)} / ${escapeHtml(item.roleSource)}</div>
-              </td>
-              <td class="px-3 py-2">
-                <div class="font-medium">${escapeHtml(item.patternName)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialPatternMappingId)}</div>
-              </td>
+              <td class="px-3 py-2">${renderMaterialAliasInfo(item)}</td>
+              <td class="px-3 py-2">${renderSupplementPatternInfo(item)}</td>
               <td class="px-3 py-2 font-semibold tabular-nums">${formatDecimal(item.requiredQty)} ${escapeHtml(item.unit)}</td>
               <td class="px-3 py-2">
                 <div class="flex flex-wrap gap-1">
@@ -1180,20 +1210,18 @@ function renderDemandTable(demands: SupplementMaterialDemand[]): string {
 function renderSupplementBasisTable(lines: SupplementLine[]): string {
   return `
     <div class="overflow-auto rounded-lg border">
-      <table class="min-w-[1280px] text-left text-sm">
+      <table class="min-w-[1180px] text-left text-sm">
         <thead class="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-2 font-medium">成衣颜色</th>
             <th class="px-3 py-2 font-medium">尺码</th>
-            <th class="px-3 py-2 font-medium">基准角色</th>
-            <th class="px-3 py-2 font-medium">缺口角色</th>
-            <th class="px-3 py-2 font-medium">基准物料-纸样</th>
-            <th class="px-3 py-2 font-medium">缺口物料-纸样</th>
-            <th class="px-3 py-2 font-medium">基准实裁</th>
-            <th class="px-3 py-2 font-medium">当前实裁</th>
-            <th class="px-3 py-2 font-medium">差异</th>
-            <th class="px-3 py-2 font-medium">本次补料</th>
-            <th class="px-3 py-2 font-medium">调整</th>
+            <th class="px-3 py-2 font-medium">面料别名</th>
+            <th class="px-3 py-2 font-medium">物料信息</th>
+            <th class="px-3 py-2 font-medium">纸样信息</th>
+            <th class="px-3 py-2 font-medium">计划数量（件）</th>
+            <th class="px-3 py-2 font-medium">实裁数据（件）</th>
+            <th class="px-3 py-2 font-medium">已发起</th>
+            <th class="px-3 py-2 font-medium">本次补料件数</th>
           </tr>
         </thead>
         <tbody>
@@ -1201,17 +1229,13 @@ function renderSupplementBasisTable(lines: SupplementLine[]): string {
             <tr class="border-t align-top">
               <td class="px-3 py-3">${escapeHtml(line.color)}</td>
               <td class="px-3 py-3">${escapeHtml(line.size)}</td>
-              <td class="px-3 py-3">${renderRoleBadge(line.basis.benchmarkMaterial.materialRole, line.basis.benchmarkMaterial.roleConfirmStatus)}</td>
-              <td class="px-3 py-3">${renderRoleBadge(line.basis.shortageMaterial.materialRole, line.basis.shortageMaterial.roleConfirmStatus)}</td>
-              <td class="px-3 py-3">${renderMaterialRefInline(line.basis.benchmarkMaterial)}</td>
-              <td class="px-3 py-3">${renderMaterialRefInline(line.basis.shortageMaterial)}</td>
-              <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(line.basis.benchmarkCutQty)} 件</td>
+              <td class="px-3 py-3">${renderMaterialAliasInfo(line.basis.shortageMaterial)}</td>
+              <td class="px-3 py-3">${renderSupplementMaterialInfo(line.basis.shortageMaterial)}</td>
+              <td class="px-3 py-3">${renderSupplementPatternInfo(line.basis.shortageMaterial)}</td>
+              <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(line.plannedQty)} 件</td>
               <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(line.basis.currentRoleCutQty)} 件</td>
-              <td class="px-3 py-3 font-semibold tabular-nums ${line.basis.differenceQty < 0 ? 'text-rose-700' : 'text-emerald-700'}">${formatSignedInteger(line.basis.differenceQty)} 件</td>
+              <td class="px-3 py-3 tabular-nums">${formatInteger(line.existingSupplementQty)} 件</td>
               <td class="px-3 py-3 font-semibold tabular-nums">${formatInteger(line.supplementQty)} 件</td>
-              <td class="px-3 py-3 text-xs">
-                ${line.isManualAdjusted ? `<span class="text-amber-700">人工调整</span><div class="mt-1 text-muted-foreground">${escapeHtml(line.adjustReason)}</div>` : '<span class="text-muted-foreground">按建议</span>'}
-              </td>
             </tr>
           `).join('')}
         </tbody>
@@ -1240,27 +1264,8 @@ function renderConfirmDialog(draft: SupplementDraft | null): string {
             <p class="mt-3 text-sm text-muted-foreground">${escapeHtml(draft.reasonDetail)}</p>
           </section>
           <section>
-            <h3 class="mb-2 font-semibold">补料依据：AB料齐套缺口</h3>
+            <h3 class="mb-2 font-semibold">补料明细与本次补料件数</h3>
             ${renderSupplementBasisTable(draft.lines)}
-          </section>
-          <section>
-            <h3 class="mb-2 font-semibold">本次补料尺码与成衣颜色</h3>
-            <div class="overflow-auto rounded-lg border">
-              <table class="min-w-full text-left text-sm">
-                <thead class="bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">颜色</th><th class="px-3 py-2">尺码</th><th class="px-3 py-2">缺口角色</th><th class="px-3 py-2">当前缺口</th><th class="px-3 py-2">本次补料</th></tr></thead>
-                <tbody>
-                  ${draft.lines.map((line) => `
-                    <tr class="border-t">
-                      <td class="px-3 py-2">${escapeHtml(line.color)}</td>
-                      <td class="px-3 py-2">${escapeHtml(line.size)}</td>
-                      <td class="px-3 py-2">${renderRoleBadge(line.basis.shortageMaterial.materialRole, line.basis.shortageMaterial.roleConfirmStatus)}</td>
-                      <td class="px-3 py-2">${formatInteger(line.shortageQty)} 件</td>
-                      <td class="px-3 py-2 font-semibold tabular-nums">${formatInteger(line.supplementQty)} 件</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
           </section>
           <section>
             <h3 class="mb-2 font-semibold">系统反算物料需求</h3>
@@ -1508,44 +1513,8 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
 	          </section>
 
           <section>
-            <h3 class="mb-2 font-semibold">补料依据：AB料齐套缺口</h3>
+            <h3 class="mb-2 font-semibold">补料明细与本次补料件数</h3>
             ${renderSupplementBasisTable(record.draft.lines)}
-          </section>
-
-          <section>
-            <h3 class="mb-2 font-semibold">补料尺码与成衣颜色</h3>
-            <div class="overflow-auto rounded-lg border">
-              <table class="min-w-full text-left text-sm">
-                <thead class="bg-muted/50 text-xs text-muted-foreground">
-                  <tr>
-                    <th class="px-3 py-2 font-medium">成衣颜色</th>
-                    <th class="px-3 py-2 font-medium">尺码</th>
-                    <th class="px-3 py-2 font-medium">缺口角色</th>
-                    <th class="px-3 py-2 font-medium">需求件数</th>
-                    <th class="px-3 py-2 font-medium">已裁片数</th>
-                    <th class="px-3 py-2 font-medium">齐套件数</th>
-                    <th class="px-3 py-2 font-medium">当前缺口</th>
-                    <th class="px-3 py-2 font-medium">本次补料</th>
-                    <th class="px-3 py-2 font-medium">关联裁片单</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${record.draft.lines.map((line) => `
-	                    <tr class="border-t">
-	                      <td class="px-3 py-2">${escapeHtml(line.color)}</td>
-	                      <td class="px-3 py-2">${escapeHtml(line.size)}</td>
-	                      <td class="px-3 py-2">${renderRoleBadge(line.basis.shortageMaterial.materialRole, line.basis.shortageMaterial.roleConfirmStatus)}</td>
-	                      <td class="px-3 py-2 tabular-nums">${formatInteger(line.plannedQty)} 件</td>
-                      <td class="px-3 py-2 tabular-nums">${formatInteger(line.actualCutPieces)} 片</td>
-                      <td class="px-3 py-2 tabular-nums">${formatInteger(line.completeSetQty)} 件</td>
-                      <td class="px-3 py-2 tabular-nums">${formatInteger(line.shortageQty)} 件</td>
-                      <td class="px-3 py-2 font-semibold tabular-nums">${formatInteger(line.supplementQty)} 件</td>
-                      <td class="px-3 py-2 text-xs">${escapeHtml(line.relatedCutOrderNos.join('、') || record.draft.sourceNo)}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
           </section>
 
           <section>
@@ -1632,7 +1601,7 @@ function buildDraftFromDialog(candidate: SupplementCandidate, container: HTMLEle
     .filter((line) => line.supplementQty > 0)
 
   if (!selectedLines.length) {
-    showDraftError(container, '本次补料件数至少填写一条 AB 齐套缺口行。')
+    showDraftError(container, '本次补料件数至少填写一条补料明细行。')
     return null
   }
 
@@ -1802,8 +1771,19 @@ function setFiltersFromDom(): void {
   }
 }
 
+function setSourcePickerKeywordFromDom(): void {
+  const keyword = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="sourcePickerKeyword"]')?.value
+  state.sourcePicker.keyword = normalizeText(keyword)
+  state.sourcePicker.selectedCandidateId = ''
+}
+
 function clearSupplementCreateState(): void {
   state.activeCandidateId = ''
+  state.sourcePicker = {
+    sourceType: 'production-order',
+    keyword: '',
+    selectedCandidateId: '',
+  }
   state.pendingConfirmDraft = null
 }
 
@@ -1833,6 +1813,42 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
     return true
   }
 
+  if (action === 'set-source-picker-type') {
+    const sourceType = actionNode.dataset.sourceType
+    if (sourceType === 'production-order' || sourceType === 'cut-order') {
+      state.sourcePicker.sourceType = sourceType
+      state.sourcePicker.selectedCandidateId = ''
+      state.feedback = null
+    }
+    return true
+  }
+
+  if (action === 'apply-source-picker-search') {
+    setSourcePickerKeywordFromDom()
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'reset-source-picker-search') {
+    state.sourcePicker.keyword = ''
+    state.sourcePicker.selectedCandidateId = ''
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'toggle-source-candidate') {
+    const candidateId = actionNode.dataset.candidateId || ''
+    const candidate = getCandidateById(candidateId)
+    if (!candidate || !candidate.canInitiate || candidate.sourceType !== state.sourcePicker.sourceType) {
+      state.sourcePicker.selectedCandidateId = ''
+      state.feedback = { tone: 'warning', message: candidate?.blockedReason || '当前对象不能新增补料。' }
+      return true
+    }
+    state.sourcePicker.selectedCandidateId = state.sourcePicker.selectedCandidateId === candidateId ? '' : candidateId
+    state.feedback = null
+    return true
+  }
+
   if (action === 'start-create') {
     clearSupplementCreateState()
     state.activeRecordId = ''
@@ -1845,6 +1861,20 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
     const candidate = getCandidateById(candidateId)
     if (!candidate || !candidate.canInitiate) {
       state.feedback = { tone: 'warning', message: candidate?.blockedReason || '当前对象不能新增补料。' }
+      return true
+    }
+    state.activeCandidateId = candidateId
+    state.activeRecordId = ''
+    state.pendingConfirmDraft = null
+    state.feedback = null
+    return true
+  }
+
+  if (action === 'source-picker-next') {
+    const candidateId = state.sourcePicker.selectedCandidateId
+    const candidate = getCandidateById(candidateId)
+    if (!candidate || !candidate.canInitiate) {
+      state.feedback = { tone: 'warning', message: '请先勾选一条可新增补料的记录。' }
       return true
     }
     state.activeCandidateId = candidateId
@@ -1974,7 +2004,7 @@ export function renderCraftCuttingSupplementCreatePage(): string {
         <div>
           <div class="text-sm text-muted-foreground">工艺工厂运营系统 / 裁床厂管理 / 裁后处理 / 补料管理 / 新增补料</div>
           <h1 class="mt-2 text-2xl font-semibold tracking-tight">新增补料</h1>
-          <p class="mt-1 text-sm text-muted-foreground">按生产单或裁片单发起补料，系统先展示当前已裁与齐套情况，再按尺码 + 成衣颜色填写补料件数。</p>
+          <p class="mt-1 text-sm text-muted-foreground">按生产单或裁片单发起补料，并按成衣颜色、尺码、面料别名、物料信息和纸样信息填写本次补料件数。</p>
         </div>
         <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="cancel-create">返回补料列表</button>
       </div>
