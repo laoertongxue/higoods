@@ -11,6 +11,10 @@ import {
   type SewingDispatchWorkbenchRow,
   type SewingDispatchWorkbenchTask,
 } from '../data/fcs/sewing-dispatch-workbench.ts'
+import {
+  getCutPieceReleaseSummaryForProductionOrder,
+  type CutPieceReleaseSummary,
+} from '../data/fcs/cut-piece-release.ts'
 import { getRuntimeTaskById } from '../data/fcs/runtime-process-tasks.ts'
 import {
   describeDispatchAcceptanceSlaResolution,
@@ -66,6 +70,17 @@ function formatQty(value: number): string {
 
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
+}
+
+function getCutPieceReleaseBadgeClass(decision: CutPieceReleaseSummary['decision']): string {
+  if (decision === '可以做') return 'border-green-200 bg-green-50 text-green-700'
+  if (decision === '部分可以做') return 'border-blue-200 bg-blue-50 text-blue-700'
+  if (decision === '暂时不能做') return 'border-rose-200 bg-rose-50 text-rose-700'
+  return 'border-amber-200 bg-amber-50 text-amber-700'
+}
+
+function getTaskCutPieceReleaseSummary(task: SewingDispatchWorkbenchTask): CutPieceReleaseSummary | null {
+  return getCutPieceReleaseSummaryForProductionOrder(task.productionOrderId)
 }
 
 function renderMetricCard(label: string, value: string, hint: string, tone = 'text-foreground'): string {
@@ -269,6 +284,26 @@ function renderCompleteKitSummary(task: SewingDispatchWorkbenchTask): string {
   `
 }
 
+function renderCutPieceReleaseSummary(task: SewingDispatchWorkbenchTask): string {
+  const summary = getTaskCutPieceReleaseSummary(task)
+  if (!summary) {
+    return `
+      <div class="space-y-1 text-xs">
+        ${renderBadge('待判断', 'border-amber-200 bg-amber-50 text-amber-700')}
+        <div class="text-muted-foreground">尚未形成裁片放行判断。</div>
+      </div>
+    `
+  }
+  return `
+    <div class="space-y-1 text-xs">
+      ${renderBadge(summary.decision, getCutPieceReleaseBadgeClass(summary.decision))}
+      <div class="font-medium">可做 ${formatQty(summary.releaseQty)} 件</div>
+      <div class="max-w-[220px] leading-5 text-muted-foreground">${escapeHtml(summary.reason)}</div>
+      <div class="text-muted-foreground">${escapeHtml(summary.judgedBy || '待确认')} ${summary.judgedAt ? `· ${escapeHtml(summary.judgedAt.slice(0, 16))}` : ''}</div>
+    </div>
+  `
+}
+
 function renderCutOrderClosure(task: SewingDispatchWorkbenchTask): string {
   const closure = task.cutOrderClosure
   const tone = closure.statusLabel === '全部已关闭'
@@ -349,7 +384,7 @@ function renderTaskTable(tasks: SewingDispatchWorkbenchTask[]): string {
         </div>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[2050px] text-sm">
+        <table class="w-full min-w-[2260px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-xs text-muted-foreground">
               <th class="w-10 px-3 py-3 text-left"><input type="checkbox" data-sewing-dispatch-field="selectAll" ${pageAllSelected ? 'checked' : ''} /></th>
@@ -357,6 +392,7 @@ function renderTaskTable(tasks: SewingDispatchWorkbenchTask[]): string {
               <th class="px-3 py-3 text-left font-medium">SPU / 款式</th>
               <th class="px-3 py-3 text-left font-medium">SKU / 需求 / 待分配</th>
               <th class="px-3 py-3 text-left font-medium">完整齐套数量</th>
+              <th class="px-3 py-3 text-left font-medium">裁床判断</th>
               <th class="px-3 py-3 text-left font-medium">裁片单闭环</th>
               <th class="px-3 py-3 text-left font-medium">裁片齐套</th>
               <th class="px-3 py-3 text-left font-medium">毛织片</th>
@@ -366,7 +402,7 @@ function renderTaskTable(tasks: SewingDispatchWorkbenchTask[]): string {
             </tr>
           </thead>
           <tbody>
-            ${pageTasks.length === 0 ? '<tr><td colspan="11" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选范围暂无车缝任务。</td></tr>' : pageTasks.map((task) => renderTaskRow(task)).join('')}
+            ${pageTasks.length === 0 ? '<tr><td colspan="12" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选范围暂无车缝任务。</td></tr>' : pageTasks.map((task) => renderTaskRow(task)).join('')}
           </tbody>
         </table>
       </div>
@@ -395,6 +431,7 @@ function renderTaskRow(task: SewingDispatchWorkbenchTask): string {
       </td>
       <td class="px-3 py-4 align-top">${renderSkuQtyBreakdown(task)}</td>
       <td class="px-3 py-4 align-top">${renderCompleteKitSummary(task)}</td>
+      <td class="px-3 py-4 align-top">${renderCutPieceReleaseSummary(task)}</td>
       <td class="px-3 py-4 align-top">${renderCutOrderClosure(task)}</td>
       <td class="px-3 py-4 align-top">
         <div class="mb-2 font-medium ${getGroupTone(task.normalPieces)}">普通：${escapeHtml(task.normalPieces.statusLabel)}</div>
@@ -439,6 +476,7 @@ function renderPagination(total: number, currentPage: number, pageCount: number,
 
 function renderDetailDrawer(task: SewingDispatchWorkbenchTask | undefined): string {
   if (!task) return ''
+  const releaseSummary = getTaskCutPieceReleaseSummary(task)
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/40" data-sewing-dispatch-action="close-detail" aria-label="关闭"></button>
@@ -451,8 +489,9 @@ function renderDetailDrawer(task: SewingDispatchWorkbenchTask | undefined): stri
           <button class="rounded-md p-1 hover:bg-muted" data-sewing-dispatch-action="close-detail"><i data-lucide="x" class="h-4 w-4"></i></button>
         </header>
         <div class="min-h-0 flex-1 overflow-auto p-5">
-          <div class="grid gap-3 sm:grid-cols-4">
+          <div class="grid gap-3 sm:grid-cols-5">
             ${renderMetricCard('完整齐套数量', `${formatQty(task.completeKitQty)} 件`, `${task.completeSkuCount}/${task.skuCount} 个 SKU 已齐套`, task.kitStatus === '已齐套' ? 'text-green-700' : 'text-amber-700')}
+            ${renderMetricCard('裁床判断', releaseSummary?.decision || '待判断', releaseSummary ? `可做 ${formatQty(releaseSummary.releaseQty)} 件` : '尚未形成裁片放行判断', releaseSummary?.decision === '暂时不能做' ? 'text-rose-700' : releaseSummary?.decision === '待判断' ? 'text-amber-700' : 'text-blue-700')}
             ${renderMetricCard('待分配数量', `${formatQty(task.remainingQty)} 件`, task.mainFactoryStatusLabel)}
             ${renderMetricCard('裁片单闭环', `${task.cutOrderClosure.closedCount}/${task.cutOrderClosure.totalCount}`, task.cutOrderClosure.statusLabel)}
             ${renderMetricCard('缺口类型', task.gapTypes.length ? task.gapTypes.join('、') : '无', '仅展示事实，由跟单判断分配节奏')}
@@ -786,6 +825,53 @@ function renderMarkerDetail(task: SewingDispatchWorkbenchTask): string {
   `
 }
 
+function renderDispatchCutPieceReleaseNotice(rows: SewingDispatchWorkbenchRow[], tasks: SewingDispatchWorkbenchTask[]): string {
+  if (rows.length === 0) return ''
+  const taskById = new Map(tasks.map((task) => [task.taskId, task] as const))
+  const selectedTasks = Array.from(new Set(rows.map((row) => row.taskId)))
+    .map((taskId) => taskById.get(taskId))
+    .filter((task): task is SewingDispatchWorkbenchTask => Boolean(task))
+
+  if (selectedTasks.length === 0) return ''
+
+  return `
+    <section class="mt-4 rounded-lg border bg-muted/20 p-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div class="text-sm font-medium">裁床判断参考</div>
+          <div class="mt-0.5 text-xs text-muted-foreground">跟单结合裁床判断、完整齐套数量和辅料库存决定是否生成车缝分配。</div>
+        </div>
+        <button class="h-8 rounded-md border px-3 text-xs hover:bg-background" data-nav="/fcs/craft/cutting/cut-piece-release">查看裁片放行管理</button>
+      </div>
+      <div class="mt-3 grid gap-2">
+        ${selectedTasks.map((task) => {
+          const summary = getTaskCutPieceReleaseSummary(task)
+          if (!summary) {
+            return `
+              <div class="rounded-md border bg-background px-3 py-2 text-xs">
+                <div class="font-medium">${escapeHtml(task.productionOrderNo)} · ${escapeHtml(task.taskNo)}</div>
+                <div class="mt-1 text-amber-700">裁床判断：待判断</div>
+              </div>
+            `
+          }
+          return `
+            <div class="rounded-md border bg-background px-3 py-2 text-xs">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-medium">${escapeHtml(task.productionOrderNo)} · ${escapeHtml(task.taskNo)}</span>
+                ${renderBadge(summary.decision, getCutPieceReleaseBadgeClass(summary.decision))}
+                <span class="text-blue-700">可做 ${formatQty(summary.releaseQty)} 件</span>
+              </div>
+              <div class="mt-1 leading-5 text-muted-foreground">${escapeHtml(summary.reason)}</div>
+              ${summary.riskNote ? `<div class="mt-1 text-amber-700">${escapeHtml(summary.riskNote)}</div>` : ''}
+              <div class="mt-1 text-muted-foreground">确认：${escapeHtml(summary.judgedBy || '待确认')} ${summary.judgedAt ? `· ${escapeHtml(summary.judgedAt.slice(0, 16))}` : ''}</div>
+            </div>
+          `
+        }).join('')}
+      </div>
+    </section>
+  `
+}
+
 function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
   if (!state.dispatchOpen) return ''
   const selectedRows = getSelectedDispatchRows(tasks)
@@ -798,7 +884,7 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
         <header class="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <h3 class="text-lg font-semibold">创建车缝分配</h3>
-            <p class="mt-1 text-sm text-muted-foreground">按任务内可分配 SKU 填写本次分配数量，不能超过完整齐套数量和待分配数量。</p>
+            <p class="mt-1 text-sm text-muted-foreground">按任务内可分配 SKU 填写本次分配数量，结合裁床判断、完整齐套数量和待分配数量确认。</p>
           </div>
           <button class="rounded-md p-1 hover:bg-muted" data-sewing-dispatch-action="close-dispatch"><i data-lucide="x" class="h-4 w-4"></i></button>
         </header>
@@ -818,6 +904,7 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
               </select>
             </label>
           </div>
+          ${renderDispatchCutPieceReleaseNotice(selectedRows, tasks)}
           <div class="mt-4 overflow-x-auto rounded-lg border">
             <table class="w-full min-w-[860px] text-sm">
               <thead><tr class="border-b bg-muted/40 text-xs text-muted-foreground"><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">生产单 / 任务</th><th class="px-3 py-2 text-left">完整齐套数量</th><th class="px-3 py-2 text-left">待分配</th><th class="px-3 py-2 text-left">本次分配数量</th></tr></thead>

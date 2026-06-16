@@ -175,6 +175,10 @@ import {
   isCraftCuttingSummaryDialogOpen,
 } from '../pages/process-factory/cutting/cutting-summary'
 import {
+  handleCraftCuttingCutPieceReleaseEvent,
+  isCraftCuttingCutPieceReleaseDialogOpen,
+} from '../pages/process-factory/cutting/cut-piece-release'
+import {
   handleCraftCuttingSupplementManagementEvent,
   isCraftCuttingSupplementManagementDialogOpen,
 } from '../pages/process-factory/cutting/supplement-management'
@@ -214,6 +218,9 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
   }
   if (target.closest('[data-cutting-supplement-action]')) {
     return handleCraftCuttingSupplementManagementEvent(target)
+  }
+  if (target.closest('[data-cut-piece-release-action]')) {
+    return handleCraftCuttingCutPieceReleaseEvent(target)
   }
 
   const isPostFinishingRoute =
@@ -309,6 +316,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleCraftCuttingTransferBagsEvent(target) ||
     await handleCraftCuttingSpecialProcessesEvent(target) ||
     await handleCraftCuttingSummaryEvent(target) ||
+    await handleCraftCuttingCutPieceReleaseEvent(target) ||
     await handleCraftCuttingSupplementManagementEvent(target) ||
     await handleCraftCuttingAbMaterialStatisticsEvent(target) ||
     await handleDeductionAnalysisEvent(target) ||
@@ -620,6 +628,13 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.cuttingSummaryAction = 'close-overlay'
     handleCraftCuttingSummaryEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingCutPieceReleaseDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cutPieceReleaseAction = 'close-overlay'
+    handleCraftCuttingCutPieceReleaseEvent(fakeButton)
     return true
   }
 
