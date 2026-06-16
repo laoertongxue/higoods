@@ -236,6 +236,7 @@ export interface SpreadingRollRecord {
   actualCutPieceQty?: number
   actualCutGarmentQty?: number
   occurredAt?: string
+  operatorLayerText?: string
   operatorNames: string[]
   handoverNotes: string
   usableLength: number
@@ -964,7 +965,7 @@ const spreadingSupervisorStageMeta: Record<
   IN_PROGRESS: {
     label: '铺布中',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '当前铺布正在执行中，卷、层数或人员记录仍在持续录入。',
+    detailText: '当前铺布正在执行中，卷、层数或人员信息仍在持续录入。',
   },
   WAITING_FEI_TICKET: {
     label: '待打印菲票',
@@ -1386,8 +1387,25 @@ export function computeMarkerTotalPieces(sizeDistribution: MarkerSizeDistributio
   return sizeDistribution.reduce((sum, item) => sum + Math.max(item.quantity, 0), 0)
 }
 
-export function computeUsableLength(actualLength: number, headLength: number, tailLength: number): number {
-  return Number((actualLength - headLength - tailLength).toFixed(2))
+export function computeUsableLength(actualLength: number, headLength: number, tailLength: number, layerCount = 1): number {
+  const normalizedLayerCount = Math.max(Number(layerCount || 0), 0)
+  return Number(((Number(actualLength || 0) * normalizedLayerCount) + Number(headLength || 0) + Number(tailLength || 0)).toFixed(2))
+}
+
+export function normalizeRollOperatorNames(
+  roll: Pick<Partial<SpreadingRollRecord>, 'operatorLayerText' | 'operatorNames'>,
+  fallbackNames: string[] = [],
+): string[] {
+  const textNames = (roll.operatorLayerText || '')
+    .split(/[；;、,\n/]+/)
+    .map((item) =>
+      item
+        .replace(/^\s*\d+\s*(?:-|~|至|到)\s*\d*\s*层?\s*[:：-]?\s*/u, '')
+        .replace(/^\s*第?\d+\s*层\s*[:：-]?\s*/u, '')
+        .trim(),
+    )
+    .filter(Boolean)
+  return Array.from(new Set([...textNames, ...(roll.operatorNames || []), ...fallbackNames].filter(Boolean)))
 }
 
 export function computeRemainingLength(labeledLength: number, actualLength: number): number {
@@ -1727,6 +1745,37 @@ function buildPlanUnitMaterialIdentity(
   }
 }
 
+function buildPlanUnitSizeRowsFromText(options: {
+  text: string
+  color: string
+  marker: MarkerRecord
+  context: MarkerSpreadingContext
+}): NonNullable<SpreadingPlanUnit['sizeRows']> {
+  const normalizedText = options.text
+    .replace(/[×xX]/g, '*')
+    .replace(/[，,\/]/g, ' + ')
+  const parsedRows = Array.from(normalizedText.matchAll(/([A-Za-z0-9#._-]+)\s*\*\s*(\d+(?:\.\d+)?)/g))
+    .map((match) => ({
+      skuCode: `${options.color || options.context.spuCode || options.marker.spuCode || 'SKU'}-${match[1]}`,
+      color: options.color,
+      size: match[1],
+      plannedQty: Math.max(Number(match[2] || 0), 0),
+      plannedLayerCount: 0,
+    }))
+    .filter((row) => row.size && row.plannedQty > 0)
+  if (parsedRows.length) return parsedRows
+
+  return (options.marker.sizeDistribution || [])
+    .filter((item) => Math.max(Number(item.quantity || 0), 0) > 0)
+    .map((item) => ({
+      skuCode: `${options.color || options.context.spuCode || options.marker.spuCode || 'SKU'}-${item.sizeLabel}`,
+      color: options.color,
+      size: item.sizeLabel,
+      plannedQty: Math.max(Number(item.quantity || 0), 0),
+      plannedLayerCount: 0,
+    }))
+}
+
 function buildSpreadingVarianceLines(options: {
   context: MarkerSpreadingContext | null
   plannedCutGarmentQty: number
@@ -1883,7 +1932,7 @@ export function buildSpreadingCoreMetrics(options: {
     ),
     spreadUsableLengthFormula: buildSumFormula(
       spreadUsableLengthM,
-      (session?.rolls || []).map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength)),
+      (session?.rolls || []).map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)),
       2,
     ),
     varianceLengthFormula: buildDifferenceFormula(varianceLength, options.claimedLengthTotal, spreadActualLengthM, 2),
@@ -2339,6 +2388,12 @@ export function buildSpreadingPlanUnitsFromMarker(
       const plannedSpreadLengthM =
         Number(item.spreadTotalLength || item.spreadingTotalLength || 0) ||
         Number((((lengthPerUnitM + 0.06) * plannedRepeatCount).toFixed(2)))
+      const sizeRows = buildPlanUnitSizeRowsFromText({
+        text: item.layoutDetailText || item.ratioLabel || marker.sizeRatioPlanText || '',
+        color,
+        marker,
+        context,
+      })
       return {
         planUnitId: `plan-unit-${marker.markerId}-${index + 1}`,
         sourceType: 'marker-line',
@@ -2351,6 +2406,7 @@ export function buildSpreadingPlanUnitsFromMarker(
         lengthPerUnitM,
         plannedCutGarmentQty: garmentQtyPerUnit * plannedRepeatCount,
         plannedSpreadLengthM,
+        sizeRows,
       }
     })
   }
@@ -2410,6 +2466,12 @@ export function buildSpreadingPlanUnitsFromMarker(
       lengthPerUnitM: Number(marker.netLength || 0),
       plannedCutGarmentQty: Math.max(Number(marker.totalPieces || 0), 0),
       plannedSpreadLengthM: Number(marker.spreadTotalLength || 0),
+      sizeRows: buildPlanUnitSizeRowsFromText({
+        text: marker.sizeRatioPlanText || '',
+        color: context.materialPrepRows[0]?.color || '',
+        marker,
+        context,
+      }),
     },
   ]
 }
@@ -2722,7 +2784,7 @@ export function summarizeSpreadingRolls(rolls: SpreadingRollRecord[]): {
     totalActualLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.actualLength, 0), 0).toFixed(2)),
     totalHeadLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.headLength, 0), 0).toFixed(2)),
     totalTailLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.tailLength, 0), 0).toFixed(2)),
-    totalCalculatedUsableLength: Number(rolls.reduce((sum, roll) => sum + computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength), 0).toFixed(2)),
+    totalCalculatedUsableLength: Number(rolls.reduce((sum, roll) => sum + computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount), 0).toFixed(2)),
     totalRemainingLength: Number(rolls.reduce((sum, roll) => sum + computeRemainingLength(roll.labeledLength, roll.actualLength), 0).toFixed(2)),
     totalActualCutPieceQty: totalActualCutGarmentQty,
     totalActualCutGarmentQty,
@@ -2955,7 +3017,7 @@ export function buildOperatorAmountWarnings(
       : 0
 
   operators.forEach((operator, index) => {
-    const operatorLabel = operator.operatorName || `第 ${index + 1} 条人员记录`
+    const operatorLabel = operator.operatorName || `第 ${index + 1} 条人员信息`
     const handledLayerCount =
       parseOptionalNumber(operator.handledLayerCount) ??
       computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer)
@@ -3088,7 +3150,7 @@ export function buildRollHandoverWarnings(
   handledLength.warnings.forEach((message) => warnings.push(message))
 
   sortedOperators.forEach((operator, index) => {
-    const operatorLabel = operator.operatorName || `第 ${index + 1} 条人员记录`
+    const operatorLabel = operator.operatorName || `第 ${index + 1} 条人员信息`
     const handledLayerCount = computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer)
     const handledPieceQty = computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces)
 
@@ -3107,7 +3169,7 @@ export function buildRollHandoverWarnings(
   })
 
   if (roll.layerCount > 0 && finalHandledLayer !== null && finalHandledLayer < roll.layerCount) {
-    warnings.push(`${rollLabel} 当前最后一条人员记录只铺到第 ${finalHandledLayer} 层，尚未完整铺完至第 ${roll.layerCount} 层。`)
+    warnings.push(`${rollLabel} 当前最后一条人员信息只铺到第 ${finalHandledLayer} 层，尚未完整铺完至第 ${roll.layerCount} 层。`)
   }
 
   return Array.from(new Set(warnings))
@@ -3640,13 +3702,13 @@ export function buildSpreadingWarningMessages(options: {
 
   rolls.forEach((roll, index) => {
     const rollLabel = roll.rollNo || `第 ${index + 1} 卷`
-    const usableLength = computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0))
+    const usableLength = computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0), Number(roll.layerCount || 0))
     const remainingLength = computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0))
     const linkedOperators = operatorSummary.operatorsByRollId[roll.rollRecordId] || []
     const handoverSummary = buildRollHandoverViewModel(roll, linkedOperators, options.markerTotalPieces)
 
     if (usableLength < 0) {
-      warnings.push(`${rollLabel} 的单卷可用长度小于 0，请复核布头 / 布尾与实际长度。`)
+      warnings.push(`${rollLabel} 的卷布料长度小于 0，请复核实际铺布长度、层数、布头和布尾。`)
     }
     if (remainingLength < 0) {
       warnings.push(`${rollLabel} 的单卷剩余长度小于 0，说明实际使用已超过标注长度。`)
@@ -3658,7 +3720,7 @@ export function buildSpreadingWarningMessages(options: {
       warnings.push(`${rollLabel} 缺少铺布层数或单层成衣件数，实际裁剪成衣件数暂无法准确推导。`)
     }
     if (!linkedOperators.length) {
-      warnings.push(`${rollLabel} 缺少人员记录，无法追溯开始、交接与完成情况。`)
+      warnings.push(`${rollLabel} 缺少卷记录人员信息，无法追溯开始、交接与完成情况。`)
     }
     handoverSummary.warnings.forEach((message) => warnings.push(message))
   })
@@ -3668,16 +3730,16 @@ export function buildSpreadingWarningMessages(options: {
   }
 
   if (!operators.length) {
-    warnings.push('当前缺少铺布人员记录，请补录开始 / 交接 / 完成信息。')
+    warnings.push('当前缺少铺布人员信息，请在卷记录中补录开始 / 交接 / 完成信息。')
   }
 
   operators.forEach((operator, index) => {
-    const operatorLabel = operator.operatorName || `第 ${index + 1} 条人员记录`
+    const operatorLabel = operator.operatorName || `第 ${index + 1} 条人员信息`
     if (!operator.rollRecordId) {
       warnings.push(`${operatorLabel} 尚未关联卷记录，同卷换班关系不可追溯。`)
     }
     if (!operator.operatorName) {
-      warnings.push(`第 ${index + 1} 条人员记录缺少人员姓名。`)
+      warnings.push(`第 ${index + 1} 条人员信息缺少人员姓名。`)
     }
     if (!operator.startAt || !operator.endAt) {
       warnings.push(`${operatorLabel} 缺少开始或结束时间。`)
@@ -3777,7 +3839,7 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                       computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0)),
                     usableLength:
                       roll.usableLength ??
-                      computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0)),
+                      computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0), Number(roll.layerCount || 0)),
                     actualCutPieceQty:
                       derivedActualCutGarmentQty ||
                       (roll.actualCutGarmentQty ??
@@ -4005,7 +4067,9 @@ export function createRollRecordDraft(
     totalLength: 0,
     remainingLength: 0,
     actualCutPieceQty: 0,
+    actualCutGarmentQty: 0,
     occurredAt: '',
+    operatorLayerText: '',
     operatorNames: [],
     handoverNotes: '',
     usableLength: 0,
@@ -4057,14 +4121,22 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     const linkedPlanUnit = findSpreadingPlanUnitById(session.planUnits, roll.planUnitId)
     const normalizedPlanUnitId = roll.planUnitId || session.planUnits?.[0]?.planUnitId || ''
     const garmentQtyPerUnit = linkedPlanUnit?.garmentQtyPerUnit || 0
+    const actualLength = Number(roll.actualLength || 0)
+    const headLength = Number(roll.headLength || 0)
+    const tailLength = Number(roll.tailLength || 0)
+    const layerCount = Number(roll.layerCount || 0)
+    const usableLength = computeUsableLength(actualLength, headLength, tailLength, layerCount)
+    const actualCutGarmentQty = computeRollActualCutGarmentQty(layerCount, garmentQtyPerUnit)
     return {
       ...roll,
       planUnitId: normalizedPlanUnitId,
       materialSku: linkedPlanUnit?.materialSku || roll.materialSku,
       color: linkedPlanUnit?.color || roll.color,
       sortOrder: Number(roll.sortOrder ?? index + 1),
-      actualCutPieceQty: computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
-      actualCutGarmentQty: computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
+      totalLength: usableLength,
+      usableLength,
+      actualCutPieceQty: actualCutGarmentQty,
+      actualCutGarmentQty,
     }
   })
   const linkedMarker = session.markerId
@@ -4157,7 +4229,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
   )
   const rollsWithOperatorNames = normalizedRolls.map((roll) => ({
     ...roll,
-    operatorNames: operatorNamesByRollId[roll.rollRecordId] || [],
+    operatorNames: normalizeRollOperatorNames(roll, operatorNamesByRollId[roll.rollRecordId] || []),
   }))
   const summary = summarizeSpreadingRolls(rollsWithOperatorNames)
   const operatorAmountSummary = summarizeSpreadingOperatorAmounts(normalizedOperators, markerTotalPieces, session.unitPrice)

@@ -164,16 +164,18 @@ function isHandoverRecord(recordType: SpreadingRecordType): boolean {
 
 function getGrossOccupiedLength(form: SpreadingFormState): number {
   const actual = Number(form.actualLength || '0')
+  const layerCount = Math.max(Number(form.layerCount || '0'), 0)
   const head = Number(form.headLength || '0')
   const tail = Number(form.tailLength || '0')
-  return Number((actual + head + tail).toFixed(2))
+  return Number(((actual * layerCount) + head + tail).toFixed(2))
 }
 
 function getUsableLength(form: SpreadingFormState): number {
   const actual = Number(form.actualLength || '0')
+  const layerCount = Math.max(Number(form.layerCount || '0'), 0)
   const head = Number(form.headLength || '0')
   const tail = Number(form.tailLength || '0')
-  return Number(Math.max(actual - head - tail, 0).toFixed(2))
+  return Number(Math.max((actual * layerCount) + head + tail, 0).toFixed(2))
 }
 
 function getSelectedPlanUnit(target: PdaCuttingSpreadingTarget | null, planUnitId: string) {

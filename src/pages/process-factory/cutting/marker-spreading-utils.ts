@@ -563,12 +563,13 @@ function createSeedSession(
   rollA.headLength = 0.6
   rollA.tailLength = 0.4
   rollA.layerCount = profile.actualLayerCounts?.[0] ?? 10 + contextIndex + profileIndex
-  rollA.totalLength = Number((rollA.actualLength + rollA.headLength + rollA.tailLength).toFixed(2))
+  rollA.totalLength = computeUsableLength(rollA.actualLength, rollA.headLength, rollA.tailLength, rollA.layerCount)
   rollA.remainingLength = Number(Math.max(rollA.labeledLength - rollA.actualLength, 0).toFixed(2))
   rollA.actualCutPieceQty = computeRollActualCutGarmentQty(rollA.layerCount, primaryPlanUnit?.garmentQtyPerUnit || marker.totalPieces || 0)
   rollA.occurredAt = nowText(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T10:${String(profileIndex).padStart(2, '0')}:00`))
+  rollA.operatorLayerText = `1-${rollA.layerCount}层 张师傅`
   rollA.operatorNames = ['张师傅']
-  rollA.usableLength = computeUsableLength(rollA.actualLength, rollA.headLength, rollA.tailLength)
+  rollA.usableLength = computeUsableLength(rollA.actualLength, rollA.headLength, rollA.tailLength, rollA.layerCount)
   rollA.sourceChannel = profile.sourceChannel || 'MANUAL'
   rollA.sourceWritebackId = profile.sourceWritebackId || ''
   rollA.updatedFromPdaAt = profile.sourceChannel === 'PDA_WRITEBACK' ? rollA.occurredAt || nowText(seedDate) : ''
@@ -585,12 +586,13 @@ function createSeedSession(
   rollB.headLength = 0.5
   rollB.tailLength = 0.3
   rollB.layerCount = profile.actualLayerCounts?.[1] ?? 6 + contextIndex + profileIndex
-  rollB.totalLength = Number((rollB.actualLength + rollB.headLength + rollB.tailLength).toFixed(2))
+  rollB.totalLength = computeUsableLength(rollB.actualLength, rollB.headLength, rollB.tailLength, rollB.layerCount)
   rollB.remainingLength = Number(Math.max(rollB.labeledLength - rollB.actualLength, 0).toFixed(2))
   rollB.actualCutPieceQty = computeRollActualCutGarmentQty(rollB.layerCount, secondaryPlanUnit?.garmentQtyPerUnit || marker.totalPieces || 0)
   rollB.occurredAt = nowText(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T13:${String(profileIndex).padStart(2, '0')}:00`))
+  rollB.operatorLayerText = `1-${Math.max(Math.floor(rollB.layerCount / 2), 1)}层 李师傅；${Math.max(Math.floor(rollB.layerCount / 2), 1) + 1}-${rollB.layerCount}层 王师傅`
   rollB.operatorNames = ['李师傅', '王师傅']
-  rollB.usableLength = computeUsableLength(rollB.actualLength, rollB.headLength, rollB.tailLength)
+  rollB.usableLength = computeUsableLength(rollB.actualLength, rollB.headLength, rollB.tailLength, rollB.layerCount)
   rollB.handoverNotes = '同卷未铺完，午后换班继续完成。'
   rollB.sourceChannel = profile.sourceChannel || 'MANUAL'
   rollB.sourceWritebackId = profile.sourceWritebackId || ''
