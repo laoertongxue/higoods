@@ -621,7 +621,13 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
       .map((statementId) => candidates.find((item) => item.statementId === statementId)?.settlementPartyId)
       .filter(Boolean) as string[],
   )
+  const selectedPlannedPrepaymentDates = new Set(
+    Array.from(state.selected)
+      .map((statementId) => candidates.find((item) => item.statementId === statementId)?.plannedPrepaymentAt)
+      .filter(Boolean) as string[],
+  )
   const hasCrossFactorySelection = selectedFactoryIds.size > 1
+  const hasDifferentPlannedPrepaymentDates = selectedPlannedPrepaymentDates.size > 1
   const allSelected =
     filteredPool.length > 0 && filteredPool.every((item) => state.selected.has(item.statementId))
 
@@ -630,7 +636,7 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
       <div class="flex items-center justify-between">
         <div>
           <h2 class="text-base font-medium">待入预付款对账单</h2>
-          <p class="mt-1 text-sm text-muted-foreground">这里只展示已确认、已准备进入预付款的正式对账单。创建批次时会强校验同一工厂、同一币种和同一收款资料快照版本。</p>
+          <p class="mt-1 text-sm text-muted-foreground">这里只展示已确认、已准备进入预付款的正式对账单。创建批次时会强校验同一工厂、同一币种、同一收款资料快照版本和同一计划预付款日。</p>
         </div>
       </div>
 
@@ -663,6 +669,11 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
               ${
                 hasCrossFactorySelection
                   ? `<p class="mb-3 text-xs text-red-600">当前选择跨工厂，对账单创建预付款批次时会被拦截。</p>`
+                  : ''
+              }
+              ${
+                hasDifferentPlannedPrepaymentDates
+                  ? `<p class="mb-3 text-xs text-red-600">当前选择包含不同计划预付款日，对账单创建预付款批次时会被拦截。</p>`
                   : ''
               }
               <div class="flex flex-wrap items-end gap-3">
@@ -709,7 +720,7 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
                     </th>
                     <th class="px-4 py-2 font-medium">对账单号</th>
                     <th class="px-4 py-2 font-medium">工厂</th>
-                    <th class="px-4 py-2 font-medium">结算周期</th>
+                    <th class="px-4 py-2 font-medium">结算周期 / 计划预付款</th>
                     <th class="px-4 py-2 font-medium">平台状态</th>
                     <th class="px-4 py-2 font-medium">工厂反馈</th>
                     <th class="px-4 py-2 font-medium">申诉</th>
@@ -742,7 +753,10 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
                           </td>
                           <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.statementNo ?? item.statementId)}</td>
                           <td class="px-4 py-3">${escapeHtml(item.factoryName ?? item.statementPartyView ?? item.settlementPartyId)}</td>
-                          <td class="px-4 py-3 text-xs">${escapeHtml(item.settlementCycleLabel ?? '-')}</td>
+                          <td class="px-4 py-3 text-xs">
+                            <div>${escapeHtml(item.settlementCycleLabel ?? '-')}</div>
+                            <div class="mt-1 text-[10px] text-muted-foreground">计划预付款：${escapeHtml(item.plannedPrepaymentAt ?? '-')}</div>
+                          </td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(STATEMENT_STATUS_LABEL[item.status])}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(getFactoryFeedbackLabel(item.factoryFeedbackStatus))}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(appealSummary)}</td>
@@ -847,6 +861,7 @@ function renderBatchRows(view: BatchWorkbenchView, items: SettlementBatch[]): st
                   <td class="px-4 py-3">
                     <div>${escapeHtml(item.factoryName)}</div>
                     <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(item.settlementCurrency)} · 版本 ${escapeHtml(item.payeeAccountSnapshotVersion)}</div>
+                    <div class="mt-1 text-[10px] text-muted-foreground">计划预付款：${escapeHtml(item.plannedPrepaymentAt ?? '-')}</div>
                   </td>
                   <td class="px-4 py-3 text-center">${item.totalStatementCount}</td>
                   <td class="px-4 py-3 tabular-nums">${formatAmount(item.totalPayableAmount, item.settlementCurrency)}</td>
@@ -993,6 +1008,10 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
                 <dd>${escapeHtml(detail.batch.createdAt)}</dd>
               </div>
               <div class="flex items-start justify-between gap-3">
+                <dt class="text-muted-foreground">计划预付款日</dt>
+                <dd>${escapeHtml(detail.batch.plannedPrepaymentAt ?? '当前未计划')}</dd>
+              </div>
+              <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">申请付款时间</dt>
                 <dd>${escapeHtml(detail.batch.appliedForPaymentAt ?? '当前未申请')}</dd>
               </div>
@@ -1132,7 +1151,7 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
                   <tr class="border-b bg-muted/40 text-left">
                     <th class="px-4 py-2 font-medium">对账单号</th>
                     <th class="px-4 py-2 font-medium">工厂</th>
-                    <th class="px-4 py-2 font-medium">结算周期</th>
+                    <th class="px-4 py-2 font-medium">结算周期 / 计划预付款</th>
                     <th class="px-4 py-2 font-medium">平台状态</th>
                     <th class="px-4 py-2 font-medium">工厂反馈</th>
                     <th class="px-4 py-2 font-medium">申诉</th>
@@ -1156,7 +1175,10 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
                         <tr class="border-b last:border-b-0">
                           <td class="px-4 py-3 font-mono text-xs">${escapeHtml(statement.statementNo ?? statement.statementId)}</td>
                           <td class="px-4 py-3">${escapeHtml(statement.factoryName ?? statement.statementPartyView ?? statement.settlementPartyId)}</td>
-                          <td class="px-4 py-3 text-xs">${escapeHtml(statement.settlementCycleLabel ?? '-')}</td>
+                          <td class="px-4 py-3 text-xs">
+                            <div>${escapeHtml(statement.settlementCycleLabel ?? '-')}</div>
+                            <div class="mt-1 text-[10px] text-muted-foreground">计划预付款：${escapeHtml(statement.plannedPrepaymentAt ?? '-')}</div>
+                          </td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(STATEMENT_STATUS_LABEL[statement.status])}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(getFactoryFeedbackLabel(statement.factoryFeedbackStatus))}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(appealLabel)}</td>

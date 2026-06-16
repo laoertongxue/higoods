@@ -52,7 +52,7 @@ import {
 } from './warehouse-writeback-ledger.ts'
 import {
   CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY,
-} from './cut-order-close-records'
+} from './cut-order-close-records.ts'
 import {
   CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
   deserializeCuttingRuntimeEventLedgerStorage,

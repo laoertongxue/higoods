@@ -339,6 +339,7 @@ function enrichStatementDraftItemSeed(item: StatementDraftItem, draft: Pick<Stat
           settlementCycleLabel: item.settlementCycleLabel,
           settlementCycleStartAt: item.settlementCycleStartAt,
           settlementCycleEndAt: item.settlementCycleEndAt,
+          plannedPrepaymentAt: item.plannedPrepaymentAt,
         }
       : deriveSettlementCycleFields(item.settlementPartyId ?? draft.settlementPartyId, draft.createdAt)
   const qty = item.returnInboundQty ?? item.deductionQty ?? 0
@@ -407,6 +408,7 @@ function finalizeStatementDraftFields(draft: StatementDraft): StatementDraft {
   const netPayableAmount = roundAmount(
     draft.items.reduce((sum, item) => sum + (item.netAmount ?? item.deductionAmount ?? 0), 0),
   )
+  const plannedPrepaymentAt = draft.plannedPrepaymentAt ?? draft.items.find((item) => item.plannedPrepaymentAt)?.plannedPrepaymentAt
 
   return {
     ...draft,
@@ -429,6 +431,7 @@ function finalizeStatementDraftFields(draft: StatementDraft): StatementDraft {
     totalDeductionAmount,
     totalAmount: netPayableAmount,
     netPayableAmount,
+    plannedPrepaymentAt,
   }
 }
 
@@ -467,6 +470,7 @@ function enrichStatementDraftSeed(
           settlementCycleLabel: draft.settlementCycleLabel,
           settlementCycleStartAt: draft.settlementCycleStartAt,
           settlementCycleEndAt: draft.settlementCycleEndAt,
+          plannedPrepaymentAt: draft.plannedPrepaymentAt,
         }
       : deriveSettlementCycleFields(draft.settlementPartyId, draft.createdAt)
   return finalizeStatementDraftFields({
@@ -730,6 +734,7 @@ function buildBatchStatementItems(statements: StatementDraft[]): SettlementBatch
     settlementPartyId: statement.settlementPartyId,
     settlementCycleId: statement.settlementCycleId,
     settlementCycleLabel: statement.settlementCycleLabel,
+    plannedPrepaymentAt: statement.plannedPrepaymentAt,
     totalAmount: statement.totalAmount,
     totalEarningAmount: statement.totalEarningAmount,
     totalDeductionAmount: statement.totalDeductionAmount,
@@ -822,6 +827,7 @@ export function createPrepaymentBatch(input: {
   const currency = statements[0].settlementCurrency ?? statements[0].settlementProfileSnapshot.settlementConfigSnapshot.currency
   const payeeVersion = statements[0].settlementProfileVersionNo
   const payeeSnapshotId = buildPayeeAccountSnapshotId(statements[0])
+  const plannedPrepaymentAt = statements[0].plannedPrepaymentAt
 
   if (statements.some((item) => item.settlementPartyId !== factoryId)) {
     return { ok: false, message: '预付款批次不能跨工厂组批' }
@@ -834,6 +840,9 @@ export function createPrepaymentBatch(input: {
   }
   if (statements.some((item) => item.settlementProfileVersionNo !== payeeVersion || buildPayeeAccountSnapshotId(item) !== payeeSnapshotId)) {
     return { ok: false, message: '所选对账单的收款资料快照版本不一致，不能创建同一预付款批次' }
+  }
+  if (statements.some((item) => item.plannedPrepaymentAt !== plannedPrepaymentAt)) {
+    return { ok: false, message: '所选对账单计划预付款日不一致，不能创建同一预付款批次' }
   }
 
   const occupied = initialSettlementBatches.find(
@@ -867,6 +876,7 @@ export function createPrepaymentBatch(input: {
     status: 'READY_TO_APPLY_PAYMENT',
     statementIds: statements.map((item) => item.statementId),
     items,
+    plannedPrepaymentAt,
     remark: input.remark?.trim() || undefined,
     notes: '已组批，待申请付款',
     createdAt: timestamp,
@@ -1102,6 +1112,7 @@ export function createStatementFromEligibleLedgers(input: {
   settlementCycleLabel: string
   settlementCycleStartAt: string
   settlementCycleEndAt: string
+  plannedPrepaymentAt?: string
   itemSourceIds: string[]
   itemBasisIds: string[]
   items: StatementDraftItem[]
@@ -1144,6 +1155,7 @@ export function createStatementFromEligibleLedgers(input: {
     settlementCycleLabel: input.settlementCycleLabel,
     settlementCycleStartAt: input.settlementCycleStartAt,
     settlementCycleEndAt: input.settlementCycleEndAt,
+    plannedPrepaymentAt: input.plannedPrepaymentAt,
     factoryFeedbackStatus: 'NOT_SENT',
     createdAt: timestamp,
     createdBy: input.by,
@@ -1194,6 +1206,7 @@ export function syncStatementDraftFromBuild(input: {
   statement.settlementCycleLabel = firstLine.settlementCycleLabel
   statement.settlementCycleStartAt = firstLine.settlementCycleStartAt
   statement.settlementCycleEndAt = firstLine.settlementCycleEndAt
+  statement.plannedPrepaymentAt = firstLine.plannedPrepaymentAt
   statement.updatedAt = timestamp
   statement.updatedBy = input.by
   const normalized = finalizeStatementDraftFields(statement)

@@ -5,6 +5,9 @@ import {
   normalizeAccountMask,
   closeDialog,
   syncSettlementRequestState,
+  getFactorySettlementDefaultConfig,
+  getSettlementDayRuleForCycleType,
+  shouldReplaceSettlementDayRule,
   getFilteredSummaries,
   getFilteredRequests,
   saveCurrentInitDraft,
@@ -49,7 +52,11 @@ function updateSettlementField(
   const checked = node instanceof HTMLInputElement ? node.checked : false
 
   if (field === 'profile.cycleType') {
-    state.profileForm.cycleType = value as CycleType
+    const nextCycleType = value as CycleType
+    if (state.profileForm.cycleType !== nextCycleType && shouldReplaceSettlementDayRule(state.profileForm.settlementDayRule)) {
+      state.profileForm.settlementDayRule = getSettlementDayRuleForCycleType(nextCycleType)
+    }
+    state.profileForm.cycleType = nextCycleType
     state.profileErrors.cycleType = undefined
     return
   }
@@ -216,7 +223,14 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
     }
 
     if (field === 'config.cycleType') {
-      state.initConfigDraft.cycleType = value as CycleType
+      const nextCycleType = value as CycleType
+      if (
+        state.initConfigDraft.cycleType !== nextCycleType &&
+        shouldReplaceSettlementDayRule(state.initConfigDraft.settlementDayRule)
+      ) {
+        state.initConfigDraft.settlementDayRule = getSettlementDayRuleForCycleType(nextCycleType)
+      }
+      state.initConfigDraft.cycleType = nextCycleType
       return true
     }
     if (field === 'config.pricingMode') {
@@ -354,12 +368,7 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'reset-init-config') {
-    state.initConfigDraft = {
-      cycleType: 'MONTHLY',
-      settlementDayRule: '每月25日',
-      pricingMode: 'BY_PIECE',
-      currency: 'IDR',
-    }
+    state.initConfigDraft = getFactorySettlementDefaultConfig(state.initEditorFactoryId)
     return true
   }
 

@@ -266,7 +266,7 @@ function renderLedgerRows(ledgers: PreSettlementLedger[]): string {
             <th class="px-4 py-2 font-medium">流水号</th>
             <th class="px-4 py-2 font-medium">流水类型</th>
             <th class="px-4 py-2 font-medium">工厂</th>
-            <th class="px-4 py-2 font-medium">结算周期</th>
+            <th class="px-4 py-2 font-medium">结算周期 / 计划预付款</th>
             <th class="px-4 py-2 font-medium">任务 / 质检</th>
             <th class="px-4 py-2 font-medium">回货批次</th>
             <th class="px-4 py-2 text-right font-medium">数量</th>
@@ -287,7 +287,10 @@ function renderLedgerRows(ledgers: PreSettlementLedger[]): string {
                   <td class="px-4 py-3 font-mono">${escapeHtml(ledger.ledgerNo)}</td>
                   <td class="px-4 py-3">${renderTypeCell(ledger)}</td>
                   <td class="px-4 py-3">${escapeHtml(ledger.factoryName)}</td>
-                  <td class="px-4 py-3 text-[11px] text-muted-foreground">${escapeHtml(ledger.settlementCycleLabel)}</td>
+                  <td class="px-4 py-3 text-[11px] text-muted-foreground">
+                    <div>${escapeHtml(ledger.settlementCycleLabel)}</div>
+                    <div class="mt-1">计划预付款：${escapeHtml(ledger.plannedPrepaymentAt ?? '-')}</div>
+                  </td>
                   <td class="px-4 py-3">
                     <div class="font-medium text-foreground">${escapeHtml(ledger.ledgerType === 'TASK_EARNING' ? (ledger.taskNo ?? '—') : (ledger.qcRecordId ?? '—'))}</div>
                     <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(ledger.ledgerType === 'TASK_EARNING' ? (PRICE_SOURCE_LABEL[ledger.priceSourceType] ?? '兼容快照') : (ledger.pendingDeductionRecordId ?? '正式质量扣款流水'))}</div>
@@ -346,6 +349,7 @@ function renderLedgerDetail(trace: PreSettlementLedgerSourceTrace | null): strin
                 ${renderTraceRow('流水类型', escapeHtml(LEDGER_TYPE_LABEL[ledger.ledgerType]))}
                 ${renderTraceRow('工厂', escapeHtml(ledger.factoryName))}
                 ${renderTraceRow('结算周期', escapeHtml(ledger.settlementCycleLabel))}
+                ${renderTraceRow('计划预付款日', escapeHtml(ledger.plannedPrepaymentAt ?? '-'))}
                 ${renderTraceRow('当前状态', escapeHtml(LEDGER_STATUS_LABEL[ledger.status]))}
                 ${renderTraceRow('已入对账单', statement ? escapeHtml(statement.statementId) : '未入对账单')}
                 ${renderTraceRow('已入预付款批次', batch ? escapeHtml(batch.batchId) : '未入预付款批次')}

@@ -129,6 +129,7 @@ export interface PreSettlementLedger {
   settlementCycleLabel: string
   settlementCycleStartAt: string
   settlementCycleEndAt: string
+  plannedPrepaymentAt?: string
   settlementProfileVersionNo?: string
   statementId?: string
   prepaymentBatchId?: string
@@ -168,6 +169,7 @@ export interface PrepaymentBatchStatementItem {
   settlementPartyId: string
   settlementCycleId?: string
   settlementCycleLabel?: string
+  plannedPrepaymentAt?: string
   totalAmount: number
   totalEarningAmount?: number
   totalDeductionAmount?: number
@@ -247,6 +249,7 @@ export interface PrepaymentBatch {
   status: PrepaymentBatchStatus
   statementIds: string[]
   items: PrepaymentBatchStatementItem[]
+  plannedPrepaymentAt?: string
   remark?: string
   notes?: string
   createdAt: string
@@ -302,6 +305,7 @@ export interface StatementDraftItem {
   settlementCycleLabel?: string
   settlementCycleStartAt?: string
   settlementCycleEndAt?: string
+  plannedPrepaymentAt?: string
   statementLineGrainType?: StatementLineGrainType
   returnInboundBatchId?: string
   returnInboundBatchNo?: string
@@ -352,6 +356,7 @@ export interface StatementDraft {
   settlementCycleLabel?: string
   settlementCycleStartAt?: string
   settlementCycleEndAt?: string
+  plannedPrepaymentAt?: string
   sentToFactoryAt?: string
   factoryConfirmedAt?: string
   /** 工厂反馈状态轴，与平台侧生命周期状态并存。 */

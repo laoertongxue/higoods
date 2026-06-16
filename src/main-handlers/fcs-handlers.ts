@@ -212,6 +212,9 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
   ) {
     return handleCraftCuttingSpecialProcessesEvent(target)
   }
+  if (target.closest('[data-cutting-supplement-action]')) {
+    return handleCraftCuttingSupplementManagementEvent(target)
+  }
 
   const isPostFinishingRoute =
     pathname.includes('/fcs/craft/post-finishing')

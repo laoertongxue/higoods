@@ -10,6 +10,7 @@ export interface StatementCycleFields {
   settlementCycleLabel: string
   settlementCycleStartAt: string
   settlementCycleEndAt: string
+  plannedPrepaymentAt: string
 }
 
 export interface StatementPricingFields {
@@ -38,6 +39,19 @@ function getMonthLastDate(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0)
 }
 
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+  return result
+}
+
+function getNextMonthDate(date: Date, targetDay: number): Date {
+  const year = date.getFullYear()
+  const nextMonth = date.getMonth() + 1
+  const nextMonthLast = new Date(year, nextMonth + 1, 0).getDate()
+  return new Date(year, nextMonth, Math.min(targetDay, nextMonthLast))
+}
+
 function resolveSettlementFactoryKey(settlementPartyId: string): string | null {
   if (getSettlementEffectiveInfoByFactory(settlementPartyId)) return settlementPartyId
   const factoryById = getFactoryById(settlementPartyId)
@@ -49,9 +63,12 @@ function resolveSettlementFactoryKey(settlementPartyId: string): string | null {
 
 function resolveSettlementCycleType(settlementPartyId: string): CycleType {
   const factoryKey = resolveSettlementFactoryKey(settlementPartyId)
-  return factoryKey
-    ? (getSettlementEffectiveInfoByFactory(factoryKey)?.settlementConfigSnapshot.cycleType ?? 'WEEKLY')
-    : 'WEEKLY'
+  if (factoryKey) {
+    return getSettlementEffectiveInfoByFactory(factoryKey)?.settlementConfigSnapshot.cycleType ?? 'WEEKLY'
+  }
+
+  const factory = getFactoryById(settlementPartyId) ?? getFactoryByCode(settlementPartyId)
+  return factory?.tier === 'THIRD_PARTY' ? 'TRI_DECAD' : 'WEEKLY'
 }
 
 export function deriveSettlementCycleFields(
@@ -62,6 +79,7 @@ export function deriveSettlementCycleFields(
   const date = parseDateText(referenceAt)
   let start = new Date(date)
   let end = new Date(date)
+  let plannedPrepaymentAt: string | undefined
 
   if (cycleType === 'WEEKLY') {
     const day = date.getDay()
@@ -70,17 +88,36 @@ export function deriveSettlementCycleFields(
     start.setDate(date.getDate() - diffToMonday)
     end = new Date(start)
     end.setDate(start.getDate() + 6)
+    plannedPrepaymentAt = formatDate(addDays(end, 3))
   } else if (cycleType === 'BIWEEKLY') {
     const isFirstHalf = date.getDate() <= 14
     start = new Date(date.getFullYear(), date.getMonth(), isFirstHalf ? 1 : 15)
     end = isFirstHalf ? new Date(date.getFullYear(), date.getMonth(), 14) : getMonthLastDate(date)
+    plannedPrepaymentAt = formatDate(addDays(end, 10))
   } else if (cycleType === 'MONTHLY') {
     start = new Date(date.getFullYear(), date.getMonth(), 1)
     end = getMonthLastDate(date)
+    plannedPrepaymentAt = formatDate(getNextMonthDate(date, 10))
+  } else if (cycleType === 'TRI_DECAD') {
+    const day = date.getDate()
+    if (day <= 10) {
+      start = new Date(date.getFullYear(), date.getMonth(), 1)
+      end = new Date(date.getFullYear(), date.getMonth(), 10)
+      plannedPrepaymentAt = formatDate(getNextMonthDate(date, 10))
+    } else if (day <= 20) {
+      start = new Date(date.getFullYear(), date.getMonth(), 11)
+      end = new Date(date.getFullYear(), date.getMonth(), 20)
+      plannedPrepaymentAt = formatDate(getNextMonthDate(date, 20))
+    } else {
+      start = new Date(date.getFullYear(), date.getMonth(), 21)
+      end = getMonthLastDate(date)
+      plannedPrepaymentAt = formatDate(getNextMonthDate(date, 30))
+    }
   }
 
   const startAt = formatDate(start)
   const endAt = formatDate(end)
+  const paymentAt = plannedPrepaymentAt ?? formatDate(addDays(end, 10))
   const cycleLabel = `${cycleTypeConfig[cycleType].label} ${startAt} ~ ${endAt}`
 
   return {
@@ -88,6 +125,7 @@ export function deriveSettlementCycleFields(
     settlementCycleLabel: cycleLabel,
     settlementCycleStartAt: startAt,
     settlementCycleEndAt: endAt,
+    plannedPrepaymentAt: paymentAt,
   }
 }
 

@@ -413,6 +413,7 @@ function createStatementDraftFromScope(
     settlementCycleLabel: scope.settlementCycleLabel,
     settlementCycleStartAt: scope.settlementCycleStartAt,
     settlementCycleEndAt: scope.settlementCycleEndAt,
+    plannedPrepaymentAt: scope.plannedPrepaymentAt,
     itemSourceIds: sourceCandidates.map((item) => item.sourceItemId),
     itemBasisIds: sourceCandidates
       .filter((item) => item.sourceType === 'QUALITY_DEDUCTION')
@@ -475,7 +476,10 @@ function renderStatementListRows(items: StatementListItemViewModel[]): string {
         <tr class="border-b last:border-b-0">
           <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.statementNo)}</td>
           <td class="px-4 py-3 text-xs">${escapeHtml(item.settlementPartyLabel)}</td>
-          <td class="px-4 py-3 text-xs">${escapeHtml(item.settlementCycleLabel ?? '-')}</td>
+          <td class="px-4 py-3 text-xs">
+            <div>${escapeHtml(item.settlementCycleLabel ?? '-')}</div>
+            <div class="mt-1 text-[10px] text-muted-foreground">计划预付款：${escapeHtml(item.plannedPrepaymentAt ?? '-')}</div>
+          </td>
           <td class="px-4 py-3 text-xs">${escapeHtml(item.currency)}</td>
           <td class="px-4 py-3">
             <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[item.status]}">${STATUS_ZH[item.status]}</span>
@@ -739,6 +743,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">对账单号</dt><dd class="font-mono text-xs">${escapeHtml(detail.draft.statementNo ?? detail.draft.statementId)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">工厂</dt><dd class="text-right text-xs">${escapeHtml(detail.settlementPartyLabel)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">结算周期</dt><dd class="text-right text-xs">${escapeHtml(detail.draft.settlementCycleLabel ?? '-')}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">计划预付款日</dt><dd class="text-xs">${escapeHtml(detail.draft.plannedPrepaymentAt ?? '-')}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">对账单状态</dt><dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[detail.draft.status]}">${STATUS_ZH[detail.draft.status]}</span></dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">创建时间</dt><dd class="text-xs">${escapeHtml(detail.draft.createdAt)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">创建人</dt><dd class="text-xs">${escapeHtml(detail.draft.createdBy)}</dd></div>
@@ -886,6 +891,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">已关联预付款批次</dt><dd class="text-xs">${escapeHtml(detail.draft.prepaymentBatchNo || detail.draft.prepaymentBatchId || '当前未入预付款批次')}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">批次状态</dt><dd class="text-xs">${escapeHtml(detail.draft.prepaymentBatchStatus ? (detail.draft.prepaymentBatchStatus === 'READY_TO_APPLY_PAYMENT' ? '待申请付款' : detail.draft.prepaymentBatchStatus === 'FEISHU_APPROVAL_CREATED' ? '飞书审批中' : detail.draft.prepaymentBatchStatus === 'FEISHU_PAID_PENDING_WRITEBACK' ? '已付款待回写' : detail.draft.prepaymentBatchStatus === 'PREPAID' ? '已预付' : detail.draft.prepaymentBatchStatus === 'CLOSED' ? '已关闭' : detail.draft.prepaymentBatchStatus === 'FEISHU_APPROVAL_REJECTED' ? '审批已驳回' : '审批已取消') : '当前未入预付款批次')}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">飞书付款审批编号</dt><dd class="text-xs">${escapeHtml(detail.draft.feishuApprovalNo || '当前未创建')}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">计划预付款日</dt><dd class="text-xs">${escapeHtml(detail.draft.plannedPrepaymentAt || '当前未计划')}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">准备时间</dt><dd class="text-xs">${escapeHtml(detail.draft.readyForPrepaymentAt || '当前未准备')}</dd></div>
             </dl>
             <p class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(progressView.detail)}</p>
@@ -1027,7 +1033,7 @@ function renderListView(
                   <tr class="border-b bg-muted/40 text-left">
                     <th class="px-4 py-2 font-medium">对账单号</th>
                     <th class="px-4 py-2 font-medium">工厂 / 结算对象</th>
-                    <th class="px-4 py-2 font-medium">结算周期</th>
+                    <th class="px-4 py-2 font-medium">结算周期 / 计划预付款</th>
                     <th class="px-4 py-2 font-medium">结算币种</th>
                     <th class="px-4 py-2 font-medium">对账单状态</th>
                     <th class="px-4 py-2 font-medium">工厂反馈状态</th>
@@ -1107,7 +1113,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                       <option value="">请选择结算周期</option>
                       ${cycleOptions
                         .map(
-                          (item) => `<option value="${escapeHtml(item.settlementCycleId)}" ${state.buildCycleId === item.settlementCycleId ? 'selected' : ''}>${escapeHtml(item.settlementCycleLabel)}</option>`,
+                          (item) => `<option value="${escapeHtml(item.settlementCycleId)}" ${state.buildCycleId === item.settlementCycleId ? 'selected' : ''}>${escapeHtml(`${item.settlementCycleLabel}${item.plannedPrepaymentAt ? ` · 计划预付款 ${item.plannedPrepaymentAt}` : ''}`)}</option>`,
                         )
                         .join('')}
                     </select>
@@ -1125,6 +1131,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                         <div class="flex flex-wrap items-center gap-4">
                           <span>工厂：<strong>${escapeHtml(selectedScope.settlementPartyLabel)}</strong></span>
                           <span>结算周期：<strong>${escapeHtml(selectedScope.settlementCycleLabel)}</strong></span>
+                          <span>计划预付款：<strong>${escapeHtml(selectedScope.plannedPrepaymentAt ?? '-')}</strong></span>
                           <span>可纳入正式流水：<strong>${selectedScope.candidateCount}</strong> 条</span>
                           <span>本期应付净额：<strong>${formatAmount(selectedScope.netPayableAmount)}</strong></span>
                         </div>

@@ -56,7 +56,16 @@ import { escapeHtml } from '../../utils'
 import { appStore } from '../../state/store'
 
 export const PAGE_SIZE = 10
-export const CURRENCIES = ['CNY', 'USD', 'EUR', 'HKD'] as const
+export const CURRENCIES = ['IDR', 'CNY', 'USD', 'EUR', 'HKD'] as const
+export const DEFAULT_SETTLEMENT_DAY_RULE = '每月25日'
+export const TRI_DECAD_SETTLEMENT_DAY_RULE = '1-10日送货次月10日预付；11-20日送货次月20日预付；21-月底送货次月30日预付'
+
+const DEFAULT_SETTLEMENT_CONFIG: SettlementConfigSnapshot = {
+  cycleType: 'MONTHLY',
+  settlementDayRule: DEFAULT_SETTLEMENT_DAY_RULE,
+  pricingMode: 'BY_PIECE',
+  currency: 'IDR',
+}
 
 export type DetailTab = 'profile' | 'accounts' | 'rules' | 'history'
 export type InitTab = 'config' | 'account' | 'rules'
@@ -160,10 +169,7 @@ export const state: SettlementState = {
   ruleActionMenuId: null,
 
   profileForm: {
-    cycleType: 'MONTHLY',
-    settlementDayRule: '',
-    pricingMode: 'BY_PIECE',
-    currency: 'CNY',
+    ...DEFAULT_SETTLEMENT_CONFIG,
     effectiveFrom: '',
   },
   profileErrors: {},
@@ -183,7 +189,7 @@ export const state: SettlementState = {
     accountName: '',
     bankName: '',
     accountMasked: '',
-    currency: 'CNY',
+    currency: DEFAULT_SETTLEMENT_CONFIG.currency,
     isDefault: false,
     status: 'ACTIVE',
   },
@@ -210,12 +216,7 @@ export const state: SettlementState = {
   initEditorFactoryId: null,
   initEditorFactoryName: '',
   initActiveTab: 'config',
-  initConfigDraft: {
-    cycleType: 'MONTHLY',
-    settlementDayRule: '每月25日',
-    pricingMode: 'BY_PIECE',
-    currency: 'IDR',
-  },
+  initConfigDraft: { ...DEFAULT_SETTLEMENT_CONFIG },
   initAccountDraft: {
     accountHolderName: '',
     idNumber: '',
@@ -355,6 +356,38 @@ export function getInitDraftByFactory(factoryId: string): SettlementInitDraft | 
   return state.initDrafts.find((item) => item.factoryId === factoryId) ?? getSettlementInitDraftByFactory(factoryId)
 }
 
+export function getSettlementDayRuleForCycleType(cycleType: CycleType): string {
+  if (cycleType === 'TRI_DECAD') return TRI_DECAD_SETTLEMENT_DAY_RULE
+  if (cycleType === 'BIWEEKLY') return '每月1-14日、15-月底分两段结算'
+  if (cycleType === 'WEEKLY') return '每周五'
+  if (cycleType === 'PER_BATCH') return '按批次完成后结算'
+  return DEFAULT_SETTLEMENT_DAY_RULE
+}
+
+const systemSettlementDayRules = new Set<string>([
+  DEFAULT_SETTLEMENT_DAY_RULE,
+  TRI_DECAD_SETTLEMENT_DAY_RULE,
+  getSettlementDayRuleForCycleType('BIWEEKLY'),
+  getSettlementDayRuleForCycleType('WEEKLY'),
+  getSettlementDayRuleForCycleType('PER_BATCH'),
+])
+
+export function shouldReplaceSettlementDayRule(currentRule?: string): boolean {
+  const trimmed = currentRule?.trim() ?? ''
+  return !trimmed || systemSettlementDayRules.has(trimmed)
+}
+
+export function getFactorySettlementDefaultConfig(factoryId?: string | null): SettlementConfigSnapshot {
+  const summary = factoryId ? state.summaries.find((item) => item.factoryId === factoryId) : null
+  const cycleType = summary?.cycleType ?? DEFAULT_SETTLEMENT_CONFIG.cycleType
+  return {
+    cycleType,
+    settlementDayRule: getSettlementDayRuleForCycleType(cycleType),
+    pricingMode: summary?.pricingMode ?? DEFAULT_SETTLEMENT_CONFIG.pricingMode,
+    currency: summary?.currency ?? DEFAULT_SETTLEMENT_CONFIG.currency,
+  }
+}
+
 export function normalizeAccountMask(rawAccountNo: string): string {
   const cleaned = rawAccountNo.replace(/\s+/g, '')
   if (!cleaned) return ''
@@ -389,12 +422,7 @@ export function resetInitEditor(factoryId: string): void {
     return
   }
 
-  state.initConfigDraft = {
-    cycleType: 'MONTHLY',
-    settlementDayRule: '每月25日',
-    pricingMode: 'BY_PIECE',
-    currency: 'IDR',
-  }
+  state.initConfigDraft = getFactorySettlementDefaultConfig(factoryId)
   state.initAccountDraft = {
     accountHolderName: factoryName,
     idNumber: '',
@@ -446,10 +474,7 @@ export function resetProfileForm(factoryId?: string): void {
         effectiveFrom: today(),
       }
     : {
-        cycleType: 'MONTHLY',
-        settlementDayRule: '',
-        pricingMode: 'BY_PIECE',
-        currency: 'CNY',
+        ...getFactorySettlementDefaultConfig(factoryId),
         effectiveFrom: today(),
       }
   state.profileRulesDraft =
@@ -469,7 +494,7 @@ export function resetProfileForm(factoryId?: string): void {
   state.profileActiveTab = 'config'
 }
 
-export function resetAccountForm(account: FactoryBankAccount | null): void {
+export function resetAccountForm(account: FactoryBankAccount | null, factoryId?: string): void {
   if (account) {
     state.accountForm = {
       accountName: account.accountName,
@@ -484,7 +509,7 @@ export function resetAccountForm(account: FactoryBankAccount | null): void {
       accountName: '',
       bankName: '',
       accountMasked: '',
-      currency: 'CNY',
+      currency: getFactorySettlementDefaultConfig(factoryId).currency,
       isDefault: false,
       status: 'ACTIVE',
     }
@@ -525,7 +550,7 @@ export function openAccountDrawer(factoryId: string, accountId?: string): void {
   const account = accountId
     ? state.accounts.find((item) => item.id === accountId) ?? null
     : getFactoryAccounts(factoryId).find((item) => item.isDefault) ?? null
-  resetAccountForm(account)
+  resetAccountForm(account, factoryId)
   state.dialog = { type: 'account-drawer', factoryId, accountId }
 }
 

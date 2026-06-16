@@ -107,6 +107,30 @@ export const settlementProfiles: FactorySettlementProfile[] = [
     effectiveFrom: '2024-03-01',
     updatedAt: '2024-03-01',
   },
+  {
+    id: 'sp-021',
+    factoryId: 'ID-FAC-0021',
+    factoryName: 'CV Micro Sewing Jakarta Pusat',
+    cycleType: 'TRI_DECAD',
+    settlementDayRule: '1-10日送货次月10日预付；11-20日送货次月20日预付；21-月底送货次月30日预付',
+    pricingMode: 'BY_PIECE',
+    currency: 'IDR',
+    isActive: true,
+    effectiveFrom: '2026-01-01',
+    updatedAt: '2026-01-01',
+  },
+  {
+    id: 'sp-022',
+    factoryId: 'ID-FAC-0022',
+    factoryName: 'CV Micro Sewing Bandung Utara',
+    cycleType: 'TRI_DECAD',
+    settlementDayRule: '1-10日送货次月10日预付；11-20日送货次月20日预付；21-月底送货次月30日预付',
+    pricingMode: 'BY_PIECE',
+    currency: 'IDR',
+    isActive: true,
+    effectiveFrom: '2026-01-01',
+    updatedAt: '2026-01-01',
+  },
 ]
 
 // 收款账户数据（使用印尼银行）
@@ -161,6 +185,26 @@ export const bankAccounts: FactoryBankAccount[] = [
     isDefault: true,
     status: 'INACTIVE',
   },
+  {
+    id: 'ba-021',
+    factoryId: 'ID-FAC-0021',
+    accountName: 'CV Micro Sewing Jakarta Pusat',
+    bankName: 'Bank Central Asia (BCA)',
+    accountMasked: '****2188',
+    currency: 'IDR',
+    isDefault: true,
+    status: 'ACTIVE',
+  },
+  {
+    id: 'ba-022',
+    factoryId: 'ID-FAC-0022',
+    accountName: 'CV Micro Sewing Bandung Utara',
+    bankName: 'Bank Mandiri',
+    accountMasked: '****2277',
+    currency: 'IDR',
+    isDefault: true,
+    status: 'ACTIVE',
+  },
 ]
 
 // 默认扣款规则数据
@@ -213,10 +257,19 @@ export const penaltyRules: DefaultPenaltyRule[] = [
 ]
 
 // 结算情况列表（列表页用）- 从印尼工厂生成
-export const settlementSummaries: FactorySettlementSummary[] = indonesiaFactories.slice(0, 8).map((f, i) => ({
+const settlementSummaryFactories = [
+  ...indonesiaFactories.slice(0, 8),
+  ...indonesiaFactories.filter((factory) => ['ID-FAC-0021', 'ID-FAC-0022'].includes(factory.code)),
+]
+
+export const settlementSummaries: FactorySettlementSummary[] = settlementSummaryFactories.map((f, i) => ({
   factoryId: f.code,
   factoryName: f.name,
-  cycleType: ['MONTHLY', 'BIWEEKLY', 'WEEKLY', 'PER_BATCH'][i % 4] as FactorySettlementSummary['cycleType'],
+  cycleType: (
+    f.tier === 'THIRD_PARTY'
+      ? 'TRI_DECAD'
+      : ['MONTHLY', 'BIWEEKLY', 'WEEKLY', 'PER_BATCH'][i % 4]
+  ) as FactorySettlementSummary['cycleType'],
   pricingMode: ['BY_PIECE', 'BY_PROCESS', 'BY_ORDER'][i % 3] as FactorySettlementSummary['pricingMode'],
   currency: 'IDR',
   hasDefaultAccount: i < 5,

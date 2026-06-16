@@ -194,6 +194,7 @@ function buildQualityDeductionPreSettlementLedger(ledger: FormalQualityDeduction
     settlementCycleLabel: cycle.settlementCycleLabel,
     settlementCycleStartAt: cycle.settlementCycleStartAt,
     settlementCycleEndAt: cycle.settlementCycleEndAt,
+    plannedPrepaymentAt: cycle.plannedPrepaymentAt,
     settlementProfileVersionNo: settlementProfile?.versionNo,
     statementId: runtimeStatement?.statementId ?? ledger.includedStatementId,
     prepaymentBatchId: runtimeBatch?.batchId ?? ledger.includedPrepaymentBatchId,

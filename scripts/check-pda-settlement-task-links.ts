@@ -31,13 +31,23 @@ function main(): void {
   assert(qualitySource.includes("const cycleId = params.get('cycleId')"), 'pda-quality 未读取 cycleId 以保留回跳上下文')
   assert(qualitySource.includes("search.set('cycleId', cycleId)"), 'pda-quality 返回结算页时未保留 cycleId')
 
-  const factoryWithBatch = indonesiaFactories.find((factory) => listSettlementBatchesByParty(factory.id).length > 0)
+  const approvals = listFeishuPaymentApprovals()
+  const writebacks = listPaymentWritebacks()
+  const factoryWithBatch = indonesiaFactories.find((factory) => {
+    const factoryBatches = listSettlementBatchesByParty(factory.id)
+    return factoryBatches.some((batch) =>
+      approvals.some((approval) => approval.batchId === batch.batchId) &&
+      writebacks.some((writeback) => writeback.batchId === batch.batchId),
+    )
+  })
   assert(Boolean(factoryWithBatch), '缺少可用于工厂端查看预付款结果的工厂样例')
   const statements = factoryWithBatch ? listSettlementStatementsByParty(factoryWithBatch.id) : []
   const batches = factoryWithBatch ? listSettlementBatchesByParty(factoryWithBatch.id) : []
-  const approvals = listFeishuPaymentApprovals()
-  const writebacks = listPaymentWritebacks()
-  const linkedBatch = batches.find((batch) => batch.statementIds.some((statementId) => statements.some((statement) => statement.statementId === statementId)))
+  const linkedBatch = batches.find((batch) =>
+    batch.statementIds.some((statementId) => statements.some((statement) => statement.statementId === statementId)) &&
+    approvals.some((approval) => approval.batchId === batch.batchId) &&
+    writebacks.some((writeback) => writeback.batchId === batch.batchId),
+  )
   assert(Boolean(linkedBatch), '缺少关联对账单的预付款批次样例')
   const linkedApproval = linkedBatch ? approvals.find((approval) => approval.batchId === linkedBatch.batchId) : null
   const linkedWriteback = linkedBatch ? writebacks.find((writeback) => writeback.batchId === linkedBatch.batchId) : null

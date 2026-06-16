@@ -1,4 +1,5 @@
 import { penaltyRules, settlementProfiles } from './settlement-mock-data.ts'
+import { getFactoryByCode, getFactoryById } from './indonesia-factories.ts'
 import type {
   CycleType,
   PricingMode,
@@ -196,6 +197,15 @@ function resolveSettlementConfigSnapshot(factoryId: string): SettlementConfigSna
     settlementProfiles.find((item) => item.factoryId === factoryId)
 
   if (!activeProfile) {
+    const factory = getFactoryByCode(factoryId) ?? getFactoryById(factoryId)
+    if (factory?.tier === 'THIRD_PARTY') {
+      return {
+        cycleType: 'TRI_DECAD',
+        settlementDayRule: '1-10日送货次月10日预付；11-20日送货次月20日预付；21-月底送货次月30日预付',
+        pricingMode: 'BY_PIECE',
+        currency: 'IDR',
+      }
+    }
     return {
       cycleType: 'MONTHLY',
       settlementDayRule: '每月25日',
@@ -337,6 +347,32 @@ const settlementEffectiveInfos: SettlementEffectiveInfo[] = [
     effectiveAt: '2026-02-03 10:10',
     effectiveBy: '平台运营-陈彦',
     updatedBy: '平台运营-陈彦',
+  },
+  {
+    factoryId: 'ID-FAC-0021',
+    factoryName: 'CV Micro Sewing Jakarta Pusat',
+    accountHolderName: 'CV Micro Sewing Jakarta Pusat',
+    idNumber: 'NPWP-21.452.118.0-021.000',
+    bankName: 'Bank Central Asia (BCA)',
+    bankAccountNo: '5210210088002188',
+    bankBranch: 'Jakarta Tanah Abang Branch',
+    versionNo: 'V1',
+    effectiveAt: '2026-01-01 09:00',
+    effectiveBy: '平台运营-林静',
+    updatedBy: '平台运营-林静',
+  },
+  {
+    factoryId: 'ID-FAC-0022',
+    factoryName: 'CV Micro Sewing Bandung Utara',
+    accountHolderName: 'CV Micro Sewing Bandung Utara',
+    idNumber: 'NPWP-22.672.330.1-022.000',
+    bankName: 'Bank Mandiri',
+    bankAccountNo: '9006722200882277',
+    bankBranch: 'Bandung Cihampelas Branch',
+    versionNo: 'V1',
+    effectiveAt: '2026-01-01 09:00',
+    effectiveBy: '平台运营-周航',
+    updatedBy: '平台运营-周航',
   },
 ].map(buildEffectiveInfo)
 

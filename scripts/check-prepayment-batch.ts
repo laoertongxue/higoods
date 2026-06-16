@@ -20,6 +20,7 @@ function getPayeeSnapshotKey(statement: (typeof initialStatementDrafts)[number])
     statement.settlementCurrency ?? statement.settlementProfileSnapshot.settlementConfigSnapshot.currency,
     statement.settlementProfileVersionNo,
     statement.settlementProfileSnapshot.receivingAccountSnapshot.bankAccountNo,
+    statement.plannedPrepaymentAt ?? '未计划',
   ].join('__')
 }
 
@@ -43,7 +44,7 @@ function getBuildableGroups() {
     groups.set(key, [...(groups.get(key) ?? []), statement])
   }
 
-  return Array.from(groups.values()).filter((group) => group.length >= 2)
+  return Array.from(groups.values()).filter((group) => group.length >= 1)
 }
 
 function main(): void {

@@ -60,6 +60,28 @@ import {
   type PcsProjectWorkItemCode,
 } from '../data/pcs-project-domain-contract.ts'
 import {
+  SAMPLE_COST_DEFAULT_EXCHANGE_RATE,
+  SAMPLE_COST_RAW_MATERIAL_ROWS_KEY,
+  SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY,
+  calculateSampleCostReview,
+  createDefaultSampleCostMaterialRows,
+  formatSampleCostCny,
+  formatSampleCostSourceAndCny,
+  getAllowedSampleCostMaterialOptions,
+  getSampleCostMaterialOptionLabel,
+  normalizeSampleCostCurrency,
+  normalizeSampleCostGarmentCategory,
+  normalizeSampleCostMaterialRows,
+  normalizeSampleCostOptionalProcessRows,
+  resolveSampleCostSalesPrice,
+  sampleCostCurrencyOptions,
+  sampleCostGarmentCategoryOptions,
+  sampleCostOptionalProcessOptions,
+  type SampleCostMaterialLineInput,
+  type SampleCostOptionalProcessInput,
+  type SampleCostReviewInput,
+} from '../data/pcs-sample-cost-review-pricing.ts'
+import {
   getEngineeringTaskFieldPolicy,
   type EngineeringTaskFieldPolicyCode,
 } from '../data/pcs-engineering-task-field-policy.ts'
@@ -1858,19 +1880,15 @@ const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCod
     'brandName',
     'garmentCategory',
     'exchangeRate',
-    'materialCostLines',
     'materialCostCny',
-    'dyeingRuleLines',
     'dyeingCostCny',
     'auxiliaryCostAmount',
     'auxiliaryCostCurrency',
     'auxiliaryCostCny',
-    'fixedProcessLines',
     'fixedProcessCostCny',
     'sewingCostAmount',
     'sewingCostCurrency',
     'sewingCostCny',
-    'optionalProcessLines',
     'optionalProcessCostCny',
     'costTotal',
     'salesPrice',
@@ -3587,6 +3605,409 @@ function formatDraftFieldValue(type: PcsProjectNodeFieldGroupDefinition['fields'
   if (type === 'date') return text.slice(0, 10)
   if (type === 'datetime') return text.replace(' ', 'T').slice(0, 16)
   return text
+}
+
+function parseSampleCostJsonRows<T extends Record<string, unknown>>(value: unknown): T[] {
+  if (Array.isArray(value)) return value.filter((item): item is T => typeof item === 'object' && item != null)
+  const text = String(value || '').trim()
+  if (!text) return []
+  try {
+    const parsed = JSON.parse(text) as unknown
+    return Array.isArray(parsed) ? parsed.filter((item): item is T => typeof item === 'object' && item != null) : []
+  } catch {
+    return []
+  }
+}
+
+function pickSampleCostDraftValue(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  draft: RecordDialogState,
+  fieldKey: string,
+  fallback: unknown = '',
+): unknown {
+  const draftValue = draft.values[fieldKey]
+  if (hasNodeFieldValue(draftValue)) return draftValue
+  const savedValue = getNodeFieldValue(project, node, fieldKey)
+  if (hasNodeFieldValue(savedValue)) return savedValue
+  return fallback
+}
+
+function buildDefaultSampleCostSpu(project: PcsProjectRecord): string {
+  return `SPU-${project.projectCode.slice(-7).replace(/-/g, '')}`
+}
+
+function getSampleCostReviewInput(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  draft: RecordDialogState,
+): SampleCostReviewInput {
+  const garmentCategory = normalizeSampleCostGarmentCategory(
+    pickSampleCostDraftValue(project, node, draft, 'garmentCategory', project.categoryName),
+  )
+  const rawMaterialRows =
+    draft.values[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] ??
+    node.latestRecord?.payload?.[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] ??
+    node.latestRecord?.detailSnapshot?.[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]
+  const rawOptionalRows =
+    draft.values[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] ??
+    node.latestRecord?.payload?.[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] ??
+    node.latestRecord?.detailSnapshot?.[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]
+  const materialLines = normalizeSampleCostMaterialRows(
+    parseSampleCostJsonRows<SampleCostMaterialLineInput>(rawMaterialRows),
+    garmentCategory,
+  )
+  const optionalProcessLines = normalizeSampleCostOptionalProcessRows(
+    parseSampleCostJsonRows<SampleCostOptionalProcessInput>(rawOptionalRows),
+  )
+  const salesPriceFallback = resolveSampleCostSalesPrice({
+    priceRange: project.priceRangeLabel,
+    sampleUnitPrice: project.sampleUnitPrice,
+  })
+
+  return {
+    spuCode: String(pickSampleCostDraftValue(project, node, draft, 'spuCode', buildDefaultSampleCostSpu(project)) || ''),
+    productName: String(pickSampleCostDraftValue(project, node, draft, 'productName', project.projectName) || ''),
+    buyerName: String(pickSampleCostDraftValue(project, node, draft, 'buyerName', project.ownerName) || ''),
+    brandName: String(pickSampleCostDraftValue(project, node, draft, 'brandName', project.brandName || 'Asaya') || ''),
+    garmentCategory,
+    exchangeRate: pickSampleCostDraftValue(project, node, draft, 'exchangeRate', SAMPLE_COST_DEFAULT_EXCHANGE_RATE),
+    materialLines,
+    auxiliaryCostAmount: pickSampleCostDraftValue(project, node, draft, 'auxiliaryCostAmount', 0),
+    auxiliaryCostCurrency: normalizeSampleCostCurrency(
+      pickSampleCostDraftValue(project, node, draft, 'auxiliaryCostCurrency', 'IDR'),
+      'IDR',
+    ),
+    sewingCostAmount: pickSampleCostDraftValue(project, node, draft, 'sewingCostAmount', 0),
+    sewingCostCurrency: normalizeSampleCostCurrency(
+      pickSampleCostDraftValue(project, node, draft, 'sewingCostCurrency', 'IDR'),
+      'IDR',
+    ),
+    optionalProcessLines,
+    salesPrice: pickSampleCostDraftValue(project, node, draft, 'salesPrice', salesPriceFallback),
+    salesCurrency: normalizeSampleCostCurrency(pickSampleCostDraftValue(project, node, draft, 'salesCurrency', 'RMB'), 'RMB'),
+    costNote: String(pickSampleCostDraftValue(project, node, draft, 'costNote', '') || ''),
+  }
+}
+
+function renderSampleCostOptions<T extends string>(options: Array<{ label: string; value: T }>, selected: unknown): string {
+  const selectedText = String(selected || '')
+  return options
+    .map((option) => `<option value="${escapeHtml(option.value)}" ${selectedText === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+    .join('')
+}
+
+function renderSampleCostHiddenField(fieldKey: string, value: unknown): string {
+  const serialized = Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean).join('\n') : String(value ?? '')
+  return `<input type="hidden" data-pcs-project-field="formal-field" data-field-key="${escapeHtml(fieldKey)}" data-sample-cost-hidden-field="${escapeHtml(fieldKey)}" value="${escapeHtml(serialized)}" />`
+}
+
+function renderSampleCostFieldShell(label: string, body: string, required = true, fullWidth = false): string {
+  return `
+    <label class="space-y-1 rounded-md border border-slate-200 bg-white p-3 ${fullWidth ? 'md:col-span-2' : ''}">
+      <span class="flex items-center gap-2 text-xs font-medium text-slate-600">
+        ${escapeHtml(label)}
+        ${required ? '<span class="rounded bg-rose-50 px-1.5 py-0.5 text-[11px] text-rose-600">必填</span>' : ''}
+      </span>
+      ${body}
+    </label>
+  `
+}
+
+function renderSampleCostInput(fieldKey: string, value: unknown, placeholder = '', type = 'text', disabled = false): string {
+  const disabledClass = disabled ? ' bg-slate-50 text-slate-500' : ''
+  return `<input type="${escapeHtml(type)}" class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100${disabledClass}" value="${escapeHtml(String(value ?? ''))}" placeholder="${escapeHtml(placeholder)}" data-pcs-project-field="formal-field" data-field-key="${escapeHtml(fieldKey)}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />`
+}
+
+function renderSampleCostSelect<T extends string>(
+  fieldKey: string,
+  value: unknown,
+  options: Array<{ label: string; value: T }>,
+  disabled = false,
+): string {
+  const disabledClass = disabled ? ' bg-slate-50 text-slate-500' : ''
+  return `
+    <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100${disabledClass}" data-pcs-project-field="formal-field" data-field-key="${escapeHtml(fieldKey)}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''}>
+      ${renderSampleCostOptions(options, value)}
+    </select>
+  `
+}
+
+function renderSampleCostTextarea(fieldKey: string, value: unknown, placeholder = '', disabled = false): string {
+  const disabledClass = disabled ? ' bg-slate-50 text-slate-500' : ''
+  return `<textarea class="min-h-[96px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100${disabledClass}" placeholder="${escapeHtml(placeholder)}" data-pcs-project-field="formal-field" data-field-key="${escapeHtml(fieldKey)}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''}>${escapeHtml(String(value ?? ''))}</textarea>`
+}
+
+function renderSampleCostSummaryCard(label: string, value: string, previewKey: string): string {
+  return `
+    <div class="rounded-lg bg-slate-50 p-3">
+      <p class="text-xs text-slate-500">${escapeHtml(label)}</p>
+      <p class="mt-2 text-base font-semibold text-slate-900" data-sample-cost-preview="${escapeHtml(previewKey)}">${escapeHtml(value)}</p>
+    </div>
+  `
+}
+
+function renderSampleCostDyeingRuleGuide(): string {
+  const rules = [
+    ['用量折算', '面料用量录入单位为 Yard，按 1 米 = 1.09361 Yard 折算成米。'],
+    ['染色 - 单染涤纶', 'Rp 2,000 / 米。'],
+    ['染色 - 单染其他', 'Rp 3,000 / 米。'],
+    ['染色 - 单染棉', 'Rp 4,000 / 米。'],
+    ['染色 - 双染混纺', 'Rp 4,000 / 米。'],
+    ['克重加价', '面料克重大于 180g 时，染色费按 1.5 倍计价。'],
+    ['单面印', 'Asaya 品牌 ¥2 / 米，非 Asaya 品牌 ¥3 / 米。'],
+    ['双面印', '¥3.6 / 米。'],
+  ]
+  return `
+    <article class="rounded-lg border border-blue-100 bg-blue-50 p-4">
+      <h4 class="text-sm font-semibold text-slate-900">印染计价规则</h4>
+      <div class="mt-3 grid gap-2 md:grid-cols-2">
+        ${rules
+          .map(
+            ([label, description]) => `
+              <div class="rounded-md border border-blue-100 bg-white px-3 py-2">
+                <p class="text-xs font-medium text-blue-700">${escapeHtml(label)}</p>
+                <p class="mt-1 text-sm text-slate-700">${escapeHtml(description)}</p>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    </article>
+  `
+}
+
+function renderSampleCostMaterialRows(input: SampleCostReviewInput, disabled = false): string {
+  const category = normalizeSampleCostGarmentCategory(input.garmentCategory)
+  const rows = normalizeSampleCostMaterialRows(input.materialLines, category)
+  const pricing = calculateSampleCostReview(input)
+  const allowedOptions = getAllowedSampleCostMaterialOptions(category)
+
+  return rows
+    .map((row, index) => {
+      const selectedSku = String(row.materialSku || '')
+      const line = pricing.materialLines[index]
+      const removeDisabled = disabled || rows.length <= 1
+      return `
+        <tr data-sample-cost-material-row="${index}">
+          <td class="px-3 py-2">
+            <select class="h-9 w-full min-w-[260px] rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-500 ${disabled ? 'bg-slate-50 text-slate-500' : ''}" data-pcs-project-field="sample-cost-material-sku" data-row-index="${index}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''}>
+              ${allowedOptions
+                .map(
+                  (option) =>
+                    `<option value="${escapeHtml(option.sku)}" ${selectedSku === option.sku ? 'selected' : ''}>${escapeHtml(getSampleCostMaterialOptionLabel(option))}</option>`,
+                )
+                .join('')}
+            </select>
+          </td>
+          <td class="px-3 py-2"><input type="number" min="0" step="0.01" class="h-9 w-28 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-500 ${disabled ? 'bg-slate-50 text-slate-500' : ''}" value="${escapeHtml(String(row.usage ?? ''))}" data-pcs-project-field="sample-cost-material-usage" data-row-index="${index}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} /></td>
+          <td class="px-3 py-2 text-sm text-slate-700" data-sample-cost-row-preview="material-cost" data-row-index="${index}">${escapeHtml(line ? formatSampleCostCny(line.materialCostCny) : '-')}</td>
+          <td class="px-3 py-2 text-sm text-slate-700" data-sample-cost-row-preview="dyeing-cost" data-row-index="${index}">${escapeHtml(line ? formatSampleCostSourceAndCny(line.dyeingCost, line.dyeingCostCny) : '-')}</td>
+          <td class="px-3 py-2 text-sm text-slate-700" data-sample-cost-row-preview="dyeing-rule" data-row-index="${index}">${escapeHtml(line?.dyeingRuleText || '-')}</td>
+          <td class="px-3 py-2 text-right">
+            <button type="button" class="inline-flex h-8 items-center rounded-md px-2 text-xs text-rose-600 hover:bg-rose-50 ${removeDisabled ? 'cursor-not-allowed opacity-40' : ''}" data-pcs-project-action="remove-sample-cost-material-row" data-row-index="${index}" ${removeDisabled ? 'disabled' : ''}>删除</button>
+          </td>
+        </tr>
+      `
+    })
+    .join('')
+}
+
+function renderSampleCostOptionalProcessRows(input: SampleCostReviewInput, disabled = false): string {
+  const rows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)
+  const pricing = calculateSampleCostReview(input)
+  if (rows.length === 0) {
+    return '<tr><td colspan="5" class="px-3 py-6 text-center text-sm text-slate-400">未添加可选工序</td></tr>'
+  }
+  return rows
+    .map((row, index) => {
+      const line = pricing.optionalProcessLines[index]
+      return `
+        <tr data-sample-cost-optional-process-row="${index}">
+          <td class="px-3 py-2">
+            <select class="h-9 w-full min-w-[160px] rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-500 ${disabled ? 'bg-slate-50 text-slate-500' : ''}" data-pcs-project-field="sample-cost-optional-process-name" data-row-index="${index}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''}>
+              <option value="">请选择可选工序</option>
+              ${sampleCostOptionalProcessOptions
+                .map((option) => `<option value="${escapeHtml(option)}" ${row.processName === option ? 'selected' : ''}>${escapeHtml(option)}</option>`)
+                .join('')}
+            </select>
+          </td>
+          <td class="px-3 py-2">
+            <input type="number" min="0" step="0.01" class="h-9 w-32 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-500 ${disabled ? 'bg-slate-50 text-slate-500' : ''}" value="${escapeHtml(String(row.costAmount ?? ''))}" data-pcs-project-field="sample-cost-optional-process-amount" data-row-index="${index}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
+          </td>
+          <td class="px-3 py-2">
+            <select class="h-9 w-24 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-500 ${disabled ? 'bg-slate-50 text-slate-500' : ''}" data-pcs-project-field="sample-cost-optional-process-currency" data-row-index="${index}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''}>
+              ${renderSampleCostOptions(sampleCostCurrencyOptions, row.costCurrency || 'IDR')}
+            </select>
+          </td>
+          <td class="px-3 py-2 text-sm text-slate-700" data-sample-cost-row-preview="optional-process-cost" data-row-index="${index}">${escapeHtml(line ? formatSampleCostCny(line.costCny) : '-')}</td>
+          <td class="px-3 py-2 text-right">
+            <button type="button" class="inline-flex h-8 items-center rounded-md px-2 text-xs text-rose-600 hover:bg-rose-50 ${disabled ? 'cursor-not-allowed opacity-40' : ''}" data-pcs-project-action="remove-sample-cost-optional-process-row" data-row-index="${index}" ${disabled ? 'disabled' : ''}>删除</button>
+          </td>
+        </tr>
+      `
+    })
+    .join('')
+}
+
+function renderSampleCostReviewWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const draft = getNodeRecordDraft(project, node)
+  const input = getSampleCostReviewInput(project, node, draft)
+  const pricing = calculateSampleCostReview(input)
+  const materialRows = normalizeSampleCostMaterialRows(input.materialLines, pricing.garmentCategory)
+  const optionalRows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)
+  const disabled = !canEditProjectNodeFields(node)
+  const saveDraftButton =
+    node.contract.runtimeType === 'execute' && node.definition?.workItemNature === '执行类' && node.node.multiInstanceFlag
+      ? ''
+      : '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="save-formal-fields">保存正式字段</button>'
+
+  return `
+    <section class="space-y-4" data-sample-cost-review-workspace="true">
+      ${[
+        renderSampleCostHiddenField(SAMPLE_COST_RAW_MATERIAL_ROWS_KEY, JSON.stringify(materialRows)),
+        renderSampleCostHiddenField(SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY, JSON.stringify(optionalRows)),
+        ...Object.entries(pricing.payload).map(([key, value]) => renderSampleCostHiddenField(key, value)),
+      ].join('')}
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 class="text-base font-semibold text-slate-900">样衣核价</h3>
+          <p class="mt-1 text-sm text-slate-500">按商品核价规则录入物料、印染、固定工序、车位和可选工序，自动生成销售价格口径。</p>
+        </div>
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">业务日期</span>
+          <input type="date" class="h-10 w-[180px] rounded-md border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.businessDate)}" data-pcs-project-field="record-business-date" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />
+        </label>
+      </div>
+
+      <article class="rounded-lg border bg-white p-4">
+        <h4 class="text-sm font-semibold text-slate-900">商品档案与汇率</h4>
+        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          ${renderSampleCostFieldShell('SPU', renderSampleCostInput('spuCode', pricing.spuCode, '请输入 SPU', 'text', disabled))}
+          ${renderSampleCostFieldShell('商品名称', renderSampleCostInput('productName', pricing.productName, '请输入商品名称', 'text', disabled))}
+          ${renderSampleCostFieldShell('买手', renderSampleCostInput('buyerName', pricing.buyerName, '请输入买手', 'text', disabled))}
+          ${renderSampleCostFieldShell('品牌', renderSampleCostInput('brandName', pricing.brandName, '请输入品牌', 'text', disabled))}
+          ${renderSampleCostFieldShell('衣服种类', renderSampleCostSelect('garmentCategory', pricing.garmentCategory, sampleCostGarmentCategoryOptions, disabled))}
+          ${renderSampleCostFieldShell('每日实时汇率（IDR/RMB）', renderSampleCostInput('exchangeRate', pricing.exchangeRate, '例如 2200', 'number', disabled))}
+        </div>
+      </article>
+
+      <article class="rounded-lg border bg-white p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h4 class="text-sm font-semibold text-slate-900">物料</h4>
+          <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${disabled ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-project-action="add-sample-cost-material-row" ${disabled ? 'disabled' : ''}>新增物料</button>
+        </div>
+        <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200" data-sample-cost-material-table="true">
+          <table class="min-w-[1080px] w-full divide-y divide-slate-200 text-left">
+            <thead class="bg-slate-50 text-xs text-slate-500">
+              <tr>
+                <th class="px-3 py-2 font-medium">物料</th>
+                <th class="px-3 py-2 font-medium">用量（Yard）</th>
+                <th class="px-3 py-2 font-medium">物料成本（RMB）</th>
+                <th class="px-3 py-2 font-medium">印染费（源币种 -> RMB）</th>
+                <th class="px-3 py-2 font-medium">印染规则</th>
+                <th class="px-3 py-2 text-right font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${renderSampleCostMaterialRows(input, disabled)}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      ${renderSampleCostDyeingRuleGuide()}
+
+      <article class="rounded-lg border bg-white p-4">
+        <h4 class="text-sm font-semibold text-slate-900">固定工序</h4>
+        <div class="mt-3 overflow-hidden rounded-lg border border-slate-200">
+          <table class="w-full divide-y divide-slate-200 text-left">
+            <thead class="bg-slate-50 text-xs text-slate-500">
+              <tr>
+                <th class="px-3 py-2 font-medium">工序</th>
+                <th class="px-3 py-2 font-medium">价格（源币种）</th>
+                <th class="px-3 py-2 font-medium">折算金额（RMB）</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100" data-sample-cost-fixed-process-body="true">
+              ${pricing.fixedProcessLines
+                .map(
+                  (line) => `
+                    <tr>
+                      <td class="px-3 py-2 text-sm text-slate-700">${escapeHtml(line.processName)}</td>
+                      <td class="px-3 py-2 text-sm text-slate-700">${escapeHtml(formatSampleCostSourceAndCny(line.cost, line.costCny).split(' -> ')[0] || '-')}</td>
+                      <td class="px-3 py-2 text-sm text-slate-700">${escapeHtml(formatSampleCostCny(line.costCny))}</td>
+                    </tr>
+                  `,
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="rounded-lg border bg-white p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h4 class="text-sm font-semibold text-slate-900">可选工序</h4>
+          <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${disabled ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-project-action="add-sample-cost-optional-process-row" ${disabled ? 'disabled' : ''}>新增可选工序</button>
+        </div>
+        <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200" data-sample-cost-optional-process-table="true">
+          <table class="min-w-[760px] w-full divide-y divide-slate-200 text-left">
+            <thead class="bg-slate-50 text-xs text-slate-500">
+              <tr>
+                <th class="px-3 py-2 font-medium">可选工序</th>
+                <th class="px-3 py-2 font-medium">估价</th>
+                <th class="px-3 py-2 font-medium">币种</th>
+                <th class="px-3 py-2 font-medium">折算金额（RMB）</th>
+                <th class="px-3 py-2 text-right font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${renderSampleCostOptionalProcessRows(input, disabled)}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="rounded-lg border bg-white p-4">
+        <h4 class="text-sm font-semibold text-slate-900">其他成本与销售价格</h4>
+        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          ${renderSampleCostFieldShell('辅料估计价格', renderSampleCostInput('auxiliaryCostAmount', pricing.auxiliaryCostAmount, '请输入辅料估计价格', 'number', disabled))}
+          ${renderSampleCostFieldShell('辅料币种', renderSampleCostSelect('auxiliaryCostCurrency', pricing.auxiliaryCostCurrency, sampleCostCurrencyOptions, disabled))}
+          ${renderSampleCostFieldShell('车位费', renderSampleCostInput('sewingCostAmount', pricing.sewingCostAmount, '请输入车位费', 'number', disabled))}
+          ${renderSampleCostFieldShell('车位费币种', renderSampleCostSelect('sewingCostCurrency', pricing.sewingCostCurrency, sampleCostCurrencyOptions, disabled))}
+          ${renderSampleCostFieldShell('销售价格', renderSampleCostInput('salesPrice', pricing.salesPrice, '请输入销售价格', 'number', disabled))}
+          ${renderSampleCostFieldShell('销售币种', renderSampleCostSelect('salesCurrency', pricing.salesCurrency, sampleCostCurrencyOptions, disabled))}
+          ${renderSampleCostFieldShell('核价说明', renderSampleCostTextarea('costNote', pricing.costNote, '记录印染价格或核价依据', disabled), false, true)}
+        </div>
+      </article>
+
+      <article class="rounded-lg border bg-white p-4">
+        <h4 class="text-sm font-semibold text-slate-900">自动核算预览</h4>
+        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          ${renderSampleCostSummaryCard('物料成本（RMB）', formatSampleCostCny(pricing.materialCostCny), 'materialCostCny')}
+          ${renderSampleCostSummaryCard('印染费（RMB）', formatSampleCostCny(pricing.dyeingCostCny), 'dyeingCostCny')}
+          ${renderSampleCostSummaryCard('辅料成本（RMB）', formatSampleCostCny(pricing.auxiliaryCostCny), 'auxiliaryCostCny')}
+          ${renderSampleCostSummaryCard('固定工序（RMB）', formatSampleCostCny(pricing.fixedProcessCostCny), 'fixedProcessCostCny')}
+          ${renderSampleCostSummaryCard('车位费（RMB）', formatSampleCostCny(pricing.sewingCostCny), 'sewingCostCny')}
+          ${renderSampleCostSummaryCard('可选工序（RMB）', formatSampleCostCny(pricing.optionalProcessCostCny), 'optionalProcessCostCny')}
+          ${renderSampleCostSummaryCard('总成本（RMB）', formatSampleCostCny(pricing.costTotal), 'costTotal')}
+          ${renderSampleCostSummaryCard('毛利率 / 状态', `${pricing.grossMarginRate}% / ${pricing.reviewStatus}`, 'grossMarginRate')}
+        </div>
+      </article>
+
+      ${
+        disabled || node.displayStatus === '未解锁' || node.node.currentStatus === '已取消'
+          ? ''
+          : `
+            <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
+              ${saveDraftButton}
+              <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="save-formal-fields-and-complete">保存并流转节点</button>
+            </div>
+          `
+      }
+    </section>
+  `
 }
 
 type SamplePurchaseSpecQtyRow = {
@@ -7116,6 +7537,10 @@ function renderProjectNodeInlineContent(project: PcsProjectRecord, node: Project
     return renderSampleShootFitWorkspace(project, node)
   }
 
+  if (node.node.workItemTypeCode === 'SAMPLE_COST_REVIEW') {
+    return renderSampleCostReviewWorkspace(project, node)
+  }
+
   if (isChannelListingNode(node)) {
     return renderChannelListingNodeWorkspace(project, node)
   }
@@ -7539,6 +7964,8 @@ function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeView
         ? renderFirstOrderSampleProjectNodeWorkspace(project, node)
       : node.node.workItemTypeCode === 'SAMPLE_SHOOT_FIT'
         ? renderSampleShootFitWorkspace(project, node)
+      : node.node.workItemTypeCode === 'SAMPLE_COST_REVIEW'
+        ? renderSampleCostReviewWorkspace(project, node)
       : `
         ${renderFormalFieldEntrySection(project, node)}
         ${groups.map((group) => renderFieldGroupValues(group, project, node)).join('')}
@@ -8183,11 +8610,115 @@ function readFormalFieldDomDraft(): { businessDate: string; values: Record<strin
   if (document.querySelector('[data-pcs-sample-inbound-lines="true"]')) {
     values.sampleInboundLines = JSON.stringify(readSampleInboundLineRowsFromDom(false))
   }
+  Object.assign(values, readSampleCostReviewDomValues())
   const businessDateNode = document.querySelector<HTMLInputElement>('[data-pcs-project-field="record-business-date"]')
   return {
     businessDate: businessDateNode?.value || '',
     values,
   }
+}
+
+function readSampleCostMaterialRowsFromDom(scope: ParentNode): SampleCostMaterialLineInput[] {
+  return Array.from(scope.querySelectorAll<HTMLElement>('[data-sample-cost-material-row]')).map((rowNode) => {
+    const materialSku = rowNode.querySelector<HTMLSelectElement>('[data-pcs-project-field="sample-cost-material-sku"]')?.value || ''
+    const usage = rowNode.querySelector<HTMLInputElement>('[data-pcs-project-field="sample-cost-material-usage"]')?.value || ''
+    return { materialSku, usage }
+  })
+}
+
+function readSampleCostOptionalProcessRowsFromDom(scope: ParentNode): SampleCostOptionalProcessInput[] {
+  return Array.from(scope.querySelectorAll<HTMLElement>('[data-sample-cost-optional-process-row]')).map((rowNode) => {
+    const processName =
+      rowNode.querySelector<HTMLSelectElement>('[data-pcs-project-field="sample-cost-optional-process-name"]')?.value || ''
+    const costAmount =
+      rowNode.querySelector<HTMLInputElement>('[data-pcs-project-field="sample-cost-optional-process-amount"]')?.value || ''
+    const costCurrency =
+      rowNode.querySelector<HTMLSelectElement>('[data-pcs-project-field="sample-cost-optional-process-currency"]')?.value || 'IDR'
+    return { processName, costAmount, costCurrency }
+  })
+}
+
+function readSampleCostReviewDomValues(): Record<string, unknown> {
+  if (typeof document === 'undefined') return {}
+  const scope = document.querySelector<HTMLElement>('[data-sample-cost-review-workspace="true"]')
+  if (!scope) return {}
+  const values: Record<string, unknown> = {}
+  scope.querySelectorAll<HTMLElement>('[data-pcs-project-field="formal-field"][data-field-key]').forEach((fieldNode) => {
+    const fieldKey = fieldNode.dataset.fieldKey
+    if (!fieldKey) return
+    if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement) {
+      values[fieldKey] = fieldNode.value
+    }
+  })
+  values[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] = JSON.stringify(readSampleCostMaterialRowsFromDom(scope))
+  values[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] = JSON.stringify(readSampleCostOptionalProcessRowsFromDom(scope))
+  return values
+}
+
+function syncSampleCostReviewDraftFromDom(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+): RecordDialogState | null {
+  const values = readSampleCostReviewDomValues()
+  if (Object.keys(values).length === 0) return null
+  return setRecordDraftState(project, node, {
+    open: state.recordDialog.open,
+    values,
+  })
+}
+
+function setSampleCostPreviewText(scope: ParentNode, key: string, value: string): void {
+  scope.querySelectorAll<HTMLElement>(`[data-sample-cost-preview="${key}"]`).forEach((node) => {
+    if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) {
+      node.value = value
+      return
+    }
+    node.textContent = value
+  })
+}
+
+function setSampleCostHiddenValue(scope: ParentNode, key: string, value: unknown): void {
+  const node = scope.querySelector<HTMLInputElement>(`[data-sample-cost-hidden-field="${key}"]`)
+  if (!node) return
+  node.value = Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean).join('\n') : String(value ?? '')
+}
+
+function setSampleCostRowPreview(scope: ParentNode, previewKey: string, rowIndex: number, value: string): void {
+  const node = scope.querySelector<HTMLElement>(`[data-sample-cost-row-preview="${previewKey}"][data-row-index="${rowIndex}"]`)
+  if (node) node.textContent = value
+}
+
+function refreshSampleCostReviewPreviewFromDom(project: PcsProjectRecord, node: ProjectNodeViewModel): void {
+  if (typeof document === 'undefined') return
+  const scope = document.querySelector<HTMLElement>('[data-sample-cost-review-workspace="true"]')
+  if (!scope) return
+  const draft = syncSampleCostReviewDraftFromDom(project, node) || getNodeRecordDraft(project, node)
+  const input = getSampleCostReviewInput(project, node, draft)
+  const pricing = calculateSampleCostReview(input)
+  const materialRows = normalizeSampleCostMaterialRows(input.materialLines, pricing.garmentCategory)
+  const optionalRows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)
+
+  setSampleCostHiddenValue(scope, SAMPLE_COST_RAW_MATERIAL_ROWS_KEY, JSON.stringify(materialRows))
+  setSampleCostHiddenValue(scope, SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY, JSON.stringify(optionalRows))
+  Object.entries(pricing.payload).forEach(([key, value]) => setSampleCostHiddenValue(scope, key, value))
+
+  pricing.materialLines.forEach((line, index) => {
+    setSampleCostRowPreview(scope, 'material-cost', index, formatSampleCostCny(line.materialCostCny))
+    setSampleCostRowPreview(scope, 'dyeing-cost', index, formatSampleCostSourceAndCny(line.dyeingCost, line.dyeingCostCny))
+    setSampleCostRowPreview(scope, 'dyeing-rule', index, line.dyeingRuleText || '-')
+  })
+  pricing.optionalProcessLines.forEach((line, index) => {
+    setSampleCostRowPreview(scope, 'optional-process-cost', index, formatSampleCostCny(line.costCny))
+  })
+
+  setSampleCostPreviewText(scope, 'materialCostCny', formatSampleCostCny(pricing.materialCostCny))
+  setSampleCostPreviewText(scope, 'dyeingCostCny', formatSampleCostCny(pricing.dyeingCostCny))
+  setSampleCostPreviewText(scope, 'auxiliaryCostCny', formatSampleCostCny(pricing.auxiliaryCostCny))
+  setSampleCostPreviewText(scope, 'fixedProcessCostCny', formatSampleCostCny(pricing.fixedProcessCostCny))
+  setSampleCostPreviewText(scope, 'sewingCostCny', formatSampleCostCny(pricing.sewingCostCny))
+  setSampleCostPreviewText(scope, 'optionalProcessCostCny', formatSampleCostCny(pricing.optionalProcessCostCny))
+  setSampleCostPreviewText(scope, 'costTotal', formatSampleCostCny(pricing.costTotal))
+  setSampleCostPreviewText(scope, 'grossMarginRate', `${pricing.grossMarginRate}% / ${pricing.reviewStatus}`)
 }
 
 function syncRecordDraftFromDom(project: PcsProjectRecord, node: ProjectNodeViewModel): void {
@@ -8565,6 +9096,18 @@ export function handlePcsProjectsInput(target: Element): boolean {
         [fieldKey]: value,
       },
     })
+    if (context.node.node.workItemTypeCode === 'SAMPLE_COST_REVIEW') {
+      refreshSampleCostReviewPreviewFromDom(context.project, context.node)
+      if (fieldKey === 'garmentCategory') {
+        window.dispatchEvent(new Event('higood:request-render'))
+      }
+    }
+    return true
+  }
+  if (field.startsWith('sample-cost-')) {
+    const context = getCurrentProjectNodeContext()
+    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW') return true
+    refreshSampleCostReviewPreviewFromDom(context.project, context.node)
     return true
   }
   if (
@@ -9002,6 +9545,28 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
       sampleIds: inbound.generatedSampleCodes,
       sampleQuantity: inbound.receivedQty,
       sampleAssets: inbound.sampleAssets,
+    })
+  }
+
+  if (node.node.workItemTypeCode === 'SAMPLE_COST_REVIEW') {
+    const sampleCostInput = getSampleCostReviewInput(project, node, draft)
+    const sampleCostPricing = calculateSampleCostReview(sampleCostInput)
+    const materialRows = normalizeSampleCostMaterialRows(sampleCostInput.materialLines, sampleCostPricing.garmentCategory)
+    const optionalProcessRows = normalizeSampleCostOptionalProcessRows(sampleCostInput.optionalProcessLines)
+    Object.assign(values, sampleCostPricing.payload, {
+      [SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]: JSON.stringify(materialRows),
+      [SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]: JSON.stringify(optionalProcessRows),
+    })
+    Object.assign(derivedDetailSnapshot, {
+      priceCheckNo: `CST-${project.projectCode.slice(-3)}-${todayText().replace(/-/g, '')}`,
+      sourcePricingRule: '商品核价功能迁移',
+      [SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]: JSON.stringify(materialRows),
+      [SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]: JSON.stringify(optionalProcessRows),
+      materialLineCount: sampleCostPricing.materialLines.length,
+      optionalProcessLineCount: sampleCostPricing.optionalProcessLines.length,
+      fixedProcessLineCount: sampleCostPricing.fixedProcessLines.length,
+      salesPrice: sampleCostPricing.salesPrice,
+      salesCurrency: sampleCostPricing.salesCurrency,
     })
   }
 
@@ -10103,6 +10668,73 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   }
   if (action === 'switch-work-item-tab') {
     state.workItem.activeTab = normalizeWorkItemTab(actionNode.dataset.tab ?? null)
+    return true
+  }
+  if (action === 'add-sample-cost-material-row') {
+    const context = getCurrentProjectNodeContext()
+    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
+    const draft = syncSampleCostReviewDraftFromDom(context.project, context.node) || getNodeRecordDraft(context.project, context.node)
+    const input = getSampleCostReviewInput(context.project, context.node, draft)
+    const category = normalizeSampleCostGarmentCategory(input.garmentCategory)
+    const rows = normalizeSampleCostMaterialRows(input.materialLines, category)
+    setRecordDraftState(context.project, context.node, {
+      open: state.recordDialog.open,
+      values: {
+        [SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]: JSON.stringify([
+          ...rows,
+          createDefaultSampleCostMaterialRows(category)[0] || { materialSku: '', usage: 1 },
+        ]),
+      },
+    })
+    return true
+  }
+  if (action === 'remove-sample-cost-material-row') {
+    const context = getCurrentProjectNodeContext()
+    const rowIndex = Number.parseInt(actionNode.dataset.rowIndex ?? '', 10)
+    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
+    const draft = syncSampleCostReviewDraftFromDom(context.project, context.node) || getNodeRecordDraft(context.project, context.node)
+    const input = getSampleCostReviewInput(context.project, context.node, draft)
+    const category = normalizeSampleCostGarmentCategory(input.garmentCategory)
+    const rows = normalizeSampleCostMaterialRows(input.materialLines, category)
+    if (rows.length <= 1) return true
+    setRecordDraftState(context.project, context.node, {
+      open: state.recordDialog.open,
+      values: {
+        [SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]: JSON.stringify(rows.filter((_, index) => index !== rowIndex)),
+      },
+    })
+    return true
+  }
+  if (action === 'add-sample-cost-optional-process-row') {
+    const context = getCurrentProjectNodeContext()
+    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
+    const draft = syncSampleCostReviewDraftFromDom(context.project, context.node) || getNodeRecordDraft(context.project, context.node)
+    const input = getSampleCostReviewInput(context.project, context.node, draft)
+    const rows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)
+    setRecordDraftState(context.project, context.node, {
+      open: state.recordDialog.open,
+      values: {
+        [SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]: JSON.stringify([
+          ...rows,
+          { processName: sampleCostOptionalProcessOptions[0] || '', costAmount: 0, costCurrency: 'IDR' },
+        ]),
+      },
+    })
+    return true
+  }
+  if (action === 'remove-sample-cost-optional-process-row') {
+    const context = getCurrentProjectNodeContext()
+    const rowIndex = Number.parseInt(actionNode.dataset.rowIndex ?? '', 10)
+    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
+    const draft = syncSampleCostReviewDraftFromDom(context.project, context.node) || getNodeRecordDraft(context.project, context.node)
+    const input = getSampleCostReviewInput(context.project, context.node, draft)
+    const rows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)
+    setRecordDraftState(context.project, context.node, {
+      open: state.recordDialog.open,
+      values: {
+        [SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]: JSON.stringify(rows.filter((_, index) => index !== rowIndex)),
+      },
+    })
     return true
   }
   if (action === 'add-sample-purchase-spec-row') {

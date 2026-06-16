@@ -9,6 +9,7 @@ import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production
 import type { TechPackBomItemSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
 import type { TechnicalColorMaterialMappingLine } from '../../../data/pcs-technical-data-version-types.ts'
 import { buildProductionPieceTruth } from '../../../domain/fcs-cutting-piece-truth/index.ts'
+import { appStore } from '../../../state/store.ts'
 import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
 
 type SupplementSourceType = 'production-order' | 'cut-order'
@@ -169,7 +170,6 @@ interface SupplementProcessLink {
 
 interface SupplementManagementState {
   filters: SupplementFilters
-  createSourcePickerOpen: boolean
   activeCandidateId: string
   activeRecordId: string
   pendingConfirmDraft: SupplementDraft | null
@@ -182,7 +182,6 @@ const state: SupplementManagementState = {
     sourceType: 'ALL',
     keyword: '',
   },
-  createSourcePickerOpen: false,
   activeCandidateId: '',
   activeRecordId: '',
   pendingConfirmDraft: null,
@@ -196,6 +195,9 @@ const sourceTypeLabels: Record<SupplementSourceType, string> = {
   'production-order': '生产单',
   'cut-order': '裁片单',
 }
+
+const supplementManagementPath = '/fcs/craft/cutting/supplement-management'
+const supplementCreatePath = `${supplementManagementPath}?mode=create`
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
@@ -215,6 +217,15 @@ function formatDecimal(value: number, digits = 1): string {
 
 function normalizeText(value: unknown): string {
   return String(value ?? '').trim()
+}
+
+function isSupplementCreateMode(): boolean {
+  const storePath = appStore.getState().pathname || ''
+  const browserPath =
+    typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : ''
+  const currentPath = storePath.includes('?') ? storePath : browserPath
+  const query = currentPath.split('?')[1] ?? ''
+  return new URLSearchParams(query).get('mode') === 'create'
 }
 
 function isClosedRecord(record: CuttingOrderProgressRecord): boolean {
@@ -873,8 +884,7 @@ function renderFilters(): string {
   `
 }
 
-function renderSourcePickerDialog(open: boolean): string {
-  if (!open) return ''
+function renderSourcePickerPage(): string {
   const candidates = getSourcePickerCandidates()
   const rows = candidates.map((candidate) => {
     const summary = summarizeCandidate(candidate)
@@ -918,33 +928,26 @@ function renderSourcePickerDialog(open: boolean): string {
   }).join('')
 
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
-      <div class="flex max-h-[88vh] w-full max-w-6xl flex-col rounded-xl bg-background shadow-xl">
-        <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
-          <div>
-            <h2 class="text-lg font-semibold">新增补料</h2>
-            <p class="mt-1 text-sm text-muted-foreground">先选择补料对象，再按尺码 + 成衣颜色填写本次补料件数。</p>
-          </div>
-          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-supplement-action="close-create">关闭</button>
-        </div>
-        <div class="flex-1 overflow-y-auto p-5">
-          <div class="overflow-x-auto rounded-lg border">
-            <table class="min-w-full text-left text-sm">
-              <thead class="bg-muted/50 text-xs text-muted-foreground">
-                <tr>
-                  <th class="px-4 py-3 font-medium">补料对象</th>
-                  <th class="px-4 py-3 font-medium">款式/SPU</th>
-                  <th class="px-4 py-3 font-medium">当前已裁与齐套</th>
-                  <th class="px-4 py-3 font-medium">关联裁片单</th>
-                  <th class="px-4 py-3 font-medium">操作</th>
-                </tr>
-              </thead>
-              <tbody>${rows || '<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="5">暂无可新增补料的生产单或裁片单。</td></tr>'}</tbody>
-            </table>
-          </div>
-        </div>
+    <section class="rounded-lg border bg-card">
+      <div class="border-b px-5 py-4">
+        <h2 class="text-lg font-semibold">选择补料对象</h2>
+        <p class="mt-1 text-sm text-muted-foreground">先选择生产单或裁片单，再按尺码 + 成衣颜色填写本次补料件数。</p>
       </div>
-    </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-muted/50 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-4 py-3 font-medium">补料对象</th>
+              <th class="px-4 py-3 font-medium">款式/SPU</th>
+              <th class="px-4 py-3 font-medium">当前已裁与齐套</th>
+              <th class="px-4 py-3 font-medium">关联裁片单</th>
+              <th class="px-4 py-3 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>${rows || '<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="5">暂无可新增补料的生产单或裁片单。</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
   `
 }
 
@@ -1061,20 +1064,20 @@ function renderDraftSizeTable(candidate: SupplementCandidate): string {
   `
 }
 
-function renderDraftDialog(candidate: SupplementCandidate | undefined): string {
+function renderDraftPage(candidate: SupplementCandidate | undefined): string {
   if (!candidate) return ''
   const summary = summarizeCandidate(candidate)
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6" data-supplement-draft-dialog>
-      <div class="flex max-h-[92vh] w-full max-w-6xl flex-col rounded-xl bg-background shadow-xl">
+    <div class="space-y-4" data-supplement-draft-dialog>
+      <section class="rounded-lg border bg-card">
         <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
           <div>
-            <h2 class="text-lg font-semibold">新增补料</h2>
+            <h2 class="text-lg font-semibold">填写补料信息</h2>
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(candidate.sourceTitle)} / ${escapeHtml(candidate.record.productionOrderNo)} / ${escapeHtml(candidate.record.styleName)}</p>
           </div>
-          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-supplement-action="close-draft">关闭</button>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-supplement-action="back-to-source-picker">重新选择补料对象</button>
         </div>
-        <div class="flex-1 space-y-4 overflow-y-auto p-5">
+        <div class="space-y-4 p-5">
           <section class="grid gap-3 md:grid-cols-4">
             ${renderStatChip('需求', summary.plannedQty)}
             ${renderStatChip('齐套', summary.completeSetQty)}
@@ -1114,10 +1117,10 @@ function renderDraftDialog(candidate: SupplementCandidate | undefined): string {
           <div class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" data-supplement-draft-error></div>
         </div>
         <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
-          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="close-draft">取消</button>
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="cancel-create">取消新增</button>
           <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="submit-draft" data-candidate-id="${escapeHtml(candidate.id)}">提交补料</button>
         </div>
-      </div>
+      </section>
     </div>
   `
 }
@@ -1799,8 +1802,13 @@ function setFiltersFromDom(): void {
   }
 }
 
+function clearSupplementCreateState(): void {
+  state.activeCandidateId = ''
+  state.pendingConfirmDraft = null
+}
+
 export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
-  return Boolean(state.createSourcePickerOpen || state.activeCandidateId || state.activeRecordId || state.pendingConfirmDraft)
+  return Boolean(state.activeRecordId || state.pendingConfirmDraft)
 }
 
 export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement): boolean {
@@ -1825,19 +1833,11 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
     return true
   }
 
-  if (action === 'open-create') {
-    state.createSourcePickerOpen = true
-    state.activeCandidateId = ''
+  if (action === 'start-create') {
+    clearSupplementCreateState()
     state.activeRecordId = ''
-    state.pendingConfirmDraft = null
     state.feedback = null
-    return true
-  }
-
-  if (action === 'close-create') {
-    state.createSourcePickerOpen = false
-    state.feedback = null
-    return true
+    return false
   }
 
   if (action === 'select-candidate') {
@@ -1847,7 +1847,6 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
       state.feedback = { tone: 'warning', message: candidate?.blockedReason || '当前对象不能新增补料。' }
       return true
     }
-    state.createSourcePickerOpen = false
     state.activeCandidateId = candidateId
     state.activeRecordId = ''
     state.pendingConfirmDraft = null
@@ -1863,9 +1862,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
       return true
     }
     state.activeRecordId = recordId
-    state.createSourcePickerOpen = false
-    state.activeCandidateId = ''
-    state.pendingConfirmDraft = null
+    clearSupplementCreateState()
     state.feedback = null
     return true
   }
@@ -1876,23 +1873,17 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
     return true
   }
 
-  if (action === 'open-draft') {
-    const candidateId = actionNode.dataset.candidateId || ''
-    const candidate = getCandidateById(candidateId)
-    if (!candidate || !candidate.canInitiate) {
-      state.feedback = { tone: 'warning', message: candidate?.blockedReason || '当前对象不能新增补料。' }
-      return true
-    }
-    state.activeCandidateId = candidateId
-    state.activeRecordId = ''
-    state.pendingConfirmDraft = null
+  if (action === 'back-to-source-picker') {
+    state.activeCandidateId = ''
     state.feedback = null
     return true
   }
 
-  if (action === 'close-draft') {
-    state.activeCandidateId = ''
+  if (action === 'cancel-create') {
+    clearSupplementCreateState()
+    state.activeRecordId = ''
     state.feedback = null
+    appStore.navigate(supplementManagementPath)
     return true
   }
 
@@ -1904,13 +1895,12 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
     const draft = buildDraftFromDialog(candidate, container)
     if (!draft) return false
     state.pendingConfirmDraft = draft
-    state.activeCandidateId = ''
     state.feedback = null
     return true
   }
 
   if (action === 'return-draft') {
-    state.activeCandidateId = state.pendingConfirmDraft?.candidateId || ''
+    state.activeCandidateId = state.pendingConfirmDraft?.candidateId || state.activeCandidateId
     state.pendingConfirmDraft = null
     return true
   }
@@ -1921,15 +1911,13 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
     state.records = [record, ...state.records]
     state.pendingConfirmDraft = null
     state.activeCandidateId = ''
-    state.createSourcePickerOpen = false
     state.activeRecordId = record.id
     state.feedback = { tone: 'success', message: `已二次确认并生成补料单 ${record.recordNo}。` }
+    appStore.navigate(supplementManagementPath)
     return true
   }
 
   if (action === 'close-overlay') {
-    state.createSourcePickerOpen = false
-    state.activeCandidateId = ''
     state.activeRecordId = ''
     state.pendingConfirmDraft = null
     return true
@@ -1940,9 +1928,12 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
 
 export function renderCraftCuttingSupplementManagementPage(): string {
   ensureMockSupplementOrders()
+  if (isSupplementCreateMode()) {
+    return renderCraftCuttingSupplementCreatePage()
+  }
+
   const records = getFilteredRecords()
   const productionOrderCount = new Set(state.records.map((item) => item.draft.productionOrderNo)).size
-  const activeCandidate = state.activeCandidateId ? getCandidateById(state.activeCandidateId) : undefined
   const activeRecord = state.activeRecordId ? getRecordById(state.activeRecordId) : undefined
 
   return `
@@ -1950,7 +1941,7 @@ export function renderCraftCuttingSupplementManagementPage(): string {
       ${renderCuttingPageHeader(getCanonicalCuttingMeta('supplement-management'), {
         actionsHtml: `
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="open-create">新增补料</button>
+            <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="start-create" data-nav="${supplementCreatePath}">新增补料</button>
           </div>
         `,
       })}
@@ -1964,8 +1955,31 @@ export function renderCraftCuttingSupplementManagementPage(): string {
       ${renderFilters()}
       ${renderRecords(records)}
       ${renderSupplementDetailDialog(activeRecord)}
-      ${renderSourcePickerDialog(state.createSourcePickerOpen)}
-      ${renderDraftDialog(activeCandidate)}
+    </div>
+  `
+}
+
+export function renderCraftCuttingSupplementCreatePage(): string {
+  ensureMockSupplementOrders()
+  let activeCandidate = state.activeCandidateId ? getCandidateById(state.activeCandidateId) : undefined
+  if (state.activeCandidateId && !activeCandidate) {
+    state.activeCandidateId = ''
+    activeCandidate = undefined
+    state.feedback = { tone: 'warning', message: '未找到对应的补料对象，请重新选择。' }
+  }
+
+  return `
+    <div class="space-y-5 p-6">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div class="text-sm text-muted-foreground">工艺工厂运营系统 / 裁床厂管理 / 裁后处理 / 补料管理 / 新增补料</div>
+          <h1 class="mt-2 text-2xl font-semibold tracking-tight">新增补料</h1>
+          <p class="mt-1 text-sm text-muted-foreground">按生产单或裁片单发起补料，系统先展示当前已裁与齐套情况，再按尺码 + 成衣颜色填写补料件数。</p>
+        </div>
+        <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="cancel-create">返回补料列表</button>
+      </div>
+      ${renderFeedback()}
+      ${activeCandidate ? renderDraftPage(activeCandidate) : renderSourcePickerPage()}
       ${renderConfirmDialog(state.pendingConfirmDraft)}
     </div>
   `

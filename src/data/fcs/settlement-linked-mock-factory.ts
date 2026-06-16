@@ -177,6 +177,7 @@ interface LinkedReturnBatchContext {
   cycleLabel: string
   cycleStartAt: string
   cycleEndAt: string
+  plannedPrepaymentAt?: string
 }
 
 interface LinkedStatementLineBuild {
@@ -191,6 +192,7 @@ export interface LinkedStatementSourceRow {
   settlementPartyId: string
   settlementCycleId: string
   settlementCycleLabel: string
+  plannedPrepaymentAt?: string
   productionOrderId?: string
   taskId?: string
   returnInboundBatchId?: string
@@ -225,15 +227,20 @@ const LINKED_FACTORY_CODES = [
   'ID-FAC-0003',
   'ID-FAC-0004',
   'ID-FAC-0005',
+  'ID-FAC-0021',
+  'ID-FAC-0022',
 ] as const
 
 const CYCLE_REFERENCE_DATES = [
   '2026-01-06 10:00:00',
-  '2026-01-20 10:00:00',
+  '2026-01-16 10:00:00',
+  '2026-01-26 10:00:00',
   '2026-02-06 10:00:00',
-  '2026-02-20 10:00:00',
+  '2026-02-16 10:00:00',
+  '2026-02-26 10:00:00',
   '2026-03-06 10:00:00',
-  '2026-03-20 10:00:00',
+  '2026-03-16 10:00:00',
+  '2026-03-26 10:00:00',
 ] as const
 
 function parseDateTime(dateText: string): Date {
@@ -649,9 +656,113 @@ function createReturnInboundBatches(taskContexts: LinkedTaskContext[]): LinkedRe
         cycleLabel: cycleFields.settlementCycleLabel,
         cycleStartAt: cycleFields.settlementCycleStartAt,
         cycleEndAt: cycleFields.settlementCycleEndAt,
+        plannedPrepaymentAt: cycleFields.plannedPrepaymentAt,
       })
       batchSeq += 1
     }
+  }
+
+  const extraMixedStatementTask = taskContexts.find((taskContext) => taskContext.factory.id === 'ID-F001')
+  if (extraMixedStatementTask) {
+    const inboundAt = '2026-03-05 15:00:00'
+    const cycleFields = deriveSettlementCycleFields(extraMixedStatementTask.factory.id, inboundAt)
+    const batchId = `RIB-LINK-2026-${String(batchSeq).padStart(5, '0')}`
+    const returnedQty = Math.min(180, Math.max(60, Math.round(extraMixedStatementTask.task.qty * 0.08)))
+
+    batches.push({
+      batch: {
+        batchId,
+        productionOrderId: extraMixedStatementTask.productionOrder.productionOrderId,
+        sourceTaskId: extraMixedStatementTask.task.taskId,
+        processType: 'SEW',
+        processLabel: '车缝',
+        returnedQty,
+        returnFactoryId: extraMixedStatementTask.factory.id,
+        returnFactoryName: extraMixedStatementTask.factory.name,
+        warehouseId: 'POST-FACTORY-OWN',
+        warehouseName: '我方后道工厂',
+        managedPostFactoryId: 'POST-FACTORY-OWN',
+        managedPostFactoryName: '我方后道工厂',
+        finishedWarehouseId: 'WH-GARMENT-HANDOFF',
+        finishedWarehouseName: '成衣仓交接点',
+        inboundAt,
+        inboundBy: '仓管员-混合对账样例',
+        qcPolicy: 'REQUIRED',
+        qcStatus: 'PASS_CLOSED',
+        sourceType: 'TASK',
+        sourceId: extraMixedStatementTask.task.taskId,
+        sewPostProcessMode: 'MANAGED_POST_FACTORY_EXECUTES',
+        postExecutionMode: 'MANAGED_POST_FACTORY_EXECUTES',
+        receiverKind: 'MANAGED_POST_FACTORY',
+        receiverId: 'POST-FACTORY-OWN',
+        receiverName: '我方后道工厂',
+        submittedQty: returnedQty,
+        receiverWrittenQty: returnedQty,
+        receiverWrittenAt: addDays(inboundAt, 0, 2),
+        createdAt: inboundAt,
+        createdBy: '仓管员-混合对账样例',
+        updatedAt: inboundAt,
+        updatedBy: '系统',
+      },
+      taskContext: extraMixedStatementTask,
+      batchIndex: 99,
+      cycleId: cycleFields.settlementCycleId,
+      cycleLabel: cycleFields.settlementCycleLabel,
+      cycleStartAt: cycleFields.settlementCycleStartAt,
+      cycleEndAt: cycleFields.settlementCycleEndAt,
+      plannedPrepaymentAt: cycleFields.plannedPrepaymentAt,
+    })
+    batchSeq += 1
+
+    const lateDeductionCycleInboundAt = '2026-03-25 15:00:00'
+    const lateDeductionCycleFields = deriveSettlementCycleFields(extraMixedStatementTask.factory.id, lateDeductionCycleInboundAt)
+    const lateDeductionBatchId = `RIB-LINK-2026-${String(batchSeq).padStart(5, '0')}`
+    const lateDeductionReturnedQty = Math.min(160, Math.max(50, Math.round(extraMixedStatementTask.task.qty * 0.07)))
+
+    batches.push({
+      batch: {
+        batchId: lateDeductionBatchId,
+        productionOrderId: extraMixedStatementTask.productionOrder.productionOrderId,
+        sourceTaskId: extraMixedStatementTask.task.taskId,
+        processType: 'SEW',
+        processLabel: '车缝',
+        returnedQty: lateDeductionReturnedQty,
+        returnFactoryId: extraMixedStatementTask.factory.id,
+        returnFactoryName: extraMixedStatementTask.factory.name,
+        warehouseId: 'POST-FACTORY-OWN',
+        warehouseName: '我方后道工厂',
+        managedPostFactoryId: 'POST-FACTORY-OWN',
+        managedPostFactoryName: '我方后道工厂',
+        finishedWarehouseId: 'WH-GARMENT-HANDOFF',
+        finishedWarehouseName: '成衣仓交接点',
+        inboundAt: lateDeductionCycleInboundAt,
+        inboundBy: '仓管员-晚到扣款样例',
+        qcPolicy: 'REQUIRED',
+        qcStatus: 'PASS_CLOSED',
+        sourceType: 'TASK',
+        sourceId: extraMixedStatementTask.task.taskId,
+        sewPostProcessMode: 'MANAGED_POST_FACTORY_EXECUTES',
+        postExecutionMode: 'MANAGED_POST_FACTORY_EXECUTES',
+        receiverKind: 'MANAGED_POST_FACTORY',
+        receiverId: 'POST-FACTORY-OWN',
+        receiverName: '我方后道工厂',
+        submittedQty: lateDeductionReturnedQty,
+        receiverWrittenQty: lateDeductionReturnedQty,
+        receiverWrittenAt: addDays(lateDeductionCycleInboundAt, 0, 2),
+        createdAt: lateDeductionCycleInboundAt,
+        createdBy: '仓管员-晚到扣款样例',
+        updatedAt: lateDeductionCycleInboundAt,
+        updatedBy: '系统',
+      },
+      taskContext: extraMixedStatementTask,
+      batchIndex: 98,
+      cycleId: lateDeductionCycleFields.settlementCycleId,
+      cycleLabel: lateDeductionCycleFields.settlementCycleLabel,
+      cycleStartAt: lateDeductionCycleFields.settlementCycleStartAt,
+      cycleEndAt: lateDeductionCycleFields.settlementCycleEndAt,
+      plannedPrepaymentAt: lateDeductionCycleFields.plannedPrepaymentAt,
+    })
+    batchSeq += 1
   }
 
   return batches
@@ -958,6 +1069,7 @@ function buildStatementLineFromBatch(
       settlementCycleLabel: batchContext.cycleLabel,
       settlementCycleStartAt: batchContext.cycleStartAt,
       settlementCycleEndAt: batchContext.cycleEndAt,
+      plannedPrepaymentAt: batchContext.plannedPrepaymentAt,
       statementLineGrainType: 'RETURN_INBOUND_BATCH',
       returnInboundBatchId: batchContext.batch.batchId,
       returnInboundBatchNo: batchContext.batch.batchId,
@@ -987,7 +1099,7 @@ function buildStatementLineFromQualityLedger(
   const settlementPartyId = ledger.settlementPartyId ?? ledger.factoryId
   const cycleFields = deriveSettlementCycleFields(
     settlementPartyId,
-    trace?.caseFact.qcRecord.inboundAt ?? ledger.generatedAt,
+    ledger.generatedAt,
   )
   const qty = trace?.caseFact.deductionBasis?.deductionQty ?? trace?.caseFact.qcRecord.factoryLiabilityQty ?? 1
   const deductionAmount = roundAmount(ledger.settlementAmount ?? ledger.originalAmount)
@@ -1021,6 +1133,7 @@ function buildStatementLineFromQualityLedger(
       settlementCycleLabel: cycleFields.settlementCycleLabel,
       settlementCycleStartAt: cycleFields.settlementCycleStartAt,
       settlementCycleEndAt: cycleFields.settlementCycleEndAt,
+      plannedPrepaymentAt: cycleFields.plannedPrepaymentAt,
       statementLineGrainType: trace?.caseFact.qcRecord.returnInboundBatchNo ? 'RETURN_INBOUND_BATCH' : 'NON_BATCH_QUALITY',
       returnInboundBatchId: trace?.caseFact.qcRecord.returnInboundBatchNo,
       returnInboundBatchNo: trace?.caseFact.qcRecord.returnInboundBatchNo,
@@ -1078,6 +1191,7 @@ function createStatementSourceRows(
     settlementPartyId: ledger.factoryId,
     settlementCycleId: ledger.settlementCycleId,
     settlementCycleLabel: ledger.settlementCycleLabel,
+    plannedPrepaymentAt: ledger.plannedPrepaymentAt,
     productionOrderId: ledger.productionOrderId,
     taskId: ledger.taskId,
     returnInboundBatchId: ledger.returnInboundBatchId,
@@ -1095,7 +1209,7 @@ function createStatementSourceRows(
     const settlementPartyId = ledger.settlementPartyId ?? ledger.factoryId
     const cycle = deriveSettlementCycleFields(
       settlementPartyId,
-      trace?.caseFact.qcRecord.inboundAt ?? ledger.generatedAt,
+      ledger.generatedAt,
     )
     return {
       sourceItemId: ledger.ledgerId,
@@ -1103,6 +1217,7 @@ function createStatementSourceRows(
       settlementPartyId,
       settlementCycleId: cycle.settlementCycleId,
       settlementCycleLabel: cycle.settlementCycleLabel,
+      plannedPrepaymentAt: cycle.plannedPrepaymentAt,
       productionOrderId: trace?.caseFact.qcRecord.productionOrderNo,
       taskId: ledger.taskId,
       returnInboundBatchId: trace?.caseFact.qcRecord.returnInboundBatchNo,
@@ -1164,6 +1279,7 @@ function createStatementDrafts(
     const cycleLabel = lines[0].item.settlementCycleLabel ?? settlementCycleId
     const cycleStartAt = lines[0].item.settlementCycleStartAt ?? ''
     const cycleEndAt = lines[0].item.settlementCycleEndAt ?? ''
+    const plannedPrepaymentAt = lines[0].item.plannedPrepaymentAt
     const cycleIndex = CYCLE_REFERENCE_DATES.findIndex((dateText) => {
       const fields = deriveSettlementCycleFields(factory.id, dateText)
       return fields.settlementCycleId === settlementCycleId
@@ -1247,6 +1363,7 @@ function createStatementDrafts(
       settlementCycleLabel: cycleLabel,
       settlementCycleStartAt: cycleStartAt,
       settlementCycleEndAt: cycleEndAt,
+      plannedPrepaymentAt,
       factoryFeedbackStatus,
       factoryFeedbackAt:
         factoryFeedbackStatus === 'NOT_SENT'
@@ -1310,24 +1427,49 @@ function createPrepaymentChain(statements: StatementDraft[]): {
   approvals: FeishuPaymentApproval[]
   writebacks: PaymentWriteback[]
 } {
-  const readyByFactory = new Map<string, StatementDraft[]>()
+  const readyByGroup = new Map<string, { factoryId: string; plannedPrepaymentAt: string; statements: StatementDraft[] }>()
   for (const statement of statements) {
     if (statement.status !== 'READY_FOR_PREPAYMENT') continue
-    const existed = readyByFactory.get(statement.settlementPartyId) ?? []
-    existed.push(statement)
-    readyByFactory.set(statement.settlementPartyId, existed)
+    const plannedPrepaymentAt = statement.plannedPrepaymentAt ?? statement.settlementCycleEndAt ?? '未计划'
+    const key = `${statement.settlementPartyId}__${plannedPrepaymentAt}`
+    const existed = readyByGroup.get(key) ?? {
+      factoryId: statement.settlementPartyId,
+      plannedPrepaymentAt,
+      statements: [],
+    }
+    existed.statements.push(statement)
+    readyByGroup.set(key, existed)
   }
 
-  const factoryIds = Array.from(readyByFactory.keys()).sort((left, right) => left.localeCompare(right))
-  const statusPlans: Array<{ factoryId: string; status: PrepaymentBatchStatus; statementCount: number }> = []
-  if (factoryIds[0]) {
-    statusPlans.push({ factoryId: factoryIds[0], status: 'PREPAID', statementCount: 2 })
-    statusPlans.push({ factoryId: factoryIds[0], status: 'CLOSED', statementCount: 1 })
-  }
-  if (factoryIds[1]) statusPlans.push({ factoryId: factoryIds[1], status: 'FEISHU_PAID_PENDING_WRITEBACK', statementCount: 2 })
-  if (factoryIds[2]) statusPlans.push({ factoryId: factoryIds[2], status: 'FEISHU_APPROVAL_CREATED', statementCount: 2 })
-  if (factoryIds[3]) statusPlans.push({ factoryId: factoryIds[3], status: 'READY_TO_APPLY_PAYMENT', statementCount: 2 })
-  if (factoryIds[4]) statusPlans.push({ factoryId: factoryIds[4], status: 'FEISHU_APPROVAL_REJECTED', statementCount: 1 })
+  const groupKeys = Array.from(readyByGroup.keys()).sort((left, right) => left.localeCompare(right))
+  const thirdPartyKeys = groupKeys
+    .filter((key) => key.startsWith('ID-F021__'))
+    .sort((left, right) => {
+      const leftDate = readyByGroup.get(left)?.plannedPrepaymentAt ?? ''
+      const rightDate = readyByGroup.get(right)?.plannedPrepaymentAt ?? ''
+      return leftDate.localeCompare(rightDate)
+    })
+  const reservedCandidateKey = thirdPartyKeys[2] ?? thirdPartyKeys.at(-1)
+  const statusOrder: PrepaymentBatchStatus[] = [
+    'PREPAID',
+    'FEISHU_APPROVAL_CREATED',
+    'READY_TO_APPLY_PAYMENT',
+    'FEISHU_PAID_PENDING_WRITEBACK',
+    'CLOSED',
+    'FEISHU_APPROVAL_REJECTED',
+  ]
+  const prioritizedGroupKeys = [
+    ...thirdPartyKeys.slice(0, 2),
+    ...groupKeys.filter((groupKey) => !thirdPartyKeys.includes(groupKey)),
+  ]
+  const statusPlans: Array<{ groupKey: string; status: PrepaymentBatchStatus; statementCount: number }> = prioritizedGroupKeys
+    .filter((groupKey) => groupKey !== reservedCandidateKey)
+    .slice(0, 12)
+    .map((groupKey, index) => ({
+      groupKey,
+      status: statusOrder[index % statusOrder.length],
+      statementCount: 2,
+    }))
 
   const consumed = new Set<string>()
   const batches: SettlementBatch[] = []
@@ -1335,7 +1477,9 @@ function createPrepaymentChain(statements: StatementDraft[]): {
   const writebacks: PaymentWriteback[] = []
 
   for (const [index, plan] of statusPlans.entries()) {
-    const pool = (readyByFactory.get(plan.factoryId) ?? [])
+    const group = readyByGroup.get(plan.groupKey)
+    if (!group) continue
+    const pool = group.statements
       .filter((statement) => !consumed.has(statement.statementId))
       .sort((left, right) => left.settlementCycleEndAt!.localeCompare(right.settlementCycleEndAt!))
       .slice(0, plan.statementCount)
@@ -1352,6 +1496,7 @@ function createPrepaymentChain(statements: StatementDraft[]): {
       settlementPartyId: statement.settlementPartyId,
       settlementCycleId: statement.settlementCycleId,
       settlementCycleLabel: statement.settlementCycleLabel,
+      plannedPrepaymentAt: statement.plannedPrepaymentAt,
       totalAmount: statement.totalAmount,
       totalEarningAmount: statement.totalEarningAmount,
       totalDeductionAmount: statement.totalDeductionAmount,
@@ -1509,6 +1654,7 @@ function createPrepaymentChain(statements: StatementDraft[]): {
       status: plan.status,
       statementIds: pool.map((statement) => statement.statementId),
       items,
+      plannedPrepaymentAt: first.plannedPrepaymentAt,
       remark: '由同一工厂已确认对账单自动组批',
       notes: plan.status === 'READY_TO_APPLY_PAYMENT' ? '待发起飞书付款审批' : undefined,
       createdAt,
@@ -1590,6 +1736,7 @@ function createTaskEarningLedgers(
       settlementCycleLabel: batchContext.cycleLabel,
       settlementCycleStartAt: batchContext.cycleStartAt,
       settlementCycleEndAt: batchContext.cycleEndAt,
+      plannedPrepaymentAt: batchContext.plannedPrepaymentAt,
       settlementProfileVersionNo: settlementInfo?.versionNo,
       status: 'OPEN',
       sourceReason:

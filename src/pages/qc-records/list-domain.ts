@@ -314,13 +314,14 @@ function buildTableColumns(): TableColumn<QcRow>[] {
     {
       key: 'actions', title: '操作', className: 'align-top',
       render: (row) => {
-        const href = buildQcDetailHref(row.qcId)
-        const parts = [`<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(href)}">查看详情</button>`]
+        const detailHref = buildQcDetailHref(row.qcId)
+        const disputeHref = `${detailHref}?focus=dispute`
+        const parts = [`<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>`]
         if (row.canViewDeduction && row.basisId) {
           parts.push(`<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildQcDeductionHref(row.qcId))}">查看扣款</button>`)
         }
         if (row.canHandleDispute) {
-          parts.push(`<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs text-amber-700 hover:bg-amber-50" data-nav="${escapeHtml(`${href}?focus=dispute`)}">处理异议</button>`)
+          parts.push(`<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs text-amber-700 hover:bg-amber-50" data-nav="${escapeHtml(disputeHref)}">处理异议</button>`)
         }
         return `<div class="flex flex-wrap gap-2">${parts.join('')}</div>`
       },

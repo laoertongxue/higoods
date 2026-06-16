@@ -23,6 +23,7 @@ function getPayeeSnapshotKey(statement: (typeof initialStatementDrafts)[number])
     statement.settlementCurrency ?? statement.settlementProfileSnapshot.settlementConfigSnapshot.currency,
     statement.settlementProfileVersionNo,
     statement.settlementProfileSnapshot.receivingAccountSnapshot.bankAccountNo,
+    statement.plannedPrepaymentAt ?? '未计划',
   ].join('__')
 }
 
@@ -42,7 +43,7 @@ function getBuildableStatements() {
     const key = getPayeeSnapshotKey(statement)
     groups.set(key, [...(groups.get(key) ?? []), statement])
   }
-  const selected = Array.from(groups.values()).find((group) => group.length >= 2)
+  const selected = Array.from(groups.values()).find((group) => group.length >= 1)
   if (!selected) throw new Error('缺少可用于申请付款的预付款批次样例')
   return selected.slice(0, 2)
 }

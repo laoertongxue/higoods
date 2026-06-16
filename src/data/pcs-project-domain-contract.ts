@@ -1233,9 +1233,7 @@ const costReviewFields = [
     title: '物料与工序成本',
     description: '承接商品核价页中的物料、印染、辅料、车位和可选工序。',
     fields: [
-      { key: 'materialCostLines', label: '物料明细', type: 'table', sourceKind: '本地主数据', sourceRef: '样衣核价.物料', meaning: '面料或纱线用量、cost_price 和物料成本明细', logic: '按物料行记录 SKU、用量、单价和物料成本。', placeholder: '例如：面料 FAB-CNIDML076 / 1.20 Yard / ¥3.56/Yard / ¥4.27' },
       { key: 'materialCostCny', label: '物料成本（RMB）', type: 'number', sourceKind: '系统计算', sourceRef: '样衣核价.物料成本', meaning: '物料成本 RMB 合计', logic: '由物料明细按 cost_price x 用量汇总。' },
-      { key: 'dyeingRuleLines', label: '印染计价规则', type: 'table', sourceKind: '本地主数据', sourceRef: '样衣核价.印染规则', meaning: '印染或印花计价规则明细', logic: '面料用量从 Yard 折算为米，再按染色或印花规则计价。', placeholder: '例如：单染涤纶 Rp 2,000/米 x 1.10米 -> ¥1.00' },
       { key: 'dyeingCostCny', label: '印染费（RMB）', type: 'number', sourceKind: '系统计算', sourceRef: '样衣核价.印染费', meaning: '印染或印花成本 RMB 合计', logic: '印染源币种成本按汇率折算后汇总。' },
       { key: 'auxiliaryCostAmount', label: '辅料估计价格', type: 'number', sourceKind: '本地主数据', sourceRef: '样衣核价.辅料估计价格', meaning: '辅料成本源币种金额', logic: '承接商品核价页的辅料估算输入。' },
       {
@@ -1252,7 +1250,6 @@ const costReviewFields = [
         ],
       },
       { key: 'auxiliaryCostCny', label: '辅料成本（RMB）', type: 'number', sourceKind: '系统计算', sourceRef: '样衣核价.辅料成本', meaning: '辅料成本 RMB 折算值', logic: '按源币种和汇率换算后进入总成本。' },
-      { key: 'fixedProcessLines', label: '固定工序明细', type: 'table', sourceKind: '固定规则', sourceRef: '样衣核价.固定工序', meaning: '裁剪费、包装材料、后道、缝纫线、仓库发货费等固定成本', logic: '按衣服种类带出固定工序项并折算 RMB。', placeholder: '例如：裁剪费 Rp 1,000 -> ¥0.45' },
       { key: 'fixedProcessCostCny', label: '固定工序（RMB）', type: 'number', sourceKind: '系统计算', sourceRef: '样衣核价.固定工序', meaning: '固定工序 RMB 合计', logic: '固定工序按 IDR 单项折算为 RMB 后汇总。' },
       { key: 'sewingCostAmount', label: '车位费', type: 'number', sourceKind: '本地主数据', sourceRef: '样衣核价.车位费', meaning: '车位费源币种金额', logic: '车位费独立于固定工序，需单独记录并折算。' },
       {
@@ -1269,7 +1266,6 @@ const costReviewFields = [
         ],
       },
       { key: 'sewingCostCny', label: '车位费（RMB）', type: 'number', sourceKind: '系统计算', sourceRef: '样衣核价.车位费', meaning: '车位费 RMB 折算值', logic: '按源币种和汇率换算后进入总成本。' },
-      { key: 'optionalProcessLines', label: '可选工序明细', type: 'table', sourceKind: '本地主数据', sourceRef: '样衣核价.可选工序', meaning: '定位裁、印花、绣花、洗水、缩水等可选工序成本', logic: '可选工序由买手或成本人员估价后进入总成本。', required: false, placeholder: '例如：缩水 Rp 2,500 -> ¥1.14' },
       { key: 'optionalProcessCostCny', label: '可选工序（RMB）', type: 'number', sourceKind: '系统计算', sourceRef: '样衣核价.可选工序', meaning: '可选工序 RMB 合计', logic: '可选工序按源币种折算为 RMB 后汇总。' },
     ],
   }),

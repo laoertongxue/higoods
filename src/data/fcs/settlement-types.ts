@@ -2,7 +2,7 @@
 // 对账单、预付款批次和工厂端结算只读取这些主数据的生效版本，不在周期执行对象里直接维护。
 
 // 结算周期类型
-export type CycleType = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'PER_BATCH'
+export type CycleType = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'PER_BATCH' | 'TRI_DECAD'
 
 // 计价方式
 export type PricingMode = 'BY_PIECE' | 'BY_PROCESS' | 'BY_ORDER'
@@ -99,6 +99,7 @@ export const cycleTypeConfig: Record<CycleType, { label: string }> = {
   BIWEEKLY: { label: '双周' },
   MONTHLY: { label: '每月' },
   PER_BATCH: { label: '按批次' },
+  TRI_DECAD: { label: '三旬结算' },
 }
 
 export const pricingModeConfig: Record<PricingMode, { label: string }> = {

@@ -63,7 +63,7 @@ import {
   type CuttingMaterialLedgerEvent,
   type MaterialLedgerProjection,
 } from '../../../data/fcs/cutting/material-ledger.ts'
-import { buildCutOrderCloseRecordLookup } from '../../../data/fcs/cutting/cut-order-close-records'
+import { buildCutOrderCloseRecordLookup } from '../../../data/fcs/cutting/cut-order-close-records.ts'
 import { listSpreadingDifferencesByProductionOrder } from '../../../data/fcs/cutting/spreading-differences.ts'
 import { buildMarkerSpreadingProjection, type MarkerSpreadingProjection } from './marker-spreading-projection.ts'
 import { type SpreadingOrder } from './marker-spreading-model.ts'

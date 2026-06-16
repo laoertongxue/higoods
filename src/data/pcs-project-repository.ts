@@ -384,6 +384,92 @@ function migrateRevisionTemplateProject(project: PcsProjectRecord): PcsProjectRe
   return normalizeProject(nextProject)
 }
 
+function completeSampleCostReviewBeforeStartedListing(
+  nodes: PcsProjectNodeRecord[],
+): PcsProjectNodeRecord[] {
+  const nodesByProject = new Map<string, PcsProjectNodeRecord[]>()
+  nodes.forEach((node) => {
+    const list = nodesByProject.get(node.projectId) || []
+    list.push(node)
+    nodesByProject.set(node.projectId, list)
+  })
+
+  const projectIdsWithStartedListing = new Set<string>()
+  nodesByProject.forEach((projectNodes, projectId) => {
+    const listingNode = projectNodes.find((node) => node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING')
+    if (listingNode && listingNode.currentStatus !== '未开始' && listingNode.currentStatus !== '已取消') {
+      projectIdsWithStartedListing.add(projectId)
+    }
+  })
+
+  if (projectIdsWithStartedListing.size === 0) return nodes
+
+  return nodes.map((node) => {
+    if (
+      node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' ||
+      !projectIdsWithStartedListing.has(node.projectId) ||
+      node.currentStatus === '已完成' ||
+      node.currentStatus === '已取消'
+    ) {
+      return node
+    }
+
+    const timestamp = node.updatedAt || node.lastEventTime || nowText()
+    const sequenceText = String(node.sequenceNo).padStart(2, '0')
+    return normalizeNode({
+      ...node,
+      currentStatus: '已完成',
+      validInstanceCount: Math.max(1, node.validInstanceCount || 0),
+      latestInstanceId: node.latestInstanceId || `${node.projectId}-instance-${sequenceText}`,
+      latestInstanceCode: node.latestInstanceCode || `${node.projectId}-实例-${sequenceText}`,
+      latestResultType: node.latestResultType || '节点完成',
+      latestResultText: node.latestResultText || '样衣核价已完成。',
+      pendingActionType: '已完成',
+      pendingActionText: '节点已完成',
+      updatedAt: timestamp,
+      lastEventType: node.lastEventType || '样衣核价迁移补齐',
+      lastEventTime: node.lastEventTime || timestamp,
+    })
+  })
+}
+
+function migrateSeededSampleCostAndListingNodeStates(
+  nodes: PcsProjectNodeRecord[],
+  bootstrapNodes: PcsProjectNodeRecord[],
+): PcsProjectNodeRecord[] {
+  const bootstrapNodeByKey = new Map(
+    bootstrapNodes
+      .filter((node) => node.workItemTypeCode === 'SAMPLE_COST_REVIEW' || node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING')
+      .map((node) => [`${node.projectId}:${node.workItemTypeCode}`, node]),
+  )
+
+  if (bootstrapNodeByKey.size === 0) return nodes
+
+  return nodes.map((node) => {
+    if (node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' && node.workItemTypeCode !== 'CHANNEL_PRODUCT_LISTING') return node
+
+    const seededNode = bootstrapNodeByKey.get(`${node.projectId}:${node.workItemTypeCode}`)
+    if (!seededNode || seededNode.currentStatus === '未开始' || seededNode.currentStatus === '已取消') return node
+    if (node.currentStatus === seededNode.currentStatus) return node
+    if (node.currentStatus === '已完成' && seededNode.currentStatus !== '已完成') return node
+
+    return normalizeNode({
+      ...node,
+      currentStatus: seededNode.currentStatus,
+      validInstanceCount: Math.max(node.validInstanceCount || 0, seededNode.validInstanceCount || 0),
+      latestInstanceId: node.latestInstanceId || seededNode.latestInstanceId,
+      latestInstanceCode: node.latestInstanceCode || seededNode.latestInstanceCode,
+      latestResultType: node.latestResultType || seededNode.latestResultType,
+      latestResultText: node.latestResultText || seededNode.latestResultText,
+      pendingActionType: seededNode.pendingActionType || node.pendingActionType,
+      pendingActionText: seededNode.pendingActionText || node.pendingActionText,
+      updatedAt: seededNode.updatedAt || node.updatedAt,
+      lastEventType: node.lastEventType || '样衣核价迁移补齐',
+      lastEventTime: node.lastEventTime || seededNode.lastEventTime || seededNode.updatedAt || node.updatedAt,
+    })
+  })
+}
+
 function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
   const bootstrap = seedSnapshot()
   const mergedProjects = snapshot.projects.map(migrateRevisionTemplateProject)
@@ -477,6 +563,8 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
     ...mergedNodes.filter((node) => !templateProjectIds.has(node.projectId)),
     ...alignedNodes,
   ]
+  mergedNodes = migrateSeededSampleCostAndListingNodeStates(mergedNodes, bootstrap.nodes)
+  mergedNodes = completeSampleCostReviewBeforeStartedListing(mergedNodes)
 
   return {
     version: PROJECT_STORE_VERSION,

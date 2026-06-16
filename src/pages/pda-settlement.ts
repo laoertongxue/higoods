@@ -40,6 +40,7 @@ import {
   submitStatementFactoryConfirmation,
 } from '../data/fcs/store-domain-settlement-seeds'
 import { deriveSettlementCycleFields } from '../data/fcs/store-domain-statement-grain'
+import { cycleTypeConfig, pricingModeConfig } from '../data/fcs/settlement-types'
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
 import {
@@ -112,6 +113,7 @@ interface SettlementCycleSummary {
   cycleLabel: string
   cycleStartAt: string
   cycleEndAt: string
+  plannedPrepaymentAt?: string
   ledgers: PreSettlementLedger[]
   taskLedgers: PreSettlementLedger[]
   qualityLedgers: PreSettlementLedger[]
@@ -561,14 +563,24 @@ function getSettlementCycleSummaries(factory: FactoryContext): SettlementCycleSu
   const qualityCollections = getQualityCycleCollections(factory.factoryId)
   const cycleMap = new Map<string, SettlementCycleSummary>()
 
-  const ensureCycle = (cycleId: string, cycleLabel: string, startAt: string, endAt: string): SettlementCycleSummary => {
+  const ensureCycle = (
+    cycleId: string,
+    cycleLabel: string,
+    startAt: string,
+    endAt: string,
+    plannedPrepaymentAt?: string,
+  ): SettlementCycleSummary => {
     const existing = cycleMap.get(cycleId)
-    if (existing) return existing
+    if (existing) {
+      existing.plannedPrepaymentAt = existing.plannedPrepaymentAt ?? plannedPrepaymentAt
+      return existing
+    }
     const summary: SettlementCycleSummary = {
       cycleId,
       cycleLabel,
       cycleStartAt: startAt,
       cycleEndAt: endAt,
+      plannedPrepaymentAt,
       ledgers: [],
       taskLedgers: [],
       qualityLedgers: [],
@@ -603,6 +615,7 @@ function getSettlementCycleSummaries(factory: FactoryContext): SettlementCycleSu
       ledger.settlementCycleLabel,
       ledger.settlementCycleStartAt,
       ledger.settlementCycleEndAt,
+      ledger.plannedPrepaymentAt,
     )
     summary.ledgers.push(ledger)
     if (ledger.ledgerType === 'TASK_EARNING') summary.taskLedgers.push(ledger)
@@ -616,6 +629,7 @@ function getSettlementCycleSummaries(factory: FactoryContext): SettlementCycleSu
       statement.settlementCycleLabel || cycle.settlementCycleLabel,
       statement.settlementCycleStartAt || cycle.settlementCycleStartAt,
       statement.settlementCycleEndAt || cycle.settlementCycleEndAt,
+      statement.plannedPrepaymentAt || cycle.plannedPrepaymentAt,
     )
     summary.statements.push(statement)
   })
@@ -628,6 +642,7 @@ function getSettlementCycleSummaries(factory: FactoryContext): SettlementCycleSu
         item.settlementCycleLabel,
         item.settlementCycleLabel.slice(-23, -13) || '',
         item.settlementCycleLabel.slice(-10) || '',
+        item.plannedPrepaymentAt ?? batch.plannedPrepaymentAt,
       )
       if (!summary.batches.some((current) => current.batchId === batch.batchId)) {
         summary.batches.push(batch)
@@ -643,6 +658,7 @@ function getSettlementCycleSummaries(factory: FactoryContext): SettlementCycleSu
         cycle.settlementCycleLabel,
         cycle.settlementCycleStartAt,
         cycle.settlementCycleEndAt,
+        cycle.plannedPrepaymentAt,
       )
       ;(summary[targetKey] as FutureMobileFactoryQcListItem[]).push(...items)
     }
@@ -1021,9 +1037,9 @@ function renderSettlementRequestDrawer(): string {
             </div>
             <div class="space-y-1 rounded-md bg-muted/20 p-2">
               <p class="text-[10px] text-muted-foreground">结算配置快照</p>
-              <p class="text-xs">周期类型：${escapeHtml(effective.settlementConfigSnapshot.cycleType)}</p>
+              <p class="text-xs">周期类型：${escapeHtml(cycleTypeConfig[effective.settlementConfigSnapshot.cycleType].label)}</p>
               <p class="text-xs">结算规则：${escapeHtml(effective.settlementConfigSnapshot.settlementDayRule)}</p>
-              <p class="text-xs">计价方式：${escapeHtml(effective.settlementConfigSnapshot.pricingMode)}</p>
+              <p class="text-xs">计价方式：${escapeHtml(pricingModeConfig[effective.settlementConfigSnapshot.pricingMode].label)}</p>
               <p class="text-xs">结算币种：${escapeHtml(effective.settlementConfigSnapshot.currency)}</p>
             </div>
           </div>
@@ -1355,6 +1371,7 @@ function renderCycleCard(summary: SettlementCycleSummary): string {
         <div class="min-w-0">
           <div class="text-sm font-semibold text-foreground">${escapeHtml(summary.cycleLabel)}</div>
           <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(`${summary.cycleStartAt} ~ ${summary.cycleEndAt}`)}</div>
+          <div class="mt-1 text-[11px] text-muted-foreground">计划预付款：${escapeHtml(summary.plannedPrepaymentAt ?? '-')}</div>
         </div>
         ${summary.latestWriteback ? renderStatusBadge('已回写打款结果', 'green') : summary.primaryBatch ? renderStatusBadge(batchStatus, getPrepaymentBatchStatusVariant(summary.primaryBatch.status)) : renderStatusBadge(statementStatus, summary.primaryStatement ? getStatementStatusVariant(summary.primaryStatement.status) : 'gray')}
       </div>
@@ -1404,6 +1421,7 @@ function renderOverviewTab(summary: SettlementCycleSummary): string {
             red: summary.qualityDeductionAmount > 0,
           })}
           ${renderRow('本期预付净额', formatAmount(summary.netPayableAmount), { bold: true })}
+          ${renderRow('计划预付款日', summary.plannedPrepaymentAt ?? '当前未计划')}
         `,
       )}
       ${renderCard(
@@ -1430,6 +1448,7 @@ function renderOverviewTab(summary: SettlementCycleSummary): string {
           ${renderRow('对账单状态', summary.primaryStatement ? getStatementStatusLabel(summary.primaryStatement.status) : '当前未生成对账单')}
           ${renderRow('工厂反馈状态', summary.primaryStatement ? getFactoryFeedbackLabel(summary.primaryStatement.factoryFeedbackStatus) : '当前无反馈')}
           ${renderRow('预付款批次状态', summary.primaryBatch ? getPrepaymentBatchStatusLabel(summary.primaryBatch.status) : '当前未入预付款')}
+          ${renderRow('计划预付款日', summary.plannedPrepaymentAt ?? '当前未计划')}
           ${renderRow('飞书付款审批状态', summary.latestApproval ? getFeishuStatusLabel(summary.latestApproval.status) : '当前未申请')}
           ${renderRow('打款回写', summary.latestWriteback ? `已回写 · ${summary.latestWriteback.bankSerialNo}` : '当前未回写')}
           ${
@@ -1650,6 +1669,7 @@ function renderLedgerDrawer(): string {
           ${renderRow('当前状态', getLedgerStatusLabel(ledger.status))}
           ${renderRow('发生时间', formatDateTime(ledger.occurredAt))}
           ${renderRow('结算周期', ledger.settlementCycleLabel)}
+          ${renderRow('计划预付款日', ledger.plannedPrepaymentAt ?? '当前未计划')}
         `,
       )}
       ${renderCard(
@@ -1668,6 +1688,7 @@ function renderLedgerDrawer(): string {
           ${renderRow('对账单号', statement?.statementNo ?? statement?.statementId ?? '当前未入对账单')}
           ${renderRow('对账单状态', statement ? getStatementStatusLabel(statement.status) : '当前未入对账单')}
           ${renderRow('工厂反馈状态', statement ? getFactoryFeedbackLabel(statement.factoryFeedbackStatus) : '当前无反馈')}
+          ${renderRow('计划预付款日', statement?.plannedPrepaymentAt ?? ledger.plannedPrepaymentAt ?? '当前未计划')}
         `,
       )}
       ${renderCard(
@@ -1675,6 +1696,7 @@ function renderLedgerDrawer(): string {
         `
           ${renderRow('预付款批次号', batch?.batchNo ?? batch?.batchId ?? '当前未入预付款批次')}
           ${renderRow('预付款批次状态', batch ? getPrepaymentBatchStatusLabel(batch.status) : '当前未入预付款批次')}
+          ${renderRow('计划预付款日', batch?.plannedPrepaymentAt ?? statement?.plannedPrepaymentAt ?? ledger.plannedPrepaymentAt ?? '当前未计划')}
           ${renderRow('飞书付款审批编号', approval?.approvalNo ?? '当前未申请')}
           ${renderRow('飞书付款审批状态', approval ? getFeishuStatusLabel(approval.status) : '当前未申请')}
           ${renderRow('打款结果', writeback ? `已回写 · ${writeback.bankSerialNo}` : '当前未回写')}
@@ -2106,6 +2128,7 @@ function renderStatementDrawer(): string {
         `
           ${renderRow('当前阶段', progress.summary)}
           ${renderRow('是否可进入预付款', progress.canEnterSettlement ? '可进入预付款批次' : '暂不可进入预付款批次')}
+          ${renderRow('计划预付款日', statement.plannedPrepaymentAt ?? batch?.plannedPrepaymentAt ?? '当前未计划')}
           ${renderRow('预付款批次号', batch?.batchNo ?? batch?.batchId ?? '当前未入预付款批次')}
           ${renderRow('飞书付款审批编号', approval?.approvalNo ?? '当前未申请')}
           ${renderRow('飞书付款审批状态', approval ? getFeishuStatusLabel(approval.status) : '当前未申请')}
@@ -2182,6 +2205,7 @@ function renderCycleDetail(summary: SettlementCycleSummary): string {
         </button>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(summary.cycleLabel)}</div>
         <div class="text-[10px] text-muted-foreground">${escapeHtml(`${summary.cycleStartAt} ~ ${summary.cycleEndAt}`)}</div>
+        <div class="text-[10px] text-muted-foreground">计划预付款：${escapeHtml(summary.plannedPrepaymentAt ?? '-')}</div>
       </div>
       ${renderSettlementProfileEntryCard()}
     </div>

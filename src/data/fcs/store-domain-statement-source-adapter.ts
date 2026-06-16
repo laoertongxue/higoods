@@ -50,6 +50,7 @@ export interface StatementSourceItemViewModel {
   settlementCycleLabel: string
   settlementCycleStartAt: string
   settlementCycleEndAt: string
+  plannedPrepaymentAt?: string
   statementLineGrainType:
     | 'RETURN_INBOUND_BATCH'
     | 'NON_BATCH_QUALITY'
@@ -80,6 +81,7 @@ export interface StatementBuildScopeViewModel {
   settlementCycleLabel: string
   settlementCycleStartAt: string
   settlementCycleEndAt: string
+  plannedPrepaymentAt?: string
   candidateCount: number
   earningLedgerCount: number
   deductionLedgerCount: number
@@ -98,6 +100,7 @@ export interface StatementListItemViewModel {
   settlementCycleId?: string
   settlementCycleLabel?: string
   settlementCycleEndAt?: string
+  plannedPrepaymentAt?: string
   currency: string
   status: StatementStatus
   factoryFeedbackStatus: FactoryFeedbackStatus
@@ -287,6 +290,7 @@ function mapLedgerToStatementSourceItem(
       settlementCycleLabel: ledger.settlementCycleLabel,
       settlementCycleStartAt: ledger.settlementCycleStartAt,
       settlementCycleEndAt: ledger.settlementCycleEndAt,
+      plannedPrepaymentAt: ledger.plannedPrepaymentAt,
       statementLineGrainType: 'RETURN_INBOUND_BATCH',
       returnInboundBatchId: ledger.returnInboundBatchId,
       returnInboundBatchNo: ledger.returnInboundBatchNo,
@@ -336,6 +340,7 @@ function mapLedgerToStatementSourceItem(
     settlementCycleLabel: ledger.settlementCycleLabel,
     settlementCycleStartAt: ledger.settlementCycleStartAt,
     settlementCycleEndAt: ledger.settlementCycleEndAt,
+    plannedPrepaymentAt: ledger.plannedPrepaymentAt,
     statementLineGrainType: ledger.returnInboundBatchId ? 'RETURN_INBOUND_BATCH' : 'NON_BATCH_QUALITY',
     returnInboundBatchId: ledger.returnInboundBatchId,
     returnInboundBatchNo: ledger.returnInboundBatchNo,
@@ -425,6 +430,7 @@ export function listStatementBuildScopes(): StatementBuildScopeViewModel[] {
       existed.totalEarningAmount += item.earningAmount
       existed.totalDeductionAmount += item.qualityDeductionAmount
       existed.netPayableAmount += item.netAmount
+      existed.plannedPrepaymentAt = existed.plannedPrepaymentAt ?? item.plannedPrepaymentAt
       continue
     }
     scopeMap.set(key, {
@@ -435,6 +441,7 @@ export function listStatementBuildScopes(): StatementBuildScopeViewModel[] {
       settlementCycleLabel: item.settlementCycleLabel,
       settlementCycleStartAt: item.settlementCycleStartAt,
       settlementCycleEndAt: item.settlementCycleEndAt,
+      plannedPrepaymentAt: item.plannedPrepaymentAt,
       candidateCount: 1,
       earningLedgerCount: item.sourceType === 'TASK_EARNING' ? 1 : 0,
       deductionLedgerCount: item.sourceType === 'QUALITY_DEDUCTION' ? 1 : 0,
@@ -498,6 +505,7 @@ export function toStatementDraftItemFromSource(item: StatementSourceItemViewMode
     settlementCycleLabel: item.settlementCycleLabel,
     settlementCycleStartAt: item.settlementCycleStartAt,
     settlementCycleEndAt: item.settlementCycleEndAt,
+    plannedPrepaymentAt: item.plannedPrepaymentAt,
     statementLineGrainType: item.statementLineGrainType,
     returnInboundBatchId: item.returnInboundBatchId,
     returnInboundBatchNo: item.returnInboundBatchNo,
@@ -558,6 +566,7 @@ export function getStatementListItems(): StatementListItemViewModel[] {
         settlementCycleId: draft.settlementCycleId,
         settlementCycleLabel: draft.settlementCycleLabel,
         settlementCycleEndAt: draft.settlementCycleEndAt,
+        plannedPrepaymentAt: draft.plannedPrepaymentAt,
         currency: draft.settlementCurrency ?? draft.settlementProfileSnapshot.settlementConfigSnapshot.currency,
         status: draft.status,
         factoryFeedbackStatus: draft.factoryFeedbackStatus,

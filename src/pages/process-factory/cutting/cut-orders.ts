@@ -81,7 +81,7 @@ import {
   type CutOrderCloseImpactItem,
   type CutOrderCloseReasonCode,
   type CutOrderCloseRecord,
-} from '../../../data/fcs/cutting/cut-order-close-records'
+} from '../../../data/fcs/cutting/cut-order-close-records.ts'
 import { cuttingMaterialLedgerEventTypeLabels } from '../../../data/fcs/cutting/material-ledger.ts'
 import { listSpreadingDifferences } from '../../../data/fcs/cutting/spreading-differences.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'

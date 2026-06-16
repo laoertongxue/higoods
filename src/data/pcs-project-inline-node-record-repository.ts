@@ -15,6 +15,10 @@ import {
   updateProjectNodeRecord,
 } from './pcs-project-repository.ts'
 import { getProjectWorkItemContract, type PcsProjectWorkItemCode } from './pcs-project-domain-contract.ts'
+import {
+  SAMPLE_COST_RAW_MATERIAL_ROWS_KEY,
+  SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY,
+} from './pcs-sample-cost-review-pricing.ts'
 import { getPcsWorkItemRuntimeCarrierDefinition } from './pcs-work-item-runtime-carrier.ts'
 
 const INLINE_NODE_RECORD_STORAGE_KEY = 'higood-pcs-project-inline-node-records-v2'
@@ -43,19 +47,15 @@ const SAMPLE_COST_REVIEW_PAYLOAD_KEYS = [
   'brandName',
   'garmentCategory',
   'exchangeRate',
-  'materialCostLines',
   'materialCostCny',
-  'dyeingRuleLines',
   'dyeingCostCny',
   'auxiliaryCostAmount',
   'auxiliaryCostCurrency',
   'auxiliaryCostCny',
-  'fixedProcessLines',
   'fixedProcessCostCny',
   'sewingCostAmount',
   'sewingCostCurrency',
   'sewingCostCny',
-  'optionalProcessLines',
   'optionalProcessCostCny',
   'costTotal',
   'salesPrice',
@@ -63,6 +63,8 @@ const SAMPLE_COST_REVIEW_PAYLOAD_KEYS = [
   'grossMarginRate',
   'reviewStatus',
   'costNote',
+  SAMPLE_COST_RAW_MATERIAL_ROWS_KEY,
+  SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY,
 ]
 
 const SAMPLE_COST_REVIEW_DETAIL_KEYS = [

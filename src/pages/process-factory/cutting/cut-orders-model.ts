@@ -21,7 +21,7 @@ import {
   applyCutOrderCloseRecordToProgressRecord,
   buildCutOrderCloseRecordLookup,
   type CutOrderCloseRecord,
-} from '../../../data/fcs/cutting/cut-order-close-records'
+} from '../../../data/fcs/cutting/cut-order-close-records.ts'
 import {
   buildProductionProgressRows,
   configMeta,

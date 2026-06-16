@@ -23,6 +23,7 @@
     "check:quality-deduction-platform": "node --experimental-strip-types scripts/check-quality-deduction-platform.ts",
     "check:quality-deduction-mobile": "node --experimental-strip-types scripts/check-quality-deduction-mobile.ts",
     "check:pre-settlement-ledger": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pre-settlement-ledger.ts",
+    "check:third-party-settlement-cycle": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-third-party-settlement-cycle.ts",
     "check:statements": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-statements.ts",
     "check:prepayment-batch": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-prepayment-batch.ts",
     "check:feishu-payment-approval": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-feishu-payment-approval.ts",
