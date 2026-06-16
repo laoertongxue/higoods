@@ -8,8 +8,19 @@ import {
   type HandoverRecord,
 } from '../../../data/fcs/cutting/handover-orders.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { renderCompactKpiCard } from './layout.helpers.ts'
+import { renderCompactKpiCard, renderCompactKpiGroup } from './layout.helpers.ts'
 import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
+
+interface HandoverListFilters {
+  keyword: string
+  status: string
+  receiverType: string
+}
+
+function getSearchParams(): URLSearchParams {
+  if (typeof window === 'undefined') return new URLSearchParams()
+  return new URLSearchParams(window.location.search)
+}
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(value)
@@ -70,6 +81,101 @@ function renderRiskTips(items: ReturnType<typeof buildHandoverAfterRecordResult>
         .join('')}
     </div>
   `
+}
+
+function getHandoverListFilters(params = getSearchParams()): HandoverListFilters {
+  return {
+    keyword: (params.get('q') || '').trim(),
+    status: params.get('status') || '全部',
+    receiverType: params.get('receiverType') || '全部',
+  }
+}
+
+function renderHandoverFilters(filters: HandoverListFilters, projection: ReturnType<typeof buildUniversalHandoverProjection>): string {
+  const statusOptions = ['全部', ...Array.from(new Set(projection.orders.map((order) => order.status))).filter(Boolean)]
+  const receiverTypeOptions = ['全部', ...projection.receiverTypes]
+
+  return `
+    <section class="rounded-lg border bg-card p-4" data-testid="cutting-handover-list-filters">
+      <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_180px_180px_auto_auto] md:items-end">
+        <label class="space-y-1 text-sm">
+          <span class="font-medium text-foreground">关键词</span>
+          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(filters.keyword)}" placeholder="交出单 / 记录 / 生产单 / 裁片单 / 菲票 / 接收对象" data-handover-filter-field="keyword" />
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="font-medium text-foreground">交出状态</span>
+          <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-handover-filter-field="status">
+            ${statusOptions.map((item) => `<option value="${escapeHtml(item)}"${filters.status === item ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="font-medium text-foreground">接收对象类型</span>
+          <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-handover-filter-field="receiverType">
+            ${receiverTypeOptions.map((item) => `<option value="${escapeHtml(item)}"${filters.receiverType === item ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+          </select>
+        </label>
+        <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-handover-filter-action="apply">查询</button>
+        <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-handover-filter-action="reset">重置</button>
+      </div>
+    </section>
+  `
+}
+
+function recordMatchesKeyword(record: HandoverRecord, keyword: string): boolean {
+  if (!keyword) return true
+  const text = [
+    record.handoverRecordNo,
+    record.handoverOrderNo,
+    record.receiverName,
+    record.receiverType,
+    record.recordStatus,
+    record.receiverWritebackStatus,
+    ...record.feiTicketItems.flatMap((item) => [
+      item.feiTicketNo,
+      item.productionOrderNo,
+      item.cutOrderNo,
+      item.spuCode,
+      item.color,
+      item.size,
+      item.partName,
+      item.targetTransferBagCode,
+    ]),
+  ].join(' ').toLowerCase()
+  return text.includes(keyword)
+}
+
+function orderMatchesFilters(order: HandoverOrder, records: HandoverRecord[], filters: HandoverListFilters): boolean {
+  if (filters.status !== '全部' && order.status !== filters.status) return false
+  if (filters.receiverType !== '全部' && order.receiverType !== filters.receiverType) return false
+  const keyword = filters.keyword.toLowerCase()
+  if (!keyword) return true
+  const orderText = [
+    order.handoverOrderNo,
+    order.handoverType,
+    order.receiverType,
+    order.receiverName,
+    order.handoverBasis,
+    order.status,
+    order.sourceWarehouseName,
+    ...order.relatedProductionOrderIds,
+    ...order.relatedCutOrderIds,
+  ].join(' ').toLowerCase()
+  return orderText.includes(keyword) || records.some((record) => recordMatchesKeyword(record, keyword))
+}
+
+function renderHandoverStats(orders: HandoverOrder[], records: HandoverRecord[]): string {
+  const receiverTypes = Array.from(new Set(orders.map((order) => order.receiverType)))
+  const pendingWritebackCount = records.filter((record) => record.receiverWritebackStatus === '待回写').length
+  const discrepancyCount = records.reduce((sum, record) => sum + record.discrepancyItems.length, 0)
+  const objectionCount = records.reduce((sum, record) => sum + record.objectionItems.length, 0)
+
+  return renderCompactKpiGroup(`
+    ${renderCompactKpiCard('交出单数', orders.length, '当前筛选范围', 'text-slate-700')}
+    ${renderCompactKpiCard('交出记录数', records.length, '一个交出单可多次交出', 'text-slate-700')}
+    ${renderCompactKpiCard('接收对象类型', receiverTypes.length, receiverTypes.join('、') || '无', 'text-blue-600')}
+    ${renderCompactKpiCard('待回写记录', pendingWritebackCount, '接收方尚未回写', 'text-amber-600')}
+    ${renderCompactKpiCard('差异 / 异议', `${formatNumber(discrepancyCount)} / ${formatNumber(objectionCount)}`, '接收差异和异议记录', discrepancyCount || objectionCount ? 'text-rose-600' : 'text-slate-700')}
+  `)
 }
 
 function renderOrderCard(order: HandoverOrder, records: HandoverRecord[]): string {
@@ -350,21 +456,21 @@ function renderRecordDetail(record: HandoverRecord): string {
 
 export function renderCraftCuttingHandoverOrdersPage(): string {
   const projection = buildUniversalHandoverProjection()
+  const filters = getHandoverListFilters()
   const meta = getCanonicalCuttingMeta('handover-orders')
   const recordsByOrderId = projection.recordsByOrderId
+  const orders = projection.orders.filter((order) => orderMatchesFilters(order, recordsByOrderId[order.handoverOrderId] || [], filters))
+  const orderIds = new Set(orders.map((order) => order.handoverOrderId))
+  const records = projection.records.filter((record) => orderIds.has(record.handoverOrderId))
   return `
     ${renderCuttingPageHeader(meta)}
     <main class="space-y-4">
-      <section class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-        ${renderCompactKpiCard('交出单数', projection.summary.orderCount, '交出类型：车缝交出、特殊工艺交出、仓库交出', 'text-slate-700')}
-        ${renderCompactKpiCard('交出记录数', projection.summary.recordCount, '一个交出单可多次交出', 'text-slate-700')}
-        ${renderCompactKpiCard('接收对象类型', projection.summary.receiverTypeCount, projection.receiverTypes.join('、'), 'text-blue-600')}
-        ${renderCompactKpiCard('待回写记录', projection.summary.pendingWritebackCount, '接收方尚未回写', 'text-amber-600')}
-        ${renderCompactKpiCard('差异 / 异议', `${formatNumber(projection.summary.discrepancyCount)} / ${formatNumber(projection.summary.objectionCount)}`, '接收差异和异议记录', projection.summary.discrepancyCount || projection.summary.objectionCount ? 'text-rose-600' : 'text-slate-700')}
-        ${renderCompactKpiCard('异议', projection.summary.objectionCount, '接收方或裁床发起异议', projection.summary.objectionCount ? 'text-rose-600' : 'text-slate-700')}
-      </section>
+      ${renderHandoverFilters(filters, projection)}
+      ${renderHandoverStats(orders, records)}
       <section class="grid gap-4">
-        ${projection.orders.map((order) => renderOrderCard(order, recordsByOrderId[order.handoverOrderId] || [])).join('')}
+        ${orders.length
+          ? orders.map((order) => renderOrderCard(order, recordsByOrderId[order.handoverOrderId] || [])).join('')
+          : '<div class="rounded-lg border border-dashed bg-muted/20 p-8 text-center text-sm text-muted-foreground">暂无符合筛选条件的交出单。</div>'}
       </section>
     </main>
   `
@@ -386,4 +492,33 @@ export function renderCraftCuttingHandoverRecordDetailPage(handoverRecordId?: st
   const projection = buildUniversalHandoverProjection()
   const record = (handoverRecordId ? getUniversalHandoverRecordById(decodeURIComponent(handoverRecordId)) : undefined) || projection.records[0]
   return renderRecordDetail(record)
+}
+
+export function handleCraftCuttingHandoverOrdersEvent(target: Element): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-handover-filter-action]')
+  const action = actionNode?.dataset.handoverFilterAction
+  if (!actionNode || !action) return false
+
+  const params = getSearchParams()
+  if (action === 'apply') {
+    const keyword = document.querySelector<HTMLInputElement>('[data-handover-filter-field="keyword"]')?.value.trim() || ''
+    const status = document.querySelector<HTMLSelectElement>('[data-handover-filter-field="status"]')?.value || '全部'
+    const receiverType = document.querySelector<HTMLSelectElement>('[data-handover-filter-field="receiverType"]')?.value || '全部'
+    if (keyword) params.set('q', keyword)
+    else params.delete('q')
+    if (status !== '全部') params.set('status', status)
+    else params.delete('status')
+    if (receiverType !== '全部') params.set('receiverType', receiverType)
+    else params.delete('receiverType')
+  } else {
+    params.delete('q')
+    params.delete('status')
+    params.delete('receiverType')
+  }
+
+  const suffix = params.toString()
+  const href = suffix ? `${window.location.pathname}?${suffix}` : window.location.pathname
+  window.history.pushState({}, '', href)
+  window.dispatchEvent(new PopStateEvent('popstate'))
+  return true
 }

@@ -24,6 +24,8 @@ import {
 } from './fei-tickets-model.ts'
 import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import {
+  renderCompactKpiCard,
+  renderCompactKpiGroup,
   renderStickyFilterShell,
   renderStickyTableScroller,
 } from './layout.helpers.ts'
@@ -794,6 +796,23 @@ function renderFilterArea(): string {
         </label>
       </div>
     </div>
+  `)
+}
+
+function renderPrintListStats(rows: Array<FeiTicketSpreadingWorkbenchRow | FeiTicketPrintObjectRow>, mode: FeiTicketListMode): string {
+  const totalTicketCount = rows.reduce((sum, row) => sum + row.ticketCount, 0)
+  const printedCount = rows.reduce((sum, row) => sum + row.printedCount, 0)
+  const pendingCount = rows.reduce((sum, row) => sum + ('pendingCount' in row ? row.pendingCount : row.missingCount), 0)
+  const printedObjectCount = rows.filter((row) => row.printedCount > 0).length
+  const specialCraftCount = rows.filter((row) => 'hasSpecialCraft' in row && row.hasSpecialCraft).length
+
+  return renderCompactKpiGroup(`
+    ${renderCompactKpiCard(mode === 'BINDING' ? '捆条加工单' : '打印对象', rows.length, '当前筛选范围', 'text-slate-900')}
+    ${renderCompactKpiCard('菲票', totalTicketCount, '当前筛选菲票数量', 'text-cyan-600')}
+    ${renderCompactKpiCard('待打印', pendingCount, '尚未完成打印', 'text-amber-600')}
+    ${renderCompactKpiCard('已打印', printedCount, '已完成打印菲票', 'text-emerald-600')}
+    ${renderCompactKpiCard('已产生打印对象', printedObjectCount, '至少存在已打印菲票', 'text-blue-600')}
+    ${mode === 'BINDING' ? '' : renderCompactKpiCard('含特殊工艺', specialCraftCount, '需关注外发/回仓', 'text-fuchsia-600')}
   `)
 }
 
@@ -2103,6 +2122,7 @@ function renderListPage(): string {
     : filterSpreadingFeiTicketPrintRows(buildSpreadingPrintObjectRows(buildFeiTicketWorkbenchRows(getDataBundle())))
   const body = `
     ${renderFilterArea()}
+    ${renderPrintListStats(rows as Array<FeiTicketSpreadingWorkbenchRow | FeiTicketPrintObjectRow>, mode)}
     ${mode === 'BINDING'
       ? renderBindingFeiTicketPrintTable(rows as FeiTicketPrintObjectRow[])
       : renderFeiTicketWorkbenchTable(rows as FeiTicketSpreadingWorkbenchRow[])}

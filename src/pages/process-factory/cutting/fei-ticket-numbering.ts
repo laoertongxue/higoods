@@ -16,6 +16,7 @@ import {
   getCanonicalCuttingMeta,
   renderCuttingPageHeader,
 } from './meta.ts'
+import { renderCompactKpiCard, renderCompactKpiGroup } from './layout.helpers.ts'
 
 type PeriodMode = 'day' | 'week' | 'month'
 
@@ -174,17 +175,9 @@ function renderKpiCards(rows: NumberingRow[]): string {
     ['待打编号', `${pendingCount} 张`, '普通部位菲票入仓前必须完成'],
     ['最高计件员工', topOperator ? `${topOperator.operatorName}` : '-', topOperator ? `${topOperator.ticketCount} 张 / ${formatNumber(topOperator.numberCount)} 个编号` : '暂无记录'],
   ]
-  return `
-    <section class="grid gap-3 md:grid-cols-4">
-      ${cards.map(([label, value, hint]) => `
-        <article class="rounded-lg border bg-card p-4">
-          <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
-          <div class="mt-2 text-xl font-semibold text-foreground">${escapeHtml(value)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(hint)}</div>
-        </article>
-      `).join('')}
-    </section>
-  `
+  return renderCompactKpiGroup(
+    cards.map(([label, value, hint]) => renderCompactKpiCard(label, value, hint, 'text-slate-900')).join(''),
+  )
 }
 
 function renderScanDialog(): string {
@@ -544,8 +537,8 @@ export function renderCraftCuttingFeiTicketNumberingPage(): string {
           </div>
         `,
       })}
-      ${renderKpiCards(rows)}
       ${renderFilters()}
+      ${renderKpiCards(rows)}
       ${renderRowsTable(rows)}
       ${state.isScanDialogOpen ? renderScanDialog() : ''}
     </div>

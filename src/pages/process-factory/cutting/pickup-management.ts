@@ -15,8 +15,14 @@ import {
 } from '../../../data/fcs/cutting/production-material-prep.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
+import { renderCompactKpiGroup } from './layout.helpers.ts'
 
 type PickupDetailTab = 'demand' | 'records' | 'materials' | 'warehouse' | 'reject'
+
+interface PickupListFilters {
+  keyword: string
+  materialKeyword: string
+}
 
 const statusVariantMap: Record<string, BadgeVariant> = {
   WAIT_PICKUP: 'warning',
@@ -113,12 +119,87 @@ function renderStatus(status: string, label: string): string {
 
 function renderKpi(label: string, value: number | string, desc: string): string {
   return `
-    <div class="rounded-lg border bg-card px-4 py-3">
-      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
-      <div class="mt-1 text-2xl font-semibold">${escapeHtml(value)}</div>
-      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(desc)}</div>
+    <div class="inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm shadow-sm">
+      <span class="shrink-0 text-muted-foreground">${escapeHtml(label)}：</span>
+      <span class="font-semibold tabular-nums">${escapeHtml(value)}</span>
+      <span class="min-w-0 truncate text-[11px] text-muted-foreground">${escapeHtml(desc)}</span>
     </div>
   `
+}
+
+function getPickupListFilters(params = getSearchParams()): PickupListFilters {
+  return {
+    keyword: (params.get('q') || '').trim(),
+    materialKeyword: (params.get('material') || '').trim(),
+  }
+}
+
+function renderPickupFilters(filters: PickupListFilters): string {
+  return `
+    <section class="rounded-lg border bg-card p-4" data-testid="cutting-pickup-list-filters">
+      <div class="grid gap-3 md:grid-cols-[minmax(240px,1fr)_minmax(220px,1fr)_auto_auto] md:items-end">
+        <label class="space-y-1 text-sm">
+          <span class="font-medium text-foreground">关键词</span>
+          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(filters.keyword)}" placeholder="生产单 / 配料单 / 款号 / SPU" data-pickup-filter-field="keyword" />
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="font-medium text-foreground">物料 / 裁片单</span>
+          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(filters.materialKeyword)}" placeholder="物料 SKU / 名称 / 裁片单" data-pickup-filter-field="materialKeyword" />
+        </label>
+        <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pickup-action="apply-list-filters">查询</button>
+        <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-pickup-action="reset-list-filters">重置</button>
+      </div>
+    </section>
+  `
+}
+
+function matchesPickupRow(row: MaterialPrepOrderProjection, filters: PickupListFilters): boolean {
+  const keyword = filters.keyword.toLowerCase()
+  const materialKeyword = filters.materialKeyword.toLowerCase()
+  if (keyword) {
+    const text = [
+      row.order.prepOrderNo,
+      row.order.productionOrderNo,
+      row.order.styleNo,
+      row.order.styleName,
+      row.order.spu,
+      row.latestOperatorName,
+    ].join(' ').toLowerCase()
+    if (!text.includes(keyword)) return false
+  }
+  if (materialKeyword) {
+    const text = row.lines
+      .map((line) => `${line.cutOrderNo} ${line.materialSku} ${line.materialName} ${line.materialType} ${line.color} ${line.spec}`)
+      .join(' ')
+      .toLowerCase()
+    if (!text.includes(materialKeyword)) return false
+  }
+  return true
+}
+
+function matchesPickupCandidate(candidate: PrepRecordPickupCandidate, filters: PickupListFilters): boolean {
+  const keyword = filters.keyword.toLowerCase()
+  const materialKeyword = filters.materialKeyword.toLowerCase()
+  if (keyword) {
+    const text = [
+      candidate.prepOrderNo,
+      candidate.productionOrderNo,
+      candidate.styleNo,
+      candidate.styleName,
+      candidate.spu,
+      candidate.operatorName,
+      candidate.confirmedBy,
+    ].join(' ').toLowerCase()
+    if (!text.includes(keyword)) return false
+  }
+  if (materialKeyword) {
+    const text = candidate.items
+      .map((item) => `${item.cutOrderNo} ${item.materialSku} ${item.materialName} ${item.materialType} ${item.color}`)
+      .join(' ')
+      .toLowerCase()
+    if (!text.includes(materialKeyword)) return false
+  }
+  return true
 }
 
 function normalizePickupWorkbenchTab(value: string | null): PickupOrderStatus {
@@ -889,29 +970,32 @@ function renderPickupDetail(
 export function renderCraftCuttingPickupManagementPage(): string {
   const params = getSearchParams()
   const activeTab = normalizePickupWorkbenchTab(params.get('tab'))
+  const filters = getPickupListFilters(params)
   const allRows = listMaterialPrepOrderProjections()
-  const candidates = listPickupCandidates()
-  const rows = getPickupRowsForTab(allRows, candidates, activeTab)
+  const filteredAllRows = allRows.filter((row) => matchesPickupRow(row, filters))
+  const candidates = listPickupCandidates().filter((candidate) => matchesPickupCandidate(candidate, filters))
+  const rows = getPickupRowsForTab(activeTab === 'WAIT_PICKUP' ? allRows : filteredAllRows, candidates, activeTab)
   const activeOrderId = params.get('prepOrderId') || ''
   const activeProjection = activeOrderId ? allRows.find((row) => row.order.prepOrderId === activeOrderId) || null : null
   const activePrepRecordId = params.get('prepRecordId') || candidates.find((candidate) => candidate.prepOrderId === activeOrderId)?.prepRecordId || ''
   const activePrepLineId = params.get('prepLineId') || candidates.find((candidate) => candidate.prepRecordId === activePrepRecordId)?.defaultPrepLineId || ''
   const showPrepModal = params.get('prepModal') === '1'
   const counts = pickupWorkbenchTabs.reduce<Record<string, number>>((accumulator, tab) => {
-    accumulator[tab.key] = getPickupTabCount(allRows, candidates, tab.key)
+    accumulator[tab.key] = getPickupTabCount(filteredAllRows, candidates, tab.key)
     return accumulator
   }, {})
 
   return `
     <div class="space-y-5 p-6">
       ${renderCuttingPageHeader(getCanonicalCuttingMeta('pickup-management'))}
-      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      ${renderPickupFilters(filters)}
+      ${renderCompactKpiGroup(`
         ${renderKpi('待领料', counts.WAIT_PICKUP || 0, '配料已确认待领取')}
         ${renderKpi('打回待仓库处理', counts.REJECTED_WAIT_WLS || 0, '已打回中转仓')}
         ${renderKpi('已领料完结', counts.PICKUP_DONE || 0, '已配齐且已领完')}
         ${renderKpi('按实完结', counts.ACTUAL_CLOSED || 0, '配料端关闭后按实结束')}
-      </section>
-      ${renderTabs(allRows, candidates, activeTab)}
+      `)}
+      ${renderTabs(filteredAllRows, candidates, activeTab)}
       ${renderOrderTable(rows, candidates, activeTab)}
       ${showPrepModal ? renderPrepRecordModal(activeProjection, activePrepRecordId, activePrepLineId, activeTab) : ''}
     </div>
@@ -962,6 +1046,29 @@ export function handleCraftCuttingPickupManagementEvent(target: HTMLElement): bo
   const actionNode = target.closest<HTMLElement>('[data-pickup-action]')
   const action = actionNode?.dataset.pickupAction
   if (!actionNode || !action) return false
+
+  if (action === 'apply-list-filters' || action === 'reset-list-filters') {
+    const params = getSearchParams()
+    params.delete('prepOrderId')
+    params.delete('prepRecordId')
+    params.delete('prepLineId')
+    params.delete('prepModal')
+    if (action === 'apply-list-filters') {
+      const keyword = document.querySelector<HTMLInputElement>('[data-pickup-filter-field="keyword"]')?.value.trim() || ''
+      const materialKeyword = document.querySelector<HTMLInputElement>('[data-pickup-filter-field="materialKeyword"]')?.value.trim() || ''
+      if (keyword) params.set('q', keyword)
+      else params.delete('q')
+      if (materialKeyword) params.set('material', materialKeyword)
+      else params.delete('material')
+    } else {
+      params.delete('q')
+      params.delete('material')
+    }
+    const href = `${window.location.pathname}?${params.toString()}`
+    window.history.pushState({}, '', href)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    return true
+  }
 
   if (action === 'reject-prep-record') {
     const prepRecordId = actionNode.dataset.prepRecordId || ''

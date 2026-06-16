@@ -42,7 +42,7 @@ import {
   type HandoverRecordSubmitPayload,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { renderCompactKpiCard, renderStickyTableScroller } from './layout.helpers.ts'
+import { renderCompactKpiCard, renderCompactKpiGroup, renderStickyTableScroller } from './layout.helpers.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta.ts'
 import {
   buildInboundTempBagInventoryRecords,
@@ -580,6 +580,38 @@ function filterWaitProcessInventoryItems(
     const locationMatched = filters.locationArea === '全部' || locationLabel.includes(filters.locationArea)
     return keywordMatched && statusMatched && locationMatched
   })
+}
+
+function renderWaitProcessInventoryStats(items: WaitProcessInventoryItem[]): string {
+  const availableCount = items.filter((item) => item.statusLabel === '在库可用').length
+  const noBalanceCount = items.filter((item) => item.statusLabel === '无可用余额').length
+  const notClaimedCount = items.filter((item) => item.statusLabel === '未领料').length
+  const availableQty = items.reduce((sum, item) => sum + item.row.availableQty, 0)
+  const claimedQty = items.reduce((sum, item) => sum + item.row.cuttingClaimedQty, 0)
+
+  return renderCompactKpiGroup(`
+    ${renderCompactKpiCard('库存记录', items.length, '当前筛选范围', 'text-slate-900')}
+    ${renderCompactKpiCard('在库可用', availableCount, '有可用余额', 'text-emerald-600')}
+    ${renderCompactKpiCard('无可用余额', noBalanceCount, '已消耗或扣减', 'text-amber-600')}
+    ${renderCompactKpiCard('未领料', notClaimedCount, '尚未入待加工仓', 'text-slate-600')}
+    ${renderCompactKpiCard('可用数量', formatMaterialQtyWithRolls(availableQty, 'yard'), '当前筛选合计', 'text-blue-600')}
+    ${renderCompactKpiCard('已领数量', formatMaterialQtyWithRolls(claimedQty, 'yard'), '领料入仓累计', 'text-violet-600')}
+  `)
+}
+
+function renderWaitProcessEventStats(events: CuttingMaterialLedgerEvent[], label: string): string {
+  const quantity = events.reduce((sum, event) => sum + Number(event.quantity || 0), 0)
+  const cutOrderCount = new Set(events.map((event) => event.cutOrderNo).filter(Boolean)).size
+  const productionOrderCount = new Set(events.map((event) => event.productionOrderNo).filter(Boolean)).size
+  const operatorCount = new Set(events.map((event) => event.operatorName).filter(Boolean)).size
+
+  return renderCompactKpiGroup(`
+    ${renderCompactKpiCard(label, events.length, '当前筛选流水', 'text-slate-900')}
+    ${renderCompactKpiCard('影响数量', formatMaterialQtyWithRolls(quantity, 'yard'), '流水数量合计', 'text-blue-600')}
+    ${renderCompactKpiCard('裁片单', cutOrderCount, '涉及裁片单', 'text-violet-600')}
+    ${renderCompactKpiCard('生产单', productionOrderCount, '涉及生产单', 'text-emerald-600')}
+    ${renderCompactKpiCard('操作人', operatorCount, '当前筛选范围', 'text-slate-700')}
+  `)
 }
 
 function getWaitProcessInboundEvents(row: MaterialLedgerProjection): CuttingMaterialLedgerEvent[] {
@@ -4944,19 +4976,23 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
 
   const inventoryContent = `<section class="space-y-4">
     ${renderWaitProcessFilterPanel({ tabKey: 'inventory', filters, inventoryItems })}
+    ${renderWaitProcessInventoryStats(filteredInventoryItems)}
     ${renderWaitProcessInventoryTable(filteredInventoryItems)}
     ${renderWaitProcessInventoryDetailDialog(inventoryItems)}
   </section>`
   const claimRecordContent = `<section class="space-y-4">
     ${renderWaitProcessFilterPanel({ tabKey: 'claimRecords', filters, inventoryItems, eventTypes: claimEventTypes })}
+    ${renderWaitProcessEventStats(claimRecordEvents, '中转仓领料记录')}
     ${renderWaitProcessEventTable(claimRecordEvents, '暂无符合筛选条件的中转仓领料记录。', inventoryItems)}
   </section>`
   const usageContent = `<section class="space-y-4">
     ${renderWaitProcessFilterPanel({ tabKey: 'usage', filters, inventoryItems, eventTypes: usageEventTypes })}
+    ${renderWaitProcessEventStats(usageEvents, '加工领料记录')}
     ${renderWaitProcessEventTable(usageEvents, '暂无符合筛选条件的加工领料记录。', inventoryItems)}
   </section>`
   const returnContent = `<section class="space-y-4">
     ${renderWaitProcessFilterPanel({ tabKey: 'returns', filters, inventoryItems, eventTypes: returnEventTypes })}
+    ${renderWaitProcessEventStats(returnEvents, '回收入仓记录')}
     ${renderWaitProcessEventTable(returnEvents, '暂无符合筛选条件的回收入仓记录。', inventoryItems)}
   </section>`
   const locationContent = `<section class="space-y-4">
@@ -5158,6 +5194,19 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     ),
   ].slice(0, 16)
 
+  const filteredReservedPieceQty = filteredInventoryRecords.reduce(
+    (sum, record) => sum + (reservedQtyByRecord.get(record.inventoryRecordId) || 0),
+    0,
+  )
+  const filteredInventoryPieceQty = filteredInventoryRecords.reduce((sum, record) => sum + record.pieceQty, 0)
+  const waitHandoverStats = renderCompactKpiGroup(`
+    ${renderCompactKpiCard('待入仓菲票', filteredPendingTickets.length, '已打印未确认入仓', 'text-blue-600')}
+    ${renderCompactKpiCard('在库裁片', formatPieceQty(filteredInventoryPieceQty), `${filteredInventoryRecords.length} 条库存`, 'text-emerald-600')}
+    ${renderCompactKpiCard('已占用裁片', formatPieceQty(filteredReservedPieceQty), '车缝任务占用', 'text-amber-600')}
+    ${renderCompactKpiCard('已装袋待交出', sortingRows.filter((row) => row.status === '已装袋待交出').length, '当前筛选装袋结果', 'text-violet-600')}
+    ${renderCompactKpiCard('交出差异', writebackDifferenceRows.length, '同步失败与回仓差异', 'text-rose-600')}
+  `)
+
   const filterPanelOptions = {
     filters,
     inventoryRecords: effectiveInventoryRecords,
@@ -5167,15 +5216,18 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   const firstTaskId = handoverPickingProjection.tasks[0]?.pickingTaskId || 'demo-task'
   const inventoryContent = `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inventory' })}
+    ${waitHandoverStats}
     ${renderWaitHandoverSpecialCraftInventorySummary(filteredInventoryRecords)}
     ${renderWaitHandoverInventoryTable(filteredInventoryRecords, reservedQtyByRecord, runtimeWaitHandoverEvents)}
   </section>`
   const inboundBaggingContent = `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inbound-bagging' })}
+    ${waitHandoverStats}
     ${renderWaitHandoverInboundTempUseTable(inboundTempUseRows)}
   </section>`
   const handoverBaggingContent = `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'handover-bagging' })}
+    ${waitHandoverStats}
     ${renderWaitHandoverBaggingTable(sortingRows, '暂无交出装袋确认任务。')}
   </section>`
   const specialCraftReturnContent = `<section class="space-y-4">
@@ -5217,23 +5269,14 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
         ? handoverBaggingContent
         : activeTab === 'special-craft-return'
           ? specialCraftReturnContent
-          : activeTab === 'locations'
-            ? locationContent
-            : inventoryContent
-  const reservedPieceQty = Array.from(reservedQtyByRecord.values()).reduce((sum, qty) => sum + qty, 0)
-  const inventoryPieceQty = effectiveInventoryRecords.reduce((sum, record) => sum + record.pieceQty, 0)
+        : activeTab === 'locations'
+          ? locationContent
+          : inventoryContent
 
   return renderHubShell({
     metaKey: 'warehouse-management-wait-handover',
     description: '基于菲票、裁片和中转袋管理待交出仓库存、入仓暂存装袋、交出装袋确认、特殊工艺回仓和库区库位。',
-    kpis: [
-      renderCompactKpiCard('待入仓菲票', filteredPendingTickets.length, '已打印未确认入仓', 'text-blue-600'),
-      renderCompactKpiCard('在库裁片', formatPieceQty(inventoryPieceQty), `${effectiveInventoryRecords.length} 条库存`, 'text-emerald-600'),
-      renderCompactKpiCard('已占用裁片', formatPieceQty(reservedPieceQty), '车缝任务占用', 'text-amber-600'),
-      renderCompactKpiCard('已装袋待交出', handoverPickingProjection.packedCount, '交出装袋确认完成', 'text-violet-600'),
-      renderCompactKpiCard('交出差异', writebackDifferenceRows.length, '同步失败与回仓差异', 'text-rose-600'),
-    ]
-      .join(''),
+    kpis: '',
     tabs: renderWaitHandoverTabs(activeTab),
     content: activeContent,
     headerActions: renderWaitHandoverHeaderActions(firstTaskId),

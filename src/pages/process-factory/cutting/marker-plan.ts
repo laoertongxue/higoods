@@ -60,6 +60,7 @@ import { renderMaterialIdentityBlock } from './material-identity.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   renderCompactKpiCard,
+  renderCompactKpiGroup,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
@@ -4117,21 +4118,19 @@ function renderListFilters(): string {
   `, '', 'data-testid="marker-plan-list-filters"')
 }
 
-function renderStats(viewModel = getViewModel()): string {
-  const plans = viewModel.plans
+function renderStats(viewModel = getViewModel(), plans = viewModel.plans): string {
+  const coveredContextCount = new Set(plans.map((plan) => plan.contextNo).filter(Boolean)).size
   const readyCount = plans.filter((plan) => plan.readyForSpreading).length
   const diffCount = getPlanListTabCount('DEMAND_DIFF', plans)
   const crossTaskCount = plans.filter((plan) => plan.isCrossTask).length
   const ownRouteCount = plans.filter((plan) => plan.executionRoute === 'OWN_CUTTING').length
   const pdaRouteCount = plans.filter((plan) => plan.executionRoute === 'FACTORY_PDA').length
-  return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="marker-plan-list-stats">
-      ${renderCompactKpiCard('裁片任务覆盖', viewModel.contexts.length, `已建方案 ${plans.length}`, 'text-slate-900', `待排 ${viewModel.pendingContexts.length} 个裁片单上下文`)}
+  return renderCompactKpiGroup(`
+      ${renderCompactKpiCard('裁片任务覆盖', coveredContextCount, `当前方案 ${plans.length}`, 'text-slate-900', `全量待排 ${viewModel.pendingContexts.length} 个裁片单上下文`)}
       ${renderCompactKpiCard('跨任务方案', crossTaskCount, '锁定同一承接方', 'text-blue-600', `${crossTaskCount} 个方案`)}
       ${renderCompactKpiCard('我方执行', ownRouteCount, `可交接 ${readyCount}`, 'text-emerald-600', `${ownRouteCount} 个方案进入 PFOS 链路`)}
       ${renderCompactKpiCard('三方 PDA', pdaRouteCount, `差异 ${diffCount}`, 'text-amber-600', `${pdaRouteCount} 个方案不生成我方铺布单`)}
-    </section>
-  `
+    `, '', 'data-testid="marker-plan-list-stats"')
 }
 
 function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): string {
@@ -4297,8 +4296,8 @@ function renderListPage(viewModel = getViewModel()): string {
         showAliasBadge: isCuttingAliasPath(getCurrentBasePath()),
       })}
       ${renderFeedbackBar()}
-      ${renderStats(viewModel)}
       ${renderListFilters()}
+      ${renderStats(viewModel, filteredPlans)}
       ${renderListStateBar()}
       ${mainContent}
     </div>

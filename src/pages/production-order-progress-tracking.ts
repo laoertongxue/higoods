@@ -918,11 +918,63 @@ function renderOverviewTab(order: ProductionOrderTrackingRecord, selectedNode?: 
   `
 }
 
+function renderTimelineLaneRow(
+  lane: string,
+  dates: string[],
+  order: ProductionOrderTrackingRecord,
+  selected: TimelineItem,
+): string {
+  const laneItems = timelineItems.filter((item) => item.lane === lane)
+  return `
+    <div class="relative h-20 border-b border-slate-100">
+      <div class="grid h-full" style="grid-template-columns:128px repeat(${dates.length}, 64px);">
+        <div class="sticky left-0 z-20 flex items-center border-r border-slate-100 bg-white px-3 text-sm font-semibold text-slate-700">
+          ${escapeHtml(lane)}
+        </div>
+        ${dates.map(() => '<div class="h-20 border-l border-slate-100"></div>').join('')}
+      </div>
+      ${laneItems
+        .map((item) => {
+          const visibleSpan = Math.min(item.span, dates.length - item.start + 1)
+          if (visibleSpan <= 0) return ''
+          const left = 128 + (item.start - 1) * 64 + 4
+          const width = Math.max(48, visibleSpan * 64 - 8)
+          const color =
+            item.status === '已完成'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : item.status === '准时'
+                ? 'border-blue-200 bg-blue-50 text-blue-700'
+                : item.status === '风险'
+                  ? 'border-orange-200 bg-orange-50 text-orange-700'
+                  : 'border-red-200 bg-red-50 text-red-700'
+          return `
+            <button
+              class="absolute top-3 z-30 h-10 rounded-md border px-3 text-left text-xs leading-tight shadow-sm ${selected.id === item.id ? 'ring-2 ring-blue-300 ' : ''}${color}"
+              style="left:${left}px;width:${width}px;"
+              data-production-order-progress-action="select-node"
+              data-order-no="${escapeHtml(order.no)}"
+              data-tab="timeline"
+              data-node="${escapeHtml(item.id)}"
+              data-skip-page-rerender="true"
+            >
+              <span class="font-semibold">${escapeHtml(item.label)}</span>
+              <span class="ml-2">${escapeHtml(item.date)}</span>
+              ${item.offset ? `<span class="float-right font-semibold">${escapeHtml(item.offset)}</span>` : ''}
+            </button>
+          `
+        })
+        .join('')}
+    </div>
+  `
+}
+
 function renderTimelineTab(order: ProductionOrderTrackingRecord, selectedNode?: string): string {
   const selectedId = selectedNode ?? getSelectedNode('printing-v1')
   const selected = timelineItems.find((item) => item.id === selectedId) ?? timelineItems[4]
   const dates = ['05-31', '06-01', '06-02', '06-03', '06-04', '06-05', '06-06', '06-07', '06-08', '06-09', '06-10', '06-11', '06-12', '06-13', '06-14', '06-15', '06-16', '06-17', '06-18', '06-19', '06-20']
   const lanes = ['主线', '印花', '染色', '配料 / 领料', '裁床', '特殊工艺', '车缝', '后道复检交出']
+  const timelineWidth = 128 + dates.length * 64
+  const todayLeft = 128 + 11 * 64 + 32
   return `
     <div class="space-y-4">
       <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
@@ -946,34 +998,20 @@ function renderTimelineTab(order: ProductionOrderTrackingRecord, selectedNode?: 
             </div>
           </div>
           <div class="mt-4 overflow-x-auto">
-            <div class="relative grid min-w-[1500px]" style="grid-template-columns:128px repeat(21, 64px);">
-              <div class="border-b border-slate-200 bg-slate-50 p-2 text-xs font-semibold text-slate-500">阶段 / 节点</div>
-              ${dates.map((date, index) => `<div class="border-b border-l border-slate-200 bg-slate-50 p-2 text-center text-xs ${index === 11 ? 'font-bold text-blue-600' : 'text-slate-500'}">${date}<br/>周${['日', '一', '二', '三', '四', '五', '六'][index % 7]}</div>`).join('')}
-              <div class="absolute bottom-0 top-9 w-px bg-blue-600" style="left:${128 + 11 * 64 + 32}px"></div>
-              ${lanes.map((lane) => `
-                <div class="flex h-20 items-center border-b border-slate-100 bg-white px-3 text-sm font-semibold text-slate-700">${escapeHtml(lane)}</div>
-                ${dates.map((_, index) => {
-                  const item = timelineItems.find((task) => task.lane === lane && task.start === index + 1)
-                  if (!item) return '<div class="h-20 border-b border-l border-slate-100"></div>'
-                  const color = item.status === '已完成' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : item.status === '准时' ? 'border-blue-200 bg-blue-50 text-blue-700' : item.status === '风险' ? 'border-orange-200 bg-orange-50 text-orange-700' : 'border-red-200 bg-red-50 text-red-700'
-                  return `
-                    <div class="relative h-20 border-b border-l border-slate-100" style="grid-column: span ${item.span};">
-                      <button
-                        class="absolute left-1 right-1 top-3 rounded-md border px-3 py-2 text-left text-xs ${selected.id === item.id ? 'ring-2 ring-blue-300 ' : ''}${color}"
-                        data-production-order-progress-action="select-node"
-                        data-order-no="${escapeHtml(order.no)}"
-                        data-tab="timeline"
-                        data-node="${escapeHtml(item.id)}"
-                        data-skip-page-rerender="true"
-                      >
-                        <span class="font-semibold">${escapeHtml(item.label)}</span>
-                        <span class="ml-2">${escapeHtml(item.date)}</span>
-                        ${item.offset ? `<span class="float-right font-semibold">${escapeHtml(item.offset)}</span>` : ''}
-                      </button>
-                    </div>
-                  `
-                }).join('')}
-              `).join('')}
+            <div class="relative" style="min-width:${timelineWidth}px;">
+              <div class="grid" style="grid-template-columns:128px repeat(${dates.length}, 64px);">
+                <div class="sticky left-0 z-30 border-b border-r border-slate-200 bg-slate-50 p-2 text-xs font-semibold text-slate-500">阶段 / 节点</div>
+                ${dates
+                  .map(
+                    (date, index) =>
+                      `<div class="border-b border-l border-slate-200 bg-slate-50 p-2 text-center text-xs ${index === 11 ? 'font-bold text-blue-600' : 'text-slate-500'}">${date}<br/>周${['日', '一', '二', '三', '四', '五', '六'][index % 7]}</div>`,
+                  )
+                  .join('')}
+              </div>
+              <div class="relative">
+                <div class="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-blue-600" style="left:${todayLeft}px"></div>
+                ${lanes.map((lane) => renderTimelineLaneRow(lane, dates, order, selected)).join('')}
+              </div>
             </div>
           </div>
         </div>

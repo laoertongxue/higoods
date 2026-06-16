@@ -16,6 +16,7 @@ import {
 import { buildSampleWarehouseProjection } from './sample-warehouse-projection.ts'
 import {
   renderCompactKpiCard,
+  renderCompactKpiGroup,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
@@ -159,17 +160,21 @@ function renderFilterSelect(
   `
 }
 
-function renderStatsCards(): string {
-  const summary = getViewModel().summary
-  return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+function renderStatsCards(items: SampleWarehouseItem[]): string {
+  const summary = {
+    totalSampleCount: items.length,
+    inCuttingUseCount: items.filter((item) => item.currentStatus === '裁剪中使用').length,
+    pendingReturnCount: items.filter((item) => item.currentStatus === '待归还' || item.status.key === 'PENDING_RETURN').length,
+    abnormalCount: items.filter((item) => item.abnormalFlag).length,
+    flowRecordCount: items.reduce((sum, item) => sum + item.flowRecords.length, 0),
+  }
+  return renderCompactKpiGroup(`
       ${renderCompactKpiCard('样衣总数', summary.totalSampleCount, '当前样衣主档数量', 'text-slate-900')}
       ${renderCompactKpiCard('裁剪中使用', summary.inCuttingUseCount, '裁床正在调用的样衣', 'text-blue-600')}
       ${renderCompactKpiCard('待归还', summary.pendingReturnCount, '需跟进回仓的样衣', 'text-amber-600')}
       ${renderCompactKpiCard('异常样衣', summary.abnormalCount, '进入裁剪结果核查', 'text-rose-600')}
       ${renderCompactKpiCard('流转记录数', summary.flowRecordCount, '所有样衣流转留痕', 'text-violet-600')}
-    </section>
-  `
+    `)
 }
 
 function renderPrefilterBar(): string {
@@ -492,9 +497,9 @@ function renderPage(): string {
         showAliasBadge: isCuttingAliasPath(pathname),
         actionsHtml: renderHeaderActions(),
       })}
-      ${renderStatsCards()}
       ${renderPrefilterBar()}
       ${renderFilterArea()}
+      ${renderStatsCards(items)}
       ${renderFilterStateBar()}
       ${renderTable(items)}
     </div>

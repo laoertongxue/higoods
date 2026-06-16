@@ -8,16 +8,20 @@ export function renderCompactKpiCard(
   formula = '',
 ): string {
   return `
-    <article data-cutting-kpi-card="true" class="min-w-0 rounded-lg border bg-card px-3 py-2">
-      <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0">
-          <p class="truncate text-xs text-muted-foreground" title="${escapeHtml(label)}">${escapeHtml(label)}</p>
-          <p class="mt-0.5 truncate text-lg font-semibold leading-none tabular-nums ${accentClass}" title="${escapeHtml(String(value))}">${escapeHtml(String(value))}</p>
-          ${formula ? `<p class="mt-1 truncate font-mono text-[11px] leading-4 text-muted-foreground" title="${escapeHtml(formula)}">${escapeHtml(formula)}</p>` : ''}
-        </div>
-        ${hint ? `<p class="max-w-[9rem] shrink-0 truncate text-right text-[10px] leading-4 text-muted-foreground" title="${escapeHtml(hint)}">${escapeHtml(hint)}</p>` : ''}
-      </div>
+    <article data-cutting-kpi-card="true" class="inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm shadow-sm">
+      <span class="shrink-0 text-muted-foreground" title="${escapeHtml(label)}">${escapeHtml(label)}：</span>
+      <span class="min-w-0 truncate font-semibold tabular-nums ${accentClass}" title="${escapeHtml(String(value))}">${escapeHtml(String(value))}</span>
+      ${formula ? `<span class="min-w-0 truncate font-mono text-[11px] leading-4 text-muted-foreground" title="${escapeHtml(formula)}">${escapeHtml(formula)}</span>` : ''}
+      ${hint ? `<span class="min-w-0 truncate text-[11px] leading-4 text-muted-foreground" title="${escapeHtml(hint)}">${escapeHtml(hint)}</span>` : ''}
     </article>
+  `
+}
+
+export function renderCompactKpiGroup(cardsHtml: string, extraClass = '', extraAttrs = ''): string {
+  return `
+    <section data-cutting-kpi-group="true" ${extraAttrs} class="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200/70 ${extraClass}">
+      ${cardsHtml}
+    </section>
   `
 }
 

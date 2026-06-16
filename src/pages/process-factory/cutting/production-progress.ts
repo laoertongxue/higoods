@@ -24,6 +24,7 @@ import {
 import {
   paginateItems,
   renderCompactKpiCard,
+  renderCompactKpiGroup,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
@@ -864,8 +865,7 @@ function renderStatsCards(rows: ProductionProgressRow[]): string {
   )
   const sampleAbnormalCount = sampleItems.filter((item) => item.abnormalFlag).length
 
-  return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
+  return renderCompactKpiGroup(`
       ${renderCompactKpiCard('生产单总数', summary.totalCount, '当前筛选范围', 'text-slate-900')}
       ${renderCompactKpiCard('临近发货生产单', summary.urgentCount, '需优先跟进交付', 'text-rose-600')}
       ${renderCompactKpiCard('配料异常单', summary.prepExceptionCount, '配料数量不足', 'text-amber-600')}
@@ -877,8 +877,7 @@ function renderStatsCards(rows: ProductionProgressRow[]): string {
       ${renderCompactKpiCard('样衣异常', sampleAbnormalCount, '关联样衣版本、破损或待归还', sampleAbnormalCount ? 'text-rose-600' : 'text-slate-500')}
       ${renderCompactKpiCard('已开工生产单', summary.cuttingCount + summary.doneCount, '含铺布、裁剪、入仓后续', 'text-violet-600')}
       ${renderCompactKpiCard('已进入后续单', summary.doneCount, '含菲票、入仓或交出后续', 'text-emerald-600')}
-    </section>
-  `
+  `)
 }
 
 function renderFullChainOverviewCards(rows: ProductionProgressRow[]): string {
@@ -2885,6 +2884,7 @@ export function renderCraftCuttingProductionProgressPage(): string {
         </div>
       `)}
 
+      ${renderStatsCards(rows)}
       ${renderActiveStateBar()}
       ${renderMainTable(rows)}
     </div>

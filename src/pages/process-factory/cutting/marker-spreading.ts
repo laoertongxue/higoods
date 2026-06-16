@@ -143,6 +143,7 @@ import {
 import { handleMarkerSpreadingSubmitAction } from './marker-spreading-submit-actions.ts'
 import {
   renderCompactKpiCard,
+  renderCompactKpiGroup,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
@@ -2826,13 +2827,11 @@ function renderFilterArea(): string {
 function renderListStats(pageData = getPageData()): string {
   const { stageCounts } = pageData
 
-  return `
-    <section class="grid gap-3 md:grid-cols-3" data-testid="cutting-spreading-list-stats">
+  return renderCompactKpiGroup(`
       ${renderCompactKpiCard('待铺布数', stageCounts.WAITING_START, '', 'text-slate-900', buildSpreadingStageCountFormula('待铺布'))}
       ${renderCompactKpiCard('铺布中数', stageCounts.IN_PROGRESS, '', 'text-amber-600', buildSpreadingStageCountFormula('铺布中'))}
       ${renderCompactKpiCard('已铺布数', stageCounts.DONE, '', 'text-emerald-600', buildSpreadingStageCountFormula('已铺布'))}
-    </section>
-  `
+    `, '', 'data-testid="cutting-spreading-list-stats"')
 }
 
 function renderContextCell(contextLabel: string, cutOrderNos: string[], markerPlanNo: string): string {
@@ -3015,8 +3014,8 @@ function renderSpreadingSupervisorListPage(): string {
         ])),
       })}
       ${renderFeedbackBar()}
-      ${renderListStats(pageData)}
       ${renderFilterArea()}
+      ${renderListStats(pageData)}
       ${renderSpreadingTable(filteredRows, pageData.projection, pageData.webSummariesBySessionId)}
     </div>
   `

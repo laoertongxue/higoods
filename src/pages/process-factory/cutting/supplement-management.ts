@@ -11,6 +11,7 @@ import type { TechnicalColorMaterialMappingLine } from '../../../data/pcs-techni
 import { buildProductionPieceTruth } from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import { appStore } from '../../../state/store.ts'
 import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
+import { renderCompactKpiGroup } from './layout.helpers.ts'
 
 type SupplementSourceType = 'production-order' | 'cut-order'
 type SupplementFilterSourceType = 'ALL' | SupplementSourceType
@@ -864,7 +865,7 @@ function renderFeedback(): string {
 
 function renderStatChip(label: string, value: number): string {
   return `
-    <span class="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
+    <span class="inline-flex min-h-10 items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm shadow-sm">
       <span class="text-muted-foreground">${escapeHtml(label)}：</span>
       <span class="font-semibold tabular-nums">${formatInteger(value)}</span>
     </span>
@@ -1963,7 +1964,7 @@ export function renderCraftCuttingSupplementManagementPage(): string {
   }
 
   const records = getFilteredRecords()
-  const productionOrderCount = new Set(state.records.map((item) => item.draft.productionOrderNo)).size
+  const productionOrderCount = new Set(records.map((item) => item.draft.productionOrderNo)).size
   const activeRecord = state.activeRecordId ? getRecordById(state.activeRecordId) : undefined
 
   return `
@@ -1977,12 +1978,12 @@ export function renderCraftCuttingSupplementManagementPage(): string {
       })}
       <div class="text-sm text-muted-foreground">工艺工厂运营系统 / 裁床厂管理 / 裁后处理 / 补料管理</div>
       ${renderFeedback()}
-      <section class="flex flex-wrap gap-2">
-        ${renderStatChip('补料单', state.records.length)}
-        ${renderStatChip('已确认', state.records.filter((item) => item.status === '已确认').length)}
-        ${renderStatChip('涉及生产单', productionOrderCount)}
-      </section>
       ${renderFilters()}
+      ${renderCompactKpiGroup(`
+        ${renderStatChip('补料单', records.length)}
+        ${renderStatChip('已确认', records.filter((item) => item.status === '已确认').length)}
+        ${renderStatChip('涉及生产单', productionOrderCount)}
+      `)}
       ${renderRecords(records)}
       ${renderSupplementDetailDialog(activeRecord)}
     </div>

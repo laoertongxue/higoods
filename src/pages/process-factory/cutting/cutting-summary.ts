@@ -5,6 +5,7 @@ import {
 } from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import {
   renderCompactKpiCard,
+  renderCompactKpiGroup,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
@@ -695,8 +696,7 @@ function renderCuttingResultOverview(rows: CuttingSummaryRow[], aggregates: Cutt
     },
   )
 
-  return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+  return renderCompactKpiGroup(`
       ${renderCompactKpiCard('生产单数', rows.length, '当前筛选范围', 'text-slate-900')}
       ${renderCompactKpiCard('实际裁剪裁片', totals.actualCutPieceQty, '来自铺布裁剪与部位进度', 'text-violet-600')}
       ${renderCompactKpiCard('面料实际消耗', formatMeter(totals.materialConsumedMeter), '铺布单实际用量合计', 'text-blue-600')}
@@ -705,8 +705,7 @@ function renderCuttingResultOverview(rows: CuttingSummaryRow[], aggregates: Cutt
       ${renderCompactKpiCard('交出单 / 交出记录', `${formatCount(totals.handoverOrderCount)} / ${formatCount(totals.handoverRecordCount)}`, '通用交出单结构', 'text-slate-700')}
       ${renderCompactKpiCard('已交出裁片', totals.handedOverPieceQty, '已提交交出记录的裁片', 'text-blue-600')}
       ${renderCompactKpiCard('剩余缺口', totals.remainingGapPieceQty, `差异 ${formatCount(totals.differenceQty)}`, totals.remainingGapPieceQty ? 'text-amber-600' : 'text-emerald-600')}
-    </section>
-  `
+  `)
 }
 
 function buildSummaryRenderAggregates(rows: CuttingSummaryRow[], sources: CuttingSummaryBuildOptions): CuttingSummaryRenderAggregates {
@@ -1444,15 +1443,13 @@ function renderCheckOverviewCards(items: CuttingResultCheckItem[]): string {
   const specialCraftPendingCount = items.filter((item) => item.checkType === '特殊工艺未回仓').length
   const closedCutOrderCount = items.filter((item) => item.checkType === '裁片单已关闭').length
 
-  return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+  return renderCompactKpiGroup(`
       ${renderCompactKpiCard('待处理数量', pendingCount, '默认聚焦当前要处理的问题', 'text-amber-600')}
       ${renderCompactKpiCard('紧急数量', urgentCount, '优先核查接收差异和回仓差异', 'text-rose-600')}
       ${renderCompactKpiCard('交出后缺口数量', handoverShortageCount, '交出后的结果提示', 'text-orange-600')}
       ${renderCompactKpiCard('特殊工艺未回仓数量', specialCraftPendingCount, '不阻断其他部位交出', 'text-fuchsia-600')}
       ${renderCompactKpiCard('已关闭裁片单数量', closedCutOrderCount, '展示关闭原因与影响项', 'text-slate-700')}
-    </section>
-  `
+  `)
 }
 
 function renderResultCheckFilterBar(): string {
@@ -2593,8 +2590,8 @@ function renderPage(): string {
     <div class="space-y-4">
       ${renderCuttingPageHeader(meta)}
       ${renderPrefilterBar()}
-      ${renderCheckOverviewCards(allCheckItems)}
       ${renderResultCheckFilterBar()}
+      ${renderCheckOverviewCards(filteredCheckItems)}
       <section class="rounded-lg border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
         默认展示待处理核查项；如需历史查询，可将处理状态切换为全部状态。
         当前筛选命中 ${formatCount(filteredCheckItems.length)} 项，来源生产单 ${formatCount(new Set(filteredCheckItems.map((item) => item.productionOrderNo)).size)} 个。

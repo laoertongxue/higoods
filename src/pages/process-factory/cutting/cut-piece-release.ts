@@ -7,6 +7,7 @@ import {
   type CutPieceReleaseRecord,
   type CutPieceReleaseSkuLine,
 } from '../../../data/fcs/cut-piece-release.ts'
+import { renderCompactKpiGroup } from './layout.helpers.ts'
 
 type DecisionFilter = '全部' | CutPieceReleaseDecision
 
@@ -68,10 +69,10 @@ function getFilteredRecords(): CutPieceReleaseRecord[] {
 
 function renderMetricCard(label: string, value: string, hint: string, tone = 'text-foreground'): string {
   return `
-    <div class="rounded-lg border bg-card px-4 py-3">
-      <div class="text-sm text-muted-foreground">${escapeHtml(label)}</div>
-      <div class="mt-2 text-2xl font-semibold tabular-nums ${tone}">${escapeHtml(value)}</div>
-      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(hint)}</div>
+    <div class="inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm shadow-sm">
+      <span class="shrink-0 text-muted-foreground">${escapeHtml(label)}：</span>
+      <span class="min-w-0 truncate font-semibold tabular-nums ${tone}">${escapeHtml(value)}</span>
+      <span class="min-w-0 truncate text-[11px] text-muted-foreground">${escapeHtml(hint)}</span>
     </div>
   `
 }
@@ -313,7 +314,6 @@ function renderDetailDrawer(record: CutPieceReleaseRecord | null): string {
 
 export function renderCraftCuttingCutPieceReleasePage(): string {
   const records = getFilteredRecords()
-  const allRecords = listCutPieceReleaseRecords()
   const activeRecord = state.activeRecordId ? getCutPieceReleaseRecord(state.activeRecordId) : null
   const releaseQtyTotal = records.reduce((sum, record) => sum + record.releaseQty, 0)
   const readyCount = records.filter((record) => record.decision === '可以做' || record.decision === '部分可以做').length
@@ -337,16 +337,15 @@ export function renderCraftCuttingCutPieceReleasePage(): string {
         判断触发条件是生产单下任一裁片单出现“铺布完成裁剪”。本页不要求裁片齐套，也不要求辅助工艺或特种工艺全部回仓；齐套和辅料库存继续在车缝分配工作台作为参考。
       </section>
 
-      <div class="grid gap-3 md:grid-cols-5">
-        ${renderMetricCard('放行记录', `${allRecords.length}`, '已进入裁片放行管理')}
+      ${state.feedbackMessage ? `<section class="rounded-lg border px-4 py-3 text-sm ${state.feedbackTone === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">${escapeHtml(state.feedbackMessage)}</section>` : ''}
+      ${renderFilters()}
+      ${renderCompactKpiGroup(`
+        ${renderMetricCard('放行记录', `${records.length}`, '当前筛选范围')}
         ${renderMetricCard('可以/部分可以做', `${readyCount}`, '裁床已允许车缝启动', 'text-green-700')}
         ${renderMetricCard('待判断', `${pendingCount}`, '等待裁床主管确认', 'text-amber-700')}
         ${renderMetricCard('暂时不能做', `${blockedCount}`, '需先处理裁片风险', 'text-rose-700')}
         ${renderMetricCard('可做数量合计', `${formatQty(releaseQtyTotal)} 件`, '当前筛选范围', 'text-blue-700')}
-      </div>
-
-      ${state.feedbackMessage ? `<section class="rounded-lg border px-4 py-3 text-sm ${state.feedbackTone === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">${escapeHtml(state.feedbackMessage)}</section>` : ''}
-      ${renderFilters()}
+      `)}
       ${renderRecordTable(records)}
       ${renderDetailDrawer(activeRecord)}
     </div>

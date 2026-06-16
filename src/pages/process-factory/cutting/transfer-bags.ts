@@ -7,6 +7,7 @@ import {
 import {
   paginateItems,
   renderCompactKpiCard,
+  renderCompactKpiGroup,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
@@ -2110,16 +2111,14 @@ function renderHeaderActions(): string {
 function renderReturnStatsCards(): string {
   const summary = getReturnViewModel().summary
   const scrapRecordCount = getCarrierManagementProjection().scrapRecords.filter(isTransferBagScrapRecord).length
-  return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+  return renderCompactKpiGroup(`
       ${renderCompactKpiCard('已交出待回收', summary.waitingReturnUsageCount, '', 'text-orange-600')}
       ${renderCompactKpiCard('回收确认中', summary.inspectingUsageCount, '', 'text-cyan-600')}
       ${renderCompactKpiCard('已关闭使用周期数', summary.closedUsageCount, '', 'text-emerald-600')}
       ${renderCompactKpiCard('可用袋数', summary.reusableBagCount + summary.waitingCleaningBagCount + summary.waitingRepairBagCount, '', 'text-emerald-600')}
       ${renderCompactKpiCard('报废袋数', getViewModel().masters.filter((item) => item.currentStatus === 'DISABLED').length, '', 'text-slate-600')}
       ${renderCompactKpiCard('报废记录数', scrapRecordCount, '', 'text-rose-600')}
-    </section>
-  `
+  `)
 }
 
 function renderPrefilterBar(): string {
@@ -2515,6 +2514,23 @@ function renderUsageRecordQuickFilterBar(): string {
 
 function renderActiveListFilterBar(): string {
   return renderMasterQuickFilterBar()
+}
+
+function renderActiveListStats(): string {
+  const { filteredItems, carrierRecordsByBagCode } = getPagedMasters()
+  const statusOf = (item: TransferBagMasterItem) => carrierRecordsByBagCode[item.bagCode]?.currentStatus || item.currentStatus
+  const inUseCount = filteredItems.filter((item) => statusOf(item) === 'IN_USE').length
+  const dispatchedCount = filteredItems.filter((item) => statusOf(item) === 'DISPATCHED').length
+  const disabledCount = filteredItems.filter((item) => statusOf(item) === 'DISABLED').length
+  const packedTicketCount = filteredItems.reduce((sum, item) => sum + (item.packedTicketCount || 0), 0)
+
+  return renderCompactKpiGroup(`
+    ${renderCompactKpiCard('中转袋', filteredItems.length, '当前筛选范围', 'text-slate-900')}
+    ${renderCompactKpiCard('使用中', inUseCount, '当前绑定业务对象', 'text-blue-600')}
+    ${renderCompactKpiCard('已交出', dispatchedCount, '等待接收方回收', 'text-orange-600')}
+    ${renderCompactKpiCard('已报废', disabledCount, '不可继续流转', 'text-slate-600')}
+    ${renderCompactKpiCard('装载菲票', packedTicketCount, '当前筛选袋内菲票数', 'text-violet-600')}
+  `)
 }
 
 function renderUsageRecordQuerySection(): string {
@@ -4062,6 +4078,7 @@ function renderListPage(): string {
       ${renderLandingBanner()}
       ${renderFeedbackBar()}
       ${renderActiveListFilterBar()}
+      ${renderActiveListStats()}
       ${renderMasterSection()}
       ${renderActiveDialog()}
     </div>

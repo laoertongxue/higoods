@@ -1,6 +1,7 @@
 import { escapeHtml } from '../../../utils.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
 import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
+import { renderCompactKpiCard, renderCompactKpiGroup } from './layout.helpers.ts'
 import {
   buildBindingProcessOrders as buildProjectedBindingProcessOrders,
   getBindingProcessOrderById,
@@ -19,6 +20,22 @@ import type {
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 const BINDING_ACTION_MODAL_ID = 'cutting-binding-action-modal'
+
+interface BindingListFilters {
+  keyword: string
+  status: BindingProcessStatus | '全部'
+  printStatus: BindingProcessPrintStatus | '全部'
+  materialKeyword: string
+  differenceStatus: BindingProcessDifferenceStatus | '全部'
+}
+
+const bindingListFilters: BindingListFilters = {
+  keyword: '',
+  status: '全部',
+  printStatus: '全部',
+  materialKeyword: '',
+  differenceStatus: '全部',
+}
 
 const statusToneMap: Record<BindingProcessStatus, string> = {
   待加工: 'border-slate-200 bg-slate-50 text-slate-700',
@@ -165,33 +182,108 @@ function renderListFilters(): string {
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <label class="space-y-1 text-sm text-muted-foreground">
           <span class="font-medium text-foreground">加工单 / 来源单</span>
-          <input class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="捆条单 / 裁片单 / 菲票" />
+          <input class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="捆条单 / 裁片单 / 菲票" value="${escapeHtml(bindingListFilters.keyword)}" data-binding-list-filter-field="keyword" />
         </label>
         <label class="space-y-1 text-sm text-muted-foreground">
           <span class="font-medium text-foreground">加工状态</span>
-          <select class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-            ${['全部', '待加工', '加工中', '已完成', '已取消'].map((item) => `<option>${escapeHtml(item)}</option>`).join('')}
+          <select class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" data-binding-list-filter-field="status">
+            ${['全部', '待加工', '加工中', '已完成', '已取消'].map((item) => `<option value="${escapeHtml(item)}"${bindingListFilters.status === item ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
         </label>
         <label class="space-y-1 text-sm text-muted-foreground">
           <span class="font-medium text-foreground">菲票状态</span>
-          <select class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-            ${['全部', '未生成', '待打印', '已打印'].map((item) => `<option>${escapeHtml(item)}</option>`).join('')}
+          <select class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" data-binding-list-filter-field="printStatus">
+            ${['全部', '未生成', '待打印', '已打印'].map((item) => `<option value="${escapeHtml(item)}"${bindingListFilters.printStatus === item ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
         </label>
         <label class="space-y-1 text-sm text-muted-foreground">
           <span class="font-medium text-foreground">物料 / 宽度</span>
-          <input class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="物料 SKU / 捆条宽度" />
+          <input class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="物料 SKU / 捆条宽度" value="${escapeHtml(bindingListFilters.materialKeyword)}" data-binding-list-filter-field="materialKeyword" />
         </label>
         <label class="space-y-1 text-sm text-muted-foreground">
           <span class="font-medium text-foreground">差异状态</span>
-          <select class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-            ${['全部', '无差异', '有差异'].map((item) => `<option>${escapeHtml(item)}</option>`).join('')}
+          <select class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" data-binding-list-filter-field="differenceStatus">
+            ${['全部', '无差异', '有差异'].map((item) => `<option value="${escapeHtml(item)}"${bindingListFilters.differenceStatus === item ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
         </label>
       </div>
+      <div class="mt-3 flex flex-wrap justify-end gap-2">
+        <button type="button" class="inline-flex min-h-10 items-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700" data-cutting-binding-action="apply-list-filters">查询</button>
+        <button type="button" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50" data-cutting-binding-action="reset-list-filters">重置</button>
+      </div>
     </section>
   `
+}
+
+function applyBindingListFiltersFromDom(): void {
+  const keyword = document.querySelector<HTMLInputElement>('[data-binding-list-filter-field="keyword"]')?.value || ''
+  const status = document.querySelector<HTMLSelectElement>('[data-binding-list-filter-field="status"]')?.value || '全部'
+  const printStatus = document.querySelector<HTMLSelectElement>('[data-binding-list-filter-field="printStatus"]')?.value || '全部'
+  const materialKeyword = document.querySelector<HTMLInputElement>('[data-binding-list-filter-field="materialKeyword"]')?.value || ''
+  const differenceStatus = document.querySelector<HTMLSelectElement>('[data-binding-list-filter-field="differenceStatus"]')?.value || '全部'
+  bindingListFilters.keyword = keyword.trim()
+  bindingListFilters.status = status as BindingListFilters['status']
+  bindingListFilters.printStatus = printStatus as BindingListFilters['printStatus']
+  bindingListFilters.materialKeyword = materialKeyword.trim()
+  bindingListFilters.differenceStatus = differenceStatus as BindingListFilters['differenceStatus']
+}
+
+function resetBindingListFilters(): void {
+  bindingListFilters.keyword = ''
+  bindingListFilters.status = '全部'
+  bindingListFilters.printStatus = '全部'
+  bindingListFilters.materialKeyword = ''
+  bindingListFilters.differenceStatus = '全部'
+}
+
+function filterBindingProcessOrders(rows: BindingProcessOrder[]): BindingProcessOrder[] {
+  const keyword = bindingListFilters.keyword.toLowerCase()
+  const materialKeyword = bindingListFilters.materialKeyword.toLowerCase()
+  return rows.filter((row) => {
+    if (bindingListFilters.status !== '全部' && row.status !== bindingListFilters.status) return false
+    if (bindingListFilters.printStatus !== '全部' && row.printStatus !== bindingListFilters.printStatus) return false
+    if (bindingListFilters.differenceStatus !== '全部' && row.differenceStatus !== bindingListFilters.differenceStatus) return false
+    if (keyword) {
+      const text = [
+        row.bindingOrderNo,
+        row.sourceProductionOrderNo,
+        row.sourceCutOrderNo,
+        row.sourceMarkerPlanNo,
+        row.spuCode,
+        row.styleName,
+        row.sourceFeiTicketNos.join(' '),
+      ].join(' ').toLowerCase()
+      if (!text.includes(keyword)) return false
+    }
+    if (materialKeyword) {
+      const text = [
+        row.materialIdentity.materialSku,
+        row.materialIdentity.materialName,
+        row.materialIdentity.materialAlias,
+        row.materialIdentity.materialColor,
+        row.bindingDetails.map((item) => `${item.bindingWidth}cm`).join(' '),
+      ].join(' ').toLowerCase()
+      if (!text.includes(materialKeyword)) return false
+    }
+    return true
+  })
+}
+
+function renderListStats(rows: BindingProcessOrder[]): string {
+  const processingCount = rows.filter((row) => row.status === '加工中').length
+  const doneCount = rows.filter((row) => row.status === '已完成').length
+  const printPendingCount = rows.filter((row) => row.printStatus === '待打印').length
+  const inboundDoneCount = rows.filter((row) => row.inboundStatus === '已入仓').length
+  const differenceCount = rows.filter((row) => row.differenceStatus !== '无差异').length
+
+  return renderCompactKpiGroup(`
+    ${renderCompactKpiCard('加工单', rows.length, '当前筛选范围', 'text-slate-900')}
+    ${renderCompactKpiCard('加工中', processingCount, '现场进行中', 'text-blue-600')}
+    ${renderCompactKpiCard('已完成', doneCount, '加工结束', 'text-emerald-600')}
+    ${renderCompactKpiCard('待打印菲票', printPendingCount, '捆条菲票待打印', 'text-amber-600')}
+    ${renderCompactKpiCard('已入仓', inboundDoneCount, '加工后已入裁床仓', 'text-emerald-600')}
+    ${renderCompactKpiCard('存在差异', differenceCount, '数量差异记录', 'text-rose-600')}
+  `)
 }
 
 function renderSourceSummary(row: BindingProcessOrder): string {
@@ -359,7 +451,7 @@ function renderOrderTable(rows: BindingProcessOrder[]): string {
 }
 
 export function renderCraftCuttingSpecialProcessesPage(): string {
-  const rows = buildBindingProcessOrders()
+  const rows = filterBindingProcessOrders(buildBindingProcessOrders())
   const meta = getCanonicalCuttingMeta('/fcs/craft/cutting/special-processes', 'special-processes')
 
   return `
@@ -374,6 +466,7 @@ export function renderCraftCuttingSpecialProcessesPage(): string {
         `,
       })}
       ${renderListFilters()}
+      ${renderListStats(rows)}
       ${renderOrderTable(rows)}
     </section>
   `
@@ -849,6 +942,14 @@ export function handleCraftCuttingSpecialProcessesEvent(target: HTMLElement): bo
   }
   if (action === 'refresh') {
     showBindingToast('捆条加工单已刷新')
+    return true
+  }
+  if (action === 'apply-list-filters') {
+    applyBindingListFiltersFromDom()
+    return true
+  }
+  if (action === 'reset-list-filters') {
+    resetBindingListFilters()
     return true
   }
   if (action === 'record-cutting') {

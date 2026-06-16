@@ -12,6 +12,7 @@ import {
   type CuttingAbMaterialSummaryRow,
   type CuttingMaterialRole,
 } from './cutting-statistics-ab-material-model.ts'
+import { renderCompactKpiGroup } from './layout.helpers.ts'
 import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
 
 type CuttingAbMaterialTab = 'summary' | 'details'
@@ -86,7 +87,7 @@ function formatStatNumber(value: number): string {
 
 function renderStatTag(label: string, value: number | string): string {
   return `
-    <span class="inline-flex h-8 items-center whitespace-nowrap rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
+    <span class="inline-flex min-h-10 items-center whitespace-nowrap rounded-md border bg-white px-3 py-2 text-sm shadow-sm">
       <span class="font-medium">${escapeHtml(label)}：</span>
       <span class="ml-1 font-semibold text-foreground">${escapeHtml(String(value))}</span>
     </span>
@@ -368,7 +369,7 @@ function renderPageContent(activeTab: CuttingAbMaterialTab, filters: Required<Cu
       })}
       ${renderTabs(activeTab, report.summaryRows.length, report.detailRows.length)}
       ${renderFilterBar(activeTab, filters)}
-      <div class="flex flex-wrap gap-2" data-testid="cutting-ab-stat-tags">
+      ${renderCompactKpiGroup(`
         ${renderStatTag('统计日', report.statDate)}
         ${renderStatTag('窗口', `${report.windowDays}天`)}
         ${renderStatTag('缺口', `${formatStatNumber(report.totals.pendingCutPieceGapQty)}件`)}
@@ -376,7 +377,7 @@ function renderPageContent(activeTab: CuttingAbMaterialTab, filters: Required<Cu
         ${renderStatTag('超送SPU', report.totals.overSentSpuCount)}
         ${renderStatTag('AB异常', report.totals.abnormalRoleLineCount)}
         ${renderStatTag('更新', report.lastUpdatedAt)}
-      </div>
+      `, '', 'data-testid="cutting-ab-stat-tags"')}
       ${activeTab === 'details' ? renderDetailTable(report.detailRows, filters.page, filters.pageSize) : renderSummaryTable(report.summaryRows, filters.page, filters.pageSize)}
     </div>
   `

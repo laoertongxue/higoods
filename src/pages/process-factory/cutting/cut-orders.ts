@@ -48,6 +48,7 @@ import { getLatestClaimDisputeByCutOrderNo } from '../../../state/fcs-claim-disp
 import {
   paginateItems,
   renderCompactKpiCard,
+  renderCompactKpiGroup,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
@@ -429,15 +430,13 @@ function buildCutOrderQrSummary(row: CutOrderRow): {
 
 function buildStatsCards(rows: CutOrderRow[]): string {
   const stats = buildCutOrderStats(rows)
-  return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+  return renderCompactKpiGroup(`
       ${renderCompactKpiCard('裁片单总数', stats.totalCount, '当前筛选范围', 'text-slate-900')}
       ${renderCompactKpiCard('唛架方案占用数', stats.inBatchCount, '草稿或有效唛架方案占用记录', 'text-violet-600')}
       ${renderCompactKpiCard('有可用余额数', stats.availableBalanceCount, '裁床可用面料余额大于 0', 'text-blue-600')}
       ${renderCompactKpiCard('已关闭数', stats.closedCount, '已填写关闭原因', 'text-zinc-600')}
       ${renderCompactKpiCard('未产生领料记录数', stats.noClaimRecordCount, '裁床尚未形成领料数量账', 'text-amber-600')}
-    </section>
-  `
+  `)
 }
 
 function setFeedback(tone: 'warning' | 'success', message: string): void {
@@ -2175,9 +2174,9 @@ function renderPage(): string {
         showAliasBadge: isCuttingAliasPath(pathname),
       })}
       ${renderFeedbackBar()}
-      ${buildStatsCards(rows)}
       ${renderPrefilterBar()}
       ${renderFilterArea()}
+      ${buildStatsCards(rows)}
       ${renderFilterStateBar()}
       ${renderTable(rows)}
     </div>
