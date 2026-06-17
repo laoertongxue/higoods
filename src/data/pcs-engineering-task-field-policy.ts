@@ -44,7 +44,7 @@ const REVISION_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     { fieldKey: 'sampleQty', label: '样衣数量' },
     { fieldKey: 'materialAdjustmentLines', label: '面辅料变化' },
     { fieldKey: 'newPatternSpuCode', label: '新花型 SPU' },
-    { fieldKey: 'patternPieceImageIds', label: '唛架图片' },
+    { fieldKey: 'patternPieceImageIds', label: '纸样图片' },
     { fieldKey: 'patternFileIds', label: '纸样文件' },
     { fieldKey: 'liveRetestStatus', label: '回直播验证状态' },
   ],

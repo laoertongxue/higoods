@@ -1428,7 +1428,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
       ownerId,
       ownerName: draft.ownerName.trim(),
       note: `${notePrefix}${draft.note.trim() ? ` ${draft.note.trim()}` : ''}`,
-      sourceType: '测款触发',
+      sourceType: '测款结论返改',
       styleId: linkedStyle?.styleId || '',
       styleCode: productStyleCode,
       styleName: linkedStyle?.styleName || project.linkedStyleName || project.projectName,

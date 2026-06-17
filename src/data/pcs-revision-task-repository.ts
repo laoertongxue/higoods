@@ -1,6 +1,7 @@
 import { createTaskBootstrapSnapshot } from './pcs-task-bootstrap.ts'
 import type { PcsTaskPendingItem } from './pcs-project-types.ts'
 import type { RevisionTaskRecord, RevisionTaskStoreSnapshot } from './pcs-revision-task-types.ts'
+import { normalizeRevisionTaskSourceType } from './pcs-task-source-normalizer.ts'
 
 const STORAGE_KEY = 'higood-pcs-revision-task-store-v2'
 const STORE_VERSION = 2
@@ -59,6 +60,7 @@ function seedSnapshot(): RevisionTaskStoreSnapshot {
 function normalizeTask(task: RevisionTaskRecord): RevisionTaskRecord {
   return {
     ...cloneTask(task),
+    sourceType: normalizeRevisionTaskSourceType(task.sourceType),
     styleId: task.styleId || '',
     styleCode: task.styleCode || task.productStyleCode || task.spuCode || '',
     styleName: task.styleName || '',

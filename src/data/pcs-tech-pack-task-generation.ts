@@ -1101,6 +1101,7 @@ export function generateTechPackVersionFromRevisionTask(
     afterVersion: createdRecord,
   })
   updateRevisionTask(task.revisionTaskId, {
+    status: '已生成技术包',
     linkedTechPackVersionId: createdRecord.technicalVersionId,
     linkedTechPackVersionCode: createdRecord.technicalVersionCode,
     linkedTechPackVersionLabel: createdRecord.versionLabel,
@@ -1115,7 +1116,7 @@ export function generateTechPackVersionFromRevisionTask(
 }
 
 export function isTechPackGenerationAllowedStatus(status: string): boolean {
-  return status === '已确认' || status === '已完成'
+  return status === '已确认' || status === '已生成技术包' || status === '已完成'
 }
 
 export function getTechPackGenerationBlockedReason(status: string): string {

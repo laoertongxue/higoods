@@ -24,7 +24,7 @@ assert.ok(style, '应存在正式款式档案演示数据')
 const measureWithoutProject = createRevisionTaskWithProjectRelation({
   projectId: '',
   title: '未选项目的测款改版任务',
-  sourceType: '测款触发',
+  sourceType: '测款结论返改',
   ownerName: '当前用户',
   revisionScopeCodes: ['PATTERN'],
   revisionScopeNames: ['版型结构'],
@@ -32,7 +32,7 @@ const measureWithoutProject = createRevisionTaskWithProjectRelation({
   evidenceSummary: '直播评论和试穿反馈都指出版型问题。',
   operatorName: '测试用户',
 })
-assert.equal(measureWithoutProject.ok, false, '测款触发的改版任务必须选择商品项目')
+assert.equal(measureWithoutProject.ok, false, '测款结论返改的改版任务必须选择商品项目')
 
 const existingStyleRevision = createRevisionTaskWithProjectRelation({
   projectId: '',
@@ -55,8 +55,8 @@ if (existingStyleRevision.ok) {
 
 const manualWithoutReference = createRevisionTaskWithProjectRelation({
   projectId: '',
-  title: '人工创建改版任务',
-  sourceType: '人工创建',
+  title: '人工改版需求任务',
+  sourceType: '人工改版需求',
   styleId: style!.styleId,
   ownerName: '李版师',
   revisionScopeCodes: ['PATTERN'],
@@ -65,12 +65,12 @@ const manualWithoutReference = createRevisionTaskWithProjectRelation({
   evidenceSummary: '设计复盘时确认存在版长比例问题。',
   operatorName: '测试用户',
 })
-assert.equal(manualWithoutReference.ok, false, '人工创建的改版任务必须选择参考对象')
+assert.equal(manualWithoutReference.ok, false, '人工改版需求的改版任务必须选择参考对象')
 
 const manualWithReference = createRevisionTaskWithProjectRelation({
   projectId: '',
-  title: '人工创建改版任务（带参考对象）',
-  sourceType: '人工创建',
+  title: '人工改版需求任务（带参考对象）',
+  sourceType: '人工改版需求',
   styleId: style!.styleId,
   referenceObjectType: '设计评审记录',
   referenceObjectId: 'REF-REVIEW-001',
@@ -83,21 +83,21 @@ const manualWithReference = createRevisionTaskWithProjectRelation({
   evidenceSummary: '设计评审记录已明确指出当前版型问题。',
   operatorName: '测试用户',
 })
-assert.equal(manualWithReference.ok, true, '人工创建并选择参考对象后应允许创建')
+assert.equal(manualWithReference.ok, true, '人工改版需求并选择参考对象后应允许创建')
 if (manualWithReference.ok) {
-  assert.equal(manualWithReference.task.referenceObjectCode, 'REF-REVIEW-001', '人工创建应写入参考对象信息')
-  assert.equal(manualWithReference.task.projectId, '', '人工创建不应强制挂商品项目')
+  assert.equal(manualWithReference.task.referenceObjectCode, 'REF-REVIEW-001', '人工改版需求应写入参考对象信息')
+  assert.equal(manualWithReference.task.projectId, '', '人工改版需求不应强制挂商品项目')
 }
 
 const project = listProjects().find((item) =>
-  Boolean(getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'PATTERN_ARTWORK_TASK')),
+  Boolean(getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'REVISION_TASK')),
 )
-assert.ok(project, '应存在测款触发的商品项目演示数据')
+assert.ok(project, '应存在测款结论返改的商品项目演示数据')
 
 const measureRevision = createRevisionTaskWithProjectRelation({
   projectId: project!.projectId,
-  title: '测款触发改版任务（花型）',
-  sourceType: '测款触发',
+  title: '测款结论返改任务（花型）',
+  sourceType: '测款结论返改',
   ownerName: project!.ownerName,
   revisionScopeCodes: ['PRINT'],
   revisionScopeNames: ['花型'],
@@ -105,13 +105,14 @@ const measureRevision = createRevisionTaskWithProjectRelation({
   evidenceSummary: '直播测款评论、用户停留和试穿反馈均指向花型问题。',
   operatorName: '测试用户',
 })
-assert.equal(measureRevision.ok, true, '测款触发并选择商品项目后应允许创建')
+assert.equal(measureRevision.ok, true, '测款结论返改并选择商品项目后应允许创建')
 if (measureRevision.ok) {
-  assert.ok(measureRevision.relation, '测款触发应写入正式项目关系')
+  assert.ok(measureRevision.relation, '测款结论返改应写入正式项目关系')
   const downstream = createDownstreamTasksFromRevision(measureRevision.task.revisionTaskId, ['PRINT'])
-  assert.equal(downstream.successCount, 1, '涉及花型时应只创建一个花型下游任务')
+  assert.equal(downstream.successCount, 0, '缺少商品项目花型节点时不得伪造下游任务')
+  assert.ok(downstream.failureMessages.some((message) => message.includes('缺少花型任务节点')), '缺少花型节点时应给出明确失败原因')
   assert.equal(listPlateMakingTasks().filter((item) => item.upstreamObjectId === measureRevision.task.revisionTaskId).length, 0, '不应再创建制版下游任务')
-  assert.equal(listPatternTasks().filter((item) => item.upstreamObjectId === measureRevision.task.revisionTaskId).length, 1, '应创建花型下游任务')
+  assert.equal(listPatternTasks().filter((item) => item.upstreamObjectId === measureRevision.task.revisionTaskId).length, 0, '缺少花型节点时不应创建孤立花型任务')
 }
 
 console.log('pcs-revision-task-source-rules.spec.ts PASS')
