@@ -323,12 +323,14 @@ const COMMON_STATUS_META: Record<string, { label: string; className: string }> =
   未开始: { label: '未开始', className: 'bg-slate-100 text-slate-700' },
   进行中: { label: '进行中', className: 'bg-blue-100 text-blue-700' },
   待确认: { label: '待确认', className: 'bg-amber-100 text-amber-700' },
-  已确认: { label: '已确认', className: 'bg-emerald-100 text-emerald-700' },
-  已生成技术包: { label: '已生成技术包', className: 'bg-cyan-100 text-cyan-700' },
+  已确认: { label: '待生成技术包', className: 'bg-emerald-100 text-emerald-700' },
+  已生成技术包: { label: '待完成', className: 'bg-cyan-100 text-cyan-700' },
   已完成: { label: '已完成', className: 'bg-green-100 text-green-700' },
   异常待处理: { label: '阻塞', className: 'bg-rose-100 text-rose-700' },
   已取消: { label: '已取消', className: 'bg-slate-100 text-slate-500' },
 }
+
+const ENGINEERING_COMMON_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']
 
 const SAMPLE_STATUS_META: Record<string, { label: string; className: string }> = {
   草稿: { label: '草稿', className: 'bg-slate-100 text-slate-700' },
@@ -848,6 +850,10 @@ function getCommonStatusMeta(status: string): { label: string; className: string
   return COMMON_STATUS_META[status] || { label: status || '-', className: 'bg-slate-100 text-slate-600' }
 }
 
+function getStatusFilterLabel(status: string): string {
+  return COMMON_STATUS_META[status]?.label || status
+}
+
 function getSampleStatusMeta(status: string): { label: string; className: string } {
   return SAMPLE_STATUS_META[status] || { label: status || '-', className: 'bg-slate-100 text-slate-600' }
 }
@@ -1051,7 +1057,7 @@ function renderListFilters(input: {
           <span>状态</span>
           <select class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" data-pcs-engineering-field="${escapeHtml(input.statusField)}">
             <option value="all" ${listState.status === 'all' ? 'selected' : ''}>全部</option>
-            ${input.statusOptions.map((option) => `<option value="${escapeHtml(option)}" ${listState.status === option ? 'selected' : ''}>${escapeHtml(option === '异常待处理' ? '阻塞' : option)}</option>`).join('')}
+            ${input.statusOptions.map((option) => `<option value="${escapeHtml(option)}" ${listState.status === option ? 'selected' : ''}>${escapeHtml(getStatusFilterLabel(option))}</option>`).join('')}
           </select>
         </label>
         <label class="flex flex-col gap-2 text-sm text-slate-600">
@@ -2246,7 +2252,7 @@ function renderRevisionListPage(): string {
         statusField: 'revision-status',
         ownerField: 'revision-owner',
         sourceField: 'revision-source',
-        statusOptions: ['未开始', '进行中', '待确认', '已确认', '已生成技术包', '已完成', '异常待处理', '已取消'],
+        statusOptions: ENGINEERING_COMMON_FILTER_STATUS_OPTIONS,
         ownerOptions: owners,
         sourceOptions: REVISION_TASK_SOURCE_TYPE_LIST,
       })}
@@ -2254,7 +2260,7 @@ function renderRevisionListPage(): string {
         ${renderMetricButton('全部任务', tasks.length, state.revisionList.quickFilter === 'all', 'all', 'set-revision-quick-filter')}
         ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '李版师').length, state.revisionList.quickFilter === 'mine', 'mine', 'set-revision-quick-filter')}
         ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.revisionList.quickFilter === 'pending-review', 'pending-review', 'set-revision-quick-filter')}
-        ${renderMetricButton('已确认未写包', tasks.filter((item) => item.projectId && item.status === '已确认' && !item.linkedTechPackVersionId).length, state.revisionList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-revision-quick-filter')}
+        ${renderMetricButton('待生成技术包', tasks.filter((item) => item.projectId && item.status === '已确认' && !item.linkedTechPackVersionId).length, state.revisionList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-revision-quick-filter')}
         ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.revisionList.quickFilter === 'overdue', 'overdue', 'set-revision-quick-filter')}
       </section>
       ${renderDataTable(['商品图', '任务编号', '所属项目', '款式编码', '改版范围', '回直播验证状态', '技术包状态', '当前状态', '更新时间', '操作'], rows, '暂无改版任务数据', renderPagination(state.revisionList.currentPage, filtered.length, 'change-revision-page'))}
@@ -2967,7 +2973,7 @@ function renderPlateListPage(): string {
         statusField: 'plate-status',
         ownerField: 'plate-owner',
         sourceField: 'plate-source',
-        statusOptions: ['未开始', '进行中', '待确认', '已确认', '已生成技术包', '已完成', '异常待处理', '已取消'],
+        statusOptions: ENGINEERING_COMMON_FILTER_STATUS_OPTIONS,
         ownerOptions: owners,
         sourceOptions: sources,
       })}
@@ -3265,7 +3271,7 @@ function renderPatternListPage(): string {
         statusField: 'pattern-status',
         ownerField: 'pattern-owner',
         sourceField: 'pattern-source',
-        statusOptions: ['未开始', '进行中', '待确认', '已确认', '已生成技术包', '已完成', '异常待处理', '已取消'],
+        statusOptions: ENGINEERING_COMMON_FILTER_STATUS_OPTIONS,
         ownerOptions: owners,
         sourceOptions: sources,
       })}
