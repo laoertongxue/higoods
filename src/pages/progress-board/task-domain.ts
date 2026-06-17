@@ -709,36 +709,21 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
           </button>
         </div>
       </header>
-      <section class="rounded-lg border bg-card" data-progress-task-detail="true">
-        <div class="border-b bg-background/95 px-6 py-4">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="flex items-center gap-2 text-lg font-semibold">
-                任务详情
-                ${renderBadge(platformStatus.platformStatusLabel, PLATFORM_PROCESS_STATUS_CLASS[platformStatus.platformStatusLabel])}
-              </h3>
-              <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskId)} · ${escapeHtml(getTaskDisplayName(task))}</p>
-            </div>
-            <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="/fcs/progress/board">
-              返回列表
-            </button>
-          </div>
-          <div class="mt-4 flex flex-wrap gap-1 rounded-md border p-1 text-sm" data-progress-task-tabs="true">
-            <button class="rounded px-2 py-1 ${activeTab === 'basic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="basic" data-fast-page-render="true">基本信息</button>
-            <button class="rounded px-2 py-1 ${activeTab === 'assignment' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="assignment" data-fast-page-render="true">分配信息</button>
-            <button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress" data-fast-page-render="true">进度操作</button>
-            <button class="rounded px-2 py-1 ${activeTab === 'pickup' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="pickup" data-fast-page-render="true">领料情况</button>
-            <button class="rounded px-2 py-1 ${activeTab === 'handover' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="handover" data-fast-page-render="true">交出情况</button>
-            ${
-              task.status === 'BLOCKED'
-                ? `<button class="rounded px-2 py-1 ${activeTab === 'block' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="block" data-fast-page-render="true">生产暂停信息</button>`
-                : ''
-            }
-            <button class="rounded px-2 py-1 ${activeTab === 'logs' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="logs" data-fast-page-render="true">审计日志</button>
-          </div>
-        </div>
-
-        <div class="space-y-5 px-6 py-5">
+      <nav class="flex flex-wrap gap-1 rounded-lg border bg-card p-1 text-sm" data-progress-task-tabs="true">
+        <button class="rounded px-2 py-1 ${activeTab === 'basic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="basic" data-fast-page-render="true">基本信息</button>
+        <button class="rounded px-2 py-1 ${activeTab === 'assignment' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="assignment" data-fast-page-render="true">分配信息</button>
+        <button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress" data-fast-page-render="true">进度操作</button>
+        <button class="rounded px-2 py-1 ${activeTab === 'pickup' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="pickup" data-fast-page-render="true">领料情况</button>
+        <button class="rounded px-2 py-1 ${activeTab === 'handover' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="handover" data-fast-page-render="true">交出情况</button>
+        ${
+          task.status === 'BLOCKED'
+            ? `<button class="rounded px-2 py-1 ${activeTab === 'block' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="block" data-fast-page-render="true">生产暂停信息</button>`
+            : ''
+        }
+        <button class="rounded px-2 py-1 ${activeTab === 'logs' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="logs" data-fast-page-render="true">审计日志</button>
+      </nav>
+      <section class="rounded-lg border bg-card p-5" data-progress-task-detail="true">
+        <div class="space-y-5">
           ${
             activeTab === 'basic'
               ? `
@@ -838,16 +823,6 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
                     `
                     : ''
                 }
-                <div class="border-t pt-3">
-                  <div class="flex flex-wrap gap-2">
-                    <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}">
-                      <i data-lucide="layers" class="mr-2 h-4 w-4"></i>查看生产单生命周期
-                    </button>
-                    <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeAttr(buildTaskRouteCardPrintLink('RUNTIME_TASK', task.taskId))}">
-                      <i data-lucide="printer" class="mr-2 h-4 w-4"></i>打印任务流转卡
-                    </button>
-                  </div>
-                </div>
               `
               : ''
           }
