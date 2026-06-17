@@ -46,9 +46,9 @@ test('工艺工厂运营系统保留印花和染色细状态', async ({ page }) 
   await expect(page.locator('body')).toContainText(/待样衣|待原料|打样中|待排缸|染色中|脱水中|烘干中|定型中|打卷中|包装中/)
 })
 
-test('任务进度看板使用平台状态并保留内部执行状态', async ({ page }) => {
+test('任务进度跟踪使用平台状态并保留内部执行状态', async ({ page }) => {
   await page.goto('/fcs/progress/board')
-  await expect(page.getByText('任务进度看板').first()).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('任务进度跟踪').first()).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('平台状态').first()).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('工厂内部状态').first()).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('下一步动作').first()).toBeVisible({ timeout: 30_000 })

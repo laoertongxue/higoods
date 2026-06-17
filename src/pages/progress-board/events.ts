@@ -1,14 +1,11 @@
 import {
   state,
-  LIFECYCLE_LABEL,
   getTaskById,
-  getProductionOrderHandoverSummary,
   getTaskHandoverSummary,
   buildHandoverOrderDetailLink,
   getFilteredTasks,
   getFactoryById,
   type BlockReason,
-  type PoLifecycle,
   type TaskTabKey,
   type TaskStatus,
   type UrgeType,
@@ -19,9 +16,7 @@ import {
   openLinkedPage,
   clearTaskFilters,
   handleTaskKpiClick,
-  handlePoKpiClick,
   setTaskSelected,
-  openOrderDetail,
   openTaskDetail,
   handleBatchUrge,
   openBatchDialog,
@@ -61,16 +56,6 @@ function updateField(field: string, node: HTMLElement): void {
 
   if (field === 'riskFilter' && node instanceof HTMLSelectElement) {
     state.riskFilter = node.value
-    return
-  }
-
-  if (field === 'poKeyword' && node instanceof HTMLInputElement) {
-    state.poKeyword = node.value
-    return
-  }
-
-  if (field === 'poLifecycleFilter' && node instanceof HTMLSelectElement) {
-    state.poLifecycleFilter = node.value
     return
   }
 
@@ -120,7 +105,7 @@ function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
         productionOrderId: poId,
         taskId,
         focus: handoverSummary.recommendedFocus,
-        source: '看板',
+        source: '任务进度跟踪',
       }),
     )
     state.taskActionMenuId = null
@@ -140,7 +125,7 @@ function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'task-action-open-order' && poId) {
-    openOrderDetail(poId)
+    openLinkedPage('生产单进度跟踪', `/fcs/progress/production-orders/detail?po=${encodeURIComponent(poId)}`)
     state.taskActionMenuId = null
     return true
   }
@@ -158,67 +143,8 @@ function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
   return false
 }
 
-function handleOrderAction(action: string, actionNode: HTMLElement): boolean {
-  const orderId = actionNode.dataset.orderId
-  if (!orderId) return false
-
-  if (action === 'order-action-detail') {
-    state.detailOrderId = orderId
-    state.orderActionMenuId = null
-    return true
-  }
-
-  if (action === 'order-action-exception') {
-    openLinkedPage('异常定位与处理', `/fcs/progress/exceptions?po=${encodeURIComponent(orderId)}`)
-    state.orderActionMenuId = null
-    return true
-  }
-
-  if (action === 'order-action-dispatch') {
-    openLinkedPage('车缝分配工作台', `/fcs/dispatch/sewing?po=${encodeURIComponent(orderId)}`)
-    state.orderActionMenuId = null
-    return true
-  }
-
-  if (action === 'order-action-handover') {
-    const handoverSummary = getProductionOrderHandoverSummary(orderId)
-    openLinkedPage(
-      '交接链路',
-      buildHandoverOrderDetailLink({
-        productionOrderId: orderId,
-        focus: handoverSummary.recommendedFocus,
-        source: '看板',
-      }),
-    )
-    state.orderActionMenuId = null
-    return true
-  }
-
-  return false
-}
-
 function handleAction(action: string, actionNode: HTMLElement): boolean {
   if ((action.startsWith('task-action-') || action.startsWith('task-open-')) && handleTaskAction(action, actionNode)) {
-    return true
-  }
-
-  if (action.startsWith('order-action-') && handleOrderAction(action, actionNode)) {
-    return true
-  }
-
-  if (action === 'switch-dimension') {
-    const dimension = actionNode.dataset.dimension
-    if (dimension === 'task' || dimension === 'order') {
-      state.dimension = dimension
-    }
-    return true
-  }
-
-  if (action === 'switch-view') {
-    const view = actionNode.dataset.view
-    if (view === 'list' || view === 'kanban') {
-      state.viewMode = view
-    }
     return true
   }
 
@@ -233,22 +159,8 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'po-kpi-filter') {
-    const lifecycle = actionNode.dataset.lifecycle as PoLifecycle | undefined
-    if (lifecycle && lifecycle in LIFECYCLE_LABEL) {
-      handlePoKpiClick(lifecycle)
-    }
-    return true
-  }
-
   if (action === 'reset-task-filters') {
     clearTaskFilters()
-    return true
-  }
-
-  if (action === 'reset-order-filters') {
-    state.poKeyword = ''
-    state.poLifecycleFilter = 'ALL'
     return true
   }
 
@@ -296,30 +208,6 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'open-order-detail') {
-    if (actionNode.closest('[data-progress-stop="true"]')) return false
-    const orderId = actionNode.dataset.orderId
-    if (orderId) {
-      state.detailOrderId = orderId
-    }
-    return true
-  }
-
-  if (action === 'close-order-drawer') {
-    state.detailOrderId = null
-    return true
-  }
-
-  if (action === 'order-view-tasks') {
-    const orderId = actionNode.dataset.orderId
-    if (!orderId) return true
-
-    state.detailOrderId = null
-    state.dimension = 'task'
-    state.keyword = orderId
-    return true
-  }
-
   if (action === 'copy-task-id') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
@@ -333,16 +221,6 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     if (!taskId) return true
 
     state.taskActionMenuId = state.taskActionMenuId === taskId ? null : taskId
-    state.orderActionMenuId = null
-    return true
-  }
-
-  if (action === 'toggle-order-menu') {
-    const orderId = actionNode.dataset.orderId
-    if (!orderId) return true
-
-    state.orderActionMenuId = state.orderActionMenuId === orderId ? null : orderId
-    state.taskActionMenuId = null
     return true
   }
 
@@ -467,9 +345,8 @@ export function handleProgressBoardEvent(target: HTMLElement): boolean {
 
   const actionNode = target.closest<HTMLElement>('[data-progress-action]')
   if (!actionNode) {
-    if (state.taskActionMenuId || state.orderActionMenuId) {
+    if (state.taskActionMenuId) {
       state.taskActionMenuId = null
-      state.orderActionMenuId = null
       return true
     }
     return false

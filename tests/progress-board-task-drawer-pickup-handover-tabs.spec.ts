@@ -8,7 +8,7 @@ function getTaskRow(page: import('@playwright/test').Page, taskId: string) {
 
 async function openProgressBoard(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/fcs/progress/board', { waitUntil: 'commit' })
-  await expect(page.getByRole('heading', { name: '任务进度看板' })).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByRole('heading', { name: '任务进度跟踪' })).toBeVisible({ timeout: 120_000 })
   await expect(page.locator('[data-progress-task-list="true"]')).toBeVisible({ timeout: 120_000 })
 }
 

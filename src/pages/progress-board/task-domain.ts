@@ -22,7 +22,6 @@ import {
   getTenderById,
   getTaskById,
   getTaskKpiStats,
-  getTaskKanbanGroups,
   BLOCK_REASON_OPTIONS,
   renderBadge,
   escapeAttr,
@@ -587,84 +586,6 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
   `
 }
 
-function renderTaskKanbanView(filteredTasks: ProcessTask[]): string {
-  const groups = getTaskKanbanGroups(filteredTasks)
-  const columns: Array<{ status: 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'; icon: string; color: string }> = [
-    { status: 'NOT_STARTED', icon: 'clock', color: 'text-slate-500' },
-    { status: 'IN_PROGRESS', icon: 'play-circle', color: 'text-blue-500' },
-    { status: 'BLOCKED', icon: 'pause', color: 'text-red-500' },
-    { status: 'DONE', icon: 'check-circle-2', color: 'text-green-500' },
-  ]
-
-  return `
-    <div class="grid grid-cols-4 gap-4">
-      ${columns
-        .map(({ status, icon, color }) => {
-          const items = groups[status]
-          return `
-            <section class="space-y-3">
-              <div class="flex items-center justify-between px-2">
-                <h3 class="flex items-center gap-2 font-medium">
-                  <i data-lucide="${icon}" class="h-4 w-4 ${color}"></i>
-                  ${TASK_STATUS_LABEL[status]}
-                </h3>
-                ${renderBadge(String(items.length), 'border-border bg-background text-foreground')}
-              </div>
-              <div class="h-[calc(100vh-410px)] overflow-y-auto pr-1">
-                <div class="space-y-2">
-                  ${
-                    items.length === 0
-                      ? '<div class="rounded-md border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">暂无任务</div>'
-                      : items
-                          .map((task) => {
-                            const order = getOrderById(task.productionOrderId)
-                            const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
-                            const risks = getTaskRisks(task)
-                            const platformStatus = getPlatformStatusForRuntimeTask(task)
-
-                            return `
-                              <article class="cursor-pointer rounded-lg border bg-background p-3 shadow-sm transition hover:shadow-md" data-progress-action="open-task-detail" data-task-id="${escapeAttr(task.taskId)}">
-                                <div class="flex items-center justify-between">
-                                  <span class="font-mono text-xs text-muted-foreground">${escapeHtml(task.taskId)}</span>
-                                  ${
-                                    task.assignmentMode === 'DIRECT'
-                                      ? renderBadge('派单', 'border-slate-200 bg-slate-100 text-slate-700')
-                                      : renderBadge('竞价', 'border-blue-200 bg-blue-100 text-blue-700')
-                                  }
-                                </div>
-                                <div class="mt-2 truncate text-sm font-medium">${escapeHtml(getOrderSpuName(order) || getOrderSpuCode(order, task.productionOrderId))}</div>
-                                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(getTaskDisplayName(task))}</div>
-                                <div class="mt-2 flex flex-wrap items-center gap-1">
-                                  ${renderBadge(platformStatus.platformStatusLabel, PLATFORM_PROCESS_STATUS_CLASS[platformStatus.platformStatusLabel])}
-                                  <span class="text-xs text-muted-foreground">工厂内部状态：${escapeHtml(TASK_STATUS_LABEL[task.status])}</span>
-                                </div>
-                                <div class="mt-2 flex items-center justify-between text-xs">
-                                  <span class="truncate text-muted-foreground">${escapeHtml(factory?.name ?? (task.assignmentStatus === 'BIDDING' ? '待定标' : '-'))}</span>
-                                  ${renderBadge(ASSIGNMENT_STATUS_LABEL[task.assignmentStatus], ASSIGNMENT_STATUS_COLOR_CLASS[task.assignmentStatus])}
-                                </div>
-                                ${
-                                  risks.length > 0
-                                    ? `<div class="mt-2">${renderTaskRiskBadges(risks)}</div>`
-                                    : ''
-                                }
-                                <button class="mt-2 inline-flex h-6 w-full items-center justify-center rounded text-xs text-muted-foreground hover:bg-muted" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}" data-progress-stop="true">
-                                  <i data-lucide="layers" class="mr-1 h-3 w-3"></i>查看生产单生命周期
-                                </button>
-                              </article>
-                            `
-                          })
-                          .join('')
-                  }
-                </div>
-              </div>
-            </section>
-          `
-        })
-        .join('')}
-    </div>
-  `
-}
-
 function renderTaskDimension(filteredTasks: ProcessTask[]): string {
   const kpi = getTaskKpiStats()
 
@@ -763,7 +684,7 @@ function renderTaskDimension(filteredTasks: ProcessTask[]): string {
         </div>
       </section>
 
-      ${state.viewMode === 'list' ? renderTaskListView(filteredTasks) : renderTaskKanbanView(filteredTasks)}
+      ${renderTaskListView(filteredTasks)}
     </section>
   `
 }

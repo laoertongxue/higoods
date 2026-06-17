@@ -25,8 +25,17 @@ async function main(): Promise<void> {
     .flatMap((group) => group.items)
     .find((item) => item.key === 'fcs-platform-progress')
   assert(progressGroup, '未找到任务进度与异常菜单组')
+  const progressChildren = progressGroup.children ?? []
   assert(
-    progressGroup.children?.some((item) => item.title === '生产单进度跟踪' && item.href === '/fcs/progress/production-orders'),
+    progressChildren[0]?.title === '生产单进度跟踪' && progressChildren[0]?.href === '/fcs/progress/production-orders',
+    '任务进度与异常下生产单进度跟踪必须排在第一位',
+  )
+  assert(
+    progressChildren[1]?.title === '任务进度跟踪' && progressChildren[1]?.href === '/fcs/progress/board',
+    '任务进度与异常下任务进度跟踪必须排在第二位',
+  )
+  assert(
+    progressChildren.some((item) => item.title === '生产单进度跟踪' && item.href === '/fcs/progress/production-orders'),
     '任务进度与异常下未注册生产单进度跟踪二级菜单',
   )
 

@@ -299,8 +299,8 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '任务进度与异常',
           icon: 'KanbanSquare',
           children: [
-            { key: 'progress-board', title: '任务进度看板', icon: 'KanbanSquare', href: '/fcs/progress/board' },
             { key: 'progress-production-orders', title: '生产单进度跟踪', icon: 'GitBranch', href: '/fcs/progress/production-orders' },
+            { key: 'progress-board', title: '任务进度跟踪', icon: 'ClipboardList', href: '/fcs/progress/board' },
             { key: 'progress-exceptions', title: '异常定位与处理', icon: 'Search', href: '/fcs/progress/exceptions' },
             { key: 'progress-urge', title: '催办与通知', icon: 'BellRing', href: '/fcs/progress/urge' },
             { key: 'progress-handover', title: '交接链路追踪', icon: 'ScanLine', href: '/fcs/progress/handover' },

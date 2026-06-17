@@ -16,11 +16,9 @@ import {
   upsertProgressExceptionCase,
   initialNotifications,
   initialUrges,
-  getOrderById,
   appStore,
   type BlockReason,
   type ExceptionCategory,
-  type PoLifecycle,
   type ProcessTask,
   type TaskAuditLog,
   type TaskStatus,
@@ -421,41 +419,6 @@ function openLinkedPage(title: string, href: string): void {
   })
 }
 
-function syncPresetFromQuery(): void {
-  const queryKey = getCurrentQueryString()
-  if (state.lastQueryKey === queryKey) return
-
-  state.lastQueryKey = queryKey
-  const params = getCurrentSearchParams()
-
-  const presetStatus = params.get('status')
-  const presetAssignmentStatus = params.get('assignmentStatus')
-  const presetRisk = params.get('risk')
-  const presetTaskId = params.get('taskId')
-  const presetPoId = params.get('po')
-
-  if (!state.initializedByQuery) {
-    state.initializedByQuery = true
-    state.statusFilter = presetStatus || 'ALL'
-    state.assignmentStatusFilter = presetAssignmentStatus || 'ALL'
-    state.riskFilter = presetRisk || 'ALL'
-  } else {
-    if (presetStatus) state.statusFilter = presetStatus
-    if (presetAssignmentStatus) state.assignmentStatusFilter = presetAssignmentStatus
-    if (presetRisk) state.riskFilter = presetRisk
-  }
-
-  if (presetTaskId) {
-    state.dimension = 'task'
-    state.keyword = presetTaskId
-  }
-
-  if (presetPoId && !presetTaskId) {
-    state.dimension = 'order'
-    state.poKeyword = presetPoId
-  }
-}
-
 function clearTaskFilters(): void {
   state.keyword = ''
   state.statusFilter = 'ALL'
@@ -494,11 +457,6 @@ function handleTaskKpiClick(type: string): void {
   }
 }
 
-function handlePoKpiClick(lifecycle: PoLifecycle): void {
-  state.poKeyword = ''
-  state.poLifecycleFilter = lifecycle
-}
-
 function setTaskSelected(taskId: string, checked: boolean): void {
   if (checked) {
     if (!state.selectedTaskIds.includes(taskId)) {
@@ -508,14 +466,6 @@ function setTaskSelected(taskId: string, checked: boolean): void {
   }
 
   state.selectedTaskIds = state.selectedTaskIds.filter((id) => id !== taskId)
-}
-
-function openOrderDetail(orderId: string): void {
-  state.dimension = 'order'
-  state.detailOrderId = orderId
-  state.detailTaskId = null
-  state.orderActionMenuId = null
-  state.taskActionMenuId = null
 }
 
 function openTaskDetail(taskId: string): void {
@@ -647,9 +597,7 @@ export {
   openLinkedPage,
   clearTaskFilters,
   handleTaskKpiClick,
-  handlePoKpiClick,
   setTaskSelected,
-  openOrderDetail,
   openTaskDetail,
   handleBatchUrge,
   openBatchDialog,

@@ -8,11 +8,11 @@ function normalizeHeaderTexts(values: string[]): string[] {
 
 async function openProgressBoard(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/fcs/progress/board', { waitUntil: 'commit' })
-  await expect(page.getByRole('heading', { name: '任务进度看板' })).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByRole('heading', { name: '任务进度跟踪' })).toBeVisible({ timeout: 120_000 })
   await expect(page.locator('[data-progress-task-list="true"]')).toBeVisible({ timeout: 120_000 })
 }
 
-test('任务维度列表新增领料情况与交出情况两列，且位于执行状态后、风险前', async ({ page }) => {
+test('任务列表新增领料情况与交出情况两列，且位于执行状态后、风险前', async ({ page }) => {
   test.slow()
   const errors = collectPageErrors(page)
 

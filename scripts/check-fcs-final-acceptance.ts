@@ -321,8 +321,8 @@ const progressSource =
 ;['打印任务流转卡', '打印任务交货卡'].forEach((token) => {
   assert(progressSource.includes(token), `平台运营入口缺少：${token}`)
 })
-assert(progressSource.includes('buildTaskDeliveryCardPrintLink(recordId)'), '任务进度看板详情交出记录必须按 recordId 打印任务交货卡')
-assert(progressSource.includes('renderTaskDeliveryCardAction(record.recordId)'), '任务进度看板详情交出记录必须传入 record.recordId')
+assert(progressSource.includes('buildTaskDeliveryCardPrintLink(recordId)'), '任务进度跟踪详情交出记录必须按 recordId 打印任务交货卡')
+assert(progressSource.includes('renderTaskDeliveryCardAction(record.recordId)'), '任务进度跟踪详情交出记录必须传入 record.recordId')
 
 const taskPrintSource =
   read('src/data/fcs/task-print-cards.ts') +

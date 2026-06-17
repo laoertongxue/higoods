@@ -31,11 +31,8 @@ import { syncPdaStartRiskAndExceptions } from '../../data/fcs/pda-start-link.ts'
 import { syncMilestoneOverdueExceptions } from '../../data/fcs/pda-exec-link.ts'
 import {
   buildHandoverOrderDetailLink,
-  getHandoverLedgerRows,
-  getProductionOrderHandoverSummary,
   getTaskHandoverSummary,
 } from '../../data/fcs/handover-ledger-view.ts'
-import { sortProductionProgressByDefaultDueDate } from '../../data/fcs/progress-statistics-linkage.ts'
 import {
   listMaterialRequestDraftsByOrder,
   type MaterialRequestDraft,
@@ -77,14 +74,6 @@ type TaskRiskFlag =
   | 'DISPATCH_REJECTED'
   | 'FACTORY_BLACKLISTED'
   | 'TASK_OVERDUE'
-
-type PoLifecycle =
-  | 'PREPARING'
-  | 'PENDING_ASSIGN'
-  | 'IN_EXECUTION'
-  | 'PENDING_QC'
-  | 'PENDING_SETTLEMENT'
-  | 'CLOSED'
 
 type ProcessStageGroup = 'PREP' | 'PROD' | 'POST'
 
@@ -153,40 +142,9 @@ interface TaskBoardSummaryCache {
   allHeads: PdaHandoverHead[] | null
 }
 
-interface PoViewRow {
-  orderId: string
-  productionOrderNo: string
-  spuCode: string
-  spuName: string
-  mainFactory: string
-  dueDate: string
-  urgencyLevel: string
-  qty: number
-  lifecycle: PoLifecycle
-  totalTasks: number
-  doneTasks: number
-  inProgressTasks: number
-  blockedTasks: number
-  unassignedTasks: number
-  risks: string[]
-  blockpoint: string
-  nextAction: string
-  handoverStatusLabel: string
-  handoverNextAction: string
-  handoverPendingCount: number
-  handoverObjectionCount: number
-  handoverLatestOccurredAt: string
-  handoverFocus: string
-}
-
-const PO_LARGE_ORDER_QTY_THRESHOLD = 4500
-
 interface ProgressBoardState {
   initializedByQuery: boolean
   lastQueryKey: string
-
-  dimension: 'task' | 'order'
-  viewMode: 'list' | 'kanban'
 
   keyword: string
   statusFilter: string
@@ -197,15 +155,10 @@ interface ProgressBoardState {
   riskFilter: string
   factoryFilter: string
 
-  poKeyword: string
-  poLifecycleFilter: string
-
   selectedTaskIds: string[]
 
   detailTaskId: string | null
   taskDetailTab: TaskTabKey
-
-  detailOrderId: string | null
 
   blockDialogTaskId: string | null
   blockReason: BlockReason
@@ -215,15 +168,11 @@ interface ProgressBoardState {
   confirmTaskIds: string[]
 
   taskActionMenuId: string | null
-  orderActionMenuId: string | null
 }
 
 const state: ProgressBoardState = {
   initializedByQuery: false,
   lastQueryKey: '',
-
-  dimension: 'task',
-  viewMode: 'list',
 
   keyword: '',
   statusFilter: 'ALL',
@@ -234,15 +183,10 @@ const state: ProgressBoardState = {
   riskFilter: 'ALL',
   factoryFilter: 'ALL',
 
-  poKeyword: '',
-  poLifecycleFilter: 'ALL',
-
   selectedTaskIds: [],
 
   detailTaskId: null,
   taskDetailTab: 'basic',
-
-  detailOrderId: null,
 
   blockDialogTaskId: null,
   blockReason: 'OTHER',
@@ -252,7 +196,6 @@ const state: ProgressBoardState = {
   confirmTaskIds: [],
 
   taskActionMenuId: null,
-  orderActionMenuId: null,
 }
 
 function createTaskBoardSummaryCache(): TaskBoardSummaryCache {
@@ -315,33 +258,6 @@ const ASSIGNMENT_STATUS_COLOR_CLASS: Record<TaskAssignmentStatus, string> = {
   ASSIGNED: 'bg-blue-100 text-blue-700 border-blue-200',
   BIDDING: 'bg-purple-100 text-purple-700 border-purple-200',
   AWARDED: 'bg-green-100 text-green-700 border-green-200',
-}
-
-const LIFECYCLE_LABEL: Record<PoLifecycle, string> = {
-  PREPARING: '准备中',
-  PENDING_ASSIGN: '待分配',
-  IN_EXECUTION: '执行中',
-  PENDING_QC: '待质检',
-  PENDING_SETTLEMENT: '待结算',
-  CLOSED: '已结案',
-}
-
-const LIFECYCLE_COLOR_CLASS: Record<PoLifecycle, string> = {
-  PREPARING: 'bg-slate-100 text-slate-700 border-slate-200',
-  PENDING_ASSIGN: 'bg-orange-100 text-orange-700 border-orange-200',
-  IN_EXECUTION: 'bg-blue-100 text-blue-700 border-blue-200',
-  PENDING_QC: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  PENDING_SETTLEMENT: 'bg-purple-100 text-purple-700 border-purple-200',
-  CLOSED: 'bg-green-100 text-green-700 border-green-200',
-}
-
-const LIFECYCLE_ICON: Record<PoLifecycle, string> = {
-  PREPARING: 'clock',
-  PENDING_ASSIGN: 'alert-circle',
-  IN_EXECUTION: 'play-circle',
-  PENDING_QC: 'search',
-  PENDING_SETTLEMENT: 'arrow-up-right',
-  CLOSED: 'check-circle-2',
 }
 
 const TASK_RISK_LABEL: Record<TaskRiskFlag, string> = {
@@ -885,69 +801,9 @@ function getOrderSpuName(order: ProductionOrder | undefined): string {
   return order?.demandSnapshot?.spuName ?? ''
 }
 
-function getOrderQty(order: ProductionOrder | undefined, orderTasks: ProcessTask[]): number {
-  if (order?.demandSnapshot?.skuLines?.length) {
-    return order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
-  }
-  return orderTasks.reduce((sum, task) => sum + task.qty, 0)
-}
-
 function parseDateTime(value: string | undefined): number {
   if (!value) return Number.NaN
   return new Date(value.replace(' ', 'T')).getTime()
-}
-
-function deriveBlockpoint(tasks: ProcessTask[]): string {
-  if (tasks.some((task) => task.status === 'BLOCKED' && task.blockReason === 'QUALITY')) return '质检未已完成'
-  if (tasks.some((task) => task.status === 'BLOCKED' && task.blockReason === 'MATERIAL')) return '染印回货未完成'
-  if (tasks.some((task) => task.status === 'BLOCKED')) {
-    return `${tasks.filter((task) => task.status === 'BLOCKED').length} 个任务生产暂停中`
-  }
-  if (tasks.some((task) => task.assignmentStatus === 'UNASSIGNED')) return '后道任务未分配'
-  if (tasks.some((task) => task.assignmentStatus === 'BIDDING')) return '存在竞价未定标任务'
-  return '—'
-}
-
-function deriveNextAction(lifecycle: PoLifecycle, tasks: ProcessTask[]): string {
-  switch (lifecycle) {
-    case 'PREPARING':
-      return '完成技术包并发布'
-    case 'PENDING_ASSIGN':
-      return `分配 ${tasks.filter((task) => task.assignmentStatus === 'UNASSIGNED').length} 个待分配任务`
-    case 'IN_EXECUTION':
-      if (tasks.some((task) => task.status === 'BLOCKED')) {
-        return '处理生产暂停任务后继续推进'
-      }
-      return '跟进执行进度并催办'
-    case 'PENDING_QC':
-      return '完成质检并已完成质量处理'
-    case 'PENDING_SETTLEMENT':
-      return '完成扣款对账并结算'
-    case 'CLOSED':
-      return '已结案，无需操作'
-  }
-}
-
-function deriveLifecycle(tasks: ProcessTask[], order: ProductionOrder | undefined): PoLifecycle {
-  if (tasks.length === 0) return 'PREPARING'
-  if (order?.techPackSnapshot?.status !== 'RELEASED') return 'PREPARING'
-
-  const total = tasks.length
-  const done = tasks.filter((task) => task.status === 'DONE').length
-  const blocked = tasks.filter((task) => task.status === 'BLOCKED').length
-  const unassigned = tasks.filter((task) => task.assignmentStatus === 'UNASSIGNED').length
-  const inProgress = tasks.filter((task) => task.status === 'IN_PROGRESS').length
-  const bidding = tasks.filter((task) => task.assignmentStatus === 'BIDDING').length
-
-  if (done === total && blocked === 0) return 'CLOSED'
-  if (done / total >= 0.85) return 'PENDING_SETTLEMENT'
-  if (done / total >= 0.7 || (done + blocked === total && blocked > 0 && tasks.some((task) => task.blockReason === 'QUALITY'))) {
-    return 'PENDING_QC'
-  }
-  if (unassigned > 0 || bidding > 0) return 'PENDING_ASSIGN'
-  if (inProgress > 0 || done > 0) return 'IN_EXECUTION'
-
-  return 'PREPARING'
 }
 
 function getTaskRisks(task: ProcessTask): TaskRiskFlag[] {
@@ -1010,129 +866,6 @@ function getTaskKpiStats(): {
   }
 }
 
-function getOrderDueDate(order: ProductionOrder | undefined): string {
-  return order?.demandSnapshot?.requiredDeliveryDate || ''
-}
-
-function buildOrderUrgencyLevel(order: ProductionOrder | undefined, qty: number): string {
-  const dueDate = getOrderDueDate(order)
-  if (!dueDate) return ''
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const targetDate = new Date(dueDate)
-  targetDate.setHours(0, 0, 0, 0)
-  const diffDays = Math.floor((targetDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
-
-  if (diffDays <= 8) return '十万火急'
-  if (diffDays <= 10) return '紧急 A'
-  if (diffDays <= 13) return '紧急 B'
-  return qty >= PO_LARGE_ORDER_QTY_THRESHOLD ? 'C' : 'D'
-}
-
-function getPoViewRows(): PoViewRow[] {
-  const handoverRows = getHandoverLedgerRows()
-  const boardTasks = listBoardTasks()
-  const orderIds = [...new Set(boardTasks.map((task) => task.productionOrderId))]
-
-  return orderIds.map((orderId) => {
-    const tasks = boardTasks.filter((task) => task.productionOrderId === orderId)
-    const order = getOrderById(orderId)
-    const handoverSummary = getProductionOrderHandoverSummary(orderId, handoverRows)
-    const mainFactoryId = order?.mainFactoryId ?? tasks.find((task) => task.assignedFactoryId)?.assignedFactoryId
-    const mainFactory = mainFactoryId ? getFactoryById(mainFactoryId)?.name ?? mainFactoryId : '未指定'
-    const lifecycle = deriveLifecycle(tasks, order)
-    const qty = getOrderQty(order, tasks)
-    const dueDate = getOrderDueDate(order)
-    const urgencyLevel = buildOrderUrgencyLevel(order, qty)
-
-    const risks: string[] = []
-    if (tasks.some((task) => task.status === 'BLOCKED')) risks.push('有生产暂停')
-    if (tasks.some((task) => getTaskRisks(task).includes('TASK_OVERDUE'))) risks.push('逾期风险')
-    if (tasks.some((task) => getTaskRisks(task).includes('TENDER_OVERDUE'))) risks.push('竞价逾期')
-    if (order?.techPackSnapshot?.status !== 'RELEASED') risks.push('技术包未发布')
-
-    return {
-      orderId,
-      productionOrderNo: order?.productionOrderNo || orderId,
-      spuCode: getOrderSpuCode(order, orderId),
-      spuName: getOrderSpuName(order),
-      mainFactory,
-      dueDate,
-      urgencyLevel,
-      qty,
-      lifecycle,
-      totalTasks: tasks.length,
-      doneTasks: tasks.filter((task) => task.status === 'DONE').length,
-      inProgressTasks: tasks.filter((task) => task.status === 'IN_PROGRESS').length,
-      blockedTasks: tasks.filter((task) => task.status === 'BLOCKED').length,
-      unassignedTasks: tasks.filter((task) => task.assignmentStatus === 'UNASSIGNED').length,
-      risks,
-      blockpoint: deriveBlockpoint(tasks),
-      nextAction: deriveNextAction(lifecycle, tasks),
-      handoverStatusLabel: handoverSummary.currentBottleneckLabel,
-      handoverNextAction: handoverSummary.primaryActionHint,
-      handoverPendingCount: handoverSummary.pendingCount,
-      handoverObjectionCount: handoverSummary.objectionCount,
-      handoverLatestOccurredAt: handoverSummary.latestOccurredAt,
-      handoverFocus: handoverSummary.recommendedFocus || '',
-    }
-  })
-}
-
-function getPoKpiStats(rows: PoViewRow[]): {
-  preparing: number
-  pendingAssign: number
-  inExecution: number
-  pendingQc: number
-  pendingSettlement: number
-  closed: number
-} {
-  return {
-    preparing: rows.filter((row) => row.lifecycle === 'PREPARING').length,
-    pendingAssign: rows.filter((row) => row.lifecycle === 'PENDING_ASSIGN').length,
-    inExecution: rows.filter((row) => row.lifecycle === 'IN_EXECUTION').length,
-    pendingQc: rows.filter((row) => row.lifecycle === 'PENDING_QC').length,
-    pendingSettlement: rows.filter((row) => row.lifecycle === 'PENDING_SETTLEMENT').length,
-    closed: rows.filter((row) => row.lifecycle === 'CLOSED').length,
-  }
-}
-
-function getFilteredPoRows(rows: PoViewRow[]): PoViewRow[] {
-  const keyword = state.poKeyword.trim().toLowerCase()
-
-  const filteredRows = rows.filter((row) => {
-    if (keyword) {
-      const target = `${row.orderId} ${row.spuCode} ${row.spuName} ${row.mainFactory}`.toLowerCase()
-      if (!target.includes(keyword)) return false
-    }
-
-    if (state.poLifecycleFilter !== 'ALL' && row.lifecycle !== state.poLifecycleFilter) {
-      return false
-    }
-
-    return true
-  })
-
-  return sortProductionProgressByDefaultDueDate(filteredRows)
-}
-
-function getPoKanbanGroups(rows: PoViewRow[]): Record<PoLifecycle, PoViewRow[]> {
-  const groups: Record<PoLifecycle, PoViewRow[]> = {
-    PREPARING: [],
-    PENDING_ASSIGN: [],
-    IN_EXECUTION: [],
-    PENDING_QC: [],
-    PENDING_SETTLEMENT: [],
-    CLOSED: [],
-  }
-
-  for (const row of rows) {
-    groups[row.lifecycle].push(row)
-  }
-
-  return groups
-}
-
 function getFilteredTasks(): ProcessTask[] {
   const keyword = state.keyword.trim().toLowerCase()
 
@@ -1161,15 +894,6 @@ function getFilteredTasks(): ProcessTask[] {
 
     return true
   })
-}
-
-function getTaskKanbanGroups(tasks: ProcessTask[]): Record<'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE', ProcessTask[]> {
-  return {
-    NOT_STARTED: tasks.filter((task) => task.status === 'NOT_STARTED'),
-    IN_PROGRESS: tasks.filter((task) => task.status === 'IN_PROGRESS'),
-    BLOCKED: tasks.filter((task) => task.status === 'BLOCKED'),
-    DONE: tasks.filter((task) => task.status === 'DONE'),
-  }
 }
 
 function getUniqueFactories(): Array<{ id: string; name: string }> {
@@ -1223,13 +947,11 @@ function syncPresetFromQuery(): void {
   }
 
   if (presetTaskId) {
-    state.dimension = 'task'
     state.keyword = presetTaskId
   }
 
   if (presetPoId && !presetTaskId) {
-    state.dimension = 'order'
-    state.poKeyword = presetPoId
+    state.keyword = presetPoId
   }
 }
 
@@ -1251,9 +973,6 @@ export {
   ASSIGNMENT_STATUS_LABEL,
   STATUS_COLOR_CLASS,
   ASSIGNMENT_STATUS_COLOR_CLASS,
-  LIFECYCLE_LABEL,
-  LIFECYCLE_COLOR_CLASS,
-  LIFECYCLE_ICON,
   TASK_RISK_LABEL,
   BLOCK_REASON_LABEL,
   BLOCK_REASON_OPTIONS,
@@ -1270,8 +989,6 @@ export {
   syncPdaStartRiskAndExceptions,
   syncMilestoneOverdueExceptions,
   buildHandoverOrderDetailLink,
-  getHandoverLedgerRows,
-  getProductionOrderHandoverSummary,
   getTaskHandoverSummary,
   getDefaultSubCategoryKeyFromReason,
   getUnifiedCategoryFromReason,
@@ -1298,19 +1015,10 @@ export {
   getTaskDependencies,
   getOrderSpuCode,
   getOrderSpuName,
-  getOrderQty,
   parseDateTime,
-  deriveBlockpoint,
-  deriveNextAction,
-  deriveLifecycle,
   getTaskRisks,
   getTaskKpiStats,
-  getPoViewRows,
-  getPoKpiStats,
-  getFilteredPoRows,
-  getPoKanbanGroups,
   getFilteredTasks,
-  getTaskKanbanGroups,
   getUniqueFactories,
   getExceptionsByTaskId,
   nextUrgeAuditLogId,
@@ -1324,10 +1032,8 @@ export {
 
 export type {
   TaskRiskFlag,
-  PoLifecycle,
   ProcessStageGroup,
   TaskTabKey,
-  PoViewRow,
   ProgressBoardState,
   TaskPickupSummary,
   TaskHandoutSummary,

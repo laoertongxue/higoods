@@ -147,7 +147,7 @@ assertIncludes('src/pages/process-print-orders.ts', 'renderPlatformSyncSection',
 assertIncludes('src/pages/process-print-orders.ts', 'followUpActionLabel', '平台侧印花页面必须展示跟单动作')
 assertIncludes('src/pages/process-dye-orders.ts', 'renderPlatformSyncSection', '平台侧染色页面必须展示同步结果')
 assertIncludes('src/pages/process-dye-orders.ts', 'followUpActionLabel', '平台侧染色页面必须展示跟单动作')
-assertIncludes('src/pages/progress-board/task-domain.ts', 'listPlatformProcessResultViews', '任务进度看板必须读取统一结果视图')
+assertIncludes('src/pages/progress-board/task-domain.ts', 'listPlatformProcessResultViews', '任务进度跟踪必须读取统一结果视图')
 
 for (const path of [
   'src/data/fcs/platform-process-result-view.ts',
