@@ -63,7 +63,10 @@ export interface CutPieceReleaseSummary {
 export interface SaveCutPieceReleaseDecisionInput {
   recordId: string
   decision: CutPieceReleaseDecision
-  releaseQty: number
+  skuReleaseQuantities: Array<{
+    lineId: string
+    releaseQty: number
+  }>
   reason: string
   riskNote: string
   judgedBy: string
@@ -71,7 +74,7 @@ export interface SaveCutPieceReleaseDecisionInput {
 
 interface CutPieceReleaseOverride {
   decision: CutPieceReleaseDecision
-  releaseQty: number
+  skuReleaseQuantities: Record<string, number>
   reason: string
   riskNote: string
   judgedBy: string
@@ -204,9 +207,24 @@ function getTriggerContext(task: SewingDispatchWorkbenchTask, index: number): Pi
 function applyOverride(record: CutPieceReleaseRecord): CutPieceReleaseRecord {
   const override = releaseOverrides[record.recordId]
   if (!override) return record
-  const totalRemainingQty = record.skuLines.reduce((sum, line) => sum + line.remainingQty, 0)
-  const releaseQty = Math.min(totalRemainingQty, Math.max(0, roundQty(override.releaseQty)))
-  const ratio = totalRemainingQty > 0 ? releaseQty / totalRemainingQty : 0
+  const canRelease = override.decision === '可以做' || override.decision === '部分可以做'
+  const skuLines = record.skuLines.map((line) => {
+    const releaseQty = canRelease
+      ? Math.min(line.remainingQty, Math.max(0, roundQty(override.skuReleaseQuantities[line.lineId] ?? 0)))
+      : 0
+    return {
+      ...line,
+      releaseQty,
+      reason: override.decision === '待判断'
+        ? '等待裁床主管判断'
+        : override.decision === '暂时不能做'
+          ? '裁床判断暂不交给车缝'
+          : releaseQty > 0
+            ? '当前裁片实物可支持先做货'
+            : '当前 SKU 本次不放行',
+    }
+  })
+  const releaseQty = skuLines.reduce((sum, line) => sum + line.releaseQty, 0)
   return {
     ...record,
     decision: override.decision,
@@ -215,15 +233,7 @@ function applyOverride(record: CutPieceReleaseRecord): CutPieceReleaseRecord {
     riskNote: override.riskNote,
     judgedBy: override.judgedBy,
     judgedAt: override.judgedAt,
-    skuLines: record.skuLines.map((line) => ({
-      ...line,
-      releaseQty: clampReleaseQty(override.decision, line.remainingQty, ratio),
-      reason: override.decision === '待判断'
-        ? '等待裁床主管判断'
-        : override.decision === '暂时不能做'
-          ? '裁床判断暂不交给车缝'
-          : '当前裁片实物可支持先做货',
-    })),
+    skuLines,
   }
 }
 
@@ -286,22 +296,37 @@ export function saveCutPieceReleaseDecision(input: SaveCutPieceReleaseDecisionIn
   const record = getCutPieceReleaseRecord(input.recordId)
   if (!record) return { ok: false, message: '未找到裁片放行记录。' }
   const decision = input.decision
-  const releaseQty = roundQty(input.releaseQty)
+  const canRelease = decision === '可以做' || decision === '部分可以做'
   const reason = input.reason.trim()
   const riskNote = input.riskNote.trim()
   const judgedBy = input.judgedBy.trim() || '裁床主管'
+  const skuReleaseQuantities = Object.fromEntries(
+    input.skuReleaseQuantities.map((item) => [item.lineId, roundQty(item.releaseQty)])
+  )
+  const lineById = new Map(record.skuLines.map((line) => [line.lineId, line]))
+  const releaseQty = canRelease
+    ? Object.entries(skuReleaseQuantities).reduce((sum, [lineId, qty]) => {
+      const line = lineById.get(lineId)
+      if (!line) return sum
+      return sum + Math.min(line.remainingQty, Math.max(0, qty))
+    }, 0)
+    : 0
 
   if (!reason) return { ok: false, message: '请填写裁床判断原因。' }
-  if ((decision === '可以做' || decision === '部分可以做') && releaseQty <= 0) {
-    return { ok: false, message: '判断为可以做或部分可以做时，可做数量必须大于 0。' }
+  if (canRelease && releaseQty <= 0) {
+    return { ok: false, message: '判断为可以做或部分可以做时，请按 SKU 明细填写可做数量。' }
   }
-  if (decision === '暂时不能做' && releaseQty > 0) {
-    return { ok: false, message: '判断为暂时不能做时，可做数量必须为 0。' }
+  if (canRelease) {
+    const invalidLine = Object.entries(skuReleaseQuantities).find(([lineId, qty]) => {
+      const line = lineById.get(lineId)
+      return line ? qty > line.remainingQty : false
+    })
+    if (invalidLine) return { ok: false, message: 'SKU 可做数量不能超过该 SKU 待分配数量。' }
   }
 
   releaseOverrides[input.recordId] = {
     decision,
-    releaseQty: decision === '暂时不能做' || decision === '待判断' ? 0 : releaseQty,
+    skuReleaseQuantities: canRelease ? skuReleaseQuantities : {},
     reason,
     riskNote,
     judgedBy,

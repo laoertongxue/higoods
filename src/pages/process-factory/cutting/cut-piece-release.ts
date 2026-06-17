@@ -15,6 +15,7 @@ interface CutPieceReleasePageState {
   keyword: string
   decisionFilter: DecisionFilter
   activeRecordId: string | null
+  activeDecisionByRecord: Record<string, CutPieceReleaseDecision>
   feedbackMessage: string
   feedbackTone: 'success' | 'warning'
 }
@@ -23,6 +24,7 @@ const state: CutPieceReleasePageState = {
   keyword: '',
   decisionFilter: '全部',
   activeRecordId: null,
+  activeDecisionByRecord: {},
   feedbackMessage: '',
   feedbackTone: 'success',
 }
@@ -199,20 +201,72 @@ function renderSkuLineRow(line: CutPieceReleaseSkuLine): string {
       </td>
       <td class="px-3 py-3">${formatQty(line.cutCompletedQty)} 件</td>
       <td class="px-3 py-3 text-xs">
-        <div>完整齐套 ${formatQty(line.completeKitQty)} 件</div>
-        <div>辅料可做 ${formatQty(line.accessoryReadyQty)} 件</div>
-      </td>
-      <td class="px-3 py-3">
-        <div class="font-semibold tabular-nums">${formatQty(line.releaseQty)} 件</div>
-        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.reason)}</div>
+        <div>齐套 ${formatQty(line.completeKitQty)} 件</div>
+        <div class="mt-1 text-muted-foreground">用于判断当前 SKU 裁片成熟度</div>
       </td>
     </tr>
+  `
+}
+
+function shouldEditReleaseQty(decision: CutPieceReleaseDecision): boolean {
+  return decision === '可以做' || decision === '部分可以做'
+}
+
+function renderSkuReleaseQtyEditor(record: CutPieceReleaseRecord): string {
+  return `
+    <div class="space-y-2 md:col-span-2">
+      <div>
+        <div class="text-sm font-medium">可做数量</div>
+        <div class="mt-1 text-xs text-muted-foreground">按生产单 SKU 明细填写本次可以交给车缝做货的数量，合计后形成本次可做数量。</div>
+      </div>
+      <div class="overflow-x-auto rounded-md border">
+        <table class="w-full min-w-[760px] text-sm">
+          <thead>
+            <tr class="border-b bg-muted/30 text-xs text-muted-foreground">
+              <th class="px-3 py-2 text-left">SKU / 颜色 / 尺码</th>
+              <th class="px-3 py-2 text-left">需求 / 待分配</th>
+              <th class="px-3 py-2 text-left">已裁数量</th>
+              <th class="px-3 py-2 text-left">齐套数量</th>
+              <th class="px-3 py-2 text-left">本次可做数量</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${record.skuLines.map((line) => `
+              <tr class="border-b last:border-b-0">
+                <td class="px-3 py-3">
+                  <div class="font-medium">${escapeHtml(line.skuCode)}</div>
+                  <div class="text-xs text-muted-foreground">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeCode)}</div>
+                </td>
+                <td class="px-3 py-3 text-xs">
+                  <div>需求 ${formatQty(line.demandQty)} 件</div>
+                  <div>待分配 ${formatQty(line.remainingQty)} 件</div>
+                </td>
+                <td class="px-3 py-3">${formatQty(line.cutCompletedQty)} 件</td>
+                <td class="px-3 py-3">${formatQty(line.completeKitQty)} 件</td>
+                <td class="px-3 py-3">
+                  <input
+                    class="h-9 w-32 rounded-md border bg-background px-3 text-sm tabular-nums"
+                    type="number"
+                    min="0"
+                    max="${line.remainingQty}"
+                    value="${escapeHtml(String(line.releaseQty))}"
+                    data-cut-piece-release-sku-qty="${escapeHtml(line.lineId)}"
+                    data-skip-page-rerender="true"
+                  />
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
   `
 }
 
 function renderDetailDrawer(record: CutPieceReleaseRecord | null): string {
   if (!record) return ''
   const maxReleaseQty = record.skuLines.reduce((sum, line) => sum + line.remainingQty, 0)
+  const activeDecision = state.activeDecisionByRecord[record.recordId] || record.decision
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/40" data-cut-piece-release-action="close-overlay" aria-label="关闭"></button>
@@ -254,17 +308,16 @@ function renderDetailDrawer(record: CutPieceReleaseRecord | null): string {
           <section class="mt-4 rounded-lg border">
             <div class="border-b bg-muted/30 px-4 py-3">
               <div class="font-medium">SKU 辅助信息</div>
-              <div class="mt-1 text-xs text-muted-foreground">齐套和辅料库存只作为跟单判断分配节奏的参考，不替代裁床主管的裁片放行判断。</div>
+              <div class="mt-1 text-xs text-muted-foreground">齐套信息用于辅助判断当前 SKU 裁片成熟度，不替代裁床主管的裁片放行判断。</div>
             </div>
             <div class="overflow-x-auto">
-              <table class="w-full min-w-[820px] text-sm">
+              <table class="w-full min-w-[680px] text-sm">
                 <thead>
                   <tr class="border-b text-xs text-muted-foreground">
                     <th class="px-3 py-2 text-left">SKU / 颜色 / 尺码</th>
                     <th class="px-3 py-2 text-left">需求 / 待分配</th>
                     <th class="px-3 py-2 text-left">已裁数量</th>
-                    <th class="px-3 py-2 text-left">齐套 / 辅料参考</th>
-                    <th class="px-3 py-2 text-left">裁床判断可做</th>
+                    <th class="px-3 py-2 text-left">齐套数量</th>
                   </tr>
                 </thead>
                 <tbody>${record.skuLines.map(renderSkuLineRow).join('')}</tbody>
@@ -280,14 +333,17 @@ function renderDetailDrawer(record: CutPieceReleaseRecord | null): string {
             <div class="grid gap-3 p-4 md:grid-cols-2">
               <label class="space-y-1">
                 <span class="text-sm font-medium">裁床判断</span>
-                <select id="cut-piece-release-decision" class="h-10 w-full rounded-md border bg-background px-3 text-sm">
-                  ${decisionOptions.map((item) => `<option value="${escapeHtml(item)}" ${record.decision === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+                <select id="cut-piece-release-decision" class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cut-piece-release-field="activeDecision" data-record-id="${escapeHtml(record.recordId)}">
+                  ${decisionOptions.map((item) => `<option value="${escapeHtml(item)}" ${activeDecision === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
                 </select>
               </label>
-              <label class="space-y-1">
-                <span class="text-sm font-medium">可做数量</span>
-                <input id="cut-piece-release-qty" class="h-10 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" max="${maxReleaseQty}" value="${escapeHtml(String(record.releaseQty))}" />
-              </label>
+              <div class="space-y-1">
+                <span class="text-sm font-medium">数量填写</span>
+                <div class="flex min-h-10 items-center rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">
+                  ${shouldEditReleaseQty(activeDecision) ? `按下方 ${record.skuLines.length} 个 SKU 明细填写，最多待分配 ${formatQty(maxReleaseQty)} 件` : '当前判断不填写可做数量'}
+                </div>
+              </div>
+              ${shouldEditReleaseQty(activeDecision) ? renderSkuReleaseQtyEditor(record) : ''}
               <label class="space-y-1 md:col-span-2">
                 <span class="text-sm font-medium">判断原因</span>
                 <textarea id="cut-piece-release-reason" class="min-h-[92px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="说明为什么可以做、部分可以做或暂时不能做">${escapeHtml(record.reason)}</textarea>
@@ -367,7 +423,19 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
   }
   if (field === 'decisionFilter') {
     state.decisionFilter = node.value as DecisionFilter
+    return
   }
+  if (field === 'activeDecision') {
+    const recordId = node.dataset.recordId || state.activeRecordId
+    if (recordId) state.activeDecisionByRecord[recordId] = node.value as CutPieceReleaseDecision
+  }
+}
+
+function readSkuReleaseQuantities(): Array<{ lineId: string; releaseQty: number }> {
+  return Array.from(document.querySelectorAll<HTMLInputElement>('[data-cut-piece-release-sku-qty]')).map((node) => ({
+    lineId: node.dataset.cutPieceReleaseSkuQty || '',
+    releaseQty: Number(node.value),
+  })).filter((item) => item.lineId)
 }
 
 export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement): boolean {
@@ -396,6 +464,8 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement): boo
   if (action === 'open-detail') {
     state.activeRecordId = actionNode.dataset.recordId || null
     state.feedbackMessage = ''
+    const record = state.activeRecordId ? getCutPieceReleaseRecord(state.activeRecordId) : null
+    if (record) state.activeDecisionByRecord[record.recordId] = record.decision
     return true
   }
   if (action === 'close-overlay') {
@@ -407,7 +477,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement): boo
     const result = saveCutPieceReleaseDecision({
       recordId,
       decision: readInputValue('cut-piece-release-decision') as CutPieceReleaseDecision,
-      releaseQty: Number(readInputValue('cut-piece-release-qty')),
+      skuReleaseQuantities: readSkuReleaseQuantities(),
       reason: readInputValue('cut-piece-release-reason'),
       riskNote: readInputValue('cut-piece-release-risk'),
       judgedBy: readInputValue('cut-piece-release-judge-by'),
