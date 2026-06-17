@@ -59,6 +59,7 @@ import {
   renderDispatchAcceptanceSlaPage,
   renderDispatchTendersPage,
   renderProgressBoardPage,
+  renderProgressTaskDetailPage,
   renderProgressCuttingDetailPage,
   renderProgressCuttingExceptionCenterPage,
   renderProgressCuttingOverviewPage,
@@ -364,6 +365,10 @@ export const routes: RouteRegistry = {
     '/fcs/trace/unit-price': () => renderTraceUnitPricePage(),
   },
   dynamicRoutes: [
+    {
+      pattern: /^\/fcs\/progress\/board\/tasks\/([^/?]+)(?:\?.*)?$/,
+      render: (match) => renderProgressTaskDetailPage(decodeURIComponent(match[1])),
+    },
     {
       pattern: /^\/fcs\/craft\/cutting\/production-progress-detail\/([^/]+)$/,
       render: (match) => renderCraftCuttingProductionProgressDetailPage(match[1]),

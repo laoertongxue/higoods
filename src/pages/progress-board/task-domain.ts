@@ -8,9 +8,6 @@ import {
   BLOCK_REASON_LABEL,
   stageLabels,
   getTaskHandoverSummary,
-  getTaskPickupSummary,
-  getTaskHandoutSummary,
-  getTaskProgressFact,
   getTaskStageGroup,
   getOrderById,
   getFactoryById,
@@ -22,15 +19,16 @@ import {
   getTenderById,
   getTaskById,
   getTaskKpiStats,
+  TASK_LIST_PAGE_SIZE,
+  getCurrentSearchParams,
   BLOCK_REASON_OPTIONS,
   renderBadge,
   escapeAttr,
   escapeHtml,
-  type TaskHandoutSummary,
-  type TaskPickupSummary,
   type TaskSummaryTone,
   type TaskRiskFlag,
   type ProcessTask,
+  type TaskTabKey,
 } from './context.ts'
 import { resolveTaskOutputValueSnapshot } from '../../data/fcs/process-tasks.ts'
 import {
@@ -51,6 +49,47 @@ function formatOutputValue(value: number | undefined): string {
 function formatOutputValuePerUnit(value: number | undefined): string {
   if (!Number.isFinite(value) || Number(value) <= 0) return '--'
   return Number(value).toLocaleString()
+}
+
+function formatQtyUnit(unit: ProcessTask['qtyUnit']): string {
+  if (unit === 'PIECE') return '件'
+  if (unit === 'BUNDLE') return '打'
+  return '米'
+}
+
+function getTaskHandoverStatusLabel(status: ProcessTask['handoverStatus'] | undefined): string {
+  switch (status) {
+    case 'AUTO_CREATED':
+      return '已自动建单'
+    case 'OPEN':
+      return '待交出'
+    case 'PARTIAL_SUBMITTED':
+      return '部分已交出'
+    case 'WAIT_RECEIVER_WRITEBACK':
+      return '待接收方回写'
+    case 'PARTIAL_WRITTEN_BACK':
+      return '部分已回写'
+    case 'WRITTEN_BACK':
+      return '已交出完成'
+    case 'DIFF_WAIT_FACTORY_CONFIRM':
+      return '差异待工厂确认'
+    case 'HAS_OBJECTION':
+      return '存在交出异议'
+    case 'OBJECTION_PROCESSING':
+      return '异议处理中'
+    case 'CLOSED':
+      return '已关闭'
+    default:
+      return '未生成交出单'
+  }
+}
+
+function getTaskHandoverStatusTone(status: ProcessTask['handoverStatus'] | undefined): TaskSummaryTone {
+  if (status === 'WRITTEN_BACK' || status === 'CLOSED') return 'green'
+  if (status === 'HAS_OBJECTION' || status === 'OBJECTION_PROCESSING' || status === 'DIFF_WAIT_FACTORY_CONFIRM') return 'red'
+  if (status === 'NOT_CREATED' || !status) return 'slate'
+  if (status === 'WAIT_RECEIVER_WRITEBACK' || status === 'PARTIAL_WRITTEN_BACK') return 'amber'
+  return 'blue'
 }
 
 function renderTaskRiskBadges(risks: TaskRiskFlag[]): string {
@@ -77,9 +116,9 @@ function getPlatformResultViewByTaskId(taskId: string): PlatformProcessResultVie
   return platformResultViewByTaskId.get(taskId)
 }
 
-function getTaskPlatformSummary(task: ProcessTask) {
+function getTaskPlatformSummary(task: ProcessTask, includeLinkedResult = true) {
   const platformStatus = getPlatformStatusForRuntimeTask(task)
-  const resultView = getPlatformResultViewByTaskId(task.taskId)
+  const resultView = includeLinkedResult ? getPlatformResultViewByTaskId(task.taskId) : undefined
   const linkedResult = resultView
     ? [
         resultView.hasWaitHandoverRecord ? '待交出仓' : '',
@@ -87,7 +126,7 @@ function getTaskPlatformSummary(task: ProcessTask) {
         resultView.hasReviewRecord ? '审核记录' : '',
         resultView.hasDifferenceRecord ? '差异记录' : '',
       ].filter(Boolean).join(' / ') || '暂无仓交出结果'
-    : '暂无仓交出结果'
+    : includeLinkedResult ? '暂无仓交出结果' : '进入详情查看'
   const quantityText = resultView?.quantityDisplayFields
     .slice(0, 3)
     .map((field) => field.text)
@@ -120,22 +159,8 @@ function getSummaryToneClass(tone: TaskSummaryTone): string {
   }
 }
 
-function renderTaskChainStatusCell(summary: TaskPickupSummary | TaskHandoutSummary, action: string, taskId: string): string {
-  return `
-    <button
-      class="flex w-full flex-col items-start gap-1 rounded-md px-1 py-1 text-left hover:bg-muted/70"
-      data-progress-action="${escapeAttr(action)}"
-      data-task-id="${escapeAttr(taskId)}"
-      data-progress-stop="true"
-    >
-      <span>${renderBadge(summary.statusLabel, getSummaryToneClass(summary.tone))}</span>
-      <span class="text-xs text-muted-foreground">${escapeHtml(summary.hintText || '—')}</span>
-    </button>
-  `
-}
-
 function renderPlatformStatusCell(task: ProcessTask): string {
-  const summary = getTaskPlatformSummary(task)
+  const summary = getTaskPlatformSummary(task, false)
 
   return `
     <div class="space-y-1">
@@ -190,13 +215,13 @@ function renderDrawerSectionTable(title: string, headers: string[], rows: string
 
 function renderTaskDeliveryCardAction(recordId: string | undefined): string {
   if (!recordId) {
-    return '<button type="button" class="inline-flex cursor-not-allowed items-center rounded-md border px-2 py-1 text-xs opacity-50" disabled>打印任务交货卡</button>'
+    return '<button type="button" class="inline-flex cursor-not-allowed items-center rounded-md border px-3 py-1.5 text-sm opacity-50" disabled>打印任务交货卡</button>'
   }
 
   return `
     <button
       type="button"
-      class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted"
+      class="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
       data-nav="${escapeAttr(buildTaskDeliveryCardPrintLink(recordId))}"
       data-progress-stop="true"
     >
@@ -206,168 +231,94 @@ function renderTaskDeliveryCardAction(recordId: string | undefined): string {
 }
 
 function renderPickupTab(task: ProcessTask): string {
-  const pickupSummary = getTaskPickupSummary(task.taskId)
-  const fact = getTaskProgressFact(task.taskId)
-  const requestRows = pickupSummary.requestRows.map((row) => [
-    escapeHtml(row.materialRequestNo || '草稿待确认'),
-    escapeHtml(row.materialSummary),
-    escapeHtml(row.materialModeLabel),
-    escapeHtml(row.requestStatus),
-    escapeHtml(row.updatedAt),
-  ])
-  const draftOnlyRows =
-    requestRows.length === 0
-      ? pickupSummary.draftRows.map((row) => [
-          escapeHtml('草稿待确认'),
-          escapeHtml(
-            row.lines
-              .filter((line) => line.selected)
-              .slice(0, 2)
-              .map((line) => line.materialName)
-              .join(' / ') || '待确认物料',
-          ),
-          escapeHtml(row.materialModeLabel),
-          escapeHtml('待确认'),
-          escapeHtml(row.updatedAt),
-        ])
-      : []
-  const executionRows = pickupSummary.executionRows.map((row) => {
-    const plannedQty = row.lines.reduce((sum, line) => sum + line.plannedQty, 0)
-    const issuedQty = row.lines.reduce((sum, line) => sum + line.issuedQty, 0)
-    const diffQty = row.lines.reduce((sum, line) => sum + Math.max(0, line.plannedQty - line.issuedQty), 0)
-    return [
-      escapeHtml(row.docNo),
-      escapeHtml(row.targetType === 'EXTERNAL_FACTORY' ? '仓库发料' : '仓内流转'),
-      escapeHtml(row.status),
-      String(plannedQty),
-      String(issuedQty),
-      String(diffQty),
-    ]
-  })
-  const pickupRecordRows = pickupSummary.pickupHeads.flatMap((head) => {
-    const records = pickupSummary.pickupRecords.filter((record) => record.handoverId === head.handoverId)
-    if (records.length === 0) {
-      return [[
-        escapeHtml(head.handoverId),
-        escapeHtml(head.summaryStatus === 'WRITTEN_BACK' ? '已领料' : '待处理'),
-        String(head.qtyExpectedTotal),
-        String(head.qtyActualTotal || 0),
-        escapeHtml(head.lastRecordAt || '--'),
-        escapeHtml(head.objectionCount > 0 ? '存在差异' : '—'),
+  const hasMaterialRequest = Boolean(task.hasMaterialRequest || task.materialRequestNo)
+  const requestStatus = task.materialRequestStatus || (hasMaterialRequest ? '待配料' : '未生成')
+  const requestNo = task.materialRequestNo || (hasMaterialRequest ? '草稿待确认' : '暂无领料需求')
+  const materialModeLabel = task.materialModeLabel || '按任务配置'
+  const canStart = task.mockStartPrerequisiteMet === true || task.status === 'IN_PROGRESS' || task.status === 'DONE'
+  const readinessReason = canStart
+    ? '领料前置条件已满足，任务可继续开工或执行。'
+    : task.blockNoteZh || (hasMaterialRequest ? '仍需完成领料确认后再开工。' : '当前任务暂未生成领料需求。')
+  const requestRows = hasMaterialRequest
+    ? [[
+        escapeHtml(requestNo),
+        escapeHtml(`${task.processNameZh} · ${task.qty.toLocaleString()} ${formatQtyUnit(task.qtyUnit)}`),
+        escapeHtml(materialModeLabel),
+        escapeHtml(requestStatus),
+        escapeHtml(task.updatedAt),
       ]]
-    }
-    return records.map((record) => [
-      escapeHtml(head.handoverId),
-      escapeHtml(record.status),
-      String(record.qtyExpected),
-      String(record.qtyActual ?? record.factoryConfirmedQty ?? record.finalResolvedQty ?? 0),
-      escapeHtml(
-        record.finalResolvedAt ||
-          record.factoryConfirmedAt ||
-          record.receivedAt ||
-          record.warehouseHandedAt ||
-          record.submittedAt,
-      ),
-      escapeHtml(
-        record.objectionReason || record.objectionRemark || record.followUpRemark || record.resolvedRemark || '—',
-      ),
-    ])
-  })
+    : []
 
   return `
     <div class="space-y-4" data-progress-task-tab-panel="pickup">
-      <section class="grid grid-cols-2 gap-4 rounded-md border bg-muted/20 p-4 text-sm">
+      <section class="grid grid-cols-4 gap-4 rounded-md border bg-muted/20 p-4 text-sm">
         <div>
           <p class="text-xs text-muted-foreground">当前任务号</p>
           <p class="mt-1 font-mono">${escapeHtml(task.taskId)}</p>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground">领料主状态</p>
-          <div class="mt-1">${renderBadge(pickupSummary.statusLabel, getSummaryToneClass(pickupSummary.tone))}</div>
+          <p class="text-xs text-muted-foreground">领料状态</p>
+          <div class="mt-1">${renderBadge(canStart ? '可开工' : '待领料确认', canStart ? 'border-green-200 bg-green-100 text-green-700' : 'border-amber-200 bg-amber-100 text-amber-700')}</div>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground">是否可开工</p>
-          <p class="mt-1">${escapeHtml(pickupSummary.readinessLabel)}</p>
+          <p class="text-xs text-muted-foreground">领料需求</p>
+          <p class="mt-1 font-semibold">${hasMaterialRequest ? '1 张' : '0 张'}</p>
         </div>
         <div>
+          <p class="text-xs text-muted-foreground">领料方式</p>
+          <p class="mt-1 font-semibold">${escapeHtml(materialModeLabel)}</p>
+        </div>
+        <div class="col-span-4">
           <p class="text-xs text-muted-foreground">开工判定说明</p>
-          <p class="mt-1">${escapeHtml(pickupSummary.readinessReason)}</p>
+          <p class="mt-1">${escapeHtml(readinessReason)}</p>
         </div>
-        <div class="col-span-2">
-          <p class="text-xs text-muted-foreground">当前说明</p>
-          <p class="mt-1">${escapeHtml(pickupSummary.hintText)}</p>
-        </div>
-        ${
-          fact?.materialRequests.length
-            ? `<div class="col-span-2 text-xs text-muted-foreground">已关联 ${fact.materialRequests.length} 张领料需求，当前链路与任务开工校验保持一致。</div>`
-            : ''
-        }
       </section>
       ${renderDrawerSectionTable(
         '领料需求',
         ['领料需求单号', '物料 / 面料概况', '领料方式', '当前状态', '更新时间'],
-        requestRows.length > 0 ? requestRows : draftOnlyRows,
+        requestRows,
         '当前任务暂无领料需求或仍处于草稿阶段。',
         'data-progress-task-pickup-section=\"requests\"',
       )}
-      ${renderDrawerSectionTable(
-        '仓库发料执行',
-        ['单号', '类型', '当前状态', '计划物料对象', '已发物料对象', '差异物料对象'],
-        executionRows,
-        '当前任务暂无仓库发料执行记录。',
-        'data-progress-task-pickup-section=\"execution\"',
-      )}
-      ${renderDrawerSectionTable(
-        '领料记录',
-        ['领料单号', '当前状态', '应领物料对象', '已领物料对象', '最新领料时间', '差异 / 异议'],
-        pickupRecordRows,
-        '当前任务暂无领料记录。',
-        'data-progress-task-pickup-section=\"records\"',
-      )}
+      <section class="rounded-md border p-4 text-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 class="font-medium">领料记录明细</h4>
+            <p class="mt-1 text-xs text-muted-foreground">详细领料记录、仓库发料执行、差异和异议统一进入领料/配料进度页查看。</p>
+          </div>
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-material" data-po-id="${escapeAttr(task.productionOrderId)}">
+            <i data-lucide="package" class="mr-2 h-4 w-4"></i>查看领料/配料进度
+          </button>
+        </div>
+      </section>
     </div>
   `
 }
 
 function renderHandoverTab(task: ProcessTask): string {
-  const handoutSummary = getTaskHandoutSummary(task.taskId)
-  const handoutHeadRows = handoutSummary.handoutHeads.map((head) => [
-    escapeHtml(head.handoverId),
-    escapeHtml(
-      head.summaryStatus === 'HAS_OBJECTION'
-        ? '交出异议中'
-        : head.summaryStatus === 'WRITTEN_BACK'
-          ? '已交出完成'
-          : head.summaryStatus === 'PARTIAL_WRITTEN_BACK'
-            ? '待接收方回写'
-            : '已发起交出',
-    ),
-    String(head.qtyExpectedTotal),
-    String(head.qtyActualTotal || 0),
-    escapeHtml(head.lastRecordAt || head.completedByWarehouseAt || '--'),
-  ])
-  const handoutRecordRows = handoutSummary.handoutRecords.map((record) => [
-    escapeHtml(record.recordId),
-    escapeHtml(record.factorySubmittedAt),
-    escapeHtml(record.status),
-    escapeHtml(
-      typeof record.warehouseWrittenQty === 'number'
-        ? String(record.warehouseWrittenQty)
-        : typeof record.plannedQty === 'number'
-          ? String(record.plannedQty)
-          : '--',
-    ),
-    escapeHtml(record.warehouseWrittenAt || '--'),
-    escapeHtml(record.objectionReason || record.objectionRemark || record.followUpRemark || record.resolvedRemark || '—'),
+  const handoverStatusLabel = getTaskHandoverStatusLabel(task.handoverStatus)
+  const handoverTone = getTaskHandoverStatusTone(task.handoverStatus)
+  const hasHandoverOrder = Boolean(task.handoverOrderId && task.handoverStatus !== 'NOT_CREATED')
+  const nextActionLabel =
+    task.handoverStatus === 'WRITTEN_BACK' || task.handoverStatus === 'CLOSED'
+      ? '交出已完成，无需继续处理'
+      : task.handoverStatus === 'HAS_OBJECTION' || task.handoverStatus === 'OBJECTION_PROCESSING'
+        ? '优先处理差异 / 异议'
+        : hasHandoverOrder
+          ? '跟进接收方回写'
+          : '任务完成后生成交出单'
+  const handoutHeadRows = hasHandoverOrder
+    ? [[
+        escapeHtml(task.handoverOrderId || '--'),
+        escapeHtml(handoverStatusLabel),
+        `${task.qty.toLocaleString()} ${formatQtyUnit(task.qtyUnit)}`,
+        escapeHtml(task.receiverName || '按任务流转配置'),
+        escapeHtml(task.updatedAt),
+      ]]
+    : []
+  const handoutRecordRows = ([] as Array<{ recordId: string }>).map((record) => [
     renderTaskDeliveryCardAction(record.recordId),
   ])
-  const disputeRows = handoutSummary.handoutRecords
-    .filter((record) => ['OBJECTION_REPORTED', 'OBJECTION_PROCESSING', 'OBJECTION_RESOLVED'].includes(record.status))
-    .map((record) => [
-      escapeHtml(record.objectionReason || '数量差异'),
-      escapeHtml(record.objectionStatus || '处理中'),
-      escapeHtml(record.followUpRemark || record.resolvedRemark || record.objectionRemark || '待处理'),
-      escapeHtml(record.warehouseWrittenAt || record.factorySubmittedAt || '--'),
-    ])
 
   return `
     <div class="space-y-4" data-progress-task-tab-panel="handover">
@@ -378,46 +329,42 @@ function renderHandoverTab(task: ProcessTask): string {
         </div>
         <div>
           <p class="text-xs text-muted-foreground">交出主状态</p>
-          <div class="mt-1">${renderBadge(handoutSummary.statusLabel, getSummaryToneClass(handoutSummary.tone))}</div>
+          <div class="mt-1">${renderBadge(handoverStatusLabel, getSummaryToneClass(handoverTone))}</div>
         </div>
         <div>
           <p class="text-xs text-muted-foreground">下一步提示</p>
-          <p class="mt-1">${escapeHtml(handoutSummary.nextActionLabel)}</p>
+          <p class="mt-1">${escapeHtml(nextActionLabel)}</p>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground">最新时间</p>
-          <p class="mt-1">${escapeHtml(handoutSummary.latestOccurredAt || '--')}</p>
+          <p class="text-xs text-muted-foreground">接收方</p>
+          <p class="mt-1">${escapeHtml(task.receiverName || '按任务流转配置')}</p>
         </div>
         <div class="col-span-2">
           <p class="text-xs text-muted-foreground">当前说明</p>
-          <p class="mt-1">${escapeHtml(handoutSummary.hintText)}</p>
+          <p class="mt-1">${escapeHtml(hasHandoverOrder ? '交出摘要已在任务上同步，完整交出记录、回写和差异处理请进入交接链路页查看。' : '当前任务尚未生成交出单，完成执行后再跟进交出。')}</p>
         </div>
       </section>
       ${renderDrawerSectionTable(
         '交出单',
-        ['交出单号', '当前状态', '应交对象', '已交对象', '最新操作时间'],
+        ['交出单号', '当前状态', '应交数量', '接收方', '更新时间'],
         handoutHeadRows,
         '当前任务暂无交出单。',
         'data-progress-task-handover-section=\"heads\"',
       )}
-      ${renderDrawerSectionTable(
-        '交出记录',
-        ['记录号', '提交时间', '状态', '回写对象', '接收方回写时间', '是否有异议', '操作'],
-        handoutRecordRows,
-        '当前任务暂无交出记录。',
-        'data-progress-task-handover-section=\"records\"',
-      )}
-      ${
-        disputeRows.length > 0
-          ? renderDrawerSectionTable(
-              '差异 / 异议',
-              ['异议原因', '异议状态', '后续说明', '处理时间'],
-              disputeRows,
-              '当前任务暂无差异或异议。',
-              'data-progress-task-handover-section=\"disputes\"',
-            )
-          : renderEmptySubsection('差异 / 异议', '当前任务暂无差异或异议。')
-      }
+      <section class="rounded-md border p-4 text-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 class="font-medium">交出记录明细</h4>
+            <p class="mt-1 text-xs text-muted-foreground">完整交出记录、接收方回写、差异和异议统一进入交接链路页查看。</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            ${handoutRecordRows[0] || renderTaskDeliveryCardAction(undefined)}
+            <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-handover" data-task-id="${escapeAttr(task.taskId)}" data-po-id="${escapeAttr(task.productionOrderId)}">
+              查看交接链路
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   `
 }
@@ -428,14 +375,14 @@ function renderTaskActionMenu(task: ProcessTask): string {
 
   return `
     <div class="relative inline-flex" data-progress-task-menu="true">
-      <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-progress-action="toggle-task-menu" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true">
-        <i data-lucide="more-horizontal" class="h-4 w-4"></i>
+      <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-progress-action="toggle-task-menu" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true" data-fast-page-render="true">
+        <span class="text-base leading-none">...</span>
       </button>
       ${
         isOpen
           ? `
             <div class="absolute right-0 top-9 z-30 w-48 rounded-md border bg-popover p-1 shadow-lg">
-              <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="task-action-update-progress" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true">
+              <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="task-action-update-progress" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true" data-fast-page-render="true">
                 <i data-lucide="search" class="mr-2 h-4 w-4"></i>更新进度
               </button>
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="task-action-view-exception" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true">
@@ -466,17 +413,16 @@ function renderTaskActionMenu(task: ProcessTask): string {
 }
 
 function renderTaskListView(filteredTasks: ProcessTask[]): string {
-  const allSelected = filteredTasks.length > 0 && filteredTasks.every((task) => state.selectedTaskIds.includes(task.taskId))
+  const visibleLimit = Math.max(TASK_LIST_PAGE_SIZE, state.visibleTaskLimit)
+  const visibleTasks = filteredTasks.slice(0, visibleLimit)
+  const hasMore = visibleTasks.length < filteredTasks.length
 
   return `
     <section class="rounded-lg border bg-card" data-progress-task-list="true">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1180px] text-sm">
+        <table class="w-full min-w-[1120px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-left">
-              <th class="w-10 px-3 py-2 font-medium">
-                <input type="checkbox" class="h-4 w-4 rounded border" data-progress-action="select-all" ${allSelected ? 'checked' : ''} />
-              </th>
               <th class="px-3 py-2 font-medium">任务 / 生产单</th>
               <th class="px-3 py-2 font-medium">工序</th>
               <th class="px-3 py-2 font-medium">平台状态</th>
@@ -492,41 +438,27 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
               filteredTasks.length === 0
                 ? `
                   <tr>
-                    <td colspan="9" class="px-3 py-10 text-center text-muted-foreground">暂无数据</td>
+                    <td colspan="8" class="px-3 py-10 text-center text-muted-foreground">暂无数据</td>
                   </tr>
                 `
-                : filteredTasks
+                : visibleTasks
                     .map((task) => {
                       const order = getOrderById(task.productionOrderId)
                       const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
                       const risks = getTaskRisks(task)
-                      const pickupSummary = getTaskPickupSummary(task.taskId)
-                      const handoutSummary = getTaskHandoutSummary(task.taskId)
-                      const platformSummary = getTaskPlatformSummary(task)
-                      const qtyUnit = task.qtyUnit === 'PIECE' ? '件' : task.qtyUnit
+                      const platformSummary = getTaskPlatformSummary(task, false)
+                      const qtyUnit = formatQtyUnit(task.qtyUnit)
 
                       return `
-                        <tr class="cursor-pointer border-b hover:bg-muted/50" data-progress-action="open-task-detail" data-task-id="${escapeAttr(task.taskId)}">
-                          <td class="px-3 py-2" data-progress-stop="true">
-                            <input
-                              type="checkbox"
-                              class="h-4 w-4 rounded border"
-                              data-progress-action="toggle-task-select"
-                              data-task-id="${escapeAttr(task.taskId)}"
-                              ${state.selectedTaskIds.includes(task.taskId) ? 'checked' : ''}
-                            />
-                          </td>
+                        <tr class="cursor-pointer border-b hover:bg-muted/50" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}">
                           <td class="px-3 py-2">
                             <div class="space-y-1 text-xs">
                               <div class="flex items-center gap-1">
                                 <span class="font-mono font-medium">${escapeHtml(task.taskId)}</span>
-                                <button class="inline-flex h-5 w-5 items-center justify-center rounded hover:bg-muted" data-progress-action="copy-task-id" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true">
-                                  <i data-lucide="copy" class="h-3 w-3"></i>
-                                </button>
+                                <button class="inline-flex h-5 items-center rounded px-1 text-[11px] text-primary hover:bg-muted" data-progress-action="copy-task-id" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true" data-skip-page-rerender="true">复制</button>
                               </div>
                               <button class="inline-flex items-center text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}" data-progress-stop="true">
                                 ${escapeHtml(task.productionOrderId)}
-                                <i data-lucide="external-link" class="ml-1 h-3 w-3"></i>
                               </button>
                               <div class="max-w-[180px] truncate text-muted-foreground">${escapeHtml(getOrderSpuCode(order, '-'))} / ${escapeHtml(getOrderSpuName(order) || '-')}</div>
                             </div>
@@ -567,8 +499,14 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                           </td>
                           <td class="px-3 py-2">
                             <div class="max-w-[220px] space-y-1 text-xs">
-                              <div data-progress-task-cell="pickup">${renderTaskChainStatusCell(pickupSummary, 'task-open-pickup', task.taskId)}</div>
-                              <div data-progress-task-cell="handover">${renderTaskChainStatusCell(handoutSummary, 'task-open-handover', task.taskId)}</div>
+                              <button class="inline-flex w-full items-center justify-between rounded border px-2 py-1 text-left hover:bg-muted" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=pickup" data-progress-stop="true">
+                                <span>领料情况</span>
+                                <span class="text-muted-foreground">&gt;</span>
+                              </button>
+                              <button class="inline-flex w-full items-center justify-between rounded border px-2 py-1 text-left hover:bg-muted" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=handover" data-progress-stop="true">
+                                <span>交出情况</span>
+                                <span class="text-muted-foreground">&gt;</span>
+                              </button>
                               <div class="text-muted-foreground">同步：${escapeHtml(platformSummary.linkedResult)}</div>
                               ${platformSummary.quantityText ? `<div class="truncate text-muted-foreground">${escapeHtml(platformSummary.quantityText)}</div>` : ''}
                             </div>
@@ -582,6 +520,20 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
           </tbody>
         </table>
       </div>
+      ${
+        filteredTasks.length > 0
+          ? `
+            <footer class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm">
+              <span class="text-muted-foreground">已显示 ${visibleTasks.length} / 共 ${filteredTasks.length} 条</span>
+              ${
+                hasMore
+                  ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="show-more-tasks" data-fast-page-render="true">继续加载 ${Math.min(TASK_LIST_PAGE_SIZE, filteredTasks.length - visibleTasks.length)} 条</button>`
+                  : '<span class="text-xs text-muted-foreground">已显示全部任务</span>'
+              }
+            </footer>
+          `
+          : ''
+      }
     </section>
   `
 }
@@ -592,61 +544,62 @@ function renderTaskDimension(filteredTasks: ProcessTask[]): string {
   return `
     <section class="space-y-4">
       <div class="grid grid-cols-6 gap-4">
-        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="notStarted">
+        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="notStarted" data-fast-page-render="true">
           <div class="flex items-center justify-between">
             <span class="text-sm text-muted-foreground">待开始</span>
-            <i data-lucide="clock" class="h-4 w-4 text-slate-500"></i>
+            <span class="h-2 w-2 rounded-full bg-slate-400"></span>
           </div>
           <div class="mt-1 text-2xl font-bold">${kpi.notStarted}</div>
         </button>
-        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="inProgress">
+        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="inProgress" data-fast-page-render="true">
           <div class="flex items-center justify-between">
             <span class="text-sm text-muted-foreground">进行中</span>
-            <i data-lucide="play-circle" class="h-4 w-4 text-blue-500"></i>
+            <span class="h-2 w-2 rounded-full bg-blue-500"></span>
           </div>
           <div class="mt-1 text-2xl font-bold text-blue-600">${kpi.inProgress}</div>
         </button>
-        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="blocked">
+        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="blocked" data-fast-page-render="true">
           <div class="flex items-center justify-between">
             <span class="text-sm text-muted-foreground">生产暂停</span>
-            <i data-lucide="pause" class="h-4 w-4 text-red-500"></i>
+            <span class="h-2 w-2 rounded-full bg-red-500"></span>
           </div>
           <div class="mt-1 text-2xl font-bold text-red-600">${kpi.blocked}</div>
         </button>
-        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="done">
+        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="done" data-fast-page-render="true">
           <div class="flex items-center justify-between">
             <span class="text-sm text-muted-foreground">已完成</span>
-            <i data-lucide="check-circle-2" class="h-4 w-4 text-green-500"></i>
+            <span class="h-2 w-2 rounded-full bg-green-500"></span>
           </div>
           <div class="mt-1 text-2xl font-bold text-green-600">${kpi.done}</div>
         </button>
-        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="unassigned">
+        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="unassigned" data-fast-page-render="true">
           <div class="flex items-center justify-between">
             <span class="text-sm text-muted-foreground">待分配</span>
-            <i data-lucide="alert-circle" class="h-4 w-4 text-orange-500"></i>
+            <span class="h-2 w-2 rounded-full bg-orange-500"></span>
           </div>
           <div class="mt-1 text-2xl font-bold text-orange-600">${kpi.unassigned}</div>
         </button>
-        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="tenderOverdue">
+        <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="tenderOverdue" data-fast-page-render="true">
           <div class="flex items-center justify-between">
             <span class="text-sm text-muted-foreground">竞价逾期</span>
-            <i data-lucide="alert-triangle" class="h-4 w-4 text-red-500"></i>
+            <span class="h-2 w-2 rounded-full bg-red-500"></span>
           </div>
           <div class="mt-1 text-2xl font-bold text-red-600">${kpi.tenderOverdue}</div>
         </button>
       </div>
 
       <section class="rounded-lg border bg-card p-4">
-        <div class="grid grid-cols-8 gap-3">
+        <div class="grid grid-cols-9 gap-3">
           <div class="col-span-2">
             <input
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
               placeholder="任务ID / 生产单号 / SPU / 工厂"
               value="${escapeAttr(state.keyword)}"
               data-progress-field="keyword"
+              data-skip-page-rerender="true"
             />
           </div>
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="statusFilter">
+          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="statusFilter" data-fast-page-render="true">
             <option value="ALL" ${state.statusFilter === 'ALL' ? 'selected' : ''}>全部状态</option>
             <option value="NOT_STARTED" ${state.statusFilter === 'NOT_STARTED' ? 'selected' : ''}>待开始</option>
             <option value="IN_PROGRESS" ${state.statusFilter === 'IN_PROGRESS' ? 'selected' : ''}>进行中</option>
@@ -654,7 +607,7 @@ function renderTaskDimension(filteredTasks: ProcessTask[]): string {
             <option value="DONE" ${state.statusFilter === 'DONE' ? 'selected' : ''}>已完成</option>
             <option value="CANCELLED" ${state.statusFilter === 'CANCELLED' ? 'selected' : ''}>已取消</option>
           </select>
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="assignmentStatusFilter">
+          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="assignmentStatusFilter" data-fast-page-render="true">
             <option value="ALL" ${state.assignmentStatusFilter === 'ALL' ? 'selected' : ''}>全部分配状态</option>
             <option value="UNASSIGNED" ${state.assignmentStatusFilter === 'UNASSIGNED' ? 'selected' : ''}>待分配</option>
             <option value="ASSIGNING" ${state.assignmentStatusFilter === 'ASSIGNING' ? 'selected' : ''}>分配中</option>
@@ -662,25 +615,26 @@ function renderTaskDimension(filteredTasks: ProcessTask[]): string {
             <option value="BIDDING" ${state.assignmentStatusFilter === 'BIDDING' ? 'selected' : ''}>竞价中</option>
             <option value="AWARDED" ${state.assignmentStatusFilter === 'AWARDED' ? 'selected' : ''}>已中标</option>
           </select>
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="assignmentModeFilter">
+          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="assignmentModeFilter" data-fast-page-render="true">
             <option value="ALL" ${state.assignmentModeFilter === 'ALL' ? 'selected' : ''}>全部分配方式</option>
             <option value="DIRECT" ${state.assignmentModeFilter === 'DIRECT' ? 'selected' : ''}>派单</option>
             <option value="BIDDING" ${state.assignmentModeFilter === 'BIDDING' ? 'selected' : ''}>竞价</option>
           </select>
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="stageFilter">
+          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="stageFilter" data-fast-page-render="true">
             <option value="ALL" ${state.stageFilter === 'ALL' ? 'selected' : ''}>全部阶段</option>
             ${Object.entries(PROCESS_STAGE_GROUP_LABEL)
               .map(([key, label]) => `<option value="${key}" ${state.stageFilter === key ? 'selected' : ''}>${escapeHtml(label)}</option>`)
               .join('')}
           </select>
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="riskFilter">
+          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="riskFilter" data-fast-page-render="true">
             <option value="ALL" ${state.riskFilter === 'ALL' ? 'selected' : ''}>全部风险</option>
             <option value="blockedOnly" ${state.riskFilter === 'blockedOnly' ? 'selected' : ''}>仅生产暂停</option>
             <option value="tenderOverdueOnly" ${state.riskFilter === 'tenderOverdueOnly' ? 'selected' : ''}>仅竞价逾期</option>
             <option value="rejectedOnly" ${state.riskFilter === 'rejectedOnly' ? 'selected' : ''}>仅派单拒绝</option>
             <option value="taskOverdueOnly" ${state.riskFilter === 'taskOverdueOnly' ? 'selected' : ''}>仅任务逾期</option>
           </select>
-          <button class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="reset-task-filters">重置</button>
+          <button class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="apply-task-filters" data-fast-page-render="true">查询</button>
+          <button class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="reset-task-filters" data-fast-page-render="true">重置</button>
         </div>
       </section>
 
@@ -689,11 +643,39 @@ function renderTaskDimension(filteredTasks: ProcessTask[]): string {
   `
 }
 
-function renderTaskDrawer(): string {
-  if (!state.detailTaskId) return ''
+function resolveDetailTab(task: ProcessTask): TaskTabKey {
+  const requestedTab = getCurrentSearchParams().get('tab') as TaskTabKey | null
+  const availableTabs: TaskTabKey[] = ['basic', 'assignment', 'progress', 'pickup', 'handover', 'block', 'logs']
+  if (requestedTab && availableTabs.includes(requestedTab)) {
+    state.taskDetailTab = requestedTab
+  }
 
-  const task = getTaskById(state.detailTaskId)
-  if (!task) return ''
+  return task.status === 'BLOCKED'
+    ? state.taskDetailTab
+    : state.taskDetailTab === 'block'
+      ? 'basic'
+      : state.taskDetailTab
+}
+
+function renderProgressTaskDetailPage(taskIdParam = ''): string {
+  const taskId = decodeURIComponent(taskIdParam)
+  const task = getTaskById(taskId)
+  if (!task) {
+    return `
+      <div class="space-y-4" data-progress-task-detail-page="true">
+        <header class="flex items-center justify-between gap-3">
+          <div>
+            <h1 class="text-xl font-semibold">任务详情</h1>
+            <p class="text-sm text-muted-foreground">未找到任务 ${escapeHtml(taskId || '-')}</p>
+          </div>
+          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="/fcs/progress/board">
+            <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>返回列表
+          </button>
+        </header>
+        <section class="rounded-lg border bg-card p-10 text-center text-muted-foreground">当前任务不存在，可能已被筛选或示例数据已调整。</section>
+      </div>
+    `
+  }
 
   const order = getOrderById(task.productionOrderId)
   const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
@@ -703,13 +685,32 @@ function renderTaskDrawer(): string {
   const taskHandoverSummary = getTaskHandoverSummary(task.taskId)
   const outputValue = resolveTaskOutputValueSnapshot(task)
   const platformStatus = getPlatformStatusForRuntimeTask(task)
-  const activeTab = task.status === 'BLOCKED' ? state.taskDetailTab : state.taskDetailTab === 'block' ? 'basic' : state.taskDetailTab
+  const activeTab = resolveDetailTab(task)
 
   return `
-    <div class="fixed inset-0 z-50">
-      <button class="absolute inset-0 bg-black/45" data-progress-action="close-task-drawer" aria-label="关闭"></button>
-      <section class="absolute inset-y-0 right-0 w-full max-w-[600px] overflow-y-auto border-l bg-background shadow-2xl" data-progress-task-drawer="true">
-        <div class="sticky top-0 z-10 border-b bg-background/95 px-6 py-4 backdrop-blur">
+    <div class="space-y-4" data-progress-task-detail-page="true">
+      <header class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <button class="mb-2 inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="/fcs/progress/board">
+            <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>返回任务列表
+          </button>
+          <h1 class="flex items-center gap-2 text-xl font-semibold">
+            任务详情
+            ${renderBadge(platformStatus.platformStatusLabel, PLATFORM_PROCESS_STATUS_CLASS[platformStatus.platformStatusLabel])}
+          </h1>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.taskId)} · ${escapeHtml(getTaskDisplayName(task))}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}">
+            <i data-lucide="layers" class="mr-2 h-4 w-4"></i>生产单生命周期
+          </button>
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeAttr(buildTaskRouteCardPrintLink('RUNTIME_TASK', task.taskId))}">
+            <i data-lucide="printer" class="mr-2 h-4 w-4"></i>打印任务流转卡
+          </button>
+        </div>
+      </header>
+      <section class="rounded-lg border bg-card" data-progress-task-detail="true">
+        <div class="border-b bg-background/95 px-6 py-4">
           <div class="flex items-center justify-between">
             <div>
               <h3 class="flex items-center gap-2 text-lg font-semibold">
@@ -718,22 +719,22 @@ function renderTaskDrawer(): string {
               </h3>
               <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskId)} · ${escapeHtml(getTaskDisplayName(task))}</p>
             </div>
-            <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-progress-action="close-task-drawer" aria-label="关闭">
-              <i data-lucide="x" class="h-4 w-4"></i>
+            <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="/fcs/progress/board">
+              返回列表
             </button>
           </div>
           <div class="mt-4 flex flex-wrap gap-1 rounded-md border p-1 text-sm" data-progress-task-tabs="true">
-            <button class="rounded px-2 py-1 ${activeTab === 'basic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="basic">基本信息</button>
-            <button class="rounded px-2 py-1 ${activeTab === 'assignment' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="assignment">分配信息</button>
-            <button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress">进度操作</button>
-            <button class="rounded px-2 py-1 ${activeTab === 'pickup' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="pickup">领料情况</button>
-            <button class="rounded px-2 py-1 ${activeTab === 'handover' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="handover">交出情况</button>
+            <button class="rounded px-2 py-1 ${activeTab === 'basic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="basic" data-fast-page-render="true">基本信息</button>
+            <button class="rounded px-2 py-1 ${activeTab === 'assignment' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="assignment" data-fast-page-render="true">分配信息</button>
+            <button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress" data-fast-page-render="true">进度操作</button>
+            <button class="rounded px-2 py-1 ${activeTab === 'pickup' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="pickup" data-fast-page-render="true">领料情况</button>
+            <button class="rounded px-2 py-1 ${activeTab === 'handover' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="handover" data-fast-page-render="true">交出情况</button>
             ${
               task.status === 'BLOCKED'
-                ? `<button class="rounded px-2 py-1 ${activeTab === 'block' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="block">生产暂停信息</button>`
+                ? `<button class="rounded px-2 py-1 ${activeTab === 'block' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="block" data-fast-page-render="true">生产暂停信息</button>`
                 : ''
             }
-            <button class="rounded px-2 py-1 ${activeTab === 'logs' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="logs">审计日志</button>
+            <button class="rounded px-2 py-1 ${activeTab === 'logs' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="logs" data-fast-page-render="true">审计日志</button>
           </div>
         </div>
 
@@ -963,25 +964,25 @@ function renderTaskDrawer(): string {
                 <div class="flex flex-wrap gap-2 border-t pt-3">
                   ${
                     task.status === 'NOT_STARTED'
-                      ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-status-start" data-task-id="${escapeAttr(task.taskId)}"><i data-lucide="play-circle" class="mr-1.5 h-4 w-4"></i>标记开始</button>`
+                      ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-status-start" data-task-id="${escapeAttr(task.taskId)}" data-fast-page-render="true"><i data-lucide="play-circle" class="mr-1.5 h-4 w-4"></i>标记开始</button>`
                       : ''
                   }
                   ${
                     task.status === 'IN_PROGRESS'
-                      ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-status-finish" data-task-id="${escapeAttr(task.taskId)}"><i data-lucide="check-circle-2" class="mr-1.5 h-4 w-4"></i>标记完工</button>`
+                      ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-status-finish" data-task-id="${escapeAttr(task.taskId)}" data-fast-page-render="true"><i data-lucide="check-circle-2" class="mr-1.5 h-4 w-4"></i>标记完工</button>`
                       : ''
                   }
                   ${
                     task.status === 'NOT_STARTED' || task.status === 'IN_PROGRESS'
-                      ? `<button class="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-sm text-red-700 hover:bg-red-100" data-progress-action="task-status-block" data-task-id="${escapeAttr(task.taskId)}"><i data-lucide="pause" class="mr-1.5 h-4 w-4"></i>标记生产暂停</button>`
+                      ? `<button class="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-sm text-red-700 hover:bg-red-100" data-progress-action="task-status-block" data-task-id="${escapeAttr(task.taskId)}" data-fast-page-render="true"><i data-lucide="pause" class="mr-1.5 h-4 w-4"></i>标记生产暂停</button>`
                       : ''
                   }
                   ${
                     task.status === 'BLOCKED'
-                      ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-status-unblock" data-task-id="${escapeAttr(task.taskId)}"><i data-lucide="play-circle" class="mr-1.5 h-4 w-4"></i>恢复执行</button>`
+                      ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-status-unblock" data-task-id="${escapeAttr(task.taskId)}" data-fast-page-render="true"><i data-lucide="play-circle" class="mr-1.5 h-4 w-4"></i>恢复执行</button>`
                       : ''
                   }
-                  <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-status-cancel" data-task-id="${escapeAttr(task.taskId)}"><i data-lucide="x-circle" class="mr-1.5 h-4 w-4"></i>取消任务</button>
+                  <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-status-cancel" data-task-id="${escapeAttr(task.taskId)}" data-skip-page-rerender="true"><i data-lucide="x-circle" class="mr-1.5 h-4 w-4"></i>取消任务</button>
                 </div>
 
                 ${
@@ -989,7 +990,7 @@ function renderTaskDrawer(): string {
                     ? `
                       <div class="border-t pt-3">
                         <p class="text-xs text-muted-foreground">催办与通知</p>
-                        <button class="mt-2 inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-send-urge" data-task-id="${escapeAttr(task.taskId)}">
+                        <button class="mt-2 inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-send-urge" data-task-id="${escapeAttr(task.taskId)}" data-skip-page-rerender="true">
                           <i data-lucide="bell" class="mr-1.5 h-4 w-4"></i>催办工厂
                         </button>
                       </div>
@@ -1080,6 +1081,7 @@ function renderTaskDrawer(): string {
           }
         </div>
       </section>
+      ${renderBlockDialog()}
     </div>
   `
 }
@@ -1103,50 +1105,23 @@ function renderBlockDialog(): string {
         <div class="mt-4 space-y-4">
           <div>
             <label class="text-sm">当前无法继续的原因 *</label>
-            <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-progress-field="blockReason">
+            <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-progress-field="blockReason" data-skip-page-rerender="true">
               ${BLOCK_REASON_OPTIONS.map((item) => `<option value="${item.value}" ${state.blockReason === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
             </select>
           </div>
           <div>
             <label class="text-sm">备注</label>
-            <textarea class="mt-1 min-h-[88px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="请输入备注..." data-progress-field="blockRemark">${escapeHtml(state.blockRemark)}</textarea>
+            <textarea class="mt-1 min-h-[88px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="请输入备注..." data-progress-field="blockRemark" data-skip-page-rerender="true">${escapeHtml(state.blockRemark)}</textarea>
           </div>
         </div>
 
         <footer class="mt-6 flex justify-end gap-2">
-          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-progress-action="close-block-dialog">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-red-200 bg-red-50 px-4 text-sm text-red-700 hover:bg-red-100" data-progress-action="confirm-block">确认</button>
+            <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-progress-action="close-block-dialog" data-fast-page-render="true">取消</button>
+            <button class="inline-flex h-9 items-center rounded-md border border-red-200 bg-red-50 px-4 text-sm text-red-700 hover:bg-red-100" data-progress-action="confirm-block" data-fast-page-render="true">确认</button>
         </footer>
       </section>
     </div>
   `
 }
 
-function renderBatchConfirmDialog(): string {
-  if (!state.confirmDialogType) return ''
-
-  const title = state.confirmDialogType === 'start' ? '批量标记开始' : '批量标记完工'
-  const desc =
-    state.confirmDialogType === 'start'
-      ? '确认将选中的任务批量标记为进行中？'
-      : '确认将选中的任务批量标记为已完成？'
-
-  return `
-    <div class="fixed inset-0 z-[60]" data-dialog-backdrop="true">
-      <button class="absolute inset-0 bg-black/45" data-progress-action="close-batch-dialog" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
-        <header class="space-y-1">
-          <h3 class="text-lg font-semibold">${title}</h3>
-          <p class="text-sm text-muted-foreground">${desc}</p>
-        </header>
-        <p class="mt-4 text-sm">将更新 <strong>${state.confirmTaskIds.length}</strong> 个任务</p>
-        <footer class="mt-6 flex justify-end gap-2">
-          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-progress-action="close-batch-dialog">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border bg-primary px-4 text-sm text-primary-foreground hover:opacity-90" data-progress-action="confirm-batch">确认</button>
-        </footer>
-      </section>
-    </div>
-  `
-}
-
-export { renderTaskDimension, renderTaskDrawer, renderBlockDialog, renderBatchConfirmDialog }
+export { renderTaskDimension, renderProgressTaskDetailPage, renderBlockDialog }

@@ -154,21 +154,18 @@ interface ProgressBoardState {
   stageFilter: string
   riskFilter: string
   factoryFilter: string
+  visibleTaskLimit: number
 
-  selectedTaskIds: string[]
-
-  detailTaskId: string | null
   taskDetailTab: TaskTabKey
 
   blockDialogTaskId: string | null
   blockReason: BlockReason
   blockRemark: string
 
-  confirmDialogType: 'start' | 'finish' | null
-  confirmTaskIds: string[]
-
   taskActionMenuId: string | null
 }
+
+const TASK_LIST_PAGE_SIZE = 8
 
 const state: ProgressBoardState = {
   initializedByQuery: false,
@@ -182,18 +179,13 @@ const state: ProgressBoardState = {
   stageFilter: 'ALL',
   riskFilter: 'ALL',
   factoryFilter: 'ALL',
+  visibleTaskLimit: TASK_LIST_PAGE_SIZE,
 
-  selectedTaskIds: [],
-
-  detailTaskId: null,
   taskDetailTab: 'basic',
 
   blockDialogTaskId: null,
   blockReason: 'OTHER',
   blockRemark: '',
-
-  confirmDialogType: null,
-  confirmTaskIds: [],
 
   taskActionMenuId: null,
 }
@@ -948,10 +940,12 @@ function syncPresetFromQuery(): void {
 
   if (presetTaskId) {
     state.keyword = presetTaskId
+    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
   }
 
   if (presetPoId && !presetTaskId) {
     state.keyword = presetPoId
+    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
   }
 }
 
@@ -968,6 +962,7 @@ export {
   escapeHtml,
   toClassName,
   state,
+  TASK_LIST_PAGE_SIZE,
   TASK_STATUS_LABEL,
   PROCESS_STAGE_GROUP_LABEL,
   ASSIGNMENT_STATUS_LABEL,

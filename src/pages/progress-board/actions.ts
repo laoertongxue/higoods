@@ -7,6 +7,7 @@ import {
   getTaskTenderId,
   getTenderById,
   listBoardTasks,
+  TASK_LIST_PAGE_SIZE,
   getUnifiedCategoryFromReason,
   getDefaultSubCategoryKeyFromReason,
   generateCaseId,
@@ -428,10 +429,12 @@ function clearTaskFilters(): void {
   state.stageFilter = 'ALL'
   state.riskFilter = 'ALL'
   state.factoryFilter = 'ALL'
+  state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
 }
 
 function handleTaskKpiClick(type: string): void {
   clearTaskFilters()
+  state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
 
   switch (type) {
     case 'notStarted':
@@ -457,91 +460,11 @@ function handleTaskKpiClick(type: string): void {
   }
 }
 
-function setTaskSelected(taskId: string, checked: boolean): void {
-  if (checked) {
-    if (!state.selectedTaskIds.includes(taskId)) {
-      state.selectedTaskIds = [...state.selectedTaskIds, taskId]
-    }
-    return
-  }
-
-  state.selectedTaskIds = state.selectedTaskIds.filter((id) => id !== taskId)
-}
-
-function openTaskDetail(taskId: string): void {
-  state.detailTaskId = taskId
+function openTaskDetail(taskId: string, tab: string = 'basic'): void {
   state.taskDetailTab = 'basic'
   state.taskActionMenuId = null
-}
-
-function handleBatchUrge(): void {
-  const selectedTasks = listBoardTasks().filter((task) => state.selectedTaskIds.includes(task.taskId))
-  let sent = 0
-
-  for (const task of selectedTasks) {
-    if (!task.assignedFactoryId || ['DONE', 'CANCELLED'].includes(task.status)) continue
-
-    const factory = getFactoryById(task.assignedFactoryId)
-    const urgeType: UrgeType =
-      task.status === 'NOT_STARTED'
-        ? 'URGE_START'
-        : task.status === 'BLOCKED'
-          ? 'URGE_UNBLOCK'
-          : 'URGE_FINISH'
-
-    createUrge({
-      urgeType,
-      fromType: 'INTERNAL_USER',
-      fromId: 'U002',
-      fromName: '跟单A',
-      toType: 'FACTORY',
-      toId: task.assignedFactoryId,
-      toName: factory?.name ?? task.assignedFactoryId,
-      targetType: 'TASK',
-      targetId: task.taskId,
-      message: `请尽快处理任务 ${task.taskId}`,
-      deepLink: {
-        path: '/fcs/progress/board',
-        query: { taskId: task.taskId },
-      },
-    })
-
-    sent += 1
-  }
-
-  showProgressBoardToast(sent > 0 ? `已发送 ${sent} 条催办` : '没有可催办任务', sent > 0 ? 'success' : 'error')
-  state.selectedTaskIds = []
-}
-
-function openBatchDialog(type: 'start' | 'finish'): void {
-  const eligibleTaskIds = state.selectedTaskIds.filter((taskId) => {
-    const task = getTaskById(taskId)
-    if (!task) return false
-    return type === 'start' ? task.status === 'NOT_STARTED' : task.status === 'IN_PROGRESS'
-  })
-
-  if (eligibleTaskIds.length === 0) {
-    showProgressBoardToast('没有符合条件的任务', 'error')
-    return
-  }
-
-  state.confirmDialogType = type
-  state.confirmTaskIds = eligibleTaskIds
-}
-
-function confirmBatchAction(): void {
-  if (!state.confirmDialogType || state.confirmTaskIds.length === 0) return
-
-  const newStatus: TaskStatus = state.confirmDialogType === 'start' ? 'IN_PROGRESS' : 'DONE'
-
-  for (const taskId of state.confirmTaskIds) {
-    updateTaskStatus(taskId, newStatus, undefined, undefined, 'Admin')
-  }
-
-  showProgressBoardToast(`已更新 ${state.confirmTaskIds.length} 个任务`)
-  state.confirmDialogType = null
-  state.confirmTaskIds = []
-  state.selectedTaskIds = []
+  const tabQuery = tab && tab !== 'basic' ? `?tab=${encodeURIComponent(tab)}` : ''
+  appStore.navigate(`/fcs/progress/board/tasks/${encodeURIComponent(taskId)}${tabQuery}`)
 }
 
 function requestTaskStatusChange(task: ProcessTask, nextStatus: TaskStatus): void {
@@ -597,11 +520,7 @@ export {
   openLinkedPage,
   clearTaskFilters,
   handleTaskKpiClick,
-  setTaskSelected,
   openTaskDetail,
-  handleBatchUrge,
-  openBatchDialog,
-  confirmBatchAction,
   requestTaskStatusChange,
   createUrge,
   confirmTaskBlock,

@@ -38,6 +38,8 @@ interface ProductionOrderTrackingRecord {
   dueText: string
   merchandiser: string
   brand: string
+  difficulty: string
+  styleLabel: string
   season: string
   colors: string
   sizes: string
@@ -144,6 +146,8 @@ const orders: ProductionOrderTrackingRecord[] = [
     dueText: '剩余 0 天',
     merchandiser: '张毅峰',
     brand: 'Alice',
+    difficulty: '高',
+    styleLabel: '通勤优雅',
     season: '夏季',
     colors: '深蓝色',
     sizes: 'S 15% / M 35% / L 35% / XL 15%',
@@ -180,6 +184,8 @@ const orders: ProductionOrderTrackingRecord[] = [
     dueText: '剩余 3 天',
     merchandiser: '李殿单',
     brand: 'Acme',
+    difficulty: '中',
+    styleLabel: '基础休闲',
     season: '夏季',
     colors: '白色',
     sizes: 'S / M / L / XL',
@@ -215,6 +221,8 @@ const orders: ProductionOrderTrackingRecord[] = [
     dueText: '剩余 1 天',
     merchandiser: '王银单',
     brand: 'Alice',
+    difficulty: '中',
+    styleLabel: '都市通勤',
     season: '夏季',
     colors: '卡其色',
     sizes: 'S / M / L / XL',
@@ -247,6 +255,8 @@ const orders: ProductionOrderTrackingRecord[] = [
     dueText: '已交付',
     merchandiser: '赵银单',
     brand: 'Acme',
+    difficulty: '低',
+    styleLabel: '轻户外防晒',
     season: '夏季',
     colors: '浅紫色',
     sizes: 'S / M / L',
@@ -517,7 +527,7 @@ function renderFilters(): string {
 function renderExpandedRow(order: ProductionOrderTrackingRecord): string {
   return `
     <tr class="bg-white" data-production-order-expanded-row="${escapeHtml(order.no)}">
-      <td colspan="19" class="border-t border-slate-100 p-0">
+      <td colspan="18" class="border-t border-slate-100 p-0">
         <div class="mx-4 mb-3 rounded-lg border bg-muted/20 p-4">
           <div class="grid gap-6 xl:grid-cols-[1fr_1.2fr_1.2fr_.8fr]">
             <div>
@@ -593,13 +603,13 @@ function renderOrderRow(order: ProductionOrderTrackingRecord, expandedNo: string
         <p class="text-xs text-slate-500">更新：2025-06-25</p>
       </td>
       <td class="px-3 py-3">
-        <p class="font-medium text-slate-900">${escapeHtml(order.title)}</p>
-        <p class="mt-1 text-xs text-slate-500">渠道：${escapeHtml(order.channel)}</p>
-        <p class="text-xs text-slate-500">季节：${escapeHtml(order.season)}</p>
-      </td>
-      <td class="px-3 py-3">
         <p class="font-medium text-slate-800">${escapeHtml(order.spu)}</p>
         <p class="text-xs text-slate-500">${escapeHtml(order.styleName)}</p>
+        <div class="mt-2 flex flex-wrap gap-1">
+          <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">难度：${escapeHtml(order.difficulty)}</span>
+          <span class="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">风格：${escapeHtml(order.styleLabel)}</span>
+          <span class="rounded-full border border-violet-100 bg-violet-50 px-2 py-0.5 text-xs text-violet-700">品牌：${escapeHtml(order.brand)}</span>
+        </div>
       </td>
       <td class="px-3 py-3 font-semibold tabular-nums text-slate-900">${formatNumber(order.quantity)} 件</td>
       <td class="px-3 py-3">${renderStatusBadge(order.status)}</td>
@@ -651,13 +661,12 @@ function renderOrderTable(): string {
         <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" class="h-4 w-4 rounded border-slate-300" />已选择 0 项</label>
       </div>
       <div class="overflow-x-auto">
-        <table class="min-w-[1680px] w-full text-left text-sm">
+        <table class="min-w-[1600px] w-full text-left text-sm">
           <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="w-10 px-3 py-2 font-medium"></th>
               <th class="px-3 py-2 font-medium">款式图</th>
               <th class="px-3 py-2 font-medium">生产单号</th>
-              <th class="px-3 py-2 font-medium">标题</th>
               <th class="px-3 py-2 font-medium">款式/SPU</th>
               <th class="px-3 py-2 font-medium">生产数量</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
@@ -835,26 +844,27 @@ function renderOverviewMatrix(order: ProductionOrderTrackingRecord, selectedNode
       <div class="min-w-0 rounded-lg border bg-card p-4">
         <h2 class="text-base font-semibold">多泳道生命周期矩阵</h2>
         <div class="mt-4 overflow-x-auto">
-          <div class="grid min-w-[1104px] gap-2" style="grid-template-columns:90px repeat(13, 78px);">
+          <div class="grid min-w-[2040px] gap-2" style="grid-template-columns:112px repeat(13, 140px);">
             <div></div>
-            ${stages.map((stage) => `<div class="rounded-md border border-slate-200 bg-slate-50 px-2 py-2 text-center text-xs font-semibold text-slate-700">${escapeHtml(stage)}</div>`).join('')}
+            ${stages.map((stage) => `<div class="flex min-h-12 items-center justify-center rounded-md border border-slate-200 bg-slate-50 px-2 py-2 text-center text-xs font-semibold leading-5 text-slate-700">${escapeHtml(stage)}</div>`).join('')}
             ${lanes.map((lane, index) => `
-              <div class="flex h-[76px] items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">${escapeHtml(lane)}</div>
+              <div class="flex min-h-[104px] items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold leading-5 text-slate-700">${escapeHtml(lane)}</div>
               ${Array.from({ length: 13 }, (_, colIndex) => {
                 const node = overviewNodes.find((item) => item.lane === lane && item.col === colIndex + 1)
-                if (!node) return '<div class="h-[76px] rounded-lg border border-dashed border-slate-100"></div>'
+                if (!node) return '<div class="min-h-[104px] rounded-lg border border-dashed border-slate-100"></div>'
                 return `
                   <button
-                    class="h-[76px] rounded-lg border bg-background p-2 text-left transition hover:bg-muted/40 ${selected.id === node.id ? 'border-orange-400 bg-orange-50 ring-2 ring-orange-100' : 'hover:border-blue-300'}"
+                    class="min-h-[104px] rounded-lg border bg-background p-2 text-left transition hover:bg-muted/40 ${selected.id === node.id ? 'border-orange-400 bg-orange-50 ring-2 ring-orange-100' : 'hover:border-blue-300'}"
                     data-production-order-progress-action="select-node"
                     data-order-no="${escapeHtml(order.no)}"
                     data-tab="overview"
                     data-node="${escapeHtml(node.id)}"
                     data-skip-page-rerender="true"
                   >
-                    <p class="truncate text-xs font-bold text-slate-900">${escapeHtml(node.id)}</p>
-                    <p class="mt-1 truncate text-xs text-slate-700">${escapeHtml(node.date)}　${escapeHtml(node.qty ?? '')}</p>
-                    <span class="mt-1 inline-flex rounded-full border px-1.5 py-0.5 text-[11px] ${statusClassMap[node.status]}">${escapeHtml(node.status)}</span>
+                    <p class="text-xs font-semibold leading-4 text-slate-900">${escapeHtml(node.label)}</p>
+                    <p class="mt-1 break-all text-[11px] font-medium leading-4 text-slate-600">${escapeHtml(node.id)}</p>
+                    <p class="mt-1 text-[11px] leading-4 text-slate-700">${escapeHtml(node.date)}${node.qty ? ` / ${escapeHtml(node.qty)}` : ''}</p>
+                    <span class="mt-2 inline-flex rounded-full border px-1.5 py-0.5 text-[11px] ${statusClassMap[node.status]}">${escapeHtml(node.status)}</span>
                   </button>
                 `
               }).join('')}

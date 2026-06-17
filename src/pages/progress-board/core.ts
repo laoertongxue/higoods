@@ -1,15 +1,12 @@
 import {
-  state,
   syncPdaStartRiskAndExceptions,
   syncMilestoneOverdueExceptions,
   syncPresetFromQuery,
-  resetTaskBoardSummaryCache,
   getFilteredTasks,
-  renderBadge,
   escapeHtml,
   type ProcessTask,
 } from './context.ts'
-import { renderTaskDimension, renderTaskDrawer, renderBlockDialog, renderBatchConfirmDialog } from './task-domain.ts'
+import { renderTaskDimension, renderBlockDialog, renderProgressTaskDetailPage } from './task-domain.ts'
 import { getProgressStatisticsDashboard } from '../../data/fcs/progress-statistics-linkage.ts'
 import { listPlatformPostFinishingResultViews } from '../../data/fcs/platform-process-result-view.ts'
 import { PLATFORM_PROCESS_STATUS_CLASS } from '../../data/fcs/process-platform-status-adapter.ts'
@@ -160,8 +157,6 @@ function renderPostFinishingPlatformResults(): string {
 }
 
 function renderHeader(filteredTasks: ProcessTask[]): string {
-  const selectedCount = state.selectedTaskIds.length
-
   return `
     <header class="flex flex-wrap items-center justify-between gap-3">
       <div>
@@ -173,24 +168,8 @@ function renderHeader(filteredTasks: ProcessTask[]): string {
       </div>
 
       <div class="flex flex-wrap items-center justify-end gap-2">
-        ${
-          selectedCount > 0
-            ? `
-              ${renderBadge(`已选择 ${selectedCount} 项`, 'border-border bg-background text-foreground')}
-              <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="batch-urge">
-                <i data-lucide="bell" class="mr-1.5 h-4 w-4"></i>批量催办
-              </button>
-              <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="batch-start">
-                <i data-lucide="play-circle" class="mr-1.5 h-4 w-4"></i>批量标记开始
-              </button>
-              <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="batch-finish">
-                <i data-lucide="check-circle-2" class="mr-1.5 h-4 w-4"></i>批量标记完工
-              </button>
-            `
-            : ''
-        }
-
-        <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="refresh">
+        <span class="text-sm text-muted-foreground">共 ${filteredTasks.length} 个任务</span>
+        <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="refresh" data-fast-page-render="true">
           <i data-lucide="refresh-cw" class="mr-1.5 h-4 w-4"></i>刷新
         </button>
       </div>
@@ -202,16 +181,15 @@ export function renderProgressBoardPage(): string {
   syncPdaStartRiskAndExceptions()
   syncMilestoneOverdueExceptions()
   syncPresetFromQuery()
-  resetTaskBoardSummaryCache()
 
   const filteredTasks = getFilteredTasks()
   return `
     <div class="space-y-4">
       ${renderHeader(filteredTasks)}
       ${renderTaskDimension(filteredTasks)}
-      ${renderTaskDrawer()}
       ${renderBlockDialog()}
-      ${renderBatchConfirmDialog()}
     </div>
   `
 }
+
+export { renderProgressTaskDetailPage }

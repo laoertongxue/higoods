@@ -175,6 +175,10 @@ export const renderDispatchAcceptanceSlaPage = createAsyncRenderer(
   'renderDispatchAcceptanceSlaPage',
 )
 export const renderProgressBoardPage = createAsyncRenderer(() => import('../pages/progress-board'), 'renderProgressBoardPage')
+export const renderProgressTaskDetailPage = createAsyncRenderer(
+  () => import('../pages/progress-board'),
+  'renderProgressTaskDetailPage',
+)
 export const renderProgressCuttingDetailPage = createAsyncRenderer(
   () => import('../pages/progress-cutting-detail'),
   'renderProgressCuttingDetailPage',

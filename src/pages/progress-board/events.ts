@@ -3,11 +3,11 @@ import {
   getTaskById,
   getTaskHandoverSummary,
   buildHandoverOrderDetailLink,
-  getFilteredTasks,
   getFactoryById,
+  resetTaskBoardSummaryCache,
+  TASK_LIST_PAGE_SIZE,
   type BlockReason,
   type TaskTabKey,
-  type TaskStatus,
   type UrgeType,
 } from './context.ts'
 import {
@@ -16,11 +16,7 @@ import {
   openLinkedPage,
   clearTaskFilters,
   handleTaskKpiClick,
-  setTaskSelected,
   openTaskDetail,
-  handleBatchUrge,
-  openBatchDialog,
-  confirmBatchAction,
   requestTaskStatusChange,
   createUrge,
   confirmTaskBlock,
@@ -31,31 +27,37 @@ import { isRuntimeSewingTask } from '../../data/fcs/runtime-process-tasks.ts'
 function updateField(field: string, node: HTMLElement): void {
   if (field === 'keyword' && node instanceof HTMLInputElement) {
     state.keyword = node.value
+    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
     return
   }
 
   if (field === 'statusFilter' && node instanceof HTMLSelectElement) {
     state.statusFilter = node.value
+    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
     return
   }
 
   if (field === 'assignmentStatusFilter' && node instanceof HTMLSelectElement) {
     state.assignmentStatusFilter = node.value
+    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
     return
   }
 
   if (field === 'assignmentModeFilter' && node instanceof HTMLSelectElement) {
     state.assignmentModeFilter = node.value
+    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
     return
   }
 
   if (field === 'stageFilter' && node instanceof HTMLSelectElement) {
     state.stageFilter = node.value
+    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
     return
   }
 
   if (field === 'riskFilter' && node instanceof HTMLSelectElement) {
     state.riskFilter = node.value
+    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
     return
   }
 
@@ -74,20 +76,17 @@ function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
   const poId = actionNode.dataset.poId
 
   if (action === 'task-open-pickup' && taskId) {
-    openTaskDetail(taskId)
-    state.taskDetailTab = 'pickup'
+    openTaskDetail(taskId, 'pickup')
     return true
   }
 
   if (action === 'task-open-handover' && taskId) {
-    openTaskDetail(taskId)
-    state.taskDetailTab = 'handover'
+    openTaskDetail(taskId, 'handover')
     return true
   }
 
   if (action === 'task-action-update-progress' && taskId) {
-    openTaskDetail(taskId)
-    state.taskDetailTab = 'progress'
+    openTaskDetail(taskId, 'progress')
     return true
   }
 
@@ -149,6 +148,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'refresh') {
+    resetTaskBoardSummaryCache()
     showProgressBoardToast('数据已刷新')
     return true
   }
@@ -164,39 +164,12 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'select-all') {
-    const checked = actionNode instanceof HTMLInputElement ? actionNode.checked : false
-    const filtered = getFilteredTasks()
-
-    if (checked) {
-      state.selectedTaskIds = filtered.map((task) => task.taskId)
-    } else {
-      state.selectedTaskIds = []
-    }
-
+  if (action === 'apply-task-filters') {
     return true
   }
 
-  if (action === 'toggle-task-select') {
-    const taskId = actionNode.dataset.taskId
-    if (!taskId) return true
-
-    const checked = actionNode instanceof HTMLInputElement ? actionNode.checked : false
-    setTaskSelected(taskId, checked)
-    return true
-  }
-
-  if (action === 'open-task-detail') {
-    if (actionNode.closest('[data-progress-stop="true"]')) return false
-    const taskId = actionNode.dataset.taskId
-    if (taskId) {
-      openTaskDetail(taskId)
-    }
-    return true
-  }
-
-  if (action === 'close-task-drawer') {
-    state.detailTaskId = null
+  if (action === 'show-more-tasks') {
+    state.visibleTaskLimit += TASK_LIST_PAGE_SIZE
     return true
   }
 
@@ -221,32 +194,6 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     if (!taskId) return true
 
     state.taskActionMenuId = state.taskActionMenuId === taskId ? null : taskId
-    return true
-  }
-
-  if (action === 'batch-urge') {
-    handleBatchUrge()
-    return true
-  }
-
-  if (action === 'batch-start') {
-    openBatchDialog('start')
-    return true
-  }
-
-  if (action === 'batch-finish') {
-    openBatchDialog('finish')
-    return true
-  }
-
-  if (action === 'confirm-batch') {
-    confirmBatchAction()
-    return true
-  }
-
-  if (action === 'close-batch-dialog') {
-    state.confirmDialogType = null
-    state.confirmTaskIds = []
     return true
   }
 
@@ -312,8 +259,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
       targetId: task.taskId,
       message: `请尽快处理任务 ${task.taskId}`,
       deepLink: {
-        path: '/fcs/progress/board',
-        query: { taskId: task.taskId },
+        path: `/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}`,
       },
     })
 

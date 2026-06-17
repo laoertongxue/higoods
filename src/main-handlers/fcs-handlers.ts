@@ -255,6 +255,13 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     )
   }
 
+  if (
+    pathname.startsWith('/fcs/progress/board')
+    && target.closest('[data-progress-action], [data-progress-field]')
+  ) {
+    return handleProgressBoardEvent(target)
+  }
+
   return (
     await handleCraftPrintingEvent(target) ||
     await handleCraftDyeingEvent(target) ||
@@ -504,13 +511,7 @@ export function closeFcsDialogsOnEscape(): boolean {
 
   if (isProgressBoardDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.progressAction = 'close-task-drawer'
-    handleProgressBoardEvent(fakeButton)
-    fakeButton.dataset.progressAction = 'close-order-drawer'
-    handleProgressBoardEvent(fakeButton)
     fakeButton.dataset.progressAction = 'close-block-dialog'
-    handleProgressBoardEvent(fakeButton)
-    fakeButton.dataset.progressAction = 'close-batch-dialog'
     handleProgressBoardEvent(fakeButton)
     return true
   }

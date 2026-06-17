@@ -23,6 +23,7 @@ type PdaHandoverPageModule = typeof import('./pages/pda-handover')
 type PdaWarehousePageModule = typeof import('./pages/pda-warehouse')
 type PdaSettlementPageModule = typeof import('./pages/pda-settlement')
 type ProductionOrderProgressTrackingPageModule = typeof import('./pages/production-order-progress-tracking')
+type ProgressBoardPageModule = typeof import('./pages/progress-board')
 type RoutesModule = typeof import('./router/routes')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
@@ -45,6 +46,7 @@ let pdaHandoverPageModulePromise: Promise<PdaHandoverPageModule> | null = null
 let pdaWarehousePageModulePromise: Promise<PdaWarehousePageModule> | null = null
 let pdaSettlementPageModulePromise: Promise<PdaSettlementPageModule> | null = null
 let productionOrderProgressTrackingPageModulePromise: Promise<ProductionOrderProgressTrackingPageModule> | null = null
+let progressBoardPageModulePromise: Promise<ProgressBoardPageModule> | null = null
 let routesModulePromise: Promise<RoutesModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
@@ -251,6 +253,16 @@ function getProductionOrderProgressTrackingPageModule(): Promise<ProductionOrder
   return productionOrderProgressTrackingPageModulePromise
 }
 
+function getProgressBoardPageModule(): Promise<ProgressBoardPageModule> {
+  if (!progressBoardPageModulePromise) {
+    progressBoardPageModulePromise = import('./pages/progress-board').catch((error) => {
+      progressBoardPageModulePromise = null
+      throw error
+    })
+  }
+  return progressBoardPageModulePromise
+}
+
 function getRoutesModule(): Promise<RoutesModule> {
   if (!routesModulePromise) {
     routesModulePromise = import('./router/routes').catch((error) => {
@@ -413,6 +425,10 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
   if (pathname.startsWith('/fcs/progress/production-orders')) {
     const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()
     return productionOrderProgressTrackingPage.handleProductionOrderProgressEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/progress/board')) {
+    const progressBoardPage = await getProgressBoardPageModule()
+    return progressBoardPage.handleProgressBoardEvent(eventTarget)
   }
   if (
     pathname.startsWith('/fcs/craft/cutting/marker-list') ||
