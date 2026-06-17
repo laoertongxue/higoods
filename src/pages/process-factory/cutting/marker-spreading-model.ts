@@ -236,6 +236,7 @@ export interface SpreadingRollRecord {
   actualCutPieceQty?: number
   actualCutGarmentQty?: number
   occurredAt?: string
+  operatorLayerRows?: SpreadingRollOperatorLayerRow[]
   operatorLayerText?: string
   operatorNames: string[]
   handoverNotes: string
@@ -244,6 +245,13 @@ export interface SpreadingRollRecord {
   sourceChannel: SpreadingSourceChannel
   sourceWritebackId: string
   updatedFromPdaAt: string
+}
+
+export interface SpreadingRollOperatorLayerRow {
+  rowId: string
+  startLayer?: number
+  endLayer?: number
+  operatorName: string
 }
 
 export interface SpreadingOperatorRecord {
@@ -1392,10 +1400,82 @@ export function computeUsableLength(actualLength: number, headLength: number, ta
   return Number(((Number(actualLength || 0) * normalizedLayerCount) + Number(headLength || 0) + Number(tailLength || 0)).toFixed(2))
 }
 
+function normalizeOperatorLayerNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+}
+
+export function normalizeRollOperatorLayerRows(rows: unknown): SpreadingRollOperatorLayerRow[] {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .map((row, index) => {
+      const item = row as Partial<SpreadingRollOperatorLayerRow>
+      return {
+        rowId: String(item.rowId || `operator-layer-${index + 1}`),
+        startLayer: normalizeOperatorLayerNumber(item.startLayer),
+        endLayer: normalizeOperatorLayerNumber(item.endLayer),
+        operatorName: String(item.operatorName || '').trim(),
+      }
+    })
+    .filter((row) => row.operatorName || row.startLayer !== undefined || row.endLayer !== undefined)
+}
+
+export function parseRollOperatorLayerRows(text = ''): SpreadingRollOperatorLayerRow[] {
+  return text
+    .split(/[；;、,\n/]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item, index) => {
+      const rangeMatch = item.match(/^\s*(?:第)?(\d+)\s*(?:-|~|至|到)\s*(\d+)\s*层?\s*[:：-]?\s*(.*)$/u)
+      if (rangeMatch) {
+        return {
+          rowId: `operator-layer-${index + 1}`,
+          startLayer: normalizeOperatorLayerNumber(rangeMatch[1]),
+          endLayer: normalizeOperatorLayerNumber(rangeMatch[2]),
+          operatorName: rangeMatch[3].trim(),
+        }
+      }
+      const singleMatch = item.match(/^\s*(?:第)?(\d+)\s*层\s*[:：-]?\s*(.*)$/u)
+      if (singleMatch) {
+        return {
+          rowId: `operator-layer-${index + 1}`,
+          startLayer: normalizeOperatorLayerNumber(singleMatch[1]),
+          endLayer: normalizeOperatorLayerNumber(singleMatch[1]),
+          operatorName: singleMatch[2].trim(),
+        }
+      }
+      return {
+        rowId: `operator-layer-${index + 1}`,
+        operatorName: item,
+      }
+    })
+    .filter((row) => row.operatorName || row.startLayer !== undefined || row.endLayer !== undefined)
+}
+
+export function formatRollOperatorLayerRows(rows: SpreadingRollOperatorLayerRow[] | undefined): string {
+  const normalizedRows = normalizeRollOperatorLayerRows(rows)
+  if (!normalizedRows.length) return ''
+  return normalizedRows
+    .map((row) => {
+      let layerText = '待补层数'
+      if (row.startLayer !== undefined && row.endLayer !== undefined) {
+        layerText = row.startLayer === row.endLayer ? `${row.startLayer}层` : `${row.startLayer}-${row.endLayer}层`
+      } else if (row.startLayer !== undefined) {
+        layerText = `${row.startLayer}层起`
+      } else if (row.endLayer !== undefined) {
+        layerText = `至${row.endLayer}层`
+      }
+      return `${layerText} ${row.operatorName || '待补人员'}`
+    })
+    .join('；')
+}
+
 export function normalizeRollOperatorNames(
-  roll: Pick<Partial<SpreadingRollRecord>, 'operatorLayerText' | 'operatorNames'>,
+  roll: Pick<Partial<SpreadingRollRecord>, 'operatorLayerRows' | 'operatorLayerText' | 'operatorNames'>,
   fallbackNames: string[] = [],
 ): string[] {
+  const layerRowNames = normalizeRollOperatorLayerRows(roll.operatorLayerRows).map((row) => row.operatorName).filter(Boolean)
   const textNames = (roll.operatorLayerText || '')
     .split(/[；;、,\n/]+/)
     .map((item) =>
@@ -1404,8 +1484,8 @@ export function normalizeRollOperatorNames(
         .replace(/^\s*第?\d+\s*层\s*[:：-]?\s*/u, '')
         .trim(),
     )
-    .filter(Boolean)
-  return Array.from(new Set([...textNames, ...(roll.operatorNames || []), ...fallbackNames].filter(Boolean)))
+    .filter((name) => Boolean(name) && name !== '待补人员')
+  return Array.from(new Set([...layerRowNames, ...textNames, ...(roll.operatorNames || []), ...fallbackNames].filter(Boolean)))
 }
 
 export function computeRemainingLength(labeledLength: number, actualLength: number): number {
@@ -3827,6 +3907,10 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                   const normalizedPlanUnitId = roll.planUnitId || linkedPlanUnit?.planUnitId || ''
                   const garmentQtyPerUnit = linkedPlanUnit?.garmentQtyPerUnit || 0
                   const derivedActualCutGarmentQty = computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit)
+                  const operatorLayerRows = normalizeRollOperatorLayerRows(roll.operatorLayerRows).length
+                    ? normalizeRollOperatorLayerRows(roll.operatorLayerRows)
+                    : parseRollOperatorLayerRows(roll.operatorLayerText || '')
+                  const operatorLayerText = roll.operatorLayerText || formatRollOperatorLayerRows(operatorLayerRows)
                   return {
                     ...roll,
                     planUnitId: normalizedPlanUnitId,
@@ -3850,6 +3934,12 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                       (roll.actualCutGarmentQty ??
                         roll.actualCutPieceQty ??
                         0),
+                    operatorLayerRows,
+                    operatorLayerText,
+                    operatorNames: normalizeRollOperatorNames(
+                      { ...roll, operatorLayerRows, operatorLayerText },
+                      roll.operatorNames || [],
+                    ),
                   }
                 })
               : []
@@ -4069,6 +4159,7 @@ export function createRollRecordDraft(
     actualCutPieceQty: 0,
     actualCutGarmentQty: 0,
     occurredAt: '',
+    operatorLayerRows: [],
     operatorLayerText: '',
     operatorNames: [],
     handoverNotes: '',
@@ -4127,6 +4218,10 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     const layerCount = Number(roll.layerCount || 0)
     const usableLength = computeUsableLength(actualLength, headLength, tailLength, layerCount)
     const actualCutGarmentQty = computeRollActualCutGarmentQty(layerCount, garmentQtyPerUnit)
+    const operatorLayerRows = normalizeRollOperatorLayerRows(roll.operatorLayerRows).length
+      ? normalizeRollOperatorLayerRows(roll.operatorLayerRows)
+      : parseRollOperatorLayerRows(roll.operatorLayerText || '')
+    const operatorLayerText = roll.operatorLayerText || formatRollOperatorLayerRows(operatorLayerRows)
     return {
       ...roll,
       planUnitId: normalizedPlanUnitId,
@@ -4137,6 +4232,8 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
       usableLength,
       actualCutPieceQty: actualCutGarmentQty,
       actualCutGarmentQty,
+      operatorLayerRows,
+      operatorLayerText,
     }
   })
   const linkedMarker = session.markerId

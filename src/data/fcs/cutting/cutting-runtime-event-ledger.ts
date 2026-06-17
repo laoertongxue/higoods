@@ -189,6 +189,13 @@ export interface FinishSpreadingPayload {
   unit: 'yard'
   rollNos: string[]
   operatorNames: string[]
+  operatorLayerRows?: Array<{
+    rowId: string
+    startLayer?: number
+    endLayer?: number
+    operatorName: string
+  }>
+  operatorLayerText?: string
   finishedAt: string
 }
 

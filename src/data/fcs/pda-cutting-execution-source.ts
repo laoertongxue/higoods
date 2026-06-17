@@ -38,7 +38,10 @@ import {
 import { getLatestClaimDisputeByCutOrderNo } from '../../state/fcs-claim-dispute-store.ts'
 import {
   buildSpreadingPlanUnitsFromMarker,
+  formatRollOperatorLayerRows,
+  normalizeRollOperatorLayerRows,
   type MarkerSpreadingContext,
+  type SpreadingRollOperatorLayerRow,
   type SpreadingPlanUnit,
 } from '../../pages/process-factory/cutting/marker-spreading-model.ts'
 import type { MarkerPlanViewRow } from '../../pages/process-factory/cutting/marker-plan-model.ts'
@@ -202,6 +205,9 @@ export interface PdaCuttingSpreadingRecord {
   enteredBy: string
   enteredByAccountId: string
   enteredAt: string
+  operatorLayerRows: SpreadingRollOperatorLayerRow[]
+  operatorLayerText: string
+  operatorNames: string[]
   sourceType: 'PDA' | 'PCS'
   sourceWritebackId: string
   sourceRollWritebackItemId: string
@@ -1250,6 +1256,34 @@ function stringFromPayload(payload: CuttingRuntimeEvent['payload'], key: string)
   return typeof value === 'string' && value.trim() ? value : undefined
 }
 
+function stringArrayFromPayload(payload: CuttingRuntimeEvent['payload'], key: string): string[] {
+  if (!payload || typeof payload !== 'object') return []
+  const value = (payload as Record<string, unknown>)[key]
+  if (!Array.isArray(value)) return []
+  return value.map((item) => String(item || '').trim()).filter(Boolean)
+}
+
+function operatorLayerRowsFromRuntimePayload(
+  payload: CuttingRuntimeEvent['payload'],
+  fallbackOperatorName: string,
+  layerCount?: number,
+): SpreadingRollOperatorLayerRow[] {
+  if (!payload || typeof payload !== 'object') return []
+  const payloadRecord = payload as Record<string, unknown>
+  const normalizedRows = normalizeRollOperatorLayerRows(payloadRecord.operatorLayerRows)
+  if (normalizedRows.length) return normalizedRows
+  const operatorNames = stringArrayFromPayload(payload, 'operatorNames')
+  const operatorName = operatorNames[0] || fallbackOperatorName
+  if (!operatorName) return []
+  const normalizedLayerCount = Math.max(Number(layerCount || 0), 0)
+  return normalizeRollOperatorLayerRows([{
+    rowId: 'runtime-operator-layer-1',
+    startLayer: normalizedLayerCount > 0 ? 1 : undefined,
+    endLayer: normalizedLayerCount > 0 ? normalizedLayerCount : undefined,
+    operatorName,
+  }])
+}
+
 function actualCutQtyFromRuntimePayload(payload: CuttingRuntimeEvent['payload']): number | undefined {
   const direct = numberFromPayload(payload, 'actualPieceQty')
   if (direct !== undefined) return direct
@@ -1535,6 +1569,70 @@ function buildPickupLogs(snapshot: CuttingDomainSnapshot, execution: PdaCuttingE
   }]
 }
 
+function buildRuntimeSpreadingRecords(execution: PdaCuttingExecutionSourceRecord): PdaCuttingSpreadingRecord[] {
+  return listCuttingRuntimeEvents()
+    .filter((event) =>
+      (event.eventType === '开始铺布' || event.eventType === '完成铺布')
+      && eventMatchesExecution(event, execution),
+    )
+    .map((event) => {
+      const payload = event.payload && typeof event.payload === 'object'
+        ? event.payload as Record<string, unknown>
+        : {}
+      const rollNos = stringArrayFromPayload(event.payload, 'rollNos')
+      const fabricRollNo =
+        stringFromPayload(event.payload, 'fabricRollNo')
+        || rollNos[0]
+        || event.eventNo
+      const layerCount = numberFromPayload(event.payload, 'actualLayerCount') || 0
+      const actualLength = numberFromPayload(event.payload, 'actualSpreadLength') || 0
+      const headLength = numberFromPayload(event.payload, 'headLength') || 0
+      const tailLength = numberFromPayload(event.payload, 'tailLength') || 0
+      const operatorLayerRows = operatorLayerRowsFromRuntimePayload(event.payload, event.operatorName || '现场铺布员', layerCount)
+      const operatorLayerText =
+        stringFromPayload(event.payload, 'operatorLayerText')
+        || formatRollOperatorLayerRows(operatorLayerRows)
+      const operatorNames = stringArrayFromPayload(event.payload, 'operatorNames')
+      const normalizedOperatorNames = Array.from(new Set([
+        ...operatorNames,
+        ...operatorLayerRows.map((row) => row.operatorName),
+        event.operatorName,
+      ].filter(Boolean)))
+      return {
+        executionOrderId: execution.executionOrderId,
+        id: event.eventId,
+        spreadingSessionId: stringFromPayload(event.payload, 'spreadingOrderId') || event.refs.spreadingOrderId || execution.executionOrderId,
+        planUnitId: stringFromPayload(event.payload, 'planUnitId') || '',
+        stepNo: numberFromPayload(event.payload, 'stepNo'),
+        stepLabel: stringFromPayload(event.payload, 'stepLabel'),
+        rollRecordId: event.eventId,
+        operatorRecordId: event.eventId,
+        markerId: event.refs.markerPlanId || execution.markerPlanId,
+        markerNo: event.refs.markerPlanNo || execution.markerPlanNo,
+        fabricRollNo,
+        layerCount,
+        actualLength,
+        headLength,
+        tailLength,
+        calculatedLength: (actualLength * layerCount) + headLength + tailLength,
+        usableLength: Math.max((actualLength * layerCount) + headLength + tailLength, 0),
+        enteredBy: normalizedOperatorNames[0] || event.operatorName || '现场铺布员',
+        enteredByAccountId: event.operatorId || '',
+        enteredAt: event.occurredAt,
+        operatorLayerRows,
+        operatorLayerText,
+        operatorNames: normalizedOperatorNames,
+        sourceType: 'PDA' as const,
+        sourceWritebackId: event.eventId,
+        sourceRollWritebackItemId: event.eventId,
+        handoverFlag: false,
+        handoverResultLabel: '无换班',
+        note: typeof payload.note === 'string' && payload.note.trim() ? payload.note : noteFromRuntimeEvent(event),
+      }
+    })
+    .sort((left, right) => right.enteredAt.localeCompare(left.enteredAt, 'zh-CN'))
+}
+
 function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCuttingSpreadingRecord[] {
   const actualRecords = listRollsForExecution(snapshot, execution).map(({ session, roll }) => {
     const linkedOperators = session.operators.filter((operator) => operator.rollRecordId === roll.rollRecordId)
@@ -1554,6 +1652,13 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
         : latestHandoverOperator?.actionType === '中途交接'
           ? `交接给：${latestHandoverOperator.nextOperatorName || '下一位铺布员'}`
           : '无换班'
+    const operatorLayerRows = normalizeRollOperatorLayerRows(roll.operatorLayerRows)
+    const operatorLayerText = roll.operatorLayerText || formatRollOperatorLayerRows(operatorLayerRows)
+    const operatorNames = Array.from(new Set([
+      ...operatorLayerRows.map((row) => row.operatorName),
+      ...(roll.operatorNames || []),
+      latestOperator?.operatorName || '',
+    ].filter(Boolean)))
     return {
       executionOrderId: execution.executionOrderId,
       id: roll.rollRecordId,
@@ -1572,9 +1677,12 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
       tailLength: roll.tailLength,
       calculatedLength: (roll.actualLength * roll.layerCount) + roll.headLength + roll.tailLength,
       usableLength: roll.usableLength,
-      enteredBy: latestOperator?.operatorName || roll.operatorNames[0] || session.operators[0]?.operatorName || '现场铺布员',
+      enteredBy: latestOperator?.operatorName || operatorNames[0] || session.operators[0]?.operatorName || '现场铺布员',
       enteredByAccountId: latestOperator?.operatorAccountId || '',
       enteredAt: roll.updatedFromPdaAt || latestOperator?.endAt || session.updatedAt,
+      operatorLayerRows,
+      operatorLayerText,
+      operatorNames,
       sourceType: roll.sourceChannel === 'PDA_WRITEBACK' ? 'PDA' : 'PCS',
       sourceWritebackId: roll.sourceWritebackId || '',
       sourceRollWritebackItemId: roll.rollRecordId,
@@ -1583,7 +1691,13 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
       note: roll.note,
     }
   })
-  if (actualRecords.length > 0) return actualRecords
+  const runtimeRecords = buildRuntimeSpreadingRecords(execution)
+  const actualRecordSourceIds = new Set(actualRecords.map((record) => record.sourceWritebackId).filter(Boolean))
+  const mergedRecords = [
+    ...runtimeRecords.filter((record) => !actualRecordSourceIds.has(record.sourceWritebackId)),
+    ...actualRecords,
+  ].sort((left, right) => right.enteredAt.localeCompare(left.enteredAt, 'zh-CN'))
+  if (mergedRecords.length > 0) return mergedRecords
 
   const preset = getScenarioSpreadingPreset(execution)
   if (!preset) return []
@@ -1608,6 +1722,19 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
       enteredBy: preset.enteredBy,
       enteredByAccountId: '',
       enteredAt: preset.enteredAt,
+      operatorLayerRows: normalizeRollOperatorLayerRows([{
+        rowId: 'preset-operator-layer-1',
+        startLayer: 1,
+        endLayer: preset.layerCount,
+        operatorName: preset.enteredBy,
+      }]),
+      operatorLayerText: formatRollOperatorLayerRows([{
+        rowId: 'preset-operator-layer-1',
+        startLayer: 1,
+        endLayer: preset.layerCount,
+        operatorName: preset.enteredBy,
+      }]),
+      operatorNames: [preset.enteredBy].filter(Boolean),
       sourceType: 'PDA',
       sourceWritebackId: '',
       sourceRollWritebackItemId: '',

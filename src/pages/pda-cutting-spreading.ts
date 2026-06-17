@@ -38,6 +38,11 @@ import {
 } from './pda-cutting-context'
 import { renderMaterialIdentityBlock } from './process-factory/cutting/material-identity'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
+import {
+  formatRollOperatorLayerRows,
+  normalizeRollOperatorLayerRows,
+  type SpreadingRollOperatorLayerRow,
+} from './process-factory/cutting/marker-spreading-model'
 
 type SpreadingRecordType = '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
 type FeedbackTone = 'default' | 'success' | 'warning'
@@ -47,6 +52,13 @@ interface SpreadingReuseSnapshot {
   layerCount: string
   headLength: string
   tailLength: string
+}
+
+interface PdaSpreadingOperatorLayerRow {
+  rowId: string
+  startLayer: string
+  endLayer: string
+  operatorName: string
 }
 
 interface SpreadingFormState {
@@ -70,6 +82,7 @@ interface SpreadingFormState {
   syncStatus: PdaCuttingSyncStatus | ''
   backHrefOverride: string
   lastSubmittedSnapshot: SpreadingReuseSnapshot | null
+  operatorLayerRows: PdaSpreadingOperatorLayerRow[]
 }
 
 const spreadingState = new Map<string, SpreadingFormState>()
@@ -146,6 +159,7 @@ function getState(taskId: string, executionOrderId?: string | null, executionOrd
     syncStatus: '',
     backHrefOverride: '',
     lastSubmittedSnapshot: null,
+    operatorLayerRows: [],
   }
   spreadingState.set(stateKey, initial)
   return initial
@@ -339,6 +353,112 @@ function resolveCurrentOperator(taskId: string, detail: PdaCuttingTaskDetailData
   return resolvePdaCuttingRuntimeOperator(taskId, '现场铺布员')
 }
 
+function buildDefaultOperatorLayerRow(
+  operator: CuttingPdaRuntimeOperatorInput,
+  layerCount?: string | number,
+): PdaSpreadingOperatorLayerRow {
+  const parsedLayerCount = Math.max(Number(layerCount || '0') || 0, 0)
+  return {
+    rowId: `pda-operator-layer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    startLayer: parsedLayerCount > 0 ? '1' : '',
+    endLayer: parsedLayerCount > 0 ? String(parsedLayerCount) : '',
+    operatorName: operator.operatorName || '',
+  }
+}
+
+function ensureOperatorLayerRows(
+  form: SpreadingFormState,
+  operator: CuttingPdaRuntimeOperatorInput,
+): PdaSpreadingOperatorLayerRow[] {
+  if (!form.operatorLayerRows.length) {
+    form.operatorLayerRows = [buildDefaultOperatorLayerRow(operator, form.layerCount)]
+  }
+  return form.operatorLayerRows
+}
+
+function syncSingleOperatorLayerRange(form: SpreadingFormState): void {
+  if (form.operatorLayerRows.length !== 1) return
+  const layerCount = Math.max(Number(form.layerCount || '0') || 0, 0)
+  if (layerCount <= 0) return
+  const row = form.operatorLayerRows[0]
+  if (!row.startLayer || row.startLayer === '1') row.startLayer = '1'
+  if (!row.endLayer || Number(row.endLayer) <= 0) row.endLayer = String(layerCount)
+}
+
+function normalizePdaOperatorLayerRows(
+  form: SpreadingFormState,
+  operator: CuttingPdaRuntimeOperatorInput,
+  layerCount: number,
+): SpreadingRollOperatorLayerRow[] {
+  const rows = ensureOperatorLayerRows(form, operator)
+  return normalizeRollOperatorLayerRows(
+    rows.map((row, index) => ({
+      rowId: row.rowId || `pda-operator-layer-${index + 1}`,
+      startLayer: Number(row.startLayer || '0') || undefined,
+      endLayer: Number(row.endLayer || '0') || undefined,
+      operatorName: row.operatorName.trim() || operator.operatorName,
+    })),
+  ).map((row, index) => ({
+    ...row,
+    startLayer: row.startLayer ?? (index === 0 && layerCount > 0 ? 1 : undefined),
+    endLayer: row.endLayer ?? (index === 0 && layerCount > 0 ? layerCount : undefined),
+  }))
+}
+
+function getOperatorLayerValidationMessage(rows: SpreadingRollOperatorLayerRow[]): string {
+  if (!rows.length) return '请填写人员按层信息。'
+  const invalidName = rows.some((row) => !row.operatorName.trim())
+  if (invalidName) return '人员按层必须填写人员姓名。'
+  const invalidRange = rows.some((row) =>
+    row.startLayer !== undefined
+    && row.endLayer !== undefined
+    && row.startLayer > row.endLayer,
+  )
+  return invalidRange ? '人员按层的起始层不能大于结束层。' : ''
+}
+
+function renderOperatorLayerEditor(
+  taskId: string,
+  form: SpreadingFormState,
+  operator: CuttingPdaRuntimeOperatorInput,
+): string {
+  const rows = ensureOperatorLayerRows(form, operator)
+  return `
+    <section class="rounded-xl border bg-muted/10 px-2 py-2" data-testid="pda-cutting-spreading-operator-layer-editor">
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <div class="text-sm font-semibold text-foreground">人员按层</div>
+          <div class="mt-0.5 text-[11px] leading-4 text-muted-foreground">按实际负责层数录入，可新增多个人员。</div>
+        </div>
+        <button class="inline-flex min-h-7 items-center justify-center rounded-xl border px-2 text-xs font-medium hover:bg-muted" data-pda-cut-spreading-action="add-operator-layer" data-task-id="${escapeHtml(taskId)}">
+          新增人员
+        </button>
+      </div>
+      <div class="mt-2 space-y-1.5">
+        ${rows.map((row, index) => `
+          <div class="grid grid-cols-[1fr_1fr_1.4fr_auto] gap-1" data-pda-cut-spreading-operator-row="${escapeHtml(row.rowId)}">
+            <label class="block space-y-0.5">
+              <span class="text-[11px] text-muted-foreground">起始层</span>
+              <input type="number" min="1" step="1" class="h-8 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-operator-field="startLayer" data-pda-cut-spreading-operator-index="${index}" value="${escapeHtml(row.startLayer)}" />
+            </label>
+            <label class="block space-y-0.5">
+              <span class="text-[11px] text-muted-foreground">结束层</span>
+              <input type="number" min="1" step="1" class="h-8 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-operator-field="endLayer" data-pda-cut-spreading-operator-index="${index}" value="${escapeHtml(row.endLayer)}" />
+            </label>
+            <label class="block space-y-0.5">
+              <span class="text-[11px] text-muted-foreground">人员</span>
+              <input class="h-8 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-operator-field="operatorName" data-pda-cut-spreading-operator-index="${index}" value="${escapeHtml(row.operatorName)}" />
+            </label>
+            <button class="mt-5 inline-flex h-8 min-w-8 items-center justify-center rounded-xl border px-2 text-xs font-medium hover:bg-muted ${rows.length <= 1 ? 'opacity-40' : ''}" data-pda-cut-spreading-action="remove-operator-layer" data-task-id="${escapeHtml(taskId)}" data-pda-cut-spreading-operator-index="${index}" ${rows.length <= 1 ? 'disabled aria-disabled="true"' : ''}>
+              删
+            </button>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `
+}
+
 function buildHandoverOptions(taskId: string, detail: PdaCuttingTaskDetailData): Array<{ accountId: string; name: string }> {
   const currentOperator = resolveCurrentOperator(taskId, detail)
   const factoryId = currentOperator.operatorFactoryId
@@ -377,8 +497,8 @@ function renderRecords(detail: NonNullable<ReturnType<typeof getSpreadingDetail>
               <div class="mt-1.5 grid grid-cols-2 gap-1.5 text-muted-foreground">
                 ${item.stepLabel ? `<div>阶梯：${escapeHtml(item.stepLabel)}</div>` : ''}
                 <div>铺布层数：${escapeHtml(String(item.layerCount))} 层</div>
-                <div>长度：${escapeHtml(String(item.actualLength))} 米</div>
-                <div>录入人：${escapeHtml(item.enteredBy || '现场铺布员')}</div>
+                <div>卷布料长度：${escapeHtml(item.calculatedLength.toFixed(2))} 米</div>
+                <div class="col-span-2">人员：${escapeHtml(item.operatorLayerText || item.enteredBy || '现场铺布员')}</div>
                 <div>交接结果：${escapeHtml(resolveRecordHandoverResultLabel(item.handoverResultLabel))}</div>
               </div>
               <div class="mt-0.5 text-muted-foreground">备注：${escapeHtml(item.note || '无')}</div>
@@ -451,6 +571,66 @@ function renderTargetSummary(target: PdaCuttingSpreadingTarget | null): string {
   `
 }
 
+function renderCompactSpreadingContext(
+  detail: PdaCuttingTaskDetailData,
+  target: PdaCuttingSpreadingTarget | null,
+  planUnit: ReturnType<typeof getSelectedPlanUnit>,
+): string {
+  const planLayerText = planUnit?.plannedRepeatCount ? `${planUnit.plannedRepeatCount} 层` : '待定'
+  const planQtyText = planUnit?.plannedCutGarmentQty ? `${planUnit.plannedCutGarmentQty} 件` : '待定'
+  return `
+    <section class="rounded-xl border bg-card px-2 py-2" data-testid="pda-cutting-spreading-core-summary">
+      <div class="flex items-start gap-2">
+        ${renderMaterialIdentityBlock(
+          {
+            materialSku: target?.materialSku || detail.materialSku,
+            materialLabel: detail.materialTypeLabel,
+            materialAlias: target?.materialAlias || detail.materialAlias,
+            materialImageUrl: target?.materialImageUrl || detail.materialImageUrl,
+          },
+          { compact: true, showCategory: false },
+        )}
+      </div>
+      <div class="mt-2 grid grid-cols-2 gap-1 text-xs">
+        <div class="rounded-xl bg-muted/30 px-2 py-1.5">
+          <div class="text-muted-foreground">裁片单</div>
+          <div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.cutOrderNo || '—')}</div>
+        </div>
+        <div class="rounded-xl bg-muted/30 px-2 py-1.5">
+          <div class="text-muted-foreground">铺布单</div>
+          <div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target?.title || detail.executionOrderNo || '—')}</div>
+        </div>
+        <div class="rounded-xl bg-muted/30 px-2 py-1.5">
+          <div class="text-muted-foreground">计划层数</div>
+          <div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planLayerText)}</div>
+        </div>
+        <div class="rounded-xl bg-muted/30 px-2 py-1.5">
+          <div class="text-muted-foreground">计划数量</div>
+          <div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planQtyText)}</div>
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function renderTargetDetailDisclosure(
+  target: PdaCuttingSpreadingTarget | null,
+  planUnit: ReturnType<typeof getSelectedPlanUnit>,
+): string {
+  return `
+    <details class="rounded-xl border bg-card px-2 py-2 text-xs" data-testid="pda-cutting-spreading-extra-detail">
+      <summary class="cursor-pointer text-sm font-semibold text-foreground">查看铺布单信息</summary>
+      <div class="mt-2 space-y-2">
+        ${renderTargetSummary(target)}
+        <div class="border-t pt-2">
+          <div class="mb-1 text-sm font-semibold text-foreground">铺布明细</div>
+          ${renderPlanUnitSummary(planUnit)}
+        </div>
+      </div>
+    </details>
+  `
+}
+
 function renderOperatorSummary(taskId: string, detail: PdaCuttingTaskDetailData): string {
   const operator = resolveCurrentOperator(taskId, detail)
   return `
@@ -498,93 +678,81 @@ function renderFormInner(
   const selectedPlanUnit = getSelectedPlanUnit(selectedTarget, form.selectedPlanUnitId)
   const currentOperator = resolveCurrentOperator(taskId, detail)
   const actionLabel = getPrimaryActionLabel(detail)
-  const plannedLayerCount = getPlannedLayerCount(selectedTarget)
-  const plannedCutQty = getPlannedCutQty(selectedTarget)
+  const visibleTargets = getVisibleTargets(detail)
+  syncSingleOperatorLayerRange(form)
   const syncStatusLine = form.syncStatus
     ? `${form.syncStatus}：${form.feedbackMessage || '已提交'}`
     : detail.latestSyncSummary
+  const isSpreading = isSpreadingAction(actionLabel)
+  const primaryTitle = isSpreading ? '提交本卷' : actionLabel
+  const grossLength = getGrossOccupiedLength(form)
 
   return `
-    <div class="space-y-1.5 pb-1 text-xs">
+    <div class="space-y-2 pb-2 text-xs">
       ${renderFeedbackBlock(form)}
-      <section class="rounded-xl border bg-card px-1.5 py-1" data-testid="pda-cutting-spreading-object-summary">
-        <div class="grid gap-1 text-xs sm:grid-cols-2">
-          <div><div class="text-muted-foreground">铺布单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(selectedTarget?.title || detail.taskNo)}</div></div>
-          <div><div class="text-muted-foreground">唛架编号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(selectedTarget?.markerNo || selectedTarget?.sourceMarkerLabel || '—')}</div></div>
-          <div><div class="text-muted-foreground">执行对象</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div></div>
-          <div><div class="text-muted-foreground">裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.cutOrderNo)}</div></div>
-          <div class="sm:col-span-2">
-            <div class="mb-1 text-muted-foreground">面料信息</div>
-            ${renderMaterialIdentityBlock(
-              {
-                materialSku: selectedTarget?.materialSku || detail.materialSku,
-                materialLabel: detail.materialTypeLabel,
-                materialAlias: selectedTarget?.materialAlias || detail.materialAlias,
-                materialImageUrl: selectedTarget?.materialImageUrl || detail.materialImageUrl,
-              },
-              { compact: true, showCategory: false },
-            )}
-          </div>
-        </div>
-      </section>
-      <section class="rounded-xl border bg-card px-1.5 py-1" data-testid="pda-cutting-spreading-form-card">
-        <div class="space-y-1.5">
-          <div class="rounded-xl bg-muted/30 px-2 py-1.5">
+      ${renderCompactSpreadingContext(detail, selectedTarget, selectedPlanUnit)}
+      <section class="rounded-xl border bg-card px-2 py-2" data-testid="pda-cutting-spreading-form-card">
+        <div class="space-y-2">
+          <div class="rounded-xl bg-muted/30 px-2 py-2">
             <div class="text-muted-foreground">当前要做</div>
-            <div class="mt-0.5 text-base font-semibold text-foreground">${escapeHtml(actionLabel)}</div>
+            <div class="mt-0.5 text-lg font-semibold text-foreground">${escapeHtml(primaryTitle)}</div>
             <div class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(syncStatusLine)}</div>
           </div>
+          ${
+            visibleTargets.length > 1
+              ? `
           <label class="block space-y-0.5">
-            <span class="text-muted-foreground">铺布单 / 唛架编号</span>
-            <select class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="selectedTargetKey">
-              ${getVisibleTargets(detail)
-                .map(
-                  (target) => `
-                    <option value="${escapeHtml(target.targetKey)}" ${form.selectedTargetKey === target.targetKey ? 'selected' : ''}>
-                      ${escapeHtml(getTargetEntryLabel(target))} / ${escapeHtml(target.sourceMarkerLabel || target.title)}
-                    </option>
-                  `,
-                )
+            <span class="text-muted-foreground">铺布单</span>
+            <select class="h-9 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="selectedTargetKey">
+              ${visibleTargets
+                .map((target) => `
+                  <option value="${escapeHtml(target.targetKey)}" ${form.selectedTargetKey === target.targetKey ? 'selected' : ''}>
+                    ${escapeHtml(getTargetEntryLabel(target))} / ${escapeHtml(target.sourceMarkerLabel || target.title)}
+                  </option>
+                `)
                 .join('')}
             </select>
-          </label>
-          ${renderTargetSummary(selectedTarget)}
-          <div class="border-t pt-1" data-testid="pda-cutting-spreading-plan-summary">
-            <div class="grid grid-cols-2 gap-1.5">
-              <div><div class="text-muted-foreground">计划层数</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(`${plannedLayerCount || '-'} 层`)}</div></div>
-              <div><div class="text-muted-foreground">计划数量</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(`${plannedCutQty || '-'} 件`)}</div></div>
-            </div>
-          </div>
+          </label>`
+              : ''
+          }
           ${
-            isSpreadingAction(actionLabel)
+            isSpreading
               ? `
           <div class="border-t pt-1" data-testid="pda-cutting-spreading-inputs">
-            <div class="grid grid-cols-2 gap-1.5">
+            <div class="grid grid-cols-2 gap-2">
               <label class="col-span-2 block space-y-0.5">
                 <span class="text-muted-foreground">布卷号</span>
-                <input class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="fabricRollNo" value="${escapeHtml(form.fabricRollNo)}" />
+                <input class="h-9 w-full rounded-xl border bg-background px-2 text-base font-semibold" data-pda-cut-spreading-field="fabricRollNo" value="${escapeHtml(form.fabricRollNo)}" />
               </label>
               <label class="block space-y-0.5">
-                <span class="text-muted-foreground">${selectedPlanUnit?.stepLabel ? `${selectedPlanUnit.stepLabel}实铺层数` : '实铺层数'}</span>
-                <input type="number" min="0" step="1" class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="layerCount" value="${escapeHtml(form.layerCount)}" />
+                <span class="text-muted-foreground">实铺层数</span>
+                <input type="number" min="0" step="1" class="h-9 w-full rounded-xl border bg-background px-2 text-base font-semibold" data-pda-cut-spreading-field="layerCount" value="${escapeHtml(form.layerCount)}" />
               </label>
               <label class="block space-y-0.5">
                 <span class="text-muted-foreground">实际铺布长度（m）</span>
-                <input type="number" min="0" step="0.01" class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="actualLength" value="${escapeHtml(form.actualLength)}" />
+                <input type="number" min="0" step="0.01" class="h-9 w-full rounded-xl border bg-background px-2 text-base font-semibold" data-pda-cut-spreading-field="actualLength" value="${escapeHtml(form.actualLength)}" />
               </label>
               <label class="block space-y-0.5">
                 <span class="text-muted-foreground">布头长度（m）</span>
-                <input type="number" min="0" step="0.01" class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="headLength" value="${escapeHtml(form.headLength)}" />
+                <input type="number" min="0" step="0.01" class="h-9 w-full rounded-xl border bg-background px-2 text-base font-semibold" data-pda-cut-spreading-field="headLength" value="${escapeHtml(form.headLength)}" />
               </label>
               <label class="block space-y-0.5">
                 <span class="text-muted-foreground">布尾长度（m）</span>
-                <input type="number" min="0" step="0.01" class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="tailLength" value="${escapeHtml(form.tailLength)}" />
+                <input type="number" min="0" step="0.01" class="h-9 w-full rounded-xl border bg-background px-2 text-base font-semibold" data-pda-cut-spreading-field="tailLength" value="${escapeHtml(form.tailLength)}" />
               </label>
+              <div class="col-span-2 rounded-xl border bg-muted/20 px-2 py-1.5">
+                <div class="text-muted-foreground">卷布料长度</div>
+                <div class="mt-0.5 text-base font-semibold text-foreground">${escapeHtml(grossLength.toFixed(2))} 米</div>
+                <div class="mt-0.5 text-[11px] text-muted-foreground">实际铺布长度 × 层数 + 布头 + 布尾</div>
+              </div>
+            </div>
+          </div>
+          ${renderOperatorLayerEditor(taskId, form, currentOperator)}
+          <div class="grid grid-cols-2 gap-2">
               <label class="col-span-2 block space-y-0.5">
                 <span class="text-muted-foreground">现场照片</span>
-                <input type="number" min="0" step="1" class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="photoProofCount" value="${escapeHtml(form.photoProofCount)}" placeholder="照片张数" />
+                <input type="number" min="0" step="1" class="h-9 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="photoProofCount" value="${escapeHtml(form.photoProofCount)}" placeholder="照片张数" />
               </label>
-            </div>
           </div>
               `
               : ''
@@ -593,22 +761,22 @@ function renderFormInner(
             isCuttingAction(actionLabel)
               ? `
           <div class="border-t pt-1" data-testid="pda-cutting-cutting-inputs">
-            <div class="grid grid-cols-2 gap-1.5">
+            <div class="grid grid-cols-2 gap-2">
             <label class="block space-y-0.5">
                 <span class="text-muted-foreground">实际裁剪数量</span>
-                <input type="number" min="0" step="1" class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="actualCutQty" value="${escapeHtml(form.actualCutQty)}" />
+                <input type="number" min="0" step="1" class="h-9 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="actualCutQty" value="${escapeHtml(form.actualCutQty)}" />
             </label>
               <label class="block space-y-0.5">
                 <span class="text-muted-foreground">实际用量</span>
-                <input type="number" min="0" step="0.01" class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="actualUsage" value="${escapeHtml(form.actualUsage)}" />
+                <input type="number" min="0" step="0.01" class="h-9 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="actualUsage" value="${escapeHtml(form.actualUsage)}" />
               </label>
               <label class="block space-y-0.5">
                 <span class="text-muted-foreground">裁剪人员</span>
-                <input class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="cuttingOperator" value="${escapeHtml(form.cuttingOperator || currentOperator.operatorName)}" />
+                <input class="h-9 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="cuttingOperator" value="${escapeHtml(form.cuttingOperator || currentOperator.operatorName)}" />
               </label>
               <label class="block space-y-0.5">
                 <span class="text-muted-foreground">现场照片</span>
-                <input type="number" min="0" step="1" class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="photoProofCount" value="${escapeHtml(form.photoProofCount)}" placeholder="照片张数" />
+                <input type="number" min="0" step="1" class="h-9 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="photoProofCount" value="${escapeHtml(form.photoProofCount)}" placeholder="照片张数" />
               </label>
             </div>
           </div>
@@ -619,12 +787,17 @@ function renderFormInner(
             <span class="text-muted-foreground">备注</span>
             <textarea class="min-h-12 w-full rounded-xl border bg-background px-2 py-1 text-sm" data-pda-cut-spreading-field="note">${escapeHtml(form.note)}</textarea>
           </label>
-          <div class="grid gap-1.5 text-xs sm:grid-cols-3">
+          <div class="grid gap-1.5 rounded-xl bg-muted/20 px-2 py-1.5 text-xs sm:grid-cols-3">
             <div><div class="text-muted-foreground">录入人</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(currentOperator.operatorName)}</div></div>
             <div><div class="text-muted-foreground">当前工厂</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.assigneeFactoryName)}</div></div>
             <div><div class="text-muted-foreground">发生时间</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(new Date().toISOString().replace('T', ' ').slice(0, 19))}</div></div>
           </div>
         </div>
+      </section>
+      ${renderTargetDetailDisclosure(selectedTarget, selectedPlanUnit)}
+      <section class="rounded-xl border bg-card px-2 py-2" data-testid="pda-cutting-spreading-records">
+        <div class="mb-1 text-sm font-semibold text-foreground">已录卷记录</div>
+        ${renderRecords(detail)}
       </section>
     </div>
   `
@@ -639,6 +812,7 @@ function renderSubmitBar(
 ): string {
   void form
   const disabledByMaterial = actionLabel === '开始铺布' && selectedTarget !== null && !selectedTarget.materialReadiness.canStartSpreading
+  const submitLabel = isSpreadingAction(actionLabel) ? '提交本卷' : actionLabel
   const submitClassName = disabledByMaterial
     ? 'inline-flex min-h-6 items-center justify-center rounded-xl bg-muted px-2 py-1 text-xs font-medium text-muted-foreground opacity-70'
     : 'inline-flex min-h-6 items-center justify-center rounded-xl bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:opacity-90'
@@ -649,7 +823,7 @@ function renderSubmitBar(
           返回
         </button>
         <button class="${submitClassName}" data-pda-cut-spreading-action="submit" data-task-id="${escapeHtml(taskId)}" ${disabledByMaterial ? 'disabled aria-disabled="true"' : ''}>
-          ${escapeHtml(actionLabel)}
+          ${escapeHtml(submitLabel)}
         </button>
       </div>
       ${disabledByMaterial ? `<div class="mt-1 text-center text-[11px] text-muted-foreground">${escapeHtml(selectedTarget?.materialReadiness.reasonText || '')}</div>` : ''}
@@ -657,13 +831,27 @@ function renderSubmitBar(
   `
 }
 
+function resolveSpreadingStateScope(
+  taskId: string,
+  executionOrderId?: string | null,
+  executionOrderNo?: string | null,
+) {
+  const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
+  return {
+    context,
+    executionOrderId: executionOrderId || context.selectedExecutionOrderId || null,
+    executionOrderNo: executionOrderNo || context.selectedExecutionOrderNo || null,
+  }
+}
+
 function syncSpreadingFormDom(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): void {
   if (typeof document === 'undefined') return
   const root = document.querySelector<HTMLElement>(`[data-pda-cut-spreading-root="${taskId}"]`)
   if (!root) return
-  const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
+  const { context, executionOrderId: stateExecutionOrderId, executionOrderNo: stateExecutionOrderNo } =
+    resolveSpreadingStateScope(taskId, executionOrderId, executionOrderNo)
   if (!context.detail) return
-  const form = getState(taskId, executionOrderId, executionOrderNo)
+  const form = getState(taskId, stateExecutionOrderId, stateExecutionOrderNo)
   const pageBackHref = form.backHrefOverride || context.backHref
   root.innerHTML = renderFormInner(taskId, context.detail, form)
   const actionLabel = getPrimaryActionLabel(context.detail)
@@ -778,6 +966,25 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
 export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
   if (!ensurePdaSessionForAction()) return true
 
+  const operatorFieldNode = target.closest<HTMLElement>('[data-pda-cut-spreading-operator-field]')
+  if (operatorFieldNode instanceof HTMLInputElement) {
+    const taskId = operatorFieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
+    if (!taskId) return true
+    const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+    const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+    const stateScope = resolveSpreadingStateScope(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    const form = getState(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
+    const rowIndex = Number(operatorFieldNode.dataset.pdaCutSpreadingOperatorIndex || '-1')
+    const field = operatorFieldNode.dataset.pdaCutSpreadingOperatorField as keyof PdaSpreadingOperatorLayerRow | undefined
+    if (rowIndex < 0 || !field || !form.operatorLayerRows[rowIndex]) return true
+    form.operatorLayerRows[rowIndex] = {
+      ...form.operatorLayerRows[rowIndex],
+      [field]: operatorFieldNode.value,
+    }
+    syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
+    return true
+  }
+
   const fieldNode = target.closest<HTMLElement>('[data-pda-cut-spreading-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -788,8 +995,9 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     if (!taskId) return true
     const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
     const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
-    const detail = getSpreadingDetail(taskId, selectedExecutionOrderId ?? selectedExecutionOrderNo ?? undefined)
-    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    const stateScope = resolveSpreadingStateScope(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    const detail = stateScope.context.detail
+    const form = getState(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
     const field = fieldNode.dataset.pdaCutSpreadingField
     if (!field) return true
 
@@ -798,11 +1006,15 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       const nextTarget = detail ? getSelectedTarget(detail, form.selectedTargetKey) : null
       const nextPlanUnit = getSelectedPlanUnit(nextTarget, form.selectedPlanUnitId)
       form.selectedPlanUnitId = nextPlanUnit?.planUnitId || getDefaultPlanUnitId(nextTarget)
+      form.operatorLayerRows = []
     }
     if (field === 'planUnitId') form.selectedPlanUnitId = fieldNode.value
     if (field === 'recordType' && fieldNode instanceof HTMLSelectElement) form.recordType = fieldNode.value as SpreadingRecordType
     if (field === 'fabricRollNo') form.fabricRollNo = fieldNode.value
-    if (field === 'layerCount') form.layerCount = fieldNode.value
+    if (field === 'layerCount') {
+      form.layerCount = fieldNode.value
+      syncSingleOperatorLayerRange(form)
+    }
     if (field === 'actualLength') form.actualLength = fieldNode.value
     if (field === 'headLength') form.headLength = fieldNode.value
     if (field === 'tailLength') form.tailLength = fieldNode.value
@@ -819,7 +1031,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       form.handoverNote = ''
     }
 
-    syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
     return true
   }
 
@@ -830,10 +1042,27 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
   if (!action || !taskId) return false
   const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
   const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+  const stateScope = resolveSpreadingStateScope(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+
+  if (action === 'add-operator-layer' || action === 'remove-operator-layer') {
+    const form = getState(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
+    const detail = stateScope.context.detail
+    const operator = detail ? resolveCurrentOperator(taskId, detail) : resolvePdaCuttingRuntimeOperator(taskId, '现场铺布员')
+    if (action === 'add-operator-layer') {
+      form.operatorLayerRows.push(buildDefaultOperatorLayerRow(operator))
+    } else {
+      const rowIndex = Number(actionNode.dataset.pdaCutSpreadingOperatorIndex || '-1')
+      if (rowIndex >= 0 && form.operatorLayerRows.length > 1) {
+        form.operatorLayerRows.splice(rowIndex, 1)
+      }
+    }
+    syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
+    return true
+  }
 
   if (action === 'start-work') {
-    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
-    const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
+    const form = getState(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
+    const context = stateScope.context
     const detail = context.detail
     const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
       executionOrderId: context.selectedExecutionOrderId || undefined,
@@ -843,7 +1072,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       form.feedbackMessage = '同步失败：当前执行对象无法识别。'
       form.feedbackTone = 'warning'
       form.syncStatus = '同步失败'
-      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+      syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
       return true
     }
     const operator = resolveCurrentOperator(taskId, detail)
@@ -882,34 +1111,34 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       feedback.classList.remove('hidden')
       feedback.textContent = `已同步：开工已提交，${event.occurredAt}`
     }
-    syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
     return true
   }
 
   if (action === 'reuse-last-layer-count') {
-    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    const form = getState(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
     if (!form.lastSubmittedSnapshot) return true
     form.layerCount = form.lastSubmittedSnapshot.layerCount
     form.feedbackMessage = '已沿用上次层数。'
     form.feedbackTone = 'default'
-    syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
     return true
   }
 
   if (action === 'reuse-last-head-tail') {
-    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    const form = getState(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
     if (!form.lastSubmittedSnapshot) return true
     form.headLength = form.lastSubmittedSnapshot.headLength
     form.tailLength = form.lastSubmittedSnapshot.tailLength
     form.feedbackMessage = '已沿用上次头尾。'
     form.feedbackTone = 'default'
-    syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
     return true
   }
 
   if (action === 'submit') {
-    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
-    const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
+    const form = getState(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
+    const context = stateScope.context
     const detail = context.detail
     const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
       executionOrderId: context.selectedExecutionOrderId || undefined,
@@ -923,7 +1152,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     if (!identity || !detail) {
       form.feedbackMessage = '当前执行对象无法识别，不能提交铺布记录。'
       form.feedbackTone = 'warning'
-      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+      syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
       return true
     }
 
@@ -931,7 +1160,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     if (!selectedTarget) {
       form.feedbackMessage = '请先选择当前铺布单。'
       form.feedbackTone = 'warning'
-      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+      syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
       return true
     }
     const actionLabel = getPrimaryActionLabel(detail)
@@ -940,7 +1169,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     if (actionLabel === '开始铺布' && !selectedTarget.materialReadiness.canStartSpreading) {
       form.feedbackMessage = selectedTarget.materialReadiness.reasonText
       form.feedbackTone = 'warning'
-      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+      syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
       return true
     }
 
@@ -951,7 +1180,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       if (actionLabel === '完成裁剪' && (actualCutQty <= 0 || actualUsage <= 0)) {
         form.feedbackMessage = '实际裁剪数量和实际用量必须大于 0。'
         form.feedbackTone = 'warning'
-        syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+        syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
         return true
       }
       const submittedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
@@ -960,7 +1189,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         if (!hasCuttingOutputBreakdown(selectedTarget)) {
           form.feedbackMessage = '当前铺布单缺少尺码或部位明细，不能生成实际裁剪产出。'
           form.feedbackTone = 'warning'
-          syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+          syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
           return true
         }
         const cuttingCompletedAt = submittedAt
@@ -1050,7 +1279,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         context.navContext,
         'spreading',
       )
-      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+      syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
       return true
     }
 
@@ -1058,7 +1287,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     if (!selectedPlanUnit) {
       form.feedbackMessage = '请先选择铺布明细。'
       form.feedbackTone = 'warning'
-      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+      syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
       return true
     }
     form.selectedPlanUnitId = selectedPlanUnit.planUnitId
@@ -1070,15 +1299,25 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     if (!form.fabricRollNo.trim()) {
       form.feedbackMessage = '请先录入卷号。'
       form.feedbackTone = 'warning'
-      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+      syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
       return true
     }
     if (layerCount <= 0 || actualLength <= 0) {
       form.feedbackMessage = '铺布层数和实际长度必须大于 0。'
       form.feedbackTone = 'warning'
-      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+      syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
       return true
     }
+    const operatorLayerRows = normalizePdaOperatorLayerRows(form, operator, layerCount)
+    const operatorLayerValidationMessage = getOperatorLayerValidationMessage(operatorLayerRows)
+    if (operatorLayerValidationMessage) {
+      form.feedbackMessage = operatorLayerValidationMessage
+      form.feedbackTone = 'warning'
+      syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
+      return true
+    }
+    const operatorLayerText = formatRollOperatorLayerRows(operatorLayerRows)
+    const operatorNames = Array.from(new Set(operatorLayerRows.map((row) => row.operatorName).filter(Boolean)))
 
     const snapshot: SpreadingReuseSnapshot = {
       layerCount: form.layerCount,
@@ -1132,7 +1371,9 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
             tailLength,
             unit: '米',
             rollNos: [fabricRollNo],
-            operatorNames: [operator.operatorName],
+            operatorNames,
+            operatorLayerRows,
+            operatorLayerText,
             finishedAt: submittedAt,
           }
         : {
@@ -1149,6 +1390,9 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
             actualSpreadLength: actualLength,
             headLength,
             tailLength,
+            operatorNames,
+            operatorLayerRows,
+            operatorLayerText,
             startedAt: submittedAt,
             startedBy: operator.operatorName,
             note: [form.note.trim(), selectedPlanUnit.stepLabel ? `阶梯：${selectedPlanUnit.stepLabel}` : '', `唛架编号：${selectedTarget.markerNo || selectedTarget.sourceMarkerLabel}`, `模式：${getSpreadingModeLabel(selectedTarget.spreadingMode)}`]
@@ -1165,6 +1409,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     form.tailLength = ''
     form.handoverToAccountId = ''
     form.handoverNote = ''
+    form.operatorLayerRows = []
     form.note = ''
     form.photoProofCount = ''
     form.feedbackMessage = `${recordType}已提交，${varianceFlag ? '已标记差异，' : ''}${runtimeEvent.occurredAt}`
@@ -1177,7 +1422,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       context.navContext,
       'spreading',
     )
-    syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
     return true
   }
 

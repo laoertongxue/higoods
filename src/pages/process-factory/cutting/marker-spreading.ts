@@ -31,7 +31,10 @@ import {
   createOperatorRecordDraft,
   createRollRecordDraft,
   createSpreadingDraftFromMarker,
+  formatRollOperatorLayerRows,
   normalizeRollOperatorNames,
+  normalizeRollOperatorLayerRows,
+  parseRollOperatorLayerRows,
   buildSpreadingSessionIdentityForMarkerBed,
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
   deriveSpreadingStatus,
@@ -61,6 +64,7 @@ import {
   type SpreadingOrder,
   type SpreadingOperationLog,
   type SpreadingRollHandoverSummary,
+  type SpreadingRollOperatorLayerRow,
   type SpreadingRollRecord,
   type SpreadingSession,
   type SpreadingCuttingStatusKey,
@@ -259,6 +263,12 @@ type SpreadingRollField =
   | 'operatorLayerText'
   | 'occurredAt'
   | 'note'
+
+type SpreadingRollOperatorLayerField =
+  | 'startLayer'
+  | 'endLayer'
+  | 'operatorName'
+
 type SpreadingOperatorField =
   | 'rollRecordId'
   | 'operatorName'
@@ -1268,8 +1278,26 @@ function buildRollActualCutSizeFormula(planUnit: SpreadingPlanUnit | null | unde
   return rows.length ? rows.join('；') : buildRollActualCutGarmentQtyFormula(computeRollActualCutGarmentQty(layerCount, planUnit?.garmentQtyPerUnit || 0), layerCount, planUnit?.garmentQtyPerUnit || 0)
 }
 
-function formatRollOperatorText(roll: Pick<SpreadingRollRecord, 'operatorLayerText' | 'operatorNames'>): string {
-  return roll.operatorLayerText?.trim() || normalizeRollOperatorNames(roll).join(' / ') || '待补人员'
+function getRollOperatorLayerRows(
+  roll: Pick<SpreadingRollRecord, 'operatorLayerRows' | 'operatorLayerText'>,
+): SpreadingRollOperatorLayerRow[] {
+  const rows = normalizeRollOperatorLayerRows(roll.operatorLayerRows)
+  if (rows.length) return rows
+  return parseRollOperatorLayerRows(roll.operatorLayerText || '')
+}
+
+function syncRollOperatorLayerRows(roll: SpreadingRollRecord): void {
+  const rows = getRollOperatorLayerRows(roll)
+  roll.operatorLayerRows = rows
+  roll.operatorLayerText = formatRollOperatorLayerRows(rows)
+  roll.operatorNames = normalizeRollOperatorNames(roll)
+}
+
+function formatRollOperatorText(
+  roll: Pick<SpreadingRollRecord, 'operatorLayerRows' | 'operatorLayerText' | 'operatorNames'>,
+): string {
+  const rowText = formatRollOperatorLayerRows(getRollOperatorLayerRows(roll))
+  return rowText || roll.operatorLayerText?.trim() || normalizeRollOperatorNames(roll).join(' / ') || '待补人员'
 }
 
 function resolveNextRollNo(rolls: SpreadingRollRecord[]): string {
@@ -1279,6 +1307,66 @@ function resolveNextRollNo(rolls: SpreadingRollRecord[]): string {
     .map((rollNo) => Number(rollNo))
     .filter((value) => Number.isFinite(value) && value > 0)
   return String((numericRollNos.length ? Math.max(...numericRollNos) : rolls.length) + 1)
+}
+
+function renderRollNumberInput(index: number, field: SpreadingRollField, value: number | string, extraClass = ''): string {
+  return `<input type="number" value="${escapeHtml(String(value ?? 0))}" class="h-9 w-full rounded-md border px-2.5 text-sm ${extraClass}" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="${field}" />`
+}
+
+function renderRollTextInput(index: number, field: SpreadingRollField, value: string | number | undefined, extraClass = ''): string {
+  return `<input type="text" value="${escapeHtml(String(value ?? ''))}" class="h-9 w-full rounded-md border px-2.5 text-sm ${extraClass}" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="${field}" />`
+}
+
+function renderRollFormField(label: string, content: string, note = ''): string {
+  return `
+    <label class="min-w-0 space-y-1">
+      <span class="block text-xs font-medium text-muted-foreground">${escapeHtml(label)}</span>
+      ${content}
+      ${note ? `<span class="block text-[11px] leading-4 text-muted-foreground">${escapeHtml(note)}</span>` : ''}
+    </label>
+  `
+}
+
+function renderRollOperatorLayerEditor(roll: SpreadingRollRecord, rollIndex: number): string {
+  const rows = getRollOperatorLayerRows(roll)
+  return `
+    <div class="rounded-md border bg-muted/20 p-3">
+      <div class="mb-2 flex items-center justify-between gap-2">
+        <div>
+          <div class="text-xs font-medium text-foreground">人员（按层）</div>
+          <div class="text-[11px] text-muted-foreground">按每段层数记录铺布人员，可继续新增人员与层数。</div>
+        </div>
+        <button type="button" class="rounded-md border bg-background px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="add-roll-operator-layer" data-roll-index="${rollIndex}">新增人员</button>
+      </div>
+      <div class="space-y-2">
+        ${
+          rows.length
+            ? rows
+                .map((row, operatorIndex) => `
+                  <div class="grid gap-2 rounded-md border bg-background p-2 md:grid-cols-[120px_120px_minmax(160px,1fr)_auto]">
+                    <label class="space-y-1">
+                      <span class="block text-[11px] text-muted-foreground">开始层</span>
+                      <input type="number" min="1" value="${escapeHtml(String(row.startLayer ?? ''))}" class="h-8 w-full rounded-md border px-2 text-sm" data-cutting-spreading-roll-index="${rollIndex}" data-cutting-spreading-roll-operator-index="${operatorIndex}" data-cutting-spreading-roll-operator-field="startLayer" />
+                    </label>
+                    <label class="space-y-1">
+                      <span class="block text-[11px] text-muted-foreground">结束层</span>
+                      <input type="number" min="1" value="${escapeHtml(String(row.endLayer ?? ''))}" class="h-8 w-full rounded-md border px-2 text-sm" data-cutting-spreading-roll-index="${rollIndex}" data-cutting-spreading-roll-operator-index="${operatorIndex}" data-cutting-spreading-roll-operator-field="endLayer" />
+                    </label>
+                    <label class="space-y-1">
+                      <span class="block text-[11px] text-muted-foreground">人员</span>
+                      <input type="text" value="${escapeHtml(row.operatorName || '')}" class="h-8 w-full rounded-md border px-2 text-sm" data-cutting-spreading-roll-index="${rollIndex}" data-cutting-spreading-roll-operator-index="${operatorIndex}" data-cutting-spreading-roll-operator-field="operatorName" />
+                    </label>
+                    <div class="flex items-end justify-end">
+                      <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="remove-roll-operator-layer" data-roll-index="${rollIndex}" data-operator-index="${operatorIndex}">删除</button>
+                    </div>
+                  </div>
+                `)
+                .join('')
+            : '<div class="rounded-md border border-dashed bg-background px-3 py-4 text-xs text-muted-foreground">当前还没有人员按层记录，请点击“新增人员”。</div>'
+        }
+      </div>
+    </div>
+  `
 }
 
 function buildRemainingLengthFormula(labeledLength: number, actualLength: number, remainingLength: number): string {
@@ -5148,82 +5236,74 @@ function renderSpreadingEditPage(): string {
             <button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="sync-spreading-rolls-from-pda">同步回写</button>
           </div>
         </div>
-        <div class="overflow-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
-              <tr>
-                <th class="px-3 py-3">唛架项</th>
-                <th class="px-3 py-3">阶梯</th>
-                <th class="px-3 py-3">颜色</th>
-                <th class="px-3 py-3">卷号</th>
-                <th class="px-3 py-3">尺码</th>
-                <th class="px-3 py-3">面料</th>
-                <th class="px-3 py-3">标注长度（m）</th>
-                <th class="px-3 py-3">实际铺布长度（m）</th>
-                <th class="px-3 py-3">铺布层数（层）</th>
-                <th class="px-3 py-3">布头长度（m）</th>
-                <th class="px-3 py-3">布尾长度（m）</th>
-                <th class="px-3 py-3">卷布料长度（m）</th>
-                <th class="px-3 py-3">剩余长度（m）</th>
-                <th class="px-3 py-3">实际裁剪成衣件数（件）</th>
-                <th class="px-3 py-3">人员（按层）</th>
-                <th class="px-3 py-3">录入来源</th>
-                <th class="px-3 py-3">记录时间</th>
-                <th class="px-3 py-3">备注</th>
-                <th class="px-3 py-3">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                draft.rolls.length
-                  ? draft.rolls
-                      .map((roll, index) => {
-                        const planUnit = findSpreadingPlanUnitById(draft.planUnits, roll.planUnitId)
-                        const requiresStep = isHighLowSpreadingPlanUnit(planUnit)
-                        const usableLength = computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)
-                        const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength)
-                        const actualCutSizeText = formatRollActualCutSizeText(planUnit, roll)
-                        return `
-                          <tr class="border-b align-top">
-                            <td class="px-3 py-3 text-sm text-foreground">${escapeHtml(buildSpreadingPlanUnitMarkerLabel(planUnit, draft))}</td>
-                            <td class="px-3 py-3">
-                              <span class="text-sm ${requiresStep ? 'text-foreground' : 'text-muted-foreground'}">${escapeHtml(requiresStep ? planUnit?.stepLabel || '待补' : '不适用')}</span>
-                            </td>
-                            <td class="px-3 py-3 text-muted-foreground">${escapeHtml(planUnit?.color || roll.color || '—')}</td>
-                            <td class="px-3 py-3"><input type="text" value="${escapeHtml(roll.rollNo)}" class="h-8 w-24 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="rollNo" /></td>
-                            <td class="px-3 py-3 text-sm text-foreground">${escapeHtml(formatPlanUnitSizeText(planUnit))}</td>
-                            <td class="px-3 py-3 text-muted-foreground">${renderMaterialIdentityBlock({
-                              materialSku: planUnit?.materialSku || roll.materialSku || '—',
-                              materialLabel: planUnit?.materialSku || roll.materialSku || '—',
-                              materialAlias: planUnit?.materialAlias || '',
-                              materialImageUrl: planUnit?.materialImageUrl || '',
-                            }, { compact: true })}</td>
-                            <td class="px-3 py-3"><input type="number" value="${escapeHtml(String(roll.labeledLength || 0))}" class="h-8 w-24 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="labeledLength" /></td>
-                            <td class="px-3 py-3"><input type="number" value="${escapeHtml(String(roll.actualLength || 0))}" class="h-8 w-24 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="actualLength" /></td>
-                            <td class="px-3 py-3"><input type="number" value="${escapeHtml(String(roll.layerCount || 0))}" class="h-8 w-24 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="layerCount" /></td>
-                            <td class="px-3 py-3"><input type="number" value="${escapeHtml(String(roll.headLength || 0))}" class="h-8 w-24 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="headLength" /></td>
-                            <td class="px-3 py-3"><input type="number" value="${escapeHtml(String(roll.tailLength || 0))}" class="h-8 w-24 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="tailLength" /></td>
-                            <td class="px-3 py-3">${renderValueWithFormula(formatLength(usableLength), buildRollUsableLengthFormula(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount, usableLength), 'text-sm text-foreground')}</td>
-                            <td class="px-3 py-3">${renderValueWithFormula(formatLength(remainingLength), buildRemainingLengthFormula(roll.labeledLength, roll.actualLength, remainingLength), 'text-sm text-foreground')}</td>
-                            <td class="px-3 py-3">${renderValueWithFormula(actualCutSizeText, buildRollActualCutSizeFormula(planUnit, roll), 'text-sm text-foreground')}</td>
-                            <td class="px-3 py-3"><textarea class="min-h-16 w-48 rounded-md border px-2.5 py-2 text-sm" placeholder="如：1-10层 Rini；11-20层 Dimas" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="operatorLayerText">${escapeHtml(roll.operatorLayerText || normalizeRollOperatorNames(roll).join('；'))}</textarea></td>
-                            <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(getSourceChannelDisplayLabel(roll.sourceChannel))}</td>
-                            <td class="px-3 py-3"><input type="text" value="${escapeHtml(roll.occurredAt || '')}" class="h-8 w-36 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="occurredAt" /></td>
-                            <td class="px-3 py-3"><input type="text" value="${escapeHtml(roll.note || '')}" class="h-8 w-40 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="note" /></td>
-                            <td class="px-3 py-3">
-                              <div class="flex flex-wrap gap-2">
-                                <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="duplicate-roll" data-index="${index}">复制卷记录</button>
-                                <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="remove-roll" data-index="${index}">删除卷记录</button>
+        <div class="space-y-3">
+          ${
+            draft.rolls.length
+              ? draft.rolls
+                  .map((roll, index) => {
+                    const planUnit = findSpreadingPlanUnitById(draft.planUnits, roll.planUnitId)
+                    const requiresStep = isHighLowSpreadingPlanUnit(planUnit)
+                    const usableLength = computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)
+                    const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength)
+                    const actualCutSizeText = formatRollActualCutSizeText(planUnit, roll)
+                    return `
+                      <article class="rounded-lg border bg-background">
+                        <div class="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/20 px-3 py-3">
+                          <div>
+                            <div class="text-sm font-semibold text-foreground">卷记录 ${escapeHtml(roll.rollNo || String(index + 1))}</div>
+                            <div class="mt-1 text-xs text-muted-foreground">
+                              ${escapeHtml(buildSpreadingPlanUnitMarkerLabel(planUnit, draft))} / ${escapeHtml(planUnit?.materialSku || roll.materialSku || '待补面料')}
+                            </div>
+                          </div>
+                          <div class="flex flex-wrap gap-2">
+                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="duplicate-roll" data-index="${index}">复制卷记录</button>
+                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="remove-roll" data-index="${index}">删除卷记录</button>
+                          </div>
+                        </div>
+                        <div class="grid gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+                          <div class="space-y-3">
+                            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                              ${renderRollFormField('唛架项', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2 text-sm">${escapeHtml(buildSpreadingPlanUnitMarkerLabel(planUnit, draft))}</div>`)}
+                              ${renderRollFormField('阶梯', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2 text-sm ${requiresStep ? 'text-foreground' : 'text-muted-foreground'}">${escapeHtml(requiresStep ? planUnit?.stepLabel || '待补' : '不适用')}</div>`)}
+                              ${renderRollFormField('颜色', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2 text-sm">${escapeHtml(planUnit?.color || roll.color || '—')}</div>`)}
+                              ${renderRollFormField('卷号', renderRollTextInput(index, 'rollNo', roll.rollNo))}
+                              ${renderRollFormField('尺码', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2 text-sm leading-5">${escapeHtml(formatPlanUnitSizeText(planUnit))}</div>`)}
+                              ${renderRollFormField('录入来源', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2 text-sm text-muted-foreground">${escapeHtml(getSourceChannelDisplayLabel(roll.sourceChannel))}</div>`)}
+                            </div>
+                            <div>
+                              <div class="mb-1 text-xs font-medium text-muted-foreground">面料</div>
+                              <div class="rounded-md border bg-muted/20 p-2">
+                                ${renderMaterialIdentityBlock({
+                                  materialSku: planUnit?.materialSku || roll.materialSku || '—',
+                                  materialLabel: planUnit?.materialSku || roll.materialSku || '—',
+                                  materialAlias: planUnit?.materialAlias || '',
+                                  materialImageUrl: planUnit?.materialImageUrl || '',
+                                }, { compact: true })}
                               </div>
-                            </td>
-                          </tr>
-                        `
-                      })
-                      .join('')
-                  : '<tr><td colspan="19" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录；唛架项已由铺布单固定。</td></tr>'
-              }
-            </tbody>
-          </table>
+                            </div>
+                          </div>
+                          <div class="space-y-3">
+                            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                              ${renderRollFormField('标注长度（m）', renderRollNumberInput(index, 'labeledLength', roll.labeledLength || 0))}
+                              ${renderRollFormField('实际铺布长度（m）', renderRollNumberInput(index, 'actualLength', roll.actualLength || 0))}
+                              ${renderRollFormField('铺布层数（层）', renderRollNumberInput(index, 'layerCount', roll.layerCount || 0))}
+                              ${renderRollFormField('布头长度（m）', renderRollNumberInput(index, 'headLength', roll.headLength || 0))}
+                              ${renderRollFormField('布尾长度（m）', renderRollNumberInput(index, 'tailLength', roll.tailLength || 0))}
+                              ${renderRollFormField('卷布料长度（m）', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2">${renderValueWithFormula(formatLength(usableLength), buildRollUsableLengthFormula(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount, usableLength), 'text-sm text-foreground')}</div>`)}
+                              ${renderRollFormField('剩余长度（m）', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2">${renderValueWithFormula(formatLength(remainingLength), buildRemainingLengthFormula(roll.labeledLength, roll.actualLength, remainingLength), 'text-sm text-foreground')}</div>`)}
+                              ${renderRollFormField('实际裁剪成衣数（件）', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2">${renderValueWithFormula(actualCutSizeText, buildRollActualCutSizeFormula(planUnit, roll), 'text-sm text-foreground')}</div>`)}
+                              ${renderRollFormField('记录时间', renderRollTextInput(index, 'occurredAt', roll.occurredAt || ''))}
+                            </div>
+                            ${renderRollFormField('备注', renderRollTextInput(index, 'note', roll.note || ''))}
+                            ${renderRollOperatorLayerEditor(roll, index)}
+                          </div>
+                        </div>
+                      </article>
+                    `
+                  })
+                  .join('')
+              : '<div class="rounded-lg border border-dashed px-3 py-8 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录；唛架项已由铺布单固定。</div>'
+          }
         </div>
         ${renderSpreadingOutputMatrix(draft.spreadingSessionId)}
       `,
@@ -6002,7 +6082,11 @@ function cloneRollRecordForDraft(
     tailLength: roll.tailLength,
     layerCount: roll.layerCount,
     width: roll.width,
-    operatorLayerText: roll.operatorLayerText || '',
+    operatorLayerRows: getRollOperatorLayerRows(roll).map((row, rowIndex) => ({
+      ...row,
+      rowId: `${nextRoll.rollRecordId}-operator-${rowIndex + 1}`,
+    })),
+    operatorLayerText: formatRollOperatorLayerRows(getRollOperatorLayerRows(roll)),
     operatorNames: normalizeRollOperatorNames(roll),
     note: roll.note,
   }
@@ -6064,8 +6148,10 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
     const usableLength = computeUsableLength(actualLength, headLength, tailLength, Number(roll.layerCount || 0))
     const remainingLength = computeRemainingLength(labeledLength, actualLength)
     const actualCutPieceQty = computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit)
+    const operatorLayerRows = getRollOperatorLayerRows(roll)
+    const operatorLayerText = formatRollOperatorLayerRows(operatorLayerRows)
     const operatorNames = normalizeRollOperatorNames(
-      roll,
+      { ...roll, operatorLayerRows, operatorLayerText },
       draft.operators
         .filter((operator) => operator.rollRecordId === roll.rollRecordId)
         .map((operator) => operator.operatorName)
@@ -6086,6 +6172,8 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
       usableLength,
       actualCutPieceQty,
       actualCutGarmentQty: actualCutPieceQty,
+      operatorLayerRows,
+      operatorLayerText,
       operatorNames,
     }
   })
@@ -7057,6 +7145,29 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     return true
   }
 
+  const spreadingRollOperatorFieldNode = target.closest<HTMLElement>('[data-cutting-spreading-roll-operator-field]')
+  if (spreadingRollOperatorFieldNode && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
+    const rollIndex = Number(spreadingRollOperatorFieldNode.dataset.cuttingSpreadingRollIndex)
+    const operatorIndex = Number(spreadingRollOperatorFieldNode.dataset.cuttingSpreadingRollOperatorIndex)
+    const field = spreadingRollOperatorFieldNode.dataset.cuttingSpreadingRollOperatorField as SpreadingRollOperatorLayerField | undefined
+    const roll = state.spreadingDraft.rolls[rollIndex]
+    if (Number.isNaN(rollIndex) || Number.isNaN(operatorIndex) || !field || !roll) return false
+    const rows = getRollOperatorLayerRows(roll)
+    const row = rows[operatorIndex]
+    if (!row) return false
+    const value = (spreadingRollOperatorFieldNode as HTMLInputElement).value
+    if (field === 'startLayer' || field === 'endLayer') {
+      const parsed = Number(value)
+      row[field] = Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+    } else {
+      row.operatorName = value
+    }
+    roll.operatorLayerRows = rows
+    syncRollOperatorLayerRows(roll)
+    return true
+  }
+
   const spreadingRollFieldNode = target.closest<HTMLElement>('[data-cutting-spreading-roll-field]')
   if (spreadingRollFieldNode && state.spreadingDraft) {
     if (!ensureCanEditCurrentSpreadingExecution()) return true
@@ -7089,7 +7200,8 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
 
     ;(roll as Record<string, string>)[field] = value
     if (field === 'operatorLayerText') {
-      roll.operatorNames = normalizeRollOperatorNames(roll)
+      roll.operatorLayerRows = parseRollOperatorLayerRows(value)
+      syncRollOperatorLayerRows(roll)
     }
     return true
   }
@@ -7462,6 +7574,39 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
       rollNo: resolveNextRollNo(draft.rolls),
       color: draft.planUnits?.[0]?.color || '',
     }))
+    return true
+  }
+
+  if (action === 'add-roll-operator-layer' && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
+    const rollIndex = Number(actionNode.dataset.rollIndex)
+    const roll = state.spreadingDraft.rolls[rollIndex]
+    if (Number.isNaN(rollIndex) || !roll) return false
+    const rows = getRollOperatorLayerRows(roll)
+    const previous = rows[rows.length - 1]
+    const nextStartLayer = previous?.endLayer !== undefined ? previous.endLayer + 1 : 1
+    const nextEndLayer = Math.max(Number(roll.layerCount || 0), nextStartLayer)
+    rows.push({
+      rowId: `${roll.rollRecordId || `roll-${rollIndex + 1}`}-operator-layer-${Date.now()}-${rows.length + 1}`,
+      startLayer: nextStartLayer,
+      endLayer: nextEndLayer,
+      operatorName: '',
+    })
+    roll.operatorLayerRows = rows
+    syncRollOperatorLayerRows(roll)
+    return true
+  }
+
+  if (action === 'remove-roll-operator-layer' && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
+    const rollIndex = Number(actionNode.dataset.rollIndex)
+    const operatorIndex = Number(actionNode.dataset.operatorIndex)
+    const roll = state.spreadingDraft.rolls[rollIndex]
+    if (Number.isNaN(rollIndex) || Number.isNaN(operatorIndex) || !roll) return false
+    const rows = getRollOperatorLayerRows(roll)
+    rows.splice(operatorIndex, 1)
+    roll.operatorLayerRows = rows
+    syncRollOperatorLayerRows(roll)
     return true
   }
 

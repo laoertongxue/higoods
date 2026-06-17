@@ -31,6 +31,7 @@ import {
   createOperatorRecordDraft,
   createRollRecordDraft,
   createSpreadingDraftFromMarker,
+  formatRollOperatorLayerRows,
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
   DEFAULT_HIGH_LOW_PATTERN_KEYS,
   findSpreadingPlanUnitById,
@@ -567,7 +568,15 @@ function createSeedSession(
   rollA.remainingLength = Number(Math.max(rollA.labeledLength - rollA.actualLength, 0).toFixed(2))
   rollA.actualCutPieceQty = computeRollActualCutGarmentQty(rollA.layerCount, primaryPlanUnit?.garmentQtyPerUnit || marker.totalPieces || 0)
   rollA.occurredAt = nowText(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T10:${String(profileIndex).padStart(2, '0')}:00`))
-  rollA.operatorLayerText = `1-${rollA.layerCount}层 张师傅`
+  rollA.operatorLayerRows = [
+    {
+      rowId: `${rollA.rollRecordId}-operator-1`,
+      startLayer: 1,
+      endLayer: rollA.layerCount,
+      operatorName: '张师傅',
+    },
+  ]
+  rollA.operatorLayerText = formatRollOperatorLayerRows(rollA.operatorLayerRows)
   rollA.operatorNames = ['张师傅']
   rollA.usableLength = computeUsableLength(rollA.actualLength, rollA.headLength, rollA.tailLength, rollA.layerCount)
   rollA.sourceChannel = profile.sourceChannel || 'MANUAL'
@@ -590,7 +599,22 @@ function createSeedSession(
   rollB.remainingLength = Number(Math.max(rollB.labeledLength - rollB.actualLength, 0).toFixed(2))
   rollB.actualCutPieceQty = computeRollActualCutGarmentQty(rollB.layerCount, secondaryPlanUnit?.garmentQtyPerUnit || marker.totalPieces || 0)
   rollB.occurredAt = nowText(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T13:${String(profileIndex).padStart(2, '0')}:00`))
-  rollB.operatorLayerText = `1-${Math.max(Math.floor(rollB.layerCount / 2), 1)}层 李师傅；${Math.max(Math.floor(rollB.layerCount / 2), 1) + 1}-${rollB.layerCount}层 王师傅`
+  const rollBFirstEndLayer = Math.max(Math.floor(rollB.layerCount / 2), 1)
+  rollB.operatorLayerRows = [
+    {
+      rowId: `${rollB.rollRecordId}-operator-1`,
+      startLayer: 1,
+      endLayer: rollBFirstEndLayer,
+      operatorName: '李师傅',
+    },
+    {
+      rowId: `${rollB.rollRecordId}-operator-2`,
+      startLayer: rollBFirstEndLayer + 1,
+      endLayer: rollB.layerCount,
+      operatorName: '王师傅',
+    },
+  ]
+  rollB.operatorLayerText = formatRollOperatorLayerRows(rollB.operatorLayerRows)
   rollB.operatorNames = ['李师傅', '王师傅']
   rollB.usableLength = computeUsableLength(rollB.actualLength, rollB.headLength, rollB.tailLength, rollB.layerCount)
   rollB.handoverNotes = '同卷未铺完，午后换班继续完成。'
