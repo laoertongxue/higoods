@@ -50,6 +50,7 @@ import {
   createFirstOrderSampleTaskWithProjectRelation,
   createRevisionTask,
   confirmRevisionTaskOutput,
+  type DownstreamTaskType,
   inferDownstreamTypesFromRevisionTask,
   submitRevisionTaskForConfirmation,
   syncExistingProjectEngineeringTaskNodes,
@@ -1779,8 +1780,12 @@ function getRevisionScopeText(scopeCodes: string[], scopeNames: string[]): strin
   return scopeNames.join('、') || scopeCodes.join('、') || '-'
 }
 
-function canCreateRevisionPatternTask(scopeCodes: string[], sourceType: RevisionTaskSourceType, projectId: string): boolean {
-  return scopeCodes.includes('PRINT') && (sourceType === '测款结论返改' || sourceType === '首版样衣返改') && Boolean(projectId)
+function hasRevisionPatternDownstreamScope(scopeCodes: string[]): boolean {
+  return scopeCodes.includes('PRINT') || scopeCodes.includes('COLOR')
+}
+
+function canCreateRevisionPatternTask(scopeCodes: string[], _sourceType: RevisionTaskSourceType, projectId: string): boolean {
+  return hasRevisionPatternDownstreamScope(scopeCodes) && Boolean(projectId)
 }
 
 function renderRevisionMaterialLineEditor(lines: RevisionTaskMaterialLine[]): string {
@@ -2474,7 +2479,9 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
   const businessSource = getRevisionBusinessSource(task)
   const missingItems = getRevisionMissingItems(task, style)
   const nextActionText = getRevisionNextActionText(task, missingItems)
-  const relatedSamples = listFirstSampleTasks().filter((item) => item.projectId === task.projectId).slice(0, 3)
+  const producedSamples = listFirstSampleTasks().filter(
+    (item) => item.upstreamObjectId === task.revisionTaskId || item.upstreamObjectCode === task.revisionTaskCode,
+  )
   const logs = mergeLogs('revision', task.revisionTaskId, [
     ...(task.linkedTechPackVersionId
       ? [{ time: task.linkedTechPackUpdatedAt || task.updatedAt, action: '技术包写回', user: task.updatedBy, detail: `已关联技术包 ${task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || task.linkedTechPackVersionId}。` }]
@@ -2515,7 +2522,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
   const tabBar = renderTabBar(state.revisionTab, [
     { key: 'plan', label: '任务总览' },
     { key: 'issues', label: '改版内容' },
-    { key: 'samples', label: '关联样衣' },
+    { key: 'samples', label: '产出样衣' },
     { key: 'outputs', label: '产出与验证' },
     { key: 'downstream', label: '下游任务' },
     { key: 'logs', label: '日志' },
@@ -2689,11 +2696,11 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
   )
 
   const samples = renderSectionCard(
-    '关联样衣',
-    relatedSamples.length > 0
+    '产出样衣',
+    producedSamples.length > 0
       ? `
           <div class="space-y-3">
-            ${relatedSamples.map((item) => `
+            ${producedSamples.map((item) => `
               <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3">
                 <div>
                   <p class="text-sm font-medium text-slate-900">${escapeHtml(item.sampleCode || item.firstSampleTaskCode)}</p>
@@ -2707,7 +2714,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
             `).join('')}
           </div>
         `
-      : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">暂无关联样衣</div>',
+      : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">当前改版任务暂未产出样衣</div>',
   )
 
   const outputs = renderSectionCard(
@@ -2806,7 +2813,7 @@ function renderRevisionCreateDialog(): string {
     </div>
     <div class="mt-4 grid gap-4 md:grid-cols-2">
       <div class="rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">${escapeHtml(showProjectField ? (projectStyle?.styleCode ? `${projectStyle.styleCode} · ${projectStyle.styleName}` : '未绑定款式档案') : (selectedStyle?.styleCode ? `${selectedStyle.styleCode} · ${selectedStyle.styleName}` : '未选择款式档案'))}</div>
-      ${draft.scopeCodes.includes('PRINT')
+      ${hasRevisionPatternDownstreamScope(draft.scopeCodes)
         ? `<label class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
             <input type="checkbox" ${draft.createPatternTask ? 'checked' : ''} ${canCreatePatternTask ? '' : 'disabled'} data-pcs-engineering-action="toggle-revision-create-pattern-task" />
             <span>同步创建花型任务</span>
@@ -4670,14 +4677,21 @@ function submitRevisionCreate(): void {
   state.revisionCreateDraft = initialRevisionCreateDraft()
   pushRuntimeLog('revision', result.task.revisionTaskId, '新建任务', result.task.projectId ? '已创建改版任务并同步商品项目。' : '已创建改版任务。')
   let notice = result.message
+  const autoDownstreamTypes: DownstreamTaskType[] = []
   if (draft.createPatternTask && canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, result.task.projectId)) {
-    const downstreamResult = createDownstreamTasksFromRevision(result.task.revisionTaskId, ['PRINT'])
+    autoDownstreamTypes.push('PRINT')
+  }
+  if (inferDownstreamTypesFromRevisionTask(result.task).includes('FIRST_SAMPLE')) {
+    autoDownstreamTypes.push('FIRST_SAMPLE')
+  }
+  if (autoDownstreamTypes.length > 0) {
+    const downstreamResult = createDownstreamTasksFromRevision(result.task.revisionTaskId, autoDownstreamTypes)
     if (downstreamResult.successCount > 0) {
-      pushRuntimeLog('revision', result.task.revisionTaskId, '创建花型任务', `已创建花型任务：${downstreamResult.createdTaskCodes.join('、')}。`)
-      notice += ` 已同步创建花型任务：${downstreamResult.createdTaskCodes.join('、')}。`
+      pushRuntimeLog('revision', result.task.revisionTaskId, '创建下游任务', `已创建：${downstreamResult.createdTaskCodes.join('、')}。`)
+      notice += ` 已同步创建下游任务：${downstreamResult.createdTaskCodes.join('、')}。`
     }
     if (downstreamResult.failureMessages.length > 0) {
-      notice += ` 花型任务未创建：${downstreamResult.failureMessages.join('；')}。`
+      notice += ` 下游任务未创建：${downstreamResult.failureMessages.join('；')}。`
     }
   }
   setNotice(notice)

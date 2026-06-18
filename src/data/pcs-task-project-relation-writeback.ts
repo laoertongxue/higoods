@@ -3,6 +3,7 @@ import {
   getProjectNodeRecordByWorkItemTypeCode,
   updateProjectNodeRecord,
 } from './pcs-project-repository.ts'
+import { WANLONG_REVISION_SAMPLE_TEMPLATE_ID } from './pcs-project-domain-contract.ts'
 import { markProjectNodeCompletedAndUnlockNext } from './pcs-project-flow-service.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
@@ -658,7 +659,7 @@ function hasRevisionPrintScope(input: Pick<RevisionTaskCreateInput, 'revisionSco
   return Boolean(
     input.revisionScopeCodes?.includes('PRINT') ||
     input.revisionScopeCodes?.includes('COLOR') ||
-    input.revisionScopeNames?.some((item) => item.includes('花型')),
+    input.revisionScopeNames?.some((item) => item.includes('花型') || item.includes('颜色')),
   )
 }
 
@@ -670,11 +671,20 @@ function hasRevisionPlateScope(input: Pick<RevisionTaskCreateInput, 'revisionSco
   )
 }
 
-export function inferDownstreamTypesFromRevisionTask(revisionTask: Pick<RevisionTaskRecord, 'revisionScopeCodes' | 'revisionScopeNames' | 'sampleQty'>): DownstreamTaskType[] {
+function isWanlongRevisionSampleProject(projectId?: string): boolean {
+  const project = projectId ? getProjectById(projectId) : null
+  return Boolean(
+    project &&
+    (project.templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID || project.templateName.includes('万隆改版')),
+  )
+}
+
+export function inferDownstreamTypesFromRevisionTask(
+  revisionTask: Pick<RevisionTaskRecord, 'revisionScopeCodes' | 'revisionScopeNames' | 'sampleQty'> & { projectId?: string },
+): DownstreamTaskType[] {
   const types: DownstreamTaskType[] = []
-  if (hasRevisionPlateScope(revisionTask)) types.push('PLATE')
   if (hasRevisionPrintScope(revisionTask)) types.push('PRINT')
-  if (Number(revisionTask.sampleQty || 0) > 0) types.push('FIRST_SAMPLE')
+  if (isWanlongRevisionSampleProject(revisionTask.projectId) || Number(revisionTask.sampleQty || 0) > 0) types.push('FIRST_SAMPLE')
   return types
 }
 
@@ -1838,6 +1848,128 @@ function createPatternTaskStandalone(input: PatternTaskCreateInput): TaskWriteba
   return { ok: true, task, relation: null, message: '花型任务已创建。' }
 }
 
+function createRevisionPatternTaskWithoutProjectNode(
+  revisionTask: RevisionTaskRecord,
+): TaskWritebackResult<PatternTaskRecord> {
+  const rawCode = `${revisionTask.revisionTaskCode}-PRINT`
+  const { project, pendingItem: projectPending } = getProjectOrPending(
+    '花型任务',
+    revisionTask.projectId,
+    rawCode,
+    revisionTask.revisionTaskCode,
+  )
+  if (!project || projectPending) {
+    upsertPatternTaskPendingItem(projectPending!)
+    return { ok: false, message: projectPending!.reason, pendingItem: projectPending! }
+  }
+
+  const now = nowTaskText()
+  const taskId = nextCode('AT', listPatternTasks().length)
+  const style = resolvePatternStyle({
+    styleId: revisionTask.styleId,
+    styleCode: revisionTask.styleCode,
+    productStyleCode: revisionTask.productStyleCode,
+    spuCode: revisionTask.spuCode,
+    patternSpuCode: revisionTask.newPatternSpuCode,
+  })
+  const assignment = normalizePatternAssignment({
+    assignedTeamCode: 'CN_TEAM',
+    assignedMemberId: 'cn_bing_bing',
+  })
+  const demandImageIds = [
+    ...(revisionTask.evidenceImageUrls || []),
+    ...(revisionTask.newPatternImageIds || []),
+  ]
+
+  const task = upsertPatternTask({
+    patternTaskId: taskId,
+    patternTaskCode: taskId,
+    title: `花型-${revisionTask.projectName || revisionTask.title}`,
+    projectId: project.projectId,
+    projectCode: project.projectCode,
+    projectName: project.projectName,
+    projectNodeId: '',
+    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
+    workItemTypeName: '花型任务',
+    sourceType: '改版任务',
+    upstreamModule: '改版任务',
+    upstreamObjectType: '改版任务',
+    upstreamObjectId: revisionTask.revisionTaskId,
+    upstreamObjectCode: revisionTask.revisionTaskCode,
+    styleId: style?.styleId || revisionTask.styleId || '',
+    styleCode: style?.styleCode || revisionTask.styleCode || revisionTask.productStyleCode || project.styleNumber || revisionTask.spuCode || '',
+    styleName: style?.styleName || revisionTask.styleName || '',
+    productStyleCode: revisionTask.productStyleCode || style?.styleCode || project.styleNumber || '',
+    spuCode: revisionTask.spuCode || style?.styleCode || project.styleNumber || '',
+    demandSourceType: '改版任务',
+    demandSourceRefId: revisionTask.revisionTaskId,
+    demandSourceRefCode: revisionTask.revisionTaskCode,
+    demandSourceRefName: revisionTask.title,
+    processType: '数码印',
+    requestQty: 1,
+    fabricSku: '',
+    fabricName: '待买手确认',
+    demandImageIds,
+    patternSpuCode: revisionTask.newPatternSpuCode || revisionTask.productStyleCode || revisionTask.spuCode || style?.styleCode || project.styleNumber || '',
+    colorDepthOption: '中间值',
+    difficultyGrade: 'A',
+    ...assignment,
+    assignedAt: now,
+    liveReferenceImageIds: [],
+    imageReferenceIds: [],
+    physicalReferenceNote: '',
+    completionImageIds: [],
+    buyerReviewStatus: '待买手确认',
+    buyerReviewAt: '',
+    buyerReviewerName: '',
+    buyerReviewNote: '',
+    transferFromTeamCode: '',
+    transferFromTeamName: '',
+    transferToTeamCode: '',
+    transferToTeamName: '',
+    transferReason: '',
+    transferredAt: '',
+    transferOperatorName: '',
+    patternAssetId: '',
+    patternAssetCode: '',
+    patternCategoryCode: '',
+    patternStyleTags: [],
+    hotSellerFlag: false,
+    colorConfirmNote: '',
+    artworkType: '印花',
+    patternMode: '定位印',
+    artworkName: `${revisionTask.projectName || revisionTask.title} 花型稿`,
+    artworkVersion: '',
+    linkedTechPackVersionId: '',
+    linkedTechPackVersionCode: '',
+    linkedTechPackVersionLabel: '',
+    linkedTechPackVersionStatus: '',
+    linkedTechPackUpdatedAt: '',
+    acceptedAt: now,
+    confirmedAt: '',
+    status: '进行中',
+    ownerId: revisionTask.ownerId,
+    ownerName: revisionTask.ownerName || project.ownerName,
+    priorityLevel: revisionTask.priorityLevel,
+    dueAt: revisionTask.dueAt,
+    createdAt: now,
+    createdBy: revisionTask.updatedBy || revisionTask.createdBy || '当前用户',
+    updatedAt: now,
+    updatedBy: revisionTask.updatedBy || revisionTask.createdBy || '当前用户',
+    note: `由改版任务 ${revisionTask.revisionTaskCode} 自动创建。当前项目未配置花型任务节点，已作为改版下游任务挂接。`,
+    legacyProjectRef: project.projectCode,
+    legacyUpstreamRef: revisionTask.revisionTaskCode,
+  })
+
+  syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
+  return {
+    ok: true,
+    task,
+    relation: null,
+    message: '花型任务已创建，当前项目未配置花型节点，已作为改版下游任务挂接。',
+  }
+}
+
 export function createPatternTask(input: PatternTaskCreateInput): TaskWritebackResult<PatternTaskRecord> {
   if (input.projectId) return createPatternTaskWithProjectRelation(input)
   return createPatternTaskStandalone(input)
@@ -2304,6 +2436,97 @@ export function createFirstSampleTaskWithProjectRelation(
   return { ok: true, task, relation, message: '首版样衣打样任务已创建，已写项目关系，已更新项目节点。' }
 }
 
+function buildRevisionFirstSampleTaskInput(revisionTask: RevisionTaskRecord): FirstSampleTaskCreateInput {
+  const targetSite = revisionTask.patternArea === '印尼' ? '雅加达' : '深圳'
+  const sampleImageIds = Array.from(new Set([
+    ...(revisionTask.mainImageIds || []),
+    ...(revisionTask.targetStyleImageIds || []),
+  ]))
+  return {
+    projectId: revisionTask.projectId,
+    title: `首版样衣-${revisionTask.projectName || revisionTask.title}`,
+    sourceType: '改版任务',
+    upstreamModule: '改版任务',
+    upstreamObjectType: '改版任务',
+    upstreamObjectId: revisionTask.revisionTaskId,
+    upstreamObjectCode: revisionTask.revisionTaskCode,
+    sourceTaskType: '改版任务',
+    sourceTaskId: revisionTask.revisionTaskId,
+    sourceTaskCode: revisionTask.revisionTaskCode,
+    ownerId: revisionTask.ownerId,
+    ownerName: revisionTask.ownerName,
+    priorityLevel: revisionTask.priorityLevel,
+    factoryName: targetSite === '雅加达' ? '雅加达样衣间' : '深圳样衣间',
+    targetSite,
+    sampleMaterialMode: '正确布',
+    samplePurpose: '首版确认',
+    productionReadinessNote: revisionTask.revisionSuggestionRichText || revisionTask.issueSummary,
+    sampleImageIds,
+    note: `由改版任务 ${revisionTask.revisionTaskCode} 自动创建。计划样衣数量：${revisionTask.sampleQty || 1}。`,
+  }
+}
+
+function createRevisionFirstSampleTaskWithoutProjectNode(
+  revisionTask: RevisionTaskRecord,
+): TaskWritebackResult<FirstSampleTaskRecord> {
+  const rawCode = `${revisionTask.revisionTaskCode}-FIRST-SAMPLE`
+  const { project, pendingItem: projectPending } = getProjectOrPending(
+    '首版样衣打样',
+    revisionTask.projectId,
+    rawCode,
+    revisionTask.revisionTaskCode,
+  )
+  if (!project || projectPending) {
+    upsertFirstSampleTaskPendingItem(projectPending!)
+    return { ok: false, message: projectPending!.reason, pendingItem: projectPending! }
+  }
+
+  const now = nowTaskText()
+  const input = buildRevisionFirstSampleTaskInput(revisionTask)
+  const taskId = input.firstSampleTaskId || nextCode('FS', listFirstSampleTasks().length)
+  const existing = getFirstSampleTaskById(taskId)
+  const task = upsertFirstSampleTask({
+    firstSampleTaskId: taskId,
+    firstSampleTaskCode: input.firstSampleTaskCode || taskId,
+    title: input.title,
+    projectId: project.projectId,
+    projectCode: project.projectCode,
+    projectName: project.projectName,
+    projectNodeId: '',
+    workItemTypeCode: 'FIRST_SAMPLE',
+    workItemTypeName: '首版样衣打样',
+    sourceType: input.sourceType,
+    upstreamModule: input.upstreamModule || '改版任务',
+    upstreamObjectType: input.upstreamObjectType || '改版任务',
+    upstreamObjectId: input.upstreamObjectId || revisionTask.revisionTaskId,
+    upstreamObjectCode: input.upstreamObjectCode || revisionTask.revisionTaskCode,
+    factoryId: input.factoryId || '',
+    factoryName: input.factoryName || '',
+    targetSite: input.targetSite || '深圳',
+    sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listFirstSampleTasks().length),
+    ...firstSampleChainFields(input, existing),
+    status: '待处理',
+    ownerId: input.ownerId || project.ownerId,
+    ownerName: input.ownerName || project.ownerName,
+    priorityLevel: input.priorityLevel || '中',
+    createdAt: existing?.createdAt || now,
+    createdBy: existing?.createdBy || input.operatorName || revisionTask.updatedBy || '当前用户',
+    updatedAt: now,
+    updatedBy: input.operatorName || revisionTask.updatedBy || '当前用户',
+    note: `${input.note || ''} 当前项目未配置首版样衣节点，已作为改版产出样衣挂接。`.trim(),
+    legacyProjectRef: project.projectCode,
+    legacyUpstreamRef: revisionTask.revisionTaskCode,
+  })
+
+  syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
+  return {
+    ok: true,
+    task,
+    relation: null,
+    message: '首版样衣打样任务已创建，当前项目未配置首版样衣节点，已作为改版产出样衣挂接。',
+  }
+}
+
 export function createFirstOrderSampleTaskWithProjectRelation(
   input: FirstOrderSampleTaskCreateInput,
 ): TaskWritebackResult<FirstOrderSampleTaskRecord> {
@@ -2461,10 +2684,6 @@ export function createDownstreamTasksFromRevision(
         failureMessages.push('当前改版范围未涉及花型或颜色，不能创建花型任务。')
         return
       }
-      if (!getProjectNodeRecordByWorkItemTypeCode(revisionTask.projectId, 'PATTERN_ARTWORK_TASK')) {
-        failureMessages.push('商品项目缺少花型任务节点，不能创建花型下游任务。')
-        return
-      }
       const existingPatternTask = listPatternTasks().find(
         (item) => item.upstreamObjectId === revisionTask.revisionTaskId || item.upstreamObjectCode === revisionTask.revisionTaskCode,
       )
@@ -2473,36 +2692,39 @@ export function createDownstreamTasksFromRevision(
         failureMessages.push('当前改版任务已存在花型下游任务。')
         return
       }
-      results.push(createPatternTaskWithProjectRelation({
-        projectId: revisionTask.projectId,
-        title: `花型-${revisionTask.projectName}`,
-        sourceType: '改版任务',
-        upstreamModule: '改版任务',
-        upstreamObjectType: '改版任务',
-        upstreamObjectId: revisionTask.revisionTaskId,
-        upstreamObjectCode: revisionTask.revisionTaskCode,
-        ownerId: revisionTask.ownerId,
-        ownerName: revisionTask.ownerName,
-        priorityLevel: revisionTask.priorityLevel,
-        dueAt: revisionTask.dueAt,
-        productStyleCode: revisionTask.productStyleCode,
-        spuCode: revisionTask.spuCode,
-        demandSourceType: '改版任务',
-        demandSourceRefId: revisionTask.revisionTaskId,
-        demandSourceRefCode: revisionTask.revisionTaskCode,
-        demandSourceRefName: revisionTask.title,
-        processType: '数码印',
-        requestQty: 1,
-        fabricName: '待买手确认',
-        demandImageIds: [...(revisionTask.evidenceImageUrls || [])],
-        patternSpuCode: revisionTask.productStyleCode || revisionTask.spuCode,
-        assignedTeamCode: 'CN_TEAM',
-        assignedMemberId: 'cn_bing_bing',
-        artworkType: '印花',
-        patternMode: '定位印',
-        artworkName: `${revisionTask.projectName} 花型稿`,
-        note: `由改版任务 ${revisionTask.revisionTaskCode} 自动创建。`,
-      }))
+      const patternNode = getProjectNodeRecordByWorkItemTypeCode(revisionTask.projectId, 'PATTERN_ARTWORK_TASK')
+      results.push(patternNode
+        ? createPatternTaskWithProjectRelation({
+          projectId: revisionTask.projectId,
+          title: `花型-${revisionTask.projectName}`,
+          sourceType: '改版任务',
+          upstreamModule: '改版任务',
+          upstreamObjectType: '改版任务',
+          upstreamObjectId: revisionTask.revisionTaskId,
+          upstreamObjectCode: revisionTask.revisionTaskCode,
+          ownerId: revisionTask.ownerId,
+          ownerName: revisionTask.ownerName,
+          priorityLevel: revisionTask.priorityLevel,
+          dueAt: revisionTask.dueAt,
+          productStyleCode: revisionTask.productStyleCode,
+          spuCode: revisionTask.spuCode,
+          demandSourceType: '改版任务',
+          demandSourceRefId: revisionTask.revisionTaskId,
+          demandSourceRefCode: revisionTask.revisionTaskCode,
+          demandSourceRefName: revisionTask.title,
+          processType: '数码印',
+          requestQty: 1,
+          fabricName: '待买手确认',
+          demandImageIds: [...(revisionTask.evidenceImageUrls || []), ...(revisionTask.newPatternImageIds || [])],
+          patternSpuCode: revisionTask.newPatternSpuCode || revisionTask.productStyleCode || revisionTask.spuCode,
+          assignedTeamCode: 'CN_TEAM',
+          assignedMemberId: 'cn_bing_bing',
+          artworkType: '印花',
+          patternMode: '定位印',
+          artworkName: `${revisionTask.projectName || revisionTask.title} 花型稿`,
+          note: `由改版任务 ${revisionTask.revisionTaskCode} 自动创建。`,
+        })
+        : createRevisionPatternTaskWithoutProjectNode(revisionTask))
       return
     }
     if (type === 'PLATE') {
@@ -2558,10 +2780,6 @@ export function createDownstreamTasksFromRevision(
       return
     }
     if (type === 'FIRST_SAMPLE') {
-      if (!getProjectNodeRecordByWorkItemTypeCode(revisionTask.projectId, 'FIRST_SAMPLE')) {
-        failureMessages.push('商品项目缺少首版样衣节点，不能创建首版样衣下游任务。')
-        return
-      }
       const existingFirstSample = listFirstSampleTasks().find(
         (item) => item.upstreamObjectId === revisionTask.revisionTaskId || item.upstreamObjectCode === revisionTask.revisionTaskCode,
       )
@@ -2570,25 +2788,10 @@ export function createDownstreamTasksFromRevision(
         failureMessages.push('当前改版任务已存在首版样衣下游任务。')
         return
       }
-      results.push(createFirstSampleTaskWithProjectRelation({
-        projectId: revisionTask.projectId,
-        title: `首版样衣-${revisionTask.projectName || revisionTask.title}`,
-        sourceType: '改版任务',
-        upstreamModule: '改版任务',
-        upstreamObjectType: '改版任务',
-        upstreamObjectId: revisionTask.revisionTaskId,
-        upstreamObjectCode: revisionTask.revisionTaskCode,
-        ownerId: revisionTask.ownerId,
-        ownerName: revisionTask.ownerName,
-        priorityLevel: revisionTask.priorityLevel,
-        factoryName: revisionTask.patternArea === '印尼' ? '雅加达样衣间' : '深圳样衣间',
-        targetSite: revisionTask.patternArea === '印尼' ? '雅加达' : '深圳',
-        sampleMaterialMode: '正确布',
-        samplePurpose: '首版确认',
-        productionReadinessNote: revisionTask.revisionSuggestionRichText || revisionTask.issueSummary,
-        sampleImageIds: [...(revisionTask.mainImageIds || revisionTask.targetStyleImageIds || [])],
-        note: `由改版任务 ${revisionTask.revisionTaskCode} 自动创建。计划样衣数量：${revisionTask.sampleQty || 1}。`,
-      }))
+      const firstSampleNode = getProjectNodeRecordByWorkItemTypeCode(revisionTask.projectId, 'FIRST_SAMPLE')
+      results.push(firstSampleNode
+        ? createFirstSampleTaskWithProjectRelation(buildRevisionFirstSampleTaskInput(revisionTask))
+        : createRevisionFirstSampleTaskWithoutProjectNode(revisionTask))
       return
     }
     if (type === 'FIRST_ORDER_SAMPLE') {
