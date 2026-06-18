@@ -1784,8 +1784,8 @@ function hasRevisionPatternDownstreamScope(scopeCodes: string[]): boolean {
   return scopeCodes.includes('PRINT') || scopeCodes.includes('COLOR')
 }
 
-function canCreateRevisionPatternTask(scopeCodes: string[], _sourceType: RevisionTaskSourceType, projectId: string): boolean {
-  return hasRevisionPatternDownstreamScope(scopeCodes) && Boolean(projectId)
+function canCreateRevisionPatternTask(scopeCodes: string[], _sourceType: RevisionTaskSourceType, formalTargetId: string): boolean {
+  return hasRevisionPatternDownstreamScope(scopeCodes) && Boolean(formalTargetId)
 }
 
 function renderRevisionMaterialLineEditor(lines: RevisionTaskMaterialLine[]): string {
@@ -2324,17 +2324,16 @@ function renderRevisionDownstream(task: ReturnType<typeof getRevisionTaskById>):
   if (!task) return ''
   const rows = getRevisionDownstreamRows(task)
   const suggestedTypes = inferDownstreamTypesFromRevisionTask(task)
-  const emptyText = !task.projectId
-    ? '未关联商品项目'
-    : suggestedTypes.length === 0
+  const emptyText = suggestedTypes.length === 0
       ? '当前改版范围暂无可创建的下游任务'
       : '暂无下游任务'
+  const canCreateSuggestedDownstream = suggestedTypes.some((type) => task.projectId || type === 'PRINT')
   return renderSectionCard(
     '下游任务',
     `
       <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-slate-600">${escapeHtml(suggestedTypes.length ? `建议下游：${suggestedTypes.map(getDownstreamTypeLabel).join('、')}` : emptyText)}</p>
-        ${task.projectId && suggestedTypes.length
+        ${canCreateSuggestedDownstream
           ? `<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-create-downstream" data-task-id="${escapeHtml(task.revisionTaskId)}">创建建议下游</button>`
           : ''}
       </div>
@@ -2420,6 +2419,7 @@ function getRevisionBusinessSource(task: ReturnType<typeof getRevisionTaskById>)
 
 function getRevisionTechPackStatusText(task: ReturnType<typeof getRevisionTaskById>): string {
   if (!task) return '-'
+  if (!task.projectId) return '独立任务不生成项目技术包版本'
   if (task.linkedTechPackVersionId) {
     return task.linkedTechPackVersionStatus === 'DRAFT'
       ? '技术包草稿已生成'
@@ -2431,16 +2431,15 @@ function getRevisionTechPackStatusText(task: ReturnType<typeof getRevisionTaskBy
 function getRevisionMissingItems(task: ReturnType<typeof getRevisionTaskById>, style: { styleId: string; styleCode: string }): string[] {
   if (!task) return []
   const missing: string[] = []
-  if (!task.projectId) missing.push('关联商品项目')
   if (!style.styleId && !style.styleCode) missing.push('关联款式档案')
   if (!(task.issueSummary || '').trim()) missing.push('问题点')
   if (!(task.evidenceSummary || '').trim()) missing.push('证据说明')
   if ((task.revisionScopeNames || []).length === 0 && (task.revisionScopeCodes || []).length === 0) missing.push('改版范围')
   if (!(task.revisionSuggestionRichText || task.issueSummary || '').trim()) missing.push('修改建议')
   if (task.liveRetestRequired && task.liveRetestStatus === '待回直播验证') missing.push('回直播验证结论')
-  if ((task.status === '已确认' || task.status === '待确认') && !task.linkedTechPackVersionId && !task.generatedNewTechPackVersionFlag) missing.push('生成改版技术包版本')
+  if (task.projectId && (task.status === '已确认' || task.status === '待确认') && !task.linkedTechPackVersionId && !task.generatedNewTechPackVersionFlag) missing.push('生成改版技术包版本')
   if (task.status === '已生成技术包') {
-    getRevisionTaskCompletionMissingFields(task).forEach((item) => {
+    getRevisionTaskCompletionMissingFields(task).filter((item) => task.projectId || item !== '新技术包版本').forEach((item) => {
       if (!missing.includes(item)) missing.push(item)
     })
   }
@@ -2449,11 +2448,10 @@ function getRevisionMissingItems(task: ReturnType<typeof getRevisionTaskById>, s
 
 function getRevisionNextActionText(task: ReturnType<typeof getRevisionTaskById>, missingItems: string[]): string {
   if (!task) return '-'
-  if (!task.projectId) return '先补齐正式商品项目链路'
   if (task.status === '草稿' || task.status === '未开始') return '补齐字段后创建正式改版任务'
   if (task.status === '进行中') return missingItems.length ? '补齐改版资料后提交确认' : '提交确认'
   if (task.status === '待确认') return '确认改版产出'
-  if (task.status === '已确认') return '生成改版技术包版本'
+  if (task.status === '已确认') return task.projectId ? '生成改版技术包版本' : '完成独立改版任务'
   if (task.status === '已生成技术包') return missingItems.length ? '补齐缺失项后完成任务' : '完成任务'
   if (task.status === '异常待处理') return '处理异常后恢复推进'
   if (task.status === '已取消') return '任务已取消'
@@ -2502,12 +2500,12 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
     ...(task.projectId && task.status === '已确认'
       ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(getRevisionTechPackActionLabel())}</button>`]
       : []),
-    ...(task.status === '已生成技术包'
+    ...(task.status === '已生成技术包' || (!task.projectId && task.status === '已确认')
       ? [`<button type="button" class="inline-flex h-10 items-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700" data-pcs-engineering-action="complete-revision-task" data-task-id="${escapeHtml(task.revisionTaskId)}">完成任务</button>`]
       : []),
   ].join('')
   const subtitleParts = [
-    task.projectCode || '未关联商品项目',
+    task.projectCode || '独立改版任务',
     style.styleCode || '未关联款式档案',
     formatDateTime(task.updatedAt),
   ]
@@ -2557,7 +2555,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
     { label: '任务目的', value: escapeHtml(businessSource.purpose) },
     { label: '业务来源', value: escapeHtml(businessSource.sourceText) },
     { label: '来源对象', value: escapeHtml(businessSource.sourceObject) },
-    { label: '所属项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
+    { label: '任务归属', value: task.projectId ? projectButton(task.projectId, task.projectCode, task.projectName) : '<span class="text-slate-700">独立改版任务</span>' },
     { label: '所属款式', value: styleArchiveButton(style.styleId, style.styleCode, style.styleName) },
     { label: '任务编号', value: escapeHtml(task.revisionTaskCode) },
   ], 3))
@@ -2768,7 +2766,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         '关联对象',
         renderKeyValueGrid(
           [
-            { label: '项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
+            { label: '任务归属', value: task.projectId ? projectButton(task.projectId, task.projectCode, task.projectName) : '<span class="text-slate-700">独立改版任务</span>' },
             { label: '款式', value: styleArchiveButton(style.styleId, style.styleCode, style.styleName) },
             { label: '业务来源', value: escapeHtml(businessSource.purpose) },
           ],
@@ -2798,7 +2796,7 @@ function renderRevisionCreateDialog(): string {
   const selectedProjectDefaults = draft.projectId ? getProjectDefaultValues(draft.projectId) : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
   const projectStyle = selectedProjectDefaults.styleId ? getStyleArchiveById(selectedProjectDefaults.styleId) : null
   const showProjectField = draft.bindingMode === 'project'
-  const canCreatePatternTask = canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, showProjectField ? draft.projectId : '')
+  const canCreatePatternTask = canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, showProjectField ? draft.projectId : draft.styleId)
   const body = `
     <div class="grid gap-4 md:grid-cols-2">
       ${renderSelectInput('创建方式', 'revision-create-binding-mode', draft.bindingMode, [
@@ -4678,7 +4676,7 @@ function submitRevisionCreate(): void {
   pushRuntimeLog('revision', result.task.revisionTaskId, '新建任务', result.task.projectId ? '已创建改版任务并同步商品项目。' : '已创建改版任务。')
   let notice = result.message
   const autoDownstreamTypes: DownstreamTaskType[] = []
-  if (draft.createPatternTask && canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, result.task.projectId)) {
+  if (draft.createPatternTask && canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, result.task.projectId || result.task.styleId || result.task.styleCode)) {
     autoDownstreamTypes.push('PRINT')
   }
   if (inferDownstreamTypesFromRevisionTask(result.task).includes('FIRST_SAMPLE')) {
@@ -5430,12 +5428,17 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.revisionCreateDraft.createPatternTask = canCreateRevisionPatternTask(
           state.revisionCreateDraft.scopeCodes,
           state.revisionCreateDraft.sourceType,
-          value,
+          state.revisionCreateDraft.bindingMode === 'project' ? value : state.revisionCreateDraft.styleId,
         )
         return true
       }
       case 'revision-create-style-id': {
         state.revisionCreateDraft.styleId = value
+        state.revisionCreateDraft.createPatternTask = canCreateRevisionPatternTask(
+          state.revisionCreateDraft.scopeCodes,
+          state.revisionCreateDraft.sourceType,
+          value,
+        )
         return true
       }
       case 'revision-create-owner': state.revisionCreateDraft.ownerName = value; return true
@@ -5738,13 +5741,21 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     state.revisionCreateDraft.createPatternTask = canCreateRevisionPatternTask(
       state.revisionCreateDraft.scopeCodes,
       state.revisionCreateDraft.sourceType,
-      state.revisionCreateDraft.projectId,
+      state.revisionCreateDraft.bindingMode === 'project'
+        ? state.revisionCreateDraft.projectId
+        : state.revisionCreateDraft.styleId,
     )
     return true
   }
 
   if (action === 'toggle-revision-create-pattern-task') {
-    if (!canCreateRevisionPatternTask(state.revisionCreateDraft.scopeCodes, state.revisionCreateDraft.sourceType, state.revisionCreateDraft.projectId)) {
+    if (!canCreateRevisionPatternTask(
+      state.revisionCreateDraft.scopeCodes,
+      state.revisionCreateDraft.sourceType,
+      state.revisionCreateDraft.bindingMode === 'project'
+        ? state.revisionCreateDraft.projectId
+        : state.revisionCreateDraft.styleId,
+    )) {
       state.revisionCreateDraft.createPatternTask = false
       return true
     }

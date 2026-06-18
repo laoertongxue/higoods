@@ -7,8 +7,11 @@ import { getProjectNodeRecordByWorkItemTypeCode, listProjects, resetProjectRepos
 import { resetRevisionTaskRepository } from '../src/data/pcs-revision-task-repository.ts'
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
+  completeRevisionTask,
+  confirmRevisionTaskOutput,
   createDownstreamTasksFromRevision,
   createRevisionTaskWithProjectRelation,
+  submitRevisionTaskForConfirmation,
 } from '../src/data/pcs-task-project-relation-writeback.ts'
 
 resetProjectRepository()
@@ -51,6 +54,24 @@ if (existingStyleRevision.ok) {
   assert.equal(existingStyleRevision.task.projectId, '', '既有商品改款不应强制写入商品项目')
   assert.equal(existingStyleRevision.task.styleId, style!.styleId, '既有商品改款应写入正式款式档案')
   assert.equal(existingStyleRevision.relation, null, '未关联商品项目时不应写项目关系')
+  const downstream = createDownstreamTasksFromRevision(existingStyleRevision.task.revisionTaskId, ['PRINT'])
+  assert.equal(downstream.successCount, 1, '独立改版任务勾选花型时应创建花型下游任务')
+  assert.ok(!downstream.failureMessages.some((message) => message.includes('未关联商品项目')), '独立改版任务不应再因为未关联商品项目阻断花型下游')
+  const patternDownstreams = listPatternTasks().filter((item) => item.upstreamObjectId === existingStyleRevision.task.revisionTaskId)
+  assert.equal(patternDownstreams.length, 1, '独立改版任务应能按上游关系查到花型下游')
+  assert.equal(patternDownstreams[0]?.projectId, '', '独立改版任务的花型下游不应写入商品项目')
+  assert.equal(patternDownstreams[0]?.sourceType, '改版任务', '独立改版任务的花型下游来源应标记为改版任务')
+  assert.equal(patternDownstreams[0]?.styleId, style!.styleId, '独立改版任务的花型下游应继承正式款式档案')
+
+  const submitted = submitRevisionTaskForConfirmation(existingStyleRevision.task.revisionTaskId, '测试用户')
+  assert.equal(submitted.ok, true, '独立改版任务应允许提交确认')
+  assert.equal(submitted.ok && submitted.task.status, '待确认', '提交后应进入待确认')
+  const confirmed = confirmRevisionTaskOutput(existingStyleRevision.task.revisionTaskId, '测试用户')
+  assert.equal(confirmed.ok, true, '独立改版任务应允许确认产出')
+  assert.equal(confirmed.ok && confirmed.task.status, '已确认', '确认后应进入已确认')
+  const completed = completeRevisionTask(existingStyleRevision.task.revisionTaskId, '测试用户')
+  assert.equal(completed.ok, true, '独立改版任务确认产出后应允许直接完成')
+  assert.equal(completed.ok && completed.task.status, '已完成', '完成后应进入已完成')
 }
 
 const manualWithoutReference = createRevisionTaskWithProjectRelation({
