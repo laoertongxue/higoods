@@ -1,4 +1,5 @@
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
+import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
 import {
   buildStatementDraftLines,
@@ -18,16 +19,24 @@ import {
   findOpenStatementByPartyAndCycle,
   getLatestStatementAppeal,
   getOpenStatementAppeal,
+  getProxyConfirmationMethodLabel,
+  getProxyNotificationStatusLabel,
   getStatementSettlementProgressView,
+  getStatementConfirmationSourceLabel,
   getStatementDraftById,
   initialStatementDrafts,
+  isStatementProxyConfirmed,
   resolveStatementAppeal,
   startStatementAppealHandling,
+  submitStatementMerchandiserProxyConfirmation,
   syncStatementDraftFromBuild,
 } from '../data/fcs/store-domain-settlement-seeds'
 import type {
   FactoryFeedbackStatus,
   StatementAppealRecord,
+  StatementAuditLog,
+  StatementProxyConfirmationMethod,
+  StatementProxyNotificationStatus,
   StatementDraft,
   StatementDraftItem,
   StatementResolutionResult,
@@ -38,7 +47,7 @@ import { escapeHtml } from '../utils'
 applyQualitySeedBootstrap()
 
 type StatementPageView = 'LIST' | 'BUILD'
-type StatusFilter = '__ALL__' | StatementStatus
+type StatusFilter = '__ALL__' | StatementStatus | '__FACTORY_SELF_CONFIRMED__' | '__MERCHANDISER_PROXY_CONFIRMED__'
 type FeedbackFilter = '__ALL__' | FactoryFeedbackStatus
 
 interface StatementsState {
@@ -48,6 +57,8 @@ interface StatementsState {
   filterCycle: string
   filterStatus: StatusFilter
   filterFeedback: FeedbackFilter
+  listPage: number
+  listPageSize: number
   detailStatementId: string | null
   buildFactoryId: string
   buildCycleId: string
@@ -56,6 +67,12 @@ interface StatementsState {
   processingAppealStatementId: string | null
   appealResolutionResult: '' | StatementResolutionResult
   appealResolutionComment: string
+  proxyConfirmStatementId: string | null
+  proxyConfirmReason: string
+  proxyConfirmMethod: '' | StatementProxyConfirmationMethod
+  proxyConfirmRemark: string
+  proxyConfirmNotificationStatus: StatementProxyNotificationStatus
+  proxyConfirmNotificationRemark: string
 }
 
 interface StatementOverviewCounts {
@@ -129,6 +146,8 @@ const state: StatementsState = {
   filterCycle: '__ALL__',
   filterStatus: '__ALL__',
   filterFeedback: '__ALL__',
+  listPage: 1,
+  listPageSize: 8,
   detailStatementId: null,
   buildFactoryId: '',
   buildCycleId: '',
@@ -137,7 +156,35 @@ const state: StatementsState = {
   processingAppealStatementId: null,
   appealResolutionResult: '',
   appealResolutionComment: '',
+  proxyConfirmStatementId: null,
+  proxyConfirmReason: '',
+  proxyConfirmMethod: '',
+  proxyConfirmRemark: '',
+  proxyConfirmNotificationStatus: 'NOTIFIED',
+  proxyConfirmNotificationRemark: '已在三方工厂端展示跟单审核代确认结果',
 }
+
+const STATEMENT_PAGE_SAMPLE_LIMIT = 15
+const STATEMENT_LIST_PAGE_SIZE_OPTIONS = [5, 8, 15]
+const STATEMENT_PAGE_SAMPLE_IDS = [
+  'ST-LINK-2026-0006',
+  'ST-LINK-2026-0036',
+  'ST-LINK-2026-0017',
+  'ST-LINK-2026-0023',
+  'ST-LINK-2026-0009',
+  'ST-LINK-2026-0013',
+  'ST-LINK-2026-0003',
+  'ST-LINK-2026-0027',
+  'ST-LINK-2026-0032',
+  'ST-LINK-2026-0031',
+  'ST-LINK-2026-0002',
+  'ST-LINK-2026-0016',
+  'ST-LINK-2026-0008',
+  'ST-LINK-2026-0007',
+  'ST-LINK-2026-0021',
+]
+
+let statementPageDemoBootstrapped = false
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
@@ -198,6 +245,87 @@ function getFactoryFeedbackStatusBadge(status: FactoryFeedbackStatus): string {
   return FACTORY_FEEDBACK_BADGE[status]
 }
 
+function appendDemoStatementLog(draft: StatementDraft, log: StatementAuditLog): void {
+  if (draft.statementAuditLogs?.some((item) => item.action === log.action && item.operatedAt === log.operatedAt)) return
+  draft.statementAuditLogs = [...(draft.statementAuditLogs ?? []), log]
+}
+
+function applyStatementPageDemoBootstrap(): void {
+  if (statementPageDemoBootstrapped) return
+  statementPageDemoBootstrapped = true
+
+  const proxyDraft = getStatementDraftById('ST-LINK-2026-0003')
+  if (proxyDraft && !isStatementProxyConfirmed(proxyDraft)) {
+    const operatedAt = '2026-03-27 09:10:00'
+    const fromStatus = proxyDraft.status
+    const fromFactoryFeedbackStatus = proxyDraft.factoryFeedbackStatus
+
+    proxyDraft.status = 'READY_FOR_PREPAYMENT'
+    proxyDraft.factoryFeedbackStatus = 'FACTORY_CONFIRMED'
+    proxyDraft.factoryFeedbackAt = operatedAt
+    proxyDraft.factoryFeedbackBy = '跟单A'
+    proxyDraft.factoryFeedbackRemark = '跟单审核代确认：三方工厂连续两日未在 PDA 操作，已通过 WhatsApp 与负责人核对无异议'
+    proxyDraft.factoryConfirmedAt = operatedAt
+    proxyDraft.confirmationSource = 'MERCHANDISER_PROXY_CONFIRMATION'
+    proxyDraft.proxyConfirmedAt = operatedAt
+    proxyDraft.proxyConfirmedBy = '跟单A'
+    proxyDraft.proxyConfirmReason = '三方工厂连续两日未在 PDA 操作，跟单已通过 WhatsApp 与负责人核对无异议'
+    proxyDraft.proxyConfirmMethod = 'WHATSAPP'
+    proxyDraft.proxyConfirmRemark = '已核对本期金额、质量扣款和计划预付款日'
+    proxyDraft.proxyConfirmNotificationStatus = 'NOTIFIED'
+    proxyDraft.proxyConfirmNotificationAt = operatedAt
+    proxyDraft.proxyConfirmNotificationRemark = '已在三方工厂端展示跟单审核代确认结果'
+    proxyDraft.readyForPrepaymentAt = operatedAt
+    proxyDraft.updatedAt = operatedAt
+    proxyDraft.updatedBy = '跟单A'
+    appendDemoStatementLog(proxyDraft, {
+      action: '跟单审核代确认',
+      actor: '跟单A',
+      operatedAt,
+      fromStatus,
+      toStatus: proxyDraft.status,
+      fromFactoryFeedbackStatus,
+      toFactoryFeedbackStatus: proxyDraft.factoryFeedbackStatus,
+      reason: proxyDraft.proxyConfirmReason,
+      method: proxyDraft.proxyConfirmMethod,
+      notificationStatus: proxyDraft.proxyConfirmNotificationStatus,
+      notificationRemark: proxyDraft.proxyConfirmNotificationRemark,
+      remark: proxyDraft.proxyConfirmRemark,
+      visibleToFactory: true,
+    })
+  }
+
+  const closedDraft = getStatementDraftById('ST-LINK-2026-0036')
+  if (closedDraft && closedDraft.status === 'DRAFT') {
+    const operatedAt = '2026-03-27 10:20:00'
+    const fromStatus = closedDraft.status
+    const fromFactoryFeedbackStatus = closedDraft.factoryFeedbackStatus
+    closedDraft.status = 'CLOSED'
+    closedDraft.updatedAt = operatedAt
+    closedDraft.updatedBy = '平台运营'
+    appendDemoStatementLog(closedDraft, {
+      action: '关闭对账单',
+      actor: '平台运营',
+      operatedAt,
+      fromStatus,
+      toStatus: closedDraft.status,
+      fromFactoryFeedbackStatus,
+      toFactoryFeedbackStatus: closedDraft.factoryFeedbackStatus,
+      remark: '样例：本期口径需调整，关闭后重新生成',
+      visibleToFactory: false,
+    })
+  }
+}
+
+function getStatementPageListItems(allItems: StatementListItemViewModel[]): StatementListItemViewModel[] {
+  const selectedIds = new Set(STATEMENT_PAGE_SAMPLE_IDS)
+  const byId = new Map(allItems.map((item) => [item.statementId, item]))
+  const runtimeItems = allItems.filter((item) => !selectedIds.has(item.statementId) && !item.statementId.startsWith('ST-LINK-'))
+  const sampleItems = STATEMENT_PAGE_SAMPLE_IDS.map((id) => byId.get(id)).filter(Boolean) as StatementListItemViewModel[]
+
+  return [...runtimeItems, ...sampleItems].slice(0, STATEMENT_PAGE_SAMPLE_LIMIT)
+}
+
 function getFactoryAppealStatusLabel(status: StatementAppealRecord['status']): string {
   if (status === 'SUBMITTED') return '已提交'
   if (status === 'PLATFORM_HANDLING') return '平台处理中'
@@ -256,7 +384,26 @@ function getFilteredStatementListItems(items: StatementListItemViewModel[]): Sta
   return items.filter((item) => {
     if (state.filterParty !== '__ALL__' && item.settlementPartyId !== state.filterParty) return false
     if (state.filterCycle !== '__ALL__' && item.settlementCycleId !== state.filterCycle) return false
-    if (state.filterStatus !== '__ALL__' && item.status !== state.filterStatus) return false
+    if (
+      state.filterStatus === '__FACTORY_SELF_CONFIRMED__' &&
+      (item.factoryFeedbackStatus !== 'FACTORY_CONFIRMED' || item.confirmationSource === 'MERCHANDISER_PROXY_CONFIRMATION')
+    ) {
+      return false
+    }
+    if (
+      state.filterStatus === '__MERCHANDISER_PROXY_CONFIRMED__' &&
+      (item.factoryFeedbackStatus !== 'FACTORY_CONFIRMED' || item.confirmationSource !== 'MERCHANDISER_PROXY_CONFIRMATION')
+    ) {
+      return false
+    }
+    if (
+      state.filterStatus !== '__ALL__' &&
+      state.filterStatus !== '__FACTORY_SELF_CONFIRMED__' &&
+      state.filterStatus !== '__MERCHANDISER_PROXY_CONFIRMED__' &&
+      item.status !== state.filterStatus
+    ) {
+      return false
+    }
     if (state.filterFeedback !== '__ALL__' && item.factoryFeedbackStatus !== state.filterFeedback) return false
 
     if (keyword) {
@@ -274,6 +421,27 @@ function getFilteredStatementListItems(items: StatementListItemViewModel[]): Sta
 
     return true
   })
+}
+
+function resetStatementListPage(): void {
+  state.listPage = 1
+}
+
+function getStatementListPageCount(total: number): number {
+  return Math.max(1, Math.ceil(total / state.listPageSize))
+}
+
+function getCurrentStatementListPage(total: number): number {
+  const totalPages = getStatementListPageCount(total)
+  const currentPage = Math.min(Math.max(state.listPage, 1), totalPages)
+  if (state.listPage !== currentPage) state.listPage = currentPage
+  return currentPage
+}
+
+function getPaginatedStatementListItems(items: StatementListItemViewModel[]): StatementListItemViewModel[] {
+  const currentPage = getCurrentStatementListPage(items.length)
+  const start = (currentPage - 1) * state.listPageSize
+  return items.slice(start, start + state.listPageSize)
 }
 
 function getBuildFactoryOptions(scopes: StatementBuildScopeViewModel[]): Array<{ value: string; label: string }> {
@@ -305,6 +473,69 @@ function resetAppealResolutionState(): void {
   state.processingAppealStatementId = null
   state.appealResolutionResult = ''
   state.appealResolutionComment = ''
+}
+
+function resetProxyConfirmationState(): void {
+  state.proxyConfirmStatementId = null
+  state.proxyConfirmReason = ''
+  state.proxyConfirmMethod = ''
+  state.proxyConfirmRemark = ''
+  state.proxyConfirmNotificationStatus = 'NOTIFIED'
+  state.proxyConfirmNotificationRemark = '已在三方工厂端展示跟单审核代确认结果'
+}
+
+function canProxyConfirmStatement(draft: StatementDraft): boolean {
+  return (
+    draft.status === 'PENDING_FACTORY_CONFIRM' &&
+    draft.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM' &&
+    !getOpenStatementAppeal(draft)
+  )
+}
+
+function renderConfirmationSourceText(draft: StatementDraft | StatementListItemViewModel): string {
+  return getStatementConfirmationSourceLabel(draft)
+}
+
+function renderProxyConfirmationSummary(draft: StatementDraft): string {
+  if (!isStatementProxyConfirmed(draft)) return ''
+  const appealed = draft.factoryFeedbackStatus === 'FACTORY_APPEALED'
+  return `
+    <div class="rounded-md border ${appealed ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-blue-200 bg-blue-50 text-blue-700'} px-3 py-2 text-xs leading-5">
+      该对账单已由跟单审核代确认。跟单：${escapeHtml(draft.proxyConfirmedBy ?? '-')}；
+      时间：${escapeHtml(draft.proxyConfirmedAt ?? '-')}；
+      方式：${escapeHtml(getProxyConfirmationMethodLabel(draft.proxyConfirmMethod))}；
+      通知：${escapeHtml(getProxyNotificationStatusLabel(draft.proxyConfirmNotificationStatus))}。
+      ${appealed ? '三方工厂已对代确认结果提出异议，平台处理前不会继续进入预付款。' : '三方工厂端会看到该确认来源。'}
+    </div>
+  `
+}
+
+function renderStatementAuditLogList(draft: StatementDraft): string {
+  const logs = (draft.statementAuditLogs ?? []).slice().reverse()
+  if (!logs.length) {
+    return '<p class="rounded-md border border-dashed bg-muted/20 px-3 py-5 text-center text-xs text-muted-foreground">当前暂无操作日志。</p>'
+  }
+
+  return logs
+    .map(
+      (log) => `
+        <div class="rounded-md border bg-muted/20 p-3 text-xs">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="font-medium text-foreground">${escapeHtml(log.action)}</span>
+            <span class="text-muted-foreground">${escapeHtml(log.operatedAt)}</span>
+          </div>
+          <div class="mt-1 text-muted-foreground">操作人：${escapeHtml(log.actor)}</div>
+          <div class="mt-1 text-muted-foreground">状态：${escapeHtml(log.fromStatus ? STATUS_ZH[log.fromStatus] : '-')} -> ${escapeHtml(log.toStatus ? STATUS_ZH[log.toStatus] : '-')}</div>
+          <div class="mt-1 text-muted-foreground">工厂反馈：${escapeHtml(log.fromFactoryFeedbackStatus ? getFactoryFeedbackStatusLabel(log.fromFactoryFeedbackStatus) : '-')} -> ${escapeHtml(log.toFactoryFeedbackStatus ? getFactoryFeedbackStatusLabel(log.toFactoryFeedbackStatus) : '-')}</div>
+          ${log.reason ? `<div class="mt-1 text-muted-foreground">原因：${escapeHtml(log.reason)}</div>` : ''}
+          ${log.method ? `<div class="mt-1 text-muted-foreground">线下确认方式：${escapeHtml(getProxyConfirmationMethodLabel(log.method))}</div>` : ''}
+          ${log.notificationStatus ? `<div class="mt-1 text-muted-foreground">通知状态：${escapeHtml(getProxyNotificationStatusLabel(log.notificationStatus))}</div>` : ''}
+          ${log.notificationRemark ? `<div class="mt-1 text-muted-foreground">通知说明：${escapeHtml(log.notificationRemark)}</div>` : ''}
+          ${log.remark ? `<div class="mt-1 text-muted-foreground">备注：${escapeHtml(log.remark)}</div>` : ''}
+        </div>
+      `,
+    )
+    .join('')
 }
 
 function getBuildCandidates(
@@ -459,20 +690,14 @@ function closeStatementDraft(statementId: string, by: string): { ok: boolean; me
   return { ok: true }
 }
 
-function renderOverviewCard(title: string, value: string, note: string): string {
-  return `
-    <div class="rounded-xl border bg-background p-4">
-      <div class="text-xs text-muted-foreground">${escapeHtml(title)}</div>
-      <div class="mt-2 text-2xl font-semibold tabular-nums">${escapeHtml(value)}</div>
-      <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(note)}</div>
-    </div>
-  `
-}
-
 function renderStatementListRows(items: StatementListItemViewModel[]): string {
   return items
-    .map(
-      (item) => `
+    .map((item) => {
+      const draft = getStatementDraftById(item.statementId)
+      const canProxyConfirm = draft ? canProxyConfirmStatement(draft) : false
+      const proxyConfirmed = draft ? isStatementProxyConfirmed(draft) : item.confirmationSource === 'MERCHANDISER_PROXY_CONFIRMATION'
+
+      return `
         <tr class="border-b last:border-b-0">
           <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.statementNo)}</td>
           <td class="px-4 py-3 text-xs">${escapeHtml(item.settlementPartyLabel)}</td>
@@ -488,6 +713,7 @@ function renderStatementListRows(items: StatementListItemViewModel[]): string {
             <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${getFactoryFeedbackStatusBadge(item.factoryFeedbackStatus)}">${escapeHtml(
               getFactoryFeedbackStatusLabel(item.factoryFeedbackStatus),
             )}</span>
+            <div class="mt-1 text-[10px] ${item.confirmationSource === 'MERCHANDISER_PROXY_CONFIRMATION' ? 'text-blue-700' : 'text-muted-foreground'}">${escapeHtml(renderConfirmationSourceText(item))}</div>
           </td>
           <td class="px-4 py-3 text-right tabular-nums">${item.itemCount}</td>
           <td class="px-4 py-3 text-right tabular-nums">${item.totalQty}</td>
@@ -517,12 +743,62 @@ function renderStatementListRows(items: StatementListItemViewModel[]): string {
                   ? `<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-stm-action="open-detail" data-statement-id="${escapeHtml(item.statementId)}">查看工厂反馈</button>`
                   : ''
               }
+              ${
+                canProxyConfirm
+                  ? `<button class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-blue-50 px-2 text-xs font-medium text-blue-700 hover:bg-blue-100" data-stm-action="open-proxy-confirm" data-statement-id="${escapeHtml(item.statementId)}">跟单审核代确认</button>`
+                  : ''
+              }
+              ${
+                proxyConfirmed
+                  ? `<button class="inline-flex h-7 items-center rounded-md px-2 text-xs text-blue-700 hover:bg-blue-50" data-stm-action="open-detail" data-statement-id="${escapeHtml(item.statementId)}">查看代确认记录</button>`
+                  : ''
+              }
             </div>
           </td>
         </tr>
-      `,
-    )
+      `
+    })
     .join('')
+}
+
+function renderStatementListPagination(total: number): string {
+  if (total === 0) return ''
+
+  const totalPages = getStatementListPageCount(total)
+  const currentPage = getCurrentStatementListPage(total)
+  const start = (currentPage - 1) * state.listPageSize + 1
+  const end = Math.min(total, currentPage * state.listPageSize)
+
+  return `
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+      <div class="text-xs text-muted-foreground">共 ${total} 条，当前显示 ${start}-${end} 条</div>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="flex items-center gap-2 text-xs text-muted-foreground">
+          每页
+          <select class="h-8 rounded-md border bg-background px-2 text-xs" data-stm-list-filter="page-size">
+            ${STATEMENT_LIST_PAGE_SIZE_OPTIONS.map(
+              (size) => `<option value="${size}" ${state.listPageSize === size ? 'selected' : ''}>${size} 条</option>`,
+            ).join('')}
+          </select>
+        </label>
+        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-stm-action="prev-list-page" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>
+        <div class="flex items-center gap-1">
+          ${Array.from({ length: totalPages }, (_, index) => index + 1)
+            .map(
+              (page) => `
+                <button class="inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs ${
+                  page === currentPage ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'
+                }" data-stm-action="set-list-page" data-page="${page}">
+                  ${page}
+                </button>
+              `,
+            )
+            .join('')}
+        </div>
+        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-stm-action="next-list-page" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>
+      </div>
+    </div>
+  `
 }
 
 function renderBuildCandidateRows(items: StatementSourceItemViewModel[]): string {
@@ -592,7 +868,7 @@ function renderBuildLineRows(lines: StatementDetailLineViewModel[]): string {
             <th class="px-4 py-2 text-right font-medium">任务收入金额</th>
             <th class="px-4 py-2 text-right font-medium">质量扣款金额</th>
             <th class="px-4 py-2 text-right font-medium">本期应付净额</th>
-            <th class="px-4 py-2 font-medium">查看来源详情</th>
+            <th class="px-4 py-2 font-medium">查看依据</th>
           </tr>
         </thead>
         <tbody>
@@ -692,17 +968,17 @@ function renderStatementLedgerSectionRows(
         <tbody>
           ${lines
             .map(
-              (line) => `
+              (item) => `
                 <tr class="border-b last:border-b-0">
-                  <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.ledgerNo ?? line.sourceItemId)}</td>
-                  <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.qcRecordId ?? '-')}</td>
-                  <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.pendingDeductionRecordId ?? '-')}</td>
-                  <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.disputeId ?? '-')}</td>
-                  <td class="px-4 py-3 text-xs">${escapeHtml(line.remark ?? line.sourceTypeZh)}</td>
-                  <td class="px-4 py-3 text-right tabular-nums">${line.returnInboundQty ?? line.deductionQty ?? 0}</td>
-                  <td class="px-4 py-3 text-right font-medium tabular-nums">${formatAmount(line.qualityDeductionAmount ?? 0)}</td>
+                  <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.ledgerNo ?? item.sourceItemId)}</td>
+                  <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.qcRecordId ?? '-')}</td>
+                  <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.pendingDeductionRecordId ?? '-')}</td>
+                  <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.disputeId ?? '-')}</td>
+                  <td class="px-4 py-3 text-xs">${escapeHtml(item.remark ?? item.sourceTypeZh)}</td>
+                  <td class="px-4 py-3 text-right tabular-nums">${item.returnInboundQty ?? item.deductionQty ?? 0}</td>
+                  <td class="px-4 py-3 text-right font-medium tabular-nums">${formatAmount(item.qualityDeductionAmount ?? 0)}</td>
                   <td class="px-4 py-3">
-                    <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(line.routeToSourceResolved)}">查看来源详情</button>
+                    <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(item.basisId ? buildDeductionEntryHrefByBasisId(item.basisId) : item.routeToSourceResolved)}">查看依据</button>
                   </td>
                 </tr>
               `,
@@ -720,6 +996,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
   const openAppeal = getOpenStatementAppeal(detail.draft)
   const latestAppeal = getLatestStatementAppeal(detail.draft)
   const progressView = getStatementSettlementProgressView(detail.draft)
+  const confirmationSourceLabel = getStatementConfirmationSourceLabel(detail.draft)
   const showAppealProcessing =
     state.processingAppealStatementId === detail.draft.statementId && openAppeal
 
@@ -745,6 +1022,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">结算周期</dt><dd class="text-right text-xs">${escapeHtml(detail.draft.settlementCycleLabel ?? '-')}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">计划预付款日</dt><dd class="text-xs">${escapeHtml(detail.draft.plannedPrepaymentAt ?? '-')}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">对账单状态</dt><dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[detail.draft.status]}">${STATUS_ZH[detail.draft.status]}</span></dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">确认来源</dt><dd class="text-xs ${isStatementProxyConfirmed(detail.draft) ? 'font-medium text-blue-700' : ''}">${escapeHtml(confirmationSourceLabel)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">创建时间</dt><dd class="text-xs">${escapeHtml(detail.draft.createdAt)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">创建人</dt><dd class="text-xs">${escapeHtml(detail.draft.createdBy)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">结算资料版本号</dt><dd class="text-xs font-medium">${escapeHtml(detail.draft.settlementProfileVersionNo)}</dd></div>
@@ -786,10 +1064,22 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
 
           <section class="mt-4 rounded-lg border bg-card p-4">
             <h4 class="text-sm font-semibold">工厂反馈</h4>
+            <div class="mt-3">${renderProxyConfirmationSummary(detail.draft)}</div>
             <dl class="mt-3 grid gap-3 text-sm md:grid-cols-2">
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">工厂反馈状态</dt><dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${getFactoryFeedbackStatusBadge(detail.draft.factoryFeedbackStatus)}">${escapeHtml(getFactoryFeedbackStatusLabel(detail.draft.factoryFeedbackStatus))}</span></dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">确认来源</dt><dd class="text-xs ${isStatementProxyConfirmed(detail.draft) ? 'font-medium text-blue-700' : ''}">${escapeHtml(confirmationSourceLabel)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">反馈时间</dt><dd class="text-xs">${escapeHtml(detail.draft.factoryFeedbackAt || '当前未反馈')}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">反馈人</dt><dd class="text-xs">${escapeHtml(detail.draft.factoryFeedbackBy || '当前未反馈')}</dd></div>
+              ${
+                isStatementProxyConfirmed(detail.draft)
+                  ? `
+                    <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">线下确认方式</dt><dd class="text-xs">${escapeHtml(getProxyConfirmationMethodLabel(detail.draft.proxyConfirmMethod))}</dd></div>
+                    <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">通知状态</dt><dd class="text-xs">${escapeHtml(getProxyNotificationStatusLabel(detail.draft.proxyConfirmNotificationStatus))}</dd></div>
+                    <div class="flex items-start justify-between gap-3"><dt class="text-muted-foreground">代确认原因</dt><dd class="max-w-[70%] text-right text-xs text-muted-foreground">${escapeHtml(detail.draft.proxyConfirmReason || '未记录')}</dd></div>
+                    <div class="flex items-start justify-between gap-3"><dt class="text-muted-foreground">通知说明</dt><dd class="max-w-[70%] text-right text-xs text-muted-foreground">${escapeHtml(detail.draft.proxyConfirmNotificationRemark || '未记录')}</dd></div>
+                  `
+                  : ''
+              }
               <div class="flex items-start justify-between gap-3"><dt class="text-muted-foreground">反馈说明</dt><dd class="max-w-[70%] text-right text-xs text-muted-foreground">${escapeHtml(detail.draft.factoryFeedbackRemark || '当前无反馈说明')}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">是否有申诉</dt><dd class="text-xs">${detail.hasFactoryAppeal ? '有申诉' : '无申诉'}</dd></div>
               <div class="flex items-start justify-between gap-3"><dt class="text-muted-foreground">最新申诉</dt><dd class="max-w-[70%] text-right text-xs text-muted-foreground">${
@@ -857,7 +1147,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
                       </label>
                       <label class="grid gap-1 text-xs md:col-span-2">
                         <span class="text-muted-foreground">处理意见</span>
-                        <textarea class="min-h-[88px] rounded-md border bg-background px-3 py-2 text-sm" data-stm-appeal-field="comment" placeholder="请填写处理意见">${escapeHtml(state.appealResolutionComment)}</textarea>
+                        <textarea class="min-h-[88px] rounded-md border bg-background px-3 py-2 text-sm" data-stm-appeal-field="comment" data-skip-page-rerender="true" placeholder="请填写处理意见">${escapeHtml(state.appealResolutionComment)}</textarea>
                       </label>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-2">
@@ -917,7 +1207,14 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
               }
               ${
                 detail.draft.status === 'PENDING_FACTORY_CONFIRM'
-                  ? `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前已下发工厂，待工厂确认或申诉后才能决定是否进入后续预付款。</span>`
+                  ? `
+                    <span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前已下发工厂，待工厂确认或申诉后才能决定是否进入后续预付款。</span>
+                    ${
+                      canProxyConfirmStatement(detail.draft)
+                        ? `<button class="inline-flex h-8 items-center rounded-md border border-blue-300 bg-blue-50 px-3 text-sm font-medium text-blue-700 hover:bg-blue-100" data-stm-action="open-proxy-confirm" data-statement-id="${escapeHtml(detail.draft.statementId)}">跟单审核代确认</button>`
+                        : `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">存在申诉或状态不满足时不可代确认。</span>`
+                    }
+                  `
                   : ''
               }
               ${
@@ -942,7 +1239,84 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
               }
             </div>
           </section>
+
+          <section class="mt-4 rounded-lg border bg-card p-4">
+            <h4 class="text-sm font-semibold">操作日志</h4>
+            <div class="mt-3 space-y-2">
+              ${renderStatementAuditLogList(detail.draft)}
+            </div>
+          </section>
         </div>
+      </section>
+    </div>
+  `
+}
+
+function renderProxyConfirmationDialog(): string {
+  if (!state.proxyConfirmStatementId) return ''
+  const draft = getStatementDraftById(state.proxyConfirmStatementId)
+  if (!draft) return ''
+
+  return `
+    <div class="fixed inset-0 z-[70]" data-dialog-backdrop="true">
+      <button class="absolute inset-0 bg-black/45" data-stm-action="close-proxy-confirm" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-5 shadow-2xl" data-dialog-panel="true">
+        <header>
+          <h3 class="text-base font-semibold">跟单审核代确认</h3>
+          <p class="mt-1 text-xs leading-5 text-muted-foreground">
+            该操作会使对账单进入待入预付款，但会记录为“跟单审核代确认”，三方工厂端也会看到该确认来源。
+          </p>
+        </header>
+
+        <div class="mt-4 rounded-md border bg-muted/20 px-3 py-2 text-xs">
+          <div>对账单：<span class="font-mono">${escapeHtml(draft.statementNo ?? draft.statementId)}</span></div>
+          <div class="mt-1">工厂：${escapeHtml(draft.factoryName ?? draft.statementPartyView ?? draft.settlementPartyId)}</div>
+          <div class="mt-1">结算周期：${escapeHtml(draft.settlementCycleLabel ?? '-')}</div>
+        </div>
+
+        <div class="mt-4 grid gap-3 md:grid-cols-2">
+          <label class="grid gap-1 text-xs">
+            <span class="text-muted-foreground">线下确认方式 <span class="text-red-500">*</span></span>
+            <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-proxy-field="method">
+              <option value="" ${state.proxyConfirmMethod === '' ? 'selected' : ''}>请选择</option>
+              <option value="PHONE" ${state.proxyConfirmMethod === 'PHONE' ? 'selected' : ''}>电话确认</option>
+              <option value="WHATSAPP" ${state.proxyConfirmMethod === 'WHATSAPP' ? 'selected' : ''}>WhatsApp 确认</option>
+              <option value="FEISHU_OR_WECHAT" ${state.proxyConfirmMethod === 'FEISHU_OR_WECHAT' ? 'selected' : ''}>飞书/微信确认</option>
+              <option value="ONSITE" ${state.proxyConfirmMethod === 'ONSITE' ? 'selected' : ''}>现场确认</option>
+              <option value="LONG_INACTIVE" ${state.proxyConfirmMethod === 'LONG_INACTIVE' ? 'selected' : ''}>长期未操作</option>
+              <option value="OTHER" ${state.proxyConfirmMethod === 'OTHER' ? 'selected' : ''}>其他方式</option>
+            </select>
+          </label>
+          <label class="grid gap-1 text-xs">
+            <span class="text-muted-foreground">通知三方工厂状态 <span class="text-red-500">*</span></span>
+            <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-proxy-field="notification-status">
+              <option value="NOTIFIED" ${state.proxyConfirmNotificationStatus === 'NOTIFIED' ? 'selected' : ''}>已通知三方工厂</option>
+              <option value="PENDING" ${state.proxyConfirmNotificationStatus === 'PENDING' ? 'selected' : ''}>待补通知三方工厂</option>
+              <option value="FAILED" ${state.proxyConfirmNotificationStatus === 'FAILED' ? 'selected' : ''}>通知三方工厂失败</option>
+            </select>
+          </label>
+          <label class="grid gap-1 text-xs md:col-span-2">
+            <span class="text-muted-foreground">代确认原因 <span class="text-red-500">*</span></span>
+            <textarea class="min-h-[84px] rounded-md border bg-background px-3 py-2 text-sm" data-stm-proxy-field="reason" data-skip-page-rerender="true" placeholder="例如：三方工厂未在 PDA 操作，跟单已通过 WhatsApp 与负责人核对无异议">${escapeHtml(state.proxyConfirmReason)}</textarea>
+          </label>
+          <label class="grid gap-1 text-xs md:col-span-2">
+            <span class="text-muted-foreground">跟单审核备注</span>
+            <textarea class="min-h-[72px] rounded-md border bg-background px-3 py-2 text-sm" data-stm-proxy-field="remark" data-skip-page-rerender="true" placeholder="记录审核口径、沟通对象或风险说明">${escapeHtml(state.proxyConfirmRemark)}</textarea>
+          </label>
+          <label class="grid gap-1 text-xs md:col-span-2">
+            <span class="text-muted-foreground">通知说明</span>
+            <input class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-proxy-field="notification-remark" data-skip-page-rerender="true" value="${escapeHtml(state.proxyConfirmNotificationRemark)}" />
+          </label>
+        </div>
+
+        <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+          审核通过后，系统将记录原状态、目标状态、跟单人员、时间、代确认依据和通知状态；PDA 端不会显示为工厂本人确认。
+        </div>
+
+        <footer class="mt-4 flex justify-end gap-2">
+          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-stm-action="close-proxy-confirm">取消</button>
+          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="submit-proxy-confirm" data-statement-id="${escapeHtml(draft.statementId)}">审核通过并代确认</button>
+        </footer>
       </section>
     </div>
   `
@@ -954,80 +1328,116 @@ function renderListView(
 ): string {
   const counts = getStatementOverviewCounts(listItems, buildScopes)
   const filteredItems = getFilteredStatementListItems(listItems)
+  const pagedItems = getPaginatedStatementListItems(filteredItems)
   const partyOptions = getStatementPartyOptions(listItems)
   const cycleOptions = getStatementCycleOptions(listItems)
+  const summaryItems = [
+    { label: '对账单', value: counts.total, tone: 'text-foreground' },
+    { label: '草稿中', value: counts.draft, tone: 'text-amber-600' },
+    { label: '待工厂反馈', value: counts.pendingFactory, tone: 'text-blue-600' },
+    { label: '待入预付款', value: counts.readyForPrepayment, tone: 'text-emerald-600' },
+    { label: '已入预付款批次', value: counts.inPrepaymentBatch, tone: 'text-indigo-600' },
+    { label: '已预付', value: counts.prepaid, tone: 'text-slate-700' },
+    { label: '已关闭', value: counts.closed, tone: 'text-muted-foreground' },
+    { label: '可新建范围', value: counts.buildableScopeCount, tone: 'text-violet-600' },
+  ]
 
   return `
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-      ${renderOverviewCard('对账单总数', String(counts.total), '默认列表先展示所有工厂、所有周期的正式对账单对象。')}
-      ${renderOverviewCard('草稿中', String(counts.draft), '草稿可继续编辑、确认或关闭。')}
-      ${renderOverviewCard('待工厂反馈', String(counts.pendingFactory), '平台已下发，等待工厂确认或申诉。')}
-      ${renderOverviewCard('待入预付款', String(counts.readyForPrepayment), '已完成正式流水汇总并等待后续预付款批次消费。')}
-      ${renderOverviewCard('已入预付款批次', String(counts.inPrepaymentBatch), '已被后续预付款批次消费，后续查看批次执行进度。')}
-      ${renderOverviewCard('已预付', String(counts.prepaid), '当前周期的预付款已完成，保留打款回写和历史查看。')}
-      ${renderOverviewCard('已关闭', String(counts.closed), '已关闭单据仅保留查看，不再继续流转。')}
-      ${renderOverviewCard('可新建范围', String(counts.buildableScopeCount), '按工厂 + 结算周期统计可新建对账单的范围。')}
+    <section class="rounded-xl border bg-background p-3">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-[1fr_1fr_1.15fr_1.25fr_1fr]">
+        <label class="grid min-w-0 gap-1.5 text-xs font-medium text-foreground">
+          关键词
+          <input
+            class="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm font-normal"
+            data-stm-list-filter="keyword"
+            data-skip-page-rerender="true"
+            placeholder="对账单号 / 工厂"
+            value="${escapeHtml(state.keyword)}"
+          />
+        </label>
+        <label class="grid min-w-0 gap-1.5 text-xs font-medium text-foreground">
+          工厂
+          <select class="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm font-normal" data-stm-list-filter="party">
+            <option value="__ALL__" ${state.filterParty === '__ALL__' ? 'selected' : ''}>全部工厂</option>
+            ${partyOptions
+              .map(
+                (item) => `<option value="${escapeHtml(item.value)}" ${state.filterParty === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="grid min-w-0 gap-1.5 text-xs font-medium text-foreground">
+          结算周期
+          <select class="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm font-normal" data-stm-list-filter="cycle">
+            <option value="__ALL__" ${state.filterCycle === '__ALL__' ? 'selected' : ''}>全部结算周期</option>
+            ${cycleOptions
+              .map(
+                (item) => `<option value="${escapeHtml(item.value)}" ${state.filterCycle === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="grid min-w-0 gap-1.5 text-xs font-medium text-foreground">
+          对账单状态
+          <select class="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm font-normal" data-stm-list-filter="status">
+            <option value="__ALL__" ${state.filterStatus === '__ALL__' ? 'selected' : ''}>全部状态</option>
+            <option value="DRAFT" ${state.filterStatus === 'DRAFT' ? 'selected' : ''}>草稿</option>
+            <option value="PENDING_FACTORY_CONFIRM" ${state.filterStatus === 'PENDING_FACTORY_CONFIRM' ? 'selected' : ''}>待工厂反馈</option>
+            <option value="__FACTORY_SELF_CONFIRMED__" ${state.filterStatus === '__FACTORY_SELF_CONFIRMED__' ? 'selected' : ''}>工厂已确认（工厂自己确认）</option>
+            <option value="__MERCHANDISER_PROXY_CONFIRMED__" ${state.filterStatus === '__MERCHANDISER_PROXY_CONFIRMED__' ? 'selected' : ''}>工厂已确认（跟单代确认）</option>
+            <option value="READY_FOR_PREPAYMENT" ${state.filterStatus === 'READY_FOR_PREPAYMENT' ? 'selected' : ''}>待入预付款</option>
+            <option value="IN_PREPAYMENT_BATCH" ${state.filterStatus === 'IN_PREPAYMENT_BATCH' ? 'selected' : ''}>已入预付款批次</option>
+            <option value="PREPAID" ${state.filterStatus === 'PREPAID' ? 'selected' : ''}>已预付</option>
+            <option value="CLOSED" ${state.filterStatus === 'CLOSED' ? 'selected' : ''}>已关闭</option>
+          </select>
+        </label>
+        <label class="grid min-w-0 gap-1.5 text-xs font-medium text-foreground">
+          工厂反馈
+          <select class="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm font-normal" data-stm-list-filter="feedback">
+            <option value="__ALL__" ${state.filterFeedback === '__ALL__' ? 'selected' : ''}>全部工厂反馈</option>
+            ${Object.entries(FACTORY_FEEDBACK_LABEL)
+              .map(
+                ([value, label]) => `<option value="${value}" ${state.filterFeedback === value ? 'selected' : ''}>${escapeHtml(label)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+      </div>
     </section>
 
-    <section class="rounded-xl border bg-background p-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+    <section class="rounded-xl border bg-background p-3">
+      <div class="flex flex-wrap items-center gap-2">
+        ${summaryItems
+          .map(
+            (item) => `
+              <div class="inline-flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm shadow-sm">
+                <span class="text-muted-foreground">${escapeHtml(item.label)}:</span>
+                <strong class="tabular-nums ${item.tone}">${item.value}</strong>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+
+    <section class="overflow-hidden rounded-xl border bg-background">
+      <div class="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
         <div>
-          <h2 class="text-base font-semibold">对账单列表</h2>
-          <p class="mt-1 text-sm text-muted-foreground">默认主视图先展示所有工厂、所有周期的对账单。新建时必须先选工厂和结算周期，再自动加载该范围内的回货批次明细行。</p>
+          <h2 class="text-sm font-semibold">对账单列表</h2>
+          <p class="mt-1 text-xs text-muted-foreground">汇总查看当前对账单在对账、预付款和关闭归档中的推进情况。</p>
         </div>
-        <button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="open-build">
-          新建对账单
-        </button>
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="text-xs text-muted-foreground">共 ${filteredItems.length} 条对账单</span>
+          <button class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-700" data-stm-action="open-build">
+            新建对账单
+          </button>
+        </div>
       </div>
-
-      <div class="mt-4 flex flex-wrap items-center gap-3">
-        <input
-          class="h-9 w-48 rounded-md border bg-background px-3 text-sm"
-          data-stm-list-filter="keyword"
-          placeholder="对账单号 / 工厂"
-          value="${escapeHtml(state.keyword)}"
-        />
-        <select class="h-9 w-52 rounded-md border bg-background px-3 text-sm" data-stm-list-filter="party">
-          <option value="__ALL__" ${state.filterParty === '__ALL__' ? 'selected' : ''}>全部工厂</option>
-          ${partyOptions
-            .map(
-              (item) => `<option value="${escapeHtml(item.value)}" ${state.filterParty === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`,
-            )
-            .join('')}
-        </select>
-        <select class="h-9 w-56 rounded-md border bg-background px-3 text-sm" data-stm-list-filter="cycle">
-          <option value="__ALL__" ${state.filterCycle === '__ALL__' ? 'selected' : ''}>全部结算周期</option>
-          ${cycleOptions
-            .map(
-              (item) => `<option value="${escapeHtml(item.value)}" ${state.filterCycle === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`,
-            )
-            .join('')}
-        </select>
-        <select class="h-9 w-40 rounded-md border bg-background px-3 text-sm" data-stm-list-filter="status">
-          <option value="__ALL__" ${state.filterStatus === '__ALL__' ? 'selected' : ''}>全部状态</option>
-          <option value="DRAFT" ${state.filterStatus === 'DRAFT' ? 'selected' : ''}>草稿</option>
-          <option value="PENDING_FACTORY_CONFIRM" ${state.filterStatus === 'PENDING_FACTORY_CONFIRM' ? 'selected' : ''}>待工厂反馈</option>
-          <option value="FACTORY_CONFIRMED" ${state.filterStatus === 'FACTORY_CONFIRMED' ? 'selected' : ''}>工厂已确认</option>
-          <option value="READY_FOR_PREPAYMENT" ${state.filterStatus === 'READY_FOR_PREPAYMENT' ? 'selected' : ''}>待入预付款</option>
-          <option value="IN_PREPAYMENT_BATCH" ${state.filterStatus === 'IN_PREPAYMENT_BATCH' ? 'selected' : ''}>已入预付款批次</option>
-          <option value="PREPAID" ${state.filterStatus === 'PREPAID' ? 'selected' : ''}>已预付</option>
-          <option value="CLOSED" ${state.filterStatus === 'CLOSED' ? 'selected' : ''}>已关闭</option>
-        </select>
-        <select class="h-9 w-44 rounded-md border bg-background px-3 text-sm" data-stm-list-filter="feedback">
-          <option value="__ALL__" ${state.filterFeedback === '__ALL__' ? 'selected' : ''}>全部工厂反馈</option>
-          ${Object.entries(FACTORY_FEEDBACK_LABEL)
-            .map(
-              ([value, label]) => `<option value="${value}" ${state.filterFeedback === value ? 'selected' : ''}>${escapeHtml(label)}</option>`,
-            )
-            .join('')}
-        </select>
-      </div>
-
       ${
         filteredItems.length === 0
           ? `<p class="py-8 text-center text-sm text-muted-foreground">当前筛选条件下暂无对账单</p>`
           : `
-            <div class="mt-4 overflow-x-auto rounded-md border">
+            <div class="overflow-x-auto">
               <table class="w-full min-w-[1820px] text-sm">
                 <thead>
                   <tr class="border-b bg-muted/40 text-left">
@@ -1050,8 +1460,11 @@ function renderListView(
                     <th class="px-4 py-2 font-medium">操作</th>
                   </tr>
                 </thead>
-                <tbody>${renderStatementListRows(filteredItems)}</tbody>
+                <tbody>${renderStatementListRows(pagedItems)}</tbody>
               </table>
+            </div>
+            <div class="border-t px-4 pb-4">
+              ${renderStatementListPagination(filteredItems.length)}
             </div>
           `
       }
@@ -1121,7 +1534,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                 </div>
                 <label class="mt-3 grid gap-1 text-sm">
                   <span class="text-muted-foreground">备注</span>
-                  <textarea class="min-h-[84px] rounded-md border bg-background px-3 py-2 text-sm" data-stm-build-field="remark" placeholder="说明当前对账单口径或需要关注的事项">${escapeHtml(state.buildRemark)}</textarea>
+                  <textarea class="min-h-[84px] rounded-md border bg-background px-3 py-2 text-sm" data-stm-build-field="remark" data-skip-page-rerender="true" placeholder="说明当前对账单口径或需要关注的事项">${escapeHtml(state.buildRemark)}</textarea>
                 </label>
 
                 ${
@@ -1204,44 +1617,22 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
 }
 
 export function renderStatementsPage(): string {
+  applyStatementPageDemoBootstrap()
   const pageBoundary = getSettlementPageBoundary('statements')
-  const listItems = getStatementListItems()
+  const listItems = getStatementPageListItems(getStatementListItems())
   const buildScopes = listStatementBuildScopes()
   const detail = state.detailStatementId ? getStatementDetailViewModel(state.detailStatementId) : null
 
   return `
-    <div class="flex flex-col gap-6 p-6">
+    <div class="flex flex-col gap-6 p-6" data-fast-page-render="true">
       <section>
         <h1 class="text-xl font-semibold text-foreground">对账单</h1>
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(pageBoundary.pageIntro)}</p>
       </section>
 
-      <section class="rounded-xl border bg-background p-4">
-        <div class="flex flex-wrap items-center gap-2">
-          <button
-            class="inline-flex h-9 items-center rounded-full border px-4 text-sm ${
-              state.activeView === 'LIST' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'
-            }"
-            data-stm-action="switch-page-view"
-            data-view="LIST"
-            type="button"
-          >
-            对账单列表
-          </button>
-          <button
-            class="inline-flex h-9 items-center rounded-full border px-4 text-sm ${
-              state.activeView === 'BUILD' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'
-            }"
-            data-stm-action="open-build"
-            type="button"
-          >
-            新建 / 编辑草稿
-          </button>
-        </div>
-      </section>
-
       ${state.activeView === 'LIST' ? renderListView(listItems, buildScopes) : renderBuildView(buildScopes)}
       ${renderDetailDialog(detail)}
+      ${renderProxyConfirmationDialog()}
     </div>
   `
 }
@@ -1252,22 +1643,35 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
     const field = listFilterNode.dataset.stmListFilter
     if (field === 'keyword') {
       state.keyword = listFilterNode.value
+      resetStatementListPage()
       return true
     }
     if (field === 'party') {
       state.filterParty = listFilterNode.value
+      resetStatementListPage()
       return true
     }
     if (field === 'cycle') {
       state.filterCycle = listFilterNode.value
+      resetStatementListPage()
       return true
     }
     if (field === 'status') {
       state.filterStatus = listFilterNode.value as StatusFilter
+      resetStatementListPage()
       return true
     }
     if (field === 'feedback') {
       state.filterFeedback = listFilterNode.value as FeedbackFilter
+      resetStatementListPage()
+      return true
+    }
+    if (field === 'page-size') {
+      const nextPageSize = Number(listFilterNode.value)
+      if (STATEMENT_LIST_PAGE_SIZE_OPTIONS.includes(nextPageSize)) {
+        state.listPageSize = nextPageSize
+        resetStatementListPage()
+      }
       return true
     }
     return true
@@ -1307,31 +1711,80 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
     return true
   }
 
+  const proxyFieldNode = target.closest<HTMLElement>('[data-stm-proxy-field]')
+  if (
+    proxyFieldNode instanceof HTMLSelectElement ||
+    proxyFieldNode instanceof HTMLTextAreaElement ||
+    proxyFieldNode instanceof HTMLInputElement
+  ) {
+    const field = proxyFieldNode.dataset.stmProxyField
+    if (field === 'method' && proxyFieldNode instanceof HTMLSelectElement) {
+      state.proxyConfirmMethod = proxyFieldNode.value as StatementsState['proxyConfirmMethod']
+      return true
+    }
+    if (field === 'notification-status' && proxyFieldNode instanceof HTMLSelectElement) {
+      state.proxyConfirmNotificationStatus = proxyFieldNode.value as StatementProxyNotificationStatus
+      if (
+        proxyFieldNode.value === 'NOTIFIED' &&
+        (!state.proxyConfirmNotificationRemark || state.proxyConfirmNotificationRemark === '待补通知三方工厂')
+      ) {
+        state.proxyConfirmNotificationRemark = '已在三方工厂端展示跟单审核代确认结果'
+      }
+      if (proxyFieldNode.value === 'PENDING') state.proxyConfirmNotificationRemark = '待补通知三方工厂'
+      if (proxyFieldNode.value === 'FAILED') state.proxyConfirmNotificationRemark = '通知三方工厂失败，需补通知'
+      return true
+    }
+    if (field === 'reason' && proxyFieldNode instanceof HTMLTextAreaElement) {
+      state.proxyConfirmReason = proxyFieldNode.value
+      return true
+    }
+    if (field === 'remark' && proxyFieldNode instanceof HTMLTextAreaElement) {
+      state.proxyConfirmRemark = proxyFieldNode.value
+      return true
+    }
+    if (field === 'notification-remark' && proxyFieldNode instanceof HTMLInputElement) {
+      state.proxyConfirmNotificationRemark = proxyFieldNode.value
+      return true
+    }
+    return true
+  }
+
   const actionNode = target.closest<HTMLElement>('[data-stm-action]')
   if (!actionNode) return false
 
   const action = actionNode.dataset.stmAction
   if (!action) return false
-  const scopes = listStatementBuildScopes()
+  let cachedBuildScopes: StatementBuildScopeViewModel[] | null = null
+  const getBuildScopesForAction = (): StatementBuildScopeViewModel[] => {
+    if (cachedBuildScopes) return cachedBuildScopes
+    cachedBuildScopes = listStatementBuildScopes()
+    return cachedBuildScopes
+  }
 
-  if (action === 'switch-page-view') {
-    const view = actionNode.dataset.view as StatementPageView | undefined
-    if (!view) return true
-    state.activeView = view
-    if (view === 'BUILD' && !state.buildFactoryId && scopes.length) {
-      resetBuildState(scopes)
-    }
+  if (action === 'set-list-page') {
+    const nextPage = Number(actionNode.dataset.page)
+    if (Number.isFinite(nextPage)) state.listPage = Math.max(1, nextPage)
+    return true
+  }
+
+  if (action === 'prev-list-page') {
+    state.listPage = Math.max(1, state.listPage - 1)
+    return true
+  }
+
+  if (action === 'next-list-page') {
+    state.listPage += 1
     return true
   }
 
   if (action === 'open-build') {
-    openBuildView(scopes)
+    openBuildView(getBuildScopesForAction())
     return true
   }
 
   if (action === 'back-to-list') {
     state.activeView = 'LIST'
-    resetBuildState(scopes)
+    resetBuildState(getBuildScopesForAction())
     return true
   }
 
@@ -1345,13 +1798,14 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
   if (action === 'close-detail') {
     state.detailStatementId = null
     resetAppealResolutionState()
+    resetProxyConfirmationState()
     return true
   }
 
   if (action === 'edit-draft') {
     const statementId = actionNode.dataset.statementId
     if (!statementId) return true
-    openBuildView(scopes, getStatementDraftById(statementId))
+    openBuildView(getBuildScopesForAction(), getStatementDraftById(statementId))
     state.detailStatementId = null
     resetAppealResolutionState()
     return true
@@ -1368,6 +1822,7 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'generate') {
+    const scopes = getBuildScopesForAction()
     const scope = getSelectedBuildScope(scopes)
     if (!scope) {
       showStatementsToast('请先选择工厂和结算周期', 'error')
@@ -1389,6 +1844,7 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'save-build') {
+    const scopes = getBuildScopesForAction()
     const scope = getSelectedBuildScope(scopes)
     const statementId = state.editingStatementId
     if (!scope || !statementId) {
@@ -1435,6 +1891,54 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
       return true
     }
     showStatementsToast('对账单已下发工厂反馈')
+    return true
+  }
+
+  if (action === 'open-proxy-confirm') {
+    const statementId = actionNode.dataset.statementId
+    if (!statementId) return true
+    const statement = getStatementDraftById(statementId)
+    if (!statement || !canProxyConfirmStatement(statement)) {
+      showStatementsToast('当前对账单不满足跟单审核代确认条件', 'error')
+      return true
+    }
+    resetProxyConfirmationState()
+    state.proxyConfirmStatementId = statementId
+    return true
+  }
+
+  if (action === 'close-proxy-confirm') {
+    resetProxyConfirmationState()
+    return true
+  }
+
+  if (action === 'submit-proxy-confirm') {
+    const statementId = actionNode.dataset.statementId || state.proxyConfirmStatementId
+    if (!statementId) return true
+    if (!state.proxyConfirmMethod) {
+      showStatementsToast('请选择线下确认方式', 'error')
+      return true
+    }
+    if (!state.proxyConfirmReason.trim()) {
+      showStatementsToast('请填写跟单审核代确认原因', 'error')
+      return true
+    }
+    const result = submitStatementMerchandiserProxyConfirmation({
+      statementId,
+      by: '跟单A',
+      reason: state.proxyConfirmReason.trim(),
+      method: state.proxyConfirmMethod,
+      remark: state.proxyConfirmRemark.trim(),
+      notificationStatus: state.proxyConfirmNotificationStatus,
+      notificationRemark: state.proxyConfirmNotificationRemark.trim(),
+    })
+    if (!result.ok) {
+      showStatementsToast(result.message ?? '跟单审核代确认失败', 'error')
+      return true
+    }
+    resetProxyConfirmationState()
+    state.detailStatementId = statementId
+    showStatementsToast('跟单审核代确认已完成，三方工厂端可见该确认来源')
     return true
   }
 
@@ -1500,7 +2004,7 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
     showStatementsToast('对账单已关闭')
     if (state.editingStatementId === statementId) {
       state.activeView = 'LIST'
-      resetBuildState(scopes)
+      resetBuildState(getBuildScopesForAction())
     }
     resetAppealResolutionState()
     return true

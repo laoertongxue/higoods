@@ -37,6 +37,18 @@ export type FactoryFeedbackStatus =
   | 'FACTORY_APPEALED'
   | 'PLATFORM_HANDLING'
   | 'RESOLVED'
+export type StatementConfirmationSource =
+  | 'FACTORY_PDA_CONFIRMATION'
+  | 'MERCHANDISER_PROXY_CONFIRMATION'
+  | 'PLATFORM_APPEAL_RESOLUTION'
+export type StatementProxyConfirmationMethod =
+  | 'PHONE'
+  | 'WHATSAPP'
+  | 'FEISHU_OR_WECHAT'
+  | 'ONSITE'
+  | 'LONG_INACTIVE'
+  | 'OTHER'
+export type StatementProxyNotificationStatus = 'NOTIFIED' | 'PENDING' | 'FAILED'
 export type StatementSourceItemType = 'TASK_EARNING' | 'QUALITY_DEDUCTION'
 export type StatementLineGrainType =
   | 'RETURN_INBOUND_BATCH'
@@ -75,6 +87,23 @@ export interface StatementAppealRecord {
 }
 
 export type StatementFactoryAppealRecord = StatementAppealRecord
+
+export interface StatementAuditLog {
+  logId: string
+  action: string
+  actor: string
+  operatedAt: string
+  fromStatus?: StatementStatus
+  toStatus?: StatementStatus
+  fromFactoryFeedbackStatus?: FactoryFeedbackStatus
+  toFactoryFeedbackStatus?: FactoryFeedbackStatus
+  reason?: string
+  method?: StatementProxyConfirmationMethod
+  remark?: string
+  notificationStatus?: StatementProxyNotificationStatus
+  notificationRemark?: string
+  visibleToFactory?: boolean
+}
 
 // 仅为过渡兼容保留的旧对象壳。当前结算主链已切到预结算流水，不应再把这里当作主真相源。
 export interface PayableAdjustment {
@@ -177,6 +206,12 @@ export interface PrepaymentBatchStatementItem {
   settlementProfileVersionNo?: string
   settlementProfileSnapshot?: SettlementProfileSnapshot
   factoryFeedbackStatus?: FactoryFeedbackStatus
+  confirmationSource?: StatementConfirmationSource
+  proxyConfirmedAt?: string
+  proxyConfirmedBy?: string
+  proxyConfirmReason?: string
+  proxyConfirmMethod?: StatementProxyConfirmationMethod
+  proxyConfirmNotificationStatus?: StatementProxyNotificationStatus
   resolutionResult?: StatementResolutionResult
 }
 
@@ -359,11 +394,21 @@ export interface StatementDraft {
   plannedPrepaymentAt?: string
   sentToFactoryAt?: string
   factoryConfirmedAt?: string
+  confirmationSource?: StatementConfirmationSource
   /** 工厂反馈状态轴，与平台侧生命周期状态并存。 */
   factoryFeedbackStatus: FactoryFeedbackStatus
   factoryFeedbackAt?: string
   factoryFeedbackBy?: string
   factoryFeedbackRemark?: string
+  proxyConfirmedAt?: string
+  proxyConfirmedBy?: string
+  proxyConfirmReason?: string
+  proxyConfirmMethod?: StatementProxyConfirmationMethod
+  proxyConfirmRemark?: string
+  proxyConfirmNotificationStatus?: StatementProxyNotificationStatus
+  proxyConfirmNotificationAt?: string
+  proxyConfirmNotificationRemark?: string
+  statementAuditLogs?: StatementAuditLog[]
   appealSubmittedAt?: string
   appealSubmittedBy?: string
   platformHandledAt?: string

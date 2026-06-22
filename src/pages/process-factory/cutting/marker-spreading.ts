@@ -929,7 +929,7 @@ function resolveWebSpreadingSummary(
     Math.max(Number(order?.plannedMaterialUsage || 0), 0) ||
     Math.max(Number(derived.markerRecord?.spreadTotalLength || session.theoreticalSpreadTotalLength || 0), 0) ||
     (session.planUnits || []).reduce((sum, unit) => sum + Math.max(Number(unit.plannedSpreadLengthM || 0), 0), 0)
-  const actualUsage = Math.max(Number(rollSummary.totalActualLength || session.totalActualLength || row.spreadActualLengthM || 0), 0)
+  const actualUsage = Math.max(Number(session.totalActualLength || rollSummary.totalActualLength || row.spreadActualLengthM || 0), 0)
   const plannedQty = Math.max(Number(order?.plannedGarmentQty || varianceSummary?.plannedCutGarmentQty || row.plannedCutGarmentQty || 0), 0)
   const actualCutQty = Math.max(Number(varianceSummary?.actualCutGarmentQty || row.actualCutGarmentQty || session.actualCutGarmentQty || 0), 0)
   const layerDiff = actualLayerCount - plannedLayerCount

@@ -25,7 +25,7 @@ function main(): void {
   assert(!existsSync(deductionCalcPage), '旧兼容页 deduction-calc.ts 未退场')
   assert(!existsSync(arbitrationPage), '旧兼容页 arbitration.ts 未退场')
 
-  const routesSource = readFileSync(new URL('../src/router/routes.ts', import.meta.url), 'utf8')
+  const routesSource = readFileSync(new URL('../src/router/routes-fcs.ts', import.meta.url), 'utf8')
   const handlersSource = readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
   const listSource = readFileSync(new URL('../src/pages/qc-records/list-domain.ts', import.meta.url), 'utf8')
   const detailSource = readFileSync(new URL('../src/pages/qc-records/detail-domain.ts', import.meta.url), 'utf8')

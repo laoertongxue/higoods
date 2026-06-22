@@ -27,6 +27,7 @@ interface LifecycleResultError {
 }
 
 const AUTO_CONFIRM_SYSTEM_USER = '系统自动确认'
+const DEFAULT_QUALITY_DEDUCTION_NOW = new Date('2026-03-27T10:00:00')
 let mockedNow: Date | null = null
 let lifecycleSequence = 1
 
@@ -40,7 +41,7 @@ function sanitizeIdPart(value: string): string {
 }
 
 export function getQualityDeductionNow(): Date {
-  return mockedNow ? new Date(mockedNow.getTime()) : new Date()
+  return mockedNow ? new Date(mockedNow.getTime()) : new Date(DEFAULT_QUALITY_DEDUCTION_NOW.getTime())
 }
 
 export function setQualityDeductionNowForTest(input: Date | string): void {

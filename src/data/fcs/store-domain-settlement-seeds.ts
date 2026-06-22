@@ -18,9 +18,12 @@ import type {
   PreSettlementLedger,
   PrepaymentBatchStatus,
   StatementAppealRecord,
+  StatementAuditLog,
   StatementDraft,
   StatementAdjustment,
   StatementDraftItem,
+  StatementProxyConfirmationMethod,
+  StatementProxyNotificationStatus,
   StatementResolutionResult,
   SettlementBatch,
   SettlementBatchItem,
@@ -31,6 +34,52 @@ import type {
 export const initialMaterialStatementDrafts: MaterialStatementDraft[] = []
 
 let statementAppealSeq = 1
+let statementAuditLogSeq = 1
+
+const PROXY_CONFIRMATION_METHOD_LABEL: Record<StatementProxyConfirmationMethod, string> = {
+  PHONE: '电话确认',
+  WHATSAPP: 'WhatsApp 确认',
+  FEISHU_OR_WECHAT: '飞书/微信确认',
+  ONSITE: '现场确认',
+  LONG_INACTIVE: '长期未操作',
+  OTHER: '其他方式',
+}
+
+const PROXY_NOTIFICATION_STATUS_LABEL: Record<StatementProxyNotificationStatus, string> = {
+  NOTIFIED: '已通知三方工厂',
+  PENDING: '待补通知三方工厂',
+  FAILED: '通知三方工厂失败',
+}
+
+export function getProxyConfirmationMethodLabel(method?: StatementProxyConfirmationMethod): string {
+  return method ? PROXY_CONFIRMATION_METHOD_LABEL[method] : '未记录确认方式'
+}
+
+export function getProxyNotificationStatusLabel(status?: StatementProxyNotificationStatus): string {
+  return status ? PROXY_NOTIFICATION_STATUS_LABEL[status] : '未记录通知状态'
+}
+
+export function getStatementConfirmationSourceLabel(
+  statement: Pick<StatementDraft, 'confirmationSource' | 'factoryFeedbackStatus'> &
+    Partial<Pick<StatementDraft, 'resolutionResult'>>,
+): string {
+  if (statement.confirmationSource === 'MERCHANDISER_PROXY_CONFIRMATION') {
+    if (statement.factoryFeedbackStatus === 'FACTORY_APPEALED') return '跟单审核代确认（工厂已提出异议）'
+    if (statement.factoryFeedbackStatus === 'PLATFORM_HANDLING') return '跟单审核代确认（异议处理中）'
+    return '跟单审核代确认'
+  }
+  if (statement.confirmationSource === 'FACTORY_PDA_CONFIRMATION') return '工厂 PDA 确认'
+  if (statement.confirmationSource === 'PLATFORM_APPEAL_RESOLUTION') return '平台申诉处理确认'
+  if (statement.factoryFeedbackStatus === 'FACTORY_CONFIRMED') return '工厂确认'
+  if (statement.factoryFeedbackStatus === 'RESOLVED' && statement.resolutionResult === 'UPHELD') return '平台申诉处理确认'
+  return '尚未确认'
+}
+
+export function isStatementProxyConfirmed(
+  statement: Pick<StatementDraft, 'confirmationSource'>,
+): boolean {
+  return statement.confirmationSource === 'MERCHANDISER_PROXY_CONFIRMATION'
+}
 
 const FALLBACK_SETTLEMENT_CONFIG: SettlementConfigSnapshot = {
   cycleType: 'WEEKLY',
@@ -135,6 +184,27 @@ function createStatementAppealRecord(input: {
   }
 }
 
+function appendStatementAuditLog(
+  statement: StatementDraft,
+  log: Omit<StatementAuditLog, 'logId'>,
+): StatementAuditLog {
+  const record: StatementAuditLog = {
+    logId: `STL-${String(statementAuditLogSeq).padStart(6, '0')}`,
+    ...log,
+  }
+  statementAuditLogSeq += 1
+  statement.statementAuditLogs = [...(statement.statementAuditLogs ?? []), record]
+  return record
+}
+
+function resolveProxyNotificationStatus(input: {
+  notifyFactory?: boolean
+  notificationStatus?: StatementProxyNotificationStatus
+}): StatementProxyNotificationStatus {
+  if (input.notificationStatus) return input.notificationStatus
+  return input.notifyFactory === false ? 'PENDING' : 'NOTIFIED'
+}
+
 function normalizeAppealRecord(
   appeal: Partial<StatementAppealRecord> & {
     appealId?: string
@@ -237,16 +307,20 @@ export function canStatementEnterPrepayment(statement: Pick<StatementDraft, 'sta
   return canStatementEnterSettlement(statement)
 }
 
-export function getStatementSettlementProgressView(statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult'>): {
+export function getStatementSettlementProgressView(statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult' | 'confirmationSource'>): {
   canEnterSettlement: boolean
   summary: string
   detail: string
 } {
   if (canStatementEnterSettlement(statement)) {
+    const sourceLabel = getStatementConfirmationSourceLabel(statement)
     return {
       canEnterSettlement: true,
       summary: '可进入预付款批次',
-      detail: '当前单据已满足后续预付款批次入池条件，可继续进入预付款执行链路。',
+      detail:
+        sourceLabel === '跟单审核代确认'
+          ? '当前单据已由跟单审核代确认，三方工厂端可见该确认来源；单据已满足后续预付款批次入池条件。'
+          : '当前单据已满足后续预付款批次入池条件，可继续进入预付款执行链路。',
     }
   }
 
@@ -447,6 +521,16 @@ function enrichStatementDraftSeed(
         | 'factoryFeedbackAt'
         | 'factoryFeedbackBy'
         | 'factoryFeedbackRemark'
+        | 'confirmationSource'
+        | 'proxyConfirmedAt'
+        | 'proxyConfirmedBy'
+        | 'proxyConfirmReason'
+        | 'proxyConfirmMethod'
+        | 'proxyConfirmRemark'
+        | 'proxyConfirmNotificationStatus'
+        | 'proxyConfirmNotificationAt'
+        | 'proxyConfirmNotificationRemark'
+        | 'statementAuditLogs'
         | 'factoryAppealRecord'
         | 'appealRecords'
         | 'appealSubmittedAt'
@@ -543,6 +627,7 @@ function cloneGeneratedStatementDraft(draft: StatementDraft): StatementDraft {
     items: draft.items.map((item) => cloneStatementDraftItem(item)),
     factoryAppealRecord: draft.factoryAppealRecord ? { ...draft.factoryAppealRecord } : undefined,
     appealRecords: draft.appealRecords?.map((item) => ({ ...item })) ?? [],
+    statementAuditLogs: draft.statementAuditLogs?.map((item) => ({ ...item })) ?? [],
   })
 }
 
@@ -742,6 +827,12 @@ function buildBatchStatementItems(statements: StatementDraft[]): SettlementBatch
     settlementProfileVersionNo: statement.settlementProfileVersionNo,
     settlementProfileSnapshot: statement.settlementProfileSnapshot,
     factoryFeedbackStatus: statement.factoryFeedbackStatus,
+    confirmationSource: statement.confirmationSource,
+    proxyConfirmedAt: statement.proxyConfirmedAt,
+    proxyConfirmedBy: statement.proxyConfirmedBy,
+    proxyConfirmReason: statement.proxyConfirmReason,
+    proxyConfirmMethod: statement.proxyConfirmMethod,
+    proxyConfirmNotificationStatus: statement.proxyConfirmNotificationStatus,
     resolutionResult: statement.resolutionResult,
   }))
 }
@@ -1230,19 +1321,116 @@ export function submitStatementFactoryConfirmation(input: {
 }): { ok: boolean; message?: string; data?: StatementDraft } {
   const statement = getStatementDraftById(input.statementId)
   if (!statement) return { ok: false, message: '未找到对应对账单' }
-  if (statement.status !== 'PENDING_FACTORY_CONFIRM') return { ok: false, message: '当前仅待工厂反馈的对账单可确认' }
+  if (
+    statement.status !== 'PENDING_FACTORY_CONFIRM' ||
+    statement.factoryFeedbackStatus !== 'PENDING_FACTORY_CONFIRM'
+  ) {
+    return { ok: false, message: '当前仅待工厂反馈的对账单可确认' }
+  }
+  if (getOpenStatementAppeal(statement)) {
+    return { ok: false, message: '当前已有待处理申诉，不能直接确认对账单' }
+  }
 
   const timestamp = input.at ?? nowText()
+  const fromStatus = statement.status
+  const fromFactoryFeedbackStatus = statement.factoryFeedbackStatus
   statement.status = 'READY_FOR_PREPAYMENT'
   statement.factoryFeedbackStatus = 'FACTORY_CONFIRMED'
   statement.factoryFeedbackAt = timestamp
   statement.factoryFeedbackBy = input.by
   statement.factoryFeedbackRemark = input.remark?.trim() || '工厂已确认对账口径'
   statement.factoryConfirmedAt = timestamp
+  statement.confirmationSource = 'FACTORY_PDA_CONFIRMATION'
   statement.readyForPrepaymentAt = timestamp
   statement.updatedAt = timestamp
   statement.updatedBy = input.by
+  appendStatementAuditLog(statement, {
+    action: '工厂 PDA 确认',
+    actor: input.by,
+    operatedAt: timestamp,
+    fromStatus,
+    toStatus: statement.status,
+    fromFactoryFeedbackStatus,
+    toFactoryFeedbackStatus: statement.factoryFeedbackStatus,
+    remark: statement.factoryFeedbackRemark,
+    visibleToFactory: true,
+  })
   return { ok: true, data: statement }
+}
+
+export function submitStatementMerchandiserProxyConfirmation(input: {
+  statementId: string
+  by: string
+  reason: string
+  method: StatementProxyConfirmationMethod
+  remark?: string
+  notifyFactory?: boolean
+  notificationStatus?: StatementProxyNotificationStatus
+  notificationRemark?: string
+  at?: string
+}): { ok: boolean; message?: string; data?: StatementDraft } {
+  const statement = getStatementDraftById(input.statementId)
+  if (!statement) return { ok: false, message: '未找到对应对账单' }
+  if (
+    statement.status !== 'PENDING_FACTORY_CONFIRM' ||
+    statement.factoryFeedbackStatus !== 'PENDING_FACTORY_CONFIRM'
+  ) {
+    return { ok: false, message: '当前仅待工厂反馈的对账单可进行跟单审核代确认' }
+  }
+  if (getOpenStatementAppeal(statement)) {
+    return { ok: false, message: '当前已有工厂申诉，需先处理申诉后才能代确认' }
+  }
+  if (!input.reason.trim()) return { ok: false, message: '请填写跟单审核代确认原因' }
+  if (!PROXY_CONFIRMATION_METHOD_LABEL[input.method]) return { ok: false, message: '请选择有效的线下确认方式' }
+
+  const timestamp = input.at ?? nowText()
+  const notificationStatus = resolveProxyNotificationStatus(input)
+  const notificationRemark =
+    input.notificationRemark?.trim() ||
+    (notificationStatus === 'NOTIFIED'
+      ? '已在三方工厂端展示跟单审核代确认结果'
+      : notificationStatus === 'FAILED'
+        ? '通知三方工厂失败，需补通知'
+        : '待补通知三方工厂')
+  const fromStatus = statement.status
+  const fromFactoryFeedbackStatus = statement.factoryFeedbackStatus
+
+  statement.status = 'READY_FOR_PREPAYMENT'
+  statement.factoryFeedbackStatus = 'FACTORY_CONFIRMED'
+  statement.factoryFeedbackAt = timestamp
+  statement.factoryFeedbackBy = input.by
+  statement.factoryFeedbackRemark = `跟单审核代确认：${input.reason.trim()}`
+  statement.factoryConfirmedAt = timestamp
+  statement.confirmationSource = 'MERCHANDISER_PROXY_CONFIRMATION'
+  statement.proxyConfirmedAt = timestamp
+  statement.proxyConfirmedBy = input.by
+  statement.proxyConfirmReason = input.reason.trim()
+  statement.proxyConfirmMethod = input.method
+  statement.proxyConfirmRemark = input.remark?.trim() || undefined
+  statement.proxyConfirmNotificationStatus = notificationStatus
+  statement.proxyConfirmNotificationAt = notificationStatus === 'NOTIFIED' ? timestamp : undefined
+  statement.proxyConfirmNotificationRemark = notificationRemark
+  statement.readyForPrepaymentAt = timestamp
+  statement.updatedAt = timestamp
+  statement.updatedBy = input.by
+
+  appendStatementAuditLog(statement, {
+    action: '跟单审核代确认',
+    actor: input.by,
+    operatedAt: timestamp,
+    fromStatus,
+    toStatus: statement.status,
+    fromFactoryFeedbackStatus,
+    toFactoryFeedbackStatus: statement.factoryFeedbackStatus,
+    reason: input.reason.trim(),
+    method: input.method,
+    remark: input.remark?.trim() || '跟单已完成线下审核，系统代三方工厂确认对账单',
+    notificationStatus,
+    notificationRemark,
+    visibleToFactory: true,
+  })
+
+  return { ok: true, message: '跟单审核代确认已完成，三方工厂端将展示代确认结果', data: statement }
 }
 
 export function submitStatementFactoryAppeal(input: {
@@ -1255,7 +1443,14 @@ export function submitStatementFactoryAppeal(input: {
 }): { ok: boolean; message?: string; data?: StatementDraft } {
   const statement = getStatementDraftById(input.statementId)
   if (!statement) return { ok: false, message: '未找到对应对账单' }
-  if (statement.status !== 'PENDING_FACTORY_CONFIRM') return { ok: false, message: '当前仅待工厂反馈的对账单可发起申诉' }
+  const canAppealPending = statement.status === 'PENDING_FACTORY_CONFIRM'
+  const canAppealProxyConfirmed =
+    statement.status === 'READY_FOR_PREPAYMENT' &&
+    statement.confirmationSource === 'MERCHANDISER_PROXY_CONFIRMATION' &&
+    !statement.prepaymentBatchId
+  if (!canAppealPending && !canAppealProxyConfirmed) {
+    return { ok: false, message: '当前仅待工厂反馈或未入批的跟单代确认对账单可发起申诉' }
+  }
   if (!input.reason.trim() || !input.description.trim()) {
     return { ok: false, message: '请填写申诉原因和申诉说明' }
   }
@@ -1264,6 +1459,12 @@ export function submitStatementFactoryAppeal(input: {
   }
 
   const timestamp = input.at ?? nowText()
+  const fromStatus = statement.status
+  const fromFactoryFeedbackStatus = statement.factoryFeedbackStatus
+  if (canAppealProxyConfirmed) {
+    statement.status = 'PENDING_FACTORY_CONFIRM'
+    statement.readyForPrepaymentAt = undefined
+  }
   statement.factoryFeedbackStatus = 'FACTORY_APPEALED'
   statement.factoryFeedbackAt = timestamp
   statement.factoryFeedbackBy = input.by
@@ -1292,6 +1493,18 @@ export function submitStatementFactoryAppeal(input: {
   statement.factoryAppealRecord = appeal
   statement.updatedAt = timestamp
   statement.updatedBy = input.by
+  appendStatementAuditLog(statement, {
+    action: canAppealProxyConfirmed ? '三方工厂对代确认结果提出异议' : '三方工厂提交对账单异议',
+    actor: input.by,
+    operatedAt: timestamp,
+    fromStatus,
+    toStatus: statement.status,
+    fromFactoryFeedbackStatus,
+    toFactoryFeedbackStatus: statement.factoryFeedbackStatus,
+    reason: input.reason.trim(),
+    remark: input.description.trim(),
+    visibleToFactory: true,
+  })
   return { ok: true, data: statement }
 }
 
@@ -1336,6 +1549,8 @@ export function resolveStatementAppeal(input: {
   if (!input.comment.trim()) return { ok: false, message: '请填写处理意见' }
 
   const timestamp = input.at ?? nowText()
+  const fromStatus = statement.status
+  const fromFactoryFeedbackStatus = statement.factoryFeedbackStatus
   appeal.status = 'RESOLVED'
   appeal.platformHandledAt = timestamp
   appeal.platformHandledBy = input.by
@@ -1354,10 +1569,23 @@ export function resolveStatementAppeal(input: {
       ? '平台已维持当前对账口径，可继续进入后续预付款'
       : '平台已要求调整后重算，当前单据不再继续进入后续预付款'
   statement.status = input.result === 'UPHELD' ? 'READY_FOR_PREPAYMENT' : 'CLOSED'
+  statement.confirmationSource = input.result === 'UPHELD' ? 'PLATFORM_APPEAL_RESOLUTION' : statement.confirmationSource
   statement.readyForPrepaymentAt = input.result === 'UPHELD' ? timestamp : undefined
   statement.updatedAt = timestamp
   statement.updatedBy = input.by
   statement.factoryAppealRecord = appeal
+  appendStatementAuditLog(statement, {
+    action: input.result === 'UPHELD' ? '平台申诉处理确认' : '平台申诉处理退回重算',
+    actor: input.by,
+    operatedAt: timestamp,
+    fromStatus,
+    toStatus: statement.status,
+    fromFactoryFeedbackStatus,
+    toFactoryFeedbackStatus: statement.factoryFeedbackStatus,
+    reason: appeal.reasonName,
+    remark: input.comment.trim(),
+    visibleToFactory: true,
+  })
   return { ok: true, data: statement }
 }
 

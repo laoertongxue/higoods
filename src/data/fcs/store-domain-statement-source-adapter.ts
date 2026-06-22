@@ -14,8 +14,11 @@ import type {
   FactoryFeedbackStatus,
   PreSettlementLedger,
   PrepaymentBatchStatus,
+  StatementConfirmationSource,
   StatementDraft,
   StatementDraftItem,
+  StatementProxyConfirmationMethod,
+  StatementProxyNotificationStatus,
   StatementSourceItemType,
   StatementStatus,
 } from './store-domain-settlement-types.ts'
@@ -61,6 +64,7 @@ export interface StatementSourceItemViewModel {
   returnInboundQty?: number
   qcRecordId?: string
   pendingDeductionRecordId?: string
+  basisId?: string
   disputeId?: string
   processLabel?: string
   pricingSourceType: 'DISPATCH' | 'BIDDING' | 'OTHER_COMPAT' | 'NONE'
@@ -104,6 +108,12 @@ export interface StatementListItemViewModel {
   currency: string
   status: StatementStatus
   factoryFeedbackStatus: FactoryFeedbackStatus
+  confirmationSource?: StatementConfirmationSource
+  proxyConfirmedAt?: string
+  proxyConfirmedBy?: string
+  proxyConfirmReason?: string
+  proxyConfirmMethod?: StatementProxyConfirmationMethod
+  proxyConfirmNotificationStatus?: StatementProxyNotificationStatus
   itemCount: number
   totalQty: number
   totalEarningAmount: number
@@ -223,6 +233,10 @@ function buildQualityLedgerHref(ledger: PreSettlementLedger): string {
   return '/fcs/quality/qc-records'
 }
 
+function resolveQualityLedgerBasisId(ledger: PreSettlementLedger): string | undefined {
+  return tracePreSettlementLedgerSource(ledger.ledgerId)?.pendingDeductionRecord?.basisId
+}
+
 function getStatementBindingMap(): Map<string, string> {
   const map = new Map<string, string>()
   for (const statement of initialStatementDrafts) {
@@ -310,6 +324,8 @@ function mapLedgerToStatementSourceItem(
     }
   }
 
+  const basisId = resolveQualityLedgerBasisId(ledger)
+
   return {
     sourceItemId: ledger.ledgerId,
     ledgerNo: ledger.ledgerNo,
@@ -347,6 +363,7 @@ function mapLedgerToStatementSourceItem(
     returnInboundQty: ledger.qty,
     qcRecordId: ledger.qcRecordId,
     pendingDeductionRecordId: ledger.pendingDeductionRecordId,
+    basisId,
     disputeId: ledger.disputeId,
     processLabel: trace?.qcRecord?.processLabel,
     pricingSourceType: trace?.task ? 'OTHER_COMPAT' : 'NONE',
@@ -491,7 +508,7 @@ export function toStatementDraftItemFromSource(item: StatementSourceItemViewMode
     routeToSource: item.routeToSource,
     settlementPartyType: item.settlementPartyType,
     settlementPartyId: item.settlementPartyId,
-    basisId: item.sourceItemId,
+    basisId: item.basisId ?? item.sourceItemId,
     deductionQty: item.qty,
     deductionAmount: item.netAmount,
     currency: item.currency,
@@ -570,6 +587,12 @@ export function getStatementListItems(): StatementListItemViewModel[] {
         currency: draft.settlementCurrency ?? draft.settlementProfileSnapshot.settlementConfigSnapshot.currency,
         status: draft.status,
         factoryFeedbackStatus: draft.factoryFeedbackStatus,
+        confirmationSource: draft.confirmationSource,
+        proxyConfirmedAt: draft.proxyConfirmedAt,
+        proxyConfirmedBy: draft.proxyConfirmedBy,
+        proxyConfirmReason: draft.proxyConfirmReason,
+        proxyConfirmMethod: draft.proxyConfirmMethod,
+        proxyConfirmNotificationStatus: draft.proxyConfirmNotificationStatus,
         itemCount: draft.itemCount,
         totalQty: draft.totalQty,
         totalEarningAmount: draft.totalEarningAmount ?? totals.totalEarningAmount,

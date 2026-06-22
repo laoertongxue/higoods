@@ -1040,6 +1040,11 @@ function shouldSkipInputRerender(target: Element): boolean {
     return true
   }
 
+  const pdaCutSpreadingFieldNode = target.closest<HTMLElement>('[data-pda-cut-spreading-field], [data-pda-cut-spreading-operator-field]')
+  if (pdaCutSpreadingFieldNode instanceof HTMLInputElement || pdaCutSpreadingFieldNode instanceof HTMLTextAreaElement) {
+    return true
+  }
+
   const markerPlanInputNode = target.closest<HTMLElement>(
     [
       '[data-marker-plan-filter-field]',
@@ -1114,6 +1119,15 @@ function shouldSkipChangeRerender(target: Element): boolean {
 
   const pdaCutHandoverFieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
   if (pdaCutHandoverFieldNode instanceof HTMLInputElement || pdaCutHandoverFieldNode instanceof HTMLTextAreaElement) {
+    return true
+  }
+
+  const pdaCutSpreadingFieldNode = target.closest<HTMLElement>('[data-pda-cut-spreading-field], [data-pda-cut-spreading-operator-field]')
+  if (
+    pdaCutSpreadingFieldNode instanceof HTMLInputElement ||
+    pdaCutSpreadingFieldNode instanceof HTMLTextAreaElement ||
+    pdaCutSpreadingFieldNode instanceof HTMLSelectElement
+  ) {
     return true
   }
 

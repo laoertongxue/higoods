@@ -449,6 +449,10 @@ function resolveDyeingUnitPriceIdr(option: SampleCostMaterialOption): { unitPric
   return { unitPrice: 3000, ruleName: '单染其他' }
 }
 
+function isAsayaSampleCostBrand(brandName: string): boolean {
+  return brandName.trim().toLowerCase() === 'asaya'
+}
+
 function resolveFabricFinishingCost(
   option: SampleCostMaterialOption,
   finishCraft: SampleCostFinishCraftOption | undefined,
@@ -462,15 +466,16 @@ function resolveFabricFinishingCost(
   const usageMeters = yardsToMeters(usageYards)
 
   if (finishCraft.type === 'print') {
+    const isAsaya = isAsayaSampleCostBrand(brandName)
     if (finishCraft.printSide === 'double') {
-      const amount = roundSampleCostCny(usageMeters * 3.6)
+      const unitPrice = isAsaya ? 2.4 : 3.6
+      const amount = roundSampleCostCny(usageMeters * unitPrice)
       return {
         cost: normalizeSampleCostMoney(amount, 'RMB', 'RMB'),
-        ruleText: `双面印 ¥3.60/米 x ${usageMeters.toFixed(2)}米`,
+        ruleText: `双面印${isAsaya ? ' ASAYA' : ' 非ASAYA'} ¥${unitPrice.toFixed(2)}/米 x ${usageMeters.toFixed(2)}米`,
       }
     }
 
-    const isAsaya = brandName.trim().toLowerCase() === 'asaya'
     const unitPrice = isAsaya ? 2 : 3
     const amount = roundSampleCostCny(usageMeters * unitPrice)
     return {

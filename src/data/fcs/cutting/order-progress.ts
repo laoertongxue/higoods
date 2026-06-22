@@ -28,6 +28,14 @@ function addDays(dateStr: string, days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+function addHours(dateStr: string, hours: number): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  d.setHours(d.getHours() + hours)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 interface CuttingDemoStageProfile {
   stageLabel: string
   closeReasonCode?: CuttingOrderProgressRecord['closeReasonCode']
@@ -290,6 +298,7 @@ function buildProjectedRecord(
   const baseDate = demandCreatedAt.slice(0, 10)
   const prodDate = addDays(baseDate, 1)
   const taskAssignedDate = addDays(baseDate, 2)
+  const taskAcceptedDate = addHours(taskAssignedDate, 1 + (orderIndex % 3))
   const markerPlanDate = profile.hasSpreadingRecord ? addDays(baseDate, 3) : ''
   const spreadingDate = profile.hasSpreadingRecord ? addDays(baseDate, 4) : ''
   const completedDate = profile.stageLabel === '已关闭' ? (profile.closedAt || '') : (profile.stageLabel === '已开工' && profile.cutRatio >= 1 && profile.inboundRatio >= 1 ? addDays(baseDate, 5) : '')
@@ -314,6 +323,7 @@ function buildProjectedRecord(
     demandCreatedAt,
     productionOrderCreatedAt: prodDate,
     cuttingTaskAssignedAt: taskAssignedDate,
+    cuttingTaskAcceptedAt: taskAcceptedDate,
     markerPlanCreatedAt: markerPlanDate,
     spreadingStartedAt: spreadingDate,
     completedAt: completedDate,

@@ -1,4 +1,5 @@
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries.ts'
+import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter.ts'
 import {
   getPreSettlementLedgerById,
   listPreSettlementLedgers,
@@ -327,6 +328,7 @@ function renderLedgerDetail(trace: PreSettlementLedgerSourceTrace | null): strin
 
   const { ledger, settlementProfile, statement, batch, task, productionOrder, qcRecord, pendingDeductionRecord, disputeCase } = trace
   const isTaskLedger = ledger.ledgerType === 'TASK_EARNING'
+  const adjustment = pendingDeductionRecord?.basisId ? { relatedBasisId: pendingDeductionRecord.basisId } : null
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -397,6 +399,11 @@ function renderLedgerDetail(trace: PreSettlementLedgerSourceTrace | null): strin
                 <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(isTaskLedger ? `/fcs/pda/task-receive/${ledger.taskId ?? ledger.returnInboundBatchId ?? ''}` : `/fcs/quality/qc-records/${encodeURIComponent(qcRecord?.qcId ?? ledger.qcRecordId ?? '')}`)}">
                   查看来源对象
                 </button>
+                ${
+                  !isTaskLedger && adjustment?.relatedBasisId
+                    ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(adjustment.relatedBasisId))}">查看依据</button>`
+                    : ''
+                }
                 ${statement ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="/fcs/settlement/statements">查看对账单</button>` : ''}
                 ${batch ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="/fcs/settlement/batches">查看预付款批次</button>` : ''}
               </div>

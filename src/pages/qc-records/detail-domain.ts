@@ -39,6 +39,7 @@ import {
 import { isDetailReadOnly } from './actions'
 import {
   buildDeductionEntryHrefByBasisId,
+  buildQcDeductionHref,
   buildQcDetailHref,
   getQcChainFactByRouteKey,
   getSettlementImpactLabel,
@@ -756,6 +757,11 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
             ${
               disputeCase
                 ? `<button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(buildQualityDisputeProcessingPrintLink(disputeCase.disputeId))}">打印质量异议处理单</button>`
+                : ''
+            }
+            ${
+              deductionBasis
+                ? `<button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(buildQcDeductionHref(detailVm.qcId))}">查看扣款依据</button>`
                 : ''
             }
             ${

@@ -274,7 +274,7 @@ function belongsToAnalysis(caseFact: QualityDeductionCaseFact): boolean {
 
 function toAnalysisRow(caseFact: QualityDeductionCaseFact, query: QualityDeductionAnalysisQuery): AnalysisRowBase {
   const qcRecord = caseFact.qcRecord
-  const basis = caseFact.deductionBasis
+  const deductionBasis = caseFact.deductionBasis
   const dispute = caseFact.disputeCase
   const ledger = caseFact.formalLedger
   const impact = caseFact.settlementImpact
@@ -293,7 +293,7 @@ function toAnalysisRow(caseFact: QualityDeductionCaseFact, query: QualityDeducti
   return {
     qcId: qcRecord.qcId,
     qcNo: qcRecord.qcNo,
-    basisId: basis?.basisId,
+    basisId: deductionBasis?.basisId,
     productionOrderNo: qcRecord.productionOrderNo,
     returnInboundBatchNo: qcRecord.returnInboundBatchNo,
     factoryId: qcRecord.returnFactoryId ?? '',
@@ -336,7 +336,7 @@ function toAnalysisRow(caseFact: QualityDeductionCaseFact, query: QualityDeducti
     displayTimeLabel,
     detailSummary: resolveDetailSummary(caseFact),
     qcHref: `/fcs/quality/qc-records/${encodeURIComponent(qcRecord.qcId)}`,
-    deductionHref: basis?.basisId ? buildDeductionEntryHrefByBasisId(basis.basisId) : undefined,
+    deductionHref: deductionBasis?.basisId ? buildDeductionEntryHrefByBasisId(deductionBasis.basisId) : undefined,
     timeBucketKey,
   }
 }

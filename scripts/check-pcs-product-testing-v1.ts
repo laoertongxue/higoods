@@ -19,8 +19,9 @@ import {
   listProjectPhases,
   listProjects,
 } from '../src/data/pcs-project-repository.ts'
+import { createBootstrapProjectInlineNodeRecordSnapshot } from '../src/data/pcs-project-inline-node-record-bootstrap.ts'
 import { listProjectTemplates } from '../src/data/pcs-templates.ts'
-import { calculateSampleCostReview } from '../src/data/pcs-sample-cost-review-pricing.ts'
+import { SAMPLE_COST_RAW_MATERIAL_ROWS_KEY, calculateSampleCostReview } from '../src/data/pcs-sample-cost-review-pricing.ts'
 
 const domesticFlow: PcsProjectWorkItemCode[] = [
   'PROJECT_INIT',
@@ -254,6 +255,53 @@ assert.equal(sampleCostPricing.materialLines[0]?.finishCraftName, '染色', '样
 assert.equal(sampleCostPricing.fixedProcessLines.find((item) => item.code === 'cutting')?.cost.amount, 1200, '裁剪费应支持覆盖')
 assert.equal(sampleCostPricing.fixedProcessLines.find((item) => item.code === 'postFinishing')?.cost.amount, 3500, '后道应支持覆盖')
 assert.equal(sampleCostPricing.fixedProcessLines.find((item) => item.code === 'warehouseShipping')?.cost.amount, 2200, '仓库发货费必须为 2200 IDR')
+const sampleCostAsayaDoublePrint = calculateSampleCostReview({
+  spuCode: 'SPU-CHECK-SAMPLE-COST-ASAYA-DOUBLE-PRINT',
+  productName: 'ASAYA 双面印核价规则校验',
+  buyerName: '测试用户',
+  brandName: 'ASAYA',
+  garmentCategory: '梭织',
+  exchangeRate: 2200,
+  materialLines: [{ materialSku: 'CNIDPR220', finishCraftId: 'double-print', usage: 1.09361 }],
+  salesPrice: 35,
+  salesCurrency: 'RMB',
+})
+const sampleCostNonAsayaDoublePrint = calculateSampleCostReview({
+  spuCode: 'SPU-CHECK-SAMPLE-COST-NON-ASAYA-DOUBLE-PRINT',
+  productName: '非 ASAYA 双面印核价规则校验',
+  buyerName: '测试用户',
+  brandName: 'HiGood',
+  garmentCategory: '梭织',
+  exchangeRate: 2200,
+  materialLines: [{ materialSku: 'CNIDPR220', finishCraftId: 'double-print', usage: 1.09361 }],
+  salesPrice: 35,
+  salesCurrency: 'RMB',
+})
+assert.equal(sampleCostAsayaDoublePrint.materialLines[0]?.dyeingCost.amount, 2.4, 'ASAYA 印花双面印必须按 2.4 元/米计价')
+assert.equal(sampleCostNonAsayaDoublePrint.materialLines[0]?.dyeingCost.amount, 3.6, '非 ASAYA 印花双面印必须按 3.6 元/米计价')
+assert.match(sampleCostAsayaDoublePrint.materialLines[0]?.dyeingRuleText || '', /双面印 ASAYA ¥2\.40\/米/, 'ASAYA 双面印规则文案不正确')
+assert.match(sampleCostNonAsayaDoublePrint.materialLines[0]?.dyeingRuleText || '', /双面印 非ASAYA ¥3\.60\/米/, '非 ASAYA 双面印规则文案不正确')
+const sampleCostReviewMockRecords = createBootstrapProjectInlineNodeRecordSnapshot(2).records.filter(
+  (record) => record.workItemTypeCode === 'SAMPLE_COST_REVIEW',
+)
+assert.ok(
+  sampleCostReviewMockRecords.some(
+    (record) =>
+      record.payload.brandName === 'ASAYA' &&
+      String(record.payload[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] || '').includes('CNIDPR220') &&
+      String(record.payload.dyeingRuleLines || '').includes('双面印 ASAYA ¥2.40/米'),
+  ),
+  '已生成样衣核价 mock 必须包含 ASAYA 双面印 2.4 元/米样本',
+)
+assert.ok(
+  sampleCostReviewMockRecords.some(
+    (record) =>
+      record.payload.brandName !== 'ASAYA' &&
+      String(record.payload[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] || '').includes('CNIDPR220') &&
+      String(record.payload.dyeingRuleLines || '').includes('双面印 非ASAYA ¥3.60/米'),
+  ),
+  '已生成样衣核价 mock 必须包含非 ASAYA 双面印 3.6 元/米样本',
+)
 const sampleCostDefaultPricing = calculateSampleCostReview({
   spuCode: 'SPU-CHECK-SAMPLE-COST-DEFAULT',
   productName: '样衣核价默认固定工序校验',

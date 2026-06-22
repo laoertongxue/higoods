@@ -705,11 +705,14 @@ function buildSampleCostReviewSeed(input: {
   const garmentCategory = normalizeSampleCostGarmentCategory(input.categoryName)
   const spuCode = `SPU-${input.projectCode.slice(-7).replace(/-/g, '')}`
   const brandName = input.brandName || 'HiGood 选品'
+  const shouldUseDoublePrintFabric = /印花|碎花|蜡染|batik/i.test(input.projectName)
   const materialRows = normalizeSampleCostMaterialRows(
-    createDefaultSampleCostMaterialRows(garmentCategory).map((row, index) => ({
-      ...row,
-      usage: garmentCategory === '毛织&梭织' ? (index === 0 ? 0.6 : 0.8) : 1.2,
-    })),
+    shouldUseDoublePrintFabric
+      ? [{ materialSku: 'CNIDPR220', finishCraftId: 'double-print', usage: 1.2 }]
+      : createDefaultSampleCostMaterialRows(garmentCategory).map((row, index) => ({
+          ...row,
+          usage: garmentCategory === '毛织&梭织' ? (index === 0 ? 0.6 : 0.8) : 1.2,
+        })),
     garmentCategory,
   )
   const optionalRows = normalizeSampleCostOptionalProcessRows([
@@ -737,6 +740,10 @@ function buildSampleCostReviewSeed(input: {
   })
   const payload = {
     ...pricing.payload,
+    materialCostLines: pricing.materialCostLines,
+    dyeingRuleLines: pricing.dyeingRuleLines,
+    fixedProcessLines: pricing.fixedProcessLineTexts,
+    optionalProcessLines: pricing.optionalProcessLineTexts,
     [SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]: JSON.stringify(materialRows),
     [SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY]: JSON.stringify({}),
     [SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]: JSON.stringify(optionalRows),

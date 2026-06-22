@@ -19,7 +19,7 @@ import {
   listFormalQualityDeductionLedgers,
   listQualityDeductionCaseFacts,
 } from './quality-deduction-repository.ts'
-import { syncQualityDeductionLifecycle } from './quality-deduction-lifecycle.ts'
+import { getQualityDeductionNow, syncQualityDeductionLifecycle } from './quality-deduction-lifecycle.ts'
 import {
   deriveQualityDeductionCaseStatus,
   type DeductionBasisFact,
@@ -277,6 +277,7 @@ export interface PlatformQcDetailViewModel {
 export interface FutureMobileFactoryQcListItem {
   qcId: string
   qcNo: string
+  basisId?: string
   productionOrderNo: string
   returnInboundBatchNo: string
   qcResult: QualityDeductionQcResult
@@ -504,7 +505,7 @@ function isOpenDisputeStatus(status?: QualityDeductionDisputeStatus | null): boo
 function isSoonOverdue(deadline?: string): boolean {
   const deadlineMs = parseDateMs(deadline)
   if (deadlineMs === null) return false
-  const diff = deadlineMs - Date.now()
+  const diff = deadlineMs - getQualityDeductionNow().getTime()
   return diff > 0 && diff <= 24 * 60 * 60 * 1000
 }
 
@@ -1155,6 +1156,7 @@ function toFutureMobileListItem(caseFact: QualityDeductionCaseFact): FutureMobil
   return {
     qcId: qcRecord.qcId,
     qcNo: qcRecord.qcNo,
+    basisId: caseFact.deductionBasis?.basisId ?? caseFact.pendingDeductionRecord?.basisId,
     productionOrderNo: qcRecord.productionOrderNo,
     returnInboundBatchNo: qcRecord.returnInboundBatchNo,
     qcResult: qcRecord.qcResult,

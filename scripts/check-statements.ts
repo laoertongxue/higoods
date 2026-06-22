@@ -141,6 +141,30 @@ function main(): void {
     'utf8',
   )
   assert(statementsPageSource.includes('对账单列表'), '对账单页面未默认展示列表页')
+  assert(statementsPageSource.includes('STATEMENT_PAGE_SAMPLE_LIMIT = 15'), '对账单页面未限制默认列表为 15 条业务样例')
+  assert(
+    statementsPageSource.includes('getStatementPageListItems(getStatementListItems())'),
+    '对账单页面未使用 15 条业务样例列表',
+  )
+  assert(
+    statementsPageSource.includes('data-fast-page-render="true"'),
+    '对账单页面未启用内容区快速刷新，按钮点击仍可能触发整页重绘',
+  )
+  assert(
+    statementsPageSource.includes('data-skip-page-rerender="true"'),
+    '对账单页面输入控件未跳过即时整页重绘',
+  )
+  assert(statementsPageSource.includes('renderStatementListPagination'), '对账单列表未提供分页控件')
+  assert(statementsPageSource.includes('STATEMENT_LIST_PAGE_SIZE_OPTIONS'), '对账单列表未提供每页条数控制')
+  assert(statementsPageSource.includes('data-stm-action="set-list-page"'), '对账单列表缺少页码切换动作')
+  assert(statementsPageSource.includes('工厂已确认（工厂自己确认）'), '状态筛选未区分工厂自己确认')
+  assert(statementsPageSource.includes('工厂已确认（跟单代确认）'), '状态筛选未区分跟单代确认')
+  assert(statementsPageSource.includes('关键词'), '对账单列表未按参考页面展示顶部筛选区')
+  assert(statementsPageSource.includes("label: '可新建范围'"), '对账单列表未按参考页面展示紧凑状态胶囊')
+  assert(!statementsPageSource.includes('renderOverviewCard'), '对账单列表仍残留旧版大统计卡片渲染')
+  assert(!statementsPageSource.includes('对账单总数'), '对账单列表仍残留旧版大统计卡片文案')
+  assert(!statementsPageSource.includes('新建 / 编辑草稿'), '对账单列表仍残留旧版页签文案')
+  assert(!statementsPageSource.includes('switch-page-view'), '对账单列表仍残留旧版页签切换动作')
   assert(statementsPageSource.includes('待入预付款'), '对账单页面未展示后续预付款口径')
   assert(statementsPageSource.includes('任务收入流水明细'), '对账单详情未分段展示任务收入流水')
   assert(statementsPageSource.includes('质量扣款流水明细'), '对账单详情未分段展示质量扣款流水')

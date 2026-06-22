@@ -9,7 +9,7 @@ const DEMO_PROJECTS = [
   {
     projectCode: 'PRJ-202603-001', projectName: '法式碎花连衣裙',
     templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '企划提案',
-    categoryName: '连衣裙', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
+    categoryName: '连衣裙', brandName: 'ASAYA', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['碎花', '优雅'], priceRangeLabel: '¥299-499',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['都市白领'],
     sampleSourceType: '外采', sampleSupplierName: '深圳版房甲', sampleUnitPrice: 85,

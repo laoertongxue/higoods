@@ -50,7 +50,7 @@ import type {
 } from './pcs-project-types.ts'
 
 const PROJECT_STORAGE_KEY = 'higood-pcs-project-store-v4-demo'
-const PROJECT_STORE_VERSION = 4
+const PROJECT_STORE_VERSION = 5
 
 const PROJECT_TYPES = ['商品开发', '快反上新', '改版开发', '设计研发'] as const
 const PROJECT_SOURCE_TYPES = ['企划提案', '渠道反馈', '测款沉淀', '历史复用', '外部灵感'] as const
@@ -193,6 +193,21 @@ function cloneSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapsh
 
 function seedSnapshot(): PcsProjectStoreSnapshot {
   return migrateProjectDecisionSnapshot(createBootstrapProjectSnapshot(PROJECT_STORE_VERSION))
+}
+
+function migrateSampleCostReviewPricingProjectMocks(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
+  return {
+    ...snapshot,
+    projects: snapshot.projects.map((project) =>
+      project.projectCode === 'PRJ-202603-001'
+        ? {
+            ...project,
+            brandId: 'brand-ASAYA',
+            brandName: 'ASAYA',
+          }
+        : project,
+    ),
+  }
 }
 
 function normalizeNodeStatus(status: LegacyProjectNodeStatus | string | null | undefined): ProjectNodeStatus {
@@ -576,6 +591,7 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
 }
 
 function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
+  const sourceVersion = typeof snapshot.version === 'number' && Number.isFinite(snapshot.version) ? snapshot.version : 0
   const normalized: PcsProjectStoreSnapshot = {
     version: PROJECT_STORE_VERSION,
     projects: Array.isArray(snapshot.projects) ? snapshot.projects.map(normalizeProject) : [],
@@ -592,7 +608,10 @@ function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnap
     return seedSnapshot()
   }
 
-  return repairProjectNodeSequences(mergeMissingBootstrapData(decisionMigrated))
+  const pricingMockMigrated =
+    sourceVersion < PROJECT_STORE_VERSION ? migrateSampleCostReviewPricingProjectMocks(decisionMigrated) : decisionMigrated
+
+  return repairProjectNodeSequences(mergeMissingBootstrapData(pricingMockMigrated))
 }
 
 function loadSnapshot(): PcsProjectStoreSnapshot {
@@ -620,7 +639,7 @@ function loadSnapshot(): PcsProjectStoreSnapshot {
     }
 
     memorySnapshot = hydrateSnapshot({
-      version: PROJECT_STORE_VERSION,
+      version: typeof parsed.version === 'number' ? parsed.version : 0,
       projects: parsed.projects as PcsProjectRecord[],
       phases: parsed.phases as PcsProjectPhaseRecord[],
       nodes: parsed.nodes as PcsProjectNodeRecord[],

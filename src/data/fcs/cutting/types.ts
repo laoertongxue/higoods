@@ -114,6 +114,7 @@ export interface CuttingOrderProgressRecord {
   demandCreatedAt: string
   productionOrderCreatedAt: string
   cuttingTaskAssignedAt: string
+  cuttingTaskAcceptedAt: string
   markerPlanCreatedAt: string
   spreadingStartedAt: string
   completedAt: string

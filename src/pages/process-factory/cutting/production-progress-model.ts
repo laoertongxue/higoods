@@ -63,6 +63,7 @@ export type ProductionProgressTimeCategoryKey =
   | 'DEMAND_CREATED'
   | 'PRODUCTION_ORDER_CREATED'
   | 'CUTTING_TASK_ASSIGNED'
+  | 'CUTTING_TASK_ACCEPTED'
   | 'MARKER_PLAN_CREATED'
   | 'SPREADING_STARTED'
   | 'COMPLETED'
@@ -71,6 +72,7 @@ export interface ProductionProgressTimeGroup {
   demandCreatedAt: string
   productionOrderCreatedAt: string
   cuttingTaskAssignedAt: string
+  cuttingTaskAcceptedAt: string
   markerPlanCreatedAt: string
   spreadingStartedAt: string
   completedAt: string
@@ -320,9 +322,20 @@ export const timeCategoryMeta: Record<ProductionProgressTimeCategoryKey, { label
   DEMAND_CREATED: { label: '需求单创建时间' },
   PRODUCTION_ORDER_CREATED: { label: '生产单生成时间' },
   CUTTING_TASK_ASSIGNED: { label: '裁片任务分配时间' },
+  CUTTING_TASK_ACCEPTED: { label: '接单时间' },
   MARKER_PLAN_CREATED: { label: '拍唛架时间' },
   SPREADING_STARTED: { label: '铺布时间' },
   COMPLETED: { label: '完结时间' },
+}
+
+const timeCategoryFieldMap: Record<ProductionProgressTimeCategoryKey, keyof ProductionProgressTimeGroup> = {
+  DEMAND_CREATED: 'demandCreatedAt',
+  PRODUCTION_ORDER_CREATED: 'productionOrderCreatedAt',
+  CUTTING_TASK_ASSIGNED: 'cuttingTaskAssignedAt',
+  CUTTING_TASK_ACCEPTED: 'cuttingTaskAcceptedAt',
+  MARKER_PLAN_CREATED: 'markerPlanCreatedAt',
+  SPREADING_STARTED: 'spreadingStartedAt',
+  COMPLETED: 'completedAt',
 }
 
 export const shipDeltaRangeMeta: Record<ProductionProgressShipDeltaRangeKey, { label: string }> = {
@@ -1223,6 +1236,7 @@ export function buildProductionProgressRows(
         demandCreatedAt: record.demandCreatedAt || '',
         productionOrderCreatedAt: record.productionOrderCreatedAt || '',
         cuttingTaskAssignedAt: record.cuttingTaskAssignedAt || '',
+        cuttingTaskAcceptedAt: record.cuttingTaskAcceptedAt || '',
         markerPlanCreatedAt: record.markerPlanCreatedAt || '',
         spreadingStartedAt: record.spreadingStartedAt || '',
         completedAt: record.completedAt || record.closedAt || '',
@@ -1288,11 +1302,12 @@ export function filterProductionProgressRows(rows: ProductionProgressRow[], filt
       const toMs = filters.timeRangeTo ? new Date(filters.timeRangeTo).getTime() + 86400000 : Infinity
       const category = filters.timeCategory === 'ALL' ? null : filters.timeCategory
       const timeValues = category
-        ? [row.timeGroup[category === 'DEMAND_CREATED' ? 'demandCreatedAt' : category === 'PRODUCTION_ORDER_CREATED' ? 'productionOrderCreatedAt' : category === 'CUTTING_TASK_ASSIGNED' ? 'cuttingTaskAssignedAt' : category === 'MARKER_PLAN_CREATED' ? 'markerPlanCreatedAt' : category === 'SPREADING_STARTED' ? 'spreadingStartedAt' : 'completedAt']]
+        ? [row.timeGroup[timeCategoryFieldMap[category]]]
         : [
             row.timeGroup.demandCreatedAt,
             row.timeGroup.productionOrderCreatedAt,
             row.timeGroup.cuttingTaskAssignedAt,
+            row.timeGroup.cuttingTaskAcceptedAt,
             row.timeGroup.markerPlanCreatedAt,
             row.timeGroup.spreadingStartedAt,
             row.timeGroup.completedAt,

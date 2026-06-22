@@ -16,14 +16,17 @@ import {
 } from './pcs-project-repository.ts'
 import { getProjectWorkItemContract, type PcsProjectWorkItemCode } from './pcs-project-domain-contract.ts'
 import {
+  calculateSampleCostReview,
   SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY,
   SAMPLE_COST_RAW_MATERIAL_ROWS_KEY,
   SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY,
+  type SampleCostMaterialLineInput,
+  type SampleCostOptionalProcessInput,
 } from './pcs-sample-cost-review-pricing.ts'
 import { getPcsWorkItemRuntimeCarrierDefinition } from './pcs-work-item-runtime-carrier.ts'
 
 const INLINE_NODE_RECORD_STORAGE_KEY = 'higood-pcs-project-inline-node-records-v2'
-const INLINE_NODE_RECORD_STORE_VERSION = 1
+const INLINE_NODE_RECORD_STORE_VERSION = 2
 
 let memorySnapshot: PcsProjectInlineNodeRecordStoreSnapshot | null = null
 
@@ -442,9 +445,120 @@ function normalizeFieldEntryValue(value: unknown): unknown {
   return value
 }
 
+function parseSampleCostJsonRows<T extends Record<string, unknown>>(value: unknown): T[] {
+  if (Array.isArray(value)) return value.filter((item): item is T => typeof item === 'object' && item != null)
+  const text = String(value || '').trim()
+  if (!text) return []
+  try {
+    const parsed = JSON.parse(text) as unknown
+    return Array.isArray(parsed) ? parsed.filter((item): item is T => typeof item === 'object' && item != null) : []
+  } catch {
+    return []
+  }
+}
+
+function parseSampleCostJsonRecord(value: unknown): Record<string, string | number | null | undefined> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, string | number | null | undefined>
+  }
+  const text = String(value || '').trim()
+  if (!text) return {}
+  try {
+    const parsed = JSON.parse(text) as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, string | number | null | undefined>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function toMigrationNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function roundMigrationAmount(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+function isGeneratedSampleCostReviewRecord(record: PcsProjectInlineNodeRecord): boolean {
+  if (record.workItemTypeCode !== 'SAMPLE_COST_REVIEW') return false
+  return record.recordId.startsWith('inline_bootstrap_') || record.recordId.startsWith('inline_backfill_')
+}
+
+function refreshGeneratedSampleCostReviewPricing<T extends PcsProjectInlineNodeRecord>(record: T): T {
+  if (!isGeneratedSampleCostReviewRecord(record)) return record
+
+  const payload = (record.payload || {}) as Record<string, unknown>
+  const detailSnapshot = (record.detailSnapshot || {}) as Record<string, unknown>
+  const materialRows = parseSampleCostJsonRows<SampleCostMaterialLineInput>(
+    payload[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] ?? detailSnapshot[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY],
+  )
+  const fixedProcessOverrides = parseSampleCostJsonRecord(
+    payload[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY] ?? detailSnapshot[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY],
+  )
+  const optionalProcessRows = parseSampleCostJsonRows<SampleCostOptionalProcessInput>(
+    payload[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] ?? detailSnapshot[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY],
+  )
+  const pricing = calculateSampleCostReview({
+    spuCode: payload.spuCode ?? detailSnapshot.spuCode,
+    productName: payload.productName ?? detailSnapshot.productName,
+    buyerName: payload.buyerName ?? detailSnapshot.buyerName,
+    brandName: payload.brandName ?? detailSnapshot.brandName,
+    garmentCategory: payload.garmentCategory ?? detailSnapshot.garmentCategory,
+    exchangeRate: payload.exchangeRate ?? detailSnapshot.exchangeRate,
+    materialLines: materialRows,
+    auxiliaryCostAmount: payload.auxiliaryCostAmount ?? detailSnapshot.auxiliaryCostAmount,
+    auxiliaryCostCurrency: String(payload.auxiliaryCostCurrency ?? detailSnapshot.auxiliaryCostCurrency ?? 'IDR'),
+    fixedProcessOverrides,
+    sewingCostAmount: payload.sewingCostAmount ?? detailSnapshot.sewingCostAmount,
+    sewingCostCurrency: String(payload.sewingCostCurrency ?? detailSnapshot.sewingCostCurrency ?? 'IDR'),
+    optionalProcessLines: optionalProcessRows,
+    salesPrice: payload.salesPrice ?? detailSnapshot.salesPrice,
+    salesCurrency: String(payload.salesCurrency ?? detailSnapshot.salesCurrency ?? 'RMB'),
+    costNote: String(payload.costNote ?? detailSnapshot.costNote ?? ''),
+  })
+  const targetProductionCost = toMigrationNumber(detailSnapshot.targetProductionCost)
+  const costVariance = targetProductionCost > 0 ? roundMigrationAmount(pricing.costTotal - targetProductionCost) : detailSnapshot.costVariance
+  const costVariancePercentage =
+    targetProductionCost > 0 ? roundMigrationAmount(((pricing.costTotal - targetProductionCost) / targetProductionCost) * 100) : detailSnapshot.costVariancePercentage
+  const nextPayload = {
+    ...payload,
+    ...pricing.payload,
+    materialCostLines: pricing.materialCostLines,
+    dyeingRuleLines: pricing.dyeingRuleLines,
+    fixedProcessLines: pricing.fixedProcessLineTexts,
+    optionalProcessLines: pricing.optionalProcessLineTexts,
+    [SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]: JSON.stringify(materialRows),
+    [SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY]: JSON.stringify(fixedProcessOverrides),
+    [SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]: JSON.stringify(optionalProcessRows),
+  }
+
+  return {
+    ...record,
+    payload: nextPayload,
+    detailSnapshot: {
+      ...detailSnapshot,
+      ...nextPayload,
+      materialSummary: `物料成本 ¥${pricing.materialCostCny}，印染费 ¥${pricing.dyeingCostCny}。`,
+      processSummary: `固定工序 ¥${pricing.fixedProcessCostCny}，车位费 ¥${pricing.sewingCostCny}，可选工序 ¥${pricing.optionalProcessCostCny}。`,
+      priceFormulaText: `总成本 ¥${pricing.costTotal}，销售价格 ¥${pricing.salesPrice}，毛利率 ${pricing.grossMarginRate}%。`,
+      actualSampleCost: pricing.costTotal,
+      costVariance,
+      costVariancePercentage,
+      costCompliance: detailSnapshot.costCompliance || (pricing.grossMarginRate >= 55 ? '符合' : '需复核'),
+      proceedWithProduction: pricing.grossMarginRate >= 55,
+      decisionRationale: `商品上架售价按样衣核价销售价格 ¥${pricing.salesPrice} 执行。`,
+    },
+  } as T
+}
+
 function hydrateSnapshot(
   snapshot: Partial<PcsProjectInlineNodeRecordStoreSnapshot> | null | undefined,
 ): PcsProjectInlineNodeRecordStoreSnapshot {
+  const sourceVersion = toMigrationNumber(snapshot?.version)
+  const shouldRefreshSampleCostPricing = sourceVersion < INLINE_NODE_RECORD_STORE_VERSION
   const cleanedRecords = Array.isArray(snapshot?.records)
     ? migrateProjectDecisionInlineRecords(snapshot.records as Array<PcsProjectInlineNodeRecord & { workItemTypeCode?: string | null; projectNodeId?: string | null }>)
     : []
@@ -453,6 +567,7 @@ function hydrateSnapshot(
     version: INLINE_NODE_RECORD_STORE_VERSION,
     records: cleanedRecords
       .map((record) => normalizeRecord(record as PcsProjectInlineNodeRecord))
+      .map((record) => (shouldRefreshSampleCostPricing ? refreshGeneratedSampleCostReviewPricing(record) : record))
       .sort(compareRecords),
   }
 }

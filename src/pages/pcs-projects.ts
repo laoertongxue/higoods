@@ -3784,7 +3784,7 @@ function renderSampleCostDyeingRuleGuide(): string {
     ['染色 - 双染混纺', 'Rp 4,000 / 米。'],
     ['克重加价', '面料克重大于 180g 时，染色费按 1.5 倍计价。'],
     ['单面印', 'Asaya 品牌 ¥2 / 米，非 Asaya 品牌 ¥3 / 米。'],
-    ['双面印', '¥3.6 / 米。'],
+    ['双面印', 'ASAYA 品牌 ¥2.4 / 米，非 ASAYA 品牌 ¥3.6 / 米。'],
   ]
   return `
     <article class="rounded-lg border border-blue-100 bg-blue-50 p-4">

@@ -7,9 +7,11 @@ import {
   getFeishuPaymentApprovalById,
   getOpenStatementAppeal,
   getPaymentWritebackById,
+  getStatementConfirmationSourceLabel,
   getStatementSettlementProgressView,
   initialSettlementBatches,
   initialStatementDrafts,
+  isStatementProxyConfirmed,
   syncFeishuPaymentApprovalStatus,
 } from '../data/fcs/store-domain-settlement-seeds'
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
@@ -723,6 +725,7 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
                     <th class="px-4 py-2 font-medium">结算周期 / 计划预付款</th>
                     <th class="px-4 py-2 font-medium">平台状态</th>
                     <th class="px-4 py-2 font-medium">工厂反馈</th>
+                    <th class="px-4 py-2 font-medium">确认来源</th>
                     <th class="px-4 py-2 font-medium">申诉</th>
                     <th class="px-4 py-2 font-medium">预付款说明</th>
                     <th class="px-4 py-2 text-right font-medium">条目数</th>
@@ -759,6 +762,7 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
                           </td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(STATEMENT_STATUS_LABEL[item.status])}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(getFactoryFeedbackLabel(item.factoryFeedbackStatus))}</td>
+                          <td class="px-4 py-3 text-xs ${isStatementProxyConfirmed(item) ? 'font-medium text-blue-700' : ''}">${escapeHtml(getStatementConfirmationSourceLabel(item))}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(appealSummary)}</td>
                           <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(progressView.summary)}</td>
                           <td class="px-4 py-3 text-right tabular-nums">${item.itemCount}</td>
@@ -1154,6 +1158,7 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
                     <th class="px-4 py-2 font-medium">结算周期 / 计划预付款</th>
                     <th class="px-4 py-2 font-medium">平台状态</th>
                     <th class="px-4 py-2 font-medium">工厂反馈</th>
+                    <th class="px-4 py-2 font-medium">确认来源</th>
                     <th class="px-4 py-2 font-medium">申诉</th>
                     <th class="px-4 py-2 font-medium">处理结果</th>
                     <th class="px-4 py-2 font-medium">预付款说明</th>
@@ -1181,6 +1186,7 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
                           </td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(STATEMENT_STATUS_LABEL[statement.status])}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(getFactoryFeedbackLabel(statement.factoryFeedbackStatus))}</td>
+                          <td class="px-4 py-3 text-xs ${isStatementProxyConfirmed(statement) ? 'font-medium text-blue-700' : ''}">${escapeHtml(getStatementConfirmationSourceLabel(statement))}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(appealLabel)}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(getResolutionResultLabel(statement.resolutionResult))}</td>
                           <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(statement.prepaymentBatchNo ?? progressView.summary)}</td>

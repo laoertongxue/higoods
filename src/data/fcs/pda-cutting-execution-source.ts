@@ -1097,17 +1097,16 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
   })
   if (canonicalTargets.length) return canonicalTargets
 
-  if (!isPdaSequenceMockTask(execution.taskId)) return []
   const fallbackUnit = buildFallbackPlanUnitFromExecution(execution)
   return [{
-    targetKey: `pda-sequence:${execution.executionOrderId}`,
+    targetKey: `execution:${execution.executionOrderId}`,
     targetType: 'session',
     spreadingSessionId: '',
     markerId: execution.markerPlanId || '',
-    markerNo: execution.markerPlanNo || 'A-1',
-    sourceMarkerLabel: execution.markerPlanNo || 'PDA 验证唛架编号 A-1',
+    markerNo: execution.markerPlanNo || execution.executionOrderNo || '待关联唛架',
+    sourceMarkerLabel: execution.markerPlanNo || execution.executionOrderNo || '待关联唛架编号',
     spreadingMode: 'NORMAL',
-    title: `铺布单 ${execution.taskId}`,
+    title: execution.executionOrderNo || `铺布单 ${execution.taskId}`,
     contextLabel: '待铺布',
     statusLabel: '待铺布',
     cutOrderNo: execution.cutOrderNo || '',
@@ -1313,6 +1312,19 @@ function operatorLayerRowsFromRuntimePayload(
     endLayer: normalizedLayerCount > 0 ? normalizedLayerCount : undefined,
     operatorName,
   }])
+}
+
+function runtimeEventHasSpreadingRollPayload(event: CuttingRuntimeEvent): boolean {
+  if (!event.payload || typeof event.payload !== 'object') return false
+  const payload = event.payload as Record<string, unknown>
+  if (payload.stageOnly === true) return false
+  const rollNos = stringArrayFromPayload(event.payload, 'rollNos')
+  return Boolean(
+    stringFromPayload(event.payload, 'fabricRollNo')
+    || rollNos.length
+    || numberFromPayload(event.payload, 'actualLayerCount')
+    || numberFromPayload(event.payload, 'actualSpreadLength')
+  )
 }
 
 function actualCutQtyFromRuntimePayload(payload: CuttingRuntimeEvent['payload']): number | undefined {
@@ -1668,7 +1680,8 @@ function buildRuntimeSpreadingRecords(execution: PdaCuttingExecutionSourceRecord
   return listCuttingRuntimeEvents()
     .filter((event) =>
       (event.eventType === '开始铺布' || event.eventType === '完成铺布')
-      && eventMatchesExecution(event, execution),
+      && eventMatchesExecution(event, execution)
+      && runtimeEventHasSpreadingRollPayload(event),
     )
     .map((event) => {
       const payload = event.payload && typeof event.payload === 'object'

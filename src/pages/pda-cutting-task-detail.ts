@@ -4,7 +4,6 @@ import {
   getPdaCuttingTaskSnapshot,
   type PdaCuttingRouteKey,
   type PdaCuttingTaskCutOrderGroup,
-  type PdaCuttingTaskDetailData,
   type PdaCuttingTaskOrderLine,
 } from '../data/fcs/pda-cutting-execution-source.ts'
 import {
@@ -89,35 +88,6 @@ function renderActionButton(taskId: string, line: PdaCuttingTaskOrderLine, backH
   return isStartAction
     ? `<button class="${className}" data-pda-cutting-task-action="start-work" data-task-id="${escapeHtml(taskId)}" data-execution-order-id="${escapeHtml(line.executionOrderId)}" data-execution-order-no="${escapeHtml(line.executionOrderNo)}">开工</button>`
     : `<button class="${className}" data-nav="${escapeHtml(actionHref)}">${escapeHtml(line.nextActionLabel)}</button>`
-}
-
-function renderPrimaryAction(taskId: string, detail: PdaCuttingTaskDetailData, line: PdaCuttingTaskOrderLine | null, backHref: string): string {
-  if (!line) return renderPdaCuttingEmptyState('暂无可操作铺布单', '')
-  const materialText = joinDisplayText([line.materialAlias || line.materialSku, line.colorLabel])
-  return `
-    <section class="rounded-2xl border border-blue-200 bg-blue-50 p-3 shadow-sm" data-pda-cutting-order-line="${escapeHtml(line.executionOrderId)}">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="text-xs font-medium text-blue-700">下一步</div>
-          <div class="mt-1 text-xl font-semibold text-blue-950">${escapeHtml(detail.nextRecommendedAction)}</div>
-          <div class="mt-1 text-xs text-blue-800">铺布单 ${escapeHtml(line.executionOrderNo)} / 裁片单 ${escapeHtml(line.cutOrderNo || '待绑定')}</div>
-        </div>
-        ${renderPdaCuttingStatusChip(line.currentStepLabel, line.hasException ? 'red' : line.isDone ? 'green' : 'blue')}
-      </div>
-      <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-blue-950">
-        <div class="rounded-xl bg-white/70 px-2.5 py-2">
-          <div class="text-blue-700">面料</div>
-          <div class="mt-1 truncate font-semibold">${escapeHtml(materialText || '待确认')}</div>
-        </div>
-        <div class="rounded-xl bg-white/70 px-2.5 py-2">
-          <div class="text-blue-700">计划数量</div>
-          <div class="mt-1 font-semibold">${escapeHtml(`${line.plannedQty.toLocaleString('zh-CN')} 件`)}</div>
-        </div>
-      </div>
-      ${renderActionButton(taskId, line, backHref, 'mt-3')}
-      <div class="mt-2 hidden rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs text-emerald-800" data-pda-cutting-task-feedback></div>
-    </section>
-  `
 }
 
 function joinDisplayText(parts: Array<string | undefined | null>): string {
@@ -243,8 +213,6 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
           ${renderMetric('未完成', `${detail.pendingCutPieceOrderCount} 张`, detail.pendingCutPieceOrderCount ? 'amber' : 'green')}
           ${renderMetric('异常', `${detail.exceptionCutPieceOrderCount} 张`, detail.exceptionCutPieceOrderCount ? 'red' : 'default')}
         </section>
-
-        ${renderPrimaryAction(decodedTaskId, detail, selectedLine, backHref)}
 
         <section class="space-y-2">
           <div class="flex items-center justify-between">

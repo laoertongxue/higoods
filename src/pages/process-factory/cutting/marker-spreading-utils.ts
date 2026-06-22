@@ -782,12 +782,19 @@ export function buildMarkerSpreadingPrototypeStore(options: {
     )
   const isGeneratedFromConfirmedMarkerPlan = (session: SpreadingSession) =>
     isLinkedToMarkerPlan(session) && /^MKP-\d{8}-\d{3}$/.test(session.sourceSchemeNo || '')
+  const isPdaWritebackSession = (session: SpreadingSession) =>
+    session.sourceChannel === 'PDA_WRITEBACK' &&
+    isLinkedToExecutableRows(session.cutOrderIds || []) &&
+    Boolean(session.planUnits?.length)
   nextStore = {
     ...nextStore,
     markers: nextStore.markers.filter((marker) => isLinkedToExecutableRows(marker.cutOrderIds || [])),
     sessions: nextStore.sessions.filter((session) =>
-      (isLinkedToExecutableRows(session.cutOrderIds || []) || isGeneratedFromConfirmedMarkerPlan(session)) &&
-      isLinkedToMarkerPlan(session),
+      (
+        (isLinkedToExecutableRows(session.cutOrderIds || []) || isGeneratedFromConfirmedMarkerPlan(session)) &&
+        isLinkedToMarkerPlan(session)
+      ) ||
+      isPdaWritebackSession(session),
     ).map((session, index) => ensureSpreadingScheduleDefaults(session, index)),
   }
 

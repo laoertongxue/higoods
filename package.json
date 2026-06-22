@@ -25,6 +25,7 @@
     "check:pre-settlement-ledger": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pre-settlement-ledger.ts",
     "check:third-party-settlement-cycle": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-third-party-settlement-cycle.ts",
     "check:statements": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-statements.ts",
+    "check:statement-proxy-confirmation": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-statement-proxy-confirmation.ts",
     "check:prepayment-batch": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-prepayment-batch.ts",
     "check:feishu-payment-approval": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-feishu-payment-approval.ts",
     "check:payment-writeback": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-payment-writeback.ts",

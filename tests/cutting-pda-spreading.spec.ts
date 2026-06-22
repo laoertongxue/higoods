@@ -1,84 +1,98 @@
 import { expect, test } from '@playwright/test'
 
-import { listPdaCuttingTaskSourceRecords } from '../src/data/fcs/cutting/pda-cutting-task-source'
-import { getPdaCuttingTaskSnapshot } from '../src/data/fcs/pda-cutting-execution-source'
 import { collectPageErrors, expectNoPageErrors, seedLocalStorage } from './helpers/seed-cutting-runtime-state'
 
-const singleExecutionTask = listPdaCuttingTaskSourceRecords().find((record) => {
-  if (record.executionOrderIds.length !== 1) return false
-  const detail = getPdaCuttingTaskSnapshot(record.taskId, record.executionOrderIds[0])
-  return Boolean(detail?.spreadingTargets.length)
-})
+const pdaSession = {
+  userId: 'PDAU-FACTORY-ONBOARD-0034-ADMIN',
+  loginId: 'onboarding_34',
+  userName: '申请人34',
+  roleId: 'ROLE_ADMIN',
+  factoryId: 'FACTORY-ONBOARD-0034',
+  factoryName: '定向裁演示工厂34',
+  loggedAt: '2026-06-22 10:00:00',
+}
 
-const taskWithSpreadingCurrentStep = listPdaCuttingTaskSourceRecords()
-  .flatMap((record) =>
-    record.executionOrderIds.map((executionOrderId, index) => ({
-      taskId: record.taskId,
-      executionOrderId,
-      executionOrderNo: record.executionOrderNos[index] || executionOrderId,
-      detail: getPdaCuttingTaskSnapshot(record.taskId, executionOrderId),
-    })),
-  )
-  .find((item) =>
-    item.detail?.cutPieceOrders.some(
-      (line) => line.executionOrderId === item.executionOrderId && line.currentStepCode === 'SPREADING',
-    ),
-  )
+const taskId = 'TASK-CUT-000201'
+const executionOrderId = 'CPO-20260318-A1'
+const executionOrderNo = 'CPO-20260318-A1'
+const spreadingUrl =
+  `/fcs/pda/cutting/spreading/${taskId}`
+  + `?executionOrderId=${executionOrderId}`
+  + `&executionOrderNo=${executionOrderNo}`
+  + '&cutOrderId=cut-order%3Apo-202603-0101%3Atdv-demand-spu-2024-010-bom-black-stretch-twill%3Atdv-demand-spu-2024-010-pattern-main%3Av1-0%3A150cm'
+  + '&cutOrderNo=CUT-260306-101-01'
+  + '&materialSku=tdv_demand_SPU_2024_010-bom-black-stretch-twill'
 
-test.skip(!singleExecutionTask, '缺少可直接进入铺布录入的 PDA 任务')
-test.skip(!taskWithSpreadingCurrentStep, '缺少当前步骤为铺布的 PDA 任务')
-
-test('PDA 铺布页支持记录类型与交接说明写回', async ({ page }) => {
+test('PDA 铺布页不再手选铺布单、手填布卷号或现场照片', async ({ page }) => {
   const errors = collectPageErrors(page)
   await seedLocalStorage(page, {
-    fcs_pda_session: { userId: 'ID-F004_prod', factoryId: 'ID-F004' },
+    fcs_pda_session: pdaSession,
   })
-  const task = singleExecutionTask!
-  const executionOrderId = task.executionOrderIds[0]
-  const executionOrderNo = task.executionOrderNos[0]
 
-  await page.goto(
-    `/fcs/pda/cutting/spreading/${task.taskId}?executionOrderId=${encodeURIComponent(executionOrderId)}&executionOrderNo=${encodeURIComponent(executionOrderNo)}`,
-  )
+  await page.goto(spreadingUrl)
 
   await expect(page.locator('h1', { hasText: '铺布录入' })).toBeVisible()
   await expect(page.locator('[data-pda-cut-spreading-field="enteredBy"]')).toHaveCount(0)
-  await page.locator('[data-pda-cut-spreading-field="recordType"]').selectOption('中途交接')
-  await page.locator('[data-pda-cut-spreading-field="planUnitId"]').selectOption({ index: 1 })
-  await page.locator('[data-pda-cut-spreading-field="handoverToAccountId"]').selectOption({ index: 1 })
-  await page.locator('[data-pda-cut-spreading-field="handoverNote"]').fill('A 班交接给 B 班')
-  await page.locator('[data-pda-cut-spreading-field="fabricRollNo"]').fill('ROLL-HANDOVER-01')
-  await page.locator('[data-pda-cut-spreading-field="layerCount"]').fill('8')
-  await page.locator('[data-pda-cut-spreading-field="actualLength"]').fill('42')
-  await page.locator('[data-pda-cut-spreading-field="headLength"]').fill('0.8')
-  await page.locator('[data-pda-cut-spreading-field="tailLength"]').fill('0.6')
-
-  await page.getByRole('button', { name: '保存铺布记录' }).click()
-
-  await expect(page.getByText('铺布记录已保存')).toBeVisible()
-  await expect(page.getByText('换班：是')).toBeVisible()
-  await expect(page.locator(`[data-pda-cut-spreading-root="${task.taskId}"]`).getByText('录入人').first()).toBeVisible()
-  await expect(page.locator(`[data-pda-cut-spreading-root="${task.taskId}"]`)).not.toContainText('ID-F004_prod')
+  await expect(page.locator('[data-pda-cut-spreading-field="selectedTargetKey"]')).toHaveCount(0)
+  await expect(page.locator('[data-pda-cut-spreading-field="planUnitId"]')).toBeVisible()
+  await expect(page.locator('[data-pda-cut-spreading-field="fabricRollNo"]')).toHaveCount(0)
+  await expect(page.locator('[data-pda-cut-spreading-field="photoProofCount"]')).toHaveCount(0)
+  await expect(page.locator('body')).not.toContainText('现场照片')
+  await expect(page.locator(`[data-pda-cut-spreading-root="${taskId}"]`)).not.toContainText('ID-F004_prod')
 
   await expectNoPageErrors(errors)
 })
 
-test('PDA 裁片任务详情页主流程先进入当前任务，再显式进入铺布录入', async ({ page }) => {
+test('PDA 铺布页录入本卷时连续输入不丢焦点', async ({ page }) => {
   const errors = collectPageErrors(page)
+  await seedLocalStorage(page, {
+    fcs_pda_session: pdaSession,
+  })
 
-  const task = taskWithSpreadingCurrentStep!
+  await page.goto(spreadingUrl)
+  await page.locator('[data-pda-cut-spreading-field="cuttingTableId"]').selectOption({ index: 1 })
+  await page.getByRole('button', { name: '开始铺布' }).click()
+  await expect(page.getByRole('button', { name: '提交本卷' })).toBeVisible()
+
+  const layerInput = page.locator('[data-pda-cut-spreading-field="layerCount"]')
+  await layerInput.click()
+  await page.keyboard.type('22')
+  await expect(layerInput).toHaveValue('22')
+  await expect(page.locator(':focus')).toHaveAttribute('data-pda-cut-spreading-field', 'layerCount')
+
+  const lengthInput = page.locator('[data-pda-cut-spreading-field="actualLength"]')
+  await lengthInput.click()
+  await page.keyboard.type('33')
+  await expect(lengthInput).toHaveValue('33')
+  await expect(page.locator(':focus')).toHaveAttribute('data-pda-cut-spreading-field', 'actualLength')
+  await expect(page.getByTestId('pda-cutting-gross-length-value')).toContainText('726.00 米')
+
+  const operatorInput = page.locator('[data-pda-cut-spreading-operator-field="operatorName"]').first()
+  await operatorInput.click()
+  await operatorInput.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
+  await page.keyboard.type('Rini')
+  await expect(operatorInput).toHaveValue('Rini')
+  await expect(page.locator(':focus')).toHaveAttribute('data-pda-cut-spreading-operator-field', 'operatorName')
+
+  await expectNoPageErrors(errors)
+})
+
+test('PDA 裁片任务详情页从铺布单卡片进入锁定铺布单', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await seedLocalStorage(page, {
+    fcs_pda_session: pdaSession,
+  })
+
   await page.goto(
-    `/fcs/pda/cutting/task/${task.taskId}?executionOrderId=${encodeURIComponent(task.executionOrderId)}&executionOrderNo=${encodeURIComponent(task.executionOrderNo)}`,
+    `/fcs/pda/cutting/task/${taskId}?executionOrderId=${encodeURIComponent(executionOrderId)}&executionOrderNo=${encodeURIComponent(executionOrderNo)}`,
   )
 
-  const orderCard = page.locator(`[data-pda-cutting-order-card-id="${task.executionOrderId}"]`)
-  await expect(orderCard).toBeVisible()
-  await orderCard.getByRole('button', { name: '进入当前任务' }).click()
-  await expect(page).toHaveURL(new RegExp(`/fcs/pda/cutting/unit/${task.taskId}/${task.executionOrderId}\\?`))
-  await expect(page.locator('h1', { hasText: '当前任务' })).toBeVisible()
-  await page.locator('[data-pda-cutting-unit-step="SPREADING"]').click()
-  await expect(page).toHaveURL(new RegExp(`/fcs/pda/cutting/spreading/${task.taskId}\\?`))
+  const spreadingCard = page.locator('article').filter({ hasText: executionOrderId }).first()
+  await expect(spreadingCard).toBeVisible()
+  await spreadingCard.getByRole('button', { name: /开始铺布|完成铺布/ }).click()
+  await expect(page).toHaveURL(new RegExp(`/fcs/pda/cutting/spreading/${taskId}\\?`))
   await expect(page.locator('h1', { hasText: '铺布录入' })).toBeVisible()
+  await expect(page.getByTestId('pda-cutting-target-selector')).toHaveCount(0)
 
   await expectNoPageErrors(errors)
 })
