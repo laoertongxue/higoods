@@ -61,15 +61,20 @@ import {
 } from '../data/pcs-project-domain-contract.ts'
 import {
   SAMPLE_COST_DEFAULT_EXCHANGE_RATE,
+  SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY,
   SAMPLE_COST_RAW_MATERIAL_ROWS_KEY,
   SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY,
   calculateSampleCostReview,
   createDefaultSampleCostMaterialRows,
   formatSampleCostCny,
   formatSampleCostSourceAndCny,
+  getAllowedSampleCostFinishCraftOptions,
   getAllowedSampleCostMaterialOptions,
+  getDefaultSampleCostFinishCraftId,
+  getSampleCostMaterialOption,
   getSampleCostMaterialOptionLabel,
   normalizeSampleCostCurrency,
+  normalizeSampleCostFixedProcessOverrides,
   normalizeSampleCostGarmentCategory,
   normalizeSampleCostMaterialRows,
   normalizeSampleCostOptionalProcessRows,
@@ -80,6 +85,7 @@ import {
   type SampleCostMaterialLineInput,
   type SampleCostOptionalProcessInput,
   type SampleCostReviewInput,
+  type SampleCostFixedProcessOverrides,
 } from '../data/pcs-sample-cost-review-pricing.ts'
 import {
   getEngineeringTaskFieldPolicy,
@@ -3619,6 +3625,22 @@ function parseSampleCostJsonRows<T extends Record<string, unknown>>(value: unkno
   }
 }
 
+function parseSampleCostJsonRecord(value: unknown): Record<string, string | number | null | undefined> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, string | number | null | undefined>
+  }
+  const text = String(value || '').trim()
+  if (!text) return {}
+  try {
+    const parsed = JSON.parse(text) as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, string | number | null | undefined>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
 function pickSampleCostDraftValue(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
@@ -3653,10 +3675,15 @@ function getSampleCostReviewInput(
     draft.values[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] ??
     node.latestRecord?.payload?.[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] ??
     node.latestRecord?.detailSnapshot?.[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]
+  const rawFixedProcessOverrides =
+    draft.values[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY] ??
+    node.latestRecord?.payload?.[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY] ??
+    node.latestRecord?.detailSnapshot?.[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY]
   const materialLines = normalizeSampleCostMaterialRows(
     parseSampleCostJsonRows<SampleCostMaterialLineInput>(rawMaterialRows),
     garmentCategory,
   )
+  const fixedProcessOverrides = normalizeSampleCostFixedProcessOverrides(parseSampleCostJsonRecord(rawFixedProcessOverrides))
   const optionalProcessLines = normalizeSampleCostOptionalProcessRows(
     parseSampleCostJsonRows<SampleCostOptionalProcessInput>(rawOptionalRows),
   )
@@ -3678,6 +3705,7 @@ function getSampleCostReviewInput(
       pickSampleCostDraftValue(project, node, draft, 'auxiliaryCostCurrency', 'IDR'),
       'IDR',
     ),
+    fixedProcessOverrides,
     sewingCostAmount: pickSampleCostDraftValue(project, node, draft, 'sewingCostAmount', 0),
     sewingCostCurrency: normalizeSampleCostCurrency(
       pickSampleCostDraftValue(project, node, draft, 'sewingCostCurrency', 'IDR'),
@@ -3786,6 +3814,11 @@ function renderSampleCostMaterialRows(input: SampleCostReviewInput, disabled = f
   return rows
     .map((row, index) => {
       const selectedSku = String(row.materialSku || '')
+      const selectedOption = getSampleCostMaterialOption(selectedSku)
+      const allowedFinishCraftOptions = getAllowedSampleCostFinishCraftOptions(selectedOption)
+      const selectedFinishCraftId = allowedFinishCraftOptions.some((option) => option.id === row.finishCraftId)
+        ? String(row.finishCraftId || '')
+        : getDefaultSampleCostFinishCraftId(selectedOption)
       const line = pricing.materialLines[index]
       const removeDisabled = disabled || rows.length <= 1
       return `
@@ -3797,6 +3830,13 @@ function renderSampleCostMaterialRows(input: SampleCostReviewInput, disabled = f
                   (option) =>
                     `<option value="${escapeHtml(option.sku)}" ${selectedSku === option.sku ? 'selected' : ''}>${escapeHtml(getSampleCostMaterialOptionLabel(option))}</option>`,
                 )
+                .join('')}
+            </select>
+          </td>
+          <td class="px-3 py-2">
+            <select class="h-9 w-full min-w-[120px] rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-500 ${disabled ? 'bg-slate-50 text-slate-500' : ''}" data-pcs-project-field="sample-cost-finish-craft" data-row-index="${index}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''}>
+              ${allowedFinishCraftOptions
+                .map((option) => `<option value="${escapeHtml(option.id)}" ${selectedFinishCraftId === option.id ? 'selected' : ''}>${escapeHtml(option.name)}</option>`)
                 .join('')}
             </select>
           </td>
@@ -3855,6 +3895,7 @@ function renderSampleCostReviewWorkspace(project: PcsProjectRecord, node: Projec
   const input = getSampleCostReviewInput(project, node, draft)
   const pricing = calculateSampleCostReview(input)
   const materialRows = normalizeSampleCostMaterialRows(input.materialLines, pricing.garmentCategory)
+  const fixedProcessOverrides = normalizeSampleCostFixedProcessOverrides(input.fixedProcessOverrides)
   const optionalRows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)
   const disabled = !canEditProjectNodeFields(node)
   const saveDraftButton =
@@ -3866,6 +3907,7 @@ function renderSampleCostReviewWorkspace(project: PcsProjectRecord, node: Projec
     <section class="space-y-4" data-sample-cost-review-workspace="true">
       ${[
         renderSampleCostHiddenField(SAMPLE_COST_RAW_MATERIAL_ROWS_KEY, JSON.stringify(materialRows)),
+        renderSampleCostHiddenField(SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY, JSON.stringify(fixedProcessOverrides)),
         renderSampleCostHiddenField(SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY, JSON.stringify(optionalRows)),
         ...Object.entries(pricing.payload).map(([key, value]) => renderSampleCostHiddenField(key, value)),
       ].join('')}
@@ -3898,10 +3940,11 @@ function renderSampleCostReviewWorkspace(project: PcsProjectRecord, node: Projec
           <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${disabled ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-project-action="add-sample-cost-material-row" ${disabled ? 'disabled' : ''}>新增物料</button>
         </div>
         <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200" data-sample-cost-material-table="true">
-          <table class="min-w-[1080px] w-full divide-y divide-slate-200 text-left">
+          <table class="min-w-[1180px] w-full divide-y divide-slate-200 text-left">
             <thead class="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th class="px-3 py-2 font-medium">物料</th>
+                <th class="px-3 py-2 font-medium">印染工艺</th>
                 <th class="px-3 py-2 font-medium">用量（Yard）</th>
                 <th class="px-3 py-2 font-medium">物料成本（RMB）</th>
                 <th class="px-3 py-2 font-medium">印染费（源币种 -> RMB）</th>
@@ -3933,10 +3976,16 @@ function renderSampleCostReviewWorkspace(project: PcsProjectRecord, node: Projec
               ${pricing.fixedProcessLines
                 .map(
                   (line) => `
-                    <tr>
+                    <tr data-sample-cost-fixed-process-row="${escapeHtml(line.code || '')}">
                       <td class="px-3 py-2 text-sm text-slate-700">${escapeHtml(line.processName)}</td>
-                      <td class="px-3 py-2 text-sm text-slate-700">${escapeHtml(formatSampleCostSourceAndCny(line.cost, line.costCny).split(' -> ')[0] || '-')}</td>
-                      <td class="px-3 py-2 text-sm text-slate-700">${escapeHtml(formatSampleCostCny(line.costCny))}</td>
+                      <td class="px-3 py-2 text-sm text-slate-700">
+                        ${
+                          line.editable && line.code
+                            ? `<input type="number" min="0" step="1" class="h-9 w-32 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-500 ${disabled ? 'bg-slate-50 text-slate-500' : ''}" value="${escapeHtml(String(line.cost.amount))}" data-pcs-project-field="sample-cost-fixed-process-override" data-process-code="${escapeHtml(line.code)}" data-skip-page-rerender="true" ${disabled ? 'disabled' : ''} />`
+                            : escapeHtml(formatSampleCostSourceAndCny(line.cost, line.costCny).split(' -> ')[0] || '-')
+                        }
+                      </td>
+                      <td class="px-3 py-2 text-sm text-slate-700" data-sample-cost-fixed-process-preview="${escapeHtml(line.code || '')}">${escapeHtml(formatSampleCostCny(line.costCny))}</td>
                     </tr>
                   `,
                 )
@@ -8621,9 +8670,20 @@ function readFormalFieldDomDraft(): { businessDate: string; values: Record<strin
 function readSampleCostMaterialRowsFromDom(scope: ParentNode): SampleCostMaterialLineInput[] {
   return Array.from(scope.querySelectorAll<HTMLElement>('[data-sample-cost-material-row]')).map((rowNode) => {
     const materialSku = rowNode.querySelector<HTMLSelectElement>('[data-pcs-project-field="sample-cost-material-sku"]')?.value || ''
+    const finishCraftId = rowNode.querySelector<HTMLSelectElement>('[data-pcs-project-field="sample-cost-finish-craft"]')?.value || ''
     const usage = rowNode.querySelector<HTMLInputElement>('[data-pcs-project-field="sample-cost-material-usage"]')?.value || ''
-    return { materialSku, usage }
+    return { materialSku, finishCraftId, usage }
   })
+}
+
+function readSampleCostFixedProcessOverridesFromDom(scope: ParentNode): SampleCostFixedProcessOverrides {
+  const overrides: SampleCostFixedProcessOverrides = {}
+  scope.querySelectorAll<HTMLInputElement>('[data-pcs-project-field="sample-cost-fixed-process-override"]').forEach((fieldNode) => {
+    const processCode = fieldNode.dataset.processCode
+    if (!processCode) return
+    overrides[processCode as keyof SampleCostFixedProcessOverrides] = fieldNode.value
+  })
+  return overrides
 }
 
 function readSampleCostOptionalProcessRowsFromDom(scope: ParentNode): SampleCostOptionalProcessInput[] {
@@ -8651,6 +8711,7 @@ function readSampleCostReviewDomValues(): Record<string, unknown> {
     }
   })
   values[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] = JSON.stringify(readSampleCostMaterialRowsFromDom(scope))
+  values[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY] = JSON.stringify(readSampleCostFixedProcessOverridesFromDom(scope))
   values[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] = JSON.stringify(readSampleCostOptionalProcessRowsFromDom(scope))
   return values
 }
@@ -8696,9 +8757,11 @@ function refreshSampleCostReviewPreviewFromDom(project: PcsProjectRecord, node: 
   const input = getSampleCostReviewInput(project, node, draft)
   const pricing = calculateSampleCostReview(input)
   const materialRows = normalizeSampleCostMaterialRows(input.materialLines, pricing.garmentCategory)
+  const fixedProcessOverrides = normalizeSampleCostFixedProcessOverrides(input.fixedProcessOverrides)
   const optionalRows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)
 
   setSampleCostHiddenValue(scope, SAMPLE_COST_RAW_MATERIAL_ROWS_KEY, JSON.stringify(materialRows))
+  setSampleCostHiddenValue(scope, SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY, JSON.stringify(fixedProcessOverrides))
   setSampleCostHiddenValue(scope, SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY, JSON.stringify(optionalRows))
   Object.entries(pricing.payload).forEach(([key, value]) => setSampleCostHiddenValue(scope, key, value))
 
@@ -8709,6 +8772,11 @@ function refreshSampleCostReviewPreviewFromDom(project: PcsProjectRecord, node: 
   })
   pricing.optionalProcessLines.forEach((line, index) => {
     setSampleCostRowPreview(scope, 'optional-process-cost', index, formatSampleCostCny(line.costCny))
+  })
+  pricing.fixedProcessLines.forEach((line) => {
+    if (!line.code) return
+    const node = scope.querySelector<HTMLElement>(`[data-sample-cost-fixed-process-preview="${line.code}"]`)
+    if (node) node.textContent = formatSampleCostCny(line.costCny)
   })
 
   setSampleCostPreviewText(scope, 'materialCostCny', formatSampleCostCny(pricing.materialCostCny))
@@ -9108,6 +9176,9 @@ export function handlePcsProjectsInput(target: Element): boolean {
     const context = getCurrentProjectNodeContext()
     if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW') return true
     refreshSampleCostReviewPreviewFromDom(context.project, context.node)
+    if (field === 'sample-cost-material-sku') {
+      window.dispatchEvent(new Event('higood:request-render'))
+    }
     return true
   }
   if (
@@ -9552,15 +9623,18 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
     const sampleCostInput = getSampleCostReviewInput(project, node, draft)
     const sampleCostPricing = calculateSampleCostReview(sampleCostInput)
     const materialRows = normalizeSampleCostMaterialRows(sampleCostInput.materialLines, sampleCostPricing.garmentCategory)
+    const fixedProcessOverrides = normalizeSampleCostFixedProcessOverrides(sampleCostInput.fixedProcessOverrides)
     const optionalProcessRows = normalizeSampleCostOptionalProcessRows(sampleCostInput.optionalProcessLines)
     Object.assign(values, sampleCostPricing.payload, {
       [SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]: JSON.stringify(materialRows),
+      [SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY]: JSON.stringify(fixedProcessOverrides),
       [SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]: JSON.stringify(optionalProcessRows),
     })
     Object.assign(derivedDetailSnapshot, {
       priceCheckNo: `CST-${project.projectCode.slice(-3)}-${todayText().replace(/-/g, '')}`,
       sourcePricingRule: '商品核价功能迁移',
       [SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]: JSON.stringify(materialRows),
+      [SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY]: JSON.stringify(fixedProcessOverrides),
       [SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]: JSON.stringify(optionalProcessRows),
       materialLineCount: sampleCostPricing.materialLines.length,
       optionalProcessLineCount: sampleCostPricing.optionalProcessLines.length,
@@ -10682,7 +10756,7 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
       values: {
         [SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]: JSON.stringify([
           ...rows,
-          createDefaultSampleCostMaterialRows(category)[0] || { materialSku: '', usage: 1 },
+          createDefaultSampleCostMaterialRows(category)[0] || { materialSku: '', finishCraftId: 'dye', usage: 1 },
         ]),
       },
     })

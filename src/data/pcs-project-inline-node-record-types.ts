@@ -193,6 +193,9 @@ export interface SampleCostReviewPayload {
   materialCostCny: number | string
   dyeingRuleLines: string[]
   dyeingCostCny: number | string
+  sampleCostMaterialRows?: string
+  sampleCostFixedProcessOverrides?: string
+  sampleCostOptionalProcessRows?: string
   auxiliaryCostAmount: number | string
   auxiliaryCostCurrency: string
   auxiliaryCostCny: number | string
@@ -225,6 +228,9 @@ export interface SampleCostReviewDetailSnapshot {
   materialCostCny?: number | string
   dyeingRuleLines?: string[]
   dyeingCostCny?: number | string
+  sampleCostMaterialRows?: string
+  sampleCostFixedProcessOverrides?: string
+  sampleCostOptionalProcessRows?: string
   auxiliaryCostAmount?: number | string
   auxiliaryCostCurrency?: string
   auxiliaryCostCny?: number | string

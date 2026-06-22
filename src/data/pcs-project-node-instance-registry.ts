@@ -236,7 +236,9 @@ export function getProjectNodeInstanceRuntimeSnapshot(
   const primaryInstances = filterPrimaryInstances(instances, multiInstanceDefinition)
   const supportingInstances = filterSupportingInstances(instances, multiInstanceDefinition, primaryInstances)
   const latestInstance = (primaryInstances[0] || instances[0]) || null
-  const validInstanceCount = primaryInstances.length > 0 ? primaryInstances.length : instances.length
+  const validInstanceCount = multiInstanceDefinition
+    ? primaryInstances.length > 0 ? primaryInstances.length : instances.length
+    : latestInstance ? 1 : 0
   return {
     projectId: project.projectId,
     projectCode: project.projectCode,

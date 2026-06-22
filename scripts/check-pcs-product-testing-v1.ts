@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
   WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
+  getProjectWorkItemMultiInstanceDefinition,
   getProjectWorkItemContract,
   listProjectTemplateSchemas,
   listProjectWorkItemContracts,
@@ -19,6 +20,7 @@ import {
   listProjects,
 } from '../src/data/pcs-project-repository.ts'
 import { listProjectTemplates } from '../src/data/pcs-templates.ts'
+import { calculateSampleCostReview } from '../src/data/pcs-sample-cost-review-pricing.ts'
 
 const domesticFlow: PcsProjectWorkItemCode[] = [
   'PROJECT_INIT',
@@ -232,6 +234,40 @@ assertIncludesAll(
   ],
   '样衣核价字段未完整承接商品核价功能',
 )
+const sampleCostReviewContract = getProjectWorkItemContract('SAMPLE_COST_REVIEW')
+assert.equal(sampleCostReviewContract.capabilities.canMultiInstance, false, '样衣核价必须是单实例工作项')
+assert.equal(getProjectWorkItemMultiInstanceDefinition('SAMPLE_COST_REVIEW'), null, '样衣核价不应存在多实例语义定义')
+const sampleCostPricing = calculateSampleCostReview({
+  spuCode: 'SPU-CHECK-SAMPLE-COST',
+  productName: '样衣核价规则校验',
+  buyerName: '测试用户',
+  brandName: 'Asaya',
+  garmentCategory: '梭织',
+  exchangeRate: 2200,
+  materialLines: [{ materialSku: 'CNIDML359', finishCraftId: 'dye', usage: 1 }],
+  fixedProcessOverrides: { cutting: 1200, postFinishing: 3500 },
+  salesPrice: 35,
+  salesCurrency: 'RMB',
+})
+assert.equal(sampleCostPricing.materialLines[0]?.materialSku, 'CNIDML359', '样衣核价物料必须保存物料 SPU')
+assert.equal(sampleCostPricing.materialLines[0]?.finishCraftName, '染色', '样衣核价印染工艺必须独立于物料选择')
+assert.equal(sampleCostPricing.fixedProcessLines.find((item) => item.code === 'cutting')?.cost.amount, 1200, '裁剪费应支持覆盖')
+assert.equal(sampleCostPricing.fixedProcessLines.find((item) => item.code === 'postFinishing')?.cost.amount, 3500, '后道应支持覆盖')
+assert.equal(sampleCostPricing.fixedProcessLines.find((item) => item.code === 'warehouseShipping')?.cost.amount, 2200, '仓库发货费必须为 2200 IDR')
+const sampleCostDefaultPricing = calculateSampleCostReview({
+  spuCode: 'SPU-CHECK-SAMPLE-COST-DEFAULT',
+  productName: '样衣核价默认固定工序校验',
+  buyerName: '测试用户',
+  brandName: 'Asaya',
+  garmentCategory: '梭织',
+  exchangeRate: 2200,
+  materialLines: [{ materialSku: 'CNIDML359', finishCraftId: 'dye', usage: 1 }],
+  fixedProcessOverrides: { cutting: '', postFinishing: null },
+  salesPrice: 35,
+  salesCurrency: 'RMB',
+})
+assert.equal(sampleCostDefaultPricing.fixedProcessLines.find((item) => item.code === 'cutting')?.cost.amount, 1000, '裁剪费空覆盖应保留默认金额')
+assert.equal(sampleCostDefaultPricing.fixedProcessLines.find((item) => item.code === 'postFinishing')?.cost.amount, 3000, '后道空覆盖应保留默认金额')
 const listingDefaultPriceField = getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING').fieldDefinitions.find(
   (field) => field.fieldKey === 'defaultPriceAmount',
 )
@@ -262,6 +298,8 @@ assert.deepEqual(
   domesticFlow,
   '国内采购样衣测款项目创建后的节点顺序不正确',
 )
+const domesticSampleCostNode = listProjectNodes(domesticProject.projectId).find((node) => node.workItemTypeCode === 'SAMPLE_COST_REVIEW')
+assert.equal(domesticSampleCostNode?.multiInstanceFlag, false, '国内采购样衣测款项目中的样衣核价节点必须为单实例')
 assert.deepEqual(
   listProjectPhases(domesticProject.projectId).map((phase) => phase.phaseCode),
   ['PHASE_01', 'PHASE_02', 'PHASE_03', 'PHASE_04', 'PHASE_05'],
@@ -276,5 +314,7 @@ assert.deepEqual(
   wanlongFlow,
   '万隆改版出样衣测款项目创建后的节点顺序不正确',
 )
+const wanlongSampleCostNode = listProjectNodes(wanlongProject.projectId).find((node) => node.workItemTypeCode === 'SAMPLE_COST_REVIEW')
+assert.equal(wanlongSampleCostNode?.multiInstanceFlag, false, '万隆改版项目中的样衣核价节点必须为单实例')
 
 console.log('check-pcs-product-testing-v1 passed')

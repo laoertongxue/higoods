@@ -265,6 +265,7 @@ function normalizePhase(phase: PcsProjectPhaseRecord): PcsProjectPhaseRecord {
 function normalizeNode(node: PcsProjectNodeRecord): PcsProjectNodeRecord {
   return {
     ...cloneNode(node),
+    multiInstanceFlag: node.workItemTypeCode === 'SAMPLE_COST_REVIEW' ? false : node.multiInstanceFlag,
     currentStatus: normalizeNodeStatus(node.currentStatus),
     pendingActionType: node.pendingActionType ?? '待执行',
     pendingActionText: node.pendingActionText ?? '待开始执行',
