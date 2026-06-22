@@ -142,6 +142,8 @@ export type PdaTaskFlowMock = PdaTaskFlowProjectedTask
 export interface PdaCuttingTaskOrderLine {
   executionOrderId: string
   executionOrderNo: string
+  executionObjectType: PdaCuttingExecutionSourceRecord['executionObjectType']
+  executionObjectTypeLabel: string
   productionOrderId: string
   productionOrderNo: string
   cutOrderId: string
@@ -172,6 +174,29 @@ export interface PdaCuttingTaskOrderLine {
   isDone: boolean
   hasException: boolean
   sortOrder: number
+}
+
+export interface PdaCuttingTaskCutOrderGroup {
+  cutOrderId: string
+  cutOrderNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
+  materialSku: string
+  materialAlias?: string
+  materialImageUrl?: string
+  materialTypeLabel: string
+  colorLabel?: string
+  plannedQty: number
+  currentStateLabel: string
+  nextActionLabel: string
+  spreadingOrders: PdaCuttingTaskOrderLine[]
+  spreadingOrderCount: number
+  completedSpreadingOrderCount: number
+  pendingSpreadingOrderCount: number
+  exceptionSpreadingOrderCount: number
+  isSelected: boolean
 }
 
 export interface PdaCuttingPickupLog {
@@ -313,6 +338,7 @@ export interface PdaCuttingTaskDetailData {
   executionOrderId: string
   executionOrderNo: string
   cutPieceOrders: PdaCuttingTaskOrderLine[]
+  cutOrderGroups: PdaCuttingTaskCutOrderGroup[]
   cutPieceOrderCount: number
   completedCutPieceOrderCount: number
   pendingCutPieceOrderCount: number
@@ -434,6 +460,11 @@ function mapMaterialTypeLabel(record: GeneratedCutOrderSourceRecord | null): str
   if (record.materialType === 'PRINT' || record.materialType === 'DYE' || record.materialType === 'SOLID') return '面料主料'
   if (record.materialType === 'LINING') return '里辅料'
   return '面料主料'
+}
+
+function mapExecutionObjectTypeLabel(type: PdaCuttingExecutionSourceRecord['executionObjectType']): string {
+  if (type === 'SPREADING_ORDER') return '铺布单'
+  return '铺布单'
 }
 
 function mapReceiveStatusLabel(status: string | undefined): string {
@@ -1516,6 +1547,8 @@ function buildTaskOrderLine(
   return {
     executionOrderId: execution.executionOrderId,
     executionOrderNo: execution.executionOrderNo,
+    executionObjectType: execution.executionObjectType,
+    executionObjectTypeLabel: mapExecutionObjectTypeLabel(execution.executionObjectType),
     productionOrderId: execution.productionOrderId,
     productionOrderNo: execution.productionOrderNo,
     cutOrderId: execution.cutOrderId,
@@ -1553,6 +1586,68 @@ function buildTaskOrderLine(
     hasException,
     sortOrder,
   }
+}
+
+function buildTaskCutOrderGroups(
+  lines: PdaCuttingTaskOrderLine[],
+  selectedExecutionOrderId: string | null,
+): PdaCuttingTaskCutOrderGroup[] {
+  const groups: PdaCuttingTaskCutOrderGroup[] = []
+  const groupByKey = new Map<string, PdaCuttingTaskCutOrderGroup>()
+
+  lines.forEach((line) => {
+    const groupKey = line.cutOrderId || line.cutOrderNo || line.executionOrderId
+    const currentGroup = groupByKey.get(groupKey)
+    if (currentGroup) {
+      currentGroup.spreadingOrders.push(line)
+      currentGroup.isSelected = currentGroup.isSelected || line.executionOrderId === selectedExecutionOrderId
+      return
+    }
+
+    const group: PdaCuttingTaskCutOrderGroup = {
+      cutOrderId: line.cutOrderId,
+      cutOrderNo: line.cutOrderNo,
+      productionOrderId: line.productionOrderId,
+      productionOrderNo: line.productionOrderNo,
+      markerPlanId: line.markerPlanId,
+      markerPlanNo: line.markerPlanNo,
+      materialSku: line.materialSku,
+      materialAlias: line.materialAlias,
+      materialImageUrl: line.materialImageUrl,
+      materialTypeLabel: line.materialTypeLabel,
+      colorLabel: line.colorLabel,
+      plannedQty: line.plannedQty,
+      currentStateLabel: line.currentStateLabel,
+      nextActionLabel: line.nextActionLabel,
+      spreadingOrders: [line],
+      spreadingOrderCount: 0,
+      completedSpreadingOrderCount: 0,
+      pendingSpreadingOrderCount: 0,
+      exceptionSpreadingOrderCount: 0,
+      isSelected: line.executionOrderId === selectedExecutionOrderId,
+    }
+    groups.push(group)
+    groupByKey.set(groupKey, group)
+  })
+
+  groups.forEach((group) => {
+    const activeLine = group.spreadingOrders.find((line) => line.hasException)
+      || group.spreadingOrders.find((line) => !line.isDone)
+      || group.spreadingOrders[0]
+    group.spreadingOrderCount = group.spreadingOrders.length
+    group.completedSpreadingOrderCount = group.spreadingOrders.filter((line) => line.isDone).length
+    group.pendingSpreadingOrderCount = group.spreadingOrders.filter((line) => !line.isDone).length
+    group.exceptionSpreadingOrderCount = group.spreadingOrders.filter((line) => line.hasException).length
+    group.nextActionLabel = activeLine?.nextActionLabel || '查看'
+    group.currentStateLabel =
+      group.exceptionSpreadingOrderCount > 0
+        ? '异常'
+        : group.spreadingOrderCount > 0 && group.completedSpreadingOrderCount === group.spreadingOrderCount
+          ? '已完成'
+          : activeLine?.currentStateLabel || '待处理'
+  })
+
+  return groups
 }
 
 function buildPickupLogs(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCuttingPickupLog[] {
@@ -1873,8 +1968,8 @@ function buildRecentActions(input: {
 }
 
 function buildTaskProgressLabel(completedCount: number, totalCount: number): string {
-  if (!totalCount) return '暂无执行对象'
-  return `${completedCount}/${totalCount} 个执行对象已完成`
+  if (!totalCount) return '暂无铺布单'
+  return `${completedCount}/${totalCount} 张铺布单已完成`
 }
 
 function resolveTaskStateLabel(completedCount: number, totalCount: number, exceptionCount: number, taskStatus: ProcessTask['status']): string {
@@ -1913,7 +2008,7 @@ function resolveTaskSummary(executions: PdaCuttingTaskOrderLine[]): PdaTaskSumma
           : executions.some((item) => item.currentExecutionStatus.includes('进行中'))
             ? '已有铺布进行中记录'
             : executions.some((item) => item.currentExecutionStatus.includes('待绑定'))
-              ? '存在待绑定执行对象'
+              ? '存在待绑定铺布单'
               : '待开始铺布',
     handoverSummary: '后续阶段处理',
   }
@@ -2054,6 +2149,7 @@ export function getPdaCuttingTaskSnapshot(
   const executionRows = executionRecords.map((record, index) => buildTaskOrderLine(record, index + 1, currentSnapshot))
   const selectedLine = executionRows.find((line) => line.executionOrderId === selectedExecutionRecord.executionOrderId) ?? executionRows[0]
   if (!selectedLine) return null
+  const cutOrderGroups = buildTaskCutOrderGroups(executionRows, selectedExecutionRecord.executionOrderId)
 
   const originalRecord = getCutOrderRecord(selectedExecutionRecord)
   const progressLine = getProgressLine(currentSnapshot, selectedExecutionRecord)
@@ -2157,6 +2253,7 @@ export function getPdaCuttingTaskSnapshot(
     executionOrderId: selectedExecutionRecord.executionOrderId,
     executionOrderNo: selectedExecutionRecord.executionOrderNo,
     cutPieceOrders: executionRows,
+    cutOrderGroups,
     cutPieceOrderCount: executionRows.length,
     completedCutPieceOrderCount: executionRows.filter((item) => item.isDone).length,
     pendingCutPieceOrderCount: executionRows.filter((item) => !item.isDone).length,
@@ -2187,8 +2284,8 @@ export function getPdaCuttingTaskSnapshot(
     currentStage: selectedLine.currentStateLabel,
     currentActionHint:
       selectedLine.bindingState === 'UNBOUND'
-        ? `当前执行对象 ${selectedLine.executionOrderNo} 尚未绑定裁片单，请先处理绑定异常。`
-        : `当前执行对象 ${selectedLine.executionOrderNo} 绑定裁片单 ${selectedLine.cutOrderNo}。`,
+        ? `当前铺布单 ${selectedLine.executionOrderNo} 尚未绑定裁片单，请先处理绑定异常。`
+        : `当前铺布单 ${selectedLine.executionOrderNo} 绑定裁片单 ${selectedLine.cutOrderNo}。`,
     nextRecommendedAction: selectedLine.nextActionLabel,
     riskFlags: unique([
       ...(selectedLine.hasException ? ['执行风险'] : []),

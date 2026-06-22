@@ -169,7 +169,7 @@ export function renderPdaCuttingExecutionHero(stepTitle: string, detail: PdaCutt
         <div class="space-y-1">
           <div class="text-xs text-muted-foreground">当前步骤</div>
           <div class="text-base font-semibold text-foreground">${escapeHtml(stepTitle)}</div>
-          <div class="text-xs text-muted-foreground">执行对象 ${escapeHtml(detail.executionOrderNo)}</div>
+          <div class="text-xs text-muted-foreground">铺布单 ${escapeHtml(detail.executionOrderNo)}</div>
         </div>
         ${renderChip(detail.taskStatusLabel, 'border-blue-200 bg-blue-50 text-blue-700')}
       </div>
@@ -179,7 +179,7 @@ export function renderPdaCuttingExecutionHero(stepTitle: string, detail: PdaCutt
           <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.productionOrderNo)}</div>
         </article>
         <article class="rounded-xl border bg-muted/20 px-2.5 py-2">
-          <div class="text-muted-foreground">执行对象</div>
+          <div class="text-muted-foreground">铺布单</div>
           <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div>
           <div class="mt-1 text-[11px] text-muted-foreground">绑定裁片单 ${escapeHtml(detail.cutOrderNo)}</div>
         </article>
@@ -298,7 +298,7 @@ export function renderPdaCuttingOrderSelectionPrompt(detail: PdaCuttingTaskDetai
     <section class="space-y-3">
       <div class="rounded-2xl border border-dashed bg-muted/20 px-3 py-4 text-center">
         <div class="text-sm font-medium text-foreground">${escapeHtml(notice || '先选裁片单，再继续')}</div>
-        <div class="mt-1 text-xs text-muted-foreground">当前有 ${escapeHtml(String(detail.cutPieceOrderCount))} 张裁片单，选好再进入执行对象。</div>
+        <div class="mt-1 text-xs text-muted-foreground">当前有 ${escapeHtml(String(detail.cutPieceOrderCount))} 张铺布单，选好再进入对应操作。</div>
       </div>
       <button class="inline-flex min-h-9 w-full items-center justify-center rounded-xl border px-3 py-1.5 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(backHref)}">
         返回裁片任务

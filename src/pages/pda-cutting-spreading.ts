@@ -1069,7 +1069,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       executionOrderNo: context.selectedExecutionOrderNo || undefined,
     })
     if (!identity || !detail) {
-      form.feedbackMessage = '同步失败：当前执行对象无法识别。'
+      form.feedbackMessage = '同步失败：当前铺布单无法识别。'
       form.feedbackTone = 'warning'
       form.syncStatus = '同步失败'
       syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
@@ -1150,7 +1150,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       materialSku: context.selectedExecutionOrder?.materialSku || undefined,
     })
     if (!identity || !detail) {
-      form.feedbackMessage = '当前执行对象无法识别，不能提交铺布记录。'
+      form.feedbackMessage = '当前铺布单无法识别，不能提交铺布记录。'
       form.feedbackTone = 'warning'
       syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
       return true

@@ -2,6 +2,7 @@ import {
   listPdaCuttingExecutionSourceRecordsFromScenarios,
   listPdaCuttingTaskSourceRecordsFromScenarios,
 } from './pda-cutting-task-scenarios.ts'
+import type { PdaCuttingExecutionObjectType } from './pda-cutting-mock-matrix.ts'
 
 export type PdaExecutionBindingState = 'BOUND' | 'UNBOUND'
 
@@ -10,6 +11,7 @@ export interface PdaCuttingExecutionSourceRecord {
   taskNo: string
   executionOrderId: string
   executionOrderNo: string
+  executionObjectType: PdaCuttingExecutionObjectType
   productionOrderId: string
   productionOrderNo: string
   cutOrderId: string
@@ -27,6 +29,8 @@ export interface PdaCuttingTaskSourceRecord {
   taskNo: string
   productionOrderId: string
   productionOrderNo: string
+  cutOrderIds: string[]
+  cutOrderNos: string[]
   executionOrderIds: string[]
   executionOrderNos: string[]
   bindingState: PdaExecutionBindingState
@@ -49,6 +53,8 @@ export function getPdaCuttingExecutionSourceRecord(taskId: string, executionOrde
 export function listPdaCuttingTaskSourceRecords(): PdaCuttingTaskSourceRecord[] {
   return PDA_CUTTING_TASK_SOURCE_RECORDS.map((record) => ({
     ...record,
+    cutOrderIds: [...record.cutOrderIds],
+    cutOrderNos: [...record.cutOrderNos],
     executionOrderIds: [...record.executionOrderIds],
     executionOrderNos: [...record.executionOrderNos],
   }))

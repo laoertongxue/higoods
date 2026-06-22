@@ -97,15 +97,16 @@ function getCuttingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo |
   if (!isCuttingSpecialTask(task)) return null
 
   const executionRows = listPdaCuttingExecutionRowsByTaskId(task.taskId)
+  const cutOrderCount = new Set(executionRows.map((row) => row.cutOrderNo).filter(Boolean)).size
   if (!executionRows.length) {
     return {
       met: false,
       type: 'PICKUP',
-      conditionLabel: '已生成裁片执行单',
-      summaryLabel: '暂无裁片执行单',
-      statusLabel: '暂无裁片执行单，暂不可开工',
-      blocker: '暂无裁片执行单，暂不可开工',
-      hint: '请先检查裁片执行单是否已生成，并确认已绑定裁片单',
+      conditionLabel: '已生成铺布单',
+      summaryLabel: '暂无铺布单',
+      statusLabel: '暂无铺布单，暂不可开工',
+      blocker: '暂无铺布单，暂不可开工',
+      hint: '请先检查铺布单是否已生成，并确认已绑定裁片单',
     }
   }
 
@@ -114,10 +115,10 @@ function getCuttingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo |
     return {
       met: false,
       type: 'PICKUP',
-      conditionLabel: '裁片执行单已绑定裁片单',
+      conditionLabel: '铺布单已绑定裁片单',
       summaryLabel: '待绑定裁片单',
-      statusLabel: '存在未绑定裁片执行单，暂不可开工',
-      blocker: '存在未绑定裁片执行单，暂不可开工',
+      statusLabel: '存在未绑定铺布单，暂不可开工',
+      blocker: '存在未绑定铺布单，暂不可开工',
       hint: `${unboundRow.executionOrderNo} 需要先绑定裁片单，再判断来料和开工前置`,
     }
   }
@@ -138,14 +139,14 @@ function getCuttingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo |
   return {
     met: true,
     type: 'PICKUP',
-    conditionLabel: '裁片执行单与来料已满足',
+    conditionLabel: '铺布单与来料已满足',
     summaryLabel: '前置已满足',
     statusLabel: '已满足开工前置，可开工',
     blocker: '已满足开工前置',
     hint:
       executionRows.length > 1
-        ? `已生成 ${executionRows.length} 个裁片执行单，来料均已入仓，可开工后按唛架方案执行`
-        : '裁片执行单已生成，来料已入仓，可开工后按唛架方案执行',
+        ? `已覆盖 ${cutOrderCount} 张裁片单、${executionRows.length} 张铺布单，来料均已入仓，可开工后按唛架方案执行`
+        : '铺布单已生成，来料已入仓，可开工后按唛架方案执行',
   }
 }
 
