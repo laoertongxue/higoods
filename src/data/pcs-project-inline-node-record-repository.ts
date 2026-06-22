@@ -16,6 +16,7 @@ import {
 } from './pcs-project-repository.ts'
 import { getProjectWorkItemContract, type PcsProjectWorkItemCode } from './pcs-project-domain-contract.ts'
 import {
+  SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY,
   SAMPLE_COST_RAW_MATERIAL_ROWS_KEY,
   SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY,
 } from './pcs-sample-cost-review-pricing.ts'
@@ -64,6 +65,7 @@ const SAMPLE_COST_REVIEW_PAYLOAD_KEYS = [
   'reviewStatus',
   'costNote',
   SAMPLE_COST_RAW_MATERIAL_ROWS_KEY,
+  SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY,
   SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY,
 ]
 

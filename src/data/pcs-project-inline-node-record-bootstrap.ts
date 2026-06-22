@@ -10,6 +10,7 @@ import type {
   PcsProjectInlineNodeRecordWorkItemTypeCode,
 } from './pcs-project-inline-node-record-types.ts'
 import {
+  SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY,
   SAMPLE_COST_RAW_MATERIAL_ROWS_KEY,
   SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY,
   calculateSampleCostReview,
@@ -737,6 +738,7 @@ function buildSampleCostReviewSeed(input: {
   const payload = {
     ...pricing.payload,
     [SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]: JSON.stringify(materialRows),
+    [SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY]: JSON.stringify({}),
     [SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]: JSON.stringify(optionalRows),
   }
   return {

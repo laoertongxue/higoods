@@ -14,7 +14,10 @@ import {
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
-import { getLatestSampleCostReviewSalesPrice } from '../src/data/pcs-project-inline-node-record-repository.ts'
+import {
+  getLatestSampleCostReviewSalesPrice,
+  listProjectInlineNodeRecordsByNode,
+} from '../src/data/pcs-project-inline-node-record-repository.ts'
 import { saveProjectNodeFormalRecord } from '../src/data/pcs-project-flow-service.ts'
 import { getDefaultPcsStoreIdByChannel } from '../src/data/pcs-channel-store-master.ts'
 
@@ -64,6 +67,7 @@ upsertProjectImageAssets([listingImage])
 
 const sampleCostReviewNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'SAMPLE_COST_REVIEW')
 assert.ok(sampleCostReviewNode, '应存在样衣核价节点')
+const sampleCostRecordCountBefore = listProjectInlineNodeRecordsByNode(sampleCostReviewNode!.projectNodeId).length
 
 const costReviewResult = saveProjectNodeFormalRecord({
   projectId: project!.projectId,
@@ -99,6 +103,11 @@ const costReviewResult = saveProjectNodeFormalRecord({
   operatorName: '测试用户',
 })
 assert.equal(costReviewResult.ok, true, '应能完成样衣核价并进入商品上架')
+assert.equal(
+  listProjectInlineNodeRecordsByNode(sampleCostReviewNode!.projectNodeId).length,
+  sampleCostRecordCountBefore,
+  '样衣核价再次保存必须覆盖当前记录，不得新增多实例记录',
+)
 
 const createResult = createProjectChannelProductFromListingNode(
   project!.projectId,

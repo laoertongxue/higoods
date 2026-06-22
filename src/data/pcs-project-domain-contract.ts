@@ -353,19 +353,6 @@ const PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP: Partial<
     latestInstanceRule: '只以最近更新的拍摄试穿正式记录作为 latestInstance。',
     projectDisplayRule: '项目节点内展示记录列表，不单独沉淀业务模块实例。',
   }),
-  SAMPLE_COST_REVIEW: createMultiInstanceDefinition({
-    semanticKind: 'PROJECT_INLINE_RECORDS',
-    semanticLabel: '项目内正式记录',
-    primaryInstanceTypeName: '样衣核价记录',
-    primarySourceKinds: ['INLINE_RECORD'],
-    primarySourceLayers: ['项目内正式记录'],
-    primaryRelationObjectTypes: [],
-    supportingRelationObjectTypes: [],
-    granularityLabel: '一次核价结论登记为一条实例',
-    validInstanceCountRule: '只按项目内正式记录条数统计。',
-    latestInstanceRule: '只以最近更新的样衣核价正式记录作为 latestInstance。',
-    projectDisplayRule: '项目节点内展示核价记录列表，不单独生成核价业务对象。',
-  }),
   CHANNEL_PRODUCT_LISTING: createMultiInstanceDefinition({
     semanticKind: 'BUSINESS_OBJECTS',
     semanticLabel: '正式业务对象',
@@ -2298,7 +2285,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     scenario: '样衣核价形成商品上架前的成本与销售价格口径，商品上架默认售价直接读取销售价格。',
     keepReason: '核价未完成或销售价格未形成，不允许创建渠道店铺商品。',
     roleNames: ['成本专员', '供应链'],
-    capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: true },
+    capabilities: { canReuse: true, canMultiInstance: false, canRollback: true, canParallel: false },
     fieldDefinitions: costReviewFields,
     operationDefinitions: [
       {
