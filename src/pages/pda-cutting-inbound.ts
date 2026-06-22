@@ -382,7 +382,7 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
     })
     const operator = resolvePdaCuttingRuntimeOperator(taskId, form.operatorName.trim() || '仓务操作员')
     if (!identity || !operator) {
-      form.feedbackMessage = '当前执行对象或操作人无法识别，不能确认入仓。'
+      form.feedbackMessage = '当前铺布单或操作人无法识别，不能确认入仓。'
       return true
     }
     if (!form.carrierCode.trim()) {

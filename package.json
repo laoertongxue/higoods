@@ -47,6 +47,7 @@
     "check:pda-pickup-flow": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-pickup-flow.ts",
     "check:fcs-handover-domain": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-handover-domain.ts",
     "check:pda-exec-task-detail": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-exec-task-detail.ts",
+    "check:pda-cutting-task-spreading-orders": "tsx scripts/check-pda-cutting-task-spreading-orders.ts",
     "check:pda-handover-pages": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-handover-pages.ts",
     "check:post-route-qc-recheck": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-post-route-qc-recheck.ts",
     "check:process-craft-output-value-rules": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-process-craft-output-value-rules.ts",

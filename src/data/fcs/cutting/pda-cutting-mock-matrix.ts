@@ -8,6 +8,7 @@ export type PdaCuttingTaskOrigin =
   | 'BIDDING_AWARDED'
 
 export type PdaCuttingExecutionBindingState = 'BOUND' | 'UNBOUND'
+export type PdaCuttingExecutionObjectType = 'SPREADING_ORDER'
 export type PdaCuttingSpreadingPresetStatus = 'STARTED' | 'DONE' | 'CUTTING' | 'CUT_DONE' | 'BLOCKED'
 
 export interface PdaCuttingSpreadingPresetMatrixItem {
@@ -26,6 +27,7 @@ export interface PdaCuttingSpreadingPresetMatrixItem {
 export interface PdaCuttingExecutionMatrixItem {
   executionOrderId: string
   executionOrderNo: string
+  executionObjectType?: PdaCuttingExecutionObjectType
   cutOrderNo?: string
   productionOrderNo?: string
   materialSku?: string
@@ -83,6 +85,7 @@ function execution(
   return {
     executionOrderId: executionOrderNo,
     executionOrderNo,
+    executionObjectType: 'SPREADING_ORDER',
     cutOrderNo,
     bindingState: 'BOUND',
     spreadingPreset: null,
@@ -117,7 +120,7 @@ export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
     taskNo: 'TASK-CUT-PDA-PICKED-NOT-STARTED-0302',
     origin: 'DIRECT',
     acceptanceStatus: 'ACCEPTED',
-    taskStatus: 'NOT_STARTED',
+    taskStatus: 'IN_PROGRESS',
     assignedFactoryId: TEST_FACTORY_ID,
     qty: 2300,
     qtyUnit: '件',
@@ -383,21 +386,53 @@ export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
     taskNo: 'TASK-CUT-000201',
     origin: 'DIRECT',
     acceptanceStatus: 'ACCEPTED',
-    taskStatus: 'NOT_STARTED',
+    taskStatus: 'IN_PROGRESS',
     assignedFactoryId: TEST_FACTORY_ID,
-    qty: 10500,
+    qty: 6900,
     qtyUnit: '件',
     standardPrice: 6,
     currency: 'CNY',
     unit: '件',
     acceptDeadline: '2026-03-18 09:00:00',
     taskDeadline: '2026-03-19 18:00:00',
-    taskSummaryNote: '裁床已领料入待加工仓，等待按排唛架方案铺布。',
+    taskSummaryNote: '裁床已领料入待加工仓，按裁片单分组处理铺布。',
     acceptedAt: '2026-03-18 08:20:00',
     acceptedBy: '裁床组长',
+    startedAt: '2026-03-18 09:00:00',
     dispatchedAt: '2026-03-18 08:00:00',
     dispatchedBy: '裁床计划员',
-    executions: [execution('CPO-20260318-A1', 'CUT-260301-003-01')],
+    executions: [
+      execution('CPO-20260318-A1', 'CUT-260306-101-01'),
+      execution('CPO-20260318-A2', 'CUT-260306-101-01', {
+        spreadingPreset: {
+          status: 'STARTED',
+          recordId: 'SPREAD-PDA-20260318-A2',
+          fabricRollNo: 'ROLL-A2-01',
+          layerCount: 18,
+          actualLength: 54,
+          headLength: 0.4,
+          tailLength: 0.4,
+          enteredBy: 'Sari Wulandari',
+          enteredAt: '2026-03-18 10:10:00',
+          note: '第一张裁片单下的第二张铺布单，已开始铺布。',
+        },
+      }),
+      execution('CPO-20260318-A3', 'CUT-260306-101-02'),
+      execution('CPO-20260318-A4', 'CUT-260306-101-02', {
+        spreadingPreset: {
+          status: 'CUT_DONE',
+          recordId: 'SPREAD-PDA-20260318-A4',
+          fabricRollNo: 'ROLL-A4-01',
+          layerCount: 16,
+          actualLength: 48,
+          headLength: 0.3,
+          tailLength: 0.3,
+          enteredBy: 'Dewi Lestari',
+          enteredAt: '2026-03-18 12:40:00',
+          note: '第二张裁片单下的第二张铺布单，已完成裁剪。',
+        },
+      }),
+    ],
   },
   {
     taskId: 'TASK-CUT-000202',

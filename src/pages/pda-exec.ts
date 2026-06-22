@@ -6,6 +6,7 @@ import {
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
   getPdaTaskFlowTaskById,
+  getPdaCuttingTaskSnapshot,
   isCuttingSpecialTask,
   listPdaCuttingExecutionRowsByTaskId,
   resolvePdaTaskDetailPath,
@@ -438,6 +439,18 @@ function getPrimaryCuttingExecutionRow(task: ProcessTask): CuttingExecutionRow |
   return listPdaCuttingExecutionRowsByTaskId(task.taskId)[0] ?? null
 }
 
+type CuttingTaskDetail = NonNullable<ReturnType<typeof getPdaCuttingTaskSnapshot>>
+
+function getCuttingTaskDetail(task: ProcessTask): CuttingTaskDetail | null {
+  if (!isCuttingSpecialTask(task)) return null
+  return getPdaCuttingTaskSnapshot(task.taskId)
+}
+
+function getCuttingTaskListSummary(detail: CuttingTaskDetail | null): string {
+  if (!detail) return ''
+  return `${detail.cutOrderGroups.length} 张裁片单 · ${detail.cutPieceOrderCount} 张铺布单 · 下一步 ${detail.nextRecommendedAction}`
+}
+
 function joinDisplayParts(parts: Array<string | undefined | null>): string {
   return parts.map((part) => String(part || '').trim()).filter(Boolean).join(' · ')
 }
@@ -573,27 +586,39 @@ function renderNotStartedCard(task: ProcessTask): string {
   const startRule = getTaskStartRuleState(task)
   const startDueAt = startInfo.startDueAt || '—'
   const dueSourceText = formatStartDueSourceText(startInfo.startDueSource, startRule.dueHours)
+  const cuttingDetail = getCuttingTaskDetail(task)
   const cuttingRow = getPrimaryCuttingExecutionRow(task)
   const startConditionLabel = getStartConditionLabel(prereq)
   const primaryAction = getNotStartedPrimaryAction(task, prereq)
-  const title = cuttingRow
-    ? `${task.productionOrderId}｜${cuttingRow.executionOrderNo}`
+  const title = cuttingDetail
+    ? getTaskDisplayNo(task)
+    : cuttingRow
+      ? `${task.productionOrderId}｜${cuttingRow.executionOrderNo}`
     : getTaskDisplayNo(task)
-  const subtitle = cuttingRow
-    ? joinDisplayParts([
-        getTaskDisplayNo(task),
-        cuttingRow.cutOrderNo ? `裁片单 ${cuttingRow.cutOrderNo}` : '裁片单待绑定',
-        cuttingRow.markerPlanNo ? `唛架 ${cuttingRow.markerPlanNo}` : '',
-      ])
+  const subtitle = cuttingDetail
+    ? getCuttingTaskListSummary(cuttingDetail)
+    : cuttingRow
+      ? joinDisplayParts([
+          getTaskDisplayNo(task),
+          cuttingRow.cutOrderNo ? `裁片单 ${cuttingRow.cutOrderNo}` : '裁片单待绑定',
+          cuttingRow.markerPlanNo ? `唛架 ${cuttingRow.markerPlanNo}` : '',
+        ])
     : getTaskRootNo(task)
-  const materialText = cuttingRow
+  const materialText = cuttingDetail
+    ? joinDisplayParts([
+        cuttingDetail.materialAlias || cuttingDetail.materialSku,
+        cuttingDetail.materialTypeLabel,
+      ]) || '待确认'
+    : cuttingRow
     ? joinDisplayParts([
         cuttingRow.materialAlias || cuttingRow.materialSku,
         cuttingRow.colorLabel,
         cuttingRow.materialTypeLabel,
       ]) || '待确认'
     : ''
-  const quantityText = cuttingRow
+  const quantityText = cuttingDetail
+    ? `${(cuttingDetail.orderQty || task.qty).toLocaleString('zh-CN')} 件`
+    : cuttingRow
     ? `${task.qty.toLocaleString('zh-CN')} 片`
     : qtyDisplayMeta.valueText
   const startRiskNote =
@@ -619,11 +644,24 @@ function renderNotStartedCard(task: ProcessTask): string {
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           ${
-            cuttingRow
+            cuttingDetail
               ? `
                   <div class="text-muted-foreground">当前工序</div>
                   <div class="font-medium">${escapeHtml(displayProcessName)}</div>
-                  <div class="text-muted-foreground">裁片执行单</div>
+                  <div class="text-muted-foreground">裁片单</div>
+                  <div class="truncate font-medium">${escapeHtml(`${cuttingDetail.cutOrderGroups.length} 张`)}</div>
+                  <div class="text-muted-foreground">铺布单</div>
+                  <div class="truncate font-medium">${escapeHtml(`${cuttingDetail.cutPieceOrderCount} 张`)}</div>
+                  <div class="text-muted-foreground">下一步</div>
+                  <div class="truncate font-medium">${escapeHtml(cuttingDetail.nextRecommendedAction)}</div>
+                  <div class="text-muted-foreground">面料</div>
+                  <div class="truncate font-medium">${escapeHtml(materialText)}</div>
+                `
+              : cuttingRow
+              ? `
+                  <div class="text-muted-foreground">当前工序</div>
+                  <div class="font-medium">${escapeHtml(displayProcessName)}</div>
+                  <div class="text-muted-foreground">铺布单</div>
                   <div class="truncate font-medium">${escapeHtml(cuttingRow.executionOrderNo)}</div>
                   <div class="text-muted-foreground">裁片单</div>
                   <div class="truncate font-medium">${escapeHtml(cuttingRow.cutOrderNo || '待绑定')}</div>
@@ -711,7 +749,8 @@ function renderNotStartedCard(task: ProcessTask): string {
 function renderInProgressCard(task: ProcessTask): string {
   const displayProcessName = getTaskProcessDisplayName(task)
   const qtyDisplayMeta = resolveTaskQtyDisplayMeta(task, displayProcessName)
-  const isProcessDomainTask = Boolean(getPrintWorkOrderByTaskId(task.taskId) || getDyeWorkOrderByTaskId(task.taskId))
+  const cuttingDetail = getCuttingTaskDetail(task)
+  const isProcessDomainTask = Boolean(cuttingDetail || getPrintWorkOrderByTaskId(task.taskId) || getDyeWorkOrderByTaskId(task.taskId))
   const deadline = getDeadlineStatus(
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
     task.finishedAt,
@@ -737,14 +776,29 @@ function renderInProgressCard(task: ProcessTask): string {
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <div class="text-muted-foreground">生产单号</div>
-          <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
-          <div class="text-muted-foreground">原始任务</div>
-          <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
-          <div class="text-muted-foreground">当前工序</div>
-          <div class="font-medium">${escapeHtml(displayProcessName)}</div>
-          <div class="text-muted-foreground">${escapeHtml(qtyDisplayMeta.label)}</div>
-          <div class="font-medium">${escapeHtml(qtyDisplayMeta.valueText)}</div>
+          ${
+            cuttingDetail
+              ? `
+                  <div class="text-muted-foreground">生产单号</div>
+                  <div class="truncate font-medium">${escapeHtml(cuttingDetail.productionOrderNo)}</div>
+                  <div class="text-muted-foreground">裁片单</div>
+                  <div class="truncate font-medium">${escapeHtml(`${cuttingDetail.cutOrderGroups.length} 张`)}</div>
+                  <div class="text-muted-foreground">铺布单</div>
+                  <div class="font-medium">${escapeHtml(`${cuttingDetail.cutPieceOrderCount} 张`)}</div>
+                  <div class="text-muted-foreground">下一步</div>
+                  <div class="truncate font-medium">${escapeHtml(cuttingDetail.nextRecommendedAction)}</div>
+                `
+              : `
+                  <div class="text-muted-foreground">生产单号</div>
+                  <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
+                  <div class="text-muted-foreground">原始任务</div>
+                  <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
+                  <div class="text-muted-foreground">当前工序</div>
+                  <div class="font-medium">${escapeHtml(displayProcessName)}</div>
+                  <div class="text-muted-foreground">${escapeHtml(qtyDisplayMeta.label)}</div>
+                  <div class="font-medium">${escapeHtml(qtyDisplayMeta.valueText)}</div>
+                `
+          }
 
           ${
             task.startedAt
@@ -803,8 +857,19 @@ function renderInProgressCard(task: ProcessTask): string {
           </button>
 
           ${
-            isProcessDomainTask
-              ? ''
+            cuttingDetail
+              ? `
+                  <button
+                    class="inline-flex h-7 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
+                    data-pda-exec-action="open-detail"
+                    data-task-id="${escapeHtml(task.taskId)}"
+                  >
+                    <i data-lucide="play" class="mr-1 h-3 w-3"></i>
+                    进入裁片
+                  </button>
+                `
+              : isProcessDomainTask
+                ? ''
               : `
                   <button
                     class="inline-flex h-7 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
