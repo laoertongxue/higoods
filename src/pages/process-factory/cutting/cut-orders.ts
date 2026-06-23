@@ -2137,7 +2137,42 @@ function renderCutOrderCloseRecordTab(view: ReturnType<typeof buildCutOrderDetai
   const row = view.row
   const closeAuditRecords = getCutOrderCloseAuditRecords(row)
   const reopenAuditRecords = getCutOrderReopenAuditRecords(row)
-  const latestCloseRecord = closeAuditRecords[0] || row.closeRecord || null
+  const resolveClosedFromStage = (record: CutOrderCloseRecord) => {
+    const snapshot = record.ledgerSnapshotBeforeClose
+    return snapshot.cuttingClaimedQty > 0 || snapshot.spreadingConsumedQty > 0 ? '已开工' : '未开工'
+  }
+  const closeEvents = closeAuditRecords.map((record) => ({
+    eventType: 'close' as const,
+    eventId: record.closeRecordId,
+    recordNo: record.closeRecordNo,
+    happenedAt: record.closedAt || record.createdAt,
+    actor: record.closedBy || record.createdBy || '待补',
+    actionLabel: '关闭裁片单',
+    statusChange: `${resolveClosedFromStage(record)} -> 已关闭`,
+    reasonLabel: record.closeReasonText || '待补',
+    description: record.closeDescription || '—',
+    sourceLabel: record.closeSourceType || '人工关闭',
+    linkedRecordNo: record.sourceDifferenceId || '',
+    record,
+  }))
+  const reopenEvents = reopenAuditRecords.map((record) => ({
+    eventType: 'reopen' as const,
+    eventId: record.reopenRecordId,
+    recordNo: record.reopenRecordNo,
+    happenedAt: record.reopenedAt || record.createdAt,
+    actor: record.reopenedBy || record.createdBy || '待补',
+    actionLabel: '重新打开裁片单',
+    statusChange: `已关闭 -> ${row.currentStageLabel}`,
+    reasonLabel: record.reopenReason || '—',
+    description: record.reopenReason || '—',
+    sourceLabel: '人工重新打开',
+    linkedRecordNo: record.previousCloseRecordNo || '',
+    record,
+  }))
+  const timelineEvents = [...closeEvents, ...reopenEvents].sort((left, right) =>
+    right.happenedAt.localeCompare(left.happenedAt, 'zh-CN'),
+  )
+  const latestEvent = timelineEvents[0] || null
 
   if (!closeAuditRecords.length && !reopenAuditRecords.length && row.currentStage.key !== 'CLOSED') {
     return `
@@ -2147,69 +2182,104 @@ function renderCutOrderCloseRecordTab(view: ReturnType<typeof buildCutOrderDetai
     `
   }
 
-  const renderCloseLog = () => closeAuditRecords.length
-    ? `
-      <div class="divide-y rounded-lg border">
-        ${closeAuditRecords.map((record) => `
-          <div class="grid gap-3 px-3 py-3 text-sm lg:grid-cols-[1.1fr_1fr_1fr_1.6fr]">
-            <div>
-              <div class="font-semibold text-foreground">${escapeHtml(record.closeRecordNo)}</div>
-              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.closeSourceType)}</div>
-            </div>
-            <div>
-              <div class="text-xs text-muted-foreground">关闭原因</div>
-              <div>${escapeHtml(record.closeReasonText || '待补')}</div>
-            </div>
-            <div>
-              <div class="text-xs text-muted-foreground">关闭人 / 时间</div>
-              <div>${escapeHtml(record.closedBy || '待补')}</div>
-              <div class="text-xs text-muted-foreground">${escapeHtml(record.closedAt || '待补')}</div>
-            </div>
-            <div>
-              <div class="text-xs text-muted-foreground">关闭说明</div>
-              <div class="leading-5">${escapeHtml(record.closeDescription || '—')}</div>
-            </div>
+  const renderEventDetail = (event: (typeof timelineEvents)[number]) => {
+    if (event.eventType === 'reopen') {
+      return `
+        <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <div class="text-xs text-muted-foreground">关联关闭记录</div>
+            <div class="mt-1 font-medium">${escapeHtml(event.linkedRecordNo || '未关联')}</div>
           </div>
-        `).join('')}
-      </div>
-    `
-    : renderEmptyDetailRecord('暂无关闭日志。')
+          <div>
+            <div class="text-xs text-muted-foreground">打开原因</div>
+            <div class="mt-1 leading-5">${escapeHtml(event.reasonLabel)}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">操作来源</div>
+            <div class="mt-1">${escapeHtml(event.sourceLabel)}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">记录号</div>
+            <div class="mt-1 font-medium text-emerald-700">${escapeHtml(event.recordNo)}</div>
+          </div>
+        </div>
+      `
+    }
 
-  const renderReopenLog = () => reopenAuditRecords.length
+    return `
+      <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <div class="text-xs text-muted-foreground">关闭原因</div>
+          <div class="mt-1 font-medium">${escapeHtml(event.reasonLabel)}</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted-foreground">关闭说明</div>
+          <div class="mt-1 leading-5">${escapeHtml(event.description)}</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted-foreground">操作来源</div>
+          <div class="mt-1">${escapeHtml(event.sourceLabel)}</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted-foreground">记录号</div>
+          <div class="mt-1 font-medium">${escapeHtml(event.recordNo)}</div>
+        </div>
+      </div>
+      <details class="mt-3 rounded-lg border bg-muted/20">
+        <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-foreground">关闭前数量账和影响项</summary>
+        <div class="space-y-3 border-t p-3">
+          ${renderCloseLedgerSnapshot(event.record.ledgerSnapshotBeforeClose)}
+          ${event.record.openImpactItems.length
+            ? renderCloseImpactItems(event.record.openImpactItems)
+            : renderEmptyDetailRecord('当前无关闭前影响项记录。')}
+        </div>
+      </details>
+    `
+  }
+
+  const renderTimeline = () => timelineEvents.length
     ? `
-      <div class="divide-y rounded-lg border">
-        ${reopenAuditRecords.map((record) => `
-          <div class="grid gap-3 px-3 py-3 text-sm lg:grid-cols-[1.1fr_1fr_1.2fr_1.6fr]">
-            <div>
-              <div class="font-semibold text-emerald-700">${escapeHtml(record.reopenRecordNo)}</div>
-              <div class="mt-1 text-xs text-muted-foreground">重新打开</div>
-            </div>
-            <div>
-              <div class="text-xs text-muted-foreground">关联关闭记录</div>
-              <div>${escapeHtml(record.previousCloseRecordNo || '未关联')}</div>
-            </div>
-            <div>
-              <div class="text-xs text-muted-foreground">打开人 / 时间</div>
-              <div>${escapeHtml(record.reopenedBy || '待补')}</div>
-              <div class="text-xs text-muted-foreground">${escapeHtml(record.reopenedAt || '待补')}</div>
-            </div>
-            <div>
-              <div class="text-xs text-muted-foreground">打开原因</div>
-              <div class="leading-5">${escapeHtml(record.reopenReason || '—')}</div>
-            </div>
-          </div>
-        `).join('')}
+      <div class="space-y-3">
+        ${timelineEvents.map((event, index) => {
+          const toneClass = event.eventType === 'reopen'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            : 'border-amber-200 bg-amber-50 text-amber-700'
+          const lineClass = index === timelineEvents.length - 1 ? 'hidden' : 'absolute left-[15px] top-8 h-[calc(100%+0.75rem)] w-px bg-border'
+          return `
+            <article class="relative pl-10">
+              <div class="${lineClass}"></div>
+              <div class="absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold ${toneClass}">
+                ${event.eventType === 'reopen' ? '开' : '关'}
+              </div>
+              <div class="rounded-xl border bg-card p-4">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <h4 class="text-sm font-semibold">${escapeHtml(event.actionLabel)}</h4>
+                      <span class="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">${escapeHtml(event.statusChange)}</span>
+                    </div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(event.happenedAt || '待补时间')} · ${escapeHtml(event.actor)}</div>
+                  </div>
+                  <div class="text-right text-xs text-muted-foreground">${escapeHtml(event.recordNo)}</div>
+                </div>
+                <div class="mt-3 border-t pt-3">
+                  ${renderEventDetail(event)}
+                </div>
+              </div>
+            </article>
+          `
+        }).join('')}
       </div>
     `
-    : renderEmptyDetailRecord('暂无重新打开日志。')
+    : renderEmptyDetailRecord('暂无关闭或重新打开日志。')
 
   return `
     <div class="space-y-4">
-      ${renderDetailSection('当前状态', renderInfoGrid([
+      ${renderDetailSection('当前状态摘要', renderInfoGrid([
         { label: '当前主状态', value: row.currentStageLabel, tone: 'strong' },
-        { label: '最近关闭记录', value: latestCloseRecord?.closeRecordNo || '暂无' },
-        { label: '最近重新打开记录', value: reopenAuditRecords[0]?.reopenRecordNo || '暂无' },
-        { label: '最近执行痕迹', value: row.latestActionText || '暂无' },
+        { label: '最近动作', value: latestEvent?.actionLabel || '暂无', tone: latestEvent ? 'strong' : 'default' },
+        { label: '最近操作人 / 时间', value: latestEvent ? `${latestEvent.actor} / ${latestEvent.happenedAt || '待补时间'}` : '暂无' },
+        { label: '最近关联记录', value: latestEvent?.linkedRecordNo || latestEvent?.recordNo || '暂无' },
       ]))}
       ${
         row.currentStage.key === 'CLOSED'
@@ -2218,12 +2288,7 @@ function renderCutOrderCloseRecordTab(view: ReturnType<typeof buildCutOrderDetai
             </div>`
           : ''
       }
-      ${renderDetailSection('关闭日志', renderCloseLog())}
-      ${renderDetailSection('重新打开日志', renderReopenLog())}
-      ${latestCloseRecord?.ledgerSnapshotBeforeClose ? renderDetailSection('最近关闭前数量账快照', renderCloseLedgerSnapshot(latestCloseRecord.ledgerSnapshotBeforeClose)) : renderDetailSection('最近关闭前数量账快照', renderMaterialLedgerGrid(row))}
-      ${renderDetailSection('最近关闭前影响项', latestCloseRecord?.openImpactItems.length
-        ? renderCloseImpactItems(latestCloseRecord.openImpactItems)
-        : renderEmptyDetailRecord('当前无关闭前影响项记录。'))}
+      ${renderDetailSection('操作日志', renderTimeline())}
     </div>
   `
 }
