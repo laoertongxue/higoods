@@ -397,13 +397,6 @@ export function updateCuttingOrderProgressWebStage(
     record.closeReasonText = payload.closeReasonText || record.closeReasonText || '强行完结'
     record.closeReason = payload.closeReason || record.closeReason || '现场确认不再继续排唛架铺布裁剪。'
     record.ledgerSnapshotBeforeClose = payload.ledgerSnapshotBeforeClose || record.ledgerSnapshotBeforeClose
-  } else {
-    record.closedAt = ''
-    record.closedBy = ''
-    record.closeReasonCode = undefined
-    record.closeReasonText = ''
-    record.closeReason = ''
-    record.ledgerSnapshotBeforeClose = undefined
   }
   record.lastOperatorName = payload.operatorName?.trim() || record.lastOperatorName
   record.lastFieldUpdateAt = payload.operatedAt?.trim() || record.lastFieldUpdateAt

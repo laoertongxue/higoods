@@ -249,7 +249,6 @@ export function saveStoredCutOrderCloseRecords(
 }
 
 export function upsertStoredCutOrderCloseRecord(record: CutOrderCloseRecord): void {
-  removeStoredCutOrderReopenRecord(record.cutOrderId || record.cutOrderNo)
   const records = listStoredCutOrderCloseRecords()
   saveStoredCutOrderCloseRecords([
     ...records.filter((item) => item.cutOrderId !== record.cutOrderId && item.cutOrderNo !== record.cutOrderNo),
@@ -279,7 +278,7 @@ function normalizeReopenRecord(item: unknown): CutOrderReopenRecord | null {
     productionOrderNo: String(raw.productionOrderNo || ''),
     reopenedAt: String(raw.reopenedAt || raw.createdAt || ''),
     reopenedBy: String(raw.reopenedBy || raw.createdBy || ''),
-    reopenReason: String(raw.reopenReason || '业务需要继续针对裁片单去布料或铺布执行。'),
+    reopenReason: String(raw.reopenReason || '业务需要继续针对裁片单补料或铺布执行。'),
     previousCloseRecordNo: String(raw.previousCloseRecordNo || ''),
     createdAt: String(raw.createdAt || raw.reopenedAt || ''),
     createdBy: String(raw.createdBy || raw.reopenedBy || ''),
@@ -319,7 +318,6 @@ export function saveStoredCutOrderReopenRecords(
 }
 
 export function upsertStoredCutOrderReopenRecord(record: CutOrderReopenRecord): void {
-  removeStoredCutOrderCloseRecord(record.cutOrderId || record.cutOrderNo)
   const records = listStoredCutOrderReopenRecords()
   saveStoredCutOrderReopenRecords([
     ...records.filter((item) => item.cutOrderId !== record.cutOrderId && item.cutOrderNo !== record.cutOrderNo),
@@ -438,21 +436,25 @@ export function listSystemCutOrderCloseRecords(): CutOrderCloseRecord[] {
 
 export function listCutOrderCloseRecords(): CutOrderCloseRecord[] {
   const byCutOrder = new Map<string, CutOrderCloseRecord>()
-  const reopenLookup = buildCutOrderReopenRecordLookup()
   listSystemCutOrderCloseRecords().forEach((record) => {
-    if (isCloseRecordSuppressedByReopen(record, reopenLookup)) return
     byCutOrder.set(record.cutOrderId, record)
   })
   listStoredCutOrderCloseRecords().forEach((record) => {
-    if (isCloseRecordSuppressedByReopen(record, reopenLookup)) return
     byCutOrder.set(record.cutOrderId, record)
   })
   return Array.from(byCutOrder.values())
 }
 
-export function buildCutOrderCloseRecordLookup(): Record<string, CutOrderCloseRecord> {
+export function listActiveCutOrderCloseRecords(): CutOrderCloseRecord[] {
+  const reopenLookup = buildCutOrderReopenRecordLookup()
+  return listCutOrderCloseRecords().filter((record) => !isCloseRecordSuppressedByReopen(record, reopenLookup))
+}
+
+export function buildCutOrderCloseRecordLookup(
+  records: CutOrderCloseRecord[] = listActiveCutOrderCloseRecords(),
+): Record<string, CutOrderCloseRecord> {
   const entries: Array<[string, CutOrderCloseRecord]> = []
-  listCutOrderCloseRecords().forEach((record) => {
+  records.forEach((record) => {
     entries.push([record.cutOrderId, record])
     entries.push([record.cutOrderNo, record])
   })

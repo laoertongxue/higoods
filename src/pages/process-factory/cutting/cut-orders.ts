@@ -77,6 +77,8 @@ import {
   buildCutOrderLedgerSnapshotBeforeClose,
   cutOrderCloseReasonOptions,
   formatCutOrderCloseLedgerQty,
+  listCutOrderCloseRecords,
+  listStoredCutOrderReopenRecords,
   resolveCutOrderCloseReasonText,
   upsertStoredCutOrderCloseRecord,
   upsertStoredCutOrderReopenRecord,
@@ -368,11 +370,23 @@ function buildCutOrderReopenRecord(row: CutOrderRow, reopenedAt: string): CutOrd
     productionOrderNo: row.productionOrderNo,
     reopenedAt,
     reopenedBy: '裁床主管 何倩',
-    reopenReason: '业务需要继续针对裁片单去布料或铺布执行。',
+    reopenReason: '业务需要继续针对裁片单补料或铺布执行。',
     previousCloseRecordNo: row.closeRecord?.closeRecordNo || '',
     createdAt: reopenedAt,
     createdBy: '裁床主管 何倩',
   }
+}
+
+function getCutOrderCloseAuditRecords(row: CutOrderRow): CutOrderCloseRecord[] {
+  return listCutOrderCloseRecords()
+    .filter((record) => record.cutOrderId === row.cutOrderId || record.cutOrderNo === row.cutOrderNo)
+    .sort((left, right) => (right.closedAt || right.createdAt).localeCompare(left.closedAt || left.createdAt, 'zh-CN'))
+}
+
+function getCutOrderReopenAuditRecords(row: CutOrderRow): CutOrderReopenRecord[] {
+  return listStoredCutOrderReopenRecords()
+    .filter((record) => record.cutOrderId === row.cutOrderId || record.cutOrderNo === row.cutOrderNo)
+    .sort((left, right) => (right.reopenedAt || right.createdAt).localeCompare(left.reopenedAt || left.createdAt, 'zh-CN'))
 }
 
 function getFeiTicketRecords(): FeiTicketLabelRecord[] {
@@ -1088,7 +1102,14 @@ function renderTable(rows: CutOrderRow[]): string {
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
                                 ${canEnterExecution ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
-                                ${row.currentStage.key !== 'CLOSED' ? `<button type="button" class="text-xs text-zinc-700 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">关闭裁片单</button>` : `<button type="button" class="text-xs text-emerald-600 hover:underline" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开</button><button type="button" class="text-xs text-zinc-600 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">查看关闭记录</button>`}
+                                ${
+                                  row.currentStage.key !== 'CLOSED'
+                                    ? `<button type="button" class="text-xs text-zinc-700 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">关闭裁片单</button>`
+                                    : `
+                                      <button type="button" class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开</button>
+                                      <button type="button" class="text-xs text-zinc-600 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">查看关闭记录</button>
+                                    `
+                                }
                                 ${canEnterFeiTickets ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
                               </div>
                             </td>
@@ -2114,28 +2135,94 @@ function renderCutOrderDifferencesTab(view: ReturnType<typeof buildCutOrderDetai
 
 function renderCutOrderCloseRecordTab(view: ReturnType<typeof buildCutOrderDetailView>): string {
   const row = view.row
-  if (!row.closeRecord && row.currentStage.key !== 'CLOSED') {
+  const closeAuditRecords = getCutOrderCloseAuditRecords(row)
+  const reopenAuditRecords = getCutOrderReopenAuditRecords(row)
+  const latestCloseRecord = closeAuditRecords[0] || row.closeRecord || null
+
+  if (!closeAuditRecords.length && !reopenAuditRecords.length && row.currentStage.key !== 'CLOSED') {
     return `
       <div class="space-y-4">
         ${renderDetailSection('关闭记录', renderEmptyDetailRecord('当前裁片单未关闭。'))}
       </div>
     `
   }
+
+  const renderCloseLog = () => closeAuditRecords.length
+    ? `
+      <div class="divide-y rounded-lg border">
+        ${closeAuditRecords.map((record) => `
+          <div class="grid gap-3 px-3 py-3 text-sm lg:grid-cols-[1.1fr_1fr_1fr_1.6fr]">
+            <div>
+              <div class="font-semibold text-foreground">${escapeHtml(record.closeRecordNo)}</div>
+              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.closeSourceType)}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">关闭原因</div>
+              <div>${escapeHtml(record.closeReasonText || '待补')}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">关闭人 / 时间</div>
+              <div>${escapeHtml(record.closedBy || '待补')}</div>
+              <div class="text-xs text-muted-foreground">${escapeHtml(record.closedAt || '待补')}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">关闭说明</div>
+              <div class="leading-5">${escapeHtml(record.closeDescription || '—')}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `
+    : renderEmptyDetailRecord('暂无关闭日志。')
+
+  const renderReopenLog = () => reopenAuditRecords.length
+    ? `
+      <div class="divide-y rounded-lg border">
+        ${reopenAuditRecords.map((record) => `
+          <div class="grid gap-3 px-3 py-3 text-sm lg:grid-cols-[1.1fr_1fr_1.2fr_1.6fr]">
+            <div>
+              <div class="font-semibold text-emerald-700">${escapeHtml(record.reopenRecordNo)}</div>
+              <div class="mt-1 text-xs text-muted-foreground">重新打开</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">关联关闭记录</div>
+              <div>${escapeHtml(record.previousCloseRecordNo || '未关联')}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">打开人 / 时间</div>
+              <div>${escapeHtml(record.reopenedBy || '待补')}</div>
+              <div class="text-xs text-muted-foreground">${escapeHtml(record.reopenedAt || '待补')}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">打开原因</div>
+              <div class="leading-5">${escapeHtml(record.reopenReason || '—')}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `
+    : renderEmptyDetailRecord('暂无重新打开日志。')
+
   return `
     <div class="space-y-4">
-      ${renderDetailSection('关闭原因', renderInfoGrid([
-        { label: '关闭原因', value: row.closeReasonText || row.closeReason || '待补', tone: 'strong' },
-        { label: '关闭说明', value: row.closeReason || row.closeRecord?.closeDescription || '待补' },
-        { label: '关闭人', value: row.closedBy || row.closeRecord?.closedBy || '待补' },
-        { label: '关闭时间', value: row.closedAt || row.closeRecord?.closedAt || '待补' },
-        { label: '关闭来源', value: row.closeRecord?.closeSourceType || '人工关闭' },
+      ${renderDetailSection('当前状态', renderInfoGrid([
+        { label: '当前主状态', value: row.currentStageLabel, tone: 'strong' },
+        { label: '最近关闭记录', value: latestCloseRecord?.closeRecordNo || '暂无' },
+        { label: '最近重新打开记录', value: reopenAuditRecords[0]?.reopenRecordNo || '暂无' },
+        { label: '最近执行痕迹', value: row.latestActionText || '暂无' },
       ]))}
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-100" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开裁片单</button>
-      </div>
-      ${row.ledgerSnapshotBeforeClose ? renderDetailSection('关闭前数量账快照', renderCloseLedgerSnapshot(row.ledgerSnapshotBeforeClose)) : renderDetailSection('关闭前数量账快照', renderMaterialLedgerGrid(row))}
-      ${renderDetailSection('关闭前影响项', row.openImpactItems.length
-        ? `<div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">${row.openImpactItems.map((item) => renderInfoCard(item.label, item.summary || '已提示')).join('')}</div>`
+      ${
+        row.currentStage.key === 'CLOSED'
+          ? `<div class="flex flex-wrap gap-2">
+              <button type="button" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-100" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开裁片单</button>
+            </div>`
+          : ''
+      }
+      ${renderDetailSection('关闭日志', renderCloseLog())}
+      ${renderDetailSection('重新打开日志', renderReopenLog())}
+      ${latestCloseRecord?.ledgerSnapshotBeforeClose ? renderDetailSection('最近关闭前数量账快照', renderCloseLedgerSnapshot(latestCloseRecord.ledgerSnapshotBeforeClose)) : renderDetailSection('最近关闭前数量账快照', renderMaterialLedgerGrid(row))}
+      ${renderDetailSection('最近关闭前影响项', latestCloseRecord?.openImpactItems.length
+        ? renderCloseImpactItems(latestCloseRecord.openImpactItems)
         : renderEmptyDetailRecord('当前无关闭前影响项记录。'))}
     </div>
   `
@@ -2468,7 +2555,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       operatorName: reopenRecord.reopenedBy,
       operatedAt: reopenRecord.reopenedAt,
     })
-    const message = '已重新打开裁片单，可继续针对该裁片单去布料、唛架和铺布。'
+    const message = '已重新打开裁片单，可继续针对该裁片单补料、唛架和铺布。'
     setFeedback('success', message)
     state.closeDraft.feedback = { tone: 'success', message }
     return true
