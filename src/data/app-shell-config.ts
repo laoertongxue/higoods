@@ -451,6 +451,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '裁床统计',
           icon: 'ChartBar',
           children: [
+            { key: 'pfos-cutting-statistics-daily-production', title: '裁床每日生产报表', icon: 'CalendarDays', href: '/fcs/craft/cutting/statistics/daily-production' },
             { key: 'pfos-cutting-statistics-ab-material', title: '20天待发裁床AB料', icon: 'TableProperties', href: '/fcs/craft/cutting/statistics/ab-material' },
           ],
         },

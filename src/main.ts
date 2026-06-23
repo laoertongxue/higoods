@@ -974,6 +974,26 @@ function navigateWithImmediateSidebar(pathname: string): void {
   void renderPageContentOnly()
 }
 
+function buildNavigationFromFields(node: HTMLElement): string | null {
+  const scopeSelector = node.dataset.navFromFields
+  if (!scopeSelector) return null
+  const scope = node.closest<HTMLElement>(scopeSelector)
+  if (!scope) return null
+
+  const params = new URLSearchParams()
+  scope.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input[name], select[name], textarea[name]').forEach((field) => {
+    if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio') && !field.checked) return
+    const value = field.value.trim()
+    if (value) params.set(field.name, value)
+  })
+  if (node.dataset.navResetPage !== 'false') params.set('page', '1')
+
+  const base = node.dataset.navBase || window.location.pathname
+  const query = params.toString()
+  const hash = node.dataset.navHash ? `#${node.dataset.navHash.replace(/^#/, '')}` : ''
+  return `${base}${query ? `?${query}` : ''}${hash}`
+}
+
 function hasDatasetAction(node: HTMLElement): boolean {
   return Object.keys(node.dataset).some((key) => key === 'action' || key.endsWith('Action'))
 }
@@ -1309,6 +1329,14 @@ root.addEventListener('click', async (event) => {
       await renderWithFocusRestore(focusSnapshot)
       return
     }
+  }
+
+  const fieldDrivenNavNode = target.closest<HTMLElement>('[data-nav-from-fields]')
+  const fieldDrivenPath = fieldDrivenNavNode ? buildNavigationFromFields(fieldDrivenNavNode) : null
+  if (fieldDrivenPath) {
+    event.preventDefault()
+    navigateWithImmediateSidebar(fieldDrivenPath)
+    return
   }
 
   const directNavNode = target.closest<HTMLElement>('[data-nav]')

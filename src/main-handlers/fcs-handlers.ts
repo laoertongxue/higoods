@@ -183,6 +183,7 @@ import {
   isCraftCuttingSupplementManagementDialogOpen,
 } from '../pages/process-factory/cutting/supplement-management'
 import { handleCraftCuttingAbMaterialStatisticsEvent } from '../pages/process-factory/cutting/cutting-statistics-ab-material'
+import { handleCraftCuttingDailyProductionReportEvent } from '../pages/process-factory/cutting/cutting-daily-production-report'
 import {
   handleCraftCuttingWaitHandoverEvent,
   handleCraftCuttingWaitProcessEvent,
@@ -327,6 +328,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleCraftCuttingSummaryEvent(target) ||
     await handleCraftCuttingCutPieceReleaseEvent(target) ||
     await handleCraftCuttingSupplementManagementEvent(target) ||
+    await handleCraftCuttingDailyProductionReportEvent(target) ||
     await handleCraftCuttingAbMaterialStatisticsEvent(target) ||
     await handleDeductionAnalysisEvent(target) ||
     await handleDyePrintOrdersEvent(target) ||

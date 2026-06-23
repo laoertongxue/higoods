@@ -2,6 +2,7 @@ export { renderCraftCuttingProductionProgressPage } from './production-progress.
 export { renderCraftCuttingCutOrdersPage } from './cut-orders.ts'
 export { renderCraftCuttingSummaryPage } from './cutting-summary.ts'
 export { renderCraftCuttingAbMaterialStatisticsPage } from './cutting-statistics-ab-material.ts'
+export { renderCraftCuttingDailyProductionReportPage } from './cutting-daily-production-report.ts'
 export {
   renderCraftCuttingMarkerListPage,
   renderCraftCuttingMarkerCreatePage,

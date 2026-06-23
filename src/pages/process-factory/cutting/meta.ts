@@ -42,6 +42,7 @@ export type CuttingCanonicalPageKey =
   | 'special-processes'
   | 'summary'
   | 'supplement-management'
+  | 'statistics-daily-production'
   | 'statistics-ab-material'
 
 type CuttingPageKey = CuttingCanonicalPageKey
@@ -428,6 +429,16 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '按未来发货窗口统计SPU裁片送工厂缺口，并展开面料A、面料B、里布等裁剪属性齐套情况。',
+  },
+  'statistics-daily-production': {
+    key: 'statistics-daily-production',
+    canonicalPath: '/fcs/craft/cutting/statistics/daily-production',
+    aliases: [],
+    menuGroupTitle: '裁床统计',
+    pageTitle: '裁床每日生产报表',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '按裁床厂和自然日只读汇总任务、唛架、铺布、裁剪、齐套、物料、菲票、中转袋、仓库和交出记录。',
   },
 }
 
