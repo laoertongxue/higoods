@@ -19,8 +19,11 @@ import {
 } from '../../../data/fcs/cutting/material-ledger.ts'
 import {
   applyCutOrderCloseRecordToProgressRecord,
+  applyCutOrderReopenRecordToProgressRecord,
   buildCutOrderCloseRecordLookup,
+  buildCutOrderReopenRecordLookup,
   type CutOrderCloseRecord,
+  type CutOrderReopenRecord,
 } from '../../../data/fcs/cutting/cut-order-close-records.ts'
 import {
   buildProductionProgressRows,
@@ -320,7 +323,7 @@ export function deriveCutOrderStage(
     return createSummaryMeta('CLOSED', cutOrderStageMeta.CLOSED.label, cutOrderStageMeta.CLOSED.className, record.closeReason || '该裁片单已关闭，不再继续排唛架铺布裁剪。')
   }
 
-  if (startState.started || record.hasSpreadingRecord || record.hasInboundRecord) {
+  if (/已开工|待铺布|铺布中|待裁剪|裁剪中|裁剪完成|菲票已生成|待交出|已入仓/.test(record.cuttingStage) || startState.started || record.hasSpreadingRecord || record.hasInboundRecord) {
     return createSummaryMeta('STARTED', cutOrderStageMeta.STARTED.label, cutOrderStageMeta.STARTED.className, '裁床已开工；排唛架、铺布、裁剪作为子作业单独追踪。')
   }
 
@@ -473,10 +476,15 @@ function createRow(
     markerPlanOccupancy: MarkerPlanOccupancyLookup[string] | null
     materialLedgerProjectionMap: Record<string, MaterialLedgerProjection>
     closeRecordLookup: Record<string, CutOrderCloseRecord>
+    reopenRecordLookup: Record<string, CutOrderReopenRecord>
   },
 ): CutOrderRow {
   const closeRecord = options.closeRecordLookup[source.cutOrderId] || options.closeRecordLookup[source.cutOrderNo] || null
-  const effectiveRecord = applyCutOrderCloseRecordToProgressRecord(record, closeRecord)
+  const reopenRecord = options.reopenRecordLookup[source.cutOrderId] || options.reopenRecordLookup[source.cutOrderNo] || null
+  const effectiveRecord = applyCutOrderReopenRecordToProgressRecord(
+    applyCutOrderCloseRecordToProgressRecord(record, closeRecord),
+    reopenRecord,
+  )
   const batchSummary = summarizeMarkerPlanSourceParticipation(source.cutOrderId, ledger)
   const materialQuantityLedger = buildCutOrderMaterialQuantityLedger(source, options.materialLedgerProjectionMap)
   const currentStage = deriveCutOrderStage(effectiveRecord, line, options.startState)
@@ -632,6 +640,7 @@ export function buildCutOrderViewModel(
   const markerPlanOccupancyLookup = options.markerPlanOccupancy ?? {}
   const materialLedgerProjectionMap = buildMaterialLedgerProjectionMap()
   const closeRecordLookup = buildCutOrderCloseRecordLookup()
+  const reopenRecordLookup = buildCutOrderReopenRecordLookup()
   const progressRowMap = new Map(
     (options.progressRows ?? buildProductionProgressRows(records)).map((row) => [row.productionOrderId, row] as const),
   )
@@ -658,6 +667,7 @@ export function buildCutOrderViewModel(
         markerPlanOccupancy: markerPlanOccupancyLookup[source.cutOrderId] || markerPlanOccupancyLookup[source.cutOrderNo] || null,
         materialLedgerProjectionMap,
         closeRecordLookup,
+        reopenRecordLookup,
       })
     })
     .filter((row): row is CutOrderRow => row !== null)

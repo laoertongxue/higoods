@@ -79,9 +79,11 @@ import {
   formatCutOrderCloseLedgerQty,
   resolveCutOrderCloseReasonText,
   upsertStoredCutOrderCloseRecord,
+  upsertStoredCutOrderReopenRecord,
   type CutOrderCloseImpactItem,
   type CutOrderCloseReasonCode,
   type CutOrderCloseRecord,
+  type CutOrderReopenRecord,
 } from '../../../data/fcs/cutting/cut-order-close-records.ts'
 import { cuttingMaterialLedgerEventTypeLabels } from '../../../data/fcs/cutting/material-ledger.ts'
 import { listSpreadingDifferences } from '../../../data/fcs/cutting/spreading-differences.ts'
@@ -340,6 +342,37 @@ function renderMaterialLedgerGrid(row: CutOrderRow): string {
 
 function isCutOrderInExecutionStage(row: CutOrderRow): boolean {
   return row.currentStage.key === 'STARTED' && !row.closeReason
+}
+
+function resolveReopenedCutOrderStage(row: CutOrderRow): string {
+  if (
+    row.materialClaimStatus.key === 'RECEIVED' ||
+    row.claimedQty > 0 ||
+    row.consumedQty > 0 ||
+    row.batchParticipationCount > 0 ||
+    row.activeMarkerPlanNo ||
+    row.latestMarkerPlanNo
+  ) {
+    return '已开工'
+  }
+  return '待中转仓配料'
+}
+
+function buildCutOrderReopenRecord(row: CutOrderRow, reopenedAt: string): CutOrderReopenRecord {
+  return {
+    reopenRecordId: `reopen-${row.cutOrderId}`,
+    reopenRecordNo: `REOPEN-${row.cutOrderNo.replace(/^CUT-/, '')}`,
+    cutOrderId: row.cutOrderId,
+    cutOrderNo: row.cutOrderNo,
+    productionOrderId: row.productionOrderId,
+    productionOrderNo: row.productionOrderNo,
+    reopenedAt,
+    reopenedBy: '裁床主管 何倩',
+    reopenReason: '业务需要继续针对裁片单去布料或铺布执行。',
+    previousCloseRecordNo: row.closeRecord?.closeRecordNo || '',
+    createdAt: reopenedAt,
+    createdBy: '裁床主管 何倩',
+  }
 }
 
 function getFeiTicketRecords(): FeiTicketLabelRecord[] {
@@ -889,7 +922,10 @@ function renderCutOrderClosePage(): string {
         alreadyClosed
           ? `
             <section class="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-              <div class="text-sm font-semibold text-zinc-800">该裁片单已经关闭，不能重复关闭。</div>
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="text-sm font-semibold text-zinc-800">该裁片单已经关闭，不能重复关闭。</div>
+                <button type="button" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-100" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开裁片单</button>
+              </div>
               <div class="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
                 ${renderInfoCard('关闭原因', closeRecord?.closeReasonText || row.closeReasonText || row.closeReason || '已关闭')}
                 ${renderInfoCard('关闭时间', closeRecord?.closedAt || row.closedAt || '已记录')}
@@ -1052,7 +1088,7 @@ function renderTable(rows: CutOrderRow[]): string {
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
                                 ${canEnterExecution ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
-                                ${row.currentStage.key !== 'CLOSED' ? `<button type="button" class="text-xs text-zinc-700 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">关闭裁片单</button>` : `<button type="button" class="text-xs text-zinc-600 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">查看关闭记录</button>`}
+                                ${row.currentStage.key !== 'CLOSED' ? `<button type="button" class="text-xs text-zinc-700 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">关闭裁片单</button>` : `<button type="button" class="text-xs text-emerald-600 hover:underline" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开</button><button type="button" class="text-xs text-zinc-600 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">查看关闭记录</button>`}
                                 ${canEnterFeiTickets ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
                               </div>
                             </td>
@@ -1301,6 +1337,7 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
       ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
+      ${row.currentStage.key === 'CLOSED' ? `<button type="button" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700 hover:bg-emerald-100" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开</button>` : ''}
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">${row.currentStage.key === 'CLOSED' ? '查看关闭记录' : '关闭裁片单'}</button>
     </div>
   `
@@ -2093,6 +2130,9 @@ function renderCutOrderCloseRecordTab(view: ReturnType<typeof buildCutOrderDetai
         { label: '关闭时间', value: row.closedAt || row.closeRecord?.closedAt || '待补' },
         { label: '关闭来源', value: row.closeRecord?.closeSourceType || '人工关闭' },
       ]))}
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-100" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开裁片单</button>
+      </div>
       ${row.ledgerSnapshotBeforeClose ? renderDetailSection('关闭前数量账快照', renderCloseLedgerSnapshot(row.ledgerSnapshotBeforeClose)) : renderDetailSection('关闭前数量账快照', renderMaterialLedgerGrid(row))}
       ${renderDetailSection('关闭前影响项', row.openImpactItems.length
         ? `<div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">${row.openImpactItems.map((item) => renderInfoCard(item.label, item.summary || '已提示')).join('')}</div>`
@@ -2150,6 +2190,7 @@ function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel(
           ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
           ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-spreading" data-record-id="${escapeHtml(row.id)}">去铺布差异</button>
+          ${row.currentStage.key === 'CLOSED' ? `<button type="button" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-100" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开</button>` : ''}
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">${row.currentStage.key === 'CLOSED' ? '查看关闭记录' : '关闭裁片单'}</button>
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('cut-orders'))}">返回裁片单</button>
         </div>
@@ -2253,7 +2294,7 @@ export function renderCraftCuttingCutOrderDetailPage(recordId?: string): string 
     `
   }
 
-  return `<div class="space-y-4 p-4">${renderCutOrderDetailPanelV2(row, viewModel)}</div>`
+  return `<div class="space-y-4 p-4">${renderFeedbackBar()}${renderCutOrderDetailPanelV2(row, viewModel)}</div>`
 }
 
 export function renderCraftCuttingCutOrderClosePage(): string {
@@ -2409,6 +2450,27 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       cutOrderId: row.cutOrderId,
       cutOrderNo: row.cutOrderNo,
     }))
+    return true
+  }
+
+  if (action === 'reopen-cut-order') {
+    const row = actionNode.dataset.recordId ? getViewModel().rowsById[actionNode.dataset.recordId] : findClosePageRow()
+    if (!row) return false
+    if (row.currentStage.key !== 'CLOSED') {
+      setFeedback('warning', '当前裁片单不是已关闭状态，不需要重新打开。')
+      return true
+    }
+    const reopenedAt = nowText()
+    const reopenRecord = buildCutOrderReopenRecord(row, reopenedAt)
+    upsertStoredCutOrderReopenRecord(reopenRecord)
+    updateCuttingOrderProgressWebStage(row.cutOrderId, {
+      cuttingStage: resolveReopenedCutOrderStage(row),
+      operatorName: reopenRecord.reopenedBy,
+      operatedAt: reopenRecord.reopenedAt,
+    })
+    const message = '已重新打开裁片单，可继续针对该裁片单去布料、唛架和铺布。'
+    setFeedback('success', message)
+    state.closeDraft.feedback = { tone: 'success', message }
     return true
   }
 

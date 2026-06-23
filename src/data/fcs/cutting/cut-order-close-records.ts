@@ -6,6 +6,7 @@ import {
 import type { CuttingOrderProgressRecord } from './types.ts'
 
 export const CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY = 'cuttingCutOrderCloseRecords'
+export const CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY = 'cuttingCutOrderReopenRecords'
 
 export type CutOrderCloseReasonCode = NonNullable<CuttingOrderProgressRecord['closeReasonCode']>
 export type CutOrderCloseSourceType = '差异确认' | '人工关闭' | '生产单取消' | '款式取消' | '其他来源'
@@ -44,6 +45,21 @@ export interface CutOrderCloseRecord {
   remainingInventorySummary: string
   pendingSpecialCraftSummary: string
   pendingHandoverSummary: string
+  createdAt: string
+  createdBy: string
+}
+
+export interface CutOrderReopenRecord {
+  reopenRecordId: string
+  reopenRecordNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  reopenedAt: string
+  reopenedBy: string
+  reopenReason: string
+  previousCloseRecordNo: string
   createdAt: string
   createdBy: string
 }
@@ -233,11 +249,108 @@ export function saveStoredCutOrderCloseRecords(
 }
 
 export function upsertStoredCutOrderCloseRecord(record: CutOrderCloseRecord): void {
+  removeStoredCutOrderReopenRecord(record.cutOrderId || record.cutOrderNo)
   const records = listStoredCutOrderCloseRecords()
   saveStoredCutOrderCloseRecords([
     ...records.filter((item) => item.cutOrderId !== record.cutOrderId && item.cutOrderNo !== record.cutOrderNo),
     record,
   ])
+}
+
+export function removeStoredCutOrderCloseRecord(cutOrderIdOrNo: string): boolean {
+  const key = cutOrderIdOrNo.trim()
+  if (!key) return false
+  const records = listStoredCutOrderCloseRecords()
+  const nextRecords = records.filter((item) => item.cutOrderId !== key && item.cutOrderNo !== key)
+  if (nextRecords.length === records.length) return false
+  saveStoredCutOrderCloseRecords(nextRecords)
+  return true
+}
+
+function normalizeReopenRecord(item: unknown): CutOrderReopenRecord | null {
+  const raw = item as Partial<CutOrderReopenRecord> | null
+  if (!raw?.cutOrderId || !raw.cutOrderNo || !raw.reopenRecordId) return null
+  return {
+    reopenRecordId: String(raw.reopenRecordId),
+    reopenRecordNo: String(raw.reopenRecordNo || raw.reopenRecordId),
+    cutOrderId: String(raw.cutOrderId),
+    cutOrderNo: String(raw.cutOrderNo),
+    productionOrderId: String(raw.productionOrderId || ''),
+    productionOrderNo: String(raw.productionOrderNo || ''),
+    reopenedAt: String(raw.reopenedAt || raw.createdAt || ''),
+    reopenedBy: String(raw.reopenedBy || raw.createdBy || ''),
+    reopenReason: String(raw.reopenReason || '业务需要继续针对裁片单去布料或铺布执行。'),
+    previousCloseRecordNo: String(raw.previousCloseRecordNo || ''),
+    createdAt: String(raw.createdAt || raw.reopenedAt || ''),
+    createdBy: String(raw.createdBy || raw.reopenedBy || ''),
+  }
+}
+
+export function deserializeCutOrderReopenRecordsStorage(raw: string | null): CutOrderReopenRecord[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map(normalizeReopenRecord)
+      .filter((record): record is CutOrderReopenRecord => record !== null)
+  } catch {
+    return []
+  }
+}
+
+export function serializeCutOrderReopenRecordsStorage(records: CutOrderReopenRecord[]): string {
+  return JSON.stringify(records)
+}
+
+export function listStoredCutOrderReopenRecords(
+  storage: Pick<Storage, 'getItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
+): CutOrderReopenRecord[] {
+  if (!storage || typeof storage.getItem !== 'function') return []
+  return deserializeCutOrderReopenRecordsStorage(storage.getItem(CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY))
+}
+
+export function saveStoredCutOrderReopenRecords(
+  records: CutOrderReopenRecord[],
+  storage: Pick<Storage, 'setItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
+): void {
+  if (!storage || typeof storage.setItem !== 'function') return
+  storage.setItem(CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY, serializeCutOrderReopenRecordsStorage(records))
+}
+
+export function upsertStoredCutOrderReopenRecord(record: CutOrderReopenRecord): void {
+  removeStoredCutOrderCloseRecord(record.cutOrderId || record.cutOrderNo)
+  const records = listStoredCutOrderReopenRecords()
+  saveStoredCutOrderReopenRecords([
+    ...records.filter((item) => item.cutOrderId !== record.cutOrderId && item.cutOrderNo !== record.cutOrderNo),
+    record,
+  ])
+}
+
+export function removeStoredCutOrderReopenRecord(cutOrderIdOrNo: string): boolean {
+  const key = cutOrderIdOrNo.trim()
+  if (!key) return false
+  const records = listStoredCutOrderReopenRecords()
+  const nextRecords = records.filter((item) => item.cutOrderId !== key && item.cutOrderNo !== key)
+  if (nextRecords.length === records.length) return false
+  saveStoredCutOrderReopenRecords(nextRecords)
+  return true
+}
+
+export function buildCutOrderReopenRecordLookup(): Record<string, CutOrderReopenRecord> {
+  const entries: Array<[string, CutOrderReopenRecord]> = []
+  listStoredCutOrderReopenRecords().forEach((record) => {
+    entries.push([record.cutOrderId, record])
+    entries.push([record.cutOrderNo, record])
+  })
+  return Object.fromEntries(entries)
+}
+
+function isCloseRecordSuppressedByReopen(record: CutOrderCloseRecord, reopenLookup: Record<string, CutOrderReopenRecord>): boolean {
+  const reopenRecord = reopenLookup[record.cutOrderId] || reopenLookup[record.cutOrderNo]
+  if (!reopenRecord) return false
+  if (!record.closedAt || !reopenRecord.reopenedAt) return true
+  return reopenRecord.reopenedAt.localeCompare(record.closedAt, 'zh-CN') >= 0
 }
 
 function buildSeedCloseRecord(input: {
@@ -325,10 +438,13 @@ export function listSystemCutOrderCloseRecords(): CutOrderCloseRecord[] {
 
 export function listCutOrderCloseRecords(): CutOrderCloseRecord[] {
   const byCutOrder = new Map<string, CutOrderCloseRecord>()
+  const reopenLookup = buildCutOrderReopenRecordLookup()
   listSystemCutOrderCloseRecords().forEach((record) => {
+    if (isCloseRecordSuppressedByReopen(record, reopenLookup)) return
     byCutOrder.set(record.cutOrderId, record)
   })
   listStoredCutOrderCloseRecords().forEach((record) => {
+    if (isCloseRecordSuppressedByReopen(record, reopenLookup)) return
     byCutOrder.set(record.cutOrderId, record)
   })
   return Array.from(byCutOrder.values())
@@ -357,5 +473,25 @@ export function applyCutOrderCloseRecordToProgressRecord(
     closedAt: closeRecord.closedAt,
     closedBy: closeRecord.closedBy,
     ledgerSnapshotBeforeClose: closeRecord.ledgerSnapshotBeforeClose,
+  }
+}
+
+export function applyCutOrderReopenRecordToProgressRecord(
+  record: CuttingOrderProgressRecord,
+  reopenRecord: CutOrderReopenRecord | null | undefined,
+): CuttingOrderProgressRecord {
+  if (!reopenRecord) return record
+  const reopenedStage = record.hasSpreadingRecord || record.hasInboundRecord ? '已开工' : '待中转仓配料'
+  return {
+    ...record,
+    cuttingStage: /已关闭|不再继续裁剪/.test(record.cuttingStage) ? reopenedStage : record.cuttingStage,
+    closeReasonCode: undefined,
+    closeReasonText: '',
+    closeReason: '',
+    closedAt: '',
+    closedBy: '',
+    ledgerSnapshotBeforeClose: undefined,
+    lastOperatorName: reopenRecord.reopenedBy || record.lastOperatorName,
+    lastFieldUpdateAt: reopenRecord.reopenedAt || record.lastFieldUpdateAt,
   }
 }
