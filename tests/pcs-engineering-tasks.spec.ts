@@ -141,6 +141,7 @@ const patternTask = savePatternTaskDraft({
   fabricName: '印花面料',
   demandImageIds: ['mock://pattern-demand/publish.png'],
   completionImageIds: ['mock://pattern-complete/publish.png'],
+  patternFileIds: ['mock-file://pattern-artwork/publish.ai'],
   buyerReviewStatus: '买手已通过',
   artworkVersion: 'A1',
   assignedTeamCode: 'CN_TEAM',
@@ -160,9 +161,12 @@ if (patternTask) {
 }
 const patternDetailTask = patternTask || listPatternTasks()[0]
 if (patternDetailTask) {
+  handlePcsEngineeringTaskEvent(makeActionTarget('set-pattern-tab', { tab: 'execution' }))
   const patternDetailHtml = renderPcsPatternTaskDetailPage(patternDetailTask.patternTaskId)
   assert.match(patternDetailHtml, /任务需求/, '花型任务详情应渲染任务需求页签')
   assert.match(patternDetailHtml, /执行与颜色/, '花型任务详情应渲染执行与颜色页签')
+  assert.match(patternDetailHtml, /花型文件/, '花型任务执行页应渲染花型文件上传入口')
+  assert.match(patternDetailHtml, /提交买手确认/, '花型任务执行页应提供提交买手确认动作')
   assert.match(patternDetailHtml, /产出闭环/, '花型任务详情应渲染产出闭环页签')
   assert.match(patternDetailHtml, /pattern-flow-steps/, '花型任务详情应渲染流程进度')
   assert.match(patternDetailHtml, /花型库沉淀/, '花型任务详情应渲染花型库沉淀页签')

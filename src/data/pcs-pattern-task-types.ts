@@ -51,6 +51,7 @@ export interface PatternTaskRecord {
   imageReferenceIds: string[]
   physicalReferenceNote: string
   completionImageIds: string[]
+  patternFileIds: string[]
   buyerReviewStatus: PatternTaskBuyerReviewStatus
   buyerReviewAt: string
   buyerReviewerName: string

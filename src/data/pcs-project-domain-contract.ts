@@ -1760,6 +1760,7 @@ const artworkTaskFields = [
       { key: 'physicalReferenceNote', label: '实物图说明', type: 'textarea', sourceKind: '花型任务', sourceRef: '花型任务正式对象.physicalReferenceNote', meaning: '实物参考说明', logic: '用于记录实物图取值依据。', required: false },
       { key: 'buyerReviewStatus', label: '买手确认状态', type: 'single-select', sourceKind: '花型任务', sourceRef: '花型任务正式对象.buyerReviewStatus', meaning: '买手审核结果', logic: '只有买手已通过才允许完成。' },
       { key: 'completionImageIds', label: '完成确认图片', type: 'image-list', sourceKind: '花型任务', sourceRef: '花型任务正式对象.completionImageIds', meaning: '完成确认图', logic: '完成前至少上传一张。' },
+      { key: 'patternFileIds', label: '花型文件', type: 'file-list', sourceKind: '花型任务', sourceRef: '花型任务正式对象.patternFileIds', meaning: '花型师输出的源文件或交付文件', logic: '执行与颜色阶段上传，提交买手确认前至少上传一个。' },
     ],
   }),
   ...groupFields({

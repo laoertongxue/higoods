@@ -1023,7 +1023,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
     memberName?: string
     completed?: boolean
   }): Pick<PatternTaskRecord,
-    'demandSourceType' | 'demandSourceRefId' | 'demandSourceRefCode' | 'demandSourceRefName' | 'processType' | 'requestQty' | 'fabricSku' | 'fabricName' | 'demandImageIds' | 'patternSpuCode' | 'colorDepthOption' | 'difficultyGrade' | 'assignedTeamCode' | 'assignedTeamName' | 'assignedMemberId' | 'assignedMemberName' | 'assignedAt' | 'liveReferenceImageIds' | 'imageReferenceIds' | 'physicalReferenceNote' | 'completionImageIds' | 'buyerReviewStatus' | 'buyerReviewAt' | 'buyerReviewerName' | 'buyerReviewNote' | 'transferFromTeamCode' | 'transferFromTeamName' | 'transferToTeamCode' | 'transferToTeamName' | 'transferReason' | 'transferredAt' | 'transferOperatorName' | 'patternAssetId' | 'patternAssetCode' | 'patternCategoryCode' | 'patternStyleTags' | 'hotSellerFlag' | 'colorConfirmNote'
+    'demandSourceType' | 'demandSourceRefId' | 'demandSourceRefCode' | 'demandSourceRefName' | 'processType' | 'requestQty' | 'fabricSku' | 'fabricName' | 'demandImageIds' | 'patternSpuCode' | 'colorDepthOption' | 'difficultyGrade' | 'assignedTeamCode' | 'assignedTeamName' | 'assignedMemberId' | 'assignedMemberName' | 'assignedAt' | 'liveReferenceImageIds' | 'imageReferenceIds' | 'physicalReferenceNote' | 'completionImageIds' | 'patternFileIds' | 'buyerReviewStatus' | 'buyerReviewAt' | 'buyerReviewerName' | 'buyerReviewNote' | 'transferFromTeamCode' | 'transferFromTeamName' | 'transferToTeamCode' | 'transferToTeamName' | 'transferReason' | 'transferredAt' | 'transferOperatorName' | 'patternAssetId' | 'patternAssetCode' | 'patternCategoryCode' | 'patternStyleTags' | 'hotSellerFlag' | 'colorConfirmNote'
   > => ({
     demandSourceType: input.sourceType,
     demandSourceRefId: input.sourceCode,
@@ -1046,6 +1046,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
     imageReferenceIds: [],
     physicalReferenceNote: '以实物图和直播图取中间值。',
     completionImageIds: input.completed ? [`mock://pattern-completion/${input.sourceCode}`] : [],
+    patternFileIds: input.completed ? [`mock-file://${input.sourceCode}-artwork.ai`] : [],
     buyerReviewStatus: input.completed ? '买手已通过' : '待买手确认',
     buyerReviewAt: input.completed ? '2026-01-09 14:00:00' : '',
     buyerReviewerName: input.completed ? '文锋' : '',

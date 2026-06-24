@@ -38,6 +38,7 @@ const techPackGeneration = read('src/data/pcs-tech-pack-task-generation.ts')
   'assignedMemberId',
   'buyerReviewStatus',
   'completionImageIds',
+  'patternFileIds',
   'transferToTeamCode',
 ].forEach((field) => {
   assertIncludes(patternTypes, field, `花型任务类型缺少字段：${field}`)
@@ -86,6 +87,8 @@ const techPackGeneration = read('src/data/pcs-tech-pack-task-generation.ts')
   '难易程度',
   '买手确认',
   '完成确认图片',
+  '花型文件',
+  '提交买手确认',
   '花型库沉淀',
   '技术包写入',
 ].forEach((label) => {
@@ -94,6 +97,8 @@ const techPackGeneration = read('src/data/pcs-tech-pack-task-generation.ts')
 
 assertIncludes(policy, '买手已通过', '完成校验必须要求买手通过')
 assertIncludes(policy, 'completionImageIds', '完成校验必须要求完成确认图片')
+assertIncludes(policy, 'patternFileIds', '完成校验必须要求花型文件')
+assertIncludes(page, 'submit-pattern-buyer-review', '执行与颜色必须提供提交买手确认动作')
 assertIncludes(techPackGeneration, 'completionImageIds', '技术包花型写入应优先使用完成确认图片')
 assertNotIncludes(page, '温度设置', '花型任务页面不得把温度设置作为主字段')
 assertNotIncludes(page, 'temperatureSetting', '花型任务页面不得保留 temperatureSetting 主字段')

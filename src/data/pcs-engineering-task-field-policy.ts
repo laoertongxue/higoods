@@ -140,11 +140,13 @@ const PATTERN_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     { fieldKey: 'colorDepthOption', label: '颜色深浅' },
     { fieldKey: 'buyerReviewStatus', label: '买手确认' },
     { fieldKey: 'completionImageIds', label: '完成确认图片' },
+    { fieldKey: 'patternFileIds', label: '花型文件' },
   ],
   completionRequiredFields: [
     { fieldKey: 'artworkVersion', label: '花型版次' },
-    { fieldKey: 'buyerReviewStatus', label: '买手确认通过' },
     { fieldKey: 'completionImageIds', label: '完成确认图片' },
+    { fieldKey: 'patternFileIds', label: '花型文件' },
+    { fieldKey: 'buyerReviewStatus', label: '买手确认通过' },
   ],
   nodeWritebacks: [
     {
@@ -204,9 +206,15 @@ export function getPlateTaskCompletionMissingFields(task: PlateMakingTaskRecord)
 }
 
 export function getPatternTaskCompletionMissingFields(task: PatternTaskRecord): string[] {
+  const missing = getPatternTaskExecutionSubmitMissingFields(task)
+  if (task.buyerReviewStatus !== '买手已通过') missing.push('买手确认通过')
+  return missing
+}
+
+export function getPatternTaskExecutionSubmitMissingFields(task: PatternTaskRecord): string[] {
   const missing: string[] = []
   if (!task.artworkVersion.trim()) missing.push('花型版次')
-  if (task.buyerReviewStatus !== '买手已通过') missing.push('买手确认通过')
-  if (task.completionImageIds.length === 0) missing.push('完成确认图片')
+  if ((task.completionImageIds || []).length === 0) missing.push('完成确认图片')
+  if ((task.patternFileIds || []).length === 0) missing.push('花型文件')
   return missing
 }

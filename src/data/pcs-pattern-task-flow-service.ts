@@ -7,6 +7,7 @@ import {
   getPatternTaskById,
   updatePatternTask,
 } from './pcs-pattern-task-repository.ts'
+import { getPatternTaskExecutionSubmitMissingFields } from './pcs-engineering-task-field-policy.ts'
 import { nowTaskText } from './pcs-task-source-normalizer.ts'
 import type {
   PatternTaskBuyerReviewStatus,
@@ -25,8 +26,15 @@ export function reviewPatternTaskByBuyer(
   if (reviewStatus === '买手已驳回' && !reviewNote.trim()) {
     throw new Error('买手驳回必须填写说明。')
   }
-  if (reviewStatus === '买手已通过' && !task.artworkVersion.trim() && task.completionImageIds.length === 0) {
-    throw new Error('买手通过前请先补充花型版次或完成确认图片。')
+  if (reviewStatus === '买手已驳回' && task.status !== '待确认') {
+    throw new Error('只有待买手确认的花型任务才能驳回。')
+  }
+  if (reviewStatus === '买手已通过' && task.status !== '待确认' && task.buyerReviewStatus !== '买手已通过') {
+    throw new Error('请先由花型师提交买手确认。')
+  }
+  const missingFields = getPatternTaskExecutionSubmitMissingFields(task)
+  if (reviewStatus === '买手已通过' && missingFields.length > 0) {
+    throw new Error(`买手通过前请先补充：${missingFields.join('、')}。`)
   }
   const now = nowTaskText()
   const nextStatus = reviewStatus === '买手已通过' ? '已确认' : '进行中'

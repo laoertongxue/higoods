@@ -25,6 +25,7 @@ const task = savePatternTaskDraft({
   liveReferenceImageIds: ['mock://pattern-live/archive-live.png'],
   imageReferenceIds: ['mock://pattern-reference/archive-reference.png'],
   completionImageIds: ['mock://pattern-complete/archive-complete.png'],
+  patternFileIds: ['mock-file://pattern-artwork/archive-source.ai'],
   buyerReviewStatus: '买手已通过',
   artworkVersion: 'A1',
   assignedTeamCode: 'CN_TEAM',
@@ -71,12 +72,12 @@ const document = collected.documents.find(
 )
 
 assert.ok(document, '项目资料归档必须采集花型任务记录')
-assert.equal(document?.fileCount, 4, '花型任务记录应采集完成图、需求图和参考图')
+assert.equal(document?.fileCount, 5, '花型任务记录应采集完成图、花型文件、需求图和参考图')
 assert.equal(document?.previewUrl, 'mock://pattern-complete/archive-complete.png', '花型任务完成确认图片应作为归档预览')
 assert.equal(document?.primaryFileName, 'archive-complete.png', '花型任务完成确认图片应作为主文件')
 
 const files = collected.files.filter((item) => item.archiveDocumentId === document?.archiveDocumentId)
-assert.deepEqual(files.map((item) => item.fileType), ['完成确认图片', '需求图片', '直播参考图', '图片参考图'])
-assert.deepEqual(files.map((item) => item.isPrimary), [true, false, false, false])
+assert.deepEqual(files.map((item) => item.fileType), ['完成确认图片', '花型文件', '需求图片', '直播参考图', '图片参考图'])
+assert.deepEqual(files.map((item) => item.isPrimary), [true, false, false, false, false])
 
 console.log('pcs-project-archive-pattern-task-files.spec.ts PASS')

@@ -39,6 +39,7 @@ import {
 } from './pcs-pattern-task-team-config.ts'
 import {
   getPatternTaskCompletionMissingFields,
+  getPatternTaskExecutionSubmitMissingFields,
   getPlateTaskCompletionMissingFields,
   getRevisionTaskCompletionMissingFields,
 } from './pcs-engineering-task-field-policy.ts'
@@ -241,6 +242,7 @@ export interface PatternTaskCreateInput extends BaseTaskCreateInput {
   imageReferenceIds?: string[]
   physicalReferenceNote?: string
   completionImageIds?: string[]
+  patternFileIds?: string[]
   buyerReviewStatus?: PatternTaskBuyerReviewStatus
   buyerReviewerName?: string
   buyerReviewNote?: string
@@ -970,6 +972,7 @@ export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTask
     imageReferenceIds: [...(input.imageReferenceIds || [])],
     physicalReferenceNote: input.physicalReferenceNote || '',
     completionImageIds: [...(input.completionImageIds || [])],
+    patternFileIds: [...(input.patternFileIds || [])],
     buyerReviewStatus: input.buyerReviewStatus || '待买手确认',
     buyerReviewAt: '',
     buyerReviewerName: input.buyerReviewerName || '',
@@ -1672,6 +1675,7 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     imageReferenceIds: [...(input.imageReferenceIds || existing?.imageReferenceIds || [])],
     physicalReferenceNote: input.physicalReferenceNote || existing?.physicalReferenceNote || '',
     completionImageIds: [...(input.completionImageIds || existing?.completionImageIds || [])],
+    patternFileIds: [...(input.patternFileIds || existing?.patternFileIds || [])],
     buyerReviewStatus: input.buyerReviewStatus || existing?.buyerReviewStatus || '待买手确认',
     buyerReviewAt: existing?.buyerReviewAt || '',
     buyerReviewerName: input.buyerReviewerName || existing?.buyerReviewerName || '',
@@ -1803,6 +1807,7 @@ function createPatternTaskStandalone(input: PatternTaskCreateInput): TaskWriteba
     imageReferenceIds: [...(input.imageReferenceIds || existing?.imageReferenceIds || [])],
     physicalReferenceNote: input.physicalReferenceNote || existing?.physicalReferenceNote || '',
     completionImageIds: [...(input.completionImageIds || existing?.completionImageIds || [])],
+    patternFileIds: [...(input.patternFileIds || existing?.patternFileIds || [])],
     buyerReviewStatus: input.buyerReviewStatus || existing?.buyerReviewStatus || '待买手确认',
     buyerReviewAt: existing?.buyerReviewAt || '',
     buyerReviewerName: input.buyerReviewerName || existing?.buyerReviewerName || '',
@@ -1919,6 +1924,7 @@ function createRevisionPatternTaskWithoutProjectNode(
     imageReferenceIds: [],
     physicalReferenceNote: '',
     completionImageIds: [],
+    patternFileIds: [],
     buyerReviewStatus: '待买手确认',
     buyerReviewAt: '',
     buyerReviewerName: '',
@@ -2218,6 +2224,57 @@ export function completePlateMakingTask(
     updatedBy: operatorName,
   })
   return nextTask ? { ok: true, task: nextTask, message: '制版任务已完成。' } : { ok: false, task, message: '制版任务完成失败。' }
+}
+
+export function submitPatternTaskForBuyerReview(
+  patternTaskId: string,
+  operatorName = '当前用户',
+): TaskCompletionResult<PatternTaskRecord> {
+  const task = getPatternTaskById(patternTaskId)
+  if (!task) return { ok: false, task: null, message: '未找到花型任务。' }
+  if (task.status === '已取消') return { ok: false, task, message: '当前花型任务已取消，不能提交买手确认。' }
+  if (task.status === '已完成') return { ok: false, task, message: '当前花型任务已完成，不能重复提交。' }
+  const missingFields = getPatternTaskExecutionSubmitMissingFields(task)
+  if (missingFields.length > 0) {
+    return { ok: false, task, message: `提交买手确认前请补齐：${missingFields.join('、')}。` }
+  }
+
+  const now = nowTaskText()
+  const nextTask = updatePatternTask(patternTaskId, {
+    status: '待确认',
+    buyerReviewStatus: '待买手确认',
+    buyerReviewAt: '',
+    buyerReviewerName: '',
+    buyerReviewNote: '',
+    updatedAt: now,
+    updatedBy: operatorName,
+    note: task.note || '花型师已提交买手确认。',
+  })
+  if (!nextTask) return { ok: false, task, message: '花型任务提交买手确认失败。' }
+
+  if (nextTask.projectId && nextTask.projectNodeId) {
+    updateProjectNodeRecord(
+      nextTask.projectId,
+      nextTask.projectNodeId,
+      {
+        currentStatus: '待确认',
+        latestInstanceId: nextTask.patternTaskId,
+        latestInstanceCode: nextTask.patternTaskCode,
+        latestResultType: '花型师已提交买手确认',
+        latestResultText: '花型师已提交花型文件和完成确认图，等待买手确认。',
+        pendingActionType: '买手确认花型',
+        pendingActionText: '买手确认花型结果',
+        updatedAt: now,
+        lastEventType: '花型师已提交买手确认',
+        lastEventTime: now,
+      },
+      operatorName,
+    )
+    syncProjectNodeInstanceRuntime(nextTask.projectId, nextTask.projectNodeId, operatorName, now)
+    syncExistingProjectArchiveByProjectId(nextTask.projectId, operatorName)
+  }
+
+  return { ok: true, task: nextTask, message: '花型任务已提交买手确认。' }
 }
 
 export function completePatternTaskWithProjectRelationSync(

@@ -167,6 +167,7 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
     artworkName: `${code}-花型方案`,
     artworkVersion,
     completionImageIds: [`mock://pattern-complete/${code}.png`],
+    patternFileIds: [`mock-file://pattern-artwork/${code}.ai`],
     buyerReviewStatus: '买手已通过',
     linkedTechPackVersionId: '',
     linkedTechPackVersionCode: '',

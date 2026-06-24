@@ -69,6 +69,7 @@ function normalizeTask(task: PatternTaskRecord): PatternTaskRecord {
     imageReferenceIds: Array.isArray(task.imageReferenceIds) ? task.imageReferenceIds : [],
     physicalReferenceNote: task.physicalReferenceNote || '',
     completionImageIds: Array.isArray(task.completionImageIds) ? task.completionImageIds : [],
+    patternFileIds: Array.isArray(task.patternFileIds) ? task.patternFileIds : [],
     buyerReviewStatus: task.buyerReviewStatus || '待买手确认',
     buyerReviewAt: task.buyerReviewAt || '',
     buyerReviewerName: task.buyerReviewerName || '',

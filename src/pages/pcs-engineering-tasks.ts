@@ -31,6 +31,7 @@ import { listFirstSampleTasks, getFirstSampleTaskById, resetFirstSampleTaskRepos
 import { listFirstOrderSampleTasks, getFirstOrderSampleTaskById, resetFirstOrderSampleTaskRepository } from '../data/pcs-first-order-sample-repository.ts'
 import {
   getPatternTaskCompletionMissingFields,
+  getPatternTaskExecutionSubmitMissingFields,
   getRevisionTaskCompletionMissingFields,
 } from '../data/pcs-engineering-task-field-policy.ts'
 import {
@@ -54,6 +55,7 @@ import {
   confirmRevisionTaskOutput,
   type DownstreamTaskType,
   inferDownstreamTypesFromRevisionTask,
+  submitPatternTaskForBuyerReview,
   submitRevisionTaskForConfirmation,
   syncExistingProjectEngineeringTaskNodes,
 } from '../data/pcs-task-project-relation-writeback.ts'
@@ -254,6 +256,7 @@ interface PatternDetailDraft {
   physicalReferenceNote: string
   colorConfirmNote: string
   completionImageIds: string[]
+  patternFileIds: string[]
   liveReferenceImageIds: string[]
   imageReferenceIds: string[]
   buyerReviewNote: string
@@ -488,6 +491,7 @@ const initialPatternDetailDraft = (): PatternDetailDraft => ({
   physicalReferenceNote: '',
   colorConfirmNote: '',
   completionImageIds: [],
+  patternFileIds: [],
   liveReferenceImageIds: [],
   imageReferenceIds: [],
   buyerReviewNote: '',
@@ -1257,6 +1261,7 @@ function ensurePatternDetailDraft(task: ReturnType<typeof getPatternTaskById>): 
       physicalReferenceNote: task.physicalReferenceNote,
       colorConfirmNote: task.colorConfirmNote,
       completionImageIds: [...task.completionImageIds],
+      patternFileIds: [...(task.patternFileIds || [])],
       liveReferenceImageIds: [...task.liveReferenceImageIds],
       imageReferenceIds: [...task.imageReferenceIds],
       buyerReviewNote: task.buyerReviewNote,
@@ -1564,6 +1569,10 @@ function appendFileValues(field: string, values: string[]): boolean {
     state.plateDetailDraft.supportVideoIds = [...state.plateDetailDraft.supportVideoIds, ...values]
     return true
   }
+  if (field === 'pattern-detail-pattern-files') {
+    state.patternDetailDraft.patternFileIds = [...state.patternDetailDraft.patternFileIds, ...values]
+    return true
+  }
   return false
 }
 
@@ -1627,6 +1636,10 @@ function removeListValue(scope: string, index: number): boolean {
   }
   if (scope === 'pattern-detail-completion-images') {
     state.patternDetailDraft.completionImageIds = state.patternDetailDraft.completionImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'pattern-detail-pattern-files') {
+    state.patternDetailDraft.patternFileIds = state.patternDetailDraft.patternFileIds.filter((_, itemIndex) => itemIndex !== index)
     return true
   }
   if (scope === 'pattern-detail-live-reference-images') {
@@ -2014,10 +2027,13 @@ function createPatternAssetFromTask(taskId: string): { ok: boolean; message: str
     return { ok: false, message: `沉淀花型库前缺少：${missingFields.join('、')}。` }
   }
 
+  const sourcePatternFileName = extractFileLabel((task.patternFileIds || [])[0] || '') || `${task.patternTaskCode}.png`
+  const sourceFileExt = sourcePatternFileName.includes('.') ? sourcePatternFileName.split('.').pop() || 'file' : 'file'
+  const previewUrl = task.completionImageIds[0] || buildPatternPreviewDataUrl(task.artworkName || task.title)
   const parsedFile: PatternParsedFileResult = {
-    originalFilename: `${task.patternTaskCode}.png`,
-    fileExt: 'png',
-    mimeType: 'image/png',
+    originalFilename: sourcePatternFileName,
+    fileExt: sourceFileExt,
+    mimeType: ['png', 'jpg', 'jpeg'].includes(sourceFileExt.toLowerCase()) ? `image/${sourceFileExt.toLowerCase() === 'jpg' ? 'jpeg' : sourceFileExt.toLowerCase()}` : 'application/octet-stream',
     fileSize: 128000,
     imageWidth: 640,
     imageHeight: 420,
@@ -2027,8 +2043,8 @@ function createPatternAssetFromTask(taskId: string): { ok: boolean; message: str
     dpiY: 300,
     frameCount: 1,
     hasAlpha: false,
-    filenameTokens: tokenizePatternFilename(`${task.patternTaskCode}-${task.artworkName || task.title}.png`),
-    previewUrl: buildPatternPreviewDataUrl(task.artworkName || task.title),
+    filenameTokens: tokenizePatternFilename(sourcePatternFileName),
+    previewUrl,
     thumbnailUrl: buildPatternPreviewDataUrl(task.patternTaskCode),
     parseStatus: 'success',
     parseSummary: `${task.artworkType || '花型'} 文件解析完成，版本 ${task.artworkVersion || 'A1'}，可沉淀至花型库。`,
@@ -2040,6 +2056,7 @@ function createPatternAssetFromTask(taskId: string): { ok: boolean; message: str
       demandSourceType: task.demandSourceType,
       artworkVersion: task.artworkVersion,
       buyerReviewStatus: task.buyerReviewStatus,
+      patternFileIds: task.patternFileIds,
     },
   }
 
@@ -3394,39 +3411,53 @@ interface PatternTaskFlowView {
   stageLabel: string
   nextActionText: string
   missingFields: string[]
+  completionMissingFields: string[]
+  executionReady: boolean
   completionReady: boolean
   closureReady: boolean
   steps: PatternTaskFlowStep[]
 }
 
 function buildPatternTaskFlowView(task: PatternTaskRecord, hasPatternAsset: boolean): PatternTaskFlowView {
-  const missingFields = getPatternTaskCompletionMissingFields(task)
+  const executionMissingFields = getPatternTaskExecutionSubmitMissingFields(task)
+  const completionMissingFields = getPatternTaskCompletionMissingFields(task)
   const hasDemand = task.demandImageIds.length > 0
-  const hasOutput = Boolean(task.artworkVersion.trim()) && task.completionImageIds.length > 0
+  const hasOutput = executionMissingFields.length === 0
+  const submittedForReview = task.status === '待确认' || task.status === '已确认' || task.status === '已生成技术包' || task.status === '已完成'
   const buyerPassed = task.buyerReviewStatus === '买手已通过'
   const techPackWritten = Boolean(task.linkedTechPackVersionId)
   const closureReady = buyerPassed && hasOutput && techPackWritten && hasPatternAsset
   const completed = task.status === '已完成'
   let activeKey: PatternTaskFlowStep['key'] = 'execution'
   let stageLabel = '花型执行中'
-  let nextActionText = '补齐花型版次和完成确认图片。'
+  let nextActionText = '补齐花型版次、完成确认图片和花型文件。'
+  let currentMissingFields = executionMissingFields
 
   if (completed) {
     activeKey = 'done'
     stageLabel = '已完成'
     nextActionText = '任务已完成，项目节点已收口。'
+    currentMissingFields = []
   } else if (!hasOutput) {
     activeKey = 'execution'
     stageLabel = '花型执行中'
-    nextActionText = missingFields.length > 0 ? `请先补齐：${missingFields.join('、')}。` : '请保存花型执行资料。'
+    nextActionText = executionMissingFields.length > 0 ? `请先补齐：${executionMissingFields.join('、')}。` : '请保存花型执行资料。'
+    currentMissingFields = executionMissingFields
   } else if (task.buyerReviewStatus === '买手已驳回') {
     activeKey = 'execution'
     stageLabel = '买手已驳回'
     nextActionText = '按买手驳回说明调整花型后重新提交确认。'
+    currentMissingFields = executionMissingFields
+  } else if (!submittedForReview) {
+    activeKey = 'execution'
+    stageLabel = '待提交买手确认'
+    nextActionText = '花型师产出资料已补齐，请提交买手确认。'
+    currentMissingFields = []
   } else if (!buyerPassed) {
     activeKey = 'review'
     stageLabel = '待买手确认'
     nextActionText = '请买手确认花型结果，通过后再写技术包或沉淀花型库。'
+    currentMissingFields = completionMissingFields
   } else if (!techPackWritten || !hasPatternAsset) {
     activeKey = 'closure'
     stageLabel = '产出闭环中'
@@ -3434,15 +3465,17 @@ function buildPatternTaskFlowView(task: PatternTaskRecord, hasPatternAsset: bool
       techPackWritten ? '' : '写入技术包花型',
       hasPatternAsset ? '' : '沉淀花型库资产',
     ].filter(Boolean).join('，') || '完成产出闭环。'
+    currentMissingFields = completionMissingFields
   } else {
     activeKey = 'closure'
     stageLabel = '待完成'
     nextActionText = '花型产出已闭环，可以完成任务并同步项目节点。'
+    currentMissingFields = []
   }
 
   const steps: PatternTaskFlowStep[] = [
     { key: 'demand', label: '需求创建', done: hasDemand, active: activeKey === 'demand', desc: hasDemand ? '需求图已保留' : '缺需求图' },
-    { key: 'execution', label: '花型执行', done: hasOutput, active: activeKey === 'execution', desc: hasOutput ? '版次和完成图已补齐' : '补齐版次/完成图' },
+    { key: 'execution', label: '花型执行', done: submittedForReview || buyerPassed || completed, active: activeKey === 'execution', desc: submittedForReview || buyerPassed || completed ? '已提交买手确认' : hasOutput ? '资料已齐待提交' : '补齐版次/完成图/文件' },
     { key: 'review', label: '买手确认', done: buyerPassed, active: activeKey === 'review', desc: buyerPassed ? '买手已通过' : task.buyerReviewStatus },
     { key: 'closure', label: '产出闭环', done: closureReady, active: activeKey === 'closure', desc: closureReady ? '技术包和花型库已闭环' : '待写包/沉淀' },
     { key: 'done', label: '任务完成', done: completed, active: activeKey === 'done', desc: completed ? '项目节点已同步' : '待收口' },
@@ -3451,8 +3484,10 @@ function buildPatternTaskFlowView(task: PatternTaskRecord, hasPatternAsset: bool
   return {
     stageLabel,
     nextActionText,
-    missingFields,
-    completionReady: missingFields.length === 0,
+    missingFields: currentMissingFields,
+    completionMissingFields,
+    executionReady: executionMissingFields.length === 0,
+    completionReady: completionMissingFields.length === 0,
     closureReady,
     steps,
   }
@@ -3499,7 +3534,7 @@ function renderPatternCurrentActionPanel(
           <p class="mt-2 text-sm text-slate-700">${escapeHtml(flow.nextActionText)}</p>
         </div>
         <div class="rounded-lg bg-white px-4 py-3 text-sm shadow-sm">
-          <p class="text-xs text-slate-500">完成前缺失项</p>
+          <p class="text-xs text-slate-500">当前阶段缺失项</p>
           <div class="mt-2 flex flex-wrap gap-2">${renderPatternMissingItems(flow.missingFields)}</div>
         </div>
       </div>
@@ -3531,8 +3566,14 @@ function renderPatternDetailPage(patternTaskId: string): string {
   const sampleTasks = listFirstSampleTasks().filter((item) => item.upstreamObjectId === task.patternTaskId || item.upstreamObjectCode === task.patternTaskCode)
   const style = getTaskStyleInfo(task)
   const flow = buildPatternTaskFlowView(task, Boolean(asset))
-  const completeDisabledReason = flow.completionReady ? '' : `缺少字段：${flow.missingFields.join('、')}。`
-  const publishDisabledReason = flow.completionReady ? '' : `沉淀花型库前缺少：${flow.missingFields.join('、')}。`
+  const executionDraftMissingFields = [
+    detailDraft.artworkVersion.trim() ? '' : '花型版次',
+    detailDraft.completionImageIds.length > 0 ? '' : '完成确认图片',
+    detailDraft.patternFileIds.length > 0 ? '' : '花型文件',
+  ].filter(Boolean)
+  const executionDraftReady = executionDraftMissingFields.length === 0
+  const completeDisabledReason = flow.completionReady ? '' : `缺少字段：${flow.completionMissingFields.join('、')}。`
+  const publishDisabledReason = flow.completionReady ? '' : `沉淀花型库前缺少：${flow.completionMissingFields.join('、')}。`
   const logs = mergeLogs('pattern', task.patternTaskId, [
     ...(task.linkedTechPackVersionId ? [{ time: task.linkedTechPackUpdatedAt || task.updatedAt, action: '技术包写回', user: task.updatedBy, detail: `已写入技术包 ${task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || task.linkedTechPackVersionId}。` }] : []),
     ...(asset ? [{ time: asset.updated_at, action: '花型库沉淀', user: asset.updated_by, detail: `已形成花型资产 ${asset.pattern_code}。` }] : []),
@@ -3642,7 +3683,13 @@ function renderPatternDetailPage(patternTaskId: string): string {
         ${renderTextInput('花型版次', 'pattern-detail-version', detailDraft.artworkVersion, '')}
         ${renderImageUploader('完成确认图片', 'pattern-detail-completion-images', detailDraft.completionImageIds, '暂未上传完成确认图片')}
       </div>
-      ${renderTaskSaveBar('save-pattern-detail-fields', task.patternTaskId)}
+      <div class="mt-4">
+        ${renderFileUploader('花型文件', 'pattern-detail-pattern-files', detailDraft.patternFileIds, '暂未上传花型文件', '.ai,.psd,.cdr,.pdf,.zip,.png,.jpg,.jpeg')}
+      </div>
+      <div class="mt-4 flex flex-wrap justify-end gap-3">
+        <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="save-pattern-detail-fields" data-task-id="${escapeHtml(task.patternTaskId)}">保存任务</button>
+        <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500" data-pcs-engineering-action="submit-pattern-buyer-review" data-task-id="${escapeHtml(task.patternTaskId)}" ${executionDraftReady && task.status !== '已完成' && task.status !== '已取消' ? '' : `disabled title="${escapeHtml(executionDraftReady ? `当前花型任务${task.status === '已取消' ? '已取消' : '已完成'}。` : `提交前缺少：${executionDraftMissingFields.join('、')}。`)}"`}>提交买手确认</button>
+      </div>
     `,
   )
 
@@ -5378,6 +5425,28 @@ function submitFirstOrderResult(): void {
   setNotice(result.ok ? `首单样衣任务 ${task.firstOrderSampleTaskCode} 已提交首单结果。` : result.message)
 }
 
+function persistPatternDetailDraft(taskId: string, operatorName = '当前用户'): PatternTaskRecord | null {
+  const draft = state.patternDetailDraft
+  return updatePatternTask(taskId, {
+    artworkVersion: draft.artworkVersion.trim(),
+    difficultyGrade: draft.difficultyGrade,
+    colorDepthOption: draft.colorDepthOption,
+    physicalReferenceNote: draft.physicalReferenceNote.trim(),
+    colorConfirmNote: draft.colorConfirmNote.trim(),
+    completionImageIds: [...draft.completionImageIds],
+    patternFileIds: [...draft.patternFileIds],
+    liveReferenceImageIds: [...draft.liveReferenceImageIds],
+    imageReferenceIds: [...draft.imageReferenceIds],
+    buyerReviewNote: draft.buyerReviewNote.trim(),
+    transferReason: draft.transferReason.trim(),
+    patternCategoryCode: draft.patternCategoryCode.trim(),
+    patternStyleTags: parseTagsText(draft.patternStyleTagsText),
+    hotSellerFlag: draft.hotSellerFlag,
+    updatedAt: nowText(),
+    updatedBy: operatorName,
+  })
+}
+
 function generateRevisionTechPack(taskId: string): void {
   const task = getRevisionTaskById(taskId)
   if (!task) return
@@ -6176,26 +6245,31 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   }
   if (action === 'save-pattern-detail-fields') {
     const taskId = actionNode.dataset.taskId || ''
-    const draft = state.patternDetailDraft
-    updatePatternTask(taskId, {
-      artworkVersion: draft.artworkVersion.trim(),
-      difficultyGrade: draft.difficultyGrade,
-      colorDepthOption: draft.colorDepthOption,
-      physicalReferenceNote: draft.physicalReferenceNote.trim(),
-      colorConfirmNote: draft.colorConfirmNote.trim(),
-      completionImageIds: [...draft.completionImageIds],
-      liveReferenceImageIds: [...draft.liveReferenceImageIds],
-      imageReferenceIds: [...draft.imageReferenceIds],
-      buyerReviewNote: draft.buyerReviewNote.trim(),
-      transferReason: draft.transferReason.trim(),
-      patternCategoryCode: draft.patternCategoryCode.trim(),
-      patternStyleTags: parseTagsText(draft.patternStyleTagsText),
-      hotSellerFlag: draft.hotSellerFlag,
-      updatedAt: nowText(),
-      updatedBy: '当前用户',
-    })
+    const saved = persistPatternDetailDraft(taskId)
+    if (!saved) {
+      setNotice('未找到花型任务。')
+      return true
+    }
     pushRuntimeLog('pattern', taskId, '保存任务', '已保存花型任务。')
     setNotice('花型任务已保存。')
+    return true
+  }
+
+  if (action === 'submit-pattern-buyer-review') {
+    const taskId = actionNode.dataset.taskId || ''
+    const saved = persistPatternDetailDraft(taskId)
+    if (!saved) {
+      setNotice('未找到花型任务。')
+      return true
+    }
+    const result = submitPatternTaskForBuyerReview(taskId, '当前用户')
+    if (!result.ok || !result.task) {
+      setNotice(result.message)
+      return true
+    }
+    state.patternTab = 'review'
+    pushRuntimeLog('pattern', taskId, '提交买手确认', '花型师已提交花型文件和完成确认图，进入买手确认。')
+    setNotice(`花型任务 ${result.task.patternTaskCode} 已提交买手确认。`)
     return true
   }
 

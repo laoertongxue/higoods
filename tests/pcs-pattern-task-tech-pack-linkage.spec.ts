@@ -17,6 +17,7 @@ const task = savePatternTaskDraft({
   fabricName: '印花面料',
   demandImageIds: ['mock://pattern-demand/c.png'],
   completionImageIds: ['mock://pattern-complete/c.png'],
+  patternFileIds: ['mock-file://pattern-artwork/c.ai'],
   buyerReviewStatus: '买手已通过',
   artworkVersion: 'A1',
   assignedTeamCode: 'CN_TEAM',
@@ -46,6 +47,6 @@ updatePatternTask(incompleteTask.patternTaskId, { status: '已确认' })
 const incompleteAction = getPatternTechPackActionMeta(incompleteTask.patternTaskId)
 assert.equal(incompleteAction.disabled, true, '花型产出资料不完整时不得写入技术包')
 assert.equal(incompleteAction.label, '待补齐产出')
-assert.match(incompleteAction.disabledReason, /花型版次|买手确认通过|完成确认图片/, '技术包入口应说明缺失的花型产出字段')
+assert.match(incompleteAction.disabledReason, /花型版次|完成确认图片|花型文件|买手确认通过/, '技术包入口应说明缺失的花型产出字段')
 
 console.log('pcs-pattern-task-tech-pack-linkage.spec.ts PASS')

@@ -984,6 +984,12 @@ function buildPatternTaskDocuments(
         fileType: '完成确认图片',
         previewUrl: fileId,
       })),
+      ...(task.patternFileIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `花型文件-${index + 1}`),
+        fileType: '花型文件',
+        previewUrl: fileId,
+      })),
       ...(task.demandImageIds || []).map((fileId, index) => ({
         sourceFileId: fileId,
         fileName: archiveFileNameFromUrl(fileId, `需求图片-${index + 1}.png`),

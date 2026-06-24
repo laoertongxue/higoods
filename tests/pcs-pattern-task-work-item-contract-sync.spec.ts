@@ -15,6 +15,7 @@ const labels = contract.fieldDefinitions.map((field) => field.label)
   '分配成员',
   '买手确认状态',
   '完成确认图片',
+  '花型文件',
   '转派团队',
   '花型库资产ID',
   '关联技术包版本ID',
