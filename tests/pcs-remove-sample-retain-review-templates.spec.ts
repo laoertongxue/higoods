@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 
 import { listProjectTemplates } from '../src/data/pcs-templates.ts'
 
-const templates = listProjectTemplates().filter((item) => ['TPL-001', 'TPL-002', 'TPL-003', 'TPL-004'].includes(item.id))
+const templates = listProjectTemplates().filter((item) => ['TPL-001', 'TPL-003'].includes(item.id))
 
-assert.equal(templates.length, 4, '应存在 4 个内置商品项目模板')
+assert.equal(templates.length, 2, '应仅存在 2 个内置商品项目模板')
 
 for (const template of templates) {
   const nodeCodes = template.nodes.map((node) => node.workItemTypeCode)
@@ -30,8 +30,11 @@ for (const template of templates) {
   )
 }
 
-const fastTemplate = templates.find((item) => item.id === 'TPL-002')
-assert.ok(fastTemplate?.nodes.some((node) => node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE'), '快时尚款模板应补齐样衣退回处理')
+assert.deepEqual(
+  templates.map((item) => item.name).sort(),
+  ['万隆改版出样衣测款项目', '国内采购样衣测款项目'].sort(),
+  '内置商品项目模板应仅保留两类正式业务模板',
+)
 
 const revisionTemplate = templates.find((item) => item.id === 'TPL-003')
 assert.ok(revisionTemplate?.nodes.some((node) => node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE'), '改版款模板应补齐样衣退回处理')

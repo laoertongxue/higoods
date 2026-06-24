@@ -10,7 +10,7 @@ resetProjectRepository()
 const templateListHtml = renderPcsTemplateListPage()
 assert.ok(!templateListHtml.includes('样衣留存评估'), '模板列表页不应显示样衣留存评估')
 
-const templateDetailHtml = renderPcsTemplateDetailPage('TPL-002')
+const templateDetailHtml = renderPcsTemplateDetailPage('TPL-003')
 assert.ok(!templateDetailHtml.includes('样衣留存评估'), '模板详情页不应显示样衣留存评估')
 assert.ok(templateDetailHtml.includes('样衣退回处理'), '模板详情页应显示样衣退回处理')
 

@@ -391,7 +391,7 @@ function seedStore(): PatternLibraryStoreSnapshot {
       color_tags: ['红色', '绿色'],
       hot_flag: true,
       source_type: '自研',
-      source_note: '来源于工程打样转测款项目花型任务',
+      source_note: '来源于万隆改版出样衣测款项目花型任务',
       applicable_categories: ['上衣', '外套'],
       applicable_parts: ['胸前贴章', '袖口'],
       related_part_template_ids: ['pkg_001-part_001'],

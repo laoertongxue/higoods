@@ -1465,6 +1465,9 @@ function buildGenericInlineSeed(
   if (node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE') {
     const returnDate = businessDate.slice(0, 10)
     const returnDocCode = `RTN-${projectCode.slice(-3)}-GEN`
+    const expressCompany = '顺丰速运'
+    const trackingNumber = `SF${projectCode.replace(/\D/g, '').slice(-8).padStart(8, '0')}`
+    const logisticsEvidence = `快递面单 ${trackingNumber}，物流签收截图已归档到 ${returnDocCode}。`
     return {
       projectCode,
       workItemTypeCode: 'SAMPLE_RETURN_HANDLE',
@@ -1482,6 +1485,9 @@ function buildGenericInlineSeed(
         returnRecipient: '供应商收货人',
         returnDepartment: '样衣管理',
         returnAddress: '供应商指定收货地址',
+        expressCompany,
+        trackingNumber,
+        logisticsEvidence,
         returnDate,
         sampleCode,
         returnDocCode,
@@ -1496,6 +1502,9 @@ function buildGenericInlineSeed(
         returnRecipient: '供应商收货人',
         returnDepartment: '样衣管理',
         returnAddress: '供应商指定收货地址',
+        expressCompany,
+        trackingNumber,
+        logisticsEvidence,
         returnDate,
         sampleCode,
         returnDocCode,

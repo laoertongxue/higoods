@@ -131,6 +131,9 @@ export interface PcsSampleReturnCase {
   acceptedBy: string
   returnTarget: string
   returnMethod: string
+  carrier: string
+  trackingNo: string
+  logisticsEvidence: string
   dispositionResult: string
   updatedAt: string
   riskFlag: string
@@ -861,6 +864,9 @@ function buildGeneratedSampleReturnCases(): PcsSampleReturnCase[] {
     const destination = String(payload.destination || '').trim()
     const returnRecipient = String(payload.returnRecipient || '').trim()
     const returnAddress = String(payload.returnAddress || '').trim()
+    const carrier = String(payload.expressCompany || '').trim()
+    const trackingNo = String(payload.trackingNumber || '').trim()
+    const logisticsEvidence = String(payload.logisticsEvidence || '').trim()
     const returnResult = String(payload.returnResult || '').trim()
     const operator = String(payload.handledBy || record.updatedBy || record.ownerName || '').trim()
     const caseCode = String(payload.returnDocCode || record.recordCode).trim()
@@ -883,6 +889,9 @@ function buildGeneratedSampleReturnCases(): PcsSampleReturnCase[] {
       acceptedBy: operator || record.ownerName,
       returnTarget: destination || returnRecipient || returnAddress,
       returnMethod: caseType === '退货' ? handleType || '退货' : '',
+      carrier,
+      trackingNo,
+      logisticsEvidence,
       dispositionResult: caseType === '处置' ? returnResult : '',
       updatedAt: record.updatedAt || record.businessDate,
       riskFlag: ['报废处理', '清仓处理'].includes(handleType) || status !== '已结案' ? '中风险' : '',
@@ -925,7 +934,10 @@ function buildGeneratedSampleLedgerEvents(): PcsSampleLedgerEvent[] {
         workItemName: record.workItemTypeName,
         operator: operator || record.updatedBy || record.ownerName,
         isVoided: false,
-        remark: String(payload.returnResult || ''),
+        remark: [payload.returnResult, payload.trackingNumber ? `快递单号：${payload.trackingNumber}` : '', payload.logisticsEvidence]
+          .map((item) => String(item || '').trim())
+          .filter(Boolean)
+          .join('；'),
       }
     })
 }

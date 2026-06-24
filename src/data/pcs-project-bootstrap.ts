@@ -248,7 +248,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-013', projectName: '镂空蕾丝拼接上衣',
-    templateId: 'TPL-004', projectType: '设计研发', projectSourceType: '企划提案',
+    templateId: 'TPL-003', projectType: '改版开发', projectSourceType: '企划提案',
     categoryName: '上衣', brandName: '品牌A', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['蕾丝', '拼接'], priceRangeLabel: '¥299-499',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['时尚女性'],
@@ -258,7 +258,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-014', projectName: '修身弹力牛仔裤',
-    templateId: 'TPL-004', projectType: '商品开发', projectSourceType: '测款沉淀',
+    templateId: 'TPL-003', projectType: '改版开发', projectSourceType: '测款沉淀',
     categoryName: '裤子', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['牛仔', '简约'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['年轻女性'],

@@ -4,7 +4,7 @@ import type { ChannelListingImageRecord } from './pcs-channel-listing-image-type
 import type { ProjectNodeStatus } from './pcs-project-types.ts'
 
 export type PcsProjectPhaseCode = 'PHASE_01' | 'PHASE_02' | 'PHASE_03' | 'PHASE_04' | 'PHASE_05'
-export type PcsProjectTemplateId = 'TPL-001' | 'TPL-002' | 'TPL-003' | 'TPL-004'
+export type PcsProjectTemplateId = 'TPL-001' | 'TPL-003'
 export const DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-001'
 export const WANLONG_REVISION_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-003'
 export type PcsProjectSourceType = '企划提案' | '渠道反馈' | '测款沉淀' | '历史复用' | '外部灵感'
@@ -1961,11 +1961,14 @@ const returnHandleFields = [
 	  ...groupFields({
 	    id: 'return-handle-detail',
 	    title: '退回单据',
-	    description: '补充样衣退回收件方、地址、退货日期和单据编号。',
+	    description: '补充样衣退回收件方、地址、退货日期、单据编号和物流证据。',
 	    fields: [
       { key: 'returnRecipient', label: '退回收件方', type: 'text', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.returnRecipient', meaning: '样衣退回或寄回的收件方', logic: '退样或寄回时用于确认收件对象。', required: false, conditionalRequired: '处理方式=退样/寄回' },
       { key: 'returnDepartment', label: '处理部门', type: 'text', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.returnDepartment', meaning: '负责处理样衣收尾的部门', logic: '用于明确退回、留样、清仓或报废由哪个部门执行。', required: false },
       { key: 'returnAddress', label: '退回地址', type: 'textarea', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.returnAddress', meaning: '样衣寄回地址或处置地点', logic: '退样或寄回时用于物流追踪，处置场景可记录处置地点。', required: false, conditionalRequired: '处理方式=退样/寄回' },
+      { key: 'expressCompany', label: '快递公司', type: 'text', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.expressCompany', meaning: '样衣退样或寄回使用的承运快递公司', logic: '国内采购样衣退样、万隆样衣寄回时必须登记承运方，作为退回证据链的一部分。', required: false, conditionalRequired: '处理方式=退样/寄回' },
+      { key: 'trackingNumber', label: '快递单号', type: 'text', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.trackingNumber', meaning: '样衣退样或寄回的快递运单号', logic: '退样或寄回必须登记快递单号，用于供应商/版房签收追踪和项目收尾审计。', required: false, conditionalRequired: '处理方式=退样/寄回' },
+      { key: 'logisticsEvidence', label: '物流凭证', type: 'textarea', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.logisticsEvidence', meaning: '快递面单、物流截图、签收截图或附件编号说明', logic: '退样或寄回时记录物流证据，避免只有内部退回单号、缺少外部交付证明。', required: false, conditionalRequired: '处理方式=退样/寄回' },
       { key: 'returnDate', label: '退回日期', type: 'date', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.returnDate', meaning: '计划或实际退回日期', logic: '用于区分项目登记日期和样衣实际退回日期。', required: false },
       { key: 'sampleCode', label: '样衣编号', type: 'text', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.sampleCode', meaning: '本次处理的样衣编号', logic: '绑定到具体样衣实物，支撑样衣管理、库存和台账联动。', required: true },
       { key: 'returnDocCode', label: '退回单号', type: 'text', sourceKind: '样衣退回处理', sourceRef: '样衣退回处理.returnDocCode', meaning: '样衣退回处理单据编号', logic: '作为正式退回或处置凭证编号；系统可默认生成，必要时人工调整。', required: false },
@@ -2785,7 +2788,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['读取样衣结果和项目收尾上下文。'],
     downstreamChanges: ['完成项目收尾闭环'],
-    businessRules: ['returnResult 必填'],
+    businessRules: ['returnResult 必填', '处理方式为退样或寄回时，快递公司、快递单号和物流凭证必须完整登记。'],
     systemConstraints: ['样衣退回处理允许多次执行用于多次处置记录'],
   },
 ]
@@ -2815,31 +2818,14 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
     createdAt: '2026-06-04 09:00',
     updatedAt: CONTRACT_TIMESTAMP,
     status: 'active',
-    scenario: '业务基于旧款或参考款手动创建万隆改版出样衣测款项目，先确认样衣由改版任务出样，再通过工程开发与打样管理的改版任务承接改版需求并产出样衣，样衣核对、初步可行性判断和样衣核价后进入测款。',
-    description: '覆盖手动立项、样衣来源确认、改版任务、样衣结果核对、初步可行性判断、样衣核价、商品上架、市场测款、测款结论、款式档案和样衣处理。',
+    scenario: '业务基于旧款或参考款手动创建万隆改版出样衣测款项目，先确认样衣由改版任务出样，再通过改版任务、制版任务、花型任务、首版样衣和首单样衣打样承接工程出样，样衣核对、初步可行性判断和样衣核价后进入测款。',
+    description: '覆盖手动立项、样衣来源确认、改版任务、制版任务、花型任务、首版样衣、首单样衣打样、样衣结果核对、初步可行性判断、样衣核价、商品上架、市场测款、测款结论、款式档案和样衣处理。',
     phaseSchemas: [
       { phaseCode: 'PHASE_01', whyExists: '先手动创建商品项目，并确认该项目样衣来源为万隆改版任务出样。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
-      { phaseCode: 'PHASE_02', whyExists: '改版出样衣需求由改版任务承接，工程开发与打样管理产出样衣后，先核对实物到样，再做初步可行性判断；判断进入测款后先完成样衣核价，再用核价销售价格准备渠道店铺商品。', nodeCodes: ['REVISION_TASK', 'SAMPLE_INBOUND_CHECK', 'FEASIBILITY_REVIEW', 'SAMPLE_COST_REVIEW', 'CHANNEL_PRODUCT_LISTING'] },
+      { phaseCode: 'PHASE_02', whyExists: '改版出样衣需求由改版任务承接，工程开发与打样管理通过制版、花型、首版和首单样衣形成可测样衣后，先核对实物到样，再做初步可行性判断；判断进入测款后先完成样衣核价，再用核价销售价格准备渠道店铺商品。', nodeCodes: ['REVISION_TASK', 'PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE', 'SAMPLE_INBOUND_CHECK', 'FEASIBILITY_REVIEW', 'SAMPLE_COST_REVIEW', 'CHANNEL_PRODUCT_LISTING'] },
       { phaseCode: 'PHASE_03', whyExists: '商品上架准备完成后，再执行直播测款和可选短视频测款，并形成统一结论。', nodeCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
       { phaseCode: 'PHASE_04', whyExists: '测款通过后沉淀款式档案，进入大货或后续开发承接。', nodeCodes: ['STYLE_ARCHIVE_CREATE'] },
       { phaseCode: 'PHASE_05', whyExists: '项目结束时同样需要明确样衣退回、入库留样、清仓、寄回或报废处理。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
-    ],
-  },
-  {
-    templateId: 'TPL-004',
-    templateName: '工程打样转测款项目',
-    creator: '系统管理员',
-    createdAt: '2026-06-04 09:00',
-    updatedAt: CONTRACT_TIMESTAMP,
-    status: 'active',
-    scenario: '业务基于设计研发或测款沉淀需求创建工程打样项目，先完成制版和花型任务，再推进首版样衣、首单样衣打样，之后承接商品上架、市场测款、款式档案和项目收尾。',
-    description: '覆盖手动立项、样衣来源确认、制版任务、花型任务、首版样衣、首单样衣打样、商品上架、市场测款、测款结论、款式档案和样衣处理。',
-    phaseSchemas: [
-      { phaseCode: 'PHASE_01', whyExists: '先建立商品项目，并确认工程打样所需的样衣或参考来源。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
-      { phaseCode: 'PHASE_02', whyExists: '工程开发阶段承接改版、制版、花型、首版样衣和首单样衣打样，形成可用于测款和技术包沉淀的实物与资料。', nodeCodes: ['REVISION_TASK', 'PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE', 'SAMPLE_INBOUND_CHECK', 'SAMPLE_COST_REVIEW', 'CHANNEL_PRODUCT_LISTING'] },
-      { phaseCode: 'PHASE_03', whyExists: '商品上架准备完成后，再执行直播测款和可选短视频测款，并形成统一结论。', nodeCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后沉淀款式档案，进入技术包、花型库和项目资料闭环。', nodeCodes: ['STYLE_ARCHIVE_CREATE'] },
-      { phaseCode: 'PHASE_05', whyExists: '项目结束时明确样衣退回、入库留样、清仓、寄回或报废处理。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
 ]

@@ -1936,6 +1936,9 @@ const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCod
     'returnRecipient',
     'returnDepartment',
     'returnAddress',
+    'expressCompany',
+    'trackingNumber',
+    'logisticsEvidence',
     'returnDate',
     'sampleCode',
     'returnDocCode',
@@ -4384,14 +4387,27 @@ function buildSampleReturnHandleDraftDefaults(
       getNodeFieldValue(project, node, 'returnDestination') ||
       '',
   ).trim()
-  const handleType = mapReturnDestinationToHandleType(returnDestination)
+  const fallbackDestination =
+    returnDestination ||
+    (project.templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID
+      ? '退回供应商'
+      : project.templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID
+        ? '退回版房'
+        : '')
+  const handleType = mapReturnDestinationToHandleType(fallbackDestination)
+  const needsLogistics = ['退样', '寄回'].includes(handleType)
   return {
     handleType,
-    destination: returnDestination,
+    destination: fallbackDestination,
     handledQty: 1,
     handledBy: node.node.currentOwnerName || project.ownerName || '当前用户',
     handledAt: `${businessDate}T10:00`,
+    returnRecipient: needsLogistics ? project.sampleSupplierName || '' : '',
     returnDepartment: '样衣管理',
+    returnAddress: '',
+    expressCompany: '',
+    trackingNumber: '',
+    logisticsEvidence: '',
     returnDate: businessDate,
     sampleCode: getFirstGeneratedSampleCode(project.projectId),
     returnDocCode: buildSampleReturnDocCode(project, node),
@@ -4833,6 +4849,9 @@ function getBusinessRuleValidationErrors(
     const returnResult = String(values.returnResult || '').trim()
     const returnRecipient = String(values.returnRecipient || '').trim()
     const returnAddress = String(values.returnAddress || '').trim()
+    const expressCompany = String(values.expressCompany || '').trim()
+    const trackingNumber = String(values.trackingNumber || '').trim()
+    const logisticsEvidence = String(values.logisticsEvidence || '').trim()
     const handledAt = String(values.handledAt || '').trim()
     const needsDestination = ['退样', '寄回', '入库留样', '清仓处理'].includes(handleType)
     const needsRecipientAndAddress = ['退样', '寄回'].includes(handleType)
@@ -4841,6 +4860,9 @@ function getBusinessRuleValidationErrors(
     if (needsDestination && !destination) errors.push(`${handleType}时必须填写处理去向。`)
     if (needsRecipientAndAddress && !returnRecipient) errors.push(`${handleType}时必须填写退回收件方。`)
     if (needsRecipientAndAddress && !returnAddress) errors.push(`${handleType}时必须填写退回地址。`)
+    if (needsRecipientAndAddress && !expressCompany) errors.push(`${handleType}时必须填写快递公司。`)
+    if (needsRecipientAndAddress && !trackingNumber) errors.push(`${handleType}时必须填写快递单号。`)
+    if (needsRecipientAndAddress && !logisticsEvidence) errors.push(`${handleType}时必须填写物流凭证。`)
     if (handledQtyText && (!Number.isFinite(handledQty) || handledQty <= 0)) {
       errors.push('处理数量必须大于 0。')
     }
@@ -9769,6 +9791,9 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
       returnRecipient: values.returnRecipient || '',
       returnDepartment: values.returnDepartment || '',
       returnAddress: values.returnAddress || '',
+      expressCompany: values.expressCompany || '',
+      trackingNumber: values.trackingNumber || '',
+      logisticsEvidence: values.logisticsEvidence || '',
       returnDate: values.returnDate || '',
       sampleCode: values.sampleCode || '',
       returnDocCode: values.returnDocCode || '',

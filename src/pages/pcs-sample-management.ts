@@ -729,6 +729,7 @@ function renderReturnCaseDrawer(): string {
               ${renderInfoItem('原因', `${record.reasonCategory} · ${record.reasonText}`)}
               ${renderInfoItem('关联项目', record.projectCode)}
               ${renderInfoItem(record.caseType === '退货' ? '退回目标' : '处置结果', record.caseType === '退货' ? `${record.returnTarget} · ${record.returnMethod}` : record.dispositionResult)}
+              ${record.caseType === '退货' ? renderInfoItem('物流证据', record.trackingNo ? `${record.carrier} ${record.trackingNo}${record.logisticsEvidence ? ` · ${record.logisticsEvidence}` : ''}` : record.logisticsEvidence || '未登记') : ''}
               ${renderInfoItem('更新时间', record.updatedAt)}
             </div>
           </section>

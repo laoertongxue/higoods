@@ -47,27 +47,12 @@ const wanlongFlow: PcsProjectWorkItemCode[] = [
   'PROJECT_INIT',
   'SAMPLE_ACQUIRE',
   'REVISION_TASK',
-  'SAMPLE_INBOUND_CHECK',
-  'FEASIBILITY_REVIEW',
-  'SAMPLE_COST_REVIEW',
-  'CHANNEL_PRODUCT_LISTING',
-  'LIVE_TEST',
-  'VIDEO_TEST',
-  'TEST_DATA_SUMMARY',
-  'TEST_CONCLUSION',
-  'STYLE_ARCHIVE_CREATE',
-  'SAMPLE_RETURN_HANDLE',
-]
-
-const engineeringFlow: PcsProjectWorkItemCode[] = [
-  'PROJECT_INIT',
-  'SAMPLE_ACQUIRE',
-  'REVISION_TASK',
   'PATTERN_TASK',
   'PATTERN_ARTWORK_TASK',
   'FIRST_SAMPLE',
   'FIRST_ORDER_SAMPLE',
   'SAMPLE_INBOUND_CHECK',
+  'FEASIBILITY_REVIEW',
   'SAMPLE_COST_REVIEW',
   'CHANNEL_PRODUCT_LISTING',
   'LIVE_TEST',
@@ -140,23 +125,23 @@ const templates = listProjectTemplates()
 const activeTemplates = listActiveProjectTemplates()
 const schemas = listProjectTemplateSchemas()
 
-assert.equal(templates.length, 3, '项目模板 mock 应收口为 2 套测款模板和 1 套工程打样模板')
-assert.equal(activeTemplates.length, 3, '三套正式业务模板都应启用')
+assert.equal(templates.length, 2, '项目模板 mock 应收口为国内采购样衣测款和万隆改版出样衣测款两套模板')
+assert.equal(activeTemplates.length, 2, '两套正式业务模板都应启用')
 assert.deepEqual(
   templates.map((item) => item.name).sort(),
-  ['万隆改版出样衣测款项目', '国内采购样衣测款项目', '工程打样转测款项目'].sort(),
-  '模板名称应为两套正式测款项目模板和一套工程打样模板',
+  ['万隆改版出样衣测款项目', '国内采购样衣测款项目'].sort(),
+  '模板名称应仅保留国内采购样衣测款和万隆改版出样衣测款两类',
 )
-assert.equal(schemas.length, 3, '正式模板矩阵应保留三套')
+assert.equal(schemas.length, 2, '正式模板矩阵应仅保留两套')
 assert.ok(!templates.some((item) => /快时尚款 -|设计款 -|完整测款转档|直播快反|设计验证/.test(item.name)), '模板列表不应保留旧四模板名称')
+assert.ok(!templates.some((item) => /工程打样转测款/.test(item.name)), '模板列表不应保留第三类工程打样转测款项目')
 
 const projectCountBeforeDemoSeed = listProjects().length
 ensurePcsProjectDemoDataReady()
 assert.equal(listProjects().length, projectCountBeforeDemoSeed, '清洁状态下不应额外注入商品项目 mock')
 
 assert.deepEqual(flattenSchemaNodeCodes(DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID), domesticFlow, '国内采购样衣测款模板节点顺序不符合 v1.0')
-assert.deepEqual(flattenSchemaNodeCodes(WANLONG_REVISION_SAMPLE_TEMPLATE_ID), wanlongFlow, '万隆改版出样衣测款模板节点顺序不符合 v1.0')
-assert.deepEqual(flattenSchemaNodeCodes('TPL-004'), engineeringFlow, '工程打样转测款模板节点顺序不符合花型任务链路')
+assert.deepEqual(flattenSchemaNodeCodes(WANLONG_REVISION_SAMPLE_TEMPLATE_ID), wanlongFlow, '万隆改版出样衣测款模板节点顺序不符合改版、制版、花型、首版和首单样衣链路')
 assert.equal(
   getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING').phaseCode,
   'PHASE_02',
@@ -174,7 +159,7 @@ assert.equal(
 )
 
 const workItemCodes = listProjectWorkItemContracts().map((item) => item.workItemTypeCode)
-assertIncludesAll(workItemCodes, Array.from(new Set([...domesticFlow, ...wanlongFlow, ...engineeringFlow])), '工作项库缺少正式模板所需工作项')
+assertIncludesAll(workItemCodes, Array.from(new Set([...domesticFlow, ...wanlongFlow])), '工作项库缺少正式模板所需工作项')
 
 const sampleAcquireFieldKeys = fieldKeys('SAMPLE_ACQUIRE')
 assertIncludesAll(
@@ -357,6 +342,9 @@ assertIncludesAll(
     'returnRecipient',
     'returnDepartment',
     'returnAddress',
+    'expressCompany',
+    'trackingNumber',
+    'logisticsEvidence',
     'returnDate',
     'sampleCode',
     'returnDocCode',
@@ -381,6 +369,11 @@ sampleReturnMockRecords.forEach((record) => {
   assert.ok(String(payload.returnResult || '').trim(), `${record.recordCode} 必须填写处理结果说明`)
   assert.ok(String(payload.returnDocCode || '').trim(), `${record.recordCode} 必须填写退回单号`)
   assert.ok(String(payload.destination || '').trim(), `${record.recordCode} 必须填写处理去向`)
+  if (['退样', '寄回'].includes(String(payload.handleType || '').trim())) {
+    assert.ok(String(payload.expressCompany || '').trim(), `${record.recordCode} 退样或寄回时必须填写快递公司`)
+    assert.ok(String(payload.trackingNumber || '').trim(), `${record.recordCode} 退样或寄回时必须填写快递单号`)
+    assert.ok(String(payload.logisticsEvidence || '').trim(), `${record.recordCode} 退样或寄回时必须填写物流凭证`)
+  }
 })
 const generatedReturnCases = listPcsSampleReturnCases().filter((item) => item.caseId.startsWith('project-'))
 assert.ok(generatedReturnCases.length > 0, '样衣退回处理正式记录必须派生到样衣退货与处理案件列表')
@@ -392,6 +385,12 @@ assert.equal(
 assert.ok(
   generatedReturnCases.every((item) => item.sampleCode && item.sampleCode !== '-' && item.reasonCategory !== '退回处理'),
   '项目样衣退回处理派生案件必须带真实样衣编号和处理方式',
+)
+assert.ok(
+  generatedReturnCases
+    .filter((item) => item.caseType === '退货')
+    .every((item) => item.carrier && item.trackingNo && item.logisticsEvidence),
+  '项目样衣退样或寄回派生案件必须带快递公司、快递单号和物流凭证',
 )
 assert.ok(
   listPcsSampleLedgerEvents().some((item) => generatedReturnCases.some((caseItem) => caseItem.caseCode === item.sourceDoc)),

@@ -330,6 +330,9 @@ export interface SampleReturnHandlePayload {
   returnRecipient?: string
   returnDepartment?: string
   returnAddress?: string
+  expressCompany?: string
+  trackingNumber?: string
+  logisticsEvidence?: string
   returnDate?: string
   sampleCode?: string
   returnDocCode?: string
@@ -339,6 +342,9 @@ export interface SampleReturnHandleDetailSnapshot {
   returnRecipient?: string
   returnDepartment?: string
   returnAddress?: string
+  expressCompany?: string
+  trackingNumber?: string
+  logisticsEvidence?: string
   returnDate?: string
   modificationReason?: string
   sampleCode?: string
