@@ -25,7 +25,10 @@ import {
   resetTechPackVersionLogRepository,
 } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import { generateTechPackVersionFromPatternTask } from '../src/data/pcs-tech-pack-task-generation.ts'
-import { replaceTechnicalDataVersionStore } from '../src/data/pcs-technical-data-version-repository.ts'
+import {
+  replaceTechnicalDataVersionStore,
+  updateTechnicalDataVersionRecord,
+} from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetPlateMakingTaskRepository, upsertPlateMakingTask } from '../src/data/pcs-plate-making-repository.ts'
 import { resetPatternTaskRepository, upsertPatternTask } from '../src/data/pcs-pattern-task-repository.ts'
 import { resetRevisionTaskRepository, upsertRevisionTask } from '../src/data/pcs-revision-task-repository.ts'
@@ -163,6 +166,8 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
     patternMode: '定位印',
     artworkName: `${code}-花型`,
     artworkVersion,
+    completionImageIds: [`mock://pattern-complete/${code}.png`],
+    buyerReviewStatus: '买手已通过',
     linkedTechPackVersionId: '',
     linkedTechPackVersionCode: '',
     linkedTechPackVersionLabel: '',
@@ -243,6 +248,34 @@ resetScenario()
 const { style, project } = prepareProjectAndStyle()
 const plateTask = createPlateTask(project.projectId, style.styleCode)
 const baseVersion = generateTechPackVersionFromPlateTask(plateTask.plateTaskId, '测试用户').record
+updateTechnicalDataVersionRecord(baseVersion.technicalVersionId, {
+  reviewStage: '待发布',
+  reviewSubmittedAt: '2026-04-20 14:30',
+  reviewSubmittedBy: '测试用户',
+  merchandiserReview: {
+    nodeKey: 'MERCHANDISER',
+    nodeName: '跟单审核',
+    status: '审核-已通过',
+    reviewerRole: '跟单',
+    assignedReviewerId: 'merchandiser-test',
+    assignedReviewerName: '测试跟单',
+    assignedReviewerRole: '跟单',
+    assignedReviewerFeishuOpenId: '',
+    assignedAt: '2026-04-20 14:30',
+    assignedBy: '测试用户',
+    reviewedBy: '测试跟单',
+    reviewedAt: '2026-04-20 14:40',
+    startedOpinion: '',
+    opinion: '确认发布',
+    diffSnapshotId: '',
+    diffStatus: '无差异',
+    diffSummaryText: '',
+    lastFeishuNotifyAt: '',
+    lastFeishuNotifyStatus: '未发送',
+    lastFeishuNotifyRecordId: '',
+    todayFeishuNotifiedFlag: false,
+  },
+})
 publishTechnicalDataVersion(baseVersion.technicalVersionId, '测试用户')
 activateTechPackVersionForStyle(style.styleId, baseVersion.technicalVersionId, '测试用户')
 
@@ -281,7 +314,7 @@ const techPackHtml = renderTechPackPage(style.styleCode, {
   styleId: style.styleId,
   technicalVersionId: baseVersion.technicalVersionId,
 })
-assert.ok(techPackHtml.includes('技术包版本日志'), '技术包详情必须展示版本日志区')
-assert.ok(techPackHtml.includes('发布技术包版本'), '技术包详情仍应保留发布动作')
+assert.ok(techPackHtml.includes('查看版本日志'), '技术包详情必须展示版本日志入口')
+assert.ok(!techPackHtml.includes('未找到正式技术包版本'), '技术包详情必须能打开当前版本')
 
 console.log('pcs-tech-pack-version-log.spec.ts PASS')

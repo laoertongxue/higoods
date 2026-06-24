@@ -10,7 +10,9 @@ export interface TechPackDesignRequirementBomItem {
   printRequirement?: string
   printSideMode?: '' | 'SINGLE' | 'DOUBLE'
   frontPatternDesignId?: string
+  frontPatternDesignIds?: string[]
   insidePatternDesignId?: string
+  insidePatternDesignIds?: string[]
 }
 
 export interface TechPackDesignRequirementPatternDesign {
@@ -81,6 +83,30 @@ function findDesign(
   return design
 }
 
+function normalizeDesignIds(ids: unknown, legacyId?: unknown): string[] {
+  const source = Array.isArray(ids) ? ids : []
+  const seen = new Set<string>()
+  const result: string[] = []
+  ;[...source, legacyId].forEach((item) => {
+    const id = normalizeText(item)
+    if (!id || seen.has(id)) return
+    seen.add(id)
+    result.push(id)
+  })
+  return result
+}
+
+function findDesigns(
+  designById: Map<string, TechPackDesignRequirementPatternDesign>,
+  designIds: unknown,
+  legacyId: unknown,
+  side: TechPackDesignRequirementSide,
+): TechPackDesignRequirementPatternDesign[] {
+  return normalizeDesignIds(designIds, legacyId)
+    .map((designId) => findDesign(designById, designId, side))
+    .filter((design): design is TechPackDesignRequirementPatternDesign => Boolean(design))
+}
+
 function buildIssue(
   item: TechPackDesignRequirementBomItem,
   index: number,
@@ -115,11 +141,19 @@ export function validateTechPackDesignRequirement(input: {
       return
     }
 
-    if (!findDesign(designById, item.frontPatternDesignId, 'FRONT')) {
+    const frontDesigns = findDesigns(designById, item.frontPatternDesignIds, item.frontPatternDesignId, 'FRONT')
+    const insideDesigns = findDesigns(designById, item.insidePatternDesignIds, item.insidePatternDesignId, 'INSIDE')
+
+    if (item.printSideMode === 'SINGLE' && frontDesigns.length === 0 && insideDesigns.length === 0) {
+      issues.push(buildIssue(item, index, 'FRONT', '未绑定已上传的正面或里面花型图'))
+      return
+    }
+
+    if (item.printSideMode === 'DOUBLE' && frontDesigns.length === 0) {
       issues.push(buildIssue(item, index, 'FRONT', '未绑定已上传的正面花型图'))
     }
 
-    if (item.printSideMode === 'DOUBLE' && !findDesign(designById, item.insidePatternDesignId, 'INSIDE')) {
+    if (item.printSideMode === 'DOUBLE' && insideDesigns.length === 0) {
       issues.push(buildIssue(item, index, 'INSIDE', '未绑定已上传的里面花型图'))
     }
   })

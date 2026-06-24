@@ -14,7 +14,7 @@ assert.match(listHtml, /\/pcs\/templates\/TPL-001/, '列表页应包含详情跳
 const detailHtml = renderPcsTemplateDetailPage('TPL-001')
 
 assert.match(detailHtml, /阶段与工作项配置/, '详情页应渲染阶段配置章节')
-assert.match(detailHtml, /基础款 - 完整测款转档模板/, '详情页应渲染模板名称')
+assert.match(detailHtml, /国内采购样衣测款项目/, '详情页应渲染模板名称')
 
 const editorHtml = renderPcsTemplateEditorPage()
 

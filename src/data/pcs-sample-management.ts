@@ -8,6 +8,7 @@ export type PcsSampleStatus =
   | '维修中'
   | '待处置'
   | '已退货'
+  | '已处置'
 
 export type PcsSampleAvailability = '可申请' | '需审批' | '不可申请'
 
@@ -321,39 +322,6 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     updatedBy: '物流系统',
   },
   {
-    sampleId: 'smp-005',
-    sampleCode: 'SY-INA-005',
-    name: '复古皮夹克-P1',
-    imageUrl: '/jacket-sample.jpg',
-    category: '外套',
-    size: 'M',
-    color: '黑色',
-    material: '仿皮',
-    templateType: '设计款',
-    projectId: 'pcs-project-test-eliminated',
-    projectCode: 'PRJ-202604-005',
-    projectName: '复古短款夹克',
-    relatedWorkItemName: '样衣退回处理',
-    status: '待处置',
-    availability: '不可申请',
-    responsibleSite: '深圳样衣间',
-    currentLocation: '待处理区',
-    locationDetail: '样衣仓异常货架 C-01',
-    occupancyType: '无',
-    occupiedBy: '',
-    occupiedFor: '',
-    occupiedUntil: '',
-    transit: null,
-    anomaly: {
-      type: '质量问题',
-      level: '高',
-      since: '2026-04-07 15:20',
-      note: '肩部车缝不稳定，测款淘汰后待退货或内部留样。',
-    },
-    updatedAt: '2026-04-09 16:00',
-    updatedBy: '赵强',
-  },
-  {
     sampleId: 'smp-006',
     sampleCode: 'SY-INA-006',
     name: '米色针织开衫-F',
@@ -413,34 +381,6 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     anomaly: null,
     updatedAt: '2026-04-11 14:00',
     updatedBy: '林小红',
-  },
-  {
-    sampleId: 'smp-008',
-    sampleCode: 'SY-INA-008',
-    name: '通勤长裤-M',
-    imageUrl: '/pants-sample.jpg',
-    category: '裤装',
-    size: 'M',
-    color: '深灰',
-    material: '西装料',
-    templateType: '改版款',
-    projectId: 'pcs-project-first-order-complete',
-    projectCode: 'PRJ-202604-008',
-    projectName: '通勤长裤改版',
-    relatedWorkItemName: '首单样确认',
-    status: '已退货',
-    availability: '不可申请',
-    responsibleSite: '深圳样衣间',
-    currentLocation: '供应商已签收',
-    locationDetail: '深圳版房甲',
-    occupancyType: '无',
-    occupiedBy: '',
-    occupiedFor: '',
-    occupiedUntil: '',
-    transit: null,
-    anomaly: null,
-    updatedAt: '2026-04-08 17:30',
-    updatedBy: '李仓管',
   },
 ]
 
@@ -590,24 +530,6 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
     remark: '等待仓管确认归还入库。',
   },
   {
-    transferId: 'tr-004',
-    time: '2026-04-08 17:30',
-    sampleId: 'smp-008',
-    sampleCode: 'SY-INA-008',
-    sampleName: '通勤长裤-M',
-    transferCategory: '退货流转',
-    eventType: '签收',
-    fromEntity: '深圳样衣间',
-    toEntity: '深圳版房甲',
-    responsibleSite: '深圳样衣间',
-    trackingNo: 'YT88000421',
-    carrier: '圆通',
-    projectCode: 'PRJ-202604-008',
-    operator: '李仓管',
-    riskFlags: [],
-    remark: '供应商已签收，库存状态同步为已退货。',
-  },
-  {
     transferId: 'tr-005',
     time: '2026-04-09 12:30',
     sampleId: 'smp-006',
@@ -627,84 +549,7 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
   },
 ]
 
-export const PCS_SAMPLE_RETURN_CASES: PcsSampleReturnCase[] = [
-  {
-    caseId: 'case-001',
-    caseCode: 'RC-202604-001',
-    caseType: '处置',
-    status: '待审批',
-    responsibleSite: '深圳样衣间',
-    sampleId: 'smp-005',
-    sampleCode: 'SY-INA-005',
-    sampleName: '复古皮夹克-P1',
-    sampleImageUrl: '/jacket-sample.jpg',
-    inventoryStatusSnapshot: '待处置',
-    reasonCategory: '质量问题',
-    reasonText: '肩部车缝不稳定，测款淘汰后需判断退货或内部留样。',
-    projectCode: 'PRJ-202604-005',
-    initiatedBy: '赵强',
-    acceptedBy: '陈明',
-    returnTarget: '',
-    returnMethod: '',
-    dispositionResult: '待定',
-    updatedAt: '2026-04-09 16:00',
-    riskFlag: '高风险',
-    timeline: [{ time: '2026-04-09 16:00', action: '发起处置', operator: '赵强' }],
-  },
-  {
-    caseId: 'case-002',
-    caseCode: 'RC-202604-002',
-    caseType: '退货',
-    status: '已结案',
-    responsibleSite: '深圳样衣间',
-    sampleId: 'smp-008',
-    sampleCode: 'SY-INA-008',
-    sampleName: '通勤长裤-M',
-    sampleImageUrl: '/pants-sample.jpg',
-    inventoryStatusSnapshot: '已退货',
-    reasonCategory: '供应商退样',
-    reasonText: '首单样确认后供应商要求回收母样。',
-    projectCode: 'PRJ-202604-008',
-    initiatedBy: '李仓管',
-    acceptedBy: '陈明',
-    returnTarget: '深圳版房甲',
-    returnMethod: '快递寄回',
-    dispositionResult: '',
-    updatedAt: '2026-04-08 17:30',
-    riskFlag: '',
-    timeline: [
-      { time: '2026-04-08 17:30', action: '结案', operator: '李仓管', remark: '已写入台账退货事件。' },
-      { time: '2026-04-08 10:00', action: '审批通过', operator: '陈明' },
-      { time: '2026-04-07 18:00', action: '发起退货', operator: '李仓管' },
-    ],
-  },
-  {
-    caseId: 'case-003',
-    caseCode: 'RC-202604-003',
-    caseType: '处置',
-    status: '执行中',
-    responsibleSite: '雅加达样衣间',
-    sampleId: 'smp-006',
-    sampleCode: 'SY-INA-006',
-    sampleName: '米色针织开衫-F',
-    sampleImageUrl: '/cardigan-sample.jpg',
-    inventoryStatusSnapshot: '维修中',
-    reasonCategory: '破损维修',
-    reasonText: '袖口开线，先维修再恢复库存。',
-    projectCode: 'PRJ-202604-006',
-    initiatedBy: 'Budi',
-    acceptedBy: '林小红',
-    returnTarget: '',
-    returnMethod: '',
-    dispositionResult: '内部维修后留用',
-    updatedAt: '2026-04-09 12:30',
-    riskFlag: '中风险',
-    timeline: [
-      { time: '2026-04-09 12:30', action: '执行处置', operator: 'Budi', remark: '已转维修篮。' },
-      { time: '2026-04-09 10:20', action: '审批通过', operator: '林小红' },
-    ],
-  },
-]
+export const PCS_SAMPLE_RETURN_CASES: PcsSampleReturnCase[] = []
 
 export const PCS_SAMPLE_LEDGER_EVENTS: PcsSampleLedgerEvent[] = [
   {
@@ -782,44 +627,6 @@ export const PCS_SAMPLE_LEDGER_EVENTS: PcsSampleLedgerEvent[] = [
     operator: '王芳',
     isVoided: false,
     remark: '待仓管验收。',
-  },
-  {
-    eventId: 'lg-005',
-    time: '2026-04-09 12:30',
-    site: '雅加达样衣间',
-    sampleId: 'smp-006',
-    sampleCode: 'SY-INA-006',
-    sampleName: '米色针织开衫-F',
-    eventType: '处置',
-    summary: '破损样衣转维修处理',
-    fromLocation: '雅加达样衣间',
-    toLocation: '维修篮 JKT-02',
-    holder: 'Budi',
-    sourceDoc: 'RC-202604-003',
-    projectCode: 'PRJ-202604-006',
-    workItemName: '直播补样',
-    operator: 'Budi',
-    isVoided: false,
-    remark: '袖口开线，维修后恢复库存。',
-  },
-  {
-    eventId: 'lg-006',
-    time: '2026-04-08 17:30',
-    site: '深圳样衣间',
-    sampleId: 'smp-008',
-    sampleCode: 'SY-INA-008',
-    sampleName: '通勤长裤-M',
-    eventType: '退货',
-    summary: '供应商签收退货样衣',
-    fromLocation: '深圳样衣间',
-    toLocation: '深圳版房甲',
-    holder: '深圳版房甲',
-    sourceDoc: 'RC-202604-002',
-    projectCode: 'PRJ-202604-008',
-    workItemName: '首单样确认',
-    operator: '李仓管',
-    isVoided: false,
-    remark: '库存状态更新为已退货。',
   },
 ]
 
@@ -949,8 +756,182 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
   })
 }
 
-export function listPcsSampleRecords(): PcsSampleRecord[] {
+function getReturnHandlePayload(record: ReturnType<typeof listProjectInlineNodeRecordsByWorkItemType>[number]): Record<string, unknown> {
+  return {
+    ...((record.detailSnapshot || {}) as Record<string, unknown>),
+    ...((record.payload || {}) as Record<string, unknown>),
+  }
+}
+
+function isCompletedReturnHandleStatus(recordStatus: string): boolean {
+  return recordStatus === '已完成'
+}
+
+function getReturnHandleCaseStatus(recordStatus: string): PcsSampleReturnCaseStatus {
+  if (isCompletedReturnHandleStatus(recordStatus)) return '已结案'
+  if (recordStatus === '待补充') return '待执行'
+  return '执行中'
+}
+
+function getReturnHandleCaseType(handleType: string): PcsSampleReturnCaseType {
+  return handleType === '退样' || handleType === '寄回' ? '退货' : '处置'
+}
+
+function getReturnHandleLedgerEventType(handleType: string): PcsSampleLedgerEventType {
+  if (handleType === '退样' || handleType === '寄回') return '退货'
+  if (handleType === '入库留样') return '入库'
+  return '处置'
+}
+
+function getReturnHandledSampleStatus(recordStatus: string, handleType: string, fallback: PcsSampleStatus): PcsSampleStatus {
+  if (!isCompletedReturnHandleStatus(recordStatus)) return '待处置'
+  if (handleType === '退样' || handleType === '寄回') return '已退货'
+  if (handleType === '入库留样') return '在库可用'
+  if (handleType === '清仓处理' || handleType === '报废处理') return '已处置'
+  return fallback
+}
+
+function getReturnHandledAvailability(status: PcsSampleStatus): PcsSampleAvailability {
+  return status === '在库可用' ? '可申请' : '不可申请'
+}
+
+function listBasePcsSampleRecords(): PcsSampleRecord[] {
   return [...buildGeneratedSampleRecords(), ...PCS_SAMPLE_RECORDS]
+}
+
+function applyReturnHandleStatusToSamples(samples: PcsSampleRecord[]): PcsSampleRecord[] {
+  const latestBySampleCode = new Map<string, ReturnType<typeof listProjectInlineNodeRecordsByWorkItemType>[number]>()
+  listProjectInlineNodeRecordsByWorkItemType('SAMPLE_RETURN_HANDLE').forEach((record) => {
+    const payload = getReturnHandlePayload(record)
+    const sampleCode = String(payload.sampleCode || '').trim()
+    if (!sampleCode) return
+    const existing = latestBySampleCode.get(sampleCode)
+    if (!existing || `${record.updatedAt} ${record.recordCode}`.localeCompare(`${existing.updatedAt} ${existing.recordCode}`) > 0) {
+      latestBySampleCode.set(sampleCode, record)
+    }
+  })
+
+  return samples.map((sample) => {
+    const latestReturn = latestBySampleCode.get(sample.sampleCode)
+    if (!latestReturn) return sample
+    const payload = getReturnHandlePayload(latestReturn)
+    const handleType = String(payload.handleType || '').trim()
+    const destination = String(payload.destination || payload.returnAddress || payload.returnRecipient || '').trim()
+    const returnResult = String(payload.returnResult || '').trim()
+    const nextStatus = getReturnHandledSampleStatus(latestReturn.recordStatus, handleType, sample.status)
+    const completed = isCompletedReturnHandleStatus(latestReturn.recordStatus)
+    return {
+      ...sample,
+      status: nextStatus,
+      availability: getReturnHandledAvailability(nextStatus),
+      currentLocation:
+        nextStatus === '已退货'
+          ? destination || '已退回'
+          : nextStatus === '已处置'
+            ? destination || '已处置'
+            : nextStatus === '在库可用'
+              ? destination || sample.currentLocation
+              : '样衣退回处理待执行',
+      locationDetail: `${latestReturn.recordCode} · ${handleType || '退回处理'}${returnResult ? ` · ${returnResult}` : ''}`,
+      anomaly: completed
+        ? null
+        : {
+            type: '退回处理待执行',
+            level: '中',
+            since: latestReturn.businessDate,
+            note: returnResult || '样衣退回处理记录尚未完成。',
+          },
+      updatedAt: latestReturn.updatedAt || latestReturn.businessDate,
+      updatedBy: latestReturn.updatedBy || latestReturn.ownerName,
+    }
+  })
+}
+
+function findBaseSampleByCode(sampleCode: string): PcsSampleRecord | null {
+  return listBasePcsSampleRecords().find((item) => item.sampleCode === sampleCode || item.sampleId === sampleCode) ?? null
+}
+
+function buildGeneratedSampleReturnCases(): PcsSampleReturnCase[] {
+  return listProjectInlineNodeRecordsByWorkItemType('SAMPLE_RETURN_HANDLE').map((record) => {
+    const payload = getReturnHandlePayload(record)
+    const handleType = String(payload.handleType || '').trim()
+    const sampleCode = String(payload.sampleCode || '').trim()
+    const sample = sampleCode ? findBaseSampleByCode(sampleCode) : null
+    const caseType = getReturnHandleCaseType(handleType)
+    const destination = String(payload.destination || '').trim()
+    const returnRecipient = String(payload.returnRecipient || '').trim()
+    const returnAddress = String(payload.returnAddress || '').trim()
+    const returnResult = String(payload.returnResult || '').trim()
+    const operator = String(payload.handledBy || record.updatedBy || record.ownerName || '').trim()
+    const caseCode = String(payload.returnDocCode || record.recordCode).trim()
+    const status = getReturnHandleCaseStatus(record.recordStatus)
+    return {
+      caseId: `project-${record.recordId}`,
+      caseCode,
+      caseType,
+      status,
+      responsibleSite: sample?.responsibleSite || '深圳样衣间',
+      sampleId: sample?.sampleId || sampleCode || record.recordId,
+      sampleCode: sampleCode || '-',
+      sampleName: sample?.name || record.projectName,
+      sampleImageUrl: sample?.imageUrl || `https://placehold.co/96x128?text=${encodeURIComponent(sampleCode || record.projectCode)}`,
+      inventoryStatusSnapshot: getReturnHandledSampleStatus(record.recordStatus, handleType, sample?.status || '待处置'),
+      reasonCategory: handleType || '退回处理',
+      reasonText: returnResult || `项目 ${record.projectName} 收尾阶段登记样衣退回或处置结果。`,
+      projectCode: record.projectCode,
+      initiatedBy: record.createdBy || record.ownerName,
+      acceptedBy: operator || record.ownerName,
+      returnTarget: destination || returnRecipient || returnAddress,
+      returnMethod: caseType === '退货' ? handleType || '退货' : '',
+      dispositionResult: caseType === '处置' ? returnResult : '',
+      updatedAt: record.updatedAt || record.businessDate,
+      riskFlag: ['报废处理', '清仓处理'].includes(handleType) || status !== '已结案' ? '中风险' : '',
+      timeline: [
+        { time: record.createdAt || record.businessDate, action: '登记退回处理', operator: record.createdBy || record.ownerName },
+        ...(status === '已结案'
+          ? [{ time: record.updatedAt || record.businessDate, action: '结案', operator: operator || record.updatedBy || record.ownerName, remark: returnResult }]
+          : []),
+      ],
+    }
+  })
+}
+
+function buildGeneratedSampleLedgerEvents(): PcsSampleLedgerEvent[] {
+  return listProjectInlineNodeRecordsByWorkItemType('SAMPLE_RETURN_HANDLE')
+    .filter((record) => isCompletedReturnHandleStatus(record.recordStatus))
+    .map((record) => {
+      const payload = getReturnHandlePayload(record)
+      const handleType = String(payload.handleType || '').trim()
+      const sampleCode = String(payload.sampleCode || '').trim()
+      const sample = sampleCode ? findBaseSampleByCode(sampleCode) : null
+      const destination = String(payload.destination || payload.returnAddress || payload.returnRecipient || '').trim()
+      const operator = String(payload.handledBy || record.updatedBy || record.ownerName || '').trim()
+      const sourceDoc = String(payload.returnDocCode || record.recordCode).trim()
+      const eventType = getReturnHandleLedgerEventType(handleType)
+      return {
+        eventId: `lg-${record.recordId}`,
+        time: String(payload.handledAt || record.businessDate || record.updatedAt),
+        site: sample?.responsibleSite || '深圳样衣间',
+        sampleId: sample?.sampleId || sampleCode || record.recordId,
+        sampleCode: sampleCode || '-',
+        sampleName: sample?.name || record.projectName,
+        eventType,
+        summary: `${handleType || '样衣退回处理'}：${String(payload.returnResult || '已完成处理')}`,
+        fromLocation: sample?.currentLocation || '商品项目样衣',
+        toLocation: destination || (eventType === '退货' ? '退回目标' : eventType === '入库' ? '样衣库存' : '处置完成'),
+        holder: String(payload.returnRecipient || operator || destination || '-'),
+        sourceDoc,
+        projectCode: record.projectCode,
+        workItemName: record.workItemTypeName,
+        operator: operator || record.updatedBy || record.ownerName,
+        isVoided: false,
+        remark: String(payload.returnResult || ''),
+      }
+    })
+}
+
+export function listPcsSampleRecords(): PcsSampleRecord[] {
+  return applyReturnHandleStatusToSamples(listBasePcsSampleRecords())
 }
 
 export function getPcsSampleById(sampleId: string): PcsSampleRecord | null {
@@ -966,11 +947,11 @@ export function listPcsSampleTransfers(): PcsSampleTransferRecord[] {
 }
 
 export function listPcsSampleReturnCases(): PcsSampleReturnCase[] {
-  return [...PCS_SAMPLE_RETURN_CASES]
+  return [...buildGeneratedSampleReturnCases(), ...PCS_SAMPLE_RETURN_CASES]
 }
 
 export function listPcsSampleLedgerEvents(): PcsSampleLedgerEvent[] {
-  return [...PCS_SAMPLE_LEDGER_EVENTS]
+  return [...buildGeneratedSampleLedgerEvents(), ...PCS_SAMPLE_LEDGER_EVENTS]
 }
 
 export function listPcsSampleStocktakeDiffs(): PcsSampleStocktakeDiff[] {
@@ -978,7 +959,7 @@ export function listPcsSampleStocktakeDiffs(): PcsSampleStocktakeDiff[] {
 }
 
 export function listPcsSampleLedgerEventsBySampleId(sampleId: string): PcsSampleLedgerEvent[] {
-  return PCS_SAMPLE_LEDGER_EVENTS.filter((item) => item.sampleId === sampleId)
+  return listPcsSampleLedgerEvents().filter((item) => item.sampleId === sampleId || item.sampleCode === sampleId)
 }
 
 export function listPcsSampleRequestsBySampleId(sampleId: string): PcsSampleUseRequest[] {

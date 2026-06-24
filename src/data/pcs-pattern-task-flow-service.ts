@@ -25,6 +25,9 @@ export function reviewPatternTaskByBuyer(
   if (reviewStatus === '买手已驳回' && !reviewNote.trim()) {
     throw new Error('买手驳回必须填写说明。')
   }
+  if (reviewStatus === '买手已通过' && !task.artworkVersion.trim() && task.completionImageIds.length === 0) {
+    throw new Error('买手通过前请先补充花型版次或完成确认图片。')
+  }
   const now = nowTaskText()
   const nextStatus = reviewStatus === '买手已通过' ? '已确认' : '进行中'
   const updated = updatePatternTask(patternTaskId, {

@@ -1463,19 +1463,42 @@ function buildGenericInlineSeed(
   }
 
   if (node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE') {
+    const returnDate = businessDate.slice(0, 10)
+    const returnDocCode = `RTN-${projectCode.slice(-3)}-GEN`
     return {
       projectCode,
       workItemTypeCode: 'SAMPLE_RETURN_HANDLE',
       sourceModule: '样衣退货与处理',
       sourceDocType: '样衣退回单',
-      sourceDocCode: `RTN-${projectCode.slice(-3)}-GEN`,
+      sourceDocCode: returnDocCode,
       businessDate,
       payload: {
-        returnResult: '已完成退回',
+        handleType: '退样',
+        destination: '退回供应商',
+        handledQty: 1,
+        handledBy: project.ownerName,
+        handledAt: businessDate,
+        returnResult: '已完成退样退回，供应商已签收。',
+        returnRecipient: '供应商收货人',
+        returnDepartment: '样衣管理',
+        returnAddress: '供应商指定收货地址',
+        returnDate,
+        sampleCode,
+        returnDocCode,
       },
       detailSnapshot: {
+        handleType: '退样',
+        destination: '退回供应商',
+        handledQty: 1,
+        handledBy: project.ownerName,
+        handledAt: businessDate,
+        returnResult: '已完成退样退回，供应商已签收。',
         returnRecipient: '供应商收货人',
-        returnDate: businessDate.slice(0, 10),
+        returnDepartment: '样衣管理',
+        returnAddress: '供应商指定收货地址',
+        returnDate,
+        sampleCode,
+        returnDocCode,
       },
     }
   }

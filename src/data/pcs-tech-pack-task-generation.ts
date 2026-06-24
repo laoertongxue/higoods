@@ -12,6 +12,7 @@ import { getPlateMakingTaskById, updatePlateMakingTask } from './pcs-plate-makin
 import { getPatternTaskById, updatePatternTask } from './pcs-pattern-task-repository.ts'
 import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
 import { listPatternAssets, updatePatternAsset } from './pcs-pattern-library.ts'
+import { getPatternTaskCompletionMissingFields } from './pcs-engineering-task-field-policy.ts'
 import {
   findStyleArchiveByCode,
   findStyleArchiveByProjectId,
@@ -362,7 +363,7 @@ function buildArtworkDesign(task: PatternTaskRecord): TechnicalPatternDesign[] {
     {
       id: `${task.patternTaskId}_design`,
       name: task.artworkName || task.title,
-      imageUrl: task.completionImageIds[0] || task.demandImageIds[0] || `mock://tech-pack/artwork/${task.patternTaskCode}`,
+      imageUrl: task.completionImageIds[0],
     },
   ]
 }
@@ -778,6 +779,10 @@ function ensurePatternTaskReady(task: PatternTaskRecord): PatternTaskRecord {
   if (!isTechPackGenerationAllowedStatus(task.status)) {
     throw new Error(getTechPackGenerationBlockedReason(task.status) || '当前花型任务尚未确认产出，不能写入技术包。')
   }
+  const missingFields = getPatternTaskCompletionMissingFields(task)
+  if (missingFields.length > 0) {
+    throw new Error(`花型任务产出未完整：缺少${missingFields.join('、')}，不能写入技术包。`)
+  }
   return task
 }
 
@@ -797,10 +802,7 @@ function getLatestPlateWritableVersion(styleId: string): TechnicalDataVersionRec
 }
 
 function buildPatternLibraryRefs(task: PatternTaskRecord, baseVersion: TechnicalDataVersionRecord): string[] {
-  const artworkVersion = task.artworkVersion?.trim()
-  return artworkVersion
-    ? appendUnique(baseVersion.linkedPatternLibraryVersionIds, artworkVersion)
-    : [...baseVersion.linkedPatternLibraryVersionIds]
+  return [...baseVersion.linkedPatternLibraryVersionIds]
 }
 
 function buildPatternAssetRefs(
@@ -1139,6 +1141,7 @@ export interface PatternTechPackActionMeta {
 }
 
 function buildPatternTechPackDisabledLabel(reason: string): string {
+  if (reason.includes('产出未完整')) return '待补齐产出'
   if (reason.includes('未绑定正式款式档案')) return '待关联款式档案'
   if (reason.includes('先完成制版任务生成技术包')) return '待生成技术包'
   if (reason.includes('尚未确认产出')) return '待任务确认'
@@ -1162,6 +1165,13 @@ function resolvePatternTechPackTarget(patternTaskId: string): PatternTechPackTar
     return {
       mode: 'WRITE',
       disabledReason: getTechPackGenerationBlockedReason(task.status) || '当前花型任务尚未确认产出，不能写入技术包。',
+    }
+  }
+  const missingFields = getPatternTaskCompletionMissingFields(task)
+  if (missingFields.length > 0) {
+    return {
+      mode: 'WRITE',
+      disabledReason: `花型任务产出未完整：缺少${missingFields.join('、')}，不能写入技术包。`,
     }
   }
   try {

@@ -111,10 +111,10 @@ export function renderAddDesignDialog(): string {
           <h3 class="text-lg font-semibold">上传设计稿</h3>
         </header>
         <div class="space-y-4 px-6 py-4">
-          <input id="tech-pack-design-file-input" type="file" accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.ai,.cdr" data-tech-field="new-design-file" class="hidden" />
+          <input id="tech-pack-design-file-input" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.ai,.cdr" data-tech-field="new-design-file" class="hidden" />
           <label class="space-y-1">
-            <span class="text-sm">设计稿名称 <span class="text-red-500">*</span></span>
-            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-design-name" value="${escapeHtml(state.newDesignName)}" placeholder="设计稿名称" />
+            <span class="text-sm">设计稿名称 / 批量前缀 <span class="text-red-500">*</span></span>
+            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-design-name" value="${escapeHtml(state.newDesignName)}" placeholder="设计稿名称 / 批量前缀" />
           </label>
           <label class="space-y-1">
             <span class="text-sm">花型类别 <span class="text-red-500">*</span></span>
@@ -126,19 +126,34 @@ export function renderAddDesignDialog(): string {
           <div class="space-y-2">
             <span class="text-sm">上传文件 <span class="text-red-500">*</span></span>
             <div class="rounded-lg border p-3">
-              <div class="mb-3 flex h-40 items-center justify-center overflow-hidden rounded bg-muted">
-                ${
-                  state.newDesignPreviewThumbnailDataUrl
-                    ? `<img src="${escapeHtml(state.newDesignPreviewThumbnailDataUrl)}" alt="${escapeHtml(state.newDesignName || '设计稿预览')}" class="h-full w-full object-cover" />`
-                    : '<span class="text-sm text-muted-foreground">暂无预览</span>'
-                }
-              </div>
-              <div class="space-y-2">
-                <div class="min-w-0 text-xs text-muted-foreground">原文件：${escapeHtml(state.newDesignFileName || '暂无数据')}</div>
-                <div class="text-xs text-muted-foreground">
-                  缩略图：${state.newDesignPreviewThumbnailDataUrl ? '已生成' : '暂无数据'}
-                </div>
-              </div>
+              ${
+                state.newDesignFiles.length === 0
+                  ? '<div class="mb-3 flex h-40 items-center justify-center overflow-hidden rounded bg-muted"><span class="text-sm text-muted-foreground">暂无预览</span></div>'
+                  : `<div class="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      ${state.newDesignFiles
+                        .map(
+                          (file) => `
+                            <div class="rounded-md border p-2">
+                              <div class="flex h-32 items-center justify-center overflow-hidden rounded bg-muted">
+                                ${
+                                  file.previewThumbnailDataUrl
+                                    ? `<img src="${escapeHtml(file.previewThumbnailDataUrl)}" alt="${escapeHtml(file.fileName)}" class="h-full w-full object-cover" />`
+                                    : '<span class="text-sm text-muted-foreground">暂无预览</span>'
+                                }
+                              </div>
+                              <div class="mt-2 space-y-1">
+                                <div class="min-w-0 truncate text-xs text-muted-foreground" title="${escapeHtml(file.fileName)}">原文件：${escapeHtml(file.fileName)}</div>
+                                <div class="text-xs text-muted-foreground">
+                                  缩略图：${file.previewThumbnailDataUrl ? '已生成' : '暂无数据'}
+                                </div>
+                                <div class="text-xs ${file.processing ? 'text-amber-600' : 'text-emerald-600'}">${file.processing ? '处理中' : '已就绪'}</div>
+                              </div>
+                            </div>
+                          `,
+                        )
+                        .join('')}
+                    </div>`
+              }
               <div class="mt-3 flex items-center justify-end gap-3">
                 <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-design-file-picker">选择文件</button>
               </div>
@@ -148,7 +163,7 @@ export function renderAddDesignDialog(): string {
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-design">取消</button>
           <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
-            state.newDesignName.trim() && state.newDesignFileName.trim() ? '' : 'pointer-events-none opacity-50'
+            state.newDesignName.trim() && state.newDesignFiles.length > 0 && state.newDesignFiles.every((file) => !file.processing && file.originalFileDataUrl.trim()) ? '' : 'pointer-events-none opacity-50'
           }" data-tech-action="save-design">确认</button>
         </footer>
       </section>

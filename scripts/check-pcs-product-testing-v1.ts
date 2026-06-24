@@ -22,6 +22,11 @@ import {
 import { createBootstrapProjectInlineNodeRecordSnapshot } from '../src/data/pcs-project-inline-node-record-bootstrap.ts'
 import { listProjectTemplates } from '../src/data/pcs-templates.ts'
 import { SAMPLE_COST_RAW_MATERIAL_ROWS_KEY, calculateSampleCostReview } from '../src/data/pcs-sample-cost-review-pricing.ts'
+import {
+  listPcsSampleLedgerEvents,
+  listPcsSampleRecords,
+  listPcsSampleReturnCases,
+} from '../src/data/pcs-sample-management.ts'
 
 const domesticFlow: PcsProjectWorkItemCode[] = [
   'PROJECT_INIT',
@@ -44,6 +49,25 @@ const wanlongFlow: PcsProjectWorkItemCode[] = [
   'REVISION_TASK',
   'SAMPLE_INBOUND_CHECK',
   'FEASIBILITY_REVIEW',
+  'SAMPLE_COST_REVIEW',
+  'CHANNEL_PRODUCT_LISTING',
+  'LIVE_TEST',
+  'VIDEO_TEST',
+  'TEST_DATA_SUMMARY',
+  'TEST_CONCLUSION',
+  'STYLE_ARCHIVE_CREATE',
+  'SAMPLE_RETURN_HANDLE',
+]
+
+const engineeringFlow: PcsProjectWorkItemCode[] = [
+  'PROJECT_INIT',
+  'SAMPLE_ACQUIRE',
+  'REVISION_TASK',
+  'PATTERN_TASK',
+  'PATTERN_ARTWORK_TASK',
+  'FIRST_SAMPLE',
+  'FIRST_ORDER_SAMPLE',
+  'SAMPLE_INBOUND_CHECK',
   'SAMPLE_COST_REVIEW',
   'CHANNEL_PRODUCT_LISTING',
   'LIVE_TEST',
@@ -116,14 +140,14 @@ const templates = listProjectTemplates()
 const activeTemplates = listActiveProjectTemplates()
 const schemas = listProjectTemplateSchemas()
 
-assert.equal(templates.length, 2, '项目模板 mock 应收口为 2 套正式业务模板')
-assert.equal(activeTemplates.length, 2, '两套正式业务模板都应启用')
+assert.equal(templates.length, 3, '项目模板 mock 应收口为 2 套测款模板和 1 套工程打样模板')
+assert.equal(activeTemplates.length, 3, '三套正式业务模板都应启用')
 assert.deepEqual(
   templates.map((item) => item.name).sort(),
-  ['万隆改版出样衣测款项目', '国内采购样衣测款项目'].sort(),
-  '模板名称应为两套正式测款项目模板',
+  ['万隆改版出样衣测款项目', '国内采购样衣测款项目', '工程打样转测款项目'].sort(),
+  '模板名称应为两套正式测款项目模板和一套工程打样模板',
 )
-assert.equal(schemas.length, 2, '正式模板矩阵只应保留两套')
+assert.equal(schemas.length, 3, '正式模板矩阵应保留三套')
 assert.ok(!templates.some((item) => /快时尚款 -|设计款 -|完整测款转档|直播快反|设计验证/.test(item.name)), '模板列表不应保留旧四模板名称')
 
 const projectCountBeforeDemoSeed = listProjects().length
@@ -132,6 +156,7 @@ assert.equal(listProjects().length, projectCountBeforeDemoSeed, '清洁状态下
 
 assert.deepEqual(flattenSchemaNodeCodes(DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID), domesticFlow, '国内采购样衣测款模板节点顺序不符合 v1.0')
 assert.deepEqual(flattenSchemaNodeCodes(WANLONG_REVISION_SAMPLE_TEMPLATE_ID), wanlongFlow, '万隆改版出样衣测款模板节点顺序不符合 v1.0')
+assert.deepEqual(flattenSchemaNodeCodes('TPL-004'), engineeringFlow, '工程打样转测款模板节点顺序不符合花型任务链路')
 assert.equal(
   getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING').phaseCode,
   'PHASE_02',
@@ -149,7 +174,7 @@ assert.equal(
 )
 
 const workItemCodes = listProjectWorkItemContracts().map((item) => item.workItemTypeCode)
-assertIncludesAll(workItemCodes, Array.from(new Set([...domesticFlow, ...wanlongFlow])), '工作项库缺少 v1.0 模板所需工作项')
+assertIncludesAll(workItemCodes, Array.from(new Set([...domesticFlow, ...wanlongFlow, ...engineeringFlow])), '工作项库缺少正式模板所需工作项')
 
 const sampleAcquireFieldKeys = fieldKeys('SAMPLE_ACQUIRE')
 assertIncludesAll(
@@ -322,8 +347,73 @@ const listingDefaultPriceField = getProjectWorkItemContract('CHANNEL_PRODUCT_LIS
 assert.equal(listingDefaultPriceField?.sourceRef, '样衣核价.销售价格', '商品上架默认售价必须来自样衣核价销售价格')
 assertIncludesAll(
   fieldKeys('SAMPLE_RETURN_HANDLE'),
-  ['handleType', 'destination', 'handledQty', 'handledBy', 'handledAt', 'returnResult'],
-  '样衣退回处理字段未覆盖退样、入库、清仓、寄回等处理信息',
+  [
+    'handleType',
+    'destination',
+    'handledQty',
+    'handledBy',
+    'handledAt',
+    'returnResult',
+    'returnRecipient',
+    'returnDepartment',
+    'returnAddress',
+    'returnDate',
+    'sampleCode',
+    'returnDocCode',
+  ],
+  '样衣退回处理字段未覆盖退样、入库、清仓、寄回、单据和样衣编号信息',
+)
+const sampleReturnFields = getProjectWorkItemContract('SAMPLE_RETURN_HANDLE').fieldDefinitions
+assert.equal(sampleReturnFields.find((field) => field.fieldKey === 'handleType')?.required, true, '样衣退回处理方式必须必填')
+assert.equal(sampleReturnFields.find((field) => field.fieldKey === 'sampleCode')?.required, true, '样衣退回处理必须绑定样衣编号')
+assert.equal(sampleReturnFields.find((field) => field.fieldKey === 'returnResult')?.required, true, '样衣退回处理结果说明必须必填')
+const sampleReturnMockRecords = createBootstrapProjectInlineNodeRecordSnapshot(2).records.filter(
+  (record) => record.workItemTypeCode === 'SAMPLE_RETURN_HANDLE',
+)
+assert.ok(sampleReturnMockRecords.length > 0, '必须存在样衣退回处理 mock 正式记录')
+sampleReturnMockRecords.forEach((record) => {
+  const payload = {
+    ...(record.detailSnapshot || {}),
+    ...(record.payload || {}),
+  } as Record<string, unknown>
+  assert.ok(String(payload.handleType || '').trim(), `${record.recordCode} 必须填写处理方式`)
+  assert.ok(String(payload.sampleCode || '').trim(), `${record.recordCode} 必须绑定样衣编号`)
+  assert.ok(String(payload.returnResult || '').trim(), `${record.recordCode} 必须填写处理结果说明`)
+  assert.ok(String(payload.returnDocCode || '').trim(), `${record.recordCode} 必须填写退回单号`)
+  assert.ok(String(payload.destination || '').trim(), `${record.recordCode} 必须填写处理去向`)
+})
+const generatedReturnCases = listPcsSampleReturnCases().filter((item) => item.caseId.startsWith('project-'))
+assert.ok(generatedReturnCases.length > 0, '样衣退回处理正式记录必须派生到样衣退货与处理案件列表')
+assert.equal(
+  listPcsSampleReturnCases().filter((item) => !item.caseId.startsWith('project-')).length,
+  0,
+  '样衣退货与处理 mock 不应保留没有商品项目节点上游的静态案件',
+)
+assert.ok(
+  generatedReturnCases.every((item) => item.sampleCode && item.sampleCode !== '-' && item.reasonCategory !== '退回处理'),
+  '项目样衣退回处理派生案件必须带真实样衣编号和处理方式',
+)
+assert.ok(
+  listPcsSampleLedgerEvents().some((item) => generatedReturnCases.some((caseItem) => caseItem.caseCode === item.sourceDoc)),
+  '样衣退回处理正式记录必须派生样衣台账事件',
+)
+assert.ok(
+  listPcsSampleLedgerEvents()
+    .filter((item) => generatedReturnCases.some((caseItem) => caseItem.caseCode === item.sourceDoc))
+    .every((item) => item.sampleCode && item.sampleCode !== '-'),
+  '项目样衣退回处理派生台账必须带真实样衣编号',
+)
+assert.ok(
+  listPcsSampleLedgerEvents().every((item) => !String(item.sourceDoc || '').startsWith('RC-202604-')),
+  '样衣台账不应保留没有商品项目节点上游的静态退货/处置来源',
+)
+assert.ok(
+  listPcsSampleRecords().some((item) => ['已退货', '已处置', '待处置', '在库可用'].includes(item.status)),
+  '样衣退回处理必须能覆盖样衣库存状态',
+)
+assert.ok(
+  listPcsSampleRecords().every((item) => !item.sampleCode.startsWith('SY-INA') || !['已退货', '待处置', '已处置'].includes(item.status)),
+  '静态样衣库存不应保留没有商品项目节点上游的退回/处置状态',
 )
 
 const conclusionField = getProjectWorkItemContract('TEST_CONCLUSION').fieldDefinitions.find((field) => field.fieldKey === 'conclusion')

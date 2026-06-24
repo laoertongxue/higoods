@@ -3,11 +3,11 @@ import {
   buildPartGeometryAnalysis,
   type PartGeometryFeatures,
   type PartGeometryVisualGuides,
-} from './pcs-part-template-geometry'
+} from './pcs-part-template-geometry.ts'
 import {
   buildPartShapeDescription,
   type PartShapeDescription,
-} from './pcs-part-template-shape-description'
+} from './pcs-part-template-shape-description.ts'
 
 export interface PartTemplatePoint {
   x: number

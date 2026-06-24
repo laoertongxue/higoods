@@ -239,7 +239,11 @@ function buildOfficialTemplateStore(): ProjectTemplate[] {
 templateStore = buildOfficialTemplateStore()
 
 function resolveSchemaTemplateId(templateId: string, templateName = ''): PcsProjectTemplateId {
-  if (templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID || templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID) {
+  if (
+    templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID ||
+    templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID ||
+    templateId === 'TPL-004'
+  ) {
     return templateId
   }
   return templateName.includes('万隆') ? WANLONG_REVISION_SAMPLE_TEMPLATE_ID : DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID

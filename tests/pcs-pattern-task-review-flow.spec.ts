@@ -4,7 +4,7 @@ import {
   reviewPatternTaskByBuyer,
   transferPatternTaskToChinaTeam,
 } from '../src/data/pcs-pattern-task-flow-service.ts'
-import { resetPatternTaskRepository } from '../src/data/pcs-pattern-task-repository.ts'
+import { resetPatternTaskRepository, updatePatternTask } from '../src/data/pcs-pattern-task-repository.ts'
 import { savePatternTaskDraft } from '../src/data/pcs-task-project-relation-writeback.ts'
 
 resetPatternTaskRepository()
@@ -35,6 +35,11 @@ assert.equal(rejected.status, '进行中')
 const transferred = transferPatternTaskToChinaTeam(task.patternTaskId, '雅加达团队无法还原颜色', 'cn_dandan')
 assert.equal(transferred.transferToTeamName, '中国团队')
 assert.equal(transferred.assignedMemberName, '单单')
+
+updatePatternTask(task.patternTaskId, {
+  artworkVersion: 'A1',
+  completionImageIds: ['mock://pattern-complete/b.png'],
+})
 
 const approved = reviewPatternTaskByBuyer(task.patternTaskId, '买手已通过', '文锋', '确认通过')
 assert.equal(approved.buyerReviewStatus, '买手已通过')

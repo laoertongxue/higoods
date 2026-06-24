@@ -60,6 +60,9 @@ import {
   getPartTemplateRecordById,
   getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
   getPatternDesignOptionsBySide,
+  getBomPatternDesignIds,
+  getPrimaryBomPatternDesignId,
+  normalizePatternDesignIdList,
   getPatternMaterialTypeLabel,
   getPatternParseStatusLabel,
   getPatternById,
@@ -374,6 +377,9 @@ function resetDesignDraft(): void {
   state.newDesignOriginalFileDataUrl = ''
   state.newDesignPreviewThumbnailDataUrl = ''
   state.selectedDesignFile = null
+  state.selectedDesignFiles = []
+  state.newDesignFiles = []
+  state.designFileSelectionToken += 1
 }
 
 function buildDesignPlaceholderImage(fileName: string, sideType: 'FRONT' | 'INSIDE'): string {
@@ -428,36 +434,64 @@ async function buildDesignThumbnailDataUrl(
   return canvas.toDataURL('image/png')
 }
 
-async function applySelectedDesignFile(file: File | null): Promise<void> {
-  state.selectedDesignFile = file
-  state.newDesignFileName = file?.name || ''
-  state.newDesignOriginalFileMimeType = file?.type || ''
-  state.newDesignOriginalFileDataUrl = ''
-  state.newDesignPreviewThumbnailDataUrl = file
-    ? buildDesignPlaceholderImage(file.name, state.newDesignSideType)
-    : ''
+function syncPrimaryDesignDraftFile(): void {
+  const primary = state.newDesignFiles[0] ?? null
+  state.selectedDesignFile = state.selectedDesignFiles[0] ?? null
+  state.newDesignFileName = primary?.fileName || ''
+  state.newDesignOriginalFileMimeType = primary?.mimeType || ''
+  state.newDesignOriginalFileDataUrl = primary?.originalFileDataUrl || ''
+  state.newDesignPreviewThumbnailDataUrl = primary?.previewThumbnailDataUrl || ''
+}
 
-  if (!file) {
-    requestTechPackRender()
-    return
-  }
+async function applySelectedDesignFiles(files: File[]): Promise<void> {
+  const selectionToken = state.designFileSelectionToken + 1
+  state.designFileSelectionToken = selectionToken
+  state.selectedDesignFiles = [...files]
+  state.newDesignFiles = files.map((file, index) => ({
+    id: `${selectionToken}-${index}-${file.name}`,
+    fileName: file.name,
+    mimeType: file.type,
+    originalFileDataUrl: '',
+    previewThumbnailDataUrl: buildDesignPlaceholderImage(file.name, state.newDesignSideType),
+    processing: true,
+  }))
+  syncPrimaryDesignDraftFile()
+  requestTechPackRender()
 
-  try {
-    const originalFileDataUrl = await readFileAsDataUrl(file)
-    const previewThumbnailDataUrl = isImageDesignFile(file)
-      ? await buildDesignThumbnailDataUrl(originalFileDataUrl, file.name, state.newDesignSideType)
-      : buildDesignPlaceholderImage(file.name, state.newDesignSideType)
+  if (files.length === 0) return
 
-    if (state.selectedDesignFile !== file) return
+  const draftFiles = await Promise.all(
+    files.map(async (file, index) => {
+      try {
+        const originalFileDataUrl = await readFileAsDataUrl(file)
+        const previewThumbnailDataUrl = isImageDesignFile(file)
+          ? await buildDesignThumbnailDataUrl(originalFileDataUrl, file.name, state.newDesignSideType)
+          : buildDesignPlaceholderImage(file.name, state.newDesignSideType)
 
-    state.newDesignOriginalFileDataUrl = originalFileDataUrl
-    state.newDesignPreviewThumbnailDataUrl = previewThumbnailDataUrl
-  } catch {
-    if (state.selectedDesignFile !== file) return
-    state.newDesignOriginalFileDataUrl = ''
-    state.newDesignPreviewThumbnailDataUrl = buildDesignPlaceholderImage(file.name, state.newDesignSideType)
-  }
+        return {
+          id: `${selectionToken}-${index}-${file.name}`,
+          fileName: file.name,
+          mimeType: file.type,
+          originalFileDataUrl,
+          previewThumbnailDataUrl,
+          processing: false,
+        }
+      } catch {
+        return {
+          id: `${selectionToken}-${index}-${file.name}`,
+          fileName: file.name,
+          mimeType: file.type,
+          originalFileDataUrl: '',
+          previewThumbnailDataUrl: buildDesignPlaceholderImage(file.name, state.newDesignSideType),
+          processing: false,
+        }
+      }
+    }),
+  )
 
+  if (state.designFileSelectionToken !== selectionToken) return
+  state.newDesignFiles = draftFiles
+  syncPrimaryDesignDraftFile()
   requestTechPackRender()
 }
 
@@ -497,18 +531,40 @@ function applyBomPrintRequirementChange(nextRequirement: string): void {
   if (nextRequirement === '无') {
     state.newBomItem.printSideMode = ''
     state.newBomItem.frontPatternDesignId = ''
+    state.newBomItem.frontPatternDesignIds = []
     state.newBomItem.insidePatternDesignId = ''
+    state.newBomItem.insidePatternDesignIds = []
   }
 }
 
 function applyBomPrintSideModeChange(nextMode: '' | 'SINGLE' | 'DOUBLE'): void {
   state.newBomItem.printSideMode = nextMode
-  if (nextMode !== 'DOUBLE') {
-    state.newBomItem.insidePatternDesignId = ''
-  }
   if (nextMode === '') {
     state.newBomItem.frontPatternDesignId = ''
+    state.newBomItem.frontPatternDesignIds = []
+    state.newBomItem.insidePatternDesignId = ''
+    state.newBomItem.insidePatternDesignIds = []
   }
+}
+
+function setBomPatternDesignIds(side: 'FRONT' | 'INSIDE', ids: string[]): void {
+  const nextIds = normalizePatternDesignIdList(ids)
+  if (side === 'FRONT') {
+    state.newBomItem.frontPatternDesignIds = nextIds
+    state.newBomItem.frontPatternDesignId = nextIds[0] || ''
+    return
+  }
+
+  state.newBomItem.insidePatternDesignIds = nextIds
+  state.newBomItem.insidePatternDesignId = nextIds[0] || ''
+}
+
+function toggleBomPatternDesignId(side: 'FRONT' | 'INSIDE', designId: string, checked: boolean): void {
+  const currentIds = getBomPatternDesignIds(state.newBomItem, side)
+  const nextIds = checked
+    ? normalizePatternDesignIdList([...currentIds, designId])
+    : currentIds.filter((item) => item !== designId)
+  setBomPatternDesignIds(side, nextIds)
 }
 
 function updatePatternPieceRow(
@@ -1899,11 +1955,19 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-bom-front-pattern-design-id') {
-    state.newBomItem.frontPatternDesignId = value
+    if (node instanceof HTMLInputElement && node.type === 'checkbox') {
+      toggleBomPatternDesignId('FRONT', String(node.dataset.designId || value).trim(), checked)
+    } else {
+      setBomPatternDesignIds('FRONT', value ? [value] : [])
+    }
     return true
   }
   if (field === 'new-bom-inside-pattern-design-id') {
-    state.newBomItem.insidePatternDesignId = value
+    if (node instanceof HTMLInputElement && node.type === 'checkbox') {
+      toggleBomPatternDesignId('INSIDE', String(node.dataset.designId || value).trim(), checked)
+    } else {
+      setBomPatternDesignIds('INSIDE', value ? [value] : [])
+    }
     return true
   }
   if (field === 'new-bom-apply-all-sku') {
@@ -2073,7 +2137,9 @@ function handleTechPackField(
               ? {
                   printSideMode: '',
                   frontPatternDesignId: '',
+                  frontPatternDesignIds: [],
                   insidePatternDesignId: '',
+                  insidePatternDesignIds: [],
                 }
               : {}),
           }
@@ -2418,19 +2484,24 @@ function handleTechPackField(
   }
   if (field === 'new-design-side-type') {
     state.newDesignSideType = value === 'INSIDE' ? 'INSIDE' : 'FRONT'
-    if (state.selectedDesignFile && !isImageDesignFile(state.selectedDesignFile)) {
-      state.newDesignPreviewThumbnailDataUrl = buildDesignPlaceholderImage(
-        state.selectedDesignFile.name,
-        state.newDesignSideType,
-      )
+    if (state.newDesignFiles.length > 0) {
+      state.newDesignFiles = state.newDesignFiles.map((draft, index) => {
+        const file = state.selectedDesignFiles[index] ?? null
+        if (!file || isImageDesignFile(file)) return draft
+        return {
+          ...draft,
+          previewThumbnailDataUrl: buildDesignPlaceholderImage(file.name, state.newDesignSideType),
+        }
+      })
+      syncPrimaryDesignDraftFile()
     }
     return true
   }
   if (field === 'new-design-file') {
     if (!(node instanceof HTMLInputElement)) return true
-    const file = node.files?.[0] ?? null
+    const files = Array.from(node.files ?? [])
     revokeDraftDesignPreview()
-    void applySelectedDesignFile(file)
+    void applySelectedDesignFiles(files)
     return true
   }
   if (field === 'pattern-template-search-keyword') {
@@ -3386,8 +3457,10 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       shrinkRequirement: bom.shrinkRequirement,
       washRequirement: bom.washRequirement,
       printSideMode: bom.printSideMode,
-      frontPatternDesignId: bom.frontPatternDesignId,
-      insidePatternDesignId: bom.insidePatternDesignId,
+      frontPatternDesignId: getPrimaryBomPatternDesignId(bom, 'FRONT'),
+      frontPatternDesignIds: getBomPatternDesignIds(bom, 'FRONT'),
+      insidePatternDesignId: getPrimaryBomPatternDesignId(bom, 'INSIDE'),
+      insidePatternDesignIds: getBomPatternDesignIds(bom, 'INSIDE'),
     }
     state.addBomDialogOpen = true
     return true
@@ -3398,18 +3471,25 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'save-bom') {
     if (!state.newBomItem.materialName.trim()) return true
+    const frontPatternDesignIds = getBomPatternDesignIds(state.newBomItem, 'FRONT')
+    const insidePatternDesignIds = getBomPatternDesignIds(state.newBomItem, 'INSIDE')
     if (state.newBomItem.printRequirement !== '无' && !state.newBomItem.printSideMode) {
       window.alert('请选择单面印或双面印')
       return true
     }
-    if (state.newBomItem.printRequirement !== '无' && state.newBomItem.printSideMode === 'SINGLE' && !state.newBomItem.frontPatternDesignId.trim()) {
-      window.alert('请选择正面花型')
+    if (
+      state.newBomItem.printRequirement !== '无'
+      && state.newBomItem.printSideMode === 'SINGLE'
+      && frontPatternDesignIds.length === 0
+      && insidePatternDesignIds.length === 0
+    ) {
+      window.alert('请至少选择一个正面或里面花型')
       return true
     }
     if (
       state.newBomItem.printRequirement !== '无'
       && state.newBomItem.printSideMode === 'DOUBLE'
-      && (!state.newBomItem.frontPatternDesignId.trim() || !state.newBomItem.insidePatternDesignId.trim())
+      && (frontPatternDesignIds.length === 0 || insidePatternDesignIds.length === 0)
     ) {
       window.alert('双面印必须同时选择正面花型和里面花型')
       return true
@@ -3459,11 +3539,19 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       frontPatternDesignId:
         state.newBomItem.printRequirement === '无'
           ? ''
-          : state.newBomItem.frontPatternDesignId,
+          : frontPatternDesignIds[0] || '',
+      frontPatternDesignIds:
+        state.newBomItem.printRequirement === '无'
+          ? []
+          : frontPatternDesignIds,
       insidePatternDesignId:
-        state.newBomItem.printRequirement === '无' || state.newBomItem.printSideMode !== 'DOUBLE'
+        state.newBomItem.printRequirement === '无'
           ? ''
-          : state.newBomItem.insidePatternDesignId,
+          : insidePatternDesignIds[0] || '',
+      insidePatternDesignIds:
+        state.newBomItem.printRequirement === '无'
+          ? []
+          : insidePatternDesignIds,
     }
 
     if (state.editBomItemId) {
@@ -3873,32 +3961,41 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'save-design') {
-    if (!state.techPack || !state.newDesignName.trim() || !state.newDesignFileName.trim()) return true
-    if (!state.newDesignOriginalFileDataUrl.trim()) {
+    if (!state.techPack || !state.newDesignName.trim() || state.newDesignFiles.length === 0) return true
+    const notReady = state.newDesignFiles.some((file) => file.processing || !file.originalFileDataUrl.trim())
+    if (notReady) {
       window.alert('设计稿文件处理中，请稍后再保存')
       return true
     }
 
-    const previewThumbnailDataUrl =
-      state.newDesignPreviewThumbnailDataUrl
-      || buildDesignPlaceholderImage(state.newDesignFileName, state.newDesignSideType)
+    const baseName = state.newDesignName.trim()
+    const uploadedAt = toTimestamp()
+    const now = Date.now()
+    const newPatternDesigns = state.newDesignFiles.map((file, index) => {
+      const designName = state.newDesignFiles.length === 1 ? baseName : `${baseName}-${index + 1}`
+      const previewThumbnailDataUrl =
+        file.previewThumbnailDataUrl
+        || buildDesignPlaceholderImage(file.fileName, state.newDesignSideType)
+
+      return {
+        id: `design-${now}-${index + 1}`,
+        name: designName,
+        imageUrl: previewThumbnailDataUrl,
+        designSideType: state.newDesignSideType,
+        fileName: file.fileName,
+        originalFileName: file.fileName,
+        originalFileMimeType: file.mimeType || undefined,
+        originalFileDataUrl: file.originalFileDataUrl,
+        previewThumbnailDataUrl,
+        uploadedAt,
+      }
+    })
 
     state.techPack = {
       ...state.techPack,
       patternDesigns: [
         ...state.techPack.patternDesigns,
-        {
-          id: `design-${Date.now()}`,
-          name: state.newDesignName.trim(),
-          imageUrl: previewThumbnailDataUrl,
-          designSideType: state.newDesignSideType,
-          fileName: state.newDesignFileName,
-          originalFileName: state.newDesignFileName,
-          originalFileMimeType: state.newDesignOriginalFileMimeType || undefined,
-          originalFileDataUrl: state.newDesignOriginalFileDataUrl,
-          previewThumbnailDataUrl,
-          uploadedAt: toTimestamp(),
-        },
+        ...newPatternDesigns,
       ],
     }
 
@@ -3913,7 +4010,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const designId = actionNode.dataset.designId
     if (!state.techPack || !designId) return true
     const referencedByBom = state.bomItems.find(
-      (item) => item.frontPatternDesignId === designId || item.insidePatternDesignId === designId,
+      (item) =>
+        getBomPatternDesignIds(item, 'FRONT').includes(designId)
+        || getBomPatternDesignIds(item, 'INSIDE').includes(designId),
     )
     if (referencedByBom) {
       window.alert('该花型已被物料清单引用，请先解除引用后再删除')

@@ -4,6 +4,7 @@ import {
   bomUsageProcessOptions,
   dyeOptions,
   escapeHtml,
+  getBomPatternDesignIds,
   getPatternDesignPreviewAssetById,
   getPatternDesignOptionsBySide,
   getSkuOptionsForCurrentSpu,
@@ -32,34 +33,41 @@ function renderBomPrintBindingCell(item: BomItemRow, side: 'FRONT' | 'INSIDE'): 
     return '<span class="text-amber-600">待配置</span>'
   }
 
-  if (side === 'INSIDE' && item.printSideMode === 'SINGLE') {
-    return '<span class="text-muted-foreground">-</span>'
-  }
+  const designIds = getBomPatternDesignIds(item, side)
+  const designs = designIds
+    .map((designId) => getPatternDesignPreviewAssetById(designId))
+    .filter((design): design is NonNullable<ReturnType<typeof getPatternDesignPreviewAssetById>> => Boolean(design))
 
-  const designId = side === 'FRONT' ? item.frontPatternDesignId : item.insidePatternDesignId
-  const design = getPatternDesignPreviewAssetById(designId)
-  if (!design) {
+  if (designs.length === 0) {
     return '<span class="text-amber-600">待配置</span>'
   }
 
   const source = side === 'FRONT' ? 'front' : 'inside'
   const sourceLabel = side === 'FRONT' ? '正面花型' : '里面花型'
-  const designName = design.name || '未命名花型'
 
   return `
-    <button
-      type="button"
-      class="inline-flex max-w-full items-center rounded text-blue-600 transition hover:text-blue-700 hover:underline"
-      data-tech-action="open-design-thumbnail-preview"
-      data-design-id="${escapeHtml(design.id)}"
-      data-design-source="${source}"
-      data-bom-id="${escapeHtml(item.id)}"
-      data-tech-preview-trigger="${source}"
-      title="查看${sourceLabel}缩略图"
-      aria-label="查看${sourceLabel}缩略图"
-    >
-      <span class="truncate">${escapeHtml(designName)}</span>
-    </button>
+    <div class="flex max-w-[180px] flex-wrap gap-1.5">
+      ${designs
+        .map((design) => {
+          const designName = design.name || '未命名花型'
+          return `
+            <button
+              type="button"
+              class="inline-flex max-w-full items-center rounded border border-blue-100 bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700 transition hover:border-blue-200 hover:bg-blue-100"
+              data-tech-action="open-design-thumbnail-preview"
+              data-design-id="${escapeHtml(design.id)}"
+              data-design-source="${source}"
+              data-bom-id="${escapeHtml(item.id)}"
+              data-tech-preview-trigger="${source}"
+              title="查看${sourceLabel}缩略图"
+              aria-label="查看${sourceLabel}缩略图"
+            >
+              <span class="truncate">${escapeHtml(designName)}</span>
+            </button>
+          `
+        })
+        .join('')}
+    </div>
   `
 }
 
@@ -323,6 +331,66 @@ export function renderBomTab(): string {
   `
 }
 
+function renderPatternDesignPicker(
+  label: string,
+  side: 'FRONT' | 'INSIDE',
+  options: ReturnType<typeof getPatternDesignOptionsBySide>,
+  selectedIds: string[],
+): string {
+  const field = side === 'FRONT' ? 'new-bom-front-pattern-design-id' : 'new-bom-inside-pattern-design-id'
+  const selectedSet = new Set(selectedIds)
+
+  return `
+    <div class="space-y-2">
+      <div class="flex items-center justify-between gap-3">
+        <span class="text-sm">${escapeHtml(label)}</span>
+        <span class="text-xs text-muted-foreground">已选 ${selectedIds.length} 张</span>
+      </div>
+      ${
+        options.length === 0
+          ? `<div class="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">暂无${escapeHtml(label)}</div>`
+          : `
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2" data-tech-pattern-picker="${side.toLowerCase()}">
+              ${options
+                .map((item) => {
+                  const checked = selectedSet.has(item.id)
+                  const previewUrl = item.previewThumbnailDataUrl
+                  return `
+                    <label class="flex cursor-pointer gap-3 rounded-md border p-2 transition ${
+                      checked ? 'border-blue-300 bg-blue-50' : 'border-border hover:bg-muted/40'
+                    }">
+                      <input
+                        type="checkbox"
+                        class="mt-1 h-4 w-4 rounded border-slate-300"
+                        data-tech-field="${field}"
+                        data-design-id="${escapeHtml(item.id)}"
+                        ${checked ? 'checked' : ''}
+                      />
+                      <span class="flex min-w-0 flex-1 gap-2">
+                        <span class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted">
+                          ${
+                            previewUrl
+                              ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(item.name)}" class="h-full w-full object-cover" />`
+                              : '<i data-lucide="image" class="h-5 w-5 text-muted-foreground"></i>'
+                          }
+                        </span>
+                        <span class="min-w-0 text-xs">
+                          <span class="block truncate font-medium text-foreground" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                          <span class="mt-1 block truncate text-muted-foreground" title="${escapeHtml(item.originalFileName || '暂无原文件')}">${escapeHtml(item.originalFileName || '暂无原文件')}</span>
+                          <span class="mt-1 block text-muted-foreground">${escapeHtml(item.uploadedAt || '未记录上传时间')}</span>
+                        </span>
+                      </span>
+                    </label>
+                  `
+                })
+                .join('')}
+            </div>
+          `
+      }
+    </div>
+  `
+}
+
 
 export function renderBomFormDialog(): string {
   if (!state.addBomDialogOpen) return ''
@@ -333,12 +401,13 @@ export function renderBomFormDialog(): string {
   const frontDesignOptions = getPatternDesignOptionsBySide('FRONT')
   const insideDesignOptions = getPatternDesignOptionsBySide('INSIDE')
   const hasPrintDemand = state.newBomItem.printRequirement !== '无'
-  const showFrontDesign = hasPrintDemand && (state.newBomItem.printSideMode === 'SINGLE' || state.newBomItem.printSideMode === 'DOUBLE')
-  const showInsideDesign = hasPrintDemand && state.newBomItem.printSideMode === 'DOUBLE'
+  const showDesignPickers = hasPrintDemand && (state.newBomItem.printSideMode === 'SINGLE' || state.newBomItem.printSideMode === 'DOUBLE')
+  const selectedFrontDesignIds = getBomPatternDesignIds(state.newBomItem, 'FRONT')
+  const selectedInsideDesignIds = getBomPatternDesignIds(state.newBomItem, 'INSIDE')
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+      <section class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">${state.editBomItemId ? '编辑物料' : '添加物料'}</h3>
         </header>
@@ -468,42 +537,8 @@ export function renderBomFormDialog(): string {
                 `
                 : ''
             }
-            ${
-              showFrontDesign
-                ? `
-                  <label class="space-y-1">
-                    <span class="text-sm">正面花型 <span class="text-red-500">*</span></span>
-                    <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-front-pattern-design-id">
-                      <option value="">请选择正面花型</option>
-                      ${frontDesignOptions
-                        .map(
-                          (item) =>
-                            `<option value="${item.id}" ${state.newBomItem.frontPatternDesignId === item.id ? 'selected' : ''}>${escapeHtml(item.name)}</option>`,
-                        )
-                        .join('')}
-                    </select>
-                  </label>
-                `
-                : ''
-            }
-            ${
-              showInsideDesign
-                ? `
-                  <label class="space-y-1">
-                    <span class="text-sm">里面花型 <span class="text-red-500">*</span></span>
-                    <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-inside-pattern-design-id">
-                      <option value="">请选择里面花型</option>
-                      ${insideDesignOptions
-                        .map(
-                          (item) =>
-                            `<option value="${item.id}" ${state.newBomItem.insidePatternDesignId === item.id ? 'selected' : ''}>${escapeHtml(item.name)}</option>`,
-                        )
-                        .join('')}
-                    </select>
-                  </label>
-                `
-                : ''
-            }
+            ${showDesignPickers ? renderPatternDesignPicker('正面花型', 'FRONT', frontDesignOptions, selectedFrontDesignIds) : ''}
+            ${showDesignPickers ? renderPatternDesignPicker('里面花型', 'INSIDE', insideDesignOptions, selectedInsideDesignIds) : ''}
             <label class="space-y-1">
               <span class="text-sm">染色需求</span>
               <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-dye-requirement">

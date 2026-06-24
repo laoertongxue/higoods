@@ -386,7 +386,9 @@ export interface TechnicalBomItem {
   washRequirement?: '是' | '否'
   printSideMode?: '' | 'SINGLE' | 'DOUBLE'
   frontPatternDesignId?: string
+  frontPatternDesignIds?: string[]
   insidePatternDesignId?: string
+  insidePatternDesignIds?: string[]
   applicableSkuCodes?: string[]
   linkedPatternIds?: string[]
   usageProcessCodes?: string[]

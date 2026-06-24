@@ -1,4 +1,4 @@
-import type { PartGeometryFeatures } from './pcs-part-template-geometry'
+import type { PartGeometryFeatures } from './pcs-part-template-geometry.ts'
 
 export interface PartTemplateRecommendationInput {
   standardPartName?: string

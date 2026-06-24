@@ -1926,7 +1926,20 @@ const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCod
     'invalidatedChannelProductId',
     'nextActionType',
   ],
-  SAMPLE_RETURN_HANDLE: ['returnResult'],
+  SAMPLE_RETURN_HANDLE: [
+    'handleType',
+    'destination',
+    'handledQty',
+    'handledBy',
+    'handledAt',
+    'returnResult',
+    'returnRecipient',
+    'returnDepartment',
+    'returnAddress',
+    'returnDate',
+    'sampleCode',
+    'returnDocCode',
+  ],
 }
 
 function getInlineEditableFieldKeys(workItemTypeCode: string): Set<string> {
@@ -4321,6 +4334,70 @@ function buildSampleInboundPlanRows(project: PcsProjectRecord): SampleInboundLin
   )
 }
 
+function getLatestProjectInlineRecordByWorkItem(
+  projectId: string,
+  workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode,
+): PcsProjectInlineNodeRecord | null {
+  const targetNode = listProjectNodes(projectId).find((item) => item.workItemTypeCode === workItemTypeCode)
+  return targetNode ? getLatestProjectInlineNodeRecord(targetNode.projectNodeId) : null
+}
+
+function mapReturnDestinationToHandleType(returnDestination: string): string {
+  if (returnDestination === '退回供应商') return '退样'
+  if (returnDestination === '退回版房') return '寄回'
+  if (returnDestination === '样衣库存留样') return '入库留样'
+  if (returnDestination === '清仓处理') return '清仓处理'
+  if (returnDestination === '报废处理') return '报废处理'
+  return ''
+}
+
+function getFirstGeneratedSampleCode(projectId: string): string {
+  const inboundRecord = getLatestProjectInlineRecordByWorkItem(projectId, 'SAMPLE_INBOUND_CHECK')
+  if (!inboundRecord) return ''
+  const payload = inboundRecord.payload as Record<string, unknown>
+  const detailSnapshot = inboundRecord.detailSnapshot as Record<string, unknown>
+  const directCodes = getDraftStringArray(payload.generatedSampleCodes).concat(getDraftStringArray(detailSnapshot.sampleIds))
+  if (directCodes[0]) return directCodes[0]
+  const sampleAssets = Array.isArray(detailSnapshot.sampleAssets) ? detailSnapshot.sampleAssets : []
+  const assetCode = sampleAssets
+    .map((asset) => (asset && typeof asset === 'object' ? String((asset as Record<string, unknown>).sampleCode || '').trim() : ''))
+    .find(Boolean)
+  return assetCode || ''
+}
+
+function buildSampleReturnDocCode(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const sequence = String(node.records.length + 1).padStart(3, '0')
+  return `RTN-${project.projectCode.slice(-3)}-${sequence}`
+}
+
+function buildSampleReturnHandleDraftDefaults(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  businessDate: string,
+): Record<string, unknown> {
+  const conclusionRecord = getLatestProjectInlineRecordByWorkItem(project.projectId, 'TEST_CONCLUSION')
+  const conclusionPayload = (conclusionRecord?.payload || {}) as Record<string, unknown>
+  const conclusionSnapshot = (conclusionRecord?.detailSnapshot || {}) as Record<string, unknown>
+  const returnDestination = String(
+    conclusionPayload.returnDestination ||
+      conclusionSnapshot.returnDestination ||
+      getNodeFieldValue(project, node, 'returnDestination') ||
+      '',
+  ).trim()
+  const handleType = mapReturnDestinationToHandleType(returnDestination)
+  return {
+    handleType,
+    destination: returnDestination,
+    handledQty: 1,
+    handledBy: node.node.currentOwnerName || project.ownerName || '当前用户',
+    handledAt: `${businessDate}T10:00`,
+    returnDepartment: '样衣管理',
+    returnDate: businessDate,
+    sampleCode: getFirstGeneratedSampleCode(project.projectId),
+    returnDocCode: buildSampleReturnDocCode(project, node),
+  }
+}
+
 function normalizeDraftFieldValue(
   field: PcsProjectNodeFieldGroupDefinition['fields'][number],
   value: unknown,
@@ -4447,6 +4524,14 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
   const lockedSampleSourceType = getTemplateLockedSampleSourceType(project)
   if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE' && lockedSampleSourceType) {
     values.sampleSourceType = lockedSampleSourceType
+  }
+  if (node.node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE') {
+    const returnDefaults = buildSampleReturnHandleDraftDefaults(project, node, businessDate)
+    Object.entries(returnDefaults).forEach(([fieldKey, value]) => {
+      if (!hasNodeFieldValue(values[fieldKey]) && hasNodeFieldValue(value)) {
+        values[fieldKey] = value
+      }
+    })
   }
 
   return {
@@ -4737,6 +4822,36 @@ function getBusinessRuleValidationErrors(
     if (hasStyleArchiveUsableImage && styleArchiveCandidateImageIds.length === 0) {
       errors.push('已标记可用于款式档案的图片时，至少保留 1 张款式档案候选图。')
     }
+  }
+
+  if (node.node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE') {
+    const handleType = String(values.handleType || '').trim()
+    const destination = String(values.destination || '').trim()
+    const handledQtyText = String(values.handledQty || '').trim()
+    const handledQty = Number(handledQtyText)
+    const sampleCode = String(values.sampleCode || '').trim()
+    const returnResult = String(values.returnResult || '').trim()
+    const returnRecipient = String(values.returnRecipient || '').trim()
+    const returnAddress = String(values.returnAddress || '').trim()
+    const handledAt = String(values.handledAt || '').trim()
+    const needsDestination = ['退样', '寄回', '入库留样', '清仓处理'].includes(handleType)
+    const needsRecipientAndAddress = ['退样', '寄回'].includes(handleType)
+    if (!handleType) errors.push('样衣退回处理必须选择处理方式。')
+    if (!sampleCode) errors.push('样衣退回处理必须绑定样衣编号。')
+    if (needsDestination && !destination) errors.push(`${handleType}时必须填写处理去向。`)
+    if (needsRecipientAndAddress && !returnRecipient) errors.push(`${handleType}时必须填写退回收件方。`)
+    if (needsRecipientAndAddress && !returnAddress) errors.push(`${handleType}时必须填写退回地址。`)
+    if (handledQtyText && (!Number.isFinite(handledQty) || handledQty <= 0)) {
+      errors.push('处理数量必须大于 0。')
+    }
+    if (handledAt && project.createdAt) {
+      const handledTime = Date.parse(handledAt.replace(' ', 'T'))
+      const createdTime = Date.parse(project.createdAt.replace(' ', 'T'))
+      if (Number.isFinite(handledTime) && Number.isFinite(createdTime) && handledTime < createdTime) {
+        errors.push('处理时间不能早于项目创建时间。')
+      }
+    }
+    if (!returnResult) errors.push('样衣退回处理必须填写处理结果说明。')
   }
 
   return errors
@@ -9647,6 +9762,17 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
   if (node.node.workItemTypeCode === 'TEST_CONCLUSION') {
     const conclusion = String(values.conclusion || '').trim()
     Object.assign(values, buildTestConclusionOutcomeValues(project, node, conclusion, draft.businessDate || todayText()))
+  }
+
+  if (node.node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE') {
+    Object.assign(derivedDetailSnapshot, {
+      returnRecipient: values.returnRecipient || '',
+      returnDepartment: values.returnDepartment || '',
+      returnAddress: values.returnAddress || '',
+      returnDate: values.returnDate || '',
+      sampleCode: values.sampleCode || '',
+      returnDocCode: values.returnDocCode || '',
+    })
   }
 
   const missingRequiredLabels = getMissingRequiredFieldLabels(node.node, values)

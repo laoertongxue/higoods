@@ -1,11 +1,11 @@
 import {
   type ParsedPartInstance,
   suggestStandardPartName,
-} from '../utils/pcs-part-template-parser'
-import type { PartGeometryFeatures } from '../utils/pcs-part-template-geometry'
-import { buildPartShapeDescription, type PartShapeDescription } from '../utils/pcs-part-template-shape-description'
-import { scorePartTemplateRecommendation } from '../utils/pcs-part-template-recommendation'
-import { getBrowserLocalStorage } from './browser-storage'
+} from '../utils/pcs-part-template-parser.ts'
+import type { PartGeometryFeatures } from '../utils/pcs-part-template-geometry.ts'
+import { buildPartShapeDescription, type PartShapeDescription } from '../utils/pcs-part-template-shape-description.ts'
+import { scorePartTemplateRecommendation } from '../utils/pcs-part-template-recommendation.ts'
+import { getBrowserLocalStorage } from './browser-storage.ts'
 
 export interface PartTemplatePackage {
   id: string

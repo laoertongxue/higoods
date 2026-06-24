@@ -28,6 +28,7 @@ import {
   getCurrentTechPackVersionByStyleId,
   listTechnicalDataVersionsByStyleId,
   replaceTechnicalDataVersionStore,
+  updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetPlateMakingTaskRepository, upsertPlateMakingTask } from '../src/data/pcs-plate-making-repository.ts'
 import { getRevisionTaskById, resetRevisionTaskRepository, upsertRevisionTask } from '../src/data/pcs-revision-task-repository.ts'
@@ -196,6 +197,34 @@ const { style, project } = prepareProjectAndStyle()
 
 const plateTaskOne = createPlateTask('plate_task_revision_base', 'PT-TEST-REV-BASE', project.projectId, style.styleCode, 'P1')
 const baseVersion = generateTechPackVersionFromPlateTask(plateTaskOne.plateTaskId, '测试用户').record
+updateTechnicalDataVersionRecord(baseVersion.technicalVersionId, {
+  reviewStage: '待发布',
+  reviewSubmittedAt: '2026-04-20 12:30',
+  reviewSubmittedBy: '测试用户',
+  merchandiserReview: {
+    nodeKey: 'MERCHANDISER',
+    nodeName: '跟单审核',
+    status: '审核-已通过',
+    reviewerRole: '跟单',
+    assignedReviewerId: 'merchandiser-test',
+    assignedReviewerName: '测试跟单',
+    assignedReviewerRole: '跟单',
+    assignedReviewerFeishuOpenId: '',
+    assignedAt: '2026-04-20 12:30',
+    assignedBy: '测试用户',
+    reviewedBy: '测试跟单',
+    reviewedAt: '2026-04-20 12:40',
+    startedOpinion: '',
+    opinion: '确认发布',
+    diffSnapshotId: '',
+    diffStatus: '无差异',
+    diffSummaryText: '',
+    lastFeishuNotifyAt: '',
+    lastFeishuNotifyStatus: '未发送',
+    lastFeishuNotifyRecordId: '',
+    todayFeishuNotifiedFlag: false,
+  },
+})
 publishTechnicalDataVersion(baseVersion.technicalVersionId, '测试用户')
 activateTechPackVersionForStyle(style.styleId, baseVersion.technicalVersionId, '测试用户')
 

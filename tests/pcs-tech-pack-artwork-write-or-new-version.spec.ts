@@ -166,6 +166,8 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
     patternMode: '定位印',
     artworkName: `${code}-花型方案`,
     artworkVersion,
+    completionImageIds: [`mock://pattern-complete/${code}.png`],
+    buyerReviewStatus: '买手已通过',
     linkedTechPackVersionId: '',
     linkedTechPackVersionCode: '',
     linkedTechPackVersionLabel: '',

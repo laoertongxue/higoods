@@ -15,6 +15,7 @@ import type {
   PatternTaskDemandSourceType,
   PatternTaskDifficultyGrade,
   PatternTaskProcessType,
+  PatternTaskRecord,
   PatternTaskTeamCode,
 } from '../data/pcs-pattern-task-types.ts'
 import {
@@ -29,6 +30,7 @@ import { listRevisionTasks, getRevisionTaskById, updateRevisionTask, resetRevisi
 import { listFirstSampleTasks, getFirstSampleTaskById, resetFirstSampleTaskRepository } from '../data/pcs-first-sample-repository.ts'
 import { listFirstOrderSampleTasks, getFirstOrderSampleTaskById, resetFirstOrderSampleTaskRepository } from '../data/pcs-first-order-sample-repository.ts'
 import {
+  getPatternTaskCompletionMissingFields,
   getRevisionTaskCompletionMissingFields,
 } from '../data/pcs-engineering-task-field-policy.ts'
 import {
@@ -80,7 +82,7 @@ type ModuleKey = 'revision' | 'plate' | 'pattern' | 'firstSample' | 'firstOrder'
 type TaskBindingMode = 'project' | 'style'
 type RevisionTab = 'plan' | 'issues' | 'samples' | 'outputs' | 'downstream' | 'logs'
 type PlateTab = 'overview' | 'version' | 'bom' | 'patterns' | 'outputs' | 'downstream' | 'logs'
-type PatternTab = 'plan' | 'color' | 'production' | 'samples' | 'library' | 'logs'
+type PatternTab = 'demand' | 'execution' | 'review' | 'closure' | 'logs'
 type FirstSampleTab = 'overview' | 'inputs' | 'result' | 'acceptance' | 'logs'
 type FirstOrderTab = 'overview' | 'version' | 'result' | 'conclusion' | 'logs'
 
@@ -756,7 +758,7 @@ const state = {
   plateDetailDraft: initialPlateDetailDraft(),
 
   patternList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
-  patternTab: 'plan' as PatternTab,
+  patternTab: 'demand' as PatternTab,
   patternCreateOpen: false,
   patternCreateDraft: initialPatternCreateDraft(),
   patternDetailDraftTaskId: '',
@@ -1373,24 +1375,54 @@ function parseTagsText(value: string): string[] {
   return value.split(/[、,，]/).map((item) => item.trim()).filter(Boolean)
 }
 
+function escapeSvgText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function getDisplayImageUrl(imageId: string, fallbackTitle = '图片'): string {
+  if (!imageId || !imageId.startsWith('mock://')) return imageId
+  const rawLabel = imageId.split('/').filter(Boolean).pop() || fallbackTitle
+  const label = rawLabel.length > 28 ? `${rawLabel.slice(0, 28)}...` : rawLabel
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240">
+      <rect width="320" height="240" rx="18" fill="#f8fafc"/>
+      <rect x="18" y="18" width="284" height="204" rx="16" fill="#e2e8f0"/>
+      <path d="M80 154l46-48 36 34 28-26 50 56H80z" fill="#94a3b8"/>
+      <circle cx="226" cy="76" r="18" fill="#cbd5e1"/>
+      <text x="160" y="190" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#334155">花型图片</text>
+      <text x="160" y="212" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#64748b">${escapeSvgText(label)}</text>
+    </svg>
+  `
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+}
+
 function renderImageList(imageIds: string[], emptyText = '暂无图片'): string {
   if (imageIds.length === 0) {
     return `<div class="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-sm text-slate-500">${escapeHtml(emptyText)}</div>`
   }
   return `
     <div class="flex flex-wrap gap-3">
-      ${imageIds.map((imageId, index) => `
-        <button type="button" class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(imageId)}" data-title="图片 ${index + 1}">
-          <img src="${escapeHtml(imageId)}" alt="花型图片${index + 1}" class="h-20 w-20 object-cover" />
-        </button>
-      `).join('')}
+      ${imageIds.map((imageId, index) => {
+        const displayUrl = getDisplayImageUrl(imageId, `图片 ${index + 1}`)
+        return `
+          <button type="button" class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(imageId)}" data-title="图片 ${index + 1}">
+            <img src="${escapeHtml(displayUrl)}" alt="花型图片${index + 1}" class="h-20 w-20 object-cover" />
+          </button>
+        `
+      }).join('')}
     </div>
   `
 }
 
 function renderSmallImage(imageId: string): string {
   if (!imageId) return '<span class="text-slate-400">未上传</span>'
-  return `<button type="button" class="overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(imageId)}" data-title="需求图"><img src="${escapeHtml(imageId)}" alt="需求图" class="h-12 w-12 object-cover" /></button>`
+  const displayUrl = getDisplayImageUrl(imageId, '需求图')
+  return `<button type="button" class="overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(imageId)}" data-title="需求图"><img src="${escapeHtml(displayUrl)}" alt="需求图" class="h-12 w-12 object-cover" /></button>`
 }
 
 function renderImageUploader(label: string, field: string, imageIds: string[], emptyText = '暂无图片'): string {
@@ -1406,14 +1438,17 @@ function renderImageUploader(label: string, field: string, imageIds: string[], e
       ${
         imageIds.length
           ? `<div class="flex flex-wrap gap-3">
-              ${imageIds.map((imageId, index) => `
-                <div class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                  <button type="button" class="block h-20 w-20 overflow-hidden" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(imageId)}" data-title="${escapeHtml(label)} ${index + 1}">
-                    <img src="${escapeHtml(imageId)}" alt="${escapeHtml(label)} ${index + 1}" class="h-full w-full object-cover transition group-hover:scale-105" />
-                  </button>
-                  <button type="button" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs text-slate-600 shadow hover:bg-white" data-pcs-engineering-action="remove-list-item" data-scope="${escapeHtml(field)}" data-index="${index}" aria-label="删除图片">×</button>
-                </div>
-              `).join('')}
+              ${imageIds.map((imageId, index) => {
+                const displayUrl = getDisplayImageUrl(imageId, `${label} ${index + 1}`)
+                return `
+                  <div class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                    <button type="button" class="block h-20 w-20 overflow-hidden" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(imageId)}" data-title="${escapeHtml(label)} ${index + 1}">
+                      <img src="${escapeHtml(displayUrl)}" alt="${escapeHtml(label)} ${index + 1}" class="h-full w-full object-cover transition group-hover:scale-105" />
+                    </button>
+                    <button type="button" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs text-slate-600 shadow hover:bg-white" data-pcs-engineering-action="remove-list-item" data-scope="${escapeHtml(field)}" data-index="${index}" aria-label="删除图片">×</button>
+                  </div>
+                `
+              }).join('')}
             </div>`
           : renderImageList(imageIds, emptyText)
       }
@@ -1687,6 +1722,7 @@ function getPatternMemberOptions(teamCode: string): Array<{ value: string; label
 
 function renderPreviewImageModal(): string {
   if (!state.imagePreview.open || !state.imagePreview.url) return ''
+  const displayUrl = getDisplayImageUrl(state.imagePreview.url, state.imagePreview.title || '图片预览')
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
       <button type="button" class="absolute inset-0 bg-slate-900/70" data-pcs-engineering-action="close-image-preview" aria-label="关闭图片预览"></button>
@@ -1696,7 +1732,7 @@ function renderPreviewImageModal(): string {
           <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700" data-pcs-engineering-action="close-image-preview" aria-label="关闭图片预览">×</button>
         </div>
         <div class="flex max-h-[75vh] items-center justify-center overflow-auto rounded-xl bg-slate-100 p-3">
-          <img src="${escapeHtml(state.imagePreview.url)}" alt="${escapeHtml(state.imagePreview.title || '图片预览')}" class="max-h-[70vh] max-w-full rounded-lg object-contain" />
+          <img src="${escapeHtml(displayUrl)}" alt="${escapeHtml(state.imagePreview.title || '图片预览')}" class="max-h-[70vh] max-w-full rounded-lg object-contain" />
         </div>
       </div>
     </div>
@@ -1707,18 +1743,21 @@ function renderImageThumbnailGrid(imageUrls: string[], removable = false): strin
   if (!imageUrls.length) return ''
   return `
     <div class="grid grid-cols-4 gap-3 sm:grid-cols-5">
-      ${imageUrls.map((url, index) => `
-        <div class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-          <button type="button" class="block h-20 w-full overflow-hidden" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(url)}" data-title="证据图片 ${index + 1}">
-            <img src="${escapeHtml(url)}" alt="证据图片 ${index + 1}" class="h-full w-full object-cover transition group-hover:scale-105" />
-          </button>
-          ${
-            removable
-              ? `<button type="button" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs text-slate-600 shadow hover:bg-white" data-pcs-engineering-action="remove-revision-evidence-image" data-image-index="${index}" aria-label="删除证据图片">×</button>`
-              : ''
-          }
-        </div>
-      `).join('')}
+      ${imageUrls.map((url, index) => {
+        const displayUrl = getDisplayImageUrl(url, `证据图片 ${index + 1}`)
+        return `
+          <div class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+            <button type="button" class="block h-20 w-full overflow-hidden" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(url)}" data-title="证据图片 ${index + 1}">
+              <img src="${escapeHtml(displayUrl)}" alt="证据图片 ${index + 1}" class="h-full w-full object-cover transition group-hover:scale-105" />
+            </button>
+            ${
+              removable
+                ? `<button type="button" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs text-slate-600 shadow hover:bg-white" data-pcs-engineering-action="remove-revision-evidence-image" data-image-index="${index}" aria-label="删除证据图片">×</button>`
+                : ''
+            }
+          </div>
+        `
+      }).join('')}
     </div>
   `
 }
@@ -1969,6 +2008,10 @@ function createPatternAssetFromTask(taskId: string): { ok: boolean; message: str
   const existed = listPatternAssets().find((item) => item.source_task_id === task.patternTaskId)
   if (existed) {
     return { ok: true, message: `花型已进入花型库：${existed.pattern_code}`, assetId: existed.id }
+  }
+  const missingFields = getPatternTaskCompletionMissingFields(task)
+  if (missingFields.length > 0) {
+    return { ok: false, message: `沉淀花型库前缺少：${missingFields.join('、')}。` }
   }
 
   const parsedFile: PatternParsedFileResult = {
@@ -3339,6 +3382,145 @@ function renderPatternCreateDialog(): string {
   return renderDialog(state.patternCreateOpen, '新建花型任务', body, 'close-pattern-create', 'submit-pattern-create', '创建花型任务')
 }
 
+interface PatternTaskFlowStep {
+  key: PatternTab | 'done'
+  label: string
+  done: boolean
+  active: boolean
+  desc: string
+}
+
+interface PatternTaskFlowView {
+  stageLabel: string
+  nextActionText: string
+  missingFields: string[]
+  completionReady: boolean
+  closureReady: boolean
+  steps: PatternTaskFlowStep[]
+}
+
+function buildPatternTaskFlowView(task: PatternTaskRecord, hasPatternAsset: boolean): PatternTaskFlowView {
+  const missingFields = getPatternTaskCompletionMissingFields(task)
+  const hasDemand = task.demandImageIds.length > 0
+  const hasOutput = Boolean(task.artworkVersion.trim()) && task.completionImageIds.length > 0
+  const buyerPassed = task.buyerReviewStatus === '买手已通过'
+  const techPackWritten = Boolean(task.linkedTechPackVersionId)
+  const closureReady = buyerPassed && hasOutput && techPackWritten && hasPatternAsset
+  const completed = task.status === '已完成'
+  let activeKey: PatternTaskFlowStep['key'] = 'execution'
+  let stageLabel = '花型执行中'
+  let nextActionText = '补齐花型版次和完成确认图片。'
+
+  if (completed) {
+    activeKey = 'done'
+    stageLabel = '已完成'
+    nextActionText = '任务已完成，项目节点已收口。'
+  } else if (!hasOutput) {
+    activeKey = 'execution'
+    stageLabel = '花型执行中'
+    nextActionText = missingFields.length > 0 ? `请先补齐：${missingFields.join('、')}。` : '请保存花型执行资料。'
+  } else if (task.buyerReviewStatus === '买手已驳回') {
+    activeKey = 'execution'
+    stageLabel = '买手已驳回'
+    nextActionText = '按买手驳回说明调整花型后重新提交确认。'
+  } else if (!buyerPassed) {
+    activeKey = 'review'
+    stageLabel = '待买手确认'
+    nextActionText = '请买手确认花型结果，通过后再写技术包或沉淀花型库。'
+  } else if (!techPackWritten || !hasPatternAsset) {
+    activeKey = 'closure'
+    stageLabel = '产出闭环中'
+    nextActionText = [
+      techPackWritten ? '' : '写入技术包花型',
+      hasPatternAsset ? '' : '沉淀花型库资产',
+    ].filter(Boolean).join('，') || '完成产出闭环。'
+  } else {
+    activeKey = 'closure'
+    stageLabel = '待完成'
+    nextActionText = '花型产出已闭环，可以完成任务并同步项目节点。'
+  }
+
+  const steps: PatternTaskFlowStep[] = [
+    { key: 'demand', label: '需求创建', done: hasDemand, active: activeKey === 'demand', desc: hasDemand ? '需求图已保留' : '缺需求图' },
+    { key: 'execution', label: '花型执行', done: hasOutput, active: activeKey === 'execution', desc: hasOutput ? '版次和完成图已补齐' : '补齐版次/完成图' },
+    { key: 'review', label: '买手确认', done: buyerPassed, active: activeKey === 'review', desc: buyerPassed ? '买手已通过' : task.buyerReviewStatus },
+    { key: 'closure', label: '产出闭环', done: closureReady, active: activeKey === 'closure', desc: closureReady ? '技术包和花型库已闭环' : '待写包/沉淀' },
+    { key: 'done', label: '任务完成', done: completed, active: activeKey === 'done', desc: completed ? '项目节点已同步' : '待收口' },
+  ]
+
+  return {
+    stageLabel,
+    nextActionText,
+    missingFields,
+    completionReady: missingFields.length === 0,
+    closureReady,
+    steps,
+  }
+}
+
+function renderPatternFlowSteps(flow: PatternTaskFlowView): string {
+  return `
+    <div class="grid gap-3 md:grid-cols-5" data-testid="pattern-flow-steps">
+      ${flow.steps.map((step, index) => `
+        <div class="${escapeHtml(toClassName('rounded-lg border px-4 py-3', step.active ? 'border-blue-300 bg-blue-50' : step.done ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'))}">
+          <div class="flex items-center gap-2">
+            <span class="${escapeHtml(toClassName('inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold', step.done ? 'bg-emerald-600 text-white' : step.active ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'))}">${step.done ? '✓' : String(index + 1)}</span>
+            <span class="text-sm font-medium text-slate-900">${escapeHtml(step.label)}</span>
+          </div>
+          <p class="mt-2 text-xs text-slate-500">${escapeHtml(step.desc)}</p>
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderPatternMissingItems(missingFields: string[]): string {
+  if (missingFields.length === 0) {
+    return '<span class="text-emerald-700">完成资料已满足</span>'
+  }
+  return missingFields.map((item) => `<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">${escapeHtml(item)}</span>`).join('')
+}
+
+function renderPatternCurrentActionPanel(
+  flow: PatternTaskFlowView,
+  task: PatternTaskRecord,
+  hasPatternAsset: boolean,
+): string {
+  const closureMissing = [
+    task.linkedTechPackVersionId ? '' : '未写入技术包',
+    hasPatternAsset ? '' : '未沉淀花型库',
+  ].filter(Boolean)
+  return `
+    <section class="rounded-xl border border-blue-100 bg-blue-50 p-5" data-testid="pattern-current-action">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-medium text-blue-700">当前阶段</p>
+          <h2 class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(flow.stageLabel)}</h2>
+          <p class="mt-2 text-sm text-slate-700">${escapeHtml(flow.nextActionText)}</p>
+        </div>
+        <div class="rounded-lg bg-white px-4 py-3 text-sm shadow-sm">
+          <p class="text-xs text-slate-500">完成前缺失项</p>
+          <div class="mt-2 flex flex-wrap gap-2">${renderPatternMissingItems(flow.missingFields)}</div>
+        </div>
+      </div>
+      <div class="mt-4 grid gap-3 md:grid-cols-3">
+        <div class="rounded-lg border border-blue-100 bg-white px-4 py-3">
+          <p class="text-xs text-slate-500">买手确认</p>
+          <div class="mt-2">${renderStatusBadge(task.buyerReviewStatus)}</div>
+        </div>
+        <div class="rounded-lg border border-blue-100 bg-white px-4 py-3">
+          <p class="text-xs text-slate-500">技术包</p>
+          <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || task.linkedTechPackVersionStatus || '未写入')}</p>
+        </div>
+        <div class="rounded-lg border border-blue-100 bg-white px-4 py-3">
+          <p class="text-xs text-slate-500">产出闭环</p>
+          <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(closureMissing.length > 0 ? closureMissing.join('、') : '已闭环')}</p>
+        </div>
+      </div>
+    </section>
+  `
+}
+
 function renderPatternDetailPage(patternTaskId: string): string {
   syncExistingProjectEngineeringTaskNodes('系统同步')
   const task = getPatternTaskById(patternTaskId)
@@ -3348,6 +3530,9 @@ function renderPatternDetailPage(patternTaskId: string): string {
   const asset = listPatternAssets().find((item) => item.source_task_id === task.patternTaskId)
   const sampleTasks = listFirstSampleTasks().filter((item) => item.upstreamObjectId === task.patternTaskId || item.upstreamObjectCode === task.patternTaskCode)
   const style = getTaskStyleInfo(task)
+  const flow = buildPatternTaskFlowView(task, Boolean(asset))
+  const completeDisabledReason = flow.completionReady ? '' : `缺少字段：${flow.missingFields.join('、')}。`
+  const publishDisabledReason = flow.completionReady ? '' : `沉淀花型库前缺少：${flow.missingFields.join('、')}。`
   const logs = mergeLogs('pattern', task.patternTaskId, [
     ...(task.linkedTechPackVersionId ? [{ time: task.linkedTechPackUpdatedAt || task.updatedAt, action: '技术包写回', user: task.updatedBy, detail: `已写入技术包 ${task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || task.linkedTechPackVersionId}。` }] : []),
     ...(asset ? [{ time: asset.updated_at, action: '花型库沉淀', user: asset.updated_by, detail: `已形成花型资产 ${asset.pattern_code}。` }] : []),
@@ -3360,12 +3545,19 @@ function renderPatternDetailPage(patternTaskId: string): string {
     [
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/colors">返回列表</button>`,
       ...(task.status !== '已完成' && task.status !== '已取消'
-        ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="complete-pattern-task" data-task-id="${escapeHtml(task.patternTaskId)}">完成任务</button>`]
+        ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white" data-pcs-engineering-action="complete-pattern-task" data-task-id="${escapeHtml(task.patternTaskId)}" ${completeDisabledReason ? `disabled title="${escapeHtml(completeDisabledReason)}"` : ''}>完成任务</button>`]
         : []),
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white" data-pcs-engineering-action="pattern-generate-tech-pack" data-task-id="${escapeHtml(task.patternTaskId)}" ${techPackAction.disabled ? `disabled title="${escapeHtml(techPackAction.disabledReason)}"` : ''}>${escapeHtml(techPackAction.label)}</button>`,
-      `<button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="pattern-publish-library" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(asset ? '打开花型库' : '沉淀花型库')}</button>`,
+      `<button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500" data-pcs-engineering-action="pattern-publish-library" data-task-id="${escapeHtml(task.patternTaskId)}" ${!asset && publishDisabledReason ? `disabled title="${escapeHtml(publishDisabledReason)}"` : ''}>${escapeHtml(asset ? '打开花型库' : '沉淀花型库')}</button>`,
     ].join(''),
   )
+  const tabBar = renderTabBar(state.patternTab, [
+    { key: 'demand', label: '任务需求' },
+    { key: 'execution', label: '执行与颜色' },
+    { key: 'review', label: '买手确认' },
+    { key: 'closure', label: '产出闭环' },
+    { key: 'logs', label: '操作记录' },
+  ], 'set-pattern-tab')
   const demandSection = `${renderProjectContext(task)}${renderSectionCard('需求来源', renderKeyValueGrid([
     { label: '来源', value: escapeHtml(task.demandSourceType) },
     { label: '来源编号', value: escapeHtml(task.demandSourceRefCode || task.upstreamObjectCode || '-') },
@@ -3473,6 +3665,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
           <span>爆款花型</span>
         </label>
       </div>
+      ${renderTaskSaveBar('save-pattern-detail-fields', task.patternTaskId, '保存花型库字段')}
     `,
   )
 
@@ -3483,40 +3676,65 @@ function renderPatternDetailPage(patternTaskId: string): string {
     { label: '限制原因', value: escapeHtml(techPackAction.disabledReason || '-') },
   ], 2))
 
-  const mainContent = [
-    demandSection,
-    processSection,
-    demandImagesSection,
-    assignmentSection,
-    colorReviewSection,
-    buyerReviewSection,
-    completionReviewSection,
-    librarySection,
-    techPackSection,
-    renderSectionCard('操作记录', renderLogs(logs)),
-  ].join('')
+  const sampleLinkSection = renderSectionCard(
+    '下游样衣任务',
+    sampleTasks.length > 0
+      ? `
+        <div class="space-y-3">
+          ${sampleTasks.map((item) => `
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3">
+              <div>
+                <p class="text-sm font-medium text-slate-900">${escapeHtml(item.sampleCode || item.firstSampleTaskCode)}</p>
+                <p class="mt-1 text-xs text-slate-500">${escapeHtml(item.title)}</p>
+              </div>
+              <div class="flex items-center gap-3">
+                ${renderStatusBadge(item.status, true)}
+                <button type="button" class="text-sm font-medium text-blue-700 hover:underline" data-nav="/pcs/samples/first-sample/${escapeHtml(item.firstSampleTaskId)}">打开详情</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `
+      : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">当前花型任务暂未生成下游样衣任务</div>',
+  )
+
+  const mainContent = state.patternTab === 'demand'
+    ? `${renderPatternCurrentActionPanel(flow, task, Boolean(asset))}${demandSection}${processSection}${demandImagesSection}`
+    : state.patternTab === 'execution'
+      ? `${assignmentSection}${colorReviewSection}${completionReviewSection}`
+      : state.patternTab === 'review'
+        ? buyerReviewSection
+        : state.patternTab === 'closure'
+          ? `${librarySection}${techPackSection}${sampleLinkSection}`
+          : renderSectionCard('操作记录', renderLogs(logs))
 
   const aside = `
-    <div class="space-y-4">
+    <div class="space-y-4 xl:sticky xl:top-4">
+      ${renderSectionCard('流程进度', renderPatternFlowSteps(flow))}
       ${renderSectionCard('任务摘要', renderKeyValueGrid([
+        { label: '当前阶段', value: escapeHtml(flow.stageLabel) },
+        { label: '下一步', value: escapeHtml(flow.nextActionText) },
         { label: '负责人', value: escapeHtml(task.ownerName) },
         { label: '截止时间', value: escapeHtml(formatDateTime(task.dueAt)) },
         { label: '款式档案', value: styleArchiveLink(style.styleId, style.styleCode, style.styleName, task.projectId) },
         { label: '花型库状态', value: asset ? '已沉淀' : '待沉淀' },
-      ], 2))}
+      ], 1))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
         { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.workItemTypeName) },
         { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写回') },
         { label: '正式状态', value: renderStatusBadge(task.status) },
-      ], 2))}
+      ], 1))}
     </div>
   `
 
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
+      ${renderPreviewImageModal()}
       ${header}
+      ${renderPatternFlowSteps(flow)}
+      ${tabBar}
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div class="space-y-6">${mainContent}</div>
         ${aside}
@@ -6251,7 +6469,7 @@ export function resetPcsEngineeringTaskState(): void {
   state.plateDetailDraftTaskId = ''
   state.plateDetailDraft = initialPlateDetailDraft()
   state.patternList = { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 }
-  state.patternTab = 'plan'
+  state.patternTab = 'demand'
   state.patternCreateOpen = false
   state.patternCreateDraft = initialPatternCreateDraft()
   state.patternDetailDraftTaskId = ''

@@ -161,7 +161,7 @@ const DEFAULT_CONFIG: PatternLibraryConfig = {
 }
 
 const SOURCE_TASK_INDEX: Record<string, { name: string; projectId: string; projectName: string }> = {
-  'AT-20260109-001': { name: '花型-印尼碎花连衣裙（定位印 A1）', projectId: 'PRJ-20251216-001', projectName: '印尼风格碎花连衣裙' },
+  'AT-20260404-013': { name: '花型-户外轻量夹克（机能贴章 A1）', projectId: 'PRJ-025', projectName: '镂空蕾丝拼接上衣' },
   'AT-20260109-002': { name: '花型-波西米亚风长裙（满印）', projectId: 'PRJ-20251218-002', projectName: '波西米亚风长裙' },
   'AT-20260108-003': { name: '花型-民族风刺绣上衣（绣花）', projectId: 'PRJ-20251215-003', projectName: '民族风刺绣上衣' },
 }
@@ -380,9 +380,9 @@ function seedStore(): PatternLibraryStoreSnapshot {
     {
       id: 'pattern_asset_0001',
       pattern_code: 'HX-20260328-0001',
-      pattern_name: '印尼热带花卉 A1',
-      original_filename: 'Tropical-Flower-A1.png',
-      aliases: ['热带大花 A1', 'Bunga Tropis A1'],
+      pattern_name: '户外机能贴章 A1',
+      original_filename: 'Outdoor-Patch-A1.png',
+      aliases: ['机能贴章 A1', 'Outdoor Patch A1'],
       usage_type: '定位花',
       category: '花卉',
       category_primary: '植物与花卉',
@@ -391,9 +391,9 @@ function seedStore(): PatternLibraryStoreSnapshot {
       color_tags: ['红色', '绿色'],
       hot_flag: true,
       source_type: '自研',
-      source_note: '来源于 2026 夏季度假裙项目',
-      applicable_categories: ['连衣裙', '衬衫'],
-      applicable_parts: ['前片', '后片'],
+      source_note: '来源于工程打样转测款项目花型任务',
+      applicable_categories: ['上衣', '外套'],
+      applicable_parts: ['胸前贴章', '袖口'],
       related_part_template_ids: ['pkg_001-part_001'],
       process_direction: '印花',
       maintenance_status: '已维护',
@@ -402,8 +402,11 @@ function seedStore(): PatternLibraryStoreSnapshot {
       duplicate_status: 'unique',
       license_status: 'authorized',
       parse_status: 'success',
-      source_task_id: 'AT-20260109-001',
-      source_project_id: 'PRJ-20251216-001',
+      source_task_id: 'AT-20260404-013',
+      source_task_code: 'AT-20260404-013',
+      source_task_type: 'PATTERN_ARTWORK_TASK',
+      source_task_name: '花型-户外轻量夹克（机能贴章 A1）',
+      source_project_id: 'PRJ-025',
       reference_count: 3,
       created_by: '林小美',
       updated_by: '林小美',
@@ -570,7 +573,7 @@ function seedStore(): PatternLibraryStoreSnapshot {
       is_current: true,
       created_at: updatedAt,
       parse_status: 'success',
-      original_filename: 'Tropical-Flower-A1.png',
+      original_filename: 'Outdoor-Patch-A1.png',
       file_url: createSvgDataUrl(buildPreviewSvg('flower', ['#d43f5e', '#f9f1d9', '#f09a3e'])),
       preview_url: createSvgDataUrl(buildPreviewSvg('flower', ['#d43f5e', '#f9f1d9', '#f09a3e'])),
       thumbnail_url: createSvgDataUrl(buildPreviewSvg('flower', ['#d43f5e', '#f9f1d9', '#f09a3e'])),
@@ -737,9 +740,9 @@ function seedStore(): PatternLibraryStoreSnapshot {
   ]
 
   const references: PatternReference[] = [
-    { id: 'pattern_ref_0001', pattern_asset_id: 'pattern_asset_0001', ref_type: 'flower_task', ref_id: 'AT-20260109-001', ref_name: '花型任务-印尼碎花连衣裙', created_at: '2026-04-02T09:00:00.000Z', last_referenced_at: '2026-04-06T10:08:00.000Z' },
-    { id: 'pattern_ref_0002', pattern_asset_id: 'pattern_asset_0001', ref_type: 'project', ref_id: 'PRJ-20251216-001', ref_name: '印尼风格碎花连衣裙', created_at: '2026-04-02T09:20:00.000Z', last_referenced_at: '2026-04-06T10:08:00.000Z' },
-    { id: 'pattern_ref_0003', pattern_asset_id: 'pattern_asset_0001', ref_type: 'spu', ref_id: 'SPU-001', ref_name: '印尼碎花连衣裙', created_at: '2026-04-05T14:10:00.000Z', last_referenced_at: '2026-04-06T10:08:00.000Z' },
+    { id: 'pattern_ref_0001', pattern_asset_id: 'pattern_asset_0001', ref_type: 'flower_task', ref_id: 'AT-20260404-013', ref_name: '花型-户外轻量夹克（机能贴章 A1）', created_at: '2026-04-02T09:00:00.000Z', last_referenced_at: '2026-04-06T10:08:00.000Z' },
+    { id: 'pattern_ref_0002', pattern_asset_id: 'pattern_asset_0001', ref_type: 'project', ref_id: 'PRJ-025', ref_name: '镂空蕾丝拼接上衣', created_at: '2026-04-02T09:20:00.000Z', last_referenced_at: '2026-04-06T10:08:00.000Z' },
+    { id: 'pattern_ref_0003', pattern_asset_id: 'pattern_asset_0001', ref_type: 'spu', ref_id: 'SPU-JACKET-085', ref_name: '镂空蕾丝拼接上衣', created_at: '2026-04-05T14:10:00.000Z', last_referenced_at: '2026-04-06T10:08:00.000Z' },
     { id: 'pattern_ref_0004', pattern_asset_id: 'pattern_asset_0002', ref_type: 'flower_task', ref_id: 'AT-20260109-002', ref_name: '花型任务-波西米亚风长裙', created_at: '2026-04-05T10:00:00.000Z', last_referenced_at: '2026-04-05T10:00:00.000Z' },
     { id: 'pattern_ref_0005', pattern_asset_id: 'pattern_asset_0003', ref_type: 'project', ref_id: 'PRJ-20251218-002', ref_name: '波西米亚风长裙', created_at: '2026-04-07T08:10:00.000Z', last_referenced_at: '2026-04-07T08:10:00.000Z' },
     { id: 'pattern_ref_0006', pattern_asset_id: 'pattern_asset_0005', ref_type: 'sku', ref_id: 'SKU-7761', ref_name: '米杏西装外套', created_at: '2026-04-04T18:20:00.000Z', last_referenced_at: '2026-04-06T18:20:00.000Z' },

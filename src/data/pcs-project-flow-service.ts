@@ -517,6 +517,7 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
     {
       ...input.payload,
       businessDate,
+      recordStatus: input.completeAfterSave ? '已完成' : input.payload.recordStatus,
       values,
       detailSnapshot,
     },

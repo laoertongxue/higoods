@@ -340,7 +340,9 @@ export interface TechPackBomItem {
   washRequirement?: '是' | '否'
   printSideMode?: '' | 'SINGLE' | 'DOUBLE'
   frontPatternDesignId?: string
+  frontPatternDesignIds?: string[]
   insidePatternDesignId?: string
+  insidePatternDesignIds?: string[]
   // 适用 SKU 范围；为空表示默认适用全部 SKU
   applicableSkuCodes?: string[]
   // 与纸样形成结构化双向关联

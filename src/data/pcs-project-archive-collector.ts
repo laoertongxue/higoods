@@ -975,9 +975,59 @@ function buildPatternTaskDocuments(
   })
 
   listPatternTasksByProject(project.projectId).forEach((task) => {
-    documents.push(
+    const documentId = buildDocumentId(archive.projectArchiveId, '花型任务', '花型任务', task.patternTaskId, '', '花型任务', false)
+    const seenFileIds = new Set<string>()
+    const patternTaskFiles = [
+      ...(task.completionImageIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `完成确认图片-${index + 1}.png`),
+        fileType: '完成确认图片',
+        previewUrl: fileId,
+      })),
+      ...(task.demandImageIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `需求图片-${index + 1}.png`),
+        fileType: '需求图片',
+        previewUrl: fileId,
+      })),
+      ...(task.liveReferenceImageIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `直播参考图-${index + 1}.png`),
+        fileType: '直播参考图',
+        previewUrl: fileId,
+      })),
+      ...(task.imageReferenceIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `图片参考图-${index + 1}.png`),
+        fileType: '图片参考图',
+        previewUrl: fileId,
+      })),
+    ].filter((file) => {
+      if (!file.sourceFileId || seenFileIds.has(file.sourceFileId)) return false
+      seenFileIds.add(file.sourceFileId)
+      return true
+    }).map((file, index) => createFileRecord({
+      archiveFileId: buildFileId(archive.projectArchiveId, documentId, file.sourceFileId, file.fileName),
+      projectArchiveId: archive.projectArchiveId,
+      archiveDocumentId: documentId,
+      sourceModule: '花型任务',
+      sourceObjectType: '花型任务资料',
+      sourceObjectId: task.patternTaskId,
+      sourceFileId: file.sourceFileId,
+      fileName: file.fileName,
+      fileType: file.fileType,
+      previewUrl: file.previewUrl,
+      isPrimary: index === 0,
+      sortOrder: index + 1,
+      uploadedAt: task.updatedAt || task.createdAt,
+      uploadedBy: task.updatedBy || task.ownerName,
+    }))
+
+    pushDocumentWithFiles(
+      documents,
+      files,
       createDocumentRecord({
-        archiveDocumentId: buildDocumentId(archive.projectArchiveId, '花型任务', '花型任务', task.patternTaskId, '', '花型任务', false),
+        archiveDocumentId: documentId,
         projectArchiveId: archive.projectArchiveId,
         projectId: project.projectId,
         projectCode: project.projectCode,
@@ -998,10 +1048,10 @@ function buildPatternTaskDocuments(
         documentStatus: task.status,
         manualFlag: false,
         reusableFlag: true,
-        fileCount: 0,
-        primaryFileId: '',
-        primaryFileName: '',
-        previewUrl: '',
+        fileCount: patternTaskFiles.length,
+        primaryFileId: patternTaskFiles[0]?.archiveFileId || '',
+        primaryFileName: patternTaskFiles[0]?.fileName || '',
+        previewUrl: patternTaskFiles[0]?.previewUrl || '',
         businessDate: task.updatedAt || task.createdAt,
         ownerName: task.ownerName,
         createdAt: archive.createdAt,
@@ -1010,6 +1060,7 @@ function buildPatternTaskDocuments(
         updatedBy: task.updatedBy,
         legacySourceRef: task.legacyUpstreamRef,
       }),
+      patternTaskFiles,
     )
   })
 }

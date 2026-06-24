@@ -91,6 +91,7 @@ const SAMPLE_STATUS_TONE: Record<string, BadgeVariant> = {
   维修中: 'warning',
   待处置: 'danger',
   已退货: 'neutral',
+  已处置: 'neutral',
 }
 
 const REQUEST_STATUS_TONE: Record<PcsSampleRequestStatus, BadgeVariant> = {

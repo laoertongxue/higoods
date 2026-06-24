@@ -419,10 +419,10 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       updatedAt: '2026-04-02 15:00:00',
     },
     {
-      projectCode: 'PRJ-20251216-017',
+      projectCode: 'PRJ-202604-013',
       revisionTaskId: 'RT-20260401-017',
       revisionTaskCode: 'RT-20260401-017',
-      title: '改版牛仔机车短外套改版（袖长、洗水效果）',
+      title: '镂空蕾丝拼接上衣改版（袖长、拼接比例、花型位置）',
       productStyleCode: 'SPU-2026-017',
       spuCode: 'SPU-2026-017',
       status: '待确认' as const,
@@ -436,10 +436,10 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       updatedAt: '2026-04-03 11:40:00',
     },
     {
-      projectCode: 'PRJ-20251216-018',
+      projectCode: 'PRJ-202604-014',
       revisionTaskId: 'RT-20260402-018',
       revisionTaskCode: 'RT-20260402-018',
-      title: '设计款印花阔腿连体裤改版（花型节奏、腰部结构）',
+      title: '修身弹力牛仔裤改版（版型结构、贴章花型、腰部工艺）',
       productStyleCode: 'SPU-2026-018',
       spuCode: 'SPU-2026-018',
       status: '已确认' as const,
@@ -649,8 +649,8 @@ function plateExecutionSeed(taskId: string, input: {
 
 function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: PcsTaskPendingItem[] } {
   const tasks: PlateMakingTaskRecord[] = []
-  const projectA = pickProjectByCode('PRJ-20251216-001')
-  const projectB = pickProjectByCode('PRJ-20251216-002')
+  const projectA = pickProjectByCode('PRJ-202604-014')
+  const projectB = pickProjectByCode('PRJ-202604-013')
   const nodeA = projectA ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'PATTERN_TASK') : null
   const nodeB = projectB ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'PATTERN_TASK') : null
 
@@ -668,8 +668,8 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       sourceType: '改版任务',
       upstreamModule: '改版任务',
       upstreamObjectType: '改版任务',
-      upstreamObjectId: 'RT-20260109-003',
-      upstreamObjectCode: 'RT-20260109-003',
+      upstreamObjectId: 'RT-20260402-018',
+      upstreamObjectCode: 'RT-20260402-018',
       productStyleCode: 'SPU-001',
       spuCode: 'SPU-001',
       ...plateExecutionSeed('PT-20260109-002', {
@@ -699,7 +699,7 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       updatedBy: '系统初始化',
       note: '历史制版任务已迁移到正式仓储。',
       legacyProjectRef: projectA.projectCode,
-      legacyUpstreamRef: 'RT-20260109-003',
+      legacyUpstreamRef: 'RT-20260402-018',
     })
   }
 
@@ -714,11 +714,11 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       projectNodeId: nodeB.projectNodeId,
       workItemTypeCode: 'PATTERN_TASK',
       workItemTypeName: '制版任务',
-      sourceType: '项目模板阶段',
-      upstreamModule: '项目模板',
-      upstreamObjectType: '模板阶段',
-      upstreamObjectId: projectB.templateId,
-      upstreamObjectCode: projectB.templateVersion,
+      sourceType: '改版任务',
+      upstreamModule: '改版任务',
+      upstreamObjectType: '改版任务',
+      upstreamObjectId: 'RT-20260401-017',
+      upstreamObjectCode: 'RT-20260401-017',
       productStyleCode: 'SPU-002',
       spuCode: 'SPU-002',
       ...plateExecutionSeed('PT-20260109-001', {
@@ -749,7 +749,7 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       updatedBy: '系统初始化',
       note: '历史模板阶段制版任务已迁移。',
       legacyProjectRef: projectB.projectCode,
-      legacyUpstreamRef: '',
+      legacyUpstreamRef: 'RT-20260401-017',
     })
   }
 
@@ -863,7 +863,7 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       linkedTechPackVersionStatus: 'ACTIVE',
     },
     {
-      projectCode: 'PRJ-20251216-018',
+      projectCode: 'PRJ-202604-014',
       plateTaskId: 'PT-20260407-018',
       plateTaskCode: 'PT-20260407-018',
       title: '制版-设计款印花阔腿连体裤(P1)',
@@ -1008,8 +1008,8 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
 
 function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTaskPendingItem[] } {
   const tasks: PatternTaskRecord[] = []
-  const projectA = pickProjectByCode('PRJ-20251216-010')
-  const projectB = pickProjectByCode('PRJ-20251216-003')
+  const projectA = pickProjectByCode('PRJ-202604-014')
+  const projectB = pickProjectByCode('PRJ-202604-013')
   const nodeA = projectA ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'PATTERN_ARTWORK_TASK') : null
   const nodeB = projectB ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'PATTERN_ARTWORK_TASK') : null
   const executionFields = (input: {
@@ -1079,11 +1079,11 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       sourceType: '改版任务',
       upstreamModule: '改版任务',
       upstreamObjectType: '改版任务',
-      upstreamObjectId: 'RT-20260108-002',
-      upstreamObjectCode: 'RT-20260108-002',
+      upstreamObjectId: 'RT-20260402-018',
+      upstreamObjectCode: 'RT-20260402-018',
       productStyleCode: 'SPU-010',
       spuCode: 'SPU-010',
-      ...executionFields({ sourceType: '改版任务', sourceCode: 'RT-20260108-002', completed: true }),
+      ...executionFields({ sourceType: '改版任务', sourceCode: 'RT-20260402-018', completed: true }),
       artworkType: '印花',
       patternMode: '定位印',
       artworkName: 'Bunga Tropis A1',
@@ -1104,7 +1104,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       updatedBy: '系统初始化',
       note: '历史花型任务已迁移到正式仓储。',
       legacyProjectRef: projectA.projectCode,
-      legacyUpstreamRef: 'RT-20260108-002',
+      legacyUpstreamRef: 'RT-20260402-018',
     })
   }
 
@@ -1119,14 +1119,14 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectNodeId: nodeB.projectNodeId,
       workItemTypeCode: 'PATTERN_ARTWORK_TASK',
       workItemTypeName: '花型任务',
-      sourceType: '项目模板阶段',
-      upstreamModule: '项目模板',
-      upstreamObjectType: '模板阶段',
-      upstreamObjectId: projectB.templateId,
-      upstreamObjectCode: projectB.templateVersion,
+      sourceType: '改版任务',
+      upstreamModule: '改版任务',
+      upstreamObjectType: '改版任务',
+      upstreamObjectId: 'RT-20260401-017',
+      upstreamObjectCode: 'RT-20260401-017',
       productStyleCode: 'SPU-003',
       spuCode: 'SPU-003',
-      ...executionFields({ sourceType: '预售测款通过', sourceCode: projectB.projectCode, teamCode: 'BDG_TEAM', teamName: '万隆团队', memberId: 'bdg_ramzi_adli', memberName: 'ramzi adli' }),
+      ...executionFields({ sourceType: '改版任务', sourceCode: 'RT-20260401-017', teamCode: 'BDG_TEAM', teamName: '万隆团队', memberId: 'bdg_ramzi_adli', memberName: 'ramzi adli' }),
       artworkType: '印花',
       patternMode: '满印',
       artworkName: 'Summer Denim',
@@ -1153,7 +1153,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
 
   ;[
     {
-      projectCode: 'PRJ-20251216-013',
+      projectCode: 'PRJ-202604-013',
       patternTaskId: 'AT-20260404-013',
       patternTaskCode: 'AT-20260404-013',
       title: '花型-户外轻量夹克（机能贴章 A1）',
@@ -1171,7 +1171,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       updatedAt: '2026-04-04 15:40:00',
     },
     {
-      projectCode: 'PRJ-20251216-015',
+      projectCode: 'PRJ-202604-014',
       patternTaskId: 'AT-20260405-015',
       patternTaskCode: 'AT-20260405-015',
       title: '花型-中式结饰上衣（纹样 A2）',
@@ -1192,6 +1192,11 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
     const project = pickProjectByCode(item.projectCode)
     const node = project ? findProjectNodeByWorkItemTypeCode(project.projectId, 'PATTERN_ARTWORK_TASK') : null
     if (!project || !node) return
+    const upstreamRevisionCode = item.projectCode === 'PRJ-202604-014'
+      ? 'RT-20260402-018'
+      : item.projectCode === 'PRJ-202604-013'
+        ? 'RT-20260401-017'
+        : ''
     tasks.push({
       patternTaskId: item.patternTaskId,
       patternTaskCode: item.patternTaskCode,
@@ -1202,14 +1207,14 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectNodeId: node.projectNodeId,
       workItemTypeCode: 'PATTERN_ARTWORK_TASK',
       workItemTypeName: '花型任务',
-      sourceType: '项目模板阶段',
-      upstreamModule: '项目模板',
-      upstreamObjectType: '模板阶段',
-      upstreamObjectId: project.templateId,
-      upstreamObjectCode: project.templateVersion,
+      sourceType: upstreamRevisionCode ? '改版任务' : '项目模板阶段',
+      upstreamModule: upstreamRevisionCode ? '改版任务' : '项目模板',
+      upstreamObjectType: upstreamRevisionCode ? '改版任务' : '模板阶段',
+      upstreamObjectId: upstreamRevisionCode || project.templateId,
+      upstreamObjectCode: upstreamRevisionCode || project.templateVersion,
       productStyleCode: item.productStyleCode,
       spuCode: item.spuCode,
-      ...executionFields({ sourceType: '设计师款', sourceCode: project.projectCode, processType: item.artworkType === '贴章' ? '烫画' : '数码印', completed: item.status === '已完成' || item.status === '已确认' }),
+      ...executionFields({ sourceType: upstreamRevisionCode ? '改版任务' : '设计师款', sourceCode: upstreamRevisionCode || project.projectCode, processType: item.artworkType === '贴章' ? '烫画' : '数码印', completed: item.status === '已完成' || item.status === '已确认' }),
       artworkType: item.artworkType,
       patternMode: item.patternMode,
       artworkName: item.artworkName,
@@ -1230,7 +1235,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       updatedBy: '系统初始化',
       note: '补充的演示花型任务。',
       legacyProjectRef: project.projectCode,
-      legacyUpstreamRef: project.templateVersion,
+      legacyUpstreamRef: upstreamRevisionCode || project.templateVersion,
     })
   })
 

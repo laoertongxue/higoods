@@ -58,6 +58,9 @@ const OPTIONAL_NODE_RULES: Record<PcsProjectTemplateId, Partial<Record<PcsProjec
   [WANLONG_REVISION_SAMPLE_TEMPLATE_ID]: {
     VIDEO_TEST: optionalVideoTestRule,
   },
+  'TPL-004': {
+    VIDEO_TEST: optionalVideoTestRule,
+  },
 }
 
 const REQUIRED_TEMPLATE_TERMINAL_NODE_CODE: PcsProjectWorkItemCode = 'SAMPLE_RETURN_HANDLE'
@@ -68,7 +71,11 @@ function listActiveNodes(nodes: ProjectTemplateNodeDefinition[]): ProjectTemplat
 }
 
 function resolveSchemaTemplateId(templateId: string, templateName = ''): PcsProjectTemplateId {
-  if (templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID || templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID) {
+  if (
+    templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID ||
+    templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID ||
+    templateId === 'TPL-004'
+  ) {
     return templateId
   }
   return templateName.includes('万隆') ? WANLONG_REVISION_SAMPLE_TEMPLATE_ID : DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID

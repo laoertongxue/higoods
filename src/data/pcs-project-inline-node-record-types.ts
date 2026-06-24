@@ -321,7 +321,18 @@ export interface TestConclusionDetailSnapshot {
 }
 
 export interface SampleReturnHandlePayload {
+  handleType: string
+  destination?: string
+  handledQty?: number | string
+  handledBy?: string
+  handledAt?: string
   returnResult: string
+  returnRecipient?: string
+  returnDepartment?: string
+  returnAddress?: string
+  returnDate?: string
+  sampleCode?: string
+  returnDocCode?: string
 }
 
 export interface SampleReturnHandleDetailSnapshot {

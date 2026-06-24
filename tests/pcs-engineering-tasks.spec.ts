@@ -6,11 +6,12 @@ import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repos
 import { resetTechnicalDataVersionRepository } from '../src/data/pcs-technical-data-version-repository.ts'
 import { listRevisionTasks, getRevisionTaskById } from '../src/data/pcs-revision-task-repository.ts'
 import { listPlateMakingTasks, getPlateMakingTaskById } from '../src/data/pcs-plate-making-repository.ts'
-import { listPatternTasks, getPatternTaskById } from '../src/data/pcs-pattern-task-repository.ts'
+import { listPatternTasks, getPatternTaskById, updatePatternTask } from '../src/data/pcs-pattern-task-repository.ts'
 import { listFirstSampleTasks } from '../src/data/pcs-first-sample-repository.ts'
 import { listFirstOrderSampleTasks } from '../src/data/pcs-first-order-sample-repository.ts'
 import { listPatternAssets, resetPatternLibraryStore, waitForPatternLibraryPersistence } from '../src/data/pcs-pattern-library.ts'
 import { isTechPackGenerationAllowedStatus } from '../src/data/pcs-tech-pack-task-generation.ts'
+import { savePatternTaskDraft } from '../src/data/pcs-task-project-relation-writeback.ts'
 import {
   handlePcsEngineeringTaskEvent,
   renderPcsFirstSampleTaskDetailPage,
@@ -103,28 +104,67 @@ if (plateTask) {
   assert.ok(plateAfter?.linkedTechPackVersionId, '制版任务应写入正式技术包版本')
   const plateDetailHtml = renderPcsPlateMakingTaskDetailPage(plateTask.plateTaskId)
   assert.match(plateDetailHtml, /技术包写回/, '制版任务详情应渲染技术包写回页签')
-  assert.match(plateDetailHtml, /纸样版本/, '制版任务详情应渲染纸样版本页签')
+  assert.match(plateDetailHtml, /制版版次/, '制版任务详情应渲染制版版次信息')
 }
 
 const patternListHtml = renderPcsPatternTaskPage()
 assert.match(patternListHtml, /花型任务/, '应渲染花型任务列表标题')
 assert.match(patternListHtml, /花型库/, '花型任务列表应出现花型库相关能力')
 
+const incompletePatternTask = savePatternTaskDraft({
+  projectId: '',
+  title: '花型库沉淀缺资料拦截',
+  sourceType: '项目模板阶段',
+  productStyleCode: 'SPU-PATTERN-INCOMPLETE',
+  demandSourceType: '预售测款通过',
+  processType: '数码印',
+  requestQty: 1,
+  fabricName: '印花面料',
+  demandImageIds: ['mock://pattern-demand/incomplete.png'],
+  assignedTeamCode: 'CN_TEAM',
+  assignedMemberId: 'cn_guanhao',
+})
+const assetsBeforeIncompletePublish = listPatternAssets().length
+handlePcsEngineeringTaskEvent(makeActionTarget('pattern-publish-library', { taskId: incompletePatternTask.patternTaskId }))
+await waitForPatternLibraryPersistence()
+assert.equal(listPatternAssets().length, assetsBeforeIncompletePublish, '花型任务资料不完整时不得沉淀花型库资产')
+assert.ok(!listPatternAssets().some((asset) => asset.source_task_id === incompletePatternTask.patternTaskId), '缺少产出资料的花型任务不得回写花型库来源')
+
+const patternTask = savePatternTaskDraft({
+  projectId: '',
+  title: '花型库沉淀验收',
+  sourceType: '项目模板阶段',
+  productStyleCode: 'SPU-PATTERN-PUBLISH',
+  demandSourceType: '预售测款通过',
+  processType: '数码印',
+  requestQty: 1,
+  fabricName: '印花面料',
+  demandImageIds: ['mock://pattern-demand/publish.png'],
+  completionImageIds: ['mock://pattern-complete/publish.png'],
+  buyerReviewStatus: '买手已通过',
+  artworkVersion: 'A1',
+  assignedTeamCode: 'CN_TEAM',
+  assignedMemberId: 'cn_guanhao',
+})
+updatePatternTask(patternTask.patternTaskId, { status: '已确认' })
+
 const assetsBefore = listPatternAssets().length
-const patternTask = listPatternTasks().find((item) => !listPatternAssets().some((asset) => asset.source_task_id === item.patternTaskId))
 if (patternTask) {
   handlePcsEngineeringTaskEvent(makeActionTarget('pattern-publish-library', { taskId: patternTask.patternTaskId }))
   await waitForPatternLibraryPersistence()
   const patternAfter = getPatternTaskById(patternTask.patternTaskId)
   assert.ok(listPatternAssets().length > assetsBefore, '花型任务沉淀后应新增花型库资产')
   assert.ok(listPatternAssets().some((asset) => asset.source_task_id === patternTask.patternTaskId), '花型资产应回写来源任务')
-  assert.equal(patternAfter?.status, '已完成', '花型沉淀后任务应进入已完成')
+  assert.equal(patternAfter?.status, '已确认', '花型沉淀不得直接把任务状态改成已完成')
   assert.match(appStore.getState().pathname, /\/pcs\/pattern-library\//, '沉淀完成后应跳转到花型库详情')
 }
 const patternDetailTask = patternTask || listPatternTasks()[0]
 if (patternDetailTask) {
   const patternDetailHtml = renderPcsPatternTaskDetailPage(patternDetailTask.patternTaskId)
-  assert.match(patternDetailHtml, /花型方案/, '花型任务详情应渲染花型方案页签')
+  assert.match(patternDetailHtml, /任务需求/, '花型任务详情应渲染任务需求页签')
+  assert.match(patternDetailHtml, /执行与颜色/, '花型任务详情应渲染执行与颜色页签')
+  assert.match(patternDetailHtml, /产出闭环/, '花型任务详情应渲染产出闭环页签')
+  assert.match(patternDetailHtml, /pattern-flow-steps/, '花型任务详情应渲染流程进度')
   assert.match(patternDetailHtml, /花型库沉淀/, '花型任务详情应渲染花型库沉淀页签')
 }
 

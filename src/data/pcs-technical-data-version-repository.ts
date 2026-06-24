@@ -428,10 +428,25 @@ function repairCompletedDesignRequirementContent(
       printSideMode: item.printSideMode === 'DOUBLE' ? 'DOUBLE' : 'SINGLE',
     }
 
-    const ensureDesign = (side: 'FRONT' | 'INSIDE'): string => {
-      const currentId = side === 'FRONT' ? nextItem.frontPatternDesignId : nextItem.insidePatternDesignId
-      const currentDesign = currentId ? designById.get(currentId) : undefined
-      if (currentDesign?.designSideType === side) return currentDesign.id
+    const normalizeDesignIds = (ids: unknown, legacyId: unknown): string[] => {
+      const source = Array.isArray(ids) ? ids : []
+      return Array.from(
+        new Set(
+          [...source, legacyId]
+            .map((value) => String(value ?? '').trim())
+            .filter((value) => value.length > 0),
+        ),
+      )
+    }
+
+    const ensureDesign = (side: 'FRONT' | 'INSIDE'): string[] => {
+      const currentIds = side === 'FRONT'
+        ? normalizeDesignIds(nextItem.frontPatternDesignIds, nextItem.frontPatternDesignId)
+        : normalizeDesignIds(nextItem.insidePatternDesignIds, nextItem.insidePatternDesignId)
+      const currentDesign = currentIds
+        .map((currentId) => designById.get(currentId))
+        .find((design) => design?.designSideType === side)
+      if (currentDesign) return currentIds
 
       const repairedDesign = buildAutoRepairedPatternDesign({
         technicalVersionId: content.technicalVersionId,
@@ -444,12 +459,20 @@ function repairCompletedDesignRequirementContent(
         repairedDesigns.push(repairedDesign)
         designById.set(repairedDesign.id, repairedDesign)
       }
-      return repairedDesign.id
+      return [repairedDesign.id]
     }
 
-    nextItem.frontPatternDesignId = ensureDesign('FRONT')
-    if (nextItem.printSideMode === 'DOUBLE') nextItem.insidePatternDesignId = ensureDesign('INSIDE')
-    else nextItem.insidePatternDesignId = undefined
+    const frontPatternDesignIds = ensureDesign('FRONT')
+    nextItem.frontPatternDesignId = frontPatternDesignIds[0]
+    nextItem.frontPatternDesignIds = frontPatternDesignIds
+    if (nextItem.printSideMode === 'DOUBLE') {
+      const insidePatternDesignIds = ensureDesign('INSIDE')
+      nextItem.insidePatternDesignId = insidePatternDesignIds[0]
+      nextItem.insidePatternDesignIds = insidePatternDesignIds
+    } else {
+      nextItem.insidePatternDesignId = undefined
+      nextItem.insidePatternDesignIds = undefined
+    }
     return nextItem
   })
 

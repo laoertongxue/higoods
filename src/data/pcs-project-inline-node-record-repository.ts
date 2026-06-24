@@ -156,7 +156,20 @@ const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, s
     'conclusionLegacyValue',
     'migrationNote',
   ],
-  SAMPLE_RETURN_HANDLE: ['handleType', 'destination', 'handledQty', 'handledBy', 'handledAt', 'returnResult'],
+  SAMPLE_RETURN_HANDLE: [
+    'handleType',
+    'destination',
+    'handledQty',
+    'handledBy',
+    'handledAt',
+    'returnResult',
+    'returnRecipient',
+    'returnDepartment',
+    'returnAddress',
+    'returnDate',
+    'sampleCode',
+    'returnDocCode',
+  ],
 }
 
 const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, string[]> = {

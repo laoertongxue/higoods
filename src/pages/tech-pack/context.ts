@@ -196,7 +196,25 @@ type BomItemRow = {
   washRequirement: BomRequirementFlag
   printSideMode: '' | 'SINGLE' | 'DOUBLE'
   frontPatternDesignId: string
+  frontPatternDesignIds: string[]
   insidePatternDesignId: string
+  insidePatternDesignIds: string[]
+}
+
+type BomPatternDesignReferenceInput = {
+  frontPatternDesignId?: string
+  frontPatternDesignIds?: string[]
+  insidePatternDesignId?: string
+  insidePatternDesignIds?: string[]
+}
+
+type DesignDraftFile = {
+  id: string
+  fileName: string
+  mimeType: string
+  originalFileDataUrl: string
+  previewThumbnailDataUrl: string
+  processing: boolean
 }
 
 type PatternPieceRow = {
@@ -656,9 +674,37 @@ function createEmptyBomFormState(): TechPackPageState['newBomItem'] {
     washRequirement: '否',
     printSideMode: '',
     frontPatternDesignId: '',
+    frontPatternDesignIds: [],
     insidePatternDesignId: '',
+    insidePatternDesignIds: [],
   }
 }
+
+function normalizePatternDesignIdList(ids: unknown, legacyId?: unknown): string[] {
+  const values = Array.isArray(ids) ? ids : []
+  return dedupeStrings(
+    [...values, legacyId]
+      .map((item) => String(item ?? '').trim())
+      .filter((item) => item.length > 0),
+  )
+}
+
+function getBomPatternDesignIds(
+  item: BomPatternDesignReferenceInput,
+  sideType: TechPackPatternDesignSideType,
+): string[] {
+  return sideType === 'FRONT'
+    ? normalizePatternDesignIdList(item.frontPatternDesignIds, item.frontPatternDesignId)
+    : normalizePatternDesignIdList(item.insidePatternDesignIds, item.insidePatternDesignId)
+}
+
+function getPrimaryBomPatternDesignId(
+  item: BomPatternDesignReferenceInput,
+  sideType: TechPackPatternDesignSideType,
+): string {
+  return getBomPatternDesignIds(item, sideType)[0] || ''
+}
+
 const currencyOptions = ['人民币', '美元', '印尼盾']
 const materialUnitOptions = ['人民币/米', '人民币/码', '人民币/件', '美元/米', '美元/件', '印尼盾/件']
 const processUnitOptions = ['人民币/件', '人民币/批', '美元/件', '美元/批', '印尼盾/件', '印尼盾/批']
@@ -1480,7 +1526,9 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     washRequirement: '是',
     printSideMode: 'SINGLE',
     frontPatternDesignId: 'design-front-1',
+    frontPatternDesignIds: ['design-front-1'],
     insidePatternDesignId: '',
+    insidePatternDesignIds: [],
   },
   {
     id: 'bom-2',
@@ -1501,7 +1549,9 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     washRequirement: '否',
     printSideMode: '',
     frontPatternDesignId: '',
+    frontPatternDesignIds: [],
     insidePatternDesignId: '',
+    insidePatternDesignIds: [],
   },
   {
     id: 'bom-3',
@@ -1522,7 +1572,9 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     washRequirement: '否',
     printSideMode: '',
     frontPatternDesignId: '',
+    frontPatternDesignIds: [],
     insidePatternDesignId: '',
+    insidePatternDesignIds: [],
   },
 ]
 
@@ -1718,7 +1770,9 @@ interface TechPackPageState {
     washRequirement: BomRequirementFlag
     printSideMode: '' | 'SINGLE' | 'DOUBLE'
     frontPatternDesignId: string
+    frontPatternDesignIds: string[]
     insidePatternDesignId: string
+    insidePatternDesignIds: string[]
   }
   newTechnique: {
     stageCode: '' | 'PREP' | 'PROD' | 'POST'
@@ -1752,6 +1806,9 @@ interface TechPackPageState {
   newDesignOriginalFileDataUrl: string
   newDesignPreviewThumbnailDataUrl: string
   selectedDesignFile: File | null
+  selectedDesignFiles: File[]
+  newDesignFiles: DesignDraftFile[]
+  designFileSelectionToken: number
 }
 
 const state: TechPackPageState = {
@@ -1854,6 +1911,9 @@ const state: TechPackPageState = {
   newDesignOriginalFileDataUrl: '',
   newDesignPreviewThumbnailDataUrl: '',
   selectedDesignFile: null,
+  selectedDesignFiles: [],
+  newDesignFiles: [],
+  designFileSelectionToken: 0,
 }
 
 type TechPackPageInitSeed = {
@@ -1901,6 +1961,8 @@ function cloneTechPack(techPack: TechPack): TechPack {
     sizeTable: techPack.sizeTable.map((item) => ({ ...item })),
     bomItems: techPack.bomItems.map((item) => ({
       ...item,
+      frontPatternDesignIds: [...(item.frontPatternDesignIds ?? [])],
+      insidePatternDesignIds: [...(item.insidePatternDesignIds ?? [])],
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
       linkedPatternIds: [...(item.linkedPatternIds ?? [])],
       usageProcessCodes: [...(item.usageProcessCodes ?? [])],
@@ -2586,7 +2648,9 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
         item.washRequirement,
         item.printSideMode,
         item.frontPatternDesignId,
+        item.frontPatternDesignIds,
         item.insidePatternDesignId,
+        item.insidePatternDesignIds,
       ]),
       skuOptions: getSkuOptionsForCurrentSpu(),
     },
@@ -2610,8 +2674,10 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
         shrinkRequirement: item.shrinkRequirement || '否',
         washRequirement: item.washRequirement || '否',
         printSideMode: item.printSideMode || '',
-        frontPatternDesignId: item.frontPatternDesignId || '',
-        insidePatternDesignId: item.insidePatternDesignId || '',
+        frontPatternDesignId: getPrimaryBomPatternDesignId(item, 'FRONT'),
+        frontPatternDesignIds: getBomPatternDesignIds(item, 'FRONT'),
+        insidePatternDesignId: getPrimaryBomPatternDesignId(item, 'INSIDE'),
+        insidePatternDesignIds: getBomPatternDesignIds(item, 'INSIDE'),
       }))
 
       if (normalizedLinkedBomItemId) {
@@ -4029,8 +4095,10 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       shrinkRequirement: item.shrinkRequirement ?? '否',
       washRequirement: item.washRequirement ?? '否',
       printSideMode: item.printSideMode ?? '',
-      frontPatternDesignId: item.frontPatternDesignId ?? '',
-      insidePatternDesignId: item.insidePatternDesignId ?? '',
+      frontPatternDesignId: getPrimaryBomPatternDesignId(item, 'FRONT'),
+      frontPatternDesignIds: getBomPatternDesignIds(item, 'FRONT'),
+      insidePatternDesignId: getPrimaryBomPatternDesignId(item, 'INSIDE'),
+      insidePatternDesignIds: getBomPatternDesignIds(item, 'INSIDE'),
     }
   })
 }
@@ -4601,34 +4669,41 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       requiresRemovalConfirmation: item.requiresRemovalConfirmation,
       linkageStatus: item.linkageStatus,
     })),
-    bomItems: state.bomItems.map((item) => ({
-      id: item.id,
-      type: item.type,
-      name: item.materialName,
-      spec: item.spec,
-      colorLabel: item.colorLabel || undefined,
-      unitConsumption: Number(item.usage) || 0,
-      lossRate: Number(item.lossRate) || 0,
-      supplier: '-',
-      printRequirement: item.printRequirement || '无',
-      dyeRequirement: item.dyeRequirement || '无',
-      shrinkRequirement: item.shrinkRequirement || '否',
-      washRequirement: item.washRequirement || '否',
-      printSideMode: item.printSideMode || undefined,
-      frontPatternDesignId: item.frontPatternDesignId || undefined,
-      insidePatternDesignId: item.insidePatternDesignId || undefined,
-      applicableSkuCodes: dedupeStrings([...(item.applicableSkuCodes ?? [])]),
-      linkedPatternIds: dedupeStrings([
-        ...(item.linkedPatternIds ?? []),
-        ...item.patternPieces
-          .map((pieceName) => patternIdByName.get(pieceName) || '')
-          .filter((id) => id.trim().length > 0),
-      ]),
-      usageProcessCodes:
-        item.usageProcessCodes.length > 0
-          ? dedupeStrings([...item.usageProcessCodes])
-          : undefined,
-    })),
+    bomItems: state.bomItems.map((item) => {
+      const frontPatternDesignIds = getBomPatternDesignIds(item, 'FRONT')
+      const insidePatternDesignIds = getBomPatternDesignIds(item, 'INSIDE')
+
+      return {
+        id: item.id,
+        type: item.type,
+        name: item.materialName,
+        spec: item.spec,
+        colorLabel: item.colorLabel || undefined,
+        unitConsumption: Number(item.usage) || 0,
+        lossRate: Number(item.lossRate) || 0,
+        supplier: '-',
+        printRequirement: item.printRequirement || '无',
+        dyeRequirement: item.dyeRequirement || '无',
+        shrinkRequirement: item.shrinkRequirement || '否',
+        washRequirement: item.washRequirement || '否',
+        printSideMode: item.printSideMode || undefined,
+        frontPatternDesignId: frontPatternDesignIds[0] || undefined,
+        frontPatternDesignIds: frontPatternDesignIds.length > 0 ? frontPatternDesignIds : undefined,
+        insidePatternDesignId: insidePatternDesignIds[0] || undefined,
+        insidePatternDesignIds: insidePatternDesignIds.length > 0 ? insidePatternDesignIds : undefined,
+        applicableSkuCodes: dedupeStrings([...(item.applicableSkuCodes ?? [])]),
+        linkedPatternIds: dedupeStrings([
+          ...(item.linkedPatternIds ?? []),
+          ...item.patternPieces
+            .map((pieceName) => patternIdByName.get(pieceName) || '')
+            .filter((id) => id.trim().length > 0),
+        ]),
+        usageProcessCodes:
+          item.usageProcessCodes.length > 0
+            ? dedupeStrings([...item.usageProcessCodes])
+            : undefined,
+      }
+    }),
     materialCostItems: state.materialCostRows.map((row) => ({
       id: `MC-${row.id}`,
       bomItemId: row.id,
@@ -4922,6 +4997,9 @@ function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed 
   state.newDesignOriginalFileDataUrl = ''
   state.newDesignPreviewThumbnailDataUrl = ''
   state.selectedDesignFile = null
+  state.selectedDesignFiles = []
+  state.newDesignFiles = []
+  state.designFileSelectionToken += 1
   state.patternTemplateSearchKeyword = ''
   state.activePatternTemplatePieceId = null
 
@@ -5063,6 +5141,9 @@ export {
   getPatternDesignOptionsBySide,
   getPatternDesignPreviewAssetById,
   getPatternDesignPreviewUrl,
+  getBomPatternDesignIds,
+  getPrimaryBomPatternDesignId,
+  normalizePatternDesignIdList,
   getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
   getPatternPieceInstanceSpecialCraftOptions,
   PATTERN_CRAFT_POSITION_OPTIONS,
