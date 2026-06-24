@@ -3757,7 +3757,6 @@ function renderPatternDetailPage(patternTaskId: string): string {
 
   const aside = `
     <div class="space-y-4 xl:sticky xl:top-4">
-      ${renderSectionCard('流程进度', renderPatternFlowSteps(flow))}
       ${renderSectionCard('任务摘要', renderKeyValueGrid([
         { label: '当前阶段', value: escapeHtml(flow.stageLabel) },
         { label: '下一步', value: escapeHtml(flow.nextActionText) },
