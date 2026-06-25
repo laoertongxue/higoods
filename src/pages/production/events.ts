@@ -28,6 +28,8 @@ import {
   getPlanFactoryOptions,
   deriveLifecycleStatus,
   getOrderById,
+  getOrderTaskBreakdownDisabledReason,
+  applyOrderTaskBreakdown,
   openAppRoute,
   indonesiaFactories,
   PAGE_SIZE,
@@ -1343,6 +1345,42 @@ export function handleProductionEvent(target: HTMLElement): boolean {
 
   if (action === 'close-orders-logs') {
     state.ordersLogsId = null
+    return true
+  }
+
+  if (action === 'breakdown-order') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+
+    state.ordersActionMenuId = null
+    const changed = applyOrderTaskBreakdown([orderId])
+    if (changed > 0) {
+      showPlanMessage('已拆解任务，生产单进入待分配')
+      return true
+    }
+
+    const order = getOrderById(orderId)
+    showPlanMessage(order ? getOrderTaskBreakdownDisabledReason(order) || '当前生产单不可拆解' : '未找到生产单', 'error')
+    return true
+  }
+
+  if (action === 'batch-breakdown-orders') {
+    const selectedIds = [...state.ordersSelectedIds]
+    if (selectedIds.length === 0) {
+      showPlanMessage('请先勾选需要拆解的生产单', 'error')
+      return true
+    }
+
+    state.ordersActionMenuId = null
+    const changed = applyOrderTaskBreakdown(selectedIds)
+    state.ordersSelectedIds = new Set<string>()
+
+    if (changed > 0) {
+      showPlanMessage(`已批量拆解 ${changed} 张生产单`)
+      return true
+    }
+
+    showPlanMessage('所选生产单没有可拆解任务', 'error')
     return true
   }
 

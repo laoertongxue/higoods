@@ -26,6 +26,8 @@ import {
   getOrderMaterialDisplaySummary,
   getOrderMaterialIndicators,
   getOrderTechPackSnapshotDisplay,
+  canOrderStartTaskBreakdown,
+  getOrderTaskBreakdownDisabledReason,
   formatOutputValue,
   getFilteredOrders,
   getPaginatedOrders,
@@ -64,6 +66,14 @@ function getOrderConfirmationPreviewState(order: ProductionOrder): {
   title: string
 } {
   const href = buildProductionConfirmationPrintLink(order.productionOrderId)
+  if (!order.taskBreakdownSummary.isBrokenDown || order.status === 'READY_FOR_BREAKDOWN') {
+    return {
+      available: false,
+      href,
+      title: '未拆解任务，不能打印生产确认单',
+    }
+  }
+
   const confirmation = getProductionConfirmationByOrderId(order.productionOrderId)
   const printable = isProductionConfirmationPrintable(order.productionOrderId)
 
@@ -78,7 +88,9 @@ function getOrderConfirmationPreviewState(order: ProductionOrder): {
   return {
     available: false,
     href,
-    title: '工厂分配完成后可打印',
+    title: printable.reason
+      ? `${printable.reason}，不能打印生产确认单`
+      : '工厂分配完成后可打印',
   }
 }
 
@@ -156,9 +168,6 @@ function renderOrderAssignmentOverview(order: ProductionOrder): string {
 }
 
 function getOrderListStatusDisplay(order: ProductionOrder): { label: string; color: string } {
-  if (order.status === 'READY_FOR_BREAKDOWN') {
-    return productionOrderStatusConfig.WAIT_ASSIGNMENT
-  }
   return productionOrderStatusConfig[order.status] ?? { label: order.status, color: 'bg-slate-100 text-slate-700' }
 }
 
@@ -722,6 +731,17 @@ export function renderProductionOrdersPage(): string {
   const pagedOrders = getPaginatedOrders(filteredOrders)
   const selectedAll =
     state.ordersSelectedIds.size === pagedOrders.length && pagedOrders.length > 0
+  const selectedOrderIds = [...state.ordersSelectedIds]
+  const selectedBreakdownEligibleIds = selectedOrderIds.filter((orderId) => {
+    const order = state.orders.find((item) => item.productionOrderId === orderId)
+    return Boolean(order && canOrderStartTaskBreakdown(order))
+  })
+  const batchBreakdownDisabledReason =
+    selectedOrderIds.length === 0
+      ? '请先勾选生产单'
+      : selectedBreakdownEligibleIds.length === 0
+        ? '所选生产单没有可拆解任务'
+        : ''
   const materialReminderStats = filteredOrders.reduce(
     (acc, order) => {
       const indicators = getOrderMaterialDisplaySummary(order)
@@ -743,6 +763,16 @@ export function renderProductionOrdersPage(): string {
           <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="orders-from-demand">
             <i data-lucide="file-text" class="mr-1 h-4 w-4"></i>
             从需求生成
+          </button>
+          <button
+            class="inline-flex items-center rounded-md border px-3 py-2 text-sm ${
+              selectedBreakdownEligibleIds.length > 0 ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
+            }"
+            title="${escapeHtml(batchBreakdownDisabledReason)}"
+            data-prod-action="batch-breakdown-orders"
+          >
+            <i data-lucide="split" class="mr-1 h-4 w-4"></i>
+            批量拆解任务 (${selectedBreakdownEligibleIds.length})
           </button>
           <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="orders-export">
             <i data-lucide="download" class="mr-1 h-4 w-4"></i>
@@ -793,7 +823,6 @@ export function renderProductionOrdersPage(): string {
             <select data-prod-field="ordersStatusFilter" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">
               <option value="ALL" ${state.ordersStatusFilter.length === 0 ? 'selected' : ''}>全部</option>
               ${(Object.keys(productionOrderStatusConfig) as ProductionOrderStatus[])
-                .filter((status) => status !== 'READY_FOR_BREAKDOWN')
                 .map(
                   (status) =>
                     `<option value="${status}" ${
@@ -810,7 +839,7 @@ export function renderProductionOrdersPage(): string {
             <span class="text-xs text-muted-foreground">任务准备</span>
             <select data-prod-field="ordersBreakdownFilter" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">
               <option value="ALL" ${state.ordersBreakdownFilter === 'ALL' ? 'selected' : ''}>全部</option>
-              <option value="PENDING" ${state.ordersBreakdownFilter === 'PENDING' ? 'selected' : ''}>待分配</option>
+              <option value="PENDING" ${state.ordersBreakdownFilter === 'PENDING' ? 'selected' : ''}>未拆解</option>
               <option value="ACTIVE" ${state.ordersBreakdownFilter === 'ACTIVE' ? 'selected' : ''}>已进入分配</option>
             </select>
           </div>
@@ -962,6 +991,9 @@ export function renderProductionOrdersPage(): string {
                         const techPackSnapshotDisplay = getOrderTechPackSnapshotDisplay(order)
                         const mergedLogs = getOrderMergedAuditLogs(order)
                         const lastLog = mergedLogs[mergedLogs.length - 1]
+                        const confirmationPreviewState = getOrderConfirmationPreviewState(order)
+                        const breakdownDisabledReason = getOrderTaskBreakdownDisabledReason(order)
+                        const canBreakdownOrder = canOrderStartTaskBreakdown(order)
 
                         return `
                           <tr class="cursor-pointer border-b last:border-0 hover:bg-muted/30" data-prod-action="open-order-detail" data-order-id="${order.productionOrderId}">
@@ -1061,10 +1093,21 @@ export function renderProductionOrdersPage(): string {
                                           </button>
                                           <button
                                             class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm ${
-                                              getOrderConfirmationPreviewState(order).available ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
+                                              canBreakdownOrder ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
                                             }"
-                                            title="${escapeHtml(getOrderConfirmationPreviewState(order).title)}"
-                                            data-nav="${escapeHtml(getOrderConfirmationPreviewState(order).href)}"
+                                            title="${escapeHtml(breakdownDisabledReason)}"
+                                            data-prod-action="breakdown-order"
+                                            data-order-id="${escapeHtml(order.productionOrderId)}"
+                                          >
+                                            <i data-lucide="split" class="mr-2 h-4 w-4"></i>
+                                            拆解任务
+                                          </button>
+                                          <button
+                                            class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm ${
+                                              confirmationPreviewState.available ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
+                                            }"
+                                            title="${escapeHtml(confirmationPreviewState.title)}"
+                                            data-nav="${escapeHtml(confirmationPreviewState.href)}"
                                           >
                                             <i data-lucide="printer" class="mr-2 h-4 w-4"></i>
                                             打印生产确认单

@@ -734,7 +734,7 @@ function renderPriceSnapshotSheet(task: DispatchTask | null): string {
           <div class="space-y-1">
             <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">工序标准价</p>
             <p class="text-lg font-semibold tabular-nums">${std.price.toLocaleString()} <span class="text-sm font-normal text-muted-foreground">${escapeHtml(std.currency)}/${escapeHtml(std.unit)}</span></p>
-            <p class="text-xs text-muted-foreground">来源：生产需求接收对应工序标准价快照</p>
+            <p class="text-xs text-muted-foreground">来源：生产需求单对应工序标准价快照</p>
           </div>
 
           <div class="space-y-1">

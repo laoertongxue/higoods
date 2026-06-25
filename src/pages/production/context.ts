@@ -855,6 +855,88 @@ function getOrderBusinessTechPackStatus(
   return toDemandTechPackStatus(status)
 }
 
+function canOrderStartTaskBreakdown(order: ProductionOrder): boolean {
+  const statusAllowsBreakdown = order.status === 'READY_FOR_BREAKDOWN' || order.status === 'WAIT_ASSIGNMENT'
+  return (
+    getOrderBusinessTechPackStatus(order.techPackSnapshot) === 'RELEASED' &&
+    statusAllowsBreakdown &&
+    !order.taskBreakdownSummary.isBrokenDown
+  )
+}
+
+function getOrderTaskBreakdownDisabledReason(order: ProductionOrder): string {
+  if (getOrderBusinessTechPackStatus(order.techPackSnapshot) !== 'RELEASED') {
+    return '技术包快照缺失，无法拆解'
+  }
+  if (order.taskBreakdownSummary.isBrokenDown) return '已拆解任务'
+  if (order.status !== 'READY_FOR_BREAKDOWN' && order.status !== 'WAIT_ASSIGNMENT') return '当前状态不支持拆解'
+  return ''
+}
+
+function applyOrderTaskBreakdown(orderIds: string[]): number {
+  const targetIds = new Set(orderIds)
+  if (targetIds.size === 0) return 0
+
+  const now = toTimestamp()
+  let changedCount = 0
+
+  state.orders = state.orders.map((order) => {
+    if (!targetIds.has(order.productionOrderId) || !canOrderStartTaskBreakdown(order)) {
+      return order
+    }
+
+    changedCount += 1
+    const totalTasks = Math.max(3, Math.min(5, order.demandSnapshot.skuLines.length + 1))
+    const biddingCount = totalTasks >= 4 ? 2 : 1
+    const directCount = totalTasks - biddingCount
+
+    return {
+      ...order,
+      status: 'WAIT_ASSIGNMENT',
+      assignmentSummary: {
+        directCount,
+        biddingCount,
+        totalTasks,
+        unassignedCount: totalTasks,
+      },
+      assignmentProgress: {
+        status: 'PENDING',
+        directAssignedCount: 0,
+        biddingLaunchedCount: 0,
+        biddingAwardedCount: 0,
+      },
+      biddingSummary: {
+        activeTenderCount: 0,
+        overdueTenderCount: 0,
+      },
+      directDispatchSummary: {
+        assignedFactoryCount: 0,
+        rejectedCount: 0,
+        overdueAckCount: 0,
+      },
+      taskBreakdownSummary: {
+        isBrokenDown: true,
+        taskTypesTop3: ['裁片', '车缝', '后道'],
+        lastBreakdownAt: now,
+        lastBreakdownBy: currentUser.name,
+      },
+      auditLogs: [
+        ...order.auditLogs,
+        {
+          id: nextLocalEntityId('LOG'),
+          action: 'TASK_BREAKDOWN',
+          detail: `手动拆解任务，生成 ${totalTasks} 条待分配任务`,
+          at: now,
+          by: currentUser.name,
+        },
+      ],
+      updatedAt: now,
+    }
+  })
+
+  return changedCount
+}
+
 function deriveLifecycleStatus(order: ProductionOrder): LifecycleStatus {
   if (order.lifecycleStatus) return order.lifecycleStatus
 
@@ -1001,6 +1083,20 @@ function getOrderDisplayBreakdownSnapshot(order: ProductionOrder): {
   hasEnteredAssignment: boolean
 } {
   const assignment = getOrderDisplayAssignmentSnapshot(order)
+  if (!order.taskBreakdownSummary.isBrokenDown) {
+    return {
+      isBrokenDown: false,
+      phase: 'INITIAL_TASK',
+      label: '未拆解',
+      detailText: '待手动拆解任务',
+      badgeClassName: 'bg-gray-100 text-gray-600',
+      lastBreakdownAt: order.updatedAt ?? order.createdAt,
+      lastBreakdownBy: order.auditLogs[order.auditLogs.length - 1]?.by ?? '系统',
+      isPendingAssignment: true,
+      hasEnteredAssignment: false,
+    }
+  }
+
   const initialTaskCount =
     order.status === 'DRAFT' || order.status === 'WAIT_TECH_PACK_RELEASE' ? 0 : Math.max(order.assignmentSummary.totalTasks, 1)
   const lastAt =
@@ -1790,6 +1886,9 @@ export {
   toOrderTechPackStatus,
   normalizeTechPackVersionLabel,
   getOrderBusinessTechPackStatus,
+  canOrderStartTaskBreakdown,
+  getOrderTaskBreakdownDisabledReason,
+  applyOrderTaskBreakdown,
   deriveLifecycleStatus,
   buildSettlementSummary,
   getTechPackSnapshotForDemand,

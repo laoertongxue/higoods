@@ -214,7 +214,7 @@ function renderDemandBatchGenerateDialog(): string {
       <section class="absolute left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">合并生成生产单</h3>
-          <p class="mt-1 text-sm text-muted-foreground">当前列表已选 ${selectedDemandIds.length} 条需求，满足同一 SPU 且均有生效技术包后会合并为 1 张生产单。</p>
+          <p class="mt-1 text-sm text-muted-foreground">当前列表已选 ${selectedDemandIds.length} 条需求，满足同一 SPU 且均有生效技术包后会合并为 1 张生产单，生成后需手动拆解任务。</p>
         </header>
 
         <div class="max-h-[72vh] space-y-4 overflow-y-auto px-6 py-5">
@@ -310,7 +310,7 @@ function renderDemandSingleGenerateDialog(singleDemand: ProductionDemand | null)
       <section class="absolute left-1/2 top-1/2 w-full max-w-xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">生成生产单</h3>
-          <p class="mt-1 text-sm text-muted-foreground">为需求 ${escapeHtml(singleDemand.demandId)} (${escapeHtml(singleDemand.spuCode)}) 生成生产单</p>
+          <p class="mt-1 text-sm text-muted-foreground">为需求 ${escapeHtml(singleDemand.demandId)} (${escapeHtml(singleDemand.spuCode)}) 生成生产单，生成后需手动拆解任务。</p>
         </header>
 
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
@@ -335,7 +335,7 @@ function renderOrdersFromDemandDialog(): string {
       <section class="absolute left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">从需求生成</h3>
-          <p class="mt-1 text-sm text-muted-foreground">仅支持已启用且已发布的当前生效技术包版本生成生产单；可多条需求合并生成一张生产单</p>
+          <p class="mt-1 text-sm text-muted-foreground">仅支持已启用且已发布的当前生效技术包版本生成生产单；可多条需求合并生成一张生产单，生成后不自动拆解任务</p>
         </header>
 
         <div class="max-h-[72vh] space-y-4 overflow-y-auto px-6 py-5">
@@ -445,7 +445,7 @@ export function renderProductionDemandInboxPage(): string {
   return `
     <div class="space-y-4">
       <header class="flex items-center justify-between">
-        <h1 class="text-xl font-semibold">生产需求接收</h1>
+        <h1 class="text-xl font-semibold">生产需求单</h1>
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2">
             <button
@@ -774,7 +774,7 @@ function performDemandGenerate(): void {
         {
           id: nextLocalEntityId('LOG'),
           action: 'CREATE',
-          detail: `合并需求 ${targetDemands.map((demand) => demand.demandId).join('、')} 生成生产单，主工厂待车缝任务分配确定`,
+          detail: `合并需求 ${targetDemands.map((demand) => demand.demandId).join('、')} 生成生产单，待手动拆解任务，主工厂待车缝任务分配确定`,
           at: now,
           by: currentUser.name,
         },
@@ -894,7 +894,7 @@ function performOrdersFromDemandGenerate(): void {
         {
           id: nextLocalEntityId('LOG'),
           action: 'CREATE',
-          detail: `合并需求 ${targetDemands.map((demand) => demand.demandId).join('、')} 生成生产单，主工厂待车缝任务分配确定`,
+          detail: `合并需求 ${targetDemands.map((demand) => demand.demandId).join('、')} 生成生产单，待手动拆解任务，主工厂待车缝任务分配确定`,
           at: now,
           by: currentUser.name,
         },

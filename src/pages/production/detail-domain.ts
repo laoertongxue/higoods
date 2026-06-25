@@ -32,6 +32,8 @@ import {
   getOrderMaterialIndicators,
   getMaterialRequestDraftSummaryByOrder,
   getOrderBusinessTechPackStatus,
+  canOrderStartTaskBreakdown,
+  getOrderTaskBreakdownDisabledReason,
   formatOutputValue,
   formatOutputValuePerUnit,
   renderSplitEventList,
@@ -79,6 +81,15 @@ function getDetailConfirmationPreviewState(order: ProductionOrder): {
   statusLabel: string
 } {
   const href = buildProductionConfirmationPrintLink(order.productionOrderId)
+  if (!order.taskBreakdownSummary.isBrokenDown || order.status === 'READY_FOR_BREAKDOWN') {
+    return {
+      available: false,
+      href,
+      buttonTitle: '未拆解任务，不能打印生产确认单',
+      statusLabel: '未拆解任务',
+    }
+  }
+
   const confirmation = getProductionConfirmationByOrderId(order.productionOrderId)
   const printable = isProductionConfirmationPrintable(order.productionOrderId)
 
@@ -103,8 +114,10 @@ function getDetailConfirmationPreviewState(order: ProductionOrder): {
   return {
     available: false,
     href,
-    buttonTitle: '工厂分配完成后可打印',
-    statusLabel: '未完成分配',
+    buttonTitle: printable.reason
+      ? `${printable.reason}，不能打印生产确认单`
+      : '工厂分配完成后可打印',
+    statusLabel: printable.reason || '未完成分配',
   }
 }
 
@@ -1095,27 +1108,10 @@ export function renderProductionOrderDetailPage(orderId: string): string {
   const breakdown = getOrderTaskBreakdownSnapshot(order)
   const outputValue = getOrderOutputValueSnapshot(order)
 
-  const canBreakdown =
-    getOrderBusinessTechPackStatus(order.techPackSnapshot) === 'RELEASED' &&
-    order.status === 'READY_FOR_BREAKDOWN'
-  const canAssign =
-    breakdown.isBrokenDown &&
-    (order.status === 'WAIT_ASSIGNMENT' || order.status === 'ASSIGNING')
+  const canBreakdown = canOrderStartTaskBreakdown(order)
   const confirmationPreviewState = getDetailConfirmationPreviewState(order)
 
-  const breakdownDisabledReason =
-    getOrderBusinessTechPackStatus(order.techPackSnapshot) !== 'RELEASED'
-      ? '技术包快照缺失，无法拆解'
-      : order.status !== 'READY_FOR_BREAKDOWN'
-        ? '当前状态不支持拆解'
-        : ''
-
-  const assignDisabledReason =
-    !breakdown.isBrokenDown
-      ? '请先完成工艺任务拆解'
-      : order.status !== 'WAIT_ASSIGNMENT' && order.status !== 'ASSIGNING'
-        ? '当前状态不支持分配'
-        : ''
+  const breakdownDisabledReason = getOrderTaskBreakdownDisabledReason(order)
   const detailMaterialSummary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
   const detailMaterialStatus = getOrderMaterialStatusDisplay(order)
 
@@ -1141,19 +1137,9 @@ export function renderProductionOrderDetailPage(orderId: string): string {
         <div class="flex flex-wrap items-center gap-2">
           <button class="rounded-md border px-3 py-2 text-sm ${
             canBreakdown ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
-          }" title="${escapeHtml(breakdownDisabledReason)}" data-nav="/fcs/process/task-breakdown?po=${escapeHtml(
+          }" title="${escapeHtml(breakdownDisabledReason)}" data-prod-action="breakdown-order" data-order-id="${escapeHtml(
             order.productionOrderId,
           )}">拆解任务</button>
-          <button class="rounded-md border px-3 py-2 text-sm ${
-            canAssign ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
-          }" title="${escapeHtml(assignDisabledReason)}" data-nav="/fcs/dispatch/non-sewing?po=${escapeHtml(
-            order.productionOrderId,
-          )}">非车缝分配</button>
-          <button class="rounded-md border px-3 py-2 text-sm ${
-            canAssign ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
-          }" title="${escapeHtml(assignDisabledReason)}" data-nav="/fcs/dispatch/sewing?po=${escapeHtml(
-            order.productionOrderId,
-          )}">车缝分配</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(
             order.productionOrderId,
           )}">查看技术包快照</button>
@@ -1165,10 +1151,6 @@ export function renderProductionOrderDetailPage(orderId: string): string {
             data-nav="${escapeHtml(confirmationPreviewState.href)}"
           >打印生产确认单</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="detail-open-logs">查看日志</button>
-          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/progress/urge?po=${escapeHtml(
-            order.productionOrderId,
-          )}">催办通知</button>
-          <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-prod-action="detail-open-simulate">模拟状态流转</button>
         </div>
       </header>
 

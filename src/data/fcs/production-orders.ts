@@ -894,7 +894,7 @@ export const productionOrders: ProductionOrder[] = productionOrderSeeds.map((see
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },
   WAIT_TECH_PACK_RELEASE: { label: '等待技术包发布', color: 'bg-orange-100 text-orange-700' },
-  READY_FOR_BREAKDOWN: { label: '待分配', color: 'bg-blue-100 text-blue-700' },
+  READY_FOR_BREAKDOWN: { label: '待拆解', color: 'bg-blue-100 text-blue-700' },
   WAIT_ASSIGNMENT: { label: '待分配', color: 'bg-purple-100 text-purple-700' },
   ASSIGNING: { label: '分配中', color: 'bg-indigo-100 text-indigo-700' },
   EXECUTING: { label: '生产执行中', color: 'bg-cyan-100 text-cyan-700' },
