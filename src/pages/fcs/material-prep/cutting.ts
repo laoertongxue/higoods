@@ -286,6 +286,8 @@ function renderOrderMaterialRows(row: MaterialPrepOrderProjection): string {
               <th class="px-3 py-2">物料</th>
               <th class="px-3 py-2">关联任务</th>
               <th class="px-3 py-2">需要多少</th>
+              <th class="px-3 py-2">最大可配</th>
+              <th class="px-3 py-2">默认配料</th>
               <th class="px-3 py-2">已配多少</th>
               <th class="px-3 py-2">剩余未配</th>
               <th class="px-3 py-2">配料记录</th>
@@ -306,6 +308,8 @@ function renderOrderMaterialRows(row: MaterialPrepOrderProjection): string {
                 </td>
                 <td class="px-3 py-2">${renderLineTaskLinks(line)}</td>
                 <td class="px-3 py-2">${formatQty(line.requiredQty, line.unit)}</td>
+                <td class="px-3 py-2">${formatQty(line.maxPrepQty, line.unit)}</td>
+                <td class="px-3 py-2">${formatQty(line.defaultPrepQty, line.unit)}</td>
                 <td class="px-3 py-2">${formatQty(line.confirmedPrepQty, line.unit)}</td>
                 <td class="px-3 py-2">${formatQty(line.remainingNeedQty, line.unit)}</td>
                 <td class="px-3 py-2">${getLinePrepRecordCount(row, line)} 条</td>
