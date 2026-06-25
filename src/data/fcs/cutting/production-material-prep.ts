@@ -18,7 +18,7 @@ export const PRODUCTION_MATERIAL_PREP_STORAGE_KEY = 'productionMaterialPrepWorkf
 export type UpstreamSourceType = '中转仓库存' | '辅料仓库存' | '纱线仓库存' | '包材仓库存' | '采购' | '印花' | '染色' | '无上游'
 export type UpstreamProgressStatus = '已到仓可配' | '采购中' | '印花中' | '染色中' | '待到仓' | '无需跟进'
 export type MaterialPrepMaterialType = '面料' | '辅料' | '纱线' | '包材'
-export type MaterialStockWarehouseName = '中转仓' | '辅料仓' | '纱线仓' | '包材仓'
+export type MaterialStockWarehouseName = '面料仓' | '中转仓' | '辅料仓' | '纱线仓' | '包材仓'
 export type MaterialPrepRecordStatus = 'DRAFT' | 'PICKED' | 'STAGED' | 'CONFIRMED' | 'REJECTED'
 export type MaterialPrepTaskType = '裁片任务' | '印花任务' | '染色任务' | '车缝任务' | '包装任务'
 export type MaterialPrepOrderStatus =
@@ -91,6 +91,10 @@ export interface MaterialPrepLine {
   canPrepQty: number
   shortageQty: number
   linePrepStatus: '未配料' | '部分已配' | '已配齐' | '缺料跟进' | '被打回' | '按实关闭'
+  releaseQty: number
+  releaseConstraintApplied: boolean
+  maxPrepQty: number
+  defaultPrepQty: number
   upstreamSourceType: UpstreamSourceType
   upstreamProgressStatus: UpstreamProgressStatus
   expectedAvailableAt: string
@@ -206,6 +210,8 @@ export interface MaterialPrepSeedLine {
   expectedAvailableAt: string
   upstreamProgressDetail: string
   taskLinks?: MaterialPrepTaskLink[]
+  releaseQty?: number
+  qtyRatio?: number
 }
 
 export interface MaterialPrepSeedOrder {
@@ -649,6 +655,8 @@ function buildGeneratedMaterialLine(
       : availableStockQty > 0
         ? `${template.name} 当前有 ${availableStockQty.toLocaleString('zh-CN')} ${template.unit} 可配。`
         : template.progressDetail,
+    releaseQty: type === '辅料' || type === '纱线' ? Math.round(order.planQty * 0.8) : 0,
+    qtyRatio: template.qtyRatio,
   }
 }
 
@@ -2038,6 +2046,11 @@ function buildLine(
   const remainingNeedQty = roundQty(Math.max(seedLine.requiredQty - confirmedPrepQty, 0))
   const canPrepQty = closed ? 0 : roundQty(Math.min(seedLine.availableStockQty, remainingNeedQty))
   const shortageQty = roundQty(Math.max(remainingNeedQty - seedLine.availableStockQty, 0))
+  const releaseQty = seedLine.releaseQty || 0
+  const releaseConstraintApplied = releaseQty > 0
+  const maxPrepQty = releaseConstraintApplied
+    ? Math.max(0, Math.min(remainingNeedQty, Math.round(releaseQty * (seedLine.qtyRatio || 1)), seedLine.availableStockQty))
+    : Math.max(0, Math.min(remainingNeedQty, seedLine.availableStockQty))
   return {
     prepLineId: seedLine.prepLineId,
     prepOrderId: seedLine.prepOrderId,
@@ -2061,6 +2074,10 @@ function buildLine(
     canPrepQty,
     shortageQty,
     linePrepStatus: deriveLineStatus(seedLine, records, confirmedPrepQty, pickedQty, closed),
+    releaseQty,
+    releaseConstraintApplied,
+    maxPrepQty,
+    defaultPrepQty: maxPrepQty,
     upstreamSourceType: seedLine.upstreamSourceType,
     upstreamProgressStatus: seedLine.upstreamProgressStatus,
     expectedAvailableAt: seedLine.expectedAvailableAt,
