@@ -19,7 +19,7 @@ export type UpstreamSourceType = '中转仓库存' | '辅料仓库存' | '纱线
 export type UpstreamProgressStatus = '已到仓可配' | '采购中' | '印花中' | '染色中' | '待到仓' | '无需跟进'
 export type MaterialPrepMaterialType = '面料' | '辅料' | '纱线' | '包材'
 export type MaterialStockWarehouseName = '中转仓' | '辅料仓' | '纱线仓' | '包材仓'
-export type MaterialPrepRecordStatus = 'DRAFT' | 'CONFIRMED' | 'REJECTED'
+export type MaterialPrepRecordStatus = 'DRAFT' | 'PICKED' | 'STAGED' | 'CONFIRMED' | 'REJECTED'
 export type MaterialPrepTaskType = '裁片任务' | '印花任务' | '染色任务' | '车缝任务' | '包装任务'
 export type MaterialPrepOrderStatus =
   | 'NEED_PREP_NO_STOCK'
@@ -133,6 +133,11 @@ export interface MaterialPrepRecord {
   sourceStockEventId: string
   remark: string
   items?: MaterialPrepRecordItem[]
+  pickedAt?: string
+  pickedBy?: string
+  stagedAt?: string
+  stagedBy?: string
+  stagingArea?: string
 }
 
 export interface PickupRecord {
@@ -347,6 +352,14 @@ export const pickupStatusLabelMap: Record<PickupOrderStatus, string> = {
   REJECTED_WAIT_WLS: '打回待仓库处理',
   PICKUP_DONE: '已领料完结',
   ACTUAL_CLOSED: '按实完结',
+}
+
+export const materialPrepRecordStatusLabelMap: Record<MaterialPrepRecordStatus, string> = {
+  DRAFT: '待拣货',
+  PICKED: '已拣货',
+  STAGED: '已入暂存区',
+  CONFIRMED: '已确认',
+  REJECTED: '已打回',
 }
 
 export const materialPrepWorkbenchTabs: Array<{ key: MaterialPrepOrderStatus; label: string }> = [
@@ -2450,18 +2463,48 @@ export function appendManualPrepRecord(
 
 export function confirmMaterialPrepRecord(
   prepRecordId: string,
-  operatorName = '中转仓 周敏',
+  operatorName = '配料小组 周敏',
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): MaterialPrepRecord | null {
   const store = hydrateProductionMaterialPrepStore(storage)
   const record = store.prepRecords.find((item) => item.prepRecordId === prepRecordId)
   if (!record) return null
+  if (record.recordStatus !== 'STAGED' && record.recordStatus !== 'REJECTED') return null
   record.recordStatus = 'CONFIRMED'
   record.confirmedAt = nowText()
   record.confirmedBy = operatorName
   record.rejectedAt = ''
   record.rejectedBy = ''
   record.rejectReason = ''
+  persistProductionMaterialPrepStore(store, storage)
+  return cloneRecord(record)
+}
+
+export function pickMaterialPrepRecord(
+  prepRecordId: string,
+  pickerName = '仓库 张三',
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): MaterialPrepRecord | null {
+  const store = hydrateProductionMaterialPrepStore(storage)
+  const record = store.prepRecords.find((item) => item.prepRecordId === prepRecordId)
+  if (!record || record.recordStatus !== 'DRAFT') return null
+  record.recordStatus = 'PICKED'
+  record.remark = (record.remark || '') + ` [${nowText()} ${pickerName} 完成拣货]`
+  persistProductionMaterialPrepStore(store, storage)
+  return cloneRecord(record)
+}
+
+export function stageMaterialPrepRecord(
+  prepRecordId: string,
+  stagingArea: string,
+  operatorName = '跟单 李明',
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): MaterialPrepRecord | null {
+  const store = hydrateProductionMaterialPrepStore(storage)
+  const record = store.prepRecords.find((item) => item.prepRecordId === prepRecordId)
+  if (!record || record.recordStatus !== 'PICKED') return null
+  record.recordStatus = 'STAGED'
+  record.remark = (record.remark || '') + ` [${nowText()} ${operatorName} 已放入暂存区：${stagingArea}]`
   persistProductionMaterialPrepStore(store, storage)
   return cloneRecord(record)
 }
