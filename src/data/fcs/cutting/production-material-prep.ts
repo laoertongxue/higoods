@@ -533,18 +533,18 @@ function formatTaskFactoryName(factory: Factory | null): string {
 function buildTaskLink(order: MaterialPrepSeedOrder, taskType: MaterialPrepTaskType): MaterialPrepTaskLink {
   const meta = taskMetaByType[taskType]
   const orderSuffix = order.productionOrderNo.replace('PO-', '')
-  const isAssigned = order.prepOrderId !== 'prep-order-po-202603-0008'
-  const factory = isAssigned ? resolveFactoryForTask(taskType) : null
+  const isAssigned = false
+  const factory = null
   return {
     taskId: `task:${order.productionOrderNo}:${meta.code}`,
     taskNo: `TASK-${meta.code}-${orderSuffix}`,
     taskName: meta.name,
     taskType,
-    factoryId: factory?.id ?? '',
-    factoryCode: factory?.code ?? '',
-    factoryName: isAssigned ? formatTaskFactoryName(factory) : '任务未分配',
-    assignedAt: isAssigned ? order.createdAt : '',
-    allocationStatus: isAssigned ? '已分配' : '未分配',
+    factoryId: '',
+    factoryCode: '',
+    factoryName: '待分配后确定',
+    assignedAt: '',
+    allocationStatus: '未分配',
   }
 }
 
@@ -565,6 +565,22 @@ function buildDefaultTaskLinks(order: MaterialPrepSeedOrder, line: MaterialPrepS
     taskTypes.push('车缝任务')
   }
   return Array.from(new Set(taskTypes)).map((taskType) => buildTaskLink(order, taskType))
+}
+
+export type MaterialPrepCategory = '染色配料' | '印花配料' | '裁片配料' | '车缝配料' | '其他配料'
+
+export function classifyPrepLineType(line: { materialType: MaterialPrepMaterialType; upstreamSourceType: UpstreamSourceType; upstreamProgressStatus: UpstreamProgressStatus }): MaterialPrepCategory {
+  const materialType = line.materialType
+  const source = line.upstreamSourceType
+
+  if (materialType === '面料') {
+    if (source === '染色' || line.upstreamProgressStatus === '染色中') return '染色配料'
+    if (source === '印花' || line.upstreamProgressStatus === '印花中') return '印花配料'
+    return '裁片配料'
+  }
+
+  if (materialType === '辅料' || materialType === '纱线') return '车缝配料'
+  return '其他配料'
 }
 
 function resolveTemplateImage(type: MaterialPrepMaterialType, line: Pick<MaterialPrepSeedLine, 'materialSku' | 'materialName'>): string {
