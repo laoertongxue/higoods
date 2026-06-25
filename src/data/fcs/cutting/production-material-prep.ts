@@ -2489,6 +2489,8 @@ export function pickMaterialPrepRecord(
   const record = store.prepRecords.find((item) => item.prepRecordId === prepRecordId)
   if (!record || record.recordStatus !== 'DRAFT') return null
   record.recordStatus = 'PICKED'
+  record.pickedAt = nowText()
+  record.pickedBy = pickerName
   record.remark = (record.remark || '') + ` [${nowText()} ${pickerName} 完成拣货]`
   persistProductionMaterialPrepStore(store, storage)
   return cloneRecord(record)
@@ -2504,6 +2506,9 @@ export function stageMaterialPrepRecord(
   const record = store.prepRecords.find((item) => item.prepRecordId === prepRecordId)
   if (!record || record.recordStatus !== 'PICKED') return null
   record.recordStatus = 'STAGED'
+  record.stagedAt = nowText()
+  record.stagedBy = operatorName
+  record.stagingArea = stagingArea
   record.remark = (record.remark || '') + ` [${nowText()} ${operatorName} 已放入暂存区：${stagingArea}]`
   persistProductionMaterialPrepStore(store, storage)
   return cloneRecord(record)
