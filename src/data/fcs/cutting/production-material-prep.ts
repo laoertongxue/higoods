@@ -658,21 +658,23 @@ function writeBackTaskAssignment(
   }
 }
 
+const processBoundTaskTypes: MaterialPrepTaskType[] = ['裁片任务', '印花任务', '染色任务']
+
 function buildTaskLink(order: MaterialPrepSeedOrder, taskType: MaterialPrepTaskType): MaterialPrepTaskLink {
   const meta = taskMetaByType[taskType]
   const orderSuffix = order.productionOrderNo.replace('PO-', '')
-  const isAssigned = false
-  const factory = null
+  const isProcessBound = processBoundTaskTypes.includes(taskType)
+  const factory = isProcessBound ? resolveFactoryForTask(taskType) : null
   return {
     taskId: `task:${order.productionOrderNo}:${meta.code}`,
     taskNo: `TASK-${meta.code}-${orderSuffix}`,
     taskName: meta.name,
     taskType,
-    factoryId: '',
-    factoryCode: '',
-    factoryName: '待分配后确定',
+    factoryId: factory?.id ?? '',
+    factoryCode: factory?.code ?? '',
+    factoryName: isProcessBound ? formatTaskFactoryName(factory) : '待分配后确定',
     assignedAt: '',
-    allocationStatus: '未分配',
+    allocationStatus: isProcessBound ? '已分配' : '未分配',
   }
 }
 
@@ -2172,8 +2174,13 @@ function appendPrepConfirmedRuntimeEvent(
   const { seedOrder, seedLine } = context
   const firstItem = getMaterialPrepRecordItems(record)[0]
   const occurredAt = record.confirmedAt || nowText()
+  const category = classifyPrepLineType(seedLine)
+  const eventType: string = category === '裁片配料' ? '中转仓配料完成通知'
+    : category === '染色配料' ? '染色厂配料完成通知'
+    : category === '印花配料' ? '印花厂配料完成通知'
+    : '配料完成通知'
   appendCuttingRuntimeEvent({
-    eventType: '中转仓配料完成通知',
+    eventType,
     eventSource: 'WEB',
     eventStatus: '已同步',
     occurredAt,
@@ -2184,6 +2191,7 @@ function appendPrepConfirmedRuntimeEvent(
       productionOrderNo: seedOrder.productionOrderNo,
       cutOrderId: seedLine.cutOrderId,
       cutOrderNo: seedLine.cutOrderNo,
+      prepCategory: category,
     },
     material: {
       materialSku: seedLine.materialSku,

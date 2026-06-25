@@ -2,6 +2,7 @@ import { renderBadge } from '../../../components/ui/badge.ts'
 import type { BadgeVariant } from '../../../components/ui/types.ts'
 import {
   appendAutoPrepRecordForOrder,
+  closeMaterialPrepOrder,
   listMaterialPrepOrderProjections,
   classifyPrepLineType,
   pickMaterialPrepRecord,
@@ -89,6 +90,14 @@ function buildPrepModalHref(projection: MaterialPrepOrderProjection): string {
   params.set('prepModal', '1')
   const fromTab = getSearchParams().get('fromTab')
   if (fromTab) params.set('fromTab', fromTab)
+  return `${pageBasePath}?${params.toString()}`
+}
+
+function buildClosePrepOrderHref(projection: MaterialPrepOrderProjection): string {
+  const params = new URLSearchParams(window.location.search)
+  params.set('prepOrderId', projection.order.prepOrderId)
+  params.set('detailTab', 'inventory')
+  params.set('closeModal', '1')
   return `${pageBasePath}?${params.toString()}`
 }
 
@@ -752,6 +761,38 @@ function renderPrepModal(projection: MaterialPrepOrderProjection): string {
   `
 }
 
+function renderCloseModal(projection: MaterialPrepOrderProjection): string {
+  const shortageLines = projection.lines.filter(l => l.remainingNeedQty > 0)
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+      <section class="max-h-[88vh] w-full max-w-lg overflow-hidden rounded-lg bg-background shadow-xl">
+        <div class="border-b px-5 py-4">
+          <h2 class="text-lg font-semibold">关闭配料单</h2>
+          <p class="mt-1 text-sm text-muted-foreground">关闭后将不再安排后续配料，裁床按实完结。</p>
+        </div>
+        <div class="space-y-4 p-5">
+          ${shortageLines.length > 0 ? `
+            <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <div class="font-medium">存在 ${shortageLines.length} 行未配齐的物料</div>
+              <ul class="mt-1 ml-5 list-disc text-xs">
+                ${shortageLines.map(l => `<li>${escapeHtml(l.materialSku)} ${escapeHtml(l.materialName)}：尚缺 ${l.remainingNeedQty} ${escapeHtml(l.unit)}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+          <label class="block space-y-1 text-sm">
+            <span class="font-medium">关闭原因 <span class="text-rose-500">*</span></span>
+            <textarea class="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm" data-fcs-close-reason placeholder="请填写关闭原因，后续将不再配料。"></textarea>
+          </label>
+          <div class="flex justify-end gap-2">
+            <button type="button" data-nav="${escapeHtml(buildDetailStateHref(projection, { detailTab: 'records' }))}" class="rounded-md border px-4 py-2 text-sm hover:bg-muted">取消</button>
+            <button type="button" data-fcs-material-prep-action="close-order" data-prep-order-id="${escapeHtml(projection.order.prepOrderId)}" class="rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white">确认关闭</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderPrepRecords(projection: MaterialPrepOrderProjection): string {
   const records = projection.prepRecords
   return `
@@ -759,6 +800,7 @@ function renderPrepRecords(projection: MaterialPrepOrderProjection): string {
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h3 class="text-base font-semibold">配料记录</h3>
         <button type="button" data-nav="${escapeHtml(buildPrepModalHref(projection))}" class="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white">新增配料记录</button>
+        <button type="button" data-nav="${escapeHtml(buildClosePrepOrderHref(projection))}" class="rounded-md border border-rose-200 px-3 py-2 text-xs text-rose-700 hover:bg-rose-50">关闭配料单</button>
       </div>
       <div class="mt-2 rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
         配料记录按 DRAFT → PICKED → STAGED → CONFIRMED 流转；打回后可从 STAGED 重新确认；已确认的配料可被加工领料；每条记录整体确认，记录内物料明细不单独确认。
@@ -832,6 +874,7 @@ function renderDetailPage(): string {
   const backHref = buildHref({ tab: backTab, prepOrderId: undefined, fromTab: undefined, detailTab: undefined, keyword: keyword || undefined })
   const activeDetailTab = getActiveDetailTab(params)
   const showPrepModal = params.get('prepModal') === '1'
+  const showCloseModal = params.get('closeModal') === '1'
 
   if (!prepOrderId) {
     return `
@@ -874,6 +917,9 @@ function renderDetailPage(): string {
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(backHref)}">返回配料列表</button>
+          ${!projection.order.isClosed && projection.order.overallPrepStatus !== 'READY'
+            ? `<button type="button" data-nav="${escapeHtml(buildClosePrepOrderHref(projection))}" class="rounded-md border border-rose-200 px-4 py-2 text-sm text-rose-700 hover:bg-rose-50">关闭配料单</button>`
+            : ''}
         </div>
       </header>
 
@@ -887,6 +933,7 @@ function renderDetailPage(): string {
       ${renderImplementationStatus(projection)}
       ${renderDetail(projection, activeDetailTab)}
       ${showPrepModal ? renderPrepModal(projection) : ''}
+      ${showCloseModal ? renderCloseModal(projection) : ''}
     </div>
   `
 }
@@ -979,6 +1026,24 @@ export function handleFcsDyeingPrepEvent(target: HTMLElement): boolean {
     const prepRecordId = actionNode.dataset.prepRecordId || ''
     if (!prepRecordId) return false
     confirmMaterialPrepRecord(prepRecordId, '配料小组 周敏')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    return true
+  }
+
+  if (action === 'close-order') {
+    const prepOrderId = actionNode.dataset.prepOrderId || ''
+    const reasonInput = document.querySelector<HTMLTextAreaElement>('[data-fcs-close-reason]')
+    const closeReason = reasonInput?.value.trim() || ''
+    if (!prepOrderId) return false
+    if (!closeReason) {
+      window.alert('请填写关闭原因。')
+      return true
+    }
+    closeMaterialPrepOrder(prepOrderId, closeReason, '配料小组 周敏')
+    const params = getSearchParams()
+    params.delete('closeModal')
+    params.set('detailTab', 'records')
+    window.history.replaceState({}, '', `${pageBasePath}?${params.toString()}`)
     window.dispatchEvent(new PopStateEvent('popstate'))
     return true
   }

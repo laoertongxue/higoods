@@ -64,7 +64,7 @@ const categoryDetailPathMap: Record<string, string> = {
 }
 
 function buildDetailHref(prepOrderId: string, category: string): string {
-  const basePath = categoryDetailPathMap[category] || '/fcs/material-prep/cutting/detail'
+  const basePath = categoryDetailPathMap[category] || '/fcs/material-prep/cutting'
   return `${basePath}?prepOrderId=${encodeURIComponent(prepOrderId)}`
 }
 
