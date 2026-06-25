@@ -182,8 +182,26 @@ function renderTable(rows: MaterialPrepOrderProjection[]): string {
 export function renderFcsMaterialPrepListPage(): string {
   const params = getSearchParams()
   const activeTab = normalizeMaterialPrepStatus(params.get('tab'))
+  const keyword = (params.get('keyword') || '').trim().toLowerCase()
+  const categoryFilter = (params.get('category') || '').trim()
+
   const allRows = listMaterialPrepOrderProjections()
-  const rows = allRows.filter((row) => row.order.overallPrepStatus === activeTab)
+
+  const keywordFiltered = keyword
+    ? allRows.filter((row) =>
+        row.order.productionOrderNo.toLowerCase().includes(keyword) ||
+        row.order.styleNo.toLowerCase().includes(keyword) ||
+        row.order.styleName.toLowerCase().includes(keyword) ||
+        row.order.spu.toLowerCase().includes(keyword) ||
+        row.lines.some((line) => line.materialName.toLowerCase().includes(keyword))
+      )
+    : allRows
+
+  const categoryFiltered = categoryFilter
+    ? keywordFiltered.filter((row) => getOrderCategory(row) === categoryFilter)
+    : keywordFiltered
+
+  const rows = categoryFiltered.filter((row) => row.order.overallPrepStatus === activeTab)
 
   return `
     <div class="space-y-5 p-6">
@@ -195,7 +213,40 @@ export function renderFcsMaterialPrepListPage(): string {
         </div>
       </header>
 
-      ${renderTabs(allRows, activeTab)}
+      <section class="rounded-lg border bg-card p-4">
+        <div class="grid gap-3 md:grid-cols-[minmax(240px,1fr)_180px_180px_auto] md:items-end">
+          <label class="space-y-1">
+            <span class="text-sm font-medium">关键词搜索</span>
+            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-fcs-material-prep-action="search-input" data-search-field="keyword" data-skip-page-rerender="true" placeholder="生产单号 / 款式 / SPU / 物料名称" />
+          </label>
+          <label class="space-y-1">
+            <span class="text-sm font-medium">配料类型</span>
+            <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-fcs-material-prep-action="search-select" data-search-field="category">
+              <option value="">全部类型</option>
+              <option value="染色配料">染色配料</option>
+              <option value="印花配料">印花配料</option>
+              <option value="裁片配料">裁片配料</option>
+              <option value="车缝配料">车缝配料</option>
+              <option value="其他配料">其他配料</option>
+            </select>
+          </label>
+          <label class="space-y-1">
+            <span class="text-sm font-medium">配料单状态</span>
+            <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-fcs-material-prep-action="search-select" data-search-field="status">
+              <option value="">全部状态</option>
+              <option value="NEED_PREP_NO_STOCK">待配料 - 无库存</option>
+              <option value="NEED_PREP_PARTIAL_STOCK">待配料 - 部分有库存</option>
+              <option value="NEED_PREP_ALL_STOCK">待配料 - 库存充足</option>
+              <option value="REJECTED_REWORK">被打回重配</option>
+              <option value="READY">已配齐</option>
+              <option value="CLOSED">已关闭</option>
+            </select>
+          </label>
+          <button class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-fcs-material-prep-action="search-apply">查询</button>
+        </div>
+      </section>
+
+      ${renderTabs(categoryFiltered, activeTab)}
       ${renderTable(rows)}
     </div>
   `
@@ -212,6 +263,15 @@ export function handleFcsMaterialPrepListEvent(target: HTMLElement): boolean {
     if (!prepOrderId) return false
     const href = buildDetailHref(prepOrderId, category)
     window.history.pushState({}, '', href)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    return true
+  }
+
+  if (action === 'search-apply') {
+    const keyword = (document.querySelector('[data-search-field="keyword"]') as HTMLInputElement)?.value || ''
+    const category = (document.querySelector('[data-search-field="category"]') as HTMLSelectElement)?.value || ''
+    const status = (document.querySelector('[data-search-field="status"]') as HTMLSelectElement)?.value || ''
+    window.history.pushState({}, '', buildHref({ keyword: keyword || undefined, category: category || undefined, tab: status || undefined }))
     window.dispatchEvent(new PopStateEvent('popstate'))
     return true
   }
