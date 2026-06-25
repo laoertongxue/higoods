@@ -831,6 +831,37 @@ function expandSeedOrderMaterials(order: MaterialPrepSeedOrder): MaterialPrepSee
   }
 }
 
+export function createPrepOrderFromProductionOrder(input: {
+  productionOrderId: string
+  productionOrderNo: string
+  styleNo: string
+  styleName: string
+  spu: string
+  customerName: string
+  planQty: number
+  deliveryDate: string
+  creatorName?: string
+  lines?: MaterialPrepSeedLine[]
+}): MaterialPrepSeedOrder {
+  return {
+    prepOrderId: `prep-order-${input.productionOrderId}`,
+    prepOrderNo: `PREP-${input.productionOrderNo.replace('PO-', 'PL-')}`,
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    styleNo: input.styleNo,
+    styleName: input.styleName,
+    spu: input.spu,
+    customerName: input.customerName,
+    planQty: input.planQty,
+    deliveryDate: input.deliveryDate,
+    creatorName: input.creatorName || '配料小组',
+    createdAt: nowText(),
+    bomSourceLabel: '生产单技术包 BOM 展开',
+    bomExpandedAt: nowText(),
+    lines: input.lines || [],
+  }
+}
+
 const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
   {
     prepOrderId: 'prep-order-po-202603-0004',
