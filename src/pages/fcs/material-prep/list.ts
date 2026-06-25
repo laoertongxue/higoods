@@ -56,11 +56,11 @@ function getOrderCategory(row: MaterialPrepOrderProjection): string {
 }
 
 const categoryDetailPathMap: Record<string, string> = {
-  '染色配料': '/fcs/material-prep/dyeing/detail',
-  '印花配料': '/fcs/material-prep/printing/detail',
-  '裁片配料': '/fcs/material-prep/cutting/detail',
-  '车缝配料': '/fcs/material-prep/sewing/detail',
-  '其他配料': '/fcs/material-prep/other/detail',
+  '染色配料': '/fcs/material-prep/dyeing',
+  '印花配料': '/fcs/material-prep/printing',
+  '裁片配料': '/fcs/material-prep/cutting',
+  '车缝配料': '/fcs/material-prep/sewing',
+  '其他配料': '/fcs/material-prep/other',
 }
 
 function buildDetailHref(prepOrderId: string, category: string): string {

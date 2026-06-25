@@ -1,6 +1,7 @@
 import { renderBadge } from '../../../components/ui/badge.ts'
 import type { BadgeVariant } from '../../../components/ui/types.ts'
 import {
+  appendAutoPrepRecordForOrder,
   closeMaterialPrepOrder,
   confirmMaterialPrepRecord,
   getMaterialPrepOrderProjection,
@@ -166,6 +167,29 @@ function renderKpi(label: string, value: number | string, desc: string): string 
   `
 }
 
+function renderImplementationStatus(projection: MaterialPrepOrderProjection): string {
+  const pendingText = projection.order.pendingAssignmentCount > 0
+    ? `${projection.order.pendingAssignmentCount} 个任务待分配后回写工厂`
+    : '任务工厂均已回写'
+  const stagingText = projection.stagingRecords.length
+    ? `${projection.stagingRecords.length} 条暂存记录 / ${projection.order.stagingAreaCount} 个暂存区`
+    : '暂无暂存台账'
+  const pickText = [
+    `待拣货 ${projection.prepRecords.filter((record) => record.recordStatus === 'DRAFT').length}`,
+    `已拣货 ${projection.prepRecords.filter((record) => record.recordStatus === 'PICKED').length}`,
+    `已入暂存 ${projection.prepRecords.filter((record) => record.recordStatus === 'STAGED').length}`,
+  ].join(' / ')
+  return `
+    <section class="grid gap-3 md:grid-cols-5">
+      ${renderKpi('BOM 来源', projection.order.bomSourceLabel, `展开时间 ${escapeHtml(projection.order.bomExpandedAt || '暂无')}`)}
+      ${renderKpi('暂存区台账', stagingText, '入暂存区时生成，确认或打回时同步状态')}
+      ${renderKpi('仓库拣货进度', pickText, `已确认 ${projection.prepRecords.filter((record) => record.recordStatus === 'CONFIRMED').length} 条`)}
+      ${renderKpi('完成通知', `${projection.order.prepCompletionEventCount} 条`, 'CONFIRMED 后生成配料完成通知事件')}
+      ${renderKpi('分配回写', pendingText, `已回写 ${projection.order.assignedTaskCount} 个任务`)}
+    </section>
+  `
+}
+
 function getLinePrepRecordCount(row: MaterialPrepOrderProjection, line: MaterialPrepLine): number {
   return row.prepRecords.filter((record) =>
     getMaterialPrepRecordItems(record).some((item) => item.prepLineId === line.prepLineId),
@@ -197,6 +221,18 @@ function renderPrepRecordStatusBadge(status: MaterialPrepRecordStatus): string {
   return renderBadge(label, variantMap[status])
 }
 
+function renderTaskAssignmentBadge(task: MaterialPrepLine['taskLinks'][number]): string {
+  return task.allocationStatus === '已分配'
+    ? renderBadge('已分配', 'success')
+    : renderBadge('未分配', 'neutral')
+}
+
+function renderTaskFactoryText(task: MaterialPrepLine['taskLinks'][number]): string {
+  return task.allocationStatus === '已分配'
+    ? `${escapeHtml(task.factoryName || '工厂未命名')} / ${escapeHtml(task.assignedAt || '分配时间未记录')}`
+    : '待分配后确定'
+}
+
 function renderLineTaskLinks(line: MaterialPrepLine): string {
   if (!line.taskLinks.length) return renderBadge('未分配', 'neutral')
   return `
@@ -204,10 +240,10 @@ function renderLineTaskLinks(line: MaterialPrepLine): string {
       ${line.taskLinks.map((task) => `
         <div class="rounded-md border bg-background px-2 py-1">
           <div class="flex flex-wrap items-center gap-1">
-            ${renderBadge('未分配', 'neutral')}
+            ${renderTaskAssignmentBadge(task)}
             <span class="font-medium">${escapeHtml(task.taskNo)}</span>
           </div>
-          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskName)} / 待分配后确定</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskName)} / ${renderTaskFactoryText(task)}</div>
         </div>
       `).join('')}
     </div>
@@ -565,7 +601,7 @@ function renderTaskPrepOverview(projection: MaterialPrepOrderProjection): string
   return `
     <section class="rounded-lg border bg-card p-4">
       <h3 class="text-base font-semibold">任务维度配料情况</h3>
-      <p class="mt-1 text-sm text-muted-foreground">以任务的维度展示配料情况：这是个什么任务、任务需要哪些物料、这些物料需要多少、配了多少、领了多少，以及有哪些配料记录。工厂信息待分配后确定。</p>
+      <p class="mt-1 text-sm text-muted-foreground">以任务的维度展示配料情况：这是个什么任务、任务需要哪些物料、这些物料需要多少、配了多少、领了多少，以及有哪些配料记录。分配完成后会回写任务工厂和分配时间。</p>
       <div class="mt-3 space-y-4">
         ${projection.taskProjections.length ? projection.taskProjections.map((task) => `
           <article class="rounded-md border bg-background">
@@ -574,9 +610,9 @@ function renderTaskPrepOverview(projection: MaterialPrepOrderProjection): string
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="font-medium">${escapeHtml(task.taskNo)}</span>
                   ${renderBadge(task.taskType, 'info')}
-                  ${renderBadge('未分配', 'neutral')}
+                  ${renderTaskAssignmentBadge(task)}
                 </div>
-                <div class="mt-1 text-xs text-muted-foreground">任务：${escapeHtml(task.taskName)} / 任务工厂：待分配后确定 / 分配时间：任务未分配</div>
+                <div class="mt-1 text-xs text-muted-foreground">任务：${escapeHtml(task.taskName)} / 任务工厂：${task.allocationStatus === '已分配' ? escapeHtml(task.factoryName || '工厂未命名') : '待分配后确定'} / 分配时间：${task.allocationStatus === '已分配' ? escapeHtml(task.assignedAt || '分配时间未记录') : '任务未分配'}</div>
               </div>
               <div class="grid gap-2 text-xs text-muted-foreground md:grid-cols-4">
                 <div>物料：${task.materialCount} 行</div>
@@ -890,7 +926,7 @@ function renderAddPrepRecordModal(projection: MaterialPrepOrderProjection, activ
 
           <div class="mt-5 flex justify-end gap-2">
             <button type="button" data-nav="${escapeHtml(closeHref)}" class="rounded-md border px-4 py-2 text-sm hover:bg-muted">取消</button>
-            <button type="button" data-nav="${escapeHtml(closeHref)}" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">保存为待拣货记录</button>
+            <button type="button" data-fcs-material-prep-action="create-prep-record" data-prep-order-id="${escapeHtml(projection.order.prepOrderId)}" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">保存为待拣货记录</button>
           </div>
         </div>
       </section>
@@ -1082,6 +1118,7 @@ export function renderFcsCuttingPrepPage(): string {
           ${renderKpi('缺料缺口', formatQty(projection.totalShortageQty), `最早可配 ${escapeHtml(projection.earliestExpectedAvailableAt || '暂无')}`)}
         </section>
 
+        ${renderImplementationStatus(projection)}
         ${renderDetail(projection, activeDetailTab)}
         ${showPrepModal ? renderAddPrepRecordModal(projection, activeDetailTab) : ''}
         ${continuePrepRecordId ? renderContinuePrepRecordModal(projection, activeDetailTab, continuePrepRecordId) : ''}
@@ -1119,6 +1156,23 @@ export function handleFcsCuttingPrepEvent(target: HTMLElement): boolean {
     const prepRecordId = actionNode.dataset.prepRecordId || ''
     if (!prepRecordId) return false
     pickMaterialPrepRecord(prepRecordId, '仓库 张三')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    return true
+  }
+
+  if (action === 'create-prep-record') {
+    const prepOrderId = actionNode.dataset.prepOrderId || ''
+    if (!prepOrderId) return false
+    const record = appendAutoPrepRecordForOrder(prepOrderId, '配料小组 周敏')
+    if (!record) {
+      window.alert('当前配料单没有可配库存，无法新增配料记录。')
+      return true
+    }
+    const params = getSearchParams()
+    params.delete('prepModal')
+    params.delete('continuePrepRecordId')
+    params.set('detailTab', 'records')
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
     window.dispatchEvent(new PopStateEvent('popstate'))
     return true
   }

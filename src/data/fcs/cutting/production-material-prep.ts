@@ -5,6 +5,11 @@ import {
 import { listBusinessFactoryMasterRecords } from '../factory-master-store.ts'
 import type { Factory, FactoryPostCapacityNodeCode, FactoryType } from '../factory-types.ts'
 import {
+  listRuntimeTasksByOrder,
+  type RuntimeProcessTask,
+} from '../runtime-process-tasks.ts'
+import {
+  appendCuttingRuntimeEvent,
   listCuttingRuntimeEventsByType,
 } from './cutting-runtime-event-ledger.ts'
 import {
@@ -54,6 +59,12 @@ export interface MaterialPrepOrder {
   isClosed: boolean
   closedAt: string
   closeReason: string
+  bomSourceLabel: string
+  bomExpandedAt: string
+  pendingAssignmentCount: number
+  assignedTaskCount: number
+  prepCompletionEventCount: number
+  stagingAreaCount: number
 }
 
 export interface MaterialPrepTaskLink {
@@ -176,10 +187,24 @@ export interface PrepRejectRecord {
   afterStatus: MaterialPrepRecordStatus
 }
 
+export interface MaterialPrepStagingRecord {
+  stagingRecordId: string
+  prepRecordId: string
+  prepOrderId: string
+  stagingArea: string
+  stagedAt: string
+  stagedBy: string
+  itemCount: number
+  totalPreparedQty: number
+  warehouseNames: MaterialStockWarehouseName[]
+  status: '暂存中' | '已确认' | '已打回'
+}
+
 export interface ProductionMaterialPrepWorkflowStore {
   prepRecords: MaterialPrepRecord[]
   pickupRecords: PickupRecord[]
   rejectRecords: PrepRejectRecord[]
+  stagingRecords: MaterialPrepStagingRecord[]
   closedOrders: Array<{
     prepOrderId: string
     closedAt: string
@@ -228,6 +253,8 @@ export interface MaterialPrepSeedOrder {
   deliveryDate: string
   creatorName: string
   createdAt: string
+  bomSourceLabel?: string
+  bomExpandedAt?: string
   lines: MaterialPrepSeedLine[]
 }
 
@@ -238,6 +265,7 @@ export interface MaterialPrepOrderProjection {
   prepRecords: MaterialPrepRecord[]
   pickupRecords: PickupRecord[]
   rejectRecords: PrepRejectRecord[]
+  stagingRecords: MaterialPrepStagingRecord[]
   totalRequiredQty: number
   totalConfirmedPrepQty: number
   totalPickedQty: number
@@ -528,6 +556,106 @@ function resolveFactoryForTask(taskType: MaterialPrepTaskType): Factory | null {
 function formatTaskFactoryName(factory: Factory | null): string {
   if (!factory) return '工厂档案未配置'
   return `${factory.name}（${factory.code}）`
+}
+
+const runtimeTaskTypeKeywordMap: Record<MaterialPrepTaskType, string[]> = {
+  裁片任务: ['cut', 'cutting', '裁片', '裁剪'],
+  印花任务: ['print', 'printing', '印花'],
+  染色任务: ['dye', 'dyeing', '染色'],
+  车缝任务: ['sew', 'sewing', '车缝', '缝制'],
+  包装任务: ['pack', 'packing', '包装', '后道'],
+}
+
+const materialPrepAssignmentDemoSeeds: Record<string, {
+  factoryId: string
+  factoryCode: string
+  factoryName: string
+  assignedAt: string
+}> = {
+  'PO-202603-0001:裁片任务': {
+    factoryId: 'ID-F012',
+    factoryCode: 'CUT-SBY-01',
+    factoryName: '泗水裁片中心',
+    assignedAt: '2026-03-18 10:30:00',
+  },
+  'PO-202603-0102:印花任务': {
+    factoryId: 'ID-F018',
+    factoryCode: 'PRT-JKT-01',
+    factoryName: '雅加达印花厂',
+    assignedAt: '2026-03-21 09:40:00',
+  },
+  'PO-202603-0101:染色任务': {
+    factoryId: 'ID-F019',
+    factoryCode: 'DYE-BDG-01',
+    factoryName: '万隆染色厂',
+    assignedAt: '2026-03-20 14:20:00',
+  },
+}
+
+function getRuntimeTaskSearchText(task: RuntimeProcessTask): string {
+  return [
+    task.taskId,
+    task.taskNo,
+    task.processCode,
+    task.processBusinessCode,
+    task.processNameZh,
+    task.defaultDocType,
+  ].filter(Boolean).join(' ').toLowerCase()
+}
+
+function isRuntimeTaskAssigned(task: RuntimeProcessTask): boolean {
+  return (task.assignmentStatus === 'ASSIGNED' || task.assignmentStatus === 'AWARDED')
+    && Boolean(task.assignedFactoryId || task.assignedFactoryName)
+}
+
+function findRuntimeTaskForPrepTaskLink(
+  taskLink: MaterialPrepTaskLink,
+  runtimeTasks: RuntimeProcessTask[],
+): RuntimeProcessTask | null {
+  const exactTask = runtimeTasks.find((task) => task.taskId === taskLink.taskId || task.taskNo === taskLink.taskNo)
+  if (exactTask) return exactTask
+
+  const keywords = runtimeTaskTypeKeywordMap[taskLink.taskType]
+  return runtimeTasks.find((task) => {
+    const searchText = getRuntimeTaskSearchText(task)
+    return keywords.some((keyword) => searchText.includes(keyword))
+  }) ?? null
+}
+
+function writeBackTaskAssignment(
+  productionOrderId: string,
+  taskLink: MaterialPrepTaskLink,
+  runtimeTasks: RuntimeProcessTask[],
+): MaterialPrepTaskLink {
+  if (taskLink.allocationStatus === '已分配') return taskLink
+
+  const runtimeTask = findRuntimeTaskForPrepTaskLink(taskLink, runtimeTasks)
+  if (!runtimeTask || !isRuntimeTaskAssigned(runtimeTask)) {
+    const demoSeed = materialPrepAssignmentDemoSeeds[`${productionOrderId}:${taskLink.taskType}`]
+    if (!demoSeed) return taskLink
+    return {
+      ...taskLink,
+      factoryId: demoSeed.factoryId,
+      factoryCode: demoSeed.factoryCode,
+      factoryName: demoSeed.factoryName,
+      assignedAt: demoSeed.assignedAt,
+      allocationStatus: '已分配',
+    }
+  }
+
+  const assignedFactoryId = runtimeTask.assignedFactoryId || taskLink.factoryId
+  const assignedFactoryName = runtimeTask.assignedFactoryName || taskLink.factoryName
+  return {
+    ...taskLink,
+    taskId: runtimeTask.taskId || taskLink.taskId,
+    taskNo: runtimeTask.taskNo || taskLink.taskNo,
+    taskName: runtimeTask.processNameZh || taskLink.taskName,
+    factoryId: assignedFactoryId,
+    factoryCode: assignedFactoryId || taskLink.factoryCode,
+    factoryName: assignedFactoryName,
+    assignedAt: runtimeTask.dispatchedAt || runtimeTask.updatedAt || taskLink.assignedAt,
+    allocationStatus: '已分配',
+  }
 }
 
 function buildTaskLink(order: MaterialPrepSeedOrder, taskType: MaterialPrepTaskType): MaterialPrepTaskLink {
@@ -1879,6 +2007,7 @@ export function createProductionMaterialPrepSeedStore(): ProductionMaterialPrepW
     prepRecords: cloneRecord(seedPrepRecords),
     pickupRecords: cloneRecord(seedPickupRecords),
     rejectRecords: cloneRecord(seedRejectRecords),
+    stagingRecords: [],
     closedOrders: cloneRecord(seedClosedOrders),
   }
 }
@@ -1901,6 +2030,9 @@ export function deserializeProductionMaterialPrepStore(raw: string | null): Prod
       rejectRecords: Array.isArray(parsed.rejectRecords)
         ? mergeMissingSeedRecords(parsed.rejectRecords, seedRejectRecords, (record) => record.rejectId)
         : cloneRecord(seedRejectRecords),
+      stagingRecords: Array.isArray(parsed.stagingRecords)
+        ? cloneRecord(parsed.stagingRecords)
+        : [],
       closedOrders: Array.isArray(parsed.closedOrders)
         ? mergeMissingSeedRecords(parsed.closedOrders, seedClosedOrders, (record) => record.prepOrderId)
         : cloneRecord(seedClosedOrders),
@@ -1993,6 +2125,94 @@ export function getMaterialPrepRecordItems(record: MaterialPrepRecord): Material
   }))
 }
 
+function getRecordTotalPreparedQty(record: MaterialPrepRecord): number {
+  return roundQty(getMaterialPrepRecordItems(record).reduce((sum, item) => sum + Number(item.preparedQty || 0), 0))
+}
+
+function getRecordWarehouseNames(record: MaterialPrepRecord): MaterialStockWarehouseName[] {
+  return Array.from(
+    new Set(
+      getMaterialPrepRecordItems(record)
+        .map((item) => item.stockWarehouseName)
+        .filter((value): value is MaterialStockWarehouseName => Boolean(value)),
+    ),
+  )
+}
+
+function updateStagingRecordStatus(
+  store: ProductionMaterialPrepWorkflowStore,
+  prepRecordId: string,
+  status: MaterialPrepStagingRecord['status'],
+): void {
+  store.stagingRecords = store.stagingRecords.map((record) =>
+    record.prepRecordId === prepRecordId ? { ...record, status } : record,
+  )
+}
+
+function findMaterialPrepSeedContext(record: MaterialPrepRecord): {
+  seedOrder: MaterialPrepSeedOrder
+  seedLine: MaterialPrepSeedLine
+} | null {
+  for (const seedOrder of materialPrepSeedOrders) {
+    if (seedOrder.prepOrderId !== record.prepOrderId) continue
+    const recordLineIds = new Set(getMaterialPrepRecordItems(record).map((item) => item.prepLineId))
+    const seedLine = seedOrder.lines.find((line) => recordLineIds.has(line.prepLineId))
+    if (seedLine) return { seedOrder, seedLine }
+  }
+  return null
+}
+
+function appendPrepConfirmedRuntimeEvent(
+  record: MaterialPrepRecord,
+  operatorName: string,
+  storage: BrowserStorageLike | null,
+): void {
+  const context = findMaterialPrepSeedContext(record)
+  if (!context) return
+  const { seedOrder, seedLine } = context
+  const firstItem = getMaterialPrepRecordItems(record)[0]
+  const occurredAt = record.confirmedAt || nowText()
+  appendCuttingRuntimeEvent({
+    eventType: '中转仓配料完成通知',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt,
+    operatorName,
+    operatorRole: '配料小组',
+    refs: {
+      productionOrderId: seedOrder.productionOrderId,
+      productionOrderNo: seedOrder.productionOrderNo,
+      cutOrderId: seedLine.cutOrderId,
+      cutOrderNo: seedLine.cutOrderNo,
+    },
+    material: {
+      materialSku: seedLine.materialSku,
+      materialName: seedLine.materialName,
+      materialColor: seedLine.color,
+      unit: seedLine.unit === '件' || seedLine.unit === '片' ? seedLine.unit : 'yard',
+    },
+    payload: {
+      prepRecordId: record.prepRecordId,
+      prepOrderId: record.prepOrderId,
+      prepLineId: firstItem?.prepLineId || record.prepLineId,
+      batchNo: record.batchNo,
+      preparedQty: getRecordTotalPreparedQty(record),
+      rollCount: record.rollCount,
+      warehouseArea: record.stagingArea || record.warehouseArea,
+      locationCode: record.locationCode,
+      stagingArea: record.stagingArea || record.warehouseArea,
+      confirmedAt: occurredAt,
+      confirmedBy: operatorName,
+      noticeTarget: classifyPrepLineType({
+        materialType: seedLine.materialType || inferMaterialType(seedLine),
+        upstreamSourceType: seedLine.upstreamSourceType,
+        upstreamProgressStatus: seedLine.upstreamProgressStatus,
+      }),
+      source: 'FCS 配料管理',
+    },
+  }, storage)
+}
+
 function getLineRecords(store: ProductionMaterialPrepWorkflowStore, prepLineId: string): MaterialPrepRecord[] {
   return store.prepRecords.filter((record) => getMaterialPrepRecordItems(record).some((item) => item.prepLineId === prepLineId))
 }
@@ -2052,6 +2272,8 @@ function deriveLineStatus(
 
 function buildLine(
   seedLine: MaterialPrepSeedLine,
+  productionOrderId: string,
+  runtimeTasks: RuntimeProcessTask[],
   store: ProductionMaterialPrepWorkflowStore,
   pickupRecords: PickupRecord[],
   closed: boolean,
@@ -2098,7 +2320,7 @@ function buildLine(
     upstreamProgressStatus: seedLine.upstreamProgressStatus,
     expectedAvailableAt: seedLine.expectedAvailableAt,
     upstreamProgressDetail: seedLine.upstreamProgressDetail,
-    taskLinks: seedLine.taskLinks || [],
+    taskLinks: (seedLine.taskLinks || []).map((taskLink) => writeBackTaskAssignment(productionOrderId, taskLink, runtimeTasks)),
   }
 }
 
@@ -2204,16 +2426,22 @@ function buildOrderProjection(
   seedOrder: MaterialPrepSeedOrder,
   store: ProductionMaterialPrepWorkflowStore,
   runtimePickupRecords: PickupRecord[],
+  prepCompletionEventCount: number,
 ): MaterialPrepOrderProjection {
   const closed = getClosedOrder(store, seedOrder.prepOrderId)
   const pickupRecords = [
     ...store.pickupRecords,
     ...runtimePickupRecords,
   ].filter((record) => record.prepOrderId === seedOrder.prepOrderId)
-  const lines = seedOrder.lines.map((line) => buildLine(line, store, pickupRecords, Boolean(closed)))
+  const runtimeTasks = listRuntimeTasksByOrder(seedOrder.productionOrderId)
+  const lines = seedOrder.lines.map((line) => buildLine(line, seedOrder.productionOrderId, runtimeTasks, store, pickupRecords, Boolean(closed)))
   const prepRecords = store.prepRecords.filter((record) => record.prepOrderId === seedOrder.prepOrderId)
   const rejectRecords = store.rejectRecords.filter((record) => record.prepOrderId === seedOrder.prepOrderId)
+  const stagingRecords = store.stagingRecords.filter((record) => record.prepOrderId === seedOrder.prepOrderId)
   const taskProjections = buildTaskProjections(lines, prepRecords, pickupRecords)
+  const taskLinks = lines.flatMap((line) => line.taskLinks)
+  const pendingAssignmentCount = taskLinks.filter((task) => task.allocationStatus === '未分配').length
+  const assignedTaskCount = taskLinks.filter((task) => task.allocationStatus === '已分配').length
   const overallPrepStatus = deriveOrderPrepStatus(lines, prepRecords, Boolean(closed))
   const pickupStatus = derivePickupStatus(lines, prepRecords, pickupRecords, Boolean(closed))
   const totalRequiredQty = roundQty(lines.reduce((sum, line) => sum + line.requiredQty, 0))
@@ -2252,12 +2480,19 @@ function buildOrderProjection(
       isClosed: Boolean(closed),
       closedAt: closed?.closedAt || '',
       closeReason: closed?.closeReason || '',
+      bomSourceLabel: seedOrder.bomSourceLabel || '生产单技术包 BOM 展开',
+      bomExpandedAt: seedOrder.bomExpandedAt || seedOrder.createdAt,
+      pendingAssignmentCount,
+      assignedTaskCount,
+      prepCompletionEventCount,
+      stagingAreaCount: new Set(stagingRecords.map((record) => record.stagingArea).filter(Boolean)).size,
     },
     lines,
     taskProjections,
     prepRecords,
     pickupRecords,
     rejectRecords,
+    stagingRecords,
     totalRequiredQty,
     totalConfirmedPrepQty,
     totalPickedQty,
@@ -2285,8 +2520,14 @@ export function listMaterialPrepOrderProjections(
 ): MaterialPrepOrderProjection[] {
   const store = hydrateProductionMaterialPrepStore(storage)
   const runtimePickupRecords = listRuntimePickupRecords(storage)
+  const prepCompletionEvents = listCuttingRuntimeEventsByType('中转仓配料完成通知', storage)
   return materialPrepSeedOrders
-    .map((seedOrder) => buildOrderProjection(seedOrder, store, runtimePickupRecords))
+    .map((seedOrder) => buildOrderProjection(
+      seedOrder,
+      store,
+      runtimePickupRecords,
+      prepCompletionEvents.filter((event) => event.payload && typeof event.payload === 'object' && (event.payload as Record<string, unknown>).prepOrderId === seedOrder.prepOrderId).length,
+    ))
     .sort((left, right) =>
       materialPrepStatusLabelMap[left.order.overallPrepStatus].localeCompare(materialPrepStatusLabelMap[right.order.overallPrepStatus], 'zh-CN')
       || left.order.deliveryDate.localeCompare(right.order.deliveryDate, 'zh-CN'),
@@ -2494,6 +2735,62 @@ export function appendManualPrepRecord(
   return cloneRecord(record)
 }
 
+export function appendAutoPrepRecordForOrder(
+  prepOrderId: string,
+  operatorName = '配料小组 周敏',
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): MaterialPrepRecord | null {
+  const projection = listMaterialPrepOrderProjections(storage)
+    .find((item) => item.order.prepOrderId === prepOrderId)
+  if (!projection || projection.order.isClosed) return null
+
+  const lines = projection.lines.filter((line) => line.canPrepQty > 0)
+  if (!lines.length) return null
+
+  const store = hydrateProductionMaterialPrepStore(storage)
+  const occurredAt = nowText()
+  const compactTime = occurredAt.replace(/[^0-9]/g, '')
+  const firstLine = lines[0]
+  const items = lines.map((line, index): MaterialPrepRecordItem => ({
+    prepRecordItemId: `prep-item:${prepOrderId}:${compactTime}:${String(index + 1).padStart(2, '0')}`,
+    prepLineId: line.prepLineId,
+    preparedQty: roundQty(line.defaultPrepQty || line.canPrepQty),
+    rollCount: Math.max(buildLineRollCount(line), 1),
+    stockWarehouseName: line.stockWarehouseName,
+    stockWarehouseArea: line.stockWarehouseArea,
+    stockLocationCode: line.stockLocationCode,
+    stockAvailableQty: Number(line.availableStockQty || 0),
+    warehouseArea: line.stockWarehouseArea,
+    locationCode: line.stockLocationCode,
+    sourceStockEventId: `ledger:${line.prepOrderId}:${line.materialSku}:auto-prep:${compactTime}`,
+    remark: '按当前可配库存自动生成配料明细，随整条配料记录确认。',
+  }))
+  const record: MaterialPrepRecord = {
+    prepRecordId: `prep-rec:${prepOrderId}:${compactTime}`,
+    prepOrderId,
+    prepLineId: firstLine.prepLineId,
+    batchNo: `BATCH-${compactTime.slice(2, 12)}`,
+    preparedQty: roundQty(items.reduce((sum, item) => sum + Number(item.preparedQty || 0), 0)),
+    rollCount: items.reduce((sum, item) => sum + Number(item.rollCount || 0), 0),
+    warehouseArea: firstLine.stockWarehouseArea,
+    locationCode: firstLine.stockLocationCode,
+    operatorName,
+    preparedAt: occurredAt,
+    recordStatus: 'DRAFT',
+    confirmedAt: '',
+    confirmedBy: '',
+    rejectedAt: '',
+    rejectedBy: '',
+    rejectReason: '',
+    sourceStockEventId: '',
+    remark: '按当前可配库存生成配料记录，等待仓库拣货。',
+    items,
+  }
+  store.prepRecords = [record, ...store.prepRecords]
+  persistProductionMaterialPrepStore(store, storage)
+  return cloneRecord(record)
+}
+
 export function confirmMaterialPrepRecord(
   prepRecordId: string,
   operatorName = '配料小组 周敏',
@@ -2509,7 +2806,9 @@ export function confirmMaterialPrepRecord(
   record.rejectedAt = ''
   record.rejectedBy = ''
   record.rejectReason = ''
+  updateStagingRecordStatus(store, prepRecordId, '已确认')
   persistProductionMaterialPrepStore(store, storage)
+  appendPrepConfirmedRuntimeEvent(record, operatorName, storage)
   return cloneRecord(record)
 }
 
@@ -2543,6 +2842,23 @@ export function stageMaterialPrepRecord(
   record.stagedBy = operatorName
   record.stagingArea = stagingArea
   record.remark = (record.remark || '') + ` [${nowText()} ${operatorName} 已放入暂存区：${stagingArea}]`
+  const items = getMaterialPrepRecordItems(record)
+  const stagingRecord: MaterialPrepStagingRecord = {
+    stagingRecordId: `staging:${prepRecordId}:${record.stagedAt.replace(/[^0-9]/g, '')}`,
+    prepRecordId,
+    prepOrderId: record.prepOrderId,
+    stagingArea,
+    stagedAt: record.stagedAt,
+    stagedBy: operatorName,
+    itemCount: items.length,
+    totalPreparedQty: getRecordTotalPreparedQty(record),
+    warehouseNames: getRecordWarehouseNames(record),
+    status: '暂存中',
+  }
+  store.stagingRecords = [
+    stagingRecord,
+    ...store.stagingRecords.filter((item) => item.prepRecordId !== prepRecordId),
+  ]
   persistProductionMaterialPrepStore(store, storage)
   return cloneRecord(record)
 }
@@ -2568,6 +2884,7 @@ export function rejectMaterialPrepRecord(
   record.rejectedAt = occurredAt
   record.rejectedBy = rejectedBy
   record.rejectReason = rejectReason.trim()
+  updateStagingRecordStatus(store, prepRecordId, '已打回')
   const rejectRecord: PrepRejectRecord = {
     rejectId: `reject:${prepRecordId}:${occurredAt.replace(/[^0-9]/g, '')}`,
     prepRecordId,
