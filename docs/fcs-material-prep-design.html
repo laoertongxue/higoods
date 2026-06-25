@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工厂生产协同系统 - 配料管理产品设计方案</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --card: #f8f9fa;
+      --border: #e2e8f0;
+      --text: #1a202c;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --success: #059669;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --info: #0891b2;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
+    }
+    h2 {
+      font-size: 22px;
+      font-weight: 600;
+      margin: 48px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 32px 0 12px;
+      color: var(--primary);
+    }
+    h4 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 20px 0 8px;
+    }
+    p { margin: 8px 0; }
+    .meta {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .card h3 { margin-top: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th { background: #f1f5f9; font-weight: 600; }
+    tr:hover { background: #f8fafc; }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      margin: 0 4px;
+    }
+    .badge-success { background: #d1fae5; color: #065f46; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+    .badge-info { background: #cffafe; color: #155e75; }
+    .badge-neutral { background: #f1f5f9; color: #475569; }
+    .badge-primary { background: #dbeafe; color: #1e40af; }
+    ul, ol { margin: 8px 0 8px 24px; }
+    li { margin: 4px 0; }
+    .mermaid {
+      margin: 20px 0;
+      padding: 16px;
+      background: #fafbfc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .step-list {
+      list-style: none;
+      padding: 0;
+      counter-reset: step;
+    }
+    .step-list li {
+      counter-increment: step;
+      padding: 8px 0 8px 40px;
+      position: relative;
+    }
+    .step-list li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 6px;
+      width: 28px;
+      height: 28px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .toc { line-height: 2; }
+    .toc a { color: var(--primary); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    blockquote {
+      border-left: 4px solid var(--info);
+      background: #f0fdfa;
+      margin: 16px 0;
+      padding: 12px 16px;
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;
+    }
+    .highlight {
+      background: #fef08a;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>工厂生产协同系统 — 配料管理产品设计方案</h1>
+<p class="meta">
+  版本：v1.0 &nbsp;|&nbsp; 日期：2026-06-25 &nbsp;|&nbsp; 归属系统：FCS（工厂生产协同系统）
+</p>
+
+<!-- ====== 目录 ====== -->
+<h2>目录</h2>
+<ol class="toc">
+  <li><a href="#s1">业务背景与设计目标</a></li>
+  <li><a href="#s2">配料管理整体架构</a></li>
+  <li><a href="#s3">五大配料类型与分类规则</a></li>
+  <li><a href="#s4">核心业务流程</a></li>
+  <li><a href="#s5">配料记录生命周期与状态机</a></li>
+  <li><a href="#s6">先配料再分配：核心时序</a></li>
+  <li><a href="#s7">配料数量计算规则</a></li>
+  <li><a href="#s8">暂存区与配料完成确认</a></li>
+  <li><a href="#s9">与关联模块的交互</a></li>
+  <li><a href="#s10">数据模型设计</a></li>
+  <li><a href="#s11">菜单结构与页面架构</a></li>
+  <li><a href="#s12">设计决策与差异分析</a></li>
+</ol>
+
+<!-- ====== 第一节 ====== -->
+<h2 id="s1">1. 业务背景与设计目标</h2>
+
+<h3>1.1 背景</h3>
+<p>
+  印尼供应链团队（含生产团队）中分出一个专门的小组——<span class="highlight">配料小组</span>，统一负责所有物料的配料操作。
+  配料小组按照生产单 BOM（物料清单），从各个仓库中挑出物料、拣货、放入暂存区、确认配料完成，然后通知下游来领料或配送。
+</p>
+<p>
+  配料完成后，系统再执行<span class="highlight">任务分配</span>（即确定由哪个工厂承接该工序），这与当前"先分配再配料"的代码逻辑完全相反。
+</p>
+
+<h3>1.2 设计目标</h3>
+<ol>
+  <li><strong>在 FCS 下建立独立的配料管理菜单</strong>，取代当前 WLS 下的入口</li>
+  <li><strong>按配料对象拆分为 5 个独立视图 + 1 个综合看板</strong>：染色配料、印花配料、裁片配料、车缝配料、其他配料、配料列表</li>
+  <li><strong>实现「先配料、再分配」的核心业务顺序</strong></li>
+  <li><strong>引入完整的配料生命周期</strong>：创建 → 拣货 → 入暂存区 → 确认完成 → 通知下游</li>
+  <li><strong>车缝配料受裁片放行数量约束</strong></li>
+</ol>
+
+<!-- ====== 第二节 ====== -->
+<h2 id="s2">2. 配料管理整体架构</h2>
+
+<h3>2.1 仓库与物料拓扑</h3>
+<div class="mermaid">
+flowchart LR
+    subgraph 上游供应
+        P[采购入库]
+    end
+
+    subgraph 仓库层
+        FC[面料仓]:::warehouse
+        AC[辅料仓]:::warehouse
+        YC[纱线仓]:::warehouse
+        PC[包材仓]:::warehouse
+    end
+
+    subgraph 前置加工
+        DWH[染色厂<br/>待加工仓]:::factory
+        PWH[印花厂<br/>待加工仓]:::factory
+    end
+
+    subgraph 成品面料回流
+        TWC[中转仓<br/>注：印染加工完成的<br/>成品面料在此存放]:::warehouse
+    end
+
+    subgraph 配料操作
+        DP[染色配料]
+        PP[印花配料]
+        CP[裁片配料]
+        SP[车缝配料]
+        OP[其他配料]
+    end
+
+    subgraph 下游工厂
+        DWF[染色厂]:::factory
+        PWF[印花厂]:::factory
+        CUT[裁片工厂<br/>注：可能兼做<br/>车缝/后道]:::factory
+        SEW[车缝厂]:::factory
+        FIN[后道工厂]:::factory
+    end
+
+    P --> FC
+    P --> AC
+    P --> YC
+    P --> PC
+
+    FC -->|调拨| DWH
+    FC -->|调拨| PWH
+    DWH --> DP -->|加工领料| DWF
+    PWH --> PP -->|加工领料| PWF
+    DWF -->|染色完成<br/>回仓| TWC
+    PWF -->|印花完成<br/>回仓| TWC
+
+    TWC -->|裁片配料| CP -->|裁床领料| CUT
+    AC --> SP -->|配送| SEW
+    YC --> SP -->|配送| SEW
+    PC --> OP -->|配送| FIN
+    PC --> OP -->|配送| SEW
+
+    classDef warehouse fill:#dbeafe,stroke:#3b82f6
+    classDef factory fill:#fef3c7,stroke:#f59e0b
+</div>
+
+<h3>2.2 角色与职责</h3>
+<table>
+  <tr><th>角色</th><th>职责</th><th>操作入口</th></tr>
+  <tr>
+    <td><strong>配料小组</strong></td>
+    <td>创建配料记录、确认配料完成、通知下游</td>
+    <td>FCS 配料管理（所有配料类型）</td>
+  </tr>
+  <tr>
+    <td><strong>仓库操作员</strong></td>
+    <td>按配料记录拣货、更新拣货状态</td>
+    <td>FCS 配料管理 / PDA</td>
+  </tr>
+  <tr>
+    <td><strong>跟单人员</strong></td>
+    <td>核实拣货结果、将货放入暂存区</td>
+    <td>FCS 配料管理</td>
+  </tr>
+  <tr>
+    <td><strong>裁床主管</strong></td>
+    <td>裁片放行判断（影响车缝配料数量约束）</td>
+    <td>FCS 裁片放行管理</td>
+  </tr>
+  <tr>
+    <td><strong>各工厂操作员</strong></td>
+    <td>领料 / 加工领料</td>
+    <td>FCS 各工厂模块</td>
+  </tr>
+</table>
+
+<blockquote>
+  <strong>三方裁片仓的角色的灵活性：</strong>一个裁片工厂可能只做裁片，也可能兼做裁片+车缝，甚至裁片+车缝+后道。
+  在配料阶段，裁片配料总是由裁片工厂来领料，无论该工厂后续是否兼做车缝。辅料（车缝配料）的配送目的地
+  在任务分配后确定——可能配送给独立车缝厂，也可能配送给裁片+车缝一体厂。
+</blockquote>
+
+<!-- ====== 第三节 ====== -->
+<h2 id="s3">3. 五大配料类型与分类规则</h2>
+
+<h3>3.1 分类定义</h3>
+<p>
+  一个生产单的所有物料，按物料类型（面料/辅料/纱线/包材）和上游工序（是否需要印花/染色）自动路由到对应的配料类型。
+  分类规则以当前代码 <strong>buildDefaultTaskLinks()</strong> 为基准。
+</p>
+
+<table>
+  <tr><th>配料类型</th><th>物料筛选条件</th><th>配货仓库</th><th>下一步动作</th><th>工厂确定性</th></tr>
+  <tr>
+    <td><strong>染色配料</strong></td>
+    <td>面料 + upstreamSourceType='染色'</td>
+    <td>染色厂待加工仓</td>
+    <td>加工领料</td>
+    <td><span class="badge badge-success">工艺绑定</span></td>
+  </tr>
+  <tr>
+    <td><strong>印花配料</strong></td>
+    <td>面料 + upstreamSourceType='印花'</td>
+    <td>印花厂待加工仓</td>
+    <td>加工领料</td>
+    <td><span class="badge badge-success">工艺绑定</span></td>
+  </tr>
+  <tr>
+    <td><strong>裁片配料</strong></td>
+    <td>面料 + upstreamSourceType='中转仓库存'</td>
+    <td>中转仓</td>
+    <td>裁床领料</td>
+    <td><span class="badge badge-success">工艺绑定</span></td>
+  </tr>
+  <tr>
+    <td><strong>车缝配料</strong></td>
+    <td>辅料 / 纱线</td>
+    <td>辅料仓 / 纱线仓</td>
+    <td>配送至车缝厂</td>
+    <td><span class="badge badge-warning">分配决定</span></td>
+  </tr>
+  <tr>
+    <td><strong>其他配料</strong></td>
+    <td>包材</td>
+    <td>包材仓</td>
+    <td>配送至承接厂</td>
+    <td><span class="badge badge-warning">分配决定</span></td>
+  </tr>
+</table>
+
+<blockquote>
+  <strong>工厂确定性说明：</strong>
+  染色/印花/裁片是工艺绑定的，面料只能到对应类型的工厂加工，所以配料时就能确定目标工厂类型。
+  车缝/其他配料的目标工厂依赖于任务分配结果，配料时需要标记为"待分配"，不预先确定配送目的地。
+</blockquote>
+
+<h3>3.2 关于三方裁片仓</h3>
+<p>
+  在实际业务中，一些工厂具有复合生产能力。例如：
+</p>
+<ul>
+  <li><strong>仅做裁片</strong>：工厂只承接裁片工序，裁好的片交给其他工厂做车缝</li>
+  <li><strong>裁片 + 车缝</strong>：工厂既做裁片也做车缝，裁完直接缝，无需跨厂移交</li>
+  <li><strong>裁片 + 车缝 + 后道</strong>：工厂做全流程，从裁片到包装都在同一厂完成</li>
+</ul>
+<p>
+  这对于<strong>裁片配料</strong>的影响是：裁片配料在中转仓完成并确认后，下游的领料工厂可能是一个纯裁片厂，
+  也可能是一个裁片+车缝一体厂。但无论该工厂后续是否兼做车缝，裁片配料阶段的操作不发生变化——
+  配料小组只管把成品面料从中转仓配好，交给裁片工厂领走。其余的辅料（车缝配料）仍然由配料小组在辅料仓/纱线仓独立操作。
+</p>
+<p>
+  对<strong>车缝配料</strong>的影响是：车缝配料完成后配送的目的地，既可能是独立车缝厂，也可能是裁片+车缝一体厂（即同一工厂既领了裁片面料，又接收辅料）。这在任务分配阶段确定。
+</p>
+
+<!-- ====== 第四节 ====== -->
+<h2 id="s4">4. 核心业务流程</h2>
+
+<h3>4.1 总体流程</h3>
+<div class="mermaid">
+flowchart TD
+    A[需求单生成生产单] --> B[生产单冻结技术包快照]
+    B --> C[生产单 BOM 展开物料清单]
+    C --> D{物料路由分类}
+    D -->|面料+染色| E[染色配料]
+    D -->|面料+印花| F[印花配料]
+    D -->|面料+其他| G[裁片配料]
+    D -->|辅料/纱线| H[车缝配料]
+    D -->|包材| I[其他配料]
+
+    E --> E1[面料仓→染色厂待加工仓→配料→加工领料→染色生产]
+    F --> F1[面料仓→印花厂待加工仓→配料→加工领料→印花生产]
+    E1 --> J[染色完成→回中转仓]
+    F1 --> J1[印花完成→回中转仓]
+
+    J --> G
+    J1 --> G
+    C -->|不需印染的面料| G
+
+    G --> K[创建配料记录 DRAFT]
+    H --> K
+    I --> K
+
+    K --> L[仓库拣货 → PICKED]
+    L --> M[跟单核实 → 入暂存区 → STAGED]
+    M --> N[配料小组确认 → CONFIRMED]
+
+    N --> O{工艺绑定?}
+    O -->|是 裁片| P[通知裁片工厂领料]
+    O -->|是 染/印| Q[通知染/印厂加工领料]
+    O -->|否 车缝/其他| R[等待任务分配]
+
+    R --> S[任务分配确定工厂]
+    S --> T[配送至对应工厂]
+</div>
+
+<h3>4.2 染色配料详细流程</h3>
+<ol class="step-list">
+  <li><strong>面料调拨到待加工仓：</strong>采购入库 → 面料仓 → 调拨 → 染色厂待加工仓（WAIT_PROCESS）</li>
+  <li><strong>配料小组创建配料记录：</strong>按生产单 BOM 计算面料需求量，创建 DRAFT 记录</li>
+  <li><strong>仓库拣货：</strong>仓库操作员从染色厂待加工仓货架取出面料实物，状态变为 PICKED</li>
+  <li><strong>跟单入暂存区：</strong>跟单核实后放入染色厂暂存区，状态变为 STAGED</li>
+  <li><strong>配料确认完成：</strong>配料小组确认 CONFIRMED → 触发染色厂加工领料通知</li>
+  <li><strong>染色厂加工领料：</strong>染色工厂操作员领取面料，进行染色生产</li>
+  <li><strong>加工完成回中转仓：</strong>染色完成的成品面料回转中转仓，等待进入裁片配料环节</li>
+</ol>
+
+<blockquote>
+  印花配料流程与染色配料完全对称，只是目标仓库为印花厂待加工仓。染色/印花完成后成品面料均回转中转仓。
+</blockquote>
+
+<h3>4.3 裁片配料详细流程</h3>
+<ol class="step-list">
+  <li><strong>面料已在中转仓就位：</strong>印花/染色加工完成的成品面料已经回转到中转仓；不需要印染的面料由面料仓直接调拨到中转仓</li>
+  <li><strong>配料小组创建配料记录：</strong>按生产单 BOM 计算裁片所需面料量，创建 DRAFT 记录</li>
+  <li><strong>仓库拣货：</strong>仓库操作员从中转仓货架取出成品面料，PICKED</li>
+  <li><strong>跟单入暂存区：</strong>放入中转仓暂存区，STAGED</li>
+  <li><strong>配料确认完成：</strong>CONFIRMED → 通知裁片工厂可领料</li>
+  <li><strong>裁片工厂领料：</strong>裁片工厂操作员到中转仓领料，入裁片工厂待加工仓</li>
+</ol>
+
+<h3>4.4 车缝配料详细流程</h3>
+<ol class="step-list">
+  <li><strong>裁床做裁片放行判断：</strong>裁床主管通过裁片放行管理判断能做多少件</li>
+  <li><strong>计算配料约束：</strong>车缝配料最大数量 = min(生产单需求, 放行件数 × BOM单件用量, 库存可用量)</li>
+  <li><strong>配料小组创建配料记录：</strong>按约束值创建 DRAFT 记录（标记 taskLinks 为"未分配"）</li>
+  <li><strong>仓库拣货 + 入暂存区：</strong>PICKED → STAGED → CONFIRMED</li>
+  <li><strong>等待任务分配：</strong>配料完成后等待车缝任务分配确定具体工厂</li>
+  <li><strong>配送：</strong>任务分配完成后，按工厂分别配送到对应车缝厂</li>
+</ol>
+
+<blockquote>
+  其他配料（包材）流程与车缝配料类似。包材的目标工厂可能是后道厂，也可能是车缝厂（如果该车缝厂有包装产线），需等任务分配确定。
+</blockquote>
+
+<!-- ====== 第五节 ====== -->
+<h2 id="s5">5. 配料记录生命周期与状态机</h2>
+
+<h3>5.1 配料记录状态机</h3>
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> DRAFT: 配料小组创建配料记录
+
+    state 物料准备阶段 {
+        DRAFT: 待仓库拣货
+        PICKED: 已拣货，待核实
+        STAGED: 已入暂存区，待确认
+    }
+
+    DRAFT --> PICKED: 仓库操作员完成拣货
+    PICKED --> STAGED: 跟单人员核实并放入暂存区
+    PICKED --> DRAFT: 跟单发现差异，退回重拣
+
+    STAGED --> CONFIRMED: 配料小组确认配料完成
+
+    state 配料完成 {
+        CONFIRMED: 配料已确认，通知下游
+    }
+
+    CONFIRMED --> REJECTED: 下游打回（裁床/车缝）
+    REJECTED --> PICKED: 仓库重新拣货
+    REJECTED --> STAGED: 仅需重新核实
+    REJECTED --> CONFIRMED: 配料小组重新确认
+
+    CONFIRMED --> [*]: 领料/配送完成后关闭
+</div>
+
+<h3>5.2 配料单状态机</h3>
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> NEED_PREP: 生产单生成后自动创建
+
+    NEED_PREP_NO_STOCK: 无库存可配
+    NEED_PREP_PARTIAL_STOCK: 部分有库存可配
+    NEED_PREP_ALL_STOCK: 全部库存充足
+
+    NEED_PREP --> NEED_PREP_NO_STOCK: 库存检查
+    NEED_PREP --> NEED_PREP_PARTIAL_STOCK: 库存检查
+    NEED_PREP --> NEED_PREP_ALL_STOCK: 库存检查
+
+    NEED_PREP_NO_STOCK --> NEED_PREP_PARTIAL_STOCK: 部分库存到仓
+    NEED_PREP_NO_STOCK --> NEED_PREP_ALL_STOCK: 全部库存到仓
+
+    NEED_PREP_PARTIAL_STOCK --> READY: 所有物料配齐并确认
+    NEED_PREP_ALL_STOCK --> READY: 所有物料配齐并确认
+
+    READY --> REJECTED_REWORK: 下游打回
+    REJECTED_REWORK --> NEED_PREP_PARTIAL_STOCK: 重新配料
+
+    NEED_PREP_PARTIAL_STOCK --> CLOSED: 关闭配料单
+    NEED_PREP_NO_STOCK --> CLOSED: 关闭配料单
+    CLOSED --> [*]
+</div>
+
+<h3>5.3 领料单状态机</h3>
+<div class="mermaid">
+stateDiagram-v2
+    NOT_PICKABLE: 暂不可领（无已确认配料记录）
+    WAIT_PICKUP: 待领料（已有已确认配料记录）
+    REJECTED_WAIT_WLS: 打回待仓库处理
+    PICKUP_DONE: 已领料完结
+    ACTUAL_CLOSED: 按实完结
+
+    NOT_PICKABLE --> WAIT_PICKUP: 配料记录确认
+    WAIT_PICKUP --> PICKUP_DONE: 下游全部领完
+    WAIT_PICKUP --> REJECTED_WAIT_WLS: 下游打回配料记录
+    REJECTED_WAIT_WLS --> WAIT_PICKUP: 仓库重新确认
+    WAIT_PICKUP --> ACTUAL_CLOSED: 配料单关闭
+</div>
+
+<!-- ====== 第六节 ====== -->
+<h2 id="s6">6. 先配料再分配：核心时序</h2>
+
+<h3>6.1 宏观时序（全链路）</h3>
+<div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor 运营 as OP
+    actor 面料仓 as FAB
+    actor 配料小组 as PREP
+    actor 仓库操作员 as WH
+    actor 跟单人员 as CS
+    actor 裁床主管 as CUT
+    actor 分配系统 as DISP
+    actor 印染厂 as PRINT
+
+    OP->>DISP: 从需求单生成生产单
+    DISP->>PREP: 生产单 BOM 展开 → 自动路由物料到各配料类型
+
+    Note over PREP,FAB: 面料仓 → 印染厂待加工仓 的调拨（前置步骤）
+    FAB->>PRINT: 调拨面料到印染厂待加工仓
+    PREP->>PREP: 计算配料约束（染/印按BOM，裁片按中转仓库存，车缝需等裁片放行）
+
+    Note over PREP,CUT: 车缝配料专属约束
+    CUT->>CUT: 裁片放行判断（可以做 N 件）
+    PREP->>CUT: 读取裁片放行释放量
+    PREP->>PREP: 车缝配料 maxQty = min(需求, 放行件数×用量, 库存)
+
+    Note over PREP: 配料操作：先染/印配料 → 加工 → 回转中仓 → 再裁片配料
+    PREP->>PREP: 创建染/印配料记录 (DRAFT)
+    PREP->>WH: 通知拣货
+    WH->>PREP: 拣货完成 (PICKED)
+    PREP->>CS: 通知核实入暂存区
+    CS->>PREP: 已入暂存区 (STAGED)
+    PREP->>PREP: 确认 (CONFIRMED) → 通知印染厂加工领料
+    PRINT->>PRINT: 印染生产
+    PRINT->>PREP: 印染完成 → 成品面料回中转仓
+
+    PREP->>PREP: 创建裁片配料记录 (DRAFT)
+    PREP->>WH: 通知拣货
+    WH->>PREP: 拣货完成 (PICKED)
+    PREP->>CS: 通知核实入暂存区
+    CS->>PREP: 已入暂存区 (STAGED)
+    PREP->>PREP: 确认 (CONFIRMED) → 通知裁片工厂领料
+
+    PREP->>PREP: 创建车缝配料记录 (DRAFT) → PICKED → STAGED → CONFIRMED
+    PREP->>PREP: 创建其他配料记录 (DRAFT) → PICKED → STAGED → CONFIRMED
+
+    Note over PREP,DISP: 工艺绑定的直接领料，分配决定的等待分配
+    PREP->>DISP: 配料全部完成，等待车缝/其他任务分配
+    DISP->>DISP: 执行车缝/包装任务分配 → 确定工厂
+    DISP->>PREP: 回写工厂信息到配料记录
+    PREP->>PREP: 按工厂拆分配送数量
+</div>
+
+<h3>6.2 时序对比：当前 vs 新设计</h3>
+<table>
+  <tr><th>阶段</th><th>当前代码</th><th>新设计</th></tr>
+  <tr>
+    <td>顺序</td>
+    <td>需求单 → 生产单 → 拆解任务 → <strong>分配(定工厂)</strong> → 配料</td>
+    <td>需求单 → 生产单 → BOM展开 → <strong>配料(按BOM)</strong> → 分配(定工厂) → 配送</td>
+  </tr>
+  <tr>
+    <td>taskLinks</td>
+    <td>硬编码大部分为"已分配"</td>
+    <td>全部为"未分配"，分配后回写</td>
+  </tr>
+  <tr>
+    <td>工厂信息</td>
+    <td>配料时已确定工厂</td>
+    <td>配料时仅标注"待分配"，分配后才回写</td>
+  </tr>
+  <tr>
+    <td>送达地</td>
+    <td>配料时即知送达地</td>
+    <td>工艺绑定的确定，分配决定的待定</td>
+  </tr>
+</table>
+
+<!-- ====== 第七节 ====== -->
+<h2 id="s7">7. 配料数量计算规则</h2>
+
+<h3>7.1 核心公式</h3>
+
+<div class="card">
+  <h3>染色 / 印花 / 裁片配料</h3>
+  <p><strong>最大可配 = min(生产单BOM需求量, 仓库可用库存)</strong></p>
+  <p>默认配料 = 最大可配</p>
+  <p>实际配料 ≤ 最大可配（由配料操作员填写）</p>
+  <p>不受裁片放行约束</p>
+</div>
+
+<div class="card">
+  <h3>车缝配料（辅料配料）</h3>
+  <p><strong>最大可配 = min(生产单BOM需求量, 裁片放行件数 × BOM单件用量, 仓库可用库存)</strong></p>
+  <p>默认配料 = 最大可配</p>
+  <p>实际配料 ≤ 最大可配</p>
+  <p>受裁片放行数量 + 库存数量双重约束</p>
+</div>
+
+<div class="card">
+  <h3>其他配料（包材配料）</h3>
+  <p><strong>最大可配 = min(生产单BOM需求量, 仓库可用库存)</strong></p>
+  <p>默认配料 = 最大可配</p>
+  <p>不受裁片放行约束</p>
+</div>
+
+<h3>7.2 车缝配料计算示例</h3>
+<table>
+  <tr><th>字段</th><th>数值</th><th>说明</th></tr>
+  <tr><td>生产单需求量</td><td>500 条拉链</td><td>500件 × 1条/件</td></tr>
+  <tr><td>裁片放行件数</td><td>320 件</td><td>裁床主管判断"部分可以做 320件"</td></tr>
+  <tr><td>仓库可用库存</td><td>300 条</td><td>辅料仓当前库存</td></tr>
+  <tr><td><strong>最大可配</strong></td><td><strong>min(500, 320×1, 300) = 300 条</strong></td><td><span class="badge badge-warning">受库存限制</span></td></tr>
+  <tr><td>默认配料</td><td>300 条</td><td>等于最大可配</td></tr>
+  <tr><td>备注</td><td colspan="2">剩余 20 件缺辅料（放行320但库存只够300），等拉链到货再补配</td></tr>
+</table>
+
+<h3>7.3 库存充足时的对比示例</h3>
+<table>
+  <tr><th>字段</th><th>数值</th><th>说明</th></tr>
+  <tr><td>生产单需求量</td><td>500 条拉链</td><td></td></tr>
+  <tr><td>裁片放行件数</td><td>320 件</td><td></td></tr>
+  <tr><td>仓库可用库存</td><td>800 条</td><td>充足</td></tr>
+  <tr><td><strong>最大可配</strong></td><td><strong>min(500, 320×1, 800) = 320 条</strong></td><td><span class="badge badge-info">受放行限制</span></td></tr>
+  <tr><td>默认配料</td><td>320 条</td><td>等于最大可配</td></tr>
+  <tr><td>备注</td><td colspan="2">再多也没用，裁床只放了 320 件</td></tr>
+</table>
+
+<!-- ====== 第八节 ====== -->
+<h2 id="s8">8. 暂存区与配料完成确认</h2>
+
+<h3>8.1 暂存区概念</h3>
+<p>
+  暂存区是仓库内的一个指定物理区域。每个配料仓库都有一个或多个暂存区。
+  配料完成后，货被放在暂存区等待下游来取或配送。
+</p>
+<p>
+  <strong>中转仓的特殊性：</strong>中转仓接收的是印花/染色加工完成的成品面料。
+  裁片配料的物料正是从这些成品面料中选取。暂存区位于中转仓内，方便裁片工厂来领。
+</p>
+
+<table>
+  <tr><th>配料类型</th><th>配货仓库</th><th>暂存区位置</th><th>通知对象</th></tr>
+  <tr><td>染色配料</td><td>染色厂待加工仓</td><td>染色厂暂存区</td><td>染色厂（加工领料）</td></tr>
+  <tr><td>印花配料</td><td>印花厂待加工仓</td><td>印花厂暂存区</td><td>印花厂（加工领料）</td></tr>
+  <tr><td>裁片配料</td><td>中转仓（印染成品面料存放处）</td><td>中转仓暂存区</td><td>裁片工厂</td></tr>
+  <tr><td>车缝配料</td><td>辅料仓 / 纱线仓</td><td>辅料仓暂存区 / 纱线仓暂存区</td><td>待分配后确定</td></tr>
+  <tr><td>其他配料</td><td>包材仓</td><td>包材仓暂存区</td><td>待分配后确定</td></tr>
+</table>
+
+<h3>8.2 配料完成确认时序</h3>
+<div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant PREP as 配料小组
+    participant WH as 仓库操作员
+    participant CS as 跟单人员
+
+    PREP->>PREP: 创建配料记录<br/>状态 = DRAFT
+    PREP->>WH: 通知拣货
+    WH->>WH: 从货架取出物料
+    WH->>PREP: 拣货完成<br/>状态 → PICKED
+    PREP->>CS: 通知核实
+    CS->>CS: 核实数量 / 质量
+    CS->>CS: 放入指定暂存区
+    CS->>PREP: 已入暂存区<br/>状态 → STAGED
+
+    Note over PREP: 只有 STAGED 状态才能确认
+
+    PREP->>PREP: 全面核实后点击"确认配料完成"
+    Note over PREP: 状态 → CONFIRMED<br/>触发"配料完成通知"事件
+
+    alt 工艺绑定类型
+        PREP->>PREP: 发送下游领料通知
+    else 分配决定类型
+        PREP->>PREP: 进入"待分配"队列
+    end
+</div>
+
+<h3>8.3 确认规则</h3>
+<ul>
+  <li>确认对象是<strong>整条配料记录</strong>（非逐行确认）</li>
+  <li>只有 <strong>STAGED</strong> 状态可确认</li>
+  <li>确认后该配料记录进入 <strong>CONFIRMED</strong>，下游立即可见（领料列表）</li>
+  <li>确认时生成 <strong>"配料完成通知"</strong> 运行时事件</li>
+  <li>确认后配料记录不可修改，只能由下游打回后重新确认</li>
+</ul>
+
+<!-- ====== 第九节 ====== -->
+<h2 id="s9">9. 与关联模块的交互</h2>
+
+<h3>9.1 关联模块全景</h3>
+<div class="mermaid">
+flowchart TD
+    PREP[配料管理<br/>FCS 新模块]:::focus
+
+    PREP -->|读取BOM| PO[生产单]
+    PREP -->|读取库存| INV[仓库库存]
+    PREP -->|读取调拨| TRANS[面料仓调拨单]
+    PREP -->|车缝约束| CR[裁片放行管理]
+    PREP -->|通知领料| WAIT[工厂待加工仓]
+    PREP -->|回写工厂| DISP[任务分配]
+    PREP -->|写入台账| LEDGER[物料台账]
+
+    PO -->|生成配料单| PREP
+    TRANS -->|面料到位| PREP
+    PO -->|印花/染色完成<br/>成品面料回仓| TWC[中转仓]
+    TWC -->|库存可用| PREP
+
+    classDef focus fill:#dbeafe,stroke:#2563eb,stroke-width:3px
+</div>
+
+<h3>9.2 各关联模块交互细节</h3>
+
+<table>
+  <tr><th>关联模块</th><th>交互方向</th><th>交互内容</th></tr>
+  <tr>
+    <td>生产单</td>
+    <td>生产单 → 配料</td>
+    <td>生产单 BOM 展开出物料清单，按物料类型自动路由到五大配料类型</td>
+  </tr>
+  <tr>
+    <td>面料仓调拨单</td>
+    <td>调拨 → 配料</td>
+    <td>面料仓 → 印染待加工仓 的调拨完成后，库存到位，配料可配数量更新</td>
+  </tr>
+  <tr>
+    <td>中转仓</td>
+    <td>回仓 → 配料</td>
+    <td>印花/染色加工完成的成品面料回转中转仓，为裁片配料提供库存</td>
+  </tr>
+  <tr>
+    <td>仓库库存</td>
+    <td>库存 → 配料</td>
+    <td>每个物料的可用库存量决定配料的最大数量</td>
+  </tr>
+  <tr>
+    <td>裁片放行管理</td>
+    <td>放行 → 车缝配料</td>
+    <td>裁床主管判断"可以做 N 件"决定车缝配料的最大数量约束</td>
+  </tr>
+  <tr>
+    <td>任务分配</td>
+    <td>配料 → 分配</td>
+    <td>配料完成后触发车缝/其他任务分配，分配完成后回写工厂信息</td>
+  </tr>
+  <tr>
+    <td>工厂待加工仓</td>
+    <td>配料 → 待加工仓</td>
+    <td>确认配料完成后通知下游领料，领料后入待加工仓</td>
+  </tr>
+  <tr>
+    <td>物料台账</td>
+    <td>配料 → 台账</td>
+    <td>配料确认时生成 TRANSFER_WAREHOUSE_ALLOCATED 事件</td>
+  </tr>
+</table>
+
+<h3>9.3 裁片放行 → 车缝配料 时序</h3>
+<div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor 裁床主管 as CS
+    actor 裁片放行管理 as CR
+    actor 车缝配料 as SP
+
+    Note over CS: 铺布完成裁剪后触发
+
+    CS->>CR: 查看裁片放行判断列表
+    CR->>CR: 展示各生产单 SKU 明细<br/>(完成量、齐套量、辅料就绪量)
+    CS->>CR: 判断：部分可以做 320 件<br/>填写原因和风险说明
+    CR->>CR: saveCutPieceReleaseDecision()
+    CR->>CR: CutPieceReleaseSummary.releaseQty = 320
+
+    SP->>CR: getCutPieceReleaseSummaryForProductionOrder()
+    CR->>SP: { decision: '部分可以做', releaseQty: 320 }
+    SP->>SP: 车缝配料 maxQty = min(需求, 320×用量, 库存)
+    SP->>SP: 刷新配料记录的 maxPrepQty 和 defaultPrepQty
+
+    Note over SP: 如果放行判断后续变更<br/>(如放宽到 500 件)<br/>自动触发重新计算，提示补配
+</div>
+
+<!-- ====== 第十节 ====== -->
+<h2 id="s10">10. 数据模型设计</h2>
+
+<h3>10.0 配料单与配料记录的关系 —— 操作核心是配料记录</h3>
+<p>
+  在业务层面，<strong>配料单（MaterialPrepOrder）是一张生产单的配料容器</strong>，
+  而真正的操作对象是 <strong>配料记录（MaterialPrepRecord）</strong>。
+</p>
+<ul>
+  <li><strong>一个生产单</strong> → 按物料路由到各配料类型，每个类型产生<strong>一张配料单</strong></li>
+  <li><strong>一张配料单</strong> → 包含<strong>多个物料行</strong>（MaterialPrepLine）</li>
+  <li><strong>一个物料行</strong> → 可以有<strong>多条配料记录</strong>（分批次配料）</li>
+  <li><strong>一条配料记录</strong> → 可以覆盖<strong>多个物料明细</strong>（记录内统一拣货、入暂存区、确认）</li>
+</ul>
+<p>
+  举例：裁片配料单有 3 条面料物料行（主身面料、里布、拼接面料）。配料小组分两批操作：
+</p>
+<table>
+  <tr><th>批次</th><th>配料记录</th><th>覆盖物料</th><th>状态</th></tr>
+  <tr><td>第一批</td><td>配料记录 #1</td><td>主身面料 200 yard + 里布 150 yard</td><td>DRAFT → PICKED → STAGED → CONFIRMED</td></tr>
+  <tr><td>第二批</td><td>配料记录 #2</td><td>拼接面料 80 yard（等印花完才可配）</td><td>DRAFT → PICKED → STAGED → CONFIRMED</td></tr>
+</table>
+<p>
+  <strong>每一条配料记录独立走完自己的生命周期</strong>（DRAFT → PICKED → STAGED → CONFIRMED）。
+  配料单的状态由其下属所有配料记录和物料行的完成度派生。
+</p>
+
+<h3>10.1 MaterialPrepOrderStatus（配料单状态）</h3>
+<table>
+  <tr><th>状态值</th><th>中文标签</th><th>说明</th></tr>
+  <tr><td>NEED_PREP_NO_STOCK</td><td>待配料 - 无库存可配</td><td>配料单刚生成，库存还未到位</td></tr>
+  <tr><td>NEED_PREP_PARTIAL_STOCK</td><td>待配料 - 部分有库存可配</td><td>部分库存已到，可先配一批</td></tr>
+  <tr><td>NEED_PREP_ALL_STOCK</td><td>待配料 - 全部库存充足</td><td>所有物料库存充足</td></tr>
+  <tr><td>REJECTED_REWORK</td><td>被打回重配</td><td>下游打回需重新确认</td></tr>
+  <tr><td>READY</td><td>已配齐</td><td>所有物料配好且确认</td></tr>
+  <tr><td>CLOSED</td><td>已关闭</td><td>不再配料，裁床按实完结</td></tr>
+</table>
+
+<h3>10.2 MaterialPrepRecordStatus（配料记录状态）— 新增</h3>
+<table>
+  <tr><th>状态值</th><th>中文标签</th><th>操作角色</th><th>说明</th></tr>
+  <tr><td><strong>DRAFT</strong></td><td>待拣货</td><td>配料小组</td><td>配料记录刚创建，等待仓库拣货</td></tr>
+  <tr><td><strong>PICKED</strong></td><td>已拣货</td><td>仓库操作员</td><td>仓库操作员已按记录取出物料</td></tr>
+  <tr><td><strong>STAGED</strong></td><td>已入暂存区</td><td>跟单人员</td><td>实物已核实并放入指定暂存区域</td></tr>
+  <tr><td><strong>CONFIRMED</strong></td><td>已确认</td><td>配料小组</td><td>配料完成，下游可领料</td></tr>
+  <tr><td><strong>REJECTED</strong></td><td>已打回</td><td>下游工厂</td><td>下游打回，需仓库重新处理</td></tr>
+</table>
+
+<blockquote>
+  当前代码仅 DRAFT / CONFIRMED / REJECTED 三个状态，缺少 PICKED 和 STAGED。
+  本次新增 PICKED（仓库已拣货）和 STAGED（已入暂存区）两个中间状态。
+</blockquote>
+
+<h3>10.3 MaterialPrepLine（配料行）— 新增字段</h3>
+<table>
+  <tr><th>字段</th><th>类型</th><th>说明</th><th>状态</th></tr>
+  <tr><td>prepLineId</td><td>string</td><td>配料行 ID</td><td>已有</td></tr>
+  <tr><td>materialSku / materialName / materialType</td><td>string / string / enum</td><td>物料标识</td><td>已有</td></tr>
+  <tr><td>requiredQty</td><td>number</td><td>BOM 需求总量</td><td>已有</td></tr>
+  <tr><td>availableStockQty</td><td>number</td><td>所在仓库可用库存</td><td>已有</td></tr>
+  <tr><td><strong>releaseQty</strong></td><td>number</td><td>裁片放行件数（仅车缝配料有值）</td><td><span class="badge badge-warning">新增</span></td></tr>
+  <tr><td><strong>releaseConstraintApplied</strong></td><td>boolean</td><td>是否应用了裁片放行约束</td><td><span class="badge badge-warning">新增</span></td></tr>
+  <tr><td><strong>maxPrepQty</strong></td><td>number</td><td>最大可配 = min(需求, 放行×用量, 库存)</td><td><span class="badge badge-warning">新增</span></td></tr>
+  <tr><td><strong>defaultPrepQty</strong></td><td>number</td><td>默认配料数量（= maxPrepQty）</td><td><span class="badge badge-warning">新增</span></td></tr>
+  <tr><td>canPrepQty</td><td>number</td><td>实际可配数量</td><td>已有</td></tr>
+  <tr><td>stockWarehouseName</td><td>enum</td><td>库存仓库名（面料仓/中转仓/辅料仓等）</td><td>已有，需新增'面料仓'</td></tr>
+  <tr><td>taskLinks</td><td>MaterialPrepTaskLink[]</td><td>关联任务（全部"未分配"状态）</td><td>调整 allocationStatus 逻辑</td></tr>
+</table>
+
+<h3>10.4 MaterialPrepTaskLink（任务关联）— 调整</h3>
+<table>
+  <tr><th>字段</th><th>调整前</th><th>调整后</th></tr>
+  <tr><td>factoryId / factoryCode / factoryName</td><td>硬编码为已知工厂</td><td>空字符串 + 占位提示"待分配后确定"</td></tr>
+  <tr><td>allocationStatus</td><td>大部分"已分配"</td><td><strong>全部"未分配"</strong></td></tr>
+  <tr><td>assignedAt</td><td>硬编码时间</td><td>空字符串，分配后回写</td></tr>
+</table>
+
+<h3>10.5 MaterialStockWarehouseName — 新增</h3>
+<table>
+  <tr><th>当前定义</th><th>新定义</th></tr>
+  <tr>
+    <td><code>'中转仓' | '辅料仓' | '纱线仓' | '包材仓'</code></td>
+    <td><code>'<strong>面料仓</strong>' | '中转仓' | '辅料仓' | '纱线仓' | '包材仓'</code></td>
+  </tr>
+</table>
+
+<blockquote>
+  面料不再是直连中转仓，而是先进面料仓，再调拨到印染厂待加工仓。
+  印花/染色完成后的成品面料才回转到中转仓，裁片配料从中转仓取料。
+  不需要印染的面料则由面料仓直接调拨到中转仓。
+</blockquote>
+
+<!-- ====== 第十一节 ====== -->
+<h2 id="s11">11. 菜单结构与页面架构</h2>
+
+<h3>11.1 FCS 菜单调整</h3>
+<table>
+  <tr><th>变更项</th><th>当前</th><th>调整后</th></tr>
+  <tr>
+    <td>菜单位置</td>
+    <td>WLS > 中转仓管理 > 配料管理</td>
+    <td><strong>FCS > 配料管理</strong></td>
+  </tr>
+  <tr>
+    <td>菜单层级</td>
+    <td>二级菜单下单个入口</td>
+    <td><strong>一级菜单，包含 6 个子页面</strong></td>
+  </tr>
+</table>
+
+<h3>11.2 菜单结构</h3>
+<div class="card">
+<pre style="white-space:pre-wrap;font-size:14px;">
+工厂生产协同系统
+  ├── 生产单管理
+  ├── 生产分配
+  ├── <strong>配料管理</strong>                          ← 新增一级菜单
+  │     ├── <strong>配料列表</strong>（综合看板）             /fcs/material-prep/list
+  │     ├── <strong>染色配料</strong>                        /fcs/material-prep/dyeing
+  │     ├── <strong>印花配料</strong>                        /fcs/material-prep/printing
+  │     ├── <strong>裁片配料</strong>                        /fcs/material-prep/cutting
+  │     ├── <strong>车缝配料</strong>                        /fcs/material-prep/sewing
+  │     └── <strong>其他配料</strong>                        /fcs/material-prep/other
+  ├── 裁片放行管理
+  ├── 车缝分配工作台
+  └── ...</pre>
+</div>
+
+<h3>11.3 各页面功能定义</h3>
+
+<div class="card">
+<h4>配料列表（综合看板）</h4>
+<p>聚合展示所有配料单，按配料类型和配料单状态多维度 Tab 筛选。供管理者全局掌握配料进度。</p>
+<ul>
+  <li>Tab：全部 / 待配料 / 配料中 / 已配齐 / 已关闭</li>
+  <li>筛选：配料类型、生产单号、交期范围</li>
+  <li>每行展示：生产单号、款式、配料类型、配料进度、状态</li>
+  <li>点击行进入对应类型的配料详情</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>染色配料 / 印花配料</h4>
+<p>面料仓 → 染色/印花厂待加工仓 的配料操作。下游下一步是加工领料。</p>
+<ul>
+  <li>配料单列表（按状态 Tab）</li>
+  <li>配料详情（生产需求信息 / 库存与调拨进度 / 配料记录 / 拣货状态 / 暂存区）</li>
+  <li>新增配料记录弹窗</li>
+  <li>拣货确认 / 入暂存区确认 / 配料完成确认</li>
+  <li>加工领料通知</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>裁片配料</h4>
+<p>面料仓 → 中转仓 的配料操作。下游下一步是裁床领料。与当前 WLS 配料管理逻辑最接近。</p>
+<ul>
+  <li>配料单列表（按状态 Tab）</li>
+  <li>配料详情（5 个 Tab：需求 / 库存 / 任务 / 记录 / 领料）</li>
+  <li>新增配料记录弹窗</li>
+  <li>确认配料记录（DRAFT → PICKED → STAGED → CONFIRMED）</li>
+  <li>裁床领料通知</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>车缝配料</h4>
+<p>辅料仓 / 纱线仓 → 车缝厂 的配料操作。受裁片放行数量约束，配料完成时工厂待分配。</p>
+<ul>
+  <li>配料单列表（按状态 Tab）</li>
+  <li><strong>裁片放行约束卡片</strong>：展示裁床判断结果、放行件数、最大可配</li>
+  <li>配料详情（需求 / 库存 / 放行约束 / 记录 / 暂存区）</li>
+  <li>新增配料记录（maxPrepQty = min(需求, 放行×用量, 库存)）</li>
+  <li>确认配料完成（CONFIRMED 后进入"待分配"）</li>
+  <li>任务分配完成后回写工厂，按工厂拆分配送</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>其他配料</h4>
+<p>包材仓 → 后道厂或车缝厂 的配料操作。同车缝配料，工厂待分配。</p>
+<ul>
+  <li>配料单列表</li>
+  <li>配料详情 + 新增记录 + 确认流程</li>
+  <li>确认后进入"待分配"，分配后回写工厂</li>
+</ul>
+</div>
+
+<!-- ====== 第十二节 ====== -->
+<h2 id="s12">12. 设计决策与差异分析</h2>
+
+<h3>12.1 关键设计决策</h3>
+<table>
+  <tr><th>序号</th><th>决策</th><th>原因</th></tr>
+  <tr>
+    <td>1</td>
+    <td>配料管理从 WLS 移至 FCS</td>
+    <td>配料小组统一在工厂生产协同系统内操作，不再分属仓储物流系统</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>先配料再分配</td>
+    <td>配料只跟 BOM 走，不绑定工厂；分配时才确定工厂并触发配送</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>按配料对象拆分为 5 个独立视图</td>
+    <td>不同配料类型的仓库、约束、下游动作不同，独立视图减少认知负担</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>新增 PICKED 和 STAGED 状态</td>
+    <td>区分"创建"与"真正可领"之间的拣货、核实、入暂存区步骤</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>车缝配料引入裁片放行约束</td>
+    <td>辅料用量直接跟"能做多少件"正相关，裁床没放行的件数配了也是浪费</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td>面料仓作为独立的物料入口仓库；中转仓是印染加工后的成品面料存放地</td>
+    <td>面料先进面料仓，再调拨到印染待加工仓；印染完成后成品面料回中转仓，裁片配料从中转仓取料</td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td>三方裁片仓可兼做多工序</td>
+    <td>裁片工厂可能是纯裁片、裁片+车缝、或裁片+车缝+后道，配料操作不受影响，但配送目的地由分配确定</td>
+  </tr>
+</table>
+
+<h3>12.2 与现有代码的差异</h3>
+<table>
+  <tr><th>维度</th><th>当前代码</th><th>本设计</th></tr>
+  <tr><td>配料单生成</td><td>seed 数据硬编码 8 个物料行</td><td>从生产单 BOM 动态展开</td></tr>
+  <tr><td>配货仓库</td><td>面料 → 中转仓（无面料仓概念）</td><td>面料 → 面料仓 → 印染待加工仓 → 印染完成 → 回转中转仓 → 裁片配料</td></tr>
+  <tr><td>配料分类</td><td>一张配料单覆盖所有类型</td><td>按配料对象 5 个独立页面</td></tr>
+  <tr><td>taskLinks</td><td>硬编码大部分"已分配"</td><td>全部"未分配"，分配后回写</td></tr>
+  <tr><td>记录状态</td><td>DRAFT / CONFIRMED / REJECTED（3 态）</td><td>DRAFT / PICKED / STAGED / CONFIRMED / REJECTED（5 态）</td></tr>
+  <tr><td>车缝配料约束</td><td>无裁片放行约束</td><td>maxQty = min(需求, 放行×用量, 库存)</td></tr>
+  <tr><td>菜单归属</td><td>WLS > 中转仓管理</td><td>FCS > 配料管理</td></tr>
+  <tr><td>拣货流程</td><td>无拣货概念</td><td>DRAFT→PICKED→STAGED 三步完成</td></tr>
+  <tr><td>暂存区</td><td>不存在</td><td>每个仓库一个或多个暂存区</td></tr>
+  <tr><td>配料完成通知</td><td>事件类型已定义但未触发</td><td>CONFIRMED 时生成通知事件</td></tr>
+</table>
+
+<h3>12.3 需要新增的代码模块</h3>
+<table>
+  <tr><th>模块</th><th>说明</th></tr>
+  <tr><td>面料仓调拨单</td><td>面料仓 → 印染厂待加工仓 的调拨记录类型</td></tr>
+  <tr><td>印染回仓入库单</td><td>印花/染色完成后成品面料回转到中转仓的入库记录</td></tr>
+  <tr><td>暂存区管理</td><td>每个仓库的暂存区域定义、货品入暂存区/出暂存区操作</td></tr>
+  <tr><td>配料完成通知事件</td><td>CONFIRMED 时生成 CuttingRuntimeEvent</td></tr>
+  <tr><td>分配回写</td><td>任务分配完成后回写配料记录的工厂信息</td></tr>
+  <tr><td>裁片放行约束计算</td><td>车缝配料页面集成 getCutPieceReleaseSummaryForProductionOrder()</td></tr>
+</table>
+
+<hr style="margin:48px 0 24px; border: none; border-top: 2px solid var(--border);">
+
+<p style="color: var(--muted); font-size: 14px; text-align: center;">
+  工厂生产协同系统 — 配料管理产品设计方案 v1.0 &nbsp;|&nbsp; 2026-06-25
+</p>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+    sequence: { useMaxWidth: true, showSequenceNumbers: true },
+    stateDiagram: { useMaxWidth: true },
+  });
+</script>
+</body>
+</html>

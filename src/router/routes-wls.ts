@@ -1,16 +1,12 @@
 import type { RouteRegistry } from './route-types'
-import {
-  renderWlsTransferMaterialPrepDetailPage,
-  renderWlsTransferMaterialPrepPage,
-} from './route-renderers-wls'
 import { renderRouteRedirect } from './route-utils'
 
 export const routes: RouteRegistry = {
   exactRoutes: {
-    '/wls': () => renderRouteRedirect('/wls/transfer-warehouse/material-prep', '正在跳转到中转仓配料管理'),
-    '/wls/transfer-warehouse': () => renderRouteRedirect('/wls/transfer-warehouse/material-prep', '正在跳转到中转仓配料管理'),
-    '/wls/transfer-warehouse/material-prep': () => renderWlsTransferMaterialPrepPage(),
-    '/wls/transfer-warehouse/material-prep-detail': () => renderWlsTransferMaterialPrepDetailPage(),
+    '/wls': () => renderRouteRedirect('/fcs/material-prep/list', '配料管理已迁移至 FCS 工厂生产协同系统'),
+    '/wls/transfer-warehouse': () => renderRouteRedirect('/fcs/material-prep/list', '配料管理已迁移至 FCS'),
+    '/wls/transfer-warehouse/material-prep': () => renderRouteRedirect('/fcs/material-prep/list', '配料管理已迁移至 FCS'),
+    '/wls/transfer-warehouse/material-prep-detail': () => renderRouteRedirect('/fcs/material-prep/list', '配料管理已迁移至 FCS'),
   },
   dynamicRoutes: [],
 }

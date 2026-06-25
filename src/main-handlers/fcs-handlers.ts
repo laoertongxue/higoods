@@ -200,6 +200,24 @@ import { handleSpecialCraftWorkOrderDetailEvent } from '../pages/process-factory
 import { handleSpecialCraftTaskOrdersEvent } from '../pages/process-factory/special-craft/task-orders'
 import { handleSpecialCraftWarehouseEvent } from '../pages/process-factory/special-craft/warehouse'
 import {
+  handleFcsMaterialPrepListEvent,
+} from '../pages/fcs/material-prep/list'
+import {
+  handleFcsDyeingPrepEvent,
+} from '../pages/fcs/material-prep/dyeing'
+import {
+  handleFcsPrintingPrepEvent,
+} from '../pages/fcs/material-prep/printing'
+import {
+  handleFcsCuttingPrepEvent,
+} from '../pages/fcs/material-prep/cutting'
+import {
+  handleFcsSewingPrepEvent,
+} from '../pages/fcs/material-prep/sewing'
+import {
+  handleFcsOtherPrepEvent,
+} from '../pages/fcs/material-prep/other'
+import {
   closeFactoryWarehouseSharedDialogs,
   handleFactoryWarehouseSharedEvent,
 } from '../pages/process-factory/shared/warehouse-standard'
@@ -208,6 +226,24 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
   if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
     return handleDispatchAcceptanceSlaEvent(target)
+  }
+  if (pathname.startsWith('/fcs/material-prep/list')) {
+    return handleFcsMaterialPrepListEvent(target)
+  }
+  if (pathname.startsWith('/fcs/material-prep/dyeing')) {
+    return handleFcsDyeingPrepEvent(target)
+  }
+  if (pathname.startsWith('/fcs/material-prep/printing')) {
+    return handleFcsPrintingPrepEvent(target)
+  }
+  if (pathname.startsWith('/fcs/material-prep/cutting')) {
+    return handleFcsCuttingPrepEvent(target)
+  }
+  if (pathname.startsWith('/fcs/material-prep/sewing')) {
+    return handleFcsSewingPrepEvent(target)
+  }
+  if (pathname.startsWith('/fcs/material-prep/other')) {
+    return handleFcsOtherPrepEvent(target)
   }
   if (pathname.startsWith('/fcs/factories/profile')) {
     return handleFactoryPageEvent(target)

@@ -174,6 +174,30 @@ export const renderDispatchAcceptanceSlaPage = createAsyncRenderer(
   () => import('../pages/dispatch-acceptance-sla'),
   'renderDispatchAcceptanceSlaPage',
 )
+export const renderFcsMaterialPrepListPage = createAsyncRenderer(
+  () => import('../pages/fcs/material-prep/list'),
+  'renderFcsMaterialPrepListPage',
+)
+export const renderFcsDyeingPrepPage = createAsyncRenderer(
+  () => import('../pages/fcs/material-prep/dyeing'),
+  'renderFcsDyeingPrepPage',
+)
+export const renderFcsPrintingPrepPage = createAsyncRenderer(
+  () => import('../pages/fcs/material-prep/printing'),
+  'renderFcsPrintingPrepPage',
+)
+export const renderFcsCuttingPrepPage = createAsyncRenderer(
+  () => import('../pages/fcs/material-prep/cutting'),
+  'renderFcsCuttingPrepPage',
+)
+export const renderFcsSewingPrepPage = createAsyncRenderer(
+  () => import('../pages/fcs/material-prep/sewing'),
+  'renderFcsSewingPrepPage',
+)
+export const renderFcsOtherPrepPage = createAsyncRenderer(
+  () => import('../pages/fcs/material-prep/other'),
+  'renderFcsOtherPrepPage',
+)
 export const renderProgressBoardPage = createAsyncRenderer(() => import('../pages/progress-board'), 'renderProgressBoardPage')
 export const renderProgressTaskDetailPage = createAsyncRenderer(
   () => import('../pages/progress-board'),

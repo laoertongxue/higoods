@@ -356,6 +356,19 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       ],
     } as MenuGroup & { icon: string },
     {
+      key: 'fcs-material-prep',
+      title: '配料管理',
+      icon: 'PackageCheck',
+      items: [
+        { key: 'material-prep-list', title: '配料列表', icon: 'LayoutList', href: '/fcs/material-prep/list' },
+        { key: 'material-prep-dyeing', title: '染色配料', icon: 'Droplets', href: '/fcs/material-prep/dyeing' },
+        { key: 'material-prep-printing', title: '印花配料', icon: 'Palette', href: '/fcs/material-prep/printing' },
+        { key: 'material-prep-cutting', title: '裁片配料', icon: 'Scissors', href: '/fcs/material-prep/cutting' },
+        { key: 'material-prep-sewing', title: '车缝配料', icon: 'Component', href: '/fcs/material-prep/sewing' },
+        { key: 'material-prep-other', title: '其他配料', icon: 'Package', href: '/fcs/material-prep/other' },
+      ],
+    } as MenuGroup & { icon: string },
+    {
       title: '工厂入驻&登录',
       icon: 'LogIn',
       items: [
@@ -534,17 +547,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     ...specialCraftMenuGroups,
   ],
   wls: [
-    {
-      title: '中转仓管理',
-      items: [
-        {
-          key: 'wls-transfer-warehouse-material-prep',
-          title: '配料管理',
-          icon: 'PackageCheck',
-          href: '/wls/transfer-warehouse/material-prep',
-        },
-      ],
-    },
     {
       title: '仓储管理',
       items: [
