@@ -68,6 +68,18 @@ function normalizeMaterialPrepStatus(value: string | null | undefined): Material
   return legacyPrepStatusMap[value || ''] || 'NEED_PREP_NO_STOCK'
 }
 
+function filterByKeyword(rows: MaterialPrepOrderProjection[], keyword: string): MaterialPrepOrderProjection[] {
+  const kw = keyword.trim().toLowerCase()
+  if (!kw) return rows
+  return rows.filter((row) =>
+    row.order.productionOrderNo.toLowerCase().includes(kw) ||
+    row.order.styleNo.toLowerCase().includes(kw) ||
+    row.order.styleName.toLowerCase().includes(kw) ||
+    row.order.spu.toLowerCase().includes(kw) ||
+    row.lines.some((line) => line.materialName.toLowerCase().includes(kw)),
+  )
+}
+
 function getSearchParams(): URLSearchParams {
   if (typeof window === 'undefined') return new URLSearchParams()
   return new URLSearchParams(window.location.search)
@@ -106,6 +118,20 @@ function buildClosePrepOrderHref(prepOrderId: string, activeTab?: string): strin
   params.set('closeModal', '1')
   if (activeTab) params.set('fromTab', activeTab)
   return `${pageBasePath}?${params.toString()}`
+}
+
+function renderSearchBar(keyword: string): string {
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="grid gap-3 md:grid-cols-[minmax(240px,1fr)_auto] md:items-end">
+        <label class="space-y-1">
+          <span class="text-sm font-medium">关键词搜索</span>
+          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-fcs-material-prep-action="search-input" data-search-field="keyword" data-skip-page-rerender="true" placeholder="生产单号 / 款式 / SPU / 物料名称" value="${escapeHtml(keyword)}" />
+        </label>
+        <button class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-fcs-material-prep-action="search-apply">查询</button>
+      </div>
+    </section>
+  `
 }
 
 function buildDetailStateHref(
@@ -209,6 +235,57 @@ function renderNeedPrepState(line: MaterialPrepLine): string {
   return renderBadge('库存不足', 'info')
 }
 
+function renderLineStockSituation(line: MaterialPrepLine): string {
+  return `
+    <div class="space-y-1 text-xs">
+      <div class="font-medium">${formatQty(line.availableStockQty, line.unit)}</div>
+      <div class="text-muted-foreground">${escapeHtml(line.stockWarehouseName)} / ${escapeHtml(line.stockWarehouseArea)}</div>
+      <div class="text-muted-foreground">库位：${escapeHtml(line.stockLocationCode)}</div>
+    </div>
+  `
+}
+
+function renderOrderStockSummary(row: MaterialPrepOrderProjection): string {
+  const availableLines = row.lines.filter((line) => line.availableStockQty > 0).length
+  const totalAvailable = row.lines.reduce((sum, line) => sum + Number(line.availableStockQty || 0), 0)
+  const warehouses = Array.from(new Set(row.lines.filter((line) => line.availableStockQty > 0).map((line) => line.stockWarehouseName)))
+  return `
+    <div class="space-y-1 text-xs">
+      <div>有库存：${availableLines}/${row.lineCount} 行</div>
+      <div>当前库存：${formatQty(totalAvailable)}</div>
+      <div class="text-muted-foreground">${warehouses.length ? warehouses.map(escapeHtml).join(' / ') : '暂无可配库存'}</div>
+    </div>
+  `
+}
+
+function renderUpstreamProgress(line: MaterialPrepLine): string {
+  const variant = line.upstreamProgressStatus === '已到仓可配'
+    ? 'success'
+    : line.upstreamProgressStatus === '无需跟进'
+      ? 'neutral'
+      : 'warning'
+  const adjustMessage = `打开${line.upstreamDocumentTitle || '上游单据'}调整：${line.upstreamDocumentNo}`
+  return `
+    <div class="space-y-1">
+      ${renderBadge(line.upstreamProgressStatus, variant)}
+      <div class="text-xs text-muted-foreground">${escapeHtml(line.upstreamProgressDetail)}</div>
+      ${line.upstreamDocumentNo ? `
+        <button
+          type="button"
+          data-fcs-material-prep-action="adjust-upstream-doc"
+          data-upstream-document-no="${escapeHtml(line.upstreamDocumentNo)}"
+          data-upstream-document-title="${escapeHtml(line.upstreamDocumentTitle)}"
+          data-upstream-document-adjust-message="${escapeHtml(adjustMessage)}"
+          onclick="window.alert(this.dataset.upstreamDocumentAdjustMessage || '')"
+          class="mt-1 rounded-md border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
+        >
+          ${escapeHtml(line.upstreamDocumentTitle)}：${escapeHtml(line.upstreamDocumentNo)} / ${escapeHtml(line.upstreamDocumentAdjustLabel || '调整')}
+        </button>
+      ` : ''}
+    </div>
+  `
+}
+
 function renderPrepRecordStatusBadge(status: MaterialPrepRecordStatus): string {
   const label = materialPrepRecordStatusLabelMap[status]
   const variantMap: Record<MaterialPrepRecordStatus, BadgeVariant> = {
@@ -290,6 +367,7 @@ function renderOrderMaterialRows(row: MaterialPrepOrderProjection): string {
               <th class="px-3 py-2">默认配料</th>
               <th class="px-3 py-2">已配多少</th>
               <th class="px-3 py-2">剩余未配</th>
+              <th class="px-3 py-2">库存情况</th>
               <th class="px-3 py-2">配料记录</th>
               <th class="px-3 py-2">领料记录</th>
               <th class="px-3 py-2">是否还需要配料</th>
@@ -312,12 +390,12 @@ function renderOrderMaterialRows(row: MaterialPrepOrderProjection): string {
                 <td class="px-3 py-2">${formatQty(line.defaultPrepQty, line.unit)}</td>
                 <td class="px-3 py-2">${formatQty(line.confirmedPrepQty, line.unit)}</td>
                 <td class="px-3 py-2">${formatQty(line.remainingNeedQty, line.unit)}</td>
+                <td class="px-3 py-2">${renderLineStockSituation(line)}</td>
                 <td class="px-3 py-2">${getLinePrepRecordCount(row, line)} 条</td>
                 <td class="px-3 py-2">${getLinePickupRecordCount(row, line)} 条</td>
                 <td class="px-3 py-2">${renderNeedPrepState(line)}</td>
                 <td class="px-3 py-2">
-                  ${renderBadge(line.upstreamProgressStatus, line.upstreamProgressStatus === '已到仓可配' ? 'success' : line.upstreamProgressStatus === '无需跟进' ? 'neutral' : 'warning')}
-                  <div class="mt-1 text-muted-foreground">${escapeHtml(line.upstreamProgressDetail)}</div>
+                  ${renderUpstreamProgress(line)}
                 </td>
               </tr>
             `).join('')}
@@ -391,6 +469,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
               <th class="px-3 py-2">配料进度</th>
               <th class="px-3 py-2">领料状态</th>
               <th class="px-3 py-2">物料行</th>
+              <th class="px-3 py-2">库存情况</th>
               <th class="px-3 py-2">缺料与上游</th>
               <th class="px-3 py-2">最近操作</th>
               <th class="px-3 py-2">操作</th>
@@ -431,6 +510,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
                   <div>无库存：${row.noStockLineCount}</div>
                   <div>被打回：${row.rejectedRecordCount}</div>
                 </td>
+                <td class="px-3 py-3 align-top">${renderOrderStockSummary(row)}</td>
                 <td class="px-3 py-3 align-top text-xs">
                   <div>缺口：${formatQty(row.totalShortageQty)}</div>
                   <div>最早可配：${escapeHtml(row.earliestExpectedAvailableAt || '暂无')}</div>
@@ -450,13 +530,13 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
                 </td>
               </tr>
               <tr class="bg-muted/20">
-                <td colspan="8" class="px-3 pb-4 pt-0">
+                <td colspan="9" class="px-3 pb-4 pt-0">
                   ${renderOrderMaterialRows(row)}
                 </td>
               </tr>
             `).join('') : `
               <tr>
-                <td colspan="8" class="px-3 py-8 text-center text-sm text-muted-foreground">当前状态下暂无${escapeHtml(categoryLabel)}配料单。</td>
+                <td colspan="9" class="px-3 py-8 text-center text-sm text-muted-foreground">当前状态下暂无${escapeHtml(categoryLabel)}配料单。</td>
               </tr>
             `}
           </tbody>
@@ -536,9 +616,7 @@ function renderInventoryProgress(lines: MaterialPrepLine[]): string {
                 <td class="px-3 py-3">${formatQty(line.canPrepQty, line.unit)}</td>
                 <td class="px-3 py-3">${formatQty(line.shortageQty, line.unit)}</td>
                 <td class="px-3 py-3">
-                  ${renderBadge(line.upstreamProgressStatus, line.upstreamProgressStatus === '已到仓可配' ? 'success' : line.upstreamProgressStatus === '无需跟进' ? 'neutral' : 'warning')}
-                  <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(line.upstreamSourceType)} / ${escapeHtml(line.expectedAvailableAt || '无预计时间')}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.upstreamProgressDetail)}</div>
+                  ${renderUpstreamProgress(line)}
                 </td>
               </tr>
             `).join('')}
@@ -1025,8 +1103,7 @@ function renderClosePrepOrderModal(projection: MaterialPrepOrderProjection, acti
                       <td class="px-3 py-3 font-medium text-rose-700">${formatQty(line.remainingNeedQty, line.unit)}</td>
                       <td class="px-3 py-3">${formatQty(line.availableStockQty, line.unit)}</td>
                       <td class="px-3 py-3">
-                        ${renderBadge(line.upstreamProgressStatus, line.upstreamProgressStatus === '已到仓可配' ? 'success' : line.upstreamProgressStatus === '无需跟进' ? 'neutral' : 'warning')}
-                        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.upstreamProgressDetail)}</div>
+                        ${renderUpstreamProgress(line)}
                       </td>
                     </tr>
                   `).join('')}
@@ -1132,8 +1209,10 @@ export function renderFcsCuttingPrepPage(): string {
   }
 
   const activeTab = normalizeMaterialPrepStatus(params.get('tab'))
+  const keyword = params.get('keyword') || ''
   const allRows = filterOrders()
-  const rows = allRows.filter((row) => row.order.overallPrepStatus === activeTab)
+  const keywordFiltered = filterByKeyword(allRows, keyword)
+  const rows = keywordFiltered.filter((row) => row.order.overallPrepStatus === activeTab)
 
   return `
     <div class="space-y-5 p-6">
@@ -1145,7 +1224,8 @@ export function renderFcsCuttingPrepPage(): string {
         </div>
       </header>
 
-      ${renderTabs(allRows, activeTab)}
+      ${renderSearchBar(keyword)}
+      ${renderTabs(keywordFiltered, activeTab)}
       ${renderOrderTable(rows, activeTab)}
     </div>
   `
@@ -1155,6 +1235,30 @@ export function handleFcsCuttingPrepEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-fcs-material-prep-action]')
   const action = actionNode?.dataset.fcsMaterialPrepAction
   if (!actionNode || !action) return false
+
+  if (action === 'search-apply') {
+    const input = document.querySelector<HTMLInputElement>('[data-fcs-material-prep-action="search-input"]')
+    const keyword = input?.value.trim() || ''
+    const params = getSearchParams()
+    if (keyword) {
+      params.set('keyword', keyword)
+    } else {
+      params.delete('keyword')
+    }
+    params.delete('prepOrderId')
+    params.delete('detailTab')
+    const query = params.toString()
+    window.history.pushState({}, '', `${pageBasePath}${query ? `?${query}` : ''}`)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    return true
+  }
+
+  if (action === 'adjust-upstream-doc') {
+    const docNo = actionNode.dataset.upstreamDocumentNo || ''
+    const docTitle = actionNode.dataset.upstreamDocumentTitle || '上游单据'
+    window.alert(`打开${docTitle}调整：${docNo}`)
+    return true
+  }
 
   if (action === 'pick-record') {
     const prepRecordId = actionNode.dataset.prepRecordId || ''

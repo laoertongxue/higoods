@@ -5,7 +5,7 @@ import {
 import { listBusinessFactoryMasterRecords } from '../factory-master-store.ts'
 import type { Factory, FactoryPostCapacityNodeCode, FactoryType } from '../factory-types.ts'
 import {
-  listRuntimeTasksByOrder,
+  listRuntimeProcessTasks,
   type RuntimeProcessTask,
 } from '../runtime-process-tasks.ts'
 import {
@@ -110,6 +110,9 @@ export interface MaterialPrepLine {
   upstreamProgressStatus: UpstreamProgressStatus
   expectedAvailableAt: string
   upstreamProgressDetail: string
+  upstreamDocumentNo: string
+  upstreamDocumentTitle: string
+  upstreamDocumentAdjustLabel: string
   taskLinks: MaterialPrepTaskLink[]
 }
 
@@ -234,6 +237,9 @@ export interface MaterialPrepSeedLine {
   upstreamProgressStatus: UpstreamProgressStatus
   expectedAvailableAt: string
   upstreamProgressDetail: string
+  upstreamDocumentNo?: string
+  upstreamDocumentTitle?: string
+  upstreamDocumentAdjustLabel?: string
   taskLinks?: MaterialPrepTaskLink[]
   releaseQty?: number
   qtyRatio?: number
@@ -739,6 +745,47 @@ function ensureLineImage(line: MaterialPrepSeedLine): string {
   return line.materialImageUrl || resolveTemplateImage(materialType, line)
 }
 
+function buildUpstreamDocumentInfo(line: Pick<MaterialPrepSeedLine, 'prepOrderId' | 'upstreamSourceType' | 'upstreamProgressStatus'>): {
+  upstreamDocumentNo: string
+  upstreamDocumentTitle: string
+  upstreamDocumentAdjustLabel: string
+} {
+  const suffix = line.prepOrderId.replace('prep-order-po-', '').replace(/-/g, '').slice(-6)
+  if (line.upstreamSourceType === '染色' || line.upstreamProgressStatus === '染色中') {
+    return {
+      upstreamDocumentNo: `DYE-${suffix}`,
+      upstreamDocumentTitle: '染色加工单',
+      upstreamDocumentAdjustLabel: '调整染色单',
+    }
+  }
+  if (line.upstreamSourceType === '印花' || line.upstreamProgressStatus === '印花中') {
+    return {
+      upstreamDocumentNo: `PRT-${suffix}`,
+      upstreamDocumentTitle: '印花加工单',
+      upstreamDocumentAdjustLabel: '调整印花单',
+    }
+  }
+  if (line.upstreamSourceType === '采购' || line.upstreamProgressStatus === '采购中') {
+    return {
+      upstreamDocumentNo: `PUR-${suffix}`,
+      upstreamDocumentTitle: '采购跟进单',
+      upstreamDocumentAdjustLabel: '调整采购单',
+    }
+  }
+  if (line.upstreamProgressStatus === '待到仓') {
+    return {
+      upstreamDocumentNo: `ARR-${suffix}`,
+      upstreamDocumentTitle: '到仓跟进单',
+      upstreamDocumentAdjustLabel: '调整到仓计划',
+    }
+  }
+  return {
+    upstreamDocumentNo: '',
+    upstreamDocumentTitle: '',
+    upstreamDocumentAdjustLabel: '',
+  }
+}
+
 function buildGeneratedMaterialLine(
   order: MaterialPrepSeedOrder,
   type: MaterialPrepMaterialType,
@@ -749,9 +796,18 @@ function buildGeneratedMaterialLine(
   const orderKey = order.productionOrderNo.toLowerCase()
   const requiredQty = Number(Math.max(order.planQty * template.qtyRatio, type === '纱线' ? 12 : 1).toFixed(2))
   const isReadyLike = order.prepOrderId === 'prep-order-po-202603-0001' || order.prepOrderId === 'prep-order-po-202603-0007'
-  const isAllStockDemo = order.prepOrderId === 'prep-order-po-202603-0008'
+  const isAllStockDemo = new Set([
+    'prep-order-po-202603-0008',
+    'prep-order-po-202603-1103',
+    'prep-order-po-202603-1203',
+  ]).has(order.prepOrderId)
   const isPartialSufficientDemo = order.prepOrderId === 'prep-order-po-202603-0004' && type === '辅料' && typeIndex === 2
-  const isShortageDemo = order.prepOrderId === 'prep-order-po-202603-0102'
+  const isShortageDemo = new Set([
+    'prep-order-po-202603-0102',
+    'prep-order-po-202603-1101',
+    'prep-order-po-202603-1104',
+    'prep-order-po-202603-1201',
+  ]).has(order.prepOrderId)
   const isClosedDemo = order.prepOrderId === 'prep-order-po-202603-0006'
   const availableStockQty = isAllStockDemo
     ? requiredQty
@@ -764,18 +820,23 @@ function buildGeneratedMaterialLine(
       : type === '包材' || (type === '辅料' && typeIndex !== 2)
         ? 0
         : Math.round(requiredQty * 0.7)
-  const progressStatus = isReadyLike
+  const progressStatus = isReadyLike || isClosedDemo
     ? '无需跟进'
     : isShortageDemo
-      ? template.progressStatus
+      ? template.progressStatus === '已到仓可配' ? '待到仓' : template.progressStatus
       : availableStockQty > 0
         ? '已到仓可配'
         : template.progressStatus
-  const sourceType = isReadyLike
+  const sourceType = isReadyLike || isClosedDemo
     ? '无上游'
     : availableStockQty > 0
       ? getMaterialStockSourceType(type)
       : template.sourceType
+  const upstreamDocumentInfo = buildUpstreamDocumentInfo({
+    prepOrderId: order.prepOrderId,
+    upstreamSourceType: sourceType,
+    upstreamProgressStatus: progressStatus,
+  })
   return {
     prepLineId: `prep-line-${orderKey}-${template.code}`,
     prepOrderId: order.prepOrderId,
@@ -798,9 +859,12 @@ function buildGeneratedMaterialLine(
     expectedAvailableAt: progressStatus === '无需跟进' ? '' : progressStatus === '已到仓可配' ? '2026-03-16 15:30' : '2026-03-19 18:00',
     upstreamProgressDetail: progressStatus === '无需跟进'
       ? '已配齐，无需继续跟进上游。'
+      : progressStatus === '待到仓' && availableStockQty <= 0
+        ? `${template.name} 尚未到仓，需跟进上游单据后再配料。`
       : availableStockQty > 0
         ? `${template.name} 当前有 ${availableStockQty.toLocaleString('zh-CN')} ${template.unit} 可配。`
         : template.progressDetail,
+    ...upstreamDocumentInfo,
     releaseQty: type === '辅料' || type === '纱线' ? Math.round(order.planQty * 0.8) : 0,
     qtyRatio: template.qtyRatio,
   }
@@ -814,6 +878,11 @@ function expandSeedOrderMaterials(order: MaterialPrepSeedOrder): MaterialPrepSee
     stockWarehouseName: line.stockWarehouseName || getMaterialStockWarehouseName(line.materialType || inferMaterialType(line)),
     stockWarehouseArea: line.stockWarehouseArea || getMaterialStockWarehouseArea(line.materialType || inferMaterialType(line)),
     stockLocationCode: line.stockLocationCode || getMaterialStockLocationCode(line.materialType || inferMaterialType(line), 1),
+    ...(!line.upstreamDocumentNo ? buildUpstreamDocumentInfo(line) : {
+      upstreamDocumentNo: line.upstreamDocumentNo,
+      upstreamDocumentTitle: line.upstreamDocumentTitle || '',
+      upstreamDocumentAdjustLabel: line.upstreamDocumentAdjustLabel || '调整上游单据',
+    }),
   }))
   const lines = [...existingLines]
   ;(Object.keys(materialPrepTypeMinimums) as MaterialPrepMaterialType[]).forEach((type) => {
@@ -1168,7 +1237,197 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
   },
 ]
 
-const materialPrepSeedOrders = baseMaterialPrepSeedOrders.map(expandSeedOrderMaterials)
+function buildCategoryDemoSeedOrder(input: {
+  seq: number
+  category: '染色配料' | '印花配料'
+  styleNo: string
+  styleName: string
+  spu: string
+  color: string
+  planQty: number
+  requiredQty: number
+  availableStockQty: number
+  upstreamProgressStatus: UpstreamProgressStatus
+  expectedAvailableAt: string
+  upstreamProgressDetail: string
+  createdAt: string
+  deliveryDate: string
+}): MaterialPrepSeedOrder {
+  const orderNo = `PO-202603-${String(input.seq).padStart(4, '0')}`
+  const prepOrderId = `prep-order-po-202603-${String(input.seq).padStart(4, '0')}`
+  const categoryCode = input.category === '染色配料' ? 'dye' : 'print'
+  const categoryName = input.category === '染色配料' ? '染色' : '印花'
+  const sourceType: UpstreamSourceType = input.category === '染色配料' ? '染色' : '印花'
+  return {
+    prepOrderId,
+    prepOrderNo: `WLS-PL-2603-${String(input.seq).padStart(4, '0')}`,
+    productionOrderId: orderNo,
+    productionOrderNo: orderNo,
+    styleNo: input.styleNo,
+    styleName: input.styleName,
+    spu: input.spu,
+    customerName: 'HiGood 自营',
+    planQty: input.planQty,
+    deliveryDate: input.deliveryDate,
+    creatorName: '中转仓 周敏',
+    createdAt: input.createdAt,
+    bomSourceLabel: `生产单技术包 BOM 展开 / ${categoryName}配料演示`,
+    bomExpandedAt: input.createdAt,
+    lines: [
+      {
+        prepLineId: `prep-line-po-${String(input.seq).padStart(4, '0')}-${categoryCode}-main`,
+        prepOrderId,
+        cutOrderId: `cut-order:po-202603-${String(input.seq).padStart(4, '0')}:${input.spu}:${categoryCode}:main:v1`,
+        cutOrderNo: `CUT-2603-${String(input.seq).padStart(4, '0')}-01`,
+        materialSku: `${input.spu}-bom-${categoryCode}-main`,
+        materialName: `${input.color} ${categoryName}主面料`,
+        materialType: '面料',
+        materialImageUrl: input.category === '染色配料' ? '/materials/fabric-dye.jpg' : '/materials/fabric-print.jpg',
+        color: input.color,
+        spec: '150cm / 主面料',
+        unit: 'yard',
+        requiredQty: input.requiredQty,
+        availableStockQty: input.availableStockQty,
+        stockWarehouseName: '中转仓',
+        stockWarehouseArea: input.category === '染色配料' ? '中转仓 D 区' : '中转仓 P 区',
+        stockLocationCode: `${input.category === '染色配料' ? 'DYE' : 'PRT'}-${String(input.seq).slice(-2)}`,
+        upstreamSourceType: sourceType,
+        upstreamProgressStatus: input.upstreamProgressStatus,
+        expectedAvailableAt: input.expectedAvailableAt,
+        upstreamProgressDetail: input.upstreamProgressDetail,
+      },
+    ],
+  }
+}
+
+const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
+  buildCategoryDemoSeedOrder({
+    seq: 1101,
+    category: '染色配料',
+    styleNo: 'TDV-021',
+    styleName: '酒红色阔腿裤',
+    spu: 'tdv_demand_SPU_2024_021',
+    color: 'Wine',
+    planQty: 2800,
+    requiredQty: 1176,
+    availableStockQty: 0,
+    upstreamProgressStatus: '染色中',
+    expectedAvailableAt: '2026-03-20 18:00',
+    upstreamProgressDetail: '染色缸 DYE-260318-03 已投缸，预计晚班回中转仓，当前不可配。',
+    createdAt: '2026-03-17 09:10',
+    deliveryDate: '2026-03-27',
+  }),
+  buildCategoryDemoSeedOrder({
+    seq: 1102,
+    category: '染色配料',
+    styleNo: 'TDV-022',
+    styleName: '松石绿衬衫',
+    spu: 'tdv_demand_SPU_2024_022',
+    color: 'Turquoise',
+    planQty: 3600,
+    requiredQty: 1512,
+    availableStockQty: 520,
+    upstreamProgressStatus: '已到仓可配',
+    expectedAvailableAt: '2026-03-17 13:30',
+    upstreamProgressDetail: '染色回仓 520 yard，可先安排首批配料；剩余部分待二缸回仓。',
+    createdAt: '2026-03-17 10:20',
+    deliveryDate: '2026-03-28',
+  }),
+  buildCategoryDemoSeedOrder({
+    seq: 1103,
+    category: '染色配料',
+    styleNo: 'TDV-023',
+    styleName: '墨绿色半裙',
+    spu: 'tdv_demand_SPU_2024_023',
+    color: 'Forest',
+    planQty: 1800,
+    requiredQty: 756,
+    availableStockQty: 756,
+    upstreamProgressStatus: '已到仓可配',
+    expectedAvailableAt: '2026-03-17 15:00',
+    upstreamProgressDetail: '染色整批已回中转仓，库存满足本次配料。',
+    createdAt: '2026-03-17 11:05',
+    deliveryDate: '2026-03-25',
+  }),
+  buildCategoryDemoSeedOrder({
+    seq: 1104,
+    category: '染色配料',
+    styleNo: 'TDV-024',
+    styleName: '深灰工装短裤',
+    spu: 'tdv_demand_SPU_2024_024',
+    color: 'Dark Grey',
+    planQty: 4200,
+    requiredQty: 1764,
+    availableStockQty: 0,
+    upstreamProgressStatus: '待到仓',
+    expectedAvailableAt: '2026-03-22 12:00',
+    upstreamProgressDetail: '染色已完成，运输回仓延迟，仓库未见实物前不能生成配料记录。',
+    createdAt: '2026-03-17 12:30',
+    deliveryDate: '2026-03-29',
+  }),
+  buildCategoryDemoSeedOrder({
+    seq: 1201,
+    category: '印花配料',
+    styleNo: 'TDV-031',
+    styleName: '碎花吊带裙',
+    spu: 'tdv_demand_SPU_2024_031',
+    color: 'Floral Pink',
+    planQty: 2600,
+    requiredQty: 1092,
+    availableStockQty: 0,
+    upstreamProgressStatus: '印花中',
+    expectedAvailableAt: '2026-03-21 16:00',
+    upstreamProgressDetail: '印花单 PR-260318-07 正在套版，预计 3 月 21 日回仓。',
+    createdAt: '2026-03-17 09:40',
+    deliveryDate: '2026-03-26',
+  }),
+  buildCategoryDemoSeedOrder({
+    seq: 1202,
+    category: '印花配料',
+    styleNo: 'TDV-032',
+    styleName: 'Logo 印花卫衣',
+    spu: 'tdv_demand_SPU_2024_032',
+    color: 'Logo White',
+    planQty: 5000,
+    requiredQty: 2100,
+    availableStockQty: 840,
+    upstreamProgressStatus: '已到仓可配',
+    expectedAvailableAt: '2026-03-17 14:20',
+    upstreamProgressDetail: '印花首批已回仓 840 yard，可先配首批裁片任务。',
+    createdAt: '2026-03-17 10:45',
+    deliveryDate: '2026-03-30',
+  }),
+  buildCategoryDemoSeedOrder({
+    seq: 1203,
+    category: '印花配料',
+    styleNo: 'TDV-033',
+    styleName: '条纹印花衬衫',
+    spu: 'tdv_demand_SPU_2024_033',
+    color: 'Stripe Blue',
+    planQty: 3200,
+    requiredQty: 1344,
+    availableStockQty: 1344,
+    upstreamProgressStatus: '已到仓可配',
+    expectedAvailableAt: '2026-03-17 15:10',
+    upstreamProgressDetail: '印花整批已回中转仓，库存满足本次配料。',
+    createdAt: '2026-03-17 11:25',
+    deliveryDate: '2026-03-27',
+  }),
+]
+
+const materialPrepSeedOrders = [
+  ...baseMaterialPrepSeedOrders,
+  ...categoryDemoSeedOrders,
+].map(expandSeedOrderMaterials)
+
+let materialPrepProjectionCache: {
+  storage: BrowserStorageLike | null
+  rows: MaterialPrepOrderProjection[]
+} | null = null
+
+export function invalidateMaterialPrepProjectionCache(): void {
+  materialPrepProjectionCache = null
+}
 
 function buildLineRollCount(line: Pick<MaterialPrepSeedLine, 'requiredQty' | 'unit'>): number {
   if (line.unit === 'yard') return Math.max(Math.ceil(Number(line.requiredQty || 0) / 320), 1)
@@ -2086,6 +2345,7 @@ export function persistProductionMaterialPrepStore(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): ProductionMaterialPrepWorkflowStore {
   storage?.setItem?.(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMaterialPrepStore(store))
+  invalidateMaterialPrepProjectionCache()
   return store
 }
 
@@ -2359,6 +2619,9 @@ function buildLine(
     upstreamProgressStatus: seedLine.upstreamProgressStatus,
     expectedAvailableAt: seedLine.expectedAvailableAt,
     upstreamProgressDetail: seedLine.upstreamProgressDetail,
+    upstreamDocumentNo: seedLine.upstreamDocumentNo || '',
+    upstreamDocumentTitle: seedLine.upstreamDocumentTitle || '',
+    upstreamDocumentAdjustLabel: seedLine.upstreamDocumentAdjustLabel || '',
     taskLinks: (seedLine.taskLinks || []).map((taskLink) => writeBackTaskAssignment(productionOrderId, taskLink, runtimeTasks)),
   }
 }
@@ -2461,22 +2724,38 @@ function buildTaskProjections(
   )
 }
 
+function groupByKey<T>(items: T[], getKey: (item: T) => string): Map<string, T[]> {
+  const result = new Map<string, T[]>()
+  items.forEach((item) => {
+    const key = getKey(item)
+    const group = result.get(key)
+    if (group) group.push(item)
+    else result.set(key, [item])
+  })
+  return result
+}
+
+function buildRuntimeTasksByOrderMap(): Map<string, RuntimeProcessTask[]> {
+  return groupByKey(listRuntimeProcessTasks(), (task) => task.productionOrderId)
+}
+
 function buildOrderProjection(
   seedOrder: MaterialPrepSeedOrder,
   store: ProductionMaterialPrepWorkflowStore,
-  runtimePickupRecords: PickupRecord[],
+  runtimeTasksByOrder: Map<string, RuntimeProcessTask[]>,
+  pickupRecordsByOrder: Map<string, PickupRecord[]>,
+  prepRecordsByOrder: Map<string, MaterialPrepRecord[]>,
+  rejectRecordsByOrder: Map<string, PrepRejectRecord[]>,
+  stagingRecordsByOrder: Map<string, MaterialPrepStagingRecord[]>,
   prepCompletionEventCount: number,
 ): MaterialPrepOrderProjection {
   const closed = getClosedOrder(store, seedOrder.prepOrderId)
-  const pickupRecords = [
-    ...store.pickupRecords,
-    ...runtimePickupRecords,
-  ].filter((record) => record.prepOrderId === seedOrder.prepOrderId)
-  const runtimeTasks = listRuntimeTasksByOrder(seedOrder.productionOrderId)
+  const pickupRecords = pickupRecordsByOrder.get(seedOrder.prepOrderId) ?? []
+  const runtimeTasks = runtimeTasksByOrder.get(seedOrder.productionOrderId) ?? []
   const lines = seedOrder.lines.map((line) => buildLine(line, seedOrder.productionOrderId, runtimeTasks, store, pickupRecords, Boolean(closed)))
-  const prepRecords = store.prepRecords.filter((record) => record.prepOrderId === seedOrder.prepOrderId)
-  const rejectRecords = store.rejectRecords.filter((record) => record.prepOrderId === seedOrder.prepOrderId)
-  const stagingRecords = store.stagingRecords.filter((record) => record.prepOrderId === seedOrder.prepOrderId)
+  const prepRecords = prepRecordsByOrder.get(seedOrder.prepOrderId) ?? []
+  const rejectRecords = rejectRecordsByOrder.get(seedOrder.prepOrderId) ?? []
+  const stagingRecords = stagingRecordsByOrder.get(seedOrder.prepOrderId) ?? []
   const taskProjections = buildTaskProjections(lines, prepRecords, pickupRecords)
   const taskLinks = lines.flatMap((line) => line.taskLinks)
   const pendingAssignmentCount = taskLinks.filter((task) => task.allocationStatus === '未分配').length
@@ -2557,20 +2836,42 @@ function buildOrderProjection(
 export function listMaterialPrepOrderProjections(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): MaterialPrepOrderProjection[] {
+  if (materialPrepProjectionCache?.storage === storage) {
+    return materialPrepProjectionCache.rows
+  }
   const store = hydrateProductionMaterialPrepStore(storage)
   const runtimePickupRecords = listRuntimePickupRecords(storage)
+  const pickupRecordsByOrder = groupByKey([...store.pickupRecords, ...runtimePickupRecords], (record) => record.prepOrderId)
+  const prepRecordsByOrder = groupByKey(store.prepRecords, (record) => record.prepOrderId)
+  const rejectRecordsByOrder = groupByKey(store.rejectRecords, (record) => record.prepOrderId)
+  const stagingRecordsByOrder = groupByKey(store.stagingRecords, (record) => record.prepOrderId)
+  const runtimeTasksByOrder = buildRuntimeTasksByOrderMap()
   const prepCompletionEvents = listCuttingRuntimeEventsByType('中转仓配料完成通知', storage)
-  return materialPrepSeedOrders
+  const prepCompletionEventCountByOrder = new Map<string, number>()
+  prepCompletionEvents.forEach((event) => {
+    const prepOrderId = event.payload && typeof event.payload === 'object'
+      ? (event.payload as Record<string, unknown>).prepOrderId
+      : ''
+    if (typeof prepOrderId !== 'string' || !prepOrderId) return
+    prepCompletionEventCountByOrder.set(prepOrderId, (prepCompletionEventCountByOrder.get(prepOrderId) ?? 0) + 1)
+  })
+  const rows = materialPrepSeedOrders
     .map((seedOrder) => buildOrderProjection(
       seedOrder,
       store,
-      runtimePickupRecords,
-      prepCompletionEvents.filter((event) => event.payload && typeof event.payload === 'object' && (event.payload as Record<string, unknown>).prepOrderId === seedOrder.prepOrderId).length,
+      runtimeTasksByOrder,
+      pickupRecordsByOrder,
+      prepRecordsByOrder,
+      rejectRecordsByOrder,
+      stagingRecordsByOrder,
+      prepCompletionEventCountByOrder.get(seedOrder.prepOrderId) ?? 0,
     ))
     .sort((left, right) =>
       materialPrepStatusLabelMap[left.order.overallPrepStatus].localeCompare(materialPrepStatusLabelMap[right.order.overallPrepStatus], 'zh-CN')
       || left.order.deliveryDate.localeCompare(right.order.deliveryDate, 'zh-CN'),
     )
+  materialPrepProjectionCache = { storage, rows }
+  return rows
 }
 
 export function getMaterialPrepOrderProjection(

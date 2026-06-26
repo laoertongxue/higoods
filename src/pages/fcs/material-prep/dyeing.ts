@@ -254,6 +254,57 @@ function renderNeedPrepState(line: MaterialPrepLine): string {
   return renderBadge('库存不足', 'info')
 }
 
+function renderLineStockSituation(line: MaterialPrepLine): string {
+  return `
+    <div class="space-y-1 text-xs">
+      <div class="font-medium">${formatQty(line.availableStockQty, line.unit)}</div>
+      <div class="text-muted-foreground">${escapeHtml(line.stockWarehouseName)} / ${escapeHtml(line.stockWarehouseArea)}</div>
+      <div class="text-muted-foreground">库位：${escapeHtml(line.stockLocationCode)}</div>
+    </div>
+  `
+}
+
+function renderOrderStockSummary(row: MaterialPrepOrderProjection): string {
+  const availableLines = row.lines.filter((line) => line.availableStockQty > 0).length
+  const totalAvailable = row.lines.reduce((sum, line) => sum + Number(line.availableStockQty || 0), 0)
+  const warehouses = Array.from(new Set(row.lines.filter((line) => line.availableStockQty > 0).map((line) => line.stockWarehouseName)))
+  return `
+    <div class="space-y-1 text-xs">
+      <div>有库存：${availableLines}/${row.lineCount} 行</div>
+      <div>当前库存：${formatQty(totalAvailable)}</div>
+      <div class="text-muted-foreground">${warehouses.length ? warehouses.map(escapeHtml).join(' / ') : '暂无可配库存'}</div>
+    </div>
+  `
+}
+
+function renderUpstreamProgress(line: MaterialPrepLine): string {
+  const variant = line.upstreamProgressStatus === '已到仓可配'
+    ? 'success'
+    : line.upstreamProgressStatus === '无需跟进'
+      ? 'neutral'
+      : 'warning'
+  const adjustMessage = `打开${line.upstreamDocumentTitle || '上游单据'}调整：${line.upstreamDocumentNo}`
+  return `
+    <div class="space-y-1">
+      ${renderBadge(line.upstreamProgressStatus, variant)}
+      <div class="text-xs text-muted-foreground">${escapeHtml(line.upstreamProgressDetail)}</div>
+      ${line.upstreamDocumentNo ? `
+        <button
+          type="button"
+          data-fcs-material-prep-action="adjust-upstream-doc"
+          data-upstream-document-no="${escapeHtml(line.upstreamDocumentNo)}"
+          data-upstream-document-title="${escapeHtml(line.upstreamDocumentTitle)}"
+          data-upstream-document-adjust-message="${escapeHtml(adjustMessage)}"
+          onclick="window.alert(this.dataset.upstreamDocumentAdjustMessage || '')"
+          class="mt-1 rounded-md border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
+        >
+          ${escapeHtml(line.upstreamDocumentTitle)}：${escapeHtml(line.upstreamDocumentNo)} / ${escapeHtml(line.upstreamDocumentAdjustLabel || '调整')}
+        </button>
+      ` : ''}
+    </div>
+  `
+}
+
 function renderPrepRecordStatusRow(record: MaterialPrepRecord): string {
   const statusClass = recordStatusClassMap[record.recordStatus] || recordStatusClassMap.DRAFT
   const statusLabel = materialPrepRecordStatusLabelMap[record.recordStatus]
@@ -341,6 +392,7 @@ function renderOrderMaterialRows(row: MaterialPrepOrderProjection): string {
               <th class="px-3 py-2">已配</th>
               <th class="px-3 py-2">已领</th>
               <th class="px-3 py-2">剩余未配</th>
+              <th class="px-3 py-2">库存情况</th>
               <th class="px-3 py-2">是否需要配料</th>
               <th class="px-3 py-2">上游进度</th>
             </tr>
@@ -362,10 +414,10 @@ function renderOrderMaterialRows(row: MaterialPrepOrderProjection): string {
                 <td class="px-3 py-2">${formatQty(line.confirmedPrepQty, line.unit)}</td>
                 <td class="px-3 py-2">${formatQty(line.pickedQty, line.unit)}</td>
                 <td class="px-3 py-2">${formatQty(line.remainingNeedQty, line.unit)}</td>
+                <td class="px-3 py-2">${renderLineStockSituation(line)}</td>
                 <td class="px-3 py-2">${renderNeedPrepState(line)}</td>
                 <td class="px-3 py-2">
-                  ${renderBadge(line.upstreamProgressStatus, line.upstreamProgressStatus === '已到仓可配' ? 'success' : line.upstreamProgressStatus === '无需跟进' ? 'neutral' : 'warning')}
-                  <div class="mt-1 text-muted-foreground">${escapeHtml(line.upstreamProgressDetail)}</div>
+                  ${renderUpstreamProgress(line)}
                 </td>
               </tr>
             `).join('')}
@@ -392,6 +444,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
               <th class="px-3 py-2">配料进度</th>
               <th class="px-3 py-2">领料状态</th>
               <th class="px-3 py-2">物料行</th>
+              <th class="px-3 py-2">库存情况</th>
               <th class="px-3 py-2">操作</th>
             </tr>
           </thead>
@@ -426,18 +479,19 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
                   <div>已配齐：${row.readyLineCount}</div>
                   <div>未配齐：${row.shortageLineCount}</div>
                 </td>
+                <td class="px-3 py-3 align-top">${renderOrderStockSummary(row)}</td>
                 <td class="px-3 py-3 align-top">
                   <button type="button" data-nav="${escapeHtml(buildDetailStateHref(row))}" class="rounded-md border border-blue-200 px-3 py-1.5 text-xs text-blue-700 hover:bg-blue-50">查看详情</button>
                 </td>
               </tr>
               <tr class="bg-muted/20">
-                <td colspan="6" class="px-3 pb-4 pt-0">
+                <td colspan="7" class="px-3 pb-4 pt-0">
                   ${renderOrderMaterialRows(row)}
                 </td>
               </tr>
             `).join('') : `
               <tr>
-                <td colspan="6" class="px-3 py-8 text-center text-sm text-muted-foreground">当前状态下暂无${escapeHtml(categoryLabel)}配料单。</td>
+                <td colspan="7" class="px-3 py-8 text-center text-sm text-muted-foreground">当前状态下暂无${escapeHtml(categoryLabel)}配料单。</td>
               </tr>
             `}
           </tbody>
@@ -550,9 +604,7 @@ function renderInventoryProgress(lines: MaterialPrepLine[]): string {
                 <td class="px-3 py-3">${formatQty(line.canPrepQty, line.unit)}</td>
                 <td class="px-3 py-3">${formatQty(line.shortageQty, line.unit)}</td>
                 <td class="px-3 py-3">
-                  ${renderBadge(line.upstreamProgressStatus, line.upstreamProgressStatus === '已到仓可配' ? 'success' : line.upstreamProgressStatus === '无需跟进' ? 'neutral' : 'warning')}
-                  <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(line.upstreamSourceType)} / ${escapeHtml(line.expectedAvailableAt || '无预计时间')}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.upstreamProgressDetail)}</div>
+                  ${renderUpstreamProgress(line)}
                 </td>
               </tr>
             `).join('')}
@@ -963,8 +1015,8 @@ export function renderFcsDyeingPrepPage(): string {
         </div>
       </header>
 
-      ${renderTabs(allRows, activeTab)}
       ${renderSearchBar(keyword)}
+      ${renderTabs(allRows, activeTab)}
       ${renderOrderTable(rows, activeTab)}
     </div>
   `
@@ -989,6 +1041,13 @@ export function handleFcsDyeingPrepEvent(target: HTMLElement): boolean {
     const query = params.toString()
     window.history.pushState({}, '', `${pageBasePath}${query ? `?${query}` : ''}`)
     window.dispatchEvent(new PopStateEvent('popstate'))
+    return true
+  }
+
+  if (action === 'adjust-upstream-doc') {
+    const docNo = actionNode.dataset.upstreamDocumentNo || ''
+    const docTitle = actionNode.dataset.upstreamDocumentTitle || '上游单据'
+    window.alert(`打开${docTitle}调整：${docNo}`)
     return true
   }
 
