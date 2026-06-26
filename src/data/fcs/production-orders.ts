@@ -121,6 +121,7 @@ export interface ProductionOrder {
   lockedLegacy: boolean
   mainFactoryId: string
   mainFactorySnapshot: FactorySnapshot
+  mainFactorySnapshots?: FactorySnapshot[]
   mainFactoryStatus: MainFactoryStatus
   mainFactorySource: MainFactorySource
   mainFactoryConfirmedAt?: string
@@ -143,6 +144,7 @@ export interface ProductionOrder {
   planRemark?: string
   planUpdatedAt?: string
   planUpdatedBy?: string
+  selectedTechPackVersionId?: string
   lifecycleStatus?: 'DRAFT' | 'PLANNED' | 'RELEASED' | 'IN_PRODUCTION' | 'QC_PENDING' | 'COMPLETED' | 'CLOSED'
   lifecycleStatusRemark?: string
   lifecycleUpdatedAt?: string
@@ -242,8 +244,10 @@ export function isProductionOrderMainFactoryPending(order: Pick<ProductionOrder,
   return order.mainFactoryStatus === 'PENDING_SEWING_ASSIGNMENT' || order.mainFactoryId === PENDING_MAIN_FACTORY_ID
 }
 
-export function formatProductionOrderMainFactoryName(order: Pick<ProductionOrder, 'mainFactorySnapshot' | 'mainFactoryId' | 'mainFactoryStatus'>): string {
-  return isProductionOrderMainFactoryPending(order) ? '待车缝任务分配确定' : order.mainFactorySnapshot.name
+export function formatProductionOrderMainFactoryName(order: Pick<ProductionOrder, 'mainFactorySnapshot' | 'mainFactorySnapshots' | 'mainFactoryId' | 'mainFactoryStatus'>): string {
+  if (isProductionOrderMainFactoryPending(order)) return '待车缝任务分配确定'
+  const snapshots = order.mainFactorySnapshots?.length ? order.mainFactorySnapshots : [order.mainFactorySnapshot]
+  return Array.from(new Set(snapshots.map((factory) => factory.name).filter(Boolean))).join('、') || order.mainFactorySnapshot.name
 }
 
 function buildProductionOrderFromResolvedUpstream(
@@ -265,6 +269,7 @@ function buildProductionOrderFromResolvedUpstream(
     lockedLegacy:
       seed.lockedLegacy ?? ['EXECUTING', 'COMPLETED', 'CANCELLED'].includes(seed.status),
     mainFactorySnapshot: factory ? createFactorySnapshot(factory) : createPendingMainFactorySnapshot(),
+    mainFactorySnapshots: factory ? [createFactorySnapshot(factory)] : [],
     mainFactoryStatus: seed.mainFactoryStatus ?? 'CONFIRMED',
     mainFactorySource: seed.mainFactorySource ?? 'ORDER_CREATE',
     mainFactoryConfirmedAt: seed.mainFactoryConfirmedAt,
@@ -308,6 +313,7 @@ export function buildProductionOrderFromDemand(
     demand,
     snapshotAt: seed.snapshotAt ?? seed.updatedAt,
     snapshotBy,
+    technicalVersionId: seed.selectedTechPackVersionId,
   })
 
   return buildProductionOrderFromResolvedUpstream(seed, demand, techPackSnapshot)
@@ -381,6 +387,7 @@ export function buildProductionOrderFromDemands(
     demand: primaryDemand,
     snapshotAt: seed.snapshotAt ?? seed.updatedAt,
     snapshotBy,
+    technicalVersionId: seed.selectedTechPackVersionId,
   })
 
   const factory = indonesiaFactories.find((item) => item.id === seed.mainFactoryId)
@@ -397,6 +404,7 @@ export function buildProductionOrderFromDemands(
     sourceDemandIds: demands.map((demand) => demand.demandId),
     lockedLegacy: seed.lockedLegacy ?? false,
     mainFactorySnapshot: factory ? createFactorySnapshot(factory) : createPendingMainFactorySnapshot(),
+    mainFactorySnapshots: factory ? [createFactorySnapshot(factory)] : [],
     mainFactoryStatus: seed.mainFactoryStatus ?? 'CONFIRMED',
     mainFactorySource: seed.mainFactorySource ?? 'ORDER_CREATE',
     mainFactoryConfirmedAt: seed.mainFactoryConfirmedAt,
@@ -418,27 +426,43 @@ export function confirmProductionOrderMainFactoryFromSewingTask(input: {
   const order = productionOrders.find((item) => item.productionOrderId === input.productionOrderId)
   if (!order) return null
 
-  if (!isProductionOrderMainFactoryPending(order)) return order
-
   const factory = indonesiaFactories.find((item) => item.id === input.factoryId)
   if (!factory) return null
 
   const at = input.at ?? new Date().toISOString().replace('T', ' ').slice(0, 19)
-  order.mainFactoryId = factory.id
-  order.mainFactorySnapshot = createFactorySnapshot(factory)
+  const isPendingMainFactory = isProductionOrderMainFactoryPending(order)
+  const nextFactorySnapshot = createFactorySnapshot(factory)
+  const currentSnapshots = order.mainFactorySnapshots?.length
+    ? [...order.mainFactorySnapshots]
+    : isPendingMainFactory
+      ? []
+      : [order.mainFactorySnapshot]
+  const alreadyRecorded = currentSnapshots.some((item) => item.id === factory.id)
+  if (alreadyRecorded && !isPendingMainFactory) return order
+  if (!alreadyRecorded) currentSnapshots.push(nextFactorySnapshot)
+  order.mainFactorySnapshots = currentSnapshots
+
+  if (isPendingMainFactory) {
+    order.mainFactoryId = factory.id
+    order.mainFactorySnapshot = nextFactorySnapshot
+    order.ownerPartyType = 'FACTORY'
+    order.ownerPartyId = factory.id
+  }
   order.mainFactoryStatus = 'CONFIRMED'
   order.mainFactorySource = 'SEWING_TASK_ASSIGNMENT'
   order.mainFactoryConfirmedAt = at
   order.mainFactoryConfirmedBy = input.by
-  order.ownerPartyType = 'FACTORY'
-  order.ownerPartyId = factory.id
-  order.ownerReason = '车缝任务分配确认主工厂，生产单货权归该车缝工厂。'
+  order.ownerReason = currentSnapshots.length > 1
+    ? `车缝任务分配确认多个主工厂：${formatProductionOrderMainFactoryName(order)}。`
+    : '车缝任务分配确认主工厂，生产单货权归该车缝工厂。'
   order.updatedAt = at
   order.auditLogs.push(
     createAuditLog(
       `LOG-MAIN-FACTORY-${order.productionOrderId}-${order.auditLogs.length + 1}`,
-      'MAIN_FACTORY_CONFIRMED',
-      `车缝任务分配给 ${input.factoryName || factory.name}，已回写为生产单主工厂和货权归属工厂`,
+      alreadyRecorded ? 'MAIN_FACTORY_CONFIRMED' : currentSnapshots.length > 1 ? 'MAIN_FACTORY_APPENDED' : 'MAIN_FACTORY_CONFIRMED',
+      currentSnapshots.length > 1
+        ? `车缝任务分配给 ${input.factoryName || factory.name}，已追加为生产单主工厂；当前主工厂：${formatProductionOrderMainFactoryName(order)}`
+        : `车缝任务分配给 ${input.factoryName || factory.name}，已回写为生产单主工厂和货权归属工厂`,
       at,
       input.by,
     ),

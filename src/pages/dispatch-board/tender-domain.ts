@@ -38,6 +38,10 @@ import {
   type DispatchOutputValueJudgementSnapshot,
   type DispatchTask,
 } from './context.ts'
+import {
+  getMaterialPrepDispatchReadinessForTask,
+  type MaterialPrepDispatchReadiness,
+} from '../../data/fcs/cutting/production-material-prep.ts'
 
 function getConstraintTone(snapshot: DispatchCapacityConstraintSnapshot | null): string {
   if (!snapshot) return 'border-slate-200 bg-slate-50 text-slate-600'
@@ -48,6 +52,84 @@ function getConstraintTone(snapshot: DispatchCapacityConstraintSnapshot | null):
     return 'border-amber-200 bg-amber-50 text-amber-700'
   }
   return 'border-green-200 bg-green-50 text-green-700'
+}
+
+function getTenderMaterialPrepChecks(task: DispatchTask): MaterialPrepDispatchReadiness[] {
+  const check = getMaterialPrepDispatchReadinessForTask(task)
+  return check.hasMaterialPrepScope ? [check] : []
+}
+
+function isTenderMaterialPrepReady(checks: MaterialPrepDispatchReadiness[]): boolean {
+  return checks.every((check) => check.ready)
+}
+
+function formatTenderMaterialPrepQty(value: number, unit: string): string {
+  return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit}`
+}
+
+function formatTenderMaterialPrepError(checks: MaterialPrepDispatchReadiness[]): string {
+  const blockingChecks = checks.filter((check) => !check.ready)
+  if (!blockingChecks.length) return ''
+  return [
+    '配料前置未满足，暂不可创建招标单。',
+    ...blockingChecks.map((check) => `【${check.taskNo} / ${check.taskName}】${check.summaryText}`),
+  ].join('\n')
+}
+
+function renderTenderMaterialPrepPanel(checks: MaterialPrepDispatchReadiness[]): string {
+  if (!checks.length) return ''
+  return `
+    <div class="rounded-md border bg-muted/20 p-3 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm font-medium">配料前置校验</p>
+        <span class="text-xs text-muted-foreground">按任务对应物料明细判断，未配齐不可创建招标单</span>
+      </div>
+      ${checks.map((check) => {
+        const tone = check.ready
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'border-amber-200 bg-amber-50 text-amber-800'
+        const visibleLines = check.lines.slice(0, 8)
+        return `
+          <div class="rounded-md border ${tone} p-2">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span class="font-medium">${escapeHtml(check.taskNo)} / ${escapeHtml(check.taskName)}</span>
+              <span>${check.ready ? '配料已满足' : `未配齐 ${check.blockingLineCount} 行`}</span>
+            </div>
+            <div class="mt-2 overflow-x-auto rounded border bg-white/70">
+              <table class="w-full min-w-[720px] text-left text-xs">
+                <thead class="text-muted-foreground">
+                  <tr>
+                    <th class="px-2 py-1">物料</th>
+                    <th class="px-2 py-1">需要</th>
+                    <th class="px-2 py-1">已配</th>
+                    <th class="px-2 py-1">缺口</th>
+                    <th class="px-2 py-1">库存</th>
+                    <th class="px-2 py-1">上游</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${visibleLines.map((line) => `
+                    <tr class="border-t">
+                      <td class="px-2 py-1">
+                        <div class="font-medium text-foreground">${escapeHtml(line.materialName)}</div>
+                        <div class="text-muted-foreground">${escapeHtml(line.materialSku)} / ${escapeHtml(line.color)} / ${escapeHtml(line.spec)}</div>
+                      </td>
+                      <td class="px-2 py-1">${formatTenderMaterialPrepQty(line.requiredQty, line.unit)}</td>
+                      <td class="px-2 py-1">${formatTenderMaterialPrepQty(line.confirmedPrepQty, line.unit)}</td>
+                      <td class="px-2 py-1 ${line.ready ? 'text-emerald-700' : 'font-medium text-amber-800'}">${formatTenderMaterialPrepQty(line.remainingPrepQty, line.unit)}</td>
+                      <td class="px-2 py-1">${formatTenderMaterialPrepQty(line.availableStockQty, line.unit)}</td>
+                      <td class="px-2 py-1">${escapeHtml(line.upstreamProgressStatus)}${line.upstreamDocumentNo ? ` / ${escapeHtml(line.upstreamDocumentNo)}` : ''}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+            ${check.lines.length > visibleLines.length ? `<div class="mt-1 text-xs text-muted-foreground">另有 ${check.lines.length - visibleLines.length} 行物料未展开显示。</div>` : ''}
+          </div>
+        `
+      }).join('')}
+    </div>
+  `
 }
 
 function renderConstraintBadge(snapshot: DispatchCapacityConstraintSnapshot | null): string {
@@ -221,9 +303,13 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
   const mainFactoryValid =
     !isSewingTask ||
     (Boolean(selectedMainFactory) && state.createTenderForm.selectedPool.has(state.createTenderForm.mainFactoryId))
+  const materialPrepChecks = getTenderMaterialPrepChecks(task)
+  const materialPrepReady = isTenderMaterialPrepReady(materialPrepChecks)
+  const materialPrepError = materialPrepReady ? '' : formatTenderMaterialPrepError(materialPrepChecks)
   const valid =
     selectedPoolIds.length > 0 &&
     mainFactoryValid &&
+    materialPrepReady &&
     minValid &&
     maxValid &&
     state.createTenderForm.biddingDeadline !== '' &&
@@ -280,6 +366,8 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
             <div class="flex items-center justify-between gap-2 text-sm" data-tender-task-outputValue="total"><span class="text-muted-foreground">任务总产值</span><span class="font-mono text-xs text-blue-700">${totalOutputValueText}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序标准价</span><span class="font-mono text-xs">${std.price.toLocaleString()} ${escapeHtml(std.currency)}/${escapeHtml(std.unit)}</span></div>
           </div>
+
+          ${renderTenderMaterialPrepPanel(materialPrepChecks)}
 
 	          ${
 	            detailMode
@@ -489,8 +577,8 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
 	          </div>
 
               ${
-                state.createTenderError
-                  ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(state.createTenderError)}</div>`
+                state.createTenderError || materialPrepError
+                  ? `<div class="whitespace-pre-line rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(state.createTenderError || materialPrepError)}</div>`
                   : hasBlockedSelectedPool
                     ? '<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">当前工厂池中包含已暂停或已超载工厂，请先移除后再创建招标单。</div>'
                     : ''
@@ -816,6 +904,12 @@ function confirmCreateTender(): void {
 
   if (!valid) return
 
+  const materialPrepChecks = getTenderMaterialPrepChecks(task)
+  if (!isTenderMaterialPrepReady(materialPrepChecks)) {
+    state.createTenderError = formatTenderMaterialPrepError(materialPrepChecks)
+    return
+  }
+
   const std = getStandardPrice(task)
   const taskOutputValue = resolveTaskOutputValue(task)
   const selectedPoolIds = Array.from(state.createTenderForm.selectedPool)
@@ -962,6 +1056,9 @@ export {
   openViewTender,
   closeViewTender,
   closePriceSnapshot,
+  getTenderMaterialPrepChecks,
+  isTenderMaterialPrepReady,
+  formatTenderMaterialPrepError,
   renderCreateTenderSheet,
   renderViewTenderSheet,
   renderPriceSnapshotSheet,

@@ -334,6 +334,11 @@ function updateProductionField(
     return
   }
 
+  if (field === 'demandGenerateTechPackVersionId') {
+    state.demandGenerateTechPackVersionId = value
+    return
+  }
+
   if (field === 'ordersKeyword') {
     state.ordersKeyword = value
     state.ordersCurrentPage = 1
@@ -1127,6 +1132,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     state.demandBatchDialogOpen = false
     state.demandSingleGenerateId = null
     state.demandGenerateConfirmOpen = false
+    state.demandGenerateTechPackVersionId = ''
     return true
   }
 
@@ -1184,6 +1190,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     state.ordersFromDemandDialogOpen = false
     state.ordersFromDemandSelectedIds = new Set<string>()
     state.demandGenerateConfirmOpen = false
+    state.demandGenerateTechPackVersionId = ''
     return true
   }
 
@@ -1348,6 +1355,19 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'open-breakdown-readiness') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    state.ordersActionMenuId = null
+    state.ordersBreakdownReadinessOrderId = orderId
+    return true
+  }
+
+  if (action === 'close-breakdown-readiness') {
+    state.ordersBreakdownReadinessOrderId = null
+    return true
+  }
+
   if (action === 'breakdown-order') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
@@ -1355,6 +1375,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     state.ordersActionMenuId = null
     const changed = applyOrderTaskBreakdown([orderId])
     if (changed > 0) {
+      state.ordersBreakdownReadinessOrderId = null
       showPlanMessage('已拆解任务，生产单进入待分配')
       return true
     }
@@ -1741,6 +1762,7 @@ export function isProductionDialogOpen(): boolean {
     state.demandGenerateConfirmOpen ||
     state.ordersDemandSnapshotId !== null ||
     state.ordersLogsId !== null ||
+    state.ordersBreakdownReadinessOrderId !== null ||
     state.materialDraftOrderId !== null ||
     state.materialDraftAddDraftId !== null ||
     state.planEditOrderId !== null ||

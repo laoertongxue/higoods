@@ -22,6 +22,13 @@ import {
   getDispatchAcceptanceSlaRuleSourceLabel,
   resolveDispatchAcceptanceSlaForTask,
 } from '../data/fcs/dispatch-acceptance-sla.ts'
+import {
+  confirmProductionOrderMainFactoryFromSewingTask,
+} from '../data/fcs/production-orders.ts'
+import {
+  getMaterialPrepDispatchReadinessForTask,
+  type MaterialPrepDispatchReadiness,
+} from '../data/fcs/cutting/production-material-prep.ts'
 
 type KitFilter = '全部' | SewingDispatchKitStatus
 type GapFilter = '全部' | SewingDispatchGapType
@@ -40,6 +47,7 @@ interface SewingDispatchWorkbenchState {
   dispatchActionType: '直接派单' | '发起竞价'
   dispatchFactoryId: string
   dispatchQtyByRowId: Record<string, string>
+  dispatchError: string
   feedbackMessage: string
 }
 
@@ -56,6 +64,7 @@ const state: SewingDispatchWorkbenchState = {
   dispatchActionType: '直接派单',
   dispatchFactoryId: '',
   dispatchQtyByRowId: {},
+  dispatchError: '',
   feedbackMessage: '',
 }
 
@@ -130,6 +139,98 @@ function getSelectedDispatchRows(tasks: SewingDispatchWorkbenchTask[] = listSewi
     .filter((task) => state.selectedTaskIds.has(task.taskId))
     .flatMap((task) => task.skuRows)
     .filter((row) => row.completeKitQty > 0)
+}
+
+function getSewingMaterialPrepChecks(rows: SewingDispatchWorkbenchRow[]): MaterialPrepDispatchReadiness[] {
+  const rowsByTask = new Map<string, SewingDispatchWorkbenchRow>()
+  rows.forEach((row) => {
+    if (!rowsByTask.has(row.taskId)) rowsByTask.set(row.taskId, row)
+  })
+  return Array.from(rowsByTask.values())
+    .map((row) => getMaterialPrepDispatchReadinessForTask({
+      taskId: row.taskId,
+      taskNo: row.taskNo,
+      productionOrderId: row.productionOrderId,
+      processCode: 'PROC_SEWING',
+      processBusinessCode: 'SEWING',
+      processNameZh: '车缝',
+    }))
+    .filter((check) => check.hasMaterialPrepScope)
+}
+
+function isSewingMaterialPrepReady(checks: MaterialPrepDispatchReadiness[]): boolean {
+  return checks.every((check) => check.ready)
+}
+
+function formatMaterialPrepQty(value: number, unit: string): string {
+  return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit}`
+}
+
+function formatSewingMaterialPrepError(checks: MaterialPrepDispatchReadiness[]): string {
+  const blockingChecks = checks.filter((check) => !check.ready)
+  if (!blockingChecks.length) return ''
+  return [
+    '配料前置未满足，暂不可生成分配。',
+    ...blockingChecks.map((check) => `【${check.taskNo} / ${check.taskName}】${check.summaryText}`),
+  ].join('\n')
+}
+
+function renderSewingMaterialPrepPanel(checks: MaterialPrepDispatchReadiness[]): string {
+  if (!checks.length) return ''
+  return `
+    <section class="mt-4 rounded-md border bg-muted/20 p-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm font-medium">配料前置校验</p>
+        <span class="text-xs text-muted-foreground">按车缝任务对应物料明细判断，未配齐不可生成分配</span>
+      </div>
+      <div class="mt-3 space-y-3">
+        ${checks.map((check) => {
+          const tone = check.ready
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            : 'border-amber-200 bg-amber-50 text-amber-800'
+          const visibleLines = check.lines.slice(0, 8)
+          return `
+            <div class="rounded-md border ${tone} p-2">
+              <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span class="font-medium">${escapeHtml(check.taskNo)} / ${escapeHtml(check.taskName)}</span>
+                <span>${check.ready ? '配料已满足' : `未配齐 ${check.blockingLineCount} 行`}</span>
+              </div>
+              <div class="mt-2 overflow-x-auto rounded border bg-white/70">
+                <table class="w-full min-w-[720px] text-left text-xs">
+                  <thead class="text-muted-foreground">
+                    <tr>
+                      <th class="px-2 py-1">物料</th>
+                      <th class="px-2 py-1">需要</th>
+                      <th class="px-2 py-1">已配</th>
+                      <th class="px-2 py-1">缺口</th>
+                      <th class="px-2 py-1">库存</th>
+                      <th class="px-2 py-1">上游</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${visibleLines.map((line) => `
+                      <tr class="border-t">
+                        <td class="px-2 py-1">
+                          <div class="font-medium text-foreground">${escapeHtml(line.materialName)}</div>
+                          <div class="text-muted-foreground">${escapeHtml(line.materialSku)} / ${escapeHtml(line.color)} / ${escapeHtml(line.spec)}</div>
+                        </td>
+                        <td class="px-2 py-1">${formatMaterialPrepQty(line.requiredQty, line.unit)}</td>
+                        <td class="px-2 py-1">${formatMaterialPrepQty(line.confirmedPrepQty, line.unit)}</td>
+                        <td class="px-2 py-1 ${line.ready ? 'text-emerald-700' : 'font-medium text-amber-800'}">${formatMaterialPrepQty(line.remainingPrepQty, line.unit)}</td>
+                        <td class="px-2 py-1">${formatMaterialPrepQty(line.availableStockQty, line.unit)}</td>
+                        <td class="px-2 py-1">${escapeHtml(line.upstreamProgressStatus)}${line.upstreamDocumentNo ? ` / ${escapeHtml(line.upstreamDocumentNo)}` : ''}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+              ${check.lines.length > visibleLines.length ? `<div class="mt-1 text-xs text-muted-foreground">另有 ${check.lines.length - visibleLines.length} 行物料未展开显示。</div>` : ''}
+            </div>
+          `
+        }).join('')}
+      </div>
+    </section>
+  `
 }
 
 function renderDispatchAcceptanceSlaPreview(rows: SewingDispatchWorkbenchRow[], factoryId: string, factoryName?: string): string {
@@ -877,6 +978,10 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
   const selectedRows = getSelectedDispatchRows(tasks)
   const factories = listSewingFactoryOptions()
   const selectedFactory = factories.find((factory) => factory.id === state.dispatchFactoryId)
+  const materialPrepChecks = getSewingMaterialPrepChecks(selectedRows)
+  const materialPrepReady = isSewingMaterialPrepReady(materialPrepChecks)
+  const materialPrepError = materialPrepReady ? '' : formatSewingMaterialPrepError(materialPrepChecks)
+  const confirmDisabled = selectedRows.length === 0 || !materialPrepReady
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/40" data-sewing-dispatch-action="close-dispatch" aria-label="关闭"></button>
@@ -905,6 +1010,12 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
             </label>
           </div>
           ${renderDispatchCutPieceReleaseNotice(selectedRows, tasks)}
+          ${
+            state.dispatchError || materialPrepError
+              ? `<div class="mt-4 whitespace-pre-line rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">${escapeHtml(state.dispatchError || materialPrepError)}</div>`
+              : ''
+          }
+          ${renderSewingMaterialPrepPanel(materialPrepChecks)}
           <div class="mt-4 overflow-x-auto rounded-lg border">
             <table class="w-full min-w-[860px] text-sm">
               <thead><tr class="border-b bg-muted/40 text-xs text-muted-foreground"><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">生产单 / 任务</th><th class="px-3 py-2 text-left">完整齐套数量</th><th class="px-3 py-2 text-left">待分配</th><th class="px-3 py-2 text-left">本次分配数量</th></tr></thead>
@@ -928,7 +1039,7 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
         </div>
         <footer class="flex justify-end gap-2 border-t px-5 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-sewing-dispatch-action="close-dispatch">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${selectedRows.length === 0 ? 'pointer-events-none opacity-50' : ''}" data-sewing-dispatch-action="confirm-dispatch">确认生成</button>
+          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${confirmDisabled ? 'cursor-not-allowed opacity-50' : ''}" ${confirmDisabled ? 'disabled aria-disabled="true"' : ''} data-sewing-dispatch-action="confirm-dispatch">确认生成</button>
         </footer>
       </section>
     </div>
@@ -1032,16 +1143,19 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
   }
   if (field === 'dispatchActionType') {
     state.dispatchActionType = node.value === '发起竞价' ? '发起竞价' : '直接派单'
+    state.dispatchError = ''
     return
   }
   if (field === 'dispatchFactoryId') {
     state.dispatchFactoryId = node.value
+    state.dispatchError = ''
     return
   }
   if (field === 'dispatchQty') {
     const rowId = node.dataset.rowId
     if (!rowId) return
     state.dispatchQtyByRowId[rowId] = node.value
+    state.dispatchError = ''
   }
 }
 
@@ -1051,6 +1165,7 @@ function openDispatch(taskId: string | undefined, type: string | undefined): voi
   state.dispatchActionType = type === '发起竞价' ? '发起竞价' : '直接派单'
   state.dispatchOpen = selectedRows.length > 0
   state.dispatchQtyByRowId = Object.fromEntries(selectedRows.map((row) => [row.rowId, String(row.completeKitQty)]))
+  state.dispatchError = ''
   state.feedbackMessage = ''
 }
 
@@ -1110,6 +1225,11 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
     const factories = listSewingFactoryOptions()
     const factory = factories.find((item) => item.id === state.dispatchFactoryId)
     const selectedRows = getSelectedDispatchRows()
+    const materialPrepChecks = getSewingMaterialPrepChecks(selectedRows)
+    if (!isSewingMaterialPrepReady(materialPrepChecks)) {
+      state.dispatchError = formatSewingMaterialPrepError(materialPrepChecks)
+      return true
+    }
     const result = createSewingDispatchWorkbenchDraft({
       actionType: state.dispatchActionType,
       factoryId: factory?.id,
@@ -1120,6 +1240,16 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
     })
     state.feedbackMessage = result.message
     if (result.ok) {
+      if (state.dispatchActionType === '直接派单' && factory) {
+        Array.from(new Set(selectedRows.map((row) => row.productionOrderId))).forEach((productionOrderId) => {
+          confirmProductionOrderMainFactoryFromSewingTask({
+            productionOrderId,
+            factoryId: factory.id,
+            factoryName: factory.name,
+            by: '跟单A',
+          })
+        })
+      }
       state.dispatchOpen = false
       state.selectedTaskIds = new Set<string>()
     }

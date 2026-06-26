@@ -79,6 +79,69 @@ export interface MaterialPrepTaskLink {
   allocationStatus: '已分配' | '未分配'
 }
 
+export interface MaterialPrepDispatchLineCheck {
+  prepOrderId: string
+  prepOrderNo: string
+  productionOrderNo: string
+  prepLineId: string
+  materialSku: string
+  materialName: string
+  color: string
+  spec: string
+  unit: string
+  requiredQty: number
+  confirmedPrepQty: number
+  remainingPrepQty: number
+  availableStockQty: number
+  upstreamProgressStatus: UpstreamProgressStatus
+  upstreamDocumentNo: string
+  ready: boolean
+}
+
+export interface MaterialPrepDispatchReadiness {
+  taskId: string
+  taskNo: string
+  taskName: string
+  productionOrderId: string
+  productionOrderNo: string
+  taskType: MaterialPrepTaskType | null
+  hasMaterialPrepScope: boolean
+  ready: boolean
+  blockingLineCount: number
+  summaryText: string
+  lines: MaterialPrepDispatchLineCheck[]
+}
+
+export interface MaterialPrepBreakdownLineCheck {
+  prepOrderId: string
+  prepOrderNo: string
+  productionOrderNo: string
+  prepLineId: string
+  materialSku: string
+  materialName: string
+  color: string
+  spec: string
+  unit: string
+  requiredQty: number
+  availableStockQty: number
+  stockWarehouseName: MaterialStockWarehouseName
+  upstreamSourceType: UpstreamSourceType
+  upstreamProgressStatus: UpstreamProgressStatus
+  upstreamDocumentNo: string
+  ready: boolean
+  blockingReason: string
+}
+
+export interface MaterialPrepBreakdownReadiness {
+  productionOrderId: string
+  productionOrderNo: string
+  hasMaterialScope: boolean
+  ready: boolean
+  blockingLineCount: number
+  summaryText: string
+  lines: MaterialPrepBreakdownLineCheck[]
+}
+
 export interface MaterialPrepLine {
   prepLineId: string
   prepOrderId: string
@@ -572,30 +635,36 @@ const runtimeTaskTypeKeywordMap: Record<MaterialPrepTaskType, string[]> = {
   包装任务: ['pack', 'packing', '包装', '后道'],
 }
 
-const materialPrepAssignmentDemoSeeds: Record<string, {
-  factoryId: string
-  factoryCode: string
-  factoryName: string
-  assignedAt: string
-}> = {
-  'PO-202603-0001:裁片任务': {
-    factoryId: 'ID-F012',
-    factoryCode: 'CUT-SBY-01',
-    factoryName: '泗水裁片中心',
-    assignedAt: '2026-03-18 10:30:00',
-  },
-  'PO-202603-0102:印花任务': {
-    factoryId: 'ID-F018',
-    factoryCode: 'PRT-JKT-01',
-    factoryName: '雅加达印花厂',
-    assignedAt: '2026-03-21 09:40:00',
-  },
-  'PO-202603-0101:染色任务': {
-    factoryId: 'ID-F019',
-    factoryCode: 'DYE-BDG-01',
-    factoryName: '万隆染色厂',
-    assignedAt: '2026-03-20 14:20:00',
-  },
+export function getMaterialPrepTaskTypesForLine(line: Pick<MaterialPrepSeedLine | MaterialPrepLine, 'materialType' | 'upstreamSourceType' | 'upstreamProgressStatus' | 'materialName'>): MaterialPrepTaskType[] {
+  const materialType = line.materialType
+  const taskTypes: MaterialPrepTaskType[] = []
+  if (materialType === '面料') {
+    if (line.upstreamSourceType === '印花' || line.upstreamProgressStatus === '印花中' || line.materialName.includes('拼接')) {
+      taskTypes.push('印花任务')
+    }
+    if (line.upstreamSourceType === '染色' || line.upstreamProgressStatus === '染色中') {
+      taskTypes.push('染色任务')
+    }
+    taskTypes.push('裁片任务')
+  } else if (materialType === '包材') {
+    taskTypes.push('包装任务')
+  } else {
+    taskTypes.push('车缝任务')
+  }
+  return Array.from(new Set(taskTypes))
+}
+
+export function resolveMaterialPrepTaskTypeForRuntimeTask(task: Partial<Pick<RuntimeProcessTask, 'taskId' | 'taskNo' | 'processCode' | 'processBusinessCode' | 'processNameZh' | 'defaultDocType'>>): MaterialPrepTaskType | null {
+  const searchText = [
+    task.taskId,
+    task.taskNo,
+    task.processCode,
+    task.processBusinessCode,
+    task.processNameZh,
+    task.defaultDocType,
+  ].filter(Boolean).join(' ').toLowerCase()
+  const entries = Object.entries(runtimeTaskTypeKeywordMap) as Array<[MaterialPrepTaskType, string[]]>
+  return entries.find(([, keywords]) => keywords.some((keyword) => searchText.includes(keyword)))?.[0] ?? null
 }
 
 function getRuntimeTaskSearchText(task: RuntimeProcessTask): string {
@@ -629,7 +698,6 @@ function findRuntimeTaskForPrepTaskLink(
 }
 
 function writeBackTaskAssignment(
-  productionOrderId: string,
   taskLink: MaterialPrepTaskLink,
   runtimeTasks: RuntimeProcessTask[],
 ): MaterialPrepTaskLink {
@@ -637,16 +705,7 @@ function writeBackTaskAssignment(
 
   const runtimeTask = findRuntimeTaskForPrepTaskLink(taskLink, runtimeTasks)
   if (!runtimeTask || !isRuntimeTaskAssigned(runtimeTask)) {
-    const demoSeed = materialPrepAssignmentDemoSeeds[`${productionOrderId}:${taskLink.taskType}`]
-    if (!demoSeed) return taskLink
-    return {
-      ...taskLink,
-      factoryId: demoSeed.factoryId,
-      factoryCode: demoSeed.factoryCode,
-      factoryName: demoSeed.factoryName,
-      assignedAt: demoSeed.assignedAt,
-      allocationStatus: '已分配',
-    }
+    return taskLink
   }
 
   const assignedFactoryId = runtimeTask.assignedFactoryId || taskLink.factoryId
@@ -664,43 +723,25 @@ function writeBackTaskAssignment(
   }
 }
 
-const processBoundTaskTypes: MaterialPrepTaskType[] = ['裁片任务', '印花任务', '染色任务']
-
 function buildTaskLink(order: MaterialPrepSeedOrder, taskType: MaterialPrepTaskType): MaterialPrepTaskLink {
   const meta = taskMetaByType[taskType]
   const orderSuffix = order.productionOrderNo.replace('PO-', '')
-  const isProcessBound = processBoundTaskTypes.includes(taskType)
-  const factory = isProcessBound ? resolveFactoryForTask(taskType) : null
   return {
     taskId: `task:${order.productionOrderNo}:${meta.code}`,
     taskNo: `TASK-${meta.code}-${orderSuffix}`,
     taskName: meta.name,
     taskType,
-    factoryId: factory?.id ?? '',
-    factoryCode: factory?.code ?? '',
-    factoryName: isProcessBound ? formatTaskFactoryName(factory) : '待分配后确定',
+    factoryId: '',
+    factoryCode: '',
+    factoryName: '待分配后确定',
     assignedAt: '',
-    allocationStatus: isProcessBound ? '已分配' : '未分配',
+    allocationStatus: '未分配',
   }
 }
 
 function buildDefaultTaskLinks(order: MaterialPrepSeedOrder, line: MaterialPrepSeedLine): MaterialPrepTaskLink[] {
   const materialType = line.materialType || inferMaterialType(line)
-  const taskTypes: MaterialPrepTaskType[] = []
-  if (materialType === '面料') {
-    if (line.upstreamSourceType === '印花' || line.upstreamProgressStatus === '印花中' || line.materialName.includes('拼接')) {
-      taskTypes.push('印花任务')
-    }
-    if (line.upstreamSourceType === '染色' || line.upstreamProgressStatus === '染色中') {
-      taskTypes.push('染色任务')
-    }
-    taskTypes.push('裁片任务')
-  } else if (materialType === '包材') {
-    taskTypes.push('包装任务')
-  } else {
-    taskTypes.push('车缝任务')
-  }
-  return Array.from(new Set(taskTypes)).map((taskType) => buildTaskLink(order, taskType))
+  return getMaterialPrepTaskTypesForLine({ ...line, materialType }).map((taskType) => buildTaskLink(order, taskType))
 }
 
 export type MaterialPrepCategory = '染色配料' | '印花配料' | '裁片配料' | '车缝配料' | '其他配料'
@@ -970,36 +1011,36 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
     prepOrderNo: 'WLS-PL-260304-008',
     productionOrderId: 'PO-202603-0008',
     productionOrderNo: 'PO-202603-0008',
-    styleNo: 'TDV-005',
-    styleName: '灰色连帽衫',
-    spu: 'tdv_demand_SPU_2024_005',
+    styleNo: 'TDV-014',
+    styleName: '绿色休闲马甲',
+    spu: 'tdv_demand_SPU_2024_014',
     customerName: 'HiGood 自营',
-    planQty: 2200,
-    deliveryDate: '2026-03-24',
+    planQty: 1000,
+    deliveryDate: '2026-04-28',
     creatorName: '中转仓 周敏',
     createdAt: '2026-03-16 13:50',
     lines: [
       {
         prepLineId: 'prep-line-po-0008-main',
         prepOrderId: 'prep-order-po-202603-0008',
-        cutOrderId: 'cut-order:po-202603-0008:tdv-demand-spu-2024-005-bom-main:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm',
+        cutOrderId: 'cut-order:po-202603-0008:tdv-demand-spu-2024-014-bom-main:tdv-demand-spu-2024-014-pattern-main:v1-0:150cm',
         cutOrderNo: 'CUT-260304-008-01',
-        materialSku: 'tdv_demand_SPU_2024_005-bom-grey-knit-main',
-        materialName: 'Grey 棉感针织主面料',
+        materialSku: 'tdv_demand_SPU_2024_014-bom-green-vest-main',
+        materialName: 'Green 斜纹马甲主面料',
         materialType: '面料',
         materialImageUrl: '/materials/fabric-main.jpg',
-        color: 'Grey',
+        color: 'Green',
         spec: '150cm / 主面料',
         unit: 'yard',
-        requiredQty: 924,
-        availableStockQty: 924,
+        requiredQty: 420,
+        availableStockQty: 420,
         stockWarehouseName: '中转仓',
         stockWarehouseArea: '中转仓 A 区',
         stockLocationCode: 'TR-A-028',
         upstreamSourceType: '中转仓库存',
         upstreamProgressStatus: '已到仓可配',
         expectedAvailableAt: '2026-03-16 13:50',
-        upstreamProgressDetail: '生产单所需物料均已到仓，当前还未建立配料记录，可一次性安排配料。',
+        upstreamProgressDetail: '生产单所需物料均已到仓，主布与里布已同步过色，可一次性安排配料。',
       },
     ],
   },
@@ -2588,6 +2629,7 @@ function buildLine(
   const maxPrepQty = releaseConstraintApplied
     ? Math.max(0, Math.min(remainingNeedQty, Math.round(releaseQty * (seedLine.qtyRatio || 1)), seedLine.availableStockQty))
     : Math.max(0, Math.min(remainingNeedQty, seedLine.availableStockQty))
+  const confirmedForAssignment = confirmedPrepQty > 0
   return {
     prepLineId: seedLine.prepLineId,
     prepOrderId: seedLine.prepOrderId,
@@ -2622,7 +2664,9 @@ function buildLine(
     upstreamDocumentNo: seedLine.upstreamDocumentNo || '',
     upstreamDocumentTitle: seedLine.upstreamDocumentTitle || '',
     upstreamDocumentAdjustLabel: seedLine.upstreamDocumentAdjustLabel || '',
-    taskLinks: (seedLine.taskLinks || []).map((taskLink) => writeBackTaskAssignment(productionOrderId, taskLink, runtimeTasks)),
+    taskLinks: confirmedForAssignment
+      ? (seedLine.taskLinks || []).map((taskLink) => writeBackTaskAssignment(taskLink, runtimeTasks))
+      : [],
   }
 }
 
@@ -2879,6 +2923,190 @@ export function getMaterialPrepOrderProjection(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): MaterialPrepOrderProjection | null {
   return listMaterialPrepOrderProjections(storage).find((projection) => projection.order.prepOrderId === prepOrderId) || null
+}
+
+function formatBreakdownCheckQty(value: number, unit: string): string {
+  return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}${unit}`
+}
+
+function getBreakdownLineBlockingReason(line: MaterialPrepLine): string {
+  const reasons: string[] = []
+  if (line.availableStockQty < line.requiredQty) {
+    reasons.push(`库存不足：需要 ${formatBreakdownCheckQty(line.requiredQty, line.unit)}，在库 ${formatBreakdownCheckQty(line.availableStockQty, line.unit)}`)
+  }
+  if ((line.upstreamSourceType === '印花' || line.upstreamSourceType === '染色') && line.upstreamProgressStatus !== '已到仓可配') {
+    reasons.push(`${line.upstreamSourceType}未交出入中转仓：当前${line.upstreamProgressStatus}`)
+  }
+  return reasons.join('；')
+}
+
+export function getMaterialPrepBreakdownReadinessForOrder(
+  productionOrderIdOrNo: string,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): MaterialPrepBreakdownReadiness {
+  const projections = listMaterialPrepOrderProjections(storage).filter((projection) =>
+    projection.order.productionOrderId === productionOrderIdOrNo ||
+    projection.order.productionOrderNo === productionOrderIdOrNo,
+  )
+  const productionOrderNo = projections[0]?.order.productionOrderNo || productionOrderIdOrNo
+
+  if (!projections.length) {
+    return {
+      productionOrderId: productionOrderIdOrNo,
+      productionOrderNo,
+      hasMaterialScope: false,
+      ready: false,
+      blockingLineCount: 0,
+      summaryText: '未找到该生产单的 BOM 物料库存投影，暂不可拆解任务。',
+      lines: [],
+    }
+  }
+
+  const lines = projections.flatMap((projection) =>
+    projection.lines
+      .filter((line) => line.requiredQty > 0)
+      .map((line): MaterialPrepBreakdownLineCheck => {
+        const blockingReason = getBreakdownLineBlockingReason(line)
+        return {
+          prepOrderId: projection.order.prepOrderId,
+          prepOrderNo: projection.order.prepOrderNo,
+          productionOrderNo: projection.order.productionOrderNo,
+          prepLineId: line.prepLineId,
+          materialSku: line.materialSku,
+          materialName: line.materialName,
+          color: line.color,
+          spec: line.spec,
+          unit: line.unit,
+          requiredQty: line.requiredQty,
+          availableStockQty: line.availableStockQty,
+          stockWarehouseName: line.stockWarehouseName,
+          upstreamSourceType: line.upstreamSourceType,
+          upstreamProgressStatus: line.upstreamProgressStatus,
+          upstreamDocumentNo: line.upstreamDocumentNo,
+          ready: !blockingReason,
+          blockingReason,
+        }
+      }),
+  )
+
+  if (!lines.length) {
+    return {
+      productionOrderId: productionOrderIdOrNo,
+      productionOrderNo,
+      hasMaterialScope: false,
+      ready: false,
+      blockingLineCount: 0,
+      summaryText: '该生产单没有可用于拆解判断的 BOM 物料明细。',
+      lines: [],
+    }
+  }
+
+  const blockingLines = lines.filter((line) => !line.ready)
+  const ready = blockingLines.length === 0
+  const summaryText = ready
+    ? `库存前置已满足：${lines.length} 行 BOM 物料在库可用，印花/染色物料已回中转仓。`
+    : `库存前置未满足：${blockingLines.length}/${lines.length} 行不可拆解。${blockingLines.slice(0, 3).map((line) =>
+      `${line.materialName} ${line.blockingReason}`,
+    ).join('；')}`
+
+  return {
+    productionOrderId: productionOrderIdOrNo,
+    productionOrderNo,
+    hasMaterialScope: true,
+    ready,
+    blockingLineCount: blockingLines.length,
+    summaryText,
+    lines,
+  }
+}
+
+function formatDispatchCheckQty(value: number, unit: string): string {
+  return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}${unit}`
+}
+
+export function getMaterialPrepDispatchReadinessForTask(
+  task: Pick<RuntimeProcessTask, 'taskId' | 'productionOrderId'> & Partial<Pick<RuntimeProcessTask, 'taskNo' | 'processCode' | 'processBusinessCode' | 'processNameZh' | 'defaultDocType'>>,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): MaterialPrepDispatchReadiness {
+  const taskType = resolveMaterialPrepTaskTypeForRuntimeTask(task)
+  const projections = listMaterialPrepOrderProjections(storage).filter((projection) =>
+    projection.order.productionOrderId === task.productionOrderId ||
+    projection.order.productionOrderNo === task.productionOrderId,
+  )
+  const productionOrderNo = projections[0]?.order.productionOrderNo || task.productionOrderId
+  const baseResult = {
+    taskId: task.taskId,
+    taskNo: task.taskNo || task.taskId,
+    taskName: task.processNameZh || taskType || '生产任务',
+    productionOrderId: task.productionOrderId,
+    productionOrderNo,
+    taskType,
+  }
+
+  if (!taskType || !projections.length) {
+    return {
+      ...baseResult,
+      hasMaterialPrepScope: false,
+      ready: true,
+      blockingLineCount: 0,
+      summaryText: '该任务未匹配到需要配料校验的物料范围。',
+      lines: [],
+    }
+  }
+
+  const lines = projections.flatMap((projection) =>
+    projection.lines
+      .filter((line) => getMaterialPrepTaskTypesForLine(line).includes(taskType))
+      .map((line): MaterialPrepDispatchLineCheck => {
+        const remainingPrepQty = roundQty(Math.max(line.requiredQty - line.confirmedPrepQty, 0))
+        return {
+          prepOrderId: projection.order.prepOrderId,
+          prepOrderNo: projection.order.prepOrderNo,
+          productionOrderNo: projection.order.productionOrderNo,
+          prepLineId: line.prepLineId,
+          materialSku: line.materialSku,
+          materialName: line.materialName,
+          color: line.color,
+          spec: line.spec,
+          unit: line.unit,
+          requiredQty: line.requiredQty,
+          confirmedPrepQty: line.confirmedPrepQty,
+          remainingPrepQty,
+          availableStockQty: line.availableStockQty,
+          upstreamProgressStatus: line.upstreamProgressStatus,
+          upstreamDocumentNo: line.upstreamDocumentNo,
+          ready: remainingPrepQty <= 0,
+        }
+      }),
+  )
+
+  if (!lines.length) {
+    return {
+      ...baseResult,
+      hasMaterialPrepScope: false,
+      ready: true,
+      blockingLineCount: 0,
+      summaryText: '该任务未匹配到需要配料校验的物料明细。',
+      lines: [],
+    }
+  }
+
+  const blockingLines = lines.filter((line) => !line.ready)
+  const ready = blockingLines.length === 0
+  const summaryText = ready
+    ? `配料已满足：${lines.length} 行物料均已确认配料。`
+    : `配料未满足：${blockingLines.length}/${lines.length} 行未配齐。${blockingLines.slice(0, 3).map((line) =>
+      `${line.materialName} 需要 ${formatDispatchCheckQty(line.requiredQty, line.unit)}，已配 ${formatDispatchCheckQty(line.confirmedPrepQty, line.unit)}，缺 ${formatDispatchCheckQty(line.remainingPrepQty, line.unit)}，上游 ${line.upstreamProgressStatus}`,
+    ).join('；')}`
+
+  return {
+    ...baseResult,
+    hasMaterialPrepScope: true,
+    ready,
+    blockingLineCount: blockingLines.length,
+    summaryText,
+    lines,
+  }
 }
 
 export function getMaterialPrepRecordContext(

@@ -7,6 +7,7 @@ import {
   nowTimestamp,
   getCreateTenderTask,
   getTaskAllocatableGroups,
+  getTaskById,
   getSelectableTenderFactoryIds,
   openAppRoute,
   supportsDetailAssignment,
@@ -24,6 +25,9 @@ import {
   openCreateTender,
   closeCreateTender,
   confirmCreateTender,
+  getTenderMaterialPrepChecks,
+  isTenderMaterialPrepReady,
+  formatTenderMaterialPrepError,
   openViewTender,
   closeViewTender,
   closePriceSnapshot,
@@ -37,6 +41,16 @@ function getTenderSelectableFactoryIds(): Set<string> {
       ? getTaskAllocatableGroups(task)
       : []
   return new Set(getSelectableTenderFactoryIds(task, detailGroups))
+}
+
+function getBatchTenderMaterialPrepError(taskIds: string[]): string {
+  const failedChecks = taskIds
+    .map((taskId) => getTaskById(taskId))
+    .filter((task): task is NonNullable<typeof task> => Boolean(task))
+    .flatMap((task) => getTenderMaterialPrepChecks(task))
+    .filter((check) => !isTenderMaterialPrepReady([check]))
+
+  return formatTenderMaterialPrepError(failedChecks)
 }
 
 function updateField(field: string, node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
@@ -368,7 +382,14 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
 
   if (action === 'batch-bidding') {
     if (state.selectedIds.size > 0) {
-      batchSetTaskAssignMode(Array.from(state.selectedIds), 'BIDDING', '跟单A')
+      const selectedTaskIds = Array.from(state.selectedIds)
+      const materialPrepError = getBatchTenderMaterialPrepError(selectedTaskIds)
+      if (materialPrepError) {
+        state.autoAssignMessage = materialPrepError
+        return true
+      }
+
+      batchSetTaskAssignMode(selectedTaskIds, 'BIDDING', '跟单A')
       state.selectedIds = new Set<string>()
     }
     return true
@@ -395,7 +416,6 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
 
-    setTaskAssignMode(taskId, 'BIDDING', '跟单A')
     openCreateTender(taskId)
     return true
   }

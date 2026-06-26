@@ -230,7 +230,7 @@ function renderTaskFactoryText(task: MaterialPrepLine['taskLinks'][number]): str
 }
 
 function renderLineTaskLinks(line: MaterialPrepLine): string {
-  if (!line.taskLinks.length) return renderBadge('未分配', 'neutral')
+  if (!line.taskLinks.length) return renderBadge('确认配料后开放', 'neutral')
   return `
     <div class="space-y-1">
       ${line.taskLinks.map((task) => `
@@ -758,7 +758,7 @@ function renderTaskPrepOverview(projection: MaterialPrepOrderProjection): string
               </table>
             </div>
           </article>
-        `).join('') : '<div class="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">当前生产单尚未完成任务分配，暂无任务维度配料情况。</div>'}
+        `).join('') : '<div class="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">配料记录确认后，才显示任务维度配料情况和任务分配入口。</div>'}
       </div>
     </section>
   `

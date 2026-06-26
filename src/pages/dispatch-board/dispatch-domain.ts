@@ -49,6 +49,10 @@ import {
   resolveDispatchAcceptanceSlaForTask,
   type DispatchAcceptanceSlaResolution,
 } from '../../data/fcs/dispatch-acceptance-sla.ts'
+import {
+  getMaterialPrepDispatchReadinessForTask,
+  type MaterialPrepDispatchReadiness,
+} from '../../data/fcs/cutting/production-material-prep.ts'
 
 function setTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
   setRuntimeTaskAssignMode(taskId, mode, by)
@@ -84,6 +88,85 @@ function batchDispatch(
     dispatchPriceUnit,
     priceDiffReason,
   })
+}
+
+function getDispatchMaterialPrepChecks(tasks: DispatchTask[]): MaterialPrepDispatchReadiness[] {
+  return tasks
+    .map((task) => getMaterialPrepDispatchReadinessForTask(task))
+    .filter((check) => check.hasMaterialPrepScope)
+}
+
+function isMaterialPrepReadyForDispatch(checks: MaterialPrepDispatchReadiness[]): boolean {
+  return checks.every((check) => check.ready)
+}
+
+function formatPrepQty(value: number, unit: string): string {
+  return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit}`
+}
+
+function formatMaterialPrepDispatchError(checks: MaterialPrepDispatchReadiness[]): string {
+  const blockingChecks = checks.filter((check) => !check.ready)
+  if (!blockingChecks.length) return ''
+  return [
+    '配料前置未满足，暂不可派单。',
+    ...blockingChecks.map((check) => `【${check.taskNo} / ${check.taskName}】${check.summaryText}`),
+  ].join('\n')
+}
+
+function renderMaterialPrepDispatchPanel(checks: MaterialPrepDispatchReadiness[]): string {
+  if (!checks.length) return ''
+  return `
+    <div class="rounded-md border bg-muted/20 p-3 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm font-medium">配料前置校验</p>
+        <span class="text-xs text-muted-foreground">按任务对应物料明细判断，未配齐不可派单</span>
+      </div>
+      ${checks.map((check) => {
+        const tone = check.ready
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'border-amber-200 bg-amber-50 text-amber-800'
+        const visibleLines = check.lines.slice(0, 8)
+        return `
+          <div class="rounded-md border ${tone} p-2">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span class="font-medium">${escapeHtml(check.taskNo)} / ${escapeHtml(check.taskName)}</span>
+              <span>${check.ready ? '配料已满足' : `未配齐 ${check.blockingLineCount} 行`}</span>
+            </div>
+            <div class="mt-2 overflow-x-auto rounded border bg-white/70">
+              <table class="w-full min-w-[720px] text-left text-xs">
+                <thead class="text-muted-foreground">
+                  <tr>
+                    <th class="px-2 py-1">物料</th>
+                    <th class="px-2 py-1">需要</th>
+                    <th class="px-2 py-1">已配</th>
+                    <th class="px-2 py-1">缺口</th>
+                    <th class="px-2 py-1">库存</th>
+                    <th class="px-2 py-1">上游</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${visibleLines.map((line) => `
+                    <tr class="border-t">
+                      <td class="px-2 py-1">
+                        <div class="font-medium text-foreground">${escapeHtml(line.materialName)}</div>
+                        <div class="text-muted-foreground">${escapeHtml(line.materialSku)} / ${escapeHtml(line.color)} / ${escapeHtml(line.spec)}</div>
+                      </td>
+                      <td class="px-2 py-1">${formatPrepQty(line.requiredQty, line.unit)}</td>
+                      <td class="px-2 py-1">${formatPrepQty(line.confirmedPrepQty, line.unit)}</td>
+                      <td class="px-2 py-1 ${line.ready ? 'text-emerald-700' : 'font-medium text-amber-800'}">${formatPrepQty(line.remainingPrepQty, line.unit)}</td>
+                      <td class="px-2 py-1">${formatPrepQty(line.availableStockQty, line.unit)}</td>
+                      <td class="px-2 py-1">${escapeHtml(line.upstreamProgressStatus)}${line.upstreamDocumentNo ? ` / ${escapeHtml(line.upstreamDocumentNo)}` : ''}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+            ${check.lines.length > visibleLines.length ? `<div class="mt-1 text-xs text-muted-foreground">另有 ${check.lines.length - visibleLines.length} 行物料未展开显示。</div>` : ''}
+          </div>
+        `
+      }).join('')}
+    </div>
+  `
 }
 
 function getDispatchSingleTask(): DispatchTask | null {
@@ -320,6 +403,13 @@ function applyAutoAssign(): void {
       continue
     }
 
+    const materialPrepChecks = getDispatchMaterialPrepChecks([task])
+    if (!isMaterialPrepReadyForDispatch(materialPrepChecks)) {
+      skippedCount += 1
+      skippedFailedCount += 1
+      continue
+    }
+
     const deadlineDays = Math.max(1, Number(config.taskDeadlineDays) || 7)
     const taskDeadline = new Date()
     taskDeadline.setDate(taskDeadline.getDate() + deadlineDays)
@@ -378,6 +468,12 @@ function confirmDirectDispatch(): void {
   const validation = getDispatchDialogValidation(tasks)
   if (!validation.valid || validation.dispatchPrice == null) {
     state.dispatchDialogError = validation.acceptanceSlaMissingReason || '请先补齐派单必填信息'
+    return
+  }
+
+  const materialPrepChecks = getDispatchMaterialPrepChecks(tasks)
+  if (!isMaterialPrepReadyForDispatch(materialPrepChecks)) {
+    state.dispatchDialogError = formatMaterialPrepDispatchError(materialPrepChecks)
     return
   }
 
@@ -688,6 +784,8 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
   const includesSewingTask = tasks.some((task) => isRuntimeSewingTask(task))
   const selectionValidation = validateRuntimeBatchDispatchSelection(tasks.map((task) => task.taskId))
   const validation = getDispatchDialogValidation(tasks)
+  const materialPrepChecks = getDispatchMaterialPrepChecks(tasks)
+  const materialPrepReady = isMaterialPrepReadyForDispatch(materialPrepChecks)
   const detailSupported = !isBatch && supportsDetailAssignment(refTask)
   const detailMode = detailSupported && state.dispatchForm.mode === 'DETAIL'
   const groups = detailSupported ? getDirectDispatchGroups(refTask) : []
@@ -736,6 +834,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
       : '--'
   const selectionError =
     state.dispatchDialogError
+    ?? (materialPrepReady ? null : formatMaterialPrepDispatchError(materialPrepChecks))
     ?? (!validation.acceptanceSlaReady && validation.acceptanceSlaMissingReason
       ? validation.acceptanceSlaMissingReason
       : !selectionValidation.valid
@@ -752,6 +851,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
   const canSubmit =
     selectionValidation.valid &&
     validation.valid &&
+    materialPrepReady &&
     (detailMode ? groups.length > 0 && detailAssignments.length === groups.length : state.dispatchForm.factoryId.trim() !== '') &&
     detailMainFactorySelected &&
     !Boolean(selectedTaskConstraint?.hardBlocked) &&
@@ -798,9 +898,11 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
 
           ${
             selectionError
-              ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">${escapeHtml(selectionError)}</div>`
+              ? `<div class="whitespace-pre-line rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">${escapeHtml(selectionError)}</div>`
               : ''
           }
+
+          ${renderMaterialPrepDispatchPanel(materialPrepChecks)}
 
           ${
             includesSewingTask

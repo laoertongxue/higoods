@@ -8,6 +8,7 @@ export function isProductionDialogOpen(): boolean {
     state.demandGenerateConfirmOpen ||
     state.ordersDemandSnapshotId !== null ||
     state.ordersLogsId !== null ||
+    state.ordersBreakdownReadinessOrderId !== null ||
     state.materialDraftOrderId !== null ||
     state.materialDraftAddDraftId !== null ||
     state.planEditOrderId !== null ||

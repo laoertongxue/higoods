@@ -58,6 +58,7 @@ import {
 import {
   getOrderMergedAuditLogs,
   renderMaterialDraftDrawer,
+  renderOrderBreakdownReadinessDialog,
 } from './orders-domain.ts'
 import {
   getProductionConfirmationByOrderId,
@@ -1140,6 +1141,9 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           }" title="${escapeHtml(breakdownDisabledReason)}" data-prod-action="breakdown-order" data-order-id="${escapeHtml(
             order.productionOrderId,
           )}">拆解任务</button>
+          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-breakdown-readiness" data-order-id="${escapeHtml(
+            order.productionOrderId,
+          )}">查看物料检查</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(
             order.productionOrderId,
           )}">查看技术包快照</button>
@@ -1276,6 +1280,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
       ${renderOrderDetailTabContent(order)}
 
       ${renderMaterialDraftDrawer()}
+      ${renderOrderBreakdownReadinessDialog()}
       ${renderDetailLogsDialog(order)}
       ${renderDetailSimulateDialog(order)}
       ${renderDetailSimulateConfirmDialog(order)}

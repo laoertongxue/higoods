@@ -2,6 +2,7 @@ import { findStyleArchiveByCode } from '../pcs-style-archive-repository.ts'
 import {
   getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionContentById,
+  listTechnicalDataVersionsByStyleId,
 } from '../pcs-technical-data-version-repository.ts'
 import type { StyleArchiveShellRecord } from '../pcs-style-archive-types.ts'
 import type { ProductionDemand } from './production-demands.ts'
@@ -44,6 +45,21 @@ export interface DemandCurrentTechPackSource {
   style: StyleArchiveShellRecord
   record: TechnicalDataVersionRecord
   content: TechnicalDataVersionContent
+}
+
+export interface DemandPublishedTechPackVersionOption {
+  styleId: string
+  styleCode: string
+  styleName: string
+  technicalVersionId: string
+  technicalVersionCode: string
+  versionLabel: string
+  versionNo: number
+  publishedAt: string
+  publishedBy: string
+  completenessScore: number
+  isCurrentTechPackVersion: boolean
+  isDefaultVersion: boolean
 }
 
 const IMAGE_PLACEHOLDER_MARKERS = ['/placeholder.svg', 'picsum', 'unsplash', 'dummyimage', 'loremflickr']
@@ -771,6 +787,58 @@ export function resolveCurrentTechPackSourceForDemand(
   }
 }
 
+export function listPublishedTechPackVersionOptionsForDemand(
+  demand: Pick<ProductionDemand, 'spuCode'>,
+): DemandPublishedTechPackVersionOption[] {
+  const style = findStyleArchiveByCode(demand.spuCode)
+  if (!style) return []
+
+  const publishedRecords = listTechnicalDataVersionsByStyleId(style.styleId)
+    .filter((record) => record.versionStatus === 'PUBLISHED')
+    .filter((record) => Boolean(getTechnicalDataVersionContentById(record.technicalVersionId)))
+  const defaultVersionId = publishedRecords[0]?.technicalVersionId || ''
+
+  return publishedRecords.map((record) => ({
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    styleName: style.styleName,
+    technicalVersionId: record.technicalVersionId,
+    technicalVersionCode: record.technicalVersionCode,
+    versionLabel: record.versionLabel,
+    versionNo: record.versionNo,
+    publishedAt: record.publishedAt,
+    publishedBy: record.publishedBy,
+    completenessScore: record.completenessScore,
+    isCurrentTechPackVersion: style.currentTechPackVersionId === record.technicalVersionId,
+    isDefaultVersion: defaultVersionId === record.technicalVersionId,
+  }))
+}
+
+export function resolvePublishedTechPackSourceForDemand(
+  demand: Pick<ProductionDemand, 'spuCode'>,
+  technicalVersionId?: string,
+): DemandCurrentTechPackSource | null {
+  const style = findStyleArchiveByCode(demand.spuCode)
+  if (!style) return null
+
+  const records = listTechnicalDataVersionsByStyleId(style.styleId).filter(
+    (record) => record.versionStatus === 'PUBLISHED',
+  )
+  const record = technicalVersionId
+    ? records.find((item) => item.technicalVersionId === technicalVersionId)
+    : records[0]
+  if (!record) return null
+
+  const content = getTechnicalDataVersionContentById(record.technicalVersionId)
+  if (!content) return null
+
+  return {
+    style,
+    record,
+    content,
+  }
+}
+
 export function getDemandCurrentTechPackInfo(
   demand: Pick<ProductionDemand, 'spuCode'>,
 ): DemandCurrentTechPackInfo {
@@ -872,15 +940,20 @@ export function buildProductionOrderTechPackSnapshot(input: {
   demand: Pick<ProductionDemand, 'spuCode'> & Partial<Pick<ProductionDemand, 'spuName' | 'skuLines' | 'techPackVersionLabel' | 'techPackStatus'>>
   snapshotAt: string
   snapshotBy: string
+  technicalVersionId?: string
 }): ProductionOrderTechPackSnapshot {
-  const source = resolveCurrentTechPackSourceForDemand(input.demand)
+  const source = resolvePublishedTechPackSourceForDemand(input.demand, input.technicalVersionId)
   if (!source) {
     const info = getDemandCurrentTechPackInfo(input.demand)
-    throw new Error(info.blockReason || '当前需求未关联可用技术包版本')
+    throw new Error(
+      input.technicalVersionId
+        ? '所选技术包版本不是该款式下已发布的可用版本'
+        : info.blockReason || '当前需求未关联已发布的可用技术包版本',
+    )
   }
 
   if (source.record.versionStatus !== 'PUBLISHED') {
-    throw new Error('当前生效技术包版本未发布')
+    throw new Error('所选技术包版本未发布')
   }
 
   return alignSnapshotWithDemandSkuLines(buildSnapshotFromSource({

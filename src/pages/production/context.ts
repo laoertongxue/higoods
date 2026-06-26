@@ -27,6 +27,7 @@ import { legalEntities } from '../../data/fcs/legal-entities'
 import {
   cloneProductionOrderTechPackSnapshot,
   getDemandCurrentTechPackInfo,
+  listPublishedTechPackVersionOptionsForDemand,
 } from '../../data/fcs/production-tech-pack-snapshot-builder'
 import {
   getTechnicalDataVersionById,
@@ -83,6 +84,9 @@ import {
   type MaterialRequestDraft,
   type MaterialMode,
 } from '../../data/fcs/material-request-drafts'
+import {
+  getMaterialPrepBreakdownReadinessForOrder,
+} from '../../data/fcs/cutting/production-material-prep'
 
 applyQualitySeedBootstrap()
 
@@ -186,6 +190,7 @@ interface ProductionState {
   demandBatchDialogOpen: boolean
   demandSingleGenerateId: string | null
   demandGenerateConfirmOpen: boolean
+  demandGenerateTechPackVersionId: string
   demandSelectedFactoryId: string
   demandTierFilter: FactoryTier | 'ALL'
   demandTypeFilter: FactoryType | 'ALL'
@@ -212,6 +217,7 @@ interface ProductionState {
   ordersDemandSnapshotId: string | null
   ordersLogsId: string | null
   ordersActionMenuId: string | null
+  ordersBreakdownReadinessOrderId: string | null
   ordersFromDemandDialogOpen: boolean
   ordersFromDemandSelectedIds: Set<string>
   materialDraftOrderId: string | null
@@ -409,6 +415,10 @@ function cloneOrder(order: ProductionOrder): ProductionOrder {
       ...order.mainFactorySnapshot,
       tags: [...order.mainFactorySnapshot.tags],
     },
+    mainFactorySnapshots: order.mainFactorySnapshots?.map((factory) => ({
+      ...factory,
+      tags: [...factory.tags],
+    })),
     techPackSnapshot: cloneProductionOrderTechPackSnapshot(order.techPackSnapshot),
     demandSnapshot: {
       ...order.demandSnapshot,
@@ -860,7 +870,8 @@ function canOrderStartTaskBreakdown(order: ProductionOrder): boolean {
   return (
     getOrderBusinessTechPackStatus(order.techPackSnapshot) === 'RELEASED' &&
     statusAllowsBreakdown &&
-    !order.taskBreakdownSummary.isBrokenDown
+    !order.taskBreakdownSummary.isBrokenDown &&
+    getMaterialPrepBreakdownReadinessForOrder(order.productionOrderId).ready
   )
 }
 
@@ -870,6 +881,8 @@ function getOrderTaskBreakdownDisabledReason(order: ProductionOrder): string {
   }
   if (order.taskBreakdownSummary.isBrokenDown) return '已拆解任务'
   if (order.status !== 'READY_FOR_BREAKDOWN' && order.status !== 'WAIT_ASSIGNMENT') return '当前状态不支持拆解'
+  const breakdownReadiness = getMaterialPrepBreakdownReadinessForOrder(order.productionOrderId)
+  if (!breakdownReadiness.ready) return breakdownReadiness.summaryText
   return ''
 }
 
@@ -967,23 +980,28 @@ function getTechPackSnapshotForDemand(demand: ProductionDemand): {
   completenessScore: number
 } {
   const current = getDemandCurrentTechPackInfo(demand)
-  const mappedStatus: ProductionDemand['techPackStatus'] = current.canConvertToProductionOrder ? 'RELEASED' : 'INCOMPLETE'
-  const display = getDemandTechPackDisplayMeta(current)
+  const publishedOptions = listPublishedTechPackVersionOptionsForDemand(demand)
+  const defaultOption = publishedOptions[0] ?? null
+  const hasPublishedVersion = publishedOptions.length > 0
+  const mappedStatus: ProductionDemand['techPackStatus'] = hasPublishedVersion ? 'RELEASED' : 'INCOMPLETE'
+  const display = hasPublishedVersion
+    ? { label: '已发布可选', className: 'bg-green-100 text-green-700' }
+    : getDemandTechPackDisplayMeta(current)
 
   return {
     status: mappedStatus,
-    versionCode: current.currentTechPackVersionCode,
-    versionLabel: current.currentTechPackVersionLabel || '',
+    versionCode: defaultOption?.technicalVersionCode || current.currentTechPackVersionCode,
+    versionLabel: defaultOption?.versionLabel || current.currentTechPackVersionLabel || '',
     displayStatusLabel: display.label,
     displayStatusClassName: display.className,
-    publishedAt: current.publishedAt,
+    publishedAt: defaultOption?.publishedAt || current.publishedAt,
     canGenerate:
-      current.canConvertToProductionOrder &&
+      hasPublishedVersion &&
       !demand.hasProductionOrder &&
       demand.productionOrderId === null &&
       demand.demandStatus === 'PENDING_CONVERT',
-    blockReason: current.blockReason,
-    completenessScore: current.completenessScore,
+    blockReason: hasPublishedVersion ? '' : current.blockReason || '该款式暂无已发布技术包版本',
+    completenessScore: defaultOption?.completenessScore ?? current.completenessScore,
   }
 }
 
@@ -1650,8 +1668,10 @@ function closeAllProductionDialogs(): void {
   state.demandBatchDialogOpen = false
   state.demandSingleGenerateId = null
   state.demandGenerateConfirmOpen = false
+  state.demandGenerateTechPackVersionId = ''
   state.ordersDemandSnapshotId = null
   state.ordersLogsId = null
+  state.ordersBreakdownReadinessOrderId = null
   state.ordersFromDemandDialogOpen = false
   state.ordersFromDemandSelectedIds = new Set<string>()
   state.materialDraftOrderId = null
@@ -1687,6 +1707,7 @@ const state: ProductionState = {
   demandBatchDialogOpen: false,
   demandSingleGenerateId: null,
   demandGenerateConfirmOpen: false,
+  demandGenerateTechPackVersionId: '',
   demandSelectedFactoryId: '',
   demandTierFilter: 'ALL',
   demandTypeFilter: 'ALL',
@@ -1713,6 +1734,7 @@ const state: ProductionState = {
   ordersDemandSnapshotId: null,
   ordersLogsId: null,
   ordersActionMenuId: null,
+  ordersBreakdownReadinessOrderId: null,
   ordersFromDemandDialogOpen: false,
   ordersFromDemandSelectedIds: new Set<string>(),
   materialDraftOrderId: null,
@@ -1914,6 +1936,7 @@ export {
   getBatchGeneratableDemandIds,
   listOrdersFromDemandGeneratableDemands,
   getOrdersFromDemandSelectedIds,
+  listPublishedTechPackVersionOptionsForDemand,
   getFilteredOrders,
   getPaginatedOrders,
   getPlanFactoryOptions,

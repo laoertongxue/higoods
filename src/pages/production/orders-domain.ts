@@ -59,6 +59,10 @@ import {
 import {
   buildProductionConfirmationPrintLink,
 } from '../../data/fcs/fcs-route-links.ts'
+import {
+  getMaterialPrepBreakdownReadinessForOrder,
+  type MaterialPrepBreakdownLineCheck,
+} from '../../data/fcs/cutting/production-material-prep.ts'
 
 function getOrderConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -92,6 +96,151 @@ function getOrderConfirmationPreviewState(order: ProductionOrder): {
       ? `${printable.reason}，不能打印生产确认单`
       : '工厂分配完成后可打印',
   }
+}
+
+function renderOrderTextActionButton(options: {
+  label: string
+  orderId?: string
+  action?: string
+  nav?: string
+  disabled?: boolean
+  title?: string
+}): string {
+  const disabled = Boolean(options.disabled)
+  return `
+    <button
+      type="button"
+      class="inline-flex min-h-8 items-center justify-center rounded-md border px-2.5 py-1 text-xs ${
+        disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-muted'
+      }"
+      ${options.action ? `data-prod-action="${escapeHtml(options.action)}"` : ''}
+      ${options.orderId ? `data-order-id="${escapeHtml(options.orderId)}"` : ''}
+      ${options.nav ? `data-nav="${escapeHtml(options.nav)}"` : ''}
+      ${options.title ? `title="${escapeHtml(options.title)}"` : ''}
+      ${disabled ? 'disabled aria-disabled="true"' : ''}
+    >
+      ${escapeHtml(options.label)}
+    </button>
+  `
+}
+
+function formatBreakdownQty(value: number, unit: string): string {
+  return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}${unit}`
+}
+
+function getBreakdownLineGapQty(line: MaterialPrepBreakdownLineCheck): number {
+  return Math.max(0, line.requiredQty - line.availableStockQty)
+}
+
+function getUpstreamProgressNav(line: MaterialPrepBreakdownLineCheck): string {
+  if (line.upstreamSourceType === '印花' || line.upstreamProgressStatus === '印花中') return '/fcs/process/print-orders'
+  if (line.upstreamSourceType === '染色' || line.upstreamProgressStatus === '染色中') return '/fcs/process/dye-orders'
+  if (line.upstreamSourceType === '采购' || line.upstreamProgressStatus === '采购中') return '/pms/purchase-order'
+  return ''
+}
+
+function renderBreakdownLineStatus(line: MaterialPrepBreakdownLineCheck): string {
+  if (line.ready) return renderBadge('可拆解', 'bg-green-100 text-green-700')
+  return renderBadge('暂不可拆解', 'bg-amber-100 text-amber-700')
+}
+
+function renderBreakdownReadinessRows(lines: MaterialPrepBreakdownLineCheck[]): string {
+  if (lines.length === 0) return renderEmptyRow(8, '暂无 BOM 物料明细')
+
+  return lines
+    .map((line) => {
+      const gapQty = getBreakdownLineGapQty(line)
+      const upstreamNav = getUpstreamProgressNav(line)
+      return `
+        <tr class="border-b last:border-0 align-top">
+          <td class="px-3 py-2">
+            <div class="font-medium">${escapeHtml(line.materialName)}</div>
+            <div class="font-mono text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml([line.color, line.spec].filter(Boolean).join(' / ') || '-')}</div>
+          </td>
+          <td class="px-3 py-2 text-right">${escapeHtml(formatBreakdownQty(line.requiredQty, line.unit))}</td>
+          <td class="px-3 py-2">
+            <div class="text-right font-medium">${escapeHtml(formatBreakdownQty(line.availableStockQty, line.unit))}</div>
+            <div class="text-right text-xs text-muted-foreground">${escapeHtml(line.stockWarehouseName)}</div>
+          </td>
+          <td class="px-3 py-2 text-right ${gapQty > 0 ? 'text-amber-700' : 'text-green-700'}">${escapeHtml(formatBreakdownQty(gapQty, line.unit))}</td>
+          <td class="px-3 py-2">
+            <div>${escapeHtml(line.upstreamSourceType)}</div>
+            <div class="font-mono text-xs text-muted-foreground">${escapeHtml(line.upstreamDocumentNo || '-')}</div>
+          </td>
+          <td class="px-3 py-2">
+            <div>${renderBadge(line.upstreamProgressStatus, line.upstreamProgressStatus === '已到仓可配' || line.upstreamProgressStatus === '无需跟进' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700')}</div>
+            ${
+              upstreamNav
+                ? `<button class="mt-2 rounded border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(upstreamNav)}">查看进度</button>`
+                : ''
+            }
+          </td>
+          <td class="px-3 py-2">${renderBreakdownLineStatus(line)}</td>
+          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(line.blockingReason || '库存和上游状态满足拆解前置条件')}</td>
+        </tr>
+      `
+    })
+    .join('')
+}
+
+function renderOrderBreakdownReadinessDialog(): string {
+  const order = getOrderById(state.ordersBreakdownReadinessOrderId)
+  if (!order) return ''
+
+  const readiness = getMaterialPrepBreakdownReadinessForOrder(order.productionOrderId)
+  const readyCount = readiness.lines.filter((line) => line.ready).length
+  const blockingCount = readiness.lines.length - readyCount
+
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
+      <section class="w-full max-w-6xl rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+        <header class="flex flex-wrap items-start justify-between gap-3 border-b px-6 py-4">
+          <div>
+            <h3 class="text-lg font-semibold">拆解前物料库存检查</h3>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(order.productionOrderId)} · ${escapeHtml(order.demandSnapshot.spuCode)} · ${escapeHtml(order.demandSnapshot.spuName)}</p>
+          </div>
+          <button class="rounded-md border px-3 py-1 text-xs hover:bg-muted" data-prod-action="close-breakdown-readiness">关闭</button>
+        </header>
+        <div class="max-h-[72vh] space-y-4 overflow-y-auto px-6 py-5">
+          <div class="grid gap-3 md:grid-cols-4">
+            ${renderStatCard('BOM物料行', readiness.lines.length)}
+            ${renderStatCard('可拆解物料行', readyCount, 'text-green-600')}
+            ${renderStatCard('不足/待上游', blockingCount, blockingCount > 0 ? 'text-amber-600' : 'text-green-600')}
+            ${renderStatCard('检查结果', readiness.ready ? '可拆解' : '暂不可拆解', readiness.ready ? 'text-green-600' : 'text-amber-600')}
+          </div>
+          <section class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            ${escapeHtml(readiness.summaryText)}
+          </section>
+          <section class="overflow-hidden rounded-md border">
+            <div class="max-h-[420px] overflow-auto">
+              <table class="w-full min-w-[1080px] text-sm">
+                <thead class="sticky top-0 z-10 border-b bg-muted/80 text-xs text-muted-foreground">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-medium">物料</th>
+                    <th class="px-3 py-2 text-right font-medium">需求数量</th>
+                    <th class="px-3 py-2 text-right font-medium">仓库库存</th>
+                    <th class="px-3 py-2 text-right font-medium">缺口</th>
+                    <th class="px-3 py-2 text-left font-medium">上游单据</th>
+                    <th class="px-3 py-2 text-left font-medium">上游进度</th>
+                    <th class="px-3 py-2 text-left font-medium">结论</th>
+                    <th class="px-3 py-2 text-left font-medium">原因</th>
+                  </tr>
+                </thead>
+                <tbody>${renderBreakdownReadinessRows(readiness.lines)}</tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
+          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-breakdown-readiness">关闭</button>
+          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white ${
+            readiness.ready && canOrderStartTaskBreakdown(order) ? 'hover:bg-blue-700' : 'pointer-events-none opacity-50'
+          }" title="${escapeHtml(readiness.ready ? '' : readiness.summaryText)}" data-prod-action="breakdown-order" data-order-id="${escapeHtml(order.productionOrderId)}">确认拆解任务</button>
+        </footer>
+      </section>
+    </div>
+  `
 }
 
 function renderOrderRiskFlags(flags: RiskFlag[]): string {
@@ -754,6 +903,7 @@ export function renderProductionOrdersPage(): string {
   )
   const ordersFromDemandDialog = renderOrdersFromDemandDialog()
   const confirmDialog = renderDemandConfirmDialog()
+  const breakdownReadinessDialog = renderOrderBreakdownReadinessDialog()
 
   return `
     <div class="space-y-4">
@@ -976,7 +1126,7 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">主工厂</th>
                 <th class="min-w-[150px] px-3 py-3 text-left font-medium">风险</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">最近更新</th>
-                <th class="sticky right-0 z-20 min-w-[160px] bg-muted/50 px-3 py-3 text-left font-medium">操作</th>
+                <th class="sticky right-0 z-20 min-w-[360px] bg-muted/50 px-3 py-3 text-left font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -994,6 +1144,61 @@ export function renderProductionOrdersPage(): string {
                         const confirmationPreviewState = getOrderConfirmationPreviewState(order)
                         const breakdownDisabledReason = getOrderTaskBreakdownDisabledReason(order)
                         const canBreakdownOrder = canOrderStartTaskBreakdown(order)
+                        const orderActionButtons = [
+                          renderOrderTextActionButton({
+                            label: '详情',
+                            action: 'open-order-detail',
+                            orderId: order.productionOrderId,
+                          }),
+                          renderOrderTextActionButton({
+                            label: '需求快照',
+                            action: 'open-orders-demand-snapshot',
+                            orderId: order.productionOrderId,
+                          }),
+                          renderOrderTextActionButton({
+                            label: '日志',
+                            action: 'open-orders-logs',
+                            orderId: order.productionOrderId,
+                          }),
+                          renderOrderTextActionButton({
+                            label: '技术包快照',
+                            action: 'open-order-tech-pack-snapshot',
+                            orderId: order.productionOrderId,
+                          }),
+                          renderOrderTextActionButton({
+                            label: '物料检查',
+                            action: 'open-breakdown-readiness',
+                            orderId: order.productionOrderId,
+                          }),
+                          renderOrderTextActionButton({
+                            label: '拆解任务',
+                            action: 'breakdown-order',
+                            orderId: order.productionOrderId,
+                            disabled: !canBreakdownOrder,
+                            title: breakdownDisabledReason,
+                          }),
+                          renderOrderTextActionButton({
+                            label: '打印确认单',
+                            nav: confirmationPreviewState.href,
+                            disabled: !confirmationPreviewState.available,
+                            title: confirmationPreviewState.title,
+                          }),
+                          renderOrderTextActionButton({
+                            label: '分配中心',
+                            action: 'open-orders-dispatch-center',
+                            orderId: order.productionOrderId,
+                          }),
+                          renderOrderTextActionButton({
+                            label: '分配看板',
+                            action: 'open-orders-dispatch-board',
+                            orderId: order.productionOrderId,
+                          }),
+                          renderOrderTextActionButton({
+                            label: '领料草稿',
+                            action: 'open-material-draft-drawer',
+                            orderId: order.productionOrderId,
+                          }),
+                        ].join('')
 
                         return `
                           <tr class="cursor-pointer border-b last:border-0 hover:bg-muted/30" data-prod-action="open-order-detail" data-order-id="${order.productionOrderId}">
@@ -1068,67 +1273,9 @@ export function renderProductionOrdersPage(): string {
                             <td class="px-3 py-3 text-sm text-muted-foreground">
                               ${escapeHtml(safeText(lastLog?.at.split(' ')[0] ?? order.updatedAt.split(' ')[0]))}
                             </td>
-                            <td class="sticky right-0 ${state.ordersActionMenuId === order.productionOrderId ? 'z-40' : 'z-10'} bg-background px-3 py-3" data-prod-action="noop">
-                              <div class="flex items-center gap-1">
-                                <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="open-order-detail" data-order-id="${order.productionOrderId}">
-                                  <i data-lucide="eye" class="h-4 w-4"></i>
-                                </button>
-                                <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="open-orders-demand-snapshot" data-order-id="${order.productionOrderId}">
-                                  <i data-lucide="file-text" class="h-4 w-4"></i>
-                                </button>
-                                <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="open-orders-logs" data-order-id="${order.productionOrderId}">
-                                  <i data-lucide="history" class="h-4 w-4"></i>
-                                </button>
-                                <div class="relative" data-prod-orders-menu-root="true">
-                                  <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="toggle-orders-more-menu" data-order-id="${order.productionOrderId}">
-                                    <i data-lucide="more-horizontal" class="h-4 w-4"></i>
-                                  </button>
-                                  ${
-                                    state.ordersActionMenuId === order.productionOrderId
-                                      ? `
-                                        <div class="absolute right-0 z-50 mt-1 min-w-[150px] rounded-md border bg-background p-1 shadow-lg">
-                                          <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(order.productionOrderId)}">
-                                            <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>
-                                            查看技术包快照
-                                          </button>
-                                          <button
-                                            class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm ${
-                                              canBreakdownOrder ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
-                                            }"
-                                            title="${escapeHtml(breakdownDisabledReason)}"
-                                            data-prod-action="breakdown-order"
-                                            data-order-id="${escapeHtml(order.productionOrderId)}"
-                                          >
-                                            <i data-lucide="split" class="mr-2 h-4 w-4"></i>
-                                            拆解任务
-                                          </button>
-                                          <button
-                                            class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm ${
-                                              confirmationPreviewState.available ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
-                                            }"
-                                            title="${escapeHtml(confirmationPreviewState.title)}"
-                                            data-nav="${escapeHtml(confirmationPreviewState.href)}"
-                                          >
-                                            <i data-lucide="printer" class="mr-2 h-4 w-4"></i>
-                                            打印生产确认单
-                                          </button>
-                                          <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-orders-dispatch-center" data-order-id="${order.productionOrderId}">
-                                            <i data-lucide="send" class="mr-2 h-4 w-4"></i>
-                                            去分配中心
-                                          </button>
-                                          <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-orders-dispatch-board" data-order-id="${order.productionOrderId}">
-                                            <i data-lucide="layout-grid" class="mr-2 h-4 w-4"></i>
-                                            去分配看板
-                                          </button>
-                                          <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-material-draft-drawer" data-order-id="${order.productionOrderId}">
-                                            <i data-lucide="boxes" class="mr-2 h-4 w-4"></i>
-                                            领料需求草稿
-                                          </button>
-                                        </div>
-                                      `
-                                      : ''
-                                  }
-                                </div>
+                            <td class="sticky right-0 z-10 min-w-[360px] bg-background px-3 py-4 align-top" data-prod-action="noop">
+                              <div class="flex max-w-[360px] flex-wrap items-center gap-2">
+                                ${orderActionButtons}
                               </div>
                             </td>
                           </tr>
@@ -1163,6 +1310,7 @@ export function renderProductionOrdersPage(): string {
       ${renderMaterialDraftDrawer()}
       ${renderOrderDemandSnapshotDrawer()}
       ${renderOrderLogsDialog()}
+      ${breakdownReadinessDialog}
       ${ordersFromDemandDialog}
       ${confirmDialog}
     </div>
@@ -1174,6 +1322,7 @@ export {
   renderOrderAssignmentOverview,
   renderOrderDemandSnapshotDrawer,
   renderOrderLogsDialog,
+  renderOrderBreakdownReadinessDialog,
   getOrderMaterialIndicators,
   getOrderSplitAuditLogs,
   getOrderMergedAuditLogs,
