@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工厂生产协同系统 - 配料管理产品设计方案 V2（基于代码）</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #ffffff; --card: #f8f9fa; --border: #e2e8f0; --text: #1a202c;
+      --muted: #64748b; --primary: #2563eb; --success: #059669; --warning: #d97706;
+      --danger: #dc2626; --info: #0891b2;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; max-width: 1024px; margin: 0 auto; padding: 32px 24px 80px; }
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; padding-bottom: 16px; border-bottom: 2px solid var(--border); }
+    h2 { font-size: 22px; font-weight: 600; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 18px; font-weight: 600; margin: 32px 0 12px; color: var(--primary); }
+    h4 { font-size: 15px; font-weight: 600; margin: 20px 0 8px; }
+    p { margin: 8px 0; }
+    .meta { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; margin: 16px 0; }
+    .card h3 { margin-top: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+    th, td { border: 1px solid var(--border); padding: 10px 14px; text-align: left; }
+    th { background: #f1f5f9; font-weight: 600; }
+    tr:hover { background: #f8fafc; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; margin: 0 4px; }
+    .badge-success { background: #d1fae5; color: #065f46; } .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger { background: #fee2e2; color: #991b1b; } .badge-info { background: #cffafe; color: #155e75; }
+    .badge-neutral { background: #f1f5f9; color: #475569; } .badge-primary { background: #dbeafe; color: #1e40af; }
+    ul, ol { margin: 8px 0 8px 24px; } li { margin: 4px 0; }
+    .mermaid { margin: 20px 0; padding: 16px; background: #fafbfc; border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; }
+    .toc { line-height: 2; } .toc a { color: var(--primary); text-decoration: none; } .toc a:hover { text-decoration: underline; }
+    blockquote { border-left: 4px solid var(--info); background: #f0fdfa; margin: 16px 0; padding: 12px 16px; border-radius: 0 6px 6px 0; font-size: 14px; }
+    .highlight { background: #fef08a; padding: 2px 4px; border-radius: 3px; }
+    code { background: #f1f5f9; padding: 1px 6px; border-radius: 3px; font-size: 13px; font-family: "SF Mono","Fira Code",monospace; }
+    pre { background: #f1f5f9; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<h1>工厂生产协同系统 — 配料管理产品设计方案 V2</h1>
+<p class="meta">
+  版本：v2.0（基于代码） &nbsp;|&nbsp; 日期：2026-06-26 &nbsp;|&nbsp; 归属：FCS &nbsp;|&nbsp; 代码规模：~9500 行
+</p>
+
+<h2>目录</h2>
+<ol class="toc">
+  <li><a href="#s1">业务背景与设计目标</a></li>
+  <li><a href="#s2">系统架构概览</a></li>
+  <li><a href="#s3">核心数据模型</a></li>
+  <li><a href="#s4">五大配料类型与物料路由</a></li>
+  <li><a href="#s5">配料记录生命周期（5 态状态机）</a></li>
+  <li><a href="#s6">配料单状态机（6 态）</a></li>
+  <li><a href="#s7">领料单状态机（5 态）</a></li>
+  <li><a href="#s8">配料数量计算规则</a></li>
+  <li><a href="#s9">车缝配料与裁片放行约束</a></li>
+  <li><a href="#s10">完整业务流程时序</a></li>
+  <li><a href="#s11">暂存区管理</a></li>
+  <li><a href="#s12">页面架构与交互设计</a></li>
+  <li><a href="#s13">数据层导出 API 清单</a></li>
+  <li><a href="#s14">路由与事件分发架构</a></li>
+  <li><a href="#s15">与关联模块的交互</a></li>
+  <li><a href="#s16">代码文件清单</a></li>
+</ol>
+
+<!-- ====== 第1节 ====== -->
+<h2 id="s1">1. 业务背景与设计目标</h2>
+
+<h3>1.1 背景</h3>
+<p>印尼供应链团队分出一个专门的<span class="highlight">配料小组</span>，统一负责所有物料的配料操作。配料小组按照生产单 BOM，从各个仓库中挑出物料、拣货、放入暂存区、确认配料完成，然后通知下游来领料或配送。</p>
+<p>核心业务规则：<strong>先配料，再分配任务</strong>。配料阶段只跟 BOM 走，不绑定工厂；任务分配时才确定具体工厂并触发配送。</p>
+
+<h3>1.2 系统归属</h3>
+<p>配料管理归属 <strong>FCS（工厂生产协同系统）</strong>，作为独立一级菜单「配料管理」，包含 6 个子页面。</p>
+
+<!-- ====== 第2节 ====== -->
+<h2 id="s2">2. 系统架构概览</h2>
+
+<div class="mermaid">
+flowchart LR
+    subgraph 前端页面层
+        LIST["list.ts<br/>配料列表综合看板<br/>280行"]:::page
+        DYE["dyeing.ts<br/>染色配料<br/>1115行"]:::page
+        PRT["printing.ts<br/>印花配料<br/>1115行"]:::page
+        CUT["cutting.ts<br/>裁片配料<br/>1325行"]:::page
+        SEW["sewing.ts<br/>车缝配料<br/>1144行"]:::page
+        OTH["other.ts<br/>其他配料<br/>1115行"]:::page
+    end
+
+    subgraph 共享层
+        SHARED["shared.ts<br/>公共类型/函数<br/>64行"]:::shared
+    end
+
+    subgraph 数据层
+        DATA["production-material-prep.ts<br/>3323行 核心数据模型<br/>56个导出符号"]:::data
+        CUTR["cut-piece-release.ts<br/>裁片放行数据"]:::data
+        EVENTS["cutting-runtime-event-ledger.ts<br/>运行时事件"]:::data
+    end
+
+    LIST --> SHARED
+    DYE --> SHARED --> DATA
+    PRT --> SHARED
+    CUT --> DATA
+    SEW --> DATA --> CUTR
+    OTH --> DATA
+
+    classDef page fill:#dbeafe,stroke:#3b82f6
+    classDef shared fill:#fef3c7,stroke:#f59e0b
+    classDef data fill:#d1fae5,stroke:#059669
+</div>
+
+<!-- ====== 第3节 ====== -->
+<h2 id="s3">3. 核心数据模型</h2>
+
+<h3>3.1 四层数据层次</h3>
+<pre>
+配料单 (MaterialPrepOrder)          — 按生产单组织，一个生产单一张配料单
+  └── 物料行 (MaterialPrepLine)      — 每个物料一行，含需求/库存/约束/上游进度
+       └── 配料记录 (MaterialPrepRecord) — 多批次配料，每条独立生命周期
+            ├── 配料记录明细 (MaterialPrepRecordItem)  — 记录内物料明细
+            ├── 领料记录 (PickupRecord)                — 下游领料后的记录
+            ├── 打回记录 (PrepRejectRecord)             — 下游打回中转仓的记录
+            └── 暂存记录 (MaterialPrepStagingRecord)    — 入暂存区的追溯记录
+</pre>
+
+<h3>3.2 关键类型定义（基于代码）</h3>
+
+<table>
+  <tr><th>类型</th><th>代码位置</th><th>值</th></tr>
+  <tr><td><code>MaterialPrepRecordStatus</code></td><td><code>#L27</code></td><td>DRAFT | PICKED | STAGED | CONFIRMED | REJECTED</td></tr>
+  <tr><td><code>MaterialPrepOrderStatus</code></td><td><code>#L29-L35</code></td><td>NEED_PREP_NO_STOCK | NEED_PREP_PARTIAL_STOCK | NEED_PREP_ALL_STOCK | REJECTED_REWORK | READY | CLOSED</td></tr>
+  <tr><td><code>PickupOrderStatus</code></td><td><code>#L36-L41</code></td><td>NOT_PICKABLE | WAIT_PICKUP | REJECTED_WAIT_WLS | PICKUP_DONE | ACTUAL_CLOSED</td></tr>
+  <tr><td><code>MaterialPrepMaterialType</code></td><td><code>#L25</code></td><td>面料 | 辅料 | 纱线 | 包材</td></tr>
+  <tr><td><code>MaterialPrepTaskType</code></td><td><code>#L28</code></td><td>裁片任务 | 印花任务 | 染色任务 | 车缝任务 | 包装任务</td></tr>
+  <tr><td><code>MaterialPrepCategory</code></td><td><code>#L706</code></td><td>染色配料 | 印花配料 | 裁片配料 | 车缝配料 | 其他配料</td></tr>
+  <tr><td><code>UpstreamSourceType</code></td><td><code>#L23</code></td><td>中转仓库存 | 辅料仓库存 | 纱线仓库存 | 包材仓库存 | 采购 | 印花 | 染色 | 无上游</td></tr>
+  <tr><td><code>MaterialStockWarehouseName</code></td><td><code>#L26</code></td><td>面料仓 | 中转仓 | 辅料仓 | 纱线仓 | 包材仓</td></tr>
+  <tr><td><code>MaterialPrepStagingRecord.status</code></td><td><code>#L203</code></td><td>暂存中 | 已确认 | 已打回</td></tr>
+</table>
+
+<h3>3.3 MaterialPrepLine 核心字段</h3>
+<table>
+  <tr><th>分类</th><th>字段</th><th>说明</th></tr>
+  <tr><td>物料标识</td><td>materialSku / materialName / materialType / color / spec / unit</td><td>物料基本属性</td></tr>
+  <tr><td>数量需求</td><td>requiredQty / confirmedPrepQty / pickedQty / remainingNeedQty</td><td>需求→已配→已领→剩余</td></tr>
+  <tr><td>库存约束</td><td>availableStockQty / stockWarehouseName / stockWarehouseArea / stockLocationCode</td><td>仓库库存信息</td></tr>
+  <tr><td>配料约束</td><td><strong>maxPrepQty</strong> / <strong>defaultPrepQty</strong> / canPrepQty / shortageQty</td><td>最大/默认/实际可配/缺料</td></tr>
+  <tr><td>车缝约束</td><td><strong>releaseQty</strong> / <strong>releaseConstraintApplied</strong></td><td>裁片放行约束（仅车缝配料）</td></tr>
+  <tr><td>上游溯源</td><td>upstreamSourceType / upstreamProgressStatus / expectedAvailableAt / upstreamProgressDetail</td><td>上游进度跟踪</td></tr>
+  <tr><td>任务关联</td><td>taskLinks（MaterialPrepTaskLink[]）</td><td>工艺绑定→已分配；分配决定→未分配</td></tr>
+</table>
+
+<!-- ====== 第4节 ====== -->
+<h2 id="s4">4. 五大配料类型与物料路由</h2>
+
+<h3>4.1 分类规则</h3>
+<p>每条物料行由 <code>classifyPrepLineType()</code>（<code>#L708</code>）根据 <code>materialType</code> + <code>upstreamSourceType</code> 自动路由：</p>
+
+<table>
+  <tr><th>配料类型</th><th>路由条件</th><th>taskLinks工厂</th><th>配货仓库</th><th>下一步</th></tr>
+  <tr><td><strong>染色配料</strong></td><td>面料 + upstreamSourceType=染色</td><td><span class="badge badge-success">已分配</span></td><td>染色厂待加工仓</td><td>加工领料</td></tr>
+  <tr><td><strong>印花配料</strong></td><td>面料 + upstreamSourceType=印花</td><td><span class="badge badge-success">已分配</span></td><td>印花厂待加工仓</td><td>加工领料</td></tr>
+  <tr><td><strong>裁片配料</strong></td><td>面料 + 无印染上游</td><td><span class="badge badge-success">已分配</span></td><td>中转仓（印染成品面料）</td><td>裁片工厂领料</td></tr>
+  <tr><td><strong>车缝配料</strong></td><td>辅料 / 纱线</td><td><span class="badge badge-warning">未分配</span></td><td>辅料仓 / 纱线仓</td><td>配送（分配决定）</td></tr>
+  <tr><td><strong>其他配料</strong></td><td>包材</td><td><span class="badge badge-warning">未分配</span></td><td>包材仓</td><td>配送（分配决定）</td></tr>
+</table>
+
+<blockquote><strong>工艺绑定 vs 分配决定：</strong>
+染色/印花/裁片任务是工艺绑定的（只能由特定类型工厂执行），因此 <code>buildTaskLink</code> 会通过 <code>resolveFactoryForTask</code> 从工厂档案解析具体工厂，标记为"已分配"。
+车缝/包装任务不绑定具体工厂类型（多个车缝厂可承接），因此保持"未分配"，等任务分配后由 <code>writeBackTaskAssignment</code> 回写。</blockquote>
+
+<h3>4.2 中转仓的位置</h3>
+<div class="mermaid">
+flowchart LR
+    FC["面料仓"] -->|调拨| DWH["染色厂待加工仓"]
+    FC -->|调拨| PWH["印花厂待加工仓"]
+    DWH --> DP["染色配料"] -->|加工领料| DWF["染色厂"]
+    PWH --> PP["印花配料"] -->|加工领料| PWF["印花厂"]
+    DWF -->|染色完成回仓| TWC["中转仓<br/>（印染成品面料存放）"]
+    PWF -->|印花完成回仓| TWC
+    FC -->|不需印染的面料| TWC
+    TWC --> CP["裁片配料"] -->|裁片工厂领料| CUT["裁片工厂"]
+</div>
+
+<!-- ====== 第5节 ====== -->
+<h2 id="s5">5. 配料记录生命周期（5 态状态机）</h2>
+
+<h3>5.1 状态定义</h3>
+<table>
+  <tr><th>状态</th><th>中文标签</th><th>操作角色</th><th>说明</th><th>Badge颜色</th></tr>
+  <tr><td>DRAFT</td><td>待拣货</td><td>配料小组 → 仓库操作员</td><td>记录刚创建，等待仓库拣货</td><td><span class="badge badge-neutral">neutral</span></td></tr>
+  <tr><td>PICKED</td><td>已拣货</td><td>仓库操作员 → 跟单人员</td><td>已从货架取出，待核实</td><td><span class="badge badge-info">info</span></td></tr>
+  <tr><td>STAGED</td><td>已入暂存区</td><td>跟单人员 → 配料小组</td><td>已核实放入指定暂存区，待确认</td><td><span class="badge badge-warning">warning</span></td></tr>
+  <tr><td>CONFIRMED</td><td>已确认</td><td>配料小组</td><td>配料完成，下游可领料/加工领料</td><td><span class="badge badge-success">success</span></td></tr>
+  <tr><td>REJECTED</td><td>已打回</td><td>下游工厂</td><td>下游打回，需仓库重新处理</td><td><span class="badge badge-danger">danger</span></td></tr>
+</table>
+
+<h3>5.2 状态机</h3>
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> DRAFT: appendAutoPrepRecordForOrder()
+
+    DRAFT --> PICKED: pickMaterialPrepRecord()
+    PICKED --> STAGED: stageMaterialPrepRecord()
+    STAGED --> CONFIRMED: confirmMaterialPrepRecord()
+
+    CONFIRMED --> REJECTED: rejectMaterialPrepRecord()
+    REJECTED --> STAGED: stageMaterialPrepRecord()
+
+    CONFIRMED --> [*]: 领料/配送完成
+</div>
+
+<h3>5.3 关键函数</h3>
+<table>
+  <tr><th>函数</th><th>代码位置</th><th>前置条件</th><th>后置</th></tr>
+  <tr><td><code>appendAutoPrepRecordForOrder</code></td><td><code>#L3078</code></td><td>订单未关闭 + canPrepQty&gt;0</td><td>DRAFT</td></tr>
+  <tr><td><code>pickMaterialPrepRecord</code></td><td><code>#L3155</code></td><td>recordStatus = DRAFT</td><td>PICKED</td></tr>
+  <tr><td><code>stageMaterialPrepRecord</code></td><td><code>#L3171</code></td><td>recordStatus = PICKED</td><td>STAGED + 生成暂存记录</td></tr>
+  <tr><td><code>confirmMaterialPrepRecord</code></td><td><code>#L3134</code></td><td>recordStatus = STAGED 或 REJECTED</td><td>CONFIRMED + 触发运行时通知事件</td></tr>
+  <tr><td><code>rejectMaterialPrepRecord</code></td><td><code>#L3206</code></td><td>rejectReason 非空</td><td>REJECTED + 记录打回原因</td></tr>
+</table>
+
+<blockquote><strong>运行时事件通知：</strong>
+<code>confirmMaterialPrepRecord</code> 确认时会触发 <code>appendPrepConfirmedRuntimeEvent</code>，根据 <code>classifyPrepLineType</code> 生成不同类型的事件：裁片配料→"中转仓配料完成通知"，染色配料→"染色厂配料完成通知"，印花配料→"印花厂配料完成通知"，其他→"配料完成通知"。</blockquote>
+
+<!-- ====== 第6节 ====== -->
+<h2 id="s6">6. 配料单状态机（6 态）</h2>
+
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> NEED_PREP_NO_STOCK: 配料单创建，库存检查
+
+    NEED_PREP_NO_STOCK --> NEED_PREP_PARTIAL_STOCK: 部分库存到仓
+    NEED_PREP_NO_STOCK --> NEED_PREP_ALL_STOCK: 全部库存到仓
+    NEED_PREP_PARTIAL_STOCK --> NEED_PREP_ALL_STOCK: 剩余库存到仓
+
+    NEED_PREP_PARTIAL_STOCK --> READY: 所有物料配齐并确认
+    NEED_PREP_ALL_STOCK --> READY: 所有物料配齐并确认
+
+    READY --> REJECTED_REWORK: 下游打回任何记录
+    REJECTED_REWORK --> NEED_PREP_PARTIAL_STOCK: 重新配料
+
+    NEED_PREP_PARTIAL_STOCK --> CLOSED: closeMaterialPrepOrder()
+    NEED_PREP_NO_STOCK --> CLOSED: closeMaterialPrepOrder()
+    CLOSED --> [*]
+</div>
+
+<h3>派生逻辑</h3>
+<p>由 <code>deriveOrderPrepStatus</code>（<code>#L2059</code> 附近）从配料记录状态和物料行完成度派生：</p>
+<ul>
+  <li>任何 REJECTED 记录 → REJECTED_REWORK</li>
+  <li>所有行 confirmedPrepQty ≥ requiredQty → READY</li>
+  <li>所有行 availableStockQty ≥ remainingNeedQty → ALL_STOCK</li>
+  <li>部分行有库存 → PARTIAL_STOCK</li>
+  <li>全部无库存 → NO_STOCK</li>
+</ul>
+
+<!-- ====== 第7节 ====== -->
+<h2 id="s7">7. 领料单状态机（5 态）</h2>
+<div class="mermaid">
+stateDiagram-v2
+    NOT_PICKABLE --> WAIT_PICKUP: 有配料记录 CONFIRMED
+    WAIT_PICKUP --> PICKUP_DONE: 下游全部领完
+    WAIT_PICKUP --> REJECTED_WAIT_WLS: 下游打回
+    REJECTED_WAIT_WLS --> WAIT_PICKUP: 仓库重新确认
+    WAIT_PICKUP --> ACTUAL_CLOSED: 配料单关闭
+</div>
+
+<!-- ====== 第8节 ====== -->
+<h2 id="s8">8. 配料数量计算规则</h2>
+
+<h3>8.1 核心公式</h3>
+<div class="card"><h4>染色 / 印花 / 裁片配料</h4>
+<p><code>maxPrepQty = min(remainingNeedQty, availableStockQty)</code></p>
+<p><code>defaultPrepQty = maxPrepQty</code></p></div>
+
+<div class="card"><h4>车缝配料</h4>
+<p><code>maxPrepQty = min(remainingNeedQty, round(releaseQty × qtyRatio), availableStockQty)</code></p>
+<p><code>defaultPrepQty = maxPrepQty</code></p>
+<p>受裁片放行数量 + 库存数量双重约束</p></div>
+
+<div class="card"><h4>其他配料</h4>
+<p><code>maxPrepQty = min(remainingNeedQty, availableStockQty)</code></p>
+<p>无放行约束</p></div>
+
+<blockquote>以上逻辑在 <code>buildLine</code> 函数（约 <code>#L2049</code>）中实现。外层有 <code>Math.max(0, ...)</code> 保护。</blockquote>
+
+<!-- ====== 第9节 ====== -->
+<h2 id="s9">9. 车缝配料与裁片放行约束</h2>
+
+<p>车缝配料（辅料配料）的 <code>maxPrepQty</code> 受裁片放行数量约束。数据链路：</p>
+
+<pre>
+裁床主管判断 → cut-piece-release.ts
+                └── getCutPieceReleaseSummaryForProductionOrder(productionOrderId)
+                    返回 CutPieceReleaseSummary { decision, releaseQty, reason, ... }
+
+sewing.ts → renderCutPieceReleaseCard() → 展示约束卡片
+         → renderOrderMaterialRows() → 展示 maxPrepQty / defaultPrepQty 列
+</pre>
+
+<h3>Fallback 机制</h3>
+<p>如果生产单尚未进入裁片放行管理（无放行记录），<code>getCutPieceReleaseSummaryForProductionOrder</code> 会返回一个默认的 fallback 记录（decision="可以做"，releaseQty=1000），使车缝配料页面不至于无数据可展示。</p>
+
+<!-- ====== 第10节 ====== -->
+<h2 id="s10">10. 完整业务流程时序</h2>
+
+<div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor OP as 运营
+    actor PREP as 配料小组
+    actor WH as 仓库操作员
+    actor CS as 跟单人员
+    actor DISP as 分配系统
+
+    OP->>DISP: 需求单 → 生产单
+    DISP->>PREP: BOM 展开 → 物料路由到 5 大配料类型
+    PREP->>PREP: 计算 maxPrepQty（车缝需裁片放行约束）
+
+    PREP->>PREP: 点击"新增配料记录"→ 弹窗确认 → appendAutoPrepRecordForOrder()
+    Note over PREP: 状态 = DRAFT
+
+    PREP->>WH: 通知拣货
+    WH->>PREP: pickMaterialPrepRecord()
+    Note over PREP: 状态 = PICKED
+
+    PREP->>CS: 通知核实入暂存区
+    CS->>PREP: stageMaterialPrepRecord(area)
+    Note over PREP: 状态 = STAGED<br/>生成 MaterialPrepStagingRecord
+
+    PREP->>PREP: confirmMaterialPrepRecord()
+    Note over PREP: 状态 = CONFIRMED<br/>触发运行时通知事件
+
+    alt 染色/印花/裁片
+        PREP->>DISP: 下游工厂直接领料/加工领料
+    else 车缝/其他
+        PREP->>DISP: 等待任务分配
+        DISP->>DISP: 分配 → writeBackTaskAssignment 回写工厂
+    end
+</div>
+
+<!-- ====== 第11节 ====== -->
+<h2 id="s11">11. 暂存区管理</h2>
+
+<h3>11.1 暂存区概念</h3>
+<p>仓库内的指定物理区域。配料完成后货放在暂存区等待下游来取。每个配料类型的暂存区位置不同：</p>
+
+<table>
+  <tr><th>配料类型</th><th>配货仓库</th><th>暂存区</th><th>通知对象</th></tr>
+  <tr><td>染色配料</td><td>染色厂待加工仓</td><td>染色厂暂存区</td><td>染色厂（加工领料）</td></tr>
+  <tr><td>印花配料</td><td>印花厂待加工仓</td><td>印花厂暂存区</td><td>印花厂（加工领料）</td></tr>
+  <tr><td>裁片配料</td><td>中转仓</td><td>中转仓暂存区</td><td>裁片工厂</td></tr>
+  <tr><td>车缝配料</td><td>辅料仓/纱线仓</td><td>相应暂存区</td><td>分配后确定</td></tr>
+  <tr><td>其他配料</td><td>包材仓</td><td>包材仓暂存区</td><td>分配后确定</td></tr>
+</table>
+
+<h3>11.2 暂存区数据模型</h3>
+<p><code>MaterialPrepStagingRecord</code>（<code>#L193</code>）：包含 stagingRecordId、prepRecordId、stagingArea、stagedAt、stagedBy、itemCount、totalPreparedQty、warehouseNames、status（暂存中/已确认/已打回）。</p>
+<p>每次 <code>stageMaterialPrepRecord</code> 都会新增一条 stagingRecord。<code>confirmMaterialPrepRecord</code> 和 <code>rejectMaterialPrepRecord</code> 会更新对应 stagingRecord 的状态。</p>
+
+<!-- ====== 第12节 ====== -->
+<h2 id="s12">12. 页面架构与交互设计</h2>
+
+<h3>12.1 菜单结构</h3>
+<div class="card"><pre>
+FCS 工厂生产协同系统
+  ├── 生产单管理
+  ├── 生产分配
+  ├── <strong>配料管理</strong> (PackageCheck)
+  │     ├── 配料列表 (LayoutList)        /fcs/material-prep/list
+  │     ├── 染色配料 (Droplets)          /fcs/material-prep/dyeing
+  │     ├── 印花配料 (Palette)           /fcs/material-prep/printing
+  │     ├── 裁片配料 (Scissors)          /fcs/material-prep/cutting
+  │     ├── 车缝配料 (Component)         /fcs/material-prep/sewing
+  │     └── 其他配料 (Package)           /fcs/material-prep/other
+  ├── 裁片放行管理
+  └── 车缝分配工作台</pre></div>
+
+<h3>12.2 各页面功能矩阵</h3>
+<table>
+  <tr><th>功能</th><th>list</th><th>dyeing</th><th>printing</th><th>cutting</th><th>sewing</th><th>other</th></tr>
+  <tr><td>搜索栏（关键词）</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td>状态 Tab 筛选</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td>配料类型筛选</td><td>✅</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+  <tr><td>5Tab 详情页</td><td>—</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td>新增配料记录弹窗</td><td>—</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td>拣货/暂存/确认 5 态操作</td><td>—</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td>关闭配料单</td><td>—</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td>裁片放行约束卡片</td><td>—</td><td>—</td><td>—</td><td>—</td><td>✅</td><td>—</td></tr>
+  <tr><td>物料明细含maxPrepQty</td><td>—</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td>综合看板（聚合所有类型）</td><td>✅</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+</table>
+
+<h3>12.3 详情页 5 个 Tab</h3>
+<p>每个配料类型页面（dyeing/printing/cutting/sewing/other）点击配料单进入详情后，包含：</p>
+<table>
+  <tr><th>Tab</th><th>键值</th><th>内容</th></tr>
+  <tr><td><strong>生产需求信息</strong></td><td>demand</td><td>款式/SPU图、生产单基础信息、物料配料明细表格（含maxPrepQty列）</td></tr>
+  <tr><td><strong>当前各仓库存信息与上游进度</strong></td><td>inventory</td><td>每行物料的仓库/库存/可配/缺口/上游进度/预计到仓时间</td></tr>
+  <tr><td><strong>按任务查看配料情况</strong></td><td>tasks</td><td>按 taskLinks 聚合，展示每个任务的物料和配料记录</td></tr>
+  <tr><td><strong>配料记录</strong></td><td>records</td><td>每条配料记录的5态卡片 + 操作按钮 + 新增/关闭按钮</td></tr>
+  <tr><td><strong>与配料记录关联的领料记录</strong></td><td>pickup</td><td>领料记录 + 打回记录双栏展示</td></tr>
+</table>
+
+<h3>12.4 共享模块</h3>
+<p><code>shared.ts</code>（64行）统一导出数据层符号和工具函数：<code>materialPrepStatusLabelMap</code>、<code>materialPrepRecordStatusLabelMap</code>、<code>materialPrepWorkbenchTabs</code>、<code>pickupStatusLabelMap</code>、<code>classifyPrepLineType</code>、<code>escapeHtml</code>、<code>renderBadge</code>、<code>formatQty</code>、<code>renderPrepRecordStatusBadge</code>。</p>
+<p>但实际代码中 dyeing/printing/sewing/other 均直接从 <code>production-material-prep.ts</code> 直接导入而非通过 shared.ts 中转，这可能是代码生成时的路径选择。cutting.ts 和 list.ts 也直接从数据层导入。</p>
+
+<!-- ====== 第13节 ====== -->
+<h2 id="s13">13. 数据层导出 API 清单</h2>
+
+<h3>13.1 查询类</h3>
+<table>
+  <tr><th>函数</th><th>返回</th><th>说明</th></tr>
+  <tr><td><code>listMaterialPrepOrderProjections()</code></td><td>MaterialPrepOrderProjection[]</td><td>全部配料单投影（含聚合统计）</td></tr>
+  <tr><td><code>getMaterialPrepOrderProjection(id)</code></td><td>MaterialPrepOrderProjection | null</td><td>单个配料单投影</td></tr>
+  <tr><td><code>getMaterialPrepRecordContext(id, ...)</code></td><td>RecordContext | null</td><td>配料记录上下文（含台账行）</td></tr>
+  <tr><td><code>getMaterialPrepRecordItems(record)</code></td><td>MaterialPrepRecordItem[]</td><td>某条记录的明细列表</td></tr>
+  <tr><td><code>listPickupCandidates()</code></td><td>PrepRecordPickupCandidate[]</td><td>待领料候选列表（仅 CONFIRMED 状态）</td></tr>
+  <tr><td><code>buildPrepLedgerRows()</code></td><td>MaterialLedgerProjection[]</td><td>台账投影（与 material-ledger 关联）</td></tr>
+</table>
+
+<h3>13.2 操作类</h3>
+<table>
+  <tr><th>函数</th><th>说明</th></tr>
+  <tr><td><code>appendAutoPrepRecordForOrder(orderId)</code></td><td>自动生成全部可配行的配料记录（DRAFT）</td></tr>
+  <tr><td><code>appendManualPrepRecord(orderId, items)</code></td><td>手动指定物料行创建配料记录</td></tr>
+  <tr><td><code>pickMaterialPrepRecord(recordId)</code></td><td>DRAFT → PICKED</td></tr>
+  <tr><td><code>stageMaterialPrepRecord(recordId, area)</code></td><td>PICKED → STAGED + 生成暂存记录</td></tr>
+  <tr><td><code>confirmMaterialPrepRecord(recordId)</code></td><td>STAGED/REJECTED → CONFIRMED + 触发事件</td></tr>
+  <tr><td><code>rejectMaterialPrepRecord(recordId, reason)</code></td><td>打回配料记录（CONFIRMED → REJECTED）</td></tr>
+  <tr><td><code>closeMaterialPrepOrder(orderId, reason)</code></td><td>关闭配料单</td></tr>
+  <tr><td><code>appendPickupRecordFromPrepRecord(input)</code></td><td>整条记录一次性领料（CONFIRMED 状态才可）</td></tr>
+</table>
+
+<h3>13.3 工厂函数</h3>
+<table>
+  <tr><th>函数</th><th>说明</th></tr>
+  <tr><td><code>createPrepOrderFromProductionOrder(input)</code></td><td>从生产单信息创建配料单（BOM 动态展开入口）</td></tr>
+</table>
+
+<h3>13.4 存储/序列化</h3>
+<table>
+  <tr><th>函数</th><th>说明</th></tr>
+  <tr><td><code>createProductionMaterialPrepSeedStore()</code></td><td>创建初始存储</td></tr>
+  <tr><td><code>hydrateProductionMaterialPrepStore()</code></td><td>从 localStorage 水合</td></tr>
+  <tr><td><code>persistProductionMaterialPrepStore()</code></td><td>持久化到 localStorage</td></tr>
+  <tr><td><code>serialize/deserialize</code></td><td>序列化/反序列化</td></tr>
+  <tr><td><code>invalidateMaterialPrepProjectionCache()</code></td><td>清除投影缓存</td></tr>
+</table>
+
+<!-- ====== 第14节 ====== -->
+<h2 id="s14">14. 路由与事件分发架构</h2>
+
+<h3>14.1 路由注册</h3>
+<p>在 <code>routes-fcs.ts</code> 中注册 6 条精确路由：</p>
+<pre>
+/fcs/material-prep/list      → renderFcsMaterialPrepListPage()
+/fcs/material-prep/dyeing    → renderFcsDyeingPrepPage()
+/fcs/material-prep/printing  → renderFcsPrintingPrepPage()
+/fcs/material-prep/cutting   → renderFcsCuttingPrepPage()
+/fcs/material-prep/sewing    → renderFcsSewingPrepPage()
+/fcs/material-prep/other     → renderFcsOtherPrepPage()
+</pre>
+
+<h3>14.2 异步渲染器</h3>
+<p>在 <code>route-renderers-fcs.ts</code> 中通过 <code>createAsyncRenderer</code> 封装 6 个懒加载入口：</p>
+<pre>
+export const renderFcsMaterialPrepListPage = createAsyncRenderer(
+  () => import('../pages/fcs/material-prep/list'), 'renderFcsMaterialPrepListPage')
+// ... 其他 5 个同理
+</pre>
+
+<h3>14.3 事件分发</h3>
+<p>在 <code>main-handlers/fcs-handlers.ts</code>（<code>#L230</code>）中根据 pathname 前缀匹配，分发到对应的 <code>handleFcsXxxPrepEvent</code>：</p>
+<pre>
+if (pathname.startsWith('/fcs/material-prep/list'))    return handleFcsMaterialPrepListEvent(target)
+if (pathname.startsWith('/fcs/material-prep/dyeing'))  return handleFcsDyeingPrepEvent(target)
+if (pathname.startsWith('/fcs/material-prep/printing')) return handleFcsPrintingPrepEvent(target)
+if (pathname.startsWith('/fcs/material-prep/cutting')) return handleFcsCuttingPrepEvent(target)
+if (pathname.startsWith('/fcs/material-prep/sewing'))  return handleFcsSewingPrepEvent(target)
+if (pathname.startsWith('/fcs/material-prep/other'))   return handleFcsOtherPrepEvent(target)
+</pre>
+
+<!-- ====== 第15节 ====== -->
+<h2 id="s15">15. 与关联模块的交互</h2>
+
+<div class="mermaid">
+flowchart TD
+    PREP["配料管理<br/>FCS 新模块"]:::focus
+
+    PREP -->|读取 BOM| PO["生产单"]
+    PREP -->|读取库存| INV["仓库库存"]
+    PREP -->|车缝约束| CR["裁片放行管理<br/>cut-piece-release.ts"]
+    PREP -->|通知领料| WAIT["工厂待加工仓"]
+    PREP -->|回写工厂| DISP["任务分配<br/>writeBackTaskAssignment"]
+    PREP -->|写入台账| LEDGER["物料台账<br/>material-ledger.ts"]
+    PREP -->|运行时事件| EVT["运行时事件账本<br/>cutting-runtime-event-ledger.ts"]
+
+    PO -->|生成配料单| PREP
+    DISP -->|分配后回写 taskLinks| PREP
+
+    classDef focus fill:#dbeafe,stroke:#2563eb,stroke-width:3px
+</div>
+
+<table>
+  <tr><th>关联模块</th><th>交互方向</th><th>交互内容</th><th>代码位置</th></tr>
+  <tr><td>生产单</td><td>生产单 → 配料</td><td>BOM 展开物料清单，路由到五大配料类型</td><td><code>createPrepOrderFromProductionOrder</code></td></tr>
+  <tr><td>裁片放行管理</td><td>放行 → 车缝配料</td><td>裁床判断"可以做 N 件"决定车缝配料 maxPrepQty</td><td><code>getCutPieceReleaseSummaryForProductionOrder</code></td></tr>
+  <tr><td>任务分配</td><td>分配 → 配料回写</td><td>分配完成后 writeBackTaskAssignment 更新 taskLinks</td><td><code>#L625</code></td></tr>
+  <tr><td>物料台账</td><td>配料 → 台账</td><td>配料确认为台账事件 TRANSFER_WAREHOUSE_ALLOCATED</td><td><code>buildPrepLedgerRows</code></td></tr>
+  <tr><td>运行时事件</td><td>配料 → 事件</td><td>确认时 appendPrepConfirmedRuntimeEvent</td><td><code>#L2165</code></td></tr>
+  <tr><td>工厂待加工仓</td><td>配料 → 领料</td><td>已确认配料记录可被领料（appendPickupRecordFromPrepRecord）</td><td><code>#L3268</code></td></tr>
+</table>
+
+<!-- ====== 第16节 ====== -->
+<h2 id="s16">16. 代码文件清单</h2>
+
+<table>
+  <tr><th>层</th><th>文件</th><th>行数</th><th>职责</th></tr>
+  <tr><td rowspan="3">数据层</td><td><code>src/data/fcs/cutting/production-material-prep.ts</code></td><td><strong>3323</strong></td><td>核心数据模型、状态机、查询/操作函数、seed 数据</td></tr>
+  <tr><td><code>src/data/fcs/cut-piece-release.ts</code></td><td>337</td><td>裁片放行判断数据</td></tr>
+  <tr><td><code>src/data/fcs/cutting/cutting-runtime-event-ledger.ts</code></td><td>~600</td><td>运行时事件注册（配料完成通知等）</td></tr>
+  <tr><td rowspan="7">页面层</td><td><code>src/pages/fcs/material-prep/shared.ts</code></td><td>64</td><td>共享类型/函数导出</td></tr>
+  <tr><td><code>src/pages/fcs/material-prep/list.ts</code></td><td>280</td><td>配料列表综合看板</td></tr>
+  <tr><td><code>src/pages/fcs/material-prep/dyeing.ts</code></td><td>1115</td><td>染色配料</td></tr>
+  <tr><td><code>src/pages/fcs/material-prep/printing.ts</code></td><td>1115</td><td>印花配料</td></tr>
+  <tr><td><code>src/pages/fcs/material-prep/cutting.ts</code></td><td>1325</td><td>裁片配料（最复杂）</td></tr>
+  <tr><td><code>src/pages/fcs/material-prep/sewing.ts</code></td><td>1144</td><td>车缝配料（含裁片放行约束）</td></tr>
+  <tr><td><code>src/pages/fcs/material-prep/other.ts</code></td><td>1115</td><td>其他配料（包材）</td></tr>
+  <tr><td rowspan="4">路由/Shell</td><td><code>src/router/routes-fcs.ts</code></td><td>~503</td><td>6 条配料管理路由注册</td></tr>
+  <tr><td><code>src/router/route-renderers-fcs.ts</code></td><td>~545</td><td>6 个异步渲染器</td></tr>
+  <tr><td><code>src/main-handlers/fcs-handlers.ts</code></td><td>~250</td><td>6 个事件分发匹配</td></tr>
+  <tr><td><code>src/data/app-shell-config.ts</code></td><td>~556</td><td>FCS 配料管理菜单分组</td></tr>
+</table>
+
+<p style="margin-top: 24px;"><strong>总计：</strong>17 个文件，约 13,500 行代码。其中数据层 3,323 行承载核心业务逻辑，页面层 ~6,220 行实现交互。</p>
+
+<hr style="margin:48px 0 24px; border: none; border-top: 2px solid var(--border);">
+<p style="color: var(--muted); font-size: 14px; text-align: center;">
+  工厂生产协同系统 — 配料管理产品设计方案 V2（基于代码） &nbsp;|&nbsp; 2026-06-26
+</p>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true, theme: 'default', securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+    sequence: { useMaxWidth: true, showSequenceNumbers: true },
+    stateDiagram: { useMaxWidth: true },
+  });
+</script>
+</body>
+</html>
