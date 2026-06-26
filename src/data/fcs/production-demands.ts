@@ -70,6 +70,17 @@ function resolveDemandPersonnel(input: Pick<ProductionDemand, 'spuCode'> & Parti
   }
 }
 
+function resolveDemandImageUrl(input: Pick<ProductionDemand, 'spuCode' | 'spuName' | 'imageUrl'>): string {
+  if (input.imageUrl && !input.imageUrl.includes('/placeholder.svg')) return input.imageUrl
+  const text = `${input.spuCode} ${input.spuName}`.toLowerCase()
+  if (text.includes('jacket') || text.includes('hoodie') || text.includes('blazer') || text.includes('jaket')) return '/jacket-sample.jpg'
+  if (text.includes('dress') || text.includes('skirt') || text.includes('rok') || text.includes('裙')) return '/dress-sample-1.jpg'
+  if (text.includes('pants') || text.includes('celana') || text.includes('jogger') || text.includes('裤')) return '/pants-sample.jpg'
+  if (text.includes('cardigan') || text.includes('knit') || text.includes('针织')) return '/cardigan-sample.jpg'
+  if (text.includes('kemeja')) return '/shirt-sample.jpg'
+  return '/tshirt-sample.jpg'
+}
+
 function createDemandSeed(
   input: Omit<ProductionDemand, 'requiredQtyTotal' | 'buyerName' | 'merchandiserName'> &
     Partial<ProductionDemandPersonnel> & { requiredQtyTotal?: number },
@@ -79,6 +90,7 @@ function createDemandSeed(
   return {
     ...input,
     ...personnel,
+    imageUrl: resolveDemandImageUrl(input),
     requiredQtyTotal,
   }
 }
@@ -192,7 +204,7 @@ const seedProductionDemands: ProductionDemand[] = [
     demandId: 'DEM-202603-0091', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '26031691', sourceSystem: 'NEW',
     spuCode: 'SPU-TSHIRT-081', spuName: '春季休闲印花短袖 T 恤', imageUrl: '/placeholder.svg?height=80&width=80',
     category: 'Mens T-Shirt', marketScopes: ['ID', 'VN'], priority: 'URGENT', demandStatus: 'PENDING_CONVERT', techPackStatus: 'RELEASED', techPackVersionLabel: 'v2.0',
-    requiredDeliveryDate: '2026-04-08', constraintsNote: '合并生产演示：白色基础补单，可与同款同技术包需求合并生成一张生产单。',
+    requiredDeliveryDate: '2026-04-08', constraintsNote: '批量生成演示：白色基础补单，默认带出最新已发布技术包版本。',
     skuLines: [
       { skuCode: 'SKU-081-S-WHT', size: 'S', color: '白色', qty: 600 },
       { skuCode: 'SKU-081-M-WHT', size: 'M', color: '白色', qty: 900 },
@@ -204,7 +216,7 @@ const seedProductionDemands: ProductionDemand[] = [
     demandId: 'DEM-202603-0092', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '26031692', sourceSystem: 'NEW',
     spuCode: 'SPU-TSHIRT-081', spuName: '春季休闲印花短袖 T 恤', imageUrl: '/placeholder.svg?height=80&width=80',
     category: 'Mens T-Shirt', marketScopes: ['ID', 'VN'], priority: 'HIGH', demandStatus: 'PENDING_CONVERT', techPackStatus: 'RELEASED', techPackVersionLabel: 'v2.0',
-    requiredDeliveryDate: '2026-04-10', constraintsNote: '合并生产演示：黑色补单，和白色、玫瑰红补单共用当前生效技术包。',
+    requiredDeliveryDate: '2026-04-10', constraintsNote: '批量生成演示：黑色补单，可单独选择该 SPU 下其他已发布技术包版本。',
     skuLines: [
       { skuCode: 'SKU-081-S-BLK', size: 'S', color: '黑色', qty: 500 },
       { skuCode: 'SKU-081-M-BLK', size: 'M', color: '黑色', qty: 800 },
@@ -216,7 +228,7 @@ const seedProductionDemands: ProductionDemand[] = [
     demandId: 'DEM-202603-0093', legacyType: 'ID_PURCHASE', legacyOrderNo: '26031693', sourceSystem: 'NEW',
     spuCode: 'SPU-TSHIRT-081', spuName: '春季休闲印花短袖 T 恤', imageUrl: '/placeholder.svg?height=80&width=80',
     category: 'Mens T-Shirt', marketScopes: ['ID'], priority: 'HIGH', demandStatus: 'PENDING_CONVERT', techPackStatus: 'RELEASED', techPackVersionLabel: 'v2.0',
-    requiredDeliveryDate: '2026-04-12', constraintsNote: '合并生产演示：玫瑰红渠道单，允许与同款同技术包需求合并生成生产单。',
+    requiredDeliveryDate: '2026-04-12', constraintsNote: '批量生成演示：玫瑰红渠道单，确认后生成独立生产单。',
     skuLines: [
       { skuCode: 'SKU-081-M-RSE', size: 'M', color: '玫瑰红', qty: 700 },
       { skuCode: 'SKU-081-L-RSE', size: 'L', color: '玫瑰红', qty: 700 },
@@ -227,7 +239,7 @@ const seedProductionDemands: ProductionDemand[] = [
     demandId: 'DEM-202603-0094', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '26031694', sourceSystem: 'NEW',
     spuCode: 'SPU-TSHIRT-081', spuName: '春季休闲印花短袖 T 恤', imageUrl: '/placeholder.svg?height=80&width=80',
     category: 'Mens T-Shirt', marketScopes: ['ID', 'TH'], priority: 'NORMAL', demandStatus: 'PENDING_CONVERT', techPackStatus: 'RELEASED', techPackVersionLabel: 'v2.0',
-    requiredDeliveryDate: '2026-04-15', constraintsNote: '合并生产演示：泰国渠道加单，仍未指定主工厂，待车缝任务分配后回写。',
+    requiredDeliveryDate: '2026-04-15', constraintsNote: '批量生成演示：泰国渠道加单，主工厂仍待车缝任务分配后回写。',
     skuLines: [
       { skuCode: 'SKU-081-S-GRN', size: 'S', color: '薄荷绿', qty: 400 },
       { skuCode: 'SKU-081-M-GRN', size: 'M', color: '薄荷绿', qty: 500 },

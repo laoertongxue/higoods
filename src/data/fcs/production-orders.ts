@@ -206,6 +206,7 @@ export interface ProductionOrderSeed {
   createdAt: string
   updatedAt: string
   techPackSnapshot?: ProductionOrderTechPackSnapshot | null
+  selectedTechPackVersionId?: string
   snapshotAt?: string
   snapshotBy?: string
 }

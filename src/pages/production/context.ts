@@ -85,7 +85,8 @@ import {
   type MaterialMode,
 } from '../../data/fcs/material-request-drafts'
 import {
-  getMaterialPrepBreakdownReadinessForOrder,
+  getMaterialPrepBreakdownReadinessForOrder as getMaterialPrepBreakdownReadinessForOrderRaw,
+  type MaterialPrepBreakdownReadiness,
 } from '../../data/fcs/cutting/production-material-prep'
 
 applyQualitySeedBootstrap()
@@ -185,12 +186,15 @@ interface ProductionState {
   demandHasOrderFilter: 'ALL' | 'YES' | 'NO'
   demandPriorityFilter: ProductionDemand['priority'] | 'ALL'
   demandOnlyUngenerated: boolean
+  demandCurrentPage: number
   demandSelectedIds: Set<string>
   demandDetailId: string | null
   demandBatchDialogOpen: boolean
+  demandBatchGenerateMode: 'batch' | 'merge'
   demandSingleGenerateId: string | null
   demandGenerateConfirmOpen: boolean
   demandGenerateTechPackVersionId: string
+  demandGenerateTechPackVersionIds: Record<string, string>
   demandSelectedFactoryId: string
   demandTierFilter: FactoryTier | 'ALL'
   demandTypeFilter: FactoryType | 'ALL'
@@ -447,10 +451,23 @@ function toTimestamp(date: Date = new Date()): string {
 }
 
 let productionCoreLocalSeq = 0
+const materialPrepBreakdownReadinessCache = new Map<string, MaterialPrepBreakdownReadiness>()
 
 function nextLocalEntityId(prefix: string, width = 6): string {
   productionCoreLocalSeq += 1
   return `${prefix}-${String(productionCoreLocalSeq).padStart(width, '0')}`
+}
+
+function getMaterialPrepBreakdownReadinessForOrder(productionOrderIdOrNo: string): MaterialPrepBreakdownReadiness {
+  const cached = materialPrepBreakdownReadinessCache.get(productionOrderIdOrNo)
+  if (cached) return cached
+  const readiness = getMaterialPrepBreakdownReadinessForOrderRaw(productionOrderIdOrNo)
+  materialPrepBreakdownReadinessCache.set(productionOrderIdOrNo, readiness)
+  return readiness
+}
+
+function clearMaterialPrepBreakdownReadinessCache(): void {
+  materialPrepBreakdownReadinessCache.clear()
 }
 
 function showPlanMessage(message: string, tone: 'success' | 'error' = 'success'): void {
@@ -502,6 +519,91 @@ function includesKeyword(value: string, keyword: string): boolean {
 function safeText(value: string | null | undefined): string {
   if (!value) return '-'
   return value
+}
+
+const spuImageFallbacks: Array<{ keywords: string[]; url: string }> = [
+  { keywords: ['jacket', 'hoodie', 'blazer', 'jaket', 'outerwear', '夹克', '外套', '卫衣', '西装'], url: '/jacket-sample.jpg' },
+  { keywords: ['dress', 'skirt', 'rok', '裙', '连衣裙'], url: '/dress-sample-1.jpg' },
+  { keywords: ['pants', 'celana', 'jogger', 'shorts', '裤'], url: '/pants-sample.jpg' },
+  { keywords: ['cardigan', 'knit', 'sweater', '针织', '开衫', '毛衣'], url: '/cardigan-sample.jpg' },
+  { keywords: ['shirt', 'kemeja', 'polo', 't-shirt', 'tshirt', 'kaos', '衬衫', '短袖', 't 恤', 't恤'], url: '/tshirt-sample.jpg' },
+]
+
+const spuImageByCode: Record<string, string> = {
+  'SPU-2024-001': '/shirt-sample.jpg',
+  'SPU-2024-002': '/dress-sample-1.jpg',
+  'SPU-2024-003': '/pants-sample.jpg',
+  'SPU-2024-004': '/tshirt-sample.jpg',
+  'SPU-2024-005': '/jacket-sample.jpg',
+  'SPU-2024-006': '/dress-sample-1.jpg',
+  'SPU-2024-007': '/jacket-sample.jpg',
+  'SPU-2024-008': '/shirt-sample.jpg',
+  'SPU-2024-009': '/tshirt-sample.jpg',
+  'SPU-2024-010': '/pants-sample.jpg',
+  'SPU-2024-011': '/denim-shorts-sample.jpg',
+  'SPU-2024-012': '/cardigan-sample.jpg',
+  'SPU-2024-013': '/dress-sample-1.jpg',
+  'SPU-2024-014': '/lace-dress-sample.jpg',
+  'SPU-TSHIRT-081': '/tshirt-sample.jpg',
+}
+
+function isRenderableBusinessImageUrl(url: string | null | undefined): url is string {
+  const normalized = String(url || '').trim()
+  if (!normalized || normalized === '#') return false
+  return !normalized.includes('/placeholder.svg')
+}
+
+function resolveProductionSpuImageUrl(input: {
+  spuCode: string
+  spuName?: string
+  imageUrl?: string | null
+}): string {
+  if (isRenderableBusinessImageUrl(input.imageUrl)) return input.imageUrl
+  if (spuImageByCode[input.spuCode]) return spuImageByCode[input.spuCode]
+
+  const searchText = `${input.spuCode} ${input.spuName || ''}`.toLowerCase()
+  return spuImageFallbacks.find((item) => item.keywords.some((keyword) => searchText.includes(keyword)))?.url || '/tshirt-sample.jpg'
+}
+
+function resolveMaterialImageUrl(input: {
+  materialName?: string
+  materialSku?: string
+  materialCode?: string
+  materialCategory?: string
+  materialImageUrl?: string | null
+}): string {
+  if (isRenderableBusinessImageUrl(input.materialImageUrl)) return input.materialImageUrl
+  const text = [
+    input.materialName,
+    input.materialSku,
+    input.materialCode,
+    input.materialCategory,
+  ].filter(Boolean).join(' ').toLowerCase()
+
+  if (text.includes('zipper') || text.includes('拉链')) return '/materials/accessory-zipper.jpg'
+  if (text.includes('button') || text.includes('纽扣') || text.includes('扣')) return '/materials/accessory-button.jpg'
+  if (text.includes('label') || text.includes('唛') || text.includes('标签')) return '/materials/accessory-label.jpg'
+  if (text.includes('thread') || text.includes('yarn') || text.includes('线') || text.includes('纱')) return '/materials/yarn-stitching.jpg'
+  if (text.includes('packing') || text.includes('bag') || text.includes('包装') || text.includes('吊牌')) return '/materials/packing-bag.jpg'
+  if (text.includes('lining') || text.includes('里布')) return '/materials/fabric-lining.jpg'
+  if (text.includes('contrast') || text.includes('拼接') || text.includes('配色')) return '/materials/fabric-contrast.jpg'
+  return '/materials/fabric-main.jpg'
+}
+
+function renderProductionImageThumb(
+  imageUrl: string,
+  label: string,
+  className = 'h-14 w-14',
+): string {
+  return `
+    <img
+      src="${escapeHtml(imageUrl)}"
+      alt="${escapeHtml(label)}"
+      loading="lazy"
+      class="${className} shrink-0 rounded-md border bg-muted object-cover"
+      onerror="this.onerror=null;this.src='/placeholder.svg'"
+    />
+  `
 }
 
 function renderBadge(text: string, className: string): string {
@@ -1489,6 +1591,11 @@ function getFilteredDemands(): ProductionDemand[] {
   return result
 }
 
+function getPaginatedDemands(filteredDemands: ProductionDemand[]): ProductionDemand[] {
+  const start = (state.demandCurrentPage - 1) * PAGE_SIZE
+  return filteredDemands.slice(start, start + PAGE_SIZE)
+}
+
 function getBatchGeneratableDemandIds(): string[] {
   return getBatchSelectedDemandIds().filter((demandId) => {
     const demand = state.demands.find((item) => item.demandId === demandId)
@@ -1666,9 +1773,11 @@ function getPlanWeekRange(): { weekStart: string; weekEnd: string } {
 function closeAllProductionDialogs(): void {
   state.demandDetailId = null
   state.demandBatchDialogOpen = false
+  state.demandBatchGenerateMode = 'batch'
   state.demandSingleGenerateId = null
   state.demandGenerateConfirmOpen = false
   state.demandGenerateTechPackVersionId = ''
+  state.demandGenerateTechPackVersionIds = {}
   state.ordersDemandSnapshotId = null
   state.ordersLogsId = null
   state.ordersBreakdownReadinessOrderId = null
@@ -1702,12 +1811,15 @@ const state: ProductionState = {
   demandHasOrderFilter: 'ALL',
   demandPriorityFilter: 'ALL',
   demandOnlyUngenerated: false,
+  demandCurrentPage: 1,
   demandSelectedIds: new Set<string>(),
   demandDetailId: null,
   demandBatchDialogOpen: false,
+  demandBatchGenerateMode: 'batch',
   demandSingleGenerateId: null,
   demandGenerateConfirmOpen: false,
   demandGenerateTechPackVersionId: '',
+  demandGenerateTechPackVersionIds: {},
   demandSelectedFactoryId: '',
   demandTierFilter: 'ALL',
   demandTypeFilter: 'ALL',
@@ -1890,6 +2002,9 @@ export {
   showPlanMessage,
   includesKeyword,
   safeText,
+  resolveProductionSpuImageUrl,
+  resolveMaterialImageUrl,
+  renderProductionImageThumb,
   renderBadge,
   renderSplitEventList,
   deriveRuntimeAssignmentProgressStatus,
@@ -1932,6 +2047,7 @@ export {
   getDemandFactoryOptions,
   getAvailableDemandTypes,
   getFilteredDemands,
+  getPaginatedDemands,
   getBatchSelectedDemandIds,
   getBatchGeneratableDemandIds,
   listOrdersFromDemandGeneratableDemands,
@@ -1939,6 +2055,8 @@ export {
   listPublishedTechPackVersionOptionsForDemand,
   getFilteredOrders,
   getPaginatedOrders,
+  getMaterialPrepBreakdownReadinessForOrder,
+  clearMaterialPrepBreakdownReadinessCache,
   getPlanFactoryOptions,
   getPlanWeekRange,
   closeAllProductionDialogs,

@@ -22,6 +22,7 @@ import {
   productionOrderStatusConfig,
   lifecycleAllowedNext,
   getFilteredDemands,
+  getPaginatedDemands,
   listOrdersFromDemandGeneratableDemands,
   getFilteredOrders,
   getPaginatedOrders,
@@ -49,6 +50,7 @@ import {
 import { getDemandCurrentTechPackInfo } from '../../data/fcs/production-tech-pack-snapshot-builder.ts'
 import {
   openDemandBatchGenerate,
+  openDemandMergeGenerate,
   openDemandSingleGenerate,
   openOrdersFromDemandGenerateDialog,
   performDemandGenerate,
@@ -262,26 +264,31 @@ function updateProductionField(
 
   if (field === 'demandKeyword') {
     state.demandKeyword = value
+    state.demandCurrentPage = 1
     return
   }
 
   if (field === 'demandStatusFilter') {
     state.demandStatusFilter = value as ProductionDemand['demandStatus'] | 'ALL'
+    state.demandCurrentPage = 1
     return
   }
 
   if (field === 'demandTechPackFilter') {
     state.demandTechPackFilter = value as ProductionDemand['techPackStatus'] | 'ALL'
+    state.demandCurrentPage = 1
     return
   }
 
   if (field === 'demandHasOrderFilter') {
     state.demandHasOrderFilter = value as 'ALL' | 'YES' | 'NO'
+    state.demandCurrentPage = 1
     return
   }
 
   if (field === 'demandPriorityFilter') {
     state.demandPriorityFilter = value as ProductionDemand['priority'] | 'ALL'
+    state.demandCurrentPage = 1
     return
   }
 
@@ -336,6 +343,18 @@ function updateProductionField(
 
   if (field === 'demandGenerateTechPackVersionId') {
     state.demandGenerateTechPackVersionId = value
+    return
+  }
+
+  if (field.startsWith('demandGenerateTechPackVersion:')) {
+    const [, demandId] = field.split(':')
+    if (demandId) {
+      state.demandGenerateTechPackVersionIds = {
+        ...state.demandGenerateTechPackVersionIds,
+        [demandId]: value,
+      }
+      state.demandGenerateTechPackVersionId = value
+    }
     return
   }
 
@@ -1069,15 +1088,28 @@ export function handleProductionEvent(target: HTMLElement): boolean {
 
   if (action === 'toggle-demand-only-ungenerated') {
     state.demandOnlyUngenerated = !state.demandOnlyUngenerated
+    state.demandCurrentPage = 1
     return true
   }
 
   if (action === 'query-demand') {
+    state.demandCurrentPage = 1
+    return true
+  }
+
+  if (action === 'demand-prev-page') {
+    state.demandCurrentPage = Math.max(1, state.demandCurrentPage - 1)
+    return true
+  }
+
+  if (action === 'demand-next-page') {
+    const totalPages = Math.max(1, Math.ceil(getFilteredDemands().length / PAGE_SIZE))
+    state.demandCurrentPage = Math.min(totalPages, state.demandCurrentPage + 1)
     return true
   }
 
   if (action === 'toggle-demand-select-all') {
-    const filteredDemands = getFilteredDemands()
+    const filteredDemands = getPaginatedDemands(getFilteredDemands())
     const shouldClear =
       filteredDemands.length > 0 &&
       filteredDemands.every((demand) => state.demandSelectedIds.has(demand.demandId))
@@ -1121,6 +1153,11 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'open-demand-merge') {
+    openDemandMergeGenerate()
+    return true
+  }
+
   if (action === 'open-demand-single') {
     const demandId = actionNode.dataset.demandId
     if (!demandId) return true
@@ -1130,9 +1167,11 @@ export function handleProductionEvent(target: HTMLElement): boolean {
 
   if (action === 'close-demand-generate') {
     state.demandBatchDialogOpen = false
+    state.demandBatchGenerateMode = 'batch'
     state.demandSingleGenerateId = null
     state.demandGenerateConfirmOpen = false
     state.demandGenerateTechPackVersionId = ''
+    state.demandGenerateTechPackVersionIds = {}
     return true
   }
 
@@ -1191,6 +1230,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     state.ordersFromDemandSelectedIds = new Set<string>()
     state.demandGenerateConfirmOpen = false
     state.demandGenerateTechPackVersionId = ''
+    state.demandGenerateTechPackVersionIds = {}
     return true
   }
 
@@ -1201,6 +1241,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     state.demandHasOrderFilter = 'ALL'
     state.demandPriorityFilter = 'ALL'
     state.demandOnlyUngenerated = false
+    state.demandCurrentPage = 1
     return true
   }
 

@@ -86,6 +86,7 @@ export interface MaterialPrepDispatchLineCheck {
   prepLineId: string
   materialSku: string
   materialName: string
+  materialImageUrl: string
   color: string
   spec: string
   unit: string
@@ -119,6 +120,7 @@ export interface MaterialPrepBreakdownLineCheck {
   prepLineId: string
   materialSku: string
   materialName: string
+  materialImageUrl: string
   color: string
   spec: string
   unit: string
@@ -2974,6 +2976,7 @@ export function getMaterialPrepBreakdownReadinessForOrder(
           prepLineId: line.prepLineId,
           materialSku: line.materialSku,
           materialName: line.materialName,
+          materialImageUrl: line.materialImageUrl,
           color: line.color,
           spec: line.spec,
           unit: line.unit,
@@ -3066,6 +3069,7 @@ export function getMaterialPrepDispatchReadinessForTask(
           prepLineId: line.prepLineId,
           materialSku: line.materialSku,
           materialName: line.materialName,
+          materialImageUrl: line.materialImageUrl,
           color: line.color,
           spec: line.spec,
           unit: line.unit,

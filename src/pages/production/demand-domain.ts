@@ -9,9 +9,12 @@ import {
   safeText,
   getDemandById,
   getFilteredDemands,
+  getPaginatedDemands,
   getBatchSelectedDemandIds,
   getTechPackSnapshotForDemand,
   renderDemandOperations,
+  resolveProductionSpuImageUrl,
+  renderProductionImageThumb,
   listOrdersFromDemandGeneratableDemands,
   getOrdersFromDemandSelectedIds,
   listPublishedTechPackVersionOptionsForDemand,
@@ -22,8 +25,10 @@ import {
   renderStatCard,
   demandPriorityConfig,
   demandStatusConfig,
+  PAGE_SIZE,
 } from './context.ts'
 import {
+  buildProductionOrderFromDemand,
   buildProductionOrderFromDemands,
   PENDING_MAIN_FACTORY_ID,
 } from '../../data/fcs/production-orders'
@@ -53,6 +58,10 @@ function renderDemandDetailDrawer(): string {
           <section>
             <h4 class="mb-3 font-medium">基本信息</h4>
             <div class="grid grid-cols-2 gap-3 text-sm">
+              <div class="col-span-2">
+                <p class="text-xs text-muted-foreground">SPU信息</p>
+                <div class="mt-1">${renderDemandSpuInfo(demand)}</div>
+              </div>
               <div>
                 <p class="text-xs text-muted-foreground">需求编号</p>
                 <p class="font-mono">${escapeHtml(demand.demandId)}</p>
@@ -60,14 +69,6 @@ function renderDemandDetailDrawer(): string {
               <div>
                 <p class="text-xs text-muted-foreground">旧单号</p>
                 <p class="font-mono">${escapeHtml(demand.legacyOrderNo)}</p>
-              </div>
-              <div>
-                <p class="text-xs text-muted-foreground">SPU编码</p>
-                <p class="font-mono">${escapeHtml(demand.spuCode)}</p>
-              </div>
-              <div>
-                <p class="text-xs text-muted-foreground">SPU名称</p>
-                <p>${escapeHtml(demand.spuName)}</p>
               </div>
               <div>
                 <p class="text-xs text-muted-foreground">款式买手</p>
@@ -176,8 +177,8 @@ function getSelectedBatchTargetDemands(): ProductionDemand[] {
     .filter((item): item is ProductionDemand => item !== null)
 }
 
-function getDemandMergeValidation(targetDemands: ProductionDemand[]): {
-  canMerge: boolean
+function getDemandBatchGenerateValidation(targetDemands: ProductionDemand[]): {
+  canGenerate: boolean
   reason: string
   generatableIds: Set<string>
 } {
@@ -191,19 +192,59 @@ function getDemandMergeValidation(targetDemands: ProductionDemand[]): {
   )
 
   if (targetDemands.length === 0) {
-    return { canMerge: false, reason: '请先选择需要合并生成的生产需求单。', generatableIds }
-  }
-
-  const spuCodes = Array.from(new Set(targetDemands.map((demand) => demand.spuCode)))
-  if (spuCodes.length > 1) {
-    return { canMerge: false, reason: '所选生产需求单不是同一个 SPU，不能合并生成一张生产单。', generatableIds }
+    return { canGenerate: false, reason: '请先选择需要生成的生产需求单。', generatableIds }
   }
 
   if (generatableIds.size !== targetDemands.length) {
-    return { canMerge: false, reason: '所选生产需求单中存在未启用技术包、已生成生产单或非待转单需求，不能合并生成。', generatableIds }
+    return { canGenerate: false, reason: '所选生产需求单中存在未启用技术包、已生成生产单或非待转单需求，不能生成。', generatableIds }
   }
 
-  return { canMerge: true, reason: '', generatableIds }
+  return { canGenerate: true, reason: '', generatableIds }
+}
+
+function getDemandMergeGenerateValidation(targetDemands: ProductionDemand[]): {
+  canGenerate: boolean
+  reason: string
+  generatableIds: Set<string>
+} {
+  const baseValidation = getDemandBatchGenerateValidation(targetDemands)
+  if (!baseValidation.canGenerate) return baseValidation
+
+  if (targetDemands.length < 2) {
+    return {
+      canGenerate: false,
+      reason: '合并生成至少需要选择 2 条可生成的生产需求单。',
+      generatableIds: baseValidation.generatableIds,
+    }
+  }
+
+  const firstSpuCode = targetDemands[0]?.spuCode || ''
+  const sameSpu = targetDemands.every((demand) => demand.spuCode === firstSpuCode)
+  if (!sameSpu) {
+    return {
+      canGenerate: false,
+      reason: '合并生成只支持同一 SPU 的生产需求单。',
+      generatableIds: baseValidation.generatableIds,
+    }
+  }
+
+  return baseValidation
+}
+
+function isDemandMergeGenerateMode(): boolean {
+  return state.demandBatchDialogOpen && state.demandBatchGenerateMode === 'merge'
+}
+
+function getDemandDialogValidation(targetDemands: ProductionDemand[]) {
+  return isDemandMergeGenerateMode()
+    ? getDemandMergeGenerateValidation(targetDemands)
+    : getDemandBatchGenerateValidation(targetDemands)
+}
+
+function getVersionTargetDemandsForCurrentMode(targetDemands: ProductionDemand[]): ProductionDemand[] {
+  return isDemandMergeGenerateMode()
+    ? targetDemands.slice(0, 1)
+    : targetDemands
 }
 
 function getOrdersFromDemandSelectedTargetDemands(): ProductionDemand[] {
@@ -221,24 +262,50 @@ function getCurrentGenerateTargetDemands(): ProductionDemand[] {
   return getSelectedBatchTargetDemands()
 }
 
-function getDemandGenerateTechPackOptions(targetDemands: ProductionDemand[]): DemandPublishedTechPackVersionOption[] {
-  if (targetDemands.length === 0) return []
-  const spuCodes = Array.from(new Set(targetDemands.map((demand) => demand.spuCode)))
-  if (spuCodes.length !== 1) return []
-  return listPublishedTechPackVersionOptionsForDemand(targetDemands[0])
+interface DemandGenerateVersionSelection {
+  demand: ProductionDemand
+  options: DemandPublishedTechPackVersionOption[]
+  selectedOption: DemandPublishedTechPackVersionOption | null
+  canGenerate: boolean
+  reason: string
+}
+
+function syncDemandGenerateTechPackSelections(targetDemands: ProductionDemand[]): DemandGenerateVersionSelection[] {
+  return targetDemands.map((demand) => {
+    const info = getTechPackSnapshotForDemand(demand)
+    const options = listPublishedTechPackVersionOptionsForDemand(demand)
+    const selectedId = state.demandGenerateTechPackVersionIds[demand.demandId] || state.demandGenerateTechPackVersionId
+    const selected = options.find((option) => option.technicalVersionId === selectedId)
+    const fallback = selected || options.find((option) => option.isDefaultVersion) || options[0] || null
+
+    if (fallback) {
+      state.demandGenerateTechPackVersionIds = {
+        ...state.demandGenerateTechPackVersionIds,
+        [demand.demandId]: fallback.technicalVersionId,
+      }
+    }
+
+    return {
+      demand,
+      options,
+      selectedOption: fallback,
+      canGenerate: demand.demandStatus === 'PENDING_CONVERT' && !demand.hasProductionOrder && info.canGenerate,
+      reason: demand.hasProductionOrder
+        ? '已生成生产单'
+        : demand.demandStatus !== 'PENDING_CONVERT'
+        ? demandStatusConfig[demand.demandStatus].label
+        : info.blockReason || (fallback ? '可生成' : '暂无已发布版本'),
+    }
+  })
 }
 
 function syncDemandGenerateTechPackSelection(targetDemands: ProductionDemand[]): {
   options: DemandPublishedTechPackVersionOption[]
   selectedOption: DemandPublishedTechPackVersionOption | null
 } {
-  const options = getDemandGenerateTechPackOptions(targetDemands)
-  const selected = options.find((option) => option.technicalVersionId === state.demandGenerateTechPackVersionId)
-  if (selected) return { options, selectedOption: selected }
-
-  const fallback = options[0] ?? null
-  state.demandGenerateTechPackVersionId = fallback?.technicalVersionId || ''
-  return { options, selectedOption: fallback }
+  const row = syncDemandGenerateTechPackSelections(targetDemands)[0]
+  state.demandGenerateTechPackVersionId = row?.selectedOption?.technicalVersionId || ''
+  return { options: row?.options ?? [], selectedOption: row?.selectedOption ?? null }
 }
 
 function renderTechPackVersionOptionLabel(option: DemandPublishedTechPackVersionOption): string {
@@ -250,9 +317,38 @@ function renderTechPackVersionOptionLabel(option: DemandPublishedTechPackVersion
   ].filter(Boolean).join(' / ')
 }
 
+function renderDemandSpuInfo(demand: ProductionDemand, compact = false): string {
+  const imageUrl = resolveProductionSpuImageUrl(demand)
+  return `
+    <div class="flex min-w-0 items-center gap-3">
+      ${renderProductionImageThumb(imageUrl, demand.spuName, compact ? 'h-10 w-10' : 'h-12 w-12')}
+      <div class="min-w-0">
+        <div class="font-mono text-xs text-muted-foreground">${escapeHtml(demand.spuCode)}</div>
+        <div class="truncate font-medium" title="${escapeHtml(demand.spuName)}">${escapeHtml(demand.spuName)}</div>
+        <div class="mt-0.5 truncate text-xs text-muted-foreground">买手：${escapeHtml(demand.buyerName)} · 跟单：${escapeHtml(demand.merchandiserName)}</div>
+      </div>
+    </div>
+  `
+}
+
+function renderDemandVersionSelect(selection: DemandGenerateVersionSelection): string {
+  const selectedId = state.demandGenerateTechPackVersionIds[selection.demand.demandId] || selection.selectedOption?.technicalVersionId || ''
+  return `
+    <select data-prod-field="demandGenerateTechPackVersion:${escapeHtml(selection.demand.demandId)}" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+      ${selection.options
+        .map((option) => `
+          <option value="${escapeHtml(option.technicalVersionId)}" ${option.technicalVersionId === selectedId ? 'selected' : ''}>
+            ${escapeHtml(renderTechPackVersionOptionLabel(option))}
+          </option>
+        `)
+        .join('')}
+    </select>
+  `
+}
+
 function renderDemandGenerateTechPackVersionSelector(targetDemands: ProductionDemand[]): string {
-  const { options, selectedOption } = syncDemandGenerateTechPackSelection(targetDemands)
-  if (options.length === 0) {
+  const selections = syncDemandGenerateTechPackSelections(targetDemands)
+  if (selections.length === 0 || selections.every((selection) => selection.options.length === 0)) {
     return `
       <section class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         当前选择的需求没有可用于生成生产单的已发布技术包版本。
@@ -260,36 +356,53 @@ function renderDemandGenerateTechPackVersionSelector(targetDemands: ProductionDe
     `
   }
 
+  if (selections.length === 1) {
+    const selection = selections[0]
+    return `
+      <section class="space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h4 class="text-sm font-medium">技术包版本</h4>
+          ${renderBadge(selection.selectedOption?.isDefaultVersion ? '默认最新' : '手动选择', selection.selectedOption?.isDefaultVersion ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700')}
+        </div>
+        ${renderDemandVersionSelect(selection)}
+      </section>
+    `
+  }
+
   return `
-    <section class="rounded-md border px-4 py-3">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h4 class="text-sm font-medium">生成使用的技术包版本</h4>
-          <p class="mt-1 text-xs text-muted-foreground">默认选最新已发布版本，可改选该款式下其他已发布版本；生成后生产单会固化所选版本快照。</p>
-        </div>
-        <span class="text-xs text-muted-foreground">共 ${options.length} 个已发布版本</span>
-      </div>
-      <select data-prod-field="demandGenerateTechPackVersionId" class="mt-3 h-9 w-full rounded-md border bg-background px-3 text-sm">
-        ${options
-          .map((option) => `
-            <option value="${escapeHtml(option.technicalVersionId)}" ${option.technicalVersionId === state.demandGenerateTechPackVersionId ? 'selected' : ''}>
-              ${escapeHtml(renderTechPackVersionOptionLabel(option))}
-            </option>
-          `)
-          .join('')}
-      </select>
-      <div class="mt-3 grid grid-cols-3 gap-3 text-xs">
-        <div>
-          <p class="text-muted-foreground">版本编号</p>
-          <p class="font-mono">${escapeHtml(selectedOption?.technicalVersionCode || '-')}</p>
-        </div>
-        <div>
-          <p class="text-muted-foreground">发布时间</p>
-          <p>${escapeHtml(selectedOption?.publishedAt || '-')}</p>
-        </div>
-        <div>
-          <p class="text-muted-foreground">完整度</p>
-          <p>${selectedOption ? `${selectedOption.completenessScore}%` : '-'}</p>
+    <section class="space-y-3">
+      <h4 class="text-sm font-medium">技术包版本</h4>
+      <div class="overflow-hidden rounded-md border">
+        <div class="max-h-[280px] overflow-auto">
+          <table class="w-full min-w-[620px] text-sm">
+            <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium">生产需求 / SPU</th>
+                <th class="px-3 py-2 text-left font-medium">生成技术包版本</th>
+                <th class="px-3 py-2 text-left font-medium">状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${selections
+                .map((selection) => `
+                  <tr class="border-b last:border-0 align-top">
+                    <td class="px-3 py-2">
+                      <div class="font-mono text-xs text-muted-foreground">${escapeHtml(selection.demand.demandId)}</div>
+                      ${renderDemandSpuInfo(selection.demand, true)}
+                    </td>
+                    <td class="px-3 py-2">${selection.options.length > 0 ? renderDemandVersionSelect(selection) : '<span class="text-xs text-amber-700">暂无已发布版本</span>'}</td>
+                    <td class="px-3 py-2">
+                      ${
+                        selection.canGenerate && selection.selectedOption
+                          ? renderBadge('可生成', 'bg-green-100 text-green-700')
+                          : `<span class="text-xs text-amber-700">${escapeHtml(selection.reason)}</span>`
+                      }
+                    </td>
+                  </tr>
+                `)
+                .join('')}
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -299,26 +412,35 @@ function renderDemandGenerateTechPackVersionSelector(targetDemands: ProductionDe
 function renderDemandBatchGenerateDialog(): string {
   if (!state.demandBatchDialogOpen) return ''
 
+  const isMergeMode = isDemandMergeGenerateMode()
   const targetDemands = getSelectedBatchTargetDemands()
   const selectedDemandIds = targetDemands.map((demand) => demand.demandId)
-  const mergeValidation = getDemandMergeValidation(targetDemands)
-  const versionSelection = syncDemandGenerateTechPackSelection(targetDemands)
-  const canConfirm = mergeValidation.canMerge && Boolean(versionSelection.selectedOption)
+  const batchValidation = getDemandDialogValidation(targetDemands)
+  const versionTargetDemands = getVersionTargetDemandsForCurrentMode(targetDemands)
+  const versionSelections = syncDemandGenerateTechPackSelections(versionTargetDemands)
+  const canConfirm =
+    batchValidation.canGenerate &&
+    versionSelections.length > 0 &&
+    versionSelections.every((selection) => selection.canGenerate && Boolean(selection.selectedOption))
+  const title = isMergeMode ? '合并生成生产单' : '批量生成生产单'
+  const description = isMergeMode
+    ? `当前列表已选 ${selectedDemandIds.length} 条同 SPU 需求，将合并生成 1 张生产单，生成后需手动拆解任务。`
+    : `当前列表已选 ${selectedDemandIds.length} 条需求，将分别生成 ${selectedDemandIds.length} 张生产单，生成后需手动拆解任务。`
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-prod-action="close-demand-generate" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+      <section class="absolute left-1/2 top-1/2 w-full max-w-4xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">合并生成生产单</h3>
-          <p class="mt-1 text-sm text-muted-foreground">当前列表已选 ${selectedDemandIds.length} 条需求，满足同一 SPU 且均有生效技术包后会合并为 1 张生产单，生成后需手动拆解任务。</p>
+          <h3 class="text-lg font-semibold">${title}</h3>
+          <p class="mt-1 text-sm text-muted-foreground">${description}</p>
         </header>
 
         <div class="max-h-[72vh] space-y-4 overflow-y-auto px-6 py-5">
           ${
-            !mergeValidation.canMerge
+            !batchValidation.canGenerate
               ? `
                 <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  ${escapeHtml(mergeValidation.reason)}
+                  ${escapeHtml(batchValidation.reason)}
                 </div>
               `
               : ''
@@ -329,7 +451,7 @@ function renderDemandBatchGenerateDialog(): string {
                 <thead>
                   <tr class="border-b">
                     <th class="px-3 py-2 text-left">需求编号</th>
-                    <th class="px-3 py-2 text-left">SPU</th>
+                    <th class="px-3 py-2 text-left">SPU信息</th>
                     <th class="px-3 py-2 text-left">当前生效技术包</th>
                     <th class="px-3 py-2 text-left">生成状态</th>
                     <th class="px-3 py-2 text-right">数量</th>
@@ -343,7 +465,7 @@ function renderDemandBatchGenerateDialog(): string {
                           .map((demand) => {
                             const info = getTechPackSnapshotForDemand(demand)
                             const generationReason = info.canGenerate
-                              ? '可合并生成'
+                              ? '可生成'
                               : demand.hasProductionOrder
                               ? '已生成生产单'
                               : demand.demandStatus !== 'PENDING_CONVERT'
@@ -352,7 +474,7 @@ function renderDemandBatchGenerateDialog(): string {
                             return `
                               <tr class="border-b last:border-0">
                                 <td class="px-3 py-2 font-mono text-sm">${escapeHtml(demand.demandId)}</td>
-                                <td class="px-3 py-2 font-mono text-sm">${escapeHtml(demand.spuCode)}</td>
+                                <td class="px-3 py-2">${renderDemandSpuInfo(demand, true)}</td>
                                 <td class="px-3 py-2">
                                   <div class="flex flex-wrap items-center gap-1">
                                     ${renderBadge(
@@ -369,7 +491,7 @@ function renderDemandBatchGenerateDialog(): string {
                                 </td>
                                 <td class="px-3 py-2">
                                   ${
-                                    mergeValidation.generatableIds.has(demand.demandId)
+                                    batchValidation.generatableIds.has(demand.demandId)
                                       ? renderBadge('可生成', 'bg-green-100 text-green-700')
                                       : `<span class="text-xs text-amber-700">${escapeHtml(generationReason)}</span>`
                                   }
@@ -384,16 +506,17 @@ function renderDemandBatchGenerateDialog(): string {
               </table>
             </div>
           </section>
-          ${renderDemandGenerateTechPackVersionSelector(targetDemands)}
+          ${renderDemandGenerateTechPackVersionSelector(versionTargetDemands)}
         </div>
 
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-demand-generate">取消</button>
           <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
             canConfirm ? '' : 'pointer-events-none opacity-50'
-          }" data-prod-action="open-demand-generate-confirm">确认合并生成</button>
+          }" data-prod-action="open-demand-generate-confirm">确认${isMergeMode ? '合并生成' : '批量生成'}</button>
         </footer>
       </section>
+      <div data-production-demand-confirm-root="true">${renderDemandConfirmDialog()}</div>
     </div>
   `
 }
@@ -421,6 +544,7 @@ function renderDemandSingleGenerateDialog(singleDemand: ProductionDemand | null)
           }" data-prod-action="open-demand-generate-confirm">确认</button>
         </footer>
       </section>
+      <div data-production-demand-confirm-root="true">${renderDemandConfirmDialog()}</div>
     </div>
   `
 }
@@ -432,25 +556,28 @@ function renderOrdersFromDemandDialog(): string {
   const selectedIds = getOrdersFromDemandSelectedIds()
   const selectedAll = demands.length > 0 && demands.every((demand) => state.ordersFromDemandSelectedIds.has(demand.demandId))
   const selectedTargetDemands = getOrdersFromDemandSelectedTargetDemands()
-  const mergeValidation = getDemandMergeValidation(selectedTargetDemands)
-  const versionSelection = syncDemandGenerateTechPackSelection(selectedTargetDemands)
-  const canConfirm = mergeValidation.canMerge && Boolean(versionSelection.selectedOption)
+  const batchValidation = getDemandBatchGenerateValidation(selectedTargetDemands)
+  const versionSelections = syncDemandGenerateTechPackSelections(selectedTargetDemands)
+  const canConfirm =
+    batchValidation.canGenerate &&
+    versionSelections.length > 0 &&
+    versionSelections.every((selection) => selection.canGenerate && Boolean(selection.selectedOption))
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-prod-action="close-orders-from-demand" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+      <section class="absolute left-1/2 top-1/2 w-full max-w-4xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">从需求生成</h3>
-          <p class="mt-1 text-sm text-muted-foreground">默认使用最新已发布技术包版本，可改选该款式下其他已发布版本；多条需求需为同一 SPU，生成后不自动拆解任务。</p>
+          <h3 class="text-lg font-semibold">从需求批量生成</h3>
+          <p class="mt-1 text-sm text-muted-foreground">每条需求将生成独立生产单，生成后不自动拆解任务。</p>
         </header>
 
         <div class="max-h-[72vh] space-y-4 overflow-y-auto px-6 py-5">
           ${
-            selectedIds.length > 0 && !mergeValidation.canMerge
+            selectedIds.length > 0 && !batchValidation.canGenerate
               ? `
                 <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  ${escapeHtml(mergeValidation.reason)}
+                  ${escapeHtml(batchValidation.reason)}
                 </div>
               `
               : ''
@@ -464,7 +591,7 @@ function renderOrdersFromDemandDialog(): string {
                       <input type="checkbox" data-prod-action="toggle-orders-demand-select-all" ${selectedAll ? 'checked' : ''} />
                     </th>
                     <th class="px-3 py-2 text-left">需求编号</th>
-                    <th class="px-3 py-2 text-left">SPU</th>
+                    <th class="px-3 py-2 text-left">SPU信息</th>
                     <th class="px-3 py-2 text-left">当前生效技术包</th>
                     <th class="px-3 py-2 text-right">数量</th>
                   </tr>
@@ -485,10 +612,7 @@ function renderOrdersFromDemandDialog(): string {
                                   }" ${selected ? 'checked' : ''} />
                                 </td>
                                 <td class="px-3 py-2 font-mono">${escapeHtml(demand.demandId)}</td>
-                                <td class="px-3 py-2">
-                                  <div class="font-mono text-xs text-muted-foreground">${escapeHtml(demand.spuCode)}</div>
-                                  <div class="truncate" title="${escapeHtml(demand.spuName)}">${escapeHtml(demand.spuName)}</div>
-                                </td>
+                                <td class="px-3 py-2">${renderDemandSpuInfo(demand, true)}</td>
                                 <td class="px-3 py-2">
                                   <div class="flex flex-wrap items-center gap-1">
                                     ${renderBadge(
@@ -515,7 +639,7 @@ function renderOrdersFromDemandDialog(): string {
           </section>
 
           ${selectedIds.length > 0 ? renderDemandGenerateTechPackVersionSelector(selectedTargetDemands) : ''}
-          <p class="text-xs text-muted-foreground">已选 ${selectedIds.length} 条需求，将生成 1 张生产单</p>
+          <p class="text-xs text-muted-foreground">已选 ${selectedIds.length} 条需求，将生成 ${selectedIds.length} 张生产单</p>
         </div>
 
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
@@ -532,7 +656,17 @@ function renderOrdersFromDemandDialog(): string {
 function renderDemandConfirmDialog(): string {
   if (!state.demandGenerateConfirmOpen) return ''
   const targetDemands = getCurrentGenerateTargetDemands()
-  const { selectedOption } = syncDemandGenerateTechPackSelection(targetDemands)
+  const isMergeMode = isDemandMergeGenerateMode()
+  const versionTargetDemands = getVersionTargetDemandsForCurrentMode(targetDemands)
+  const selections = syncDemandGenerateTechPackSelections(versionTargetDemands)
+  const canConfirm = selections.length > 0 && selections.every((selection) => selection.canGenerate && Boolean(selection.selectedOption))
+  const versionSummary = selections
+    .slice(0, 4)
+    .map((selection) =>
+      `${selection.demand.demandId}：${selection.selectedOption ? renderTechPackVersionOptionLabel(selection.selectedOption) : '未选择可用版本'}`,
+    )
+    .join('；')
+  const overflowCount = Math.max(0, selections.length - 4)
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
@@ -542,13 +676,15 @@ function renderDemandConfirmDialog(): string {
           <p class="mt-1 text-sm text-muted-foreground">将按所选已发布技术包版本生成生产单，并固化为生产单技术包快照。</p>
           <div class="mt-3 rounded-md bg-muted px-3 py-2 text-sm">
             <p>需求数量：${targetDemands.length} 条</p>
-            <p>技术包版本：${escapeHtml(selectedOption ? renderTechPackVersionOptionLabel(selectedOption) : '未选择可用版本')}</p>
+            <p>生成数量：${isMergeMode ? 1 : targetDemands.length} 张生产单</p>
+            ${isMergeMode ? '<p class="text-xs text-muted-foreground">合并模式：所选需求将共用同一生产单和同一技术包快照。</p>' : ''}
+            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(versionSummary || '未选择可用版本')}${overflowCount > 0 ? `；另 ${overflowCount} 条` : ''}</p>
           </div>
         </header>
         <footer class="flex items-center justify-end gap-2 px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-demand-generate-confirm">取消</button>
           <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
-            selectedOption ? '' : 'pointer-events-none opacity-50'
+            canConfirm ? '' : 'pointer-events-none opacity-50'
           }" data-prod-action="confirm-demand-generate">确认</button>
         </footer>
       </div>
@@ -556,17 +692,25 @@ function renderDemandConfirmDialog(): string {
   `
 }
 
+function renderProductionDemandOverlays(): string {
+  const singleGenerateDemand = getDemandById(state.demandSingleGenerateId)
+  return `
+    ${renderDemandDetailDrawer()}
+    ${renderDemandBatchGenerateDialog()}
+    ${renderDemandSingleGenerateDialog(singleGenerateDemand)}
+  `
+}
+
 export function renderProductionDemandInboxPage(): string {
   const filteredDemands = getFilteredDemands()
+  const totalPages = Math.max(1, Math.ceil(filteredDemands.length / PAGE_SIZE))
+  if (state.demandCurrentPage > totalPages) {
+    state.demandCurrentPage = totalPages
+  }
+  const pagedDemands = getPaginatedDemands(filteredDemands)
   const selectedVisibleDemandIds = getBatchSelectedDemandIds()
-  const selectedAll = filteredDemands.length > 0 && filteredDemands.every((demand) => state.demandSelectedIds.has(demand.demandId))
-  const batchMergeValidation = getDemandMergeValidation(getSelectedBatchTargetDemands())
-  const demandDetailDrawer = renderDemandDetailDrawer()
-  const singleGenerateDemand = getDemandById(state.demandSingleGenerateId)
-  const batchGenerateDialog = renderDemandBatchGenerateDialog()
-  const singleGenerateDialog = renderDemandSingleGenerateDialog(singleGenerateDemand)
-  const confirmDialog = renderDemandConfirmDialog()
-
+  const selectedAll = pagedDemands.length > 0 && pagedDemands.every((demand) => state.demandSelectedIds.has(demand.demandId))
+  const batchGenerateValidation = getDemandBatchGenerateValidation(getSelectedBatchTargetDemands())
   return `
     <div class="space-y-4">
       <header class="flex items-center justify-between">
@@ -590,6 +734,12 @@ export function renderProductionDemandInboxPage(): string {
             selectedVisibleDemandIds.length === 0 ? 'pointer-events-none opacity-50' : ''
           }" data-prod-action="open-demand-batch">
             <i data-lucide="plus" class="mr-1 h-4 w-4"></i>
+            批量生成生产单 (${selectedVisibleDemandIds.length})
+          </button>
+          <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted ${
+            selectedVisibleDemandIds.length === 0 ? 'pointer-events-none opacity-50' : ''
+          }" data-prod-action="open-demand-merge">
+            <i data-lucide="combine" class="mr-1 h-4 w-4"></i>
             合并生成生产单 (${selectedVisibleDemandIds.length})
           </button>
           <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="refresh-demand">
@@ -676,7 +826,7 @@ export function renderProductionDemandInboxPage(): string {
 
       ${
         selectedVisibleDemandIds.length > 0
-          ? `<p class="text-sm text-muted-foreground">当前列表已选 ${selectedVisibleDemandIds.length} 项，${batchMergeValidation.canMerge ? '符合合并生成条件' : escapeHtml(batchMergeValidation.reason)}</p>`
+          ? `<p class="text-sm text-muted-foreground">当前列表已选 ${selectedVisibleDemandIds.length} 项，批量生成会生成 ${selectedVisibleDemandIds.length} 张生产单；合并生成需选择同一 SPU，确认后生成 1 张生产单。${batchGenerateValidation.canGenerate ? '' : ` ${escapeHtml(batchGenerateValidation.reason)}`}</p>`
           : ''
       }
 
@@ -701,9 +851,9 @@ export function renderProductionDemandInboxPage(): string {
           </thead>
           <tbody>
             ${
-              filteredDemands.length === 0
+              pagedDemands.length === 0
                 ? `<tr><td colspan="11" class="h-32 px-3 text-center text-muted-foreground">暂无数据</td></tr>`
-                : filteredDemands
+                : pagedDemands
                     .map((demand) => {
                       const selected = state.demandSelectedIds.has(demand.demandId)
                       const techPack = getTechPackSnapshotForDemand(demand)
@@ -724,15 +874,7 @@ export function renderProductionDemandInboxPage(): string {
                               </button>
                             </div>
                           </td>
-                          <td class="px-3 py-3">
-                            <p class="font-mono text-xs text-muted-foreground">${escapeHtml(demand.spuCode)}</p>
-                            <p class="max-w-[160px] truncate" title="${escapeHtml(demand.spuName)}">${escapeHtml(
-                              demand.spuName,
-                            )}</p>
-                            <p class="mt-1 text-xs text-muted-foreground">买手：${escapeHtml(
-                              demand.buyerName,
-                            )} · 跟单：${escapeHtml(demand.merchandiserName)}</p>
-                          </td>
+                          <td class="px-3 py-3">${renderDemandSpuInfo(demand)}</td>
                           <td class="px-3 py-3">${renderBadge(
                             demandPriorityConfig[demand.priority].label,
                             demandPriorityConfig[demand.priority].className,
@@ -782,18 +924,34 @@ export function renderProductionDemandInboxPage(): string {
         </table>
       </div>
 
-      <p class="text-sm text-muted-foreground">共 ${filteredDemands.length} 条记录</p>
+      <footer class="flex items-center justify-between text-sm">
+        <p class="text-muted-foreground">共 ${filteredDemands.length} 条记录${
+          state.demandSelectedIds.size > 0 ? `，已选 ${state.demandSelectedIds.size} 项` : ''
+        }</p>
+        <div class="flex items-center gap-2">
+          <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border ${
+            state.demandCurrentPage === 1 ? 'pointer-events-none opacity-50' : 'hover:bg-muted'
+          }" data-prod-action="demand-prev-page" aria-label="上一页">
+            <i data-lucide="chevron-left" class="h-4 w-4"></i>
+          </button>
+          <span>${state.demandCurrentPage} / ${totalPages || 1}</span>
+          <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border ${
+            state.demandCurrentPage >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-muted'
+          }" data-prod-action="demand-next-page" aria-label="下一页">
+            <i data-lucide="chevron-right" class="h-4 w-4"></i>
+          </button>
+        </div>
+      </footer>
 
-      ${demandDetailDrawer}
-      ${batchGenerateDialog}
-      ${singleGenerateDialog}
-      ${confirmDialog}
+      <div data-production-demand-overlay-root="true">${renderProductionDemandOverlays()}</div>
     </div>
   `
 }
 
 function resetDemandGenerateForm(): void {
   state.demandGenerateTechPackVersionId = ''
+  state.demandGenerateTechPackVersionIds = {}
+  state.demandBatchGenerateMode = 'batch'
   state.demandSelectedFactoryId = ''
   state.demandTierFilter = 'ALL'
   state.demandTypeFilter = 'ALL'
@@ -805,12 +963,18 @@ function resetDemandGenerateForm(): void {
   state.demandOwnerReason = ''
 }
 
-function openDemandBatchGenerate(): void {
+function openDemandBatchGenerate(mode: 'batch' | 'merge' = 'batch'): void {
   resetDemandGenerateForm()
+  state.demandBatchGenerateMode = mode
   state.demandSelectedIds = new Set(getBatchSelectedDemandIds())
   state.demandBatchDialogOpen = true
   state.demandSingleGenerateId = null
-  syncDemandGenerateTechPackSelection(getSelectedBatchTargetDemands())
+  const targetDemands = getSelectedBatchTargetDemands()
+  syncDemandGenerateTechPackSelection(mode === 'merge' ? targetDemands.slice(0, 1) : targetDemands)
+}
+
+function openDemandMergeGenerate(): void {
+  openDemandBatchGenerate('merge')
 }
 
 function openOrdersFromDemandGenerateDialog(): void {
@@ -823,50 +987,34 @@ function openOrdersFromDemandGenerateDialog(): void {
 
 function openDemandSingleGenerate(demandId: string): void {
   resetDemandGenerateForm()
+  state.demandBatchGenerateMode = 'batch'
   state.demandSingleGenerateId = demandId
   state.demandBatchDialogOpen = false
   const demand = getDemandById(demandId)
   syncDemandGenerateTechPackSelection(demand ? [demand] : [])
 }
 
-function performDemandGenerate(): void {
-  const demandIds = (() => {
-    if (state.demandSingleGenerateId) return [state.demandSingleGenerateId]
-    const targetDemands = getSelectedBatchTargetDemands()
-    const validation = getDemandMergeValidation(targetDemands)
-    return validation.canMerge ? targetDemands.map((demand) => demand.demandId) : []
-  })()
+function createProductionOrdersForDemands(
+  targetDemands: ProductionDemand[],
+  now: string,
+): Array<{ demand: ProductionDemand; order: ProductionOrder }> {
+  const selections = new Map(
+    syncDemandGenerateTechPackSelections(targetDemands).map((selection) => [selection.demand.demandId, selection]),
+  )
+  const created: Array<{ demand: ProductionDemand; order: ProductionOrder }> = []
 
-  if (demandIds.length === 0) {
-    state.demandGenerateConfirmOpen = false
-    return
-  }
+  for (const demand of targetDemands) {
+    const selection = selections.get(demand.demandId)
+    if (!selection?.canGenerate || !selection.selectedOption) continue
 
-  const now = toTimestamp()
-  const targetDemands = demandIds
-    .map((demandId) => state.demands.find((item) => item.demandId === demandId) ?? null)
-    .filter((demand): demand is ProductionDemand => {
-      if (!demand) return false
-      const techPack = getTechPackSnapshotForDemand(demand)
-      return !demand.hasProductionOrder && demand.demandStatus === 'PENDING_CONVERT' && techPack.canGenerate
-    })
-
-  if (targetDemands.length === 0) {
-    state.demandGenerateConfirmOpen = false
-    return
-  }
-  const { selectedOption } = syncDemandGenerateTechPackSelection(targetDemands)
-  if (!selectedOption) {
-    state.demandGenerateConfirmOpen = false
-    return
-  }
-
-  let createdOrder: ProductionOrder | null = null
-  try {
-    createdOrder = buildProductionOrderFromDemands({
-      productionOrderId: nextProductionOrderId(state.orders),
-      demandId: targetDemands[0].demandId,
-      sourceDemandIds: targetDemands.map((demand) => demand.demandId),
+    const productionOrderId = nextProductionOrderId([
+      ...state.orders,
+      ...created.map((item) => item.order),
+    ])
+    const createdOrder = buildProductionOrderFromDemand({
+      productionOrderId,
+      demandId: demand.demandId,
+      sourceDemandIds: [demand.demandId],
       status: 'READY_FOR_BREAKDOWN',
       mainFactoryId: PENDING_MAIN_FACTORY_ID,
       mainFactoryStatus: 'PENDING_SEWING_ASSIGNMENT',
@@ -909,7 +1057,7 @@ function performDemandGenerate(): void {
         {
           id: nextLocalEntityId('LOG'),
           action: 'CREATE',
-          detail: `合并需求 ${targetDemands.map((demand) => demand.demandId).join('、')} 生成生产单，待手动拆解任务，主工厂待车缝任务分配确定`,
+          detail: `从需求 ${demand.demandId} 生成生产单，待手动拆解任务，主工厂待车缝任务分配确定；技术包版本 ${selection.selectedOption.technicalVersionCode} ${selection.selectedOption.versionLabel}`,
           at: now,
           by: currentUser.name,
         },
@@ -917,190 +1065,203 @@ function performDemandGenerate(): void {
       createdAt: now,
       updatedAt: now,
       snapshotAt: now,
-      selectedTechPackVersionId: selectedOption.technicalVersionId,
-    }, targetDemands, currentUser.name)
-    createdOrder.auditLogs = createdOrder.auditLogs.map((log) =>
-      log.action === 'CREATE'
-        ? {
-          ...log,
-          detail: `${log.detail}；技术包版本 ${selectedOption.technicalVersionCode} ${selectedOption.versionLabel}`,
-        }
-        : log,
-    )
-  } catch {
-    state.demandGenerateConfirmOpen = false
-    return
+      selectedTechPackVersionId: selection.selectedOption.technicalVersionId,
+    }, demand, currentUser.name)
+
+    created.push({ demand, order: createdOrder })
   }
 
-  if (!createdOrder) {
-    state.demandGenerateConfirmOpen = false
-    return
-  }
+  return created
+}
 
-  const generatedDemandIds = new Set(targetDemands.map((demand) => demand.demandId))
-  state.orders = [...state.orders, createdOrder]
+type CreatedProductionOrderGroup = {
+  demands: ProductionDemand[]
+  order: ProductionOrder
+}
+
+function toCreatedProductionOrderGroups(created: Array<{ demand: ProductionDemand; order: ProductionOrder }>): CreatedProductionOrderGroup[] {
+  return created.map((item) => ({ demands: [item.demand], order: item.order }))
+}
+
+function createMergedProductionOrderForDemands(
+  targetDemands: ProductionDemand[],
+  now: string,
+): CreatedProductionOrderGroup | null {
+  const validation = getDemandMergeGenerateValidation(targetDemands)
+  if (!validation.canGenerate) return null
+
+  const primaryDemand = targetDemands[0]
+  const selection = syncDemandGenerateTechPackSelections([primaryDemand])[0]
+  if (!selection?.canGenerate || !selection.selectedOption) return null
+
+  const productionOrderId = nextProductionOrderId(state.orders)
+  const createdOrder = buildProductionOrderFromDemands({
+    productionOrderId,
+    demandId: primaryDemand.demandId,
+    sourceDemandIds: targetDemands.map((demand) => demand.demandId),
+    status: 'READY_FOR_BREAKDOWN',
+    mainFactoryId: PENDING_MAIN_FACTORY_ID,
+    mainFactoryStatus: 'PENDING_SEWING_ASSIGNMENT',
+    mainFactorySource: 'SEWING_TASK_ASSIGNMENT',
+    ownerPartyType: 'FACTORY',
+    ownerPartyId: PENDING_MAIN_FACTORY_ID,
+    ownerReason: '待车缝任务分配确认主工厂。',
+    assignmentSummary: {
+      directCount: 0,
+      biddingCount: 0,
+      totalTasks: 0,
+      unassignedCount: 0,
+    },
+    assignmentProgress: {
+      status: 'NOT_READY',
+      directAssignedCount: 0,
+      biddingLaunchedCount: 0,
+      biddingAwardedCount: 0,
+    },
+    biddingSummary: {
+      activeTenderCount: 0,
+      overdueTenderCount: 0,
+    },
+    directDispatchSummary: {
+      assignedFactoryCount: 0,
+      rejectedCount: 0,
+      overdueAckCount: 0,
+    },
+    taskBreakdownSummary: {
+      isBrokenDown: false,
+      taskTypesTop3: [],
+    },
+    riskFlags: [],
+    planStatus: 'UNPLANNED',
+    deliveryWarehouseStatus: 'UNSET',
+    lifecycleStatus: 'PLANNED',
+    lifecycleUpdatedAt: now,
+    lifecycleUpdatedBy: currentUser.name,
+    auditLogs: [
+      {
+        id: nextLocalEntityId('LOG'),
+        action: 'CREATE',
+        detail: `合并需求 ${targetDemands.map((demand) => demand.demandId).join('、')} 生成生产单，待手动拆解任务，主工厂待车缝任务分配确定；技术包版本 ${selection.selectedOption.technicalVersionCode} ${selection.selectedOption.versionLabel}`,
+        at: now,
+        by: currentUser.name,
+      },
+    ],
+    createdAt: now,
+    updatedAt: now,
+    snapshotAt: now,
+    selectedTechPackVersionId: selection.selectedOption.technicalVersionId,
+  }, targetDemands, currentUser.name)
+
+  return { demands: targetDemands, order: createdOrder }
+}
+
+function closeDemandGenerateFlow(): void {
+  state.demandGenerateConfirmOpen = false
+  state.demandBatchDialogOpen = false
+  state.demandSingleGenerateId = null
+  state.ordersFromDemandDialogOpen = false
+  state.ordersFromDemandSelectedIds = new Set<string>()
+  state.demandSelectedIds = new Set<string>()
+  resetDemandGenerateForm()
+}
+
+function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[], now: string): void {
+  if (created.length === 0) return
+
+  const orderIdByDemandId = new Map<string, string>()
+  for (const item of created) {
+    for (const demand of item.demands) {
+      orderIdByDemandId.set(demand.demandId, item.order.productionOrderId)
+    }
+  }
+  state.orders = [...state.orders, ...created.map((item) => item.order)]
   state.demands = state.demands.map((demand) => {
-    if (!generatedDemandIds.has(demand.demandId)) return demand
-
+    const productionOrderId = orderIdByDemandId.get(demand.demandId)
+    if (!productionOrderId) return demand
     return {
       ...demand,
       hasProductionOrder: true,
-      productionOrderId: createdOrder.productionOrderId,
+      productionOrderId,
       demandStatus: 'CONVERTED',
       updatedAt: now,
     }
   })
+}
 
-  state.demandSelectedIds = new Set()
-  state.demandGenerateConfirmOpen = false
-  state.demandBatchDialogOpen = false
-  state.demandSingleGenerateId = null
-  state.demandGenerateTechPackVersionId = ''
-  resetDemandGenerateForm()
+function openCreatedProductionOrders(created: CreatedProductionOrderGroup[]): void {
+  if (created.length === 1) {
+    const createdOrder = created[0].order
+    openAppRoute(
+      `/fcs/production/orders/${createdOrder.productionOrderId}`,
+      `po-${createdOrder.productionOrderId}`,
+      `生产单管理 ${createdOrder.productionOrderId}`,
+    )
+    return
+  }
 
-  openAppRoute(
-    `/fcs/production/orders/${createdOrder.productionOrderId}`,
-    `po-${createdOrder.productionOrderId}`,
-    `生产单管理 ${createdOrder.productionOrderId}`,
-  )
+  openAppRoute('/fcs/production/orders', 'fcs-production-orders', '生产单管理')
+}
+
+function getValidatedGenerateTargetDemands(targetDemands: ProductionDemand[]): ProductionDemand[] {
+  const validation = getDemandBatchGenerateValidation(targetDemands)
+  if (!validation.canGenerate) return []
+  return targetDemands.filter((demand) => validation.generatableIds.has(demand.demandId))
+}
+
+function performDemandGenerate(): void {
+  const targetDemands = state.demandSingleGenerateId
+    ? [getDemandById(state.demandSingleGenerateId)].filter((demand): demand is ProductionDemand => Boolean(demand))
+    : getSelectedBatchTargetDemands()
+  const mergeValidation = state.demandBatchGenerateMode === 'merge' && !state.demandSingleGenerateId
+    ? getDemandMergeGenerateValidation(targetDemands)
+    : null
+  if (mergeValidation && !mergeValidation.canGenerate) {
+    state.demandGenerateConfirmOpen = false
+    return
+  }
+  const validatedDemands = mergeValidation
+    ? targetDemands.filter((demand) => mergeValidation.generatableIds.has(demand.demandId))
+    : getValidatedGenerateTargetDemands(targetDemands)
+  if (validatedDemands.length === 0) {
+    state.demandGenerateConfirmOpen = false
+    return
+  }
+
+  const now = toTimestamp()
+  const created = state.demandBatchGenerateMode === 'merge' && !state.demandSingleGenerateId
+    ? [createMergedProductionOrderForDemands(validatedDemands, now)].filter((item): item is CreatedProductionOrderGroup => Boolean(item))
+    : toCreatedProductionOrderGroups(createProductionOrdersForDemands(validatedDemands, now))
+  if (created.length === 0) {
+    state.demandGenerateConfirmOpen = false
+    return
+  }
+
+  applyCreatedProductionOrderGroups(created, now)
+  closeDemandGenerateFlow()
+  openCreatedProductionOrders(created)
 }
 
 function performOrdersFromDemandGenerate(): void {
   const demandIds = getOrdersFromDemandSelectedIds()
-  if (demandIds.length === 0) {
+  const targetDemands = demandIds
+    .map((demandId) => state.demands.find((item) => item.demandId === demandId) ?? null)
+    .filter((demand): demand is ProductionDemand => Boolean(demand))
+  const validatedDemands = getValidatedGenerateTargetDemands(targetDemands)
+  if (validatedDemands.length === 0) {
     state.demandGenerateConfirmOpen = false
     return
   }
 
   const now = toTimestamp()
-  const targetDemands = demandIds
-    .map((demandId) => state.demands.find((item) => item.demandId === demandId) ?? null)
-    .filter((demand): demand is ProductionDemand => {
-      if (!demand) return false
-      const techPack = getTechPackSnapshotForDemand(demand)
-      return (
-        !demand.hasProductionOrder &&
-        demand.productionOrderId === null &&
-        demand.demandStatus === 'PENDING_CONVERT' &&
-        techPack.canGenerate
-      )
-    })
-
-  if (targetDemands.length === 0) {
-    state.demandGenerateConfirmOpen = false
-    return
-  }
-  const mergeValidation = getDemandMergeValidation(targetDemands)
-  if (!mergeValidation.canMerge) {
-    state.demandGenerateConfirmOpen = false
-    return
-  }
-  const { selectedOption } = syncDemandGenerateTechPackSelection(targetDemands)
-  if (!selectedOption) {
+  const created = toCreatedProductionOrderGroups(createProductionOrdersForDemands(validatedDemands, now))
+  if (created.length === 0) {
     state.demandGenerateConfirmOpen = false
     return
   }
 
-  let createdOrder: ProductionOrder | null = null
-  try {
-    createdOrder = buildProductionOrderFromDemands({
-      productionOrderId: nextProductionOrderId(state.orders),
-      demandId: targetDemands[0].demandId,
-      sourceDemandIds: targetDemands.map((demand) => demand.demandId),
-      status: 'READY_FOR_BREAKDOWN',
-      mainFactoryId: PENDING_MAIN_FACTORY_ID,
-      mainFactoryStatus: 'PENDING_SEWING_ASSIGNMENT',
-      mainFactorySource: 'SEWING_TASK_ASSIGNMENT',
-      ownerPartyType: 'FACTORY',
-      ownerPartyId: PENDING_MAIN_FACTORY_ID,
-      ownerReason: '待车缝任务分配确认主工厂。',
-      assignmentSummary: {
-        directCount: 0,
-        biddingCount: 0,
-        totalTasks: 0,
-        unassignedCount: 0,
-      },
-      assignmentProgress: {
-        status: 'NOT_READY',
-        directAssignedCount: 0,
-        biddingLaunchedCount: 0,
-        biddingAwardedCount: 0,
-      },
-      biddingSummary: {
-        activeTenderCount: 0,
-        overdueTenderCount: 0,
-      },
-      directDispatchSummary: {
-        assignedFactoryCount: 0,
-        rejectedCount: 0,
-        overdueAckCount: 0,
-      },
-      taskBreakdownSummary: {
-        isBrokenDown: false,
-        taskTypesTop3: [],
-      },
-      riskFlags: [],
-      planStatus: 'UNPLANNED',
-      deliveryWarehouseStatus: 'UNSET',
-      lifecycleStatus: 'PLANNED',
-      lifecycleUpdatedAt: now,
-      lifecycleUpdatedBy: currentUser.name,
-      auditLogs: [
-        {
-          id: nextLocalEntityId('LOG'),
-          action: 'CREATE',
-          detail: `合并需求 ${targetDemands.map((demand) => demand.demandId).join('、')} 生成生产单，待手动拆解任务，主工厂待车缝任务分配确定`,
-          at: now,
-          by: currentUser.name,
-        },
-      ],
-      createdAt: now,
-      updatedAt: now,
-      snapshotAt: now,
-      selectedTechPackVersionId: selectedOption.technicalVersionId,
-    }, targetDemands, currentUser.name)
-    createdOrder.auditLogs = createdOrder.auditLogs.map((log) =>
-      log.action === 'CREATE'
-        ? {
-          ...log,
-          detail: `${log.detail}；技术包版本 ${selectedOption.technicalVersionCode} ${selectedOption.versionLabel}`,
-        }
-        : log,
-    )
-  } catch {
-    state.demandGenerateConfirmOpen = false
-    return
-  }
-
-  if (!createdOrder) {
-    state.demandGenerateConfirmOpen = false
-    return
-  }
-
-  const generatedDemandIds = new Set(targetDemands.map((demand) => demand.demandId))
-  state.orders = [...state.orders, createdOrder]
-  state.demands = state.demands.map((demand) => {
-    if (!generatedDemandIds.has(demand.demandId)) return demand
-    return {
-      ...demand,
-      hasProductionOrder: true,
-      productionOrderId: createdOrder.productionOrderId,
-      demandStatus: 'CONVERTED',
-      updatedAt: now,
-    }
-  })
-
-  state.demandGenerateConfirmOpen = false
-  state.ordersFromDemandDialogOpen = false
-  state.ordersFromDemandSelectedIds = new Set<string>()
-  state.demandGenerateTechPackVersionId = ''
-  resetDemandGenerateForm()
-
-  openAppRoute(
-    `/fcs/production/orders/${createdOrder.productionOrderId}`,
-    `po-${createdOrder.productionOrderId}`,
-    `生产单管理 ${createdOrder.productionOrderId}`,
-  )
+  applyCreatedProductionOrderGroups(created, now)
+  closeDemandGenerateFlow()
+  openCreatedProductionOrders(created)
 }
 
 
@@ -1110,8 +1271,10 @@ export {
   renderDemandSingleGenerateDialog,
   renderOrdersFromDemandDialog,
   renderDemandConfirmDialog,
+  renderProductionDemandOverlays,
   resetDemandGenerateForm,
   openDemandBatchGenerate,
+  openDemandMergeGenerate,
   openOrdersFromDemandGenerateDialog,
   openDemandSingleGenerate,
   performDemandGenerate,

@@ -70,7 +70,7 @@ export const renderProductionCraftDictPage = createAsyncRenderer(
   'renderProductionCraftDictPage',
 )
 export const renderProductionDemandInboxPage = createAsyncRenderer(
-  () => import('../pages/production'),
+  () => import('../pages/production/demand-domain'),
   'renderProductionDemandInboxPage',
 )
 export const renderProductionDeliveryWarehousePage = createAsyncRenderer(
@@ -81,10 +81,7 @@ export const renderProductionOrderDetailPage = createAsyncRenderer(
   () => import('../pages/production'),
   'renderProductionOrderDetailPage',
 )
-export const renderProductionOrdersPage = createAsyncRenderer(
-  () => import('../pages/production'),
-  'renderProductionOrdersPage',
-)
+export const renderProductionOrdersPage = createAsyncRenderer(() => import('../pages/production/orders-domain'), 'renderProductionOrdersPage')
 export const renderProductionPlanPage = createAsyncRenderer(
   () => import('../pages/production'),
   'renderProductionPlanPage',

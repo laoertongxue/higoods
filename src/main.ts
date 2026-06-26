@@ -24,6 +24,10 @@ type PdaSettlementPageModule = typeof import('./pages/pda-settlement')
 type ProductionOrderProgressTrackingPageModule = typeof import('./pages/production-order-progress-tracking')
 type ProgressBoardPageModule = typeof import('./pages/progress-board')
 type RoutesModule = typeof import('./router/routes')
+type ProductionDemandPageModule = typeof import('./pages/production/demand-domain')
+type ProductionOrdersPageModule = typeof import('./pages/production/orders-domain')
+type ProductionEventsModule = typeof import('./pages/production/events')
+type ProductionDialogsModule = typeof import('./pages/production/dialogs')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
@@ -46,10 +50,15 @@ let pdaSettlementPageModulePromise: Promise<PdaSettlementPageModule> | null = nu
 let productionOrderProgressTrackingPageModulePromise: Promise<ProductionOrderProgressTrackingPageModule> | null = null
 let progressBoardPageModulePromise: Promise<ProgressBoardPageModule> | null = null
 let routesModulePromise: Promise<RoutesModule> | null = null
+let productionDemandPageModulePromise: Promise<ProductionDemandPageModule> | null = null
+let productionOrdersPageModulePromise: Promise<ProductionOrdersPageModule> | null = null
+let productionEventsModulePromise: Promise<ProductionEventsModule> | null = null
+let productionDialogsModulePromise: Promise<ProductionDialogsModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
 let nextStoreRenderMode: StoreRenderMode = 'full'
 let pdaMainTabPreloadStarted = false
+let productionListPreloadStarted = false
 
 function getFcsHandlersModule(): Promise<FcsHandlersModule> {
   if (!fcsHandlersModulePromise) {
@@ -251,6 +260,46 @@ function getProgressBoardPageModule(): Promise<ProgressBoardPageModule> {
   return progressBoardPageModulePromise
 }
 
+function getProductionDemandPageModule(): Promise<ProductionDemandPageModule> {
+  if (!productionDemandPageModulePromise) {
+    productionDemandPageModulePromise = import('./pages/production/demand-domain').catch((error) => {
+      productionDemandPageModulePromise = null
+      throw error
+    })
+  }
+  return productionDemandPageModulePromise
+}
+
+function getProductionOrdersPageModule(): Promise<ProductionOrdersPageModule> {
+  if (!productionOrdersPageModulePromise) {
+    productionOrdersPageModulePromise = import('./pages/production/orders-domain').catch((error) => {
+      productionOrdersPageModulePromise = null
+      throw error
+    })
+  }
+  return productionOrdersPageModulePromise
+}
+
+function getProductionEventsModule(): Promise<ProductionEventsModule> {
+  if (!productionEventsModulePromise) {
+    productionEventsModulePromise = import('./pages/production/events').catch((error) => {
+      productionEventsModulePromise = null
+      throw error
+    })
+  }
+  return productionEventsModulePromise
+}
+
+function getProductionDialogsModule(): Promise<ProductionDialogsModule> {
+  if (!productionDialogsModulePromise) {
+    productionDialogsModulePromise = import('./pages/production/dialogs').catch((error) => {
+      productionDialogsModulePromise = null
+      throw error
+    })
+  }
+  return productionDialogsModulePromise
+}
+
 function getRoutesModule(): Promise<RoutesModule> {
   if (!routesModulePromise) {
     routesModulePromise = import('./router/routes').catch((error) => {
@@ -259,6 +308,21 @@ function getRoutesModule(): Promise<RoutesModule> {
     })
   }
   return routesModulePromise
+}
+
+function scheduleProductionListPreload(): void {
+  if (productionListPreloadStarted) return
+  productionListPreloadStarted = true
+
+  const preload = (): void => {
+    void Promise.allSettled([
+      getProductionDemandPageModule(),
+      getProductionOrdersPageModule(),
+      getProductionEventsModule(),
+    ])
+  }
+
+  preload()
 }
 
 function getPdaMainTabModule(pathname: string): Promise<unknown> | null {
@@ -414,6 +478,10 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
     const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()
     return productionOrderProgressTrackingPage.handleProductionOrderProgressEvent(eventTarget)
   }
+  if (isProductionRoutePath(pathname)) {
+    const productionEvents = await getProductionEventsModule()
+    return productionEvents.handleProductionEvent(eventTarget)
+  }
   if (pathname.startsWith('/fcs/progress/board')) {
     const progressBoardPage = await getProgressBoardPageModule()
     return progressBoardPage.handleProgressBoardEvent(eventTarget)
@@ -490,6 +558,11 @@ async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
     }
   }
 
+  if (isProductionRoutePath(pathname)) {
+    const productionEvents = await getProductionEventsModule()
+    return productionEvents.handleProductionSubmit(form)
+  }
+
   try {
     const fcsHandlers = await getFcsHandlersModule()
     return fcsHandlers.dispatchFcsPageSubmit(form)
@@ -527,6 +600,21 @@ async function closeDialogsOnEscape(): Promise<boolean> {
     } catch (error) {
       if (reloadForDynamicModuleLoadError(error, '工厂档案弹窗处理器')) return false
       console.error('工厂档案弹窗处理器加载失败', error)
+      return false
+    }
+  }
+
+  if (isProductionRoutePath(pathname)) {
+    try {
+      const productionDialogs = await getProductionDialogsModule()
+      if (!productionDialogs.isProductionDialogOpen()) return false
+      const productionEvents = await getProductionEventsModule()
+      const fakeButton = document.createElement('button')
+      fakeButton.dataset.prodAction = 'close-dialog'
+      return productionEvents.handleProductionEvent(fakeButton)
+    } catch (error) {
+      if (reloadForDynamicModuleLoadError(error, '生产单弹窗处理器')) return false
+      console.error('生产单弹窗处理器加载失败', error)
       return false
     }
   }
@@ -571,6 +659,20 @@ let renderSerial = 0
 
 function isPdaPath(pathname: string): boolean {
   return pathname.split('?')[0].split('#')[0].startsWith('/fcs/pda')
+}
+
+function isProductionRoutePath(pathname: string): boolean {
+  const normalizedPathname = normalizePathname(pathname)
+  return normalizedPathname.startsWith('/fcs/production')
+}
+
+function isProductionScopedRenderPath(pathname: string): boolean {
+  const normalizedPathname = normalizePathname(pathname)
+  return (
+    normalizedPathname === '/fcs/production/demand-inbox' ||
+    normalizedPathname === '/fcs/production/orders' ||
+    /^\/fcs\/production\/orders\/[^/]+$/.test(normalizedPathname)
+  )
 }
 
 function renderPdaLoadingShell(): string {
@@ -626,6 +728,18 @@ function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    if (normalizedPathname === '/fcs/production/demand-inbox') {
+      const productionDemandPage = await getProductionDemandPageModule()
+      const page = productionDemandPage.renderProductionDemandInboxPage()
+      scheduleProductionListPreload()
+      return page
+    }
+    if (normalizedPathname === '/fcs/production/orders') {
+      const productionOrdersPage = await getProductionOrdersPageModule()
+      const page = productionOrdersPage.renderProductionOrdersPage()
+      scheduleProductionListPreload()
+      return page
+    }
     if (normalizedPathname === '/fcs/pda/task-receive') {
       const pdaTaskReceivePage = await getPdaTaskReceivePageModule()
       return pdaTaskReceivePage.renderPdaTaskReceivePage()
@@ -726,6 +840,7 @@ async function render(): Promise<void> {
   if (!dynamicModuleReloadScheduled) {
     clearPreloadReloadFlag()
   }
+  scheduleProductionListPreload()
 }
 
 async function renderSidebarOnly(): Promise<void> {
@@ -773,6 +888,75 @@ function shouldUseTechPackScopedRender(target: Element | null, previousPathname:
   if (action === 'tech-back') return false
 
   return true
+}
+
+function shouldUseProductionScopedRender(previousPathname: string, nextPathname: string): boolean {
+  const previous = normalizePathname(previousPathname)
+  const next = normalizePathname(nextPathname)
+  return previous === next && isProductionScopedRenderPath(next)
+}
+
+function shouldUseProductionOrdersOverlayRender(target: Element | null, previousPathname: string, nextPathname: string): boolean {
+  if (!(target instanceof Element)) return false
+  const previous = normalizePathname(previousPathname)
+  const next = normalizePathname(nextPathname)
+  if (previous !== next || next !== '/fcs/production/orders') return false
+
+  const actionNode = target.closest<HTMLElement>('[data-prod-action]')
+  const action = actionNode?.dataset.prodAction || ''
+  const overlayActions = new Set([
+    'open-material-draft-drawer',
+    'close-material-draft-drawer',
+    'toggle-material-draft-needed',
+    'toggle-material-draft-line',
+    'open-add-draft-materials',
+    'close-add-draft-materials',
+    'toggle-add-draft-material',
+    'add-draft-materials',
+    'restore-material-draft-suggestion',
+    'confirm-material-request-draft',
+  ])
+  if (overlayActions.has(action)) return true
+
+  const fieldNode = target.closest<HTMLElement>('[data-prod-field]')
+  const field = fieldNode?.dataset.prodField || ''
+  return field.startsWith('materialDraftMode:') ||
+    field.startsWith('materialDraftRemark:') ||
+    field.startsWith('materialDraftLineQty:')
+}
+
+function shouldUseProductionDemandOverlayRender(target: Element | null, previousPathname: string, nextPathname: string): boolean {
+  if (!(target instanceof Element)) return false
+  const previous = normalizePathname(previousPathname)
+  const next = normalizePathname(nextPathname)
+  if (previous !== next || next !== '/fcs/production/demand-inbox') return false
+
+  const actionNode = target.closest<HTMLElement>('[data-prod-action]')
+  const action = actionNode?.dataset.prodAction || ''
+  const overlayActions = new Set([
+    'open-demand-detail',
+    'close-demand-detail',
+    'open-demand-batch',
+    'open-demand-merge',
+    'open-demand-single',
+    'close-demand-generate',
+  ])
+  if (overlayActions.has(action)) return true
+
+  const fieldNode = target.closest<HTMLElement>('[data-prod-field]')
+  const field = fieldNode?.dataset.prodField || ''
+  return field.startsWith('demandGenerateTechPackVersion:')
+}
+
+function shouldUseProductionDemandConfirmOverlayRender(target: Element | null, previousPathname: string, nextPathname: string): boolean {
+  if (!(target instanceof Element)) return false
+  const previous = normalizePathname(previousPathname)
+  const next = normalizePathname(nextPathname)
+  if (previous !== next || next !== '/fcs/production/demand-inbox') return false
+
+  const actionNode = target.closest<HTMLElement>('[data-prod-action]')
+  const action = actionNode?.dataset.prodAction || ''
+  return action === 'open-demand-generate-confirm' || action === 'close-demand-generate-confirm'
 }
 
 async function renderPageContentOnly(): Promise<void> {
@@ -935,6 +1119,54 @@ async function renderPageContentOnlyWithFocusRestore(snapshot: FocusSnapshot | n
   restoreFocusSnapshot(snapshot)
 }
 
+async function renderProductionOrdersOverlayOnly(snapshot: FocusSnapshot | null = null): Promise<void> {
+  const host = root.querySelector('[data-production-orders-overlay-root="true"]')
+  if (!(host instanceof HTMLElement)) {
+    await renderPageContentOnlyWithFocusRestore(snapshot)
+    return
+  }
+
+  const productionOrdersPage = await getProductionOrdersPageModule()
+  host.innerHTML = productionOrdersPage.renderMaterialDraftDrawer()
+  hydrateRealQRCodes(host)
+  queueMicrotask(() => {
+    hydrateIcons(host)
+    restoreFocusSnapshot(snapshot)
+  })
+}
+
+async function renderProductionDemandOverlayOnly(snapshot: FocusSnapshot | null = null): Promise<void> {
+  const host = root.querySelector('[data-production-demand-overlay-root="true"]')
+  if (!(host instanceof HTMLElement)) {
+    await renderPageContentOnlyWithFocusRestore(snapshot)
+    return
+  }
+
+  const productionDemandPage = await getProductionDemandPageModule()
+  host.innerHTML = productionDemandPage.renderProductionDemandOverlays()
+  hydrateRealQRCodes(host)
+  queueMicrotask(() => {
+    hydrateIcons(host)
+    restoreFocusSnapshot(snapshot)
+  })
+}
+
+async function renderProductionDemandConfirmOverlayOnly(snapshot: FocusSnapshot | null = null): Promise<void> {
+  const host = root.querySelector('[data-production-demand-confirm-root="true"]')
+  if (!(host instanceof HTMLElement)) {
+    await renderProductionDemandOverlayOnly(snapshot)
+    return
+  }
+
+  const productionDemandPage = await getProductionDemandPageModule()
+  host.innerHTML = productionDemandPage.renderDemandConfirmDialog()
+  hydrateRealQRCodes(host)
+  queueMicrotask(() => {
+    hydrateIcons(host)
+    restoreFocusSnapshot(snapshot)
+  })
+}
+
 function closeMobileSidebar(): void {
   const { sidebarOpen } = appStore.getState()
   if (sidebarOpen) {
@@ -1038,6 +1270,14 @@ function shouldSkipInputRerender(target: Element): boolean {
     return true
   }
 
+  const productionFieldNode = target.closest<HTMLElement>('[data-prod-field]')
+  if (productionFieldNode instanceof HTMLInputElement || productionFieldNode instanceof HTMLTextAreaElement) {
+    const inputType = productionFieldNode instanceof HTMLInputElement
+      ? (productionFieldNode.type || 'text').toLowerCase()
+      : 'text'
+    return !['checkbox', 'radio', 'file', 'range', 'color'].includes(inputType)
+  }
+
   const pdaCutHandoverFieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
   if (pdaCutHandoverFieldNode instanceof HTMLInputElement || pdaCutHandoverFieldNode instanceof HTMLTextAreaElement) {
     return true
@@ -1118,6 +1358,14 @@ function shouldSkipChangeRerender(target: Element): boolean {
   const pdaLoginFieldNode = target.closest<HTMLElement>('[data-pda-login-field]')
   if (pdaLoginFieldNode instanceof HTMLInputElement || pdaLoginFieldNode instanceof HTMLTextAreaElement) {
     return true
+  }
+
+  const productionFieldNode = target.closest<HTMLElement>('[data-prod-field]')
+  if (productionFieldNode instanceof HTMLInputElement || productionFieldNode instanceof HTMLTextAreaElement) {
+    const inputType = productionFieldNode instanceof HTMLInputElement
+      ? (productionFieldNode.type || 'text').toLowerCase()
+      : 'text'
+    return !['checkbox', 'radio', 'file', 'range', 'color'].includes(inputType)
   }
 
   const pdaCutHandoverFieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
@@ -1335,7 +1583,23 @@ root.addEventListener('click', async (event) => {
       return
     }
     const nextPathname = appStore.getState().pathname
-    if (target.closest<HTMLElement>('[data-fast-page-render]') || shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+    if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionDemandOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionOrdersOverlayOnly(focusSnapshot)
+      return
+    }
+    if (
+      target.closest<HTMLElement>('[data-fast-page-render]') ||
+      shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
+      shouldUseProductionScopedRender(previousPathname, nextPathname)
+    ) {
       await renderPageContentOnlyWithFocusRestore(focusSnapshot)
     } else {
       await renderWithFocusRestore(focusSnapshot)
@@ -1374,7 +1638,23 @@ root.addEventListener('input', async (event) => {
   if (await dispatchPageEvent(target)) {
     if (shouldSkipInputRerender(target)) return
     const nextPathname = appStore.getState().pathname
-    if (target.closest<HTMLElement>('[data-fast-page-render]') || shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+    if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionDemandOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionOrdersOverlayOnly(focusSnapshot)
+      return
+    }
+    if (
+      target.closest<HTMLElement>('[data-fast-page-render]') ||
+      shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
+      shouldUseProductionScopedRender(previousPathname, nextPathname)
+    ) {
       await renderPageContentOnlyWithFocusRestore(focusSnapshot)
     } else {
       await renderWithFocusRestore(focusSnapshot)
@@ -1397,7 +1677,23 @@ root.addEventListener('compositionend', async (event) => {
   if (await dispatchPageEvent(target)) {
     if (shouldSkipInputRerender(target)) return
     const nextPathname = appStore.getState().pathname
-    if (target.closest<HTMLElement>('[data-fast-page-render]') || shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+    if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionDemandOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionOrdersOverlayOnly(focusSnapshot)
+      return
+    }
+    if (
+      target.closest<HTMLElement>('[data-fast-page-render]') ||
+      shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
+      shouldUseProductionScopedRender(previousPathname, nextPathname)
+    ) {
       await renderPageContentOnlyWithFocusRestore(focusSnapshot)
     } else {
       await renderWithFocusRestore(focusSnapshot)
@@ -1414,7 +1710,23 @@ root.addEventListener('change', async (event) => {
   if (await dispatchPageEvent(target)) {
     if (shouldSkipChangeRerender(target)) return
     const nextPathname = appStore.getState().pathname
-    if (target.closest<HTMLElement>('[data-fast-page-render]') || shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+    if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionDemandOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionOrdersOverlayOnly(focusSnapshot)
+      return
+    }
+    if (
+      target.closest<HTMLElement>('[data-fast-page-render]') ||
+      shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
+      shouldUseProductionScopedRender(previousPathname, nextPathname)
+    ) {
       await renderPageContentOnlyWithFocusRestore(focusSnapshot)
     } else {
       await renderWithFocusRestore(focusSnapshot)
@@ -1474,4 +1786,5 @@ window.addEventListener('higood:request-render', () => {
   }
   void renderWithFocusRestore(focusSnapshot)
 })
+scheduleProductionListPreload()
 void render()

@@ -5,6 +5,9 @@ import {
   renderEmptyRow,
   renderStatCard,
   safeText,
+  resolveProductionSpuImageUrl,
+  resolveMaterialImageUrl,
+  renderProductionImageThumb,
   type ProductionOrder,
   type RiskFlag,
   type AuditLog,
@@ -28,6 +31,7 @@ import {
   getOrderTechPackSnapshotDisplay,
   canOrderStartTaskBreakdown,
   getOrderTaskBreakdownDisabledReason,
+  getMaterialPrepBreakdownReadinessForOrder,
   formatOutputValue,
   getFilteredOrders,
   getPaginatedOrders,
@@ -60,9 +64,16 @@ import {
   buildProductionConfirmationPrintLink,
 } from '../../data/fcs/fcs-route-links.ts'
 import {
-  getMaterialPrepBreakdownReadinessForOrder,
   type MaterialPrepBreakdownLineCheck,
+  type MaterialPrepLine,
+  listMaterialPrepOrderProjections,
 } from '../../data/fcs/cutting/production-material-prep.ts'
+import {
+  getProductionOrderTechPackSnapshot,
+} from '../../data/fcs/production-order-tech-pack-runtime.ts'
+import {
+  listMaterialRequestsByOrder,
+} from '../../data/fcs/material-request-drafts.ts'
 
 function getOrderConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -128,8 +139,153 @@ function formatBreakdownQty(value: number, unit: string): string {
   return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}${unit}`
 }
 
+type QtyBucket = Map<string, number>
+type ProductionOrderTechPackSnapshot = NonNullable<ReturnType<typeof getProductionOrderTechPackSnapshot>>
+type ProductionOrderTechPackBomItem = ProductionOrderTechPackSnapshot['bomItems'][number]
+
+function createQtyBucket(): QtyBucket {
+  return new Map<string, number>()
+}
+
+function addQtyToBucket(bucket: QtyBucket, unit: string, qty: number): void {
+  if (!Number.isFinite(qty) || qty <= 0) return
+  const key = unit || '件'
+  bucket.set(key, Number(((bucket.get(key) || 0) + qty).toFixed(2)))
+}
+
+function subtractQtyBucket(left: QtyBucket, right: QtyBucket): QtyBucket {
+  const result = createQtyBucket()
+  left.forEach((qty, unit) => {
+    const remain = Math.max(0, qty - (right.get(unit) || 0))
+    if (remain > 0) result.set(unit, Number(remain.toFixed(2)))
+  })
+  return result
+}
+
+function sumQtyBucket(bucket: QtyBucket): number {
+  return Array.from(bucket.values()).reduce((sum, qty) => sum + qty, 0)
+}
+
+function formatQtyBucket(bucket: QtyBucket): string {
+  const entries = Array.from(bucket.entries()).filter(([, qty]) => qty > 0)
+  if (entries.length === 0) return '0'
+  return entries
+    .map(([unit, qty]) => formatBreakdownQty(qty, unit))
+    .join('、')
+}
+
+function renderMaterialIdentity(input: {
+  materialName: string
+  materialSku?: string
+  materialCode?: string
+  materialSpec?: string
+  color?: string
+  materialCategory?: string
+  materialImageUrl?: string | null
+}, compact = false): string {
+  const imageUrl = resolveMaterialImageUrl(input)
+  const code = input.materialSku || input.materialCode || '-'
+  const specText = [input.color, input.materialSpec].filter(Boolean).join(' / ') || input.materialCategory || '-'
+  return `
+    <div class="flex min-w-0 items-center gap-3">
+      ${renderProductionImageThumb(imageUrl, input.materialName, compact ? 'h-10 w-10' : 'h-12 w-12')}
+      <div class="min-w-0">
+        <div class="truncate font-medium" title="${escapeHtml(input.materialName)}">${escapeHtml(input.materialName)}</div>
+        <div class="font-mono text-xs text-muted-foreground">${escapeHtml(code)}</div>
+        <div class="truncate text-xs text-muted-foreground" title="${escapeHtml(specText)}">${escapeHtml(specText)}</div>
+      </div>
+    </div>
+  `
+}
+
+function renderOrderSpuInfo(order: ProductionOrder, options: { garmentDifficultyGrade?: string } = {}): string {
+  const imageUrl = resolveProductionSpuImageUrl(order.demandSnapshot)
+  return `
+    <div class="flex min-w-0 items-center gap-3">
+      ${renderProductionImageThumb(imageUrl, order.demandSnapshot.spuName, 'h-12 w-12')}
+      <div class="min-w-0 text-sm">
+        <div class="font-mono">${escapeHtml(order.demandSnapshot.spuCode)}</div>
+        <div class="max-w-[180px] truncate text-xs text-muted-foreground" title="${escapeHtml(order.demandSnapshot.spuName)}">
+          ${escapeHtml(order.demandSnapshot.spuName)}
+        </div>
+        <div class="mt-1 truncate text-xs text-muted-foreground">
+          买手：${escapeHtml(order.demandSnapshot.buyerName)} · 跟单：${escapeHtml(order.demandSnapshot.merchandiserName)}
+        </div>
+        ${
+          options.garmentDifficultyGrade
+            ? `<div class="mt-1 flex items-center gap-1">
+                <span class="text-xs text-muted-foreground">做货难度</span>
+                ${renderGarmentDifficultyBadge(options.garmentDifficultyGrade)}
+              </div>`
+            : ''
+        }
+      </div>
+    </div>
+  `
+}
+
 function getBreakdownLineGapQty(line: MaterialPrepBreakdownLineCheck): number {
   return Math.max(0, line.requiredQty - line.availableStockQty)
+}
+
+function getMaterialLineStockGapQty(line: MaterialPrepLine): number {
+  return Math.max(0, line.requiredQty - line.confirmedPrepQty - line.availableStockQty)
+}
+
+function normalizeMaterialToken(value: string | undefined): string {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '')
+}
+
+function getOrderMaterialPrepLines(order: ProductionOrder): MaterialPrepLine[] {
+  return listMaterialPrepOrderProjections()
+    .filter((projection) =>
+      projection.order.productionOrderId === order.productionOrderId ||
+      projection.order.productionOrderNo === order.productionOrderId,
+    )
+    .flatMap((projection) => projection.lines)
+}
+
+function getPatternLinkedBomItems(order: ProductionOrder): ProductionOrderTechPackBomItem[] {
+  const snapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
+  if (!snapshot) return []
+
+  const patternLinkedBomIds = new Set(
+    snapshot.patternFiles
+      .map((pattern) => pattern.linkedBomItemId)
+      .filter((id): id is string => Boolean(id)),
+  )
+
+  return snapshot.bomItems.filter((item) =>
+    (item.linkedPatternIds ?? []).length > 0 || patternLinkedBomIds.has(item.id),
+  )
+}
+
+function isPrepLineLinkedToPatternBom(line: MaterialPrepLine, bomItem: ProductionOrderTechPackBomItem): boolean {
+  const bomId = normalizeMaterialToken(bomItem.id)
+  const bomName = normalizeMaterialToken(bomItem.name)
+  const lineSku = normalizeMaterialToken(line.materialSku)
+  const lineName = normalizeMaterialToken(line.materialName)
+  const lineCutOrder = normalizeMaterialToken(line.cutOrderId)
+
+  if (bomId && (lineSku.includes(bomId) || lineCutOrder.includes(bomId))) return true
+  return Boolean(bomName && lineName.includes(bomName))
+}
+
+function getOrderCuttingMaterialLines(order: ProductionOrder, lines: MaterialPrepLine[]): MaterialPrepLine[] {
+  const patternLinkedBomItems = getPatternLinkedBomItems(order)
+  if (patternLinkedBomItems.length === 0 || lines.length === 0) return []
+
+  return lines
+    .filter((line) => patternLinkedBomItems.some((bomItem) => isPrepLineLinkedToPatternBom(line, bomItem)))
+    .sort((left, right) => {
+      const leftStockGap = getMaterialLineStockGapQty(left)
+      const rightStockGap = getMaterialLineStockGapQty(right)
+      if (leftStockGap !== rightStockGap) return rightStockGap - leftStockGap
+      return Math.max(0, right.requiredQty - right.confirmedPrepQty) - Math.max(0, left.requiredQty - left.confirmedPrepQty)
+    })
 }
 
 function getUpstreamProgressNav(line: MaterialPrepBreakdownLineCheck): string {
@@ -154,9 +310,13 @@ function renderBreakdownReadinessRows(lines: MaterialPrepBreakdownLineCheck[]): 
       return `
         <tr class="border-b last:border-0 align-top">
           <td class="px-3 py-2">
-            <div class="font-medium">${escapeHtml(line.materialName)}</div>
-            <div class="font-mono text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</div>
-            <div class="text-xs text-muted-foreground">${escapeHtml([line.color, line.spec].filter(Boolean).join(' / ') || '-')}</div>
+            ${renderMaterialIdentity({
+              materialName: line.materialName,
+              materialSku: line.materialSku,
+              materialSpec: line.spec,
+              color: line.color,
+              materialImageUrl: line.materialImageUrl,
+            }, true)}
           </td>
           <td class="px-3 py-2 text-right">${escapeHtml(formatBreakdownQty(line.requiredQty, line.unit))}</td>
           <td class="px-3 py-2">
@@ -278,11 +438,23 @@ function renderOrderRiskFlags(flags: RiskFlag[]): string {
 function renderOrderAssignmentOverview(order: ProductionOrder): string {
   const assignment = getOrderDisplayAssignmentSnapshot(order)
   const total = assignment.assignmentSummary.totalTasks
-  if (total === 0) return '<span class="text-muted-foreground">-</span>'
+  const progressMeta = assignmentProgressStatusConfig[assignment.assignmentProgress.status] ?? {
+    label: assignment.assignmentProgress.status,
+    color: 'bg-slate-100 text-slate-700',
+  }
+  if (total === 0) {
+    return `
+      <div class="space-y-1 text-xs">
+        ${renderBadge(progressMeta.label, progressMeta.color)}
+        <p class="text-muted-foreground">待拆解后开放分配</p>
+      </div>
+    `
+  }
 
   if (assignment.assignmentProgress.status === 'PENDING') {
     return `
-      <div class="space-y-0.5 text-xs">
+      <div class="space-y-1 text-xs">
+        ${renderBadge(progressMeta.label, progressMeta.color)}
         <p>任务 ${total} / 待分配</p>
       </div>
     `
@@ -290,7 +462,8 @@ function renderOrderAssignmentOverview(order: ProductionOrder): string {
 
   if (assignment.assignmentProgress.status === 'DONE') {
     return `
-      <div class="space-y-0.5 text-xs">
+      <div class="space-y-1 text-xs">
+        ${renderBadge(progressMeta.label, progressMeta.color)}
         <p>已分配 ${total} / 总计 ${total}</p>
       </div>
     `
@@ -310,7 +483,8 @@ function renderOrderAssignmentOverview(order: ProductionOrder): string {
   lines.push(`总计 ${total}`)
 
   return `
-    <div class="space-y-0.5 text-xs">
+    <div class="space-y-1 text-xs">
+      ${renderBadge(progressMeta.label, progressMeta.color)}
       ${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
     </div>
   `
@@ -347,17 +521,13 @@ function renderOrderDemandSnapshotDrawer(): string {
         </header>
         <div class="h-full space-y-5 overflow-y-auto px-5 py-4 pb-12">
           <section class="grid grid-cols-2 gap-3 text-sm">
+            <div class="col-span-2">
+              <p class="text-xs text-muted-foreground">SPU信息</p>
+              <div class="mt-1">${renderOrderSpuInfo(order)}</div>
+            </div>
             <div>
               <p class="text-xs text-muted-foreground">需求编号</p>
               <p class="font-mono">${escapeHtml(order.demandSnapshot.demandId)}</p>
-            </div>
-            <div>
-              <p class="text-xs text-muted-foreground">SPU编码</p>
-              <p class="font-mono">${escapeHtml(order.demandSnapshot.spuCode)}</p>
-            </div>
-            <div class="col-span-2">
-              <p class="text-xs text-muted-foreground">SPU名称</p>
-              <p>${escapeHtml(order.demandSnapshot.spuName)}</p>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">款式买手</p>
@@ -509,9 +679,161 @@ function getOrderMergedAuditLogs(order: ProductionOrder): AuditLog[] {
   return [...order.auditLogs, ...materialLogs, ...splitLogs].sort((a, b) => a.at.localeCompare(b.at))
 }
 
+function collectDraftLineQty(drafts: MaterialRequestDraft[]): QtyBucket {
+  const bucket = createQtyBucket()
+  drafts.forEach((draft) => {
+    if (!draft.needMaterial) return
+    draft.lines
+      .filter((line) => line.selected && line.confirmedQty > 0)
+      .forEach((line) => addQtyToBucket(bucket, line.unit, line.confirmedQty))
+  })
+  return bucket
+}
+
+function getOrderIssueProgress(order: ProductionOrder, prepLines: MaterialPrepLine[]): {
+  badgeLabel: string
+  badgeClassName: string
+  mainText: string
+  pickupText: string
+  extraText: string
+} {
+  const hasConfirmedPrepRecord = prepLines.some((line) => line.confirmedPrepQty > 0)
+  if (!hasConfirmedPrepRecord) {
+    return {
+      badgeLabel: '领料未开放',
+      badgeClassName: 'bg-slate-100 text-slate-700',
+      mainText: '待配料记录形成',
+      pickupText: '仓库拣货：未开放',
+      extraText: '',
+    }
+  }
+
+  const drafts = listMaterialRequestDraftsByOrder(order.productionOrderId)
+    .filter((draft) => draft.needMaterial && draft.draftStatus !== 'not_applicable')
+  const pendingDrafts = drafts.filter((draft) => draft.draftStatus === 'pending')
+  const createdDrafts = drafts.filter((draft) => draft.draftStatus === 'created')
+
+  if (createdDrafts.length === 0) {
+    const pendingQty = collectDraftLineQty(pendingDrafts)
+    const pendingText = formatQtyBucket(pendingQty)
+    return {
+      badgeLabel: pendingDrafts.length > 0 ? '待确认领料' : '待生成领料',
+      badgeClassName: 'bg-amber-100 text-amber-700',
+      mainText: pendingDrafts.length > 0
+        ? `草稿应领 ${pendingText} / 已领 0 / 待确认 ${pendingText}`
+        : '应领 0 / 已领 0 / 待领 0',
+      pickupText: pendingDrafts.length > 0 ? '仓库拣货：待领料草稿确认' : '仓库拣货：待生成领料草稿',
+      extraText: pendingDrafts.length > 0 ? `草稿 ${pendingDrafts.length} / 待确认 ${pendingDrafts.length}` : '',
+    }
+  }
+
+  const requestsByNo = new Map(
+    listMaterialRequestsByOrder(order.productionOrderId)
+      .map((request) => [request.materialRequestNo, request.requestStatus]),
+  )
+  const expectedQty = collectDraftLineQty(createdDrafts)
+  const issuedQty = createQtyBucket()
+  const pickedQty = createQtyBucket()
+
+  createdDrafts.forEach((draft) => {
+    const requestStatus = requestsByNo.get(draft.createdMaterialRequestNo) || (draft.materialMode === 'factory_pickup' ? '待自提' : '待配料')
+    const selectedLines = draft.lines.filter((line) => line.selected && line.confirmedQty > 0)
+    selectedLines.forEach((line) => {
+      if (requestStatus === '待配送' || requestStatus === '待自提' || requestStatus === '已完成') {
+        addQtyToBucket(pickedQty, line.unit, line.confirmedQty)
+      }
+      if (requestStatus === '已完成') {
+        addQtyToBucket(issuedQty, line.unit, line.confirmedQty)
+      }
+    })
+  })
+
+  const pendingIssueQty = subtractQtyBucket(expectedQty, issuedQty)
+  const pendingPickQty = subtractQtyBucket(expectedQty, pickedQty)
+  const expectedTotal = sumQtyBucket(expectedQty)
+  const issuedTotal = sumQtyBucket(issuedQty)
+  const pickedTotal = sumQtyBucket(pickedQty)
+  const hasPendingDrafts = pendingDrafts.length > 0
+  const badge =
+    expectedTotal <= 0
+      ? { label: '待生成领料', className: 'bg-amber-100 text-amber-700' }
+      : issuedTotal >= expectedTotal
+      ? { label: '已领齐', className: 'bg-green-100 text-green-700' }
+      : issuedTotal > 0
+      ? { label: '部分领料', className: 'bg-blue-100 text-blue-700' }
+      : pickedTotal > 0
+      ? { label: '可领未领', className: 'bg-cyan-100 text-cyan-700' }
+      : { label: '待仓库拣货', className: 'bg-amber-100 text-amber-700' }
+
+  let pickupText = '仓库拣货：待开始'
+  if (expectedTotal > 0 && issuedTotal >= expectedTotal) {
+    pickupText = '仓库拣货：已完成'
+  } else if (expectedTotal > 0 && pickedTotal >= expectedTotal) {
+    pickupText = '仓库拣货：已拣齐，待工厂签收'
+  } else if (pickedTotal > 0) {
+    pickupText = `仓库拣货：已拣 ${formatQtyBucket(pickedQty)} / 待拣 ${formatQtyBucket(pendingPickQty)}`
+  }
+
+  return {
+    badgeLabel: badge.label,
+    badgeClassName: badge.className,
+    mainText: `应领 ${formatQtyBucket(expectedQty)} / 已领 ${formatQtyBucket(issuedQty)} / 待领 ${formatQtyBucket(pendingIssueQty)}`,
+    pickupText,
+    extraText: hasPendingDrafts ? `另有草稿 ${pendingDrafts.length} / 待确认 ${pendingDrafts.length}` : '',
+  }
+}
+
+function renderCuttingMaterialLines(lines: MaterialPrepLine[]): string {
+  if (lines.length === 0) {
+    return '<div class="mt-2 text-xs text-muted-foreground">裁片物料：技术包未识别到关联纸样的物料</div>'
+  }
+
+  const hasStockGap = lines.some((line) => getMaterialLineStockGapQty(line) > 0)
+  return `
+    <div class="mt-2 space-y-1.5">
+      <div class="text-xs font-medium text-muted-foreground">
+        裁片物料（已关联纸样）${hasStockGap ? '' : ' · 库存满足'}
+      </div>
+      ${lines
+        .map((line) => {
+          const stockGapQty = getMaterialLineStockGapQty(line)
+          return `
+            <div class="rounded-md border bg-background/70 p-1.5">
+              <div class="flex min-w-0 items-start gap-2">
+                ${renderProductionImageThumb(line.materialImageUrl, line.materialName, 'h-8 w-8')}
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-xs font-medium" title="${escapeHtml(line.materialName)}">${escapeHtml(line.materialName)}</div>
+                  <div class="font-mono text-[11px] text-muted-foreground">${escapeHtml(line.materialSku)}</div>
+                  <div class="text-[11px] ${stockGapQty > 0 ? 'text-amber-700' : 'text-muted-foreground'}">
+                    需 ${escapeHtml(formatBreakdownQty(line.requiredQty, line.unit))}
+                    / 已配 ${escapeHtml(formatBreakdownQty(line.confirmedPrepQty, line.unit))}
+                    / 库 ${escapeHtml(formatBreakdownQty(line.availableStockQty, line.unit))}
+                    / 缺 ${escapeHtml(formatBreakdownQty(stockGapQty, line.unit))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          `
+        })
+        .join('')}
+    </div>
+  `
+}
+
 function renderOrderMaterialSummary(order: ProductionOrder): string {
-  const summary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
-  const display = getOrderMaterialDisplaySummary(order)
+  const draftSummary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
+  const prepLines = getOrderMaterialPrepLines(order)
+  const cuttingMaterialLines = getOrderCuttingMaterialLines(order, prepLines)
+  const preparedLineCount = prepLines.filter((line) => line.confirmedPrepQty >= line.requiredQty).length
+  const prepBadge = prepLines.length === 0
+    ? { label: '待建配料', className: 'bg-slate-100 text-slate-700' }
+    : preparedLineCount === prepLines.length
+    ? { label: '配料已满足', className: 'bg-green-100 text-green-700' }
+    : { label: '配料有缺口', className: 'bg-amber-100 text-amber-700' }
+  const prepSummary = prepLines.length > 0
+    ? `配料 ${preparedLineCount}/${prepLines.length} 行满足`
+    : '未生成配料库存投影'
+  const issueProgress = getOrderIssueProgress(order, prepLines)
 
   return `
     <button
@@ -519,11 +841,20 @@ function renderOrderMaterialSummary(order: ProductionOrder): string {
       data-prod-action="open-material-draft-drawer"
       data-order-id="${order.productionOrderId}"
     >
-      ${renderBadge(display.badgeLabel, display.badgeClassName)}
-      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(display.summaryText)}</div>
+      <div class="flex flex-wrap items-center gap-1">
+        ${renderBadge(prepBadge.label, prepBadge.className)}
+      </div>
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(prepSummary)}</div>
+      ${renderCuttingMaterialLines(cuttingMaterialLines)}
+      <div class="mt-2 border-t pt-2">
+        <div>${renderBadge(issueProgress.badgeLabel, issueProgress.badgeClassName)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(issueProgress.mainText)}</div>
+        <div class="text-xs text-muted-foreground">${escapeHtml(issueProgress.pickupText)}</div>
+        ${issueProgress.extraText ? `<div class="text-xs text-muted-foreground">${escapeHtml(issueProgress.extraText)}</div>` : ''}
+      </div>
       ${
-        summary.notApplicableCount > 0
-          ? `<div class="text-xs text-muted-foreground">不涉及 ${summary.notApplicableCount}</div>`
+        draftSummary.notApplicableCount > 0
+          ? `<div class="text-xs text-muted-foreground">不涉及 ${draftSummary.notApplicableCount}</div>`
           : ''
       }
     </button>
@@ -622,14 +953,12 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
       </div>
 
       <div class="mt-3 overflow-x-auto rounded-md border">
-        <table class="w-full min-w-[920px] text-sm">
+        <table class="w-full min-w-[860px] text-sm">
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-2 text-left font-medium">是否领用</th>
               <th class="px-3 py-2 text-left font-medium">物料来源</th>
-              <th class="px-3 py-2 text-left font-medium">物料编码</th>
-              <th class="px-3 py-2 text-left font-medium">物料名称</th>
-              <th class="px-3 py-2 text-left font-medium">规格/属性</th>
+              <th class="px-3 py-2 text-left font-medium">物料信息</th>
               <th class="px-3 py-2 text-right font-medium">建议数量</th>
               <th class="px-3 py-2 text-right font-medium">确认数量</th>
               <th class="px-3 py-2 text-left font-medium">单位</th>
@@ -639,7 +968,7 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
           <tbody>
             ${
               draft.lines.length === 0
-                ? renderEmptyRow(9, '当前任务暂无自动建议物料，可点击“补充物料”添加')
+                ? renderEmptyRow(7, '当前任务暂无自动建议物料，可点击“补充物料”添加')
                 : draft.lines
                     .map(
                       (line) => `
@@ -653,11 +982,16 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
                               ${line.selected ? 'checked' : ''}
                               ${isCreated || !draft.needMaterial ? 'disabled' : ''}
                             />
-                          </td>
-                          <td class="px-3 py-2">${renderBadge(line.sourceTypeLabel, line.sourceType === 'bom' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700')}</td>
-                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(line.materialCode)}</td>
-                          <td class="px-3 py-2">${escapeHtml(line.materialName)}</td>
-                          <td class="px-3 py-2">${escapeHtml(line.materialSpec)}</td>
+	                          </td>
+	                          <td class="px-3 py-2">${renderBadge(line.sourceTypeLabel, line.sourceType === 'bom' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700')}</td>
+	                          <td class="px-3 py-2">
+                              ${renderMaterialIdentity({
+                                materialName: line.materialName,
+                                materialCode: line.materialCode,
+                                materialSpec: line.materialSpec,
+                                materialCategory: line.materialCategory,
+                              }, true)}
+                            </td>
                           <td class="px-3 py-2 text-right">${line.suggestedQty}</td>
                           <td class="px-3 py-2 text-right">
                             <input
@@ -739,22 +1073,20 @@ function renderAddDraftMaterialsDialog(): string {
         </header>
         <div class="max-h-[60vh] overflow-y-auto p-4">
           <div class="overflow-x-auto rounded-md border">
-            <table class="w-full min-w-[820px] text-sm">
+            <table class="w-full min-w-[760px] text-sm">
               <thead class="bg-muted/40 text-xs text-muted-foreground">
                 <tr>
-                  <th class="px-3 py-2 text-left font-medium">勾选</th>
-                  <th class="px-3 py-2 text-left font-medium">来源类型</th>
-                  <th class="px-3 py-2 text-left font-medium">物料编码</th>
-                  <th class="px-3 py-2 text-left font-medium">物料名称</th>
-                  <th class="px-3 py-2 text-left font-medium">规格</th>
-                  <th class="px-3 py-2 text-right font-medium">建议数量</th>
-                  <th class="px-3 py-2 text-left font-medium">说明</th>
+	                  <th class="px-3 py-2 text-left font-medium">勾选</th>
+	                  <th class="px-3 py-2 text-left font-medium">来源类型</th>
+	                  <th class="px-3 py-2 text-left font-medium">物料信息</th>
+	                  <th class="px-3 py-2 text-right font-medium">建议数量</th>
+	                  <th class="px-3 py-2 text-left font-medium">说明</th>
                 </tr>
               </thead>
               <tbody>
                 ${
-                  candidates.length === 0
-                    ? renderEmptyRow(7, '当前无可补充物料')
+	                  candidates.length === 0
+	                    ? renderEmptyRow(5, '当前无可补充物料')
                     : candidates
                         .map(
                           (option) => `
@@ -766,11 +1098,15 @@ function renderAddDraftMaterialsDialog(): string {
                                   data-option-key="${escapeHtml(option.optionKey)}"
                                   ${state.materialDraftAddSelections.has(option.optionKey) ? 'checked' : ''}
                                 />
-                              </td>
-                              <td class="px-3 py-2">${renderBadge(option.sourceTypeLabel, option.sourceTypeLabel === 'BOM物料' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700')}</td>
-                              <td class="px-3 py-2 font-mono text-xs">${escapeHtml(option.materialCode)}</td>
-                              <td class="px-3 py-2">${escapeHtml(option.materialName)}</td>
-                              <td class="px-3 py-2">${escapeHtml(option.materialSpec)}</td>
+	                              </td>
+	                              <td class="px-3 py-2">${renderBadge(option.sourceTypeLabel, option.sourceTypeLabel === 'BOM物料' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700')}</td>
+	                              <td class="px-3 py-2">
+                                  ${renderMaterialIdentity({
+                                    materialName: option.materialName,
+                                    materialCode: option.materialCode,
+                                    materialSpec: option.materialSpec,
+                                  }, true)}
+                                </td>
                               <td class="px-3 py-2 text-right">${option.suggestedQty}${escapeHtml(option.unit)}</td>
                               <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(option.note)}</td>
                             </tr>
@@ -807,8 +1143,8 @@ function renderMaterialDraftDrawer(): string {
         <header class="sticky top-0 z-10 border-b bg-background px-5 py-4">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h3 class="text-lg font-semibold">领料需求草稿</h3>
-              <p class="mt-1 text-xs text-muted-foreground">按任务生成系统建议草稿，确认后创建正式领料需求并挂接到任务</p>
+              <h3 class="text-lg font-semibold">配料 / 领料草稿</h3>
+              <p class="mt-1 text-xs text-muted-foreground">按配料记录和任务生成系统建议草稿，确认后创建正式领料需求并挂接到任务</p>
             </div>
             <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="close-material-draft-drawer" aria-label="关闭">
               <i data-lucide="x" class="h-4 w-4"></i>
@@ -822,13 +1158,9 @@ function renderMaterialDraftDrawer(): string {
                 <div class="text-xs text-muted-foreground">生产单号</div>
                 <div class="font-mono text-sm">${escapeHtml(order.productionOrderId)}</div>
               </div>
-              <div>
-                <div class="text-xs text-muted-foreground">SPU</div>
-                <div class="font-mono text-sm">${escapeHtml(order.demandSnapshot.spuCode)}</div>
-              </div>
-              <div>
-                <div class="text-xs text-muted-foreground">款名</div>
-                <div class="truncate text-sm" title="${escapeHtml(order.demandSnapshot.spuName)}">${escapeHtml(order.demandSnapshot.spuName)}</div>
+              <div class="md:col-span-2">
+                <div class="text-xs text-muted-foreground">SPU信息</div>
+                <div class="mt-1">${renderOrderSpuInfo(order)}</div>
               </div>
               <div>
                 <div class="text-xs text-muted-foreground">技术包快照</div>
@@ -857,7 +1189,7 @@ function renderMaterialDraftDrawer(): string {
             drafts.length === 0
               ? `
                 <section class="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
-                  当前生产单暂无可识别领料任务，进入分配后会自动生成建议草稿。
+                  当前生产单暂无可识别领料任务，配料记录形成并进入分配后会自动生成建议草稿。
                 </section>
               `
               : drafts.map((draft) => renderMaterialDraftTaskCard(draft)).join('')
@@ -891,16 +1223,6 @@ export function renderProductionOrdersPage(): string {
       : selectedBreakdownEligibleIds.length === 0
         ? '所选生产单没有可拆解任务'
         : ''
-  const materialReminderStats = filteredOrders.reduce(
-    (acc, order) => {
-      const indicators = getOrderMaterialDisplaySummary(order)
-      if (indicators.stage === 'PREVIEW') acc.preview += 1
-      if (indicators.stage === 'ACTUAL_PENDING' || indicators.stage === 'ACTUAL_PARTIAL') acc.pendingOnly += 1
-      if (indicators.stage === 'ACTUAL_CONFIRMED') acc.confirmed += 1
-      return acc
-    },
-    { preview: 0, pendingOnly: 0, confirmed: 0 },
-  )
   const ordersFromDemandDialog = renderOrdersFromDemandDialog()
   const confirmDialog = renderDemandConfirmDialog()
   const breakdownReadinessDialog = renderOrderBreakdownReadinessDialog()
@@ -1075,33 +1397,6 @@ export function renderProductionOrdersPage(): string {
         </div>
       </section>
 
-      <section class="rounded-lg border bg-card px-4 py-3">
-        <div class="flex flex-wrap items-center gap-2 text-sm">
-          <span class="text-muted-foreground">领料待处理提示：</span>
-          <button
-            class="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100"
-            data-prod-action="apply-material-reminder-filter"
-            data-target="preview"
-          >
-            预览草稿：${materialReminderStats.preview} 单
-          </button>
-          <button
-            class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs text-amber-700 hover:bg-amber-100"
-            data-prod-action="apply-material-reminder-filter"
-            data-target="pending"
-          >
-            实际草稿待确认：${materialReminderStats.pendingOnly} 单
-          </button>
-          <button
-            class="inline-flex items-center rounded-md border border-green-200 bg-green-50 px-2.5 py-1 text-xs text-green-700 hover:bg-green-100"
-            data-prod-action="apply-material-reminder-filter"
-            data-target="confirmed"
-          >
-            已确认领料：${materialReminderStats.confirmed} 单
-          </button>
-        </div>
-      </section>
-
       <div class="rounded-lg border">
         <div class="overflow-x-auto overflow-y-visible">
           <table class="w-full text-sm">
@@ -1112,17 +1407,13 @@ export function renderProductionOrdersPage(): string {
                     selectedAll ? 'checked' : ''
                   } />
                 </th>
-                <th class="min-w-[140px] px-3 py-3 text-left font-medium">生产单号</th>
-                <th class="min-w-[80px] px-3 py-3 text-left font-medium">旧单号</th>
-                <th class="min-w-[180px] px-3 py-3 text-left font-medium">SPU</th>
+                <th class="min-w-[150px] px-3 py-3 text-left font-medium">生产单 / 旧单号</th>
+                <th class="min-w-[240px] px-3 py-3 text-left font-medium">SPU信息</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">状态</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">技术包快照版本</th>
-                <th class="min-w-[90px] px-3 py-3 text-left font-medium">做货难度</th>
-                <th class="min-w-[120px] px-3 py-3 text-left font-medium">任务准备</th>
                 <th class="min-w-[120px] px-3 py-3 text-left font-medium">总产值</th>
-                <th class="min-w-[100px] px-3 py-3 text-left font-medium">分配概览</th>
-                <th class="min-w-[90px] px-3 py-3 text-left font-medium">分配进度</th>
-                <th class="min-w-[170px] px-3 py-3 text-left font-medium">领料情况</th>
+                <th class="min-w-[170px] px-3 py-3 text-left font-medium">任务分配</th>
+                <th class="min-w-[230px] px-3 py-3 text-left font-medium">配料 / 领料</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">主工厂</th>
                 <th class="min-w-[150px] px-3 py-3 text-left font-medium">风险</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">最近更新</th>
@@ -1132,11 +1423,9 @@ export function renderProductionOrdersPage(): string {
             <tbody>
               ${
                 pagedOrders.length === 0
-                  ? renderEmptyRow(16, '暂无数据')
+                  ? renderEmptyRow(12, '暂无数据')
                   : pagedOrders
                     .map((order) => {
-                        const assignment = getOrderDisplayAssignmentSnapshot(order)
-                        const breakdown = getOrderDisplayBreakdownSnapshot(order)
                         const outputValue = getOrderOutputValueSnapshot(order)
                         const techPackSnapshotDisplay = getOrderTechPackSnapshotDisplay(order)
                         const mergedLogs = getOrderMergedAuditLogs(order)
@@ -1208,22 +1497,16 @@ export function renderProductionOrdersPage(): string {
                               }" ${state.ordersSelectedIds.has(order.productionOrderId) ? 'checked' : ''} />
                             </td>
                             <td class="px-3 py-3">
-                              <button class="h-auto p-0 font-mono text-sm text-blue-600 hover:underline" data-prod-action="open-order-detail" data-order-id="${
-                                order.productionOrderId
-                              }">${escapeHtml(order.productionOrderId)}</button>
+                              <div class="space-y-1">
+                                <button class="h-auto p-0 font-mono text-sm text-blue-600 hover:underline" data-prod-action="open-order-detail" data-order-id="${
+                                  order.productionOrderId
+                                }">${escapeHtml(order.productionOrderId)}</button>
+                                <div class="font-mono text-xs text-muted-foreground">旧单号：${escapeHtml(order.legacyOrderNo)}</div>
+                              </div>
                             </td>
-                            <td class="px-3 py-3 font-mono text-sm text-muted-foreground">${escapeHtml(order.legacyOrderNo)}</td>
-	                            <td class="px-3 py-3">
-	                              <div class="text-sm">
-	                                <div class="font-mono">${escapeHtml(order.demandSnapshot.spuCode)}</div>
-	                                <div class="max-w-[150px] truncate text-xs text-muted-foreground" title="${escapeHtml(order.demandSnapshot.spuName)}">
-	                                  ${escapeHtml(order.demandSnapshot.spuName)}
-	                                </div>
-	                                <div class="mt-1 text-xs text-muted-foreground">
-	                                  买手：${escapeHtml(order.demandSnapshot.buyerName)} · 跟单：${escapeHtml(order.demandSnapshot.merchandiserName)}
-	                                </div>
-	                              </div>
-	                            </td>
+                            <td class="px-3 py-3">${renderOrderSpuInfo(order, {
+                              garmentDifficultyGrade: techPackSnapshotDisplay.garmentDifficultyGrade,
+                            })}</td>
                             <td class="px-3 py-3">
                               ${renderBadge(getOrderListStatusDisplay(order).label, getOrderListStatusDisplay(order).color)}
                             </td>
@@ -1242,29 +1525,12 @@ export function renderProductionOrdersPage(): string {
                               </div>
                             </td>
                             <td class="px-3 py-3">
-                              ${renderGarmentDifficultyBadge(techPackSnapshotDisplay.garmentDifficultyGrade)}
-                            </td>
-                            <td class="px-3 py-3">
-                              <div class="text-sm">
-                                ${renderBadge(breakdown.label, breakdown.badgeClassName)}
-                                <div class="mt-0.5 text-xs text-muted-foreground">
-                                  ${escapeHtml(breakdown.detailText)}
-                                </div>
-                              </div>
-                            </td>
-                            <td class="px-3 py-3">
                               <div class="text-sm">
                                 <div class="font-medium">${escapeHtml(formatOutputValue(outputValue.totalOutputValue))}</div>
                                 <div class="mt-0.5 text-xs text-muted-foreground">执行任务 ${outputValue.taskCount} 条</div>
                               </div>
                             </td>
                             <td class="px-3 py-3">${renderOrderAssignmentOverview(order)}</td>
-                            <td class="px-3 py-3">
-                              ${renderBadge(
-                                assignmentProgressStatusConfig[assignment.assignmentProgress.status]?.label ?? assignment.assignmentProgress.status,
-                                assignmentProgressStatusConfig[assignment.assignmentProgress.status]?.color ?? 'bg-slate-100 text-slate-700',
-                              )}
-                            </td>
                             <td class="px-3 py-3">
                               ${renderOrderMaterialSummary(order)}
                             </td>
@@ -1307,7 +1573,7 @@ export function renderProductionOrdersPage(): string {
         </div>
       </footer>
 
-      ${renderMaterialDraftDrawer()}
+      <div data-production-orders-overlay-root="true">${renderMaterialDraftDrawer()}</div>
       ${renderOrderDemandSnapshotDrawer()}
       ${renderOrderLogsDialog()}
       ${breakdownReadinessDialog}

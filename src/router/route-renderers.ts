@@ -294,10 +294,10 @@ export const renderCapacityBottleneckPage = createAsyncRenderer(() => import('..
 export const renderCapacityConstraintsPage = createAsyncRenderer(() => import('../pages/capacity'), 'renderCapacityConstraintsPage')
 export const renderCapacityPoliciesPage = createAsyncRenderer(() => import('../pages/capacity'), 'renderCapacityPoliciesPage')
 export const renderProductionDemandInboxPage = createAsyncRenderer(
-  () => import('../pages/production'),
+  () => import('../pages/production/demand-domain'),
   'renderProductionDemandInboxPage',
 )
-export const renderProductionOrdersPage = createAsyncRenderer(() => import('../pages/production'), 'renderProductionOrdersPage')
+export const renderProductionOrdersPage = createAsyncRenderer(() => import('../pages/production/orders-domain'), 'renderProductionOrdersPage')
 export const renderProductionPlanPage = createAsyncRenderer(() => import('../pages/production'), 'renderProductionPlanPage')
 export const renderProductionDeliveryWarehousePage = createAsyncRenderer(
   () => import('../pages/production'),
