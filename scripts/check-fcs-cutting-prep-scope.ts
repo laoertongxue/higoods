@@ -58,6 +58,11 @@ Object.defineProperty(globalThis, 'window', {
 
 const html = renderFcsCuttingPrepPage()
 
+assert(!html.includes('min-w-[1500px]'), '新增配料弹窗不应再使用 1500px 宽表导致横向滑动')
+assert(html.includes('data-fcs-prep-line-card'), '新增配料弹窗应按物料卡片/两行结构展示')
+assert(html.includes('配料操作'), '新增配料弹窗应把本次数量和卷/件数放进可见操作区')
+assert(html.includes('填当前可配'), '新增配料弹窗应提供填当前可配的快捷动作')
+
 cuttingLines.forEach((line) => {
   assert(html.includes(line.materialSku), `裁片配料弹窗缺少裁片物料：${line.materialSku}`)
 })
@@ -78,4 +83,4 @@ getMaterialPrepRecordItems(record).forEach((item) => {
   assert(categoryOf(line) === '裁片配料', `裁片配料记录不应写入非裁片物料：${line.materialSku}`)
 })
 
-console.log(`FCS 裁片配料范围检查通过：${projection.order.productionOrderNo}`)
+console.log(`FCS 裁片配料范围和弹窗布局检查通过：${projection.order.productionOrderNo}`)

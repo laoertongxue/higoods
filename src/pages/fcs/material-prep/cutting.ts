@@ -938,6 +938,90 @@ function getPrepRecordNumber(projection: MaterialPrepOrderProjection, recordId?:
   return index >= 0 ? index + 1 : projection.prepRecords.length + 1
 }
 
+function renderPrepLineMetric(label: string, value: string): string {
+  return `
+    <div class="rounded-md bg-background px-2.5 py-2">
+      <div class="text-[11px] text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-0.5 text-sm font-medium">${escapeHtml(value)}</div>
+    </div>
+  `
+}
+
+function renderPrepMaterialInputCard(line: MaterialPrepLine): string {
+  return `
+    <article class="p-3" data-fcs-prep-line-card data-prep-line-id="${escapeHtml(line.prepLineId)}">
+      <div class="grid gap-3 lg:grid-cols-[minmax(280px,1.45fr)_minmax(260px,1fr)_minmax(240px,0.95fr)]">
+        <div class="flex min-w-0 items-start gap-3">
+          ${renderMaterialThumb(line)}
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="break-all font-medium">${escapeHtml(line.materialSku)}</div>
+              ${renderBadge(line.materialType, line.materialType === '面料' ? 'info' : line.materialType === '辅料' ? 'warning' : line.materialType === '纱线' ? 'success' : 'neutral')}
+            </div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.materialName)} / ${escapeHtml(line.color)} / ${escapeHtml(line.spec)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">裁片单：${escapeHtml(line.cutOrderNo)}</div>
+            <div class="mt-1">${renderLineTaskLinks(line)}</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs font-medium text-muted-foreground">配料进度</div>
+          <div class="mt-2 grid grid-cols-2 gap-2">
+            ${renderPrepLineMetric('需求', formatQty(line.requiredQty, line.unit))}
+            ${renderPrepLineMetric('已确认', formatQty(line.confirmedPrepQty, line.unit))}
+            ${renderPrepLineMetric('已领料', formatQty(line.pickedQty, line.unit))}
+            ${renderPrepLineMetric('剩余未配', formatQty(line.remainingNeedQty, line.unit))}
+          </div>
+        </div>
+
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-medium text-muted-foreground">可配情况</span>
+            ${renderNeedPrepState(line)}
+          </div>
+          <div class="mt-2 rounded-md bg-background px-2.5 py-2 text-sm">
+            <div>当前可配：<span class="font-medium">${formatQty(line.canPrepQty, line.unit)}</span></div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.stockWarehouseName)} / ${escapeHtml(line.stockWarehouseArea)} / ${escapeHtml(line.stockLocationCode)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">在库：${formatQty(line.availableStockQty, line.unit)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3 rounded-md border bg-muted/20 px-3 py-3">
+        <div class="mb-2 text-xs font-medium text-muted-foreground">配料操作</div>
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="space-y-1">
+            <span class="block text-xs text-muted-foreground">本次数量</span>
+            <div class="flex items-center gap-1.5">
+              <input data-fcs-prep-line-qty class="h-9 w-32 rounded-md border bg-background px-2 text-sm" value="0" />
+              <span class="text-xs text-muted-foreground">${escapeHtml(line.unit)}</span>
+            </div>
+          </label>
+          <label class="space-y-1">
+            <span class="block text-xs text-muted-foreground">卷/件数</span>
+            <input data-fcs-prep-line-count class="h-9 w-24 rounded-md border bg-background px-2 text-sm" value="0" />
+          </label>
+          <div class="flex flex-wrap gap-2 pb-0.5">
+            <button
+              type="button"
+              data-fcs-material-prep-action="fill-current-prep"
+              data-current-prep-qty="${escapeHtml(String(line.canPrepQty || 0))}"
+              onclick="const card=this.closest('[data-fcs-prep-line-card]'); const input=card&&card.querySelector('[data-fcs-prep-line-qty]'); if(input) input.value=this.dataset.currentPrepQty || '0';"
+              class="rounded-md border border-blue-200 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50"
+            >填当前可配</button>
+            <button
+              type="button"
+              data-fcs-material-prep-action="clear-prep-line"
+              onclick="const card=this.closest('[data-fcs-prep-line-card]'); const qty=card&&card.querySelector('[data-fcs-prep-line-qty]'); const count=card&&card.querySelector('[data-fcs-prep-line-count]'); if(qty) qty.value='0'; if(count) count.value='0';"
+              class="rounded-md border px-3 py-2 text-xs hover:bg-background"
+            >清零</button>
+          </div>
+        </div>
+      </div>
+    </article>
+  `
+}
+
 function renderPrepMaterialInputTable(projection: MaterialPrepOrderProjection): string {
   const materialLines = getCategoryLines(projection)
   return `
@@ -946,59 +1030,8 @@ function renderPrepMaterialInputTable(projection: MaterialPrepOrderProjection): 
         <div class="text-sm font-medium">裁片纸样关联物料</div>
         <div class="text-xs text-muted-foreground">只填写进入${escapeHtml(categoryLabel)}的物料；确认后再开放任务分配。</div>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[1500px] text-left text-sm">
-          <thead class="bg-muted/60 text-xs text-muted-foreground">
-            <tr>
-              <th class="px-3 py-2">物料</th>
-              <th class="px-3 py-2">类别</th>
-              <th class="px-3 py-2">关联任务</th>
-              <th class="px-3 py-2">需求数量</th>
-              <th class="px-3 py-2">已确认配料</th>
-              <th class="px-3 py-2">已领料</th>
-              <th class="px-3 py-2">剩余未配</th>
-              <th class="px-3 py-2">当前可配</th>
-              <th class="px-3 py-2">是否还需要配料</th>
-              <th class="px-3 py-2">来源仓库 / 库位</th>
-              <th class="px-3 py-2">本次数量</th>
-              <th class="px-3 py-2">卷/件数</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${materialLines.map((line) => `
-              <tr class="border-t">
-                <td class="px-3 py-3">
-                  <div class="flex items-start gap-2">
-                    ${renderMaterialThumb(line)}
-                    <div>
-                      <div class="font-medium">${escapeHtml(line.materialSku)}</div>
-                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.materialName)} / ${escapeHtml(line.color)} / ${escapeHtml(line.spec)}</div>
-                      <div class="mt-1 text-xs text-muted-foreground">裁片单：${escapeHtml(line.cutOrderNo)}</div>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-3 py-3">${renderBadge(line.materialType, line.materialType === '面料' ? 'info' : line.materialType === '辅料' ? 'warning' : line.materialType === '纱线' ? 'success' : 'neutral')}</td>
-                <td class="px-3 py-3">${renderLineTaskLinks(line)}</td>
-                <td class="px-3 py-3">${formatQty(line.requiredQty, line.unit)}</td>
-                <td class="px-3 py-3">${formatQty(line.confirmedPrepQty, line.unit)}</td>
-                <td class="px-3 py-3">${formatQty(line.pickedQty, line.unit)}</td>
-                <td class="px-3 py-3">${formatQty(line.remainingNeedQty, line.unit)}</td>
-                <td class="px-3 py-3">${formatQty(line.canPrepQty, line.unit)}</td>
-                <td class="px-3 py-3">${renderNeedPrepState(line)}</td>
-                <td class="px-3 py-3">
-                  <div class="font-medium">${escapeHtml(line.stockWarehouseName)}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.stockWarehouseArea)} / ${escapeHtml(line.stockLocationCode)}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">在库：${formatQty(line.availableStockQty, line.unit)}</div>
-                </td>
-                <td class="px-3 py-3">
-                  <input class="h-9 w-28 rounded-md border bg-background px-2 text-sm" value="0" />
-                  <span class="ml-1 text-xs text-muted-foreground">${escapeHtml(line.unit)}</span>
-                </td>
-                <td class="px-3 py-3"><input class="h-9 w-20 rounded-md border bg-background px-2 text-sm" value="0" /></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+      <div class="divide-y">
+        ${materialLines.map(renderPrepMaterialInputCard).join('')}
       </div>
     </div>
   `
@@ -1311,6 +1344,16 @@ export function handleFcsCuttingPrepEvent(target: HTMLElement): boolean {
     if (!prepRecordId) return false
     pickMaterialPrepRecord(prepRecordId, '仓库 张三')
     window.dispatchEvent(new PopStateEvent('popstate'))
+    return true
+  }
+
+  if (action === 'fill-current-prep' || action === 'clear-prep-line') {
+    const card = actionNode.closest<HTMLElement>('[data-fcs-prep-line-card]')
+    const qtyInput = card?.querySelector<HTMLInputElement>('[data-fcs-prep-line-qty]')
+    const countInput = card?.querySelector<HTMLInputElement>('[data-fcs-prep-line-count]')
+    if (!qtyInput || !countInput) return false
+    qtyInput.value = action === 'fill-current-prep' ? actionNode.dataset.currentPrepQty || '0' : '0'
+    if (action === 'clear-prep-line') countInput.value = '0'
     return true
   }
 
