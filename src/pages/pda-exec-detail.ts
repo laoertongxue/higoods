@@ -286,6 +286,14 @@ function getRootTaskDisplayNo(task: ProcessTask): string {
   return task.rootTaskNo || task.taskNo || task.taskId
 }
 
+function getCoveredProcessSummaryText(task: ProcessTask): string {
+  const coveredProcesses = task.coveredProcesses ?? []
+  if (coveredProcesses.length === 0) return task.processBusinessName || task.processNameZh || '—'
+  return coveredProcesses
+    .map((item) => item.craftName ? `${item.processName}/${item.craftName}` : item.processName)
+    .join('、')
+}
+
 function getQtyUnitLabel(unit: string | undefined): string {
   if (!unit) return '件'
   if (unit === 'PIECE' || unit === '件') return '件'
@@ -489,7 +497,7 @@ function renderPrintingTaskCard(
       : renderPrintingStatusBadge('等转印', 'muted')
   const handoverBadge =
     printOrder.status === 'WAIT_HANDOVER'
-      ? renderPrintingStatusBadge('待交出', 'warning')
+      ? renderPrintingStatusBadge('待送货', 'warning')
       : renderPrintingStatusBadge(getReceiptStatusMeta(printOrder.status).label, getReceiptStatusMeta(printOrder.status).tone)
   const reviewMeta = getReceiptStatusMeta(review?.reviewStatus)
   const reviewBadge = renderPrintingStatusBadge(reviewMeta.label, reviewMeta.tone)
@@ -561,7 +569,7 @@ function renderPrintingTaskCard(
               <div><span class="text-muted-foreground">打印速度：</span>${printNode?.printerSpeedPerHour ? `${printNode.printerSpeedPerHour} 米/小时` : '—'}</div>
               <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(printNode?.startedAt || '—')}</div>
               <div><span class="text-muted-foreground">结束时间：</span>${escapeHtml(printNode?.finishedAt || '—')}</div>
-              <div><span class="text-muted-foreground">${escapeHtml(printDoneQtyLabel)}：</span>${printNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">实际完成（${escapeHtml(printDoneQtyLabel)}）：</span>${printNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -592,7 +600,7 @@ function renderPrintingTaskCard(
               <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(transferNode?.startedAt || '—')}</div>
               <div><span class="text-muted-foreground">结束时间：</span>${escapeHtml(transferNode?.finishedAt || '—')}</div>
               <div><span class="text-muted-foreground">${escapeHtml(printUsedQtyLabel)}：</span>${transferNode?.usedMaterialQty ?? 0} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
-              <div><span class="text-muted-foreground">${escapeHtml(transferDoneQtyLabel)}：</span>${transferNode?.actualCompletedQty ?? 0} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">实际完成（${escapeHtml(transferDoneQtyLabel)}）：</span>${transferNode?.actualCompletedQty ?? 0} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -616,7 +624,7 @@ function renderPrintingTaskCard(
 
           <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
-              <h3 class="text-sm font-medium">待交出</h3>
+              <h3 class="text-sm font-medium">待送货</h3>
               ${handoverBadge}
             </div>
             <div class="mt-3 space-y-1 text-xs">
@@ -793,7 +801,7 @@ function renderDyeingTaskCard(
       : renderPrintingStatusBadge('待染色', 'muted')
   const handoverBadge =
     dyeOrder.status === 'WAIT_HANDOVER'
-      ? renderPrintingStatusBadge('待交出', 'warning')
+      ? renderPrintingStatusBadge('待送货', 'warning')
       : renderPrintingStatusBadge(getReceiptStatusMeta(dyeOrder.status).label, getReceiptStatusMeta(dyeOrder.status).tone)
   const reviewMeta = getReceiptStatusMeta(review?.reviewStatus)
   const reviewBadge = renderPrintingStatusBadge(reviewMeta.label, reviewMeta.tone)
@@ -1012,7 +1020,7 @@ function renderDyeingTaskCard(
           <section class="rounded-lg border bg-background p-3 xl:col-span-2">
             <div class="flex items-center justify-between gap-2">
               <h3 class="text-sm font-medium">后处理</h3>
-              ${renderPrintingStatusBadge(packNode?.finishedAt ? '包装完成' : dyeOrder.status === 'WAIT_HANDOVER' || dyeOrder.status === 'HANDOVER_WAIT_RECEIVE' ? '待交出' : '按节点推进', packNode?.finishedAt ? 'success' : 'info')}
+              ${renderPrintingStatusBadge(packNode?.finishedAt ? '包装完成' : dyeOrder.status === 'WAIT_HANDOVER' || dyeOrder.status === 'HANDOVER_WAIT_RECEIVE' ? '待送货' : '按节点推进', packNode?.finishedAt ? 'success' : 'info')}
             </div>
             <div class="mt-3 space-y-2">
               ${postProcessRows
@@ -1053,7 +1061,7 @@ function renderDyeingTaskCard(
 
           <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
-              <h3 class="text-sm font-medium">待交出</h3>
+              <h3 class="text-sm font-medium">待送货</h3>
               ${handoverBadge}
             </div>
             <div class="mt-3 space-y-1 text-xs">
@@ -3243,6 +3251,8 @@ export function renderPdaExecDetailPage(taskId: string): string {
             <span class="text-xs font-medium">${escapeHtml(getRootTaskDisplayNo(task))}</span>
             <span class="text-xs text-muted-foreground">当前工序</span>
             <span class="text-xs font-medium">${escapeHtml(displayProcessName)}</span>
+            <span class="text-xs text-muted-foreground">覆盖工序</span>
+            <span class="text-xs font-medium">${escapeHtml(getCoveredProcessSummaryText(task))}</span>
             <span class="text-xs text-muted-foreground">所在列表</span>
             <span class="text-xs font-medium">${escapeHtml(taskTabLabel)}</span>
             <span class="text-xs text-muted-foreground">${escapeHtml(qtyDisplayMeta.label)}</span>

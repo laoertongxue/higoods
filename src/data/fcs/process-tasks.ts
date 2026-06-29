@@ -10,6 +10,14 @@ import {
   generateTaskArtifactsForAllOrders,
   type GeneratedTaskArtifact,
 } from './production-artifact-generation.ts'
+import {
+  buildTaskGenerationPreview,
+  type CoveredProcessScope,
+  type FactoryAcceptanceMode,
+  type GeneratedTaskUnitPreview,
+  type PdaStepTemplateCode,
+  type ProductionTaskUnitType,
+} from './production-task-generation-rules.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import type {
   DetailSplitDimension,
@@ -25,6 +33,7 @@ import {
   OWN_WOOL_FACTORY_NAME,
 } from './factory-mock-data.ts'
 import type { DispatchAcceptanceSlaRuleSource } from './dispatch-acceptance-sla.ts'
+import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
@@ -192,6 +201,18 @@ export interface ProcessTask {
   sourceProductionOrderId?: string   // 来源生产单ID
   taskKind?: 'NORMAL'
   taskCategoryZh?: string            // 任务分类展示
+  // 生产单任务生成规则追溯字段
+  taskUnitType?: ProductionTaskUnitType
+  acceptanceMode?: FactoryAcceptanceMode
+  generationRuleId?: string
+  generationRuleName?: string
+  coveredProcesses?: CoveredProcessScope[]
+  isMergedTaskUnit?: boolean
+  allowAutoDispatch?: boolean
+  pdaStepTemplateCode?: PdaStepTemplateCode
+  handoverReceiverKind?: 'WAREHOUSE'
+  handoverReceiverName?: string
+  saleTypeSnapshot?: string
   // 第3步统一生成引擎追溯字段
   sourceEntryId?: string
   sourceEntryType?: 'PROCESS_BASELINE' | 'CRAFT'
@@ -245,6 +266,14 @@ export interface ProcessTask {
 // 预置工序任务（base task seeds）
 // 说明：这里仍然保持“整单工序任务”语义，运行时按 SKU/COLOR/ORDER 展开由 runtime-process-tasks.ts 负责。
 const GENERATED_TASK_CREATED_AT = '2026-03-01 00:00:00'
+const TASK_FACT_BLOCKED_ORDER_STATUSES = new Set<ProductionOrderStatus>(['DRAFT', 'READY_FOR_BREAKDOWN'])
+
+function canOrderEnterGeneratedTaskFacts(orderId: string): boolean {
+  const order = productionOrders.find((item) => item.productionOrderId === orderId)
+  if (!order) return false
+  if (!order.taskBreakdownSummary.isBrokenDown) return false
+  return !TASK_FACT_BLOCKED_ORDER_STATUSES.has(order.status)
+}
 const PROCESS_TASK_MOCK_PRODUCTION_ORDER_IDS = ['PO-202603-0001', 'PO-202603-0005', 'PO-202603-084']
 const DEFAULT_OUTPUT_VALUE_UNIT_BY_QTY_UNIT: Record<QtyUnit, string> = {
   PIECE: '产值/件',
@@ -505,6 +534,78 @@ function resolveWoolTaskType(artifact: GeneratedTaskArtifact): 'WHOLE_GARMENT' |
   return 'WHOLE_GARMENT'
 }
 
+function isMergedTaskUnit(unit: GeneratedTaskUnitPreview | undefined): boolean {
+  return unit?.taskUnitType === 'COMBINED_PROCESS_TASK' || unit?.taskUnitType === 'WHOLE_ORDER_TASK'
+}
+
+function resolveTaskUnitAcceptanceMode(unitType: ProductionTaskUnitType): FactoryAcceptanceMode {
+  if (unitType === 'WHOLE_ORDER_TASK') return 'WHOLE_ORDER'
+  if (unitType === 'COMBINED_PROCESS_TASK') return 'CONTINUOUS_PROCESS'
+  return 'SINGLE_PROCESS'
+}
+
+function cloneCoveredProcesses(processes: CoveredProcessScope[]): CoveredProcessScope[] {
+  return processes.map((item) => ({
+    ...item,
+    sourceArtifactIds: [...item.sourceArtifactIds],
+  }))
+}
+
+function buildCoveredProcessesFromArtifact(artifact: GeneratedTaskArtifact): CoveredProcessScope[] {
+  return [
+    {
+      processCode: artifact.processCode,
+      processName: artifact.processName,
+      craftCode: artifact.craftCode,
+      craftName: artifact.craftName,
+      sourceArtifactIds: [artifact.artifactId],
+    },
+  ]
+}
+
+function buildTaskUnitDetailRows(taskId: string, artifacts: GeneratedTaskArtifact[]): TaskDetailRow[] {
+  return artifacts.flatMap((artifact, artifactIndex) =>
+    generateTaskDetailRowsForArtifact({
+      taskId,
+      artifact,
+    }).map((row) => ({
+      ...row,
+      rowKey: `${row.rowKey}__A${artifactIndex + 1}`,
+      sortKey: `${String(artifactIndex + 1).padStart(2, '0')}::${row.sortKey}`,
+    })),
+  )
+}
+
+function resolveTaskUnitProcessCode(unit: GeneratedTaskUnitPreview | undefined, artifact: GeneratedTaskArtifact): string {
+  if (unit?.taskUnitType === 'WHOLE_ORDER_TASK') return 'WHOLE_ORDER_TASK'
+  if (unit?.taskUnitType === 'COMBINED_PROCESS_TASK') return 'COMBINED_PROCESS_TASK'
+  return artifact.systemProcessCode
+}
+
+function resolveTaskUnitProcessName(unit: GeneratedTaskUnitPreview | undefined, artifact: GeneratedTaskArtifact): string {
+  return unit?.taskName || artifact.processName
+}
+
+function resolveTaskUnitStage(unit: GeneratedTaskUnitPreview | undefined, artifact: GeneratedTaskArtifact): ProcessStage {
+  if (isMergedTaskUnit(unit)) return 'SEWING'
+  return mapArtifactToTaskStage(artifact)
+}
+
+function resolveTaskUnitReceiver(unit: GeneratedTaskUnitPreview | undefined, artifact: GeneratedTaskArtifact): Pick<
+  ProcessTask,
+  'receiverKind' | 'receiverId' | 'receiverName'
+> {
+  if (isMergedTaskUnit(unit)) {
+    return {
+      receiverKind: 'WAREHOUSE',
+      receiverId: 'WH-TASK-GENERATION-HANDOVER',
+      receiverName: unit.handoverReceiverName,
+    }
+  }
+
+  return resolveGeneratedTaskReceiver(artifact)
+}
+
 function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
   const artifacts = generateTaskArtifactsForAllOrders()
   if (!artifacts.length) return []
@@ -513,6 +614,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
   const artifactsByOrder = new Map<string, GeneratedTaskArtifact[]>()
 
   for (const artifact of artifacts) {
+    if (!canOrderEnterGeneratedTaskFacts(artifact.orderId)) continue
     const current = artifactsByOrder.get(artifact.orderId) ?? []
     current.push(artifact)
     artifactsByOrder.set(artifact.orderId, current)
@@ -520,15 +622,26 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
 
   for (const [orderId, orderArtifacts] of artifactsByOrder.entries()) {
     orderArtifacts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    const preview = buildTaskGenerationPreview(orderId)
+    const emittedMergedUnitIds = new Set<string>()
     const generatedIds: string[] = []
 
-    orderArtifacts.forEach((artifact, index) => {
-      const seq = index + 1
+    orderArtifacts.forEach((artifact) => {
+      const unit = preview.generatedUnits.find((item) => item.sourceArtifactIds.includes(artifact.artifactId))
+      if (isMergedTaskUnit(unit)) {
+        if (!unit || emittedMergedUnitIds.has(unit.previewUnitId)) return
+        emittedMergedUnitIds.add(unit.previewUnitId)
+      }
+
+      const taskUnitType: ProductionTaskUnitType = unit?.taskUnitType ?? 'SINGLE_PROCESS_TASK'
+      const unitSourceArtifacts = unit
+        ? orderArtifacts.filter((item) => unit.sourceArtifactIds.includes(item.artifactId))
+        : [artifact]
+      const coveredProcesses = unit ? cloneCoveredProcesses(unit.coveredProcesses) : buildCoveredProcessesFromArtifact(artifact)
+      const directFactoryAssigned = Boolean(unit && !unit.allowAutoDispatch && unit.assignmentTargetFactoryId)
+      const seq = generatedIds.length + 1
       const taskId = `TASKGEN-${orderId.replace('PO-', '')}-${String(seq).padStart(3, '0')}`
-      const detailRows = generateTaskDetailRowsForArtifact({
-        taskId,
-        artifact,
-      })
+      const detailRows = buildTaskUnitDetailRows(taskId, unitSourceArtifacts)
       const outputValuePerUnit = artifact.outputValuePerUnit
       const outputValueUnit = artifact.outputValueUnit
       const outputValueDifficulty = artifact.outputValueDifficulty
@@ -545,24 +658,32 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
       const woolOrderNo = isWool ? `毛织单-${orderId.replace('PO-', '')}-${String(seq).padStart(2, '0')}` : undefined
       const yarnRow = isWool ? detailRows.find((row) => row.sourceRefs.bomItemId) : undefined
       generatedIds.push(taskId)
-      const prevTaskId = generatedIds[index - 1]
-      const assignmentMode: AssignmentMode = artifact.isSpecialCraft ? 'BIDDING' : 'DIRECT'
+      const prevTaskId = generatedIds[generatedIds.length - 2]
+      const assignmentMode: AssignmentMode = unit && !unit.allowAutoDispatch
+        ? 'DIRECT'
+        : artifact.isSpecialCraft
+          ? 'BIDDING'
+          : 'DIRECT'
+      const receiver = resolveTaskUnitReceiver(unit, artifact)
+      const isMerged = isMergedTaskUnit(unit)
+      const processName = resolveTaskUnitProcessName(unit, artifact)
+      const processCode = resolveTaskUnitProcessCode(unit, artifact)
 
       tasks.push({
         taskId,
         taskNo: taskId,
         productionOrderId: orderId,
         seq,
-        processCode: artifact.systemProcessCode,
-        processNameZh: artifact.processName,
-        stage: mapArtifactToTaskStage(artifact),
+        processCode,
+        processNameZh: processName,
+        stage: resolveTaskUnitStage(unit, artifact),
         qty: Math.max(artifact.orderQty, 0),
         qtyUnit: 'PIECE',
         assignmentMode,
-        assignmentStatus: isWool ? 'ASSIGNED' : 'UNASSIGNED',
+        assignmentStatus: directFactoryAssigned || isWool ? 'ASSIGNED' : 'UNASSIGNED',
         ownerSuggestion: toGeneratedOwnerSuggestion(artifact),
-        assignedFactoryId: isWool ? OWN_WOOL_FACTORY_ID : undefined,
-        assignedFactoryName: isWool ? OWN_WOOL_FACTORY_NAME : undefined,
+        assignedFactoryId: directFactoryAssigned ? unit?.assignmentTargetFactoryId : isWool ? OWN_WOOL_FACTORY_ID : undefined,
+        assignedFactoryName: directFactoryAssigned ? unit?.assignmentTargetFactoryName : isWool ? OWN_WOOL_FACTORY_NAME : undefined,
         qcPoints: [],
         taskOutputValue: outputValuePerUnit,
         difficulty: mapOutputValueDifficultyToTaskDifficulty(outputValueDifficulty),
@@ -573,16 +694,18 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         outputValueSource: artifact.outputValueSource,
         attachments: [],
         status: isWool ? 'IN_PROGRESS' : 'NOT_STARTED',
-        acceptanceStatus: isWool ? 'ACCEPTED' : undefined,
+        acceptanceStatus: directFactoryAssigned ? 'PENDING' : isWool ? 'ACCEPTED' : undefined,
         acceptedAt: isWool ? '2026-05-09 08:20' : undefined,
         acceptedBy: isWool ? OWN_WOOL_FACTORY_NAME : undefined,
-        acceptDeadline: isWool ? '2026-05-09 10:00' : undefined,
-        taskDeadline: isWool ? '2026-05-12 20:00' : undefined,
-        dispatchRemark: isWool
-          ? `${woolKindLabel}；染厂/面料仓送料到厂，毛织厂称重确认并上传照片/视频，完成后交${woolDownstreamTarget}`
-          : undefined,
-        dispatchedAt: isWool ? '2026-05-09 08:00' : undefined,
-        dispatchedBy: isWool ? '系统' : undefined,
+        acceptDeadline: directFactoryAssigned ? '2026-07-01 18:00' : isWool ? '2026-05-09 10:00' : undefined,
+        taskDeadline: directFactoryAssigned ? '2026-07-08 18:00' : isWool ? '2026-05-12 20:00' : undefined,
+        dispatchRemark: directFactoryAssigned
+          ? `${unit?.taskName || processName}由任务生成规则指定${unit?.assignmentTargetFactoryName || '承接工厂'}接单；不进入独立任务自动分配。`
+          : isWool
+            ? `${woolKindLabel}；染厂/面料仓送料到厂，毛织厂称重确认并上传照片/视频，完成后交${woolDownstreamTarget}`
+            : undefined,
+        dispatchedAt: directFactoryAssigned ? '2026-06-29 09:00' : isWool ? '2026-05-09 08:00' : undefined,
+        dispatchedBy: directFactoryAssigned || isWool ? '系统' : undefined,
         startedAt: isWool ? '2026-05-09 09:00' : undefined,
         startHeadcount: isWool ? 8 : undefined,
         startProofFiles: isWool
@@ -627,13 +750,24 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         handoverStatus: 'NOT_CREATED',
         dependsOnTaskIds: prevTaskId ? [prevTaskId] : [],
         taskKind: 'NORMAL',
-        taskCategoryZh: artifact.taskTypeLabel,
+        taskCategoryZh: unit?.taskName || artifact.taskTypeLabel,
+        taskUnitType,
+        acceptanceMode: resolveTaskUnitAcceptanceMode(taskUnitType),
+        generationRuleId: preview.matchedRuleId,
+        generationRuleName: preview.matchedRuleName,
+        coveredProcesses,
+        isMergedTaskUnit: isMerged,
+        allowAutoDispatch: unit?.allowAutoDispatch ?? true,
+        pdaStepTemplateCode: isMerged ? 'SIMPLE_FIVE_STEP' : 'DEFAULT_PROCESS_TASK',
+        handoverReceiverKind: unit?.handoverReceiverKind,
+        handoverReceiverName: unit?.handoverReceiverName,
+        saleTypeSnapshot: preview.saleType,
         sourceEntryId: artifact.sourceEntryId,
         sourceEntryType: artifact.sourceEntryType,
         stageCode: artifact.stageCode,
         stageName: artifact.stageName,
-        processBusinessCode: artifact.processCode,
-        processBusinessName: artifact.processName,
+        processBusinessCode: isMerged ? taskUnitType : artifact.processCode,
+        processBusinessName: processName,
         craftCode: artifact.craftCode,
         craftName: artifact.craftName,
         selectedTargetObject: artifact.selectedTargetObject,
@@ -666,21 +800,23 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         yarnPlannedWeightKg: isWool ? Math.max(artifact.orderQty, 0) * (woolTaskType === 'PART_PANEL' ? 0.08 : 0.48) : undefined,
         yarnReceivedWeightKg: isWool ? Math.max(artifact.orderQty, 0) * (woolTaskType === 'PART_PANEL' ? 0.08 : 0.48) : undefined,
         mockReceiveSummary: isWool ? '染厂/面料仓送料到厂，毛织厂按 kg 称重确认，需上传照片和视频' : undefined,
-        mockExecutionSummary: isWool
+        mockExecutionSummary: isMerged
+          ? `按${coveredProcesses.map((item) => item.processName).join('、')}连续执行，PDA 使用领料、开工、关键节点上报、交出、完工 5 步。`
+          : isWool
           ? woolTaskType === 'PART_PANEL'
             ? '横机成片后打印部位毛织菲票，不进入缝盘、熨烫、包装'
             : `横机成片后进入缝盘、熨烫${artifact.packagingRequired ? '、包装' : ''}`
           : undefined,
-        mockHandoverSummary: isWool ? `完成后交${woolDownstreamTarget}` : undefined,
+        mockHandoverSummary: unit ? `完成后交${unit.handoverReceiverName}` : isWool ? `完成后交${woolDownstreamTarget}` : undefined,
         mockStartPrerequisiteMet: isWool ? true : undefined,
-        ...resolveGeneratedTaskReceiver(artifact),
+        ...receiver,
         createdAt: GENERATED_TASK_CREATED_AT,
         updatedAt: GENERATED_TASK_CREATED_AT,
         auditLogs: [
           {
             id: `GAL-${taskId}-001`,
             action: 'GENERATE',
-            detail: `由技术包配置 ${artifact.sourceEntryId} 统一生成`,
+            detail: `按${preview.matchedRuleName || '默认按工序生成规则'}生成${processName}，覆盖工序：${coveredProcesses.map((item) => item.processName).join('、')}`,
             at: GENERATED_TASK_CREATED_AT,
             by: '系统',
           },

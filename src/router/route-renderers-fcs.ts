@@ -73,6 +73,10 @@ export const renderProductionDemandInboxPage = createAsyncRenderer(
   () => import('../pages/production/demand-domain'),
   'renderProductionDemandInboxPage',
 )
+export const renderProductionTaskGenerationRulesPage = createAsyncRenderer(
+  () => import('../pages/production/task-generation-rules'),
+  'renderProductionTaskGenerationRulesPage',
+)
 export const renderProductionDeliveryWarehousePage = createAsyncRenderer(
   () => import('../pages/production'),
   'renderProductionDeliveryWarehousePage',

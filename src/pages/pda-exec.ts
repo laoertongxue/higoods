@@ -401,6 +401,15 @@ function renderSourceBadge(mode: string): string {
   `
 }
 
+function renderCoveredProcessSummary(task: ProcessTask): string {
+  const coveredProcesses = task.coveredProcesses ?? []
+  if (coveredProcesses.length === 0) return ''
+  const text = coveredProcesses
+    .map((item) => item.craftName ? `${item.processName}/${item.craftName}` : item.processName)
+    .join('、')
+  return `<div class="rounded-md border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs text-blue-700">覆盖工序：${escapeHtml(text)}</div>`
+}
+
 function getTaskStatusLabel(task: ProcessTask): string {
   const postTask = getPostFinishingTaskById(task.taskId)
   if (postTask) return postTask.currentStatus
@@ -693,6 +702,8 @@ function renderNotStartedCard(task: ProcessTask): string {
           <div class="font-medium ${startInfo.startRiskStatus === 'OVERDUE' ? 'text-red-700' : startInfo.startRiskStatus === 'DUE_SOON' ? 'text-amber-700' : ''}">${escapeHtml(startDueAt)}</div>
         </div>
 
+        ${renderCoveredProcessSummary(task)}
+
         <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
           <p class="font-medium">起算依据：${escapeHtml(dueSourceText)}</p>
           ${
@@ -822,6 +833,8 @@ function renderInProgressCard(task: ProcessTask): string {
           }
         </div>
 
+        ${renderCoveredProcessSummary(task)}
+
         ${
           deadline && deadline.label !== '正常'
             ? `<div class="rounded px-2 py-1 text-xs ${deadline.hintClass}">时限状态：${escapeHtml(deadline.label)}</div>`
@@ -933,6 +946,8 @@ function renderBlockedCard(task: ProcessTask): string {
           }
         </div>
 
+        ${renderCoveredProcessSummary(task)}
+
         <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs">
           <div class="flex flex-wrap items-center gap-2">
             <span class="font-medium text-red-700">${escapeHtml(pauseReason || blockReasonLabel(task.blockReason) || '已上报暂停')}</span>
@@ -1000,6 +1015,8 @@ function renderDoneCard(task: ProcessTask): string {
           <div class="text-muted-foreground">交接状态</div>
           <div class="font-medium ${handoutStatus === 'HANDED_OUT' ? 'text-green-700' : 'text-amber-700'}">${handoutLabel}</div>
         </div>
+
+        ${renderCoveredProcessSummary(task)}
 
         ${
           handoutStatus !== 'HANDED_OUT'

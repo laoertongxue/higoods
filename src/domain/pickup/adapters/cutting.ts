@@ -1,5 +1,5 @@
 import type { PdaCuttingTaskDetailData, PdaTaskFlowProjectedTask } from '../../../data/fcs/pda-cutting-execution-source.ts'
-import { buildPickupEvidenceSummary, buildPickupReceiptSummary } from '../helpers'
+import { buildPickupEvidenceSummary, buildPickupReceiptSummary } from '../helpers.ts'
 import type {
   PickupEvidence,
   PickupQrBinding,
@@ -9,7 +9,7 @@ import type {
   PickupSlip,
   PickupSlipStatus,
   PickupQtySummary,
-} from '../types'
+} from '../types.ts'
 
 export interface CuttingPickupSeed {
   task: PdaTaskFlowProjectedTask

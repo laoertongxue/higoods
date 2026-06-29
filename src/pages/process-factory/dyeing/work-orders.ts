@@ -5,7 +5,7 @@ import {
   listDyeWorkOrders,
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { buildDyeingWorkOrderDetailLink, buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
-import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-display-data.ts'
 import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
 import {
   formatDyeQty,

@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { QRCodeSVG } from 'qrcode.react'
-import { escapeHtml } from '../utils'
+import { escapeHtml } from '../utils.ts'
 
 interface RealQrPlaceholderOptions {
   value: string

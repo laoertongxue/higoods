@@ -150,6 +150,7 @@ const DEMAND_TYPE_LABEL_BY_PROCESS_CODE: Record<string, string> = {
 }
 
 export const DICTIONARY_CRAFT_MOCKS_PER_DEFINITION = 3
+const DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES = new Set(['DRAFT', 'READY_FOR_BREAKDOWN'])
 
 function toArtifactKeySegment(entryId: string): string {
   return entryId.replace(/[^A-Za-z0-9_-]/g, '_')
@@ -178,8 +179,14 @@ function listTechPackSourceOrders() {
     .filter((item): item is { order: typeof productionOrders[number]; snapshot: NonNullable<ReturnType<typeof getProductionOrderTechPackSnapshot>> } => Boolean(item.snapshot))
 }
 
+function listDictionaryCoverageSourceOrders() {
+  return listTechPackSourceOrders().filter(({ order }) =>
+    order.taskBreakdownSummary.isBrokenDown && !DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES.has(order.status),
+  )
+}
+
 function getMockSourceForCraft(craftIndex: number, mockIndex: number) {
-  const sourceOrders = listTechPackSourceOrders()
+  const sourceOrders = listDictionaryCoverageSourceOrders()
   if (!sourceOrders.length) return null
   return sourceOrders[(craftIndex * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION + mockIndex) % sourceOrders.length]
 }
@@ -337,11 +344,23 @@ function ensureDictionaryCoverage<T extends GeneratedProductionArtifact>(
 ): T[] {
   const result = [...existingArtifacts]
   for (const definition of definitions) {
-    const existingCount = result.filter((artifact) => artifact.craftCode === definition.craftCode).length
-    if (existingCount >= DICTIONARY_CRAFT_MOCKS_PER_DEFINITION) continue
-    result.push(...coverageArtifacts
-      .filter((artifact) => artifact.craftCode === definition.craftCode)
-      .slice(0, DICTIONARY_CRAFT_MOCKS_PER_DEFINITION - existingCount))
+    const existingOrderIds = new Set(
+      result
+        .filter((artifact) => artifact.craftCode === definition.craftCode)
+        .map((artifact) => artifact.orderId),
+    )
+    if (existingOrderIds.size >= DICTIONARY_CRAFT_MOCKS_PER_DEFINITION) continue
+
+    const candidates = coverageArtifacts.filter((artifact) => artifact.craftCode === definition.craftCode)
+    const primaryAdds = candidates
+      .filter((artifact) => !existingOrderIds.has(artifact.orderId))
+      .slice(0, DICTIONARY_CRAFT_MOCKS_PER_DEFINITION - existingOrderIds.size)
+    const pickedArtifactIds = new Set(primaryAdds.map((artifact) => artifact.artifactId))
+    const fallbackAdds = candidates
+      .filter((artifact) => !pickedArtifactIds.has(artifact.artifactId))
+      .slice(0, Math.max(0, DICTIONARY_CRAFT_MOCKS_PER_DEFINITION - existingOrderIds.size - primaryAdds.length))
+
+    result.push(...primaryAdds, ...fallbackAdds)
   }
   return result.sort((a, b) => {
     if (a.orderId !== b.orderId) return a.orderId.localeCompare(b.orderId)

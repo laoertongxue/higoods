@@ -1,5 +1,5 @@
-import { cuttingMaterialPrepGroups, type CuttingMaterialPrepGroup, type CuttingMaterialPrepLine, type CuttingMaterialReceiveRecord } from '../../../data/fcs/cutting/material-prep'
-import type { CutPieceOrderRecord } from '../../../data/fcs/cutting/cut-piece-orders'
+import { cuttingMaterialPrepGroups, type CuttingMaterialPrepGroup, type CuttingMaterialPrepLine, type CuttingMaterialReceiveRecord } from '../../../data/fcs/cutting/material-prep.ts'
+import type { CutPieceOrderRecord } from '../../../data/fcs/cutting/cut-piece-orders.ts'
 import type { PdaCuttingTaskDetailData } from '../../../data/fcs/pda-cutting-execution-source.ts'
 import {
   buildPickupEvidenceSummary,
@@ -9,7 +9,7 @@ import {
   buildPickupResultSummary,
   getLatestPickupScanRecord,
   pickupReceiptStatusLabels,
-} from '../helpers'
+} from '../helpers.ts'
 import type {
   PickupEvidence,
   PickupMaterialType,
@@ -21,7 +21,7 @@ import type {
   PickupSlip,
   PickupSlipStatus,
   PickupQtySummary,
-} from '../types'
+} from '../types.ts'
 
 export interface CuttingPickupView {
   slip: PickupSlip

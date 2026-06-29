@@ -13,7 +13,7 @@ import type {
   PickupScanResultStatus,
   PickupSlip,
   PickupSlipStatus,
-} from './types'
+} from './types.ts'
 
 export const pickupScenarioTypeLabels: Record<PickupScenarioType, string> = {
   COMMON: '通用领料',

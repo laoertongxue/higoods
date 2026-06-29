@@ -1,5 +1,5 @@
 import type { PdaTaskFlowProjectedTask as PdaTaskFlowMock } from '../../../data/fcs/pda-cutting-execution-source.ts'
-import { buildPickupEvidenceSummary, buildPickupReceiptSummary } from '../helpers'
+import { buildPickupEvidenceSummary, buildPickupReceiptSummary } from '../helpers.ts'
 import type {
   PickupEvidence,
   PickupMaterialType,
@@ -10,7 +10,7 @@ import type {
   PickupSlip,
   PickupSlipStatus,
   PickupQtySummary,
-} from '../types'
+} from '../types.ts'
 
 export interface CommonPickupSeed {
   task: PdaTaskFlowMock

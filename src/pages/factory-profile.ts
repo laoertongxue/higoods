@@ -14,6 +14,7 @@ import {
   typesByTier,
   type Factory,
   type FactoryFormData,
+  type FactoryTaskAcceptanceConfig,
   type FactoryTier,
   type FactoryType,
 } from '../data/fcs/factory-types'
@@ -163,6 +164,12 @@ const DEFAULT_FORM_DATA: FactoryFormData = {
     allowExecute: true,
     allowSettle: true,
   },
+  taskAcceptanceConfig: {
+    singleProcessEnabled: true,
+    continuousProcessEnabled: false,
+    wholeOrderEnabled: false,
+    continuousRules: [],
+  },
 }
 
 function mapInitialPdaUsersByFactory(): Record<string, PdaUserRecord[]> {
@@ -260,6 +267,37 @@ function cloneFormDraft(data: FactoryFormData): FactoryFormData {
     ...data,
     processAbilities: data.processAbilities.map((item) => cloneProcessAbility(item)),
     eligibility: { ...data.eligibility },
+    taskAcceptanceConfig: cloneTaskAcceptanceConfig(data.taskAcceptanceConfig),
+  }
+}
+
+function cloneTaskAcceptanceConfig(config: FactoryTaskAcceptanceConfig | undefined): FactoryTaskAcceptanceConfig {
+  if (!config) {
+    return {
+      singleProcessEnabled: true,
+      continuousProcessEnabled: false,
+      wholeOrderEnabled: false,
+      continuousRules: [],
+    }
+  }
+  return {
+    singleProcessEnabled: config.singleProcessEnabled,
+    continuousProcessEnabled: config.continuousProcessEnabled,
+    wholeOrderEnabled: config.wholeOrderEnabled,
+    continuousRules: config.continuousRules.map((rule) => ({
+      ...rule,
+      coveredProcessCodes: [...rule.coveredProcessCodes],
+      coveredCraftCodes: rule.coveredCraftCodes ? [...rule.coveredCraftCodes] : undefined,
+      applicableSaleTypes: [...rule.applicableSaleTypes],
+      excludedProcessCodes: [...rule.excludedProcessCodes],
+    })),
+    wholeOrderRule: config.wholeOrderRule
+      ? {
+          ...config.wholeOrderRule,
+          applicableSaleTypes: [...config.wholeOrderRule.applicableSaleTypes],
+          excludedProcessCodes: [...config.wholeOrderRule.excludedProcessCodes],
+        }
+      : undefined,
   }
 }
 
@@ -294,6 +332,7 @@ function createFormData(factory: Factory | null): FactoryFormData {
     pdaEnabled: factory.pdaEnabled,
     pdaTenantId: factory.pdaTenantId ?? '',
     eligibility: { ...factory.eligibility },
+    taskAcceptanceConfig: cloneTaskAcceptanceConfig(factory.taskAcceptanceConfig),
   }
 }
 
@@ -352,6 +391,133 @@ function upsertProcessAbility(
   }
 
   return nextAbilities
+}
+
+function ensureTaskAcceptanceConfig(config: FactoryTaskAcceptanceConfig | undefined): FactoryTaskAcceptanceConfig {
+  return cloneTaskAcceptanceConfig(config)
+}
+
+function getPrimaryContinuousRule(config: FactoryTaskAcceptanceConfig): FactoryTaskAcceptanceConfig['continuousRules'][number] {
+  return config.continuousRules[0] ?? {
+    combinationId: 'combo-cut-sew-post',
+    combinationName: '裁片+车缝+后道',
+    enabled: true,
+    coveredProcessCodes: ['CUT_PANEL', 'SEW', 'POST_FINISHING'],
+    applicableSaleTypes: ['KOL样品小单'],
+    excludedProcessCodes: ['PRINT', 'DYE'],
+    defaultTaskName: '裁片+车缝+后道组合任务',
+    handoverReceiverKind: 'WAREHOUSE',
+    handoverReceiverName: '仓库',
+    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+  }
+}
+
+function getWholeOrderRule(config: FactoryTaskAcceptanceConfig): NonNullable<FactoryTaskAcceptanceConfig['wholeOrderRule']> {
+  return config.wholeOrderRule ?? {
+    enabled: true,
+    applicableSaleTypes: ['KOL样衣', 'KOL样品小单'],
+    excludedProcessCodes: ['PRINT', 'DYE'],
+    defaultTaskName: 'KOL整单任务',
+    allowRuleRecommendation: true,
+    handoverReceiverKind: 'WAREHOUSE',
+    handoverReceiverName: '仓库',
+    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+    remark: '',
+  }
+}
+
+function renderTaskAcceptanceConfigSection(draft: FactoryFormData): string {
+  const config = ensureTaskAcceptanceConfig(draft.taskAcceptanceConfig)
+  const continuousRule = getPrimaryContinuousRule(config)
+  const wholeOrderRule = getWholeOrderRule(config)
+
+  return `
+    <section class="space-y-4">
+      <div>
+        <h4 class="text-sm font-semibold">任务承接方式</h4>
+        <p class="mt-1 text-xs text-muted-foreground">接单能力表示工厂会做什么；任务承接方式表示工厂是分开接、连续接，还是整单接。</p>
+      </div>
+      <div class="grid gap-3 md:grid-cols-3">
+        ${[
+          ['singleProcessEnabled', '单工序承接', config.singleProcessEnabled],
+          ['continuousProcessEnabled', '连续工序承接', config.continuousProcessEnabled],
+          ['wholeOrderEnabled', '整单承接', config.wholeOrderEnabled],
+        ].map(([field, label, checked]) => `
+          <label class="flex items-center gap-3 rounded-md border bg-muted/10 px-3 py-2">
+            <input type="checkbox" data-factory-task-acceptance="${field}" ${checked ? 'checked' : ''} class="h-4 w-4 rounded border" />
+            <span class="text-sm">${escapeHtml(String(label))}</span>
+          </label>
+        `).join('')}
+      </div>
+
+      ${config.continuousProcessEnabled ? `
+        <div class="rounded-lg border bg-muted/10 p-4">
+          <div class="mb-3 text-sm font-medium">连续工序承接配置</div>
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="space-y-1.5">
+              <span class="text-xs text-muted-foreground">组合名称</span>
+              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="continuous.combinationName" value="${escapeHtml(continuousRule.combinationName)}" />
+            </label>
+            <label class="space-y-1.5">
+              <span class="text-xs text-muted-foreground">默认任务名称</span>
+              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="continuous.defaultTaskName" value="${escapeHtml(continuousRule.defaultTaskName)}" />
+            </label>
+            <label class="space-y-1.5">
+              <span class="text-xs text-muted-foreground">覆盖工序</span>
+              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="continuous.coveredProcessCodes" value="${escapeHtml(continuousRule.coveredProcessCodes.join('、'))}" />
+            </label>
+            <label class="space-y-1.5">
+              <span class="text-xs text-muted-foreground">适用售卖类型</span>
+              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="continuous.applicableSaleTypes" value="${escapeHtml(continuousRule.applicableSaleTypes.join('、'))}" />
+            </label>
+            <label class="space-y-1.5">
+              <span class="text-xs text-muted-foreground">不并入工序</span>
+              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="continuous.excludedProcessCodes" value="${escapeHtml(continuousRule.excludedProcessCodes.join('、'))}" />
+            </label>
+            <label class="space-y-1.5">
+              <span class="text-xs text-muted-foreground">交出对象 / PDA步骤</span>
+              <input class="w-full rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground" disabled value="仓库 / 简化5步" />
+            </label>
+          </div>
+        </div>
+      ` : ''}
+
+      ${config.wholeOrderEnabled ? `
+        <div class="rounded-lg border bg-muted/10 p-4">
+          <div class="mb-3 text-sm font-medium">整单承接配置</div>
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="space-y-1.5">
+              <span class="text-xs text-muted-foreground">适用售卖类型</span>
+              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="whole.applicableSaleTypes" value="${escapeHtml(wholeOrderRule.applicableSaleTypes.join('、'))}" />
+            </label>
+            <label class="space-y-1.5">
+              <span class="text-xs text-muted-foreground">不并入整单的工序</span>
+              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="whole.excludedProcessCodes" value="${escapeHtml(wholeOrderRule.excludedProcessCodes.join('、'))}" />
+            </label>
+            <label class="space-y-1.5">
+              <span class="text-xs text-muted-foreground">默认整单任务名称</span>
+              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="whole.defaultTaskName" value="${escapeHtml(wholeOrderRule.defaultTaskName)}" />
+            </label>
+            <label class="space-y-1.5">
+              <span class="text-xs text-muted-foreground">交出对象 / PDA步骤</span>
+              <input class="w-full rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground" disabled value="仓库 / 简化5步" />
+            </label>
+            <label class="space-y-1.5 md:col-span-2">
+              <span class="text-xs text-muted-foreground">备注</span>
+              <textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="whole.remark">${escapeHtml(wholeOrderRule.remark || '')}</textarea>
+            </label>
+          </div>
+        </div>
+      ` : ''}
+    </section>
+  `
+}
+
+function splitConfigText(value: string): string[] {
+  return value
+    .split(/[、,，\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function openCreateDialog(): void {
@@ -1522,6 +1688,8 @@ function renderFactoryDrawer(): string {
               </div>
             </section>
 
+            ${renderTaskAcceptanceConfigSection(draft)}
+
             <section class="space-y-4">
               <h4 class="${sectionTitleClass}">工厂端移动应用配置（主数据）</h4>
               <label class="flex items-center gap-3">
@@ -1743,6 +1911,7 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
       ...editingFactory,
       ...data,
       processAbilities: data.processAbilities.map((item) => cloneProcessAbility(item)),
+      taskAcceptanceConfig: cloneTaskAcceptanceConfig(data.taskAcceptanceConfig),
       updatedAt: new Date().toISOString().split('T')[0],
     }
 
@@ -1777,6 +1946,7 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
     pdaEnabled: data.pdaEnabled,
     pdaTenantId: data.pdaTenantId,
     eligibility: data.eligibility,
+    taskAcceptanceConfig: cloneTaskAcceptanceConfig(data.taskAcceptanceConfig),
   }
 
   upsertFactoryMasterRecord(newFactory)
@@ -1863,6 +2033,59 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
       return true
     }
 
+    return true
+  }
+
+  const taskAcceptanceToggle = target.closest<HTMLElement>('[data-factory-task-acceptance]')
+  if (taskAcceptanceToggle instanceof HTMLInputElement && state.formDraft) {
+    const field = taskAcceptanceToggle.dataset.factoryTaskAcceptance as keyof Pick<
+      FactoryTaskAcceptanceConfig,
+      'singleProcessEnabled' | 'continuousProcessEnabled' | 'wholeOrderEnabled'
+    > | undefined
+    if (!field) return true
+
+    setDraft((prev) => {
+      const config = ensureTaskAcceptanceConfig(prev.taskAcceptanceConfig)
+      const nextConfig: FactoryTaskAcceptanceConfig = {
+        ...config,
+        [field]: taskAcceptanceToggle.checked,
+        continuousRules: config.continuousRules.length > 0 ? config.continuousRules : [getPrimaryContinuousRule(config)],
+        wholeOrderRule: getWholeOrderRule(config),
+      }
+      return { ...prev, taskAcceptanceConfig: nextConfig }
+    })
+    return true
+  }
+
+  const taskAcceptanceInput = target.closest<HTMLElement>('[data-factory-task-acceptance-input]')
+  if ((taskAcceptanceInput instanceof HTMLInputElement || taskAcceptanceInput instanceof HTMLTextAreaElement) && state.formDraft) {
+    const field = taskAcceptanceInput.dataset.factoryTaskAcceptanceInput
+    if (!field) return true
+
+    setDraft((prev) => {
+      const config = ensureTaskAcceptanceConfig(prev.taskAcceptanceConfig)
+      const continuousRule = getPrimaryContinuousRule(config)
+      const wholeOrderRule = getWholeOrderRule(config)
+
+      if (field === 'continuous.combinationName') continuousRule.combinationName = taskAcceptanceInput.value
+      if (field === 'continuous.defaultTaskName') continuousRule.defaultTaskName = taskAcceptanceInput.value
+      if (field === 'continuous.coveredProcessCodes') continuousRule.coveredProcessCodes = splitConfigText(taskAcceptanceInput.value)
+      if (field === 'continuous.applicableSaleTypes') continuousRule.applicableSaleTypes = splitConfigText(taskAcceptanceInput.value)
+      if (field === 'continuous.excludedProcessCodes') continuousRule.excludedProcessCodes = splitConfigText(taskAcceptanceInput.value)
+      if (field === 'whole.applicableSaleTypes') wholeOrderRule.applicableSaleTypes = splitConfigText(taskAcceptanceInput.value)
+      if (field === 'whole.excludedProcessCodes') wholeOrderRule.excludedProcessCodes = splitConfigText(taskAcceptanceInput.value)
+      if (field === 'whole.defaultTaskName') wholeOrderRule.defaultTaskName = taskAcceptanceInput.value
+      if (field === 'whole.remark') wholeOrderRule.remark = taskAcceptanceInput.value
+
+      return {
+        ...prev,
+        taskAcceptanceConfig: {
+          ...config,
+          continuousRules: [continuousRule],
+          wholeOrderRule,
+        },
+      }
+    })
     return true
   }
 

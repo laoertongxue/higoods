@@ -8,6 +8,7 @@ import type {
   FactoryTypeMatchResult,
 } from './factory-onboarding-domain'
 import type { FactorySampleReferenceFile } from './factory-sample-verification-domain'
+import type { PdaStepTemplateCode } from './production-task-generation-rules.ts'
 
 // 工厂状态
 export type FactoryStatus = 'active' | 'paused' | 'blacklist' | 'inactive'
@@ -69,6 +70,38 @@ export interface FactoryProcessAbility {
 
 export type FactoryCapacityFieldValue = number | string
 
+export interface FactoryTaskAcceptanceCombinationRule {
+  combinationId: string
+  combinationName: string
+  enabled: boolean
+  coveredProcessCodes: string[]
+  coveredCraftCodes?: string[]
+  applicableSaleTypes: string[]
+  excludedProcessCodes: string[]
+  defaultTaskName: string
+  handoverReceiverKind: 'WAREHOUSE'
+  handoverReceiverName: string
+  pdaStepTemplateCode: PdaStepTemplateCode
+}
+
+export interface FactoryTaskAcceptanceConfig {
+  singleProcessEnabled: boolean
+  continuousProcessEnabled: boolean
+  wholeOrderEnabled: boolean
+  continuousRules: FactoryTaskAcceptanceCombinationRule[]
+  wholeOrderRule?: {
+    enabled: boolean
+    applicableSaleTypes: string[]
+    excludedProcessCodes: string[]
+    defaultTaskName: string
+    allowRuleRecommendation: boolean
+    handoverReceiverKind: 'WAREHOUSE'
+    handoverReceiverName: string
+    pdaStepTemplateCode: PdaStepTemplateCode
+    remark?: string
+  }
+}
+
 // 工厂档案
 export interface Factory {
   id: string
@@ -121,6 +154,7 @@ export interface Factory {
   factorySiteVideos?: FactorySampleReferenceFile[]
   // 新增：生产流程开始条件
   eligibility: FactoryEligibility
+  taskAcceptanceConfig?: FactoryTaskAcceptanceConfig
 }
 
 // 工厂表单数据
@@ -143,6 +177,7 @@ export interface FactoryFormData {
   isTestFactory?: boolean
   testFactoryScope?: 'ALL_PROCESS_CRAFT'
   eligibility: FactoryEligibility
+  taskAcceptanceConfig?: FactoryTaskAcceptanceConfig
 }
 
 export interface FactoryCapacityEntry {

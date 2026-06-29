@@ -165,6 +165,7 @@ function renderAutoAssignMessage(): string {
 
   const skippedBadges = [
     feedback.skippedSewingCount > 0 ? `不适用任务跳过 ${feedback.skippedSewingCount} 条` : '',
+    feedback.skippedMergedTaskCount > 0 ? `组合/整单任务跳过 ${feedback.skippedMergedTaskCount} 条` : '',
     feedback.skippedMissingConfigCount > 0 ? `未启用或未配置工厂跳过 ${feedback.skippedMissingConfigCount} 条` : '',
     feedback.skippedFailedCount > 0 ? `分配失败 ${feedback.skippedFailedCount} 条` : '',
   ].filter(Boolean)
@@ -211,10 +212,10 @@ function renderAutoDispatchConfigDialog(rows: DispatchTask[]): string {
         <div class="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <div class="flex flex-wrap items-center gap-2">
-              <h3 class="text-lg font-semibold">自动分配配置</h3>
+              <h3 class="text-lg font-semibold">独立任务自动分配配置</h3>
               <span class="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">仅当前页任务参与</span>
             </div>
-            <p class="mt-1 text-sm text-muted-foreground">非车缝任务命中配置后，按整任务、技术包核价的工序工艺价、直接派单自动分配；分配时间即工厂接单确认时间。</p>
+            <p class="mt-1 text-sm text-muted-foreground">仅独立任务命中配置后，按整任务、技术包核价的工序工艺价、直接派单自动分配；组合/整单任务由任务生成规则指定承接工厂，不参与本配置。</p>
           </div>
           <button class="rounded-md p-1 text-muted-foreground hover:bg-muted" data-dispatch-action="close-auto-config" aria-label="关闭">
             <i data-lucide="x" class="h-4 w-4"></i>
@@ -228,6 +229,8 @@ function renderAutoDispatchConfigDialog(rows: DispatchTask[]): string {
                 <tr class="border-b bg-muted/40 text-xs text-muted-foreground">
                   <th class="px-3 py-2 text-left font-medium">是否启用</th>
                   <th class="px-3 py-2 text-left font-medium">工序工艺</th>
+                  <th class="px-3 py-2 text-left font-medium">适用任务类型</th>
+                  <th class="px-3 py-2 text-left font-medium">可被合并覆盖</th>
                   <th class="px-3 py-2 text-left font-medium">分配方式</th>
                   <th class="px-3 py-2 text-left font-medium">分配粒度</th>
                   <th class="px-3 py-2 text-left font-medium">价格来源</th>
@@ -241,7 +244,7 @@ function renderAutoDispatchConfigDialog(rows: DispatchTask[]): string {
               <tbody>
                 ${
                   configRows.length === 0
-                    ? '<tr><td colspan="10" class="px-3 py-8 text-center text-sm text-muted-foreground">当前没有可配置的非车缝工序工艺。</td></tr>'
+                    ? '<tr><td colspan="12" class="px-3 py-8 text-center text-sm text-muted-foreground">当前没有可配置的非车缝工序工艺。</td></tr>'
                     : configRows
                         .map((item) => {
                           const config = state.autoDispatchConfigs[item.configKey]
@@ -254,6 +257,8 @@ function renderAutoDispatchConfigDialog(rows: DispatchTask[]): string {
                                 <div class="font-medium">${escapeHtml(item.label)}</div>
                                 <div class="font-mono text-xs text-muted-foreground">${escapeHtml(item.processCode)} / ${escapeHtml(item.craftCode)}</div>
                               </td>
+                              <td class="px-3 py-3 text-xs">独立任务</td>
+                              <td class="px-3 py-3 text-xs text-muted-foreground">组合/整单规则命中时跳过自动分配</td>
                               <td class="px-3 py-3">
                                 <select class="h-8 w-full rounded-md border bg-muted px-2 text-xs text-muted-foreground" disabled><option>直接派单</option></select>
                               </td>

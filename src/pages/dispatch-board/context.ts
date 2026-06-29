@@ -294,8 +294,8 @@ const candidateFactories: CandidateFactory[] = [
 
 const mockTenders: MockTender[] = [
   {
-    tenderId: 'TENDER-TASKGEN0015004-1001',
-    taskId: 'TASKGEN-202603-0015-004__ORDER',
+    tenderId: 'TENDER-TASKGEN0003003-1001',
+    taskId: 'TASKGEN-202603-0003-003__ORDER',
     status: 'BIDDING',
     factoryPoolCount: 4,
     quotedCount: 2,
@@ -310,8 +310,8 @@ const mockTenders: MockTender[] = [
     participatingFactoryIds: ['ID-F003', 'ID-F006'],
   },
   {
-    tenderId: 'TENDER-TASKGEN0015006-1001',
-    taskId: 'TASKGEN-202603-0014-002__ORDER',
+    tenderId: 'TENDER-TASKGEN0004002-1001',
+    taskId: 'TASKGEN-202603-0004-002__ORDER',
     status: 'BIDDING',
     factoryPoolCount: 5,
     quotedCount: 1,
@@ -326,8 +326,8 @@ const mockTenders: MockTender[] = [
     participatingFactoryIds: ['ID-F003'],
   },
   {
-    tenderId: 'TENDER-TASKGEN0009001-1001',
-    taskId: 'TASKGEN-202603-0009-001__ORDER',
+    tenderId: 'TENDER-TASKGEN0007003-1001',
+    taskId: 'TASKGEN-202603-0007-003__ORDER',
     status: 'BIDDING',
     factoryPoolCount: 3,
     quotedCount: 1,
@@ -342,8 +342,8 @@ const mockTenders: MockTender[] = [
     participatingFactoryIds: ['ID-F017'],
   },
   {
-    tenderId: 'TENDER-TASKGEN0015005-1001',
-    taskId: 'TASKGEN-202603-0015-005__ORDER',
+    tenderId: 'TENDER-TASKGEN0102003-1001',
+    taskId: 'TASKGEN-202603-0102-003__ORDER',
     status: 'BIDDING',
     factoryPoolCount: 4,
     quotedCount: 3,
@@ -374,8 +374,8 @@ const mockTenders: MockTender[] = [
     participatingFactoryIds: ['ID-F003', 'ID-F004', 'ID-F024', 'ID-F006', 'ID-F010'],
   },
   {
-    tenderId: 'TENDER-TASKGEN0015001-1001',
-    taskId: 'TASKGEN-202603-0015-001__ORDER',
+    tenderId: 'TENDER-TASKGEN0084004-1001',
+    taskId: 'TASKGEN-202603-084-004__ORDER',
     status: 'AWAIT_AWARD',
     factoryPoolCount: 4,
     quotedCount: 4,
@@ -406,8 +406,8 @@ const mockTenders: MockTender[] = [
     participatingFactoryIds: ['ID-F003', 'ID-F004', 'ID-F006', 'ID-F010'],
   },
   {
-    tenderId: 'TENDER-TASKGEN0004001-1001',
-    taskId: 'TASKGEN-202603-0004-001__ORDER',
+    tenderId: 'TENDER-TASKGEN0086003-1001',
+    taskId: 'TASKGEN-202603-086-003__ORDER',
     status: 'AWARDED',
     factoryPoolCount: 3,
     quotedCount: 3,
@@ -425,8 +425,8 @@ const mockTenders: MockTender[] = [
     awardedPrice: 13200,
   },
   {
-    tenderId: 'TENDER-TASKGEN0015008-1001',
-    taskId: 'TASKGEN-202603-0014-003__ORDER',
+    tenderId: 'TENDER-TASKGEN0088004-1001',
+    taskId: 'TASKGEN-202603-088-004__ORDER',
     status: 'AWARDED',
     factoryPoolCount: 3,
     quotedCount: 3,
@@ -444,8 +444,8 @@ const mockTenders: MockTender[] = [
     awardedPrice: 8800,
   },
   {
-    tenderId: 'TENDER-TASKGEN0083001-1001',
-    taskId: 'TASKGEN-202603-083-001__ORDER',
+    tenderId: 'TENDER-TASKGEN0088005-1001',
+    taskId: 'TASKGEN-202603-088-005__ORDER',
     status: 'AWARDED',
     factoryPoolCount: 4,
     quotedCount: 4,
@@ -534,6 +534,7 @@ interface AutoAssignFeedback {
   assignedCount: number
   skippedCount: number
   skippedSewingCount: number
+  skippedMergedTaskCount: number
   skippedMissingConfigCount: number
   skippedFailedCount: number
   processSummaries: AutoAssignProcessSummary[]

@@ -262,6 +262,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '生产单管理',
           icon: 'FilePlus2',
           children: [
+            { key: 'production-task-generation-rules', title: '生产单任务生成规则', icon: 'Workflow', href: '/fcs/production/task-generation-rules' },
             { key: 'production-demand-inbox', title: '生产需求单', icon: 'Inbox', href: '/fcs/production/demand-inbox' },
             { key: 'production-orders', title: '生产单管理', icon: 'FilePlus2', href: '/fcs/production/orders' },
             { key: 'production-plan', title: '生产单计划', icon: 'CalendarClock', href: '/fcs/production/plan' },

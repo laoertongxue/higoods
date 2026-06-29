@@ -171,7 +171,7 @@ function buildSkuMatrixTable(snapshot: ProductionConfirmationSnapshot): PrintDoc
   const sizes = snapshot.sizeQtySnapshot.sizes
   return {
     tableId: 'sku-size-qty',
-    title: 'SKU / 颜色 / 尺码数量矩阵',
+    title: '规格数量矩阵（SKU / 颜色 / 尺码数量）',
     headers: ['颜色', ...sizes, '计划生产成衣件数合计', '备注'],
     rows: snapshot.sizeQtySnapshot.rows.map((row) => [
       row.color,
@@ -208,13 +208,18 @@ function buildMaterialTable(snapshot: ProductionConfirmationSnapshot): PrintDocu
 function buildProcessTable(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'][number] {
   return {
     tableId: 'process-route',
-    title: '工序工艺区',
-    headers: ['工序名称', '工艺名称', '工艺要求', '执行工厂类型', '是否特殊工艺', '质检点', '计划完成节点', '备注'],
+    title: '工序工艺任务分配',
+    headers: ['工序名称', '工艺名称', '作用对象', '裁片部位', '颜色', '尺码', '工艺要求', '执行工厂类型', '分配状态', '是否特殊工艺', '质检点', '计划完成节点', '备注'],
     rows: snapshot.taskAssignmentSnapshot.map((row) => [
       row.processName,
       row.craftName || row.taskDisplayName,
+      row.targetObject || '整单',
+      row.partName || '全部部位',
+      row.colorName || '全部颜色',
+      row.sizeCode || '全部尺码',
       row.remark || '按生产资料执行',
       row.assignedFactoryName,
+      row.assignmentStatus || '待分配',
       row.processName.includes('特殊工艺') || row.stageName.includes('特殊工艺') ? '是' : '否',
       `${row.processName}完成后按质检标准复核`,
       row.taskDeadline || '随生产计划',
@@ -251,8 +256,8 @@ function buildPatternTable(snapshot: ProductionConfirmationSnapshot): PrintDocum
 
   return {
     tableId: 'pattern-cutting',
-    title: '纸样 / 唛架 / 裁片信息区',
-    headers: ['纸样版本', '纸样 / 唛架文件', '尺码范围', '裁片部位', '部位数量', '颜色裁片数量', '特殊工艺', '裁片口径'],
+    title: '纸样和尺寸 / 唛架 / 裁片信息区',
+    headers: ['纸样分类', '纸样和尺寸', '尺码范围', '裁片部位', '每种颜色的片数', '适用颜色', '特殊工艺', '裁片口径'],
     rows,
     minRows: 3,
   }

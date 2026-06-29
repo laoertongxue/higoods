@@ -384,6 +384,7 @@ function applyAutoAssign(): void {
   let assignedCount = 0
   let skippedCount = 0
   let skippedSewingCount = 0
+  let skippedMergedTaskCount = 0
   let skippedMissingConfigCount = 0
   let skippedFailedCount = 0
   const assignedCountByProcessCraft = new Map<string, number>()
@@ -393,6 +394,16 @@ function applyAutoAssign(): void {
     if (isRuntimeSewingTask(task)) {
       skippedCount += 1
       skippedSewingCount += 1
+      continue
+    }
+
+    if (
+      task.taskUnitType === 'COMBINED_PROCESS_TASK'
+      || task.taskUnitType === 'WHOLE_ORDER_TASK'
+      || task.allowAutoDispatch === false
+    ) {
+      skippedCount += 1
+      skippedMergedTaskCount += 1
       continue
     }
 
@@ -442,11 +453,12 @@ function applyAutoAssign(): void {
   const processSummaries = Array.from(assignedCountByProcessCraft.entries())
     .map(([label, count]) => ({ label, count }))
     .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'zh-CN'))
-  state.autoAssignMessage = `本次自动分配 ${assignedCount} 条任务，跳过 ${skippedCount} 条。`
+  state.autoAssignMessage = `本次自动分配 ${assignedCount} 条独立任务，跳过 ${skippedCount} 条。`
   state.autoAssignFeedback = {
     assignedCount,
     skippedCount,
     skippedSewingCount,
+    skippedMergedTaskCount,
     skippedMissingConfigCount,
     skippedFailedCount,
     processSummaries,

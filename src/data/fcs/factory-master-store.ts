@@ -9,21 +9,93 @@ import type { Factory } from './factory-types.ts'
 
 const FACTORY_MASTER_STORE_KEY = 'fcs_factory_master_store_v1'
 
-function cloneFactory(factory: Factory): Factory {
+function cloneTaskAcceptanceConfig(config: Factory['taskAcceptanceConfig']): Factory['taskAcceptanceConfig'] {
+  if (!config) return undefined
+  return {
+    singleProcessEnabled: config.singleProcessEnabled,
+    continuousProcessEnabled: config.continuousProcessEnabled,
+    wholeOrderEnabled: config.wholeOrderEnabled,
+    continuousRules: config.continuousRules.map((rule) => ({
+      ...rule,
+      coveredProcessCodes: [...rule.coveredProcessCodes],
+      coveredCraftCodes: rule.coveredCraftCodes ? [...rule.coveredCraftCodes] : undefined,
+      applicableSaleTypes: [...rule.applicableSaleTypes],
+      excludedProcessCodes: [...rule.excludedProcessCodes],
+    })),
+    wholeOrderRule: config.wholeOrderRule
+      ? {
+          ...config.wholeOrderRule,
+          applicableSaleTypes: [...config.wholeOrderRule.applicableSaleTypes],
+          excludedProcessCodes: [...config.wholeOrderRule.excludedProcessCodes],
+        }
+      : undefined,
+  }
+}
+
+function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
+  if (factory.taskAcceptanceConfig) return factory
+  if (['ID-F002', 'ID-F005', 'ID-F011'].includes(factory.id)) {
+    return {
+      ...factory,
+      taskAcceptanceConfig: {
+        singleProcessEnabled: true,
+        continuousProcessEnabled: factory.id === 'ID-F011',
+        wholeOrderEnabled: true,
+        continuousRules: factory.id === 'ID-F011'
+          ? [{
+              combinationId: 'combo-cut-sew-post',
+              combinationName: '裁片+车缝+后道',
+              enabled: true,
+              coveredProcessCodes: ['CUT_PANEL', 'SEW', 'POST_FINISHING'],
+              applicableSaleTypes: ['KOL样品小单'],
+              excludedProcessCodes: ['PRINT', 'DYE'],
+              defaultTaskName: '裁片+车缝+后道组合任务',
+              handoverReceiverKind: 'WAREHOUSE',
+              handoverReceiverName: '仓库',
+              pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+            }]
+          : [],
+        wholeOrderRule: {
+          enabled: true,
+          applicableSaleTypes: ['KOL样衣', 'KOL样品小单'],
+          excludedProcessCodes: ['PRINT', 'DYE'],
+          defaultTaskName: 'KOL整单任务',
+          allowRuleRecommendation: true,
+          handoverReceiverKind: 'WAREHOUSE',
+          handoverReceiverName: '仓库',
+          pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+          remark: 'KOL小单由本厂整单承接',
+        },
+      },
+    }
+  }
   return {
     ...factory,
-    factoryShortName: factory.factoryShortName || factory.code || factory.name,
-    mobilePhone: factory.mobilePhone || factory.phone,
-    inferredFactoryTypes: factory.inferredFactoryTypes
-      ? factory.inferredFactoryTypes.map((item) => ({
+    taskAcceptanceConfig: {
+      singleProcessEnabled: true,
+      continuousProcessEnabled: false,
+      wholeOrderEnabled: false,
+      continuousRules: [],
+    },
+  }
+}
+
+function cloneFactory(factory: Factory): Factory {
+  const normalizedFactory = withDefaultTaskAcceptanceConfig(factory)
+  return {
+    ...normalizedFactory,
+    factoryShortName: normalizedFactory.factoryShortName || normalizedFactory.code || normalizedFactory.name,
+    mobilePhone: normalizedFactory.mobilePhone || normalizedFactory.phone,
+    inferredFactoryTypes: normalizedFactory.inferredFactoryTypes
+      ? normalizedFactory.inferredFactoryTypes.map((item) => ({
           ...item,
           matchedCapabilities: [...item.matchedCapabilities],
         }))
       : undefined,
-    identityFile: factory.identityFile ? { ...factory.identityFile } : factory.identityFile,
-    selectedCapabilities: factory.selectedCapabilities ? factory.selectedCapabilities.map((item) => ({ ...item })) : undefined,
-    machines: factory.machines ? factory.machines.map((item) => ({ ...item })) : undefined,
-    processAbilities: factory.processAbilities.map((item) => ({
+    identityFile: normalizedFactory.identityFile ? { ...normalizedFactory.identityFile } : normalizedFactory.identityFile,
+    selectedCapabilities: normalizedFactory.selectedCapabilities ? normalizedFactory.selectedCapabilities.map((item) => ({ ...item })) : undefined,
+    machines: normalizedFactory.machines ? normalizedFactory.machines.map((item) => ({ ...item })) : undefined,
+    processAbilities: normalizedFactory.processAbilities.map((item) => ({
       processCode: item.processCode,
       craftCodes: [...item.craftCodes],
       capacityNodeCodes: item.capacityNodeCodes ? [...item.capacityNodeCodes] : undefined,
@@ -37,7 +109,8 @@ function cloneFactory(factory: Factory): Factory {
       status: item.status,
       parentProcessCode: item.parentProcessCode,
     })),
-    eligibility: { ...factory.eligibility },
+    eligibility: { ...normalizedFactory.eligibility },
+    taskAcceptanceConfig: cloneTaskAcceptanceConfig(normalizedFactory.taskAcceptanceConfig),
   }
 }
 

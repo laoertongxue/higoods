@@ -220,9 +220,24 @@ function countByCraftCode(items: Array<{ craftCode?: string }>): Map<string, num
   return counts
 }
 
+function countByProcessTaskCraftCoverage(items: typeof processTasks): Map<string, number> {
+  const counts = new Map<string, number>()
+  items.forEach((task) => {
+    const craftCodes = new Set<string>()
+    if (task.craftCode) craftCodes.add(task.craftCode)
+    task.coveredProcesses?.forEach((process) => {
+      if (process.craftCode) craftCodes.add(process.craftCode)
+    })
+    craftCodes.forEach((craftCode) => {
+      counts.set(craftCode, (counts.get(craftCode) ?? 0) + 1)
+    })
+  })
+  return counts
+}
+
 const taskArtifactCounts = countByCraftCode(generatedTaskArtifacts)
 const demandArtifactCounts = countByCraftCode(generatedDemandArtifacts)
-const processTaskCounts = countByCraftCode(processTasks)
+const processTaskCounts = countByProcessTaskCraftCoverage(processTasks)
 taskCraftDefinitions.forEach((definition) => {
   assert(
     (taskArtifactCounts.get(definition.craftCode) ?? 0) >= DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
@@ -239,7 +254,11 @@ demandCraftDefinitions.forEach((definition) => {
     `工艺 ${definition.processCode}/${definition.craftName} 必须至少有 3 条需求单 mock`,
   )
 })
-assert(processTasks.length >= taskCraftDefinitions.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION, '工序工艺任务 mock 数据必须覆盖全部字典任务工艺')
+const processTaskCoverageCount = [...processTaskCounts.values()].reduce((sum, count) => sum + count, 0)
+assert(
+  processTaskCoverageCount >= taskCraftDefinitions.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
+  '工序工艺任务 mock 覆盖次数必须覆盖全部字典任务工艺',
+)
 assert(listRuntimeProcessTasks().length >= processTasks.length, 'FCS 路由加载后运行时工序工艺任务必须承接全部字典任务 mock')
 assert(processTasks.every((task) => productionOrders.some((order) => order.productionOrderId === task.productionOrderId)), '工序工艺任务必须关联已有生产单')
 assert(processTasks.every((task) => Boolean(getProductionOrderTechPackSnapshot(task.productionOrderId))), '工序工艺任务必须关联已有生产单技术包快照')
@@ -316,7 +335,7 @@ const taskDetailHtml = renderSpecialCraftTaskDetailPage(operationSlug, sampleTas
   assert(taskDetailHtml.includes(token), `特殊工艺任务详情页缺少：${token}`)
 })
 
-;['特殊工艺任务', '明细数', '生产单生成', 'data-breakdown-field="specialCraftOperation"'].forEach((token) => {
+;['任务单元清单', '任务单元数', '生产单生成', 'data-breakdown-field="specialCraftOperation"'].forEach((token) => {
   assertContains(taskBreakdownSource, token, `任务拆解页源码缺少：${token}`)
 })
 

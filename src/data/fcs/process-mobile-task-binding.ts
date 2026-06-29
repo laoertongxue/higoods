@@ -389,6 +389,7 @@ export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | nul
 
 export function getMobileTaskProcessType(task: ProcessTask | null | undefined): MobileTaskProcessType {
   if (!task) return 'UNKNOWN'
+  if (task.taskUnitType === 'WHOLE_ORDER_TASK' || task.taskUnitType === 'COMBINED_PROCESS_TASK') return 'UNKNOWN'
   const explicitFields = [
     task.processCode,
     task.processNameZh,

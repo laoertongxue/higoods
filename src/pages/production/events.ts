@@ -30,7 +30,9 @@ import {
   deriveLifecycleStatus,
   getOrderById,
   getOrderTaskBreakdownDisabledReason,
-  applyOrderTaskBreakdown,
+  openTaskGenerationPreview,
+  closeTaskGenerationPreview,
+  confirmTaskGenerationPreview,
   openAppRoute,
   indonesiaFactories,
   PAGE_SIZE,
@@ -1414,10 +1416,8 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     if (!orderId) return true
 
     state.ordersActionMenuId = null
-    const changed = applyOrderTaskBreakdown([orderId])
-    if (changed > 0) {
-      state.ordersBreakdownReadinessOrderId = null
-      showPlanMessage('已拆解任务，生产单进入待分配')
+    const opened = openTaskGenerationPreview([orderId])
+    if (opened > 0) {
       return true
     }
 
@@ -1434,15 +1434,28 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     }
 
     state.ordersActionMenuId = null
-    const changed = applyOrderTaskBreakdown(selectedIds)
-    state.ordersSelectedIds = new Set<string>()
-
-    if (changed > 0) {
-      showPlanMessage(`已批量拆解 ${changed} 张生产单`)
+    const opened = openTaskGenerationPreview(selectedIds)
+    if (opened > 0) {
       return true
     }
 
     showPlanMessage('所选生产单没有可拆解任务', 'error')
+    return true
+  }
+
+  if (action === 'close-task-generation-preview') {
+    closeTaskGenerationPreview()
+    return true
+  }
+
+  if (action === 'confirm-task-generation-preview') {
+    const changed = confirmTaskGenerationPreview()
+    state.ordersSelectedIds = new Set<string>()
+    if (changed > 0) {
+      showPlanMessage(`已确认生成 ${changed} 张生产单的任务单元`)
+      return true
+    }
+    showPlanMessage('当前没有可生成的任务单元', 'error')
     return true
   }
 

@@ -1,7 +1,7 @@
 import { getPdaCuttingTaskDetail } from '../../../data/fcs/pda-cutting-execution-source.ts'
-import { cuttingPickupPrintVersions } from '../mock'
-import type { PickupPrintVersion, PickupQrBinding } from '../types'
-import { buildCuttingPickupViewFromPdaDetail } from './cutting-shared'
+import { cuttingPickupPrintVersions } from '../mock.ts'
+import type { PickupPrintVersion, PickupQrBinding } from '../types.ts'
+import { buildCuttingPickupViewFromPdaDetail } from './cutting-shared.ts'
 
 function findLatestPrintVersion(pickupSlipNo: string): PickupPrintVersion | null {
   return (

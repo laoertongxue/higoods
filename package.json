@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "node --experimental-strip-types --experimental-specifier-resolution=node",
     "check:menu-routes": "tsx scripts/check-menu-routes.mjs",
+    "check:fcs-task-generation-rules": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-task-generation-rules.ts",
     "check:fcs-truth-sources": "node scripts/check-fcs-truth-sources.mjs --write-report",
     "check:settlement-linked-mock-factory": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-settlement-linked-mock-factory.ts",
     "check:pda-settlement-ia": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-settlement-ia.ts",

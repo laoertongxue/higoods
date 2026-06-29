@@ -40,14 +40,14 @@ function renderReviewList(selectedId: string): string {
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
               ${renderActionButton({
-                label: '确认全部收货',
+                label: '审核通过',
                 action: 'confirm-receipt',
                 attrs: { 'print-order-id': review.printOrderId },
                 tone: 'primary',
                 disabled: !canConfirmReceipt,
               })}
               ${renderActionButton({
-                label: '登记收货差异',
+                label: '审核驳回',
                 action: 'mark-receipt-difference',
                 attrs: { 'print-order-id': review.printOrderId },
                 tone: 'danger',
@@ -133,14 +133,14 @@ export function renderCraftPrintingPendingReviewPage(): string {
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
               ${renderActionButton({
-                label: '确认全部收货',
+                label: '审核通过',
                 action: 'confirm-receipt',
                 attrs: { 'print-order-id': selectedOrder.printOrderId },
                 tone: 'primary',
                 disabled: !canConfirmSelectedReceipt,
               })}
               ${renderActionButton({
-                label: '登记收货差异',
+                label: '审核驳回',
                 action: 'mark-receipt-difference',
                 attrs: { 'print-order-id': selectedOrder.printOrderId },
                 tone: 'danger',

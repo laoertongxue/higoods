@@ -91,6 +91,13 @@ function cloneDetailRows(task: RuntimeProcessTask): ProcessTask['detailRows'] {
   }))
 }
 
+function cloneCoveredProcesses(task: RuntimeProcessTask): ProcessTask['coveredProcesses'] {
+  return task.coveredProcesses?.map((item) => ({
+    ...item,
+    sourceArtifactIds: [...item.sourceArtifactIds],
+  }))
+}
+
 function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
   const now = runtimeTask.updatedAt || runtimeTask.createdAt || '2026-03-20 00:00:00'
   return {
@@ -158,6 +165,17 @@ function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
     receiverName: runtimeTask.receiverName,
     dependsOnTaskIds: [...runtimeTask.dependsOnTaskIds],
     taskCategoryZh: runtimeTask.taskCategoryZh,
+    taskUnitType: runtimeTask.taskUnitType,
+    acceptanceMode: runtimeTask.acceptanceMode,
+    generationRuleId: runtimeTask.generationRuleId,
+    generationRuleName: runtimeTask.generationRuleName,
+    coveredProcesses: cloneCoveredProcesses(runtimeTask),
+    isMergedTaskUnit: runtimeTask.isMergedTaskUnit,
+    allowAutoDispatch: runtimeTask.allowAutoDispatch,
+    pdaStepTemplateCode: runtimeTask.pdaStepTemplateCode,
+    handoverReceiverKind: runtimeTask.handoverReceiverKind,
+    handoverReceiverName: runtimeTask.handoverReceiverName,
+    saleTypeSnapshot: runtimeTask.saleTypeSnapshot,
     stageCode: runtimeTask.stageCode,
     stageName: runtimeTask.stageName,
     processBusinessCode: runtimeTask.processBusinessCode,
@@ -246,6 +264,17 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.taskTypeMode = runtimeTask.taskTypeMode
   task.isSpecialCraft = runtimeTask.isSpecialCraft
   task.taskCategoryZh = runtimeTask.taskCategoryZh
+  task.taskUnitType = runtimeTask.taskUnitType
+  task.acceptanceMode = runtimeTask.acceptanceMode
+  task.generationRuleId = runtimeTask.generationRuleId
+  task.generationRuleName = runtimeTask.generationRuleName
+  task.coveredProcesses = cloneCoveredProcesses(runtimeTask)
+  task.isMergedTaskUnit = runtimeTask.isMergedTaskUnit
+  task.allowAutoDispatch = runtimeTask.allowAutoDispatch
+  task.pdaStepTemplateCode = runtimeTask.pdaStepTemplateCode
+  task.handoverReceiverKind = runtimeTask.handoverReceiverKind
+  task.handoverReceiverName = runtimeTask.handoverReceiverName
+  task.saleTypeSnapshot = runtimeTask.saleTypeSnapshot
   task.woolTaskType = runtimeTask.woolTaskType
   task.woolKind = runtimeTask.woolKind
   task.woolKindLabel = runtimeTask.woolKindLabel

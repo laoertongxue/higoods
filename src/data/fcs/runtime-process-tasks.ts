@@ -833,6 +833,10 @@ function buildRuntimeBaseTasksFromTaskFacts(): ProcessTask[] {
       auditLogs: [...(task.auditLogs ?? [])],
       attachments: [...(task.attachments ?? [])],
       qcPoints: [...(task.qcPoints ?? [])],
+      coveredProcesses: task.coveredProcesses?.map((item) => ({
+        ...item,
+        sourceArtifactIds: [...item.sourceArtifactIds],
+      })),
       detailSplitDimensions: [...(task.detailSplitDimensions ?? [])],
       detailRows: cloneTaskDetailRows(task.detailRows),
       taskNo: task.taskNo ?? task.taskId,
@@ -1089,25 +1093,25 @@ function ensureDispatchBoardSeedData(): void {
   )
 
   seedRuntimeTaskOverride(
-    'TASKGEN-202603-0005-001__ORDER',
+    'TASKGEN-202603-0003-004__ORDER',
     {
       assignmentStatus: 'UNASSIGNED',
       taskDeadline: '2026-03-18 18:00:00',
     },
     [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0005-001__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0005-001__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配，待按产能日历校验后发起招标', '跟单A', '2026-03-19 15:00:00'),
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0003-004__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0003-004__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配', '跟单A', '2026-03-19 15:00:00'),
     ],
   )
 
   seedRuntimeTaskOverride(
-    'TASKGEN-202603-0006-001__ORDER',
+    'TASKGEN-202603-0004-004__ORDER',
     {
       assignmentStatus: 'UNASSIGNED',
     },
     [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0006-001__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0006-001__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配', '跟单A', '2026-03-19 15:30:00'),
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0004-004__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0004-004__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配', '跟单A', '2026-03-19 15:30:00'),
     ],
   )
 
@@ -1301,6 +1305,19 @@ function ensureDispatchBoardSeedData(): void {
       ...getSeedBaseAuditLogs('TASKGEN-202603-084-001__ORDER'),
       buildSeedAuditLog('TASKGEN-202603-084-001__ORDER', 'SET_ASSIGN_MODE', '设为竞价分配', '跟单A', '2026-03-20 10:20:00'),
       buildSeedAuditLog('TASKGEN-202603-084-001__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0084001-1001', '跟单A', '2026-03-20 10:25:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-082-002__ORDER',
+    {
+      taskDeadline: '2026-07-10 18:00:00',
+      acceptDeadline: '2026-07-01 18:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-082-002__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-082-002__ORDER', 'DISPATCH', '毛织任务已直派自有工厂，保留正常直派样例', '系统', '2026-06-29 09:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-082-002__ORDER', 'ACCEPT', '工厂确认接单', '自有毛织工厂', '2026-06-29 09:20:00'),
     ],
   )
 }

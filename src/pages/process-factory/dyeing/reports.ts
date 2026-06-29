@@ -14,7 +14,7 @@ import {
   listDyeVatSchedules,
   listDyeWorkOrders,
 } from '../../../data/fcs/dyeing-task-domain.ts'
-import { TEST_FACTORY_ID } from '../../../data/fcs/factory-mock-data.ts'
+import { TEST_FACTORY_ID } from '../../../data/fcs/factory-display-data.ts'
 import { getDyeingExecutionStatistics } from '../../../data/fcs/process-statistics-domain.ts'
 import {
   formatDyeQty,

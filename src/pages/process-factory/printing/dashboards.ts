@@ -18,8 +18,9 @@ function renderBuckets(): string {
       ${renderMetricCard('今日待打印面料米数 / 裁片数量', `${statistics.waitProcessFabricMeters} 米`, '统一待加工仓')}
       ${renderMetricCard('今日打印完成面料米数 / 裁片数量', `${statistics.printCompletedFabricMeters} 米`, '执行节点')}
       ${renderMetricCard('今日转印完成面料米数 / 裁片数量', `${statistics.transferCompletedFabricMeters} 米`, '执行节点')}
-      ${renderMetricCard('当前待交出面料米数 / 裁片数量', `${statistics.waitHandoverFabricMeters} 米`, '统一待交出仓')}
-      ${renderMetricCard('当前待收货确认记录数', String(statistics.waitReviewCount), '统一收货确认记录')}
+      ${renderMetricCard('当前待送货面料米数 / 裁片数量', `${statistics.waitHandoverFabricMeters} 米`, '统一待交出仓')}
+      ${renderMetricCard('当前待回写记录数', String(statistics.waitWritebackHandoverCount), '接收方待回写')}
+      ${renderMetricCard('当前待审核记录数', String(statistics.waitReviewCount), '接收方回写后待平台审核')}
       ${renderMetricCard('当前有差异记录数', String(statistics.differenceRecordCount), '统一差异记录')}
       ${renderMetricCard('已交出面料米数 / 裁片数量', `${statistics.handedOverFabricMeters} 米`, '统一交出记录')}
       ${renderMetricCard('实收面料米数 / 裁片数量', `${statistics.receivedFabricMeters} 米`, '接收方确认收货')}
@@ -85,11 +86,11 @@ function renderBoardList(): string {
       const printer = getPrintPrinterSummary(order)
       const pendingText =
         order.status === 'WAIT_HANDOVER'
-          ? '待交出'
+          ? '待送货'
           : order.status === 'HANDOVER_WAIT_RECEIVE'
-            ? '交出待收货'
+            ? '待回写'
             : order.status === 'PARTIAL_HANDOVER'
-              ? '部分交出'
+              ? '待审核'
               : order.status === 'FULL_HANDOVER'
                 ? '全部交出'
                 : order.status === 'HANDOVER_DIFFERENCE'

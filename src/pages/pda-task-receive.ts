@@ -516,6 +516,19 @@ function renderFieldRow(label: string, value: string, highlight = false): string
   `
 }
 
+function renderCoveredProcessSummary(task: ProcessTask): string {
+  const coveredProcesses = task.coveredProcesses ?? []
+  if (coveredProcesses.length === 0) return ''
+  const text = coveredProcesses
+    .map((item) => item.craftName ? `${item.processName}/${item.craftName}` : item.processName)
+    .join('、')
+  return `
+    <div class="rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">
+      覆盖工序：${escapeHtml(text)}
+    </div>
+  `
+}
+
 function renderEmptyState(label: string): string {
   return `
     <div class="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -655,6 +668,7 @@ function renderPendingAcceptCuttingTask(task: PdaTaskFlowMock, factoryName: stri
         </div>
 
         ${renderPendingAcceptFieldGrid(task)}
+        ${renderCoveredProcessSummary(task)}
         <div class="rounded bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
           当前工厂：<span class="font-medium text-foreground">${escapeHtml(factoryName)}</span>
         </div>
@@ -710,6 +724,7 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
         </div>
 
         ${renderPendingAcceptFieldGrid(task)}
+        ${renderCoveredProcessSummary(task)}
         <div class="rounded bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
           当前工厂：<span class="font-medium text-foreground">${escapeHtml(factoryName)}</span>
         </div>

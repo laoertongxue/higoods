@@ -1650,7 +1650,96 @@ function cloneProcessTaskForStatistics(
   }
 }
 
+function cloneProcessTaskForTaskGenerationDemo(sourceTaskId: string, nextTaskId: string): PdaGenericTaskMock {
+  const source = PDA_GENERIC_PROCESS_TASKS.find((task) => task.taskId === sourceTaskId)
+  if (!source) {
+    throw new Error(`缺少任务生成规则 PDA 样例来源：${sourceTaskId}`)
+  }
+  return {
+    ...source,
+    taskId: nextTaskId,
+    taskNo: nextTaskId,
+    productionOrderId: 'PO-202603-081',
+    productionOrderNo: 'PO-202603-081',
+    seq: 1,
+    processCode: 'WHOLE_ORDER_TASK',
+    processNameZh: 'KOL整单任务',
+    qty: 360,
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    assignedFactoryId: 'ID-F002',
+    assignedFactoryName: 'PT Prima Printing Center',
+    tenderId: undefined,
+    status: 'IN_PROGRESS',
+    acceptanceStatus: 'ACCEPTED',
+    acceptedAt: '2026-03-15 09:10:00',
+    acceptedBy: 'PT Prima Printing Center',
+    acceptDeadline: '2026-03-15 18:00:00',
+    taskDeadline: '2026-03-22 18:00:00',
+    dispatchRemark: '按 KOL 样衣整单承接规则生成，整单任务由指定工厂接单，不进入独立任务自动分配。',
+    dispatchedAt: '2026-03-15 09:00:00',
+    dispatchedBy: '系统',
+    startedAt: '2026-03-15 10:00:00',
+    finishedAt: undefined,
+    blockedAt: undefined,
+    blockReason: undefined,
+    blockRemark: undefined,
+    taskQrValue: buildTaskQrValue(nextTaskId),
+    taskQrStatus: 'ACTIVE',
+    handoverAutoCreatePolicy: 'CREATE_ON_START',
+    handoverStatus: 'AUTO_CREATED',
+    receiverKind: 'WAREHOUSE',
+    receiverId: 'WH-TASK-GENERATION-HANDOVER',
+    receiverName: '仓库',
+    taskCategoryZh: 'KOL整单任务',
+    taskUnitType: 'WHOLE_ORDER_TASK',
+    acceptanceMode: 'WHOLE_ORDER',
+    generationRuleId: 'TGR-KOL-001',
+    generationRuleName: 'KOL样衣整单承接规则',
+    coveredProcesses: [
+      {
+        processCode: 'CUT_PANEL',
+        processName: '裁片',
+        sourceArtifactIds: ['PDA-KOL-081-CUT_PANEL'],
+      },
+      {
+        processCode: 'SEW',
+        processName: '车缝',
+        sourceArtifactIds: ['PDA-KOL-081-SEW'],
+      },
+      {
+        processCode: 'POST_FINISHING',
+        processName: '后道',
+        sourceArtifactIds: ['PDA-KOL-081-POST_FINISHING'],
+      },
+    ],
+    isMergedTaskUnit: true,
+    allowAutoDispatch: false,
+    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+    handoverReceiverKind: 'WAREHOUSE',
+    handoverReceiverName: '仓库',
+    saleTypeSnapshot: 'KOL样衣',
+    processBusinessCode: 'WHOLE_ORDER_TASK',
+    processBusinessName: 'KOL整单任务',
+    mockOrigin: 'EXEC_IN_PROGRESS',
+    mockReceiveSummary: 'KOL 整单任务已接单，PDA 展示覆盖裁片、车缝、后道的合并范围。',
+    mockExecutionSummary: '按领料、开工、关键节点上报、交出、完工 5 步执行。',
+    mockHandoverSummary: '整单完成后交仓库确认。',
+    mockStartPrerequisiteMet: true,
+    spuCode: 'SPU-KOL-081',
+    spuName: 'KOL样衣整单承接款',
+    requiredDeliveryDate: '2026-03-22',
+    updatedAt: '2026-03-15 10:00:00',
+    auditLogs: [
+      createAuditLog(nextTaskId, 'GENERATE', '按 KOL 样衣整单承接规则生成整单任务', '2026-03-15 09:00:00', '系统'),
+      createAuditLog(nextTaskId, 'ACCEPT', '工厂确认整单接单', '2026-03-15 09:10:00', 'PT Prima Printing Center'),
+      createAuditLog(nextTaskId, 'START', 'PDA 按简化 5 步开始执行', '2026-03-15 10:00:00', 'PT Prima Printing Center'),
+    ],
+  }
+}
+
 PDA_GENERIC_PROCESS_TASKS.push(
+  cloneProcessTaskForTaskGenerationDemo('TASK-SEW-000513', 'TASK-KOL-WHOLE-000081'),
   cloneProcessTaskForStatistics('TASK-PRINT-000717', 'TASK-PRINT-000722', 'PO-202604-PRINT-011', 1460),
   cloneProcessTaskForStatistics('TASK-PRINT-000717', 'TASK-PRINT-000723', 'PO-202604-PRINT-012', 1380),
   cloneProcessTaskForStatistics('TASK-DYE-000726', 'TASK-DYE-000732', 'PO-202604-DYE-012', 1320),

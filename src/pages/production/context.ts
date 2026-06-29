@@ -88,6 +88,10 @@ import {
   getMaterialPrepBreakdownReadinessForOrder as getMaterialPrepBreakdownReadinessForOrderRaw,
   type MaterialPrepBreakdownReadiness,
 } from '../../data/fcs/cutting/production-material-prep'
+import {
+  buildBatchTaskGenerationPreview,
+  type ProductionTaskGenerationPreview,
+} from '../../data/fcs/production-task-generation-rules.ts'
 
 applyQualitySeedBootstrap()
 
@@ -108,6 +112,12 @@ type LifecycleStatus =
   | 'CLOSED'
 
 type DemandOwnerPartyType = 'FACTORY' | 'LEGAL_ENTITY'
+
+interface TaskGenerationPreviewState {
+  mode: 'single' | 'batch'
+  orderIds: string[]
+  previews: ProductionTaskGenerationPreview[]
+}
 
 interface PlanForm {
   planStartDate: string
@@ -222,6 +232,7 @@ interface ProductionState {
   ordersLogsId: string | null
   ordersActionMenuId: string | null
   ordersBreakdownReadinessOrderId: string | null
+  taskGenerationPreview: TaskGenerationPreviewState | null
   ordersFromDemandDialogOpen: boolean
   ordersFromDemandSelectedIds: Set<string>
   materialDraftOrderId: string | null
@@ -988,22 +999,44 @@ function getOrderTaskBreakdownDisabledReason(order: ProductionOrder): string {
   return ''
 }
 
+function openTaskGenerationPreview(orderIds: string[]): number {
+  const previews = buildBatchTaskGenerationPreview(orderIds)
+  const visiblePreviews = previews.filter((preview) => preview.status !== 'BLOCKED' || preview.blockedReasons.length > 0)
+  if (visiblePreviews.length === 0) return 0
+  state.taskGenerationPreview = {
+    mode: orderIds.length > 1 ? 'batch' : 'single',
+    orderIds: [...orderIds],
+    previews: visiblePreviews,
+  }
+  return visiblePreviews.length
+}
+
+function closeTaskGenerationPreview(): void {
+  state.taskGenerationPreview = null
+}
+
 function applyOrderTaskBreakdown(orderIds: string[]): number {
   const targetIds = new Set(orderIds)
   if (targetIds.size === 0) return 0
 
   const now = toTimestamp()
   let changedCount = 0
+  const previewByOrderId = new Map(
+    buildBatchTaskGenerationPreview([...targetIds]).map((preview) => [preview.productionOrderId, preview]),
+  )
 
   state.orders = state.orders.map((order) => {
     if (!targetIds.has(order.productionOrderId) || !canOrderStartTaskBreakdown(order)) {
       return order
     }
+    const preview = previewByOrderId.get(order.productionOrderId)
+    if (!preview || preview.status === 'BLOCKED') return order
 
     changedCount += 1
-    const totalTasks = Math.max(3, Math.min(5, order.demandSnapshot.skuLines.length + 1))
-    const biddingCount = totalTasks >= 4 ? 2 : 1
-    const directCount = totalTasks - biddingCount
+    const totalTasks = Math.max(1, preview.generatedUnits.length + preview.independentDemandObjects.length)
+    const directCount = preview.generatedUnits.filter((unit) => !unit.allowAutoDispatch || unit.taskUnitType === 'SINGLE_PROCESS_TASK').length
+    const biddingCount = Math.max(0, totalTasks - directCount)
+    const coveredProcessNames = Array.from(new Set(preview.generatedUnits.flatMap((unit) => unit.coveredProcesses.map((item) => item.craftName || item.processName))))
 
     return {
       ...order,
@@ -1031,16 +1064,25 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
       },
       taskBreakdownSummary: {
         isBrokenDown: true,
-        taskTypesTop3: ['裁片', '车缝', '后道'],
+        taskTypesTop3: preview.generatedUnits.slice(0, 3).map((unit) => unit.taskName),
         lastBreakdownAt: now,
         lastBreakdownBy: currentUser.name,
+        generationRuleId: preview.matchedRuleId,
+        generationRuleName: preview.matchedRuleName,
+        generatedTaskUnitCount: preview.generatedUnits.length,
+        singleProcessTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'SINGLE_PROCESS_TASK').length,
+        independentWorkOrderTaskCount: preview.independentDemandObjects.length,
+        combinedProcessTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'COMBINED_PROCESS_TASK').length,
+        wholeOrderTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'WHOLE_ORDER_TASK').length,
+        coveredProcessNames,
+        previewStatus: preview.status,
       },
       auditLogs: [
         ...order.auditLogs,
         {
           id: nextLocalEntityId('LOG'),
           action: 'TASK_BREAKDOWN',
-          detail: `手动拆解任务，生成 ${totalTasks} 条待分配任务`,
+          detail: `按${preview.matchedRuleName || '默认规则'}确认拆解任务，生成 ${preview.generatedUnits.length} 条任务单元、${preview.independentDemandObjects.length} 个独立需求对象`,
           at: now,
           by: currentUser.name,
         },
@@ -1050,6 +1092,15 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
   })
 
   return changedCount
+}
+
+function confirmTaskGenerationPreview(): number {
+  const orderIds = state.taskGenerationPreview?.previews
+    .filter((preview) => preview.status === 'READY' || preview.status === 'NEED_CONFIRM' || preview.status === 'NO_MATCH_USE_DEFAULT')
+    .map((preview) => preview.productionOrderId) ?? []
+  const changed = applyOrderTaskBreakdown(orderIds)
+  if (changed > 0) closeTaskGenerationPreview()
+  return changed
 }
 
 function deriveLifecycleStatus(order: ProductionOrder): LifecycleStatus {
@@ -1784,6 +1835,7 @@ function closeAllProductionDialogs(): void {
   state.ordersDemandSnapshotId = null
   state.ordersLogsId = null
   state.ordersBreakdownReadinessOrderId = null
+  state.taskGenerationPreview = null
   state.ordersFromDemandDialogOpen = false
   state.ordersFromDemandSelectedIds = new Set<string>()
   state.materialDraftOrderId = null
@@ -1850,6 +1902,7 @@ const state: ProductionState = {
   ordersLogsId: null,
   ordersActionMenuId: null,
   ordersBreakdownReadinessOrderId: null,
+  taskGenerationPreview: null,
   ordersFromDemandDialogOpen: false,
   ordersFromDemandSelectedIds: new Set<string>(),
   materialDraftOrderId: null,
@@ -2028,6 +2081,9 @@ export {
   getOrderBusinessTechPackStatus,
   canOrderStartTaskBreakdown,
   getOrderTaskBreakdownDisabledReason,
+  openTaskGenerationPreview,
+  closeTaskGenerationPreview,
+  confirmTaskGenerationPreview,
   applyOrderTaskBreakdown,
   deriveLifecycleStatus,
   buildSettlementSummary,

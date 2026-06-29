@@ -72,6 +72,35 @@ function taskDisplayNo(task: RuntimeProcessTask): string {
   return task.taskNo || task.taskId
 }
 
+function getTaskUnitTypeLabel(task: RuntimeProcessTask): string {
+  if (task.taskUnitType === 'WHOLE_ORDER_TASK') return '整单任务'
+  if (task.taskUnitType === 'COMBINED_PROCESS_TASK') return '组合工序任务'
+  if (task.taskUnitType === 'INDEPENDENT_WORK_ORDER_TASK') return '独立加工单任务'
+  return '单工序任务'
+}
+
+function getCoveredProcessText(task: RuntimeProcessTask): string {
+  const processes = task.coveredProcesses ?? []
+  if (processes.length === 0) return task.processBusinessName || task.processNameZh || '—'
+  return processes
+    .map((item) => item.craftName ? `${item.processName}/${item.craftName}` : item.processName)
+    .join('、')
+}
+
+function getTaskRuleSourceText(task: RuntimeProcessTask): string {
+  return task.generationRuleName || task.ruleSource || '默认任务生成规则'
+}
+
+function getTaskAcceptanceModeText(task: RuntimeProcessTask): string {
+  if (task.acceptanceMode === 'WHOLE_ORDER') return '整单承接'
+  if (task.acceptanceMode === 'CONTINUOUS_PROCESS') return '连续工序承接'
+  return '单工序承接'
+}
+
+function getTaskHandoverReceiverText(task: RuntimeProcessTask): string {
+  return task.handoverReceiverName || task.receiverName || '仓库'
+}
+
 const splitTaskStatusLabel: Record<RuntimeProcessTask['status'], string> = {
   NOT_STARTED: '待执行',
   IN_PROGRESS: '进行中',
@@ -284,8 +313,8 @@ function renderSpecialCraftTaskSection(keyword: string): string {
     <section class="rounded-lg border bg-card p-4 space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="text-base font-semibold">特殊工艺任务</h2>
-          <p class="mt-1 text-sm text-muted-foreground">仅展示生产单生成时根据技术包快照自动生成的特殊工艺任务。</p>
+          <h2 class="text-base font-semibold">任务单元清单</h2>
+          <p class="mt-1 text-sm text-muted-foreground">展示生产单生成时根据技术包快照与任务生成规则自动生成的任务单元。</p>
         </div>
         <div class="flex items-center gap-2">
           <label class="text-xs text-muted-foreground">特殊工艺</label>
@@ -303,7 +332,7 @@ function renderSpecialCraftTaskSection(keyword: string): string {
 
       <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <article class="rounded-lg border bg-muted/10 p-3">
-          <div class="text-xs text-muted-foreground">特殊工艺任务数</div>
+          <div class="text-xs text-muted-foreground">任务单元数</div>
           <div class="mt-1 text-2xl font-semibold">${filteredTasks.length}</div>
         </article>
         <article class="rounded-lg border bg-muted/10 p-3">
@@ -322,20 +351,21 @@ function renderSpecialCraftTaskSection(keyword: string): string {
 
       ${
         filteredTasks.length === 0
-          ? '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">暂无特殊工艺任务</div>'
+          ? '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">暂无任务单元</div>'
           : `
             <div class="overflow-x-auto rounded-lg border">
               <table class="w-full min-w-[1120px] text-sm">
                 <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
                   <tr>
                     <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-                    <th class="px-3 py-2 text-left font-medium">特殊工艺</th>
+                    <th class="px-3 py-2 text-left font-medium">任务类型</th>
                     <th class="px-3 py-2 text-left font-medium">任务号</th>
+                    <th class="px-3 py-2 text-left font-medium">覆盖工序</th>
                     <th class="px-3 py-2 text-right font-medium">明细数</th>
                     <th class="px-3 py-2 text-right font-medium">计划数量</th>
                     <th class="px-3 py-2 text-left font-medium">分配状态</th>
                     <th class="px-3 py-2 text-left font-medium">执行状态</th>
-                    <th class="px-3 py-2 text-left font-medium">来源</th>
+                    <th class="px-3 py-2 text-left font-medium">规则来源</th>
                     <th class="px-3 py-2 text-left font-medium">操作</th>
                   </tr>
                 </thead>
@@ -346,6 +376,7 @@ function renderSpecialCraftTaskSection(keyword: string): string {
                         <td class="px-3 py-2">${renderProductionOrderIdentityCell(task.productionOrderNo)}</td>
                         <td class="px-3 py-2">${escapeHtml(task.operationName)}</td>
                         <td class="px-3 py-2 font-medium text-blue-700">${escapeHtml(task.taskOrderNo)}</td>
+                        <td class="px-3 py-2">${escapeHtml(task.operationName)}</td>
                         <td class="px-3 py-2 text-right">${task.demandLines?.length || 0}</td>
                         <td class="px-3 py-2 text-right">${escapeHtml(String(task.planQty))}</td>
                         <td class="px-3 py-2">${escapeHtml(task.assignmentStatusLabel || '待分配')}</td>
@@ -393,11 +424,15 @@ function renderTaskExecutionRuleSummary(task: RuntimeProcessTask): string {
 
 function renderTaskDetailSummary(task: RuntimeProcessTask): string {
   const detailRows = getTaskDetailRows(task)
+  const taskUnitText = getTaskUnitTypeLabel(task)
+  const coveredProcessText = getCoveredProcessText(task)
+  const ruleSourceText = getTaskRuleSourceText(task)
   const rolledUpChildNames = task.rolledUpChildProcessNames?.length
     ? task.rolledUpChildProcessNames.join('、')
     : DEFAULT_POST_CHILD_TEXT
   if (detailRows.length === 0) {
     return `
+      <p class="mt-1 text-[11px] text-muted-foreground">任务类型：${escapeHtml(taskUnitText)}；覆盖工序：${escapeHtml(coveredProcessText)}；规则来源：${escapeHtml(ruleSourceText)}</p>
       <p class="mt-1 text-[11px] text-muted-foreground">任务明细行：0 条</p>
       ${renderTaskExecutionRuleSummary(task)}
       ${
@@ -416,6 +451,7 @@ function renderTaskDetailSummary(task: RuntimeProcessTask): string {
       : '-'
 
   return `
+    <p class="mt-1 text-[11px] text-muted-foreground">任务类型：${escapeHtml(taskUnitText)}；覆盖工序：${escapeHtml(coveredProcessText)}；规则来源：${escapeHtml(ruleSourceText)}</p>
     <p class="mt-1 text-[11px] text-muted-foreground">任务明细行：${summary.count} 条（合计 ${summary.totalQty}件）</p>
     <p class="text-[11px] text-muted-foreground">${escapeHtml(previewText)}</p>
     <p class="text-[11px] text-muted-foreground">维度：${escapeHtml(firstRowDimensions)}</p>
@@ -501,7 +537,7 @@ function renderChainDetailDialog(
               <thead>
                 <tr class="border-b bg-muted/40">
                   <th class="w-10 px-3 py-2 text-left font-medium">序</th>
-                  <th class="px-3 py-2 text-left font-medium">任务名称</th>
+                  <th class="px-3 py-2 text-left font-medium">任务类型</th>
                   <th class="px-3 py-2 text-left font-medium">前置任务</th>
                   <th class="px-3 py-2 text-left font-medium">后置任务</th>
                   <th class="px-3 py-2 text-left font-medium">链路类型</th>
@@ -732,7 +768,11 @@ function renderAllTasksTable(
           <tr class="border-b bg-muted/40">
             <th class="w-10 px-3 py-2 text-left font-medium">序</th>
             <th class="px-3 py-2 text-left font-medium">任务ID</th>
-            <th class="px-3 py-2 text-left font-medium">任务名称</th>
+            <th class="px-3 py-2 text-left font-medium">任务类型</th>
+            <th class="px-3 py-2 text-left font-medium">承接方式</th>
+            <th class="px-3 py-2 text-left font-medium">覆盖工序</th>
+            <th class="px-3 py-2 text-left font-medium">交出对象</th>
+            <th class="px-3 py-2 text-left font-medium">规则来源</th>
             <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
             <th class="px-3 py-2 text-left font-medium">总产值</th>
             <th class="px-3 py-2 text-left font-medium">前置任务</th>
@@ -747,7 +787,7 @@ function renderAllTasksTable(
         <tbody>
           ${
             allTaskRows.length === 0
-              ? '<tr><td colspan="12" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
+              ? '<tr><td colspan="16" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
               : allTaskRows
                   .map((task, idx) => {
                     const hasDye = taskDyeSet.has(task.taskId)
@@ -787,6 +827,10 @@ function renderAllTasksTable(
                             ${renderTaskSplitSummary(task, orderTasks)}
                           </div>
                         </td>
+                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskAcceptanceModeText(task))}</td>
+                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getCoveredProcessText(task))}</td>
+                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskHandoverReceiverText(task))}</td>
+                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskRuleSourceText(task))}</td>
                         <td class="px-3 py-2">${renderProductionOrderIdentityCell(task.productionOrderId || '—')}</td>
                         <td class="px-3 py-2 text-sm">
                           <div class="${task.isSplitSource ? 'text-muted-foreground' : 'font-medium'}">${escapeHtml(outputValueText)}</div>

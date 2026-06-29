@@ -5,9 +5,9 @@ import {
   type PdaCuttingTaskDetailData,
   type PdaTaskFlowProjectedTask as PdaTaskFlowMock,
 } from '../../data/fcs/pda-cutting-execution-source.ts'
-import { buildCommonPickupSlip, buildCommonQrBinding, buildCommonScanSummary, type CommonPickupSeed } from './adapters/common'
-import { buildCuttingPickupSlip, buildCuttingQrBinding, buildCuttingScanSummary, type CuttingPickupSeed } from './adapters/cutting'
-import { buildPickupScenarioDifferenceSummary } from './helpers'
+import { buildCommonPickupSlip, buildCommonQrBinding, buildCommonScanSummary, type CommonPickupSeed } from './adapters/common.ts'
+import { buildCuttingPickupSlip, buildCuttingQrBinding, buildCuttingScanSummary, type CuttingPickupSeed } from './adapters/cutting.ts'
+import { buildPickupScenarioDifferenceSummary } from './helpers.ts'
 import type {
   PickupEvidence,
   PickupPrintVersion,
@@ -16,7 +16,7 @@ import type {
   PickupScanRecord,
   PickupScenarioDifferenceSummary,
   PickupSlip,
-} from './types'
+} from './types.ts'
 
 function buildFallbackTask(taskId: string, processLabel: string): PdaTaskFlowMock {
   return {

@@ -99,6 +99,16 @@ function resolveTodoStatus(task: PdaTaskFlowMock): FactoryMobileTodoStatus {
   return '待处理'
 }
 
+function getMobileTaskDisplayTitle(task: PdaTaskFlowMock, suffix: string): string {
+  const taskUnitName =
+    task.taskUnitType === 'WHOLE_ORDER_TASK'
+      ? task.taskCategoryZh || task.processNameZh || '整单任务'
+      : task.taskUnitType === 'COMBINED_PROCESS_TASK'
+        ? task.taskCategoryZh || task.processNameZh || '组合工序任务'
+        : task.processNameZh || '工序'
+  return `${taskUnitName}${suffix}`
+}
+
 function buildTaskReceiveTodos(factoryId: string): FactoryMobileTodo[] {
   applyPendingDispatchAutoAcceptance()
   return listPdaTaskFlowTasks()
@@ -112,7 +122,7 @@ function buildTaskReceiveTodos(factoryId: string): FactoryMobileTodo[] {
       todoId: `todo-accept-${task.taskId}`,
       todoNo: `TD-AC-${String(index + 1).padStart(3, '0')}`,
       todoType: '待接单',
-      todoTitle: `${task.processNameZh || '工序'}待接单`,
+      todoTitle: getMobileTaskDisplayTitle(task, '待接单'),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
@@ -160,7 +170,7 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       todoId: `todo-start-${task.taskId}`,
       todoNo: `TD-ST-${String(index + 1).padStart(3, '0')}`,
       todoType: '待开工' as const,
-      todoTitle: `${task.processNameZh || '工序'}待开工`,
+      todoTitle: getMobileTaskDisplayTitle(task, '待开工'),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
@@ -180,7 +190,7 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       todoId: `todo-finish-${task.taskId}`,
       todoNo: `TD-FN-${String(index + 1).padStart(3, '0')}`,
       todoType: '待完工' as const,
-      todoTitle: `${task.processNameZh || '工序'}待完工`,
+      todoTitle: getMobileTaskDisplayTitle(task, '待完工'),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
@@ -200,7 +210,7 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       todoId: `todo-exception-${task.taskId}`,
       todoNo: `TD-EX-${String(index + 1).padStart(3, '0')}`,
       todoType: '异常待处理' as const,
-      todoTitle: `${task.processNameZh || '工序'}异常待处理`,
+      todoTitle: getMobileTaskDisplayTitle(task, '异常待处理'),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.blockReason || '待确认原因'}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
