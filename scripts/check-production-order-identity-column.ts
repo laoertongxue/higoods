@@ -54,6 +54,14 @@ const productionOrdersPage = readFileSync(
   resolve('src/pages/production/orders-domain.ts'),
   'utf8',
 )
+const productionDemandPage = readFileSync(
+  resolve('src/pages/production/demand-domain.ts'),
+  'utf8',
+)
+const productionContext = readFileSync(
+  resolve('src/pages/production/context.ts'),
+  'utf8',
+)
 assert(
   productionOrdersPage.includes('PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE'),
   '生产单管理列表必须使用合并列标题',
@@ -61,6 +69,26 @@ assert(
 assert(
   productionOrdersPage.includes('renderProductionOrderIdentityCell'),
   '生产单管理列表必须使用统一身份展示 helper',
+)
+assert(
+  productionDemandPage.includes('需求单号 / ID商品采购单单号 / 售卖类型'),
+  '生产需求单列表必须使用需求单号、ID商品采购单单号、售卖类型合并列标题',
+)
+assert(
+  productionDemandPage.includes('renderProductionDemandIdentityCell'),
+  '生产需求单列表必须使用合并身份展示 helper',
+)
+assert(
+  productionContext.includes('demand.saleType.toLowerCase().includes(keyword)'),
+  '生产需求单关键词搜索必须支持售卖类型',
+)
+assert(
+  productionContext.includes('order.demandSnapshot.saleType.toLowerCase().includes(keyword)'),
+  '生产单管理关键词搜索必须支持售卖类型',
+)
+assert(
+  productionContext.includes('order.demandSnapshot.demandId.toLowerCase().includes(keyword)'),
+  '生产单管理关键词搜索必须支持需求单号',
 )
 
 console.log('production order identity column check passed')

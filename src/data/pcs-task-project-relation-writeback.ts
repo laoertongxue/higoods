@@ -112,6 +112,16 @@ import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-regi
 
 export type DownstreamTaskType = 'PLATE' | 'PRINT' | 'FIRST_SAMPLE' | 'FIRST_ORDER_SAMPLE'
 
+export interface PlateFirstSampleReadiness {
+  plateTask: PlateMakingTaskRecord | null
+  canCreateFirstSample: boolean
+  blockingReasons: string[]
+  blockingPatternTaskCodes: string[]
+  existingFirstSampleTaskCodes: string[]
+  relatedPatternTaskCodes: string[]
+  recommendedActionText: string
+}
+
 interface BaseTaskCreateInput {
   projectId: string
   title: string
@@ -699,6 +709,238 @@ export function inferDownstreamTypesFromRevisionTask(
   if (hasRevisionPrintScope(revisionTask)) types.push('PRINT')
   if (revisionTask.projectId && (isWanlongRevisionSampleProject(revisionTask.projectId) || Number(revisionTask.sampleQty || 0) > 0)) types.push('FIRST_SAMPLE')
   return types
+}
+
+function isPlateTechPackReadyForSample(task: PlateMakingTaskRecord): boolean {
+  const status = (task.linkedTechPackVersionStatus || '').trim()
+  const blockedStatuses = ['草稿', '已作废', '作废', '停用', '已停用']
+  return Boolean(task.linkedTechPackVersionId) && !blockedStatuses.includes(status)
+}
+
+function isPatternTaskReadyForSample(task: PatternTaskRecord): boolean {
+  if (task.status === '已取消') return false
+  const buyerApproved = task.buyerReviewStatus === '买手已通过'
+  const hasOutput = Boolean(
+    task.linkedTechPackVersionId ||
+    task.patternAssetId ||
+    task.status === '已确认' ||
+    task.status === '已完成' ||
+    task.status === '已生成技术包',
+  )
+  return buyerApproved && hasOutput
+}
+
+function collectPlateSourceKeys(task: PlateMakingTaskRecord): Set<string> {
+  return new Set([
+    task.upstreamObjectId,
+    task.upstreamObjectCode,
+    task.legacyUpstreamRef,
+    task.newPatternSpuCode,
+  ].filter(Boolean))
+}
+
+function patternMatchesPlateSource(patternTask: PatternTaskRecord, plateTask: PlateMakingTaskRecord): boolean {
+  if (patternTask.projectId !== plateTask.projectId) return false
+  const plateKeys = collectPlateSourceKeys(plateTask)
+  const patternKeys = [
+    patternTask.upstreamObjectId,
+    patternTask.upstreamObjectCode,
+    patternTask.demandSourceRefId,
+    patternTask.demandSourceRefCode,
+    patternTask.legacyUpstreamRef,
+    patternTask.patternSpuCode,
+    patternTask.spuCode,
+  ].filter(Boolean)
+  if (patternKeys.some((key) => plateKeys.has(key))) return true
+  return plateTask.sourceType === '项目模板阶段' && patternTask.sourceType === '项目模板阶段'
+}
+
+function listRelatedPatternTasksForPlate(plateTask: PlateMakingTaskRecord): PatternTaskRecord[] {
+  return listPatternTasks()
+    .filter((patternTask) => patternMatchesPlateSource(patternTask, plateTask))
+    .sort((a, b) => a.patternTaskCode.localeCompare(b.patternTaskCode))
+}
+
+function listExistingFirstSampleTasksForPlate(plateTask: PlateMakingTaskRecord): FirstSampleTaskRecord[] {
+  const upstreamRevisionKeys = plateTask.sourceType === '改版任务'
+    ? [plateTask.upstreamObjectId, plateTask.upstreamObjectCode].filter(Boolean)
+    : []
+  return listFirstSampleTasks()
+    .filter((task) =>
+      task.upstreamObjectId === plateTask.plateTaskId ||
+      task.upstreamObjectCode === plateTask.plateTaskCode ||
+      upstreamRevisionKeys.includes(task.upstreamObjectId) ||
+      upstreamRevisionKeys.includes(task.upstreamObjectCode),
+    )
+    .sort((a, b) => a.firstSampleTaskCode.localeCompare(b.firstSampleTaskCode))
+}
+
+function resolvePlateRevisionTask(plateTask: PlateMakingTaskRecord): RevisionTaskRecord | null {
+  if (plateTask.sourceType !== '改版任务') return null
+  return (
+    getRevisionTaskById(plateTask.upstreamObjectId) ||
+    listRevisionTasks().find((task) =>
+      task.revisionTaskId === plateTask.upstreamObjectId ||
+      task.revisionTaskCode === plateTask.upstreamObjectCode,
+    ) ||
+    null
+  )
+}
+
+function buildPlateFirstSampleReadinessText(blockingReasons: string[]): string {
+  if (blockingReasons.length === 0) return '制版已完成且项目模板、技术包、花型状态满足，可创建首版样衣打样。'
+  return `样衣入口未开放：${blockingReasons.join('、')}。`
+}
+
+export function evaluatePlateFirstSampleReadiness(plateTaskId: string): PlateFirstSampleReadiness {
+  const plateTask = getPlateMakingTaskById(plateTaskId)
+  if (!plateTask) {
+    return {
+      plateTask: null,
+      canCreateFirstSample: false,
+      blockingReasons: ['未找到制版任务'],
+      blockingPatternTaskCodes: [],
+      existingFirstSampleTaskCodes: [],
+      relatedPatternTaskCodes: [],
+      recommendedActionText: '样衣入口未开放：未找到制版任务。',
+    }
+  }
+
+  const blockingReasons: string[] = []
+  if (plateTask.status !== '已完成') blockingReasons.push('制版任务未完成')
+  if (!isPlateTechPackReadyForSample(plateTask)) blockingReasons.push('技术包未生成或未生效')
+  if (!plateTask.projectId) blockingReasons.push('未绑定商品项目')
+  if (plateTask.projectId && !getProjectNodeRecordByWorkItemTypeCode(plateTask.projectId, 'FIRST_SAMPLE')) {
+    blockingReasons.push('项目模板未配置首版样衣节点')
+  }
+
+  const relatedPatternTasks = listRelatedPatternTasksForPlate(plateTask)
+  const blockingPatternTasks = relatedPatternTasks.filter((task) => !isPatternTaskReadyForSample(task))
+  if (blockingPatternTasks.length > 0) blockingReasons.push('关联花型任务未完成')
+
+  const existingFirstSampleTasks = listExistingFirstSampleTasksForPlate(plateTask)
+  if (existingFirstSampleTasks.length > 0) blockingReasons.push('已存在首版样衣打样任务')
+
+  const uniqueReasons = Array.from(new Set(blockingReasons))
+  return {
+    plateTask,
+    canCreateFirstSample: uniqueReasons.length === 0,
+    blockingReasons: uniqueReasons,
+    blockingPatternTaskCodes: blockingPatternTasks.map((task) => task.patternTaskCode),
+    existingFirstSampleTaskCodes: existingFirstSampleTasks.map((task) => task.firstSampleTaskCode),
+    relatedPatternTaskCodes: relatedPatternTasks.map((task) => task.patternTaskCode),
+    recommendedActionText: buildPlateFirstSampleReadinessText(uniqueReasons),
+  }
+}
+
+function updatePlateNoteWithFirstSample(plateTask: PlateMakingTaskRecord, firstSampleTask: FirstSampleTaskRecord, operatorName: string): PlateMakingTaskRecord | null {
+  const noteLine = `已开放首版样衣打样：${firstSampleTask.firstSampleTaskCode}。`
+  const note = plateTask.note.includes(noteLine)
+    ? plateTask.note
+    : [plateTask.note, noteLine].filter(Boolean).join(' ')
+  return updatePlateMakingTask(plateTask.plateTaskId, {
+    note,
+    updatedAt: firstSampleTask.updatedAt || nowTaskText(),
+    updatedBy: operatorName,
+  })
+}
+
+function syncPlateResultToRevisionProjection(
+  plateTask: PlateMakingTaskRecord,
+  readiness: PlateFirstSampleReadiness,
+  operatorName: string,
+  timestamp: string,
+  firstSampleTask?: FirstSampleTaskRecord,
+): void {
+  const revisionTask = resolvePlateRevisionTask(plateTask)
+  if (!revisionTask || !revisionTask.projectId || !revisionTask.projectNodeId) return
+  const latestResultText = firstSampleTask
+    ? `制版任务 ${plateTask.plateTaskCode} 已完成，并已开放首版样衣打样 ${firstSampleTask.firstSampleTaskCode}。`
+    : `制版任务 ${plateTask.plateTaskCode} 已完成。${readiness.recommendedActionText}`
+  updateProjectNodeRecord(
+    revisionTask.projectId,
+    revisionTask.projectNodeId,
+    {
+      currentStatus: firstSampleTask || readiness.canCreateFirstSample || revisionTask.status === '已完成' ? '已完成' : '进行中',
+      latestInstanceId: revisionTask.revisionTaskId,
+      latestInstanceCode: revisionTask.revisionTaskCode,
+      latestResultType: '制版结果已回写',
+      latestResultText,
+      pendingActionType: firstSampleTask
+        ? '跟进首版样衣打样'
+        : readiness.canCreateFirstSample
+          ? '创建首版样衣打样'
+          : '补齐样衣前置条件',
+      pendingActionText: firstSampleTask
+        ? `已创建首版样衣打样 ${firstSampleTask.firstSampleTaskCode}，请跟进打样。`
+        : readiness.recommendedActionText,
+      updatedAt: timestamp,
+      lastEventType: '制版结果已回写',
+      lastEventTime: timestamp,
+    },
+    operatorName,
+  )
+  syncProjectNodeInstanceRuntime(revisionTask.projectId, revisionTask.projectNodeId, operatorName, timestamp)
+}
+
+function syncPlateCompletionAggregateProjection(
+  plateTask: PlateMakingTaskRecord,
+  operatorName: string,
+  timestamp = nowTaskText(),
+  firstSampleTask?: FirstSampleTaskRecord,
+): void {
+  const readiness = evaluatePlateFirstSampleReadiness(plateTask.plateTaskId)
+  const existingCodes = readiness.existingFirstSampleTaskCodes
+  const sampleCreated = firstSampleTask || listExistingFirstSampleTasksForPlate(plateTask)[0]
+  const latestResultType = firstSampleTask
+    ? '已开放首版样衣打样'
+    : existingCodes.length > 0
+      ? '制版完成已建样衣'
+      : readiness.canCreateFirstSample
+        ? '制版完成可创建样衣'
+        : '制版完成待补齐下游条件'
+  const latestResultText = firstSampleTask
+    ? `制版任务已完成，已创建首版样衣打样 ${firstSampleTask.firstSampleTaskCode}。`
+    : existingCodes.length > 0
+      ? `制版任务已完成，已存在首版样衣打样：${existingCodes.join('、')}。`
+      : readiness.recommendedActionText
+  const pendingActionType = sampleCreated
+    ? '跟进首版样衣打样'
+    : readiness.canCreateFirstSample
+      ? '创建首版样衣打样'
+      : '补齐样衣前置条件'
+  const pendingActionText = sampleCreated
+    ? `查看或推进首版样衣打样 ${sampleCreated.firstSampleTaskCode}。`
+    : readiness.recommendedActionText
+
+  updateProjectNodeRecord(
+    plateTask.projectId,
+    plateTask.projectNodeId,
+    {
+      currentStatus: '已完成',
+      latestInstanceId: plateTask.plateTaskId,
+      latestInstanceCode: plateTask.plateTaskCode,
+      latestResultType,
+      latestResultText,
+      pendingActionType,
+      pendingActionText,
+      currentIssueType: readiness.canCreateFirstSample || sampleCreated ? '' : '样衣前置未满足',
+      currentIssueText: readiness.canCreateFirstSample || sampleCreated ? '' : readiness.recommendedActionText,
+      updatedAt: timestamp,
+      lastEventType: latestResultType,
+      lastEventTime: timestamp,
+    },
+    operatorName,
+  )
+  syncProjectNodeInstanceRuntime(plateTask.projectId, plateTask.projectNodeId, operatorName, timestamp)
+  syncPlateResultToRevisionProjection(plateTask, readiness, operatorName, timestamp, sampleCreated)
+  if (sampleCreated) {
+    syncFirstSampleTaskToProjectNode({
+      firstSampleTaskId: sampleCreated.firstSampleTaskId,
+      operatorName,
+    })
+  }
+  syncExistingProjectArchiveByProjectId(plateTask.projectId, operatorName)
 }
 
 function relationPayload(input: {
@@ -2197,25 +2439,16 @@ export function completePlateMakingTaskWithProjectRelationSync(
   })
   if (!nextTask) return { ok: false, task, message: '制版任务更新失败。' }
 
-  syncTaskCompletionToProjectNode({
-    projectId: nextTask.projectId,
-    projectNodeId: nextTask.projectNodeId,
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
-    sourceModule: '制版任务',
-    sourceObjectType: '制版任务',
-    sourceObjectId: nextTask.plateTaskId,
-    sourceObjectCode: nextTask.plateTaskCode,
-    sourceTitle: nextTask.title,
-    sourceStatus: nextTask.status,
-    businessDate: nextTask.updatedAt,
-    ownerName: nextTask.ownerName,
-    resultType: '制版任务已完成',
-    resultText: '制版任务已完成，商品项目节点同步完成。',
-    operatorName,
-  })
+  syncPlateCompletionAggregateProjection(nextTask, operatorName, nextTask.updatedAt)
 
-  return { ok: true, task: nextTask, message: '制版任务已完成，已同步商品项目节点。' }
+  const readiness = evaluatePlateFirstSampleReadiness(nextTask.plateTaskId)
+  return {
+    ok: true,
+    task: nextTask,
+    message: readiness.canCreateFirstSample
+      ? '制版任务已完成，样衣打样入口已开放，已同步商品项目节点。'
+      : `制版任务已完成，已同步商品项目节点。${readiness.blockingReasons.length > 0 ? ` 样衣入口暂未开放：${readiness.blockingReasons.join('、')}。` : ''}`,
+  }
 }
 
 export function submitPlateTaskForSampleReview(
@@ -2491,23 +2724,7 @@ export function syncExistingProjectEngineeringTaskNodes(operatorName = '系统�
   listPlateMakingTasks()
     .filter((task) => task.projectId && task.projectNodeId && task.status === '已完成')
     .forEach((task) => {
-      syncTaskCompletionToProjectNode({
-        projectId: task.projectId,
-        projectNodeId: task.projectNodeId,
-        workItemTypeCode: 'PATTERN_TASK',
-        workItemTypeName: '制版任务',
-        sourceModule: '制版任务',
-        sourceObjectType: '制版任务',
-        sourceObjectId: task.plateTaskId,
-        sourceObjectCode: task.plateTaskCode,
-        sourceTitle: task.title,
-        sourceStatus: task.status,
-        businessDate: task.updatedAt || task.createdAt,
-        ownerName: task.ownerName,
-        resultType: '制版任务已完成',
-        resultText: '制版任务已完成，商品项目节点同步完成。',
-        operatorName,
-      })
+      syncPlateCompletionAggregateProjection(task, operatorName, task.updatedAt || task.createdAt)
     })
   listPatternTasks()
     .filter((task) => task.projectId && task.projectNodeId && task.status === '已完成')
@@ -2655,6 +2872,65 @@ export function createFirstSampleTaskWithProjectRelation(
   })
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return { ok: true, task, relation, message: '首版样衣打样任务已创建，已写项目关系，已更新项目节点。' }
+}
+
+export function createFirstSampleTaskFromPlate(
+  plateTaskId: string,
+  operatorName = '当前用户',
+): TaskWritebackResult<FirstSampleTaskRecord> {
+  const readiness = evaluatePlateFirstSampleReadiness(plateTaskId)
+  const plateTask = readiness.plateTask
+  if (!plateTask) return { ok: false, message: readiness.recommendedActionText }
+  if (!readiness.canCreateFirstSample) {
+    return { ok: false, message: readiness.recommendedActionText }
+  }
+
+  const targetSite = plateTask.patternArea === '印尼' ? '雅加达' : '深圳'
+  const sampleImageIds = Array.from(new Set([
+    ...(plateTask.supportImageIds || []),
+    ...(plateTask.flowerImageIds || []),
+    ...(plateTask.patternImageLineItems || []).map((line) => line.imageId).filter(Boolean),
+  ]))
+  const result = createFirstSampleTaskWithProjectRelation({
+    projectId: plateTask.projectId,
+    title: `首版样衣-${plateTask.projectName || plateTask.title}`,
+    sourceType: '制版任务',
+    upstreamModule: '制版任务',
+    upstreamObjectType: '制版任务',
+    upstreamObjectId: plateTask.plateTaskId,
+    upstreamObjectCode: plateTask.plateTaskCode,
+    sourceTaskType: '制版任务',
+    sourceTaskId: plateTask.plateTaskId,
+    sourceTaskCode: plateTask.plateTaskCode,
+    ownerId: plateTask.ownerId,
+    ownerName: plateTask.ownerName,
+    priorityLevel: plateTask.priorityLevel,
+    factoryName: targetSite === '雅加达' ? '雅加达样衣间' : '深圳样衣间',
+    targetSite,
+    sourceTechPackVersionId: plateTask.linkedTechPackVersionId,
+    sourceTechPackVersionCode: plateTask.linkedTechPackVersionCode,
+    sourceTechPackVersionLabel: plateTask.linkedTechPackVersionLabel,
+    sampleMaterialMode: '正确布',
+    samplePurpose: '首版确认',
+    sampleImageIds,
+    productionReadinessNote: [
+      `来源制版任务：${plateTask.plateTaskCode}`,
+      plateTask.patternVersion ? `制版版次：${plateTask.patternVersion}` : '',
+      plateTask.sampleReviewNote ? `样板确认：${plateTask.sampleReviewNote}` : '',
+      readiness.relatedPatternTaskCodes.length > 0 ? `关联花型任务：${readiness.relatedPatternTaskCodes.join('、')}` : '',
+    ].filter(Boolean).join('；'),
+    note: `由制版任务 ${plateTask.plateTaskCode} 创建。`,
+    operatorName,
+  })
+
+  if (!result.ok || !result.task) return result
+
+  const updatedPlateTask = updatePlateNoteWithFirstSample(plateTask, result.task, operatorName) || plateTask
+  syncPlateCompletionAggregateProjection(updatedPlateTask, operatorName, result.task.updatedAt || nowTaskText(), result.task)
+  return {
+    ...result,
+    message: `首版样衣打样 ${result.task.firstSampleTaskCode} 已创建，制版结果已回写到商品项目${plateTask.sourceType === '改版任务' ? '和改版任务' : ''}聚合视图。`,
+  }
 }
 
 function buildRevisionFirstSampleTaskInput(revisionTask: RevisionTaskRecord): FirstSampleTaskCreateInput {

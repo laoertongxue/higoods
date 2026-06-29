@@ -1288,7 +1288,7 @@ export function renderProductionOrdersPage(): string {
               <input
                 data-prod-field="ordersKeyword"
                 value="${escapeHtml(state.ordersKeyword)}"
-                placeholder="单号/旧单号/SPU/工厂"
+                placeholder="生产单号/需求单号/售卖类型/SPU/工厂"
                 class="h-9 w-full rounded-md border pl-8 pr-3 text-sm"
               />
             </div>

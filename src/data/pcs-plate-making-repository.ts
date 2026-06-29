@@ -2,8 +2,8 @@ import { createTaskBootstrapSnapshot } from './pcs-task-bootstrap.ts'
 import type { PcsTaskPendingItem } from './pcs-project-types.ts'
 import type { PlateMakingTaskRecord, PlateMakingTaskStoreSnapshot } from './pcs-plate-making-types.ts'
 
-const STORAGE_KEY = 'higood-pcs-plate-making-store-v1'
-const STORE_VERSION = 1
+const STORAGE_KEY = 'higood-pcs-plate-making-store-v2'
+const STORE_VERSION = 2
 
 let memorySnapshot: PlateMakingTaskStoreSnapshot | null = null
 

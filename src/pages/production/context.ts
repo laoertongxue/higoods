@@ -1559,7 +1559,8 @@ function getFilteredDemands(): ProductionDemand[] {
         demand.demandId.toLowerCase().includes(keyword) ||
         demand.spuCode.toLowerCase().includes(keyword) ||
         demand.spuName.toLowerCase().includes(keyword) ||
-        demand.legacyOrderNo.toLowerCase().includes(keyword)
+        demand.legacyOrderNo.toLowerCase().includes(keyword) ||
+        demand.saleType.toLowerCase().includes(keyword)
       )
     })
   }
@@ -1636,6 +1637,8 @@ function getFilteredOrders(): ProductionOrder[] {
       return (
         order.productionOrderId.toLowerCase().includes(keyword) ||
         order.legacyOrderNo.toLowerCase().includes(keyword) ||
+        order.demandSnapshot.demandId.toLowerCase().includes(keyword) ||
+        order.demandSnapshot.saleType.toLowerCase().includes(keyword) ||
         order.demandSnapshot.spuCode.toLowerCase().includes(keyword) ||
         order.demandSnapshot.spuName.toLowerCase().includes(keyword) ||
         formatProductionOrderMainFactoryName(order).toLowerCase().includes(keyword)

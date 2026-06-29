@@ -50,6 +50,7 @@ import {
   completePlateMakingTask,
   completeRevisionTask,
   createDownstreamTasksFromRevision,
+  createFirstSampleTaskFromPlate,
   createFirstSampleTaskWithProjectRelation,
   createPatternTask,
   createPlateMakingTask,
@@ -57,6 +58,7 @@ import {
   createRevisionTask,
   confirmRevisionTaskOutput,
   type DownstreamTaskType,
+  evaluatePlateFirstSampleReadiness,
   inferDownstreamTypesFromRevisionTask,
   reviewPlateTaskSample,
   submitPlateTaskForSampleReview,
@@ -350,7 +352,7 @@ const COMMON_STATUS_META: Record<string, { label: string; className: string }> =
   待完成任务: { label: '待完成任务', className: 'bg-cyan-100 text-cyan-700' },
 }
 
-const ENGINEERING_COMMON_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']
+const ENGINEERING_COMMON_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成', '异常待处理', '已取消']
 
 const SAMPLE_STATUS_META: Record<string, { label: string; className: string }> = {
   草稿: { label: '草稿', className: 'bg-slate-100 text-slate-700' },
@@ -3341,6 +3343,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
   const detailDraft = ensurePlateDetailDraft(task)
   const style = getTaskStyleInfo(task)
   const flow = buildPlateTaskFlowView(task)
+  const firstSampleReadiness = evaluatePlateFirstSampleReadiness(task.plateTaskId)
   const downstreamFirst = listFirstSampleTasks().filter((item) => item.upstreamObjectId === task.plateTaskId || item.upstreamObjectCode === task.plateTaskCode)
   const downstreamPre = listFirstOrderSampleTasks().filter((item) => item.upstreamObjectId === task.plateTaskId || item.upstreamObjectCode === task.plateTaskCode)
   const logs = mergeLogs('plate', task.plateTaskId, [
@@ -3359,9 +3362,29 @@ function renderPlateDetailPage(plateTaskId: string): string {
 
   const downstream = renderSectionCard(
     '下游打样',
-    downstreamFirst.length + downstreamPre.length > 0
-      ? `
+    `
           <div class="space-y-3">
+            ${downstreamFirst.length === 0
+              ? firstSampleReadiness.canCreateFirstSample
+                ? `
+                  <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                    <div>
+                      <p class="text-sm font-medium text-emerald-900">首版样衣入口已开放</p>
+                      <p class="mt-1 text-xs text-emerald-700">制版、技术包、项目模板和关联花型状态已满足。</p>
+                    </div>
+                    <button type="button" class="inline-flex h-9 items-center rounded-md bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700" data-pcs-engineering-action="plate-create-first-sample" data-task-id="${escapeHtml(task.plateTaskId)}">创建首版样衣打样</button>
+                  </div>
+                `
+                : `
+                  <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p class="text-sm font-medium text-amber-900">首版样衣入口未开放</p>
+                    <p class="mt-1 text-xs text-amber-700">${escapeHtml(firstSampleReadiness.recommendedActionText)}</p>
+                    ${firstSampleReadiness.blockingPatternTaskCodes.length > 0 ? `<p class="mt-1 text-xs text-amber-700">阻断花型任务：${escapeHtml(firstSampleReadiness.blockingPatternTaskCodes.join('、'))}</p>` : ''}
+                  </div>
+                `
+              : ''}
+            ${downstreamFirst.length + downstreamPre.length > 0
+              ? `
             ${[
               ...downstreamFirst.map((item) => ({ label: '首版样衣打样', code: item.firstSampleTaskCode, title: item.title, status: item.status, path: `/pcs/samples/first-sample/${item.firstSampleTaskId}` })),
               ...downstreamPre.map((item) => ({ label: '首单样衣打样', code: item.firstOrderSampleTaskCode, title: item.title, status: item.status, path: `/pcs/samples/first-order/${item.firstOrderSampleTaskId}` })),
@@ -3377,9 +3400,10 @@ function renderPlateDetailPage(plateTaskId: string): string {
                 </div>
               </div>
             `).join('')}
+          `
+              : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">暂无下游样衣任务</div>'}
           </div>
-        `
-      : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">暂无下游样衣任务</div>',
+        `,
   )
 
   const demandSection = `${renderProjectContext(task)}${renderSectionCard('任务基本信息', renderKeyValueGrid([
@@ -6701,6 +6725,17 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   }
   if (action === 'plate-generate-tech-pack') { generatePlateTechPack(actionNode.dataset.taskId || ''); return true }
   if (action === 'pattern-generate-tech-pack') { generatePatternTechPack(actionNode.dataset.taskId || ''); return true }
+  if (action === 'plate-create-first-sample') {
+    const taskId = actionNode.dataset.taskId || ''
+    const result = createFirstSampleTaskFromPlate(taskId, '当前用户')
+    if (result.ok && result.task) {
+      pushRuntimeLog('plate', taskId, '创建首版样衣', `已创建首版样衣打样 ${result.task.firstSampleTaskCode}。`)
+      setNotice(result.message)
+      return true
+    }
+    setNotice(result.message)
+    return true
+  }
   if (action === 'complete-revision-task') {
     const taskId = actionNode.dataset.taskId || ''
     try {

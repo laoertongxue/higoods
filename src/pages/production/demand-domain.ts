@@ -40,6 +40,34 @@ import {
   renderProductionOrderIdentityCell,
 } from '../../data/fcs/production-order-identity'
 
+const PRODUCTION_DEMAND_IDENTITY_COLUMN_TITLE = '需求单号 / ID商品采购单单号 / 售卖类型'
+
+function renderProductionDemandIdentityCell(demand: ProductionDemand): string {
+  return `
+    <div class="min-w-[13rem] space-y-2 text-sm leading-5">
+      <div>
+        <span class="text-xs text-muted-foreground">需求单号</span>
+        <div class="font-mono font-medium text-foreground">${escapeHtml(demand.demandId)}</div>
+      </div>
+      <div>
+        <span class="text-xs text-muted-foreground">ID商品采购单单号</span>
+        <div class="flex items-center gap-1 font-mono text-xs text-muted-foreground">
+          <span>${escapeHtml(demand.legacyOrderNo)}</span>
+          <button class="inline-flex h-5 w-5 items-center justify-center rounded opacity-60 hover:bg-muted hover:opacity-100" data-prod-action="copy-demand-legacy" data-legacy-no="${escapeHtml(
+            demand.legacyOrderNo,
+          )}" aria-label="复制ID商品采购单单号">
+            <i data-lucide="copy" class="h-3 w-3"></i>
+          </button>
+        </div>
+      </div>
+      <div>
+        <span class="text-xs text-muted-foreground">售卖类型</span>
+        <div class="text-xs font-medium text-foreground">${escapeHtml(demand.saleType)}</div>
+      </div>
+    </div>
+  `
+}
+
 function renderDemandDetailDrawer(): string {
   const demand = getDemandById(state.demandDetailId)
   if (!demand) return ''
@@ -67,11 +95,11 @@ function renderDemandDetailDrawer(): string {
                 <div class="mt-1">${renderDemandSpuInfo(demand)}</div>
               </div>
               <div>
-                <p class="text-xs text-muted-foreground">需求编号</p>
+                <p class="text-xs text-muted-foreground">需求单号</p>
                 <p class="font-mono">${escapeHtml(demand.demandId)}</p>
               </div>
               <div>
-                <p class="text-xs text-muted-foreground">旧单号</p>
+                <p class="text-xs text-muted-foreground">ID商品采购单单号</p>
                 <p class="font-mono">${escapeHtml(demand.legacyOrderNo)}</p>
               </div>
               <div>
@@ -454,7 +482,7 @@ function renderDemandBatchGenerateDialog(): string {
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b">
-                    <th class="px-3 py-2 text-left">需求编号</th>
+                    <th class="px-3 py-2 text-left">需求单号</th>
                     <th class="px-3 py-2 text-left">SPU信息</th>
                     <th class="px-3 py-2 text-left">当前生效技术包</th>
                     <th class="px-3 py-2 text-left">生成状态</th>
@@ -594,7 +622,7 @@ function renderOrdersFromDemandDialog(): string {
                     <th class="w-10 px-3 py-2 text-left">
                       <input type="checkbox" data-prod-action="toggle-orders-demand-select-all" ${selectedAll ? 'checked' : ''} />
                     </th>
-                    <th class="px-3 py-2 text-left">需求编号</th>
+                    <th class="px-3 py-2 text-left">需求单号</th>
                     <th class="px-3 py-2 text-left">SPU信息</th>
                     <th class="px-3 py-2 text-left">当前生效技术包</th>
                     <th class="px-3 py-2 text-right">数量</th>
@@ -777,7 +805,7 @@ export function renderProductionDemandInboxPage(): string {
               <input
                 data-prod-field="demandKeyword"
                 value="${escapeHtml(state.demandKeyword)}"
-                placeholder="需求号/SPU/旧单号"
+                placeholder="需求单号/ID商品采购单单号/售卖类型/SPU"
                 class="w-full rounded-md border py-2 pl-8 pr-3 text-sm"
               />
             </div>
@@ -841,8 +869,7 @@ export function renderProductionDemandInboxPage(): string {
               <th class="w-10 bg-muted/50 px-3 py-3 text-left text-xs text-muted-foreground"><input type="checkbox" data-prod-action="toggle-demand-select-all" ${
                 selectedAll ? 'checked' : ''
               } /></th>
-              <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">需求编号</th>
-              <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">来源单号</th>
+              <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">${PRODUCTION_DEMAND_IDENTITY_COLUMN_TITLE}</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">SPU</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">优先级</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">状态</th>
@@ -856,7 +883,7 @@ export function renderProductionDemandInboxPage(): string {
           <tbody>
             ${
               pagedDemands.length === 0
-                ? `<tr><td colspan="11" class="h-32 px-3 text-center text-muted-foreground">暂无数据</td></tr>`
+                ? `<tr><td colspan="10" class="h-32 px-3 text-center text-muted-foreground">暂无数据</td></tr>`
                 : pagedDemands
                     .map((demand) => {
                       const selected = state.demandSelectedIds.has(demand.demandId)
@@ -867,17 +894,7 @@ export function renderProductionDemandInboxPage(): string {
                           <td class="px-3 py-3"><input type="checkbox" data-prod-action="toggle-demand-select" data-demand-id="${
                             demand.demandId
                           }" ${selected ? 'checked' : ''} /></td>
-                          <td class="px-3 py-3 font-mono text-sm">${escapeHtml(demand.demandId)}</td>
-                          <td class="px-3 py-3 font-mono text-sm">
-                            <div class="flex items-center gap-1">
-                              <span>${escapeHtml(demand.legacyOrderNo)}</span>
-                              <button class="inline-flex h-5 w-5 items-center justify-center rounded opacity-50 hover:bg-muted hover:opacity-100" data-prod-action="copy-demand-legacy" data-legacy-no="${escapeHtml(
-                                demand.legacyOrderNo,
-                              )}">
-                                <i data-lucide="copy" class="h-3 w-3"></i>
-                              </button>
-                            </div>
-                          </td>
+                          <td class="px-3 py-3">${renderProductionDemandIdentityCell(demand)}</td>
                           <td class="px-3 py-3">${renderDemandSpuInfo(demand)}</td>
                           <td class="px-3 py-3">${renderBadge(
                             demandPriorityConfig[demand.priority].label,
