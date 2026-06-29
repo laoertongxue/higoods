@@ -2,6 +2,10 @@ import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
+import {
   buildMarkerPlanProjection,
 } from './marker-plan-projection.ts'
 import { buildMarkerSpreadingProjection } from './marker-spreading-projection.ts'
@@ -2193,7 +2197,7 @@ function renderCreateCutOrderSelectionStep(viewModel = getViewModel()): string {
             <thead class="bg-muted/40 text-xs text-muted-foreground">
               <tr>
                 <th class="w-[11rem] px-3 py-2 font-medium">裁片单</th>
-                <th class="w-[12rem] px-3 py-2 font-medium">生产单 / SPU</th>
+                <th class="w-[12rem] px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / SPU</th>
                 <th class="w-[17rem] px-3 py-2 font-medium">物料 / 纸样</th>
                 <th class="w-[7rem] px-3 py-2 font-medium">可用余额</th>
                 <th class="w-[9rem] px-3 py-2 font-medium">执行去向</th>
@@ -2235,7 +2239,7 @@ function renderCreateCutOrderSelectionStep(viewModel = getViewModel()): string {
                   </div>
                 </td>
                 <td class="px-3 py-2">
-                  <div class="font-medium">${escapeHtml(context.productionOrderNos.join(' / ') || '—')}</div>
+                  ${renderProductionOrderIdentityCell(context.productionOrderNos.join(' / ') || '—')}
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(context.spuCode || '—')} / ${escapeHtml(context.styleName || '—')}</div>
                 </td>
                 <td class="px-3 py-2">
@@ -3350,7 +3354,7 @@ function renderMarkerPlanSourceSummaryTable(plan: MarkerPlanViewRow, context: Ma
         <thead class="bg-muted/40 text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-2 font-medium">来源裁片单</th>
-            <th class="px-3 py-2 font-medium">生产单</th>
+            <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
             <th class="px-3 py-2 font-medium">可用库存</th>
             <th class="px-3 py-2 font-medium">状态</th>
           </tr>
@@ -3364,7 +3368,7 @@ function renderMarkerPlanSourceSummaryTable(plan: MarkerPlanViewRow, context: Ma
                   <div class="mt-1 text-xs font-normal text-muted-foreground">${escapeHtml(row.materialText)}</div>
                 </td>
                 <td class="px-3 py-3">
-                  ${escapeHtml(row.productionOrderNo || '—')}
+                  ${renderProductionOrderIdentityCell(row.productionOrderNo || '—')}
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.patternText)}</div>
                 </td>
                 <td class="px-3 py-3 font-medium">${escapeHtml(row.qtyText)}</td>
@@ -3649,7 +3653,7 @@ function renderPlanStyleIdentity(plan: MarkerPlanViewRow): string {
     <div class="flex min-w-0 items-start gap-2">
       <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(plan.spuCode || plan.styleName || 'SPU图片')}" class="h-12 w-12 shrink-0 rounded-md border bg-slate-50 object-cover" loading="lazy" />
       <div class="min-w-0">
-        <div class="font-medium">${escapeHtml(plan.productionOrderSummary || '—')}</div>
+        ${renderProductionOrderIdentityCell(plan.productionOrderSummary || '—')}
         <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${plan.styleCode || '-'} / ${plan.spuCode || '-'}`)}</div>
         <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(plan.styleName || '—')}</div>
       </div>
@@ -3883,7 +3887,7 @@ function renderMarkerPlanSourceCutOrdersTab(plan: MarkerPlanViewRow, context: Ma
             <thead class="bg-muted/40 text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-2 font-medium">裁片单</th>
-                <th class="px-3 py-2 font-medium">生产单 / SPU</th>
+                <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / SPU</th>
                 <th class="px-3 py-2 font-medium">面料 / 颜色</th>
                 <th class="px-3 py-2 font-medium">纸样 / 幅宽</th>
                 <th class="px-3 py-2 text-right font-medium">可用余额</th>
@@ -3896,7 +3900,7 @@ function renderMarkerPlanSourceCutOrdersTab(plan: MarkerPlanViewRow, context: Ma
                   <tr>
                     <td class="px-3 py-3 font-semibold text-blue-600">${escapeHtml(row.cutOrderNo)}</td>
                     <td class="px-3 py-3">
-                      <div>${escapeHtml(row.productionOrderNo)}</div>
+                      ${renderProductionOrderIdentityCell(row.productionOrderNo)}
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.spuCode || plan.spuCode || '—')}</div>
                     </td>
                     <td class="px-3 py-3">
@@ -4149,7 +4153,7 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="w-[10rem] px-2 py-1 font-medium">唛架方案</th>
-              <th class="w-[10rem] px-2 py-1 font-medium">生产单 / SPU</th>
+              <th class="w-[10rem] px-2 py-1 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / SPU</th>
               <th class="w-[15rem] px-2 py-1 font-medium">面料 / 纸样</th>
               <th class="w-[10rem] px-2 py-1 font-medium">来源任务 / 裁片单</th>
               <th class="w-[9rem] px-2 py-1 font-medium">承接方锁定</th>

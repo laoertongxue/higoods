@@ -19,6 +19,10 @@ import {
   getLegacyLikeQualityInspections,
   initialAllocationByTaskId,
 } from './context'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../data/fcs/production-order-identity'
 
 function getDeliverySummaryMap(): Map<
   string,
@@ -294,7 +298,7 @@ export function renderProductionDeliveryWarehousePage(): string {
                 <table class="w-full min-w-[1450px] text-sm">
                   <thead>
                     <tr class="border-b">
-                      <th class="px-3 py-3 text-left font-medium">生产单号</th>
+                      <th class="px-3 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                       <th class="px-3 py-3 text-left font-medium">商品/款号</th>
                       <th class="px-3 py-3 text-left font-medium">主工厂</th>
                       <th class="px-3 py-3 text-left font-medium">交付仓</th>
@@ -326,7 +330,7 @@ export function renderProductionDeliveryWarehousePage(): string {
 
                         return `
                           <tr class="border-b last:border-0">
-                            <td class="whitespace-nowrap px-3 py-3 font-mono text-sm">${escapeHtml(order.productionOrderId)}</td>
+                            <td class="px-3 py-3">${renderProductionOrderIdentityCell(order.productionOrderId)}</td>
                             <td class="px-3 py-3 text-sm">${escapeHtml(styleCode ?? '—')}</td>
                             <td class="whitespace-nowrap px-3 py-3 text-sm">${escapeHtml(factoryName ?? '—')}</td>
                             <td class="whitespace-nowrap px-3 py-3 text-sm">

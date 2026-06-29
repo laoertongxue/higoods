@@ -12,7 +12,7 @@ import { getPlateMakingTaskById, updatePlateMakingTask } from './pcs-plate-makin
 import { getPatternTaskById, updatePatternTask } from './pcs-pattern-task-repository.ts'
 import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
 import { listPatternAssets, updatePatternAsset } from './pcs-pattern-library.ts'
-import { getPatternTaskCompletionMissingFields } from './pcs-engineering-task-field-policy.ts'
+import { getPatternTaskCompletionMissingFields, getPlateTaskTechPackMissingFields } from './pcs-engineering-task-field-policy.ts'
 import {
   findStyleArchiveByCode,
   findStyleArchiveByProjectId,
@@ -760,8 +760,21 @@ function ensureStyleArchive(
 }
 
 function ensurePlateTaskReady(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
+  if (task.status === '已取消') {
+    throw new Error(getTechPackGenerationBlockedReason(task.status) || '当前制版任务已取消，不能生成技术包版本。')
+  }
+  if (task.status === '已完成') {
+    throw new Error(getTechPackGenerationBlockedReason(task.status) || '当前制版任务已完成，不能重复生成技术包版本。')
+  }
+  if (task.sampleReviewStatus !== '样板已通过') {
+    throw new Error('当前制版任务尚未样板确认通过，不能生成技术包版本。')
+  }
   if (!isTechPackGenerationAllowedStatus(task.status)) {
     throw new Error(getTechPackGenerationBlockedReason(task.status) || '当前制版任务尚未确认产出，不能建立技术包版本。')
+  }
+  const missingFields = getPlateTaskTechPackMissingFields(task)
+  if (missingFields.length > 0) {
+    throw new Error(`制版任务产出未完整：缺少${missingFields.join('、')}，不能生成技术包版本。`)
   }
   const hasPatternOutput =
     Boolean(task.patternVersion)
@@ -898,6 +911,7 @@ export function generateTechPackVersionFromPlateTask(
     afterVersion: createdRecord,
   })
   updatePlateMakingTask(task.plateTaskId, {
+    status: '已生成技术包',
     linkedTechPackVersionId: createdRecord.technicalVersionId,
     linkedTechPackVersionCode: createdRecord.technicalVersionCode,
     linkedTechPackVersionLabel: createdRecord.versionLabel,
@@ -908,7 +922,26 @@ export function generateTechPackVersionFromPlateTask(
     updatedAt: createdRecord.updatedAt,
     updatedBy: operatorName,
   })
-  return finalizeGeneration(createdRecord, 'CREATED', '制版生成技术包', operatorName, 'PLATE')
+  const result = finalizeGeneration(createdRecord, 'CREATED', '制版生成技术包', operatorName, 'PLATE')
+  updateProjectNodeRecord(
+    task.projectId,
+    sourceNode.projectNodeId,
+    {
+      currentStatus: '已生成技术包',
+      latestInstanceId: task.plateTaskId,
+      latestInstanceCode: task.plateTaskCode,
+      latestResultType: '制版技术包已生成',
+      latestResultText: `已由制版任务生成技术包版本 ${createdRecord.technicalVersionCode}，待完成制版任务。`,
+      pendingActionType: '完成制版任务',
+      pendingActionText: '确认制版任务完成',
+      updatedAt: createdRecord.updatedAt,
+      lastEventType: '制版技术包已生成',
+      lastEventTime: createdRecord.updatedAt,
+    },
+    operatorName,
+  )
+  syncProjectNodeInstanceRuntime(task.projectId, sourceNode.projectNodeId, operatorName, createdRecord.updatedAt)
+  return result
 }
 
 export function generateTechPackVersionFromPatternTask(

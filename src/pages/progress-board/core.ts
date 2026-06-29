@@ -10,6 +10,10 @@ import { renderTaskDimension, renderBlockDialog, renderProgressTaskDetailPage } 
 import { getProgressStatisticsDashboard } from '../../data/fcs/progress-statistics-linkage.ts'
 import { listPlatformPostFinishingResultViews } from '../../data/fcs/platform-process-result-view.ts'
 import { PLATFORM_PROCESS_STATUS_CLASS } from '../../data/fcs/process-platform-status-adapter.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../data/fcs/production-order-identity.ts'
 
 function renderProductionProgressLinkage(): string {
   const dashboard = getProgressStatisticsDashboard()
@@ -53,7 +57,7 @@ function renderProductionProgressLinkage(): string {
         <table class="w-full min-w-[1480px] text-sm">
           <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              ${['生产单', '款式', '生产数量', '交期', '紧急程度', '面料配置', '裁床领料', '裁剪', '菲票', '特殊工艺回仓', '交出单', '车缝回写', '风险与差异', '下一步', '操作']
+              ${[PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, '款式', '生产数量', '交期', '紧急程度', '面料配置', '裁床领料', '裁剪', '菲票', '特殊工艺回仓', '交出单', '车缝回写', '风险与差异', '下一步', '操作']
                 .map((item) => `<th class="px-3 py-2 font-medium">${item}</th>`)
                 .join('')}
             </tr>
@@ -65,7 +69,7 @@ function renderProductionProgressLinkage(): string {
                   const productionOrderNo = row.productionOrderNo || row.productionOrderId || '待关联生产单'
                   return `
                   <tr class="border-b align-top">
-                    <td class="px-3 py-3 font-medium text-blue-700">${escapeHtml(productionOrderNo)}</td>
+                    <td class="px-3 py-3">${renderProductionOrderIdentityCell(productionOrderNo)}</td>
                     <td class="px-3 py-3">
                       <div>${row.styleNo}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${row.styleName}</div>

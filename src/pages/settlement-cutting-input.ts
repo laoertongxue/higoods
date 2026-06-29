@@ -17,6 +17,10 @@ import {
 } from '../domain/cutting-settlement/helpers'
 import { buildPlatformCuttingSettlementInputViews } from '../domain/cutting-settlement/platform.adapter'
 import { platformCuttingStageMeta } from '../domain/cutting-platform/overview.helpers'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
 import type {
   CuttingInputReviewStatus,
   CuttingRecommendedScoreBand,
@@ -616,7 +620,7 @@ function renderMainTable(): string {
               <table class="min-w-full divide-y divide-border text-sm">
                 <thead class="bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th class="px-3 py-3">生产单号</th>
+                    <th class="px-3 py-3">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                     <th class="px-3 py-3">裁片任务号</th>
                     <th class="px-3 py-3">工厂</th>
                     <th class="px-3 py-3">结算关注等级</th>
@@ -635,7 +639,7 @@ function renderMainTable(): string {
                       (row) => `
                         <tr class="align-top">
                           <td class="px-3 py-4">
-                            <button class="text-left font-medium text-blue-600 hover:underline" data-cutting-settlement-action="open-detail" data-record-id="${row.id}">${escapeHtml(row.productionOrderNo)}</button>
+                            <div class="cursor-pointer text-left hover:underline" data-cutting-settlement-action="open-detail" data-record-id="${row.id}">${renderProductionOrderIdentityCell(row.productionOrderNo)}</div>
                             <div class="mt-1 text-xs text-muted-foreground">输入编号：${escapeHtml(row.settlementInput.settlementInputNo)}</div>
                           </td>
                           <td class="px-3 py-4">

@@ -23,6 +23,10 @@ import type {
 import { appStore } from '../state/store'
 import { getCanonicalCuttingPath } from './process-factory/cutting/meta'
 import { escapeHtml, formatDateTime } from '../utils'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
 
 const productionProgressPath = getCanonicalCuttingPath('production-progress')
 const materialPrepPath = getCanonicalCuttingPath('warehouse-management-wait-process')
@@ -459,7 +463,7 @@ function renderMainTable(): string {
                     <th class="px-3 py-3">风险等级</th>
                     <th class="px-3 py-3">异常编号</th>
                     <th class="px-3 py-3">异常类型</th>
-                    <th class="px-3 py-3">生产单号</th>
+                    <th class="px-3 py-3">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                     <th class="px-3 py-3">裁片任务号</th>
                     <th class="px-3 py-3">裁片单号</th>
                     <th class="px-3 py-3">来源</th>
@@ -487,7 +491,7 @@ function renderMainTable(): string {
                             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.triggerConditionText)}</div>
                           </td>
                           <td class="px-3 py-4">
-                            <div class="font-medium text-foreground">${escapeHtml(row.productionOrderNo)}</div>
+                            ${renderProductionOrderIdentityCell(row.productionOrderNo)}
                           </td>
                           <td class="px-3 py-4">
                             <div class="font-medium text-foreground">${escapeHtml(row.cuttingTaskNo)}</div>

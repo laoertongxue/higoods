@@ -41,6 +41,8 @@ import {
   getPatternTaskCompletionMissingFields,
   getPatternTaskExecutionSubmitMissingFields,
   getPlateTaskCompletionMissingFields,
+  getPlateTaskExecutionSubmitMissingFields,
+  getPlateTaskReviewMissingFields,
   getRevisionTaskCompletionMissingFields,
 } from './pcs-engineering-task-field-policy.ts'
 import {
@@ -370,6 +372,15 @@ function plateExecutionFields(input: PlateMakingTaskCreateInput, existing?: Plat
     })),
     primaryTechPackGeneratedFlag: existing?.primaryTechPackGeneratedFlag ?? false,
     primaryTechPackGeneratedAt: existing?.primaryTechPackGeneratedAt ?? '',
+    sampleReviewStatus: existing?.sampleReviewStatus ?? '未提交',
+    sampleReviewSubmittedAt: existing?.sampleReviewSubmittedAt ?? '',
+    sampleReviewSubmittedBy: existing?.sampleReviewSubmittedBy ?? '',
+    sampleReviewerName: existing?.sampleReviewerName ?? '',
+    sampleReviewAt: existing?.sampleReviewAt ?? '',
+    sampleReviewNote: existing?.sampleReviewNote ?? '',
+    reworkReason: existing?.reworkReason ?? '',
+    patternOutputSubmittedAt: existing?.patternOutputSubmittedAt ?? '',
+    patternOutputSubmittedBy: existing?.patternOutputSubmittedBy ?? '',
   }
 }
 
@@ -2205,6 +2216,119 @@ export function completePlateMakingTaskWithProjectRelationSync(
   })
 
   return { ok: true, task: nextTask, message: '制版任务已完成，已同步商品项目节点。' }
+}
+
+export function submitPlateTaskForSampleReview(
+  plateTaskId: string,
+  operatorName = '当前用户',
+): TaskCompletionResult<PlateMakingTaskRecord> {
+  const task = getPlateMakingTaskById(plateTaskId)
+  if (!task) return { ok: false, task: null, message: '未找到制版任务。' }
+  if (task.status === '已取消') return { ok: false, task, message: '当前制版任务已取消，不能提交样板确认。' }
+  if (task.status === '已完成') return { ok: false, task, message: '当前制版任务已完成，不能重复提交样板确认。' }
+  const missingFields = getPlateTaskExecutionSubmitMissingFields(task)
+  if (missingFields.length > 0) {
+    return { ok: false, task, message: `提交样板确认前请补齐：${missingFields.join('、')}。` }
+  }
+
+  const now = nowTaskText()
+  const nextTask = updatePlateMakingTask(plateTaskId, {
+    status: '待确认',
+    sampleReviewStatus: '待样板确认',
+    sampleReviewSubmittedAt: now,
+    sampleReviewSubmittedBy: operatorName,
+    patternOutputSubmittedAt: now,
+    patternOutputSubmittedBy: operatorName,
+    sampleReviewerName: '',
+    sampleReviewAt: '',
+    sampleReviewNote: '',
+    reworkReason: '',
+    updatedAt: now,
+    updatedBy: operatorName,
+    note: task.note || '制版产出已提交样板确认。',
+  })
+  if (!nextTask) return { ok: false, task, message: '制版任务提交样板确认失败。' }
+
+  if (nextTask.projectId && nextTask.projectNodeId) {
+    updateProjectNodeRecord(
+      nextTask.projectId,
+      nextTask.projectNodeId,
+      {
+        currentStatus: '待确认',
+        latestInstanceId: nextTask.plateTaskId,
+        latestInstanceCode: nextTask.plateTaskCode,
+        latestResultType: '制版已提交样板确认',
+        latestResultText: '制版产出已提交样板确认，等待负责人确认样板。',
+        pendingActionType: '样板确认',
+        pendingActionText: '确认制版样板',
+        updatedAt: now,
+        lastEventType: '制版已提交样板确认',
+        lastEventTime: now,
+      },
+      operatorName,
+    )
+    syncProjectNodeInstanceRuntime(nextTask.projectId, nextTask.projectNodeId, operatorName, now)
+    syncExistingProjectArchiveByProjectId(nextTask.projectId, operatorName)
+  }
+
+  return { ok: true, task: nextTask, message: '制版任务已提交样板确认。' }
+}
+
+export function reviewPlateTaskSample(
+  plateTaskId: string,
+  reviewStatus: '样板已通过' | '样板已驳回',
+  reviewerName = '当前用户',
+  reviewNote = '',
+  operatorName = reviewerName,
+): TaskCompletionResult<PlateMakingTaskRecord> {
+  const task = getPlateMakingTaskById(plateTaskId)
+  if (!task) return { ok: false, task: null, message: '未找到制版任务。' }
+  if (task.status === '已取消') return { ok: false, task, message: '当前制版任务已取消，不能确认样板。' }
+  if (task.status === '已完成') return { ok: false, task, message: '当前制版任务已完成，不能重复确认样板。' }
+  const missingFields = getPlateTaskReviewMissingFields(task)
+  if (missingFields.length > 0) {
+    return { ok: false, task, message: `样板确认前请先进入待确认状态：${missingFields.join('、')}。` }
+  }
+
+  const now = nowTaskText()
+  const approved = reviewStatus === '样板已通过'
+  const nextTask = updatePlateMakingTask(plateTaskId, {
+    status: approved ? '已确认' : '进行中',
+    sampleReviewStatus: reviewStatus,
+    sampleReviewerName: reviewerName,
+    sampleReviewAt: now,
+    sampleReviewNote: reviewNote,
+    reworkReason: approved ? '' : reviewNote,
+    sampleConfirmedAt: approved ? now : task.sampleConfirmedAt,
+    updatedAt: now,
+    updatedBy: operatorName,
+    note: task.note || (approved ? '制版样板已确认通过。' : '制版样板已驳回，待版师调整。'),
+  })
+  if (!nextTask) return { ok: false, task, message: '制版样板确认失败。' }
+
+  if (nextTask.projectId && nextTask.projectNodeId) {
+    updateProjectNodeRecord(
+      nextTask.projectId,
+      nextTask.projectNodeId,
+      {
+        currentStatus: approved ? '已确认' : '进行中',
+        latestInstanceId: nextTask.plateTaskId,
+        latestInstanceCode: nextTask.plateTaskCode,
+        latestResultType: approved ? '制版样板已通过' : '制版样板已驳回',
+        latestResultText: approved ? '制版样板已通过，待生成技术包版本。' : '制版样板已驳回，待版师按说明调整纸样。',
+        pendingActionType: approved ? '生成技术包' : '版师调整',
+        pendingActionText: approved ? '生成制版技术包版本' : '按驳回说明调整纸样',
+        updatedAt: now,
+        lastEventType: approved ? '制版样板已通过' : '制版样板已驳回',
+        lastEventTime: now,
+      },
+      operatorName,
+    )
+    syncProjectNodeInstanceRuntime(nextTask.projectId, nextTask.projectNodeId, operatorName, now)
+    syncExistingProjectArchiveByProjectId(nextTask.projectId, operatorName)
+  }
+
+  return { ok: true, task: nextTask, message: approved ? '制版样板已通过。' : '制版样板已驳回，已退回版师调整。' }
 }
 
 export function completePlateMakingTask(

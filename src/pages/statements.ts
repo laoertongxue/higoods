@@ -1,5 +1,9 @@
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
 import {
   buildStatementDraftLines,
@@ -814,7 +818,7 @@ function renderBuildCandidateRows(items: StatementSourceItemViewModel[]): string
             <th class="px-4 py-2 font-medium">流水号</th>
             <th class="px-4 py-2 font-medium">流水类型</th>
             <th class="px-4 py-2 font-medium">任务号</th>
-            <th class="px-4 py-2 font-medium">生产单号</th>
+            <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
             <th class="px-4 py-2 font-medium">回货批次号</th>
             <th class="px-4 py-2 font-medium">状态</th>
             <th class="px-4 py-2 text-right font-medium">数量</th>
@@ -830,7 +834,7 @@ function renderBuildCandidateRows(items: StatementSourceItemViewModel[]): string
                   <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.ledgerNo ?? item.sourceItemId)}</td>
                   <td class="px-4 py-3 text-sm">${escapeHtml(item.sourceLabelZh)}</td>
                   <td class="px-4 py-3 text-xs">${escapeHtml(item.taskNo ?? item.taskId ?? '-')}</td>
-                  <td class="px-4 py-3 text-xs">${escapeHtml(item.productionOrderNo ?? item.productionOrderId ?? '-')}</td>
+                  <td class="px-4 py-3">${renderProductionOrderIdentityCell(item.productionOrderNo ?? item.productionOrderId ?? '-')}</td>
                   <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.returnInboundBatchNo ?? '-')}</td>
                   <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.sourceStatusZh)}</td>
                   <td class="px-4 py-3 text-right tabular-nums">${item.qty}</td>
@@ -861,7 +865,7 @@ function renderBuildLineRows(lines: StatementDetailLineViewModel[]): string {
             <th class="px-4 py-2 font-medium">明细类型</th>
             <th class="px-4 py-2 font-medium">回货批次号</th>
             <th class="px-4 py-2 font-medium">任务号</th>
-            <th class="px-4 py-2 font-medium">生产单号</th>
+            <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
             <th class="px-4 py-2 text-right font-medium">数量</th>
             <th class="px-4 py-2 font-medium">价格来源</th>
             <th class="px-4 py-2 text-right font-medium">单价</th>
@@ -879,7 +883,7 @@ function renderBuildLineRows(lines: StatementDetailLineViewModel[]): string {
                   <td class="px-4 py-3 text-xs">${escapeHtml(line.lineTypeZh)}</td>
                   <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.returnInboundBatchNo ?? '-')}</td>
                   <td class="px-4 py-3 text-xs">${escapeHtml(line.taskNoDisplay)}</td>
-                  <td class="px-4 py-3 text-xs">${escapeHtml(line.productionOrderNoDisplay)}</td>
+                  <td class="px-4 py-3">${renderProductionOrderIdentityCell(line.productionOrderNoDisplay)}</td>
                   <td class="px-4 py-3 text-right tabular-nums">${line.returnInboundQty ?? line.deductionQty ?? 0}</td>
                   <td class="px-4 py-3 text-xs">${escapeHtml(PRICE_SOURCE_LABEL[line.pricingSourceType ?? 'NONE'] ?? '不适用')}</td>
                   <td class="px-4 py-3 text-right tabular-nums">${line.settlementUnitPrice == null ? '-' : formatAmount(line.settlementUnitPrice)}</td>
@@ -915,7 +919,7 @@ function renderStatementLedgerSectionRows(
             <tr class="border-b bg-muted/40 text-left">
               <th class="px-4 py-2 font-medium">流水号</th>
               <th class="px-4 py-2 font-medium">任务号</th>
-              <th class="px-4 py-2 font-medium">生产单号</th>
+              <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-4 py-2 font-medium">回货批次号</th>
               <th class="px-4 py-2 font-medium">价格来源</th>
               <th class="px-4 py-2 text-right font-medium">数量</th>
@@ -931,7 +935,7 @@ function renderStatementLedgerSectionRows(
                   <tr class="border-b last:border-b-0">
                     <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.ledgerNo ?? line.sourceItemId)}</td>
                     <td class="px-4 py-3 text-xs">${escapeHtml(line.taskNoDisplay)}</td>
-                    <td class="px-4 py-3 text-xs">${escapeHtml(line.productionOrderNoDisplay)}</td>
+                    <td class="px-4 py-3">${renderProductionOrderIdentityCell(line.productionOrderNoDisplay)}</td>
                     <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.returnInboundBatchNo ?? '-')}</td>
                     <td class="px-4 py-3 text-xs">${escapeHtml(PRICE_SOURCE_LABEL[line.pricingSourceType ?? 'NONE'] ?? '不适用')}</td>
                     <td class="px-4 py-3 text-right tabular-nums">${line.returnInboundQty ?? line.deductionQty ?? 0}</td>

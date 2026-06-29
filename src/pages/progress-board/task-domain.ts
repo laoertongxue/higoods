@@ -40,6 +40,10 @@ import {
   getPlatformStatusForRuntimeTask,
 } from '../../data/fcs/process-platform-status-adapter.ts'
 import { listPlatformProcessResultViews, type PlatformProcessResultView } from '../../data/fcs/platform-process-result-view.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../data/fcs/production-order-identity.ts'
 
 function formatOutputValue(value: number | undefined): string {
   if (!Number.isFinite(value) || Number(value) <= 0) return '--'
@@ -423,7 +427,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
         <table class="w-full min-w-[1120px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-left">
-              <th class="px-3 py-2 font-medium">任务 / 生产单</th>
+              <th class="px-3 py-2 font-medium">任务 / ${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2 font-medium">工序</th>
               <th class="px-3 py-2 font-medium">平台状态</th>
               <th class="px-3 py-2 font-medium">风险</th>
@@ -457,9 +461,9 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                                 <span class="font-mono font-medium">${escapeHtml(task.taskId)}</span>
                                 <button class="inline-flex h-5 items-center rounded px-1 text-[11px] text-primary hover:bg-muted" data-progress-action="copy-task-id" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true" data-skip-page-rerender="true">复制</button>
                               </div>
-                              <button class="inline-flex items-center text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}" data-progress-stop="true">
-                                ${escapeHtml(task.productionOrderId)}
-                              </button>
+                              <div class="cursor-pointer text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}" data-progress-stop="true">
+                                ${renderProductionOrderIdentityCell(task.productionOrderId)}
+                              </div>
                               <div class="max-w-[180px] truncate text-muted-foreground">${escapeHtml(getOrderSpuCode(order, '-'))} / ${escapeHtml(getOrderSpuName(order) || '-')}</div>
                             </div>
                           </td>

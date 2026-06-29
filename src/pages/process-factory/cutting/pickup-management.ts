@@ -13,6 +13,10 @@ import {
   type PrepRecordPickupCandidate,
   type PrepRecordPickupCandidateItem,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
 import { renderCompactKpiGroup } from './layout.helpers.ts'
@@ -333,7 +337,7 @@ function renderWaitPickupCandidateTable(candidates: PrepRecordPickupCandidate[],
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-2">待领料配料记录</th>
-              <th class="px-3 py-2">生产单 / 款式</th>
+              <th class="px-3 py-2">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 款式</th>
               <th class="px-3 py-2">记录内物料</th>
               <th class="px-3 py-2">可领 / 已领</th>
               <th class="px-3 py-2">来源仓库</th>
@@ -354,7 +358,7 @@ function renderWaitPickupCandidateTable(candidates: PrepRecordPickupCandidate[],
                   <div class="flex items-start gap-3">
                     ${renderImageThumb(candidate.spuImageUrl, `${candidate.styleNo} / ${candidate.spu} 款式SPU图`, 'h-14 w-14')}
                     <div>
-                      <button type="button" data-nav="${escapeHtml(buildDetailHref(candidate.prepOrderId, activeTab, candidate.prepRecordId, candidate.defaultPrepLineId))}" class="font-medium text-blue-700 hover:underline">${escapeHtml(candidate.productionOrderNo)}</button>
+                      <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(buildDetailHref(candidate.prepOrderId, activeTab, candidate.prepRecordId, candidate.defaultPrepLineId))}">${renderProductionOrderIdentityCell(candidate.productionOrderNo)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">配料单：${escapeHtml(candidate.prepOrderNo)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.styleNo)} / ${escapeHtml(candidate.styleName)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.spu)}</div>
@@ -417,7 +421,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], candidates: PrepR
         <table class="w-full min-w-[1180px] text-left text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              <th class="px-3 py-2">生产单</th>
+              <th class="px-3 py-2">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2">款式 / 物料概况</th>
               <th class="px-3 py-2">领料状态</th>
               <th class="px-3 py-2">可领 / 已领 / 缺料</th>
@@ -433,7 +437,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], candidates: PrepR
               return `
                 <tr class="border-t">
                   <td class="px-3 py-3 align-top">
-                    <button type="button" data-nav="${escapeHtml(buildDetailHref(row.order.prepOrderId, activeTab, firstCandidate?.prepRecordId, firstCandidate?.defaultPrepLineId))}" class="font-medium text-blue-700 hover:underline">${escapeHtml(row.order.productionOrderNo)}</button>
+                    <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(buildDetailHref(row.order.prepOrderId, activeTab, firstCandidate?.prepRecordId, firstCandidate?.defaultPrepLineId))}">${renderProductionOrderIdentityCell(row.order.productionOrderNo)}</div>
                     <div class="mt-1 text-xs text-muted-foreground">配料单：${escapeHtml(row.order.prepOrderNo)}</div>
                     <div class="mt-1 text-xs text-muted-foreground">交期：${escapeHtml(row.order.deliveryDate)}</div>
                   </td>

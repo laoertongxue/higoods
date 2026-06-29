@@ -37,6 +37,10 @@ import {
 } from './summary-model.ts'
 import { getWarehouseSearchParams } from './warehouse-shared.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
+import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
   buildCuttingRouteWithContext,
@@ -1946,7 +1950,7 @@ function renderResultMainTable(rows: CuttingSummaryRow[], aggregates: CuttingSum
             <table class="min-w-full text-sm">
               <thead class="sticky top-0 bg-card">
                 <tr class="border-b text-left text-xs text-muted-foreground">
-                  <th class="px-3 py-2">生产单号</th>
+                  <th class="px-3 py-2">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                   <th class="px-3 py-2">款号 / SPU</th>
                   <th class="px-3 py-2">实际裁剪</th>
                   <th class="px-3 py-2">面料消耗</th>
@@ -1965,9 +1969,9 @@ function renderResultMainTable(rows: CuttingSummaryRow[], aggregates: CuttingSum
                     return `
                       <tr class="border-b align-top ${activeClass}">
                         <td class="px-3 py-3">
-                          <button type="button" class="font-medium text-blue-700 hover:underline" data-cutting-summary-action="focus-row" data-row-id="${row.rowId}">
-                            ${escapeHtml(row.productionOrderNo)}
-                          </button>
+                          <div class="cursor-pointer hover:underline" data-cutting-summary-action="focus-row" data-row-id="${row.rowId}">
+                            ${renderProductionOrderIdentityCell(row.productionOrderNo)}
+                          </div>
                           <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.styleName)}</p>
                         </td>
                         <td class="px-3 py-3 text-xs text-muted-foreground">

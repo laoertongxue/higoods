@@ -1,5 +1,9 @@
 import { escapeHtml } from '../../../utils.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
+import {
   buildCuttingDailyProductionReport,
   CUTTING_DAILY_DEMO_REPORT_DATE,
   CUTTING_DAILY_REPORT_PATH,
@@ -517,7 +521,7 @@ function renderDetailTable(rows: CuttingDailyDetailRow[], activeTab: CuttingDail
         <table class="cdr-table">
           <thead>
             <tr>
-              ${['业务对象', '业务单号', '生产单', 'SPU', '摘要', '数量', '发生时间', '操作人', '状态', '数据来源', '操作'].map((head) => `<th>${escapeHtml(head)}</th>`).join('')}
+              ${['业务对象', '业务单号', PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, 'SPU', '摘要', '数量', '发生时间', '操作人', '状态', '数据来源', '操作'].map((head) => `<th>${escapeHtml(head)}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -525,7 +529,7 @@ function renderDetailTable(rows: CuttingDailyDetailRow[], activeTab: CuttingDail
               <tr>
                 <td><div class="cdr-cell-main">${escapeHtml(row.objectType)}</div></td>
                 <td><span class="cdr-link-text">${escapeHtml(row.objectNo || '—')}</span></td>
-                <td>${escapeHtml(row.productionOrderNo || '—')}</td>
+                <td>${renderProductionOrderIdentityCell(row.productionOrderNo || '—')}</td>
                 <td>${escapeHtml(row.spuCode || '—')}</td>
                 <td>${escapeHtml(row.summary || '—')}</td>
                 <td class="cdr-nowrap">${escapeHtml(row.quantityText || '—')}</td>
@@ -566,7 +570,7 @@ function renderContributionSnapshot(rows: CuttingDailyProductionContributionRow[
         <table class="cdr-table" style="min-width: 1280px">
           <thead>
             <tr>
-              ${['款式 / SPU', '生产单', '生产计划', '今日实裁裁片', '当前已裁齐套', '当前未齐套', '今日交出', '最后发生时间', '操作'].map((head) => `<th>${escapeHtml(head)}</th>`).join('')}
+              ${['款式 / SPU', PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, '生产计划', '今日实裁裁片', '当前已裁齐套', '当前未齐套', '今日交出', '最后发生时间', '操作'].map((head) => `<th>${escapeHtml(head)}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -581,7 +585,7 @@ function renderContributionSnapshot(rows: CuttingDailyProductionContributionRow[
                     </div>
                   </div>
                 </td>
-                <td><span class="cdr-link-text">${escapeHtml(row.productionOrderNo)}</span><div class="cdr-cell-sub">${row.cutOrderCount} 张裁片单</div></td>
+                <td>${renderProductionOrderIdentityCell(row.productionOrderNo)}<div class="cdr-cell-sub">${row.cutOrderCount} 张裁片单</div></td>
                 <td class="cdr-num">${formatNumber(row.planQty)} 件</td>
                 <td class="cdr-num"><div class="cdr-cell-main">${formatNumber(row.actualCutPieceQty)} 片</div><div class="cdr-cell-sub">等效 ${formatNumber(row.actualCutGarmentQty)} 件</div></td>
                 <td class="cdr-num">${formatNumber(row.completeKitQty)} 件</td>

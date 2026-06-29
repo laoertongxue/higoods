@@ -3,6 +3,32 @@ export type SourceSystem = 'LEGACY' | 'NEW'
 export type Priority = 'URGENT' | 'HIGH' | 'NORMAL'
 export type DemandStatus = 'PENDING_CONVERT' | 'CONVERTED' | 'HOLD' | 'CANCELLED'
 export type TechPackStatus = 'INCOMPLETE' | 'RELEASED'
+export type ProductionSaleType =
+  | '预售'
+  | '备货'
+  | 'shopee备货'
+  | 'KOL样衣'
+  | '虾皮样品'
+  | '基础款'
+  | 'JKT复购'
+  | 'SZ复购'
+  | '国内做货'
+  | '预售备货'
+  | 'KOL样品小单'
+
+export const PRODUCTION_SALE_TYPES: ProductionSaleType[] = [
+  '预售',
+  '备货',
+  'shopee备货',
+  'KOL样衣',
+  '虾皮样品',
+  '基础款',
+  'JKT复购',
+  'SZ复购',
+  '国内做货',
+  '预售备货',
+  'KOL样品小单',
+]
 
 export interface SkuLine {
   skuCode: string
@@ -23,6 +49,7 @@ export interface ProductionDemand {
   marketScopes: string[]
   buyerName: string
   merchandiserName: string
+  saleType: ProductionSaleType
   priority: Priority
   demandStatus: DemandStatus
   // 需求侧只展示当前生效技术包版本信息，不直接承载 FCS 快照入口。
@@ -81,9 +108,19 @@ function resolveDemandImageUrl(input: Pick<ProductionDemand, 'spuCode' | 'spuNam
   return '/tshirt-sample.jpg'
 }
 
+function resolveDemandSaleType(input: Pick<ProductionDemand, 'demandId'> & Partial<Pick<ProductionDemand, 'saleType'>>): ProductionSaleType {
+  if (input.saleType) return input.saleType
+  const matched = input.demandId.match(/(\d+)$/)
+  const numeric = matched ? Number(matched[1]) : 1
+  return PRODUCTION_SALE_TYPES[(Math.max(1, numeric) - 1) % PRODUCTION_SALE_TYPES.length]
+}
+
 function createDemandSeed(
-  input: Omit<ProductionDemand, 'requiredQtyTotal' | 'buyerName' | 'merchandiserName'> &
-    Partial<ProductionDemandPersonnel> & { requiredQtyTotal?: number },
+  input: Omit<ProductionDemand, 'requiredQtyTotal' | 'buyerName' | 'merchandiserName' | 'saleType'> &
+    Partial<ProductionDemandPersonnel> &
+    Partial<Pick<ProductionDemand, 'saleType'>> & {
+      requiredQtyTotal?: number
+    },
 ): ProductionDemand {
   const requiredQtyTotal = input.requiredQtyTotal ?? input.skuLines.reduce((sum, line) => sum + line.qty, 0)
   const personnel = resolveDemandPersonnel(input)
@@ -91,6 +128,7 @@ function createDemandSeed(
     ...input,
     ...personnel,
     imageUrl: resolveDemandImageUrl(input),
+    saleType: resolveDemandSaleType(input),
     requiredQtyTotal,
   }
 }

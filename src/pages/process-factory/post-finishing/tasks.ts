@@ -11,6 +11,10 @@ import {
   listPostFinishingWorkOrders,
   type PostFinishingTaskView,
 } from '../../../data/fcs/post-finishing-domain.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
@@ -71,7 +75,7 @@ function renderTaskRows(tasks: PostFinishingTaskView[]): string {
           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.postTaskId)}</div>
         </td>
         <td class="px-3 py-3 text-sm">
-          <div class="font-semibold">${escapeHtml(task.productionOrderNo)}</div>
+          ${renderProductionOrderIdentityCell(task.productionOrderNo)}
           <div class="text-xs text-muted-foreground">${escapeHtml(task.techPackVersionLabel)}</div>
         </td>
         <td class="px-3 py-3 text-sm">
@@ -188,7 +192,7 @@ export function renderPostFinishingTasksPage(): string {
         keywordPlaceholder: '后道任务 / 生产单 / 款式 / 技术包版本',
       })}
       ${renderPostSection('后道任务列表', `${renderPostTable(
-        ['后道任务', '生产单 / 技术包', '款式衣服', '计划数量', '未质检', '已质检', '待交出', '上游来源', '操作'],
+        ['后道任务', `${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 技术包`, '款式衣服', '计划数量', '未质检', '已质检', '待交出', '上游来源', '操作'],
         rows || '<tr><td colspan="9" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无后道任务</td></tr>',
         'min-w-[1280px]',
       )}<div class="mt-4">${renderPostPagination(pagination)}</div>`)}

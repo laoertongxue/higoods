@@ -1,5 +1,9 @@
 import { escapeHtml } from '../../../utils.ts'
 import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
 import type {
   CuttingMaterialLine,
   CuttingOrderProgressRecord,
@@ -1426,7 +1430,7 @@ function renderProcessLinksTable(record: SupplementRecord): string {
             <th class="px-3 py-2 font-medium">数量</th>
             <th class="px-3 py-2 font-medium">状态</th>
             <th class="px-3 py-2 font-medium">加工工厂</th>
-            <th class="px-3 py-2 font-medium">关联生产单</th>
+            <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
           </tr>
         </thead>
         <tbody>
@@ -1460,7 +1464,7 @@ function renderProcessLinksTable(record: SupplementRecord): string {
               </td>
               <td class="px-3 py-3">${escapeHtml(link.factoryName)}</td>
               <td class="px-3 py-3">
-                <div>${escapeHtml(link.linkedProductionOrderNo)}</div>
+                ${renderProductionOrderIdentityCell({ productionOrderNo: link.linkedProductionOrderNo, demandNo: link.demandNo })}
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(link.createdAt)}</div>
               </td>
             </tr>

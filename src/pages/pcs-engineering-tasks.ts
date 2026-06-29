@@ -32,6 +32,9 @@ import { listFirstOrderSampleTasks, getFirstOrderSampleTaskById, resetFirstOrder
 import {
   getPatternTaskCompletionMissingFields,
   getPatternTaskExecutionSubmitMissingFields,
+  getPlateTaskCompletionMissingFields,
+  getPlateTaskExecutionSubmitMissingFields,
+  getPlateTaskTechPackMissingFields,
   getRevisionTaskCompletionMissingFields,
 } from '../data/pcs-engineering-task-field-policy.ts'
 import {
@@ -55,6 +58,8 @@ import {
   confirmRevisionTaskOutput,
   type DownstreamTaskType,
   inferDownstreamTypesFromRevisionTask,
+  reviewPlateTaskSample,
+  submitPlateTaskForSampleReview,
   submitPatternTaskForBuyerReview,
   submitRevisionTaskForConfirmation,
   syncExistingProjectEngineeringTaskNodes,
@@ -83,7 +88,7 @@ import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 type ModuleKey = 'revision' | 'plate' | 'pattern' | 'firstSample' | 'firstOrder'
 type TaskBindingMode = 'project' | 'style'
 type RevisionTab = 'plan' | 'issues' | 'samples' | 'outputs' | 'downstream' | 'logs'
-type PlateTab = 'overview' | 'version' | 'bom' | 'patterns' | 'outputs' | 'downstream' | 'logs'
+type PlateTab = 'demand' | 'execution' | 'review' | 'outputs' | 'closure' | 'logs'
 type PatternTab = 'demand' | 'execution' | 'review' | 'closure' | 'logs'
 type FirstSampleTab = 'overview' | 'inputs' | 'result' | 'acceptance' | 'logs'
 type FirstOrderTab = 'overview' | 'version' | 'result' | 'conclusion' | 'logs'
@@ -247,6 +252,7 @@ interface PlateDetailDraft {
   supportImageIds: string[]
   supportVideoIds: string[]
   partTemplateLinksText: string
+  sampleReviewNote: string
 }
 
 interface PatternDetailDraft {
@@ -334,6 +340,14 @@ const COMMON_STATUS_META: Record<string, { label: string; className: string }> =
   已完成: { label: '已完成', className: 'bg-green-100 text-green-700' },
   异常待处理: { label: '阻塞', className: 'bg-rose-100 text-rose-700' },
   已取消: { label: '已取消', className: 'bg-slate-100 text-slate-500' },
+  未提交: { label: '未提交', className: 'bg-slate-100 text-slate-700' },
+  待样板确认: { label: '待样板确认', className: 'bg-amber-100 text-amber-700' },
+  样板已通过: { label: '样板已通过', className: 'bg-emerald-100 text-emerald-700' },
+  样板已驳回: { label: '样板已驳回', className: 'bg-rose-100 text-rose-700' },
+  制版执行中: { label: '制版执行中', className: 'bg-blue-100 text-blue-700' },
+  待提交样板确认: { label: '待提交样板确认', className: 'bg-indigo-100 text-indigo-700' },
+  待生成技术包: { label: '待生成技术包', className: 'bg-emerald-100 text-emerald-700' },
+  待完成任务: { label: '待完成任务', className: 'bg-cyan-100 text-cyan-700' },
 }
 
 const ENGINEERING_COMMON_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']
@@ -482,6 +496,7 @@ const initialPlateDetailDraft = (): PlateDetailDraft => ({
   supportImageIds: [],
   supportVideoIds: [],
   partTemplateLinksText: '',
+  sampleReviewNote: '',
 })
 
 const initialPatternDetailDraft = (): PatternDetailDraft => ({
@@ -755,7 +770,7 @@ const state = {
   imagePreview: { open: false, url: '', title: '' },
 
   plateList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
-  plateTab: 'overview' as PlateTab,
+  plateTab: 'demand' as PlateTab,
   plateCreateOpen: false,
   plateCreateDraft: initialPlateCreateDraft(),
   plateDetailDraftTaskId: '',
@@ -1243,6 +1258,7 @@ function ensurePlateDetailDraft(task: ReturnType<typeof getPlateMakingTaskById>)
       supportImageIds: [...(task.supportImageIds || [])],
       supportVideoIds: [...(task.supportVideoIds || [])],
       partTemplateLinksText: serializePlateTemplateLinks(task.partTemplateLinks || []),
+      sampleReviewNote: task.sampleReviewNote || task.reworkReason || '',
     }
   }
   return state.plateDetailDraft
@@ -2995,37 +3011,263 @@ function renderPlateTemplateRows(task: ReturnType<typeof getPlateMakingTaskById>
   `
 }
 
+type PlateTaskViewRecord = NonNullable<ReturnType<typeof getPlateMakingTaskById>>
+
+interface PlateTaskFlowStep {
+  key: PlateTab | 'done'
+  label: string
+  done: boolean
+  active: boolean
+  desc: string
+}
+
+interface PlateTaskFlowView {
+  stageLabel: string
+  nextActionText: string
+  missingFields: string[]
+  executionMissingFields: string[]
+  techPackMissingFields: string[]
+  completionMissingFields: string[]
+  canSubmitReview: boolean
+  canApproveReview: boolean
+  canGenerateTechPack: boolean
+  canComplete: boolean
+  steps: PlateTaskFlowStep[]
+}
+
+function getPlateOutputSummary(task: PlateTaskViewRecord): string {
+  const patternImageCount = (task.patternImageLineItems || []).length
+  const fileCount = (task.patternPdfFileIds || []).length + (task.patternDxfFileIds || []).length + (task.patternRulFileIds || []).length
+  return [
+    task.patternVersion ? `版次 ${task.patternVersion}` : '版次待补',
+    `唛架图 ${patternImageCount}`,
+    `文件 ${fileCount}`,
+  ].join(' / ')
+}
+
+function buildPlateTaskFlowView(task: PlateTaskViewRecord): PlateTaskFlowView {
+  const executionMissingFields = getPlateTaskExecutionSubmitMissingFields(task)
+  const techPackMissingFields = getPlateTaskTechPackMissingFields(task)
+  const completionMissingFields = getPlateTaskCompletionMissingFields(task)
+  const hasExecutionOutput = executionMissingFields.length === 0
+  const waitingReview = task.sampleReviewStatus === '待样板确认' || task.status === '待确认'
+  const approved = task.sampleReviewStatus === '样板已通过'
+  const rejected = task.sampleReviewStatus === '样板已驳回'
+  const techPackWritten = Boolean(task.linkedTechPackVersionId)
+  const completed = task.status === '已完成'
+  const closed = completed || task.status === '已取消'
+  let activeKey: PlateTaskFlowStep['key'] = 'execution'
+  let stageLabel = '制版执行中'
+  let nextActionText = executionMissingFields.length > 0 ? `请先补齐：${executionMissingFields.join('、')}。` : '制版产出已满足，可提交样板确认。'
+  let missingFields = executionMissingFields
+
+  if (completed) {
+    activeKey = 'done'
+    stageLabel = '已完成'
+    nextActionText = '制版任务已完成，商品项目节点已同步。'
+    missingFields = []
+  } else if (task.status === '已取消') {
+    activeKey = 'done'
+    stageLabel = '已取消'
+    nextActionText = '当前制版任务已取消。'
+    missingFields = []
+  } else if (rejected) {
+    activeKey = 'execution'
+    stageLabel = '样板已驳回'
+    nextActionText = task.reworkReason || task.sampleReviewNote || '请版师按驳回说明调整纸样后重新提交样板确认。'
+    missingFields = executionMissingFields
+  } else if (!hasExecutionOutput) {
+    activeKey = 'execution'
+    stageLabel = '制版执行中'
+    nextActionText = `请先补齐：${executionMissingFields.join('、')}。`
+    missingFields = executionMissingFields
+  } else if (waitingReview) {
+    activeKey = 'review'
+    stageLabel = '待样板确认'
+    nextActionText = '制版产出已提交，等待负责人确认样板。'
+    missingFields = []
+  } else if (!approved) {
+    activeKey = 'execution'
+    stageLabel = '待提交样板确认'
+    nextActionText = '制版产出已满足，请提交样板确认。'
+    missingFields = []
+  } else if (!techPackWritten) {
+    activeKey = 'closure'
+    stageLabel = '待生成技术包'
+    nextActionText = '样板已通过，请生成制版技术包版本。'
+    missingFields = techPackMissingFields.filter((item) => item !== '样板确认通过')
+  } else {
+    activeKey = 'closure'
+    stageLabel = '待完成任务'
+    nextActionText = '技术包版本已生成，可以完成制版任务并同步商品项目节点。'
+    missingFields = completionMissingFields.filter((item) => item !== '技术包版本')
+  }
+
+  const steps: PlateTaskFlowStep[] = [
+    { key: 'demand', label: '任务创建', done: Boolean(task.plateTaskId), active: activeKey === 'demand', desc: task.projectId ? '已绑定商品项目' : '独立制版任务' },
+    { key: 'execution', label: '制版执行', done: hasExecutionOutput && !rejected, active: activeKey === 'execution', desc: hasExecutionOutput ? '纸样产出已满足' : '补齐版师/区域/纸样' },
+    { key: 'review', label: '样板确认', done: approved, active: activeKey === 'review', desc: approved ? '样板已通过' : task.sampleReviewStatus },
+    { key: 'outputs', label: '纸样文件', done: hasExecutionOutput, active: activeKey === 'outputs', desc: getPlateOutputSummary(task) },
+    { key: 'closure', label: '技术包写入', done: techPackWritten, active: activeKey === 'closure', desc: techPackWritten ? '技术包已生成' : '待生成技术包' },
+    { key: 'done', label: '任务完成', done: completed, active: activeKey === 'done', desc: completed ? '项目节点已同步' : '待收口' },
+  ]
+
+  return {
+    stageLabel,
+    nextActionText,
+    missingFields,
+    executionMissingFields,
+    techPackMissingFields,
+    completionMissingFields,
+    canSubmitReview: hasExecutionOutput && !waitingReview && !approved && !closed,
+    canApproveReview: waitingReview && !closed,
+    canGenerateTechPack: approved && !techPackWritten && techPackMissingFields.length === 0 && !closed,
+    canComplete: approved && techPackWritten && completionMissingFields.length === 0 && !closed,
+    steps,
+  }
+}
+
+function renderPlateMissingItems(missingFields: string[]): string {
+  if (missingFields.length === 0) {
+    return '<span class="text-emerald-700">当前阶段资料已满足</span>'
+  }
+  return missingFields.map((item) => `<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">${escapeHtml(item)}</span>`).join('')
+}
+
+function renderPlateFlowSteps(flow: PlateTaskFlowView): string {
+  return `
+    <div class="grid gap-3 md:grid-cols-6" data-testid="plate-flow-steps">
+      ${flow.steps.map((step, index) => `
+        <div class="${escapeHtml(toClassName('rounded-lg border px-4 py-3', step.active ? 'border-blue-300 bg-blue-50' : step.done ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'))}">
+          <div class="flex items-center gap-2">
+            <span class="${escapeHtml(toClassName('inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold', step.done ? 'bg-emerald-600 text-white' : step.active ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'))}">${step.done ? '✓' : String(index + 1)}</span>
+            <span class="text-sm font-medium text-slate-900">${escapeHtml(step.label)}</span>
+          </div>
+          <p class="mt-2 text-xs text-slate-500">${escapeHtml(step.desc)}</p>
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderPlateActionButton(taskId: string, action: string, label: string, disabledReason = '', primary = false): string {
+  return `
+    <button
+      type="button"
+      class="${escapeHtml(toClassName('inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium disabled:cursor-not-allowed', primary ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-500' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:text-slate-400 disabled:hover:bg-white'))}"
+      data-pcs-engineering-action="${escapeHtml(action)}"
+      data-task-id="${escapeHtml(taskId)}"
+      ${disabledReason ? `disabled title="${escapeHtml(disabledReason)}"` : ''}
+    >${escapeHtml(label)}</button>
+  `
+}
+
+function renderPlateCurrentActionPanel(flow: PlateTaskFlowView, task: PlateTaskViewRecord): string {
+  const submitDisabledReason = flow.canSubmitReview ? '' : flow.executionMissingFields.length > 0 ? `提交前缺少：${flow.executionMissingFields.join('、')}。` : task.sampleReviewStatus === '待样板确认' ? '当前已提交样板确认。' : task.status === '已完成' ? '当前制版任务已完成。' : task.status === '已取消' ? '当前制版任务已取消。' : task.sampleReviewStatus === '样板已通过' ? '样板已通过，无需重复提交。' : ''
+  const generateDisabledReason = flow.canGenerateTechPack ? '' : task.status === '已完成' ? '当前制版任务已完成。' : task.status === '已取消' ? '当前制版任务已取消。' : flow.techPackMissingFields.length > 0 ? `生成技术包前缺少：${flow.techPackMissingFields.join('、')}。` : task.linkedTechPackVersionId ? '技术包版本已生成。' : ''
+  const completeDisabledReason = flow.canComplete ? '' : task.status === '已完成' ? '当前制版任务已完成。' : task.status === '已取消' ? '当前制版任务已取消。' : flow.completionMissingFields.length > 0 ? `完成前缺少：${flow.completionMissingFields.join('、')}。` : ''
+  return `
+    <section class="rounded-xl border border-blue-100 bg-blue-50 p-5" data-testid="plate-current-action">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-medium text-blue-700">当前阶段</p>
+          <h2 class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(flow.stageLabel)}</h2>
+          <p class="mt-2 text-sm text-slate-700">${escapeHtml(flow.nextActionText)}</p>
+        </div>
+        <div class="rounded-lg bg-white px-4 py-3 text-sm shadow-sm">
+          <p class="text-xs text-slate-500">当前阶段缺失项</p>
+          <div class="mt-2 flex flex-wrap gap-2">${renderPlateMissingItems(flow.missingFields)}</div>
+        </div>
+      </div>
+      <div class="mt-4 grid gap-3 md:grid-cols-3">
+        <div class="rounded-lg border border-blue-100 bg-white px-4 py-3">
+          <p class="text-xs text-slate-500">样板确认</p>
+          <div class="mt-2">${renderStatusBadge(task.sampleReviewStatus)}</div>
+        </div>
+        <div class="rounded-lg border border-blue-100 bg-white px-4 py-3">
+          <p class="text-xs text-slate-500">纸样产出</p>
+          <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(getPlateOutputSummary(task))}</p>
+        </div>
+        <div class="rounded-lg border border-blue-100 bg-white px-4 py-3">
+          <p class="text-xs text-slate-500">技术包</p>
+          <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '未生成')}</p>
+        </div>
+      </div>
+      <div class="mt-4 flex flex-wrap justify-end gap-3">
+        ${renderPlateActionButton(task.plateTaskId, 'submit-plate-sample-review', '提交样板确认', submitDisabledReason, true)}
+        ${renderPlateActionButton(task.plateTaskId, 'plate-generate-tech-pack', '生成技术包版本', generateDisabledReason)}
+        ${renderPlateActionButton(task.plateTaskId, 'complete-plate-task', '完成任务', completeDisabledReason)}
+      </div>
+    </section>
+  `
+}
+
 function renderPlateListPage(): string {
   const tasks = listPlateMakingTasks()
   const filtered = getPlateTasksFiltered()
   const owners = getOwners(tasks)
   const sources = getSources(tasks)
   const paged = paginate(filtered, state.plateList.currentPage)
-  const rows = paged.map((task) => `
-    <tr class="hover:bg-slate-50/70">
-      <td class="px-4 py-4">${renderSmallImage((task.patternImageLineItems || [])[0]?.imageId || (task.flowerImageIds || [])[0] || '')}</td>
-      <td class="px-4 py-4">
-        <div class="space-y-1">
-          <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/patterns/plate-making/${escapeHtml(task.plateTaskId)}">${escapeHtml(task.plateTaskCode)}</button>
-          <p class="text-xs text-slate-500">${escapeHtml(task.title)}</p>
-        </div>
-      </td>
-      <td class="px-4 py-4">${projectButton(task.projectId, task.projectCode, task.projectName)}</td>
-      <td class="px-4 py-4">${escapeHtml(task.productStyleCode || '-')}</td>
-      <td class="px-4 py-4">${escapeHtml(task.patternMakerName || task.ownerName || '-')}</td>
-      <td class="px-4 py-4">${escapeHtml(task.patternArea || '-')}</td>
-      <td class="px-4 py-4">${task.urgentFlag ? '<span class="rounded-full bg-rose-50 px-2 py-1 text-xs text-rose-600">紧急</span>' : '<span class="text-slate-400">普通</span>'}</td>
-      <td class="px-4 py-4">${escapeHtml(task.patternVersion || '-')}</td>
-      <td class="px-4 py-4">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包')}` : '<span class="text-slate-400">未生成</span>'}</td>
-      <td class="px-4 py-4">${renderStatusBadge(task.status)}</td>
-      <td class="px-4 py-4">
-        <div class="flex flex-wrap gap-2">
-          <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/plate-making/${escapeHtml(task.plateTaskId)}">查看</button>
-          <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="plate-generate-tech-pack" data-task-id="${escapeHtml(task.plateTaskId)}">生成技术包版本</button>
-        </div>
-      </td>
-    </tr>
-  `).join('')
+  const rows = paged.map((task) => {
+    const flow = buildPlateTaskFlowView(task)
+    const generateDisabledReason = flow.canGenerateTechPack ? '' : flow.techPackMissingFields.length > 0 ? `生成技术包前缺少：${flow.techPackMissingFields.join('、')}。` : task.linkedTechPackVersionId ? '技术包版本已生成。' : ''
+    return `
+      <tr class="hover:bg-slate-50/70">
+        <td class="px-4 py-4">${renderSmallImage((task.patternImageLineItems || [])[0]?.imageId || (task.flowerImageIds || [])[0] || '')}</td>
+        <td class="px-4 py-4">
+          <div class="space-y-1">
+            <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/patterns/plate-making/${escapeHtml(task.plateTaskId)}">${escapeHtml(task.plateTaskCode)}</button>
+            <p class="text-xs text-slate-500">${escapeHtml(task.title)}</p>
+            <p class="text-xs text-slate-400">来源：${escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-')}</p>
+          </div>
+        </td>
+        <td class="px-4 py-4">
+          <div class="space-y-1">
+            ${projectButton(task.projectId, task.projectCode, task.projectName)}
+            <p class="text-xs text-slate-500">${escapeHtml(task.productStyleCode || task.styleCode || '-')}</p>
+          </div>
+        </td>
+        <td class="px-4 py-4">
+          <div class="space-y-1 text-sm">
+            <p class="font-medium text-slate-900">${escapeHtml(task.patternMakerName || task.ownerName || '-')}</p>
+            <p class="text-xs text-slate-500">${escapeHtml(task.patternArea || '-')} · ${task.urgentFlag ? '紧急' : '普通'}</p>
+          </div>
+        </td>
+        <td class="px-4 py-4">
+          <div class="space-y-1">
+            ${renderStatusBadge(flow.stageLabel)}
+            <p class="text-xs text-slate-500">${escapeHtml(flow.nextActionText)}</p>
+          </div>
+        </td>
+        <td class="px-4 py-4">
+          <div class="flex max-w-[220px] flex-wrap gap-1.5">${renderPlateMissingItems(flow.missingFields)}</div>
+        </td>
+        <td class="px-4 py-4">
+          <p class="text-sm text-slate-900">${escapeHtml(getPlateOutputSummary(task))}</p>
+        </td>
+        <td class="px-4 py-4">
+          <div class="space-y-1">
+            ${renderStatusBadge(task.sampleReviewStatus)}
+            <p class="text-xs text-slate-500">${escapeHtml(task.sampleReviewAt || task.sampleReviewSubmittedAt || '-')}</p>
+          </div>
+        </td>
+        <td class="px-4 py-4">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包')}` : '<span class="text-slate-400">未生成</span>'}</td>
+        <td class="px-4 py-4">${escapeHtml(formatDateTime(task.updatedAt))}</td>
+        <td class="px-4 py-4">
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/plate-making/${escapeHtml(task.plateTaskId)}">查看</button>
+            <button
+              type="button"
+              class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
+              data-pcs-engineering-action="plate-generate-tech-pack"
+              data-task-id="${escapeHtml(task.plateTaskId)}"
+              ${generateDisabledReason ? `disabled title="${escapeHtml(generateDisabledReason)}"` : ''}
+            >生成技术包</button>
+          </div>
+        </td>
+      </tr>
+    `
+  }).join('')
 
   return `
     <div class="space-y-5 p-4">
@@ -3049,7 +3291,7 @@ function renderPlateListPage(): string {
         ${renderMetricButton('已确认待写包', tasks.filter((item) => item.status === '已确认' && !item.linkedTechPackVersionId).length, state.plateList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-plate-quick-filter')}
         ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.plateList.quickFilter === 'overdue', 'overdue', 'set-plate-quick-filter')}
       </section>
-      ${renderDataTable(['商品图', '任务编号', '所属项目', '款式编码', '版师', '打版区域', '是否紧急', '纸样版次', '技术包状态', '当前状态', '操作'], rows, '暂无制版任务数据', renderPagination(state.plateList.currentPage, filtered.length, 'change-plate-page'))}
+      ${renderDataTable(['商品图', '制版任务', '商品项目 / 款式', '版师 / 打版区域', '当前阶段', '缺失项 / 下一步', '纸样产出', '样板确认', '技术包', '最近更新', '操作'], rows, '暂无制版任务数据', renderPagination(state.plateList.currentPage, filtered.length, 'change-plate-page'))}
       ${renderPlateCreateDialog()}
     </div>
   `
@@ -3098,6 +3340,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
   if (!task) return renderEmptyDetail('制版任务', '/pcs/patterns')
   const detailDraft = ensurePlateDetailDraft(task)
   const style = getTaskStyleInfo(task)
+  const flow = buildPlateTaskFlowView(task)
   const downstreamFirst = listFirstSampleTasks().filter((item) => item.upstreamObjectId === task.plateTaskId || item.upstreamObjectCode === task.plateTaskCode)
   const downstreamPre = listFirstOrderSampleTasks().filter((item) => item.upstreamObjectId === task.plateTaskId || item.upstreamObjectCode === task.plateTaskCode)
   const logs = mergeLogs('plate', task.plateTaskId, [
@@ -3111,10 +3354,6 @@ function renderPlateDetailPage(plateTaskId: string): string {
     `${renderStatusBadge(task.status)}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">${escapeHtml(task.patternVersion || '待定版次')}</span>`,
     [
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns">返回列表</button>`,
-      ...(task.status !== '已完成' && task.status !== '已取消'
-        ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="complete-plate-task" data-task-id="${escapeHtml(task.plateTaskId)}">完成任务</button>`]
-        : []),
-      `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="plate-generate-tech-pack" data-task-id="${escapeHtml(task.plateTaskId)}">生成技术包版本</button>`,
     ].join(''),
   )
 
@@ -3143,14 +3382,16 @@ function renderPlateDetailPage(plateTaskId: string): string {
       : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">暂无下游样衣任务</div>',
   )
 
-  const mainContent = [
-    renderSectionCard('任务基本信息', renderKeyValueGrid([
-      { label: '任务编号', value: escapeHtml(task.plateTaskCode) },
-      { label: '所属项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-      { label: '所属款式', value: styleArchiveLink(style.styleId, style.styleCode, style.styleName, task.projectId) },
-      { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
-      { label: '当前状态', value: renderStatusBadge(task.status) },
-    ], 3)),
+  const demandSection = `${renderProjectContext(task)}${renderSectionCard('任务基本信息', renderKeyValueGrid([
+    { label: '任务编号', value: escapeHtml(task.plateTaskCode) },
+    { label: '所属项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
+    { label: '所属款式', value: styleArchiveLink(style.styleId, style.styleCode, style.styleName, task.projectId) },
+    { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
+    { label: '当前状态', value: renderStatusBadge(task.status) },
+    { label: '样板确认状态', value: renderStatusBadge(task.sampleReviewStatus) },
+  ], 3))}`
+
+  const executionSection = [
     renderSectionCard('制版执行', `
       ${renderKeyValueGrid([
         { label: '产品历史属性', value: escapeHtml(task.productHistoryType || '-') },
@@ -3174,6 +3415,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
         <input type="checkbox" ${detailDraft.urgentFlag ? 'checked' : ''} data-pcs-engineering-action="toggle-plate-detail-urgent" />
         <span>是否紧急</span>
       </label>
+      ${renderTaskSaveBar('save-plate-detail-fields', task.plateTaskId)}
     `),
     renderSectionCard('面辅料与花色', `
       ${renderPlateMaterialRows(task)}
@@ -3190,12 +3432,37 @@ function renderPlateDetailPage(plateTaskId: string): string {
         ${renderImageUploader('花型图片', 'plate-detail-flower-images', detailDraft.flowerImageIds, '未上传')}
         ${renderPlateMaterialLineEditor(detailDraft.materialRequirementLines)}
       </div>
+      ${renderTaskSaveBar('save-plate-detail-fields', task.plateTaskId)}
     `),
+  ].join('')
+
+  const reviewDisabledReason = flow.canApproveReview ? '' : task.sampleReviewStatus === '样板已通过' ? '样板已通过，无需重复确认。' : task.sampleReviewStatus === '未提交' ? '请先提交样板确认。' : task.status === '已完成' ? '当前制版任务已完成。' : ''
+  const reviewSection = renderSectionCard(
+    '样板确认',
+    `
+      ${renderKeyValueGrid([
+        { label: '确认状态', value: renderStatusBadge(task.sampleReviewStatus) },
+        { label: '提交人', value: escapeHtml(task.sampleReviewSubmittedBy || '-') },
+        { label: '提交时间', value: escapeHtml(formatDateTime(task.sampleReviewSubmittedAt || '')) },
+        { label: '确认人', value: escapeHtml(task.sampleReviewerName || '-') },
+        { label: '确认时间', value: escapeHtml(formatDateTime(task.sampleReviewAt || '')) },
+        { label: '驳回原因', value: escapeHtml(task.reworkReason || '-') },
+      ], 3)}
+      <div class="mt-4">${renderTextarea('样板确认说明', 'plate-detail-review-note', detailDraft.sampleReviewNote, '')}</div>
+      <div class="mt-4 flex flex-wrap justify-end gap-3">
+        ${renderPlateActionButton(task.plateTaskId, 'plate-sample-approve', '样板通过', reviewDisabledReason, true)}
+        ${renderPlateActionButton(task.plateTaskId, 'plate-sample-reject', '样板驳回', reviewDisabledReason)}
+      </div>
+    `,
+  )
+
+  const outputsSection = [
     renderSectionCard('唛架图片', `
       ${renderPlatePatternImageRows(task)}
       <div class="mt-4">
         ${renderPlatePatternImageLineEditor(detailDraft.patternImageLineItems)}
       </div>
+      ${renderTaskSaveBar('save-plate-detail-fields', task.plateTaskId)}
     `),
     renderSectionCard('纸样文件', `
       <div class="grid gap-4 md:grid-cols-3">
@@ -3214,6 +3481,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
         ${renderImageUploader('补充图片', 'plate-detail-support-images', detailDraft.supportImageIds, '未上传')}
         ${renderFileUploader('补充视频', 'plate-detail-support-videos', detailDraft.supportVideoIds, '未上传', 'video/*')}
       </div>
+      ${renderTaskSaveBar('save-plate-detail-fields', task.plateTaskId)}
     `),
     renderSectionCard('模板关联', `
       ${renderPlateTemplateRows(task)}
@@ -3222,14 +3490,50 @@ function renderPlateDetailPage(plateTaskId: string): string {
       </div>
       ${renderTaskSaveBar('save-plate-detail-fields', task.plateTaskId)}
     `),
-    renderSectionCard('技术包', renderKeyValueGrid([
-      { label: '当前关联技术包版本', value: task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}<span class="mx-2 text-slate-300">/</span>${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, '查看版本日志')}` : '<span class="text-slate-400">尚未生成</span>' },
-      { label: '是否主挂载生成', value: escapeHtml(task.primaryTechPackGeneratedFlag ? '是' : '否') },
-      { label: '主挂载生成时间', value: escapeHtml(formatDateTime(task.primaryTechPackGeneratedAt || '')) },
-    ], 3)),
-    downstream,
-    renderSectionCard('操作记录', renderLogs(logs)),
   ].join('')
+
+  const closureSection = [
+    renderSectionCard('技术包', `
+      ${renderKeyValueGrid([
+        { label: '当前关联技术包版本', value: task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}<span class="mx-2 text-slate-300">/</span>${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, '查看版本日志')}` : '<span class="text-slate-400">尚未生成</span>' },
+        { label: '是否主挂载生成', value: escapeHtml(task.primaryTechPackGeneratedFlag ? '是' : '否') },
+        { label: '主挂载生成时间', value: escapeHtml(formatDateTime(task.primaryTechPackGeneratedAt || '')) },
+      ], 3)}
+      <div class="mt-4 flex flex-wrap justify-end gap-3">
+        ${renderPlateActionButton(task.plateTaskId, 'plate-generate-tech-pack', '生成技术包版本', flow.canGenerateTechPack ? '' : task.status === '已完成' ? '当前制版任务已完成。' : task.status === '已取消' ? '当前制版任务已取消。' : flow.techPackMissingFields.length > 0 ? `生成技术包前缺少：${flow.techPackMissingFields.join('、')}。` : task.linkedTechPackVersionId ? '技术包版本已生成。' : '', true)}
+        ${renderPlateActionButton(task.plateTaskId, 'complete-plate-task', '完成任务', flow.canComplete ? '' : task.status === '已完成' ? '当前制版任务已完成。' : task.status === '已取消' ? '当前制版任务已取消。' : flow.completionMissingFields.length > 0 ? `完成前缺少：${flow.completionMissingFields.join('、')}。` : '')}
+      </div>
+    `),
+    downstream,
+  ].join('')
+
+  const tabBar = renderTabBar(state.plateTab, [
+    { key: 'demand', label: '任务需求' },
+    { key: 'execution', label: '制版执行' },
+    { key: 'review', label: '样板确认' },
+    { key: 'outputs', label: '纸样与文件' },
+    { key: 'closure', label: '技术包与下游' },
+    { key: 'logs', label: '操作记录' },
+  ], 'set-plate-tab')
+
+  const mainContent = `
+    ${tabBar}
+    <div class="space-y-6">
+      ${
+        state.plateTab === 'demand'
+          ? demandSection
+          : state.plateTab === 'execution'
+            ? executionSection
+            : state.plateTab === 'review'
+              ? reviewSection
+              : state.plateTab === 'outputs'
+                ? outputsSection
+                : state.plateTab === 'closure'
+                  ? closureSection
+                  : renderSectionCard('操作记录', renderLogs(logs))
+      }
+    </div>
+  `
 
   const aside = `
     <div class="space-y-4">
@@ -3252,6 +3556,8 @@ function renderPlateDetailPage(plateTaskId: string): string {
     <div class="space-y-5 p-4">
       ${renderNotice()}
       ${header}
+      ${renderPlateCurrentActionPanel(flow, task)}
+      ${renderPlateFlowSteps(flow)}
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div class="space-y-6">${mainContent}</div>
         ${aside}
@@ -5015,6 +5321,44 @@ function submitPlateCreate(): void {
   appStore.navigate(`/pcs/patterns/plate-making/${encodeURIComponent(result.task.plateTaskId)}`)
 }
 
+function persistPlateDetailDraft(taskId: string) {
+  const draft = state.plateDetailDraft
+  const participants = draft.participantNamesText.split(/[、,，]/).map((item) => item.trim()).filter(Boolean)
+  return updatePlateMakingTask(taskId, {
+    participantNames: participants,
+    patternVersion: draft.patternVersion.trim(),
+    productHistoryType: draft.productHistoryType as '未卖过' | '已卖过补纸样' | '',
+    patternMakerName: draft.patternMakerName.trim(),
+    sampleConfirmedAt: draft.sampleConfirmedAt.trim(),
+    urgentFlag: draft.urgentFlag,
+    patternArea: draft.patternArea as '印尼' | '深圳' | '',
+    colorRequirementText: draft.colorRequirementText.trim(),
+    newPatternSpuCode: draft.newPatternSpuCode.trim(),
+    flowerImageIds: [...draft.flowerImageIds],
+    materialRequirementLines: draft.materialRequirementLines.map((line) => ({
+      ...line,
+      materialName: line.materialName.trim(),
+      materialSku: line.materialSku.trim(),
+      printRequirement: line.printRequirement.trim(),
+      note: line.note.trim(),
+    })),
+    patternImageLineItems: draft.patternImageLineItems.map((line) => ({
+      ...line,
+      materialPartName: line.materialPartName.trim(),
+      materialDescription: line.materialDescription.trim(),
+    })),
+    patternPdfFileIds: [...draft.patternPdfFileIds],
+    patternDxfFileIds: [...draft.patternDxfFileIds],
+    patternRulFileIds: [...draft.patternRulFileIds],
+    supportImageIds: [...draft.supportImageIds],
+    supportVideoIds: [...draft.supportVideoIds],
+    partTemplateLinks: parsePlateTemplateLinks(draft.partTemplateLinksText),
+    sampleReviewNote: draft.sampleReviewNote.trim(),
+    updatedAt: nowText(),
+    updatedBy: '当前用户',
+  })
+}
+
 function submitPatternCreate(): void {
   const draft = state.patternCreateDraft
   const projectMode = draft.bindingMode === 'project'
@@ -5793,6 +6137,7 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       case 'plate-detail-color-requirement': state.plateDetailDraft.colorRequirementText = value; return true
       case 'plate-detail-new-pattern-spu': state.plateDetailDraft.newPatternSpuCode = value; return true
       case 'plate-detail-template-links': state.plateDetailDraft.partTemplateLinksText = value; return true
+      case 'plate-detail-review-note': state.plateDetailDraft.sampleReviewNote = value; return true
       case 'pattern-create-binding-mode':
         state.patternCreateDraft.bindingMode = value as TaskBindingMode
         state.patternCreateDraft.projectId = ''
@@ -6014,7 +6359,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   if (action === 'change-first-order-page') { updateListPage(state.firstOrderList, Number(actionNode.dataset.pageStep || '0'), getFirstOrderTasksFiltered().length); return true }
 
   if (action === 'set-revision-tab') { state.revisionTab = (actionNode.dataset.tab as RevisionTab) || 'plan'; return true }
-  if (action === 'set-plate-tab') { state.plateTab = (actionNode.dataset.tab as PlateTab) || 'overview'; return true }
+  if (action === 'set-plate-tab') { state.plateTab = (actionNode.dataset.tab as PlateTab) || 'demand'; return true }
   if (action === 'set-pattern-tab') { state.patternTab = (actionNode.dataset.tab as PatternTab) || 'plan'; return true }
   if (action === 'set-first-sample-tab') { state.firstSampleTab = (actionNode.dataset.tab as FirstSampleTab) || 'overview'; return true }
   if (action === 'set-first-order-tab') { state.firstOrderTab = (actionNode.dataset.tab as FirstOrderTab) || 'overview'; return true }
@@ -6204,42 +6549,51 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   }
   if (action === 'save-plate-detail-fields') {
     const taskId = actionNode.dataset.taskId || ''
-    const draft = state.plateDetailDraft
-    const participants = draft.participantNamesText.split(/[、,，]/).map((item) => item.trim()).filter(Boolean)
-    updatePlateMakingTask(taskId, {
-      participantNames: participants,
-      patternVersion: draft.patternVersion.trim(),
-      productHistoryType: draft.productHistoryType as '未卖过' | '已卖过补纸样' | '',
-      patternMakerName: draft.patternMakerName.trim(),
-      sampleConfirmedAt: draft.sampleConfirmedAt.trim(),
-      urgentFlag: draft.urgentFlag,
-      patternArea: draft.patternArea as '印尼' | '深圳' | '',
-      colorRequirementText: draft.colorRequirementText.trim(),
-      newPatternSpuCode: draft.newPatternSpuCode.trim(),
-      flowerImageIds: [...draft.flowerImageIds],
-      materialRequirementLines: draft.materialRequirementLines.map((line) => ({
-        ...line,
-        materialName: line.materialName.trim(),
-        materialSku: line.materialSku.trim(),
-        printRequirement: line.printRequirement.trim(),
-        note: line.note.trim(),
-      })),
-      patternImageLineItems: draft.patternImageLineItems.map((line) => ({
-        ...line,
-        materialPartName: line.materialPartName.trim(),
-        materialDescription: line.materialDescription.trim(),
-      })),
-      patternPdfFileIds: [...draft.patternPdfFileIds],
-      patternDxfFileIds: [...draft.patternDxfFileIds],
-      patternRulFileIds: [...draft.patternRulFileIds],
-      supportImageIds: [...draft.supportImageIds],
-      supportVideoIds: [...draft.supportVideoIds],
-      partTemplateLinks: parsePlateTemplateLinks(draft.partTemplateLinksText),
-      updatedAt: nowText(),
-      updatedBy: '当前用户',
-    })
+    const saved = persistPlateDetailDraft(taskId)
+    if (!saved) {
+      setNotice('未找到制版任务。')
+      return true
+    }
     pushRuntimeLog('plate', taskId, '保存任务', '已保存制版任务。')
     setNotice('制版任务已保存。')
+    return true
+  }
+
+  if (action === 'submit-plate-sample-review') {
+    const taskId = actionNode.dataset.taskId || ''
+    const saved = persistPlateDetailDraft(taskId)
+    if (!saved) {
+      setNotice('未找到制版任务。')
+      return true
+    }
+    const result = submitPlateTaskForSampleReview(taskId, '当前用户')
+    if (result.ok && result.task) {
+      state.plateTab = 'review'
+      pushRuntimeLog('plate', taskId, '提交样板确认', '制版产出已提交样板确认。')
+    }
+    setNotice(result.message)
+    return true
+  }
+
+  if (action === 'plate-sample-approve') {
+    const taskId = actionNode.dataset.taskId || ''
+    const result = reviewPlateTaskSample(taskId, '样板已通过', '当前用户', state.plateDetailDraft.sampleReviewNote.trim(), '当前用户')
+    if (result.ok && result.task) {
+      state.plateTab = 'closure'
+      pushRuntimeLog('plate', taskId, '样板通过', state.plateDetailDraft.sampleReviewNote.trim() || '样板已通过，待生成技术包版本。')
+    }
+    setNotice(result.message)
+    return true
+  }
+
+  if (action === 'plate-sample-reject') {
+    const taskId = actionNode.dataset.taskId || ''
+    const result = reviewPlateTaskSample(taskId, '样板已驳回', '当前用户', state.plateDetailDraft.sampleReviewNote.trim(), '当前用户')
+    if (result.ok && result.task) {
+      state.plateTab = 'execution'
+      pushRuntimeLog('plate', taskId, '样板驳回', state.plateDetailDraft.sampleReviewNote.trim() || '样板已驳回，待版师调整。')
+    }
+    setNotice(result.message)
     return true
   }
   if (action === 'save-pattern-detail-fields') {
@@ -6536,7 +6890,7 @@ export function resetPcsEngineeringTaskState(): void {
   state.revisionDetailDraftTaskId = ''
   state.revisionDetailDraft = initialRevisionDetailDraft()
   state.plateList = { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 }
-  state.plateTab = 'overview'
+  state.plateTab = 'demand'
   state.plateCreateOpen = false
   state.plateCreateDraft = initialPlateCreateDraft()
   state.plateDetailDraftTaskId = ''

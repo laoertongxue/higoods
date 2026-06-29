@@ -1,5 +1,9 @@
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
+import {
   getCutPieceReleaseRecord,
   listCutPieceReleaseRecords,
   saveCutPieceReleaseDecision,
@@ -120,7 +124,7 @@ function renderRecordRow(record: CutPieceReleaseRecord): string {
     <tr class="border-b last:border-b-0 align-top">
       <td class="px-3 py-4">
         <div class="font-medium">${escapeHtml(record.recordNo)}</div>
-        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.productionOrderNo)}</div>
+        <div class="mt-1">${renderProductionOrderIdentityCell(record.productionOrderNo)}</div>
         <div class="mt-2">${renderDecisionBadge(record.decision)}</div>
       </td>
       <td class="px-3 py-4">
@@ -169,7 +173,7 @@ function renderRecordTable(records: CutPieceReleaseRecord[]): string {
         <table class="w-full min-w-[1380px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-xs text-muted-foreground">
-              <th class="px-3 py-3 text-left font-medium">放行单 / 生产单</th>
+              <th class="px-3 py-3 text-left font-medium">放行单 / ${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-3 text-left font-medium">款式 / 车缝任务</th>
               <th class="px-3 py-3 text-left font-medium">触发裁剪事实</th>
               <th class="px-3 py-3 text-left font-medium">SKU 范围</th>

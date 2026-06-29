@@ -1,6 +1,7 @@
 import type { PatternTaskRecord } from './pcs-pattern-task-types.ts'
 import type { PlateMakingTaskRecord } from './pcs-plate-making-types.ts'
 import type { RevisionTaskRecord } from './pcs-revision-task-types.ts'
+import { findStyleArchiveByCode, findStyleArchiveByProjectId, getStyleArchiveById } from './pcs-style-archive-repository.ts'
 
 export type EngineeringTaskFieldPolicyCode = 'REVISION_TASK' | 'PATTERN_TASK' | 'PATTERN_ARTWORK_TASK'
 
@@ -10,7 +11,7 @@ export interface EngineeringTaskFieldDescriptor {
 }
 
 export interface EngineeringTaskNodeWritebackDescriptor {
-  phase: '创建后' | '完成后'
+  phase: '创建后' | '提交确认后' | '驳回后' | '通过后' | '生成技术包后' | '完成后'
   resultType: string
   resultText: string
   pendingActionType: string
@@ -111,6 +112,34 @@ const PLATE_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
       pendingActionText: '查看制版任务',
     },
     {
+      phase: '提交确认后',
+      resultType: '制版待样板确认',
+      resultText: '制版产出已提交样板确认。',
+      pendingActionType: '样板确认',
+      pendingActionText: '确认制版样板',
+    },
+    {
+      phase: '驳回后',
+      resultType: '制版样板驳回',
+      resultText: '制版样板已驳回，待版师调整。',
+      pendingActionType: '版师调整',
+      pendingActionText: '按驳回说明调整纸样',
+    },
+    {
+      phase: '通过后',
+      resultType: '制版样板通过',
+      resultText: '制版样板已通过，待生成技术包版本。',
+      pendingActionType: '生成技术包',
+      pendingActionText: '生成制版技术包版本',
+    },
+    {
+      phase: '生成技术包后',
+      resultType: '制版技术包已生成',
+      resultText: '制版技术包版本已生成，待完成任务。',
+      pendingActionType: '完成制版任务',
+      pendingActionText: '确认制版任务完成',
+    },
+    {
       phase: '完成后',
       resultType: '制版任务已完成',
       resultText: '制版任务已完成，商品项目节点同步完成。',
@@ -192,16 +221,45 @@ export function getRevisionTaskCompletionMissingFields(task: RevisionTaskRecord)
 }
 
 export function getPlateTaskCompletionMissingFields(task: PlateMakingTaskRecord): string[] {
+  const missing = getPlateTaskTechPackMissingFields(task)
+  if (!task.linkedTechPackVersionId) missing.push('技术包版本')
+  return missing
+}
+
+export function getPlateTaskExecutionSubmitMissingFields(task: PlateMakingTaskRecord): string[] {
   const missing: string[] = []
   if (!(task.patternMakerName || task.ownerName).trim()) missing.push('版师')
   if (!task.productHistoryType) missing.push('产品历史属性')
   if (!task.patternArea) missing.push('打版区域')
+  if (!task.patternType.trim()) missing.push('版型类型')
+  if (!task.sizeRange.trim()) missing.push('尺码范围')
   const hasPatternImage = (task.patternImageLineItems || []).length > 0
   const hasPatternFile =
     (task.patternPdfFileIds || []).length > 0
     || (task.patternDxfFileIds || []).length > 0
     || (task.patternRulFileIds || []).length > 0
   if (!hasPatternImage && !hasPatternFile && !task.patternVersion.trim()) missing.push('纸样资料')
+  return missing
+}
+
+export function getPlateTaskReviewMissingFields(task: PlateMakingTaskRecord): string[] {
+  const missing: string[] = []
+  if (task.sampleReviewStatus !== '待样板确认') missing.push('待样板确认状态')
+  return missing
+}
+
+function hasPlateTaskStyleArchive(task: PlateMakingTaskRecord): boolean {
+  return Boolean(
+    (task.styleId && getStyleArchiveById(task.styleId)) ||
+    findStyleArchiveByCode(task.styleCode || task.productStyleCode || task.spuCode || '') ||
+    findStyleArchiveByProjectId(task.projectId),
+  )
+}
+
+export function getPlateTaskTechPackMissingFields(task: PlateMakingTaskRecord): string[] {
+  const missing = getPlateTaskExecutionSubmitMissingFields(task)
+  if (task.sampleReviewStatus !== '样板已通过') missing.push('样板确认通过')
+  if (!hasPlateTaskStyleArchive(task)) missing.push('正式款式档案')
   return missing
 }
 

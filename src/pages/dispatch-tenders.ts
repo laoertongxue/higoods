@@ -1,5 +1,9 @@
 import { escapeHtml } from '../utils'
 import { listBusinessFactoryMasterRecords } from '../data/fcs/factory-master-store'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
 
 type TenderStatus = 'BIDDING' | 'AWAIT_AWARD' | 'AWARDED'
 
@@ -1059,7 +1063,7 @@ function renderRow(tender: TenderRow): string {
     <tr class="border-b last:border-b-0">
       <td class="whitespace-nowrap px-3 py-3 font-mono text-xs text-orange-700">${escapeHtml(tender.tenderId)}</td>
       <td class="whitespace-nowrap px-3 py-3 font-mono text-xs">${escapeHtml(tender.taskId)}</td>
-      <td class="whitespace-nowrap px-3 py-3 font-mono text-xs">${escapeHtml(tender.productionOrderId)}</td>
+      <td class="px-3 py-3">${renderProductionOrderIdentityCell(tender.productionOrderId)}</td>
       <td class="px-3 py-3 text-sm font-medium">${escapeHtml(tender.processNameZh)}</td>
       <td class="whitespace-nowrap px-3 py-3 text-sm tabular-nums">${tender.qty} ${escapeHtml(tender.qtyUnit)}</td>
       <td class="px-3 py-3">
@@ -1179,7 +1183,7 @@ export function renderDispatchTendersPage(): string {
             <tr class="border-b bg-muted/40 text-xs">
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">招标单号</th>
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">任务编号</th>
-              <th class="whitespace-nowrap px-3 py-2 text-left font-medium">生产单号</th>
+              <th class="whitespace-nowrap px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">工序</th>
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">数量</th>
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">工厂池</th>

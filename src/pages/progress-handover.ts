@@ -2,6 +2,10 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { productionOrders } from '../data/fcs/production-orders'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
+import {
   findPdaHandoverRecord,
   followupPdaHandoverObjection,
   getPdaCompletedHeads,
@@ -911,7 +915,7 @@ function renderLedgerTable(rows: HandoverLedgerRow[]): string {
           <thead class="bg-muted/40">
             <tr class="border-b text-left text-muted-foreground">
               <th class="px-3 py-2 font-medium">事件类型</th>
-              <th class="px-3 py-2 font-medium">生产单</th>
+              <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2 font-medium">关联任务/工序</th>
               <th class="px-3 py-2 font-medium">数量情况</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
@@ -940,9 +944,9 @@ function renderLedgerTable(rows: HandoverLedgerRow[]): string {
                             </div>
                           </td>
                           <td class="px-3 py-2">
-                            <button class="inline-flex items-center text-xs text-primary hover:underline" data-handover-action="goto-order" data-order-id="${escapeAttr(row.productionOrderId)}">
-                              ${escapeHtml(row.productionOrderId)}
-                            </button>
+                            <div class="cursor-pointer text-primary hover:underline" data-handover-action="goto-order" data-order-id="${escapeAttr(row.productionOrderId)}">
+                              ${renderProductionOrderIdentityCell(row.productionOrderId)}
+                            </div>
                           </td>
                           <td class="px-3 py-2 text-xs">
                             <div>
@@ -1514,9 +1518,9 @@ function renderTimelineOrderSummaryCard(view: HandoverOrderTimelineView, rows: H
       class="border-b last:border-0 ${highlighted ? 'bg-blue-50/40' : ''}"
     >
       <td class="px-3 py-3">
-        <button class="inline-flex items-center text-sm font-medium text-primary hover:underline" data-handover-action="goto-order" data-order-id="${escapeAttr(view.productionOrderId)}">
-          ${escapeHtml(view.productionOrderNo)}
-        </button>
+        <div class="cursor-pointer text-primary hover:underline" data-handover-action="goto-order" data-order-id="${escapeAttr(view.productionOrderId)}">
+          ${renderProductionOrderIdentityCell(view.productionOrderNo)}
+        </div>
         <p class="mt-1 text-xs text-muted-foreground">工序数 / 事件数：${view.processSections.length} / ${view.totalEventCount}</p>
       </td>
       <td class="px-3 py-3 text-xs">
@@ -1559,7 +1563,7 @@ function renderOrdersTable(views: HandoverOrderTimelineView[], rows: HandoverLed
         <table class="min-w-full text-sm">
           <thead class="bg-muted/40">
             <tr class="border-b text-left text-muted-foreground">
-              <th class="px-3 py-2 font-medium">生产单</th>
+              <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2 font-medium">最近交接事件</th>
               <th class="px-3 py-2 font-medium">当前交接卡点</th>
               <th class="px-3 py-2 font-medium">待处理交接事件</th>

@@ -2,6 +2,10 @@ import { appStore } from '../../../state/store.ts'
 import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
+import {
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
 } from '../../../data/fcs/cutting/storage/fei-tickets-storage.ts'
 import {
@@ -2973,7 +2977,7 @@ function renderTransferBagStageLedgerPanel(): string {
               <th class="px-4 py-3 text-left">阶段</th>
               <th class="px-4 py-3 text-left">中转袋</th>
               <th class="px-4 py-3 text-left">业务关系</th>
-              <th class="px-4 py-3 text-left">生产单</th>
+              <th class="px-4 py-3 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-4 py-3 text-left">裁片单</th>
               <th class="px-4 py-3 text-left">菲票</th>
               <th class="px-4 py-3 text-left">状态</th>
@@ -2994,7 +2998,7 @@ function renderTransferBagStageLedgerPanel(): string {
                       <div class="${item.relationOk ? 'text-foreground' : 'text-amber-700'}">${escapeHtml(item.relationLabel)}</div>
                       ${item.stage === 'HANDOVER_PACKING' ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.dispatchBatchNo || '交出记录待新增')}</div>` : ''}
                     </td>
-                    <td class="px-4 py-3">${escapeHtml(item.productionOrderNos.join(' / ') || '暂无')}</td>
+                    <td class="px-4 py-3">${renderProductionOrderIdentityCell(item.productionOrderNos.join(' / ') || '暂无')}</td>
                     <td class="px-4 py-3">${escapeHtml(item.cutOrderNos.join(' / ') || '暂无')}</td>
                     <td class="px-4 py-3">${escapeHtml(`${item.ticketCount} 张`)}</td>
                     <td class="px-4 py-3">${escapeHtml(item.statusLabel)}</td>
@@ -3220,7 +3224,7 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                           <th class="px-3 py-2 text-left">面料</th>
                           <th class="px-3 py-2 text-left">部位</th>
                           <th class="px-3 py-2 text-right">菲票件数（件）</th>
-                          <th class="px-3 py-2 text-left">来源生产单号</th>
+                          <th class="px-3 py-2 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                           <th class="px-3 py-2 text-left">来源裁片单号</th>
                           <th class="px-3 py-2 text-left">所属唛架方案号</th>
                           <th class="px-3 py-2 text-left">菲票状态</th>
@@ -3245,7 +3249,7 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                                 </td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.partName || '待补部位')}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.productionOrderNo)}</td>
+                                <td class="px-3 py-2">${renderProductionOrderIdentityCell(binding.productionOrderNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.cutOrderNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.markerPlanNo || binding.唛架方案No || '—')}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
@@ -3440,7 +3444,7 @@ function renderWorkbenchSection(): string {
                           <th class="px-3 py-2 text-right">数量</th>
                           <th class="px-3 py-2 text-left">扎号</th>
                           <th class="px-3 py-2 text-left">裁片单</th>
-                          <th class="px-3 py-2 text-left">生产单</th>
+                          <th class="px-3 py-2 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                           <th class="px-3 py-2 text-left">唛架方案</th>
                           <th class="px-3 py-2 text-left">菲票状态</th>
                           <th class="px-3 py-2 text-left">操作</th>
@@ -3459,7 +3463,7 @@ function renderWorkbenchSection(): string {
                                 <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.bundleNo || binding.ticket?.bundleNo || '暂无数据')}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.cutOrderNo)}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.productionOrderNo)}</td>
+                                <td class="px-3 py-2">${renderProductionOrderIdentityCell(binding.productionOrderNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.markerPlanNo || binding.唛架方案No || '无')}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
                                 <td class="px-3 py-2">
@@ -4029,7 +4033,7 @@ function renderBindingSection(): string {
                   <th class="px-4 py-3 text-left">数量</th>
                   <th class="px-4 py-3 text-left">扎号</th>
                   <th class="px-4 py-3 text-left">裁片单号</th>
-                  <th class="px-4 py-3 text-left">生产单号</th>
+                  <th class="px-4 py-3 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                   <th class="px-4 py-3 text-left">唛架方案号</th>
                   <th class="px-4 py-3 text-left">绑定时间</th>
                   <th class="px-4 py-3 text-left">绑定人</th>
@@ -4051,7 +4055,7 @@ function renderBindingSection(): string {
                         <td class="px-4 py-3">${escapeHtml(String(item.garmentQty || item.qty || 0))}</td>
                         <td class="px-4 py-3">${escapeHtml(item.bundleNo || item.ticket?.bundleNo || '暂无数据')}</td>
                         <td class="px-4 py-3">${escapeHtml(item.cutOrderNo)}</td>
-                        <td class="px-4 py-3">${escapeHtml(item.productionOrderNo)}</td>
+                        <td class="px-4 py-3">${renderProductionOrderIdentityCell(item.productionOrderNo)}</td>
                         <td class="px-4 py-3">${escapeHtml(item.markerPlanNo || item.唛架方案No || '无')}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatDateTime(item.boundAt))}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.boundBy)}</td>
@@ -4718,7 +4722,7 @@ function renderTransferBagItemsTab(
               <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th class="px-3 py-2 text-left">对象</th>
-                  <th class="px-3 py-2 text-left">生产单</th>
+                  <th class="px-3 py-2 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                   <th class="px-3 py-2 text-left">裁片单</th>
                   <th class="px-3 py-2 text-left">SPU</th>
                   <th class="px-3 py-2 text-left">颜色</th>
@@ -4737,7 +4741,7 @@ function renderTransferBagItemsTab(
                           <div class="font-medium text-foreground">${escapeHtml(binding.ticketNo)}</div>
                           <div class="mt-1 text-xs text-muted-foreground">菲票</div>
                         </td>
-                        <td class="px-3 py-2">${escapeHtml(binding.productionOrderNo || '待补')}</td>
+                        <td class="px-3 py-2">${renderProductionOrderIdentityCell(binding.productionOrderNo || '待补')}</td>
                         <td class="px-3 py-2">${escapeHtml(binding.cutOrderNo || '待补')}</td>
                         <td class="px-3 py-2">${escapeHtml(binding.ticket?.spuCode || selectedUsage?.spuCode || '待补')}</td>
                         <td class="px-3 py-2">${escapeHtml(binding.fabricColor || binding.ticket?.fabricColor || binding.ticket?.color || '待补')}</td>

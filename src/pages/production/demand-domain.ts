@@ -35,6 +35,10 @@ import {
 import type {
   DemandPublishedTechPackVersionOption,
 } from '../../data/fcs/production-tech-pack-snapshot-builder.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../data/fcs/production-order-identity'
 
 function renderDemandDetailDrawer(): string {
   const demand = getDemandById(state.demandDetailId)
@@ -845,7 +849,7 @@ export function renderProductionDemandInboxPage(): string {
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前生效技术包</th>
               <th class="bg-muted/50 px-3 py-3 text-right text-xs font-medium text-muted-foreground">数量</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">交付日期</th>
-              <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">生产单</th>
+              <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">操作</th>
             </tr>
           </thead>
@@ -904,9 +908,9 @@ export function renderProductionDemandInboxPage(): string {
                           <td class="px-3 py-3">
                             ${
                               demand.productionOrderId
-                                ? `<button class="h-auto p-0 font-mono text-sm text-blue-600 hover:underline" data-prod-action="open-order-detail" data-order-id="${
+                                ? `<div class="cursor-pointer hover:underline" data-prod-action="open-order-detail" data-order-id="${
                                     demand.productionOrderId
-                                  }">${escapeHtml(demand.productionOrderId)}</button>`
+                                  }">${renderProductionOrderIdentityCell({ productionOrderNo: demand.productionOrderId, demandNo: demand.demandId, saleType: demand.saleType })}</div>`
                                 : '<span class="text-muted-foreground">—</span>'
                             }
                           </td>

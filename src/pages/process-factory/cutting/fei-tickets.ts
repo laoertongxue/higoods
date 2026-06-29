@@ -30,6 +30,10 @@ import {
   renderStickyTableScroller,
 } from './layout.helpers.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   buildCuttingRouteWithContext,
@@ -2299,7 +2303,7 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
           <th class="px-3 py-3 text-left font-medium">部位裁片编号范围</th>
           <th class="px-3 py-3 text-left font-medium">特殊工艺 / 承接工厂</th>
           <th class="px-3 py-3 text-left font-medium">裁片单</th>
-          <th class="px-3 py-3 text-left font-medium">生产单</th>
+          <th class="px-3 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
           <th class="px-3 py-3 text-left font-medium">缺口菲票数</th>
         </tr>
       </thead>
@@ -2318,7 +2322,7 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
                 <td class="px-3 py-3 text-slate-700">${renderPieceSequenceSummary(detail)}</td>
                 <td class="px-3 py-3 text-slate-700">${renderSpecialCraftSummary(detail.specialCrafts)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceCutOrderNo)}</td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceProductionOrderNo)}</td>
+                <td class="px-3 py-3 text-slate-700">${renderProductionOrderIdentityCell(detail.sourceProductionOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(detail.gapCount)}</td>
               </tr>
             `,
@@ -2552,7 +2556,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
         <tr>
           <th class="px-3 py-3 text-left font-medium">菲票号</th>
           <th class="px-3 py-3 text-left font-medium">裁片单</th>
-          <th class="px-3 py-3 text-left font-medium">生产单</th>
+          <th class="px-3 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
           <th class="px-3 py-3 text-left font-medium">面料卷号</th>
           <th class="px-3 py-3 text-left font-medium">布料颜色</th>
           <th class="px-3 py-3 text-left font-medium">尺码</th>
@@ -2637,7 +2641,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
               <tr>
                 <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(ticket.ticketNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.sourceCutOrderNo)}</td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.sourceProductionOrderNo)}</td>
+                <td class="px-3 py-3 text-slate-700">${renderProductionOrderIdentityCell(ticket.sourceProductionOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.fabricRollNo || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.fabricColor || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.size)}</td>

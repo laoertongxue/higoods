@@ -4,6 +4,10 @@ import { escapeHtml } from '../utils'
 import { listPrepProcessOrders } from '../data/fcs/page-adapters/process-prep-pages-adapter'
 import { TEST_FACTORY_DISPLAY_NAME, TEST_FACTORY_NAME } from '../data/fcs/factory-mock-data.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
+import {
   PLATFORM_PROCESS_STATUS_CLASS,
   listPlatformStatusOptions,
   type PlatformProcessStatus,
@@ -860,12 +864,12 @@ function renderDetailDrawer(): string {
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[980px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">来源生产单号</th><th class="px-3 py-2 font-medium">物料编码/名称</th><th class="px-3 py-2 font-medium">${escapeHtml(order.plannedQtyLabel || '需求单印花数量')}</th><th class="px-3 py-2 font-medium">已满足印花数量</th><th class="px-3 py-2 font-medium">待满足印花数量</th><th class="px-3 py-2 font-medium">当前状态</th></tr></thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th><th class="px-3 py-2 font-medium">物料编码/名称</th><th class="px-3 py-2 font-medium">${escapeHtml(order.plannedQtyLabel || '需求单印花数量')}</th><th class="px-3 py-2 font-medium">已满足印花数量</th><th class="px-3 py-2 font-medium">待满足印花数量</th><th class="px-3 py-2 font-medium">当前状态</th></tr></thead>
                       <tbody>
                         ${order.linkedDemands
                           .map((item) => {
                             const pending = Math.max(item.requiredQty - item.satisfiedQty, 0)
-                            return `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.demandId)}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.sourceProductionOrderId)}</td><td class="px-3 py-2"><div class="font-mono text-xs">${escapeHtml(item.materialCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.materialName)}</div></td><td class="px-3 py-2">${escapeHtml(formatQty(item.requiredQty, item.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(item.satisfiedQty, item.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(pending, item.unit))}</td><td class="px-3 py-2">${renderBadge(item.status, DEMAND_STATUS_CLASS[item.status])}</td></tr>`
+                            return `<tr class="border-b last:border-b-0"><td class="px-3 py-2">${renderProductionOrderIdentityCell({ productionOrderNo: item.sourceProductionOrderId, demandNo: item.demandId })}</td><td class="px-3 py-2"><div class="font-mono text-xs">${escapeHtml(item.materialCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.materialName)}</div></td><td class="px-3 py-2">${escapeHtml(formatQty(item.requiredQty, item.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(item.satisfiedQty, item.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(pending, item.unit))}</td><td class="px-3 py-2">${renderBadge(item.status, DEMAND_STATUS_CLASS[item.status])}</td></tr>`
                           })
                           .join('')}
                       </tbody>

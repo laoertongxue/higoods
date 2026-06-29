@@ -13,6 +13,10 @@ import {
 } from '../data/fcs/quality-deduction-analysis.ts'
 import { appStore } from '../state/store.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity.ts'
+import {
   QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL,
   QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL,
   QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL,
@@ -489,7 +493,7 @@ export function renderDeductionAnalysisPage(): string {
                     <tr class="border-b bg-muted/40 text-left">
                       <th class="px-4 py-2 font-medium">质检单号</th>
                       <th class="px-4 py-2 font-medium">回货批次号</th>
-                      <th class="px-4 py-2 font-medium">生产单号</th>
+                      <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                       <th class="px-4 py-2 font-medium">工厂</th>
                       <th class="px-4 py-2 font-medium">工序</th>
                       <th class="px-4 py-2 font-medium">质检结果</th>
@@ -514,7 +518,7 @@ export function renderDeductionAnalysisPage(): string {
                           <tr class="border-b last:border-b-0 align-top">
                             <td class="px-4 py-3 font-mono text-xs">${escapeHtml(row.qcNo)}</td>
                             <td class="px-4 py-3 font-mono text-xs">${escapeHtml(row.returnInboundBatchNo)}</td>
-                            <td class="px-4 py-3 font-mono text-xs">${escapeHtml(row.productionOrderNo)}</td>
+                            <td class="px-4 py-3">${renderProductionOrderIdentityCell(row.productionOrderNo)}</td>
                             <td class="px-4 py-3">${escapeHtml(row.factoryName)}</td>
                             <td class="px-4 py-3">${escapeHtml(row.processLabel)}</td>
                             <td class="px-4 py-3">${escapeHtml(row.qcResultLabel)}</td>

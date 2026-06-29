@@ -7,6 +7,10 @@ import {
 } from './context'
 import { appStore } from '../../state/store.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../data/fcs/production-order-identity'
+import {
   effectiveModeLabels,
   getChangeRestrictionSnapshot,
   getProductionOrderTechPackChangeDetail,
@@ -830,7 +834,7 @@ function renderPublishGuideDialog(): string {
             <table class="w-full min-w-[760px] text-sm">
               <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
                 <tr>
-                  <th class="px-3 py-2 text-left">生产单</th>
+                  <th class="px-3 py-2 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                   <th class="px-3 py-2 text-left">当前冻结版本</th>
                   <th class="px-3 py-2 text-left">最新正式版</th>
                   <th class="px-3 py-2 text-left">生产进度</th>
@@ -841,7 +845,7 @@ function renderPublishGuideDialog(): string {
               <tbody>
                 ${affected.map((item) => `
                   <tr class="border-b last:border-0">
-                    <td class="px-3 py-2"><button class="font-mono text-xs font-semibold text-blue-700 hover:underline" data-prod-action="open-production-change-detail" data-order-id="${escapeHtml(item.affectedOrder.productionOrderId)}">${escapeHtml(item.affectedOrder.productionOrderNo)}</button></td>
+                    <td class="px-3 py-2"><div class="cursor-pointer hover:underline" data-prod-action="open-production-change-detail" data-order-id="${escapeHtml(item.affectedOrder.productionOrderId)}">${renderProductionOrderIdentityCell(item.affectedOrder.productionOrderNo)}</div></td>
                     <td class="px-3 py-2">${escapeHtml(item.affectedOrder.currentTechPackVersionNo)}</td>
                     <td class="px-3 py-2">${escapeHtml(item.affectedOrder.latestPublishedTechPackVersionNo)}</td>
                     <td class="px-3 py-2">${escapeHtml(item.affectedOrder.progressSummary[0] || '-')}</td>
@@ -1128,7 +1132,7 @@ function renderRelationWorkItem(relation: ProductionOrderTechPackRelation): stri
     <article class="grid gap-5 border-b bg-background p-4 last:border-b-0 xl:grid-cols-[1.05fr_1.2fr_1.15fr_0.76fr]">
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
-          <button class="font-mono text-sm font-semibold text-blue-700 hover:underline" data-prod-action="open-production-change-detail" data-order-id="${escapeHtml(relation.productionOrderId)}">${escapeHtml(relation.productionOrderNo)}</button>
+          <div class="cursor-pointer hover:underline" data-prod-action="open-production-change-detail" data-order-id="${escapeHtml(relation.productionOrderId)}">${renderProductionOrderIdentityCell(relation.productionOrderNo)}</div>
           ${renderBadge(techPackRelationStatusLabels[relation.relationStatus], techPackRelationStatusClasses[relation.relationStatus])}
         </div>
         <p class="mt-1 truncate text-sm">${escapeHtml(relation.spuCode)} / ${escapeHtml(relation.styleName)}</p>

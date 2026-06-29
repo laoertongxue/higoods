@@ -7,6 +7,10 @@ import {
   type PostFinishingRecheckSkuResult,
 } from '../../../data/fcs/post-finishing-domain.ts'
 import { appStore } from '../../../state/store.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
@@ -157,7 +161,7 @@ export function renderPostFinishingRecheckOrdersPage(): string {
       <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceType)}</td>
       <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.qcOrderNo)}</td>
       <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.postOrderNo || '—')}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(record.productionOrderNo)}</td>
+      <td class="px-3 py-3">${renderProductionOrderIdentityCell(record.productionOrderNo)}</td>
       <td class="px-3 py-3 text-sm">${escapeHtml(record.managedPostFactoryName)}</td>
       <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(record.spuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(record.spuName)}</div></td>
       <td class="px-3 py-3 text-sm">${escapeHtml(record.skuSummary)}</td>
@@ -181,7 +185,7 @@ export function renderPostFinishingRecheckOrdersPage(): string {
         keywordPlaceholder: '复检单 / 质检单 / 后道单 / 生产单 / SKU',
       })}
       ${renderPostSection('复检单列表', `${renderPostTable(
-        ['复检单号', '来源', '关联质检单', '关联后道单', '生产单', '后道工厂', '款式衣服', 'SKU 明细', '复检数量', '合格数量', '不合格数量', '复检状态', '复检时间', '操作'],
+        ['复检单号', '来源', '关联质检单', '关联后道单', PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, '后道工厂', '款式衣服', 'SKU 明细', '复检数量', '合格数量', '不合格数量', '复检状态', '复检时间', '操作'],
         rows || '<tr><td colspan="14" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无复检单</td></tr>',
         'min-w-[1500px]',
       )}<div class="mt-4">${renderPostPagination(pagination)}</div>`)}

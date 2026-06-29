@@ -31,6 +31,10 @@ import {
   type DispatchTask,
   type KanbanCol,
 } from './context.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../data/fcs/production-order-identity.ts'
 function renderKanbanCard(
   task: DispatchTask,
   dyePendingTaskIds: Set<string>,
@@ -342,7 +346,7 @@ function renderListView(
               <th class="px-3 py-2 text-left font-medium">任务名称</th>
               <th class="px-3 py-2 text-left font-medium">任务总产值</th>
               <th class="px-3 py-2 text-left font-medium">执行范围</th>
-              <th class="px-3 py-2 text-left font-medium">生产单号</th>
+              <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2 text-left font-medium">分配路径</th>
               <th class="px-3 py-2 text-left font-medium">分配结果</th>
               <th class="px-3 py-2 text-left font-medium">承接工厂</th>
@@ -404,7 +408,7 @@ function renderListView(
                             </div>
                           </td>
                           <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(formatScopeLabel(task))}</td>
-                          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(task.productionOrderId)}</td>
+                          <td class="px-3 py-3">${renderProductionOrderIdentityCell(task.productionOrderId)}</td>
 
                           <td class="px-3 py-3">
                             ${

@@ -1,6 +1,10 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { productionOrders } from '../data/fcs/production-orders'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
 import { cuttingMaterialPrepGroups } from '../data/fcs/cutting/material-prep'
 import {
   getTaskTypeLabel,
@@ -387,7 +391,7 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
         <table class="w-full min-w-[1560px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-left">
-              <th class="px-3 py-2 font-medium">生产单</th>
+              <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2 font-medium">裁片单</th>
               <th class="px-3 py-2 font-medium">面料 SKU</th>
               <th class="px-3 py-2 font-medium">面料类型</th>
@@ -412,7 +416,7 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
                     .map(
                       (row) => `
                         <tr class="border-b last:border-b-0">
-                          <td class="px-3 py-2 font-medium text-primary">${escapeHtml(row.productionOrderNo)}</td>
+                          <td class="px-3 py-2">${renderProductionOrderIdentityCell(row.productionOrderNo)}</td>
                           <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.cutOrderNo)}</td>
                           <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.materialSku)}</td>
                           <td class="px-3 py-2">${escapeHtml(row.materialTypeLabel)}</td>
@@ -455,7 +459,7 @@ function renderMaterialRequestSection(rows: MaterialRequestRecord[]): string {
         <table class="w-full min-w-[1260px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-left">
-              <th class="px-3 py-2 font-medium">生产单号</th>
+              <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2 font-medium">任务名称</th>
               <th class="px-3 py-2 font-medium">执行范围</th>
               <th class="px-3 py-2 font-medium">执行方</th>
@@ -488,7 +492,7 @@ function renderMaterialRequestSection(rows: MaterialRequestRecord[]): string {
 
                       return `
                         <tr class="border-b last:border-b-0">
-                          <td class="px-3 py-2 font-medium text-primary">${escapeHtml(row.productionOrderNo)}</td>
+                          <td class="px-3 py-2">${renderProductionOrderIdentityCell(row.productionOrderNo)}</td>
                           <td class="px-3 py-2">${escapeHtml(row.taskName)}</td>
                           <td class="px-3 py-2 font-mono text-xs">${escapeHtml(formatTaskScope(runtimeTask))}</td>
                           <td class="px-3 py-2">${escapeHtml(runtimeTask?.assignedFactoryName ?? '待分配')}</td>
@@ -529,7 +533,7 @@ function renderWarehouseDocsSection(orderIds: string[]): string {
             <tr class="border-b bg-muted/40 text-left">
               <th class="px-3 py-2 font-medium">单号</th>
               <th class="px-3 py-2 font-medium">类型</th>
-              <th class="px-3 py-2 font-medium">生产单</th>
+              <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2 font-medium">工序</th>
               <th class="px-3 py-2 font-medium">执行范围</th>
               <th class="px-3 py-2 font-medium">目标执行方</th>
@@ -559,7 +563,7 @@ function renderWarehouseDocsSection(orderIds: string[]): string {
                         <tr class="border-b last:border-b-0">
                           <td class="px-3 py-2 font-mono text-xs">${escapeHtml(doc.docNo)}</td>
                           <td class="px-3 py-2">${renderBadge(DOC_TYPE_LABEL[doc.docType], 'border-slate-300 bg-white text-slate-700')}</td>
-                          <td class="px-3 py-2 font-medium text-primary">${escapeHtml(doc.productionOrderId)}</td>
+                          <td class="px-3 py-2">${renderProductionOrderIdentityCell(doc.productionOrderId)}</td>
                           <td class="px-3 py-2">${escapeHtml(doc.processNameZh)}</td>
                           <td class="px-3 py-2 font-mono text-xs">${escapeHtml(doc.scopeLabel)}</td>
                           <td class="px-3 py-2">${escapeHtml(targetLabel)}</td>
@@ -712,7 +716,7 @@ function renderMaterialListView(): string {
           <table class="w-full min-w-[1320px] text-sm">
             <thead>
               <tr class="border-b bg-muted/40 text-left">
-                <th class="px-3 py-2 font-medium">生产单号</th>
+                <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                 <th class="px-3 py-2 font-medium">旧单号</th>
                 <th class="px-3 py-2 font-medium">SPU</th>
                 <th class="px-3 py-2 font-medium">主工厂</th>
@@ -743,7 +747,7 @@ function renderMaterialListView(): string {
                           <tr class="cursor-pointer border-b hover:bg-muted/50" data-material-action="select-po" data-po-id="${escapeHtml(
                             row.productionOrderId,
                           )}">
-                            <td class="px-3 py-2 font-medium text-primary">${escapeHtml(row.productionOrderId)}</td>
+                            <td class="px-3 py-2">${renderProductionOrderIdentityCell(row.productionOrderId)}</td>
                             <td class="px-3 py-2 text-muted-foreground">${escapeHtml(row.legacyOrderNo)}</td>
                             <td class="px-3 py-2">
                               <div class="text-sm">${escapeHtml(row.spuCode)}</div>

@@ -1,6 +1,10 @@
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
+import {
   buildMarkerSeedDraft,
   finalizeSpreadingCompletion,
   buildMarkerSpreadingViewModel,
@@ -778,7 +782,7 @@ function renderSpreadingOutputMatrix(sessionId: string): string {
           <th class="px-3 py-3">裁片部位</th>
           <th class="px-3 py-3">数量</th>
           <th class="px-3 py-3">裁片单</th>
-          <th class="px-3 py-3">生产单</th>
+          <th class="px-3 py-3">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
         </tr>
       </thead>
       <tbody>
@@ -794,7 +798,7 @@ function renderSpreadingOutputMatrix(sessionId: string): string {
                       <td class="px-3 py-3">${escapeHtml(row.partName || '暂无数据')}</td>
                       <td class="px-3 py-3">${escapeHtml(`${formatQty(row.bundleQty || 0)} 件`)}</td>
                       <td class="px-3 py-3">${escapeHtml(row.cutOrderNo || '暂无数据')}</td>
-                      <td class="px-3 py-3">${escapeHtml(row.productionOrderNo || '暂无数据')}</td>
+                      <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderNo || '暂无数据')}</td>
                     </tr>
                   `,
                 )
@@ -1745,7 +1749,7 @@ function renderMarkerSourceRowsTable(rows: MarkerAllocationSourceRow[]): string 
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">来源裁片单号</th>
-            <th class="px-3 py-3">来源生产单号</th>
+            <th class="px-3 py-3">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
             <th class="px-3 py-3">款号 / SPU</th>
             <th class="px-3 py-3">技术包 SPU</th>
             <th class="px-3 py-3">颜色</th>
@@ -1760,7 +1764,7 @@ function renderMarkerSourceRowsTable(rows: MarkerAllocationSourceRow[]): string 
               (row) => `
                 <tr class="border-b align-top">
                   <td class="px-3 py-3">${escapeHtml(row.sourceCutOrderNo)}</td>
-                  <td class="px-3 py-3">${escapeHtml(row.sourceProductionOrderNo || '待补')}</td>
+                  <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.sourceProductionOrderNo || '待补')}</td>
                   <td class="px-3 py-3">${escapeHtml(`${row.styleCode || '待补'} / ${row.spuCode || '待补'}`)}</td>
                   <td class="px-3 py-3">${escapeHtml(row.techPackSpuCode || '未关联')}</td>
                   <td class="px-3 py-3">${escapeHtml(row.color || '待补')}</td>
@@ -4033,7 +4037,7 @@ function renderMarkerEditPage(): string {
               <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
                   <th class="px-3 py-3">来源裁片单</th>
-                  <th class="px-3 py-3">来源生产单</th>
+                  <th class="px-3 py-3">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                   <th class="px-3 py-3">颜色</th>
                   <th class="px-3 py-3">面料</th>
                   <th class="px-3 py-3">款号 / SPU</th>
@@ -4062,7 +4066,7 @@ function renderMarkerEditPage(): string {
                               .join('')}
                           </select>
                         </td>
-                        <td class="px-3 py-3 text-muted-foreground">${escapeHtml(selectedSourceRow?.sourceProductionOrderNo || line.sourceProductionOrderNo || '待补')}</td>
+                        <td class="px-3 py-3 text-muted-foreground">${renderProductionOrderIdentityCell(selectedSourceRow?.sourceProductionOrderNo || line.sourceProductionOrderNo || '待补')}</td>
                         <td class="px-3 py-3 text-muted-foreground">${escapeHtml(selectedSourceRow?.color || line.color || '待补')}</td>
                         <td class="px-3 py-3 text-muted-foreground">${renderMaterialIdentityBlock({
                           materialSku: selectedSourceRow?.materialSku || line.materialSku || '待补',
@@ -5553,7 +5557,7 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
           <tr>
             <th class="px-3 py-3">选中</th>
             <th class="px-3 py-3">唛架方案</th>
-            <th class="px-3 py-3">生产单 / 裁片单</th>
+            <th class="px-3 py-3">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 裁片单</th>
             <th class="px-3 py-3">款式 / SPU</th>
             <th class="px-3 py-3">颜色</th>
             <th class="px-3 py-3">唛架编号数量</th>
@@ -5590,7 +5594,7 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
                     <div class="font-medium text-foreground">${escapeHtml(row.sourceSchemeNo)}</div>
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bedNos.slice(0, 4).join(' / ') || '待补唛架编号')}${bedNos.length > 4 ? ` 等 ${bedNos.length} 个` : ''}</div>
                   </td>
-                  <td class="px-3 py-3">${escapeHtml(row.productionOrderNos.join(' / ') || row.cutOrderNos.join(' / ') || '待补')}</td>
+                  <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderNos.join(' / ') || row.cutOrderNos.join(' / ') || '待补')}</td>
                   <td class="px-3 py-3">${escapeHtml(`${row.styleCode || '待补'} / ${row.spuCode || '待补'}`)}</td>
                   <td class="px-3 py-3">${escapeHtml(row.colorSummary || '待补')}</td>
                   <td class="px-3 py-3">${escapeHtml(`${formatQty(groupRows.length)} 个`)}</td>

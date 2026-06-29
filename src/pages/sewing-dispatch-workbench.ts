@@ -29,6 +29,10 @@ import {
   getMaterialPrepDispatchReadinessForTask,
   type MaterialPrepDispatchReadiness,
 } from '../data/fcs/cutting/production-material-prep.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity.ts'
 
 type KitFilter = '全部' | SewingDispatchKitStatus
 type GapFilter = '全部' | SewingDispatchGapType
@@ -489,7 +493,7 @@ function renderTaskTable(tasks: SewingDispatchWorkbenchTask[]): string {
           <thead>
             <tr class="border-b bg-muted/40 text-xs text-muted-foreground">
               <th class="w-10 px-3 py-3 text-left"><input type="checkbox" data-sewing-dispatch-field="selectAll" ${pageAllSelected ? 'checked' : ''} /></th>
-              <th class="px-3 py-3 text-left font-medium">车缝任务 / 生产单</th>
+              <th class="px-3 py-3 text-left font-medium">车缝任务 / ${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-3 text-left font-medium">SPU / 款式</th>
               <th class="px-3 py-3 text-left font-medium">SKU / 需求 / 待分配</th>
               <th class="px-3 py-3 text-left font-medium">完整齐套数量</th>
@@ -518,7 +522,7 @@ function renderTaskRow(task: SewingDispatchWorkbenchTask): string {
       <td class="px-3 py-4 align-top"><input type="checkbox" data-sewing-dispatch-field="selectTask" data-task-id="${escapeHtml(task.taskId)}" ${state.selectedTaskIds.has(task.taskId) ? 'checked' : ''} /></td>
       <td class="px-3 py-4 align-top">
         <div class="font-medium">${escapeHtml(task.taskNo)}</div>
-        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.productionOrderNo)}</div>
+        <div class="mt-1">${renderProductionOrderIdentityCell(task.productionOrderNo)}</div>
         <div class="mt-2">${renderBadge(task.assignmentStatusLabel, task.assignmentStatusLabel.includes('待') ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-blue-200 bg-blue-50 text-blue-700')}</div>
       </td>
       <td class="px-3 py-4 align-top">
@@ -1018,14 +1022,14 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
           ${renderSewingMaterialPrepPanel(materialPrepChecks)}
           <div class="mt-4 overflow-x-auto rounded-lg border">
             <table class="w-full min-w-[860px] text-sm">
-              <thead><tr class="border-b bg-muted/40 text-xs text-muted-foreground"><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">生产单 / 任务</th><th class="px-3 py-2 text-left">完整齐套数量</th><th class="px-3 py-2 text-left">待分配</th><th class="px-3 py-2 text-left">本次分配数量</th></tr></thead>
+              <thead><tr class="border-b bg-muted/40 text-xs text-muted-foreground"><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 任务</th><th class="px-3 py-2 text-left">完整齐套数量</th><th class="px-3 py-2 text-left">待分配</th><th class="px-3 py-2 text-left">本次分配数量</th></tr></thead>
               <tbody>
                 ${selectedRows.length === 0
                   ? '<tr><td colspan="5" class="px-3 py-8 text-center text-sm text-muted-foreground">所选任务暂无可分配 SKU。</td></tr>'
                   : selectedRows.map((row) => `
                     <tr class="border-b last:border-b-0">
                       <td class="px-3 py-3"><div class="font-medium">${escapeHtml(row.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeCode)}</div></td>
-                      <td class="px-3 py-3"><div>${escapeHtml(row.productionOrderNo)}</div><div class="font-mono text-xs text-muted-foreground">${escapeHtml(row.taskNo)}</div></td>
+                      <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderNo)}<div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.taskNo)}</div></td>
                       <td class="px-3 py-3">${formatQty(row.completeKitQty)} 件</td>
                       <td class="px-3 py-3">${formatQty(row.remainingQty)} 件</td>
                       <td class="px-3 py-3"><input class="h-9 w-28 rounded-md border bg-background px-2 text-sm" type="number" min="1" max="${row.completeKitQty}" data-sewing-dispatch-field="dispatchQty" data-row-id="${escapeHtml(row.rowId)}" data-skip-page-rerender="true" value="${escapeHtml(state.dispatchQtyByRowId[row.rowId] ?? String(row.completeKitQty))}" /></td>

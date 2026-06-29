@@ -12,6 +12,10 @@ import {
 import { initialStatementDrafts } from '../data/fcs/store-domain-settlement-seeds'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
 import { escapeHtml, toClassName } from '../utils'
 
 applyQualitySeedBootstrap()
@@ -501,7 +505,7 @@ export function renderMaterialStatementsPage(): string {
                   <tr class="border-b bg-muted/40 text-left">
                     <th class="w-10 px-4 py-2"></th>
                     <th class="px-4 py-2 font-medium">领料单号</th>
-                    <th class="px-4 py-2 font-medium">生产单号</th>
+                    <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                     <th class="px-4 py-2 font-medium">任务ID</th>
                     <th class="px-4 py-2 font-medium">用料说明</th>
                     <th class="px-4 py-2 text-center font-medium">需求数量</th>
@@ -523,7 +527,7 @@ export function renderMaterialStatementsPage(): string {
                                   <input type="checkbox" class="h-4 w-4 rounded border-border align-middle" data-mst-action="toggle-select" data-issue-id="${escapeHtml(issue.issueId)}" ${state.selected.includes(issue.issueId) ? 'checked' : ''} />
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xs">${escapeHtml(issue.issueId)}</td>
-                                <td class="px-4 py-3 text-sm">${escapeHtml(issue.productionOrderId ?? '—')}</td>
+                                <td class="px-4 py-3">${renderProductionOrderIdentityCell(issue.productionOrderId ?? '—')}</td>
                                 <td class="px-4 py-3 font-mono text-xs">${escapeHtml(issue.taskId)}</td>
                                 <td class="max-w-[180px] truncate px-4 py-3 text-sm" title="${escapeHtml(issue.materialSummaryZh)}">${escapeHtml(issue.materialSummaryZh)}</td>
                                 <td class="px-4 py-3 text-center">${issue.requestedQty}</td>
@@ -557,7 +561,7 @@ export function renderMaterialStatementsPage(): string {
                 <thead>
                   <tr class="border-b bg-muted/40 text-left">
                     <th class="px-4 py-2 font-medium">对象编号</th>
-                    <th class="px-4 py-2 font-medium">生产单号</th>
+                    <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                     <th class="px-4 py-2 text-center font-medium">条目数</th>
                     <th class="px-4 py-2 text-center font-medium">需求总数量</th>
                     <th class="px-4 py-2 text-center font-medium">已下发总数量</th>
@@ -576,7 +580,7 @@ export function renderMaterialStatementsPage(): string {
                             (draft) => `
                               <tr class="border-b last:border-b-0">
                                 <td class="px-4 py-3 font-mono text-xs">${escapeHtml(draft.materialStatementId)}</td>
-                                <td class="px-4 py-3 text-sm">${escapeHtml(draft.productionOrderId)}</td>
+                                <td class="px-4 py-3">${renderProductionOrderIdentityCell(draft.productionOrderId)}</td>
                                 <td class="px-4 py-3 text-center">${draft.itemCount}</td>
                                 <td class="px-4 py-3 text-center">${draft.totalRequestedQty}</td>
                                 <td class="px-4 py-3 text-center">${draft.totalIssuedQty}</td>

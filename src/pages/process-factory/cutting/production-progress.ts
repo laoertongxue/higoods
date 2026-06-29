@@ -33,6 +33,10 @@ import {
 } from './layout.helpers.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
+import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
   buildCuttingRouteWithContext,
@@ -2614,7 +2618,7 @@ function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
           <table class="w-full table-fixed text-sm" data-testid="cutting-production-progress-main-table">
             <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
               <tr>
-                <th class="w-[13%] px-4 py-3 text-left font-medium">生产单</th>
+                <th class="w-[13%] px-4 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                 <th class="w-[9%] px-4 py-3 text-left font-medium">交期 / 数量</th>
                 <th class="w-[12%] px-4 py-3 text-left font-medium">裁片单概况</th>
                 <th class="w-[14%] px-4 py-3 text-left font-medium">数量账摘要</th>
@@ -2636,9 +2640,9 @@ function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
                                 <div class="flex items-start gap-3">
                                   <img src="${escapeHtml(row.spuImageUrl)}" alt="${escapeHtml(row.styleName || row.spuCode || '')}" class="h-14 w-14 shrink-0 rounded-md border object-cover" />
                                   <div class="min-w-0">
-                                    <button class="font-medium text-blue-600 hover:underline" data-nav="${escapeHtml(buildProductionProgressDetailPath(row.id))}">
-                                      ${escapeHtml(row.productionOrderNo)}
-                                    </button>
+                                    <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(buildProductionProgressDetailPath(row.id))}">
+                                      ${renderProductionOrderIdentityCell(row.productionOrderNo)}
+                                    </div>
                                     <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(row.styleCode || row.spuCode || '-')}</div>
                                     <div class="mt-1 line-clamp-2 text-xs text-muted-foreground">${escapeHtml(row.styleName || row.spuCode || '-')}</div>
                                     <div class="mt-2">${renderBadge(row.urgency.label, row.urgency.className)}</div>
@@ -2703,7 +2707,7 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
             <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
               <tr>
                 <th class="w-[13%] px-4 py-3 text-left font-medium">裁片单</th>
-                <th class="w-[14%] px-4 py-3 text-left font-medium">生产单与款式</th>
+                <th class="w-[14%] px-4 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 款式</th>
                 <th class="w-[19%] px-4 py-3 text-left font-medium">面料 / 纸样</th>
                 <th class="w-[17%] px-4 py-3 text-left font-medium">数量账</th>
                 <th class="w-[13%] px-4 py-3 text-left font-medium">主状态与判断</th>
@@ -2725,9 +2729,9 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
                               <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.plannedShipDateDisplay)}</div>
                             </td>
                             <td class="px-4 py-3">
-                              <button class="font-medium text-blue-600 hover:underline" data-nav="${escapeHtml(buildProductionProgressDetailPath(item.parentRecordId))}">
-                                ${escapeHtml(item.productionOrderNo)}
-                              </button>
+                              <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(buildProductionProgressDetailPath(item.parentRecordId))}">
+                                ${renderProductionOrderIdentityCell(item.productionOrderNo)}
+                              </div>
                               <div class="font-medium text-foreground">${escapeHtml(item.styleLabel)}</div>
                               <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.styleName)}</div>
                               <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatFactoryDisplayName(item.factoryName))}</div>

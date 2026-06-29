@@ -22,6 +22,10 @@ import {
   type PickupRecord,
   type PrepRejectRecord,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 
 type MaterialPrepDetailTab = 'demand' | 'inventory' | 'tasks' | 'records' | 'pickup'
@@ -464,7 +468,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
         <table class="w-full min-w-[1180px] text-left text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              <th class="px-3 py-2">生产单</th>
+              <th class="px-3 py-2">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2">款式 / SPU</th>
               <th class="px-3 py-2">配料进度</th>
               <th class="px-3 py-2">领料状态</th>
@@ -479,7 +483,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
             ${rows.length ? rows.map((row) => `
               <tr class="border-t">
                 <td class="px-3 py-3 align-top">
-                  <button type="button" data-nav="${escapeHtml(buildDetailHref(row.order.prepOrderId, activeTab))}" class="font-medium text-blue-700 hover:underline">${escapeHtml(row.order.productionOrderNo)}</button>
+                  <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(buildDetailHref(row.order.prepOrderId, activeTab))}">${renderProductionOrderIdentityCell(row.order.productionOrderNo)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">配料单：${escapeHtml(row.order.prepOrderNo)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">交期：${escapeHtml(row.order.deliveryDate)}</div>
                 </td>

@@ -11,6 +11,10 @@ import {
   type PostFinishingWaitQcSkuItem,
 } from '../../../data/fcs/post-finishing-domain.ts'
 import { appStore } from '../../../state/store.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
@@ -228,7 +232,7 @@ function renderCreateQcDialog(): string {
           <img class="h-14 w-14 rounded-lg border object-cover" src="${escapeHtml(item.skuImageUrl || 'https://placehold.co/96x96?text=SKU')}" alt="${escapeHtml(item.skuCode)}" />
         </td>
         <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(item.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div></td>
-        <td class="px-3 py-3 text-sm"><div>${escapeHtml(item.productionOrderNo)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.sourceTaskNo)}</div></td>
+        <td class="px-3 py-3 text-sm">${renderProductionOrderIdentityCell(item.productionOrderNo)}<div class="text-xs text-muted-foreground">${escapeHtml(item.sourceTaskNo)}</div></td>
         <td class="px-3 py-3 text-sm">${escapeHtml(item.sourceFactoryName)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(locationLabel)}</td>
         <td class="px-3 py-3 text-sm">${formatGarmentQty(item.currentStockQty, item.qtyUnit)}</td>
@@ -256,7 +260,7 @@ function renderCreateQcDialog(): string {
       </div>
       <div class="overflow-x-auto rounded-xl border">
         <table class="min-w-[1280px] w-full text-sm">
-          <thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">选择</th><th class="px-3 py-2 text-left">图片</th><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">生产单 / 上游任务</th><th class="px-3 py-2 text-left">上游工厂</th><th class="px-3 py-2 text-left">取货库区 / 库位</th><th class="px-3 py-2 text-left">当前库存</th><th class="px-3 py-2 text-left">待质检数量</th><th class="px-3 py-2 text-left">质检中数量</th><th class="px-3 py-2 text-left">本次质检数量</th></tr></thead>
+          <thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">选择</th><th class="px-3 py-2 text-left">图片</th><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 上游任务</th><th class="px-3 py-2 text-left">上游工厂</th><th class="px-3 py-2 text-left">取货库区 / 库位</th><th class="px-3 py-2 text-left">当前库存</th><th class="px-3 py-2 text-left">待质检数量</th><th class="px-3 py-2 text-left">质检中数量</th><th class="px-3 py-2 text-left">本次质检数量</th></tr></thead>
           <tbody>${rows || '<tr><td colspan="10" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无可创建质检单的库存 SKU</td></tr>'}</tbody>
         </table>
       </div>
@@ -475,7 +479,7 @@ function renderViewDialog(): string {
       <td class="px-3 py-2 font-mono text-xs">${escapeHtml(allocation.warehouseRecordNo)}</td>
       <td class="px-3 py-2">${escapeHtml(allocation.skuCode)}</td>
       <td class="px-3 py-2">${escapeHtml(allocation.colorName)} / ${escapeHtml(allocation.sizeName)}</td>
-      <td class="px-3 py-2">${escapeHtml(allocation.productionOrderNo)}</td>
+      <td class="px-3 py-2">${renderProductionOrderIdentityCell(allocation.productionOrderNo)}</td>
       <td class="px-3 py-2">${escapeHtml(allocation.sourceTaskNo)}</td>
       <td class="px-3 py-2">${escapeHtml(allocation.locationCode ? `${allocation.areaName || '未分区'} / ${allocation.locationCode}` : allocation.areaName || '未分区')}</td>
       <td class="px-3 py-2">${formatGarmentQty(allocation.qcQty, allocation.qtyUnit)}</td>
@@ -517,7 +521,7 @@ function renderViewDialog(): string {
       <div class="overflow-x-auto rounded-xl border">
         <div class="border-b px-4 py-3 text-sm font-semibold">质检取货明细</div>
         <table class="min-w-[960px] w-full text-sm">
-          <thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">库存流水</th><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">颜色 / 尺码</th><th class="px-3 py-2 text-left">生产单</th><th class="px-3 py-2 text-left">上游任务</th><th class="px-3 py-2 text-left">取货库区 / 库位</th><th class="px-3 py-2 text-left">质检数量</th></tr></thead>
+          <thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">库存流水</th><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">颜色 / 尺码</th><th class="px-3 py-2 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th><th class="px-3 py-2 text-left">上游任务</th><th class="px-3 py-2 text-left">取货库区 / 库位</th><th class="px-3 py-2 text-left">质检数量</th></tr></thead>
           <tbody>${allocationRows || '<tr><td colspan="7" class="px-3 py-6 text-center text-muted-foreground">暂无取货明细</td></tr>'}</tbody>
         </table>
       </div>
@@ -539,7 +543,7 @@ function renderWaitRows(rows: PostFinishingWaitQcSkuItem[]): string {
       <tr class="align-top">
         <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(item.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div></td>
         <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(item.spuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.spuName)}</div></td>
-        <td class="px-3 py-3 text-sm"><div>${escapeHtml(item.productionOrderNo)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.sourceTaskNo)}</div></td>
+        <td class="px-3 py-3 text-sm">${renderProductionOrderIdentityCell(item.productionOrderNo)}<div class="text-xs text-muted-foreground">${escapeHtml(item.sourceTaskNo)}</div></td>
         <td class="px-3 py-3 text-sm"><div>${escapeHtml(item.sourceFactoryName)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.sourceFactoryType)}</div></td>
         <td class="px-3 py-3 text-sm">${escapeHtml(item.locationCode ? `${item.areaName || '未分区'} / ${item.locationCode}` : item.areaName || '未分区')}</td>
         <td class="px-3 py-3 text-sm">${formatGarmentQty(item.currentStockQty, item.qtyUnit)}</td>
@@ -559,7 +563,7 @@ function renderQcRows(rows: PostFinishingActionRecord[]): string {
       <tr class="align-top">
         <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.actionRecordNo)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(record.postOrderNo)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(snapshot?.productionOrderNo || '—')}</td>
+        <td class="px-3 py-3 text-sm">${renderProductionOrderIdentityCell(snapshot?.productionOrderNo || '—')}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceFactoryName)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(record.qcStationName || '—')}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(record.skuLines[0]?.spuCode || '—')}</td>
@@ -625,12 +629,12 @@ export function renderPostFinishingQcOrdersPage(): string {
   const qcRows = renderQcRows(pagination.rows)
   const activeSection = activeTab === 'wait'
     ? renderPostSection('待质检列表', `${renderPostTable(
-        ['SKU', '款式衣服', '生产单 / 上游任务', '上游工厂', '库区 / 库位', '当前库存', '待质检数量', '质检中数量', '操作'],
+        ['SKU', '款式衣服', `${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 上游任务`, '上游工厂', '库区 / 库位', '当前库存', '待质检数量', '质检中数量', '操作'],
         waitRows || '<tr><td colspan="9" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无待质检库存</td></tr>',
         'min-w-[1280px]',
       )}<div class="mt-4">${renderPostPagination(waitPagination)}</div>`)
     : renderPostSection('质检单列表', `${renderPostTable(
-        ['质检单号', '后道单号', '生产单', '来源工厂', '质检台', '款式衣服', 'SKU 明细', '质检数量', '合格数量', '不合格数量', '质检结果', '责任方', '扣款决策', '状态', '质检人', '操作'],
+        ['质检单号', '后道单号', PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, '来源工厂', '质检台', '款式衣服', 'SKU 明细', '质检数量', '合格数量', '不合格数量', '质检结果', '责任方', '扣款决策', '状态', '质检人', '操作'],
         qcRows || '<tr><td colspan="16" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无质检单</td></tr>',
         'min-w-[1800px]',
       )}<div class="mt-4">${renderPostPagination(pagination)}</div>`)

@@ -9,6 +9,7 @@ import type {
 import type { CommonTaskStatus, PlateMakingTaskSourceType } from './pcs-task-source-normalizer.ts'
 
 export type PlateMakingTaskStatus = CommonTaskStatus
+export type PlateMakingSampleReviewStatus = '未提交' | '待样板确认' | '样板已通过' | '样板已驳回'
 
 export interface PlateMakingTaskRecord {
   plateTaskId: string
@@ -57,6 +58,15 @@ export interface PlateMakingTaskRecord {
   linkedTechPackUpdatedAt: string
   primaryTechPackGeneratedFlag?: boolean
   primaryTechPackGeneratedAt?: string
+  sampleReviewStatus: PlateMakingSampleReviewStatus
+  sampleReviewSubmittedAt: string
+  sampleReviewSubmittedBy: string
+  sampleReviewerName: string
+  sampleReviewAt: string
+  sampleReviewNote: string
+  reworkReason: string
+  patternOutputSubmittedAt: string
+  patternOutputSubmittedBy: string
   acceptedAt: string
   confirmedAt: string
   status: PlateMakingTaskStatus

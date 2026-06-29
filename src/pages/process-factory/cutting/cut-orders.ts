@@ -57,6 +57,10 @@ import {
 } from './layout.helpers.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
+import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
   buildCuttingRouteWithContext,
@@ -698,9 +702,9 @@ function renderBatchSummary(row: CutOrderRow): string {
 function renderProductionStyleCell(row: CutOrderRow): string {
   return `
     <div class="space-y-1">
-      <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-blue-600" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">
-        ${escapeHtml(row.productionOrderNo)}
-      </button>
+      <div class="cursor-pointer hover:text-blue-600" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">
+        ${renderProductionOrderIdentityCell(row.productionOrderNo)}
+      </div>
       <div class="text-sm font-medium text-foreground">${escapeHtml(row.styleCode || row.spuCode || '待补')}</div>
       <p class="text-xs text-muted-foreground">${escapeHtml(row.styleName || row.spuCode || '款式待补')}</p>
       <span class="${row.urgencyClassName} inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium">${escapeHtml(row.urgencyLabel)}</span>
@@ -1045,7 +1049,7 @@ function renderTable(rows: CutOrderRow[]): string {
             <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
               <tr>
                 <th class="px-4 py-3 text-left font-medium">裁片单</th>
-                <th class="px-4 py-3 text-left font-medium">生产单与款式</th>
+                <th class="px-4 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 款式</th>
                 <th class="px-4 py-3 text-left font-medium">面料</th>
                 <th class="px-4 py-3 text-left font-medium">纸样</th>
                 <th class="px-4 py-3 text-left font-medium">数量账</th>

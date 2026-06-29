@@ -19,6 +19,10 @@ import {
   deriveLifecycleStatus,
   getOrderById,
 } from './context'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../data/fcs/production-order-identity'
 
 function getOrdersWithLifecycleSummary(): Array<
   ProductionOrder & {
@@ -301,7 +305,7 @@ export function renderProductionStatusPage(): string {
               <table class="w-full text-sm">
                 <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
                   <tr>
-                    <th class="px-3 py-3 text-left font-medium">生产单号</th>
+                    <th class="px-3 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                     <th class="px-3 py-3 text-left font-medium">商品/款号</th>
                     <th class="px-3 py-3 text-left font-medium">主工厂</th>
                     <th class="px-3 py-3 text-left font-medium">当前状态</th>
@@ -324,7 +328,7 @@ export function renderProductionStatusPage(): string {
 
                       return `
                         <tr class="border-b last:border-0">
-                          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.productionOrderId)}</td>
+                          <td class="px-3 py-3">${renderProductionOrderIdentityCell(order.productionOrderId)}</td>
                           <td class="px-3 py-3">${escapeHtml(order.demandSnapshot.spuCode)}</td>
                           <td class="px-3 py-3">${escapeHtml(order.mainFactorySnapshot.name)}</td>
                           <td class="px-3 py-3">${renderBadge(

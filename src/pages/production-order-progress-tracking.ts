@@ -1,6 +1,10 @@
 import { appStore } from '../state/store'
 import { hydrateIcons } from '../components/shell'
 import { escapeHtml } from '../utils'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
 
 type TrackingTab = 'overview' | 'timeline' | 'quantity' | 'workorders' | 'handover' | 'settlement'
 type RiskLevel = '高风险' | '中风险' | '低风险' | '无'
@@ -598,7 +602,9 @@ function renderOrderRow(order: ProductionOrderTrackingRecord, expandedNo: string
       <td class="px-3 py-3"><input type="checkbox" class="h-4 w-4 rounded border-slate-300" /></td>
       <td class="px-3 py-3"><img src="${escapeHtml(order.imageUrl)}" class="h-14 w-11 rounded-md object-cover" alt="${escapeHtml(order.title)}" /></td>
       <td class="px-3 py-3">
-        <button class="font-semibold text-blue-600 hover:underline" data-nav="${escapeHtml(buildDetailHref(order.no))}">${escapeHtml(order.no)}</button>
+        <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(buildDetailHref(order.no))}">
+          ${renderProductionOrderIdentityCell({ productionOrderNo: order.no, demandNo: order.demandNo })}
+        </div>
         <p class="mt-1 text-xs text-slate-500">创建：2025-06-25</p>
         <p class="text-xs text-slate-500">更新：2025-06-25</p>
       </td>
@@ -666,7 +672,7 @@ function renderOrderTable(): string {
             <tr>
               <th class="w-10 px-3 py-2 font-medium"></th>
               <th class="px-3 py-2 font-medium">款式图</th>
-              <th class="px-3 py-2 font-medium">生产单号</th>
+              <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2 font-medium">款式/SPU</th>
               <th class="px-3 py-2 font-medium">生产数量</th>
               <th class="px-3 py-2 font-medium">当前状态</th>

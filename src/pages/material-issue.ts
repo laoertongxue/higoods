@@ -8,6 +8,10 @@ import {
   listExecutionTaskFacts,
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
 import { escapeHtml } from '../utils'
 
 applyQualitySeedBootstrap()
@@ -566,7 +570,7 @@ export function renderMaterialIssuePage(): string {
             <thead>
               <tr class="border-b bg-muted/40 text-left">
                 <th class="px-4 py-2 font-medium">领料单号</th>
-                <th class="px-4 py-2 font-medium">生产单号</th>
+                <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                 <th class="px-4 py-2 font-medium">任务ID</th>
                 <th class="px-4 py-2 font-medium">用料说明</th>
                 <th class="px-4 py-2 text-right font-medium">需求数量</th>
@@ -587,7 +591,7 @@ export function renderMaterialIssuePage(): string {
                         return `
                           <tr class="border-b last:border-b-0">
                             <td class="px-4 py-3 font-mono text-xs">${escapeHtml(sheet.issueId)}</td>
-                            <td class="px-4 py-3 text-sm">${escapeHtml(sheet.productionOrderId ?? '—')}</td>
+                            <td class="px-4 py-3">${renderProductionOrderIdentityCell(sheet.productionOrderId ?? '—')}</td>
                             <td class="px-4 py-3 font-mono text-xs">${escapeHtml(sheet.taskId)}</td>
                             <td class="max-w-[180px] truncate px-4 py-3 text-sm" title="${escapeHtml(sheet.materialSummaryZh)}">${escapeHtml(sheet.materialSummaryZh)}</td>
                             <td class="px-4 py-3 text-right text-sm">${sheet.requestedQty}</td>

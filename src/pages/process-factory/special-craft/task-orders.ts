@@ -8,6 +8,10 @@ import {
   getSpecialCraftTaskOrders,
   type SpecialCraftTaskOrder,
 } from '../../../data/fcs/special-craft-task-orders.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   paginateItems,
@@ -326,7 +330,7 @@ function renderTaskOrdersTable(
             <div class="mt-1 text-xs text-muted-foreground">截止 ${escapeHtml(taskOrder.dueAt.slice(0, 10))}</div>
           </td>
           <td class="px-3 py-3">
-            <div class="font-medium">${escapeHtml(taskOrder.productionOrderNo)}</div>
+            ${renderProductionOrderIdentityCell(taskOrder.productionOrderNo)}
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(taskOrder.techPackVersion || '正式版')}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(taskOrder.operationName)}</div>
           </td>
@@ -363,7 +367,7 @@ function renderTaskOrdersTable(
         <tr>
           ${[
             '加工单号',
-            '生产单 / 技术包',
+            `${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 技术包`,
             '加工对象',
             '承接工厂',
             '数量进度',

@@ -1,5 +1,9 @@
 import { productionOrders, type ProductionOrder } from '../data/fcs/production-orders.ts'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity.ts'
+import {
   isRuntimeTaskExecutionTask,
   listRuntimeProcessTasks,
   listRuntimeTaskSplitGroupsByOrder,
@@ -324,7 +328,7 @@ function renderSpecialCraftTaskSection(keyword: string): string {
               <table class="w-full min-w-[1120px] text-sm">
                 <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
                   <tr>
-                    <th class="px-3 py-2 text-left font-medium">生产单</th>
+                    <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                     <th class="px-3 py-2 text-left font-medium">特殊工艺</th>
                     <th class="px-3 py-2 text-left font-medium">任务号</th>
                     <th class="px-3 py-2 text-right font-medium">明细数</th>
@@ -339,7 +343,7 @@ function renderSpecialCraftTaskSection(keyword: string): string {
                   ${filteredTasks
                     .map((task) => `
                       <tr class="border-b last:border-0">
-                        <td class="px-3 py-2">${escapeHtml(task.productionOrderNo)}</td>
+                        <td class="px-3 py-2">${renderProductionOrderIdentityCell(task.productionOrderNo)}</td>
                         <td class="px-3 py-2">${escapeHtml(task.operationName)}</td>
                         <td class="px-3 py-2 font-medium text-blue-700">${escapeHtml(task.taskOrderNo)}</td>
                         <td class="px-3 py-2 text-right">${task.demandLines?.length || 0}</td>
@@ -605,7 +609,7 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b bg-muted/40">
-            <th class="px-3 py-2 text-left font-medium">生产单号</th>
+            <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
             <th class="px-3 py-2 text-left font-medium">主工厂</th>
             <th class="px-3 py-2 text-center font-medium">任务总数</th>
             <th class="px-3 py-2 text-left font-medium">总产值</th>
@@ -639,9 +643,7 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
 
                     return `
                       <tr class="border-b last:border-0">
-                        <td class="px-3 py-3 font-mono text-sm">
-                          <div>${escapeHtml(order.productionOrderId)}</div>
-                        </td>
+                        <td class="px-3 py-3">${renderProductionOrderIdentityCell(order.productionOrderId)}</td>
                         <td class="px-3 py-3 text-sm">${escapeHtml(order.mainFactorySnapshot?.name ?? '—')}</td>
                         <td class="px-3 py-3 text-center text-sm">${tasks.length}</td>
                         <td class="px-3 py-3 text-sm font-medium">${escapeHtml(formatOutputValue(orderTotalOutputValue))}</td>
@@ -731,7 +733,7 @@ function renderAllTasksTable(
             <th class="w-10 px-3 py-2 text-left font-medium">序</th>
             <th class="px-3 py-2 text-left font-medium">任务ID</th>
             <th class="px-3 py-2 text-left font-medium">任务名称</th>
-            <th class="px-3 py-2 text-left font-medium">生产单号</th>
+            <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
             <th class="px-3 py-2 text-left font-medium">总产值</th>
             <th class="px-3 py-2 text-left font-medium">前置任务</th>
             <th class="px-3 py-2 text-left font-medium">后置任务</th>
@@ -785,7 +787,7 @@ function renderAllTasksTable(
                             ${renderTaskSplitSummary(task, orderTasks)}
                           </div>
                         </td>
-                        <td class="px-3 py-2 font-mono text-xs text-muted-foreground">${escapeHtml(task.productionOrderId || '—')}</td>
+                        <td class="px-3 py-2">${renderProductionOrderIdentityCell(task.productionOrderId || '—')}</td>
                         <td class="px-3 py-2 text-sm">
                           <div class="${task.isSplitSource ? 'text-muted-foreground' : 'font-medium'}">${escapeHtml(outputValueText)}</div>
                           <div class="text-[11px] text-muted-foreground">${escapeHtml(outputValueHint)}</div>

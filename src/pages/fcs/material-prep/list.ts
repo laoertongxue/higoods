@@ -12,6 +12,10 @@ import {
 import {
   listMaterialPrepOrderProjections,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../../data/fcs/production-order-identity.ts'
 
 import type { BadgeVariant } from '../../../components/ui/types.ts'
 
@@ -133,7 +137,7 @@ function renderTable(rows: MaterialPrepOrderProjection[]): string {
         <table class="w-full min-w-[960px] text-left text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              <th class="px-3 py-2">生产单号</th>
+              <th class="px-3 py-2">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
               <th class="px-3 py-2">款式名</th>
               <th class="px-3 py-2">配料类型</th>
               <th class="px-3 py-2">需求总量</th>
@@ -148,7 +152,7 @@ function renderTable(rows: MaterialPrepOrderProjection[]): string {
               return `
               <tr class="border-t hover:bg-muted/30">
                 <td class="px-3 py-3">
-                  <div class="font-medium">${escapeHtml(row.order.productionOrderNo)}</div>
+                  ${renderProductionOrderIdentityCell(row.order.productionOrderNo)}
                   <div class="mt-1 text-xs text-muted-foreground">配料单：${escapeHtml(row.order.prepOrderNo)}</div>
                 </td>
                 <td class="px-3 py-3">

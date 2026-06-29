@@ -74,6 +74,10 @@ import {
 import {
   listMaterialRequestsByOrder,
 } from '../../data/fcs/material-request-drafts.ts'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../data/fcs/production-order-identity.ts'
 
 function getOrderConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -1407,7 +1411,7 @@ export function renderProductionOrdersPage(): string {
                     selectedAll ? 'checked' : ''
                   } />
                 </th>
-                <th class="min-w-[150px] px-3 py-3 text-left font-medium">生产单 / 旧单号</th>
+                <th class="min-w-[190px] px-3 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                 <th class="min-w-[240px] px-3 py-3 text-left font-medium">SPU信息</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">状态</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">技术包快照版本</th>
@@ -1498,9 +1502,7 @@ export function renderProductionOrdersPage(): string {
                             </td>
                             <td class="px-3 py-3">
                               <div class="space-y-1">
-                                <button class="h-auto p-0 font-mono text-sm text-blue-600 hover:underline" data-prod-action="open-order-detail" data-order-id="${
-                                  order.productionOrderId
-                                }">${escapeHtml(order.productionOrderId)}</button>
+                                ${renderProductionOrderIdentityCell(order.productionOrderId)}
                                 <div class="font-mono text-xs text-muted-foreground">旧单号：${escapeHtml(order.legacyOrderNo)}</div>
                               </div>
                             </td>

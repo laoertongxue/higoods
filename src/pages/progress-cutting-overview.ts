@@ -22,6 +22,10 @@ import {
 import { appStore } from '../state/store'
 import { getCanonicalCuttingPath } from './process-factory/cutting/meta'
 import { escapeHtml, formatDateTime } from '../utils'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
 
 const productionProgressPath = getCanonicalCuttingPath('production-progress')
 const materialPrepPath = getCanonicalCuttingPath('warehouse-management-wait-process')
@@ -183,9 +187,9 @@ function renderFocusSection(): string {
                         ${renderBadge(platformCuttingRiskMeta[row.overallRiskLevel].label, platformCuttingRiskMeta[row.overallRiskLevel].className)}
                         ${renderBadge(platformCuttingStageMeta[row.currentStage].label, platformCuttingStageMeta[row.currentStage].className)}
                       </div>
-                      <button class="mt-3 text-left text-base font-semibold text-blue-600 hover:underline" data-platform-cutting-action="go-detail" data-record-id="${row.id}">
-                        ${escapeHtml(row.productionOrderNo)}
-                      </button>
+                      <div class="mt-3 cursor-pointer text-left hover:underline" data-platform-cutting-action="go-detail" data-record-id="${row.id}">
+                        ${renderProductionOrderIdentityCell(row.productionOrderNo)}
+                      </div>
                       <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(row.mainIssueTitle)}</p>
                       <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.suggestedActionText)}</p>
                       <div class="mt-3 flex flex-wrap gap-2">
@@ -287,7 +291,7 @@ function renderMainTable(): string {
                 <thead class="bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th class="px-3 py-3">紧急程度</th>
-                    <th class="px-3 py-3">生产单号</th>
+                    <th class="px-3 py-3">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                     <th class="px-3 py-3">裁片任务号</th>
                     <th class="px-3 py-3">分配工厂</th>
                     <th class="px-3 py-3">当前阶段</th>
@@ -309,9 +313,9 @@ function renderMainTable(): string {
                             <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.plannedShipDate)}</div>
                           </td>
                           <td class="px-3 py-4">
-                            <button class="text-left font-medium text-blue-600 hover:underline" data-platform-cutting-action="go-detail" data-record-id="${row.id}">
-                              ${escapeHtml(row.productionOrderNo)}
-                            </button>
+                            <div class="cursor-pointer text-left hover:underline" data-platform-cutting-action="go-detail" data-record-id="${row.id}">
+                              ${renderProductionOrderIdentityCell(row.productionOrderNo)}
+                            </div>
                             <div class="mt-1 text-xs text-muted-foreground">采购日期：${escapeHtml(row.purchaseDate)}</div>
                             <div class="mt-1 text-xs text-muted-foreground">下单数量：${escapeHtml(String(row.orderQty))}</div>
                           </td>

@@ -19,6 +19,10 @@ import {
 } from './context'
 import { buildQcDeductionHref, buildQcDetailHref } from '../../data/fcs/quality-chain-adapter'
 import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../../data/fcs/production-order-identity'
+import {
   PLATFORM_QC_WORKBENCH_VIEW_LABEL,
   QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL,
   QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL,
@@ -243,8 +247,8 @@ function buildTableColumns(): TableColumn<QcRow>[] {
       render: (row) => `<span class="font-mono text-xs">${escapeHtml(row.batchId || '-')}</span>`,
     },
     {
-      key: 'productionOrderId', title: '生产单号', className: 'align-top',
-      render: (row) => `<span class="font-mono text-xs">${escapeHtml(row.productionOrderId || '-')}</span>`,
+      key: 'productionOrderId', title: PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, className: 'align-top',
+      render: (row) => renderProductionOrderIdentityCell(row.productionOrderId || '-'),
     },
     {
       key: 'scene', title: '检查场景 / 回货环节', className: 'align-top',

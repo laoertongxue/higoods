@@ -42,6 +42,10 @@ import {
 import { listFactoryCapacityEntries } from '../data/fcs/factory-capacity-profile-mock'
 import { listBusinessFactoryMasterRecords, listFactoryMasterRecords } from '../data/fcs/factory-master-store'
 import { syncDispatchCapacityUsageLedger } from './dispatch-board/context'
+import {
+  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionOrderIdentityCell,
+} from '../data/fcs/production-order-identity'
 import { escapeHtml, toClassName } from '../utils'
 
 const processTasks = listLegacyLikeProcessTasksForTailPages()
@@ -566,7 +570,7 @@ function renderUnscheduledRows(rows: CapacityCalendarUnscheduledRow[], keyword: 
     .map((row) => `
       <tr class="border-b last:border-0" data-capacity-unscheduled-row="${escapeHtml(row.taskId)}">
         <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
+        <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderId)}</td>
         <td class="px-3 py-3">${renderBadge(row.demandType, row.demandType === '待分配需求' ? 'outline' : row.demandType === '已冻结需求' ? 'secondary' : 'default')}</td>
         <td class="px-3 py-3 text-sm">
           <div>${escapeHtml(row.processName)}</div>
@@ -665,7 +669,7 @@ function renderFactoryCalendarSourceTable(sources: FactoryCalendarSourceRow[], e
         <thead class="border-b border-slate-200/80 bg-slate-100/80 text-muted-foreground">
           <tr>
             <th class="px-3 py-2 text-left font-medium">任务编号</th>
-            <th class="px-3 py-2 text-left font-medium">生产单号</th>
+            <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
             <th class="px-3 py-2 text-right font-medium">产值</th>
             <th class="px-3 py-2 text-left font-medium">时间窗口</th>
             <th class="px-3 py-2 text-left font-medium">对象类型</th>
@@ -680,7 +684,7 @@ function renderFactoryCalendarSourceTable(sources: FactoryCalendarSourceRow[], e
                   <div class="font-mono text-xs text-foreground">${escapeHtml(source.taskId)}</div>
                   <div class="text-[11px] text-muted-foreground">${escapeHtml(source.sourceTypeLabel)}</div>
                 </td>
-                <td class="px-3 py-3 text-sm">${escapeHtml(source.productionOrderId)}</td>
+                <td class="px-3 py-3">${renderProductionOrderIdentityCell(source.productionOrderId)}</td>
                 <td class="px-3 py-3 text-right text-sm">
                   <div class="font-medium text-foreground">${escapeHtml(formatOutputValue(source.outputValueTotal))}</div>
                   <div class="text-[11px] text-muted-foreground">当日计入 ${escapeHtml(formatOutputValue(source.dailyValue))}</div>
@@ -978,7 +982,7 @@ function renderOverviewOrderTable(keyword: string): string {
 
       return `
         <tr class="border-b last:border-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.productionOrderId)}</td>
+          <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderId)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(row.mainFactory)}</td>
           <td class="px-3 py-3 text-center text-sm">${row.taskCount}</td>
           <td class="px-3 py-3 text-center text-sm">${
@@ -1103,7 +1107,7 @@ export function renderCapacityOverviewPage(): string {
               <thead class="border-b bg-muted/40 text-muted-foreground">
                 <tr>
                   <th class="px-3 py-2 text-left font-medium">任务ID</th>
-                  <th class="px-3 py-2 text-left font-medium">生产单号</th>
+                  <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                   <th class="px-3 py-2 text-left font-medium">需求类型</th>
                   <th class="px-3 py-2 text-left font-medium">工序 / 工艺</th>
                   <th class="px-3 py-2 text-left font-medium">当前落厂</th>
@@ -1249,7 +1253,7 @@ function renderRiskTaskTable(rows: CapacityRiskTaskRow[]): string {
     .map((row) => `
       <tr class="border-b last:border-0">
         <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
+        <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderId)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
         <td class="px-3 py-3">${renderRiskFactoryCell(row)}</td>
@@ -1274,7 +1278,7 @@ function renderRiskOrderTable(rows: CapacityRiskOrderRow[]): string {
   return rows
     .map((row) => `
       <tr class="border-b last:border-0">
-        <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.productionOrderId)}</td>
+        <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderId)}</td>
         <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.totalOutputValue))}</td>
         <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.allocatedOutputValue))}</td>
         <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.frozenPendingOutputValue))}</td>
@@ -1379,7 +1383,7 @@ export function renderCapacityRiskPage(): string {
                   <thead class="border-b bg-muted/40 text-muted-foreground">
                     <tr>
                       <th class="px-3 py-2 text-left font-medium">任务编号</th>
-                      <th class="px-3 py-2 text-left font-medium">生产单号</th>
+                      <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                       <th class="px-3 py-2 text-left font-medium">工序</th>
                       <th class="px-3 py-2 text-left font-medium">工艺</th>
                       <th class="px-3 py-2 text-left font-medium">当前工厂 / 当前承接对象</th>
@@ -1402,7 +1406,7 @@ export function renderCapacityRiskPage(): string {
                 <table class="w-full text-sm" data-capacity-risk-order-table>
                   <thead class="border-b bg-muted/40 text-muted-foreground">
                     <tr>
-                      <th class="px-3 py-2 text-left font-medium">生产单号</th>
+                      <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                       <th class="px-3 py-2 text-right font-medium">生产单总产值</th>
                       <th class="px-3 py-2 text-right font-medium">已落厂产值</th>
                       <th class="px-3 py-2 text-right font-medium">已冻结待确认产值</th>
@@ -1608,7 +1612,7 @@ function renderBottleneckUnallocatedTable(rows: CapacityBottleneckUnallocatedTas
       <thead class="border-b bg-muted/40 text-muted-foreground">
         <tr>
           <th class="px-3 py-2 text-left font-medium">任务编号</th>
-          <th class="px-3 py-2 text-left font-medium">生产单号</th>
+          <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
           <th class="px-3 py-2 text-left font-medium">工序</th>
           <th class="px-3 py-2 text-left font-medium">工艺</th>
           <th class="px-3 py-2 text-right font-medium">任务总产值</th>
@@ -1624,7 +1628,7 @@ function renderBottleneckUnallocatedTable(rows: CapacityBottleneckUnallocatedTas
             (row) => `
               <tr class="border-b last:border-0" data-bottleneck-unallocated-row="${escapeHtml(row.taskId)}">
                 <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
-                <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
+                <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderId)}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
                 <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.totalOutputValue))}</td>
@@ -1655,7 +1659,7 @@ function renderBottleneckUnscheduledTable(rows: CapacityBottleneckUnscheduledTas
       <thead class="border-b bg-muted/40 text-muted-foreground">
         <tr>
           <th class="px-3 py-2 text-left font-medium">任务编号</th>
-          <th class="px-3 py-2 text-left font-medium">生产单号</th>
+          <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
           <th class="px-3 py-2 text-left font-medium">工序</th>
           <th class="px-3 py-2 text-left font-medium">工艺</th>
           <th class="px-3 py-2 text-right font-medium">任务总产值</th>
@@ -1669,7 +1673,7 @@ function renderBottleneckUnscheduledTable(rows: CapacityBottleneckUnscheduledTas
             (row) => `
               <tr class="border-b last:border-0" data-bottleneck-unscheduled-row="${escapeHtml(row.taskId)}">
                 <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
-                <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
+                <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderId)}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
                 <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
                 <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatOutputValue(row.totalOutputValue))}</td>
