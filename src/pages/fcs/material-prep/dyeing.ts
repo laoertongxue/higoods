@@ -740,7 +740,7 @@ function renderTaskPrepOverview(projection: MaterialPrepOrderProjection): string
 }
 
 function renderPrepModal(projection: MaterialPrepOrderProjection): string {
-  const lines = projection.lines.filter(l => l.canPrepQty > 0)
+  const lines = projection.lines.filter(l => classifyPrepLineType(l) === categoryLabel && l.canPrepQty > 0)
   const closeHref = buildDetailStateHref(projection, { detailTab: 'records' })
   if (!lines.length) return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
@@ -1066,7 +1066,7 @@ export function handleFcsDyeingPrepEvent(target: HTMLElement): boolean {
   if (action === 'create-prep-record') {
     const prepOrderId = actionNode.dataset.prepOrderId || ''
     if (!prepOrderId) return false
-    const record = appendAutoPrepRecordForOrder(prepOrderId, '配料小组 周敏')
+    const record = appendAutoPrepRecordForOrder(prepOrderId, '配料小组 周敏', undefined, categoryLabel)
     if (!record) {
       window.alert('当前配料单没有可配库存，无法新增配料记录。')
       return true

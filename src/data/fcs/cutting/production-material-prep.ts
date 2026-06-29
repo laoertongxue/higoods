@@ -3311,12 +3311,13 @@ export function appendAutoPrepRecordForOrder(
   prepOrderId: string,
   operatorName = '配料小组 周敏',
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+  category?: MaterialPrepCategory,
 ): MaterialPrepRecord | null {
   const projection = listMaterialPrepOrderProjections(storage)
     .find((item) => item.order.prepOrderId === prepOrderId)
   if (!projection || projection.order.isClosed) return null
 
-  const lines = projection.lines.filter((line) => line.canPrepQty > 0)
+  const lines = projection.lines.filter((line) => line.canPrepQty > 0 && (!category || classifyPrepLineType(line) === category))
   if (!lines.length) return null
 
   const store = hydrateProductionMaterialPrepStore(storage)

@@ -61,6 +61,34 @@ const legacyPrepStatusMap: Record<string, MaterialPrepOrderStatus> = {
 const categoryLabel = '裁片配料'
 const pageBasePath = '/fcs/material-prep/cutting'
 
+function getCategoryLines(projection: Pick<MaterialPrepOrderProjection, 'lines'>): MaterialPrepLine[] {
+  return projection.lines.filter((line) => classifyPrepLineType(line) === categoryLabel)
+}
+
+function getCategoryLineIds(projection: Pick<MaterialPrepOrderProjection, 'lines'>): Set<string> {
+  return new Set(getCategoryLines(projection).map((line) => line.prepLineId))
+}
+
+function getCategoryPrepRecords(projection: MaterialPrepOrderProjection): MaterialPrepRecord[] {
+  const lineIds = getCategoryLineIds(projection)
+  return projection.prepRecords.filter((record) =>
+    getMaterialPrepRecordItems(record).some((item) => lineIds.has(item.prepLineId)),
+  )
+}
+
+function getCategoryTaskProjections(projection: MaterialPrepOrderProjection): MaterialPrepOrderProjection['taskProjections'] {
+  const lineIds = getCategoryLineIds(projection)
+  return projection.taskProjections.map((task) => {
+    const materialLines = task.materialLines.filter((line) => lineIds.has(line.prepLineId))
+    return {
+      ...task,
+      materialCount: materialLines.length,
+      prepRecordCount: new Set(materialLines.flatMap((line) => line.prepRecords.map((record) => record.prepRecordId))).size,
+      materialLines,
+    }
+  }).filter((task) => task.materialLines.length > 0)
+}
+
 function filterOrders(): MaterialPrepOrderProjection[] {
   return listMaterialPrepOrderProjections().filter(p =>
     p.lines.some(l => classifyPrepLineType(l) === categoryLabel)
@@ -80,7 +108,7 @@ function filterByKeyword(rows: MaterialPrepOrderProjection[], keyword: string): 
     row.order.styleNo.toLowerCase().includes(kw) ||
     row.order.styleName.toLowerCase().includes(kw) ||
     row.order.spu.toLowerCase().includes(kw) ||
-    row.lines.some((line) => line.materialName.toLowerCase().includes(kw)),
+    getCategoryLines(row).some((line) => line.materialName.toLowerCase().includes(kw)),
   )
 }
 
@@ -250,12 +278,13 @@ function renderLineStockSituation(line: MaterialPrepLine): string {
 }
 
 function renderOrderStockSummary(row: MaterialPrepOrderProjection): string {
-  const availableLines = row.lines.filter((line) => line.availableStockQty > 0).length
-  const totalAvailable = row.lines.reduce((sum, line) => sum + Number(line.availableStockQty || 0), 0)
-  const warehouses = Array.from(new Set(row.lines.filter((line) => line.availableStockQty > 0).map((line) => line.stockWarehouseName)))
+  const lines = getCategoryLines(row)
+  const availableLines = lines.filter((line) => line.availableStockQty > 0).length
+  const totalAvailable = lines.reduce((sum, line) => sum + Number(line.availableStockQty || 0), 0)
+  const warehouses = Array.from(new Set(lines.filter((line) => line.availableStockQty > 0).map((line) => line.stockWarehouseName)))
   return `
     <div class="space-y-1 text-xs">
-      <div>有库存：${availableLines}/${row.lineCount} 行</div>
+      <div>有库存：${availableLines}/${lines.length} 行</div>
       <div>当前库存：${formatQty(totalAvailable)}</div>
       <div class="text-muted-foreground">${warehouses.length ? warehouses.map(escapeHtml).join(' / ') : '暂无可配库存'}</div>
     </div>
@@ -315,6 +344,7 @@ function renderTaskFactoryText(task: MaterialPrepLine['taskLinks'][number]): str
 }
 
 function renderLineTaskLinks(line: MaterialPrepLine): string {
+  if (line.confirmedPrepQty <= 0) return renderBadge('配料确认后分配任务', 'neutral')
   if (!line.taskLinks.length) return renderBadge('确认配料后开放', 'neutral')
   return `
     <div class="space-y-1">
@@ -352,11 +382,12 @@ function renderPrepRecordActions(record: MaterialPrepRecord): string {
 }
 
 function renderOrderMaterialRows(row: MaterialPrepOrderProjection): string {
+  const materialLines = getCategoryLines(row)
   return `
     <div class="rounded-md border bg-background">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
-        <div class="text-sm font-medium">物料配料明细</div>
-        <div class="text-xs text-muted-foreground">配料类型：${escapeHtml(categoryLabel)}</div>
+        <div class="text-sm font-medium">裁片纸样关联物料</div>
+        <div class="text-xs text-muted-foreground">只显示进入${escapeHtml(categoryLabel)}的物料</div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[1500px] text-left text-xs">
@@ -379,7 +410,7 @@ function renderOrderMaterialRows(row: MaterialPrepOrderProjection): string {
             </tr>
           </thead>
           <tbody>
-            ${row.lines.map((line) => `
+            ${materialLines.map((line) => `
               <tr class="border-t">
                 <td class="px-3 py-2">${renderMaterialThumb(line)}</td>
                 <td class="px-3 py-2">${renderBadge(line.materialType, line.materialType === '面料' ? 'info' : line.materialType === '辅料' ? 'warning' : line.materialType === '纱线' ? 'success' : 'neutral')}</td>
@@ -426,12 +457,16 @@ function renderTabs(rows: MaterialPrepOrderProjection[], activeTab: MaterialPrep
 }
 
 function renderDetailTabs(projection: MaterialPrepOrderProjection, activeTab: MaterialPrepDetailTab): string {
+  const materialLines = getCategoryLines(projection)
+  const taskProjections = getCategoryTaskProjections(projection)
+  const prepRecords = getCategoryPrepRecords(projection)
+  const lineIds = getCategoryLineIds(projection)
   const tabs: Array<{ key: MaterialPrepDetailTab; label: string; count?: string }> = [
     { key: 'demand', label: '生产需求信息' },
-    { key: 'inventory', label: '当前各仓库存信息与上游进度', count: `${projection.lineCount} 行` },
-    { key: 'tasks', label: '按任务查看配料情况', count: `${projection.taskProjections.length} 个任务` },
-    { key: 'records', label: '配料记录', count: `${projection.prepRecords.length} 条` },
-    { key: 'pickup', label: '与配料记录关联的领料记录', count: `${projection.pickupRecords.length + projection.rejectRecords.length} 条` },
+    { key: 'inventory', label: '当前各仓库存信息与上游进度', count: `${materialLines.length} 行` },
+    { key: 'tasks', label: '按任务查看配料情况', count: `${taskProjections.length} 个任务` },
+    { key: 'records', label: '配料记录', count: `${prepRecords.length} 条` },
+    { key: 'pickup', label: '与配料记录关联的领料记录', count: `${projection.pickupRecords.filter((record) => lineIds.has(record.prepLineId)).length + projection.rejectRecords.filter((record) => lineIds.has(record.prepLineId)).length} 条` },
   ]
   return `
     <section class="rounded-lg border bg-card px-4 py-3">
@@ -684,12 +719,13 @@ function renderTaskPrepRecordRefs(
 }
 
 function renderTaskPrepOverview(projection: MaterialPrepOrderProjection): string {
+  const taskProjections = getCategoryTaskProjections(projection)
   return `
     <section class="rounded-lg border bg-card p-4">
       <h3 class="text-base font-semibold">任务维度配料情况</h3>
-      <p class="mt-1 text-sm text-muted-foreground">以任务的维度展示配料情况：这是个什么任务、任务需要哪些物料、这些物料需要多少、配了多少、领了多少，以及有哪些配料记录。分配完成后会回写任务工厂和分配时间。</p>
+      <p class="mt-1 text-sm text-muted-foreground">配料确认后再进入任务分配；这里仅展示已进入${escapeHtml(categoryLabel)}的物料与下游任务回写情况。</p>
       <div class="mt-3 space-y-4">
-        ${projection.taskProjections.length ? projection.taskProjections.map((task) => `
+        ${taskProjections.length ? taskProjections.map((task) => `
           <article class="rounded-md border bg-background">
             <div class="flex flex-wrap items-start justify-between gap-3 border-b px-3 py-3">
               <div>
@@ -903,12 +939,12 @@ function getPrepRecordNumber(projection: MaterialPrepOrderProjection, recordId?:
 }
 
 function renderPrepMaterialInputTable(projection: MaterialPrepOrderProjection): string {
-  const materialLines = projection.lines
+  const materialLines = getCategoryLines(projection)
   return `
     <div class="mt-4 rounded-md border">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
-        <div class="text-sm font-medium">生产单所需全部物料</div>
-        <div class="text-xs text-muted-foreground">按行填写本次配料数量和卷/件数；确认对象仍是整条配料记录。</div>
+        <div class="text-sm font-medium">裁片纸样关联物料</div>
+        <div class="text-xs text-muted-foreground">只填写进入${escapeHtml(categoryLabel)}的物料；确认后再开放任务分配。</div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[1500px] text-left text-sm">
@@ -970,7 +1006,7 @@ function renderPrepMaterialInputTable(projection: MaterialPrepOrderProjection): 
 
 function renderAddPrepRecordModal(projection: MaterialPrepOrderProjection, activeTab: MaterialPrepDetailTab): string {
   const closeHref = buildDetailStateHref(projection, { detailTab: activeTab })
-  const materialLines = projection.lines
+  const materialLines = getCategoryLines(projection)
   const needPrepCount = materialLines.filter((line) => line.remainingNeedQty > 0).length
   const nextRecordNumber = getPrepRecordNumber(projection)
   return `
@@ -979,7 +1015,7 @@ function renderAddPrepRecordModal(projection: MaterialPrepOrderProjection, activ
         <div class="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <h2 class="text-lg font-semibold">新增配料记录</h2>
-            <p class="mt-1 text-sm text-muted-foreground">默认展示该生产单全部 ${materialLines.length} 行物料，其中 ${needPrepCount} 行仍需配料；配料人只填写本次实际配料数量，不配的行保持 0。</p>
+            <p class="mt-1 text-sm text-muted-foreground">默认展示${escapeHtml(categoryLabel)} ${materialLines.length} 行物料，其中 ${needPrepCount} 行仍需配料；配料确认后再分配任务。</p>
           </div>
           <button type="button" data-nav="${escapeHtml(closeHref)}" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted">关闭</button>
         </div>
@@ -1053,7 +1089,7 @@ function renderContinuePrepRecordModal(
 
 function renderClosePrepOrderModal(projection: MaterialPrepOrderProjection, activeTab: MaterialPrepDetailTab): string {
   const closeHref = buildDetailStateHref(projection, { detailTab: activeTab })
-  const gapLines = projection.lines.filter((line) => line.remainingNeedQty > 0)
+  const gapLines = getCategoryLines(projection).filter((line) => line.remainingNeedQty > 0)
   const gapSummary = Array.from(
     gapLines.reduce((summary, line) => {
       summary.set(line.unit, Number(summary.get(line.unit) || 0) + Number(line.remainingNeedQty || 0))
@@ -1130,19 +1166,25 @@ function renderClosePrepOrderModal(projection: MaterialPrepOrderProjection, acti
 }
 
 function renderDetail(projection: MaterialPrepOrderProjection, activeTab: MaterialPrepDetailTab): string {
+  const materialLines = getCategoryLines(projection)
+  const prepRecords = getCategoryPrepRecords(projection)
+  const lineIds = getCategoryLineIds(projection)
   const content = activeTab === 'inventory'
-    ? renderInventoryProgress(projection.lines)
+    ? renderInventoryProgress(materialLines)
     : activeTab === 'tasks'
       ? renderTaskPrepOverview(projection)
     : activeTab === 'records'
       ? renderPrepRecords(
-          projection.prepRecords,
-          projection.lines,
+          prepRecords,
+          materialLines,
           buildDetailStateHref(projection, { detailTab: 'records', prepModal: true }),
           (record) => buildDetailStateHref(projection, { detailTab: 'records', continuePrepRecordId: record.prepRecordId }),
         )
-      : activeTab === 'pickup'
-        ? renderPickupRecords(projection.pickupRecords, projection.rejectRecords)
+    : activeTab === 'pickup'
+        ? renderPickupRecords(
+            projection.pickupRecords.filter((record) => lineIds.has(record.prepLineId)),
+            projection.rejectRecords.filter((record) => lineIds.has(record.prepLineId)),
+          )
         : renderProductionDemand(projection)
   return `
     <div class="space-y-4">
@@ -1275,7 +1317,7 @@ export function handleFcsCuttingPrepEvent(target: HTMLElement): boolean {
   if (action === 'create-prep-record') {
     const prepOrderId = actionNode.dataset.prepOrderId || ''
     if (!prepOrderId) return false
-    const record = appendAutoPrepRecordForOrder(prepOrderId, '配料小组 周敏')
+    const record = appendAutoPrepRecordForOrder(prepOrderId, '配料小组 周敏', undefined, categoryLabel)
     if (!record) {
       window.alert('当前配料单没有可配库存，无法新增配料记录。')
       return true
