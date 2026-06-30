@@ -69,6 +69,15 @@ export interface ProductionTaskGenerationRule {
   updatedBy: string
 }
 
+export interface ProductionTaskGenerationRuleLog {
+  logId: string
+  ruleId: string
+  operatedAt: string
+  operator: string
+  action: string
+  detail: string
+}
+
 export type TaskGenerationPreviewStatus =
   | 'READY'
   | 'NEED_CONFIRM'
@@ -217,6 +226,25 @@ const RULES: ProductionTaskGenerationRule[] = [
   },
 ]
 
+const RULE_LOGS: ProductionTaskGenerationRuleLog[] = RULES.flatMap((rule) => [
+  {
+    logId: `${rule.ruleId}-LOG-001`,
+    ruleId: rule.ruleId,
+    operatedAt: rule.createdAt,
+    operator: rule.updatedBy,
+    action: '创建规则',
+    detail: `创建${rule.ruleName}，优先级 ${rule.priority}，适用售卖类型 ${rule.saleTypes.join('、') || '全部'}。`,
+  },
+  {
+    logId: `${rule.ruleId}-LOG-002`,
+    ruleId: rule.ruleId,
+    operatedAt: rule.updatedAt,
+    operator: rule.updatedBy,
+    action: rule.enabled ? '启用规则' : '停用规则',
+    detail: `${rule.enabled ? '启用' : '停用'}规则，独立拆出工序 ${rule.independentProcessCodes.join('、') || '无'}，其余工序${rule.remainingProcessStrategy === 'MERGE_TO_WHOLE_ORDER_TASK' ? '合并为整单任务' : rule.remainingProcessStrategy === 'MERGE_TO_COMBINED_TASK' ? '合并为组合任务' : '默认按工序生成'}。`,
+  },
+])
+
 function uniqueCoveredProcesses(artifacts: GeneratedTaskArtifact[]): CoveredProcessScope[] {
   const byKey = new Map<string, CoveredProcessScope>()
   for (const artifact of artifacts) {
@@ -267,6 +295,12 @@ export function listProductionTaskGenerationRules(): ProductionTaskGenerationRul
 
 export function getProductionTaskGenerationRuleById(ruleId: string): ProductionTaskGenerationRule | undefined {
   return listProductionTaskGenerationRules().find((rule) => rule.ruleId === ruleId)
+}
+
+export function listProductionTaskGenerationRuleLogs(ruleId: string): ProductionTaskGenerationRuleLog[] {
+  return RULE_LOGS
+    .filter((log) => log.ruleId === ruleId)
+    .map((log) => ({ ...log }))
 }
 
 export function matchProductionTaskGenerationRule(orderId: string): ProductionTaskGenerationRule | undefined {

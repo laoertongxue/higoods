@@ -301,6 +301,18 @@ export const renderProductionTaskGenerationRulesPage = createAsyncRenderer(
   () => import('../pages/production/task-generation-rules'),
   'renderProductionTaskGenerationRulesPage',
 )
+export const renderProductionTaskGenerationRuleCreatePage = createAsyncRenderer(
+  () => import('../pages/production/task-generation-rules'),
+  'renderProductionTaskGenerationRuleCreatePage',
+)
+export const renderProductionTaskGenerationRuleDetailPage = createAsyncRenderer(
+  () => import('../pages/production/task-generation-rules'),
+  'renderProductionTaskGenerationRuleDetailPage',
+)
+export const renderProductionTaskGenerationRuleEditPage = createAsyncRenderer(
+  () => import('../pages/production/task-generation-rules'),
+  'renderProductionTaskGenerationRuleEditPage',
+)
 export const renderProductionOrdersPage = createAsyncRenderer(() => import('../pages/production/orders-domain'), 'renderProductionOrdersPage')
 export const renderProductionPlanPage = createAsyncRenderer(() => import('../pages/production'), 'renderProductionPlanPage')
 export const renderProductionDeliveryWarehousePage = createAsyncRenderer(

@@ -27,6 +27,9 @@ import {
   renderProductionChangesPage,
   renderProductionCraftDictPage,
   renderProductionDemandInboxPage,
+  renderProductionTaskGenerationRuleCreatePage,
+  renderProductionTaskGenerationRuleDetailPage,
+  renderProductionTaskGenerationRuleEditPage,
   renderProductionTaskGenerationRulesPage,
   renderProductionConfirmationPrintPage,
   renderTaskDeliveryCardPrintPage,
@@ -206,6 +209,7 @@ export const routes: RouteRegistry = {
     '/fcs/capacity/constraints': () => renderCapacityConstraintsPage(),
     '/fcs/capacity/policies': () => renderCapacityPoliciesPage(),
     '/fcs/production/task-generation-rules': () => renderProductionTaskGenerationRulesPage(),
+    '/fcs/production/task-generation-rules/new': () => renderProductionTaskGenerationRuleCreatePage(),
     '/fcs/production/demand-inbox': () => renderProductionDemandInboxPage(),
     '/fcs/production/orders': () => renderProductionOrdersPage(),
     '/fcs/production/plan': () => renderProductionPlanPage(),
@@ -460,6 +464,14 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/production\/orders\/([^/]+)$/,
       render: (match) => renderProductionOrderDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/fcs\/production\/task-generation-rules\/([^/]+)\/edit$/,
+      render: (match) => renderProductionTaskGenerationRuleEditPage(decodeURIComponent(match[1])),
+    },
+    {
+      pattern: /^\/fcs\/production\/task-generation-rules\/([^/]+)$/,
+      render: (match) => renderProductionTaskGenerationRuleDetailPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/progress\/cutting-overview\/([^/]+)$/,

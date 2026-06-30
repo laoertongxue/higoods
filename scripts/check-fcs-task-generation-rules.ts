@@ -23,6 +23,10 @@ function assertNotIncludes(source: string, token: string, message: string): void
   assert(!source.includes(token), message)
 }
 
+function assertMatches(source: string, pattern: RegExp, message: string): void {
+  assert(pattern.test(source), message)
+}
+
 function getMenuSection(source: string, sectionKey: string): string {
   const start = source.indexOf(`key: '${sectionKey}'`)
   assert(start >= 0, `菜单缺少 ${sectionKey}`)
@@ -62,8 +66,17 @@ async function main(): Promise<void> {
   assertNotIncludes(processMenu, 'production-task-generation-rules', '任务编排与执行准备下不得出现生产单任务生成规则')
 
   assertIncludes(routesSource, '/fcs/production/task-generation-rules', 'routes-fcs.ts 缺少任务生成规则路由')
+  assertIncludes(routesSource, '/fcs/production/task-generation-rules/new', 'routes-fcs.ts 缺少新增规则页面路由')
+  assertIncludes(routesSource, 'renderProductionTaskGenerationRuleDetailPage', 'routes-fcs.ts 缺少规则详情页面路由')
+  assertIncludes(routesSource, 'renderProductionTaskGenerationRuleEditPage', 'routes-fcs.ts 缺少编辑规则页面路由')
   assertIncludes(rendererFcsSource, 'renderProductionTaskGenerationRulesPage', 'route-renderers-fcs.ts 缺少任务生成规则 renderer')
+  assertIncludes(rendererFcsSource, 'renderProductionTaskGenerationRuleCreatePage', 'route-renderers-fcs.ts 缺少新增规则 renderer')
+  assertIncludes(rendererFcsSource, 'renderProductionTaskGenerationRuleDetailPage', 'route-renderers-fcs.ts 缺少规则详情 renderer')
+  assertIncludes(rendererFcsSource, 'renderProductionTaskGenerationRuleEditPage', 'route-renderers-fcs.ts 缺少编辑规则 renderer')
   assertIncludes(rendererSource, 'renderProductionTaskGenerationRulesPage', 'route-renderers.ts 缺少任务生成规则 renderer')
+  assertIncludes(rendererSource, 'renderProductionTaskGenerationRuleCreatePage', 'route-renderers.ts 缺少新增规则 renderer')
+  assertIncludes(rendererSource, 'renderProductionTaskGenerationRuleDetailPage', 'route-renderers.ts 缺少规则详情 renderer')
+  assertIncludes(rendererSource, 'renderProductionTaskGenerationRuleEditPage', 'route-renderers.ts 缺少编辑规则 renderer')
   assert(exists('src/pages/production/task-generation-rules.ts'), '缺少规则页面 src/pages/production/task-generation-rules.ts')
   assert(exists('src/data/fcs/production-task-generation-rules.ts'), '缺少规则域 src/data/fcs/production-task-generation-rules.ts')
 
@@ -89,9 +102,37 @@ async function main(): Promise<void> {
     assertIncludes(ordersDomainSource, token, `生产单列表缺少 ${token}`)
   })
 
-  ;['新增/编辑规则抽屉', '基础信息', '触发条件', '工序处理', '任务单元设置', 'PDA执行设置', '不可生成原因'].forEach((token) => {
+  ;['renderProductionTaskGenerationRuleCreatePage', 'renderProductionTaskGenerationRuleEditPage', 'renderProductionTaskGenerationRuleDetailPage', 'renderRuleDetailPage', '新增规则', '编辑规则', '规则详情', '基础信息', '触发条件', '工序处理', '任务单元设置', 'PDA执行设置', '规则日志', '不可生成原因'].forEach((token) => {
     assertIncludes(rulesPageSource, token, `规则页面缺少 ${token}`)
   })
+  ;['搜索结果', '进入自动分配'].forEach((token) => {
+    assertIncludes(rulesPageSource, token, `规则页面列表统计缺少 ${token}`)
+  })
+  ;[
+    ['适用售卖类型', /field: 'sale-types'/],
+    ['指定工厂', /field: 'factory-ids'/],
+    ['独立拆出工序', /field: 'independent-process-codes'/],
+  ].forEach(([label, pattern]) => {
+    assertMatches(rulesPageSource, pattern as RegExp, `规则配置 ${label} 必须使用下拉列表`)
+  })
+  assertIncludes(rulesPageSource, '<details class="relative', '多选字段必须使用下拉结构')
+  assertIncludes(rulesPageSource, 'type="checkbox"', '多选字段必须支持多选')
+  assertIncludes(rulesPageSource, 'productionDemands', '适用售卖类型必须来源于生产需求单')
+  assertIncludes(rulesPageSource, 'demand.saleType', '适用售卖类型必须取生产需求单 saleType')
+  assertIncludes(rulesPageSource, 'listFactoryMasterRecords', '指定工厂必须来源于工厂档案')
+  assertIncludes(rulesPageSource, 'factory.id', '指定工厂选项必须展示工厂ID')
+  assertIncludes(rulesPageSource, 'factory.name', '指定工厂选项必须展示工厂名称')
+  assertIncludes(rulesPageSource, 'whitespace-normal break-words', '指定工厂完整名称必须可换行展示')
+  assertIncludes(rulesPageSource, 'listProcessDefinitions', '独立拆出工序必须来源于工序工艺字典')
+  assertIncludes(rulesPageSource, 'definition.processCode', '独立拆出工序必须使用工序编码')
+  assertIncludes(rulesPageSource, 'label: definition.processName', '独立拆出工序必须展示工序中文名称')
+  assertIncludes(rulesPageSource, 'formatProcessCodes(rule.independentProcessCodes)', '规则列表独立拆出工序必须展示中文名称')
+  assertIncludes(rulesPageSource, '查看日志', '规则列表操作栏必须有查看日志')
+  assertIncludes(rulesPageSource, 'renderRuleLogDialog(rule)', '规则日志必须由列表页弹窗承载')
+  assertIncludes(rulesPageSource, 'listProductionTaskGenerationRuleLogs', '规则日志弹窗必须读取规则日志')
+  assertNotIncludes(rulesPageSource, "renderRuleFormPage(rule, 'detail')", '详情页不得复用表单渲染')
+  assertNotIncludes(rulesPageSource, 'task-generation-rule-editor', '新增/编辑/详情不得继续使用侧边栏弹窗')
+  assertNotIncludes(rulesPageSource, '<aside class="rounded-lg border bg-card">', '规则编辑区不得继续平铺在页面正文')
 
   assertIncludes(dispatchCoreSource, '独立任务自动分配配置', '自动分配弹窗未收窄为独立任务')
   assertIncludes(dispatchDomainSource, 'COMBINED_PROCESS_TASK', '自动分配未跳过组合工序任务')
@@ -110,10 +151,15 @@ async function main(): Promise<void> {
   assert.equal(typeof ruleDomain.buildTaskGenerationPreview, 'function', '缺少 buildTaskGenerationPreview')
   assert.equal(typeof ruleDomain.buildBatchTaskGenerationPreview, 'function', '缺少 buildBatchTaskGenerationPreview')
   assert.equal(typeof ruleDomain.listProductionTaskGenerationRules, 'function', '缺少 listProductionTaskGenerationRules')
+  assert.equal(typeof ruleDomain.listProductionTaskGenerationRuleLogs, 'function', '缺少 listProductionTaskGenerationRuleLogs')
 
   const rules = ruleDomain.listProductionTaskGenerationRules()
   assert(rules.length >= 4, '至少需要 4 条任务生成规则')
   assert(rules.some((rule: { ruleName: string }) => rule.ruleName.includes('KOL样衣整单承接')), '缺少 KOL 样衣整单承接规则')
+  for (const rule of rules) {
+    const logs = ruleDomain.listProductionTaskGenerationRuleLogs(rule.ruleId)
+    assert(Array.isArray(logs) && logs.length > 0, `规则 ${rule.ruleId} 必须有日志`)
+  }
 
   const previews = ruleDomain.buildBatchTaskGenerationPreview([])
   assert(Array.isArray(previews), 'buildBatchTaskGenerationPreview 必须返回数组')
