@@ -221,6 +221,7 @@ import {
   closeFactoryWarehouseSharedDialogs,
   handleFactoryWarehouseSharedEvent,
 } from '../pages/process-factory/shared/warehouse-standard'
+import { closeProductionObjectOverlays } from '../components/production-object-overview'
 
 export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
@@ -382,6 +383,10 @@ export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
 }
 
 export function closeFcsDialogsOnEscape(): boolean {
+  if (closeProductionObjectOverlays()) {
+    return true
+  }
+
   if (closeFactoryWarehouseSharedDialogs()) {
     return true
   }

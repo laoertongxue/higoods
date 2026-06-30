@@ -1385,6 +1385,19 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'open-orders-tech-pack-snapshot-dialog') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    state.ordersActionMenuId = null
+    state.ordersTechPackSnapshotDialogId = orderId
+    return true
+  }
+
+  if (action === 'close-orders-tech-pack-snapshot-dialog') {
+    state.ordersTechPackSnapshotDialogId = null
+    return true
+  }
+
   if (action === 'open-orders-logs') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
@@ -1815,6 +1828,7 @@ export function isProductionDialogOpen(): boolean {
     state.demandSingleGenerateId !== null ||
     state.demandGenerateConfirmOpen ||
     state.ordersDemandSnapshotId !== null ||
+    state.ordersTechPackSnapshotDialogId !== null ||
     state.ordersLogsId !== null ||
     state.ordersBreakdownReadinessOrderId !== null ||
     state.materialDraftOrderId !== null ||

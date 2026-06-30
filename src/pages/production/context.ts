@@ -46,6 +46,7 @@ import {
   type RuntimeTaskSplitGroupSnapshot,
 } from '../../data/fcs/runtime-process-tasks'
 import {
+  recordTaskGenerationPreview,
   resolveTaskOutputValueSnapshot,
 } from '../../data/fcs/process-tasks'
 import { summarizeTaskDetailRows } from '../../data/fcs/task-detail-rows'
@@ -229,6 +230,7 @@ interface ProductionState {
   ordersCurrentPage: number
   ordersSelectedIds: Set<string>
   ordersDemandSnapshotId: string | null
+  ordersTechPackSnapshotDialogId: string | null
   ordersLogsId: string | null
   ordersActionMenuId: string | null
   ordersBreakdownReadinessOrderId: string | null
@@ -1032,8 +1034,9 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
     const preview = previewByOrderId.get(order.productionOrderId)
     if (!preview || preview.status === 'BLOCKED') return order
 
+    const runtimeRecord = recordTaskGenerationPreview(preview)
     changedCount += 1
-    const totalTasks = Math.max(1, preview.generatedUnits.length + preview.independentDemandObjects.length)
+    const totalTasks = preview.generatedUnits.length
     const directCount = preview.generatedUnits.filter((unit) => !unit.allowAutoDispatch || unit.taskUnitType === 'SINGLE_PROCESS_TASK').length
     const biddingCount = Math.max(0, totalTasks - directCount)
     const coveredProcessNames = Array.from(new Set(preview.generatedUnits.flatMap((unit) => unit.coveredProcesses.map((item) => item.craftName || item.processName))))
@@ -1071,7 +1074,9 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
         generationRuleName: preview.matchedRuleName,
         generatedTaskUnitCount: preview.generatedUnits.length,
         singleProcessTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'SINGLE_PROCESS_TASK').length,
-        independentWorkOrderTaskCount: preview.independentDemandObjects.length,
+        independentWorkOrderTaskCount: runtimeRecord.independentWorkOrderCount,
+        independentRequirementCount: runtimeRecord.independentRequirementCount,
+        independentWorkOrderCount: runtimeRecord.independentWorkOrderCount,
         combinedProcessTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'COMBINED_PROCESS_TASK').length,
         wholeOrderTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'WHOLE_ORDER_TASK').length,
         coveredProcessNames,
@@ -1500,6 +1505,7 @@ function getOrderTechPackInfo(order: ProductionOrder): {
 }
 
 function getOrderTechPackSnapshotDisplay(order: ProductionOrder): {
+  techPackVersionLabelText: string
   techPackVersionText: string
   techPackSnapshotAt: string
   garmentDifficultyGrade: string
@@ -1513,9 +1519,12 @@ function getOrderTechPackSnapshotDisplay(order: ProductionOrder): {
   const sourceTechPackRecordByCode = !sourceTechPackRecord && order.techPackSnapshot?.sourceTechPackVersionCode
     ? listTechnicalDataVersions().find((record) => record.technicalVersionCode === order.techPackSnapshot?.sourceTechPackVersionCode) ?? null
     : null
+  const techPackVersionCodeText = order.techPackSnapshot?.sourceTechPackVersionCode || '-'
+  const techPackVersionLabelText = order.techPackSnapshot?.sourceTechPackVersionLabel || '-'
   return {
+    techPackVersionLabelText: order.techPackSnapshot ? techPackVersionLabelText : '-',
     techPackVersionText: order.techPackSnapshot
-      ? `${order.techPackSnapshot.sourceTechPackVersionCode || '-'} / ${order.techPackSnapshot.sourceTechPackVersionLabel || '-'}`
+      ? `${techPackVersionCodeText} / ${techPackVersionLabelText}`
       : '暂无技术包快照',
     techPackSnapshotAt: order.techPackSnapshot?.snapshotAt || '-',
     garmentDifficultyGrade:
@@ -1833,6 +1842,7 @@ function closeAllProductionDialogs(): void {
   state.demandGenerateTechPackVersionId = ''
   state.demandGenerateTechPackVersionIds = {}
   state.ordersDemandSnapshotId = null
+  state.ordersTechPackSnapshotDialogId = null
   state.ordersLogsId = null
   state.ordersBreakdownReadinessOrderId = null
   state.taskGenerationPreview = null
@@ -1899,6 +1909,7 @@ const state: ProductionState = {
   ordersCurrentPage: 1,
   ordersSelectedIds: new Set<string>(),
   ordersDemandSnapshotId: null,
+  ordersTechPackSnapshotDialogId: null,
   ordersLogsId: null,
   ordersActionMenuId: null,
   ordersBreakdownReadinessOrderId: null,

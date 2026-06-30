@@ -31,6 +31,9 @@ export const OWN_WOOL_FACTORY_NAME = '周哥毛织厂'
 export const DEDICATED_POST_FACTORY_ID = 'PF-DEDICATED-001'
 export const DEDICATED_POST_FACTORY_CODE = 'POST-FIN-001'
 export const DEDICATED_POST_FACTORY_NAME = 'HiGood 后道工厂'
+export const KOL_GOTO_FACTORY_ID = 'KOL-GOTO-001'
+export const KOL_GOTO_FACTORY_CODE = 'KOL-GOTO'
+export const KOL_GOTO_FACTORY_NAME = 'kol goto'
 
 export function formatFactoryDisplayName(factoryName?: string | null, factoryCodeOrId?: string | null): string {
   const normalizedName = factoryName?.trim() || ''
@@ -351,6 +354,85 @@ const dedicatedPostFactory: Factory = {
   },
 }
 
+const kolGotoProcessCodes = ['CUT_PANEL', 'SEW', 'SPECIAL_CRAFT', 'POST_FINISHING'] as const
+
+function normalizeKolGotoProcessAbility(ability: FactoryProcessAbility): FactoryProcessAbility {
+  if (ability.processCode === 'SPECIAL_CRAFT') {
+    return {
+      ...ability,
+      processName: '辅助工艺 / 特殊工艺',
+      abilityName: '辅助工艺 / 特殊工艺',
+      craftNames: Array.from(new Set(['辅助工艺', ...(ability.craftNames ?? []), '特殊工艺'])),
+    }
+  }
+
+  if (ability.processCode === 'POST_FINISHING') {
+    return {
+      ...ability,
+      processName: '后道 / 质检 / 复检 / 包装',
+      abilityName: '后道 / 质检 / 复检 / 包装',
+      craftNames: Array.from(new Set(['质检', '后道', '复检', ...(ability.craftNames ?? []), '包装'])),
+      capacityNodeCodes: [...POST_CAPACITY_NODE_CODES],
+      capacityManaged: true,
+    }
+  }
+
+  return ability
+}
+
+const kolGotoFactory: Factory = {
+  id: KOL_GOTO_FACTORY_ID,
+  code: KOL_GOTO_FACTORY_CODE,
+  name: KOL_GOTO_FACTORY_NAME,
+  factoryShortName: KOL_GOTO_FACTORY_NAME,
+  address: '印尼雅加达 KOL 小单整单承接中心',
+  contact: 'KOL 整单负责人',
+  mobilePhone: '+62 21 8800 0810',
+  phone: '+62 21 8800 0810',
+  status: 'active',
+  cooperationMode: 'general',
+  processAbilities: kolGotoProcessCodes
+    .map((processCode) => createProcessAbility(processCode, { tags: [], factoryType: 'THIRD_SEWING' }))
+    .filter((item): item is FactoryProcessAbility => Boolean(item))
+    .map(normalizeKolGotoProcessAbility)
+    .map((item) => ({
+      ...item,
+      canReceiveTask: true,
+      status: 'ACTIVE',
+    })),
+  qualityScore: 96,
+  deliveryScore: 95,
+  createdAt: '2026-06-30 09:00:00',
+  updatedAt: '2026-06-30 09:00:00',
+  factoryTier: 'THIRD_PARTY',
+  factoryType: 'THIRD_SEWING',
+  pdaEnabled: true,
+  pdaTenantId: KOL_GOTO_FACTORY_ID,
+  eligibility: {
+    allowDispatch: true,
+    allowBid: false,
+    allowExecute: true,
+    allowSettle: true,
+  },
+  taskAcceptanceConfig: {
+    singleProcessEnabled: true,
+    continuousProcessEnabled: false,
+    wholeOrderEnabled: true,
+    continuousRules: [],
+    wholeOrderRule: {
+      enabled: true,
+      applicableSaleTypes: ['KOL样衣', 'KOL样品小单'],
+      excludedProcessCodes: ['PRINT', 'DYE'],
+      defaultTaskName: 'KOL整单任务',
+      allowRuleRecommendation: true,
+      handoverReceiverKind: 'WAREHOUSE',
+      handoverReceiverName: '仓库',
+      pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+      remark: 'KOL 样衣和样品小单整单承接；印花、染色保持独立需求链路。',
+    },
+  },
+}
+
 export const specialCraftDedicatedFactories: Factory[] = specialCraftDedicatedFactorySeeds.map((seed) => {
   const processName = seed.managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? '辅助工艺' : '特种工艺'
   return {
@@ -395,6 +477,7 @@ export const specialCraftDedicatedFactories: Factory[] = specialCraftDedicatedFa
 })
 
 export const mockFactories: Factory[] = [
+  kolGotoFactory,
   dedicatedPostFactory,
   ...generatedFactories,
   allProcessCraftTestFactory,

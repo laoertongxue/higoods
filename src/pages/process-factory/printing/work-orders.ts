@@ -7,6 +7,7 @@ import {
 import { buildPrintingWorkOrderDetailLink, buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
+import { renderProductionObjectCodeButton } from '../../../data/fcs/production-order-identity.ts'
 import {
   formatPrintProcessQty,
   getPrintQuantityLabel,
@@ -46,7 +47,12 @@ function renderOrdersTable(): string {
       return `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3">
-            <div class="font-mono text-xs font-medium">${escapeHtml(order.printOrderNo)}</div>
+            <div class="font-mono text-xs font-medium">${renderProductionObjectCodeButton({
+              objectType: 'PRINT_WORK_ORDER',
+              objectId: order.printOrderNo,
+              label: order.printOrderNo,
+              className: 'font-mono text-blue-600 hover:underline',
+            })}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.patternNo)} / ${escapeHtml(order.patternVersion)}</div>
           </td>
           <td class="px-3 py-3">

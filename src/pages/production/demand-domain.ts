@@ -37,6 +37,7 @@ import type {
 } from '../../data/fcs/production-tech-pack-snapshot-builder.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../../data/fcs/production-order-identity'
 
@@ -47,7 +48,14 @@ function renderProductionDemandIdentityCell(demand: ProductionDemand): string {
     <div class="min-w-[13rem] space-y-2 text-sm leading-5">
       <div>
         <span class="text-xs text-muted-foreground">需求单号</span>
-        <div class="font-mono font-medium text-foreground">${escapeHtml(demand.demandId)}</div>
+        <button
+          type="button"
+          class="font-mono font-medium text-blue-600 hover:underline"
+          data-production-object-action="open"
+          data-object-type="DEMAND"
+          data-object-id="${escapeHtml(demand.demandId)}"
+          data-skip-page-rerender="true"
+        >${escapeHtml(demand.demandId)}</button>
       </div>
       <div>
         <span class="text-xs text-muted-foreground">ID商品采购单单号</span>
@@ -351,11 +359,13 @@ function renderTechPackVersionOptionLabel(option: DemandPublishedTechPackVersion
 
 function renderDemandSpuInfo(demand: ProductionDemand, compact = false): string {
   const imageUrl = resolveProductionSpuImageUrl(demand)
+  const overviewObjectType = demand.productionOrderId ? 'PRODUCTION_ORDER' : 'DEMAND'
+  const overviewObjectId = demand.productionOrderId || demand.demandId
   return `
     <div class="flex min-w-0 items-center gap-3">
       ${renderProductionImageThumb(imageUrl, demand.spuName, compact ? 'h-10 w-10' : 'h-12 w-12')}
       <div class="min-w-0">
-        <div class="font-mono text-xs text-muted-foreground">${escapeHtml(demand.spuCode)}</div>
+        <div class="text-xs">${renderProductionObjectCodeButton({ objectType: overviewObjectType, objectId: overviewObjectId, label: demand.spuCode, className: 'font-mono text-blue-600 hover:underline' })}</div>
         <div class="truncate font-medium" title="${escapeHtml(demand.spuName)}">${escapeHtml(demand.spuName)}</div>
         <div class="mt-0.5 truncate text-xs text-muted-foreground">买手：${escapeHtml(demand.buyerName)} · 跟单：${escapeHtml(demand.merchandiserName)}</div>
       </div>

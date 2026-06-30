@@ -9,6 +9,7 @@ import { shellIcons } from '../icons/shell-icons'
 import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 import { systems } from '../data/app-shell-config'
 import { escapeHtml, toClassName } from '../utils'
+import { renderProductionObjectFloatingEntry } from './production-object-overview'
 
 function toKebabCaseIcon(name: string): string {
   return name
@@ -341,6 +342,7 @@ export function renderAppShell(state: AppState, pageContent: string): string {
           </div>
         </main>
       </div>
+      ${renderProductionObjectFloatingEntry(state.pathname)}
     </div>
   `
 }

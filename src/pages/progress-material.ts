@@ -3,6 +3,7 @@ import { escapeHtml } from '../utils'
 import { productionOrders } from '../data/fcs/production-orders'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity'
 import { cuttingMaterialPrepGroups } from '../data/fcs/cutting/material-prep'
@@ -417,8 +418,18 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
                       (row) => `
                         <tr class="border-b last:border-b-0">
                           <td class="px-3 py-2">${renderProductionOrderIdentityCell(row.productionOrderNo)}</td>
-                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.cutOrderNo)}</td>
-                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.materialSku)}</td>
+                          <td class="px-3 py-2 text-xs">${renderProductionObjectCodeButton({
+                            objectType: 'PRODUCTION_ORDER',
+                            objectId: row.productionOrderNo,
+                            label: row.cutOrderNo,
+                            className: 'font-mono text-blue-600 hover:underline',
+                          })}</td>
+                          <td class="px-3 py-2 text-xs">${renderProductionObjectCodeButton({
+                            objectType: 'MATERIAL',
+                            objectId: row.materialSku,
+                            label: row.materialSku,
+                            className: 'font-mono text-blue-600 hover:underline',
+                          })}</td>
                           <td class="px-3 py-2">${escapeHtml(row.materialTypeLabel)}</td>
                           <td class="px-3 py-2">${row.configuredRollCount}</td>
                           <td class="px-3 py-2">${row.configuredLength}</td>
@@ -496,7 +507,12 @@ function renderMaterialRequestSection(rows: MaterialRequestRecord[]): string {
                           <td class="px-3 py-2">${escapeHtml(row.taskName)}</td>
                           <td class="px-3 py-2 font-mono text-xs">${escapeHtml(formatTaskScope(runtimeTask))}</td>
                           <td class="px-3 py-2">${escapeHtml(runtimeTask?.assignedFactoryName ?? '待分配')}</td>
-                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.materialRequestNo)}</td>
+                          <td class="px-3 py-2 text-xs">${renderProductionObjectCodeButton({
+                            objectType: 'PRODUCTION_ORDER',
+                            objectId: row.productionOrderNo,
+                            label: row.materialRequestNo,
+                            className: 'font-mono text-blue-600 hover:underline',
+                          })}</td>
                           <td class="px-3 py-2">${escapeHtml(row.materialModeLabel)}</td>
                           <td class="px-3 py-2">${escapeHtml(row.materialSummary)}</td>
                           <td class="px-3 py-2">${statusCell}</td>
@@ -561,7 +577,12 @@ function renderWarehouseDocsSection(orderIds: string[]): string {
 
                       return `
                         <tr class="border-b last:border-b-0">
-                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(doc.docNo)}</td>
+                          <td class="px-3 py-2 text-xs">${renderProductionObjectCodeButton({
+                            objectType: 'WAREHOUSE_DOC',
+                            objectId: doc.docNo,
+                            label: doc.docNo,
+                            className: 'font-mono text-blue-600 hover:underline',
+                          })}</td>
                           <td class="px-3 py-2">${renderBadge(DOC_TYPE_LABEL[doc.docType], 'border-slate-300 bg-white text-slate-700')}</td>
                           <td class="px-3 py-2">${renderProductionOrderIdentityCell(doc.productionOrderId)}</td>
                           <td class="px-3 py-2">${escapeHtml(doc.processNameZh)}</td>
@@ -750,7 +771,12 @@ function renderMaterialListView(): string {
                             <td class="px-3 py-2">${renderProductionOrderIdentityCell(row.productionOrderId)}</td>
                             <td class="px-3 py-2 text-muted-foreground">${escapeHtml(row.legacyOrderNo)}</td>
                             <td class="px-3 py-2">
-                              <div class="text-sm">${escapeHtml(row.spuCode)}</div>
+                              <div class="text-sm">${renderProductionObjectCodeButton({
+                                objectType: 'PRODUCTION_ORDER',
+                                objectId: row.productionOrderId,
+                                label: row.spuCode,
+                                className: 'font-mono text-blue-600 hover:underline',
+                              })}</div>
                               <div class="text-xs text-muted-foreground">${escapeHtml(row.spuName)}</div>
                             </td>
                             <td class="px-3 py-2">${escapeHtml(row.mainFactoryName)}</td>
@@ -805,7 +831,12 @@ function renderDocDrawer(poId: string): string {
                   <div class="grid grid-cols-2 gap-4 rounded-lg bg-muted/50 p-4">
                     <div>
                       <div class="text-xs text-muted-foreground">执行单号</div>
-                      <div class="font-medium">${escapeHtml(doc.docNo)}</div>
+                      <div class="font-medium">${renderProductionObjectCodeButton({
+                        objectType: 'WAREHOUSE_DOC',
+                        objectId: doc.docNo,
+                        label: doc.docNo,
+                        className: 'font-mono text-blue-600 hover:underline',
+                      })}</div>
                     </div>
                     <div>
                       <div class="text-xs text-muted-foreground">单据类型</div>
@@ -813,7 +844,12 @@ function renderDocDrawer(poId: string): string {
                     </div>
                     <div>
                       <div class="text-xs text-muted-foreground">生产单号</div>
-                      <div class="font-medium">${escapeHtml(doc.productionOrderId)}</div>
+                      <div class="font-medium">${renderProductionObjectCodeButton({
+                        objectType: 'PRODUCTION_ORDER',
+                        objectId: doc.productionOrderId,
+                        label: doc.productionOrderId,
+                        className: 'font-mono text-blue-600 hover:underline',
+                      })}</div>
                     </div>
                     <div>
                       <div class="text-xs text-muted-foreground">工序</div>
@@ -870,7 +906,12 @@ function renderDocDrawer(poId: string): string {
                             const skuText = [line.skuCode, line.skuColor, line.skuSize].filter(Boolean).join(' / ')
                             return `
                               <tr class="border-b last:border-b-0">
-                                <td class="px-3 py-2 font-mono text-xs">${escapeHtml(line.materialCode ?? '-')}</td>
+                                <td class="px-3 py-2 text-xs">${renderProductionObjectCodeButton({
+                                  objectType: 'MATERIAL',
+                                  objectId: line.materialCode,
+                                  label: line.materialCode ?? '-',
+                                  className: 'font-mono text-blue-600 hover:underline',
+                                })}</td>
                                 <td class="px-3 py-2">
                                   <div>${escapeHtml(line.materialName)}</div>
                                   <div class="text-xs text-muted-foreground">${escapeHtml(line.materialSpec ?? '-')}</div>
@@ -884,7 +925,12 @@ function renderDocDrawer(poId: string): string {
                                     ? `<span class="font-medium text-destructive">${line.shortQty}</span>`
                                     : '<span class="text-muted-foreground">0</span>'
                                 }</td>
-                                <td class="px-3 py-2 font-mono text-xs">${escapeHtml(skuText || '-')}</td>
+                                <td class="px-3 py-2 text-xs">${renderProductionObjectCodeButton({
+                                  objectType: 'PRODUCTION_ORDER',
+                                  objectId: doc.productionOrderId,
+                                  label: skuText || '-',
+                                  className: 'font-mono text-blue-600 hover:underline',
+                                })}</td>
                               </tr>
                             `
                           })
@@ -981,7 +1027,12 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
           <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
             <div>
               <div class="text-xs text-muted-foreground">生产单号</div>
-              <div class="font-medium">${escapeHtml(poId)}</div>
+              <div class="font-medium">${renderProductionObjectCodeButton({
+                objectType: 'PRODUCTION_ORDER',
+                objectId: poId,
+                label: poId,
+                className: 'font-mono text-blue-600 hover:underline',
+              })}</div>
             </div>
             <div>
               <div class="text-xs text-muted-foreground">旧单号</div>
@@ -989,7 +1040,12 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
             </div>
             <div>
               <div class="text-xs text-muted-foreground">SPU</div>
-              <div class="font-medium">${escapeHtml(order?.demandSnapshot.spuCode ?? '-')}</div>
+              <div class="font-medium">${renderProductionObjectCodeButton({
+                objectType: 'PRODUCTION_ORDER',
+                objectId: poId,
+                label: order?.demandSnapshot.spuCode ?? '-',
+                className: 'font-mono text-blue-600 hover:underline',
+              })}</div>
               <div class="text-xs text-muted-foreground">${escapeHtml(order?.demandSnapshot.spuName ?? '-')}</div>
             </div>
             <div>
@@ -1043,7 +1099,12 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
                             <td class="px-3 py-2">${escapeHtml(row.taskName)}</td>
                             <td class="px-3 py-2">${renderBadge(getTaskTypeLabel(row.taskType), 'border-slate-300 bg-white text-slate-700')}</td>
                             <td class="px-3 py-2 font-mono text-xs">${escapeHtml(formatTaskScope(runtimeTask))}</td>
-                            <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.materialRequestNo)}</td>
+                            <td class="px-3 py-2 text-xs">${renderProductionObjectCodeButton({
+                              objectType: 'PRODUCTION_ORDER',
+                              objectId: row.productionOrderNo,
+                              label: row.materialRequestNo,
+                              className: 'font-mono text-blue-600 hover:underline',
+                            })}</td>
                             <td class="px-3 py-2">${escapeHtml(row.materialModeLabel)}</td>
                             <td class="px-3 py-2">${
                               latestDoc
@@ -1105,7 +1166,12 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
                           : `${TARGET_TYPE_LABEL[doc.targetType]} · ${doc.targetFactoryName ?? '-'}`
                         return `
                           <tr class="border-b last:border-b-0">
-                            <td class="px-3 py-2 font-mono text-xs">${escapeHtml(doc.docNo)}</td>
+                            <td class="px-3 py-2 text-xs">${renderProductionObjectCodeButton({
+                              objectType: 'WAREHOUSE_DOC',
+                              objectId: doc.docNo,
+                              label: doc.docNo,
+                              className: 'font-mono text-blue-600 hover:underline',
+                            })}</td>
                             <td class="px-3 py-2">${renderBadge(DOC_TYPE_LABEL[doc.docType], 'border-slate-300 bg-white text-slate-700')}</td>
                             <td class="px-3 py-2">${escapeHtml(doc.processNameZh)}</td>
                             <td class="px-3 py-2 font-mono text-xs">${escapeHtml(doc.scopeLabel)}</td>
@@ -1169,8 +1235,18 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
                       .map(
                         (line) => `
                           <tr class="border-b last:border-b-0">
-                            <td class="px-3 py-2 font-mono text-xs">${escapeHtml(line.docNo)}</td>
-                            <td class="px-3 py-2 font-mono text-xs">${escapeHtml(line.materialCode)}</td>
+                            <td class="px-3 py-2 text-xs">${renderProductionObjectCodeButton({
+                              objectType: 'WAREHOUSE_DOC',
+                              objectId: line.docNo,
+                              label: line.docNo,
+                              className: 'font-mono text-blue-600 hover:underline',
+                            })}</td>
+                            <td class="px-3 py-2 text-xs">${renderProductionObjectCodeButton({
+                              objectType: 'MATERIAL',
+                              objectId: line.materialCode,
+                              label: line.materialCode,
+                              className: 'font-mono text-blue-600 hover:underline',
+                            })}</td>
                             <td class="px-3 py-2">${escapeHtml(line.materialName)}</td>
                             <td class="px-3 py-2 text-right">${line.plannedQty}</td>
                             <td class="px-3 py-2 text-right">${line.preparedQty}</td>

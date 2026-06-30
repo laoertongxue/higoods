@@ -33,6 +33,7 @@ import { renderMaterialIdentityBlock } from './material-identity.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
+  renderProductionObjectCodeButton,
 } from '../../../data/fcs/production-order-identity.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
@@ -2433,7 +2434,12 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
               <div class="grid gap-3 md:grid-cols-2">
                 <div>
                   <p class="text-sm text-slate-500">票号</p>
-                  <p class="text-lg font-semibold text-slate-900">${escapeHtml(ticket.ticketNo)}</p>
+                  <p class="text-lg font-semibold text-slate-900">${renderProductionObjectCodeButton({
+                    objectType: 'FEI_TICKET',
+                    objectId: ticket.ticketNo,
+                    label: ticket.ticketNo,
+                    className: 'font-mono text-blue-600 hover:underline',
+                  })}</p>
                 </div>
                 <div>
                   <p class="text-sm text-slate-500">裁片单 / 生产单</p>
@@ -2639,7 +2645,12 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                   ]
             return `
               <tr>
-                <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(ticket.ticketNo)}</td>
+                <td class="px-3 py-3 font-medium text-slate-900">${renderProductionObjectCodeButton({
+                  objectType: 'FEI_TICKET',
+                  objectId: ticket.ticketNo,
+                  label: ticket.ticketNo,
+                  className: 'font-mono text-blue-600 hover:underline',
+                })}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.sourceCutOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${renderProductionOrderIdentityCell(ticket.sourceProductionOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.fabricRollNo || '暂无数据')}</td>

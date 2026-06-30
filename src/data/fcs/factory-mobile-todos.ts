@@ -109,6 +109,10 @@ function getMobileTaskDisplayTitle(task: PdaTaskFlowMock, suffix: string): strin
   return `${taskUnitName}${suffix}`
 }
 
+function isSimpleFiveStepTask(task: PdaTaskFlowMock): boolean {
+  return task.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP'
+}
+
 function buildTaskReceiveTodos(factoryId: string): FactoryMobileTodo[] {
   applyPendingDispatchAutoAcceptance()
   return listPdaTaskFlowTasks()
@@ -169,8 +173,8 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
     .map((task, index) => ({
       todoId: `todo-start-${task.taskId}`,
       todoNo: `TD-ST-${String(index + 1).padStart(3, '0')}`,
-      todoType: '待开工' as const,
-      todoTitle: getMobileTaskDisplayTitle(task, '待开工'),
+      todoType: isSimpleFiveStepTask(task) ? '待领料' as const : '待开工' as const,
+      todoTitle: getMobileTaskDisplayTitle(task, isSimpleFiveStepTask(task) ? '待领料' : '待开工'),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
@@ -189,8 +193,10 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
     .map((task, index) => ({
       todoId: `todo-finish-${task.taskId}`,
       todoNo: `TD-FN-${String(index + 1).padStart(3, '0')}`,
-      todoType: '待完工' as const,
-      todoTitle: getMobileTaskDisplayTitle(task, '待完工'),
+      todoType: isSimpleFiveStepTask(task) ? '待交出' as const : '待完工' as const,
+      todoTitle: isSimpleFiveStepTask(task)
+        ? `${getMobileTaskDisplayTitle(task, '上传进度')}，交给${task.handoverReceiverName || '仓库'}后进入仓库待确认`
+        : getMobileTaskDisplayTitle(task, '待完工'),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,

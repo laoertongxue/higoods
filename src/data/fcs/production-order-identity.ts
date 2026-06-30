@@ -24,6 +24,8 @@ export interface ProductionOrderIdentityInput {
   saleType?: ProductionSaleType | string | null
 }
 
+export type ProductionObjectCodeType = 'PRODUCTION_ORDER' | 'DEMAND' | 'MATERIAL' | 'WAREHOUSE_DOC' | 'PROCESS_DOC'
+
 function uniqueNonEmpty(values: Array<string | null | undefined>): string[] {
   return Array.from(new Set(values.map((value) => (value ?? '').trim()).filter(Boolean)))
 }
@@ -52,6 +54,36 @@ function resolveDemandSaleType(demandNos: string[], fallback?: string | null): P
     if (demand?.saleType) return demand.saleType
   }
   return null
+}
+
+export function renderProductionObjectCodeButton({
+  objectType,
+  objectId,
+  label,
+  className = 'font-mono text-blue-600 hover:underline',
+}: {
+  objectType: ProductionObjectCodeType
+  objectId?: string | null
+  label?: string | null
+  className?: string
+}): string {
+  const displayText = (label || objectId || '-').trim()
+  const targetId = (objectId || '').trim()
+  if (!targetId || displayText === '-') return escapeHtml(displayText || '-')
+  return `
+    <button
+      type="button"
+      class="${className}"
+      data-production-object-action="open"
+      data-object-type="${objectType}"
+      data-object-id="${escapeHtml(targetId)}"
+      data-skip-page-rerender="true"
+    >${escapeHtml(displayText)}</button>
+  `
+}
+
+function renderIdentityObjectButton(objectType: 'PRODUCTION_ORDER' | 'DEMAND', objectId: string, className: string): string {
+  return renderProductionObjectCodeButton({ objectType, objectId, className })
 }
 
 export function getProductionOrderIdentity(input: ProductionOrderIdentityInput | string): ProductionOrderIdentity {
@@ -90,8 +122,8 @@ export function renderProductionOrderIdentityCell(input: ProductionOrderIdentity
   const identity = getProductionOrderIdentity(input)
   return `
     <div class="min-w-[12rem] space-y-1 text-sm leading-5">
-      <div><span class="text-xs text-muted-foreground">生产单号</span><div class="font-mono font-medium text-foreground">${escapeHtml(identity.productionOrderNo)}</div></div>
-      <div><span class="text-xs text-muted-foreground">需求单号</span><div class="font-mono text-xs text-muted-foreground">${escapeHtml(identity.demandNos.join('、'))}</div></div>
+      <div><span class="text-xs text-muted-foreground">生产单号</span><div class="font-mono font-medium">${renderIdentityObjectButton('PRODUCTION_ORDER', identity.productionOrderNo, 'text-left text-blue-600 hover:underline')}</div></div>
+      <div><span class="text-xs text-muted-foreground">需求单号</span><div class="flex flex-wrap gap-x-1 font-mono text-xs">${identity.demandNos.map((demandNo) => renderIdentityObjectButton('DEMAND', demandNo, 'text-left text-blue-600 hover:underline')).join('<span class="text-muted-foreground">、</span>')}</div></div>
       <div><span class="text-xs text-muted-foreground">售卖类型</span><div class="text-xs text-foreground">${escapeHtml(identity.saleType)}</div></div>
     </div>
   `

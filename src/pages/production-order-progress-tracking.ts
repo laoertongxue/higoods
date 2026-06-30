@@ -3,6 +3,7 @@ import { hydrateIcons } from '../components/shell'
 import { escapeHtml } from '../utils'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity'
 
@@ -181,7 +182,7 @@ const orders: ProductionOrderTrackingRecord[] = [
     currentNode: '裁床中',
     nodeIndexText: '2/6',
     riskLevel: '中风险',
-    riskTags: ['多节点并发未闭环'],
+    riskTags: ['多节点并发待处理'],
     deliveryWarehouse: 'WH-SZX-02',
     factories: ['佛山海尚制衣厂', '深圳中转仓'],
     plannedDelivery: '2026-06-28',
@@ -276,7 +277,7 @@ const overviewNodes: StageNode[] = [
   { id: 'TB-240618-V2', label: '技术包 V2', date: '06-06', status: '已完成', lane: '主线', col: 2, detail: '技术包完成，补货版型与工艺要求已下发。' },
   { id: 'SO-PRD-0018', label: '生产单创建', date: '06-06', qty: '8,600件', status: '已完成', lane: '主线', col: 3, span: 2, detail: '生产单已生成，进入多泳道任务拆分。' },
   { id: 'PF-240618-01', label: '印花需求', date: '06-07', qty: '8,600件', status: '进行中', lane: '印花链路', col: 4, detail: '印花需求已拆分，存在回仓延迟。' },
-  { id: 'DY-240618-01', label: '染色需求', date: '06-10', qty: '4,200件', status: '进行中', lane: '染色链路', col: 4, detail: '染色首批已完成，二批待回写。' },
+  { id: 'DY-240618-01', label: '染色需求', date: '06-10', qty: '4,200件', status: '进行中', lane: '染色链路', col: 4, detail: '染色首批已完成，二批待同步。' },
   { id: 'M-240618-01', label: '配料批次 1', date: '06-07', qty: '5,000件', status: '已完成', lane: '物料链路', col: 6, detail: '主料、辅料首批已齐套。' },
   { id: 'L-240618-02', label: '领料批次 2', date: '06-11', qty: '3,800件', status: '已完成', lane: '物料链路', col: 7, detail: '第二批领料完成，等待车缝接收。' },
   { id: 'CT-240618-03', label: '裁片单', date: '06-11', qty: '3,800件', status: '进行中', lane: '裁床链路', col: 8, detail: '当前主卡点：裁床完成但交出滞后，需催办 2 个批次。' },
@@ -453,7 +454,7 @@ function renderListHeader(): string {
     { label: '临期生产单', value: '32', hint: '近7天交付　占12%', icon: 'PieChart', accent: 'text-orange-600' },
     { label: '延误生产单', value: '18', hint: '环比上周 ↑ 5', icon: 'TriangleAlert', accent: 'text-red-600' },
     { label: '今日新增', value: '15', hint: '昨日新增 18', icon: 'FilePlus2', accent: 'text-emerald-600' },
-    { label: '待闭环异常', value: '27', hint: '较昨日 ↑ 3', icon: 'ShieldZap', accent: 'text-violet-600' },
+    { label: '待处理异常', value: '27', hint: '较昨日 ↑ 3', icon: 'ShieldZap', accent: 'text-violet-600' },
     { label: '本周交付数量', value: '36,580', hint: '计划 42,000　完成 87%', icon: 'Package', accent: 'text-blue-600' },
   ]
   return `
@@ -537,7 +538,12 @@ function renderExpandedRow(order: ProductionOrderTrackingRecord): string {
             <div>
               <h3 class="text-sm font-semibold text-slate-800">生产单详情</h3>
               <dl class="mt-3 space-y-1 text-xs text-slate-600">
-                <div>生产需求单　<span class="font-medium text-slate-800">${escapeHtml(order.demandNo)}</span></div>
+                <div>生产需求单　<span class="font-medium text-slate-800">${renderProductionObjectCodeButton({
+                  objectType: 'DEMAND',
+                  objectId: order.demandNo,
+                  label: order.demandNo,
+                  className: 'font-mono text-blue-600 hover:underline',
+                })}</span></div>
                 <div>款式颜色　<span class="font-medium text-slate-800">${escapeHtml(order.colors)}</span></div>
                 <div>尺码结构　<span class="font-medium text-slate-800">${escapeHtml(order.sizes)}</span></div>
                 <div>面料　<span class="font-medium text-slate-800">${escapeHtml(order.fabric)}</span></div>
@@ -570,7 +576,7 @@ function renderExpandedRow(order: ProductionOrderTrackingRecord): string {
                     <p class="${alert.tone === 'red' ? 'text-red-600' : alert.tone === 'orange' ? 'text-orange-600' : 'text-blue-600'}">${escapeHtml(alert.label)}</p>
                     <span class="text-right text-slate-500">${escapeHtml(alert.time)}</span>
                   </div>
-                `).join('') : '<p class="text-slate-500">暂无未闭环异常。</p>'}
+                `).join('') : '<p class="text-slate-500">暂无未处理异常。</p>'}
                 <button class="mt-1 text-xs font-medium text-blue-600"
                   data-production-order-progress-action="open-modal"
                   data-modal-title="${escapeHtml(order.no)} 异常提醒"
@@ -582,10 +588,30 @@ function renderExpandedRow(order: ProductionOrderTrackingRecord): string {
             <div>
               <h3 class="text-sm font-semibold text-slate-800">关联</h3>
               <div class="mt-3 space-y-1 text-xs text-blue-600">
-                <button class="block text-left" data-production-order-progress-action="open-modal" data-modal-title="生产排期" data-modal-body="${escapeHtml(order.scheduleNo)} 已关联到当前生产单。" data-skip-page-rerender="true">生产排期　${escapeHtml(order.scheduleNo)}</button>
-                <button class="block text-left" data-production-order-progress-action="open-modal" data-modal-title="配料单" data-modal-body="${escapeHtml(order.materialRequestNo)} 等 2 条配料单已关联。" data-skip-page-rerender="true">配料单　${escapeHtml(order.materialRequestNo)} 等 2 条</button>
-                <button class="block text-left" data-production-order-progress-action="open-modal" data-modal-title="裁床单" data-modal-body="${escapeHtml(order.cutOrderNo)} 等 2 条裁床单已关联。" data-skip-page-rerender="true">裁床单　${escapeHtml(order.cutOrderNo)} 等 2 条</button>
-                <button class="block text-left" data-production-order-progress-action="open-modal" data-modal-title="车缝单" data-modal-body="${escapeHtml(order.sewingOrderNo)} 等 2 条车缝单已关联。" data-skip-page-rerender="true">车缝单　${escapeHtml(order.sewingOrderNo)} 等 2 条</button>
+                <div>生产排期　${renderProductionObjectCodeButton({
+                  objectType: 'PRODUCTION_ORDER',
+                  objectId: order.no,
+                  label: order.scheduleNo,
+                  className: 'font-mono text-blue-600 hover:underline',
+                })}</div>
+                <div>配料单　${renderProductionObjectCodeButton({
+                  objectType: 'PRODUCTION_ORDER',
+                  objectId: order.no,
+                  label: `${order.materialRequestNo} 等 2 条`,
+                  className: 'font-mono text-blue-600 hover:underline',
+                })}</div>
+                <div>裁床单　${renderProductionObjectCodeButton({
+                  objectType: 'PRODUCTION_ORDER',
+                  objectId: order.no,
+                  label: `${order.cutOrderNo} 等 2 条`,
+                  className: 'font-mono text-blue-600 hover:underline',
+                })}</div>
+                <div>车缝单　${renderProductionObjectCodeButton({
+                  objectType: 'PRODUCTION_ORDER',
+                  objectId: order.no,
+                  label: `${order.sewingOrderNo} 等 2 条`,
+                  className: 'font-mono text-blue-600 hover:underline',
+                })}</div>
               </div>
             </div>
           </div>
@@ -609,7 +635,12 @@ function renderOrderRow(order: ProductionOrderTrackingRecord, expandedNo: string
         <p class="text-xs text-slate-500">更新：2025-06-25</p>
       </td>
       <td class="px-3 py-3">
-        <p class="font-medium text-slate-800">${escapeHtml(order.spu)}</p>
+        <p class="font-medium text-slate-800">${renderProductionObjectCodeButton({
+          objectType: 'PRODUCTION_ORDER',
+          objectId: order.no,
+          label: order.spu,
+          className: 'font-mono text-blue-600 hover:underline',
+        })}</p>
         <p class="text-xs text-slate-500">${escapeHtml(order.styleName)}</p>
         <div class="mt-2 flex flex-wrap gap-1">
           <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">难度：${escapeHtml(order.difficulty)}</span>
@@ -737,7 +768,7 @@ function renderCountdownCard(order: ProductionOrderTrackingRecord): string {
         <span class="mb-2 text-xl font-semibold text-slate-800">天</span>
       </div>
       <div class="mt-3 inline-flex rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-sm font-medium text-orange-600">
-        中风险：多节点并发未闭环
+        中风险：多节点并发待处理
       </div>
       <div class="mt-3 h-2 rounded-full bg-slate-200">
         <div class="h-full w-[78%] rounded-full bg-gradient-to-r from-emerald-500 via-orange-400 to-orange-500"></div>
@@ -772,7 +803,12 @@ function renderOrderHero(order: ProductionOrderTrackingRecord, tab: TrackingTab)
         </div>
         <div class="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 text-sm 2xl:grid-cols-4">
           <div class="min-w-0"><p class="text-slate-500">生产数量</p><p class="mt-1 truncate font-semibold text-slate-950">${formatNumber(order.quantity)} 件</p></div>
-          <div class="min-w-0"><p class="text-slate-500">款式 / SPU</p><p class="mt-1 truncate font-semibold text-slate-950">${escapeHtml(order.spu)}　|　3色6码</p></div>
+          <div class="min-w-0"><p class="text-slate-500">款式 / SPU</p><p class="mt-1 truncate font-semibold text-slate-950">${renderProductionObjectCodeButton({
+            objectType: 'PRODUCTION_ORDER',
+            objectId: order.no,
+            label: order.spu,
+            className: 'font-mono text-blue-600 hover:underline',
+          })}　|　3色6码</p></div>
           <div class="min-w-0"><p class="text-slate-500">交付仓</p><p class="mt-1 truncate font-semibold text-slate-950">万锦成衣仓 ${escapeHtml(order.deliveryWarehouse)}</p></div>
           <div class="min-w-0"><p class="text-slate-500">计划交付</p><p class="mt-1 truncate font-semibold text-slate-950">${escapeHtml(order.plannedDelivery)}</p></div>
           <div class="min-w-0"><p class="text-slate-500">责任品牌</p><p class="mt-1 truncate font-semibold text-slate-950">${escapeHtml(order.brand)} / 小飞袖</p></div>
@@ -804,7 +840,17 @@ function renderDetailHeader(order: ProductionOrderTrackingRecord, tab: TrackingT
           <button class="flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-nav="${BASE_PATH}">
             ${renderIcon('ArrowLeft', 'h-4 w-4')}
           </button>
-          <h1 class="text-xl font-semibold">生产单全生命周期跟踪 / ${escapeHtml(order.no)}</h1>
+          <h1 class="text-xl font-semibold">
+            生产单全生命周期跟踪 /
+            <button
+              type="button"
+              class="font-mono text-blue-600 hover:underline"
+              data-production-object-action="open"
+              data-object-type="PRODUCTION_ORDER"
+              data-object-id="${escapeHtml(order.no)}"
+              data-skip-page-rerender="true"
+            >${escapeHtml(order.no)}</button>
+          </h1>
         </div>
       </header>
       <section class="grid gap-4 xl:grid-cols-[330px_1fr] 2xl:grid-cols-[340px_1fr]">
@@ -893,9 +939,9 @@ function renderOverviewMatrix(order: ProductionOrderTrackingRecord, selectedNode
           </dl>
           <p class="mt-4 text-sm leading-6 text-slate-700">${escapeHtml(selected.detail)}</p>
           <div class="mt-4 space-y-2 text-sm">
-            <p class="font-semibold text-slate-900">上下游</p>
-            <p class="text-slate-600">上游：领料批次已完成，部分印花批次回仓延迟。</p>
-            <p class="text-slate-600">下游：影响唛架方案 V2、铺布批次 PB-240618-02。</p>
+            <p class="font-semibold text-slate-900">来源与去向</p>
+            <p class="text-slate-600">上一步：领料批次已完成，部分印花批次回仓延迟。</p>
+            <p class="text-slate-600">下一步：影响唛架方案 V2、铺布批次 PB-240618-02。</p>
           </div>
           <button class="mt-5 h-10 w-full rounded-lg border border-blue-500 text-sm font-semibold text-blue-600"
             data-production-order-progress-action="open-modal"
@@ -1048,8 +1094,8 @@ function renderTimelineTab(order: ProductionOrderTrackingRecord, selectedNode?: 
               <p class="mt-2 leading-6 text-slate-600">印花印版制作周期延长，导致印花首批产出延后。</p>
             </div>
             <div>
-              <p class="font-semibold text-slate-900">上下游影响</p>
-              <p class="mt-2 leading-6 text-slate-600">影响裁床、铺布和后续车缝排产等 3 个下游节点。</p>
+              <p class="font-semibold text-slate-900">前后工序影响</p>
+              <p class="mt-2 leading-6 text-slate-600">影响裁床、铺布和后续车缝排产等 3 个后续节点。</p>
             </div>
             <div>
               <p class="font-semibold text-slate-900">恢复计划</p>
@@ -1065,7 +1111,7 @@ function renderTimelineTab(order: ProductionOrderTrackingRecord, selectedNode?: 
                 data-production-order-progress-action="open-modal"
                 data-modal-title="标记已解决"
                 data-modal-tone="green"
-                data-modal-body="${escapeHtml(selected.label)} 的延误处理动作已模拟闭环。"
+                data-modal-body="${escapeHtml(selected.label)} 的延误处理动作已模拟完成。"
                 data-skip-page-rerender="true">标记已解决</button>
             </div>
           </div>

@@ -15,6 +15,7 @@ import {
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
+  renderProductionObjectCodeButton,
 } from '../../../data/fcs/production-order-identity.ts'
 
 import type { BadgeVariant } from '../../../components/ui/types.ts'
@@ -153,7 +154,12 @@ function renderTable(rows: MaterialPrepOrderProjection[]): string {
               <tr class="border-t hover:bg-muted/30">
                 <td class="px-3 py-3">
                   ${renderProductionOrderIdentityCell(row.order.productionOrderNo)}
-                  <div class="mt-1 text-xs text-muted-foreground">配料单：${escapeHtml(row.order.prepOrderNo)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">配料单：${renderProductionObjectCodeButton({
+                    objectType: 'MATERIAL_PREP_ORDER',
+                    objectId: row.order.prepOrderNo,
+                    label: row.order.prepOrderNo,
+                    className: 'font-mono text-blue-600 hover:underline',
+                  })}</div>
                 </td>
                 <td class="px-3 py-3">
                   <div>${escapeHtml(row.order.styleNo)}</div>

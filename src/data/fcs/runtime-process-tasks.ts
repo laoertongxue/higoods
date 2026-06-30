@@ -18,7 +18,12 @@ import {
   type TaskAuditLog,
 } from './process-tasks.ts'
 import { buildTaskQrValue } from './task-qr.ts'
-import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import {
+  KOL_GOTO_FACTORY_ID,
+  KOL_GOTO_FACTORY_NAME,
+  TEST_FACTORY_ID,
+  TEST_FACTORY_NAME,
+} from './factory-mock-data.ts'
 import type { TaskDetailRow } from './task-detail-rows.ts'
 import {
   listTaskAllocatableGroups,
@@ -114,6 +119,11 @@ interface RuntimeTaskOverride {
   acceptanceStatus?: AcceptanceStatus
   acceptedAt?: string
   acceptedBy?: string
+  startedAt?: string
+  finishedAt?: string
+  blockReason?: ProcessTask['blockReason']
+  blockRemark?: string
+  blockedAt?: string
   dispatchAcceptanceSlaConfigId?: string
   dispatchAcceptanceSlaOverrideId?: string
   dispatchAcceptanceSlaRuleSource?: DispatchAcceptanceSlaRuleSource
@@ -943,6 +953,7 @@ function ensureDispatchBoardSeedData(): void {
   const directFactorySeeds = {
     cut: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
     sew: { id: 'ID-F003', name: '万隆车缝厂' },
+    kolGoto: { id: KOL_GOTO_FACTORY_ID, name: KOL_GOTO_FACTORY_NAME },
     button: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
     special: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
     wash: { id: 'ID-F007', name: '玛琅精工车缝' },
@@ -953,8 +964,8 @@ function ensureDispatchBoardSeedData(): void {
     {
       assignmentMode: 'DIRECT',
       assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: directFactorySeeds.sew.id,
-      assignedFactoryName: directFactorySeeds.sew.name,
+      assignedFactoryId: directFactorySeeds.kolGoto.id,
+      assignedFactoryName: directFactorySeeds.kolGoto.name,
       acceptDeadline: '2026-03-19 12:00:00',
       taskDeadline: '2026-04-02 18:00:00',
       dispatchedAt: '2026-03-18 09:00:00',
@@ -962,12 +973,15 @@ function ensureDispatchBoardSeedData(): void {
       dispatchPrice: 15200,
       dispatchPriceCurrency: 'IDR',
       dispatchPriceUnit: '件',
+      outputValuePerUnit: undefined,
+      outputValueUnit: '按覆盖工序明细计算',
+      outputValueTotal: 76000000,
       acceptanceStatus: 'PENDING',
       dispatchRemark: '待工厂确认',
     },
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0001-001__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0001-001__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-18 09:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0001-001__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单，待 kol goto 确认', '跟单A', '2026-03-18 09:00:00'),
     ],
   )
 
@@ -1077,65 +1091,92 @@ function ensureDispatchBoardSeedData(): void {
   seedRuntimeTaskOverride(
     'TASKGEN-202603-0004-001__ORDER',
     {
-      assignmentMode: 'BIDDING',
-      assignmentStatus: 'AWARDED',
-      tenderId: 'TENDER-TASKGEN0004001-1001',
-      biddingDeadline: '2026-03-18 18:00:00',
-      taskDeadline: '2026-04-10 18:00:00',
-      awardedAt: '2026-03-19 10:00:00',
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: directFactorySeeds.kolGoto.id,
+      assignedFactoryName: directFactorySeeds.kolGoto.name,
+      acceptDeadline: '2026-03-18 18:00:00',
+      taskDeadline: '2026-04-06 18:00:00',
+      dispatchedAt: '2026-03-18 09:00:00',
+      dispatchedBy: '跟单A',
+      dispatchPrice: 13800,
+      dispatchPriceCurrency: 'IDR',
+      dispatchPriceUnit: '件',
+      acceptanceStatus: 'ACCEPTED',
+      acceptedAt: '2026-03-18 11:00:00',
+      acceptedBy: directFactorySeeds.kolGoto.name,
+      status: 'DONE',
+      startedAt: '2026-03-19 08:40:00',
+      finishedAt: '2026-03-25 17:30:00',
+      dispatchRemark: 'KOL 小单整单直派',
     },
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0004-001__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'SET_ASSIGN_MODE', '设为竞价分配', '跟单A', '2026-03-18 09:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0004001-1001', '跟单A', '2026-03-18 09:05:00'),
-      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'AWARD', '已完成定标', '运营A', '2026-03-19 10:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单', '跟单A', '2026-03-18 09:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.kolGoto.name, '2026-03-18 11:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'FINISH', '工厂已完工', directFactorySeeds.kolGoto.name, '2026-03-25 17:30:00'),
     ],
   )
 
   seedRuntimeTaskOverride(
-    'TASKGEN-202603-0003-004__ORDER',
-    {
-      assignmentStatus: 'UNASSIGNED',
-      taskDeadline: '2026-03-18 18:00:00',
-    },
-    [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0003-004__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0003-004__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配', '跟单A', '2026-03-19 15:00:00'),
-    ],
-  )
-
-  seedRuntimeTaskOverride(
-    'TASKGEN-202603-0004-004__ORDER',
-    {
-      assignmentStatus: 'UNASSIGNED',
-    },
-    [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0004-004__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0004-004__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配', '跟单A', '2026-03-19 15:30:00'),
-    ],
-  )
-
-  seedRuntimeTaskOverride(
-    'TASKGEN-202603-0008-001__ORDER',
+    'TASKGEN-202603-0003-006__ORDER',
     {
       assignmentMode: 'DIRECT',
       assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: 'ID-F017',
-      assignedFactoryName: 'CV Satellite Surabaya Selatan',
-      acceptDeadline: '2026-04-04 12:00:00',
-      taskDeadline: '2026-04-11 18:00:00',
+      assignedFactoryId: directFactorySeeds.kolGoto.id,
+      assignedFactoryName: directFactorySeeds.kolGoto.name,
+      acceptDeadline: '2026-03-20 12:00:00',
+      taskDeadline: '2026-04-08 18:00:00',
       dispatchedAt: '2026-03-20 09:00:00',
       dispatchedBy: '跟单A',
       dispatchPrice: 14600,
       dispatchPriceCurrency: 'IDR',
       dispatchPriceUnit: '件',
       acceptanceStatus: 'ACCEPTED',
-      dispatchRemark: '常规车缝直派',
+      acceptedAt: '2026-03-20 11:00:00',
+      acceptedBy: directFactorySeeds.kolGoto.name,
+      status: 'BLOCKED',
+      startedAt: '2026-03-21 08:30:00',
+      blockedAt: '2026-03-21 15:10:00',
+      blockReason: 'MATERIAL',
+      blockRemark: '待补辅料到厂',
+      dispatchRemark: 'KOL 小单整单直派',
     },
     [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0008-001__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0008-001__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-20 09:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0008-001__ORDER', 'ACCEPT', '工厂已确认接单', 'CV Satellite Surabaya Selatan', '2026-03-20 11:00:00'),
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0003-006__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0003-006__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单', '跟单A', '2026-03-20 09:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0003-006__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.kolGoto.name, '2026-03-20 11:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0003-006__ORDER', 'BLOCK', '生产暂停：待补辅料到厂', directFactorySeeds.kolGoto.name, '2026-03-21 15:10:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0004-006__ORDER',
+    {
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: directFactorySeeds.kolGoto.id,
+      assignedFactoryName: directFactorySeeds.kolGoto.name,
+      acceptDeadline: '2026-03-18 20:00:00',
+      taskDeadline: '2026-04-11 18:00:00',
+      dispatchedAt: '2026-03-18 12:00:00',
+      dispatchedBy: '跟单A',
+      dispatchPrice: 14200,
+      dispatchPriceCurrency: 'IDR',
+      dispatchPriceUnit: '件',
+      acceptanceStatus: 'ACCEPTED',
+      acceptedAt: '2026-03-18 14:00:00',
+      acceptedBy: directFactorySeeds.kolGoto.name,
+      status: 'DONE',
+      startedAt: '2026-03-19 09:15:00',
+      finishedAt: '2026-03-27 16:50:00',
+      dispatchRemark: 'KOL 小单整单直派',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0004-006__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0004-006__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单', '跟单A', '2026-03-18 12:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0004-006__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.kolGoto.name, '2026-03-18 14:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0004-006__ORDER', 'FINISH', '工厂已完工', directFactorySeeds.kolGoto.name, '2026-03-27 16:50:00'),
     ],
   )
 
@@ -1145,7 +1186,8 @@ function ensureDispatchBoardSeedData(): void {
       assignmentMode: 'BIDDING',
       assignmentStatus: 'BIDDING',
       tenderId: 'TENDER-TASKGEN0009001-1001',
-      outputValuePerUnit: 10,
+      outputValuePerUnit: undefined,
+      outputValueUnit: '按覆盖工序明细计算',
       outputValueTotal: 28000,
       biddingDeadline: '2026-03-22 18:00:00',
       taskDeadline: '2026-04-14 18:00:00',
@@ -1163,6 +1205,9 @@ function ensureDispatchBoardSeedData(): void {
       assignmentMode: 'BIDDING',
       assignmentStatus: 'ASSIGNING',
       tenderId: 'TENDER-TASKGEN0015001-1001',
+      outputValuePerUnit: undefined,
+      outputValueUnit: '按覆盖工序明细计算',
+      outputValueTotal: 16800,
       biddingDeadline: '2026-03-21 10:00:00',
       taskDeadline: '2026-04-01 18:00:00',
     },
@@ -1186,32 +1231,34 @@ function ensureDispatchBoardSeedData(): void {
   )
 
   seedRuntimeTaskOverride(
-    'TASKGEN-202603-0015-004__ORDER',
-    {
-      assignmentMode: 'BIDDING',
-      assignmentStatus: 'BIDDING',
-      tenderId: 'TENDER-TASKGEN0015004-1001',
-      biddingDeadline: '2026-03-22 12:00:00',
-      taskDeadline: '2026-04-15 18:00:00',
-    },
-    [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-004__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0015-004__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0015004-1001', '跟单A', '2026-03-20 09:10:00'),
-    ],
-  )
-
-  seedRuntimeTaskOverride(
     'TASKGEN-202603-0015-005__ORDER',
     {
-      assignmentMode: 'BIDDING',
-      assignmentStatus: 'BIDDING',
-      tenderId: 'TENDER-TASKGEN0015005-1001',
-      biddingDeadline: '2026-03-19 18:00:00',
-      taskDeadline: '2026-04-11 18:00:00',
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: directFactorySeeds.kolGoto.id,
+      assignedFactoryName: directFactorySeeds.kolGoto.name,
+      acceptDeadline: '2026-03-18 12:00:00',
+      taskDeadline: '2026-04-09 18:00:00',
+      dispatchedAt: '2026-03-17 09:00:00',
+      dispatchedBy: '跟单A',
+      dispatchPrice: 12400,
+      dispatchPriceCurrency: 'IDR',
+      dispatchPriceUnit: '件',
+      acceptanceStatus: 'ACCEPTED',
+      acceptedAt: '2026-03-17 10:00:00',
+      acceptedBy: directFactorySeeds.kolGoto.name,
+      status: 'BLOCKED',
+      startedAt: '2026-03-18 09:00:00',
+      blockedAt: '2026-03-18 16:20:00',
+      blockReason: 'TECH',
+      blockRemark: '待确认工艺变更',
+      dispatchRemark: 'KOL 小单整单直派',
     },
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0015-005__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0015-005__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0015005-1001', '跟单A', '2026-03-18 11:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0015-005__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单', '跟单A', '2026-03-17 09:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0015-005__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.kolGoto.name, '2026-03-17 10:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0015-005__ORDER', 'BLOCK', '生产暂停：待确认工艺变更', directFactorySeeds.kolGoto.name, '2026-03-18 16:20:00'),
     ],
   )
 
@@ -1227,50 +1274,6 @@ function ensureDispatchBoardSeedData(): void {
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0015-006__ORDER'),
       buildSeedAuditLog('TASKGEN-202603-0015-006__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0015006-1001', '跟单A', '2026-03-20 09:20:00'),
-    ],
-  )
-
-  seedRuntimeTaskOverride(
-    'TASKGEN-202603-0015-007__ORDER',
-    {
-      assignmentMode: 'DIRECT',
-      assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: directFactorySeeds.wash.id,
-      assignedFactoryName: directFactorySeeds.wash.name,
-      acceptDeadline: '2026-03-18 12:00:00',
-      taskDeadline: '2026-03-19 18:00:00',
-      dispatchedAt: '2026-03-17 09:00:00',
-      dispatchedBy: '跟单A',
-      dispatchPrice: 12400,
-      dispatchPriceCurrency: 'IDR',
-      dispatchPriceUnit: '件',
-      acceptanceStatus: 'ACCEPTED',
-      status: 'IN_PROGRESS',
-      dispatchRemark: '已接单，执行超期',
-    },
-    [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-007__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0015-007__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-17 09:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0015-007__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.wash.name, '2026-03-17 10:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0015-007__ORDER', 'START', '已开工执行', directFactorySeeds.wash.name, '2026-03-18 09:00:00'),
-    ],
-  )
-
-  seedRuntimeTaskOverride(
-    'TASKGEN-202603-0015-008__ORDER',
-    {
-      assignmentMode: 'BIDDING',
-      assignmentStatus: 'AWARDED',
-      tenderId: 'TENDER-TASKGEN0015008-1001',
-      biddingDeadline: '2026-03-18 20:00:00',
-      taskDeadline: '2026-04-11 18:00:00',
-      awardedAt: '2026-03-19 11:00:00',
-    },
-    [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-008__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0015-008__ORDER', 'SET_ASSIGN_MODE', '设为竞价分配', '跟单A', '2026-03-18 12:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0015-008__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0015008-1001', '跟单A', '2026-03-18 12:05:00'),
-      buildSeedAuditLog('TASKGEN-202603-0015-008__ORDER', 'AWARD', '已完成定标', '运营A', '2026-03-19 11:00:00'),
     ],
   )
 

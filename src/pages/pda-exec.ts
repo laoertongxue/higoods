@@ -39,10 +39,8 @@ import {
 } from '../data/fcs/process-quantity-labels.ts'
 import {
   formatRemainingHours,
-  formatStartDueSourceText,
   getStartPrerequisite,
   getTaskStartDueInfo,
-  getTaskStartRuleState,
   syncPdaStartRiskAndExceptions,
 } from '../data/fcs/pda-start-link'
 import {
@@ -410,6 +408,10 @@ function renderCoveredProcessSummary(task: ProcessTask): string {
   return `<div class="rounded-md border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs text-blue-700">覆盖工序：${escapeHtml(text)}</div>`
 }
 
+function isSimpleFiveStepTask(task: ProcessTask): boolean {
+  return task.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP'
+}
+
 function getTaskStatusLabel(task: ProcessTask): string {
   const postTask = getPostFinishingTaskById(task.taskId)
   if (postTask) return postTask.currentStatus
@@ -476,10 +478,10 @@ function getStartConditionLabel(prereq: ReturnType<typeof getStartPrerequisite>)
 function getNotStartedPrimaryAction(
   task: ProcessTask,
   prereq: ReturnType<typeof getStartPrerequisite>,
-): { label: string; icon: string; action: 'go-start' | 'go-prerequisite'; className: string } {
+): { label: string; icon: string; action: 'go-start' | 'go-prerequisite' | 'go-handover'; className: string } {
   if (prereq.met) {
     return {
-      label: isCuttingSpecialTask(task) ? '进入裁片任务' : '开工',
+      label: isSimpleFiveStepTask(task) ? '确认领料 / 开始做' : isCuttingSpecialTask(task) ? '进入裁片任务' : '开工',
       icon: 'play',
       action: 'go-start',
       className: 'bg-primary text-primary-foreground hover:bg-primary/90',
@@ -491,6 +493,15 @@ function getNotStartedPrimaryAction(
       label: '去交接确认',
       icon: 'arrow-left-right',
       action: 'go-prerequisite',
+      className: 'border border-amber-300 text-amber-700 hover:bg-amber-50',
+    }
+  }
+
+  if (isSimpleFiveStepTask(task) && /领料|收货|入仓|来料/.test(prereq.blocker)) {
+    return {
+      label: '去交接确认',
+      icon: 'arrow-left-right',
+      action: 'go-handover',
       className: 'border border-amber-300 text-amber-700 hover:bg-amber-50',
     }
   }
@@ -592,9 +603,7 @@ function renderNotStartedCard(task: ProcessTask): string {
   const taskDeadline = (task as ProcessTask & { taskDeadline?: string }).taskDeadline
   const deadline = getDeadlineStatus(taskDeadline, task.finishedAt)
   const startInfo = getTaskStartDueInfo(task)
-  const startRule = getTaskStartRuleState(task)
   const startDueAt = startInfo.startDueAt || '—'
-  const dueSourceText = formatStartDueSourceText(startInfo.startDueSource, startRule.dueHours)
   const cuttingDetail = getCuttingTaskDetail(task)
   const cuttingRow = getPrimaryCuttingExecutionRow(task)
   const startConditionLabel = getStartConditionLabel(prereq)
@@ -704,17 +713,6 @@ function renderNotStartedCard(task: ProcessTask): string {
 
         ${renderCoveredProcessSummary(task)}
 
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-          <p class="font-medium">起算依据：${escapeHtml(dueSourceText)}</p>
-          ${
-            startInfo.startRiskStatus === 'OVERDUE'
-              ? '<p class="mt-1 text-red-700">开工状态：未开工；时限：已逾期</p>'
-              : startInfo.startRiskStatus === 'DUE_SOON' && typeof startInfo.remainingMs === 'number'
-                ? `<p class="mt-1 text-amber-700">开工状态：未开工；距时限不足 ${escapeHtml(formatRemainingHours(startInfo.remainingMs))} 小时</p>`
-                : '<p class="mt-1 text-muted-foreground">开工状态：未开工；时限：正常</p>'
-          }
-        </div>
-
         <div class="space-y-0.5 rounded-md border px-3 py-2 text-xs ${toClassName(
           prereq.met ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50',
         )}">
@@ -723,7 +721,6 @@ function renderNotStartedCard(task: ProcessTask): string {
             <span class="rounded px-1.5 py-0.5 font-medium ${prereq.met ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">${escapeHtml(startConditionLabel)}</span>
           </div>
           <p class="mt-1 font-medium ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.statusLabel)}</p>
-          <p class="mt-1 text-muted-foreground">${escapeHtml(prereq.hint)}</p>
         </div>
 
         ${
@@ -737,12 +734,11 @@ function renderNotStartedCard(task: ProcessTask): string {
             class="inline-flex min-h-8 items-center rounded-md px-3 text-xs font-medium ${primaryAction.className}"
             data-pda-exec-action="${primaryAction.action}"
             data-task-id="${escapeHtml(task.taskId)}"
+            ${primaryAction.action === 'go-handover' ? 'data-tab="pickup"' : ''}
           >
             <i data-lucide="${primaryAction.icon}" class="mr-1 h-3 w-3"></i>
             ${escapeHtml(primaryAction.label)}
           </button>
-
-          ${!prereq.met ? `<span class="inline-flex min-h-8 flex-1 items-center rounded-md bg-amber-50 px-2 text-xs text-amber-700">原因：${escapeHtml(prereq.blocker)}</span>` : ''}
 
           <button
             class="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted"
@@ -881,6 +877,26 @@ function renderInProgressCard(task: ProcessTask): string {
                     进入裁片
                   </button>
                 `
+              : isSimpleFiveStepTask(task)
+                ? `
+                  <button
+                    class="inline-flex h-7 items-center rounded-md border border-blue-200 px-3 text-xs text-blue-700 hover:bg-blue-50"
+                    data-pda-exec-action="open-detail-action"
+                    data-task-id="${escapeHtml(task.taskId)}"
+                    data-action="milestone"
+                  >
+                    <i data-lucide="upload" class="mr-1 h-3 w-3"></i>
+                    上传进度
+                  </button>
+                  <button
+                    class="inline-flex h-7 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
+                    data-pda-exec-action="go-handover"
+                    data-tab="handout"
+                  >
+                    <i data-lucide="arrow-left-right" class="mr-1 h-3 w-3"></i>
+                    去交接交出
+                  </button>
+                `
               : isProcessDomainTask
                 ? ''
               : `
@@ -955,7 +971,6 @@ function renderBlockedCard(task: ProcessTask): string {
           </div>
           ${task.blockRemark ? `<p class="mt-1 text-red-600">${escapeHtml(task.blockRemark)}</p>` : ''}
           ${pauseAt ? `<p class="mt-1 flex items-center gap-1 text-muted-foreground"><i data-lucide="clock" class="h-3 w-3"></i>上报时间：${escapeHtml(pauseAt)}</p>` : ''}
-          <p class="mt-1 text-muted-foreground">平台允许继续前，该任务不可继续操作</p>
         </div>
 
         <div class="flex gap-2 pt-1">
@@ -1202,6 +1217,11 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     if (!task) return true
     if (getPrintWorkOrderByTaskId(taskId) || getDyeWorkOrderByTaskId(taskId)) {
       showPdaExecToast('请进入任务详情按当前节点操作')
+      return true
+    }
+    if (isSimpleFiveStepTask(task)) {
+      showPdaExecToast(`请先上传进度并交给${task.handoverReceiverName || '仓库'}，仓库待确认后才能完工`)
+      appStore.navigate(resolvePdaExecCardDetailPath(taskId))
       return true
     }
 

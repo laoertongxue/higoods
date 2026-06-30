@@ -529,6 +529,19 @@ function renderCoveredProcessSummary(task: ProcessTask): string {
   `
 }
 
+function isSimpleFiveStepTask(task: ProcessTask): boolean {
+  return task.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP'
+}
+
+function renderSimpleFiveStepHint(task: ProcessTask): string {
+  if (!isSimpleFiveStepTask(task)) return ''
+  return `
+    <div class="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">
+      接单后按确认领料 → 开始做 → 上传进度 → 交给${escapeHtml(task.handoverReceiverName || '仓库')} → 仓库待确认执行，不直接完工。
+    </div>
+  `
+}
+
 function renderEmptyState(label: string): string {
   return `
     <div class="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -669,6 +682,7 @@ function renderPendingAcceptCuttingTask(task: PdaTaskFlowMock, factoryName: stri
 
         ${renderPendingAcceptFieldGrid(task)}
         ${renderCoveredProcessSummary(task)}
+        ${renderSimpleFiveStepHint(task)}
         <div class="rounded bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
           当前工厂：<span class="font-medium text-foreground">${escapeHtml(factoryName)}</span>
         </div>

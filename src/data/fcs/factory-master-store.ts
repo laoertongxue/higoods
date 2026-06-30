@@ -1,4 +1,4 @@
-import { TEST_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
+import { KOL_GOTO_FACTORY_ID, TEST_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
 import {
   getBrowserLocalStorage,
   readBrowserStorageItem,
@@ -32,29 +32,40 @@ function cloneTaskAcceptanceConfig(config: Factory['taskAcceptanceConfig']): Fac
   }
 }
 
+function stripLegacyWholeOrderConfig(factory: Factory): Factory {
+  if (!factory.taskAcceptanceConfig) return factory
+  if (!['ID-F002', 'ID-F005', 'ID-F011'].includes(factory.id)) return factory
+  return {
+    ...factory,
+    taskAcceptanceConfig: {
+      ...factory.taskAcceptanceConfig,
+      wholeOrderEnabled: false,
+      wholeOrderRule: undefined,
+    },
+  }
+}
+
+function normalizeKolGotoFactoryProfile(factory: Factory): Factory {
+  if (factory.id !== KOL_GOTO_FACTORY_ID) return factory
+  return {
+    ...factory,
+    cooperationMode: 'general',
+    factoryTier: 'THIRD_PARTY',
+    factoryType: 'THIRD_SEWING',
+  }
+}
+
 function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
+  factory = stripLegacyWholeOrderConfig(normalizeKolGotoFactoryProfile(factory))
   if (factory.taskAcceptanceConfig) return factory
-  if (['ID-F002', 'ID-F005', 'ID-F011'].includes(factory.id)) {
+  if (factory.id === KOL_GOTO_FACTORY_ID) {
     return {
       ...factory,
       taskAcceptanceConfig: {
         singleProcessEnabled: true,
-        continuousProcessEnabled: factory.id === 'ID-F011',
+        continuousProcessEnabled: false,
         wholeOrderEnabled: true,
-        continuousRules: factory.id === 'ID-F011'
-          ? [{
-              combinationId: 'combo-cut-sew-post',
-              combinationName: '裁片+车缝+后道',
-              enabled: true,
-              coveredProcessCodes: ['CUT_PANEL', 'SEW', 'POST_FINISHING'],
-              applicableSaleTypes: ['KOL样品小单'],
-              excludedProcessCodes: ['PRINT', 'DYE'],
-              defaultTaskName: '裁片+车缝+后道组合任务',
-              handoverReceiverKind: 'WAREHOUSE',
-              handoverReceiverName: '仓库',
-              pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
-            }]
-          : [],
+        continuousRules: [],
         wholeOrderRule: {
           enabled: true,
           applicableSaleTypes: ['KOL样衣', 'KOL样品小单'],
@@ -64,8 +75,30 @@ function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
           handoverReceiverKind: 'WAREHOUSE',
           handoverReceiverName: '仓库',
           pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
-          remark: 'KOL小单由本厂整单承接',
+          remark: 'KOL 样衣和样品小单整单承接；印花、染色保持独立需求链路。',
         },
+      },
+    }
+  }
+  if (factory.id === 'ID-F014') {
+    return {
+      ...factory,
+      taskAcceptanceConfig: {
+        singleProcessEnabled: true,
+        continuousProcessEnabled: true,
+        wholeOrderEnabled: false,
+        continuousRules: [{
+          combinationId: 'combo-sew-post',
+          combinationName: '车缝+后道',
+          enabled: true,
+          coveredProcessCodes: ['SEW', 'POST_FINISHING'],
+          applicableSaleTypes: ['虾皮样品', 'JKT复购'],
+          excludedProcessCodes: ['PRINT', 'DYE'],
+          defaultTaskName: '车缝+后道组合任务',
+          handoverReceiverKind: 'WAREHOUSE',
+          handoverReceiverName: '仓库',
+          pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+        }],
       },
     }
   }

@@ -1,4 +1,5 @@
 import { getFactoryMobileTodoActionRoute, getFactoryMobileTodoCount, getFactoryMobileTodos } from '../data/fcs/factory-mobile-todos.ts'
+import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
 import { ensurePdaAccessForRoute, logoutPdaAccess } from '../data/fcs/factory-onboarding-flow.ts'
 import { findFactoryPdaRoleById } from '../data/fcs/store-domain-pda.ts'
@@ -32,6 +33,15 @@ const MOBILE_APP_TABS: PdaTabConfig[] = [
   { key: 'warehouse', label: '仓管', href: '/fcs/pda/warehouse', icon: 'warehouse' },
   { key: 'settlement', label: '结算', href: '/fcs/pda/settlement', icon: 'wallet' },
 ]
+
+function getVisibleMobileAppTabs(): PdaTabConfig[] {
+  const runtime = getPdaRuntimeContext()
+  const factory = runtime ? getFactoryMasterRecordById(runtime.factoryId) : undefined
+  if (factory?.factoryTier === 'THIRD_PARTY' && factory.factoryType === 'THIRD_SEWING') {
+    return MOBILE_APP_TABS.filter((tab) => tab.key !== 'warehouse')
+  }
+  return MOBILE_APP_TABS
+}
 
 let todoModalOpen = false
 let accountModalOpen = false
@@ -70,7 +80,7 @@ function syncTodoModalAutoOpen(disableAutoOpen = false): void {
 function getTabTitle(activeTab: PdaTabKey | null, headerTitle?: string): string {
   if (headerTitle) return headerTitle
   if (!activeTab) return '工厂端移动应用'
-  return MOBILE_APP_TABS.find((tab) => tab.key === activeTab)?.label ?? '工厂端移动应用'
+  return getVisibleMobileAppTabs().find((tab) => tab.key === activeTab)?.label ?? '工厂端移动应用'
 }
 
 function renderTodoTrigger(activeCount: number): string {
@@ -325,7 +335,7 @@ function renderAccountModal(): string {
 export function renderPdaBottomNav(activeTab: PdaTabKey | null): string {
   return `
     <nav class="absolute bottom-0 left-0 right-0 z-10 flex h-[72px] items-center justify-around border-t bg-background px-1" data-pda-bottom-nav="true">
-      ${MOBILE_APP_TABS.map((tab) => {
+      ${getVisibleMobileAppTabs().map((tab) => {
         const active = tab.key === activeTab
         return `
           <button

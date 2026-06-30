@@ -7,6 +7,7 @@ import {
 import { buildDyeingWorkOrderDetailLink, buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-display-data.ts'
 import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
+import { renderProductionObjectCodeButton } from '../../../data/fcs/production-order-identity.ts'
 import {
   formatDyeQty,
   getDyeVatSummary,
@@ -49,7 +50,12 @@ function renderOrdersTable(): string {
       return `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3">
-            <div class="font-mono text-xs font-medium">${escapeHtml(order.dyeOrderNo)}</div>
+            <div class="font-mono text-xs font-medium">${renderProductionObjectCodeButton({
+              objectType: 'DYE_WORK_ORDER',
+              objectId: order.dyeOrderNo,
+              label: order.dyeOrderNo,
+              className: 'font-mono text-blue-600 hover:underline',
+            })}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.taskNo)}</div>
           </td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.taskNo)}</td>

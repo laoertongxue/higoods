@@ -1,6 +1,7 @@
 import './styles.css'
 import { hydrateRealQRCodes } from './components/real-qr'
 import { hydrateIcons, renderAppShell, renderSidebar } from './components/shell'
+import { handleProductionObjectOverviewEvent } from './components/production-object-overview'
 import { appStore } from './state/store'
 
 type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
@@ -28,6 +29,7 @@ type ProductionDemandPageModule = typeof import('./pages/production/demand-domai
 type ProductionOrdersPageModule = typeof import('./pages/production/orders-domain')
 type ProductionEventsModule = typeof import('./pages/production/events')
 type ProductionDialogsModule = typeof import('./pages/production/dialogs')
+type TaskBreakdownPageModule = typeof import('./pages/task-breakdown')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
@@ -54,6 +56,7 @@ let productionDemandPageModulePromise: Promise<ProductionDemandPageModule> | nul
 let productionOrdersPageModulePromise: Promise<ProductionOrdersPageModule> | null = null
 let productionEventsModulePromise: Promise<ProductionEventsModule> | null = null
 let productionDialogsModulePromise: Promise<ProductionDialogsModule> | null = null
+let taskBreakdownPageModulePromise: Promise<TaskBreakdownPageModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
 let nextStoreRenderMode: StoreRenderMode = 'full'
@@ -108,6 +111,16 @@ function getDispatchBoardPageModule(): Promise<DispatchBoardPageModule> {
     })
   }
   return dispatchBoardPageModulePromise
+}
+
+function getTaskBreakdownPageModule(): Promise<TaskBreakdownPageModule> {
+  if (!taskBreakdownPageModulePromise) {
+    taskBreakdownPageModulePromise = import('./pages/task-breakdown').catch((error) => {
+      taskBreakdownPageModulePromise = null
+      throw error
+    })
+  }
+  return taskBreakdownPageModulePromise
 }
 
 function getFactoryProfilePageModule(): Promise<FactoryProfilePageModule> {
@@ -473,6 +486,10 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
   if (pathname.startsWith('/fcs/dispatch/board')) {
     const dispatchBoardPage = await getDispatchBoardPageModule()
     return dispatchBoardPage.handleDispatchBoardEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/process/task-breakdown')) {
+    const taskBreakdownPage = await getTaskBreakdownPageModule()
+    return taskBreakdownPage.handleTaskBreakdownEvent(eventTarget)
   }
   if (pathname.startsWith('/fcs/progress/production-orders')) {
     const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()
@@ -1517,6 +1534,12 @@ root.addEventListener('click', async (event) => {
 
   if (shouldBypassClickDispatch(target)) return
 
+  const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
+  if (productionObjectActionNode && handleProductionObjectOverviewEvent(productionObjectActionNode)) {
+    event.preventDefault()
+    return
+  }
+
   const shellActionNode = target.closest<HTMLElement>('[data-action]')
   if (shellActionNode && handleShellAction(shellActionNode)) {
     event.preventDefault()
@@ -1628,6 +1651,11 @@ root.addEventListener('input', async (event) => {
   if (isComposingInputEvent(event)) return
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
+
+  const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
+  if (productionObjectActionNode && handleProductionObjectOverviewEvent(productionObjectActionNode)) {
+    return
+  }
 
   if (await dispatchPcsInputEvent(target)) {
     if (shouldSkipInputRerender(target)) return

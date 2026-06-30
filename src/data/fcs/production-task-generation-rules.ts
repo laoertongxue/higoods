@@ -6,7 +6,8 @@ import {
   type GeneratedProductionArtifact,
   type GeneratedTaskArtifact,
 } from './production-artifact-generation.ts'
-import { getFactoryMasterRecordById } from './factory-master-store.ts'
+import { KOL_GOTO_FACTORY_ID } from './factory-mock-data.ts'
+import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 
 export type ProductionTaskUnitType =
   | 'SINGLE_PROCESS_TASK'
@@ -95,7 +96,7 @@ export interface GeneratedTaskUnitPreview {
   coveredProcesses: CoveredProcessScope[]
   independentProcessCodes: string[]
   sourceArtifactIds: string[]
-  pdaSteps: Array<'领料' | '开工' | '关键节点上报' | '交出' | '完工'>
+  pdaSteps: string[]
   handoverReceiverKind: 'WAREHOUSE'
   handoverReceiverName: string
 }
@@ -121,6 +122,7 @@ export interface ProductionTaskGenerationPreview {
 }
 
 const SIMPLE_FIVE_STEP: GeneratedTaskUnitPreview['pdaSteps'] = ['领料', '开工', '关键节点上报', '交出', '完工']
+const DEFAULT_PROCESS_STEPS: GeneratedTaskUnitPreview['pdaSteps'] = ['接单', '备料', '开工', '上报进度', '交出']
 
 const RULES: ProductionTaskGenerationRule[] = [
   {
@@ -132,7 +134,7 @@ const RULES: ProductionTaskGenerationRule[] = [
     description: 'KOL样衣、小单由支持整单承接的工厂合并执行，印染独立管理。',
     saleTypes: ['KOL样衣', 'KOL样品小单'],
     factoryConditionMode: 'REQUIRE_SPECIFIED_FACTORY',
-    factoryIds: ['ID-F002', 'ID-F005', 'ID-F011'],
+    factoryIds: [KOL_GOTO_FACTORY_ID],
     requireFactoryAcceptanceMode: true,
     requiredAcceptanceMode: 'WHOLE_ORDER',
     independentProcessCodes: ['PRINT', 'DYE'],
@@ -155,10 +157,10 @@ const RULES: ProductionTaskGenerationRule[] = [
     enabled: true,
     priority: 20,
     description: '适合小批量订单，由同一工厂连续承接裁片、车缝、后道。',
-    saleTypes: ['虾皮样品', 'KOL样品小单', 'JKT复购'],
+    saleTypes: ['虾皮样品', 'JKT复购'],
     qtyMax: 3000,
     factoryConditionMode: 'REQUIRE_SPECIFIED_FACTORY',
-    factoryIds: ['ID-F001', 'ID-F008', 'ID-F011', 'ID-F014'],
+    factoryIds: [],
     requireFactoryAcceptanceMode: true,
     requiredAcceptanceMode: 'CONTINUOUS_PROCESS',
     independentProcessCodes: ['PRINT', 'DYE'],
@@ -270,8 +272,21 @@ function factorySupports(rule: ProductionTaskGenerationRule, order: ProductionOr
   if (!order.mainFactoryId || order.mainFactoryId === 'PENDING-SEWING-MAIN-FACTORY') return rule.factoryConditionMode !== 'REQUIRE_SPECIFIED_FACTORY'
   const factory = getFactoryMasterRecordById(order.mainFactoryId)
   const config = factory?.taskAcceptanceConfig
-  if (rule.requiredAcceptanceMode === 'WHOLE_ORDER' && config?.wholeOrderEnabled) return true
-  if (rule.requiredAcceptanceMode === 'CONTINUOUS_PROCESS' && config?.continuousProcessEnabled) return true
+  if (rule.requiredAcceptanceMode === 'WHOLE_ORDER' && config?.wholeOrderEnabled) {
+    const wholeOrderRule = config.wholeOrderRule
+    return Boolean(
+      wholeOrderRule?.enabled
+      && wholeOrderRule.applicableSaleTypes.includes(order.demandSnapshot.saleType)
+      && rule.independentProcessCodes.every((processCode) => wholeOrderRule.excludedProcessCodes.includes(processCode)),
+    )
+  }
+  if (rule.requiredAcceptanceMode === 'CONTINUOUS_PROCESS' && config?.continuousProcessEnabled) {
+    return config.continuousRules.some((continuousRule) =>
+      continuousRule.enabled
+      && continuousRule.applicableSaleTypes.includes(order.demandSnapshot.saleType)
+      && rule.independentProcessCodes.every((processCode) => continuousRule.excludedProcessCodes.includes(processCode)),
+    )
+  }
   if (rule.requiredAcceptanceMode === 'SINGLE_PROCESS' && config?.singleProcessEnabled !== false) return true
   return rule.factoryIds.includes(order.mainFactoryId)
 }
@@ -289,8 +304,43 @@ function isRuleCandidate(rule: ProductionTaskGenerationRule, order: ProductionOr
   return factorySupports(rule, order)
 }
 
+function resolveRuleFactoryIds(rule: ProductionTaskGenerationRule): string[] {
+  const sourceIds = new Set(rule.factoryIds)
+  for (const factory of listFactoryMasterRecords()) {
+    const config = factory.taskAcceptanceConfig
+    if (!config) continue
+    if (rule.requiredAcceptanceMode === 'WHOLE_ORDER') {
+      const wholeOrderRule = config.wholeOrderRule
+      if (
+        config.wholeOrderEnabled
+        && wholeOrderRule?.enabled
+        && rule.saleTypes.some((saleType) => wholeOrderRule.applicableSaleTypes.includes(saleType))
+      ) {
+        sourceIds.add(factory.id)
+      }
+      continue
+    }
+    if (
+      rule.requiredAcceptanceMode === 'CONTINUOUS_PROCESS'
+      && config.continuousProcessEnabled
+      && config.continuousRules.some((continuousRule) =>
+        continuousRule.enabled
+        && rule.saleTypes.some((saleType) => continuousRule.applicableSaleTypes.includes(saleType)),
+      )
+    ) {
+      sourceIds.add(factory.id)
+    }
+  }
+  return [...sourceIds]
+}
+
 export function listProductionTaskGenerationRules(): ProductionTaskGenerationRule[] {
-  return RULES.map((rule) => ({ ...rule, saleTypes: [...rule.saleTypes], factoryIds: [...rule.factoryIds], independentProcessCodes: [...rule.independentProcessCodes] }))
+  return RULES.map((rule) => ({
+    ...rule,
+    saleTypes: [...rule.saleTypes],
+    factoryIds: resolveRuleFactoryIds(rule),
+    independentProcessCodes: [...rule.independentProcessCodes],
+  }))
 }
 
 export function getProductionTaskGenerationRuleById(ruleId: string): ProductionTaskGenerationRule | undefined {
@@ -330,7 +380,7 @@ function buildUnitFromArtifacts(input: {
   index: number
 }): GeneratedTaskUnitPreview {
   const coveredProcesses = uniqueCoveredProcesses(input.taskArtifacts)
-  const processNames = coveredProcesses.map((item) => item.processName)
+  const processNames = [...new Set(coveredProcesses.map((item) => item.processName))]
   const comboName = processNames.length > 0 ? `${processNames.join('+')}组合任务` : input.rule.taskNameTemplate
   const taskName = input.rule.taskNameTemplate.includes('{工序组合}')
     ? input.rule.taskNameTemplate.replace('{工序组合}', processNames.join('+') || '连续工序')
@@ -349,7 +399,7 @@ function buildUnitFromArtifacts(input: {
     coveredProcesses,
     independentProcessCodes: [...input.rule.independentProcessCodes],
     sourceArtifactIds: input.taskArtifacts.map((artifact) => artifact.artifactId),
-    pdaSteps: input.rule.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP' ? [...SIMPLE_FIVE_STEP] : [...SIMPLE_FIVE_STEP],
+    pdaSteps: input.rule.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP' ? [...SIMPLE_FIVE_STEP] : [...DEFAULT_PROCESS_STEPS],
     handoverReceiverKind: input.rule.handoverReceiverKind,
     handoverReceiverName: input.rule.handoverReceiverName,
   }
@@ -369,6 +419,20 @@ function buildDefaultUnits(order: ProductionOrder, taskArtifacts: GeneratedTaskA
       index: index + 1,
     }),
   )
+}
+
+function resolveMergeProcessCodes(rule: ProductionTaskGenerationRule, order: ProductionOrder): Set<string> | null {
+  if (rule.mergeProcessCodes === 'ALL_EXCEPT_INDEPENDENT') return null
+  if (rule.requiredAcceptanceMode !== 'CONTINUOUS_PROCESS' || !order.mainFactoryId) {
+    return new Set(rule.mergeProcessCodes)
+  }
+
+  const factory = getFactoryMasterRecordById(order.mainFactoryId)
+  const continuousRule = factory?.taskAcceptanceConfig?.continuousRules.find((item) =>
+    item.enabled && item.applicableSaleTypes.includes(order.demandSnapshot.saleType),
+  )
+  if (!continuousRule) return new Set(rule.mergeProcessCodes)
+  return new Set(continuousRule.coveredProcessCodes)
 }
 
 export function buildTaskGenerationPreview(orderId: string): ProductionTaskGenerationPreview {
@@ -396,9 +460,7 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
   const independentDemandObjects = toIndependentDemandObjects(artifacts)
   const matchedRule = matchProductionTaskGenerationRule(orderId) ?? getProductionTaskGenerationRuleById('TGR-DEFAULT-001')!
   const independentSet = new Set(matchedRule.independentProcessCodes)
-  const mergeProcessSet = matchedRule.mergeProcessCodes === 'ALL_EXCEPT_INDEPENDENT'
-    ? null
-    : new Set(matchedRule.mergeProcessCodes)
+  const mergeProcessSet = resolveMergeProcessCodes(matchedRule, order)
   const mergeCandidates = taskArtifacts.filter((artifact) =>
     !independentSet.has(artifact.processCode) && (!mergeProcessSet || mergeProcessSet.has(artifact.processCode)),
   )

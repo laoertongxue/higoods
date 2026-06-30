@@ -25,14 +25,12 @@ import {
   getTaskDetailRows,
   getOrderDisplayBreakdownSnapshot,
   getOrderDisplayAssignmentSnapshot,
-  getOrderOutputValueSnapshot,
   getOrderMaterialDisplaySummary,
   getOrderMaterialIndicators,
   getOrderTechPackSnapshotDisplay,
   canOrderStartTaskBreakdown,
   getOrderTaskBreakdownDisabledReason,
   getMaterialPrepBreakdownReadinessForOrder,
-  formatOutputValue,
   getFilteredOrders,
   getPaginatedOrders,
   getProcessTaskById,
@@ -76,6 +74,7 @@ import {
 } from '../../data/fcs/material-request-drafts.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../../data/fcs/production-order-identity.ts'
 
@@ -202,13 +201,55 @@ function renderMaterialIdentity(input: {
   `
 }
 
-function renderOrderSpuInfo(order: ProductionOrder, options: { garmentDifficultyGrade?: string } = {}): string {
+function formatTechPackVersionLabel(label: string): string {
+  return label.replace(/^v/i, 'V')
+}
+
+function renderOrderTechPackVersionLink(order: ProductionOrder): string {
+  const display = getOrderTechPackSnapshotDisplay(order)
+  const label = formatTechPackVersionLabel(display.techPackVersionLabelText)
+  if (!order.techPackSnapshot) {
+    return '<div class="mt-1 text-xs text-muted-foreground">技术包版本：-</div>'
+  }
+
+  return `
+    <div class="mt-1 text-xs text-muted-foreground">
+      技术包版本：<button
+        type="button"
+        class="font-mono text-blue-600 hover:underline"
+        data-prod-action="open-orders-tech-pack-snapshot-dialog"
+        data-order-id="${escapeHtml(order.productionOrderId)}"
+      >${escapeHtml(label)}</button>
+    </div>
+  `
+}
+
+function renderOrderDemandInfo(order: ProductionOrder): string {
+  if (order.demandSnapshot.skuLines.length === 0) return '<span class="text-xs text-muted-foreground">暂无SKU需求</span>'
+
+  return `
+    <div class="space-y-1 text-xs">
+      ${order.demandSnapshot.skuLines
+        .map(
+          (sku) => `
+            <div class="rounded-md border bg-background/70 px-2 py-1">
+              <div class="font-mono text-muted-foreground">${escapeHtml(sku.skuCode)}</div>
+              <div class="mt-0.5 text-muted-foreground">${escapeHtml(sku.color)} / ${escapeHtml(sku.size)} / ${Number(sku.qty || 0).toLocaleString('zh-CN')}件</div>
+            </div>
+          `,
+        )
+        .join('')}
+    </div>
+  `
+}
+
+function renderOrderSpuInfo(order: ProductionOrder, options: { garmentDifficultyGrade?: string; showTechPackVersion?: boolean } = {}): string {
   const imageUrl = resolveProductionSpuImageUrl(order.demandSnapshot)
   return `
     <div class="flex min-w-0 items-center gap-3">
       ${renderProductionImageThumb(imageUrl, order.demandSnapshot.spuName, 'h-12 w-12')}
       <div class="min-w-0 text-sm">
-        <div class="font-mono">${escapeHtml(order.demandSnapshot.spuCode)}</div>
+        <div>${renderProductionObjectCodeButton({ objectType: 'PRODUCTION_ORDER', objectId: order.productionOrderNo, label: order.demandSnapshot.spuCode, className: 'font-mono text-blue-600 hover:underline' })}</div>
         <div class="max-w-[180px] truncate text-xs text-muted-foreground" title="${escapeHtml(order.demandSnapshot.spuName)}">
           ${escapeHtml(order.demandSnapshot.spuName)}
         </div>
@@ -223,6 +264,7 @@ function renderOrderSpuInfo(order: ProductionOrder, options: { garmentDifficulty
               </div>`
             : ''
         }
+        ${options.showTechPackVersion ? renderOrderTechPackVersionLink(order) : ''}
       </div>
     </div>
   `
@@ -731,6 +773,64 @@ function renderOrderDemandSnapshotDrawer(): string {
   `
 }
 
+function renderOrderTechPackSnapshotDialog(): string {
+  const order = getOrderById(state.ordersTechPackSnapshotDialogId)
+  if (!order) return ''
+
+  const snapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
+  const display = getOrderTechPackSnapshotDisplay(order)
+  const versionLabel = formatTechPackVersionLabel(display.techPackVersionLabelText)
+  const sourceTaskText = [
+    snapshot?.linkedRevisionTaskIds.length ? `改版任务 ${snapshot.linkedRevisionTaskIds.length}` : '',
+    snapshot?.linkedPatternTaskIds.length ? `制版任务 ${snapshot.linkedPatternTaskIds.length}` : '',
+    snapshot?.linkedArtworkTaskIds.length ? `花型任务 ${snapshot.linkedArtworkTaskIds.length}` : '',
+  ].filter(Boolean).join(' / ') || '暂无来源任务链'
+
+  return `
+    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
+      <button class="absolute inset-0 bg-black/45" data-prod-action="close-orders-tech-pack-snapshot-dialog" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-1/2 w-[min(560px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-2xl" data-dialog-panel="true">
+        <header class="flex items-start justify-between gap-3 border-b px-5 py-4">
+          <div>
+            <h3 class="text-base font-semibold">技术包版本快照</h3>
+            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)} · ${escapeHtml(order.demandSnapshot.spuName)}</p>
+          </div>
+          <button class="rounded-md border px-3 py-1 text-xs hover:bg-muted" data-prod-action="close-orders-tech-pack-snapshot-dialog">关闭</button>
+        </header>
+        <div class="space-y-4 px-5 py-4">
+          <section class="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <div class="text-xs text-muted-foreground">技术包版本</div>
+              <div class="font-mono">${escapeHtml(versionLabel)}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">快照状态</div>
+              <div>${renderBadge(display.techPackReadyStatus, display.techPackReadyClassName)}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">冻结时间</div>
+              <div>${escapeHtml(display.techPackSnapshotAt)}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted-foreground">完整度</div>
+              <div>${Number(snapshot?.completenessScore ?? 0)}%</div>
+            </div>
+          </section>
+          <section class="rounded-md border bg-muted/30 p-3 text-sm">
+            <div class="text-xs text-muted-foreground">快照内容</div>
+            <div class="mt-2 grid gap-2 sm:grid-cols-3">
+              <div>BOM ${snapshot?.bomItems.length ?? 0} 行</div>
+              <div>工序 ${snapshot?.processEntries.length ?? 0} 项</div>
+              <div>SKU ${order.demandSnapshot.skuLines.length} 个</div>
+            </div>
+            <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(sourceTaskText)}</div>
+          </section>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderOrderLogsDialog(): string {
   const order = getOrderById(state.ordersLogsId)
   if (!order) return ''
@@ -1019,7 +1119,7 @@ function renderOrderMainFactory(order: ProductionOrder): string {
       <div class="mt-1 flex items-center gap-1">
         ${
           pending
-            ? renderBadge('待回写', 'bg-amber-100 text-amber-700')
+            ? renderBadge('待同步', 'bg-amber-100 text-amber-700')
             : `${renderBadge(tierLabels[order.mainFactorySnapshot.tier as FactoryTier] ?? order.mainFactorySnapshot.tier, 'bg-slate-100 text-slate-700')}
                ${renderBadge(typeLabels[order.mainFactorySnapshot.type as FactoryType] ?? order.mainFactorySnapshot.type, 'bg-slate-100 text-slate-700')}`
         }
@@ -1547,10 +1647,9 @@ export function renderProductionOrdersPage(): string {
                   } />
                 </th>
                 <th class="min-w-[190px] px-3 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-                <th class="min-w-[240px] px-3 py-3 text-left font-medium">SPU信息</th>
+                <th class="min-w-[260px] px-3 py-3 text-left font-medium">SPU信息</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">状态</th>
-                <th class="min-w-[180px] px-3 py-3 text-left font-medium">技术包快照版本</th>
-                <th class="min-w-[120px] px-3 py-3 text-left font-medium">总产值</th>
+                <th class="min-w-[220px] px-3 py-3 text-left font-medium">需求信息</th>
                 <th class="min-w-[170px] px-3 py-3 text-left font-medium">任务分配</th>
                 <th class="min-w-[250px] px-3 py-3 text-left font-medium">任务生成</th>
                 <th class="min-w-[230px] px-3 py-3 text-left font-medium">配料 / 领料</th>
@@ -1563,10 +1662,9 @@ export function renderProductionOrdersPage(): string {
             <tbody>
               ${
                 pagedOrders.length === 0
-                  ? renderEmptyRow(13, '暂无数据')
+                  ? renderEmptyRow(12, '暂无数据')
                   : pagedOrders
                     .map((order) => {
-                        const outputValue = getOrderOutputValueSnapshot(order)
                         const techPackSnapshotDisplay = getOrderTechPackSnapshotDisplay(order)
                         const mergedLogs = getOrderMergedAuditLogs(order)
                         const lastLog = mergedLogs[mergedLogs.length - 1]
@@ -1580,18 +1678,8 @@ export function renderProductionOrdersPage(): string {
                             orderId: order.productionOrderId,
                           }),
                           renderOrderTextActionButton({
-                            label: '需求快照',
-                            action: 'open-orders-demand-snapshot',
-                            orderId: order.productionOrderId,
-                          }),
-                          renderOrderTextActionButton({
                             label: '日志',
                             action: 'open-orders-logs',
-                            orderId: order.productionOrderId,
-                          }),
-                          renderOrderTextActionButton({
-                            label: '技术包快照',
-                            action: 'open-order-tech-pack-snapshot',
                             orderId: order.productionOrderId,
                           }),
                           renderOrderTextActionButton({
@@ -1611,16 +1699,6 @@ export function renderProductionOrdersPage(): string {
                             nav: confirmationPreviewState.href,
                             disabled: !confirmationPreviewState.available,
                             title: confirmationPreviewState.title,
-                          }),
-                          renderOrderTextActionButton({
-                            label: '分配中心',
-                            action: 'open-orders-dispatch-center',
-                            orderId: order.productionOrderId,
-                          }),
-                          renderOrderTextActionButton({
-                            label: '分配看板',
-                            action: 'open-orders-dispatch-board',
-                            orderId: order.productionOrderId,
                           }),
                           renderOrderTextActionButton({
                             label: '领料草稿',
@@ -1644,30 +1722,12 @@ export function renderProductionOrdersPage(): string {
                             </td>
                             <td class="px-3 py-3">${renderOrderSpuInfo(order, {
                               garmentDifficultyGrade: techPackSnapshotDisplay.garmentDifficultyGrade,
+                              showTechPackVersion: true,
                             })}</td>
                             <td class="px-3 py-3">
                               ${renderBadge(getOrderListStatusDisplay(order).label, getOrderListStatusDisplay(order).color)}
                             </td>
-                            <td class="px-3 py-3">
-                              <div class="space-y-1">
-                                <div class="text-sm text-muted-foreground">${escapeHtml(
-                                  techPackSnapshotDisplay.techPackVersionText,
-                                )}</div>
-                                <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                                  ${renderBadge(
-                                    techPackSnapshotDisplay.techPackReadyStatus,
-                                    techPackSnapshotDisplay.techPackReadyClassName,
-                                  )}
-                                  <span>冻结时间 ${escapeHtml(techPackSnapshotDisplay.techPackSnapshotAt)}</span>
-                                </div>
-                              </div>
-                            </td>
-                            <td class="px-3 py-3">
-                              <div class="text-sm">
-                                <div class="font-medium">${escapeHtml(formatOutputValue(outputValue.totalOutputValue))}</div>
-                                <div class="mt-0.5 text-xs text-muted-foreground">执行任务 ${outputValue.taskCount} 条</div>
-                              </div>
-                            </td>
+                            <td class="px-3 py-3">${renderOrderDemandInfo(order)}</td>
                             <td class="px-3 py-3">${renderOrderAssignmentOverview(order)}</td>
                             <td class="px-3 py-3">${renderOrderTaskGenerationSummary(order)}</td>
                             <td class="px-3 py-3">
@@ -1714,6 +1774,7 @@ export function renderProductionOrdersPage(): string {
 
       <div data-production-orders-overlay-root="true">${renderMaterialDraftDrawer()}</div>
       ${renderOrderDemandSnapshotDrawer()}
+      ${renderOrderTechPackSnapshotDialog()}
       ${renderOrderLogsDialog()}
       ${breakdownReadinessDialog}
       ${taskGenerationPreviewDialog}

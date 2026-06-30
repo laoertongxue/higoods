@@ -17,7 +17,12 @@ import {
   type PdaMobileProcessKey,
 } from './pda-task-scenario-matrix.ts'
 import { buildTaskQrValue } from './task-qr.ts'
-import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import {
+  KOL_GOTO_FACTORY_ID,
+  KOL_GOTO_FACTORY_NAME,
+  TEST_FACTORY_ID,
+  TEST_FACTORY_NAME,
+} from './factory-mock-data.ts'
 
 export type PdaTaskMockOrigin =
   | 'DIRECT_PENDING'
@@ -1667,13 +1672,13 @@ function cloneProcessTaskForTaskGenerationDemo(sourceTaskId: string, nextTaskId:
     qty: 360,
     assignmentMode: 'DIRECT',
     assignmentStatus: 'ASSIGNED',
-    assignedFactoryId: 'ID-F002',
-    assignedFactoryName: 'PT Prima Printing Center',
+    assignedFactoryId: KOL_GOTO_FACTORY_ID,
+    assignedFactoryName: KOL_GOTO_FACTORY_NAME,
     tenderId: undefined,
     status: 'IN_PROGRESS',
     acceptanceStatus: 'ACCEPTED',
     acceptedAt: '2026-03-15 09:10:00',
-    acceptedBy: 'PT Prima Printing Center',
+    acceptedBy: KOL_GOTO_FACTORY_NAME,
     acceptDeadline: '2026-03-15 18:00:00',
     taskDeadline: '2026-03-22 18:00:00',
     dispatchRemark: '按 KOL 样衣整单承接规则生成，整单任务由指定工厂接单，不进入独立任务自动分配。',
@@ -1722,9 +1727,9 @@ function cloneProcessTaskForTaskGenerationDemo(sourceTaskId: string, nextTaskId:
     processBusinessCode: 'WHOLE_ORDER_TASK',
     processBusinessName: 'KOL整单任务',
     mockOrigin: 'EXEC_IN_PROGRESS',
-    mockReceiveSummary: 'KOL 整单任务已接单，PDA 展示覆盖裁片、车缝、后道的合并范围。',
-    mockExecutionSummary: '按领料、开工、关键节点上报、交出、完工 5 步执行。',
-    mockHandoverSummary: '整单完成后交仓库确认。',
+    mockReceiveSummary: 'KOL 整单任务由 kol goto 接单，PDA 展示覆盖裁片、车缝、后道的合并范围。',
+    mockExecutionSummary: '按确认领料、开始做、上传进度、交给仓库、仓库待确认 5 步执行。',
+    mockHandoverSummary: '交给仓库后由仓库确认完工。',
     mockStartPrerequisiteMet: true,
     spuCode: 'SPU-KOL-081',
     spuName: 'KOL样衣整单承接款',
@@ -1732,8 +1737,8 @@ function cloneProcessTaskForTaskGenerationDemo(sourceTaskId: string, nextTaskId:
     updatedAt: '2026-03-15 10:00:00',
     auditLogs: [
       createAuditLog(nextTaskId, 'GENERATE', '按 KOL 样衣整单承接规则生成整单任务', '2026-03-15 09:00:00', '系统'),
-      createAuditLog(nextTaskId, 'ACCEPT', '工厂确认整单接单', '2026-03-15 09:10:00', 'PT Prima Printing Center'),
-      createAuditLog(nextTaskId, 'START', 'PDA 按简化 5 步开始执行', '2026-03-15 10:00:00', 'PT Prima Printing Center'),
+      createAuditLog(nextTaskId, 'ACCEPT', 'kol goto 确认整单接单', '2026-03-15 09:10:00', KOL_GOTO_FACTORY_NAME),
+      createAuditLog(nextTaskId, 'START', 'PDA 按简化 5 步开始执行', '2026-03-15 10:00:00', KOL_GOTO_FACTORY_NAME),
     ],
   }
 }
@@ -1772,9 +1777,76 @@ const handoverSeedCollections = PROCESS_PROFILES.filter((profile) => isExternalM
   ),
 )
 
-const PDA_GENERIC_HANDOVER_HEADS = handoverSeedCollections.flatMap((item) => item.heads)
+const KOL_TASK_GENERATION_HANDOUT_HEAD_ID = 'HOH-KOL-WHOLE-000081'
+const PDA_TASK_GENERATION_DEMO_HANDOVER_HEADS: PdaTaskMockHandoverHeadSeed[] = [
+  {
+    handoverId: KOL_TASK_GENERATION_HANDOUT_HEAD_ID,
+    headType: 'HANDOUT',
+    taskId: 'TASK-KOL-WHOLE-000081',
+    taskNo: 'TASK-KOL-WHOLE-000081',
+    productionOrderNo: 'PO-202603-081',
+    processKey: 'SEWING',
+    processName: 'KOL整单任务',
+    sourceFactoryName: KOL_GOTO_FACTORY_NAME,
+    targetName: '仓库',
+    targetKind: 'WAREHOUSE',
+    receiverKind: 'WAREHOUSE',
+    receiverId: 'WH-TASK-GENERATION-HANDOVER',
+    receiverName: '仓库',
+    qtyUnit: '件',
+    factoryId: KOL_GOTO_FACTORY_ID,
+    taskStatus: 'IN_PROGRESS',
+    summaryStatus: 'SUBMITTED',
+    completionStatus: 'OPEN',
+    qtyExpectedTotal: 360,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 360,
+    sourceDocNo: 'HAND-KOL-WHOLE-000081',
+    scopeLabel: 'KOL整单任务交出',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
+    processBusinessCode: 'WHOLE_ORDER_TASK',
+    processBusinessName: 'KOL整单任务',
+    taskTypeCode: 'WHOLE_ORDER_TASK',
+    taskTypeLabel: '整单任务',
+    assignmentGranularityLabel: '整单',
+  },
+]
+const PDA_TASK_GENERATION_DEMO_HANDOUT_RECORDS_BY_HEAD_ID: Record<string, PdaTaskMockHandoutRecordSeed[]> = {
+  [KOL_TASK_GENERATION_HANDOUT_HEAD_ID]: [
+    {
+      handoverId: KOL_TASK_GENERATION_HANDOUT_HEAD_ID,
+      recordId: 'HOR-KOL-WHOLE-000081-001',
+      taskId: 'TASK-KOL-WHOLE-000081',
+      materialCode: 'KOL-WHOLE-GARMENT-081',
+      materialName: 'KOL样衣整单成衣',
+      materialSpec: '覆盖裁片、车缝、后道整单交出',
+      skuCode: 'SPU-KOL-081',
+      skuColor: '整单',
+      skuSize: '整单',
+      pieceName: '成衣包',
+      plannedQty: 360,
+      qtyUnit: '件',
+      handoutObjectType: 'GARMENT',
+      handoutItemLabel: '整单 / SPU-KOL-081 / 360件 / 成衣',
+      factorySubmittedAt: '2026-03-15 16:20:00',
+      factorySubmittedBy: KOL_GOTO_FACTORY_NAME,
+      factoryRemark: '整单任务已通过交出提交，待仓库确认。',
+      status: 'PENDING_WRITEBACK',
+    },
+  ],
+}
+
+const PDA_GENERIC_HANDOVER_HEADS = [
+  ...handoverSeedCollections.flatMap((item) => item.heads),
+  ...PDA_TASK_GENERATION_DEMO_HANDOVER_HEADS,
+]
 const PDA_GENERIC_PICKUP_RECORDS_BY_HEAD_ID = Object.assign({}, ...handoverSeedCollections.map((item) => item.pickupRecordsByHeadId))
-const PDA_GENERIC_HANDOUT_RECORDS_BY_HEAD_ID = Object.assign({}, ...handoverSeedCollections.map((item) => item.handoutRecordsByHeadId))
+const PDA_GENERIC_HANDOUT_RECORDS_BY_HEAD_ID = Object.assign(
+  {},
+  ...handoverSeedCollections.map((item) => item.handoutRecordsByHeadId),
+  PDA_TASK_GENERATION_DEMO_HANDOUT_RECORDS_BY_HEAD_ID,
+)
 
 const PDA_GENERIC_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = PDA_GENERIC_PROCESS_TASKS
   .filter((task) => task.mockOrigin === 'BIDDING_PENDING')

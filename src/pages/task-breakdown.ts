@@ -16,11 +16,6 @@ import {
 import { getTaskStartRuleState } from '../data/fcs/pda-start-link.ts'
 import { getTaskMilestoneState } from '../data/fcs/pda-exec-link.ts'
 import { listGeneratedProductionDemandArtifacts } from '../data/fcs/production-artifact-generation.ts'
-import { listSpecialCraftTaskOrders } from '../data/fcs/special-craft-task-orders.ts'
-import {
-  buildSpecialCraftTaskDetailPath,
-  buildSpecialCraftTaskOrdersPath,
-} from '../data/fcs/special-craft-operations.ts'
 import { getTaskTypeDisplayName } from '../data/fcs/page-adapters/task-execution-adapter.ts'
 import {
   formatTaskDetailDimensionsText,
@@ -29,12 +24,14 @@ import {
 import { escapeHtml, toClassName } from '../utils.ts'
 
 type TaskBreakdownTab = 'by-order' | 'all'
+type TaskBreakdownPageScope = 'order' | 'all'
 
 interface TaskBreakdownState {
   keyword: string
   activeTab: TaskBreakdownTab
   chainDetailOrderId: string | null
-  specialCraftOperationFilter: string
+  orderPage: number
+  allTaskPage: number
 }
 
 interface OrderRow {
@@ -56,13 +53,16 @@ interface OrderRow {
 
 const state: TaskBreakdownState = {
   keyword: '',
-  activeTab: 'by-order',
+  activeTab: 'all',
   chainDetailOrderId: null,
-  specialCraftOperationFilter: '全部',
+  orderPage: 1,
+  allTaskPage: 1,
 }
 
 const STAGE_ORDER = ['PREP', 'CUTTING', 'SEWING', 'SPECIAL', 'POST']
 const DEFAULT_POST_CHILD_TEXT = '开扣眼、装扣子、熨烫、包装'
+const TASK_BREAKDOWN_ORDER_PAGE_SIZE = 8
+const TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE = 8
 
 function taskDisplayName(task: RuntimeProcessTask): string {
   return getTaskTypeDisplayName(task)
@@ -107,6 +107,51 @@ const splitTaskStatusLabel: Record<RuntimeProcessTask['status'], string> = {
   DONE: '已完成',
   BLOCKED: '暂停',
   CANCELLED: '已取消',
+}
+
+const taskAssignmentStatusLabel: Record<RuntimeProcessTask['assignmentStatus'], string> = {
+  UNASSIGNED: '待分配',
+  ASSIGNING: '分配中',
+  ASSIGNED: '已分配',
+  BIDDING: '招标中',
+  AWARDED: '已中标',
+}
+
+const taskExecutionStatusLabel: Record<RuntimeProcessTask['status'], string> = {
+  NOT_STARTED: '未开工',
+  IN_PROGRESS: '执行中',
+  DONE: '已完工',
+  BLOCKED: '暂停',
+  CANCELLED: '已取消',
+}
+
+function getTaskSaleTypeText(task: RuntimeProcessTask): string {
+  if (task.saleTypeSnapshot) return task.saleTypeSnapshot
+  const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+  return order?.demandSnapshot.saleType ?? '—'
+}
+
+function getTaskPlanQtyText(task: RuntimeProcessTask): string {
+  const summary = summarizeTaskDetailRows(getTaskDetailRows(task), 0)
+  const qty = summary.count > 0 ? summary.totalQty : task.qty
+  if (!Number.isFinite(qty)) return '—'
+  return `${Number(qty).toLocaleString()}${task.qtyUnit === 'SET' ? '套' : '件'}`
+}
+
+function getTaskCurrentStepText(task: RuntimeProcessTask): string {
+  if (task.status === 'DONE') return '已完工'
+  if (task.status === 'CANCELLED') return '已取消'
+  if (task.status === 'BLOCKED') return '暂停待处理'
+  if (task.assignmentStatus === 'UNASSIGNED') return '待分配'
+
+  if (task.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP') {
+    if (task.status === 'NOT_STARTED') return '待领料'
+    if (task.status === 'IN_PROGRESS') return '执行中 / 待交仓库'
+  }
+
+  if (task.status === 'NOT_STARTED') return '待开工'
+  if (task.status === 'IN_PROGRESS') return '执行中'
+  return taskExecutionStatusLabel[task.status]
 }
 
 function stageScore(task: RuntimeProcessTask): number {
@@ -289,115 +334,66 @@ function renderNeedBadge(need: boolean, className: string): string {
   return `<span class="inline-flex rounded-md border px-2 py-0.5 text-[11px] ${className}">需要</span>`
 }
 
-function renderSpecialCraftTaskSection(keyword: string): string {
-  const allSpecialCraftTasks = listSpecialCraftTaskOrders().filter((task) => task.generationSource === 'PRODUCTION_ORDER')
-  const operationNames = Array.from(new Set(allSpecialCraftTasks.map((task) => task.operationName))).sort((a, b) => a.localeCompare(b, 'zh-CN'))
-  const filteredTasks = allSpecialCraftTasks.filter((task) => {
-    if (state.specialCraftOperationFilter !== '全部' && task.operationName !== state.specialCraftOperationFilter) {
-      return false
-    }
-    if (!keyword) return true
-    const tokens = [
-      task.taskOrderNo,
-      task.productionOrderNo,
-      task.operationName,
-      ...(task.demandLines?.map((line) => `${line.partName} ${line.colorName} ${line.sizeCode}`) ?? []),
-    ]
-      .join(' ')
-      .toLowerCase()
-    return tokens.includes(keyword)
-  })
-  const totalLineCount = filteredTasks.reduce((sum, task) => sum + (task.demandLines?.length || 0), 0)
+function clampPage(page: number, total: number, pageSize: number): number {
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  return Math.min(Math.max(1, page), pageCount)
+}
+
+function renderTaskBreakdownPagination(
+  scope: TaskBreakdownPageScope,
+  total: number,
+  currentPage: number,
+  pageSize: number,
+): string {
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const safePage = clampPage(currentPage, total, pageSize)
+  const startNo = total === 0 ? 0 : (safePage - 1) * pageSize + 1
+  const endNo = Math.min(total, safePage * pageSize)
+  const pages: number[] = []
+  const start = Math.max(1, safePage - 2)
+  const end = Math.min(pageCount, start + 4)
+
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page)
+  }
 
   return `
-    <section class="rounded-lg border bg-card p-4 space-y-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-base font-semibold">任务单元清单</h2>
-          <p class="mt-1 text-sm text-muted-foreground">展示生产单生成时根据技术包快照与任务生成规则自动生成的任务单元。</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <label class="text-xs text-muted-foreground">特殊工艺</label>
-          <select
-            data-breakdown-field="specialCraftOperation"
-            class="h-9 rounded-md border bg-background px-3 text-sm"
-          >
-            <option value="全部" ${state.specialCraftOperationFilter === '全部' ? 'selected' : ''}>全部</option>
-            ${operationNames
-              .map((name) => `<option value="${escapeHtml(name)}" ${state.specialCraftOperationFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`)
-              .join('')}
-          </select>
-        </div>
+    <div class="flex flex-wrap items-center justify-between gap-2 pt-3">
+      <div class="text-xs text-muted-foreground">显示 ${startNo}-${endNo} / 共 ${total} 条，第 ${safePage} / ${pageCount} 页</div>
+      <div class="flex flex-wrap items-center gap-1">
+        <button
+          class="h-8 rounded-md border px-2.5 text-xs ${safePage === 1 ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}"
+          data-fast-page-render="true"
+          data-breakdown-action="change-page"
+          data-breakdown-page-scope="${scope}"
+          data-page="${safePage - 1}"
+        >上一页</button>
+        ${pages
+          .map((page) => `
+            <button
+              class="h-8 min-w-8 rounded-md border px-2.5 text-xs ${page === safePage ? 'border-blue-600 bg-blue-600 text-white' : 'hover:bg-muted'}"
+              data-fast-page-render="true"
+              data-breakdown-action="change-page"
+              data-breakdown-page-scope="${scope}"
+              data-page="${page}"
+            >${page}</button>
+          `)
+          .join('')}
+        <button
+          class="h-8 rounded-md border px-2.5 text-xs ${safePage >= pageCount ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}"
+          data-fast-page-render="true"
+          data-breakdown-action="change-page"
+          data-breakdown-page-scope="${scope}"
+          data-page="${safePage + 1}"
+        >下一页</button>
       </div>
-
-      <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <article class="rounded-lg border bg-muted/10 p-3">
-          <div class="text-xs text-muted-foreground">任务单元数</div>
-          <div class="mt-1 text-2xl font-semibold">${filteredTasks.length}</div>
-        </article>
-        <article class="rounded-lg border bg-muted/10 p-3">
-          <div class="text-xs text-muted-foreground">任务明细数</div>
-          <div class="mt-1 text-2xl font-semibold">${totalLineCount}</div>
-        </article>
-        <article class="rounded-lg border bg-muted/10 p-3">
-          <div class="text-xs text-muted-foreground">待分配</div>
-          <div class="mt-1 text-2xl font-semibold">${filteredTasks.filter((task) => task.assignmentStatus === 'WAIT_ASSIGN').length}</div>
-        </article>
-        <article class="rounded-lg border bg-muted/10 p-3">
-          <div class="text-xs text-muted-foreground">待领料</div>
-          <div class="mt-1 text-2xl font-semibold">${filteredTasks.filter((task) => task.executionStatus === 'WAIT_PICKUP').length}</div>
-        </article>
-      </div>
-
-      ${
-        filteredTasks.length === 0
-          ? '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">暂无任务单元</div>'
-          : `
-            <div class="overflow-x-auto rounded-lg border">
-              <table class="w-full min-w-[1120px] text-sm">
-                <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
-                  <tr>
-                    <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-                    <th class="px-3 py-2 text-left font-medium">任务类型</th>
-                    <th class="px-3 py-2 text-left font-medium">任务号</th>
-                    <th class="px-3 py-2 text-left font-medium">覆盖工序</th>
-                    <th class="px-3 py-2 text-right font-medium">明细数</th>
-                    <th class="px-3 py-2 text-right font-medium">计划数量</th>
-                    <th class="px-3 py-2 text-left font-medium">分配状态</th>
-                    <th class="px-3 py-2 text-left font-medium">执行状态</th>
-                    <th class="px-3 py-2 text-left font-medium">规则来源</th>
-                    <th class="px-3 py-2 text-left font-medium">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${filteredTasks
-                    .map((task) => `
-                      <tr class="border-b last:border-0">
-                        <td class="px-3 py-2">${renderProductionOrderIdentityCell(task.productionOrderNo)}</td>
-                        <td class="px-3 py-2">${escapeHtml(task.operationName)}</td>
-                        <td class="px-3 py-2 font-medium text-blue-700">${escapeHtml(task.taskOrderNo)}</td>
-                        <td class="px-3 py-2">${escapeHtml(task.operationName)}</td>
-                        <td class="px-3 py-2 text-right">${task.demandLines?.length || 0}</td>
-                        <td class="px-3 py-2 text-right">${escapeHtml(String(task.planQty))}</td>
-                        <td class="px-3 py-2">${escapeHtml(task.assignmentStatusLabel || '待分配')}</td>
-                        <td class="px-3 py-2">${escapeHtml(task.executionStatusLabel || task.status)}</td>
-                        <td class="px-3 py-2">${escapeHtml(task.generationSourceLabel || '生产单生成')}</td>
-                        <td class="px-3 py-2">
-                          <div class="flex flex-wrap gap-2">
-                            <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${buildSpecialCraftTaskDetailPath(task.operationId, task.taskOrderId)}">查看任务</button>
-                            <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${buildSpecialCraftTaskOrdersPath(task.operationId)}">查看任务单</button>
-                          </div>
-                        </td>
-                      </tr>
-                    `)
-                    .join('')}
-                </tbody>
-              </table>
-            </div>
-          `
-      }
-    </section>
+    </div>
   `
+}
+
+function resetTaskBreakdownPages(): void {
+  state.orderPage = 1
+  state.allTaskPage = 1
 }
 
 function formatOutputValue(value: number | undefined): string {
@@ -639,117 +635,174 @@ function getOrderRows(
     })
 }
 
-function renderByOrderTable(orderRows: OrderRow[]): string {
-  return `
-    <div class="rounded-md border">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b bg-muted/40">
-            <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-            <th class="px-3 py-2 text-left font-medium">主工厂</th>
-            <th class="px-3 py-2 text-center font-medium">任务总数</th>
-            <th class="px-3 py-2 text-left font-medium">总产值</th>
-            <th class="px-3 py-2 text-center font-medium">当前生产流程</th>
-            <th class="px-3 py-2 text-center font-medium">相关流程</th>
-            <th class="min-w-[320px] px-3 py-2 text-left font-medium">任务流程</th>
-            <th class="px-3 py-2 text-left font-medium">开工准备</th>
-            <th class="px-3 py-2 text-left font-medium">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            orderRows.length === 0
-              ? '<tr><td colspan="9" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
-              : orderRows
-                  .map(({ order, tasks, orderTotalOutputValue, mainCount, subCount, dyeCount, materialCount, qcCount, splitGroupCount, splitResultCount, splitSourceCount, executionTaskCount, chain }) => {
-                    const prepSummary =
-                      tasks.length === 0
-                        ? '—'
-                        : [
-                            dyeCount > 0 ? '含染印' : null,
-                            materialCount > 0 ? `领料需求：${materialCount}个任务` : null,
-                            qcCount > 0 ? `质检标准：${qcCount}个任务` : null,
-                            splitGroupCount > 0 ? `拆分组：${splitGroupCount}` : '拆分组：0',
-                            splitResultCount > 0 ? `拆分结果任务：${splitResultCount}` : null,
-                            splitSourceCount > 0 ? `拆分来源任务：${splitSourceCount}` : null,
-                            `执行任务：${executionTaskCount}`,
-                          ]
-                            .filter(Boolean)
-                            .join('；') || '无执行准备挂载'
+function renderTaskBreakdownResultSummary(
+  orderRows: OrderRow[],
+  taskRows: RuntimeProcessTask[],
+  taskMaterialSet: Set<string>,
+): string {
+  const summaryItems = [
+    {
+      label: '生产单',
+      value: orderRows.length,
+      className: 'text-slate-900',
+    },
+    {
+      label: '任务总数',
+      value: taskRows.length,
+      className: 'text-blue-700',
+    },
+    {
+      label: '整单任务',
+      value: taskRows.filter((task) => task.taskUnitType === 'WHOLE_ORDER_TASK').length,
+      className: 'text-violet-700',
+    },
+    {
+      label: '连续工序任务',
+      value: taskRows.filter((task) => task.taskUnitType === 'COMBINED_PROCESS_TASK').length,
+      className: 'text-indigo-700',
+    },
+    {
+      label: '待分配',
+      value: taskRows.filter((task) => task.assignmentStatus === 'UNASSIGNED').length,
+      className: 'text-orange-600',
+    },
+    {
+      label: '需领料',
+      value: taskRows.filter((task) => taskMaterialSet.has(task.taskId)).length,
+      className: 'text-emerald-700',
+    },
+  ]
 
-                    return `
-                      <tr class="border-b last:border-0">
-                        <td class="px-3 py-3">${renderProductionOrderIdentityCell(order.productionOrderId)}</td>
-                        <td class="px-3 py-3 text-sm">${escapeHtml(order.mainFactorySnapshot?.name ?? '—')}</td>
-                        <td class="px-3 py-3 text-center text-sm">${tasks.length}</td>
-                        <td class="px-3 py-3 text-sm font-medium">${escapeHtml(formatOutputValue(orderTotalOutputValue))}</td>
-                        <td class="px-3 py-3 text-center">
-                          <span class="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${mainCount}</span>
-                        </td>
-                        <td class="px-3 py-3 text-center">
-                          ${
-                            subCount > 0
-                              ? `<span class="inline-flex rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">${subCount}</span>`
-                              : '<span class="text-xs text-muted-foreground">—</span>'
-                          }
-                        </td>
-                        <td class="max-w-[360px] px-3 py-3">
-                          ${
-                            tasks.length === 0
-                              ? '<span class="text-xs italic text-muted-foreground">暂无任务</span>'
-                              : `
-                                  <div>
-                                    <p class="text-xs leading-relaxed text-muted-foreground">${escapeHtml(chain)}</p>
-                                    ${
-                                      dyeCount > 0 || materialCount > 0 || qcCount > 0 || splitGroupCount > 0
-                                        ? `
-                                            <div class="mt-1.5 flex flex-wrap gap-1">
-                                              ${
-                                                dyeCount > 0
-                                                  ? `<span class="inline-flex rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0 text-[10px] text-indigo-700">染印×${dyeCount}</span>`
-                                                  : ''
-                                              }
-                                              ${
-                                                materialCount > 0
-                                                  ? `<span class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0 text-[10px] text-amber-700">领料×${materialCount}</span>`
-                                                  : ''
-                                              }
-                                              ${
-                                                qcCount > 0
-                                                  ? `<span class="inline-flex rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0 text-[10px] text-cyan-700">质检×${qcCount}</span>`
-                                                  : ''
-                                              }
-                                              ${
-                                                splitGroupCount > 0
-                                                  ? `<span class="inline-flex rounded-md border border-violet-200 bg-violet-50 px-2 py-0 text-[10px] text-violet-700">拆分组×${splitGroupCount}</span>`
-                                                  : ''
-                                              }
-                                            </div>
-                                          `
-                                        : ''
-                                    }
-                                  </div>
-                                `
-                          }
-                        </td>
-                        <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(prepSummary)}</td>
-                        <td class="px-3 py-3">
-                          <div class="flex gap-1.5">
-                            <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-breakdown-action="open-chain-detail" data-order-id="${escapeHtml(order.productionOrderId)}">
-                              任务链详情
-                            </button>
-                            <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(order.productionOrderId)}">
-                              查看生产单
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    `
-                  })
-                  .join('')
-          }
-        </tbody>
-      </table>
+  return `
+    <section class="rounded-2xl border bg-card p-2 shadow-sm" aria-label="搜索结果统计">
+      <div class="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        ${summaryItems
+          .map((item) => `
+            <div class="flex min-h-12 items-center justify-between rounded-lg border bg-background px-3 py-2">
+              <span class="text-sm text-muted-foreground">${escapeHtml(item.label)}：</span>
+              <span class="text-lg font-semibold ${item.className}">${item.value}</span>
+            </div>
+          `)
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderByOrderTable(orderRows: OrderRow[], totalRows: number, currentPage: number): string {
+  return `
+    <div class="space-y-3">
+      <div class="overflow-x-auto rounded-md border">
+        <table class="w-full min-w-[1320px] text-sm">
+          <thead>
+            <tr class="border-b bg-muted/40">
+              <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
+              <th class="px-3 py-2 text-left font-medium">主工厂</th>
+              <th class="px-3 py-2 text-center font-medium">任务总数</th>
+              <th class="px-3 py-2 text-left font-medium">总产值</th>
+              <th class="px-3 py-2 text-center font-medium">当前生产流程</th>
+              <th class="px-3 py-2 text-center font-medium">相关流程</th>
+              <th class="min-w-[320px] px-3 py-2 text-left font-medium">任务流程</th>
+              <th class="px-3 py-2 text-left font-medium">开工准备</th>
+              <th class="px-3 py-2 text-left font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              orderRows.length === 0
+                ? '<tr><td colspan="9" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
+                : orderRows
+                    .map(({ order, tasks, orderTotalOutputValue, mainCount, subCount, dyeCount, materialCount, qcCount, splitGroupCount, splitResultCount, splitSourceCount, executionTaskCount, chain }) => {
+                      const prepSummary =
+                        tasks.length === 0
+                          ? '—'
+                          : [
+                              dyeCount > 0 ? '含染印' : null,
+                              materialCount > 0 ? `领料需求：${materialCount}个任务` : null,
+                              qcCount > 0 ? `质检标准：${qcCount}个任务` : null,
+                              splitGroupCount > 0 ? `拆分组：${splitGroupCount}` : '拆分组：0',
+                              splitResultCount > 0 ? `拆分结果任务：${splitResultCount}` : null,
+                              splitSourceCount > 0 ? `拆分来源任务：${splitSourceCount}` : null,
+                              `执行任务：${executionTaskCount}`,
+                            ]
+                              .filter(Boolean)
+                              .join('；') || '无执行准备挂载'
+
+                      return `
+                        <tr class="border-b last:border-0">
+                          <td class="px-3 py-3">${renderProductionOrderIdentityCell(order.productionOrderId)}</td>
+                          <td class="px-3 py-3 text-sm">${escapeHtml(order.mainFactorySnapshot?.name ?? '—')}</td>
+                          <td class="px-3 py-3 text-center text-sm">${tasks.length}</td>
+                          <td class="px-3 py-3 text-sm font-medium">${escapeHtml(formatOutputValue(orderTotalOutputValue))}</td>
+                          <td class="px-3 py-3 text-center">
+                            <span class="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${mainCount}</span>
+                          </td>
+                          <td class="px-3 py-3 text-center">
+                            ${
+                              subCount > 0
+                                ? `<span class="inline-flex rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">${subCount}</span>`
+                                : '<span class="text-xs text-muted-foreground">—</span>'
+                            }
+                          </td>
+                          <td class="max-w-[360px] px-3 py-3">
+                            ${
+                              tasks.length === 0
+                                ? '<span class="text-xs italic text-muted-foreground">暂无任务</span>'
+                                : `
+                                    <div>
+                                      <p class="text-xs leading-relaxed text-muted-foreground">${escapeHtml(chain)}</p>
+                                      ${
+                                        dyeCount > 0 || materialCount > 0 || qcCount > 0 || splitGroupCount > 0
+                                          ? `
+                                              <div class="mt-1.5 flex flex-wrap gap-1">
+                                                ${
+                                                  dyeCount > 0
+                                                    ? `<span class="inline-flex rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0 text-[10px] text-indigo-700">染印×${dyeCount}</span>`
+                                                    : ''
+                                                }
+                                                ${
+                                                  materialCount > 0
+                                                    ? `<span class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0 text-[10px] text-amber-700">领料×${materialCount}</span>`
+                                                    : ''
+                                                }
+                                                ${
+                                                  qcCount > 0
+                                                    ? `<span class="inline-flex rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0 text-[10px] text-cyan-700">质检×${qcCount}</span>`
+                                                    : ''
+                                                }
+                                                ${
+                                                  splitGroupCount > 0
+                                                    ? `<span class="inline-flex rounded-md border border-violet-200 bg-violet-50 px-2 py-0 text-[10px] text-violet-700">拆分组×${splitGroupCount}</span>`
+                                                    : ''
+                                                }
+                                              </div>
+                                            `
+                                          : ''
+                                      }
+                                    </div>
+                                  `
+                            }
+                          </td>
+                          <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(prepSummary)}</td>
+                          <td class="px-3 py-3">
+                            <div class="flex gap-1.5">
+                              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-fast-page-render="true" data-breakdown-action="open-chain-detail" data-order-id="${escapeHtml(order.productionOrderId)}">
+                                任务链详情
+                              </button>
+                              <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(order.productionOrderId)}">
+                                查看生产单
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      `
+                    })
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+      ${renderTaskBreakdownPagination('order', totalRows, currentPage, TASK_BREAKDOWN_ORDER_PAGE_SIZE)}
     </div>
   `
 }
@@ -760,112 +813,130 @@ function renderAllTasksTable(
   taskDyeSet: Set<string>,
   taskMaterialSet: Set<string>,
   taskQcSet: Set<string>,
+  totalRows: number,
+  currentPage: number,
 ): string {
   return `
-    <div class="rounded-md border">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b bg-muted/40">
-            <th class="w-10 px-3 py-2 text-left font-medium">序</th>
-            <th class="px-3 py-2 text-left font-medium">任务ID</th>
-            <th class="px-3 py-2 text-left font-medium">任务类型</th>
-            <th class="px-3 py-2 text-left font-medium">承接方式</th>
-            <th class="px-3 py-2 text-left font-medium">覆盖工序</th>
-            <th class="px-3 py-2 text-left font-medium">交出对象</th>
-            <th class="px-3 py-2 text-left font-medium">规则来源</th>
-            <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-            <th class="px-3 py-2 text-left font-medium">总产值</th>
-            <th class="px-3 py-2 text-left font-medium">前置任务</th>
-            <th class="px-3 py-2 text-left font-medium">后置任务</th>
-            <th class="px-3 py-2 text-left font-medium">链路类型</th>
-            <th class="px-3 py-2 text-center font-medium">染印承接</th>
-            <th class="px-3 py-2 text-center font-medium">领料需求</th>
-            <th class="px-3 py-2 text-center font-medium">质检标准</th>
-            <th class="px-3 py-2 text-left font-medium">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            allTaskRows.length === 0
-              ? '<tr><td colspan="16" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
-              : allTaskRows
-                  .map((task, idx) => {
-                    const hasDye = taskDyeSet.has(task.taskId)
-                    const hasMaterial = taskMaterialSet.has(task.taskId)
-                    const hasQc = taskQcSet.has(task.taskId)
-                    const orderTasks = allTasks.filter((item) => item.productionOrderId === task.productionOrderId)
-                    const chainTypeClass = hasDye
-                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                      : 'bg-slate-50 text-slate-700 border-slate-200'
-                    const chainTypeLabel = hasDye ? '相关流程' : '当前生产流程'
-                    const displayName = taskDisplayName(task)
-                    const outputValue = resolveTaskOutputValueSnapshot(task)
-                    const outputValueText = task.isSplitSource
-                      ? '拆分来源任务'
-                      : formatOutputValue(outputValue.totalOutputValue)
-                    const outputValueHint = task.isSplitSource
-                      ? '以子任务重算结果为准'
-                      : outputValue.outputValuePerUnit && outputValue.outputValueUnit
-                        ? `单位产值 ${outputValue.outputValuePerUnit.toLocaleString()} ${outputValue.outputValueUnit}`
-                        : '—'
+    <div class="space-y-3">
+      <div class="overflow-x-auto rounded-md border">
+        <table class="w-full min-w-[1680px] text-sm">
+          <thead>
+            <tr class="border-b bg-muted/40">
+              <th class="px-3 py-2 text-left font-medium">任务号</th>
+              <th class="px-3 py-2 text-left font-medium">生产单号</th>
+              <th class="px-3 py-2 text-left font-medium">售卖类型</th>
+              <th class="px-3 py-2 text-left font-medium">任务类型</th>
+              <th class="px-3 py-2 text-left font-medium">任务名称</th>
+              <th class="px-3 py-2 text-left font-medium">覆盖工序</th>
+              <th class="px-3 py-2 text-left font-medium">承接方式</th>
+              <th class="px-3 py-2 text-left font-medium">承接工厂</th>
+              <th class="px-3 py-2 text-left font-medium">计划数量</th>
+              <th class="px-3 py-2 text-left font-medium">分配状态</th>
+              <th class="px-3 py-2 text-left font-medium">执行状态</th>
+              <th class="px-3 py-2 text-left font-medium">当前步骤</th>
+              <th class="px-3 py-2 text-left font-medium">交出对象</th>
+              <th class="px-3 py-2 text-left font-medium">规则来源</th>
+              <th class="px-3 py-2 text-left font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              allTaskRows.length === 0
+                ? '<tr><td colspan="15" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
+                : allTaskRows
+                    .map((task) => {
+                      const hasDye = taskDyeSet.has(task.taskId)
+                      const hasMaterial = taskMaterialSet.has(task.taskId)
+                      const hasQc = taskQcSet.has(task.taskId)
+                      const orderTasks = allTasks.filter((item) => item.productionOrderId === task.productionOrderId)
+                      const displayName = taskDisplayName(task)
+                      const outputValue = resolveTaskOutputValueSnapshot(task)
+                      const isMergedDetailOutputValue = Boolean(
+                        task.isMergedTaskUnit && task.outputValueUnit === '按覆盖工序明细计算',
+                      )
+                      const outputValueText = task.isSplitSource
+                        ? '拆分来源任务'
+                        : outputValue.totalOutputValue
+                          ? formatOutputValue(outputValue.totalOutputValue)
+                          : isMergedDetailOutputValue
+                            ? '按覆盖工序明细计算'
+                            : formatOutputValue(outputValue.totalOutputValue)
+                      const outputValueHint = task.isSplitSource
+                        ? '以子任务重算结果为准'
+                        : isMergedDetailOutputValue
+                          ? '按覆盖工序明细计算，不取首个工序单价'
+                          : outputValue.outputValuePerUnit && outputValue.outputValueUnit
+                          ? `单位产值 ${outputValue.outputValuePerUnit.toLocaleString()} ${outputValue.outputValueUnit}`
+                          : '—'
 
-                    return `
-                      <tr class="border-b last:border-0">
-                        <td class="px-3 py-2 text-xs text-muted-foreground">${idx + 1}</td>
-                        <td class="px-3 py-2 font-mono text-xs">
-                          <div>${escapeHtml(taskDisplayNo(task))}</div>
-                          ${
-                            taskDisplayNo(task) !== task.taskId
-                              ? `<div class="text-[10px] text-muted-foreground">${escapeHtml(task.taskId)}</div>`
+                      return `
+                        <tr class="border-b last:border-0">
+                          <td class="px-3 py-2 font-mono text-xs">
+                            <div>${escapeHtml(taskDisplayNo(task))}</div>
+                            ${
+                              taskDisplayNo(task) !== task.taskId
+                                ? `<div class="text-[10px] text-muted-foreground">${escapeHtml(task.taskId)}</div>`
                               : ''
-                          }
-                        </td>
-                        <td class="px-3 py-2 text-sm font-medium">
-                          <div class="space-y-0.5">
-                            <p>${escapeHtml(displayName)}</p>
-                            ${renderTaskDetailSummary(task)}
-                            ${renderTaskSplitSummary(task, orderTasks)}
-                          </div>
-                        </td>
-                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskAcceptanceModeText(task))}</td>
-                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getCoveredProcessText(task))}</td>
-                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskHandoverReceiverText(task))}</td>
-                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskRuleSourceText(task))}</td>
-                        <td class="px-3 py-2">${renderProductionOrderIdentityCell(task.productionOrderId || '—')}</td>
-                        <td class="px-3 py-2 text-sm">
-                          <div class="${task.isSplitSource ? 'text-muted-foreground' : 'font-medium'}">${escapeHtml(outputValueText)}</div>
-                          <div class="text-[11px] text-muted-foreground">${escapeHtml(outputValueHint)}</div>
-                        </td>
-                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(prevNames(task, orderTasks))}</td>
-                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(nextNames(task, orderTasks))}</td>
-                        <td class="px-3 py-2">
-                          <span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${chainTypeClass}">${chainTypeLabel}</span>
-                        </td>
-                        <td class="px-3 py-2 text-center">${renderNeedBadge(hasDye, 'bg-indigo-50 text-indigo-700 border-indigo-200')}</td>
-                        <td class="px-3 py-2 text-center">${renderNeedBadge(hasMaterial, 'bg-amber-50 text-amber-700 border-amber-200')}</td>
-                        <td class="px-3 py-2 text-center">${renderNeedBadge(hasQc, 'bg-cyan-50 text-cyan-700 border-cyan-200')}</td>
-                        <td class="px-3 py-2">
-                          <div class="flex gap-1">
-                            <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(task.productionOrderId)}">生产单</button>
+                            }
+                          </td>
+                          <td class="px-3 py-2 text-xs font-medium">${escapeHtml(task.productionOrderId || '—')}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskSaleTypeText(task))}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskUnitTypeLabel(task))}</td>
+                          <td class="px-3 py-2 text-sm font-medium">
+                            <div class="space-y-0.5">
+                              <p>${escapeHtml(displayName)}</p>
+                              ${renderTaskDetailSummary(task)}
+                              ${renderTaskSplitSummary(task, orderTasks)}
+                            </div>
+                          </td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getCoveredProcessText(task))}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskAcceptanceModeText(task))}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(task.assignedFactoryName || '待分配')}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">
+                            <div>${escapeHtml(getTaskPlanQtyText(task))}</div>
+                            <div class="text-[11px] text-muted-foreground">${escapeHtml(outputValueText)}</div>
                             ${
-                              hasDye
-                                ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/dye-orders">染印</button>'
+                              outputValueHint !== '—'
+                                ? `<div class="text-[10px] text-muted-foreground">${escapeHtml(outputValueHint)}</div>`
                                 : ''
                             }
-                            ${
-                              hasMaterial
-                                ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/material-issue">领料</button>'
-                                : ''
-                            }
-                          </div>
-                        </td>
-                      </tr>
-                    `
-                  })
-                  .join('')
-          }
-        </tbody>
-      </table>
+                          </td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(taskAssignmentStatusLabel[task.assignmentStatus])}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(taskExecutionStatusLabel[task.status])}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskCurrentStepText(task))}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskHandoverReceiverText(task))}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskRuleSourceText(task))}</td>
+                          <td class="px-3 py-2">
+                            <div class="flex flex-wrap gap-1">
+                              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-fast-page-render="true" data-breakdown-action="open-chain-detail" data-order-id="${escapeHtml(task.productionOrderId)}">查看任务</button>
+                              <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(task.productionOrderId)}">查看生产单</button>
+                              <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/pda/exec/${escapeHtml(task.taskId)}">PDA预览</button>
+                              ${
+                                hasDye
+                                  ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/dye-orders">染印</button>'
+                                  : ''
+                              }
+                              ${
+                                hasMaterial
+                                  ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/material-issue">领料</button>'
+                                  : ''
+                              }
+                            </div>
+                            <div class="mt-1 flex flex-wrap gap-1">
+                              ${hasDye ? '<span class="inline-flex rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0 text-[10px] text-indigo-700">染印承接</span>' : ''}
+                              ${hasMaterial ? '<span class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0 text-[10px] text-amber-700">需领料</span>' : ''}
+                              ${hasQc ? '<span class="inline-flex rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0 text-[10px] text-cyan-700">需质检</span>' : ''}
+                            </div>
+                          </td>
+                        </tr>
+                      `
+                    })
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+      ${renderTaskBreakdownPagination('all', totalRows, currentPage, TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE)}
     </div>
   `
 }
@@ -894,19 +965,16 @@ export function renderTaskBreakdownPage(): string {
     )
 
   const orderRows = getOrderRows(allTasks, keyword, taskDyeSet, taskMaterialSet, taskQcSet)
-
-  const stats = {
-    orderCount: productionOrders.length,
-    total: allTasks.length,
-    mainCount: allTasks.filter((task) => !taskDyeSet.has(task.taskId)).length,
-    subCount: allTasks.filter((task) => taskDyeSet.has(task.taskId)).length,
-    materialCount: allTasks.filter(
-      (task) => taskMaterialSet.has(task.taskId),
-    ).length,
-    qcCount: allTasks.filter(
-      (task) => taskQcSet.has(task.taskId),
-    ).length,
-  }
+  const orderPage = clampPage(state.orderPage, orderRows.length, TASK_BREAKDOWN_ORDER_PAGE_SIZE)
+  const allTaskPage = clampPage(state.allTaskPage, allTaskRows.length, TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE)
+  const pagedOrderRows = orderRows.slice(
+    (orderPage - 1) * TASK_BREAKDOWN_ORDER_PAGE_SIZE,
+    orderPage * TASK_BREAKDOWN_ORDER_PAGE_SIZE,
+  )
+  const pagedAllTaskRows = allTaskRows.slice(
+    (allTaskPage - 1) * TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE,
+    allTaskPage * TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE,
+  )
 
   const chainDetailOrder = state.chainDetailOrderId
     ? productionOrders.find((order) => order.productionOrderId === state.chainDetailOrderId) ?? null
@@ -924,61 +992,12 @@ export function renderTaskBreakdownPage(): string {
         </p>
       </header>
 
-      <section class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <article class="rounded-lg border bg-card py-3">
-          <header class="flex items-center justify-between px-4 pb-1 pt-0">
-            <h2 class="text-xs font-medium text-muted-foreground">生产单数</h2>
-            <i data-lucide="file-text" class="h-4 w-4 text-muted-foreground"></i>
-          </header>
-          <div class="px-4 pb-0"><p class="text-2xl font-bold">${stats.orderCount}</p></div>
-        </article>
-
-        <article class="rounded-lg border bg-card py-3">
-          <header class="flex items-center justify-between px-4 pb-1 pt-0">
-            <h2 class="text-xs font-medium text-muted-foreground">任务总数</h2>
-            <i data-lucide="layers" class="h-4 w-4 text-muted-foreground"></i>
-          </header>
-          <div class="px-4 pb-0"><p class="text-2xl font-bold">${stats.total}</p></div>
-        </article>
-
-        <article class="rounded-lg border bg-card py-3">
-          <header class="flex items-center justify-between px-4 pb-1 pt-0">
-            <h2 class="text-xs font-medium text-muted-foreground">当前流程任务数</h2>
-            <i data-lucide="chevron-right" class="h-4 w-4 text-slate-500"></i>
-          </header>
-          <div class="px-4 pb-0"><p class="text-2xl font-bold">${stats.mainCount}</p></div>
-        </article>
-
-        <article class="rounded-lg border bg-card py-3">
-          <header class="flex items-center justify-between px-4 pb-1 pt-0">
-            <h2 class="text-xs font-medium text-muted-foreground">相关流程任务数</h2>
-            <i data-lucide="chevron-right" class="h-4 w-4 text-indigo-500"></i>
-          </header>
-          <div class="px-4 pb-0"><p class="text-2xl font-bold">${stats.subCount}</p></div>
-        </article>
-
-        <article class="rounded-lg border bg-card py-3">
-          <header class="flex items-center justify-between px-4 pb-1 pt-0">
-            <h2 class="text-xs font-medium text-muted-foreground">需领料任务数</h2>
-            <i data-lucide="clipboard-list" class="h-4 w-4 text-amber-500"></i>
-          </header>
-          <div class="px-4 pb-0"><p class="text-2xl font-bold">${stats.materialCount}</p></div>
-        </article>
-
-        <article class="rounded-lg border bg-card py-3">
-          <header class="flex items-center justify-between px-4 pb-1 pt-0">
-            <h2 class="text-xs font-medium text-muted-foreground">需质检标准任务数</h2>
-            <i data-lucide="check-square" class="h-4 w-4 text-cyan-500"></i>
-          </header>
-          <div class="px-4 pb-0"><p class="text-2xl font-bold">${stats.qcCount}</p></div>
-        </article>
-      </section>
-
       <section class="flex gap-2">
         <div class="relative max-w-xs flex-1">
           <i data-lucide="search" class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"></i>
           <input
             data-breakdown-field="keyword"
+            data-fast-page-render="true"
             value="${escapeHtml(state.keyword)}"
             placeholder="生产单号 / 任务名称 / 关键词"
             class="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
@@ -986,7 +1005,7 @@ export function renderTaskBreakdownPage(): string {
         </div>
       </section>
 
-      ${renderSpecialCraftTaskSection(keyword)}
+      ${renderTaskBreakdownResultSummary(orderRows, allTaskRows, taskMaterialSet)}
 
       <section class="space-y-3">
         <div class="inline-flex items-center rounded-md bg-muted p-1 text-sm">
@@ -998,9 +1017,10 @@ export function renderTaskBreakdownPage(): string {
                 : 'text-muted-foreground hover:text-foreground',
             )}"
             data-breakdown-action="switch-tab"
+            data-fast-page-render="true"
             data-tab="by-order"
           >
-            按生产单查看
+            按生产单汇总
           </button>
           <button
             class="${toClassName(
@@ -1010,14 +1030,15 @@ export function renderTaskBreakdownPage(): string {
                 : 'text-muted-foreground hover:text-foreground',
             )}"
             data-breakdown-action="switch-tab"
+            data-fast-page-render="true"
             data-tab="all"
           >
             全部任务
           </button>
         </div>
 
-        ${state.activeTab === 'by-order' ? renderByOrderTable(orderRows) : ''}
-        ${state.activeTab === 'all' ? renderAllTasksTable(allTaskRows, allTasks, taskDyeSet, taskMaterialSet, taskQcSet) : ''}
+        ${state.activeTab === 'by-order' ? renderByOrderTable(pagedOrderRows, orderRows.length, orderPage) : ''}
+        ${state.activeTab === 'all' ? renderAllTasksTable(pagedAllTaskRows, allTasks, taskDyeSet, taskMaterialSet, taskQcSet, allTaskRows.length, allTaskPage) : ''}
       </section>
 
       ${renderChainDetailDialog(
@@ -1038,10 +1059,7 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
     const field = fieldNode.dataset.breakdownField
     if (field === 'keyword') {
       state.keyword = fieldNode.value
-      return true
-    }
-    if (field === 'specialCraftOperation') {
-      state.specialCraftOperationFilter = fieldNode.value || '全部'
+      resetTaskBreakdownPages()
       return true
     }
   }
@@ -1056,6 +1074,21 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
     const tab = actionNode.dataset.tab as TaskBreakdownTab | undefined
     if (tab === 'by-order' || tab === 'all') {
       state.activeTab = tab
+      return true
+    }
+    return false
+  }
+
+  if (action === 'change-page') {
+    const pageScope = actionNode.dataset.breakdownPageScope as TaskBreakdownPageScope | undefined
+    const page = Number(actionNode.dataset.page || '1')
+    const safePage = Number.isFinite(page) ? Math.max(1, page) : 1
+    if (pageScope === 'order') {
+      state.orderPage = safePage
+      return true
+    }
+    if (pageScope === 'all') {
+      state.allTaskPage = safePage
       return true
     }
     return false

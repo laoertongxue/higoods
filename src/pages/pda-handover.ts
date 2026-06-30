@@ -544,9 +544,6 @@ export function renderPdaHandoverPage(): string {
   const handoutHeads = isPostFinishingFactory ? getPdaPostFinishingHandoutHeads() : getPdaHandoutHeads(selectedFactoryId)
   const doneHeads = isPostFinishingFactory ? getPdaPostFinishingCompletedHeads() : getPdaCompletedHeads(selectedFactoryId)
 
-  const donePickupCount = doneHeads.filter((head) => head.headType === 'PICKUP').length
-  const doneHandoutCount = doneHeads.filter((head) => head.headType === 'HANDOUT').length
-
   const tabCounts: Record<HandoverTab, number> = {
     pickup: pickupHeads.length,
     handout: handoutHeads.length,
@@ -596,7 +593,6 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'handout'
             ? `
-              ${isPostFinishingFactory ? '' : '<p class="text-xs text-muted-foreground">交出记录由工厂发起，接收方确认实收对象数量；裁床厂可看待装袋、装袋中、已装袋待交出，车缝厂可看待收中转袋、部分收货、差异。</p>'}
               ${
                 handoutHeads.length === 0
                   ? renderEmptyState('暂无待处理交出单')
@@ -609,10 +605,6 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'done'
             ? `
-              <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-3 py-2 text-xs">
-                <div>领料单已完成：<span class="font-medium">${donePickupCount}</span></div>
-                <div>交出单已完成：<span class="font-medium">${doneHandoutCount}</span></div>
-              </div>
               ${
                 doneHeads.length === 0
                   ? renderEmptyState('暂无已完成交接单')

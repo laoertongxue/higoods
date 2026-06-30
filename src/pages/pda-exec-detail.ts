@@ -2918,6 +2918,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
   const status = task.status || 'NOT_STARTED'
   const prereq = getStartPrerequisite(task)
+  const isSimpleFiveStepExecution = task.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP'
   const deadline = getDeadlineStatus(
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
     task.finishedAt,
@@ -2935,7 +2936,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
     }
   }
   const canStart = status === 'NOT_STARTED' && prereq.met && mobileTaskAccess.canExecuteInMobile
-  const canFinish = status === 'IN_PROGRESS' && mobileTaskAccess.canExecuteInMobile
+  const canFinish = status === 'IN_PROGRESS' && mobileTaskAccess.canExecuteInMobile && !isSimpleFiveStepExecution
   const startRule = getTaskStartRuleState(task)
   const startDueInfo = getTaskStartDueInfo(task)
   const milestone = getTaskMilestoneState(task)
@@ -3013,6 +3014,26 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const currentFactoryDisplay = assignedFactory
     ? formatFactoryDisplayName(assignedFactory.name, assignedFactory.code || assignedFactory.id)
     : sourceInfo.factoryDisplayName
+  const simpleFiveStepPanel = isSimpleFiveStepExecution
+    ? `
+        <section class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="font-semibold">${escapeHtml(task.taskCategoryZh || displayProcessName)}五步执行</h2>
+              <p class="mt-1 text-xs">确认领料 → 开始做 → 上传进度 → 交给${escapeHtml(task.handoverReceiverName || '仓库')} → 仓库待确认后完工</p>
+            </div>
+            <span class="rounded-full bg-white px-2 py-1 text-xs font-medium text-blue-700">不直接完工</span>
+          </div>
+          <div class="mt-3 grid grid-cols-5 gap-1 text-center text-[11px]">
+            ${['确认领料', '开始做', '上传进度', `交给${task.handoverReceiverName || '仓库'}`, '仓库待确认'].map((step, index) => `
+              <div class="rounded-md bg-white px-1 py-2 ${index <= (status === 'NOT_STARTED' ? 0 : status === 'IN_PROGRESS' ? 2 : status === 'DONE' ? 4 : 1) ? 'font-semibold text-blue-700' : 'text-muted-foreground'}">
+                ${escapeHtml(step)}
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `
+    : ''
 
   const specialCraftExecutionPanel = mobileTaskAccess.canOpenMobileExecution && getMobileTaskProcessType(task) === 'SPECIAL_CRAFT'
     ? renderSpecialCraftExecutionPanel(task, status, displayProcessName)
@@ -3313,6 +3334,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
       </article>
 
       ${handoverOrder ? renderHandoverOrderCard(handoverOrder) : ''}
+      ${simpleFiveStepPanel}
       ${mobileTaskAccess.canOpenMobileExecution && printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) : ''}
       ${mobileTaskAccess.canOpenMobileExecution && dyeWorkOrder ? renderDyeingTaskCard(task as TaskWithHandoverFields, dyeWorkOrder, handoverOrder) : ''}
       ${mobileTaskAccess.canOpenMobileExecution && woolOrder ? renderWoolTaskCard(task as TaskWithHandoverFields, woolOrder, handoverOrder) : ''}
@@ -3511,7 +3533,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                       ${canStart ? '' : 'disabled'}
                     >
                       <i data-lucide="play" class="mr-2 h-4 w-4"></i>
-                      开工
+                      ${isSimpleFiveStepExecution ? '确认领料 / 开始做' : '开工'}
                     </button>
                   `
                 : `
@@ -3524,7 +3546,29 @@ export function renderPdaExecDetailPage(taskId: string): string {
           }
 
           ${
-            mobileTaskAccess.canOpenMobileExecution && status === 'IN_PROGRESS'
+            mobileTaskAccess.canOpenMobileExecution && status === 'IN_PROGRESS' && isSimpleFiveStepExecution
+              ? `
+                  <div class="grid grid-cols-2 gap-2">
+                    <button
+                      class="inline-flex h-9 items-center justify-center rounded-md border border-blue-200 text-sm text-blue-700 hover:bg-blue-50"
+                      data-pda-execd-action="open-milestone-dialog"
+                    >
+                      <i data-lucide="upload" class="mr-2 h-4 w-4"></i>
+                      上传进度
+                    </button>
+                    <button
+                      class="inline-flex h-9 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                      data-pda-execd-action="view-handover-order"
+                      data-handover-order-id="${escapeHtml(handoverOrder?.handoverOrderId || handoverOrder?.handoverId || '')}"
+                      ${handoverOrder ? '' : 'disabled'}
+                    >
+                      <i data-lucide="send" class="mr-2 h-4 w-4"></i>
+                      交给${escapeHtml(task.handoverReceiverName || '仓库')}
+                    </button>
+                  </div>
+                  <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">交出后进入仓库待确认，仓库确认前不显示已完工。</div>
+                `
+              : mobileTaskAccess.canOpenMobileExecution && status === 'IN_PROGRESS'
               ? `
                   ${
                     printWorkOrder || dyeWorkOrder
@@ -5011,6 +5055,10 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const access = getMobileTaskAccessResult(task, getPdaSession()?.factoryId || task.assignedFactoryId || TEST_FACTORY_ID)
     if (!access.canExecuteInMobile) {
       showPdaExecDetailToast(`当前任务不可执行：${access.reasonLabel}`)
+      return true
+    }
+    if (task.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP') {
+      showPdaExecDetailToast(`请先上传进度并交给${task.handoverReceiverName || '仓库'}，仓库待确认后才能完工`)
       return true
     }
 

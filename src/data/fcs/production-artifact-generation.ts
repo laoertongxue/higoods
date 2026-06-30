@@ -1,6 +1,7 @@
 import {
   productionOrders,
 } from './production-orders.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import {
   getProductionOrderProcessEntries,
   getProductionOrderTechPackSnapshot,
@@ -550,7 +551,38 @@ function shouldGenerateExternalTask(context: ResolvedEntryContext): boolean {
   if (!context.generatesExternalTask) return false
   if (context.defaultDocType !== 'TASK') return false
   if (context.sourceEntry.entryType === 'CRAFT') return true
-  return context.processCode === 'POST_FINISHING'
+  return context.processCode === 'POST_FINISHING' || shouldGenerateMergedBaselineTask(context)
+}
+
+function shouldGenerateMergedBaselineTask(context: ResolvedEntryContext): boolean {
+  if (context.sourceEntry.entryType !== 'PROCESS_BASELINE') return false
+
+  const order = productionOrders.find((item) => item.productionOrderId === context.orderId)
+  if (!order?.mainFactoryId || order.mainFactoryId === 'PENDING-SEWING-MAIN-FACTORY') return false
+
+  const config = getFactoryMasterRecordById(order.mainFactoryId)?.taskAcceptanceConfig
+  if (!config) return false
+
+  const saleType = order.demandSnapshot.saleType
+  const wholeOrderRule = config.wholeOrderRule
+  if (
+    config.wholeOrderEnabled
+    && wholeOrderRule?.enabled
+    && wholeOrderRule.applicableSaleTypes.includes(saleType)
+    && !wholeOrderRule.excludedProcessCodes.includes(context.processCode)
+  ) {
+    return true
+  }
+
+  return Boolean(
+    config.continuousProcessEnabled
+    && config.continuousRules.some((rule) =>
+      rule.enabled
+      && rule.applicableSaleTypes.includes(saleType)
+      && rule.coveredProcessCodes.includes(context.processCode)
+      && !rule.excludedProcessCodes.includes(context.processCode),
+    ),
+  )
 }
 
 function shouldRollupToPostFinishing(context: ResolvedEntryContext): boolean {

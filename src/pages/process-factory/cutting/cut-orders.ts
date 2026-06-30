@@ -59,6 +59,7 @@ import { renderMaterialIdentityBlock } from './material-identity.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
+  renderProductionObjectCodeButton,
 } from '../../../data/fcs/production-order-identity.ts'
 import {
   buildCuttingDrillChipLabels,
@@ -1070,9 +1071,13 @@ function renderTable(rows: CutOrderRow[]): string {
                         return `
                           <tr class="${highlighted ? 'bg-blue-50/60' : 'hover:bg-muted/20'}">
                             <td class="px-4 py-3 align-top">
-                              <button type="button" class="text-left font-medium text-blue-600 hover:underline" data-nav="${escapeHtml(buildCutOrderDetailPath(row.id))}">
-                                ${escapeHtml(row.cutOrderNo)}
-                              </button>
+                              ${renderProductionObjectCodeButton({
+                                objectType: 'CUT_ORDER',
+                                objectId: row.cutOrderNo,
+                                label: row.cutOrderNo,
+                                className: 'font-mono text-blue-600 hover:underline',
+                              })}
+                              <button type="button" class="ml-2 rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted" data-nav="${escapeHtml(buildCutOrderDetailPath(row.id))}">详情</button>
                               <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.relationSummary)}</p>
                               <p class="mt-1 text-xs text-muted-foreground">裁片任务：${escapeHtml(row.cuttingTaskNo || '待补')}</p>
                               <p class="mt-1 text-xs text-muted-foreground">执行去向：${escapeHtml(row.executionRouteLabel || '待分配承接方')}</p>
@@ -2330,7 +2335,12 @@ function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel(
           <div class="min-w-0">
             <p class="text-sm text-muted-foreground">裁片单详情</p>
             <div class="mt-1 flex flex-wrap items-center gap-2">
-              <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(row.cutOrderNo)}</h1>
+              <h1 class="text-2xl font-semibold text-foreground">${renderProductionObjectCodeButton({
+                objectType: 'CUT_ORDER',
+                objectId: row.cutOrderNo,
+                label: row.cutOrderNo,
+                className: 'font-mono text-blue-600 hover:underline',
+              })}</h1>
               ${renderBadge(row.currentStageLabel, row.currentStage.className)}
             </div>
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.productionOrderNo)} · ${escapeHtml(row.materialSku)} · ${escapeHtml(row.patternFileName)} · ${escapeHtml(row.effectiveWidthText)}</p>

@@ -13,13 +13,15 @@ import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-
 import {
   DEDICATED_POST_FACTORY_ID,
   DEDICATED_POST_FACTORY_NAME,
+  KOL_GOTO_FACTORY_ID,
+  KOL_GOTO_FACTORY_NAME,
   OWN_WOOL_FACTORY_ID,
   OWN_WOOL_FACTORY_NAME,
   TEST_FACTORY_ID,
   TEST_FACTORY_NAME,
   specialCraftDedicatedFactories,
 } from './factory-mock-data.ts'
-import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories'
+import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories.ts'
 import type { Factory } from './factory-types'
 
 // =============================================
@@ -273,6 +275,7 @@ export function generateFactoryPdaUsers(
 const fullCapabilityTestFactoryPdaUsers = createFactoryPdaUsersForFactory(TEST_FACTORY_ID, TEST_FACTORY_NAME)
 const ownWoolFactoryPdaUsers = createFactoryPdaUsersForFactory(OWN_WOOL_FACTORY_ID, OWN_WOOL_FACTORY_NAME)
 const dedicatedPostFactoryPdaUsers = createFactoryPdaUsersForFactory(DEDICATED_POST_FACTORY_ID, DEDICATED_POST_FACTORY_NAME)
+const kolGotoFactoryPdaUsers = createFactoryPdaUsersForFactory(KOL_GOTO_FACTORY_ID, KOL_GOTO_FACTORY_NAME)
 const specialCraftDedicatedFactoryPdaUsers = specialCraftDedicatedFactories.flatMap((factory) =>
   createFactoryPdaUsersForFactory(factory.id, factory.name),
 )
@@ -301,6 +304,7 @@ export const initialFactoryPdaUsers: FactoryPdaUser[] = [
   ...fullCapabilityTestFactoryPdaUsers,
   ...ownWoolFactoryPdaUsers,
   ...dedicatedPostFactoryPdaUsers,
+  ...kolGotoFactoryPdaUsers,
   ...specialCraftDedicatedFactoryPdaUsers,
   ...onboardingOfficialFactoryPdaUsers,
 ]
@@ -429,6 +433,7 @@ export const initialFactoryPdaRoles: FactoryPdaRole[] = [
   ...generatePresetRolesForFactory(TEST_FACTORY_ID, INIT_NOW),
   ...generatePresetRolesForFactory(OWN_WOOL_FACTORY_ID, INIT_NOW),
   ...generatePresetRolesForFactory(DEDICATED_POST_FACTORY_ID, INIT_NOW),
+  ...generatePresetRolesForFactory(KOL_GOTO_FACTORY_ID, INIT_NOW),
   ...specialCraftDedicatedFactories.flatMap((factory) => generatePresetRolesForFactory(factory.id, INIT_NOW)),
   ...[34, 35, 36].flatMap((seed) => generatePresetRolesForFactory(`FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`, '2026-05-09 16:00:00')),
 ]
