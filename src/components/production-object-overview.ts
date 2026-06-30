@@ -25,18 +25,14 @@ type OverviewTab =
   | 'material-flow'
   | 'responsibility'
   | 'cross-query'
+  | 'relationship-history'
 
 const TAB_ITEMS: Array<{ key: OverviewTab; label: string }> = [
   { key: 'overview', label: '总览' },
-  { key: 'materials', label: '面辅料' },
-  { key: 'progress', label: '生产进度' },
-  { key: 'documents', label: '关联单据' },
-  { key: 'issues', label: '异常与下一步' },
-  { key: 'relationship', label: '关系图' },
-  { key: 'timeline', label: '生产时间线' },
-  { key: 'material-flow', label: '面辅料流转' },
-  { key: 'responsibility', label: '责任分析' },
-  { key: 'cross-query', label: '跨单查询' },
+  { key: 'materials', label: '面辅料与仓储' },
+  { key: 'progress', label: '工艺与任务' },
+  { key: 'issues', label: '异常与责任' },
+  { key: 'relationship-history', label: '关系与历史' },
 ]
 
 const OBJECT_TYPE_LABEL: Record<ProductionObjectType, string> = {
@@ -118,35 +114,95 @@ function formatQty(value: number | undefined, unit: string): string {
 }
 
 function renderSearchEmpty(keyword: string): string {
-  if (!keyword) return '<div class="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">输入生产单、需求单、SPU、SKU、配料单、裁片单、菲票、印花工单或染色工单，快速查看生产全貌。</div>'
+  if (!keyword) return '<div class="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">输入生产单、需求单、SPU、SKU、面料 / 辅料 / 纱线、配料单 / 领料单 / 发料单、裁片单、菲票、印花工单或染色工单，快速查看生产全貌。</div>'
   if (keyword.trim().length < 2) return '<div class="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">请至少输入 2 个字符。</div>'
   return '<div class="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">没有找到匹配对象。请确认编号是否完整，或换用 SPU / SKU / 生产单号搜索。</div>'
+}
+
+function isSearchRiskItem(item: ProductionObjectSearchIndex): boolean {
+  if (item.objectType === 'MATERIAL_PREP_RECORD' || item.objectType === 'MATERIAL_PICKUP_RECORD') return false
+  const text = `${item.statusText || ''} ${item.displayTitle}`
+  return ['待', '未', '缺', '差异', '部分', '确认', '加工中', '回仓'].some((value) => text.includes(value))
+}
+
+function getSearchBlockerText(item: ProductionObjectSearchIndex): string {
+  const matchedText = item.matchedReason?.replace(/^命中：/, '') || ''
+  if (['缺料', '未到仓', '待领料', '待确认', '差异'].some((value) => matchedText.includes(value))) return matchedText
+  if (isSearchRiskItem(item)) return item.statusText || '需要确认'
+  return '无明显卡点'
+}
+
+function takeSearchGroup(
+  rows: ProductionObjectSearchIndex[],
+  used: Set<string>,
+  predicate: (item: ProductionObjectSearchIndex, index: number) => boolean,
+  limit: number,
+): ProductionObjectSearchIndex[] {
+  const group: ProductionObjectSearchIndex[] = []
+  rows.forEach((item, index) => {
+    if (group.length >= limit || used.has(item.id) || !predicate(item, index)) return
+    used.add(item.id)
+    group.push(item)
+  })
+  return group
+}
+
+function groupSearchResults(rows: ProductionObjectSearchIndex[]): Array<{ title: string; rows: ProductionObjectSearchIndex[] }> {
+  const used = new Set<string>()
+  const best = takeSearchGroup(rows, used, (_item, index) => index === 0, 1)
+  const risk = takeSearchGroup(rows, used, isSearchRiskItem, 6)
+  const main = takeSearchGroup(rows, used, (item) => item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND', 6)
+  const execution = takeSearchGroup(rows, used, () => true, 9)
+
+  return [
+    { title: '最佳匹配', rows: best },
+    { title: '当前卡点', rows: risk },
+    { title: '生产主线', rows: main },
+    { title: '关联执行', rows: execution },
+  ].filter((group) => group.rows.length > 0)
+}
+
+function withRelatedMainlineRows(rows: ProductionObjectSearchIndex[]): ProductionObjectSearchIndex[] {
+  const ids = new Set(rows.map((item) => item.id))
+  const relatedOrderNos = uniqueSearchTexts(rows.map((item) => item.relatedProductionOrderNo).filter(Boolean) as string[])
+  const mainlineRows = productionObjectSearchIndex
+    .filter((item) =>
+      (item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND') &&
+      !ids.has(item.id) &&
+      relatedOrderNos.some((orderNo) => item.primaryNo === orderNo || item.relatedProductionOrderNo === orderNo),
+    )
+    .map((item) => ({ ...item, matchedReason: '关联生产对象' }))
+  return [...rows, ...mainlineRows]
+}
+
+function uniqueSearchTexts(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)))
 }
 
 function renderSearchResultCard(item: ProductionObjectSearchIndex): string {
   return `
     <article class="rounded-lg border bg-card p-3 shadow-sm">
       <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2">
             ${badge(OBJECT_TYPE_LABEL[item.objectType], 'border-blue-200 bg-blue-50 text-blue-700')}
             ${item.statusText ? badge(item.statusText) : ''}
           </div>
           <div class="mt-2 font-mono text-sm font-semibold text-foreground">${escapeHtml(item.primaryNo)}</div>
           <div class="mt-1 truncate text-sm text-foreground">${escapeHtml(item.displayTitle)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.secondaryNo || item.relatedProductionOrderNo || '-')}</div>
-          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(item.matchedReason || '命中：对象索引')}</div>
+          <div class="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+            <div><span class="text-foreground">关联生产对象：</span>${escapeHtml(item.relatedProductionOrderNo || item.secondaryNo || '-')}</div>
+            <div><span class="text-foreground">当前状态：</span>${escapeHtml(item.statusText || '待确认')}</div>
+            <div><span class="text-foreground">当前卡点：</span>${escapeHtml(getSearchBlockerText(item))}</div>
+            <div><span class="text-foreground">责任方：</span>${escapeHtml(item.ownerRole || '待确认')}</div>
+            <div><span class="text-foreground">最近更新：</span>${escapeHtml(item.updatedAt || '-')}</div>
+            <div><span class="text-foreground">命中：</span>${escapeHtml(item.matchedReason || '对象索引')}</div>
+          </div>
         </div>
-        <div class="shrink-0 text-right">
-          <div class="text-xs text-muted-foreground">${escapeHtml(item.ownerRole || '待确认')}</div>
-          <button
-            type="button"
-            class="mt-3 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-            data-production-object-action="open"
-            data-object-type="${item.objectType}"
-            data-object-id="${escapeHtml(item.id)}"
-            data-skip-page-rerender="true"
-          >查看总览</button>
+        <div class="flex shrink-0 flex-col gap-2 text-right">
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700" data-production-object-action="open" data-object-type="${item.objectType}" data-object-id="${escapeHtml(item.id)}" data-skip-page-rerender="true">查看总览</button>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-production-object-action="copy-no" data-copy-text="${escapeHtml(item.primaryNo)}" data-skip-page-rerender="true">复制编号</button>
+          ${item.routePath ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-production-object-action="go-source" data-route-path="${escapeHtml(item.routePath)}" data-skip-page-rerender="true">查看来源</button>` : ''}
         </div>
       </div>
     </article>
@@ -154,11 +210,20 @@ function renderSearchResultCard(item: ProductionObjectSearchIndex): string {
 }
 
 function renderSearchResults(keyword: string): string {
-  const rows = searchProductionObjects(keyword)
+  const rows = withRelatedMainlineRows(searchProductionObjects(keyword))
   if (rows.length === 0) return renderSearchEmpty(keyword)
+  const groups = groupSearchResults(rows)
   return `
-    <div class="space-y-2">
-      ${rows.map(renderSearchResultCard).join('')}
+    <div class="space-y-4">
+      ${groups.map((group) => `
+        <section class="space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold">${escapeHtml(group.title)}</h3>
+            <span class="text-xs text-muted-foreground">${group.rows.length} 个对象</span>
+          </div>
+          ${group.rows.map(renderSearchResultCard).join('')}
+        </section>
+      `).join('')}
     </div>
   `
 }
@@ -172,7 +237,7 @@ export function renderProductionObjectSearchPanel(keyword = searchKeyword): stri
         <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div>
             <h2 class="text-base font-semibold">生产全局搜索</h2>
-            <p class="mt-1 text-xs text-muted-foreground">小提示：支持生产单、生产需求、SPU、SKU、面辅料、配料单、发料单、裁片单、菲票、印花工单、染色工单</p>
+            <p class="mt-1 text-xs text-muted-foreground">小提示：支持生产单、生产需求、SPU、SKU、面料 / 辅料 / 纱线、配料单 / 领料单 / 发料单、裁片单、菲票、印花工单、染色工单</p>
           </div>
           <button class="h-8 w-8 rounded-md text-lg text-muted-foreground hover:bg-muted" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭">×</button>
         </header>
@@ -180,7 +245,7 @@ export function renderProductionObjectSearchPanel(keyword = searchKeyword): stri
           <div class="relative">
             <input
               class="h-10 w-full rounded-md border bg-background px-3 pr-10 text-sm outline-none focus:border-blue-500"
-              placeholder="输入生产单 / 需求单 / SPU / SKU / 面辅料SKU / 配料单 / 发料单 / 裁片单 / 菲票 / 印花工单 / 染色工单"
+              placeholder="输入生产单 / 需求单 / SPU / SKU / 物料SKU / 配料单 / 领料单 / 发料单 / 裁片单 / 菲票 / 印花工单 / 染色工单"
               value="${escapedKeyword}"
               data-production-object-action="search"
               data-skip-page-rerender="true"
@@ -226,6 +291,7 @@ export function renderOverviewHeader(overview: ProductionObjectOverview): string
         </div>
       </div>
       <div class="mt-3 rounded-lg border bg-muted/30 p-3">
+        <div class="mb-2 text-xs font-semibold text-muted-foreground">当前判断</div>
         <div class="flex flex-wrap items-center gap-2">
           ${badge(continueDecision.displayText)}
           <span class="text-sm font-medium text-foreground">${escapeHtml(continueDecision.reasonText)}</span>
@@ -277,23 +343,26 @@ function renderSummaryTab(overview: ProductionObjectOverview): string {
         <div class="h-24 w-20 overflow-hidden rounded-md border bg-muted">
           ${summary.imageUrl ? `<img src="${escapeHtml(summary.imageUrl)}" class="h-full w-full object-cover" alt="${escapeHtml(summary.productTitle)}" />` : '<div class="flex h-full items-center justify-center text-xs text-muted-foreground">商品图</div>'}
         </div>
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          ${renderInfoItem('商品', summary.productTitle)}
-          ${renderInfoItemHtml('SPU', renderOverviewCode(primaryRef.objectType, primaryRef.objectId, summary.spu))}
-          ${renderInfoItem('SKU 数量', summary.skuSummary)}
-          ${renderInfoItemHtml('生产需求单', renderOverviewCode('DEMAND', summary.demandNo, summary.demandNo))}
-          ${renderInfoItemHtml(
-            '生产单',
-            summary.productionOrderNo === '尚未生成'
-              ? escapeHtml(summary.productionOrderNo)
-              : renderOverviewCode('PRODUCTION_ORDER', summary.productionOrderNo, summary.productionOrderNo),
-          )}
-          ${renderInfoItem('计划数量', `${summary.planQuantity.toLocaleString('zh-CN')} ${summary.unit}`)}
-          ${renderInfoItem('交期', summary.plannedDeliveryDate)}
-          ${renderInfoItem('当前阶段', summary.currentStage)}
-          ${renderInfoItem('主工厂', summary.mainFactoryName)}
-          ${renderInfoItem('交付仓', summary.deliveryWarehouse)}
-          ${renderInfoItem('跟单员', summary.merchandiser)}
+        <div>
+          <h3 class="text-sm font-semibold">对象身份</h3>
+          <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            ${renderInfoItem('商品', summary.productTitle)}
+            ${renderInfoItemHtml('SPU', renderOverviewCode(primaryRef.objectType, primaryRef.objectId, summary.spu))}
+            ${renderInfoItem('SKU 数量', summary.skuSummary)}
+            ${renderInfoItemHtml('生产需求单', renderOverviewCode('DEMAND', summary.demandNo, summary.demandNo))}
+            ${renderInfoItemHtml(
+              '生产单',
+              summary.productionOrderNo === '尚未生成'
+                ? escapeHtml(summary.productionOrderNo)
+                : renderOverviewCode('PRODUCTION_ORDER', summary.productionOrderNo, summary.productionOrderNo),
+            )}
+            ${renderInfoItem('计划数量', `${summary.planQuantity.toLocaleString('zh-CN')} ${summary.unit}`)}
+            ${renderInfoItem('交期', summary.plannedDeliveryDate)}
+            ${renderInfoItem('当前阶段', summary.currentStage)}
+            ${renderInfoItem('主工厂', summary.mainFactoryName)}
+            ${renderInfoItem('交付仓', summary.deliveryWarehouse)}
+            ${renderInfoItem('跟单员', summary.merchandiser)}
+          </div>
         </div>
       </section>
       <section class="rounded-lg border bg-card p-4">
@@ -308,69 +377,199 @@ function renderSummaryTab(overview: ProductionObjectOverview): string {
           `).join('')}
         </div>
       </section>
-      ${renderOverviewExecutionSummary(overview)}
-      <section class="rounded-lg border bg-card p-4">
-        <h3 class="text-sm font-semibold">数据来源</h3>
-        <div class="mt-3 grid gap-2 sm:grid-cols-2">
-          ${overview.sourceSnapshots.map((source) => `
-            <div class="rounded-md border bg-muted/20 p-3 text-sm">
-              <div class="font-medium">${escapeHtml(source.sourceName)}</div>
-              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(source.sourceText)}｜${escapeHtml(source.updatedAt)}</div>
-            </div>
-          `).join('')}
-        </div>
-      </section>
-      <section class="rounded-lg border bg-card p-4">
-        <h3 class="text-sm font-semibold">事实口径</h3>
-        <div class="mt-3 grid gap-2 md:grid-cols-2">
-          ${overview.factSources.map((fact) => `
-            <article class="rounded-md border bg-muted/20 p-3 text-sm">
-              <div class="flex flex-wrap items-center gap-2">
-                ${badge(fact.factType, 'border-slate-200 bg-slate-50 text-slate-700')}
-                ${badge(fact.statusText)}
-              </div>
-              <div class="mt-2 font-medium">${renderOverviewCode(fact.sourceDomain === 'PFOS' ? 'PROCESS_DOC' : fact.sourceDomain === 'WMS' ? 'WAREHOUSE_DOC' : 'MATERIAL', fact.sourceObjectNo, fact.sourceObjectNo)}</div>
-              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(fact.sourceDomain)}｜${escapeHtml(fact.quantityText)}｜${escapeHtml(fact.updatedAt)}</div>
-              <div class="mt-2 text-xs text-muted-foreground">责任方：${escapeHtml(fact.ownerRole)}｜下一步：${escapeHtml(fact.nextActionText)}</div>
-            </article>
-          `).join('')}
-        </div>
-      </section>
-      <section class="rounded-lg border bg-card p-4">
-        <h3 class="text-sm font-semibold">数据冲突</h3>
-        <div class="mt-3 space-y-2">
-          ${overview.dataConflicts.map((conflict) => `
-            <article class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
-              <div class="font-medium text-amber-800">${escapeHtml(conflict.displayText)}</div>
-              <div class="mt-1 text-xs text-amber-700">依据对象：${renderOverviewCode('MATERIAL', conflict.sourceObjectNo, conflict.sourceObjectNo, 'font-mono text-amber-700 hover:underline')}｜责任方：${escapeHtml(conflict.ownerRole)}｜下一步：${escapeHtml(conflict.nextActionText)}</div>
-            </article>
-          `).join('') || '<div class="rounded-md border border-dashed p-3 text-sm text-muted-foreground">暂无需要核对的数据冲突。</div>'}
-        </div>
-      </section>
+      ${renderExecutionOverview(overview)}
+      ${renderKeyEvidence(overview)}
+      ${renderEvidenceDetails(overview)}
     </div>
   `
 }
 
-function renderOverviewExecutionSummary(overview: ProductionObjectOverview): string {
-  if (overview.executionSummary.length === 0) return ''
+function renderKeyEvidence(overview: ProductionObjectOverview): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <h3 class="text-sm font-semibold">执行状态摘要</h3>
-      <div class="mt-3 grid gap-3 xl:grid-cols-4">
-        ${overview.executionSummary.map((block) => `
-          <article class="min-w-0 rounded-md border bg-muted/20 p-3">
-            <div class="flex flex-wrap items-start justify-between gap-2">
-              <h4 class="text-xs font-semibold text-foreground">${escapeHtml(block.title)}</h4>
-              ${badge(block.statusText)}
+      <div class="flex items-center justify-between gap-2">
+        <h3 class="text-sm font-semibold">关键证据</h3>
+        <span class="text-xs text-muted-foreground">${overview.decisionFacts.length} 条依据</span>
+      </div>
+      <div class="mt-3 space-y-2">
+        ${overview.decisionFacts.slice(0, 5).map((fact) => `
+          <article class="rounded-md border bg-muted/20 p-3 text-sm">
+            <div class="font-medium">${escapeHtml(fact.evidenceText)}</div>
+            <div class="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+              <div><span class="text-foreground">来源：</span>${renderOverviewCode('MATERIAL', fact.sourceObjectNo, fact.sourceObjectNo)}</div>
+              <div><span class="text-foreground">责任方：</span>${escapeHtml(fact.ownerRole)}</div>
+              <div><span class="text-foreground">下一步：</span>${escapeHtml(fact.nextActionText)}</div>
             </div>
-            <div class="mt-3 break-words text-sm font-medium text-foreground">${escapeHtml(block.primaryText)}</div>
-            <div class="mt-2 break-words text-xs text-muted-foreground">${escapeHtml(block.secondaryText)}</div>
-            <div class="mt-3 inline-flex rounded bg-background px-2 py-1 text-xs text-muted-foreground">${escapeHtml(block.actionText)}</div>
           </article>
-        `).join('')}
+        `).join('') || '<div class="rounded-md border border-dashed p-3 text-sm text-muted-foreground">暂无关键证据。</div>'}
       </div>
     </section>
   `
+}
+
+function renderEvidenceDetails(overview: ProductionObjectOverview): string {
+  return `
+    <details class="rounded-lg border bg-card p-4">
+      <summary class="cursor-pointer text-sm font-semibold">数据来源 / 事实口径 / 数据冲突</summary>
+      <div class="mt-4 space-y-4">
+        <section>
+          <h3 class="text-sm font-semibold">数据来源</h3>
+          <div class="mt-3 grid gap-2 sm:grid-cols-2">
+            ${overview.sourceSnapshots.map((source) => `
+              <div class="rounded-md border bg-muted/20 p-3 text-sm">
+                <div class="font-medium">${escapeHtml(source.sourceName)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(source.sourceText)}｜${escapeHtml(source.updatedAt)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+        <section>
+          <h3 class="text-sm font-semibold">事实口径</h3>
+          <div class="mt-3 grid gap-2 md:grid-cols-2">
+            ${overview.factSources.map((fact) => `
+              <article class="rounded-md border bg-muted/20 p-3 text-sm">
+                <div class="flex flex-wrap items-center gap-2">
+                  ${badge(fact.factType, 'border-slate-200 bg-slate-50 text-slate-700')}
+                  ${badge(fact.statusText)}
+                </div>
+                <div class="mt-2 font-medium">${renderOverviewCode(fact.sourceDomain === 'PFOS' ? 'PROCESS_DOC' : fact.sourceDomain === 'WMS' ? 'WAREHOUSE_DOC' : 'MATERIAL', fact.sourceObjectNo, fact.sourceObjectNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(fact.sourceDomain)}｜${escapeHtml(fact.quantityText)}｜${escapeHtml(fact.updatedAt)}</div>
+                <div class="mt-2 text-xs text-muted-foreground">责任方：${escapeHtml(fact.ownerRole)}｜下一步：${escapeHtml(fact.nextActionText)}</div>
+              </article>
+            `).join('')}
+          </div>
+        </section>
+        <section>
+          <h3 class="text-sm font-semibold">数据冲突</h3>
+          <div class="mt-3 space-y-2">
+            ${overview.dataConflicts.map((conflict) => `
+              <article class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+                <div class="font-medium text-amber-800">${escapeHtml(conflict.displayText)}</div>
+                <div class="mt-1 text-xs text-amber-700">依据对象：${renderOverviewCode('MATERIAL', conflict.sourceObjectNo, conflict.sourceObjectNo, 'font-mono text-amber-700 hover:underline')}｜责任方：${escapeHtml(conflict.ownerRole)}｜下一步：${escapeHtml(conflict.nextActionText)}</div>
+              </article>
+            `).join('') || '<div class="rounded-md border border-dashed p-3 text-sm text-muted-foreground">暂无需要核对的数据冲突。</div>'}
+          </div>
+        </section>
+      </div>
+    </details>
+  `
+}
+
+function renderExecutionOverview(overview: ProductionObjectOverview): string {
+  const { taskFactories, keyTimes, quantityQuality } = overview.executionOverview
+  if (taskFactories.length === 0 && overview.materials.length === 0 && keyTimes.length === 0 && quantityQuality.length === 0) return ''
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="text-sm font-semibold">执行概览</h3>
+      <div class="mt-3 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+        <article class="min-w-0 space-y-2">
+          <h4 class="text-sm font-semibold">加工厂</h4>
+          ${taskFactories.slice(0, 7).map((row) => `
+            <div class="flex flex-wrap items-center gap-2 text-sm">
+              <span class="text-foreground">${escapeHtml(row.taskType)}：${escapeHtml(row.factory)}</span>
+              <span class="font-mono text-muted-foreground">${escapeHtml(row.taskNo)}</span>
+              ${badge(row.status)}
+            </div>
+          `).join('') || '<div class="text-sm text-muted-foreground">暂无加工任务</div>'}
+        </article>
+        <article class="min-w-0 space-y-2">
+          <h4 class="text-sm font-semibold">物料配领</h4>
+          ${renderMaterialPickupSummary(overview.materials)}
+        </article>
+        <article class="min-w-0 space-y-2">
+          <h4 class="text-sm font-semibold">时间</h4>
+          ${keyTimes.slice(0, 9).map((row) => {
+            const timeText = row.actualAt !== '-' ? row.actualAt : row.plannedAt
+            return `
+              <div class="grid grid-cols-[8rem_1fr] gap-2 text-sm">
+                <span class="text-blue-600">${escapeHtml(row.nodeType)}：</span>
+                <span class="text-foreground">${escapeHtml(timeText || '待确认')}</span>
+              </div>
+            `
+          }).join('') || '<div class="text-sm text-muted-foreground">暂无关键时间</div>'}
+        </article>
+        <article class="min-w-0 space-y-2">
+          <h4 class="text-sm font-semibold">数量</h4>
+          ${quantityQuality.slice(0, 9).map((row) => `
+            <div class="grid grid-cols-[8rem_1fr] gap-2 text-sm">
+              <span class="text-blue-600">${escapeHtml(row.quantityType)}：</span>
+              <span class="text-foreground">${escapeHtml(row.currentQty)}${row.unit ? ` ${escapeHtml(row.unit)}` : ''}</span>
+            </div>
+          `).join('') || '<div class="text-sm text-muted-foreground">暂无关键数量</div>'}
+        </article>
+      </div>
+    </section>
+  `
+}
+
+function getMaterialPickupQty(line: ProductionMaterialLine): number {
+  return Math.max(Number(line.issuedQty || 0), Number(line.factoryReceivedQty || 0))
+}
+
+function getMaterialPickupGap(line: ProductionMaterialLine): number {
+  const preparedGap = Math.max(0, line.requiredQty - Number(line.preparedQty || 0))
+  const pickupGap = Math.max(0, line.requiredQty - getMaterialPickupQty(line))
+  if (line.shortageQty > 0) return line.shortageQty
+  return Math.max(preparedGap, pickupGap)
+}
+
+function getMaterialPickupStatus(line: ProductionMaterialLine): string {
+  const preparedQty = Number(line.preparedQty || 0)
+  const pickupQty = getMaterialPickupQty(line)
+  if (line.purchaseArrivalStatus === 'NOT_PURCHASED') return '待采购'
+  if (line.purchaseArrivalStatus === 'PURCHASED_NOT_ARRIVED' || line.purchaseArrivalStatus === 'PARTIAL_ARRIVED') return '待到仓'
+  if (preparedQty <= 0) return '待配料'
+  if (preparedQty < line.requiredQty) return '部分配料'
+  if (pickupQty <= 0) return '待领料'
+  if (pickupQty < line.requiredQty) return '部分领料'
+  return '已领齐'
+}
+
+function getMaterialPickupPriority(line: ProductionMaterialLine): number {
+  const status = getMaterialPickupStatus(line)
+  if (getMaterialPickupGap(line) > 0 && status !== '已领齐') return 0
+  if (status === '待领料' || status === '部分领料') return 1
+  if (line.materialType === 'FABRIC') return 2
+  if (line.materialType === 'ACCESSORY' || line.materialType === 'YARN') return 3
+  return 4
+}
+
+function renderMaterialPickupSummary(materials: ProductionMaterialLine[]): string {
+  const rows = [...materials].sort((a, b) =>
+    getMaterialPickupPriority(a) - getMaterialPickupPriority(b) ||
+    a.materialName.localeCompare(b.materialName),
+  )
+  const visibleRows = pickVisibleMaterialPickupRows(rows)
+  return `
+    ${visibleRows.map((line) => {
+      const pickupQty = getMaterialPickupQty(line)
+      const gapQty = getMaterialPickupGap(line)
+      return `
+        <div class="rounded-md border bg-muted/20 p-2 text-xs">
+          <div class="flex flex-wrap items-center gap-1">
+            ${badge(materialTypeLabel[line.materialType], 'border-slate-200 bg-slate-50 text-slate-700')}
+            ${badge(getMaterialPickupStatus(line))}
+          </div>
+          <div class="mt-1 truncate text-sm font-medium">${escapeHtml(line.materialName)}</div>
+          <div class="mt-0.5 truncate font-mono text-muted-foreground">${renderOverviewCode('MATERIAL', line.materialSku, line.materialSku, 'text-blue-600 hover:underline')}</div>
+          <div class="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-muted-foreground">
+            <div><span class="text-foreground">需求：</span>${formatQty(line.requiredQty, line.unit)}</div>
+            <div><span class="text-foreground">已配料：</span>${formatQty(line.preparedQty, line.unit)}</div>
+            <div><span class="text-foreground">已领料：</span>${formatQty(pickupQty, line.unit)}</div>
+            <div><span class="text-foreground">缺口：</span>${formatQty(gapQty, line.unit)}</div>
+          </div>
+        </div>
+      `
+    }).join('') || '<div class="text-sm text-muted-foreground">暂无物料配领</div>'}
+    ${rows.length > visibleRows.length ? `<div class="text-xs text-muted-foreground">另有 ${rows.length - visibleRows.length} 个物料，在「面辅料与仓储」中查看。</div>` : ''}
+  `
+}
+
+function pickVisibleMaterialPickupRows(rows: ProductionMaterialLine[]): ProductionMaterialLine[] {
+  const visibleRows = rows.slice(0, 6)
+  const yarnLine = rows.find((line) => line.materialType === 'YARN')
+  if (yarnLine && visibleRows.length > 0 && !visibleRows.includes(yarnLine)) visibleRows[visibleRows.length - 1] = yarnLine
+  return visibleRows
 }
 
 function renderInfoItem(label: string, value: string): string {
@@ -476,9 +675,8 @@ function renderProgressTab(overview: ProductionObjectOverview): string {
   `
 }
 
-function renderDocumentsTab(overview: ProductionObjectOverview): string {
+function renderDocumentGroups(overview: ProductionObjectOverview, groups: string[]): string {
   const primaryRef = getPrimaryObjectRef(overview)
-  const groups = ['生产', '面辅料', '裁片', '印花', '染色', '仓库']
   return `
     <div class="space-y-4">
       ${groups.map((group) => {
@@ -530,6 +728,10 @@ function renderDocumentsTab(overview: ProductionObjectOverview): string {
       }).join('')}
     </div>
   `
+}
+
+function renderDocumentsTab(overview: ProductionObjectOverview): string {
+  return renderDocumentGroups(overview, ['生产', '面辅料', '裁片', '印花', '染色', '仓库'])
 }
 
 function renderIssuesTab(overview: ProductionObjectOverview): string {
@@ -696,6 +898,68 @@ function renderCrossQueryTab(overview: ProductionObjectOverview): string {
   `
 }
 
+function renderMaterialsWarehouseTab(overview: ProductionObjectOverview): string {
+  return `
+    <div class="space-y-4">
+      ${renderMaterialsTab(overview)}
+      <section>
+        <h3 class="mb-3 text-sm font-semibold">仓储与配领单据</h3>
+        ${renderDocumentGroups(overview, ['面辅料', '仓库'])}
+      </section>
+    </div>
+  `
+}
+
+function renderTasksTab(overview: ProductionObjectOverview): string {
+  return `
+    <div class="space-y-4">
+      <section>
+        <h3 class="mb-3 text-sm font-semibold">工艺任务</h3>
+        ${renderProgressTab(overview)}
+      </section>
+      <section>
+        <h3 class="mb-3 text-sm font-semibold">工艺单据</h3>
+        ${renderDocumentGroups(overview, ['生产', '裁片', '印花', '染色'])}
+      </section>
+    </div>
+  `
+}
+
+function renderIssuesResponsibilityTab(overview: ProductionObjectOverview): string {
+  return `
+    <div class="space-y-4">
+      <section>
+        <h3 class="mb-3 text-sm font-semibold">异常与责任</h3>
+        ${renderIssuesTab(overview)}
+      </section>
+      <section>
+        <h3 class="mb-3 text-sm font-semibold">责任分析</h3>
+        ${renderResponsibilityTab(overview)}
+      </section>
+    </div>
+  `
+}
+
+function renderRelationshipHistoryTab(overview: ProductionObjectOverview): string {
+  return `
+    <div class="space-y-4">
+      ${renderRelationshipTab(overview)}
+      <section>
+        <h3 class="mb-3 text-sm font-semibold">生产时间线</h3>
+        ${renderTimelineTab(overview)}
+      </section>
+      <section>
+        <h3 class="mb-3 text-sm font-semibold">面辅料流转</h3>
+        ${renderMaterialFlowTab(overview)}
+      </section>
+      <section>
+        <h3 class="mb-3 text-sm font-semibold">跨单影响</h3>
+        ${renderCrossQueryTab(overview)}
+      </section>
+    </div>
+  `
+}
+
 export function renderOverviewSummaryTab(overview: ProductionObjectOverview): string {
   return renderSummaryTab(overview)
 }
@@ -737,15 +1001,10 @@ export function renderOverviewCrossQueryTab(overview: ProductionObjectOverview):
 }
 
 function renderTabBody(overview: ProductionObjectOverview, tab: OverviewTab): string {
-  if (tab === 'materials') return renderMaterialsTab(overview)
-  if (tab === 'progress') return renderProgressTab(overview)
-  if (tab === 'documents') return renderDocumentsTab(overview)
-  if (tab === 'issues') return renderIssuesTab(overview)
-  if (tab === 'relationship') return renderRelationshipTab(overview)
-  if (tab === 'timeline') return renderTimelineTab(overview)
-  if (tab === 'material-flow') return renderMaterialFlowTab(overview)
-  if (tab === 'responsibility') return renderResponsibilityTab(overview)
-  if (tab === 'cross-query') return renderCrossQueryTab(overview)
+  if (tab === 'materials' || tab === 'documents') return renderMaterialsWarehouseTab(overview)
+  if (tab === 'progress') return renderTasksTab(overview)
+  if (tab === 'issues' || tab === 'responsibility') return renderIssuesResponsibilityTab(overview)
+  if (tab === 'relationship-history' || tab === 'relationship' || tab === 'timeline' || tab === 'material-flow' || tab === 'cross-query') return renderRelationshipHistoryTab(overview)
   return renderSummaryTab(overview)
 }
 
@@ -781,7 +1040,6 @@ export function renderProductionObjectOverviewSurface(
         </div>
         <footer class="production-object-overview__footer">
           <div class="text-xs text-muted-foreground">FCS 只展示采购、WMS、PFOS 摘要与下钻入口，不在这里修改原系统数据。</div>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-production-object-action="go-source" data-route-path="/fcs/progress/material?po=${escapeHtml(overview.summary.productionOrderNo)}" data-skip-page-rerender="true">去处理</button>
         </footer>
       </section>
     </div>

@@ -237,7 +237,7 @@
   flex: 1 1 auto;
   overflow-y: auto;
   background: var(--muted);
-  padding: 1rem;
+  padding: 1rem 1rem 4rem;
 }
 
 .production-object-overview__footer {

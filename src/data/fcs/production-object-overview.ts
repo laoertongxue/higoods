@@ -4,6 +4,7 @@ import {
   productionOrderStatusConfig,
   productionOrders,
   type ProductionOrder,
+  type ProductionLedgerDetails,
   type ProductionExecutionSummaryBlock,
 } from './production-orders.ts'
 import {
@@ -59,7 +60,7 @@ export type ProductionObjectType =
 export type ProductionObjectSourceDomain = 'FCS' | 'PFOS' | 'WMS' | 'PMS' | 'PCS'
 export type ProductionObjectOwnerRole = '采购' | '仓库' | '工厂' | '跟单' | '待确认'
 export type ContinueDecisionStatus = 'CAN_CONTINUE' | 'CANNOT_CONTINUE' | 'NEEDS_CONFIRM'
-export type MaterialType = 'FABRIC' | 'ACCESSORY' | 'PACKING' | 'CUT_PART' | 'OTHER'
+export type MaterialType = 'FABRIC' | 'ACCESSORY' | 'YARN' | 'PACKING' | 'CUT_PART' | 'OTHER'
 export type RelatedDocumentGroup = '生产' | '面辅料' | '裁片' | '印花' | '染色' | '仓库'
 export type PurchaseArrivalStatus =
   | 'NOT_PURCHASED'
@@ -294,6 +295,7 @@ export interface ProductionObjectOverview {
   title: string
   summary: ProductionObjectSummary
   executionSummary: ProductionExecutionSummaryBlock[]
+  executionOverview: ProductionLedgerDetails
   continueDecision: ContinueDecision
   materials: ProductionMaterialLine[]
   progressNodes: ProductionProgressNode[]
@@ -764,6 +766,7 @@ const p1DocumentMocks: P1DocumentMock[] = [
 export const materialTypeLabel: Record<MaterialType, string> = {
   FABRIC: '面料',
   ACCESSORY: '辅料',
+  YARN: '纱线',
   PACKING: '包材',
   CUT_PART: '裁片',
   OTHER: '其他',
@@ -960,6 +963,59 @@ function buildWarehouseMaterialLines(order: ProductionOrder): ProductionMaterial
   )
 }
 
+function inferPrepMaterialType(line: ReturnType<typeof listMaterialPrepOrderProjections>[number]['lines'][number]): MaterialType {
+  const text = `${line.materialSku} ${line.materialName}`.toLowerCase()
+  if (text.includes('yarn') || text.includes('纱线') || text.includes('缝纫线')) return 'YARN'
+  if (text.includes('fabric') || text.includes('面料') || text.includes('里布') || text.includes('半成品')) return 'FABRIC'
+  if (text.includes('packing') || text.includes('包装')) return 'PACKING'
+  if (text.includes('zipper') || text.includes('button') || text.includes('label') || text.includes('拉链') || text.includes('纽扣') || text.includes('唛')) return 'ACCESSORY'
+  return 'OTHER'
+}
+
+function mapPrepLineStatus(requiredQty: number, preparedQty: number, pickedQty: number): WarehouseLineExecutionStatus {
+  if (preparedQty <= 0) return 'TO_PREPARE'
+  if (preparedQty < requiredQty) return 'PARTIAL_PREPARED'
+  if (pickedQty <= 0) return 'READY_TO_ISSUE'
+  return pickedQty >= requiredQty ? 'RECEIVED' : 'ISSUED'
+}
+
+function buildMaterialPrepLines(order: ProductionOrder): ProductionMaterialLine[] {
+  return listMaterialPrepOrderProjections()
+    .filter((projection) => matchesProductionOrder(order, [projection.order.productionOrderNo, projection.order.productionOrderId]))
+    .flatMap((projection) => projection.lines.map((line) => {
+      const pickedQty = projection.pickupRecords
+        .filter((record) => record.prepLineId === line.prepLineId)
+        .reduce((sum, record) => sum + record.pickedQty, 0)
+      const preparedQty = line.confirmedPrepQty || 0
+      const requiredQty = line.requiredQty || 0
+      const shortageQty = Math.max(0, requiredQty - Math.max(preparedQty, pickedQty))
+      const routePath = `${getProjectionCategoryPath(projection)}?prepOrderId=${encodeURIComponent(projection.order.prepOrderId)}`
+
+      return {
+        lineId: line.prepLineId,
+        materialType: inferPrepMaterialType(line),
+        materialName: line.materialName,
+        materialSku: line.materialSku,
+        spec: line.materialColor || line.materialSpec || classifyPrepLineType(line),
+        requiredQty,
+        unit: line.unit,
+        purchasedQty: undefined,
+        arrivedWarehouseQty: preparedQty,
+        preparedQty,
+        issuedQty: pickedQty,
+        factoryReceivedQty: pickedQty,
+        shortageQty,
+        purchaseArrivalStatus: 'ARRIVED' as const,
+        warehouseExecutionStatus: mapPrepLineStatus(requiredQty, preparedQty, pickedQty),
+        sourceMaterialRequestNo: projection.order.prepOrderNo,
+        sourceIssueDocNo: projection.pickupRecords.find((record) => record.prepLineId === line.prepLineId)?.pickupRecordId,
+        ownerRole: pickedQty >= requiredQty ? '工厂' as const : '仓库' as const,
+        nextActionText: pickedQty >= requiredQty ? '工厂按已领物料继续生产' : '仓库确认配料并安排工厂领料',
+        routePath,
+      }
+    }))
+}
+
 function getWarehouseNextAction(status: WarehouseLineExecutionStatus): string {
   if (status === 'NO_PREP' || status === 'TO_PREPARE') return '仓库完成配料'
   if (status === 'PARTIAL_PREPARED') return '仓库补齐配料数量'
@@ -969,12 +1025,30 @@ function getWarehouseNextAction(status: WarehouseLineExecutionStatus): string {
   return '当前物料准备完成'
 }
 
+function getMaterialSearchStatus(line: ProductionMaterialLine): string {
+  if (line.purchaseArrivalStatus === 'NOT_PURCHASED' || line.purchaseArrivalStatus === 'PURCHASED_NOT_ARRIVED' || line.purchaseArrivalStatus === 'PARTIAL_ARRIVED') {
+    return purchaseArrivalStatusLabel[line.purchaseArrivalStatus]
+  }
+  if (line.warehouseExecutionStatus === 'NO_PREP' || line.warehouseExecutionStatus === 'TO_PREPARE') return '待配料'
+  if (line.warehouseExecutionStatus === 'PARTIAL_PREPARED') return '部分配料'
+  if (line.warehouseExecutionStatus === 'READY_TO_ISSUE') return '待领料'
+  if (line.warehouseExecutionStatus === 'ISSUED') return '部分领料'
+  if (line.warehouseExecutionStatus === 'RECEIVED' || line.warehouseExecutionStatus === 'CLOSED') return '已领齐'
+  return warehouseExecutionStatusLabel[line.warehouseExecutionStatus]
+}
+
 function buildMaterialLines(order: ProductionOrder): ProductionMaterialLine[] {
   const mockLines = purchaseArrivalMocks
     .filter((mock) => mock.productionOrderNo === order.productionOrderNo)
     .map(buildMockMaterialLine)
+  const prepLines = buildMaterialPrepLines(order)
 
   const seen = new Set(mockLines.map((line) => line.materialSku))
+  const uniquePrepLines = prepLines.filter((line) => {
+    if (seen.has(line.materialSku)) return false
+    seen.add(line.materialSku)
+    return true
+  })
   const warehouseLines = buildWarehouseMaterialLines(order)
     .filter((line) => {
       if (seen.has(line.materialSku)) return false
@@ -982,7 +1056,7 @@ function buildMaterialLines(order: ProductionOrder): ProductionMaterialLine[] {
       return true
     })
 
-  return [...mockLines, ...warehouseLines].slice(0, 18)
+  return [...mockLines, ...uniquePrepLines, ...warehouseLines].slice(0, 18)
 }
 
 let progressFactsByOrderCache: Map<string, ProgressFact[]> | null = null
@@ -1761,6 +1835,12 @@ function buildDemandOnlyOverview(objectId: string): ProductionObjectOverview | n
     title: `生产需求｜${demand.demandId}`,
     summary,
     executionSummary: [],
+    executionOverview: {
+      materialIssues: [],
+      taskFactories: [],
+      keyTimes: [],
+      quantityQuality: [],
+    },
     continueDecision,
     materials: [],
     progressNodes: [
@@ -1846,6 +1926,7 @@ export function getProductionObjectOverview(objectType: ProductionObjectType, ob
     title: `${OBJECT_TYPE_LABEL[objectType]}｜${order.productionOrderNo}`,
     summary,
     executionSummary: getProductionExecutionSummaryBlocks(order.ledgerDetails),
+    executionOverview: order.ledgerDetails,
     continueDecision,
     materials,
     progressNodes: buildProgressNodes(order, progressFacts),
@@ -1912,9 +1993,23 @@ function buildMaterialIndexes(order: ProductionOrder): ProductionObjectSearchInd
     primaryNo: line.materialSku,
     secondaryNo: order.productionOrderNo,
     displayTitle: line.materialName,
-    keywords: unique([line.materialSku, line.materialName, line.spec, order.productionOrderNo, order.demandId, order.demandSnapshot.spuCode]),
+    keywords: unique([
+      line.materialSku,
+      line.materialName,
+      line.spec,
+      materialTypeLabel[line.materialType],
+      purchaseArrivalStatusLabel[line.purchaseArrivalStatus],
+      warehouseExecutionStatusLabel[line.warehouseExecutionStatus],
+      line.nextActionText,
+      line.shortageQty > 0 ? '缺料' : undefined,
+      line.warehouseExecutionStatus === 'READY_TO_ISSUE' ? '待领料' : undefined,
+      line.warehouseExecutionStatus === 'ISSUED' || line.warehouseExecutionStatus === 'RECEIVED' ? '已领料' : undefined,
+      order.productionOrderNo,
+      order.demandId,
+      order.demandSnapshot.spuCode,
+    ]),
     relatedProductionOrderNo: order.productionOrderNo,
-    statusText: purchaseArrivalStatusLabel[line.purchaseArrivalStatus],
+    statusText: getMaterialSearchStatus(line),
     ownerRole: line.ownerRole,
     sourceDomain: line.sourcePoNo ? 'PMS' : 'WMS',
     updatedAt: order.updatedAt,
@@ -2192,16 +2287,43 @@ function buildSearchIndex(): ProductionObjectSearchIndex[] {
 
 export const productionObjectSearchIndex: ProductionObjectSearchIndex[] = buildSearchIndex()
 
+function getSearchTexts(item: ProductionObjectSearchIndex): string[] {
+  return unique([
+    OBJECT_TYPE_LABEL[item.objectType],
+    item.displayTitle,
+    item.statusText,
+    item.ownerRole,
+    item.sourceDomain,
+    item.docGroup,
+    item.quantityText,
+    ...item.keywords,
+  ])
+}
+
 function getMatchedReason(item: ProductionObjectSearchIndex, keyword: string): { score: number; reason: string } | null {
   const normalized = keyword.trim().toLowerCase()
   if (normalized.length < 2) return null
   if (item.primaryNo.toLowerCase() === normalized) return { score: 0, reason: `命中：${OBJECT_TYPE_LABEL[item.objectType]}编号` }
   if (item.secondaryNo?.toLowerCase() === normalized) return { score: 1, reason: '命中：关联编号' }
-  const exactKeyword = item.keywords.find((value) => value.toLowerCase() === normalized)
+  const searchTexts = getSearchTexts(item)
+  const exactKeyword = searchTexts.find((value) => value.toLowerCase() === normalized)
   if (exactKeyword) return { score: 2, reason: `命中：${exactKeyword}` }
-  const partialKeyword = item.keywords.find((value) => value.toLowerCase().includes(normalized))
+  const partialKeyword = searchTexts.find((value) => value.toLowerCase().includes(normalized))
   if (partialKeyword) return { score: 3, reason: `命中：${partialKeyword}` }
   return null
+}
+
+function getSearchBusinessPriority(item: ProductionObjectSearchIndex): number {
+  const text = getSearchTexts(item).join(' ')
+  if (['缺料', '未到仓', '待领料', '待确认', '差异', '部分'].some((value) => text.includes(value))) return 0
+  if (item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND') return 1
+  return 2
+}
+
+function getUpdatedAtScore(value: string | undefined): number {
+  if (!value) return 0
+  const time = new Date(value.replace(' ', 'T')).getTime()
+  return Number.isFinite(time) ? time : 0
 }
 
 export function searchProductionObjects(keyword: string): ProductionObjectSearchIndex[] {
@@ -2213,7 +2335,13 @@ export function searchProductionObjects(keyword: string): ProductionObjectSearch
     .filter((row): row is { item: ProductionObjectSearchIndex; match: { score: number; reason: string } } => Boolean(row))
 
   return matches
-    .sort((a, b) => a.match.score - b.match.score || a.item.objectType.localeCompare(b.item.objectType) || a.item.primaryNo.localeCompare(b.item.primaryNo))
+    .sort((a, b) =>
+      a.match.score - b.match.score ||
+      getSearchBusinessPriority(a.item) - getSearchBusinessPriority(b.item) ||
+      getUpdatedAtScore(b.item.updatedAt) - getUpdatedAtScore(a.item.updatedAt) ||
+      a.item.objectType.localeCompare(b.item.objectType) ||
+      a.item.primaryNo.localeCompare(b.item.primaryNo),
+    )
     .slice(0, 24)
     .map(({ item, match }) => ({ ...item, matchedReason: match.reason }))
 }
