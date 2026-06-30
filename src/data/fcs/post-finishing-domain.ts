@@ -15,6 +15,21 @@ export type PostFinishingLiabilityType = '平台' | '工厂'
 export type PostFinishingPostProjectStatus = '待开始' | '进行中' | '已完成'
 export type PostFinishingSewingSelfReturnStatus = '待后道确认' | '已确认入库' | '数量差异待处理' | '已驳回'
 
+export const POST_FINISHING_QC_DEFECT_REASONS = [
+  '做工原因',
+  '布料原因',
+  '色差',
+  '脏污',
+  '缺辅料',
+  '半套',
+  '抽纱',
+  '做毁',
+  '破洞',
+  '做错',
+  '印花',
+  '缺辅料不补',
+] as const
+
 export const FULL_CAPABILITY_FACTORY_ID = DEDICATED_POST_FACTORY_ID
 export const FULL_CAPABILITY_FACTORY_NAME = DEDICATED_POST_FACTORY_NAME
 export const FULL_CAPABILITY_FACTORY_LABEL = `${FULL_CAPABILITY_FACTORY_NAME}（${FULL_CAPABILITY_FACTORY_ID}）`
@@ -66,8 +81,12 @@ export interface PostFinishingQcSkuResult {
   inspectedQty: number
   qualifiedQty: number
   unqualifiedQty: number
+  reworkQty: number
+  defectAcceptedQty: number
   platformReasonQty: number
   factoryReasonQty: number
+  reworkReceiveFactoryId?: string
+  reworkReceiveFactoryName?: string
   responsibleFactoryId?: string
   responsibleFactoryName?: string
   defectReasonItems: PostFinishingQcDefectReasonItem[]
@@ -227,6 +246,9 @@ export interface PostFinishingQualityDeductionSnapshot {
   inspectedQty: number
   qualifiedQty: number
   unqualifiedQty: number
+  reworkQty: number
+  defectAcceptedQty: number
+  processingFeeDeductionQty: number
   qcResult: '全数合格' | '部分不合格' | '全数不合格'
   unqualifiedDisposition: '' | '返修' | '让步接收' | '报废' | '退回上游'
   unqualifiedReasonSummary: string
@@ -237,6 +259,8 @@ export interface PostFinishingQualityDeductionSnapshot {
   responsiblePartyType: '' | '工厂' | '平台' | '供应商' | '无责任'
   responsiblePartyId: string
   responsiblePartyName: string
+  reworkReceiveFactoryId?: string
+  reworkReceiveFactoryName?: string
   deductionDecision: '' | '暂不扣款' | '建议扣款' | '确认扣款'
   deductionDecisionRemark: string
   dispositionRemark: string
@@ -267,6 +291,9 @@ export interface PostFinishingActionRecord {
   inspectedGarmentQty?: number
   passedGarmentQty?: number
   defectiveGarmentQty?: number
+  reworkGarmentQty?: number
+  defectAcceptedGarmentQty?: number
+  processingFeeDeductionQty?: number
   completedPostGarmentQty?: number
   recheckedGarmentQty?: number
   confirmedGarmentQty?: number
@@ -286,6 +313,8 @@ export interface PostFinishingActionRecord {
   responsiblePartyType?: string
   responsiblePartyId?: string
   responsiblePartyName?: string
+  reworkReceiveFactoryId?: string
+  reworkReceiveFactoryName?: string
   deductionDecision?: string
   deductionDecisionRemark?: string
   dispositionRemark?: string
@@ -393,6 +422,9 @@ export interface PostFinishingQcOrder {
   inspectedGarmentQty: number
   passedGarmentQty: number
   defectiveGarmentQty: number
+  reworkGarmentQty: number
+  defectAcceptedGarmentQty: number
+  processingFeeDeductionQty: number
   qcSkuResults: PostFinishingQcSkuResult[]
   qcResult: PostFinishingQcResult
   unqualifiedDisposition: '' | '返修' | '让步接收' | '报废' | '退回上游'
@@ -401,6 +433,8 @@ export interface PostFinishingQcOrder {
   responsiblePartyType: '' | '工厂' | '平台' | '供应商' | '无责任'
   responsiblePartyId: string
   responsiblePartyName: string
+  reworkReceiveFactoryId?: string
+  reworkReceiveFactoryName?: string
   deductionDecision: '' | '暂不扣款' | '建议扣款' | '确认扣款'
   deductionDecisionRemark: string
   needButtonhole: boolean
@@ -1017,8 +1051,12 @@ function buildQcSkuResultsFromLines(input: {
       inspectedQty,
       qualifiedQty,
       unqualifiedQty,
+      reworkQty: unqualifiedQty,
+      defectAcceptedQty: 0,
       platformReasonQty,
       factoryReasonQty,
+      reworkReceiveFactoryId: factoryReasonQty > 0 ? input.sourceFactoryId : undefined,
+      reworkReceiveFactoryName: factoryReasonQty > 0 ? input.sourceFactoryName : undefined,
       responsibleFactoryId: factoryReasonQty > 0 ? input.sourceFactoryId : undefined,
       responsibleFactoryName: factoryReasonQty > 0 ? input.sourceFactoryName : undefined,
       defectReasonItems,
@@ -1062,7 +1100,14 @@ function normalizeQcSkuResults(input: {
   return input.lines.map((line, index) => {
     const result = provided.find((item) => item.skuLineId === line.skuLineId || item.skuId === line.skuId)
     const inspectedQty = Math.max(Number(result?.inspectedQty ?? line.plannedQty) || 0, 0)
-    const unqualifiedQty = Math.max(Number(result?.unqualifiedQty ?? 0) || 0, 0)
+    const explicitReworkQty = Math.max(Number(result?.reworkQty ?? 0) || 0, 0)
+    const explicitDefectAcceptedQty = Math.max(Number(result?.defectAcceptedQty ?? 0) || 0, 0)
+    const bucketQty = explicitReworkQty + explicitDefectAcceptedQty
+    const unqualifiedQty = bucketQty > 0
+      ? bucketQty
+      : Math.max(Number(result?.unqualifiedQty ?? 0) || 0, 0)
+    const reworkQty = bucketQty > 0 ? explicitReworkQty : unqualifiedQty
+    const defectAcceptedQty = bucketQty > 0 ? explicitDefectAcceptedQty : 0
     const qualifiedQty = Math.max(Number(result?.qualifiedQty ?? inspectedQty - unqualifiedQty) || 0, 0)
     const platformReasonQty = Math.max(Number(result?.platformReasonQty ?? 0) || 0, 0)
     const factoryReasonQty = Math.max(Number(result?.factoryReasonQty ?? Math.max(unqualifiedQty - platformReasonQty, 0)) || 0, 0)
@@ -1086,8 +1131,12 @@ function normalizeQcSkuResults(input: {
       inspectedQty,
       qualifiedQty,
       unqualifiedQty,
+      reworkQty,
+      defectAcceptedQty,
       platformReasonQty,
       factoryReasonQty,
+      reworkReceiveFactoryId: result?.reworkReceiveFactoryId || (reworkQty > 0 ? input.sourceFactoryId : undefined),
+      reworkReceiveFactoryName: result?.reworkReceiveFactoryName || (reworkQty > 0 ? input.sourceFactoryName : undefined),
       responsibleFactoryId: result?.responsibleFactoryId || (factoryReasonQty > 0 ? input.sourceFactoryId : undefined),
       responsibleFactoryName: result?.responsibleFactoryName || (factoryReasonQty > 0 ? input.sourceFactoryName : undefined),
       defectReasonItems: result?.defectReasonItems?.map(cloneQcDefectReasonItem) || [],
@@ -1098,7 +1147,7 @@ function normalizeQcSkuResults(input: {
   })
 }
 
-function sumQcSkuResults(results: PostFinishingQcSkuResult[], key: 'inspectedQty' | 'qualifiedQty' | 'unqualifiedQty'): number {
+function sumQcSkuResults(results: PostFinishingQcSkuResult[], key: 'inspectedQty' | 'qualifiedQty' | 'unqualifiedQty' | 'reworkQty' | 'defectAcceptedQty'): number {
   return roundQty(results.reduce((sum, item) => sum + (Number(item[key]) || 0), 0))
 }
 
@@ -1676,6 +1725,9 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
     inspectedGarmentQty: inspectedQty,
     passedGarmentQty: passedQty,
     defectiveGarmentQty: defectiveQty,
+    reworkGarmentQty: sumQcSkuResults(qcSkuResults, 'reworkQty'),
+    defectAcceptedGarmentQty: sumQcSkuResults(qcSkuResults, 'defectAcceptedQty'),
+    processingFeeDeductionQty: sumQcSkuResults(qcSkuResults, 'reworkQty'),
     qcSkuResults,
     qcResult,
     unqualifiedDisposition: hasDefect ? '返修' : '',
@@ -1684,6 +1736,8 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
     responsiblePartyType: hasDefect ? '工厂' : '',
     responsiblePartyId: hasDefect ? context.sourceFactoryId || '' : '',
     responsiblePartyName: hasDefect ? context.sourceFactoryName || '' : '',
+    reworkReceiveFactoryId: hasDefect ? context.sourceFactoryId || '' : undefined,
+    reworkReceiveFactoryName: hasDefect ? context.sourceFactoryName || '' : undefined,
     deductionDecision: hasDefect ? '建议扣款' : '',
     deductionDecisionRemark: hasDefect ? '按质量扣款模块质检记录继续判定。' : '',
     needButtonhole: Boolean(options.needButtonhole),
@@ -1796,16 +1850,21 @@ function makeQualitySnapshot(qc: PostFinishingQcOrder): PostFinishingQualityDedu
     inspectedQty: qc.inspectedGarmentQty,
     qualifiedQty: qc.passedGarmentQty,
     unqualifiedQty: qc.defectiveGarmentQty,
+    reworkQty: qc.reworkGarmentQty,
+    defectAcceptedQty: qc.defectAcceptedGarmentQty,
+    processingFeeDeductionQty: qc.processingFeeDeductionQty,
     qcResult: qc.qcResult === '全数合规' ? '全数合格' : qc.qcResult,
     unqualifiedDisposition: hasDefect ? qc.unqualifiedDisposition : '',
     unqualifiedReasonSummary: hasDefect ? qc.unqualifiedReasonSummary : '',
     rootCauseType: hasDefect ? qc.rootCauseType : '',
     liabilityStatus: hasDefect ? '待判定' : '已判定',
-    factoryLiabilityQty: hasDefect ? qc.defectiveGarmentQty : 0,
-    nonFactoryLiabilityQty: 0,
+    factoryLiabilityQty: hasDefect ? qc.processingFeeDeductionQty : 0,
+    nonFactoryLiabilityQty: hasDefect ? qc.defectAcceptedGarmentQty : 0,
     responsiblePartyType: hasDefect ? qc.responsiblePartyType : '无责任',
     responsiblePartyId: hasDefect ? qc.responsiblePartyId : '',
     responsiblePartyName: hasDefect ? qc.responsiblePartyName : '无责任方',
+    reworkReceiveFactoryId: hasDefect ? qc.reworkReceiveFactoryId : undefined,
+    reworkReceiveFactoryName: hasDefect ? qc.reworkReceiveFactoryName : undefined,
     deductionDecision: hasDefect ? qc.deductionDecision : '',
     deductionDecisionRemark: hasDefect ? qc.deductionDecisionRemark : '',
     dispositionRemark: hasDefect ? '按质检结论处理。' : '',
@@ -1866,6 +1925,9 @@ function makeActionRecord(input: {
     action.inspectedGarmentQty = input.qc.inspectedGarmentQty
     action.passedGarmentQty = input.qc.passedGarmentQty
     action.defectiveGarmentQty = input.qc.defectiveGarmentQty
+    action.reworkGarmentQty = input.qc.reworkGarmentQty
+    action.defectAcceptedGarmentQty = input.qc.defectAcceptedGarmentQty
+    action.processingFeeDeductionQty = input.qc.processingFeeDeductionQty
     action.qcResult = input.qc.qcResult
     action.defectItems = input.qc.defectItems.map((item) => ({ ...item }))
     action.unqualifiedDisposition = input.qc.unqualifiedDisposition
@@ -1877,6 +1939,8 @@ function makeActionRecord(input: {
     action.responsiblePartyType = input.qc.responsiblePartyType
     action.responsiblePartyId = input.qc.responsiblePartyId
     action.responsiblePartyName = input.qc.responsiblePartyName
+    action.reworkReceiveFactoryId = input.qc.reworkReceiveFactoryId
+    action.reworkReceiveFactoryName = input.qc.reworkReceiveFactoryName
     action.deductionDecision = input.qc.deductionDecision
     action.deductionDecisionRemark = input.qc.deductionDecisionRemark
     action.dispositionRemark = snapshot.dispositionRemark
@@ -2584,6 +2648,9 @@ export function createPostFinishingQcOrder(input: {
     inspectedGarmentQty: inspectedQty,
     passedGarmentQty: 0,
     defectiveGarmentQty: 0,
+    reworkGarmentQty: 0,
+    defectAcceptedGarmentQty: 0,
+    processingFeeDeductionQty: 0,
     qcSkuResults,
     qcResult: '部分不合格',
     unqualifiedDisposition: '',
@@ -2663,6 +2730,9 @@ export function completePostFinishingQcOrder(input: {
   const inspectedQty = sumQcSkuResults(nextQcSkuResults, 'inspectedQty') || fallbackInspectedQty
   const defectiveQty = sumQcSkuResults(nextQcSkuResults, 'unqualifiedQty')
   const passedQty = sumQcSkuResults(nextQcSkuResults, 'qualifiedQty')
+  const reworkQty = sumQcSkuResults(nextQcSkuResults, 'reworkQty')
+  const defectAcceptedQty = sumQcSkuResults(nextQcSkuResults, 'defectAcceptedQty')
+  const reworkReceiveFactory = nextQcSkuResults.find((item) => item.reworkQty > 0 && item.reworkReceiveFactoryName)
   const result = input.qcResult || (defectiveQty <= 0 ? '全数合规' : passedQty <= 0 ? '全数不合格' : '部分不合格')
   const hasDefect = result !== '全数合规'
   qc.qcStatus = '质检完成'
@@ -2672,6 +2742,9 @@ export function completePostFinishingQcOrder(input: {
   qc.inspectedGarmentQty = inspectedQty
   qc.passedGarmentQty = passedQty
   qc.defectiveGarmentQty = hasDefect ? defectiveQty : 0
+  qc.reworkGarmentQty = hasDefect ? reworkQty : 0
+  qc.defectAcceptedGarmentQty = hasDefect ? defectAcceptedQty : 0
+  qc.processingFeeDeductionQty = hasDefect ? reworkQty : 0
   qc.qcSkuResults = nextQcSkuResults.map(cloneQcSkuResult)
   qc.qcResult = result
   qc.unqualifiedDisposition = hasDefect ? input.unqualifiedDisposition || qc.unqualifiedDisposition || '返修' : ''
@@ -2680,6 +2753,8 @@ export function completePostFinishingQcOrder(input: {
   qc.responsiblePartyType = hasDefect ? input.responsiblePartyType || qc.responsiblePartyType || '工厂' : ''
   qc.responsiblePartyName = hasDefect ? input.responsiblePartyName || qc.responsiblePartyName || qc.sourceFactoryName : ''
   qc.responsiblePartyId = hasDefect ? qc.responsiblePartyId || qc.sourceFactoryId : ''
+  qc.reworkReceiveFactoryId = hasDefect ? reworkReceiveFactory?.reworkReceiveFactoryId || qc.reworkReceiveFactoryId || qc.sourceFactoryId : undefined
+  qc.reworkReceiveFactoryName = hasDefect ? reworkReceiveFactory?.reworkReceiveFactoryName || qc.reworkReceiveFactoryName || qc.sourceFactoryName : undefined
   qc.deductionDecision = hasDefect ? input.deductionDecision || qc.deductionDecision || '建议扣款' : ''
   qc.deductionDecisionRemark = hasDefect ? input.deductionDecisionRemark || qc.deductionDecisionRemark || '按质量扣款模块质检记录继续判定。' : ''
   const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
@@ -2921,6 +2996,11 @@ export function applyPostFinishingActionFinish(input: {
     action.inspectedGarmentQty = submittedQty
     action.passedGarmentQty = acceptedQty
     action.defectiveGarmentQty = rejectedQty
+    action.reworkGarmentQty = input.qualityFields?.reworkQty ?? rejectedQty
+    action.defectAcceptedGarmentQty = input.qualityFields?.defectAcceptedQty ?? 0
+    action.processingFeeDeductionQty = input.qualityFields?.processingFeeDeductionQty ?? action.reworkGarmentQty
+    action.reworkReceiveFactoryId = input.qualityFields?.reworkReceiveFactoryId
+    action.reworkReceiveFactoryName = input.qualityFields?.reworkReceiveFactoryName
     action.qcResult = rejectedQty > 0 ? '部分不合格' : '全数合规'
     const qc = qcOrders.find((item) => item.qcOrderId === order.qcOrderId)
     if (qc) {
@@ -2928,6 +3008,11 @@ export function applyPostFinishingActionFinish(input: {
       qc.inspectedGarmentQty = submittedQty
       qc.passedGarmentQty = acceptedQty
       qc.defectiveGarmentQty = rejectedQty
+      qc.reworkGarmentQty = action.reworkGarmentQty ?? 0
+      qc.defectAcceptedGarmentQty = action.defectAcceptedGarmentQty ?? 0
+      qc.processingFeeDeductionQty = action.processingFeeDeductionQty ?? qc.reworkGarmentQty
+      qc.reworkReceiveFactoryId = action.reworkReceiveFactoryId
+      qc.reworkReceiveFactoryName = action.reworkReceiveFactoryName
       qc.qcResult = rejectedQty > 0 ? '部分不合格' : '全数合规'
       qc.inspectedAt = action.finishedAt
       action.qualityDeductionSnapshot = { ...makeQualitySnapshot(qc), ...input.qualityFields }

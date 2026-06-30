@@ -30,14 +30,11 @@ function renderBadge(label: string, tone = 'slate'): string {
 
 function getRuleAcceptanceLabel(rule: ProductionTaskGenerationRule): string {
   if (rule.generatedTaskUnitType === 'WHOLE_ORDER_TASK') return '整单'
-  if (rule.generatedTaskUnitType === 'COMBINED_PROCESS_TASK') return '连续工序'
-  if (rule.generatedTaskUnitType === 'INDEPENDENT_WORK_ORDER_TASK') return '独立加工单'
   return '单工序'
 }
 
 function getRemainingStrategyLabel(rule: ProductionTaskGenerationRule): string {
   if (rule.remainingProcessStrategy === 'MERGE_TO_WHOLE_ORDER_TASK') return '合并为整单任务'
-  if (rule.remainingProcessStrategy === 'MERGE_TO_COMBINED_TASK') return '合并为组合任务'
   return '默认按工序'
 }
 
@@ -113,9 +110,8 @@ function renderResultStats(rules: ProductionTaskGenerationRule[]): string {
     { label: '搜索结果', value: rules.length, className: 'text-slate-900' },
     { label: '启用', value: rules.filter((rule) => rule.enabled).length, className: 'text-blue-600' },
     { label: 'KOL规则', value: rules.filter((rule) => rule.saleTypes.some((saleType) => saleType.includes('KOL'))).length, className: 'text-rose-600' },
-    { label: '连续工序', value: rules.filter((rule) => rule.generatedTaskUnitType === 'COMBINED_PROCESS_TASK').length, className: 'text-orange-600' },
     { label: '整单承接', value: rules.filter((rule) => rule.generatedTaskUnitType === 'WHOLE_ORDER_TASK').length, className: 'text-violet-600' },
-    { label: '进入自动分配', value: rules.filter((rule) => rule.allowAutoDispatch).length, className: 'text-emerald-600' },
+    { label: '不进入自动分配', value: rules.filter((rule) => !rule.allowAutoDispatch).length, className: 'text-emerald-600' },
   ]
 
   return `
@@ -134,11 +130,11 @@ function renderResultStats(rules: ProductionTaskGenerationRule[]): string {
 
 function renderFilters(): string {
   return `
-    <section class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-5">
+    <section class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-4">
       <input class="h-9 rounded-md border bg-background px-3 text-sm" placeholder="规则名称 / 工厂名 / 任务名称" />
       <select class="h-9 rounded-md border bg-background px-3 text-sm"><option>全部状态</option><option>启用</option><option>停用</option></select>
       <select class="h-9 rounded-md border bg-background px-3 text-sm"><option>全部售卖类型</option><option>KOL样衣</option><option>KOL样品小单</option><option>普通大货</option><option>快反小单</option></select>
-      <select class="h-9 rounded-md border bg-background px-3 text-sm"><option>全部处理方式</option><option>按工序生成</option><option>连续工序合并</option><option>整单承接</option></select>
+      <select class="h-9 rounded-md border bg-background px-3 text-sm"><option>全部处理方式</option><option>整单承接</option></select>
       <select class="h-9 rounded-md border bg-background px-3 text-sm"><option>全部工厂条件</option><option>要求指定</option><option>可系统推荐</option><option>不要求</option></select>
     </section>
   `
@@ -186,6 +182,7 @@ function renderRuleTable(rules: ProductionTaskGenerationRule[]): string {
                 <td class="px-3 py-3">
                   <div>${escapeHtml(rule.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP' ? '简化5步' : '默认任务步骤')}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(rule.allowAutoDispatch ? '进入自动分配' : '不进入自动分配')}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">最终回货：${escapeHtml(rule.handoverReceiverName)}</div>
                 </td>
                 <td class="px-3 py-3">
                   <div class="font-mono text-xs">${escapeHtml(rule.updatedAt)}</div>
@@ -193,7 +190,6 @@ function renderRuleTable(rules: ProductionTaskGenerationRule[]): string {
                 </td>
                 <td class="px-3 py-3">
                   <div class="flex flex-wrap gap-2">
-                    <a href="${RULE_LIST_PATH}/${encodeURIComponent(rule.ruleId)}" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted">详情</a>
                     <a href="${RULE_LIST_PATH}/${encodeURIComponent(rule.ruleId)}/edit" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted">编辑</a>
                     <button type="button" onclick="document.getElementById('task-generation-rule-logs-${escapeHtml(rule.ruleId)}')?.showModal()" class="h-8 rounded-md border px-2 text-xs hover:bg-muted">查看日志</button>
                     <button type="button" onclick="document.getElementById('task-generation-rule-preview')?.showModal()" class="h-8 rounded-md border px-2 text-xs hover:bg-muted">模拟</button>
@@ -344,7 +340,7 @@ function buildNewRuleDraft(): ProductionTaskGenerationRule {
     generatedTaskUnitType: 'WHOLE_ORDER_TASK',
     taskNameTemplate: '',
     handoverReceiverKind: 'WAREHOUSE',
-    handoverReceiverName: '仓库',
+    handoverReceiverName: '工厂入库',
     pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
     allowAutoDispatch: false,
     createdAt: '',
@@ -364,7 +360,7 @@ function renderRuleFormPage(rule: ProductionTaskGenerationRule, mode: 'new' | 'e
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 class="text-xl font-semibold">${escapeHtml(title)}</h1>
-          <p class="mt-1 text-sm text-muted-foreground">维护规则触发条件、任务单元生成方式和 PDA 步骤。</p>
+          <p class="mt-1 text-sm text-muted-foreground">维护 KOL 样衣、样品小单的整单承接方式。</p>
         </div>
         <div class="flex gap-2">
           <a href="${RULE_LIST_PATH}" class="inline-flex rounded-md border px-3 py-2 text-sm hover:bg-muted">返回列表</a>
@@ -436,7 +432,7 @@ function renderRuleFormPage(rule: ProductionTaskGenerationRule, mode: 'new' | 'e
             </label>
             <label class="space-y-1">
               <span class="text-xs text-muted-foreground">承接工厂来源</span>
-              <select class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option>生产单指定工厂</option><option>规则默认工厂</option><option>后续分配</option></select>
+              <select class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option>规则指定工厂</option></select>
             </label>
             <label class="flex items-center gap-2 pt-6 text-sm">
               <input type="checkbox" ${rule.allowAutoDispatch ? 'checked' : ''} class="h-4 w-4 rounded border" />
@@ -531,8 +527,9 @@ function renderRuleDetailPage(rule: ProductionTaskGenerationRule): string {
           <div class="grid gap-3 md:grid-cols-2">
             ${renderDetailItem('任务类型', getRuleAcceptanceLabel(rule))}
             ${renderDetailItem('任务名称模板', rule.taskNameTemplate)}
-            ${renderDetailItem('承接工厂来源', '生产单指定工厂')}
+            ${renderDetailItem('承接工厂来源', '规则指定工厂')}
             ${renderDetailItem('自动分配', rule.allowAutoDispatch ? '进入非车缝自动分配' : '不进入自动分配')}
+            ${renderDetailItem('最终回货', rule.handoverReceiverName)}
           </div>
         </div>
 
@@ -566,11 +563,10 @@ export function renderProductionTaskGenerationRulesPage(): string {
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 class="text-xl font-semibold">生产单任务生成规则</h1>
-          <p class="mt-1 text-sm text-muted-foreground">配置生产单拆解任务时的任务单元生成方式。规则先于任务清单、自动分配配置执行。</p>
+          <p class="mt-1 text-sm text-muted-foreground">当前仅配置 KOL 样衣、KOL 样品小单整单承接规则。</p>
         </div>
         <div class="flex gap-2">
           <button type="button" onclick="document.getElementById('task-generation-rule-preview')?.showModal()" class="rounded-md border px-3 py-2 text-sm hover:bg-muted">规则模拟</button>
-          <a href="${RULE_LIST_PATH}/new" class="inline-flex rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">新增规则</a>
         </div>
       </header>
 

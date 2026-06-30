@@ -315,8 +315,13 @@ function resolveExecutorKindByFactoryId(factoryId?: string): RuntimeExecutorKind
   return 'EXTERNAL_FACTORY'
 }
 
-export function isRuntimeSewingTask(task: Pick<RuntimeProcessTask, 'processCode' | 'processNameZh'>): boolean {
-  return task.processCode === 'SEW' || task.processNameZh === '车缝'
+type RuntimeSewingTaskLike =
+  Pick<RuntimeProcessTask, 'processCode' | 'processNameZh'>
+  & Partial<Pick<RuntimeProcessTask, 'processBusinessCode' | 'coveredProcesses'>>
+
+export function isRuntimeSewingTask(task: RuntimeSewingTaskLike): boolean {
+  if (task.processCode === 'SEW' || task.processBusinessCode === 'SEW' || task.processNameZh === '车缝') return true
+  return Boolean(task.coveredProcesses?.some((process) => process.processCode === 'SEW' || process.processName === '车缝'))
 }
 
 function getOrderSkuLines(productionOrderId: string): RuntimeTaskSkuLine[] {
@@ -758,6 +763,58 @@ function applyRuntimeOverrides(tasks: RuntimeProcessTask[]): RuntimeProcessTask[
   })
 }
 
+function applyManualContinuousMergeDemo(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
+  const sourceTaskId = 'TASKGEN-202603-0006-001__ORDER'
+  const mergedTaskId = 'TASKGEN-202603-0006-002__ORDER'
+  const source = tasks.find((task) => task.taskId === sourceTaskId)
+  const target = tasks.find((task) => task.taskId === mergedTaskId)
+  if (!source || !target) return tasks
+
+  const mergedTask: RuntimeProcessTask = {
+    ...target,
+    seq: source.seq,
+    processNameZh: `${source.processNameZh}+${target.processNameZh}组合任务`,
+    processBusinessCode: 'COMBINED_PROCESS_TASK',
+    processBusinessName: `${source.processNameZh}+${target.processNameZh}组合任务`,
+    stageName: '组合工序任务',
+    taskCategoryZh: `${source.processNameZh}+${target.processNameZh}组合任务`,
+    taskUnitType: 'COMBINED_PROCESS_TASK',
+    acceptanceMode: 'CONTINUOUS_PROCESS',
+    generationRuleId: undefined,
+    generationRuleName: '任务清单人工合并',
+    coveredProcesses: [
+      ...(source.coveredProcesses ?? []),
+      ...(target.coveredProcesses ?? []),
+    ],
+    isMergedTaskUnit: true,
+    allowAutoDispatch: false,
+    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+    outputValuePerUnit: undefined,
+    outputValueUnit: '按覆盖工序明细计算',
+    outputValueTotal: sumTaskOutputValueTotals([source, target]),
+    detailRows: [
+      ...(source.detailRows ?? []),
+      ...(target.detailRows ?? []),
+    ],
+    scopeDetailRows: [
+      ...(source.scopeDetailRows ?? []),
+      ...(target.scopeDetailRows ?? []),
+    ],
+    dependsOnTaskIds: [...source.dependsOnTaskIds],
+    baseDependsOnTaskIds: [...source.baseDependsOnTaskIds],
+    mockExecutionSummary: '任务清单人工合并相邻工序后，工厂按组合任务执行。',
+    mockHandoverSummary: target.handoverReceiverName ? `完成后交${target.handoverReceiverName}` : target.mockHandoverSummary,
+    auditLogs: [
+      ...target.auditLogs,
+      buildSeedAuditLog(mergedTaskId, 'MERGE_CONTINUOUS_PROCESS', `任务清单合并 ${source.taskNo || source.taskId}、${target.taskNo || target.taskId}`, '生产计划员', '2026-03-20 10:00:00'),
+    ],
+  }
+
+  return tasks
+    .filter((task) => task.taskId !== sourceTaskId && task.taskId !== mergedTaskId)
+    .concat(mergedTask)
+}
+
 function shouldUseSameFactoryContinue(upstream: RuntimeProcessTask, downstream: RuntimeProcessTask): boolean {
   if (upstream.scopeType !== 'SKU' || downstream.scopeType !== 'SKU') return false
   if (!upstream.skuCode || !downstream.skuCode) return false
@@ -870,7 +927,7 @@ function buildRuntimeProcessTasksBase(): RuntimeProcessTask[] {
 function buildRuntimeProcessTasks(): RuntimeProcessTask[] {
   const baseWithOverrides = applyRuntimeOverrides(buildRuntimeProcessTasksBase())
   const withSplit = applyRuntimeSplitPlans(baseWithOverrides)
-  const withOverrides = applyRuntimeOverrides(withSplit)
+  const withOverrides = applyManualContinuousMergeDemo(applyRuntimeOverrides(withSplit))
   const grouped = new Map<string, RuntimeProcessTask[]>()
   for (const task of withOverrides) {
     const current = grouped.get(task.productionOrderId) ?? []

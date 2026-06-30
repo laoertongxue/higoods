@@ -83,7 +83,6 @@ export type TaskGenerationPreviewStatus =
   | 'READY'
   | 'NEED_CONFIRM'
   | 'BLOCKED'
-  | 'NO_MATCH_USE_DEFAULT'
 
 export interface GeneratedTaskUnitPreview {
   previewUnitId: string
@@ -143,85 +142,9 @@ const RULES: ProductionTaskGenerationRule[] = [
     generatedTaskUnitType: 'WHOLE_ORDER_TASK',
     taskNameTemplate: 'KOL整单任务',
     handoverReceiverKind: 'WAREHOUSE',
-    handoverReceiverName: '仓库',
+    handoverReceiverName: '工厂入库',
     pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
     allowAutoDispatch: false,
-    createdAt: '2026-06-29 09:00',
-    updatedAt: '2026-06-29 09:00',
-    updatedBy: '系统预置',
-  },
-  {
-    ruleId: 'TGR-FAST-001',
-    ruleNo: 'TGR-FAST-001',
-    ruleName: '小批量连续工序承接规则',
-    enabled: true,
-    priority: 20,
-    description: '适合小批量订单，由同一工厂连续承接裁片、车缝、后道。',
-    saleTypes: ['虾皮样品', 'JKT复购'],
-    qtyMax: 3000,
-    factoryConditionMode: 'REQUIRE_SPECIFIED_FACTORY',
-    factoryIds: [],
-    requireFactoryAcceptanceMode: true,
-    requiredAcceptanceMode: 'CONTINUOUS_PROCESS',
-    independentProcessCodes: ['PRINT', 'DYE'],
-    remainingProcessStrategy: 'MERGE_TO_COMBINED_TASK',
-    mergeProcessCodes: ['WOOL', 'POST_FINISHING'],
-    generatedTaskUnitType: 'COMBINED_PROCESS_TASK',
-    taskNameTemplate: '{工序组合}组合任务',
-    handoverReceiverKind: 'WAREHOUSE',
-    handoverReceiverName: '仓库',
-    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
-    allowAutoDispatch: false,
-    createdAt: '2026-06-29 09:00',
-    updatedAt: '2026-06-29 09:00',
-    updatedBy: '系统预置',
-  },
-  {
-    ruleId: 'TGR-PREP-001',
-    ruleNo: 'TGR-PREP-001',
-    ruleName: '印染独立加工单规则',
-    enabled: true,
-    priority: 30,
-    description: '印花、染色保持需求单/加工单链路，不并入组合或整单任务。',
-    saleTypes: ['预售', '备货', 'shopee备货', 'KOL样衣', '虾皮样品', '基础款', 'JKT复购', 'SZ复购', '国内做货', '预售备货', 'KOL样品小单'],
-    factoryConditionMode: 'NOT_REQUIRED',
-    factoryIds: [],
-    requireFactoryAcceptanceMode: false,
-    requiredAcceptanceMode: 'SINGLE_PROCESS',
-    independentProcessCodes: ['PRINT', 'DYE'],
-    remainingProcessStrategy: 'GENERATE_BY_PROCESS',
-    mergeProcessCodes: [],
-    generatedTaskUnitType: 'INDEPENDENT_WORK_ORDER_TASK',
-    taskNameTemplate: '{工序}加工单任务',
-    handoverReceiverKind: 'WAREHOUSE',
-    handoverReceiverName: '仓库',
-    pdaStepTemplateCode: 'DEFAULT_PROCESS_TASK',
-    allowAutoDispatch: true,
-    createdAt: '2026-06-29 09:00',
-    updatedAt: '2026-06-29 09:00',
-    updatedBy: '系统预置',
-  },
-  {
-    ruleId: 'TGR-DEFAULT-001',
-    ruleNo: 'TGR-DEFAULT-001',
-    ruleName: '默认按工序生成规则',
-    enabled: true,
-    priority: 100,
-    description: '未命中特殊规则时，按技术包工序工艺生成独立任务。',
-    saleTypes: ['预售', '备货', 'shopee备货', 'KOL样衣', '虾皮样品', '基础款', 'JKT复购', 'SZ复购', '国内做货', '预售备货', 'KOL样品小单'],
-    factoryConditionMode: 'NOT_REQUIRED',
-    factoryIds: [],
-    requireFactoryAcceptanceMode: false,
-    requiredAcceptanceMode: 'SINGLE_PROCESS',
-    independentProcessCodes: ['PRINT', 'DYE'],
-    remainingProcessStrategy: 'GENERATE_BY_PROCESS',
-    mergeProcessCodes: [],
-    generatedTaskUnitType: 'SINGLE_PROCESS_TASK',
-    taskNameTemplate: '{工序}任务',
-    handoverReceiverKind: 'WAREHOUSE',
-    handoverReceiverName: '仓库',
-    pdaStepTemplateCode: 'DEFAULT_PROCESS_TASK',
-    allowAutoDispatch: true,
     createdAt: '2026-06-29 09:00',
     updatedAt: '2026-06-29 09:00',
     updatedBy: '系统预置',
@@ -357,7 +280,6 @@ export function matchProductionTaskGenerationRule(orderId: string): ProductionTa
   const order = productionOrders.find((item) => item.productionOrderId === orderId)
   if (!order) return undefined
   return listProductionTaskGenerationRules()
-    .filter((rule) => rule.ruleId !== 'TGR-PREP-001')
     .sort((left, right) => left.priority - right.priority)
     .find((rule) => isRuleCandidate(rule, order))
 }
@@ -458,7 +380,21 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
     ...taskArtifacts,
   ]
   const independentDemandObjects = toIndependentDemandObjects(artifacts)
-  const matchedRule = matchProductionTaskGenerationRule(orderId) ?? getProductionTaskGenerationRuleById('TGR-DEFAULT-001')!
+  const matchedRule = matchProductionTaskGenerationRule(orderId)
+  if (!matchedRule) {
+    return {
+      previewId: `TGP-${order.productionOrderId}-no-match`,
+      productionOrderId: order.productionOrderId,
+      productionOrderNo: order.productionOrderNo || order.productionOrderId,
+      saleType: order.demandSnapshot.saleType,
+      status: 'BLOCKED',
+      statusReason: '未命中当前规则',
+      generatedUnits: [],
+      independentDemandObjects,
+      blockedReasons: ['当前只配置 KOL样衣、KOL样品小单整单规则'],
+      warnings: [],
+    }
+  }
   const independentSet = new Set(matchedRule.independentProcessCodes)
   const mergeProcessSet = resolveMergeProcessCodes(matchedRule, order)
   const mergeCandidates = taskArtifacts.filter((artifact) =>
@@ -472,9 +408,7 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
         : []
   const status: TaskGenerationPreviewStatus =
     generatedUnits.length > 0 || independentDemandObjects.length > 0
-      ? matchedRule.ruleId === 'TGR-DEFAULT-001'
-        ? 'NO_MATCH_USE_DEFAULT'
-        : 'READY'
+      ? 'READY'
       : 'BLOCKED'
 
   return {
@@ -485,7 +419,7 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
     matchedRuleId: matchedRule.ruleId,
     matchedRuleName: matchedRule.ruleName,
     status,
-    statusReason: status === 'BLOCKED' ? '没有可生成的任务单元' : status === 'NO_MATCH_USE_DEFAULT' ? '未命中特殊规则，使用默认按工序生成' : '可生成',
+    statusReason: status === 'BLOCKED' ? '没有可生成的任务单元' : '可生成',
     generatedUnits,
     independentDemandObjects,
     blockedReasons: status === 'BLOCKED' ? ['没有可合并或独立生成的任务对象'] : [],

@@ -233,13 +233,169 @@ function renderOrderDemandInfo(order: ProductionOrder): string {
         .map(
           (sku) => `
             <div class="rounded-md border bg-background/70 px-2 py-1">
-              <div class="font-mono text-muted-foreground">${escapeHtml(sku.skuCode)}</div>
-              <div class="mt-0.5 text-muted-foreground">${escapeHtml(sku.color)} / ${escapeHtml(sku.size)} / ${Number(sku.qty || 0).toLocaleString('zh-CN')}件</div>
+              <div class="text-muted-foreground">${escapeHtml(sku.color)}&${escapeHtml(sku.size)}：${Number(sku.qty || 0).toLocaleString('zh-CN')}件</div>
             </div>
           `,
         )
         .join('')}
     </div>
+  `
+}
+
+function getLedgerStatusClass(status: string): string {
+  if (/(待采购|有差异|缺口|未设置|未发料|未签收|未回货|未送检|未通过|未入库)/.test(status)) return 'bg-red-100 text-red-700'
+  if (/(已采购未到仓|部分到仓|等待处理|处理中|分配中|剩余|多裁|未完成|待发料|未定标)/.test(status)) return 'bg-amber-100 text-amber-700'
+  if (/(已配料|已发料|工厂已签收|已完成|正常)/.test(status)) return 'bg-green-100 text-green-700'
+  return 'bg-slate-100 text-slate-700'
+}
+
+function renderLedgerStatus(status: string): string {
+  return renderBadge(status, getLedgerStatusClass(status))
+}
+
+function renderLedgerTable(headers: string[], rows: string): string {
+  return `
+    <div class="overflow-x-auto rounded-md border bg-background">
+      <table class="min-w-[760px] w-full text-xs">
+        <thead class="bg-muted/40 text-muted-foreground">
+          <tr>${headers.map((header) => `<th class="whitespace-nowrap px-2 py-2 text-left font-medium">${escapeHtml(header)}</th>`).join('')}</tr>
+        </thead>
+        <tbody>${rows || renderEmptyRow(headers.length, '暂无明细')}</tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderLedgerModule(title: string, table: string): string {
+  return `
+    <section class="min-w-0 space-y-2">
+      <h4 class="text-xs font-semibold text-foreground">${escapeHtml(title)}</h4>
+      ${table}
+    </section>
+  `
+}
+
+function renderMaterialIssueLedger(order: ProductionOrder): string {
+  return renderLedgerModule(
+    '1）配料 / 领料明细',
+    renderLedgerTable(
+      ['物料类型', '物料名称', '物料 SKU', '需求数量', '已采购', '已到仓', '已配料', '已发料', '工厂签收', '缺口', '预计到仓', '当前状态'],
+      order.ledgerDetails.materialIssues
+        .map((row) => `
+          <tr class="border-t">
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.materialType)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.materialName)}</td>
+            <td class="whitespace-nowrap px-2 py-2 font-mono text-muted-foreground">${escapeHtml(row.materialSku)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.requiredQty)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.purchasedQty)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.arrivedQty)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.preparedQty)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.issuedQty)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.factorySignedQty)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.shortageQty)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.expectedArrival)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${renderLedgerStatus(row.status)}</td>
+          </tr>
+        `)
+        .join(''),
+    ),
+  )
+}
+
+function renderTaskFactoryLedger(order: ProductionOrder): string {
+  return renderLedgerModule(
+    '2）任务单 / 工厂明细',
+    renderLedgerTable(
+      ['任务类型', '任务单号', '工厂', '工厂类型', '当前状态', '计划完成', '实际完成', '完成数量', '当前问题', '操作'],
+      order.ledgerDetails.taskFactories
+        .map((row) => {
+          const factory = row.factory === '未设置' || row.factory === '未定标'
+            ? `<span class="rounded bg-red-50 px-1.5 py-0.5 text-red-700">${escapeHtml(row.factory)}</span>`
+            : escapeHtml(row.factory)
+          return `
+            <tr class="border-t">
+              <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.taskType)}</td>
+              <td class="whitespace-nowrap px-2 py-2 font-mono text-muted-foreground">${escapeHtml(row.taskNo)}</td>
+              <td class="whitespace-nowrap px-2 py-2">${factory}</td>
+              <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.factoryType)}</td>
+              <td class="whitespace-nowrap px-2 py-2">${renderLedgerStatus(row.status)}</td>
+              <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.plannedDoneAt)}</td>
+              <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.actualDoneAt)}</td>
+              <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.completedQty)}</td>
+              <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.issue)}</td>
+              <td class="whitespace-nowrap px-2 py-2"><button type="button" class="text-blue-600 hover:underline" data-prod-action="noop">${escapeHtml(row.action)}</button></td>
+            </tr>
+          `
+        })
+        .join(''),
+    ),
+  )
+}
+
+function renderKeyTimeLedger(order: ProductionOrder): string {
+  return renderLedgerModule(
+    '3）关键时间明细',
+    renderLedgerTable(
+      ['节点类型', '计划时间', '实际时间', '状态', '来源单据', '说明'],
+      order.ledgerDetails.keyTimes
+        .map((row) => `
+          <tr class="border-t">
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.nodeType)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.plannedAt)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.actualAt)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${renderLedgerStatus(row.status)}</td>
+            <td class="whitespace-nowrap px-2 py-2 font-mono text-muted-foreground">${escapeHtml(row.sourceDoc)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.note)}</td>
+          </tr>
+        `)
+        .join(''),
+    ),
+  )
+}
+
+function renderQuantityQualityLedger(order: ProductionOrder): string {
+  return renderLedgerModule(
+    '4）数量 / 质量明细',
+    renderLedgerTable(
+      ['数量类型', '计划数量', '当前数量', '单位', '差异', '状态', '说明'],
+      order.ledgerDetails.quantityQuality
+        .map((row) => `
+          <tr class="border-t">
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.quantityType)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.plannedQty)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.currentQty)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.unit)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.diff)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${renderLedgerStatus(row.status)}</td>
+            <td class="whitespace-nowrap px-2 py-2">${escapeHtml(row.note)}</td>
+          </tr>
+        `)
+        .join(''),
+    ),
+  )
+}
+
+function renderOrderLedgerRow(order: ProductionOrder): string {
+  if (state.openLedgerOrderId !== order.productionOrderId) return ''
+  const isLoaded = state.loadedLedgerIds.has(order.productionOrderId)
+  return `
+    <tr class="border-b bg-muted/20" data-prod-action="noop">
+      <td colspan="11" class="px-3 py-3">
+        ${
+          isLoaded
+            ? `<div class="space-y-3 rounded-md border bg-background px-3 py-3">
+                <div class="text-xs font-semibold">生产台账明细</div>
+                <div class="grid gap-3 2xl:grid-cols-2">
+                  ${renderMaterialIssueLedger(order)}
+                  ${renderTaskFactoryLedger(order)}
+                  ${renderKeyTimeLedger(order)}
+                  ${renderQuantityQualityLedger(order)}
+                </div>
+              </div>`
+            : '<div class="rounded-md border bg-background px-3 py-4 text-xs text-muted-foreground">正在加载生产台账...</div>'
+        }
+      </td>
+    </tr>
   `
 }
 
@@ -1652,7 +1808,6 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[220px] px-3 py-3 text-left font-medium">需求信息</th>
                 <th class="min-w-[170px] px-3 py-3 text-left font-medium">任务分配</th>
                 <th class="min-w-[250px] px-3 py-3 text-left font-medium">任务生成</th>
-                <th class="min-w-[230px] px-3 py-3 text-left font-medium">配料 / 领料</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">主工厂</th>
                 <th class="min-w-[150px] px-3 py-3 text-left font-medium">风险</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">最近更新</th>
@@ -1662,7 +1817,7 @@ export function renderProductionOrdersPage(): string {
             <tbody>
               ${
                 pagedOrders.length === 0
-                  ? renderEmptyRow(12, '暂无数据')
+                  ? renderEmptyRow(11, '暂无数据')
                   : pagedOrders
                     .map((order) => {
                         const techPackSnapshotDisplay = getOrderTechPackSnapshotDisplay(order)
@@ -1705,6 +1860,11 @@ export function renderProductionOrdersPage(): string {
                             action: 'open-material-draft-drawer',
                             orderId: order.productionOrderId,
                           }),
+                          renderOrderTextActionButton({
+                            label: state.openLedgerOrderId === order.productionOrderId ? '收起台账' : '展开台账',
+                            action: 'toggle-order-ledger',
+                            orderId: order.productionOrderId,
+                          }),
                         ].join('')
 
                         return `
@@ -1730,9 +1890,6 @@ export function renderProductionOrdersPage(): string {
                             <td class="px-3 py-3">${renderOrderDemandInfo(order)}</td>
                             <td class="px-3 py-3">${renderOrderAssignmentOverview(order)}</td>
                             <td class="px-3 py-3">${renderOrderTaskGenerationSummary(order)}</td>
-                            <td class="px-3 py-3">
-                              ${renderOrderMaterialSummary(order)}
-                            </td>
                             <td class="px-3 py-3">${renderOrderMainFactory(order)}</td>
                             <td class="px-3 py-3">${renderOrderRiskFlags(order.riskFlags)}</td>
                             <td class="px-3 py-3 text-sm text-muted-foreground">
@@ -1744,6 +1901,7 @@ export function renderProductionOrdersPage(): string {
                               </div>
                             </td>
                           </tr>
+                          ${renderOrderLedgerRow(order)}
                         `
                       })
                       .join('')

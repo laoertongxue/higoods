@@ -113,6 +113,15 @@ async function main(): Promise<void> {
     'renderTaskBreakdownPagination',
     'data-breakdown-page-scope',
     'data-fast-page-render="true"',
+    'getContinuousMergeCandidates',
+    'hasContinuousMergeCandidate',
+    'selectedContinuousMergeTaskIds',
+    'isSelectedContinuousMergeTaskContiguous',
+    'data-breakdown-field="continuous-merge-task"',
+    '合并所选工序',
+    'open-continuous-merge',
+    '合并连续工序',
+    'next.dependsOnTaskIds?.includes(prev.taskId) || next.seq === prev.seq + 1',
   ].forEach((token) => {
     assertIncludes(taskBreakdownSource, token, `任务清单列表化/分页/性能保护缺少 ${token}`)
   })
@@ -209,8 +218,15 @@ async function main(): Promise<void> {
   assert.equal(typeof ruleDomain.listProductionTaskGenerationRuleLogs, 'function', '缺少 listProductionTaskGenerationRuleLogs')
 
   const rules = ruleDomain.listProductionTaskGenerationRules()
-  assert(rules.length >= 4, '至少需要 4 条任务生成规则')
-  assert(rules.some((rule: { ruleName: string }) => rule.ruleName.includes('KOL样衣整单承接')), '缺少 KOL 样衣整单承接规则')
+  assert.equal(rules.length, 1, '生产单任务生成规则当前只允许保留 1 条')
+  assert.equal(rules[0].ruleId, 'TGR-KOL-001', '唯一任务生成规则必须是 KOL 样衣/样品小单整单规则')
+  assert.deepEqual(rules[0].saleTypes, ['KOL样衣', 'KOL样品小单'], '唯一规则只适用于 KOL样衣、KOL样品小单')
+  assert.equal(rules[0].requiredAcceptanceMode, 'WHOLE_ORDER', '唯一规则必须是整单承接')
+  assert.equal(rules[0].generatedTaskUnitType, 'WHOLE_ORDER_TASK', '唯一规则必须生成整单任务')
+  assertNotIncludes(ruleDomainSource, 'TGR-FAST-001', '生产单任务生成规则不得保留连续工序规则')
+  assertNotIncludes(ruleDomainSource, 'TGR-PREP-001', '生产单任务生成规则不得保留印染独立加工单规则')
+  assertNotIncludes(ruleDomainSource, 'TGR-DEFAULT-001', '生产单任务生成规则不得保留默认按工序生成规则')
+  assertNotIncludes(rulesPageSource, '连续工序', '规则配置页不得再展示连续工序规则配置')
   const kolFactories = factoryDomain.listFactoryMasterRecords().filter((factory: { name: string }) => factory.name === 'kol goto')
   assert.equal(kolFactories.length, 1, '必须且只能有一个 kol goto 工厂')
   const kolFactory = kolFactories[0]
@@ -283,7 +299,7 @@ async function main(): Promise<void> {
   const wholeOrderUnit = kolPreview.generatedUnits.find((unit: { taskUnitType: string }) => unit.taskUnitType === 'WHOLE_ORDER_TASK')
   assert(wholeOrderUnit.coveredProcesses.length > 1, '整单任务必须包含多个覆盖工序')
   assert.deepEqual(wholeOrderUnit.pdaSteps, ['领料', '开工', '关键节点上报', '交出', '完工'], '整单 PDA 步骤必须是简化 5 步')
-  assert.equal(wholeOrderUnit.handoverReceiverName, '仓库', '整单任务交出对象必须是仓库')
+  assert.equal(wholeOrderUnit.handoverReceiverName, '工厂入库', '整单任务最终回货必须直接到工厂入库')
   assert.equal(wholeOrderUnit.assignmentTargetFactoryId, kolFactory.id, 'KOL 整单预览必须分配给 kol goto')
   assert.equal(wholeOrderUnit.assignmentTargetFactoryName, 'kol goto', 'KOL 整单预览必须显示 kol goto')
 
@@ -291,19 +307,11 @@ async function main(): Promise<void> {
     productionOrdersDomain.productionOrders.map((order: { productionOrderId: string }) => order.productionOrderId),
   )
   assert(
-    allPreviews.some((preview: { generatedUnits: Array<{ taskUnitType: string }> }) =>
-      preview.generatedUnits.some((unit) => unit.taskUnitType === 'COMBINED_PROCESS_TASK'),
+    allPreviews.every((preview: { generatedUnits: Array<{ taskUnitType: string }> }) =>
+      preview.generatedUnits.every((unit) => unit.taskUnitType !== 'COMBINED_PROCESS_TASK'),
     ),
-    '缺少连续工序组合任务预览样例',
+    '生产单任务生成规则不得生成连续工序组合任务；连续工序只允许在任务清单人工合并',
   )
-  const combinedPreviewUnit = allPreviews
-    .flatMap((preview: { generatedUnits: Array<{ taskUnitType: string; taskName: string; coveredProcesses: Array<unknown> }> }) =>
-      preview.generatedUnits
-    )
-    .find((unit: { taskUnitType: string }) => unit.taskUnitType === 'COMBINED_PROCESS_TASK')
-  assert(combinedPreviewUnit, '缺少连续工序组合任务预览样例')
-  assert(combinedPreviewUnit.coveredProcesses.length >= 2, '连续工序组合预览必须覆盖至少 2 个工序')
-  assert(combinedPreviewUnit.taskName.includes('+'), '连续工序组合任务名称必须体现工序组合')
   const kolSamplePreviews = allPreviews.filter((preview: {
     saleType?: string
     generatedUnits: Array<{ taskUnitType: string }>
@@ -333,20 +341,9 @@ async function main(): Promise<void> {
   assert.equal(kolSampleWholeUnit.assignmentTargetFactoryId, kolFactory.id, 'KOL样品小单整单任务必须指向 kol goto')
   assert.equal(kolSampleWholeUnit.assignmentTargetFactoryName, 'kol goto', 'KOL样品小单整单任务必须显示 kol goto')
   assert.equal(kolSampleWholeUnit.allowAutoDispatch, false, 'KOL样品小单整单任务不得进入自动分配')
-  const defaultPreview = allPreviews.find((preview: {
-    matchedRuleId?: string
-    generatedUnits: Array<{ pdaSteps: string[] }>
-  }) => preview.matchedRuleId === 'TGR-DEFAULT-001' && preview.generatedUnits.length > 0)
-  assert(defaultPreview, '缺少默认规则预览样例')
-  assert.notDeepEqual(
-    defaultPreview.generatedUnits[0].pdaSteps,
-    ['领料', '开工', '关键节点上报', '交出', '完工'],
-    '默认按工序任务不得返回简化 5 步',
-  )
-
   const runtimeTasks = runtimeDomain.listRuntimeProcessTasks()
   assert(runtimeTasks.some((task: { taskUnitType?: string }) => task.taskUnitType === 'WHOLE_ORDER_TASK'), 'runtime 缺少整单任务')
-  assert(runtimeTasks.some((task: { taskUnitType?: string }) => task.taskUnitType === 'COMBINED_PROCESS_TASK'), 'runtime 缺少组合工序任务')
+  assert(runtimeTasks.some((task: { taskUnitType?: string }) => task.taskUnitType === 'COMBINED_PROCESS_TASK'), 'runtime 缺少任务清单人工合并后的连续工序任务演示')
   const mergedRuntimeTasks = runtimeTasks.filter((task: { taskUnitType?: string }) =>
     task.taskUnitType === 'WHOLE_ORDER_TASK' || task.taskUnitType === 'COMBINED_PROCESS_TASK'
   )
@@ -377,6 +374,12 @@ async function main(): Promise<void> {
   assert(
     combinedRuntimeTasks.every((task: { coveredProcesses?: Array<unknown> }) => (task.coveredProcesses ?? []).length >= 2),
     '连续工序组合运行时任务必须覆盖至少 2 个工序',
+  )
+  assert(
+    combinedRuntimeTasks.every((task: { generationRuleId?: string; generationRuleName?: string }) =>
+      !task.generationRuleId && task.generationRuleName === '任务清单人工合并'
+    ),
+    '连续工序组合任务只能来源于任务清单人工合并，不得来源于任务生成规则',
   )
   assert(
     mergedRuntimeTasks.every((task: { qty?: number }) => Number(task.qty) > 0),
@@ -468,7 +471,7 @@ async function main(): Promise<void> {
     'PDA 通用任务列表缺少组合/整单任务样例',
   )
   assert.equal(pdaMergedTask.pdaStepTemplateCode, 'SIMPLE_FIVE_STEP', 'PDA 合并任务必须使用简化 5 步模板')
-  assert.equal(pdaMergedTask.handoverReceiverName, '仓库', 'PDA 合并任务交出对象必须是仓库')
+  assert.equal(pdaMergedTask.handoverReceiverName, '工厂入库', 'PDA KOL 整单任务交出对象必须是工厂入库')
   assert((pdaMergedTask.coveredProcesses ?? []).length > 1, 'PDA 合并任务必须展示多个覆盖工序')
   const pdaKolWholeTask = pdaTasks.find((task: { productionOrderNo?: string; assignedFactoryId?: string; taskUnitType?: string }) =>
     task.productionOrderNo === 'PO-202603-081' && task.taskUnitType === 'WHOLE_ORDER_TASK'
@@ -481,8 +484,8 @@ async function main(): Promise<void> {
       head.taskId === pdaKolWholeTask.taskId && head.productionOrderNo === 'PO-202603-081'
     )
   assert(pdaKolWholeHandoutHead, 'PDA KOL 整单任务缺少交接交出 mock 数据')
-  assert.equal(pdaKolWholeHandoutHead.targetKind, 'WAREHOUSE', 'PDA KOL 整单任务交出接收方必须是仓库')
-  assert.equal(pdaKolWholeHandoutHead.receiverName, '仓库', 'PDA KOL 整单任务交出接收方名称必须是仓库')
+  assert.equal(pdaKolWholeHandoutHead.targetKind, 'WAREHOUSE', 'PDA KOL 整单任务交出接收方必须是工厂入库')
+  assert.equal(pdaKolWholeHandoutHead.receiverName, '工厂入库', 'PDA KOL 整单任务交出接收方名称必须是工厂入库')
   assert(pdaKolWholeHandoutHead.recordCount > 0, 'PDA KOL 整单任务交出 mock 必须包含交出记录')
   const pdaRuntimeKolHandoutHead = pdaHandoverDomain
     .getPdaHandoutHeads(kolFactory.id)
@@ -490,8 +493,8 @@ async function main(): Promise<void> {
       head.taskId === 'TASKGEN-202603-0001-001__ORDER' && head.productionOrderNo === 'PO-202603-0001'
     )
   assert(pdaRuntimeKolHandoutHead, 'PDA 当前整单执行任务缺少交接交出 mock 数据')
-  assert.equal(pdaRuntimeKolHandoutHead.targetKind, 'WAREHOUSE', 'PDA 当前整单执行任务交出接收方必须是仓库')
-  assert.equal(pdaRuntimeKolHandoutHead.receiverName, '仓库', 'PDA 当前整单执行任务交出接收方名称必须是仓库')
+  assert.equal(pdaRuntimeKolHandoutHead.targetKind, 'WAREHOUSE', 'PDA 当前整单执行任务交出接收方必须是工厂入库')
+  assert.equal(pdaRuntimeKolHandoutHead.receiverName, '工厂入库', 'PDA 当前整单执行任务交出接收方名称必须是工厂入库')
   assert(pdaRuntimeKolHandoutHead.recordCount > 0, 'PDA 当前整单执行任务交出 mock 必须包含交出记录')
   const pdaKolBlockedTasks = mobileExecutionDomain.listMobileExecutionTasks({
     currentFactoryId: kolFactory.id,

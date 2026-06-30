@@ -128,6 +128,60 @@ export interface TaskBreakdownSummary {
   previewStatus?: 'READY' | 'NEED_CONFIRM' | 'BLOCKED' | 'NO_MATCH_USE_DEFAULT'
 }
 
+export interface MaterialIssueRow {
+  materialType: string
+  materialName: string
+  materialSku: string
+  requiredQty: string
+  purchasedQty: string
+  arrivedQty: string
+  preparedQty: string
+  issuedQty: string
+  factorySignedQty: string
+  shortageQty: string
+  expectedArrival: string
+  status: string
+}
+
+export interface TaskFactoryRow {
+  taskType: string
+  taskNo: string
+  factory: string
+  factoryType: string
+  status: string
+  plannedDoneAt: string
+  actualDoneAt: string
+  completedQty: string
+  issue: string
+  action: string
+}
+
+export interface KeyTimeRow {
+  nodeType: string
+  plannedAt: string
+  actualAt: string
+  status: string
+  sourceDoc: string
+  note: string
+}
+
+export interface QuantityQualityRow {
+  quantityType: string
+  plannedQty: string
+  currentQty: string
+  unit: string
+  diff: string
+  status: string
+  note: string
+}
+
+export interface ProductionLedgerDetails {
+  materialIssues: MaterialIssueRow[]
+  taskFactories: TaskFactoryRow[]
+  keyTimes: KeyTimeRow[]
+  quantityQuality: QuantityQualityRow[]
+}
+
 export interface ProductionOrder {
   productionOrderId: string
   productionOrderNo: string
@@ -174,6 +228,7 @@ export interface ProductionOrder {
   biddingSummary: BiddingSummary
   directDispatchSummary: DirectDispatchSummary
   taskBreakdownSummary: TaskBreakdownSummary
+  ledgerDetails: ProductionLedgerDetails
   riskFlags: RiskFlag[]
   auditLogs: AuditLog[]
   createdAt: string
@@ -218,6 +273,7 @@ export interface ProductionOrderSeed {
   biddingSummary: BiddingSummary
   directDispatchSummary: DirectDispatchSummary
   taskBreakdownSummary: TaskBreakdownSummary
+  ledgerDetails?: ProductionLedgerDetails
   riskFlags: RiskFlag[]
   auditLogs: AuditLog[]
   createdAt: string
@@ -288,6 +344,61 @@ export function formatProductionOrderMainFactoryName(order: Pick<ProductionOrder
   return Array.from(new Set(snapshots.map((factory) => factory.name).filter(Boolean))).join('、') || order.mainFactorySnapshot.name
 }
 
+export function cloneProductionLedgerDetails(details: ProductionLedgerDetails): ProductionLedgerDetails {
+  return {
+    materialIssues: details.materialIssues.map((row) => ({ ...row })),
+    taskFactories: details.taskFactories.map((row) => ({ ...row })),
+    keyTimes: details.keyTimes.map((row) => ({ ...row })),
+    quantityQuality: details.quantityQuality.map((row) => ({ ...row })),
+  }
+}
+
+function buildDefaultProductionLedgerDetails(seed: ProductionOrderSeed, demand: ProductionDemand, factoryName: string): ProductionLedgerDetails {
+  const plannedQty = String(demand.skuLines.reduce((sum, sku) => sum + sku.qty, 0) || demand.requiredQtyTotal || 600)
+  const orderNo = seed.productionOrderId.replace('PO-', '')
+  const planDoneAt = seed.planEndDate || demand.requiredDeliveryDate || '2026-07-04'
+  return {
+    materialIssues: [
+      {
+        materialType: '面料',
+        materialName: `${demand.spuName} 主面料`,
+        materialSku: `${demand.spuCode}-FAB`,
+        requiredQty: `${plannedQty} yd`,
+        purchasedQty: `${plannedQty} yd`,
+        arrivedQty: `${plannedQty} yd`,
+        preparedQty: `${plannedQty} yd`,
+        issuedQty: '0 yd',
+        factorySignedQty: '0 yd',
+        shortageQty: '0 yd',
+        expectedArrival: '-',
+        status: '已配料待发料',
+      },
+    ],
+    taskFactories: [
+      {
+        taskType: seed.taskBreakdownSummary.taskTypesTop3[0] || '生产',
+        taskNo: `TASK-${orderNo}`,
+        factory: factoryName,
+        factoryType: '主工厂',
+        status: seed.assignmentProgress.status === 'DONE' ? '已完成' : '等待处理',
+        plannedDoneAt: planDoneAt,
+        actualDoneAt: seed.assignmentProgress.status === 'DONE' ? planDoneAt : '-',
+        completedQty: seed.assignmentProgress.status === 'DONE' ? plannedQty : '0',
+        issue: seed.assignmentProgress.status === 'DONE' ? '-' : '等待处理',
+        action: '查看',
+      },
+    ],
+    keyTimes: [
+      { nodeType: '生产单生成', plannedAt: '-', actualAt: seed.createdAt.slice(0, 10), status: '已完成', sourceDoc: seed.productionOrderId, note: '生产单创建' },
+      { nodeType: '预计完成', plannedAt: planDoneAt, actualAt: '-', status: seed.status === 'COMPLETED' ? '已完成' : '未完成', sourceDoc: '-', note: '当前预计完成' },
+    ],
+    quantityQuality: [
+      { quantityType: '生产计划', plannedQty, currentQty: plannedQty, unit: '件', diff: '0', status: '正常', note: '生产单计划数量' },
+      { quantityType: '质检通过入库', plannedQty, currentQty: seed.status === 'COMPLETED' ? plannedQty : '0', unit: '件', diff: seed.status === 'COMPLETED' ? '0' : `-${plannedQty}`, status: seed.status === 'COMPLETED' ? '正常' : '未入库', note: seed.status === 'COMPLETED' ? '已完成入库' : '未完成入库' },
+    ],
+  }
+}
+
 function buildProductionOrderFromResolvedUpstream(
   seed: ProductionOrderSeed,
   demand: ProductionDemand,
@@ -300,6 +411,7 @@ function buildProductionOrderFromResolvedUpstream(
   }
   const demandSnapshot = buildProductionOrderDemandSnapshot(demand)
 
+  const ledgerDetails = seed.ledgerDetails ?? buildDefaultProductionLedgerDetails(seed, demand, (factorySnapshot ?? createPendingMainFactorySnapshot()).name)
   return {
     ...seed,
     productionOrderNo: seed.productionOrderId,
@@ -316,6 +428,7 @@ function buildProductionOrderFromResolvedUpstream(
     demandSnapshot,
     sourceDemandSnapshots: [demandSnapshot],
     techPackSnapshot: cloneProductionOrderTechPackSnapshot(techPackSnapshot),
+    ledgerDetails: cloneProductionLedgerDetails(ledgerDetails),
   }
 }
 
@@ -437,6 +550,8 @@ export function buildProductionOrderFromDemands(
   }
 
   const demandSnapshots = demands.map((demand) => buildProductionOrderDemandSnapshot(demand))
+  const demandSnapshot = buildMergedProductionOrderDemandSnapshot(demands)
+  const ledgerDetails = seed.ledgerDetails ?? buildDefaultProductionLedgerDetails(seed, primaryDemand, (factorySnapshot ?? createPendingMainFactorySnapshot()).name)
 
   return {
     ...seed,
@@ -450,9 +565,10 @@ export function buildProductionOrderFromDemands(
     mainFactoryConfirmedAt: seed.mainFactoryConfirmedAt,
     mainFactoryConfirmedBy: seed.mainFactoryConfirmedBy,
     legacyOrderNo: demands.map((demand) => demand.legacyOrderNo).join('、'),
-    demandSnapshot: buildMergedProductionOrderDemandSnapshot(demands),
+    demandSnapshot,
     sourceDemandSnapshots: demandSnapshots,
     techPackSnapshot: cloneProductionOrderTechPackSnapshot(techPackSnapshot),
+    ledgerDetails: cloneProductionLedgerDetails(ledgerDetails),
   }
 }
 
@@ -549,6 +665,48 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       coveredProcessNames: ['裁片', '车缝', '特殊工艺', '后道', '开扣眼', '熨烫'],
       previewStatus: 'READY',
     },
+    ledgerDetails: {
+      materialIssues: [
+        { materialType: '面料', materialName: 'T-shirt 面料', materialSku: 'FAB-2024-001', requiredQty: '600 yd', purchasedQty: '600 yd', arrivedQty: '600 yd', preparedQty: '600 yd', issuedQty: '0 yd', factorySignedQty: '0 yd', shortageQty: '0 yd', expectedArrival: '-', status: '已配料待发料' },
+        { materialType: '辅料', materialName: '拉链', materialSku: 'ZIP-2024-008', requiredQty: '600 pcs', purchasedQty: '600 pcs', arrivedQty: '0 pcs', preparedQty: '0 pcs', issuedQty: '0 pcs', factorySignedQty: '0 pcs', shortageQty: '600 pcs', expectedArrival: '2026-07-02', status: '已采购未到仓' },
+        { materialType: '辅料', materialName: '纽扣', materialSku: 'BTN-2024-012', requiredQty: '600 pcs', purchasedQty: '600 pcs', arrivedQty: '600 pcs', preparedQty: '600 pcs', issuedQty: '0 pcs', factorySignedQty: '0 pcs', shortageQty: '0 pcs', expectedArrival: '-', status: '已配料待发料' },
+        { materialType: '辅料', materialName: '吊牌', materialSku: 'TAG-2024-003', requiredQty: '600 pcs', purchasedQty: '0 pcs', arrivedQty: '0 pcs', preparedQty: '0 pcs', issuedQty: '0 pcs', factorySignedQty: '0 pcs', shortageQty: '600 pcs', expectedArrival: '待确认', status: '待采购' },
+      ],
+      taskFactories: [
+        { taskType: '裁片', taskNo: 'CUT-143659', factory: 'sea cutting (59)', factoryType: '裁片厂', status: '已完成', plannedDoneAt: '2026-06-29', actualDoneAt: '2026-06-29', completedQty: '623', issue: '-', action: '查看' },
+        { taskType: '打揽', taskNo: 'PROC-143660', factory: '打揽 (360)', factoryType: '工艺厂', status: '等待处理', plannedDoneAt: '2026-07-01', actualDoneAt: '-', completedQty: '0', issue: '等待工厂处理', action: '查看' },
+        { taskType: '装扣子', taskNo: 'PROC-143661', factory: '待分配', factoryType: '工艺厂', status: '等待处理', plannedDoneAt: '2026-07-01', actualDoneAt: '-', completedQty: '0', issue: '任务未分配', action: '分配任务' },
+        { taskType: '捆条', taskNo: 'PROC-143662', factory: 'sea cutting (59)', factoryType: '工艺厂', status: '等待处理', plannedDoneAt: '2026-07-02', actualDoneAt: '-', completedQty: '0', issue: '等待处理', action: '查看' },
+        { taskType: '车缝', taskNo: 'SEW-143663', factory: 'alwi collection (504)', factoryType: '车缝厂', status: '等待处理', plannedDoneAt: '2026-07-04', actualDoneAt: '-', completedQty: '0', issue: '等待领料', action: '查看' },
+        { taskType: '烫包', taskNo: 'PACK-143664', factory: 'alwi collection (504)', factoryType: '后道厂', status: '等待处理', plannedDoneAt: '2026-07-04', actualDoneAt: '-', completedQty: '0', issue: '前序未完成', action: '查看' },
+        { taskType: '质检', taskNo: 'QC-143665', factory: 'alwi collection (504)', factoryType: '质检点', status: '等待处理', plannedDoneAt: '2026-07-04', actualDoneAt: '-', completedQty: '0', issue: '等待回货', action: '查看' },
+      ],
+      keyTimes: [
+        { nodeType: '采购下单', plannedAt: '-', actualAt: '2026-06-26', status: '已完成', sourceDoc: 'PO-310776', note: '采购单创建' },
+        { nodeType: '原料到仓', plannedAt: '2026-06-27', actualAt: '2026-06-27', status: '已完成', sourceDoc: 'IN-20260627-001', note: '仓库入库' },
+        { nodeType: '生产单生成', plannedAt: '-', actualAt: '2026-06-27', status: '已完成', sourceDoc: 'PO-143659', note: '生产单创建' },
+        { nodeType: '裁片完成', plannedAt: '2026-06-29', actualAt: '2026-06-29', status: '已完成', sourceDoc: 'CUT-143659', note: '裁片完成' },
+        { nodeType: '发料给工厂', plannedAt: '2026-06-30', actualAt: '-', status: '未完成', sourceDoc: 'ISSUE-待生成', note: '仓库未发料' },
+        { nodeType: '工厂签收', plannedAt: '2026-06-30', actualAt: '-', status: '未完成', sourceDoc: '-', note: '等待发料' },
+        { nodeType: '开工时间', plannedAt: '2026-07-01', actualAt: '-', status: '未完成', sourceDoc: '-', note: '工厂未开工' },
+        { nodeType: '预计完成', plannedAt: '2026-07-04', actualAt: '-', status: '剩余 8 天', sourceDoc: '-', note: '当前预计完成' },
+        { nodeType: '回货完成', plannedAt: '2026-07-04', actualAt: '-', status: '未完成', sourceDoc: '-', note: '等待生产完成' },
+        { nodeType: '质检入库', plannedAt: '2026-07-05', actualAt: '-', status: '未完成', sourceDoc: '-', note: '等待回货后质检' },
+      ],
+      quantityQuality: [
+        { quantityType: '生产计划', plannedQty: '600', currentQty: '600', unit: '件', diff: '0', status: '正常', note: '生产单计划数量' },
+        { quantityType: '裁片完成', plannedQty: '600', currentQty: '623', unit: '件', diff: '+23', status: '多裁', note: '裁片完成数量高于计划' },
+        { quantityType: '已发料', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未发料', note: '仓库尚未发料' },
+        { quantityType: '工厂签收', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未签收', note: '工厂未确认收料' },
+        { quantityType: '回货数量', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未回货', note: '等待工厂生产' },
+        { quantityType: '送检数量', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未送检', note: '未进入 QC' },
+        { quantityType: 'QC 通过', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未通过', note: '未完成质检' },
+        { quantityType: '瑕疵品数量', plannedQty: '-', currentQty: '0', unit: '件', diff: '-', status: '正常', note: '-' },
+        { quantityType: '返工数量', plannedQty: '-', currentQty: '0', unit: '件', diff: '-', status: '正常', note: '-' },
+        { quantityType: '质检通过入库', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未入库', note: '未完成入库' },
+        { quantityType: '退裁片数量', plannedQty: '-', currentQty: '0', unit: '件', diff: '-', status: '正常', note: '-' },
+      ],
+    },
     riskFlags: [],
     auditLogs: [
       createAuditLog('LOG-001', 'CREATE', '从需求 DEM-202603-0004 生成生产单', '2026-03-02 16:00:00', 'Budi Santoso'),
@@ -582,6 +740,35 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       coveredProcessNames: ['裁片', '特殊工艺', '后道', '开扣眼', '熨烫'],
       previewStatus: 'NO_MATCH_USE_DEFAULT',
     },
+    ledgerDetails: {
+      materialIssues: [
+        { materialType: '面料', materialName: 'Hoodie 抓绒主面料', materialSku: 'FAB-2024-021', requiredQty: '720 yd', purchasedQty: '720 yd', arrivedQty: '720 yd', preparedQty: '720 yd', issuedQty: '720 yd', factorySignedQty: '720 yd', shortageQty: '0 yd', expectedArrival: '-', status: '工厂已签收' },
+        { materialType: '辅料', materialName: '帽绳', materialSku: 'CORD-2024-006', requiredQty: '1,200 pcs', purchasedQty: '1,200 pcs', arrivedQty: '1,200 pcs', preparedQty: '1,200 pcs', issuedQty: '1,200 pcs', factorySignedQty: '1,200 pcs', shortageQty: '0 pcs', expectedArrival: '-', status: '工厂已签收' },
+        { materialType: '辅料', materialName: '水洗标', materialSku: 'LBL-2024-002', requiredQty: '600 pcs', purchasedQty: '600 pcs', arrivedQty: '600 pcs', preparedQty: '600 pcs', issuedQty: '600 pcs', factorySignedQty: '600 pcs', shortageQty: '0 pcs', expectedArrival: '-', status: '工厂已签收' },
+      ],
+      taskFactories: [
+        { taskType: '裁片', taskNo: 'CUT-143680', factory: 'PT Mulia Cutting Center', factoryType: '裁片厂', status: '已完成', plannedDoneAt: '2026-06-28', actualDoneAt: '2026-06-28', completedQty: '600', issue: '-', action: '查看' },
+        { taskType: '绣花', taskNo: 'PROC-143681', factory: 'Embroidery Jaya', factoryType: '工艺厂', status: '已完成', plannedDoneAt: '2026-06-30', actualDoneAt: '2026-06-30', completedQty: '600', issue: '-', action: '查看' },
+        { taskType: '车缝', taskNo: 'SEW-143682', factory: 'PT Mulia Sewing Line', factoryType: '车缝厂', status: '等待处理', plannedDoneAt: '2026-07-03', actualDoneAt: '-', completedQty: '0', issue: '等待车缝', action: '查看' },
+        { taskType: '后道', taskNo: 'PACK-143683', factory: 'PT Mulia Sewing Line', factoryType: '后道厂', status: '等待处理', plannedDoneAt: '2026-07-04', actualDoneAt: '-', completedQty: '0', issue: '等待车缝完成', action: '查看' },
+      ],
+      keyTimes: [
+        { nodeType: '采购下单', plannedAt: '-', actualAt: '2026-06-25', status: '已完成', sourceDoc: 'PO-310802', note: '采购单创建' },
+        { nodeType: '原料到仓', plannedAt: '2026-06-27', actualAt: '2026-06-27', status: '已完成', sourceDoc: 'IN-20260627-018', note: '仓库入库' },
+        { nodeType: '发料给工厂', plannedAt: '2026-06-29', actualAt: '2026-06-29', status: '已完成', sourceDoc: 'ISSUE-20260629-002', note: '仓库已发料' },
+        { nodeType: '工厂签收', plannedAt: '2026-06-29', actualAt: '2026-06-29', status: '已完成', sourceDoc: 'SIGN-20260629-002', note: '工厂已签收' },
+        { nodeType: '开工时间', plannedAt: '2026-07-01', actualAt: '-', status: '未完成', sourceDoc: '-', note: '等待车缝开工' },
+        { nodeType: '预计完成', plannedAt: '2026-07-04', actualAt: '-', status: '剩余 8 天', sourceDoc: '-', note: '当前预计完成' },
+      ],
+      quantityQuality: [
+        { quantityType: '生产计划', plannedQty: '600', currentQty: '600', unit: '件', diff: '0', status: '正常', note: '生产单计划数量' },
+        { quantityType: '裁片完成', plannedQty: '600', currentQty: '600', unit: '件', diff: '0', status: '正常', note: '裁片数量匹配' },
+        { quantityType: '已发料', plannedQty: '600', currentQty: '600', unit: '件', diff: '0', status: '正常', note: '已发料给工厂' },
+        { quantityType: '工厂签收', plannedQty: '600', currentQty: '600', unit: '件', diff: '0', status: '正常', note: '工厂已确认收料' },
+        { quantityType: '回货数量', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未回货', note: '等待车缝' },
+        { quantityType: 'QC 通过', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未通过', note: '未完成质检' },
+      ],
+    },
     riskFlags: [],
     auditLogs: [
       createAuditLog('LOG-002', 'CREATE', '从需求 DEM-202603-0005 生成生产单', '2026-03-03 15:00:00', 'Dewi Lestari'),
@@ -604,6 +791,36 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     biddingSummary: { activeTenderCount: 1, nearestDeadline: '2026-03-06 18:00:00', overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 2, rejectedCount: 0, overdueAckCount: 0 },
     taskBreakdownSummary: { isBrokenDown: true, taskTypesTop3: ['裁片', '车缝', '包装'], lastBreakdownAt: '2026-03-04 11:20:00', lastBreakdownBy: 'Ahmad Wijaya' },
+    ledgerDetails: {
+      materialIssues: [
+        { materialType: '面料', materialName: 'Polo 珠地主面料', materialSku: 'FAB-2024-041', requiredQty: '900 yd', purchasedQty: '900 yd', arrivedQty: '540 yd', preparedQty: '540 yd', issuedQty: '0 yd', factorySignedQty: '0 yd', shortageQty: '360 yd', expectedArrival: '2026-07-01', status: '部分到仓' },
+        { materialType: '辅料', materialName: '罗纹领', materialSku: 'RIB-2024-011', requiredQty: '600 pcs', purchasedQty: '600 pcs', arrivedQty: '600 pcs', preparedQty: '600 pcs', issuedQty: '0 pcs', factorySignedQty: '0 pcs', shortageQty: '0 pcs', expectedArrival: '-', status: '已配料待发料' },
+        { materialType: '辅料', materialName: '包装袋', materialSku: 'BAG-2024-017', requiredQty: '600 pcs', purchasedQty: '600 pcs', arrivedQty: '0 pcs', preparedQty: '0 pcs', issuedQty: '0 pcs', factorySignedQty: '0 pcs', shortageQty: '600 pcs', expectedArrival: '2026-07-03', status: '已采购未到仓' },
+      ],
+      taskFactories: [
+        { taskType: '裁片', taskNo: 'CUT-143690', factory: 'PT Cahaya Dyeing Sejahtera', factoryType: '裁片厂', status: '已完成', plannedDoneAt: '2026-06-29', actualDoneAt: '2026-06-29', completedQty: '600', issue: '-', action: '查看' },
+        { taskType: '染色', taskNo: 'DYE-143691', factory: 'PT Cahaya Dyeing Sejahtera', factoryType: '染厂', status: '处理中', plannedDoneAt: '2026-07-01', actualDoneAt: '-', completedQty: '260', issue: '面料部分未到仓', action: '查看' },
+        { taskType: '车缝', taskNo: 'SEW-143692', factory: '未定标', factoryType: '车缝厂', status: '分配中', plannedDoneAt: '2026-07-04', actualDoneAt: '-', completedQty: '0', issue: '等待定标', action: '查看' },
+        { taskType: '包装', taskNo: 'PACK-143693', factory: 'PT Cahaya Dyeing Sejahtera', factoryType: '后道厂', status: '等待处理', plannedDoneAt: '2026-07-05', actualDoneAt: '-', completedQty: '0', issue: '包装袋未到仓', action: '查看' },
+      ],
+      keyTimes: [
+        { nodeType: '采购下单', plannedAt: '-', actualAt: '2026-06-26', status: '已完成', sourceDoc: 'PO-310821', note: '采购单创建' },
+        { nodeType: '原料到仓', plannedAt: '2026-06-30', actualAt: '-', status: '未完成', sourceDoc: 'IN-待入库', note: '面辅料部分未到仓' },
+        { nodeType: '生产单生成', plannedAt: '-', actualAt: '2026-06-27', status: '已完成', sourceDoc: 'PO-143690', note: '生产单创建' },
+        { nodeType: '发料给工厂', plannedAt: '2026-07-01', actualAt: '-', status: '未完成', sourceDoc: 'ISSUE-待生成', note: '等待物料到仓' },
+        { nodeType: '开工时间', plannedAt: '2026-07-02', actualAt: '-', status: '未完成', sourceDoc: '-', note: '等待定标和发料' },
+        { nodeType: '预计完成', plannedAt: '2026-07-04', actualAt: '-', status: '剩余 2 天', sourceDoc: '-', note: '交期临近' },
+        { nodeType: '质检入库', plannedAt: '2026-07-05', actualAt: '-', status: '未完成', sourceDoc: '-', note: '存在交付风险' },
+      ],
+      quantityQuality: [
+        { quantityType: '生产计划', plannedQty: '600', currentQty: '600', unit: '件', diff: '0', status: '正常', note: '生产单计划数量' },
+        { quantityType: '裁片完成', plannedQty: '600', currentQty: '600', unit: '件', diff: '0', status: '正常', note: '裁片已完成' },
+        { quantityType: '已发料', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未发料', note: '等待面辅料到仓' },
+        { quantityType: '工厂签收', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未签收', note: '工厂未确认收料' },
+        { quantityType: '回货数量', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未回货', note: '等待生产' },
+        { quantityType: '质检通过入库', plannedQty: '600', currentQty: '0', unit: '件', diff: '-600', status: '未入库', note: '交付风险待跟进' },
+      ],
+    },
     riskFlags: ['TENDER_NEAR_DEADLINE'],
     auditLogs: [
       createAuditLog('LOG-003', 'CREATE', '生产单创建', '2026-03-01 10:00:00', 'Ahmad Wijaya'),

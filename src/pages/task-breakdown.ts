@@ -30,6 +30,8 @@ interface TaskBreakdownState {
   keyword: string
   activeTab: TaskBreakdownTab
   chainDetailOrderId: string | null
+  continuousMergeOrderId: string | null
+  selectedContinuousMergeTaskIds: string[]
   orderPage: number
   allTaskPage: number
 }
@@ -55,6 +57,8 @@ const state: TaskBreakdownState = {
   keyword: '',
   activeTab: 'all',
   chainDetailOrderId: null,
+  continuousMergeOrderId: null,
+  selectedContinuousMergeTaskIds: [],
   orderPage: 1,
   allTaskPage: 1,
 }
@@ -99,6 +103,49 @@ function getTaskAcceptanceModeText(task: RuntimeProcessTask): string {
 
 function getTaskHandoverReceiverText(task: RuntimeProcessTask): string {
   return task.handoverReceiverName || task.receiverName || '仓库'
+}
+
+function isMergeableSingleTask(task: RuntimeProcessTask): boolean {
+  return isRuntimeTaskExecutionTask(task)
+    && task.defaultDocType !== 'DEMAND'
+    && task.taskUnitType !== 'WHOLE_ORDER_TASK'
+    && task.taskUnitType !== 'COMBINED_PROCESS_TASK'
+    && !task.isSplitSource
+    && !task.isSplitResult
+}
+
+function getContinuousMergeCandidates(tasks: RuntimeProcessTask[]): Array<{ prev: RuntimeProcessTask; next: RuntimeProcessTask }> {
+  const sorted = topoSort(tasks).filter(isMergeableSingleTask)
+  const candidates: Array<{ prev: RuntimeProcessTask; next: RuntimeProcessTask }> = []
+  for (let index = 1; index < sorted.length; index += 1) {
+    const prev = sorted[index - 1]
+    const next = sorted[index]
+    const isContinuous = next.dependsOnTaskIds?.includes(prev.taskId) || next.seq === prev.seq + 1
+    if (isContinuous) candidates.push({ prev, next })
+  }
+  return candidates
+}
+
+function getInitialContinuousMergeSelection(tasks: RuntimeProcessTask[], preferredTaskId?: string): string[] {
+  const candidates = getContinuousMergeCandidates(tasks)
+  const matched = preferredTaskId
+    ? candidates.find(({ prev, next }) => prev.taskId === preferredTaskId || next.taskId === preferredTaskId)
+    : candidates[0]
+  return matched ? [matched.prev.taskId, matched.next.taskId] : []
+}
+
+function isSelectedContinuousMergeTaskContiguous(tasks: RuntimeProcessTask[], selectedTaskIds: string[]): boolean {
+  const selected = topoSort(tasks)
+    .filter((task) => selectedTaskIds.includes(task.taskId))
+  if (selected.length < 2) return false
+  for (let index = 1; index < selected.length; index += 1) {
+    const prev = selected[index - 1]
+    const next = selected[index]
+    if (!(next.dependsOnTaskIds?.includes(prev.taskId) || next.seq === prev.seq + 1)) {
+      return false
+    }
+  }
+  return true
 }
 
 const splitTaskStatusLabel: Record<RuntimeProcessTask['status'], string> = {
@@ -586,6 +633,85 @@ function renderChainDetailDialog(
   `
 }
 
+function renderContinuousMergeDialog(
+  mergeOrderId: string | null,
+  mergeOrder: ProductionOrder | null,
+  mergeTasks: RuntimeProcessTask[],
+): string {
+  if (!mergeOrderId) return ''
+  const mergeableTasks = topoSort(mergeTasks).filter(isMergeableSingleTask)
+  const mergeableTaskIds = new Set(mergeableTasks.map((task) => task.taskId))
+  const selectedContinuousMergeTaskIds = state.selectedContinuousMergeTaskIds.filter((taskId) => mergeableTaskIds.has(taskId))
+  const canMerge = isSelectedContinuousMergeTaskContiguous(mergeableTasks, selectedContinuousMergeTaskIds)
+  const subtitle = mergeOrder
+    ? `${mergeOrder.productionOrderId}${mergeOrder.mainFactorySnapshot?.name ? `・${mergeOrder.mainFactorySnapshot.name}` : ''}`
+    : mergeOrderId
+
+  return `
+    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
+      <button class="absolute inset-0 bg-black/45" data-breakdown-action="close-dialog" aria-label="关闭"></button>
+      <div class="absolute left-1/2 top-1/2 w-full max-h-[76vh] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
+        <button class="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" data-breakdown-action="close-dialog" aria-label="关闭">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+        <h3 class="text-lg font-semibold">
+          合并连续工序
+          <span class="ml-2 text-sm font-normal text-muted-foreground">${escapeHtml(subtitle)}</span>
+        </h3>
+        <p class="mt-1 text-xs text-muted-foreground">勾选同一生产单下需要合并的连续工序。</p>
+        <div class="mt-4 rounded-md border">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b bg-muted/40">
+                <th class="w-12 px-3 py-2 text-left font-medium">选择</th>
+                <th class="px-3 py-2 text-left font-medium">工序任务</th>
+                <th class="px-3 py-2 text-left font-medium">任务号</th>
+                <th class="px-3 py-2 text-left font-medium">前置任务</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                mergeableTasks.length === 0
+                  ? '<tr><td colspan="4" class="py-8 text-center text-sm text-muted-foreground">暂无可合并的工序任务</td></tr>'
+                  : mergeableTasks.map((task) => `
+                    <tr class="border-b last:border-0">
+                      <td class="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          class="h-4 w-4 rounded border"
+                          data-fast-page-render="true"
+                          data-breakdown-field="continuous-merge-task"
+                          data-task-id="${escapeHtml(task.taskId)}"
+                          ${selectedContinuousMergeTaskIds.includes(task.taskId) ? 'checked' : ''}
+                        />
+                      </td>
+                      <td class="px-3 py-2 font-medium">${escapeHtml(taskDisplayName(task))}</td>
+                      <td class="px-3 py-2 font-mono text-xs text-muted-foreground">${escapeHtml(taskDisplayNo(task))}</td>
+                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(prevNames(task, mergeTasks))}</td>
+                    </tr>
+                  `).join('')
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex items-center justify-between gap-3">
+          <p class="text-xs ${canMerge ? 'text-muted-foreground' : 'text-amber-700'}">
+            ${canMerge ? '已选择连续工序，可合并。' : '请选择至少两个前后连续的工序。'}
+          </p>
+          <button
+            class="${toClassName(
+              'inline-flex h-9 items-center rounded-md border px-3 text-sm',
+              canMerge ? 'hover:bg-muted' : 'cursor-not-allowed opacity-50',
+            )}"
+            data-breakdown-action="close-dialog"
+            ${canMerge ? '' : 'disabled'}
+          >合并所选工序</button>
+        </div>
+      </div>
+    </div>
+  `
+}
+
 function getOrderRows(
   allTasks: RuntimeProcessTask[],
   keyword: string,
@@ -713,6 +839,7 @@ function renderByOrderTable(orderRows: OrderRow[], totalRows: number, currentPag
                 ? '<tr><td colspan="9" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
                 : orderRows
                     .map(({ order, tasks, orderTotalOutputValue, mainCount, subCount, dyeCount, materialCount, qcCount, splitGroupCount, splitResultCount, splitSourceCount, executionTaskCount, chain }) => {
+                      const continuousCandidates = getContinuousMergeCandidates(tasks)
                       const prepSummary =
                         tasks.length === 0
                           ? '—'
@@ -789,6 +916,12 @@ function renderByOrderTable(orderRows: OrderRow[], totalRows: number, currentPag
                               <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-fast-page-render="true" data-breakdown-action="open-chain-detail" data-order-id="${escapeHtml(order.productionOrderId)}">
                                 任务链详情
                               </button>
+                              <button class="${toClassName(
+                                'inline-flex h-7 items-center rounded-md border px-2 text-xs',
+                                continuousCandidates.length > 0 ? 'hover:bg-muted' : 'cursor-not-allowed opacity-50',
+                              )}" data-fast-page-render="true" data-breakdown-action="open-continuous-merge" data-order-id="${escapeHtml(order.productionOrderId)}" ${continuousCandidates.length > 0 ? '' : 'disabled'}>
+                                合并连续工序
+                              </button>
                               <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(order.productionOrderId)}">
                                 查看生产单
                               </button>
@@ -849,6 +982,10 @@ function renderAllTasksTable(
                       const hasMaterial = taskMaterialSet.has(task.taskId)
                       const hasQc = taskQcSet.has(task.taskId)
                       const orderTasks = allTasks.filter((item) => item.productionOrderId === task.productionOrderId)
+                      const continuousCandidates = getContinuousMergeCandidates(orderTasks)
+                      const hasContinuousMergeCandidate = continuousCandidates.some(
+                        ({ prev, next }) => prev.taskId === task.taskId || next.taskId === task.taskId,
+                      )
                       const displayName = taskDisplayName(task)
                       const outputValue = resolveTaskOutputValueSnapshot(task)
                       const isMergedDetailOutputValue = Boolean(
@@ -909,6 +1046,10 @@ function renderAllTasksTable(
                           <td class="px-3 py-2">
                             <div class="flex flex-wrap gap-1">
                               <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-fast-page-render="true" data-breakdown-action="open-chain-detail" data-order-id="${escapeHtml(task.productionOrderId)}">查看任务</button>
+                              <button class="${toClassName(
+                                'inline-flex h-7 items-center rounded-md border px-2 text-xs',
+                                hasContinuousMergeCandidate ? 'hover:bg-muted' : 'cursor-not-allowed opacity-50',
+                              )}" data-fast-page-render="true" data-breakdown-action="open-continuous-merge" data-order-id="${escapeHtml(task.productionOrderId)}" data-task-id="${escapeHtml(task.taskId)}" ${hasContinuousMergeCandidate ? '' : 'disabled'}>合并连续工序</button>
                               <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(task.productionOrderId)}">查看生产单</button>
                               <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/pda/exec/${escapeHtml(task.taskId)}">PDA预览</button>
                               ${
@@ -982,6 +1123,12 @@ export function renderTaskBreakdownPage(): string {
   const chainDetailTasks = state.chainDetailOrderId
     ? topoSort(allTasks.filter((task) => task.productionOrderId === state.chainDetailOrderId))
     : []
+  const continuousMergeOrder = state.continuousMergeOrderId
+    ? productionOrders.find((order) => order.productionOrderId === state.continuousMergeOrderId) ?? null
+    : null
+  const continuousMergeTasks = state.continuousMergeOrderId
+    ? allTasks.filter((task) => task.productionOrderId === state.continuousMergeOrderId)
+    : []
 
   return `
     <div class="space-y-4">
@@ -1049,6 +1196,7 @@ export function renderTaskBreakdownPage(): string {
         taskMaterialSet,
         taskQcSet,
       )}
+      ${renderContinuousMergeDialog(state.continuousMergeOrderId, continuousMergeOrder, continuousMergeTasks)}
     </div>
   `
 }
@@ -1060,6 +1208,14 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
     if (field === 'keyword') {
       state.keyword = fieldNode.value
       resetTaskBreakdownPages()
+      return true
+    }
+    if (field === 'continuous-merge-task') {
+      const taskId = fieldNode.dataset.taskId
+      if (!taskId) return true
+      state.selectedContinuousMergeTaskIds = fieldNode.checked
+        ? Array.from(new Set([...state.selectedContinuousMergeTaskIds, taskId]))
+        : state.selectedContinuousMergeTaskIds.filter((id) => id !== taskId)
       return true
     }
   }
@@ -1098,11 +1254,26 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
     state.chainDetailOrderId = orderId
+    state.continuousMergeOrderId = null
+    state.selectedContinuousMergeTaskIds = []
+    return true
+  }
+
+  if (action === 'open-continuous-merge') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    const preferredTaskId = actionNode.dataset.taskId
+    const orderTasks = getAllProcessTasks().filter((task) => task.productionOrderId === orderId)
+    state.continuousMergeOrderId = orderId
+    state.selectedContinuousMergeTaskIds = getInitialContinuousMergeSelection(orderTasks, preferredTaskId)
+    state.chainDetailOrderId = null
     return true
   }
 
   if (action === 'close-dialog') {
     state.chainDetailOrderId = null
+    state.continuousMergeOrderId = null
+    state.selectedContinuousMergeTaskIds = []
     return true
   }
 
@@ -1110,5 +1281,5 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
 }
 
 export function isTaskBreakdownDialogOpen(): boolean {
-  return state.chainDetailOrderId !== null
+  return state.chainDetailOrderId !== null || state.continuousMergeOrderId !== null
 }

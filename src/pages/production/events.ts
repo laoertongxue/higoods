@@ -1424,6 +1424,30 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'toggle-order-ledger') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    state.ordersActionMenuId = null
+    if (state.openLedgerOrderId === orderId) {
+      state.openLedgerOrderId = null
+      state.loadingLedgerOrderId = null
+      return true
+    }
+    state.openLedgerOrderId = orderId
+    if (state.loadedLedgerIds.has(orderId)) {
+      state.loadingLedgerOrderId = null
+      return true
+    }
+    state.loadingLedgerOrderId = orderId
+    window.setTimeout(() => {
+      if (state.openLedgerOrderId !== orderId) return
+      state.loadedLedgerIds = new Set([...state.loadedLedgerIds, orderId])
+      if (state.loadingLedgerOrderId === orderId) state.loadingLedgerOrderId = null
+      window.dispatchEvent(new Event('higood:request-render'))
+    }, 260)
+    return true
+  }
+
   if (action === 'breakdown-order') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true

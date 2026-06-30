@@ -9,6 +9,7 @@ import {
   type AssignmentProgressStatus,
   type AuditLog,
   type RiskFlag,
+  cloneProductionLedgerDetails,
   productionOrderStatusConfig,
   assignmentProgressStatusConfig,
   riskFlagConfig,
@@ -234,6 +235,9 @@ interface ProductionState {
   ordersLogsId: string | null
   ordersActionMenuId: string | null
   ordersBreakdownReadinessOrderId: string | null
+  openLedgerOrderId: string | null
+  loadingLedgerOrderId: string | null
+  loadedLedgerIds: Set<string>
   taskGenerationPreview: TaskGenerationPreviewState | null
   ordersFromDemandDialogOpen: boolean
   ordersFromDemandSelectedIds: Set<string>
@@ -454,6 +458,7 @@ function cloneOrder(order: ProductionOrder): ProductionOrder {
       ...order.taskBreakdownSummary,
       taskTypesTop3: [...order.taskBreakdownSummary.taskTypesTop3],
     },
+    ledgerDetails: cloneProductionLedgerDetails(order.ledgerDetails),
     riskFlags: [...order.riskFlags],
     auditLogs: order.auditLogs.map((log) => ({ ...log })),
   }
@@ -1913,6 +1918,9 @@ const state: ProductionState = {
   ordersLogsId: null,
   ordersActionMenuId: null,
   ordersBreakdownReadinessOrderId: null,
+  openLedgerOrderId: null,
+  loadingLedgerOrderId: null,
+  loadedLedgerIds: new Set<string>(),
   taskGenerationPreview: null,
   ordersFromDemandDialogOpen: false,
   ordersFromDemandSelectedIds: new Set<string>(),

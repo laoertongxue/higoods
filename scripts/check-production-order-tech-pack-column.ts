@@ -32,8 +32,12 @@ assert(
   '生产单管理列表不得展示“冻结时间”文案',
 )
 assert(
-  firstSku && html.includes(`${firstSku.skuCode}`) && html.includes(`${firstSku.color}`) && html.includes(`${firstSku.size}`) && html.includes(`${firstSku.qty.toLocaleString('zh-CN')}件`),
-  '生产单管理需求信息列必须展示 SKU 编码、颜色、尺码和数量',
+  firstSku && html.includes(`${firstSku.color}&${firstSku.size}：${firstSku.qty.toLocaleString('zh-CN')}件`),
+  '生产单管理需求信息列必须按“颜色&尺码：数量”展示',
+)
+assert(
+  firstSku && !html.includes(`${firstSku.skuCode}`),
+  '生产单管理需求信息列不得展示 SKU 编码',
 )
 ;['需求快照', '技术包快照', '分配中心', '分配看板'].forEach((label) => {
   assert(!html.includes(`>${label}</button>`), `生产单管理操作栏不得展示：${label}`)
