@@ -308,6 +308,7 @@ function renderSummaryTab(overview: ProductionObjectOverview): string {
           `).join('')}
         </div>
       </section>
+      ${renderOverviewExecutionSummary(overview)}
       <section class="rounded-lg border bg-card p-4">
         <h3 class="text-sm font-semibold">数据来源</h3>
         <div class="mt-3 grid gap-2 sm:grid-cols-2">
@@ -347,6 +348,28 @@ function renderSummaryTab(overview: ProductionObjectOverview): string {
         </div>
       </section>
     </div>
+  `
+}
+
+function renderOverviewExecutionSummary(overview: ProductionObjectOverview): string {
+  if (overview.executionSummary.length === 0) return ''
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="text-sm font-semibold">执行状态摘要</h3>
+      <div class="mt-3 grid gap-3 xl:grid-cols-4">
+        ${overview.executionSummary.map((block) => `
+          <article class="min-w-0 rounded-md border bg-muted/20 p-3">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <h4 class="text-xs font-semibold text-foreground">${escapeHtml(block.title)}</h4>
+              ${badge(block.statusText)}
+            </div>
+            <div class="mt-3 break-words text-sm font-medium text-foreground">${escapeHtml(block.primaryText)}</div>
+            <div class="mt-2 break-words text-xs text-muted-foreground">${escapeHtml(block.secondaryText)}</div>
+            <div class="mt-3 inline-flex rounded bg-background px-2 py-1 text-xs text-muted-foreground">${escapeHtml(block.actionText)}</div>
+          </article>
+        `).join('')}
+      </div>
+    </section>
   `
 }
 

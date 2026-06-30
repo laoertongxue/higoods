@@ -182,6 +182,14 @@ export interface ProductionLedgerDetails {
   quantityQuality: QuantityQualityRow[]
 }
 
+export interface ProductionExecutionSummaryBlock {
+  title: string
+  statusText: string
+  primaryText: string
+  secondaryText: string
+  actionText: string
+}
+
 export interface ProductionOrder {
   productionOrderId: string
   productionOrderNo: string
@@ -351,6 +359,66 @@ export function cloneProductionLedgerDetails(details: ProductionLedgerDetails): 
     keyTimes: details.keyTimes.map((row) => ({ ...row })),
     quantityQuality: details.quantityQuality.map((row) => ({ ...row })),
   }
+}
+
+const ledgerAttentionPattern = /(待|未|缺口|差异|部分|等待|处理中|分配中|剩余|多裁)/
+
+function pickLedgerAttentionRow<T extends { status: string }>(rows: T[]): T | undefined {
+  return rows.find((row) => ledgerAttentionPattern.test(row.status)) ?? rows[0]
+}
+
+function getProductionLedgerMaterialSummary(details: ProductionLedgerDetails): ProductionExecutionSummaryBlock {
+  const row = details.materialIssues.find((item) => item.shortageQty && !item.shortageQty.startsWith('0')) ?? pickLedgerAttentionRow(details.materialIssues)
+  return {
+    title: '1）配料 / 领料',
+    statusText: row?.status ?? '暂无',
+    primaryText: row ? `${row.materialName}｜缺口 ${row.shortageQty}` : '暂无配料记录',
+    secondaryText: row ? `预计到仓：${row.expectedArrival}` : '等待配料计划',
+    actionText: `${details.materialIssues.length} 项物料`,
+  }
+}
+
+function getProductionLedgerTaskSummary(details: ProductionLedgerDetails): ProductionExecutionSummaryBlock {
+  const row = details.taskFactories.find((item) => item.issue.includes('未分配') || item.factory.includes('待分配')) ?? pickLedgerAttentionRow(details.taskFactories)
+  return {
+    title: '2）任务单 / 工厂',
+    statusText: row?.status ?? '暂无',
+    primaryText: row ? `${row.taskType}｜${row.factory}` : '暂无任务单',
+    secondaryText: row ? `问题：${row.issue}` : '等待任务生成',
+    actionText: row?.action ?? `${details.taskFactories.length} 个任务`,
+  }
+}
+
+function getProductionLedgerTimeSummary(details: ProductionLedgerDetails): ProductionExecutionSummaryBlock {
+  const row = pickLedgerAttentionRow(details.keyTimes)
+  const timeText = row?.actualAt && row.actualAt !== '-' ? row.actualAt : row?.plannedAt
+  return {
+    title: '3）关键时间',
+    statusText: row?.status ?? '暂无',
+    primaryText: row ? `${row.nodeType}｜${timeText || '-'}` : '暂无时间节点',
+    secondaryText: row?.note ?? '等待生产节点',
+    actionText: row?.sourceDoc ?? `${details.keyTimes.length} 个节点`,
+  }
+}
+
+function getProductionLedgerQuantitySummary(details: ProductionLedgerDetails): ProductionExecutionSummaryBlock {
+  const row = details.quantityQuality.find((item) => item.diff !== '0' && item.diff !== '-') ?? pickLedgerAttentionRow(details.quantityQuality)
+  return {
+    title: '4）数量 / 质量',
+    statusText: row?.status ?? '暂无',
+    primaryText: row ? `${row.quantityType}：${row.currentQty}/${row.plannedQty} ${row.unit}` : '暂无数量记录',
+    secondaryText: row ? `差异：${row.diff}｜${row.note}` : '等待数量回传',
+    actionText: `${details.quantityQuality.length} 类数量`,
+  }
+}
+
+export function getProductionExecutionSummaryBlocks(details: ProductionLedgerDetails): ProductionExecutionSummaryBlock[] {
+  return [
+    getProductionLedgerMaterialSummary(details),
+    getProductionLedgerTaskSummary(details),
+    getProductionLedgerTimeSummary(details),
+    getProductionLedgerQuantitySummary(details),
+  ]
 }
 
 function buildDefaultProductionLedgerDetails(seed: ProductionOrderSeed, demand: ProductionDemand, factoryName: string): ProductionLedgerDetails {

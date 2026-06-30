@@ -150,7 +150,7 @@ function mapPostFinishingStatusToTaskStatus(status: string): ProcessTask['status
   if (status.includes('差异')) return 'BLOCKED'
   if (status.includes('中')) return 'IN_PROGRESS'
   if (status.includes('已交出') || status.includes('已回写') || status.includes('已完成')) return 'DONE'
-  if (status === '待后道' || status === '待复检' || status === '待交出') return 'IN_PROGRESS'
+  if (status === '待质检' || status === '待后道' || status === '待复检' || status === '待交出') return 'IN_PROGRESS'
   return 'NOT_STARTED'
 }
 

@@ -23,7 +23,6 @@ import {
   paginatePostRows,
   postFilterTextMatches,
   renderPostAction,
-  renderPostFilterPanel,
   renderPostFinishingPageHeader,
   renderPostPagination,
   renderPostSection,
@@ -74,9 +73,25 @@ function getCurrentPostTaskId(): string {
 }
 
 type QcTabKey = 'wait' | 'qc'
+type ButtonModeFilter = '全部' | '人工装扣' | '机器装扣'
+type PendingDefectReasonFilter = '全部' | '需要补齐' | '无需补齐'
 
 function getActiveQcTab(): QcTabKey {
   return currentParams().get('tab') === 'qc' ? 'qc' : 'wait'
+}
+
+function getButtonModeFilter(): ButtonModeFilter {
+  const value = currentParams().get('buttonMode')
+  if (value === 'manual') return '人工装扣'
+  if (value === 'machine') return '机器装扣'
+  return '全部'
+}
+
+function getPendingDefectReasonFilter(): PendingDefectReasonFilter {
+  const value = currentParams().get('pendingDefectReason')
+  if (value === 'required') return '需要补齐'
+  if (value === 'none') return '无需补齐'
+  return '全部'
 }
 
 function renderQcTabs(activeTab: QcTabKey, waitCount: number, qcCount: number): string {
@@ -94,6 +109,88 @@ function renderQcTabs(activeTab: QcTabKey, waitCount: number, qcCount: number): 
         >${escapeHtml(tab.label)} <span class="ml-1 text-xs">${tab.count}</span></button>
       `).join('')}
     </nav>
+  `
+}
+
+function uniqueFilterOptions(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right, 'zh-CN'))
+}
+
+function renderFilterOption(value: string, currentValue: string): string {
+  return `<option value="${escapeHtml(value)}" ${value === currentValue ? 'selected' : ''}>${escapeHtml(value)}</option>`
+}
+
+function renderQcFilterPanel(options: {
+  filters: ReturnType<typeof getPostListFilters>
+  activeTab: QcTabKey
+  statusOptions: string[]
+  sourceOptions: string[]
+  factoryOptions: string[]
+}): string {
+  const statusOptions = ['全部', ...uniqueFilterOptions(options.statusOptions)]
+  const sourceOptions = ['全部', ...uniqueFilterOptions(options.sourceOptions)]
+  const factoryOptions = ['全部', ...uniqueFilterOptions(options.factoryOptions)]
+  const buttonMode = getButtonModeFilter()
+  const pendingDefectReason = getPendingDefectReasonFilter()
+  const resetHref = linkWith({
+    keyword: undefined,
+    status: undefined,
+    source: undefined,
+    factory: undefined,
+    buttonMode: undefined,
+    pendingDefectReason: undefined,
+    page: '1',
+    pageSize: undefined,
+    createQc: undefined,
+    completeQc: undefined,
+    viewQc: undefined,
+  })
+  return `
+    <form class="rounded-lg border bg-card p-4" method="get" action="${escapeHtml(currentPath())}">
+      <input type="hidden" name="page" value="1" />
+      ${getCurrentPostTaskId() ? `<input type="hidden" name="postTaskId" value="${escapeHtml(getCurrentPostTaskId())}" />` : ''}
+      <input type="hidden" name="tab" value="${escapeHtml(options.activeTab)}" />
+      <div data-qc-filter-row class="grid items-end gap-3 ${options.activeTab === 'qc' ? 'grid-cols-[minmax(140px,1.3fr)_repeat(5,minmax(96px,.75fr))_auto]' : 'grid-cols-[minmax(180px,1fr)_minmax(120px,.8fr)_minmax(120px,.8fr)_minmax(140px,.8fr)_auto]'}">
+        <label class="min-w-0 space-y-1 text-sm">
+          <span class="whitespace-nowrap text-xs text-muted-foreground">关键词</span>
+          <input class="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm" name="keyword" value="${escapeHtml(options.filters.keyword)}" placeholder="质检单 / 后道单 / 生产单 / 质检台 / SKU" />
+        </label>
+        <label class="min-w-0 space-y-1 text-sm">
+          <span class="whitespace-nowrap text-xs text-muted-foreground">当前状态</span>
+          <select class="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm" name="status">${statusOptions.map((value) => renderFilterOption(value, options.filters.status)).join('')}</select>
+        </label>
+        <label class="min-w-0 space-y-1 text-sm">
+          <span class="whitespace-nowrap text-xs text-muted-foreground">后道来源</span>
+          <select class="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm" name="source">${sourceOptions.map((value) => renderFilterOption(value, options.filters.source)).join('')}</select>
+        </label>
+        <label class="min-w-0 space-y-1 text-sm">
+          <span class="whitespace-nowrap text-xs text-muted-foreground">工厂</span>
+          <select class="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm" name="factory">${factoryOptions.map((value) => renderFilterOption(value, options.filters.factory)).join('')}</select>
+        </label>
+        ${options.activeTab === 'qc' ? `
+          <label class="min-w-0 space-y-1 text-sm">
+            <span class="whitespace-nowrap text-xs text-muted-foreground">装扣方式</span>
+            <select class="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm" name="buttonMode">
+              <option value="" ${buttonMode === '全部' ? 'selected' : ''}>全部装扣方式</option>
+              <option value="manual" ${buttonMode === '人工装扣' ? 'selected' : ''}>人工装扣</option>
+              <option value="machine" ${buttonMode === '机器装扣' ? 'selected' : ''}>机器装扣</option>
+            </select>
+          </label>
+          <label class="min-w-0 space-y-1 text-sm">
+            <span class="whitespace-nowrap text-xs text-muted-foreground">待补瑕疵原因</span>
+            <select class="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm" name="pendingDefectReason">
+              <option value="" ${pendingDefectReason === '全部' ? 'selected' : ''}>全部</option>
+              <option value="required" ${pendingDefectReason === '需要补齐' ? 'selected' : ''}>需要补齐</option>
+              <option value="none" ${pendingDefectReason === '无需补齐' ? 'selected' : ''}>无需补齐</option>
+            </select>
+          </label>
+        ` : ''}
+        <div data-qc-filter-actions class="flex justify-end gap-2">
+          <button type="button" class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeHtml(resetHref)}">重置</button>
+          <button type="submit" class="h-9 rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700">查询</button>
+        </div>
+      </div>
+    </form>
   `
 }
 
@@ -175,7 +272,14 @@ function registerQcPageActions(): void {
         projectName: checkbox.value as PostFinishingQcPostProjectJudgement['projectName'],
         needed: checkbox.checked,
         qty: checkbox.checked ? Math.max(numberOf('[data-qc-sku-qualified]'), 0) : 0,
+        buttonAttachMode: checkbox.value === '装扣子' && checkbox.checked
+          ? fieldOf<HTMLInputElement>('[data-qc-button-mode]:checked')?.value as PostFinishingQcPostProjectJudgement['buttonAttachMode'] | undefined
+          : undefined,
       }))
+      const needsButtonMode = postProjectJudgements.some((item) => item.projectName === '装扣子' && item.needed)
+      if (!invalidMessage && needsButtonMode && !postProjectJudgements.find((item) => item.projectName === '装扣子')?.buttonAttachMode) {
+        invalidMessage = `${row.dataset.skuCode || 'SKU'} 选择装扣子时必须选择人工装扣或机器装扣`
+      }
       return {
         qcSkuResultId: row.dataset.qcSkuResultId || '',
         skuLineId: row.dataset.skuLineId || '',
@@ -213,20 +317,26 @@ function registerQcPageActions(): void {
       .map((item) => `${item.reasonName}${item.qty}`)
       .join('、')
     const responsibleFactoryName = qcSkuResults.find((item) => (item.reworkQty || item.defectAcceptedQty) > 0)?.responsibleFactoryName || ''
-    const completed = completePostFinishingQcOrder({
-      qcOrderId,
-      qcStationName: valueOf('[data-qc-complete-station]') || '后道质检台 A',
-      inspectorName: '后道质检员',
-      qcResult: result,
-      unqualifiedDisposition: result === '全数合规' ? '' : reworkTotal > 0 ? '返修' : '让步接收',
-      unqualifiedReasonSummary: result === '全数合规' ? '' : reasonSummary || `返工 ${reworkTotal}，瑕疵 ${defectAcceptedTotal}`,
-      rootCauseType: result === '全数合规' ? '' : '工厂加工问题',
-      responsiblePartyType: result === '全数合规' ? '' : '工厂',
-      responsiblePartyName: result === '全数合规' ? '' : responsibleFactoryName,
-      deductionDecision: result === '全数合规' ? '' : '建议扣款',
-      deductionDecisionRemark: result === '全数合规' ? '' : `本期扣加工费数量 ${reworkTotal}，瑕疵数量 ${defectAcceptedTotal} 按原因追溯。`,
-      qcSkuResults,
-    })
+    let completed: ReturnType<typeof completePostFinishingQcOrder>
+    try {
+      completed = completePostFinishingQcOrder({
+        qcOrderId,
+        qcStationName: valueOf('[data-qc-complete-station]') || '后道质检台 A',
+        inspectorName: '后道质检员',
+        qcResult: result,
+        unqualifiedDisposition: result === '全数合规' ? '' : reworkTotal > 0 ? '返修' : '让步接收',
+        unqualifiedReasonSummary: result === '全数合规' ? '' : reasonSummary || `返工 ${reworkTotal}，瑕疵 ${defectAcceptedTotal}`,
+        rootCauseType: result === '全数合规' ? '' : '工厂加工问题',
+        responsiblePartyType: result === '全数合规' ? '' : '工厂',
+        responsiblePartyName: result === '全数合规' ? '' : responsibleFactoryName,
+        deductionDecision: result === '全数合规' ? '' : '建议扣款',
+        deductionDecisionRemark: result === '全数合规' ? '' : `本期扣加工费数量 ${reworkTotal}，瑕疵数量 ${defectAcceptedTotal} 按原因追溯。`,
+        qcSkuResults,
+      })
+    } catch (error) {
+      window.alert(String(error).replace(/^Error:\s*/, ''))
+      return
+    }
     if (completed.generatedPostOrderId) {
       navigateInPrototype(`/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(completed.generatedPostOrderId)}`)
       return
@@ -255,6 +365,17 @@ function registerQcPageActions(): void {
         amount.disabled = disabled
         if (disabled) amount.value = ''
       }
+      const buttonhole = row.querySelector<HTMLInputElement>('[data-qc-post-project][value="开扣眼"]')
+      const button = row.querySelector<HTMLInputElement>('[data-qc-post-project][value="装扣子"]')
+      const forceIroningAndPackaging = Boolean(buttonhole?.checked || button?.checked)
+      row.querySelectorAll<HTMLInputElement>('[data-qc-post-project-lockable]').forEach((checkbox) => {
+        checkbox.checked = forceIroningAndPackaging || checkbox.checked
+        checkbox.disabled = forceIroningAndPackaging
+      })
+      row.querySelectorAll<HTMLInputElement>('[data-qc-button-mode]').forEach((radio) => {
+        radio.disabled = !button?.checked
+        if (!button?.checked) radio.checked = false
+      })
     })
   }
 }
@@ -421,6 +542,8 @@ function normalizeRecordSkuResults(record: PostFinishingActionRecord): PostFinis
 function renderSkuQcResultRows(record: PostFinishingActionRecord, disableDefectFields = false): string {
   return normalizeRecordSkuResults(record).map((result) => {
     const checkedProjects = new Set(result.postProjectJudgements.filter((item) => item.needed).map((item) => item.projectName))
+    const selectedButtonMode = result.postProjectJudgements.find((item) => item.projectName === '装扣子')?.buttonAttachMode
+    const forceIroningAndPackaging = checkedProjects.has('开扣眼') || checkedProjects.has('装扣子')
     const reasonQtyByName = new Map(result.defectReasonItems.map((item) => [item.reasonName, item.qty]))
     const reworkQty = result.reworkQty ?? result.unqualifiedQty
     const defectAcceptedQty = result.defectAcceptedQty ?? 0
@@ -485,12 +608,29 @@ function renderSkuQcResultRows(record: PostFinishingActionRecord, disableDefectF
             <div class="space-y-1">
               <div class="text-xs text-muted-foreground">后道项目</div>
               <div class="grid gap-2 sm:grid-cols-2">
-            ${QC_POST_PROJECTS.map((project) => `
-              <label class="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs">
-                <input type="checkbox" data-qc-post-project value="${escapeHtml(project)}" ${checkedProjects.has(project) ? 'checked' : ''} />
-                <span>${escapeHtml(project)}</span>
-              </label>
-            `).join('')}
+            ${QC_POST_PROJECTS.map((project) => {
+              const lockable = project === '熨烫' || project === '包装'
+              const checked = lockable && forceIroningAndPackaging ? true : checkedProjects.has(project)
+              const disabled = lockable && forceIroningAndPackaging
+              return `
+                <label class="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs">
+                  <input type="checkbox" data-qc-post-project ${lockable ? 'data-qc-post-project-lockable="1"' : ''} value="${escapeHtml(project)}" onchange="window.__syncQcCompleteForm()" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                  <span>${escapeHtml(project)}</span>
+                </label>
+                ${project === '装扣子' ? `
+                  <div class="col-span-full grid gap-2 rounded-md border bg-white p-2 text-xs sm:grid-cols-2">
+                    <label class="flex items-center gap-2">
+                      <input type="radio" name="button-mode-${escapeHtml(result.qcSkuResultId)}" value="人工装扣" data-qc-button-mode="manual" ${selectedButtonMode === '人工装扣' ? 'checked' : ''} ${checkedProjects.has('装扣子') ? '' : 'disabled'} />
+                      <span>人工装扣</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                      <input type="radio" name="button-mode-${escapeHtml(result.qcSkuResultId)}" value="机器装扣" data-qc-button-mode="machine" ${selectedButtonMode === '机器装扣' ? 'checked' : ''} ${checkedProjects.has('装扣子') ? '' : 'disabled'} />
+                      <span>机器装扣</span>
+                    </label>
+                  </div>
+                ` : ''}
+              `
+            }).join('')}
               </div>
             </div>
           </div>
@@ -534,6 +674,20 @@ function uniqueText(values: Array<string | undefined>): string {
   return Array.from(new Set(values.map((item) => item?.trim()).filter(Boolean) as string[])).join('、') || '—'
 }
 
+function formatPostProjectJudgement(item: PostFinishingQcPostProjectJudgement): string {
+  return item.projectName === '装扣子' && item.buttonAttachMode
+    ? `${item.projectName}（${item.buttonAttachMode}）`
+    : item.projectName
+}
+
+function summarizeButtonAttachModes(record: PostFinishingActionRecord): string {
+  const modes = normalizeRecordSkuResults(record)
+    .flatMap((result) => result.postProjectJudgements)
+    .filter((item) => item.projectName === '装扣子' && item.needed && item.qty > 0)
+    .map((item) => item.buttonAttachMode || '未选择')
+  return uniqueText(modes)
+}
+
 function summarizeReworkFactories(record: PostFinishingActionRecord): string {
   return uniqueText(normalizeRecordSkuResults(record)
     .filter((item) => (item.reworkQty || 0) > 0)
@@ -545,6 +699,13 @@ function summarizeDefectReasons(record: PostFinishingActionRecord): string {
     .filter((item) => item.qty > 0)
     .map((item) => `${item.reasonName}${item.qty}`)
   return reasons.join('、') || '—'
+}
+
+function getPendingDefectReasonQty(record: PostFinishingActionRecord): number {
+  return normalizeRecordSkuResults(record).reduce((sum, result) => {
+    const reasonQty = (result.defectReasonItems || []).reduce((reasonSum, item) => reasonSum + (Number(item.qty) || 0), 0)
+    return sum + Math.max((Number(result.defectAcceptedQty) || 0) - reasonQty, 0)
+  }, 0)
 }
 
 function formatIdrAmount(value: number | undefined): string {
@@ -586,7 +747,7 @@ function renderViewDialog(): string {
       .filter((item) => item.qty > 0)
       .map((item) => `${item.reasonName}${item.qty}`)
       .join('、') || '—'
-    const projectSummary = result.postProjectJudgements.filter((item) => item.needed).map((item) => item.projectName).join('、') || '—'
+    const projectSummary = result.postProjectJudgements.filter((item) => item.needed).map(formatPostProjectJudgement).join('、') || '—'
     return `
       <article data-qc-detail-sku-card class="space-y-3 rounded-xl border p-4">
         <div class="flex min-w-0 gap-3">
@@ -669,6 +830,7 @@ function renderQcRows(rows: PostFinishingActionRecord[]): string {
   return rows.map((record) => {
     const snapshot = buildPostFinishingQcDeductionRecord(record)
     const canFinish = !record.status.includes('完成')
+    const pendingDefectReasonQty = getPendingDefectReasonQty(record)
     const skuSummary = record.skuLines.map((line) => `${line.skuCode}/${line.colorName}/${line.sizeName}`).join('、')
     return `
       <article data-qc-list-card class="rounded-xl border bg-white p-4">
@@ -680,6 +842,7 @@ function renderQcRows(rows: PostFinishingActionRecord[]): string {
           </div>
           <div class="flex flex-wrap items-center gap-2">
             ${renderPostStatusBadge(record.status)}
+            ${pendingDefectReasonQty > 0 ? '<span class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">待补瑕疵原因</span>' : ''}
             <span class="rounded-full border px-2 py-0.5 text-xs">${escapeHtml(normalizeResult(record.qcResult))}</span>
           </div>
         </div>
@@ -699,22 +862,33 @@ function renderQcRows(rows: PostFinishingActionRecord[]): string {
           <div class="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
             <div><span class="text-xs text-muted-foreground">返工接收工厂</span><div class="mt-1">${escapeHtml(summarizeReworkFactories(record))}</div></div>
             <div><span class="text-xs text-muted-foreground">返工扣款金额</span><div class="mt-1">${escapeHtml(summarizeReworkDeductionAmount(record))}</div></div>
-            <div><span class="text-xs text-muted-foreground">瑕疵原因</span><div class="mt-1 break-words">${escapeHtml(summarizeDefectReasons(record))}</div></div>
+            <div><span class="text-xs text-muted-foreground">瑕疵原因</span><div class="mt-1 break-words">${escapeHtml(pendingDefectReasonQty > 0 ? `待补瑕疵原因，还差 ${pendingDefectReasonQty} 件` : summarizeDefectReasons(record))}</div></div>
+            <div><span class="text-xs text-muted-foreground">装扣方式</span><div class="mt-1">${escapeHtml(summarizeButtonAttachModes(record))}</div></div>
             <div><span class="text-xs text-muted-foreground">质检人</span><div class="mt-1">${escapeHtml(record.operatorName || '—')}</div></div>
           </div>
         </div>
-        <div class="mt-4 flex flex-wrap justify-end gap-2">${canFinish ? renderPostAction('完成质检', linkWith({ completeQc: record.actionRecordId, viewQc: undefined, createQc: undefined })) : ''}${renderPostAction('查看质检单', linkWith({ viewQc: record.actionRecordId, completeQc: undefined, createQc: undefined }))}${renderPrintButton(record)}</div>
+        <div class="mt-4 flex flex-wrap justify-end gap-2">${canFinish ? renderPostAction(pendingDefectReasonQty > 0 ? '补齐瑕疵原因' : '完成质检', linkWith({ completeQc: record.actionRecordId, viewQc: undefined, createQc: undefined })) : ''}${renderPostAction('查看质检单', linkWith({ viewQc: record.actionRecordId, completeQc: undefined, createQc: undefined }))}${renderPrintButton(record)}</div>
       </article>
     `
   }).join('')
 }
 
-function filterQc(records: PostFinishingActionRecord[], filters: ReturnType<typeof getPostListFilters>): PostFinishingActionRecord[] {
+function filterQc(
+  records: PostFinishingActionRecord[],
+  filters: ReturnType<typeof getPostListFilters>,
+  buttonMode: ButtonModeFilter,
+  pendingDefectReason: PendingDefectReasonFilter,
+): PostFinishingActionRecord[] {
   return records.filter((record) => {
     if (filters.source !== '全部' && filters.source !== '质检单') return false
     if (filters.status !== '全部' && record.status !== filters.status) return false
     if (filters.factory !== '全部' && record.targetFactoryName !== filters.factory) return false
-    return postFilterTextMatches(filters.keyword, [record.actionRecordNo, record.postOrderNo, record.sourceFactoryName, record.targetFactoryName, record.qcStationName, record.skuLines[0]?.spuCode, record.skuLines[0]?.spuName, record.status])
+    const hasPendingDefectReason = getPendingDefectReasonQty(record) > 0
+    if (pendingDefectReason === '需要补齐' && !hasPendingDefectReason) return false
+    if (pendingDefectReason === '无需补齐' && hasPendingDefectReason) return false
+    const buttonModes = summarizeButtonAttachModes(record)
+    if (buttonMode !== '全部' && !buttonModes.includes(buttonMode)) return false
+    return postFilterTextMatches(filters.keyword, [record.actionRecordNo, record.postOrderNo, record.sourceFactoryName, record.targetFactoryName, record.qcStationName, record.skuLines[0]?.spuCode, record.skuLines[0]?.spuName, record.status, buttonModes])
   })
 }
 
@@ -748,8 +922,10 @@ export function renderPostFinishingQcOrdersPage(): string {
     !postTaskId || record.warehouseAllocations?.some((allocation) => allocation.postTaskId === postTaskId)
   ))
   const activeTab = getActiveQcTab()
+  const buttonMode = getButtonModeFilter()
+  const pendingDefectReason = getPendingDefectReasonFilter()
   const filteredWaitItems = filterWaitQc(waitItems, filters)
-  const filteredQc = filterQc(allQc, filters)
+  const filteredQc = filterQc(allQc, filters, buttonMode, pendingDefectReason)
   const pagination = paginatePostRows(filteredQc, filters)
   const waitPagination = paginatePostRows(filteredWaitItems, filters)
   const waitRows = renderWaitRows(waitPagination.rows)
@@ -767,14 +943,14 @@ export function renderPostFinishingQcOrdersPage(): string {
   return `
     <div class="space-y-4 p-4">
       ${renderPageHeader()}
-      ${renderPostFilterPanel({
+      ${renderQcTabs(activeTab, filteredWaitItems.length, filteredQc.length)}
+      ${renderQcFilterPanel({
         filters,
+        activeTab,
         statusOptions: activeTab === 'wait' ? [] : allQc.map((item) => item.status),
         sourceOptions: activeTab === 'wait' ? waitItems.map((item) => item.sourceFactoryType) : ['质检单'],
         factoryOptions: [...waitItems.map((item) => item.sourceFactoryName), ...allQc.map((item) => item.targetFactoryName)],
-        keywordPlaceholder: '质检单 / 后道单 / 生产单 / 质检台 / SKU',
       })}
-      ${renderQcTabs(activeTab, filteredWaitItems.length, filteredQc.length)}
       ${activeSection}
       ${renderCreateQcDialog()}
       ${renderCompleteQcDialog()}

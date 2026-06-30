@@ -1,8 +1,10 @@
 import {
   formatProductionOrderMainFactoryName,
+  getProductionExecutionSummaryBlocks,
   productionOrderStatusConfig,
   productionOrders,
   type ProductionOrder,
+  type ProductionExecutionSummaryBlock,
 } from './production-orders.ts'
 import {
   demandStatusConfig,
@@ -291,6 +293,7 @@ export interface ProductionObjectOverview {
   objectType: ProductionObjectType
   title: string
   summary: ProductionObjectSummary
+  executionSummary: ProductionExecutionSummaryBlock[]
   continueDecision: ContinueDecision
   materials: ProductionMaterialLine[]
   progressNodes: ProductionProgressNode[]
@@ -1757,6 +1760,7 @@ function buildDemandOnlyOverview(objectId: string): ProductionObjectOverview | n
     objectType: 'DEMAND',
     title: `生产需求｜${demand.demandId}`,
     summary,
+    executionSummary: [],
     continueDecision,
     materials: [],
     progressNodes: [
@@ -1841,6 +1845,7 @@ export function getProductionObjectOverview(objectType: ProductionObjectType, ob
     objectType,
     title: `${OBJECT_TYPE_LABEL[objectType]}｜${order.productionOrderNo}`,
     summary,
+    executionSummary: getProductionExecutionSummaryBlocks(order.ledgerDetails),
     continueDecision,
     materials,
     progressNodes: buildProgressNodes(order, progressFacts),

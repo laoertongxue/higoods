@@ -31,6 +31,7 @@ interface TaskBreakdownState {
   keyword: string
   activeTab: TaskBreakdownTab
   chainDetailOrderId: string | null
+  detailTaskId: string | null
   continuousMergeOrderId: string | null
   selectedContinuousMergeTaskIds: string[]
   continuousMergeError: string
@@ -59,6 +60,7 @@ const state: TaskBreakdownState = {
   keyword: '',
   activeTab: 'all',
   chainDetailOrderId: null,
+  detailTaskId: null,
   continuousMergeOrderId: null,
   selectedContinuousMergeTaskIds: [],
   continuousMergeError: '',
@@ -637,6 +639,40 @@ function renderChainDetailDialog(
   `
 }
 
+function renderTaskDetailDialog(
+  task: RuntimeProcessTask | null,
+  orderTasks: RuntimeProcessTask[],
+): string {
+  if (!task) return ''
+
+  return `
+    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
+      <button class="absolute inset-0 bg-black/45" data-breakdown-action="close-dialog" aria-label="关闭"></button>
+      <div class="absolute left-1/2 top-1/2 w-full max-h-[80vh] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
+        <button class="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" data-breakdown-action="close-dialog" aria-label="关闭">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+        <h3 class="text-lg font-semibold">${escapeHtml(taskDisplayName(task))}</h3>
+        <p class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(taskDisplayNo(task))}</p>
+        <div class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+          <div class="rounded-md border p-3">
+            <div class="text-xs text-muted-foreground">生产单号</div>
+            <div class="mt-1 font-medium">${escapeHtml(task.productionOrderId || '—')}</div>
+          </div>
+          <div class="rounded-md border p-3">
+            <div class="text-xs text-muted-foreground">承接工厂</div>
+            <div class="mt-1 font-medium">${escapeHtml(task.assignedFactoryName || '待分配')}</div>
+          </div>
+        </div>
+        <div class="mt-4 rounded-md border p-4 text-sm">
+          ${renderTaskDetailSummary(task)}
+          ${renderTaskSplitSummary(task, orderTasks)}
+        </div>
+      </div>
+    </div>
+  `
+}
+
 function renderContinuousMergeDialog(
   mergeOrderId: string | null,
   mergeOrder: ProductionOrder | null,
@@ -834,7 +870,7 @@ function renderByOrderTable(orderRows: OrderRow[], totalRows: number, currentPag
               <th class="px-3 py-2 text-center font-medium">相关流程</th>
               <th class="min-w-[320px] px-3 py-2 text-left font-medium">任务流程</th>
               <th class="px-3 py-2 text-left font-medium">开工准备</th>
-              <th class="px-3 py-2 text-left font-medium">操作</th>
+              <th class="sticky right-0 z-20 border-l bg-muted/40 px-3 py-2 text-left font-medium shadow-sm">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -915,8 +951,8 @@ function renderByOrderTable(orderRows: OrderRow[], totalRows: number, currentPag
                             }
                           </td>
                           <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(prepSummary)}</td>
-                          <td class="px-3 py-3">
-                            <div class="flex gap-1.5">
+                          <td class="sticky right-0 z-10 border-l bg-background px-3 py-3 shadow-sm">
+                            <div class="flex min-w-[260px] gap-1.5">
                               <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-fast-page-render="true" data-breakdown-action="open-chain-detail" data-order-id="${escapeHtml(order.productionOrderId)}">
                                 任务链详情
                               </button>
@@ -973,7 +1009,7 @@ function renderAllTasksTable(
               <th class="px-3 py-2 text-left font-medium">当前步骤</th>
               <th class="px-3 py-2 text-left font-medium">交出对象</th>
               <th class="px-3 py-2 text-left font-medium">规则来源</th>
-              <th class="px-3 py-2 text-left font-medium">操作</th>
+              <th class="sticky right-0 z-20 border-l bg-muted/40 px-3 py-2 text-left font-medium shadow-sm">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -1026,8 +1062,6 @@ function renderAllTasksTable(
                           <td class="px-3 py-2 text-sm font-medium">
                             <div class="space-y-0.5">
                               <p>${escapeHtml(displayName)}</p>
-                              ${renderTaskDetailSummary(task)}
-                              ${renderTaskSplitSummary(task, orderTasks)}
                             </div>
                           </td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getCoveredProcessText(task))}</td>
@@ -1047,9 +1081,9 @@ function renderAllTasksTable(
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskCurrentStepText(task))}</td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskHandoverReceiverText(task))}</td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskRuleSourceText(task))}</td>
-                          <td class="px-3 py-2">
-                            <div class="flex flex-wrap gap-1">
-                              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-fast-page-render="true" data-breakdown-action="open-chain-detail" data-order-id="${escapeHtml(task.productionOrderId)}">查看任务</button>
+                          <td class="sticky right-0 z-10 border-l bg-background px-3 py-2 shadow-sm">
+                            <div class="flex min-w-[260px] flex-wrap gap-1">
+                              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-fast-page-render="true" data-breakdown-action="open-task-detail" data-task-id="${escapeHtml(task.taskId)}">查看任务</button>
                               <button class="${toClassName(
                                 'inline-flex h-7 items-center rounded-md border px-2 text-xs',
                                 hasContinuousMergeCandidate ? 'hover:bg-muted' : 'cursor-not-allowed opacity-50',
@@ -1127,6 +1161,12 @@ export function renderTaskBreakdownPage(): string {
   const chainDetailTasks = state.chainDetailOrderId
     ? topoSort(allTasks.filter((task) => task.productionOrderId === state.chainDetailOrderId))
     : []
+  const detailTask = state.detailTaskId
+    ? allTasks.find((task) => task.taskId === state.detailTaskId) ?? null
+    : null
+  const detailOrderTasks = detailTask
+    ? topoSort(allTasks.filter((task) => task.productionOrderId === detailTask.productionOrderId))
+    : []
   const continuousMergeOrder = state.continuousMergeOrderId
     ? productionOrders.find((order) => order.productionOrderId === state.continuousMergeOrderId) ?? null
     : null
@@ -1200,6 +1240,7 @@ export function renderTaskBreakdownPage(): string {
         taskMaterialSet,
         taskQcSet,
       )}
+      ${renderTaskDetailDialog(detailTask, detailOrderTasks)}
       ${renderContinuousMergeDialog(state.continuousMergeOrderId, continuousMergeOrder, continuousMergeTasks)}
     </div>
   `
@@ -1207,17 +1248,17 @@ export function renderTaskBreakdownPage(): string {
 
 export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-breakdown-field]')
-  if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement) {
+  if (fieldNode && 'value' in fieldNode) {
     const field = fieldNode.dataset.breakdownField
     if (field === 'keyword') {
-      state.keyword = fieldNode.value
+      state.keyword = String(fieldNode.value)
       resetTaskBreakdownPages()
       return true
     }
     if (field === 'continuous-merge-task') {
       const taskId = fieldNode.dataset.taskId
       if (!taskId) return true
-      state.selectedContinuousMergeTaskIds = fieldNode.checked
+      state.selectedContinuousMergeTaskIds = Boolean((fieldNode as HTMLInputElement).checked)
         ? Array.from(new Set([...state.selectedContinuousMergeTaskIds, taskId]))
         : state.selectedContinuousMergeTaskIds.filter((id) => id !== taskId)
       state.continuousMergeError = ''
@@ -1259,6 +1300,18 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
     state.chainDetailOrderId = orderId
+    state.detailTaskId = null
+    state.continuousMergeOrderId = null
+    state.selectedContinuousMergeTaskIds = []
+    state.continuousMergeError = ''
+    return true
+  }
+
+  if (action === 'open-task-detail') {
+    const taskId = actionNode.dataset.taskId
+    if (!taskId) return true
+    state.detailTaskId = taskId
+    state.chainDetailOrderId = null
     state.continuousMergeOrderId = null
     state.selectedContinuousMergeTaskIds = []
     state.continuousMergeError = ''
@@ -1274,6 +1327,7 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
     state.selectedContinuousMergeTaskIds = getInitialContinuousMergeSelection(orderTasks, preferredTaskId)
     state.continuousMergeError = ''
     state.chainDetailOrderId = null
+    state.detailTaskId = null
     return true
   }
 
@@ -1291,6 +1345,7 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
 
   if (action === 'close-dialog') {
     state.chainDetailOrderId = null
+    state.detailTaskId = null
     state.continuousMergeOrderId = null
     state.selectedContinuousMergeTaskIds = []
     state.continuousMergeError = ''
@@ -1301,5 +1356,5 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
 }
 
 export function isTaskBreakdownDialogOpen(): boolean {
-  return state.chainDetailOrderId !== null || state.continuousMergeOrderId !== null
+  return state.chainDetailOrderId !== null || state.detailTaskId !== null || state.continuousMergeOrderId !== null
 }

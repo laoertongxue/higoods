@@ -235,9 +235,6 @@ interface ProductionState {
   ordersLogsId: string | null
   ordersActionMenuId: string | null
   ordersBreakdownReadinessOrderId: string | null
-  openLedgerOrderId: string | null
-  loadingLedgerOrderId: string | null
-  loadedLedgerIds: Set<string>
   taskGenerationPreview: TaskGenerationPreviewState | null
   ordersFromDemandDialogOpen: boolean
   ordersFromDemandSelectedIds: Set<string>
@@ -1918,9 +1915,6 @@ const state: ProductionState = {
   ordersLogsId: null,
   ordersActionMenuId: null,
   ordersBreakdownReadinessOrderId: null,
-  openLedgerOrderId: null,
-  loadingLedgerOrderId: null,
-  loadedLedgerIds: new Set<string>(),
   taskGenerationPreview: null,
   ordersFromDemandDialogOpen: false,
   ordersFromDemandSelectedIds: new Set<string>(),

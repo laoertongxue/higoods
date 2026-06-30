@@ -130,6 +130,7 @@ import {
   finishSewingFactoryPostTask,
   startPostFinishingProjectLine,
   startSewingFactoryPostTask,
+  submitPostFinishingPdaQcResult,
   transferSewingFactoryPostTaskToManagedFactory,
 } from '../data/fcs/post-finishing-domain.ts'
 import {
@@ -200,6 +201,7 @@ function mapPostFinishingStatusToTaskStatus(status: string): ProcessTask['status
   if (status.includes('差异')) return 'BLOCKED'
   if (status.includes('中')) return 'IN_PROGRESS'
   if (status.includes('已交出') || status.includes('已收货') || status.includes('已完成')) return 'DONE'
+  if (status === '待质检' || status === '待后道' || status === '待复检' || status === '待交出') return 'IN_PROGRESS'
   return 'NOT_STARTED'
 }
 
@@ -2139,6 +2141,25 @@ function renderPostFinishingActionButton(
 
 const PDA_POST_PROJECT_OPTIONS: Array<PostFinishingQcPostProjectJudgement['projectName']> = ['开扣眼', '装扣子', '熨烫', '包装']
 
+function registerPdaPostQcFormSync(): void {
+  if (typeof window === 'undefined') return
+  ;(window as typeof window & { __syncPdaPostQcForm?: () => void }).__syncPdaPostQcForm = () => {
+    document.querySelectorAll<HTMLElement>('[data-pda-qc-result-card]').forEach((card) => {
+      const buttonhole = card.querySelector<HTMLInputElement>('[data-qc-project-name="开扣眼"]')
+      const button = card.querySelector<HTMLInputElement>('[data-qc-project-name="装扣子"]')
+      const forceIroningAndPackaging = Boolean(buttonhole?.checked || button?.checked)
+      card.querySelectorAll<HTMLInputElement>('[data-qc-project-lockable]').forEach((checkbox) => {
+        checkbox.checked = forceIroningAndPackaging || checkbox.checked
+        checkbox.disabled = forceIroningAndPackaging
+      })
+      card.querySelectorAll<HTMLInputElement>('[data-qc-button-mode]').forEach((radio) => {
+        radio.disabled = !button?.checked
+        if (!button?.checked) radio.checked = false
+      })
+    })
+  }
+}
+
 function buildPdaPostTaskActionHref(execId: string, action: string, params: Record<string, string> = {}): string {
   const search = new URLSearchParams({ postMobileAction: action, ...params })
   return `/fcs/pda/exec/${encodeURIComponent(execId)}?${search.toString()}`
@@ -2214,6 +2235,7 @@ function renderPdaPostCreateQcPage(execId: string, task: PostFinishingTaskView, 
 }
 
 function renderPdaPostCompleteQcPage(execId: string, qcOrderId: string): string {
+  registerPdaPostQcFormSync()
   const qc = listPostFinishingQcOrderEntities().find((item) => item.qcOrderId === qcOrderId || item.qcOrderNo === qcOrderId)
   if (!qc) {
     return renderPdaFrame(`<div class="p-4"><button class="mb-4 inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">返回</button><div class="rounded-md border bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">质检单不存在</div></div>`, 'exec', { disableTodoAutoOpen: true })
@@ -2221,6 +2243,8 @@ function renderPdaPostCompleteQcPage(execId: string, qcOrderId: string): string 
 
   const cards = qc.qcSkuResults.map((result) => {
     const projectNames = new Set(result.postProjectJudgements.filter((item) => item.needed).map((item) => item.projectName))
+    const selectedButtonMode = result.postProjectJudgements.find((item) => item.projectName === '装扣子')?.buttonAttachMode
+    const forceIroningAndPackaging = projectNames.has('开扣眼') || projectNames.has('装扣子')
     return `
       <article class="rounded-lg border bg-card p-3" data-pda-qc-result-card
         data-sku-line-id="${escapeHtml(result.skuLineId)}"
@@ -2240,21 +2264,36 @@ function renderPdaPostCompleteQcPage(execId: string, qcOrderId: string): string 
             <div class="text-xs text-muted-foreground">${escapeHtml(result.colorName)} / ${escapeHtml(result.sizeName)}</div>
           </div>
         </div>
-        <div class="mt-3 grid grid-cols-3 gap-2">
+        <div class="mt-3 grid grid-cols-2 gap-2">
           <label class="grid gap-1 text-xs"><span>质检数量</span><input type="number" min="0" value="${result.inspectedQty}" class="h-9 rounded-md border px-2" data-qc-inspected></label>
           <label class="grid gap-1 text-xs"><span>合格数量</span><input type="number" min="0" value="${result.qualifiedQty || result.inspectedQty}" class="h-9 rounded-md border px-2" data-qc-qualified></label>
-          <label class="grid gap-1 text-xs"><span>不合格数量</span><input type="number" min="0" value="${result.unqualifiedQty}" class="h-9 rounded-md border px-2" data-qc-unqualified></label>
-          <label class="grid gap-1 text-xs"><span>平台原因</span><input type="number" min="0" value="${result.platformReasonQty}" class="h-9 rounded-md border px-2" data-qc-platform></label>
-          <label class="grid gap-1 text-xs"><span>工厂原因</span><input type="number" min="0" value="${result.factoryReasonQty}" class="h-9 rounded-md border px-2" data-qc-factory></label>
-          <label class="grid gap-1 text-xs"><span>备注</span><input type="text" value="${escapeHtml(result.remark || '')}" class="h-9 rounded-md border px-2" data-qc-remark></label>
+          <label class="grid gap-1 text-xs"><span>返工数量</span><input type="number" min="0" value="${result.reworkQty || ''}" class="h-9 rounded-md border px-2" data-qc-rework></label>
+          <label class="grid gap-1 text-xs"><span>瑕疵数量</span><input type="number" min="0" value="${result.defectAcceptedQty || ''}" class="h-9 rounded-md border px-2" data-qc-defect-accepted></label>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-          ${PDA_POST_PROJECT_OPTIONS.map((projectName) => `
-            <label class="inline-flex items-center gap-2 rounded-md border px-2 py-2">
-              <input type="checkbox" data-qc-project-name="${escapeHtml(projectName)}" ${projectNames.has(projectName) ? 'checked' : ''}>
-              <span>${escapeHtml(projectName)}</span>
-            </label>
-          `).join('')}
+          ${PDA_POST_PROJECT_OPTIONS.map((projectName) => {
+            const lockable = projectName === '熨烫' || projectName === '包装'
+            const checked = lockable && forceIroningAndPackaging ? true : projectNames.has(projectName)
+            const disabled = lockable && forceIroningAndPackaging
+            return `
+              <label class="inline-flex items-center gap-2 rounded-md border px-2 py-2">
+                <input type="checkbox" data-qc-project-name="${escapeHtml(projectName)}" ${lockable ? 'data-qc-project-lockable="1"' : ''} onchange="window.__syncPdaPostQcForm()" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                <span>${escapeHtml(projectName)}</span>
+              </label>
+              ${projectName === '装扣子' ? `
+                <div class="col-span-2 grid gap-2 rounded-md border bg-white p-2">
+                  <label class="inline-flex items-center gap-2">
+                    <input type="radio" name="pda-button-mode-${escapeHtml(result.qcSkuResultId)}" value="人工装扣" data-qc-button-mode="manual" ${selectedButtonMode === '人工装扣' ? 'checked' : ''} ${projectNames.has('装扣子') ? '' : 'disabled'}>
+                    <span>人工装扣</span>
+                  </label>
+                  <label class="inline-flex items-center gap-2">
+                    <input type="radio" name="pda-button-mode-${escapeHtml(result.qcSkuResultId)}" value="机器装扣" data-qc-button-mode="machine" ${selectedButtonMode === '机器装扣' ? 'checked' : ''} ${projectNames.has('装扣子') ? '' : 'disabled'}>
+                    <span>机器装扣</span>
+                  </label>
+                </div>
+              ` : ''}
+            `
+          }).join('')}
         </div>
       </article>
     `
@@ -2326,13 +2365,16 @@ function collectPdaQcSkuResults(qcOrderId: string): PostFinishingQcSkuResult[] {
   return Array.from(document.querySelectorAll<HTMLElement>('[data-pda-qc-result-card]')).map((card, index) => {
     const inspectedQty = readNumberFromElement(card, '[data-qc-inspected]')
     const qualifiedQty = readNumberFromElement(card, '[data-qc-qualified]')
-    const unqualifiedQty = readNumberFromElement(card, '[data-qc-unqualified]')
-    const platformReasonQty = readNumberFromElement(card, '[data-qc-platform]')
-    const factoryReasonQty = readNumberFromElement(card, '[data-qc-factory]')
+    const reworkQty = readNumberFromElement(card, '[data-qc-rework]')
+    const defectAcceptedQty = readNumberFromElement(card, '[data-qc-defect-accepted]')
+    const unqualifiedQty = reworkQty + defectAcceptedQty
     const projectJudgements = Array.from(card.querySelectorAll<HTMLInputElement>('[data-qc-project-name]')).map((checkbox) => ({
       projectName: checkbox.dataset.qcProjectName as PostFinishingQcPostProjectJudgement['projectName'],
       needed: checkbox.checked,
       qty: checkbox.checked ? Math.max(qualifiedQty, 0) : 0,
+      buttonAttachMode: checkbox.dataset.qcProjectName === '装扣子' && checkbox.checked
+        ? card.querySelector<HTMLInputElement>('[data-qc-button-mode]:checked')?.value as PostFinishingQcPostProjectJudgement['buttonAttachMode'] | undefined
+        : undefined,
     }))
     return {
       qcSkuResultId: `${qcOrderId}-PDA-${index + 1}`,
@@ -2345,22 +2387,15 @@ function collectPdaQcSkuResults(qcOrderId: string): PostFinishingQcSkuResult[] {
       inspectedQty,
       qualifiedQty,
       unqualifiedQty,
-      reworkQty: unqualifiedQty,
-      defectAcceptedQty: 0,
-      platformReasonQty,
-      factoryReasonQty,
+      reworkQty,
+      defectAcceptedQty,
+      platformReasonQty: 0,
+      factoryReasonQty: unqualifiedQty,
       responsibleFactoryId: card.dataset.sourceFactoryId || undefined,
       responsibleFactoryName: card.dataset.sourceFactoryName || undefined,
       reworkReceiveFactoryId: card.dataset.sourceFactoryId || undefined,
       reworkReceiveFactoryName: card.dataset.sourceFactoryName || undefined,
-      defectReasonItems: unqualifiedQty > 0 ? [{
-        reasonItemId: `${qcOrderId}-PDA-DEF-${index + 1}`,
-        reasonName: factoryReasonQty > 0 ? '做工原因' : '平台原因',
-        qty: unqualifiedQty,
-        liabilityType: factoryReasonQty > 0 ? '工厂' : '平台',
-        responsibleFactoryId: card.dataset.sourceFactoryId || undefined,
-        responsibleFactoryName: card.dataset.sourceFactoryName || undefined,
-      }] : [],
+      defectReasonItems: [],
       postProjectJudgements: projectJudgements,
       qtyUnit: card.dataset.qtyUnit || '件',
       remark: readTextFromElement(card, '[data-qc-remark]') || undefined,
@@ -4575,21 +4610,42 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           showPdaExecDetailToast('请填写 SKU 质检结果')
           return true
         }
+        const invalidResult = qcSkuResults.find((item) => item.inspectedQty !== item.qualifiedQty + item.reworkQty + item.defectAcceptedQty)
+        if (invalidResult) {
+          showPdaExecDetailToast(`${invalidResult.skuCode || 'SKU'} 数量不一致`)
+          return true
+        }
+        const missingButtonMode = qcSkuResults.find((item) => item.postProjectJudgements.some((project) => project.projectName === '装扣子' && project.needed && !project.buttonAttachMode))
+        if (missingButtonMode) {
+          showPdaExecDetailToast(`${missingButtonMode.skuCode || 'SKU'} 请选择人工装扣或机器装扣`)
+          return true
+        }
         const inspectedQty = qcSkuResults.reduce((sum, item) => sum + item.inspectedQty, 0)
         const defectiveQty = qcSkuResults.reduce((sum, item) => sum + item.unqualifiedQty, 0)
         const passedQty = qcSkuResults.reduce((sum, item) => sum + item.qualifiedQty, 0)
-        completePostFinishingQcOrder({
-          qcOrderId,
-          qcSkuResults,
-          inspectedGarmentQty: inspectedQty,
-          passedGarmentQty: passedQty,
-          defectiveGarmentQty: defectiveQty,
-          qcResult: defectiveQty <= 0 ? '全数合规' : passedQty <= 0 ? '全数不合格' : '部分不合格',
-          inspectorName: 'PDA 后道质检员',
-          qcStationName: '后道质检台 A',
-          unqualifiedReasonSummary: defectiveQty > 0 ? 'PDA 录入 SKU 级不合格结果' : '',
-        })
-        showPdaExecDetailToast('质检结果已提交')
+        const hasDefectAcceptedQty = qcSkuResults.some((item) => item.defectAcceptedQty > 0)
+        if (hasDefectAcceptedQty) {
+          submitPostFinishingPdaQcResult({
+            qcOrderId,
+            qcSkuResults,
+            inspectorName: 'PDA 后道质检员',
+            qcStationName: '后道质检台 A',
+          })
+          showPdaExecDetailToast('已提交，待 Web 补齐瑕疵原因')
+        } else {
+          completePostFinishingQcOrder({
+            qcOrderId,
+            qcSkuResults,
+            inspectedGarmentQty: inspectedQty,
+            passedGarmentQty: passedQty,
+            defectiveGarmentQty: defectiveQty,
+            qcResult: defectiveQty <= 0 ? '全数合规' : passedQty <= 0 ? '全数不合格' : '部分不合格',
+            inspectorName: 'PDA 后道质检员',
+            qcStationName: '后道质检台 A',
+            unqualifiedReasonSummary: defectiveQty > 0 ? 'PDA 录入 SKU 级不合格结果' : '',
+          })
+          showPdaExecDetailToast('质检结果已提交')
+        }
         appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(postTaskId || qcOrderId)}`)
         return true
       }

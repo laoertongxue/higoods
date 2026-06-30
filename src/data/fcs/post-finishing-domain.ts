@@ -9,6 +9,7 @@ export type PostFinishingActionType = '扫码收货' | '质检' | '后道' | '�
 export type PostFinishingSourceFactoryType = '车缝厂' | '毛织厂' | '未关联任务'
 export type PostFinishingQcResult = '全数合规' | '部分不合格' | '全数不合格'
 export type PostFinishingNeedFlag = '开扣眼' | '装扣子' | '熨烫' | '包装'
+export type PostFinishingButtonAttachMode = '人工装扣' | '机器装扣'
 export type PostFinishingTaskStatus = '待上游交出' | '待收货' | '待质检' | '质检中' | '待后道' | '后道中' | '待复检' | '待交出' | '已完成'
 export type PostFinishingTaskAcceptanceStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
 export type PostFinishingLiabilityType = '平台' | '工厂'
@@ -68,6 +69,7 @@ export interface PostFinishingQcPostProjectJudgement {
   projectName: PostFinishingNeedFlag
   needed: boolean
   qty: number
+  buttonAttachMode?: PostFinishingButtonAttachMode
 }
 
 export interface PostFinishingQcSkuResult {
@@ -110,6 +112,7 @@ export interface PostFinishingPostProjectLine {
   colorName: string
   sizeName: string
   projectName: PostFinishingNeedFlag
+  buttonAttachMode?: PostFinishingButtonAttachMode
   plannedQty: number
   status: PostFinishingPostProjectStatus
   startedAt?: string
@@ -972,13 +975,51 @@ function postFlags(qc: Pick<PostFinishingQcOrder, 'needButtonhole' | 'needButton
     .flatMap((result) => result.postProjectJudgements)
     .filter((judgement) => judgement.needed && judgement.qty > 0)
     .map((judgement) => judgement.projectName)
-  if (fromSku.length) return Array.from(new Set(fromSku))
-  return [
+  if (fromSku.length) {
+    const next = new Set(fromSku)
+    if (next.has('开扣眼') || next.has('装扣子')) {
+      next.add('熨烫')
+      next.add('包装')
+    }
+    return Array.from(next)
+  }
+  const next = new Set([
     qc.needButtonhole ? '开扣眼' : '',
     qc.needButton ? '装扣子' : '',
     qc.needIroning ? '熨烫' : '',
     qc.needPackaging ? '包装' : '',
-  ].filter(Boolean) as PostFinishingNeedFlag[]
+  ].filter(Boolean) as PostFinishingNeedFlag[])
+  if (next.has('开扣眼') || next.has('装扣子')) {
+    next.add('熨烫')
+    next.add('包装')
+  }
+  return Array.from(next)
+}
+
+function normalizeButtonAttachMode(value: string | undefined): PostFinishingButtonAttachMode | undefined {
+  return value === '人工装扣' || value === '机器装扣' ? value : undefined
+}
+
+function normalizePostProjectJudgements(items: PostFinishingQcPostProjectJudgement[]): PostFinishingQcPostProjectJudgement[] {
+  const next = items.map((item) => ({
+    ...item,
+    qty: Math.max(Number(item.qty) || 0, 0),
+    buttonAttachMode: item.projectName === '装扣子' ? normalizeButtonAttachMode(item.buttonAttachMode) : undefined,
+  }))
+  const triggerQty = next
+    .filter((item) => item.needed && (item.projectName === '开扣眼' || item.projectName === '装扣子'))
+    .reduce((max, item) => Math.max(max, item.qty), 0)
+  if (triggerQty <= 0) return next
+  ;(['熨烫', '包装'] as const).forEach((projectName) => {
+    const existing = next.find((item) => item.projectName === projectName)
+    if (existing) {
+      existing.needed = true
+      existing.qty = Math.max(existing.qty, triggerQty)
+    } else {
+      next.push({ projectName, needed: true, qty: triggerQty })
+    }
+  })
+  return next
 }
 
 function postProjectJudgementsFromFlags(input: {
@@ -986,17 +1027,25 @@ function postProjectJudgementsFromFlags(input: {
   needButton?: boolean
   needIroning?: boolean
   needPackaging?: boolean
+  buttonAttachMode?: PostFinishingButtonAttachMode
   qty: number
 }): PostFinishingQcPostProjectJudgement[] {
+  const needButtonhole = Boolean(input.needButtonhole)
+  const needButton = Boolean(input.needButton)
   const pairs: Array<[PostFinishingNeedFlag, boolean | undefined]> = [
-    ['开扣眼', input.needButtonhole],
-    ['装扣子', input.needButton],
-    ['熨烫', input.needIroning],
-    ['包装', input.needPackaging],
+    ['开扣眼', needButtonhole],
+    ['装扣子', needButton],
+    ['熨烫', input.needIroning || needButtonhole || needButton],
+    ['包装', input.needPackaging || needButtonhole || needButton],
   ]
-  return pairs
+  return normalizePostProjectJudgements(pairs
     .filter(([, needed]) => Boolean(needed))
-    .map(([projectName]) => ({ projectName, needed: true, qty: input.qty }))
+    .map(([projectName]) => ({
+      projectName,
+      needed: true,
+      qty: input.qty,
+      buttonAttachMode: projectName === '装扣子' ? input.buttonAttachMode : undefined,
+    })))
 }
 
 function buildQcSkuResultsFromLines(input: {
@@ -1011,6 +1060,7 @@ function buildQcSkuResultsFromLines(input: {
   needButton?: boolean
   needIroning?: boolean
   needPackaging?: boolean
+  buttonAttachMode?: PostFinishingButtonAttachMode
 }): PostFinishingQcSkuResult[] {
   let remainingPassed = Math.max(input.passedQty ?? 0, 0)
   let remainingDefective = Math.max(input.defectiveQty ?? 0, 0)
@@ -1069,6 +1119,7 @@ function buildQcSkuResultsFromLines(input: {
         needButton: input.needButton,
         needIroning: input.needIroning,
         needPackaging: input.needPackaging,
+        buttonAttachMode: input.buttonAttachMode,
         qty: qualifiedQty,
       }),
       qtyUnit: line.qtyUnit,
@@ -1086,6 +1137,7 @@ function normalizeQcSkuResults(input: {
   needButton?: boolean
   needIroning?: boolean
   needPackaging?: boolean
+  buttonAttachMode?: PostFinishingButtonAttachMode
 }): PostFinishingQcSkuResult[] {
   const provided = input.results || []
   if (!provided.length) {
@@ -1099,6 +1151,7 @@ function normalizeQcSkuResults(input: {
       needButton: input.needButton,
       needIroning: input.needIroning,
       needPackaging: input.needPackaging,
+      buttonAttachMode: input.buttonAttachMode,
     })
   }
   return input.lines.map((line, index) => {
@@ -1123,15 +1176,16 @@ function normalizeQcSkuResults(input: {
       && (reworkReceiveFactoryId !== input.sourceFactoryId || reworkReceiveFactoryName !== input.sourceFactoryName)
       ? Math.round(reworkQty * reworkDeductionUnitAmountIdr)
       : 0
-    const postProjectJudgements = result?.postProjectJudgements?.length
-      ? result.postProjectJudgements.map((item) => ({ ...item, qty: Math.max(Number(item.qty) || 0, 0) }))
+    const postProjectJudgements = normalizePostProjectJudgements(result?.postProjectJudgements?.length
+      ? result.postProjectJudgements
       : postProjectJudgementsFromFlags({
           needButtonhole: input.needButtonhole,
           needButton: input.needButton,
           needIroning: input.needIroning,
           needPackaging: input.needPackaging,
+          buttonAttachMode: input.buttonAttachMode,
           qty: qualifiedQty,
-        })
+        }))
     return {
       qcSkuResultId: result?.qcSkuResultId || `${input.qcOrderId}-SKU-${index + 1}`,
       skuLineId: line.skuLineId,
@@ -1165,6 +1219,25 @@ function sumQcSkuResults(results: PostFinishingQcSkuResult[], key: 'inspectedQty
   return roundQty(results.reduce((sum, item) => sum + (Number(item[key]) || 0), 0))
 }
 
+function sumDefectReasonQty(result: PostFinishingQcSkuResult): number {
+  return roundQty(result.defectReasonItems.reduce((sum, item) => sum + (Number(item.qty) || 0), 0))
+}
+
+function assertQcSkuResultsReadyToComplete(results: PostFinishingQcSkuResult[], requireDefectReasons: boolean): void {
+  results.forEach((result) => {
+    const inspectedQty = roundQty(result.inspectedQty)
+    const bucketQty = roundQty(result.qualifiedQty + result.reworkQty + result.defectAcceptedQty)
+    if (inspectedQty !== bucketQty) {
+      throw new Error(`${result.skuCode || 'SKU'} 的质检数量必须等于合格数量、返工数量、瑕疵数量之和`)
+    }
+    const buttonMissing = result.postProjectJudgements.some((item) => item.projectName === '装扣子' && item.needed && !item.buttonAttachMode)
+    if (buttonMissing) throw new Error(`${result.skuCode || 'SKU'} 选择装扣子时必须选择人工装扣或机器装扣`)
+    if (requireDefectReasons && result.defectAcceptedQty > 0 && sumDefectReasonQty(result) !== roundQty(result.defectAcceptedQty)) {
+      throw new Error(`${result.skuCode || 'SKU'} 的瑕疵原因合计必须等于瑕疵数量`)
+    }
+  })
+}
+
 function buildPostProjectLinesFromQc(qc: PostFinishingQcOrder, postOrderId: string, postOrderNo: string, seedStatus: PostFinishingPostProjectStatus = '待开始'): PostFinishingPostProjectLine[] {
   const lines: PostFinishingPostProjectLine[] = []
   qc.qcSkuResults.forEach((result) => {
@@ -1184,6 +1257,7 @@ function buildPostProjectLinesFromQc(qc: PostFinishingQcOrder, postOrderId: stri
           colorName: result.colorName,
           sizeName: result.sizeName,
           projectName: judgement.projectName,
+          buttonAttachMode: judgement.buttonAttachMode,
           plannedQty: judgement.qty,
           status: seedStatus,
           completedQty: seedStatus === '已完成' ? judgement.qty : 0,
@@ -1335,6 +1409,7 @@ function resolvePostTaskStatus(input: {
   hasSourceContext: boolean
   receivedQty: number
   waitQcQty: number
+  waitQcOrderQty: number
   qcInProgressQty: number
   qcDoneQty: number
   waitPostQty: number
@@ -1344,11 +1419,12 @@ function resolvePostTaskStatus(input: {
   waitHandoverQty: number
   plannedQty: number
 }): PostFinishingTaskStatus {
-  if (input.waitHandoverQty > 0) return '待交出'
-  if (input.waitRecheckQty > 0) return '待复检'
-  if (input.postDoingQty > 0) return '后道中'
-  if (input.waitPostQty > 0) return '待后道'
+  if (input.waitQcQty > 0 || input.waitQcOrderQty > 0) return '待质检'
   if (input.qcInProgressQty > 0) return '质检中'
+  if (input.waitPostQty > 0) return '待后道'
+  if (input.postDoingQty > 0) return '后道中'
+  if (input.waitRecheckQty > 0) return '待复检'
+  if (input.waitHandoverQty > 0) return '待交出'
   if (input.recheckDoneQty >= input.plannedQty && input.plannedQty > 0) return '已完成'
   if (input.waitQcQty > 0 || input.qcDoneQty > 0 || input.receivedQty > 0) return '待质检'
   return input.hasSourceContext ? '待收货' : '待上游交出'
@@ -1383,7 +1459,8 @@ function buildPostFinishingTaskView(order: ProductionOrder): PostFinishingTaskVi
     .filter((record) => record.productionOrderNo === order.productionOrderNo)
     .reduce((sum, record) => sum + totalQty(record.skuLines), 0)
   const waitQcQty = sumWaitProcessAvailableQty(waitProcessRecords)
-  const qcInProgressQty = sumQcOrderQty(qcRecords, '待质检') + sumQcOrderQty(qcRecords, '质检中')
+  const waitQcOrderQty = sumQcOrderQty(qcRecords, '待质检')
+  const qcInProgressQty = sumQcOrderQty(qcRecords, '质检中')
   const qcDoneQty = sumQcOrderQty(qcRecords, '质检完成')
   const waitPostQty = roundQty(postRecords.filter((record) => record.postStatus === '待后道').reduce((sum, record) => sum + record.plannedGarmentQty, 0))
   const postDoingQty = roundQty(postRecords.filter((record) => record.postStatus === '后道中').reduce((sum, record) => sum + record.plannedGarmentQty, 0))
@@ -1395,6 +1472,7 @@ function buildPostFinishingTaskView(order: ProductionOrder): PostFinishingTaskVi
     hasSourceContext: contexts.length > 0,
     receivedQty,
     waitQcQty,
+    waitQcOrderQty,
     qcInProgressQty,
     qcDoneQty,
     waitPostQty,
@@ -1682,6 +1760,7 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
   needButton?: boolean
   needIroning?: boolean
   needPackaging?: boolean
+  buttonAttachMode?: PostFinishingButtonAttachMode
   allocationQty?: number
   station: string
 }): PostFinishingQcOrder {
@@ -1702,6 +1781,7 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
     needButton: options.needButton,
     needIroning: options.needIroning,
     needPackaging: options.needPackaging,
+    buttonAttachMode: options.buttonAttachMode,
   })
   const qcResult: PostFinishingQcResult = options.status !== '质检完成'
     ? '部分不合格'
@@ -1769,15 +1849,68 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
   }
 }
 
+function withPendingDefectReasonMock(qc: PostFinishingQcOrder): PostFinishingQcOrder {
+  const result = qc.qcSkuResults[0]
+  if (!result) return qc
+  const inspectedQty = Math.min(result.inspectedQty || qc.skuLines[0]?.plannedQty || qc.inspectedGarmentQty, 100)
+  const reworkQty = 10
+  const defectAcceptedQty = 20
+  const defectiveQty = reworkQty + defectAcceptedQty
+  const qualifiedQty = Math.max(inspectedQty - defectiveQty, 0)
+  const qcSkuResults = qc.qcSkuResults.map((item, index) => index === 0
+    ? {
+        ...item,
+        inspectedQty,
+        qualifiedQty,
+        unqualifiedQty: defectiveQty,
+        reworkQty,
+        defectAcceptedQty,
+        platformReasonQty: 0,
+        factoryReasonQty: defectiveQty,
+        reworkReceiveFactoryId: qc.sourceFactoryId,
+        reworkReceiveFactoryName: qc.sourceFactoryName,
+        responsibleFactoryId: qc.sourceFactoryId,
+        responsibleFactoryName: qc.sourceFactoryName,
+        defectReasonItems: [],
+      }
+    : item)
+  return {
+    ...qc,
+    qcStatus: '质检中',
+    inspectedGarmentQty: inspectedQty,
+    passedGarmentQty: qualifiedQty,
+    defectiveGarmentQty: defectiveQty,
+    reworkGarmentQty: reworkQty,
+    defectAcceptedGarmentQty: defectAcceptedQty,
+    processingFeeDeductionQty: reworkQty,
+    qcSkuResults,
+    qcResult: '部分不合格',
+    unqualifiedDisposition: '返修',
+    unqualifiedReasonSummary: `PDA 已提交瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因。`,
+    rootCauseType: '工厂加工问题',
+    responsiblePartyType: '工厂',
+    responsiblePartyId: qc.sourceFactoryId,
+    responsiblePartyName: qc.sourceFactoryName,
+    reworkReceiveFactoryId: qc.sourceFactoryId,
+    reworkReceiveFactoryName: qc.sourceFactoryName,
+    deductionDecision: '建议扣款',
+    deductionDecisionRemark: `PDA 已提交返工数量 ${reworkQty}，瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因后完成质检。`,
+    inspectorName: 'PDA 后道质检员',
+    inspectedAt: '2026-05-08 14:20',
+    updatedAt: '2026-05-08 14:20',
+    defectItems: [defect(`${qc.qcOrderId}-PENDING-REASON`, defectiveQty)],
+  }
+}
+
 let qcOrders: PostFinishingQcOrder[] = [
   buildQcOrder(1, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 388, defectiveQty: 12, needIroning: true, needPackaging: true, station: 'A' }),
   buildQcOrder(2, SOURCE_CONTEXTS[1], receiptRecords[1], { status: '质检完成', passedQty: 340, defectiveQty: 0, station: 'B' }),
   buildQcOrder(3, SOURCE_CONTEXTS[2], receiptRecords[2], { status: '待质检', passedQty: 0, defectiveQty: 0, allocationQty: 120, station: 'C' }),
-  buildQcOrder(4, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 188, defectiveQty: 12, needButtonhole: true, needButton: true, needIroning: true, station: 'A' }),
-  buildQcOrder(5, SOURCE_CONTEXTS[4], receiptRecords[4], { status: '质检中', passedQty: 0, defectiveQty: 0, station: 'B' }),
+  buildQcOrder(4, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 188, defectiveQty: 12, needButtonhole: true, needButton: true, needIroning: true, buttonAttachMode: '机器装扣', station: 'A' }),
+  withPendingDefectReasonMock(buildQcOrder(5, SOURCE_CONTEXTS[4], receiptRecords[4], { status: '质检中', passedQty: 0, defectiveQty: 0, station: 'B' })),
   buildQcOrder(6, SOURCE_CONTEXTS[4], receiptRecords[4], { status: '质检完成', passedQty: 206, defectiveQty: 4, needPackaging: true, station: 'C' }),
   buildQcOrder(7, SOURCE_CONTEXTS[1], receiptRecords[1], { status: '质检完成', passedQty: 334, defectiveQty: 6, station: 'A' }),
-  buildQcOrder(8, SOURCE_CONTEXTS[2], receiptRecords[2], { status: '质检完成', passedQty: 96, defectiveQty: 4, allocationQty: 100, station: 'B' }),
+  buildQcOrder(8, SOURCE_CONTEXTS[2], receiptRecords[2], { status: '质检完成', passedQty: 96, defectiveQty: 4, needButton: true, buttonAttachMode: '人工装扣', allocationQty: 100, station: 'B' }),
 ]
 
 function getContext(contextId: string): PostFinishingSourceContext {
@@ -2741,6 +2874,7 @@ export function completePostFinishingQcOrder(input: {
         needIroning: input.needIroning,
         needPackaging: input.needPackaging,
       })
+  assertQcSkuResultsReadyToComplete(nextQcSkuResults, true)
   const inspectedQty = sumQcSkuResults(nextQcSkuResults, 'inspectedQty') || fallbackInspectedQty
   const defectiveQty = sumQcSkuResults(nextQcSkuResults, 'unqualifiedQty')
   const passedQty = sumQcSkuResults(nextQcSkuResults, 'qualifiedQty')
@@ -2782,6 +2916,73 @@ export function completePostFinishingQcOrder(input: {
   qc.updatedAt = nowText()
   if (postFlags(qc).length > 0) ensurePostOrderFromQc(qc)
   else ensureDirectRecheckFromQc(qc)
+  refreshPostFinishingDerivedRecords()
+  return cloneQcOrder(qc)
+}
+
+export function submitPostFinishingPdaQcResult(input: {
+  qcOrderId: string
+  qcStationName?: string
+  inspectorName?: string
+  qcSkuResults: PostFinishingQcSkuResult[]
+}): PostFinishingQcOrder {
+  const qc = qcOrders.find((item) => item.qcOrderId === input.qcOrderId)
+  if (!qc) throw new Error(`未找到质检单：${input.qcOrderId}`)
+  const nextQcSkuResults = normalizeQcSkuResults({
+    qcOrderId: qc.qcOrderId,
+    lines: qc.skuLines,
+    results: input.qcSkuResults,
+    sourceFactoryId: qc.sourceFactoryId,
+    sourceFactoryName: qc.sourceFactoryName,
+  })
+  assertQcSkuResultsReadyToComplete(nextQcSkuResults, false)
+  const needsWebReasons = nextQcSkuResults.some((result) => result.defectAcceptedQty > 0 && sumDefectReasonQty(result) !== roundQty(result.defectAcceptedQty))
+  if (!needsWebReasons) {
+    return completePostFinishingQcOrder({
+      qcOrderId: input.qcOrderId,
+      qcStationName: input.qcStationName,
+      inspectorName: input.inspectorName,
+      qcSkuResults: nextQcSkuResults,
+      unqualifiedReasonSummary: 'PDA 已提交 SKU 级质检结果',
+    })
+  }
+
+  const inspectedQty = sumQcSkuResults(nextQcSkuResults, 'inspectedQty')
+  const passedQty = sumQcSkuResults(nextQcSkuResults, 'qualifiedQty')
+  const reworkQty = sumQcSkuResults(nextQcSkuResults, 'reworkQty')
+  const defectAcceptedQty = sumQcSkuResults(nextQcSkuResults, 'defectAcceptedQty')
+  const defectiveQty = sumQcSkuResults(nextQcSkuResults, 'unqualifiedQty')
+  const reworkReceiveFactory = nextQcSkuResults.find((item) => item.reworkQty > 0 && item.reworkReceiveFactoryName)
+  qc.qcStatus = '质检中'
+  qc.qcStationName = input.qcStationName || qc.qcStationName
+  qc.qcStationId = qc.qcStationName.replace('后道质检台 ', 'QC-STATION-')
+  qc.inspectorName = input.inspectorName || qc.inspectorName || 'PDA 后道质检员'
+  qc.inspectedGarmentQty = inspectedQty
+  qc.passedGarmentQty = passedQty
+  qc.defectiveGarmentQty = defectiveQty
+  qc.reworkGarmentQty = reworkQty
+  qc.defectAcceptedGarmentQty = defectAcceptedQty
+  qc.processingFeeDeductionQty = reworkQty
+  qc.qcSkuResults = nextQcSkuResults.map(cloneQcSkuResult)
+  qc.qcResult = defectiveQty <= 0 ? '全数合规' : passedQty <= 0 ? '全数不合格' : '部分不合格'
+  qc.unqualifiedDisposition = reworkQty > 0 ? '返修' : '让步接收'
+  qc.unqualifiedReasonSummary = `PDA 已提交瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因。`
+  qc.rootCauseType = '工厂加工问题'
+  qc.responsiblePartyType = '工厂'
+  qc.responsiblePartyId = qc.sourceFactoryId
+  qc.responsiblePartyName = qc.sourceFactoryName
+  qc.reworkReceiveFactoryId = reworkReceiveFactory?.reworkReceiveFactoryId || qc.sourceFactoryId
+  qc.reworkReceiveFactoryName = reworkReceiveFactory?.reworkReceiveFactoryName || qc.sourceFactoryName
+  qc.deductionDecision = '建议扣款'
+  qc.deductionDecisionRemark = `PDA 已提交返工数量 ${reworkQty}，瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因后完成质检。`
+  const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
+  qc.needButtonhole = nextNeeds.includes('开扣眼')
+  qc.needButton = nextNeeds.includes('装扣子')
+  qc.needIroning = nextNeeds.includes('熨烫')
+  qc.needPackaging = nextNeeds.includes('包装')
+  qc.defectItems = [defect(`PF-DEF-${pad(nextQcIndex())}`, defectiveQty)]
+  qc.inspectedAt = nowText()
+  qc.updatedAt = nowText()
   refreshPostFinishingDerivedRecords()
   return cloneQcOrder(qc)
 }
