@@ -87,6 +87,8 @@ export interface PostFinishingQcSkuResult {
   factoryReasonQty: number
   reworkReceiveFactoryId?: string
   reworkReceiveFactoryName?: string
+  reworkDeductionUnitAmountIdr?: number
+  reworkDeductionAmountIdr?: number
   responsibleFactoryId?: string
   responsibleFactoryName?: string
   defectReasonItems: PostFinishingQcDefectReasonItem[]
@@ -1057,6 +1059,8 @@ function buildQcSkuResultsFromLines(input: {
       factoryReasonQty,
       reworkReceiveFactoryId: factoryReasonQty > 0 ? input.sourceFactoryId : undefined,
       reworkReceiveFactoryName: factoryReasonQty > 0 ? input.sourceFactoryName : undefined,
+      reworkDeductionUnitAmountIdr: 0,
+      reworkDeductionAmountIdr: 0,
       responsibleFactoryId: factoryReasonQty > 0 ? input.sourceFactoryId : undefined,
       responsibleFactoryName: factoryReasonQty > 0 ? input.sourceFactoryName : undefined,
       defectReasonItems,
@@ -1111,6 +1115,14 @@ function normalizeQcSkuResults(input: {
     const qualifiedQty = Math.max(Number(result?.qualifiedQty ?? inspectedQty - unqualifiedQty) || 0, 0)
     const platformReasonQty = Math.max(Number(result?.platformReasonQty ?? 0) || 0, 0)
     const factoryReasonQty = Math.max(Number(result?.factoryReasonQty ?? Math.max(unqualifiedQty - platformReasonQty, 0)) || 0, 0)
+    const reworkReceiveFactoryId = result?.reworkReceiveFactoryId || (reworkQty > 0 ? input.sourceFactoryId : undefined)
+    const reworkReceiveFactoryName = result?.reworkReceiveFactoryName || (reworkQty > 0 ? input.sourceFactoryName : undefined)
+    const reworkDeductionUnitAmountIdr = Math.max(Number(result?.reworkDeductionUnitAmountIdr ?? 0) || 0, 0)
+    const reworkDeductionAmountIdr = reworkQty > 0
+      && reworkDeductionUnitAmountIdr > 0
+      && (reworkReceiveFactoryId !== input.sourceFactoryId || reworkReceiveFactoryName !== input.sourceFactoryName)
+      ? Math.round(reworkQty * reworkDeductionUnitAmountIdr)
+      : 0
     const postProjectJudgements = result?.postProjectJudgements?.length
       ? result.postProjectJudgements.map((item) => ({ ...item, qty: Math.max(Number(item.qty) || 0, 0) }))
       : postProjectJudgementsFromFlags({
@@ -1135,8 +1147,10 @@ function normalizeQcSkuResults(input: {
       defectAcceptedQty,
       platformReasonQty,
       factoryReasonQty,
-      reworkReceiveFactoryId: result?.reworkReceiveFactoryId || (reworkQty > 0 ? input.sourceFactoryId : undefined),
-      reworkReceiveFactoryName: result?.reworkReceiveFactoryName || (reworkQty > 0 ? input.sourceFactoryName : undefined),
+      reworkReceiveFactoryId,
+      reworkReceiveFactoryName,
+      reworkDeductionUnitAmountIdr,
+      reworkDeductionAmountIdr,
       responsibleFactoryId: result?.responsibleFactoryId || (factoryReasonQty > 0 ? input.sourceFactoryId : undefined),
       responsibleFactoryName: result?.responsibleFactoryName || (factoryReasonQty > 0 ? input.sourceFactoryName : undefined),
       defectReasonItems: result?.defectReasonItems?.map(cloneQcDefectReasonItem) || [],

@@ -150,6 +150,11 @@ function registerQcPageActions(): void {
       const reworkFactory = fieldOf<HTMLSelectElement>('[data-qc-sku-rework-factory]')?.selectedOptions[0]
       const reworkReceiveFactoryId = reworkQty > 0 ? reworkFactory?.dataset.factoryId || undefined : undefined
       const reworkReceiveFactoryName = reworkQty > 0 ? reworkFactory?.dataset.factoryName || row.dataset.sourceFactoryName || undefined : undefined
+      const isExternalRework = reworkQty > 0 && reworkFactory?.value !== 'source'
+      const reworkDeductionUnitAmountIdr = isExternalRework ? Math.max(Number(fieldOf<HTMLInputElement>('[data-qc-rework-deduction-unit-amount]')?.value || 0) || 0, 0) : 0
+      if (!invalidMessage && isExternalRework && reworkDeductionUnitAmountIdr <= 0) {
+        invalidMessage = `${row.dataset.skuCode || 'SKU'} 的返工接收工厂不是原工厂，请填写每件扣款金额`
+      }
       const defectReasonItems = result === '全数合规'
         ? []
         : Array.from((defectRow || row).querySelectorAll<HTMLInputElement>('[data-qc-defect-reason]'))
@@ -188,6 +193,8 @@ function registerQcPageActions(): void {
         factoryReasonQty: unqualifiedQty,
         reworkReceiveFactoryId,
         reworkReceiveFactoryName,
+        reworkDeductionUnitAmountIdr,
+        reworkDeductionAmountIdr: Math.round(reworkQty * reworkDeductionUnitAmountIdr),
         responsibleFactoryId: result === '全数合规' ? undefined : row.dataset.sourceFactoryId || undefined,
         responsibleFactoryName: result === '全数合规' ? undefined : row.dataset.sourceFactoryName,
         defectReasonItems,
@@ -238,6 +245,16 @@ function registerQcPageActions(): void {
     document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-qc-defect-field]').forEach((field) => {
       field.disabled = allGood
       if (allGood && !(field instanceof HTMLSelectElement)) field.value = ''
+    })
+    document.querySelectorAll<HTMLElement>('[data-qc-sku-result-row]').forEach((row) => {
+      const select = row.querySelector<HTMLSelectElement>('[data-qc-sku-rework-factory]')
+      const reworkQty = Number(row.querySelector<HTMLInputElement>('[data-qc-sku-rework]')?.value || 0)
+      const amount = row.querySelector<HTMLInputElement>('[data-qc-rework-deduction-unit-amount]')
+      const disabled = allGood || select?.value === 'source' || reworkQty <= 0
+      if (amount) {
+        amount.disabled = disabled
+        if (disabled) amount.value = ''
+      }
     })
   }
 }
@@ -391,6 +408,8 @@ function normalizeRecordSkuResults(record: PostFinishingActionRecord): PostFinis
     unqualifiedQty: 0,
     reworkQty: 0,
     defectAcceptedQty: 0,
+    reworkDeductionUnitAmountIdr: 0,
+    reworkDeductionAmountIdr: 0,
     platformReasonQty: 0,
     factoryReasonQty: 0,
     defectReasonItems: [],
@@ -410,6 +429,8 @@ function renderSkuQcResultRows(record: PostFinishingActionRecord, disableDefectF
     const sourceFactoryId = result.responsibleFactoryId || ''
     const targetFactoryName = record.targetFactoryName || result.reworkReceiveFactoryName || '当前后道工厂'
     const selectedFactory = result.reworkReceiveFactoryName === targetFactoryName ? 'post' : 'source'
+    const reworkDeductionUnitAmountIdr = result.reworkDeductionUnitAmountIdr ?? 0
+    const deductionDisabledAttr = disableDefectFields || selectedFactory === 'source' || reworkQty <= 0 ? 'disabled' : ''
     const reasonInputs = POST_FINISHING_QC_DEFECT_REASONS.map((reason) => `
       <label class="grid min-w-0 grid-cols-[72px_minmax(0,1fr)] items-center gap-2 text-xs">
         <span class="text-muted-foreground">${escapeHtml(reason)}</span>
@@ -442,14 +463,15 @@ function renderSkuQcResultRows(record: PostFinishingActionRecord, disableDefectF
         </div>
         <div data-qc-sku-main-row class="space-y-3 rounded-lg bg-slate-50 p-3">
           <div class="text-xs font-medium text-muted-foreground">质检与返工</div>
-          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">质检数量</span><input class="h-9 w-full rounded-md border px-2 text-sm" type="number" min="0" data-qc-sku-inspected value="${result.inspectedQty || record.submittedGarmentQty}" oninput="window.__syncQcCompleteForm()" /></label>
             <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">合格数量</span><input class="h-9 w-full rounded-md border px-2 text-sm" type="number" min="0" data-qc-sku-qualified value="${result.qualifiedQty || result.inspectedQty}" oninput="window.__syncQcCompleteForm()" /></label>
-            <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">返工数量</span><input class="h-9 w-full rounded-md border px-2 text-sm" type="number" min="0" data-qc-defect-field="1" data-qc-sku-rework value="${reworkQty || ''}" ${disabledAttr} /></label>
-            <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">返工接收工厂</span><select class="h-9 w-full rounded-md border px-2 text-sm" data-qc-defect-field="1" data-qc-sku-rework-factory ${disabledAttr}>
+            <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">返工数量</span><input class="h-9 w-full rounded-md border px-2 text-sm" type="number" min="0" data-qc-defect-field="1" data-qc-sku-rework value="${reworkQty || ''}" oninput="window.__syncQcCompleteForm()" ${disabledAttr} /></label>
+            <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">返工接收工厂</span><select class="h-9 w-full rounded-md border px-2 text-sm" data-qc-defect-field="1" data-qc-sku-rework-factory onchange="window.__syncQcCompleteForm()" ${disabledAttr}>
               <option value="source" data-factory-id="${escapeHtml(sourceFactoryId)}" data-factory-name="${escapeHtml(sourceFactoryName)}" ${selectedFactory === 'source' ? 'selected' : ''}>原工厂（${escapeHtml(sourceFactoryName)}）</option>
               <option value="post" data-factory-id="" data-factory-name="${escapeHtml(targetFactoryName)}" ${selectedFactory === 'post' ? 'selected' : ''}>当前后道工厂（${escapeHtml(targetFactoryName)}）</option>
             </select></label>
+            <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">每件扣款金额（印尼盾）</span><input class="h-9 w-full rounded-md border px-2 text-sm" type="number" min="0" step="1" data-qc-defect-field="1" data-qc-rework-deduction-unit-amount value="${reworkDeductionUnitAmountIdr || ''}" ${deductionDisabledAttr} /></label>
           </div>
         </div>
         <div data-qc-sku-defect-row class="space-y-3 rounded-lg bg-slate-50 p-3">
@@ -525,9 +547,19 @@ function summarizeDefectReasons(record: PostFinishingActionRecord): string {
   return reasons.join('、') || '—'
 }
 
+function formatIdrAmount(value: number | undefined): string {
+  const amount = Number(value || 0)
+  return amount > 0 ? `${Math.round(amount).toLocaleString('id-ID')} 印尼盾` : '—'
+}
+
+function summarizeReworkDeductionAmount(record: PostFinishingActionRecord): string {
+  const amount = normalizeRecordSkuResults(record).reduce((sum, result) => sum + (Number(result.reworkDeductionAmountIdr) || 0), 0)
+  return formatIdrAmount(amount)
+}
+
 function renderPrintButton(record: PostFinishingActionRecord): string {
   const snapshot = buildPostFinishingQcDeductionRecord(record)
-  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeHtml(record.actionRecordNo)} 纸质质检单</title><style>body{font-family:Arial,'Microsoft YaHei',sans-serif;margin:24px;color:#111827}h1{font-size:22px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.box{border:1px solid #d1d5db;border-radius:8px;padding:10px}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border:1px solid #d1d5db;padding:8px;text-align:left}th{background:#f3f4f6}@media print{button{display:none}}</style></head><body><button onclick="window.print()">打印</button><h1>纸质质检单</h1><div class="grid"><div class="box">质检单号<br/><strong>${escapeHtml(record.actionRecordNo)}</strong></div><div class="box">质检台<br/><strong>${escapeHtml(record.qcStationName || '—')}</strong></div><div class="box">质检人<br/><strong>${escapeHtml(record.operatorName || '—')}</strong></div></div><table><thead><tr><th>质检数量</th><th>合格数量</th><th>返工数量</th><th>返工接收工厂</th><th>瑕疵数量</th><th>瑕疵原因</th><th>本期扣加工费数量</th><th>质检结果</th></tr></thead><tbody><tr><td>${record.inspectedGarmentQty ?? record.submittedGarmentQty}</td><td>${record.passedGarmentQty ?? record.acceptedGarmentQty}</td><td>${record.reworkGarmentQty ?? 0}</td><td>${escapeHtml(summarizeReworkFactories(record))}</td><td>${record.defectAcceptedGarmentQty ?? 0}</td><td>${escapeHtml(summarizeDefectReasons(record))}</td><td>${snapshot?.processingFeeDeductionQty ?? record.processingFeeDeductionQty ?? 0}</td><td>${escapeHtml(normalizeResult(record.qcResult))}</td></tr></tbody></table></body></html>`
+  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeHtml(record.actionRecordNo)} 纸质质检单</title><style>body{font-family:Arial,'Microsoft YaHei',sans-serif;margin:24px;color:#111827}h1{font-size:22px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.box{border:1px solid #d1d5db;border-radius:8px;padding:10px}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border:1px solid #d1d5db;padding:8px;text-align:left}th{background:#f3f4f6}@media print{button{display:none}}</style></head><body><button onclick="window.print()">打印</button><h1>纸质质检单</h1><div class="grid"><div class="box">质检单号<br/><strong>${escapeHtml(record.actionRecordNo)}</strong></div><div class="box">质检台<br/><strong>${escapeHtml(record.qcStationName || '—')}</strong></div><div class="box">质检人<br/><strong>${escapeHtml(record.operatorName || '—')}</strong></div></div><table><thead><tr><th>质检数量</th><th>合格数量</th><th>返工数量</th><th>返工接收工厂</th><th>返工扣款金额</th><th>瑕疵数量</th><th>瑕疵原因</th><th>本期扣加工费数量</th><th>质检结果</th></tr></thead><tbody><tr><td>${record.inspectedGarmentQty ?? record.submittedGarmentQty}</td><td>${record.passedGarmentQty ?? record.acceptedGarmentQty}</td><td>${record.reworkGarmentQty ?? 0}</td><td>${escapeHtml(summarizeReworkFactories(record))}</td><td>${escapeHtml(summarizeReworkDeductionAmount(record))}</td><td>${record.defectAcceptedGarmentQty ?? 0}</td><td>${escapeHtml(summarizeDefectReasons(record))}</td><td>${snapshot?.processingFeeDeductionQty ?? record.processingFeeDeductionQty ?? 0}</td><td>${escapeHtml(normalizeResult(record.qcResult))}</td></tr></tbody></table></body></html>`
   const script = `var w=window.open('', '_blank', 'noopener,noreferrer'); if(w){w.document.write(${JSON.stringify(html)});w.document.close();} window.__lastQcPrint='${escapeHtml(record.actionRecordNo)}';`
   return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="${escapeHtml(script)}">打印纸质质检单</button>`
 }
@@ -569,6 +601,8 @@ function renderViewDialog(): string {
           <div><div class="text-xs text-muted-foreground">合格数量</div><div class="mt-1 text-sm font-medium">${formatGarmentQty(result.qualifiedQty, result.qtyUnit)}</div></div>
           <div><div class="text-xs text-muted-foreground">返工数量</div><div class="mt-1 text-sm font-medium">${formatGarmentQty(result.reworkQty, result.qtyUnit)}</div></div>
           <div><div class="text-xs text-muted-foreground">返工接收工厂</div><div class="mt-1 text-sm font-medium">${escapeHtml(result.reworkReceiveFactoryName || '—')}</div></div>
+          <div><div class="text-xs text-muted-foreground">每件扣款金额</div><div class="mt-1 text-sm font-medium">${escapeHtml(formatIdrAmount(result.reworkDeductionUnitAmountIdr))}</div></div>
+          <div><div class="text-xs text-muted-foreground">返工扣款金额</div><div class="mt-1 text-sm font-medium">${escapeHtml(formatIdrAmount(result.reworkDeductionAmountIdr))}</div></div>
         </div>
         <div class="grid gap-3 rounded-lg bg-slate-50 p-3 md:grid-cols-[160px_minmax(0,1fr)_220px]">
           <div><div class="text-xs text-muted-foreground">瑕疵数量</div><div class="mt-1 text-sm font-medium">${formatGarmentQty(result.defectAcceptedQty, result.qtyUnit)}</div></div>
@@ -588,6 +622,7 @@ function renderViewDialog(): string {
         ${renderReadonlyField('合格数量', formatGarmentQty(record.passedGarmentQty ?? record.acceptedGarmentQty, record.qtyUnit))}
         ${renderReadonlyField('返工数量', formatGarmentQty(record.reworkGarmentQty ?? 0, record.qtyUnit))}
         ${renderReadonlyField('返工接收工厂', summarizeReworkFactories(record))}
+        ${renderReadonlyField('返工扣款金额', summarizeReworkDeductionAmount(record))}
         ${renderReadonlyField('瑕疵数量', formatGarmentQty(record.defectAcceptedGarmentQty ?? 0, record.qtyUnit))}
         ${renderReadonlyField('瑕疵原因', summarizeDefectReasons(record))}
         ${renderReadonlyField('本期扣加工费数量', formatGarmentQty(snapshot?.processingFeeDeductionQty ?? record.processingFeeDeductionQty ?? 0, record.qtyUnit))}
@@ -663,6 +698,7 @@ function renderQcRows(rows: PostFinishingActionRecord[]): string {
           </div>
           <div class="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
             <div><span class="text-xs text-muted-foreground">返工接收工厂</span><div class="mt-1">${escapeHtml(summarizeReworkFactories(record))}</div></div>
+            <div><span class="text-xs text-muted-foreground">返工扣款金额</span><div class="mt-1">${escapeHtml(summarizeReworkDeductionAmount(record))}</div></div>
             <div><span class="text-xs text-muted-foreground">瑕疵原因</span><div class="mt-1 break-words">${escapeHtml(summarizeDefectReasons(record))}</div></div>
             <div><span class="text-xs text-muted-foreground">质检人</span><div class="mt-1">${escapeHtml(record.operatorName || '—')}</div></div>
           </div>
