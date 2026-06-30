@@ -44,6 +44,7 @@ async function main(): Promise<void> {
   const eventsSource = read('src/pages/production/events.ts')
   const processTasksSource = read('src/data/fcs/process-tasks.ts')
   const runtimeTasksSource = read('src/data/fcs/runtime-process-tasks.ts')
+  const productionOrdersSource = read('src/data/fcs/production-orders.ts')
   const factoryMockSource = read('src/data/fcs/factory-mock-data.ts')
   const factoryMasterSource = read('src/data/fcs/factory-master-store.ts')
   const ruleDomainSource = read('src/data/fcs/production-task-generation-rules.ts')
@@ -53,6 +54,9 @@ async function main(): Promise<void> {
   const rulesPageSource = read('src/pages/production/task-generation-rules.ts')
   const dispatchCoreSource = read('src/pages/dispatch-board/core.ts')
   const dispatchDomainSource = read('src/pages/dispatch-board/dispatch-domain.ts')
+  const continuousDispatchSource = exists('src/pages/continuous-dispatch.ts')
+    ? read('src/pages/continuous-dispatch.ts')
+    : ''
   const pdaTodoSource = read('src/data/fcs/factory-mobile-todos.ts')
   const pdaReceiveSource = read('src/pages/pda-task-receive.ts')
   const pdaExecSource = read('src/pages/pda-exec.ts')
@@ -67,6 +71,7 @@ async function main(): Promise<void> {
 
   const productionMenu = getMenuSection(menuSource, 'fcs-platform-production')
   const processMenu = getMenuSection(menuSource, 'fcs-platform-process')
+  const dispatchMenu = getMenuSection(menuSource, 'fcs-platform-dispatch')
   assertIncludes(productionMenu, 'production-task-generation-rules', '生产单管理菜单缺少生产单任务生成规则')
   assertIncludes(productionMenu, '/fcs/production/task-generation-rules', '生产单任务生成规则 href 不正确')
   assert(
@@ -89,6 +94,18 @@ async function main(): Promise<void> {
   assertIncludes(rendererSource, 'renderProductionTaskGenerationRuleEditPage', 'route-renderers.ts 缺少编辑规则 renderer')
   assert(exists('src/pages/production/task-generation-rules.ts'), '缺少规则页面 src/pages/production/task-generation-rules.ts')
   assert(exists('src/data/fcs/production-task-generation-rules.ts'), '缺少规则域 src/data/fcs/production-task-generation-rules.ts')
+  assertIncludes(dispatchMenu, 'dispatch-continuous', '任务分配菜单缺少连续工序任务分配')
+  assertIncludes(dispatchMenu, '/fcs/dispatch/continuous', '连续工序任务分配 href 不正确')
+  assertIncludes(routesSource, '/fcs/dispatch/continuous', 'routes-fcs.ts 缺少连续工序任务分配路由')
+  assertIncludes(routesSource, 'renderContinuousDispatchPage', 'routes-fcs.ts 缺少连续工序任务分配 renderer')
+  assertIncludes(rendererFcsSource, 'renderContinuousDispatchPage', 'route-renderers-fcs.ts 缺少连续工序任务分配 renderer')
+  assert(exists('src/pages/continuous-dispatch.ts'), '缺少连续工序任务分配页面 src/pages/continuous-dispatch.ts')
+  assertIncludes(continuousDispatchSource, '连续工序任务分配', '连续工序任务分配页标题不正确')
+  assertIncludes(continuousDispatchSource, 'COMBINED_PROCESS_TASK', '连续工序任务分配页必须只读取连续工序任务')
+  assertIncludes(continuousDispatchSource, '车缝+后道连续任务', '连续工序任务分配页缺少车缝+后道 Tab')
+  assertIncludes(continuousDispatchSource, '其他连续工序任务', '连续工序任务分配页缺少其他连续工序 Tab')
+  assertIncludes(continuousDispatchSource, '整任务分配', '连续工序任务分配页必须标明整任务分配')
+  assertNotIncludes(continuousDispatchSource, '按明细拆分', '连续工序任务分配页不得提供按明细拆分')
 
   assertIncludes(eventsSource, 'confirm-task-generation-preview', '生产单事件缺少确认生成任务动作')
   assertNotIncludes(eventsSource, 'const changed = applyOrderTaskBreakdown([orderId])', '单个拆解不得直接 applyOrderTaskBreakdown')
@@ -98,6 +115,10 @@ async function main(): Promise<void> {
     assertIncludes(processTasksSource, token, `ProcessTask 缺少 ${token}`)
   })
   assertIncludes(runtimeTasksSource, 'coveredProcesses', 'RuntimeProcessTask 透传缺少 coveredProcesses')
+  assertIncludes(runtimeTasksSource, 'mergeContinuousRuntimeTasks', 'runtime 缺少任务清单连续工序合并写回函数')
+  assertIncludes(runtimeTasksSource, 'mergeSourceTaskIds', '连续工序任务必须记录合并来源任务')
+  assertIncludes(runtimeTasksSource, 'MERGE_CONTINUOUS_PROCESS', '连续工序任务合并必须记录审计动作')
+  assertIncludes(runtimeTasksSource, "task.taskUnitType !== 'SINGLE_PROCESS_TASK'", '连续工序合并写回必须只允许单工序任务')
 
   ;['任务类型', '覆盖工序', '规则来源'].forEach((token) => {
     assertIncludes(taskBreakdownSource, token, `任务清单缺少 ${token}`)
@@ -117,8 +138,10 @@ async function main(): Promise<void> {
     'hasContinuousMergeCandidate',
     'selectedContinuousMergeTaskIds',
     'isSelectedContinuousMergeTaskContiguous',
+    "task.taskUnitType === 'SINGLE_PROCESS_TASK'",
     'data-breakdown-field="continuous-merge-task"',
     '合并所选工序',
+    'mergeContinuousRuntimeTasks',
     'open-continuous-merge',
     '合并连续工序',
     'next.dependsOnTaskIds?.includes(prev.taskId) || next.seq === prev.seq + 1',
@@ -224,6 +247,7 @@ async function main(): Promise<void> {
   assert.equal(rules[0].requiredAcceptanceMode, 'WHOLE_ORDER', '唯一规则必须是整单承接')
   assert.equal(rules[0].generatedTaskUnitType, 'WHOLE_ORDER_TASK', '唯一规则必须生成整单任务')
   assertNotIncludes(ruleDomainSource, 'TGR-FAST-001', '生产单任务生成规则不得保留连续工序规则')
+  assertNotIncludes(productionOrdersSource, 'TGR-FAST-001', '生产单摘要不得残留连续工序规则来源')
   assertNotIncludes(ruleDomainSource, 'TGR-PREP-001', '生产单任务生成规则不得保留印染独立加工单规则')
   assertNotIncludes(ruleDomainSource, 'TGR-DEFAULT-001', '生产单任务生成规则不得保留默认按工序生成规则')
   assertNotIncludes(rulesPageSource, '连续工序', '规则配置页不得再展示连续工序规则配置')
@@ -374,6 +398,10 @@ async function main(): Promise<void> {
   assert(
     combinedRuntimeTasks.every((task: { coveredProcesses?: Array<unknown> }) => (task.coveredProcesses ?? []).length >= 2),
     '连续工序组合运行时任务必须覆盖至少 2 个工序',
+  )
+  assert(
+    combinedRuntimeTasks.every((task: { mergeSourceTaskIds?: string[] }) => (task.mergeSourceTaskIds ?? []).length >= 2),
+    '连续工序组合运行时任务必须记录任务清单合并来源任务',
   )
   assert(
     combinedRuntimeTasks.every((task: { generationRuleId?: string; generationRuleName?: string }) =>

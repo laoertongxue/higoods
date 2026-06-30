@@ -102,6 +102,10 @@ import {
   isSewingDispatchWorkbenchDialogOpen,
 } from '../pages/sewing-dispatch-workbench'
 import {
+  handleContinuousDispatchEvent,
+  isContinuousDispatchDialogOpen,
+} from '../pages/continuous-dispatch'
+import {
   handleDispatchTendersEvent,
   isDispatchTendersDialogOpen,
 } from '../pages/dispatch-tenders'
@@ -228,6 +232,9 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
   if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
     return handleDispatchAcceptanceSlaEvent(target)
   }
+  if (pathname.startsWith('/fcs/dispatch/continuous')) {
+    return handleContinuousDispatchEvent(target)
+  }
   if (pathname.startsWith('/fcs/material-prep/list')) {
     return handleFcsMaterialPrepListEvent(target)
   }
@@ -337,6 +344,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleHistoryEvent(target) ||
     await handleDispatchAcceptanceSlaEvent(target) ||
     await handleSewingDispatchWorkbenchEvent(target) ||
+    await handleContinuousDispatchEvent(target) ||
     await handleDispatchBoardEvent(target) ||
     await handleDispatchTendersEvent(target) ||
     await handleProgressBoardEvent(target) ||
@@ -542,6 +550,10 @@ export function closeFcsDialogsOnEscape(): boolean {
     handleSewingDispatchWorkbenchEvent(fakeButton)
     fakeButton.dataset.sewingDispatchAction = 'close-dispatch'
     handleSewingDispatchWorkbenchEvent(fakeButton)
+    return true
+  }
+
+  if (isContinuousDispatchDialogOpen()) {
     return true
   }
 

@@ -81,6 +81,9 @@ export interface RuntimeProcessTask extends Omit<ProcessTask, 'taskId' | 'depend
   isSplitResult?: boolean
   isSplitSource?: boolean
   executionEnabled?: boolean
+  mergeSourceTaskIds?: string[]
+  mergeCreatedAt?: string
+  mergeCreatedBy?: string
 }
 
 export interface ResolvedRuntimeOutputValue {
@@ -264,6 +267,7 @@ export interface RuntimeDetailTenderInput {
 
 const runtimeTaskOverrides = new Map<string, RuntimeTaskOverride>()
 const runtimeTaskSplitPlans = new Map<string, RuntimeTaskSplitPlan>()
+const runtimeContinuousMergePlans = new Map<string, { taskIds: string[]; mergedTaskId: string; createdAt: string; createdBy: string }>()
 let runtimeAuditSeq = 0
 let dispatchBoardSeedReady = false
 
@@ -763,56 +767,77 @@ function applyRuntimeOverrides(tasks: RuntimeProcessTask[]): RuntimeProcessTask[
   })
 }
 
-function applyManualContinuousMergeDemo(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
-  const sourceTaskId = 'TASKGEN-202603-0006-001__ORDER'
-  const mergedTaskId = 'TASKGEN-202603-0006-002__ORDER'
-  const source = tasks.find((task) => task.taskId === sourceTaskId)
-  const target = tasks.find((task) => task.taskId === mergedTaskId)
-  if (!source || !target) return tasks
-
+function buildContinuousMergedTask(sourceTasks: RuntimeProcessTask[], mergedTaskId: string, createdAt: string, createdBy: string): RuntimeProcessTask | null {
+  if (sourceTasks.length < 2) return null
+  const [source] = sourceTasks
+  const target = sourceTasks[sourceTasks.length - 1]
+  const sourceTaskNos = sourceTasks.map((task) => task.taskNo || task.taskId)
+  const processName = `${sourceTasks.map((task) => task.processNameZh).join('+')}组合任务`
   const mergedTask: RuntimeProcessTask = {
     ...target,
     seq: source.seq,
-    processNameZh: `${source.processNameZh}+${target.processNameZh}组合任务`,
+    taskId: mergedTaskId,
+    taskNo: mergedTaskId.replace('__ORDER', ''),
+    processNameZh: processName,
     processBusinessCode: 'COMBINED_PROCESS_TASK',
-    processBusinessName: `${source.processNameZh}+${target.processNameZh}组合任务`,
+    processBusinessName: processName,
     stageName: '组合工序任务',
-    taskCategoryZh: `${source.processNameZh}+${target.processNameZh}组合任务`,
+    taskCategoryZh: processName,
     taskUnitType: 'COMBINED_PROCESS_TASK',
     acceptanceMode: 'CONTINUOUS_PROCESS',
     generationRuleId: undefined,
     generationRuleName: '任务清单人工合并',
-    coveredProcesses: [
-      ...(source.coveredProcesses ?? []),
-      ...(target.coveredProcesses ?? []),
-    ],
+    coveredProcesses: sourceTasks.flatMap((task) => task.coveredProcesses ?? []),
     isMergedTaskUnit: true,
     allowAutoDispatch: false,
     pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
     outputValuePerUnit: undefined,
     outputValueUnit: '按覆盖工序明细计算',
-    outputValueTotal: sumTaskOutputValueTotals([source, target]),
-    detailRows: [
-      ...(source.detailRows ?? []),
-      ...(target.detailRows ?? []),
-    ],
-    scopeDetailRows: [
-      ...(source.scopeDetailRows ?? []),
-      ...(target.scopeDetailRows ?? []),
-    ],
+    outputValueTotal: sumTaskOutputValueTotals(sourceTasks),
+    detailRows: sourceTasks.flatMap((task) => task.detailRows ?? []),
+    scopeDetailRows: sourceTasks.flatMap((task) => task.scopeDetailRows ?? []),
     dependsOnTaskIds: [...source.dependsOnTaskIds],
     baseDependsOnTaskIds: [...source.baseDependsOnTaskIds],
+    mergeSourceTaskIds: sourceTasks.map((task) => task.taskId),
+    mergeCreatedAt: createdAt,
+    mergeCreatedBy: createdBy,
     mockExecutionSummary: '任务清单人工合并相邻工序后，工厂按组合任务执行。',
     mockHandoverSummary: target.handoverReceiverName ? `完成后交${target.handoverReceiverName}` : target.mockHandoverSummary,
     auditLogs: [
       ...target.auditLogs,
-      buildSeedAuditLog(mergedTaskId, 'MERGE_CONTINUOUS_PROCESS', `任务清单合并 ${source.taskNo || source.taskId}、${target.taskNo || target.taskId}`, '生产计划员', '2026-03-20 10:00:00'),
+      buildSeedAuditLog(mergedTaskId, 'MERGE_CONTINUOUS_PROCESS', `任务清单合并 ${sourceTaskNos.join('、')}`, createdBy, createdAt),
     ],
   }
+  return mergedTask
+}
+
+function applyContinuousMergePlan(tasks: RuntimeProcessTask[], plan: { taskIds: string[]; mergedTaskId: string; createdAt: string; createdBy: string }): RuntimeProcessTask[] {
+  const sourceTasks = plan.taskIds
+    .map((taskId) => tasks.find((task) => task.taskId === taskId))
+    .filter((task): task is RuntimeProcessTask => Boolean(task))
+  const mergedTask = buildContinuousMergedTask(sourceTasks, plan.mergedTaskId, plan.createdAt, plan.createdBy)
+  if (!mergedTask) return tasks
 
   return tasks
-    .filter((task) => task.taskId !== sourceTaskId && task.taskId !== mergedTaskId)
+    .filter((task) => !plan.taskIds.includes(task.taskId))
     .concat(mergedTask)
+}
+
+function applyManualContinuousMergeDemo(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
+  return applyContinuousMergePlan(tasks, {
+    taskIds: ['TASKGEN-202603-0006-001__ORDER', 'TASKGEN-202603-0006-002__ORDER'],
+    mergedTaskId: 'TASKGEN-202603-0006-002__ORDER',
+    createdAt: '2026-03-20 10:00:00',
+    createdBy: '生产计划员',
+  })
+}
+
+function applyRuntimeContinuousMergePlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
+  let next = tasks
+  for (const plan of runtimeContinuousMergePlans.values()) {
+    next = applyContinuousMergePlan(next, plan)
+  }
+  return next
 }
 
 function shouldUseSameFactoryContinue(upstream: RuntimeProcessTask, downstream: RuntimeProcessTask): boolean {
@@ -927,7 +952,7 @@ function buildRuntimeProcessTasksBase(): RuntimeProcessTask[] {
 function buildRuntimeProcessTasks(): RuntimeProcessTask[] {
   const baseWithOverrides = applyRuntimeOverrides(buildRuntimeProcessTasksBase())
   const withSplit = applyRuntimeSplitPlans(baseWithOverrides)
-  const withOverrides = applyManualContinuousMergeDemo(applyRuntimeOverrides(withSplit))
+  const withOverrides = applyRuntimeContinuousMergePlans(applyManualContinuousMergeDemo(applyRuntimeOverrides(withSplit)))
   const grouped = new Map<string, RuntimeProcessTask[]>()
   for (const task of withOverrides) {
     const current = grouped.get(task.productionOrderId) ?? []
@@ -1390,6 +1415,42 @@ function getOrderIdsFromTaskIds(taskIds: string[]): string[] {
 export function listRuntimeProcessTasks(): RuntimeProcessTask[] {
   ensureDispatchBoardSeedData()
   return buildRuntimeProcessTasks()
+}
+
+export function mergeContinuousRuntimeTasks(taskIds: string[], by = '生产计划员'): RuntimeProcessTask | null {
+  ensureDispatchBoardSeedData()
+  const sourceTasks = taskIds
+    .map((taskId) => buildRuntimeProcessTasks().find((task) => task.taskId === taskId))
+    .filter((task): task is RuntimeProcessTask => Boolean(task))
+    .sort(compareRuntimeTask)
+
+  if (sourceTasks.length < 2) return null
+  const productionOrderId = sourceTasks[0].productionOrderId
+  if (!sourceTasks.every((task) => task.productionOrderId === productionOrderId)) return null
+  if (sourceTasks.some((task) =>
+    task.defaultDocType === 'DEMAND'
+    || task.taskUnitType !== 'SINGLE_PROCESS_TASK'
+    || task.isSplitSource
+    || task.isSplitResult
+    || task.assignmentStatus !== 'UNASSIGNED'
+    || task.status !== 'NOT_STARTED'
+  )) return null
+
+  for (let index = 1; index < sourceTasks.length; index += 1) {
+    const prev = sourceTasks[index - 1]
+    const next = sourceTasks[index]
+    if (!(next.dependsOnTaskIds.includes(prev.taskId) || next.seq === prev.seq + 1)) return null
+  }
+
+  const mergedTaskId = sourceTasks[sourceTasks.length - 1].taskId
+  const createdAt = nowTimestamp()
+  runtimeContinuousMergePlans.set(mergedTaskId, {
+    taskIds: sourceTasks.map((task) => task.taskId),
+    mergedTaskId,
+    createdAt,
+    createdBy: by,
+  })
+  return getRuntimeTaskById(mergedTaskId)
 }
 
 export function listRuntimeTasksByOrder(productionOrderId: string): RuntimeProcessTask[] {

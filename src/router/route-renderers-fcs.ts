@@ -179,6 +179,10 @@ export const renderSewingDispatchWorkbenchPage = createAsyncRenderer(
   () => import('../pages/sewing-dispatch-workbench'),
   'renderSewingDispatchWorkbenchPage',
 )
+export const renderContinuousDispatchPage = createAsyncRenderer(
+  () => import('../pages/continuous-dispatch'),
+  'renderContinuousDispatchPage',
+)
 export const renderDispatchTendersPage = createAsyncRenderer(
   () => import('../pages/dispatch-tenders'),
   'renderDispatchTendersPage',

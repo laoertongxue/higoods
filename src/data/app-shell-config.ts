@@ -291,6 +291,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'dispatch-non-sewing', title: '非车缝任务分配', icon: 'LayoutGrid', href: '/fcs/dispatch/non-sewing' },
             { key: 'dispatch-sewing-workbench', title: '车缝分配工作台', icon: 'Shirt', href: '/fcs/dispatch/sewing' },
+            { key: 'dispatch-continuous', title: '连续工序任务分配', icon: 'GitMerge', href: '/fcs/dispatch/continuous' },
             { key: 'dispatch-acceptance-sla', title: '接单时效配置', icon: 'TimerReset', href: '/fcs/dispatch/acceptance-sla' },
             { key: 'dispatch-tenders', title: '招标单管理', icon: 'Gavel', href: '/fcs/dispatch/tenders' },
           ],

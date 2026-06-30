@@ -7,6 +7,7 @@ import {
   isRuntimeTaskExecutionTask,
   listRuntimeProcessTasks,
   listRuntimeTaskSplitGroupsByOrder,
+  mergeContinuousRuntimeTasks,
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks.ts'
 import {
@@ -32,6 +33,7 @@ interface TaskBreakdownState {
   chainDetailOrderId: string | null
   continuousMergeOrderId: string | null
   selectedContinuousMergeTaskIds: string[]
+  continuousMergeError: string
   orderPage: number
   allTaskPage: number
 }
@@ -59,6 +61,7 @@ const state: TaskBreakdownState = {
   chainDetailOrderId: null,
   continuousMergeOrderId: null,
   selectedContinuousMergeTaskIds: [],
+  continuousMergeError: '',
   orderPage: 1,
   allTaskPage: 1,
 }
@@ -108,10 +111,11 @@ function getTaskHandoverReceiverText(task: RuntimeProcessTask): string {
 function isMergeableSingleTask(task: RuntimeProcessTask): boolean {
   return isRuntimeTaskExecutionTask(task)
     && task.defaultDocType !== 'DEMAND'
-    && task.taskUnitType !== 'WHOLE_ORDER_TASK'
-    && task.taskUnitType !== 'COMBINED_PROCESS_TASK'
+    && task.taskUnitType === 'SINGLE_PROCESS_TASK'
     && !task.isSplitSource
     && !task.isSplitResult
+    && task.assignmentStatus === 'UNASSIGNED'
+    && task.status === 'NOT_STARTED'
 }
 
 function getContinuousMergeCandidates(tasks: RuntimeProcessTask[]): Array<{ prev: RuntimeProcessTask; next: RuntimeProcessTask }> {
@@ -696,14 +700,14 @@ function renderContinuousMergeDialog(
         </div>
         <div class="mt-4 flex items-center justify-between gap-3">
           <p class="text-xs ${canMerge ? 'text-muted-foreground' : 'text-amber-700'}">
-            ${canMerge ? '已选择连续工序，可合并。' : '请选择至少两个前后连续的工序。'}
+            ${escapeHtml(state.continuousMergeError || (canMerge ? '已选择连续工序，可合并。' : '请选择至少两个前后连续的未分配工序。'))}
           </p>
           <button
             class="${toClassName(
               'inline-flex h-9 items-center rounded-md border px-3 text-sm',
               canMerge ? 'hover:bg-muted' : 'cursor-not-allowed opacity-50',
             )}"
-            data-breakdown-action="close-dialog"
+            data-breakdown-action="confirm-continuous-merge"
             ${canMerge ? '' : 'disabled'}
           >合并所选工序</button>
         </div>
@@ -1216,6 +1220,7 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
       state.selectedContinuousMergeTaskIds = fieldNode.checked
         ? Array.from(new Set([...state.selectedContinuousMergeTaskIds, taskId]))
         : state.selectedContinuousMergeTaskIds.filter((id) => id !== taskId)
+      state.continuousMergeError = ''
       return true
     }
   }
@@ -1256,6 +1261,7 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
     state.chainDetailOrderId = orderId
     state.continuousMergeOrderId = null
     state.selectedContinuousMergeTaskIds = []
+    state.continuousMergeError = ''
     return true
   }
 
@@ -1266,7 +1272,20 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
     const orderTasks = getAllProcessTasks().filter((task) => task.productionOrderId === orderId)
     state.continuousMergeOrderId = orderId
     state.selectedContinuousMergeTaskIds = getInitialContinuousMergeSelection(orderTasks, preferredTaskId)
+    state.continuousMergeError = ''
     state.chainDetailOrderId = null
+    return true
+  }
+
+  if (action === 'confirm-continuous-merge') {
+    const merged = mergeContinuousRuntimeTasks(state.selectedContinuousMergeTaskIds, '生产计划员')
+    if (!merged) {
+      state.continuousMergeError = '合并失败：请选择同一生产单下前后连续、未分配、未开工的独立工序。'
+      return true
+    }
+    state.continuousMergeOrderId = null
+    state.selectedContinuousMergeTaskIds = []
+    state.continuousMergeError = ''
     return true
   }
 
@@ -1274,6 +1293,7 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
     state.chainDetailOrderId = null
     state.continuousMergeOrderId = null
     state.selectedContinuousMergeTaskIds = []
+    state.continuousMergeError = ''
     return true
   }
 
