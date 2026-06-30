@@ -69,4 +69,17 @@ delete (globalThis as any).window
 assertIncludes(qcPageHtml, 'documentType=PRODUCTION_QC_MASTER', 'Web 页面缺少生产单质检总单打印入口')
 assertIncludes(qcPageHtml, 'documentType=POST_FINISHING_QC_ORDER', 'Web 页面缺少质检单打印入口')
 
+;(globalThis as any).window = {
+  location: {
+    pathname: '/fcs/craft/post-finishing/qc-orders',
+    search: '?tab=qc',
+  },
+}
+const generalQcPageHtml = renderPostFinishingQcOrdersPage()
+delete (globalThis as any).window
+
+assertIncludes(generalQcPageHtml, '打印生产单质检总单', '普通质检单列表缺少生产单质检总单打印入口')
+assertIncludes(generalQcPageHtml, 'documentType=PRODUCTION_QC_MASTER', '普通质检单列表缺少生产单质检总单打印链接')
+assertIncludes(generalQcPageHtml, 'documentType=POST_FINISHING_QC_ORDER', '普通质检单列表缺少质检单打印入口')
+
 console.log('post finishing qc print template checks passed')

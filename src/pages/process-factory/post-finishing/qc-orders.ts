@@ -725,6 +725,19 @@ function summarizeReworkDeductionAmount(record: PostFinishingActionRecord): stri
   return formatIdrAmount(amount)
 }
 
+function resolveQcMasterPrintSourceId(record: PostFinishingActionRecord, snapshot?: ReturnType<typeof buildPostFinishingQcDeductionRecord>): string {
+  return record.warehouseAllocations?.find((allocation) => allocation.postTaskId)?.postTaskId
+    || snapshot?.refTaskId
+    || snapshot?.productionOrderNo
+    || ''
+}
+
+function renderMasterPrintButton(record: PostFinishingActionRecord, snapshot?: ReturnType<typeof buildPostFinishingQcDeductionRecord>): string {
+  const sourceId = resolveQcMasterPrintSourceId(record, snapshot)
+  if (!sourceId) return ''
+  return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${escapeHtml(buildUnifiedPrintPreviewLink({ documentType: 'PRODUCTION_QC_MASTER', sourceType: 'POST_FINISHING_TASK', sourceId }))}">打印生产单质检总单</button>`
+}
+
 function renderPrintButton(record: PostFinishingActionRecord): string {
   return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${escapeHtml(buildUnifiedPrintPreviewLink({ documentType: 'POST_FINISHING_QC_ORDER', sourceType: 'POST_FINISHING_QC_ORDER', sourceId: record.actionId }))}">打印质检单</button>`
 }
@@ -804,7 +817,7 @@ function renderViewDialog(): string {
           <tbody>${allocationRows || '<tr><td colspan="7" class="px-3 py-6 text-center text-muted-foreground">暂无取货明细</td></tr>'}</tbody>
         </table>
       </div>
-      <div class="flex justify-end">${renderPrintButton(record)}</div>
+      <div class="flex flex-wrap justify-end gap-2">${renderMasterPrintButton(record, snapshot)}${renderPrintButton(record)}</div>
     </div>
   `)
 }
@@ -871,7 +884,7 @@ function renderQcRows(rows: PostFinishingActionRecord[]): string {
             <div><span class="text-xs text-muted-foreground">质检人</span><div class="mt-1">${escapeHtml(record.operatorName || '—')}</div></div>
           </div>
         </div>
-        <div class="mt-4 flex flex-wrap justify-end gap-2">${canFinish ? renderPostAction(pendingDefectReasonQty > 0 ? '补齐瑕疵原因' : '完成质检', linkWith({ completeQc: record.actionRecordId, viewQc: undefined, createQc: undefined })) : ''}${renderPostAction('查看质检单', linkWith({ viewQc: record.actionRecordId, completeQc: undefined, createQc: undefined }))}${renderPrintButton(record)}</div>
+        <div class="mt-4 flex flex-wrap justify-end gap-2">${canFinish ? renderPostAction(pendingDefectReasonQty > 0 ? '补齐瑕疵原因' : '完成质检', linkWith({ completeQc: record.actionRecordId, viewQc: undefined, createQc: undefined })) : ''}${renderPostAction('查看质检单', linkWith({ viewQc: record.actionRecordId, completeQc: undefined, createQc: undefined }))}${renderMasterPrintButton(record, snapshot)}${renderPrintButton(record)}</div>
       </article>
     `
   }).join('')
