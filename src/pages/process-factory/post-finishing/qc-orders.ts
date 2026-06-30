@@ -11,6 +11,7 @@ import {
   type PostFinishingQcSkuResult,
   type PostFinishingWaitQcSkuItem,
 } from '../../../data/fcs/post-finishing-domain.ts'
+import { buildUnifiedPrintPreviewLink } from '../../../data/fcs/print-service.ts'
 import { appStore } from '../../../state/store.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
@@ -382,10 +383,16 @@ function registerQcPageActions(): void {
 
 function renderPageHeader(): string {
   const task = getCurrentPostTaskId() ? getPostFinishingTaskById(getCurrentPostTaskId()) : undefined
+  const actions = [
+    task
+      ? `<button type="button" class="rounded-md border px-3 py-2 text-sm font-medium hover:bg-slate-50" data-nav="${escapeHtml(buildUnifiedPrintPreviewLink({ documentType: 'PRODUCTION_QC_MASTER', sourceType: 'POST_FINISHING_TASK', sourceId: task.postTaskId }))}">打印生产单质检总单</button>`
+      : '',
+    `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(linkWith({ createQc: '1', completeQc: undefined, viewQc: undefined }))}">创建质检单</button>`,
+  ].filter(Boolean).join('')
   return renderPostFinishingPageHeader(
     '质检单',
     task ? `${task.postTaskNo} / ${task.productionOrderNo}` : '',
-    `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(linkWith({ createQc: '1', completeQc: undefined, viewQc: undefined }))}">创建质检单</button>`,
+    `<div class="flex flex-wrap gap-2">${actions}</div>`,
   )
 }
 
@@ -719,10 +726,7 @@ function summarizeReworkDeductionAmount(record: PostFinishingActionRecord): stri
 }
 
 function renderPrintButton(record: PostFinishingActionRecord): string {
-  const snapshot = buildPostFinishingQcDeductionRecord(record)
-  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeHtml(record.actionRecordNo)} 纸质质检单</title><style>body{font-family:Arial,'Microsoft YaHei',sans-serif;margin:24px;color:#111827}h1{font-size:22px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.box{border:1px solid #d1d5db;border-radius:8px;padding:10px}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border:1px solid #d1d5db;padding:8px;text-align:left}th{background:#f3f4f6}@media print{button{display:none}}</style></head><body><button onclick="window.print()">打印</button><h1>纸质质检单</h1><div class="grid"><div class="box">质检单号<br/><strong>${escapeHtml(record.actionRecordNo)}</strong></div><div class="box">质检台<br/><strong>${escapeHtml(record.qcStationName || '—')}</strong></div><div class="box">质检人<br/><strong>${escapeHtml(record.operatorName || '—')}</strong></div></div><table><thead><tr><th>质检数量</th><th>合格数量</th><th>返工数量</th><th>返工接收工厂</th><th>返工扣款金额</th><th>瑕疵数量</th><th>瑕疵原因</th><th>本期扣加工费数量</th><th>质检结果</th></tr></thead><tbody><tr><td>${record.inspectedGarmentQty ?? record.submittedGarmentQty}</td><td>${record.passedGarmentQty ?? record.acceptedGarmentQty}</td><td>${record.reworkGarmentQty ?? 0}</td><td>${escapeHtml(summarizeReworkFactories(record))}</td><td>${escapeHtml(summarizeReworkDeductionAmount(record))}</td><td>${record.defectAcceptedGarmentQty ?? 0}</td><td>${escapeHtml(summarizeDefectReasons(record))}</td><td>${snapshot?.processingFeeDeductionQty ?? record.processingFeeDeductionQty ?? 0}</td><td>${escapeHtml(normalizeResult(record.qcResult))}</td></tr></tbody></table></body></html>`
-  const script = `var w=window.open('', '_blank', 'noopener,noreferrer'); if(w){w.document.write(${JSON.stringify(html)});w.document.close();} window.__lastQcPrint='${escapeHtml(record.actionRecordNo)}';`
-  return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="${escapeHtml(script)}">打印纸质质检单</button>`
+  return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${escapeHtml(buildUnifiedPrintPreviewLink({ documentType: 'POST_FINISHING_QC_ORDER', sourceType: 'POST_FINISHING_QC_ORDER', sourceId: record.actionId }))}">打印质检单</button>`
 }
 
 function renderViewDialog(): string {

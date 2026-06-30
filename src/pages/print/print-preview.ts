@@ -40,6 +40,8 @@ function inferSourceType(documentType: PrintDocumentType, handoverRecordId: stri
   if (documentType === 'HANDOVER_DIFFERENCE_REQUEST') return 'HANDOVER_DIFFERENCE_RECORD'
   if (documentType === 'QUALITY_DEDUCTION_CONFIRMATION') return 'QUALITY_DEDUCTION_PENDING_RECORD'
   if (documentType === 'QUALITY_DISPUTE_PROCESSING') return 'QUALITY_DISPUTE_RECORD'
+  if (documentType === 'PRODUCTION_QC_MASTER') return 'POST_FINISHING_TASK'
+  if (documentType === 'POST_FINISHING_QC_ORDER') return 'POST_FINISHING_QC_ORDER'
   if (documentType === 'MASTER_DATA_CHANGE_REQUEST') return 'MASTER_DATA_CHANGE_REQUEST_RECORD'
   return ''
 }

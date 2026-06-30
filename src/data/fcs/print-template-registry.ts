@@ -20,6 +20,11 @@ import {
   renderPostFinishingRouteCardTemplate,
 } from '../../pages/print/templates/post-finishing-route-card-template.ts'
 import {
+  buildPostFinishingQcOrderPrintDocument,
+  buildProductionQcMasterPrintDocument,
+  renderPostFinishingQcPrintTemplate,
+} from '../../pages/print/templates/post-finishing-qc-print-template.ts'
+import {
   buildTaskDeliveryCardPrintDocument,
   renderTaskDeliveryCardTemplate,
 } from '../../pages/print/templates/task-delivery-card-template.ts'
@@ -201,6 +206,22 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     render: renderTaskRouteCardTemplate,
   },
   {
+    templateCode: 'PRODUCTION_QC_MASTER',
+    templateName: '生产单质检总单',
+    documentType: 'PRODUCTION_QC_MASTER',
+    supportedSourceTypes: ['POST_FINISHING_TASK'],
+    buildDocument: buildProductionQcMasterPrintDocument,
+    render: renderPostFinishingQcPrintTemplate,
+  },
+  {
+    templateCode: 'POST_FINISHING_QC_ORDER',
+    templateName: '质检单',
+    documentType: 'POST_FINISHING_QC_ORDER',
+    supportedSourceTypes: ['POST_FINISHING_QC_ORDER'],
+    buildDocument: buildPostFinishingQcOrderPrintDocument,
+    render: renderPostFinishingQcPrintTemplate,
+  },
+  {
     templateCode: 'TASK_ROUTE_CARD',
     templateName: '任务流转卡通用模板',
     documentType: 'TASK_ROUTE_CARD',
@@ -305,6 +326,8 @@ export const requiredPrintDocumentTypes: PrintDocumentType[] = [
   'HANDOVER_DIFFERENCE_REQUEST',
   'QUALITY_DEDUCTION_CONFIRMATION',
   'QUALITY_DISPUTE_PROCESSING',
+  'PRODUCTION_QC_MASTER',
+  'POST_FINISHING_QC_ORDER',
   'MASTER_DATA_CHANGE_REQUEST',
 ]
 
