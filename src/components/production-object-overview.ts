@@ -9,6 +9,7 @@ import {
   searchProductionObjects,
   warehouseExecutionStatusLabel,
   type MaterialResourceContext,
+  type MaterialResourceOverview,
   type ProductionMaterialLine,
   type ProductionObjectOverview,
   type ProductionObjectSearchIndex,
@@ -643,6 +644,19 @@ function renderMiniQty(label: string, value: number | undefined, unit: string): 
   `
 }
 
+function renderMaterialResourceMetric(label: string, value: string): string {
+  return `
+    <div class="rounded-lg border bg-card p-3">
+      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 break-words text-sm font-semibold text-foreground">${escapeHtml(value)}</div>
+    </div>
+  `
+}
+
+function formatMaterialResourceQty(value: number, unit: string): string {
+  return `${Number(value || 0).toLocaleString('zh-CN')}${unit}`
+}
+
 function renderMaterialsTab(overview: ProductionObjectOverview): string {
   const shortageLines = overview.materials.filter((line) => line.shortageQty > 0)
   const arrivalDates = shortageLines.map((line) => line.estimatedWarehouseArrivalAt).filter(Boolean).sort()
@@ -1021,6 +1035,205 @@ function renderTabBody(overview: ProductionObjectOverview, tab: OverviewTab): st
   return renderSummaryTab(overview)
 }
 
+function renderMaterialResourceHeader(resource: MaterialResourceOverview): string {
+  return `
+    <header class="border-b bg-card px-4 py-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            ${badge(materialTypeLabel[resource.materialType], 'border-blue-200 bg-blue-50 text-blue-700')}
+            <span class="font-mono text-sm font-semibold">${escapeHtml(resource.materialSku)}</span>
+          </div>
+          <h2 class="mt-1 text-base font-semibold">物料资源总览｜${escapeHtml(resource.materialName)}</h2>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(resource.spec)}｜${escapeHtml(resource.unit)}｜${escapeHtml(resource.supplierName)}</p>
+        </div>
+        <button class="h-8 w-8 rounded-md text-lg text-muted-foreground hover:bg-muted" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭">×</button>
+      </div>
+    </header>
+  `
+}
+
+function renderMaterialResourceTabs(resource: MaterialResourceOverview, tab: MaterialResourceTab): string {
+  return `
+    <div class="flex shrink-0 gap-1 overflow-x-auto border-b bg-card px-4" role="tablist">
+      ${MATERIAL_RESOURCE_TAB_ITEMS.map((item) => `
+        <button
+          type="button"
+          class="whitespace-nowrap border-b-2 px-3 py-2 text-sm ${item.key === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-muted-foreground hover:text-foreground'}"
+          data-production-object-action="switch-material-tab"
+          data-tab="${item.key}"
+          data-material-sku="${escapeHtml(resource.materialSku)}"
+          data-skip-page-rerender="true"
+        >${escapeHtml(item.label)}</button>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderMaterialSupplyDemandTab(resource: MaterialResourceOverview): string {
+  const summary = resource.supplyDemandSummary
+  const source = resource.sourceContext
+  return `
+    <div class="space-y-4">
+      <section class="rounded-lg border bg-card p-4">
+        <h3 class="text-sm font-semibold">当前判断</h3>
+        <p class="mt-2 text-sm text-foreground">${escapeHtml(resource.currentJudgement)}</p>
+        ${source?.sourceObjectId ? `<p class="mt-2 text-xs text-muted-foreground">当前来源：${escapeHtml(source.sourceLabel || '生产对象总览')}｜${renderOverviewCode(source.sourceObjectType || 'PRODUCTION_ORDER', source.sourceObjectId, source.sourceObjectId)}</p>` : ''}
+      </section>
+      <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        ${renderMaterialResourceMetric('总需求', formatMaterialResourceQty(summary.totalRequiredQty, summary.unit))}
+        ${renderMaterialResourceMetric('可用库存', formatMaterialResourceQty(summary.availableQty, summary.unit))}
+        ${renderMaterialResourceMetric('已锁定', formatMaterialResourceQty(summary.lockedQty, summary.unit))}
+        ${renderMaterialResourceMetric('缺口', formatMaterialResourceQty(summary.shortageQty, summary.unit))}
+        ${renderMaterialResourceMetric('在途采购', formatMaterialResourceQty(summary.inTransitQty, summary.unit))}
+        ${renderMaterialResourceMetric('待检', formatMaterialResourceQty(summary.pendingInspectionQty, summary.unit))}
+        ${renderMaterialResourceMetric('影响范围', `${resource.businessAllocations.length} 张生产单`)}
+        ${renderMaterialResourceMetric('最早影响交期', summary.earliestImpactDate)}
+      </section>
+    </div>
+  `
+}
+
+function renderMaterialAllocationsTab(resource: MaterialResourceOverview): string {
+  return `
+    <div class="space-y-3">
+      ${resource.businessAllocations.map((item) => `
+        <article class="rounded-lg border ${item.isSourceContext ? 'border-blue-300 bg-blue-50/60' : 'bg-card'} p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="font-mono text-sm font-semibold">${renderOverviewCode('PRODUCTION_ORDER', item.businessNo, item.businessNo)}</div>
+            <div class="flex flex-wrap items-center gap-2">
+              ${item.isSourceContext ? badge('当前来源', 'border-blue-200 bg-blue-100 text-blue-700') : ''}
+              ${badge(item.status)}
+            </div>
+          </div>
+          <div class="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-4">
+            <div><span class="text-foreground">SPU：</span>${escapeHtml(item.spu)}</div>
+            <div><span class="text-foreground">颜色尺码：</span>${escapeHtml(item.colorSize)}</div>
+            <div><span class="text-foreground">交期：</span>${escapeHtml(item.deliveryDate)}</div>
+            <div><span class="text-foreground">优先级：</span>${escapeHtml(item.priority)}</div>
+            <div><span class="text-foreground">需求：</span>${formatMaterialResourceQty(item.requiredQty, resource.unit)}</div>
+            <div><span class="text-foreground">已配料：</span>${formatMaterialResourceQty(item.preparedQty, resource.unit)}</div>
+            <div><span class="text-foreground">已领料：</span>${formatMaterialResourceQty(item.pickedQty, resource.unit)}</div>
+            <div><span class="text-foreground">缺口：</span>${formatMaterialResourceQty(item.shortageQty, resource.unit)}</div>
+          </div>
+        </article>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderMaterialInventoryTab(resource: MaterialResourceOverview): string {
+  return `
+    <div class="space-y-4">
+      <section class="space-y-2">
+        <h3 class="text-sm font-semibold">库存批次</h3>
+        ${resource.inventoryBatches.map((item) => `
+          <div class="rounded-lg border bg-card p-3 text-xs">
+            <div class="font-medium">${escapeHtml(item.warehouseName)}｜${escapeHtml(item.batchNo)}</div>
+            <div class="mt-2 grid gap-2 text-muted-foreground sm:grid-cols-5">
+              <div>总库存：${formatMaterialResourceQty(item.totalQty, item.unit)}</div>
+              <div>可用：${formatMaterialResourceQty(item.availableQty, item.unit)}</div>
+              <div>锁定：${formatMaterialResourceQty(item.lockedQty, item.unit)}</div>
+              <div>待检：${formatMaterialResourceQty(item.pendingInspectionQty, item.unit)}</div>
+              <div>冻结：${formatMaterialResourceQty(item.frozenQty, item.unit)}</div>
+            </div>
+          </div>
+        `).join('')}
+      </section>
+      <section class="space-y-2">
+        <h3 class="text-sm font-semibold">采购在途</h3>
+        ${resource.purchaseInTransit.map((item) => `
+          <div class="rounded-lg border bg-card p-3 text-xs">
+            <div class="font-mono font-medium">${escapeHtml(item.purchaseOrderNo)}</div>
+            <div class="mt-2 grid gap-2 text-muted-foreground sm:grid-cols-4">
+              <div>供应商：${escapeHtml(item.supplierName)}</div>
+              <div>采购：${formatMaterialResourceQty(item.purchaseQty, resource.unit)}</div>
+              <div>未到仓：${formatMaterialResourceQty(item.pendingArrivalQty, resource.unit)}</div>
+              <div>预计到仓：${escapeHtml(item.estimatedArrivalAt)}</div>
+            </div>
+          </div>
+        `).join('') || '<div class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">暂无采购在途</div>'}
+      </section>
+    </div>
+  `
+}
+
+function renderMaterialExecutionTab(resource: MaterialResourceOverview): string {
+  return `
+    <div class="space-y-3">
+      ${resource.materialExecutionLines.map((item) => `
+        <article class="rounded-lg border ${item.isSourceContext ? 'border-blue-300 bg-blue-50/60' : 'bg-card'} p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="text-sm font-semibold">${renderOverviewCode('PRODUCTION_ORDER', item.businessNo, item.businessNo)}｜${escapeHtml(item.processName)} / ${escapeHtml(item.factoryName)}</div>
+            ${item.isSourceContext ? badge('当前来源', 'border-blue-200 bg-blue-100 text-blue-700') : ''}
+          </div>
+          <div class="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-5">
+            <div>需求：${formatMaterialResourceQty(item.requiredQty, item.unit)}</div>
+            <div>已配料：${formatMaterialResourceQty(item.preparedQty, item.unit)}</div>
+            <div>待配料：${formatMaterialResourceQty(item.pendingPrepareQty, item.unit)}</div>
+            <div>已领料：${formatMaterialResourceQty(item.pickedQty, item.unit)}</div>
+            <div>待领料：${formatMaterialResourceQty(item.pendingPickQty, item.unit)}</div>
+            <div>已发料：${formatMaterialResourceQty(item.issuedQty, item.unit)}</div>
+            <div>待发料：${formatMaterialResourceQty(item.pendingIssueQty, item.unit)}</div>
+            <div>缺口：${formatMaterialResourceQty(item.shortageQty, item.unit)}</div>
+            <div class="sm:col-span-2">下一动作：${escapeHtml(item.nextActionText)}</div>
+          </div>
+        </article>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderMaterialIssuesMasterTab(resource: MaterialResourceOverview): string {
+  return `
+    <div class="space-y-4">
+      <section class="space-y-2">
+        <h3 class="text-sm font-semibold">异常与风险</h3>
+        ${resource.issues.map((item) => `
+          <article class="rounded-lg border bg-card p-3 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="font-medium">${escapeHtml(item.issueType)}｜${renderOverviewCode('PRODUCTION_ORDER', item.affectedBusinessNo, item.affectedBusinessNo)}</div>
+              ${badge(item.statusText)}
+            </div>
+            <div class="mt-2 grid gap-2 text-muted-foreground sm:grid-cols-4">
+              <div>影响数量：${formatMaterialResourceQty(item.affectedQty, item.unit)}</div>
+              <div>责任方：${escapeHtml(item.ownerRole)}</div>
+              <div>发生时间：${escapeHtml(item.occurredAt)}</div>
+              <div>要求完成：${escapeHtml(item.requiredDoneAt)}</div>
+              <div class="sm:col-span-4">建议处理：${escapeHtml(item.suggestionText)}</div>
+            </div>
+          </article>
+        `).join('') || '<div class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">暂无异常</div>'}
+      </section>
+      <section class="rounded-lg border bg-card p-4">
+        <h3 class="text-sm font-semibold">物料档案</h3>
+        <div class="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+          <div>物料编码：${escapeHtml(resource.masterData.materialSku)}</div>
+          <div>名称：${escapeHtml(resource.masterData.materialName)}</div>
+          <div>类型：${escapeHtml(materialTypeLabel[resource.masterData.materialType])}</div>
+          <div>规格：${escapeHtml(resource.masterData.spec)}</div>
+          <div>单位：${escapeHtml(resource.masterData.unit)}</div>
+          <div>默认供应商：${escapeHtml(resource.masterData.supplierName)}</div>
+          <div>采购周期：${escapeHtml(resource.masterData.purchaseCycleText)}</div>
+          <div>最小采购量：${escapeHtml(resource.masterData.minPurchaseQtyText)}</div>
+          <div>默认损耗率：${escapeHtml(resource.masterData.lossRateText)}</div>
+          <div>替代料：${escapeHtml(resource.masterData.substituteText)}</div>
+          <div>适用品类 / SPU：${escapeHtml(resource.masterData.applicableText)}</div>
+          <div>主数据状态：${escapeHtml(resource.masterData.statusText)}</div>
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function renderMaterialResourceTabBody(resource: MaterialResourceOverview, tab: MaterialResourceTab): string {
+  if (tab === 'allocations') return renderMaterialAllocationsTab(resource)
+  if (tab === 'inventory') return renderMaterialInventoryTab(resource)
+  if (tab === 'execution') return renderMaterialExecutionTab(resource)
+  if (tab === 'issues-master') return renderMaterialIssuesMasterTab(resource)
+  return renderMaterialSupplyDemandTab(resource)
+}
+
 export function renderProductionObjectOverviewSurface(
   objectType: ProductionObjectType,
   objectId: string,
@@ -1062,34 +1275,41 @@ export function renderProductionObjectOverviewSurface(
 export function renderMaterialResourceOverviewSurface(
   materialSku: string,
   context: MaterialResourceContext = {},
-  _tab: MaterialResourceTab = activeMaterialResourceTab,
+  tab: MaterialResourceTab = activeMaterialResourceTab,
 ): string {
   const resource = getMaterialResourceOverview(materialSku, context)
-  const sourceAttrs = [
-    context.sourceObjectType ? `data-source-object-type="${escapeHtml(context.sourceObjectType)}"` : '',
-    context.sourceObjectId ? `data-source-object-id="${escapeHtml(context.sourceObjectId)}"` : '',
-  ].filter(Boolean).join(' ')
-
+  if (!resource) {
+    return `
+      <div class="production-object-overview" data-production-object-surface="material-resource">
+        <button class="absolute inset-0 bg-slate-950/30" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭"></button>
+        <section class="production-object-overview__panel">
+          <header class="flex items-center justify-between border-b px-4 py-3">
+            <h2 class="text-base font-semibold">物料资源总览</h2>
+            <button class="h-8 w-8 rounded-md text-lg text-muted-foreground hover:bg-muted" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭">×</button>
+          </header>
+          <div class="p-6 text-sm text-muted-foreground">暂无物料资源数据</div>
+        </section>
+      </div>
+    `
+  }
   return `
     <div
       class="production-object-overview"
       data-production-object-surface="material-resource"
-      data-material-sku="${escapeHtml(materialSku)}"
-      ${sourceAttrs}
+      data-material-sku="${escapeHtml(resource.materialSku)}"
+      data-source-object-type="${escapeHtml(context.sourceObjectType || '')}"
+      data-source-object-id="${escapeHtml(context.sourceObjectId || '')}"
     >
       <button class="absolute inset-0 bg-slate-950/30" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭"></button>
       <section class="production-object-overview__panel">
-        <header class="flex items-center justify-between border-b px-4 py-3">
-          <div>
-            <h2 class="text-base font-semibold">物料资源总览</h2>
-            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(resource?.materialSku || materialSku)}｜${escapeHtml(resource?.materialName || '暂无物料资源数据')}</p>
-          </div>
-          <button class="h-8 w-8 rounded-md text-lg text-muted-foreground hover:bg-muted" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭">×</button>
-        </header>
-        <div class="p-4 text-sm text-muted-foreground">
-          ${context.sourceLabel ? `<div>当前来源：${escapeHtml(context.sourceLabel)}</div>` : ''}
-          <div class="mt-2">当前判断：${escapeHtml(resource?.currentJudgement || '暂无判断')}</div>
+        ${renderMaterialResourceHeader(resource)}
+        ${renderMaterialResourceTabs(resource, tab)}
+        <div class="production-object-overview__body">
+          ${renderMaterialResourceTabBody(resource, tab)}
         </div>
+        <footer class="production-object-overview__footer">
+          <div class="text-xs text-muted-foreground">物料资源总览只做供需、库存、配领发和异常判断，不在这里修改库存或采购数据。</div>
+        </footer>
       </section>
     </div>
   `
