@@ -329,8 +329,15 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string): st
   const progress = completionProgress(record)
   const overdueItem = earliestOverdueItem(record)
   const firstActionItem = overdueItem ?? requiredItems(record).find((item) => item.status !== '已完成') ?? record.items[0]
+  const patternItem = record.items.find((item) => item.itemType === '花型')
   const detailHref = buildHref({ tab: 'ledger', month, recordId: record.recordId })
   const updateHref = buildHref({ tab: 'ledger', month, recordId: record.recordId, itemId: firstActionItem?.itemId }) + '#prep-items'
+  const assignHref = patternItem
+    ? buildHref({ tab: 'ledger', month, recordId: record.recordId, itemId: patternItem.itemId, action: 'assign' })
+    : ''
+  const uploadHref = patternItem
+    ? buildHref({ tab: 'ledger', month, recordId: record.recordId, itemId: patternItem.itemId, action: 'upload' })
+    : ''
 
   return `
     <tr class="border-b align-top last:border-b-0 hover:bg-muted/30">
@@ -380,6 +387,14 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string): st
         <div class="flex min-w-[160px] flex-col items-start gap-2">
           <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(detailHref)}">查看详情</button>
           <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(updateHref)}">更新准备项</button>
+          ${
+            patternItem
+              ? `
+                <button type="button" class="inline-flex h-7 items-center rounded-md border px-2 text-xs text-blue-600 hover:bg-muted" data-nav="${escapeHtml(assignHref)}">分配花型师</button>
+                <button type="button" class="inline-flex h-7 items-center rounded-md border px-2 text-xs text-blue-600 hover:bg-muted" data-nav="${escapeHtml(uploadHref)}">上传完成图片</button>
+              `
+              : ''
+          }
           <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="/fcs/production/orders?keyword=${escapeHtml(encodeURIComponent(record.productionOrderNo))}">查看生产单</button>
         </div>
       </td>
