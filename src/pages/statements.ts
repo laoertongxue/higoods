@@ -12,7 +12,6 @@ import {
   getStatementDetailViewModel,
   getStatementListItems,
   getStatementSourceItemById,
-  listStatementBuildCandidates,
   listStatementBuildScopes,
   type StatementBuildScopeViewModel,
   type StatementDetailLineViewModel,
@@ -565,9 +564,7 @@ function renderStatementAuditLogList(draft: StatementDraft): string {
     .join('')
 }
 
-function getBuildCandidates(
-  scopes: StatementBuildScopeViewModel[],
-): StatementSourceItemViewModel[] {
+function getBuildCandidates(): StatementSourceItemViewModel[] {
   const editingDraft = getEditingDraft()
   if (editingDraft) {
     return editingDraft.itemSourceIds
@@ -575,9 +572,10 @@ function getBuildCandidates(
       .filter(Boolean) as StatementSourceItemViewModel[]
   }
 
-  const selectedScope = getSelectedBuildScope(scopes)
-  if (!selectedScope) return []
-  return listStatementBuildCandidates(selectedScope.settlementPartyId, selectedScope.settlementCycleId)
+  if (!isBuildRangeReady()) return []
+  return getBuildRangeLedgers()
+    .map((item) => getStatementSourceItemById(item.ledgerId))
+    .filter(Boolean) as StatementSourceItemViewModel[]
 }
 
 function isBuildRangeReady(): boolean {
@@ -1637,7 +1635,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
   const editingDraft = getEditingDraft()
   const factoryOptions = getBuildFactoryOptions(scopes)
   const selectedScope = getSelectedBuildScope(scopes)
-  const buildCandidates = getBuildCandidates(scopes)
+  const buildCandidates = getBuildCandidates()
   const buildLines = getBuildLines(scopes)
   const buildSummary = getBuildLineSummary(buildLines)
   const projections = getBuildProductionOrderProjections()
@@ -2070,7 +2068,7 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
       return true
     }
 
-    const sourceCandidates = getBuildCandidates(scopes)
+    const sourceCandidates = getBuildCandidates()
     const result = syncStatementDraftFromBuild({
       statementId,
       remark: state.buildRemark,

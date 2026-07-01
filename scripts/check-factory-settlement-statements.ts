@@ -30,5 +30,7 @@ for (const token of [
 assert(!source.includes('必须先选工厂和结算周期，再自动加载该范围内的回货批次明细行'))
 assert(source.includes('buildStatementDraftLinesFromSettlementSelection'))
 assert(source.includes('buildProductionOrderSettlementProjections'))
+assert(source.includes('listStatementEligiblePreSettlementLedgersByRange'))
+assert(!source.includes('listStatementBuildCandidates(selectedScope.settlementPartyId, selectedScope.settlementCycleId)'))
 
 console.log('check:factory-settlement-statements passed')
