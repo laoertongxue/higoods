@@ -51,6 +51,9 @@ function renderOrdersTable(): string {
               objectType: 'PRINT_WORK_ORDER',
               objectId: order.printOrderNo,
               label: order.printOrderNo,
+              relatedProductionOrderNo: order.productionOrderIds[0],
+              defaultTab: 'progress',
+              highlightKey: `PRINT_WORK_ORDER:${order.printOrderNo}`,
               className: 'font-mono text-blue-600 hover:underline',
             })}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.patternNo)} / ${escapeHtml(order.patternVersion)}</div>

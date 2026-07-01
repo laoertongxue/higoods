@@ -15,6 +15,7 @@ import {
 } from '../../../data/fcs/cutting/production-material-prep.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
@@ -40,6 +41,55 @@ const statusVariantMap: Record<string, BadgeVariant> = {
   REJECTED_REWORK: 'danger',
   READY: 'success',
   CLOSED: 'neutral',
+}
+
+function renderProductionOrderCode(productionOrderNo: string): string {
+  return renderProductionObjectCodeButton({
+    objectType: 'PRODUCTION_ORDER',
+    objectId: productionOrderNo,
+    defaultTab: 'overview',
+    highlightKey: `PRODUCTION_ORDER:${productionOrderNo}`,
+  })
+}
+
+function renderPrepOrderCode(prepOrderNo: string, productionOrderNo: string): string {
+  return renderProductionObjectCodeButton({
+    objectType: 'MATERIAL_PREP_ORDER',
+    objectId: prepOrderNo,
+    relatedProductionOrderNo: productionOrderNo,
+    defaultTab: 'materials',
+    highlightKey: `MATERIAL_PREP_ORDER:${prepOrderNo}`,
+  })
+}
+
+function renderPrepRecordCode(prepRecordId: string, productionOrderNo: string): string {
+  return renderProductionObjectCodeButton({
+    objectType: 'MATERIAL_PREP_RECORD',
+    objectId: prepRecordId,
+    relatedProductionOrderNo: productionOrderNo,
+    defaultTab: 'materials',
+    highlightKey: `MATERIAL_PREP_RECORD:${prepRecordId}`,
+  })
+}
+
+function renderPickupRecordCode(pickupRecordId: string, productionOrderNo: string): string {
+  return renderProductionObjectCodeButton({
+    objectType: 'MATERIAL_PICKUP_RECORD',
+    objectId: pickupRecordId,
+    relatedProductionOrderNo: productionOrderNo,
+    defaultTab: 'materials',
+    highlightKey: `MATERIAL_PICKUP_RECORD:${pickupRecordId}`,
+  })
+}
+
+function renderMaterialSkuCode(materialSku: string, productionOrderNo: string): string {
+  return renderProductionObjectCodeButton({
+    objectType: 'MATERIAL',
+    objectId: materialSku,
+    relatedProductionOrderNo: productionOrderNo,
+    defaultTab: 'materials',
+    highlightKey: `MATERIAL:${materialSku}`,
+  })
 }
 
 function getSearchParams(): URLSearchParams {
@@ -310,7 +360,7 @@ function renderCandidateMaterialPreview(candidate: PrepRecordPickupCandidate): s
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-1">
               ${renderBadge(item.materialType, item.materialType === '面料' ? 'info' : item.materialType === '辅料' ? 'warning' : item.materialType === '纱线' ? 'success' : 'neutral')}
-              <span class="truncate text-xs font-medium">${escapeHtml(item.materialSku)}</span>
+              <span class="truncate text-xs font-medium">${renderMaterialSkuCode(item.materialSku, candidate.productionOrderNo)}</span>
             </div>
             <div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(item.materialName)} / ${escapeHtml(item.color)}</div>
             <div class="mt-1 text-xs text-muted-foreground">本次可领 ${formatQty(item.availableToPickupQty, item.unit)} / 已领 ${formatQty(item.pickedQty, item.unit)}</div>
@@ -350,7 +400,7 @@ function renderWaitPickupCandidateTable(candidates: PrepRecordPickupCandidate[],
               <tr class="border-t">
                 <td class="px-3 py-3 align-top">
                   <div class="font-medium">${escapeHtml(candidate.batchNo)}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.prepRecordId)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${renderPrepRecordCode(candidate.prepRecordId, candidate.productionOrderNo)}</div>
                   <div class="mt-2">${renderBadge('已确认待领料', 'success')}</div>
                   <div class="mt-2 text-xs text-muted-foreground">明细 ${candidate.materialCount} 项 / 卷件 ${candidate.totalRollCount}</div>
                 </td>
@@ -359,7 +409,7 @@ function renderWaitPickupCandidateTable(candidates: PrepRecordPickupCandidate[],
                     ${renderImageThumb(candidate.spuImageUrl, `${candidate.styleNo} / ${candidate.spu} 款式SPU图`, 'h-14 w-14')}
                     <div>
                       <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(buildDetailHref(candidate.prepOrderId, activeTab, candidate.prepRecordId, candidate.defaultPrepLineId))}">${renderProductionOrderIdentityCell(candidate.productionOrderNo)}</div>
-                      <div class="mt-1 text-xs text-muted-foreground">配料单：${escapeHtml(candidate.prepOrderNo)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">配料单：${renderPrepOrderCode(candidate.prepOrderNo, candidate.productionOrderNo)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.styleNo)} / ${escapeHtml(candidate.styleName)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.spu)}</div>
                     </div>
@@ -438,7 +488,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], candidates: PrepR
                 <tr class="border-t">
                   <td class="px-3 py-3 align-top">
                     <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(buildDetailHref(row.order.prepOrderId, activeTab, firstCandidate?.prepRecordId, firstCandidate?.defaultPrepLineId))}">${renderProductionOrderIdentityCell(row.order.productionOrderNo)}</div>
-                    <div class="mt-1 text-xs text-muted-foreground">配料单：${escapeHtml(row.order.prepOrderNo)}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">配料单：${renderPrepOrderCode(row.order.prepOrderNo, row.order.productionOrderNo)}</div>
                     <div class="mt-1 text-xs text-muted-foreground">交期：${escapeHtml(row.order.deliveryDate)}</div>
                   </td>
                   <td class="px-3 py-3 align-top">
@@ -453,7 +503,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], candidates: PrepR
                           <div class="mt-1 space-y-1">
                             ${rowCandidates.slice(0, 3).map((candidate) => `
                               <div class="rounded border bg-background px-2 py-1 text-xs text-slate-700">
-                                配料记录：${escapeHtml(candidate.batchNo)} / ${escapeHtml(candidate.prepRecordId)} / 明细 ${candidate.items.length} 项
+                                配料记录：${escapeHtml(candidate.batchNo)} / ${renderPrepRecordCode(candidate.prepRecordId, candidate.productionOrderNo)} / 明细 ${candidate.items.length} 项
                               </div>
                             `).join('')}
                           </div>
@@ -513,8 +563,8 @@ function renderCandidateList(candidates: PrepRecordPickupCandidate[]): string {
               <div class="flex items-start gap-3">
                 ${renderImageThumb(candidate.spuImageUrl, `${candidate.styleNo} / ${candidate.spu} 款式SPU图`, 'h-14 w-14')}
                 <div>
-                  <div class="font-medium">${escapeHtml(candidate.batchNo)} / ${escapeHtml(candidate.prepRecordId)}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.productionOrderNo)} / ${escapeHtml(candidate.prepOrderNo)} / ${escapeHtml(candidate.styleNo)} ${escapeHtml(candidate.styleName)}</div>
+                  <div class="font-medium">${escapeHtml(candidate.batchNo)} / ${renderPrepRecordCode(candidate.prepRecordId, candidate.productionOrderNo)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${renderProductionOrderCode(candidate.productionOrderNo)} / ${renderPrepOrderCode(candidate.prepOrderNo, candidate.productionOrderNo)} / ${escapeHtml(candidate.styleNo)} ${escapeHtml(candidate.styleName)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">确认：${escapeHtml(candidate.confirmedAt || candidate.preparedAt)} / ${escapeHtml(candidate.confirmedBy || candidate.operatorName)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">来源仓库：${escapeHtml(candidate.warehouseNames.join('、'))}</div>
                 </div>
@@ -546,7 +596,7 @@ function renderCandidateList(candidates: PrepRecordPickupCandidate[]): string {
                       <td class="px-3 py-2">${renderMaterialThumb(item)}</td>
                       <td class="px-3 py-2">${renderBadge(item.materialType, item.materialType === '面料' ? 'info' : item.materialType === '辅料' ? 'warning' : item.materialType === '纱线' ? 'success' : 'neutral')}</td>
                       <td class="px-3 py-2">
-                        <div class="font-medium">${escapeHtml(item.materialSku)}</div>
+                        <div class="font-medium">${renderMaterialSkuCode(item.materialSku, candidate.productionOrderNo)}</div>
                         <div class="mt-1 text-muted-foreground">${escapeHtml(item.materialName)} / ${escapeHtml(item.color)} / ${escapeHtml(item.cutOrderNo)}</div>
                       </td>
                       <td class="px-3 py-2">${formatQty(item.preparedQty, item.unit)} / ${item.rollCount} 卷</td>
@@ -590,7 +640,7 @@ function renderRejectPanel(prepRecordId: string, prepLineId = ''): string {
         <div class="flex items-start gap-3">
           ${renderImageThumb(context.projection.order.spuImageUrl, `${context.projection.order.styleNo} 款式SPU图`, 'h-14 w-14')}
           <div>
-            <div class="font-medium">${escapeHtml(context.record.batchNo)} / ${escapeHtml(context.record.prepRecordId)}</div>
+            <div class="font-medium">${escapeHtml(context.record.batchNo)} / ${renderPrepRecordCode(context.record.prepRecordId, context.projection.order.productionOrderNo)}</div>
             <div class="mt-1 text-xs text-muted-foreground">记录内物料：${context.items.length} 项 / 来源仓库：${escapeHtml(context.warehouseNames.join('、'))}。</div>
             <div class="mt-1 text-xs text-muted-foreground">打回对象是整条配料记录，不是记录内某一物料。打回后该记录变为未确认/待重配，不影响同配料单其他记录。</div>
           </div>
@@ -611,7 +661,7 @@ function renderRejectPanel(prepRecordId: string, prepLineId = ''): string {
               <tr class="border-t">
                 <td class="px-3 py-2">${renderMaterialThumb(item)}</td>
                 <td class="px-3 py-2">
-                  <div class="font-medium">${escapeHtml(item.materialSku)}</div>
+                  <div class="font-medium">${renderMaterialSkuCode(item.materialSku, context.projection.order.productionOrderNo)}</div>
                   <div class="mt-1 text-muted-foreground">${escapeHtml(item.materialName)} / ${escapeHtml(item.color)} / ${escapeHtml(item.cutOrderNo)}</div>
                 </td>
                 <td class="px-3 py-2">${formatQty(item.availableToPickupQty, item.unit)}</td>
@@ -717,9 +767,9 @@ function renderPrepRecordModal(
               <div class="flex items-start gap-3">
                 ${renderImageThumb(context.projection.order.spuImageUrl, `${context.projection.order.styleNo} 款式SPU图`, 'h-16 w-16')}
                 <div>
-                  <div class="font-medium">${escapeHtml(context.projection.order.productionOrderNo)} / ${escapeHtml(context.projection.order.prepOrderNo)}</div>
+                  <div class="font-medium">${renderProductionOrderCode(context.projection.order.productionOrderNo)} / ${renderPrepOrderCode(context.projection.order.prepOrderNo, context.projection.order.productionOrderNo)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(context.projection.order.styleNo)} ${escapeHtml(context.projection.order.styleName)} / ${escapeHtml(context.projection.order.spu)}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">配料记录：${escapeHtml(context.record.batchNo)} / ${escapeHtml(context.record.prepRecordId)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">配料记录：${escapeHtml(context.record.batchNo)} / ${renderPrepRecordCode(context.record.prepRecordId, context.projection.order.productionOrderNo)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">确认：${escapeHtml(context.record.confirmedAt || '未确认')} / ${escapeHtml(context.record.confirmedBy || '-')}</div>
                 </div>
               </div>
@@ -747,7 +797,7 @@ function renderPrepRecordModal(
                     <td class="px-3 py-3">${renderMaterialThumb(item)}</td>
                     <td class="px-3 py-3">${renderBadge(item.materialType, item.materialType === '面料' ? 'info' : item.materialType === '辅料' ? 'warning' : item.materialType === '纱线' ? 'success' : 'neutral')}</td>
                     <td class="px-3 py-3">
-                      <div class="font-medium">${escapeHtml(item.materialSku)}</div>
+                      <div class="font-medium">${renderMaterialSkuCode(item.materialSku, context.projection.order.productionOrderNo)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialName)} / ${escapeHtml(item.color)} / ${escapeHtml(item.cutOrderNo)}</div>
                     </td>
                     <td class="px-3 py-3">${formatQty(item.preparedQty, item.unit)} / ${item.rollCount} 卷</td>
@@ -812,8 +862,8 @@ function renderProductionDemand(projection: MaterialPrepOrderProjection): string
         </div>
       </div>
       <div class="mt-3 grid grid-cols-2 gap-3 text-sm lg:grid-cols-4">
-        <div><div class="text-xs text-muted-foreground">生产单</div><div class="font-medium">${escapeHtml(order.productionOrderNo)}</div></div>
-        <div><div class="text-xs text-muted-foreground">配料单</div><div class="font-medium">${escapeHtml(order.prepOrderNo)}</div></div>
+        <div><div class="text-xs text-muted-foreground">生产单</div><div class="font-medium">${renderProductionOrderCode(order.productionOrderNo)}</div></div>
+        <div><div class="text-xs text-muted-foreground">配料单</div><div class="font-medium">${renderPrepOrderCode(order.prepOrderNo, order.productionOrderNo)}</div></div>
         <div><div class="text-xs text-muted-foreground">款式</div><div class="font-medium">${escapeHtml(order.styleNo)} / ${escapeHtml(order.styleName)}</div></div>
         <div><div class="text-xs text-muted-foreground">SPU</div><div class="font-medium">${escapeHtml(order.spu)}</div></div>
         <div><div class="text-xs text-muted-foreground">计划数量</div><div class="font-medium">${order.planQty.toLocaleString('zh-CN')} 件</div></div>
@@ -850,12 +900,12 @@ function renderWarehousePickupRecords(projection: MaterialPrepOrderProjection): 
               return `
                 <tr class="border-t">
                   <td class="px-3 py-3">
-                    <div class="font-medium">${escapeHtml(record.pickupRecordId)}</div>
+                    <div class="font-medium">${renderPickupRecordCode(record.pickupRecordId, projection.order.productionOrderNo)}</div>
                     <div class="mt-1 text-xs text-muted-foreground">流水：${escapeHtml(record.waitProcessLedgerEventId || '-')}</div>
                   </td>
-                  <td class="px-3 py-3">${escapeHtml(record.prepRecordId)}</td>
+                  <td class="px-3 py-3">${renderPrepRecordCode(record.prepRecordId, projection.order.productionOrderNo)}</td>
                   <td class="px-3 py-3">
-                    <div class="font-medium">${escapeHtml(line?.materialSku || record.prepLineId)}</div>
+                    <div class="font-medium">${line?.materialSku ? renderMaterialSkuCode(line.materialSku, projection.order.productionOrderNo) : escapeHtml(record.prepLineId)}</div>
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line ? `${line.materialName} / ${line.color}` : '未匹配物料行')}</div>
                   </td>
                   <td class="px-3 py-3">${formatQty(record.pickedQty, line?.unit || 'yard')} / ${record.rollCount} 卷</td>
@@ -898,8 +948,8 @@ function renderOrderDetail(projection: MaterialPrepOrderProjection | null): stri
         </div>
       </div>
       <div class="mt-3 grid grid-cols-2 gap-3 text-sm lg:grid-cols-5">
-        <div><div class="text-xs text-muted-foreground">生产单</div><div class="font-medium">${escapeHtml(projection.order.productionOrderNo)}</div></div>
-        <div><div class="text-xs text-muted-foreground">配料单</div><div class="font-medium">${escapeHtml(projection.order.prepOrderNo)}</div></div>
+        <div><div class="text-xs text-muted-foreground">生产单</div><div class="font-medium">${renderProductionOrderCode(projection.order.productionOrderNo)}</div></div>
+        <div><div class="text-xs text-muted-foreground">配料单</div><div class="font-medium">${renderPrepOrderCode(projection.order.prepOrderNo, projection.order.productionOrderNo)}</div></div>
         <div><div class="text-xs text-muted-foreground">已确认可领</div><div class="font-medium">${formatQty(projection.totalAvailableToPickupQty)}</div></div>
         <div><div class="text-xs text-muted-foreground">已领料</div><div class="font-medium">${formatQty(projection.totalPickedQty)}</div></div>
         <div><div class="text-xs text-muted-foreground">缺料</div><div class="font-medium">${formatQty(projection.totalShortageQty)}</div></div>
@@ -924,7 +974,7 @@ function renderOrderDetail(projection: MaterialPrepOrderProjection | null): stri
                 <td class="px-3 py-3">${renderMaterialThumb(line)}</td>
                 <td class="px-3 py-3">${renderBadge(line.materialType, line.materialType === '面料' ? 'info' : line.materialType === '辅料' ? 'warning' : line.materialType === '纱线' ? 'success' : 'neutral')}</td>
                 <td class="px-3 py-3">
-                  <div class="font-medium">${escapeHtml(line.materialSku)}</div>
+                  <div class="font-medium">${renderMaterialSkuCode(line.materialSku, projection.order.productionOrderNo)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.materialName)} / ${escapeHtml(line.color)}</div>
                 </td>
                 <td class="px-3 py-3">${formatQty(line.requiredQty, line.unit)}</td>
@@ -1035,7 +1085,7 @@ export function renderCraftCuttingPickupManagementDetailPage(): string {
         <div>
           <div class="text-sm text-muted-foreground">工艺工厂运营系统 / 裁床厂管理 / 裁前准备 / 领料管理</div>
           <h1 class="mt-1 text-2xl font-bold">领料详情</h1>
-          <p class="mt-2 text-sm text-muted-foreground">生产单 ${escapeHtml(activeProjection.order.productionOrderNo)} / 配料单 ${escapeHtml(activeProjection.order.prepOrderNo)}</p>
+          <p class="mt-2 text-sm text-muted-foreground">生产单 ${renderProductionOrderCode(activeProjection.order.productionOrderNo)} / 配料单 ${renderPrepOrderCode(activeProjection.order.prepOrderNo, activeProjection.order.productionOrderNo)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(backHref)}">返回领料列表</button>

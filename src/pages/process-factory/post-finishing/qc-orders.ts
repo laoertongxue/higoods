@@ -4,6 +4,8 @@ import {
   completePostFinishingQcOrder,
   createPostFinishingQcOrder,
   getPostFinishingTaskById,
+  getPostFinishingRecheckOrderById,
+  listPostFinishingQcOrderEntities,
   listPostFinishingQcOrders,
   listPostFinishingWaitQcSkuItems,
   type PostFinishingActionRecord,
@@ -15,6 +17,7 @@ import { buildUnifiedPrintPreviewLink } from '../../../data/fcs/print-service.ts
 import { appStore } from '../../../state/store.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
@@ -71,6 +74,50 @@ function getViewId(): string {
 
 function getCurrentPostTaskId(): string {
   return currentParams().get('postTaskId') || ''
+}
+
+function renderProductionOrderCode(productionOrderNo: string): string {
+  return renderProductionObjectCodeButton({
+    objectType: 'PRODUCTION_ORDER',
+    objectId: productionOrderNo,
+    defaultTab: 'overview',
+    highlightKey: `PRODUCTION_ORDER:${productionOrderNo}`,
+  })
+}
+
+function renderQcMasterOrderCode(objectId: string, productionOrderNo: string, label = objectId): string {
+  return renderProductionObjectCodeButton({
+    objectType: 'QC_MASTER_ORDER',
+    objectId,
+    label,
+    relatedProductionOrderNo: productionOrderNo,
+    defaultTab: 'quantity',
+    highlightKey: `QC_MASTER_ORDER:${label}`,
+  })
+}
+
+function renderQcOrderCode(qcOrderNo: string, productionOrderNo?: string): string {
+  return renderProductionObjectCodeButton({
+    objectType: 'QC_ORDER',
+    objectId: qcOrderNo,
+    relatedProductionOrderNo: productionOrderNo,
+    defaultTab: 'quantity',
+    highlightKey: `QC_ORDER:${qcOrderNo}`,
+  })
+}
+
+function renderRecheckOrderCode(recheckOrderNo: string, productionOrderNo: string): string {
+  return renderProductionObjectCodeButton({
+    objectType: 'RECHECK_ORDER',
+    objectId: recheckOrderNo,
+    relatedProductionOrderNo: productionOrderNo,
+    defaultTab: 'quantity',
+    highlightKey: `RECHECK_ORDER:${recheckOrderNo}`,
+  })
+}
+
+function renderReadonlyHtmlField(label: string, valueHtml: string): string {
+  return `<div class="rounded-lg border bg-slate-50 px-3 py-2"><div class="text-xs text-muted-foreground">${escapeHtml(label)}</div><div class="mt-1 text-sm font-medium text-foreground">${valueHtml || '—'}</div></div>`
 }
 
 type QcTabKey = 'wait' | 'qc'
@@ -389,11 +436,20 @@ function renderPageHeader(): string {
       : '',
     `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(linkWith({ createQc: '1', completeQc: undefined, viewQc: undefined }))}">创建质检单</button>`,
   ].filter(Boolean).join('')
-  return renderPostFinishingPageHeader(
+  const header = renderPostFinishingPageHeader(
     '质检单',
     task ? `${task.postTaskNo} / ${task.productionOrderNo}` : '',
     `<div class="flex flex-wrap gap-2">${actions}</div>`,
   )
+  if (!task) return header
+  return `${header}
+    <div class="rounded-lg border bg-slate-50 px-4 py-3 text-sm">
+      <span class="text-xs text-muted-foreground">生产单质检总单</span>
+      <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+        <span>质检总单：${renderQcMasterOrderCode(task.postTaskNo || task.postTaskId, task.productionOrderNo, task.postTaskNo || task.postTaskId)}</span>
+        <span>生产单：${renderProductionOrderCode(task.productionOrderNo)}</span>
+      </div>
+    </div>`
 }
 
 function renderModal(title: string, body: string): string {
@@ -428,7 +484,7 @@ function renderCreateQcDialog(): string {
           <img class="h-14 w-14 rounded-lg border object-cover" src="${escapeHtml(item.skuImageUrl || 'https://placehold.co/96x96?text=SKU')}" alt="${escapeHtml(item.skuCode)}" />
         </td>
         <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(item.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div></td>
-        <td class="px-3 py-3 text-sm">${renderProductionOrderIdentityCell(item.productionOrderNo)}<div class="text-xs text-muted-foreground">${escapeHtml(item.sourceTaskNo)}</div></td>
+        <td class="px-3 py-3 text-sm">${renderProductionOrderIdentityCell(item.productionOrderNo)}<div class="text-xs text-muted-foreground">质检总单：${renderQcMasterOrderCode(item.postTaskNo || item.postTaskId, item.productionOrderNo, item.postTaskNo || item.postTaskId)}</div><div class="text-xs text-muted-foreground">上游任务：${escapeHtml(item.sourceTaskNo)}</div></td>
         <td class="px-3 py-3 text-sm">${escapeHtml(item.sourceFactoryName)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(locationLabel)}</td>
         <td class="px-3 py-3 text-sm">${formatGarmentQty(item.currentStockQty, item.qtyUnit)}</td>
@@ -451,7 +507,7 @@ function renderCreateQcDialog(): string {
         </label>
         <div class="rounded-lg border bg-slate-50 px-3 py-2 text-sm">
           <div class="text-xs text-muted-foreground">创建范围</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(task ? `${task.postTaskNo} / ${task.productionOrderNo}` : '同一张质检单只能选择同一生产单下的同一款式 SKU')}</div>
+          <div class="mt-1 font-medium text-foreground">${task ? `${renderQcMasterOrderCode(task.postTaskNo || task.postTaskId, task.productionOrderNo, task.postTaskNo || task.postTaskId)} / ${renderProductionOrderCode(task.productionOrderNo)}` : '同一张质检单只能选择同一生产单下的同一款式 SKU'}</div>
         </div>
       </div>
       <div class="overflow-x-auto rounded-xl border">
@@ -652,12 +708,14 @@ function renderCompleteQcDialog(): string {
   if (!recordId) return ''
   const record = listPostFinishingQcOrders().find((item) => item.actionRecordId === recordId)
   if (!record) return renderModal('完成质检', '<div class="text-sm text-muted-foreground">未找到质检单</div>')
+  const snapshot = buildPostFinishingQcDeductionRecord(record)
+  const productionOrderNo = resolveRecordProductionOrderNo(record, snapshot)
   const result = deriveQcResultFromRecord(record)
   const isAllGood = result === '全数合规'
   return renderModal('完成质检', `
     <div class="space-y-5">
       <div class="grid gap-3 lg:grid-cols-3">
-        ${renderInput('质检单号', record.actionRecordNo, 'disabled')}
+        ${renderReadonlyHtmlField('质检单号', renderQcOrderCode(record.actionRecordNo, productionOrderNo))}
         ${renderSelect('质检台', ['后道质检台 A', '后道质检台 B', '后道质检台 C'], record.qcStationName || '后道质检台 A', 'data-qc-complete-station')}
         ${renderInput('质检结果', result, 'disabled data-qc-result-display')}
       </div>
@@ -732,6 +790,24 @@ function resolveQcMasterPrintSourceId(record: PostFinishingActionRecord, snapsho
     || ''
 }
 
+function resolveRecordProductionOrderNo(record: PostFinishingActionRecord, snapshot?: ReturnType<typeof buildPostFinishingQcDeductionRecord>): string {
+  return snapshot?.productionOrderNo || record.warehouseAllocations?.[0]?.productionOrderNo || ''
+}
+
+function resolveRecordPostTask(record: PostFinishingActionRecord, snapshot?: ReturnType<typeof buildPostFinishingQcDeductionRecord>): ReturnType<typeof getPostFinishingTaskById> {
+  const postTaskId = record.warehouseAllocations?.find((allocation) => allocation.postTaskId)?.postTaskId
+    || snapshot?.refTaskId
+    || snapshot?.taskId
+    || ''
+  return postTaskId ? getPostFinishingTaskById(postTaskId) : undefined
+}
+
+function resolveRecordRecheckOrder(record: PostFinishingActionRecord): ReturnType<typeof getPostFinishingRecheckOrderById> {
+  const qcOrder = listPostFinishingQcOrderEntities().find((item) => item.qcOrderId === record.actionRecordId || item.qcOrderNo === record.actionRecordNo)
+  const recheckOrderId = qcOrder?.generatedRecheckOrderId || record.linkedRecheckOrderId || ''
+  return recheckOrderId ? getPostFinishingRecheckOrderById(recheckOrderId) : undefined
+}
+
 function renderMasterPrintButton(record: PostFinishingActionRecord, snapshot?: ReturnType<typeof buildPostFinishingQcDeductionRecord>): string {
   const sourceId = resolveQcMasterPrintSourceId(record, snapshot)
   if (!sourceId) return ''
@@ -748,6 +824,9 @@ function renderViewDialog(): string {
   const record = listPostFinishingQcOrders().find((item) => item.actionRecordId === recordId)
   if (!record) return renderModal('质检单详情', '<div class="text-sm text-muted-foreground">未找到质检单</div>')
   const snapshot = buildPostFinishingQcDeductionRecord(record)
+  const productionOrderNo = resolveRecordProductionOrderNo(record, snapshot)
+  const task = resolveRecordPostTask(record, snapshot)
+  const recheckOrder = resolveRecordRecheckOrder(record)
   const allocationRows = (record.warehouseAllocations || []).map((allocation) => `
     <tr>
       <td class="px-3 py-2 font-mono text-xs">${escapeHtml(allocation.warehouseRecordNo)}</td>
@@ -793,7 +872,10 @@ function renderViewDialog(): string {
   return renderModal('质检单详情', `
     <div class="space-y-5">
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        ${renderReadonlyField('质检单号', record.actionRecordNo)}
+        ${renderReadonlyHtmlField('质检单号', renderQcOrderCode(record.actionRecordNo, productionOrderNo))}
+        ${task ? renderReadonlyHtmlField('生产单质检总单', renderQcMasterOrderCode(task.postTaskNo || task.postTaskId, task.productionOrderNo, task.postTaskNo || task.postTaskId)) : ''}
+        ${productionOrderNo ? renderReadonlyHtmlField('生产单号', renderProductionOrderCode(productionOrderNo)) : ''}
+        ${recheckOrder ? renderReadonlyHtmlField('复检单号', renderRecheckOrderCode(recheckOrder.recheckOrderNo, recheckOrder.productionOrderNo)) : ''}
         ${renderReadonlyField('质检台', record.qcStationName || '—')}
         ${renderReadonlyField('质检状态', record.status)}
         ${renderReadonlyField('质检数量', formatGarmentQty(record.inspectedGarmentQty ?? record.submittedGarmentQty, record.qtyUnit))}
@@ -831,7 +913,7 @@ function renderWaitRows(rows: PostFinishingWaitQcSkuItem[]): string {
       <tr class="align-top">
         <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(item.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div></td>
         <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(item.spuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.spuName)}</div></td>
-        <td class="px-3 py-3 text-sm">${renderProductionOrderIdentityCell(item.productionOrderNo)}<div class="text-xs text-muted-foreground">${escapeHtml(item.sourceTaskNo)}</div></td>
+        <td class="px-3 py-3 text-sm">${renderProductionOrderIdentityCell(item.productionOrderNo)}<div class="text-xs text-muted-foreground">质检总单：${renderQcMasterOrderCode(item.postTaskNo || item.postTaskId, item.productionOrderNo, item.postTaskNo || item.postTaskId)}</div><div class="text-xs text-muted-foreground">上游任务：${escapeHtml(item.sourceTaskNo)}</div></td>
         <td class="px-3 py-3 text-sm"><div>${escapeHtml(item.sourceFactoryName)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.sourceFactoryType)}</div></td>
         <td class="px-3 py-3 text-sm">${escapeHtml(item.locationCode ? `${item.areaName || '未分区'} / ${item.locationCode}` : item.areaName || '未分区')}</td>
         <td class="px-3 py-3 text-sm">${formatGarmentQty(item.currentStockQty, item.qtyUnit)}</td>
@@ -849,13 +931,18 @@ function renderQcRows(rows: PostFinishingActionRecord[]): string {
     const canFinish = !record.status.includes('完成')
     const pendingDefectReasonQty = getPendingDefectReasonQty(record)
     const skuSummary = record.skuLines.map((line) => `${line.skuCode}/${line.colorName}/${line.sizeName}`).join('、')
+    const productionOrderNo = resolveRecordProductionOrderNo(record, snapshot)
+    const task = resolveRecordPostTask(record, snapshot)
+    const recheckOrder = resolveRecordRecheckOrder(record)
     return `
       <article data-qc-list-card class="rounded-xl border bg-white p-4">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="min-w-0">
-            <div class="font-mono text-xs text-muted-foreground">${escapeHtml(record.actionRecordNo)}</div>
+            <div class="font-mono text-xs text-muted-foreground">${renderQcOrderCode(record.actionRecordNo, productionOrderNo)}</div>
             <div class="mt-1 text-sm font-semibold">${escapeHtml(record.postOrderNo)} · ${escapeHtml(record.qcStationName || '—')}</div>
-            <div class="mt-2">${renderProductionOrderIdentityCell(snapshot?.productionOrderNo || '—')}</div>
+            <div class="mt-2">${renderProductionOrderIdentityCell(productionOrderNo || '—')}</div>
+            ${task ? `<div class="mt-1 text-xs text-muted-foreground">质检总单：${renderQcMasterOrderCode(task.postTaskNo || task.postTaskId, task.productionOrderNo, task.postTaskNo || task.postTaskId)}</div>` : ''}
+            ${recheckOrder ? `<div class="mt-1 text-xs text-muted-foreground">复检单：${renderRecheckOrderCode(recheckOrder.recheckOrderNo, recheckOrder.productionOrderNo)}</div>` : ''}
           </div>
           <div class="flex flex-wrap items-center gap-2">
             ${renderPostStatusBadge(record.status)}

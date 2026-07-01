@@ -1075,6 +1075,9 @@ function renderTable(rows: CutOrderRow[]): string {
                                 objectType: 'CUT_ORDER',
                                 objectId: row.cutOrderNo,
                                 label: row.cutOrderNo,
+                                relatedProductionOrderNo: row.productionOrderNo,
+                                defaultTab: 'progress',
+                                highlightKey: `CUT_ORDER:${row.cutOrderNo}`,
                                 className: 'font-mono text-blue-600 hover:underline',
                               })}
                               <button type="button" class="ml-2 rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted" data-nav="${escapeHtml(buildCutOrderDetailPath(row.id))}">详情</button>
@@ -1639,7 +1642,15 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
       <div class="flex flex-wrap items-start justify-between gap-3 rounded-xl border bg-card p-4">
         <div>
           <p class="text-sm text-muted-foreground">裁片单详情</p>
-          <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(row.cutOrderNo)}</h1>
+          <h1 class="text-2xl font-semibold text-foreground">${renderProductionObjectCodeButton({
+            objectType: 'CUT_ORDER',
+            objectId: row.cutOrderNo,
+            label: row.cutOrderNo,
+            relatedProductionOrderNo: row.productionOrderNo,
+            defaultTab: 'progress',
+            highlightKey: `CUT_ORDER:${row.cutOrderNo}`,
+            className: 'font-mono text-blue-600 hover:underline',
+          })}</h1>
           <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(row.productionOrderNo)} · ${escapeHtml(row.materialSku)} · ${escapeHtml(row.patternFileName)}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -2339,6 +2350,9 @@ function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel(
                 objectType: 'CUT_ORDER',
                 objectId: row.cutOrderNo,
                 label: row.cutOrderNo,
+                relatedProductionOrderNo: row.productionOrderNo,
+                defaultTab: 'progress',
+                highlightKey: `CUT_ORDER:${row.cutOrderNo}`,
                 className: 'font-mono text-blue-600 hover:underline',
               })}</h1>
               ${renderBadge(row.currentStageLabel, row.currentStage.className)}

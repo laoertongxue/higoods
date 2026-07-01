@@ -54,6 +54,9 @@ function renderOrdersTable(): string {
               objectType: 'DYE_WORK_ORDER',
               objectId: order.dyeOrderNo,
               label: order.dyeOrderNo,
+              relatedProductionOrderNo: order.productionOrderIds?.[0],
+              defaultTab: 'progress',
+              highlightKey: `DYE_WORK_ORDER:${order.dyeOrderNo}`,
               className: 'font-mono text-blue-600 hover:underline',
             })}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.taskNo)}</div>
