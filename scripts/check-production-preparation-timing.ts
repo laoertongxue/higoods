@@ -290,6 +290,10 @@ assertHtmlIncludes(
 assertHtmlIncludes(uploadPanelScope, '>待确认</span>', '上传完成图片面板状态标识默认必须是待确认')
 assert.ok(!uploadPanelScope.includes('<option value="未提交"'), '上传完成图片提交选择框不应允许未提交')
 assert.ok(!uploadPanelScope.includes('>未提交</span>'), '上传完成图片面板状态标识不应显示未提交')
+assert.ok(
+  !uploadPanelHtml.includes('买手确认：</span>未提交'),
+  '打开上传完成图片流程时，同一抽屉内花型卡片不应继续显示买手确认未提交',
+)
 const staleUploadStatusHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&recordId=prep-202604-003&itemId=prep-202604-003-item-04&action=upload&mockCompletionUploaded=1&buyerReviewStatus=未提交',
 )

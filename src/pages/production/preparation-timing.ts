@@ -663,13 +663,17 @@ function renderPatternFields(
 ): string {
   const assignHref = buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: item.itemId, action: 'assign' })
   const uploadHref = buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: item.itemId, action: 'upload' })
+  const itemReviewStatus =
+    valueOf(params, 'action') === 'upload' && valueOf(params, 'itemId') === item.itemId
+      ? resolveSubmittedBuyerReviewStatus(valueOf(params, 'buyerReviewStatus') || item.buyerReviewStatus || '')
+      : item.buyerReviewStatus || '未提交'
   return `
     <div class="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
       <div class="grid grid-cols-2 gap-2">
         <div><span class="text-muted-foreground">花型任务：</span>${escapeHtml(item.patternTaskNo || '未生成')}</div>
         <div><span class="text-muted-foreground">花型团队：</span>${escapeHtml(item.patternTeamName || '-')}</div>
         <div><span class="text-muted-foreground">花型师：</span>${escapeHtml(item.patternDesignerName || '待分配')}</div>
-        <div><span class="text-muted-foreground">买手确认：</span>${escapeHtml(item.buyerReviewStatus || '未提交')}</div>
+        <div><span class="text-muted-foreground">买手确认：</span>${escapeHtml(itemReviewStatus)}</div>
         <div><span class="text-muted-foreground">完成图：</span>${item.completionImageIds?.length ?? 0} 张</div>
         <div><span class="text-muted-foreground">花型文件：</span>${item.patternFileIds?.length ?? 0} 个</div>
       </div>
