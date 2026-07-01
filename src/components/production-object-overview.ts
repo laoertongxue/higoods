@@ -44,6 +44,14 @@ const TAB_ITEMS: Array<{ key: OverviewTab; label: string }> = [
   { key: 'relationship-history', label: '关系与历史' },
 ]
 
+function getVisibleOverviewTab(tab: OverviewTab): OverviewTab {
+  if (tab === 'documents') return 'materials'
+  if (tab === 'quantity') return 'progress'
+  if (tab === 'responsibility') return 'issues'
+  if (tab === 'relationship' || tab === 'timeline' || tab === 'material-flow' || tab === 'cross-query') return 'relationship-history'
+  return tab
+}
+
 const OBJECT_TYPE_LABEL: Record<ProductionObjectType, string> = {
   PRODUCTION_ORDER: '生产单',
   DEMAND: '生产需求',
@@ -467,11 +475,12 @@ function renderTabs(
   const hasMaterialIssue = overview.materials.some((line) => line.shortageQty > 0)
   const hasProgressIssue = overview.progressNodes.some((node) => node.status.includes('待') || node.status.includes('不能'))
   const hasIssue = overview.issues.length > 0
+  const visibleTab = getVisibleOverviewTab(tab)
 
   return `
     <nav class="flex shrink-0 gap-1 overflow-x-auto border-b bg-card px-4">
       ${TAB_ITEMS.map((item) => {
-        const active = item.key === tab
+        const active = item.key === visibleTab
         const showDot = (item.key === 'materials' && hasMaterialIssue) || (item.key === 'progress' && hasProgressIssue) || (item.key === 'issues' && hasIssue)
         return `
           <button
@@ -1085,8 +1094,16 @@ function renderTasksTab(overview: ProductionObjectOverview): string {
   return `
     <div class="space-y-4">
       <section>
-        <h3 class="mb-3 text-sm font-semibold">工艺任务</h3>
+        <h3 class="mb-3 text-sm font-semibold">完整任务列表</h3>
         ${renderProgressTab(overview)}
+      </section>
+      <section>
+        <h3 class="mb-3 text-sm font-semibold">完整时间列表</h3>
+        ${renderTimelineTab(overview)}
+      </section>
+      <section>
+        <h3 class="mb-3 text-sm font-semibold">完整数量列表</h3>
+        ${renderQuantityTab(overview)}
       </section>
       <section>
         <h3 class="mb-3 text-sm font-semibold">工艺单据</h3>
@@ -1196,11 +1213,11 @@ export function renderOverviewCrossQueryTab(overview: ProductionObjectOverview):
 }
 
 function renderTabBody(overview: ProductionObjectOverview, tab: OverviewTab): string {
-  if (tab === 'materials' || tab === 'documents') return renderMaterialsWarehouseTab(overview)
-  if (tab === 'progress') return renderTasksTab(overview)
-  if (tab === 'quantity') return renderQuantityTab(overview)
-  if (tab === 'issues' || tab === 'responsibility') return renderIssuesResponsibilityTab(overview)
-  if (tab === 'relationship-history' || tab === 'relationship' || tab === 'timeline' || tab === 'material-flow' || tab === 'cross-query') return renderRelationshipHistoryTab(overview)
+  const visibleTab = getVisibleOverviewTab(tab)
+  if (visibleTab === 'materials') return renderMaterialsWarehouseTab(overview)
+  if (visibleTab === 'progress') return renderTasksTab(overview)
+  if (visibleTab === 'issues') return renderIssuesResponsibilityTab(overview)
+  if (visibleTab === 'relationship-history') return renderRelationshipHistoryTab(overview)
   return renderSummaryTab(overview)
 }
 
@@ -1480,7 +1497,7 @@ export function renderProductionObjectOverviewSurface(
   }
 
   const primaryRef = getPrimaryObjectRef(overview)
-  const activeBodyTab: OverviewTab = tab || resolved.clickedRef.defaultTab
+  const activeBodyTab = getVisibleOverviewTab(tab || resolved.clickedRef.defaultTab)
   const highlightKey = activeHighlightKey || resolved.clickedRef.highlightKey
 
   return `

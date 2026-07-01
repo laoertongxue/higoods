@@ -67,6 +67,20 @@ function countMatches(sourceText: string, pattern: string): number {
   return sourceText.split(pattern).length - 1
 }
 
+function getOverviewTabButtonHtml(panel: string, tab: string): string {
+  const marker = `data-tab="${tab}"`
+  const markerIndex = panel.indexOf(marker)
+  if (markerIndex === -1) return ''
+  const start = panel.lastIndexOf('<button', markerIndex)
+  const end = panel.indexOf('</button>', markerIndex)
+  return start === -1 || end === -1 ? '' : panel.slice(start, end + '</button>'.length)
+}
+
+function getActiveOverviewTabs(panel: string): string[] {
+  return ['overview', 'materials', 'progress', 'issues', 'relationship-history']
+    .filter((tab) => getOverviewTabButtonHtml(panel, tab).includes('absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-blue-600'))
+}
+
 function hasSearchGroup(panel: string, group: string): boolean {
   return panel.includes(`<h3 class="text-sm font-semibold">${group}</h3>`)
 }
@@ -500,10 +514,17 @@ assert.ok(source('src/components/production-object-overview.ts').includes('flex 
 
 const surface = uiModule.renderProductionObjectOverviewSurface(overview.objectType, overview.objectKey)
 const linkedSurface = uiModule.renderProductionObjectOverviewSurface('MATERIAL_PICKUP_RECORD', 'PICK-202603-0001')
+const handoverDefaultQuantitySurface = uiModule.renderProductionObjectOverviewSurface('HANDOVER_ORDER', 'HAND-202603-0001')
 for (const text of ['当前查看', '来源系统', '关联生产单', '数量', '单据关系']) {
   assert.ok(linkedSurface.includes(text), `跨系统对象总览缺少 ${text}`)
 }
 assert.ok(linkedSurface.includes('data-production-object-highlight-key'), '总览必须保留高亮对象 key')
+assert.equal(countMatches(handoverDefaultQuantitySurface, 'data-production-object-action="switch-tab"'), 5, '默认数量对象总览也只能保留 5 个一级 Tab')
+assert.ok(!handoverDefaultQuantitySurface.includes('data-tab="quantity"'), '默认数量对象不得把数量恢复成一级 Tab')
+assert.deepEqual(getActiveOverviewTabs(handoverDefaultQuantitySurface), ['progress'], '默认数量对象必须映射到可见的工艺与任务 Tab')
+for (const text of ['完整任务列表', '完整时间列表', '完整数量列表']) {
+  assert.ok(handoverDefaultQuantitySurface.includes(text), `默认数量对象的工艺与任务 Tab 必须保留 ${text}`)
+}
 
 const unlinkedSurface = uiModule.renderProductionObjectOverviewSurface('WAREHOUSE_DOC', 'PICK-NO-PRODUCTION-001')
 assert.ok(unlinkedSurface.includes('未找到关联生产单'), '未关联对象必须展示明确提示')
