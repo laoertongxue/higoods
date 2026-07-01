@@ -55,6 +55,12 @@ export type StatementLineGrainType =
   | 'NON_BATCH_QUALITY'
   | 'NON_BATCH_ADJUSTMENT'
   | 'OTHER_SOURCE_OBJECT'
+export type StatementSettlementObjectMode = 'LEDGER' | 'PRODUCTION_ORDER'
+export type StatementDeductionLineType =
+  | 'QUALITY_DEFECT'
+  | 'POST_FACTORY_REWORK_CHARGEBACK'
+  | 'DELAY'
+  | 'OTHER_ADJUSTMENT'
 
 export interface SettlementProfileSnapshot {
   versionNo: string
@@ -351,6 +357,9 @@ export interface StatementDraftItem {
   settlementCycleLabel?: string
   settlementCycleStartAt?: string
   settlementCycleEndAt?: string
+  deductionLineType?: StatementDeductionLineType
+  settlementObjectMode?: StatementSettlementObjectMode
+  sourceConfirmedByStatement?: boolean
   plannedPrepaymentAt?: string
   statementLineGrainType?: StatementLineGrainType
   returnInboundBatchId?: string
@@ -369,6 +378,22 @@ export interface StatementDraftItem {
   otherAdjustmentAmount?: number
   netAmount?: number
   occurredAt?: string
+}
+
+export interface StatementProductionOrderSnapshot {
+  productionOrderNo: string
+  cuttingCompletedQty: number
+  normalHandoverQty: number
+  settlementHandoverQty: number
+  shortageQty: number
+  isComplete: boolean
+  originalFactoryReworkQty: number
+  postFactoryReworkQty: number
+  defectQty: number
+  sewingFactoryLiabilityDefectQty: number
+  defectReasonQtyByName: Record<string, number>
+  includedInStatement: boolean
+  excludedReason?: string
 }
 
 export interface StatementDraft {
@@ -402,6 +427,10 @@ export interface StatementDraft {
   settlementCycleLabel?: string
   settlementCycleStartAt?: string
   settlementCycleEndAt?: string
+  settlementRangeStartAt?: string
+  settlementRangeEndAt?: string
+  settlementObjectMode?: StatementSettlementObjectMode
+  productionOrderSettlementSnapshots?: StatementProductionOrderSnapshot[]
   plannedPrepaymentAt?: string
   sentToFactoryAt?: string
   factoryConfirmedAt?: string

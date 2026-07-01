@@ -10,6 +10,11 @@ import {
   listPreSettlementLedgers,
   listStatementEligiblePreSettlementLedgersByRange,
 } from '../src/data/fcs/pre-settlement-ledger-repository.ts'
+import {
+  createStatementFromEligibleLedgers,
+  findOpenStatementByPartyAndRange,
+  initialStatementDrafts,
+} from '../src/data/fcs/store-domain-settlement-seeds.ts'
 
 const summary = calculateProductionOrderSettlementSummary({
   cuttingCompletedQty: 100,
@@ -75,5 +80,54 @@ const futureRange = listStatementEligiblePreSettlementLedgersByRange({
 })
 
 assert(!futureRange.some((item) => item.ledgerId === firstOpenLedger.ledgerId))
+
+const statementId = 'ST-RANGE-CHECK-001'
+const beforeCount = initialStatementDrafts.length
+const createResult = createStatementFromEligibleLedgers({
+  statementId,
+  settlementPartyType: 'FACTORY',
+  settlementPartyId: firstOpenLedger.factoryId,
+  settlementPartyLabel: firstOpenLedger.factoryName,
+  settlementRangeStartAt: firstOpenLedger.occurredAt.slice(0, 10),
+  settlementRangeEndAt: firstOpenLedger.occurredAt.slice(0, 10),
+  settlementObjectMode: 'LEDGER',
+  settlementCurrency: 'IDR',
+  itemSourceIds: [firstOpenLedger.ledgerId],
+  itemBasisIds: [],
+  items: [
+    {
+      sourceItemId: firstOpenLedger.ledgerId,
+      sourceItemType: 'TASK_EARNING',
+      basisId: firstOpenLedger.ledgerId,
+      deductionQty: 0,
+      deductionAmount: 0,
+      currency: 'IDR',
+      productionOrderNo: firstOpenLedger.productionOrderNo,
+      returnInboundQty: firstOpenLedger.qty,
+      earningAmount: firstOpenLedger.settlementAmount,
+      qualityDeductionAmount: 0,
+      netAmount: firstOpenLedger.settlementAmount,
+      occurredAt: firstOpenLedger.occurredAt,
+    },
+  ],
+  productionOrderSettlementSnapshots: [],
+  remark: 'range check',
+  by: '检查脚本',
+  at: '2026-07-01 18:00:00',
+})
+
+assert.equal(createResult.ok, true)
+assert.equal(createResult.data?.settlementRangeStartAt, firstOpenLedger.occurredAt.slice(0, 10))
+assert.equal(createResult.data?.settlementObjectMode, 'LEDGER')
+assert.equal(createResult.data?.settlementCurrency, 'IDR')
+assert(
+  findOpenStatementByPartyAndRange(
+    firstOpenLedger.factoryId,
+    firstOpenLedger.occurredAt.slice(0, 10),
+    firstOpenLedger.occurredAt.slice(0, 10),
+    'LEDGER',
+  ),
+)
+initialStatementDrafts.splice(beforeCount)
 
 console.log('check:factory-settlement-reconciliation passed')

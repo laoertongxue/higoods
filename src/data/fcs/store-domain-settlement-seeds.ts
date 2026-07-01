@@ -22,9 +22,11 @@ import type {
   StatementDraft,
   StatementAdjustment,
   StatementDraftItem,
+  StatementProductionOrderSnapshot,
   StatementProxyConfirmationMethod,
   StatementProxyNotificationStatus,
   StatementResolutionResult,
+  StatementSettlementObjectMode,
   SettlementBatch,
   SettlementBatchItem,
   SettlementProfileSnapshot,
@@ -1194,15 +1196,38 @@ export function findOpenStatementByPartyAndCycle(
   )
 }
 
+export function findOpenStatementByPartyAndRange(
+  settlementPartyId: string,
+  settlementRangeStartAt: string,
+  settlementRangeEndAt: string,
+  settlementObjectMode: StatementSettlementObjectMode,
+): StatementDraft | null {
+  return (
+    initialStatementDrafts.find(
+      (item) =>
+        item.status !== 'CLOSED' &&
+        item.settlementRangeStartAt === settlementRangeStartAt &&
+        item.settlementRangeEndAt === settlementRangeEndAt &&
+        item.settlementObjectMode === settlementObjectMode &&
+        isSameSettlementPartyId(item.settlementPartyId, settlementPartyId),
+    ) ?? null
+  )
+}
+
 export function createStatementFromEligibleLedgers(input: {
   statementId: string
   settlementPartyType: string
   settlementPartyId: string
   settlementPartyLabel?: string
-  settlementCycleId: string
-  settlementCycleLabel: string
-  settlementCycleStartAt: string
-  settlementCycleEndAt: string
+  settlementCycleId?: string
+  settlementCycleLabel?: string
+  settlementCycleStartAt?: string
+  settlementCycleEndAt?: string
+  settlementRangeStartAt?: string
+  settlementRangeEndAt?: string
+  settlementObjectMode?: StatementSettlementObjectMode
+  settlementCurrency?: string
+  productionOrderSettlementSnapshots?: StatementProductionOrderSnapshot[]
   plannedPrepaymentAt?: string
   itemSourceIds: string[]
   itemBasisIds: string[]
@@ -1211,7 +1236,17 @@ export function createStatementFromEligibleLedgers(input: {
   by: string
   at?: string
 }): { ok: boolean; message?: string; existingStatementId?: string; data?: StatementDraft } {
-  const existed = findOpenStatementByPartyAndCycle(input.settlementPartyId, input.settlementCycleId)
+  const existed =
+    input.settlementRangeStartAt && input.settlementRangeEndAt && input.settlementObjectMode
+      ? findOpenStatementByPartyAndRange(
+          input.settlementPartyId,
+          input.settlementRangeStartAt,
+          input.settlementRangeEndAt,
+          input.settlementObjectMode,
+        )
+      : input.settlementCycleId
+        ? findOpenStatementByPartyAndCycle(input.settlementPartyId, input.settlementCycleId)
+        : null
   if (existed) {
     return {
       ok: false,
@@ -1240,12 +1275,16 @@ export function createStatementFromEligibleLedgers(input: {
     remark: input.remark?.trim() || undefined,
     settlementProfileSnapshot: snapshot,
     settlementProfileVersionNo: snapshot.versionNo,
-    settlementCurrency: snapshot.settlementConfigSnapshot.currency,
+    settlementCurrency: input.settlementCurrency ?? snapshot.settlementConfigSnapshot.currency,
     statementPartyView: input.settlementPartyLabel ?? buildStatementPartyView(input.settlementPartyType, input.settlementPartyId),
     settlementCycleId: input.settlementCycleId,
     settlementCycleLabel: input.settlementCycleLabel,
     settlementCycleStartAt: input.settlementCycleStartAt,
     settlementCycleEndAt: input.settlementCycleEndAt,
+    settlementRangeStartAt: input.settlementRangeStartAt,
+    settlementRangeEndAt: input.settlementRangeEndAt,
+    settlementObjectMode: input.settlementObjectMode ?? 'LEDGER',
+    productionOrderSettlementSnapshots: input.productionOrderSettlementSnapshots ?? [],
     plannedPrepaymentAt: input.plannedPrepaymentAt,
     factoryFeedbackStatus: 'NOT_SENT',
     createdAt: timestamp,
