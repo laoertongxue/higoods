@@ -15,6 +15,10 @@ import {
   findOpenStatementByPartyAndRange,
   initialStatementDrafts,
 } from '../src/data/fcs/store-domain-settlement-seeds.ts'
+import {
+  buildProductionOrderSettlementProjections,
+  buildStatementDraftLinesFromSettlementSelection,
+} from '../src/data/fcs/store-domain-statement-source-adapter.ts'
 
 const summary = calculateProductionOrderSettlementSummary({
   cuttingCompletedQty: 100,
@@ -72,6 +76,28 @@ assert(ranged.some((item) => item.ledgerId === firstOpenLedger.ledgerId))
 assert(ranged.every((item) => item.factoryId === firstOpenLedger.factoryId))
 assert(ranged.every((item) => item.status === 'OPEN'))
 assert(ranged.every((item) => item.occurredAt.slice(0, 10) === targetDate))
+
+const projections = buildProductionOrderSettlementProjections({
+  factoryId: firstOpenLedger.factoryId,
+  occurredFrom: firstOpenLedger.occurredAt.slice(0, 10),
+  occurredTo: firstOpenLedger.occurredAt.slice(0, 10),
+})
+
+assert(projections.length > 0, '按时间段反查必须展示生产单')
+assert(projections.every((item) => item.productionOrderNo))
+assert(projections.every((item) => typeof item.isComplete === 'boolean'))
+
+const completedIds = projections.filter((item) => item.isComplete).map((item) => item.productionOrderNo)
+const lines = buildStatementDraftLinesFromSettlementSelection({
+  factoryId: firstOpenLedger.factoryId,
+  occurredFrom: firstOpenLedger.occurredAt.slice(0, 10),
+  occurredTo: firstOpenLedger.occurredAt.slice(0, 10),
+  objectMode: 'PRODUCTION_ORDER',
+  selectedProductionOrderNos: completedIds,
+})
+
+assert(lines.every((item) => completedIds.includes(item.productionOrderNo ?? '')))
+assert(lines.every((item) => item.settlementObjectMode === 'PRODUCTION_ORDER'))
 
 const futureRange = listStatementEligiblePreSettlementLedgersByRange({
   factoryId: firstOpenLedger.factoryId,

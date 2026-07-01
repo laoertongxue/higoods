@@ -4,11 +4,18 @@ import {
   getPreSettlementLedgerById,
   listPreSettlementLedgers,
   listStatementEligiblePreSettlementLedgers,
+  listStatementEligiblePreSettlementLedgersByRange,
   tracePreSettlementLedgerSource,
 } from './pre-settlement-ledger-repository.ts'
 import { processTasks } from './process-tasks.ts'
 import { productionOrders } from './production-orders.ts'
 import { initialStatementDrafts } from './store-domain-settlement-seeds.ts'
+import {
+  calculateProductionOrderSettlementSummary,
+  type ProductionOrderSettlementProjection,
+  type SettlementDefectReasonLine,
+  type SettlementReworkLine,
+} from './factory-settlement-reconciliation.ts'
 import type { SettlementPartyType } from './store-domain-quality-types.ts'
 import type {
   FactoryFeedbackStatus,
@@ -19,6 +26,7 @@ import type {
   StatementDraftItem,
   StatementProxyConfirmationMethod,
   StatementProxyNotificationStatus,
+  StatementSettlementObjectMode,
   StatementSourceItemType,
   StatementStatus,
 } from './store-domain-settlement-types.ts'
@@ -197,6 +205,27 @@ function getTaskSnapshot(taskId?: string) {
 function getProductionOrderSnapshot(productionOrderId?: string) {
   if (!productionOrderId) return null
   return productionOrders.find((item) => item.productionOrderId === productionOrderId) ?? null
+}
+
+function parseQty(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  if (typeof value !== 'string') return 0
+  const parsed = Number(value.replace(/,/g, '').match(/-?\d+(\.\d+)?/)?.[0] ?? 0)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function resolveCuttingCompletedQty(productionOrderNo: string, fallbackQty: number): number {
+  const order = productionOrders.find((item) => item.productionOrderNo === productionOrderNo)
+  const cuttingRow = order?.ledgerDetails.quantityQuality.find((item) => item.quantityType === '裁片完成')
+  return parseQty(cuttingRow?.currentQty) || fallbackQty
+}
+
+function resolvePostFinishingReworkLines(_productionOrderNo: string): SettlementReworkLine[] {
+  return []
+}
+
+function resolvePostFinishingDefectReasonLines(_productionOrderNo: string): SettlementDefectReasonLine[] {
+  return []
 }
 
 function normalizeSettlementPartyId(partyId: string): string {
@@ -561,6 +590,78 @@ export function buildStatementDraftLines(
         'zh-CN',
       )
     })
+}
+
+export function buildProductionOrderSettlementProjections(input: {
+  factoryId: string
+  occurredFrom: string
+  occurredTo: string
+}): ProductionOrderSettlementProjection[] {
+  const ledgers = listStatementEligiblePreSettlementLedgersByRange({
+    factoryId: input.factoryId,
+    occurredFrom: input.occurredFrom,
+    occurredTo: input.occurredTo,
+  })
+  const productionOrderNos = Array.from(
+    new Set(ledgers.map((item) => item.productionOrderNo).filter(Boolean)),
+  ) as string[]
+
+  return productionOrderNos.map((productionOrderNo) => {
+    const orderLedgers = ledgers.filter((item) => item.productionOrderNo === productionOrderNo)
+    const normalHandoverQty = orderLedgers
+      .filter((item) => item.ledgerType === 'TASK_EARNING')
+      .reduce((sum, item) => sum + item.qty, 0)
+    const cuttingCompletedQty = resolveCuttingCompletedQty(productionOrderNo, normalHandoverQty)
+    const summary = calculateProductionOrderSettlementSummary({
+      cuttingCompletedQty,
+      handoverLines: orderLedgers.map((item) => ({
+        recordId: item.returnInboundBatchNo ?? item.ledgerId,
+        handedOverAt: item.occurredAt,
+        handedOverQty: item.ledgerType === 'TASK_EARNING' ? item.qty : 0,
+      })),
+      reworkLines: resolvePostFinishingReworkLines(productionOrderNo),
+      defectReasonLines: resolvePostFinishingDefectReasonLines(productionOrderNo),
+    })
+
+    return {
+      productionOrderNo,
+      productionOrderId: orderLedgers.find((item) => item.productionOrderId)?.productionOrderId,
+      ...summary,
+      includedInStatement: summary.isComplete,
+      excludedReason: summary.isComplete ? undefined : `差 ${summary.shortageQty} 件`,
+      handoverDetailLines: orderLedgers.map((item) => ({
+        recordId: item.returnInboundBatchNo ?? item.ledgerId,
+        handedOverAt: item.occurredAt,
+        handedOverQty: item.qty,
+        qcOrderId: item.qcRecordId,
+      })),
+    }
+  })
+}
+
+export function buildStatementDraftLinesFromSettlementSelection(input: {
+  factoryId: string
+  occurredFrom: string
+  occurredTo: string
+  objectMode: StatementSettlementObjectMode
+  selectedLedgerIds?: string[]
+  selectedProductionOrderNos?: string[]
+}): StatementDraftItem[] {
+  const ledgers = listStatementEligiblePreSettlementLedgersByRange({
+    factoryId: input.factoryId,
+    occurredFrom: input.occurredFrom,
+    occurredTo: input.occurredTo,
+  })
+  const selected = input.objectMode === 'LEDGER'
+    ? ledgers.filter((item) => !input.selectedLedgerIds?.length || input.selectedLedgerIds.includes(item.ledgerId))
+    : ledgers.filter((item) => input.selectedProductionOrderNos?.includes(item.productionOrderNo ?? ''))
+  const bindingMap = getStatementBindingMap()
+
+  return selected.map((ledger) => ({
+    ...toStatementDraftItemFromSource(mapLedgerToStatementSourceItem(ledger, bindingMap)),
+    settlementObjectMode: input.objectMode,
+    sourceConfirmedByStatement: true,
+  }))
 }
 
 export function getStatementListItems(): StatementListItemViewModel[] {

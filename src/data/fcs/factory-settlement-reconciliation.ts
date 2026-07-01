@@ -1,3 +1,5 @@
+import type { StatementProductionOrderSnapshot } from './store-domain-settlement-types.ts'
+
 export const SETTLEMENT_CURRENCIES = ['IDR', 'CNY', 'USD'] as const
 export type SettlementCurrency = (typeof SETTLEMENT_CURRENCIES)[number]
 export const DEFAULT_SETTLEMENT_CURRENCY: SettlementCurrency = 'IDR'
@@ -41,6 +43,44 @@ export interface ProductionOrderSettlementSummary {
   defectQty: number
   sewingFactoryLiabilityDefectQty: number
   defectReasonQtyByName: Record<string, number>
+}
+
+export interface ProductionOrderSettlementProjection extends ProductionOrderSettlementSummary {
+  productionOrderNo: string
+  productionOrderId?: string
+  includedInStatement: boolean
+  excludedReason?: string
+  handoverDetailLines: Array<{
+    recordId: string
+    handedOverAt: string
+    handedOverQty: number
+    qcOrderId?: string
+    qualifiedQty?: number
+    reworkQty?: number
+    reworkReceiveObject?: ReworkReceiveObject
+    defectQty?: number
+    defectReasonQtyByName?: Record<string, number>
+  }>
+}
+
+export function toStatementProductionOrderSnapshot(
+  projection: ProductionOrderSettlementProjection,
+): StatementProductionOrderSnapshot {
+  return {
+    productionOrderNo: projection.productionOrderNo,
+    cuttingCompletedQty: projection.cuttingCompletedQty,
+    normalHandoverQty: projection.normalHandoverQty,
+    settlementHandoverQty: projection.settlementHandoverQty,
+    shortageQty: projection.shortageQty,
+    isComplete: projection.isComplete,
+    originalFactoryReworkQty: projection.originalFactoryReworkQty,
+    postFactoryReworkQty: projection.postFactoryReworkQty,
+    defectQty: projection.defectQty,
+    sewingFactoryLiabilityDefectQty: projection.sewingFactoryLiabilityDefectQty,
+    defectReasonQtyByName: projection.defectReasonQtyByName,
+    includedInStatement: projection.includedInStatement,
+    excludedReason: projection.excludedReason,
+  }
 }
 
 function sumQty<T>(items: T[], getter: (item: T) => number): number {
