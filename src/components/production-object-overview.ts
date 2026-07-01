@@ -1,5 +1,6 @@
 import { escapeHtml } from '../utils'
 import {
+  getMaterialResourceOverview,
   getProductionObjectOverview,
   materialTypeLabel,
   productionObjectSearchIndex,
@@ -7,6 +8,7 @@ import {
   queryProductionObjectIssues,
   searchProductionObjects,
   warehouseExecutionStatusLabel,
+  type MaterialResourceContext,
   type ProductionMaterialLine,
   type ProductionObjectOverview,
   type ProductionObjectSearchIndex,
@@ -52,7 +54,18 @@ const OBJECT_TYPE_LABEL: Record<ProductionObjectType, string> = {
   HANDOVER_ORDER: '交出单',
 }
 
+type MaterialResourceTab = 'supply-demand' | 'allocations' | 'inventory' | 'execution' | 'issues-master'
+
+const MATERIAL_RESOURCE_TAB_ITEMS: Array<{ key: MaterialResourceTab; label: string }> = [
+  { key: 'supply-demand', label: '供需总览' },
+  { key: 'allocations', label: '业务占用' },
+  { key: 'inventory', label: '库存与在途' },
+  { key: 'execution', label: '配料 / 领料 / 发料' },
+  { key: 'issues-master', label: '异常与档案' },
+]
+
 let activeTab: OverviewTab = 'overview'
+let activeMaterialResourceTab: MaterialResourceTab = 'supply-demand'
 let searchKeyword = ''
 
 function canShowProductionObjectEntry(pathname: string): boolean {
@@ -1046,12 +1059,48 @@ export function renderProductionObjectOverviewSurface(
   `
 }
 
+export function renderMaterialResourceOverviewSurface(
+  materialSku: string,
+  context: MaterialResourceContext = {},
+  _tab: MaterialResourceTab = activeMaterialResourceTab,
+): string {
+  const resource = getMaterialResourceOverview(materialSku, context)
+  const sourceAttrs = [
+    context.sourceObjectType ? `data-source-object-type="${escapeHtml(context.sourceObjectType)}"` : '',
+    context.sourceObjectId ? `data-source-object-id="${escapeHtml(context.sourceObjectId)}"` : '',
+  ].filter(Boolean).join(' ')
+
+  return `
+    <div
+      class="production-object-overview"
+      data-production-object-surface="material-resource"
+      data-material-sku="${escapeHtml(materialSku)}"
+      ${sourceAttrs}
+    >
+      <button class="absolute inset-0 bg-slate-950/30" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭"></button>
+      <section class="production-object-overview__panel">
+        <header class="flex items-center justify-between border-b px-4 py-3">
+          <div>
+            <h2 class="text-base font-semibold">物料资源总览</h2>
+            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(resource?.materialSku || materialSku)}｜${escapeHtml(resource?.materialName || '暂无物料资源数据')}</p>
+          </div>
+          <button class="h-8 w-8 rounded-md text-lg text-muted-foreground hover:bg-muted" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭">×</button>
+        </header>
+        <div class="p-4 text-sm text-muted-foreground">
+          ${context.sourceLabel ? `<div>当前来源：${escapeHtml(context.sourceLabel)}</div>` : ''}
+          <div class="mt-2">当前判断：${escapeHtml(resource?.currentJudgement || '暂无判断')}</div>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function getOverlayRoot(): HTMLElement | null {
   if (typeof document === 'undefined') return null
   return document.querySelector<HTMLElement>('[data-production-object-overlay-root="true"]')
 }
 
-function setOverlay(html: string, mode: 'search' | 'overview'): void {
+function setOverlay(html: string, mode: 'search' | 'overview' | 'material-resource'): void {
   const root = getOverlayRoot()
   if (!root) return
   root.innerHTML = html
@@ -1105,6 +1154,21 @@ export function handleProductionObjectOverviewEvent(target: HTMLElement): boolea
     return true
   }
 
+  if (action === 'open-material-resource') {
+    activeMaterialResourceTab = 'supply-demand'
+    const materialSku = actionNode.dataset.materialSku || actionNode.dataset.objectId
+    const surface = actionNode.closest<HTMLElement>('[data-production-object-surface="overview"]')
+    const sourceObjectType = (actionNode.dataset.sourceObjectType || surface?.dataset.objectType) as ProductionObjectType | undefined
+    const sourceObjectId = actionNode.dataset.sourceObjectId || surface?.dataset.objectId
+    if (!materialSku) return true
+    setOverlay(renderMaterialResourceOverviewSurface(materialSku, {
+      sourceObjectType,
+      sourceObjectId,
+      sourceLabel: sourceObjectId ? '生产对象总览 / 面辅料与仓储' : undefined,
+    }, activeMaterialResourceTab), 'material-resource')
+    return true
+  }
+
   if (action === 'open') {
     activeTab = 'overview'
     const objectType = actionNode.dataset.objectType as ProductionObjectType | undefined
@@ -1121,6 +1185,21 @@ export function handleProductionObjectOverviewEvent(target: HTMLElement): boolea
     const objectId = actionNode.dataset.objectId || surface?.dataset.objectId
     if (!objectType || !objectId) return true
     setOverlay(renderProductionObjectOverviewSurface(objectType, objectId, activeTab), 'overview')
+    return true
+  }
+
+  if (action === 'switch-material-tab') {
+    activeMaterialResourceTab = (actionNode.dataset.tab as MaterialResourceTab | undefined) || 'supply-demand'
+    const surface = actionNode.closest<HTMLElement>('[data-production-object-surface="material-resource"]')
+    const materialSku = surface?.dataset.materialSku
+    const sourceObjectType = surface?.dataset.sourceObjectType as ProductionObjectType | undefined
+    const sourceObjectId = surface?.dataset.sourceObjectId
+    if (!materialSku) return true
+    setOverlay(renderMaterialResourceOverviewSurface(materialSku, {
+      sourceObjectType,
+      sourceObjectId,
+      sourceLabel: sourceObjectId ? '生产对象总览 / 面辅料与仓储' : undefined,
+    }, activeMaterialResourceTab), 'material-resource')
     return true
   }
 

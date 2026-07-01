@@ -70,6 +70,19 @@ export function renderProductionObjectCodeButton({
   const displayText = (label || objectId || '-').trim()
   const targetId = (objectId || '').trim()
   if (!targetId || displayText === '-') return escapeHtml(displayText || '-')
+  if (objectType === 'MATERIAL') {
+    return `
+      <button
+        type="button"
+        class="${className}"
+        data-production-object-action="open-material-resource"
+        data-object-type="MATERIAL"
+        data-object-id="${escapeHtml(targetId)}"
+        data-material-sku="${escapeHtml(targetId)}"
+        data-skip-page-rerender="true"
+      >${escapeHtml(displayText)}</button>
+    `
+  }
   return `
     <button
       type="button"
