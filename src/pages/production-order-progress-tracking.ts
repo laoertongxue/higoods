@@ -541,7 +541,7 @@ function renderExpandedRow(order: ProductionOrderTrackingRecord): string {
                 <div>生产需求单　<span class="font-medium text-slate-800">${renderProductionObjectCodeButton({
                   objectType: 'DEMAND',
                   objectId: order.demandNo,
-                  label: order.demandNo,
+                  relatedProductionOrderNo: order.no,
                   className: 'font-mono text-blue-600 hover:underline',
                 })}</span></div>
                 <div>款式颜色　<span class="font-medium text-slate-800">${escapeHtml(order.colors)}</span></div>
@@ -595,15 +595,19 @@ function renderExpandedRow(order: ProductionOrderTrackingRecord): string {
                   className: 'font-mono text-blue-600 hover:underline',
                 })}</div>
                 <div>配料单　${renderProductionObjectCodeButton({
-                  objectType: 'PRODUCTION_ORDER',
-                  objectId: order.no,
-                  label: `${order.materialRequestNo} 等 2 条`,
+                  objectType: 'MATERIAL_PREP_ORDER',
+                  objectId: order.materialRequestNo,
+                  label: order.materialRequestNo,
+                  relatedProductionOrderNo: order.no,
+                  defaultTab: 'materials',
                   className: 'font-mono text-blue-600 hover:underline',
                 })}</div>
                 <div>裁床单　${renderProductionObjectCodeButton({
-                  objectType: 'PRODUCTION_ORDER',
-                  objectId: order.no,
-                  label: `${order.cutOrderNo} 等 2 条`,
+                  objectType: 'CUT_ORDER',
+                  objectId: order.cutOrderNo,
+                  label: order.cutOrderNo,
+                  relatedProductionOrderNo: order.no,
+                  defaultTab: 'progress',
                   className: 'font-mono text-blue-600 hover:underline',
                 })}</div>
                 <div>车缝单　${renderProductionObjectCodeButton({
@@ -795,7 +799,10 @@ function renderOrderHero(order: ProductionOrderTrackingRecord, tab: TrackingTab)
       <div class="min-w-0">
         <div class="flex items-center gap-3">
           <h1 class="min-w-0 flex-1 truncate text-xl font-bold text-slate-950">
-            <span class="block 2xl:inline">${escapeHtml(order.no)}</span>
+            <span class="block 2xl:inline">${renderProductionObjectCodeButton({
+              objectType: 'PRODUCTION_ORDER',
+              objectId: order.no,
+            })}</span>
             <span class="hidden 2xl:inline">　|　</span>
             <span class="block 2xl:inline">${escapeHtml(order.title)}</span>
           </h1>
@@ -842,14 +849,10 @@ function renderDetailHeader(order: ProductionOrderTrackingRecord, tab: TrackingT
           </button>
           <h1 class="text-xl font-semibold">
             生产单全生命周期跟踪 /
-            <button
-              type="button"
-              class="font-mono text-blue-600 hover:underline"
-              data-production-object-action="open"
-              data-object-type="PRODUCTION_ORDER"
-              data-object-id="${escapeHtml(order.no)}"
-              data-skip-page-rerender="true"
-            >${escapeHtml(order.no)}</button>
+            ${renderProductionObjectCodeButton({
+              objectType: 'PRODUCTION_ORDER',
+              objectId: order.no,
+            })}
           </h1>
         </div>
       </header>
@@ -1257,7 +1260,10 @@ function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?
           <div class="mt-5 overflow-x-auto">
             <div class="min-w-[1280px] rounded-xl border border-slate-100">
               <div class="border-b border-blue-200 bg-blue-50 px-5 py-2 text-center text-sm font-semibold text-blue-700">
-                生产单：${escapeHtml(order.no)}（${escapeHtml(order.title)}）　${formatNumber(order.quantity)} 件
+                生产单：${renderProductionObjectCodeButton({
+                  objectType: 'PRODUCTION_ORDER',
+                  objectId: order.no,
+                })}（${escapeHtml(order.title)}）　${formatNumber(order.quantity)} 件
               </div>
               ${lanes.map((lane) => `
                 <div class="grid min-h-20 grid-cols-[150px_1fr] border-b border-slate-100 last:border-b-0">

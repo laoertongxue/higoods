@@ -185,16 +185,26 @@ function renderMaterialIdentity(input: {
   color?: string
   materialCategory?: string
   materialImageUrl?: string | null
+  relatedProductionOrderNo?: string
 }, compact = false): string {
   const imageUrl = resolveMaterialImageUrl(input)
   const code = input.materialSku || input.materialCode || '-'
+  const codeEntry = input.materialSku
+    ? renderProductionObjectCodeButton({
+        objectType: 'MATERIAL',
+        objectId: input.materialSku,
+        label: code,
+        relatedProductionOrderNo: input.relatedProductionOrderNo,
+        defaultTab: 'materials',
+      })
+    : escapeHtml(code)
   const specText = [input.color, input.materialSpec].filter(Boolean).join(' / ') || input.materialCategory || '-'
   return `
     <div class="flex min-w-0 items-center gap-3">
       ${renderProductionImageThumb(imageUrl, input.materialName, compact ? 'h-10 w-10' : 'h-12 w-12')}
       <div class="min-w-0">
         <div class="truncate font-medium" title="${escapeHtml(input.materialName)}">${escapeHtml(input.materialName)}</div>
-        <div class="font-mono text-xs text-muted-foreground">${escapeHtml(code)}</div>
+        <div class="font-mono text-xs text-muted-foreground">${codeEntry}</div>
         <div class="truncate text-xs text-muted-foreground" title="${escapeHtml(specText)}">${escapeHtml(specText)}</div>
       </div>
     </div>
@@ -248,7 +258,13 @@ function renderOrderSpuInfo(order: ProductionOrder, options: { garmentDifficulty
     <div class="flex min-w-0 items-center gap-3">
       ${renderProductionImageThumb(imageUrl, order.demandSnapshot.spuName, 'h-12 w-12')}
       <div class="min-w-0 text-sm">
-        <div>${renderProductionObjectCodeButton({ objectType: 'PRODUCTION_ORDER', objectId: order.productionOrderNo, label: order.demandSnapshot.spuCode, className: 'font-mono text-blue-600 hover:underline' })}</div>
+        <div>${renderProductionObjectCodeButton({
+          objectType: 'PRODUCTION_ORDER',
+          objectId: order.productionOrderNo,
+          label: order.demandSnapshot.spuCode,
+          relatedProductionOrderNo: order.productionOrderNo,
+          className: 'font-mono text-blue-600 hover:underline',
+        })}</div>
         <div class="max-w-[180px] truncate text-xs text-muted-foreground" title="${escapeHtml(order.demandSnapshot.spuName)}">
           ${escapeHtml(order.demandSnapshot.spuName)}
         </div>
@@ -361,6 +377,7 @@ function renderBreakdownReadinessRows(lines: MaterialPrepBreakdownLineCheck[]): 
               materialSpec: line.spec,
               color: line.color,
               materialImageUrl: line.materialImageUrl,
+              relatedProductionOrderNo: line.productionOrderNo,
             }, true)}
           </td>
           <td class="px-3 py-2 text-right">${escapeHtml(formatBreakdownQty(line.requiredQty, line.unit))}</td>
@@ -371,7 +388,13 @@ function renderBreakdownReadinessRows(lines: MaterialPrepBreakdownLineCheck[]): 
           <td class="px-3 py-2 text-right ${gapQty > 0 ? 'text-amber-700' : 'text-green-700'}">${escapeHtml(formatBreakdownQty(gapQty, line.unit))}</td>
           <td class="px-3 py-2">
             <div>${escapeHtml(line.upstreamSourceType)}</div>
-            <div class="font-mono text-xs text-muted-foreground">${escapeHtml(line.upstreamDocumentNo || '-')}</div>
+            <div class="font-mono text-xs text-muted-foreground">${renderProductionObjectCodeButton({
+              objectType: line.upstreamSourceType === '采购' ? 'PURCHASE_ORDER' : 'WAREHOUSE_DOC',
+              objectId: line.upstreamDocumentNo,
+              relatedProductionOrderNo: line.productionOrderNo,
+              defaultTab: 'materials',
+              highlightKey: `${line.upstreamSourceType === '采购' ? 'PURCHASE_ORDER' : 'WAREHOUSE_DOC'}:${line.upstreamDocumentNo}`,
+            })}</div>
           </td>
           <td class="px-3 py-2">
             <div>${renderBadge(line.upstreamProgressStatus, line.upstreamProgressStatus === '已到仓可配' || line.upstreamProgressStatus === '无需跟进' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700')}</div>
@@ -1020,7 +1043,7 @@ function getOrderIssueProgress(order: ProductionOrder, prepLines: MaterialPrepLi
   }
 }
 
-function renderCuttingMaterialLines(lines: MaterialPrepLine[]): string {
+function renderCuttingMaterialLines(lines: MaterialPrepLine[], relatedProductionOrderNo: string): string {
   if (lines.length === 0) {
     return '<div class="mt-2 text-xs text-muted-foreground">裁片物料：技术包未识别到关联纸样的物料</div>'
   }
@@ -1040,7 +1063,13 @@ function renderCuttingMaterialLines(lines: MaterialPrepLine[]): string {
                 ${renderProductionImageThumb(line.materialImageUrl, line.materialName, 'h-8 w-8')}
                 <div class="min-w-0 flex-1">
                   <div class="truncate text-xs font-medium" title="${escapeHtml(line.materialName)}">${escapeHtml(line.materialName)}</div>
-                  <div class="font-mono text-[11px] text-muted-foreground">${escapeHtml(line.materialSku)}</div>
+                  <div class="font-mono text-[11px] text-muted-foreground">${renderProductionObjectCodeButton({
+                    objectType: 'MATERIAL',
+                    objectId: line.materialSku,
+                    label: line.materialSku,
+                    relatedProductionOrderNo,
+                    defaultTab: 'materials',
+                  })}</div>
                   <div class="text-[11px] ${stockGapQty > 0 ? 'text-amber-700' : 'text-muted-foreground'}">
                     需 ${escapeHtml(formatBreakdownQty(line.requiredQty, line.unit))}
                     / 已配 ${escapeHtml(formatBreakdownQty(line.confirmedPrepQty, line.unit))}
@@ -1082,7 +1111,7 @@ function renderOrderMaterialSummary(order: ProductionOrder): string {
         ${renderBadge(prepBadge.label, prepBadge.className)}
       </div>
       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(prepSummary)}</div>
-      ${renderCuttingMaterialLines(cuttingMaterialLines)}
+      ${renderCuttingMaterialLines(cuttingMaterialLines, order.productionOrderNo)}
       <div class="mt-2 border-t pt-2">
         <div>${renderBadge(issueProgress.badgeLabel, issueProgress.badgeClassName)}</div>
         <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(issueProgress.mainText)}</div>
@@ -1224,9 +1253,10 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
 	                          <td class="px-3 py-2">
                               ${renderMaterialIdentity({
                                 materialName: line.materialName,
-                                materialCode: line.materialCode,
+                                materialSku: line.materialCode,
                                 materialSpec: line.materialSpec,
                                 materialCategory: line.materialCategory,
+                                relatedProductionOrderNo: draft.productionOrderNo,
                               }, true)}
                             </td>
                           <td class="px-3 py-2 text-right">${line.suggestedQty}</td>
@@ -1253,7 +1283,13 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
         isCreated
           ? `
             <div class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-              <div>正式领料需求编号：<span class="font-mono">${escapeHtml(draft.createdMaterialRequestNo)}</span></div>
+              <div>正式领料需求编号：${renderProductionObjectCodeButton({
+                objectType: 'MATERIAL_PREP_ORDER',
+                objectId: draft.createdMaterialRequestNo,
+                label: draft.createdMaterialRequestNo,
+                relatedProductionOrderNo: draft.productionOrderNo,
+                defaultTab: 'materials',
+              })}</div>
               <div class="mt-0.5 text-xs">创建人：${escapeHtml(draft.createdBy || '-')} · 创建时间：${escapeHtml(draft.createdAt || '-')}</div>
             </div>
           `
@@ -1340,8 +1376,9 @@ function renderAddDraftMaterialsDialog(): string {
 	                              <td class="px-3 py-2">
                                   ${renderMaterialIdentity({
                                     materialName: option.materialName,
-                                    materialCode: option.materialCode,
+                                    materialSku: option.materialCode,
                                     materialSpec: option.materialSpec,
+                                    relatedProductionOrderNo: draft.productionOrderNo,
                                   }, true)}
                                 </td>
                               <td class="px-3 py-2 text-right">${option.suggestedQty}${escapeHtml(option.unit)}</td>
@@ -1393,7 +1430,11 @@ function renderMaterialDraftDrawer(): string {
             <div class="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
               <div>
                 <div class="text-xs text-muted-foreground">生产单号</div>
-                <div class="font-mono text-sm">${escapeHtml(order.productionOrderId)}</div>
+                <div class="font-mono text-sm">${renderProductionObjectCodeButton({
+                  objectType: 'PRODUCTION_ORDER',
+                  objectId: order.productionOrderNo,
+                  relatedProductionOrderNo: order.productionOrderNo,
+                })}</div>
               </div>
               <div class="md:col-span-2">
                 <div class="text-xs text-muted-foreground">SPU信息</div>

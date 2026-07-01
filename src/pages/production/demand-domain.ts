@@ -43,19 +43,21 @@ import {
 
 const PRODUCTION_DEMAND_IDENTITY_COLUMN_TITLE = '需求单号 / ID商品采购单单号 / 售卖类型'
 
+function renderDemandCodeButton(demand: ProductionDemand, className = 'font-mono text-blue-600 hover:underline'): string {
+  return `<span data-object-type="DEMAND">${renderProductionObjectCodeButton({
+      objectType: 'DEMAND',
+      objectId: demand.demandId,
+      relatedProductionOrderNo: demand.productionOrderId,
+      className,
+    })}</span>`
+}
+
 function renderProductionDemandIdentityCell(demand: ProductionDemand): string {
   return `
     <div class="min-w-[13rem] space-y-2 text-sm leading-5">
       <div>
         <span class="text-xs text-muted-foreground">需求单号</span>
-        <button
-          type="button"
-          class="font-mono font-medium text-blue-600 hover:underline"
-          data-production-object-action="open"
-          data-object-type="DEMAND"
-          data-object-id="${escapeHtml(demand.demandId)}"
-          data-skip-page-rerender="true"
-        >${escapeHtml(demand.demandId)}</button>
+        ${renderDemandCodeButton(demand, 'font-mono font-medium text-blue-600 hover:underline')}
       </div>
       <div>
         <span class="text-xs text-muted-foreground">ID商品采购单单号</span>
@@ -104,7 +106,7 @@ function renderDemandDetailDrawer(): string {
               </div>
               <div>
                 <p class="text-xs text-muted-foreground">需求单号</p>
-                <p class="font-mono">${escapeHtml(demand.demandId)}</p>
+                <p class="font-mono">${renderDemandCodeButton(demand)}</p>
               </div>
               <div>
                 <p class="text-xs text-muted-foreground">ID商品采购单单号</p>
@@ -359,13 +361,17 @@ function renderTechPackVersionOptionLabel(option: DemandPublishedTechPackVersion
 
 function renderDemandSpuInfo(demand: ProductionDemand, compact = false): string {
   const imageUrl = resolveProductionSpuImageUrl(demand)
-  const overviewObjectType = demand.productionOrderId ? 'PRODUCTION_ORDER' : 'DEMAND'
-  const overviewObjectId = demand.productionOrderId || demand.demandId
   return `
     <div class="flex min-w-0 items-center gap-3">
       ${renderProductionImageThumb(imageUrl, demand.spuName, compact ? 'h-10 w-10' : 'h-12 w-12')}
       <div class="min-w-0">
-        <div class="text-xs">${renderProductionObjectCodeButton({ objectType: overviewObjectType, objectId: overviewObjectId, label: demand.spuCode, className: 'font-mono text-blue-600 hover:underline' })}</div>
+        <div class="text-xs">${renderProductionObjectCodeButton({
+          objectType: 'DEMAND',
+          objectId: demand.demandId,
+          label: demand.spuCode,
+          relatedProductionOrderNo: demand.productionOrderId,
+          className: 'font-mono text-blue-600 hover:underline',
+        })}</div>
         <div class="truncate font-medium" title="${escapeHtml(demand.spuName)}">${escapeHtml(demand.spuName)}</div>
         <div class="mt-0.5 truncate text-xs text-muted-foreground">买手：${escapeHtml(demand.buyerName)} · 跟单：${escapeHtml(demand.merchandiserName)}</div>
       </div>
@@ -429,7 +435,7 @@ function renderDemandGenerateTechPackVersionSelector(targetDemands: ProductionDe
                 .map((selection) => `
                   <tr class="border-b last:border-0 align-top">
                     <td class="px-3 py-2">
-                      <div class="font-mono text-xs text-muted-foreground">${escapeHtml(selection.demand.demandId)}</div>
+                      <div class="font-mono text-xs text-muted-foreground">${renderDemandCodeButton(selection.demand)}</div>
                       ${renderDemandSpuInfo(selection.demand, true)}
                     </td>
                     <td class="px-3 py-2">${selection.options.length > 0 ? renderDemandVersionSelect(selection) : '<span class="text-xs text-amber-700">暂无已发布版本</span>'}</td>
@@ -515,7 +521,7 @@ function renderDemandBatchGenerateDialog(): string {
                               : info.blockReason || '当前不可生成'
                             return `
                               <tr class="border-b last:border-0">
-                                <td class="px-3 py-2 font-mono text-sm">${escapeHtml(demand.demandId)}</td>
+                                <td class="px-3 py-2 font-mono text-sm">${renderDemandCodeButton(demand)}</td>
                                 <td class="px-3 py-2">${renderDemandSpuInfo(demand, true)}</td>
                                 <td class="px-3 py-2">
                                   <div class="flex flex-wrap items-center gap-1">
@@ -573,7 +579,7 @@ function renderDemandSingleGenerateDialog(singleDemand: ProductionDemand | null)
       <section class="absolute left-1/2 top-1/2 w-full max-w-xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">生成生产单</h3>
-          <p class="mt-1 text-sm text-muted-foreground">为需求 ${escapeHtml(singleDemand.demandId)} (${escapeHtml(singleDemand.spuCode)}) 生成生产单，生成后需手动拆解任务。</p>
+          <p class="mt-1 text-sm text-muted-foreground">为需求 ${renderDemandCodeButton(singleDemand)} (${escapeHtml(singleDemand.spuCode)}) 生成生产单，生成后需手动拆解任务。</p>
         </header>
         <div class="px-6 py-5">
           ${renderDemandGenerateTechPackVersionSelector([singleDemand])}
@@ -653,7 +659,7 @@ function renderOrdersFromDemandDialog(): string {
                                     demand.demandId
                                   }" ${selected ? 'checked' : ''} />
                                 </td>
-                                <td class="px-3 py-2 font-mono">${escapeHtml(demand.demandId)}</td>
+                                <td class="px-3 py-2 font-mono">${renderDemandCodeButton(demand)}</td>
                                 <td class="px-3 py-2">${renderDemandSpuInfo(demand, true)}</td>
                                 <td class="px-3 py-2">
                                   <div class="flex flex-wrap items-center gap-1">
