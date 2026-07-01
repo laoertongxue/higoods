@@ -22,9 +22,11 @@ import type {
   StatementDraft,
   StatementAdjustment,
   StatementDraftItem,
+  StatementProductionOrderSnapshot,
   StatementProxyConfirmationMethod,
   StatementProxyNotificationStatus,
   StatementResolutionResult,
+  StatementSettlementObjectMode,
   SettlementBatch,
   SettlementBatchItem,
   SettlementProfileSnapshot,
@@ -303,16 +305,24 @@ export function canStatementEnterSettlement(statement: Pick<StatementDraft, 'sta
   )
 }
 
-export function canStatementEnterPrepayment(statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult'>): boolean {
-  return canStatementEnterSettlement(statement)
+export function canStatementEnterPrepayment(
+  statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult'> &
+    Partial<Pick<StatementDraft, 'netPayableAmount' | 'totalAmount'>>,
+): boolean {
+  if (!canStatementEnterSettlement(statement)) return false
+  const payableAmount = statement.netPayableAmount ?? statement.totalAmount
+  return payableAmount == null || payableAmount > 0
 }
 
-export function getStatementSettlementProgressView(statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult' | 'confirmationSource'>): {
+export function getStatementSettlementProgressView(
+  statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult' | 'confirmationSource'> &
+    Partial<Pick<StatementDraft, 'netPayableAmount' | 'totalAmount'>>,
+): {
   canEnterSettlement: boolean
   summary: string
   detail: string
 } {
-  if (canStatementEnterSettlement(statement)) {
+  if (canStatementEnterPrepayment(statement)) {
     const sourceLabel = getStatementConfirmationSourceLabel(statement)
     return {
       canEnterSettlement: true,
@@ -321,6 +331,14 @@ export function getStatementSettlementProgressView(statement: Pick<StatementDraf
         sourceLabel === '跟单审核代确认'
           ? '当前单据已由跟单审核代确认，三方工厂端可见该确认来源；单据已满足后续预付款批次入池条件。'
           : '当前单据已满足后续预付款批次入池条件，可继续进入预付款执行链路。',
+    }
+  }
+
+  if (canStatementEnterSettlement(statement)) {
+    return {
+      canEnterSettlement: false,
+      summary: '财务待处理',
+      detail: '当前对账单已完成业务确认，但净额非正向，需由财务做冲抵、结转或关闭处理，不进入预付款入池链路。',
     }
   }
 
@@ -1194,15 +1212,38 @@ export function findOpenStatementByPartyAndCycle(
   )
 }
 
+export function findOpenStatementByPartyAndRange(
+  settlementPartyId: string,
+  settlementRangeStartAt: string,
+  settlementRangeEndAt: string,
+  settlementObjectMode: StatementSettlementObjectMode,
+): StatementDraft | null {
+  return (
+    initialStatementDrafts.find(
+      (item) =>
+        item.status !== 'CLOSED' &&
+        item.settlementRangeStartAt === settlementRangeStartAt &&
+        item.settlementRangeEndAt === settlementRangeEndAt &&
+        item.settlementObjectMode === settlementObjectMode &&
+        isSameSettlementPartyId(item.settlementPartyId, settlementPartyId),
+    ) ?? null
+  )
+}
+
 export function createStatementFromEligibleLedgers(input: {
   statementId: string
   settlementPartyType: string
   settlementPartyId: string
   settlementPartyLabel?: string
-  settlementCycleId: string
-  settlementCycleLabel: string
-  settlementCycleStartAt: string
-  settlementCycleEndAt: string
+  settlementCycleId?: string
+  settlementCycleLabel?: string
+  settlementCycleStartAt?: string
+  settlementCycleEndAt?: string
+  settlementRangeStartAt?: string
+  settlementRangeEndAt?: string
+  settlementObjectMode?: StatementSettlementObjectMode
+  settlementCurrency?: string
+  productionOrderSettlementSnapshots?: StatementProductionOrderSnapshot[]
   plannedPrepaymentAt?: string
   itemSourceIds: string[]
   itemBasisIds: string[]
@@ -1211,15 +1252,26 @@ export function createStatementFromEligibleLedgers(input: {
   by: string
   at?: string
 }): { ok: boolean; message?: string; existingStatementId?: string; data?: StatementDraft } {
-  const existed = findOpenStatementByPartyAndCycle(input.settlementPartyId, input.settlementCycleId)
+  const settlementObjectMode = input.settlementObjectMode ?? 'LEDGER'
+  const existed =
+    input.settlementRangeStartAt && input.settlementRangeEndAt
+      ? findOpenStatementByPartyAndRange(
+          input.settlementPartyId,
+          input.settlementRangeStartAt,
+          input.settlementRangeEndAt,
+          settlementObjectMode,
+        )
+      : input.settlementCycleId
+        ? findOpenStatementByPartyAndCycle(input.settlementPartyId, input.settlementCycleId)
+        : null
   if (existed) {
     return {
       ok: false,
-      message: '该工厂该结算周期已存在未关闭对账单，请直接查看或继续编辑已有单据。',
+      message: '该工厂、时间段和结算对象已存在未关闭对账单，请直接查看或继续编辑已有单据。',
       existingStatementId: existed.statementId,
     }
   }
-  if (!input.items.length) return { ok: false, message: '当前工厂和结算周期暂无可入单的正式流水' }
+  if (!input.items.length) return { ok: false, message: '当前工厂、时间段和结算对象暂无可入单的正式流水' }
 
   const timestamp = input.at ?? nowText()
   const snapshot = buildStatementSettlementProfileSnapshot(input.settlementPartyType, input.settlementPartyId)
@@ -1240,12 +1292,16 @@ export function createStatementFromEligibleLedgers(input: {
     remark: input.remark?.trim() || undefined,
     settlementProfileSnapshot: snapshot,
     settlementProfileVersionNo: snapshot.versionNo,
-    settlementCurrency: snapshot.settlementConfigSnapshot.currency,
+    settlementCurrency: input.settlementCurrency ?? snapshot.settlementConfigSnapshot.currency,
     statementPartyView: input.settlementPartyLabel ?? buildStatementPartyView(input.settlementPartyType, input.settlementPartyId),
     settlementCycleId: input.settlementCycleId,
     settlementCycleLabel: input.settlementCycleLabel,
     settlementCycleStartAt: input.settlementCycleStartAt,
     settlementCycleEndAt: input.settlementCycleEndAt,
+    settlementRangeStartAt: input.settlementRangeStartAt,
+    settlementRangeEndAt: input.settlementRangeEndAt,
+    settlementObjectMode,
+    productionOrderSettlementSnapshots: input.productionOrderSettlementSnapshots ?? [],
     plannedPrepaymentAt: input.plannedPrepaymentAt,
     factoryFeedbackStatus: 'NOT_SENT',
     createdAt: timestamp,

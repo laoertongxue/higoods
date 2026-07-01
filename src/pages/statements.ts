@@ -6,11 +6,12 @@ import {
 } from '../data/fcs/production-order-identity'
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
 import {
+  buildProductionOrderSettlementProjections,
   buildStatementDraftLines,
+  buildStatementDraftLinesFromSettlementSelection,
   getStatementDetailViewModel,
   getStatementListItems,
   getStatementSourceItemById,
-  listStatementBuildCandidates,
   listStatementBuildScopes,
   type StatementBuildScopeViewModel,
   type StatementDetailLineViewModel,
@@ -21,10 +22,12 @@ import {
 import {
   createStatementFromEligibleLedgers,
   findOpenStatementByPartyAndCycle,
+  findOpenStatementByPartyAndRange,
   getLatestStatementAppeal,
   getOpenStatementAppeal,
   getProxyConfirmationMethodLabel,
   getProxyNotificationStatusLabel,
+  canStatementEnterPrepayment,
   getStatementSettlementProgressView,
   getStatementConfirmationSourceLabel,
   getStatementDraftById,
@@ -35,6 +38,13 @@ import {
   submitStatementMerchandiserProxyConfirmation,
   syncStatementDraftFromBuild,
 } from '../data/fcs/store-domain-settlement-seeds'
+import {
+  SETTLEMENT_CURRENCIES,
+  type ProductionOrderSettlementProjection,
+  type SettlementCurrency,
+  toStatementProductionOrderSnapshot,
+} from '../data/fcs/factory-settlement-reconciliation'
+import { listStatementEligiblePreSettlementLedgersByRange } from '../data/fcs/pre-settlement-ledger-repository'
 import type {
   FactoryFeedbackStatus,
   StatementAppealRecord,
@@ -44,6 +54,7 @@ import type {
   StatementDraft,
   StatementDraftItem,
   StatementResolutionResult,
+  StatementSettlementObjectMode,
   StatementStatus,
 } from '../data/fcs/store-domain-settlement-types'
 import { escapeHtml } from '../utils'
@@ -66,6 +77,12 @@ interface StatementsState {
   detailStatementId: string | null
   buildFactoryId: string
   buildCycleId: string
+  buildStartDate: string
+  buildEndDate: string
+  buildObjectMode: StatementSettlementObjectMode
+  buildCurrency: SettlementCurrency
+  selectedLedgerIds: string[]
+  selectedProductionOrderNos: string[]
   buildRemark: string
   editingStatementId: string | null
   processingAppealStatementId: string | null
@@ -84,6 +101,7 @@ interface StatementOverviewCounts {
   draft: number
   pendingFactory: number
   readyForPrepayment: number
+  financePending: number
   inPrepaymentBatch: number
   prepaid: number
   closed: number
@@ -94,7 +112,7 @@ const STATUS_ZH: Record<StatementStatus, string> = {
   DRAFT: '草稿',
   PENDING_FACTORY_CONFIRM: '待工厂反馈',
   FACTORY_CONFIRMED: '工厂已确认',
-  READY_FOR_PREPAYMENT: '待入预付款',
+  READY_FOR_PREPAYMENT: '确认后处理',
   IN_PREPAYMENT_BATCH: '已入预付款批次',
   PREPAID: '已预付',
   CLOSED: '已关闭',
@@ -128,6 +146,32 @@ const FACTORY_FEEDBACK_BADGE: Record<FactoryFeedbackStatus, string> = {
   RESOLVED: 'border border-slate-200 bg-slate-50 text-slate-700',
 }
 
+type StatementPrepaymentDisplaySource = Pick<
+  StatementDraft,
+  'status' | 'factoryFeedbackStatus' | 'resolutionResult'
+> &
+  Partial<Pick<StatementDraft, 'netPayableAmount' | 'totalAmount'>>
+
+function isStatementReadyForPrepaymentDisplay(statement: StatementPrepaymentDisplaySource): boolean {
+  return canStatementEnterPrepayment(statement)
+}
+
+function isStatementFinancePendingDisplay(statement: StatementPrepaymentDisplaySource): boolean {
+  return statement.status === 'READY_FOR_PREPAYMENT' && !isStatementReadyForPrepaymentDisplay(statement)
+}
+
+function getStatementDisplayStatusLabel(statement: StatementPrepaymentDisplaySource): string {
+  if (isStatementReadyForPrepaymentDisplay(statement)) return '待入预付款'
+  if (isStatementFinancePendingDisplay(statement)) return '财务待处理'
+  return STATUS_ZH[statement.status]
+}
+
+function getStatementDisplayStatusBadgeClass(statement: StatementPrepaymentDisplaySource): string {
+  if (isStatementReadyForPrepaymentDisplay(statement)) return STATUS_BADGE_CLASS.READY_FOR_PREPAYMENT
+  if (isStatementFinancePendingDisplay(statement)) return 'border border-amber-200 bg-amber-50 text-amber-700'
+  return STATUS_BADGE_CLASS[statement.status]
+}
+
 const PRICE_SOURCE_LABEL: Record<string, string> = {
   DISPATCH: '派单价',
   BIDDING: '竞价中标价',
@@ -155,6 +199,12 @@ const state: StatementsState = {
   detailStatementId: null,
   buildFactoryId: '',
   buildCycleId: '',
+  buildStartDate: '',
+  buildEndDate: '',
+  buildObjectMode: 'PRODUCTION_ORDER',
+  buildCurrency: 'IDR',
+  selectedLedgerIds: [],
+  selectedProductionOrderNos: [],
   buildRemark: '',
   editingStatementId: null,
   processingAppealStatementId: null,
@@ -355,7 +405,8 @@ function getStatementOverviewCounts(
     total: listItems.length,
     draft: listItems.filter((item) => item.status === 'DRAFT').length,
     pendingFactory: listItems.filter((item) => item.status === 'PENDING_FACTORY_CONFIRM').length,
-    readyForPrepayment: listItems.filter((item) => item.status === 'READY_FOR_PREPAYMENT').length,
+    readyForPrepayment: listItems.filter((item) => isStatementReadyForPrepaymentDisplay(item)).length,
+    financePending: listItems.filter((item) => isStatementFinancePendingDisplay(item)).length,
     inPrepaymentBatch: listItems.filter((item) => item.status === 'IN_PREPAYMENT_BATCH').length,
     prepaid: listItems.filter((item) => item.status === 'PREPAID').length,
     closed: listItems.filter((item) => item.status === 'CLOSED').length,
@@ -542,9 +593,7 @@ function renderStatementAuditLogList(draft: StatementDraft): string {
     .join('')
 }
 
-function getBuildCandidates(
-  scopes: StatementBuildScopeViewModel[],
-): StatementSourceItemViewModel[] {
+function getBuildCandidates(): StatementSourceItemViewModel[] {
   const editingDraft = getEditingDraft()
   if (editingDraft) {
     return editingDraft.itemSourceIds
@@ -552,9 +601,79 @@ function getBuildCandidates(
       .filter(Boolean) as StatementSourceItemViewModel[]
   }
 
-  const selectedScope = getSelectedBuildScope(scopes)
-  if (!selectedScope) return []
-  return listStatementBuildCandidates(selectedScope.settlementPartyId, selectedScope.settlementCycleId)
+  if (!isBuildRangeReady()) return []
+  return getBuildRangeLedgers()
+    .map((item) => getStatementSourceItemById(item.ledgerId))
+    .filter(Boolean) as StatementSourceItemViewModel[]
+}
+
+function isBuildRangeReady(): boolean {
+  return Boolean(state.buildFactoryId && state.buildStartDate && state.buildEndDate)
+}
+
+function isBuildRangeValid(): boolean {
+  return isBuildRangeReady() && state.buildStartDate <= state.buildEndDate
+}
+
+function isSettlementCurrency(value: string): value is SettlementCurrency {
+  return (SETTLEMENT_CURRENCIES as readonly string[]).includes(value)
+}
+
+function getBuildRangeLedgers() {
+  if (!isBuildRangeValid()) return []
+  return listStatementEligiblePreSettlementLedgersByRange({
+    factoryId: state.buildFactoryId,
+    occurredFrom: state.buildStartDate,
+    occurredTo: state.buildEndDate,
+  })
+}
+
+function getEffectiveBuildCurrency(): SettlementCurrency | null {
+  const ledgers = getBuildRangeLedgers()
+  if (!ledgers.length) return 'IDR'
+  const currencies = Array.from(new Set(ledgers.map((item) => item.settlementCurrency).filter(Boolean)))
+  if (currencies.length === 1 && isSettlementCurrency(currencies[0])) return currencies[0]
+  return null
+}
+
+function getBuildCurrencyDisplayText(effectiveCurrency: SettlementCurrency | null): string {
+  return effectiveCurrency ?? '多币种，需拆分'
+}
+
+function getBuildProductionOrderProjections(): ProductionOrderSettlementProjection[] {
+  if (!isBuildRangeValid()) return []
+  return buildProductionOrderSettlementProjections({
+    factoryId: state.buildFactoryId,
+    occurredFrom: state.buildStartDate,
+    occurredTo: state.buildEndDate,
+  })
+}
+
+function getEffectiveSelectedProductionOrderNos(projections: ProductionOrderSettlementProjection[]): string[] {
+  return state.selectedProductionOrderNos.length
+    ? state.selectedProductionOrderNos
+    : projections.filter((item) => item.isComplete).map((item) => item.productionOrderNo)
+}
+
+function getEffectiveSelectedLedgerIds(): string[] {
+  return state.selectedLedgerIds.length ? state.selectedLedgerIds : getBuildRangeLedgers().map((item) => item.ledgerId)
+}
+
+function toBuildLineViewModel(item: StatementDraftItem): StatementDetailLineViewModel {
+  return {
+    ...item,
+    lineTypeZh: LINE_GRAIN_LABEL[item.statementLineGrainType ?? 'OTHER_SOURCE_OBJECT'] ?? '其它来源行',
+    sourceTypeZh:
+      item.sourceLabelZh ??
+      (item.sourceItemType === 'TASK_EARNING'
+        ? '任务收入流水'
+        : item.sourceItemType === 'QUALITY_DEDUCTION'
+          ? '质量扣款流水'
+          : '正式流水'),
+    productionOrderNoDisplay: item.productionOrderNo ?? item.productionOrderId ?? '-',
+    taskNoDisplay: item.taskNo ?? item.taskId ?? '-',
+    routeToSourceResolved: item.routeToSource ?? '/fcs/settlement/statements',
+  }
 }
 
 function getBuildLines(
@@ -567,23 +686,20 @@ function getBuildLines(
 
   const selectedScope = getSelectedBuildScope(scopes)
   if (!selectedScope) return []
-    return buildStatementDraftLines(
-      selectedScope.settlementPartyId,
-      selectedScope.settlementCycleId,
-    ).map((item) => ({
-      ...item,
-      lineTypeZh: LINE_GRAIN_LABEL[item.statementLineGrainType ?? 'OTHER_SOURCE_OBJECT'] ?? '其它来源行',
-      sourceTypeZh:
-        item.sourceLabelZh ??
-        (item.sourceItemType === 'TASK_EARNING'
-          ? '任务收入流水'
-          : item.sourceItemType === 'QUALITY_DEDUCTION'
-            ? '质量扣款流水'
-            : '正式流水'),
-      productionOrderNoDisplay: item.productionOrderNo ?? item.productionOrderId ?? '-',
-      taskNoDisplay: item.taskNo ?? item.taskId ?? '-',
-      routeToSourceResolved: item.routeToSource ?? '/fcs/settlement/statements',
-    }))
+  if (!isBuildRangeValid()) return []
+  const projections = getBuildProductionOrderProjections()
+  const lines = buildStatementDraftLinesFromSettlementSelection({
+    factoryId: state.buildFactoryId,
+    occurredFrom: state.buildStartDate,
+    occurredTo: state.buildEndDate,
+    objectMode: state.buildObjectMode,
+    selectedLedgerIds: state.buildObjectMode === 'LEDGER' ? getEffectiveSelectedLedgerIds() : state.selectedLedgerIds,
+    selectedProductionOrderNos:
+      state.buildObjectMode === 'PRODUCTION_ORDER'
+        ? getEffectiveSelectedProductionOrderNos(projections)
+        : state.selectedProductionOrderNos,
+  })
+  return lines.map(toBuildLineViewModel)
 }
 
 function getBuildLineSummary(lines: Array<StatementDraftItem | StatementDetailLineViewModel>) {
@@ -605,6 +721,12 @@ function openBuildView(scopes: StatementBuildScopeViewModel[], statement?: State
     state.editingStatementId = statement.statementId
     state.buildFactoryId = statement.settlementPartyId
     state.buildCycleId = statement.settlementCycleId ?? ''
+    state.buildStartDate = statement.settlementRangeStartAt ?? statement.settlementCycleStartAt ?? ''
+    state.buildEndDate = statement.settlementRangeEndAt ?? statement.settlementCycleEndAt ?? ''
+    state.buildObjectMode = statement.settlementObjectMode ?? 'LEDGER'
+    state.buildCurrency = (statement.settlementCurrency ?? 'IDR') as SettlementCurrency
+    state.selectedLedgerIds = []
+    state.selectedProductionOrderNos = []
     state.buildRemark = statement.remark ?? ''
     return
   }
@@ -613,6 +735,12 @@ function openBuildView(scopes: StatementBuildScopeViewModel[], statement?: State
   state.editingStatementId = null
   state.buildFactoryId = firstScope?.settlementPartyId ?? ''
   state.buildCycleId = firstScope?.settlementCycleId ?? ''
+  state.buildStartDate = ''
+  state.buildEndDate = ''
+  state.buildObjectMode = 'PRODUCTION_ORDER'
+  state.buildCurrency = 'IDR'
+  state.selectedLedgerIds = []
+  state.selectedProductionOrderNos = []
   state.buildRemark = ''
 }
 
@@ -621,6 +749,12 @@ function resetBuildState(scopes: StatementBuildScopeViewModel[]): void {
   state.editingStatementId = null
   state.buildFactoryId = firstScope?.settlementPartyId ?? ''
   state.buildCycleId = firstScope?.settlementCycleId ?? ''
+  state.buildStartDate = ''
+  state.buildEndDate = ''
+  state.buildObjectMode = 'PRODUCTION_ORDER'
+  state.buildCurrency = 'IDR'
+  state.selectedLedgerIds = []
+  state.selectedProductionOrderNos = []
   state.buildRemark = ''
 }
 
@@ -629,10 +763,35 @@ function createStatementDraftFromScope(
   remark: string,
   by: string,
 ): { ok: boolean; message?: string; statementId?: string; existingStatementId?: string } {
-  const lines = buildStatementDraftLines(scope.settlementPartyId, scope.settlementCycleId)
-  if (!lines.length) return { ok: false, message: '当前工厂和结算周期暂无可生成的对账明细行' }
+  if (!state.buildStartDate || !state.buildEndDate) return { ok: false, message: '请先选择对账时间段' }
+  if (!isBuildRangeValid()) return { ok: false, message: '开始日期不能晚于结束日期' }
+  const effectiveCurrency = getEffectiveBuildCurrency()
+  if (effectiveCurrency === null) {
+    return { ok: false, message: '当前时间段存在多个币种，请拆分时间段或按币种分别生成' }
+  }
 
-  const sourceCandidates = listStatementBuildCandidates(scope.settlementPartyId, scope.settlementCycleId)
+  const projections = getBuildProductionOrderProjections()
+  const selectedProductionOrderNos =
+    state.buildObjectMode === 'PRODUCTION_ORDER'
+      ? getEffectiveSelectedProductionOrderNos(projections)
+      : state.selectedProductionOrderNos
+  const selectedLedgerIds = state.buildObjectMode === 'LEDGER' ? getEffectiveSelectedLedgerIds() : state.selectedLedgerIds
+  const lines = buildStatementDraftLinesFromSettlementSelection({
+    factoryId: state.buildFactoryId,
+    occurredFrom: state.buildStartDate,
+    occurredTo: state.buildEndDate,
+    objectMode: state.buildObjectMode,
+    selectedLedgerIds,
+    selectedProductionOrderNos,
+  })
+  if (!lines.length) return { ok: false, message: '当前工厂和时间段暂无可生成的对账明细行' }
+
+  const productionOrderSettlementSnapshots =
+    state.buildObjectMode === 'PRODUCTION_ORDER'
+      ? projections
+          .filter((item) => selectedProductionOrderNos.includes(item.productionOrderNo) && item.isComplete)
+          .map(toStatementProductionOrderSnapshot)
+      : []
   const timestamp = nowTimestamp()
   const month = timestamp.slice(0, 7).replace('-', '')
   let statementId = `ST-${month}-${String(Math.floor(Math.random() * 9000) + 1000)}`
@@ -648,11 +807,17 @@ function createStatementDraftFromScope(
     settlementCycleLabel: scope.settlementCycleLabel,
     settlementCycleStartAt: scope.settlementCycleStartAt,
     settlementCycleEndAt: scope.settlementCycleEndAt,
+    settlementRangeStartAt: state.buildStartDate,
+    settlementRangeEndAt: state.buildEndDate,
+    settlementObjectMode: state.buildObjectMode,
+    settlementCurrency: effectiveCurrency,
+    productionOrderSettlementSnapshots,
     plannedPrepaymentAt: scope.plannedPrepaymentAt,
-    itemSourceIds: sourceCandidates.map((item) => item.sourceItemId),
-    itemBasisIds: sourceCandidates
-      .filter((item) => item.sourceType === 'QUALITY_DEDUCTION')
-      .map((item) => item.sourceItemId),
+    itemSourceIds: lines.map((item) => item.sourceItemId).filter(Boolean) as string[],
+    itemBasisIds: lines
+      .filter((item) => item.sourceItemType === 'QUALITY_DEDUCTION')
+      .map((item) => item.sourceItemId ?? item.basisId)
+      .filter(Boolean) as string[],
     items: lines,
     remark,
     by,
@@ -700,6 +865,15 @@ function renderStatementListRows(items: StatementListItemViewModel[]): string {
       const draft = getStatementDraftById(item.statementId)
       const canProxyConfirm = draft ? canProxyConfirmStatement(draft) : false
       const proxyConfirmed = draft ? isStatementProxyConfirmed(draft) : item.confirmationSource === 'MERCHANDISER_PROXY_CONFIRMATION'
+      const statusLabel = getStatementDisplayStatusLabel(item)
+      const statusBadgeClass = getStatementDisplayStatusBadgeClass(item)
+      const prepaymentReadyText = isStatementFinancePendingDisplay(item)
+        ? '待财务处理'
+        : item.prepaymentBatchNo
+          ? `${item.prepaymentBatchNo} · ${item.prepaymentBatchStatus === 'CLOSED' ? '已关闭' : item.prepaymentBatchStatus === 'PREPAID' ? '已预付' : '批次处理中'}`
+          : isStatementReadyForPrepaymentDisplay(item)
+            ? '已准备'
+            : '未准备'
 
       return `
         <tr class="border-b last:border-b-0">
@@ -711,7 +885,7 @@ function renderStatementListRows(items: StatementListItemViewModel[]): string {
           </td>
           <td class="px-4 py-3 text-xs">${escapeHtml(item.currency)}</td>
           <td class="px-4 py-3">
-            <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[item.status]}">${STATUS_ZH[item.status]}</span>
+            <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${statusBadgeClass}">${escapeHtml(statusLabel)}</span>
           </td>
           <td class="px-4 py-3">
             <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${getFactoryFeedbackStatusBadge(item.factoryFeedbackStatus)}">${escapeHtml(
@@ -727,7 +901,7 @@ function renderStatementListRows(items: StatementListItemViewModel[]): string {
           <td class="px-4 py-3 text-xs">${escapeHtml(item.createdAt)}</td>
           <td class="px-4 py-3 text-xs">${escapeHtml(item.settlementProfileVersionNo)}</td>
           <td class="px-4 py-3 text-xs">${escapeHtml(item.maskedAccountTail)}</td>
-          <td class="px-4 py-3 text-xs text-muted-foreground">${item.prepaymentBatchNo ? `${item.prepaymentBatchNo} · ${item.prepaymentBatchStatus === 'CLOSED' ? '已关闭' : item.prepaymentBatchStatus === 'PREPAID' ? '已预付' : '批次处理中'}` : item.readyForPrepaymentAt ? '已准备' : '未准备'}</td>
+          <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(prepaymentReadyText)}</td>
           <td class="px-4 py-3 text-xs text-muted-foreground">${item.hasFactoryAppeal ? '有申诉' : '无申诉'}</td>
           <td class="px-4 py-3">
             <div class="flex flex-wrap items-center gap-1">
@@ -807,7 +981,7 @@ function renderStatementListPagination(total: number): string {
 
 function renderBuildCandidateRows(items: StatementSourceItemViewModel[]): string {
   if (!items.length) {
-    return `<p class="py-6 text-center text-sm text-muted-foreground">当前工厂和结算周期暂无可入单的正式流水。</p>`
+    return `<p class="py-6 text-center text-sm text-muted-foreground">当前工厂和时间段暂无可入单的正式流水。</p>`
   }
 
   return `
@@ -854,7 +1028,7 @@ function renderBuildCandidateRows(items: StatementSourceItemViewModel[]): string
 
 function renderBuildLineRows(lines: StatementDetailLineViewModel[]): string {
   if (!lines.length) {
-    return `<p class="py-6 text-center text-sm text-muted-foreground">当前工厂和结算周期暂无可生成的正式流水明细行。</p>`
+    return `<p class="py-6 text-center text-sm text-muted-foreground">当前工厂和时间段暂无可生成的正式流水明细行。</p>`
   }
 
   return `
@@ -900,6 +1074,50 @@ function renderBuildLineRows(lines: StatementDetailLineViewModel[]): string {
         </tbody>
       </table>
     </div>
+  `
+}
+
+function renderProductionOrderProjectionRow(item: ProductionOrderSettlementProjection): string {
+  return `
+    <div class="rounded-md border bg-background p-3 text-xs">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="font-medium">${renderProductionOrderIdentityCell(item.productionOrderNo)}</div>
+        <span class="rounded-md px-2 py-0.5 ${item.isComplete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}">
+          ${item.isComplete ? '可纳入本期对账' : `未完成，不纳入本期对账 · ${escapeHtml(item.excludedReason ?? `差 ${item.shortageQty} 件`)}`}
+        </span>
+      </div>
+      <dl class="mt-3 grid gap-2 md:grid-cols-4">
+        <div class="flex items-center justify-between gap-2"><dt class="text-muted-foreground">裁片完成数量</dt><dd class="tabular-nums">${item.cuttingCompletedQty}</dd></div>
+        <div class="flex items-center justify-between gap-2"><dt class="text-muted-foreground">结算口径累计交出</dt><dd class="tabular-nums">${item.settlementHandoverQty}</dd></div>
+        <div class="flex items-center justify-between gap-2"><dt class="text-muted-foreground">原工厂返工</dt><dd class="tabular-nums">${item.originalFactoryReworkQty}</dd></div>
+        <div class="flex items-center justify-between gap-2"><dt class="text-muted-foreground">后道工厂返工 / 后道返工反扣</dt><dd class="tabular-nums">${item.postFactoryReworkQty}</dd></div>
+        <div class="flex items-center justify-between gap-2"><dt class="text-muted-foreground">瑕疵总数</dt><dd class="tabular-nums">${item.defectQty}</dd></div>
+        <div class="flex items-center justify-between gap-2"><dt class="text-muted-foreground">车缝责任瑕疵</dt><dd class="tabular-nums">${item.sewingFactoryLiabilityDefectQty}</dd></div>
+        <div class="flex items-center justify-between gap-2"><dt class="text-muted-foreground">差额</dt><dd class="tabular-nums">差 ${item.shortageQty} 件</dd></div>
+      </dl>
+    </div>
+  `
+}
+
+function renderProductionOrderProjectionPanel(projections: ProductionOrderSettlementProjection[]): string {
+  if (state.buildObjectMode !== 'PRODUCTION_ORDER') return ''
+  return `
+    <section class="mt-4 rounded-lg border bg-card p-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold">步骤 2：反查生产单</h3>
+          <p class="mt-1 text-xs text-muted-foreground">全部展示反查结果；未完成生产单不进入本期对账。</p>
+        </div>
+        <div class="text-xs text-muted-foreground">已完成 ${projections.filter((item) => item.isComplete).length} 张 / 未完成 ${projections.filter((item) => !item.isComplete).length} 张</div>
+      </div>
+      <div class="mt-3 space-y-2">
+        ${
+          projections.length
+            ? projections.map((item) => renderProductionOrderProjectionRow(item)).join('')
+            : '<p class="py-6 text-center text-sm text-muted-foreground">当前范围暂无可反查的生产单。</p>'
+        }
+      </div>
+    </section>
   `
 }
 
@@ -994,6 +1212,32 @@ function renderStatementLedgerSectionRows(
   `
 }
 
+function renderStatementLifecycleHint(
+  draft: StatementDraft,
+  progressView: ReturnType<typeof getStatementSettlementProgressView>,
+): string {
+  if (draft.status === 'READY_FOR_PREPAYMENT') {
+    const message = progressView.canEnterSettlement
+      ? '当前已完成正式流水汇总并等待进入后续预付款批次。'
+      : progressView.detail
+    return `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">${escapeHtml(message)}</span>`
+  }
+
+  if (draft.status === 'IN_PREPAYMENT_BATCH') {
+    return '<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前单据已进入预付款批次，可从后续预付款执行页继续跟进。</span>'
+  }
+
+  if (draft.status === 'PREPAID') {
+    return '<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前单据已完成预付款，保留后续回写与历史查看。</span>'
+  }
+
+  if (draft.status === 'CLOSED') {
+    return '<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前已关闭，仅保留口径和历史查看。</span>'
+  }
+
+  return ''
+}
+
 function renderDetailDialog(detail: StatementDetailViewModel | null): string {
   if (!detail) return ''
   const appealRecords = getStatementAppealRecords(detail.draft).slice().reverse()
@@ -1001,6 +1245,8 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
   const latestAppeal = getLatestStatementAppeal(detail.draft)
   const progressView = getStatementSettlementProgressView(detail.draft)
   const confirmationSourceLabel = getStatementConfirmationSourceLabel(detail.draft)
+  const statusLabel = getStatementDisplayStatusLabel(detail.draft)
+  const statusBadgeClass = getStatementDisplayStatusBadgeClass(detail.draft)
   const showAppealProcessing =
     state.processingAppealStatementId === detail.draft.statementId && openAppeal
 
@@ -1025,7 +1271,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">工厂</dt><dd class="text-right text-xs">${escapeHtml(detail.settlementPartyLabel)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">结算周期</dt><dd class="text-right text-xs">${escapeHtml(detail.draft.settlementCycleLabel ?? '-')}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">计划预付款日</dt><dd class="text-xs">${escapeHtml(detail.draft.plannedPrepaymentAt ?? '-')}</dd></div>
-              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">对账单状态</dt><dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[detail.draft.status]}">${STATUS_ZH[detail.draft.status]}</span></dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">对账单状态</dt><dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${statusBadgeClass}">${escapeHtml(statusLabel)}</span></dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">确认来源</dt><dd class="text-xs ${isStatementProxyConfirmed(detail.draft) ? 'font-medium text-blue-700' : ''}">${escapeHtml(confirmationSourceLabel)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">创建时间</dt><dd class="text-xs">${escapeHtml(detail.draft.createdAt)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">创建人</dt><dd class="text-xs">${escapeHtml(detail.draft.createdBy)}</dd></div>
@@ -1221,26 +1467,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
                   `
                   : ''
               }
-              ${
-                detail.draft.status === 'READY_FOR_PREPAYMENT'
-                  ? `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前已完成正式流水汇总并等待进入后续预付款批次。</span>`
-                  : ''
-              }
-              ${
-                detail.draft.status === 'IN_PREPAYMENT_BATCH'
-                  ? `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前单据已进入预付款批次，可从后续预付款执行页继续跟进。</span>`
-                  : ''
-              }
-              ${
-                detail.draft.status === 'PREPAID'
-                  ? `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前单据已完成预付款，保留后续回写与历史查看。</span>`
-                  : ''
-              }
-              ${
-                detail.draft.status === 'CLOSED'
-                  ? `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前已关闭，仅保留口径和历史查看。</span>`
-                  : ''
-              }
+              ${renderStatementLifecycleHint(detail.draft, progressView)}
             </div>
           </section>
 
@@ -1268,7 +1495,7 @@ function renderProxyConfirmationDialog(): string {
         <header>
           <h3 class="text-base font-semibold">跟单审核代确认</h3>
           <p class="mt-1 text-xs leading-5 text-muted-foreground">
-            该操作会使对账单进入待入预付款，但会记录为“跟单审核代确认”，三方工厂端也会看到该确认来源。
+            该操作会使对账单进入确认后处理；正向净额单可进入预付款，净额非正向单由财务继续处理。系统会记录“跟单审核代确认”，三方工厂端也会看到该确认来源。
           </p>
         </header>
 
@@ -1339,7 +1566,8 @@ function renderListView(
     { label: '对账单', value: counts.total, tone: 'text-foreground' },
     { label: '草稿中', value: counts.draft, tone: 'text-amber-600' },
     { label: '待工厂反馈', value: counts.pendingFactory, tone: 'text-blue-600' },
-    { label: '待入预付款', value: counts.readyForPrepayment, tone: 'text-emerald-600' },
+    { label: '可入预付款', value: counts.readyForPrepayment, tone: 'text-emerald-600' },
+    { label: '财务待处理', value: counts.financePending, tone: 'text-amber-600' },
     { label: '已入预付款批次', value: counts.inPrepaymentBatch, tone: 'text-indigo-600' },
     { label: '已预付', value: counts.prepaid, tone: 'text-slate-700' },
     { label: '已关闭', value: counts.closed, tone: 'text-muted-foreground' },
@@ -1389,7 +1617,7 @@ function renderListView(
             <option value="PENDING_FACTORY_CONFIRM" ${state.filterStatus === 'PENDING_FACTORY_CONFIRM' ? 'selected' : ''}>待工厂反馈</option>
             <option value="__FACTORY_SELF_CONFIRMED__" ${state.filterStatus === '__FACTORY_SELF_CONFIRMED__' ? 'selected' : ''}>工厂已确认（工厂自己确认）</option>
             <option value="__MERCHANDISER_PROXY_CONFIRMED__" ${state.filterStatus === '__MERCHANDISER_PROXY_CONFIRMED__' ? 'selected' : ''}>工厂已确认（跟单代确认）</option>
-            <option value="READY_FOR_PREPAYMENT" ${state.filterStatus === 'READY_FOR_PREPAYMENT' ? 'selected' : ''}>待入预付款</option>
+            <option value="READY_FOR_PREPAYMENT" ${state.filterStatus === 'READY_FOR_PREPAYMENT' ? 'selected' : ''}>确认后处理</option>
             <option value="IN_PREPAYMENT_BATCH" ${state.filterStatus === 'IN_PREPAYMENT_BATCH' ? 'selected' : ''}>已入预付款批次</option>
             <option value="PREPAID" ${state.filterStatus === 'PREPAID' ? 'selected' : ''}>已预付</option>
             <option value="CLOSED" ${state.filterStatus === 'CLOSED' ? 'selected' : ''}>已关闭</option>
@@ -1479,26 +1707,34 @@ function renderListView(
 function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
   const editingDraft = getEditingDraft()
   const factoryOptions = getBuildFactoryOptions(scopes)
-  const cycleOptions = getBuildCycleOptions(scopes, state.buildFactoryId)
   const selectedScope = getSelectedBuildScope(scopes)
-  const buildCandidates = getBuildCandidates(scopes)
+  const buildCandidates = getBuildCandidates()
   const buildLines = getBuildLines(scopes)
   const buildSummary = getBuildLineSummary(buildLines)
+  const projections = getBuildProductionOrderProjections()
+  const effectiveCurrency = getEffectiveBuildCurrency()
+  const displayCurrency = getBuildCurrencyDisplayText(effectiveCurrency)
   const duplicatedStatement =
-    selectedScope == null
+    selectedScope == null || !isBuildRangeValid()
       ? null
-      : findOpenStatementByPartyAndCycle(selectedScope.settlementPartyId, selectedScope.settlementCycleId)
+      : findOpenStatementByPartyAndRange(
+          selectedScope.settlementPartyId,
+          state.buildStartDate,
+          state.buildEndDate,
+          state.buildObjectMode,
+        )
   const blockingStatement =
     duplicatedStatement && duplicatedStatement.statementId !== state.editingStatementId
       ? duplicatedStatement
       : null
+  const canGenerate = selectedScope != null && isBuildRangeValid() && effectiveCurrency !== null && !blockingStatement
 
   return `
     <section class="rounded-xl border bg-background p-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold">${editingDraft ? '继续编辑草稿' : '新建对账单'}</h2>
-          <p class="mt-1 text-sm text-muted-foreground">必须先选工厂和结算周期，再自动加载该范围内的回货批次明细行。当前阶段车缝领料对账暂不进入对账单生成。</p>
+          <p class="mt-1 text-sm text-muted-foreground">业务人员自定义时间段生成对账单；工厂档案结算周期仅作参考。当前阶段车缝领料对账暂不进入对账单生成。</p>
         </div>
         <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="back-to-list">
           返回列表
@@ -1507,11 +1743,11 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
 
       ${
         scopes.length === 0
-          ? `<p class="mt-6 py-8 text-center text-sm text-muted-foreground">当前暂无可新建对账单的工厂和结算周期范围</p>`
+          ? `<p class="mt-6 py-8 text-center text-sm text-muted-foreground">当前暂无可新建对账单的工厂、时间段和结算对象范围</p>`
           : `
             <div class="mt-4 grid gap-4 lg:grid-cols-[1.1fr,1fr]">
               <section class="rounded-lg border bg-muted/20 p-4">
-                <h3 class="text-sm font-semibold">步骤 1：选择工厂与结算周期</h3>
+                <h3 class="text-sm font-semibold">步骤 1：选择工厂、时间段和结算对象</h3>
                 <div class="mt-3 grid gap-3 md:grid-cols-2">
                   <label class="grid gap-1 text-sm">
                     <span class="text-muted-foreground">工厂</span>
@@ -1525,14 +1761,26 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                     </select>
                   </label>
                   <label class="grid gap-1 text-sm">
-                    <span class="text-muted-foreground">结算周期</span>
-                    <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="cycle" ${editingDraft ? 'disabled' : ''}>
-                      <option value="">请选择结算周期</option>
-                      ${cycleOptions
-                        .map(
-                          (item) => `<option value="${escapeHtml(item.settlementCycleId)}" ${state.buildCycleId === item.settlementCycleId ? 'selected' : ''}>${escapeHtml(`${item.settlementCycleLabel}${item.plannedPrepaymentAt ? ` · 计划预付款 ${item.plannedPrepaymentAt}` : ''}`)}</option>`,
-                        )
-                        .join('')}
+                    <span class="text-muted-foreground">开始日期</span>
+                    <input type="date" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="start-date" value="${escapeHtml(state.buildStartDate)}" ${editingDraft ? 'disabled' : ''} />
+                  </label>
+                  <label class="grid gap-1 text-sm">
+                    <span class="text-muted-foreground">结束日期</span>
+                    <input type="date" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="end-date" value="${escapeHtml(state.buildEndDate)}" ${editingDraft ? 'disabled' : ''} />
+                  </label>
+                  <label class="grid gap-1 text-sm">
+                    <span class="text-muted-foreground">结算对象</span>
+                    <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="object-mode" ${editingDraft ? 'disabled' : ''}>
+                      <option value="PRODUCTION_ORDER" ${state.buildObjectMode === 'PRODUCTION_ORDER' ? 'selected' : ''}>按生产单</option>
+                      <option value="LEDGER" ${state.buildObjectMode === 'LEDGER' ? 'selected' : ''}>按预结算流水</option>
+                    </select>
+                  </label>
+                  <label class="grid gap-1 text-sm">
+                    <span class="text-muted-foreground">结算币种</span>
+                    <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="currency" disabled>
+                      ${SETTLEMENT_CURRENCIES.map(
+                        (currency) => `<option value="${currency}" ${(effectiveCurrency ?? state.buildCurrency) === currency ? 'selected' : ''}>${currency}</option>`,
+                      ).join('')}
                     </select>
                   </label>
                 </div>
@@ -1547,10 +1795,13 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                       <div class="mt-4 rounded-md border bg-background p-3 text-sm">
                         <div class="flex flex-wrap items-center gap-4">
                           <span>工厂：<strong>${escapeHtml(selectedScope.settlementPartyLabel)}</strong></span>
-                          <span>结算周期：<strong>${escapeHtml(selectedScope.settlementCycleLabel)}</strong></span>
+                          <span>对账范围：<strong>${escapeHtml(state.buildStartDate || '-')} ~ ${escapeHtml(state.buildEndDate || '-')}</strong></span>
+                          <span>结算对象：<strong>${state.buildObjectMode === 'PRODUCTION_ORDER' ? '按生产单' : '按预结算流水'}</strong></span>
+                          <span>结算币种：<strong>${escapeHtml(displayCurrency)}</strong></span>
+                          <span>参考周期：<strong>${escapeHtml(selectedScope.settlementCycleLabel)}</strong></span>
                           <span>计划预付款：<strong>${escapeHtml(selectedScope.plannedPrepaymentAt ?? '-')}</strong></span>
-                          <span>可纳入正式流水：<strong>${selectedScope.candidateCount}</strong> 条</span>
-                          <span>本期应付净额：<strong>${formatAmount(selectedScope.netPayableAmount)}</strong></span>
+                          <span>可纳入正式流水：<strong>${buildLines.length}</strong> 条</span>
+                          <span>本期应付净额：<strong>${formatAmount(buildSummary.netPayableAmount)}</strong></span>
                         </div>
                       </div>
                     `
@@ -1558,10 +1809,21 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                 }
 
                 ${
+                  isBuildRangeReady() && !isBuildRangeValid()
+                    ? '<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">开始日期不能晚于结束日期</div>'
+                    : ''
+                }
+                ${
+                  effectiveCurrency === null
+                    ? '<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">当前时间段存在多个币种，请拆分时间段或按币种分别生成</div>'
+                    : ''
+                }
+
+                ${
                   blockingStatement
                     ? `
                       <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                        <div>该工厂该结算周期已存在未关闭对账单 <strong>${escapeHtml(blockingStatement.statementId)}</strong>，不能重复生成。</div>
+                        <div>该工厂该时间段和结算对象已存在未关闭对账单 <strong>${escapeHtml(blockingStatement.statementId)}</strong>，不能重复生成。</div>
                         <div class="mt-2 flex flex-wrap gap-2">
                           <button class="inline-flex h-8 items-center rounded-md border border-amber-300 bg-white px-3 text-xs hover:bg-amber-100" data-stm-action="open-existing-statement" data-statement-id="${escapeHtml(blockingStatement.statementId)}">查看已有单据</button>
                           ${
@@ -1579,7 +1841,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                   ${
                     editingDraft
                       ? `<button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="save-build" ${selectedScope == null ? 'disabled' : ''}>保存草稿</button>`
-                      : `<button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="generate" ${selectedScope == null || blockingStatement ? 'disabled' : ''}>确认生成草稿</button>`
+                      : `<button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="generate" ${canGenerate ? '' : 'disabled'}>确认生成草稿</button>`
                   }
                   <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="back-to-list">取消</button>
                 </div>
@@ -1599,10 +1861,12 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
               </section>
             </div>
 
+            ${renderProductionOrderProjectionPanel(projections)}
+
             <section class="mt-4 rounded-lg border bg-card p-4">
               <div class="mb-3">
                 <h3 class="text-sm font-semibold">正式流水候选</h3>
-                <p class="mt-1 text-xs text-muted-foreground">这里仅展示当前工厂和结算周期下可入单的任务收入流水与质量扣款流水。待确认质量扣款记录和未最终裁决的质量异议不会进入本期对账单。</p>
+                <p class="mt-1 text-xs text-muted-foreground">这里展示当前工厂和时间段下可入单的任务收入流水与质量扣款流水。待确认质量扣款记录和未最终裁决的质量异议不会进入本期对账单。</p>
               </div>
               ${renderBuildCandidateRows(buildCandidates)}
             </section>
@@ -1688,6 +1952,30 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
     if (field === 'factory' && buildFieldNode instanceof HTMLSelectElement) {
       state.buildFactoryId = buildFieldNode.value
       state.buildCycleId = getBuildCycleOptions(scopes, state.buildFactoryId)[0]?.settlementCycleId ?? ''
+      state.selectedLedgerIds = []
+      state.selectedProductionOrderNos = []
+      return true
+    }
+    if (field === 'start-date' && buildFieldNode instanceof HTMLInputElement) {
+      state.buildStartDate = buildFieldNode.value
+      state.selectedLedgerIds = []
+      state.selectedProductionOrderNos = []
+      return true
+    }
+    if (field === 'end-date' && buildFieldNode instanceof HTMLInputElement) {
+      state.buildEndDate = buildFieldNode.value
+      state.selectedLedgerIds = []
+      state.selectedProductionOrderNos = []
+      return true
+    }
+    if (field === 'object-mode' && buildFieldNode instanceof HTMLSelectElement) {
+      state.buildObjectMode = buildFieldNode.value as StatementSettlementObjectMode
+      state.selectedLedgerIds = []
+      state.selectedProductionOrderNos = []
+      return true
+    }
+    if (field === 'currency' && buildFieldNode instanceof HTMLSelectElement) {
+      state.buildCurrency = buildFieldNode.value as SettlementCurrency
       return true
     }
     if (field === 'cycle' && buildFieldNode instanceof HTMLSelectElement) {
@@ -1829,7 +2117,19 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
     const scopes = getBuildScopesForAction()
     const scope = getSelectedBuildScope(scopes)
     if (!scope) {
-      showStatementsToast('请先选择工厂和结算周期', 'error')
+      showStatementsToast('请先选择工厂', 'error')
+      return true
+    }
+    if (!isBuildRangeReady()) {
+      showStatementsToast('请先选择对账时间段', 'error')
+      return true
+    }
+    if (!isBuildRangeValid()) {
+      showStatementsToast('开始日期不能晚于结束日期', 'error')
+      return true
+    }
+    if (getEffectiveBuildCurrency() === null) {
+      showStatementsToast('当前时间段存在多个币种，请拆分时间段或按币种分别生成', 'error')
       return true
     }
 
@@ -1852,17 +2152,17 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
     const scope = getSelectedBuildScope(scopes)
     const statementId = state.editingStatementId
     if (!scope || !statementId) {
-      showStatementsToast('当前草稿缺少工厂或结算周期', 'error')
+      showStatementsToast('当前草稿缺少工厂或时间段', 'error')
       return true
     }
 
     const lines = getBuildLines(scopes)
     if (!lines.length) {
-      showStatementsToast('当前工厂和结算周期暂无可生成的对账明细行', 'error')
+      showStatementsToast('当前工厂和时间段暂无可生成的对账明细行', 'error')
       return true
     }
 
-    const sourceCandidates = getBuildCandidates(scopes)
+    const sourceCandidates = getBuildCandidates()
     const result = syncStatementDraftFromBuild({
       statementId,
       remark: state.buildRemark,

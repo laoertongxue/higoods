@@ -1396,15 +1396,15 @@ function renderCycleCard(summary: SettlementCycleSummary): string {
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2 text-[10px]">
         <div class="rounded-md bg-muted/20 px-3 py-2">
-          <div class="text-muted-foreground">任务收入正式流水金额</div>
+          <div class="text-muted-foreground">应付</div>
           <div class="mt-1 text-xs font-semibold text-foreground">${escapeHtml(formatAmount(summary.taskEarningAmount))}</div>
         </div>
         <div class="rounded-md bg-muted/20 px-3 py-2">
-          <div class="text-muted-foreground">质量扣款正式流水金额</div>
+          <div class="text-muted-foreground">扣款</div>
           <div class="mt-1 text-xs font-semibold text-red-600">${escapeHtml(summary.qualityDeductionAmount > 0 ? formatAmount(summary.qualityDeductionAmount) : '—')}</div>
         </div>
         <div class="rounded-md bg-muted/20 px-3 py-2">
-          <div class="text-muted-foreground">本期预付净额</div>
+          <div class="text-muted-foreground">本期净额</div>
           <div class="mt-1 text-xs font-semibold text-foreground">${escapeHtml(formatAmount(summary.netPayableAmount))}</div>
         </div>
         <div class="rounded-md bg-muted/20 px-3 py-2">
@@ -1434,13 +1434,13 @@ function renderOverviewTab(summary: SettlementCycleSummary): string {
   return `
     <div class="space-y-3 p-4">
       ${renderCard(
-        '本期金额概况',
+        '本期金额',
         `
-          ${renderRow('任务收入正式流水金额', formatAmount(summary.taskEarningAmount), { bold: true })}
-          ${renderRow('质量扣款正式流水金额', summary.qualityDeductionAmount > 0 ? formatAmount(summary.qualityDeductionAmount) : '—', {
+          ${renderRow('应付', formatAmount(summary.taskEarningAmount), { bold: true })}
+          ${renderRow('扣款', summary.qualityDeductionAmount > 0 ? formatAmount(summary.qualityDeductionAmount) : '—', {
             red: summary.qualityDeductionAmount > 0,
           })}
-          ${renderRow('本期预付净额', formatAmount(summary.netPayableAmount), { bold: true })}
+          ${renderRow('本期净额', formatAmount(summary.netPayableAmount), { bold: true })}
           ${renderRow('计划预付款日', summary.plannedPrepaymentAt ?? '当前未计划')}
         `,
       )}
@@ -1954,11 +1954,13 @@ function renderProxyConfirmationNotice(statement: StatementDraft): string {
 
 function renderStatementCard(statement: StatementDraft, summary: SettlementCycleSummary): string {
   const amounts = getStatementSplitAmounts(statement)
+  const qualityItems = statement.items.filter((item) => item.sourceItemType === 'QUALITY_DEDUCTION')
   const batch = statement.prepaymentBatchId ? getPrepaymentBatchById(statement.prepaymentBatchId) : getBatchByStatement(statement.statementId)
   const approval = getBatchApproval(batch)
   const writeback = getBatchWriteback(batch)
   const canRespond =
     statement.status === 'PENDING_FACTORY_CONFIRM' && statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM'
+  const canAppeal = canRespond || (isStatementProxyConfirmed(statement) && !statement.prepaymentBatchId)
 
   return `
     <article class="rounded-lg border bg-card px-3 py-3 shadow-none">
@@ -1970,14 +1972,14 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
             ${renderStatusBadge(getFactoryFeedbackLabel(statement.factoryFeedbackStatus), getFactoryFeedbackVariant(statement.factoryFeedbackStatus))}
             ${isStatementProxyConfirmed(statement) ? renderStatusBadge('跟单审核代确认', 'blue') : ''}
           </div>
-          <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`正向 ${formatAmount(amounts.earningAmount)} · 反向 ${amounts.deductionAmount > 0 ? formatAmount(amounts.deductionAmount) : '—'} · 本期应付净额 ${formatAmount(amounts.netAmount)}`)}</div>
+          <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`应付 ${formatAmount(amounts.earningAmount)} · 扣款 ${amounts.deductionAmount > 0 ? formatAmount(amounts.deductionAmount) : '—'} · 本期净额 ${formatAmount(amounts.netAmount)}`)}</div>
           <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`资料快照版本 ${statement.settlementProfileVersionNo} · 当前生效 ${summary.currentEffectiveVersionNo ?? '—'}`)}</div>
         </div>
-        <button class="rounded-md border px-2.5 py-1 text-[10px] hover:bg-muted" data-pda-sett-action="open-statement-detail" data-statement-id="${escapeHtml(statement.statementId)}">
-          查看详情
-        </button>
       </div>
       <div class="mt-3 rounded-md bg-muted/20 px-3 py-2 text-[10px]">
+        ${renderRow('应付', formatAmount(amounts.earningAmount), { bold: true })}
+        ${renderRow('扣款', amounts.deductionAmount > 0 ? formatAmount(amounts.deductionAmount) : '—', { red: amounts.deductionAmount > 0 })}
+        ${renderRow('本期净额', formatAmount(amounts.netAmount), { bold: true })}
         ${renderRow('对账单状态', getStatementStatusLabel(statement.status))}
         ${renderRow('工厂反馈状态', getFactoryFeedbackLabel(statement.factoryFeedbackStatus))}
         ${renderRow('确认来源', getStatementConfirmationSourceLabel(statement))}
@@ -1986,6 +1988,23 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
         ${renderRow('飞书付款审批状态', approval ? getFeishuStatusLabel(approval.status) : '当前未申请')}
         ${renderRow('打款回写', writeback ? `已回写 · ${writeback.bankSerialNo}` : '当前未回写')}
       </div>
+      <div class="mt-2 space-y-2">
+        ${
+          qualityItems.length > 0
+            ? qualityItems
+                .slice(0, 2)
+                .map(
+                  (item) => `
+                    <div class="rounded-md border bg-muted/20 px-3 py-2">
+                      ${renderRow('来源质检单', item.qcRecordId ?? item.sourceRefLabel ?? item.sourceItemId)}
+                      ${renderRow('扣款原因', item.remark ?? item.sourceRefLabel ?? item.basisId)}
+                    </div>
+                  `,
+                )
+                .join('')
+            : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-[10px] text-muted-foreground">当前对账单没有质检扣款明细</div>'
+        }
+      </div>
       ${renderProxyConfirmationNotice(statement)}
       ${
         summary.snapshotDifferenceNote && statement.settlementProfileVersionNo !== summary.currentEffectiveVersionNo
@@ -1993,41 +2012,36 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
           : ''
       }
       <div class="mt-3 grid grid-cols-2 gap-2">
-        ${
-          canRespond
-            ? `
-              <button
-                class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700"
-                data-pda-sett-action="confirm-statement"
-                data-statement-id="${escapeHtml(statement.statementId)}"
-              >
-                确认对账单
-              </button>
-              <button
-                class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700"
-                data-pda-sett-action="open-statement-appeal"
-                data-statement-id="${escapeHtml(statement.statementId)}"
-              >
-                ${isStatementProxyConfirmed(statement) ? '对代确认结果有异议' : '发起对账单异议'}
-              </button>
-            `
-            : `
-              <button
-                class="rounded-md border px-3 py-2 text-xs hover:bg-muted"
-                data-pda-sett-action="open-statement-detail"
-                data-statement-id="${escapeHtml(statement.statementId)}"
-              >
-                查看对账单
-              </button>
-              <button
-                class="rounded-md border px-3 py-2 text-xs hover:bg-muted"
-                data-pda-sett-action="open-statement-payment"
-                data-statement-id="${escapeHtml(statement.statementId)}"
-              >
-                查看预付款结果
-              </button>
-            `
-        }
+        <button
+          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
+          data-pda-sett-action="open-statement-detail"
+          data-statement-id="${escapeHtml(statement.statementId)}"
+        >
+          查看明细
+        </button>
+        <button
+          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          data-pda-sett-action="confirm-statement"
+          data-statement-id="${escapeHtml(statement.statementId)}"
+          ${canRespond ? '' : 'disabled'}
+        >
+          确认对账单
+        </button>
+        <button
+          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          data-pda-sett-action="open-statement-appeal"
+          data-statement-id="${escapeHtml(statement.statementId)}"
+          ${canAppeal ? '' : 'disabled'}
+        >
+          发起申诉
+        </button>
+        <button
+          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
+          data-pda-sett-action="open-payment-result"
+          data-statement-id="${escapeHtml(statement.statementId)}"
+        >
+          打款结果
+        </button>
       </div>
     </article>
   `
@@ -2044,12 +2058,14 @@ function renderPrepaymentBatchCard(batch: SettlementBatch): string {
             <span class="text-xs font-semibold text-foreground">${escapeHtml(batch.batchNo ?? batch.batchId)}</span>
             ${renderStatusBadge(getPrepaymentBatchStatusLabel(batch.status), getPrepaymentBatchStatusVariant(batch.status))}
           </div>
-          <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`关联对账单 ${batch.totalStatementCount} 张 · 金额 ${formatAmount(batch.totalPayableAmount, batch.settlementCurrency)}`)}</div>
+          <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`关联对账单 ${batch.totalStatementCount} 张 · 批次金额已锁定 ${formatAmount(batch.totalPayableAmount, batch.settlementCurrency)}`)}</div>
           <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`飞书付款审批编号 ${approval?.approvalNo ?? '当前未申请'} · 状态 ${approval ? getFeishuStatusLabel(approval.status) : '当前未申请'}`)}</div>
         </div>
       </div>
       <div class="mt-3 rounded-md bg-muted/20 px-3 py-2 text-[10px]">
         ${renderRow('预付款批次号', batch.batchNo ?? batch.batchId)}
+        ${renderRow('批次金额', formatAmount(batch.totalPayableAmount, batch.settlementCurrency), { bold: true })}
+        ${renderRow('金额锁定', '入批后金额锁定，差异通过后续调整处理')}
         ${renderRow('飞书付款审批编号', approval?.approvalNo ?? '当前未申请')}
         ${renderRow('飞书付款审批状态', approval ? getFeishuStatusLabel(approval.status) : '当前未申请')}
         ${renderRow('打款时间', writeback?.paidAt ? formatDateTime(writeback.paidAt) : '当前未回写')}
@@ -2083,6 +2099,9 @@ function renderStatementDrawer(): string {
   const progress = getStatementSettlementProgressView(statement)
   const taskItems = statement.items.filter((item) => item.sourceItemType === 'TASK_EARNING')
   const qualityItems = statement.items.filter((item) => item.sourceItemType === 'QUALITY_DEDUCTION')
+  const canRespond =
+    statement.status === 'PENDING_FACTORY_CONFIRM' && statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM'
+  const canAppeal = canRespond || (isStatementProxyConfirmed(statement) && !statement.prepaymentBatchId)
   const snapshotDiffNote =
     currentEffective && currentEffective.versionNo !== statement.settlementProfileVersionNo
       ? `当前生效：${currentEffective.versionNo}；对账单使用：${statement.settlementProfileVersionNo}。新版本用于后续新单据，本期已生成单据继续沿用原快照。`
@@ -2112,7 +2131,7 @@ function renderStatementDrawer(): string {
   if (state.statementDrawerMode === 'appeal') {
     const isProxyAppeal = isStatementProxyConfirmed(statement)
     return renderDrawer(
-      `${isProxyAppeal ? '对代确认结果有异议' : '发起对账单异议'} · ${statement.statementNo ?? statement.statementId}`,
+      `发起申诉 · ${statement.statementNo ?? statement.statementId}`,
       `
         <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-[10px] leading-5 text-blue-700">
           ${isProxyAppeal ? '该对账单已由跟单审核代确认。如金额、扣款或确认依据有异议，可在这里提交；平台处理前，该单不会继续进入后续预付款链。' : '对账单异议会回写到对账单对象本身。平台处理前，该单不会继续进入后续预付款链。'}
@@ -2175,9 +2194,9 @@ function renderStatementDrawer(): string {
       ${renderStatementDetailSection(
         '金额概况',
         `
-          ${renderRow('正向金额', formatAmount(amounts.earningAmount), { bold: true })}
-          ${renderRow('反向金额', amounts.deductionAmount > 0 ? formatAmount(amounts.deductionAmount) : '—', { red: amounts.deductionAmount > 0 })}
-          ${renderRow('本期应付净额', formatAmount(amounts.netAmount), { bold: true })}
+          ${renderRow('应付', formatAmount(amounts.earningAmount), { bold: true })}
+          ${renderRow('扣款', amounts.deductionAmount > 0 ? formatAmount(amounts.deductionAmount) : '—', { red: amounts.deductionAmount > 0 })}
+          ${renderRow('本期净额', formatAmount(amounts.netAmount), { bold: true })}
         `,
       )}
       ${renderStatementDetailSection(
@@ -2205,7 +2224,7 @@ function renderStatementDrawer(): string {
           : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-5 text-center text-xs text-muted-foreground">当前对账单没有任务收入流水</div>',
       )}
       ${renderStatementDetailSection(
-        '质量扣款流水明细',
+        '质量扣款明细',
         qualityItems.length > 0
           ? qualityItems
               .map(
@@ -2214,17 +2233,12 @@ function renderStatementDrawer(): string {
                     <div class="flex items-center justify-between gap-3">
                       <div class="min-w-0">
                         <div class="text-xs font-medium">${escapeHtml(item.ledgerNo ?? item.sourceItemId)}</div>
-                        <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`质检记录 ${item.qcRecordId ?? '—'} · 待确认记录 ${item.pendingDeductionRecordId ?? '—'}`)}</div>
-                        <div class="text-[10px] text-muted-foreground">${escapeHtml(`质量异议单 ${item.disputeId ?? '—'} · 责任数量 ${item.returnInboundQty ?? item.deductionQty} 件`)}</div>
+                        <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`来源质检单 ${item.qcRecordId ?? '—'} · 待确认记录 ${item.pendingDeductionRecordId ?? '—'}`)}</div>
+                        <div class="text-[10px] text-muted-foreground">${escapeHtml(`扣款原因 ${item.remark ?? item.sourceRefLabel ?? item.basisId} · 责任数量 ${item.returnInboundQty ?? item.deductionQty} 件`)}</div>
                       </div>
                       <div class="text-right text-[10px]">
                         <div class="font-semibold text-red-600">${escapeHtml(formatAmount(Math.abs(item.qualityDeductionAmount ?? item.deductionAmount), statement.settlementCurrency ?? 'IDR'))}</div>
                         <div class="text-muted-foreground">${escapeHtml(`裁决结果 ${item.disputeId ? '已关联质量异议' : '无异议'}`)}</div>
-                        ${
-                          item.basisId
-                            ? `<button class="mt-1 text-primary underline underline-offset-2" data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(item.basisId))}">查看扣款依据</button>`
-                            : ''
-                        }
                       </div>
                     </div>
                   </div>
@@ -2293,21 +2307,30 @@ function renderStatementDrawer(): string {
         `,
       )}
       <div class="grid grid-cols-2 gap-2">
-        ${
-          statement.status === 'PENDING_FACTORY_CONFIRM' && statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM'
-            ? `
-              <button class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700" data-pda-sett-action="confirm-statement" data-statement-id="${escapeHtml(statement.statementId)}">确认对账单</button>
-              <button class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700" data-pda-sett-action="open-statement-appeal" data-statement-id="${escapeHtml(statement.statementId)}">发起对账单异议</button>
-            `
-            : `
-              ${
-                isStatementProxyConfirmed(statement) && !statement.prepaymentBatchId
-                  ? `<button class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700" data-pda-sett-action="open-statement-appeal" data-statement-id="${escapeHtml(statement.statementId)}">对代确认结果有异议</button>`
-                  : `<button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-pda-sett-action="open-statement-payment" data-statement-id="${escapeHtml(statement.statementId)}">查看预付款结果</button>`
-              }
-              <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-pda-sett-action="close-statement-drawer">关闭</button>
-            `
-        }
+        <button
+          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          data-pda-sett-action="confirm-statement"
+          data-statement-id="${escapeHtml(statement.statementId)}"
+          ${canRespond ? '' : 'disabled'}
+        >
+          确认对账单
+        </button>
+        <button
+          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          data-pda-sett-action="open-statement-appeal"
+          data-statement-id="${escapeHtml(statement.statementId)}"
+          ${canAppeal ? '' : 'disabled'}
+        >
+          发起申诉
+        </button>
+        <button
+          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
+          data-pda-sett-action="open-payment-result"
+          data-statement-id="${escapeHtml(statement.statementId)}"
+        >
+          打款结果
+        </button>
+        <button class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs hover:bg-muted" data-pda-sett-action="close-statement-drawer">关闭</button>
       </div>
     `,
     'close-statement-drawer',
@@ -2321,7 +2344,7 @@ function renderStatementsTab(summary: SettlementCycleSummary): string {
         '对账与预付款结果',
         `
           <div class="rounded-md border bg-muted/20 px-3 py-2 text-[10px] leading-5 text-muted-foreground">
-            这里只消费平台已成立的对账单、预付款批次、飞书付款审批状态和打款回写结果。工厂端不能在这里创建预付款批次、申请付款或创建打款回写。
+            这里只展示平台已成立的对账单、预付款批次、飞书付款审批状态和打款回写结果。工厂端只查看与确认，不提供扣款金额、币种等核算编辑。
           </div>
         `,
       )}
@@ -2608,7 +2631,7 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'open-statement-payment') {
+  if (action === 'open-statement-payment' || action === 'open-payment-result') {
     const statementId = actionNode.dataset.statementId || state.statementDetailId
     if (!statementId) return true
     state.statementDrawerMode = 'payment'

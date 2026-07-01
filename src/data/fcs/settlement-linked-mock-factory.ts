@@ -1285,25 +1285,9 @@ function createStatementDrafts(
       return fields.settlementCycleId === settlementCycleId
     })
     const statementId = `ST-LINK-2026-${String(statementSeq + 1).padStart(4, '0')}`
-    const status = chooseStatementStatus(cycleIndex === -1 ? 0 : cycleIndex)
     const snapshot = buildSettlementSnapshotForFactoryAt(factory, `${cycleEndAt} 23:59:59`)
     const factoryIndex = factories.findIndex((item) => item.id === factory.id)
-    const factoryFeedbackStatus = chooseFactoryFeedbackStatus(status, factoryIndex, cycleIndex === -1 ? 0 : cycleIndex)
     const createdAt = `${cycleEndAt} 18:00:00`
-    const appealRecord =
-      factoryFeedbackStatus === 'FACTORY_APPEALED' || factoryFeedbackStatus === 'PLATFORM_HANDLING' || factoryFeedbackStatus === 'RESOLVED'
-        ? {
-            ...buildStatementAppeal(statementId, cycleIndex === -1 ? 0 : cycleIndex, factoryIndex),
-            factoryId: factory.id,
-            settlementCycleId,
-            status:
-              factoryFeedbackStatus === 'PLATFORM_HANDLING'
-                ? 'PLATFORM_HANDLING'
-                : factoryFeedbackStatus === 'RESOLVED'
-                  ? 'RESOLVED'
-                  : 'SUBMITTED',
-          }
-        : undefined
     const lineItems = lines
       .filter((line) => {
         if (line.item.sourceItemType !== 'QUALITY_DEDUCTION') return true
@@ -1319,6 +1303,27 @@ function createStatementDrafts(
           right.returnInboundBatchNo ?? right.sourceRefLabel ?? '',
         )
       })
+    const hasDeductionLine = lineItems.some((item) => item.sourceItemType === 'QUALITY_DEDUCTION')
+    const lineNetAmount = roundAmount(lineItems.reduce((sum, item) => sum + (item.netAmount ?? item.deductionAmount), 0))
+    const hasPositiveDeductionLine = hasDeductionLine && lineNetAmount > 0
+    const status = hasPositiveDeductionLine ? 'READY_FOR_PREPAYMENT' : chooseStatementStatus(cycleIndex === -1 ? 0 : cycleIndex)
+    const factoryFeedbackStatus = hasPositiveDeductionLine
+      ? 'FACTORY_CONFIRMED'
+      : chooseFactoryFeedbackStatus(status, factoryIndex, cycleIndex === -1 ? 0 : cycleIndex)
+    const appealRecord =
+      factoryFeedbackStatus === 'FACTORY_APPEALED' || factoryFeedbackStatus === 'PLATFORM_HANDLING' || factoryFeedbackStatus === 'RESOLVED'
+        ? {
+            ...buildStatementAppeal(statementId, cycleIndex === -1 ? 0 : cycleIndex, factoryIndex),
+            factoryId: factory.id,
+            settlementCycleId,
+            status:
+              factoryFeedbackStatus === 'PLATFORM_HANDLING'
+                ? 'PLATFORM_HANDLING'
+                : factoryFeedbackStatus === 'RESOLVED'
+                  ? 'RESOLVED'
+                  : 'SUBMITTED',
+          }
+        : undefined
     const keptLines = lines.filter((line) =>
       lineItems.some((item) => item.sourceItemId === line.item.sourceItemId),
     )
@@ -1430,6 +1435,8 @@ function createPrepaymentChain(statements: StatementDraft[]): {
   const readyByGroup = new Map<string, { factoryId: string; plannedPrepaymentAt: string; statements: StatementDraft[] }>()
   for (const statement of statements) {
     if (statement.status !== 'READY_FOR_PREPAYMENT') continue
+    if ((statement.netPayableAmount ?? statement.totalAmount) <= 0) continue
+    if (statement.items.some((item) => item.sourceItemType === 'QUALITY_DEDUCTION')) continue
     const plannedPrepaymentAt = statement.plannedPrepaymentAt ?? statement.settlementCycleEndAt ?? '未计划'
     const key = `${statement.settlementPartyId}__${plannedPrepaymentAt}`
     const existed = readyByGroup.get(key) ?? {
@@ -1785,7 +1792,7 @@ function syncStatementsWithPrepaymentBatches(
 }
 
 function reserveStatementBuildScope(statements: StatementDraft[]): StatementDraft[] {
-  const reserved = [...statements]
+  const mixedStatements = [...statements]
     .filter((statement) => (statement.earningLedgerIds?.length ?? 0) > 0 && (statement.deductionLedgerIds?.length ?? 0) > 0)
     .sort((left, right) => {
       const leftCycle = left.settlementCycleEndAt ?? ''
@@ -1793,7 +1800,12 @@ function reserveStatementBuildScope(statements: StatementDraft[]): StatementDraf
       if (leftCycle !== rightCycle) return leftCycle < rightCycle ? 1 : -1
       return left.createdAt < right.createdAt ? 1 : left.createdAt > right.createdAt ? -1 : 0
     })
-    .find((statement) => statement.status === 'DRAFT' || statement.status === 'PENDING_FACTORY_CONFIRM')
+  const readyMixedStatements = mixedStatements.filter((statement) => statement.status === 'READY_FOR_PREPAYMENT')
+  const reserved =
+    mixedStatements.find((statement) => statement.status === 'DRAFT' || statement.status === 'PENDING_FACTORY_CONFIRM') ??
+    readyMixedStatements.find((statement) =>
+      readyMixedStatements.some((candidate) => candidate.statementId !== statement.statementId),
+    )
 
   if (!reserved) return statements
   return statements.filter((statement) => statement.statementId !== reserved.statementId)

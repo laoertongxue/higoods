@@ -22,7 +22,6 @@ import {
   nowTimestamp,
   randomSuffix,
   parseNumberField,
-  parseAmountField,
   NEEDS_AFFECTED_QTY,
   type ProcessTask,
   type RootCauseType,
@@ -32,7 +31,6 @@ import {
   type QcRecordFormState,
   type LiabilityStatus,
   type SettlementPartyType,
-  type DeductionDecision,
   type QcDisposition,
   type QcResult,
 } from './context'
@@ -212,15 +210,6 @@ function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: stri
       return { ok: false, message: '车缝回货入仓质检提交前必须填写责任方' }
     }
     if (!qc.disposition) return { ok: false, message: '车缝回货入仓质检提交前必须填写不合格品处置方式' }
-    if (!qc.deductionDecision) return { ok: false, message: '车缝回货入仓质检提交前必须明确是否扣款' }
-    if (qc.deductionDecision === 'DEDUCT') {
-      const amount = Number(qc.deductionAmount)
-      if (!Number.isFinite(amount) || amount <= 0) {
-        return { ok: false, message: '车缝回货入仓质检选择扣款时，金额必须大于 0' }
-      }
-    } else if (!qc.deductionDecisionRemark?.trim()) {
-      return { ok: false, message: '车缝回货入仓质检选择不扣款时，请填写说明' }
-    }
   }
 
   if (qc.result === 'FAIL') {
@@ -332,10 +321,6 @@ function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: stri
     liabilityDecisionRequired: finalLiabilityRequired ? true : qc.liabilityDecisionRequired ?? false,
     liabilityDecidedAt: finalLiabilityRequired ? now : qc.liabilityDecidedAt,
     liabilityDecidedBy: finalLiabilityRequired ? by : qc.liabilityDecidedBy,
-    deductionCurrency:
-      finalLiabilityRequired && qc.deductionDecision === 'DEDUCT'
-        ? (qc.deductionCurrency ?? 'CNY')
-        : qc.deductionCurrency,
     updatedAt: now,
     auditLogs,
   }
@@ -458,17 +443,6 @@ function buildPayload(
     liabilityStatus: form.liabilityStatus,
     liabilityDecisionStage: finalLiabilityRequired ? 'SEW_RETURN_INBOUND_FINAL' : 'GENERAL',
     liabilityDecisionRequired: finalLiabilityRequired,
-    deductionDecision: isFail && finalLiabilityRequired ? form.deductionDecision || undefined : undefined,
-    deductionAmount:
-      isFail && finalLiabilityRequired && form.deductionDecision === 'DEDUCT' && form.deductionAmount !== ''
-        ? Number(form.deductionAmount)
-        : undefined,
-    deductionCurrency:
-      isFail && finalLiabilityRequired && form.deductionDecision === 'DEDUCT'
-        ? 'CNY'
-        : undefined,
-    deductionDecisionRemark:
-      isFail && finalLiabilityRequired ? form.deductionDecisionRemark.trim() || undefined : undefined,
     dispositionRemark: isFail ? form.dispositionRemark.trim() || undefined : undefined,
   }
 
@@ -581,15 +555,6 @@ function validateForm(form: QcRecordFormState, forSubmit: boolean, existing?: Qu
       if (!form.responsiblePartyType) return '车缝回货入仓质检提交前必须选择责任方类型'
       if (!form.responsiblePartyId.trim()) return '车缝回货入仓质检提交前必须填写责任方'
       if (!form.disposition) return '车缝回货入仓质检提交前必须填写不合格品处置方式'
-      if (!form.deductionDecision) return '车缝回货入仓质检提交前必须明确是否扣款'
-      if (form.deductionDecision === 'DEDUCT') {
-        const amount = Number(form.deductionAmount)
-        if (!Number.isFinite(amount) || amount <= 0) {
-          return '选择扣款时，扣款金额必须大于 0'
-        }
-      } else if (!form.deductionDecisionRemark.trim()) {
-        return '选择不扣款时，请填写不扣款说明'
-      }
     }
   }
 
@@ -732,21 +697,6 @@ function updateFormField(detail: QcRecordDetailState, field: string, value: stri
   }
   if (field === 'responsiblePartyName') {
     detail.form.responsiblePartyName = value
-    return
-  }
-  if (field === 'deductionDecision') {
-    detail.form.deductionDecision = (value || '') as DeductionDecision | ''
-    if (detail.form.deductionDecision !== 'DEDUCT') {
-      detail.form.deductionAmount = ''
-    }
-    return
-  }
-  if (field === 'deductionAmount') {
-    detail.form.deductionAmount = parseAmountField(value)
-    return
-  }
-  if (field === 'deductionDecisionRemark') {
-    detail.form.deductionDecisionRemark = value
     return
   }
   if (field === 'dispositionRemark') {

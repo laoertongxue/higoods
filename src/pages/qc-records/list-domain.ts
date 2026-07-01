@@ -27,7 +27,6 @@ import {
   QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL,
   QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL,
   QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL,
-  QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL,
   type PlatformQcWorkbenchViewKey,
 } from '../../data/fcs/quality-deduction-selectors'
 
@@ -42,6 +41,15 @@ import {
 // ============ 类型 ============
 
 type QcRow = ReturnType<typeof getFilteredQcRows>[number]
+
+const QC_RECONCILIATION_STATUS_LABEL: Record<QcRow['settlementImpactStatus'], string> = {
+  NO_IMPACT: '仅质检事实',
+  BLOCKED: '对账待确认',
+  ELIGIBLE: '对账待确认',
+  INCLUDED_IN_STATEMENT: '对账单待确认',
+  SETTLED: '以对账单为准',
+  NEXT_CYCLE_ADJUSTMENT_PENDING: '以对账单为准',
+}
 
 // ============ 常量映射 ============
 
@@ -108,7 +116,7 @@ function renderSettlementBadge(row: QcRow): string {
     row.settlementImpactStatus === 'BLOCKED' ? 'warning' :
     row.settlementImpactStatus === 'ELIGIBLE' || row.settlementImpactStatus === 'INCLUDED_IN_STATEMENT' ? 'success' :
     row.settlementImpactStatus === 'SETTLED' ? 'info' : 'neutral'
-  return renderBadge(row.settlementImpactStatusLabel, variant)
+  return renderBadge(QC_RECONCILIATION_STATUS_LABEL[row.settlementImpactStatus], variant)
 }
 
 // ============ 辅助函数 ============
@@ -213,7 +221,7 @@ function renderFilters(): string {
         ${renderLabeledFilter('责任状态', renderFilterSelect(toKV(QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL), listState.filterLiabilityStatus, 'liabilityStatus'))}
         ${renderLabeledFilter('工厂响应状态', renderFilterSelect(toKV(QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL), listState.filterFactoryResponseStatus, 'factoryResponseStatus'))}
         ${renderLabeledFilter('异议状态', renderFilterSelect(toKV(QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL), listState.filterDisputeStatus, 'disputeStatus'))}
-        ${renderLabeledFilter('结算影响状态', renderFilterSelect(toKV(QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL), listState.filterSettlementImpactStatus, 'settlementImpactStatus'))}
+        ${renderLabeledFilter('对账提示状态', renderFilterSelect(toKV(QC_RECONCILIATION_STATUS_LABEL), listState.filterSettlementImpactStatus, 'settlementImpactStatus'))}
         ${renderLabeledFilter('不合格品处置方式', renderFilterSelect([
           { value: 'ALL', label: '全部' }, { value: 'ACCEPT_AS_DEFECT', label: '接受瑕疵品' },
           { value: 'SCRAP', label: '报废' }, { value: 'ACCEPT', label: '接受（不合格品免扣）' },
@@ -299,21 +307,21 @@ function buildTableColumns(): TableColumn<QcRow>[] {
             : '当前无异议单'}</div></div>`,
     },
     {
-      key: 'deduction', title: '扣款依据', className: 'align-top',
+      key: 'deduction', title: '来源事实', className: 'align-top',
       render: (row) => {
         if (!row.canViewDeduction || !row.basisId) {
-          return '<div class="text-xs text-muted-foreground">未生成扣款依据 · 冻结加工费与质量扣款均未形成依据</div>'
+          return '<div class="text-xs text-muted-foreground">未记录来源反扣 · 仅展示质检事实</div>'
         }
         return `<div class="space-y-1"><div class="font-mono text-xs font-semibold text-primary">${escapeHtml(row.basisId)}</div>
           <div class="text-xs text-muted-foreground">${escapeHtml(row.deductionBasisStatusLabel)}</div>
-          <div class="text-xs text-muted-foreground">冻结加工费 ${row.blockedProcessingFeeAmount} CNY · 生效质量扣款 ${row.effectiveQualityDeductionAmount} CNY</div></div>`
+          <div class="text-xs text-muted-foreground">来源反扣 ${row.effectiveQualityDeductionAmount} CNY · 对账待确认</div></div>`
       },
     },
     {
-      key: 'settlement', title: '结算影响', className: 'align-top',
+      key: 'settlement', title: '对账提示', className: 'align-top',
       render: (row) => `<div class="space-y-1">${renderSettlementBadge(row)}
-          <div class="text-xs text-muted-foreground">${escapeHtml(row.settlementImpactSummary)}</div>
-          <div class="text-xs text-muted-foreground">${row.settlementReady ? '已进入可结算口径' : '当前仍影响结算'}</div></div>`,
+          <div class="text-xs text-muted-foreground">质检事实仅供对账确认</div>
+          <div class="text-xs text-muted-foreground">${row.settlementReady ? '来源事实已归档，等待对账单确认' : '对账待确认'}</div></div>`,
     },
     {
       key: 'actions', title: '操作', className: 'align-top',
@@ -322,7 +330,7 @@ function buildTableColumns(): TableColumn<QcRow>[] {
         const disputeHref = `${detailHref}?focus=dispute`
         const parts = [`<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>`]
         if (row.canViewDeduction && row.basisId) {
-          parts.push(`<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildQcDeductionHref(row.qcId))}">查看扣款</button>`)
+          parts.push(`<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildQcDeductionHref(row.qcId))}">查看来源事实</button>`)
         }
         if (row.canHandleDispute) {
           parts.push(`<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs text-amber-700 hover:bg-amber-50" data-nav="${escapeHtml(disputeHref)}">处理异议</button>`)
@@ -345,7 +353,7 @@ export function renderQcRecordsPage(): string {
       <div>
         <h1 class="text-2xl font-bold tracking-tight">质检记录</h1>
         <p class="mt-1 text-sm text-muted-foreground">
-          统一查看回货质检、后道复检、工厂响应、异议处理、扣款依据与结算影响。
+          统一查看回货质检、后道复检、工厂响应、异议处理、来源反扣与对账提示。
         </p>
       </div>
 

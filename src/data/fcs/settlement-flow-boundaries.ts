@@ -51,19 +51,19 @@ export const SETTLEMENT_FLOW_BOUNDARIES: Record<SettlementBoundaryId, Settlement
     id: 'statement',
     title: '对账单',
     layer: 'FLOW_OBJECT',
-    definition: '对账单是一个工厂在一个结算周期内的正式对账口径对象，用于冻结本期口径并作为进入预付款批次的直接输入。',
-    responsibilities: ['冻结同一工厂、同一结算周期的正式口径', '汇总正式预结算流水结果', '承接工厂确认/申诉', '为预付款批次提供入批对象'],
+    definition: '对账单是一个工厂在自定义时间段内的正式对账对象，用于冻结本期口径并作为进入预付款批次的直接输入。',
+    responsibilities: ['冻结同一工厂、同一自定义时间段的正式口径', '汇总正式预结算流水结果', '承接工厂确认/申诉', '为预付款批次提供入批对象'],
     upstream: ['预结算流水'],
     downstream: ['进入预付款批次', '沉淀确认与申诉状态', '形成锁账历史'],
     excludes: ['不是扣款规则页', '不是领料事实页', '不是打款结果页'],
-    pageIntro: '对账单用于冻结一个工厂在一个结算周期内的正式口径，后续按正式预结算流水汇总，并作为进入预付款批次的直接输入。',
+    pageIntro: '对账单用于冻结一个工厂在自定义时间段内的正式口径，后续按正式预结算流水汇总，并作为进入预付款批次的直接输入。',
     routeNote: '对账单是平台端对账与结算的正式主对象之一。',
   },
   adjustment: {
     id: 'adjustment',
     title: '预结算流水',
     layer: 'FLOW_OBJECT',
-    definition: '预结算流水是平台侧预结算正式流水主对象，统一承接任务收入流水和质量扣款流水，是对账单的直接来源之一。',
+    definition: '预结算流水是对账单候选来源，统一承接任务收入流水和质量扣款流水，负责表达正式流水状态与来源追溯。',
     responsibilities: ['统一承接任务收入流水', '统一承接质量扣款流水', '表达正式流水状态与来源追溯', '向对账单输出可汇总的正式流水'],
     upstream: ['回货批次形成的任务收入流水', '正式质量扣款流水'],
     downstream: ['被对账单消费', '在入对账单后进入不同状态', '随对账单进入预付款批次结果'],
@@ -146,7 +146,7 @@ export const SETTLEMENT_PAGE_RESPONSIBILITY_MAP: Record<SettlementPageKey, Settl
 }
 
 export const SETTLEMENT_FLOW_FROZEN_RULES = {
-  statementBoundary: '一张对账单只能对应一个工厂在一个结算周期内的正式对账对象。',
+  statementBoundary: '一张对账单对应一个工厂、一个自定义结算时间段和一个结算对象；按生产单结算时，未完整生产单整张不进入本期对账。',
   statementLineGrain: '对账明细优先按回货批次形成，任务是归属维度，不是最终结算行粒度。',
   materialStatementScope:
     '车缝领料对账当前保留为正式对象，但暂不进入对账单待生成来源项，也不参与本期应付结算生成。',
@@ -158,7 +158,7 @@ export const SETTLEMENT_FLOW_CANONICAL_CHAIN = [
   '工厂档案结算信息（主数据）',
   '任务收入流水 / 质量扣款流水等来源结果',
   '预结算流水',
-  '对账单',
+  '对账单（自定义时间段）',
   '预付款批次',
   '打款结果 / 历史',
   '工厂端查看、确认、申诉与收款查看',

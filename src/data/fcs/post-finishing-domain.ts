@@ -72,6 +72,13 @@ export interface PostFinishingQcPostProjectJudgement {
   buttonAttachMode?: PostFinishingButtonAttachMode
 }
 
+export interface PostFinishingQcSourceChargeback {
+  currency: 'IDR'
+  unitAmount: number
+  amount: number
+  reason: '后道工厂接收返工'
+}
+
 export interface PostFinishingQcSkuResult {
   qcSkuResultId: string
   skuLineId: string
@@ -91,6 +98,7 @@ export interface PostFinishingQcSkuResult {
   reworkReceiveFactoryName?: string
   reworkDeductionUnitAmountIdr?: number
   reworkDeductionAmountIdr?: number
+  sourceChargeback?: PostFinishingQcSourceChargeback
   responsibleFactoryId?: string
   responsibleFactoryName?: string
   defectReasonItems: PostFinishingQcDefectReasonItem[]
@@ -826,6 +834,7 @@ function cloneQcDefectReasonItem(item: PostFinishingQcDefectReasonItem): PostFin
 function cloneQcSkuResult(result: PostFinishingQcSkuResult): PostFinishingQcSkuResult {
   return {
     ...result,
+    sourceChargeback: result.sourceChargeback ? { ...result.sourceChargeback } : undefined,
     defectReasonItems: result.defectReasonItems.map(cloneQcDefectReasonItem),
     postProjectJudgements: result.postProjectJudgements.map((item) => ({ ...item })),
   }
@@ -1168,14 +1177,27 @@ function normalizeQcSkuResults(input: {
     const qualifiedQty = Math.max(Number(result?.qualifiedQty ?? inspectedQty - unqualifiedQty) || 0, 0)
     const platformReasonQty = Math.max(Number(result?.platformReasonQty ?? 0) || 0, 0)
     const factoryReasonQty = Math.max(Number(result?.factoryReasonQty ?? Math.max(unqualifiedQty - platformReasonQty, 0)) || 0, 0)
-    const reworkReceiveFactoryId = result?.reworkReceiveFactoryId || (reworkQty > 0 ? input.sourceFactoryId : undefined)
-    const reworkReceiveFactoryName = result?.reworkReceiveFactoryName || (reworkQty > 0 ? input.sourceFactoryName : undefined)
-    const reworkDeductionUnitAmountIdr = Math.max(Number(result?.reworkDeductionUnitAmountIdr ?? 0) || 0, 0)
-    const reworkDeductionAmountIdr = reworkQty > 0
+    const reworkReceiveFactoryId = result?.reworkReceiveFactoryId ?? (reworkQty > 0 ? input.sourceFactoryId : undefined)
+    const reworkReceiveFactoryName = result?.reworkReceiveFactoryName ?? (reworkQty > 0 ? input.sourceFactoryName : undefined)
+    const existingSourceChargeback = result?.sourceChargeback
+    const reworkDeductionUnitAmountIdr = Math.max(Number(result?.reworkDeductionUnitAmountIdr ?? existingSourceChargeback?.unitAmount ?? 0) || 0, 0)
+    const shouldCreateSourceChargeback = reworkQty > 0
       && reworkDeductionUnitAmountIdr > 0
       && (reworkReceiveFactoryId !== input.sourceFactoryId || reworkReceiveFactoryName !== input.sourceFactoryName)
+    const calculatedReworkDeductionAmountIdr = shouldCreateSourceChargeback
       ? Math.round(reworkQty * reworkDeductionUnitAmountIdr)
       : 0
+    const reworkDeductionAmountIdr = shouldCreateSourceChargeback
+      ? Math.max(Number(result?.reworkDeductionAmountIdr ?? existingSourceChargeback?.amount ?? calculatedReworkDeductionAmountIdr) || 0, 0)
+      : 0
+    const sourceChargeback = reworkDeductionAmountIdr > 0
+      ? {
+          currency: existingSourceChargeback?.currency ?? ('IDR' as const),
+          unitAmount: reworkDeductionUnitAmountIdr,
+          amount: reworkDeductionAmountIdr,
+          reason: existingSourceChargeback?.reason ?? ('后道工厂接收返工' as const),
+        }
+      : undefined
     const postProjectJudgements = normalizePostProjectJudgements(result?.postProjectJudgements?.length
       ? result.postProjectJudgements
       : postProjectJudgementsFromFlags({
@@ -1205,6 +1227,7 @@ function normalizeQcSkuResults(input: {
       reworkReceiveFactoryName,
       reworkDeductionUnitAmountIdr,
       reworkDeductionAmountIdr,
+      sourceChargeback,
       responsibleFactoryId: result?.responsibleFactoryId || (factoryReasonQty > 0 ? input.sourceFactoryId : undefined),
       responsibleFactoryName: result?.responsibleFactoryName || (factoryReasonQty > 0 ? input.sourceFactoryName : undefined),
       defectReasonItems: result?.defectReasonItems?.map(cloneQcDefectReasonItem) || [],
@@ -1832,8 +1855,8 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
     responsiblePartyName: hasDefect ? context.sourceFactoryName || '' : '',
     reworkReceiveFactoryId: hasDefect ? context.sourceFactoryId || '' : undefined,
     reworkReceiveFactoryName: hasDefect ? context.sourceFactoryName || '' : undefined,
-    deductionDecision: hasDefect ? '建议扣款' : '',
-    deductionDecisionRemark: hasDefect ? '按质量扣款模块质检记录继续判定。' : '',
+    deductionDecision: '',
+    deductionDecisionRemark: hasDefect ? '质检记录只展示事实；扣款由对账单确认。' : '',
     needButtonhole: Boolean(options.needButtonhole),
     needButton: Boolean(options.needButton),
     needIroning: Boolean(options.needIroning),
@@ -1893,8 +1916,8 @@ function withPendingDefectReasonMock(qc: PostFinishingQcOrder): PostFinishingQcO
     responsiblePartyName: qc.sourceFactoryName,
     reworkReceiveFactoryId: qc.sourceFactoryId,
     reworkReceiveFactoryName: qc.sourceFactoryName,
-    deductionDecision: '建议扣款',
-    deductionDecisionRemark: `PDA 已提交返工数量 ${reworkQty}，瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因后完成质检。`,
+    deductionDecision: '',
+    deductionDecisionRemark: `质检记录只展示事实；扣款由对账单确认。PDA 已提交返工数量 ${reworkQty}，瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因后完成质检。`,
     inspectorName: 'PDA 后道质检员',
     inspectedAt: '2026-05-08 14:20',
     updatedAt: '2026-05-08 14:20',
@@ -2903,8 +2926,8 @@ export function completePostFinishingQcOrder(input: {
   qc.responsiblePartyId = hasDefect ? qc.responsiblePartyId || qc.sourceFactoryId : ''
   qc.reworkReceiveFactoryId = hasDefect ? reworkReceiveFactory?.reworkReceiveFactoryId || qc.reworkReceiveFactoryId || qc.sourceFactoryId : undefined
   qc.reworkReceiveFactoryName = hasDefect ? reworkReceiveFactory?.reworkReceiveFactoryName || qc.reworkReceiveFactoryName || qc.sourceFactoryName : undefined
-  qc.deductionDecision = hasDefect ? input.deductionDecision || qc.deductionDecision || '建议扣款' : ''
-  qc.deductionDecisionRemark = hasDefect ? input.deductionDecisionRemark || qc.deductionDecisionRemark || '按质量扣款模块质检记录继续判定。' : ''
+  qc.deductionDecision = ''
+  qc.deductionDecisionRemark = hasDefect ? '质检记录只展示事实；扣款由对账单确认。' : ''
   const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
   qc.needButtonhole = nextNeeds.includes('开扣眼')
   qc.needButton = nextNeeds.includes('装扣子')
@@ -2973,8 +2996,8 @@ export function submitPostFinishingPdaQcResult(input: {
   qc.responsiblePartyName = qc.sourceFactoryName
   qc.reworkReceiveFactoryId = reworkReceiveFactory?.reworkReceiveFactoryId || qc.sourceFactoryId
   qc.reworkReceiveFactoryName = reworkReceiveFactory?.reworkReceiveFactoryName || qc.sourceFactoryName
-  qc.deductionDecision = '建议扣款'
-  qc.deductionDecisionRemark = `PDA 已提交返工数量 ${reworkQty}，瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因后完成质检。`
+  qc.deductionDecision = ''
+  qc.deductionDecisionRemark = `质检记录只展示事实；扣款由对账单确认。PDA 已提交返工数量 ${reworkQty}，瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因后完成质检。`
   const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
   qc.needButtonhole = nextNeeds.includes('开扣眼')
   qc.needButton = nextNeeds.includes('装扣子')

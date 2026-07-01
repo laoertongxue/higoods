@@ -984,7 +984,7 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
 
         <header class="mb-4">
           <h3 class="text-lg font-semibold">${escapeHtml(detail.batch.batchNo)}${detail.batch.batchName ? ` · ${escapeHtml(detail.batch.batchName)}` : ''}</h3>
-          <p class="mt-1 text-sm text-muted-foreground">预付款批次负责装配同一工厂已确认对账单，并承接申请付款、飞书付款审批、打款回写和关闭归档。</p>
+          <p class="mt-1 text-sm text-muted-foreground">预付款批次只消费已确认可付款对账单；入批后金额锁定，差异通过后续调整处理。</p>
         </header>
 
         <div class="grid grid-cols-1 gap-4 overflow-y-auto md:grid-cols-2">
