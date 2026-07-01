@@ -65,22 +65,54 @@ export function formatQty(value: number): string {
   return value.toLocaleString('zh-CN')
 }
 
-export function renderMaterialPrepOrderCodeButton(projection: MaterialPrepOrderProjection): string {
+interface MaterialObjectCodeButtonOptions {
+  label?: string
+  className?: string
+}
+
+export function renderMaterialPrepOrderCodeButton(
+  projection: MaterialPrepOrderProjection,
+  options: MaterialObjectCodeButtonOptions = {},
+): string {
   return renderProductionObjectCodeButton({
     objectType: 'MATERIAL_PREP_ORDER',
     objectId: projection.order.prepOrderNo,
+    label: options.label,
     relatedProductionOrderNo: projection.order.productionOrderNo,
     defaultTab: 'materials',
     highlightKey: `MATERIAL_PREP_ORDER:${projection.order.prepOrderNo}`,
+    className: options.className,
   })
 }
 
-export function renderMaterialPickupRecordCodeButton(pickup: PickupRecord, relatedProductionOrderNo: string): string {
+export function renderMaterialPrepRecordCodeButton(
+  record: Pick<MaterialPrepRecord, 'prepRecordId'> & Partial<Pick<MaterialPrepRecord, 'recordNo'>>,
+  relatedProductionOrderNo: string,
+  options: MaterialObjectCodeButtonOptions = {},
+): string {
+  return renderProductionObjectCodeButton({
+    objectType: 'MATERIAL_PREP_RECORD',
+    objectId: record.prepRecordId,
+    label: options.label ?? record.recordNo ?? record.prepRecordId,
+    relatedProductionOrderNo,
+    defaultTab: 'materials',
+    highlightKey: `MATERIAL_PREP_RECORD:${record.prepRecordId}`,
+    className: options.className,
+  })
+}
+
+export function renderMaterialPickupRecordCodeButton(
+  pickup: PickupRecord,
+  relatedProductionOrderNo: string,
+  options: MaterialObjectCodeButtonOptions = {},
+): string {
   return renderProductionObjectCodeButton({
     objectType: 'MATERIAL_PICKUP_RECORD',
     objectId: pickup.pickupRecordId,
+    label: options.label,
     relatedProductionOrderNo,
     defaultTab: 'materials',
     highlightKey: `MATERIAL_PICKUP_RECORD:${pickup.pickupRecordId}`,
+    className: options.className,
   })
 }

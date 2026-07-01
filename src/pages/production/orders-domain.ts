@@ -1102,8 +1102,8 @@ function renderOrderMaterialSummary(order: ProductionOrder): string {
   const issueProgress = getOrderIssueProgress(order, prepLines)
 
   return `
-    <button
-      class="w-full rounded-md border border-transparent px-1 py-1 text-left hover:border-border hover:bg-muted/40"
+    <div
+      class="w-full cursor-pointer rounded-md border border-transparent px-1 py-1 text-left hover:border-border hover:bg-muted/40"
       data-prod-action="open-material-draft-drawer"
       data-order-id="${order.productionOrderId}"
     >
@@ -1123,7 +1123,7 @@ function renderOrderMaterialSummary(order: ProductionOrder): string {
           ? `<div class="text-xs text-muted-foreground">不涉及 ${draftSummary.notApplicableCount}</div>`
           : ''
       }
-    </button>
+    </div>
   `
 }
 
@@ -1253,10 +1253,9 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
 	                          <td class="px-3 py-2">
                               ${renderMaterialIdentity({
                                 materialName: line.materialName,
-                                materialSku: line.materialCode,
+                                materialCode: line.materialCode,
                                 materialSpec: line.materialSpec,
                                 materialCategory: line.materialCategory,
-                                relatedProductionOrderNo: draft.productionOrderNo,
                               }, true)}
                             </td>
                           <td class="px-3 py-2 text-right">${line.suggestedQty}</td>
@@ -1376,9 +1375,8 @@ function renderAddDraftMaterialsDialog(): string {
 	                              <td class="px-3 py-2">
                                   ${renderMaterialIdentity({
                                     materialName: option.materialName,
-                                    materialSku: option.materialCode,
+                                    materialCode: option.materialCode,
                                     materialSpec: option.materialSpec,
-                                    relatedProductionOrderNo: draft.productionOrderNo,
                                   }, true)}
                                 </td>
                               <td class="px-3 py-2 text-right">${option.suggestedQty}${escapeHtml(option.unit)}</td>
