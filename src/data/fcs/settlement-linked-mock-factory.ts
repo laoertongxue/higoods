@@ -1792,7 +1792,7 @@ function syncStatementsWithPrepaymentBatches(
 }
 
 function reserveStatementBuildScope(statements: StatementDraft[]): StatementDraft[] {
-  const reserved = [...statements]
+  const mixedStatements = [...statements]
     .filter((statement) => (statement.earningLedgerIds?.length ?? 0) > 0 && (statement.deductionLedgerIds?.length ?? 0) > 0)
     .sort((left, right) => {
       const leftCycle = left.settlementCycleEndAt ?? ''
@@ -1800,7 +1800,12 @@ function reserveStatementBuildScope(statements: StatementDraft[]): StatementDraf
       if (leftCycle !== rightCycle) return leftCycle < rightCycle ? 1 : -1
       return left.createdAt < right.createdAt ? 1 : left.createdAt > right.createdAt ? -1 : 0
     })
-    .find((statement) => statement.status === 'DRAFT' || statement.status === 'PENDING_FACTORY_CONFIRM')
+  const readyMixedStatements = mixedStatements.filter((statement) => statement.status === 'READY_FOR_PREPAYMENT')
+  const reserved =
+    mixedStatements.find((statement) => statement.status === 'DRAFT' || statement.status === 'PENDING_FACTORY_CONFIRM') ??
+    readyMixedStatements.find((statement) =>
+      readyMixedStatements.some((candidate) => candidate.statementId !== statement.statementId),
+    )
 
   if (!reserved) return statements
   return statements.filter((statement) => statement.statementId !== reserved.statementId)
