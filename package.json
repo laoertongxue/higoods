@@ -15,6 +15,7 @@
     "check:settlement-linked-mock-factory": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-settlement-linked-mock-factory.ts",
     "check:factory-settlement-reconciliation": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-settlement-reconciliation.ts",
     "check:factory-settlement-statements": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-settlement-statements.ts",
+    "check:factory-settlement-pda": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-settlement-pda.ts",
     "check:pda-settlement-ia": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-settlement-ia.ts",
     "check:pda-settlement-profile": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-settlement-profile.ts",
     "check:pda-settlement-ledger": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-settlement-ledger.ts",
