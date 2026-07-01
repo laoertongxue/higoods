@@ -23,6 +23,7 @@ import type {
   PreSettlementLedger,
   PrepaymentBatchStatus,
   StatementConfirmationSource,
+  StatementDeductionLineType,
   StatementDraft,
   StatementDraftItem,
   StatementProxyConfirmationMethod,
@@ -161,9 +162,34 @@ export interface StatementDetailViewModel {
   deductionLines: StatementDetailLineViewModel[]
 }
 
+export interface StatementConfirmedDeductionRow {
+  statementId: string
+  statementNo: string
+  factoryId: string
+  factoryName: string
+  productionOrderNo?: string
+  deductionLineType: StatementDeductionLineType
+  deductionLineTypeLabel: string
+  reasonName?: string
+  qty: number
+  amount: number
+  currency: string
+  occurredAt: string
+  sourceQcRecordId?: string
+  sourceRefLabel?: string
+  includedPrepaymentBatchId?: string
+}
+
 const SOURCE_LABEL_ZH: Record<StatementSourceItemType, string> = {
   TASK_EARNING: '任务收入流水',
   QUALITY_DEDUCTION: '质量扣款流水',
+}
+
+const DEDUCTION_LINE_TYPE_LABEL: Record<StatementDeductionLineType, string> = {
+  QUALITY_DEFECT: '质量扣款',
+  POST_FACTORY_REWORK_CHARGEBACK: '后道返工反扣',
+  DELAY: '延误扣款',
+  OTHER_ADJUSTMENT: '其他调整',
 }
 
 const LEDGER_STATUS_ZH: Record<PreSettlementLedger['status'], string> = {
@@ -491,6 +517,41 @@ function buildStatementDetailLine(item: StatementDraftItem): StatementDetailLine
 export function listStatementSourceItems(): StatementSourceItemViewModel[] {
   const bindingMap = getStatementBindingMap()
   return sortSourceItems(listPreSettlementLedgers().map((ledger) => mapLedgerToStatementSourceItem(ledger, bindingMap)))
+}
+
+export function listStatementConfirmedDeductionRows(): StatementConfirmedDeductionRow[] {
+  return initialStatementDrafts.flatMap((statement) =>
+    statement.items
+      .filter(
+        (item) =>
+          item.sourceItemType === 'QUALITY_DEDUCTION' ||
+          Boolean(item.deductionLineType) ||
+          (item.qualityDeductionAmount ?? 0) > 0,
+      )
+      .map((item) => {
+        const type = item.deductionLineType ?? 'QUALITY_DEFECT'
+        return {
+          statementId: statement.statementId,
+          statementNo: statement.statementNo ?? statement.statementId,
+          factoryId: statement.settlementPartyId,
+          factoryName: statement.factoryName ?? buildPartyLabel(statement.settlementPartyType, statement.settlementPartyId),
+          productionOrderNo: item.productionOrderNo,
+          deductionLineType: type,
+          deductionLineTypeLabel: DEDUCTION_LINE_TYPE_LABEL[type],
+          reasonName: item.remark,
+          qty: item.deductionQty ?? item.returnInboundQty ?? 0,
+          amount: Math.abs(item.qualityDeductionAmount ?? item.deductionAmount ?? item.netAmount ?? 0),
+          currency:
+            item.currency ??
+            statement.settlementCurrency ??
+            statement.settlementProfileSnapshot.settlementConfigSnapshot.currency,
+          occurredAt: item.occurredAt ?? statement.createdAt,
+          sourceQcRecordId: item.qcRecordId,
+          sourceRefLabel: item.sourceRefLabel,
+          includedPrepaymentBatchId: statement.prepaymentBatchId,
+        }
+      }),
+  )
 }
 
 export function listStatementBuildScopes(): StatementBuildScopeViewModel[] {

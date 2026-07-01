@@ -1,22 +1,13 @@
-import type { ReturnInboundProcessType } from './store-domain-quality-types.ts'
-import { listQualityDeductionCaseFacts } from './quality-deduction-repository.ts'
 import { parseQualityDeductionTimestamp } from './quality-deduction-lifecycle.ts'
-import { buildDeductionEntryHrefByBasisId } from './quality-chain-adapter.ts'
+import { listStatementConfirmedDeductionRows } from './store-domain-statement-source-adapter.ts'
+import type { StatementDeductionLineType } from './store-domain-settlement-types.ts'
 import type {
-  QualityDeductionCaseFact,
   QualityDeductionDisputeStatus,
   QualityDeductionFactoryResponseStatus,
   QualityDeductionLiabilityStatus,
   QualityDeductionQcResult,
   QualityDeductionSettlementImpactStatus,
 } from './quality-deduction-domain.ts'
-import {
-  QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL,
-  QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL,
-  QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL,
-  QUALITY_DEDUCTION_QC_RESULT_LABEL,
-  QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL,
-} from './quality-deduction-selectors.ts'
 
 export type QualityDeductionAnalysisTimeBasis = 'FINANCIAL_EFFECTIVE' | 'SETTLEMENT_CYCLE'
 
@@ -107,7 +98,7 @@ export interface QualityDeductionAnalysisDetailRow {
   factoryName: string
   warehouseId: string
   warehouseName: string
-  processType: ReturnInboundProcessType
+  processType: StatementDeductionLineType
   processLabel: string
   qcResult: QualityDeductionQcResult
   qcResultLabel: string
@@ -144,32 +135,27 @@ export interface QualityDeductionAnalysisDetailRow {
 }
 
 export interface QualityDeductionAnalysisExportRow {
-  质检单号: string
-  回货批次号: string
+  来源编号: string
+  对账单编号: string
   生产单号: string
   工厂: string
-  工序: string
-  质检结果: string
-  工厂责任数量: number
-  工厂处理状态: string
+  扣款类型: string
+  扣款数量: number
+  对账单确认状态: string
   异议状态: string
   结算影响状态: string
-  冻结加工费金额: number
-  正式质量扣款流水金额: number
+  对账单扣款金额: number
   总财务影响金额: number
-  兼容占位类型: string
-  兼容占位金额: number
   统计时间: string
-  结算周期: string
-  扣款依据编号: string
+  来源证据: string
 }
 
 export const QUALITY_DEDUCTION_ANALYSIS_TIME_BASIS_LABEL: Record<
   QualityDeductionAnalysisTimeBasis,
   string
 > = {
-  FINANCIAL_EFFECTIVE: '正式质量扣款流水生效时间',
-  SETTLEMENT_CYCLE: '结算周期归属时间',
+  FINANCIAL_EFFECTIVE: '对账单扣款确认时间',
+  SETTLEMENT_CYCLE: '对账单归属时间',
 }
 
 export const QUALITY_DEDUCTION_ANALYSIS_DIMENSION_LABEL: Record<
@@ -177,7 +163,7 @@ export const QUALITY_DEDUCTION_ANALYSIS_DIMENSION_LABEL: Record<
   string
 > = {
   FACTORY: '按工厂',
-  PROCESS: '按回货环节 / 工序',
+  PROCESS: '按扣款类型',
   WAREHOUSE: '按仓库',
   QC_RESULT: '按质检结果',
   LIABILITY_STATUS: '按责任状态',
@@ -204,147 +190,57 @@ function endOfDayTimestamp(value: string): number | null {
   return parseQualityDeductionTimestamp(`${value} 23:59:59`)
 }
 
-function resolveFinancialEffectiveAt(caseFact: QualityDeductionCaseFact): string | undefined {
-  return (
-    caseFact.formalLedger?.generatedAt ??
-    caseFact.disputeCase?.resultWrittenBackAt ??
-    caseFact.pendingDeductionRecord?.handledAt ??
-    caseFact.qcRecord.inspectedAt
-  )
-}
-
-function resolveSettlementCycleLabel(caseFact: QualityDeductionCaseFact): string {
-  return (
-    caseFact.settlementImpact.candidateSettlementCycleId ??
-    caseFact.settlementImpact.includedSettlementStatementId ??
-    caseFact.settlementImpact.includedSettlementBatchId ??
-    '待分配周期'
-  )
-}
-
-function resolveSettlementCycleAt(caseFact: QualityDeductionCaseFact): string | undefined {
-  return (
-    caseFact.settlementImpact.includedAt ??
-    caseFact.settlementImpact.eligibleAt ??
-    caseFact.disputeCase?.resultWrittenBackAt ??
-    caseFact.formalLedger?.generatedAt ??
-    caseFact.qcRecord.inspectedAt
-  )
-}
-
-function resolveDisplayTimeLabel(
-  caseFact: QualityDeductionCaseFact,
-  timeBasis: QualityDeductionAnalysisTimeBasis,
-): string {
-  if (timeBasis === 'SETTLEMENT_CYCLE') {
-    const cycleLabel = resolveSettlementCycleLabel(caseFact)
-    const cycleAt = resolveSettlementCycleAt(caseFact)
-    return cycleAt ? `${cycleLabel} / ${cycleAt}` : cycleLabel
-  }
-  return resolveFinancialEffectiveAt(caseFact) ?? '—'
-}
-
-function resolveDetailSummary(caseFact: QualityDeductionCaseFact): string {
-  if (caseFact.formalLedger) {
-    return `已形成正式质量扣款流水 ${caseFact.formalLedger.ledgerNo}，后续按预结算链继续处理。`
-  }
-  if (
-    caseFact.disputeCase &&
-    (caseFact.disputeCase.status === 'PENDING_REVIEW' || caseFact.disputeCase.status === 'IN_REVIEW')
-  ) {
-    return '已生成质量异议单，待平台处理前不形成正式质量扣款流水。'
-  }
-  if (caseFact.pendingDeductionRecord?.status === 'PENDING_FACTORY_CONFIRM') {
-    return '已生成待确认质量扣款记录，等待工厂在 48 小时内处理。'
-  }
-  if (caseFact.pendingDeductionRecord?.status === 'CLOSED_WITHOUT_LEDGER') {
-    return '平台已判定当前记录不生成正式质量扣款流水。'
-  }
-  return caseFact.settlementImpact.summary
-}
-
-function belongsToAnalysis(caseFact: QualityDeductionCaseFact): boolean {
-  return Boolean(
-    caseFact.deductionBasis ||
-      caseFact.pendingDeductionRecord ||
-      caseFact.disputeCase ||
-      caseFact.formalLedger,
-  )
-}
-
-function toAnalysisRow(caseFact: QualityDeductionCaseFact, query: QualityDeductionAnalysisQuery): AnalysisRowBase {
-  const qcRecord = caseFact.qcRecord
-  const deductionBasis = caseFact.deductionBasis
-  const dispute = caseFact.disputeCase
-  const ledger = caseFact.formalLedger
-  const impact = caseFact.settlementImpact
-  const financialEffectiveAt = resolveFinancialEffectiveAt(caseFact)
-  const settlementCycleAt = resolveSettlementCycleAt(caseFact)
-  const settlementCycleLabel = resolveSettlementCycleLabel(caseFact)
-  const displayTimeLabel = resolveDisplayTimeLabel(caseFact, query.timeBasis)
-  const blockedProcessingFeeAmount = impact.blockedProcessingFeeAmount
-  const effectiveQualityDeductionAmount = ledger?.settlementAmount ?? 0
-  const totalFinancialImpactAmount = roundAmount(blockedProcessingFeeAmount + effectiveQualityDeductionAmount)
-  const timeBucketKey =
-    query.timeBasis === 'SETTLEMENT_CYCLE'
-      ? settlementCycleLabel
-      : (financialEffectiveAt ?? qcRecord.inspectedAt).slice(0, 10)
-
-  return {
-    qcId: qcRecord.qcId,
-    qcNo: qcRecord.qcNo,
-    basisId: deductionBasis?.basisId,
-    productionOrderNo: qcRecord.productionOrderNo,
-    returnInboundBatchNo: qcRecord.returnInboundBatchNo,
-    factoryId: qcRecord.returnFactoryId ?? '',
-    factoryName: qcRecord.returnFactoryName ?? '—',
-    warehouseId: qcRecord.warehouseId ?? '',
-    warehouseName: qcRecord.warehouseName ?? '—',
-    processType: qcRecord.processType,
-    processLabel: qcRecord.processLabel,
-    qcResult: qcRecord.qcResult,
-    qcResultLabel: QUALITY_DEDUCTION_QC_RESULT_LABEL[qcRecord.qcResult],
-    liabilityStatus: qcRecord.liabilityStatus,
-    liabilityStatusLabel: QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL[qcRecord.liabilityStatus],
-    factoryResponseStatus: caseFact.factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED',
-    factoryResponseStatusLabel:
-      QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL[
-        caseFact.factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED'
-      ],
-    disputeStatus: dispute?.status ?? 'NONE',
-    disputeStatusLabel: QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL[dispute?.status ?? 'NONE'],
-    settlementImpactStatus: impact.status,
-    settlementImpactStatusLabel: QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL[impact.status],
-    inspectedQty: qcRecord.inspectedQty,
-    qualifiedQty: qcRecord.qualifiedQty,
-    unqualifiedQty: qcRecord.unqualifiedQty,
-    factoryLiabilityQty: qcRecord.factoryLiabilityQty,
-    blockedProcessingFeeAmount,
-    effectiveQualityDeductionAmount,
-    totalFinancialImpactAmount,
-    hasAdjustment: false,
-    adjustmentType: undefined,
-    adjustmentTypeLabel: undefined,
-    adjustmentAmount: 0,
-    adjustmentAmountSigned: 0,
-    targetSettlementCycleId: undefined,
-    includedSettlementStatementId: ledger?.includedStatementId ?? impact.includedSettlementStatementId,
-    includedSettlementBatchId: ledger?.includedPrepaymentBatchId ?? impact.includedSettlementBatchId,
-    financialEffectiveAt,
-    settlementCycleAt,
-    settlementCycleLabel,
-    displayTimeLabel,
-    detailSummary: resolveDetailSummary(caseFact),
-    qcHref: `/fcs/quality/qc-records/${encodeURIComponent(qcRecord.qcId)}`,
-    deductionHref: deductionBasis?.basisId ? buildDeductionEntryHrefByBasisId(deductionBasis.basisId) : undefined,
-    timeBucketKey,
-  }
-}
-
 function createBaseRows(query: QualityDeductionAnalysisQuery): AnalysisRowBase[] {
-  return listQualityDeductionCaseFacts({ includeLegacy: true })
-    .filter(belongsToAnalysis)
-    .map((caseFact) => toAnalysisRow(caseFact, query))
+  return listStatementConfirmedDeductionRows().map((row) => {
+    const occurredDate = row.occurredAt.slice(0, 10)
+    const statementHref = `/fcs/settlement/statements?statement=${encodeURIComponent(row.statementId)}`
+    return {
+      qcId: row.sourceQcRecordId ?? row.statementId,
+      qcNo: row.sourceRefLabel ?? row.statementNo,
+      basisId: row.statementId,
+      productionOrderNo: row.productionOrderNo ?? '—',
+      returnInboundBatchNo: row.sourceRefLabel ?? '—',
+      factoryId: row.factoryId,
+      factoryName: row.factoryName,
+      warehouseId: '',
+      warehouseName: '—',
+      processType: row.deductionLineType,
+      processLabel: row.deductionLineTypeLabel,
+      qcResult: 'PARTIALLY_QUALIFIED',
+      qcResultLabel: '对账单扣款',
+      liabilityStatus: 'FACTORY',
+      liabilityStatusLabel: '对账单确认',
+      factoryResponseStatus: 'CONFIRMED',
+      factoryResponseStatusLabel: '对账单确认',
+      disputeStatus: 'NONE',
+      disputeStatusLabel: '无异议',
+      settlementImpactStatus: 'INCLUDED_IN_STATEMENT',
+      settlementImpactStatusLabel: '已进入对账单',
+      inspectedQty: row.qty,
+      qualifiedQty: 0,
+      unqualifiedQty: row.qty,
+      factoryLiabilityQty: row.qty,
+      blockedProcessingFeeAmount: 0,
+      effectiveQualityDeductionAmount: row.amount,
+      totalFinancialImpactAmount: row.amount,
+      hasAdjustment: false,
+      adjustmentType: undefined,
+      adjustmentTypeLabel: undefined,
+      adjustmentAmount: 0,
+      adjustmentAmountSigned: 0,
+      targetSettlementCycleId: undefined,
+      includedSettlementStatementId: row.statementId,
+      includedSettlementBatchId: row.includedPrepaymentBatchId,
+      financialEffectiveAt: row.occurredAt,
+      settlementCycleAt: row.occurredAt,
+      settlementCycleLabel: row.statementNo,
+      displayTimeLabel: query.timeBasis === 'SETTLEMENT_CYCLE' ? `${row.statementNo} / ${row.occurredAt}` : row.occurredAt,
+      detailSummary: `${row.deductionLineTypeLabel} · ${row.amount} ${row.currency} · 来源对账单 ${row.statementNo}`,
+      qcHref: row.sourceQcRecordId ? `/fcs/quality/qc-records/${encodeURIComponent(row.sourceQcRecordId)}` : statementHref,
+      deductionHref: statementHref,
+      timeBucketKey: query.timeBasis === 'SETTLEMENT_CYCLE' ? row.statementNo : occurredDate,
+    }
+  })
 }
 
 function matchesKeyword(row: AnalysisRowBase, keyword: string): boolean {
@@ -625,23 +521,18 @@ export function buildQualityDeductionExportRows(
   query: QualityDeductionAnalysisQuery,
 ): QualityDeductionAnalysisExportRow[] {
   return buildQualityDeductionDetails(query).map((row) => ({
-    质检单号: row.qcNo,
-    回货批次号: row.returnInboundBatchNo,
+    来源编号: row.qcNo,
+    对账单编号: row.settlementCycleLabel ?? row.basisId ?? '—',
     生产单号: row.productionOrderNo,
     工厂: row.factoryName,
-    工序: row.processLabel,
-    质检结果: row.qcResultLabel,
-    工厂责任数量: row.factoryLiabilityQty,
-    工厂处理状态: row.factoryResponseStatusLabel,
+    扣款类型: row.processLabel,
+    扣款数量: row.factoryLiabilityQty,
+    对账单确认状态: row.factoryResponseStatusLabel,
     异议状态: row.disputeStatusLabel,
     结算影响状态: row.settlementImpactStatusLabel,
-    冻结加工费金额: row.blockedProcessingFeeAmount,
-    正式质量扣款流水金额: row.effectiveQualityDeductionAmount,
+    对账单扣款金额: row.effectiveQualityDeductionAmount,
     总财务影响金额: row.totalFinancialImpactAmount,
-    兼容占位类型: row.adjustmentTypeLabel ?? '—',
-    兼容占位金额: row.adjustmentAmountSigned,
     统计时间: row.displayTimeLabel,
-    结算周期: row.settlementCycleLabel ?? '—',
-    扣款依据编号: row.basisId ?? '—',
+    来源证据: row.returnInboundBatchNo,
   }))
 }

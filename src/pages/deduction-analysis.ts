@@ -133,9 +133,9 @@ function renderTrendSection(): string {
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-sm font-semibold text-foreground">趋势分析</h3>
-          <p class="mt-1 text-xs text-muted-foreground">按${escapeHtml(QUALITY_DEDUCTION_ANALYSIS_TIME_BASIS_LABEL[state.query.timeBasis])}汇总待确认金额、正式质量扣款流水金额、总财务影响和历史金额。</p>
+          <p class="mt-1 text-xs text-muted-foreground">按${escapeHtml(QUALITY_DEDUCTION_ANALYSIS_TIME_BASIS_LABEL[state.query.timeBasis])}汇总对账单扣款金额和总财务影响。</p>
         </div>
-        <span class="text-xs text-muted-foreground">当前版本中的历史金额仅用于保留历史阅读体验，正式对账只汇总已成立的质量扣款流水。</span>
+        <span class="text-xs text-muted-foreground">扣款分析只统计已进入对账单并经业务确认的扣款行。</span>
       </div>
       <div class="overflow-x-auto rounded-md border">
         <table class="w-full min-w-[760px] text-sm">
@@ -143,8 +143,8 @@ function renderTrendSection(): string {
             <tr class="border-b bg-muted/40 text-left">
               <th class="px-4 py-2 font-medium">时间归属</th>
               <th class="px-4 py-2 text-right font-medium">记录数</th>
-              <th class="px-4 py-2 text-right font-medium">待确认金额</th>
-              <th class="px-4 py-2 text-right font-medium">生效质量扣款</th>
+              <th class="px-4 py-2 text-right font-medium">未入账金额</th>
+              <th class="px-4 py-2 text-right font-medium">对账单扣款</th>
               <th class="px-4 py-2 text-right font-medium">总财务影响</th>
               <th class="px-4 py-2 text-right font-medium">历史金额</th>
               <th class="px-4 py-2 font-medium">影响分布</th>
@@ -208,8 +208,8 @@ function renderBreakdownSection(): string {
             <tr class="border-b bg-muted/40 text-left">
               <th class="px-4 py-2 font-medium">分组项</th>
               <th class="px-4 py-2 text-right font-medium">记录数</th>
-              <th class="px-4 py-2 text-right font-medium">待确认金额</th>
-              <th class="px-4 py-2 text-right font-medium">生效质量扣款</th>
+              <th class="px-4 py-2 text-right font-medium">未入账金额</th>
+              <th class="px-4 py-2 text-right font-medium">对账单扣款</th>
               <th class="px-4 py-2 text-right font-medium">总财务影响</th>
               <th class="px-4 py-2 text-right font-medium">历史金额</th>
               <th class="px-4 py-2 text-right font-medium">占比</th>
@@ -266,7 +266,7 @@ export function renderDeductionAnalysisPage(): string {
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 class="text-2xl font-semibold">扣款分析</h1>
-            <p class="mt-1 text-sm text-muted-foreground">用于按时间、工厂、工序、仓库和状态等维度分析扣款与结算影响，并从汇总快速钻取到质检记录和扣款依据。</p>
+            <p class="mt-1 text-sm text-muted-foreground">用于分析对账单中业务已确认的扣款、反扣、延误和其他调整。</p>
           </div>
           <div class="flex flex-col items-start gap-2 text-xs text-muted-foreground lg:items-end">
             <span class="rounded-full bg-muted px-3 py-1">统计口径：${escapeHtml(QUALITY_DEDUCTION_ANALYSIS_TIME_BASIS_LABEL[state.query.timeBasis])}</span>
@@ -284,7 +284,7 @@ export function renderDeductionAnalysisPage(): string {
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
           <label class="flex flex-col gap-1 text-sm">
             <span class="text-muted-foreground">关键词</span>
-            <input class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="keyword" placeholder="质检单号 / 生产单 / 回货批次号" value="${escapeHtml(state.query.keyword)}" />
+            <input class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="keyword" placeholder="来源编号 / 对账单 / 生产单" value="${escapeHtml(state.query.keyword)}" />
           </label>
           <label class="flex flex-col gap-1 text-sm">
             <span class="text-muted-foreground">时间口径</span>
@@ -310,9 +310,9 @@ export function renderDeductionAnalysisPage(): string {
             </select>
           </label>
           <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">回货环节 / 工序</span>
+            <span class="text-muted-foreground">扣款类型</span>
             <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="processType">
-              ${renderSelectOptions([{ value: 'ALL', label: '全部工序' }, ...filterOptions.processes], state.query.processType)}
+              ${renderSelectOptions([{ value: 'ALL', label: '全部扣款类型' }, ...filterOptions.processes], state.query.processType)}
             </select>
           </label>
           <label class="flex flex-col gap-1 text-sm">
@@ -400,25 +400,25 @@ export function renderDeductionAnalysisPage(): string {
 
       <section class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">涉及质检记录数</p>
+          <p class="text-xs text-muted-foreground">对账单扣款行数</p>
           <p class="mt-2 text-2xl font-semibold tabular-nums">${kpis.qcRecordCount}</p>
         </article>
         <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">涉及工厂数</p>
+          <p class="text-xs text-muted-foreground">确认工厂数</p>
           <p class="mt-2 text-2xl font-semibold tabular-nums">${kpis.factoryCount}</p>
         </article>
         <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">待确认金额</p>
+          <p class="text-xs text-muted-foreground">未入账金额</p>
           <p class="mt-2 text-2xl font-semibold tabular-nums">${formatAmount(kpis.blockedProcessingFeeAmount)}</p>
         </article>
         <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">生效质量扣款金额</p>
+          <p class="text-xs text-muted-foreground">对账单扣款金额</p>
           <p class="mt-2 text-2xl font-semibold tabular-nums">${formatAmount(kpis.effectiveQualityDeductionAmount)}</p>
         </article>
         <article class="rounded-xl border bg-card p-4">
           <p class="text-xs text-muted-foreground">总财务影响金额</p>
           <p class="mt-2 text-2xl font-semibold tabular-nums">${formatAmount(kpis.totalFinancialImpactAmount)}</p>
-          <p class="mt-1 text-xs text-muted-foreground">= 待确认金额 + 正式质量扣款流水金额</p>
+          <p class="mt-1 text-xs text-muted-foreground">来自对账单确认扣款行。</p>
         </article>
         <article class="rounded-xl border bg-card p-4">
           <p class="text-xs text-muted-foreground">历史金额</p>
@@ -434,7 +434,7 @@ export function renderDeductionAnalysisPage(): string {
         <article class="rounded-xl border bg-card p-5">
           <div class="mb-4 flex flex-col gap-1">
             <h3 class="text-sm font-semibold text-foreground">状态补充指标</h3>
-            <p class="text-xs text-muted-foreground">用于区分异议中金额、已纳入对账金额和已进入预付款批次金额，不与历史金额重复计入。</p>
+            <p class="text-xs text-muted-foreground">用于区分异议中金额、已纳入对账金额和已进入预付款批次金额，不重复计入来源证据。</p>
           </div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div class="rounded-lg border bg-muted/20 p-4">
@@ -465,7 +465,7 @@ export function renderDeductionAnalysisPage(): string {
         <div class="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 class="text-base font-semibold">明细钻取</h2>
-            <p class="text-sm text-muted-foreground">展示当前筛选口径下的质量扣款与结算影响明细，可继续跳转到质检记录和扣款依据。</p>
+            <p class="text-sm text-muted-foreground">展示当前筛选口径下的对账单扣款明细，可继续跳转到来源证据和对账单。</p>
           </div>
           ${
             drilldownActive
@@ -491,18 +491,18 @@ export function renderDeductionAnalysisPage(): string {
                 <table class="w-full min-w-[1720px] text-sm">
                   <thead>
                     <tr class="border-b bg-muted/40 text-left">
-                      <th class="px-4 py-2 font-medium">质检单号</th>
-                      <th class="px-4 py-2 font-medium">回货批次号</th>
+                      <th class="px-4 py-2 font-medium">来源编号</th>
+                      <th class="px-4 py-2 font-medium">来源证据</th>
                       <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                       <th class="px-4 py-2 font-medium">工厂</th>
-                      <th class="px-4 py-2 font-medium">工序</th>
-                      <th class="px-4 py-2 font-medium">质检结果</th>
-                      <th class="px-4 py-2 text-right font-medium">工厂责任数量</th>
-                      <th class="px-4 py-2 font-medium">工厂响应状态</th>
+                      <th class="px-4 py-2 font-medium">扣款类型</th>
+                      <th class="px-4 py-2 font-medium">来源口径</th>
+                      <th class="px-4 py-2 text-right font-medium">扣款数量</th>
+                      <th class="px-4 py-2 font-medium">确认状态</th>
                       <th class="px-4 py-2 font-medium">异议状态</th>
                       <th class="px-4 py-2 font-medium">结算影响状态</th>
-                      <th class="px-4 py-2 text-right font-medium">待确认金额</th>
-                      <th class="px-4 py-2 text-right font-medium">生效质量扣款</th>
+                      <th class="px-4 py-2 text-right font-medium">未入账金额</th>
+                      <th class="px-4 py-2 text-right font-medium">对账单扣款</th>
                       <th class="px-4 py-2 text-right font-medium">总财务影响</th>
                       <th class="px-4 py-2 font-medium">历史金额</th>
                       <th class="px-4 py-2 font-medium">${escapeHtml(
@@ -550,10 +550,10 @@ export function renderDeductionAnalysisPage(): string {
                             </td>
                             <td class="px-4 py-3">
                               <div class="flex items-center gap-1">
-                                <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(row.qcHref)}">查看质检记录</button>
+                                <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(row.qcHref)}">查看来源证据</button>
                                 ${
                                   row.deductionHref
-                                    ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(row.deductionHref)}">查看扣款依据</button>`
+                                    ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(row.deductionHref)}">查看对账单</button>`
                                     : '<span class="px-2 text-xs text-muted-foreground">—</span>'
                                 }
                               </div>
