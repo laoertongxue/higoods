@@ -14,7 +14,6 @@ import {
   STATUS_LABEL,
   STATUS_CLASS,
   DISPOSITION_LABEL,
-  DEDUCTION_DECISION_LABEL,
   ROOT_CAUSE_LABEL,
   LIABILITY_LABEL,
   PARTY_TYPE_LABEL,
@@ -23,7 +22,6 @@ import {
   getCurrentSearchParams,
   getQcById,
   getReturnInboundBatchById,
-  requiresFinalDecisionForForm,
   toInputValue,
   type QcDisposition,
   type QcDisplayResult,
@@ -233,14 +231,7 @@ function renderChainOverview(params: {
     disputeSummary,
   } = params
 
-  const decisionText =
-    qc.deductionDecision === 'DEDUCT'
-      ? `${qc.deductionAmount ?? '-'} ${qc.deductionCurrency ?? 'CNY'}`
-      : qc.deductionDecision === 'NO_DEDUCT'
-        ? '不扣款'
-        : basisCount > 0
-          ? '已生成扣款依据，待后续处理'
-          : '待同步扣款依据'
+  const sourceFactText = basisCount > 0 ? '已关联来源反扣事实' : '仅保留质检事实'
 
   return `
     <section class="grid gap-3 md:grid-cols-3">
@@ -250,7 +241,7 @@ function renderChainOverview(params: {
         <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(returnFactoryName || '-')} / ${escapeHtml(warehouseName || '-')}</p>
       </article>
       <article class="rounded-md border bg-card px-4 py-3">
-        <p class="text-xs text-muted-foreground">责任判定与扣款</p>
+        <p class="text-xs text-muted-foreground">责任与质检事实</p>
         <div class="mt-1 flex flex-wrap items-center gap-2">
           <span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${
             qc.liabilityStatus === 'FACTORY'
@@ -266,17 +257,17 @@ function renderChainOverview(params: {
                 : 'border-slate-200 bg-slate-50 text-slate-600'
           }">${escapeHtml(LIABILITY_LABEL[qc.liabilityStatus] ?? qc.liabilityStatus)}</span>
         </div>
-        <p class="mt-1 text-sm font-semibold">${escapeHtml(decisionText)}</p>
-        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(disputeSummary ?? qc.deductionDecisionRemark ?? qc.dispositionRemark ?? '按检查结果回写平台判责与扣款链路')}</p>
+        <p class="mt-1 text-sm font-semibold">${escapeHtml(sourceFactText)}</p>
+        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(disputeSummary ?? qc.deductionDecisionRemark ?? qc.dispositionRemark ?? '质检记录只展示事实，扣款由对账单确认。')}</p>
       </article>
       <article class="rounded-md border bg-card px-4 py-3">
-        <p class="text-xs text-muted-foreground">扣款与结算串联</p>
-        <p class="mt-1 text-sm font-semibold">${basisCount} 条扣款依据 · ${escapeHtml(settlementImpactLabel)}</p>
+        <p class="text-xs text-muted-foreground">来源反扣与对账串联</p>
+        <p class="mt-1 text-sm font-semibold">${basisCount} 条来源事实 · ${escapeHtml(settlementImpactLabel)}</p>
         <p class="mt-1 text-xs text-muted-foreground">可进入结算 ${basisReadyCount} 条 · 冻结 ${basisFrozenCount} 条</p>
         ${
           basisAmountTotal > 0
-            ? `<p class="mt-1 text-xs text-muted-foreground">扣款金额快照合计 ${basisAmountTotal} CNY · 证据 ${evidenceCount} 份</p>`
-            : `<p class="mt-1 text-xs text-muted-foreground">${escapeHtml(settlementSummary || qc.settlementFreezeReason || '结算状态由扣款依据自动维护')}</p>`
+            ? `<p class="mt-1 text-xs text-muted-foreground">来源反扣快照合计 ${basisAmountTotal} CNY · 证据 ${evidenceCount} 份</p>`
+            : `<p class="mt-1 text-xs text-muted-foreground">${escapeHtml(settlementSummary || qc.settlementFreezeReason || '财务生效以对账单确认为准')}</p>`
         }
       </article>
     </section>
@@ -814,14 +805,15 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
           escapeHtml(factoryResponse?.responseComment ?? disputeCase?.disputeDescription ?? '当前无工厂补充说明'),
         )}
         ${renderOverviewCard(
-          '扣款与结算概况',
+          '质检事实与来源反扣',
           [
-            { label: '扣款依据', value: deductionBasis ? `<span class="font-mono">${escapeHtml(deductionBasis.basisId)}</span>` : '未生成' },
-            { label: '冻结加工费', value: formatMoney(settlementImpact.blockedProcessingFeeAmount) },
-            { label: '生效质量扣款', value: formatMoney(settlementImpact.effectiveQualityDeductionAmount) },
-            { label: '结算影响', value: renderBadge(detailVm.settlementImpactStatusLabel, getSettlementBadgeClass(settlementImpact.status)) },
+            { label: '来源质检单', value: `<span class="font-mono">${escapeHtml(detailVm.qcNo)}</span>` },
+            { label: '质检数量', value: String(qcRecord.inspectedQty) },
+            { label: '合格 / 不合格', value: `${qcRecord.qualifiedQty} / ${qcRecord.unqualifiedQty}` },
+            { label: '来源反扣', value: formatMoney(settlementImpact.effectiveQualityDeductionAmount) },
+            { label: '财务生效', value: '以对账单确认为准' },
           ],
-          escapeHtml(settlementImpact.summary),
+          '质检记录不编辑扣款金额，仅展示来源事实。',
         )}
       </section>
 
@@ -1155,7 +1147,6 @@ function renderQcRecordDetailPageByVariant(
   const needsQty =
     detail.form.disposition !== '' && NEEDS_AFFECTED_QTY.includes(detail.form.disposition)
   const refTask = processTasks.find((item) => item.taskId === detail.form.refId)
-  const finalLiabilityRequired = requiresFinalDecisionForForm(detail.form, existingQc)
   const sourceTaskForView =
     (inboundView?.sourceTaskId ? processTasks.find((item) => item.taskId === inboundView.sourceTaskId) ?? null : null) ??
     refTask ??
@@ -1512,16 +1503,9 @@ function renderQcRecordDetailPageByVariant(
                     </div>
                   </div>
 
-                  <div class="space-y-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-3">
-                    <div class="flex items-center justify-between">
-                      <p class="text-sm font-medium text-blue-900">责任判定与扣款决定</p>
-                      ${
-                        finalLiabilityRequired
-                          ? '<span class="inline-flex rounded-md border border-blue-300 bg-white px-2 py-0.5 text-xs text-blue-700">车缝回货入仓最终判定（提交必填）</span>'
-                          : '<span class="inline-flex rounded-md border border-blue-200 bg-white px-2 py-0.5 text-xs text-blue-600">当前环节可选填写</span>'
-                      }
-                    </div>
-
+                  <div class="space-y-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-3">
+                    <p class="text-sm font-medium text-blue-900">质检事实说明</p>
+                    <p class="text-xs leading-5 text-blue-700">质检记录不编辑扣款金额或扣款决定；来源反扣仅展示现场事实，财务生效以对账单确认为准。</p>
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div class="space-y-1.5">
                         <label class="text-sm">责任方名称（可选）</label>
@@ -1530,34 +1514,6 @@ function renderQcRecordDetailPageByVariant(
                           data-qcd-field="responsiblePartyName"
                           value="${toInputValue(detail.form.responsiblePartyName)}"
                           placeholder="如：PT Prima Sewing Hub"
-                          ${readOnly ? 'disabled' : ''}
-                        />
-                      </div>
-                      <div class="space-y-1.5">
-                        <label class="text-sm">是否扣款${finalLiabilityRequired ? ' <span class="text-red-600">*</span>' : ''}</label>
-                        <select
-                          class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
-                          data-qcd-field="deductionDecision"
-                          ${readOnly ? 'disabled' : ''}
-                        >
-                          <option value="" ${detail.form.deductionDecision === '' ? 'selected' : ''}>请选择</option>
-                          <option value="DEDUCT" ${detail.form.deductionDecision === 'DEDUCT' ? 'selected' : ''}>${DEDUCTION_DECISION_LABEL.DEDUCT}</option>
-                          <option value="NO_DEDUCT" ${detail.form.deductionDecision === 'NO_DEDUCT' ? 'selected' : ''}>${DEDUCTION_DECISION_LABEL.NO_DEDUCT}</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div class="space-y-1.5">
-                        <label class="text-sm">扣款金额（元）${detail.form.deductionDecision === 'DEDUCT' && finalLiabilityRequired ? ' <span class="text-red-600">*</span>' : ''}</label>
-                        <input
-                          class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          data-qcd-field="deductionAmount"
-                          value="${toInputValue(detail.form.deductionAmount)}"
-                          placeholder="${detail.form.deductionDecision === 'DEDUCT' ? '请输入扣款金额' : '选择扣款后填写'}"
                           ${readOnly ? 'disabled' : ''}
                         />
                       </div>
@@ -1571,16 +1527,6 @@ function renderQcRecordDetailPageByVariant(
                           ${readOnly ? 'disabled' : ''}
                         />
                       </div>
-                    </div>
-
-                    <div class="space-y-1.5">
-                      <label class="text-sm">扣款决定说明${detail.form.deductionDecision === 'NO_DEDUCT' && finalLiabilityRequired ? ' <span class="text-red-600">*</span>' : ''}</label>
-                      <textarea
-                        class="min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
-                        data-qcd-field="deductionDecisionRemark"
-                        placeholder="${detail.form.deductionDecision === 'NO_DEDUCT' ? '请选择不扣款时必须填写说明' : '可填写扣款决定说明'}"
-                        ${readOnly ? 'disabled' : ''}
-                      >${escapeHtml(detail.form.deductionDecisionRemark)}</textarea>
                     </div>
                   </div>
                 </div>
@@ -1636,7 +1582,7 @@ function renderQcRecordDetailPageByVariant(
                   ? `
                     <article class="rounded-md border bg-card">
                       <header class="border-b px-4 py-3">
-                        <h3 class="text-sm font-medium">责任判定与扣款决定（结构化）</h3>
+                        <h3 class="text-sm font-medium">责任与处置事实（结构化）</h3>
                       </header>
                       <div class="grid grid-cols-1 gap-3 px-4 py-4 text-sm md:grid-cols-2">
                         <div>
@@ -1664,27 +1610,11 @@ function renderQcRecordDetailPageByVariant(
                           <p>${existingQc.disposition ? escapeHtml(DISPOSITION_LABEL[existingQc.disposition] ?? existingQc.disposition) : '-'}</p>
                         </div>
                         <div>
-                          <p class="text-xs text-muted-foreground">扣款决定</p>
-                          <p>${
-                            existingQc.deductionDecision
-                              ? escapeHtml(DEDUCTION_DECISION_LABEL[existingQc.deductionDecision] ?? existingQc.deductionDecision)
-                              : '-'
-                          }</p>
-                        </div>
-                        <div>
-                          <p class="text-xs text-muted-foreground">扣款金额</p>
-                          <p>${
-                            existingQc.deductionDecision === 'DEDUCT'
-                              ? `${existingQc.deductionAmount ?? '-'} ${existingQc.deductionCurrency ?? 'CNY'}`
-                              : '-'
-                          }</p>
-                        </div>
-                        <div>
                           <p class="text-xs text-muted-foreground">判定时间</p>
                           <p>${existingQc.liabilityDecidedAt ? escapeHtml(formatDateTime(existingQc.liabilityDecidedAt)) : '-'}</p>
                         </div>
                         <div class="md:col-span-2">
-                          <p class="text-xs text-muted-foreground">判定说明</p>
+                          <p class="text-xs text-muted-foreground">事实说明</p>
                           <p>${escapeHtml(existingQc.deductionDecisionRemark ?? existingQc.dispositionRemark ?? '-')}</p>
                         </div>
                       </div>
