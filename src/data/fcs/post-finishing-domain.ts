@@ -1179,13 +1179,22 @@ function normalizeQcSkuResults(input: {
     const factoryReasonQty = Math.max(Number(result?.factoryReasonQty ?? Math.max(unqualifiedQty - platformReasonQty, 0)) || 0, 0)
     const reworkReceiveFactoryId = result?.reworkReceiveFactoryId || (reworkQty > 0 ? input.sourceFactoryId : undefined)
     const reworkReceiveFactoryName = result?.reworkReceiveFactoryName || (reworkQty > 0 ? input.sourceFactoryName : undefined)
-    const reworkDeductionUnitAmountIdr = Math.max(Number(result?.reworkDeductionUnitAmountIdr ?? 0) || 0, 0)
-    const reworkDeductionAmountIdr = reworkQty > 0
+    const existingSourceChargeback = result?.sourceChargeback
+    const reworkDeductionUnitAmountIdr = Math.max(Number(result?.reworkDeductionUnitAmountIdr ?? existingSourceChargeback?.unitAmount ?? 0) || 0, 0)
+    const calculatedReworkDeductionAmountIdr = reworkQty > 0
       && reworkDeductionUnitAmountIdr > 0
       && (reworkReceiveFactoryId !== input.sourceFactoryId || reworkReceiveFactoryName !== input.sourceFactoryName)
       ? Math.round(reworkQty * reworkDeductionUnitAmountIdr)
       : 0
-    const sourceChargeback = reworkDeductionAmountIdr > 0
+    const reworkDeductionAmountIdr = Math.max(Number(result?.reworkDeductionAmountIdr ?? existingSourceChargeback?.amount ?? calculatedReworkDeductionAmountIdr) || 0, 0)
+    const sourceChargeback = existingSourceChargeback
+      ? {
+          currency: existingSourceChargeback.currency,
+          unitAmount: existingSourceChargeback.unitAmount || reworkDeductionUnitAmountIdr,
+          amount: existingSourceChargeback.amount || reworkDeductionAmountIdr,
+          reason: existingSourceChargeback.reason,
+        }
+      : reworkDeductionAmountIdr > 0
       ? {
           currency: 'IDR' as const,
           unitAmount: reworkDeductionUnitAmountIdr,
