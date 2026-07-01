@@ -286,3 +286,15 @@
     border-radius: 0;
   }
 }
+
+@media (max-width: 640px) {
+  .production-object-overview__panel {
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: 0;
+  }
+
+  .production-object-overview__body {
+    padding: 12px;
+  }
+}

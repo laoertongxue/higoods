@@ -6,14 +6,18 @@ import {
   productionObjectSearchIndex,
   purchaseArrivalStatusLabel,
   queryProductionObjectIssues,
+  resolveProductionObjectRequest,
   searchMaterialResources,
   searchProductionObjects,
   warehouseExecutionStatusLabel,
   type MaterialResourceContext,
   type MaterialResourceOverview,
   type ProductionMaterialLine,
+  type ProductionObjectClickedRef,
+  type ProductionObjectMultipleMatchesResult,
   type ProductionObjectOverview,
   type ProductionObjectSearchIndex,
+  type ProductionObjectUnlinkedResult,
   type ProductionObjectType,
 } from '../data/fcs/production-object-overview.ts'
 import { renderProductionObjectCodeButton } from '../data/fcs/production-order-identity.ts'
@@ -22,6 +26,7 @@ type OverviewTab =
   | 'overview'
   | 'materials'
   | 'progress'
+  | 'quantity'
   | 'documents'
   | 'issues'
   | 'relationship'
@@ -35,6 +40,7 @@ const TAB_ITEMS: Array<{ key: OverviewTab; label: string }> = [
   { key: 'overview', label: '总览' },
   { key: 'materials', label: '面辅料与仓储' },
   { key: 'progress', label: '工艺与任务' },
+  { key: 'quantity', label: '数量' },
   { key: 'issues', label: '异常与责任' },
   { key: 'relationship-history', label: '关系与历史' },
 ]
@@ -54,6 +60,11 @@ const OBJECT_TYPE_LABEL: Record<ProductionObjectType, string> = {
   PRINT_WORK_ORDER: '印花工单',
   DYE_WORK_ORDER: '染色工单',
   HANDOVER_ORDER: '交出单',
+  QC_MASTER_ORDER: '质检总单',
+  QC_ORDER: '质检单',
+  RECHECK_ORDER: '复检单',
+  FINISHED_INBOUND_ORDER: '成品入库单',
+  PURCHASE_ORDER: '采购单',
 }
 
 type MaterialResourceTab = 'supply-demand' | 'allocations' | 'inventory' | 'execution' | 'issues-master'
@@ -71,12 +82,15 @@ let activeMaterialResourceTab: MaterialResourceTab = 'supply-demand'
 let searchKeyword = ''
 
 function canShowProductionObjectEntry(pathname: string): boolean {
-  if (!pathname.startsWith('/fcs')) return false
-  if (pathname.startsWith('/fcs/pda')) return false
   if (pathname.startsWith('/fcs/print/')) return false
   if (pathname.startsWith('/fcs/task-print/')) return false
   if (pathname.includes('confirmation-print')) return false
-  return true
+  return (
+    pathname.startsWith('/fcs')
+    || pathname.startsWith('/pcs')
+    || pathname.startsWith('/pms')
+    || pathname.startsWith('/wls')
+  )
 }
 
 export function renderProductionObjectFloatingEntry(pathname: string): string {
@@ -122,6 +136,10 @@ function renderOverviewCode(
   className = 'font-mono text-blue-600 hover:underline',
 ): string {
   return renderProductionObjectCodeButton({ objectType, objectId, label, className })
+}
+
+function makeHighlightKeyFromText(text: string): string {
+  return text.trim().replace(/\s+/g, '-') || 'quantity'
 }
 
 function formatQty(value: number | undefined, unit: string): string {
@@ -417,7 +435,35 @@ export function renderOverviewHeader(overview: ProductionObjectOverview): string
   `
 }
 
-function renderTabs(overview: ProductionObjectOverview, tab: OverviewTab): string {
+function renderClickedObjectSummary(ref: ProductionObjectClickedRef | null, relatedProductionOrderNo?: string | null): string {
+  if (!ref) return ''
+  return `
+    <section
+      class="border-b bg-blue-50/60 px-4 py-3 text-sm"
+      data-production-object-clicked-ref="true"
+      data-production-object-highlight-key="${escapeHtml(ref.highlightKey)}"
+    >
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="font-medium">当前查看</span>
+        <span class="rounded border border-blue-200 bg-white px-2 py-0.5">${escapeHtml(OBJECT_TYPE_LABEL[ref.objectType] || ref.objectType)}</span>
+        <span class="font-mono text-blue-700">${escapeHtml(ref.objectNo)}</span>
+        ${relatedProductionOrderNo ? `<span class="text-muted-foreground">关联生产单：${escapeHtml(relatedProductionOrderNo)}</span>` : ''}
+        <span class="text-muted-foreground">来源系统：${escapeHtml(ref.sourceDomain)}</span>
+        <span class="text-muted-foreground">状态：${escapeHtml(ref.statusText)}</span>
+        <span class="text-muted-foreground">单据关系：已关联</span>
+      </div>
+    </section>
+  `
+}
+
+function renderTabs(
+  overview: ProductionObjectOverview,
+  tab: OverviewTab,
+  request: { objectType: ProductionObjectType; objectId: string; relatedProductionOrderNo?: string | null } = {
+    objectType: overview.objectType,
+    objectId: overview.objectKey,
+  },
+): string {
   const hasMaterialIssue = overview.materials.some((line) => line.shortageQty > 0)
   const hasProgressIssue = overview.progressNodes.some((node) => node.status.includes('待') || node.status.includes('不能'))
   const hasIssue = overview.issues.length > 0
@@ -432,8 +478,9 @@ function renderTabs(overview: ProductionObjectOverview, tab: OverviewTab): strin
             class="relative h-10 shrink-0 px-3 text-sm font-medium ${active ? 'text-blue-600' : 'text-muted-foreground hover:text-foreground'}"
             data-production-object-action="switch-tab"
             data-tab="${item.key}"
-            data-object-type="${overview.objectType}"
-            data-object-id="${escapeHtml(overview.objectKey)}"
+            data-object-type="${request.objectType}"
+            data-object-id="${escapeHtml(request.objectId)}"
+            ${request.relatedProductionOrderNo ? `data-related-production-order-no="${escapeHtml(request.relatedProductionOrderNo)}"` : ''}
             data-skip-page-rerender="true"
           >
             ${escapeHtml(item.label)}${showDot ? '<span class="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-red-500 align-middle"></span>' : ''}
@@ -1084,6 +1131,30 @@ function renderRelationshipHistoryTab(overview: ProductionObjectOverview): strin
   `
 }
 
+function renderQuantityTab(overview: ProductionObjectOverview): string {
+  const rows = overview.executionOverview.quantityQuality
+  return `
+    <div class="space-y-3">
+      <h3 class="text-sm font-semibold">关键数量</h3>
+      <div class="grid gap-2">
+        ${rows.map((row) => {
+          const value = `${row.currentQty}${row.unit} / 计划 ${row.plannedQty}${row.unit}`
+          const note = `${row.status}｜差异 ${row.diff}｜${row.note}`
+          return `
+            <article class="rounded-md border bg-card p-3 text-sm" data-production-object-highlight-key="${escapeHtml(makeHighlightKeyFromText(row.quantityType))}">
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-medium">${escapeHtml(row.quantityType)}</span>
+                <span class="font-mono">${escapeHtml(value)}</span>
+              </div>
+              <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(note)}</p>
+            </article>
+          `
+        }).join('') || '<div class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">暂无关键数量</div>'}
+      </div>
+    </div>
+  `
+}
+
 export function renderOverviewSummaryTab(overview: ProductionObjectOverview): string {
   return renderSummaryTab(overview)
 }
@@ -1127,6 +1198,7 @@ export function renderOverviewCrossQueryTab(overview: ProductionObjectOverview):
 function renderTabBody(overview: ProductionObjectOverview, tab: OverviewTab): string {
   if (tab === 'materials' || tab === 'documents') return renderMaterialsWarehouseTab(overview)
   if (tab === 'progress') return renderTasksTab(overview)
+  if (tab === 'quantity') return renderQuantityTab(overview)
   if (tab === 'issues' || tab === 'responsibility') return renderIssuesResponsibilityTab(overview)
   if (tab === 'relationship-history' || tab === 'relationship' || tab === 'timeline' || tab === 'material-flow' || tab === 'cross-query') return renderRelationshipHistoryTab(overview)
   return renderSummaryTab(overview)
@@ -1331,12 +1403,67 @@ function renderMaterialResourceTabBody(resource: MaterialResourceOverview, tab: 
   return renderMaterialSupplyDemandTab(resource)
 }
 
+function renderUnlinkedObjectSurface(result: ProductionObjectUnlinkedResult): string {
+  return `
+    <div class="production-object-overview" data-production-object-surface="overview">
+      <button class="absolute inset-0 bg-slate-950/30" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭"></button>
+      <section class="production-object-overview__panel">
+        <header class="flex items-center justify-between border-b px-4 py-3">
+          <h2 class="text-base font-semibold">生产对象总览</h2>
+          <button class="h-8 w-8 rounded-md text-lg text-muted-foreground hover:bg-muted" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭">×</button>
+        </header>
+        <div class="space-y-3 p-4 text-sm">
+          <div class="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">${escapeHtml(result.message)}</div>
+          <div>当前编号：<span class="font-mono">${escapeHtml(result.request.objectId)}</span></div>
+          <div>来源系统：${escapeHtml(result.sourceDomain)}</div>
+          ${result.routePath
+            ? `<button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-production-object-action="go-source" data-route-path="${escapeHtml(result.routePath)}" data-skip-page-rerender="true">查看来源</button>`
+            : '<button class="rounded-md border px-3 py-1.5 text-xs text-muted-foreground" type="button" disabled>查看来源</button>'}
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function renderMultipleMatchesSurface(result: ProductionObjectMultipleMatchesResult): string {
+  return `
+    <div class="production-object-overview" data-production-object-surface="overview">
+      <button class="absolute inset-0 bg-slate-950/30" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭"></button>
+      <section class="production-object-overview__panel">
+        <header class="flex items-center justify-between border-b px-4 py-3">
+          <h2 class="text-base font-semibold">选择关联生产单</h2>
+          <button class="h-8 w-8 rounded-md text-lg text-muted-foreground hover:bg-muted" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭">×</button>
+        </header>
+        <div class="space-y-2 p-4">
+          ${result.candidates.map((item) => `
+            <button class="w-full rounded-md border p-3 text-left text-sm hover:bg-muted"
+              data-production-object-action="open"
+              data-object-type="${item.objectType}"
+              data-object-id="${escapeHtml(item.id)}"
+              data-related-production-order-no="${escapeHtml(item.relatedProductionOrderNo || '')}"
+              data-skip-page-rerender="true">
+              <div class="font-mono text-blue-700">${escapeHtml(item.primaryNo)}</div>
+              <div class="text-xs text-muted-foreground">关联生产单：${escapeHtml(item.relatedProductionOrderNo || '未关联')}</div>
+            </button>
+          `).join('')}
+        </div>
+      </section>
+    </div>
+  `
+}
+
 export function renderProductionObjectOverviewSurface(
   objectType: ProductionObjectType,
   objectId: string,
-  tab: OverviewTab = activeTab,
+  tab?: OverviewTab,
+  relatedProductionOrderNo?: string | null,
+  activeHighlightKey?: string | null,
 ): string {
-  const overview = getProductionObjectOverview(objectType, objectId)
+  const resolved = resolveProductionObjectRequest({ objectType, objectId, relatedProductionOrderNo })
+  if (resolved.status === 'UNLINKED') return renderUnlinkedObjectSurface(resolved)
+  if (resolved.status === 'MULTIPLE_MATCHES') return renderMultipleMatchesSurface(resolved)
+
+  const overview = getProductionObjectOverview(resolved.indexItem.objectType, resolved.indexItem.id)
   if (!overview) {
     return `
       <div class="production-object-overview" data-production-object-surface="overview">
@@ -1353,22 +1480,31 @@ export function renderProductionObjectOverviewSurface(
   }
 
   const primaryRef = getPrimaryObjectRef(overview)
+  const activeBodyTab: OverviewTab = tab || resolved.clickedRef.defaultTab
+  const highlightKey = activeHighlightKey || resolved.clickedRef.highlightKey
 
   return `
     <div
       class="production-object-overview"
       data-production-object-surface="overview"
-      data-object-type="${objectType}"
-      data-object-id="${escapeHtml(objectId)}"
+      data-object-type="${resolved.clickedRef.objectType}"
+      data-object-id="${escapeHtml(resolved.clickedRef.objectId)}"
+      data-related-production-order-no="${escapeHtml(resolved.indexItem.relatedProductionOrderNo || '')}"
+      data-production-object-active-highlight="${escapeHtml(highlightKey)}"
       data-primary-object-type="${primaryRef.objectType}"
       data-primary-object-id="${escapeHtml(primaryRef.objectId)}"
     >
       <button class="absolute inset-0 bg-slate-950/30" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭"></button>
       <section class="production-object-overview__panel">
         ${renderOverviewHeader(overview)}
-        ${renderTabs(overview, tab)}
+        ${renderClickedObjectSummary(resolved.clickedRef, resolved.indexItem.relatedProductionOrderNo)}
+        ${renderTabs(overview, activeBodyTab, {
+          objectType: resolved.clickedRef.objectType,
+          objectId: resolved.clickedRef.objectId,
+          relatedProductionOrderNo: resolved.indexItem.relatedProductionOrderNo,
+        })}
         <div class="production-object-overview__body">
-          ${renderTabBody(overview, tab)}
+          ${renderTabBody(overview, activeBodyTab)}
         </div>
         <footer class="production-object-overview__footer">
           <div class="text-xs text-muted-foreground">FCS 只展示采购、WMS、PFOS 摘要与下钻入口，不在这里修改原系统数据。</div>
@@ -1502,21 +1638,27 @@ export function handleProductionObjectOverviewEvent(target: HTMLElement): boolea
   }
 
   if (action === 'open') {
-    activeTab = 'overview'
     const objectType = actionNode.dataset.objectType as ProductionObjectType | undefined
     const objectId = actionNode.dataset.objectId
+    const defaultTab = actionNode.dataset.defaultTab as OverviewTab | undefined
+    const highlightKey = actionNode.dataset.highlightKey
+    const relatedProductionOrderNo = actionNode.dataset.relatedProductionOrderNo
+    activeTab = defaultTab || 'overview'
     if (!objectType || !objectId) return true
-    setOverlay(renderProductionObjectOverviewSurface(objectType, objectId, activeTab), 'overview')
+    setOverlay(renderProductionObjectOverviewSurface(objectType, objectId, defaultTab, relatedProductionOrderNo, highlightKey), 'overview')
     return true
   }
 
   if (action === 'switch-tab') {
-    activeTab = (actionNode.dataset.tab as OverviewTab | undefined) || 'overview'
+    const nextTab = (actionNode.dataset.tab as OverviewTab | undefined) || 'overview'
     const surface = actionNode.closest<HTMLElement>('[data-production-object-surface="overview"]')
     const objectType = (actionNode.dataset.objectType || surface?.dataset.objectType) as ProductionObjectType | undefined
     const objectId = actionNode.dataset.objectId || surface?.dataset.objectId
+    const relatedProductionOrderNo = actionNode.dataset.relatedProductionOrderNo || surface?.dataset.relatedProductionOrderNo
+    const highlightKey = surface?.dataset.productionObjectActiveHighlight
     if (!objectType || !objectId) return true
-    setOverlay(renderProductionObjectOverviewSurface(objectType, objectId, activeTab), 'overview')
+    setOverlay(renderProductionObjectOverviewSurface(objectType, objectId, nextTab, relatedProductionOrderNo, highlightKey), 'overview')
+    activeTab = nextTab
     return true
   }
 
