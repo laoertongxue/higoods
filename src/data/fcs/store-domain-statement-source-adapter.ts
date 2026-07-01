@@ -215,10 +215,10 @@ function parseQty(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function resolveCuttingCompletedQty(productionOrderNo: string, fallbackQty: number): number {
+function resolveCuttingCompletedQtyFromOrder(productionOrderNo: string): number | null {
   const order = productionOrders.find((item) => item.productionOrderNo === productionOrderNo)
   const cuttingRow = order?.ledgerDetails.quantityQuality.find((item) => item.quantityType === '裁片完成')
-  if (!cuttingRow) return fallbackQty
+  if (!cuttingRow) return null
   return parseQty(cuttingRow.currentQty)
 }
 
@@ -644,7 +644,9 @@ export function buildProductionOrderSettlementProjections(input: {
     const normalHandoverQty = orderLedgers
       .filter((item) => item.ledgerType === 'TASK_EARNING')
       .reduce((sum, item) => sum + item.qty, 0)
-    const cuttingCompletedQty = resolveCuttingCompletedQty(productionOrderNo, normalHandoverQty)
+    const cuttingCompletedQtyFromOrder = resolveCuttingCompletedQtyFromOrder(productionOrderNo)
+    const hasCompletionBasis = cuttingCompletedQtyFromOrder != null || normalHandoverQty > 0
+    const cuttingCompletedQty = cuttingCompletedQtyFromOrder ?? normalHandoverQty
     const summary = calculateProductionOrderSettlementSummary({
       cuttingCompletedQty,
       handoverLines: orderLedgers.map((item) => ({
@@ -655,13 +657,19 @@ export function buildProductionOrderSettlementProjections(input: {
       reworkLines: resolvePostFinishingReworkLines(productionOrderNo),
       defectReasonLines: resolvePostFinishingDefectReasonLines(productionOrderNo),
     })
+    const isComplete = hasCompletionBasis && summary.isComplete
 
     return {
       productionOrderNo,
       productionOrderId: orderLedgers.find((item) => item.productionOrderId)?.productionOrderId,
       ...summary,
-      includedInStatement: summary.isComplete,
-      excludedReason: summary.isComplete ? undefined : `差 ${summary.shortageQty} 件`,
+      isComplete,
+      includedInStatement: isComplete,
+      excludedReason: isComplete
+        ? undefined
+        : hasCompletionBasis
+          ? `差 ${summary.shortageQty} 件`
+          : '缺少裁片完成数量和交出流水',
       handoverDetailLines: orderLedgers.map((item) => ({
         recordId: item.returnInboundBatchNo ?? item.ledgerId,
         handedOverAt: item.occurredAt,
@@ -686,7 +694,7 @@ export function buildStatementDraftLinesFromSettlementSelection(input: {
     occurredTo: input.occurredTo,
   })
   const selected = input.objectMode === 'LEDGER'
-    ? ledgers.filter((item) => !input.selectedLedgerIds?.length || input.selectedLedgerIds.includes(item.ledgerId))
+    ? ledgers.filter((item) => input.selectedLedgerIds?.includes(item.ledgerId))
     : ledgers.filter((item) => input.selectedProductionOrderNos?.includes(item.productionOrderNo ?? ''))
   const bindingMap = getStatementBindingMap()
 

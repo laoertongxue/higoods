@@ -97,6 +97,13 @@ assert.equal(
 )
 
 const completedIds = projections.filter((item) => item.isComplete).map((item) => item.productionOrderNo)
+const emptyLedgerSelectionLines = buildStatementDraftLinesFromSettlementSelection({
+  factoryId: firstOpenLedger.factoryId,
+  occurredFrom: firstOpenLedger.occurredAt.slice(0, 10),
+  occurredTo: firstOpenLedger.occurredAt.slice(0, 10),
+  objectMode: 'LEDGER',
+  selectedLedgerIds: [],
+})
 const lines = buildStatementDraftLinesFromSettlementSelection({
   factoryId: firstOpenLedger.factoryId,
   occurredFrom: firstOpenLedger.occurredAt.slice(0, 10),
@@ -105,8 +112,33 @@ const lines = buildStatementDraftLinesFromSettlementSelection({
   selectedProductionOrderNos: completedIds,
 })
 
+assert.equal(emptyLedgerSelectionLines.length, 0)
 assert(lines.every((item) => completedIds.includes(item.productionOrderNo ?? '')))
 assert(lines.every((item) => item.settlementObjectMode === 'PRODUCTION_ORDER'))
+
+const qualityOnlyOpenLedger = allLedgers.find((ledger) => {
+  if (ledger.status !== 'OPEN' || ledger.ledgerType !== 'QUALITY_DEDUCTION' || !ledger.productionOrderNo) return false
+  return !allLedgers.some(
+    (item) =>
+      item.status === 'OPEN' &&
+      item.ledgerType === 'TASK_EARNING' &&
+      item.factoryId === ledger.factoryId &&
+      item.occurredAt.slice(0, 10) === ledger.occurredAt.slice(0, 10) &&
+      item.productionOrderNo === ledger.productionOrderNo,
+  )
+})
+
+if (qualityOnlyOpenLedger) {
+  const qualityOnlyProjection = buildProductionOrderSettlementProjections({
+    factoryId: qualityOnlyOpenLedger.factoryId,
+    occurredFrom: qualityOnlyOpenLedger.occurredAt.slice(0, 10),
+    occurredTo: qualityOnlyOpenLedger.occurredAt.slice(0, 10),
+  }).find((item) => item.productionOrderNo === qualityOnlyOpenLedger.productionOrderNo)
+
+  assert(qualityOnlyProjection, '质量扣款流水生产单必须能反查到投影')
+  assert.equal(qualityOnlyProjection.isComplete, false)
+  assert.equal(qualityOnlyProjection.includedInStatement, false)
+}
 
 const futureRange = listStatementEligiblePreSettlementLedgersByRange({
   factoryId: firstOpenLedger.factoryId,
