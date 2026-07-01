@@ -194,11 +194,24 @@ function uniqueSearchTexts(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
-function shouldUseMaterialResourceSearch(keyword: string, rows: ProductionObjectSearchIndex[]): boolean {
+function isExplicitBusinessObjectSearch(keyword: string, rows: ProductionObjectSearchIndex[]): boolean {
   const query = keyword.trim()
-  if (['缺料', '待领料', '未到仓'].some((word) => query.includes(word))) return true
+  if (!query) return false
   const normalizedQuery = query.toUpperCase()
-  return rows.some((item) => item.objectType === 'MATERIAL' && item.primaryNo.toUpperCase() === normalizedQuery)
+  return rows.some((item) =>
+    item.objectType !== 'MATERIAL' &&
+    [item.id, item.primaryNo, item.secondaryNo]
+      .filter(Boolean)
+      .some((value) => String(value).toUpperCase() === normalizedQuery),
+  )
+}
+
+function shouldUseMaterialResourceSearch(keyword: string, rows: ProductionObjectSearchIndex[], materialResources: MaterialResourceOverview[]): boolean {
+  const query = keyword.trim()
+  if (!query) return false
+  if (['缺料', '待领料', '未到仓'].some((word) => query.includes(word))) return materialResources.length > 0
+  if (materialResources.length === 0) return false
+  return !isExplicitBusinessObjectSearch(query, rows)
 }
 
 function renderMaterialSearchResultCard(resource: MaterialResourceOverview): string {
@@ -232,6 +245,10 @@ function renderMaterialSearchResultCard(resource: MaterialResourceOverview): str
 }
 
 function renderSearchResultCard(item: ProductionObjectSearchIndex): string {
+  const isMaterial = item.objectType === 'MATERIAL'
+  const primaryAction = isMaterial
+    ? `<button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700" data-production-object-action="open-material-resource" data-material-sku="${escapeHtml(item.primaryNo)}" data-skip-page-rerender="true">查看物料资源</button>`
+    : `<button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700" data-production-object-action="open" data-object-type="${item.objectType}" data-object-id="${escapeHtml(item.id)}" data-skip-page-rerender="true">查看总览</button>`
   return `
     <article class="rounded-lg border bg-card p-3 shadow-sm">
       <div class="flex items-start justify-between gap-3">
@@ -252,8 +269,8 @@ function renderSearchResultCard(item: ProductionObjectSearchIndex): string {
           </div>
         </div>
         <div class="flex shrink-0 flex-col gap-2 text-right">
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700" data-production-object-action="open" data-object-type="${item.objectType}" data-object-id="${escapeHtml(item.id)}" data-skip-page-rerender="true">查看总览</button>
-          <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-production-object-action="copy-no" data-copy-text="${escapeHtml(item.primaryNo)}" data-skip-page-rerender="true">复制编号</button>
+          ${primaryAction}
+          <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-production-object-action="copy-no" data-copy-text="${escapeHtml(item.primaryNo)}" data-skip-page-rerender="true">${isMaterial ? '复制编码' : '复制编号'}</button>
           ${item.routePath ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-production-object-action="go-source" data-route-path="${escapeHtml(item.routePath)}" data-skip-page-rerender="true">查看来源</button>` : ''}
         </div>
       </div>
@@ -302,7 +319,8 @@ function renderMaterialGroupedSearchResults(keyword: string, materialResources: 
 
 function renderSearchResults(keyword: string): string {
   const rows = withRelatedMainlineRows(searchProductionObjects(keyword))
-  const materialResources = shouldUseMaterialResourceSearch(keyword, rows) ? searchMaterialResources(keyword) : []
+  const candidateMaterialResources = keyword.trim() ? searchMaterialResources(keyword) : []
+  const materialResources = shouldUseMaterialResourceSearch(keyword, rows, candidateMaterialResources) ? candidateMaterialResources : []
   if (materialResources.length > 0) return renderMaterialGroupedSearchResults(keyword, materialResources, rows)
   if (rows.length === 0) return renderSearchEmpty(keyword)
   const groups = groupSearchResults(rows)
