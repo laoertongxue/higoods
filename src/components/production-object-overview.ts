@@ -654,7 +654,7 @@ function renderMaterialResourceMetric(label: string, value: string): string {
 }
 
 function formatMaterialResourceQty(value: number, unit: string): string {
-  return `${Number(value || 0).toLocaleString('zh-CN')}${unit}`
+  return `${Number(value || 0).toLocaleString('zh-CN')}${escapeHtml(unit)}`
 }
 
 function renderMaterialsTab(overview: ProductionObjectOverview): string {
@@ -1042,7 +1042,7 @@ function renderMaterialResourceHeader(resource: MaterialResourceOverview): strin
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             ${badge(materialTypeLabel[resource.materialType], 'border-blue-200 bg-blue-50 text-blue-700')}
-            <span class="font-mono text-sm font-semibold">${escapeHtml(resource.materialSku)}</span>
+            <span class="font-mono break-all text-sm font-semibold">${escapeHtml(resource.materialSku)}</span>
           </div>
           <h2 class="mt-1 text-base font-semibold">物料资源总览｜${escapeHtml(resource.materialName)}</h2>
           <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(resource.spec)}｜${escapeHtml(resource.unit)}｜${escapeHtml(resource.supplierName)}</p>
@@ -1100,17 +1100,17 @@ function renderMaterialAllocationsTab(resource: MaterialResourceOverview): strin
       ${resource.businessAllocations.map((item) => `
         <article class="rounded-lg border ${item.isSourceContext ? 'border-blue-300 bg-blue-50/60' : 'bg-card'} p-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="font-mono text-sm font-semibold">${renderOverviewCode('PRODUCTION_ORDER', item.businessNo, item.businessNo)}</div>
+            <div class="min-w-0 break-all font-mono text-sm font-semibold">${renderOverviewCode('PRODUCTION_ORDER', item.businessNo, item.businessNo)}</div>
             <div class="flex flex-wrap items-center gap-2">
               ${item.isSourceContext ? badge('当前来源', 'border-blue-200 bg-blue-100 text-blue-700') : ''}
               ${badge(item.status)}
             </div>
           </div>
           <div class="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-4">
-            <div><span class="text-foreground">SPU：</span>${escapeHtml(item.spu)}</div>
-            <div><span class="text-foreground">颜色尺码：</span>${escapeHtml(item.colorSize)}</div>
-            <div><span class="text-foreground">交期：</span>${escapeHtml(item.deliveryDate)}</div>
-            <div><span class="text-foreground">优先级：</span>${escapeHtml(item.priority)}</div>
+            <div class="break-words"><span class="text-foreground">SPU：</span>${escapeHtml(item.spu)}</div>
+            <div class="break-words"><span class="text-foreground">颜色尺码：</span>${escapeHtml(item.colorSize)}</div>
+            <div class="break-words"><span class="text-foreground">交期：</span>${escapeHtml(item.deliveryDate)}</div>
+            <div class="break-words"><span class="text-foreground">优先级：</span>${escapeHtml(item.priority)}</div>
             <div><span class="text-foreground">需求：</span>${formatMaterialResourceQty(item.requiredQty, resource.unit)}</div>
             <div><span class="text-foreground">已配料：</span>${formatMaterialResourceQty(item.preparedQty, resource.unit)}</div>
             <div><span class="text-foreground">已领料：</span>${formatMaterialResourceQty(item.pickedQty, resource.unit)}</div>
@@ -1129,7 +1129,7 @@ function renderMaterialInventoryTab(resource: MaterialResourceOverview): string 
         <h3 class="text-sm font-semibold">库存批次</h3>
         ${resource.inventoryBatches.map((item) => `
           <div class="rounded-lg border bg-card p-3 text-xs">
-            <div class="font-medium">${escapeHtml(item.warehouseName)}｜${escapeHtml(item.batchNo)}</div>
+            <div class="break-words font-medium">${escapeHtml(item.warehouseName)}｜${escapeHtml(item.batchNo)}</div>
             <div class="mt-2 grid gap-2 text-muted-foreground sm:grid-cols-5">
               <div>总库存：${formatMaterialResourceQty(item.totalQty, item.unit)}</div>
               <div>可用：${formatMaterialResourceQty(item.availableQty, item.unit)}</div>
@@ -1144,9 +1144,9 @@ function renderMaterialInventoryTab(resource: MaterialResourceOverview): string 
         <h3 class="text-sm font-semibold">采购在途</h3>
         ${resource.purchaseInTransit.map((item) => `
           <div class="rounded-lg border bg-card p-3 text-xs">
-            <div class="font-mono font-medium">${escapeHtml(item.purchaseOrderNo)}</div>
+            <div class="font-mono break-all font-medium">${escapeHtml(item.purchaseOrderNo)}</div>
             <div class="mt-2 grid gap-2 text-muted-foreground sm:grid-cols-4">
-              <div>供应商：${escapeHtml(item.supplierName)}</div>
+              <div class="break-words">供应商：${escapeHtml(item.supplierName)}</div>
               <div>采购：${formatMaterialResourceQty(item.purchaseQty, resource.unit)}</div>
               <div>未到仓：${formatMaterialResourceQty(item.pendingArrivalQty, resource.unit)}</div>
               <div>预计到仓：${escapeHtml(item.estimatedArrivalAt)}</div>
@@ -1164,7 +1164,7 @@ function renderMaterialExecutionTab(resource: MaterialResourceOverview): string 
       ${resource.materialExecutionLines.map((item) => `
         <article class="rounded-lg border ${item.isSourceContext ? 'border-blue-300 bg-blue-50/60' : 'bg-card'} p-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="text-sm font-semibold">${renderOverviewCode('PRODUCTION_ORDER', item.businessNo, item.businessNo)}｜${escapeHtml(item.processName)} / ${escapeHtml(item.factoryName)}</div>
+            <div class="min-w-0 break-words text-sm font-semibold">${renderOverviewCode('PRODUCTION_ORDER', item.businessNo, item.businessNo)}｜${escapeHtml(item.processName)} / ${escapeHtml(item.factoryName)}</div>
             ${item.isSourceContext ? badge('当前来源', 'border-blue-200 bg-blue-100 text-blue-700') : ''}
           </div>
           <div class="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-5">
@@ -1176,7 +1176,7 @@ function renderMaterialExecutionTab(resource: MaterialResourceOverview): string 
             <div>已发料：${formatMaterialResourceQty(item.issuedQty, item.unit)}</div>
             <div>待发料：${formatMaterialResourceQty(item.pendingIssueQty, item.unit)}</div>
             <div>缺口：${formatMaterialResourceQty(item.shortageQty, item.unit)}</div>
-            <div class="sm:col-span-2">下一动作：${escapeHtml(item.nextActionText)}</div>
+            <div class="break-words sm:col-span-2">下一动作：${escapeHtml(item.nextActionText)}</div>
           </div>
         </article>
       `).join('')}
