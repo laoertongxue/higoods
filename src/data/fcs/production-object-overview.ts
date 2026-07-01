@@ -151,6 +151,134 @@ export interface ProductionMaterialLine {
   nextActionText: string
 }
 
+export interface MaterialResourceContext {
+  sourceObjectType?: ProductionObjectType
+  sourceObjectId?: string
+  sourceLabel?: string
+}
+
+export interface MaterialSupplyDemandSummary {
+  totalRequiredQty: number
+  availableQty: number
+  lockedQty: number
+  inTransitQty: number
+  pendingInspectionQty: number
+  shortageQty: number
+  unit: string
+  earliestImpactDate: string
+}
+
+export interface MaterialBusinessAllocation {
+  allocationId: string
+  businessType: string
+  businessNo: string
+  spu: string
+  colorSize: string
+  requiredQty: number
+  preparedQty: number
+  pickedQty: number
+  shortageQty: number
+  deliveryDate: string
+  priority: string
+  status: string
+  isSourceContext: boolean
+}
+
+export interface MaterialInventoryBatch {
+  warehouseName: string
+  batchNo: string
+  totalQty: number
+  availableQty: number
+  lockedQty: number
+  pendingInspectionQty: number
+  frozenQty: number
+  unit: string
+}
+
+export interface MaterialPurchaseTransit {
+  purchaseOrderNo: string
+  supplierName: string
+  purchaseQty: number
+  arrivedQty: number
+  pendingArrivalQty: number
+  estimatedArrivalAt: string
+  statusText: string
+}
+
+export interface MaterialWarehouseReceipt {
+  inboundNo: string
+  sourceNo: string
+  arrivedQty: number
+  warehouseName: string
+  arrivedAt: string
+  qcStatusText: string
+}
+
+export interface MaterialExecutionLine {
+  businessNo: string
+  processName: string
+  factoryName: string
+  requiredQty: number
+  preparedQty: number
+  pendingPrepareQty: number
+  pickedQty: number
+  pendingPickQty: number
+  issuedQty: number
+  pendingIssueQty: number
+  shortageQty: number
+  unit: string
+  nextActionText: string
+  isSourceContext: boolean
+}
+
+export interface MaterialResourceIssue {
+  issueType: string
+  affectedBusinessNo: string
+  affectedQty: number
+  unit: string
+  ownerRole: ProductionObjectOwnerRole
+  occurredAt: string
+  requiredDoneAt: string
+  statusText: string
+  suggestionText: string
+}
+
+export interface MaterialMasterData {
+  materialSku: string
+  materialName: string
+  materialType: MaterialType
+  spec: string
+  color: string
+  unit: string
+  supplierName: string
+  purchaseCycleText: string
+  minPurchaseQtyText: string
+  lossRateText: string
+  substituteText: string
+  applicableText: string
+  statusText: string
+}
+
+export interface MaterialResourceOverview {
+  materialSku: string
+  materialName: string
+  materialType: MaterialType
+  spec: string
+  color: string
+  unit: string
+  supplierName: string
+  currentJudgement: string
+  sourceContext?: MaterialResourceContext
+  supplyDemandSummary: MaterialSupplyDemandSummary
+  businessAllocations: MaterialBusinessAllocation[]
+  inventoryBatches: MaterialInventoryBatch[]
+  purchaseInTransit: MaterialPurchaseTransit[]
+  warehouseReceipts: MaterialWarehouseReceipt[]
+  materialExecutionLines: MaterialExecutionLine[]
+  issues: MaterialResourceIssue[]
+  masterData: MaterialMasterData
+}
+
 export interface ProductionProgressNode {
   nodeId: string
   nodeName: string
@@ -800,6 +928,22 @@ function formatQty(value: number | undefined, unit: string): string {
   return `${Number(value || 0).toLocaleString('zh-CN')}${unit}`
 }
 
+function normalizeMaterialSku(value: string | undefined | null): string {
+  return (value || '').trim().toUpperCase()
+}
+
+function getPickedQty(line: ProductionMaterialLine): number {
+  return Math.max(Number(line.issuedQty || 0), Number(line.factoryReceivedQty || 0))
+}
+
+function sumNumbers(values: number[]): number {
+  return values.reduce((sum, value) => sum + Number(value || 0), 0)
+}
+
+function formatDateOrDash(value: string | null | undefined): string {
+  return value || '-'
+}
+
 function findOrderByNo(value: string | undefined | null): ProductionOrder | null {
   if (!value) return null
   return productionOrders.find((order) =>
@@ -1057,6 +1201,199 @@ function buildMaterialLines(order: ProductionOrder): ProductionMaterialLine[] {
     })
 
   return [...mockLines, ...uniquePrepLines, ...warehouseLines].slice(0, 18)
+}
+
+function listMaterialResourceRows(materialSku: string, context: MaterialResourceContext = {}): Array<{
+  order: ProductionOrder
+  line: ProductionMaterialLine
+  isSourceContext: boolean
+}> {
+  const targetSku = normalizeMaterialSku(materialSku)
+  return productionOrders.flatMap((order) => {
+    const isSourceContext = context.sourceObjectId
+      ? matchesProductionOrder(order, [context.sourceObjectId])
+      : false
+    return buildMaterialLines(order)
+      .filter((line) => normalizeMaterialSku(line.materialSku) === targetSku)
+      .map((line) => ({ order, line, isSourceContext }))
+  }).sort((a, b) => Number(b.isSourceContext) - Number(a.isSourceContext))
+}
+
+function buildMaterialBusinessAllocations(rows: ReturnType<typeof listMaterialResourceRows>): MaterialBusinessAllocation[] {
+  return rows.map(({ order, line, isSourceContext }) => ({
+    allocationId: `${order.productionOrderNo}-${line.lineId}`,
+    businessType: '生产单',
+    businessNo: order.productionOrderNo,
+    spu: order.demandSnapshot.spuCode,
+    colorSize: getSkuSummary(order),
+    requiredQty: line.requiredQty,
+    preparedQty: Number(line.preparedQty || 0),
+    pickedQty: getPickedQty(line),
+    shortageQty: line.shortageQty,
+    deliveryDate: formatDateOrDash(order.demandSnapshot.requiredDeliveryDate || order.planEndDate),
+    priority: order.demandSnapshot.priority || '普通',
+    status: getMaterialSearchStatus(line),
+    isSourceContext,
+  }))
+}
+
+function buildMaterialExecutionLines(rows: ReturnType<typeof listMaterialResourceRows>): MaterialExecutionLine[] {
+  return rows.map(({ order, line, isSourceContext }) => {
+    const preparedQty = Number(line.preparedQty || 0)
+    const pickedQty = getPickedQty(line)
+    const issuedQty = Number(line.issuedQty || 0)
+    return {
+      businessNo: order.productionOrderNo,
+      processName: line.materialType === 'FABRIC' ? '裁片' : '生产用料',
+      factoryName: order.mainFactorySnapshot.name || order.planFactoryName || '待确认',
+      requiredQty: line.requiredQty,
+      preparedQty,
+      pendingPrepareQty: Math.max(0, line.requiredQty - preparedQty),
+      pickedQty,
+      pendingPickQty: Math.max(0, line.requiredQty - pickedQty),
+      issuedQty,
+      pendingIssueQty: Math.max(0, line.requiredQty - issuedQty),
+      shortageQty: line.shortageQty,
+      unit: line.unit,
+      nextActionText: line.nextActionText,
+      isSourceContext,
+    }
+  })
+}
+
+function buildMaterialResourceIssues(rows: ReturnType<typeof listMaterialResourceRows>): MaterialResourceIssue[] {
+  return rows
+    .filter(({ line }) => line.shortageQty > 0 || getMaterialSearchStatus(line).includes('待'))
+    .map(({ order, line }) => ({
+      issueType: line.shortageQty > 0 ? '缺料' : getMaterialSearchStatus(line),
+      affectedBusinessNo: order.productionOrderNo,
+      affectedQty: line.shortageQty || Math.max(0, line.requiredQty - getPickedQty(line)),
+      unit: line.unit,
+      ownerRole: line.ownerRole,
+      occurredAt: order.updatedAt,
+      requiredDoneAt: formatDateOrDash(order.demandSnapshot.requiredDeliveryDate || order.planEndDate),
+      statusText: getMaterialSearchStatus(line),
+      suggestionText: line.nextActionText,
+    }))
+}
+
+function buildMaterialSupplyDemandSummary(rows: ReturnType<typeof listMaterialResourceRows>): MaterialSupplyDemandSummary {
+  const unit = rows[0]?.line.unit || ''
+  const totalRequiredQty = sumNumbers(rows.map(({ line }) => line.requiredQty))
+  const totalPreparedQty = sumNumbers(rows.map(({ line }) => Number(line.preparedQty || 0)))
+  const totalPickedQty = sumNumbers(rows.map(({ line }) => getPickedQty(line)))
+  const shortageQty = sumNumbers(rows.map(({ line }) => line.shortageQty))
+  const dates = rows
+    .map(({ order }) => order.demandSnapshot.requiredDeliveryDate || order.planEndDate || '')
+    .filter(Boolean)
+    .sort()
+  return {
+    totalRequiredQty,
+    availableQty: Math.max(0, totalPreparedQty - totalPickedQty),
+    lockedQty: totalPreparedQty,
+    inTransitQty: Math.max(0, sumNumbers(rows.map(({ line }) => Number(line.purchasedQty || 0))) - sumNumbers(rows.map(({ line }) => Number(line.arrivedWarehouseQty || 0)))),
+    pendingInspectionQty: Math.max(0, shortageQty > 0 ? Math.round(shortageQty * 0.5) : 0),
+    shortageQty,
+    unit,
+    earliestImpactDate: dates[0] || '-',
+  }
+}
+
+function buildMaterialInventoryBatches(summary: MaterialSupplyDemandSummary): MaterialInventoryBatch[] {
+  return [
+    {
+      warehouseName: '原料仓',
+      batchNo: 'BATCH-CURRENT',
+      totalQty: summary.availableQty + summary.lockedQty + summary.pendingInspectionQty,
+      availableQty: summary.availableQty,
+      lockedQty: summary.lockedQty,
+      pendingInspectionQty: summary.pendingInspectionQty,
+      frozenQty: 0,
+      unit: summary.unit,
+    },
+  ]
+}
+
+export function getMaterialResourceOverview(
+  materialSku: string,
+  context: MaterialResourceContext = {},
+): MaterialResourceOverview | null {
+  const rows = listMaterialResourceRows(materialSku, context)
+  if (rows.length === 0) return null
+  const firstLine = rows[0].line
+  const summary = buildMaterialSupplyDemandSummary(rows)
+  const allocations = buildMaterialBusinessAllocations(rows)
+  const executionLines = buildMaterialExecutionLines(rows)
+  const issues = buildMaterialResourceIssues(rows)
+  const supplierName = firstLine.sourcePoNo ? '采购供应商' : '默认供应商'
+  return {
+    materialSku: firstLine.materialSku,
+    materialName: firstLine.materialName,
+    materialType: firstLine.materialType,
+    spec: firstLine.spec || '-',
+    color: firstLine.spec || '-',
+    unit: firstLine.unit,
+    supplierName,
+    currentJudgement: summary.shortageQty > 0
+      ? `缺口 ${formatQty(summary.shortageQty, summary.unit)}，影响 ${allocations.length} 张生产单`
+      : `可用库存覆盖 ${allocations.length} 张生产单需求`,
+    sourceContext: context.sourceObjectId ? context : undefined,
+    supplyDemandSummary: summary,
+    businessAllocations: allocations,
+    inventoryBatches: buildMaterialInventoryBatches(summary),
+    purchaseInTransit: rows
+      .filter(({ line }) => Number(line.purchasedQty || 0) > Number(line.arrivedWarehouseQty || 0))
+      .map(({ line }) => ({
+        purchaseOrderNo: line.sourcePoNo || `${line.materialSku}-PUR`,
+        supplierName,
+        purchaseQty: Number(line.purchasedQty || 0),
+        arrivedQty: Number(line.arrivedWarehouseQty || 0),
+        pendingArrivalQty: Math.max(0, Number(line.purchasedQty || 0) - Number(line.arrivedWarehouseQty || 0)),
+        estimatedArrivalAt: line.estimatedWarehouseArrivalAt || '-',
+        statusText: purchaseArrivalStatusLabel[line.purchaseArrivalStatus],
+      })),
+    warehouseReceipts: rows
+      .filter(({ line }) => line.sourceInboundNo)
+      .map(({ line }) => ({
+        inboundNo: line.sourceInboundNo || '-',
+        sourceNo: line.sourcePoNo || line.sourceMaterialRequestNo || '-',
+        arrivedQty: Number(line.arrivedWarehouseQty || 0),
+        warehouseName: '原料仓',
+        arrivedAt: line.estimatedWarehouseArrivalAt || '-',
+        qcStatusText: '已释放',
+      })),
+    materialExecutionLines: executionLines,
+    issues,
+    masterData: {
+      materialSku: firstLine.materialSku,
+      materialName: firstLine.materialName,
+      materialType: firstLine.materialType,
+      spec: firstLine.spec || '-',
+      color: firstLine.spec || '-',
+      unit: firstLine.unit,
+      supplierName,
+      purchaseCycleText: '7 天',
+      minPurchaseQtyText: `按 ${firstLine.unit} 起订`,
+      lossRateText: '按工艺默认损耗',
+      substituteText: '暂无替代料',
+      applicableText: rows.map(({ order }) => order.demandSnapshot.spuCode).filter(Boolean).slice(0, 3).join('、') || '-',
+      statusText: '启用',
+    },
+  }
+}
+
+export function searchMaterialResources(keyword: string): MaterialResourceOverview[] {
+  const query = keyword.trim().toUpperCase()
+  if (query.length < 2) return []
+  const materialSkus = Array.from(new Set(
+    productionObjectSearchIndex
+      .filter((item) => item.objectType === 'MATERIAL')
+      .filter((item) => `${item.primaryNo} ${item.displayTitle} ${item.keywords.join(' ')}`.toUpperCase().includes(query))
+      .map((item) => item.primaryNo),
+  ))
+  return materialSkus
+    .map((sku) => getMaterialResourceOverview(sku))
+    .filter((item): item is MaterialResourceOverview => Boolean(item))
 }
 
 let progressFactsByOrderCache: Map<string, ProgressFact[]> | null = null
