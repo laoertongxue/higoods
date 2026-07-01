@@ -40,6 +40,10 @@ import {
   listDyeWorkOrders,
   DYE_WORK_ORDER_STATUS_LABEL,
 } from './dyeing-task-domain.ts'
+import {
+  listPostFinishingQcOrderEntities,
+  listPostFinishingRecheckOrderEntities,
+} from './post-finishing-domain.ts'
 
 export type ProductionObjectType =
   | 'PRODUCTION_ORDER'
@@ -56,8 +60,15 @@ export type ProductionObjectType =
   | 'PRINT_WORK_ORDER'
   | 'DYE_WORK_ORDER'
   | 'HANDOVER_ORDER'
+  | 'QC_MASTER_ORDER'
+  | 'QC_ORDER'
+  | 'RECHECK_ORDER'
+  | 'FINISHED_INBOUND_ORDER'
+  | 'PURCHASE_ORDER'
 
-export type ProductionObjectSourceDomain = 'FCS' | 'PFOS' | 'WMS' | 'PMS' | 'PCS'
+export type ProductionObjectSourceDomain = 'FCS' | 'PFOS' | 'WMS' | 'PMS' | 'PCS' | 'PDA'
+export type ProductionObjectRequestStatus = 'READY' | 'UNLINKED' | 'MULTIPLE_MATCHES'
+export type ProductionObjectDefaultTab = 'overview' | 'materials' | 'progress' | 'quantity' | 'issues' | 'relationship'
 export type ProductionObjectOwnerRole = '采购' | '仓库' | '工厂' | '跟单' | '待确认'
 export type ContinueDecisionStatus = 'CAN_CONTINUE' | 'CANNOT_CONTINUE' | 'NEEDS_CONFIRM'
 export type MaterialType = 'FABRIC' | 'ACCESSORY' | 'YARN' | 'PACKING' | 'CUT_PART' | 'OTHER'
@@ -88,6 +99,7 @@ export interface ProductionObjectSearchIndex {
   keywords: string[]
   matchedReason?: string
   relatedProductionOrderNo?: string
+  relatedDemandNo?: string
   statusText?: string
   ownerRole?: ProductionObjectOwnerRole
   sourceDomain: ProductionObjectSourceDomain
@@ -95,6 +107,8 @@ export interface ProductionObjectSearchIndex {
   routePath?: string
   quantityText?: string
   updatedAt?: string
+  defaultTab?: ProductionObjectDefaultTab
+  highlightKey?: string
 }
 
 export interface ProductionObjectSummary {
@@ -440,6 +454,44 @@ export interface ProductionObjectOverview {
   responsibilityAnalysis: ResponsibilityAnalysisItem[]
 }
 
+export interface ProductionObjectClickedRef {
+  objectType: ProductionObjectType
+  objectId: string
+  objectNo: string
+  displayTitle: string
+  sourceDomain: ProductionObjectSourceDomain
+  statusText: string
+  routePath?: string
+  defaultTab: ProductionObjectDefaultTab
+  highlightKey: string
+}
+
+export interface ProductionObjectUnlinkedResult {
+  status: 'UNLINKED'
+  request: Pick<ProductionObjectClickedRef, 'objectType' | 'objectId'>
+  displayTitle: string
+  sourceDomain: ProductionObjectSourceDomain
+  message: string
+  routePath?: string
+}
+
+export interface ProductionObjectMultipleMatchesResult {
+  status: 'MULTIPLE_MATCHES'
+  request: Pick<ProductionObjectClickedRef, 'objectType' | 'objectId'>
+  candidates: ProductionObjectSearchIndex[]
+}
+
+export interface ProductionObjectReadyResult {
+  status: 'READY'
+  indexItem: ProductionObjectSearchIndex
+  clickedRef: ProductionObjectClickedRef
+}
+
+export type ProductionObjectRequestResult =
+  | ProductionObjectReadyResult
+  | ProductionObjectUnlinkedResult
+  | ProductionObjectMultipleMatchesResult
+
 interface PurchaseArrivalMock {
   productionOrderNo: string
   materialSku: string
@@ -541,6 +593,11 @@ const OBJECT_TYPE_LABEL: Record<ProductionObjectType, string> = {
   PRINT_WORK_ORDER: '印花工单',
   DYE_WORK_ORDER: '染色工单',
   HANDOVER_ORDER: '交出单',
+  QC_MASTER_ORDER: '质检总单',
+  QC_ORDER: '质检单',
+  RECHECK_ORDER: '复检单',
+  FINISHED_INBOUND_ORDER: '成品入库单',
+  PURCHASE_ORDER: '采购单',
 }
 
 interface P1DocumentMock {
@@ -996,6 +1053,68 @@ function findDemandById(value: string | undefined | null): ProductionDemand | nu
 function findIndexItem(value: string | undefined | null): ProductionObjectSearchIndex | null {
   if (!value) return null
   return productionObjectSearchIndex.find((item) => item.id === value || item.primaryNo === value) ?? null
+}
+
+function getDefaultTabForObjectType(objectType: ProductionObjectType): ProductionObjectDefaultTab {
+  if ((['MATERIAL', 'MATERIAL_PREP_ORDER', 'MATERIAL_PREP_RECORD', 'MATERIAL_PICKUP_RECORD', 'PURCHASE_ORDER', 'WAREHOUSE_DOC'] as ProductionObjectType[]).includes(objectType)) return 'materials'
+  if ((['CUT_ORDER', 'FEI_TICKET', 'SPREADING_ORDER', 'PRINT_WORK_ORDER', 'DYE_WORK_ORDER', 'PROCESS_DOC'] as ProductionObjectType[]).includes(objectType)) return 'progress'
+  if ((['HANDOVER_ORDER', 'QC_MASTER_ORDER', 'QC_ORDER', 'RECHECK_ORDER', 'FINISHED_INBOUND_ORDER'] as ProductionObjectType[]).includes(objectType)) return 'quantity'
+  return 'overview'
+}
+
+function makeHighlightKey(objectType: ProductionObjectType, objectNo: string): string {
+  return `${objectType}:${objectNo}`
+}
+
+export function resolveProductionObjectRequest({
+  objectType,
+  objectId,
+  relatedProductionOrderNo,
+}: {
+  objectType: ProductionObjectType
+  objectId: string
+  relatedProductionOrderNo?: string | null
+}): ProductionObjectRequestResult {
+  const exactMatches = productionObjectSearchIndex.filter((item) =>
+    item.objectType === objectType && (item.id === objectId || item.primaryNo === objectId),
+  )
+  const contextMatches = relatedProductionOrderNo
+    ? exactMatches.filter((item) => item.relatedProductionOrderNo === relatedProductionOrderNo)
+    : exactMatches
+  const matches = contextMatches.length > 0 ? contextMatches : exactMatches
+
+  if (matches.length > 1 && !relatedProductionOrderNo) {
+    const productionOrders = Array.from(new Set(matches.map((item) => item.relatedProductionOrderNo).filter(Boolean)))
+    if (productionOrders.length > 1) return { status: 'MULTIPLE_MATCHES', request: { objectType, objectId }, candidates: matches }
+  }
+
+  const indexItem = matches[0] || findIndexItem(objectId)
+  if (!indexItem || !indexItem.relatedProductionOrderNo) {
+    return {
+      status: 'UNLINKED',
+      request: { objectType, objectId },
+      displayTitle: objectId,
+      sourceDomain: indexItem?.sourceDomain || 'FCS',
+      message: `未找到关联生产单：${objectId}`,
+      routePath: indexItem?.routePath,
+    }
+  }
+
+  return {
+    status: 'READY',
+    indexItem,
+    clickedRef: {
+      objectType: indexItem.objectType,
+      objectId,
+      objectNo: indexItem.primaryNo,
+      displayTitle: indexItem.displayTitle,
+      sourceDomain: indexItem.sourceDomain,
+      statusText: indexItem.statusText || '待确认',
+      routePath: indexItem.routePath,
+      defaultTab: indexItem.defaultTab || getDefaultTabForObjectType(indexItem.objectType),
+      highlightKey: indexItem.highlightKey || makeHighlightKey(indexItem.objectType, indexItem.primaryNo),
+    },
+  }
 }
 
 function resolveOrder(objectType: ProductionObjectType, objectId: string): ProductionOrder | null {
@@ -2335,10 +2454,13 @@ function buildOrderIndex(order: ProductionOrder): ProductionObjectSearchIndex {
       ...order.demandSnapshot.skuLines.map((line) => line.skuCode),
     ]),
     relatedProductionOrderNo: order.productionOrderNo,
+    relatedDemandNo: order.demandId,
     statusText: productionOrderStatusConfig[order.status].label,
     ownerRole: '跟单',
     sourceDomain: 'FCS',
     updatedAt: order.updatedAt,
+    defaultTab: getDefaultTabForObjectType('PRODUCTION_ORDER'),
+    highlightKey: makeHighlightKey('PRODUCTION_ORDER', order.productionOrderNo),
   }
 }
 
@@ -2352,10 +2474,13 @@ function buildDemandIndex(demand: ProductionDemand): ProductionObjectSearchIndex
     displayTitle: demand.spuName,
     keywords: unique([demand.demandId, demand.legacyOrderNo, demand.spuCode, demand.spuName, ...demand.skuLines.map((line) => line.skuCode)]),
     relatedProductionOrderNo: order?.productionOrderNo,
+    relatedDemandNo: demand.demandId,
     statusText: demandStatusConfig[demand.demandStatus].label,
     ownerRole: '跟单',
     sourceDomain: 'FCS',
     updatedAt: demand.updatedAt,
+    defaultTab: getDefaultTabForObjectType('DEMAND'),
+    highlightKey: makeHighlightKey('DEMAND', demand.demandId),
   }
 }
 
@@ -2382,10 +2507,13 @@ function buildMaterialIndexes(order: ProductionOrder): ProductionObjectSearchInd
       order.demandSnapshot.spuCode,
     ]),
     relatedProductionOrderNo: order.productionOrderNo,
+    relatedDemandNo: order.demandId,
     statusText: getMaterialSearchStatus(line),
     ownerRole: line.ownerRole,
     sourceDomain: line.sourcePoNo ? 'PMS' : 'WMS',
     updatedAt: order.updatedAt,
+    defaultTab: getDefaultTabForObjectType('MATERIAL'),
+    highlightKey: makeHighlightKey('MATERIAL', line.materialSku),
   }))
 }
 
@@ -2398,10 +2526,13 @@ function buildWarehouseIndexes(order: ProductionOrder): ProductionObjectSearchIn
     displayTitle: doc.processNameZh,
     keywords: unique([doc.id, doc.docNo, doc.materialRequestNo, order.productionOrderNo, order.demandId, doc.processNameZh, doc.scopeLabel]),
     relatedProductionOrderNo: order.productionOrderNo,
+    relatedDemandNo: order.demandId,
     statusText: getWarehouseNextAction(mapDocStatus(doc.status)),
     ownerRole: doc.status === 'ISSUED' ? '工厂' : '仓库',
     sourceDomain: 'WMS',
     updatedAt: doc.updatedAt,
+    defaultTab: getDefaultTabForObjectType('WAREHOUSE_DOC'),
+    highlightKey: makeHighlightKey('WAREHOUSE_DOC', doc.docNo),
   }))
 }
 
@@ -2414,10 +2545,13 @@ function buildProcessIndexes(order: ProductionOrder): ProductionObjectSearchInde
     displayTitle: fact.processNameZh || fact.taskTypeLabel || '工艺任务',
     keywords: unique([fact.runtimeTaskId, fact.taskNo, fact.processNameZh, fact.taskTypeLabel, getTaskTypeLabel(fact.taskTypeCode as never), order.productionOrderNo]),
     relatedProductionOrderNo: order.productionOrderNo,
+    relatedDemandNo: order.demandId,
     statusText: fact.startReadiness.canStart ? '可以处理' : fact.startReadiness.reasonText,
     ownerRole: fact.assignedFactoryName ? '工厂' : '跟单',
     sourceDomain: 'PFOS',
     updatedAt: order.updatedAt,
+    defaultTab: getDefaultTabForObjectType('PROCESS_DOC'),
+    highlightKey: makeHighlightKey('PROCESS_DOC', fact.taskNo || fact.runtimeTaskId),
   }))
 }
 
@@ -2447,6 +2581,7 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
         ...projection.lines.flatMap((line) => [line.materialSku, line.materialName, line.upstreamDocumentNo]),
       ]),
       relatedProductionOrderNo,
+      relatedDemandNo: order?.demandId,
       statusText: materialPrepStatusLabelMap[projection.order.overallPrepStatus],
       ownerRole: '仓库',
       sourceDomain: 'WMS',
@@ -2454,6 +2589,8 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
       routePath,
       quantityText: `${projection.lineCount} 行物料`,
       updatedAt: projection.latestOperatedAt || projection.order.createdAt,
+      defaultTab: getDefaultTabForObjectType('MATERIAL_PREP_ORDER'),
+      highlightKey: makeHighlightKey('MATERIAL_PREP_ORDER', projection.order.prepOrderNo),
     })
 
     for (const record of projection.prepRecords) {
@@ -2474,6 +2611,7 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
           line?.materialName,
         ]),
         relatedProductionOrderNo,
+        relatedDemandNo: order?.demandId,
         statusText: materialPrepRecordStatusLabelMap[record.recordStatus],
         ownerRole: '仓库',
         sourceDomain: 'WMS',
@@ -2481,6 +2619,8 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
         routePath: `${routePath}&detailTab=records`,
         quantityText: formatQty(record.preparedQty, line?.unit || '件'),
         updatedAt: record.confirmedAt || record.preparedAt,
+        defaultTab: getDefaultTabForObjectType('MATERIAL_PREP_RECORD'),
+        highlightKey: makeHighlightKey('MATERIAL_PREP_RECORD', record.prepRecordId),
       })
     }
 
@@ -2503,6 +2643,7 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
           line?.materialName,
         ]),
         relatedProductionOrderNo,
+        relatedDemandNo: order?.demandId,
         statusText: record.pickupStatus,
         ownerRole: '工厂',
         sourceDomain: 'WMS',
@@ -2510,6 +2651,8 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
         routePath: `${routePath}&detailTab=pickup`,
         quantityText: formatQty(record.pickedQty, line?.unit || '件'),
         updatedAt: record.pickedAt,
+        defaultTab: getDefaultTabForObjectType('MATERIAL_PICKUP_RECORD'),
+        highlightKey: makeHighlightKey('MATERIAL_PICKUP_RECORD', record.pickupRecordId),
       })
     }
 
@@ -2533,6 +2676,7 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
           line?.materialName,
         ]),
         relatedProductionOrderNo,
+        relatedDemandNo: order?.demandId,
         statusText: materialPrepRecordStatusLabelMap[record.afterStatus],
         ownerRole: '仓库',
         sourceDomain: 'WMS',
@@ -2540,6 +2684,8 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
         routePath: `${routePath}&detailTab=pickup`,
         quantityText: line?.materialName || record.rejectReason,
         updatedAt: record.rejectedAt,
+        defaultTab: getDefaultTabForObjectType('MATERIAL_PICKUP_RECORD'),
+        highlightKey: makeHighlightKey('MATERIAL_PICKUP_RECORD', record.rejectId),
       })
     }
   }
@@ -2569,6 +2715,7 @@ function buildPrintWorkOrderIndexes(): ProductionObjectSearchIndex[] {
         ...workOrder.sourceDemandIds,
       ]),
       relatedProductionOrderNo: order?.productionOrderNo || workOrder.productionOrderIds[0],
+      relatedDemandNo: order?.demandId || workOrder.sourceDemandIds[0],
       statusText: PRINT_WORK_ORDER_STATUS_LABEL[workOrder.status],
       ownerRole: '工厂',
       sourceDomain: 'PFOS',
@@ -2576,6 +2723,8 @@ function buildPrintWorkOrderIndexes(): ProductionObjectSearchIndex[] {
       routePath: `/fcs/craft/printing/work-orders?printOrderNo=${encodeURIComponent(workOrder.printOrderNo)}`,
       quantityText: `${workOrder.plannedQty.toLocaleString('zh-CN')} ${workOrder.qtyUnit}`,
       updatedAt: workOrder.updatedAt,
+      defaultTab: getDefaultTabForObjectType('PRINT_WORK_ORDER'),
+      highlightKey: makeHighlightKey('PRINT_WORK_ORDER', workOrder.printOrderNo),
     } satisfies ProductionObjectSearchIndex
   })
 }
@@ -2603,6 +2752,7 @@ function buildDyeWorkOrderIndexes(): ProductionObjectSearchIndex[] {
         ...workOrder.sourceDemandIds,
       ]),
       relatedProductionOrderNo: order?.productionOrderNo || productionOrderIds[0],
+      relatedDemandNo: order?.demandId || workOrder.sourceDemandIds[0],
       statusText: DYE_WORK_ORDER_STATUS_LABEL[workOrder.status],
       ownerRole: '工厂',
       sourceDomain: 'PFOS',
@@ -2610,36 +2760,154 @@ function buildDyeWorkOrderIndexes(): ProductionObjectSearchIndex[] {
       routePath: `/fcs/craft/dyeing/work-orders?dyeOrderNo=${encodeURIComponent(workOrder.dyeOrderNo)}`,
       quantityText: `${workOrder.plannedQty.toLocaleString('zh-CN')} ${workOrder.qtyUnit}`,
       updatedAt: workOrder.updatedAt,
+      defaultTab: getDefaultTabForObjectType('DYE_WORK_ORDER'),
+      highlightKey: makeHighlightKey('DYE_WORK_ORDER', workOrder.dyeOrderNo),
     } satisfies ProductionObjectSearchIndex
   })
 }
 
 function buildP1DocumentIndexes(): ProductionObjectSearchIndex[] {
-  return p1DocumentMocks.map((doc) => ({
-    id: `${doc.objectType}-${doc.docNo}`,
-    objectType: doc.objectType,
-    primaryNo: doc.docNo,
-    secondaryNo: doc.secondaryNo,
-    displayTitle: doc.displayTitle,
-    keywords: unique([
-      doc.docNo,
-      doc.secondaryNo,
-      doc.relatedProductionOrderNo,
-      doc.displayTitle,
-      doc.docType,
-      doc.factoryName,
-      doc.issueType,
-      ...doc.keywords,
-    ]),
-    relatedProductionOrderNo: doc.relatedProductionOrderNo,
-    statusText: doc.statusText,
-    ownerRole: doc.ownerRole,
-    sourceDomain: doc.sourceDomain,
-    docGroup: doc.docGroup,
-    routePath: doc.routePath,
-    quantityText: doc.quantityText,
-    updatedAt: doc.updatedAt,
-  }))
+  return p1DocumentMocks.map((doc) => {
+    const order = findOrderByNo(doc.relatedProductionOrderNo)
+    return {
+      id: `${doc.objectType}-${doc.docNo}`,
+      objectType: doc.objectType,
+      primaryNo: doc.docNo,
+      secondaryNo: doc.secondaryNo,
+      displayTitle: doc.displayTitle,
+      keywords: unique([
+        doc.docNo,
+        doc.secondaryNo,
+        doc.relatedProductionOrderNo,
+        doc.displayTitle,
+        doc.docType,
+        doc.factoryName,
+        doc.issueType,
+        ...doc.keywords,
+      ]),
+      relatedProductionOrderNo: doc.relatedProductionOrderNo,
+      relatedDemandNo: order?.demandId,
+      statusText: doc.statusText,
+      ownerRole: doc.ownerRole,
+      sourceDomain: doc.sourceDomain,
+      docGroup: doc.docGroup,
+      routePath: doc.routePath,
+      quantityText: doc.quantityText,
+      updatedAt: doc.updatedAt,
+      defaultTab: getDefaultTabForObjectType(doc.objectType),
+      highlightKey: makeHighlightKey(doc.objectType, doc.docNo),
+    }
+  })
+}
+
+function buildPostFinishingQcIndexes(): ProductionObjectSearchIndex[] {
+  const qcOrders = listPostFinishingQcOrderEntities()
+  const recheckOrders = listPostFinishingRecheckOrderEntities()
+  const qcOrdersByProductionOrder = new Map<string, typeof qcOrders>()
+  const rows: ProductionObjectSearchIndex[] = []
+
+  for (const qcOrder of qcOrders) {
+    const order = findOrderByNo(qcOrder.productionOrderNo)
+    qcOrdersByProductionOrder.set(qcOrder.productionOrderNo, [
+      ...(qcOrdersByProductionOrder.get(qcOrder.productionOrderNo) || []),
+      qcOrder,
+    ])
+    rows.push({
+      id: `QC_ORDER-${qcOrder.qcOrderNo}`,
+      objectType: 'QC_ORDER',
+      primaryNo: qcOrder.qcOrderNo,
+      secondaryNo: qcOrder.productionOrderNo,
+      displayTitle: '后道质检单',
+      keywords: unique([
+        qcOrder.qcOrderId,
+        qcOrder.qcOrderNo,
+        qcOrder.productionOrderNo,
+        qcOrder.postTaskId,
+        qcOrder.postTaskNo,
+        qcOrder.sourceTaskId,
+        qcOrder.sourceTaskNo,
+        qcOrder.spuCode,
+        qcOrder.spuName,
+      ]),
+      relatedProductionOrderNo: qcOrder.productionOrderNo,
+      relatedDemandNo: order?.demandId,
+      statusText: qcOrder.qcStatus,
+      ownerRole: '工厂',
+      sourceDomain: 'PFOS',
+      docGroup: '仓库',
+      routePath: `/fcs/craft/post-finishing/qc-orders?qcOrderNo=${encodeURIComponent(qcOrder.qcOrderNo)}`,
+      quantityText: `${qcOrder.inspectedGarmentQty.toLocaleString('zh-CN')} 件`,
+      defaultTab: getDefaultTabForObjectType('QC_ORDER'),
+      highlightKey: makeHighlightKey('QC_ORDER', qcOrder.qcOrderNo),
+      updatedAt: qcOrder.updatedAt,
+    })
+  }
+
+  for (const recheckOrder of recheckOrders) {
+    const order = findOrderByNo(recheckOrder.productionOrderNo)
+    rows.push({
+      id: `RECHECK_ORDER-${recheckOrder.recheckOrderNo}`,
+      objectType: 'RECHECK_ORDER',
+      primaryNo: recheckOrder.recheckOrderNo,
+      secondaryNo: recheckOrder.qcOrderNo,
+      displayTitle: '后道复检单',
+      keywords: unique([
+        recheckOrder.recheckOrderId,
+        recheckOrder.recheckOrderNo,
+        recheckOrder.qcOrderId,
+        recheckOrder.qcOrderNo,
+        recheckOrder.productionOrderNo,
+        recheckOrder.postTaskId,
+        recheckOrder.postTaskNo,
+        recheckOrder.sourceTaskNo,
+        recheckOrder.spuCode,
+        recheckOrder.spuName,
+      ]),
+      relatedProductionOrderNo: recheckOrder.productionOrderNo,
+      relatedDemandNo: order?.demandId,
+      statusText: recheckOrder.recheckStatus,
+      ownerRole: '工厂',
+      sourceDomain: 'PFOS',
+      docGroup: '仓库',
+      routePath: `/fcs/craft/post-finishing/qc-orders?recheckOrderNo=${encodeURIComponent(recheckOrder.recheckOrderNo)}`,
+      quantityText: `${recheckOrder.recheckedGarmentQty.toLocaleString('zh-CN')} 件`,
+      defaultTab: getDefaultTabForObjectType('RECHECK_ORDER'),
+      highlightKey: makeHighlightKey('RECHECK_ORDER', recheckOrder.recheckOrderNo),
+      updatedAt: recheckOrder.updatedAt,
+    })
+  }
+
+  for (const [productionOrderNo, items] of qcOrdersByProductionOrder) {
+    const order = findOrderByNo(productionOrderNo)
+    const masterNo = `QC-MASTER-${productionOrderNo}`
+    const updatedAts = items.map((item) => item.updatedAt).sort()
+    rows.push({
+      id: `QC_MASTER_ORDER-${masterNo}`,
+      objectType: 'QC_MASTER_ORDER',
+      primaryNo: masterNo,
+      secondaryNo: productionOrderNo,
+      displayTitle: '后道质检总单',
+      keywords: unique([
+        masterNo,
+        productionOrderNo,
+        order?.demandId,
+        ...items.flatMap((item) => [item.qcOrderNo, item.qcOrderId, item.postTaskId, item.postTaskNo]),
+      ]),
+      relatedProductionOrderNo: productionOrderNo,
+      relatedDemandNo: order?.demandId,
+      statusText: items.some((item) => item.qcStatus !== '质检完成') ? '存在待质检' : '质检完成',
+      ownerRole: '工厂',
+      sourceDomain: 'PFOS',
+      docGroup: '仓库',
+      routePath: `/fcs/craft/post-finishing/qc-orders?productionOrderNo=${encodeURIComponent(productionOrderNo)}`,
+      quantityText: `${sumNumbers(items.map((item) => item.inspectedGarmentQty)).toLocaleString('zh-CN')} 件`,
+      defaultTab: getDefaultTabForObjectType('QC_MASTER_ORDER'),
+      highlightKey: makeHighlightKey('QC_MASTER_ORDER', masterNo),
+      updatedAt: updatedAts[updatedAts.length - 1],
+    })
+  }
+
+  return rows
 }
 
 function buildSearchIndex(): ProductionObjectSearchIndex[] {
@@ -2654,6 +2922,7 @@ function buildSearchIndex(): ProductionObjectSearchIndex[] {
   rows.push(...buildMaterialPrepIndexes())
   rows.push(...buildPrintWorkOrderIndexes())
   rows.push(...buildDyeWorkOrderIndexes())
+  rows.push(...buildPostFinishingQcIndexes())
   rows.push(...buildP1DocumentIndexes())
   return rows
 }
