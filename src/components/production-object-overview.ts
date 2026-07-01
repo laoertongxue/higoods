@@ -194,6 +194,13 @@ function uniqueSearchTexts(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
+function shouldUseMaterialResourceSearch(keyword: string, rows: ProductionObjectSearchIndex[]): boolean {
+  const query = keyword.trim()
+  if (['缺料', '待领料', '未到仓'].some((word) => query.includes(word))) return true
+  const normalizedQuery = query.toUpperCase()
+  return rows.some((item) => item.objectType === 'MATERIAL' && item.primaryNo.toUpperCase() === normalizedQuery)
+}
+
 function renderMaterialSearchResultCard(resource: MaterialResourceOverview): string {
   const summary = resource.supplyDemandSummary
   return `
@@ -258,7 +265,6 @@ function renderMaterialGroupedSearchResults(keyword: string, materialResources: 
   const relatedMain = rows.filter((item) => item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND').slice(0, 6)
   const warehouse = rows.filter((item) => item.objectType === 'WAREHOUSE_DOC' || item.objectType === 'MATERIAL_PREP_ORDER' || item.objectType === 'MATERIAL_PREP_RECORD' || item.objectType === 'MATERIAL_PICKUP_RECORD').slice(0, 6)
   const risks = rows.filter(isSearchRiskItem).slice(0, 6)
-  const originalGroups = groupSearchResults(rows)
   const groups = [
     { title: '物料资源', rowsHtml: materialResources.map(renderMaterialSearchResultCard).join(''), count: materialResources.length },
     { title: '相关生产对象', rowsHtml: relatedMain.map(renderSearchResultCard).join(''), count: relatedMain.length },
@@ -278,22 +284,13 @@ function renderMaterialGroupedSearchResults(keyword: string, materialResources: 
           ${group.rowsHtml}
         </section>
       `).join('')}
-      ${originalGroups.map((group) => `
-        <section class="space-y-2">
-          <div class="flex items-center justify-between gap-2">
-            <h3 class="text-sm font-semibold">${escapeHtml(group.title)}</h3>
-            <span class="text-xs text-muted-foreground">${group.rows.length} 个对象</span>
-          </div>
-          ${group.rows.map(renderSearchResultCard).join('')}
-        </section>
-      `).join('')}
     </div>
   `
 }
 
 function renderSearchResults(keyword: string): string {
   const rows = withRelatedMainlineRows(searchProductionObjects(keyword))
-  const materialResources = searchMaterialResources(keyword)
+  const materialResources = shouldUseMaterialResourceSearch(keyword, rows) ? searchMaterialResources(keyword) : []
   if (materialResources.length > 0) return renderMaterialGroupedSearchResults(keyword, materialResources, rows)
   if (rows.length === 0) return renderSearchEmpty(keyword)
   const groups = groupSearchResults(rows)

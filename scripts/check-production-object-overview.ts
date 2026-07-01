@@ -61,6 +61,10 @@ function countMatches(sourceText: string, pattern: string): number {
   return sourceText.split(pattern).length - 1
 }
 
+function hasSearchGroup(panel: string, group: string): boolean {
+  return panel.includes(`<h3 class="text-sm font-semibold">${group}</h3>`)
+}
+
 assert.ok(Array.isArray(productionObjectSearchIndex), '生产对象搜索索引必须导出数组')
 assert.ok(productionObjectSearchIndex.length >= productionOrders.length, '索引至少覆盖生产单')
 
@@ -326,26 +330,29 @@ for (const page of [
   assertIncludes(page, 'renderProductionObjectCodeButton', `${page} 必须让 SPU/SKU/物料或单据编号本身打开生产对象总览`)
 }
 
-const searchPanel = uiModule.renderProductionObjectSearchPanel('FLSZ260617009')
-assert.ok(searchPanel.includes('生产全局搜索'), '搜索面板标题错误')
-assert.ok(searchPanel.includes('面料 / 辅料 / 纱线'), '搜索提示必须包含物料类型')
-assert.ok(searchPanel.includes('配料单 / 领料单 / 发料单'), '搜索提示必须包含配领仓储对象')
-assert.ok(searchPanel.includes('裁片单'), '搜索提示必须包含裁片单')
-assert.ok(searchPanel.includes('菲票'), '搜索提示必须包含菲票')
-assert.ok(searchPanel.includes('印花工单'), '搜索提示必须包含印花工单')
-assert.ok(searchPanel.includes('染色工单'), '搜索提示必须包含染色工单')
-assert.ok(searchPanel.includes('production-object-search-panel__content'), '搜索抽屉内容区必须独立滚动')
-for (const group of ['最佳匹配', '当前卡点', '生产主线', '关联执行']) {
-  assert.ok(searchPanel.includes(group), `搜索结果必须按 ${group} 分组`)
-}
+const materialSearchPanel = uiModule.renderProductionObjectSearchPanel('FLSZ260617009')
+const orderSearchPanel = uiModule.renderProductionObjectSearchPanel(order.productionOrderNo)
+assert.ok(materialSearchPanel.includes('生产全局搜索'), '搜索面板标题错误')
+assert.ok(materialSearchPanel.includes('面料 / 辅料 / 纱线'), '搜索提示必须包含物料类型')
+assert.ok(materialSearchPanel.includes('配料单 / 领料单 / 发料单'), '搜索提示必须包含配领仓储对象')
+assert.ok(materialSearchPanel.includes('裁片单'), '搜索提示必须包含裁片单')
+assert.ok(materialSearchPanel.includes('菲票'), '搜索提示必须包含菲票')
+assert.ok(materialSearchPanel.includes('印花工单'), '搜索提示必须包含印花工单')
+assert.ok(materialSearchPanel.includes('染色工单'), '搜索提示必须包含染色工单')
+assert.ok(materialSearchPanel.includes('production-object-search-panel__content'), '搜索抽屉内容区必须独立滚动')
 for (const group of ['物料资源', '相关生产对象', '相关采购与仓储', '异常线索']) {
-  assert.ok(searchPanel.includes(group), `搜索物料编码时必须展示 ${group} 分组`)
+  assert.ok(hasSearchGroup(materialSearchPanel, group), `搜索物料编码时必须展示 ${group} 分组`)
 }
+for (const group of ['最佳匹配', '当前卡点', '生产主线', '关联执行']) {
+  assert.ok(!hasSearchGroup(materialSearchPanel, group), `搜索物料编码时不应追加 ${group} 分组`)
+  assert.ok(hasSearchGroup(orderSearchPanel, group), `搜索业务单据号必须按 ${group} 分组`)
+}
+assert.ok(!orderSearchPanel.includes('物料资源'), '搜索业务单据号不应进入物料资源分组')
 for (const text of ['关联生产对象', '当前卡点', '责任方', '最近更新', '查看来源']) {
-  assert.ok(searchPanel.includes(text), `搜索结果卡片缺少 ${text}`)
+  assert.ok(materialSearchPanel.includes(text), `搜索结果卡片缺少 ${text}`)
 }
-assert.ok(searchPanel.includes('查看总览'), '搜索结果必须能打开总览')
-assert.ok(searchPanel.includes('查看物料资源'), '物料搜索结果必须能打开物料资源总览')
+assert.ok(materialSearchPanel.includes('查看总览'), '搜索结果必须能打开总览')
+assert.ok(materialSearchPanel.includes('查看物料资源'), '物料搜索结果必须能打开物料资源总览')
 assert.ok(uiModule.renderProductionObjectSearchPanel('缺料').includes('当前卡点：</span>缺料'), '缺料搜索结果必须把缺料展示为当前卡点')
 assert.ok(uiModule.renderProductionObjectSearchPanel('缺料').includes('物料资源'), '缺料搜索必须命中物料资源')
 assert.equal(typeof uiModule.renderOverviewHeader, 'function', '必须导出总览头部渲染函数')
