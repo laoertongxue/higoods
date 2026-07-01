@@ -2011,7 +2011,14 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
           ? `<div class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-5 text-amber-700">${escapeHtml(summary.snapshotDifferenceNote)}</div>`
           : ''
       }
-      <div class="mt-3 grid grid-cols-3 gap-2">
+      <div class="mt-3 grid grid-cols-2 gap-2">
+        <button
+          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
+          data-pda-sett-action="open-statement-detail"
+          data-statement-id="${escapeHtml(statement.statementId)}"
+        >
+          查看明细
+        </button>
         <button
           class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           data-pda-sett-action="confirm-statement"
@@ -2232,11 +2239,6 @@ function renderStatementDrawer(): string {
                       <div class="text-right text-[10px]">
                         <div class="font-semibold text-red-600">${escapeHtml(formatAmount(Math.abs(item.qualityDeductionAmount ?? item.deductionAmount), statement.settlementCurrency ?? 'IDR'))}</div>
                         <div class="text-muted-foreground">${escapeHtml(`裁决结果 ${item.disputeId ? '已关联质量异议' : '无异议'}`)}</div>
-                        ${
-                          item.basisId
-                            ? `<button class="mt-1 text-primary underline underline-offset-2" data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(item.basisId))}">查看扣款依据</button>`
-                            : ''
-                        }
                       </div>
                     </div>
                   </div>

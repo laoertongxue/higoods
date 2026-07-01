@@ -12,6 +12,15 @@ for (const forbidden of ['data-pda-sett-field="deduction-amount"', 'data-pda-set
   assert(!pda.includes(forbidden), `PDA 不允许核算编辑：${forbidden}`)
 }
 
+assert(
+  pda.includes('data-pda-sett-action="open-statement-detail"'),
+  'PDA 对账单卡片缺少完整明细入口',
+)
+
+const statementDeductionDetail = pda.match(/'质量扣款明细',[\s\S]*?'工厂反馈',/)?.[0] ?? ''
+assert(statementDeductionDetail, 'PDA 对账单详情缺少质量扣款明细片段')
+assert(!statementDeductionDetail.includes('查看扣款依据'), 'PDA 对账单详情不应显示查看扣款依据')
+
 assert(batches.includes('只消费已确认可付款对账单') || batches.includes('已确认可付款对账单'))
 assert(batches.includes('锁账') || batches.includes('金额锁定'))
 
