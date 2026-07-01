@@ -100,21 +100,30 @@ function assertNoDuplicateSearchObjects(panel: string, groups: string[]): void {
 
 assert.ok(Array.isArray(productionObjectSearchIndex), '生产对象搜索索引必须导出数组')
 const requiredUniversalFields = ['sourceDomain', 'defaultTab', 'highlightKey'] as const
+const requiredUniversalObjectTypes = [
+  'MATERIAL_PREP_ORDER',
+  'MATERIAL_PREP_RECORD',
+  'MATERIAL_PICKUP_RECORD',
+  'CUT_ORDER',
+  'PRINT_WORK_ORDER',
+  'DYE_WORK_ORDER',
+  'HANDOVER_ORDER',
+  'QC_ORDER',
+  'QC_MASTER_ORDER',
+  'RECHECK_ORDER',
+] as const
 const universalIndexedItems = productionObjectSearchIndex.filter((item) =>
-  ['MATERIAL_PREP_ORDER', 'MATERIAL_PREP_RECORD', 'MATERIAL_PICKUP_RECORD', 'CUT_ORDER', 'PRINT_WORK_ORDER', 'DYE_WORK_ORDER', 'HANDOVER_ORDER', 'QC_ORDER', 'QC_MASTER_ORDER', 'RECHECK_ORDER'].includes(item.objectType),
+  requiredUniversalObjectTypes.includes(item.objectType),
 )
-assert.ok(universalIndexedItems.length >= 10, '生产对象索引必须覆盖跨系统代表单据')
-assert.ok(
-  universalIndexedItems.every((item) =>
-    requiredUniversalFields.every((field) => field in item) && item.relatedProductionOrderNo,
-  ),
-  '生产对象索引必须覆盖跨系统代表单据',
-)
-for (const item of universalIndexedItems) {
-  for (const field of requiredUniversalFields) {
-    assert.ok(field in item, `${item.primaryNo} 必须带 ${field}`)
+for (const objectType of requiredUniversalObjectTypes) {
+  const typeItems = universalIndexedItems.filter((item) => item.objectType === objectType)
+  assert.ok(typeItems.length > 0, `生产对象索引缺少 ${objectType}`)
+  for (const item of typeItems) {
+    for (const field of requiredUniversalFields) {
+      assert.ok(field in item, `${item.primaryNo} (${objectType}) 必须带 ${field}`)
+    }
+    assert.ok(item.relatedProductionOrderNo, `${item.primaryNo} (${objectType}) 必须能回溯生产单`)
   }
-  assert.ok(item.relatedProductionOrderNo, `${item.primaryNo} 必须能回溯生产单`)
 }
 assert.ok(productionObjectSearchIndex.length >= productionOrders.length, '索引至少覆盖生产单')
 
@@ -195,20 +204,20 @@ for (const [keyword, objectType, message] of p1SearchCases) {
   assert.ok(getProductionObjectOverview(hit.objectType, hit.id), `${keyword} 搜索结果必须能打开总览`)
 }
 
-const defaultTabCases: Array<[string, string, string]> = [
-  ['MPO-202603-0001', 'materials', '配料单默认打开物料 Tab'],
-  ['PICK-202603-0001', 'materials', '领料记录默认打开物料 Tab'],
-  ['CUT-260306-101-01', 'progress', '裁片单默认打开任务 Tab'],
-  ['PRINT-WO-202603-0001', 'progress', '印花工单默认打开任务 Tab'],
-  ['DYE-WO-202603-0001', 'progress', '染色工单默认打开任务 Tab'],
-  ['HAND-202603-0001', 'quantity', '交接单默认打开数量 Tab'],
+const defaultTabCases: Array<[string, string, string, string]> = [
+  ['MPO-202603-0001', 'MATERIAL_PREP_ORDER', 'materials', '配料单默认打开物料 Tab'],
+  ['PICK-202603-0001', 'MATERIAL_PICKUP_RECORD', 'materials', '领料记录默认打开物料 Tab'],
+  ['CUT-260306-101-01', 'CUT_ORDER', 'progress', '裁片单默认打开任务 Tab'],
+  ['PRINT-WO-202603-0001', 'PRINT_WORK_ORDER', 'progress', '印花工单默认打开任务 Tab'],
+  ['DYE-WO-202603-0001', 'DYE_WORK_ORDER', 'progress', '染色工单默认打开任务 Tab'],
+  ['HAND-202603-0001', 'HANDOVER_ORDER', 'quantity', '交接单默认打开数量 Tab'],
 ]
 
-for (const [keyword, tab, message] of defaultTabCases) {
-  const hit = searchProductionObjects(keyword)[0]
-  assert.ok(hit, `${keyword} 必须可搜索`)
+for (const [keyword, objectType, tab, message] of defaultTabCases) {
+  const hit = searchProductionObjects(keyword).find((item) => item.objectType === objectType)
+  assert.ok(hit, `${keyword} 必须可搜索为 ${objectType}`)
   assert.equal(hit.defaultTab, tab, message)
-  assert.ok(hit.highlightKey, `${keyword} 必须带高亮对象 key`)
+  assert.ok(hit.highlightKey, `${keyword} (${objectType}) 必须带高亮对象 key`)
 }
 
 const realPrepProjection = listMaterialPrepOrderProjections()[0]
