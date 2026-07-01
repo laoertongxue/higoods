@@ -918,7 +918,7 @@ function renderStatementListPagination(total: number): string {
 
 function renderBuildCandidateRows(items: StatementSourceItemViewModel[]): string {
   if (!items.length) {
-    return `<p class="py-6 text-center text-sm text-muted-foreground">当前工厂和结算周期暂无可入单的正式流水。</p>`
+    return `<p class="py-6 text-center text-sm text-muted-foreground">当前工厂和时间段暂无可入单的正式流水。</p>`
   }
 
   return `
@@ -965,7 +965,7 @@ function renderBuildCandidateRows(items: StatementSourceItemViewModel[]): string
 
 function renderBuildLineRows(lines: StatementDetailLineViewModel[]): string {
   if (!lines.length) {
-    return `<p class="py-6 text-center text-sm text-muted-foreground">当前工厂和结算周期暂无可生成的正式流水明细行。</p>`
+    return `<p class="py-6 text-center text-sm text-muted-foreground">当前工厂和时间段暂无可生成的正式流水明细行。</p>`
   }
 
   return `
@@ -2064,7 +2064,7 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
 
     const lines = getBuildLines(scopes)
     if (!lines.length) {
-      showStatementsToast('当前工厂和结算周期暂无可生成的对账明细行', 'error')
+      showStatementsToast('当前工厂和时间段暂无可生成的对账明细行', 'error')
       return true
     }
 
