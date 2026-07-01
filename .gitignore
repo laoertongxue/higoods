@@ -20,6 +20,8 @@ output/
 node_modules/
 .npm/
 .tmp*
+.superpowers/
+.worktrees/
 Library/
 src/**/*.js
 vite.config.js
