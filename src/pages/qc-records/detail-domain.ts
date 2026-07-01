@@ -29,18 +29,14 @@ import {
   type RootCauseType,
   type LiabilityStatus,
   type SettlementPartyType,
-  type DeductionBasisItem,
   type QualityInspection,
   type QcStatus,
   type QcRecordDetailState,
 } from './context'
 import { isDetailReadOnly } from './actions'
 import {
-  buildDeductionEntryHrefByBasisId,
-  buildQcDeductionHref,
   buildQcDetailHref,
   getQcChainFactByRouteKey,
-  getSettlementImpactLabel,
 } from '../../data/fcs/quality-chain-adapter'
 import {
   buildQualityDeductionConfirmationPrintLink,
@@ -207,8 +203,6 @@ function renderChainOverview(params: {
   returnFactoryName: string
   processLabel: string
   basisCount: number
-  basisReadyCount: number
-  basisFrozenCount: number
   basisAmountTotal: number
   evidenceCount: number
   settlementImpactLabel: string
@@ -222,8 +216,6 @@ function renderChainOverview(params: {
     returnFactoryName,
     processLabel,
     basisCount,
-    basisReadyCount,
-    basisFrozenCount,
     basisAmountTotal,
     evidenceCount,
     settlementImpactLabel,
@@ -263,11 +255,11 @@ function renderChainOverview(params: {
       <article class="rounded-md border bg-card px-4 py-3">
         <p class="text-xs text-muted-foreground">来源反扣与对账串联</p>
         <p class="mt-1 text-sm font-semibold">${basisCount} 条来源事实 · ${escapeHtml(settlementImpactLabel)}</p>
-        <p class="mt-1 text-xs text-muted-foreground">可进入结算 ${basisReadyCount} 条 · 冻结 ${basisFrozenCount} 条</p>
+        <p class="mt-1 text-xs text-muted-foreground">质检记录仅展示来源事实，财务生效以对账单确认为准。</p>
         ${
           basisAmountTotal > 0
             ? `<p class="mt-1 text-xs text-muted-foreground">来源反扣快照合计 ${basisAmountTotal} CNY · 证据 ${evidenceCount} 份</p>`
-            : `<p class="mt-1 text-xs text-muted-foreground">${escapeHtml(settlementSummary || qc.settlementFreezeReason || '财务生效以对账单确认为准')}</p>`
+            : `<p class="mt-1 text-xs text-muted-foreground">${escapeHtml(settlementSummary || '财务生效以对账单确认为准')}</p>`
         }
       </article>
     </section>
@@ -375,30 +367,6 @@ function getResultExplanation(
 
 function formatAuditDetail(detail: string, resultLabel: string): string {
   return escapeHtml(detail).replace(/\bPASS\b/g, '合格').replace(/\bFAIL\b/g, resultLabel)
-}
-
-function renderBasisLinkGroup(basisItems: DeductionBasisItem[]): string {
-  if (basisItems.length === 0) {
-    return '<span class="text-sm text-muted-foreground">未生成扣款依据</span>'
-  }
-
-  return `
-    <div class="flex flex-wrap gap-2">
-      ${basisItems
-        .map(
-          (basis) => `
-            <button
-              class="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs text-primary hover:bg-muted"
-              data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(basis.basisId))}"
-            >
-              ${escapeHtml(basis.basisId)}
-              <i data-lucide="external-link" class="h-3 w-3"></i>
-            </button>
-          `,
-        )
-        .join('')}
-    </div>
-  `
 }
 
 const FACTORY_RESPONSE_ACTION_LABEL: Record<'CONFIRM' | 'DISPUTE' | 'AUTO_CONFIRM', string> = {
@@ -669,7 +637,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
             }
             ${
               deductionBasis
-                ? `<button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(buildQcDeductionHref(detailVm.qcId))}">查看扣款依据</button>`
+                ? '<span class="inline-flex h-9 items-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm text-blue-700">已记录来源反扣事实</span>'
                 : ''
             }
             ${
@@ -1027,10 +995,7 @@ function renderQcRecordDetailPageByVariant(
         (item) => item.sourceRefId === detail.currentQcId || item.sourceId === detail.currentQcId,
       )
     : [])
-  const basisReadyCount = basisItems.filter((item) => item.settlementReady === true).length
-  const basisFrozenCount = basisItems.filter((item) => item.settlementReady === false).length
   const basisAmountTotal = chainFact?.deductionAmountCny ?? basisItems.reduce((sum, item) => sum + (item.deductionAmountSnapshot ?? 0), 0)
-  const settlementImpact = chainFact?.settlementImpact ?? null
   const dispute = chainFact?.dispute ?? null
   const evidenceCount = chainFact?.evidenceCount ?? basisItems.reduce((sum, item) => sum + item.evidenceRefs.length, 0)
   const sourceTypeLabel =
@@ -1078,12 +1043,10 @@ function renderQcRecordDetailPageByVariant(
                 inboundView?.processLabel ||
                 (selectedBatch ? selectedBatch.processLabel ?? RETURN_INBOUND_PROCESS_LABEL[selectedBatch.processType] : '-'),
               basisCount: basisItems.length,
-              basisReadyCount,
-              basisFrozenCount,
               basisAmountTotal,
               evidenceCount,
-              settlementImpactLabel: settlementImpact ? getSettlementImpactLabel(settlementImpact.status) : '未串联',
-              settlementSummary: settlementImpact?.summary ?? existingQc.settlementFreezeReason ?? '结算状态由扣款依据自动维护',
+              settlementImpactLabel: '以对账单确认为准',
+              settlementSummary: '质检记录只展示来源事实。',
               disputeSummary: dispute?.summary,
             })
           : ''
@@ -1523,16 +1486,16 @@ function renderQcRecordDetailPageByVariant(
                     <p>${existingQc.downstreamUnblocked === undefined ? '-' : existingQc.downstreamUnblocked ? '已解锁' : '未解锁'}</p>
                   </div>
                   <div>
-                    <p class="text-xs text-muted-foreground">关联扣款依据</p>
+                    <p class="text-xs text-muted-foreground">来源事实</p>
                     <p>${basisItems.length > 0 ? `${basisItems.length} 条` : '-'}</p>
                   </div>
                   <div>
-                    <p class="text-xs text-muted-foreground">结算冻结原因</p>
-                    <p>${escapeHtml(settlementImpact?.summary ?? existingQc.settlementFreezeReason ?? '-')}</p>
+                    <p class="text-xs text-muted-foreground">对账提示</p>
+                    <p>财务生效以对账单确认为准</p>
                   </div>
                   <div>
-                    <p class="text-xs text-muted-foreground">结算影响状态</p>
-                    <p>${escapeHtml(settlementImpact ? getSettlementImpactLabel(settlementImpact.status) : '未串联')}</p>
+                    <p class="text-xs text-muted-foreground">来源反扣说明</p>
+                    <p>来源反扣仅作为质检事实展示</p>
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">争议/申诉</p>
@@ -1547,12 +1510,12 @@ function renderQcRecordDetailPageByVariant(
 
               <article class="rounded-md border bg-card">
                 <header class="border-b px-4 py-3">
-                  <h3 class="text-sm font-medium">扣款依据条目 <span class="ml-1 text-xs font-normal text-muted-foreground">${basisItems.length} 条</span></h3>
+                  <h3 class="text-sm font-medium">来源事实条目 <span class="ml-1 text-xs font-normal text-muted-foreground">${basisItems.length} 条</span></h3>
                 </header>
                 <div class="space-y-2 px-4 py-4">
                   ${
                     basisItems.length === 0
-                      ? '<p class="text-sm text-muted-foreground">暂无关联扣款依据</p>'
+                      ? '<p class="text-sm text-muted-foreground">暂无来源反扣事实</p>'
                       : basisItems
                           .map(
                             (basis) => `
@@ -1580,15 +1543,11 @@ function renderQcRecordDetailPageByVariant(
                                   · 数量：${basis.qty} ${basis.uom}
                                   ${
                                     basis.deductionQty !== undefined
-                                      ? ` · 可扣款数量：${basis.deductionQty}`
+                                      ? ` · 来源数量：${basis.deductionQty}`
                                       : ''
                                   }
                                   ${basis.evidenceRefs.length > 0 ? ` · 证据 ${basis.evidenceRefs.length} 份` : ''}
                                 </div>
-                                <button class="inline-flex items-center gap-1 text-xs text-primary underline" data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(basis.basisId))}">
-                                  查看扣款依据
-                                  <i data-lucide="external-link" class="h-3 w-3"></i>
-                                </button>
                               </div>
                             `,
                           )
