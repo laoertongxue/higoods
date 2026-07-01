@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const source = readFileSync(new URL('../src/pages/statements.ts', import.meta.url), 'utf8')
+const settlementSeedsSource = readFileSync(new URL('../src/data/fcs/store-domain-settlement-seeds.ts', import.meta.url), 'utf8')
+const copySources = `${source}\n${settlementSeedsSource}`
 let html = ''
 try {
   html = (await import('../src/pages/statements.ts')).renderStatementsPage()
@@ -28,6 +30,13 @@ for (const token of [
 }
 
 assert(!source.includes('必须先选工厂和结算周期，再自动加载该范围内的回货批次明细行'))
+for (const token of ['该工厂该结算周期', '当前工厂和结算周期', '工厂和结算周期范围', '工厂或结算周期']) {
+  assert(!copySources.includes(token), `对账单仍残留旧结算周期提示：${token}`)
+}
+assert(
+  copySources.includes('工厂、时间段和结算对象') || copySources.includes('工厂或时间段'),
+  '对账单缺少工厂、时间段和结算对象的新口径提示',
+)
 assert(source.includes('buildStatementDraftLinesFromSettlementSelection'))
 assert(source.includes('buildProductionOrderSettlementProjections'))
 assert(source.includes('listStatementEligiblePreSettlementLedgersByRange'))

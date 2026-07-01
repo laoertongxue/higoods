@@ -1743,7 +1743,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
 
       ${
         scopes.length === 0
-          ? `<p class="mt-6 py-8 text-center text-sm text-muted-foreground">当前暂无可新建对账单的工厂和结算周期范围</p>`
+          ? `<p class="mt-6 py-8 text-center text-sm text-muted-foreground">当前暂无可新建对账单的工厂、时间段和结算对象范围</p>`
           : `
             <div class="mt-4 grid gap-4 lg:grid-cols-[1.1fr,1fr]">
               <section class="rounded-lg border bg-muted/20 p-4">
@@ -2152,7 +2152,7 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
     const scope = getSelectedBuildScope(scopes)
     const statementId = state.editingStatementId
     if (!scope || !statementId) {
-      showStatementsToast('当前草稿缺少工厂或结算周期', 'error')
+      showStatementsToast('当前草稿缺少工厂或时间段', 'error')
       return true
     }
 

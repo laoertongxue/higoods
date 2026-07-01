@@ -22,7 +22,7 @@
     "check:pda-settlement-task-links": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-settlement-task-links.ts",
     "check:factory-settlement-qc-boundary": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-settlement-qc-boundary.ts",
     "check:factory-settlement-deduction-analysis": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-settlement-deduction-analysis.ts",
-    "check:factory-settlement": "npm run check:factory-settlement-reconciliation && npm run check:factory-settlement-statements && npm run check:factory-settlement-qc-boundary && npm run check:factory-settlement-deduction-analysis && npm run check:factory-settlement-pda",
+    "check:factory-settlement": "npm run check:factory-settlement-reconciliation && npm run check:factory-settlement-statements && npm run check:statements && npm run check:factory-settlement-qc-boundary && npm run check:factory-settlement-deduction-analysis && npm run check:factory-settlement-pda",
     "check:quality-deduction-analysis": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-quality-deduction-analysis.ts",
     "check:quality-deduction-closure": "node --experimental-strip-types scripts/check-quality-deduction-closure.ts",
     "check:quality-deduction-domain": "node --experimental-strip-types scripts/check-quality-deduction-domain.ts",

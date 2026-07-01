@@ -1267,11 +1267,11 @@ export function createStatementFromEligibleLedgers(input: {
   if (existed) {
     return {
       ok: false,
-      message: '该工厂该结算周期已存在未关闭对账单，请直接查看或继续编辑已有单据。',
+      message: '该工厂、时间段和结算对象已存在未关闭对账单，请直接查看或继续编辑已有单据。',
       existingStatementId: existed.statementId,
     }
   }
-  if (!input.items.length) return { ok: false, message: '当前工厂和结算周期暂无可入单的正式流水' }
+  if (!input.items.length) return { ok: false, message: '当前工厂、时间段和结算对象暂无可入单的正式流水' }
 
   const timestamp = input.at ?? nowText()
   const snapshot = buildStatementSettlementProfileSnapshot(input.settlementPartyType, input.settlementPartyId)
