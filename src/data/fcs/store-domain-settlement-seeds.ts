@@ -305,8 +305,13 @@ export function canStatementEnterSettlement(statement: Pick<StatementDraft, 'sta
   )
 }
 
-export function canStatementEnterPrepayment(statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult'>): boolean {
-  return canStatementEnterSettlement(statement)
+export function canStatementEnterPrepayment(
+  statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult'> &
+    Partial<Pick<StatementDraft, 'netPayableAmount' | 'totalAmount'>>,
+): boolean {
+  if (!canStatementEnterSettlement(statement)) return false
+  const payableAmount = statement.netPayableAmount ?? statement.totalAmount
+  return payableAmount == null || payableAmount > 0
 }
 
 export function getStatementSettlementProgressView(statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult' | 'confirmationSource'>): {

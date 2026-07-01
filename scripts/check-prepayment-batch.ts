@@ -48,8 +48,17 @@ function getBuildableGroups() {
 }
 
 function main(): void {
+  assert(
+    initialSettlementBatches.every((batch) => batch.totalPayableAmount >= 0),
+    '预付款批次不应出现负额批次',
+  )
+
   const buildableGroups = getBuildableGroups()
   assert(buildableGroups.length > 0, '缺少可用于创建预付款批次的同工厂样例')
+  assert(
+    buildableGroups.every((group) => group.every((statement) => statement.netPayableAmount > 0)),
+    '预付款候选不应包含净额非正向的对账单',
+  )
 
   const primaryGroup = buildableGroups[0]
   const selectedStatements = primaryGroup.slice(0, 2)
@@ -68,6 +77,7 @@ function main(): void {
   assert(batch.status === 'READY_TO_APPLY_PAYMENT', '新建批次状态不是待申请付款')
   assert(batch.totalStatementCount === selectedIds.length, '批次对账单数量不正确')
   assert(new Set(batch.items.map((item) => item.settlementPartyId)).size === 1, '批次仍混入了跨工厂对账单')
+  assert(batch.totalPayableAmount >= 0, '新建预付款批次金额不应为负数')
 
   for (const statementId of selectedIds) {
     const statement = getStatementById(statementId)

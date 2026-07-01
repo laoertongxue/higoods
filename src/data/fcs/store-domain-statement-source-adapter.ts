@@ -524,34 +524,33 @@ export function listStatementConfirmedDeductionRows(): StatementConfirmedDeducti
     .filter((statement) => canStatementEnterSettlement(statement))
     .flatMap((statement) =>
       statement.items
-      .filter(
-        (item) =>
-          item.sourceItemType === 'QUALITY_DEDUCTION' ||
-          Boolean(item.deductionLineType) ||
-          (item.qualityDeductionAmount ?? 0) > 0,
-      )
-      .map((item) => {
+      .filter((item) => item.sourceItemType === 'QUALITY_DEDUCTION')
+      .flatMap((item) => {
+        const amount = Math.abs(item.qualityDeductionAmount ?? item.deductionAmount ?? 0)
+        if (amount <= 0) return []
         const type = item.deductionLineType ?? 'QUALITY_DEFECT'
-        return {
-          statementId: statement.statementId,
-          statementNo: statement.statementNo ?? statement.statementId,
-          factoryId: statement.settlementPartyId,
-          factoryName: statement.factoryName ?? buildPartyLabel(statement.settlementPartyType, statement.settlementPartyId),
-          productionOrderNo: item.productionOrderNo,
-          deductionLineType: type,
-          deductionLineTypeLabel: DEDUCTION_LINE_TYPE_LABEL[type],
-          reasonName: item.remark,
-          qty: item.deductionQty ?? item.returnInboundQty ?? 0,
-          amount: Math.abs(item.qualityDeductionAmount ?? item.deductionAmount ?? item.netAmount ?? 0),
-          currency:
-            item.currency ??
-            statement.settlementCurrency ??
-            statement.settlementProfileSnapshot.settlementConfigSnapshot.currency,
-          occurredAt: item.occurredAt ?? statement.createdAt,
-          sourceQcRecordId: item.qcRecordId,
-          sourceRefLabel: item.sourceRefLabel,
-          includedPrepaymentBatchId: statement.prepaymentBatchId,
-        }
+        return [
+          {
+            statementId: statement.statementId,
+            statementNo: statement.statementNo ?? statement.statementId,
+            factoryId: statement.settlementPartyId,
+            factoryName: statement.factoryName ?? buildPartyLabel(statement.settlementPartyType, statement.settlementPartyId),
+            productionOrderNo: item.productionOrderNo,
+            deductionLineType: type,
+            deductionLineTypeLabel: DEDUCTION_LINE_TYPE_LABEL[type],
+            reasonName: item.remark,
+            qty: item.deductionQty ?? item.returnInboundQty ?? 0,
+            amount,
+            currency:
+              item.currency ??
+              statement.settlementCurrency ??
+              statement.settlementProfileSnapshot.settlementConfigSnapshot.currency,
+            occurredAt: item.occurredAt ?? statement.createdAt,
+            sourceQcRecordId: item.qcRecordId,
+            sourceRefLabel: item.sourceRefLabel,
+            includedPrepaymentBatchId: statement.prepaymentBatchId,
+          },
+        ]
       }),
     )
 }

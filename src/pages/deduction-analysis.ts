@@ -16,13 +16,6 @@ import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity.ts'
-import {
-  QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL,
-  QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL,
-  QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL,
-  QUALITY_DEDUCTION_QC_RESULT_LABEL,
-  QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL,
-} from '../data/fcs/quality-deduction-selectors.ts'
 import { escapeHtml } from '../utils.ts'
 
 interface DeductionAnalysisPageState {
@@ -57,12 +50,6 @@ function syncAnalysisStateFromRoute(): void {
 const BREAKDOWN_DIMENSIONS: QualityDeductionAnalysisDimension[] = [
   'FACTORY',
   'PROCESS',
-  'WAREHOUSE',
-  'QC_RESULT',
-  'LIABILITY_STATUS',
-  'FACTORY_RESPONSE_STATUS',
-  'DISPUTE_STATUS',
-  'SETTLEMENT_IMPACT_STATUS',
 ]
 
 function formatAmount(value: number): string {
@@ -111,13 +98,6 @@ function renderSelectOptions(
         `<option value="${escapeHtml(option.value)}" ${option.value === currentValue ? 'selected' : ''}>${escapeHtml(option.label)}</option>`,
     )
     .join('')
-}
-
-function renderStatusOptions(labelMap: Record<string, string>, currentValue: string, allLabel: string): string {
-  return renderSelectOptions(
-    [{ value: 'ALL', label: allLabel }, ...Object.entries(labelMap).map(([value, label]) => ({ value, label }))],
-    currentValue,
-  )
 }
 
 function renderTrendSection(): string {
@@ -316,68 +296,6 @@ export function renderDeductionAnalysisPage(): string {
             </select>
           </label>
           <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">入仓仓库</span>
-            <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="warehouseId">
-              ${renderSelectOptions([{ value: 'ALL', label: '全部仓库' }, ...filterOptions.warehouses], state.query.warehouseId)}
-            </select>
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">质检结果</span>
-            <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="qcResult">
-              ${renderStatusOptions(QUALITY_DEDUCTION_QC_RESULT_LABEL, state.query.qcResult, '全部结果')}
-            </select>
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">责任状态</span>
-            <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="liabilityStatus">
-              ${renderStatusOptions(QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL, state.query.liabilityStatus, '全部责任状态')}
-            </select>
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">工厂响应状态</span>
-            <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="factoryResponseStatus">
-              ${renderStatusOptions(QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL, state.query.factoryResponseStatus, '全部响应状态')}
-            </select>
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">异议状态</span>
-            <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="disputeStatus">
-              ${renderStatusOptions(QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL, state.query.disputeStatus, '全部异议状态')}
-            </select>
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">结算影响状态</span>
-            <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="settlementImpactStatus">
-              ${renderStatusOptions(QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL, state.query.settlementImpactStatus, '全部结算影响状态')}
-            </select>
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">是否存在历史金额记录</span>
-            <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="hasAdjustment">
-              ${renderSelectOptions(
-                [
-                  { value: 'ALL', label: '全部' },
-                  { value: 'YES', label: '存在历史金额记录' },
-                  { value: 'NO', label: '无历史金额记录' },
-                ],
-                state.query.hasAdjustment,
-              )}
-            </select>
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">是否已纳入结算单</span>
-            <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="includedInStatement">
-              ${renderSelectOptions(
-                [
-                  { value: 'ALL', label: '全部' },
-                  { value: 'YES', label: '已纳入' },
-                  { value: 'NO', label: '未纳入' },
-                ],
-                state.query.includedInStatement,
-              )}
-            </select>
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
             <span class="text-muted-foreground">是否已进入预付款批次</span>
             <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="settled">
               ${renderSelectOptions(
@@ -499,8 +417,6 @@ export function renderDeductionAnalysisPage(): string {
                       <th class="px-4 py-2 font-medium">来源口径</th>
                       <th class="px-4 py-2 text-right font-medium">扣款数量</th>
                       <th class="px-4 py-2 font-medium">确认状态</th>
-                      <th class="px-4 py-2 font-medium">异议状态</th>
-                      <th class="px-4 py-2 font-medium">结算影响状态</th>
                       <th class="px-4 py-2 text-right font-medium">未入账金额</th>
                       <th class="px-4 py-2 text-right font-medium">对账单扣款</th>
                       <th class="px-4 py-2 text-right font-medium">总财务影响</th>
@@ -524,8 +440,6 @@ export function renderDeductionAnalysisPage(): string {
                             <td class="px-4 py-3">${escapeHtml(row.qcResultLabel)}</td>
                             <td class="px-4 py-3 text-right tabular-nums">${row.factoryLiabilityQty}</td>
                             <td class="px-4 py-3">${escapeHtml(row.factoryResponseStatusLabel)}</td>
-                            <td class="px-4 py-3">${escapeHtml(row.disputeStatusLabel)}</td>
-                            <td class="px-4 py-3">${escapeHtml(row.settlementImpactStatusLabel)}</td>
                             <td class="px-4 py-3 text-right tabular-nums">${formatAmount(row.blockedProcessingFeeAmount)}</td>
                             <td class="px-4 py-3 text-right tabular-nums">${formatAmount(row.effectiveQualityDeductionAmount)}</td>
                             <td class="px-4 py-3 text-right tabular-nums">${formatAmount(row.totalFinancialImpactAmount)}</td>

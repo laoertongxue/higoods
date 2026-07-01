@@ -33,6 +33,29 @@ assert(
   }),
   'DRAFT / NOT_SENT 对账单扣款行不得进入扣款分析',
 )
+assert(
+  rows.every((row) => {
+    const statement = statementById.get(row.includedSettlementStatementId ?? '')
+    const sourceItem = statement?.items.find(
+      (item) => item.sourceItemId === row.qcNo || item.sourceRefLabel === row.qcNo,
+    )
+    return sourceItem?.sourceItemType === 'QUALITY_DEDUCTION'
+  }),
+  '扣款分析明细只能来自 QUALITY_DEDUCTION 对账单行',
+)
 assert(rows.every((row) => row.effectiveQualityDeductionAmount >= 0))
+
+for (const oldFilterLabel of [
+  '入仓仓库',
+  '质检结果',
+  '责任状态',
+  '工厂响应状态',
+  '异议状态',
+  '结算影响状态',
+  '是否存在历史金额记录',
+  '是否已纳入结算单',
+]) {
+  assert(!page.includes(oldFilterLabel), `扣款分析页面不应继续展示旧质检筛选：${oldFilterLabel}`)
+}
 
 console.log('check:factory-settlement-deduction-analysis passed')

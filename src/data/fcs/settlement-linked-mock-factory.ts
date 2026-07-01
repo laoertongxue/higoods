@@ -1304,8 +1304,10 @@ function createStatementDrafts(
         )
       })
     const hasDeductionLine = lineItems.some((item) => item.sourceItemType === 'QUALITY_DEDUCTION')
-    const status = hasDeductionLine ? 'READY_FOR_PREPAYMENT' : chooseStatementStatus(cycleIndex === -1 ? 0 : cycleIndex)
-    const factoryFeedbackStatus = hasDeductionLine
+    const lineNetAmount = roundAmount(lineItems.reduce((sum, item) => sum + (item.netAmount ?? item.deductionAmount), 0))
+    const hasPositiveDeductionLine = hasDeductionLine && lineNetAmount > 0
+    const status = hasPositiveDeductionLine ? 'READY_FOR_PREPAYMENT' : chooseStatementStatus(cycleIndex === -1 ? 0 : cycleIndex)
+    const factoryFeedbackStatus = hasPositiveDeductionLine
       ? 'FACTORY_CONFIRMED'
       : chooseFactoryFeedbackStatus(status, factoryIndex, cycleIndex === -1 ? 0 : cycleIndex)
     const appealRecord =
@@ -1433,6 +1435,8 @@ function createPrepaymentChain(statements: StatementDraft[]): {
   const readyByGroup = new Map<string, { factoryId: string; plannedPrepaymentAt: string; statements: StatementDraft[] }>()
   for (const statement of statements) {
     if (statement.status !== 'READY_FOR_PREPAYMENT') continue
+    if ((statement.netPayableAmount ?? statement.totalAmount) <= 0) continue
+    if (statement.items.some((item) => item.sourceItemType === 'QUALITY_DEDUCTION')) continue
     const plannedPrepaymentAt = statement.plannedPrepaymentAt ?? statement.settlementCycleEndAt ?? '未计划'
     const key = `${statement.settlementPartyId}__${plannedPrepaymentAt}`
     const existed = readyByGroup.get(key) ?? {
