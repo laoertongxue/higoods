@@ -314,12 +314,15 @@ export function canStatementEnterPrepayment(
   return payableAmount == null || payableAmount > 0
 }
 
-export function getStatementSettlementProgressView(statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult' | 'confirmationSource'>): {
+export function getStatementSettlementProgressView(
+  statement: Pick<StatementDraft, 'status' | 'factoryFeedbackStatus' | 'resolutionResult' | 'confirmationSource'> &
+    Partial<Pick<StatementDraft, 'netPayableAmount' | 'totalAmount'>>,
+): {
   canEnterSettlement: boolean
   summary: string
   detail: string
 } {
-  if (canStatementEnterSettlement(statement)) {
+  if (canStatementEnterPrepayment(statement)) {
     const sourceLabel = getStatementConfirmationSourceLabel(statement)
     return {
       canEnterSettlement: true,
@@ -328,6 +331,14 @@ export function getStatementSettlementProgressView(statement: Pick<StatementDraf
         sourceLabel === '跟单审核代确认'
           ? '当前单据已由跟单审核代确认，三方工厂端可见该确认来源；单据已满足后续预付款批次入池条件。'
           : '当前单据已满足后续预付款批次入池条件，可继续进入预付款执行链路。',
+    }
+  }
+
+  if (canStatementEnterSettlement(statement)) {
+    return {
+      canEnterSettlement: false,
+      summary: '财务待处理',
+      detail: '当前对账单已完成业务确认，但净额非正向，需由财务做冲抵、结转或关闭处理，不进入预付款入池链路。',
     }
   }
 
