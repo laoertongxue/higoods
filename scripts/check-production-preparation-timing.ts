@@ -196,12 +196,52 @@ assertHtmlIncludes(
   'PREP-202604-003',
   '花型师模拟分配后，按该花型师筛选必须能命中对应任务',
 )
+const filteredRowActionHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah',
+)
+assertHtmlIncludes(
+  filteredRowActionHtml,
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003"',
+  '筛选列表行的查看详情入口必须继承当前筛选条件',
+)
+assertHtmlIncludes(
+  filteredRowActionHtml,
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-04#prep-items"',
+  '筛选列表行的更新准备项入口必须继承当前筛选条件',
+)
+assertHtmlIncludes(
+  filteredRowActionHtml,
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-04&amp;action=assign"',
+  '筛选列表行的分配花型师入口必须继承当前筛选条件',
+)
+assertHtmlIncludes(
+  filteredRowActionHtml,
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-04&amp;action=upload"',
+  '筛选列表行的上传完成图片入口必须继承当前筛选条件',
+)
 const uploadLedgerHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&recordId=prep-202603-001&itemId=prep-202603-001-item-04&action=upload&mockCompletionUploaded=1&buyerReviewStatus=待确认',
 )
 assertHtmlIncludes(uploadLedgerHtml, '已模拟提交完成资料', '上传完成图片提交后必须有页面反馈')
 assertHtmlIncludes(uploadLedgerHtml, '完成图：</span>2 张', '上传完成图片提交后必须更新完成图数量展示')
 assertHtmlIncludes(uploadLedgerHtml, '买手确认：</span>待确认', '上传完成图片提交后必须更新买手确认状态展示')
+const uploadPanelHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&recordId=prep-202604-003&itemId=prep-202604-003-item-04&action=upload',
+)
+assertHtmlIncludes(
+  uploadPanelHtml,
+  '<option value="待确认" selected>待确认</option>',
+  '上传完成图片面板默认提交状态必须是待确认',
+)
+assert.ok(!uploadPanelHtml.includes('<option value="未提交"'), '上传完成图片提交选择框不应允许未提交')
+const staleUploadStatusHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&recordId=prep-202604-003&itemId=prep-202604-003-item-04&action=upload&mockCompletionUploaded=1&buyerReviewStatus=未提交',
+)
+assertHtmlIncludes(
+  staleUploadStatusHtml,
+  '买手确认：</span>待确认',
+  '上传完成图片提交后即使旧参数传入未提交，也必须归一为待确认',
+)
 const detailWithFiltersHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&recordId=prep-202604-001',
 )

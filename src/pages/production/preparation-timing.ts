@@ -95,7 +95,7 @@ function parseFilter(params: URLSearchParams): ProductionPreparationFilter {
   return filter
 }
 
-function buildLedgerHrefFromParams(params: URLSearchParams, month: string): string {
+function getLedgerQueryValues(params: URLSearchParams, month: string): Record<string, string> {
   const values: Record<string, string> = { tab: 'ledger', month }
   for (const key of [
     'merchandiserName',
@@ -111,7 +111,24 @@ function buildLedgerHrefFromParams(params: URLSearchParams, month: string): stri
     const value = valueOf(params, key)
     if (value) values[key] = value
   }
-  return buildHref(values)
+  return values
+}
+
+function buildLedgerHrefFromParams(params: URLSearchParams, month: string): string {
+  return buildHref(getLedgerQueryValues(params, month))
+}
+
+function buildLedgerActionHref(
+  params: URLSearchParams,
+  month: string,
+  values: Record<string, string | number | boolean | null | undefined>,
+): string {
+  return buildHref({ ...getLedgerQueryValues(params, month), ...values })
+}
+
+function resolveSubmittedBuyerReviewStatus(status: string): '待确认' | '已通过' | '需调整' {
+  if (status === '已通过' || status === '需调整') return status
+  return '待确认'
 }
 
 function getMockDesigner(designerName: string) {
@@ -160,19 +177,14 @@ function applyPreparationActionMocks(
       }
 
       if (uploadSubmitted) {
+        const submittedBuyerReviewStatus = resolveSubmittedBuyerReviewStatus(buyerReviewStatus)
         nextItem = {
           ...nextItem,
           required: true,
-          status: buyerReviewStatus === '已通过' ? '已完成' : '待确认',
+          status: submittedBuyerReviewStatus === '已通过' ? '已完成' : '待确认',
           completionImageIds: withUniqueValue(nextItem.completionImageIds, `mock-image-${nextItem.itemId}`),
           patternFileIds: withUniqueValue(nextItem.patternFileIds, `mock-file-${nextItem.itemId}`),
-          buyerReviewStatus:
-            buyerReviewStatus === '未提交' ||
-            buyerReviewStatus === '待确认' ||
-            buyerReviewStatus === '已通过' ||
-            buyerReviewStatus === '需调整'
-              ? buyerReviewStatus
-              : '待确认',
+          buyerReviewStatus: submittedBuyerReviewStatus,
           evidenceSummary: '已模拟提交完成图和花型文件，等待买手确认',
         }
       }
@@ -391,7 +403,7 @@ function renderKpis(records: ProductionPreparationRecord[], month: string, filte
   `
 }
 
-function renderLedgerTable(records: ProductionPreparationRecord[], month: string): string {
+function renderLedgerTable(records: ProductionPreparationRecord[], month: string, params: URLSearchParams): string {
   return `
     <section class="rounded-xl border bg-card">
       <div class="flex items-center justify-between border-b px-5 py-4">
@@ -411,7 +423,7 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
           <tbody>
             ${
               records.length
-                ? records.map((record) => renderLedgerRow(record, month)).join('')
+                ? records.map((record) => renderLedgerRow(record, month, params)).join('')
                 : `<tr><td colspan="11" class="h-28 px-4 text-center text-muted-foreground">当前筛选条件下暂无生产准备记录</td></tr>`
             }
           </tbody>
@@ -421,18 +433,18 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
   `
 }
 
-function renderLedgerRow(record: ProductionPreparationRecord, month: string): string {
+function renderLedgerRow(record: ProductionPreparationRecord, month: string, params: URLSearchParams): string {
   const progress = completionProgress(record)
   const overdueItem = earliestOverdueItem(record)
   const firstActionItem = overdueItem ?? requiredItems(record).find((item) => item.status !== '已完成') ?? record.items[0]
   const patternItem = record.items.find((item) => item.itemType === '花型')
-  const detailHref = buildHref({ tab: 'ledger', month, recordId: record.recordId })
-  const updateHref = buildHref({ tab: 'ledger', month, recordId: record.recordId, itemId: firstActionItem?.itemId }) + '#prep-items'
+  const detailHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
+  const updateHref = buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: firstActionItem?.itemId }) + '#prep-items'
   const assignHref = patternItem
-    ? buildHref({ tab: 'ledger', month, recordId: record.recordId, itemId: patternItem.itemId, action: 'assign' })
+    ? buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: patternItem.itemId, action: 'assign' })
     : ''
   const uploadHref = patternItem
-    ? buildHref({ tab: 'ledger', month, recordId: record.recordId, itemId: patternItem.itemId, action: 'upload' })
+    ? buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: patternItem.itemId, action: 'upload' })
     : ''
 
   return `
@@ -513,7 +525,7 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
   return `
     ${renderLedgerFilter(params, month)}
     ${renderKpis(records, month, filter)}
-    ${renderLedgerTable(records, month)}
+    ${renderLedgerTable(records, month, params)}
     ${detailRecord ? renderDetailDrawer(detailRecord, params, month) : ''}
   `
 }
@@ -723,8 +735,8 @@ function renderUploadPanel(
         ${renderSelectField(
           '买手确认状态',
           'buyerReviewStatus',
-          ['未提交', '待确认', '已通过', '需调整'],
-          valueOf(params, 'buyerReviewStatus') || item.buyerReviewStatus || '未提交',
+          ['待确认', '已通过', '需调整'],
+          resolveSubmittedBuyerReviewStatus(valueOf(params, 'buyerReviewStatus') || item.buyerReviewStatus || ''),
         )}
       </div>
       ${
