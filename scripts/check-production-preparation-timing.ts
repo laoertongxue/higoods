@@ -133,6 +133,27 @@ const patternDesignerRecords = filterProductionPreparationRecords({
 })
 assert.ok(Array.isArray(patternDesignerRecords), 'filterProductionPreparationRecords 必须返回数组')
 assert.ok(patternDesignerRecords.length > 0, '花型师林小美必须能命中花型数据')
+const patternOnlyDetails = buildMonthlyPreparationCompletionDetails('2026-03', { itemType: '花型' })
+assert.ok(patternOnlyDetails.length > 0, '2026-03 花型完成明细必须有数据')
+assert.ok(
+  patternOnlyDetails.every((row: { itemType: string }) => row.itemType === '花型'),
+  '按准备项类型筛选月度统计时，完成明细只能包含该准备项',
+)
+const patternTeamOnlyDetails = buildMonthlyPreparationCompletionDetails('2026-03', { ownerTeam: '花型团队' })
+assert.ok(patternTeamOnlyDetails.length > 0, '2026-03 花型团队完成明细必须有数据')
+assert.ok(
+  patternTeamOnlyDetails.every((row: { ownerTeam: string }) => row.ownerTeam === '花型团队'),
+  '按责任团队筛选月度统计时，完成明细只能包含该责任团队',
+)
+const designerOnlyDetails = buildMonthlyPreparationCompletionDetails('2026-03', { patternDesigner: '冰冰' })
+assert.ok(designerOnlyDetails.length > 0, '2026-03 冰冰完成明细必须有数据')
+assert.ok(
+  designerOnlyDetails.every(
+    (row: { itemType: string; patternDesignerName?: string }) =>
+      row.itemType === '花型' && row.patternDesignerName === '冰冰',
+  ),
+  '按花型师筛选月度统计时，完成明细只能包含该花型师的花型项',
+)
 
 const pageModule = await import('../src/pages/production/preparation-timing.ts')
 const renderProductionPreparationTimingPage = pageModule.renderProductionPreparationTimingPage as
@@ -163,6 +184,37 @@ for (const text of [
 ] as const) {
   assertHtmlIncludes(ledgerHtml, text, `准备台账 HTML 缺少「${text}」`)
 }
+const assignedLedgerHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordId=prep-202604-003&itemId=prep-202604-003-item-04&action=assign&mockAssignedDesigner=林小美',
+)
+assertHtmlIncludes(assignedLedgerHtml, '花型师：</span>林小美', '花型师模拟分配后，准备项卡片必须显示新花型师')
+const assignedDesignerHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&patternDesigner=林小美&recordId=prep-202604-003&itemId=prep-202604-003-item-04&mockAssignedDesigner=林小美',
+)
+assertHtmlIncludes(
+  assignedDesignerHtml,
+  'PREP-202604-003',
+  '花型师模拟分配后，按该花型师筛选必须能命中对应任务',
+)
+const uploadLedgerHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&recordId=prep-202603-001&itemId=prep-202603-001-item-04&action=upload&mockCompletionUploaded=1&buyerReviewStatus=待确认',
+)
+assertHtmlIncludes(uploadLedgerHtml, '已模拟提交完成资料', '上传完成图片提交后必须有页面反馈')
+assertHtmlIncludes(uploadLedgerHtml, '完成图：</span>2 张', '上传完成图片提交后必须更新完成图数量展示')
+assertHtmlIncludes(uploadLedgerHtml, '买手确认：</span>待确认', '上传完成图片提交后必须更新买手确认状态展示')
+const detailWithFiltersHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&recordId=prep-202604-001',
+)
+assertHtmlIncludes(
+  detailWithFiltersHtml,
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD"',
+  '详情抽屉关闭必须保留当前月份和筛选条件',
+)
+assertHtmlIncludes(
+  detailWithFiltersHtml,
+  'data-nav="/fcs/production/orders/PO-202604-001/tech-pack"',
+  '正式技术包关联对象必须跳转到真实生产单技术包路由',
+)
 
 const statsHtml = await renderAt('/fcs/production/preparation-timing?tab=stats&month=2026-03')
 appStore.navigate('/fcs/production/preparation-timing?tab=stats&month=2026-03', { historyMode: 'replace' })

@@ -9,6 +9,7 @@ import {
   getProductionPreparationRecord,
   patternDesignerOptions,
   preparationItemTypes,
+  productionPreparationRecords,
   type MonthlyPreparationCompletionDetail,
   type MonthlyPreparationStatRow,
   type PreparationItemType,
@@ -94,8 +95,102 @@ function parseFilter(params: URLSearchParams): ProductionPreparationFilter {
   return filter
 }
 
-function filterLedgerRecords(filter: ProductionPreparationFilter, month: string): ProductionPreparationRecord[] {
-  return filterProductionPreparationRecords(filter).filter((record) => record.enteredAt.startsWith(month))
+function buildLedgerHrefFromParams(params: URLSearchParams, month: string): string {
+  const values: Record<string, string> = { tab: 'ledger', month }
+  for (const key of [
+    'merchandiserName',
+    'buyerName',
+    'recordStatus',
+    'itemType',
+    'ownerTeam',
+    'patternDesigner',
+    'overdueOnly',
+    'keyword',
+    'quickFilter',
+  ] as const) {
+    const value = valueOf(params, key)
+    if (value) values[key] = value
+  }
+  return buildHref(values)
+}
+
+function getMockDesigner(designerName: string) {
+  return patternDesignerOptions.find((designer) => designer.name === designerName || designer.id === designerName) ?? null
+}
+
+function withUniqueValue(values: string[] | undefined, value: string): string[] {
+  return Array.from(new Set([...(values ?? []), value].filter(Boolean)))
+}
+
+function applyPreparationActionMocks(
+  records: ProductionPreparationRecord[],
+  params: URLSearchParams,
+): ProductionPreparationRecord[] {
+  const recordId = valueOf(params, 'recordId')
+  const itemId = valueOf(params, 'itemId')
+  const assignedDesignerName = valueOf(params, 'mockAssignedDesigner')
+  const assignedDesigner = getMockDesigner(assignedDesignerName)
+  const assignedTeamName = valueOf(params, 'mockPatternTeam') || assignedDesigner?.teamName || ''
+  const uploadSubmitted = valueOf(params, 'mockCompletionUploaded') === '1'
+  const buyerReviewStatus = valueOf(params, 'buyerReviewStatus')
+
+  if (!recordId || !itemId || (!assignedDesigner && !uploadSubmitted)) return records
+
+  return records.map((record) => {
+    if (record.recordId !== recordId) return record
+    let touched = false
+    const items = record.items.map((item) => {
+      if (item.itemId !== itemId || item.itemType !== '花型') return item
+      touched = true
+      let nextItem: ProductionPreparationItem = { ...item }
+
+      if (assignedDesigner) {
+        nextItem = {
+          ...nextItem,
+          required: true,
+          status: nextItem.status === '无需' || nextItem.status === '待分配' ? '进行中' : nextItem.status,
+          ownerTeam: '花型团队',
+          ownerName: assignedDesigner.name,
+          patternDesignerId: assignedDesigner.id,
+          patternDesignerName: assignedDesigner.name,
+          patternTeamName: assignedTeamName,
+          assignedAt: nextItem.assignedAt || `${record.enteredAt.slice(0, 10)}T10:00:00`,
+          evidenceSummary: nextItem.evidenceSummary || `已分配给 ${assignedDesigner.name}`,
+        }
+      }
+
+      if (uploadSubmitted) {
+        nextItem = {
+          ...nextItem,
+          required: true,
+          status: buyerReviewStatus === '已通过' ? '已完成' : '待确认',
+          completionImageIds: withUniqueValue(nextItem.completionImageIds, `mock-image-${nextItem.itemId}`),
+          patternFileIds: withUniqueValue(nextItem.patternFileIds, `mock-file-${nextItem.itemId}`),
+          buyerReviewStatus:
+            buyerReviewStatus === '未提交' ||
+            buyerReviewStatus === '待确认' ||
+            buyerReviewStatus === '已通过' ||
+            buyerReviewStatus === '需调整'
+              ? buyerReviewStatus
+              : '待确认',
+          evidenceSummary: '已模拟提交完成图和花型文件，等待买手确认',
+        }
+      }
+
+      return nextItem
+    })
+
+    if (!touched) return record
+    return { ...record, items }
+  })
+}
+
+function filterLedgerRecords(
+  filter: ProductionPreparationFilter,
+  month: string,
+  records: ProductionPreparationRecord[],
+): ProductionPreparationRecord[] {
+  return filterProductionPreparationRecords(filter, records).filter((record) => record.enteredAt.startsWith(month))
 }
 
 function requiredItems(record: ProductionPreparationRecord): ProductionPreparationItem[] {
@@ -405,9 +500,15 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string): st
 
 function renderLedgerTab(params: URLSearchParams, month: string): string {
   const filter = parseFilter(params)
-  const records = filterLedgerRecords(filter, month)
+  const mockedRecords = applyPreparationActionMocks(productionPreparationRecords, params)
+  const records = filterLedgerRecords(filter, month, mockedRecords)
   const recordId = valueOf(params, 'recordId')
-  const detailRecord = recordId ? getProductionPreparationRecord(recordId) : null
+  const fallbackRecord = recordId ? getProductionPreparationRecord(recordId) : null
+  const detailRecord = recordId
+    ? records.find((record) => record.recordId === recordId) ??
+      (fallbackRecord ? applyPreparationActionMocks([fallbackRecord], params)[0] : null) ??
+      null
+    : null
 
   return `
     ${renderLedgerFilter(params, month)}
@@ -421,6 +522,7 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
   const action = valueOf(params, 'action')
   const activeItemId = valueOf(params, 'itemId')
   const activeItem = record.items.find((item) => item.itemId === activeItemId) ?? record.items.find((item) => item.itemType === '花型')
+  const closeHref = buildLedgerHrefFromParams(params, month)
 
   return `
     <aside class="fixed inset-y-0 right-0 z-40 flex w-full max-w-3xl flex-col border-l bg-background shadow-2xl">
@@ -430,7 +532,7 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
           <h2 class="mt-1 text-xl font-semibold">${escapeHtml(record.spuName)}</h2>
           <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.spuCode)}｜${escapeHtml(record.productionOrderNo)}</p>
         </div>
-        <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${PAGE_PATH}?tab=ledger">关闭</button>
+        <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(closeHref)}">关闭</button>
       </div>
       <div class="flex-1 space-y-5 overflow-y-auto p-5">
         ${renderBasicInfo(record)}
@@ -445,7 +547,7 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
           </div>
         </section>
         ${action === 'assign' && activeItem ? renderAssignPanel(record, activeItem, params, month) : ''}
-        ${action === 'upload' && activeItem ? renderUploadPanel(record, activeItem, month) : ''}
+        ${action === 'upload' && activeItem ? renderUploadPanel(record, activeItem, params, month) : ''}
         ${renderRelatedObjects(record)}
         ${renderOperationLogs(record)}
       </div>
@@ -587,13 +689,21 @@ function renderAssignPanel(
   `
 }
 
-function renderUploadPanel(record: ProductionPreparationRecord, item: ProductionPreparationItem, month: string): string {
+function renderUploadPanel(
+  record: ProductionPreparationRecord,
+  item: ProductionPreparationItem,
+  params: URLSearchParams,
+  month: string,
+): string {
+  const uploadSubmitted = valueOf(params, 'mockCompletionUploaded') === '1'
   return `
-    <section class="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+    <section data-pattern-upload-scope class="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
       <input type="hidden" name="tab" value="ledger" />
       <input type="hidden" name="month" value="${escapeHtml(month)}" />
       <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
       <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
+      <input type="hidden" name="action" value="upload" />
+      <input type="hidden" name="mockCompletionUploaded" value="1" />
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="font-semibold">上传完成图片原型区域</h3>
@@ -614,10 +724,15 @@ function renderUploadPanel(record: ProductionPreparationRecord, item: Production
           '买手确认状态',
           'buyerReviewStatus',
           ['未提交', '待确认', '已通过', '需调整'],
-          item.buyerReviewStatus || '未提交',
+          valueOf(params, 'buyerReviewStatus') || item.buyerReviewStatus || '未提交',
         )}
       </div>
-      <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-amber-600 px-4 text-sm text-white hover:bg-amber-700" data-prod-action="noop">提交完成资料</button>
+      ${
+        uploadSubmitted
+          ? '<div class="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">已模拟提交完成资料</div>'
+          : ''
+      }
+      <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-amber-600 px-4 text-sm text-white hover:bg-amber-700" data-nav-from-fields="[data-pattern-upload-scope]" data-nav-base="${PAGE_PATH}">提交完成资料</button>
     </section>
   `
 }
@@ -626,7 +741,7 @@ function renderRelatedObjects(record: ProductionPreparationRecord): string {
   const objects = [
     ['生产需求单', record.productionDemandNo, '/fcs/production/demand-inbox'],
     ['关联生产单', record.productionOrderNo, record.productionOrderHref],
-    ['正式技术包', record.techPackVersionLabel, '/fcs/production/tech-pack-snapshot'],
+    ['正式技术包', record.techPackVersionLabel, `/fcs/production/orders/${encodeURIComponent(record.productionOrderNo)}/tech-pack`],
   ]
   return `
     <section class="rounded-xl border bg-card p-4">

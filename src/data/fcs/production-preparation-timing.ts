@@ -1500,8 +1500,27 @@ function hasPatternUploadGap(item: ProductionPreparationItem): boolean {
   )
 }
 
+function matchesCompletionItemFilter(item: FlattenedPreparationItem, filter: ProductionPreparationFilter): boolean {
+  const patternDesigner =
+    filter.quickFilter === '我的花型任务'
+      ? '林小美'
+      : resolvePatternDesignerName(filter.patternDesigner)
+
+  if (filter.itemType && filter.itemType !== '全部' && item.itemType !== filter.itemType) return false
+  if (filter.ownerTeam && item.ownerTeam !== filter.ownerTeam) return false
+  if (patternDesigner && (item.itemType !== '花型' || item.patternDesignerName !== patternDesigner)) return false
+  if (filter.overdueOnly && !(item.status === '已超时' || item.overdueHours > 0)) return false
+  if (filter.quickFilter === '待上传完成图' && !hasPatternUploadGap(item)) return false
+  if (filter.quickFilter === '待买手确认' && !(item.itemType === '花型' && item.buyerReviewStatus === '待确认')) {
+    return false
+  }
+
+  return true
+}
+
 export function filterProductionPreparationRecords(
   filter: ProductionPreparationFilter = {},
+  records: ProductionPreparationRecord[] = productionPreparationRecords,
 ): ProductionPreparationRecord[] {
   const keyword = normalize(filter.keyword)
   const patternDesigner =
@@ -1509,7 +1528,7 @@ export function filterProductionPreparationRecords(
       ? '林小美'
       : resolvePatternDesignerName(filter.patternDesigner)
 
-  return productionPreparationRecords.filter((record) => {
+  return records.filter((record) => {
     if (filter.month) {
       const enteredInMonth = record.enteredAt.startsWith(filter.month)
       const finishedInMonth = record.items.some((item) => item.actualFinishAt.startsWith(filter.month ?? ''))
@@ -1632,6 +1651,7 @@ export function buildMonthlyPreparationCompletionDetails(
   return flattenProductionPreparationItems(filterProductionPreparationRecords(recordFilter))
     .filter(
       (item) =>
+        matchesCompletionItemFilter(item, recordFilter) &&
         item.recordStatus !== '已关闭' &&
         item.required === true &&
         item.status === '已完成' &&
