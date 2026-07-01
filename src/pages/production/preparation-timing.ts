@@ -21,6 +21,17 @@ import {
 
 const PAGE_PATH = '/fcs/production/preparation-timing'
 const DEFAULT_MONTH = '2026-03'
+const LEDGER_FILTER_KEYS = [
+  'merchandiserName',
+  'buyerName',
+  'recordStatus',
+  'itemType',
+  'ownerTeam',
+  'patternDesigner',
+  'overdueOnly',
+  'keyword',
+  'quickFilter',
+] as const
 
 interface StatsTableRow extends MonthlyPreparationStatRow {
   ownerTeamText: string
@@ -97,17 +108,7 @@ function parseFilter(params: URLSearchParams): ProductionPreparationFilter {
 
 function getLedgerQueryValues(params: URLSearchParams, month: string): Record<string, string> {
   const values: Record<string, string> = { tab: 'ledger', month }
-  for (const key of [
-    'merchandiserName',
-    'buyerName',
-    'recordStatus',
-    'itemType',
-    'ownerTeam',
-    'patternDesigner',
-    'overdueOnly',
-    'keyword',
-    'quickFilter',
-  ] as const) {
+  for (const key of LEDGER_FILTER_KEYS) {
     const value = valueOf(params, key)
     if (value) values[key] = value
   }
@@ -129,6 +130,16 @@ function buildLedgerActionHref(
 function resolveSubmittedBuyerReviewStatus(status: string): '待确认' | '已通过' | '需调整' {
   if (status === '已通过' || status === '需调整') return status
   return '待确认'
+}
+
+function renderLedgerFilterHiddenFields(params: URLSearchParams): string {
+  return LEDGER_FILTER_KEYS
+    .map((key) => {
+      const value = valueOf(params, key)
+      return value ? `<input type="hidden" name="${key}" value="${escapeHtml(value)}" />` : ''
+    })
+    .filter(Boolean)
+    .join('')
 }
 
 function getMockDesigner(designerName: string) {
@@ -555,7 +566,7 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
             <span class="text-xs text-muted-foreground">必做项 ${requiredItems(record).length} 项</span>
           </div>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            ${record.items.map((item) => renderItemCard(record, item, item.itemId === activeItemId, month)).join('')}
+            ${record.items.map((item) => renderItemCard(record, item, item.itemId === activeItemId, month, params)).join('')}
           </div>
         </section>
         ${action === 'assign' && activeItem ? renderAssignPanel(record, activeItem, params, month) : ''}
@@ -616,7 +627,13 @@ function renderTimeline(record: ProductionPreparationRecord): string {
   `
 }
 
-function renderItemCard(record: ProductionPreparationRecord, item: ProductionPreparationItem, active: boolean, month: string): string {
+function renderItemCard(
+  record: ProductionPreparationRecord,
+  item: ProductionPreparationItem,
+  active: boolean,
+  month: string,
+  params: URLSearchParams,
+): string {
   return `
     <article class="rounded-xl border p-4 ${active ? 'border-blue-300 bg-blue-50/40' : 'bg-background'}">
       <div class="flex items-start justify-between gap-3">
@@ -633,14 +650,19 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
         <div><dt class="text-muted-foreground">凭证类型</dt><dd>${escapeHtml(item.evidenceType || '-')}</dd></div>
       </dl>
       <p class="mt-3 text-xs text-muted-foreground">${escapeHtml(item.evidenceSummary || item.remark || '暂无说明')}</p>
-      ${item.itemType === '花型' ? renderPatternFields(record, item, month) : ''}
+      ${item.itemType === '花型' ? renderPatternFields(record, item, month, params) : ''}
     </article>
   `
 }
 
-function renderPatternFields(record: ProductionPreparationRecord, item: ProductionPreparationItem, month: string): string {
-  const assignHref = buildHref({ tab: 'ledger', month, recordId: record.recordId, itemId: item.itemId, action: 'assign' })
-  const uploadHref = buildHref({ tab: 'ledger', month, recordId: record.recordId, itemId: item.itemId, action: 'upload' })
+function renderPatternFields(
+  record: ProductionPreparationRecord,
+  item: ProductionPreparationItem,
+  month: string,
+  params: URLSearchParams,
+): string {
+  const assignHref = buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: item.itemId, action: 'assign' })
+  const uploadHref = buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: item.itemId, action: 'upload' })
   return `
     <div class="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
       <div class="grid grid-cols-2 gap-2">
@@ -673,6 +695,7 @@ function renderAssignPanel(
     <section data-pattern-assign-scope class="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
       <input type="hidden" name="tab" value="ledger" />
       <input type="hidden" name="month" value="${escapeHtml(month)}" />
+      ${renderLedgerFilterHiddenFields(params)}
       <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
       <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
       <input type="hidden" name="action" value="assign" />
@@ -708,10 +731,12 @@ function renderUploadPanel(
   month: string,
 ): string {
   const uploadSubmitted = valueOf(params, 'mockCompletionUploaded') === '1'
+  const panelReviewStatus = resolveSubmittedBuyerReviewStatus(valueOf(params, 'buyerReviewStatus') || item.buyerReviewStatus || '')
   return `
     <section data-pattern-upload-scope class="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
       <input type="hidden" name="tab" value="ledger" />
       <input type="hidden" name="month" value="${escapeHtml(month)}" />
+      ${renderLedgerFilterHiddenFields(params)}
       <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
       <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
       <input type="hidden" name="action" value="upload" />
@@ -721,7 +746,7 @@ function renderUploadPanel(
           <h3 class="font-semibold">上传完成图片原型区域</h3>
           <p class="mt-1 text-xs text-muted-foreground">已有完成图 ${item.completionImageIds?.length ?? 0} 张，花型文件 ${item.patternFileIds?.length ?? 0} 个。</p>
         </div>
-        ${renderBadge(item.buyerReviewStatus || '未提交', statusTone(item.buyerReviewStatus || '未提交'))}
+        ${renderBadge(panelReviewStatus, statusTone(panelReviewStatus))}
       </div>
       <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <label class="flex flex-col gap-1 text-sm">
@@ -736,7 +761,7 @@ function renderUploadPanel(
           '买手确认状态',
           'buyerReviewStatus',
           ['待确认', '已通过', '需调整'],
-          resolveSubmittedBuyerReviewStatus(valueOf(params, 'buyerReviewStatus') || item.buyerReviewStatus || ''),
+          panelReviewStatus,
         )}
       </div>
       ${
