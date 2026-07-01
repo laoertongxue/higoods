@@ -266,6 +266,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'production-demand-inbox', title: '生产需求单', icon: 'Inbox', href: '/fcs/production/demand-inbox' },
             { key: 'production-orders', title: '生产单管理', icon: 'FilePlus2', href: '/fcs/production/orders' },
             { key: 'production-plan', title: '生产单计划', icon: 'CalendarClock', href: '/fcs/production/plan' },
+            { key: 'production-preparation-timing', title: '生产准备时效', icon: 'TimerReset', href: '/fcs/production/preparation-timing' },
             { key: 'production-delivery-warehouse', title: '交付仓配置', icon: 'Warehouse', href: '/fcs/production/delivery-warehouse' },
             { key: 'production-changes', title: '生产单变更', icon: 'GitPullRequest', href: '/fcs/production/changes' },
             { key: 'production-status', title: '状态管理', icon: 'Workflow', href: '/fcs/production/status' },
