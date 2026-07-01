@@ -6,6 +6,7 @@ import {
   productionObjectSearchIndex,
   purchaseArrivalStatusLabel,
   queryProductionObjectIssues,
+  searchMaterialResources,
   searchProductionObjects,
   warehouseExecutionStatusLabel,
   type MaterialResourceContext,
@@ -193,6 +194,36 @@ function uniqueSearchTexts(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
+function renderMaterialSearchResultCard(resource: MaterialResourceOverview): string {
+  const summary = resource.supplyDemandSummary
+  return `
+    <article class="rounded-lg border bg-card p-3 shadow-sm">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            ${badge('物料资源', 'border-blue-200 bg-blue-50 text-blue-700')}
+            ${badge(materialTypeLabel[resource.materialType], 'border-slate-200 bg-slate-50 text-slate-700')}
+          </div>
+          <div class="mt-2 break-all font-mono text-sm font-semibold text-foreground">${escapeHtml(resource.materialSku)}</div>
+          <div class="mt-1 truncate text-sm text-foreground">${escapeHtml(resource.materialName)}</div>
+          <div class="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+            <div><span class="text-foreground">当前判断：</span>${escapeHtml(resource.currentJudgement)}</div>
+            <div><span class="text-foreground">总需求：</span>${formatMaterialResourceQty(summary.totalRequiredQty, summary.unit)}</div>
+            <div><span class="text-foreground">可用库存：</span>${formatMaterialResourceQty(summary.availableQty, summary.unit)}</div>
+            <div><span class="text-foreground">在途采购：</span>${formatMaterialResourceQty(summary.inTransitQty, summary.unit)}</div>
+            <div><span class="text-foreground">缺口：</span>${formatMaterialResourceQty(summary.shortageQty, summary.unit)}</div>
+            <div><span class="text-foreground">影响范围：</span>${resource.businessAllocations.length} 张生产单</div>
+          </div>
+        </div>
+        <div class="flex shrink-0 flex-col gap-2 text-right">
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700" data-production-object-action="open-material-resource" data-material-sku="${escapeHtml(resource.materialSku)}" data-skip-page-rerender="true">查看物料资源</button>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-production-object-action="copy-no" data-copy-text="${escapeHtml(resource.materialSku)}" data-skip-page-rerender="true">复制编码</button>
+        </div>
+      </div>
+    </article>
+  `
+}
+
 function renderSearchResultCard(item: ProductionObjectSearchIndex): string {
   return `
     <article class="rounded-lg border bg-card p-3 shadow-sm">
@@ -223,8 +254,47 @@ function renderSearchResultCard(item: ProductionObjectSearchIndex): string {
   `
 }
 
+function renderMaterialGroupedSearchResults(keyword: string, materialResources: MaterialResourceOverview[], rows: ProductionObjectSearchIndex[]): string {
+  const relatedMain = rows.filter((item) => item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND').slice(0, 6)
+  const warehouse = rows.filter((item) => item.objectType === 'WAREHOUSE_DOC' || item.objectType === 'MATERIAL_PREP_ORDER' || item.objectType === 'MATERIAL_PREP_RECORD' || item.objectType === 'MATERIAL_PICKUP_RECORD').slice(0, 6)
+  const risks = rows.filter(isSearchRiskItem).slice(0, 6)
+  const originalGroups = groupSearchResults(rows)
+  const groups = [
+    { title: '物料资源', rowsHtml: materialResources.map(renderMaterialSearchResultCard).join(''), count: materialResources.length },
+    { title: '相关生产对象', rowsHtml: relatedMain.map(renderSearchResultCard).join(''), count: relatedMain.length },
+    { title: '相关采购与仓储', rowsHtml: warehouse.map(renderSearchResultCard).join(''), count: warehouse.length },
+    { title: '异常线索', rowsHtml: risks.map(renderSearchResultCard).join(''), count: risks.length },
+  ].filter((group) => group.count > 0)
+
+  if (groups.length === 0) return renderSearchEmpty(keyword)
+  return `
+    <div class="space-y-4">
+      ${groups.map((group) => `
+        <section class="space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold">${escapeHtml(group.title)}</h3>
+            <span class="text-xs text-muted-foreground">${group.count} 个对象</span>
+          </div>
+          ${group.rowsHtml}
+        </section>
+      `).join('')}
+      ${originalGroups.map((group) => `
+        <section class="space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold">${escapeHtml(group.title)}</h3>
+            <span class="text-xs text-muted-foreground">${group.rows.length} 个对象</span>
+          </div>
+          ${group.rows.map(renderSearchResultCard).join('')}
+        </section>
+      `).join('')}
+    </div>
+  `
+}
+
 function renderSearchResults(keyword: string): string {
   const rows = withRelatedMainlineRows(searchProductionObjects(keyword))
+  const materialResources = searchMaterialResources(keyword)
+  if (materialResources.length > 0) return renderMaterialGroupedSearchResults(keyword, materialResources, rows)
   if (rows.length === 0) return renderSearchEmpty(keyword)
   const groups = groupSearchResults(rows)
   return `
