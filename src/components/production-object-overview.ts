@@ -262,11 +262,23 @@ function renderSearchResultCard(item: ProductionObjectSearchIndex): string {
 }
 
 function renderMaterialGroupedSearchResults(keyword: string, materialResources: MaterialResourceOverview[], rows: ProductionObjectSearchIndex[]): string {
-  const relatedMain = rows.filter((item) => item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND').slice(0, 6)
-  const warehouse = rows.filter((item) => item.objectType === 'WAREHOUSE_DOC' || item.objectType === 'MATERIAL_PREP_ORDER' || item.objectType === 'MATERIAL_PREP_RECORD' || item.objectType === 'MATERIAL_PICKUP_RECORD').slice(0, 6)
-  const risks = rows.filter(isSearchRiskItem).slice(0, 6)
+  const used = new Set<string>()
+  const takeRows = (predicate: (item: ProductionObjectSearchIndex) => boolean): ProductionObjectSearchIndex[] => {
+    const group: ProductionObjectSearchIndex[] = []
+    for (const item of rows) {
+      const key = `${item.objectType}:${item.id}`
+      if (group.length >= 6 || used.has(key) || !predicate(item)) continue
+      used.add(key)
+      group.push(item)
+    }
+    return group
+  }
+  const materialRows = materialResources.slice(0, 6)
+  const relatedMain = takeRows((item) => item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND')
+  const warehouse = takeRows((item) => item.objectType === 'WAREHOUSE_DOC' || item.objectType === 'MATERIAL_PREP_ORDER' || item.objectType === 'MATERIAL_PREP_RECORD' || item.objectType === 'MATERIAL_PICKUP_RECORD')
+  const risks = takeRows(isSearchRiskItem)
   const groups = [
-    { title: '物料资源', rowsHtml: materialResources.map(renderMaterialSearchResultCard).join(''), count: materialResources.length },
+    { title: '物料资源', rowsHtml: materialRows.map(renderMaterialSearchResultCard).join(''), count: materialRows.length },
     { title: '相关生产对象', rowsHtml: relatedMain.map(renderSearchResultCard).join(''), count: relatedMain.length },
     { title: '相关采购与仓储', rowsHtml: warehouse.map(renderSearchResultCard).join(''), count: warehouse.length },
     { title: '异常线索', rowsHtml: risks.map(renderSearchResultCard).join(''), count: risks.length },
