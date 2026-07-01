@@ -944,6 +944,23 @@ function formatDateOrDash(value: string | null | undefined): string {
   return value || '-'
 }
 
+function extractMaterialColor(spec: string | undefined): string {
+  const text = (spec || '').trim().toLowerCase()
+  if (!text) return '-'
+  const colors: Array<[RegExp, string]> = [
+    [/白|white/, '白色'],
+    [/黑|black/, '黑色'],
+    [/银|silver/, '银色'],
+    [/金|gold/, '金色'],
+    [/红|red/, '红色'],
+    [/蓝|blue/, '蓝色'],
+    [/绿|green/, '绿色'],
+    [/黄|yellow/, '黄色'],
+    [/灰|gray|grey/, '灰色'],
+  ]
+  return unique(colors.filter(([pattern]) => pattern.test(text)).map(([, color]) => color)).slice(0, 2).join('/') || '-'
+}
+
 function findOrderByNo(value: string | undefined | null): ProductionOrder | null {
   if (!value) return null
   return productionOrders.find((order) =>
@@ -1203,19 +1220,38 @@ function buildMaterialLines(order: ProductionOrder): ProductionMaterialLine[] {
   return [...mockLines, ...uniquePrepLines, ...warehouseLines].slice(0, 18)
 }
 
-function listMaterialResourceRows(materialSku: string, context: MaterialResourceContext = {}): Array<{
+interface MaterialResourceBaseRow {
   order: ProductionOrder
   line: ProductionMaterialLine
+}
+
+let materialResourceRowsBySkuCache: Map<string, MaterialResourceBaseRow[]> | null = null
+
+function getMaterialResourceRowsBySku(): Map<string, MaterialResourceBaseRow[]> {
+  if (!materialResourceRowsBySkuCache) {
+    materialResourceRowsBySkuCache = new Map()
+    for (const order of productionOrders) {
+      for (const line of buildMaterialLines(order)) {
+        const sku = normalizeMaterialSku(line.materialSku)
+        if (!sku) continue
+        const rows = materialResourceRowsBySkuCache.get(sku) ?? []
+        rows.push({ order, line })
+        materialResourceRowsBySkuCache.set(sku, rows)
+      }
+    }
+  }
+  return materialResourceRowsBySkuCache
+}
+
+function listMaterialResourceRows(materialSku: string, context: MaterialResourceContext = {}): Array<MaterialResourceBaseRow & {
   isSourceContext: boolean
 }> {
   const targetSku = normalizeMaterialSku(materialSku)
-  return productionOrders.flatMap((order) => {
+  return (getMaterialResourceRowsBySku().get(targetSku) ?? []).map(({ order, line }) => {
     const isSourceContext = context.sourceObjectId
       ? matchesProductionOrder(order, [context.sourceObjectId])
       : false
-    return buildMaterialLines(order)
-      .filter((line) => normalizeMaterialSku(line.materialSku) === targetSku)
-      .map((line) => ({ order, line, isSourceContext }))
+    return { order, line, isSourceContext }
   }).sort((a, b) => Number(b.isSourceContext) - Number(a.isSourceContext))
 }
 
@@ -1304,7 +1340,7 @@ function buildMaterialInventoryBatches(summary: MaterialSupplyDemandSummary): Ma
     {
       warehouseName: '原料仓',
       batchNo: 'BATCH-CURRENT',
-      totalQty: summary.availableQty + summary.lockedQty + summary.pendingInspectionQty,
+      totalQty: Math.max(summary.lockedQty, summary.availableQty) + summary.pendingInspectionQty,
       availableQty: summary.availableQty,
       lockedQty: summary.lockedQty,
       pendingInspectionQty: summary.pendingInspectionQty,
@@ -1331,7 +1367,7 @@ export function getMaterialResourceOverview(
     materialName: firstLine.materialName,
     materialType: firstLine.materialType,
     spec: firstLine.spec || '-',
-    color: firstLine.spec || '-',
+    color: extractMaterialColor(firstLine.spec),
     unit: firstLine.unit,
     supplierName,
     currentJudgement: summary.shortageQty > 0
@@ -1369,7 +1405,7 @@ export function getMaterialResourceOverview(
       materialName: firstLine.materialName,
       materialType: firstLine.materialType,
       spec: firstLine.spec || '-',
-      color: firstLine.spec || '-',
+      color: extractMaterialColor(firstLine.spec),
       unit: firstLine.unit,
       supplierName,
       purchaseCycleText: '7 天',
