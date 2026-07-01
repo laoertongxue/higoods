@@ -165,9 +165,17 @@ for (const text of [
 }
 
 const statsHtml = await renderAt('/fcs/production/preparation-timing?tab=stats&month=2026-03')
+appStore.navigate('/fcs/production/preparation-timing?tab=stats&month=2026-03', { historyMode: 'replace' })
+const routedStatsHtml = await renderProductionPreparationTimingPage()
+assert.equal(typeof routedStatsHtml, 'string', '无参数渲染必须返回 HTML 字符串')
+assertHtmlIncludes(routedStatsHtml, '导出月度统计', '无参数渲染必须读取当前路由并显示月度统计')
 for (const text of [
   '导出月度统计',
   '导出完成明细',
+  '完成基码',
+  '完成齐码',
+  '完成花型',
+  '完成染色',
   '完成数量',
   '按时完成数量',
   '超时完成数量',

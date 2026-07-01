@@ -1,4 +1,5 @@
 import { escapeHtml, formatDateTime } from '../../utils.ts'
+import { appStore } from '../../state/store.ts'
 import {
   buildMonthlyPreparationCompletionDetails,
   buildProductionPreparationKpis,
@@ -740,15 +741,17 @@ function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats
     stats.find((row) => row.itemType === itemType)?.completedCount ?? 0
   const cards = [
     ['本月完成准备项', details.length, '项'],
+    ['完成基码', getCompletedByType('基码纸样'), '项'],
+    ['完成齐码', getCompletedByType('齐码纸样'), '项'],
+    ['完成花型', getCompletedByType('花型'), '项'],
+    ['完成染色', getCompletedByType('染色调色'), '项'],
     ['按时完成', onTime, '项'],
     ['超时完成', overdue, '项'],
     ['平均耗时', averageHours, '小时'],
-    ['花型完成', getCompletedByType('花型'), '项'],
-    ['染色完成', getCompletedByType('染色调色'), '项'],
   ]
 
   return `
-    <section class="grid grid-cols-1 gap-4 md:grid-cols-3 2xl:grid-cols-6">
+    <section class="grid grid-cols-1 gap-4 md:grid-cols-4 2xl:grid-cols-8">
       ${cards.map(([label, value, unit]) => `
         <div class="rounded-xl border bg-card p-4">
           <div class="text-sm text-muted-foreground">${escapeHtml(label)}</div>
@@ -898,8 +901,9 @@ function renderStatsTab(params: URLSearchParams, month: string): string {
   `
 }
 
-export function renderProductionPreparationTimingPage(pathname = PAGE_PATH): string {
-  const url = new URL(pathname, 'http://higoods.local')
+export function renderProductionPreparationTimingPage(pathname?: string): string {
+  const currentPathname = pathname || appStore.getState().pathname || PAGE_PATH
+  const url = new URL(currentPathname, 'http://higoods.local')
   const params = url.searchParams
   const activeTab = params.get('tab') === 'stats' ? 'stats' : 'ledger'
   const month = valueOf(params, 'month') || DEFAULT_MONTH
