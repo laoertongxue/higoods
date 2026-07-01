@@ -9,6 +9,7 @@ import {
 } from './pre-settlement-ledger-repository.ts'
 import { processTasks } from './process-tasks.ts'
 import { productionOrders } from './production-orders.ts'
+import { listPostFinishingQcOrderEntities } from './post-finishing-domain.ts'
 import { initialStatementDrafts } from './store-domain-settlement-seeds.ts'
 import {
   calculateProductionOrderSettlementSummary,
@@ -217,15 +218,47 @@ function parseQty(value: unknown): number {
 function resolveCuttingCompletedQty(productionOrderNo: string, fallbackQty: number): number {
   const order = productionOrders.find((item) => item.productionOrderNo === productionOrderNo)
   const cuttingRow = order?.ledgerDetails.quantityQuality.find((item) => item.quantityType === '裁片完成')
-  return parseQty(cuttingRow?.currentQty) || fallbackQty
+  if (!cuttingRow) return fallbackQty
+  return parseQty(cuttingRow.currentQty)
 }
 
 function resolvePostFinishingReworkLines(_productionOrderNo: string): SettlementReworkLine[] {
-  return []
+  return listPostFinishingQcOrderEntities()
+    .filter((qc) => qc.productionOrderNo === _productionOrderNo)
+    .flatMap((qc) =>
+      qc.qcSkuResults
+        .filter((result) => result.reworkQty > 0)
+        .map((result) => {
+          const receiveFactoryId = result.reworkReceiveFactoryId || qc.reworkReceiveFactoryId
+          const receiveFactoryName = result.reworkReceiveFactoryName || qc.reworkReceiveFactoryName
+          const receiveObject =
+            !receiveFactoryId && !receiveFactoryName
+              ? 'ORIGINAL_FACTORY'
+              : receiveFactoryId === qc.sourceFactoryId || receiveFactoryName === qc.sourceFactoryName
+                ? 'ORIGINAL_FACTORY'
+                : 'POST_FACTORY'
+          return {
+            qcOrderId: qc.qcOrderId,
+            receiveObject,
+            reworkQty: result.reworkQty,
+          }
+        }),
+    )
 }
 
 function resolvePostFinishingDefectReasonLines(_productionOrderNo: string): SettlementDefectReasonLine[] {
-  return []
+  return listPostFinishingQcOrderEntities()
+    .filter((qc) => qc.productionOrderNo === _productionOrderNo)
+    .flatMap((qc) =>
+      qc.qcSkuResults.flatMap((result) =>
+        result.defectReasonItems
+          .filter((item) => item.qty > 0)
+          .map((item) => ({
+            reasonName: item.reasonName,
+            qty: item.qty,
+          })),
+      ),
+    )
 }
 
 function normalizeSettlementPartyId(partyId: string): string {
@@ -632,7 +665,7 @@ export function buildProductionOrderSettlementProjections(input: {
       handoverDetailLines: orderLedgers.map((item) => ({
         recordId: item.returnInboundBatchNo ?? item.ledgerId,
         handedOverAt: item.occurredAt,
-        handedOverQty: item.qty,
+        handedOverQty: item.ledgerType === 'TASK_EARNING' ? item.qty : 0,
         qcOrderId: item.qcRecordId,
       })),
     }

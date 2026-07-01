@@ -86,6 +86,15 @@ const projections = buildProductionOrderSettlementProjections({
 assert(projections.length > 0, '按时间段反查必须展示生产单')
 assert(projections.every((item) => item.productionOrderNo))
 assert(projections.every((item) => typeof item.isComplete === 'boolean'))
+const firstProjection = projections.find((item) => item.productionOrderNo === firstOpenLedger.productionOrderNo)
+const firstProjectionDetail = firstProjection?.handoverDetailLines.find(
+  (item) => item.recordId === (firstOpenLedger.returnInboundBatchNo ?? firstOpenLedger.ledgerId),
+)
+assert(firstProjectionDetail, '生产单投影必须保留来源流水明细')
+assert.equal(
+  firstProjectionDetail.handedOverQty,
+  firstOpenLedger.ledgerType === 'TASK_EARNING' ? firstOpenLedger.qty : 0,
+)
 
 const completedIds = projections.filter((item) => item.isComplete).map((item) => item.productionOrderNo)
 const lines = buildStatementDraftLinesFromSettlementSelection({
