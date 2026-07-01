@@ -1280,7 +1280,13 @@ export function renderMaterialResourceOverviewSurface(
   const resource = getMaterialResourceOverview(materialSku, context)
   if (!resource) {
     return `
-      <div class="production-object-overview" data-production-object-surface="material-resource">
+      <div
+        class="production-object-overview"
+        data-production-object-surface="material-resource"
+        data-material-sku="${escapeHtml(materialSku)}"
+        data-source-object-type="${escapeHtml(context.sourceObjectType || '')}"
+        data-source-object-id="${escapeHtml(context.sourceObjectId || '')}"
+      >
         <button class="absolute inset-0 bg-slate-950/30" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭"></button>
         <section class="production-object-overview__panel">
           <header class="flex items-center justify-between border-b px-4 py-3">
