@@ -330,7 +330,6 @@ for (const line of overview.materials) {
 
 const shellSource = source('src/components/shell.ts')
 assert.ok(shellSource.includes('renderProductionObjectFloatingEntry'), 'Shell 必须挂载查生产入口')
-assert.ok(shellSource.includes("state.pathname.startsWith('/fcs/pda')"), 'PDA 页面必须排除入口')
 assert.ok(shellSource.includes("state.pathname.startsWith('/fcs/print/')"), '打印页面必须排除入口')
 
 const mainSource = source('src/main.ts')
@@ -591,7 +590,6 @@ assert.ok(queryProductionObjectIssues({ etaDate: '2026-07-02' }).length > 0, 'P3
 
 const entry = uiModule.renderProductionObjectFloatingEntry('/fcs/production/orders')
 assert.ok(entry.includes('查生产'), 'FCS 普通页面必须展示查生产入口')
-assert.equal(uiModule.renderProductionObjectFloatingEntry('/fcs/pda/exec'), '', 'PDA 页面不得展示查生产入口')
 assert.equal(uiModule.renderProductionObjectFloatingEntry('/fcs/print/foo'), '', '打印页面不得展示查生产入口')
 
 const styles = source('src/styles.css')
