@@ -46,6 +46,7 @@ for (const file of requiredFiles) {
 
 const dataModule = await import('../src/data/fcs/production-object-overview.ts')
 const uiModule = await import('../src/components/production-object-overview.ts')
+const shellModule = await import('../src/components/shell.ts')
 const identityModule = await import('../src/data/fcs/production-order-identity.ts')
 const { productionOrders } = await import('../src/data/fcs/production-orders.ts')
 const { productionDemands } = await import('../src/data/fcs/production-demands.ts')
@@ -340,6 +341,14 @@ for (const line of overview.materials) {
 const shellSource = source('src/components/shell.ts')
 assert.ok(shellSource.includes('renderProductionObjectFloatingEntry'), 'Shell 必须挂载查生产入口')
 assert.ok(shellSource.includes("state.pathname.startsWith('/fcs/print/')"), '打印页面必须排除入口')
+assert.ok(
+  shellModule.renderAppShell({ pathname: '/fcs/pda/exec' } as any, '<main>PDA</main>').includes('查生产'),
+  'PDA standalone shell 必须挂载查生产入口',
+)
+assert.ok(
+  !shellModule.renderAppShell({ pathname: '/fcs/print/post-finishing-qc' } as any, '<main>PRINT</main>').includes('查生产'),
+  '打印页 shell 不得挂载查生产入口',
+)
 
 const mainSource = source('src/main.ts')
 assert.ok(mainSource.includes('handleProductionObjectOverviewEvent'), 'main.ts 必须接入生产对象事件处理')

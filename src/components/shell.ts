@@ -320,6 +320,7 @@ export function renderAppShell(state: AppState, pageContent: string): string {
     return `
       <div class="min-h-screen bg-slate-100" data-pda-standalone-root="true">
         ${pageContent}
+        ${renderProductionObjectFloatingEntry(state.pathname)}
       </div>
     `
   }
