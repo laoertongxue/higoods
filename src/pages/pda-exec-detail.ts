@@ -50,6 +50,11 @@ import {
 import { buildTaskQrValue } from '../data/fcs/task-qr.ts'
 import { TEST_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import {
+  renderProductionObjectCodeButton,
+  type ProductionObjectCodeType,
+} from '../data/fcs/production-order-identity.ts'
+import { resolveProductionObjectRequest } from '../data/fcs/production-object-overview.ts'
+import {
   getPrintExecutionNodeRecord,
   getPrintOrderHandoverSummary,
   getPrintReviewRecordByOrderId,
@@ -288,6 +293,49 @@ function getRootTaskDisplayNo(task: ProcessTask): string {
   return task.rootTaskNo || task.taskNo || task.taskId
 }
 
+function renderPdaObjectCode({
+  objectType,
+  objectId,
+  label,
+  relatedProductionOrderNo,
+  className = 'text-left font-mono text-blue-600 hover:underline',
+}: {
+  objectType: ProductionObjectCodeType
+  objectId?: string | null
+  label?: string | null
+  relatedProductionOrderNo?: string | null
+  className?: string
+}): string {
+  const objectCode = (label || objectId || '').trim()
+  const targetId = (objectId || '').trim()
+  if (!targetId || !objectCode) return escapeHtml(objectCode || '-')
+
+  const preferred = resolveProductionObjectRequest({ objectType, objectId: targetId, relatedProductionOrderNo })
+  const resolved = preferred.status === 'READY' || !relatedProductionOrderNo
+    ? preferred
+    : resolveProductionObjectRequest({ objectType, objectId: targetId })
+  // Only render clickable IDs that open a real overview; unresolved PDA refs stay plain text.
+  if (resolved.status !== 'READY') return escapeHtml(objectCode)
+
+  return renderProductionObjectCodeButton({
+    objectType: resolved.indexItem.objectType,
+    objectId: resolved.indexItem.primaryNo,
+    label: objectCode,
+    relatedProductionOrderNo: resolved.indexItem.relatedProductionOrderNo,
+    defaultTab: resolved.clickedRef.defaultTab,
+    highlightKey: resolved.clickedRef.highlightKey,
+    className,
+  })
+}
+
+function getPdaSourceObjectType(sourceInfo: ReturnType<typeof getMobileExecutionTaskSourceInfo>): ProductionObjectCodeType {
+  if (sourceInfo.printOrderNo) return 'PRINT_WORK_ORDER'
+  if (sourceInfo.dyeOrderNo) return 'DYE_WORK_ORDER'
+  if (sourceInfo.cuttingOrderNo) return 'CUT_ORDER'
+  if (sourceInfo.sourceType === 'POST_FINISHING_TASK' && sourceInfo.postOrderNo) return 'QC_MASTER_ORDER'
+  return 'PROCESS_DOC'
+}
+
 function getCoveredProcessSummaryText(task: ProcessTask): string {
   const coveredProcesses = task.coveredProcesses ?? []
   if (coveredProcesses.length === 0) return task.processBusinessName || task.processNameZh || '—'
@@ -394,7 +442,11 @@ function renderHandoverOrderCard(handoverOrder: PdaHandoverHead): string {
       <div class="p-4 text-sm">
         <div class="grid grid-cols-2 gap-x-4 gap-y-1">
           <span class="text-xs text-muted-foreground">交出单号</span>
-          <span class="text-xs font-medium">${escapeHtml(handoverOrder.handoverOrderNo || handoverOrderId)}</span>
+          <span class="text-xs font-medium">${renderPdaObjectCode({
+            objectType: 'HANDOVER_ORDER',
+            objectId: handoverOrder.handoverOrderNo || handoverOrderId,
+            relatedProductionOrderNo: handoverOrder.productionOrderNo,
+          })}</span>
           <span class="text-xs text-muted-foreground">状态</span>
           <span class="text-xs font-medium">${escapeHtml(getHandoverOrderStatusLabel(handoverOrder.handoverOrderStatus))}</span>
           <span class="text-xs text-muted-foreground">已交出</span>
@@ -519,7 +571,11 @@ function renderPrintingTaskCard(
       <div class="space-y-4 p-4 text-sm">
         <div class="grid grid-cols-2 gap-x-4 gap-y-1">
           <span class="text-xs text-muted-foreground">印花加工单</span>
-          <span class="text-xs font-medium">${escapeHtml(printOrder.printOrderNo)}</span>
+          <span class="text-xs font-medium">${renderPdaObjectCode({
+            objectType: 'PRINT_WORK_ORDER',
+            objectId: printOrder.printOrderNo,
+            relatedProductionOrderNo: printOrder.productionOrderIds?.[0] || task.productionOrderId,
+          })}</span>
           <span class="text-xs text-muted-foreground">花型</span>
           <span class="text-xs">${escapeHtml(printOrder.patternNo)} / ${escapeHtml(printOrder.patternVersion)}</span>
           <span class="text-xs text-muted-foreground">当前状态</span>
@@ -630,7 +686,15 @@ function renderPrintingTaskCard(
               ${handoverBadge}
             </div>
             <div class="mt-3 space-y-1 text-xs">
-              <div><span class="text-muted-foreground">交出单：</span>${escapeHtml(handoverOrder?.handoverOrderNo || printOrder.handoverOrderNo || printOrder.handoverOrderId || '未生成')}</div>
+              <div><span class="text-muted-foreground">交出单：</span>${
+                handoverOrder || printOrder.handoverOrderNo || printOrder.handoverOrderId
+                  ? renderPdaObjectCode({
+                      objectType: 'HANDOVER_ORDER',
+                      objectId: handoverOrder?.handoverOrderNo || printOrder.handoverOrderNo || printOrder.handoverOrderId,
+                      relatedProductionOrderNo: handoverOrder?.productionOrderNo || printOrder.productionOrderIds?.[0] || task.productionOrderId,
+                    })
+                  : '未生成'
+              }</div>
               <div><span class="text-muted-foreground">交出记录：</span>${handoverSummary.recordCount} 条</div>
               <div><span class="text-muted-foreground">待收货：</span>${handoverSummary.pendingWritebackCount} 条</div>
               <div><span class="text-muted-foreground">${escapeHtml(receivedQtyLabel)}：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
@@ -831,7 +895,11 @@ function renderDyeingTaskCard(
       <div class="space-y-4 p-4 text-sm">
         <div class="grid grid-cols-2 gap-x-4 gap-y-1">
           <span class="text-xs text-muted-foreground">染色加工单</span>
-          <span class="text-xs font-medium">${escapeHtml(dyeOrder.dyeOrderNo)}</span>
+          <span class="text-xs font-medium">${renderPdaObjectCode({
+            objectType: 'DYE_WORK_ORDER',
+            objectId: dyeOrder.dyeOrderNo,
+            relatedProductionOrderNo: dyeOrder.productionOrderIds?.[0] || task.productionOrderId,
+          })}</span>
           <span class="text-xs text-muted-foreground">当前状态</span>
           <span class="text-xs">${escapeHtml(getDyeWorkOrderStatusLabel(dyeOrder.status))}</span>
           <span class="text-xs text-muted-foreground">目标颜色</span>
@@ -1067,7 +1135,15 @@ function renderDyeingTaskCard(
               ${handoverBadge}
             </div>
             <div class="mt-3 space-y-1 text-xs">
-              <div><span class="text-muted-foreground">交出单：</span>${escapeHtml(handoverOrder?.handoverOrderNo || dyeOrder.handoverOrderNo || dyeOrder.handoverOrderId || '未生成')}</div>
+              <div><span class="text-muted-foreground">交出单：</span>${
+                handoverOrder || dyeOrder.handoverOrderNo || dyeOrder.handoverOrderId
+                  ? renderPdaObjectCode({
+                      objectType: 'HANDOVER_ORDER',
+                      objectId: handoverOrder?.handoverOrderNo || dyeOrder.handoverOrderNo || dyeOrder.handoverOrderId,
+                      relatedProductionOrderNo: handoverOrder?.productionOrderNo || dyeOrder.productionOrderIds?.[0] || task.productionOrderId,
+                    })
+                  : '未生成'
+              }</div>
               <div><span class="text-muted-foreground">交出记录：</span>${handoverSummary.recordCount} 条</div>
               <div><span class="text-muted-foreground">待收货：</span>${handoverSummary.pendingWritebackCount} 条</div>
               <div><span class="text-muted-foreground">实收染色面料米数：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
@@ -2048,7 +2124,11 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
       </header>
       <div class="space-y-3 p-4 text-sm" data-writeback-link="linkSpecialCraftCompletionToReturnWaitHandoverStock">
         <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-          <span>加工单号：${escapeHtml(workOrder?.workOrderNo || firstBinding?.workOrderNo || task.taskNo || task.taskId)}</span>
+          <span>加工单号：${renderPdaObjectCode({
+            objectType: 'PROCESS_DOC',
+            objectId: workOrder?.workOrderNo || firstBinding?.workOrderNo || task.taskNo || task.taskId,
+            relatedProductionOrderNo: task.productionOrderId,
+          })}</span>
           <span>特殊工艺：${escapeHtml(workOrder?.operationName || displayProcessName)}</span>
           <span>工艺工厂：${escapeHtml(workOrder?.factoryName || task.assignedFactoryName || '—')}</span>
           <span>当前状态：${escapeHtml(workOrder?.status || status)}</span>
@@ -2222,7 +2302,10 @@ function renderPdaPostCreateQcPage(execId: string, task: PostFinishingTaskView, 
       ${renderPdaPostActionHeader('创建质检单', task.postTaskNo)}
       <article class="rounded-lg border bg-card p-3 text-xs">
         <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-          <span class="text-muted-foreground">生产单</span><span class="font-medium">${escapeHtml(task.productionOrderNo)}</span>
+          <span class="text-muted-foreground">生产单</span><span class="font-medium">${renderPdaObjectCode({
+            objectType: 'PRODUCTION_ORDER',
+            objectId: task.productionOrderNo,
+          })}</span>
           <span class="text-muted-foreground">后道工厂</span><span>${escapeHtml(task.managedPostFactoryName)}</span>
         </div>
       </article>
@@ -2629,7 +2712,11 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
   `).join('')
   const qcRows = qcOrders.map((item) => `
     <tr>
-      <td class="px-3 py-2 font-mono">${escapeHtml(item.qcOrderNo)}</td>
+      <td class="px-3 py-2 font-mono">${renderPdaObjectCode({
+        objectType: 'QC_ORDER',
+        objectId: item.qcOrderNo,
+        relatedProductionOrderNo: item.productionOrderNo,
+      })}</td>
       <td class="px-3 py-2">${escapeHtml(item.qcStatus)}</td>
       <td class="px-3 py-2">${item.inspectedGarmentQty} 件</td>
       <td class="px-3 py-2">
@@ -2639,14 +2726,22 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
   `).join('')
   const postRows = postOrders.map((item) => `
     <tr>
-      <td class="px-3 py-2 font-mono">${escapeHtml(item.postOrderNo)}</td>
+      <td class="px-3 py-2 font-mono">${renderPdaObjectCode({
+        objectType: 'PROCESS_DOC',
+        objectId: item.postOrderNo,
+        relatedProductionOrderNo: item.sourceProductionOrderNo,
+      })}</td>
       <td class="px-3 py-2">${escapeHtml(item.postProcessItems.join('、') || '无后道单')}</td>
       <td class="px-3 py-2">${escapeHtml(item.postStatus)}</td>
     </tr>
   `).join('')
   const recheckRows = recheckOrders.map((item) => `
     <tr>
-      <td class="px-3 py-2 font-mono">${escapeHtml(item.recheckOrderNo)}</td>
+      <td class="px-3 py-2 font-mono">${renderPdaObjectCode({
+        objectType: 'RECHECK_ORDER',
+        objectId: item.recheckOrderNo,
+        relatedProductionOrderNo: item.productionOrderNo,
+      })}</td>
       <td class="px-3 py-2">${escapeHtml(item.sourceType)}</td>
       <td class="px-3 py-2">${escapeHtml(item.recheckStatus)}</td>
       <td class="px-3 py-2">
@@ -2668,14 +2763,22 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <div class="flex items-center justify-between gap-2">
-            <span class="font-mono text-sm font-semibold">${escapeHtml(task.postTaskNo)}</span>
+            <span class="text-sm font-semibold">${renderPdaObjectCode({
+              objectType: 'QC_MASTER_ORDER',
+              objectId: task.postTaskId,
+              label: task.postTaskNo,
+              relatedProductionOrderNo: task.productionOrderNo,
+            })}</span>
             <span class="inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">${escapeHtml(task.currentStatus)}</span>
           </div>
         </header>
         <div class="grid gap-3 p-4 text-xs">
           <div class="grid grid-cols-2 gap-x-4 gap-y-1">
             <span class="text-muted-foreground">生产单</span>
-            <span class="font-medium">${escapeHtml(task.productionOrderNo)}</span>
+            <span class="font-medium">${renderPdaObjectCode({
+              objectType: 'PRODUCTION_ORDER',
+              objectId: task.productionOrderNo,
+            })}</span>
             <span class="text-muted-foreground">款式</span>
             <span>${escapeHtml(task.spuName)}</span>
             <span class="text-muted-foreground">后道工厂</span>
@@ -2751,18 +2854,33 @@ function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishin
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <div class="flex items-center justify-between gap-2">
-            <span class="font-mono text-sm font-semibold">${escapeHtml(order.postOrderNo)}</span>
+            <span class="text-sm font-semibold">${renderPdaObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: order.postOrderNo,
+              relatedProductionOrderNo: order.sourceProductionOrderNo,
+            })}</span>
             <span class="inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">${escapeHtml(order.currentStatus)}</span>
           </div>
         </header>
         <div class="grid gap-3 p-4 text-sm">
           <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             <span class="text-muted-foreground">生产单</span>
-            <span class="font-medium">${escapeHtml(order.sourceProductionOrderNo)}</span>
+            <span class="font-medium">${renderPdaObjectCode({
+              objectType: 'PRODUCTION_ORDER',
+              objectId: order.sourceProductionOrderNo,
+            })}</span>
             <span class="text-muted-foreground">来源任务</span>
-            <span class="font-medium">${escapeHtml(order.sourceTaskNo)}</span>
+            <span class="font-medium">${renderPdaObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: order.sourceTaskNo,
+              relatedProductionOrderNo: order.sourceProductionOrderNo,
+            })}</span>
             <span class="text-muted-foreground">来源车缝任务</span>
-            <span class="font-medium">${escapeHtml(order.sourceSewingTaskNo)}</span>
+            <span class="font-medium">${renderPdaObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: order.sourceSewingTaskNo,
+              relatedProductionOrderNo: order.sourceProductionOrderNo,
+            })}</span>
             <span class="text-muted-foreground">当前工厂</span>
             <span>${escapeHtml(formatFactoryDisplayName(order.currentFactoryName, order.currentFactoryId))}</span>
             <span class="text-muted-foreground">后道工厂</span>
@@ -2850,16 +2968,27 @@ function renderPdaSewingPostTaskPage(taskId: string, task: SewingFactoryPostTask
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <div class="flex items-center justify-between gap-2">
-            <span class="font-mono text-sm font-semibold">${escapeHtml(task.postTaskNo)}</span>
+            <span class="text-sm font-semibold">${renderPdaObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: task.postTaskNo,
+              relatedProductionOrderNo: task.productionOrderNo,
+            })}</span>
             <span class="inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">${escapeHtml(task.status)}</span>
           </div>
         </header>
         <div class="grid gap-3 p-4 text-xs">
           <div class="grid grid-cols-2 gap-x-4 gap-y-1">
             <span class="text-muted-foreground">车缝任务号</span>
-            <span class="font-medium">${escapeHtml(task.sewingTaskNo)}</span>
+            <span class="font-medium">${renderPdaObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: task.sewingTaskNo,
+              relatedProductionOrderNo: task.productionOrderNo,
+            })}</span>
             <span class="text-muted-foreground">生产单</span>
-            <span>${escapeHtml(task.productionOrderNo)}</span>
+            <span>${renderPdaObjectCode({
+              objectType: 'PRODUCTION_ORDER',
+              objectId: task.productionOrderNo,
+            })}</span>
             <span class="text-muted-foreground">车缝工厂</span>
             <span>${escapeHtml(task.sewingFactoryName)}</span>
             <span class="text-muted-foreground">计划成衣件数</span>
@@ -2873,7 +3002,11 @@ function renderPdaSewingPostTaskPage(taskId: string, task: SewingFactoryPostTask
             <span class="text-muted-foreground">后道后流向</span>
             <span>交给${escapeHtml(task.managedPostFactoryName)}质检和复检</span>
             <span class="text-muted-foreground">关联后道单号</span>
-            <span>${escapeHtml(task.relatedPostOrderNo)}</span>
+            <span>${renderPdaObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: task.relatedPostOrderNo,
+              relatedProductionOrderNo: task.productionOrderNo,
+            })}</span>
           </div>
         </div>
       </article>
@@ -3282,6 +3415,16 @@ export function renderPdaExecDetailPage(taskId: string): string {
     `
   }
 
+  const taskDisplayNo = getTaskDisplayNo(task)
+  const sourceObjectNo = sourceInfo.sourceWorkOrderNo
+    || sourceInfo.workOrderNo
+    || sourceInfo.printOrderNo
+    || sourceInfo.dyeOrderNo
+    || sourceInfo.cuttingOrderNo
+    || sourceInfo.postOrderNo
+    || sourceInfo.taskOrderNo
+  const sourceObjectType = getPdaSourceObjectType(sourceInfo)
+
   const content = `
     <div class="space-y-4 bg-background p-4 pb-6">
       ${accessNotice}
@@ -3296,7 +3439,12 @@ export function renderPdaExecDetailPage(taskId: string): string {
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <div class="flex items-center justify-between gap-2 text-sm">
-            <span class="font-mono font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
+            <span class="font-semibold">${renderPdaObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: taskDisplayNo,
+              relatedProductionOrderNo: task.productionOrderId,
+              className: 'text-left font-mono text-blue-600 hover:underline',
+            })}</span>
             <span class="inline-flex items-center rounded px-2 py-0.5 text-xs ${statusColorMap[status] ?? 'bg-muted text-muted-foreground'}">${escapeHtml(statusLabelMap[status] ?? status)}</span>
           </div>
         </header>
@@ -3304,11 +3452,26 @@ export function renderPdaExecDetailPage(taskId: string): string {
         <div class="space-y-3 p-4 text-sm">
           <div class="grid grid-cols-2 gap-x-4 gap-y-1">
             <span class="text-xs text-muted-foreground">生产单号</span>
-            <span class="text-xs font-medium">${escapeHtml(task.productionOrderId)}</span>
+            <span class="text-xs font-medium">${renderPdaObjectCode({
+              objectType: 'PRODUCTION_ORDER',
+              objectId: task.productionOrderId,
+            })}</span>
             <span class="text-xs text-muted-foreground">加工单 / 来源单号</span>
-            <span class="text-xs font-medium">${escapeHtml(sourceInfo.sourceWorkOrderNo || sourceInfo.workOrderNo || '—')}</span>
+            <span class="text-xs font-medium">${
+              sourceObjectNo
+                ? renderPdaObjectCode({
+                    objectType: sourceObjectType,
+                    objectId: sourceObjectNo,
+                    relatedProductionOrderNo: task.productionOrderId,
+                  })
+                : '—'
+            }</span>
             <span class="text-xs text-muted-foreground">原始任务</span>
-            <span class="text-xs font-medium">${escapeHtml(getRootTaskDisplayNo(task))}</span>
+            <span class="text-xs font-medium">${renderPdaObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: getRootTaskDisplayNo(task),
+              relatedProductionOrderNo: task.productionOrderId,
+            })}</span>
             <span class="text-xs text-muted-foreground">当前工序</span>
             <span class="text-xs font-medium">${escapeHtml(displayProcessName)}</span>
             <span class="text-xs text-muted-foreground">覆盖工序</span>

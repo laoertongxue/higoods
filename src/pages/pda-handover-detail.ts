@@ -1,6 +1,11 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { renderRealQrPlaceholder } from '../components/real-qr'
+import {
+  renderProductionObjectCodeButton,
+  type ProductionObjectCodeType,
+} from '../data/fcs/production-order-identity.ts'
+import { resolveProductionObjectRequest } from '../data/fcs/production-object-overview.ts'
 import type { ProcessTask } from '../data/fcs/process-tasks'
 import {
   acceptHandoverRecordDiff,
@@ -315,6 +320,48 @@ function renderFieldRow(label: string, value: string, highlight = false): string
       <span class="${highlight ? 'font-medium text-primary' : 'font-medium'}">${escapeHtml(value)}</span>
     </div>
   `
+}
+
+function renderFieldHtmlRow(label: string, valueHtml: string, highlight = false): string {
+  return `
+    <div>
+      <span class="text-muted-foreground">${escapeHtml(label)}：</span>
+      <span class="${highlight ? 'font-medium text-primary' : 'font-medium'}">${valueHtml}</span>
+    </div>
+  `
+}
+
+function renderPdaHandoverObjectCode({
+  objectType,
+  objectId,
+  label,
+  relatedProductionOrderNo,
+}: {
+  objectType: ProductionObjectCodeType
+  objectId?: string | null
+  label?: string | null
+  relatedProductionOrderNo?: string | null
+}): string {
+  const objectCode = (label || objectId || '').trim()
+  const targetId = (objectId || '').trim()
+  if (!targetId || !objectCode) return escapeHtml(objectCode || '-')
+
+  const preferred = resolveProductionObjectRequest({ objectType, objectId: targetId, relatedProductionOrderNo })
+  const resolved = preferred.status === 'READY' || !relatedProductionOrderNo
+    ? preferred
+    : resolveProductionObjectRequest({ objectType, objectId: targetId })
+  // Only render clickable IDs that open a real overview; unresolved PDA refs stay plain text.
+  if (resolved.status !== 'READY') return escapeHtml(objectCode)
+
+  return renderProductionObjectCodeButton({
+    objectType: resolved.indexItem.objectType,
+    objectId: resolved.indexItem.primaryNo,
+    label: objectCode,
+    relatedProductionOrderNo: resolved.indexItem.relatedProductionOrderNo,
+    defaultTab: resolved.clickedRef.defaultTab,
+    highlightKey: resolved.clickedRef.highlightKey,
+    className: 'text-left font-mono text-blue-600 hover:underline',
+  })
 }
 
 function renderCuttingHandoverSummaryPanel(record: PdaHandoverRecord): string {
@@ -1171,11 +1218,23 @@ function renderPickupTraceabilitySection(head: PdaHandoverHead, sourceDoc: Retur
       </summary>
       <div class="space-y-3 border-t px-3 py-3">
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          ${renderFieldRow('原始任务', head.rootTaskNo || head.taskNo)}
-          ${renderFieldRow('来源执行单', sourceDoc?.docNo || '—')}
+          ${renderFieldHtmlRow('原始任务', renderPdaHandoverObjectCode({
+            objectType: 'PROCESS_DOC',
+            objectId: head.rootTaskNo || head.taskNo,
+            relatedProductionOrderNo: head.productionOrderNo,
+          }))}
+          ${sourceDoc?.docNo ? renderFieldHtmlRow('来源执行单', renderPdaHandoverObjectCode({
+            objectType: 'WAREHOUSE_DOC',
+            objectId: sourceDoc.docNo,
+            relatedProductionOrderNo: head.productionOrderNo,
+          })) : renderFieldRow('来源执行单', '—')}
           ${renderFieldRow('来源类型', sourceDoc?.docType === 'ISSUE' ? '仓库发料单' : sourceDoc?.docType ? '其他单据' : '—')}
           ${renderFieldRow('交接范围', head.scopeLabel || '整单')}
-        ${renderFieldRow('关联任务号', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
+        ${renderFieldHtmlRow('关联任务号', renderPdaHandoverObjectCode({
+          objectType: 'PROCESS_DOC',
+          objectId: runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo,
+          relatedProductionOrderNo: head.productionOrderNo,
+        }))}
         </div>
       </div>
     </details>
@@ -1209,8 +1268,15 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
       '领料单',
       `
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        ${renderFieldRow('任务编号', head.taskNo)}
-        ${renderFieldRow('生产单号', head.productionOrderNo)}
+        ${renderFieldHtmlRow('任务编号', renderPdaHandoverObjectCode({
+          objectType: 'PROCESS_DOC',
+          objectId: head.taskNo,
+          relatedProductionOrderNo: head.productionOrderNo,
+        }))}
+        ${renderFieldHtmlRow('生产单号', renderPdaHandoverObjectCode({
+          objectType: 'PRODUCTION_ORDER',
+          objectId: head.productionOrderNo,
+        }))}
         ${renderFieldRow('当前工序', head.processName)}
       </div>
       <div class="h-px bg-border"></div>
@@ -1328,8 +1394,16 @@ function renderHandoutQrBlock(head: PdaHandoverHead, objectTypeLabel: string): s
         label: `交出单 ${head.handoverId} 二维码`,
       })}
       <div class="mt-2 space-y-1 text-[11px] leading-tight text-muted-foreground">
-        <div>交出单号：${escapeHtml(head.handoverOrderNo || head.handoverId)}</div>
-        <div>任务编号：${escapeHtml(head.taskNo)}</div>
+        <div>交出单号：${renderPdaHandoverObjectCode({
+          objectType: 'HANDOVER_ORDER',
+          objectId: head.handoverOrderNo || head.handoverId,
+          relatedProductionOrderNo: head.productionOrderNo,
+        })}</div>
+        <div>任务编号：${renderPdaHandoverObjectCode({
+          objectType: 'PROCESS_DOC',
+          objectId: head.taskNo,
+          relatedProductionOrderNo: head.productionOrderNo,
+        })}</div>
         <div>交出物类型：${escapeHtml(objectTypeLabel)}</div>
       </div>
     </div>
@@ -1748,10 +1822,25 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
       <div class="flex flex-col gap-3 lg:flex-row">
         <div class="min-w-0 flex-1 space-y-2.5">
           <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-            ${renderFieldRow('任务编号', head.taskNo)}
-            ${renderFieldRow('交出单号', head.handoverOrderNo || head.handoverId)}
-            ${renderFieldRow('原始任务', head.rootTaskNo || head.taskNo)}
-            ${renderFieldRow('生产单号', head.productionOrderNo)}
+            ${renderFieldHtmlRow('任务编号', renderPdaHandoverObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: head.taskNo,
+              relatedProductionOrderNo: head.productionOrderNo,
+            }))}
+            ${renderFieldHtmlRow('交出单号', renderPdaHandoverObjectCode({
+              objectType: 'HANDOVER_ORDER',
+              objectId: head.handoverOrderNo || head.handoverId,
+              relatedProductionOrderNo: head.productionOrderNo,
+            }))}
+            ${renderFieldHtmlRow('原始任务', renderPdaHandoverObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: head.rootTaskNo || head.taskNo,
+              relatedProductionOrderNo: head.productionOrderNo,
+            }))}
+            ${renderFieldHtmlRow('生产单号', renderPdaHandoverObjectCode({
+              objectType: 'PRODUCTION_ORDER',
+              objectId: head.productionOrderNo,
+            }))}
             ${renderFieldRow('当前工序', head.processName)}
             ${renderFieldRow('状态', getHandoverOrderStatusLabel(head.handoverOrderStatus || head.status))}
           </div>
@@ -1760,10 +1849,18 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
           ${renderPartyRow('接收方', head.targetKind, getReceiverDisplayName(head))}
           <div class="h-px bg-border"></div>
           <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-            ${renderFieldRow('来源执行单', sourceDoc?.docNo || '—')}
+            ${sourceDoc?.docNo ? renderFieldHtmlRow('来源执行单', renderPdaHandoverObjectCode({
+              objectType: 'WAREHOUSE_DOC',
+              objectId: sourceDoc.docNo,
+              relatedProductionOrderNo: head.productionOrderNo,
+            })) : renderFieldRow('来源执行单', '—')}
             ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType ? '其他单据' : '—')}
             ${renderFieldRow('交接范围', head.scopeLabel || '整单')}
-            ${renderFieldRow('关联任务号', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
+            ${renderFieldHtmlRow('关联任务号', renderPdaHandoverObjectCode({
+              objectType: 'PROCESS_DOC',
+              objectId: runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo,
+              relatedProductionOrderNo: head.productionOrderNo,
+            }))}
           </div>
         </div>
         ${renderHandoutQrBlock(head, profile.objectTypeLabel)}
