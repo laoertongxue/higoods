@@ -61,9 +61,19 @@ const ranged = listStatementEligiblePreSettlementLedgersByRange({
   occurredFrom: firstOpenLedger.occurredAt.slice(0, 10),
   occurredTo: firstOpenLedger.occurredAt.slice(0, 10),
 })
+const targetDate = firstOpenLedger.occurredAt.slice(0, 10)
 
 assert(ranged.some((item) => item.ledgerId === firstOpenLedger.ledgerId))
 assert(ranged.every((item) => item.factoryId === firstOpenLedger.factoryId))
 assert(ranged.every((item) => item.status === 'OPEN'))
+assert(ranged.every((item) => item.occurredAt.slice(0, 10) === targetDate))
+
+const futureRange = listStatementEligiblePreSettlementLedgersByRange({
+  factoryId: firstOpenLedger.factoryId,
+  occurredFrom: '2099-01-01',
+  occurredTo: '2099-01-01',
+})
+
+assert(!futureRange.some((item) => item.ledgerId === firstOpenLedger.ledgerId))
 
 console.log('check:factory-settlement-reconciliation passed')
