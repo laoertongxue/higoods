@@ -40,7 +40,6 @@ const TAB_ITEMS: Array<{ key: OverviewTab; label: string }> = [
   { key: 'overview', label: '总览' },
   { key: 'materials', label: '面辅料与仓储' },
   { key: 'progress', label: '工艺与任务' },
-  { key: 'quantity', label: '数量' },
   { key: 'issues', label: '异常与责任' },
   { key: 'relationship-history', label: '关系与历史' },
 ]
@@ -435,7 +434,7 @@ export function renderOverviewHeader(overview: ProductionObjectOverview): string
   `
 }
 
-function renderClickedObjectSummary(ref: ProductionObjectClickedRef | null, relatedProductionOrderNo?: string | null): string {
+function renderClickedObjectSummary(ref: ProductionObjectClickedRef | null, relatedProductionOrderNo?: string | null, quantityText?: string): string {
   if (!ref) return ''
   return `
     <section
@@ -449,6 +448,7 @@ function renderClickedObjectSummary(ref: ProductionObjectClickedRef | null, rela
         <span class="font-mono text-blue-700">${escapeHtml(ref.objectNo)}</span>
         ${relatedProductionOrderNo ? `<span class="text-muted-foreground">关联生产单：${escapeHtml(relatedProductionOrderNo)}</span>` : ''}
         <span class="text-muted-foreground">来源系统：${escapeHtml(ref.sourceDomain)}</span>
+        ${quantityText ? `<span class="text-muted-foreground">数量：${escapeHtml(quantityText)}</span>` : ''}
         <span class="text-muted-foreground">状态：${escapeHtml(ref.statusText)}</span>
         <span class="text-muted-foreground">单据关系：已关联</span>
       </div>
@@ -1497,7 +1497,7 @@ export function renderProductionObjectOverviewSurface(
       <button class="absolute inset-0 bg-slate-950/30" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭"></button>
       <section class="production-object-overview__panel">
         ${renderOverviewHeader(overview)}
-        ${renderClickedObjectSummary(resolved.clickedRef, resolved.indexItem.relatedProductionOrderNo)}
+        ${renderClickedObjectSummary(resolved.clickedRef, resolved.indexItem.relatedProductionOrderNo, resolved.indexItem.quantityText)}
         ${renderTabs(overview, activeBodyTab, {
           objectType: resolved.clickedRef.objectType,
           objectId: resolved.clickedRef.objectId,
