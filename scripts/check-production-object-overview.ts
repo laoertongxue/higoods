@@ -20,10 +20,15 @@ const requiredFiles = [
   'src/pages/fcs/material-prep/cutting.ts',
   'src/pages/fcs/material-prep/sewing.ts',
   'src/pages/fcs/material-prep/other.ts',
+  'src/pages/fcs/material-prep/shared.ts',
   'src/pages/process-factory/cutting/cut-orders.ts',
+  'src/pages/process-factory/cutting/pickup-management.ts',
   'src/pages/process-factory/cutting/fei-tickets.ts',
   'src/pages/process-factory/printing/work-orders.ts',
   'src/pages/process-factory/dyeing/work-orders.ts',
+  'src/pages/process-factory/post-finishing/qc-orders.ts',
+  'src/pages/pda-exec-detail.ts',
+  'src/pages/pda-handover-detail.ts',
 ]
 
 function source(path: string): string {
@@ -94,6 +99,23 @@ function assertNoDuplicateSearchObjects(panel: string, groups: string[]): void {
 }
 
 assert.ok(Array.isArray(productionObjectSearchIndex), '生产对象搜索索引必须导出数组')
+const requiredUniversalFields = ['sourceDomain', 'defaultTab', 'highlightKey'] as const
+const universalIndexedItems = productionObjectSearchIndex.filter((item) =>
+  ['MATERIAL_PREP_ORDER', 'MATERIAL_PREP_RECORD', 'MATERIAL_PICKUP_RECORD', 'CUT_ORDER', 'PRINT_WORK_ORDER', 'DYE_WORK_ORDER', 'HANDOVER_ORDER', 'QC_ORDER', 'QC_MASTER_ORDER', 'RECHECK_ORDER'].includes(item.objectType),
+)
+assert.ok(universalIndexedItems.length >= 10, '生产对象索引必须覆盖跨系统代表单据')
+assert.ok(
+  universalIndexedItems.every((item) =>
+    requiredUniversalFields.every((field) => field in item) && item.relatedProductionOrderNo,
+  ),
+  '生产对象索引必须覆盖跨系统代表单据',
+)
+for (const item of universalIndexedItems) {
+  for (const field of requiredUniversalFields) {
+    assert.ok(field in item, `${item.primaryNo} 必须带 ${field}`)
+  }
+  assert.ok(item.relatedProductionOrderNo, `${item.primaryNo} 必须能回溯生产单`)
+}
 assert.ok(productionObjectSearchIndex.length >= productionOrders.length, '索引至少覆盖生产单')
 
 const order = productionOrders[0]
@@ -173,6 +195,22 @@ for (const [keyword, objectType, message] of p1SearchCases) {
   assert.ok(getProductionObjectOverview(hit.objectType, hit.id), `${keyword} 搜索结果必须能打开总览`)
 }
 
+const defaultTabCases: Array<[string, string, string]> = [
+  ['MPO-202603-0001', 'materials', '配料单默认打开物料 Tab'],
+  ['PICK-202603-0001', 'materials', '领料记录默认打开物料 Tab'],
+  ['CUT-260306-101-01', 'progress', '裁片单默认打开任务 Tab'],
+  ['PRINT-WO-202603-0001', 'progress', '印花工单默认打开任务 Tab'],
+  ['DYE-WO-202603-0001', 'progress', '染色工单默认打开任务 Tab'],
+  ['HAND-202603-0001', 'quantity', '交接单默认打开数量 Tab'],
+]
+
+for (const [keyword, tab, message] of defaultTabCases) {
+  const hit = searchProductionObjects(keyword)[0]
+  assert.ok(hit, `${keyword} 必须可搜索`)
+  assert.equal(hit.defaultTab, tab, message)
+  assert.ok(hit.highlightKey, `${keyword} 必须带高亮对象 key`)
+}
+
 const realPrepProjection = listMaterialPrepOrderProjections()[0]
 assert.ok(realPrepProjection, '必须存在真实配料单 Mock 数据')
 const realPickupProjection = listMaterialPrepOrderProjections().find((item) => item.pickupRecords.length > 0)
@@ -214,6 +252,23 @@ assert.ok(
   dyeMultiResults.filter((item) => item.objectType === 'DYE_WORK_ORDER').length >= 2,
   '染色加工单关联多生产单时必须展示多条结果',
 )
+
+assert.equal(typeof dataModule.resolveProductionObjectRequest, 'function', '必须导出统一编号解析函数')
+const unresolved = dataModule.resolveProductionObjectRequest({
+  objectType: 'WAREHOUSE_DOC',
+  objectId: 'PICK-NO-PRODUCTION-001',
+})
+assert.equal(unresolved.status, 'UNLINKED', '找不到生产主线时必须返回未关联状态')
+assert.ok(unresolved.message.includes('未找到关联生产单'), '未关联状态必须说明原因')
+
+const multiMatched = dataModule.resolveProductionObjectRequest({
+  objectType: 'MATERIAL',
+  objectId: 'FLSZ260617009',
+})
+assert.ok(['READY', 'MULTIPLE_MATCHES'].includes(multiMatched.status), '物料多生产单场景必须可解析或要求选择')
+if (multiMatched.status === 'MULTIPLE_MATCHES') {
+  assert.ok(multiMatched.candidates.length >= 2, '多匹配状态必须列出候选生产单')
+}
 
 const overview = getProductionObjectOverview('PRODUCTION_ORDER', order.productionOrderNo)
 assert.ok(overview, '生产单必须能打开总览')
@@ -330,6 +385,22 @@ const p1PageEntryExpectations: Array<[string, string, string]> = [
 for (const [page, text, message] of p1PageEntryExpectations) {
   assertIncludes(page, text, message)
 }
+
+for (const [path, expected] of [
+  ['src/pages/fcs/material-prep/shared.ts', 'renderProductionObjectCodeButton'],
+  ['src/pages/process-factory/cutting/cut-orders.ts', 'renderProductionObjectCodeButton'],
+  ['src/pages/process-factory/cutting/pickup-management.ts', 'renderProductionObjectCodeButton'],
+  ['src/pages/process-factory/printing/work-orders.ts', 'renderProductionObjectCodeButton'],
+  ['src/pages/process-factory/dyeing/work-orders.ts', 'renderProductionObjectCodeButton'],
+  ['src/pages/process-factory/post-finishing/qc-orders.ts', 'renderProductionObjectCodeButton'],
+  ['src/pages/pda-exec-detail.ts', 'renderProductionObjectCodeButton'],
+  ['src/pages/pda-handover-detail.ts', 'renderProductionObjectCodeButton'],
+] as const) {
+  assertIncludes(path, expected, `${path} 必须使用统一生产对象编号按钮`)
+}
+assertIncludes('src/components/production-object-overview.ts', "'quantity'", '总览必须有数量 Tab')
+assertIncludes('src/components/production-object-overview.ts', 'renderClickedObjectSummary', '总览必须展示被点击对象摘要')
+
 for (const page of [
   'src/pages/fcs/material-prep/dyeing.ts',
   'src/pages/fcs/material-prep/printing.ts',
@@ -411,6 +482,23 @@ assert.ok(!source('src/components/production-object-overview.ts').includes('top-
 assert.ok(source('src/components/production-object-overview.ts').includes('flex shrink-0 gap-1 overflow-x-auto border-b bg-card px-4'), '总览 Tab 不得被弹层 flex 布局压缩')
 
 const surface = uiModule.renderProductionObjectOverviewSurface(overview.objectType, overview.objectKey)
+const linkedSurface = uiModule.renderProductionObjectOverviewSurface('MATERIAL_PICKUP_RECORD', 'PICK-202603-0001')
+for (const text of ['当前查看', '来源系统', '关联生产单', '数量', '单据关系']) {
+  assert.ok(linkedSurface.includes(text), `跨系统对象总览缺少 ${text}`)
+}
+assert.ok(linkedSurface.includes('data-production-object-highlight-key'), '总览必须保留高亮对象 key')
+
+const unlinkedSurface = uiModule.renderProductionObjectOverviewSurface('WAREHOUSE_DOC', 'PICK-NO-PRODUCTION-001')
+assert.ok(unlinkedSurface.includes('未找到关联生产单'), '未关联对象必须展示明确提示')
+assert.ok(unlinkedSurface.includes('查看来源'), '未关联对象必须保留来源入口')
+
+assert.ok(uiModule.renderProductionObjectFloatingEntry('/pcs/projects').includes('查生产'), 'PCS 页面必须能显示查生产入口')
+assert.ok(uiModule.renderProductionObjectFloatingEntry('/pms/purchase-order').includes('查生产'), 'PMS 页面必须能显示查生产入口')
+assert.ok(uiModule.renderProductionObjectFloatingEntry('/wls/inventory').includes('查生产'), 'WLS 页面必须能显示查生产入口')
+assert.ok(uiModule.renderProductionObjectFloatingEntry('/fcs/craft/post-finishing/qc-orders').includes('查生产'), 'PFOS 页面必须能显示查生产入口')
+assert.ok(uiModule.renderProductionObjectFloatingEntry('/fcs/pda/exec').includes('查生产'), 'PDA 页面必须能显示移动查生产入口')
+assert.equal(uiModule.renderProductionObjectFloatingEntry('/fcs/print/post-finishing-qc').trim(), '', '打印页不显示查生产入口')
+
 const indexKeySurface = uiModule.renderProductionObjectOverviewSurface('PRODUCTION_ORDER', `PRODUCTION_ORDER-${order.productionOrderNo}`)
 assert.ok(indexKeySurface.includes(`data-primary-object-id="${order.productionOrderNo}"`), '总览从搜索索引打开时，物料资源上下文必须保留真实生产单号')
 assert.equal(typeof uiModule.renderMaterialResourceOverviewSurface, 'function', '必须导出物料资源总览渲染函数')
