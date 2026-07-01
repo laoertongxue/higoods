@@ -1285,25 +1285,9 @@ function createStatementDrafts(
       return fields.settlementCycleId === settlementCycleId
     })
     const statementId = `ST-LINK-2026-${String(statementSeq + 1).padStart(4, '0')}`
-    const status = chooseStatementStatus(cycleIndex === -1 ? 0 : cycleIndex)
     const snapshot = buildSettlementSnapshotForFactoryAt(factory, `${cycleEndAt} 23:59:59`)
     const factoryIndex = factories.findIndex((item) => item.id === factory.id)
-    const factoryFeedbackStatus = chooseFactoryFeedbackStatus(status, factoryIndex, cycleIndex === -1 ? 0 : cycleIndex)
     const createdAt = `${cycleEndAt} 18:00:00`
-    const appealRecord =
-      factoryFeedbackStatus === 'FACTORY_APPEALED' || factoryFeedbackStatus === 'PLATFORM_HANDLING' || factoryFeedbackStatus === 'RESOLVED'
-        ? {
-            ...buildStatementAppeal(statementId, cycleIndex === -1 ? 0 : cycleIndex, factoryIndex),
-            factoryId: factory.id,
-            settlementCycleId,
-            status:
-              factoryFeedbackStatus === 'PLATFORM_HANDLING'
-                ? 'PLATFORM_HANDLING'
-                : factoryFeedbackStatus === 'RESOLVED'
-                  ? 'RESOLVED'
-                  : 'SUBMITTED',
-          }
-        : undefined
     const lineItems = lines
       .filter((line) => {
         if (line.item.sourceItemType !== 'QUALITY_DEDUCTION') return true
@@ -1319,6 +1303,25 @@ function createStatementDrafts(
           right.returnInboundBatchNo ?? right.sourceRefLabel ?? '',
         )
       })
+    const hasDeductionLine = lineItems.some((item) => item.sourceItemType === 'QUALITY_DEDUCTION')
+    const status = hasDeductionLine ? 'READY_FOR_PREPAYMENT' : chooseStatementStatus(cycleIndex === -1 ? 0 : cycleIndex)
+    const factoryFeedbackStatus = hasDeductionLine
+      ? 'FACTORY_CONFIRMED'
+      : chooseFactoryFeedbackStatus(status, factoryIndex, cycleIndex === -1 ? 0 : cycleIndex)
+    const appealRecord =
+      factoryFeedbackStatus === 'FACTORY_APPEALED' || factoryFeedbackStatus === 'PLATFORM_HANDLING' || factoryFeedbackStatus === 'RESOLVED'
+        ? {
+            ...buildStatementAppeal(statementId, cycleIndex === -1 ? 0 : cycleIndex, factoryIndex),
+            factoryId: factory.id,
+            settlementCycleId,
+            status:
+              factoryFeedbackStatus === 'PLATFORM_HANDLING'
+                ? 'PLATFORM_HANDLING'
+                : factoryFeedbackStatus === 'RESOLVED'
+                  ? 'RESOLVED'
+                  : 'SUBMITTED',
+          }
+        : undefined
     const keptLines = lines.filter((line) =>
       lineItems.some((item) => item.sourceItemId === line.item.sourceItemId),
     )

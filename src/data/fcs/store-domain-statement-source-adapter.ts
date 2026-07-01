@@ -10,7 +10,7 @@ import {
 import { processTasks } from './process-tasks.ts'
 import { productionOrders } from './production-orders.ts'
 import { listPostFinishingQcOrderEntities } from './post-finishing-domain.ts'
-import { initialStatementDrafts } from './store-domain-settlement-seeds.ts'
+import { canStatementEnterSettlement, initialStatementDrafts } from './store-domain-settlement-seeds.ts'
 import {
   calculateProductionOrderSettlementSummary,
   type ProductionOrderSettlementProjection,
@@ -520,8 +520,10 @@ export function listStatementSourceItems(): StatementSourceItemViewModel[] {
 }
 
 export function listStatementConfirmedDeductionRows(): StatementConfirmedDeductionRow[] {
-  return initialStatementDrafts.flatMap((statement) =>
-    statement.items
+  return initialStatementDrafts
+    .filter((statement) => canStatementEnterSettlement(statement))
+    .flatMap((statement) =>
+      statement.items
       .filter(
         (item) =>
           item.sourceItemType === 'QUALITY_DEDUCTION' ||
@@ -551,7 +553,7 @@ export function listStatementConfirmedDeductionRows(): StatementConfirmedDeducti
           includedPrepaymentBatchId: statement.prepaymentBatchId,
         }
       }),
-  )
+    )
 }
 
 export function listStatementBuildScopes(): StatementBuildScopeViewModel[] {
