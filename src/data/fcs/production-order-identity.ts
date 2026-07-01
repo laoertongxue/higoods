@@ -5,6 +5,7 @@ import {
   type ProductionSaleType,
 } from './production-demands.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import type { ProductionObjectDefaultTab, ProductionObjectType } from './production-object-overview.ts'
 
 export { PRODUCTION_SALE_TYPES, type ProductionSaleType }
 
@@ -24,7 +25,7 @@ export interface ProductionOrderIdentityInput {
   saleType?: ProductionSaleType | string | null
 }
 
-export type ProductionObjectCodeType = 'PRODUCTION_ORDER' | 'DEMAND' | 'MATERIAL' | 'WAREHOUSE_DOC' | 'PROCESS_DOC'
+export type ProductionObjectCodeType = ProductionObjectType
 
 function uniqueNonEmpty(values: Array<string | null | undefined>): string[] {
   return Array.from(new Set(values.map((value) => (value ?? '').trim()).filter(Boolean)))
@@ -61,15 +62,26 @@ export function renderProductionObjectCodeButton({
   objectId,
   label,
   className = 'font-mono text-blue-600 hover:underline',
+  relatedProductionOrderNo,
+  defaultTab,
+  highlightKey,
 }: {
   objectType: ProductionObjectCodeType
   objectId?: string | null
   label?: string | null
   className?: string
+  relatedProductionOrderNo?: string | null
+  defaultTab?: ProductionObjectDefaultTab
+  highlightKey?: string | null
 }): string {
   const displayText = (label || objectId || '-').trim()
   const targetId = (objectId || '').trim()
   if (!targetId || displayText === '-') return escapeHtml(displayText || '-')
+  const contextAttributes = `
+        ${relatedProductionOrderNo ? `data-related-production-order-no="${escapeHtml(relatedProductionOrderNo)}"` : ''}
+        ${defaultTab ? `data-default-tab="${escapeHtml(defaultTab)}"` : ''}
+        ${highlightKey ? `data-highlight-key="${escapeHtml(highlightKey)}"` : ''}
+  `
   if (objectType === 'MATERIAL') {
     return `
       <button
@@ -79,6 +91,7 @@ export function renderProductionObjectCodeButton({
         data-object-type="MATERIAL"
         data-object-id="${escapeHtml(targetId)}"
         data-material-sku="${escapeHtml(targetId)}"
+        ${contextAttributes}
         data-skip-page-rerender="true"
       >${escapeHtml(displayText)}</button>
     `
@@ -90,6 +103,7 @@ export function renderProductionObjectCodeButton({
       data-production-object-action="open"
       data-object-type="${objectType}"
       data-object-id="${escapeHtml(targetId)}"
+      ${contextAttributes}
       data-skip-page-rerender="true"
     >${escapeHtml(displayText)}</button>
   `
