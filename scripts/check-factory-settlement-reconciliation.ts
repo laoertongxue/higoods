@@ -83,51 +83,126 @@ assert(!futureRange.some((item) => item.ledgerId === firstOpenLedger.ledgerId))
 
 const statementId = 'ST-RANGE-CHECK-001'
 const beforeCount = initialStatementDrafts.length
-const createResult = createStatementFromEligibleLedgers({
-  statementId,
-  settlementPartyType: 'FACTORY',
-  settlementPartyId: firstOpenLedger.factoryId,
-  settlementPartyLabel: firstOpenLedger.factoryName,
-  settlementRangeStartAt: firstOpenLedger.occurredAt.slice(0, 10),
-  settlementRangeEndAt: firstOpenLedger.occurredAt.slice(0, 10),
-  settlementObjectMode: 'LEDGER',
-  settlementCurrency: 'IDR',
-  itemSourceIds: [firstOpenLedger.ledgerId],
-  itemBasisIds: [],
-  items: [
-    {
-      sourceItemId: firstOpenLedger.ledgerId,
-      sourceItemType: 'TASK_EARNING',
-      basisId: firstOpenLedger.ledgerId,
-      deductionQty: 0,
-      deductionAmount: 0,
-      currency: 'IDR',
-      productionOrderNo: firstOpenLedger.productionOrderNo,
-      returnInboundQty: firstOpenLedger.qty,
-      earningAmount: firstOpenLedger.settlementAmount,
-      qualityDeductionAmount: 0,
-      netAmount: firstOpenLedger.settlementAmount,
-      occurredAt: firstOpenLedger.occurredAt,
-    },
-  ],
-  productionOrderSettlementSnapshots: [],
-  remark: 'range check',
-  by: '检查脚本',
-  at: '2026-07-01 18:00:00',
-})
+try {
+  const createResult = createStatementFromEligibleLedgers({
+    statementId,
+    settlementPartyType: 'FACTORY',
+    settlementPartyId: firstOpenLedger.factoryId,
+    settlementPartyLabel: firstOpenLedger.factoryName,
+    settlementRangeStartAt: firstOpenLedger.occurredAt.slice(0, 10),
+    settlementRangeEndAt: firstOpenLedger.occurredAt.slice(0, 10),
+    settlementObjectMode: 'LEDGER',
+    settlementCurrency: 'IDR',
+    itemSourceIds: [firstOpenLedger.ledgerId],
+    itemBasisIds: [],
+    items: [
+      {
+        sourceItemId: firstOpenLedger.ledgerId,
+        sourceItemType: 'TASK_EARNING',
+        basisId: firstOpenLedger.ledgerId,
+        deductionQty: 0,
+        deductionAmount: 0,
+        currency: 'IDR',
+        productionOrderNo: firstOpenLedger.productionOrderNo,
+        returnInboundQty: firstOpenLedger.qty,
+        earningAmount: firstOpenLedger.settlementAmount,
+        qualityDeductionAmount: 0,
+        netAmount: firstOpenLedger.settlementAmount,
+        occurredAt: firstOpenLedger.occurredAt,
+      },
+    ],
+    productionOrderSettlementSnapshots: [],
+    remark: 'range check',
+    by: '检查脚本',
+    at: '2026-07-01 18:00:00',
+  })
 
-assert.equal(createResult.ok, true)
-assert.equal(createResult.data?.settlementRangeStartAt, firstOpenLedger.occurredAt.slice(0, 10))
-assert.equal(createResult.data?.settlementObjectMode, 'LEDGER')
-assert.equal(createResult.data?.settlementCurrency, 'IDR')
-assert(
-  findOpenStatementByPartyAndRange(
-    firstOpenLedger.factoryId,
-    firstOpenLedger.occurredAt.slice(0, 10),
-    firstOpenLedger.occurredAt.slice(0, 10),
-    'LEDGER',
-  ),
-)
-initialStatementDrafts.splice(beforeCount)
+  assert.equal(createResult.ok, true)
+  assert.equal(createResult.data?.settlementRangeStartAt, firstOpenLedger.occurredAt.slice(0, 10))
+  assert.equal(createResult.data?.settlementObjectMode, 'LEDGER')
+  assert.equal(createResult.data?.settlementCurrency, 'IDR')
+  assert(
+    findOpenStatementByPartyAndRange(
+      firstOpenLedger.factoryId,
+      firstOpenLedger.occurredAt.slice(0, 10),
+      firstOpenLedger.occurredAt.slice(0, 10),
+      'LEDGER',
+    ),
+  )
+} finally {
+  initialStatementDrafts.splice(beforeCount)
+}
+
+const defaultModeBeforeCount = initialStatementDrafts.length
+try {
+  const firstDefaultModeCreate = createStatementFromEligibleLedgers({
+    statementId: 'ST-RANGE-DEFAULT-MODE-001',
+    settlementPartyType: 'FACTORY',
+    settlementPartyId: firstOpenLedger.factoryId,
+    settlementPartyLabel: firstOpenLedger.factoryName,
+    settlementRangeStartAt: firstOpenLedger.occurredAt.slice(0, 10),
+    settlementRangeEndAt: firstOpenLedger.occurredAt.slice(0, 10),
+    settlementCurrency: 'IDR',
+    itemSourceIds: [firstOpenLedger.ledgerId],
+    itemBasisIds: [],
+    items: [
+      {
+        sourceItemId: firstOpenLedger.ledgerId,
+        sourceItemType: 'TASK_EARNING',
+        basisId: firstOpenLedger.ledgerId,
+        deductionQty: 0,
+        deductionAmount: 0,
+        currency: 'IDR',
+        productionOrderNo: firstOpenLedger.productionOrderNo,
+        returnInboundQty: firstOpenLedger.qty,
+        earningAmount: firstOpenLedger.settlementAmount,
+        qualityDeductionAmount: 0,
+        netAmount: firstOpenLedger.settlementAmount,
+        occurredAt: firstOpenLedger.occurredAt,
+      },
+    ],
+    productionOrderSettlementSnapshots: [],
+    remark: 'range default mode check',
+    by: '检查脚本',
+    at: '2026-07-01 18:05:00',
+  })
+  const secondDefaultModeCreate = createStatementFromEligibleLedgers({
+    statementId: 'ST-RANGE-DEFAULT-MODE-002',
+    settlementPartyType: 'FACTORY',
+    settlementPartyId: firstOpenLedger.factoryId,
+    settlementPartyLabel: firstOpenLedger.factoryName,
+    settlementRangeStartAt: firstOpenLedger.occurredAt.slice(0, 10),
+    settlementRangeEndAt: firstOpenLedger.occurredAt.slice(0, 10),
+    settlementCurrency: 'IDR',
+    itemSourceIds: [firstOpenLedger.ledgerId],
+    itemBasisIds: [],
+    items: [
+      {
+        sourceItemId: firstOpenLedger.ledgerId,
+        sourceItemType: 'TASK_EARNING',
+        basisId: firstOpenLedger.ledgerId,
+        deductionQty: 0,
+        deductionAmount: 0,
+        currency: 'IDR',
+        productionOrderNo: firstOpenLedger.productionOrderNo,
+        returnInboundQty: firstOpenLedger.qty,
+        earningAmount: firstOpenLedger.settlementAmount,
+        qualityDeductionAmount: 0,
+        netAmount: firstOpenLedger.settlementAmount,
+        occurredAt: firstOpenLedger.occurredAt,
+      },
+    ],
+    productionOrderSettlementSnapshots: [],
+    remark: 'range default mode duplicate check',
+    by: '检查脚本',
+    at: '2026-07-01 18:06:00',
+  })
+
+  assert.equal(firstDefaultModeCreate.ok, true)
+  assert.equal(secondDefaultModeCreate.ok, false)
+  assert.equal(initialStatementDrafts.length, defaultModeBeforeCount + 1)
+} finally {
+  initialStatementDrafts.splice(defaultModeBeforeCount)
+}
 
 console.log('check:factory-settlement-reconciliation passed')

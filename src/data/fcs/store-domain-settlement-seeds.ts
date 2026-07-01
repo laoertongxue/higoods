@@ -1236,13 +1236,14 @@ export function createStatementFromEligibleLedgers(input: {
   by: string
   at?: string
 }): { ok: boolean; message?: string; existingStatementId?: string; data?: StatementDraft } {
+  const settlementObjectMode = input.settlementObjectMode ?? 'LEDGER'
   const existed =
-    input.settlementRangeStartAt && input.settlementRangeEndAt && input.settlementObjectMode
+    input.settlementRangeStartAt && input.settlementRangeEndAt
       ? findOpenStatementByPartyAndRange(
           input.settlementPartyId,
           input.settlementRangeStartAt,
           input.settlementRangeEndAt,
-          input.settlementObjectMode,
+          settlementObjectMode,
         )
       : input.settlementCycleId
         ? findOpenStatementByPartyAndCycle(input.settlementPartyId, input.settlementCycleId)
@@ -1283,7 +1284,7 @@ export function createStatementFromEligibleLedgers(input: {
     settlementCycleEndAt: input.settlementCycleEndAt,
     settlementRangeStartAt: input.settlementRangeStartAt,
     settlementRangeEndAt: input.settlementRangeEndAt,
-    settlementObjectMode: input.settlementObjectMode ?? 'LEDGER',
+    settlementObjectMode,
     productionOrderSettlementSnapshots: input.productionOrderSettlementSnapshots ?? [],
     plannedPrepaymentAt: input.plannedPrepaymentAt,
     factoryFeedbackStatus: 'NOT_SENT',
