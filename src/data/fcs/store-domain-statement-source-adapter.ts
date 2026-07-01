@@ -28,6 +28,7 @@ import type {
   StatementDraftItem,
   StatementProxyConfirmationMethod,
   StatementProxyNotificationStatus,
+  StatementResolutionResult,
   StatementSettlementObjectMode,
   StatementSourceItemType,
   StatementStatus,
@@ -118,6 +119,7 @@ export interface StatementListItemViewModel {
   currency: string
   status: StatementStatus
   factoryFeedbackStatus: FactoryFeedbackStatus
+  resolutionResult?: StatementResolutionResult
   confirmationSource?: StatementConfirmationSource
   proxyConfirmedAt?: string
   proxyConfirmedBy?: string
@@ -791,6 +793,7 @@ export function getStatementListItems(): StatementListItemViewModel[] {
         currency: draft.settlementCurrency ?? draft.settlementProfileSnapshot.settlementConfigSnapshot.currency,
         status: draft.status,
         factoryFeedbackStatus: draft.factoryFeedbackStatus,
+        resolutionResult: draft.resolutionResult,
         confirmationSource: draft.confirmationSource,
         proxyConfirmedAt: draft.proxyConfirmedAt,
         proxyConfirmedBy: draft.proxyConfirmedBy,

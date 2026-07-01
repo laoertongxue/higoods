@@ -27,6 +27,7 @@ import {
   getOpenStatementAppeal,
   getProxyConfirmationMethodLabel,
   getProxyNotificationStatusLabel,
+  canStatementEnterPrepayment,
   getStatementSettlementProgressView,
   getStatementConfirmationSourceLabel,
   getStatementDraftById,
@@ -100,6 +101,7 @@ interface StatementOverviewCounts {
   draft: number
   pendingFactory: number
   readyForPrepayment: number
+  financePending: number
   inPrepaymentBatch: number
   prepaid: number
   closed: number
@@ -110,7 +112,7 @@ const STATUS_ZH: Record<StatementStatus, string> = {
   DRAFT: '草稿',
   PENDING_FACTORY_CONFIRM: '待工厂反馈',
   FACTORY_CONFIRMED: '工厂已确认',
-  READY_FOR_PREPAYMENT: '待入预付款',
+  READY_FOR_PREPAYMENT: '确认后处理',
   IN_PREPAYMENT_BATCH: '已入预付款批次',
   PREPAID: '已预付',
   CLOSED: '已关闭',
@@ -142,6 +144,32 @@ const FACTORY_FEEDBACK_BADGE: Record<FactoryFeedbackStatus, string> = {
   FACTORY_APPEALED: 'border border-red-200 bg-red-50 text-red-700',
   PLATFORM_HANDLING: 'border border-blue-200 bg-blue-50 text-blue-700',
   RESOLVED: 'border border-slate-200 bg-slate-50 text-slate-700',
+}
+
+type StatementPrepaymentDisplaySource = Pick<
+  StatementDraft,
+  'status' | 'factoryFeedbackStatus' | 'resolutionResult'
+> &
+  Partial<Pick<StatementDraft, 'netPayableAmount' | 'totalAmount'>>
+
+function isStatementReadyForPrepaymentDisplay(statement: StatementPrepaymentDisplaySource): boolean {
+  return canStatementEnterPrepayment(statement)
+}
+
+function isStatementFinancePendingDisplay(statement: StatementPrepaymentDisplaySource): boolean {
+  return statement.status === 'READY_FOR_PREPAYMENT' && !isStatementReadyForPrepaymentDisplay(statement)
+}
+
+function getStatementDisplayStatusLabel(statement: StatementPrepaymentDisplaySource): string {
+  if (isStatementReadyForPrepaymentDisplay(statement)) return '待入预付款'
+  if (isStatementFinancePendingDisplay(statement)) return '财务待处理'
+  return STATUS_ZH[statement.status]
+}
+
+function getStatementDisplayStatusBadgeClass(statement: StatementPrepaymentDisplaySource): string {
+  if (isStatementReadyForPrepaymentDisplay(statement)) return STATUS_BADGE_CLASS.READY_FOR_PREPAYMENT
+  if (isStatementFinancePendingDisplay(statement)) return 'border border-amber-200 bg-amber-50 text-amber-700'
+  return STATUS_BADGE_CLASS[statement.status]
 }
 
 const PRICE_SOURCE_LABEL: Record<string, string> = {
@@ -377,7 +405,8 @@ function getStatementOverviewCounts(
     total: listItems.length,
     draft: listItems.filter((item) => item.status === 'DRAFT').length,
     pendingFactory: listItems.filter((item) => item.status === 'PENDING_FACTORY_CONFIRM').length,
-    readyForPrepayment: listItems.filter((item) => item.status === 'READY_FOR_PREPAYMENT').length,
+    readyForPrepayment: listItems.filter((item) => isStatementReadyForPrepaymentDisplay(item)).length,
+    financePending: listItems.filter((item) => isStatementFinancePendingDisplay(item)).length,
     inPrepaymentBatch: listItems.filter((item) => item.status === 'IN_PREPAYMENT_BATCH').length,
     prepaid: listItems.filter((item) => item.status === 'PREPAID').length,
     closed: listItems.filter((item) => item.status === 'CLOSED').length,
@@ -836,6 +865,15 @@ function renderStatementListRows(items: StatementListItemViewModel[]): string {
       const draft = getStatementDraftById(item.statementId)
       const canProxyConfirm = draft ? canProxyConfirmStatement(draft) : false
       const proxyConfirmed = draft ? isStatementProxyConfirmed(draft) : item.confirmationSource === 'MERCHANDISER_PROXY_CONFIRMATION'
+      const statusLabel = getStatementDisplayStatusLabel(item)
+      const statusBadgeClass = getStatementDisplayStatusBadgeClass(item)
+      const prepaymentReadyText = isStatementFinancePendingDisplay(item)
+        ? '待财务处理'
+        : item.prepaymentBatchNo
+          ? `${item.prepaymentBatchNo} · ${item.prepaymentBatchStatus === 'CLOSED' ? '已关闭' : item.prepaymentBatchStatus === 'PREPAID' ? '已预付' : '批次处理中'}`
+          : isStatementReadyForPrepaymentDisplay(item)
+            ? '已准备'
+            : '未准备'
 
       return `
         <tr class="border-b last:border-b-0">
@@ -847,7 +885,7 @@ function renderStatementListRows(items: StatementListItemViewModel[]): string {
           </td>
           <td class="px-4 py-3 text-xs">${escapeHtml(item.currency)}</td>
           <td class="px-4 py-3">
-            <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[item.status]}">${STATUS_ZH[item.status]}</span>
+            <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${statusBadgeClass}">${escapeHtml(statusLabel)}</span>
           </td>
           <td class="px-4 py-3">
             <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${getFactoryFeedbackStatusBadge(item.factoryFeedbackStatus)}">${escapeHtml(
@@ -863,7 +901,7 @@ function renderStatementListRows(items: StatementListItemViewModel[]): string {
           <td class="px-4 py-3 text-xs">${escapeHtml(item.createdAt)}</td>
           <td class="px-4 py-3 text-xs">${escapeHtml(item.settlementProfileVersionNo)}</td>
           <td class="px-4 py-3 text-xs">${escapeHtml(item.maskedAccountTail)}</td>
-          <td class="px-4 py-3 text-xs text-muted-foreground">${item.prepaymentBatchNo ? `${item.prepaymentBatchNo} · ${item.prepaymentBatchStatus === 'CLOSED' ? '已关闭' : item.prepaymentBatchStatus === 'PREPAID' ? '已预付' : '批次处理中'}` : item.readyForPrepaymentAt ? '已准备' : '未准备'}</td>
+          <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(prepaymentReadyText)}</td>
           <td class="px-4 py-3 text-xs text-muted-foreground">${item.hasFactoryAppeal ? '有申诉' : '无申诉'}</td>
           <td class="px-4 py-3">
             <div class="flex flex-wrap items-center gap-1">
@@ -1174,6 +1212,32 @@ function renderStatementLedgerSectionRows(
   `
 }
 
+function renderStatementLifecycleHint(
+  draft: StatementDraft,
+  progressView: ReturnType<typeof getStatementSettlementProgressView>,
+): string {
+  if (draft.status === 'READY_FOR_PREPAYMENT') {
+    const message = progressView.canEnterSettlement
+      ? '当前已完成正式流水汇总并等待进入后续预付款批次。'
+      : progressView.detail
+    return `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">${escapeHtml(message)}</span>`
+  }
+
+  if (draft.status === 'IN_PREPAYMENT_BATCH') {
+    return '<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前单据已进入预付款批次，可从后续预付款执行页继续跟进。</span>'
+  }
+
+  if (draft.status === 'PREPAID') {
+    return '<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前单据已完成预付款，保留后续回写与历史查看。</span>'
+  }
+
+  if (draft.status === 'CLOSED') {
+    return '<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前已关闭，仅保留口径和历史查看。</span>'
+  }
+
+  return ''
+}
+
 function renderDetailDialog(detail: StatementDetailViewModel | null): string {
   if (!detail) return ''
   const appealRecords = getStatementAppealRecords(detail.draft).slice().reverse()
@@ -1181,6 +1245,8 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
   const latestAppeal = getLatestStatementAppeal(detail.draft)
   const progressView = getStatementSettlementProgressView(detail.draft)
   const confirmationSourceLabel = getStatementConfirmationSourceLabel(detail.draft)
+  const statusLabel = getStatementDisplayStatusLabel(detail.draft)
+  const statusBadgeClass = getStatementDisplayStatusBadgeClass(detail.draft)
   const showAppealProcessing =
     state.processingAppealStatementId === detail.draft.statementId && openAppeal
 
@@ -1205,7 +1271,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">工厂</dt><dd class="text-right text-xs">${escapeHtml(detail.settlementPartyLabel)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">结算周期</dt><dd class="text-right text-xs">${escapeHtml(detail.draft.settlementCycleLabel ?? '-')}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">计划预付款日</dt><dd class="text-xs">${escapeHtml(detail.draft.plannedPrepaymentAt ?? '-')}</dd></div>
-              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">对账单状态</dt><dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[detail.draft.status]}">${STATUS_ZH[detail.draft.status]}</span></dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">对账单状态</dt><dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${statusBadgeClass}">${escapeHtml(statusLabel)}</span></dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">确认来源</dt><dd class="text-xs ${isStatementProxyConfirmed(detail.draft) ? 'font-medium text-blue-700' : ''}">${escapeHtml(confirmationSourceLabel)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">创建时间</dt><dd class="text-xs">${escapeHtml(detail.draft.createdAt)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">创建人</dt><dd class="text-xs">${escapeHtml(detail.draft.createdBy)}</dd></div>
@@ -1401,26 +1467,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
                   `
                   : ''
               }
-              ${
-                detail.draft.status === 'READY_FOR_PREPAYMENT'
-                  ? `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前已完成正式流水汇总并等待进入后续预付款批次。</span>`
-                  : ''
-              }
-              ${
-                detail.draft.status === 'IN_PREPAYMENT_BATCH'
-                  ? `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前单据已进入预付款批次，可从后续预付款执行页继续跟进。</span>`
-                  : ''
-              }
-              ${
-                detail.draft.status === 'PREPAID'
-                  ? `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前单据已完成预付款，保留后续回写与历史查看。</span>`
-                  : ''
-              }
-              ${
-                detail.draft.status === 'CLOSED'
-                  ? `<span class="inline-flex h-8 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">当前已关闭，仅保留口径和历史查看。</span>`
-                  : ''
-              }
+              ${renderStatementLifecycleHint(detail.draft, progressView)}
             </div>
           </section>
 
@@ -1448,7 +1495,7 @@ function renderProxyConfirmationDialog(): string {
         <header>
           <h3 class="text-base font-semibold">跟单审核代确认</h3>
           <p class="mt-1 text-xs leading-5 text-muted-foreground">
-            该操作会使对账单进入待入预付款，但会记录为“跟单审核代确认”，三方工厂端也会看到该确认来源。
+            该操作会使对账单进入确认后处理；正向净额单可进入预付款，净额非正向单由财务继续处理。系统会记录“跟单审核代确认”，三方工厂端也会看到该确认来源。
           </p>
         </header>
 
@@ -1519,7 +1566,8 @@ function renderListView(
     { label: '对账单', value: counts.total, tone: 'text-foreground' },
     { label: '草稿中', value: counts.draft, tone: 'text-amber-600' },
     { label: '待工厂反馈', value: counts.pendingFactory, tone: 'text-blue-600' },
-    { label: '待入预付款', value: counts.readyForPrepayment, tone: 'text-emerald-600' },
+    { label: '可入预付款', value: counts.readyForPrepayment, tone: 'text-emerald-600' },
+    { label: '财务待处理', value: counts.financePending, tone: 'text-amber-600' },
     { label: '已入预付款批次', value: counts.inPrepaymentBatch, tone: 'text-indigo-600' },
     { label: '已预付', value: counts.prepaid, tone: 'text-slate-700' },
     { label: '已关闭', value: counts.closed, tone: 'text-muted-foreground' },
@@ -1569,7 +1617,7 @@ function renderListView(
             <option value="PENDING_FACTORY_CONFIRM" ${state.filterStatus === 'PENDING_FACTORY_CONFIRM' ? 'selected' : ''}>待工厂反馈</option>
             <option value="__FACTORY_SELF_CONFIRMED__" ${state.filterStatus === '__FACTORY_SELF_CONFIRMED__' ? 'selected' : ''}>工厂已确认（工厂自己确认）</option>
             <option value="__MERCHANDISER_PROXY_CONFIRMED__" ${state.filterStatus === '__MERCHANDISER_PROXY_CONFIRMED__' ? 'selected' : ''}>工厂已确认（跟单代确认）</option>
-            <option value="READY_FOR_PREPAYMENT" ${state.filterStatus === 'READY_FOR_PREPAYMENT' ? 'selected' : ''}>待入预付款</option>
+            <option value="READY_FOR_PREPAYMENT" ${state.filterStatus === 'READY_FOR_PREPAYMENT' ? 'selected' : ''}>确认后处理</option>
             <option value="IN_PREPAYMENT_BATCH" ${state.filterStatus === 'IN_PREPAYMENT_BATCH' ? 'selected' : ''}>已入预付款批次</option>
             <option value="PREPAID" ${state.filterStatus === 'PREPAID' ? 'selected' : ''}>已预付</option>
             <option value="CLOSED" ${state.filterStatus === 'CLOSED' ? 'selected' : ''}>已关闭</option>

@@ -36,5 +36,16 @@ assert(!source.includes('当前工厂和结算周期暂无可'))
 assert(source.includes('开始日期不能晚于结束日期'))
 assert(source.includes('存在多个币种'))
 assert(!source.includes('settlementCurrency: state.buildCurrency'))
+assert(source.includes('canStatementEnterPrepayment'), '对账单页待入预付款展示必须使用正向可入池谓词')
+assert(!source.includes("READY_FOR_PREPAYMENT: '待入预付款'"), 'READY_FOR_PREPAYMENT 不应固定显示为待入预付款')
+assert(
+  !source.includes("readyForPrepayment: listItems.filter((item) => item.status === 'READY_FOR_PREPAYMENT').length"),
+  '概览待入预付款统计不应只按 raw status 计数',
+)
+assert(
+  !source.includes("detail.draft.status === 'READY_FOR_PREPAYMENT'"),
+  '详情生命周期提示不应只按 raw status 展示等待进入预付款',
+)
+assert(source.includes('财务待处理'), '净额非正向确认单应在对账单页展示财务待处理口径')
 
 console.log('check:factory-settlement-statements passed')
