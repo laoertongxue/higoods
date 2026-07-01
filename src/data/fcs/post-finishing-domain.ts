@@ -1177,29 +1177,25 @@ function normalizeQcSkuResults(input: {
     const qualifiedQty = Math.max(Number(result?.qualifiedQty ?? inspectedQty - unqualifiedQty) || 0, 0)
     const platformReasonQty = Math.max(Number(result?.platformReasonQty ?? 0) || 0, 0)
     const factoryReasonQty = Math.max(Number(result?.factoryReasonQty ?? Math.max(unqualifiedQty - platformReasonQty, 0)) || 0, 0)
-    const reworkReceiveFactoryId = result?.reworkReceiveFactoryId || (reworkQty > 0 ? input.sourceFactoryId : undefined)
-    const reworkReceiveFactoryName = result?.reworkReceiveFactoryName || (reworkQty > 0 ? input.sourceFactoryName : undefined)
+    const reworkReceiveFactoryId = result?.reworkReceiveFactoryId ?? (reworkQty > 0 ? input.sourceFactoryId : undefined)
+    const reworkReceiveFactoryName = result?.reworkReceiveFactoryName ?? (reworkQty > 0 ? input.sourceFactoryName : undefined)
     const existingSourceChargeback = result?.sourceChargeback
     const reworkDeductionUnitAmountIdr = Math.max(Number(result?.reworkDeductionUnitAmountIdr ?? existingSourceChargeback?.unitAmount ?? 0) || 0, 0)
-    const calculatedReworkDeductionAmountIdr = reworkQty > 0
+    const shouldCreateSourceChargeback = reworkQty > 0
       && reworkDeductionUnitAmountIdr > 0
       && (reworkReceiveFactoryId !== input.sourceFactoryId || reworkReceiveFactoryName !== input.sourceFactoryName)
+    const calculatedReworkDeductionAmountIdr = shouldCreateSourceChargeback
       ? Math.round(reworkQty * reworkDeductionUnitAmountIdr)
       : 0
-    const reworkDeductionAmountIdr = Math.max(Number(result?.reworkDeductionAmountIdr ?? existingSourceChargeback?.amount ?? calculatedReworkDeductionAmountIdr) || 0, 0)
-    const sourceChargeback = existingSourceChargeback
+    const reworkDeductionAmountIdr = shouldCreateSourceChargeback
+      ? Math.max(Number(result?.reworkDeductionAmountIdr ?? existingSourceChargeback?.amount ?? calculatedReworkDeductionAmountIdr) || 0, 0)
+      : 0
+    const sourceChargeback = reworkDeductionAmountIdr > 0
       ? {
-          currency: existingSourceChargeback.currency,
-          unitAmount: existingSourceChargeback.unitAmount || reworkDeductionUnitAmountIdr,
-          amount: existingSourceChargeback.amount || reworkDeductionAmountIdr,
-          reason: existingSourceChargeback.reason,
-        }
-      : reworkDeductionAmountIdr > 0
-      ? {
-          currency: 'IDR' as const,
+          currency: existingSourceChargeback?.currency ?? ('IDR' as const),
           unitAmount: reworkDeductionUnitAmountIdr,
           amount: reworkDeductionAmountIdr,
-          reason: '后道工厂接收返工' as const,
+          reason: existingSourceChargeback?.reason ?? ('后道工厂接收返工' as const),
         }
       : undefined
     const postProjectJudgements = normalizePostProjectJudgements(result?.postProjectJudgements?.length

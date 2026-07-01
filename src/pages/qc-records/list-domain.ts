@@ -48,6 +48,7 @@ const QC_RECONCILIATION_STATUS_LABEL: Record<QcRow['settlementImpactStatus'], st
   ELIGIBLE: '对账待确认',
   INCLUDED_IN_STATEMENT: '对账单待确认',
   SETTLED: '以对账单为准',
+  NEXT_CYCLE_ADJUSTMENT_PENDING: '以对账单为准',
 }
 
 // ============ 常量映射 ============

@@ -39,7 +39,6 @@ import {
   getQcChainFactByRouteKey,
 } from '../../data/fcs/quality-chain-adapter'
 import {
-  buildQualityDeductionConfirmationPrintLink,
   buildQualityDisputeProcessingPrintLink,
 } from '../../data/fcs/fcs-route-links'
 import {
@@ -442,6 +441,22 @@ function getSettlementBadgeClass(status: string): string {
   }
 }
 
+function getQcRecordFinanceBoundaryLabel(status: string): string {
+  switch (status) {
+    case 'NO_IMPACT':
+      return '仅质检事实'
+    case 'BLOCKED':
+      return '对账待确认'
+    case 'ELIGIBLE':
+    case 'INCLUDED_IN_STATEMENT':
+    case 'SETTLED':
+    case 'NEXT_CYCLE_ADJUSTMENT_PENDING':
+      return '以对账单为准'
+    default:
+      return '来源事实已记录'
+  }
+}
+
 function getLiabilityBadgeClass(status: string): string {
   switch (status) {
     case 'FACTORY':
@@ -606,7 +621,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
                     ? renderBadge(detailVm.disputeStatusLabel, getDisputeBadgeClass(disputeCase.status))
                     : ''
                 }
-                ${renderBadge(detailVm.settlementImpactStatusLabel, getSettlementBadgeClass(settlementImpact.status))}
+                ${renderBadge(getQcRecordFinanceBoundaryLabel(settlementImpact.status), getSettlementBadgeClass(settlementImpact.status))}
               </div>
               <p class="mt-2 text-sm text-muted-foreground">
                 ${escapeHtml(detailVm.sourceTypeLabel)}
@@ -625,11 +640,6 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
             </div>
           </div>
           <div class="flex flex-wrap gap-3">
-            ${
-              detailVm.pendingDeductionRecord
-                ? `<button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(buildQualityDeductionConfirmationPrintLink(detailVm.pendingDeductionRecord.pendingRecordId))}">打印质量扣款确认单</button>`
-                : ''
-            }
             ${
               disputeCase
                 ? `<button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(buildQualityDisputeProcessingPrintLink(disputeCase.disputeId))}">打印质量异议处理单</button>`
