@@ -43,6 +43,7 @@ import {
 import {
   listPostFinishingQcOrderEntities,
   listPostFinishingRecheckOrderEntities,
+  listPostFinishingTasks,
 } from './post-finishing-domain.ts'
 
 export type ProductionObjectType =
@@ -1066,6 +1067,12 @@ function makeHighlightKey(objectType: ProductionObjectType, objectNo: string): s
   return `${objectType}:${objectNo}`
 }
 
+function matchesRequestObject(item: ProductionObjectSearchIndex, objectType: ProductionObjectType, objectId: string): boolean {
+  if (item.objectType !== objectType) return false
+  if (item.id === objectId || item.primaryNo === objectId) return true
+  return item.objectType === 'QC_MASTER_ORDER' && item.secondaryNo === objectId
+}
+
 export function resolveProductionObjectRequest({
   objectType,
   objectId,
@@ -1075,20 +1082,28 @@ export function resolveProductionObjectRequest({
   objectId: string
   relatedProductionOrderNo?: string | null
 }): ProductionObjectRequestResult {
-  const exactMatches = productionObjectSearchIndex.filter((item) =>
-    item.objectType === objectType && (item.id === objectId || item.primaryNo === objectId),
-  )
+  const exactMatches = productionObjectSearchIndex.filter((item) => matchesRequestObject(item, objectType, objectId))
   const contextMatches = relatedProductionOrderNo
     ? exactMatches.filter((item) => item.relatedProductionOrderNo === relatedProductionOrderNo)
     : exactMatches
-  const matches = contextMatches.length > 0 ? contextMatches : exactMatches
 
-  if (matches.length > 1 && !relatedProductionOrderNo) {
-    const productionOrders = Array.from(new Set(matches.map((item) => item.relatedProductionOrderNo).filter(Boolean)))
-    if (productionOrders.length > 1) return { status: 'MULTIPLE_MATCHES', request: { objectType, objectId }, candidates: matches }
+  if (relatedProductionOrderNo && contextMatches.length === 0) {
+    return {
+      status: 'UNLINKED',
+      request: { objectType, objectId },
+      displayTitle: objectId,
+      sourceDomain: exactMatches[0]?.sourceDomain || 'FCS',
+      message: `未找到关联生产单：${objectId}`,
+      routePath: exactMatches[0]?.routePath,
+    }
   }
 
-  const indexItem = matches[0] || findIndexItem(objectId)
+  if (exactMatches.length > 1 && !relatedProductionOrderNo) {
+    const productionOrders = Array.from(new Set(exactMatches.map((item) => item.relatedProductionOrderNo).filter(Boolean)))
+    if (productionOrders.length > 1) return { status: 'MULTIPLE_MATCHES', request: { objectType, objectId }, candidates: exactMatches }
+  }
+
+  const indexItem = contextMatches[0] || exactMatches[0]
   if (!indexItem || !indexItem.relatedProductionOrderNo) {
     return {
       status: 'UNLINKED',
@@ -2803,15 +2818,14 @@ function buildP1DocumentIndexes(): ProductionObjectSearchIndex[] {
 function buildPostFinishingQcIndexes(): ProductionObjectSearchIndex[] {
   const qcOrders = listPostFinishingQcOrderEntities()
   const recheckOrders = listPostFinishingRecheckOrderEntities()
-  const qcOrdersByProductionOrder = new Map<string, typeof qcOrders>()
+  const qcOrdersByPostTask = new Map<string, typeof qcOrders>()
   const rows: ProductionObjectSearchIndex[] = []
 
   for (const qcOrder of qcOrders) {
     const order = findOrderByNo(qcOrder.productionOrderNo)
-    qcOrdersByProductionOrder.set(qcOrder.productionOrderNo, [
-      ...(qcOrdersByProductionOrder.get(qcOrder.productionOrderNo) || []),
-      qcOrder,
-    ])
+    for (const key of unique([qcOrder.postTaskId, qcOrder.postTaskNo])) {
+      qcOrdersByPostTask.set(key, [...(qcOrdersByPostTask.get(key) || []), qcOrder])
+    }
     rows.push({
       id: `QC_ORDER-${qcOrder.qcOrderNo}`,
       objectType: 'QC_ORDER',
@@ -2877,32 +2891,38 @@ function buildPostFinishingQcIndexes(): ProductionObjectSearchIndex[] {
     })
   }
 
-  for (const [productionOrderNo, items] of qcOrdersByProductionOrder) {
-    const order = findOrderByNo(productionOrderNo)
-    const masterNo = `QC-MASTER-${productionOrderNo}`
+  for (const task of listPostFinishingTasks()) {
+    const items = qcOrdersByPostTask.get(task.postTaskId) || qcOrdersByPostTask.get(task.postTaskNo) || []
+    if (items.length === 0) continue
+    const order = findOrderByNo(task.productionOrderNo)
     const updatedAts = items.map((item) => item.updatedAt).sort()
     rows.push({
-      id: `QC_MASTER_ORDER-${masterNo}`,
+      id: `QC_MASTER_ORDER-${task.postTaskId}`,
       objectType: 'QC_MASTER_ORDER',
-      primaryNo: masterNo,
-      secondaryNo: productionOrderNo,
+      primaryNo: task.postTaskNo,
+      secondaryNo: task.postTaskId,
       displayTitle: '后道质检总单',
       keywords: unique([
-        masterNo,
-        productionOrderNo,
+        task.postTaskId,
+        task.postTaskNo,
+        task.productionOrderNo,
         order?.demandId,
+        task.styleNo,
+        task.styleName,
+        task.spuCode,
+        task.spuName,
         ...items.flatMap((item) => [item.qcOrderNo, item.qcOrderId, item.postTaskId, item.postTaskNo]),
       ]),
-      relatedProductionOrderNo: productionOrderNo,
+      relatedProductionOrderNo: task.productionOrderNo,
       relatedDemandNo: order?.demandId,
-      statusText: items.some((item) => item.qcStatus !== '质检完成') ? '存在待质检' : '质检完成',
+      statusText: task.currentStatus,
       ownerRole: '工厂',
       sourceDomain: 'PFOS',
       docGroup: '仓库',
-      routePath: `/fcs/craft/post-finishing/qc-orders?productionOrderNo=${encodeURIComponent(productionOrderNo)}`,
+      routePath: `/fcs/craft/post-finishing/qc-orders?postTaskId=${encodeURIComponent(task.postTaskId)}`,
       quantityText: `${sumNumbers(items.map((item) => item.inspectedGarmentQty)).toLocaleString('zh-CN')} 件`,
       defaultTab: getDefaultTabForObjectType('QC_MASTER_ORDER'),
-      highlightKey: makeHighlightKey('QC_MASTER_ORDER', masterNo),
+      highlightKey: makeHighlightKey('QC_MASTER_ORDER', task.postTaskNo),
       updatedAt: updatedAts[updatedAts.length - 1],
     })
   }
