@@ -167,6 +167,17 @@ export interface PreSettlementLedger {
   remark?: string
 }
 
+export interface PreSettlementLedgerQueryOptions {
+  factoryId?: string
+  settlementCycleId?: string
+  occurredFrom?: string
+  occurredTo?: string
+  productionOrderNo?: string
+  ledgerType?: PreSettlementLedger['ledgerType'] | '__ALL__'
+  status?: PreSettlementLedgerStatus | '__ALL__'
+  keyword?: string
+}
+
 export interface StatementAdjustment extends PayableAdjustment {
   statementId?: string
 }

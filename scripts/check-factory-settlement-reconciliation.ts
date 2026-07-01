@@ -6,6 +6,10 @@ import {
   calculateProductionOrderSettlementSummary,
   isSewingFactoryLiabilityReason,
 } from '../src/data/fcs/factory-settlement-reconciliation.ts'
+import {
+  listPreSettlementLedgers,
+  listStatementEligiblePreSettlementLedgersByRange,
+} from '../src/data/fcs/pre-settlement-ledger-repository.ts'
 
 const summary = calculateProductionOrderSettlementSummary({
   cuttingCompletedQty: 100,
@@ -47,5 +51,19 @@ const incomplete = calculateProductionOrderSettlementSummary({
 assert.equal(incomplete.settlementHandoverQty, 90)
 assert.equal(incomplete.isComplete, false)
 assert.equal(incomplete.shortageQty, 30)
+
+const allLedgers = listPreSettlementLedgers()
+const firstOpenLedger = allLedgers.find((item) => item.status === 'OPEN')
+assert(firstOpenLedger, '需要至少一条 OPEN 预结算流水作为时间段检查样例')
+
+const ranged = listStatementEligiblePreSettlementLedgersByRange({
+  factoryId: firstOpenLedger.factoryId,
+  occurredFrom: firstOpenLedger.occurredAt.slice(0, 10),
+  occurredTo: firstOpenLedger.occurredAt.slice(0, 10),
+})
+
+assert(ranged.some((item) => item.ledgerId === firstOpenLedger.ledgerId))
+assert(ranged.every((item) => item.factoryId === firstOpenLedger.factoryId))
+assert(ranged.every((item) => item.status === 'OPEN'))
 
 console.log('check:factory-settlement-reconciliation passed')

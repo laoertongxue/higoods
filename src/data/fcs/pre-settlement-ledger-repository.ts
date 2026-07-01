@@ -25,6 +25,7 @@ import type {
 } from './quality-deduction-domain.ts'
 import type {
   PreSettlementLedger,
+  PreSettlementLedgerQueryOptions,
   PreSettlementLedgerPriceSourceType,
   PreSettlementLedgerStatus,
   StatementDraft,
@@ -56,6 +57,19 @@ function normalizeFactoryId(factoryId: string): string {
 function isSameFactory(left?: string, right?: string): boolean {
   if (!left || !right) return false
   return normalizeFactoryId(left) === normalizeFactoryId(right)
+}
+
+function normalizeDateOnly(value?: string): string {
+  return value ? value.slice(0, 10) : ''
+}
+
+function isLedgerInOccurredRange(ledger: PreSettlementLedger, occurredFrom?: string, occurredTo?: string): boolean {
+  const occurred = normalizeDateOnly(ledger.occurredAt)
+  const from = normalizeDateOnly(occurredFrom)
+  const to = normalizeDateOnly(occurredTo)
+  if (from && occurred < from) return false
+  if (to && occurred > to) return false
+  return true
 }
 
 function getMockFxRate(originalCurrency: string, settlementCurrency: string): number {
@@ -228,14 +242,17 @@ function sortLedgers(items: PreSettlementLedger[]): PreSettlementLedger[] {
   })
 }
 
-export function listPreSettlementLedgers(options: {
-  factoryId?: string
-  settlementCycleId?: string
-  ledgerType?: PreSettlementLedger['ledgerType'] | '__ALL__'
-  status?: PreSettlementLedgerStatus | '__ALL__'
-  keyword?: string
-} = {}): PreSettlementLedger[] {
-  const { factoryId, settlementCycleId, ledgerType = '__ALL__', status = '__ALL__', keyword } = options
+export function listPreSettlementLedgers(options: PreSettlementLedgerQueryOptions = {}): PreSettlementLedger[] {
+  const {
+    factoryId,
+    settlementCycleId,
+    occurredFrom,
+    occurredTo,
+    productionOrderNo,
+    ledgerType = '__ALL__',
+    status = '__ALL__',
+    keyword,
+  } = options
   const qualityLedgers = listFormalQualityDeductionLedgers({ includeLegacy: false }).map((item) =>
     buildQualityDeductionPreSettlementLedger(item),
   )
@@ -246,6 +263,8 @@ export function listPreSettlementLedgers(options: {
   return all.filter((ledger) => {
     if (factoryId && !isSameFactory(ledger.factoryId, factoryId)) return false
     if (settlementCycleId && ledger.settlementCycleId !== settlementCycleId) return false
+    if (!isLedgerInOccurredRange(ledger, occurredFrom, occurredTo)) return false
+    if (productionOrderNo && ledger.productionOrderNo !== productionOrderNo && ledger.productionOrderId !== productionOrderNo) return false
     if (ledgerType !== '__ALL__' && ledger.ledgerType !== ledgerType) return false
     if (status !== '__ALL__' && ledger.status !== status) return false
     if (!normalizedKeyword) return true
@@ -273,6 +292,23 @@ export function listStatementEligiblePreSettlementLedgers(
   return listPreSettlementLedgers({
     factoryId: settlementPartyId,
     settlementCycleId,
+    status: 'OPEN',
+  })
+}
+
+export function listStatementEligiblePreSettlementLedgersByRange(options: {
+  factoryId?: string
+  occurredFrom?: string
+  occurredTo?: string
+  productionOrderNo?: string
+  ledgerType?: PreSettlementLedger['ledgerType'] | '__ALL__'
+}): PreSettlementLedger[] {
+  return listPreSettlementLedgers({
+    factoryId: options.factoryId,
+    occurredFrom: options.occurredFrom,
+    occurredTo: options.occurredTo,
+    productionOrderNo: options.productionOrderNo,
+    ledgerType: options.ledgerType ?? '__ALL__',
     status: 'OPEN',
   })
 }
