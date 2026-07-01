@@ -582,8 +582,16 @@ function isBuildRangeReady(): boolean {
   return Boolean(state.buildFactoryId && state.buildStartDate && state.buildEndDate)
 }
 
+function isBuildRangeValid(): boolean {
+  return isBuildRangeReady() && state.buildStartDate <= state.buildEndDate
+}
+
+function isSettlementCurrency(value: string): value is SettlementCurrency {
+  return (SETTLEMENT_CURRENCIES as readonly string[]).includes(value)
+}
+
 function getBuildRangeLedgers() {
-  if (!isBuildRangeReady()) return []
+  if (!isBuildRangeValid()) return []
   return listStatementEligiblePreSettlementLedgersByRange({
     factoryId: state.buildFactoryId,
     occurredFrom: state.buildStartDate,
@@ -591,8 +599,20 @@ function getBuildRangeLedgers() {
   })
 }
 
+function getEffectiveBuildCurrency(): SettlementCurrency | null {
+  const ledgers = getBuildRangeLedgers()
+  if (!ledgers.length) return 'IDR'
+  const currencies = Array.from(new Set(ledgers.map((item) => item.settlementCurrency).filter(Boolean)))
+  if (currencies.length === 1 && isSettlementCurrency(currencies[0])) return currencies[0]
+  return null
+}
+
+function getBuildCurrencyDisplayText(effectiveCurrency: SettlementCurrency | null): string {
+  return effectiveCurrency ?? '多币种，需拆分'
+}
+
 function getBuildProductionOrderProjections(): ProductionOrderSettlementProjection[] {
-  if (!isBuildRangeReady()) return []
+  if (!isBuildRangeValid()) return []
   return buildProductionOrderSettlementProjections({
     factoryId: state.buildFactoryId,
     occurredFrom: state.buildStartDate,
@@ -637,7 +657,7 @@ function getBuildLines(
 
   const selectedScope = getSelectedBuildScope(scopes)
   if (!selectedScope) return []
-  if (!isBuildRangeReady()) return []
+  if (!isBuildRangeValid()) return []
   const projections = getBuildProductionOrderProjections()
   const lines = buildStatementDraftLinesFromSettlementSelection({
     factoryId: state.buildFactoryId,
@@ -715,6 +735,11 @@ function createStatementDraftFromScope(
   by: string,
 ): { ok: boolean; message?: string; statementId?: string; existingStatementId?: string } {
   if (!state.buildStartDate || !state.buildEndDate) return { ok: false, message: '请先选择对账时间段' }
+  if (!isBuildRangeValid()) return { ok: false, message: '开始日期不能晚于结束日期' }
+  const effectiveCurrency = getEffectiveBuildCurrency()
+  if (effectiveCurrency === null) {
+    return { ok: false, message: '当前时间段存在多个币种，请拆分时间段或按币种分别生成' }
+  }
 
   const projections = getBuildProductionOrderProjections()
   const selectedProductionOrderNos =
@@ -756,7 +781,7 @@ function createStatementDraftFromScope(
     settlementRangeStartAt: state.buildStartDate,
     settlementRangeEndAt: state.buildEndDate,
     settlementObjectMode: state.buildObjectMode,
-    settlementCurrency: state.buildCurrency,
+    settlementCurrency: effectiveCurrency,
     productionOrderSettlementSnapshots,
     plannedPrepaymentAt: scope.plannedPrepaymentAt,
     itemSourceIds: lines.map((item) => item.sourceItemId).filter(Boolean) as string[],
@@ -1639,8 +1664,10 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
   const buildLines = getBuildLines(scopes)
   const buildSummary = getBuildLineSummary(buildLines)
   const projections = getBuildProductionOrderProjections()
+  const effectiveCurrency = getEffectiveBuildCurrency()
+  const displayCurrency = getBuildCurrencyDisplayText(effectiveCurrency)
   const duplicatedStatement =
-    selectedScope == null || !state.buildStartDate || !state.buildEndDate
+    selectedScope == null || !isBuildRangeValid()
       ? null
       : findOpenStatementByPartyAndRange(
           selectedScope.settlementPartyId,
@@ -1652,7 +1679,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
     duplicatedStatement && duplicatedStatement.statementId !== state.editingStatementId
       ? duplicatedStatement
       : null
-  const canGenerate = selectedScope != null && isBuildRangeReady() && !blockingStatement
+  const canGenerate = selectedScope != null && isBuildRangeValid() && effectiveCurrency !== null && !blockingStatement
 
   return `
     <section class="rounded-xl border bg-background p-4">
@@ -1702,9 +1729,9 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                   </label>
                   <label class="grid gap-1 text-sm">
                     <span class="text-muted-foreground">结算币种</span>
-                    <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="currency" ${editingDraft ? 'disabled' : ''}>
+                    <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="currency" disabled>
                       ${SETTLEMENT_CURRENCIES.map(
-                        (currency) => `<option value="${currency}" ${state.buildCurrency === currency ? 'selected' : ''}>${currency}</option>`,
+                        (currency) => `<option value="${currency}" ${(effectiveCurrency ?? state.buildCurrency) === currency ? 'selected' : ''}>${currency}</option>`,
                       ).join('')}
                     </select>
                   </label>
@@ -1722,7 +1749,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                           <span>工厂：<strong>${escapeHtml(selectedScope.settlementPartyLabel)}</strong></span>
                           <span>对账范围：<strong>${escapeHtml(state.buildStartDate || '-')} ~ ${escapeHtml(state.buildEndDate || '-')}</strong></span>
                           <span>结算对象：<strong>${state.buildObjectMode === 'PRODUCTION_ORDER' ? '按生产单' : '按预结算流水'}</strong></span>
-                          <span>结算币种：<strong>${escapeHtml(state.buildCurrency)}</strong></span>
+                          <span>结算币种：<strong>${escapeHtml(displayCurrency)}</strong></span>
                           <span>参考周期：<strong>${escapeHtml(selectedScope.settlementCycleLabel)}</strong></span>
                           <span>计划预付款：<strong>${escapeHtml(selectedScope.plannedPrepaymentAt ?? '-')}</strong></span>
                           <span>可纳入正式流水：<strong>${buildLines.length}</strong> 条</span>
@@ -1730,6 +1757,17 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                         </div>
                       </div>
                     `
+                    : ''
+                }
+
+                ${
+                  isBuildRangeReady() && !isBuildRangeValid()
+                    ? '<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">开始日期不能晚于结束日期</div>'
+                    : ''
+                }
+                ${
+                  effectiveCurrency === null
+                    ? '<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">当前时间段存在多个币种，请拆分时间段或按币种分别生成</div>'
                     : ''
                 }
 
@@ -2036,6 +2074,14 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
     }
     if (!isBuildRangeReady()) {
       showStatementsToast('请先选择对账时间段', 'error')
+      return true
+    }
+    if (!isBuildRangeValid()) {
+      showStatementsToast('开始日期不能晚于结束日期', 'error')
+      return true
+    }
+    if (getEffectiveBuildCurrency() === null) {
+      showStatementsToast('当前时间段存在多个币种，请拆分时间段或按币种分别生成', 'error')
       return true
     }
 

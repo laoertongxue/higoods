@@ -33,5 +33,8 @@ assert(source.includes('buildProductionOrderSettlementProjections'))
 assert(source.includes('listStatementEligiblePreSettlementLedgersByRange'))
 assert(!source.includes('listStatementBuildCandidates(selectedScope.settlementPartyId, selectedScope.settlementCycleId)'))
 assert(!source.includes('当前工厂和结算周期暂无可'))
+assert(source.includes('开始日期不能晚于结束日期'))
+assert(source.includes('存在多个币种'))
+assert(!source.includes('settlementCurrency: state.buildCurrency'))
 
 console.log('check:factory-settlement-statements passed')
