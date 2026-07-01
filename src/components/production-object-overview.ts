@@ -1334,8 +1334,17 @@ export function renderProductionObjectOverviewSurface(
     `
   }
 
+  const primaryRef = getPrimaryObjectRef(overview)
+
   return `
-    <div class="production-object-overview" data-production-object-surface="overview" data-object-type="${objectType}" data-object-id="${escapeHtml(objectId)}">
+    <div
+      class="production-object-overview"
+      data-production-object-surface="overview"
+      data-object-type="${objectType}"
+      data-object-id="${escapeHtml(objectId)}"
+      data-primary-object-type="${primaryRef.objectType}"
+      data-primary-object-id="${escapeHtml(primaryRef.objectId)}"
+    >
       <button class="absolute inset-0 bg-slate-950/30" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭"></button>
       <section class="production-object-overview__panel">
         ${renderOverviewHeader(overview)}
@@ -1463,8 +1472,8 @@ export function handleProductionObjectOverviewEvent(target: HTMLElement): boolea
     activeMaterialResourceTab = 'supply-demand'
     const materialSku = actionNode.dataset.materialSku || actionNode.dataset.objectId
     const surface = actionNode.closest<HTMLElement>('[data-production-object-surface="overview"]')
-    const sourceObjectType = (actionNode.dataset.sourceObjectType || surface?.dataset.objectType) as ProductionObjectType | undefined
-    const sourceObjectId = actionNode.dataset.sourceObjectId || surface?.dataset.objectId
+    const sourceObjectType = (actionNode.dataset.sourceObjectType || surface?.dataset.primaryObjectType || surface?.dataset.objectType) as ProductionObjectType | undefined
+    const sourceObjectId = actionNode.dataset.sourceObjectId || surface?.dataset.primaryObjectId || surface?.dataset.objectId
     if (!materialSku) return true
     setOverlay(renderMaterialResourceOverviewSurface(materialSku, {
       sourceObjectType,

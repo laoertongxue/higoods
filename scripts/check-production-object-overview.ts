@@ -403,6 +403,8 @@ assert.ok(!source('src/components/production-object-overview.ts').includes('top-
 assert.ok(source('src/components/production-object-overview.ts').includes('flex shrink-0 gap-1 overflow-x-auto border-b bg-card px-4'), '总览 Tab 不得被弹层 flex 布局压缩')
 
 const surface = uiModule.renderProductionObjectOverviewSurface(overview.objectType, overview.objectKey)
+const indexKeySurface = uiModule.renderProductionObjectOverviewSurface('PRODUCTION_ORDER', `PRODUCTION_ORDER-${order.productionOrderNo}`)
+assert.ok(indexKeySurface.includes(`data-primary-object-id="${order.productionOrderNo}"`), '总览从搜索索引打开时，物料资源上下文必须保留真实生产单号')
 assert.equal(typeof uiModule.renderMaterialResourceOverviewSurface, 'function', '必须导出物料资源总览渲染函数')
 const materialSurface = uiModule.renderMaterialResourceOverviewSurface('FLSZ260617009', {
   sourceObjectType: 'PRODUCTION_ORDER',
