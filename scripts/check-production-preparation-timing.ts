@@ -591,6 +591,10 @@ for (const text of [
 const readyOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-003')
 assertHtmlIncludes(readyOutputHtml, '正式产出', '全部完成记录必须展示正式产出')
 assertHtmlIncludes(readyOutputHtml, '已生成', '全部完成记录的产出状态必须为已生成')
+for (const text of ['产出对象名称', '产出对象编号', '产出时间'] as const) {
+  assertHtmlIncludes(readyOutputHtml, text, `产出表格缺少「${text}」`)
+}
+assert.ok(!readyOutputHtml.includes('统一生成时间'), '产出状态不应继续只展示统一生成时间')
 
 const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001')
 const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')

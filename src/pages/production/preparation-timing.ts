@@ -817,16 +817,30 @@ function renderPreparationOutputs(record: ProductionPreparationRecord): string {
         <h3 class="font-semibold">${escapeHtml(title)}</h3>
         ${renderBadge(outputReady ? '已生成' : '预计生成', outputReady ? 'green' : 'amber')}
       </div>
-      ${outputReady && record.outputPublishedAt ? `<p class="mb-3 text-sm text-muted-foreground">统一生成时间：${escapeHtml(formatDateTime(record.outputPublishedAt))}</p>` : ''}
       ${!outputReady && missingItems.length ? `<p class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">仍需完成：${escapeHtml(missingItems.map((item) => item.itemType).join('、'))}</p>` : ''}
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-        ${record.outputs.map((output) => `
-          <button type="button" class="rounded-lg border bg-background p-3 text-left hover:bg-muted" data-nav="${escapeHtml(output.outputHref)}">
-            <div class="text-xs text-muted-foreground">${escapeHtml(output.outputType)}</div>
-            <div class="mt-1 font-medium">${escapeHtml(outputReady ? output.outputNo.replace(/^预计/, '') : output.outputNo)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(outputReady ? '已生成' : output.outputStatus)}</div>
-          </button>
-        `).join('')}
+      <div class="overflow-hidden rounded-lg border">
+        <table class="w-full text-sm">
+          <thead class="bg-muted/60 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left">产出对象名称</th>
+              <th class="px-3 py-2 text-left">产出对象编号</th>
+              <th class="px-3 py-2 text-left">状态</th>
+              <th class="px-3 py-2 text-left">产出时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${record.outputs.map((output) => `
+              <tr class="border-t">
+                <td class="px-3 py-2">${escapeHtml(output.outputType)}</td>
+                <td class="px-3 py-2">
+                  <button type="button" class="text-blue-600 hover:underline" data-nav="${escapeHtml(output.outputHref)}">${escapeHtml(outputReady ? output.outputNo.replace(/^预计/, '') : output.outputNo)}</button>
+                </td>
+                <td class="px-3 py-2">${renderBadge(outputReady ? '已生成' : output.outputStatus, outputReady ? 'green' : 'amber')}</td>
+                <td class="px-3 py-2">${escapeHtml(output.outputGeneratedAt ? formatDateTime(output.outputGeneratedAt) : '-')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
     </section>
   `
