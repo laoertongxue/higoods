@@ -487,13 +487,19 @@ for (const text of [
   '生产准备时效',
   '准备台账',
   '月度统计',
-  '统计口径：生产准备记录 + 准备项 = 1',
   '花型师',
+] as const) {
+  assertHtmlIncludes(ledgerHtml, text, `准备台账 HTML 缺少「${text}」`)
+}
+for (const text of [
+  '按生产准备记录跟进基码、版衣、齐码、花型、染色、辅料等准备项完成情况。',
+  '统计口径：生产准备记录 + 准备项 = 1',
+  '快捷筛选',
   '我的花型任务',
   '待上传完成图',
   '待买手确认',
 ] as const) {
-  assertHtmlIncludes(ledgerHtml, text, `准备台账 HTML 缺少「${text}」`)
+  assert.ok(!ledgerHtml.includes(text), `准备台账 HTML 不应再显示「${text}」`)
 }
 const adjustedLedgerHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03')
 for (const text of [

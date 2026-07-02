@@ -31,7 +31,6 @@ const LEDGER_FILTER_KEYS = [
   'patternDesigner',
   'overdueOnly',
   'keyword',
-  'quickFilter',
 ] as const
 
 interface StatsTableRow extends MonthlyPreparationStatRow {
@@ -98,7 +97,6 @@ function parseFilter(params: URLSearchParams): ProductionPreparationFilter {
   const ownerTeam = valueOf(params, 'ownerTeam')
   const patternDesigner = valueOf(params, 'patternDesigner')
   const keyword = valueOf(params, 'keyword')
-  const quickFilter = valueOf(params, 'quickFilter')
 
   if (merchandiserName) filter.merchandiserName = merchandiserName
   if (buyerName) filter.buyerName = buyerName
@@ -108,9 +106,6 @@ function parseFilter(params: URLSearchParams): ProductionPreparationFilter {
   if (patternDesigner) filter.patternDesigner = patternDesigner
   if (params.get('overdueOnly') === 'true') filter.overdueOnly = true
   if (keyword) filter.keyword = keyword
-  if (quickFilter === '我的花型任务' || quickFilter === '待上传完成图' || quickFilter === '待买手确认') {
-    filter.quickFilter = quickFilter
-  }
   return filter
 }
 
@@ -269,13 +264,8 @@ function renderHeader(activeTab: 'ledger' | 'stats', month: string): string {
   ] as const
 
   return `
-    <header class="rounded-xl border bg-card p-5">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
-          <p class="mt-2 text-sm text-muted-foreground">按生产准备记录跟进基码、版衣、齐码、花型、染色、辅料等准备项完成情况。</p>
-          <p class="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">统计口径：生产准备记录 + 准备项 = 1。无需项、未选择选填项和已关闭记录不计入完成数量。</p>
-        </div>
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
         <nav class="flex rounded-lg border bg-background p-1 text-sm">
           ${tabs.map((tab) => `
             <button
@@ -285,14 +275,12 @@ function renderHeader(activeTab: 'ledger' | 'stats', month: string): string {
             >${escapeHtml(tab.label)}</button>
           `).join('')}
         </nav>
-      </div>
     </header>
   `
 }
 
 function renderLedgerFilter(params: URLSearchParams, month: string): string {
   const options = getProductionPreparationFilterOptions()
-  const quickFilter = valueOf(params, 'quickFilter')
 
   return `
     <section data-prep-filter-scope class="rounded-xl border bg-card p-5">
@@ -330,10 +318,6 @@ function renderLedgerFilter(params: URLSearchParams, month: string): string {
       <div class="mt-4 flex flex-wrap items-center gap-2">
         <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-filter-scope]" data-nav-base="${PAGE_PATH}">筛选</button>
         <button type="button" class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}?tab=ledger&month=${escapeHtml(DEFAULT_MONTH)}">重置</button>
-        <span class="mx-1 text-xs text-muted-foreground">快捷筛选</span>
-        ${renderQuickFilterButton('我的花型任务', buildHref({ tab: 'ledger', itemType: '数码印/DTF/DTG花型', patternDesigner: '林小美', quickFilter: '我的花型任务' }), quickFilter)}
-        ${renderQuickFilterButton('待上传完成图', buildHref({ tab: 'ledger', itemType: '数码印/DTF/DTG花型', quickFilter: '待上传完成图' }), quickFilter)}
-        ${renderQuickFilterButton('待买手确认', buildHref({ tab: 'ledger', itemType: '数码印/DTF/DTG花型', quickFilter: '待买手确认' }), quickFilter)}
       </div>
     </section>
   `
@@ -356,16 +340,6 @@ function renderSelectField(
         ${renderOptions(normalizedOptions, selected)}
       </select>
     </label>
-  `
-}
-
-function renderQuickFilterButton(label: string, href: string, activeQuickFilter: string): string {
-  return `
-    <button
-      type="button"
-      data-nav="${escapeHtml(href)}"
-      class="inline-flex h-8 items-center rounded-full border px-3 text-xs ${activeQuickFilter === label ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
-    >${escapeHtml(label)}</button>
   `
 }
 
