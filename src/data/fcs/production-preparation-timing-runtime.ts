@@ -8,8 +8,14 @@ import type {
 
 export const PREPARATION_RUNTIME_STORAGE_KEY = 'higood.production-preparation.runtime.v1'
 
+interface ConfirmedPreparationRecord {
+  confirmedBy: string
+  confirmedAt: string
+  selectedItemIds?: string[]
+}
+
 export interface PreparationRuntimeState {
-  confirmedRecords: Record<string, { confirmedBy: string; confirmedAt: string; selectedItemIds: string[] }>
+  confirmedRecords: Record<string, ConfirmedPreparationRecord>
   uploads: PreparationUploadRecord[]
   downloads: PreparationDownloadRecord[]
 }
