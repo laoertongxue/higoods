@@ -103,27 +103,27 @@ function createFallbackSettlementImpact(
 
   if (basisItems.some((item) => item.status === 'DISPUTED')) {
     status = 'PENDING_ARBITRATION'
-    summary = '已发起质量异议，待平台处理后再决定是否形成正式质量扣款流水'
+    summary = '已发起质量异议，待平台处理后再决定是否形成正式返工扣款流水'
   } else if (basisItems.some((item) => item.status === 'VOID' || item.arbitrationResult === 'VOID_DEDUCTION')) {
     status = 'NO_IMPACT'
     summary =
       basisItems.find((item) => item.summary?.includes('归档'))?.summary ||
-      '当前记录已关闭且不生成正式质量扣款流水'
+      '当前记录已关闭且不生成正式返工扣款流水'
   } else if (basisItems.some((item) => item.settlementReady === true)) {
     const settled = basisItems.some((item) => /已进入预付款批次|已预付/.test(item.summary ?? ''))
     status = settled ? 'SETTLED' : 'READY'
     summary =
       settled
-        ? '正式质量扣款流水已进入预付款批次'
+        ? '正式返工扣款流水已进入预付款批次'
         : qc.status === 'CLOSED'
-          ? '当前记录已完成处理，正式质量扣款流水可进入预结算'
-          : '正式质量扣款流水已生成，待进入预结算'
+          ? '当前记录已完成处理，正式返工扣款流水可进入预结算'
+          : '正式返工扣款流水已生成，待进入预结算'
   } else if (basisItems.length > 0) {
     status = 'FROZEN'
     summary = basisItems.find((item) => item.settlementFreezeReason)?.settlementFreezeReason || '当前存在待确认质量扣款记录，待工厂处理'
   } else if (qc.result === 'PASS' && qc.status === 'CLOSED') {
     status = 'READY'
-    summary = '当前记录已关闭且不形成正式质量扣款流水'
+    summary = '当前记录已关闭且不形成正式返工扣款流水'
   }
 
   return {
@@ -306,7 +306,7 @@ export function listQcChainFacts(): QcChainFact[] {
 export function getSettlementImpactLabel(status: CompatChainSettlementImpact['status']): string {
   switch (status) {
     case 'READY':
-      return '已生成正式质量扣款流水'
+      return '已生成正式返工扣款流水'
     case 'SETTLED':
       return '已进入预付款批次'
     case 'PENDING_ARBITRATION':
@@ -314,6 +314,6 @@ export function getSettlementImpactLabel(status: CompatChainSettlementImpact['st
     case 'FROZEN':
       return '待确认或待平台处理'
     default:
-      return '未形成正式质量扣款流水'
+      return '未形成正式返工扣款流水'
   }
 }

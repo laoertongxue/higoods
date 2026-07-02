@@ -425,7 +425,7 @@ function getFactoryFeedbackVariant(status: FactoryFeedbackStatus): 'blue' | 'amb
 }
 
 function getLedgerTypeLabel(type: PreSettlementLedger['ledgerType']): string {
-  return type === 'TASK_EARNING' ? '任务收入流水' : '质量扣款流水'
+  return type === 'TASK_EARNING' ? '任务收入流水' : '返工扣款流水'
 }
 
 function getLedgerStatusLabel(status: PreSettlementLedgerStatus): string {
@@ -504,10 +504,10 @@ function getQualityDisputeVariant(label: string): 'blue' | 'amber' | 'red' | 'gr
 }
 
 function getQualitySettlementVariant(label: string): 'blue' | 'amber' | 'green' | 'gray' | 'purple' {
-  if (label.includes('正式质量扣款流水') || label.includes('预结算单')) return 'blue'
+  if (label.includes('正式返工扣款流水') || label.includes('预结算单')) return 'blue'
   if (label.includes('预付款批次') || label.includes('已预付')) return 'purple'
   if (label.includes('待确认') || label.includes('待平台处理')) return 'amber'
-  if (label.includes('已生成正式质量扣款流水')) return 'green'
+  if (label.includes('已生成正式返工扣款流水')) return 'green'
   return 'gray'
 }
 
@@ -1725,7 +1725,7 @@ function renderLedgerDrawer(): string {
               `
               : ''
           }
-          ${renderRow('生成原因', ledger.sourceReason ?? '正式质量扣款流水')}
+          ${renderRow('生成原因', ledger.sourceReason ?? '正式返工扣款流水')}
         `
 
   const currencyDisplay = getConvertedCurrencyDisplay({
@@ -1869,7 +1869,7 @@ function renderLedgersTab(summary: SettlementCycleSummary): string {
               />
             </div>
             <div class="rounded-md border bg-muted/20 px-3 py-2 text-[10px] leading-5 text-muted-foreground">
-              这里只展示已正式成立的任务收入流水和质量扣款流水。待确认质量扣款记录和未最终裁决的质量异议不会进入这里。
+              这里只展示已正式成立的任务收入流水和返工扣款流水。待确认质量扣款记录和未最终裁决的质量异议不会进入这里。
             </div>
           </div>
         `,
@@ -2245,7 +2245,7 @@ function renderStatementDrawer(): string {
                 `,
               )
               .join('')
-          : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-5 text-center text-xs text-muted-foreground">当前对账单没有质量扣款流水</div>',
+          : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-5 text-center text-xs text-muted-foreground">当前对账单没有返工扣款流水</div>',
       )}
       ${renderStatementDetailSection(
         '工厂反馈',

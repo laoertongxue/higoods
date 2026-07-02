@@ -44,7 +44,7 @@ function main(): void {
     eligibleLedgers
       .filter((item) => item.sourceType === 'QUALITY_DEDUCTION')
       .every((item) => Boolean(item.qcRecordId) && Boolean(item.pendingDeductionRecordId)),
-    '质量扣款流水候选缺少正式追溯字段',
+    '返工扣款流水候选缺少正式追溯字段',
   )
 
   const statements = listStatements()
@@ -67,12 +67,12 @@ function main(): void {
   const mixedStatement = statements.find(
     (statement) => (statement.earningLedgerIds?.length ?? 0) > 0 && (statement.deductionLedgerIds?.length ?? 0) > 0,
   )
-  assert(mixedStatement, '当前缺少同时包含任务收入流水与质量扣款流水的对账单样例')
+  assert(mixedStatement, '当前缺少同时包含任务收入流水与返工扣款流水的对账单样例')
 
   const mixedDetail = getStatementDetailViewModel(mixedStatement.statementId)
   assert(mixedDetail, '无法生成混合对账单详情视图')
   assert(mixedDetail.earningLines.length > 0, '对账单详情缺少任务收入流水明细')
-  assert(mixedDetail.deductionLines.length > 0, '对账单详情缺少质量扣款流水明细')
+  assert(mixedDetail.deductionLines.length > 0, '对账单详情缺少返工扣款流水明细')
   assert(
     Number((mixedDetail.totalEarningAmount - mixedDetail.totalQualityDeductionAmount).toFixed(2)) ===
       Number(mixedDetail.netPayableAmount.toFixed(2)),
@@ -85,14 +85,14 @@ function main(): void {
       scope.deductionLedgerCount > 0 &&
       findOpenStatementByPartyAndCycle(scope.settlementPartyId, scope.settlementCycleId) == null,
   )
-  assert(buildScope, '缺少同时包含任务收入流水与质量扣款流水的待生成样例')
+  assert(buildScope, '缺少同时包含任务收入流水与返工扣款流水的待生成样例')
 
   const buildCandidates = listStatementEligibleLedgers(buildScope.settlementPartyId, buildScope.settlementCycleId)
   const buildLines = buildStatementDraftLines(buildScope.settlementPartyId, buildScope.settlementCycleId)
   assert(buildCandidates.some((item) => item.sourceType === 'TASK_EARNING'), '待生成样例缺少任务收入流水')
-  assert(buildCandidates.some((item) => item.sourceType === 'QUALITY_DEDUCTION'), '待生成样例缺少质量扣款流水')
+  assert(buildCandidates.some((item) => item.sourceType === 'QUALITY_DEDUCTION'), '待生成样例缺少返工扣款流水')
   assert(buildLines.some((item) => item.sourceItemType === 'TASK_EARNING'), '正式流水明细缺少任务收入流水行')
-  assert(buildLines.some((item) => item.sourceItemType === 'QUALITY_DEDUCTION'), '正式流水明细缺少质量扣款流水行')
+  assert(buildLines.some((item) => item.sourceItemType === 'QUALITY_DEDUCTION'), '正式流水明细缺少返工扣款流水行')
 
   const createResult = createStatementFromEligibleLedgers({
     statementId: buildCheckStatementId(),
@@ -134,7 +134,7 @@ function main(): void {
       !(statement.ledgerIds ?? []).includes(ledger.ledgerId),
     ),
   )
-  assert(lateResolvedLedger, '缺少“后裁决正式质量扣款流水不回写旧单”的样例')
+  assert(lateResolvedLedger, '缺少“后裁决正式返工扣款流水不回写旧单”的样例')
 
   const statementsPageSource = fs.readFileSync(
     new URL('../src/pages/statements.ts', import.meta.url),
@@ -167,7 +167,7 @@ function main(): void {
   assert(!statementsPageSource.includes('switch-page-view'), '对账单列表仍残留旧版页签切换动作')
   assert(statementsPageSource.includes('待入预付款'), '对账单页面未展示后续预付款口径')
   assert(statementsPageSource.includes('任务收入流水明细'), '对账单详情未分段展示任务收入流水')
-  assert(statementsPageSource.includes('质量扣款流水明细'), '对账单详情未分段展示质量扣款流水')
+  assert(statementsPageSource.includes('返工扣款流水明细'), '对账单详情未分段展示返工扣款流水')
   assert(!statementsPageSource.includes('应付调整'), '对账单页面仍残留应付调整文案')
   assert(!statementsPageSource.includes('其他调整'), '对账单页面仍残留其他调整文案')
   assert(!statementsPageSource.includes('跨周期调整'), '对账单页面仍残留跨周期调整文案')

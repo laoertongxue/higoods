@@ -80,6 +80,8 @@ type InspectorFilter = 'ALL' | string
 interface QcRecordsListState {
   activeView: PlatformQcWorkbenchViewKey
   keyword: string
+  page: number
+  pageSize: number
   filterProcessType: 'ALL' | ReturnInboundProcessType
   filterPolicy: 'ALL' | ReturnInboundQcPolicy
   filterResult: ResultFilter
@@ -211,6 +213,8 @@ const PARTY_TYPE_LABEL: Record<SettlementPartyType, string> = {
 const listState: QcRecordsListState = {
   activeView: 'ALL',
   keyword: '',
+  page: 1,
+  pageSize: 10,
   filterProcessType: 'ALL',
   filterPolicy: 'ALL',
   filterResult: 'ALL',

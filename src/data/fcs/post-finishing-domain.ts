@@ -1925,6 +1925,105 @@ function withPendingDefectReasonMock(qc: PostFinishingQcOrder): PostFinishingQcO
   }
 }
 
+function withMultiSkuDefectReasonMock(qc: PostFinishingQcOrder): PostFinishingQcOrder {
+  const qcSkuResults = qc.qcSkuResults.map((item, index) => {
+    const defectAcceptedQty = index === 0 ? 6 : index === 1 ? 4 : 0
+    const reworkQty = index === 0 ? 4 : index === 1 ? 2 : 0
+    if (defectAcceptedQty <= 0 && reworkQty <= 0) return item
+
+    const unqualifiedQty = defectAcceptedQty + reworkQty
+    const qualifiedQty = Math.max(item.inspectedQty - unqualifiedQty, 0)
+    const reworkDeductionUnitAmountIdr = 5000
+    const reworkDeductionAmountIdr = reworkQty * reworkDeductionUnitAmountIdr
+    const defectReasonItems: PostFinishingQcDefectReasonItem[] = index === 0
+      ? [
+          {
+            reasonItemId: `${qc.qcOrderId}-${item.skuId}-REASON-WORK`,
+            reasonName: '做工原因',
+            qty: 4,
+            liabilityType: '工厂',
+            responsibleFactoryId: qc.sourceFactoryId,
+            responsibleFactoryName: qc.sourceFactoryName,
+          },
+          {
+            reasonItemId: `${qc.qcOrderId}-${item.skuId}-REASON-COLOR`,
+            reasonName: '色差',
+            qty: 2,
+            liabilityType: '平台',
+          },
+        ]
+      : [
+          {
+            reasonItemId: `${qc.qcOrderId}-${item.skuId}-REASON-YARN`,
+            reasonName: '抽纱',
+            qty: 3,
+            liabilityType: '工厂',
+            responsibleFactoryId: qc.sourceFactoryId,
+            responsibleFactoryName: qc.sourceFactoryName,
+          },
+          {
+            reasonItemId: `${qc.qcOrderId}-${item.skuId}-REASON-HOLE`,
+            reasonName: '破洞',
+            qty: 1,
+            liabilityType: '工厂',
+            responsibleFactoryId: qc.sourceFactoryId,
+            responsibleFactoryName: qc.sourceFactoryName,
+          },
+        ]
+
+    return {
+      ...item,
+      qualifiedQty,
+      unqualifiedQty,
+      reworkQty,
+      defectAcceptedQty,
+      platformReasonQty: index === 0 ? 2 : 0,
+      factoryReasonQty: index === 0 ? 4 : 4,
+      reworkReceiveFactoryId: qc.managedPostFactoryId,
+      reworkReceiveFactoryName: qc.managedPostFactoryName,
+      reworkDeductionUnitAmountIdr,
+      reworkDeductionAmountIdr,
+      sourceChargeback: reworkDeductionAmountIdr > 0
+        ? {
+            currency: 'IDR',
+            unitAmount: reworkDeductionUnitAmountIdr,
+            amount: reworkDeductionAmountIdr,
+            reason: '后道工厂接收返工',
+          }
+        : undefined,
+      responsibleFactoryId: qc.sourceFactoryId,
+      responsibleFactoryName: qc.sourceFactoryName,
+      defectReasonItems,
+    }
+  })
+  const reworkQty = sumQcSkuResults(qcSkuResults, 'reworkQty')
+  const defectAcceptedQty = sumQcSkuResults(qcSkuResults, 'defectAcceptedQty')
+  const defectiveQty = sumQcSkuResults(qcSkuResults, 'unqualifiedQty')
+  const passedQty = sumQcSkuResults(qcSkuResults, 'qualifiedQty')
+
+  return {
+    ...qc,
+    passedGarmentQty: passedQty,
+    defectiveGarmentQty: defectiveQty,
+    reworkGarmentQty: reworkQty,
+    defectAcceptedGarmentQty: defectAcceptedQty,
+    processingFeeDeductionQty: reworkQty,
+    qcSkuResults,
+    qcResult: '部分不合格',
+    unqualifiedDisposition: '返修',
+    unqualifiedReasonSummary: '做工原因4、色差2、抽纱3、破洞1。',
+    rootCauseType: '工厂加工问题',
+    responsiblePartyType: '工厂',
+    responsiblePartyId: qc.sourceFactoryId,
+    responsiblePartyName: qc.sourceFactoryName,
+    reworkReceiveFactoryId: qc.managedPostFactoryId,
+    reworkReceiveFactoryName: qc.managedPostFactoryName,
+    deductionDecisionRemark: '质检记录只展示事实；扣款由对账单确认。',
+    defectItems: [defect(`${qc.qcOrderId}-MULTI-SKU-DEFECT`, defectiveQty)],
+    evidenceAssets: [{ assetId: `${qc.qcOrderId}-MULTI-SKU-EV`, assetName: '多 SKU 瑕疵照片', assetType: '图片', url: 'mock://post-finishing/qc-multi-sku.jpg' }],
+  }
+}
+
 let qcOrders: PostFinishingQcOrder[] = [
   buildQcOrder(1, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 388, defectiveQty: 12, needIroning: true, needPackaging: true, station: 'A' }),
   buildQcOrder(2, SOURCE_CONTEXTS[1], receiptRecords[1], { status: '质检完成', passedQty: 340, defectiveQty: 0, station: 'B' }),
@@ -1933,7 +2032,7 @@ let qcOrders: PostFinishingQcOrder[] = [
   withPendingDefectReasonMock(buildQcOrder(5, SOURCE_CONTEXTS[4], receiptRecords[4], { status: '质检中', passedQty: 0, defectiveQty: 0, station: 'B' })),
   buildQcOrder(6, SOURCE_CONTEXTS[4], receiptRecords[4], { status: '质检完成', passedQty: 206, defectiveQty: 4, needPackaging: true, station: 'C' }),
   buildQcOrder(7, SOURCE_CONTEXTS[1], receiptRecords[1], { status: '质检完成', passedQty: 334, defectiveQty: 6, station: 'A' }),
-  buildQcOrder(8, SOURCE_CONTEXTS[2], receiptRecords[2], { status: '质检完成', passedQty: 96, defectiveQty: 4, needButton: true, buttonAttachMode: '人工装扣', allocationQty: 100, station: 'B' }),
+  withMultiSkuDefectReasonMock(buildQcOrder(8, SOURCE_CONTEXTS[1], receiptRecords[1], { status: '质检完成', passedQty: 334, defectiveQty: 6, needButton: true, buttonAttachMode: '人工装扣', allocationQty: 340, station: 'B' })),
 ]
 
 function getContext(contextId: string): PostFinishingSourceContext {

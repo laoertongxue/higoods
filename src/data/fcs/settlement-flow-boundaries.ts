@@ -63,12 +63,12 @@ export const SETTLEMENT_FLOW_BOUNDARIES: Record<SettlementBoundaryId, Settlement
     id: 'adjustment',
     title: '预结算流水',
     layer: 'FLOW_OBJECT',
-    definition: '预结算流水是对账单候选来源，统一承接任务收入流水和质量扣款流水，负责表达正式流水状态与来源追溯。',
-    responsibilities: ['统一承接任务收入流水', '统一承接质量扣款流水', '表达正式流水状态与来源追溯', '向对账单输出可汇总的正式流水'],
-    upstream: ['回货批次形成的任务收入流水', '正式质量扣款流水'],
+    definition: '预结算流水是对账单候选来源，统一承接任务收入流水和返工扣款流水，负责表达正式流水状态与来源追溯。',
+    responsibilities: ['统一承接任务收入流水', '统一承接返工扣款流水', '表达正式流水状态与来源追溯', '向对账单输出可汇总的正式流水'],
+    upstream: ['回货批次形成的任务收入流水', '正式返工扣款流水'],
     downstream: ['被对账单消费', '在入对账单后进入不同状态', '随对账单进入预付款批次结果'],
     excludes: ['不是对账单本身', '不是预付款批次本身', '不负责工厂主数据维护'],
-    pageIntro: '预结算流水统一沉淀任务收入流水与质量扣款流水，负责说明来源、金额、状态和追溯关系，并作为对账单来源之一。',
+    pageIntro: '预结算流水统一沉淀任务收入流水与返工扣款流水，负责说明来源、金额、状态和追溯关系，并作为对账单来源之一。',
     routeNote: '预结算流水是平台端对账与结算的正式主对象之一。',
   },
   'material-statement': {
@@ -156,7 +156,7 @@ export const SETTLEMENT_FLOW_FROZEN_RULES = {
 
 export const SETTLEMENT_FLOW_CANONICAL_CHAIN = [
   '工厂档案结算信息（主数据）',
-  '任务收入流水 / 质量扣款流水等来源结果',
+  '任务收入流水 / 返工扣款流水等来源结果',
   '预结算流水',
   '对账单（自定义时间段）',
   '预付款批次',

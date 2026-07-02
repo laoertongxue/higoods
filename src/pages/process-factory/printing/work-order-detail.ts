@@ -503,7 +503,7 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
     exception: renderSection(
       '交出差异处理',
       `
-        <p class="mb-3 text-sm text-muted-foreground">交出差异只保留处理结果，不直接生成质量扣款流水、对账流水或结算流水。</p>
+        <p class="mb-3 text-sm text-muted-foreground">交出差异只保留处理结果，不直接生成返工扣款流水、对账流水或结算流水。</p>
         <div class="overflow-x-auto">
           <table class="min-w-full text-left text-sm">
             <thead class="bg-slate-50 text-xs text-muted-foreground">

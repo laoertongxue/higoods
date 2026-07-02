@@ -1,4 +1,5 @@
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter.ts'
 import {
   getPreSettlementLedgerById,
@@ -29,16 +30,27 @@ interface PreSettlementLedgerPageState {
   activeView: LedgerWorkbenchView
   keyword: string
   filterFactory: string
-  filterCycle: string
   filterType: LedgerTypeFilter
   filterStatus: LedgerStatusFilter
+  page: number
+  pageSize: number
   detailLedgerId: string | null
+}
+
+interface PaginationSlice<T> {
+  rows: T[]
+  total: number
+  currentPage: number
+  totalPages: number
+  pageSize: number
+  from: number
+  to: number
 }
 
 const VIEW_LABEL: Record<LedgerWorkbenchView, string> = {
   ALL: '全部正式流水',
   TASK_EARNING: '任务收入流水',
-  QUALITY_DEDUCTION: '质量扣款流水',
+  QUALITY_DEDUCTION: '返工扣款流水',
   OPEN: '待入对账单',
   IN_STATEMENT: '已入对账单',
   IN_PREPAYMENT: '已入预付款批次 / 已预付',
@@ -46,7 +58,7 @@ const VIEW_LABEL: Record<LedgerWorkbenchView, string> = {
 
 const LEDGER_TYPE_LABEL: Record<PreSettlementLedgerType, string> = {
   TASK_EARNING: '任务收入流水',
-  QUALITY_DEDUCTION: '质量扣款流水',
+  QUALITY_DEDUCTION: '返工扣款流水',
 }
 
 const LEDGER_TYPE_BADGE: Record<PreSettlementLedgerType, string> = {
@@ -76,13 +88,16 @@ const PRICE_SOURCE_LABEL: Record<string, string> = {
   OTHER_COMPAT: '兼容快照',
 }
 
+const LEDGER_PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+
 const state: PreSettlementLedgerPageState = {
   activeView: 'ALL',
   keyword: '',
   filterFactory: '__ALL__',
-  filterCycle: '__ALL__',
   filterType: '__ALL__',
   filterStatus: '__ALL__',
+  page: 1,
+  pageSize: 10,
   detailLedgerId: null,
 }
 
@@ -143,8 +158,8 @@ function showLedgerToast(message: string, tone: 'success' | 'error' = 'success')
   }, 2200)
 }
 
-function formatAmount(amount: number, currency = 'CNY'): string {
-  return `${currency} ${amount.toFixed(2)}`
+function formatAmount(amount: number): string {
+  return `IDR ${amount.toFixed(2)}`
 }
 
 function getViewCount(view: LedgerWorkbenchView, ledgers: PreSettlementLedger[]): number {
@@ -160,14 +175,12 @@ function matchesView(ledger: PreSettlementLedger, view: LedgerWorkbenchView): bo
   return ledger.status === 'IN_PREPAYMENT_BATCH' || ledger.status === 'PREPAID'
 }
 
-function getFilteredLedgers(): PreSettlementLedger[] {
+function getSearchFilteredLedgers(): PreSettlementLedger[] {
   const ledgers = listPreSettlementLedgers()
   const keyword = state.keyword.trim().toLowerCase()
 
   return ledgers.filter((ledger) => {
-    if (!matchesView(ledger, state.activeView)) return false
     if (state.filterFactory !== '__ALL__' && ledger.factoryId !== state.filterFactory) return false
-    if (state.filterCycle !== '__ALL__' && ledger.settlementCycleId !== state.filterCycle) return false
     if (state.filterType !== '__ALL__' && ledger.ledgerType !== state.filterType) return false
     if (state.filterStatus !== '__ALL__' && ledger.status !== state.filterStatus) return false
     if (!keyword) return true
@@ -188,37 +201,38 @@ function getFilteredLedgers(): PreSettlementLedger[] {
   })
 }
 
+function getFilteredLedgers(): PreSettlementLedger[] {
+  return getSearchFilteredLedgers().filter((ledger) => matchesView(ledger, state.activeView))
+}
+
+function paginateLedgers(ledgers: PreSettlementLedger[]): PaginationSlice<PreSettlementLedger> {
+  const total = ledgers.length
+  const totalPages = Math.max(1, Math.ceil(total / state.pageSize))
+  const currentPage = Math.min(Math.max(1, state.page), totalPages)
+  state.page = currentPage
+
+  const from = total === 0 ? 0 : (currentPage - 1) * state.pageSize + 1
+  const to = total === 0 ? 0 : Math.min(total, currentPage * state.pageSize)
+  return {
+    rows: ledgers.slice(from === 0 ? 0 : from - 1, to),
+    total,
+    currentPage,
+    totalPages,
+    pageSize: state.pageSize,
+    from,
+    to,
+  }
+}
+
+function normalizePageSize(value: string): number {
+  const parsed = Number(value)
+  return LEDGER_PAGE_SIZE_OPTIONS.some((size) => size === parsed) ? parsed : state.pageSize
+}
+
 function getFactoryOptions(ledgers: PreSettlementLedger[]): Array<{ id: string; name: string }> {
   return Array.from(new Map(ledgers.map((ledger) => [ledger.factoryId, ledger.factoryName])).entries())
     .map(([id, name]) => ({ id, name }))
     .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
-}
-
-function getCycleOptions(ledgers: PreSettlementLedger[]): Array<{ id: string; label: string; endAt: string }> {
-  return Array.from(
-    new Map(
-      ledgers.map((ledger) => [
-        ledger.settlementCycleId,
-        {
-          id: ledger.settlementCycleId,
-          label: ledger.settlementCycleLabel,
-          endAt: ledger.settlementCycleEndAt,
-        },
-      ]),
-    ).values(),
-  ).sort((left, right) => (left.endAt < right.endAt ? 1 : -1))
-}
-
-function renderStatsCard(label: string, value: number, subLabel?: string): string {
-  return `
-    <article class="rounded-lg border bg-card">
-      <div class="px-4 pb-4 pt-4">
-        <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
-        <p class="mt-1 text-2xl font-bold text-foreground tabular-nums">${value}</p>
-        ${subLabel ? `<p class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(subLabel)}</p>` : ''}
-      </div>
-    </article>
-  `
 }
 
 function renderViewChip(view: LedgerWorkbenchView, count: number): string {
@@ -256,18 +270,17 @@ function renderStatusCell(ledger: PreSettlementLedger): string {
 
 function renderLedgerRows(ledgers: PreSettlementLedger[]): string {
   if (!ledgers.length) {
-    return '<section class="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">当前视图暂无正式预结算流水</section>'
+    return '<div class="py-12 text-center text-sm text-muted-foreground">当前视图暂无正式预结算流水</div>'
   }
 
   return `
-    <section class="overflow-x-auto rounded-lg border">
-      <table class="w-full min-w-[1660px] text-xs">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[1460px] text-xs">
         <thead>
           <tr class="border-b bg-muted/40 text-left">
             <th class="px-4 py-2 font-medium">流水号</th>
             <th class="px-4 py-2 font-medium">流水类型</th>
             <th class="px-4 py-2 font-medium">工厂</th>
-            <th class="px-4 py-2 font-medium">结算周期 / 计划预付款</th>
             <th class="px-4 py-2 font-medium">任务 / 质检</th>
             <th class="px-4 py-2 font-medium">回货批次</th>
             <th class="px-4 py-2 text-right font-medium">数量</th>
@@ -284,22 +297,18 @@ function renderLedgerRows(ledgers: PreSettlementLedger[]): string {
           ${ledgers
             .map(
               (ledger) => `
-                <tr class="border-b last:border-b-0">
+                <tr class="border-b last:border-b-0" data-adj-ledger-row="${escapeHtml(ledger.ledgerId)}">
                   <td class="px-4 py-3 font-mono">${escapeHtml(ledger.ledgerNo)}</td>
                   <td class="px-4 py-3">${renderTypeCell(ledger)}</td>
                   <td class="px-4 py-3">${escapeHtml(ledger.factoryName)}</td>
-                  <td class="px-4 py-3 text-[11px] text-muted-foreground">
-                    <div>${escapeHtml(ledger.settlementCycleLabel)}</div>
-                    <div class="mt-1">计划预付款：${escapeHtml(ledger.plannedPrepaymentAt ?? '-')}</div>
-                  </td>
                   <td class="px-4 py-3">
                     <div class="font-medium text-foreground">${escapeHtml(ledger.ledgerType === 'TASK_EARNING' ? (ledger.taskNo ?? '—') : (ledger.qcRecordId ?? '—'))}</div>
-                    <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(ledger.ledgerType === 'TASK_EARNING' ? (PRICE_SOURCE_LABEL[ledger.priceSourceType] ?? '兼容快照') : (ledger.pendingDeductionRecordId ?? '正式质量扣款流水'))}</div>
+                    <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(ledger.ledgerType === 'TASK_EARNING' ? (ledger.sourceReason ?? PRICE_SOURCE_LABEL[ledger.priceSourceType] ?? '兼容快照') : (ledger.pendingDeductionRecordId ?? '正式返工扣款流水'))}</div>
                   </td>
                   <td class="px-4 py-3 font-mono text-[11px]">${escapeHtml(ledger.returnInboundBatchNo ?? '—')}</td>
                   <td class="px-4 py-3 text-right font-mono">${ledger.qty}</td>
-                  <td class="px-4 py-3">${escapeHtml(ledger.settlementCurrency)}</td>
-                  <td class="px-4 py-3 text-right font-mono">${formatAmount(ledger.settlementAmount, ledger.settlementCurrency)}</td>
+                  <td class="px-4 py-3">IDR</td>
+                  <td class="px-4 py-3 text-right font-mono">${formatAmount(ledger.settlementAmount)}</td>
                   <td class="px-4 py-3">${renderStatusCell(ledger)}</td>
                   <td class="px-4 py-3">${ledger.statementId ? `<button class="text-primary underline underline-offset-2" data-nav="/fcs/settlement/statements">${escapeHtml(ledger.statementId)}</button>` : '—'}</td>
                   <td class="px-4 py-3">${ledger.prepaymentBatchId ? `<button class="text-primary underline underline-offset-2" data-nav="/fcs/settlement/batches">${escapeHtml(ledger.prepaymentBatchId)}</button>` : '—'}</td>
@@ -315,8 +324,22 @@ function renderLedgerRows(ledgers: PreSettlementLedger[]): string {
             .join('')}
         </tbody>
       </table>
-    </section>
+    </div>
   `
+}
+
+function renderLedgerPagination(paging: PaginationSlice<PreSettlementLedger>): string {
+  return renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'adj',
+    fieldPrefix: 'adj',
+    pageSizeOptions: LEDGER_PAGE_SIZE_OPTIONS,
+  })
 }
 
 function renderTraceRow(label: string, value: string): string {
@@ -350,8 +373,6 @@ function renderLedgerDetail(trace: PreSettlementLedgerSourceTrace | null): strin
                 ${renderTraceRow('流水号', escapeHtml(ledger.ledgerNo))}
                 ${renderTraceRow('流水类型', escapeHtml(LEDGER_TYPE_LABEL[ledger.ledgerType]))}
                 ${renderTraceRow('工厂', escapeHtml(ledger.factoryName))}
-                ${renderTraceRow('结算周期', escapeHtml(ledger.settlementCycleLabel))}
-                ${renderTraceRow('计划预付款日', escapeHtml(ledger.plannedPrepaymentAt ?? '-'))}
                 ${renderTraceRow('当前状态', escapeHtml(LEDGER_STATUS_LABEL[ledger.status]))}
                 ${renderTraceRow('已入对账单', statement ? escapeHtml(statement.statementId) : '未入对账单')}
                 ${renderTraceRow('已入预付款批次', batch ? escapeHtml(batch.batchId) : '未入预付款批次')}
@@ -361,8 +382,8 @@ function renderLedgerDetail(trace: PreSettlementLedgerSourceTrace | null): strin
             <section class="rounded-lg border bg-muted/10 p-4">
               <h3 class="text-sm font-semibold">金额快照</h3>
               <dl class="mt-3 space-y-1 text-sm">
-                ${renderTraceRow('原始金额', escapeHtml(formatAmount(ledger.originalAmount, ledger.originalCurrency)))}
-                ${renderTraceRow('预结算金额', escapeHtml(formatAmount(ledger.settlementAmount, ledger.settlementCurrency)))}
+                ${renderTraceRow('原始金额', escapeHtml(formatAmount(ledger.originalAmount)))}
+                ${renderTraceRow('预结算金额', escapeHtml(formatAmount(ledger.settlementAmount)))}
                 ${renderTraceRow('汇率快照', escapeHtml(String(ledger.fxRate ?? 1)))}
                 ${renderTraceRow('汇率应用时间', escapeHtml(ledger.fxAppliedAt ?? '—'))}
                 ${renderTraceRow('结算资料版本', escapeHtml(ledger.settlementProfileVersionNo ?? settlementProfile?.versionNo ?? '—'))}
@@ -381,7 +402,7 @@ function renderLedgerDetail(trace: PreSettlementLedgerSourceTrace | null): strin
                         renderTraceRow('生产单号', escapeHtml(productionOrder?.legacyOrderNo ?? ledger.productionOrderNo ?? '—')),
                         renderTraceRow('回货批次号', escapeHtml(ledger.returnInboundBatchNo ?? '—')),
                         renderTraceRow('价格来源', escapeHtml(PRICE_SOURCE_LABEL[ledger.priceSourceType] ?? '兼容快照')),
-                        renderTraceRow('单价', escapeHtml(ledger.unitPrice != null ? formatAmount(ledger.unitPrice, ledger.originalCurrency) : '—')),
+                        renderTraceRow('单价', escapeHtml(ledger.unitPrice != null ? formatAmount(ledger.unitPrice) : '—')),
                         renderTraceRow('数量', escapeHtml(String(ledger.qty))),
                       ].join('')
                     : [
@@ -390,7 +411,7 @@ function renderLedgerDetail(trace: PreSettlementLedgerSourceTrace | null): strin
                         renderTraceRow('质量异议单', escapeHtml(disputeCase?.disputeId ?? ledger.disputeId ?? '—')),
                         renderTraceRow('裁决结果', escapeHtml(disputeCase?.adjudicationResult ?? ledger.sourceReason ?? '—')),
                         renderTraceRow('责任数量', escapeHtml(String(ledger.qty))),
-                        renderTraceRow('来源说明', escapeHtml(ledger.sourceReason ?? '正式质量扣款流水')),
+                        renderTraceRow('来源说明', escapeHtml(ledger.sourceReason ?? '正式返工扣款流水')),
                       ].join('')
                 }
               </dl>
@@ -430,10 +451,11 @@ export function renderAdjustmentsPage(): string {
   syncPreSettlementLedgerStateFromPath()
 
   const allLedgers = listPreSettlementLedgers()
+  const searchFiltered = getSearchFilteredLedgers()
   const filtered = getFilteredLedgers()
+  const paging = paginateLedgers(filtered)
   const pageBoundary = getSettlementPageBoundary('adjustments')
   const factoryOptions = getFactoryOptions(allLedgers)
-  const cycleOptions = getCycleOptions(allLedgers)
   const detailTrace = state.detailLedgerId ? tracePreSettlementLedgerSource(state.detailLedgerId) : null
 
   return `
@@ -443,50 +465,16 @@ export function renderAdjustmentsPage(): string {
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(pageBoundary.pageIntro)}</p>
       </section>
 
-      <section class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        ${renderStatsCard('全部正式流水', allLedgers.length, '统一承接任务收入与质量扣款')}
-        ${renderStatsCard('任务收入流水', allLedgers.filter((item) => item.ledgerType === 'TASK_EARNING').length)}
-        ${renderStatsCard('质量扣款流水', allLedgers.filter((item) => item.ledgerType === 'QUALITY_DEDUCTION').length)}
-        ${renderStatsCard('待入对账单', allLedgers.filter((item) => item.status === 'OPEN').length)}
-        ${renderStatsCard('已入对账单', allLedgers.filter((item) => item.status === 'IN_STATEMENT').length)}
-        ${renderStatsCard(
-          '已入预付款批次 / 已预付',
-          allLedgers.filter((item) => item.status === 'IN_PREPAYMENT_BATCH' || item.status === 'PREPAID').length,
-        )}
-      </section>
-
-      <section class="rounded-lg border bg-card p-4">
-        <h2 class="text-sm font-semibold">对象说明</h2>
-        <p class="mt-1 text-xs text-muted-foreground">
-          当前页面只展示正式预结算流水。任务收入流水来自回货批次与价格快照，质量扣款流水只来自已正式成立的质量扣款流水；待确认质量扣款记录和质量异议单不会进入本页正式流水池。
-        </p>
-      </section>
-
-      <section class="rounded-xl border bg-background p-4">
-        <div class="flex flex-wrap items-center gap-2">
-          ${renderViewChip('ALL', getViewCount('ALL', allLedgers))}
-          ${renderViewChip('TASK_EARNING', getViewCount('TASK_EARNING', allLedgers))}
-          ${renderViewChip('QUALITY_DEDUCTION', getViewCount('QUALITY_DEDUCTION', allLedgers))}
-          ${renderViewChip('OPEN', getViewCount('OPEN', allLedgers))}
-          ${renderViewChip('IN_STATEMENT', getViewCount('IN_STATEMENT', allLedgers))}
-          ${renderViewChip('IN_PREPAYMENT', getViewCount('IN_PREPAYMENT', allLedgers))}
-        </div>
-      </section>
-
       <section class="flex flex-wrap gap-2">
         <input class="h-8 w-56 rounded-md border bg-background px-2 text-xs" placeholder="流水号 / 任务号 / 回货批次号 / 质检记录号" data-adj-filter="keyword" value="${escapeHtml(state.keyword)}" />
         <select class="h-8 w-48 rounded-md border bg-background px-2 text-xs" data-adj-filter="factory">
           <option value="__ALL__" ${state.filterFactory === '__ALL__' ? 'selected' : ''}>全部工厂</option>
           ${factoryOptions.map((item) => `<option value="${escapeHtml(item.id)}" ${state.filterFactory === item.id ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}
         </select>
-        <select class="h-8 w-56 rounded-md border bg-background px-2 text-xs" data-adj-filter="cycle">
-          <option value="__ALL__" ${state.filterCycle === '__ALL__' ? 'selected' : ''}>全部结算周期</option>
-          ${cycleOptions.map((item) => `<option value="${escapeHtml(item.id)}" ${state.filterCycle === item.id ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
-        </select>
         <select class="h-8 w-40 rounded-md border bg-background px-2 text-xs" data-adj-filter="type">
           <option value="__ALL__" ${state.filterType === '__ALL__' ? 'selected' : ''}>全部类型</option>
           <option value="TASK_EARNING" ${state.filterType === 'TASK_EARNING' ? 'selected' : ''}>任务收入流水</option>
-          <option value="QUALITY_DEDUCTION" ${state.filterType === 'QUALITY_DEDUCTION' ? 'selected' : ''}>质量扣款流水</option>
+          <option value="QUALITY_DEDUCTION" ${state.filterType === 'QUALITY_DEDUCTION' ? 'selected' : ''}>返工扣款流水</option>
         </select>
         <select class="h-8 w-44 rounded-md border bg-background px-2 text-xs" data-adj-filter="status">
           <option value="__ALL__" ${state.filterStatus === '__ALL__' ? 'selected' : ''}>全部状态</option>
@@ -498,7 +486,21 @@ export function renderAdjustmentsPage(): string {
         </select>
       </section>
 
-      ${renderLedgerRows(filtered)}
+      <section class="rounded-xl border bg-background p-4">
+        <div class="flex flex-wrap items-center gap-2">
+          ${renderViewChip('ALL', getViewCount('ALL', searchFiltered))}
+          ${renderViewChip('TASK_EARNING', getViewCount('TASK_EARNING', searchFiltered))}
+          ${renderViewChip('QUALITY_DEDUCTION', getViewCount('QUALITY_DEDUCTION', searchFiltered))}
+          ${renderViewChip('OPEN', getViewCount('OPEN', searchFiltered))}
+          ${renderViewChip('IN_STATEMENT', getViewCount('IN_STATEMENT', searchFiltered))}
+          ${renderViewChip('IN_PREPAYMENT', getViewCount('IN_PREPAYMENT', searchFiltered))}
+        </div>
+      </section>
+
+      <section class="overflow-hidden rounded-lg border">
+        ${renderLedgerRows(paging.rows)}
+        ${renderLedgerPagination(paging)}
+      </section>
       ${renderLedgerDetail(detailTrace)}
     </div>
   `
@@ -511,9 +513,16 @@ export function handleAdjustmentsEvent(target: HTMLElement): boolean {
     if (!field) return true
     if (field === 'keyword') state.keyword = filterNode.value
     if (field === 'factory') state.filterFactory = filterNode.value
-    if (field === 'cycle') state.filterCycle = filterNode.value
     if (field === 'type') state.filterType = filterNode.value as LedgerTypeFilter
     if (field === 'status') state.filterStatus = filterNode.value as LedgerStatusFilter
+    state.page = 1
+    return true
+  }
+
+  const fieldNode = target.closest<HTMLElement>('[data-adj-field]')
+  if (fieldNode instanceof HTMLSelectElement && fieldNode.dataset.adjField === 'pageSize') {
+    state.pageSize = normalizePageSize(fieldNode.value)
+    state.page = 1
     return true
   }
 
@@ -525,7 +534,22 @@ export function handleAdjustmentsEvent(target: HTMLElement): boolean {
 
   if (action === 'switch-view') {
     const view = actionNode.dataset.view as LedgerWorkbenchView | undefined
-    if (view) state.activeView = view
+    if (view) {
+      state.activeView = view
+      state.page = 1
+    }
+    return true
+  }
+
+  const totalPages = Math.max(1, Math.ceil(getFilteredLedgers().length / state.pageSize))
+
+  if (action === 'prev-page') {
+    state.page = Math.max(1, state.page - 1)
+    return true
+  }
+
+  if (action === 'next-page') {
+    state.page = Math.min(totalPages, state.page + 1)
     return true
   }
 

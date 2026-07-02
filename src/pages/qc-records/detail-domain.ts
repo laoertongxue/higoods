@@ -45,6 +45,11 @@ import {
   getPlatformQcDetailViewModelByRouteKey,
   type PlatformQcDetailViewModel,
 } from '../../data/fcs/quality-deduction-selectors'
+import {
+  getQcFactDetail,
+  type QcFactDetail,
+  type QcFactSkuResult,
+} from './fact-view'
 import { renderPdaFrame } from '../pda-shell'
 
 const INSPECTION_SCENE_LABEL: Record<string, string> = {
@@ -222,7 +227,7 @@ function renderChainOverview(params: {
     disputeSummary,
   } = params
 
-  const sourceFactText = basisCount > 0 ? '已关联来源反扣事实' : '仅保留质检事实'
+  const sourceFactText = basisCount > 0 ? '已关联返工扣款事实' : '仅保留质检事实'
 
   return `
     <section class="grid gap-3 md:grid-cols-3">
@@ -252,12 +257,12 @@ function renderChainOverview(params: {
         <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(disputeSummary ?? qc.deductionDecisionRemark ?? qc.dispositionRemark ?? '质检记录只展示事实，扣款由对账单确认。')}</p>
       </article>
       <article class="rounded-md border bg-card px-4 py-3">
-        <p class="text-xs text-muted-foreground">来源反扣与对账串联</p>
+        <p class="text-xs text-muted-foreground">返工扣款与对账串联</p>
         <p class="mt-1 text-sm font-semibold">${basisCount} 条来源事实 · ${escapeHtml(settlementImpactLabel)}</p>
         <p class="mt-1 text-xs text-muted-foreground">质检记录仅展示来源事实，财务生效以对账单确认为准。</p>
         ${
           basisAmountTotal > 0
-            ? `<p class="mt-1 text-xs text-muted-foreground">来源反扣快照合计 ${basisAmountTotal} CNY · 证据 ${evidenceCount} 份</p>`
+            ? `<p class="mt-1 text-xs text-muted-foreground">返工扣款快照合计 ${basisAmountTotal} IDR · 证据 ${evidenceCount} 份</p>`
             : `<p class="mt-1 text-xs text-muted-foreground">${escapeHtml(settlementSummary || '财务生效以对账单确认为准')}</p>`
         }
       </article>
@@ -388,7 +393,7 @@ const EVIDENCE_ASSET_TYPE_LABEL = {
 
 function formatMoney(amount?: number | null): string {
   if (amount === undefined || amount === null) return '—'
-  return `${amount} CNY`
+  return `${amount} IDR`
 }
 
 function renderBadge(label: string, className: string): string {
@@ -533,7 +538,7 @@ function renderAdjudicationPanel(detailVm: PlatformQcDetailViewModel): string {
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p class="text-sm font-semibold text-amber-900">异议与来源事实</p>
-          <p class="mt-1 text-xs leading-5 text-amber-800">质检记录只展示异议和来源反扣事实；是否影响本期应付以对账单确认为准。</p>
+          <p class="mt-1 text-xs leading-5 text-amber-800">质检记录只展示异议和返工扣款事实；是否影响本期应付以对账单确认为准。</p>
         </div>
         <span class="inline-flex rounded-md border border-amber-300 bg-white px-2 py-0.5 text-[11px] text-amber-700">
           当前待确认
@@ -544,10 +549,106 @@ function renderAdjudicationPanel(detailVm: PlatformQcDetailViewModel): string {
         [
           { label: '异议状态', value: renderBadge(detailVm.disputeStatusLabel, getDisputeBadgeClass(detailVm.disputeCase.status)) },
           { label: '责任数量', value: `${detailVm.qcRecord.factoryLiabilityQty} 件` },
-          { label: '来源反扣金额', value: formatMoney(detailVm.settlementImpact.effectiveQualityDeductionAmount) },
+          { label: '返工扣款金额', value: formatMoney(detailVm.settlementImpact.effectiveQualityDeductionAmount) },
           { label: '财务生效', value: '以对账单确认为准' },
         ],
         'mt-4 grid-cols-1 md:grid-cols-2',
+      )}
+    </div>
+  `
+}
+
+function renderFactSkuCard(item: QcFactSkuResult): string {
+  const chargebackFields: PcDetailField[] = item.reworkChargebackAmountText !== '—'
+    ? [{ label: '返工扣款金额', value: escapeHtml(item.reworkChargebackAmountText) }]
+    : []
+
+  return `
+    <article class="rounded-md border bg-background px-4 py-3">
+      <div class="flex min-w-0 items-center gap-3">
+        <img class="h-12 w-12 rounded border object-cover" src="${escapeHtml(item.imageUrl || 'https://placehold.co/96x96?text=SKU')}" alt="${escapeHtml(item.skuCode)}" />
+        <div class="min-w-0">
+          <div class="truncate text-sm font-semibold">${escapeHtml(item.skuCode)}</div>
+          <div class="text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div>
+        </div>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${renderPcFieldGrid(
+          [
+            { label: '质检数量', value: `${item.inspectedQty} ${escapeHtml(item.qtyUnit)}` },
+            { label: '合格数量', value: `${item.qualifiedQty} ${escapeHtml(item.qtyUnit)}` },
+            { label: '返工数量', value: `${item.reworkQty} ${escapeHtml(item.qtyUnit)}` },
+            { label: '返工接收对象', value: escapeHtml(item.reworkReceiveFactoryName) },
+            ...chargebackFields,
+            { label: '瑕疵数量', value: `${item.defectQty} ${escapeHtml(item.qtyUnit)}` },
+            { label: '瑕疵原因', value: escapeHtml(item.defectReasonSummary) },
+            { label: '后道项目', value: escapeHtml(item.postProjectSummary) },
+          ],
+          'md:grid-cols-2 xl:grid-cols-4',
+        )}
+      </div>
+    </article>
+  `
+}
+
+function renderFactDetailPage(fact: QcFactDetail): string {
+  const chargebackFields: PcDetailField[] = fact.reworkChargebackAmountText !== '—'
+    ? [{ label: '返工扣款金额', value: escapeHtml(fact.reworkChargebackAmountText) }]
+    : []
+
+  return `
+    <div class="flex flex-col gap-6 p-6">
+      <header class="rounded-lg border bg-card px-5 py-5">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-semibold leading-tight">质检记录 ${escapeHtml(fact.displayNo)}</h1>
+            <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(fact.sourceTypeLabel)} · ${escapeHtml(fact.productionOrderNo)} · ${escapeHtml(fact.resultLabel)}</p>
+          </div>
+          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-qcd-action="back-list">返回列表</button>
+        </div>
+      </header>
+
+      ${renderPcSection(
+        '基本事实',
+        '只展示质检来源、对象、现场主体和时间。',
+        renderPcFieldGrid(
+          [
+            { label: '质检单号', value: `<span class="font-mono">${escapeHtml(fact.displayNo)}</span>` },
+            { label: '来源类型', value: escapeHtml(fact.sourceTypeLabel) },
+            { label: '生产单', value: `<span class="font-mono">${escapeHtml(fact.productionOrderNo)}</span>` },
+            { label: 'SKU', value: escapeHtml(fact.skuSummary) },
+            { label: '来源工厂', value: escapeHtml(fact.sourceFactoryName) },
+            { label: '接收方', value: escapeHtml(fact.receiverName) },
+            { label: '质检台', value: escapeHtml(fact.qcStationName) },
+            { label: '质检人 / 时间', value: `${escapeHtml(fact.inspectorName)} / ${escapeHtml(formatDateTime(fact.inspectedAt))}` },
+          ],
+          'md:grid-cols-2 xl:grid-cols-4',
+        ),
+      )}
+
+      ${renderPcSection(
+        '数量事实',
+        '直接核对质检数量、合格数量、返工数量、瑕疵数量和返工接收对象。',
+        renderPcFieldGrid(
+          [
+            { label: '质检数量', value: String(fact.inspectedQty) },
+            { label: '合格数量', value: String(fact.qualifiedQty) },
+            { label: '返工数量', value: String(fact.reworkQty) },
+            { label: '瑕疵数量', value: String(fact.defectQty) },
+            { label: '返工接收对象', value: escapeHtml(fact.reworkReceivers) },
+            ...chargebackFields,
+            { label: '质检结果', value: escapeHtml(fact.resultLabel) },
+          ],
+          'md:grid-cols-2 xl:grid-cols-4',
+        ),
+      )}
+
+      ${renderPcSection(
+        'SKU 明细',
+        '每个 SKU 的质检、合格、返工、瑕疵和后道判断。',
+        fact.skuResults.length
+          ? `<div class="space-y-3">${fact.skuResults.map(renderFactSkuCard).join('')}</div>`
+          : '<div class="rounded-md border border-dashed bg-background px-4 py-6 text-sm text-muted-foreground">当前记录无 SKU 级明细。</div>',
       )}
     </div>
   `
@@ -647,7 +748,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
             }
             ${
               deductionBasis
-                ? '<span class="inline-flex h-9 items-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm text-blue-700">已记录来源反扣事实</span>'
+                ? '<span class="inline-flex h-9 items-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm text-blue-700">已记录返工扣款事实</span>'
                 : ''
             }
             ${
@@ -700,12 +801,12 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
           escapeHtml(factoryResponse?.responseComment ?? disputeCase?.disputeDescription ?? '当前无工厂补充说明'),
         )}
         ${renderOverviewCard(
-          '质检事实与来源反扣',
+          '质检事实与返工扣款',
           [
             { label: '来源质检单', value: `<span class="font-mono">${escapeHtml(detailVm.qcNo)}</span>` },
             { label: '质检数量', value: String(qcRecord.inspectedQty) },
             { label: '合格 / 不合格', value: `${qcRecord.qualifiedQty} / ${qcRecord.unqualifiedQty}` },
-            { label: '来源反扣', value: formatMoney(settlementImpact.effectiveQualityDeductionAmount) },
+            { label: '返工扣款', value: formatMoney(settlementImpact.effectiveQualityDeductionAmount) },
             { label: '财务生效', value: '以对账单确认为准' },
           ],
           '质检记录不编辑扣款金额，仅展示来源事实。',
@@ -915,9 +1016,9 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
                               label: '金额变化',
                               value:
                                 disputeCase.adjudicatedAmount !== undefined
-                                  ? `${disputeCase.requestedAmount ?? 0} → ${disputeCase.adjudicatedAmount} CNY`
+                                  ? `${disputeCase.requestedAmount ?? 0} → ${disputeCase.adjudicatedAmount} IDR`
                                   : disputeCase.requestedAmount !== undefined
-                                    ? `${disputeCase.requestedAmount} CNY`
+                                    ? `${disputeCase.requestedAmount} IDR`
                                     : '—',
                             },
                           ],
@@ -939,20 +1040,20 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
 
       ${renderPcSection(
         '来源事实与对账提示',
-        '这里只读展示质检来源事实和来源反扣信息，财务生效以对账单确认为准。',
+        '这里只读展示质检来源事实和返工扣款信息，财务生效以对账单确认为准。',
         `
           <div class="space-y-5">
             <div class="space-y-4 rounded-md border bg-background px-4 py-4">
               <div class="flex flex-wrap items-center justify-between gap-3">
-                <h3 class="text-sm font-semibold text-foreground">来源反扣事实</h3>
-                <span class="text-sm text-muted-foreground">${deductionBasis ? '已记录来源事实' : '暂无来源反扣'}</span>
+                <h3 class="text-sm font-semibold text-foreground">返工扣款事实</h3>
+                <span class="text-sm text-muted-foreground">${deductionBasis ? '已记录来源事实' : '暂无返工扣款'}</span>
               </div>
               ${renderPcFieldGrid(
                 [
                   { label: '来源质检单', value: `<span class="font-mono">${escapeHtml(detailVm.qcNo)}</span>` },
                   { label: '来源事实编号', value: deductionBasis ? `<span class="font-mono">${escapeHtml(deductionBasis.basisId)}</span>` : '—' },
-                  { label: '来源反扣金额', value: formatMoney(deductionBasis?.effectiveQualityDeductionAmount ?? settlementImpact.effectiveQualityDeductionAmount) },
-                  { label: '来源反扣说明', value: escapeHtml(deductionBasis?.summary ?? qcRecord.deductionDecisionRemark ?? qcRecord.dispositionRemark ?? '质检记录只展示来源事实。') },
+                  { label: '返工扣款金额', value: formatMoney(deductionBasis?.effectiveQualityDeductionAmount ?? settlementImpact.effectiveQualityDeductionAmount) },
+                  { label: '返工扣款说明', value: escapeHtml(deductionBasis?.summary ?? qcRecord.deductionDecisionRemark ?? qcRecord.dispositionRemark ?? '质检记录只展示来源事实。') },
                   { label: '引用证据', value: deductionBasis ? `${detailVm.basisEvidenceCount} 份` : '—' },
                   { label: '财务生效', value: '以对账单确认为准' },
                 ],
@@ -960,7 +1061,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
               ${
                 deductionBasis
                   ? renderEvidenceAssets(deductionBasis.evidenceAssets, '当前无引用证据。')
-                  : '<div class="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">当前暂无来源反扣证据。</div>'
+                  : '<div class="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">当前暂无返工扣款证据。</div>'
               }
             </div>
             <div class="rounded-md border bg-card px-4 py-3 text-sm text-muted-foreground">
@@ -979,6 +1080,11 @@ function renderQcRecordDetailPageByVariant(
   qcId: string,
   variant: 'web' | 'mobile',
 ): string {
+  if (variant === 'web' && qcId !== 'new') {
+    const fact = getQcFactDetail(qcId)
+    if (fact) return renderFactDetailPage(fact)
+  }
+
   const detail = ensureDetailState(qcId)
   const platformDetailVm = qcId === 'new' ? null : getPlatformQcDetailViewModelByRouteKey(qcId)
   const chainFact = qcId === 'new' ? null : getQcChainFactByRouteKey(qcId)
@@ -1348,7 +1454,7 @@ function renderQcRecordDetailPageByVariant(
 
                   <div class="space-y-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-3">
                     <p class="text-sm font-medium text-blue-900">质检事实说明</p>
-                    <p class="text-xs leading-5 text-blue-700">质检记录不编辑扣款金额或扣款决定；来源反扣仅展示现场事实，财务生效以对账单确认为准。</p>
+                    <p class="text-xs leading-5 text-blue-700">质检记录不编辑扣款金额或扣款决定；返工扣款仅展示现场事实，财务生效以对账单确认为准。</p>
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div class="space-y-1.5">
                         <label class="text-sm">责任方名称（可选）</label>
@@ -1504,8 +1610,8 @@ function renderQcRecordDetailPageByVariant(
                     <p>财务生效以对账单确认为准</p>
                   </div>
                   <div>
-                    <p class="text-xs text-muted-foreground">来源反扣说明</p>
-                    <p>来源反扣仅作为质检事实展示</p>
+                    <p class="text-xs text-muted-foreground">返工扣款说明</p>
+                    <p>返工扣款仅作为质检事实展示</p>
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">争议/申诉</p>
@@ -1525,7 +1631,7 @@ function renderQcRecordDetailPageByVariant(
                 <div class="space-y-2 px-4 py-4">
                   ${
                     basisItems.length === 0
-                      ? '<p class="text-sm text-muted-foreground">暂无来源反扣事实</p>'
+                      ? '<p class="text-sm text-muted-foreground">暂无返工扣款事实</p>'
                       : basisItems
                           .map(
                             (basis) => `

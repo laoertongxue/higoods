@@ -22,6 +22,7 @@
     "check:pda-settlement-ledger": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-settlement-ledger.ts",
     "check:pda-settlement-task-links": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-settlement-task-links.ts",
     "check:factory-settlement-qc-boundary": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-settlement-qc-boundary.ts",
+    "check:qc-records-facts-only": "tsx scripts/check-qc-records-facts-only.ts",
     "check:factory-settlement-deduction-analysis": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-settlement-deduction-analysis.ts",
     "check:factory-settlement": "npm run check:factory-settlement-reconciliation && npm run check:factory-settlement-statements && npm run check:statements && npm run check:factory-settlement-qc-boundary && npm run check:factory-settlement-deduction-analysis && npm run check:factory-settlement-pda",
     "check:quality-deduction-analysis": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-quality-deduction-analysis.ts",

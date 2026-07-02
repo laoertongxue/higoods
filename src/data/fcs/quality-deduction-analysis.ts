@@ -1,4 +1,5 @@
 import { parseQualityDeductionTimestamp } from './quality-deduction-lifecycle.ts'
+import { listPostFinishingQcOrders } from './post-finishing-domain.ts'
 import { listStatementConfirmedDeductionRows } from './store-domain-statement-source-adapter.ts'
 import type { StatementDeductionLineType } from './store-domain-settlement-types.ts'
 import type {
@@ -89,6 +90,8 @@ export interface QualityDeductionAnalysisBreakdownRow {
 }
 
 export interface QualityDeductionAnalysisDetailRow {
+  recordSource: 'QC_REWORK_CHARGEBACK' | 'STATEMENT_FACTORY_DEFECT'
+  recordSourceLabel: string
   qcId: string
   qcNo: string
   basisId?: string
@@ -100,6 +103,7 @@ export interface QualityDeductionAnalysisDetailRow {
   warehouseName: string
   processType: StatementDeductionLineType
   processLabel: string
+  deductionReasonName?: string
   qcResult: QualityDeductionQcResult
   qcResultLabel: string
   liabilityStatus: QualityDeductionLiabilityStatus
@@ -117,6 +121,7 @@ export interface QualityDeductionAnalysisDetailRow {
   blockedProcessingFeeAmount: number
   effectiveQualityDeductionAmount: number
   totalFinancialImpactAmount: number
+  currency: string
   hasAdjustment: boolean
   adjustmentType?: string
   adjustmentTypeLabel?: string
@@ -135,11 +140,14 @@ export interface QualityDeductionAnalysisDetailRow {
 }
 
 export interface QualityDeductionAnalysisExportRow {
+  来源类型: string
   来源编号: string
+  质检记录: string
   对账单编号: string
   生产单号: string
   工厂: string
   扣款类型: string
+  扣款原因: string
   扣款数量: number
   对账单确认状态: string
   异议状态: string
@@ -190,11 +198,87 @@ function endOfDayTimestamp(value: string): number | null {
   return parseQualityDeductionTimestamp(`${value} 23:59:59`)
 }
 
+function numberValue(value: number | undefined): number {
+  return Number(value) || 0
+}
+
+function getPostQcProductionOrderNo(row: ReturnType<typeof listPostFinishingQcOrders>[number]): string {
+  return row.warehouseAllocations?.[0]?.productionOrderNo || row.qualityDeductionSnapshot?.productionOrderNo || '—'
+}
+
+function createQcReworkChargebackRows(query: QualityDeductionAnalysisQuery): AnalysisRowBase[] {
+  return listPostFinishingQcOrders().flatMap((row) => {
+    const amount = (row.qcSkuResults ?? []).reduce(
+      (sum, item) => sum + numberValue(item.sourceChargeback?.amount ?? item.reworkDeductionAmountIdr),
+      0,
+    )
+    if (amount <= 0) return []
+
+    const occurredAt = row.finishedAt || row.startedAt || row.updatedAt || ''
+    const occurredDate = occurredAt.slice(0, 10)
+    const productionOrderNo = getPostQcProductionOrderNo(row)
+    return [
+      {
+        recordSource: 'QC_REWORK_CHARGEBACK' as const,
+        recordSourceLabel: '质检记录返工扣款',
+        qcId: row.actionRecordId,
+        qcNo: row.actionRecordNo,
+        basisId: undefined,
+        productionOrderNo,
+        returnInboundBatchNo: row.actionRecordNo,
+        factoryId: row.sourceFactoryName,
+        factoryName: row.sourceFactoryName,
+        warehouseId: '',
+        warehouseName: '—',
+        processType: 'POST_FACTORY_REWORK_CHARGEBACK' as const,
+        processLabel: '返工扣款',
+        deductionReasonName: row.reworkReceiveFactoryName ? `返工接收：${row.reworkReceiveFactoryName}` : '返工接收对象非来源工厂',
+        qcResult: 'PARTIALLY_QUALIFIED' as const,
+        qcResultLabel: '质检记录同步',
+        liabilityStatus: 'FACTORY' as const,
+        liabilityStatusLabel: '工厂原因',
+        factoryResponseStatus: 'NOT_REQUIRED' as const,
+        factoryResponseStatusLabel: '质检记录同步',
+        disputeStatus: 'NONE' as const,
+        disputeStatusLabel: '无异议',
+        settlementImpactStatus: 'ELIGIBLE' as const,
+        settlementImpactStatusLabel: '待进入对账单',
+        inspectedQty: numberValue(row.inspectedGarmentQty ?? row.submittedGarmentQty),
+        qualifiedQty: numberValue(row.passedGarmentQty ?? row.acceptedGarmentQty),
+        unqualifiedQty: numberValue(row.reworkGarmentQty),
+        factoryLiabilityQty: numberValue(row.reworkGarmentQty),
+        blockedProcessingFeeAmount: 0,
+        effectiveQualityDeductionAmount: roundAmount(amount),
+        totalFinancialImpactAmount: roundAmount(amount),
+        currency: row.qcSkuResults?.find((item) => item.sourceChargeback?.currency)?.sourceChargeback?.currency ?? 'IDR',
+        hasAdjustment: false,
+        adjustmentType: undefined,
+        adjustmentTypeLabel: undefined,
+        adjustmentAmount: 0,
+        adjustmentAmountSigned: 0,
+        targetSettlementCycleId: undefined,
+        includedSettlementStatementId: undefined,
+        includedSettlementBatchId: undefined,
+        financialEffectiveAt: occurredAt,
+        settlementCycleAt: occurredAt,
+        settlementCycleLabel: '待进入对账单',
+        displayTimeLabel: occurredAt || '—',
+        detailSummary: `质检记录返工扣款 · ${amount} IDR · ${productionOrderNo}`,
+        qcHref: `/fcs/quality/qc-records/${encodeURIComponent(row.actionRecordId)}`,
+        deductionHref: undefined,
+        timeBucketKey: query.timeBasis === 'SETTLEMENT_CYCLE' ? '待进入对账单' : occurredDate,
+      },
+    ]
+  })
+}
+
 function createBaseRows(query: QualityDeductionAnalysisQuery): AnalysisRowBase[] {
-  return listStatementConfirmedDeductionRows().map((row) => {
+  const statementRows = listStatementConfirmedDeductionRows().filter((row) => row.deductionLineType === 'QUALITY_DEFECT').map((row) => {
     const occurredDate = row.occurredAt.slice(0, 10)
     const statementHref = `/fcs/settlement/statements?statement=${encodeURIComponent(row.statementId)}`
     return {
+      recordSource: 'STATEMENT_FACTORY_DEFECT' as const,
+      recordSourceLabel: '对账单瑕疵扣款',
       qcId: row.sourceQcRecordId ?? row.statementId,
       qcNo: row.sourceRefLabel ?? row.statementNo,
       basisId: row.statementId,
@@ -205,7 +289,8 @@ function createBaseRows(query: QualityDeductionAnalysisQuery): AnalysisRowBase[]
       warehouseId: '',
       warehouseName: '—',
       processType: row.deductionLineType,
-      processLabel: row.deductionLineTypeLabel,
+      processLabel: '瑕疵扣款',
+      deductionReasonName: row.reasonName || '工厂原因瑕疵',
       qcResult: 'PARTIALLY_QUALIFIED',
       qcResultLabel: '对账单扣款',
       liabilityStatus: 'FACTORY',
@@ -223,6 +308,7 @@ function createBaseRows(query: QualityDeductionAnalysisQuery): AnalysisRowBase[]
       blockedProcessingFeeAmount: 0,
       effectiveQualityDeductionAmount: row.amount,
       totalFinancialImpactAmount: row.amount,
+      currency: 'IDR',
       hasAdjustment: false,
       adjustmentType: undefined,
       adjustmentTypeLabel: undefined,
@@ -235,12 +321,13 @@ function createBaseRows(query: QualityDeductionAnalysisQuery): AnalysisRowBase[]
       settlementCycleAt: row.occurredAt,
       settlementCycleLabel: row.statementNo,
       displayTimeLabel: query.timeBasis === 'SETTLEMENT_CYCLE' ? `${row.statementNo} / ${row.occurredAt}` : row.occurredAt,
-      detailSummary: `${row.deductionLineTypeLabel} · ${row.amount} ${row.currency} · 来源对账单 ${row.statementNo}`,
+      detailSummary: `${row.deductionLineTypeLabel} · ${row.amount} IDR · 来源对账单 ${row.statementNo}`,
       qcHref: row.sourceQcRecordId ? `/fcs/quality/qc-records/${encodeURIComponent(row.sourceQcRecordId)}` : statementHref,
       deductionHref: statementHref,
       timeBucketKey: query.timeBasis === 'SETTLEMENT_CYCLE' ? row.statementNo : occurredDate,
     }
   })
+  return [...createQcReworkChargebackRows(query), ...statementRows]
 }
 
 function matchesKeyword(row: AnalysisRowBase, keyword: string): boolean {
@@ -254,6 +341,8 @@ function matchesKeyword(row: AnalysisRowBase, keyword: string): boolean {
     row.returnInboundBatchNo,
     row.factoryName,
     row.factoryId,
+    row.recordSourceLabel,
+    row.deductionReasonName,
     row.detailSummary,
   ]
     .filter(Boolean)
@@ -521,11 +610,14 @@ export function buildQualityDeductionExportRows(
   query: QualityDeductionAnalysisQuery,
 ): QualityDeductionAnalysisExportRow[] {
   return buildQualityDeductionDetails(query).map((row) => ({
+    来源类型: row.recordSourceLabel,
     来源编号: row.qcNo,
+    质检记录: row.qcNo,
     对账单编号: row.settlementCycleLabel ?? row.basisId ?? '—',
     生产单号: row.productionOrderNo,
     工厂: row.factoryName,
     扣款类型: row.processLabel,
+    扣款原因: row.deductionReasonName ?? '—',
     扣款数量: row.factoryLiabilityQty,
     对账单确认状态: row.factoryResponseStatusLabel,
     异议状态: row.disputeStatusLabel,

@@ -212,7 +212,7 @@ function getDisputeBadgeClass(label: string): string {
 
 function getSettlementBadgeClass(label: string): string {
   if (label.includes('待确认') || label.includes('待平台处理')) return getBadgeClass('amber')
-  if (label.includes('正式质量扣款流水')) return getBadgeClass('green')
+  if (label.includes('正式返工扣款流水')) return getBadgeClass('green')
   if (label.includes('预结算单')) return getBadgeClass('blue')
   if (label.includes('预付款批次')) return getBadgeClass('purple')
   return getBadgeClass('gray')
@@ -800,12 +800,12 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
         { label: '结算单号', value: escapeHtml(detail.includedSettlementStatementId ?? '—') },
         { label: '预付款批次号', value: escapeHtml(detail.includedSettlementBatchId ?? '—') },
         {
-          label: '正式质量扣款流水说明',
+          label: '正式返工扣款流水说明',
           value: escapeHtml(
             detail.formalLedgerStatusLabel ??
               detail.pendingRecordStatusLabel ??
               detail.settlementAdjustmentSummary ??
-              '当前尚未形成正式质量扣款流水',
+              '当前尚未形成正式返工扣款流水',
           ),
         },
       ]),

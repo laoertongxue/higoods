@@ -20,17 +20,30 @@ function main(): void {
   const query = createDefaultQualityDeductionAnalysisQuery()
   const filterOptions = buildQualityDeductionAnalysisFilterOptions()
   assert(filterOptions.factories.length >= 1, '工厂筛选维度不足')
-  assert(filterOptions.processes.some((item) => item.label === '质量扣款'), '缺少扣款类型筛选维度')
+  assert(filterOptions.processes.some((item) => item.label === '瑕疵扣款'), '缺少瑕疵扣款筛选维度')
+  assert(filterOptions.processes.some((item) => item.label === '返工扣款'), '缺少返工扣款筛选维度')
   assert(QUALITY_DEDUCTION_ANALYSIS_DIMENSION_LABEL.PROCESS === '按扣款类型', '维度文案未切到扣款类型')
 
   const kpis = buildQualityDeductionKpis(query)
   const details = buildQualityDeductionDetails(query)
-  assert(details.length === kpis.qcRecordCount, '分析总数与明细数不一致')
-  assert(details.length > 0, '扣款分析明细为空')
-  assert(details.every((row) => row.includedSettlementStatementId), '扣款分析明细必须来自对账单确认行')
-  assert(details.every((row) => row.effectiveQualityDeductionAmount >= 0), '对账单扣款金额必须为非负分析金额')
-  assert(details.every((row) => row.factoryResponseStatusLabel === '对账单确认'), '扣款确认状态必须来自对账单')
-  assert(kpis.blockedProcessingFeeAmount === 0, '未进入对账单的质检事实不应计入扣款分析')
+  assert(details.length === kpis.qcRecordCount, '扣款记录总数与明细数不一致')
+  assert(details.length > 0, '扣款记录明细为空')
+  assert(details.some((row) => row.recordSource === 'QC_REWORK_CHARGEBACK'), '扣款记录缺少质检记录返工扣款来源')
+  assert(details.some((row) => row.recordSource === 'STATEMENT_FACTORY_DEFECT'), '扣款记录缺少对账单工厂瑕疵扣款来源')
+  assert(details.every((row) => row.factoryName && row.productionOrderNo && row.qcNo), '扣款记录必须按工厂、生产单、质检记录维度展示')
+  assert(
+    details
+      .filter((row) => row.recordSource === 'STATEMENT_FACTORY_DEFECT')
+      .every((row) => row.includedSettlementStatementId && row.processType === 'QUALITY_DEFECT'),
+    '对账单来源必须只统计工厂原因瑕疵质量扣款行',
+  )
+  assert(
+    details
+      .filter((row) => row.recordSource === 'QC_REWORK_CHARGEBACK')
+      .every((row) => !row.includedSettlementStatementId && row.processType === 'POST_FACTORY_REWORK_CHARGEBACK'),
+    '质检记录来源必须只统计返工扣款事实',
+  )
+  assert(details.every((row) => row.effectiveQualityDeductionAmount >= 0), '扣款金额必须为非负金额')
 
   const trend = buildQualityDeductionTrend(query)
   assert(trend.length > 0, '趋势视图为空')
@@ -46,7 +59,8 @@ function main(): void {
   )
 
   const processBreakdown = buildQualityDeductionBreakdown(query, 'PROCESS')
-  assert(processBreakdown.some((item) => item.label === '质量扣款'), '缺少扣款类型分组')
+  assert(processBreakdown.some((item) => item.label === '瑕疵扣款'), '缺少瑕疵扣款分组')
+  assert(processBreakdown.some((item) => item.label === '返工扣款'), '缺少返工扣款分组')
   const responseBreakdown = buildQualityDeductionBreakdown(query, 'FACTORY_RESPONSE_STATUS')
   assert(responseBreakdown.some((item) => item.label === '对账单确认'), '缺少对账单确认分组')
   const statementBreakdown = buildQualityDeductionBreakdown(query, 'SETTLEMENT_IMPACT_STATUS')
@@ -54,7 +68,7 @@ function main(): void {
 
   const exportRows = buildQualityDeductionExportRows(query)
   assert(exportRows.length === details.length, '导出行数与明细不一致')
-  assert(exportRows.every((row) => row.对账单编号 && row.扣款类型), '导出缺少对账单或扣款类型字段')
+  assert(exportRows.every((row) => row.来源类型 && row.质检记录 && row.扣款类型), '导出缺少来源类型、质检记录或扣款类型字段')
 
   const cycleTrend = buildQualityDeductionTrend({ ...query, timeBasis: 'SETTLEMENT_CYCLE' })
   assert(cycleTrend.length > 0, '结算周期视图为空')
@@ -63,8 +77,8 @@ function main(): void {
   console.log(
     JSON.stringify(
       {
-        statementDeductionRowCount: kpis.qcRecordCount,
-        statementDeductionAmount: kpis.effectiveQualityDeductionAmount,
+        deductionRecordCount: kpis.qcRecordCount,
+        deductionRecordAmount: kpis.effectiveQualityDeductionAmount,
         totalFinancialImpactAmount: kpis.totalFinancialImpactAmount,
         cycleTrendCount: cycleTrend.length,
         deductionTypeCount: processBreakdown.length,

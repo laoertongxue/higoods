@@ -30,11 +30,28 @@ import {
 } from './actions'
 
 export function handleQcRecordsEvent(target: HTMLElement): boolean {
+  const listFieldNode = target.closest<HTMLElement>('[data-qcr-field]')
+  if (listFieldNode instanceof HTMLInputElement || listFieldNode instanceof HTMLSelectElement) {
+    const field = listFieldNode.dataset.qcrField
+    if (field === 'pageSize') {
+      const pageSize = Number(listFieldNode.value)
+      listState.pageSize = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 10
+      listState.page = 1
+      return true
+    }
+  }
+
   const listFilterNode = target.closest<HTMLElement>('[data-qcr-filter]')
   if (listFilterNode instanceof HTMLInputElement || listFilterNode instanceof HTMLSelectElement) {
     const field = listFilterNode.dataset.qcrFilter
+    if (field) listState.page = 1
     if (field === 'keyword') {
       listState.keyword = listFilterNode.value
+      return true
+    }
+    if (field === 'pageSize') {
+      const pageSize = Number(listFilterNode.value)
+      listState.pageSize = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 10
       return true
     }
     if (field === 'showLegacy' && listFilterNode instanceof HTMLInputElement) {
@@ -238,6 +255,23 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
       listState.filterFactory = 'ALL'
       listState.filterWarehouse = 'ALL'
       listState.showLegacy = false
+      listState.page = 1
+      listState.pageSize = 10
+      return true
+    }
+
+    if (action === 'query') {
+      listState.page = 1
+      return true
+    }
+
+    if (action === 'prev-page') {
+      listState.page = Math.max(1, listState.page - 1)
+      return true
+    }
+
+    if (action === 'next-page') {
+      listState.page += 1
       return true
     }
 

@@ -186,6 +186,16 @@ interface LinkedStatementLineBuild {
   basisIds: string[]
 }
 
+interface TaskReworkEarningAdjustment {
+  receiveObjectLabel: '原工厂' | '非原工厂'
+  reworkQty: number
+  reworkAmount: number
+  chargebackAmount: number
+  totalDeductionAmount: number
+  sourceReasonSuffix: string
+  remarkSuffix: string
+}
+
 export interface LinkedStatementSourceRow {
   sourceItemId: string
   sourceType: 'TASK_EARNING' | 'QUALITY_DEDUCTION'
@@ -1042,7 +1052,15 @@ function buildStatementLineFromBatch(
   batchContext: LinkedReturnBatchContext,
   lineIndex: number,
 ): LinkedStatementLineBuild {
-  const earningAmount = roundAmount(batchContext.taskContext.unitPrice * batchContext.batch.returnedQty)
+  const grossEarningAmount = roundAmount(batchContext.taskContext.unitPrice * batchContext.batch.returnedQty)
+  const reworkAdjustment = resolveTaskReworkEarningAdjustment({
+    lineIndex,
+    returnedQty: batchContext.batch.returnedQty,
+    unitPrice: batchContext.taskContext.unitPrice,
+    fxRate: 1,
+    settlementCurrency: 'IDR',
+  })
+  const earningAmount = roundAmount(Math.max(grossEarningAmount - (reworkAdjustment?.totalDeductionAmount ?? 0), 0))
   const sourceItemId = `PSL-TASK-${String(lineIndex + 1).padStart(5, '0')}`
 
   return {
@@ -1058,7 +1076,10 @@ function buildStatementLineFromBatch(
       deductionQty: batchContext.batch.returnedQty,
       deductionAmount: earningAmount,
       currency: 'IDR',
-      remark: `回货批次 ${batchContext.batch.batchId} 形成任务收入流水`,
+      remark: [
+        `回货批次 ${batchContext.batch.batchId} 形成任务收入流水`,
+        reworkAdjustment?.remarkSuffix,
+      ].filter(Boolean).join('；'),
       sourceProcessType: batchContext.batch.processType,
       sourceType: 'TASK_EARNING',
       productionOrderId: batchContext.batch.productionOrderId,
@@ -1092,6 +1113,41 @@ function buildStatementLineFromBatch(
   }
 }
 
+function resolveTaskReworkEarningAdjustment(input: {
+  lineIndex: number
+  returnedQty: number
+  unitPrice: number
+  fxRate: number
+  settlementCurrency: string
+}): TaskReworkEarningAdjustment | null {
+  if (input.lineIndex !== 0 && input.lineIndex !== 1) return null
+  const reworkQty = Math.min(input.lineIndex === 0 ? 6 : 4, Math.max(0, input.returnedQty))
+  if (reworkQty <= 0) return null
+
+  const reworkAmount = roundAmount(input.unitPrice * reworkQty * input.fxRate)
+  const chargebackAmount = input.lineIndex === 1
+    ? roundAmount(20000 * getMockFxRate('IDR', input.settlementCurrency))
+    : 0
+  const receiveObjectLabel = input.lineIndex === 0 ? '原工厂' : '非原工厂'
+  const totalDeductionAmount = roundAmount(reworkAmount + chargebackAmount)
+  const reworkAmountText = `${reworkAmount} ${input.settlementCurrency}`
+  const chargebackText = `${chargebackAmount} ${input.settlementCurrency}`
+
+  return {
+    receiveObjectLabel,
+    reworkQty,
+    reworkAmount,
+    chargebackAmount,
+    totalDeductionAmount,
+    sourceReasonSuffix: receiveObjectLabel === '原工厂'
+      ? `返工对象为原工厂，扣返工数量对应金额 ${reworkAmountText}`
+      : `返工对象非原工厂，扣返工数量对应金额 ${reworkAmountText}，并扣反扣扣款 ${chargebackText}`,
+    remarkSuffix: receiveObjectLabel === '原工厂'
+      ? `返工对象为原工厂，已扣返工数量对应金额 ${reworkQty} 件 / ${reworkAmountText}`
+      : `返工对象非原工厂，已扣返工数量对应金额 ${reworkQty} 件 / ${reworkAmountText}，并扣反扣扣款 ${chargebackText}`,
+  }
+}
+
 function buildStatementLineFromQualityLedger(
   ledger: ReturnType<typeof listFormalQualityDeductionLedgers>[number],
 ): LinkedStatementLineBuild {
@@ -1112,7 +1168,7 @@ function buildStatementLineFromQualityLedger(
     item: {
       sourceItemId: ledger.ledgerId,
       sourceItemType: 'QUALITY_DEDUCTION',
-      sourceLabelZh: '质量扣款流水',
+      sourceLabelZh: '返工扣款流水',
       sourceRefLabel: ledger.ledgerId,
       routeToSource,
       settlementPartyType: ledger.settlementPartyType ?? 'FACTORY',
@@ -1360,7 +1416,7 @@ function createStatementDrafts(
       itemBasisIds: basisIds,
       itemSourceIds: sourceIds,
       items: lineItems,
-      remark: '由任务收入流水与质量扣款流水自动汇总生成',
+      remark: '由任务收入流水与返工扣款流水自动汇总生成',
       settlementProfileSnapshot: snapshot,
       settlementProfileVersionNo: snapshot.versionNo,
       statementPartyView: `${factory.name}（${factory.id}）`,
@@ -1713,7 +1769,19 @@ function createTaskEarningLedgers(
     const settlementCurrency = settlementInfo?.settlementConfigSnapshot.currency ?? originalCurrency
     const originalAmount = roundAmount(batchContext.taskContext.unitPrice * batchContext.batch.returnedQty)
     const fxRate = getMockFxRate(originalCurrency, settlementCurrency)
-    const settlementAmount = roundAmount(originalAmount * fxRate)
+    const grossSettlementAmount = roundAmount(originalAmount * fxRate)
+    const reworkAdjustment = resolveTaskReworkEarningAdjustment({
+      lineIndex: index,
+      returnedQty: batchContext.batch.returnedQty,
+      unitPrice: batchContext.taskContext.unitPrice,
+      fxRate,
+      settlementCurrency,
+    })
+    const settlementAmount = roundAmount(Math.max(grossSettlementAmount - (reworkAdjustment?.totalDeductionAmount ?? 0), 0))
+    const baseSourceReason =
+      batchContext.taskContext.pricingSourceType === 'BIDDING'
+        ? '竞价中标价 × 回货数量'
+        : '派单价 × 回货数量'
     return {
       ledgerId: `PSL-TASK-${String(index + 1).padStart(5, '0')}`,
       ledgerNo: `PSL-TASK-${String(index + 1).padStart(5, '0')}`,
@@ -1746,11 +1814,14 @@ function createTaskEarningLedgers(
       plannedPrepaymentAt: batchContext.plannedPrepaymentAt,
       settlementProfileVersionNo: settlementInfo?.versionNo,
       status: 'OPEN',
-      sourceReason:
-        batchContext.taskContext.pricingSourceType === 'BIDDING'
-          ? '竞价中标价 × 回货数量'
-          : '派单价 × 回货数量',
-      remark: `回货批次 ${batchContext.batch.batchId} 形成任务收入流水`,
+      sourceReason: [
+        baseSourceReason,
+        reworkAdjustment?.sourceReasonSuffix,
+      ].filter(Boolean).join('；'),
+      remark: [
+        `回货批次 ${batchContext.batch.batchId} 形成任务收入流水`,
+        reworkAdjustment?.remarkSuffix,
+      ].filter(Boolean).join('；'),
     }
   })
 }

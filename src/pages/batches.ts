@@ -165,8 +165,8 @@ const state: BatchesState = {
   detailBatchId: null,
 }
 
-function formatAmount(value: number, currency = 'IDR'): string {
-  return `${currency} ${value.toLocaleString('zh-CN', {
+function formatAmount(value: number, _currency = 'IDR'): string {
+  return `IDR ${value.toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
@@ -268,8 +268,8 @@ function maskBankAccountNo(accountNo: string): string {
   return `${raw.slice(0, 4)} **** **** ${raw.slice(-4)}`
 }
 
-function getStatementCurrency(statement: StatementDraft): string {
-  return statement.settlementCurrency ?? statement.settlementProfileSnapshot.settlementConfigSnapshot.currency
+function getStatementCurrency(_statement: StatementDraft): string {
+  return 'IDR'
 }
 
 function getBatchApproval(batch: SettlementBatch): FeishuPaymentApproval | null {
@@ -864,7 +864,7 @@ function renderBatchRows(view: BatchWorkbenchView, items: SettlementBatch[]): st
                   </td>
                   <td class="px-4 py-3">
                     <div>${escapeHtml(item.factoryName)}</div>
-                    <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(item.settlementCurrency)} · 版本 ${escapeHtml(item.payeeAccountSnapshotVersion)}</div>
+                    <div class="mt-1 text-[10px] text-muted-foreground">IDR · 版本 ${escapeHtml(item.payeeAccountSnapshotVersion)}</div>
                     <div class="mt-1 text-[10px] text-muted-foreground">计划预付款：${escapeHtml(item.plannedPrepaymentAt ?? '-')}</div>
                   </td>
                   <td class="px-4 py-3 text-center">${item.totalStatementCount}</td>
@@ -1088,7 +1088,7 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
               </div>
               <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">默认币种</dt>
-                <dd>${escapeHtml(detail.batch.settlementCurrency)}</dd>
+                <dd>IDR</dd>
               </div>
               <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">收款账户</dt>

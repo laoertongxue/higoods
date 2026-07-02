@@ -184,7 +184,7 @@ export interface StatementConfirmedDeductionRow {
 
 const SOURCE_LABEL_ZH: Record<StatementSourceItemType, string> = {
   TASK_EARNING: '任务收入流水',
-  QUALITY_DEDUCTION: '质量扣款流水',
+  QUALITY_DEDUCTION: '返工扣款流水',
 }
 
 const DEDUCTION_LINE_TYPE_LABEL: Record<StatementDeductionLineType, string> = {
@@ -440,7 +440,7 @@ function mapLedgerToStatementSourceItem(
     routeToSource: buildQualityLedgerHref(ledger),
     canEnterStatement,
     alreadyBoundStatementId,
-    sourceReason: ledger.sourceReason ?? '正式质量扣款流水',
+    sourceReason: ledger.sourceReason ?? '正式返工扣款流水',
     remark: ledger.remark,
     settlementCycleId: ledger.settlementCycleId,
     settlementCycleLabel: ledger.settlementCycleLabel,
@@ -496,7 +496,7 @@ function getStatementSourceTypeSummary(items: StatementDraftItem[]): string {
 
 function getStatementLineTypeZh(item: StatementDraftItem): string {
   if (item.statementLineGrainType === 'RETURN_INBOUND_BATCH') return '回货批次行'
-  if (item.statementLineGrainType === 'NON_BATCH_QUALITY') return '质量扣款流水行'
+  if (item.statementLineGrainType === 'NON_BATCH_QUALITY') return '返工扣款流水行'
   if (item.statementLineGrainType === 'NON_BATCH_ADJUSTMENT') return '兼容来源行'
   return '其它来源行'
 }

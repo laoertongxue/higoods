@@ -348,7 +348,7 @@ export function buildHandoverDifferenceRequestPrintDocument(input: PrintDocument
     documentType: 'HANDOVER_DIFFERENCE_REQUEST',
     sourceId: difference.differenceRecordId,
     businessNo: difference.differenceRecordNo,
-    subtitle: '用于交出回写对象差异的平台处理凭证；只记录处理结果，不直接生成质量扣款流水、对账流水或结算流水。',
+    subtitle: '用于交出回写对象差异的平台处理凭证；只记录处理结果，不直接生成返工扣款流水、对账流水或结算流水。',
     returnHref: handover ? `/fcs/print/preview?documentType=TASK_DELIVERY_CARD&handoverRecordId=${encodeURIComponent(handover.handoverRecordId)}` : '/fcs/progress/handover',
     headerFields: mapFields([
       { label: '差异处理单号', value: difference.differenceRecordNo, emphasis: true },
@@ -386,7 +386,7 @@ export function buildHandoverDifferenceRequestPrintDocument(input: PrintDocument
           { label: '处理人', value: difference.handledBy || '待处理' },
           { label: '处理时间', value: difference.handledAt || '待处理' },
           { label: '下一动作', value: difference.nextAction },
-          { label: '备注', value: '差异处理申请单不直接生成质量扣款流水、对账流水或结算流水' },
+          { label: '备注', value: '差异处理申请单不直接生成返工扣款流水、对账流水或结算流水' },
         ]),
       },
     ],
@@ -412,7 +412,7 @@ function buildQualityDeductionFields(caseFact: QualityDeductionCaseFact, pending
     { label: '币种', value: pending.originalCurrency },
     { label: '计价单位', value: `${pending.originalCurrency}/件` },
     { label: '计算说明', value: `${formatPrintQty(basis?.deductionQty || qc.unqualifiedQty, '件')} × ${formatMoneyPerUnit(unitAmount, pending.originalCurrency, '件')}` },
-    { label: '当前状态', value: '待确认质量扣款记录，不是正式质量扣款流水' },
+    { label: '当前状态', value: '待确认质量扣款记录，不是正式返工扣款流水' },
   ])
 }
 
@@ -425,7 +425,7 @@ export function buildQualityDeductionConfirmationPrintDocument(input: PrintDocum
     documentType: 'QUALITY_DEDUCTION_CONFIRMATION',
     sourceId: pending.pendingRecordId,
     businessNo: `QDC-${pending.pendingRecordId}`,
-    subtitle: '用于待确认质量扣款记录的线下确认凭证；打印动作不生成正式质量扣款流水。',
+    subtitle: '用于待确认质量扣款记录的线下确认凭证；打印动作不生成正式返工扣款流水。',
     returnHref: `/fcs/qc/records/${encodeURIComponent(qc.qcId)}`,
     headerFields: mapFields([
       { label: '质量扣款确认单号', value: `QDC-${pending.pendingRecordId}`, emphasis: true },
@@ -448,7 +448,7 @@ export function buildQualityDeductionConfirmationPrintDocument(input: PrintDocum
           { label: '单位', value: '件' },
           { label: '证据', value: qc.evidenceAssets.map((item) => item.name).join('、') || '暂无证据' },
           { label: '责任初判', value: basis?.responsiblePartyName || pending.factoryName || '待确认' },
-          { label: '备注', value: '质检记录本身不是质量异议，待确认质量扣款记录不是正式质量扣款流水' },
+          { label: '备注', value: '质检记录本身不是质量异议，待确认质量扣款记录不是正式返工扣款流水' },
         ]),
       },
       { sectionId: 'deduction-suggest', title: '扣款建议区', fields: buildQualityDeductionFields(caseFact, pending) },
@@ -456,8 +456,8 @@ export function buildQualityDeductionConfirmationPrintDocument(input: PrintDocum
         sectionId: 'factory-response',
         title: '工厂处理区',
         fields: mapFields([
-          { label: '工厂确认', value: '确认后才允许后续生成正式质量扣款流水' },
-          { label: '工厂发起异议', value: '异议中不生成正式质量扣款流水' },
+          { label: '工厂确认', value: '确认后才允许后续生成正式返工扣款流水' },
+          { label: '工厂发起异议', value: '异议中不生成正式返工扣款流水' },
           { label: '超时自动确认', value: pending.isOverdue ? '已超时' : '未超时' },
           { label: '处理截止时间', value: pending.responseDeadlineAt || '待确认' },
           { label: '备注', value: '对账单只汇总正式流水，不汇总待确认质量扣款记录或异议中的记录' },
@@ -530,7 +530,7 @@ export function buildQualityDisputeProcessingPrintDocument(input: PrintDocumentB
         sectionId: 'next',
         title: '后续处理区',
         fields: mapFields([
-          { label: '后续处理', value: dispute.adjudicationResult === 'REVERSED' ? '不生成质量扣款流水' : '按裁决金额生成正式质量扣款流水' },
+          { label: '后续处理', value: dispute.adjudicationResult === 'REVERSED' ? '不生成返工扣款流水' : '按裁决金额生成正式返工扣款流水' },
           { label: '处理说明', value: '这里展示后续处理结果，不在打印时触发生成流水或结算' },
           { label: '备注', value: '质检记录不能直接当作质量异议单，异议中记录不进入对账单' },
         ]),

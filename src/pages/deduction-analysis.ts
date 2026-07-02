@@ -1,14 +1,11 @@
 import {
   buildQualityDeductionAnalysisFilterOptions,
-  buildQualityDeductionBreakdown,
   buildQualityDeductionDetails,
   buildQualityDeductionExportRows,
   buildQualityDeductionKpis,
-  buildQualityDeductionTrend,
   createDefaultQualityDeductionAnalysisQuery,
-  QUALITY_DEDUCTION_ANALYSIS_DIMENSION_LABEL,
   QUALITY_DEDUCTION_ANALYSIS_TIME_BASIS_LABEL,
-  type QualityDeductionAnalysisDimension,
+  type QualityDeductionAnalysisDetailRow,
   type QualityDeductionAnalysisQuery,
 } from '../data/fcs/quality-deduction-analysis.ts'
 import { appStore } from '../state/store.ts'
@@ -20,12 +17,12 @@ import { escapeHtml } from '../utils.ts'
 
 interface DeductionAnalysisPageState {
   query: QualityDeductionAnalysisQuery
-  breakdownDimension: QualityDeductionAnalysisDimension
+  draftQuery: QualityDeductionAnalysisQuery
 }
 
 const state: DeductionAnalysisPageState = {
   query: createDefaultQualityDeductionAnalysisQuery(),
-  breakdownDimension: 'FACTORY',
+  draftQuery: createDefaultQualityDeductionAnalysisQuery(),
 }
 
 let routeQueryKey = ''
@@ -45,12 +42,8 @@ function syncAnalysisStateFromRoute(): void {
   const params = getCurrentAnalysisSearchParams()
   const keyword = params.get('keyword')
   state.query.keyword = keyword ?? ''
+  state.draftQuery = { ...state.query }
 }
-
-const BREAKDOWN_DIMENSIONS: QualityDeductionAnalysisDimension[] = [
-  'FACTORY',
-  'PROCESS',
-]
 
 function formatAmount(value: number): string {
   return value.toLocaleString('zh-CN', {
@@ -59,10 +52,25 @@ function formatAmount(value: number): string {
   })
 }
 
-function formatSignedAmount(value: number): string {
-  if (value > 0) return `+${formatAmount(value)}`
-  if (value < 0) return `-${formatAmount(Math.abs(value))}`
-  return formatAmount(0)
+function formatMoney(value: number): string {
+  return `${formatAmount(value)} IDR`
+}
+
+function renderRecordSourceBadge(row: QualityDeductionAnalysisDetailRow): string {
+  const className =
+    row.recordSource === 'QC_REWORK_CHARGEBACK'
+      ? 'border-blue-200 bg-blue-50 text-blue-700'
+      : 'border-amber-200 bg-amber-50 text-amber-700'
+  return `<span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${className}">${escapeHtml(row.recordSourceLabel)}</span>`
+}
+
+function renderStatChip(label: string, value: string | number, tone = 'text-foreground'): string {
+  return `
+    <span data-danalysis-stat-chip class="inline-flex h-9 items-center gap-1.5 rounded-md border bg-background px-3 text-sm shadow-sm">
+      <span class="text-muted-foreground">${escapeHtml(label)}:</span>
+      <span class="font-semibold tabular-nums ${tone}">${escapeHtml(String(value))}</span>
+    </span>
+  `
 }
 
 function csvEscape(value: string | number): string {
@@ -100,135 +108,12 @@ function renderSelectOptions(
     .join('')
 }
 
-function renderTrendSection(): string {
-  const trend = buildQualityDeductionTrend(state.query)
-  if (!trend.length) {
-    return '<div class="flex h-56 items-center justify-center text-sm text-muted-foreground">当前筛选下暂无趋势数据</div>'
-  }
-
-  const maxImpact = Math.max(...trend.map((item) => item.totalFinancialImpactAmount), 1)
-
-  return `
-    <div class="flex flex-col gap-3">
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="text-sm font-semibold text-foreground">趋势分析</h3>
-          <p class="mt-1 text-xs text-muted-foreground">按${escapeHtml(QUALITY_DEDUCTION_ANALYSIS_TIME_BASIS_LABEL[state.query.timeBasis])}汇总对账单扣款金额和总财务影响。</p>
-        </div>
-        <span class="text-xs text-muted-foreground">扣款分析只统计已进入对账单并经业务确认的扣款行。</span>
-      </div>
-      <div class="overflow-x-auto rounded-md border">
-        <table class="w-full min-w-[760px] text-sm">
-          <thead>
-            <tr class="border-b bg-muted/40 text-left">
-              <th class="px-4 py-2 font-medium">时间归属</th>
-              <th class="px-4 py-2 text-right font-medium">记录数</th>
-              <th class="px-4 py-2 text-right font-medium">未入账金额</th>
-              <th class="px-4 py-2 text-right font-medium">对账单扣款</th>
-              <th class="px-4 py-2 text-right font-medium">总财务影响</th>
-              <th class="px-4 py-2 text-right font-medium">历史金额</th>
-              <th class="px-4 py-2 font-medium">影响分布</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${trend
-              .map((item) => {
-                const width = Math.max(8, Math.round((item.totalFinancialImpactAmount / maxImpact) * 100))
-                return `
-                  <tr class="border-b last:border-b-0">
-                    <td class="px-4 py-3 font-medium">${escapeHtml(item.label)}</td>
-                    <td class="px-4 py-3 text-right tabular-nums">${item.recordCount}</td>
-                    <td class="px-4 py-3 text-right tabular-nums">${formatAmount(item.blockedProcessingFeeAmount)}</td>
-                    <td class="px-4 py-3 text-right tabular-nums">${formatAmount(item.effectiveQualityDeductionAmount)}</td>
-                    <td class="px-4 py-3 text-right tabular-nums">${formatAmount(item.totalFinancialImpactAmount)}</td>
-                    <td class="px-4 py-3 text-right tabular-nums ${item.adjustmentAmount < 0 ? 'text-emerald-700' : item.adjustmentAmount > 0 ? 'text-amber-700' : 'text-muted-foreground'}">${formatSignedAmount(item.adjustmentAmount)}</td>
-                    <td class="px-4 py-3">
-                      <div class="h-2 w-full rounded-full bg-muted">
-                        <div class="h-2 rounded-full bg-amber-500" style="width: ${width}%"></div>
-                      </div>
-                    </td>
-                  </tr>
-                `
-              })
-              .join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `
-}
-
-function renderBreakdownSection(): string {
-  const rows = buildQualityDeductionBreakdown(state.query, state.breakdownDimension)
-  if (!rows.length) {
-    return '<div class="flex h-56 items-center justify-center text-sm text-muted-foreground">当前筛选下暂无维度分解数据</div>'
-  }
-
-  return `
-    <div class="flex flex-col gap-3">
-      <div class="flex flex-wrap gap-2">
-        ${BREAKDOWN_DIMENSIONS.map(
-          (dimension) => `
-            <button
-              class="${
-                state.breakdownDimension === dimension
-                  ? 'rounded-md bg-foreground px-3 py-1.5 text-sm text-background'
-                  : 'rounded-md border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-              }"
-              data-danalysis-dimension="${dimension}"
-            >
-              ${escapeHtml(QUALITY_DEDUCTION_ANALYSIS_DIMENSION_LABEL[dimension])}
-            </button>
-          `,
-        ).join('')}
-      </div>
-      <div class="overflow-x-auto rounded-md border">
-        <table class="w-full min-w-[860px] text-sm">
-          <thead>
-            <tr class="border-b bg-muted/40 text-left">
-              <th class="px-4 py-2 font-medium">分组项</th>
-              <th class="px-4 py-2 text-right font-medium">记录数</th>
-              <th class="px-4 py-2 text-right font-medium">未入账金额</th>
-              <th class="px-4 py-2 text-right font-medium">对账单扣款</th>
-              <th class="px-4 py-2 text-right font-medium">总财务影响</th>
-              <th class="px-4 py-2 text-right font-medium">历史金额</th>
-              <th class="px-4 py-2 text-right font-medium">占比</th>
-              <th class="px-4 py-2 font-medium">钻取</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows
-              .map((row) => {
-                const isActive =
-                  state.query.drilldownDimension === state.breakdownDimension &&
-                  state.query.drilldownValue === row.key
-                return `
-                  <tr class="border-b last:border-b-0 ${isActive ? 'bg-amber-50/70' : ''}">
-                    <td class="px-4 py-3 font-medium">${escapeHtml(row.label)}</td>
-                    <td class="px-4 py-3 text-right tabular-nums">${row.recordCount}</td>
-                    <td class="px-4 py-3 text-right tabular-nums">${formatAmount(row.blockedProcessingFeeAmount)}</td>
-                    <td class="px-4 py-3 text-right tabular-nums">${formatAmount(row.effectiveQualityDeductionAmount)}</td>
-                    <td class="px-4 py-3 text-right tabular-nums">${formatAmount(row.totalFinancialImpactAmount)}</td>
-                    <td class="px-4 py-3 text-right tabular-nums ${row.adjustmentAmount < 0 ? 'text-emerald-700' : row.adjustmentAmount > 0 ? 'text-amber-700' : 'text-muted-foreground'}">${formatSignedAmount(row.adjustmentAmount)}</td>
-                    <td class="px-4 py-3 text-right tabular-nums">${row.shareRate.toFixed(1)}%</td>
-                    <td class="px-4 py-3">
-                      <button
-                        class="inline-flex h-8 items-center rounded-md border px-3 text-xs ${isActive ? 'border-amber-300 bg-amber-100 text-amber-800' : 'hover:bg-muted'}"
-                        data-danalysis-breakdown-value="${escapeHtml(row.key)}"
-                        data-danalysis-breakdown-label="${escapeHtml(row.label)}"
-                      >
-                        ${isActive ? '已联动明细' : '联动明细'}
-                      </button>
-                    </td>
-                  </tr>
-                `
-              })
-              .join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `
+function syncDraftQueryFromFilterPanel(panel: HTMLElement): void {
+  panel.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-danalysis-filter]').forEach((node) => {
+    const field = node.dataset.danalysisFilter
+    if (!field) return
+    ;(state.draftQuery as Record<string, string | undefined>)[field] = node.value
+  })
 }
 
 export function renderDeductionAnalysisPage(): string {
@@ -237,66 +122,57 @@ export function renderDeductionAnalysisPage(): string {
   const kpis = buildQualityDeductionKpis(state.query)
   const details = buildQualityDeductionDetails(state.query)
   const exportHref = buildCsvHref()
-  const drilldownActive =
-    state.query.drilldownDimension === state.breakdownDimension && Boolean(state.query.drilldownValue)
 
   return `
-    <div class="flex flex-col gap-6 p-6">
-      <div class="flex flex-col gap-3 rounded-xl border bg-card p-5">
+    <div class="flex flex-col gap-5 p-6">
+      <div class="flex flex-col gap-3">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 class="text-2xl font-semibold">扣款分析</h1>
-            <p class="mt-1 text-sm text-muted-foreground">用于分析对账单中业务已确认的扣款、反扣、延误和其他调整。</p>
+            <h1 class="text-2xl font-semibold">扣款记录</h1>
+            <p class="mt-1 text-sm text-muted-foreground">按工厂、生产单、质检记录查看扣款事实；来源包括质检记录返工扣款和对账单瑕疵扣款。</p>
           </div>
           <div class="flex flex-col items-start gap-2 text-xs text-muted-foreground lg:items-end">
             <span class="rounded-full bg-muted px-3 py-1">统计口径：${escapeHtml(QUALITY_DEDUCTION_ANALYSIS_TIME_BASIS_LABEL[state.query.timeBasis])}</span>
             <span>统计范围：${escapeHtml(currentRangeText())}</span>
             ${
               details.length
-                ? `<a class="inline-flex h-9 items-center rounded-md border px-3 text-sm text-foreground hover:bg-muted" href="${exportHref}" download="扣款分析-${escapeHtml((state.query.endDate || new Date().toISOString().slice(0, 10)).replaceAll('-', ''))}.csv">导出当前明细</a>`
+                ? `<a class="inline-flex h-9 items-center rounded-md border px-3 text-sm text-foreground hover:bg-muted" href="${exportHref}" download="扣款记录-${escapeHtml((state.query.endDate || new Date().toISOString().slice(0, 10)).replaceAll('-', ''))}.csv">导出当前明细</a>`
                 : ''
             }
           </div>
         </div>
       </div>
 
-      <section class="rounded-xl border bg-card p-5">
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
-          <label class="flex flex-col gap-1 text-sm">
+      <section class="rounded-md border bg-card" data-danalysis-filter-panel>
+        <div class="overflow-x-auto p-4">
+          <div data-danalysis-filter-row class="flex min-w-[1280px] items-end gap-3">
+          <label class="flex w-72 shrink-0 flex-col gap-1 text-sm">
             <span class="text-muted-foreground">关键词</span>
-            <input class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="keyword" placeholder="来源编号 / 对账单 / 生产单" value="${escapeHtml(state.query.keyword)}" />
+            <input class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="keyword" placeholder="对账单号 / 工厂 / 质检记录" value="${escapeHtml(state.draftQuery.keyword)}" />
           </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">时间口径</span>
+          <label class="flex w-56 shrink-0 flex-col gap-1 text-sm">
+            <span class="text-muted-foreground">工厂</span>
+            <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="factoryId">
+              ${renderSelectOptions([{ value: 'ALL', label: '全部工厂' }, ...filterOptions.factories], state.draftQuery.factoryId)}
+            </select>
+          </label>
+          <label class="flex w-56 shrink-0 flex-col gap-1 text-sm">
+            <span class="text-muted-foreground">统计口径</span>
             <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="timeBasis">
               ${renderSelectOptions(
                 Object.entries(QUALITY_DEDUCTION_ANALYSIS_TIME_BASIS_LABEL).map(([value, label]) => ({ value, label })),
-                state.query.timeBasis,
+                state.draftQuery.timeBasis,
               )}
             </select>
           </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">开始日期</span>
-            <input class="h-10 rounded-md border bg-background px-3" type="date" data-danalysis-filter="startDate" value="${escapeHtml(state.query.startDate)}" />
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">结束日期</span>
-            <input class="h-10 rounded-md border bg-background px-3" type="date" data-danalysis-filter="endDate" value="${escapeHtml(state.query.endDate)}" />
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">工厂</span>
-            <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="factoryId">
-              ${renderSelectOptions([{ value: 'ALL', label: '全部工厂' }, ...filterOptions.factories], state.query.factoryId)}
-            </select>
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
+          <label class="flex w-48 shrink-0 flex-col gap-1 text-sm">
             <span class="text-muted-foreground">扣款类型</span>
             <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="processType">
-              ${renderSelectOptions([{ value: 'ALL', label: '全部扣款类型' }, ...filterOptions.processes], state.query.processType)}
+              ${renderSelectOptions([{ value: 'ALL', label: '全部扣款类型' }, ...filterOptions.processes], state.draftQuery.processType)}
             </select>
           </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">是否已进入预付款批次</span>
+          <label class="flex w-48 shrink-0 flex-col gap-1 text-sm">
+            <span class="text-muted-foreground">入预付款</span>
             <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="settled">
               ${renderSelectOptions(
                 [
@@ -304,126 +180,53 @@ export function renderDeductionAnalysisPage(): string {
                   { value: 'YES', label: '已进入' },
                   { value: 'NO', label: '未进入' },
                 ],
-                state.query.settled,
+                state.draftQuery.settled,
               )}
             </select>
           </label>
-          <div class="flex items-end">
-            <button class="inline-flex h-10 items-center rounded-md border px-3 text-sm hover:bg-muted" data-danalysis-action="reset">
-              重置筛选
-            </button>
+          <div class="flex shrink-0 items-end gap-2">
+            <button class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-danalysis-action="query">查询</button>
+            <button class="inline-flex h-10 items-center rounded-md border px-4 text-sm hover:bg-muted" data-danalysis-action="reset">重置</button>
+          </div>
+          </div>
+        </div>
+        <div class="border-t p-4">
+          <div class="flex flex-wrap gap-2">
+            ${renderStatChip('扣款记录', kpis.qcRecordCount)}
+            ${renderStatChip('返工扣款', details.filter((row) => row.recordSource === 'QC_REWORK_CHARGEBACK').length, 'text-blue-600')}
+            ${renderStatChip('瑕疵扣款', details.filter((row) => row.recordSource === 'STATEMENT_FACTORY_DEFECT').length, 'text-amber-600')}
+            ${renderStatChip('涉及工厂', kpis.factoryCount)}
+            ${renderStatChip('总扣款金额', formatMoney(kpis.totalFinancialImpactAmount), 'text-violet-600')}
           </div>
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">对账单扣款行数</p>
-          <p class="mt-2 text-2xl font-semibold tabular-nums">${kpis.qcRecordCount}</p>
-        </article>
-        <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">确认工厂数</p>
-          <p class="mt-2 text-2xl font-semibold tabular-nums">${kpis.factoryCount}</p>
-        </article>
-        <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">未入账金额</p>
-          <p class="mt-2 text-2xl font-semibold tabular-nums">${formatAmount(kpis.blockedProcessingFeeAmount)}</p>
-        </article>
-        <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">对账单扣款金额</p>
-          <p class="mt-2 text-2xl font-semibold tabular-nums">${formatAmount(kpis.effectiveQualityDeductionAmount)}</p>
-        </article>
-        <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">总财务影响金额</p>
-          <p class="mt-2 text-2xl font-semibold tabular-nums">${formatAmount(kpis.totalFinancialImpactAmount)}</p>
-          <p class="mt-1 text-xs text-muted-foreground">来自对账单确认扣款行。</p>
-        </article>
-        <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">历史金额</p>
-          <p class="mt-2 text-2xl font-semibold tabular-nums ${kpis.nextCycleAdjustmentAmount < 0 ? 'text-emerald-700' : kpis.nextCycleAdjustmentAmount > 0 ? 'text-amber-700' : ''}">${formatSignedAmount(kpis.nextCycleAdjustmentAmount)}</p>
-          <p class="mt-1 text-xs text-muted-foreground">当前版本中的历史金额仅作过渡展示。</p>
-        </article>
-      </section>
-
-      <section class="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_1fr]">
-        <article class="rounded-xl border bg-card p-5">
-          ${renderTrendSection()}
-        </article>
-        <article class="rounded-xl border bg-card p-5">
-          <div class="mb-4 flex flex-col gap-1">
-            <h3 class="text-sm font-semibold text-foreground">状态补充指标</h3>
-            <p class="text-xs text-muted-foreground">用于区分异议中金额、已纳入对账金额和已进入预付款批次金额，不重复计入来源证据。</p>
-          </div>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">异议中金额</p>
-              <p class="mt-2 text-xl font-semibold tabular-nums">${formatAmount(kpis.disputingAmount)}</p>
-            </div>
-            <div class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">已纳入对账金额</p>
-              <p class="mt-2 text-xl font-semibold tabular-nums">${formatAmount(kpis.includedAmount)}</p>
-            </div>
-            <div class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">已进入预付款批次金额</p>
-              <p class="mt-2 text-xl font-semibold tabular-nums">${formatAmount(kpis.settledAmount)}</p>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section class="rounded-xl border bg-card p-5">
-        <div class="mb-4 flex flex-col gap-2">
-          <h2 class="text-base font-semibold">维度分解</h2>
-          <p class="text-sm text-muted-foreground">点击任一分组项后，仅联动下方明细，不会改动顶部 KPI 和趋势口径。</p>
-        </div>
-        ${renderBreakdownSection()}
-      </section>
-
-      <section class="rounded-xl border bg-card p-5">
+      <section class="rounded-md border bg-card p-5">
         <div class="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 class="text-base font-semibold">明细钻取</h2>
-            <p class="text-sm text-muted-foreground">展示当前筛选口径下的对账单扣款明细，可继续跳转到来源证据和对账单。</p>
+            <h2 class="text-base font-semibold">扣款明细</h2>
+            <p class="text-sm text-muted-foreground">一行就是一个工厂、生产单、质检记录下的扣款记录。</p>
           </div>
-          ${
-            drilldownActive
-              ? `
-                <div class="flex items-center gap-2">
-                  <span class="rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-800">已按 ${escapeHtml(QUALITY_DEDUCTION_ANALYSIS_DIMENSION_LABEL[state.breakdownDimension])} 钻取：${escapeHtml(
-                    buildQualityDeductionBreakdown(state.query, state.breakdownDimension).find(
-                      (row) => row.key === state.query.drilldownValue,
-                    )?.label ?? state.query.drilldownValue ?? '',
-                  )}</span>
-                  <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-danalysis-action="clear-drilldown">清除钻取</button>
-                </div>
-              `
-              : '<span class="text-xs text-muted-foreground">未选择维度钻取，明细展示当前全部筛选结果</span>'
-          }
+          <span class="text-xs text-muted-foreground">来源：质检记录返工扣款 / 对账单瑕疵扣款</span>
         </div>
 
         ${
           details.length === 0
-            ? '<div class="flex h-48 items-center justify-center text-sm text-muted-foreground">当前筛选条件下暂无扣款分析明细</div>'
+            ? '<div class="flex h-48 items-center justify-center text-sm text-muted-foreground">当前筛选条件下暂无扣款记录</div>'
             : `
               <div class="overflow-x-auto rounded-md border">
-                <table class="w-full min-w-[1720px] text-sm">
+                <table class="w-full min-w-[1360px] text-sm">
                   <thead>
                     <tr class="border-b bg-muted/40 text-left">
-                      <th class="px-4 py-2 font-medium">来源编号</th>
-                      <th class="px-4 py-2 font-medium">来源证据</th>
-                      <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                       <th class="px-4 py-2 font-medium">工厂</th>
-                      <th class="px-4 py-2 font-medium">扣款类型</th>
-                      <th class="px-4 py-2 font-medium">来源口径</th>
+                      <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
+                      <th class="px-4 py-2 font-medium">质检记录</th>
+                      <th class="px-4 py-2 font-medium">来源</th>
+                      <th class="px-4 py-2 font-medium">扣款类型 / 原因</th>
                       <th class="px-4 py-2 text-right font-medium">扣款数量</th>
-                      <th class="px-4 py-2 font-medium">确认状态</th>
-                      <th class="px-4 py-2 text-right font-medium">未入账金额</th>
-                      <th class="px-4 py-2 text-right font-medium">对账单扣款</th>
-                      <th class="px-4 py-2 text-right font-medium">总财务影响</th>
-                      <th class="px-4 py-2 font-medium">历史金额</th>
-                      <th class="px-4 py-2 font-medium">${escapeHtml(
-                        state.query.timeBasis === 'SETTLEMENT_CYCLE' ? '结算周期 / 归属时间' : '财务影响生效时间',
-                      )}</th>
+                      <th class="px-4 py-2 text-right font-medium">扣款金额</th>
+                      <th class="px-4 py-2 font-medium">状态</th>
+                      <th class="px-4 py-2 font-medium">时间</th>
                       <th class="px-4 py-2 font-medium">操作</th>
                     </tr>
                   </thead>
@@ -432,29 +235,19 @@ export function renderDeductionAnalysisPage(): string {
                       .map(
                         (row) => `
                           <tr class="border-b last:border-b-0 align-top">
-                            <td class="px-4 py-3 font-mono text-xs">${escapeHtml(row.qcNo)}</td>
-                            <td class="px-4 py-3 font-mono text-xs">${escapeHtml(row.returnInboundBatchNo)}</td>
-                            <td class="px-4 py-3">${renderProductionOrderIdentityCell(row.productionOrderNo)}</td>
                             <td class="px-4 py-3">${escapeHtml(row.factoryName)}</td>
-                            <td class="px-4 py-3">${escapeHtml(row.processLabel)}</td>
-                            <td class="px-4 py-3">${escapeHtml(row.qcResultLabel)}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">${row.factoryLiabilityQty}</td>
-                            <td class="px-4 py-3">${escapeHtml(row.factoryResponseStatusLabel)}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">${formatAmount(row.blockedProcessingFeeAmount)}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">${formatAmount(row.effectiveQualityDeductionAmount)}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">${formatAmount(row.totalFinancialImpactAmount)}</td>
+                            <td class="px-4 py-3">${renderProductionOrderIdentityCell(row.productionOrderNo)}</td>
+                            <td class="px-4 py-3 font-mono text-xs">${escapeHtml(row.qcNo)}</td>
+                            <td class="px-4 py-3">${renderRecordSourceBadge(row)}</td>
                             <td class="px-4 py-3">
-                              ${
-                                row.hasAdjustment
-                                  ? `
-                                    <div class="flex flex-col gap-1">
-                                      <span>${escapeHtml(row.adjustmentTypeLabel ?? '—')}</span>
-                                      <span class="tabular-nums ${row.adjustmentAmountSigned < 0 ? 'text-emerald-700' : 'text-amber-700'}">${formatSignedAmount(row.adjustmentAmountSigned)}</span>
-                                      <span class="text-xs text-muted-foreground">${escapeHtml(row.targetSettlementCycleId ?? '—')}</span>
-                                    </div>
-                                  `
-                                  : '<span class="text-muted-foreground">—</span>'
-                              }
+                              <div class="font-medium">${escapeHtml(row.processLabel)}</div>
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.deductionReasonName ?? '—')}</div>
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">${row.factoryLiabilityQty}</td>
+                            <td class="px-4 py-3 text-right tabular-nums">${formatMoney(row.effectiveQualityDeductionAmount)}</td>
+                            <td class="px-4 py-3">
+                              <div>${escapeHtml(row.settlementImpactStatusLabel)}</div>
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.settlementCycleLabel ?? '未进入对账单')}</div>
                             </td>
                             <td class="px-4 py-3 text-xs text-muted-foreground">
                               <div class="flex flex-col gap-1">
@@ -463,7 +256,7 @@ export function renderDeductionAnalysisPage(): string {
                               </div>
                             </td>
                             <td class="px-4 py-3">
-                              <div class="flex items-center gap-1">
+                              <div class="flex flex-wrap items-center gap-1">
                                 <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(row.qcHref)}">查看来源证据</button>
                                 ${
                                   row.deductionHref
@@ -491,29 +284,8 @@ export function handleDeductionAnalysisEvent(target: HTMLElement): boolean {
   if (filterNode instanceof HTMLInputElement || filterNode instanceof HTMLSelectElement) {
     const field = filterNode.dataset.danalysisFilter
     if (!field) return false
-    ;(state.query as Record<string, string | undefined>)[field] = filterNode.value
-    return true
-  }
-
-  const dimensionNode = target.closest<HTMLElement>('[data-danalysis-dimension]')
-  if (dimensionNode) {
-    const next = dimensionNode.dataset.danalysisDimension as QualityDeductionAnalysisDimension | undefined
-    if (!next) return false
-    state.breakdownDimension = next
-    state.query.drilldownDimension = undefined
-    state.query.drilldownValue = undefined
-    return true
-  }
-
-  const drilldownNode = target.closest<HTMLElement>('[data-danalysis-breakdown-value]')
-  if (drilldownNode) {
-    const value = drilldownNode.dataset.danalysisBreakdownValue
-    if (!value) return false
-    const isSame =
-      state.query.drilldownDimension === state.breakdownDimension && state.query.drilldownValue === value
-    state.query.drilldownDimension = isSame ? undefined : state.breakdownDimension
-    state.query.drilldownValue = isSame ? undefined : value
-    return true
+    ;(state.draftQuery as Record<string, string | undefined>)[field] = filterNode.value
+    return false
   }
 
   const actionNode = target.closest<HTMLElement>('[data-danalysis-action]')
@@ -521,12 +293,13 @@ export function handleDeductionAnalysisEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.danalysisAction
   if (action === 'reset') {
     state.query = createDefaultQualityDeductionAnalysisQuery()
-    state.breakdownDimension = 'FACTORY'
+    state.draftQuery = { ...state.query }
     return true
   }
-  if (action === 'clear-drilldown') {
-    state.query.drilldownDimension = undefined
-    state.query.drilldownValue = undefined
+  if (action === 'query') {
+    const panel = actionNode.closest<HTMLElement>('[data-danalysis-filter-panel]')
+    if (panel) syncDraftQueryFromFilterPanel(panel)
+    state.query = { ...state.draftQuery }
     return true
   }
   return false

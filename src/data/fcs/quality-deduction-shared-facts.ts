@@ -223,7 +223,7 @@ const LEGACY_QC_RAW_CASES: RawCaseSeed[] = [
     responsiblePartyName: 'Bandung Print House',
     deductionDecision: 'DEDUCT',
     deductionAmount: 540,
-    deductionDecisionRemark: '历史争议改判为非工厂责任，当前记录不生成正式质量扣款流水',
+    deductionDecisionRemark: '历史争议改判为非工厂责任，当前记录不生成正式返工扣款流水',
     liabilityDecidedAt: '2025-11-05 15:00:00',
     liabilityDecidedBy: '历史质检员',
     dispositionRemark: '历史记录已归档',
@@ -238,7 +238,7 @@ const LEGACY_QC_RAW_CASES: RawCaseSeed[] = [
       summary: '历史旧记录：争议改判后归档',
       evidenceRefs: [{ name: '历史争议结论', type: '文档' }],
       arbitrationResult: 'VOID_DEDUCTION',
-      arbitrationRemark: '改判为非工厂责任，不生成正式质量扣款流水',
+      arbitrationRemark: '改判为非工厂责任，不生成正式返工扣款流水',
       createdAt: '2025-11-05 15:05:00',
       updatedAt: '2025-11-05 15:10:00',
       deductionAmountEditable: false,
@@ -413,7 +413,7 @@ const CASE_OVERRIDES: Record<string, CaseOverride> = {
     adjustedLiableQty: 26,
     adjustedBlockedProcessingFeeAmount: 0,
     adjustedEffectiveQualityDeductionAmount: 860,
-    adjustmentReasonSummary: '平台复核后下调责任数量及扣款金额，按裁决金额生成正式质量扣款流水。',
+    adjustmentReasonSummary: '平台复核后下调责任数量及扣款金额，按裁决金额生成正式返工扣款流水。',
     deductionBasisStatus: 'ADJUSTED',
     settlementImpactStatus: 'ELIGIBLE',
     blockedSettlementQty: 0,
@@ -566,13 +566,13 @@ const CASE_OVERRIDES: Record<string, CaseOverride> = {
     disputeStatus: 'REVERSED',
     disputeReasonCode: 'PRINT_ALIGNMENT',
     disputeReasonName: '印花偏移责任改判',
-    disputeDescription: '历史争议改判为非工厂责任，当前记录归档且不生成正式质量扣款流水。',
+    disputeDescription: '历史争议改判为非工厂责任，当前记录归档且不生成正式返工扣款流水。',
     adjudicationResult: 'REVERSED',
     resultWrittenBackAt: '2025-11-05 15:10:00',
     adjustedLiableQty: 0,
     adjustedBlockedProcessingFeeAmount: 0,
     adjustedEffectiveQualityDeductionAmount: 0,
-    adjustmentReasonSummary: '历史争议改判为非工厂责任，当前记录不生成正式质量扣款流水。',
+    adjustmentReasonSummary: '历史争议改判为非工厂责任，当前记录不生成正式返工扣款流水。',
     deductionBasisStatus: 'CANCELLED',
     settlementImpactStatus: 'NO_IMPACT',
     blockedSettlementQty: 0,
@@ -1379,7 +1379,7 @@ export function validateQualityDeductionSharedFacts(
         pendingDeductionRecord.status === 'SYSTEM_AUTO_CONFIRMED') &&
       !formalLedger
     ) {
-      issues.push({ qcId: qcRecord.qcId, message: '已确认待确认质量扣款记录未生成正式质量扣款流水' })
+      issues.push({ qcId: qcRecord.qcId, message: '已确认待确认质量扣款记录未生成正式返工扣款流水' })
     }
 
     if (
@@ -1387,7 +1387,7 @@ export function validateQualityDeductionSharedFacts(
       (disputeCase.status === 'PENDING_REVIEW' || disputeCase.status === 'IN_REVIEW') &&
       formalLedger
     ) {
-      issues.push({ qcId: qcRecord.qcId, message: '异议单未最终裁决前不应生成正式质量扣款流水' })
+      issues.push({ qcId: qcRecord.qcId, message: '异议单未最终裁决前不应生成正式返工扣款流水' })
     }
 
     const derivedCaseStatus = getQualityDeductionCaseStatus(caseFact)

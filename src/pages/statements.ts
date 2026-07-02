@@ -39,7 +39,6 @@ import {
   syncStatementDraftFromBuild,
 } from '../data/fcs/store-domain-settlement-seeds'
 import {
-  SETTLEMENT_CURRENCIES,
   type ProductionOrderSettlementProjection,
   type SettlementCurrency,
   toStatementProductionOrderSnapshot,
@@ -182,7 +181,7 @@ const PRICE_SOURCE_LABEL: Record<string, string> = {
 
 const LINE_GRAIN_LABEL: Record<string, string> = {
   RETURN_INBOUND_BATCH: '回货批次行',
-  NON_BATCH_QUALITY: '质量扣款流水行',
+  NON_BATCH_QUALITY: '返工扣款流水行',
   NON_BATCH_ADJUSTMENT: '兼容来源行',
   OTHER_SOURCE_OBJECT: '其它来源行',
 }
@@ -288,7 +287,7 @@ function showStatementsToast(message: string, tone: 'success' | 'error' = 'succe
 }
 
 function formatAmount(value: number): string {
-  return value.toFixed(2)
+  return `${value.toFixed(2)} IDR`
 }
 
 function getFactoryFeedbackStatusLabel(status: FactoryFeedbackStatus): string {
@@ -615,10 +614,6 @@ function isBuildRangeValid(): boolean {
   return isBuildRangeReady() && state.buildStartDate <= state.buildEndDate
 }
 
-function isSettlementCurrency(value: string): value is SettlementCurrency {
-  return (SETTLEMENT_CURRENCIES as readonly string[]).includes(value)
-}
-
 function getBuildRangeLedgers() {
   if (!isBuildRangeValid()) return []
   return listStatementEligiblePreSettlementLedgersByRange({
@@ -629,15 +624,11 @@ function getBuildRangeLedgers() {
 }
 
 function getEffectiveBuildCurrency(): SettlementCurrency | null {
-  const ledgers = getBuildRangeLedgers()
-  if (!ledgers.length) return 'IDR'
-  const currencies = Array.from(new Set(ledgers.map((item) => item.settlementCurrency).filter(Boolean)))
-  if (currencies.length === 1 && isSettlementCurrency(currencies[0])) return currencies[0]
-  return null
+  return 'IDR'
 }
 
-function getBuildCurrencyDisplayText(effectiveCurrency: SettlementCurrency | null): string {
-  return effectiveCurrency ?? '多币种，需拆分'
+function getBuildCurrencyDisplayText(_effectiveCurrency: SettlementCurrency | null): string {
+  return 'IDR'
 }
 
 function getBuildProductionOrderProjections(): ProductionOrderSettlementProjection[] {
@@ -668,7 +659,7 @@ function toBuildLineViewModel(item: StatementDraftItem): StatementDetailLineView
       (item.sourceItemType === 'TASK_EARNING'
         ? '任务收入流水'
         : item.sourceItemType === 'QUALITY_DEDUCTION'
-          ? '质量扣款流水'
+          ? '返工扣款流水'
           : '正式流水'),
     productionOrderNoDisplay: item.productionOrderNo ?? item.productionOrderId ?? '-',
     taskNoDisplay: item.taskNo ?? item.taskId ?? '-',
@@ -883,7 +874,7 @@ function renderStatementListRows(items: StatementListItemViewModel[]): string {
             <div>${escapeHtml(item.settlementCycleLabel ?? '-')}</div>
             <div class="mt-1 text-[10px] text-muted-foreground">计划预付款：${escapeHtml(item.plannedPrepaymentAt ?? '-')}</div>
           </td>
-          <td class="px-4 py-3 text-xs">${escapeHtml(item.currency)}</td>
+          <td class="px-4 py-3 text-xs">IDR</td>
           <td class="px-4 py-3">
             <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${statusBadgeClass}">${escapeHtml(statusLabel)}</span>
           </td>
@@ -1126,7 +1117,7 @@ function renderStatementLedgerSectionRows(
   ledgerType: 'TASK_EARNING' | 'QUALITY_DEDUCTION',
 ): string {
   if (!lines.length) {
-    return `<p class="py-6 text-center text-sm text-muted-foreground">当前暂无${ledgerType === 'TASK_EARNING' ? '任务收入流水' : '质量扣款流水'}明细。</p>`
+    return `<p class="py-6 text-center text-sm text-muted-foreground">当前暂无${ledgerType === 'TASK_EARNING' ? '任务收入流水' : '返工扣款流水'}明细。</p>`
   }
 
   if (ledgerType === 'TASK_EARNING') {
@@ -1260,7 +1251,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
 
         <header class="border-b px-6 py-5">
           <h3 class="text-lg font-semibold">对账单详情 — ${escapeHtml(detail.draft.statementNo ?? detail.draft.statementId)}</h3>
-          <p class="mt-1 text-xs text-muted-foreground">当前详情按正式流水汇总单组织。任务收入流水与质量扣款流水分别展示，未最终裁决的质量异议不会计入当前对账单。</p>
+          <p class="mt-1 text-xs text-muted-foreground">当前详情按正式流水汇总单组织。任务收入流水与返工扣款流水分别展示，未最终裁决的质量异议不会计入当前对账单。</p>
         </header>
 
         <div class="flex-1 overflow-auto px-6 py-5">
@@ -1276,7 +1267,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">创建时间</dt><dd class="text-xs">${escapeHtml(detail.draft.createdAt)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">创建人</dt><dd class="text-xs">${escapeHtml(detail.draft.createdBy)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">结算资料版本号</dt><dd class="text-xs font-medium">${escapeHtml(detail.draft.settlementProfileVersionNo)}</dd></div>
-              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">结算币种</dt><dd class="text-xs">${escapeHtml(detail.draft.settlementProfileSnapshot.settlementConfigSnapshot.currency)}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">结算币种</dt><dd class="text-xs">IDR</dd></div>
             </dl>
           </section>
 
@@ -1284,7 +1275,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
             <h4 class="text-sm font-semibold">金额概况</h4>
             <dl class="mt-3 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">任务收入流水合计</dt><dd class="font-medium tabular-nums">${formatAmount(detail.totalEarningAmount)}</dd></div>
-              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">质量扣款流水合计</dt><dd class="font-medium tabular-nums">${formatAmount(detail.totalQualityDeductionAmount)}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">返工扣款流水合计</dt><dd class="font-medium tabular-nums">${formatAmount(detail.totalQualityDeductionAmount)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">本期应付净额</dt><dd class="font-medium tabular-nums">${formatAmount(detail.netPayableAmount)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">总数量</dt><dd class="font-medium tabular-nums">${detail.totalQty}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">正式流水条数</dt><dd class="font-medium tabular-nums">${detail.lines.length}</dd></div>
@@ -1305,8 +1296,8 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
           <section class="mt-4 rounded-lg border bg-card p-4">
             <div class="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h4 class="text-sm font-semibold">质量扣款流水明细</h4>
-                <p class="mt-1 text-xs text-muted-foreground">仅展示已正式成立的质量扣款流水，未最终裁决的质量异议不会计入当前单据。</p>
+                <h4 class="text-sm font-semibold">返工扣款流水明细</h4>
+                <p class="mt-1 text-xs text-muted-foreground">仅展示已正式成立的返工扣款流水，未最终裁决的质量异议不会计入当前单据。</p>
               </div>
             </div>
             ${renderStatementLedgerSectionRows(detail.deductionLines, 'QUALITY_DEDUCTION')}
@@ -1418,7 +1409,7 @@ function renderDetailDialog(detail: StatementDetailViewModel | null): string {
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">户名</dt><dd class="text-xs">${escapeHtml(detail.draft.settlementProfileSnapshot.receivingAccountSnapshot.accountHolderName)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">银行</dt><dd class="text-xs">${escapeHtml(detail.draft.settlementProfileSnapshot.receivingAccountSnapshot.bankName)}</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">账号尾号</dt><dd class="text-xs">${escapeHtml(detail.maskedAccountNo)}</dd></div>
-              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">币种</dt><dd class="text-xs">${escapeHtml(detail.draft.settlementProfileSnapshot.settlementConfigSnapshot.currency)}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">币种</dt><dd class="text-xs">IDR</dd></div>
               <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">生效时间</dt><dd class="text-xs">${escapeHtml(detail.draft.settlementProfileSnapshot.effectiveAt)}</dd></div>
             </dl>
           </section>
@@ -1778,9 +1769,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                   <label class="grid gap-1 text-sm">
                     <span class="text-muted-foreground">结算币种</span>
                     <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="currency" disabled>
-                      ${SETTLEMENT_CURRENCIES.map(
-                        (currency) => `<option value="${currency}" ${(effectiveCurrency ?? state.buildCurrency) === currency ? 'selected' : ''}>${currency}</option>`,
-                      ).join('')}
+                      <option value="IDR" selected>IDR</option>
                     </select>
                   </label>
                 </div>
@@ -1852,9 +1841,9 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                 <dl class="mt-3 grid gap-3 text-sm md:grid-cols-2">
                   <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">正式流水明细行</dt><dd class="font-medium tabular-nums">${buildLines.length}</dd></div>
                   <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">任务收入流水数</dt><dd class="font-medium tabular-nums">${buildSummary.earningCount}</dd></div>
-                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">质量扣款流水数</dt><dd class="font-medium tabular-nums">${buildSummary.deductionCount}</dd></div>
+                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">返工扣款流水数</dt><dd class="font-medium tabular-nums">${buildSummary.deductionCount}</dd></div>
                   <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">任务收入流水合计</dt><dd class="font-medium tabular-nums">${formatAmount(buildSummary.totalEarningAmount)}</dd></div>
-                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">质量扣款流水合计</dt><dd class="font-medium tabular-nums">${formatAmount(buildSummary.totalQualityDeductionAmount)}</dd></div>
+                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">返工扣款流水合计</dt><dd class="font-medium tabular-nums">${formatAmount(buildSummary.totalQualityDeductionAmount)}</dd></div>
                   <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">总数量</dt><dd class="font-medium tabular-nums">${buildSummary.totalQty}</dd></div>
                   <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">本期应付净额</dt><dd class="font-medium tabular-nums">${formatAmount(buildSummary.netPayableAmount)}</dd></div>
                 </dl>
@@ -1866,7 +1855,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
             <section class="mt-4 rounded-lg border bg-card p-4">
               <div class="mb-3">
                 <h3 class="text-sm font-semibold">正式流水候选</h3>
-                <p class="mt-1 text-xs text-muted-foreground">这里展示当前工厂和时间段下可入单的任务收入流水与质量扣款流水。待确认质量扣款记录和未最终裁决的质量异议不会进入本期对账单。</p>
+                <p class="mt-1 text-xs text-muted-foreground">这里展示当前工厂和时间段下可入单的任务收入流水与返工扣款流水。待确认质量扣款记录和未最终裁决的质量异议不会进入本期对账单。</p>
               </div>
               ${renderBuildCandidateRows(buildCandidates)}
             </section>
@@ -1874,7 +1863,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
             <section class="mt-4 rounded-lg border bg-card p-4">
               <div class="mb-3">
                 <h3 class="text-sm font-semibold">正式流水明细预览</h3>
-                <p class="mt-1 text-xs text-muted-foreground">任务收入流水和质量扣款流水会分别进入同一张正式流水汇总单，页面只做正向合计、反向合计和本期应付净额的汇总，不再先拼净额行。</p>
+                <p class="mt-1 text-xs text-muted-foreground">任务收入流水和返工扣款流水会分别进入同一张正式流水汇总单，页面只做正向合计、反向合计和本期应付净额的汇总，不再先拼净额行。</p>
               </div>
               ${renderBuildLineRows(buildLines)}
             </section>

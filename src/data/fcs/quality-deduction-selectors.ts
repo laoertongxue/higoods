@@ -88,7 +88,7 @@ export const QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL: Record<QualityDeductionLi
 export const QUALITY_DEDUCTION_BASIS_STATUS_LABEL: Record<QualityDeductionBasisStatus, string> = {
   NOT_GENERATED: '未生成',
   GENERATED: '已生成待确认记录',
-  EFFECTIVE: '已形成正式质量扣款流水',
+  EFFECTIVE: '已形成正式返工扣款流水',
   ADJUSTED: '已按裁决更新',
   CANCELLED: '已关闭且不生成流水',
 }
@@ -97,9 +97,9 @@ export const QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL: Record<
   QualityDeductionSettlementImpactStatus,
   string
 > = {
-  NO_IMPACT: '未形成正式质量扣款流水',
+  NO_IMPACT: '未形成正式返工扣款流水',
   BLOCKED: '待确认或待平台处理',
-  ELIGIBLE: '已生成正式质量扣款流水',
+  ELIGIBLE: '已生成正式返工扣款流水',
   INCLUDED_IN_STATEMENT: '已进入预结算单',
   SETTLED: '已进入预付款批次',
   NEXT_CYCLE_ADJUSTMENT_PENDING: '已关闭且不生成流水',
@@ -111,7 +111,7 @@ export const QUALITY_DEDUCTION_CASE_STATUS_LABEL: Record<QualityDeductionCaseSta
   WAIT_PLATFORM_REVIEW: '待平台处理',
   AUTO_CONFIRMED_PENDING_SETTLEMENT: '系统自动确认，已形成正式流水',
   ADJUDICATED_PENDING_SETTLEMENT: '平台裁决后已形成正式流水',
-  READY_FOR_SETTLEMENT: '已形成正式质量扣款流水',
+  READY_FOR_SETTLEMENT: '已形成正式返工扣款流水',
   SETTLED: '已进入预付款批次',
   ADJUSTMENT_PENDING: '已关闭且不生成流水',
   CLOSED: '已关闭',
@@ -616,13 +616,13 @@ function getQcStatusLabel(status: QcStatus): string {
 
 function getResponsibilitySummary(caseFact: QualityDeductionCaseFact): string {
   const { qcRecord, pendingDeductionRecord, disputeCase, formalLedger } = caseFact
-  if (qcRecord.liabilityStatus === 'NON_FACTORY') return '当前批次判定为非工厂责任，不生成正式质量扣款流水。'
+  if (qcRecord.liabilityStatus === 'NON_FACTORY') return '当前批次判定为非工厂责任，不生成正式返工扣款流水。'
   if (qcRecord.liabilityStatus === 'FACTORY' || qcRecord.liabilityStatus === 'MIXED') {
     if (disputeCase && isOpenDisputeStatus(disputeCase.status)) {
-      return '当前已生成质量异议单，待平台处理后再决定是否形成正式质量扣款流水。'
+      return '当前已生成质量异议单，待平台处理后再决定是否形成正式返工扣款流水。'
     }
     if (formalLedger) {
-      return '当前批次已形成正式质量扣款流水，可继续进入预结算。'
+      return '当前批次已形成正式返工扣款流水，可继续进入预结算。'
     }
     if (pendingDeductionRecord) {
       return '当前批次已生成待确认质量扣款记录，等待工厂处理。'
@@ -643,7 +643,7 @@ function getLedgerStatusLabel(ledger: FormalQualityDeductionLedgerFact | null): 
   if (!ledger) return undefined
   switch (ledger.status) {
     case 'GENERATED_PENDING_STATEMENT':
-      return '已生成正式质量扣款流水'
+      return '已生成正式返工扣款流水'
     case 'INCLUDED_IN_STATEMENT':
       return '已进入预结算单'
     case 'INCLUDED_IN_PREPAYMENT_BATCH':
@@ -676,16 +676,16 @@ function resolveSettlementSummary(caseFact: QualityDeductionCaseFact): string {
   const dispute = caseFact.disputeCase
   const ledger = caseFact.formalLedger
   if (ledger) {
-    return getLedgerStatusLabel(ledger) ?? '已形成正式质量扣款流水'
+    return getLedgerStatusLabel(ledger) ?? '已形成正式返工扣款流水'
   }
   if (dispute && isOpenDisputeStatus(dispute.status)) {
-    return '质量异议单待处理，当前不生成正式质量扣款流水。'
+    return '质量异议单待处理，当前不生成正式返工扣款流水。'
   }
   if (pending?.status === 'PENDING_FACTORY_CONFIRM') {
     return '已生成待确认质量扣款记录，等待工厂在 48 小时内处理。'
   }
   if (pending?.status === 'CLOSED_WITHOUT_LEDGER' || dispute?.adjudicationResult === 'REVERSED') {
-    return '平台已判定不生成正式质量扣款流水。'
+    return '平台已判定不生成正式返工扣款流水。'
   }
   return caseFact.settlementImpact.summary
 }
@@ -1133,7 +1133,7 @@ export function listPdaSettlementWritebackItems(factoryKeys: Set<string>): PdaSe
           : caseFact.disputeCase?.adjudicationResult === 'UPHELD'
             ? '维持工厂责任'
             : QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL[caseFact.qcRecord.liabilityStatus],
-        settlementStatusText: getLedgerStatusLabel(ledger) ?? '已形成正式质量扣款流水',
+        settlementStatusText: getLedgerStatusLabel(ledger) ?? '已形成正式返工扣款流水',
         deductionQty: basis?.deductionQty ?? caseFact.qcRecord.factoryLiabilityQty,
         deductionAmountCny: ledger.originalAmount,
         blockedProcessingFeeAmount: caseFact.settlementImpact.blockedProcessingFeeAmount,
@@ -1292,9 +1292,9 @@ export function getFutureMobileFactoryQcDetail(qcId: string, factoryId?: string)
     includedSettlementStatementId: settlementImpact.includedSettlementStatementId ?? formalLedger?.includedStatementId,
     includedSettlementBatchId: settlementImpact.includedSettlementBatchId ?? formalLedger?.includedPrepaymentBatchId,
     settlementAdjustmentSummary: formalLedger
-      ? `正式质量扣款流水 ${formalLedger.ledgerNo} · ${getLedgerStatusLabel(formalLedger) ?? '已生成'}`
+      ? `正式返工扣款流水 ${formalLedger.ledgerNo} · ${getLedgerStatusLabel(formalLedger) ?? '已生成'}`
       : pendingDeductionRecord?.status === 'CLOSED_WITHOUT_LEDGER'
-        ? '平台已判定当前记录不生成正式质量扣款流水。'
+        ? '平台已判定当前记录不生成正式返工扣款流水。'
         : undefined,
     responseDeadlineAt: factoryResponse?.responseDeadlineAt,
     factoryResponseStatus: factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED',

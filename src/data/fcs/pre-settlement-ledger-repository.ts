@@ -222,10 +222,10 @@ function buildQualityDeductionPreSettlementLedger(ledger: FormalQualityDeduction
             : mapQualityLedgerStatus(ledger.status),
     sourceReason:
       disputeCase?.adjudicationResult
-        ? '最终裁决后生成正式质量扣款流水'
+        ? '最终裁决后生成正式返工扣款流水'
         : ledger.triggerSource === 'AUTO_CONFIRM'
-          ? '系统自动确认后生成正式质量扣款流水'
-          : '工厂确认后生成正式质量扣款流水',
+          ? '系统自动确认后生成正式返工扣款流水'
+          : '工厂确认后生成正式返工扣款流水',
     remark: ledger.comment,
   }
 }

@@ -229,7 +229,7 @@ export const routes: RouteRegistry = {
     '/fcs/quality/qc-records': () => renderQcRecordsPage(),
     '/fcs/quality/deduction-analysis': () => renderDeductionAnalysisPage(),
     '/fcs/quality/deduction-calc': () =>
-      renderRouteRedirect('/fcs/quality/deduction-analysis', '正在跳转到扣款分析'),
+      renderRouteRedirect('/fcs/quality/deduction-analysis', '正在跳转到扣款记录'),
     '/fcs/quality/arbitration': () =>
       renderRouteRedirect('/fcs/quality/qc-records?view=WAIT_PLATFORM_REVIEW', '正在跳转到质检记录'),
     '/fcs/quality/penalty-output': () => renderDeductionAnalysisPage(),

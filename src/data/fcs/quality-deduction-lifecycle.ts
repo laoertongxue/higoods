@@ -332,12 +332,12 @@ function syncCompatibilityFacts(caseFact: QualityDeductionCaseFact): void {
           : 'SETTLED'
     impact.summary =
       ledger.status === 'GENERATED_PENDING_STATEMENT'
-        ? '正式质量扣款流水已生成，待进入预结算单'
+        ? '正式返工扣款流水已生成，待进入预结算单'
         : ledger.status === 'INCLUDED_IN_STATEMENT'
-          ? '正式质量扣款流水已进入预结算单'
+          ? '正式返工扣款流水已进入预结算单'
           : ledger.status === 'INCLUDED_IN_PREPAYMENT_BATCH'
-            ? '正式质量扣款流水已进入预付款批次'
-            : '正式质量扣款流水已完成预付'
+            ? '正式返工扣款流水已进入预付款批次'
+            : '正式返工扣款流水已完成预付'
   } else if (pending?.status === 'PENDING_FACTORY_CONFIRM' || pending?.status === 'DISPUTED' || dispute?.status === 'PENDING_REVIEW' || dispute?.status === 'IN_REVIEW') {
     impact.status = 'BLOCKED'
     impact.blockedSettlementQty = caseFact.qcRecord.factoryLiabilityQty
@@ -346,15 +346,15 @@ function syncCompatibilityFacts(caseFact: QualityDeductionCaseFact): void {
     impact.eligibleAt = undefined
     impact.summary =
       pending?.status === 'DISPUTED'
-        ? '工厂已发起质量异议，待平台处理后再决定是否生成正式质量扣款流水'
-        : '存在待确认质量扣款记录，待工厂处理后再生成正式质量扣款流水'
+        ? '工厂已发起质量异议，待平台处理后再决定是否生成正式返工扣款流水'
+        : '存在待确认质量扣款记录，待工厂处理后再生成正式返工扣款流水'
   } else {
     impact.status = 'NO_IMPACT'
     impact.blockedSettlementQty = 0
     impact.blockedProcessingFeeAmount = 0
     impact.effectiveQualityDeductionAmount = 0
     impact.eligibleAt = undefined
-    impact.summary = '当前未形成正式质量扣款流水，不进入预结算'
+    impact.summary = '当前未形成正式返工扣款流水，不进入预结算'
   }
   impact.totalFinancialImpactAmount = roundAmount(
     impact.blockedProcessingFeeAmount + impact.effectiveQualityDeductionAmount,
@@ -387,7 +387,7 @@ export function resolveSettlementImpactAfterConfirmation(
   const pending = caseFact.pendingDeductionRecord
   if (!pending) return { ok: false, message: '当前记录不存在待确认质量扣款记录' }
   if (caseFact.disputeCase && (caseFact.disputeCase.status === 'PENDING_REVIEW' || caseFact.disputeCase.status === 'IN_REVIEW')) {
-    return { ok: false, message: '当前存在待处理质量异议单，不能直接生成正式质量扣款流水' }
+    return { ok: false, message: '当前存在待处理质量异议单，不能直接生成正式返工扣款流水' }
   }
   if (caseFact.formalLedger) {
     syncCompatibilityFacts(caseFact)
@@ -399,8 +399,8 @@ export function resolveSettlementImpactAfterConfirmation(
   syncCompatibilityFacts(caseFact)
 
   caseFact.qcRecord.updatedAt = at
-  appendQcAuditLog(caseFact, `${actorLabel}后生成正式质量扣款流水`, actorLabel, at, 'GENERATE_QUALITY_LEDGER')
-  appendBasisAuditLog(caseFact, '待确认质量扣款记录处理完成，正式质量扣款流水已生成', actorLabel, at, 'GENERATE_QUALITY_LEDGER')
+  appendQcAuditLog(caseFact, `${actorLabel}后生成正式返工扣款流水`, actorLabel, at, 'GENERATE_QUALITY_LEDGER')
+  appendBasisAuditLog(caseFact, '待确认质量扣款记录处理完成，正式返工扣款流水已生成', actorLabel, at, 'GENERATE_QUALITY_LEDGER')
 
   return { ok: true, caseFact }
 }

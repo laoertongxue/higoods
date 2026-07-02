@@ -319,7 +319,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'ClipboardCheck',
           children: [
             { key: 'quality-inspection', title: '质检记录', icon: 'ClipboardCheck', href: '/fcs/quality/qc-records' },
-            { key: 'quality-deduction-analysis', title: '扣款分析', icon: 'BarChart3', href: '/fcs/quality/deduction-analysis' },
+            { key: 'quality-deduction-analysis', title: '扣款记录', icon: 'BarChart3', href: '/fcs/quality/deduction-analysis' },
           ],
         },
         {

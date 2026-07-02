@@ -350,7 +350,7 @@ export function confirmQualityDeductionFactoryResponse(
   }
 
   qcRecord.updatedAt = respondedAt
-  appendQcAuditLog(caseFact, '工厂确认处理后，正式质量扣款流水已生成', input.responderUserName, respondedAt, 'FACTORY_CONFIRM_RESPONSE')
+  appendQcAuditLog(caseFact, '工厂确认处理后，正式返工扣款流水已生成', input.responderUserName, respondedAt, 'FACTORY_CONFIRM_RESPONSE')
 
   return { ok: true, caseFact }
 }
