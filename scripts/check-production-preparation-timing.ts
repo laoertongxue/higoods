@@ -24,6 +24,16 @@ function markedSectionHtml(html: string, marker: string): string {
   return html.slice(start, end)
 }
 
+function detailDrawerHtml(html: string, recordNo: string): string {
+  const asideStart = html.indexOf('<aside')
+  assert.ok(asideStart >= 0, '详情抽屉未找到起始标签')
+  const asideEnd = html.indexOf('</aside>', asideStart)
+  assert.ok(asideEnd > asideStart, '详情抽屉未找到结束标签')
+  const drawer = html.slice(asideStart, asideEnd + '</aside>'.length)
+  assert.ok(drawer.includes(recordNo), `详情抽屉不是 ${recordNo}`)
+  return drawer
+}
+
 function getCompletedItemCount(items: Array<{ status: string }>): number {
   return items.filter((item) => item.status === '已完成').length
 }
@@ -105,6 +115,115 @@ assert.ok(
 assert.ok(
   preparationItems.filter((item: { itemType: string }) => item.itemType === '毛织纸样').length >= 3,
   '毛织纸样不少于 3 条',
+)
+
+const expectedPrepTypes = [
+  '非烫画&非毛织（纯梭织）',
+  '烫画&直喷',
+  '毛织',
+  '毛织&梭织',
+] as const
+
+for (const type of expectedPrepTypes) {
+  assert.ok(
+    productionPreparationRecords.some(
+      (record: { confirmedProductPrepType?: string }) => record.confirmedProductPrepType === type,
+    ),
+    `缺少商品准备类型：${type}`,
+  )
+}
+
+assert.ok(
+  productionPreparationRecords.every(
+    (record: {
+      selectionName?: string
+      largeGoodsThresholdQty?: number
+      largeGoodsReachedQty?: number
+      largeGoodsReachedAt?: string
+      largeGoodsReachedDays?: number
+      derivedProductPrepType?: string
+      confirmedProductPrepType?: string
+      prepTypeSource?: string
+      prepTypeConfirmedBy?: string
+      prepTypeConfirmedAt?: string
+    }) =>
+      record.selectionName &&
+      record.largeGoodsThresholdQty === 300 &&
+      typeof record.largeGoodsReachedQty === 'number' &&
+      Boolean(record.largeGoodsReachedAt) &&
+      typeof record.largeGoodsReachedDays === 'number' &&
+      Boolean(record.derivedProductPrepType) &&
+      Boolean(record.confirmedProductPrepType) &&
+      Boolean(record.prepTypeSource) &&
+      Boolean(record.prepTypeConfirmedBy) &&
+      Boolean(record.prepTypeConfirmedAt),
+  ),
+  '每条记录必须包含选品、做大货入口字段和商品类型确认字段',
+)
+
+const overriddenRecord = productionPreparationRecords.find(
+  (record: { prepTypeSource?: string }) => record.prepTypeSource === '人工修正',
+) as { prepTypeOverrideReason?: string } | undefined
+assert.ok(overriddenRecord, '必须有一条商品准备类型人工修正 mock')
+assert.ok(
+  overriddenRecord.prepTypeOverrideReason,
+  '人工修正商品准备类型必须填写修正原因',
+)
+
+function itemNames(record: {
+  items: Array<{ itemType: string; requiredKind?: string; selectedByMerchandiser?: boolean }>
+}): string[] {
+  return record.items
+    .filter((item) => item.selectedByMerchandiser !== false)
+    .map((item) => item.itemType)
+}
+
+function assertRecordHasItems(
+  record: { recordNo: string; items: Array<{ itemType: string; requiredKind?: string; selectedByMerchandiser?: boolean }> },
+  expected: string[],
+): void {
+  const actual = itemNames(record)
+  for (const itemType of expected) {
+    assert.ok(actual.includes(itemType), `${record.recordNo} 缺少准备项 ${itemType}`)
+  }
+}
+
+const wovenRecord = productionPreparationRecords.find(
+  (record: { confirmedProductPrepType?: string }) => record.confirmedProductPrepType === '非烫画&非毛织（纯梭织）',
+)
+const printRecord = productionPreparationRecords.find(
+  (record: { confirmedProductPrepType?: string }) => record.confirmedProductPrepType === '烫画&直喷',
+)
+const knitRecord = productionPreparationRecords.find(
+  (record: { confirmedProductPrepType?: string }) => record.confirmedProductPrepType === '毛织',
+)
+const mixedRecord = productionPreparationRecords.find(
+  (record: { confirmedProductPrepType?: string }) => record.confirmedProductPrepType === '毛织&梭织',
+)
+
+assert.ok(wovenRecord, '缺少纯梭织记录')
+assert.ok(printRecord, '缺少烫画&直喷记录')
+assert.ok(knitRecord, '缺少毛织记录')
+assert.ok(mixedRecord, '缺少毛织&梭织记录')
+
+assertRecordHasItems(wovenRecord, ['梭织基码纸样', '版衣制作', '梭织齐码纸样', '辅料下单'])
+assert.deepEqual(itemNames(printRecord), ['数码印/DTF/DTG花型'], '烫画&直喷应有且仅有花型必做项')
+assertRecordHasItems(knitRecord, ['毛织基码纸样', '版衣制作', '毛织齐码纸样', '辅料下单'])
+assertRecordHasItems(mixedRecord, [
+  '毛织基码纸样',
+  '梭织基码纸样',
+  '版衣制作',
+  '毛织齐码纸样',
+  '梭织齐码纸样',
+  '辅料下单',
+])
+
+assert.ok(
+  preparationItems.some(
+    (item: { requiredKind?: string; selectedByMerchandiser?: boolean }) =>
+      item.requiredKind === '选填' && item.selectedByMerchandiser === false,
+  ),
+  '必须存在未选择的选填准备项',
 )
 
 const marchStats = buildMonthlyPreparationStats('2026-03')
@@ -192,6 +311,52 @@ for (const text of [
 ] as const) {
   assertHtmlIncludes(ledgerHtml, text, `准备台账 HTML 缺少「${text}」`)
 }
+const adjustedLedgerHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03')
+for (const text of [
+  '做大货阈值：300',
+  '达到做大货要求',
+  '商品类型',
+  '系统推导',
+  '跟单确认',
+  '准备项确认',
+  '预计产出',
+] as const) {
+  assertHtmlIncludes(adjustedLedgerHtml, text, `调整后准备台账 HTML 缺少「${text}」`)
+}
+
+const readyOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-003')
+assertHtmlIncludes(readyOutputHtml, '正式产出', '全部完成记录必须展示正式产出')
+assertHtmlIncludes(readyOutputHtml, '已生成', '全部完成记录的产出状态必须为已生成')
+
+const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001')
+const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')
+assertHtmlIncludes(pendingOutputDrawerHtml, '预计产出', '未全部完成记录必须只展示预计产出')
+assert.ok(!pendingOutputDrawerHtml.includes('正式产出'), '未全部完成记录不应展示正式产出')
+
+const unselectedOptionalRecord = productionPreparationRecords.find(
+  (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-001',
+) as
+  | {
+      items: Array<{
+        itemType?: string
+        requiredKind?: string
+        selectedByMerchandiser?: boolean
+      }>
+    }
+  | undefined
+assert.ok(unselectedOptionalRecord, '缺少 PREP-202603-001 未选择选填项源记录')
+const unselectedOptionalItem = unselectedOptionalRecord.items.find((item) => item.itemType === '染色调色（面料）')
+assert.ok(unselectedOptionalItem, 'PREP-202603-001 缺少染色调色（面料）选填准备项')
+assert.equal(unselectedOptionalItem.requiredKind, '选填', '染色调色（面料）必须是选填准备项')
+assert.equal(unselectedOptionalItem.selectedByMerchandiser, false, '染色调色（面料）必须是未选择选填项')
+assert.ok(
+  !marchDetails.some(
+    (row: { recordNo?: string; itemType?: string }) =>
+      row.recordNo === 'PREP-202603-001' && row.itemType === '染色调色（面料）',
+  ),
+  '未选择的选填项不应进入月度完成明细',
+)
+
 const assignedLedgerHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordId=prep-202604-003&itemId=prep-202604-003-item-04&action=assign&mockAssignedDesigner=林小美',
 )
