@@ -241,12 +241,6 @@ function renderLedgerPagination(
   `
 }
 
-function earliestOverdueItem(record: ProductionPreparationRecord): ProductionPreparationItem | null {
-  return [...requiredItems(record)]
-    .filter((item) => item.status === '已超时' || item.overdueHours > 0)
-    .sort((a, b) => a.plannedFinishAt.localeCompare(b.plannedFinishAt))[0] ?? null
-}
-
 function escapeCsvValue(value: unknown): string {
   const text = value == null ? '' : String(value)
   if (/[",\n\r]/.test(text)) return `"${text.replaceAll('"', '""')}"`
@@ -463,7 +457,6 @@ function renderLedgerActions(
     return `
       <div class="flex min-w-[160px] flex-col items-start gap-2">
         <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(confirmHref)}">确认工作项</button>
-        <span class="text-xs text-muted-foreground">待跟单确认后开放操作</span>
       </div>
     `
   }
@@ -514,7 +507,6 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
 
 function renderLedgerRow(record: ProductionPreparationRecord, month: string, params: URLSearchParams): string {
   const progress = completionProgress(record)
-  const overdueItem = earliestOverdueItem(record)
   const confirmed = hasConfirmedWorkItems(record)
 
   return `
@@ -559,11 +551,6 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
       <td class="px-4 py-4 max-w-[220px] text-xs text-muted-foreground">${escapeHtml(record.currentBlockerText || '暂无卡点')}</td>
       <td class="px-4 py-4">
         ${renderLedgerOutputList(record)}
-        ${
-          overdueItem
-            ? `<div class="mt-1 text-xs text-red-600">最早超时：${escapeHtml(overdueItem.itemType)}</div>`
-            : '<div class="mt-1 text-xs text-muted-foreground">暂无超时</div>'
-        }
       </td>
       <td class="px-4 py-4 whitespace-nowrap">${escapeHtml(formatDateTime(record.expectedFinishAt))}</td>
       <td class="sticky right-0 bg-card px-4 py-4">
@@ -714,11 +701,11 @@ function renderProductTypeConfirmation(record: ProductionPreparationRecord): str
           <div class="mt-2 flex flex-wrap gap-1">${renderTagList(record.categoryTags)}</div>
         </div>
         <div class="rounded-lg bg-muted/40 p-3">
-          <div class="text-xs text-muted-foreground">系统推导</div>
+          <div class="text-xs text-muted-foreground">系统建议类型</div>
           <div class="mt-1 font-medium">${escapeHtml(record.derivedProductPrepType)}</div>
         </div>
         <div class="rounded-lg bg-muted/40 p-3">
-          <div class="text-xs text-muted-foreground">跟单确认</div>
+          <div class="text-xs text-muted-foreground">跟单确认类型</div>
           <div class="mt-1 font-medium">${escapeHtml(record.confirmedProductPrepType)}</div>
         </div>
         <div class="rounded-lg bg-muted/40 p-3">

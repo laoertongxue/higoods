@@ -661,7 +661,7 @@ const combinedLedgerPagesHtml = `${adjustedLedgerHtml}\n${adjustedLedgerPage2Htm
 for (const text of ['产出', '正式版本技术包', '生产需求单', '印花需求单', '染色需求单', '辅料采购单'] as const) {
   assertHtmlIncludes(combinedLedgerPagesHtml, text, `调整后准备台账 HTML 缺少「${text}」`)
 }
-for (const text of ['产出状态', '操作当前卡点', '准备项确认：', '系统推导：', '人工修正原因：', '预计产出'] as const) {
+for (const text of ['产出状态', '操作当前卡点', '准备项确认：', '系统推导：', '人工修正原因：', '预计产出', '最早超时', '暂无超时'] as const) {
   assert.ok(!combinedLedgerPagesHtml.includes(text), `调整后准备台账 HTML 不应显示「${text}」`)
 }
 
@@ -701,7 +701,7 @@ const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603
 assertHtmlIncludes(pendingOutputDrawerHtml, '待跟单确认', '未确认工作项记录必须展示产出空态')
 assert.ok(!pendingOutputDrawerHtml.includes('预计产出'), '未全部完成记录不应展示预计产出')
 assert.ok(!pendingOutputDrawerHtml.includes('正式产出'), '未全部完成记录不应展示正式产出')
-assertHtmlIncludes(pendingOutputHtml, '待跟单确认后开放操作', '未确认工作项的记录必须提示先确认工作项')
+assert.ok(!pendingOutputHtml.includes('待跟单确认后开放操作'), '未确认工作项的操作列不得展示额外说明')
 const unconfirmedOperateHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001&itemId=prep-202603-001-item-03&action=operate-item',
 )
