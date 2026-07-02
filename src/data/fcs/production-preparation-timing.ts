@@ -225,7 +225,7 @@ export interface ProductionPreparationFilterOptions {
 export interface PreparationTypeDefaultItem {
   itemType: PreparationItemType
   defaultSelected: boolean
-  locked: boolean
+  canUnselect: boolean
 }
 
 export const preparationItemTypes: PreparationItemType[] = [
@@ -242,33 +242,33 @@ export const preparationItemTypes: PreparationItemType[] = [
 
 export const preparationTypeDefaultItems = {
   '非烫画&非毛织（纯梭织）': [
-    { itemType: '梭织基码纸样', defaultSelected: true, locked: true },
-    { itemType: '版衣制作', defaultSelected: true, locked: true },
-    { itemType: '梭织齐码纸样', defaultSelected: true, locked: true },
-    { itemType: '辅料下单', defaultSelected: true, locked: false },
-    { itemType: '数码印/DTF/DTG花型', defaultSelected: false, locked: false },
-    { itemType: '染色调色（面料）', defaultSelected: false, locked: false },
+    { itemType: '梭织基码纸样', defaultSelected: true, canUnselect: false },
+    { itemType: '版衣制作', defaultSelected: true, canUnselect: false },
+    { itemType: '梭织齐码纸样', defaultSelected: true, canUnselect: false },
+    { itemType: '辅料下单', defaultSelected: true, canUnselect: true },
+    { itemType: '数码印/DTF/DTG花型', defaultSelected: false, canUnselect: true },
+    { itemType: '染色调色（面料）', defaultSelected: false, canUnselect: true },
   ],
   '烫画&直喷': [
-    { itemType: '数码印/DTF/DTG花型', defaultSelected: true, locked: true },
+    { itemType: '数码印/DTF/DTG花型', defaultSelected: true, canUnselect: false },
   ],
   毛织: [
-    { itemType: '毛织基码纸样', defaultSelected: true, locked: true },
-    { itemType: '版衣制作', defaultSelected: true, locked: true },
-    { itemType: '毛织齐码纸样', defaultSelected: true, locked: true },
-    { itemType: '辅料下单', defaultSelected: true, locked: false },
-    { itemType: '染色调色（面料）', defaultSelected: false, locked: false },
+    { itemType: '毛织基码纸样', defaultSelected: true, canUnselect: false },
+    { itemType: '版衣制作', defaultSelected: true, canUnselect: false },
+    { itemType: '毛织齐码纸样', defaultSelected: true, canUnselect: false },
+    { itemType: '辅料下单', defaultSelected: true, canUnselect: true },
+    { itemType: '染色调色（面料）', defaultSelected: false, canUnselect: true },
   ],
   '毛织&梭织': [
-    { itemType: '毛织基码纸样', defaultSelected: true, locked: true },
-    { itemType: '梭织基码纸样', defaultSelected: true, locked: true },
-    { itemType: '版衣制作', defaultSelected: true, locked: true },
-    { itemType: '毛织齐码纸样', defaultSelected: true, locked: true },
-    { itemType: '梭织齐码纸样', defaultSelected: true, locked: true },
-    { itemType: '辅料下单', defaultSelected: true, locked: false },
-    { itemType: '数码印/DTF/DTG花型', defaultSelected: false, locked: false },
-    { itemType: '染色调色（纱线）', defaultSelected: false, locked: false },
-    { itemType: '染色调色（面料）', defaultSelected: false, locked: false },
+    { itemType: '毛织基码纸样', defaultSelected: true, canUnselect: false },
+    { itemType: '梭织基码纸样', defaultSelected: true, canUnselect: false },
+    { itemType: '版衣制作', defaultSelected: true, canUnselect: false },
+    { itemType: '毛织齐码纸样', defaultSelected: true, canUnselect: false },
+    { itemType: '梭织齐码纸样', defaultSelected: true, canUnselect: false },
+    { itemType: '辅料下单', defaultSelected: true, canUnselect: true },
+    { itemType: '数码印/DTF/DTG花型', defaultSelected: false, canUnselect: true },
+    { itemType: '染色调色（纱线）', defaultSelected: false, canUnselect: true },
+    { itemType: '染色调色（面料）', defaultSelected: false, canUnselect: true },
   ],
 } satisfies Record<ProductPrepType, PreparationTypeDefaultItem[]>
 

@@ -876,20 +876,21 @@ function isDefaultTypeItemChecked(
 function renderPreparationTypeItem(
   record: ProductionPreparationRecord,
   blockType: ProductPrepType,
-  templateItem: { itemType: PreparationItemType; defaultSelected: boolean; locked: boolean },
+  templateItem: { itemType: PreparationItemType; defaultSelected: boolean; canUnselect: boolean },
   active: boolean,
 ): string {
   const item = record.items.find((candidate) => candidate.itemType === templateItem.itemType)
-  const checked = templateItem.locked || isDefaultTypeItemChecked(record, blockType, templateItem.itemType, templateItem.defaultSelected)
+  const locked = !templateItem.canUnselect
+  const checked = locked || isDefaultTypeItemChecked(record, blockType, templateItem.itemType, templateItem.defaultSelected)
   const disabledAttr = active ? '' : 'disabled'
   const checkedAttr = checked ? 'checked' : ''
-  const input = templateItem.locked
+  const input = locked
     ? `
       <input type="hidden" name="selectedItemType" value="${escapeHtml(templateItem.itemType)}" ${disabledAttr} />
       <input type="checkbox" value="${escapeHtml(templateItem.itemType)}" data-prep-fixed-item ${checkedAttr} ${disabledAttr} />
     `
     : `<input type="checkbox" name="selectedItemType" value="${escapeHtml(templateItem.itemType)}" data-prep-item-checkbox ${checkedAttr} ${disabledAttr} />`
-  const tagText = templateItem.locked ? '默认必选' : templateItem.defaultSelected ? '默认勾选，可取消' : '可选'
+  const tagText = locked ? '默认必选' : templateItem.defaultSelected ? '默认勾选，可取消' : '可选'
   const detailText = item
     ? `${item.requiredKind}｜${item.sequenceGroup}`
     : '类型模板项，当前记录暂无历史节点'
