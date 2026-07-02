@@ -2,6 +2,12 @@
 
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
+import {
+  EMPTY_PREPARATION_RUNTIME_STATE,
+  appendDownloadRecord,
+  isBasePatternItem,
+  mergePreparationRuntimeRecords,
+} from '../src/data/fcs/production-preparation-timing-runtime.ts'
 
 function source(path: string): string {
   assert.ok(existsSync(path), `${path} 不存在`)
@@ -98,6 +104,41 @@ const {
   flattenProductionPreparationItems,
   productionPreparationRecords,
 } = await import('../src/data/fcs/production-preparation-timing.ts')
+
+assert.equal(isBasePatternItem('梭织基码纸样'), true, '梭织基码纸样必须记录下载')
+assert.equal(isBasePatternItem('毛织基码纸样'), true, '毛织基码纸样必须记录下载')
+assert.equal(isBasePatternItem('梭织齐码纸样'), false, '齐码纸样不属于基码下载审计')
+
+const runtimeWithDownload = appendDownloadRecord(EMPTY_PREPARATION_RUNTIME_STATE, {
+  recordId: 'record-a',
+  itemId: 'item-a',
+  uploadId: 'upload-a',
+  fileName: 'base.prj',
+  downloadedBy: '测试用户',
+})
+assert.equal(runtimeWithDownload.downloads.length, 1, '下载必须生成一条记录')
+assert.equal(runtimeWithDownload.downloads[0].fileName, 'base.prj', '下载记录必须保存文件名')
+
+const mergedRecords = mergePreparationRuntimeRecords(productionPreparationRecords, {
+  ...EMPTY_PREPARATION_RUNTIME_STATE,
+  uploads: [
+    {
+      uploadId: 'upload-test',
+      recordId: productionPreparationRecords[0].recordId,
+      itemId: productionPreparationRecords[0].items[0].itemId,
+      itemType: productionPreparationRecords[0].items[0].itemType,
+      fileName: 'base.prj',
+      fileType: 'application/octet-stream',
+      fileSize: 12,
+      fileDataUrl: 'data:application/octet-stream;base64,YQ==',
+      uploadedBy: '测试用户',
+      uploadedAt: '2026-07-02T10:30',
+      note: '测试上传',
+    },
+  ],
+  downloads: [],
+})
+assert.equal(mergedRecords[0].items[0].actualFinishAt, '2026-07-02T10:30', '上传后工作项完成时间必须取上传时间')
 
 assert.ok(Array.isArray(productionPreparationRecords), 'productionPreparationRecords 必须是数组')
 assert.ok(productionPreparationRecords.length >= 12, 'productionPreparationRecords 不少于 12 条')
