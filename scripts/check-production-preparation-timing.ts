@@ -299,6 +299,70 @@ assert.ok(
   marchDetails.every((row: { itemStatus?: string }) => row.itemStatus === '已完成'),
   '完成明细每行 itemStatus 必须为已完成',
 )
+const completedDetailFixtureSource = productionPreparationRecords.find(
+  (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-003',
+) as
+  | {
+      recordId: string
+      recordNo: string
+      status: string
+      items: Array<{
+        itemId: string
+        recordId: string
+        status: string
+        selectedByMerchandiser?: boolean
+        actualFinishAt: string
+      }>
+    }
+  | undefined
+assert.ok(completedDetailFixtureSource, '缺少完成明细排除口径 fixture 源记录')
+const completionExclusionFixtures = [
+  {
+    ...completedDetailFixtureSource,
+    recordId: 'prep-check-closed',
+    recordNo: 'PREP-CHECK-CLOSED',
+    status: '已关闭',
+    items: completedDetailFixtureSource.items.map((item, index: number) => ({
+      ...item,
+      itemId: `prep-check-closed-item-${index + 1}`,
+      recordId: 'prep-check-closed',
+      status: '已完成',
+      selectedByMerchandiser: true,
+      actualFinishAt: '2026-03-20T12:00:00',
+    })),
+  },
+  {
+    ...completedDetailFixtureSource,
+    recordId: 'prep-check-noneed',
+    recordNo: 'PREP-CHECK-NONEED',
+    status: '进行中',
+    items: completedDetailFixtureSource.items.map((item, index: number) => ({
+      ...item,
+      itemId: `prep-check-noneed-item-${index + 1}`,
+      recordId: 'prep-check-noneed',
+      status: '无需',
+      selectedByMerchandiser: true,
+      actualFinishAt: '2026-03-21T12:00:00',
+    })),
+  },
+]
+productionPreparationRecords.push(...completionExclusionFixtures)
+try {
+  const fixtureDetails = buildMonthlyPreparationCompletionDetails('2026-03')
+  assert.ok(
+    !fixtureDetails.some((row: { recordNo?: string }) => row.recordNo === 'PREP-CHECK-CLOSED'),
+    '完成明细不应包含已关闭 fixture 记录',
+  )
+  assert.ok(
+    !fixtureDetails.some((row: { recordNo?: string }) => row.recordNo === 'PREP-CHECK-NONEED'),
+    '完成明细不应包含无需 fixture 准备项',
+  )
+} finally {
+  productionPreparationRecords.splice(
+    productionPreparationRecords.length - completionExclusionFixtures.length,
+    completionExclusionFixtures.length,
+  )
+}
 const patternDesignerRecords = filterProductionPreparationRecords({
   itemType: '数码印/DTF/DTG花型',
   patternDesigner: '林小美',
@@ -459,6 +523,8 @@ const dynamicReadyOutputDrawerHtml = detailDrawerHtml(dynamicReadyOutputHtml, 'P
 assertHtmlIncludes(dynamicReadyOutputDrawerHtml, '正式产出', '动态完成最后一项后必须展示正式产出')
 assertHtmlIncludes(dynamicReadyOutputDrawerHtml, '已生成', '动态完成最后一项后产出状态必须为已生成')
 assert.ok(!dynamicReadyOutputDrawerHtml.includes('预计产出'), '动态完成最后一项后不应继续显示预计产出')
+assert.ok(!dynamicReadyOutputDrawerHtml.includes('预计TP-PO-202604-003'), '动态完成最后一项后不应保留预计技术包编号')
+assert.ok(!dynamicReadyOutputDrawerHtml.includes('预计PR-003'), '动态完成最后一项后不应保留预计印花单编号')
 
 const unselectedOptionalRecord = productionPreparationRecords.find(
   (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-001',

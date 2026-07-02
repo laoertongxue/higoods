@@ -925,7 +925,7 @@ function renderPreparationOutputs(record: ProductionPreparationRecord): string {
         ${record.outputs.map((output) => `
           <button type="button" class="rounded-lg border bg-background p-3 text-left hover:bg-muted" data-nav="${escapeHtml(output.outputHref)}">
             <div class="text-xs text-muted-foreground">${escapeHtml(output.outputType)}</div>
-            <div class="mt-1 font-medium">${escapeHtml(output.outputNo)}</div>
+            <div class="mt-1 font-medium">${escapeHtml(outputReady ? output.outputNo.replace(/^预计/, '') : output.outputNo)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(outputReady ? '已生成' : output.outputStatus)}</div>
           </button>
         `).join('')}
