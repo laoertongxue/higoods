@@ -578,12 +578,14 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
         <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(closeHref)}">关闭</button>
       </div>
       <div class="flex-1 space-y-5 overflow-y-auto p-5">
-        ${renderBasicInfo(record)}
+        ${renderSourceInfo(record)}
+        ${renderProductTypeConfirmation(record)}
+        ${renderPreparationSelection(record)}
         ${renderTimeline(record)}
         <section id="prep-items" class="rounded-xl border bg-card p-4">
           <div class="mb-4 flex items-center justify-between">
             <h3 class="font-semibold">准备项明细卡片</h3>
-            <span class="text-xs text-muted-foreground">必做项 ${requiredItems(record).length} 项</span>
+            <span class="text-xs text-muted-foreground">已选择 ${requiredItems(record).length} 项</span>
           </div>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
             ${record.items.map((item) => renderItemCard(record, item, item.itemId === activeItemId, month, params)).join('')}
@@ -591,7 +593,7 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
         </section>
         ${action === 'assign' && activeItem ? renderAssignPanel(record, activeItem, params, month) : ''}
         ${action === 'upload' && activeItem ? renderUploadPanel(record, activeItem, params, month) : ''}
-        ${renderRelatedObjects(record)}
+        ${renderPreparationOutputs(record)}
         ${renderOperationLogs(record)}
       </div>
     </aside>
@@ -619,6 +621,106 @@ function renderBasicInfo(record: ProductionPreparationRecord): string {
             <div class="mt-1 font-medium">${escapeHtml(value)}</div>
           </div>
         `).join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderSourceInfo(record: ProductionPreparationRecord): string {
+  const fields = [
+    ['选品', record.selectionName],
+    ['买手', record.buyerName],
+    ['跟单', record.merchandiserName],
+    ['做大货阈值', `${record.largeGoodsThresholdQty} 件`],
+    ['达到数量', `${record.largeGoodsReachedQty} 件`],
+    ['达到做大货要求', formatDateTime(record.largeGoodsReachedAt)],
+    ['达到天数', `${record.largeGoodsReachedDays} 天`],
+    ['进入准备时间', formatDateTime(record.enteredAt)],
+  ]
+  return `
+    <section class="rounded-xl border bg-card p-4">
+      <h3 class="mb-3 font-semibold">来源信息</h3>
+      <div class="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+        ${fields.map(([label, value]) => `
+          <div class="rounded-lg bg-muted/40 p-3">
+            <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+            <div class="mt-1 font-medium">${escapeHtml(value)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderTagList(tags: string[]): string {
+  return tags.length
+    ? tags.map((tag) => `<span class="rounded-full bg-muted px-2 py-0.5 text-xs">${escapeHtml(tag)}</span>`).join('')
+    : '<span class="text-xs text-muted-foreground">无</span>'
+}
+
+function renderProductTypeConfirmation(record: ProductionPreparationRecord): string {
+  return `
+    <section class="rounded-xl border bg-card p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h3 class="font-semibold">商品类型确认</h3>
+        ${renderBadge(record.prepTypeSource, record.prepTypeSource === '人工修正' ? 'amber' : 'green')}
+      </div>
+      <div class="grid gap-3 text-sm md:grid-cols-2">
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">工艺标签</div>
+          <div class="mt-2 flex flex-wrap gap-1">${renderTagList(record.craftTags)}</div>
+        </div>
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">品类标签</div>
+          <div class="mt-2 flex flex-wrap gap-1">${renderTagList(record.categoryTags)}</div>
+        </div>
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">系统推导</div>
+          <div class="mt-1 font-medium">${escapeHtml(record.derivedProductPrepType)}</div>
+        </div>
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">跟单确认</div>
+          <div class="mt-1 font-medium">${escapeHtml(record.confirmedProductPrepType)}</div>
+        </div>
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">确认人</div>
+          <div class="mt-1 font-medium">${escapeHtml(record.prepTypeConfirmedBy)}</div>
+        </div>
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">确认时间</div>
+          <div class="mt-1 font-medium">${escapeHtml(formatDateTime(record.prepTypeConfirmedAt))}</div>
+        </div>
+      </div>
+      ${record.prepTypeOverrideReason ? `<p class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">修正原因：${escapeHtml(record.prepTypeOverrideReason)}</p>` : ''}
+    </section>
+  `
+}
+
+function renderPreparationSelection(record: ProductionPreparationRecord): string {
+  const required = record.items.filter((item) => item.requiredKind === '必做')
+  const optional = record.items.filter((item) => item.requiredKind === '选填')
+  const renderSelectionItem = (item: ProductionPreparationItem) => `
+    <div class="flex items-start justify-between gap-3 rounded-lg border bg-background p-3">
+      <div>
+        <div class="font-medium">${escapeHtml(item.itemType)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.sequenceGroup)}｜${escapeHtml(item.parallelGroup)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">确认时间：${escapeHtml(item.selectedAt ? formatDateTime(item.selectedAt) : '未选择')}</div>
+      </div>
+      ${renderBadge(item.requiredKind === '必做' ? '必做' : item.selectedByMerchandiser ? '已选择' : '未选择', item.requiredKind === '必做' || item.selectedByMerchandiser ? 'green' : 'slate')}
+    </div>
+  `
+  return `
+    <section class="rounded-xl border bg-card p-4">
+      <h3 class="mb-3 font-semibold">准备项确认</h3>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <div class="mb-2 text-sm font-medium">必做项</div>
+          <div class="space-y-2">${required.map(renderSelectionItem).join('')}</div>
+        </div>
+        <div>
+          <div class="mb-2 text-sm font-medium">选填项</div>
+          <div class="space-y-2">${optional.map(renderSelectionItem).join('') || '<div class="rounded-lg border bg-background p-3 text-sm text-muted-foreground">无选填项</div>'}</div>
+        </div>
       </div>
     </section>
   `
@@ -798,20 +900,23 @@ function renderUploadPanel(
   `
 }
 
-function renderRelatedObjects(record: ProductionPreparationRecord): string {
-  const objects = [
-    ['生产需求单', record.productionDemandNo, '/fcs/production/demand-inbox'],
-    ['关联生产单', record.productionOrderNo, record.productionOrderHref],
-    ['正式技术包', record.techPackVersionLabel, `/fcs/production/orders/${encodeURIComponent(record.productionOrderNo)}/tech-pack`],
-  ]
+function renderPreparationOutputs(record: ProductionPreparationRecord): string {
+  const title = record.outputReady ? '正式产出' : '预计产出'
+  const missingItems = requiredItems(record).filter((item) => item.status !== '已完成')
   return `
     <section class="rounded-xl border bg-card p-4">
-      <h3 class="mb-3 font-semibold">关联对象</h3>
+      <div class="mb-3 flex items-center justify-between">
+        <h3 class="font-semibold">${escapeHtml(title)}</h3>
+        ${renderBadge(record.outputReady ? '已生成' : '预计生成', record.outputReady ? 'green' : 'amber')}
+      </div>
+      ${record.outputReady ? `<p class="mb-3 text-sm text-muted-foreground">统一生成时间：${escapeHtml(formatDateTime(record.outputPublishedAt))}</p>` : ''}
+      ${!record.outputReady && missingItems.length ? `<p class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">仍需完成：${escapeHtml(missingItems.map((item) => item.itemType).join('、'))}</p>` : ''}
       <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-        ${objects.map(([label, value, href]) => `
-          <button type="button" class="rounded-lg border bg-background p-3 text-left hover:bg-muted" data-nav="${escapeHtml(href)}">
-            <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
-            <div class="mt-1 font-medium">${escapeHtml(value)}</div>
+        ${record.outputs.map((output) => `
+          <button type="button" class="rounded-lg border bg-background p-3 text-left hover:bg-muted" data-nav="${escapeHtml(output.outputHref)}">
+            <div class="text-xs text-muted-foreground">${escapeHtml(output.outputType)}</div>
+            <div class="mt-1 font-medium">${escapeHtml(output.outputNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(output.outputStatus)}</div>
           </button>
         `).join('')}
       </div>
