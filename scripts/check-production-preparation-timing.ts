@@ -252,6 +252,67 @@ const runtimeMissingUploadRecord = mergePreparationRuntimeRecords(productionPrep
   | undefined
 assert.equal(runtimeMissingUploadRecord?.outputs?.length ?? 0, 0, '缺一个 runtime 上传时不得生成产出对象')
 
+const readyReconfirmationFixture = productionPreparationRecords.find(
+  (record: { recordNo?: string }) => record.recordNo === 'PREP-202604-001',
+) as
+  | {
+      recordId: string
+      recordNo: string
+      outputReady: boolean
+      outputs: unknown[]
+      items: Array<{ itemId: string; itemType: string; selectedByMerchandiser?: boolean; status: string }>
+    }
+  | undefined
+assert.ok(readyReconfirmationFixture, '缺少 PREP-202604-001 runtime 重新确认回归 fixture')
+assert.equal(readyReconfirmationFixture.outputReady, true, 'PREP-202604-001 静态必须保持 ready')
+assert.ok(readyReconfirmationFixture.outputs.length > 0, 'PREP-202604-001 静态 ready 必须已有产出')
+const existingSelectedItemIds = readyReconfirmationFixture.items
+  .filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
+  .map((item) => item.itemId)
+const newlySelectedPatternItem = readyReconfirmationFixture.items.find(
+  (item) => item.itemType === '数码印/DTF/DTG花型' && item.selectedByMerchandiser === false,
+)
+assert.ok(newlySelectedPatternItem, 'PREP-202604-001 必须有原未选花型选填项')
+const reconfirmedItemIds = [...existingSelectedItemIds, newlySelectedPatternItem.itemId]
+const reconfirmedMissingEvidenceRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
+  ...EMPTY_PREPARATION_RUNTIME_STATE,
+  confirmedRecords: {
+    [readyReconfirmationFixture.recordId]: {
+      confirmedBy: '测试用户',
+      confirmedAt: '2026-07-02T11:00',
+      selectedItemIds: reconfirmedItemIds,
+    },
+  },
+  uploads: [],
+  downloads: [],
+}).find((record: { recordNo?: string }) => record.recordNo === 'PREP-202604-001') as
+  | { outputReady?: boolean; outputs?: unknown[] }
+  | undefined
+assert.equal(reconfirmedMissingEvidenceRecord?.outputReady, false, 'runtime 重新选择未完成选填项后不得继续沿用静态 ready')
+assert.equal(reconfirmedMissingEvidenceRecord?.outputs?.length ?? 0, 0, 'runtime 重新选择选填项但缺上传证据时不得生成产出对象')
+const reconfirmedReadyRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
+  ...EMPTY_PREPARATION_RUNTIME_STATE,
+  confirmedRecords: {
+    [readyReconfirmationFixture.recordId]: {
+      confirmedBy: '测试用户',
+      confirmedAt: '2026-07-02T11:00',
+      selectedItemIds: reconfirmedItemIds,
+    },
+  },
+  uploads: [runtimeUploadFor(readyReconfirmationFixture, newlySelectedPatternItem, 20)],
+  downloads: [],
+}).find((record: { recordNo?: string }) => record.recordNo === 'PREP-202604-001') as
+  | { outputReady?: boolean; outputs?: Array<{ outputType?: string }> }
+  | undefined
+assert.equal(reconfirmedReadyRecord?.outputReady, true, 'runtime 重新选择选填项且补齐上传证据后必须恢复 ready')
+assert.ok((reconfirmedReadyRecord?.outputs?.length ?? 0) > 0, 'runtime 重新选择选填项且补齐上传证据后必须恢复产出对象')
+for (const outputType of ['印花需求单', '印花加工单'] as const) {
+  assert.ok(
+    reconfirmedReadyRecord?.outputs?.some((output) => output.outputType === outputType),
+    `runtime 重新选择花型且补齐上传证据后产出缺少「${outputType}」`,
+  )
+}
+
 assert.ok(Array.isArray(productionPreparationRecords), 'productionPreparationRecords 必须是数组')
 assert.ok(productionPreparationRecords.length >= 12, 'productionPreparationRecords 不少于 12 条')
 
@@ -673,8 +734,12 @@ const printOnlyRecord = productionPreparationRecords.find(
 ) as { outputs?: Array<{ outputType: string }> } | undefined
 assert.ok(printOnlyRecord, '缺少 prep-202603-003 烫画&直喷记录')
 assert.ok(
-  !printOnlyRecord.outputs?.some((output) => output.outputType === '染色单' || output.outputType === '辅料采购单'),
-  '烫画&直喷单花型记录不应生成染色单或辅料采购单',
+  !printOnlyRecord.outputs?.some((output) =>
+    output.outputType === '染色需求单' ||
+    output.outputType === '染色加工单' ||
+    output.outputType === '辅料采购单',
+  ),
+  '烫画&直喷单花型记录不应生成染色需求单、染色加工单或辅料采购单',
 )
 
 const pageModule = await import('../src/pages/production/preparation-timing.ts')

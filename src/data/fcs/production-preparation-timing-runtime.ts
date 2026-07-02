@@ -67,11 +67,15 @@ export function mergePreparationRuntimeRecords(
     const items = record.items.map((item) => mergePreparationRuntimeItem(item, runtime, confirmation?.selectedItemIds))
     const workItemsConfirmedBy = confirmation?.confirmedBy ?? record.workItemsConfirmedBy
     const workItemsConfirmedAt = confirmation?.confirmedAt ?? record.workItemsConfirmedAt
+    const selectionOverridden = Array.isArray(confirmation?.selectedItemIds)
     const hasRuntimeUpload = runtime.uploads.some((upload) => upload.recordId === record.recordId)
-    const outputReady = record.outputReady || (hasRuntimeUpload && isRuntimeOutputReady(items, workItemsConfirmedBy, workItemsConfirmedAt))
+    const runtimeOutputReady = isRuntimeOutputReady(items, workItemsConfirmedBy, workItemsConfirmedAt)
+    const outputReady = selectionOverridden
+      ? runtimeOutputReady
+      : record.outputReady || (hasRuntimeUpload && runtimeOutputReady)
     const outputPublishedAt = outputReady
       ? record.outputPublishedAt || latestCompletionEvidenceAt(items)
-      : record.outputPublishedAt
+      : selectionOverridden ? '' : record.outputPublishedAt
     return {
       ...record,
       workItemsConfirmedBy,
