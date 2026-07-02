@@ -417,7 +417,6 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('版衣制作', '已完成', '车板团队', 'Ayu', '2026-03-02T18:00:00', '2026-03-03T18:00:00', '2026-03-03T16:30:00', '梭织主线', ['prep-202603-001-item-01'], '版衣', { evidenceSummary: '版衣照片已上传' }),
       req('梭织齐码纸样', '进行中', '版师团队', '陈版师', '2026-03-03T16:30:00', '2026-03-05T16:30:00', '', '梭织主线', ['prep-202603-001-item-02'], '梭织齐码', { evidenceSummary: 'S-L 齐码纸样整理中' }),
       req('辅料下单', '已完成', '采购团队', '武汉辅料组', '2026-03-01T12:00:00', '2026-03-03T12:00:00', '2026-03-02T15:00:00', '辅料并行', [], '主辅料', { evidenceSummary: '纽扣和洗标采购单已同步' }),
-      req('辅料下单', '已完成', '采购团队', '武汉辅料组', '2026-03-01T12:20:00', '2026-03-03T12:00:00', '2026-03-02T17:00:00', '辅料并行', [], '包装辅料', { evidenceSummary: '吊牌和包装袋采购单已同步' }),
       opt('数码印/DTF/DTG花型', true, '待确认', '花型团队', '林小美', '2026-03-01T12:00:00', '2026-03-03T12:00:00', '', '花型并行', '花型', { evidenceSummary: '完成图已上传，待买手确认', patternTaskNo: 'PAT-202603-001', patternDesignerId: 'designer-linxiaomei', patternDesignerName: '林小美', patternTeamName: '中国花型组', assignedAt: '2026-03-01T12:10:00', completionImageIds: ['img-001'], patternFileIds: ['ai-001'], buyerReviewStatus: '待确认' }),
       opt('染色调色（面料）', false, '待判断', '染色团队', '待确认', '', '', '', '染色并行', '面料染色', { evidenceSummary: '跟单未选择面料染色调色' }),
     ],
@@ -461,7 +460,6 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('毛织齐码纸样', '待开始', '毛织团队', 'Siti', '2026-03-07T09:00:00', '2026-03-08T18:00:00', '', '双齐码并行', ['prep-202603-002-item-03'], '毛织齐码', { evidenceSummary: '等待版衣确认', overdueHours: 6 }),
       req('梭织齐码纸样', '待开始', '版师团队', '梁敏', '2026-03-07T09:00:00', '2026-03-08T18:00:00', '', '双齐码并行', ['prep-202603-002-item-03'], '梭织齐码', { evidenceSummary: '等待版衣确认' }),
       req('辅料下单', '已完成', '采购团队', '何珊', '2026-03-03T09:00:00', '2026-03-05T18:00:00', '2026-03-05T16:10:00', '辅料并行', [], '主辅料', { evidenceSummary: '罗纹和洗标已锁单' }),
-      req('辅料下单', '已完成', '采购团队', '何珊', '2026-03-03T09:30:00', '2026-03-05T18:00:00', '2026-03-05T17:40:00', '辅料并行', [], '毛纱辅料', { evidenceSummary: '毛纱批次采购单已同步' }),
       opt('数码印/DTF/DTG花型', false, '待判断', '花型团队', '待确认', '', '', '', '花型并行', '花型', { evidenceSummary: '跟单未选择花型准备' }),
       opt('染色调色（纱线）', true, '已完成', '染色团队', 'Wulan', '2026-03-03T09:00:00', '2026-03-06T18:00:00', '2026-03-06T15:30:00', '染色并行', '纱线染色', { evidenceSummary: '咖色纱线色卡已确认' }),
       opt('染色调色（面料）', true, '进行中', '染色团队', 'Rini', '2026-03-03T09:00:00', '2026-03-06T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '梭织拼接面料二次调色', overdueHours: 9 }),
@@ -540,7 +538,6 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('版衣制作', '已完成', '车板团队', 'Dewi', '2026-03-06T09:00:00', '2026-03-07T18:00:00', '2026-03-07T16:50:00', '毛织主线', ['prep-202603-004-item-01'], '版衣', { evidenceSummary: '毛织版衣已完成' }),
       req('毛织齐码纸样', '进行中', '毛织团队', 'Yuni', '2026-03-08T09:00:00', '2026-03-09T18:00:00', '', '毛织主线', ['prep-202603-004-item-02'], '毛织齐码', { evidenceSummary: 'M-XL 毛织齐码整理中' }),
       req('辅料下单', '已完成', '采购团队', '周怡', '2026-03-06T09:00:00', '2026-03-08T18:00:00', '2026-03-08T13:10:00', '辅料并行', [], '主辅料', { evidenceSummary: '拉链和绳头采购单已同步' }),
-      req('辅料下单', '已完成', '采购团队', '周怡', '2026-03-06T09:30:00', '2026-03-08T18:00:00', '2026-03-08T15:20:00', '辅料并行', [], '包装辅料', { evidenceSummary: '包装袋采购单已同步' }),
       opt('染色调色（面料）', true, '进行中', '染色团队', 'Wulan', '2026-03-07T09:00:00', '2026-03-10T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '雾蓝色二次调色中', overdueHours: 3 }),
     ],
   }),
@@ -581,7 +578,6 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('版衣制作', '待开始', '车板团队', '待接单', '2026-03-07T09:00:00', '2026-03-08T18:00:00', '', '梭织主线', ['prep-202603-005-item-01'], '版衣', { evidenceSummary: '等待基码纸样' }),
       req('梭织齐码纸样', '待开始', '版师团队', '待分配', '2026-03-09T09:00:00', '2026-03-10T18:00:00', '', '梭织主线', ['prep-202603-005-item-02'], '梭织齐码', { evidenceSummary: '等待版衣确认' }),
       req('辅料下单', '待开始', '采购团队', '待接单', '2026-03-06T09:00:00', '2026-03-08T18:00:00', '', '辅料并行', [], '主辅料', { evidenceSummary: '等待辅料清单确认' }),
-      req('辅料下单', '待开始', '采购团队', '待接单', '2026-03-06T09:20:00', '2026-03-08T18:00:00', '', '辅料并行', [], '包装辅料', { evidenceSummary: '等待包装辅料确认' }),
       opt('数码印/DTF/DTG花型', false, '待判断', '花型团队', '待确认', '', '', '', '花型并行', '花型', { evidenceSummary: '跟单未选择花型准备' }),
       opt('染色调色（面料）', false, '待判断', '染色团队', '待确认', '', '', '', '染色并行', '面料染色', { evidenceSummary: '跟单未选择面料染色调色' }),
     ],
@@ -623,7 +619,6 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('版衣制作', '已完成', '车板团队', 'Dewi', '2026-03-08T09:00:00', '2026-03-09T18:00:00', '2026-03-09T14:30:00', '毛织主线', ['prep-202603-006-item-01'], '版衣', { evidenceSummary: '针织衫版衣已完成' }),
       req('毛织齐码纸样', '已完成', '毛织团队', 'Yuni', '2026-03-10T09:00:00', '2026-03-11T18:00:00', '2026-03-11T15:30:00', '毛织主线', ['prep-202603-006-item-02'], '毛织齐码', { evidenceSummary: 'S-XXL 毛织齐码纸样已上传' }),
       req('辅料下单', '已完成', '采购团队', '何珊', '2026-03-08T09:00:00', '2026-03-10T18:00:00', '2026-03-10T10:40:00', '辅料并行', [], '主辅料', { evidenceSummary: '纽扣和吊牌已下单' }),
-      req('辅料下单', '已完成', '采购团队', '何珊', '2026-03-08T09:20:00', '2026-03-10T18:00:00', '2026-03-10T14:40:00', '辅料并行', [], '包装辅料', { evidenceSummary: '胶袋和尺码贴已下单' }),
       opt('染色调色（面料）', false, '待判断', '染色团队', '待确认', '', '', '', '染色并行', '面料染色', { evidenceSummary: '跟单未选择面料染色调色' }),
     ],
   }),
@@ -664,7 +659,6 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('版衣制作', '已完成', '车板团队', 'Ayu', '2026-04-03T09:00:00', '2026-04-04T18:00:00', '2026-04-04T17:30:00', '梭织主线', ['prep-202604-001-item-01'], '版衣', { evidenceSummary: '亚麻衬衫版衣已完成' }),
       req('梭织齐码纸样', '已完成', '版师团队', '陈晓岚', '2026-04-05T09:00:00', '2026-04-06T18:00:00', '2026-04-06T14:50:00', '梭织主线', ['prep-202604-001-item-02'], '梭织齐码', { evidenceSummary: 'M-XXL 齐码纸样已上传' }),
       req('辅料下单', '已完成', '采购团队', '何珊', '2026-04-02T09:00:00', '2026-04-04T18:00:00', '2026-04-04T12:20:00', '辅料并行', [], '主辅料', { evidenceSummary: '贝壳扣和洗标已下单' }),
-      req('辅料下单', '已完成', '采购团队', '何珊', '2026-04-02T09:20:00', '2026-04-04T18:00:00', '2026-04-04T13:20:00', '辅料并行', [], '包装辅料', { evidenceSummary: '包装辅料采购单已同步' }),
       opt('数码印/DTF/DTG花型', false, '待判断', '花型团队', '待确认', '', '', '', '花型并行', '花型', { evidenceSummary: '纯色亚麻款未选择花型' }),
       opt('染色调色（面料）', false, '待判断', '染色团队', '待确认', '', '', '', '染色并行', '面料染色', { evidenceSummary: '使用现货亚麻本色，未选择染色' }),
     ],
@@ -706,7 +700,6 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('版衣制作', '已完成', '车板团队', 'Dewi', '2026-04-04T09:00:00', '2026-04-05T18:00:00', '2026-04-05T17:50:00', '毛织主线', ['prep-202604-002-item-01'], '版衣', { evidenceSummary: '缎面拼色版衣已上传' }),
       req('毛织齐码纸样', '已超时', '毛织团队', 'Yuni', '2026-04-06T09:00:00', '2026-04-07T18:00:00', '', '毛织主线', ['prep-202604-002-item-02'], '毛织齐码', { evidenceSummary: '齐码纸样进行中', overdueHours: 10 }),
       req('辅料下单', '已完成', '采购团队', '周怡', '2026-04-03T09:00:00', '2026-04-05T18:00:00', '2026-04-05T14:30:00', '辅料并行', [], '主辅料', { evidenceSummary: '珍珠扣和吊牌已下单' }),
-      req('辅料下单', '已完成', '采购团队', '周怡', '2026-04-03T09:20:00', '2026-04-05T18:00:00', '2026-04-05T16:30:00', '辅料并行', [], '包装辅料', { evidenceSummary: '包装辅料已下单' }),
       opt('染色调色（面料）', true, '已超时', '染色团队', 'Rini', '2026-04-03T09:00:00', '2026-04-06T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '待上传潘通色卡照片', overdueHours: 14 }),
     ],
   }),
@@ -750,14 +743,14 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordId: 'prep-202604-004',
     recordNo: 'PREP-202604-004',
     spuCode: 'SPU-MX-260404',
-    spuName: '毛织梭织拼接休闲T恤',
+    spuName: '毛织罗纹拼接休闲T恤',
     imageUrl: '/mock/products/spring-casual-tee.jpg',
     selectionName: '桑妮',
     buyerName: '沈若琳',
     merchandiserName: 'Maya',
     sourceReason: '销量达标',
     craftTags: ['毛织拼接', '数码印'],
-    categoryTags: ['梭织', '毛织拼接'],
+    categoryTags: ['毛织'],
     largeGoodsReachedQty: 364,
     largeGoodsReachedAt: '2026-04-04T15:00:00',
     largeGoodsReachedDays: 5,
@@ -767,7 +760,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeSource: '人工修正',
     prepTypeConfirmedBy: 'Maya',
     prepTypeConfirmedAt: '2026-04-04T15:40:00',
-    prepTypeOverrideReason: '技术包确认前片为毛织罗纹，后片为梭织拼接，需同时准备毛织和梭织纸样',
+    prepTypeOverrideReason: '正式技术包补充后片梭织拼接，需同时准备毛织和梭织纸样',
     productionDemandNo: 'PD-202604-004',
     productionOrderNo: 'PO-202604-004',
     techPackVersionLabel: 'TP-v0.6',
@@ -785,7 +778,6 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('毛织齐码纸样', '待开始', '毛织团队', 'Yuni', '2026-04-09T09:00:00', '2026-04-10T18:00:00', '', '双齐码并行', ['prep-202604-004-item-03'], '毛织齐码', { evidenceSummary: '等待版衣确认' }),
       req('梭织齐码纸样', '待开始', '版师团队', '陈晓岚', '2026-04-09T09:00:00', '2026-04-10T18:00:00', '', '双齐码并行', ['prep-202604-004-item-03'], '梭织齐码', { evidenceSummary: '等待版衣确认' }),
       req('辅料下单', '已完成', '采购团队', '何珊', '2026-04-05T09:00:00', '2026-04-07T18:00:00', '2026-04-07T15:30:00', '辅料并行', [], '主辅料', { evidenceSummary: '领标和罗纹辅料已下单' }),
-      req('辅料下单', '已完成', '采购团队', '何珊', '2026-04-05T09:20:00', '2026-04-07T18:00:00', '2026-04-07T19:00:00', '辅料并行', [], '包装辅料', { evidenceSummary: '包装辅料已下单', overdueHours: 1 }),
       opt('数码印/DTF/DTG花型', true, '待确认', '花型团队', 'Sari', '2026-04-05T09:00:00', '2026-04-08T18:00:00', '', '花型并行', '花型', { evidenceSummary: '花型完成图待买手确认', overdueHours: 6, patternTaskNo: 'PAT-202604-004', patternDesignerId: 'designer-sari', patternDesignerName: 'Sari', patternTeamName: 'Jakarta 花型组', assignedAt: '2026-04-05T09:20:00', completionImageIds: ['img-pattern-004'], patternFileIds: ['file-pattern-004'], buyerReviewStatus: '待确认' }),
       opt('染色调色（纱线）', false, '待判断', '染色团队', '待确认', '', '', '', '染色并行', '纱线染色', { evidenceSummary: '跟单未选择纱线染色' }),
       opt('染色调色（面料）', true, '进行中', '染色团队', 'Rini', '2026-04-05T09:00:00', '2026-04-08T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '面料染色二次复核', overdueHours: 4 }),
@@ -866,7 +858,6 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('毛织齐码纸样', '已完成', '毛织团队', 'Yuni', '2026-04-11T09:00:00', '2026-04-12T18:00:00', '2026-04-12T14:40:00', '双齐码并行', ['prep-202604-006-item-03'], '毛织齐码', { evidenceSummary: '毛织齐码纸样已上传' }),
       req('梭织齐码纸样', '已完成', '版师团队', '梁敏', '2026-04-11T09:00:00', '2026-04-12T18:00:00', '2026-04-12T15:10:00', '双齐码并行', ['prep-202604-006-item-03'], '梭织齐码', { evidenceSummary: '梭织齐码纸样已上传' }),
       req('辅料下单', '已完成', '采购团队', '周怡', '2026-04-07T09:00:00', '2026-04-09T18:00:00', '2026-04-09T14:50:00', '辅料并行', [], '主辅料', { evidenceSummary: '扣具和罗纹辅料已下单' }),
-      req('辅料下单', '已完成', '采购团队', '周怡', '2026-04-07T09:20:00', '2026-04-09T18:00:00', '2026-04-09T15:20:00', '辅料并行', [], '包装辅料', { evidenceSummary: '包装辅料已下单' }),
       opt('数码印/DTF/DTG花型', false, '待判断', '花型团队', '待确认', '', '', '', '花型并行', '花型', { evidenceSummary: '跟单未选择花型准备' }),
       opt('染色调色（纱线）', true, '已完成', '染色团队', 'Wulan', '2026-04-07T09:00:00', '2026-04-10T18:00:00', '2026-04-10T15:30:00', '染色并行', '纱线染色', { evidenceSummary: '纱线灰蓝色卡已确认' }),
       opt('染色调色（面料）', true, '已完成', '染色团队', 'Rini', '2026-04-07T09:00:00', '2026-04-10T18:00:00', '2026-04-10T16:10:00', '染色并行', '面料染色', { evidenceSummary: '梭织面料浅灰色卡已确认' }),
@@ -918,11 +909,14 @@ function matchesKeyword(record: ProductionPreparationRecord, keyword: string): b
   return haystack.some((value) => normalize(value).includes(keyword))
 }
 
+function isSelectedPreparationItem(item: Pick<ProductionPreparationItem, 'selectedByMerchandiser' | 'status'>): boolean {
+  return item.selectedByMerchandiser !== false && item.status !== '无需'
+}
+
 function hasPatternUploadGap(item: ProductionPreparationItem): boolean {
   return (
     item.itemType === '数码印/DTF/DTG花型' &&
-    item.selectedByMerchandiser === true &&
-    item.status !== '无需' &&
+    isSelectedPreparationItem(item) &&
     (!item.completionImageIds?.length || !item.patternFileIds?.length)
   )
 }
@@ -933,6 +927,7 @@ function matchesCompletionItemFilter(item: FlattenedPreparationItem, filter: Pro
       ? '林小美'
       : resolvePatternDesignerName(filter.patternDesigner)
 
+  if (!isSelectedPreparationItem(item) || item.recordStatus === '已关闭') return false
   if (filter.itemType && filter.itemType !== '全部' && item.itemType !== filter.itemType) return false
   if (filter.ownerTeam && item.ownerTeam !== filter.ownerTeam) return false
   if (patternDesigner && (item.itemType !== '数码印/DTF/DTG花型' || item.patternDesignerName !== patternDesigner)) return false
@@ -959,9 +954,12 @@ export function filterProductionPreparationRecords(
       : resolvePatternDesignerName(filter.patternDesigner)
 
   return records.filter((record) => {
+    const selectedItems = record.items.filter(isSelectedPreparationItem)
+    const filterableItems = record.status === '已关闭' ? [] : selectedItems
+
     if (filter.month) {
       const enteredInMonth = record.enteredAt.startsWith(filter.month)
-      const finishedInMonth = record.items.some((item) => item.actualFinishAt.startsWith(filter.month ?? ''))
+      const finishedInMonth = filterableItems.some((item) => item.actualFinishAt.startsWith(filter.month ?? ''))
       if (!enteredInMonth && !finishedInMonth) return false
     }
 
@@ -971,29 +969,29 @@ export function filterProductionPreparationRecords(
     if (
       filter.itemType &&
       filter.itemType !== '全部' &&
-      !record.items.some((item) => item.selectedByMerchandiser === true && item.itemType === filter.itemType)
+      !filterableItems.some((item) => item.itemType === filter.itemType)
     ) {
       return false
     }
     if (
       filter.ownerTeam &&
-      !record.items.some((item) => item.selectedByMerchandiser === true && item.ownerTeam === filter.ownerTeam)
+      !filterableItems.some((item) => item.ownerTeam === filter.ownerTeam)
     ) {
       return false
     }
     if (
       patternDesigner &&
-      !record.items.some((item) => item.itemType === '数码印/DTF/DTG花型' && item.patternDesignerName === patternDesigner)
+      !filterableItems.some((item) => item.itemType === '数码印/DTF/DTG花型' && item.patternDesignerName === patternDesigner)
     ) {
       return false
     }
-    if (filter.overdueOnly && !record.items.some((item) => item.status === '已超时' || item.overdueHours > 0)) {
+    if (filter.overdueOnly && !filterableItems.some((item) => item.status === '已超时' || item.overdueHours > 0)) {
       return false
     }
-    if (filter.quickFilter === '待上传完成图' && !record.items.some(hasPatternUploadGap)) return false
+    if (filter.quickFilter === '待上传完成图' && !filterableItems.some(hasPatternUploadGap)) return false
     if (
       filter.quickFilter === '待买手确认' &&
-      !record.items.some((item) => item.itemType === '数码印/DTF/DTG花型' && item.buyerReviewStatus === '待确认')
+      !filterableItems.some((item) => item.itemType === '数码印/DTF/DTG花型' && item.buyerReviewStatus === '待确认')
     ) {
       return false
     }
@@ -1036,7 +1034,7 @@ export function buildProductionPreparationKpis(
   records: ProductionPreparationRecord[] = productionPreparationRecords,
 ): ProductionPreparationKpi[] {
   const activeRecords = records.filter((record) => record.status !== '已关闭')
-  const requiredItems = flattenProductionPreparationItems(activeRecords).filter((item) => item.selectedByMerchandiser)
+  const requiredItems = flattenProductionPreparationItems(activeRecords).filter(isSelectedPreparationItem)
   const completedCount = requiredItems.filter((item) => item.status === '已完成').length
   const overdueCount = requiredItems.filter((item) => item.status === '已超时' || item.overdueHours > 0).length
   const completionRate = requiredItems.length ? Math.round((completedCount / requiredItems.length) * 100) : 0

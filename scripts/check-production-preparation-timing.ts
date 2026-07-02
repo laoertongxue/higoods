@@ -104,7 +104,7 @@ assert.ok(productionPreparationRecords.length >= 12, 'productionPreparationRecor
 
 const preparationItems = flattenProductionPreparationItems(productionPreparationRecords)
 assert.ok(Array.isArray(preparationItems), 'flattenProductionPreparationItems 必须返回数组')
-assert.ok(preparationItems.length >= 70, '准备项不少于 70 条')
+assert.ok(preparationItems.length >= 60, '准备项不少于 60 条')
 assert.ok(
   preparationItems.every((item: { confirmedProductPrepType?: string }) => Boolean(item.confirmedProductPrepType)),
   '扁平准备项必须带商品类型',
@@ -182,6 +182,20 @@ assert.ok(
   '人工修正商品准备类型必须填写修正原因',
 )
 
+type CheckRecord = {
+  recordNo: string
+  items: Array<{
+    itemType: string
+    requiredKind?: string
+    selectedByMerchandiser?: boolean
+    status?: string
+    patternDesignerName?: string
+    buyerReviewStatus?: string
+    completionImageIds?: string[]
+    patternFileIds?: string[]
+  }>
+}
+
 function itemNames(record: {
   items: Array<{ itemType: string; requiredKind?: string; selectedByMerchandiser?: boolean }>
 }): string[] {
@@ -191,13 +205,22 @@ function itemNames(record: {
 }
 
 function assertRecordHasItems(
-  record: { recordNo: string; items: Array<{ itemType: string; requiredKind?: string; selectedByMerchandiser?: boolean }> },
+  record: CheckRecord,
   expected: string[],
 ): void {
   const actual = itemNames(record)
-  for (const itemType of expected) {
-    assert.ok(actual.includes(itemType), `${record.recordNo} 缺少准备项 ${itemType}`)
+  assert.deepEqual(actual, expected, `${record.recordNo} 已选择准备项模板必须精确匹配`)
+  for (const itemType of new Set(actual)) {
+    const count = actual.filter((name) => name === itemType).length
+    assert.equal(count, 1, `${record.recordNo} 已选择准备项 ${itemType} 不得重复`)
   }
+}
+
+for (const record of productionPreparationRecords as CheckRecord[]) {
+  const selectedAccessoryCount = record.items.filter(
+    (item) => item.itemType === '辅料下单' && item.selectedByMerchandiser !== false,
+  ).length
+  assert.ok(selectedAccessoryCount <= 1, `${record.recordNo} 被选中的辅料下单不得超过 1 条`)
 }
 
 const wovenRecord = productionPreparationRecords.find(
@@ -218,9 +241,9 @@ assert.ok(printRecord, '缺少烫画&直喷记录')
 assert.ok(knitRecord, '缺少毛织记录')
 assert.ok(mixedRecord, '缺少毛织&梭织记录')
 
-assertRecordHasItems(wovenRecord, ['梭织基码纸样', '版衣制作', '梭织齐码纸样', '辅料下单'])
+assertRecordHasItems(wovenRecord, ['梭织基码纸样', '版衣制作', '梭织齐码纸样', '辅料下单', '数码印/DTF/DTG花型'])
 assert.deepEqual(itemNames(printRecord), ['数码印/DTF/DTG花型'], '烫画&直喷应有且仅有花型必做项')
-assertRecordHasItems(knitRecord, ['毛织基码纸样', '版衣制作', '毛织齐码纸样', '辅料下单'])
+assertRecordHasItems(knitRecord, ['毛织基码纸样', '版衣制作', '毛织齐码纸样', '辅料下单', '染色调色（面料）'])
 assertRecordHasItems(mixedRecord, [
   '毛织基码纸样',
   '梭织基码纸样',
@@ -228,6 +251,8 @@ assertRecordHasItems(mixedRecord, [
   '毛织齐码纸样',
   '梭织齐码纸样',
   '辅料下单',
+  '染色调色（纱线）',
+  '染色调色（面料）',
 ])
 
 assert.ok(
@@ -332,6 +357,44 @@ assert.ok(
   ),
   '记录级责任团队筛选必须保留已选择染色团队项的记录',
 )
+const unselectedPatternFilterFixture = (productionPreparationRecords as CheckRecord[])
+  .filter((record) => record.recordNo === 'PREP-202603-005')
+  .map((record) => ({
+    ...record,
+    items: record.items.map((item) =>
+      item.itemType === '数码印/DTF/DTG花型'
+        ? {
+            ...item,
+            selectedByMerchandiser: false,
+            status: '待确认',
+            patternDesignerName: '林小美',
+            buyerReviewStatus: '待确认',
+            completionImageIds: [],
+            patternFileIds: [],
+          }
+        : item,
+    ),
+  }))
+assert.equal(
+  filterProductionPreparationRecords({ patternDesigner: '林小美' }, unselectedPatternFilterFixture).length,
+  0,
+  '记录级花型师筛选不应命中未选择花型选填项',
+)
+assert.equal(
+  filterProductionPreparationRecords({ quickFilter: '我的花型任务' }, unselectedPatternFilterFixture).length,
+  0,
+  '我的花型任务不应命中未选择花型选填项',
+)
+assert.equal(
+  filterProductionPreparationRecords({ quickFilter: '待上传完成图' }, unselectedPatternFilterFixture).length,
+  0,
+  '待上传完成图不应命中未选择花型选填项',
+)
+assert.equal(
+  filterProductionPreparationRecords({ quickFilter: '待买手确认' }, unselectedPatternFilterFixture).length,
+  0,
+  '待买手确认不应命中未选择花型选填项',
+)
 const printOnlyRecord = productionPreparationRecords.find(
   (record: { recordId?: string }) => record.recordId === 'prep-202603-003',
 ) as { outputs?: Array<{ outputType: string }> } | undefined
@@ -389,6 +452,13 @@ const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab
 const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')
 assertHtmlIncludes(pendingOutputDrawerHtml, '预计产出', '未全部完成记录必须只展示预计产出')
 assert.ok(!pendingOutputDrawerHtml.includes('正式产出'), '未全部完成记录不应展示正式产出')
+const dynamicReadyOutputHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=upload&mockCompletionUploaded=1&buyerReviewStatus=已通过',
+)
+const dynamicReadyOutputDrawerHtml = detailDrawerHtml(dynamicReadyOutputHtml, 'PREP-202604-003')
+assertHtmlIncludes(dynamicReadyOutputDrawerHtml, '正式产出', '动态完成最后一项后必须展示正式产出')
+assertHtmlIncludes(dynamicReadyOutputDrawerHtml, '已生成', '动态完成最后一项后产出状态必须为已生成')
+assert.ok(!dynamicReadyOutputDrawerHtml.includes('预计产出'), '动态完成最后一项后不应继续显示预计产出')
 
 const unselectedOptionalRecord = productionPreparationRecords.find(
   (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-001',
@@ -495,7 +565,7 @@ assertHtmlIncludes(
   '提交完成资料 scope 必须保留花型师筛选',
 )
 const uploadLedgerHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&recordId=prep-202603-001&itemId=prep-202603-001-item-06&action=upload&mockCompletionUploaded=1&buyerReviewStatus=待确认',
+  '/fcs/production/preparation-timing?tab=ledger&recordId=prep-202603-001&itemId=prep-202603-001-item-05&action=upload&mockCompletionUploaded=1&buyerReviewStatus=待确认',
 )
 assertHtmlIncludes(uploadLedgerHtml, '已模拟提交完成资料', '上传完成图片提交后必须有页面反馈')
 assertHtmlIncludes(uploadLedgerHtml, '完成图：</span>2 张', '上传完成图片提交后必须更新完成图数量展示')
@@ -582,6 +652,22 @@ const detailCsvHeader = [
   '证据摘要',
 ].join(',')
 assertHtmlIncludes(statsHtml, encodeURIComponent(detailCsvHeader), '完成明细 CSV 缺少商品类型和必做/选填字段')
+const statsCsvHeader = [
+  '统计月份',
+  '准备项',
+  '完成数量',
+  '按时完成数量',
+  '超时完成数量',
+  '平均耗时小时',
+  '责任团队',
+  '最近完成时间',
+  '口径说明',
+  '完成基码',
+  '完成齐码',
+  '完成花型',
+  '完成染色',
+].join(',')
+assertHtmlIncludes(statsHtml, encodeURIComponent(statsCsvHeader), '月度统计 CSV 缺少完成基码/齐码/花型/染色汇总字段')
 assertHtmlIncludes(
   statsHtml,
   encodeURIComponent('非烫画&非毛织（纯梭织）'),

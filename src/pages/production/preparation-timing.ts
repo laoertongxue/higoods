@@ -79,10 +79,6 @@ function productPrepTone(type: ProductPrepType): 'slate' | 'blue' | 'green' | 'a
   return 'green'
 }
 
-function outputStatusText(record: ProductionPreparationRecord): string {
-  return record.outputReady ? '正式产出已生成' : '预计产出'
-}
-
 function renderOptions(options: Array<string | { value: string; label: string }>, selected: string): string {
   return options
     .map((option) => {
@@ -230,7 +226,7 @@ function filterLedgerRecords(
 }
 
 function requiredItems(record: ProductionPreparationRecord): ProductionPreparationItem[] {
-  return record.items.filter((item) => item.selectedByMerchandiser && item.status !== '无需')
+  return record.items.filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
 }
 
 function completionProgress(record: ProductionPreparationRecord): { completed: number; total: number; rate: number } {
@@ -238,6 +234,15 @@ function completionProgress(record: ProductionPreparationRecord): { completed: n
   const completed = items.filter((item) => item.status === '已完成').length
   const rate = items.length ? Math.round((completed / items.length) * 100) : 0
   return { completed, total: items.length, rate }
+}
+
+function isPreparationOutputReady(record: ProductionPreparationRecord): boolean {
+  const items = requiredItems(record)
+  return items.length > 0 && items.every((item) => item.status === '已完成')
+}
+
+function outputStatusText(record: ProductionPreparationRecord): string {
+  return isPreparationOutputReady(record) ? '正式产出已生成' : '预计产出'
 }
 
 function earliestOverdueItem(record: ProductionPreparationRecord): ProductionPreparationItem | null {
@@ -269,7 +274,7 @@ function renderHeader(activeTab: 'ledger' | 'stats', month: string): string {
         <div>
           <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
           <p class="mt-2 text-sm text-muted-foreground">按生产准备记录跟进基码、版衣、齐码、花型、染色、辅料等准备项完成情况。</p>
-          <p class="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">统计口径：生产准备记录 + 准备项 = 1。无需项和已关闭记录不计入完成数量。</p>
+          <p class="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">统计口径：生产准备记录 + 准备项 = 1。无需项、未选择选填项和已关闭记录不计入完成数量。</p>
         </div>
         <nav class="flex rounded-lg border bg-background p-1 text-sm">
           ${tabs.map((tab) => `
@@ -366,7 +371,9 @@ function renderQuickFilterButton(label: string, href: string, activeQuickFilter:
 
 function renderKpis(records: ProductionPreparationRecord[], month: string, filter: ProductionPreparationFilter): string {
   const helperKpis = new Map(buildProductionPreparationKpis(records).map((kpi) => [kpi.key, kpi]))
-  const items = flattenProductionPreparationItems(records).filter((item) => item.required && item.recordStatus !== '已关闭')
+  const items = flattenProductionPreparationItems(records).filter(
+    (item) => item.selectedByMerchandiser !== false && item.status !== '无需' && item.recordStatus !== '已关闭',
+  )
   const monthCompletedCount = buildMonthlyPreparationCompletionDetails(month, filter).length
   const todayKey = `${month}-10`
   const cards = [
@@ -460,6 +467,7 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
 function renderLedgerRow(record: ProductionPreparationRecord, month: string, params: URLSearchParams): string {
   const progress = completionProgress(record)
   const overdueItem = earliestOverdueItem(record)
+  const outputReady = isPreparationOutputReady(record)
   const firstActionItem = overdueItem ?? requiredItems(record).find((item) => item.status !== '已完成') ?? record.items[0]
   const patternItem = record.items.find((item) => item.itemType === '数码印/DTF/DTG花型')
   const detailHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
@@ -515,7 +523,7 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
       </td>
       <td class="px-4 py-4 max-w-[220px] text-xs text-muted-foreground">${escapeHtml(record.currentBlockerText || '暂无卡点')}</td>
       <td class="px-4 py-4">
-        ${renderBadge(outputStatusText(record), record.outputReady ? 'green' : 'amber')}
+        ${renderBadge(outputStatusText(record), outputReady ? 'green' : 'amber')}
         ${
           overdueItem
             ? `<div class="mt-1 text-xs text-red-600">最早超时：${escapeHtml(overdueItem.itemType)}</div>`
@@ -902,22 +910,23 @@ function renderUploadPanel(
 }
 
 function renderPreparationOutputs(record: ProductionPreparationRecord): string {
-  const title = record.outputReady ? '正式产出' : '预计产出'
+  const outputReady = isPreparationOutputReady(record)
+  const title = outputReady ? '正式产出' : '预计产出'
   const missingItems = requiredItems(record).filter((item) => item.status !== '已完成')
   return `
     <section class="rounded-xl border bg-card p-4">
       <div class="mb-3 flex items-center justify-between">
         <h3 class="font-semibold">${escapeHtml(title)}</h3>
-        ${renderBadge(record.outputReady ? '已生成' : '预计生成', record.outputReady ? 'green' : 'amber')}
+        ${renderBadge(outputReady ? '已生成' : '预计生成', outputReady ? 'green' : 'amber')}
       </div>
-      ${record.outputReady ? `<p class="mb-3 text-sm text-muted-foreground">统一生成时间：${escapeHtml(formatDateTime(record.outputPublishedAt))}</p>` : ''}
-      ${!record.outputReady && missingItems.length ? `<p class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">仍需完成：${escapeHtml(missingItems.map((item) => item.itemType).join('、'))}</p>` : ''}
+      ${outputReady && record.outputPublishedAt ? `<p class="mb-3 text-sm text-muted-foreground">统一生成时间：${escapeHtml(formatDateTime(record.outputPublishedAt))}</p>` : ''}
+      ${!outputReady && missingItems.length ? `<p class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">仍需完成：${escapeHtml(missingItems.map((item) => item.itemType).join('、'))}</p>` : ''}
       <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
         ${record.outputs.map((output) => `
           <button type="button" class="rounded-lg border bg-background p-3 text-left hover:bg-muted" data-nav="${escapeHtml(output.outputHref)}">
             <div class="text-xs text-muted-foreground">${escapeHtml(output.outputType)}</div>
             <div class="mt-1 font-medium">${escapeHtml(output.outputNo)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(output.outputStatus)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(outputReady ? '已生成' : output.outputStatus)}</div>
           </button>
         `).join('')}
       </div>
@@ -1008,7 +1017,7 @@ function buildStatsRows(month: string, details: MonthlyPreparationCompletionDeta
       averageDurationHours: rows.length ? Number((durationTotal / rows.length).toFixed(1)) : 0,
       latestFinishedAt: rows.reduce((latest, row) => (row.actualFinishAt > latest ? row.actualFinishAt : latest), ''),
       ownerTeamText,
-      basisText: `${month} 实际完成，已关闭记录和无需项不计入`,
+      basisText: `${month} 实际完成，已关闭记录、无需项和未选择选填项不计入`,
     }
   })
 }
@@ -1126,8 +1135,12 @@ function renderDetailTable(month: string, details: MonthlyPreparationCompletionD
 }
 
 function buildStatsCsvRows(month: string, rows: StatsTableRow[]): string[][] {
+  const baseCodeCount = getGroupedCompletedCount(rows, ['梭织基码纸样', '毛织基码纸样'])
+  const fullSizeCount = getGroupedCompletedCount(rows, ['梭织齐码纸样', '毛织齐码纸样'])
+  const patternCount = getGroupedCompletedCount(rows, ['数码印/DTF/DTG花型'])
+  const dyeCount = getGroupedCompletedCount(rows, ['染色调色（纱线）', '染色调色（面料）'])
   return [
-    ['统计月份', '准备项', '完成数量', '按时完成数量', '超时完成数量', '平均耗时小时', '责任团队', '最近完成时间', '口径说明'],
+    ['统计月份', '准备项', '完成数量', '按时完成数量', '超时完成数量', '平均耗时小时', '责任团队', '最近完成时间', '口径说明', '完成基码', '完成齐码', '完成花型', '完成染色'],
     ...rows.map((row) => [
       month,
       row.itemType,
@@ -1138,6 +1151,10 @@ function buildStatsCsvRows(month: string, rows: StatsTableRow[]): string[][] {
       row.ownerTeamText,
       row.latestFinishedAt,
       row.basisText,
+      String(baseCodeCount),
+      String(fullSizeCount),
+      String(patternCount),
+      String(dyeCount),
     ]),
   ]
 }
@@ -1176,7 +1193,7 @@ function renderStatsTab(params: URLSearchParams, month: string): string {
 
   return `
     <section class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-      顶部口径说明：统计完成数量时，以准备项实际完成时间所在月份为准；已关闭记录、无需项不计入完成数量。
+      顶部口径说明：统计完成数量时，以准备项实际完成时间所在月份为准；已关闭记录、无需项、未选择选填项不计入完成数量。
     </section>
     ${renderStatsFilter(params, month)}
     <div class="flex flex-wrap gap-2">
