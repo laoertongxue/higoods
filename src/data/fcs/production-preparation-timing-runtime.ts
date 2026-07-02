@@ -1,9 +1,10 @@
-import type {
-  PreparationDownloadRecord,
-  PreparationItemType,
-  PreparationUploadRecord,
-  ProductionPreparationItem,
-  ProductionPreparationRecord,
+import {
+  buildPreparationOutputs,
+  type PreparationDownloadRecord,
+  type PreparationItemType,
+  type PreparationUploadRecord,
+  type ProductionPreparationItem,
+  type ProductionPreparationRecord,
 } from './production-preparation-timing'
 
 export const PREPARATION_RUNTIME_STORAGE_KEY = 'higood.production-preparation.runtime.v1'
@@ -64,10 +65,22 @@ export function mergePreparationRuntimeRecords(
   return records.map((record) => {
     const confirmation = runtime.confirmedRecords[record.recordId]
     const items = record.items.map((item) => mergePreparationRuntimeItem(item, runtime, confirmation?.selectedItemIds))
+    const workItemsConfirmedBy = confirmation?.confirmedBy ?? record.workItemsConfirmedBy
+    const workItemsConfirmedAt = confirmation?.confirmedAt ?? record.workItemsConfirmedAt
     return {
       ...record,
-      workItemsConfirmedBy: confirmation?.confirmedBy ?? record.workItemsConfirmedBy,
-      workItemsConfirmedAt: confirmation?.confirmedAt ?? record.workItemsConfirmedAt,
+      workItemsConfirmedBy,
+      workItemsConfirmedAt,
+      outputs: buildPreparationOutputs({
+        recordNo: record.recordNo,
+        productionDemandNo: record.productionDemandNo,
+        productionOrderNo: record.productionOrderNo,
+        outputReady: record.outputReady,
+        outputPublishedAt: record.outputPublishedAt,
+        workItemsConfirmedBy,
+        workItemsConfirmedAt,
+        items,
+      }),
       items,
     }
   })
@@ -82,7 +95,7 @@ function mergePreparationRuntimeItem(
   const downloads = runtime.downloads.filter((download) => download.itemId === item.itemId)
   const selectionOverridden = Array.isArray(selectedItemIds)
   const selectedByMerchandiser = selectionOverridden
-    ? selectedItemIds.includes(item.itemId)
+    ? item.requiredKind === '必做' || selectedItemIds.includes(item.itemId)
     : item.selectedByMerchandiser
   if (!uploads.length && !downloads.length && !selectionOverridden) return item
   const lastUpload = uploads.slice().sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]

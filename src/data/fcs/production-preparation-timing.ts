@@ -188,6 +188,17 @@ export interface MonthlyPreparationCompletionDetail extends FlattenedPreparation
   onTime: boolean
 }
 
+export interface PreparationOutputBuildInput {
+  recordNo: string
+  productionDemandNo: string
+  productionOrderNo: string
+  outputReady: boolean
+  outputPublishedAt: string
+  workItemsConfirmedBy?: string
+  workItemsConfirmedAt?: string
+  items: Array<Pick<ProductionPreparationItem, 'itemType' | 'selectedByMerchandiser' | 'status'>>
+}
+
 export interface ProductionPreparationFilter {
   month?: string
   merchandiserName?: string
@@ -309,38 +320,39 @@ function orderHref(orderNo: string): string {
   return `/fcs/production/orders?keyword=${encodeURIComponent(orderNo)}`
 }
 
-function outputsFor(
-  recordNo: string,
-  demandNo: string,
-  orderNo: string,
-  ready: boolean,
-  outputPublishedAt: string,
-  items: PreparationItemSeed[],
-): ProductionPreparationOutput[] {
-  if (!ready || !demandNo || !orderNo) return []
+export function buildPreparationOutputs(input: PreparationOutputBuildInput): ProductionPreparationOutput[] {
+  if (
+    !(input.workItemsConfirmedBy && input.workItemsConfirmedAt) ||
+    !input.outputReady ||
+    !input.productionDemandNo ||
+    !input.productionOrderNo ||
+    !input.outputPublishedAt
+  ) {
+    return []
+  }
 
   const status: PreparationOutputStatus = '已生成'
-  const selectedItems = items.filter((item) => item.selectedByMerchandiser !== false)
+  const selectedItems = input.items.filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
   const outputs: ProductionPreparationOutput[] = [
-    { outputType: '正式版本技术包', outputNo: `TP-${orderNo}`, outputHref: `/fcs/production/orders/${encodeURIComponent(orderNo)}/tech-pack`, outputStatus: status, outputGeneratedAt: outputPublishedAt },
-    { outputType: '生产需求单', outputNo: demandNo, outputHref: `/fcs/production/demand-inbox?keyword=${encodeURIComponent(demandNo)}`, outputStatus: status, outputGeneratedAt: outputPublishedAt },
-    { outputType: '生产单', outputNo: orderNo, outputHref: orderHref(orderNo), outputStatus: status, outputGeneratedAt: outputPublishedAt },
+    { outputType: '正式版本技术包', outputNo: `TP-${input.productionOrderNo}`, outputHref: `/fcs/production/orders/${encodeURIComponent(input.productionOrderNo)}/tech-pack`, outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
+    { outputType: '生产需求单', outputNo: input.productionDemandNo, outputHref: `/fcs/production/demand-inbox?keyword=${encodeURIComponent(input.productionDemandNo)}`, outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
+    { outputType: '生产单', outputNo: input.productionOrderNo, outputHref: orderHref(input.productionOrderNo), outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
   ]
 
   if (selectedItems.some((item) => item.itemType === '数码印/DTF/DTG花型')) {
     outputs.push(
-      { outputType: '印花需求单', outputNo: `PRD-${recordNo.slice(-3)}`, outputHref: '/fcs/process/print-requirements', outputStatus: status, outputGeneratedAt: outputPublishedAt },
-      { outputType: '印花加工单', outputNo: `PRO-${recordNo.slice(-3)}`, outputHref: '/fcs/process/print-orders', outputStatus: status, outputGeneratedAt: outputPublishedAt },
+      { outputType: '印花需求单', outputNo: `PRD-${input.recordNo.slice(-3)}`, outputHref: '/fcs/process/print-requirements', outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
+      { outputType: '印花加工单', outputNo: `PRO-${input.recordNo.slice(-3)}`, outputHref: '/fcs/process/print-orders', outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
     )
   }
   if (selectedItems.some((item) => item.itemType === '染色调色（纱线）' || item.itemType === '染色调色（面料）')) {
     outputs.push(
-      { outputType: '染色需求单', outputNo: `DYD-${recordNo.slice(-3)}`, outputHref: '/fcs/process/dye-requirements', outputStatus: status, outputGeneratedAt: outputPublishedAt },
-      { outputType: '染色加工单', outputNo: `DYO-${recordNo.slice(-3)}`, outputHref: '/fcs/process/dye-orders', outputStatus: status, outputGeneratedAt: outputPublishedAt },
+      { outputType: '染色需求单', outputNo: `DYD-${input.recordNo.slice(-3)}`, outputHref: '/fcs/process/dye-requirements', outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
+      { outputType: '染色加工单', outputNo: `DYO-${input.recordNo.slice(-3)}`, outputHref: '/fcs/process/dye-orders', outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
     )
   }
   if (selectedItems.some((item) => item.itemType === '辅料下单')) {
-    outputs.push({ outputType: '辅料采购单', outputNo: `AP-${recordNo.slice(-3)}`, outputHref: '/fcs/purchase/accessory-orders', outputStatus: status, outputGeneratedAt: outputPublishedAt })
+    outputs.push({ outputType: '辅料采购单', outputNo: `AP-${input.recordNo.slice(-3)}`, outputHref: '/fcs/purchase/accessory-orders', outputStatus: status, outputGeneratedAt: input.outputPublishedAt })
   }
 
   return outputs
@@ -460,9 +472,16 @@ function record(seed: RecordSeed): ProductionPreparationRecord {
     productionOrderHref: seed.productionOrderNo ? orderHref(seed.productionOrderNo) : '',
     workItemsConfirmedBy,
     workItemsConfirmedAt,
-    outputs: workItemsConfirmedBy && workItemsConfirmedAt
-      ? outputsFor(seed.recordNo, seed.productionDemandNo, seed.productionOrderNo, seed.outputReady, seed.outputPublishedAt, seed.items)
-      : [],
+    outputs: buildPreparationOutputs({
+      recordNo: seed.recordNo,
+      productionDemandNo: seed.productionDemandNo,
+      productionOrderNo: seed.productionOrderNo,
+      outputReady: seed.outputReady,
+      outputPublishedAt: seed.outputPublishedAt,
+      workItemsConfirmedBy,
+      workItemsConfirmedAt,
+      items: seed.items,
+    }),
     items: createItems(seed.recordId, seed.productionOrderNo, seed.items),
   }
 }
