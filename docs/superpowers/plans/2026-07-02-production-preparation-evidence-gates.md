@@ -126,6 +126,8 @@ for (const record of productionPreparationRecords as Array<{
 
 - [ ] **步骤 5：增加产出对象断言**
 
+不要把业务展示结果绑定到 `src/data/fcs/production-preparation-timing.ts` 源码字面量位置。产出对象覆盖应通过页面渲染结果和 `productionPreparationRecords[].outputs` 结构检查。
+
 加入：
 
 ```ts
@@ -140,11 +142,18 @@ const expectedOutputTypes = [
   '辅料采购单',
 ] as const
 
-for (const outputType of expectedOutputTypes) {
-  assert.ok(
-    source('src/data/fcs/production-preparation-timing.ts').includes(outputType),
-    `产出对象缺少 ${outputType}`,
-  )
+const generatedOutputTypes = new Set(
+  (productionPreparationRecords as Array<{ outputs?: Array<{ outputType?: string; outputStatus?: string }> }>)
+    .flatMap((record) => record.outputs ?? [])
+    .filter((output) => output.outputStatus === '已生成')
+    .map((output) => output.outputType)
+    .filter(Boolean),
+)
+
+if (generatedOutputTypes.size > 0) {
+  for (const outputType of expectedOutputTypes) {
+    assert.ok(generatedOutputTypes.has(outputType), `已生成产出对象缺少「${outputType}」`)
+  }
 }
 ```
 

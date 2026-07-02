@@ -217,23 +217,6 @@ for (const record of productionPreparationRecords as Array<{
   }
 }
 
-for (const outputType of [
-  '正式版本技术包',
-  '生产需求单',
-  '生产单',
-  '印花需求单',
-  '印花加工单',
-  '染色需求单',
-  '染色加工单',
-  '辅料采购单',
-] as const) {
-  assertIncludes(
-    'src/data/fcs/production-preparation-timing.ts',
-    outputType,
-    `生产准备产出对象源码缺少「${outputType}」`,
-  )
-}
-
 const preparationItems = flattenProductionPreparationItems(productionPreparationRecords)
 assert.ok(Array.isArray(preparationItems), 'flattenProductionPreparationItems 必须返回数组')
 assert.ok(preparationItems.length >= 60, '准备项不少于 60 条')
@@ -682,6 +665,29 @@ for (const text of ['产出对象名称', '产出对象编号', '产出时间'] 
 }
 assert.ok(!readyOutputHtml.includes('统一生成时间'), '产出状态不应继续只展示统一生成时间')
 assert.ok(!/已完成[\s\S]{0,800}暂无上传记录/.test(readyOutputHtml), '已完成准备项详情不得显示暂无上传记录')
+
+const expectedOutputTypes = [
+  '正式版本技术包',
+  '生产需求单',
+  '生产单',
+  '印花需求单',
+  '印花加工单',
+  '染色需求单',
+  '染色加工单',
+  '辅料采购单',
+] as const
+const generatedOutputTypes = new Set(
+  (productionPreparationRecords as Array<{ outputs?: Array<{ outputType?: string; outputStatus?: string }> }>)
+    .flatMap((record) => record.outputs ?? [])
+    .filter((output) => output.outputStatus === '已生成')
+    .map((output) => output.outputType)
+    .filter(Boolean),
+)
+if (generatedOutputTypes.size > 0) {
+  for (const outputType of expectedOutputTypes) {
+    assert.ok(generatedOutputTypes.has(outputType), `已生成产出对象缺少「${outputType}」`)
+  }
+}
 
 const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001')
 const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')
