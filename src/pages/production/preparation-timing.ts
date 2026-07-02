@@ -3,6 +3,7 @@ import { appStore } from '../../state/store.ts'
 import {
   appendDownloadRecord,
   buildUploadRecordsFromFiles,
+  createLocalId,
   isBasePatternItem,
   loadPreparationRuntimeState,
   mergePreparationRuntimeRecords,
@@ -173,6 +174,14 @@ function hasCompletionEvidence(item: ProductionPreparationItem): boolean {
       item.actualFinishAt &&
       item.uploads?.some(hasUploadEvidence),
   )
+}
+
+function canOperateItem(item: ProductionPreparationItem, record: ProductionPreparationRecord): boolean {
+  if (!item.dependsOnItemIds.length) return true
+  return item.dependsOnItemIds.every((depId) => {
+    const dep = record.items.find((i) => i.itemId === depId)
+    return dep && hasCompletionEvidence(dep)
+  })
 }
 
 function completionProgress(record: ProductionPreparationRecord): { completed: number; total: number; rate: number } {
@@ -415,12 +424,25 @@ function renderProductTypeCell(record: ProductionPreparationRecord, confirmed: b
 }
 
 function renderLedgerOutputList(record: ProductionPreparationRecord): string {
+  const productionOrderLink = record.productionOrderNo
+    ? `<button type="button" class="block text-left text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(`/fcs/production/orders?keyword=${encodeURIComponent(record.productionOrderNo)}`)}">生产单：${escapeHtml(record.productionOrderNo)}</button>`
+    : ''
+
   if (!record.outputs.length) {
+    if (productionOrderLink) {
+      return `
+        <div class="space-y-1 text-xs">
+          ${productionOrderLink}
+          <div class="text-xs text-muted-foreground">${hasConfirmedWorkItems(record) ? '待全部准备项完成后生成其他产出' : '待跟单确认'}</div>
+        </div>
+      `
+    }
     return `<div class="text-xs text-muted-foreground">${hasConfirmedWorkItems(record) ? '待全部准备项完成后生成' : '待跟单确认'}</div>`
   }
 
   return `
     <div class="space-y-1 text-xs">
+      ${productionOrderLink}
       ${record.outputs.map((output) => {
         const text = `${output.outputType}：${output.outputNo} ${formatDateTime(output.outputGeneratedAt)}`
         return `<button type="button" class="block text-left text-blue-600 hover:underline" data-nav="${escapeHtml(output.outputHref)}">${escapeHtml(text)}</button>`
@@ -443,6 +465,10 @@ function renderLedgerActions(
   const confirmHref = buildLedgerActionHref(params, month, { recordId: record.recordId, action: 'confirm-items' })
   const itemButtons = confirmed
     ? requiredItems(record).map((item) => {
+        const operable = canOperateItem(item, record)
+        if (!operable) {
+          return `<span class="text-sm text-muted-foreground line-through opacity-60">${escapeHtml(preparationActionLabel(item))}</span>`
+        }
         const href = buildLedgerActionHref(params, month, {
           recordId: record.recordId,
           itemId: item.itemId,
@@ -450,9 +476,6 @@ function renderLedgerActions(
         })
         return `<button type="button" class="text-left text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(href)}">${escapeHtml(preparationActionLabel(item))}</button>`
       }).join('')
-    : ''
-  const productionOrderHref = record.productionOrderNo
-    ? `/fcs/production/orders?keyword=${encodeURIComponent(record.productionOrderNo)}`
     : ''
 
   if (!confirmed) {
@@ -466,9 +489,7 @@ function renderLedgerActions(
   return `
     <div class="flex min-w-[180px] flex-col items-start gap-2">
       <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(detailHref)}">查看详情</button>
-      <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(confirmHref)}">确认工作项</button>
       ${itemButtons}
-      ${productionOrderHref ? `<button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(productionOrderHref)}">查看生产单</button>` : ''}
     </div>
   `
 }
@@ -978,16 +999,17 @@ function renderOperateItemDialog(
             isAccessory
               ? `
                 <label class="block text-sm">
-                  <span class="text-muted-foreground">下单时间</span>
-                  <input type="datetime-local" name="orderedAt" class="mt-1 w-full rounded-md border px-3 py-2" required />
+                  <span class="text-muted-foreground">面辅料采购单号</span>
+                  <input type="text" name="purchaseOrderNo" class="mt-1 w-full rounded-md border px-3 py-2" required placeholder="输入面辅料采购单号，系统自动读取下单时间" />
                 </label>
               `
-              : ''
+              : `
+                <label class="block text-sm">
+                  <span class="text-muted-foreground">上传文件</span>
+                  <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
+                </label>
+              `
           }
-          <label class="block text-sm">
-            <span class="text-muted-foreground">${isAccessory ? '下单凭证' : '上传文件'}</span>
-            <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
-          </label>
           <label class="block text-sm">
             <span class="text-muted-foreground">说明</span>
             <textarea name="note" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2"></textarea>
@@ -1398,10 +1420,31 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
 
   const fileInput = form.querySelector<HTMLInputElement>('input[type="file"][name="files"]')
   const files = Array.from(fileInput?.files ?? [])
-  const orderedAt = String(formData.get('orderedAt') ?? '').trim()
+  const purchaseOrderNo = String(formData.get('purchaseOrderNo') ?? '').trim()
   const note = String(formData.get('note') ?? '').trim()
-  const uploadNote = item.itemType === '辅料下单' && orderedAt
-    ? [note, `辅料下单时间：${orderedAt}`].filter(Boolean).join('；')
+  const isAccessory = item.itemType === '辅料下单'
+
+  if (isAccessory && purchaseOrderNo) {
+    const orderedAt = currentIsoMinute()
+    const uploadRecords: PreparationUploadRecord[] = [{
+      uploadId: createLocalId('accessory'),
+      recordId,
+      itemId,
+      itemType: item.itemType,
+      fileName: `面辅料采购单-${purchaseOrderNo}`,
+      fileType: 'text/plain',
+      fileSize: 0,
+      fileDataUrl: '',
+      uploadedBy: '当前用户',
+      uploadedAt: orderedAt,
+      note: [note, `面辅料采购单号：${purchaseOrderNo}`, `下单时间：${orderedAt}`].filter(Boolean).join('；'),
+    }]
+    appendPreparationUploads(uploadRecords)
+    return true
+  }
+
+  const uploadNote = isAccessory && purchaseOrderNo
+    ? [note, `面辅料采购单号：${purchaseOrderNo}`].filter(Boolean).join('；')
     : note
 
   if (!files.length) {
