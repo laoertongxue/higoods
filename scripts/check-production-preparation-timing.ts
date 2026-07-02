@@ -105,6 +105,10 @@ assert.ok(productionPreparationRecords.length >= 12, 'productionPreparationRecor
 const preparationItems = flattenProductionPreparationItems(productionPreparationRecords)
 assert.ok(Array.isArray(preparationItems), 'flattenProductionPreparationItems 必须返回数组')
 assert.ok(preparationItems.length >= 70, '准备项不少于 70 条')
+assert.ok(
+  preparationItems.every((item: { confirmedProductPrepType?: string }) => Boolean(item.confirmedProductPrepType)),
+  '扁平准备项必须带商品类型',
+)
 assert.ok(getCompletedItemCount(preparationItems) >= 24, '已完成准备项不少于 24 条')
 assert.ok(getOverdueItemCount(preparationItems) >= 8, '超时准备项不少于 8 条')
 assert.ok(
@@ -553,9 +557,51 @@ for (const text of [
   '生产准备时效月度统计-202603.csv',
   '生产准备时效完成明细-202603.csv',
   'data:text/csv;charset=utf-8',
+  '商品类型',
+  '必做/选填',
+  '非烫画&amp;非毛织（纯梭织）',
 ] as const) {
   assertHtmlIncludes(statsHtml, text, `月度统计 HTML 缺少「${text}」`)
 }
+const detailCsvHeader = [
+  '统计月份',
+  '准备记录编号',
+  'SPU',
+  '商品名',
+  '生产单号',
+  '商品类型',
+  '买手',
+  '跟单',
+  '准备项',
+  '必做/选填',
+  '责任团队',
+  '责任人',
+  '计划完成时间',
+  '实际完成时间',
+  '是否超时',
+  '证据摘要',
+].join(',')
+assertHtmlIncludes(statsHtml, encodeURIComponent(detailCsvHeader), '完成明细 CSV 缺少商品类型和必做/选填字段')
+assertHtmlIncludes(
+  statsHtml,
+  encodeURIComponent('非烫画&非毛织（纯梭织）'),
+  '完成明细 CSV 缺少商品类型数据',
+)
+
+const pageSource = source('src/pages/production/preparation-timing.ts')
+for (const oldCall of [
+  "getCompletedByType('花型')",
+  "getCompletedByType('基码纸样')",
+  "getCompletedByType('齐码纸样')",
+  "getCompletedByType('染色调色')",
+] as const) {
+  assert.ok(!pageSource.includes(oldCall), `统计卡片不得继续使用旧统计调用 ${oldCall}`)
+}
+assertIncludes(
+  'src/pages/production/preparation-timing.ts',
+  "selectedByMerchandiser: true",
+  '上传完成图片 mock 必须保留已选择状态',
+)
 
 for (const statusCode of ['PENDING', 'DONE', 'IN_PROGRESS', 'CANCELLED', 'ON_HOLD'] as const) {
   assert.ok(!ledgerHtml.includes(statusCode), `准备台账 HTML 不得包含英文状态码 ${statusCode}`)

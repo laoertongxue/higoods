@@ -115,6 +115,7 @@ export interface FlattenedPreparationItem extends ProductionPreparationItem {
   spuCode: string
   spuName: string
   imageUrl: string
+  confirmedProductPrepType: ProductPrepType
   buyerName: string
   merchandiserName: string
   sourceReason: ProductionPreparationRecord['sourceReason']
@@ -1012,6 +1013,7 @@ export function flattenProductionPreparationItems(
       spuCode: record.spuCode,
       spuName: record.spuName,
       imageUrl: record.imageUrl,
+      confirmedProductPrepType: record.confirmedProductPrepType,
       buyerName: record.buyerName,
       merchandiserName: record.merchandiserName,
       sourceReason: record.sourceReason,

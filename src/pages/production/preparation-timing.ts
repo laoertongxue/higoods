@@ -204,6 +204,7 @@ function applyPreparationActionMocks(
         nextItem = {
           ...nextItem,
           required: true,
+          selectedByMerchandiser: true,
           status: submittedBuyerReviewStatus === '已通过' ? '已完成' : '待确认',
           completionImageIds: withUniqueValue(nextItem.completionImageIds, `mock-image-${nextItem.itemId}`),
           patternFileIds: withUniqueValue(nextItem.patternFileIds, `mock-file-${nextItem.itemId}`),
@@ -1012,20 +1013,22 @@ function buildStatsRows(month: string, details: MonthlyPreparationCompletionDeta
   })
 }
 
+function getGroupedCompletedCount(stats: StatsTableRow[], itemTypes: PreparationItemType[]): number {
+  return itemTypes.reduce((sum, itemType) => sum + (stats.find((row) => row.itemType === itemType)?.completedCount ?? 0), 0)
+}
+
 function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats: StatsTableRow[]): string {
   const onTime = details.filter((detail) => detail.onTime).length
   const overdue = details.length - onTime
   const averageHours = details.length
     ? Number((details.reduce((sum, detail) => sum + detail.durationHours, 0) / details.length).toFixed(1))
     : 0
-  const getCompletedByType = (itemType: PreparationItemType) =>
-    stats.find((row) => row.itemType === itemType)?.completedCount ?? 0
   const cards = [
     ['本月完成准备项', details.length, '项'],
-    ['完成基码', getCompletedByType('基码纸样'), '项'],
-    ['完成齐码', getCompletedByType('齐码纸样'), '项'],
-    ['完成花型', getCompletedByType('花型'), '项'],
-    ['完成染色', getCompletedByType('染色调色'), '项'],
+    ['完成基码', getGroupedCompletedCount(stats, ['梭织基码纸样', '毛织基码纸样']), '项'],
+    ['完成齐码', getGroupedCompletedCount(stats, ['梭织齐码纸样', '毛织齐码纸样']), '项'],
+    ['完成花型', getGroupedCompletedCount(stats, ['数码印/DTF/DTG花型']), '项'],
+    ['完成染色', getGroupedCompletedCount(stats, ['染色调色（纱线）', '染色调色（面料）']), '项'],
     ['按时完成', onTime, '项'],
     ['超时完成', overdue, '项'],
     ['平均耗时', averageHours, '小时'],
@@ -1084,10 +1087,10 @@ function renderDetailTable(month: string, details: MonthlyPreparationCompletionD
         <h2 class="font-semibold">明细表</h2>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1320px] text-sm">
+        <table class="w-full min-w-[1480px] text-sm">
           <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              ${['统计月份', '准备记录编号', 'SPU', '商品名', '生产单号', '买手', '跟单', '准备项', '责任团队', '责任人', '计划完成时间', '实际完成时间', '是否超时', '证据摘要'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
+              ${['统计月份', '准备记录编号', 'SPU', '商品名', '生产单号', '商品类型', '买手', '跟单', '准备项', '必做/选填', '责任团队', '责任人', '计划完成时间', '实际完成时间', '是否超时', '证据摘要'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -1100,9 +1103,11 @@ function renderDetailTable(month: string, details: MonthlyPreparationCompletionD
                     <td class="px-4 py-3 font-mono text-xs">${escapeHtml(detail.spuCode)}</td>
                     <td class="px-4 py-3 font-medium">${escapeHtml(detail.spuName)}</td>
                     <td class="px-4 py-3 font-mono text-xs">${escapeHtml(detail.productionOrderNo)}</td>
+                    <td class="px-4 py-3">${escapeHtml(detail.confirmedProductPrepType)}</td>
                     <td class="px-4 py-3">${escapeHtml(detail.buyerName)}</td>
                     <td class="px-4 py-3">${escapeHtml(detail.merchandiserName)}</td>
                     <td class="px-4 py-3">${escapeHtml(detail.itemType)}</td>
+                    <td class="px-4 py-3">${escapeHtml(detail.requiredKind)}</td>
                     <td class="px-4 py-3">${escapeHtml(detail.ownerTeam)}</td>
                     <td class="px-4 py-3">${escapeHtml(detail.ownerName)}</td>
                     <td class="px-4 py-3">${escapeHtml(formatDateTime(detail.plannedFinishAt))}</td>
@@ -1111,7 +1116,7 @@ function renderDetailTable(month: string, details: MonthlyPreparationCompletionD
                     <td class="px-4 py-3 max-w-[260px] text-xs text-muted-foreground">${escapeHtml(detail.evidenceSummary || '-')}</td>
                   </tr>
                 `).join('')
-                : '<tr><td colspan="14" class="h-24 px-4 text-center text-muted-foreground">当前月份暂无完成明细</td></tr>'
+                : '<tr><td colspan="16" class="h-24 px-4 text-center text-muted-foreground">当前月份暂无完成明细</td></tr>'
             }
           </tbody>
         </table>
@@ -1139,16 +1144,18 @@ function buildStatsCsvRows(month: string, rows: StatsTableRow[]): string[][] {
 
 function buildDetailCsvRows(month: string, rows: MonthlyPreparationCompletionDetail[]): string[][] {
   return [
-    ['统计月份', '准备记录编号', 'SPU', '商品名', '生产单号', '买手', '跟单', '准备项', '责任团队', '责任人', '计划完成时间', '实际完成时间', '是否超时', '证据摘要'],
+    ['统计月份', '准备记录编号', 'SPU', '商品名', '生产单号', '商品类型', '买手', '跟单', '准备项', '必做/选填', '责任团队', '责任人', '计划完成时间', '实际完成时间', '是否超时', '证据摘要'],
     ...rows.map((row) => [
       month,
       row.recordNo,
       row.spuCode,
       row.spuName,
       row.productionOrderNo,
+      row.confirmedProductPrepType,
       row.buyerName,
       row.merchandiserName,
       row.itemType,
+      row.requiredKind,
       row.ownerTeam,
       row.ownerName,
       row.plannedFinishAt,
