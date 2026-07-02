@@ -313,6 +313,72 @@ for (const outputType of ['印花需求单', '印花加工单'] as const) {
   )
 }
 
+const outputRemovalFixture = productionPreparationRecords.find(
+  (record: { recordNo?: string }) => record.recordNo === 'PREP-202604-006',
+) as
+  | {
+      recordId: string
+      recordNo: string
+      outputReady: boolean
+      items: Array<{ itemId: string; itemType: string; selectedByMerchandiser?: boolean; status: string }>
+    }
+  | undefined
+assert.ok(outputRemovalFixture, '缺少 PREP-202604-006 runtime 取消选中产出回归 fixture')
+assert.equal(outputRemovalFixture.outputReady, true, 'PREP-202604-006 静态必须保持 ready')
+const outputRemovalSelectedItemIds = outputRemovalFixture.items
+  .filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
+  .map((item) => item.itemId)
+const outputRemovalPatternItem = outputRemovalFixture.items.find(
+  (item) => item.itemType === '数码印/DTF/DTG花型' && item.selectedByMerchandiser === false,
+)
+assert.ok(outputRemovalPatternItem, 'PREP-202604-006 必须有原未选花型选填项')
+const outputRemovalAllItemIds = [...outputRemovalSelectedItemIds, outputRemovalPatternItem.itemId]
+const outputRemovalPatternUpload = runtimeUploadFor(outputRemovalFixture, outputRemovalPatternItem, 30)
+function mergeOutputRemovalFixture(selectedItemIds: string[]): Set<string> {
+  const record = mergePreparationRuntimeRecords(productionPreparationRecords, {
+    ...EMPTY_PREPARATION_RUNTIME_STATE,
+    confirmedRecords: {
+      [outputRemovalFixture.recordId]: {
+        confirmedBy: '测试用户',
+        confirmedAt: '2026-07-02T11:30',
+        selectedItemIds,
+      },
+    },
+    uploads: [outputRemovalPatternUpload],
+    downloads: [],
+  }).find((current: { recordNo?: string }) => current.recordNo === outputRemovalFixture.recordNo) as
+    | { outputs?: Array<{ outputType?: string }> }
+    | undefined
+  assert.ok(record, 'runtime 合并后缺少 PREP-202604-006')
+  return new Set((record.outputs ?? []).map((output) => output.outputType).filter(Boolean))
+}
+const outputTypesWithAllItems = mergeOutputRemovalFixture(outputRemovalAllItemIds)
+for (const outputType of ['印花需求单', '印花加工单', '染色需求单', '染色加工单', '辅料采购单'] as const) {
+  assert.ok(outputTypesWithAllItems.has(outputType), `runtime 三类准备项产出 fixture 缺少「${outputType}」`)
+}
+const outputTypesWithoutPattern = mergeOutputRemovalFixture(
+  outputRemovalAllItemIds.filter((itemId) => itemId !== outputRemovalPatternItem.itemId),
+)
+for (const outputType of ['印花需求单', '印花加工单'] as const) {
+  assert.ok(!outputTypesWithoutPattern.has(outputType), `runtime 取消花型项后不得保留「${outputType}」`)
+}
+const outputTypesWithoutDye = mergeOutputRemovalFixture(
+  outputRemovalAllItemIds.filter((itemId) => {
+    const item = outputRemovalFixture.items.find((current) => current.itemId === itemId)
+    return !(item?.itemType === '染色调色（纱线）' || item?.itemType === '染色调色（面料）')
+  }),
+)
+for (const outputType of ['染色需求单', '染色加工单'] as const) {
+  assert.ok(!outputTypesWithoutDye.has(outputType), `runtime 取消染色项后不得保留「${outputType}」`)
+}
+const outputTypesWithoutAccessory = mergeOutputRemovalFixture(
+  outputRemovalAllItemIds.filter((itemId) => {
+    const item = outputRemovalFixture.items.find((current) => current.itemId === itemId)
+    return item?.itemType !== '辅料下单'
+  }),
+)
+assert.ok(!outputTypesWithoutAccessory.has('辅料采购单'), 'runtime 取消辅料项后不得保留「辅料采购单」')
+
 assert.ok(Array.isArray(productionPreparationRecords), 'productionPreparationRecords 必须是数组')
 assert.ok(productionPreparationRecords.length >= 12, 'productionPreparationRecords 不少于 12 条')
 
